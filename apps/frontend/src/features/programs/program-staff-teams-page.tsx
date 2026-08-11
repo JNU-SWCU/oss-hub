@@ -22,11 +22,13 @@ import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   NO_APPLICATION_LABEL,
+  PROVISIONING_LABELS,
   REVIEW_ACTION_LABEL,
 } from './application-presentation';
 import type {
   ApplicationListItem,
   ApplicationStatus,
+  RepositoryProvisioningJobStatus,
   StaffProgramTeam,
 } from './types';
 
@@ -43,6 +45,19 @@ import type {
  * 그 팀의 신청 상세로 가는 「검토하기」 링크를 갖고, 신청이 없는 팀은 갈 곳이 없어
  * 링크도 행 클릭도 없다.
  */
+
+/**
+ * 사람이 손대야 끝나는 발급 상태. 저장소 칸에서 **눈에 띄게** 그린다.
+ *
+ * ⚠ 이 화면은 교직원이 현황을 한눈에 보는 자리다. 발급이 실패해도 「아직 없음」으로만
+ * 보이던 탓에 교직원은 **문제가 있다는 사실 자체를 몰랐다**(2026-08-11 QA). 학생 화면은
+ * 같은 상황에서 실패를 명시하고 있었으므로 두 화면이 서로 다른 이야기를 하고 있었다.
+ *
+ * `RETRYABLE_FAILED`(재시도 대기)도 포함한다 — 워커가 자동으로 다시 집기는 하지만,
+ * 재시도가 계속 실패해도 교직원 눈에는 조용하다. `ANOMALOUS`(확인 필요)는 이름 그대로다.
+ */
+const PROVISION_FAILURE_STATUSES: ReadonlySet<RepositoryProvisioningJobStatus> =
+  new Set(['FAILED', 'RETRYABLE_FAILED', 'ANOMALOUS']);
 
 /**
  * 신청 목록 한 페이지 크기. **backend DTO 의 `@Max(100)` 을 넘으면 안 된다** —
@@ -267,20 +282,42 @@ export function ProgramStaffTeamsPage({
         header: '저장소',
         cell: (row) => {
           const repository = row.application?.repository ?? null;
-          if (repository === null)
+          if (repository !== null) {
+            const isPublic = repository.visibility === 'PUBLIC';
+            return (
+              <a
+                className="text-sm underline underline-offset-2"
+                href={repository.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {isPublic ? '공개 저장소 열기' : '비공개 저장소 확인'}
+              </a>
+            );
+          }
+          // 신청서를 아직 안 낸 팀은 발급 자체가 시작되지 않았다 — 발급 상태를
+          // 물을 대상이 없으므로 여기만 「아직 없음」이 맞다.
+          if (row.application === null) {
             return (
               <span className="text-muted-foreground text-sm">아직 없음</span>
             );
-          const isPublic = repository.visibility === 'PUBLIC';
+          }
+          const provisioning = row.application.repositoryProvisioning;
           return (
-            <a
-              className="text-sm underline underline-offset-2"
-              href={repository.url}
-              target="_blank"
-              rel="noreferrer"
+            <span
+              className="text-sm"
+              title={provisioning.safeErrorClass ?? undefined}
             >
-              {isPublic ? '공개 저장소 열기' : '비공개 저장소 확인'}
-            </a>
+              {PROVISION_FAILURE_STATUSES.has(provisioning.jobStatus) ? (
+                <StatusBadge variant="rejected">
+                  {PROVISIONING_LABELS[provisioning.jobStatus]}
+                </StatusBadge>
+              ) : (
+                <span className="text-muted-foreground">
+                  {PROVISIONING_LABELS[provisioning.jobStatus]}
+                </span>
+              )}
+            </span>
           );
         },
       },

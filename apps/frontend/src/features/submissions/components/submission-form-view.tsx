@@ -13,6 +13,7 @@ import type {
   SubmissionFormData,
   SubmissionType,
 } from '../types';
+import { SubmissionFormActions } from './submission-form-actions';
 import { SubmissionInput } from './submission-input';
 
 export const TYPE_LABELS = {
@@ -147,18 +148,17 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
               ) : null}
             </CardContent>
           </Card>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button type="button" variant="outline" onClick={props.onCancel}>
-              취소
-            </Button>
-            <Button type="submit" disabled={props.submitting}>
-              {props.submitting
+          <SubmissionFormActions
+            submitting={props.submitting}
+            onCancel={props.onCancel}
+            submitLabel={
+              props.submitting
                 ? props.submissionPhase === 'uploading'
                   ? '업로드 중…'
                   : '제출 중…'
-                : '제출하기'}
-            </Button>
-          </div>
+                : '제출하기'
+            }
+          />
         </form>
       </div>
     </>

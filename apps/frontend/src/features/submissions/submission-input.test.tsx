@@ -78,6 +78,27 @@ describe('SubmissionInput native file selection', () => {
     expect(container.textContent).not.toContain('final-report.hwp');
   });
 
+  it('파일 오류를 `errors.file`로만 받아도 화면에 띄운다', async () => {
+    // Given: 파일 오류를 담는 자리가 둘인데 뒤의 것만 채운 호출부.
+    await act(async () =>
+      root.render(
+        <SubmissionInput
+          submissionType="FILE"
+          input={{ file: null, text: '' }}
+          errors={{ file: '제출할 파일을 선택해 주세요.' }}
+          file={null}
+          fileError={null}
+          onTextChange={() => {}}
+          onFileChange={() => {}}
+        />,
+      ),
+    );
+
+    // Then: 말없이 넘어가지 않고 그 문구가 보인다.
+    const error = container.querySelector('#submission-file-error');
+    expect(error?.textContent).toBe('제출할 파일을 선택해 주세요.');
+  });
+
   it('좁은 화면에서 제출 안내의 한글 어절을 중간에 나누지 않는다', async () => {
     await act(async () => root.render(<FileInputHarness />));
 
