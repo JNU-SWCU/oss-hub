@@ -66,7 +66,11 @@ describe('GithubAppTokenProvider', () => {
     >();
     fetcher
       .mockResolvedValueOnce(
-        jsonResponse(200, { id: 101, account: { login: 'synthetic-org' } }),
+        jsonResponse(200, {
+          id: 101,
+          app_id: 12345,
+          account: { login: 'synthetic-org' },
+        }),
       )
       .mockResolvedValueOnce(
         jsonResponse(201, {
@@ -105,7 +109,11 @@ describe('GithubAppTokenProvider', () => {
     >();
     fetcher
       .mockResolvedValueOnce(
-        jsonResponse(200, { id: 101, account: { login: 'synthetic-org' } }),
+        jsonResponse(200, {
+          id: 101,
+          app_id: 12345,
+          account: { login: 'synthetic-org' },
+        }),
       )
       .mockResolvedValueOnce(
         jsonResponse(201, {
@@ -136,7 +144,11 @@ describe('GithubAppTokenProvider', () => {
       Parameters<GithubAppFetcher>
     >();
     fetcher.mockResolvedValue(
-      jsonResponse(200, { id: 101, account: { login: 'other-org' } }),
+      jsonResponse(200, {
+        id: 101,
+        app_id: 12345,
+        account: { login: 'other-org' },
+      }),
     );
     const provider = new GithubAppTokenProvider(
       () => credentials,
@@ -152,6 +164,36 @@ describe('GithubAppTokenProvider', () => {
     await expect(token).rejects.toEqual(
       new GithubOperationsError(
         GITHUB_OPERATIONS_ERROR_CODES.ORGANIZATION_MISMATCH,
+        false,
+      ),
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('installation app_id가 설정값과 다르면 token 발급 전에 fail-closed한다', async () => {
+    // Given: 같은 org지만 다른 GitHub App의 installation 응답이 있다.
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(
+      jsonResponse(200, {
+        id: 101,
+        app_id: 54321,
+        account: { login: 'synthetic-org' },
+      }),
+    );
+    const provider = new GithubAppTokenProvider(
+      () => credentials,
+      fetcher,
+      () => NOW,
+      () => Promise.resolve('synthetic-app-jwt'),
+    );
+
+    // When / Then: installation token 요청까지 진행하지 않는다.
+    await expect(provider.accessToken()).rejects.toEqual(
+      new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.APP_ID_MISMATCH,
         false,
       ),
     );
@@ -202,7 +244,11 @@ describe('GithubAppTokenProvider', () => {
     >();
     fetcher
       .mockResolvedValueOnce(
-        jsonResponse(200, { id: 101, account: { login: 'synthetic-org' } }),
+        jsonResponse(200, {
+          id: 101,
+          app_id: 12345,
+          account: { login: 'synthetic-org' },
+        }),
       )
       .mockResolvedValueOnce(jsonResponse(429, {}, { 'retry-after': '120' }));
     const provider = new GithubAppTokenProvider(
