@@ -566,7 +566,7 @@ describe('CollectionReadService — getContributorMetrics', () => {
 });
 
 describe('CollectionReadService — getPublicRankingMetrics', () => {
-  it('filters to PUBLIC + PRESENT repositories at the query boundary', async () => {
+  it('filters to org/등록된 external public 저장소(visibility 무관) + PRESENT at the query boundary', async () => {
     const db = createDb();
     db.user.findMany.mockResolvedValue([
       { githubId: 1n, nickname: 'alice' },
@@ -578,7 +578,12 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 
     expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { repository: { visibility: 'PUBLIC', presence: 'PRESENT' } },
+        where: {
+          repository: {
+            source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
+            presence: 'PRESENT',
+          },
+        },
       }),
     );
   });
@@ -596,7 +601,10 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
     expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+          repository: {
+            source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
+            presence: 'PRESENT',
+          },
           // 저장에 연도 칸이 없으므로 Asia/Seoul 연 경계로 자른다(ADR-010 §4).
           date: {
             gte: new Date(Date.UTC(2026, 0, 1) - 9 * 60 * 60 * 1000),
@@ -607,7 +615,7 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
     );
   });
 
-  it('merges repository/year rows into one entry per githubUserId', async () => {
+  it('merges repository/year rows into one entry per githubUserId, 기여 없는 User 는 0/0/0으로 포함한다', async () => {
     const db = createDb();
     db.user.findMany.mockResolvedValue([
       { githubId: 1n, nickname: 'alice' },
@@ -637,6 +645,15 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
         commitCount: 5,
         pullRequestCount: 1,
         releaseCount: 1,
+      },
+      // PM 확정 정책 — 가입한 모든 사용자가 노출된다. bob 은 기여 행이 없어도
+      // 0/0/0으로 포함된다.
+      {
+        githubId: 2n,
+        githubLogin: 'bob',
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
       },
     ]);
   });
@@ -673,6 +690,13 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
         githubId: 1n,
         githubLogin: 'alice',
         commitCount: 2,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      },
+      {
+        githubId: 2n,
+        githubLogin: 'bob',
+        commitCount: 0,
         pullRequestCount: 0,
         releaseCount: 0,
       },
@@ -722,7 +746,10 @@ describe('CollectionReadService — listPublicRankingYears', () => {
     expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+          repository: {
+            source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
+            presence: 'PRESENT',
+          },
           OR: [
             { commitCount: { gt: 0 } },
             { pullRequestCount: { gt: 0 } },

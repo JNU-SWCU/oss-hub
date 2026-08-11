@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import type { RepositorySource } from '../collection-incremental.types';
 import type {
   CollectionPublicRankingMetricsDto,
   CollectionPublicRankingMetricsQueryDto,
@@ -9,7 +10,7 @@ import type {
 /**
  * 공개 랭킹 전용 query repository (`AGENTS.md` §4 · ADR-003).
  *
- * 랭킹 endpoint 에는 인증 가드가 없다. 그런데 읽는 대상인 `Contribution` 은
+ * 랭킹 endpoint 에는 인증 가드가 없다. 그런데 읽는 대상인 `User`/`Contribution` 은
  * private 테이블이다 — 그 조합이 허용되는 경로는 **owner-approved dedicated
  * public query repository 안뿐**이며, 이 파일이 그 경로다.
  *
@@ -22,18 +23,29 @@ import type {
  * 3. **실명(`User.name`)을 읽지 않는다.** 공개 표기는 `githubLogin` 단일이며,
  *    동의 철회 endpoint 가 없는 상태에서 실명 노출은 되돌릴 수 없다.
  *
- * 저장소 필터(`visibility: 'PUBLIC'` + `presence: 'PRESENT'`)도 여기서만 건다.
- * 호출자가 넘기는 값으로 이 조건을 바꿀 수 없다 — 인자에 없기 때문이다.
+ * 저장소 범위(`RANKING_REPOSITORY_SCOPE`)도 여기서만 건다. 호출자가 넘기는
+ * 값으로 이 조건을 바꿀 수 없다 — 인자에 없기 때문이다.
+ *
+ * PM 확정 정책(2026-08) — 저장소는 PRIVATE 으로 생성되고 4중 게이트 + staff
+ * 수동 publish 를 거쳐야 PUBLIC 이 되므로, `visibility: 'PUBLIC'` 만 세면 실제
+ * 기여자 대부분이 랭킹에서 사라진다. 그래서 이 필터에는 더 이상 `visibility`가
+ * 없다 — org 저장소(`ORG_PROVISIONED`)와 학생이 등록한 조직 밖 public 저장소
+ * (`EXTERNAL_PUBLIC`) 모두, `presence`가 `PRESENT`인 한 포함한다. 저장소
+ * 이름/visibility 자체는 이 파일 밖으로 select 되지 않으므로, PRIVATE 저장소
+ * 활동을 합산해도 응답에 저장소 식별자가 새어나가지 않는다.
  */
 @Injectable()
 export class PublicRankingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 공개 저장소만. 이 조건은 호출자가 바꿀 수 없다. */
-  private static readonly PUBLIC_REPOSITORY = {
-    visibility: 'PUBLIC',
+  /** 집계 대상 저장소 범위. 이 조건은 호출자가 바꿀 수 없다. */
+  private static readonly RANKING_REPOSITORY_SCOPE: {
+    readonly source: { readonly in: RepositorySource[] };
+    readonly presence: 'PRESENT';
+  } = {
+    source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
     presence: 'PRESENT',
-  } as const;
+  };
 
   /**
    * Asia/Seoul 달력 연도의 `[start, end)` UTC 경계.
@@ -48,6 +60,15 @@ export class PublicRankingRepository {
     ];
   }
 
+  /**
+   * PM 확정 정책 — 가입한 모든 사용자가 공개 랭킹에 노출된다. 기여가 없으면
+   * 0/0/0 이다. 그래서 조회 시작점이 `Contribution` 이 아니라 `User` 다: 기여
+   * 행이 하나도 없는 사용자는 `Contribution` 만 훑어서는 결과에 등장조차 못
+   * 한다. `User`↔`Contribution` 은 FK 가 아니라 `githubId` 값 조인이라
+   * (`Contribution.githubId` 에 스키마 comment 참고) Prisma relation include
+   * 로 join 할 수 없다 — 그래서 둘을 각자 조회한 뒤 애플리케이션에서 LEFT
+   * JOIN 한다.
+   */
   async findMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]> {
@@ -56,37 +77,37 @@ export class PublicRankingRepository {
         ? undefined
         : PublicRankingRepository.yearBounds(query.currentYear);
 
-    const rows = await this.prisma.contribution.findMany({
-      where: {
-        repository: PublicRankingRepository.PUBLIC_REPOSITORY,
-        ...(bounds === undefined
-          ? {}
-          : { date: { gte: bounds[0], lt: bounds[1] } }),
-      },
-      // allowlist — 여기 없는 칸은 밖으로 나가지 않는다.
-      select: {
-        githubId: true,
-        commitCount: true,
-        pullRequestCount: true,
-        releaseCount: true,
-      },
-    });
+    const [users, contributionRows] = await Promise.all([
+      // 가입한 모든 사용자 — 기여 유무와 무관하게 전원 포함한다.
+      this.prisma.user.findMany({
+        select: { githubId: true, nickname: true },
+      }),
+      this.prisma.contribution.findMany({
+        where: {
+          repository: PublicRankingRepository.RANKING_REPOSITORY_SCOPE,
+          ...(bounds === undefined
+            ? {}
+            : { date: { gte: bounds[0], lt: bounds[1] } }),
+        },
+        // allowlist — 여기 없는 칸은 밖으로 나가지 않는다.
+        select: {
+          githubId: true,
+          commitCount: true,
+          pullRequestCount: true,
+          releaseCount: true,
+        },
+      }),
+    ]);
 
     const folded = new Map<
       string,
-      {
-        githubId: bigint;
-        commitCount: number;
-        pullRequestCount: number;
-        releaseCount: number;
-      }
+      { commitCount: number; pullRequestCount: number; releaseCount: number }
     >();
-    for (const row of rows) {
+    for (const row of contributionRows) {
       const key = row.githubId.toString();
       const current = folded.get(key);
       if (current === undefined) {
         folded.set(key, {
-          githubId: row.githubId,
           commitCount: row.commitCount,
           pullRequestCount: row.pullRequestCount,
           releaseCount: row.releaseCount,
@@ -98,24 +119,26 @@ export class PublicRankingRepository {
       current.releaseCount += row.releaseCount;
     }
 
-    const logins = await this.resolveLogins(
-      [...folded.values()].map((entry) => entry.githubId),
-    );
-
-    return [...folded.values()].map((entry) => ({
-      githubId: entry.githubId,
-      githubLogin: logins.get(entry.githubId) ?? '',
-      commitCount: entry.commitCount,
-      pullRequestCount: entry.pullRequestCount,
-      releaseCount: entry.releaseCount,
-    }));
+    // 표시할 이름이 없는 사용자는 제외한다.
+    return users
+      .filter((user) => user.nickname)
+      .map((user) => {
+        const totals = folded.get(user.githubId.toString());
+        return {
+          githubId: user.githubId,
+          githubLogin: user.nickname,
+          commitCount: totals?.commitCount ?? 0,
+          pullRequestCount: totals?.pullRequestCount ?? 0,
+          releaseCount: totals?.releaseCount ?? 0,
+        };
+      });
   }
 
   /** 공개 랭킹 활동이 있는 연도 목록, 최신 순. */
   async listYears(): Promise<readonly number[]> {
     const rows = await this.prisma.contribution.findMany({
       where: {
-        repository: PublicRankingRepository.PUBLIC_REPOSITORY,
+        repository: PublicRankingRepository.RANKING_REPOSITORY_SCOPE,
         OR: [
           { commitCount: { gt: 0 } },
           { pullRequestCount: { gt: 0 } },
@@ -146,27 +169,9 @@ export class PublicRankingRepository {
    */
   async findDataAsOf(): Promise<Date | null> {
     const latest = await this.prisma.githubRepository.aggregate({
-      where: PublicRankingRepository.PUBLIC_REPOSITORY,
+      where: PublicRankingRepository.RANKING_REPOSITORY_SCOPE,
       _max: { lastSuccessAt: true },
     });
     return latest._max.lastSuccessAt ?? null;
-  }
-
-  /**
-   * `githubId` → GitHub login.
-   *
-   * `nickname` 만 읽는다. `name`(실명)은 select 에 넣지 않는다 —
-   * 이 값이 인증 없는 공개 응답으로 그대로 나간다.
-   */
-  private async resolveLogins(
-    githubIds: readonly bigint[],
-  ): Promise<ReadonlyMap<bigint, string>> {
-    const unique = [...new Set(githubIds)];
-    if (unique.length === 0) return new Map();
-    const users = await this.prisma.user.findMany({
-      where: { githubId: { in: unique } },
-      select: { githubId: true, nickname: true },
-    });
-    return new Map(users.map((user) => [user.githubId, user.nickname]));
   }
 }
