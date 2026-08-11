@@ -135,11 +135,11 @@ export function ProfileForm({
     }
   }
 
-  // 학과는 역할이 요구하지 않으면 감추지만, 학번은 감추지 않고 "선택"으로 열어 둔다 —
-  // 조교처럼 대학원생 신분을 겸하는 교직원은 학번이 실제로 있고 그 값을 남기고 싶어
-  // 한다. 비워 두면 요청에서 키가 빠지고, 넣으면 학적 식별자로 고정된다.
-  // 머리말은 필수 항목을 먼저 늘어놓고, 선택으로 열린 학번을 맨 뒤에 덧붙인다.
+  // 학번은 학생만 가질 수 있다 — 교직원·관리자는 학번이 없는 신분이라 이 화면에서
+  // 아예 입력받지 않는다(요청에 studentId가 실리면 백엔드가 400으로 거절한다,
+  // users.service.ts). 학과와 마찬가지로 역할이 요구하지 않으면 칸 자체를 감춘다.
   const requirement = profileFieldRequirement(role);
+  const showStudentId = requirement.studentId;
   // 학번을 적어 넣는 순간 학과도 필요해진다 — 학번이 유일성 제약 아래 저장되는 자리가
   // 학과를 요구하는 행이기 때문이다(`isDepartmentRequiredForProfile`). 그래서 학과 칸은
   // 역할이 요구할 때뿐 아니라 사용자가 학번을 적었을 때도 함께 연다.
@@ -148,7 +148,6 @@ export function ProfileForm({
     '이름',
     ...(requirement.studentId ? ['학번'] : []),
     ...(requirement.department ? ['학과'] : []),
-    ...(requirement.studentId ? [] : ['학번 선택']),
   ];
 
   const showNameError = showRequiredErrors && errors.name !== null;
@@ -201,43 +200,42 @@ export function ProfileForm({
             ) : null}
           </Field>
 
-          <Field data-invalid={showStudentIdError || undefined}>
-            <FieldLabel htmlFor="profile-student-id">
-              학번
-              {requirement.studentId ? (
+          {showStudentId ? (
+            <Field data-invalid={showStudentIdError || undefined}>
+              <FieldLabel htmlFor="profile-student-id">
+                학번
                 <RequiredMark />
-              ) : (
-                <span className="ml-1 text-small font-normal text-muted-foreground">
-                  선택
-                </span>
-              )}
-            </FieldLabel>
-            <Input
-              id="profile-student-id"
-              name="studentId"
-              ref={studentIdRef}
-              inputMode="numeric"
-              autoComplete="off"
-              value={values.studentId}
-              aria-invalid={showStudentIdError}
-              aria-describedby={
-                showStudentIdError
-                  ? `${STUDENT_ID_DESCRIPTION_ID} ${STUDENT_ID_ERROR_ID}`
-                  : STUDENT_ID_DESCRIPTION_ID
-              }
-              onChange={(event) => onChange({ studentId: event.target.value })}
-            />
-            <FieldDescription id={STUDENT_ID_DESCRIPTION_ID}>
-              {requirement.studentId
-                ? '숫자 6~10자리'
-                : '학번이 있으면 입력합니다. 숫자 6~10자리, 한 번 저장하면 변경할 수 없습니다.'}
-            </FieldDescription>
-            {showStudentIdError ? (
-              <FieldError id={STUDENT_ID_ERROR_ID}>
-                {errors.studentId}
-              </FieldError>
-            ) : null}
-          </Field>
+              </FieldLabel>
+              <Input
+                id="profile-student-id"
+                name="studentId"
+                ref={studentIdRef}
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={6}
+                value={values.studentId}
+                aria-invalid={showStudentIdError}
+                aria-describedby={
+                  showStudentIdError
+                    ? `${STUDENT_ID_DESCRIPTION_ID} ${STUDENT_ID_ERROR_ID}`
+                    : STUDENT_ID_DESCRIPTION_ID
+                }
+                onChange={(event) =>
+                  onChange({
+                    studentId: event.target.value.replace(/\D/g, ''),
+                  })
+                }
+              />
+              <FieldDescription id={STUDENT_ID_DESCRIPTION_ID}>
+                숫자 6자리
+              </FieldDescription>
+              {showStudentIdError ? (
+                <FieldError id={STUDENT_ID_ERROR_ID}>
+                  {errors.studentId}
+                </FieldError>
+              ) : null}
+            </Field>
+          ) : null}
 
           {showDepartment ? (
             <Field data-invalid={showDepartmentError || undefined}>

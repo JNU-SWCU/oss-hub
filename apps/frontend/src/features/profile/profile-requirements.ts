@@ -19,7 +19,7 @@ export type ProfileRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export const PROFILE_NAME_MAX_LENGTH = 100;
 export const PROFILE_DEPARTMENT_MAX_LENGTH = 100;
-export const STUDENT_ID_PATTERN = /^\d{6,10}$/;
+export const STUDENT_ID_PATTERN = /^\d{6}$/;
 
 export interface ProfileFieldRequirement {
   readonly studentId: boolean;

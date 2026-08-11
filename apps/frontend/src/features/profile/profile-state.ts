@@ -80,7 +80,7 @@ function studentIdError(studentId: string, required: boolean): string | null {
   }
   return isValidStudentId(studentId)
     ? null
-    : '학번은 숫자 6~10자리로 입력해 주세요.';
+    : '학번은 숫자 6자리로 입력해 주세요.';
 }
 
 function departmentError(department: string, required: boolean): string | null {

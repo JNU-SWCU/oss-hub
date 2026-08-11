@@ -198,7 +198,7 @@ export function AdminAccessProfileSection({
             <FieldError>{errors.studentId}</FieldError>
           ) : (
             <FieldDescription>
-              숫자 6~10자리. 관리자는 이미 저장된 학번도 고칠 수 있습니다.
+              숫자 6자리. 관리자는 이미 저장된 학번도 고칠 수 있습니다.
             </FieldDescription>
           )}
         </Field>

@@ -19,7 +19,7 @@ import {
 /**
  * `admin-access-profile-section.tsx`가 쓰는 검증·값 변환 규칙을 직접
  * 검증한다. `features/profile/profile-requirements.ts`·`profile-state.ts`와
- * 형식 규칙(이름 100자, 학과 100자, 학번 숫자 6~10자리)은 같지만, 관리자
+ * 형식 규칙(이름 100자, 학과 100자, 학번 숫자 6자리)은 같지만, 관리자
  * 경로만의 차이 — 이미 저장된 학번/학과도 고칠 수 있지만 비워둘 수는
  * 없다 — 를 중심으로 다룬다.
  */
@@ -48,10 +48,10 @@ describe('형식 검증', () => {
     ).toBe(false);
   });
 
-  it('학번은 숫자 6~10자리만 유효하다', () => {
+  it('학번은 숫자 6자리만 유효하다', () => {
     expect(isValidAdminProfileStudentId('202601')).toBe(true);
-    expect(isValidAdminProfileStudentId('2026010001')).toBe(true);
     expect(isValidAdminProfileStudentId('20260')).toBe(false);
+    expect(isValidAdminProfileStudentId('2026010')).toBe(false);
     expect(isValidAdminProfileStudentId('20260100011')).toBe(false);
     expect(isValidAdminProfileStudentId('2026-01')).toBe(false);
   });
@@ -138,7 +138,7 @@ describe('validateAdminProfileEdit — 백엔드가 null로 지울 수 없는 �
       studentId: 'abc',
     };
     const errors = validateAdminProfileEdit(values, original);
-    expect(errors.studentId).toBe('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(errors.studentId).toBe('학번은 숫자 6자리로 입력해 주세요.');
   });
 
   it('모든 값이 유효하면 세 필드 모두 null이다', () => {

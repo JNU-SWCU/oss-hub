@@ -78,7 +78,7 @@ describe('profile onboarding view', () => {
       { showRequiredErrors: true },
     );
 
-    expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).toContain('학번은 숫자 6자리로 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
   });
 
@@ -108,54 +108,32 @@ describe('profile onboarding view', () => {
     expect(html).toContain('항목(이름, 학번, 학과)');
   });
 
-  it('교직원에게는 학번을 선택 항목으로 보여 준다', () => {
+  it('교직원에게는 학번 칸을 아예 보여 주지 않는다', () => {
+    // 학번은 학생만 가질 수 있다 — 교직원이 요청에 studentId를 실으면
+    // 백엔드가 400으로 거절하므로(users.service.ts), 화면은 애초에 입력받지 않는다.
     const html = renderForm(values({ studentId: '' }), {
       role: 'STAFF',
       showRequiredErrors: true,
     });
 
-    expect(html).toContain('profile-student-id');
-    expect(html).toContain('선택');
-    expect(html).not.toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).not.toContain('profile-student-id');
     expect(html).toContain('profile-department');
-    expect(html).toContain('항목(이름, 학과, 학번 선택)');
+    expect(html).toContain('항목(이름, 학과)');
     // 학번 없이도 저장 버튼이 열린다.
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
-  it('교직원이 넣은 학번의 형식이 틀리면 오류를 보여 준다', () => {
-    const html = renderForm(values({ studentId: '12A456' }), {
-      role: 'STAFF',
-      showRequiredErrors: true,
-    });
-
-    expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
-  });
-
-  it('관리자에게는 학과를 감추고 학번만 선택 항목으로 보여 준다', () => {
+  it('관리자에게는 학번·학과 칸을 모두 감춘다', () => {
     const html = renderForm(values({ studentId: '', departmentOption: '' }), {
       role: 'ADMIN',
       showRequiredErrors: true,
     });
 
-    expect(html).toContain('profile-student-id');
+    expect(html).not.toContain('profile-student-id');
     expect(html).not.toContain('profile-department');
     expect(html).toContain('profile-name');
-    expect(html).toContain('항목(이름, 학번 선택)');
+    expect(html).toContain('항목(이름)');
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
-  });
-
-  it('관리자가 학번을 적어 넣으면 학과 칸이 함께 열린다', () => {
-    // Given / When — 학번이 유일성 제약 아래 저장되는 자리가 학과를 요구한다.
-    // 학과를 감춘 채 학번만 받으면 백엔드가 USR_005로 거절해 빠져나갈 곳이 없어진다.
-    const html = renderForm(
-      values({ studentId: '1'.repeat(6), departmentOption: '' }),
-      { role: 'ADMIN', showRequiredErrors: true },
-    );
-
-    // Then
-    expect(html).toContain('profile-department');
-    expect(html).toContain('학과를 선택하거나 입력해 주세요.');
   });
 
   it('학과·학번이 비어 있어도 가입 마치기 버튼은 눌린다', () => {
@@ -168,7 +146,7 @@ describe('profile onboarding view', () => {
     // Then — 아직 누르기 전이라 문구는 없지만, 버튼은 열려 있다.
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
     expect(html).not.toContain('학과를 선택하거나 입력해 주세요.');
-    expect(html).not.toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).not.toContain('학번은 숫자 6자리로 입력해 주세요.');
   });
 
   it('빈 채로 제출하면 비어 있는 학번·학과를 문구로 알려 준다', () => {
@@ -179,7 +157,7 @@ describe('profile onboarding view', () => {
     });
 
     // Then — 어느 칸이 비었는지 칸 표시(aria-invalid)와 문구가 함께 말한다.
-    expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).toContain('학번은 숫자 6자리로 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
     expect(html).toMatch(/id="profile-student-id"[^>]*aria-invalid="true"/);
     expect(html).toMatch(/id="profile-department"[^>]*aria-invalid="true"/);
@@ -216,7 +194,7 @@ describe('profile onboarding view', () => {
     // Then — 서버 실패 Alert와 칸별 안내가 함께 남는다.
     expect(html).toContain('프로필을 저장하지 못했습니다');
     expect(html).toContain('이미 다른 계정이 사용 중인 학번입니다.');
-    expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).toContain('학번은 숫자 6자리로 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
   });
 
