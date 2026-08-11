@@ -150,8 +150,12 @@ describe('StudentDashboardScreen pending team invites', () => {
     mocks.loadStudentDashboard
       .mockReset()
       .mockResolvedValue({ status: 'success', data: { items: [] } });
-    mocks.fetchUnreadApplicationDecisionNotices.mockReset().mockResolvedValue([]);
-    mocks.markApplicationDecisionNoticeRead.mockReset().mockResolvedValue(undefined);
+    mocks.fetchUnreadApplicationDecisionNotices
+      .mockReset()
+      .mockResolvedValue([]);
+    mocks.markApplicationDecisionNoticeRead
+      .mockReset()
+      .mockResolvedValue(undefined);
     mocks.fetchPendingTeamInviteViews.mockReset();
     mocks.acceptTeamInvitation.mockReset();
     mocks.declineTeamInvitation.mockReset();
