@@ -208,7 +208,18 @@ describe('PublicProjectsRepository integration', () => {
     // 추정치로는 플래너가 이 스펙이 단언하는 복합 인덱스 대신 더 작은
     // (visibility, presence) 인덱스 + 명시적 정렬을 고를 수 있다 — EXPLAIN
     // 단언 전에 통계를 갱신해 플랜 선택을 결정적으로 만든다.
-    await prisma.$executeRawUnsafe('ANALYZE "GithubRepository"');
+    // 주의: 반드시 VACUUM (ANALYZE)여야 한다 — ANALYZE만으로는 죽은 튜플이
+    // 정리되지 않는다. 전체 스펙이 이 테이블에 create-then-delete를 반복하며
+    // 남긴 죽은 (visibility=PUBLIC) 인덱스 엔트리가 GithubRepository_visibility_presence_idx의
+    // Bitmap Index Scan "actual rows"를 부풀리고(힙 MVCC recheck 이전 집계라
+    // 죽은 TID도 포함), 그 결과가 플래너 비용 추정에 반영돼 목표 복합 인덱스
+    // 대신 (visibility, presence) 인덱스 + 명시적 Sort를 고르게 만든다. 또한
+    // 파일 실행 순서는 jest 테스트 시퀀서가 파일 크기로 정렬하기 때문에
+    // (이 repo는 duration 캐시를 쓰지 않는다) 어떤 스펙이 먼저/나중에 도는지가
+    // 매 CI 실행마다 바뀔 수 있다 — VACUUM으로 죽은 엔트리를 제거해 실행
+    // 순서와 무관하게 결정적인 플랜을 보장한다. VACUUM은 트랜잭션 안에서
+    // 실행할 수 없으므로 $transaction으로 감싸지 않은 단일 raw 문으로 호출한다.
+    await prisma.$executeRawUnsafe('VACUUM (ANALYZE) "GithubRepository"');
   });
 
   afterAll(async () => {
