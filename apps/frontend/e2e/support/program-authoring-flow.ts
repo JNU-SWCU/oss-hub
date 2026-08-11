@@ -159,6 +159,11 @@ export function expectCleanState(
   // D5) — 취소된 신청은 Application만 하드 삭제되고 Team은 onDelete: Restrict로
   // 남으므로, 시나리오에 취소가 섞이면 teams가 applications보다 커질 수 있다.
   expectedTeams = expectedApplications,
+  // 수동 발송(`sendProgramFromPreview`)은 미제출 학생 리마인드와 교직원 요약을
+  // 각각 한 통씩 보낸다 — 내용이 다르므로 봉투도 해시도 갈린다. 기본값 1은
+  // 교직원이 수신 대상이 아닌(비활성·수신 거부·이메일 없음) 시나리오 기준이고,
+  // 교직원이 실제로 받는 시나리오는 호출부에서 2를 넘긴다.
+  expectedMailEnvelopes = 1,
 ): void {
   if (
     state.programs !== 1 ||
@@ -186,10 +191,13 @@ export function expectCleanState(
         `(repositoryJobs=${state.repositoryJobs}, repositories=${state.repositories}).`,
     );
   }
-  if (state.dryRunEnvelopes !== 1 || state.mailContentHashes.length !== 1) {
+  if (
+    state.dryRunEnvelopes !== expectedMailEnvelopes ||
+    state.mailContentHashes.length !== expectedMailEnvelopes
+  ) {
     throw new Error(
-      'Expected one deduplicated sanitized mail envelope ' +
-        `(dryRunEnvelopes=${state.dryRunEnvelopes}, ` +
+      `Expected ${expectedMailEnvelopes} deduplicated sanitized mail ` +
+        `envelope(s) (dryRunEnvelopes=${state.dryRunEnvelopes}, ` +
         `mailContentHashes=${state.mailContentHashes.length}).`,
     );
   }

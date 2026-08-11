@@ -281,7 +281,9 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     );
     await expectApiStatus(stateResponse, 200);
     const state = toStateCounts(await stateResponse.json());
-    expectCleanState(state, 2, 2);
+    // 봉투 2통 — 미제출 학생 리마인드 1 + 교직원 미제출 팀 요약 1(#886).
+    // 이 시나리오의 교직원은 활성·수신 동의·알림 이메일을 모두 갖춰 수신 대상이다.
+    expectCleanState(state, 2, 2, 2, 2);
     expect(state.storageContentHashes).toContain(template.sha256);
     expect(state.storageContentHashes).toContain(individual.sha256);
     await writeArtifact('sql-counts.json', { graph, ...state });
