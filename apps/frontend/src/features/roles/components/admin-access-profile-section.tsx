@@ -261,7 +261,7 @@ export function AdminAccessProfileSection({
           </Alert>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button type="submit" size="sm" disabled={isSubmitting}>
             {isSubmitting ? '저장 중…' : '저장'}
           </Button>

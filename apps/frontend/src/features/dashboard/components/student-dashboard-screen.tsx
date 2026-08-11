@@ -2,14 +2,21 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { ApiError } from '@/lib/api-client';
 import { consumeSignupCompletionNotice } from '@/lib/signup-completion-notice';
 import { loadStudentDashboard } from '../load-student-dashboard';
 import {
   fetchUnreadApplicationDecisionNotices,
   markApplicationDecisionNoticeRead,
 } from '../api';
+import {
+  acceptTeamInvitation,
+  declineTeamInvitation,
+  fetchPendingTeamInviteViews,
+} from '../team-invitations-api';
 import type {
   ApplicationDecisionNotice,
+  PendingTeamInviteView,
   StudentDashboard,
   StudentDashboardStatus,
 } from '../types';
@@ -23,6 +30,15 @@ export function StudentDashboardScreen() {
   const [applicationDecisionNotices, setApplicationDecisionNotices] = useState<
     readonly ApplicationDecisionNotice[]
   >([]);
+  const [pendingTeamInvites, setPendingTeamInvites] = useState<
+    readonly PendingTeamInviteView[]
+  >([]);
+  const [respondingInvitationId, setRespondingInvitationId] = useState<
+    string | null
+  >(null);
+  const [inviteActionError, setInviteActionError] = useState<string | null>(
+    null,
+  );
 
   const retry = useCallback(() => setRequestKey((key) => key + 1), []);
 
@@ -49,6 +65,60 @@ export function StudentDashboardScreen() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetchPendingTeamInviteViews()
+      .then((items) => {
+        if (!active) return;
+        setPendingTeamInvites(items);
+      })
+      .catch(() => {
+        // 받은 팀 초대 조회 실패가 대시보드 본문까지 막아서는 안 된다 — 이
+        // 섹션만 조용히 접힌다(아무것도 렌더하지 않는 빈 배열을 유지).
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleAcceptInvite = useCallback((invitationId: string) => {
+    setRespondingInvitationId(invitationId);
+    setInviteActionError(null);
+    void acceptTeamInvitation(invitationId)
+      .then(() => {
+        setPendingTeamInvites((items) =>
+          items.filter((item) => item.invitationId !== invitationId),
+        );
+      })
+      .catch((error: unknown) => {
+        setInviteActionError(
+          error instanceof ApiError
+            ? error.problem.detail
+            : '초대 수락에 실패했습니다.',
+        );
+      })
+      .finally(() => setRespondingInvitationId(null));
+  }, []);
+
+  const handleDeclineInvite = useCallback((invitationId: string) => {
+    setRespondingInvitationId(invitationId);
+    setInviteActionError(null);
+    void declineTeamInvitation(invitationId)
+      .then(() => {
+        setPendingTeamInvites((items) =>
+          items.filter((item) => item.invitationId !== invitationId),
+        );
+      })
+      .catch((error: unknown) => {
+        setInviteActionError(
+          error instanceof ApiError
+            ? error.problem.detail
+            : '초대 거절에 실패했습니다.',
+        );
+      })
+      .finally(() => setRespondingInvitationId(null));
   }, []);
 
   useEffect(() => {
@@ -89,6 +159,11 @@ export function StudentDashboardScreen() {
       status={status}
       showSignupCompleteNotice={signupCompleted}
       applicationDecisionNotices={applicationDecisionNotices}
+      pendingTeamInvites={pendingTeamInvites}
+      respondingInvitationId={respondingInvitationId}
+      inviteActionError={inviteActionError}
+      onAcceptInvite={handleAcceptInvite}
+      onDeclineInvite={handleDeclineInvite}
       onRetry={retry}
     />
   );

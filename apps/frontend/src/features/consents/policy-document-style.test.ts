@@ -21,6 +21,12 @@ const DOCUMENTS = [
   'privacy/2026-08-04.html',
   'github-activity/2026-08-04.html',
   'org-repository-terms/2026-08-04.html',
+  // 2026-08-11: 공개 랭킹 노출 범위·대상 확정(가입자 전원·org 저장소 전체 가시성 무관
+  // 집계)에 맞춰 세 문서 모두 같은 버전으로 재게시했다. org-repository-terms는 내용
+  // 변경 없이 버전 표기 줄만 갱신했다.
+  'privacy/2026-08-11.html',
+  'github-activity/2026-08-11.html',
+  'org-repository-terms/2026-08-11.html',
 ];
 
 const stylesheet = readFileSync(

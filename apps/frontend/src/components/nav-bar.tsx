@@ -5,13 +5,6 @@ import { cn } from '@/lib/utils';
 export interface NavItem {
   label: string;
   href: string;
-  /**
-   * true면 ≥900px에서는 이 항목을 숨긴다. 그 폭에서는 왼쪽 사이드바(`AppSidebar`)가
-   * 이미 같은 링크를 보여주므로 상단 nav에 또 두면 같은 목적지가 두 벌 뜬다.
-   * 900px 미만은 사이드바가 아예 숨는 구간이라(`hidden min-[900px]:flex`) 여기서만
-   * 유일한 도달 경로가 된다(QA54 — 900px 미만에서 관리자·역할 메뉴가 아예 도달 불가였다).
-   */
-  belowSidebarBreakpointOnly?: boolean;
 }
 
 interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
@@ -43,6 +36,17 @@ interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
    * 드러난다. 아래 형태로 `href` 계약을 명시해 주입 시점에 걸리게 한다.
    */
   linkComponent?: React.ElementType<{ href: string; className?: string }>;
+  /**
+   * 900px 미만에서 여는 사이드바 드로어의 열림 상태. `onToggleSidebarDrawer`가 주어질
+   * 때만 토글 버튼이 렌더되므로, 사이드바가 없는 셸(디자인 시스템 단독 사용 등)에서는
+   * 이 prop들을 넘기지 않으면 된다 — nav-config 원칙(위 `linkComponent` 주석 참고)과
+   * 같은 이유로 이 컴포넌트는 드로어 상태를 스스로 만들지 않는다.
+   */
+  sidebarDrawerOpen?: boolean;
+  /** 드로어를 여닫는 콜백. 이 값이 있을 때만 900px 미만 토글 버튼을 그린다. */
+  onToggleSidebarDrawer?: () => void;
+  /** 토글 버튼의 `aria-controls`가 가리킬 드로어 dialog의 DOM id. */
+  sidebarDrawerId?: string;
 }
 
 /**
@@ -81,6 +85,9 @@ function NavBar({
   className,
   linkComponent,
   menuResetKey,
+  sidebarDrawerOpen,
+  onToggleSidebarDrawer,
+  sidebarDrawerId,
   ...props
 }: NavBarProps) {
   const LinkComponent = linkComponent ?? 'a';
@@ -93,6 +100,32 @@ function NavBar({
       )}
       {...props}
     >
+      {onToggleSidebarDrawer ? (
+        <button
+          type="button"
+          data-slot="nav-bar-sidebar-drawer-trigger"
+          aria-label="사이드바 메뉴 열기"
+          aria-expanded={sidebarDrawerOpen ?? false}
+          aria-controls={sidebarDrawerId}
+          onClick={onToggleSidebarDrawer}
+          className="flex size-11 shrink-0 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground min-[900px]:hidden"
+        >
+          <svg
+            aria-hidden
+            focusable="false"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.7}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-5"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M9 4v16" />
+          </svg>
+        </button>
+      ) : null}
       {brand ? (
         <div
           data-slot="nav-bar-brand"
@@ -149,14 +182,7 @@ function NavBar({
           className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
         >
           {items.map((item) => (
-            <li
-              key={item.href}
-              className={
-                item.belowSidebarBreakpointOnly
-                  ? 'min-[900px]:hidden'
-                  : undefined
-              }
-            >
+            <li key={item.href}>
               <LinkComponent
                 href={item.href}
                 // `w-full`이 필요하다 — 호출부(ShellNav)가 터치 타깃 확보용으로
@@ -175,12 +201,7 @@ function NavBar({
         className="hidden min-w-0 flex-1 items-center gap-0 min-[480px]:flex sm:gap-1"
       >
         {items.map((item) => (
-          <li
-            key={item.href}
-            className={
-              item.belowSidebarBreakpointOnly ? 'min-[900px]:hidden' : undefined
-            }
-          >
+          <li key={item.href}>
             <LinkComponent
               href={item.href}
               className="whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"
