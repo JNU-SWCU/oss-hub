@@ -23,7 +23,7 @@
 아래 전이는 같은 행에서 되돌릴 수 없다.
 QA에서 먼저 건드리면 뒤 시나리오가 막히므로 **마지막에 실행하고 terminal 분기별 fixture를 분리한다.**
 
-`Role null→non-null` · RoleRequest terminal · Application `APPROVED/REJECTED` · Review 생성 · Submission `APPROVED/REJECTED` · Repository `PUBLIC` · SubmissionFile `DELETED` · Outbox `PROCESSED/FAILED` · provision·invitation `SUCCEEDED/FAILED_FINAL` · canonical run terminal.
+`Role null→non-null` · RoleRequest terminal · Application `APPROVED/REJECTED` · Review 생성 · Submission `APPROVED/REJECTED` · GithubRepository `visibility: PUBLIC`(발행 확정) · SubmissionFile `DELETED` · Outbox `PROCESSED/FAILED` · provision·invitation `SUCCEEDED/FAILED_FINAL` · canonical run terminal.
 
 권장 순서: 조회·검증·stale·retryable·`CHANGES_REQUESTED` → 최종 판정 → 공개 확정 → 파일 삭제 → 최종 실패.
 

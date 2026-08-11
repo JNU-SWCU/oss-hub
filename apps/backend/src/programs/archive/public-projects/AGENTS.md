@@ -24,10 +24,10 @@
 
 ## keyset cursor 설계
 
-`public-project-cursor.ts`는 `Repository_visibility_publishedAt_id_idx` 인덱스의 정렬 키(`publishedAt`, `id`)를 cursor로 왕복시킨다.
+`public-project-cursor.ts`는 `GithubRepository_visibility_publishedAt_id_idx` 인덱스의 정렬 키(`publishedAt`, `id`)를 cursor로 왕복시킨다.
 offset 페이지네이션이 아니므로 페이지가 깊어져도 스캔 비용이 늘지 않는다.
 
-**cursor 페이로드는 서버만 열 수 있다(QA40).** 그 정렬 키는 내부 `Repository.id`와 공개 시각이고, 페이지 경계는 eligibility fence *이전*의 raw 행으로 정하므로(경계를 밀지 않으려는 의도된 설계), 평문 토큰이면 fence에 가려진 저장소의 내부 id·공개 시각이 그대로 새어 나간다.
+**cursor 페이로드는 서버만 열 수 있다(QA40).** 그 정렬 키는 내부 `GithubRepository.id`와 공개 시각이고, 페이지 경계는 eligibility fence *이전*의 raw 행으로 정하므로(경계를 밀지 않으려는 의도된 설계), 평문 토큰이면 fence에 가려진 저장소의 내부 id·공개 시각이 그대로 새어 나간다.
 그래서 페이로드를 AES-256-GCM으로 인증 암호화한다 — 토큰은 `base64url(VERSION(1) || IV(12) || TAG(16) || ciphertext)`이고 VERSION은 AAD로 인증하며, 평문은 64바이트 배수로 패딩해 토큰 길이가 내부 id 길이를 드러내지 않게 한다.
 키는 `SESSION_SECRET`에서 HKDF-SHA256으로 파생한다 — **새 환경변수를 요구하지 않는다.** `AuthConfig`가 같은 env를 부팅 시 이미 필수로 강제하므로 앱이 뜨는 환경에는 항상 존재하며, 비었거나 32바이트 미만이면 `PublicProjectsService` 인스턴스화 시점에 실패한다(fail-closed — 평문 커서 폴백은 두지 않는다).
 복호 실패(위조·다른 키·버전 변조)는 전부 동일한 `INVALID_PAGE_ID`(400)다.

@@ -97,22 +97,24 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     새 구성으로 수렴하고 orphan을 남기지 않는다. 단 `SubmissionFile.milestoneId`처럼 seed
     밖에서 생긴 실사용 참조가 그 마일스톤에 남아 있으면 삭제가 의도적으로 FK 위반으로 실패한다
     — 이 경우 시드가 조용히 넘어가지 않고, 운영자가 직접 그 데이터를 확인해야 한다는 신호다.
-  - Repository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해 공개
-    완료(`PUBLIC`) 상태로 추적하고, 짝이 되는 RepositoryProvisionJob은 `SUCCEEDED`다. `githubRepositoryId`는
-    GitHub API로 확인한 이 저장소의 실제 numeric id(`1297138137`, public 정보)를 그대로 쓴다.
-  - Repository 2개째(`oss-hub-practice`) — `github.com/JNU-SWCU/oss-hub-practice`(학생
-    fork/배포 퀘스트 실습용 저장소)를 별도 Program·Team·Application·Repository 체인으로
-    공개 완료(`PUBLIC`) 상태로 추적한다. 기존 oss-hub Program·Team을 재사용하지 않는 이유는
-    `Application_programId_teamId_team_key` partial unique index(같은 팀은 같은 Program에
+  - GithubRepository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해
+    공개 완료(`visibility: PUBLIC`) 상태로 추적한다(`applicationId`·`programId`가 이 행에 직접
+    실려 프로비저닝 신청과 연결을 증명한다, `#617` 단계 D). 짝이 되는 RepositoryProvisionJob은
+    `SUCCEEDED`다. `githubRepositoryId`는 GitHub API로 확인한 이 저장소의 실제 numeric
+    id(`1297138137`, public 정보)를 그대로 쓴다.
+  - GithubRepository 2개째(`oss-hub-practice`) — `github.com/JNU-SWCU/oss-hub-practice`(학생
+    fork/배포 퀘스트 실습용 저장소)를 별도 Program·Team·Application·GithubRepository 체인으로
+    공개 완료(`visibility: PUBLIC`) 상태로 추적한다. 기존 oss-hub Program·Team을 재사용하지 않는
+    이유는 `Application_programId_teamId_team_key` partial unique index(같은 팀은 같은 Program에
     신청을 한 건만 낼 수 있다) 때문이다 — 이 제약은 `schema.prisma`에는 표현되지 않고
     마이그레이션 SQL에만 있어 정적으로는 드러나지 않는다. 그래서 같은 네 명의 ADMIN 계정을
     팀원으로 하는 새 Program(`오픈소스 실습 배포 퀘스트`)·Team(`oss-hub-practice`)을 만들고
-    그 아래 Application·Repository·RepositoryProvisionJob을 매단다. `githubRepositoryId`는
+    그 아래 Application·GithubRepository·RepositoryProvisionJob을 매단다. `githubRepositoryId`는
     GitHub API로 확인한 실제 numeric id(`1296567792`, public 정보)를 그대로 쓴다. 아카이브
     상세 화면의 지표·기여자는 별도 시드 데이터 없이 `githubRepositoryId` 기준 collection
     파이프라인 조인으로 자동 채워진다(`program-activity.service.ts`/
     `public-projects.repository.ts`의 `canonicalByRepository` 패턴 — Program 정체성과
-    무관하게 Repository 행 기준으로 조인한다).
+    무관하게 GithubRepository 행 기준으로 조인한다).
 
 `intake`/`milestones`/`repositories`/`program-overview` 각 profile은 서로 참조하지 않고 자체
 Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.

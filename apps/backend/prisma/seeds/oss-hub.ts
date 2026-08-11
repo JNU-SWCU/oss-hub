@@ -42,8 +42,9 @@ const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const PROGRAM_DESCRIPTION =
   '오픈소스 SW 개발 사업단이 주관하는 오픈소스 플랫폼 구축 프로그램. 참여 팀은 마일스톤별로 진행 상황과 산출물을 제출하고, GitHub 저장소를 통해 결과물을 공개한다. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
 
-// oss-hub-practice — 별도 Program·Team·Application·Repository 체인(#113: Repository는
-// applicationId당 최대 한 건, #164: 같은 팀은 같은 Program에 신청을 한 건만 낼 수 있다 —
+// oss-hub-practice — 별도 Program·Team·Application·GithubRepository 체인(#113:
+// GithubRepository는 applicationId당 최대 한 건(#617 단계 D 이후), #164: 같은 팀은 같은
+// Program에 신청을 한 건만 낼 수 있다 —
 // `Application_programId_teamId_team_key` partial unique index, Prisma schema에는 표현되지
 // 않고 마이그레이션 SQL이 원본이다. 그래서 기존 oss-hub Program·Team을 재사용할 수 없고,
 // 같은 네 명의 ADMIN 계정으로 별도 Program·Team을 새로 만든다).

@@ -15,6 +15,8 @@ refines:
 
 Accepted
 
+> **2026-08-12 amendment**: `#617` 단계 D에서 `Repository`가 `GithubRepository`로 통합되어, 이 문서에서 `Repository`를 별개 프로비저닝 테이블로 서술하는 부분(§3, 구현하며 바뀐 것 절 등)은 현재 `GithubRepository`의 `applicationId`/`source` 컬럼을 가리킨다. 결정 기록 보존을 위해 본문은 그대로 두고 이 노트만 추가한다.
+
 ## Date
 
 2026-08-05
