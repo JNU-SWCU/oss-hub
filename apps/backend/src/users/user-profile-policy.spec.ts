@@ -109,6 +109,41 @@ it('필수가 아니어도 실려 있는 값의 형식은 검사한다', () => {
   ).toBe(false);
 });
 
+/**
+ * 형식이 좁아지기 전(#835, 6~10자리)에 저장된 학번을 가진 학생.
+ *
+ * 여기가 false가 되는 순간 세션의 `isProfileComplete`와 프로필 응답의 `isComplete`가
+ * 함께 뒤집혀, 이미 가입을 마친 학생이 온보딩 마지막 단계로 되돌아간다. 학번은 바꿀
+ * 수 없는 값이라(`USR_003`) 그 화면에서 빠져나갈 방법이 없다.
+ */
+it('예전 형식으로 저장된 학번도 완료로 판정한다', () => {
+  expect(
+    isCompleteUserProfile({
+      id: 'synthetic-legacy-student-id',
+      name: '합성 사용자',
+      studentId: '9'.repeat(9),
+      department: '인공지능학부',
+      role: 'STUDENT',
+    }),
+  ).toBe(true);
+});
+
+/** 예외의 근거는 "예전 규칙으로 저장될 수 있었던 값"이지 "학번을 안 본다"가 아니다. */
+it.each([['12'], ['1'.repeat(11)], ['12A456'], ['']])(
+  '저장될 수 없었던 학번 %p은 완료로 보지 않는다',
+  (studentId: string) => {
+    expect(
+      isCompleteUserProfile({
+        id: 'synthetic-impossible-student-id',
+        name: '합성 사용자',
+        studentId,
+        department: '인공지능학부',
+        role: 'STUDENT',
+      }),
+    ).toBe(false);
+  },
+);
+
 it('이름이 없으면 어떤 역할에서도 미완료다', () => {
   for (const role of ['STUDENT', 'STAFF', 'ADMIN', null] as const) {
     expect(
@@ -135,6 +170,16 @@ it('backfill이 쓰는 엄격 판정은 세 항목이 모두 유효할 때만 �
     isValidCompleteUserProfileFields({
       name: '합성 사용자',
       studentId: '12A456',
+      department: '인공지능학부',
+    }),
+  ).toBe(false);
+  // 완료 판정은 예전 형식 학번을 통과시키지만(`isStoredStudentId`) 이 판정은 아니다.
+  // 여기서 정하는 것은 "이 값으로 **새 행을 만들어도 되는가**"이고, 예전 형식 값을
+  // 새 행으로 옮기는 것은 기존 데이터를 손대는 결정이라 별도 승인 사항이다.
+  expect(
+    isValidCompleteUserProfileFields({
+      name: '합성 사용자',
+      studentId: '9'.repeat(9),
       department: '인공지능학부',
     }),
   ).toBe(false);

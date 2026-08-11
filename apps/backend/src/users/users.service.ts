@@ -130,7 +130,7 @@ export class UsersService {
       return toUserProfile(next);
     }
 
-    this.requireFieldsForRole(next);
+    this.requireFieldsForRole(next, input.studentId !== undefined);
     const completed = await this.repository.completeProfileIfUnchanged(user, {
       name: input.name,
       studentId: next.studentId,
@@ -190,8 +190,17 @@ export class UsersService {
    * 유일성을 보증하는 곳은 UserProfile 행의 unique 제약뿐이고 그 행은 학과를 NOT NULL로
    * 요구하기 때문이다. 학과 없이 학번만 받으면 제약이 없는 구버전 `User.studentId`
    * 컬럼에만 남아 서로 다른 두 사람이 같은 학번을 갖게 된다.
+   *
+   * 학번 형식은 이번 요청에 **실려 온 값에만** 적용한다. 요청이 학번을 생략하면
+   * 저장돼 있던 값이 그대로 실리는데(`input.studentId ?? user.studentId`), 그 값을
+   * 지금 형식으로 다시 재면 형식이 좁아지기 전에(#835) 학번을 넣어 둔 사용자는
+   * 학과 하나를 채우려 해도 400에 막힌다 — 학번은 바꿀 수 없어 고칠 길이 없다.
    */
-  private requireFieldsForRole(next: UserProfileRecord): void {
+  private requireFieldsForRole(
+    next: UserProfileRecord,
+    /** 학번이 이번 요청에 실려 왔는가 — 저장돼 있던 값은 형식을 다시 보지 않는다. */
+    hasIncomingStudentId: boolean,
+  ): void {
     const requirement = profileFieldRequirement(effectiveProfileRole(next));
     if (next.studentId !== null && next.department === null) {
       throw new DomainException(
@@ -200,7 +209,8 @@ export class UsersService {
     }
     if (
       requirement.studentId &&
-      (next.studentId === null || !isValidStudentId(next.studentId))
+      (next.studentId === null ||
+        (hasIncomingStudentId && !isValidStudentId(next.studentId)))
     ) {
       throw new DomainException({
         code: SystemErrorCode.VALIDATION_FAILED,

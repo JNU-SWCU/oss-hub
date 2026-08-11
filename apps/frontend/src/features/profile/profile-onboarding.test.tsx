@@ -19,6 +19,7 @@ function values(overrides: Partial<ProfileFormValues> = {}): ProfileFormValues {
   return {
     name: 'GitHub 합성 이름',
     studentId: '1'.repeat(6),
+    savedStudentId: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
     ...overrides,

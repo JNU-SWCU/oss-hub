@@ -120,6 +120,33 @@ export function isValidStudentId(studentId: string): boolean {
   return STUDENT_ID_PATTERN.test(studentId);
 }
 
+/**
+ * 이미 저장돼 있을 수 있는 학번의 형식 — 지금 규칙과 그 이전 규칙을 함께 받는다.
+ *
+ * 형식이 6~10자리에서 정확히 6자리로 좁혀졌지만(#835) 기존 값은 그대로 남았다.
+ * `STUDENT_ID_PATTERN`은 이 집합의 부분집합이라, 오늘 통과하는 값은 언제나 여기도
+ * 통과한다. 형식을 또 좁힐 일이 생기면 **이 패턴은 좁히지 않는다** — 여기가 좁아지는
+ * 순간 그 형식으로 가입한 사람들이 미완료로 되돌아간다.
+ */
+const STORED_STUDENT_ID_PATTERN = /^\d{6,10}$/;
+
+/**
+ * 이미 저장된 학번은 지금 형식으로 다시 재지 않는다.
+ *
+ * 저장된 값을 새 형식으로 재면 그때 가입한 학생의 프로필이 통째로 미완료로 뒤집힌다.
+ * 그 판정은 세션의 `isProfileComplete`(`auth.repository.ts`)와 프로필 응답의
+ * `isComplete`(`toUserProfile`)를 함께 뒤집어, 게이트가 그를 가입 마지막 단계로
+ * 되돌린다 — 학번은 학적 식별자로 고정돼 바꿀 수 없으므로(`USR_003`) 그 화면에서
+ * 빠져나갈 방법이 없다.
+ *
+ * 지금 형식(`isValidStudentId`)은 **새로 들어오는 값**에만 적용한다: DTO의
+ * `@Matches`, 비어 있던 학번을 처음 채우는 검사, 요청에 실려 온 학번의 완료 저장
+ * 검사가 그 자리다. 프런트도 같은 선을 긋는다(`profile-requirements.ts`).
+ */
+export function isStoredStudentId(studentId: string): boolean {
+  return STORED_STUDENT_ID_PATTERN.test(studentId);
+}
+
 export function isValidDepartment(department: string): boolean {
   return (
     department.trim().length > 0 &&
@@ -128,12 +155,12 @@ export function isValidDepartment(department: string): boolean {
 }
 
 /**
- * 역할이 요구하는 항목이 모두 유효한가.
+ * 역할이 요구하는 항목이 모두 채워졌는가.
  *
- * 요구하지 않는 항목은 비어 있어도 완료다. 다만 값이 실려 있으면 형식은 지켜야
- * 한다 — 프런트 응답 파서(`isConsistentCompleteProfile`)가 `isComplete: true`인
- * 응답에 대해 "실려 온 값은 형식이 맞다"를 불변식으로 검사하기 때문에, 형식이
- * 깨진 값을 완료로 돌려주면 화면이 응답 자체를 거부한다.
+ * 요구하지 않는 항목은 비어 있어도 완료다. 저장된 학번은 형식이 아니라 존재만
+ * 본다(`isStoredStudentId`) — 형식이 좁아지기 전에 저장된 값 때문에 이미 가입을
+ * 마친 사람이 미완료로 되돌아가지 않게 하기 위해서다. 프런트 응답 파서
+ * (`isConsistentCompleteProfile`)도 같은 기준으로 불변식을 검사한다.
  */
 export function isCompleteProfileFields(
   fields: UserProfileFields,
@@ -143,7 +170,7 @@ export function isCompleteProfileFields(
   return (
     fields.name !== null &&
     isValidUserName(fields.name) &&
-    isSatisfied(fields.studentId, requirement.studentId, isValidStudentId) &&
+    isSatisfied(fields.studentId, requirement.studentId, isStoredStudentId) &&
     isSatisfied(fields.department, requirement.department, isValidDepartment)
   );
 }
@@ -157,13 +184,21 @@ export function isCompleteUserProfile(record: UserProfileRecord): boolean {
  *
  * UserProfile 행을 만들 수 있는 조건과 같아서 backfill 스크립트가 이 함수를 쓴다
  * (`prisma/user-profile-backfill.ts`). 역할별 판정에는 쓰지 않는다.
+ *
+ * 학번 형식은 여기서만 계속 엄격하게 본다. 완료 판정은 이미 저장된 값을 형식으로
+ * 재지 않지만(`isStoredStudentId`), 이 함수가 정하는 것은 "이 값으로 **새 행을
+ * 만들어도 되는가**"다 — 예전 형식 값을 새 행으로 옮기는 것은 기존 데이터를
+ * 손대는 결정이라 이 변경의 범위 밖이다.
  */
 export function isValidCompleteUserProfileFields(fields: {
   readonly name: string;
   readonly studentId: string;
   readonly department: string;
 }): boolean {
-  return isCompleteProfileFields(fields, DEFAULT_PROFILE_ROLE);
+  return (
+    isValidStudentId(fields.studentId) &&
+    isCompleteProfileFields(fields, DEFAULT_PROFILE_ROLE)
+  );
 }
 
 function isSatisfied(
