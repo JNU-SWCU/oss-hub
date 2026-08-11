@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   useCallback,
   useEffect,
@@ -21,24 +22,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
-import {
-  decideApplication,
-  getProgramDetail,
-  listProgramApplications,
-  type ApplicationDecisionInput,
-} from './api';
-import { ApplicationDecisionDialog } from './application-decision-dialog';
-import { useApplicationDecisionFocusReturn } from './application-decision-focus';
+import { getProgramDetail, listProgramApplications } from './api';
 import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   PROVISIONING_LABELS,
-  applicationDecisionTriggerId,
+  REVIEW_ACTION_LABEL,
   displayAnswerText,
   displayApplicantName,
   formatSubmittedAt,
   participationLabel,
-  staleApplicationDecisionTitle,
 } from './application-presentation';
 import { ProgramListPagination } from './program-list-pagination';
 import {
@@ -46,7 +39,6 @@ import {
   programEditHref,
 } from '@/lib/program-route';
 import type {
-  ApplicationDecisionAction,
   ApplicationListItem,
   ApplicationListPage,
   ApplicationListStatus,
@@ -95,10 +87,6 @@ type LoadState =
     }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'error'; readonly message: string };
-type DecisionDialog = {
-  readonly applicationId: string;
-  readonly action: ApplicationDecisionAction;
-} | null;
 type Notice = {
   readonly kind: 'success' | 'error';
   readonly title: string;
@@ -127,26 +115,10 @@ export function ProgramApplicantsPage({
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ApplicationListStatus>('all');
   const [page, setPage] = useState(1);
-  const [dialog, setDialog] = useState<DecisionDialog>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [reasonError, setReasonError] = useState(false);
-  const [busyApplicationId, setBusyApplicationId] = useState<string | null>(
-    null,
-  );
   const [notice, setNotice] = useState<Notice>(null);
-  /**
-   * 판정 저장이 실패했는데 확인창은 열려 있는 경우의 안내.
-   * ⚠ 화면 위쪽 `notice` 에 그리면 **확인창 뒤에 가려** 교직원이 못 본다([#734]).
-   */
-  const [decisionError, setDecisionError] = useState<string | null>(null);
   const requestEpoch = useRef(new ApplicationListRequestEpoch());
   const pollAttempts = useRef(0);
-  /**
-   * 확인창이 **스스로** 닫힌 뒤 그 행의 판정 버튼으로 포커스를 돌려준다([#767]).
-   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 그 행의 새 버튼
-   *   (「되돌리기」)은 재조회 결과가 그려진 뒤에야 생긴다.
-   */
-  const requestDecisionFocusReturn = useApplicationDecisionFocusReturn();
+  const router = useRouter();
 
   const applicationParams = useCallback(
     () => ({ page, pageSize: PAGE_SIZE, search, status }),
@@ -237,85 +209,6 @@ export function ProgramApplicantsPage({
     };
   }, [reloadApplications, shouldPoll, loadState]);
 
-  const submitDecision = useCallback(async (): Promise<void> => {
-    if (!dialog) return;
-    const reason = rejectionReason.trim();
-    if (dialog.action === 'REJECT' && !reason) {
-      setReasonError(true);
-      return;
-    }
-    const input: ApplicationDecisionInput =
-      dialog.action === 'APPROVE'
-        ? { action: 'APPROVE' }
-        : dialog.action === 'REJECT'
-          ? { action: 'REJECT', reason }
-          : { action: 'REVERT' };
-    const decidingId = dialog.applicationId;
-    const decidedAction = dialog.action;
-    setBusyApplicationId(decidingId);
-    setNotice(null);
-    // FN4: 재시도할 때 이전 실패 안내를 먼저 지운다 — 안 지우면 「처리 중…」과
-    // 이전 실패가 같이 보이고, 같은 문구로 또 실패하면 다시 발표되지도 않는다.
-    setDecisionError(null);
-    try {
-      const result = await decideApplication(dialog.applicationId, input);
-      pollAttempts.current = 0;
-      setDialog(null);
-      setRejectionReason('');
-      try {
-        await reloadApplications();
-        setNotice({
-          kind: 'success',
-          title: '판정이 저장되었습니다',
-          message:
-            result.status === 'APPROVED'
-              ? '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.'
-              : result.status === 'REJECTED'
-                ? '반려 결과를 다시 불러왔습니다.'
-                : '되돌린 결과를 다시 불러왔습니다.',
-        });
-      } catch {
-        setNotice({
-          kind: 'error',
-          title: '판정은 저장되었지만 최신 상태를 불러오지 못했습니다',
-          message: '목록을 다시 조회해 최신 상태를 확인해 주세요.',
-        });
-      }
-      requestDecisionFocusReturn(decidedAction, decidingId);
-    } catch (error: unknown) {
-      const staleTitle = staleApplicationDecisionTitle(error);
-      if (staleTitle !== null) {
-        // ⚠ 재조회보다 **먼저** 닫는다 — 재조회가 실패하면 아래 안내가 확인창 뒤에 그려진다.
-        setDialog(null);
-        try {
-          await reloadApplications();
-          setNotice({
-            kind: 'error',
-            title: staleTitle,
-            message: '최신 행 상태를 다시 불러왔습니다.',
-          });
-        } catch {
-          setNotice({
-            kind: 'error',
-            title: '최신 상태 확인 실패',
-            message: '현재 상태를 유지했습니다. 다시 시도해 주세요.',
-          });
-        }
-        requestDecisionFocusReturn(decidedAction, decidingId);
-      } else
-        // 확인창은 열린 채로 둔다(적어 둔 사유를 잃지 않게) — 그래서 안내도 창 안에 그린다.
-        setDecisionError(
-          '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
-        );
-    } finally {
-      // ⚠ 자기 요청일 때만 푼다 — 낡은 상태 재조회를 기다리는 사이 교직원이 **다른 행**을
-      //   판정하면, 늦게 끝난 이 요청이 그 행의 「처리 중」을 지워 확정 버튼이 다시 열린다.
-      setBusyApplicationId((current) =>
-        current === decidingId ? null : current,
-      );
-    }
-  }, [dialog, rejectionReason, reloadApplications, requestDecisionFocusReturn]);
-
   const columns = useMemo<DataTableColumn<ApplicationListItem>[]>(
     () => [
       {
@@ -380,61 +273,20 @@ export function ProgramApplicantsPage({
       {
         id: 'actions',
         header: '작업',
+        // 판정은 이 행이 아니라 신청 상세에서 한다 — 여기는 그리로 보내는
+        // 링크뿐이다([#869]). 행 전체 클릭도 같은 목적지로 간다(아래
+        // `onRowClick`); 이 링크는 키보드·스크린리더 사용자의 유일한 동선이라
+        // 행 클릭을 더해도 남겨 둔다.
         cell: (row) => (
-          <div className="flex flex-wrap gap-2">
-            {row.status === 'SUBMITTED' ? (
-              <>
-                <Button
-                  size="sm"
-                  id={applicationDecisionTriggerId('APPROVE', row.id)}
-                  disabled={busyApplicationId === row.id}
-                  onClick={() => {
-                    setDecisionError(null);
-                    setDialog({ applicationId: row.id, action: 'APPROVE' });
-                  }}
-                >
-                  승인
-                </Button>
-                <Button
-                  size="sm"
-                  id={applicationDecisionTriggerId('REJECT', row.id)}
-                  variant="outline"
-                  disabled={busyApplicationId === row.id}
-                  onClick={() => {
-                    setReasonError(false);
-                    setRejectionReason('');
-                    setDecisionError(null);
-                    setDialog({ applicationId: row.id, action: 'REJECT' });
-                  }}
-                >
-                  반려
-                </Button>
-              </>
-            ) : null}
-            {row.status === 'APPROVED' || row.status === 'REJECTED' ? (
-              <Button
-                size="sm"
-                id={applicationDecisionTriggerId('REVERT', row.id)}
-                variant="ghost"
-                disabled={busyApplicationId === row.id}
-                onClick={() => {
-                  setDecisionError(null);
-                  setDialog({ applicationId: row.id, action: 'REVERT' });
-                }}
-              >
-                되돌리기
-              </Button>
-            ) : null}
-            <Button asChild size="sm" variant="outline">
-              <Link href={programApplicationDetailHref(programId, row.id)}>
-                보기
-              </Link>
-            </Button>
-          </div>
+          <Button asChild size="sm" variant="outline">
+            <Link href={programApplicationDetailHref(programId, row.id)}>
+              {REVIEW_ACTION_LABEL}
+            </Link>
+          </Button>
         ),
       },
     ],
-    [busyApplicationId, programId],
+    [programId],
   );
 
   if (loadState.kind === 'loading') return <ApplicantsSkeleton />;
@@ -468,9 +320,6 @@ export function ProgramApplicantsPage({
     );
 
   const { program, applicationPage } = loadState;
-  const selected = dialog
-    ? applicationPage.items.find((item) => item.id === dialog.applicationId)
-    : undefined;
   const hasFilters = search.trim() !== '' || status !== 'all';
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
@@ -520,14 +369,20 @@ export function ProgramApplicantsPage({
             aria-label="신청 상태 필터"
           >
             <option value="all">전체 상태</option>
-            <option value="SUBMITTED">제출됨</option>
-            <option value="APPROVED">승인</option>
-            <option value="REJECTED">반려</option>
+            <option value="SUBMITTED">
+              {APPLICATION_STATUS_LABELS.SUBMITTED}
+            </option>
+            <option value="APPROVED">
+              {APPLICATION_STATUS_LABELS.APPROVED}
+            </option>
+            <option value="REJECTED">
+              {APPLICATION_STATUS_LABELS.REJECTED}
+            </option>
           </Select>
         </label>
       </form>
       {/* 신청자 표는 열이 많아 사이드바가 있는 1440에서도 폭이 모자란다. 이 화면에서
-          실제로 하는 일(보기·승인·반려)이 맨 오른쪽 열에 있어, 밀 수 있다는 것을
+          실제로 하는 일(검토하기로 상세 이동)이 맨 오른쪽 열에 있어, 밀 수 있다는 것을
           알리지 않으면 할 수 있는 일이 없는 화면처럼 보인다. 감사 로그·제출 현황이
           쓰는 안내 문구와 같은 방식으로 맞춘다. */}
       <p
@@ -542,6 +397,14 @@ export function ProgramApplicantsPage({
         columns={columns}
         data={[...applicationPage.items]}
         rowKey={(row) => row.id}
+        // 행 전체 클릭은 마우스 사용자를 위한 보조 동선이다 — 「검토하기」
+        // 링크가 키보드·스크린리더 사용자의 동선을 그대로 담당한다([#869]).
+        // `<tr>`을 `<Link>`/`<a>`로 감쌀 수 없어(table 구조가 깨진다) 여기서는
+        // `router.push`로 이동한다 — 셀 안 링크는 그대로 둬서 새 탭 열기·
+        // 가운데 클릭 같은 네이티브 동작은 그 링크가 그대로 담당한다.
+        onRowClick={(row) =>
+          router.push(programApplicationDetailHref(programId, row.id))
+        }
         emptyState={
           hasFilters
             ? '검색 조건에 맞는 신청자가 없습니다.'
@@ -554,29 +417,6 @@ export function ProgramApplicantsPage({
         totalPages={applicationPage.totalPages}
         onPageChange={setPage}
       />
-      {dialog && selected ? (
-        <ApplicationDecisionDialog
-          action={dialog.action}
-          repositoryProvisioningEnabled={
-            selected.repositoryProvisioning.enabled
-          }
-          repositoryConnectionMode={selected.repositoryConnectionMode}
-          reason={rejectionReason}
-          reasonError={reasonError}
-          busy={busyApplicationId === selected.id}
-          errorMessage={decisionError}
-          returnFocusId={applicationDecisionTriggerId(
-            dialog.action,
-            dialog.applicationId,
-          )}
-          onReasonChange={(value) => {
-            setRejectionReason(value);
-            setReasonError(false);
-          }}
-          onCancel={() => setDialog(null)}
-          onConfirm={() => void submitDecision()}
-        />
-      ) : null}
     </main>
   );
 }

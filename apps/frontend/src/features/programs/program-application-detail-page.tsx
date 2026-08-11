@@ -148,7 +148,7 @@ export function ProgramApplicationDetailPage({
   const cancelled = useRef(false);
   /**
    * 확인창이 **스스로** 닫힌 뒤 판정 버튼으로 포커스를 돌려준다([#767]).
-   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 새 버튼(「되돌리기」)은
+   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 새 버튼(「판정 취소」)은
    *   재조회 결과가 그려진 뒤에야 생긴다. 목록 화면과 같은 규칙을 쓴다.
    */
   const requestDecisionFocusReturn = useApplicationDecisionFocusReturn();
@@ -235,7 +235,7 @@ export function ProgramApplicationDetailPage({
               ? '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.'
               : result.status === 'REJECTED'
                 ? '반려 결과를 다시 불러왔습니다.'
-                : '되돌린 결과를 다시 불러왔습니다.',
+                : '판정 취소 결과를 다시 불러왔습니다.',
         });
       } catch {
         setNotice({
@@ -462,8 +462,15 @@ export function ProgramApplicationDetailPage({
       {/*
        * 판정 버튼마다 고정 id 를 준다 — 확인창이 닫힐 때 이 id 로 포커스를 돌려준다.
        * 없으면 키보드로 판정하던 사람이 창을 닫는 순간 문서 맨 앞으로 튕긴다.
+       *
+       * 목록에서 행 단위 판정이 사라지면 이 자리가 유일한 판정 지점이다 — 확인창을
+       * 여는 트리거 버튼 그룹이라 폼 제출·다이얼로그 푸터와 같은 우측 정렬을 쓴다
+       * (`docs/rules/frontend.md`, `program-edit-lifecycle-section.tsx`와 같은 규칙 —
+       * 그쪽도 페이지 안에서 확인창을 여는 단일 트리거 버튼을 우측 정렬한다). 목록
+       * 행의 인라인 액션 예외는 여기 해당하지 않는다 — 행이 아니라 화면 전체의
+       * 유일한 판정 지점이다.
        */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         {decidable ? (
           <>
             <Button
@@ -494,7 +501,7 @@ export function ProgramApplicationDetailPage({
             disabled={busy}
             onClick={() => openDecisionDialog('REVERT')}
           >
-            되돌리기
+            판정 취소
           </Button>
         ) : null}
       </div>
@@ -502,6 +509,9 @@ export function ProgramApplicationDetailPage({
       {dialogAction !== null ? (
         <ApplicationDecisionDialog
           action={dialogAction}
+          applicantName={displayApplicantName(application)}
+          teamName={application.team ? application.team.name : null}
+          applicationTitle={displayAnswerText(application.answers.title)}
           repositoryProvisioningEnabled={
             application.repositoryProvisioning.enabled
           }

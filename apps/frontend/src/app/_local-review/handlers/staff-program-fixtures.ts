@@ -429,7 +429,7 @@ const CONTEST_APPLICATIONS = [
     team: {
       // 팀 명단(`program-overview-fixtures`의 경진대회 1팀)과 같은 id 여야 한다 —
       // 교직원 참여 팀 목록이 이 id 로 신청을 붙인다. 어긋나면 그 화면에서 모든 팀이
-      // "신청서 안 냄"으로 보인다.
+      // "미신청"으로 보인다.
       id: 'synthetic-team-contest-1',
       name: '합성 경진대회 1팀',
       memberCount: 2,

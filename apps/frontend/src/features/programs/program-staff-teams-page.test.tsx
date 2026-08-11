@@ -9,6 +9,8 @@ import {
   joinTeamsWithApplications,
   memberSummary,
 } from './program-staff-teams-page';
+import { programApplicationDetailHref } from '@/lib/program-route';
+import { REVIEW_ACTION_LABEL } from './application-presentation';
 import type {
   ApplicationListItem,
   ApplicationListPage,
@@ -19,6 +21,12 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
+
+const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn(), push: pushMock }),
+}));
 
 const { listStaffProgramTeamsMock, listProgramApplicationsMock } = vi.hoisted(
   () => ({
@@ -152,6 +160,7 @@ describe('ProgramStaffTeamsPage', () => {
     root = createRoot(container);
     listStaffProgramTeamsMock.mockReset();
     listProgramApplicationsMock.mockReset();
+    pushMock.mockReset();
   });
 
   afterEach(() => {
@@ -180,7 +189,7 @@ describe('ProgramStaffTeamsPage', () => {
     );
 
     expect(container.textContent).toContain('나팀');
-    expect(container.textContent).toContain('신청서 안 냄');
+    expect(container.textContent).toContain('미신청');
   });
 
   it('팀원 실명을 보여준다', async () => {
@@ -233,7 +242,10 @@ describe('ProgramStaffTeamsPage', () => {
       [application('t1', 'SUBMITTED', null, { jobStatus: 'NOT_REQUESTED' })],
     );
 
-    // 헤더의 「신청 승인하기」만 남고, github 저장소 링크는 없다.
+    // 신청은 있고 발급을 아직 요청하지 않은 상태다 — 신청 자체가 없는
+    // 「아직 없음」과 구분한다.
+    expect(container.textContent).toContain('요청 전');
+    // 헤더의 「신청 목록 보기」만 남고, github 저장소 링크는 없다.
     const hrefs = [...container.querySelectorAll('a')].map((a) => a.href);
     expect(hrefs.some((href) => href.includes('github.com'))).toBe(false);
     expect(
@@ -314,17 +326,17 @@ describe('ProgramStaffTeamsPage', () => {
     expect(container.textContent ?? '').toContain('아직 없음');
   });
 
-  it('헤더에서 신청자(승인) 목록으로 들어간다', async () => {
+  it('헤더에서 신청 목록으로 들어간다', async () => {
     await render(
       [team('t1', '가팀', [member('a', '김가', true)])],
       [application('t1', 'SUBMITTED')],
     );
 
-    expect(container.textContent).toContain('신청 승인하기');
+    expect(container.textContent).toContain('신청 목록 보기');
     const link = [...container.querySelectorAll('a')].find((a) =>
       a.href.includes('/programs/program-1/applicants'),
     );
-    expect(link?.textContent).toContain('신청 승인하기');
+    expect(link?.textContent).toContain('신청 목록 보기');
   });
 
   it('신청을 전부 받으면 잘림 안내를 띄우지 않는다', async () => {
@@ -336,7 +348,7 @@ describe('ProgramStaffTeamsPage', () => {
     expect(container.textContent).not.toContain('일부만 불러왔습니다');
   });
 
-  // 조용히 자르면 신청이 있는 팀이 「신청서 안 냄」으로 보인다 — 빈 화면보다 나쁘다.
+  // 조용히 자르면 신청이 있는 팀이 「미신청」으로 보인다 — 빈 화면보다 나쁘다.
   it('신청이 상한을 넘으면 일부만 받았다고 알리고 신청자 목록으로 보낸다', async () => {
     listStaffProgramTeamsMock.mockResolvedValue([
       team('t1', '가팀', [member('a', '김가', true)]),
@@ -365,5 +377,72 @@ describe('ProgramStaffTeamsPage', () => {
     });
 
     expect(container.textContent).toContain('참여 팀을 불러오지 못했습니다');
+  });
+
+  it('신청이 있는 팀 행은 그 신청 상세로 가는 「검토하기」 링크를 갖는다', async () => {
+    await render(
+      [team('t1', '가팀', [member('a', '김가', true)])],
+      [application('t1', 'SUBMITTED')],
+    );
+
+    const link = [...container.querySelectorAll('a')].find(
+      (a) => a.textContent?.trim() === REVIEW_ACTION_LABEL,
+    );
+    expect(link?.getAttribute('href')).toBe(
+      programApplicationDetailHref('program-1', 'app-t1'),
+    );
+  });
+
+  it('신청이 없는 팀 행에는 링크가 없고, 클릭해도 이동하지 않는다', async () => {
+    await render(
+      [
+        team('t1', '가팀', [member('a', '김가', true)]),
+        team('t2', '나팀', [member('b', '이나', true)]),
+      ],
+      [application('t1', 'APPROVED')],
+    );
+
+    const link = [...container.querySelectorAll('a')].find((a) =>
+      a.textContent?.includes(REVIEW_ACTION_LABEL),
+    );
+    // 신청이 있는 t1 행에만 검토하기 링크가 있다 — 하나뿐이어야 한다.
+    expect(link?.getAttribute('href')).toBe(
+      programApplicationDetailHref('program-1', 'app-t1'),
+    );
+
+    const rows = container.querySelectorAll('tbody tr');
+    const noApplicationRow = [...rows].find((row) =>
+      row.textContent?.includes('나팀'),
+    );
+    expect(noApplicationRow).toBeTruthy();
+    // 갈 곳이 없는 행은 클릭 가능한 커서도 보이면 안 된다 — 커서만 보고
+    // 눌렀는데 아무 일도 안 일어나면 그게 더 헷갈린다.
+    expect(noApplicationRow?.className).not.toContain('cursor-pointer');
+    await act(async () => {
+      noApplicationRow!.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it('신청이 있는 팀 행을 클릭하면(링크 밖) 그 신청 상세로 이동한다', async () => {
+    await render(
+      [team('t1', '가팀', [member('a', '김가', true)])],
+      [application('t1', 'SUBMITTED')],
+    );
+
+    const row = [...container.querySelectorAll('tbody tr')].find((candidate) =>
+      candidate.textContent?.includes('가팀'),
+    );
+    expect(row).toBeTruthy();
+    await act(async () => {
+      row!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(pushMock).toHaveBeenCalledWith(
+      programApplicationDetailHref('program-1', 'app-t1'),
+    );
   });
 });

@@ -71,6 +71,13 @@ const rejected: ApplicationListItem = {
   },
 };
 
+/** 개인 신청 — team이 null이다. 판정 창의 팀 줄 유무를 가르는 데 쓴다. */
+const individualSubmitted: ApplicationListItem = {
+  ...submitted,
+  participation: 'INDIVIDUAL',
+  team: null,
+};
+
 function problem(status: number, code: string): ProblemDetail {
   return {
     type: 'about:blank',
@@ -244,22 +251,22 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).not.toContain('오전 05:32');
   });
 
-  it('판정 대기 신청에는 승인·반려가 있고 되돌리기는 없다', async () => {
+  it('판정 대기 신청에는 승인·반려가 있고 판정 취소는 없다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 
     await mount();
 
     expect(getButton('승인')).toBeTruthy();
     expect(getButton('반려')).toBeTruthy();
-    expect(queryButton('되돌리기')).toBeUndefined();
+    expect(queryButton('판정 취소')).toBeUndefined();
   });
 
-  it('판정된 신청에는 되돌리기만 있다', async () => {
+  it('판정된 신청에는 판정 취소만 있다', async () => {
     getApplicationDetailMock.mockResolvedValue(rejected);
 
     await mount();
 
-    expect(getButton('되돌리기')).toBeTruthy();
+    expect(getButton('판정 취소')).toBeTruthy();
     expect(queryButton('승인')).toBeUndefined();
     expect(queryButton('반려')).toBeUndefined();
   });
@@ -341,6 +348,7 @@ describe('ProgramApplicationDetailPage', () => {
     });
     expect(getApplicationDetailMock).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain('판정이 저장되었습니다');
+    expect(container.textContent).toContain('반려 결과를 다시 불러왔습니다.');
   });
 
   it('다른 운영자가 먼저 판정한 409 는 최신 상태로 다시 그린다', async () => {
@@ -526,6 +534,52 @@ describe('ProgramApplicationDetailPage', () => {
     expect(dialog?.textContent).toContain('입력과 현재 상태를 유지했습니다');
   });
 
+  it('판정 창을 열면 신청자 이름·팀 이름·제목이 창 안에 보인다', async () => {
+    // 목록에서 행 단위 판정이 사라지면 이 창이 유일한 판정 지점이다 — 무엇을
+    // 판정하는지가 창 안에 없으면 교직원은 목록 화면 맥락에 기대야 했다(#869).
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    await mount();
+
+    await act(async () => getButton('승인').click());
+
+    const dialog = document.querySelector('[role="alertdialog"]');
+    expect(dialog?.textContent).toContain('합성 학생');
+    expect(dialog?.textContent).toContain('합성 팀');
+    expect(dialog?.textContent).toContain('합성 신청 제목');
+  });
+
+  it('개인 신청이면 판정 창에 팀 줄이 없다', async () => {
+    getApplicationDetailMock.mockResolvedValue(individualSubmitted);
+    await mount();
+
+    await act(async () => getButton('승인').click());
+
+    const dialog = document.querySelector('[role="alertdialog"]');
+    const summary = dialog?.querySelector('#application-decision-summary');
+    // 「팀」 라벨 자체가 없는지로 검증한다 — <dt> 개수를 세면 <dl> 구조가
+    // 바뀔 때마다 깨지고, 무엇을 보장하는지도 분명하지 않다.
+    const labels = Array.from(summary?.querySelectorAll('dt') ?? []).map(
+      (dt) => dt.textContent,
+    );
+    expect(labels).not.toContain('팀');
+    expect(dialog?.textContent).toContain('합성 학생');
+  });
+
+  it('판정 창 어디에도 내부 id가 노출되지 않는다', async () => {
+    // 신청·신청자·팀 id는 모두 사람이 알아볼 수 없는 내부 식별자다 — 화면
+    // 글자로는 이름·팀 이름·제목만 나가야 한다.
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    await mount();
+
+    await act(async () => getButton('승인').click());
+
+    const dialog = document.querySelector('[role="alertdialog"]');
+    expect(dialog?.textContent).not.toContain(submitted.id);
+    expect(dialog?.textContent).not.toContain(submitted.applicant.id);
+    expect(dialog?.textContent).not.toContain(submitted.team?.id);
+    expect(dialog?.textContent).not.toContain(submitted.programId);
+  });
+
   it('확인창을 Escape 로 닫으면 창을 연 판정 버튼으로 포커스가 돌아온다', async () => {
     // Given: 승인 확인창이 열려 있다.
     getApplicationDetailMock.mockResolvedValue(submitted);
@@ -557,7 +611,7 @@ describe('ProgramApplicationDetailPage', () => {
 
   it('판정에 성공해 확인창이 스스로 닫히면 그 자리의 새 버튼으로 포커스가 간다', async () => {
     // Given: 승인 확인창이 열려 있다.
-    // ⚠ 성공하면 「승인」이 **사라지고** 「되돌리기」가 생긴다 — 창을 연 버튼으로는
+    // ⚠ 성공하면 「승인」이 **사라지고** 「판정 취소」가 생긴다 — 창을 연 버튼으로는
     //   돌아갈 수 없고, 새 버튼은 **재조회가 끝난 뒤에야** DOM 에 생긴다([#767]).
     getApplicationDetailMock.mockResolvedValueOnce(submitted);
     decideApplicationMock.mockResolvedValue({
@@ -580,11 +634,14 @@ describe('ProgramApplicationDetailPage', () => {
 
     // Then: 문서 맨 앞이 아니라 그 자리를 이어받은 버튼에 있다.
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(document.activeElement).toBe(getButton('되돌리기'));
+    expect(document.activeElement).toBe(getButton('판정 취소'));
+    expect(container.textContent).toContain(
+      '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.',
+    );
   });
 
-  it('되돌리기에 성공하면 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
-    // 판정마다 무엇이 남는지가 다르다 — 승인 한 갈래만 고치면 되돌리기는 그대로 튕긴다.
+  it('판정 취소에 성공하면 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
+    // 판정마다 무엇이 남는지가 다르다 — 승인 한 갈래만 고치면 판정 취소는 그대로 튕긴다.
     getApplicationDetailMock.mockResolvedValueOnce(rejected);
     decideApplicationMock.mockResolvedValue({
       applicationId: 'app-1',
@@ -592,15 +649,21 @@ describe('ProgramApplicationDetailPage', () => {
     });
     getApplicationDetailMock.mockResolvedValueOnce(submitted);
     await mount();
-    await act(async () => getButton('되돌리기').click());
+    await act(async () => getButton('판정 취소').click());
 
-    await act(async () => getButton('되돌리기 확정').click());
+    await act(async () => getButton('판정 취소 확정').click());
     await act(async () => {
       await Promise.resolve();
     });
     await flushCloseAutoFocus();
 
     expect(document.activeElement).toBe(getButton('승인'));
+    // 이 문구가 옛 낱말("되돌린")로 새면, 버튼·안내 문구는 전부 「판정 취소」로
+    // 바뀐 뒤에도 여기만 화면 어디에도 없는 말을 쓰게 된다.
+    expect(container.textContent).toContain(
+      '판정 취소 결과를 다시 불러왔습니다.',
+    );
+    expect(container.textContent).not.toContain('되돌린');
   });
 
   it('낡은 상태(409)로 창이 닫혀도 포커스가 문서 맨 앞으로 떨어지지 않는다', async () => {
@@ -621,7 +684,7 @@ describe('ProgramApplicationDetailPage', () => {
     await flushCloseAutoFocus();
 
     expect(document.activeElement).not.toBe(document.body);
-    expect(document.activeElement).toBe(getButton('되돌리기'));
+    expect(document.activeElement).toBe(getButton('판정 취소'));
   });
 
   it('재조회까지 실패해 신청이 그대로면 누르던 그 버튼으로 돌아온다', async () => {

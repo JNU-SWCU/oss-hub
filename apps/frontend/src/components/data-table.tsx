@@ -42,8 +42,19 @@ interface DataTableProps<TRow> extends Omit<
    * 주어지면 각 행 전체가 클릭 대상이 된다(마우스 보조 동선). 키보드 접근은
    * 여전히 셀 안의 기존 링크/버튼이 담당하므로 행 자체에는 `tabIndex`를
    * 주지 않는다.
+   *
+   * 텍스트 드래그 선택 중이거나 셀 안의 링크/버튼을 누른 경우는 걸러진다 —
+   * 전자는 선택하려던 사용자를 엉뚱한 곳으로 옮기고, 후자는 그 링크/버튼이
+   * 이미 처리하는 이동을 행 클릭이 다시 겹쳐 발화한다.
    */
   onRowClick?: (row: TRow, rowIndex: number) => void;
+  /**
+   * `onRowClick`이 있어도 특정 행을 클릭 대상에서 뺄 때 쓴다. 안 주면(기본)
+   * `onRowClick`이 있는 한 모든 행이 클릭 대상이다 — 기존 호출부는 이 prop이
+   * 없으므로 동작이 그대로다. 눌러도 아무 일도 없는 행은 hover/cursor 표시도
+   * 하지 않아야 한다 — 눌리는 것처럼 보이는데 반응이 없는 행은 만들지 않는다.
+   */
+  isRowClickable?: (row: TRow, rowIndex: number) => boolean;
   /**
    * 주어지면 표가 이 크기로 페이지를 나눈다(opt-in). 주지 않으면 지금처럼
    * `data`를 전량 렌더한다 — 기존 호출부 9곳의 동작은 이 prop이 없으면 100%
@@ -71,6 +82,7 @@ function DataTable<TRow>({
   loadingSlot,
   emptyState,
   onRowClick,
+  isRowClickable,
   pageSize,
   paginationLabel,
   className,
@@ -148,16 +160,38 @@ function DataTable<TRow>({
           ) : (
             pageRows.map((row, localIndex) => {
               const rowIndex = pageStartIndex + localIndex;
+              const handleRowClick = onRowClick;
+              const clickable =
+                handleRowClick !== undefined &&
+                (isRowClickable ? isRowClickable(row, rowIndex) : true);
               return (
                 <TableRow
                   key={rowKey(row, rowIndex)}
                   className={
-                    onRowClick
+                    clickable
                       ? 'cursor-pointer hover:bg-muted/50 transition-colors'
                       : undefined
                   }
                   onClick={
-                    onRowClick ? () => onRowClick(row, rowIndex) : undefined
+                    clickable && handleRowClick
+                      ? (event: React.MouseEvent<HTMLTableRowElement>) => {
+                          // 드래그로 글자를 고르는 중이면 마우스업이 클릭으로
+                          // 이어져도 이동하지 않는다.
+                          const selection = window.getSelection();
+                          if (selection !== null && !selection.isCollapsed)
+                            return;
+                          // 셀 안 링크/버튼은 스스로 목적지를 처리한다 — 행
+                          // 클릭까지 겹치면 같은 곳으로 두 번 이동하거나 누른
+                          // 것과 다른 곳으로 간다.
+                          const target = event.target;
+                          if (
+                            target instanceof Element &&
+                            target.closest('a, button')
+                          )
+                            return;
+                          handleRowClick(row, rowIndex);
+                        }
+                      : undefined
                   }
                 >
                   {columns.map((column) => (
