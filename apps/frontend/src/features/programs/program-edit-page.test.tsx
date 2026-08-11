@@ -260,7 +260,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" />);
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -288,7 +288,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramMock.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" />);
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -338,7 +338,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" />);
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -393,7 +393,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" />);
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -455,7 +455,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramLifecycleMock.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" />);
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -504,7 +504,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" />);
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -538,5 +538,35 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(confirmMock).toHaveBeenCalledWith(UNSAVED_PROGRAM_MESSAGE);
     // confirmMock은 beforeEach에서 false를 돌려주므로 이동은 막힌다.
     expect(routerPushMock).not.toHaveBeenCalled();
+  });
+
+  // #875 — isAdmin은 셸(ProgramEditRoute)이 판정해 이 페이지로 넘기는 값이다.
+  // 페이지는 그 값을 그대로 ProgramEditView에 전달해 위험 영역 노출을 가른다.
+  it('isAdmin={true}면 위험 영역 섹션을 그린다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('위험 영역');
+    expect(queryButton('삭제')).toBeTruthy();
+  });
+
+  it('isAdmin={false}면 위험 영역 섹션을 그리지 않는다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).not.toContain('위험 영역');
+    expect(queryButton('삭제')).toBeUndefined();
   });
 });

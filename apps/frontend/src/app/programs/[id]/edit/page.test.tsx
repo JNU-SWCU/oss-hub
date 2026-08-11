@@ -12,8 +12,8 @@ vi.mock('../../../_shell/role-panel-shell', () => ({
   }) => <section data-allow={allow.join(',')}>{children}</section>,
 }));
 
-vi.mock('@/features/programs/program-edit-page', () => ({
-  ProgramEditPage: ({ programId }: { readonly programId: string }) => (
+vi.mock('./program-edit-route', () => ({
+  ProgramEditRoute: ({ programId }: { readonly programId: string }) => (
     <div data-program-id={programId}>program edit</div>
   ),
 }));

@@ -14,11 +14,13 @@ import {
   createAccessAuditMetadata,
   createApplicationDecisionAuditMetadata,
   createCollectionTriggerAuditMetadata,
+  createProgramDeletionAuditMetadata,
   createProgramLifecycleAuditMetadata,
   createRepositoryPublishAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   InvalidAuditLogMetadataError,
   parseAuditLogMetadata,
+  PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
   REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
@@ -182,6 +184,94 @@ describe('createProgramLifecycleAuditMetadata / parseAuditLogMetadata — PROGRA
 
     expect(() => parseAuditLogMetadata(malformed)).toThrow(
       InvalidAuditLogMetadataError,
+    );
+  });
+});
+
+describe('createProgramDeletionAuditMetadata / parseAuditLogMetadata — PROGRAM_DELETED (#875)', () => {
+  it('삭제 시점 프로그램 이름·lifecycle·차단 카운트 스냅샷을 도장 찍는다', () => {
+    const metadata = createProgramDeletionAuditMetadata({
+      programName: '합성 삭제 대상 프로그램',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      blockingCounts: {
+        applications: 0,
+        teams: 0,
+        submissions: 0,
+        boardPosts: 0,
+      },
+    });
+
+    expect(metadata.schemaVersion).toBe(PROGRAM_DELETION_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('Program 행이 삭제된 뒤에도 조회가 깨지지 않고 programName을 그대로 읽어낸다 — join fallback이 불가능한 경우다', () => {
+    const metadata = createProgramDeletionAuditMetadata({
+      programName: '이미 삭제된 프로그램',
+      lifecycle: ProgramLifecycle.ARCHIVED,
+      blockingCounts: {
+        applications: 0,
+        teams: 0,
+        submissions: 0,
+        boardPosts: 0,
+      },
+    });
+
+    const result = parseAuditLogMetadata(metadata);
+    expect(result.legacy).toBe(false);
+    expect(result.metadata).toMatchObject({
+      programName: '이미 삭제된 프로그램',
+      lifecycle: ProgramLifecycle.ARCHIVED,
+    });
+  });
+
+  it('blockingCounts 필드가 하나라도 없으면 거부한다', () => {
+    const malformed = {
+      schemaVersion: PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
+      programName: '합성',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      blockingCounts: { applications: 0, teams: 0, submissions: 0 },
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+
+  it('programName이 없으면 거부한다', () => {
+    const malformed = {
+      schemaVersion: PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      blockingCounts: {
+        applications: 0,
+        teams: 0,
+        submissions: 0,
+        boardPosts: 0,
+      },
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+
+  it('사람 신원(실명·GitHub 로그인·학번)을 담지 않는다 — 대상은 targetId로만 식별한다', () => {
+    const metadata = createProgramDeletionAuditMetadata({
+      programName: '합성 프로그램',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      blockingCounts: {
+        applications: 0,
+        teams: 0,
+        submissions: 0,
+        boardPosts: 0,
+      },
+    });
+
+    expect(Object.keys(metadata).sort()).toEqual(
+      ['blockingCounts', 'lifecycle', 'programName', 'schemaVersion'].sort(),
     );
   });
 });

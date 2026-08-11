@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Inject,
@@ -35,6 +36,7 @@ import { ProgramStatusCountsResponseDto } from '../dto/program-status-counts-res
 import { StudentDashboardResponseDto } from '../dto/student-dashboard-response.dto';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
+import { ProgramLifecycleService } from '../service/program-lifecycle.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
 import { ProgramsService } from '../service/programs.service';
 import { StudentDashboardService } from '../service/student-dashboard.service';
@@ -55,6 +57,7 @@ export class ProgramsController {
     private readonly activity: ProgramActivityService,
     private readonly viewers: ProgramViewerService,
     private readonly config: AuthConfig,
+    private readonly lifecycle: ProgramLifecycleService,
   ) {}
 
   /**
@@ -123,6 +126,16 @@ export class ProgramsController {
       programId,
       await this.viewers.fromGithubId(request.sessionGithubId),
     );
+  }
+
+  /** ADMIN 전용 영구 삭제 — STAFF는 프로그램 생성자여도 403이다(#875). */
+  @Delete(':id')
+  @UseGuards(SessionGuard, OriginGuard)
+  delete(
+    @Param('id') programId: string,
+    @Req() request: SessionIdentity,
+  ): Promise<{ readonly id: string; readonly deleted: true }> {
+    return this.lifecycle.delete(request.sessionGithubId, programId);
   }
 }
 

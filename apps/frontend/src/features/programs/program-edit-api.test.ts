@@ -3,6 +3,7 @@ import { ApiError, apiPath } from '@/lib/api-client';
 import {
   createMilestone,
   deleteMilestone,
+  deleteProgram,
   getEditableProgram,
   type EditableProgram,
   updateMilestone,
@@ -218,6 +219,20 @@ describe('program edit API', () => {
 
     expect(isMilestoneSubmissionConflict(new ApiError(conflictProblem))).toBe(
       true,
+    );
+  });
+
+  // #875 — ADMIN 전용 영구 삭제. DELETE 메서드와 canonical id 엔드포인트를 확인한다.
+  it('deletes a program through the canonical id endpoint with DELETE', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ id: 'program-1', deleted: true }),
+    );
+
+    await deleteProgram('program-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('programs/program-1'),
+      expect.objectContaining({ method: 'DELETE' }),
     );
   });
 });
