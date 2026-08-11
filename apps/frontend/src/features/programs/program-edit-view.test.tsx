@@ -12,6 +12,21 @@ import { ProgramEditView } from './program-edit-view';
 
 const noOp = () => undefined;
 
+/**
+ * #867에서 새로 생긴 props다. 게시 상태 전환·「변경 취소」가 필요로 하는 값들이라
+ * 대부분의 테스트에서 값 자체는 중요하지 않다 — 필요한 테스트만 덮어쓴다.
+ */
+const lifecycleActionProps = {
+  isDirty: false,
+  isLifecycleBusy: false,
+  isLifecycleConfirming: false,
+  lifecycleError: null,
+  onReset: noOp,
+  onRequestLifecycleToggle: noOp,
+  onCancelLifecycleToggle: noOp,
+  onConfirmLifecycleToggle: noOp,
+};
+
 const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS 경진대회',
@@ -53,7 +68,7 @@ const fieldErrors: ProgramEditErrors = {
 };
 
 describe('ProgramEditView contract', () => {
-  it('renders locked category, template metadata, milestone actions, and cancel detail link', () => {
+  it('renders locked category, template metadata, milestone actions, and the exit link', () => {
     // Given / When
     const html = renderToStaticMarkup(
       <ProgramEditView
@@ -67,6 +82,7 @@ describe('ProgramEditView contract', () => {
         deleteTarget={null}
         expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
+        {...lifecycleActionProps}
         onFieldChange={noOp}
         onSubmit={vi.fn()}
         onAddMilestone={noOp}
@@ -87,14 +103,18 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('disabled=""');
     expect(html).toContain('id="program-end-at"');
     expect(html).toContain('프로그램 종료');
-    expect(html).toContain('oss-contest');
+    // 양식 키(`oss-contest`)는 구현 식별자다 — 사람이 읽을 양식명만 화면에 남는다.
+    expect(html).not.toContain('oss-contest');
+    expect(html).toContain('OSS경진대회 신청서');
     expect(html).toContain('v1');
     expect(html).toContain('milestone-canonical-id');
     expect(html).toContain('기획서 제출');
     expect(html).toContain('TEXT');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
+    // 페이지를 나가는 길은 제목 위의 이 링크 하나뿐이다.
     expect(html).toContain('href="/programs/program-1"');
+    expect(html).toContain('← 프로그램 개요');
   });
 
   // #355 — 교직원 화면은 내부 구현 용어를 쓰지 않는다.
@@ -112,6 +132,7 @@ describe('ProgramEditView contract', () => {
         deleteTarget={null}
         expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
+        {...lifecycleActionProps}
         onFieldChange={noOp}
         onSubmit={vi.fn()}
         onAddMilestone={noOp}
@@ -162,6 +183,7 @@ describe('ProgramEditView contract', () => {
         deleteTarget={null}
         expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
+        {...lifecycleActionProps}
         onFieldChange={noOp}
         onSubmit={vi.fn()}
         onAddMilestone={noOp}
@@ -188,13 +210,14 @@ describe('ProgramEditView contract', () => {
         program={editableProgram}
         form={toProgramEditForm(editableProgram)}
         errors={{}}
-        toastMessage="저장되었습니다. 상세 화면으로 이동합니다."
+        toastMessage="저장되었습니다."
         generalAlert="제출물이 있는 마일스톤은 삭제할 수 없습니다."
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={editableProgram.milestones[0]}
         expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
+        {...lifecycleActionProps}
         onFieldChange={noOp}
         onSubmit={vi.fn()}
         onAddMilestone={noOp}
@@ -214,7 +237,9 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('삭제 확정');
     expect(html).toContain('제출물이 있는 마일스톤은 삭제할 수 없습니다');
     expect(html).toContain('role="status"');
-    expect(html).toContain('저장되었습니다');
+    // 저장은 더 이상 페이지를 떠나지 않는다 — 안내문도 이동을 말하지 않는다.
+    expect(html).toContain('저장되었습니다.');
+    expect(html).not.toContain('상세 화면으로 이동합니다');
   });
   it('locks category selection when only teams exist', () => {
     // Given
@@ -243,6 +268,7 @@ describe('ProgramEditView contract', () => {
         deleteTarget={null}
         expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
+        {...lifecycleActionProps}
         onFieldChange={noOp}
         onSubmit={vi.fn()}
         onAddMilestone={noOp}
@@ -329,5 +355,167 @@ describe('ProgramEditView contract', () => {
     expect(mapProgramEditError(error).endAt).toContain(
       '신청 종료일과 모든 마일스톤 마감 이후',
     );
+  });
+
+  // #867 — 「변경 취소」/「변경사항 저장」은 우측 정렬이고(docs/rules/frontend.md),
+  // 그 액션 묶음은 오른쪽 끝에 붙는 것이지 양 끝으로 벌어지는 게 아니다.
+  it('폼의 제출/취소 버튼 묶음은 justify-end이고 justify-between이 아니다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={editableProgram}
+        form={toProgramEditForm(editableProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    const footerStart = html.indexOf(
+      'class="flex flex-wrap justify-end gap-2"',
+    );
+    expect(footerStart).toBeGreaterThan(-1);
+    // 폼이 끝나는 지점(</form>)까지만 잘라야 한다 — 그 뒤 마일스톤 섹션 헤더는
+    // 자기 자신의 justify-between 레이아웃을 갖고 있어서, 창을 너무 넓게 잡으면
+    // 그 무관한 justify-between까지 걸려 오탐이 난다.
+    const formEnd = html.indexOf('</form>', footerStart);
+    expect(formEnd).toBeGreaterThan(-1);
+    const footer = html.slice(footerStart, formEnd);
+    expect(footer).not.toContain('justify-between');
+    expect(footer).toContain('변경 취소');
+    expect(footer).toContain('변경사항 저장');
+  });
+
+  // #867 — 게시 상태 전환은 되돌릴 수 있으므로(program-edit-lifecycle-section.tsx
+  // 상단 주석) destructive 톤을 쓰지 않는다. PUBLISHED에서는 「프로그램 내리기」가
+  // outline 버튼으로 뜬다.
+  it('PUBLISHED는 게시 상태 섹션과 destructive 톤이 아닌 프로그램 내리기 버튼을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={editableProgram}
+        form={toProgramEditForm(editableProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('게시 상태');
+    expect(html).toContain(
+      '현재 프로그램이 공개되어 있으며 신청 기간 안이면 신청을 받고 있습니다.',
+    );
+
+    const buttonStart = html.indexOf('프로그램 내리기');
+    expect(buttonStart).toBeGreaterThan(-1);
+    // data-variant는 class보다 앞서 나오는데, class 문자열 자체가 수백 자라
+    // 400자로는 열린 태그 시작까지 못 돌아간다 — button.tsx의 cva 조합 길이만큼 넉넉히 잡는다.
+    const buttonTag = html.slice(Math.max(0, buttonStart - 1200), buttonStart);
+    expect(buttonTag).toContain('data-variant="outline"');
+    expect(buttonTag).not.toContain('text-destructive');
+  });
+
+  // ARCHIVED에서는 반대 방향 문구를 쓴다 — 예전 문구(「프로그램 복구하기」)는
+  // 다시 나오면 안 된다(#867 완료 기준).
+  it('ARCHIVED는 다시 게시하기를 보여주고 예전 문구를 쓰지 않는다', () => {
+    const archivedProgram: EditableProgram = {
+      ...editableProgram,
+      lifecycle: 'ARCHIVED',
+    };
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={archivedProgram}
+        form={toProgramEditForm(archivedProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('다시 게시하기');
+    expect(html).not.toContain('프로그램 복구하기');
+  });
+
+  // isLifecycleConfirming=true일 때 크래시 없이 섹션이 그려지는지만 여기서 본다.
+  // Radix AlertDialog의 Portal은 useLayoutEffect가 붙어야 mount되는데,
+  // renderToStaticMarkup은 effect를 전혀 돌리지 않는다(SSR 문자열 렌더러라
+  // container가 계산되지 않고 Portal이 null을 반환한다) — 그래서 이 파일에서는
+  // 다이얼로그가 실제로 뜨는지 확인할 수 없다. 그 부분은 실제 DOM에 mount하는
+  // program-edit-page.test.tsx 쪽 컴포넌트 테스트가 맡는다.
+  it('isLifecycleConfirming이어도 SSR 렌더링이 깨지지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={editableProgram}
+        form={toProgramEditForm(editableProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        isLifecycleConfirming
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('게시 상태');
   });
 });

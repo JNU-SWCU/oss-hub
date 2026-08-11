@@ -1,8 +1,13 @@
-﻿import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+﻿import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { EditableMilestone, EditableProgram } from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
+import {
+  lifecycleStatusLabel,
+  ProgramEditLifecycleSection,
+} from './program-edit-lifecycle-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
 import {
   type ProgramEditableField,
@@ -11,7 +16,9 @@ import {
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
 } from './program-edit-flow';
-import { PageBody } from '@/components';
+import { programHref } from './program-paths';
+import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import { PageBody, PageHeader, StatusBadge } from '@/components';
 
 /** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
 const FORM_WIDTH = 'max-w-4xl';
@@ -30,11 +37,19 @@ interface ProgramEditViewProps {
   /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「받을 서류」가 펼쳐진 채로 뜬다. */
   readonly expandedDocumentsMilestoneId: string | null;
   readonly isMilestoneBusy: boolean;
+  readonly isDirty: boolean;
+  readonly isLifecycleBusy: boolean;
+  readonly isLifecycleConfirming: boolean;
+  readonly lifecycleError: string | null;
   readonly onFieldChange: (
     field: ProgramEditableField,
     value: string | boolean,
   ) => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  readonly onReset: () => void;
+  readonly onRequestLifecycleToggle: () => void;
+  readonly onCancelLifecycleToggle: () => void;
+  readonly onConfirmLifecycleToggle: () => void;
   readonly onAddMilestone: () => void;
   readonly onEditMilestone: (milestone: EditableMilestone) => void;
   readonly onCancelMilestone: () => void;
@@ -91,8 +106,16 @@ export function ProgramEditView({
   deleteTarget,
   expandedDocumentsMilestoneId,
   isMilestoneBusy,
+  isDirty,
+  isLifecycleBusy,
+  isLifecycleConfirming,
+  lifecycleError,
   onFieldChange,
   onSubmit,
+  onReset,
+  onRequestLifecycleToggle,
+  onCancelLifecycleToggle,
+  onConfirmLifecycleToggle,
   onAddMilestone,
   onEditMilestone,
   onCancelMilestone,
@@ -104,28 +127,42 @@ export function ProgramEditView({
 }: ProgramEditViewProps) {
   return (
     <PageBody className={FORM_WIDTH}>
-      <header className="grid gap-4">
-        <div className="grid gap-3">
-          <h1 className="font-heading text-page font-bold tracking-[-0.03em] leading-[1.15]">
-            프로그램 편집
-          </h1>
-          <p className="text-muted-foreground">{program.name}</p>
-        </div>
-        <dl className="grid gap-4 text-small sm:grid-cols-2">
-          <div className="rounded-card border border-border bg-card p-card">
-            <dt className="text-muted-foreground">신청서 양식</dt>
-            <dd className="mt-1 font-semibold">
-              {program.applicationTemplateKey}
-            </dd>
-          </div>
-          <div className="rounded-card border border-border bg-card p-card">
-            <dt className="text-muted-foreground">양식 버전</dt>
-            <dd className="mt-1 font-semibold">
-              v{program.applicationTemplateVersion}
-            </dd>
-          </div>
-        </dl>
-      </header>
+      {/*
+        페이지에서 나가는 길은 제목 위의 이 링크 하나다. 폼 안에 두면 「기본 정보」
+        섹션의 변경을 취소하는 것처럼 읽히는데, 이 페이지는 그 아래에서 마일스톤도
+        편집한다 — 한 섹션의 액션이 페이지 전체를 떠나게 하면 안 된다.
+      */}
+      <div className="flex flex-col gap-4">
+        <Button asChild variant="ghost" size="sm" className="self-start">
+          <Link href={programHref(program.id)}>← 프로그램 개요</Link>
+        </Button>
+        <PageHeader
+          title="프로그램 편집"
+          description={program.name}
+          actions={
+            <StatusBadge
+              variant={
+                program.lifecycle === 'PUBLISHED' ? 'recruiting' : 'closed'
+              }
+            >
+              {lifecycleStatusLabel(program.lifecycle)}
+            </StatusBadge>
+          }
+        />
+        {/*
+          양식 키(`oss-contest`)와 버전은 구현 식별자다. 화면에는 사람이 읽을 양식명만
+          두고, 버전은 평소 볼 일이 없으므로 접어 둔다.
+        */}
+        <details className="rounded-card border border-border bg-card p-card text-small">
+          <summary className="cursor-pointer font-semibold">
+            신청서 양식 · {applicationTemplateName(program)}
+          </summary>
+          <p className="mt-2 text-muted-foreground">
+            양식 버전 v{program.applicationTemplateVersion} — 양식과 버전은
+            프로그램 유형이 정하며 이 화면에서 바꿀 수 없습니다.
+          </p>
+        </details>
+      </div>
       <div className={SECTIONS}>
         {toastMessage ? (
           <div
@@ -146,8 +183,10 @@ export function ProgramEditView({
           form={form}
           errors={errors}
           isSaving={isSaving}
+          isDirty={isDirty}
           onFieldChange={onFieldChange}
           onSubmit={onSubmit}
+          onReset={onReset}
         />
         <Card>
           <CardContent className="pt-card">
@@ -168,7 +207,24 @@ export function ProgramEditView({
             />
           </CardContent>
         </Card>
+        <ProgramEditLifecycleSection
+          lifecycle={program.lifecycle}
+          isBusy={isLifecycleBusy}
+          isConfirming={isLifecycleConfirming}
+          error={lifecycleError}
+          onRequestToggle={onRequestLifecycleToggle}
+          onCancelToggle={onCancelLifecycleToggle}
+          onConfirmToggle={onConfirmLifecycleToggle}
+        />
       </div>
     </PageBody>
+  );
+}
+
+function applicationTemplateName(program: EditableProgram): string {
+  return (
+    PROGRAM_TEMPLATE_DEFINITIONS.find(
+      (item) => item.template.key === program.applicationTemplateKey,
+    )?.template.name ?? '기본 신청서'
   );
 }

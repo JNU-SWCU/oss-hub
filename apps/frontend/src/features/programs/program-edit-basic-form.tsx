@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -10,7 +9,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
 import type { EditableProgram } from './api';
-import { programHref } from './program-paths';
 import {
   type ProgramEditableField,
   type ProgramEditErrors,
@@ -24,11 +22,15 @@ interface ProgramEditBasicFormProps {
   readonly form: ProgramEditForm;
   readonly errors: ProgramEditErrors;
   readonly isSaving: boolean;
+  /** 마지막 저장 이후 바뀐 입력이 있는지 — 「변경 취소」의 활성 여부를 정한다. */
+  readonly isDirty: boolean;
   readonly onFieldChange: (
     field: ProgramEditableField,
     value: string | boolean,
   ) => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  /** 폼 입력만 마지막 저장값으로 되돌린다 — 페이지를 떠나지 않는다. */
+  readonly onReset: () => void;
 }
 
 export function ProgramEditBasicForm({
@@ -36,8 +38,10 @@ export function ProgramEditBasicForm({
   form,
   errors,
   isSaving,
+  isDirty,
   onFieldChange,
   onSubmit,
+  onReset,
 }: ProgramEditBasicFormProps) {
   const templateLockReason = categoryLockReason(program);
   const selectedTemplate = PROGRAM_TEMPLATE_DEFINITIONS.find(
@@ -249,12 +253,23 @@ export function ProgramEditBasicForm({
             }
           />
           <FieldError>{errors.general}</FieldError>
-          <div className="flex justify-between gap-2">
-            <Button asChild type="button" variant="outline">
-              <Link href={programHref(program.id)}>취소</Link>
+          {/*
+            폼의 제출·취소 그룹은 우측 정렬이다(docs/rules/frontend.md). 여기 있는
+            「변경 취소」는 페이지를 떠나는 내비게이션이 아니라 이 폼의 입력을 마지막
+            저장값으로 되돌리는 행동이다 — 페이지에서 나가는 길은 제목 위의
+            「← 프로그램 개요」 하나뿐이다.
+          */}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!isDirty || isSaving}
+              onClick={onReset}
+            >
+              변경 취소
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? '저장 중…' : '저장'}
+              {isSaving ? '저장 중…' : '변경사항 저장'}
             </Button>
           </div>
         </FieldGroup>
