@@ -101,7 +101,7 @@ describe('RepositoryProvisionWorker integration', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
-    await prisma.repository.deleteMany({
+    await prisma.githubRepository.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.outboxEvent.deleteMany({
@@ -151,7 +151,7 @@ describe('RepositoryProvisionWorker integration', () => {
 
     // Then: private repository 한 건과 snapshot별 invitation이 저장된다.
     expect(result.kind).toBe('SUCCEEDED');
-    const repository = await prisma.repository.findUniqueOrThrow({
+    const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { applicationId },
       include: { invitations: { orderBy: { githubLogin: 'asc' } } },
     });
@@ -236,7 +236,7 @@ describe('RepositoryProvisionWorker integration', () => {
       ['synthetic-leader', 'synthetic-student', 'synthetic-student'],
     );
     await expect(
-      prisma.repository.count({ where: { applicationId } }),
+      prisma.githubRepository.count({ where: { applicationId } }),
     ).resolves.toBe(1);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -258,7 +258,7 @@ describe('RepositoryProvisionWorker integration', () => {
       enrollExternalRepository: jest.fn(),
     });
     await worker.runNext('provision-worker-cap-initial', NOW);
-    const repository = await prisma.repository.findUniqueOrThrow({
+    const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { applicationId },
     });
     await prisma.repositoryInvitation.updateMany({
@@ -291,7 +291,7 @@ describe('RepositoryProvisionWorker integration', () => {
       enrollExternalRepository: jest.fn(),
     });
     await worker.runNext('provision-worker-exhaust-initial', NOW);
-    const repository = await prisma.repository.findUniqueOrThrow({
+    const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { applicationId },
     });
     await prisma.repositoryInvitation.updateMany({
@@ -381,7 +381,7 @@ describe('RepositoryProvisionWorker integration', () => {
     expect(enrolled.nameWithOwner).toContain('/');
     // 신청 연결도 DB 로 증명된다 — 프로그램 화면의 노출 조건이다.
     await expect(
-      prisma.repository.findUniqueOrThrow({ where: { applicationId } }),
+      prisma.githubRepository.findUniqueOrThrow({ where: { applicationId } }),
     ).resolves.toMatchObject({
       githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
     });
@@ -427,6 +427,7 @@ function repositoryMetadata(
     githubRepositoryId: 987654321n,
     name,
     url: `https://github.com/synthetic-org/${name}`,
+    nameWithOwner: `synthetic-org/${name}`,
     visibility: RepositoryVisibility.PRIVATE,
     description,
   };

@@ -120,7 +120,7 @@ export class ProgramOverviewRepository {
         select: { userId: true },
         distinct: ['userId'],
       }),
-      this.prisma.repository.count({ where: { programId } }),
+      this.prisma.githubRepository.count({ where: { programId } }),
     ]);
     const participantIds = new Set<string>(
       teamMemberRows.map((row) => row.userId),
@@ -490,7 +490,7 @@ export class ProgramOverviewRepository {
 
   /**
    * #619 공개 팀 목록 — dedicated public query: 명시적 select만 쓰고 팀명·인원·멤버
-   * nickname·팀장 여부만 반환한다. `Repository`(저장소 URL)·`TeamMember.phone/email`·
+   * nickname·팀장 여부만 반환한다. `GithubRepository`(저장소 URL)·`TeamMember.phone/email`·
    * `User.studentId`는 이 select에 절대 포함하지 않는다(프로토타입 문구 "팀 구성과
    * 인원만 공개됩니다 · 저장소는 비공개"). 표시명은 실명(profile.name)이 아니라
    * GitHub nickname만 쓴다 — 프로그램 내 다른 참가자 전원에게 노출되는 로스터라

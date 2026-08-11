@@ -221,7 +221,7 @@ export class ProgramsRepository {
     programId: string,
     studentUserId: string | null,
   ) {
-    const repositories = await this.prisma.repository.findMany({
+    const repositories = await this.prisma.githubRepository.findMany({
       where: {
         programId,
         ...(studentUserId
@@ -255,18 +255,24 @@ export class ProgramsRepository {
         },
       },
     });
-    return repositories.map((repository) => ({
-      githubRepositoryId: repository.githubRepositoryId,
-      application: {
-        id: repository.application.id,
-        applicant: {
-          githubId: repository.application.applicant.githubId,
-          nickname: repository.application.applicant.nickname,
-          name: resolveCompatibleProfileName(repository.application.applicant),
+    // programId로 걸러진 행은 항상 provisioning이 만든 행이라 application을 갖는다 —
+    // 인벤토리 스윕이 만든 행(programId null)은 이 where절에 애초에 매칭되지 않는다.
+    return repositories
+      .filter((repository) => repository.application !== null)
+      .map((repository) => ({
+        githubRepositoryId: repository.githubRepositoryId,
+        application: {
+          id: repository.application!.id,
+          applicant: {
+            githubId: repository.application!.applicant.githubId,
+            nickname: repository.application!.applicant.nickname,
+            name: resolveCompatibleProfileName(
+              repository.application!.applicant,
+            ),
+          },
+          team: repository.application!.team,
         },
-        team: repository.application.team,
-      },
-    }));
+      }));
   }
 
   async findStudentActivityApplications(userId: string) {

@@ -111,14 +111,14 @@ async function createRepositoryFixture(params: {
   });
   const repositoryId = `${PREFIX}-${params.key}-repository`;
   const repositoryName = `${PREFIX}-${params.key}-repo`;
-  await harness.prisma.repository.create({
+  await harness.prisma.githubRepository.create({
     data: {
       id: repositoryId,
       applicationId,
       programId: PROGRAM_ID,
       githubRepositoryId,
-      name: repositoryName,
-      url: `https://github.invalid/${PREFIX}/${repositoryName}`,
+      nameWithOwner: `synthetic-org/${repositoryName}`,
+      source: RepositorySource.ORG_PROVISIONED,
       visibility: params.visibility,
       publishedAt: params.publishedAt,
     },
@@ -176,15 +176,13 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       publishedAt: PUBLISHED_AT,
     });
     publicProject = published;
-    await harness.prisma.githubRepository.create({
+    // 같은 githubRepositoryId 행을 collection 관찰 필드로 갱신한다(#617 단계 D 이후
+    // applicationId 행과 collection 행은 같은 유일 행이라 별도 create가 P2002를 낸다).
+    await harness.prisma.githubRepository.update({
+      where: { id: published.repositoryId },
       data: {
-        id: `${PREFIX}-published-collection-repository`,
         githubOrganizationId: 8_900_000_000_001n,
-        githubRepositoryId: published.githubRepositoryId,
-        nameWithOwner: `synthetic-org/${PREFIX}-published`,
         defaultBranch: 'main',
-        source: RepositorySource.ORG_PROVISIONED,
-        visibility: RepositoryVisibility.PUBLIC,
         presence: CollectionRepositoryPresence.PRESENT,
         lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
       },
@@ -192,7 +190,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.contribution.createMany({
       data: [
         {
-          repositoryId: `${PREFIX}-published-collection-repository`,
+          repositoryId: published.repositoryId,
           githubId: 8_950_000_000_001n,
           date: new Date(Date.UTC(2026, 0, 2)),
           commitCount: 5,
@@ -225,16 +223,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.contribution.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
-      await harness.prisma.contribution.deleteMany({
-        where: { repositoryId: { startsWith: `${PREFIX}-` } },
-      });
-      await harness.prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
       await harness.prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await harness.prisma.repository.deleteMany({
+      await harness.prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await harness.prisma.application.deleteMany({
@@ -375,6 +367,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     harness.githubPublishRepositoryMock?.mockResolvedValue({
       githubRepositoryId: gateRepoForStaff.githubRepositoryId,
       name: `${PREFIX}-gate-staff-repo`,
+      nameWithOwner: `synthetic-org/${PREFIX}-gate-staff-repo`,
       url: `https://github.invalid/${PREFIX}/${PREFIX}-gate-staff-repo`,
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
@@ -394,6 +387,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     harness.githubPublishRepositoryMock?.mockResolvedValue({
       githubRepositoryId: gateRepoForAdmin.githubRepositoryId,
       name: `${PREFIX}-gate-admin-repo`,
+      nameWithOwner: `synthetic-org/${PREFIX}-gate-admin-repo`,
       url: `https://github.invalid/${PREFIX}/${PREFIX}-gate-admin-repo`,
       visibility: RepositoryVisibility.PUBLIC,
       description: null,

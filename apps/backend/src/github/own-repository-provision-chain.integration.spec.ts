@@ -19,6 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type {
   GithubAppClient,
   GithubPublicRepositoryMetadata,
+  GithubRepositoryMetadata,
 } from './github-app.client';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { RepositoriesRepository } from './repository/repositories.repository';
@@ -59,12 +60,16 @@ const APPLICANT_ID = 'synthetic-own-chain-applicant';
 const APPLICANT_GITHUB_ID = 8_400_000_000_003n;
 const NO_CONSENT_APPLICANT_ID = 'synthetic-own-chain-no-consent-applicant';
 const NO_CONSENT_APPLICANT_GITHUB_ID = 8_400_000_000_004n;
+const ORG_OWN_APPLICANT_ID = 'synthetic-own-chain-org-applicant';
+const ORG_OWN_APPLICANT_GITHUB_ID = 8_400_000_000_005n;
 
 const CHAIN_APPLICATION_ID = 'synthetic-own-chain-application';
 const NO_CONSENT_APPLICATION_ID = 'synthetic-own-chain-no-consent-application';
+const ORG_OWN_APPLICATION_ID = 'synthetic-own-chain-org-application';
 const APPLICATION_IDS = [
   CHAIN_APPLICATION_ID,
   NO_CONSENT_APPLICATION_ID,
+  ORG_OWN_APPLICATION_ID,
 ] as const;
 
 const OWN_GITHUB_REPOSITORY_ID = 8_520_100_001n;
@@ -76,6 +81,13 @@ const NO_CONSENT_GITHUB_REPOSITORY_ID = 8_520_100_002n;
 const NO_CONSENT_NAME_WITH_OWNER =
   'synthetic-own-chain-student/synthetic-own-chain-no-consent-repo';
 const NO_CONSENT_REPOSITORY_URL = `https://github.com/${NO_CONSENT_NAME_WITH_OWNER}`;
+
+// mock github client의 organization과 같아야 ORGANIZATION 경로로 판정된다
+// (resolveOwnGithubRepository — repository-provision.github.ts:47).
+const ORG_OWN_ORGANIZATION = 'synthetic-own-chain-org';
+const ORG_GITHUB_REPOSITORY_ID = 8_520_100_003n;
+const ORG_OWN_NAME_WITH_OWNER = `${ORG_OWN_ORGANIZATION}/synthetic-own-chain-org-repo`;
+const ORG_OWN_REPOSITORY_URL = `https://github.com/${ORG_OWN_NAME_WITH_OWNER}`;
 
 type ProvisionGithubClient = jest.Mocked<
   Pick<
@@ -120,6 +132,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           nickname: 'synthetic-own-chain-no-consent',
           role: Role.STUDENT,
         },
+        {
+          id: ORG_OWN_APPLICANT_ID,
+          githubId: ORG_OWN_APPLICANT_GITHUB_ID,
+          nickname: 'synthetic-own-chain-org-applicant',
+          role: Role.STUDENT,
+        },
       ],
     });
     // 편입은 현재 동의를 요구한다(RepositoryOwnEnrollmentService) — 정책 버전은
@@ -138,16 +156,20 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await prisma.githubRepository.deleteMany({
       where: {
         githubRepositoryId: {
-          in: [OWN_GITHUB_REPOSITORY_ID, NO_CONSENT_GITHUB_REPOSITORY_ID],
+          in: [
+            OWN_GITHUB_REPOSITORY_ID,
+            NO_CONSENT_GITHUB_REPOSITORY_ID,
+            ORG_GITHUB_REPOSITORY_ID,
+          ],
         },
       },
     });
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
-    await prisma.repository.deleteMany({
-      where: { applicationId: { in: [...APPLICATION_IDS] } },
-    });
+    // #617 단계 D 이후 applicationId로 만든 행과 githubRepositoryId로 만든 행이
+    // 같은 GithubRepository 테이블의 같은 행이다 — 위에서 이미 지웠으므로 여기서
+    // applicationId로 다시 지우는 건 중복이다(비어 있는 deleteMany는 안전한 no-op).
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
@@ -268,8 +290,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         defaultBranch: 'main',
         presence: 'PRESENT',
       });
+      // recordRepository(provision)와 enrollExternalRepository(수집 관찰)가
+      // applicationId/githubRepositoryId로 각각 찾아도 같은 통합 행으로 수렴한다.
       await expect(
-        prisma.repository.findUniqueOrThrow({
+        prisma.githubRepository.findUniqueOrThrow({
           where: { applicationId: CHAIN_APPLICATION_ID },
         }),
       ).resolves.toMatchObject({
@@ -285,7 +309,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     },
   );
 
-  it('현재 동의가 없으면 worker 편입이 실패로 끝나고 수집 행을 남기지 않는다', async () => {
+  it('현재 동의가 없으면 job은 재시도 가능 실패로 끝나고 수집 관찰 필드는 채워지지 않는다', async () => {
     // Given — 동의 없는 신청자의 OWN 신청이 승인되어 job까지 만들어졌다.
     await createOwnApplication(
       NO_CONSENT_APPLICATION_ID,
@@ -322,13 +346,22 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     );
 
     // Then — 동의 선행조건(RepositoryOwnEnrollmentService.requireCurrent)에 막혀
-    // job은 재시도 가능 실패로 끝나고 수집 행은 만들어지지 않는다.
+    // job은 재시도 가능 실패로 끝난다. recordRepository(provision)는 동의 확인보다
+    // 먼저 실행되고 #617 단계 D 이후로는 provision과 수집 관찰이 같은
+    // GithubRepository 행을 쓰므로, 행 자체는 만들어진다 — 다만 뒤이은
+    // enrollExternalRepository가 동의 부재로 던지면서 수집 관찰 필드는 생성
+    // 시점 기본값(defaultBranch: null 등)에 머문다.
     expect(result.kind).toBe('FAILED_RETRYABLE');
     await expect(
-      prisma.githubRepository.findFirst({
+      prisma.githubRepository.findFirstOrThrow({
         where: { githubRepositoryId: NO_CONSENT_GITHUB_REPOSITORY_ID },
       }),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({
+      applicationId: NO_CONSENT_APPLICATION_ID,
+      source: 'EXTERNAL_PUBLIC',
+      defaultBranch: null,
+      lastSuccessAt: null,
+    });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { applicationId: NO_CONSENT_APPLICATION_ID },
@@ -337,6 +370,82 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
     });
   });
+
+  it(
+    'org sweep이 먼저 applicationId:null로 관찰해 둔 저장소를 OWN+ORGANIZATION ' +
+      '연결이 채택해 성공한다(#617 단계 D 회귀 — recordRepository가 applicationId ' +
+      '기준으로만 upsert하면 githubRepositoryId unique 제약과 충돌해 항상 실패했다)',
+    async () => {
+      // Given — org 전체 sweep(collection-sync.service.ts)이 이 조직 저장소를
+      // 이미 관찰해 applicationId: null인 GithubRepository 행을 만들어 놨다.
+      await prisma.githubRepository.create({
+        data: {
+          githubRepositoryId: ORG_GITHUB_REPOSITORY_ID,
+          nameWithOwner: ORG_OWN_NAME_WITH_OWNER,
+          defaultBranch: null,
+          archived: false,
+          visibility: RepositoryVisibility.PRIVATE,
+          source: 'ORG_PROVISIONED',
+          presence: 'PRESENT',
+        },
+      });
+
+      await createOwnApplication(
+        ORG_OWN_APPLICATION_ID,
+        ORG_OWN_APPLICANT_ID,
+        ORG_OWN_REPOSITORY_URL,
+      );
+      await service.decide(
+        STAFF_ACTOR_ID,
+        ORG_OWN_APPLICATION_ID,
+        STAFF_GITHUB_ID,
+        { action: 'APPROVE' },
+      );
+      await expect(
+        outbox.consumeNext('own-chain-org-outbox-worker', new Date()),
+      ).resolves.toMatchObject({ kind: 'CONSUMED' });
+
+      // When — worker가 job을 처리한다. ORGANIZATION 경로는 findRepository로 해석되고,
+      // 동의 확인(enrollExternalRepository)은 EXTERNAL 경로에서만 일어나므로 여기선
+      // consent 행이 없어도 된다.
+      const github = githubClient();
+      github.findRepository.mockResolvedValue(
+        orgRepositoryMetadata(
+          ORG_GITHUB_REPOSITORY_ID,
+          ORG_OWN_NAME_WITH_OWNER,
+        ),
+      );
+      const worker = new RepositoryProvisionWorker(
+        jobs,
+        state,
+        github,
+        ownEnrollment(),
+      );
+      const result = await worker.runNext(
+        'own-chain-org-provision-worker',
+        new Date(),
+      );
+
+      // Then — 새 행을 만드는 대신 sweep이 만든 행을 채택해 성공한다.
+      expect(result.kind).toBe('SUCCEEDED');
+      await expect(
+        prisma.githubRepository.findUniqueOrThrow({
+          where: { githubRepositoryId: ORG_GITHUB_REPOSITORY_ID },
+        }),
+      ).resolves.toMatchObject({
+        applicationId: ORG_OWN_APPLICATION_ID,
+        source: 'ORG_PROVISIONED',
+        presence: 'PRESENT',
+      });
+      await expect(
+        prisma.repositoryProvisionJob.findUniqueOrThrow({
+          where: { applicationId: ORG_OWN_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      });
+    },
+  );
 });
 
 function programIdFor(applicationId: string): string {
@@ -429,5 +538,19 @@ function ownRepositoryMetadata(
     url: `https://github.com/${nameWithOwner}`,
     visibility: RepositoryVisibility.PUBLIC,
     description: 'synthetic-own-chain-description',
+  };
+}
+
+function orgRepositoryMetadata(
+  githubRepositoryId: bigint,
+  nameWithOwner: string,
+): GithubRepositoryMetadata {
+  return {
+    githubRepositoryId,
+    nameWithOwner,
+    name: nameWithOwner.split('/')[1] ?? nameWithOwner,
+    url: `https://github.com/${nameWithOwner}`,
+    visibility: RepositoryVisibility.PRIVATE,
+    description: 'synthetic-own-chain-org-description',
   };
 }

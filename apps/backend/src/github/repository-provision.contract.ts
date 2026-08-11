@@ -2,6 +2,7 @@ import type {
   ApplicationStatus,
   Prisma,
   RepositoryInvitationStatus,
+  RepositorySource,
   RepositoryVisibility,
 } from '@prisma/client';
 import type { GithubRepositoryMetadata } from './github-app.client';
@@ -40,6 +41,10 @@ export interface RecordProvisionedRepositoryInput {
   readonly applicationId: string;
   readonly programId: string;
   readonly teamId: string | null;
+  // OWN 연결이 조직 밖 저장소(EXTERNAL)로 판명되면 반드시 EXTERNAL_PUBLIC을 넘겨야
+  // 한다 — 그래야 이 행이 이미 있다고 보고 종료하는 enrollExternalRepository의
+  // updateMany(where: { source: 'EXTERNAL_PUBLIC' })가 같은 행을 잡는다(#617 단계 D).
+  readonly source: RepositorySource;
   readonly metadata: GithubRepositoryMetadata;
 }
 

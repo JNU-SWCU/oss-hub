@@ -23,7 +23,6 @@ interface MockPrisma {
     aggregate: jest.Mock;
   };
   contribution: { findMany: jest.Mock };
-  repository: { findMany: jest.Mock };
   program: { findMany: jest.Mock };
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
@@ -48,12 +47,10 @@ const createDb = (): MockPrisma => ({
   contribution: {
     findMany: jest.fn().mockResolvedValue([]),
   },
-  // 프로비저닝 테이블 — 조직 밖 저장소의 "신청에 연결됨" 증명원이자
-  // (저장소 → 프로그램) 배치 조인의 첫 단계. 기본은 "연결된 것 없음"이라
-  // EXTERNAL_PUBLIC은 걸러지고 programName도 null로 접힌다.
-  repository: { findMany: jest.fn().mockResolvedValue([]) },
-  // (저장소 → 프로그램) 배치 조인의 두 번째 단계. 기본값은 빈 목록이며 각
-  // 테스트가 필요한 만큼 채운다.
+  // (저장소 → 프로그램) 배치 조인의 두 번째 단계
+  // (`resolveProgramNamesByRepositoryId` — 첫 단계는 이제 별도 프로비저닝 테이블이
+  // 아니라 `githubRepository.findMany` 자체다). 기본값은 빈 목록이며 각 테스트가
+  // 필요한 만큼 채운다.
   program: { findMany: jest.fn().mockResolvedValue([]) },
   // 표시명 원본. 기본값은 빈 목록이며 각 테스트가 필요한 만큼 채운다.
   user: {
@@ -113,6 +110,14 @@ const REPOSITORY_SOURCE_BY_ID = new Map<bigint, string>([
   [ORG_REPOSITORY_ID, 'ORG_PROVISIONED'],
   [EXTERNAL_REPOSITORY_ID, 'EXTERNAL_PUBLIC'],
 ]);
+/**
+ * #617 단계 D 이후 "신청에 연결됨" 증명은 별도 조회가 아니라 같은 `GithubRepository`
+ * 행의 `applicationId`(신청에 연결된 행만 채워진다) 컬럼이다. 이 집합에 없는 id는
+ * `applicationId`가 null인 것으로 취급한다 — `EXTERNAL_REPOSITORY_ID`는 의도적으로
+ * 비워 둬 GR-13이 "연결되지 않은 조직 밖 저장소는 명시적으로 요청해도 제외된다"를
+ * 계속 고정하게 한다.
+ */
+const CONNECTED_REPOSITORY_IDS = new Set<bigint>();
 
 /** `githubRepository.findMany` 호출을 `where.githubRepositoryId.in`/`where.source`로 필터링한다. */
 function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
@@ -125,7 +130,7 @@ function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
         source?: string;
         OR?: readonly {
           source?: string;
-          githubRepositoryId?: { in: readonly bigint[] };
+          applicationId?: { not: null };
         }[];
       };
     }) => {
@@ -142,8 +147,8 @@ function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
             return false;
           }
           if (
-            clause.githubRepositoryId !== undefined &&
-            !clause.githubRepositoryId.in.includes(row.githubRepositoryId)
+            clause.applicationId !== undefined &&
+            !CONNECTED_REPOSITORY_IDS.has(row.githubRepositoryId)
           ) {
             return false;
           }
@@ -177,7 +182,7 @@ function findManyContributorYearAggregate<
           source?: string;
           OR?: readonly {
             source?: string;
-            githubRepositoryId?: { in: readonly bigint[] };
+            applicationId?: { not: null };
           }[];
         };
       };
@@ -193,8 +198,8 @@ function findManyContributorYearAggregate<
             return false;
           }
           if (
-            clause.githubRepositoryId !== undefined &&
-            !clause.githubRepositoryId.in.includes(id)
+            clause.applicationId !== undefined &&
+            !CONNECTED_REPOSITORY_IDS.has(id)
           ) {
             return false;
           }
@@ -268,7 +273,7 @@ describe('CollectionReadService — findRepositoryActivity', () => {
           // 조직 저장소이거나, 신청에 연결된 조직 밖 저장소만 통과한다.
           OR: [
             { source: 'ORG_PROVISIONED' },
-            { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+            { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
           ],
         },
       }),
@@ -361,7 +366,7 @@ describe('CollectionReadService — getRepositoryMetrics', () => {
           // 조직 저장소이거나, 신청에 연결된 조직 밖 저장소만 통과한다.
           OR: [
             { source: 'ORG_PROVISIONED' },
-            { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+            { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
           ],
         },
       }),
@@ -506,7 +511,7 @@ describe('CollectionReadService — getContributorMetrics', () => {
             githubRepositoryId: { in: [101n] },
             OR: [
               { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+              { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
             ],
           },
         },
@@ -832,7 +837,7 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
           // 조직 저장소이거나, 신청에 연결된 조직 밖 저장소만 통과한다.
           OR: [
             { source: 'ORG_PROVISIONED' },
-            { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+            { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
           ],
         },
       }),
@@ -972,7 +977,7 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
             presence: 'PRESENT',
             OR: [
               { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+              { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
             ],
           },
         },
@@ -1238,24 +1243,31 @@ describe('CollectionReadService — getIncrementalStatusStreams', () => {
   });
 
   /**
-   * 저장소↔프로그램 연결 노출 — `GithubRepository.githubRepositoryId`로
-   * `Repository.programId`를 거쳐 `Program.name`을 채운다(위 port 코멘트 참고).
+   * 저장소↔프로그램 연결 노출 — `GithubRepository.githubRepositoryId`로 같은 행의
+   * `programId`를 거쳐 `Program.name`을 채운다(#617 단계 D 이후, 위 port 코멘트 참고).
    * 연결이 있는 저장소와 없는 저장소를 같은 배치에 섞어, 있는 쪽만 채워지고
-   * 없는 쪽은 null로 남는지 함께 확인한다.
+   * 없는 쪽은 null로 남는지 함께 확인한다. `githubRepository.findMany`가 이 메서드
+   * 안에서 두 번 불린다 — 1번은 stream 상세 조회, 2번은 `resolveProgramNamesByRepositoryId`의
+   * `programId` 배치 조회다(별도 프로비저닝 테이블 조회가 아니다).
    */
-  it('githubRepositoryId → Repository.programId → Program.name 경유로 programName을 채운다', async () => {
+  it('githubRepositoryId → GithubRepository.programId → Program.name 경유로 programName을 채운다', async () => {
     const db = createDb();
-    db.githubRepository.findMany.mockResolvedValue([
-      {
-        githubRepositoryId: 301n,
-        nameWithOwner: 'JNU-SWCU/alpha',
-        streams: [],
-      },
-      { githubRepositoryId: 302n, nameWithOwner: 'JNU-SWCU/beta', streams: [] },
-    ]);
-    db.repository.findMany.mockResolvedValue([
-      { githubRepositoryId: 301n, programId: 'program-1' },
-    ]);
+    db.githubRepository.findMany
+      .mockResolvedValueOnce([
+        {
+          githubRepositoryId: 301n,
+          nameWithOwner: 'JNU-SWCU/alpha',
+          streams: [],
+        },
+        {
+          githubRepositoryId: 302n,
+          nameWithOwner: 'JNU-SWCU/beta',
+          streams: [],
+        },
+      ])
+      .mockResolvedValueOnce([
+        { githubRepositoryId: 301n, programId: 'program-1' },
+      ]);
     db.program.findMany.mockResolvedValue([
       { id: 'program-1', name: '오픈소스 입문 프로그램' },
     ]);
@@ -1268,10 +1280,10 @@ describe('CollectionReadService — getIncrementalStatusStreams', () => {
       ['JNU-SWCU/alpha', '오픈소스 입문 프로그램'],
       ['JNU-SWCU/beta', null],
     ]);
-    // 저장소 개수와 무관하게 배치 조회 1번씩 — N+1이 아니다.
-    expect(db.repository.findMany).toHaveBeenCalledTimes(1);
+    // 저장소 개수와 무관하게 배치 조회 1번씩(stream 조회 1번 + programId 조회 1번) — N+1이 아니다.
+    expect(db.githubRepository.findMany).toHaveBeenCalledTimes(2);
     expect(db.program.findMany).toHaveBeenCalledTimes(1);
-    expect(db.repository.findMany).toHaveBeenCalledWith({
+    expect(db.githubRepository.findMany).toHaveBeenNthCalledWith(2, {
       where: { githubRepositoryId: { in: [301n, 302n] } },
       select: { githubRepositoryId: true, programId: true },
     });
@@ -1483,49 +1495,27 @@ describe('CollectionReadService — 큐가 막히면 지표가 말한다', () =>
  * 저장소가 조직 실적으로 새는 것은 막히지만, `OWN`으로 **연결한** 저장소까지
  * 함께 막혀 원래 목적("내 팀 저장소 기여를 본다")이 성립하지 않았다.
  *
- * 이제 판정을 호출자가 아니라 DB가 한다 — 프로비저닝 테이블에 같은
- * `githubRepositoryId` 행이 있어야 조직 밖 저장소가 통과한다.
+ * #617 단계 D 이전에는 이 연결 증명이 별도 프로비저닝 테이블(`Repository`)에 같은
+ * `githubRepositoryId` 행이 있는지를 매 호출마다 DB로 다시 묻는 cross-table 조회였다.
+ * 이제 그 증명은 같은 `GithubRepository` 행의 `applicationId`(신청에 연결된 행만
+ * 채워진다) 컬럼이라, `linkedRepositoryFilter()`가 호출자의 `repositoryIds`와 무관하게
+ * 항상 같은 정적 `OR` 절을 반환한다 — 실제 필터링(연결되지 않은 행 제외)은 이 정적
+ * 절이 그대로 `githubRepository.findMany`의 `where`에 실려 DB 레벨에서 일어난다.
+ * DB 레벨 필터링 동작 자체(연결/미연결 행이 실제로 걸러지는지)는
+ * `findRepositoryActivity`의 GR-13 테스트가 이미 고정한다 — 여기서는
+ * `linkedRepositoryFilter()`가 만드는 절의 모양만 고정한다.
  */
 describe('CollectionReadService — 조직 밖 저장소는 연결이 증명될 때만 포함한다', () => {
-  it('신청에 연결된 EXTERNAL_PUBLIC 저장소는 통과한다', async () => {
+  it('linkedRepositoryFilter는 호출자의 repositoryIds와 무관하게 항상 같은 정적 OR 절을 만든다', async () => {
     const db = createDb();
-    // 프로비저닝 테이블이 연결을 증명한다.
-    db.repository.findMany.mockResolvedValue([{ githubRepositoryId: 202n }]);
 
     await serviceFor(db).findRepositoryActivity({ repositoryIds: [202n] });
 
     const where = argsOfGithubRepository(db);
     expect(where.OR).toEqual([
       { source: 'ORG_PROVISIONED' },
-      { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [202n] } },
+      { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
     ]);
-  });
-
-  it('연결되지 않은 EXTERNAL_PUBLIC 저장소는 통과하지 못한다', async () => {
-    const db = createDb();
-    // 연결 증명이 없다 — 학생의 무관한 개인 저장소가 이 경우다.
-    db.repository.findMany.mockResolvedValue([]);
-
-    await serviceFor(db).findRepositoryActivity({ repositoryIds: [999n] });
-
-    const where = argsOfGithubRepository(db);
-    // 빈 목록이므로 EXTERNAL_PUBLIC 절이 아무것도 매치하지 않는다.
-    expect(where.OR).toEqual([
-      { source: 'ORG_PROVISIONED' },
-      { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
-    ]);
-  });
-
-  it('연결 판정은 호출자가 넘긴 id 범위 안에서만 조회한다', async () => {
-    const db = createDb();
-    db.repository.findMany.mockResolvedValue([]);
-
-    await serviceFor(db).findRepositoryActivity({ repositoryIds: [1n, 2n] });
-
-    // 전체 스캔이 아니라 요청된 id 로만 묻는다.
-    const call = db.repository.findMany.mock.calls[0] as
-      [{ where: { githubRepositoryId: { in: bigint[] } } }] | undefined;
-    expect(call?.[0].where.githubRepositoryId.in).toEqual([1n, 2n]);
   });
 });
 

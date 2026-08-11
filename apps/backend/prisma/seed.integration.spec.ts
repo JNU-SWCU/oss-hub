@@ -25,6 +25,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
 import { resolveCompatibleProfile } from '../src/profiles/profile-compatibility';
 import { isCompleteUserProfile } from '../src/users/user-profile-policy';
+import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -149,7 +150,8 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   ],
   [
     'Repository',
-    () => prisma.repository.count({ where: { id: { startsWith: 'seed:' } } }),
+    () =>
+      prisma.githubRepository.count({ where: { id: { startsWith: 'seed:' } } }),
   ],
   [
     'RepositoryInvitation',
@@ -314,7 +316,7 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.repositoryProvisionJob.deleteMany({ where: seedIdFilter });
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
-  await prisma.repository.deleteMany({ where: seedIdFilter });
+  await prisma.githubRepository.deleteMany({ where: seedIdFilter });
   await prisma.milestoneDocumentSubmission.deleteMany({ where: seedIdFilter });
   await prisma.milestoneDocumentTemplateFile.deleteMany({
     where: seedIdFilter,
@@ -445,7 +447,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: seedId('oss-hub', 'submission', 'intake-freeze') },
           include: { revisions: { include: { review: true } } },
         }),
-        prisma.repository.findUniqueOrThrow({
+        prisma.githubRepository.findUniqueOrThrow({
           where: { id: OSS_HUB_REPOSITORY_ID },
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -461,7 +463,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.application.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_APPLICATION_ID },
         }),
-        prisma.repository.findUniqueOrThrow({
+        prisma.githubRepository.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_REPOSITORY_ID },
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -495,7 +497,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.review.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.repository.count({
+        prisma.githubRepository.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
         prisma.repositoryProvisionJob.count({
@@ -645,9 +647,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
         applicationId: OSS_HUB_APPLICATION_ID,
         teamId: OSS_HUB_TEAM_ID,
         githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
-        url: OSS_HUB_REPOSITORY_URL,
         visibility: RepositoryVisibility.PUBLIC,
       });
+      expect(repositoryUrlFromNameWithOwner(repository.nameWithOwner)).toBe(
+        OSS_HUB_REPOSITORY_URL,
+      );
       expect(ossHubRepositoryProvisionJobCount).toBe(1);
       expect(provisionJob).toMatchObject({
         applicationId: OSS_HUB_APPLICATION_ID,
@@ -685,9 +689,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
         programId: OSS_HUB_PRACTICE_PROGRAM_ID,
         teamId: OSS_HUB_PRACTICE_TEAM_ID,
         githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
-        url: OSS_HUB_PRACTICE_REPOSITORY_URL,
         visibility: RepositoryVisibility.PUBLIC,
       });
+      expect(
+        repositoryUrlFromNameWithOwner(practiceRepository.nameWithOwner),
+      ).toBe(OSS_HUB_PRACTICE_REPOSITORY_URL);
       expect(practiceRepository.publishedAt).not.toBeNull();
       expect(practiceProvisionJob).toMatchObject({
         applicationId: OSS_HUB_PRACTICE_APPLICATION_ID,

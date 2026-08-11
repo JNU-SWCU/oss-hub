@@ -27,6 +27,7 @@ function metadata(
     githubRepositoryId: 987654321n,
     name,
     url: `https://github.com/synthetic-org/${name}`,
+    nameWithOwner: `synthetic-org/${name}`,
     visibility: 'PRIVATE',
     description,
   };

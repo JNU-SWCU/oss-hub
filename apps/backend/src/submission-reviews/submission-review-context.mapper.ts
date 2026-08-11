@@ -1,6 +1,7 @@
 import { SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { isMilestoneComplete } from '../common/milestone-completion';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
@@ -50,10 +51,12 @@ export const REVIEW_CONTEXT_SELECT = {
       milestoneDocumentSubmissions: {
         select: { milestoneDocumentId: true, status: true },
       },
+      // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner에서
+      // repository-identity.ts 헬퍼로 유도해 아래 url 필드를 채운다.
       repository: {
         select: {
           id: true,
-          url: true,
+          nameWithOwner: true,
           visibility: true,
           provisionJob: { select: { status: true, repositoryId: true } },
         },
@@ -137,7 +140,7 @@ export function toReviewContext(
     repository: repository
       ? {
           id: repository.id,
-          url: repository.url,
+          url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
           visibility: repository.visibility,
           publishEligible: blockedReasons.length === 0,
           blockedReasons,

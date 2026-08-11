@@ -4,6 +4,7 @@ import {
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
+  RepositorySource,
   RepositoryVisibility,
   Role,
 } from '@prisma/client';
@@ -150,7 +151,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       await prisma.repositoryProvisionJob.deleteMany({
         where: { applicationId: { in: [...APPLICATION_IDS] } },
       });
-      await prisma.repository.deleteMany({
+      await prisma.githubRepository.deleteMany({
         where: { id: { in: [...REPOSITORY_IDS] } },
       });
       await prisma.application.deleteMany({
@@ -305,7 +306,7 @@ async function createFixtures(): Promise<void> {
       ),
     ],
   });
-  await prisma.repository.createMany({
+  await prisma.githubRepository.createMany({
     data: [
       storedRepository(
         REPOSITORY_IDS[0],
@@ -413,8 +414,10 @@ function storedRepository(
     programId: PROGRAM_ID,
     teamId,
     githubRepositoryId,
-    name: id,
-    url: `https://github.com/synthetic/${id}`,
+    // #617 단계 D 이후 name/url 컬럼이 없다 — nameWithOwner("synthetic/<id>")에서
+    // repository-identity.ts 헬퍼로 유도되므로, 아래 name/url 기댓값과 그대로 맞아떨어진다.
+    nameWithOwner: `synthetic/${id}`,
+    source: RepositorySource.ORG_PROVISIONED,
     visibility: RepositoryVisibility.PRIVATE,
   };
 }

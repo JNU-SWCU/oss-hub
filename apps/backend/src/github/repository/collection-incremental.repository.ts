@@ -168,17 +168,19 @@ export class CollectionIncrementalRepository {
 
   /**
    * 이 수집 저장소(`GithubRepository`)를 소유한 팀의 팀원 GitHub 계정 목록.
-   * `GithubRepository.githubRepositoryId`(전역 유일) → `Repository`(#449 신청 산출물) →
-   * `Repository.teamId` → `TeamMember` → `User` 경로를 그대로 따른다.
+   * #617 단계 D 이전에는 `GithubRepository.githubRepositoryId`(전역 유일) → 별도
+   * 프로비저닝 테이블(`Repository`) → `Repository.teamId` → `TeamMember` → `User`
+   * 경로였다. 이제 `teamId`가 같은 `GithubRepository` 행의 컬럼이라 조회 1번으로 준다.
    *
-   * 팀을 특정할 수 없으면 **`null`**을 돌려준다(`Repository` 행이 없거나 `teamId`가 null).
+   * 팀을 특정할 수 없으면 **`null`**을 돌려준다(저장소 행이 없거나 `teamId`가 null —
+   * 후자는 인벤토리 스윕이 만든 행이거나 팀 연결 이전의 레거시 행).
    * 빈 배열(팀은 있는데 팀원이 0명)과 구분되는 값이다 — 호출자는 `null`에서만 저장소
    * 전량 REST 경로로 안전하게 되돌아간다.
    */
   async listRepositoryTeamMembers(
     githubRepositoryId: bigint,
   ): Promise<RepositoryTeamMemberAccount[] | null> {
-    const owning = await this.db.repository.findUnique({
+    const owning = await this.db.githubRepository.findUnique({
       where: { githubRepositoryId },
       select: { teamId: true },
     });

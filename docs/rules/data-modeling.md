@@ -5,7 +5,7 @@
 
 ## 1. 새 테이블을 만들기 전에 같은 개념의 기존 테이블 writer/reader를 먼저 읽는다
 
-모델 이름이 그 모델의 개념을 보장하지 않는다. `Repository`는 저장소 엔티티가 아니라 **프로비저닝 기록**이다 — 유일한 writer가 `src/repositories/repository-provision-state.repository.ts` 하나이고, `applicationId @unique`가 그 정체를 드러낸다.
+모델 이름이 그 모델의 개념을 보장하지 않는다. `GithubRepository`는 저장소 엔티티이면서 동시에 신청 1건당 프로비저닝 기록이기도 하다 — `applicationId @unique`(nullable, `#617` 단계 D에서 흡수)가 그 정체를 드러낸다. 유일한 writer는 `apps/backend/src/github/repository/repository-provision-state.repository.ts` 하나다.
 
 절차: 모델 이름이 아니라 실제 접근 지점을 센다.
 
@@ -48,7 +48,7 @@ grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
 - 반대로 **시간 축을 따라 행이 쌓이는 테이블은 `History`로 끝낸다.** 기존 행을 지우지 않고 축(로그인 시각·연도·발생 시점)이 전진할수록 행 수가 늘어난다면, 그 축이 이름에 드러나야 한다 — `LoginHistory`가 이 패턴이다. `Fact`·`Record`·`Aggregate`는 "행이 언제 늘어나는가"에 답하지 못하므로 신규 모델에 쓰지 않는다.
 - 축약하지 않는다 — `Repo`가 아니라 `Repository`.
 - **모델명은 도메인어를 그대로 쓴다.** 이 도메인의 `repository`는 GitHub 저장소를 뜻하므로 모델명이 `Repository`로 끝나도 된다 — 학생·운영자가 화면에서 쓰는 단어를 모델이 버리지 않는다.
-- **영속 계층 클래스 이름은 프레임워크 관례를 따른다.** NestJS/DDD에서 `*Repository`는 표준 이름이므로 그대로 쓴다. 모델명과 겹쳐 보이는 문제는 DAO 접미사를 바꿔서가 아니라 **모델 이름을 정확하게** 해서 푼다 — `model Repository`가 "GitHub 저장소 일반"이 아니라 신청 1건당 1행인 프로비저닝 기록이라면 그 정체를 드러내는 이름을 쓴다. 외부 서비스에서 온 데이터를 담는 모델은 출처를 접두사로 밝힌다(`Github*`) — 기존 `GithubRawObservation`·`GithubWebhookObservation`과 같은 관례.
+- **영속 계층 클래스 이름은 프레임워크 관례를 따른다.** NestJS/DDD에서 `*Repository`는 표준 이름이므로 그대로 쓴다. 모델명과 겹쳐 보이는 문제는 DAO 접미사를 바꿔서가 아니라 **모델 이름을 정확하게** 해서 푼다 — 예전 `model Repository`가 "GitHub 저장소 일반"이 아니라 신청 1건당 1행인 프로비저닝 기록이었을 때 이 규칙이 그 정체를 드러내는 이름을 요구했다. 결국 `#617` 단계 D에서 그 프로비저닝 필드(`applicationId`/`programId`/`teamId`/`publishedAt`)를 `GithubRepository`로 흡수해 모델을 하나로 합쳤다 — 두 개념이 실제로는 같은 행(신청이 프로비저닝한 저장소 = 수집 대상 저장소)을 가리켰기 때문이다. 외부 서비스에서 온 데이터를 담는 모델은 출처를 접두사로 밝힌다(`Github*`) — 기존 `GithubRawObservation`·`GithubWebhookObservation`과 같은 관례.
 - 저장소 경로 필드는 `nameWithOwner`다(GitHub GraphQL 필드명 그대로). `fullName`은 실명을 담는 `User.name`과 충돌해 사람 이름으로 읽힌다.
 - 도메인에서 실제로 쓰지 않는 말(법률·프로그래밍 은어)을 모델명에 쓰지 않는다. 학생·운영자가 화면에서 쓰는 단어를 쓴다.
 

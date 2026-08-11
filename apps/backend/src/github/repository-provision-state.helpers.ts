@@ -1,5 +1,10 @@
 import { Prisma, RepositoryProvisionJobStatus } from '@prisma/client';
+import type { RepositoryVisibility } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  repositoryNameFromNameWithOwner,
+  repositoryUrlFromNameWithOwner,
+} from './repository-identity';
 import type {
   ProvisionedRepository,
   RecordProvisionedRepositoryInput,
@@ -9,14 +14,41 @@ export class RepositoryProvisionLeaseLostError extends Error {
   override readonly name = 'RepositoryProvisionLeaseLostError';
 }
 
+/// GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner를 select하고
+/// toProvisionedRepository로 name/url을 유도해 기존 ProvisionedRepository 계약 모양을 유지한다.
 export const repositorySelection = {
   id: true,
   applicationId: true,
   githubRepositoryId: true,
-  name: true,
-  url: true,
+  nameWithOwner: true,
   visibility: true,
 } as const;
+
+export interface ProvisionedRepositoryRow {
+  readonly id: string;
+  readonly applicationId: string | null;
+  readonly githubRepositoryId: bigint;
+  readonly nameWithOwner: string;
+  readonly visibility: RepositoryVisibility;
+}
+
+export function toProvisionedRepository(
+  row: ProvisionedRepositoryRow,
+): ProvisionedRepository {
+  if (row.applicationId === null) {
+    // recordRepository/loadContext는 applicationId로 조회하므로 이 경로로 온 행은 항상
+    // applicationId를 가진다 — null이면 인벤토리 스윕이 만든 무관한 행을 잘못 짚은 것이다.
+    throw new RepositoryProvisionLeaseLostError();
+  }
+  return {
+    id: row.id,
+    applicationId: row.applicationId,
+    githubRepositoryId: row.githubRepositoryId,
+    name: repositoryNameFromNameWithOwner(row.nameWithOwner),
+    url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
+    visibility: row.visibility,
+  };
+}
 
 export function claimedJobWhere(jobId: string, workerId: string) {
   return {

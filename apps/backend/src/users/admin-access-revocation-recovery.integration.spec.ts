@@ -2,6 +2,7 @@ import {
   AccountStatus,
   LoginHistoryEvent,
   ProgramCategory,
+  RepositorySource,
   Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -171,14 +172,14 @@ async function createPreservedAssets(
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.repository.create({
+  await prisma.githubRepository.create({
     data: {
       id: `${prefix}repository`,
       applicationId: application.id,
       programId: program.id,
-      githubRepositoryId: 9_004_800_001n,
-      name: 'synthetic-pr04h-repository',
-      url: 'https://example.invalid/synthetic-pr04h-repository',
+      githubRepositoryId: 9_004_800_000n + BigInt(sequence),
+      nameWithOwner: `synthetic-org/synthetic-pr04h-repository-${sequence}`,
+      source: RepositorySource.ORG_PROVISIONED,
     },
   });
 }
@@ -199,7 +200,7 @@ async function countPreservedAssets(
       prisma.loginHistory.count({ where: { userId: staffId } }),
       prisma.program.count({ where: { id: `${prefix}program` } }),
       prisma.application.count({ where: { applicantId: staffId } }),
-      prisma.repository.count({ where: { id: `${prefix}repository` } }),
+      prisma.githubRepository.count({ where: { id: `${prefix}repository` } }),
     ]);
   return {
     consents,

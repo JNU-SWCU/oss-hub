@@ -194,6 +194,7 @@ describe('RepositoryProvisionWorker failure', () => {
       githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
       name: PROVISION_REPOSITORY.name,
       url: PROVISION_REPOSITORY.url,
+      nameWithOwner: `synthetic-org/${PROVISION_REPOSITORY.name}`,
       visibility: 'PUBLIC',
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
@@ -228,6 +229,7 @@ describe('RepositoryProvisionWorker failure', () => {
       githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
       name: PROVISION_REPOSITORY.name,
       url: PROVISION_REPOSITORY.url,
+      nameWithOwner: `synthetic-org/${PROVISION_REPOSITORY.name}`,
       visibility: 'PUBLIC',
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });

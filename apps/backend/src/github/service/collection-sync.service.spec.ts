@@ -70,7 +70,14 @@ interface Store {
   streams: Map<string, Row>;
   cursors: Map<string, Row>;
   leases: Map<string, Row>;
-  /** `Repository`(#449) — 수집 저장소를 소유한 신청 산출물. key는 githubRepositoryId. */
+  /**
+   * #617 단계 D 이후 `teamId`는 별도 프로비저닝 테이블이 아니라 같은 `GithubRepository`
+   * 행의 컬럼이다. 이 맵은 그 `teamId`만 담는 overlay다 — `repositories`(CREATE 시
+   * `repo-N` id를 자동 채번하는 맵)와 분리해 둬야, 팀을 시드하는 테스트가 그 채번 로직을
+   * 몰라도 되고(대부분 `providerRepository()`의 REST 목록이 CREATE를 그대로 트리거한다),
+   * `githubRepository.findUnique`가 두 맵을 합쳐 돌려주는 것만으로 실제 스키마의 "한 행"을
+   * 흉내 낸다. key는 githubRepositoryId.
+   */
   owningRepositories: Map<string, Row>;
   /** `TeamMember` + join된 `User` — key는 임의의 행 id. */
   teamMembers: Map<string, Row>;
@@ -140,18 +147,6 @@ const cursorKey = (appId: bigint, scope: string): string =>
 
 function makeFacade(box: { store: Store }, control: FailureControl): unknown {
   return {
-    // author-scoped 커밋 수집이 팀을 찾는 경로(`Repository` → `teamId` → `TeamMember` →
-    // `User`). 시드하지 않은 저장소는 소유 행이 없어 `null`이 되고, 그래서 기존 테스트는
-    // 전부 종전 REST 경로 그대로 돈다.
-    repository: {
-      findUnique: ({
-        where,
-      }: {
-        where: { githubRepositoryId: bigint };
-      }): Row | null =>
-        box.store.owningRepositories.get(repoKey(where.githubRepositoryId)) ??
-        null,
-    },
     teamMember: {
       findMany: ({ where }: { where: { teamId: string } }): Row[] =>
         [...box.store.teamMembers.values()].filter(
@@ -176,12 +171,22 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         box.store.repositories.set(key, row);
         return row;
       },
+      // author-scoped 커밋 수집이 팀을 찾는 경로(`this.db.githubRepository.findUnique({
+      // select: { teamId: true } })`, #617 단계 D)도 이 findUnique 하나로 받는다. 실제
+      // 스키마는 한 행에 `teamId`가 있으므로, 이 fake도 기본 행(`repositories`)에 팀
+      // overlay(`owningRepositories`)를 얹어 한 행처럼 돌려준다. 시드하지 않은 저장소는
+      // 두 맵 모두 비어 `null`이 되고, 그래서 기존 테스트는 전부 종전 REST 경로 그대로 돈다.
       findUnique: ({
         where,
       }: {
         where: { githubRepositoryId: bigint };
-      }): Row | null =>
-        box.store.repositories.get(repoKey(where.githubRepositoryId)) ?? null,
+      }): Row | null => {
+        const key = repoKey(where.githubRepositoryId);
+        const base = box.store.repositories.get(key);
+        const owning = box.store.owningRepositories.get(key);
+        if (base === undefined && owning === undefined) return null;
+        return { ...(base ?? {}), ...(owning ?? {}) };
+      },
       // GR-6: production callers (`markAbsentRepositories`/
       // `listPresentRepositories`) now include `source: 'ORG_PROVISIONED'`
       // in their `where` — matching generically via `matchesWhere` (rather
