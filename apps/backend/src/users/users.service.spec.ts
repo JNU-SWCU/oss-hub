@@ -331,6 +331,66 @@ describe('역할별 필수 항목', () => {
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
 
+  /**
+   * 형식이 좁아지기 전(#835)에 학번만 넣어 둔 학생 — 학과가 없어 아직 미완료다.
+   *
+   * 요청이 학번을 생략하면 저장돼 있던 값이 그대로 실린다. 그 값을 지금 형식으로
+   * 다시 재면 학과 하나를 채우려는 저장이 400에 막히고, 학번은 바꿀 수 없어
+   * 고칠 길이 없다. 형식은 **실려 온 값**에만 적용한다.
+   */
+  it('저장돼 있던 예전 형식 학번은 형식 검사 없이 완료 저장에 실린다', async () => {
+    // Given
+    const legacyStudentId = '9'.repeat(9);
+    const { service, completeProfileIfUnchanged } = buildService({
+      user: {
+        ...emptyUser('STUDENT'),
+        name: '합성 학생',
+        studentId: legacyStudentId,
+      },
+    });
+
+    // When
+    const profile = await service.patchMyProfile(githubId, {
+      name: input.name,
+      department: input.department,
+    });
+
+    // Then
+    expect(profile).toMatchObject({
+      studentId: legacyStudentId,
+      isComplete: true,
+    });
+    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
+      name: input.name,
+      studentId: legacyStudentId,
+      department: input.department,
+    });
+  });
+
+  /** 예외는 저장된 값에만 준다 — 이번 요청에 실려 온 학번은 그대로 6자리를 본다. */
+  it('요청에 실려 온 학번의 형식이 틀리면 400으로 거부한다', async () => {
+    // Given
+    const { service, completeProfileIfUnchanged } = buildService({
+      user: emptyUser('STUDENT'),
+    });
+
+    // When
+    const error = await captureDomainException(() =>
+      service.patchMyProfile(githubId, {
+        name: input.name,
+        studentId: '9'.repeat(9),
+        department: input.department,
+      }),
+    );
+
+    // Then
+    expect(error.errorCode).toMatchObject({
+      code: SystemErrorCode.VALIDATION_FAILED,
+      status: 400,
+    });
+    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
+  });
+
   it('관리자는 이름만으로 완료된다', async () => {
     // Given — 이름조차 없는 관리자만 완료 저장 경로를 탄다
     const { service, completeProfileIfUnchanged } = buildService({

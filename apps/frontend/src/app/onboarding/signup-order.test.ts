@@ -29,6 +29,7 @@ function formWithoutStudentId() {
   return {
     name: '합성 조교',
     studentId: '',
+    savedStudentId: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
   };
@@ -98,6 +99,7 @@ describe('새 관리자 가입 동선', () => {
     const values = {
       name: '합성 관리자',
       studentId: '',
+      savedStudentId: '',
       departmentOption: '',
       otherDepartment: '',
     };

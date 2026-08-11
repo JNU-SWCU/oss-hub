@@ -70,6 +70,31 @@ export function isValidStudentId(studentId: string): boolean {
   return STUDENT_ID_PATTERN.test(studentId);
 }
 
+/**
+ * 이미 저장돼 있을 수 있는 학번의 형식 — 지금 규칙과 그 이전 규칙을 함께 받는다.
+ *
+ * 형식이 6~10자리에서 정확히 6자리로 좁혀졌지만(#835) 기존 값은 그대로 남았다.
+ * `STUDENT_ID_PATTERN`은 이 집합의 부분집합이라, 오늘 통과하는 값은 언제나 여기도
+ * 통과한다. 형식을 또 좁힐 일이 생기면 **이 패턴은 좁히지 않는다** — 여기가 좁아지는
+ * 순간 그 형식으로 가입한 사람들이 미완료로 되돌아간다.
+ */
+const STORED_STUDENT_ID_PATTERN = /^\d{6,10}$/;
+
+/**
+ * 이미 저장된 학번은 지금 형식으로 다시 재지 않는다.
+ *
+ * 저장된 값을 새 형식으로 재면 그때 가입한 학생의 프로필이 통째로 미완료로 뒤집히고,
+ * 게이트가 그를 온보딩으로 되돌린다 — 학번은 학적 식별자로 고정돼 바꿀 수 없으므로
+ * (`USR_003`) 그 화면에서 빠져나갈 방법이 없다.
+ *
+ * 지금 형식(`isValidStudentId`)은 **새로 들어오는 값**에만 적용한다. 설정 화면이 이미
+ * 같은 선을 긋고 있고(`validateSettingsProfileForm`), 백엔드도 같은 판정을 한다
+ * (`user-profile-policy.ts`의 같은 이름 함수).
+ */
+export function isStoredStudentId(studentId: string): boolean {
+  return STORED_STUDENT_ID_PATTERN.test(studentId);
+}
+
 export function isValidDepartment(department: string): boolean {
   return (
     department.trim().length > 0 &&
@@ -94,7 +119,7 @@ export function isProfileComplete(
   }
   if (
     requirement.studentId &&
-    (fields.studentId === null || !isValidStudentId(fields.studentId))
+    (fields.studentId === null || !isStoredStudentId(fields.studentId))
   ) {
     return false;
   }
@@ -112,15 +137,19 @@ export function isProfileComplete(
  *
  * 필수 항목이 역할마다 다른데 프로필 응답에는 역할이 없다. 그래서 응답만 보고
  * 완료 여부를 다시 계산할 수는 없다 — 대신 어느 역할에서도 참이어야 하는 것만
- * 본다: 이름은 유효해야 하고, 실려 온 값은 형식이 맞아야 한다. 값이 `null`인
+ * 본다: 이름은 유효해야 하고, 실려 온 값은 비어 있지 않아야 한다. 값이 `null`인
  * 항목은 그 역할에 필요 없는 항목일 수 있으므로 모순으로 보지 않는다.
+ *
+ * 학번을 형식으로 재지 않는 이유는 완료 판정과 같다(`isStoredStudentId`). 여기서
+ * 형식을 요구하면 예전 형식 학번을 가진 사용자의 프로필 응답을 **응답 자체가
+ * 잘못됐다**며 통째로 거부해, 화면이 조회 실패로 접힌다.
  */
 export function isConsistentCompleteProfile(
   fields: ProfileCompletionFields,
 ): boolean {
   return (
     isValidProfileName(fields.name) &&
-    (fields.studentId === null || isValidStudentId(fields.studentId)) &&
+    (fields.studentId === null || isStoredStudentId(fields.studentId)) &&
     (fields.department === null || isValidDepartment(fields.department))
   );
 }
