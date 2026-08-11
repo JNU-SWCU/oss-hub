@@ -99,11 +99,31 @@ export function programListHref(status: ProgramListStatus): string {
   return `/programs?status=${status}`;
 }
 
+/** 정렬 기준 — backend `ProgramListQuerySort`와 한 벌. 생략하면 레거시 순서(모집중 우선). */
+export const PROGRAM_LIST_SORTS = [
+  'name',
+  'applicationPeriod',
+  'status',
+] as const;
+export type ProgramListSort = (typeof PROGRAM_LIST_SORTS)[number];
+
+export const PROGRAM_LIST_SORT_LABELS = {
+  name: '프로그램 이름',
+  applicationPeriod: '지원 기간',
+  status: '상태',
+} as const satisfies Readonly<Record<ProgramListSort, string>>;
+
+export const PROGRAM_LIST_DIRECTIONS = ['asc', 'desc'] as const;
+export type ProgramListDirection = (typeof PROGRAM_LIST_DIRECTIONS)[number];
+
 export interface ProgramListParams {
   readonly page: number;
   readonly pageSize: number;
   readonly search: string;
   readonly status: ProgramListStatus;
+  /** 생략하면 backend 레거시 기본 정렬을 그대로 쓴다. */
+  readonly sort?: ProgramListSort;
+  readonly direction?: ProgramListDirection;
 }
 
 export interface ProgramListPage {

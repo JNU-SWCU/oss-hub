@@ -160,6 +160,8 @@ export function listPrograms(
     search: params.search,
     status: params.status,
   });
+  if (params.sort) search.set('sort', params.sort);
+  if (params.direction) search.set('direction', params.direction);
   return apiClient<ProgramListPage>('programs?' + search.toString());
 }
 

@@ -1,5 +1,9 @@
 import { Prisma, ProgramLifecycle } from '@prisma/client';
-import type { ProgramListQueryStatus } from './program-list-query';
+import type {
+  ProgramListQueryDirection,
+  ProgramListQuerySort,
+  ProgramListQueryStatus,
+} from './program-list-query';
 
 /**
  * 공개 목록 기간 필터 — 저장 상태 없음, 요청 시각(now)으로만 해석.
@@ -123,7 +127,7 @@ export function programListSqlStatusPredicate(
   return Prisma.sql`(${programListStatusCaseSql(now)}) = ${status}`;
 }
 
-/** recruiting → 0 … ended → 3. 표시 정렬 순서 (§3.2). */
+/** recruiting → 0 … ended → 3. 레거시(기본) 표시 정렬 순서 (§3.2). */
 export function programListSortRankSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE (${programListStatusCaseSql(now)})
@@ -133,6 +137,70 @@ export function programListSortRankSql(now: Date): Prisma.Sql {
       WHEN 'ended' THEN 3
     END
   `;
+}
+
+/**
+ * `?sort=status` 명시 정렬 순서 — 모집중 → 진행중 → 예정 → 종료.
+ * 레거시 기본 정렬(`programListSortRankSql`, 모집중 → 예정 → 진행중 → 종료)과
+ * 순서가 달라 별도 함수로 둔다 — 기본 정렬은 `sort` 파라미터가 없을 때만 쓰인다.
+ */
+export function programListStatusSortRank(
+  status: ProgramListDerivedStatus,
+): 0 | 1 | 2 | 3 {
+  switch (status) {
+    case 'recruiting':
+      return 0;
+    case 'in_progress':
+      return 1;
+    case 'upcoming':
+      return 2;
+    case 'ended':
+      return 3;
+  }
+}
+
+export function programListStatusSortRankSql(now: Date): Prisma.Sql {
+  return Prisma.sql`
+    CASE (${programListStatusCaseSql(now)})
+      WHEN 'recruiting' THEN 0
+      WHEN 'in_progress' THEN 1
+      WHEN 'upcoming' THEN 2
+      WHEN 'ended' THEN 3
+    END
+  `;
+}
+
+/**
+ * `GET /programs` 목록 ORDER BY 단일 원본.
+ * `sort`가 없으면(undefined) 변경 전과 동일한 레거시 순서를 그대로 낸다.
+ * 모든 분기에 결정적 tiebreak(`id` 오름차순)를 둬 페이지네이션 중복·누락을 막는다.
+ */
+export function programListOrderBySql(
+  sort: ProgramListQuerySort | undefined,
+  direction: ProgramListQueryDirection | undefined,
+  now: Date,
+): Prisma.Sql {
+  const dir = direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+  switch (sort) {
+    case 'name':
+      return Prisma.sql`p."name" ${dir}, p."id" ASC`;
+    case 'applicationPeriod':
+      return Prisma.sql`p."applicationStartAt" ${dir}, p."id" ASC`;
+    case 'status':
+      return Prisma.sql`
+        ${programListStatusSortRankSql(now)} ${dir},
+        p."applicationEndAt" ASC,
+        p."name" ASC,
+        p."id" ASC
+      `;
+    default:
+      return Prisma.sql`
+        ${programListSortRankSql(now)} ASC,
+        p."applicationEndAt" ASC,
+        p."name" ASC,
+        p."id" ASC
+      `;
+  }
 }
 
 export function programListSqlWhere(

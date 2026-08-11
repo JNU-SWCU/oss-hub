@@ -13,28 +13,36 @@ import {
 import { CardGrid, EmptyState, PageHeader, ProgramCard } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
 import { programNewHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
 import {
-  filterAndGroupPrograms,
   getProgramListBadge,
   getProgramListHeading,
   getProgramListSubtitle,
 } from './program-list';
+import {
+  buildProgramListHref,
+  parseProgramListDirection,
+  parseProgramListSort,
+} from './program-list-sort';
 import { ProgramListPagination } from './program-list-pagination';
 import { ProgramListStatusChips } from './program-list-status-nav';
 import type {
+  ProgramListDirection,
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
+  ProgramListSort,
   ProgramListStatus,
   ViewerRole,
 } from './types';
 import {
   PROGRAM_CATEGORY_LABELS,
+  PROGRAM_LIST_SORT_LABELS,
+  PROGRAM_LIST_SORTS,
   PROGRAM_LIST_STATUSES,
-  programListHref,
 } from './types';
 
 interface ProgramListPageProps {
@@ -91,6 +99,8 @@ function ProgramListPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const status = parseStatus(searchParams.get('status'));
+  const sort = parseProgramListSort(searchParams.get('sort'));
+  const direction = parseProgramListDirection(searchParams.get('direction'));
 
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
@@ -108,6 +118,8 @@ function ProgramListPage({
         pageSize: PAGE_SIZE,
         search,
         status,
+        sort,
+        direction,
       });
       if (requestId !== latestRequestId.current) return;
       setLoadState({ kind: 'ready', programPage });
@@ -121,7 +133,7 @@ function ProgramListPage({
             : '프로그램 목록을 불러오지 못했습니다.',
       });
     }
-  }, [page, search, status]);
+  }, [page, search, status, sort, direction]);
 
   useEffect(() => {
     void load();
@@ -130,26 +142,32 @@ function ProgramListPage({
     };
   }, [load]);
 
-  // status 쿼리가 바뀌면 1페이지로
+  // status·정렬 쿼리가 바뀌면 1페이지로
   useEffect(() => {
     setPage(1);
-  }, [status]);
+  }, [status, sort, direction]);
 
   const now = useMemo(() => new Date(), []);
-  const groups = useMemo(
-    () =>
-      loadState.kind === 'ready'
-        ? filterAndGroupPrograms(loadState.programPage.items, {
-            search: '',
-            status,
-            now,
-          })
-        : [],
-    [loadState, now, status],
-  );
 
   const goStatus = (next: ProgramListStatus) => {
-    router.push(programListHref(next));
+    router.push(buildProgramListHref({ status: next, sort, direction }));
+  };
+
+  const goSort = (nextSort: ProgramListSort | undefined) => {
+    router.push(
+      buildProgramListHref({
+        status,
+        sort: nextSort,
+        direction: nextSort ? direction : undefined,
+      }),
+    );
+  };
+
+  const goDirection = (nextDirection: ProgramListDirection) => {
+    if (!sort) return;
+    router.push(
+      buildProgramListHref({ status, sort, direction: nextDirection }),
+    );
   };
 
   const content = (() => {
@@ -179,42 +197,28 @@ function ProgramListPage({
         />
       );
     }
-    if (groups.length === 0) {
-      return (
-        <EmptyState
-          title="조건에 맞는 프로그램이 없습니다"
-          description="검색어나 프로그램 상태를 바꿔 다시 찾아보세요."
-        />
-      );
-    }
-
-    return groups.map((group) => (
-      <section className="grid gap-3" key={group.key}>
-        {status === 'all' ? (
-          <h2 className="font-heading text-lg font-medium">{group.title}</h2>
-        ) : null}
-        <CardGrid>
-          {group.programs.map((program) => {
-            const badge = getProgramListBadge(program, now);
-            // ended도 상세 열람은 허용된다(백엔드가 ARCHIVED 상세 읽기를
-            // 이미 허용) — 모든 카드에 href를 넘긴다.
-            return (
-              <ProgramCard
-                badgeText={badge.label}
-                category={`${program.organizer} · ${PROGRAM_CATEGORY_LABELS[program.category]}`}
-                href={programHref(program.id)}
-                key={program.id}
-                note={program.note?.text}
-                noteIcon={program.note?.icon}
-                period={formatApplicationPeriod(program)}
-                status={badge.status}
-                title={program.name}
-              />
-            );
-          })}
-        </CardGrid>
-      </section>
-    ));
+    return (
+      <CardGrid>
+        {loadState.programPage.items.map((program) => {
+          const badge = getProgramListBadge(program, now);
+          // ended도 상세 열람은 허용된다(백엔드가 ARCHIVED 상세 읽기를
+          // 이미 허용) — 모든 카드에 href를 넘긴다.
+          return (
+            <ProgramCard
+              badgeText={badge.label}
+              category={`${program.organizer} · ${PROGRAM_CATEGORY_LABELS[program.category]}`}
+              href={programHref(program.id)}
+              key={program.id}
+              note={program.note?.text}
+              noteIcon={program.note?.icon}
+              period={formatApplicationPeriod(program)}
+              status={badge.status}
+              title={program.name}
+            />
+          );
+        })}
+      </CardGrid>
+    );
   })();
 
   return (
@@ -237,15 +241,50 @@ function ProgramListPage({
         value={status}
         onChange={goStatus}
       />
-      <Input
-        aria-label="프로그램명 검색"
-        onChange={(event) => {
-          setPage(1);
-          setSearch(event.target.value);
-        }}
-        placeholder="프로그램명 검색"
-        value={search}
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <Input
+          aria-label="프로그램명 검색"
+          className="sm:flex-1 sm:min-w-48"
+          onChange={(event) => {
+            setPage(1);
+            setSearch(event.target.value);
+          }}
+          placeholder="프로그램명 검색"
+          value={search}
+        />
+        <label className="grid gap-1 text-sm">
+          <span className="text-muted-foreground">정렬 기준</span>
+          <Select
+            aria-label="프로그램 정렬 기준"
+            onChange={(event) => {
+              const value = event.target.value;
+              goSort(value === '' ? undefined : (value as ProgramListSort));
+            }}
+            value={sort ?? ''}
+          >
+            <option value="">기본순</option>
+            {PROGRAM_LIST_SORTS.map((option) => (
+              <option key={option} value={option}>
+                {PROGRAM_LIST_SORT_LABELS[option]}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <Button
+          aria-label={
+            direction === 'desc' ? '내림차순으로 정렬됨' : '오름차순으로 정렬됨'
+          }
+          aria-pressed={direction === 'desc'}
+          disabled={!sort}
+          onClick={() =>
+            goDirection((direction ?? 'asc') === 'asc' ? 'desc' : 'asc')
+          }
+          type="button"
+          variant="outline"
+        >
+          {direction === 'desc' ? '내림차순' : '오름차순'}
+        </Button>
+      </div>
       {content}
       <ProgramListPagination
         onPageChange={setPage}

@@ -169,6 +169,46 @@ describe('ProgramsController read boundaries', () => {
     expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
   });
 
+  it('sort·direction·status 쿼리를 그대로 서비스에 넘긴다 (?status=recruiting&sort=name)', async () => {
+    const page = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    };
+    programs.list.mockResolvedValue(page);
+    viewers.fromGithubId.mockResolvedValue({
+      githubId: null,
+      userId: null,
+      role: null,
+    });
+    const query = {
+      toQuery: () => ({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'recruiting' as const,
+        sort: 'name' as const,
+        direction: 'asc' as const,
+      }),
+    };
+
+    await controller.list(query as never, requestWithCookie() as never);
+
+    expect(programs.list).toHaveBeenCalledWith(
+      {
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'recruiting',
+        sort: 'name',
+        direction: 'asc',
+      },
+      { githubId: null, userId: null, role: null },
+    );
+  });
+
   it('status-counts 는 인증 없이 열려 있고 5키를 반환한다', async () => {
     const counts = {
       all: 15,
