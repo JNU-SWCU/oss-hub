@@ -410,7 +410,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       // consent 행이 없어도 된다.
       const github = githubClient();
       github.findRepository.mockResolvedValue(
-        orgRepositoryMetadata(ORG_GITHUB_REPOSITORY_ID, ORG_OWN_NAME_WITH_OWNER),
+        orgRepositoryMetadata(
+          ORG_GITHUB_REPOSITORY_ID,
+          ORG_OWN_NAME_WITH_OWNER,
+        ),
       );
       const worker = new RepositoryProvisionWorker(
         jobs,
