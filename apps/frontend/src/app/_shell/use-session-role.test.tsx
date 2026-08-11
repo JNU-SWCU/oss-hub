@@ -162,4 +162,40 @@ describe('useSessionRole — 반려 사유 불변식', () => {
     expect(state.roleRequestStatus).toBe(null);
     expect(state.roleRequestRejectionReason).toBe(null);
   });
+
+  it('같은 탭에서 인증 주체가 바뀌면 이전 사용자의 역할 요청을 한 프레임도 재사용하지 않는다', async () => {
+    mocks.fetchMyRoleRequest.mockResolvedValue(roleRequest());
+    const received: SessionRoleResult[] = [];
+
+    function Probe() {
+      received.push(useSessionRole());
+      return null;
+    }
+
+    await act(async () => root.render(<Probe />));
+    expect(received.at(-1)?.roleRequestStatus).toBe('PENDING');
+
+    received.length = 0;
+    mocks.useSession.mockReturnValue({
+      ...UNASSIGNED_SESSION,
+      user: {
+        ...UNASSIGNED_SESSION.user,
+        nickname: 'second-synthetic-staff-applicant',
+      },
+    });
+    mocks.fetchMyRoleRequest.mockResolvedValue(
+      roleRequest({
+        status: 'REJECTED',
+        decidedAt: '2026-08-08T12:00:00.000Z',
+        rejectionReason: '두 번째 사용자 반려 사유',
+      }),
+    );
+
+    await act(async () => root.render(<Probe />));
+
+    expect(received.map((state) => state.roleRequestStatus)).not.toContain(
+      'PENDING',
+    );
+    expect(received.at(-1)?.roleRequestStatus).toBe('REJECTED');
+  });
 });

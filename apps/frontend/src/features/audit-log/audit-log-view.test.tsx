@@ -62,7 +62,7 @@ describe('AuditLogView', () => {
     );
 
     expect(html).toContain(
-      '역할 요청 변경 이력을 행위자, 액션, 기간으로 조회합니다.',
+      '역할·계정 변경, 프로그램 보관·복구, 수집 실행, 신청 승인·반려 등 관리 작업 이력을 행위자, 액션, 기간으로 조회합니다.',
     );
   });
 
@@ -80,7 +80,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('다시 시도');
   });
 
-  it('행위자·액션·대상·발생 일시와 모바일 가로 스크롤 안내를 표시한다', () => {
+  it('행마다 서술문·발생 일시·상대 시각을 표시한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -100,28 +100,27 @@ describe('AuditLogView', () => {
       />,
     );
 
+    // 서술문: 행위자·대상이 강조되고, target이 GitHub 로그인 형태라 '@' 접두가 붙는다.
     expect(html).toContain('synthetic-admin');
-    expect(html).toContain('STAFF_ROLE_REQUEST_APPROVED');
+    expect(html).toContain('@synthetic-target');
+    expect(html).toContain('님의 교직원 권한 요청을 승인했습니다');
+    // 2행: action 배지 + 한국어 targetType + target 라벨. 이 target(핸들)이 이미
+    // 풀린 값이라(isFallbackTarget이 false) 메타 라인도 targetId cuid 대신 그 라벨을
+    // 보여준다 — 서술문과 같은 값이 두 번 다른 모양(핸들 vs cuid)으로 겹치지 않는다.
+    expect(html).toContain('data-variant="approved"');
+    expect(html).toContain('승인');
+    expect(html).toContain('권한 요청');
     expect(html).toContain('synthetic-target');
-    expect(html).toContain('ROLE_REQUEST');
-    expect(html).toContain('request-1');
-    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다');
+    expect(html).not.toContain('request-1');
+    // 발생 일시: 절대 시각은 항상 표시하고 <time dateTime>을 유지한다.
+    expect(html).toContain('<time dateTime="2026-07-24T03:00:00.000Z"');
   });
 
-  it('대상 열에 사람이 읽을 수 있는 라벨과 targetType/targetId를 함께 표시한다', () => {
+  it('target이 legacy 폴백 라벨이면 서술문에서 코드체로 표시하고 @를 붙이지 않는다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
         records={[
-          {
-            id: 'audit-v2',
-            actor: 'synthetic-admin',
-            action: 'USER_ROLE_CHANGED',
-            targetType: 'USER',
-            targetId: 'cms8fwpv0000synthetic',
-            target: 'synthetic-target-login',
-            occurredAt: '2026-07-24T03:00:00.000Z',
-          },
           {
             id: 'audit-legacy',
             actor: 'synthetic-admin',
@@ -137,14 +136,15 @@ describe('AuditLogView', () => {
       />,
     );
 
-    // schemaVersion 2 행: 대상의 GitHub 로그인을 주 라벨로, type/id를 보조로 표시한다.
-    expect(html).toContain('synthetic-target-login');
-    expect(html).toContain('USER / cms8fwpv0000synthetic');
-    // v1/legacy 행: 폴백 라벨(targetType / targetId)이 그대로 주 라벨이 된다.
-    expect(html).toContain('ROLE_REQUEST / request-legacy');
+    expect(html).toContain('<code');
+    expect(html).toContain('권한 요청');
+    expect(html).toContain('request-legacy');
+    expect(html).not.toContain('@request-legacy');
+    // '님' 존칭이 코드체 폴백 값 뒤에 붙지 않는다(리뷰 지적 수정).
+    expect(html).not.toContain('request-legacy님');
   });
 
-  it('REPOSITORY_PUBLISHED(schemaVersion 2 target 스냅샷과 별개의 독립 sibling 타입) 행도 targetType/targetId 폴백 라벨로 표시한다', () => {
+  it('REPOSITORY_PUBLISHED 행도 서술문과 targetType 한국어 라벨로 표시한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -164,8 +164,212 @@ describe('AuditLogView', () => {
       />,
     );
 
-    expect(html).toContain('REPOSITORY_PUBLISHED');
-    expect(html).toContain('REPOSITORY / repository-synthetic-1');
+    expect(html).toContain('저장소');
+    expect(html).toContain('공개로 전환했습니다');
+    expect(html).toContain('repository-synthetic-1');
+  });
+
+  it('PROGRAM_ARCHIVED 행이 이름을 받으면 서술문과 메타 라인 모두 cuid 대신 이름을 "@" 없이 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-program-archived',
+            actor: 'synthetic-staff',
+            action: 'PROGRAM_ARCHIVED',
+            targetType: 'PROGRAM',
+            targetId: 'cuid-synthetic-program-1',
+            target: '합성 프로그램 이름',
+            occurredAt: '2026-07-24T04:30:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    // 서술문: 이름이 보이고 '@' 접두는 붙지 않는다.
+    expect(html).toContain('합성 프로그램 이름');
+    expect(html).not.toContain('@합성 프로그램 이름');
+    // 메타 라인: 사용자가 지목한 지점 — 이름을 알면 cuid 원값 대신 이름을 보여준다.
+    expect(html).not.toContain('cuid-synthetic-program-1');
+  });
+
+  it('PROGRAM_ARCHIVED 행이 이름을 모르면(폴백) 메타 라인에 여전히 targetId(cuid)를 코드체로 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-program-archived-fallback',
+            actor: 'synthetic-staff',
+            action: 'PROGRAM_ARCHIVED',
+            targetType: 'PROGRAM',
+            targetId: 'cuid-synthetic-program-2',
+            target: 'PROGRAM / cuid-synthetic-program-2',
+            occurredAt: '2026-07-24T04:31:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('cuid-synthetic-program-2');
+  });
+
+  it('REPOSITORY_PUBLISHED 행이 전체 이름(owner/name)을 받으면 메타 라인이 cuid 대신 그 이름을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-repository-resolved',
+            actor: 'synthetic-staff',
+            action: 'REPOSITORY_PUBLISHED',
+            targetType: 'REPOSITORY',
+            targetId: 'cuid-synthetic-repository-1',
+            target: 'synthetic-org/synthetic-repo',
+            occurredAt: '2026-07-24T04:32:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('synthetic-org/synthetic-repo');
+    expect(html).not.toContain('cuid-synthetic-repository-1');
+  });
+
+  it('APPLICATION_APPROVED 행이 합성 라벨(프로그램 이름 · @신청자)을 받으면 메타 라인이 cuid 대신 그 라벨을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-application-resolved',
+            actor: 'synthetic-staff',
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'cuid-synthetic-application-1',
+            target: '합성 프로그램 · @synthetic-applicant',
+            occurredAt: '2026-07-24T04:33:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('합성 프로그램 · @synthetic-applicant');
+    expect(html).not.toContain('cuid-synthetic-application-1');
+  });
+
+  it('APPLICATION_APPROVED 행이 라벨을 모르면(폴백) 메타 라인에 여전히 targetId(cuid)를 코드체로 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-application-fallback',
+            actor: 'synthetic-staff',
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'cuid-synthetic-application-2',
+            target: 'APPLICATION / cuid-synthetic-application-2',
+            occurredAt: '2026-07-24T04:34:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('cuid-synthetic-application-2');
+  });
+
+  it('COLLECTION_SYNC_TRIGGERED 행은 폴백이어도 메타 라인에 runId를 보여주지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-collection-sync',
+            actor: 'synthetic-admin',
+            action: 'COLLECTION_SYNC_TRIGGERED',
+            targetType: 'COLLECTION_SYNC',
+            targetId: 'run-synthetic-1',
+            // COLLECTION_SYNC는 스냅샷도 join도 없어 항상 이 폴백 형태다
+            // (resolveAuditTargetLabel 참고).
+            target: 'COLLECTION_SYNC / run-synthetic-1',
+            occurredAt: '2026-07-24T05:00:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    // 문장에는 애초에 target이 없고(describe.test.ts에서 별도 검증), 메타
+    // 라인도 TARGETLESS_FALLBACK_TARGET_TYPES에 걸려 targetId(runId)를 아예
+    // 렌더하지 않는다 — 사람에게 의미 없는 실행 식별자를 그대로 노출하지 않는다.
+    expect(html).not.toContain('run-synthetic-1');
+    // targetType 배지는 그대로 남아 이 행이 무엇에 대한 기록인지는 알 수 있다.
+    expect(html).toContain('데이터 수집');
+    expect(html).toContain('님이 데이터 수집을 수동 실행했습니다');
+  });
+
+  it('COLLECTION_SYNC 생략은 다른 targetType의 폴백 행으로 번지지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-program-archived-fallback-2',
+            actor: 'synthetic-staff',
+            action: 'PROGRAM_ARCHIVED',
+            targetType: 'PROGRAM',
+            targetId: 'cuid-synthetic-program-3',
+            target: 'PROGRAM / cuid-synthetic-program-3',
+            occurredAt: '2026-07-24T05:01:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    // PROGRAM은 TARGETLESS_FALLBACK_TARGET_TYPES에 없다 — 폴백이어도 targetId는
+    // 여전히 원본 참조값으로서 코드체로 남아야 한다(생략이 전체로 번지지 않았다는
+    // 부정 단언).
+    expect(html).toContain('cuid-synthetic-program-3');
+  });
+
+  it('알 수 없는 action도 원본 값을 담은 폴백 문장으로 숨기지 않고 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-unknown',
+            actor: 'synthetic-admin',
+            action: 'LEGACY_SYNTHETIC_ACTION',
+            targetType: 'ROLE_REQUEST',
+            targetId: 'request-1',
+            target: 'synthetic-target',
+            occurredAt: '2026-07-24T03:00:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('기타 작업');
+    expect(html).toContain('LEGACY_SYNTHETIC_ACTION');
+    expect(html).toContain('작업을 수행했습니다');
   });
 
   it('필터 이름을 각 컨트롤과 연결한다', () => {
@@ -289,7 +493,9 @@ describe('AuditLogView', () => {
             action: 'STAFF_ROLE_REQUEST_APPROVED',
             targetType: 'ROLE_REQUEST',
             targetId: 'request-1',
-            target: 'synthetic-target',
+            // 폴백 라벨(target === `${targetType} / ${targetId}`)로 둬서 이 테스트가
+            // 검증하려는 건 페이지네이션이지 target 라벨 로직이 아님을 명확히 한다.
+            target: 'ROLE_REQUEST / request-1',
             occurredAt: '2026-07-24T03:00:00.000Z',
           },
         ]}
@@ -305,7 +511,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('request-1');
   });
 
-  it('표를 가로 스크롤 안내와 연결한다', () => {
+  it('표 스크롤 영역에 접근성 이름을 부여한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -315,8 +521,6 @@ describe('AuditLogView', () => {
       />,
     );
 
-    expect(html).toContain('id="audit-table-scroll-hint"');
-    expect(html).toContain('aria-describedby="audit-table-scroll-hint"');
-    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다');
+    expect(html).toContain('감사 로그 표');
   });
 });

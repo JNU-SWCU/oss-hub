@@ -49,6 +49,14 @@ export function serializeCookie(
   return parts.join('; ');
 }
 
+/** 계정 비활성화와 일반 로그아웃이 같은 세션 쿠키 삭제 계약을 공유한다. */
+export function serializeClearedSessionCookie(secure: boolean): string {
+  return serializeCookie(sessionCookieName(secure), '', {
+    maxAgeSeconds: 0,
+    secure,
+  });
+}
+
 export function flowCookieName(secure: boolean): string {
   // __Host-는 HTTPS 전용이라 개발 HTTP에서는 별도 이름을 쓴다.
   return secure ? '__Host-oss_oauth_flow' : 'oss_oauth_flow_dev';

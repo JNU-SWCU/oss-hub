@@ -79,6 +79,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
           page: 1,
           pageSize: 20,
           total: 1,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -123,6 +124,7 @@ test('표 캡션을 렌더하지 않는다', () => {
           page: 1,
           pageSize: 20,
           total: 1,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -145,6 +147,7 @@ test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', ()
           page: 1,
           pageSize: 20,
           total: 0,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -208,6 +211,7 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
           page: 1,
           pageSize: 20,
           total: 2,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -252,6 +256,7 @@ test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭
           page: 1,
           pageSize: 20,
           total: 1,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -293,6 +298,7 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
           page: 1,
           pageSize: 20,
           total: 2,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -329,6 +335,7 @@ test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전�
           page: 1,
           pageSize: 20,
           total: 1,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -361,6 +368,7 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
           page: 1,
           pageSize: 20,
           total: 1,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -379,6 +387,7 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
           page: 1,
           pageSize: 20,
           total: 0,
+          dataAsOf: null,
         },
       }}
       {...handlers}
@@ -388,4 +397,52 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
     'synthetic-outcome5-applicant-login',
   );
   expect(afterRevocationHtml).toContain('집계된 활동 데이터가 없습니다');
+});
+
+test('갱신 시각이 있으면 화면에 기준 시각을 보여준다', () => {
+  // 숫자만 있으면 오늘 값인지 석 달 전 값인지 알 수 없다 —
+  // 수집이 멈춘 것을 화면이 먼저 말해야 한다(ADR-010 §10).
+  const html = renderToStaticMarkup(
+    <RankingView
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          year: 2026,
+          items: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          dataAsOf: new Date('2026-08-09T01:23:00.000Z'),
+        },
+      }}
+      onPageChange={() => {}}
+      onRetry={() => {}}
+    />,
+  );
+
+  expect(html).toContain('data-ranking-as-of');
+});
+
+test('갱신 시각이 없으면 기준 시각 문구를 넣지 않는다', () => {
+  const html = renderToStaticMarkup(
+    <RankingView
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          year: 2026,
+          items: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          dataAsOf: null,
+        },
+      }}
+      onPageChange={() => {}}
+      onRetry={() => {}}
+    />,
+  );
+
+  expect(html).not.toContain('data-ranking-as-of');
 });

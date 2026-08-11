@@ -24,7 +24,7 @@ function authorization(
     readonly applicationApproved: boolean;
     readonly submissionType: MilestoneSubmissionType;
     readonly dueAt: Date;
-    readonly programEndAt: Date | null;
+    readonly programEndAt: Date;
     readonly resubmissionStatus: SubmissionStatus;
     readonly currentRevision: number;
   }> = {},
@@ -139,6 +139,10 @@ describe('SubmissionFilesService', () => {
   it.each([
     ['document.pdf', 'application/pdf'],
     ['document.hwp', 'application/x-hwp'],
+    ['document.hwp', 'application/haansofthwp'],
+    ['document.hwp', 'application/vnd.hancom.hwp'],
+    ['document.hwp', 'application/x-hwp-v5'],
+    ['document.hwp', 'application/octet-stream'],
     ['photo.jpg', 'image/jpeg'],
     ['photo.jpeg', 'image/jpeg'],
     ['image.png', 'image/png'],
@@ -154,6 +158,20 @@ describe('SubmissionFilesService', () => {
       contentType: type,
     });
     expect(storage.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows an initial upload at the exact milestone deadline', async () => {
+    const { service, repository, storage } = setup();
+    repository.findUploadAuthorization.mockResolvedValue(
+      authorization({ dueAt: NOW }),
+    );
+
+    await expect(
+      service.upload(1n, 'app', 'milestone', file()),
+    ).resolves.toMatchObject({ fileId: 'file-opaque' });
+
+    expect(repository.createPending).toHaveBeenCalled();
+    expect(storage.put).toHaveBeenCalled();
   });
 
   it.each([
@@ -394,21 +412,6 @@ describe('SubmissionFilesService', () => {
     expect(storage.put).not.toHaveBeenCalled();
   });
 
-  it('rejects upload when Program end is null without putting an object', async () => {
-    const { service, repository, storage } = setup();
-    repository.findUploadAuthorization.mockResolvedValue({
-      applicationApproved: true,
-      submissionType: MilestoneSubmissionType.FILE,
-      dueAt: new Date('2026-07-26T00:00:00.000Z'),
-      programEndAt: null,
-    });
-    await expectCode(
-      service.upload(1n, 'app', 'milestone', file()),
-      SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE,
-    );
-    expect(storage.put).not.toHaveBeenCalled();
-  });
-
   it('redacts provider storage failures behind the public domain error', async () => {
     const { service, storage } = setup();
     storage.put.mockRejectedValue(
@@ -448,7 +451,7 @@ describe('SubmissionFilesService', () => {
     );
   });
 
-  it('preserves retention-unavailable semantics when the locked Program has no end date', async () => {
+  it('preserves retention-unavailable semantics when the locked Program row is missing', async () => {
     const { service, repository, storage } = setup();
     repository.createPending.mockRejectedValue(
       new SubmissionFileRetentionUnavailableError(),

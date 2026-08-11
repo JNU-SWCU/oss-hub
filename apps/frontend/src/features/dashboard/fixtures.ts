@@ -59,7 +59,10 @@ export const pendingDashboardFixture: StudentDashboard = {
       displayName: '오픈소스팀',
       applicationStatus: 'SUBMITTED',
       nextMilestone: null,
-      detailUrl: '/programs/program-oss-contest',
+      // 판정 전이라 목적지는 신청서 화면이다. 예전 값(`/programs/program-oss-contest`)은
+      // 계약상 불가능한 조합이었다 — 서버가 만들 수 없고 검증기가 버리는 항목이라,
+      // 이 픽스처로 그린 화면은 실제로는 존재할 수 없는 화면이었다.
+      detailUrl: '/programs/program-oss-contest/apply',
       checklistUrl: '/programs/program-oss-contest/submissions',
       repository: null,
     },
@@ -98,7 +101,8 @@ export const rejectedDashboardFixture: StudentDashboard = {
       displayName: '홍길동',
       applicationStatus: 'REJECTED',
       nextMilestone: null,
-      detailUrl: '/programs/program-rejected',
+      // 반려 사유를 그리는 화면은 신청서 화면 하나뿐이다(#733).
+      detailUrl: '/programs/program-rejected/apply',
       checklistUrl: '/programs/program-rejected/submissions',
       repository: null,
     },

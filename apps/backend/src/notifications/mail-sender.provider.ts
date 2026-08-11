@@ -1,4 +1,6 @@
 import type { Provider } from '@nestjs/common';
+import { e2eProgramAuthoringControlEnabled } from '../e2e-program-authoring/e2e-program-authoring.config';
+import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-external-ports';
 import type { RuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { GmailMailSender } from './adapters/gmail-mail-sender';
@@ -32,19 +34,23 @@ function gmailConfigFromRuntime(
  * MAIL_MODE is the sole mail behavior authority outside production.
  * Production requires explicit Gmail delivery configuration and rejects dry-run.
  */
-export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
+export function resolveMailSender(
+  runtimeConfig: RuntimeConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): MailSender {
+  if (e2eProgramAuthoringControlEnabled(env)) {
+    return e2eProgramAuthoringExternalPorts.mail;
+  }
   const mode = runtimeConfig.MAIL_MODE;
   if (runtimeConfig.NODE_ENV === 'production' && mode !== 'send') {
     throw new Error('Production requires MAIL_MODE=send.');
   }
   if (mode !== 'send' && mode !== 'dry-run') {
     throw new Error(
-      `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
+      `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode.trim() === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
     );
   }
-  if (mode === 'dry-run') {
-    return new LogMailSender();
-  }
+  if (mode === 'dry-run') return new LogMailSender();
   const config = gmailConfigFromRuntime(runtimeConfig);
   if (!config) {
     throw new Error(

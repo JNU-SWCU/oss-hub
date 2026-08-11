@@ -2,15 +2,13 @@ import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type {
-  DiscoveryNotice,
+  CollectionActivityEntry,
+  CollectionStreamRepository,
+  ExternalCollectionStatus,
   SystemStatus,
-  SystemStatusViewState,
   TriggerNotice,
 } from '../types';
 import { SystemStatusView } from './system-status-view';
-
-// 실제 학생 계정이 아닌 합성 fixture — PUBLIC repo에 실명/실제 계정을 남기지 않는다.
-const SYNTHETIC_GITHUB_LOGIN = 'synthetic-test-login';
 
 const normal: SystemStatus = {
   health: 'NORMAL',
@@ -24,30 +22,60 @@ const normal: SystemStatus = {
   oldestRetryPendingAt: null,
   lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
   lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+  nextCycleAt: null,
   currentRunStatus: 'IDLE',
   safeReason: null,
 };
 
+const emptyExternalCollection: ExternalCollectionStatus = {
+  trackedRepositoryCount: 0,
+  lastSweep: null,
+  cumulativeCommitCount: 0,
+  cumulativePullRequestCount: 0,
+  cumulativeReleaseCount: 0,
+};
+
+/**
+ * 이 파일의 `render` 두 번째 인자는 실제 컴포넌트 prop 타입(`SystemStatusViewState`)이
+ * 아니라 테스트 편의용 느슨한 타입이다 — success 상태에 `collectionStreams`·
+ * `collectionActivity`·`externalCollection`을 매번 적지 않아도 되도록 기본값을
+ * 채워 넣는다. 각각을 직접 검증하는 테스트만 해당 필드를 명시적으로 준다.
+ */
+type LooseViewState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'error' }
+  | {
+      readonly kind: 'success';
+      readonly status: SystemStatus;
+      readonly collectionStreams?: readonly CollectionStreamRepository[];
+      readonly collectionActivity?: readonly CollectionActivityEntry[];
+      readonly externalCollection?: ExternalCollectionStatus;
+    };
+
 function render(
-  state: SystemStatusViewState,
+  state: LooseViewState,
   overrides: {
     readonly isTriggering?: boolean;
     readonly triggerNotice?: TriggerNotice | null;
-    readonly isDiscovering?: boolean;
-    readonly discoveryNotice?: DiscoveryNotice | null;
-    readonly onDiscover?: (githubLogin: string) => void;
   } = {},
 ): string {
+  const resolvedState =
+    state.kind === 'success'
+      ? {
+          ...state,
+          collectionStreams: state.collectionStreams ?? [],
+          collectionActivity: state.collectionActivity ?? [],
+          externalCollection:
+            state.externalCollection ?? emptyExternalCollection,
+        }
+      : state;
   return renderToStaticMarkup(
     <SystemStatusView
-      state={state}
+      state={resolvedState}
       onRetry={() => undefined}
       onTrigger={() => undefined}
       isTriggering={overrides.isTriggering ?? false}
       triggerNotice={overrides.triggerNotice ?? null}
-      onDiscover={overrides.onDiscover ?? (() => undefined)}
-      isDiscovering={overrides.isDiscovering ?? false}
-      discoveryNotice={overrides.discoveryNotice ?? null}
     />,
   );
 }
@@ -140,14 +168,28 @@ describe('SystemStatusView', () => {
     expect(html).not.toContain('synthetic transport failure');
   });
 
-  it('NORMAL 응답의 상태, 현재 작업, 시각, stream count를 표시한다', () => {
+  it('NORMAL 응답은 통합된 수집 상태 카드에 health, 사유, 사이클 시각을 표시한다', () => {
     const html = render({ kind: 'success', status: normal });
     expect(html).toContain('정상');
-    expect(html).toContain('대기 중');
     expect(html).toContain('데이터 수집이 정상적으로 운영되고 있습니다.');
+    expect(html).toContain('이번 사이클 시작');
+    expect(html).toContain('최근 사이클 완료');
     expect(html).toContain('2026');
-    expect(html).toContain('추적 저장소');
-    expect(html).toContain('완료(READY)');
+  });
+
+  it('IDLE일 때는 run 상태 배지("수집 중")를 표시하지 않는다', () => {
+    const html = render({ kind: 'success', status: normal });
+    expect(html).not.toContain('수집 중');
+  });
+
+  it('PROCESSING일 때는 애니메이션 점과 함께 "수집 중" 배지를 표시한다', () => {
+    const html = render({
+      kind: 'success',
+      status: { ...normal, currentRunStatus: 'PROCESSING' },
+    });
+    expect(html).toContain('수집 중');
+    expect(html).toContain('before:animate-pulse');
+    expect(html).toContain('motion-reduce:before:animate-none');
   });
 
   it.each([
@@ -207,6 +249,170 @@ describe('SystemStatusView', () => {
     expect(withoutRetry).not.toContain('가장 오래된 재시도 대기');
   });
 
+  it('다음 주기 예상 시각이 있으면 상대·절대 시각을 함께 표시하고, 없으면 생략한다', () => {
+    const withNextCycle = render({
+      kind: 'success',
+      status: { ...normal, nextCycleAt: '2026-07-25T12:00:00.000Z' },
+    });
+    expect(withNextCycle).toContain('다음 주기 예상');
+    expect(withNextCycle).toContain('2026');
+
+    const withoutNextCycle = render({ kind: 'success', status: normal });
+    expect(withoutNextCycle).not.toContain('다음 주기 예상');
+  });
+
+  it('요약 카드 아래에 「수집 대상 상세」 표 section을 렌더링한다', () => {
+    const html = render({
+      kind: 'success',
+      status: normal,
+      collectionStreams: [
+        {
+          repositoryName: 'jnu-oss/example',
+          programName: null,
+          streams: [
+            {
+              streamType: 'COMMIT',
+              bucket: 'READY',
+              lastSuccessAt: '2026-07-25T10:59:00.000Z',
+              lastErrorCode: null,
+              lastErrorAt: null,
+            },
+          ],
+        },
+      ],
+    });
+    expect(html).toContain('aria-label="수집 대상 상세"');
+    expect(html).toContain('jnu-oss/example');
+  });
+
+  it('「수집 대상 상세」 표 아래에 「최근 수집 활동」 피드 section을 렌더링한다', () => {
+    const html = render({
+      kind: 'success',
+      status: normal,
+      collectionActivity: [
+        {
+          sweepFinishedAt: '2026-08-10T09:00:00.000Z',
+          cycleStartedAt: '2026-08-10T08:55:00.000Z',
+          scope: 'org:jnu-swcu',
+          insertedCommitCount: 12,
+          insertedPullRequestCount: 3,
+          insertedReleaseCount: 1,
+          attemptedRepositoryCount: 8,
+          processedRepositoryCount: 8,
+          failedRepositoryCount: 0,
+          cycleCompleted: true,
+          stoppedForBudget: false,
+        },
+      ],
+    });
+    const streamsIndex = html.indexOf('aria-label="수집 대상 상세"');
+    const activityIndex = html.indexOf('aria-label="최근 수집 활동"');
+    expect(streamsIndex).toBeGreaterThan(-1);
+    expect(activityIndex).toBeGreaterThan(streamsIndex);
+    expect(html).toContain('커밋 12');
+  });
+
+  describe('외부 저장소 수집 section', () => {
+    it('탐색된 external 저장소가 0개면 이유와 다음 행동을 설명하는 빈 상태를 보여준다', () => {
+      const html = render({ kind: 'success', status: normal });
+      expect(html).toContain('aria-label="외부 저장소 수집"');
+      expect(html).toContain('탐색된 학생 개인 GitHub 저장소가 아직 없습니다');
+      // 0을 그냥 0으로 보여주지 않는다 — 왜 0인지, 무엇을 하면 채워지는지가
+      // 화면에서 읽혀야 한다는 이 화면의 핵심 요구사항. 이 fixture는
+      // `lastSweep: null`(emptyExternalCollection)이라 sweep이 한 번도 끝난
+      // 적이 없다는 뜻이다 — "매시 정각 자동으로 실행되고 있다"고 단정하면
+      // 안 된다(QA57).
+      expect(html).not.toContain('매시 정각 자동으로 실행되고 있습니다');
+      expect(html).toContain('단 한 번도 완료된 적이 없습니다');
+      // 대상을 채우는 두 경로(신청 승인 / 관리자 수동 탐색) 모두 설명해야
+      // 한다 — 탐색만 유일한 경로인 것처럼 안내하면 신청 승인 경로로 이미
+      // 채워진 경우도 잘못 안내하게 된다.
+      expect(html).toContain(
+        '학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택',
+      );
+      // 신청 화면 라디오 라벨(program-apply-views.tsx) 그대로 써야 한다 —
+      // 내부 열거값 `OWN`을 노출하면 관리자가 무슨 뜻인지 알 수 없다.
+      expect(html).not.toContain('>OWN<');
+      // 신청 승인 경로는 프로그램의 「신청 승인 시 GitHub 저장소 자동 생성」이
+      // 꺼져 있으면 동작하지 않는다(코드 리뷰 Major ① 대응) — 이 전제조건이
+      // 빠지면 관리자가 이 화면만 보고 "왜 안 잡히지"를 풀 수 없다.
+      expect(html).toContain(
+        '「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다',
+      );
+      expect(html).toContain('관리자가 학생별로 저장소 탐색을 실행');
+      // "왜 0인지"의 원인은 시스템이 알 수 없는 사실이라 단정하지 않는다 —
+      // 관측 가능한 사실(대상 0개, 그래서 매시 수집도 처리할 저장소 없이
+      // 끝남)만 문구에 남는다.
+      expect(html).toContain('현재 수집 대상 저장소가 0개라');
+      expect(html).not.toContain('탐색을 실행한 학생이 없어');
+    });
+
+    it('org가 EMPTY 상태여도 external 섹션은 계속 렌더링한다(서로 독립된 파이프라인)', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          health: 'EMPTY',
+          safeReason: 'NO_TRACKED_REPOSITORIES',
+        },
+      });
+      expect(html).toContain('aria-label="외부 저장소 수집"');
+    });
+
+    it('탐색된 external 저장소가 있으면 추적 수·누적 활동·최근 sweep 처리 결과를 표시한다', () => {
+      const html = render({
+        kind: 'success',
+        status: normal,
+        externalCollection: {
+          trackedRepositoryCount: 5,
+          lastSweep: {
+            sweepFinishedAt: '2026-08-10T09:00:00.000Z',
+            cycleStartedAt: '2026-08-10T08:55:00.000Z',
+            scope: 'external',
+            insertedCommitCount: 4,
+            insertedPullRequestCount: 1,
+            insertedReleaseCount: 0,
+            attemptedRepositoryCount: 5,
+            processedRepositoryCount: 5,
+            failedRepositoryCount: 0,
+            cycleCompleted: true,
+            stoppedForBudget: false,
+          },
+          cumulativeCommitCount: 40,
+          cumulativePullRequestCount: 6,
+          cumulativeReleaseCount: 2,
+        },
+      });
+      expect(html).toContain('5개 추적 중');
+      expect(html).toContain('5개');
+      expect(html).toContain('커밋 40');
+      expect(html).toContain('PR 6');
+      expect(html).toContain('릴리즈 2');
+      expect(html).toContain('저장소 5/5');
+      expect(html).not.toContain(
+        '탐색된 학생 개인 GitHub 저장소가 아직 없습니다',
+      );
+    });
+
+    it('org 요약 카드의 추적 저장소 수는 external 값과 섞이지 않는다', () => {
+      const html = render({
+        kind: 'success',
+        status: { ...normal, trackedRepositoryCount: 2 },
+        externalCollection: {
+          trackedRepositoryCount: 5,
+          lastSweep: null,
+          cumulativeCommitCount: 0,
+          cumulativePullRequestCount: 0,
+          cumulativeReleaseCount: 0,
+        },
+      });
+      // org "Stream 진행 상황" 카드는 여전히 org의 2개를 보여준다 — external의
+      // 5개로 덮어써지지 않는다.
+      expect(html).toContain('추적 저장소 2개 × commit·PR·release 3종 stream');
+      expect(html).toContain('5개 추적 중');
+    });
+  });
+
   it('error 상태의 재시도 버튼이 전달된 handler를 호출한다', () => {
     const onRetry = vi.fn();
     const outer = SystemStatusView({
@@ -215,9 +421,6 @@ describe('SystemStatusView', () => {
       onTrigger: () => undefined,
       isTriggering: false,
       triggerNotice: null,
-      onDiscover: () => undefined,
-      isDiscovering: false,
-      discoveryNotice: null,
     }) as ReactElement;
     const rendered = (outer.type as (props: typeof outer.props) => ReactNode)(
       outer.props,
@@ -287,63 +490,66 @@ describe('SystemStatusView', () => {
     expect(html).not.toContain('COL_008');
   });
 
-  it('탐색 패널은 GitHub 로그인 입력을 위한 label과 input을 함께 렌더링한다', () => {
+  it('조직 밖 public 저장소 탐색 패널을 더 이상 렌더링하지 않는다', () => {
     const html = render({ kind: 'success', status: normal });
-    expect(html).toContain('for="discover-external-github-login"');
-    expect(html).toContain('id="discover-external-github-login"');
-    expect(html).toContain('학생 GitHub 로그인');
+    expect(html).not.toContain('조직 밖 public 저장소 탐색');
+    expect(html).not.toContain('discover-external-github-login');
+    expect(html).not.toContain('학생 GitHub 로그인');
+    expect(html).not.toContain('지금 탐색 실행');
   });
 
-  it('탐색 입력이 비어 있으면 탐색 버튼을 비활성화한다', () => {
-    const html = render({ kind: 'success', status: normal });
-    const button = buttonTagContaining(html, '지금 탐색 실행');
-    expect(button).toContain('disabled=""');
-  });
-
-  it('탐색이 진행 중이면 버튼을 비활성화하고 진행 문구를 보여준다', () => {
-    const html = render(
-      { kind: 'success', status: normal },
-      { isDiscovering: true },
-    );
-    const button = buttonTagContaining(html, '탐색 중');
-    expect(button).toContain('disabled=""');
-  });
-
-  it('탐색 성공 알림은 4개 집계 필드를 모두 표시한다', () => {
-    const html = render(
-      { kind: 'success', status: normal },
-      {
-        discoveryNotice: {
-          kind: 'success',
-          githubLogin: SYNTHETIC_GITHUB_LOGIN,
-          discoveredCount: 5,
-          upsertedCount: 3,
-          skippedOrgProvisionedCount: 2,
+  describe('Stream 진행 상황 진행률', () => {
+    it('완료율 0%: 모든 stream이 대기/backfill 상태면 0%로 표시하고 세그먼트 바를 채운다', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          readyStreamCount: 0,
+          backfillingStreamCount: 3,
+          partialStreamCount: 2,
+          retryPendingStreamCount: 1,
         },
-      },
-    );
-    expect(html).toContain('role="alert"');
-    expect(html).toContain('저장소 탐색을 완료했습니다');
-    expect(html).toContain(SYNTHETIC_GITHUB_LOGIN);
-    expect(html).toContain('>5<');
-    expect(html).toContain('>3<');
-    expect(html).toContain('>2<');
-  });
+      });
+      expect(html).toContain('완료 0 / 6 stream (0%)');
+      expect(html).toContain('추적 저장소 2개 × commit·PR·release 3종 stream');
+    });
 
-  it('탐색 실패(학생 없음)는 사람이 읽을 수 있는 안내만 보여주고 원문 코드를 노출하지 않는다', () => {
-    const html = render(
-      { kind: 'success', status: normal },
-      {
-        discoveryNotice: {
-          kind: 'error',
-          message: '해당 GitHub 계정으로 등록된 학생을 찾을 수 없습니다.',
+    it('완료율 100%: 모든 stream이 완료면 100%로 표시한다', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          readyStreamCount: 6,
+          backfillingStreamCount: 0,
+          partialStreamCount: 0,
+          retryPendingStreamCount: 0,
         },
-      },
-    );
-    expect(html).toContain('저장소 탐색에 실패했습니다');
-    expect(html).toContain(
-      '해당 GitHub 계정으로 등록된 학생을 찾을 수 없습니다.',
-    );
-    expect(html).not.toContain('COL_009');
+      });
+      expect(html).toContain('완료 6 / 6 stream (100%)');
+    });
+
+    it('혼합 진행률: 4구간이 섞여 있으면 반올림한 비율과 role="img" aria-label을 함께 표시한다', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          readyStreamCount: 3,
+          backfillingStreamCount: 2,
+          partialStreamCount: 1,
+          retryPendingStreamCount: 2,
+        },
+      });
+      // 3 / 8 = 37.5% → round(37.5) = 38%
+      expect(html).toContain('완료 3 / 8 stream (38%)');
+      expect(html).toContain('role="img"');
+      expect(html).toContain(
+        'aria-label="전체 8개 stream 중 완료(READY) 3개, Backfill 중 2개, 부분·대기 1개, 재시도 대기 2개입니다."',
+      );
+      // 범례는 0인 구간도 표시한다.
+      expect(html).toContain('완료(READY)');
+      expect(html).toContain('Backfill 중');
+      expect(html).toContain('부분·대기');
+      expect(html).toContain('재시도 대기');
+    });
   });
 });

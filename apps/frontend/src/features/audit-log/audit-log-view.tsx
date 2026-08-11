@@ -3,6 +3,7 @@ import {
   DataTable,
   EmptyState,
   PageHeader,
+  StatusBadge,
   type DataTableColumn,
 } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,6 +15,14 @@ import {
   type AuditLogFilters,
   type AuditLogRecord,
 } from './types';
+import { resolveAuditLogActionBadge } from './audit-log-action';
+import { AuditLogSentence } from './audit-log-sentence';
+import {
+  describeAuditLog,
+  describeTargetType,
+  isFallbackTarget,
+  TARGETLESS_FALLBACK_TARGET_TYPES,
+} from './describe';
 
 export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
@@ -37,49 +46,107 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+// 큰 단위부터 순서대로 훑어, 경과 시간이 그 단위의 임계값을 넘는 첫 단위로 표시한다
+// (예: 90분 경과 → hour 임계값 3600초를 넘으므로 "1시간 전"). 1분 미만은 RelativeTimeFormat이
+// "0분 전" 같은 어색한 값을 낼 수 있어 "방금 전"으로 따로 처리한다.
+const RELATIVE_TIME_UNITS: readonly (readonly [
+  Intl.RelativeTimeFormatUnit,
+  number,
+])[] = [
+  ['year', 60 * 60 * 24 * 365],
+  ['month', 60 * 60 * 24 * 30],
+  ['week', 60 * 60 * 24 * 7],
+  ['day', 60 * 60 * 24],
+  ['hour', 60 * 60],
+  ['minute', 60],
+];
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat('ko', {
+  numeric: 'auto',
+});
+
+function formatRelativeTime(value: string, now: Date): string {
+  const diffSeconds = Math.round(
+    (new Date(value).getTime() - now.getTime()) / 1000,
+  );
+  if (Math.abs(diffSeconds) < 60) return '방금 전';
+  for (const [unit, secondsInUnit] of RELATIVE_TIME_UNITS) {
+    if (Math.abs(diffSeconds) >= secondsInUnit) {
+      return relativeTimeFormatter.format(
+        Math.trunc(diffSeconds / secondsInUnit),
+        unit,
+      );
+    }
+  }
+  return relativeTimeFormatter.format(Math.trunc(diffSeconds / 60), 'minute');
+}
+
 export function AuditLogView(props: AuditLogViewProps) {
   const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
+  // 행마다 새 Date를 만들면 렌더 한 번 안에서도 상대 시각 기준이 미묘하게 어긋날 수
+  // 있어 렌더당 한 번만 고정한다.
+  const now = new Date();
   const columns: DataTableColumn<AuditLogRecord>[] = [
-    {
-      id: 'actor',
-      header: '행위자',
-      headClassName: 'min-w-32 whitespace-nowrap',
-      cellClassName: 'min-w-32 whitespace-nowrap',
-      cell: (record) => <span className="font-medium">{record.actor}</span>,
-    },
-    {
-      id: 'action',
-      header: '액션',
-      headClassName: 'min-w-64 whitespace-nowrap',
-      cellClassName: 'min-w-64 whitespace-nowrap',
-      cell: (record) => (
-        <span className="break-keep font-mono text-xs">{record.action}</span>
-      ),
-    },
-    {
-      id: 'target',
-      header: '대상',
-      headClassName: 'min-w-48 whitespace-nowrap',
-      cellClassName: 'min-w-48 whitespace-nowrap',
-      cell: (record) => (
-        <span className="flex flex-col">
-          <span className="break-keep">{record.target}</span>
-          <span className="text-muted-foreground break-keep text-xs">
-            {record.targetType} / {record.targetId}
-          </span>
-        </span>
-      ),
-    },
     {
       id: 'occurredAt',
       header: '발생 일시',
-      headClassName: 'min-w-40 whitespace-nowrap',
-      cellClassName: 'min-w-40 whitespace-nowrap',
+      headClassName: 'min-w-32 whitespace-nowrap',
+      cellClassName: 'min-w-32 align-top whitespace-nowrap',
       cell: (record) => (
-        <time dateTime={record.occurredAt}>
-          {formatDate(record.occurredAt)}
+        <time dateTime={record.occurredAt} className="flex flex-col text-sm">
+          <span>{formatRelativeTime(record.occurredAt, now)}</span>
+          <span className="text-muted-foreground text-xs">
+            {formatDate(record.occurredAt)}
+          </span>
         </time>
       ),
+    },
+    {
+      id: 'content',
+      header: '내용',
+      headClassName: 'min-w-64',
+      cellClassName: 'min-w-64 align-top',
+      cell: (record) => {
+        const { sentence } = describeAuditLog(record);
+        const { label, variant } = resolveAuditLogActionBadge(record.action);
+        return (
+          <div className="flex flex-col gap-1.5 py-0.5">
+            <p className="text-sm leading-relaxed break-keep">
+              <AuditLogSentence segments={sentence} />
+            </p>
+            <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+              <StatusBadge variant={variant} className="h-5 px-2 text-[11px]">
+                {label}
+              </StatusBadge>
+              <span>{describeTargetType(record.targetType)}</span>
+              {/* isFallbackTarget(record)는 백엔드가 이 행의 target을 의미 있는
+                  라벨로 풀지 못했다는 뜻이다(스냅샷도 없고 join도 실패) — 그때만
+                  원본 참조값 보존 목적으로 targetId를 codeblock으로 보여준다.
+                  풀렸으면(ROLE_REQUEST/USER의 핸들, PROGRAM/REPOSITORY의 이름,
+                  APPLICATION의 합성 라벨 등 targetType 불문) 이미 문장에 나온 값을
+                  cuid 옆에 중복 노출하지 않고 그 라벨을 그대로 보여준다.
+                  TARGETLESS_FALLBACK_TARGET_TYPES(COLLECTION_SYNC 등)는 폴백이어도
+                  targetId 자체가 사람에게 의미 없는 실행 식별자이고 조회로 되찾을
+                  경로도 없어(describe.ts 주석 참고) 세그먼트 자체를(구분자 '·'
+                  포함) 생략한다 — targetType 배지와 발생 일시로 "무엇에 대한
+                  기록인지"는 여전히 알 수 있다. */}
+              {!(
+                isFallbackTarget(record) &&
+                TARGETLESS_FALLBACK_TARGET_TYPES.has(record.targetType)
+              ) && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  {!isFallbackTarget(record) ? (
+                    <span className="text-xs">{record.target}</span>
+                  ) : (
+                    <span className="font-mono text-xs">{record.targetId}</span>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+        );
+      },
     },
   ];
 
@@ -96,7 +163,8 @@ export function AuditLogView(props: AuditLogViewProps) {
         title="감사 로그"
         description={
           <span className="break-keep">
-            역할 요청 변경 이력을 행위자, 액션, 기간으로 조회합니다.
+            역할·계정 변경, 프로그램 보관·복구, 수집 실행, 신청 승인·반려 등
+            관리 작업 이력을 행위자, 액션, 기간으로 조회합니다.
           </span>
         }
       />
@@ -187,12 +255,9 @@ export function AuditLogView(props: AuditLogViewProps) {
           </AlertDescription>
         </Alert>
       ) : null}
-      <p id="audit-table-scroll-hint" className="text-muted-foreground text-sm">
-        표를 좌우로 스크롤할 수 있습니다.
-      </p>
       <DataTable
         className="min-w-0 rounded-lg border border-border"
-        aria-describedby="audit-table-scroll-hint"
+        scrollRegionLabel="감사 로그 표"
         columns={columns}
         data={[...props.records]}
         rowKey={(record) => record.id}

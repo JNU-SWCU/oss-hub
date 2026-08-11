@@ -35,6 +35,7 @@ const program = {
   organizer: 'Organizer',
   category: 'BASIC',
   description: 'Description',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000Z',
     endsAt: '2026-07-31T23:59:59.000Z',
@@ -68,6 +69,7 @@ const application = {
   submittedAt: '2026-07-15T00:00:00.000Z',
   updatedAt: '2026-07-16T00:00:00.000Z',
   isRepositoryPublicationPlanned: false,
+  rejectionReason: null,
   canManage: true,
   canEdit: true,
   canCancel: true,
@@ -102,6 +104,7 @@ describe('loadProgramApplyContext', () => {
       kind: 'blocked',
       reason: 'period-closed',
       program,
+      application: readonlyApplication,
     });
   });
 
@@ -127,8 +130,82 @@ describe('loadProgramApplyContext', () => {
       kind: 'blocked',
       reason: 'already-applied',
       program: decidedProgram,
+      application: decidedApplication,
     });
     expect(getMyApplication).toHaveBeenCalledWith('program-1');
+  });
+
+  /**
+   * 반려 사유는 `getMyApplication` 응답에만 실려 온다(#722). 예전에는 이 판정 직후
+   * 응답 객체를 버려서, 화면이 사유를 그리려 해도 꺼낼 곳이 없었다.
+   */
+  it('반려로 막을 때 사유가 실린 신청서를 함께 넘긴다', async () => {
+    // Given
+    const rejectedProgram = {
+      ...program,
+      viewer: { role: 'STUDENT', applicationStatus: 'REJECTED' },
+    } satisfies ProgramDetail;
+    const rejectedApplication = {
+      ...application,
+      status: 'REJECTED',
+      canManage: false,
+      rejectionReason: '제출한 요약이 프로그램 주제와 맞지 않습니다.',
+    } satisfies StudentApplication;
+    vi.mocked(getProgramDetail).mockResolvedValue(rejectedProgram);
+    vi.mocked(getMyApplication).mockResolvedValue(rejectedApplication);
+
+    // When
+    const result = await loadProgramApplyContext('program-1', null);
+
+    // Then
+    expect(result).toEqual({
+      kind: 'blocked',
+      reason: 'already-applied',
+      program: rejectedProgram,
+      application: rejectedApplication,
+    });
+  });
+
+  // 신청서를 조회하지도 않은 갈래는 `null`이다 — 없는 값을 지어내지 않는다.
+  it('신청 전 팀 미구성으로 막을 때는 신청서 자리를 null로 둔다', async () => {
+    // Given
+    const teamTemplate = {
+      ...template,
+      key: 'oss-contest',
+      participation: 'team',
+    } satisfies ApplicationFormTemplate;
+    const noApplicationProgram = {
+      ...program,
+      category: 'OSS_CONTEST',
+      applicationPeriod: {
+        startsAt: '2020-01-01T00:00:00.000Z',
+        endsAt: '2099-12-31T23:59:59.000Z',
+      },
+      viewer: { role: 'STUDENT', applicationStatus: null },
+    } satisfies ProgramDetail;
+    vi.mocked(listApplicationTemplates).mockResolvedValue([teamTemplate]);
+    vi.mocked(getProgramDetail).mockResolvedValue(noApplicationProgram);
+    vi.mocked(getMyTeam).mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Not found',
+        status: 404,
+        detail: 'Team not found',
+        instance: '/teams/me',
+        code: 'TEAM_001',
+      }),
+    );
+
+    // When
+    const result = await loadProgramApplyContext('program-1', null);
+
+    // Then
+    expect(result).toEqual({
+      kind: 'blocked',
+      reason: 'team-required',
+      program: noApplicationProgram,
+      application: null,
+    });
   });
 
   it('returns edit state only when a submitted application can be edited', async () => {

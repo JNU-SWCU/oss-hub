@@ -66,6 +66,19 @@ export class UsersService {
   ): Promise<UserProfile> {
     await this.consentsService.requireCurrent(githubId);
     const user = await this.requireUser(githubId);
+    // 학번은 학생만 가질 수 있다 — 교직원·관리자는 요청에 studentId가 실리는 즉시
+    // 거절한다(예전에는 조교처럼 대학원생 신분을 겸하는 교직원이 학번을 선택적으로
+    // 채울 수 있었지만, 이제는 그 예외를 허용하지 않는다).
+    if (
+      input.studentId !== undefined &&
+      !profileFieldRequirement(effectiveProfileRole(user)).studentId
+    ) {
+      throw new DomainException({
+        code: SystemErrorCode.VALIDATION_FAILED,
+        status: 400,
+        message: '학번은 학생만 저장할 수 있습니다.',
+      });
+    }
     const next: UserProfileRecord = {
       id: user.id,
       role: user.role,

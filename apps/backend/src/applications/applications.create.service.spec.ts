@@ -38,6 +38,7 @@ const OPEN_PROGRAM: ApplyProgramRecord = {
   applicationTemplateVersion: 1,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
+  repositoryProvisioningEnabled: true,
 };
 
 const CREATED: CreatedApplication = {
@@ -486,6 +487,29 @@ describe('ApplicationsService.create', () => {
     );
   });
 
+  it('OWN + 경계 밖 GitHub URL은 store에 기록하지 않는다', async () => {
+    const { service, createApplication } = buildService({});
+
+    await expect(
+      service.create(
+        GITHUB_ID,
+        PROGRAM_ID,
+        {
+          ...DEFAULT_INPUT,
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          repositoryUrl:
+            'https://github.com/synthetic-org/synthetic-repo?tab=readme',
+        },
+        NOW,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED,
+      },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
+  });
+
   it('구 클라이언트 정규화값(NEW + null)을 store.createApplication 까지 전달한다', async () => {
     const { service, createApplication } = buildService({});
 
@@ -497,6 +521,59 @@ describe('ApplicationsService.create', () => {
         repositoryUrl: null,
       }),
     );
+  });
+
+  it('저장소 발급이 켜졌는데 mode가 없으면 신청을 만들지 않는다', async () => {
+    const { service, createApplication } = buildService({});
+
+    await expect(
+      service.create(
+        GITHUB_ID,
+        PROGRAM_ID,
+        { ...DEFAULT_INPUT, repositoryConnectionMode: null },
+        NOW,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_REQUIRED,
+      },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
+  });
+
+  it('저장소 발급이 꺼지면 mode 없는 신청만 받고 DB 기본 NEW로 정규화한다', async () => {
+    const { service, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, repositoryProvisioningEnabled: false },
+    });
+
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      { ...DEFAULT_INPUT, repositoryConnectionMode: null },
+      NOW,
+    );
+
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
+      }),
+    );
+  });
+
+  it('저장소 발급이 꺼졌는데 mode를 보내면 신청을 만들지 않는다', async () => {
+    const { service, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, repositoryProvisioningEnabled: false },
+    });
+
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN,
+      },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
   });
   it('이미 팀에 속해 있으면 새 팀을 만들지 않고 그 팀으로 신청한다', async () => {
     // Given — /teams 에서 팀을 먼저 만든 학생.

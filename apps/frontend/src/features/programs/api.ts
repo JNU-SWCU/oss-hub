@@ -6,6 +6,7 @@ import type {
   ApplicationFormFieldKey,
   ApplicationFormFieldType,
   ApplicationFormTemplate,
+  ApplicationListItem,
   ApplicationListPage,
   ApplicationListParams,
   ProgramActivity,
@@ -14,6 +15,7 @@ import type {
   ProgramListParams,
   ProgramStatusCounts,
   RepositoryProvisioning,
+  StaffProgramTeam,
   ProgramParticipation,
   StaffDashboardSummary,
   SubmissionType,
@@ -119,6 +121,7 @@ export interface EditableProgram {
   readonly applicationEndAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
   readonly description: string;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
@@ -128,6 +131,7 @@ export interface EditableProgram {
 export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
 };
 
 export interface UpsertMilestoneInput {
@@ -259,16 +263,25 @@ export function deleteMilestone(
 
 export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
 
+/**
+ * 신청 생성 요청 본문. 키는 backend `CreateApplicationRequestDto`가 whitelist 하는
+ * 것과 정확히 같아야 한다 — 전역 `ValidationPipe`가 `forbidNonWhitelisted: true`라
+ * 모르는 키가 하나라도 있으면 본문 전체가 400 SYS_003으로 거절된다.
+ *
+ * 팀은 여기서 보내지 않는다. #651 이후 backend가 신청자의 팀 멤버십으로 팀을 정한다
+ * — 이미 이 프로그램의 팀에 속해 있으면 그 팀을 재사용하고, 아니면 1인 팀을 만든다
+ * (`applications.service.ts`의 `findExistingTeamMembership`). 팀 id를 실어 보내면
+ * 미허용 키가 되어 신청이 통째로 실패한다.
+ */
 export interface CreateApplicationInput {
   readonly answers: {
     readonly title: string;
     readonly summary: string;
   };
-  readonly teamId: string | null;
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
-  /** 폼 값 — wire 전송 시 `NEW`/`OWN`으로 매핑한다. */
-  readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode;
+  /** 폼 값 — wire 전송 시 `NEW`/`OWN`, 발급 비활성은 null로 매핑한다. */
+  readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode | null;
   /**
    * 폼 값. `own`이면 trim 한 URL을 보내고, `new`이면 빈 문자열이어도 wire에는
    * `null`을 넣는다(백엔드가 빈 문자열을 400으로 거절한다).
@@ -285,10 +298,11 @@ export interface CreatedApplication {
   readonly isRepositoryPublicationPlanned: boolean;
 }
 
-/** 폼 `new`/`own` → 신청 생성 API `NEW`/`OWN`. 응답 쪽 `mapParticipation`과 같은 경계. */
+/** 폼 `new`/`own`/null → 신청 생성 API `NEW`/`OWN`/null. */
 function mapRepositoryConnectionModeForApi(
-  mode: CreateApplicationRepositoryConnectionMode,
-): 'NEW' | 'OWN' {
+  mode: CreateApplicationRepositoryConnectionMode | null,
+): 'NEW' | 'OWN' | null {
+  if (mode === null) return null;
   return mode === 'own' ? 'OWN' : 'NEW';
 }
 
@@ -306,7 +320,6 @@ export function createApplication(
       headers: jsonHeaders,
       body: JSON.stringify({
         answers: input.answers,
-        teamId: input.teamId,
         applicationTemplateVersion: input.applicationTemplateVersion,
         isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
         repositoryConnectionMode,
@@ -390,6 +403,31 @@ export function listProgramApplications(
   });
   return apiClient<ApplicationListPage>(
     `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
+  );
+}
+
+/**
+ * #722 교직원 신청 상세. 목록 항목과 **같은 모양**이 온다 — 백엔드가 두 조회에 같은
+ * select 를 쓰므로 화면끼리 필드가 어긋나지 않는다.
+ */
+export function getApplicationDetail(
+  applicationId: string,
+): Promise<ApplicationListItem> {
+  return apiClient<ApplicationListItem>(
+    `applications/${encodeURIComponent(applicationId)}`,
+  );
+}
+
+/**
+ * 교직원 전용 팀 목록. 학생이 쓰는 공개 로스터(`overview/teams`)와 **다른 경로**다 —
+ * 그쪽은 프로그램 참가자 전원에게 보이는 목록이라 실명을 주지 않는다. 이 경로는
+ * staff 가드 뒤에 있어 실명을 포함한다.
+ */
+export function listStaffProgramTeams(
+  programId: string,
+): Promise<readonly StaffProgramTeam[]> {
+  return apiClient<readonly StaffProgramTeam[]>(
+    `programs/${encodeURIComponent(programId)}/teams`,
   );
 }
 

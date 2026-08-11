@@ -65,7 +65,8 @@ export const SUBMISSION_REVIEWS_ERROR_CODES: Record<
   [SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED]: {
     code: SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED,
     status: 409,
-    message: '이 지원서는 저장소 공개가 계획되어 있지 않습니다.',
+    // 화면은 "신청"으로 통일돼 있다 — 이 문구는 409 알림으로 그대로 교직원에게 나간다.
+    message: '이 신청은 저장소 공개가 계획되어 있지 않습니다.',
   },
   [SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED]: {
     code: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED,

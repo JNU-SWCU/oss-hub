@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { sanitizeDisplayText } from '@/lib/display-text';
 import type { ProgramTeam } from './api';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
@@ -21,6 +22,7 @@ import {
   type TeamMinimum,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
+import type { StudentApplication } from './student-application-api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 export type ApplicationFormMode = 'create' | 'edit';
@@ -38,12 +40,61 @@ export function ApplySkeleton() {
   );
 }
 
+/**
+ * 반려 사유 상자 — 이 화면이 이미 약속한 것을 실제로 보여 주는 자리(#722).
+ *
+ * 대시보드의 반려 알림이 "신청 상세에서 반려 사유를 확인해 주세요"라며 여기로 보내는데,
+ * 정작 이 화면은 "승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다"만 말하고
+ * 사유는 어디에도 없었다. 사유가 실려 오는 곳은 `GET .../applications/me` 하나뿐이고
+ * (알림 payload·감사 로그·메일에는 담기지 않는다), `loadProgramApplyContext`가 그
+ * 응답을 이미 받아 두므로 여기서 꺼내 쓰기만 하면 된다.
+ *
+ * 조형은 `features/roles/components/role-request-screen.tsx`의 반려 블록과 맞춘다 —
+ * 같은 성격의 알림이 화면마다 다른 모양이면 위계가 무너진다. 다만 본문에는
+ * `whitespace-pre-wrap`(교직원이 넣은 줄바꿈 보존)과 `break-keep`(한글 문장의 어색한
+ * 줄바꿈 방지)을 더 건다 — 그쪽은 한 줄짜리 사유를 전제한 자리다.
+ *
+ * 사유가 비었거나 공백뿐이면 **아무것도 그리지 않는다.** 라벨만 뜨고 안이 비면 사용자는
+ * 사유가 아직 안 온 줄 알고 기다린다(`sanitizeDisplayText`가 `null`을 돌려준다).
+ *
+ * ⚠ 길이는 **자르지 않는다.** 역할 요청 반려와 달리 신청 반려는 번호 매긴 보완 목록이
+ * 자연스러운 형식이라, 뒤를 자르면 재신청 마감일 같은 마지막 줄이 통째로 사라진다.
+ */
+function RejectionReasonAlert({
+  application,
+}: {
+  readonly application: StudentApplication | null;
+}) {
+  if (application === null || application.status !== 'REJECTED') return null;
+  const reason = sanitizeDisplayText(application.rejectionReason);
+  if (reason === null) return null;
+
+  return (
+    <Alert variant="destructive" className="mb-6 text-left">
+      <AlertCircle aria-hidden="true" />
+      <AlertTitle>반려 사유</AlertTitle>
+      <AlertDescription className="break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
+        {reason}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function BlockedView({
   reason,
   program,
+  application,
 }: {
   readonly reason: 'period-closed' | 'already-applied' | 'team-required';
   readonly program: ProgramDetail;
+  /**
+   * 막힘을 판정하는 데 쓴 내 신청서. 반려 사유는 **여기에만** 실려 온다.
+   *
+   * 선택 prop으로 두지 않는다 — 기본값 `null`을 주면 호출부가 넘기는 것을 잊어도
+   * 조용히 컴파일되고, 사유가 사라진 화면이 다시 만들어진다. 조회하지 않은 갈래는
+   * 호출부가 `null`을 **명시**해서 "없다"와 "잊었다"를 구분한다.
+   */
+  readonly application: StudentApplication | null;
 }) {
   const content =
     reason === 'period-closed'
@@ -65,6 +116,9 @@ export function BlockedView({
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-12">
+      {/* 안내 상자보다 **위**에 세운다 — 반려된 사람의 첫 할 일은 "수정할 수 없다"를
+          읽는 것이 아니라 왜 반려됐는지 읽는 것이다. */}
+      <RejectionReasonAlert application={application} />
       <EmptyState
         title={content.title}
         description={content.description}
@@ -154,8 +208,8 @@ interface ProgramApplyFormViewProps {
 
 /**
  * GitHub 저장소 연결 섹션 — 계정 연동 안내(읽기전용) + 연결 방식 라디오(2택).
- * `own`을 고르면 조건부 repo URL 입력이 카드 안에 나타난다. 새 신청서 작성
- * (`create`)에서만 보인다 — 수정 화면 범위 밖(program-apply-flow.validateApplyForm 참고).
+ * `own`을 고르면 조건부 repo URL 입력이 카드 안에 나타난다. 저장소 발급을 켠
+ * 프로그램의 새 신청서 작성에서만 보인다.
  */
 function RepositoryConnectionSection({
   githubHandle,
@@ -193,14 +247,14 @@ function RepositoryConnectionSection({
               checked={repositoryConnectionMode === 'new'}
               onChange={() => onModeChange('new')}
             />
-            <span className="font-medium">새 저장소를 만들어 받습니다</span>
+            <span className="font-medium">새 저장소 발급받기</span>
             <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
               기본
             </span>
           </span>
           <span className="pl-6 text-xs text-muted-foreground">
-            승인되면 JNU-SWCU 조직에 팀 저장소가 자동으로 생성되고, 내 GitHub
-            계정이 초대됩니다
+            승인되면 운영 조직에 비공개 저장소가 생성되고 내 GitHub 계정이
+            초대됩니다
           </span>
         </label>
         <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
@@ -212,10 +266,13 @@ function RepositoryConnectionSection({
               checked={repositoryConnectionMode === 'own'}
               onChange={() => onModeChange('own')}
             />
-            <span className="font-medium">이미 쓰던 저장소를 연결합니다</span>
+            <span className="font-medium">내 저장소 연결하기</span>
           </span>
           <span className="pl-6 text-xs text-muted-foreground">
             진행 중인 프로젝트가 있다면 그 repo를 그대로 프로그램에 연결합니다
+          </span>
+          <span className="pl-6 text-xs font-medium text-foreground">
+            외부 저장소는 공개 저장소만 연결
           </span>
           {repositoryConnectionMode === 'own' ? (
             <Input
@@ -391,23 +448,25 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           />
           {errors.title ? <FieldError>{errors.title}</FieldError> : null}
           {errors.summary ? <FieldError>{errors.summary}</FieldError> : null}
-          <Field orientation="horizontal">
-            <input
-              id="repository-publication-planned"
-              type="checkbox"
-              checked={values.isRepositoryPublicationPlanned}
-              disabled={mode === 'edit'}
-              onChange={(event) =>
-                onTogglePublicationPlanned(event.target.checked)
-              }
-            />
-            <FieldLabel htmlFor="repository-publication-planned">
-              {mode === 'edit'
-                ? '제출 시 선택한 저장소 공개 예정 여부'
-                : '선정 시 저장소를 공개할 예정입니다'}
-            </FieldLabel>
-          </Field>
-          {mode === 'create' ? (
+          {mode === 'edit' || program.repositoryProvisioningEnabled ? (
+            <Field orientation="horizontal">
+              <input
+                id="repository-publication-planned"
+                type="checkbox"
+                checked={values.isRepositoryPublicationPlanned}
+                disabled={mode === 'edit'}
+                onChange={(event) =>
+                  onTogglePublicationPlanned(event.target.checked)
+                }
+              />
+              <FieldLabel htmlFor="repository-publication-planned">
+                {mode === 'edit'
+                  ? '제출 시 선택한 저장소 공개 예정 여부'
+                  : '선정 시 저장소를 공개할 예정입니다'}
+              </FieldLabel>
+            </Field>
+          ) : null}
+          {mode === 'create' && program.repositoryProvisioningEnabled ? (
             <RepositoryConnectionSection
               githubHandle={githubHandle}
               repositoryConnectionMode={values.repositoryConnectionMode}

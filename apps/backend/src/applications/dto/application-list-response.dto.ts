@@ -1,22 +1,37 @@
-import type { ApplicationStatus } from '@prisma/client';
+import type {
+  ApplicationStatus,
+  RepositoryConnectionMode,
+} from '@prisma/client';
 import type {
   ApplicationListItem,
   ApplicationListPage,
+  ApplicationListRepository,
   RepositoryProvisioningJobStatus,
   RepositoryProvisioningSafeErrorClass,
 } from '../applications.repository';
 
 export class ApplicationListItemResponseDto {
   readonly id: string;
+  /** 상세 화면이 주소의 프로그램과 대조하는 데 쓴다(#722). */
+  readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: string;
   readonly rejectionReason: string | null;
+  /** 승인이 저장소를 새로 만드는지(`NEW`) 낸 것을 잇는지(`OWN`). */
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  /** `OWN`일 때 이을 저장소 주소. */
+  readonly repositoryUrl: string | null;
   readonly repositoryProvisioning: {
     readonly enabled: boolean;
     readonly jobStatus: RepositoryProvisioningJobStatus;
     readonly updatedAt: string;
     readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
+  /**
+   * 프로비저닝된 저장소 주소·공개 여부. 화면이 「공개 저장소 열기」/「비공개 저장소 확인」을
+   * 가르는 데 쓴다(submission-reviews 검토 화면과 같은 계약). 아직 없으면 null.
+   */
+  readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
@@ -37,13 +52,17 @@ export class ApplicationListItemResponseDto {
 
   private constructor(item: ApplicationListItem) {
     this.id = item.id;
+    this.programId = item.programId;
     this.status = item.status;
     this.submittedAt = item.submittedAt.toISOString();
     this.rejectionReason = item.rejectionReason;
+    this.repositoryConnectionMode = item.repositoryConnectionMode;
+    this.repositoryUrl = item.repositoryUrl;
     this.repositoryProvisioning = {
       ...item.repositoryProvisioning,
       updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
     };
+    this.repository = item.repository;
     this.isRepositoryPublicationPlanned = item.isRepositoryPublicationPlanned;
     this.participation = item.participation;
     this.applicant = item.applicant;

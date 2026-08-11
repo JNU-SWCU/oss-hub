@@ -1,18 +1,28 @@
 import {
   AccountStatus,
   ApplicationStatus,
+  ProgramLifecycle,
   Role,
+  RepositoryVisibility,
   RoleRequestStatus,
 } from '@prisma/client';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
+  APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+  APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1,
   createAccessAuditMetadata,
   createApplicationDecisionAuditMetadata,
   createCollectionTriggerAuditMetadata,
+  createProgramLifecycleAuditMetadata,
+  createRepositoryPublishAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   InvalidAuditLogMetadataError,
   parseAuditLogMetadata,
+  PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
+  PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
+  REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
+  REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1,
 } from './audit-log-metadata';
 
 const STATE = {
@@ -135,6 +145,102 @@ describe('createAccessAuditMetadata', () => {
   });
 });
 
+describe('createProgramLifecycleAuditMetadata / parseAuditLogMetadata — PROGRAM_LIFECYCLE', () => {
+  it('현재 스키마 버전(schemaVersion 2)으로 프로그램 이름 스냅샷을 도장 찍는다', () => {
+    const metadata = createProgramLifecycleAuditMetadata({
+      programName: '합성 프로그램 이름',
+      before: { lifecycle: ProgramLifecycle.PUBLISHED },
+      after: { lifecycle: ProgramLifecycle.ARCHIVED },
+    });
+
+    expect(metadata.schemaVersion).toBe(PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('schemaVersion 1(이름 스냅샷 없음) 과거 metadata를 여전히 허용한다', () => {
+    const legacyV1Metadata = {
+      schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
+      before: { lifecycle: ProgramLifecycle.PUBLISHED },
+      after: { lifecycle: ProgramLifecycle.ARCHIVED },
+    } as const;
+
+    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+      legacy: false,
+      metadata: legacyV1Metadata,
+    });
+  });
+
+  it('schemaVersion 2인데 programName이 없으면 거부한다', () => {
+    const malformed = {
+      schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
+      before: { lifecycle: ProgramLifecycle.PUBLISHED },
+      after: { lifecycle: ProgramLifecycle.ARCHIVED },
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+});
+
+describe('createRepositoryPublishAuditMetadata / parseAuditLogMetadata — REPOSITORY_PUBLISH', () => {
+  it('현재 스키마 버전(schemaVersion 2)으로 저장소 전체 이름 스냅샷을 도장 찍는다', () => {
+    const metadata = createRepositoryPublishAuditMetadata({
+      repositoryId: 'synthetic-repository',
+      repositoryFullName: 'synthetic-org/synthetic-repo',
+      before: { visibility: RepositoryVisibility.PRIVATE },
+      after: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: '2026-07-24T04:00:00.000Z',
+      },
+    });
+
+    expect(metadata.schemaVersion).toBe(
+      REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
+    );
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('schemaVersion 1(이름 스냅샷 없음) 과거 metadata를 여전히 허용한다', () => {
+    const legacyV1Metadata = {
+      schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1,
+      repositoryId: 'synthetic-repository',
+      before: { visibility: RepositoryVisibility.PRIVATE },
+      after: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: '2026-07-24T04:00:00.000Z',
+      },
+    } as const;
+
+    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+      legacy: false,
+      metadata: legacyV1Metadata,
+    });
+  });
+
+  it('schemaVersion 2인데 repositoryFullName이 없으면 거부한다', () => {
+    const malformed = {
+      schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
+      repositoryId: 'synthetic-repository',
+      before: { visibility: RepositoryVisibility.PRIVATE },
+      after: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: '2026-07-24T04:00:00.000Z',
+      },
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+});
+
 // #547 — 새로 기록하는 세 종류의 metadata를 조회 시점에 다시 읽어낼 수 있어야 한다.
 // 읽기 가드가 없으면 목록 조회가 InvalidAuditLogMetadataError로 통째로 깨진다.
 describe('parseAuditLogMetadata — #547 신규 typed action', () => {
@@ -168,10 +274,14 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
 
   it('신청 승인·거절 metadata를 그대로 읽어낸다', () => {
     const approved = createApplicationDecisionAuditMetadata({
+      programName: '합성 프로그램',
+      applicantGithubLogin: 'synthetic-applicant',
       before: { status: ApplicationStatus.SUBMITTED },
       after: { status: ApplicationStatus.APPROVED },
     });
     const rejected = createApplicationDecisionAuditMetadata({
+      programName: '합성 프로그램',
+      applicantGithubLogin: 'synthetic-applicant',
       before: { status: ApplicationStatus.SUBMITTED },
       after: { status: ApplicationStatus.REJECTED },
     });
@@ -180,7 +290,9 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
     expect(parseAuditLogMetadata(rejected)).toEqual({
       legacy: false,
       metadata: {
-        schemaVersion: 1,
+        schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+        programName: '합성 프로그램',
+        applicantGithubLogin: 'synthetic-applicant',
         before: { status: ApplicationStatus.SUBMITTED },
         after: { status: ApplicationStatus.REJECTED },
       },
@@ -188,6 +300,8 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
   });
   it('신청 되돌리기 metadata를 그대로 읽어낸다', () => {
     const reverted = createApplicationDecisionAuditMetadata({
+      programName: '합성 프로그램',
+      applicantGithubLogin: 'synthetic-applicant',
       before: { status: ApplicationStatus.APPROVED },
       after: { status: ApplicationStatus.SUBMITTED },
     });
@@ -195,11 +309,39 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
     expect(parseAuditLogMetadata(reverted)).toEqual({
       legacy: false,
       metadata: {
-        schemaVersion: 1,
+        schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+        programName: '합성 프로그램',
+        applicantGithubLogin: 'synthetic-applicant',
         before: { status: ApplicationStatus.APPROVED },
         after: { status: ApplicationStatus.SUBMITTED },
       },
     });
+  });
+
+  it('schemaVersion 1(프로그램·신청자 스냅샷 없음) 과거 판정 metadata를 여전히 허용한다', () => {
+    const legacyV1Metadata = {
+      schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1,
+      before: { status: ApplicationStatus.SUBMITTED },
+      after: { status: ApplicationStatus.APPROVED },
+    } as const;
+
+    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+      legacy: false,
+      metadata: legacyV1Metadata,
+    });
+  });
+
+  it('schemaVersion 2인데 applicantGithubLogin이 없으면 거부한다', () => {
+    const malformed = {
+      schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+      programName: '합성 프로그램',
+      before: { status: ApplicationStatus.SUBMITTED },
+      after: { status: ApplicationStatus.APPROVED },
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
   });
 
   it('알 수 없는 status가 담긴 판정 metadata는 거부한다', () => {
@@ -217,13 +359,17 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
   // 뒤에도 쓰기 자체를 막는 이 방어선은 그대로 둔다.
   it('판정 metadata는 반려 사유 원문을 담지 않는다', () => {
     const rejected = createApplicationDecisionAuditMetadata({
+      programName: '합성 프로그램',
+      applicantGithubLogin: 'synthetic-applicant',
       before: { status: ApplicationStatus.SUBMITTED },
       after: { status: ApplicationStatus.REJECTED },
     });
 
     expect(Object.keys(rejected).sort()).toEqual([
       'after',
+      'applicantGithubLogin',
       'before',
+      'programName',
       'schemaVersion',
     ]);
     expect(JSON.stringify(rejected)).not.toContain('rejectionReason');

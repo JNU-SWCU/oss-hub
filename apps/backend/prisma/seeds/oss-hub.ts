@@ -112,10 +112,16 @@ async function upsertConfiguredUser(
 type OssHubMilestoneSeed = {
   readonly id: string;
   readonly name: string;
+  readonly startAt: Date;
   readonly dueAt: Date;
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string;
 };
+
+const PROGRAM_APPLICATION_START_AT = kstMidnight('2026-07-01');
+const PROGRAM_APPLICATION_END_AT = kstMidnight('2026-08-01');
+const PROGRAM_START_AT = kstMidnight('2026-08-02');
+const PROGRAM_END_AT = kstMidnight('2026-09-01');
 
 export async function seedOssHub(
   stats: SeedStats,
@@ -139,9 +145,10 @@ export async function seedOssHub(
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: ProgramCategory.OSS_CONTEST.toLowerCase(),
           applicationTemplateVersion: 1,
-          applicationStartAt: offsetDays(-30),
-          applicationEndAt: offsetDays(30),
-          endAt: offsetDays(90),
+          applicationStartAt: PROGRAM_APPLICATION_START_AT,
+          applicationEndAt: PROGRAM_APPLICATION_END_AT,
+          startAt: PROGRAM_START_AT,
+          endAt: PROGRAM_END_AT,
           teamMinSize: 4,
           teamMaxSize: 4,
           description: PROGRAM_DESCRIPTION,
@@ -155,9 +162,10 @@ export async function seedOssHub(
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: ProgramCategory.OSS_CONTEST.toLowerCase(),
           applicationTemplateVersion: 1,
-          applicationStartAt: offsetDays(-30),
-          applicationEndAt: offsetDays(30),
-          endAt: offsetDays(90),
+          applicationStartAt: PROGRAM_APPLICATION_START_AT,
+          applicationEndAt: PROGRAM_APPLICATION_END_AT,
+          startAt: PROGRAM_START_AT,
+          endAt: PROGRAM_END_AT,
           teamMinSize: 4,
           teamMaxSize: 4,
           description: PROGRAM_DESCRIPTION,
@@ -225,14 +233,16 @@ export async function seedOssHub(
     {
       id: seedId('oss-hub', 'milestone', 'aws-staging'),
       name: 'AWS Staging',
+      startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-08'),
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      submissionType: MilestoneSubmissionType.TEXT,
       instructions:
         '승인된 AWS 구조에 staging 환경을 배포하고 HTTPS·헬스체크·롤백 절차를 검증합니다.',
     },
     {
       id: seedId('oss-hub', 'milestone', 'intake-freeze'),
       name: 'Intake 기능 동결',
+      startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-08'),
       submissionType: MilestoneSubmissionType.TEXT,
       instructions:
@@ -241,6 +251,7 @@ export async function seedOssHub(
     {
       id: seedId('oss-hub', 'milestone', 'intake-gate'),
       name: 'Intake Gate',
+      startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-15'),
       submissionType: MilestoneSubmissionType.TEXT,
       instructions: '실사용자 시나리오와 권한·오류·회귀 검증을 완료합니다.',
@@ -248,6 +259,7 @@ export async function seedOssHub(
     {
       id: seedId('oss-hub', 'milestone', 'implementation-deadline'),
       name: '구현 마감',
+      startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-21'),
       submissionType: MilestoneSubmissionType.TEXT,
       instructions:
@@ -256,6 +268,7 @@ export async function seedOssHub(
     {
       id: seedId('oss-hub', 'milestone', 'dry-run'),
       name: 'Full-loop Dry-run',
+      startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-24'),
       submissionType: MilestoneSubmissionType.FILE,
       instructions:
@@ -264,18 +277,18 @@ export async function seedOssHub(
     {
       id: seedId('oss-hub', 'milestone', 'live-beta'),
       name: 'Full-loop Live Beta',
-      // 스키마의 Milestone.dueAt은 단일 시각만 지원한다(기간 필드 없음). 검증 시작은
-      // 2026-08-27이며 종료(마감)일 2026-08-29를 dueAt으로 쓰고, 시작일은 instructions에 남긴다.
-      dueAt: kstMidnight('2026-08-29'),
+      startAt: kstMidnight('2026-08-27'),
+      dueAt: kstMidnight('2026-08-31'),
       submissionType: MilestoneSubmissionType.TEXT,
       instructions:
-        '승인된 베타 범위에서 2026-08-27부터 2026-08-29까지 실사용 검증을 진행하고 차단 이슈를 기록합니다.',
+        '승인된 베타 범위에서 실사용 검증을 진행하고 차단 이슈를 기록합니다.',
     },
     {
       id: seedId('oss-hub', 'milestone', 'release-complete'),
       name: 'Release Complete',
+      startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-31'),
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      submissionType: MilestoneSubmissionType.TEXT,
       instructions:
         '릴리스 체크리스트·운영 문서·복구 연습·최종 QA를 모두 완료합니다.',
     },
@@ -320,6 +333,7 @@ export async function seedOssHub(
           where: { id: milestone.id },
           update: {
             name: milestone.name,
+            startAt: milestone.startAt,
             dueAt: milestone.dueAt,
             submissionType: milestone.submissionType,
             instructions: milestone.instructions,
@@ -328,6 +342,7 @@ export async function seedOssHub(
             id: milestone.id,
             programId: PROGRAM_ID,
             name: milestone.name,
+            startAt: milestone.startAt,
             dueAt: milestone.dueAt,
             submissionType: milestone.submissionType,
             instructions: milestone.instructions,
@@ -367,7 +382,7 @@ export async function seedOssHub(
     );
   }
 
-  // aws-staging: 팀장이 staging 배포 릴리즈 링크를 제출, STAFF가 승인 리뷰를 남긴 상태.
+  // aws-staging: 팀장이 staging 배포 결과를 제출하고 STAFF가 승인 리뷰를 남긴 상태.
   const awsStagingSubmissionId = seedId('oss-hub', 'submission', 'aws-staging');
   await upsertTracked(
     stats,
@@ -408,10 +423,10 @@ export async function seedOssHub(
           id: awsStagingRevisionId,
           submissionId: awsStagingSubmissionId,
           revision: 1,
-          submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+          submissionType: MilestoneSubmissionType.TEXT,
           content: {
-            type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-            releaseUrl: `${OSS_HUB_REPOSITORY_URL}/releases/tag/seed-aws-staging`,
+            type: MilestoneSubmissionType.TEXT,
+            text: 'staging 배포와 HTTPS·헬스체크·롤백 절차 검증을 완료했습니다 (seed fixture).',
           },
           submittedById: users[0]!.id,
         },
@@ -569,6 +584,7 @@ export async function seedOssHub(
           applicationTemplateVersion: 1,
           applicationStartAt: OSS_HUB_PRACTICE_CREATED_AT,
           applicationEndAt: offsetDays(60),
+          startAt: offsetDays(61),
           endAt: offsetDays(120),
           teamMinSize: 4,
           teamMaxSize: 4,
@@ -585,6 +601,7 @@ export async function seedOssHub(
           applicationTemplateVersion: 1,
           applicationStartAt: OSS_HUB_PRACTICE_CREATED_AT,
           applicationEndAt: offsetDays(60),
+          startAt: offsetDays(61),
           endAt: offsetDays(120),
           teamMinSize: 4,
           teamMaxSize: 4,

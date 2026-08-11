@@ -9,6 +9,7 @@ import { LogMailSender } from './adapters/log-mail-sender';
 import { mailSenderProvider, resolveMailSender } from './mail-sender.provider';
 import { MAIL_SENDER } from './mail-sender.port';
 import type { MailSender } from './mail-sender.port';
+import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-external-ports';
 
 const BASE_ENV = { ...process.env };
 
@@ -50,9 +51,9 @@ describe('resolveMailSender / mailSenderProvider', () => {
   });
 
   it('blank MAIL_MODE throws', () => {
-    expect(() => resolveMailSender(frozenSnapshot({ MAIL_MODE: '' }))).toThrow(
-      /MAIL_MODE/,
-    );
+    expect(() =>
+      resolveMailSender(frozenSnapshot({ MAIL_MODE: '   ' })),
+    ).toThrow(/MAIL_MODE/);
   });
 
   it('invalid MAIL_MODE throws', () => {
@@ -195,5 +196,28 @@ describe('resolveMailSender / mailSenderProvider', () => {
     );
 
     expect(sender).toBeInstanceOf(LogMailSender);
+  });
+
+  it('selects the shared fake only for explicit test control', () => {
+    // Given
+    e2eProgramAuthoringExternalPorts.reset();
+
+    // When
+    const sender = resolveMailSender(frozenSnapshot({ NODE_ENV: 'test' }), {
+      NODE_ENV: 'test',
+      E2E_PROGRAM_AUTHORING_CONTROL: 'enabled',
+    });
+
+    // Then
+    expect(sender).toBe(e2eProgramAuthoringExternalPorts.mail);
+  });
+
+  it('fails closed when production enables external test control', () => {
+    expect(() =>
+      resolveMailSender(frozenSnapshot({ NODE_ENV: 'production' }), {
+        NODE_ENV: 'production',
+        E2E_PROGRAM_AUTHORING_CONTROL: 'enabled',
+      }),
+    ).toThrow(/forbidden/);
   });
 });

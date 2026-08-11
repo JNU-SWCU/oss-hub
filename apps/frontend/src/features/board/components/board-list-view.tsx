@@ -222,6 +222,7 @@ export function BoardListContent({
         />
       ) : (
         <DataTable
+          scrollRegionLabel="게시판 글 목록 표"
           columns={columns}
           data={[...items]}
           rowKey={(post) => post.id}

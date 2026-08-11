@@ -2,9 +2,11 @@ import type { ProgramCategory } from './program-templates';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
 export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+/** 교직원이 신청에 할 수 있는 판정. 목록·상세 두 화면이 같은 집합을 쓴다. */
+export type ApplicationDecisionAction = 'APPROVE' | 'REJECT' | 'REVERT';
 export type SubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
-export type SubmissionType = 'FILE' | 'TEXT' | 'REPOSITORY_RELEASE';
+export type SubmissionType = 'FILE' | 'TEXT';
 
 export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
 export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];
@@ -152,8 +154,20 @@ export interface RepositoryProvisioning {
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
+/** 승인이 저장소를 새로 만드는가(`NEW`), 신청자가 낸 저장소를 잇는가(`OWN`). */
+export type RepositoryConnectionMode = 'NEW' | 'OWN';
+
 export interface ApplicationListItem {
   readonly id: string;
+  /**
+   * 어느 프로그램의 신청인가. 상세 화면이 주소의 프로그램과 대조하는 데 쓴다 —
+   * 백엔드 조회가 신청 id 하나로 도달하므로, 주소를 손으로 고치면 프로그램 A의
+   * 화면에서 프로그램 B의 신청을 판정하게 된다.
+   */
+  readonly programId: string;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  /** `OWN`일 때 이을 저장소 주소. `NEW`면 null. */
+  readonly repositoryUrl: string | null;
   readonly status: ApplicationStatus;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: RepositoryProvisioning;
@@ -170,11 +184,40 @@ export interface ApplicationListItem {
     readonly name: string;
     readonly memberCount: number;
   } | null;
+  /**
+   * 신청 산출물 저장소. `Application.repository` 1:1이 출처다 — 팀으로 찾지 않는다
+   * (`schema.prisma`의 Repository 주석: "저장소 식별 단위는 application이다").
+   * 아직 만들어지지 않았으면 `null`.
+   */
+  readonly repository: {
+    readonly url: string;
+    readonly visibility: 'PUBLIC' | 'PRIVATE';
+  } | null;
   readonly answers: {
     readonly applicantName: string;
     readonly title: string;
     readonly summary: string;
   };
+}
+
+/** 교직원 팀 목록의 팀원 한 명. `name`은 가입 시 입력한 실명(없으면 `null`). */
+export interface StaffProgramTeamMember {
+  readonly userId: string;
+  readonly name: string | null;
+  readonly nickname: string;
+  readonly isLeader: boolean;
+}
+
+/**
+ * `GET /programs/:programId/teams` (교직원 전용) 응답 항목.
+ * 학생이 쓰는 공개 로스터(`overview/teams`)와 달리 실명을 포함한다 —
+ * 그쪽은 프로그램 참가자 전원에게 보이는 목록이라 nickname만 준다.
+ */
+export interface StaffProgramTeam {
+  readonly teamId: string;
+  readonly name: string;
+  readonly memberCount: number;
+  readonly members: readonly StaffProgramTeamMember[];
 }
 
 export interface ApplicationListPage {
@@ -259,6 +302,7 @@ export interface ProgramDetail {
   readonly organizer: string;
   readonly category: ProgramCategory;
   readonly description: string;
+  readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;

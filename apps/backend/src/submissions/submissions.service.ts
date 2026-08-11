@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { DomainException } from '../common/error-code';
-import { programDeadline } from '../programs/program-deadline';
+import {
+  hasProgramDeadlinePassed,
+  programDeadline,
+} from '../programs/program-deadline';
 import type {
   CreateSubmissionInput,
   ResubmitSubmissionInput,
@@ -19,7 +18,6 @@ import type {
   SubmissionChecklistResponseDto,
   SubmissionFormResponseDto,
 } from './dto/submission-response.dto';
-import { isLinkedRepositoryReleaseUrl } from './submission-release-url';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -73,12 +71,6 @@ export class SubmissionsService {
         submissionType: milestone.submissionType,
         instructions: milestone.instructions,
       },
-      repository:
-        milestone.submissionType ===
-          MilestoneSubmissionType.REPOSITORY_RELEASE &&
-        application.repositoryUrl
-          ? { url: application.repositoryUrl, status: 'READY' }
-          : null,
       existingSubmission: application.existingSubmission
         ? {
             ...application.existingSubmission,
@@ -276,7 +268,7 @@ export class SubmissionsService {
               milestone.submission.status ===
                 SubmissionStatus.CHANGES_REQUESTED ||
               (milestone.submission.status === SubmissionStatus.SUBMITTED &&
-                now <= milestone.dueAt),
+                !hasProgramDeadlinePassed(milestone.dueAt, now)),
             file: milestone.submission.file
               ? {
                   ...milestone.submission.file,
@@ -306,26 +298,12 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
     if (
       target.status !== SubmissionStatus.CHANGES_REQUESTED &&
-      now > target.dueAt
+      hasProgramDeadlinePassed(target.dueAt, now)
     ) {
       throw this.error(SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED);
     }
     if (input.content.type !== target.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (input.content.type === MilestoneSubmissionType.REPOSITORY_RELEASE) {
-      if (!target.repositoryUrl)
-        throw this.error(SubmissionsErrorCode.REPOSITORY_NOT_READY);
-      if (
-        !isLinkedRepositoryReleaseUrl(
-          target.repositoryUrl,
-          input.content.releaseUrl,
-        )
-      ) {
-        throw this.error(
-          SubmissionsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
-        );
-      }
-    }
   }
 
   private async requireStudent(
@@ -353,18 +331,8 @@ export class SubmissionsService {
     now: Date,
   ): SubmissionBlockedReasonResponseDto | null {
     if (application.existingSubmission) return 'SUBMISSION_ALREADY_EXISTS';
-    if (now > milestone.dueAt) return 'MILESTONE_CLOSED';
-    if (
-      milestone.submissionType === MilestoneSubmissionType.FILE &&
-      milestone.programEndAt === null
-    )
-      return 'FILE_UPLOAD_UNAVAILABLE';
-    if (
-      milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE &&
-      !application.repositoryUrl
-    ) {
-      return 'REPOSITORY_NOT_READY';
-    }
+    if (hasProgramDeadlinePassed(milestone.dueAt, now))
+      return 'MILESTONE_CLOSED';
     return null;
   }
 
@@ -376,32 +344,10 @@ export class SubmissionsService {
   ): void {
     if (application.existingSubmission)
       throw this.error(SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS);
-    if (now > milestone.dueAt)
+    if (hasProgramDeadlinePassed(milestone.dueAt, now))
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     if (input.content.type !== milestone.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (
-      milestone.submissionType === MilestoneSubmissionType.FILE &&
-      milestone.programEndAt === null
-    )
-      throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
-    if (!application.repositoryUrl) {
-      if (
-        milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE
-      ) {
-        throw this.error(SubmissionsErrorCode.REPOSITORY_NOT_READY);
-      }
-      return;
-    }
-    if (
-      input.content.type === MilestoneSubmissionType.REPOSITORY_RELEASE &&
-      !isLinkedRepositoryReleaseUrl(
-        application.repositoryUrl,
-        input.content.releaseUrl,
-      )
-    ) {
-      throw this.error(SubmissionsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY);
-    }
   }
 
   private error(code: SubmissionsErrorCode): DomainException {

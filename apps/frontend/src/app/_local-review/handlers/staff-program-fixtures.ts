@@ -23,6 +23,18 @@ import type { MatrixRow } from '@/features/submissions/types';
  * (`program-oss-contest`는 대시보드 카드가 없어 집계 제약이 없다.)
  */
 
+/**
+ * 「아직 안 끝난 프로그램」의 종료일. 백엔드 `Program.endAt` 컬럼의 DB 기본값
+ * (`9999-12-31 23:59:59.999`, `apps/backend/prisma/schema.prisma`)과 같은 순간이다 —
+ * 서버가 미종료를 표현하는 방식 그대로여야 픽스처가 서버 대신 말할 수 있다.
+ *
+ * ⚠ 달력이 따라잡을 수 있는 종료일을 쓰면, 그 날이 지나는 순간 서버는 그 프로그램을
+ * 「종료됨」으로 보는데 검토 컨텍스트에 적어 둔 `PROGRAM_NOT_ENDED`만 옛 사유로 남아
+ * 코드 변경 없이 대조가 어긋난다(#812). `staff-publish-gate.test.tsx`가 달력 끝에서
+ * 한 번 더 대조해 그 되돌림을 그 자리에서 잡는다.
+ */
+export const PROGRAM_NEVER_ENDS_AT = '9999-12-31T23:59:59.999Z';
+
 /** `submissionMatrixReviewUrl`(backend)와 같은 규칙으로 검토 화면 경로를 만든다. */
 function reviewUrl(programId: string, submissionId: string): string {
   return `/programs/${programId}/submissions/${submissionId}/review`;
@@ -53,7 +65,7 @@ const PROVISIONING_DISABLED = {
   safeErrorClass: null,
 } as const satisfies RepositoryProvisioning;
 
-// ── program-basic-study — 대시보드 카드: 전체 3 / 제출 1 / 승인 1 / 반려 1 ──
+// ── program-basic-study — 대시보드 카드: 전체 4 / 제출 1 / 승인 2 / 반려 1 ──
 
 const BASIC_MILESTONES = [
   {
@@ -68,7 +80,7 @@ const BASIC_MILESTONES = [
     id: 'milestone-basic-final',
     name: '합성 최종 실습 결과',
     dueAt: '2026-06-30T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     instructions: null,
   },
 ] as const satisfies readonly EditableMilestone[];
@@ -80,13 +92,14 @@ const BASIC_PROGRAM = {
   category: 'BASIC',
   applicationTemplateKey: 'basic',
   applicationTemplateVersion: 1,
-  applicationCount: 3,
+  applicationCount: 4,
   // 신청 기간은 공개 목록 픽스처와 같은 값을 쓴다 — 같은 프로그램 레코드다.
   applicationStartAt: '2026-01-31T15:00:00.000Z',
   applicationEndAt: '2026-04-30T14:59:59.000Z',
   // 종료일은 신청 종료일과 모든 마일스톤 마감 이후여야 저장이 통과한다.
   endAt: '2026-07-31T14:59:59.000Z',
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: false,
   description:
     '로컬 검토용 합성 프로그램입니다. 실제 모집이나 실제 참여자와 무관합니다.',
   teamMinSize: null,
@@ -96,7 +109,7 @@ const BASIC_PROGRAM = {
     locked: true,
     byApplications: true,
     byTeams: false,
-    applicationCount: 3,
+    applicationCount: 4,
     teamCount: 0,
   },
   milestones: BASIC_MILESTONES,
@@ -105,11 +118,20 @@ const BASIC_PROGRAM = {
 const BASIC_APPLICATIONS = [
   {
     id: 'application-basic-approved',
+    programId: 'program-basic-study',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'APPROVED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 네 게이트를 전부 지나야
+    // 하므로(저장소 준비·공개 예정·프로그램 종료·필수 마일스톤 승인) 진행 중에는 대부분 PRIVATE이다.
+    repository: {
+      url: 'https://github.com/JNU-SWCU/synthetic-repo-1',
+      visibility: 'PUBLIC',
+    },
     submittedAt: '2026-04-20T02:15:00.000Z',
     participation: 'INDIVIDUAL',
     applicant: {
@@ -126,12 +148,51 @@ const BASIC_APPLICATIONS = [
     },
   },
   {
+    // 네 게이트(저장소 준비·공개 예정·프로그램 종료·필수 마일스톤 승인)를 **전부**
+    // 지나는 유일한 신청이다(#753). 이 자리가 없으면 하네스에서 저장소 공개 전환
+    // 버튼을 누를 수 있는 화면이 하나도 없다 — 나머지는 저마다 한 게이트 이상 막혀
+    // 있고, 그것이 각자의 확인 목적이라 그쪽을 열면 그 목적이 사라진다.
+    id: 'application-basic-publishable',
+    programId: 'program-basic-study',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
+    status: 'APPROVED',
+    rejectionReason: null,
+    // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
+    isRepositoryPublicationPlanned: true,
+    repositoryProvisioning: PROVISIONING_SUCCEEDED,
+    // 아직 비공개다 — 공개 전환을 눌러 보는 것이 이 신청의 목적이라 PUBLIC이면 안 된다.
+    // 주소·공개 범위는 이 신청의 검토 컨텍스트(`synthetic-repo-basic-02`)와 같은 값이다.
+    repository: {
+      url: 'https://github.com/JNU-SWCU/synthetic-basic-study-02',
+      visibility: 'PRIVATE',
+    },
+    submittedAt: '2026-04-22T06:30:00.000Z',
+    participation: 'INDIVIDUAL',
+    applicant: {
+      id: 'synthetic-user-14',
+      name: '합성 학생 14',
+      nickname: 'synthetic-student-14',
+    },
+    team: null,
+    answers: {
+      applicantName: '합성 학생 14',
+      title: '합성 기초 스터디 참여 신청(공개 전환 확인용)',
+      summary:
+        '저장소 공개 전환을 실제로 눌러 보기 위한 합성 신청입니다. 실제 계획이 아닙니다.',
+    },
+  },
+  {
     id: 'application-basic-submitted',
+    programId: 'program-basic-study',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'SUBMITTED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_NOT_REQUESTED,
+    repository: null,
     submittedAt: '2026-04-27T05:40:00.000Z',
     participation: 'INDIVIDUAL',
     applicant: {
@@ -148,11 +209,15 @@ const BASIC_APPLICATIONS = [
   },
   {
     id: 'application-basic-rejected',
+    programId: 'program-basic-study',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'REJECTED',
     rejectionReason: '합성 반려 사유입니다. 실제 판정이 아닙니다.',
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_DISABLED,
+    repository: null,
     submittedAt: '2026-04-18T23:05:00.000Z',
     participation: 'INDIVIDUAL',
     applicant: {
@@ -198,6 +263,39 @@ const BASIC_MATRIX_ROWS = [
       },
     ],
   },
+  {
+    // 필수 마일스톤 게이트를 지나려면 이 프로그램의 마일스톤이 **전부** 승인이어야 한다
+    // (백엔드 `requiredMilestonesApproved`는 전칭이다). 한 칸이라도 승인이 아니면
+    // 검토 화면의 공개 전환 버튼이 다시 닫힌다.
+    applicationId: 'application-basic-publishable',
+    applicationMode: 'PERSONAL',
+    displayName: '합성 학생 14',
+    githubLogins: ['synthetic-student-14'],
+    cells: [
+      {
+        milestoneId: 'milestone-basic-orientation',
+        submissionId: 'submission-basic-publishable-orientation',
+        revision: 1,
+        status: 'APPROVED',
+        submittedAt: '2026-05-12T04:00:00.000Z',
+        reviewUrl: reviewUrl(
+          'program-basic-study',
+          'submission-basic-publishable-orientation',
+        ),
+      },
+      {
+        milestoneId: 'milestone-basic-final',
+        submissionId: 'submission-basic-publishable-final',
+        revision: 1,
+        status: 'APPROVED',
+        submittedAt: '2026-06-28T07:15:00.000Z',
+        reviewUrl: reviewUrl(
+          'program-basic-study',
+          'submission-basic-publishable-final',
+        ),
+      },
+    ],
+  },
 ] as const satisfies readonly MatrixRow[];
 
 // ── program-capstone — 대시보드 카드: 전체 0 (빈 목록 상태 확인용) ──
@@ -220,9 +318,9 @@ const CAPSTONE_MILESTONES = [
   },
   {
     id: 'milestones-revision',
-    name: '최종 릴리스',
+    name: '최종 결과 요약',
     dueAt: '2026-08-10T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     instructions: null,
   },
 ] as const satisfies readonly EditableMilestone[];
@@ -239,6 +337,7 @@ const CAPSTONE_PROGRAM = {
   applicationEndAt: '2026-12-31T14:59:59.000Z',
   endAt: '2027-01-31T14:59:59.000Z',
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: true,
   description:
     '로컬 검토용 합성 프로그램입니다. 승인된 신청이 없는 상태를 확인합니다.',
   teamMinSize: 2,
@@ -261,7 +360,7 @@ const CONTEST_MILESTONES = [
     id: 'milestones-overdue',
     name: '예선 결과물',
     dueAt: '2026-07-20T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     instructions: '[로컬 검토용] 합성 안내 문구입니다.',
   },
   {
@@ -283,8 +382,11 @@ const CONTEST_PROGRAM = {
   applicationCount: 2,
   applicationStartAt: '2026-07-14T15:00:00.000Z',
   applicationEndAt: '2026-11-30T14:59:59.000Z',
-  endAt: '2026-12-31T14:59:59.000Z',
+  // 세 검토 컨텍스트가 이 프로그램으로 `PROGRAM_NOT_ENDED`를 보여 준다 — 달력이
+  // 지나갈 수 있는 날짜를 적으면 그 날부터 그 사유가 거짓이 된다(#812).
+  endAt: PROGRAM_NEVER_ENDS_AT,
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: true,
   description:
     '로컬 검토용 합성 경진대회입니다. 팀형 신청·제출 화면을 확인합니다.',
   teamMinSize: 2,
@@ -303,11 +405,20 @@ const CONTEST_PROGRAM = {
 const CONTEST_APPLICATIONS = [
   {
     id: 'application-team',
+    programId: 'program-oss-contest',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'APPROVED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 네 게이트를 전부 지나야
+    // 하므로(저장소 준비·공개 예정·프로그램 종료·필수 마일스톤 승인) 진행 중에는 대부분 PRIVATE이다.
+    repository: {
+      url: 'https://github.com/JNU-SWCU/synthetic-repo-2',
+      visibility: 'PRIVATE',
+    },
     submittedAt: '2026-07-16T04:00:00.000Z',
     participation: 'TEAM',
     applicant: {
@@ -316,9 +427,12 @@ const CONTEST_APPLICATIONS = [
       nickname: 'synthetic-student-21',
     },
     team: {
-      id: 'synthetic-team-01',
-      name: '합성 오픈소스팀',
-      memberCount: 3,
+      // 팀 명단(`program-overview-fixtures`의 경진대회 1팀)과 같은 id 여야 한다 —
+      // 교직원 참여 팀 목록이 이 id 로 신청을 붙인다. 어긋나면 그 화면에서 모든 팀이
+      // "신청서 안 냄"으로 보인다.
+      id: 'synthetic-team-contest-1',
+      name: '합성 경진대회 1팀',
+      memberCount: 2,
     },
     answers: {
       applicantName: '합성 학생 21',
@@ -328,11 +442,20 @@ const CONTEST_APPLICATIONS = [
   },
   {
     id: 'application-contest-champion',
+    programId: 'program-oss-contest',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'APPROVED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 네 게이트를 전부 지나야
+    // 하므로(저장소 준비·공개 예정·프로그램 종료·필수 마일스톤 승인) 진행 중에는 대부분 PRIVATE이다.
+    repository: {
+      url: 'https://github.com/JNU-SWCU/synthetic-repo-3',
+      visibility: 'PRIVATE',
+    },
     submittedAt: '2026-07-17T07:20:00.000Z',
     participation: 'TEAM',
     applicant: {
@@ -341,9 +464,11 @@ const CONTEST_APPLICATIONS = [
       nickname: 'synthetic-student-31',
     },
     team: {
-      id: 'synthetic-team-02',
-      name: '합성 챔피언팀',
-      memberCount: 2,
+      // 팀 명단의 경진대회 2팀과 같은 id 여야 한다 — 교직원 참여 팀 목록이 이 id 로
+      // 신청을 붙인다.
+      id: 'synthetic-team-contest-2',
+      name: '합성 경진대회 2팀',
+      memberCount: 3,
     },
     answers: {
       applicantName: '합성 학생 31',
@@ -438,6 +563,7 @@ const CREATED_PROGRAM = {
   applicationEndAt: '2026-08-31T14:59:59.000Z',
   endAt: '2026-12-31T14:59:59.000Z',
   repositoryProvisioningEnabled: false,
+  notifyOnDeadline: false,
   description:
     '방금 등록한 프로그램 자리입니다. 로컬 검토용 합성 데이터이며 입력값은 저장되지 않습니다.',
   teamMinSize: null,
@@ -496,14 +622,45 @@ export function findStaffProgram(
   );
 }
 
+/**
+ * #722 신청 상세는 프로그램을 모른 채 신청 id 하나로 온다(백엔드 `GET applications/:id`
+ * 계약과 같다). 그래서 프로그램을 가로질러 찾는다.
+ */
+export function findStaffApplication(
+  applicationId: string,
+): ApplicationListItem | null {
+  for (const fixture of STAFF_PROGRAM_FIXTURES) {
+    const application = fixture.applications.find(
+      (item) => item.id === applicationId,
+    );
+    if (application !== undefined) return application;
+  }
+  return null;
+}
+
 export function findStaffMilestone(
   milestoneId: string,
 ): EditableMilestone | null {
+  return findStaffMilestoneContext(milestoneId)?.milestone ?? null;
+}
+
+/**
+ * 마일스톤과 **그것을 소유한 프로그램**을 함께 돌려준다. 서류 수합 응답이
+ * `milestone.programId`를 싣게 되면서 필요해졌다 — 마일스톤만 찾아 오면 픽스처가
+ * 소유 프로그램을 지어내야 하고, 그러면 화면의 「경로 프로그램과 대조」가 로컬 검토에서
+ * 언제나 통과해 버린다.
+ */
+export function findStaffMilestoneContext(milestoneId: string): {
+  readonly programId: string;
+  readonly milestone: EditableMilestone;
+} | null {
   for (const fixture of STAFF_PROGRAM_FIXTURES) {
     const milestone = fixture.program.milestones.find(
       (candidate) => candidate.id === milestoneId,
     );
-    if (milestone !== undefined) return milestone;
+    if (milestone !== undefined) {
+      return { programId: fixture.program.id, milestone };
+    }
   }
   return null;
 }
@@ -563,7 +720,10 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       url: 'https://github.com/JNU-SWCU/synthetic-basic-study-01',
       visibility: 'PRIVATE',
       publishEligible: false,
-      blockedReasons: ['REQUIRED_MILESTONES_NOT_APPROVED'],
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'REQUIRED_MILESTONES_NOT_APPROVED',
+      ],
     },
   },
   'submission-basic-final': {
@@ -581,23 +741,106 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
     currentRevision: {
       number: 1,
       content: {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl:
-          'https://github.com/JNU-SWCU/synthetic-basic-study-01/releases/tag/v0.1.0',
+        type: 'TEXT',
+        text: '최종 실습 결과와 실행 환경을 정리한 합성 제출입니다.',
       },
-      comment: '합성 릴리스 노트를 첨부했습니다.',
+      comment: '합성 결과 요약을 첨부했습니다.',
       submittedAt: '2026-06-29T09:30:00.000Z',
       // 본문만 낸 제출이라 첨부는 없다.
       files: [],
       review: null,
     },
     history: [],
+    // `application-basic-approved` 는 저장소 공개 예정이 "아니요"라 그 사유도 함께 막는다.
     repository: {
       id: 'synthetic-repo-basic-01',
       url: 'https://github.com/JNU-SWCU/synthetic-basic-study-01',
       visibility: 'PRIVATE',
       publishEligible: false,
-      blockedReasons: ['REQUIRED_MILESTONES_NOT_APPROVED'],
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'REQUIRED_MILESTONES_NOT_APPROVED',
+      ],
+    },
+  },
+  /**
+   * 네 게이트를 전부 지난 자리(#753). 두 제출이 같은 저장소를 가리키므로 공개 판정도
+   * 같아야 한다 — 판정은 제출이 아니라 신청의 저장소에 달려 있다.
+   */
+  'submission-basic-publishable-orientation': {
+    submissionId: 'submission-basic-publishable-orientation',
+    application: {
+      id: 'application-basic-publishable',
+      applicationMode: 'PERSONAL',
+      displayName: '합성 학생 14',
+    },
+    milestone: {
+      id: 'milestone-basic-orientation',
+      name: '합성 오리엔테이션 회고',
+    },
+    currentRevision: {
+      number: 1,
+      content: {
+        type: 'TEXT',
+        text: '오리엔테이션 회고를 정리한 합성 제출입니다.',
+      },
+      comment: null,
+      submittedAt: '2026-05-12T04:00:00.000Z',
+      // 본문만 낸 제출이라 첨부는 없다.
+      files: [],
+      review: {
+        id: 'synthetic-review-basic-publishable-orientation',
+        decision: 'APPROVED',
+        comment: '합성 승인 코멘트입니다.',
+        reviewedAt: '2026-05-13T01:00:00.000Z',
+      },
+    },
+    history: [],
+    // 프로비저닝 성공 + 공개 예정 + 지난 종료일(2026-07-31) + 필수 마일스톤 전원 승인.
+    repository: {
+      id: 'synthetic-repo-basic-02',
+      url: 'https://github.com/JNU-SWCU/synthetic-basic-study-02',
+      visibility: 'PRIVATE',
+      publishEligible: true,
+      blockedReasons: [],
+    },
+  },
+  'submission-basic-publishable-final': {
+    submissionId: 'submission-basic-publishable-final',
+    application: {
+      id: 'application-basic-publishable',
+      applicationMode: 'PERSONAL',
+      displayName: '합성 학생 14',
+    },
+    milestone: {
+      id: 'milestone-basic-final',
+      name: '합성 최종 실습 결과',
+    },
+    currentRevision: {
+      number: 1,
+      content: {
+        type: 'TEXT',
+        text: '최종 실습 결과를 정리한 합성 제출입니다.',
+      },
+      comment: '결과 요약을 본문에 담았습니다.',
+      submittedAt: '2026-06-28T07:15:00.000Z',
+      // 본문만 낸 제출이라 첨부는 없다.
+      files: [],
+      review: {
+        id: 'synthetic-review-basic-publishable-final',
+        decision: 'APPROVED',
+        comment: '합성 승인 코멘트입니다.',
+        reviewedAt: '2026-06-29T01:00:00.000Z',
+      },
+    },
+    history: [],
+    // 같은 저장소이므로 오리엔테이션 제출과 같은 판정이어야 한다.
+    repository: {
+      id: 'synthetic-repo-basic-02',
+      url: 'https://github.com/JNU-SWCU/synthetic-basic-study-02',
+      visibility: 'PRIVATE',
+      publishEligible: true,
+      blockedReasons: [],
     },
   },
   'submission-contest-revision': {
@@ -611,11 +854,10 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
     currentRevision: {
       number: 2,
       content: {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl:
-          'https://github.com/JNU-SWCU/synthetic-contest-01/releases/tag/v0.2.0',
+        type: 'TEXT',
+        text: '예선 결과물의 재현 순서와 테스트 결과를 정리한 합성 제출입니다.',
       },
-      comment: '재현 순서를 릴리스 노트에 추가했습니다.',
+      comment: '재현 순서를 결과 요약에 추가했습니다.',
       submittedAt: '2026-07-19T12:00:00.000Z',
       // 본문만 낸 제출이라 첨부는 없다.
       files: [],
@@ -630,9 +872,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       {
         number: 1,
         content: {
-          type: 'REPOSITORY_RELEASE',
-          releaseUrl:
-            'https://github.com/JNU-SWCU/synthetic-contest-01/releases/tag/v0.1.0',
+          type: 'TEXT',
+          text: '예선 결과물의 최초 합성 제출입니다.',
         },
         comment: null,
         submittedAt: '2026-07-18T11:00:00.000Z',
@@ -646,12 +887,18 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
         },
       },
     ],
+    // `application-team` 은 저장소 공개 예정이 "아니요"이고 `program-oss-contest` 는
+    // 끝나지 않는 프로그램(`PROGRAM_NEVER_ENDS_AT`)이다 — 서버는 세 사유를 모두 낸다.
     repository: {
       id: 'synthetic-repo-contest-01',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-01',
       visibility: 'PRIVATE',
       publishEligible: false,
-      blockedReasons: ['REQUIRED_MILESTONES_NOT_APPROVED'],
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'PROGRAM_NOT_ENDED',
+        'REQUIRED_MILESTONES_NOT_APPROVED',
+      ],
     },
   },
   'submission-contest-champion-preliminary': {
@@ -665,9 +912,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
     currentRevision: {
       number: 1,
       content: {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl:
-          'https://github.com/JNU-SWCU/synthetic-contest-02/releases/tag/v1.0.0',
+        type: 'TEXT',
+        text: '예선 결과물의 승인된 합성 제출입니다.',
       },
       comment: null,
       submittedAt: '2026-07-18T02:30:00.000Z',
@@ -681,13 +927,17 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
     },
     history: [],
-    // 모든 마일스톤이 승인돼 공개 전환 버튼을 실제로 눌러 볼 수 있다.
+    // 마일스톤은 전원 승인이지만 `application-contest-champion`이 저장소 공개 예정 "아니요"이고
+    // `program-oss-contest`가 끝나지 않는 프로그램이라 서버가 거절한다.
     repository: {
       id: 'synthetic-repo-contest-02',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-02',
       visibility: 'PRIVATE',
-      publishEligible: true,
-      blockedReasons: [],
+      publishEligible: false,
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'PROGRAM_NOT_ENDED',
+      ],
     },
   },
   'submission-contest-champion-final': {
@@ -713,12 +963,16 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
     },
     history: [],
+    // 같은 저장소이므로 예선 제출과 같은 판정이어야 한다.
     repository: {
       id: 'synthetic-repo-contest-02',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-02',
       visibility: 'PRIVATE',
-      publishEligible: true,
-      blockedReasons: [],
+      publishEligible: false,
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'PROGRAM_NOT_ENDED',
+      ],
     },
   },
 };

@@ -6,6 +6,7 @@ import type {
 export class ProgramMilestoneResponseDto {
   readonly id: string;
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
   readonly submissionType: ProgramMilestoneView['submissionType'];
   readonly instructions: string | null;
@@ -13,6 +14,7 @@ export class ProgramMilestoneResponseDto {
   private constructor(milestone: ProgramMilestoneView) {
     this.id = milestone.id;
     this.name = milestone.name;
+    this.startAt = milestone.startAt.toISOString();
     this.dueAt = milestone.dueAt.toISOString();
     this.submissionType = milestone.submissionType;
     this.instructions = milestone.instructions;
@@ -35,12 +37,14 @@ export class EditableProgramResponseDto {
   readonly categoryLocked: EditableProgramView['categoryLocked'];
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
-  readonly endAt: string | null;
+  readonly startAt: string;
+  readonly endAt: string;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
   readonly description: string;
   readonly milestones: readonly ProgramMilestoneResponseDto[];
-  readonly teamMinSize: number | null;
-  readonly teamMaxSize: number | null;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
 
   private constructor(program: EditableProgramView) {
     this.id = program.id;
@@ -54,8 +58,10 @@ export class EditableProgramResponseDto {
     this.categoryLocked = program.categoryLocked;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
-    this.endAt = program.endAt ?? null;
+    this.startAt = program.startAt.toISOString();
+    this.endAt = program.endAt;
     this.repositoryProvisioningEnabled = program.repositoryProvisioningEnabled;
+    this.notifyOnDeadline = program.notifyOnDeadline;
     this.description = program.description;
     this.milestones = program.milestones.map((milestone) =>
       ProgramMilestoneResponseDto.from(milestone),

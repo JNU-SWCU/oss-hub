@@ -35,6 +35,7 @@ const APPLICATION = {
   submittedAt: new Date('2026-07-10T00:00:00.000Z'),
   updatedAt: new Date('2026-07-10T00:00:00.000Z'),
   isRepositoryPublicationPlanned: true,
+  rejectionReason: null,
 } as const;
 
 function createRepository() {
@@ -51,7 +52,12 @@ function createRepository() {
     .mockResolvedValue(APPLICATION);
   const findProgramPolicy = jest
     .spyOn(applicationsRepository, 'findProgramById')
-    .mockResolvedValue({ id: 'program-1', category: 'BASIC', ...OPEN_PROGRAM });
+    .mockResolvedValue({
+      id: 'program-1',
+      category: 'BASIC',
+      repositoryProvisioningEnabled: false,
+      ...OPEN_PROGRAM,
+    });
   const updatePendingApplication = jest
     .spyOn(repository, 'updatePendingApplication')
     .mockResolvedValue({
@@ -117,9 +123,64 @@ describe('StudentApplicationManagementService', () => {
       updatedAt: APPLICATION.updatedAt,
       isRepositoryPublicationPlanned:
         APPLICATION.isRepositoryPublicationPlanned,
+      rejectionReason: null,
       canManage: true,
     });
   });
+
+  /**
+   * 반려 사유가 학생에게 닿는 유일한 경로다(#722).
+   *
+   * 사유는 `Application.rejectionReason`에만 있고 알림·감사 로그·메일에는 담지
+   * 않는다(`audit-log/audit-log-metadata.ts`). 이 조회가 빠뜨리면 학생은 왜
+   * 반려됐는지 어디서도 알 수 없다.
+   */
+  it('반려된 신청은 사유를 함께 돌려준다', async () => {
+    // Given
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 반려 사유',
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    // When
+    const result = await service.getMine(4242n, 'program-1', NOW);
+
+    // Then
+    expect(result.rejectionReason).toBe('합성 반려 사유');
+    expect(result.status).toBe(ApplicationStatus.REJECTED);
+  });
+
+  /**
+   * 반려가 아닌 신청에도 **키는 있고 값이 `null`이다.**
+   * 반려일 때만 키를 실으면 클라이언트에서 "없는 키"와 "null"이 다르게 읽힌다.
+   */
+  it.each([ApplicationStatus.APPROVED, ApplicationStatus.SUBMITTED] as const)(
+    '%s 신청의 사유는 키를 지우지 않고 null로 싣는다',
+    async (status) => {
+      // Given
+      const { repository, applicationsRepository, findOwnedApplication } =
+        createRepository();
+      findOwnedApplication.mockResolvedValue({ ...APPLICATION, status });
+      const service = new StudentApplicationManagementService(
+        repository,
+        applicationsRepository,
+      );
+
+      // When
+      const result = await service.getMine(4242n, 'program-1', NOW);
+
+      // Then
+      expect(result).toHaveProperty('rejectionReason');
+      expect(result.rejectionReason).toBeNull();
+    },
+  );
 
   it('신청 기간 내 승인 대기 신청 내용을 수정한다', async () => {
     // Given

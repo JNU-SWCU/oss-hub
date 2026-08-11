@@ -1,9 +1,11 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
 import type {
+  CollectionExternalCollectionStatusDto,
   CollectionIncrementalStatusSnapshotDto,
-  CollectionReadPort,
-} from '../collection/collection-read.port';
+  CollectionRepositoryStreamsDto,
+  CollectionSweepActivityDto,
+} from '../github/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
@@ -24,6 +26,22 @@ function snapshot(
     oldestRetryPendingAt: null,
     lastCycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
     lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
+    dueRepositoryCount: 0,
+    failingRepositoryCount: 0,
+    lastRepositorySuccessAt: new Date('2026-07-25T11:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function externalStatus(
+  overrides: Partial<CollectionExternalCollectionStatusDto> = {},
+): CollectionExternalCollectionStatusDto {
+  return {
+    trackedRepositoryCount: 0,
+    lastSweep: null,
+    cumulativeCommitCount: 0,
+    cumulativePullRequestCount: 0,
+    cumulativeReleaseCount: 0,
     ...overrides,
   };
 }
@@ -31,13 +49,23 @@ function snapshot(
 describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
+  const getIncrementalStatusStreams = jest.fn();
+  const getNextScheduledCycleAt = jest.fn();
+  const getRecentSweepActivity = jest.fn();
+  const getExternalCollectionStatus = jest.fn();
   const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
     {
       findActor,
       countFinalProvisionFailures,
     } as unknown as SystemStatusRepository,
-    { getIncrementalStatusSnapshot } as unknown as CollectionReadPort,
+    {
+      getIncrementalStatusSnapshot,
+      getIncrementalStatusStreams,
+      getNextScheduledCycleAt,
+      getRecentSweepActivity,
+      getExternalCollectionStatus,
+    } as unknown as ConstructorParameters<typeof SystemStatusService>[1],
     () => NOW,
   );
 
@@ -47,6 +75,12 @@ describe('SystemStatusService', () => {
       accountStatus: AccountStatus.ACTIVE,
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
+    getIncrementalStatusStreams.mockReset().mockResolvedValue([]);
+    getNextScheduledCycleAt
+      .mockReset()
+      .mockResolvedValue(new Date('2026-07-25T20:30:00.000Z'));
+    getRecentSweepActivity.mockReset().mockResolvedValue([]);
+    getExternalCollectionStatus.mockReset().mockResolvedValue(externalStatus());
     countFinalProvisionFailures.mockReset().mockResolvedValue(2);
   });
 
@@ -64,15 +98,29 @@ describe('SystemStatusService', () => {
         oldestRetryPendingAt: null,
         lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
         lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+        nextCycleAt: '2026-07-25T20:30:00.000Z',
         currentRunStatus: 'IDLE',
         safeReason: null,
       },
       repositoryProvisioning: {
         finalFailureCount: 2,
       },
+      collectionStreams: [],
+      collectionActivity: [],
+      externalCollection: {
+        trackedRepositoryCount: 0,
+        lastSweep: null,
+        cumulativeCommitCount: 0,
+        cumulativePullRequestCount: 0,
+        cumulativeReleaseCount: 0,
+      },
     });
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
+    expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
+    expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
+    expect(getRecentSweepActivity).toHaveBeenCalledWith(20);
+    expect(getExternalCollectionStatus).toHaveBeenCalledTimes(1);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
   });
 
@@ -89,6 +137,10 @@ describe('SystemStatusService', () => {
       ForbiddenException,
     );
     expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
+    expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
+    expect(getNextScheduledCycleAt).not.toHaveBeenCalled();
+    expect(getRecentSweepActivity).not.toHaveBeenCalled();
+    expect(getExternalCollectionStatus).not.toHaveBeenCalled();
     expect(countFinalProvisionFailures).not.toHaveBeenCalled();
   });
 
@@ -101,6 +153,9 @@ describe('SystemStatusService', () => {
         latestCheckpointAt: null,
         lastCycleStartedAt: null,
         lastCycleCompletedAt: null,
+        dueRepositoryCount: 0,
+        failingRepositoryCount: 0,
+        lastRepositorySuccessAt: null,
       }),
     );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
@@ -171,6 +226,220 @@ describe('SystemStatusService', () => {
     );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
       collection: { currentRunStatus: 'IDLE' },
+    });
+  });
+
+  it('저장소별 stream 상세를 repositoryName·streamType 순서 그대로 응답 DTO로 옮긴다', async () => {
+    const detail: readonly CollectionRepositoryStreamsDto[] = [
+      {
+        repositoryName: 'JNU-SWCU/alpha',
+        programName: '오픈소스 입문 프로그램',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            bucket: 'READY',
+            lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            bucket: 'RETRY_PENDING',
+            lastSuccessAt: null,
+            lastErrorCode: 'COL_RATE_LIMITED',
+            lastErrorAt: new Date('2026-07-25T09:00:00.000Z'),
+          },
+          {
+            streamType: 'RELEASE',
+            bucket: 'PARTIAL',
+            lastSuccessAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ];
+    getIncrementalStatusStreams.mockResolvedValue(detail);
+
+    const result = await service.getStatus(ACTOR_ID);
+
+    expect(result.collectionStreams).toEqual([
+      {
+        repositoryName: 'JNU-SWCU/alpha',
+        programName: '오픈소스 입문 프로그램',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            bucket: 'READY',
+            lastSuccessAt: '2026-07-25T10:00:00.000Z',
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            bucket: 'RETRY_PENDING',
+            lastSuccessAt: null,
+            lastErrorCode: 'COL_RATE_LIMITED',
+            lastErrorAt: '2026-07-25T09:00:00.000Z',
+          },
+          {
+            streamType: 'RELEASE',
+            bucket: 'PARTIAL',
+            lastSuccessAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('최근 sweep 활동 이력을 Date -> ISO 변환해 collectionActivity로 옮긴다', async () => {
+    const activity: readonly CollectionSweepActivityDto[] = [
+      {
+        sweepFinishedAt: new Date('2026-07-25T11:00:00.000Z'),
+        cycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
+        scope: 'org:JNU-SWCU',
+        insertedCommitCount: 3,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 2,
+        processedRepositoryCount: 2,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+      {
+        sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
+        cycleStartedAt: null,
+        scope: 'external',
+        insertedCommitCount: 0,
+        insertedPullRequestCount: 0,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 1,
+        processedRepositoryCount: 0,
+        failedRepositoryCount: 1,
+        cycleCompleted: false,
+        stoppedForBudget: true,
+      },
+    ];
+    getRecentSweepActivity.mockResolvedValue(activity);
+
+    const result = await service.getStatus(ACTOR_ID);
+
+    expect(result.collectionActivity).toEqual([
+      {
+        sweepFinishedAt: '2026-07-25T11:00:00.000Z',
+        cycleStartedAt: '2026-07-25T10:55:00.000Z',
+        scope: 'org:JNU-SWCU',
+        insertedCommitCount: 3,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 2,
+        processedRepositoryCount: 2,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+      {
+        sweepFinishedAt: '2026-07-25T10:00:00.000Z',
+        cycleStartedAt: null,
+        scope: 'external',
+        insertedCommitCount: 0,
+        insertedPullRequestCount: 0,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 1,
+        processedRepositoryCount: 0,
+        failedRepositoryCount: 1,
+        cycleCompleted: false,
+        stoppedForBudget: true,
+      },
+    ]);
+  });
+
+  describe('nextCycleAt', () => {
+    it('port가 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
+      getNextScheduledCycleAt.mockResolvedValue(
+        new Date('2026-07-25T20:30:00.000Z'),
+      );
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
+      expect(result.collection.nextCycleAt).toBe('2026-07-25T20:30:00.000Z');
+    });
+
+    it('port가 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
+      getNextScheduledCycleAt.mockResolvedValue(null);
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(result.collection.nextCycleAt).toBeNull();
+      expect(result.collection.health).toBe('NORMAL');
+    });
+  });
+
+  describe('externalCollection', () => {
+    it('탐색된 external 저장소가 없으면 lastSweep은 null이고 나머지 값도 0이다', async () => {
+      getExternalCollectionStatus.mockResolvedValue(externalStatus());
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(result.externalCollection).toEqual({
+        trackedRepositoryCount: 0,
+        lastSweep: null,
+        cumulativeCommitCount: 0,
+        cumulativePullRequestCount: 0,
+        cumulativeReleaseCount: 0,
+      });
+    });
+
+    it('port 값을 Date -> ISO 변환해 externalCollection으로 옮긴다(org 지표와 별개 필드)', async () => {
+      getExternalCollectionStatus.mockResolvedValue(
+        externalStatus({
+          trackedRepositoryCount: 3,
+          lastSweep: {
+            sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
+            cycleStartedAt: new Date('2026-07-25T09:55:00.000Z'),
+            scope: 'external',
+            insertedCommitCount: 5,
+            insertedPullRequestCount: 2,
+            insertedReleaseCount: 0,
+            attemptedRepositoryCount: 3,
+            processedRepositoryCount: 3,
+            failedRepositoryCount: 0,
+            cycleCompleted: true,
+            stoppedForBudget: false,
+          },
+          cumulativeCommitCount: 42,
+          cumulativePullRequestCount: 7,
+          cumulativeReleaseCount: 1,
+        }),
+      );
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(result.externalCollection).toEqual({
+        trackedRepositoryCount: 3,
+        lastSweep: {
+          sweepFinishedAt: '2026-07-25T10:00:00.000Z',
+          cycleStartedAt: '2026-07-25T09:55:00.000Z',
+          scope: 'external',
+          insertedCommitCount: 5,
+          insertedPullRequestCount: 2,
+          insertedReleaseCount: 0,
+          attemptedRepositoryCount: 3,
+          processedRepositoryCount: 3,
+          failedRepositoryCount: 0,
+          cycleCompleted: true,
+          stoppedForBudget: false,
+        },
+        cumulativeCommitCount: 42,
+        cumulativePullRequestCount: 7,
+        cumulativeReleaseCount: 1,
+      });
+      // external 값이 무엇이든 org 집계(`collection`)는 스냅샷 fixture 값 그대로다.
+      expect(result.collection.trackedRepositoryCount).toBe(2);
     });
   });
 });

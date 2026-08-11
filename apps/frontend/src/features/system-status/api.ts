@@ -1,11 +1,40 @@
 import { apiClient } from '@/lib/api-client';
-import type { SystemStatus, SystemStatusResponse } from './types';
+import type {
+  ExternalCollectionStatus,
+  SystemStatusData,
+  SystemStatusResponse,
+} from './types';
 
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
+/**
+ * externalCollection이 없는 구버전 백엔드 응답을 위한 기본값 — "0개"가 아니라
+ * "아직 이 필드를 안 주는 배포"임을 구분하기 위한 정규화 지점이다. `lastSweep`이
+ * `null`인 0값은 컴포넌트 쪽에서 "탐색된 저장소가 없다"는 사실만 나타낸다(배포
+ * window 자체를 사용자에게 보여주지 않는다 — collectionStreams/collectionActivity와
+ * 같은 원칙).
+ */
+const DEFAULT_EXTERNAL_COLLECTION: ExternalCollectionStatus = {
+  trackedRepositoryCount: 0,
+  lastSweep: null,
+  cumulativeCommitCount: 0,
+  cumulativePullRequestCount: 0,
+  cumulativeReleaseCount: 0,
+};
 
-export async function fetchSystemStatus(): Promise<SystemStatus> {
+export async function fetchSystemStatus(): Promise<SystemStatusData> {
   const response = await apiClient<SystemStatusResponse>('system-status');
-  return response.collection;
+  return {
+    status: response.collection,
+    // 배포 window에는 아직 collectionStreams를 안 주는 구버전 백엔드와 섞일 수
+    // 있다 — 그 응답을 undefined 그대로 넘기면 표 쪽 `[...repositories].sort()`가
+    // 던진다. 여기서 빈 배열로 정규화해 그 실패를 이 경계 하나로 막는다.
+    collectionStreams: response.collectionStreams ?? [],
+    // collectionActivity도 같은 배포 window 문제를 겪는다(2단계) — 구버전
+    // 백엔드는 이 필드 자체를 보내지 않는다.
+    collectionActivity: response.collectionActivity ?? [],
+    // externalCollection도 같은 배포 window 문제를 겪는다(3단계).
+    externalCollection:
+      response.externalCollection ?? DEFAULT_EXTERNAL_COLLECTION,
+  };
 }
 
 export interface CollectionTriggerResult {
@@ -19,32 +48,4 @@ export function triggerCollection(): Promise<CollectionTriggerResult> {
   return apiClient<CollectionTriggerResult>('admin/collection/trigger', {
     method: 'POST',
   });
-}
-
-export interface DiscoverExternalRepositoriesInput {
-  readonly githubLogin: string;
-}
-
-export interface DiscoverExternalRepositoriesResult {
-  readonly status: 'COMPLETED';
-  readonly githubLogin: string;
-  readonly discoveredCount: number;
-  readonly upsertedCount: number;
-  readonly skippedOrgProvisionedCount: number;
-}
-
-/** 학생 1명의 조직 밖 public 저장소를 목록에 등록한다(E4). GraphQL 호출 1건 규모라
- * 요청 안에서 완료되고 집계 결과를 그대로 돌려준다 — 실제 commit·PR·release fact 수집은
- * 여기서 하지 않고, 다음 예약 수집 또는 `triggerCollection`이 담당한다. */
-export function discoverExternalRepositories(
-  input: DiscoverExternalRepositoriesInput,
-): Promise<DiscoverExternalRepositoriesResult> {
-  return apiClient<DiscoverExternalRepositoriesResult>(
-    'admin/collection/discover-external',
-    {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(input),
-    },
-  );
 }

@@ -47,7 +47,7 @@ export interface SubmissionMilestone {
   readonly dueAt: Date;
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string | null;
-  readonly programEndAt: Date | null;
+  readonly programEndAt: Date;
 }
 
 export interface SubmissionApplication {
@@ -57,7 +57,6 @@ export interface SubmissionApplication {
   /** 개인 참여는 멤버 1명인 팀이다(D5·D6). 표시용 구분에 쓴다. */
   readonly teamMemberCount: number;
   readonly status: ApplicationStatus;
-  readonly repositoryUrl: string | null;
   readonly existingSubmission: {
     readonly id: string;
     readonly status: SubmissionStatus;
@@ -116,7 +115,6 @@ export interface ResubmissionTarget {
   readonly currentRevision: number;
   readonly submissionType: MilestoneSubmissionType;
   readonly applicationStatus: ApplicationStatus;
-  readonly repositoryUrl: string | null;
   readonly dueAt: Date;
 }
 
@@ -266,7 +264,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
 
   async lockProgramEndAt(programId: string): Promise<Date | null> {
     const programs = await this.database.$queryRaw<
-      readonly { endAt: Date | null }[]
+      readonly { endAt: Date }[]
     >(Prisma.sql`
       SELECT "endAt"
       FROM "Program"
@@ -403,9 +401,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
         milestone: {
           select: { programId: true, submissionType: true, dueAt: true },
         },
-        application: {
-          select: { status: true, repository: { select: { url: true } } },
-        },
+        application: { select: { status: true } },
       },
     });
     if (!submission) return null;
@@ -418,7 +414,6 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       currentRevision: submission.currentRevision,
       submissionType: submission.milestone.submissionType,
       applicationStatus: submission.application.status,
-      repositoryUrl: submission.application.repository?.url ?? null,
       dueAt: submission.milestone.dueAt,
     };
   }

@@ -21,12 +21,17 @@ function buildConfig(sessionSecret: Uint8Array = secret): AuthConfig {
 function contextWithCookie(cookie?: string): {
   context: ExecutionContext;
   request: AuthenticatedRequest;
+  response: { setHeader: jest.Mock };
 } {
   const request = { headers: { cookie } } as AuthenticatedRequest;
+  const response = { setHeader: jest.fn() };
   const context = {
-    switchToHttp: () => ({ getRequest: () => request }),
+    switchToHttp: () => ({
+      getRequest: () => request,
+      getResponse: () => response,
+    }),
   } as unknown as ExecutionContext;
-  return { context, request };
+  return { context, request, response };
 }
 
 async function expectUnauthenticated(cookie?: string): Promise<void> {
@@ -34,12 +39,16 @@ async function expectUnauthenticated(cookie?: string): Promise<void> {
     getMe: jest.fn().mockResolvedValue({ id: 'synthetic-user' }),
   } as unknown as AuthService;
   const guard = new SessionGuard(buildConfig(), authService);
-  const { context } = contextWithCookie(cookie);
+  const { context, response } = contextWithCookie(cookie);
   const act = guard.canActivate(context);
   await expect(act).rejects.toBeInstanceOf(DomainException);
   await expect(act).rejects.toMatchObject({
     errorCode: { code: AuthErrorCode.UNAUTHENTICATED, status: 401 },
   });
+  expect(response.setHeader).toHaveBeenCalledWith(
+    'Cache-Control',
+    'private, no-store',
+  );
 }
 
 describe('SessionGuard', () => {
@@ -71,13 +80,17 @@ describe('SessionGuard', () => {
     } as unknown as AuthService;
     const guard = new SessionGuard(buildConfig(), authService);
     const token = await issueSessionToken(secret, syntheticGithubId);
-    const { context, request } = contextWithCookie(
+    const { context, request, response } = contextWithCookie(
       `${sessionCookieName(true)}=${token}`,
     );
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(getMe).toHaveBeenCalledWith(syntheticGithubId);
     expect(request.sessionGithubId).toBe(syntheticGithubId);
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      'private, no-store',
+    );
   });
 
   it('유효한 서명의 기존 토큰도 계정이 비활성화됐으면 즉시 401로 차단한다', async () => {
@@ -92,12 +105,16 @@ describe('SessionGuard', () => {
     } as unknown as AuthService;
     const guard = new SessionGuard(buildConfig(), authService);
     const token = await issueSessionToken(secret, syntheticGithubId);
-    const { context } = contextWithCookie(
+    const { context, response } = contextWithCookie(
       `${sessionCookieName(true)}=${token}`,
     );
 
     await expect(guard.canActivate(context)).rejects.toMatchObject({
       errorCode: { code: AuthErrorCode.UNAUTHENTICATED, status: 401 },
     });
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      'private, no-store',
+    );
   });
 });

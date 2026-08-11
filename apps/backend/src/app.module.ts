@@ -3,26 +3,27 @@ import { ApplicationsModule } from './applications/applications.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { BoardModule } from './board/board.module';
-import { CollectionModule } from './collection/collection.module';
+import { CollectionModule } from './github/collection.module';
 import { ConsentsModule } from './consents/consents.module';
 import { HealthModule } from './health/health.module';
 import { LoginHistoryModule } from './login-history/login-history.module';
 import { MilestoneDocumentsModule } from './milestone-documents/milestone-documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { ProgramOverviewModule } from './program-overview/program-overview.module';
+import { ProgramOverviewModule } from './programs/archive/program-overview/program-overview.module';
 import { ProgramsModule } from './programs/programs.module';
-import { PublicProjectsModule } from './public-projects/public-projects.module';
+import { PublicProjectsModule } from './programs/archive/public-projects/public-projects.module';
 import { RankingModule } from './ranking/ranking.module';
-import { RepositoriesModule } from './repositories/repositories.module';
+import { RepositoriesModule } from './github/repositories.module';
 import { RolesModule } from './roles/roles.module';
 import { RuntimeConfigModule } from './runtime-config/runtime-config.module';
-import { ShowcaseModule } from './showcase/showcase.module';
 import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { TeamInvitationsModule } from './team-invitations/team-invitations.module';
 import { UsersModule } from './users/users.module';
+import { e2eProgramAuthoringControlEnabled } from './e2e-program-authoring/e2e-program-authoring.config';
+import { E2eProgramAuthoringModule } from './e2e-program-authoring/e2e-program-authoring.module';
 
 @Module({
   imports: [
@@ -46,12 +47,12 @@ import { UsersModule } from './users/users.module';
     PublicProjectsModule,
     RepositoriesModule,
     SubmissionReviewsModule,
-    ShowcaseModule,
     /** #619 프로토타입 정렬 — 마일스톤 서류 항목·게시판·검색 초대형 팀 초대·프로그램 요약. */
     MilestoneDocumentsModule,
     BoardModule,
     TeamInvitationsModule,
     ProgramOverviewModule,
+    ...(e2eProgramAuthoringControlEnabled() ? [E2eProgramAuthoringModule] : []),
   ],
 })
 export class AppModule {}

@@ -1,147 +1,259 @@
-import { describe, expect, it, vi } from 'vitest';
-import type { CreatedProgram } from './api';
+import { describe, expect, it } from 'vitest';
 import {
-  buildCreateProgramInput,
-  EMPTY_PROGRAM_FORM,
-  hasProgramFormInput,
-  startProgramSubmission,
-  validateProgramForm,
-  type ProgramForm,
-  type ProgramSubmissionLock,
+  PROGRAM_AUTHORING_STEPS,
+  buildProgramAuthoringManifest,
+  createInitialProgramAuthoringState,
+  createRequirementDraft,
+  programAuthoringReducer,
+  seoulDateTimeToIso,
+  validateProgramAuthoringManifest,
+  validateProgramAuthoringStep,
+  validateTemplateFile,
 } from './program-creation-flow';
-import type { ProgramTemplateDefinition } from './program-templates';
+import { completedAuthoringState } from './program-creation-test-fixtures';
 
-const teamTemplate: ProgramTemplateDefinition = {
-  category: 'OSS_CONTEST',
-  label: 'OSS경진대회',
-  template: {
-    key: 'oss-contest',
-    version: 1,
-    name: 'OSS경진대회 신청서',
-    participation: 'team',
-    fields: [],
-  },
-};
-
-const completedForm: ProgramForm = {
-  name: '합성 프로그램',
-  organizer: '합성 주관기관',
-  applicationStartAt: '2026-08-01T09:00',
-  applicationEndAt: '2026-08-08T18:00',
-  endAt: '2026-08-31T18:00',
-  teamMinSize: '2',
-  teamMaxSize: '4',
-  description: '합성 프로그램 설명',
-};
-
-describe('program creation dirty state', () => {
-  it('입력값이 없으면 clean 상태다', () => {
-    expect(hasProgramFormInput(EMPTY_PROGRAM_FORM)).toBe(false);
-  });
-
-  it('입력값이 하나라도 있으면 dirty 상태다', () => {
+describe('program authoring reducer', () => {
+  it('defaults the team range to 1..1 and permits free step navigation', () => {
     // Given
-    const form = { ...EMPTY_PROGRAM_FORM, name: '작성 중' };
-
-    expect(hasProgramFormInput(form)).toBe(true);
-  });
-});
-describe('program creation end date', () => {
-  it('sends the entered end date as an exact ISO endAt', () => {
-    expect(buildCreateProgramInput(completedForm, teamTemplate).endAt).toBe(
-      new Date(2026, 7, 31, 18).toISOString(),
-    );
-  });
-
-  it('shows an endAt field error when it precedes applicationEndAt', () => {
-    expect(
-      validateProgramForm(
-        { ...completedForm, endAt: '2026-08-08T17:59' },
-        teamTemplate,
-      ).endAt,
-    ).toBe('프로그램 종료일은 신청 종료일보다 늦어야 합니다.');
-  });
-});
-
-describe('program end validation', () => {
-  it.each([
-    ['', '필수'],
-    ['2026-08-08T18:00', '신청 종료일과 같음'],
-    ['2026-08-08T17:59', '신청 종료일보다 이전'],
-  ])('프로그램 종료일이 유효하지 않으면 오류를 반환한다: %s (%s)', (endAt) => {
-    const errors = validateProgramForm(
-      { ...completedForm, endAt },
-      teamTemplate,
-    );
-
-    expect(errors.endAt).toBe(
-      '프로그램 종료일은 신청 종료일보다 늦어야 합니다.',
-    );
-  });
-
-  it('프로그램 종료일이 신청 종료일보다 늦으면 통과한다', () => {
-    const errors = validateProgramForm(completedForm, teamTemplate);
-
-    expect(errors.endAt).toBeUndefined();
-  });
-
-  it('별도의 프로그램 종료일을 ISO 형식으로 정확히 생성 API 입력에 포함한다', () => {
-    const input = buildCreateProgramInput(completedForm, teamTemplate);
-
-    expect(input).toEqual({
-      name: '합성 프로그램',
-      organizer: '합성 주관기관',
-      category: 'OSS_CONTEST',
-      applicationStartAt: new Date(
-        completedForm.applicationStartAt,
-      ).toISOString(),
-      applicationEndAt: new Date(completedForm.applicationEndAt).toISOString(),
-      endAt: new Date(completedForm.endAt).toISOString(),
-      teamMinSize: 2,
-      teamMaxSize: 4,
-      description: '합성 프로그램 설명',
+    const initial = createInitialProgramAuthoringState({
+      idempotencyKey: 'request-1',
+      milestoneId: 'milestone-1',
     });
-    expect(input.endAt).not.toBe(input.applicationEndAt);
-  });
-});
-
-describe('program creation vertical flow', () => {
-  it('선택 유형으로 한 번만 생성하고 생성된 상세 화면으로 이동한다', async () => {
-    // Given
-    let resolveCreation: ((program: CreatedProgram) => void) | undefined;
-    const creation = new Promise<CreatedProgram>((resolve) => {
-      resolveCreation = resolve;
-    });
-    const create = vi.fn(() => creation);
-    const navigate = vi.fn();
-    const lock: ProgramSubmissionLock = { current: false };
-    const input = buildCreateProgramInput(completedForm, teamTemplate);
 
     // When
-    const first = startProgramSubmission(lock, input, create, navigate);
-    const duplicate = startProgramSubmission(lock, input, create, navigate);
-
-    // Then
-    expect(duplicate).toEqual({ status: 'ignored' });
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        category: 'OSS_CONTEST',
-        teamMinSize: 2,
-        teamMaxSize: 4,
-      }),
-    );
-
-    resolveCreation?.({
-      id: 'synthetic-program',
-      category: 'OSS_CONTEST',
-      applicationTemplateKey: 'oss-contest',
-      applicationTemplateVersion: 1,
-      detailUrl: '/programs/synthetic-program',
+    const navigated = programAuthoringReducer(initial, {
+      type: 'go_to_step',
+      step: 'operations',
     });
 
-    expect(first.status).toBe('started');
-    if (first.status === 'started') await first.completion;
-    expect(navigate).toHaveBeenCalledWith('/programs/synthetic-program');
+    // Then
+    expect(navigated.teamMinSize).toBe('1');
+    expect(navigated.teamMaxSize).toBe('1');
+    expect(navigated.repositoryProvisioningEnabled).toBe(false);
+    expect(navigated.notifyOnDeadline).toBe(false);
+    expect(navigated.currentStep).toBe('operations');
+    expect(PROGRAM_AUTHORING_STEPS).toHaveLength(6);
+  });
+
+  it('stores the GitHub repository issuance choice in authoring state', () => {
+    const initial = createInitialProgramAuthoringState({
+      idempotencyKey: 'request-1',
+      milestoneId: 'milestone-1',
+    });
+
+    const enabled = programAuthoringReducer(initial, {
+      type: 'set_repository_provisioning_enabled',
+      enabled: true,
+    });
+
+    expect(enabled.repositoryProvisioningEnabled).toBe(true);
+  });
+
+  it('stores the deadline notification choice independently from GitHub issuance', () => {
+    const initial = createInitialProgramAuthoringState({
+      idempotencyKey: 'request-1',
+      milestoneId: 'milestone-1',
+    });
+
+    const enabled = programAuthoringReducer(initial, {
+      type: 'set_notify_on_deadline',
+      enabled: true,
+    });
+
+    expect(enabled.notifyOnDeadline).toBe(true);
+    expect(enabled.repositoryProvisioningEnabled).toBe(false);
+  });
+
+  it('keeps requirement file metadata while marking the in-memory file selected', () => {
+    // Given
+    const initial = completedAuthoringState();
+    const requirement = createRequirementDraft('requirement-file');
+    const withRequirement = {
+      ...initial,
+      milestones: [
+        {
+          ...initial.milestones[0],
+          requirements: [requirement],
+        },
+      ],
+    };
+
+    // When
+    const next = programAuthoringReducer(withRequirement, {
+      type: 'set_requirement_file',
+      milestoneId: 'milestone-1',
+      requirementId: requirement.id,
+      file: {
+        name: 'plan.pdf',
+        size: 1024,
+        type: 'application/pdf',
+      },
+    });
+
+    // Then
+    expect(next.milestones[0]?.requirements[0]?.templateFile).toEqual({
+      name: 'plan.pdf',
+      size: 1024,
+      type: 'application/pdf',
+      requiresReselection: false,
+    });
+  });
+});
+
+describe('program authoring validation', () => {
+  it('validates only the current step when Next is used', () => {
+    // Given
+    const incomplete = createInitialProgramAuthoringState({
+      idempotencyKey: 'request-1',
+      milestoneId: 'milestone-1',
+    });
+
+    // When
+    const typeIssues = validateProgramAuthoringStep(incomplete, 'type');
+    const basicIssues = validateProgramAuthoringStep(incomplete, 'basic');
+
+    // Then
+    expect(typeIssues).toEqual([]);
+    expect(basicIssues.map((issue) => issue.path)).toEqual([
+      'name',
+      'organizer',
+      'description',
+    ]);
+  });
+
+  it('requires one milestone but accepts an informational milestone with no requirements', () => {
+    // Given
+    const completed = completedAuthoringState();
+
+    // When
+    const noMilestoneIssues = validateProgramAuthoringManifest({
+      ...completed,
+      milestones: [],
+    });
+    const informationalIssues = validateProgramAuthoringManifest(completed);
+
+    // Then
+    expect(noMilestoneIssues).toContainEqual(
+      expect.objectContaining({ path: 'milestones', step: 'milestones' }),
+    );
+    expect(informationalIssues).toEqual([]);
+  });
+
+  it('matches the server schedule and team range rules', () => {
+    // Given
+    const completed = completedAuthoringState();
+
+    // When
+    const issues = validateProgramAuthoringManifest({
+      ...completed,
+      applicationEndAt: '2026-09-02T09:01',
+      operationStartAt: '2026-09-02T09:00',
+      teamMinSize: '0',
+      teamMaxSize: '101',
+      milestones: [
+        {
+          ...completed.milestones[0],
+          startAt: '2026-08-31T09:00',
+          dueAt: '2026-10-01T18:00',
+        },
+      ],
+    });
+
+    // Then
+    expect(issues.map((issue) => issue.path)).toEqual(
+      expect.arrayContaining([
+        'operationStartAt',
+        'teamMinSize',
+        'teamMaxSize',
+        'milestones.milestone-1.startAt',
+        'milestones.milestone-1.dueAt',
+      ]),
+    );
+  });
+
+  it('requires a refreshed template file to be reselected', () => {
+    // Given
+    const completed = completedAuthoringState();
+    const requirement = {
+      ...createRequirementDraft('requirement-file'),
+      name: '계획서',
+      submissionType: 'FILE' as const,
+      templateFile: {
+        name: 'plan.pdf',
+        size: 1024,
+        type: 'application/pdf',
+        requiresReselection: true,
+      },
+    };
+
+    // When
+    const issues = validateProgramAuthoringManifest({
+      ...completed,
+      milestones: [{ ...completed.milestones[0], requirements: [requirement] }],
+    });
+
+    // Then
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: 'requirements.requirement-file.templateFile',
+        step: 'milestones',
+      }),
+    );
+  });
+
+  it('rejects oversized and unsupported template files before upload', () => {
+    expect(
+      validateTemplateFile(
+        new File(['content'], 'plan.txt', { type: 'text/plain' }),
+      ),
+    ).toBe('PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.');
+    expect(
+      validateTemplateFile(
+        new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'plan.pdf', {
+          type: 'application/pdf',
+        }),
+      ),
+    ).toBe('파일은 5MiB 이하여야 합니다.');
+  });
+});
+
+describe('program authoring manifest', () => {
+  it('converts Seoul wall-clock values to stable ISO instants and attaches upload tokens', () => {
+    // Given
+    const completed = completedAuthoringState();
+    const requirement = {
+      ...createRequirementDraft('requirement-file'),
+      name: '계획서',
+      submissionType: 'FILE' as const,
+      templateFile: {
+        name: 'plan.pdf',
+        size: 1024,
+        type: 'application/pdf',
+        requiresReselection: false,
+      },
+    };
+    const state = {
+      ...completed,
+      repositoryProvisioningEnabled: true,
+      notifyOnDeadline: true,
+      milestones: [{ ...completed.milestones[0], requirements: [requirement] }],
+    };
+
+    // When
+    const manifest = buildProgramAuthoringManifest(
+      state,
+      new Map([['requirement-file', 'upload-token']]),
+    );
+
+    // Then
+    expect(seoulDateTimeToIso('2026-09-01T09:00')).toBe(
+      '2026-09-01T00:00:00.000Z',
+    );
+    expect(manifest.startAt).toBe('2026-09-02T00:00:00.000Z');
+    expect(manifest.milestones[0]?.documents[0]?.templateUploadId).toBe(
+      'upload-token',
+    );
+    expect(manifest.repositoryProvisioningEnabled).toBe(true);
+    expect(manifest.notifyOnDeadline).toBe(true);
   });
 });

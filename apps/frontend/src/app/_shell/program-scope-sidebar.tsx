@@ -120,9 +120,14 @@ export function ProgramScopeSidebar({
                 collapsed && 'items-center',
               )}
             >
-              {group.items.map((item) => (
+              {group.items.map((item, itemIndex) => (
                 <ScopeSidebarLink
-                  key={item.href}
+                  // href 는 이 목록에서 유일하지 않다 — 학생 뷰의 「내 제출물」은 부모와
+                  // 마일스톤 자식들이 전부 같은 `/mydocs` 를 가리킨다(교직원 뷰만
+                  // `?milestoneId=` 로 갈린다). React 가 중복 key 경고를 내고, 항목이
+                  // 빠지거나 중복될 수 있다고 경고한 그대로다. 라벨도 유일하지 않다 —
+                  // 같은 이름의 마일스톤이 둘 있을 수 있다. 순서는 이 목록에서 안정적이다.
+                  key={`${itemIndex}-${item.href}`}
                   item={item}
                   pathname={pathname}
                   collapsed={collapsed}

@@ -1,305 +1,240 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { FormSection } from '@/components/form-section';
-import { ApiError } from '@/lib/api-client';
-import { createProgram, listApplicationTemplates } from './api';
 import {
-  buildCreateProgramInput,
-  EMPTY_PROGRAM_FORM,
-  hasProgramFormInput,
-  startProgramSubmission,
-  validateProgramForm,
-  type ProgramForm,
-  type ProgramFormErrors,
-  type ProgramSubmissionLock,
-} from './program-creation-flow';
+  createAuthoringProgram,
+  deleteAuthoringUpload,
+  uploadAuthoringFile,
+} from './program-authoring-api';
+import { ProgramAuthoringConfirmationDialog } from './program-authoring-confirmation-dialog';
 import {
-  mergeTemplateFieldsFromApi,
-  PROGRAM_TEMPLATE_DEFINITIONS,
-  type ProgramTemplateDefinition,
-} from './program-templates';
-import { ProgramTypeModal } from './program-type-modal';
+  PROGRAM_AUTHORING_STEPS,
+  createInitialProgramAuthoringState,
+  programAuthoringReducer,
+  type ProgramAuthoringAction,
+  type ProgramAuthoringStep,
+} from './program-authoring-model';
+import { ProgramAuthoringShell } from './program-authoring-shell';
+import { ProgramAuthoringStepContent } from './program-authoring-step-content';
+import {
+  clearProgramAuthoringState,
+  loadProgramAuthoringState,
+  persistProgramAuthoringState,
+} from './program-authoring-storage';
+import {
+  createProgramSubmissionRuntime,
+  submitProgramAuthoring,
+} from './program-authoring-submit';
+import {
+  validateProgramAuthoringManifest,
+  validateProgramAuthoringStep,
+  type ProgramAuthoringIssue,
+} from './program-authoring-validation';
 import { useProgramExitGuard } from './use-program-exit-guard';
-import { PageBody } from '@/components';
-
-/** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
-const FORM_WIDTH = 'max-w-4xl';
-
-/** 폼 섹션 사이 64 — 시안의 섹션 간격 */
-const SECTIONS = 'flex min-w-0 flex-col gap-16';
-
-function mapServerFieldErrors(error: ApiError): ProgramFormErrors {
-  const errors: {
-    name?: string;
-    organizer?: string;
-    period?: string;
-    endAt?: string;
-    team?: string;
-    description?: string;
-  } = {};
-  for (const fieldError of error.problem.fieldErrors ?? []) {
-    switch (fieldError.field) {
-      case 'name':
-        errors.name = fieldError.message;
-        break;
-      case 'organizer':
-        errors.organizer = fieldError.message;
-        break;
-      case 'applicationStartAt':
-      case 'applicationEndAt':
-        errors.period = fieldError.message;
-        break;
-      case 'endAt':
-        errors.endAt = fieldError.message;
-        break;
-      case 'teamMinSize':
-      case 'teamMaxSize':
-        errors.team = fieldError.message;
-        break;
-      case 'description':
-        errors.description = fieldError.message;
-        break;
-    }
-  }
-  return errors;
-}
 
 export function ProgramCreationPage() {
-  const [definitions, setDefinitions] = useState(PROGRAM_TEMPLATE_DEFINITIONS);
-  const [selected, setSelected] = useState<ProgramTemplateDefinition | null>(
-    null,
+  const [state, dispatch] = useReducer(programAuthoringReducer, undefined, () =>
+    createInitialProgramAuthoringState({
+      idempotencyKey: newAuthoringId(),
+      milestoneId: newAuthoringId(),
+    }),
   );
-  const [modalOpen, setModalOpen] = useState(true);
-  const [form, setForm] = useState<ProgramForm>(EMPTY_PROGRAM_FORM);
-  const [errors, setErrors] = useState<ProgramFormErrors>({});
+  const [hydrated, setHydrated] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [issues, setIssues] = useState<readonly ProgramAuthoringIssue[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const submissionLock = useRef<ProgramSubmissionLock>({ current: false });
-  const hasUnsavedInput = hasProgramFormInput(form);
-  const { leavePage, completeAndNavigate } =
-    useProgramExitGuard(hasUnsavedInput);
+  const filesRef = useRef(new Map<string, File>());
+  const runtimeRef = useRef(createProgramSubmissionRuntime());
+  const stepRegionRef = useRef<HTMLDivElement>(null);
+
+  const discard = () => {
+    clearProgramAuthoringState(window.sessionStorage);
+    filesRef.current.clear();
+    void Promise.allSettled(
+      [...runtimeRef.current.uploads.values()].map((upload) =>
+        deleteAuthoringUpload(upload.id),
+      ),
+    );
+    runtimeRef.current.uploads.clear();
+  };
+  const { leavePage, completeAndNavigate } = useProgramExitGuard(
+    dirty,
+    discard,
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    void listApplicationTemplates()
-      .then((templates) => {
-        if (cancelled) return;
-        setDefinitions(
-          mergeTemplateFieldsFromApi(PROGRAM_TEMPLATE_DEFINITIONS, templates),
-        );
-      })
-      .catch(() => {
-        // 로컬 V1 fields 폴백 유지 — 생성 유형 선택은 계속 가능
-      });
-    return () => {
-      cancelled = true;
-    };
+    const restored = loadProgramAuthoringState(window.sessionStorage);
+    if (restored !== null) {
+      dispatch({ type: 'restore_state', state: restored });
+      setDirty(true);
+    }
+    setHydrated(true);
   }, []);
 
-  const update = (key: keyof ProgramForm, value: string) =>
-    setForm((previous) => ({ ...previous, [key]: value }));
-  const save = async () => {
-    if (!selected) return;
-    const nextErrors = validateProgramForm(form, selected);
-    setErrors(nextErrors);
+  useEffect(() => {
+    if (!hydrated || !dirty) return;
+    persistProgramAuthoringState(window.sessionStorage, state);
+  }, [dirty, hydrated, state]);
+
+  const update = (action: ProgramAuthoringAction) => {
+    setDirty(true);
+    setIssues([]);
     setServerError(null);
-    if (Object.keys(nextErrors).length) return;
-    const submission = startProgramSubmission(
-      submissionLock.current,
-      buildCreateProgramInput(form, selected),
-      createProgram,
-      completeAndNavigate,
+    dispatch(action);
+  };
+
+  const navigate = (step: ProgramAuthoringStep) => {
+    setIssues([]);
+    dispatch({ type: 'go_to_step', step });
+    window.requestAnimationFrame(() => stepRegionRef.current?.focus());
+  };
+
+  const move = (direction: -1 | 1) => {
+    const index = PROGRAM_AUTHORING_STEPS.findIndex(
+      (step) => step.id === state.currentStep,
     );
-    if (submission.status === 'ignored') return;
-    setSubmitting(true);
-    try {
-      await submission.completion;
-    } catch (error) {
-      if (error instanceof ApiError) {
-        const fieldErrors = mapServerFieldErrors(error);
-        setErrors(fieldErrors);
-        setServerError(
-          Object.keys(fieldErrors).length > 0 ? null : error.problem.detail,
-        );
-      } else {
-        setServerError('저장에 실패했습니다. 다시 시도해 주세요.');
+    const target = PROGRAM_AUTHORING_STEPS[index + direction]?.id;
+    if (target !== undefined) navigate(target);
+  };
+
+  const next = () => {
+    const nextIssues = validateProgramAuthoringStep(state, state.currentStep);
+    if (nextIssues.length > 0) {
+      setIssues(nextIssues);
+      return;
+    }
+    move(1);
+  };
+
+  const review = () => {
+    const nextIssues = validateProgramAuthoringManifest(state);
+    if (nextIssues.length > 0) {
+      setIssues(nextIssues);
+      const first = nextIssues[0];
+      if (first !== undefined) {
+        dispatch({ type: 'go_to_step', step: first.step });
+        window.requestAnimationFrame(() => stepRegionRef.current?.focus());
       }
-    } finally {
-      setSubmitting(false);
+      return;
+    }
+    setConfirmationOpen(true);
+  };
+
+  const submit = async () => {
+    setSubmitting(true);
+    setServerError(null);
+    const result = await submitProgramAuthoring({
+      state,
+      files: filesRef.current,
+      runtime: runtimeRef.current,
+      api: {
+        uploadFile: uploadAuthoringFile,
+        deleteUpload: deleteAuthoringUpload,
+        createProgram: createAuthoringProgram,
+      },
+    });
+    setSubmitting(false);
+    switch (result.kind) {
+      case 'ignored':
+        return;
+      case 'success':
+        clearProgramAuthoringState(window.sessionStorage);
+        filesRef.current.clear();
+        runtimeRef.current.uploads.clear();
+        setDirty(false);
+        setConfirmationOpen(false);
+        completeAndNavigate(
+          `/programs/${encodeURIComponent(result.programId)}`,
+        );
+        return;
+      case 'conflict':
+        dispatch({ type: 'rotate_idempotency_key', key: newAuthoringId() });
+        setConfirmationOpen(false);
+        setServerError(
+          '이 생성 요청은 이전 내용과 충돌했습니다. 입력 내용은 유지되었습니다. 다시 확인한 뒤 생성해 주세요.',
+        );
+        return;
+      case 'failure':
+        setConfirmationOpen(false);
+        setServerError(result.message);
+        return;
+      default:
+        return assertNever(result);
     }
   };
-  if (!selected || modalOpen)
-    return (
-      <ProgramTypeModal
-        definitions={definitions}
-        selected={selected}
-        onSelect={setSelected}
-        onContinue={() => setModalOpen(false)}
-        onCancel={() => (selected ? setModalOpen(false) : leavePage())}
-      />
-    );
-  const isTeam = selected.template.participation === 'team';
+
   return (
-    <PageBody className={FORM_WIDTH}>
-      <header className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3">
-          <h1 className="font-heading text-page font-bold tracking-[-0.03em] leading-[1.15]">
-            프로그램 생성
-          </h1>
-          <p className="text-muted-foreground">
-            선택 유형 <strong>{selected.label}</strong> · 템플릿{' '}
-            <strong>
-              {selected.template.key} v{selected.template.version}
-            </strong>
-          </p>
-        </div>
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setModalOpen(true)}
-          >
-            유형 다시 선택
-          </Button>
-        </div>
-      </header>
-      <div className={SECTIONS}>
+    <ProgramAuthoringShell
+      currentStep={state.currentStep}
+      onNavigate={navigate}
+    >
+      <div
+        ref={stepRegionRef}
+        tabIndex={-1}
+        className="grid gap-8 outline-none"
+      >
         {serverError ? (
           <Alert variant="destructive">
-            <AlertTitle>저장 실패</AlertTitle>
+            <AlertTitle>생성 실패</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         ) : null}
-        <FormSection title="기본 정보">
-          <Field>
-            <FieldLabel htmlFor="name">프로그램명 *</FieldLabel>
-            <Input
-              id="name"
-              value={form.name}
-              onChange={(event) => update('name', event.target.value)}
-            />
-            <FieldError>{errors.name}</FieldError>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="organizer">주관기관/학과 *</FieldLabel>
-            <Input
-              id="organizer"
-              value={form.organizer}
-              onChange={(event) => update('organizer', event.target.value)}
-            />
-            <FieldError>{errors.organizer}</FieldError>
-          </Field>
-          <Field>
-            <FieldLabel>신청 기간 *</FieldLabel>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="space-y-2">
-                <FieldLabel className="text-small" htmlFor="applicationStartAt">
-                  시작일시
-                </FieldLabel>
-                <Input
-                  id="applicationStartAt"
-                  type="datetime-local"
-                  value={form.applicationStartAt}
-                  onChange={(event) =>
-                    update('applicationStartAt', event.target.value)
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <FieldLabel className="text-small" htmlFor="applicationEndAt">
-                  마감일시
-                </FieldLabel>
-                <Input
-                  id="applicationEndAt"
-                  type="datetime-local"
-                  value={form.applicationEndAt}
-                  onChange={(event) =>
-                    update('applicationEndAt', event.target.value)
-                  }
-                />
-              </div>
-            </div>
-            <FieldError>{errors.period}</FieldError>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="endAt">프로그램 종료일 *</FieldLabel>
-            <Input
-              id="endAt"
-              type="datetime-local"
-              required
-              aria-invalid={Boolean(errors.endAt)}
-              aria-describedby={errors.endAt ? 'endAt-error' : undefined}
-              value={form.endAt}
-              onChange={(event) => update('endAt', event.target.value)}
-            />
-            <FieldError id="endAt-error">{errors.endAt}</FieldError>
-          </Field>
-          {isTeam ? (
-            <Field>
-              <FieldLabel>팀 인원 *</FieldLabel>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <FieldLabel className="text-small" htmlFor="teamMinSize">
-                    최소
-                  </FieldLabel>
-                  <Input
-                    id="teamMinSize"
-                    type="number"
-                    min="1"
-                    value={form.teamMinSize}
-                    onChange={(event) =>
-                      update('teamMinSize', event.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <FieldLabel className="text-small" htmlFor="teamMaxSize">
-                    최대
-                  </FieldLabel>
-                  <Input
-                    id="teamMaxSize"
-                    type="number"
-                    min="1"
-                    value={form.teamMaxSize}
-                    onChange={(event) =>
-                      update('teamMaxSize', event.target.value)
-                    }
-                  />
-                </div>
-              </div>
-              <FieldError>{errors.team}</FieldError>
-            </Field>
-          ) : null}
-          <Field>
-            <FieldLabel htmlFor="description">소개/설명 *</FieldLabel>
-            <textarea
-              id="description"
-              value={form.description}
-              onChange={(event) => update('description', event.target.value)}
-              className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
-            />
-            <FieldError>{errors.description}</FieldError>
-          </Field>
-        </FormSection>
-        {/* 이 화면의 주 행동은 저장 하나뿐이다 — 채운 버튼도 저장뿐이다 */}
-        <div className="flex justify-between gap-3">
-          <Button type="button" variant="outline" onClick={leavePage}>
+        {issues.length > 0 ? (
+          <Alert variant="destructive">
+            <AlertTitle>입력 내용을 확인해 주세요</AlertTitle>
+            <AlertDescription>{issues[0]?.message}</AlertDescription>
+          </Alert>
+        ) : null}
+        <ProgramAuthoringStepContent
+          step={state.currentStep}
+          state={state}
+          issues={issues}
+          dispatch={update}
+          files={filesRef.current}
+          runtime={runtimeRef.current}
+          newId={newAuthoringId}
+        />
+        <div className="flex flex-wrap justify-between gap-3 border-t border-border pt-6">
+          <Button type="button" variant="outline" onClick={() => leavePage()}>
             취소
           </Button>
-          <Button
-            type="button"
-            disabled={submitting}
-            onClick={() => void save()}
-          >
-            {submitting ? '저장 중…' : '저장'}
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            {state.currentStep !== 'type' ? (
+              <Button type="button" variant="outline" onClick={() => move(-1)}>
+                이전
+              </Button>
+            ) : null}
+            {state.currentStep === 'review' ? (
+              <Button type="button" onClick={review}>
+                프로그램 만들기
+              </Button>
+            ) : (
+              <Button type="button" onClick={next}>
+                다음
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-    </PageBody>
+      {confirmationOpen ? (
+        <ProgramAuthoringConfirmationDialog
+          submitting={submitting}
+          onCancel={() => setConfirmationOpen(false)}
+          onConfirm={() => void submit()}
+        />
+      ) : null}
+    </ProgramAuthoringShell>
   );
+}
+
+function newAuthoringId(): string {
+  return globalThis.crypto.randomUUID();
+}
+
+function assertNever(value: never): never {
+  throw new TypeError(`Unhandled authoring value: ${String(value)}`);
 }

@@ -16,6 +16,7 @@ import {
   type ProgramEditForm,
 } from './program-edit-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import { ProgramDeadlineControl } from './program-deadline-control';
 
 interface ProgramEditBasicFormProps {
   readonly program: EditableProgram;
@@ -97,22 +98,40 @@ export function ProgramEditBasicForm({
           <Field>
             <FieldLabel>신청 기간 *</FieldLabel>
             <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                type="datetime-local"
-                value={form.applicationStartAt}
-                aria-invalid={Boolean(errors.period)}
-                onChange={(event) =>
-                  onFieldChange('applicationStartAt', event.target.value)
-                }
-              />
-              <Input
-                type="datetime-local"
-                value={form.applicationEndAt}
-                aria-invalid={Boolean(errors.period)}
-                onChange={(event) =>
-                  onFieldChange('applicationEndAt', event.target.value)
-                }
-              />
+              <div className="space-y-2">
+                <FieldLabel
+                  className="text-small"
+                  htmlFor="program-application-start-at"
+                >
+                  시작일시
+                </FieldLabel>
+                <Input
+                  id="program-application-start-at"
+                  type="datetime-local"
+                  value={form.applicationStartAt}
+                  aria-invalid={Boolean(errors.period)}
+                  onChange={(event) =>
+                    onFieldChange('applicationStartAt', event.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel
+                  className="text-small"
+                  htmlFor="program-application-end-at"
+                >
+                  마감일시
+                </FieldLabel>
+                <Input
+                  id="program-application-end-at"
+                  type="datetime-local"
+                  value={form.applicationEndAt}
+                  aria-invalid={Boolean(errors.period)}
+                  onChange={(event) =>
+                    onFieldChange('applicationEndAt', event.target.value)
+                  }
+                />
+              </div>
             </div>
             <FieldError>{errors.period}</FieldError>
           </Field>
@@ -132,24 +151,42 @@ export function ProgramEditBasicForm({
             <Field>
               <FieldLabel>팀 인원 *</FieldLabel>
               <div className="grid gap-2 sm:grid-cols-2">
-                <Input
-                  type="number"
-                  min="1"
-                  value={form.teamMinSize}
-                  aria-invalid={Boolean(errors.team)}
-                  onChange={(event) =>
-                    onFieldChange('teamMinSize', event.target.value)
-                  }
-                />
-                <Input
-                  type="number"
-                  min="1"
-                  value={form.teamMaxSize}
-                  aria-invalid={Boolean(errors.team)}
-                  onChange={(event) =>
-                    onFieldChange('teamMaxSize', event.target.value)
-                  }
-                />
+                <div className="space-y-2">
+                  <FieldLabel
+                    className="text-small"
+                    htmlFor="program-team-min-size"
+                  >
+                    최소
+                  </FieldLabel>
+                  <Input
+                    id="program-team-min-size"
+                    type="number"
+                    min="1"
+                    value={form.teamMinSize}
+                    aria-invalid={Boolean(errors.team)}
+                    onChange={(event) =>
+                      onFieldChange('teamMinSize', event.target.value)
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <FieldLabel
+                    className="text-small"
+                    htmlFor="program-team-max-size"
+                  >
+                    최대
+                  </FieldLabel>
+                  <Input
+                    id="program-team-max-size"
+                    type="number"
+                    min="1"
+                    value={form.teamMaxSize}
+                    aria-invalid={Boolean(errors.team)}
+                    onChange={(event) =>
+                      onFieldChange('teamMaxSize', event.target.value)
+                    }
+                  />
+                </div>
               </div>
               <FieldError>{errors.team}</FieldError>
             </Field>
@@ -183,6 +220,14 @@ export function ProgramEditBasicForm({
               신청 승인 시 GitHub 저장소 자동 생성
             </FieldLabel>
           </Field>
+          <ProgramDeadlineControl
+            enabled={form.notifyOnDeadline}
+            persistedEnabled={program.notifyOnDeadline}
+            programId={program.id}
+            onEnabledChange={(enabled) =>
+              onFieldChange('notifyOnDeadline', enabled)
+            }
+          />
           <FieldError>{errors.general}</FieldError>
           <div className="flex justify-between gap-2">
             <Button asChild type="button" variant="outline">

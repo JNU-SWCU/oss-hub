@@ -44,6 +44,7 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('참여 중');
     expect(html).toContain('미제출');
     expect(html).toContain('D-3');
+    expect(html).toContain('7월 26일 23:59 마감');
     expect(html).toContain('프로그램 상세');
     expect(html).toContain('제출 체크리스트');
   });
@@ -165,7 +166,39 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('신청이 반려되었습니다.');
     expect(html).toContain('신청 상세');
     expect(html).not.toContain('제출 체크리스트');
+    // 카드가 약속하는 것과 목적지가 같아야 한다. 예전 문구는 "프로그램 상세에서 신청
+    // 상태를"이었는데 그 화면에는 신청 상태도 사유도 없었다(#733).
+    expect(html).toContain('신청 상세에서 반려 사유를 확인해 주세요.');
+    expect(html).not.toContain('프로그램 상세에서 신청 상태를 확인해 주세요.');
   });
+
+  /**
+   * 카드의 「신청 상세」 버튼이 **어디로 가는지**. 이 값을 확인하는 테스트가 하나도 없어,
+   * 반려 카드가 사유 없는 프로그램 상세를 가리키는 동안에도 전부 초록불이었다(#733).
+   *
+   * href는 응답이 준 `detailUrl`을 **그대로** 써야 한다. 화면이 자기 규칙으로 주소를 다시
+   * 만들면 서버는 계속 틀린 값을 내보내고, 같은 값을 읽는 알림·다른 화면이 똑같이 어긋난다.
+   * 그래서 문자열을 박지 않고 픽스처가 실은 값과 대조한다 — 다만 그 값 자체가 신청서
+   * 화면인지도 함께 고정해야, 픽스처가 옛 주소로 돌아가면 여기서 걸린다.
+   */
+  it.each([
+    ['승인 대기', pendingDashboardFixture],
+    ['반려', rejectedDashboardFixture],
+  ] as const)(
+    '%s 카드의 신청 상세는 응답이 준 신청서 화면으로 간다',
+    (_label, data) => {
+      const item = data.items[0];
+      if (item === undefined) {
+        throw new Error('카드가 하나 이상인 fixture가 필요합니다.');
+      }
+
+      const html = renderView({ data });
+
+      expect(item.detailUrl).toBe(`/programs/${item.programId}/apply`);
+      expect(html).toContain(`href="${item.detailUrl}"`);
+      expect(html).not.toContain(`href="/programs/${item.programId}"`);
+    },
+  );
 
   it('신청이 없으면 프로그램 목록 이동을 제공한다', () => {
     const html = renderView({ data: { items: [] } });
@@ -214,6 +247,66 @@ describe('StudentDashboardView', () => {
 
     expect(arrived).toContain('내 대시보드');
     expect(arrived).toContain('신청한 프로그램과 다음 제출 일정을 확인합니다');
+  });
+
+  it('승인 알림은 판정 시각과 다음 제출 행동을 한 번의 배너로 안내한다', () => {
+    const html = renderView({
+      applicationDecisionNotices: [
+        {
+          id: 'notification-1',
+          applicationId: 'application-1',
+          programId: 'program-1',
+          programName: '합성 프로그램',
+          decision: 'APPROVED',
+          decidedAt: '2026-08-08T23:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(html).toContain('합성 프로그램 신청이 승인되었습니다');
+    expect(html).toContain('다음 제출 일정과 준비할 내용을 확인해 주세요');
+    expect(html).toContain('href="/programs/program-1/submissions"');
+    expect(html).toContain('2026. 8. 9.');
+  });
+
+  /**
+   * 반려 알림은 **사유 원문을 싣지 않고**, 사유가 실제로 있는 곳을 가리킨다(#722).
+   *
+   * 예전 문구는 "신청 상세에서 상태를 확인해 주세요"였는데, 눌러 가면 도착하는
+   * `/programs/{id}/apply`가 "수정하거나 취소할 수 없습니다"만 말하고 이유는 어디에도
+   * 없었다. 그 화면이 이제 사유를 그리므로(`programs/program-apply-views.tsx`의
+   * `BlockedView`) 문구도 그 사실을 가리킨다.
+   */
+  it('반려 알림은 사유 원문 대신 사유가 있는 화면을 가리킨다', () => {
+    const notice = {
+      id: 'notification-2',
+      applicationId: 'application-2',
+      programId: 'program-2',
+      programName: '합성 경진대회',
+      decision: 'REJECTED',
+      decidedAt: '2026-08-09T00:00:00.000Z',
+    } as const;
+    const html = renderView({ applicationDecisionNotices: [notice] });
+
+    expect(html).toContain('합성 경진대회 신청이 반려되었습니다');
+    expect(html).toContain('신청 상세에서 반려 사유를 확인해 주세요');
+    // 안내가 가리키는 목적지가 실제로 사유를 그리는 화면이어야 한다.
+    expect(html).toContain('href="/programs/program-2/apply"');
+    expect(html).toContain('반려 사유 확인');
+    // 옛 문구가 되살아나는 것을 막는다 — 그 화면은 상태만 말하던 시절의 말이다.
+    expect(html).not.toContain('신청 상세에서 상태를 확인해 주세요');
+    // 사유 원문은 대시보드까지 오지 않는다 — 알림 payload에 그런 필드가 없다.
+    //
+    // ⚠ 이 단언은 **렌더된 html**을 본다. `notice` 리터럴의 키를 세면 이 테스트가
+    // 자기가 방금 쓴 값을 자기가 검사하는 항진명제가 된다 — 실제로 payload에 사유를
+    // 얹어 화면에 그리게 만들어도 통과했다.
+    const secret = '대시보드에 오면 안 되는 사유 원문';
+    const htmlWithReason = renderView({
+      applicationDecisionNotices: [
+        { ...notice, rejectionReason: secret } as unknown as typeof notice,
+      ],
+    });
+    expect(htmlWithReason).not.toContain(secret);
   });
 });
 

@@ -34,6 +34,7 @@ const MEMBER_ID = seedId('program-overview', 'user', 'team-member');
 const INVITEE_ID = seedId('program-overview', 'user', 'invitee');
 const TEAM_ID = seedId('program-overview', 'team');
 const APPLICATION_ID = seedId('program-overview', 'application');
+const PROGRAM_START_AT = offsetDays(-45);
 
 type MilestoneSeed = {
   readonly id: string;
@@ -56,6 +57,7 @@ async function upsertMilestone(
         where: { id: params.id },
         update: {
           name: params.name,
+          startAt: PROGRAM_START_AT,
           dueAt: params.dueAt,
           submissionType: params.submissionType,
           instructions: params.instructions,
@@ -64,6 +66,7 @@ async function upsertMilestone(
           id: params.id,
           programId: PROGRAM_ID,
           name: params.name,
+          startAt: PROGRAM_START_AT,
           dueAt: params.dueAt,
           submissionType: params.submissionType,
           instructions: params.instructions,
@@ -293,7 +296,8 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
           applicationTemplateKey: ProgramCategory.CAPSTONE.toLowerCase(),
           applicationTemplateVersion: 1,
           applicationStartAt: offsetDays(-60),
-          applicationEndAt: offsetDays(-45),
+          applicationEndAt: offsetDays(-46),
+          startAt: PROGRAM_START_AT,
           endAt: offsetDays(150),
           teamMinSize: 3,
           teamMaxSize: 5,
@@ -439,7 +443,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
   await upsertMilestone(stats, {
     id: milestoneIds.m1,
     name: '수강 신청 · 팀 등록',
-    dueAt: offsetDays(-45),
+    dueAt: offsetDays(-44),
     submissionType: MilestoneSubmissionType.TEXT,
     instructions: '팀을 만들거나 모집 중인 팀에 들어갑니다.',
   });
@@ -447,7 +451,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     id: milestoneIds.m2,
     name: '주제 선정 · 저장소 연결',
     dueAt: offsetDays(-20),
-    submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+    submissionType: MilestoneSubmissionType.TEXT,
     instructions: '팀 저장소를 만들고 프로그램에 연결합니다.',
   });
   await upsertMilestone(stats, {

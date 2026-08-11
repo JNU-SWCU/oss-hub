@@ -2,6 +2,7 @@ import { expect, test } from './admin-session.fixture';
 import { e2eEnvironment } from './environment';
 import {
   attachStateScreenshot,
+  changeRole,
   chooseMutation,
   chooseStaffRole,
   openDetail,
@@ -152,43 +153,79 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     expect(mutationResponse.status()).toBe(403);
   });
 
-  test('APPROVED STAFF를 회수하면 역할 재선택과 재신청으로 이어진다', async ({
+  test('STAFF를 학생으로 전환하면 즉시 접근이 막히고, API 회수는 역할 재선택으로 이어진다', async ({
     adminPage,
     authSeedPage,
   }, testInfo) => {
-    // Given: 회수 전 STAFF 세션은 운영 대시보드에 접근한다.
+    // Given: 전환 전 STAFF 세션은 운영 대시보드에 접근한다.
     const staffPage = await authSeedPage('staff-revocable');
     await staffPage.goto('/staff/dashboard');
     await expect(
       staffPage.getByRole('heading', { name: '운영 대시보드' }),
     ).toBeVisible();
 
-    // When: 관리자가 STAFF 역할을 null로 회수한다.
+    // When: 관리자가 역할 세그먼트 컨트롤에서 STAFF를 학생으로 낮춘다. #765
+    // 결정 이후 이 화면은 회수를 자칭하지 않고 순수 전환/변경 문구를 쓴다 —
+    // 직접 강등은 REVOKED 이력을 남기지 않기 때문이다
+    // (`admin-access-transition-table.ts`의 `directRequestEffect`).
     await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
-    await chooseMutation(adminPage, '권한 회수 (교직원 권한 제거)');
-    const revokeDialog = adminPage.getByRole('dialog');
-    await expect(revokeDialog).toContainText('역할을 비웁니다');
-    await expect(revokeDialog).toContainText(
-      '학생 또는 교직원 역할을 다시 선택할 수 있습니다.',
+    await adminPage.getByRole('radio', { name: '학생', exact: true }).click();
+    const downgradeDialog = adminPage.getByRole('dialog');
+    await expect(downgradeDialog).toContainText('권한 변경');
+    await expect(downgradeDialog).toContainText(
+      'seed-auth-staff-revocable님의 교직원 역할을 학생으로 전환합니다. 교직원 권한은 즉시 사라집니다.',
     );
-    await expect(revokeDialog).not.toContainText('학생으로 강등');
-    await adminPage.getByRole('button', { name: '회수 확정' }).click();
+    await expect(downgradeDialog).not.toContainText('권한 회수');
+    await adminPage.getByRole('button', { name: '변경 확정' }).click();
     await expect(
-      adminPage.getByText('미지정', { exact: true }).first(),
+      adminPage.getByText('학생', { exact: true }).first(),
     ).toBeVisible();
-    await expect(
-      adminPage.getByRole('heading', { name: '요청 이력' }).locator('..'),
-    ).toContainText('회수');
-    await attachStateScreenshot(adminPage, testInfo, 'staff-revoked');
+    await attachStateScreenshot(adminPage, testInfo, 'staff-downgraded');
 
-    // Then: 같은 STAFF 세션도 보호 화면에 다시 들어갈 수 없고 역할 선택으로 간다.
+    // Then: 같은 STAFF 세션은 즉시 보호 화면에서 거부된다 — 역할이 null이
+    // 아니라 학생으로 남아 있어 온보딩 역할 재선택이 아니라 접근 거부
+    // 안내로 간다.
     await staffPage.goto('/staff/dashboard');
-    await expect(staffPage).toHaveURL(/\/onboarding\/role$/);
     await expect(
-      staffPage.getByRole('heading', { name: '어떤 역할로 쓰시나요' }),
+      staffPage.getByText('접근 권한이 없는 페이지 입니다', { exact: true }),
     ).toBeVisible();
-    await chooseStaffRole(staffPage);
-    await attachStateScreenshot(staffPage, testInfo, 'revoked-reapplied');
+    await attachStateScreenshot(staffPage, testInfo, 'downgraded-denied');
+
+    // seed-auth-staff-revocable은 deadline-digest.spec.ts가 STAFF로 재사용하는
+    // 공유 시드다. 강등한 채로 두면 그 스펙이 운영 대시보드를 못 찾고 깨진다
+    // (describe.serial이라 스펙 간 시드 초기화가 없다). adminPage는 여전히 이
+    // 사용자의 상세 화면에 있으니 같은 세그먼트 컨트롤로 원상 복구한다.
+    await changeRole(adminPage, '교직원');
+    await expect(
+      adminPage.getByText('교직원', { exact: true }).first(),
+    ).toBeVisible();
+
+    // Given: 첫 테스트에서 승인되어 여전히 STAFF인 별도 사용자(seed-auth-
+    // staff-pending)로, null 회수·REVOKED 이력은 API 로만 여전히 도달할 수
+    // 있는 실제 기능임을 검증한다.
+    const revocationResponse = await requestStaffRoleRevocation(
+      adminPage,
+      STAFF_PENDING,
+    );
+    expect(revocationResponse.status()).toBe(200);
+    expect(
+      (await revocationResponse.json()) as { readonly role: unknown },
+    ).toMatchObject({ role: null });
+
+    // Then: 회수된 본인 세션은 즉시 역할 재선택으로 튕기고, 별도 재신청
+    // 버튼 없이 STAFF를 다시 고를 수 있다.
+    const revokedStaffPage = await authSeedPage('staff-pending');
+    await revokedStaffPage.goto('/dashboard');
+    await expect(revokedStaffPage).toHaveURL(/\/onboarding\/role$/);
+    await expect(
+      revokedStaffPage.getByRole('heading', { name: '어떤 역할로 쓰시나요' }),
+    ).toBeVisible();
+    await chooseStaffRole(revokedStaffPage);
+    await attachStateScreenshot(
+      revokedStaffPage,
+      testInfo,
+      'null-revoked-reapplied',
+    );
   });
 
   test('두 관리자의 오래된 화면은 409 뒤 최신 역할로 수렴한다', async ({
@@ -201,7 +238,9 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     const secondAdminPage = await authSeedPage('admin-second');
     await secondAdminPage.goto('/admin/access');
 
-    // When: 두 번째 관리자가 먼저 같은 STAFF를 API로 회수한다.
+    // When: 두 번째 관리자가 먼저 같은 STAFF를 API로 null 회수한다 — null
+    // 회수는 여전히 REVOKED 이력을 남기는 실제 기능이고, 이제 API 전용
+    // 경로다(위 테스트 참고).
     const response = await secondAdminPage.request.patch(
       `${e2eEnvironment.baseUrl}/api/v1/users/${encodeURIComponent(STAFF_APPROVED)}/access`,
       {
@@ -225,10 +264,11 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       },
     );
 
-    // Then: 첫 관리자의 stale PATCH는 409이며 화면 projection이 즉시 최신화된다.
+    // Then: 첫 관리자의 화면은 아직 STAFF를 보여주고 있다 — 그 stale
+    // 화면에서 역할 버튼을 누르면 expectedRole이 실제(null)와 어긋나 409이며
+    // 화면 projection이 즉시 최신화된다.
     expectAdminResourceStatusError(409);
-    await chooseMutation(adminPage, '권한 회수 (교직원 권한 제거)');
-    await adminPage.getByRole('button', { name: '회수 확정' }).click();
+    await changeRole(adminPage, '학생');
     await expect(
       adminPage.getByText(
         '다른 관리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',

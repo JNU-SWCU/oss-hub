@@ -125,7 +125,7 @@ const CONTEXT: ReviewContext = {
   milestone: { id: 'milestone-final', name: '최종 제출' },
   currentRevision: {
     number: 2,
-    content: { repositoryUrl: 'https://example.com/repository' },
+    content: { type: 'TEXT', text: '수정 사항을 반영한 제출본입니다.' },
     comment: '수정했습니다.',
     submittedAt: '2026-09-27T01:00:00.000Z',
     files: [],

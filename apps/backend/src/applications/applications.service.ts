@@ -12,8 +12,10 @@ import {
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
+import { parseGithubRepositoryUrl } from '../common/github-repository-url';
 import {
   checkApplicationTemplateVersion,
+  applicationAnswerTooLongMessage,
   normalizeAndValidateApplicationAnswers,
 } from '../programs/application-answers.validator';
 import {
@@ -26,6 +28,7 @@ import {
   ApplicationJoinCodeDigestConflictError,
   ApplicationTeamMembershipConflictError,
   ApplicationsRepository,
+  type ApplicationListItem,
   type ApplicationListPage,
   type CreatedApplication,
   type StaffDashboardSummary,
@@ -96,13 +99,6 @@ function isProvisioningCompleted(
   return status === RepositoryProvisionJobStatus.SUCCEEDED;
 }
 
-function isHttpsUrl(value: string): boolean {
-  if (value.length === 0 || !URL.canParse(value)) {
-    return false;
-  }
-  return new URL(value).protocol === 'https:';
-}
-
 @Injectable()
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
@@ -135,6 +131,11 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
     }
 
+    const repositoryConnection = this.resolveRepositoryConnection(
+      program.repositoryProvisioningEnabled,
+      input,
+    );
+
     const versionCheck = checkApplicationTemplateVersion(
       input.applicationTemplateVersion,
       program.applicationTemplateVersion,
@@ -147,8 +148,21 @@ export class ApplicationsService {
     const answersResult = normalizeAndValidateApplicationAnswers(
       input.answers,
       applicantName,
+      'enforce-length',
     );
     if (!answersResult.ok) {
+      // 넘친 칸을 그대로 실어 보낸다 — 하나의 뭉뚱그린 문구만 주면 학생이 무엇을 줄일지 모른다.
+      if (answersResult.reason === 'TOO_LONG')
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.ANSWER_TOO_LONG],
+          {
+            fieldErrors: (answersResult.tooLongKeys ?? []).map((key) => ({
+              field: key,
+              code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+              message: applicationAnswerTooLongMessage(key),
+            })),
+          },
+        );
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
 
@@ -230,8 +244,8 @@ export class ApplicationsService {
           answers: answersResult.answers,
           applicationTemplateVersion: program.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-          repositoryConnectionMode: input.repositoryConnectionMode,
-          repositoryUrl: input.repositoryUrl,
+          repositoryConnectionMode: repositoryConnection.mode,
+          repositoryUrl: repositoryConnection.url,
         });
       });
     } catch (error) {
@@ -246,6 +260,44 @@ export class ApplicationsService {
     }
   }
 
+  private resolveRepositoryConnection(
+    enabled: boolean,
+    input: CreateApplicationInput,
+  ): {
+    readonly mode: RepositoryConnectionMode;
+    readonly url: string | null;
+  } {
+    if (!enabled) {
+      if (
+        input.repositoryConnectionMode !== null ||
+        input.repositoryUrl !== null
+      ) {
+        throw this.error(
+          ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN,
+        );
+      }
+      return { mode: RepositoryConnectionMode.NEW, url: null };
+    }
+    if (input.repositoryConnectionMode === null) {
+      throw this.error(
+        ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_REQUIRED,
+      );
+    }
+    if (input.repositoryConnectionMode === RepositoryConnectionMode.NEW) {
+      return { mode: RepositoryConnectionMode.NEW, url: null };
+    }
+    if (
+      input.repositoryUrl === null ||
+      parseGithubRepositoryUrl(input.repositoryUrl) === null
+    ) {
+      throw this.error(ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
+    }
+    return {
+      mode: input.repositoryConnectionMode,
+      url: input.repositoryUrl,
+    };
+  }
+
   async listForProgram(
     programId: string,
     query: ApplicationListQuery,
@@ -255,6 +307,20 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
     return this.repository.listApplicationsForProgram(programId, query);
+  }
+
+  /**
+   * #722 교직원 신청 상세. 목록과 달리 programId 를 받지 않는다 — 판정(`decide`)이
+   * 이미 신청 id 하나로 도달하는 계약이라, 조회만 프로그램을 요구하면 같은 자원에
+   * 주소 규칙이 둘 생긴다.
+   */
+  async getForStaff(applicationId: string): Promise<ApplicationListItem> {
+    const application =
+      await this.repository.findApplicationForStaff(applicationId);
+    if (!application) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+    }
+    return application;
   }
 
   /** #117 교직원 운영 대시보드 요약 — Application 단위 집계. */
@@ -330,12 +396,30 @@ export class ApplicationsService {
             targetType: 'APPLICATION',
             targetId: applicationId,
             metadata: createApplicationDecisionAuditMetadata({
+              // application은 이 메서드 시작에서 이미 로드해 둔 값이라(findApplicationById)
+              // 스냅샷을 위한 추가 쿼리는 없다.
+              programName: application.programName,
+              applicantGithubLogin: application.applicantGithubLogin,
               before: { status: application.status },
               after: { status: plan.nextStatus },
             }),
           },
           store.auditLogWriter,
         );
+
+        if (
+          plan.nextStatus === ApplicationStatus.APPROVED ||
+          plan.nextStatus === ApplicationStatus.REJECTED
+        ) {
+          await store.createApplicationDecisionNotifications({
+            applicationId,
+            programId: application.programId,
+            programName: application.programName,
+            recipientUserIds: application.notificationRecipientIds,
+            decision: plan.nextStatus,
+            decidedAt: processedAt,
+          });
+        }
 
         switch (plan.kind) {
           case 'REJECT':
@@ -467,12 +551,11 @@ export class ApplicationsService {
             extensions,
           );
         }
-        // D4 가드 ②: OWN인데 repositoryUrl 없거나 https가 아니면 400.
         if (
           application.repositoryConnectionMode ===
             RepositoryConnectionMode.OWN &&
           (application.repositoryUrl === null ||
-            !isHttpsUrl(application.repositoryUrl))
+            parseGithubRepositoryUrl(application.repositoryUrl) === null)
         ) {
           throw this.error(ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
         }

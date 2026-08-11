@@ -74,12 +74,21 @@ describe('validateSubmissionFile', () => {
   it.each([
     ['document.PDF', 'application/pdf'],
     ['document.hwp', 'application/x-hwp'],
+    ['document.hwp', 'application/haansofthwp'],
+    ['document.hwp', 'application/vnd.hancom.hwp'],
+    ['document.hwp', 'application/x-hwp-v5'],
+    ['document.hwp', 'application/octet-stream'],
+    ['document.hwp', ''],
     ['photo.jpg', 'image/jpeg'],
     ['photo.JPEG', 'image/jpeg'],
     ['image.png', 'image/png'],
     ['archive.zip', 'application/zip'],
   ])('%s와 %s 쌍을 허용한다', (name, type) => {
-    expect(validateSubmissionFile(new File(['x'], name, { type }))).toEqual({
+    // Given: 브라우저가 제공한 파일 이름과 MIME.
+    const file = new File(['x'], name, { type });
+
+    // When / Then: 사용자가 선택할 수 있다고 안내한 형식은 통과한다.
+    expect(validateSubmissionFile(file)).toEqual({
       ok: true,
     });
   });
@@ -177,7 +186,7 @@ describe('getSubmissionFileErrorMessage', () => {
 describe('validateSubmissionContent', () => {
   it('TEXT는 공백만 있는 제출을 거절하고 입력값은 유지한다', () => {
     // Given
-    const input = { file: null, text: '   ', releaseUrl: '' };
+    const input = { file: null, text: '   ' };
 
     // When
     const errors = validateSubmissionContent('TEXT', input);
@@ -185,34 +194,5 @@ describe('validateSubmissionContent', () => {
     // Then
     expect(errors).toEqual({ text: '제출 내용을 입력해 주세요.' });
     expect(input.text).toBe('   ');
-  });
-
-  it('REPOSITORY_RELEASE는 http URL이 아니면 field 오류를 반환한다', () => {
-    // Given
-    const input = { file: null, text: '', releaseUrl: 'not-a-url' };
-
-    // When
-    const errors = validateSubmissionContent('REPOSITORY_RELEASE', input);
-
-    // Then
-    expect(errors).toEqual({
-      releaseUrl: '태그 또는 릴리스의 전체 주소를 입력해 주세요.',
-    });
-  });
-
-  it('연결 저장소의 URL 형태는 서버 검증을 위해 통과시킨다', () => {
-    // Given
-    const input = {
-      file: null,
-      text: '',
-      releaseUrl:
-        'https://github.com/JNU-SWCU/synthetic-repository/releases/tag/v1.0.0',
-    };
-
-    // When
-    const errors = validateSubmissionContent('REPOSITORY_RELEASE', input);
-
-    // Then
-    expect(errors).toEqual({});
   });
 });

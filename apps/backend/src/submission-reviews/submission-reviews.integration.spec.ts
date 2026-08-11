@@ -26,11 +26,11 @@ import {
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import type { GithubAppClient } from '../repositories/github-app.client';
-import { BarrierRepositoriesRepository } from '../repositories/repositories.integration-support';
-import { RepositoriesRepository } from '../repositories/repositories.repository';
-import { RepositoriesService } from '../repositories/repositories.service';
-import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
+import type { GithubAppClient } from '../github/github-app.client';
+import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
+import { RepositoriesRepository } from '../github/repository/repositories.repository';
+import { RepositoriesService } from '../github/service/repositories.service';
+import { PublicProjectsRepository } from '../programs/archive/public-projects/public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
@@ -46,10 +46,12 @@ const github = {
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const repositoriesRepository = new RepositoriesRepository(prisma);
+const organizationConfig = { requireOrganization: () => 'synthetic-org' };
 const repositories = new RepositoriesService(
   repositoriesRepository,
   github,
   auditLog,
+  organizationConfig,
 );
 const service = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
@@ -375,6 +377,7 @@ describe('SubmissionReviewsService integration', () => {
       barrierRepository,
       github,
       auditLog,
+      organizationConfig,
     );
     const publishedAt = new Date('2026-07-31T00:00:00.000Z');
     github.publishRepository.mockResolvedValue({

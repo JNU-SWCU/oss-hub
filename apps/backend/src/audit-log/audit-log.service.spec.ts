@@ -1,7 +1,6 @@
 import { AccountStatus, Role } from '@prisma/client';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
-  ACCESS_AUDIT_SCHEMA_VERSION,
   createAccessAuditMetadata,
 } from './audit-log-metadata';
 import { AuditLogErrorCode } from './audit-log-error-code.enum';
@@ -57,7 +56,7 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
         targetType: input.targetType,
         targetId: input.targetId,
         target:
-          input.metadata.schemaVersion === ACCESS_AUDIT_SCHEMA_VERSION
+          'target' in input.metadata
             ? input.metadata.target.githubLogin
             : `${input.targetType} / ${input.targetId}`,
         occurredAt: new Date('2026-07-24T03:00:00.000Z'),

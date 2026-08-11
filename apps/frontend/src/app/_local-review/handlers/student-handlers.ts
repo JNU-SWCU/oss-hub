@@ -5,12 +5,14 @@ import {
   accepted,
   bodyEnum,
   bodyNullableString,
+  bodyRecord,
   bodyString,
   json,
   matchGet,
   matchPath,
   notFound,
   problem,
+  unauthenticated,
   unauthorized,
   type LocalReviewContext,
   type LocalReviewHandler,
@@ -19,6 +21,7 @@ import {
 import { STUDENT_JOURNEY_RESPONSES } from '../student-journey-fixtures';
 import {
   JOINED_TEAM_FIXTURE,
+  MY_APPLICATION_FIXTURES,
   MY_TEAM_FIXTURES,
   PROGRAM_CHECKLISTS,
   SUBMISSION_FORMS,
@@ -72,16 +75,16 @@ function applicationTemplatesHandler(
 }
 
 const MONTH_ACTIVITY_POINTS = [
-  { period: '2026-03', commitCount: 4, prCount: 1, releaseCount: 0 },
-  { period: '2026-04', commitCount: 9, prCount: 2, releaseCount: 1 },
-  { period: '2026-05', commitCount: 6, prCount: 1, releaseCount: 0 },
-  { period: '2026-06', commitCount: 14, prCount: 3, releaseCount: 1 },
-  { period: '2026-07', commitCount: 21, prCount: 5, releaseCount: 2 },
+  { period: '2026-03', commitCount: 4, pullRequestCount: 1, releaseCount: 0 },
+  { period: '2026-04', commitCount: 9, pullRequestCount: 2, releaseCount: 1 },
+  { period: '2026-05', commitCount: 6, pullRequestCount: 1, releaseCount: 0 },
+  { period: '2026-06', commitCount: 14, pullRequestCount: 3, releaseCount: 1 },
+  { period: '2026-07', commitCount: 21, pullRequestCount: 5, releaseCount: 2 },
 ] as const;
 
 const YEAR_ACTIVITY_POINTS = [
-  { period: '2025', commitCount: 12, prCount: 3, releaseCount: 1 },
-  { period: '2026', commitCount: 54, prCount: 12, releaseCount: 4 },
+  { period: '2025', commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
+  { period: '2026', commitCount: 54, pullRequestCount: 12, releaseCount: 4 },
 ] as const;
 
 /** 파서가 `total === commit + pr + release`를 검사하므로 합계를 계산해서 준다. */
@@ -90,7 +93,7 @@ function activityPoints(granularity: ActivityGranularity) {
     granularity === 'YEAR' ? YEAR_ACTIVITY_POINTS : MONTH_ACTIVITY_POINTS;
   return points.map((point) => ({
     ...point,
-    total: point.commitCount + point.prCount + point.releaseCount,
+    total: point.commitCount + point.pullRequestCount + point.releaseCount,
   }));
 }
 
@@ -128,6 +131,55 @@ function activityTimelineHandler(
     ],
     series: { granularity, points: activityPoints(granularity) },
   });
+}
+
+function applicationDecisionNotificationsHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  if (
+    matchGet(context, 'users/me/notifications/application-decisions') !== null
+  ) {
+    if (!context.isAuthenticated) return unauthorized(context.path);
+    return json(
+      200,
+      context.role === 'STUDENT'
+        ? [
+            {
+              id: 'synthetic-application-decision-notice',
+              applicationId: 'synthetic-application-basic',
+              programId: 'program-capstone',
+              programName: '합성 캡스톤 2026',
+              decision: 'APPROVED',
+              decidedAt: '2026-08-08T23:00:00.000Z',
+            },
+            // 반려 알림. 이 안내의 링크가 `/programs/{id}/apply`로 가고 그 화면이
+            // 반려 사유를 그린다 — 승인 알림만 두면 검토자가 그 왕복을 눌러 볼 수
+            // 없다. `programId`는 반려 신청 픽스처가 있는 프로그램이어야 한다
+            // (`student-program-fixtures.ts`의 `MY_APPLICATION_FIXTURES`).
+            // 사유 원문은 여기 담지 않는다 — 실제 알림 payload에도 없다.
+            {
+              id: 'synthetic-application-rejection-notice',
+              applicationId: 'synthetic-application-sw-value',
+              programId: 'program-sw-value',
+              programName: '합성 SW가치확산 프로그램',
+              decision: 'REJECTED',
+              decidedAt: '2026-06-28T23:00:00.000Z',
+            },
+          ]
+        : [],
+    );
+  }
+
+  if (
+    context.method === 'PATCH' &&
+    matchPath(
+      'users/me/notifications/application-decisions/:notificationId/read',
+      context.path,
+    ) !== null
+  ) {
+    return json(200, null);
+  }
+  return null;
 }
 
 /**
@@ -214,6 +266,55 @@ function submissionFormHandler(
     : json(200, form);
 }
 
+/**
+ * 내 신청서. **반려 사유가 학생에게 닿는 유일한 경로다** — 알림 payload·감사 로그·
+ * 메일 어디에도 사유가 없으므로, 이 규칙이 없으면 `/programs/{id}/apply`가 사유를
+ * 그릴 재료를 못 받고 검토자는 빈 안내만 보게 된다(그동안 커버리지 목록의
+ * `KNOWN_GAPS`에 있던 항목이다).
+ *
+ * 실패는 backend `StudentApplicationManagementService.requireContext`의 **순서까지**
+ * 따라간다 — 학생 아님(403 `APP_008`) → 프로그램 없음(404 `APP_009`) → 신청 없음
+ * (404 `APP_001`). 픽스처가 순서를 바꾸면 없는 프로그램을 열었을 때 화면이 "신청이
+ * 사라졌습니다"로 갈려, 실제 배포에서는 나지 않는 갈래가 검토에서만 보인다.
+ *
+ * 401은 `unauthenticated()`를 쓴다 — 이 컨트롤러의 `SessionGuard`가 실제로 주는
+ * 코드(`AUT_003`)다.
+ */
+function myApplicationHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(context, 'programs/:programId/applications/me');
+  if (params === null) return null;
+  if (!context.isAuthenticated) return unauthenticated(context.path);
+  if (context.role !== 'STUDENT') {
+    return problem(
+      403,
+      'APP_008',
+      apiPath(context.path),
+      '승인된 학생 계정만 신청할 수 있습니다.',
+    );
+  }
+
+  const programId = params.programId ?? '';
+  // 위쪽 `PROGRAM_NOT_FOUND_CODE`를 쓰지 않는다 — 그 문자열은 programs 모듈 규칙들이
+  // 쓰는 값이고, 이 엔드포인트의 "프로그램 없음"은 applications 모듈이
+  // `APP_009`로 낸다(`applications-error-code.enum.ts`).
+  if (!isPublicProgramId(programId)) {
+    return problem(
+      404,
+      'APP_009',
+      apiPath(context.path),
+      '프로그램을 찾을 수 없습니다.',
+    );
+  }
+
+  const application = MY_APPLICATION_FIXTURES[programId];
+  // 신청 전이거나 이 페르소나의 신청이 없는 프로그램 — 화면은 이때 신청 양식으로 간다.
+  return application === undefined
+    ? problem(404, 'APP_001', apiPath(context.path), '신청을 찾을 수 없습니다.')
+    : json(200, application);
+}
+
 function myTeamHandler(
   context: LocalReviewContext,
 ): LocalReviewResponsePlan | null {
@@ -243,17 +344,32 @@ function studentMutationHandler(
     context.path,
   );
   if (applicationParams !== null) {
-    // 팀 신청이면 요청 본문의 팀을 그대로 돌려준다(개인 신청은 `teamId: null`).
-    // 저장소 연결 필드도 에코해 브라우저 QA가 제출 payload를 확인할 수 있게 한다.
+    // 저장소 연결 필드를 에코해 브라우저 QA가 제출 payload를 확인할 수 있게 한다.
     // 한계: 신청 내용은 저장되지 않아 다시 열면 픽스처의 신청 전 상태로 돌아온다.
+    //
+    // 팀은 **요청 본문에서 읽지 않는다.** backend 는 신청자의 팀 멤버십으로 팀을 정하고
+    // (`applications.service.ts` 의 `findExistingTeamMembership`) 요청 본문의 `teamId` 는
+    // 미허용 키라 400 SYS_003 이 된다. 예전에는 여기서 `teamId` 를 그대로 에코했고, 그
+    // 바람에 **frontend 가 미허용 키를 보내는 동안에도 로컬 검토는 성공처럼 보였다** —
+    // 2026-08-05 부터 배포 운영에서 모든 신규 신청이 실패한 회귀가 여기서 가려졌다.
+    // 픽스처는 실제 계약보다 너그러우면 안 된다.
     const repositoryConnectionMode =
       bodyEnum(context, 'repositoryConnectionMode', ['NEW', 'OWN'] as const) ??
       'NEW';
+    const applicationBody = bodyRecord(context);
+    if (applicationBody !== null && 'teamId' in applicationBody) {
+      return problem(
+        400,
+        'SYS_003',
+        apiPath(context.path),
+        'property teamId should not exist',
+      );
+    }
     return accepted({
       id: 'synthetic-application-basic',
       programId: applicationParams.id,
       status: 'SUBMITTED',
-      teamId: bodyString(context, 'teamId'),
+      teamId: 'synthetic-team-basic',
       submittedAt: '2026-08-01T00:00:00.000Z',
       repositoryConnectionMode,
       repositoryUrl:
@@ -317,10 +433,12 @@ export const STUDENT_HANDLERS: readonly LocalReviewHandler[] = [
   studentJourneyFallbackHandler,
   applicationTemplatesHandler,
   activityTimelineHandler,
+  applicationDecisionNotificationsHandler,
   programViewerHandler,
   programActivityHandler,
   submissionChecklistHandler,
   submissionFormHandler,
+  myApplicationHandler,
   myTeamHandler,
   studentMutationHandler,
   // 2 세그먼트 `programs/{id}`는 다른 규칙을 가리기 쉬우므로 마지막에 둔다.

@@ -47,7 +47,7 @@ export function SubmissionDialog({
             <DialogPrimitive.Title className="font-heading text-xl font-semibold">
               {title}
             </DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">
+            <DialogPrimitive.Description className="text-sm break-keep text-muted-foreground">
               {description}
             </DialogPrimitive.Description>
           </header>

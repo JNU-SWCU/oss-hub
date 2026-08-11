@@ -21,14 +21,30 @@ export type ApplicationDecisionAction =
 export interface ApplicationDecisionTarget {
   readonly id: string;
   readonly programId: string;
+  readonly programName: string;
+  // 신청자(팀 신청이어도 대표 신청자 한 명)의 GitHub 로그인. 감사 로그가 이 신청 행을
+  // "누구의 어느 프로그램 신청인지" 라벨로 보이려고 쓴다 — 실명은 담지 않는다(applicant는
+  // Application.applicantId FK로 항상 존재하므로 팀 신청에도 null이 아니다).
+  readonly applicantGithubLogin: string;
   readonly teamId: string | null;
   readonly status: ApplicationStatus;
   readonly repositoryProvisioningEnabled: boolean;
   readonly collaboratorGithubLogins: readonly string[];
+  readonly notificationRecipientIds: readonly string[];
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
   readonly processedById: string | null;
   readonly processedAt: Date | null;
+}
+
+export interface ApplicationDecisionNotificationInput {
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly recipientUserIds: readonly string[];
+  readonly decision:
+    typeof ApplicationStatus.APPROVED | typeof ApplicationStatus.REJECTED;
+  readonly decidedAt: Date;
 }
 
 export interface ApplicationTransition {

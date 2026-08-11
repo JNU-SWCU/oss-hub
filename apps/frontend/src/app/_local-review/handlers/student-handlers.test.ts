@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProgramActivity, ProgramDetail } from '@/features/programs/types';
 import { resolveApplyBlockedReason } from '@/features/programs/program-apply-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
+import type { StudentApplication } from '@/features/programs/student-application-api';
 import type { SubmissionFormData } from '@/features/submissions/types';
 import type { LocalReviewFixtureId } from '../fixture-contract';
 import { resolveLocalReviewResponse } from '../fixture-response';
@@ -165,7 +166,7 @@ describe('student fixture responses', () => {
           readonly points: readonly {
             readonly period: string;
             readonly commitCount: number;
-            readonly prCount: number;
+            readonly pullRequestCount: number;
             readonly releaseCount: number;
             readonly total: number;
           }[];
@@ -177,7 +178,7 @@ describe('student fixture responses', () => {
       expect(new Date(body.dataAsOf).toISOString()).toBe(body.dataAsOf);
       for (const point of body.series.points) {
         expect(point.total).toBe(
-          point.commitCount + point.prCount + point.releaseCount,
+          point.commitCount + point.pullRequestCount + point.releaseCount,
         );
         expect(point.period).toMatch(
           granularity === 'MONTH' ? /^\d{4}-\d{2}$/ : /^\d{4}$/,
@@ -260,6 +261,72 @@ describe('student fixture responses', () => {
     expect(missing).toMatchObject({ kind: 'json', status: 404 });
   });
 
+  /**
+   * 반려 사유가 로컬 검토 응답에 **실려 있는가**(#722).
+   *
+   * 이 경로는 커버리지 목록의 `KNOWN_GAPS`에 있던 항목이라, 규칙이 없는 동안
+   * `/programs/{id}/apply`는 내 신청서를 아예 못 읽었다. 사유가 실려 오는 곳은 이
+   * 응답 하나뿐이라(알림·감사 로그·메일에는 없다) 여기가 비면 화면도 빈다.
+   *
+   * 여기는 **응답까지만** 본다. 그 응답이 화면에 실제로 그려지는지는 화면을 마운트하는
+   * `student-rejection-reach.test.tsx`가 맡는다. 이 파일에 있던 "반려 픽스처는 신청 상세가
+   * 사유 화면으로 갈리는 조건을 만족한다"는 테스트는 이름과 달리 화면을 렌더하지 않고
+   * 응답 필드만 봤다 — 불러오기가 내 신청서 조회를 그만두도록 바뀌어도 초록불이고 화면만
+   * 비었을 자리라, 화면을 실제로 세우는 검사로 옮겼다.
+   */
+  it('반려된 신청은 사유를 실어 돌려준다', () => {
+    // Given / When
+    const application = jsonBody(
+      call('student', 'GET', 'programs/program-sw-value/applications/me'),
+    ) as StudentApplication;
+
+    // Then
+    expect(application.status).toBe('REJECTED');
+    expect(application.rejectionReason).toContain(
+      '제출하신 요약이 프로그램 주제와 맞지 않습니다.',
+    );
+  });
+
+  /**
+   * 실패는 backend `StudentApplicationManagementService.requireContext`의 순서를
+   * 그대로 따른다. 픽스처가 실제 계약보다 너그럽거나 다른 코드를 주면, 배포에서는
+   * 나지 않는 갈래가 검토에서만 보인다.
+   */
+  it.each([
+    ['신청이 없는 프로그램', 'student', 'program-basic-study', 404, 'APP_001'],
+    ['없는 프로그램', 'student', 'synthetic-missing', 404, 'APP_009'],
+    ['학생이 아닌 역할', 'staff', 'program-sw-value', 403, 'APP_008'],
+    // 역할 검사가 프로그램 검사보다 **먼저**라는 것을 이 한 줄이 고정한다.
+    // 둘을 뒤집으면 여기서만 404 APP_009 가 나와 실제 backend 와 갈린다.
+    [
+      '학생이 아닌 역할 + 없는 프로그램',
+      'staff',
+      'synthetic-missing',
+      403,
+      'APP_008',
+    ],
+    ['비로그인', 'anonymous', 'program-sw-value', 401, 'AUT_003'],
+  ] as readonly (readonly [
+    string,
+    LocalReviewFixtureId,
+    string,
+    number,
+    string,
+  ])[])(
+    '%s은 실제 도메인 코드로 답한다',
+    (_label, fixture, programId, status, code) => {
+      // Given / When
+      const plan = call(
+        fixture,
+        'GET',
+        `programs/${programId}/applications/me`,
+      );
+
+      // Then — 경로를 모른다는 뜻의 `LFX_404`가 아니라 도메인 응답이어야 한다.
+      expect(plan).toMatchObject({ kind: 'json', status, body: { code } });
+    },
+  );
+
   it('splits the two team states so both team screens are reviewable', () => {
     // Given / When
     const withTeam = jsonBody(
@@ -329,7 +396,6 @@ describe('student fixture responses', () => {
         searchParams: new URLSearchParams(),
         body: {
           answers: { title: '합성 제목', summary: '합성 요약' },
-          teamId: 'synthetic-team-created',
           applicationTemplateVersion: 1,
           repositoryConnectionMode: 'OWN',
           repositoryUrl: 'https://github.com/team/repo',
@@ -344,7 +410,6 @@ describe('student fixture responses', () => {
         searchParams: new URLSearchParams(),
         body: {
           answers: { title: '합성 제목', summary: '합성 요약' },
-          teamId: null,
           applicationTemplateVersion: 1,
           repositoryConnectionMode: 'NEW',
           repositoryUrl: null,
@@ -355,7 +420,6 @@ describe('student fixture responses', () => {
     // Then
     expect(team).toMatchObject({ name: '합성 입력 팀' });
     expect(application).toMatchObject({
-      teamId: 'synthetic-team-created',
       repositoryConnectionMode: 'OWN',
       repositoryUrl: 'https://github.com/team/repo',
     });
@@ -363,5 +427,26 @@ describe('student fixture responses', () => {
       repositoryConnectionMode: 'NEW',
       repositoryUrl: null,
     });
+  });
+
+  it('신청 본문에 미허용 키 teamId 가 있으면 실제 backend 처럼 400 SYS_003 을 준다', () => {
+    // 2026-08-05 회귀 재발 방지. 이 픽스처가 예전에는 teamId 를 그대로 에코해서,
+    // frontend 가 미허용 키를 보내는 동안에도 로컬 검토가 성공처럼 보였다.
+    // 픽스처가 실제 계약보다 너그러우면 검토가 결함을 통과시킨다.
+    const plan = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'POST',
+      path: 'programs/program-basic-study/applications',
+      searchParams: new URLSearchParams(),
+      body: {
+        answers: { title: '합성 제목', summary: '합성 요약' },
+        teamId: null,
+        applicationTemplateVersion: 1,
+        repositoryConnectionMode: 'NEW',
+        repositoryUrl: null,
+      },
+    });
+
+    expect(jsonBody(plan, 400)).toMatchObject({ code: 'SYS_003' });
   });
 });

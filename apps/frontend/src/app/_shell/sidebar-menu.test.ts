@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
-import { STUDENT_MENU } from './role-menus';
+import { STAFF_MENU, STUDENT_MENU } from './role-menus';
 import {
   archiveSidebarGroup,
   isCurrentSidebarItem,
@@ -71,6 +71,13 @@ describe('sidebarGroupsFor (context)', () => {
     );
   });
 
+  it('교직원 대시보드 메뉴는 현재 영역의 홈만 보여 준다', () => {
+    expect(STAFF_MENU).toEqual([
+      { label: '운영 대시보드', href: '/dashboard' },
+    ]);
+    expect(sidebarGroupsFor('dashboard', 'STAFF')[0]?.items).toHaveLength(1);
+  });
+
   it('dashboard without role is empty', () => {
     expect(sidebarGroupsFor('dashboard', null)).toEqual([]);
   });
@@ -126,7 +133,7 @@ describe('sidebarGroupsFor (context)', () => {
         depth: i.depth,
       })),
     ).toEqual([
-      { label: '전체', href: '/ranking', depth: 0 },
+      { label: '전체', href: '/ranking?year=all', depth: 0 },
       { label: '2026', href: '/ranking?year=2026', depth: 0 },
       { label: '2025', href: '/ranking?year=2025', depth: 0 },
     ]);
@@ -174,7 +181,6 @@ describe('isCurrentSidebarItem', () => {
   });
 
   it('ranking year query', () => {
-    expect(isCurrentSidebarItem('/ranking', '/ranking', '')).toBe(true);
     expect(
       isCurrentSidebarItem('/ranking', '/ranking?year=2025', 'year=2025'),
     ).toBe(true);
@@ -184,6 +190,29 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/ranking', '/ranking', 'year=2025')).toBe(
       false,
     );
+  });
+
+  /**
+   * `/ranking` 은 `year` 가 없어도 **올해**를 보여 준다
+   * (ADR-010 §1, `parseRankingYearSearchParam`).
+   *
+   * 강조가 「전체」로 가면 사이드바는 전체라고 말하는데 표는 올해 수치를 낸다.
+   * 게다가 그 「전체」 링크(`?year=all`)를 실제로 누르면 다른 표가 나온다 —
+   * 같은 메뉴가 어디서 왔느냐에 따라 다른 결과를 보이는 셈이다.
+   */
+  it('/ranking 은 전체가 아니라 올해 항목을 강조한다', () => {
+    const thisYear = String(new Date().getFullYear());
+
+    expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
+      false,
+    );
+    expect(
+      isCurrentSidebarItem('/ranking', `/ranking?year=${thisYear}`, ''),
+    ).toBe(true);
+    // 명시적 전체는 그대로 전체를 강조한다.
+    expect(
+      isCurrentSidebarItem('/ranking', '/ranking?year=all', 'year=all'),
+    ).toBe(true);
   });
 
   it('archive detail does not highlight 전체; category peers highlight', () => {
@@ -215,7 +244,7 @@ describe('SECTION_FACETS registry (U4)', () => {
     const items = SECTION_FACETS.ranking?.items(undefined) ?? [];
     expect(items).toHaveLength(1);
     expect(items[0]?.label).toBe('전체');
-    expect(items[0]?.href).toBe('/ranking');
+    expect(items[0]?.href).toBe('/ranking?year=all');
   });
 
   it('registry params match peer-filter keys', () => {
@@ -283,6 +312,8 @@ describe('programScopeSidebarGroups', () => {
       '참여 팀',
     ]);
     expect(overview?.items[1]?.count).toBe('47');
+    // 학생은 신청 판정 창구가 없다 — 개요 그룹에 「신청자」를 붙이지 않는다.
+    expect(overview?.items.some((i) => i.label === '신청자')).toBe(false);
     expect(documents?.items[0]).toMatchObject({
       label: '내 제출물',
       count: '2/6',
@@ -316,6 +347,17 @@ describe('programScopeSidebarGroups', () => {
         },
       ],
     });
+    const overview = groups[0];
+    // 승인·반려 입구 — 참여 팀만 있으면 판정 화면에 도달하지 못한다.
+    expect(overview?.items.map((i) => i.label)).toEqual([
+      '프로그램 개요',
+      '참여 팀',
+      '신청자',
+    ]);
+    expect(overview?.items[2]).toMatchObject({
+      label: '신청자',
+      href: '/programs/prog-1/applicants',
+    });
     const documents = groups[1];
     expect(documents?.items[0]?.label).toBe('서류 현황');
     expect(documents?.items[0]?.count).toBeUndefined();
@@ -332,6 +374,7 @@ describe('programScopeSidebarGroups', () => {
 
   it('ADMIN viewer is treated as staff view', () => {
     const groups = programScopeSidebarGroups({ ...base, viewerRole: 'ADMIN' });
+    expect(groups[0]?.items.some((i) => i.label === '신청자')).toBe(true);
     expect(groups[1]?.items[0]?.label).toBe('서류 현황');
   });
 

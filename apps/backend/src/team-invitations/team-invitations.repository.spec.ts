@@ -110,6 +110,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
           teamId: syntheticTeamId,
           programId: syntheticProgramId,
           inviteeId: syntheticInviteeId,
+          status: 'PENDING',
           team: { program: { teamMaxSize: 4 } },
         }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -197,6 +198,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
           teamId: syntheticTeamId,
           programId: syntheticProgramId,
           inviteeId: syntheticInviteeId,
+          status: 'PENDING',
           team: { program: { teamMaxSize: 4 } },
         }),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -210,6 +212,41 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     );
 
     expect(outcome).toEqual({ kind: 'not-pending' });
+    expect(tx.teamMember.create).not.toHaveBeenCalled();
+  });
+
+  it('팀 잠금 뒤 초대 상태를 다시 읽어 이미 응답된 초대를 거부한다', async () => {
+    const findUnique = jest
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'cuid-invitation',
+        teamId: syntheticTeamId,
+        programId: syntheticProgramId,
+        inviteeId: syntheticInviteeId,
+        status: 'PENDING',
+        team: { program: { teamMaxSize: 4 } },
+      })
+      .mockResolvedValueOnce({ status: 'ACCEPTED' });
+    const tx = buildTx({
+      teamInvitation: {
+        findUnique,
+        updateMany: jest.fn(),
+      },
+    });
+    const repository = buildRepository(tx);
+
+    const outcome = await repository.withAcceptTransaction(
+      'cuid-invitation',
+      syntheticInviteeId,
+    );
+
+    expect(findUnique).toHaveBeenNthCalledWith(2, {
+      where: { id: 'cuid-invitation' },
+      select: { status: true },
+    });
+    expect(outcome).toEqual({ kind: 'not-pending' });
+    expect(tx.teamInvitation.updateMany).not.toHaveBeenCalled();
+    expect(tx.teamMember.findUnique).not.toHaveBeenCalled();
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
@@ -251,7 +288,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
-  it('teamMaxSize가 null이면 정원 검사를 건너뛴다', async () => {
+  it('정원 미만이면 인원수를 확인하고 초대를 수락한다', async () => {
     const tx = buildTx({
       teamInvitation: {
         findUnique: jest.fn().mockResolvedValue({
@@ -259,7 +296,8 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
           teamId: syntheticTeamId,
           programId: syntheticProgramId,
           inviteeId: syntheticInviteeId,
-          team: { program: { teamMaxSize: null } },
+          status: 'PENDING',
+          team: { program: { teamMaxSize: 4 } },
         }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
@@ -271,7 +309,9 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       syntheticInviteeId,
     );
 
-    expect(tx.teamMember.count).not.toHaveBeenCalled();
+    expect(tx.teamMember.count).toHaveBeenCalledWith({
+      where: { teamId: syntheticTeamId },
+    });
     expect(outcome).toEqual({
       kind: 'ok',
       teamId: syntheticTeamId,

@@ -13,10 +13,6 @@ export type SubmissionContentInput =
   | {
       readonly type: typeof MilestoneSubmissionType.TEXT;
       readonly text: string;
-    }
-  | {
-      readonly type: typeof MilestoneSubmissionType.REPOSITORY_RELEASE;
-      readonly releaseUrl: string;
     };
 
 export interface CreateSubmissionInput {
@@ -36,7 +32,6 @@ export function parseSubmissionContent(input: {
   readonly type: string;
   readonly fileId?: string;
   readonly text?: string;
-  readonly releaseUrl?: string;
 }): SubmissionContentInput {
   switch (input.type) {
     case MilestoneSubmissionType.FILE: {
@@ -48,14 +43,6 @@ export function parseSubmissionContent(input: {
       const text = input.text?.trim();
       if (!text) throw contentRequired();
       return { type: MilestoneSubmissionType.TEXT, text };
-    }
-    case MilestoneSubmissionType.REPOSITORY_RELEASE: {
-      const releaseUrl = input.releaseUrl?.trim();
-      if (!releaseUrl) throw contentRequired();
-      return {
-        type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-        releaseUrl,
-      };
     }
     default:
       throw new DomainException(

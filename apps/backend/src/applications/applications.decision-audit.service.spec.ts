@@ -5,7 +5,10 @@ import {
 } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
-import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
+import {
+  APPLICATION_DECISION_ACTIONS,
+  type ApplicationDecisionNotificationInput,
+} from './domain/application-decision';
 import type {
   ApplicationsRepository,
   ApplicationsTransactionStore,
@@ -41,9 +44,12 @@ function baseApplication(
   return {
     id: APPLICATION_ID,
     programId: 'synthetic-program',
+    programName: '합성 프로그램',
+    applicantGithubLogin: 'synthetic-applicant-login',
     teamId: null,
     status: overrides.status ?? ApplicationStatus.SUBMITTED,
     collaboratorGithubLogins: [] as string[],
+    notificationRecipientIds: ['synthetic-applicant'] as string[],
     repositoryProvisioningEnabled:
       overrides.repositoryProvisioningEnabled ?? false,
     repositoryConnectionMode:
@@ -69,6 +75,9 @@ function createHarness(
   const discardRepositoryProvisionRequest = jest
     .fn()
     .mockResolvedValue(undefined);
+  const createApplicationDecisionNotifications = jest
+    .fn<Promise<void>, [ApplicationDecisionNotificationInput]>()
+    .mockResolvedValue(undefined);
   const store: ApplicationsTransactionStore = {
     auditLogWriter,
     findApplicationById: jest.fn().mockResolvedValue(
@@ -80,6 +89,7 @@ function createHarness(
     findRepositoryProvisionEvent,
     discardRepositoryProvisionRequest,
     transitionApplication,
+    createApplicationDecisionNotifications,
     createRepositoryProvisionEvent,
   };
   const repository = {
@@ -103,6 +113,7 @@ function createHarness(
     findRepositoryProvisionJob,
     findRepositoryProvisionEvent,
     discardRepositoryProvisionRequest,
+    createApplicationDecisionNotifications,
   };
 }
 
@@ -116,7 +127,8 @@ function expectDomainCode(error: unknown, code: ApplicationsErrorCode): void {
 
 describe('ApplicationsService.decide — #547 감사 기록', () => {
   it('승인을 APPLICATION_APPROVED로 기록하고 판정과 같은 트랜잭션 writer를 쓴다', async () => {
-    const { service, record } = createHarness();
+    const { service, record, createApplicationDecisionNotifications } =
+      createHarness();
 
     const result = await service.decide(
       ACTOR_ID,
@@ -132,13 +144,25 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
         targetType: 'APPLICATION',
         targetId: APPLICATION_ID,
         metadata: {
-          schemaVersion: 1,
+          schemaVersion: 2,
+          programName: '합성 프로그램',
+          applicantGithubLogin: 'synthetic-applicant-login',
           before: { status: ApplicationStatus.SUBMITTED },
           after: { status: ApplicationStatus.APPROVED },
         },
       },
       auditLogWriter,
     );
+    const approvedNotification =
+      createApplicationDecisionNotifications.mock.calls[0]?.[0];
+    expect(approvedNotification).toMatchObject({
+      applicationId: APPLICATION_ID,
+      programId: 'synthetic-program',
+      programName: '합성 프로그램',
+      recipientUserIds: ['synthetic-applicant'],
+      decision: ApplicationStatus.APPROVED,
+    });
+    expect(approvedNotification?.decidedAt).toBeInstanceOf(Date);
     // 기존 응답 계약은 바뀌지 않는다.
     expect(result).toEqual({
       kind: 'APPROVED',
@@ -153,7 +177,8 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
   });
 
   it('거절을 APPLICATION_REJECTED로 기록하되 사유 원문은 감사 metadata에 담지 않는다', async () => {
-    const { service, record } = createHarness();
+    const { service, record, createApplicationDecisionNotifications } =
+      createHarness();
 
     const result = await service.decide(
       ACTOR_ID,
@@ -169,12 +194,20 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
       expect.objectContaining({
         action: 'APPLICATION_REJECTED',
         metadata: {
-          schemaVersion: 1,
+          schemaVersion: 2,
+          programName: '합성 프로그램',
+          applicantGithubLogin: 'synthetic-applicant-login',
           before: { status: ApplicationStatus.SUBMITTED },
           after: { status: ApplicationStatus.REJECTED },
         },
       }),
       auditLogWriter,
+    );
+    expect(createApplicationDecisionNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: ApplicationStatus.REJECTED,
+        recipientUserIds: ['synthetic-applicant'],
+      }),
     );
     // 응답 계약은 그대로다 — 사유는 응답과 `Application` 테이블에만 남는다.
     expect(result).toEqual({
@@ -208,7 +241,8 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
   });
 
   it('이미 판정된 신청은 감사 기록을 남기지 않는다', async () => {
-    const { service, record, store } = createHarness();
+    const { service, record, store, createApplicationDecisionNotifications } =
+      createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({ status: ApplicationStatus.APPROVED }),
     );
@@ -220,10 +254,16 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
     ).rejects.toBeDefined();
 
     expect(record).not.toHaveBeenCalled();
+    expect(createApplicationDecisionNotifications).not.toHaveBeenCalled();
   });
 
   it('전이 CAS에서 밀린 요청은 감사 기록을 남기지 않는다', async () => {
-    const { service, record, transitionApplication } = createHarness();
+    const {
+      service,
+      record,
+      transitionApplication,
+      createApplicationDecisionNotifications,
+    } = createHarness();
     transitionApplication.mockResolvedValue(false);
 
     await expect(
@@ -233,6 +273,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
     ).rejects.toBeDefined();
 
     expect(record).not.toHaveBeenCalled();
+    expect(createApplicationDecisionNotifications).not.toHaveBeenCalled();
   });
 
   it('OWN이면 입력 URL이 프로비저닝 이벤트에 실린다', async () => {
@@ -298,7 +339,9 @@ describe('ApplicationsService.decide — REVERT', () => {
         targetType: 'APPLICATION',
         targetId: APPLICATION_ID,
         metadata: {
-          schemaVersion: 1,
+          schemaVersion: 2,
+          programName: '합성 프로그램',
+          applicantGithubLogin: 'synthetic-applicant-login',
           before: { status: ApplicationStatus.REJECTED },
           after: { status: ApplicationStatus.SUBMITTED },
         },

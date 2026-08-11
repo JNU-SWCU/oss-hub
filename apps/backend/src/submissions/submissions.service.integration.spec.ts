@@ -37,23 +37,10 @@ const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');
 const TEAM_APPLICATION_ID = seedId('milestones', 'application', 'team');
 const PERSONAL_USER_ID = seedId('milestones', 'user', 'applicant-personal');
 const TEAM_MEMBER_ID = seedId('milestones', 'user', 'team-member');
-const REPOSITORY_SCENARIO = 'repository-ready';
-const REPOSITORY_PROGRAM_ID = seedId('repositories', 'program');
-const REPOSITORY_APPLICATION_ID = seedId(
-  'repositories',
-  REPOSITORY_SCENARIO,
-  'application',
-);
-const REPOSITORY_USER_ID = seedId(
-  'repositories',
-  REPOSITORY_SCENARIO,
-  'applicant',
-);
 const NON_STUDENT_USER_ID = 'synthetic-submission-non-student';
 const UNAPPROVED_USER_ID = 'synthetic-submission-unapproved-student';
 const UNAPPROVED_APPLICATION_ID = 'synthetic-submission-unapproved-application';
 const FILE_MILESTONE_ID = 'synthetic-submission-file-milestone';
-const RELEASE_MILESTONE_ID = 'synthetic-submission-release-milestone';
 const FILE_RESUBMISSION_PREFIX = 'synthetic-file-resubmission';
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const FILE_RETENTION_START = new Date('2027-01-01T00:00:00.000Z');
@@ -62,7 +49,6 @@ describe('SubmissionsService integration', () => {
   beforeAll(async () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
     await runProfile('milestones', new SeedStats());
-    await runProfile('repositories', new SeedStats());
     await prisma.user.createMany({
       data: [
         {
@@ -129,13 +115,6 @@ describe('SubmissionsService integration', () => {
           dueAt: new Date('2026-08-30T00:00:00.000Z'),
           submissionType: MilestoneSubmissionType.FILE,
         },
-        {
-          id: RELEASE_MILESTONE_ID,
-          programId: REPOSITORY_PROGRAM_ID,
-          name: '합성 릴리스 제출',
-          dueAt: new Date('2026-08-30T00:00:00.000Z'),
-          submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
-        },
       ],
       skipDuplicates: true,
     });
@@ -145,7 +124,6 @@ describe('SubmissionsService integration', () => {
     const milestoneIds = [
       ...MILESTONE_SCENARIOS['milestones-upcoming'],
       FILE_MILESTONE_ID,
-      RELEASE_MILESTONE_ID,
     ];
     await prisma.submissionFile.deleteMany({
       where: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
@@ -164,7 +142,7 @@ describe('SubmissionsService integration', () => {
 
   afterAll(async () => {
     await prisma.milestone.deleteMany({
-      where: { id: { in: [FILE_MILESTONE_ID, RELEASE_MILESTONE_ID] } },
+      where: { id: FILE_MILESTONE_ID },
     });
     await prisma.application.deleteMany({
       where: { id: UNAPPROVED_APPLICATION_ID },
@@ -466,9 +444,8 @@ describe('SubmissionsService integration', () => {
             applicationId: PERSONAL_APPLICATION_ID,
             milestoneId: textMilestoneId,
             content: {
-              type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-              releaseUrl:
-                'https://github.invalid/oss-hub-seed/repository-ready/releases/tag/v1',
+              type: MilestoneSubmissionType.FILE,
+              fileId: 'synthetic-mismatched-file',
             },
             comment: null,
           },
@@ -478,40 +455,6 @@ describe('SubmissionsService integration', () => {
         errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
       }),
     ]);
-  });
-
-  it('FILE 유형은 프로그램 종료 시각이 없으면 fail-closed 한다', async () => {
-    // Given: seed 기본값과 무관하게 종료 시각이 비어 있는 프로그램을 강제한다.
-    await prisma.program.update({
-      where: { id: MILESTONES_PROGRAM_ID },
-      data: { endAt: null },
-    });
-    // When
-    const form = await service.form(
-      seedGithubId(PERSONAL_USER_ID),
-      MILESTONES_PROGRAM_ID,
-      FILE_MILESTONE_ID,
-      NOW,
-    );
-    const submission = service.create(
-      seedGithubId(PERSONAL_USER_ID),
-      {
-        applicationId: PERSONAL_APPLICATION_ID,
-        milestoneId: FILE_MILESTONE_ID,
-        content: { type: MilestoneSubmissionType.FILE, fileId: 'file-id' },
-        comment: null,
-      },
-      NOW,
-    );
-
-    // Then
-    expect(form).toMatchObject({
-      canSubmit: false,
-      blockedReason: 'FILE_UPLOAD_UNAVAILABLE',
-    });
-    await expect(submission).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE },
-    });
   });
 
   it('PENDING 파일에 업로드 만료와 보존 만료를 함께 저장한다', async () => {
@@ -569,41 +512,9 @@ describe('SubmissionsService integration', () => {
       });
       await prisma.program.update({
         where: { id: MILESTONES_PROGRAM_ID },
-        data: { endAt: null },
+        data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
       });
     }
-  });
-
-  it('연결된 저장소의 태그 URL만 REPOSITORY_RELEASE로 저장한다', async () => {
-    // Given
-    const linkedRepository = await prisma.repository.findUniqueOrThrow({
-      where: { applicationId: REPOSITORY_APPLICATION_ID },
-    });
-    const validReleaseUrl = `${linkedRepository.url}/releases/tag/v1.0.0`;
-
-    // When
-    const created = await service.create(
-      seedGithubId(REPOSITORY_USER_ID),
-      {
-        applicationId: REPOSITORY_APPLICATION_ID,
-        milestoneId: RELEASE_MILESTONE_ID,
-        content: {
-          type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-          releaseUrl: validReleaseUrl,
-        },
-        comment: null,
-      },
-      NOW,
-    );
-
-    // Then
-    const revision = await prisma.submissionRevision.findFirstOrThrow({
-      where: { submissionId: created.submissionId },
-    });
-    expect(revision.content).toEqual({
-      type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-      releaseUrl: validReleaseUrl,
-    });
   });
 
   it('FILE 보완 재제출은 replacement 파일을 새 revision에 붙이고 기존 파일을 보존한다', async () => {

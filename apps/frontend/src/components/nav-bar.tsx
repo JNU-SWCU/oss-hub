@@ -5,6 +5,13 @@ import { cn } from '@/lib/utils';
 export interface NavItem {
   label: string;
   href: string;
+  /**
+   * true면 ≥900px에서는 이 항목을 숨긴다. 그 폭에서는 왼쪽 사이드바(`AppSidebar`)가
+   * 이미 같은 링크를 보여주므로 상단 nav에 또 두면 같은 목적지가 두 벌 뜬다.
+   * 900px 미만은 사이드바가 아예 숨는 구간이라(`hidden min-[900px]:flex`) 여기서만
+   * 유일한 도달 경로가 된다(QA54 — 900px 미만에서 관리자·역할 메뉴가 아예 도달 불가였다).
+   */
+  belowSidebarBreakpointOnly?: boolean;
 }
 
 interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
@@ -49,10 +56,17 @@ interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
  * 480px을 고른 이유: 실측상 겹침은 약 368px 아래에서 시작하고, 이 셸은 이미
  * 479px을 좁은 화면 경계로 쓰고 있다(shell-nav.tsx의 `max-[479px]:px-1`).
  *
- * 접힌 형태는 `<details>`/`<summary>`다 — 상태를 브라우저가 들고 있어 이 컴포넌트가
- * 클라이언트 컴포넌트가 되지 않고, 키보드 조작·Esc 닫기도 브라우저가 처리한다.
+ * 접힌 형태는 `<details>`/`<summary>`다 — 열림 상태를 브라우저가 들고 있어 이 컴포넌트가
+ * 상태를 관리하지 않아도 되고, 여는 조작(클릭·Enter·Space)도 브라우저가 처리한다.
  * 같은 링크가 두 벌 렌더되지만 각 폭에서 한쪽은 `display:none`이라 접근성 트리에도
  * 하나만 남는다.
+ *
+ * ⚠ **Esc 닫기는 브라우저가 처리하지 않는다.** 이 자리에 원래 그렇게 적혀 있었지만
+ * 사실이 아니다 — `<details>` 사양에는 Esc 동작이 없다(`<dialog>`·popover 와 다르다).
+ * 그래서 아래 `<details>`에 Esc 핸들러를 직접 단다. 이벤트 핸들러가 붙으므로 이
+ * 컴포넌트는 클라이언트 컨텍스트에서 렌더돼야 한다 — 유일한 호출부인
+ * `_shell/shell-nav.tsx`가 이미 `'use client'`라 지금은 그 조건을 만족한다.
+ * 서버 컴포넌트에서 직접 쓰려면 이 부분을 클라이언트 하위 컴포넌트로 떼어내야 한다.
  */
 
 /**
@@ -92,6 +106,24 @@ function NavBar({
         key={menuResetKey}
         data-slot="nav-bar-menu"
         className="group relative min-w-0 flex-1 min-[480px]:hidden"
+        // ⚠ `<details>`는 Escape로 닫히지 않는다 — `<dialog>`·popover와 달리 사양에
+        // 그런 동작이 없다. 열어 둔 메뉴가 화면을 덮은 채 키보드로는 빠져나갈 수
+        // 없어서, 포인터를 못 쓰는 사용자는 링크를 하나 눌러 화면을 옮기는 것 외에
+        // 방법이 없었다(QA12). 여는 쪽은 브라우저가 처리하고 닫는 쪽만 여기서 채운다.
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          const details = event.currentTarget;
+          if (!details.open) return;
+          // 메뉴 안에서 눌렀어도 셸의 다른 Escape 처리로 번지지 않게 여기서 멈춘다.
+          event.stopPropagation();
+          event.preventDefault();
+          details.open = false;
+          // 초점을 연 자리로 돌려준다 — 안 그러면 사라진 요소에 초점이 남아
+          // 다음 Tab이 문서 처음으로 튄다(WAI-ARIA disclosure 패턴).
+          details
+            .querySelector<HTMLElement>('[data-slot="nav-bar-menu-trigger"]')
+            ?.focus();
+        }}
       >
         <summary
           data-slot="nav-bar-menu-trigger"
@@ -117,7 +149,14 @@ function NavBar({
           className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
         >
           {items.map((item) => (
-            <li key={item.href}>
+            <li
+              key={item.href}
+              className={
+                item.belowSidebarBreakpointOnly
+                  ? 'min-[900px]:hidden'
+                  : undefined
+              }
+            >
               <LinkComponent
                 href={item.href}
                 // `w-full`이 필요하다 — 호출부(ShellNav)가 터치 타깃 확보용으로
@@ -136,7 +175,12 @@ function NavBar({
         className="hidden min-w-0 flex-1 items-center gap-0 min-[480px]:flex sm:gap-1"
       >
         {items.map((item) => (
-          <li key={item.href}>
+          <li
+            key={item.href}
+            className={
+              item.belowSidebarBreakpointOnly ? 'min-[900px]:hidden' : undefined
+            }
+          >
             <LinkComponent
               href={item.href}
               className="whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"

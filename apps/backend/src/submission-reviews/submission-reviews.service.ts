@@ -1,22 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  RepositoryProvisionJobStatus,
   RepositoryVisibility,
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { GithubOperationsError } from '../repositories/github-app.error';
-import { RepositoryPublishStateError } from '../repositories/repositories.repository';
+import { GithubOperationsError } from '../github/github-app.error';
+import { RepositoryPublishStateError } from '../github/repository/repositories.repository';
 import {
   RepositoriesService,
   RepositoryNotFoundError,
-} from '../repositories/repositories.service';
-import type {
-  CreateSubmissionReviewInput,
-  RepositoryPublishResult,
-  SubmissionReviewContext,
-  SubmissionReviewResult,
+} from '../github/service/repositories.service';
+import {
+  publishBlockedReasons,
+  type CreateSubmissionReviewInput,
+  type PublishBlockedReason,
+  type RepositoryPublishResult,
+  type SubmissionReviewContext,
+  type SubmissionReviewResult,
 } from './domain/submission-review';
 import {
   ReviewAlreadyExistsError,
@@ -27,6 +28,21 @@ import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
 } from './submission-reviews-error-code.enum';
+
+/**
+ * 공개 차단 사유를 교직원에게 나갈 오류 코드로 옮긴다.
+ * `satisfies`가 완전성을 강제한다 — 사유가 늘면 여기에 코드를 주기 전까지 컴파일되지 않는다.
+ */
+const PUBLISH_BLOCKED_ERROR_CODES = {
+  REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
+  REPOSITORY_PUBLICATION_NOT_PLANNED:
+    SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED,
+  PROGRAM_NOT_ENDED: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED,
+  REQUIRED_MILESTONES_NOT_APPROVED:
+    SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED,
+} as const satisfies Readonly<
+  Record<PublishBlockedReason, SubmissionReviewsErrorCode>
+>;
 
 @Injectable()
 export class SubmissionReviewsService {
@@ -121,45 +137,19 @@ export class SubmissionReviewsService {
   ): Promise<RepositoryPublishResult> {
     const eligibility =
       await this.repository.findPublishEligibility(repositoryId);
-    if (
-      eligibility === null ||
-      (eligibility.visibility === RepositoryVisibility.PRIVATE &&
-        eligibility.provisionStatus !== RepositoryProvisionJobStatus.SUCCEEDED)
-    ) {
+    if (eligibility === null) {
       throw new DomainException(
         SUBMISSION_REVIEWS_ERROR_CODES[
           SubmissionReviewsErrorCode.REPOSITORY_NOT_READY
         ],
       );
     }
-    if (
-      eligibility.visibility === RepositoryVisibility.PRIVATE &&
-      !eligibility.isRepositoryPublicationPlanned
-    ) {
+    // 검토 화면(`toReviewContext`)과 같은 함수를 본다 — 여기서만 조건을 늘리면 화면이 다시 갈라진다.
+    const [blockedReason] = publishBlockedReasons(eligibility, publishedAt);
+    if (blockedReason !== undefined) {
       throw new DomainException(
         SUBMISSION_REVIEWS_ERROR_CODES[
-          SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED
-        ],
-      );
-    }
-    if (
-      eligibility.visibility === RepositoryVisibility.PRIVATE &&
-      (eligibility.programEndAt === null ||
-        eligibility.programEndAt.getTime() > publishedAt.getTime())
-    ) {
-      throw new DomainException(
-        SUBMISSION_REVIEWS_ERROR_CODES[
-          SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED
-        ],
-      );
-    }
-    if (
-      eligibility.visibility === RepositoryVisibility.PRIVATE &&
-      !eligibility.requiredMilestonesApproved
-    ) {
-      throw new DomainException(
-        SUBMISSION_REVIEWS_ERROR_CODES[
-          SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED
+          PUBLISH_BLOCKED_ERROR_CODES[blockedReason]
         ],
       );
     }

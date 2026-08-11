@@ -124,7 +124,7 @@ export function ProgramDashboardGrid() {
         <CardContent className="flex flex-1 flex-col justify-center">
           <p className="font-medium">신청이 반려되었습니다.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            프로그램 상세에서 신청 상태를 확인해 주세요.
+            신청 상세에서 반려 사유를 확인해 주세요.
           </p>
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">

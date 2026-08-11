@@ -23,6 +23,10 @@ export function updateProgramForm(
       return typeof value === 'boolean'
         ? { ...form, repositoryProvisioningEnabled: value }
         : form;
+    case 'notifyOnDeadline':
+      return typeof value === 'boolean'
+        ? { ...form, notifyOnDeadline: value }
+        : form;
     case 'category':
       return typeof value === 'string'
         ? { ...form, category: toCategory(value, form.category) }
@@ -121,8 +125,6 @@ function toSubmissionType(value: string): SubmissionType {
       return 'FILE';
     case 'TEXT':
       return 'TEXT';
-    case 'REPOSITORY_RELEASE':
-      return 'REPOSITORY_RELEASE';
     default:
       return 'TEXT';
   }

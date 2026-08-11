@@ -1,6 +1,7 @@
 import { ProgramCategory } from '@prisma/client';
 import {
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -27,11 +28,18 @@ export class UpdateProgramRequestDto {
   declare applicationEndAt: string;
 
   @IsOptional()
+  @IsDateString({ strict: true, strictSeparator: true })
+  declare startAt?: string;
+
+  @IsOptional()
   @IsString()
   declare endAt?: string | null;
 
   @IsBoolean()
   declare repositoryProvisioningEnabled: boolean;
+
+  @IsBoolean()
+  declare notifyOnDeadline: boolean;
 
   @IsString()
   @IsNotEmpty()

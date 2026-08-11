@@ -1,8 +1,10 @@
 'use client';
 
+// allow: SIZE_OK — route-level async state orchestration is already split from form views.
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
@@ -70,22 +72,37 @@ export function ProgramApplyPage({
   const [confirmation, setConfirmation] =
     useState<ApplicationConfirmation>(null);
   const [submitting, setSubmitting] = useState(false);
+  const hasUserInput = useRef(false);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = loadGeneration.current;
     setState({ kind: 'loading' });
     const context = await loadProgramApplyContext(programId, teamId);
-    if (context.kind === 'ready') setValues(context.initialValues);
+    if (generation !== loadGeneration.current) return;
+    if (context.kind === 'ready' && !hasUserInput.current) {
+      setValues(context.initialValues);
+    }
     setState(context);
   }, [programId, teamId]);
 
   useEffect(() => {
+    loadGeneration.current += 1;
+    hasUserInput.current = false;
     void load();
+    return () => {
+      loadGeneration.current += 1;
+    };
   }, [load]);
 
   function requestSubmit(): void {
     if (state.kind !== 'ready') return;
     if (remainingTeamMembers(state.teamMinimum) > 0) return;
-    const nextErrors = validateApplyForm(values, state.mode);
+    const nextErrors = validateApplyForm(
+      values,
+      state.mode,
+      state.program.repositoryProvisioningEnabled,
+    );
     setErrors(nextErrors);
     setServerError(null);
     if (Object.keys(nextErrors).length > 0) return;
@@ -121,11 +138,16 @@ export function ProgramApplyPage({
       }
       const created = await createApplication(programId, {
         answers: applicationAnswers(values),
-        teamId: state.teamId,
         applicationTemplateVersion: state.template.version,
-        isRepositoryPublicationPlanned: values.isRepositoryPublicationPlanned,
-        repositoryConnectionMode: values.repositoryConnectionMode,
-        repositoryUrl: values.repositoryUrl,
+        isRepositoryPublicationPlanned:
+          state.program.repositoryProvisioningEnabled &&
+          values.isRepositoryPublicationPlanned,
+        repositoryConnectionMode: state.program.repositoryProvisioningEnabled
+          ? values.repositoryConnectionMode
+          : null,
+        repositoryUrl: state.program.repositoryProvisioningEnabled
+          ? values.repositoryUrl
+          : '',
       });
       setState({
         kind: 'success',
@@ -182,7 +204,13 @@ export function ProgramApplyPage({
         </main>
       );
     case 'blocked':
-      return <BlockedView reason={state.reason} program={state.program} />;
+      return (
+        <BlockedView
+          reason={state.reason}
+          program={state.program}
+          application={state.application}
+        />
+      );
     case 'success':
       return (
         <ProgramApplySuccessView
@@ -207,27 +235,31 @@ export function ProgramApplyPage({
           confirmation={confirmation}
           teamMinimum={state.teamMinimum}
           submitting={submitting}
-          onChange={(key, value) =>
-            setValues((previous) => ({ ...previous, [key]: value }))
-          }
-          onTogglePublicationPlanned={(checked) =>
+          onChange={(key, value) => {
+            hasUserInput.current = true;
+            setValues((previous) => ({ ...previous, [key]: value }));
+          }}
+          onTogglePublicationPlanned={(checked) => {
+            hasUserInput.current = true;
             setValues((previous) => ({
               ...previous,
               isRepositoryPublicationPlanned: checked,
-            }))
-          }
-          onRepositoryModeChange={(mode) =>
+            }));
+          }}
+          onRepositoryModeChange={(mode) => {
+            hasUserInput.current = true;
             setValues((previous) => ({
               ...previous,
               repositoryConnectionMode: mode,
-            }))
-          }
-          onToggleConsent={(checked) =>
+            }));
+          }}
+          onToggleConsent={(checked) => {
+            hasUserInput.current = true;
             setValues((previous) => ({
               ...previous,
               personalDataConsent: checked,
-            }))
-          }
+            }));
+          }}
           onRequestSubmit={requestSubmit}
           onRequestCancel={() => setConfirmation('cancel')}
           onCloseConfirmation={() => setConfirmation(null)}

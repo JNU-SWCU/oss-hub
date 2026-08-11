@@ -22,7 +22,6 @@ export const submissionApplicationSelect = (milestoneId: string) =>
     // 개인 참여는 멤버가 1명뿐인 팀이다(D5·D6). 표시용 구분에 인원이 필요하다.
     team: { select: { _count: { select: { members: true } } } },
     status: true,
-    repository: { select: { url: true } },
     submissions: {
       where: { milestoneId },
       take: 1,
@@ -43,7 +42,6 @@ export function toSubmissionApplication(
     teamId: application.teamId,
     teamMemberCount: application.team?._count.members ?? 0,
     status: application.status,
-    repositoryUrl: application.repository?.url ?? null,
     existingSubmission: application.submissions[0] ?? null,
   };
 }

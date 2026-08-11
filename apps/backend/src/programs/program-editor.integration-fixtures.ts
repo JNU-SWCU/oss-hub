@@ -1,10 +1,10 @@
 import { MilestoneSubmissionType, ProgramCategory, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProgramEditorRepository } from './program-editor.repository';
-import { ProgramEditorService } from './program-editor.service';
-import { ProgramsRepository } from './programs.repository';
-import { ProgramsService } from './programs.service';
+import { ProgramEditorRepository } from './repository/program-editor.repository';
+import { ProgramEditorService } from './service/program-editor.service';
+import { ProgramsRepository } from './repository/programs.repository';
+import { ProgramsService } from './service/programs.service';
 
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
 export const STAFF_GITHUB_ID = 9_101_000_001n;
@@ -57,6 +57,8 @@ export async function createProgram(
       applicationTemplateVersion: 1,
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
       applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
+      endAt: new Date('2026-08-31T00:00:00.000Z'),
       repositoryProvisioningEnabled,
       description: 'Issue 101 program',
     },
@@ -72,6 +74,7 @@ export async function createMilestone(
       id: milestoneId,
       programId,
       name: 'Issue 101 Same Name Milestone',
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
       submissionType: MilestoneSubmissionType.TEXT,
       instructions: 'Issue 101 milestone',

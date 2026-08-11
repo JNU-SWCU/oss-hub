@@ -43,13 +43,18 @@ function extractActionValues(exportName: string): string[] {
 const backendActions = [
   ...extractActionValues('ACCESS_AUDIT_ACTIONS'),
   ...extractActionValues('REPOSITORY_PUBLISH_AUDIT_ACTIONS'),
+  ...extractActionValues('PROGRAM_LIFECYCLE_AUDIT_ACTIONS'),
+  ...extractActionValues('COLLECTION_TRIGGER_AUDIT_ACTIONS'),
+  ...extractActionValues('SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS'),
+  ...extractActionValues('APPLICATION_DECISION_AUDIT_ACTIONS'),
+  ...extractActionValues('USER_PROFILE_AUDIT_ACTIONS'),
 ];
 
 const frontendActions: readonly string[] = AUDIT_LOG_ACTIONS;
 
 describe('감사 로그 action registry가 backend와 동기화되어 있다', () => {
   it('파싱 자체가 살아 있다(백엔드 파일 구조 변경으로 조용히 공허해지지 않는다)', () => {
-    expect(backendActions.length).toBeGreaterThanOrEqual(7);
+    expect(backendActions.length).toBe(15);
   });
 
   it('frontend 라벨 목록이 backend가 정의한 action 전체를 표현한다', () => {

@@ -69,7 +69,7 @@ const ITEMS: readonly SubmissionChecklistItem[] = [
     milestoneId: 'milestone-demo',
     name: '시연 영상',
     dueAt: '2026-07-30T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     submission: submission({ id: 'submission-demo', status: 'SUBMITTED' }),
   },
   {
@@ -102,7 +102,6 @@ const CHECKLIST: SubmissionChecklist = {
 
 const handlers = {
   onTextChange: vi.fn(),
-  onReleaseUrlChange: vi.fn(),
   onFileChange: vi.fn(),
   onCommentChange: vi.fn(),
   onResubmit: vi.fn(),
@@ -115,7 +114,7 @@ function render(overrides: Partial<SubmissionChecklistViewProps> = {}): string {
       checklist={CHECKLIST}
       selectedMilestoneId={null}
       now={NOW}
-      input={{ file: null, text: '', releaseUrl: '' }}
+      input={{ file: null, text: '' }}
       comment=""
       errors={{}}
       fileError={null}
@@ -171,7 +170,7 @@ function findLinkElement(
   node: ReactNode,
 ): ReactElement<LinkElementProps> | null {
   if (!isValidElement<LinkElementProps>(node)) return null;
-  if (node.props.href?.includes('?submission=') === true) return node;
+  if (node.props.href?.includes('/mydocs?milestoneId=') === true) return node;
   for (const child of Children.toArray(node.props.children)) {
     const link = findLinkElement(child);
     if (link !== null) return link;
@@ -196,12 +195,16 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('보완 필요');
     expect(html).toContain('최종 반려');
     // 행동 버튼(#619 mydocs 스펙): 미제출 → 올리기, 재제출 가능 → 수정, 나머지(읽기전용) → 보기.
-    expect(html).toContain('/programs/program-1?submission=milestone-final');
+    expect(html).toContain(
+      '/programs/program-1/mydocs?milestoneId=milestone-final',
+    );
     expect(html).toContain('id="submission-trigger-milestone-final"');
     expect(html).toContain('올리기');
     expect(html).toContain('수정');
     expect(html).toContain('보기');
-    expect(html).toContain('/programs/program-1?submission=milestone-interim');
+    expect(html).toContain(
+      '/programs/program-1/mydocs?milestoneId=milestone-interim',
+    );
   });
 
   it('낼 서류 건수 중 제출 건수를 요약해 보여준다(좌측 패널과 같은 규칙)', () => {
@@ -317,14 +320,14 @@ describe('ChecklistRow 업로드 가능 여부', () => {
     // Then
     expect(html).toContain('올리기');
     expect(html).toContain('disabled=""');
-    expect(html).not.toContain('href="/programs/program-1?submission=');
+    expect(html).not.toContain('href="/programs/program-1/mydocs?milestoneId=');
   });
 
   it('마감 전 미제출 마일스톤은 올리기 버튼이 활성화된 링크다', () => {
     const html = render({ selectedMilestoneId: null });
     expect(html).toContain('올리기');
     expect(html).toContain(
-      'href="/programs/program-1?submission=milestone-final"',
+      'href="/programs/program-1/mydocs?milestoneId=milestone-final"',
     );
   });
 });
@@ -371,6 +374,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('검토 시각');
     expect(html).toContain('판정');
     expect(html).toContain('승인');
+    expect(html).toContain('data-testid="milestone-document-current-files"');
     expect(html).not.toMatch(/revision/i);
   });
 
@@ -416,7 +420,9 @@ describe('SubmissionChecklistView 선택 패널', () => {
   it('미제출 선택 시 #115 제출 화면으로 안내한다', () => {
     const html = render({ selectedMilestoneId: 'milestone-final' });
     expect(html).toContain('아직 제출 전입니다');
-    expect(html).toContain('/programs/program-1?submission=milestone-final');
+    expect(html).toContain(
+      '/programs/program-1/mydocs?milestoneId=milestone-final',
+    );
   });
 
   it('백그라운드 갱신 실패를 기존 체크리스트와 함께 보여준다', () => {

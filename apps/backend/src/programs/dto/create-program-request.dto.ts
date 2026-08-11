@@ -26,6 +26,10 @@ export class CreateProgramRequestDto {
   @IsString()
   declare applicationEndAt: string;
 
+  @IsOptional()
+  @IsDateString({ strict: true, strictSeparator: true })
+  declare startAt?: string;
+
   @IsDateString({ strict: true, strictSeparator: true })
   declare endAt: string;
 

@@ -1,19 +1,53 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { RuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import { DomainException } from '../common/error-code';
 import {
-  buildStaffDeadlineMail,
+  buildDeadlineEligibility,
+  deadlineWindow,
+  type DeadlineEligibility,
+  type DeadlineEligibilitySummary,
+  type EligibleDeadlineRecipient,
+} from './deadline-digest-eligibility';
+import { DEADLINE_DIGEST_DELIVERY_FAILURE } from './deadline-digest-failure';
+import {
   buildStudentDeadlineMail,
+  parseFrontendOrigin,
 } from './deadline-digest-mail.template';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import type {
   DeadlineDigestRepositoryPort,
-  UpcomingMilestone,
+  DigestNotificationStatus,
 } from './deadline-digest.repository';
 import { MAIL_SENDER } from './mail-sender.port';
 import type { MailSender } from './mail-sender.port';
+import {
+  NOTIFICATIONS_ERROR_CODES,
+  NotificationsErrorCode,
+} from './notifications-error-code.enum';
 
-export const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
+export const DEADLINE_PREVIEW_TTL_MS = 10 * 60 * 1000;
+
+export type DeadlineDigestPreview = DeadlineEligibilitySummary & {
+  readonly previewedAt: string;
+  readonly expiresAt: string;
+  readonly previewVersion: string;
+};
+
+export type DeadlineDigestSendRequest = {
+  readonly previewedAt: string;
+  readonly previewVersion: string;
+};
+
+export type DeadlineDigestSendResult = DeadlineEligibilitySummary & {
+  readonly sentAt: string;
+  readonly previewVersion: string;
+  readonly sentCount: number;
+  readonly duplicateCount: number;
+  readonly failedCount: number;
+};
+
+type DeliveryOutcome = 'SENT' | 'DUPLICATE' | 'FAILED';
 
 @Injectable()
 export class DeadlineDigestService {
@@ -28,138 +62,107 @@ export class DeadlineDigestService {
     private readonly runtimeConfig: Pick<RuntimeConfig, 'FRONTEND_URL'>,
   ) {}
 
+  async previewProgram(
+    githubId: bigint,
+    programId: string,
+    now: Date = new Date(),
+  ): Promise<DeadlineDigestPreview> {
+    await this.requireStaffOrAdmin(githubId);
+    const eligibility = await this.requireEligibility(programId, now);
+    return {
+      ...eligibility.summary,
+      previewedAt: now.toISOString(),
+      expiresAt: new Date(
+        now.getTime() + DEADLINE_PREVIEW_TTL_MS,
+      ).toISOString(),
+      previewVersion: eligibility.previewVersion,
+    };
+  }
+
+  async sendProgramFromPreview(
+    githubId: bigint,
+    programId: string,
+    preview: DeadlineDigestSendRequest,
+    now: Date = new Date(),
+  ): Promise<DeadlineDigestSendResult> {
+    await this.requireStaffOrAdmin(githubId);
+    const previewedAt = new Date(preview.previewedAt);
+    if (
+      !Number.isFinite(previewedAt.getTime()) ||
+      previewedAt > now ||
+      now.getTime() > previewedAt.getTime() + DEADLINE_PREVIEW_TTL_MS
+    ) {
+      this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
+    }
+    const eligibility = await this.requireEligibility(programId, now);
+    if (eligibility.previewVersion !== preview.previewVersion) {
+      this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
+    }
+    const outcomes = await this.dispatch(eligibility, now);
+    return {
+      ...eligibility.summary,
+      sentAt: now.toISOString(),
+      previewVersion: eligibility.previewVersion,
+      sentCount: outcomes.filter((outcome) => outcome === 'SENT').length,
+      duplicateCount: outcomes.filter((outcome) => outcome === 'DUPLICATE')
+        .length,
+      failedCount: outcomes.filter((outcome) => outcome === 'FAILED').length,
+    };
+  }
+
   async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
-    const windowEnd = new Date(now.getTime() + DEADLINE_LEAD_TIME_MS);
-    const milestones = await this.repository.findUpcomingDeadlineMilestones(
-      now,
-      windowEnd,
-    );
-    if (milestones.length === 0) {
-      this.logger.log('마감 임박 마일스톤 없음 — 발송 생략');
-      return;
+    const window = deadlineWindow(now);
+    const programIds = await this.repository.findAutomaticProgramIds(window);
+    for (const programId of programIds) {
+      const source = await this.repository.findDeadlineProgram(programId);
+      if (source === null || !source.notifyOnDeadline) continue;
+      await this.dispatch(buildDeadlineEligibility(source, window), now);
     }
-
-    const frontendOrigin = this.requireFrontendOrigin();
-    const missingByMilestone =
-      await this.repository.findMissingSubmitters(milestones);
-
-    const staffMail = buildStaffDeadlineMail({
-      milestones: milestones.map((milestone) => ({
-        ...milestone,
-        missingNicknames: (missingByMilestone.get(milestone.id) ?? []).map(
-          (submitter) => submitter.nickname,
-        ),
-      })),
-      now,
-      frontendOrigin,
-    });
-
-    await Promise.all(
-      (await this.repository.findStaffRecipients()).map((recipient) =>
-        this.sendAndRecord(
-          recipient,
-          staffMail.subject,
-          staffMail.text,
-          staffMail.html,
-          milestones.length,
-          now,
-        ),
-      ),
-    );
-
-    const reminders = new Map<
-      string,
-      {
-        recipient: {
-          id: string;
-          notificationEmail: string;
-          nickname: string;
-        };
-        milestones: UpcomingMilestone[];
-      }
-    >();
-    for (const milestone of milestones) {
-      for (const submitter of missingByMilestone.get(milestone.id) ?? []) {
-        if (!submitter.notifyEnabled || !submitter.notificationEmail) {
-          continue;
-        }
-        const reminder = reminders.get(submitter.id);
-        if (reminder) {
-          reminder.milestones.push(milestone);
-          continue;
-        }
-        reminders.set(submitter.id, {
-          recipient: {
-            id: submitter.id,
-            notificationEmail: submitter.notificationEmail,
-            nickname: submitter.nickname,
-          },
-          milestones: [milestone],
-        });
-      }
-    }
-
-    await Promise.all(
-      [...reminders.values()].map(
-        ({ recipient, milestones: reminderMilestones }) => {
-          const primary = [...reminderMilestones].sort(
-            (left, right) => left.dueAt.getTime() - right.dueAt.getTime(),
-          )[0];
-          if (!primary) {
-            return Promise.resolve();
-          }
-          const studentMail = buildStudentDeadlineMail({
-            displayName: recipient.nickname,
-            milestone: primary,
-            now,
-            frontendOrigin,
-          });
-          if (reminderMilestones.length > 1) {
-            const extra = reminderMilestones
-              .slice(1)
-              .map((item) => `- ${item.programName} / ${item.milestoneName}`)
-              .join('\n');
-            const text = `${studentMail.text}\n\n추가 미제출 마일스톤:\n${extra}`;
-            return this.sendAndRecord(
-              recipient,
-              studentMail.subject,
-              text,
-              studentMail.html,
-              reminderMilestones.length,
-              now,
-            );
-          }
-          return this.sendAndRecord(
-            recipient,
-            studentMail.subject,
-            studentMail.text,
-            studentMail.html,
-            reminderMilestones.length,
-            now,
-          );
-        },
-      ),
-    );
   }
 
-  private requireFrontendOrigin(): string {
-    const raw = this.runtimeConfig.FRONTEND_URL?.trim();
-    if (!raw) {
-      throw new Error('FRONTEND_URL is required to build deadline mail links.');
+  private async requireStaffOrAdmin(githubId: bigint): Promise<void> {
+    if (!(await this.repository.findActiveStaffOrAdmin(githubId))) {
+      this.fail(NotificationsErrorCode.STAFF_ONLY);
     }
-    return raw.replace(/\/$/, '');
   }
 
-  private async sendAndRecord(
-    recipient: { readonly id: string; readonly notificationEmail: string },
-    subject: string,
-    body: string,
-    html: string,
-    milestoneCount: number,
+  private async requireEligibility(
+    programId: string,
     now: Date,
-  ): Promise<void> {
-    const idempotencyKey = `deadline-digest:${this.digestDate(now)}:${recipient.id}`;
-    const payload = { milestoneCount };
+  ): Promise<DeadlineEligibility> {
+    const source = await this.repository.findDeadlineProgram(programId);
+    if (source === null) this.fail(NotificationsErrorCode.PROGRAM_NOT_FOUND);
+    if (!source.notifyOnDeadline) {
+      this.fail(NotificationsErrorCode.DEADLINE_DISABLED);
+    }
+    return buildDeadlineEligibility(source, deadlineWindow(now));
+  }
+
+  private dispatch(
+    eligibility: DeadlineEligibility,
+    now: Date,
+  ): Promise<readonly DeliveryOutcome[]> {
+    const frontendOrigin = parseFrontendOrigin(this.runtimeConfig.FRONTEND_URL);
+    return Promise.all(
+      eligibility.recipients.map((recipient) =>
+        this.sendRecipient(
+          eligibility.programId,
+          recipient,
+          now,
+          frontendOrigin,
+        ),
+      ),
+    );
+  }
+
+  private async sendRecipient(
+    programId: string,
+    recipient: EligibleDeadlineRecipient,
+    now: Date,
+    frontendOrigin: URL,
+  ): Promise<DeliveryOutcome> {
+    const idempotencyKey = `deadline-digest:${digestDate(now)}:${programId}:${recipient.id}`;
+    const payload = { milestoneCount: recipient.milestones.length };
     if (
       !(await this.repository.claimNotification(
         recipient.id,
@@ -167,41 +170,60 @@ export class DeadlineDigestService {
         payload,
       ))
     ) {
-      this.logger.log(`마감 알림 중복 발송 생략 userId=${recipient.id}`);
-      return;
+      return 'DUPLICATE';
     }
-
+    const firstMilestone = recipient.milestones[0];
+    if (firstMilestone === undefined) return 'DUPLICATE';
+    const mail = buildStudentDeadlineMail({
+      displayName: recipient.nickname,
+      milestones: [firstMilestone, ...recipient.milestones.slice(1)],
+      now,
+      frontendOrigin,
+    });
     try {
       await this.mailSender.send({
         to: recipient.notificationEmail,
-        subject,
-        body,
-        html,
+        subject: mail.subject,
+        body: mail.text,
+        html: mail.html,
       });
-      await this.repository.completeNotification(
-        idempotencyKey,
-        'SENT',
-        payload,
-      );
-      this.logger.log(`마감 알림 발송 성공 userId=${recipient.id}`);
-    } catch (error) {
-      await this.repository.completeNotification(idempotencyKey, 'FAILED', {
+      await this.complete(idempotencyKey, 'SENT', payload);
+      return 'SENT';
+    } catch {
+      await this.complete(idempotencyKey, 'FAILED', {
         ...payload,
-        error: error instanceof Error ? error.message : 'unknown',
+        ...DEADLINE_DIGEST_DELIVERY_FAILURE,
       });
-      this.logger.error(`마감 알림 발송 실패 userId=${recipient.id}`);
+      this.logger.error('마감 알림 발송 실패');
+      return 'FAILED';
     }
   }
 
-  private digestDate(now: Date): string {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(now);
-    const value = (type: Intl.DateTimeFormatPartTypes): string =>
-      parts.find((part) => part.type === type)?.value ?? '';
-    return `${value('year')}-${value('month')}-${value('day')}`;
+  private complete(
+    idempotencyKey: string,
+    status: DigestNotificationStatus,
+    payload: Record<string, string | number>,
+  ): Promise<void> {
+    return this.repository.completeNotification(
+      idempotencyKey,
+      status,
+      payload,
+    );
   }
+
+  private fail(code: NotificationsErrorCode): never {
+    throw new DomainException(NOTIFICATIONS_ERROR_CODES[code]);
+  }
+}
+
+function digestDate(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
 }

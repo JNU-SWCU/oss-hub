@@ -126,25 +126,34 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
 
     expect(html).toContain('내 제출물');
     expect(html).not.toContain('서류 현황');
+    // 신청 판정 창구는 교직원 전용이다.
+    expect(html).not.toContain('신청자');
   });
 
-  it('교직원 회원은 "서류 현황"을 본다', () => {
+  it('교직원 회원은 "서류 현황"과 신청 판정 입구(신청자)를 본다', () => {
     mockSession({ status: 'assigned', role: 'STAFF', isProfileComplete: true });
     const html = render('/programs/prog-1');
 
     expect(html).toContain('서류 현황');
     expect(html).not.toContain('내 제출물');
+    expect(html).toContain('신청자');
+    expect(html).toContain('/programs/prog-1/applicants');
   });
 
-  it('비회원·미배정·미완료 프로필은 개인 데이터 없는 "서류 현황" 골격으로 낮춘다', () => {
+  it('비회원·미배정·미완료 프로필은 참여 팀·신청자·서류 현황·게시판 없는 공개 개요만 본다(QA46)', () => {
     mockSession({ status: 'anonymous', role: null, isProfileComplete: false });
     const anonymous = render('/programs/prog-1');
-    expect(anonymous).toContain('서류 현황');
+    expect(anonymous).toContain('프로그램 개요');
+    expect(anonymous).not.toContain('참여 팀');
+    expect(anonymous).not.toContain('신청자');
+    expect(anonymous).not.toContain('서류 현황');
     expect(anonymous).not.toContain('내 제출물');
+    expect(anonymous).not.toContain('게시판');
 
     mockSession({ status: 'unassigned', role: null, isProfileComplete: false });
     const unassigned = render('/programs/prog-1');
-    expect(unassigned).toContain('서류 현황');
+    expect(unassigned).toContain('프로그램 개요');
+    expect(unassigned).not.toContain('서류 현황');
 
     mockSession({
       status: 'assigned',
@@ -152,7 +161,8 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
       isProfileComplete: false,
     });
     const incompleteProfile = render('/programs/prog-1');
-    expect(incompleteProfile).toContain('서류 현황');
+    expect(incompleteProfile).toContain('프로그램 개요');
+    expect(incompleteProfile).not.toContain('서류 현황');
   });
 
   it('overview 로딩 중에는 팀 수·게시판 뱃지를 하드코딩 없이 비운다', () => {

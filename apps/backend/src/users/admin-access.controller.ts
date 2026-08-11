@@ -18,17 +18,20 @@ import {
   RolesErrorCode,
 } from '../roles/roles-error-code.enum';
 import { AdminAccessService } from './admin-access.service';
+import { AdminProfileService } from './admin-profile.service';
 import {
   AdminAccessHistoryRequestDto,
   AdminAccessListRequestDto,
 } from './dto/admin-access-query.dto';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
+import { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile.dto';
 import {
   AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
   AdminAccessUserDetailResponseDto,
   AdminAccessUserHistoryResponseDto,
   AdminAccessUserPageResponseDto,
+  AdminProfileUpdateResponseDto,
 } from './dto/admin-access-response.dto';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -42,6 +45,8 @@ export class AdminAccessController {
       AdminAccessService,
       'list' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
     >,
+    @Inject(AdminProfileService)
+    private readonly profileService: Pick<AdminProfileService, 'patchProfile'>,
   ) {}
 
   @Get('access')
@@ -115,10 +120,29 @@ export class AdminAccessController {
       ),
     );
   }
+
+  @Patch(':id/profile')
+  @UseGuards(SessionGuard, OriginGuard)
+  async patchProfile(
+    @Req() request: SessionIdentity,
+    @Param('id') id: string,
+    @Body() body: PatchAdminUserProfileRequestDto,
+  ): Promise<AdminProfileUpdateResponseDto> {
+    requireValidUserId(id);
+    return AdminProfileUpdateResponseDto.from(
+      await this.profileService.patchProfile(
+        request.sessionGithubId,
+        id,
+        body.toCommand(),
+      ),
+    );
+  }
 }
 
 function requireValidUserId(id: string): void {
-  if (!USER_ID_PATTERN.test(id)) {
+  // 'me'는 세션 사용자를 가리키는 예약어라 관리자 대리 조회/수정의 유효한 대상 ID가
+  // 아니다(#787) — 라우트 등록 순서가 흔들려도 이중 방어로 남긴다.
+  if (id === 'me' || !USER_ID_PATTERN.test(id)) {
     throw new DomainException(
       ROLES_ERROR_CODES[RolesErrorCode.INVALID_USER_ID],
     );

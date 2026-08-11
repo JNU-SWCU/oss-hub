@@ -1,4 +1,8 @@
-import { apiClient } from '@/lib/api-client';
+import {
+  apiClient,
+  apiFileClient,
+  type ApiFileDownload,
+} from '@/lib/api-client';
 import { buildMatrixSearchParams, type MatrixQueryInput } from './matrix';
 import type {
   CreatedResubmission,
@@ -8,8 +12,30 @@ import type {
   SubmissionChecklist,
   SubmissionFormData,
   SubmissionMatrixPage,
+  MilestoneDocumentCurrentFileItem,
   UploadedSubmissionFile,
 } from './types';
+
+function milestoneDocumentsPath(milestoneId: string): string {
+  return `milestones/${encodeURIComponent(milestoneId)}/documents`;
+}
+
+export function listMilestoneDocumentCurrentFiles(
+  milestoneId: string,
+): Promise<readonly MilestoneDocumentCurrentFileItem[]> {
+  return apiClient<readonly MilestoneDocumentCurrentFileItem[]>(
+    milestoneDocumentsPath(milestoneId),
+  );
+}
+
+export function downloadMilestoneDocumentCurrentFile(
+  milestoneId: string,
+  documentId: string,
+): Promise<ApiFileDownload> {
+  return apiFileClient(
+    `${milestoneDocumentsPath(milestoneId)}/${encodeURIComponent(documentId)}/submissions/current/file`,
+  );
+}
 
 export function getSubmissionForm(
   programId: string,

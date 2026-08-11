@@ -51,6 +51,17 @@ function parseProgram(value: unknown): ActivityProgram | null {
   };
 }
 
+/**
+ * 선 위의 이름은 `pullRequestCount` 다 — 내부 표현만 `prCount` 로 고정한다.
+ *
+ * #729 가 백엔드 DTO 를 `prCount` → `pullRequestCount` 로 개명할 때 랭킹 파서만
+ * 따라갔고 이 파서는 `prCount` 를 계속 required 로 요구했다. 그래서 점 하나라도
+ * 들어오면 `parsePoint` 가 null 을 내고 `parseActivityTimeline` 이 응답 전체를
+ * 던졌다 — 활동이 있는 학생에게 타임라인 화면이 통째로 에러였다.
+ *
+ * 픽스처가 `prCount` 를 쓰고 있었으므로 단위 테스트는 전부 통과했다.
+ * 그래서 아래 스펙은 **선 위의 이름**을 고정한다.
+ */
 function parsePoint(
   value: unknown,
   granularity: ActivityGranularity,
@@ -63,10 +74,11 @@ function parsePoint(
     typeof value.period !== 'string' ||
     !periodPattern.test(value.period) ||
     !isNonNegativeInteger(value.commitCount) ||
-    !isNonNegativeInteger(value.prCount) ||
+    !isNonNegativeInteger(value.pullRequestCount) ||
     !isNonNegativeInteger(value.releaseCount) ||
     !isNonNegativeInteger(value.total) ||
-    value.total !== value.commitCount + value.prCount + value.releaseCount
+    value.total !==
+      value.commitCount + value.pullRequestCount + value.releaseCount
   ) {
     return null;
   }
@@ -74,7 +86,7 @@ function parsePoint(
   return {
     period: value.period,
     commitCount: value.commitCount,
-    prCount: value.prCount,
+    prCount: value.pullRequestCount,
     releaseCount: value.releaseCount,
     total: value.total,
   };

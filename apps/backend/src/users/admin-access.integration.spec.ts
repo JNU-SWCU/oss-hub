@@ -74,12 +74,22 @@ describe('Admin access real PostgreSQL transactions', () => {
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
-    expect(rejected?.reason).toMatchObject({
-      errorCode: {
+    // 두 트랜잭션 중 어느 쪽이 lockActiveAdmins()를 먼저 통과하는지는 실 DB 잠금
+    // 경쟁이라 결정되지 않는다. actor가 두 target 중 하나(자기 자신)이기도 해서,
+    // 재검증(TOCTOU 재조회)이 지목하는 사유가 승자에 따라 갈린다: 다른 admin을
+    // 강등하는 트랜잭션이 지면 LAST_ACTIVE_ADMIN_REQUIRED(마지막 admin 규칙)를,
+    // 자기 자신을 강등하는 트랜잭션이 지면 ADMIN_ONLY(재검증이 이미 강등된 actor를
+    // 잡아냄)를 본다 — 둘 다 "정확히 하나만 커밋된다"는 이 테스트의 불변식을 증명한다.
+    const reason = rejected?.reason as
+      { errorCode?: { code: string; status: number } } | undefined;
+    if (reason?.errorCode?.code === RolesErrorCode.ADMIN_ONLY) {
+      expect(reason.errorCode.status).toBe(403);
+    } else {
+      expect(reason?.errorCode).toMatchObject({
         code: RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED,
         status: 409,
-      },
-    });
+      });
+    }
     await expect(
       prisma.user.count({
         where: { role: Role.ADMIN, accountStatus: AccountStatus.ACTIVE },
@@ -127,7 +137,14 @@ describe('Admin access real PostgreSQL transactions', () => {
       where: { id: target.id },
       data: { role: Role.STAFF },
     });
-    const controller = new AdminAccessController(service);
+    // 이 테스트는 patchAccess만 호출한다 — profile 서비스는 실제로 쓰이지 않으므로
+    // 실행되면 실패하는 스텁만 채워 생성자 계약을 맞춘다.
+    const profileService = {
+      patchProfile: () => {
+        throw new Error('patchProfile should not be called in this spec');
+      },
+    };
+    const controller = new AdminAccessController(service, profileService);
     const request = {
       sessionGithubId: actor.githubId,
     } as Pick<AuthenticatedRequest, 'sessionGithubId'>;

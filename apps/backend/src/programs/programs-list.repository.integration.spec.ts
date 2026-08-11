@@ -1,6 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProgramsRepository } from './programs.repository';
+import { ProgramsRepository } from './repository/programs.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -45,6 +45,7 @@ describe('ProgramsRepository list ordering integration', () => {
           applicationTemplateVersion: 1,
           applicationStartAt: new Date('2026-07-20T00:00:00.000Z'),
           applicationEndAt: new Date('2026-08-30T00:00:00.000Z'),
+          startAt: new Date('2026-08-31T00:00:00.000Z'),
           endAt: new Date('2026-12-31T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
@@ -59,6 +60,7 @@ describe('ProgramsRepository list ordering integration', () => {
           applicationTemplateVersion: 1,
           applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-08-02T00:00:00.000Z'),
+          startAt: new Date('2026-08-03T00:00:00.000Z'),
           endAt: new Date('2026-12-31T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
@@ -91,6 +93,7 @@ describe('ProgramsRepository list ordering integration', () => {
           applicationTemplateVersion: 1,
           applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+          startAt: new Date('2026-08-16T00:00:00.000Z'),
           endAt: new Date('2026-12-31T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
@@ -105,7 +108,8 @@ describe('ProgramsRepository list ordering integration', () => {
           applicationTemplateVersion: 1,
           applicationStartAt: new Date('2026-09-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-10-01T00:00:00.000Z'),
-          endAt: null,
+          startAt: new Date('2026-10-02T00:00:00.000Z'),
+          endAt: new Date('2026-12-31T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
           description: 'upcoming fixture',
@@ -119,6 +123,7 @@ describe('ProgramsRepository list ordering integration', () => {
           applicationTemplateVersion: 1,
           applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
+          startAt: new Date('2026-02-02T00:00:00.000Z'),
           endAt: new Date('2026-12-31T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
@@ -133,7 +138,8 @@ describe('ProgramsRepository list ordering integration', () => {
           applicationTemplateKey: 'capstone-v1',
           applicationTemplateVersion: 1,
           applicationStartAt: new Date('2026-06-25T00:00:00.000Z'),
-          applicationEndAt: new Date('2026-09-13T00:00:00.000Z'),
+          applicationEndAt: new Date('2026-06-30T00:00:00.000Z'),
+          startAt: new Date('2026-07-01T00:00:00.000Z'),
           endAt: new Date('2026-07-15T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
@@ -149,7 +155,8 @@ describe('ProgramsRepository list ordering integration', () => {
           lifecycle: 'ARCHIVED' as const,
           applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-09-01T00:00:00.000Z'),
-          endAt: null,
+          startAt: new Date('2026-09-02T00:00:00.000Z'),
+          endAt: new Date('2026-12-31T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
           description: 'archived fixture',

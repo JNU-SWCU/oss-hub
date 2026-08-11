@@ -196,12 +196,13 @@ describe('설정 화면', () => {
    * 필수가 된다. 학번 없이 가입한 교직원은 이름 한 글자를 고치려 해도 저장이
    * 막히므로, 화면을 열어 준 것만으로는 신고가 해결되지 않는다.
    */
-  it('역할을 기다리는 교직원에게 학번을 요구하지 않는다', async () => {
+  it('역할을 기다리는 교직원에게 학번 칸을 보여 주지 않는다', async () => {
+    // 학번은 학생만 가질 수 있다 — 아직 확정 전이라도 고른 역할이 교직원이면
+    // 요청에 studentId를 실어 봐야 백엔드가 400으로 거절하므로, 화면은 애초에
+    // 입력받지 않는다(users.service.ts).
     await renderStaffAwaitingRole();
 
-    expect(field('settings-student-id').value).toBe('');
-    expect(container.textContent).toContain('학번이 있으면 입력합니다');
-    expect(container.textContent).not.toContain('숫자 6~10자리로 입력합니다');
+    expect(container.querySelector('#settings-student-id')).toBeNull();
   });
 
   it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
@@ -261,11 +262,12 @@ describe('설정 화면', () => {
     },
   );
 
-  it('비로그인 사용자는 랜딩으로 보내고 설정을 열지 않는다', async () => {
+  it('비로그인 사용자는 리다이렉트하지 않고 로그인 안내를 보여준다(QA46)', async () => {
     await render({ status: 'anonymous' });
 
-    expect(mocks.replace).toHaveBeenCalledWith('/');
+    expect(mocks.replace).not.toHaveBeenCalled();
     expect(container.querySelector('#settings-name')).toBeNull();
+    expect(container.textContent).toContain('로그인이 필요한 페이지입니다');
   });
 
   // 회귀 방지: 조회 실패를 미배정으로 오인하면, 역할을 모르는 채로 프로필 폼이

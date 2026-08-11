@@ -5,15 +5,16 @@ import { ApiError } from '@/lib/api-client';
 import type { AdminAccessDetail } from './admin-access-api';
 import {
   ADMIN_ACCESS_MUTATION_ACTIONS,
-  adminAccessGrantTargetRole,
+  actionForAccountStatus,
+  actionForRole,
   adminAccessMutationErrorMessage,
   adminAccessMutationSuccessMessage,
   applyAdminAccessConflictProjection,
   buildAdminAccessPatchRequest,
   classifyAdminAccessMutationBlock,
-  isAdminAccessMutationAvailable,
+  rankOfAdminAccessRole,
+  roleForAction,
 } from './admin-access-mutation-policy';
-import { adminAccessRevocation } from './admin-access-revocation';
 
 function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
   return {
@@ -53,78 +54,37 @@ function apiError(status: number, code: string, detailText: string): ApiError {
   });
 }
 
-describe('adminAccessGrantTargetRole / adminAccessRevocation', () => {
-  it('부여 대상은 한 단계 위 역할이다', () => {
-    expect(adminAccessGrantTargetRole(null)).toBe('STAFF');
-    expect(adminAccessGrantTargetRole('STUDENT')).toBe('STAFF');
-    expect(adminAccessGrantTargetRole('STAFF')).toBe('ADMIN');
+describe('rankOfAdminAccessRole', () => {
+  it('STUDENT < STAFF < ADMIN 순으로 등급을 매긴다', () => {
+    expect(rankOfAdminAccessRole('STUDENT')).toBeLessThan(
+      rankOfAdminAccessRole('STAFF'),
+    );
+    expect(rankOfAdminAccessRole('STAFF')).toBeLessThan(
+      rankOfAdminAccessRole('ADMIN'),
+    );
   });
 
-  it('이미 최고 등급(ADMIN)이면 부여 대상이 없다', () => {
-    expect(adminAccessGrantTargetRole('ADMIN')).toBeNull();
-  });
-
-  it('ADMIN 회수는 STAFF 전환이고 STAFF 회수는 역할 제거다', () => {
-    expect(adminAccessRevocation('ADMIN')?.desiredRole).toBe('STAFF');
-    expect(adminAccessRevocation('STAFF')?.desiredRole).toBeNull();
-  });
-
-  it('이미 최저 등급(STUDENT/미지정)이면 회수 대상이 없다', () => {
-    expect(adminAccessRevocation('STUDENT')).toBeNull();
-    expect(adminAccessRevocation(null)).toBeNull();
+  it('미지정(null)은 STUDENT와 같은 등급이다', () => {
+    expect(rankOfAdminAccessRole(null)).toBe(rankOfAdminAccessRole('STUDENT'));
   });
 });
 
-describe('isAdminAccessMutationAvailable', () => {
-  it('대기 중인 요청이 있으면 승인/반려만 가능하다', () => {
-    const withPending = detail({ pendingRequest: pending });
-    expect(isAdminAccessMutationAvailable('APPROVE', withPending)).toBe(true);
-    expect(isAdminAccessMutationAvailable('REJECT', withPending)).toBe(true);
-    expect(isAdminAccessMutationAvailable('GRANT', withPending)).toBe(false);
-    expect(isAdminAccessMutationAvailable('REVOKE', withPending)).toBe(false);
-    expect(isAdminAccessMutationAvailable('DEACTIVATE', withPending)).toBe(
-      false,
-    );
-    expect(isAdminAccessMutationAvailable('REACTIVATE', withPending)).toBe(
-      false,
-    );
+describe('actionForRole / roleForAction', () => {
+  it('역할과 SET_ROLE_* 액션을 서로 변환한다', () => {
+    expect(actionForRole('STUDENT')).toBe('SET_ROLE_STUDENT');
+    expect(actionForRole('STAFF')).toBe('SET_ROLE_STAFF');
+    expect(actionForRole('ADMIN')).toBe('SET_ROLE_ADMIN');
+    expect(roleForAction('SET_ROLE_STUDENT')).toBe('STUDENT');
+    expect(roleForAction('SET_ROLE_STAFF')).toBe('STAFF');
+    expect(roleForAction('SET_ROLE_ADMIN')).toBe('ADMIN');
   });
+});
 
-  it('대기 중인 요청이 없으면 승인/반려는 불가능하다', () => {
-    const withoutPending = detail({ pendingRequest: null });
-    expect(isAdminAccessMutationAvailable('APPROVE', withoutPending)).toBe(
-      false,
-    );
-    expect(isAdminAccessMutationAvailable('REJECT', withoutPending)).toBe(
-      false,
-    );
-  });
-
-  it('최고 등급(ADMIN)이면 GRANT를 제공하지 않는다', () => {
-    const admin = detail({ role: 'ADMIN', pendingRequest: null });
-    expect(isAdminAccessMutationAvailable('GRANT', admin)).toBe(false);
-    expect(isAdminAccessMutationAvailable('REVOKE', admin)).toBe(true);
-  });
-
-  it('최저 등급(STUDENT)이면 REVOKE를 제공하지 않는다', () => {
-    const student = detail({ role: 'STUDENT', pendingRequest: null });
-    expect(isAdminAccessMutationAvailable('REVOKE', student)).toBe(false);
-    expect(isAdminAccessMutationAvailable('GRANT', student)).toBe(true);
-  });
-
-  it('DEACTIVATE는 활성 계정에서만, REACTIVATE는 비활성 계정에서만 가능하다', () => {
-    const active = detail({ accountStatus: 'ACTIVE', pendingRequest: null });
-    const deactivated = detail({
-      accountStatus: 'DEACTIVATED',
-      pendingRequest: null,
-    });
-    expect(isAdminAccessMutationAvailable('DEACTIVATE', active)).toBe(true);
-    expect(isAdminAccessMutationAvailable('REACTIVATE', active)).toBe(false);
-    expect(isAdminAccessMutationAvailable('DEACTIVATE', deactivated)).toBe(
-      false,
-    );
-    expect(isAdminAccessMutationAvailable('REACTIVATE', deactivated)).toBe(
-      true,
+describe('actionForAccountStatus', () => {
+  it('계정 상태와 SET_STATUS_* 액션을 변환한다', () => {
+    expect(actionForAccountStatus('ACTIVE')).toBe('SET_STATUS_ACTIVE');
+    expect(actionForAccountStatus('DEACTIVATED')).toBe(
+      'SET_STATUS_DEACTIVATED',
     );
   });
 });
@@ -163,49 +123,30 @@ describe('buildAdminAccessPatchRequest', () => {
     });
   });
 
-  it('GRANT는 한 단계 위 역할을 desiredRole로 CAS 본문을 구성한다', () => {
-    const staff = detail({ role: 'STAFF', pendingRequest: null });
-    const body = buildAdminAccessPatchRequest(
-      ADMIN_ACCESS_MUTATION_ACTIONS.GRANT,
-      staff,
-    );
+  it.each([
+    ['SET_ROLE_STUDENT', 'STUDENT'],
+    ['SET_ROLE_STAFF', 'STAFF'],
+    ['SET_ROLE_ADMIN', 'ADMIN'],
+  ] as const)(
+    '%s는 임의의 역할로 직접 점프하는 CAS 본문을 만든다(사다리 제약 없음)',
+    (action, targetRole) => {
+      const staff = detail({ role: 'STAFF', pendingRequest: null });
+      const body = buildAdminAccessPatchRequest(action, staff);
 
-    expect(body.expectedRole).toBe('STAFF');
-    expect(body.desiredRole).toBe('ADMIN');
-    expect(body.desiredAccountStatus).toBe('ACTIVE');
-    expect(body.requestDecision).toBeUndefined();
-  });
+      expect(body.expectedRole).toBe('STAFF');
+      expect(body.desiredRole).toBe(targetRole);
+      // 역할 변경 액션은 계정 상태를 현재 값 그대로 보낸다 — 백엔드가 역할과
+      // 상태의 동시 변경을 거부하기 때문이다
+      // (`admin-access-transition-table.ts`의 `classifyTransition`).
+      expect(body.desiredAccountStatus).toBe(staff.accountStatus);
+      expect(body.requestDecision).toBeUndefined();
+    },
+  );
 
-  it('REVOKE는 한 단계 아래 역할을 desiredRole로 CAS 본문을 구성한다', () => {
-    const admin = detail({ role: 'ADMIN', pendingRequest: null });
-    const body = buildAdminAccessPatchRequest(
-      ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE,
-      admin,
-    );
-
-    expect(body.expectedRole).toBe('ADMIN');
-    expect(body.desiredRole).toBe('STAFF');
-  });
-
-  it('대상 역할이 없는데 GRANT/REVOKE를 강제 호출하면 방어적으로 예외를 던진다', () => {
-    const admin = detail({ role: 'ADMIN', pendingRequest: null });
-    const student = detail({ role: 'STUDENT', pendingRequest: null });
-
-    expect(() =>
-      buildAdminAccessPatchRequest(ADMIN_ACCESS_MUTATION_ACTIONS.GRANT, admin),
-    ).toThrow();
-    expect(() =>
-      buildAdminAccessPatchRequest(
-        ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE,
-        student,
-      ),
-    ).toThrow();
-  });
-
-  it('DEACTIVATE/REACTIVATE는 역할을 유지하고 계정 상태만 뒤집는다', () => {
+  it('SET_STATUS_DEACTIVATED/ACTIVE는 역할을 유지하고 계정 상태만 뒤집는다', () => {
     const active = detail({ accountStatus: 'ACTIVE', pendingRequest: null });
     const deactivateBody = buildAdminAccessPatchRequest(
-      ADMIN_ACCESS_MUTATION_ACTIONS.DEACTIVATE,
+      ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_DEACTIVATED,
       active,
     );
     expect(deactivateBody.desiredRole).toBe(active.role);
@@ -216,7 +157,7 @@ describe('buildAdminAccessPatchRequest', () => {
       pendingRequest: null,
     });
     const reactivateBody = buildAdminAccessPatchRequest(
-      ADMIN_ACCESS_MUTATION_ACTIONS.REACTIVATE,
+      ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_ACTIVE,
       deactivated,
     );
     expect(reactivateBody.desiredRole).toBe(deactivated.role);
@@ -321,7 +262,13 @@ describe('adminAccessMutationErrorMessage', () => {
 describe('adminAccessMutationSuccessMessage', () => {
   it('대상 사용자와 작업 라벨을 포함한 완료 메시지를 만든다', () => {
     expect(
-      adminAccessMutationSuccessMessage('DEACTIVATE', 'synthetic-target'),
+      adminAccessMutationSuccessMessage(
+        'SET_STATUS_DEACTIVATED',
+        'synthetic-target',
+      ),
     ).toBe('synthetic-target님에 대한 계정 비활성화 처리를 완료했습니다.');
+    expect(
+      adminAccessMutationSuccessMessage('SET_ROLE_ADMIN', 'synthetic-target'),
+    ).toBe('synthetic-target님에 대한 관리자로 역할 변경 처리를 완료했습니다.');
   });
 });

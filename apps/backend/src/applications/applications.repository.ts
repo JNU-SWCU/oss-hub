@@ -7,6 +7,7 @@ import {
   Prisma,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
+  type RepositoryVisibility,
   Role,
   ProgramLifecycle,
   type ProgramCategory,
@@ -31,6 +32,7 @@ import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import type { ApplicationListQuery } from './application-list-query';
 import type {
   ApplicationDecisionTarget,
+  ApplicationDecisionNotificationInput,
   ApplicationTransition,
   RepositoryProvisionEvent,
   RepositoryProvisionEventInput,
@@ -39,12 +41,16 @@ import type {
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
   include: {
-    program: { select: { repositoryProvisioningEnabled: true } };
-    applicant: { select: { nickname: true } };
+    program: {
+      select: { repositoryProvisioningEnabled: true; name: true };
+    };
+    applicant: { select: { id: true; nickname: true } };
     team: {
       select: {
-        leader: { select: { nickname: true } };
-        members: { select: { user: { select: { nickname: true } } } };
+        leader: { select: { id: true; nickname: true } };
+        members: {
+          select: { user: { select: { id: true; nickname: true } } };
+        };
       };
     };
   };
@@ -76,6 +82,9 @@ export interface ApplicationsTransactionStore {
    */
   discardRepositoryProvisionRequest(applicationId: string): Promise<void>;
   transitionApplication(input: ApplicationTransition): Promise<boolean>;
+  createApplicationDecisionNotifications(
+    input: ApplicationDecisionNotificationInput,
+  ): Promise<void>;
   createRepositoryProvisionEvent(
     input: RepositoryProvisionEventInput,
   ): Promise<RepositoryProvisionEvent>;
@@ -102,6 +111,7 @@ export interface ApplyProgramRecord {
   readonly applicationTemplateVersion: number;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
+  readonly repositoryProvisioningEnabled: boolean;
 }
 
 export interface CreateTeamForApplicationInput {
@@ -164,12 +174,34 @@ export interface ApplicationRepositoryProvisioning {
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
+/**
+ * 신청자 목록의 저장소 주소 — 교직원 화면이 「공개 저장소 열기」/「비공개 저장소 확인」을
+ * 가르는 데 쓴다. 출처는 `Application.repository` 1:1 관계다. `Team.repositories` 로 가지
+ * 않는다 — 저장소 식별 단위는 application 이다(`schema.prisma` Repository 주석, #113).
+ * 아직 프로비저닝되지 않았으면 null.
+ */
+export interface ApplicationListRepository {
+  readonly url: string;
+  readonly visibility: RepositoryVisibility;
+}
+
 export interface ApplicationListItem {
   readonly id: string;
+  /**
+   * 어느 프로그램의 신청인가. 상세 화면이 주소의 프로그램과 대조하는 데 쓴다 —
+   * `GET applications/:id`는 신청 id 하나로 도달하므로, 주소를 손으로 고치면
+   * 프로그램 A의 화면에서 프로그램 B의 신청을 판정하게 된다.
+   */
+  readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
+  /** 승인 시 저장소를 새로 만드는가(`NEW`), 낸 저장소를 잇는가(`OWN`). */
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  /** `OWN`일 때 이을 저장소 주소. `NEW`면 null. */
+  readonly repositoryUrl: string | null;
+  readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
@@ -259,12 +291,16 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
     const application = await this.transaction.application.findUnique({
       where: { id: applicationId },
       include: {
-        program: { select: { repositoryProvisioningEnabled: true } },
-        applicant: { select: { nickname: true } },
+        program: {
+          select: { repositoryProvisioningEnabled: true, name: true },
+        },
+        applicant: { select: { id: true, nickname: true } },
         team: {
           select: {
-            leader: { select: { nickname: true } },
-            members: { select: { user: { select: { nickname: true } } } },
+            leader: { select: { id: true, nickname: true } },
+            members: {
+              select: { user: { select: { id: true, nickname: true } } },
+            },
           },
         },
       },
@@ -327,6 +363,36 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
       data,
     });
     return result.count === 1;
+  }
+
+  async createApplicationDecisionNotifications(
+    input: ApplicationDecisionNotificationInput,
+  ): Promise<void> {
+    if (input.recipientUserIds.length === 0) return;
+    const decidedAt = input.decidedAt.toISOString();
+    await this.transaction.notification.createMany({
+      data: input.recipientUserIds.map((userId) => ({
+        userId,
+        type: 'APPLICATION_DECISION',
+        channel: 'IN_APP',
+        status: 'UNREAD',
+        idempotencyKey: [
+          'application-decision',
+          input.applicationId,
+          input.decision,
+          decidedAt,
+          userId,
+        ].join(':'),
+        payload: {
+          schemaVersion: 1,
+          applicationId: input.applicationId,
+          programId: input.programId,
+          programName: input.programName,
+          decision: input.decision,
+          decidedAt,
+        },
+      })),
+    });
   }
 
   async createRepositoryProvisionEvent(
@@ -549,6 +615,7 @@ export class ApplicationsRepository {
         applicationTemplateVersion: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        repositoryProvisioningEnabled: true,
       },
     });
   }
@@ -576,33 +643,7 @@ export class ApplicationsRepository {
               orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
               skip: (query.page - 1) * query.pageSize,
               take: query.pageSize,
-              select: {
-                id: true,
-                status: true,
-                submittedAt: true,
-                updatedAt: true,
-                rejectionReason: true,
-                teamId: true,
-                answers: true,
-                isRepositoryPublicationPlanned: true,
-                program: {
-                  select: { repositoryProvisioningEnabled: true },
-                },
-                applicant: {
-                  select: {
-                    id: true,
-                    nickname: true,
-                    ...COMPATIBLE_PROFILE_NAME_SELECT,
-                  },
-                },
-                team: {
-                  select: {
-                    id: true,
-                    name: true,
-                    _count: { select: { members: true } },
-                  },
-                },
-              },
+              select: APPLICATION_LIST_SELECT,
             }),
             transaction.application.count({ where }),
           ]);
@@ -660,6 +701,43 @@ export class ApplicationsRepository {
       totalItems,
       totalPages: Math.ceil(totalItems / query.pageSize),
     };
+  }
+
+  /**
+   * 교직원 신청 상세(#722). 목록과 같은 `RepeatableRead` 트랜잭션 안에서 신청·outbox·
+   * provision job 을 함께 읽는다 — 셋을 따로 읽으면 그 사이에 판정이 끼어들어 「반려인데
+   * 저장소 작업이 진행 중」 같은 있을 수 없는 조합이 화면에 그려진다.
+   */
+  async findApplicationForStaff(
+    applicationId: string,
+  ): Promise<ApplicationListItem | null> {
+    const [row, outbox, job] = await this.prisma.$transaction(
+      async (transaction) => {
+        const applicationRow = await transaction.application.findUnique({
+          where: { id: applicationId },
+          select: APPLICATION_LIST_SELECT,
+        });
+        if (applicationRow === null) {
+          return [null, null, null] as const;
+        }
+        const [event, provisionJob] = await Promise.all([
+          transaction.outboxEvent.findUnique({
+            where: {
+              idempotencyKey: `repository-provision:${applicationId}`,
+            },
+            select: { status: true, createdAt: true },
+          }),
+          transaction.repositoryProvisionJob.findUnique({
+            where: { applicationId },
+            select: { status: true, updatedAt: true, lastErrorCode: true },
+          }),
+        ]);
+        return [applicationRow, event, provisionJob] as const;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    if (row === null) return null;
+    return toApplicationListItem(row, outbox ?? undefined, job ?? undefined);
   }
 
   async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
@@ -790,8 +868,50 @@ function buildApplicationListWhere(
   };
 }
 
+/**
+ * 목록과 단건 조회가 **같은 select**를 쓴다. 화면이 둘이라도 교직원이 보는 신청 한 건의
+ * 모양은 하나여야 한다 — 한쪽만 필드를 늘리면 목록에서 보이던 값이 상세에서 사라진다.
+ */
+const APPLICATION_LIST_SELECT = {
+  id: true,
+  programId: true,
+  status: true,
+  submittedAt: true,
+  updatedAt: true,
+  rejectionReason: true,
+  teamId: true,
+  answers: true,
+  isRepositoryPublicationPlanned: true,
+  // 승인이 무엇을 하는지는 프로그램의 자동 생성 스위치 하나로 정해지지 않는다 —
+  // 신청자가 `OWN`을 골랐으면 새로 만드는 게 아니라 낸 저장소를 잇는다.
+  repositoryConnectionMode: true,
+  repositoryUrl: true,
+  // 1:1 Application.repository — 팀의 repositories 로 가지 않는다(#113).
+  repository: {
+    select: { url: true, visibility: true },
+  },
+  program: {
+    select: { repositoryProvisioningEnabled: true },
+  },
+  applicant: {
+    select: {
+      id: true,
+      nickname: true,
+      ...COMPATIBLE_PROFILE_NAME_SELECT,
+    },
+  },
+  team: {
+    select: {
+      id: true,
+      name: true,
+      _count: { select: { members: true } },
+    },
+  },
+} as const satisfies Prisma.ApplicationSelect;
+
 type ApplicationListRow = {
   readonly id: string;
+  readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly updatedAt: Date;
@@ -799,6 +919,12 @@ type ApplicationListRow = {
   readonly teamId: string | null;
   readonly answers: Prisma.JsonValue;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+  readonly repository: {
+    readonly url: string;
+    readonly visibility: RepositoryVisibility;
+  } | null;
   readonly program: {
     readonly repositoryProvisioningEnabled: boolean;
   };
@@ -841,9 +967,12 @@ function toApplicationListItem(
       : null;
   return {
     id: row.id,
+    programId: row.programId,
     status: row.status,
     submittedAt: row.submittedAt,
     rejectionReason: row.rejectionReason,
+    repositoryConnectionMode: row.repositoryConnectionMode,
+    repositoryUrl: row.repositoryUrl,
     repositoryProvisioning: resolveRepositoryProvisioning(
       row.status,
       row.program.repositoryProvisioningEnabled,
@@ -851,6 +980,9 @@ function toApplicationListItem(
       outbox,
       job,
     ),
+    repository: row.repository
+      ? { url: row.repository.url, visibility: row.repository.visibility }
+      : null,
     isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
     participation: team ? 'TEAM' : 'INDIVIDUAL',
     applicant: {
@@ -1011,12 +1143,26 @@ function toApplicationDecisionTarget(
   return {
     id: application.id,
     programId: application.programId,
+    programName: application.program.name,
+    // applicant는 이미 위 include에서 select된 값이다(팀 신청 라벨 계산에도 쓰인다) —
+    // 추가 쿼리 없이 감사 로그 스냅샷에 그대로 흘려보낸다.
+    applicantGithubLogin: application.applicant.nickname,
     teamId: application.teamId,
     status: application.status,
     repositoryProvisioningEnabled:
       application.program.repositoryProvisioningEnabled,
     collaboratorGithubLogins: [
       ...new Set(githubLogins.map((login) => login.toLowerCase())),
+    ].sort(),
+    notificationRecipientIds: [
+      ...new Set(
+        application.team
+          ? [
+              application.team.leader.id,
+              ...application.team.members.map((member) => member.user.id),
+            ]
+          : [application.applicant.id],
+      ),
     ].sort(),
     repositoryConnectionMode: application.repositoryConnectionMode,
     repositoryUrl: application.repositoryUrl,

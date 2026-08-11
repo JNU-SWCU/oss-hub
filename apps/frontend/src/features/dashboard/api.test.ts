@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
-import { fetchStudentDashboard } from './api';
+import {
+  fetchStudentDashboard,
+  fetchUnreadApplicationDecisionNotices,
+  markApplicationDecisionNoticeRead,
+} from './api';
 import { dashboardFixture } from './fixtures';
 
 afterEach(() => {
@@ -26,32 +30,41 @@ describe('fetchStudentDashboard', () => {
     );
   });
 
-  it('accepts a pending application detail URL pointing to its apply form', async () => {
-    const item = dashboardFixture.items[0];
-    if (item === undefined) throw new Error('dashboard fixture is empty');
-    const body = {
-      items: [
-        {
-          ...item,
-          applicationStatus: 'SUBMITTED',
-          nextMilestone: null,
-          repository: null,
-          detailUrl: `/programs/${item.programId}/apply`,
-        },
-      ],
-    } as const;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(body), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
+  /**
+   * 판정이 끝나지 않았거나(`SUBMITTED`) 반려된(`REJECTED`) 신청은 신청서 화면으로 간다.
+   * 서버(`programs/service/student-dashboard.service.ts`의 `detailUrlFor`)와 한 벌인
+   * 규칙이라, 여기가 좁으면 서버가 옳은 주소를 보내도 `parseStudentDashboard` 가 던져서
+   * 그 학생의 대시보드가 통째로 오류 화면이 된다(#733).
+   */
+  it.each(['SUBMITTED', 'REJECTED'] as const)(
+    'accepts a %s application detail URL pointing to its apply form',
+    async (applicationStatus) => {
+      const item = dashboardFixture.items[0];
+      if (item === undefined) throw new Error('dashboard fixture is empty');
+      const body = {
+        items: [
+          {
+            ...item,
+            applicationStatus,
+            nextMilestone: null,
+            repository: null,
+            detailUrl: `/programs/${item.programId}/apply`,
+          },
+        ],
+      } as const;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        ),
+      );
 
-    await expect(fetchStudentDashboard()).resolves.toEqual(body);
-  });
+      await expect(fetchStudentDashboard()).resolves.toEqual(body);
+    },
+  );
   it.each([
     ['items가 배열이 아님', { items: null }],
     [
@@ -72,6 +85,35 @@ describe('fetchStudentDashboard', () => {
           {
             ...dashboardFixture.items[0],
             applicationStatus: 'SUBMITTED',
+          },
+        ],
+      },
+    ],
+    // 아래 두 줄은 반대 방향의 어긋남을 각각 막는다. 위는 예전 규칙(반려를 프로그램
+    // 상세로 보내던 것)이 되살아나는 것을, 아래는 "전부 `/apply`로" 같은 거친 수정이
+    // 승인 카드까지 신청서 화면으로 끌고 가는 것을 잡는다. detailUrl 말고는 전부
+    // 유효한 항목이라 실패 원인이 그 한 곳으로 좁혀진다.
+    [
+      '반려 신청인데 신청서 화면이 아닌 곳을 가리킴',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            applicationStatus: 'REJECTED',
+            nextMilestone: null,
+            repository: null,
+            detailUrl: `/programs/${dashboardFixture.items[0].programId}`,
+          },
+        ],
+      },
+    ],
+    [
+      '승인 신청인데 신청서 화면을 가리킴',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            detailUrl: `/programs/${dashboardFixture.items[0].programId}/apply`,
           },
         ],
       },
@@ -207,6 +249,65 @@ describe('fetchStudentDashboard', () => {
 
     await expect(fetchStudentDashboard()).rejects.toThrow(
       '학생 대시보드 응답 형식이 올바르지 않습니다.',
+    );
+  });
+});
+
+describe('application decision notices', () => {
+  const notice = {
+    id: 'notification-1',
+    applicationId: 'application-1',
+    programId: 'program-1',
+    programName: '합성 프로그램',
+    decision: 'APPROVED',
+    decidedAt: '2026-08-09T00:00:00.000Z',
+  } as const;
+
+  it('loads unread notices and marks each one read through a scoped endpoint', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([notice]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchUnreadApplicationDecisionNotices()).resolves.toEqual([
+      notice,
+    ]);
+    await expect(
+      markApplicationDecisionNoticeRead(notice.id),
+    ).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      apiPath('users/me/notifications/application-decisions'),
+      undefined,
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      apiPath(
+        'users/me/notifications/application-decisions/notification-1/read',
+      ),
+      { method: 'PATCH' },
+    );
+  });
+
+  it('rejects malformed and unsafe notice payloads', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([{ ...notice, programId: '../admin' }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(fetchUnreadApplicationDecisionNotices()).rejects.toThrow(
+      '신청 판정 알림 응답 형식이 올바르지 않습니다.',
     );
   });
 });

@@ -16,7 +16,6 @@ import {
   cellForMilestone,
   formatMatrixDueDate,
   formatSubmittedAt,
-  isLateSubmission,
   MATRIX_MODE_LABELS,
   MATRIX_CELL_DISPLAY_LABELS,
   MATRIX_CELL_DISPLAY_VARIANTS,
@@ -75,8 +74,8 @@ function MatrixCellContent({
   readonly milestone: MatrixMilestone;
   readonly now: Date;
 }): ReactElement {
-  // 저장 enum 5종을 화면 3종(제출함·지각·미제출)으로 접는다 — 이 표에서 묻는 것은
-  // 검토 단계가 아니라 제출 여부다. 검토 단계는 행의 「열어 보기」에서 본다.
+  // 최신 판정 상태를 그대로 보여 준다(QA49) — 검토 전 셀만 마감 초과 여부로
+  // 지각 제출을 가른다. 승인·보완 요청·반려는 이미 검토를 거친 결과다.
   const display = matrixCellDisplay(cell, milestone);
   const badge = (
     <StatusBadge variant={MATRIX_CELL_DISPLAY_VARIANTS[display]}>
@@ -100,14 +99,10 @@ function MatrixCellContent({
       </span>
     );
   }
-  // 제출 시각 + 지각 여부(dueAt 이후 제출) — #619 스펙("지각" 배지 + 제출 일시).
-  const late = isLateSubmission(cell, milestone);
+  // 제출 시각 + 최신 판정 배지(#619 스펙 제출 일시 유지, QA49 판정 상태 반영).
   const meta = (
     <span className="flex flex-col items-start gap-1">
-      <span className="flex flex-wrap items-center gap-1">
-        {badge}
-        {late ? <StatusBadge variant="pending">지각</StatusBadge> : null}
-      </span>
+      <span className="flex flex-wrap items-center gap-1">{badge}</span>
       {cell.submittedAt !== null ? (
         <span className="text-small text-muted-foreground">
           {formatSubmittedAt(cell.submittedAt)}
@@ -403,6 +398,7 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
         <DataTable
           className={TABLE_CARD}
           aria-describedby="matrix-scroll-hint"
+          scrollRegionLabel="마일스톤 제출 현황 표"
           columns={columns}
           data={[...quickFiltered]}
           rowKey={(row) => row.applicationId}

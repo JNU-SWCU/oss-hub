@@ -3,6 +3,7 @@ import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   checkApplicationTemplateVersion,
+  applicationAnswerTooLongMessage,
   normalizeAndValidateApplicationAnswers,
   type ApplicationAnswers,
 } from '../programs/application-answers.validator';
@@ -30,6 +31,12 @@ export interface StudentApplicationView {
   readonly submittedAt: Date;
   readonly updatedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
+  /**
+   * 반려 사유. 상태와 무관하게 **항상 키가 있고**, 반려가 아니면 `null`이다.
+   * 반려일 때만 키를 실으면 클라이언트에서 "없는 키"와 "null"이 다르게 읽혀,
+   * 사유가 아직 안 온 것인지 애초에 없는 것인지 구분할 수 없다.
+   */
+  readonly rejectionReason: string | null;
   readonly canManage: boolean;
 }
 
@@ -74,8 +81,21 @@ export class StudentApplicationManagementService {
     const answers = normalizeAndValidateApplicationAnswers(
       input.answers,
       this.resolveApplicantName(context.application),
+      'enforce-length',
     );
     if (!answers.ok) {
+      // 넘친 칸을 그대로 실어 보낸다 — 하나의 뭉뚱그린 문구만 주면 학생이 무엇을 줄일지 모른다.
+      if (answers.reason === 'TOO_LONG')
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.ANSWER_TOO_LONG],
+          {
+            fieldErrors: (answers.tooLongKeys ?? []).map((key) => ({
+              field: key,
+              code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+              message: applicationAnswerTooLongMessage(key),
+            })),
+          },
+        );
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
     const result = await this.repository.updatePendingApplication({
@@ -167,9 +187,12 @@ export class StudentApplicationManagementService {
     application: OwnedStudentApplication,
     editable: boolean,
   ): StudentApplicationView {
+    // ⚠ 읽기라 길이를 재지 않는다 — 재면 상한이 생기기 전에 저장된 긴 신청서를
+    //   학생이 **열지도 못한다**(고치라고 만든 상한이 고칠 길을 막는다).
     const answers = normalizeAndValidateApplicationAnswers(
       application.answers,
       this.resolveApplicantName(application),
+      'skip-length',
     );
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
@@ -184,6 +207,7 @@ export class StudentApplicationManagementService {
       updatedAt: application.updatedAt,
       isRepositoryPublicationPlanned:
         application.isRepositoryPublicationPlanned,
+      rejectionReason: application.rejectionReason,
       canManage: editable,
     };
   }

@@ -2,21 +2,21 @@ import type {
   CollectionPublicRankingMetricsDto,
   CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
-} from '../collection/collection-read.port';
+} from '../github/collection-read.port';
 import type {
   UserDisplayName,
   UserDisplayNameRepository,
 } from '../users/user-display-name.repository';
-import { RankingService } from './ranking.service';
+import { RankingService } from './service/ranking.service';
 
 export function activity(
   githubId: bigint,
   githubLogin: string,
   commitCount: number,
-  prCount: number,
+  pullRequestCount: number,
   releaseCount: number,
 ): CollectionPublicRankingMetricsDto {
-  return { githubId, githubLogin, commitCount, prCount, releaseCount };
+  return { githubId, githubLogin, commitCount, pullRequestCount, releaseCount };
 }
 
 export function setupRankingService(): {
@@ -26,6 +26,7 @@ export function setupRankingService(): {
     [CollectionPublicRankingMetricsQueryDto]
   >;
   readonly listPublicRankingYears: jest.Mock<Promise<readonly number[]>, []>;
+  readonly getPublicRankingDataAsOf: jest.Mock<Promise<Date | null>, []>;
   readonly findByGithubIds: jest.Mock<
     Promise<readonly UserDisplayName[]>,
     [readonly bigint[]]
@@ -38,6 +39,8 @@ export function setupRankingService(): {
   getPublicRankingMetrics.mockResolvedValue([]);
   const listPublicRankingYears = jest.fn<Promise<readonly number[]>, []>();
   listPublicRankingYears.mockResolvedValue([]);
+  const getPublicRankingDataAsOf = jest.fn<Promise<Date | null>, []>();
+  getPublicRankingDataAsOf.mockResolvedValue(null);
   const collection = {
     findRepositoryActivity: () => Promise.resolve([]),
     findRankingActivity: () => Promise.resolve([]),
@@ -46,6 +49,7 @@ export function setupRankingService(): {
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics,
     listPublicRankingYears,
+    getPublicRankingDataAsOf,
     getRepositoryCumulativeMetrics: () => Promise.resolve([]),
     getContributorCumulativeMetrics: () => Promise.resolve([]),
     getIncrementalStatusSnapshot: () =>
@@ -60,6 +64,20 @@ export function setupRankingService(): {
         oldestRetryPendingAt: null,
         lastCycleStartedAt: null,
         lastCycleCompletedAt: null,
+        dueRepositoryCount: 0,
+        failingRepositoryCount: 0,
+        lastRepositorySuccessAt: null,
+      }),
+    getIncrementalStatusStreams: () => Promise.resolve([]),
+    getNextScheduledCycleAt: () => Promise.resolve(null),
+    getRecentSweepActivity: () => Promise.resolve([]),
+    getExternalCollectionStatus: () =>
+      Promise.resolve({
+        trackedRepositoryCount: 0,
+        lastSweep: null,
+        cumulativeCommitCount: 0,
+        cumulativePullRequestCount: 0,
+        cumulativeReleaseCount: 0,
       }),
   } satisfies CollectionReadPort;
 
@@ -76,6 +94,7 @@ export function setupRankingService(): {
     service: new RankingService(collection, displayNameRepository),
     getPublicRankingMetrics,
     listPublicRankingYears,
+    getPublicRankingDataAsOf,
     findByGithubIds,
   };
 }

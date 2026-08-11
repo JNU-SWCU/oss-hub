@@ -3,7 +3,7 @@ import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
   ProgramListPage,
-} from '../programs.service';
+} from '../service/programs.service';
 
 export class ProgramListResponseDto {
   readonly id: string;
@@ -14,7 +14,7 @@ export class ProgramListResponseDto {
   readonly lifecycle: PersonalizedProgramListItem['lifecycle'];
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
-  readonly endAt: string | null;
+  readonly endAt: string;
   readonly description: string;
   /** 카드 하단 안내. 인증되지 않은 요청·개인화 대상이 아닌 뷰어는 항상 생략된다. */
   readonly note?: ProgramListItemNote;
@@ -33,7 +33,7 @@ export class ProgramListResponseDto {
     this.lifecycle = program.lifecycle;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
-    this.endAt = program.endAt ? program.endAt.toISOString() : null;
+    this.endAt = program.endAt.toISOString();
     this.description = program.description;
     this.note = program.note;
     this.viewerApplicationStatus = program.viewerApplicationStatus;

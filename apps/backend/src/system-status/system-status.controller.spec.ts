@@ -19,11 +19,49 @@ describe('SystemStatusController', () => {
         oldestRetryPendingAt: null,
         lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
         lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+        nextCycleAt: '2026-07-25T20:30:00.000Z',
         currentRunStatus: 'IDLE' as const,
         safeReason: null,
       },
       repositoryProvisioning: {
         finalFailureCount: 0,
+      },
+      collectionStreams: [
+        {
+          repositoryName: 'JNU-SWCU/alpha',
+          programName: null,
+          streams: [
+            {
+              streamType: 'COMMIT' as const,
+              bucket: 'READY' as const,
+              lastSuccessAt: '2026-07-25T10:00:00.000Z',
+              lastErrorCode: null,
+              lastErrorAt: null,
+            },
+          ],
+        },
+      ],
+      collectionActivity: [
+        {
+          sweepFinishedAt: '2026-07-25T11:00:00.000Z',
+          cycleStartedAt: '2026-07-25T10:55:00.000Z',
+          scope: 'org:JNU-SWCU',
+          insertedCommitCount: 3,
+          insertedPullRequestCount: 1,
+          insertedReleaseCount: 0,
+          attemptedRepositoryCount: 2,
+          processedRepositoryCount: 2,
+          failedRepositoryCount: 0,
+          cycleCompleted: true,
+          stoppedForBudget: false,
+        },
+      ],
+      externalCollection: {
+        trackedRepositoryCount: 0,
+        lastSweep: null,
+        cumulativeCommitCount: 0,
+        cumulativePullRequestCount: 0,
+        cumulativeReleaseCount: 0,
       },
     };
     const getStatus = jest.fn<

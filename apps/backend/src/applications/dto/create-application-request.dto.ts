@@ -35,7 +35,7 @@ export class CreateApplicationRequestDto {
   declare readonly isRepositoryPublicationPlanned?: boolean;
 
   /**
-   * 저장소 연결 방식. 미지정(구 클라이언트)은 NEW로 취급한다.
+   * 저장소 연결 방식. 프로그램의 발급 설정과 함께 service가 최종 판정한다.
    * 제출 시 1회 결정.
    */
   @IsOptional()
@@ -43,15 +43,14 @@ export class CreateApplicationRequestDto {
   declare readonly repositoryConnectionMode?: RepositoryConnectionMode;
 
   /**
-   * OWN이면 필수 https URL, NEW이면 값이 오면 거부. 미지정(구 클라이언트)은 null.
+   * OWN이면 정확한 GitHub 저장소 URL이 필수이고, NEW이면 값이 오면 거부한다.
    * 제출 시 1회 결정.
    */
   @Validate(RepositoryUrlByConnectionModeConstraint)
   declare readonly repositoryUrl?: string | null;
 
   toInput(): CreateApplicationInput {
-    const repositoryConnectionMode =
-      this.repositoryConnectionMode ?? RepositoryConnectionMode.NEW;
+    const repositoryConnectionMode = this.repositoryConnectionMode ?? null;
     const repositoryUrl =
       repositoryConnectionMode === RepositoryConnectionMode.OWN
         ? (this.repositoryUrl ?? null)

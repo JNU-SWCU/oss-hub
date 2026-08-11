@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { studentProgramSubmissionHref } from '@/lib/program-route';
+import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-files';
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_VARIANTS,
@@ -27,7 +28,6 @@ export interface SelectedMilestonePanelProps {
   readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onCloseSelected?: () => void;
   readonly onTextChange: (value: string) => void;
-  readonly onReleaseUrlChange: (value: string) => void;
   readonly onFileChange: (file: File | null) => void;
   readonly onCommentChange: (value: string) => void;
   readonly onResubmit: () => void;
@@ -87,12 +87,10 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
           <SubmissionReviewMeta submission={submission} />
           <SubmissionInput
             submissionType={item.submissionType}
-            repositoryUrl={null}
             input={props.input}
             errors={{}}
             disabled
             onTextChange={props.onTextChange}
-            onReleaseUrlChange={props.onReleaseUrlChange}
           />
           <Button type="button" disabled className="w-fit">
             검토 대기 중
@@ -139,14 +137,12 @@ function ResubmissionForm(
       >
         <SubmissionInput
           submissionType={item.submissionType}
-          repositoryUrl={null}
           input={props.input}
           errors={props.errors}
           disabled={props.submitting}
           file={props.input.file}
           fileError={props.fileError}
           onTextChange={props.onTextChange}
-          onReleaseUrlChange={props.onReleaseUrlChange}
           onFileChange={props.onFileChange}
         />
         <Field>
@@ -215,7 +211,10 @@ function PanelCard({
           </StatusBadge>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-5 break-keep">{children}</CardContent>
+      <CardContent className="grid gap-5 break-keep">
+        {children}
+        <MilestoneDocumentCurrentFiles milestoneId={item.milestoneId} />
+      </CardContent>
     </Card>
   );
 }

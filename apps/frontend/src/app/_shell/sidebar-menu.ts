@@ -126,7 +126,13 @@ export interface ProgramScopeSidebarGroup {
   readonly items: readonly ProgramScopeSidebarItem[];
 }
 
-export type ProgramScopeViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN';
+/**
+ * `GUEST`는 세션 조회가 안 끝났거나(loading) 아예 비회원(anonymous)·미배정
+ * (unassigned)·프로필 미완료인 뷰어다. 참여 팀·서류 현황·게시판 같은 회원 전용
+ * 데이터를 볼 근거가 없어 STAFF 골격으로 낮추던 과거 방식(참여 팀·서류 현황·게시판이
+ * 그대로 노출됨) 대신, `programScopeSidebarGroups`가 공개 개요 항목 하나만 돌려준다.
+ */
+export type ProgramScopeViewerRole = 'GUEST' | 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export interface ProgramScopeMilestoneDocsSummary {
   readonly milestoneId: string;
@@ -157,8 +163,14 @@ export interface ProgramScopeSidebarInput {
 /**
  * 프로그램 상세 좌측 패널 3그룹(개요/참여 팀 · 서류 현황 또는 내 제출물 · 게시판).
  * docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널 그대로 — g2 부모 라벨·자식 유무는 역할로 갈린다.
- * hrefs는 `programHref` 접미사(`/teams`, `/status`, `/mydocs`, `/board`)로 만든다 —
+ * 교직원·관리자 개요 그룹에는 **신청자**(`/applicants`)를 붙인다 — 승인·반려 창구다.
+ * 참여 팀만 두면 사이드바만 따라온 교직원이 판정 화면에 도달하지 못한다.
+ * hrefs는 `programHref` 접미사(`/teams`, `/applicants`, `/status`, `/mydocs`, `/board`)로 만든다 —
  * 해당 라우트가 아직 없다면 이 함수 하나만 고치면 된다(docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널).
+ *
+ * `GUEST`는 예외다 — 참여 팀·신청자·서류 현황·게시판 전부 회원 전용 데이터라 근거 없이 보여줄
+ * 수 없다(QA46). 개요 그룹의 "프로그램 개요" 항목 하나만 돌려주고 나머지 두 그룹은
+ * 아예 만들지 않는다.
  */
 export function programScopeSidebarGroups(
   input: ProgramScopeSidebarInput,
@@ -171,25 +183,53 @@ export function programScopeSidebarGroups(
     viewerDocuments,
     milestoneDocuments = [],
   } = input;
+
+  if (viewerRole === 'GUEST') {
+    return [
+      {
+        label: '프로그램',
+        items: [
+          {
+            label: '프로그램 개요',
+            href: programHref(programId),
+            icon: 'home',
+            depth: 0,
+          },
+        ],
+      },
+    ];
+  }
+
   const isStaffView = viewerRole !== 'STUDENT';
+
+  const overviewItems: ProgramScopeSidebarItem[] = [
+    {
+      label: '프로그램 개요',
+      href: programHref(programId),
+      icon: 'home',
+      depth: 0,
+    },
+    {
+      label: '참여 팀',
+      href: programHref(programId, '/teams'),
+      icon: 'people',
+      depth: 0,
+      count: String(teamCount),
+    },
+  ];
+  // 승인·반려는 `/applicants`에만 있다. 학생에게는 권한도 UI도 없으므로 숨긴다.
+  if (isStaffView) {
+    overviewItems.push({
+      label: '신청자',
+      href: programHref(programId, '/applicants'),
+      icon: 'list',
+      depth: 0,
+    });
+  }
 
   const overviewGroup: ProgramScopeSidebarGroup = {
     label: '프로그램',
-    items: [
-      {
-        label: '프로그램 개요',
-        href: programHref(programId),
-        icon: 'home',
-        depth: 0,
-      },
-      {
-        label: '참여 팀',
-        href: programHref(programId, '/teams'),
-        icon: 'people',
-        depth: 0,
-        count: String(teamCount),
-      },
-    ],
+    items: overviewItems,
   };
 
   const documentsParent: ProgramScopeSidebarItem = isStaffView
@@ -412,7 +452,13 @@ export function isCurrentSidebarItem(
       hrefQuery === ''
         ? 'all'
         : (new URLSearchParams(hrefQuery).get(spec.param) ?? 'all');
-    const have = new URLSearchParams(search).get(spec.param) ?? 'all';
+    // 랭킹은 `year` 부재를 **올해**로 읽는다(ADR-010 §1, `parseRankingYearSearchParam`).
+    // 여기서만 `all` 로 읽으면 `/ranking` 에서 「전체」가 강조된 채 올해 수치가 뜬다 —
+    // 같은 「전체」 링크가 어디서 왔느냐에 따라 다른 표를 보이게 된다.
+    const missingYearFallback =
+      facetSection === 'ranking' ? String(new Date().getFullYear()) : 'all';
+    const have =
+      new URLSearchParams(search).get(spec.param) ?? missingYearFallback;
     // 아카이브 목록: category 키 부재를 all 과 동일 취급 (기존 계약)
     if (facetSection === 'archive') {
       return want === have || (want === 'all' && !search.includes('category='));

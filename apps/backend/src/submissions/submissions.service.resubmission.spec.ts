@@ -34,7 +34,6 @@ function target(
     currentRevision: 1,
     submissionType: MilestoneSubmissionType.TEXT,
     applicationStatus: ApplicationStatus.APPROVED,
-    repositoryUrl: null,
     dueAt: new Date('2027-01-01T00:00:00.000Z'),
     ...overrides,
   };
@@ -231,6 +230,18 @@ it('마감 전 SUBMITTED 제출물은 새 revision으로 교체한다', async ()
   );
 });
 
+it('마감 시각과 정확히 같은 SUBMITTED 제출물은 새 revision으로 교체한다', async () => {
+  const dueAt = new Date('2026-08-08T12:00:00.000Z');
+  const { service, createSubmissionRevision } = buildService({
+    target: target({ status: SubmissionStatus.SUBMITTED, dueAt }),
+  });
+
+  await expect(
+    service.resubmit(githubId, submissionId, textInput, dueAt),
+  ).resolves.toMatchObject({ revision: 2, status: SubmissionStatus.SUBMITTED });
+  expect(createSubmissionRevision).toHaveBeenCalled();
+});
+
 it('REJECTED 제출물은 마감 전에도 교체할 수 없다', async () => {
   const { service, createSubmissionRevision } = buildService({
     target: target({ status: SubmissionStatus.REJECTED }),
@@ -277,7 +288,7 @@ it('마일스톤 지정 유형과 content.type이 다르면 422 CONTENT_TYPE_MIS
   // Given
   const { service } = buildService({
     target: target({
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      submissionType: MilestoneSubmissionType.FILE,
     }),
   });
 
@@ -320,42 +331,6 @@ it('FILE 유형 재제출은 replacement fileId로 새 revision을 만든다', a
       fileExpiresAt: new Date('2028-01-01T00:00:00.000Z'),
     }),
   );
-});
-
-it('REPOSITORY_RELEASE는 #115와 동일한 저장소·release URL 검증을 통과해야 한다', async () => {
-  // Given
-  const releaseInput: ResubmitSubmissionInput = {
-    ...textInput,
-    content: {
-      type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-      releaseUrl: 'https://github.invalid/other-org/other-repo/releases/tag/v2',
-    },
-  };
-  const noRepository = buildService({
-    target: target({
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
-    }),
-  });
-  const unlinked = buildService({
-    target: target({
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
-      repositoryUrl: 'https://github.invalid/oss-hub-seed/repository-ready',
-    }),
-  });
-
-  // When & Then
-  await expect(
-    noRepository.service.resubmit(githubId, submissionId, releaseInput),
-  ).rejects.toMatchObject({
-    errorCode: { code: SubmissionsErrorCode.REPOSITORY_NOT_READY },
-  });
-  await expect(
-    unlinked.service.resubmit(githubId, submissionId, releaseInput),
-  ).rejects.toMatchObject({
-    errorCode: {
-      code: SubmissionsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
-    },
-  });
 });
 
 it('존재하지 않는 제출은 404, 남의 제출은 403으로 구분한다', async () => {

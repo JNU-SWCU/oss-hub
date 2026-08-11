@@ -47,11 +47,11 @@ const baseViewProps = {
   onRoleChange: noOp,
   onAccountStatusChange: noOp,
   onPendingRequestChange: noOp,
-  onSortChange: noOp,
-  onDirectionToggle: noOp,
+  onSortToggle: noOp,
   onPageChange: noOp,
   onRetry: noOp,
   onResetFilters: noOp,
+  onRowClick: noOp,
 };
 
 describe('buildAdminAccessListParams — 필터/정렬/페이지 상태를 어댑터 query로 변환한다', () => {
@@ -174,7 +174,7 @@ describe('AdminAccessView — 읽기 전용 접근 목록 화면', () => {
     expect(html).toContain('기록 없음');
   });
 
-  it('필터·정렬 선택 값과 정렬 방향 토글 라벨이 현재 상태를 반영한다', () => {
+  it('필터 선택 값과 정렬 상태가 현재 상태를 반영한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessView
         {...baseViewProps}
@@ -187,15 +187,38 @@ describe('AdminAccessView — 읽기 전용 접근 목록 화면', () => {
     );
 
     expect(html).toContain('data-slot="select-trigger"');
-    expect(html).toContain('내림차순');
+    expect(html).toMatch(
+      /<th[^>]*aria-sort="descending"[^>]*>[\s\S]*?마지막 로그인/,
+    );
   });
 
-  it('오름차순 상태에서는 오름차순 토글 라벨을 표시한다', () => {
+  it('오름차순 상태에서는 정렬 중인 컬럼의 th에 aria-sort="ascending"을 표시한다', () => {
     const html = renderToStaticMarkup(
-      <AdminAccessView {...baseViewProps} direction="asc" />,
+      <AdminAccessView {...baseViewProps} sort="name" direction="asc" />,
     );
 
-    expect(html).toContain('오름차순');
+    expect(html).toMatch(/<th[^>]*aria-sort="ascending"[^>]*>[\s\S]*?사용자/);
+  });
+
+  it('상세로 이동하는 셰브런 컬럼을 마지막 컬럼으로 렌더링한다', () => {
+    const html = renderToStaticMarkup(<AdminAccessView {...baseViewProps} />);
+
+    expect(html).toContain('상세');
+  });
+
+  it('요청 대기 Select는 더 이상 렌더링하지 않는다', () => {
+    const html = renderToStaticMarkup(<AdminAccessView {...baseViewProps} />);
+
+    expect(html).not.toContain('id="admin-access-pending-filter"');
+    expect(html).not.toContain('요청 없음');
+    expect(html).not.toContain('대기 중');
+  });
+
+  it('정렬 기준 Select와 정렬 방향 토글 버튼은 더 이상 렌더링하지 않는다', () => {
+    const html = renderToStaticMarkup(<AdminAccessView {...baseViewProps} />);
+
+    expect(html).not.toContain('id="admin-access-sort-field"');
+    expect(html).not.toContain('가입일');
   });
 
   it('첫 페이지에서는 이전 페이지 이동을 비활성화한다', () => {
@@ -284,5 +307,36 @@ describe('AdminAccessView — 읽기 전용 접근 목록 화면', () => {
 
     expect(html).toContain('검색 결과가 없습니다');
     expect(html).toContain('필터 초기화');
+  });
+
+  it('요청함 탭에서 필터 없이 0건이면 대기 없음 안내를 표시하고 필터 초기화는 없다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        items={[]}
+        total={0}
+        pendingRequest="PENDING"
+      />,
+    );
+
+    expect(html).toContain('승인 대기 중인 요청이 없습니다');
+    expect(html).not.toContain('검색 결과가 없습니다');
+    expect(html).not.toContain('필터 초기화');
+  });
+
+  it('요청함 탭이라도 검색어 필터가 걸려 있으면 기존 검색 실패 안내를 유지한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        items={[]}
+        total={0}
+        pendingRequest="PENDING"
+        query="없음"
+      />,
+    );
+
+    expect(html).toContain('검색 결과가 없습니다');
+    expect(html).toContain('필터 초기화');
+    expect(html).not.toContain('승인 대기 중인 요청이 없습니다');
   });
 });

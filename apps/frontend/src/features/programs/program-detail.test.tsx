@@ -74,7 +74,9 @@ describe('MilestoneRow', () => {
       />,
     );
     expect(html).toContain('다시 제출');
-    expect(html).toContain('/programs/program-1?submission=milestone-1');
+    expect(html).toContain(
+      '/programs/program-1/mydocs?milestoneId=milestone-1',
+    );
     expect(html).not.toContain('/milestones/milestone-1/submit');
   });
   it('교직원에게 제출 요약은 표시하되 미구현 #124 경로는 노출하지 않는다', () => {
@@ -179,6 +181,7 @@ const programWithoutMilestones: ProgramDetail = {
   organizer: '운영기관',
   category: 'OSS_CONTEST',
   description: '프로그램 설명',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00+09:00',
     endsAt: '2026-08-31T23:59:59+09:00',
@@ -327,10 +330,12 @@ describe('ProgramFactBar', () => {
     expect(html).toContain('연결된 저장소');
     expect(html).toContain('내 제출');
     expect(html).toContain('2 / 5 서류');
-    expect(html).not.toContain('제출률');
+    expect(html).not.toContain('이번 마일스톤 완주율');
   });
 
-  it('교직원에게는 내 제출 대신 참여자 기준 제출률을 보여준다', () => {
+  // QA47 — "제출률"만으로는 마일스톤 카드·매트릭스와 다른 숫자가 나오는
+  // 이유를 알 수 없었다. 라벨과 캡션으로 측정 범위(현재 마일스톤)를 명시한다.
+  it('교직원에게는 내 제출 대신 이번 마일스톤 완주율과 측정 기준 캡션을 보여준다', () => {
     const html = renderToStaticMarkup(
       <ProgramFactBar
         program={programWithoutMilestones}
@@ -342,8 +347,9 @@ describe('ProgramFactBar', () => {
         }}
       />,
     );
-    expect(html).toContain('제출률');
+    expect(html).toContain('이번 마일스톤 완주율');
     expect(html).toContain('30% (3/10)');
+    expect(html).toContain('현재 마일스톤 필수 서류를 모두 제출한 참여자 기준');
     expect(html).not.toContain('내 제출');
   });
 });
@@ -370,8 +376,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'loading' }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toBe('');
@@ -383,8 +391,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'failed' }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toContain('제출 서류를 불러오지 못했습니다');
@@ -397,8 +407,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'ready', documents: [] }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toBe('');
@@ -418,8 +430,10 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STAFF"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toContain('2 / 4팀 제출');
@@ -427,7 +441,12 @@ describe('MilestoneDocumentSectionBody', () => {
     expect(html).not.toContain('양식 올리기');
   });
 
-  it('학생에게는 제출 상태와 제출/재제출 버튼을 보여준다', () => {
+  /**
+   * 배지 문구가 「제출함」에서 판정 기준 라벨로 바뀌었다(2026-08 서류 판정). 아직 아무도
+   * 보지 않은 제출은 「검토 대기」다 — 낸 것과 승인된 것을 같은 말로 부르지 않는다.
+   * 제출 시각은 배지에서 떼어 옆에 남는다.
+   */
+  it('학생에게는 검토 대기 배지와 제출 시각, 재제출 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
         state={{
@@ -437,17 +456,22 @@ describe('MilestoneDocumentSectionBody', () => {
               viewerSubmission: {
                 submitted: true,
                 submittedAt: '2026-08-01T05:22:00.000Z',
+                status: 'SUBMITTED',
+                review: null,
               },
             }),
           ],
         }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
-    expect(html).toContain('제출함');
+    expect(html).toContain('검토 대기');
+    expect(html).toContain('08.01 14:22 제출');
     expect(html).toContain('수정');
     expect(html).toContain('제출 1/1 완료');
   });
@@ -458,8 +482,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'ready', documents: [buildDocument()] }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toContain('미제출');

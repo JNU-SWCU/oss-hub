@@ -1,5 +1,6 @@
 import type {
   ApplicationMode,
+  PublishBlockedReason,
   ReviewDecision,
   SubmissionRevision,
 } from './types';
@@ -23,20 +24,33 @@ const APPLICATION_MODE_LABELS = {
   TEAM: '팀',
 } as const satisfies Readonly<Record<ApplicationMode, string>>;
 
-const BLOCKED_REASON_LABELS: Readonly<Record<string, string>> = {
-  REQUIRED_MILESTONES_NOT_APPROVED: '모든 필수 마일스톤의 승인이 필요합니다.',
+/**
+ * 서버가 거절하는 네 게이트를 교직원이 읽을 수 있는 말로 옮긴다.
+ * `satisfies`가 완전성을 강제한다 — 사유가 늘면 문구를 주기 전까지 컴파일되지 않는다.
+ */
+const BLOCKED_REASON_LABELS = {
   REPOSITORY_NOT_READY:
     '저장소 생성이 아직 끝나지 않았습니다. 생성이 끝난 뒤 이 화면을 새로고침해 주세요.',
-};
+  REPOSITORY_PUBLICATION_NOT_PLANNED:
+    '이 신청은 저장소 공개 예정이 "아니요"입니다. 제출 이후에는 바꿀 수 없어 이 저장소는 공개 대상이 아닙니다.',
+  PROGRAM_NOT_ENDED:
+    '프로그램이 아직 종료되지 않아 공개할 수 없습니다. 프로그램 설정에서 종료일을 확인해 주세요 — 종료일이 비어 있으면 종료되지 않은 것으로 봅니다.',
+  REQUIRED_MILESTONES_NOT_APPROVED: '모든 필수 마일스톤의 승인이 필요합니다.',
+} as const satisfies Readonly<Record<PublishBlockedReason, string>>;
 
 export function applicationModeLabel(mode: ApplicationMode): string {
   return APPLICATION_MODE_LABELS[mode];
 }
 
+/**
+ * 서버가 새 사유를 먼저 내보내도 화면이 빈칸을 보이지 않도록 `string`을 받고 fallback을 둔다.
+ */
 export function blockedReasonLabel(reason: string): string {
+  const labels: Readonly<Record<string, string | undefined>> =
+    BLOCKED_REASON_LABELS;
   return (
-    BLOCKED_REASON_LABELS[reason] ??
-    '모든 필수 마일스톤을 승인하고 저장소 생성 상태를 확인한 뒤 다시 공개해 주세요.'
+    labels[reason] ??
+    '아직 공개 조건을 충족하지 않았습니다. 저장소 생성 상태·저장소 공개 예정 여부·프로그램 종료일·필수 마일스톤 승인을 확인해 주세요.'
   );
 }
 
@@ -48,9 +62,45 @@ export function formatReviewDate(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * 서버 계약은 `{type:'TEXT', text}` | `{type:'FILE', fileId}`뿐이지만, 네트워크를
+ * 건너온 값은 컴파일 타임 타입을 보장하지 않는다. 그래서 여기서는 `unknown`으로
+ * 다시 좁혀 검증한다 — 예전에는 여기서 걸러지지 않은 값이 그대로
+ * `JSON.stringify`로 화면에 새 나갔다(교직원이 raw JSON을 보던 결함).
+ */
 export function revisionContent(revision: SubmissionRevision): string {
-  if (typeof revision.content === 'string') return revision.content;
-  return JSON.stringify(revision.content, null, 2) ?? '제출 내용이 없습니다.';
+  const content: unknown = revision.content;
+  if (typeof content === 'string') return content;
+  if (isTextContent(content)) return content.text;
+  if (isFileContent(content)) return '';
+  return '제출 내용을 표시할 수 없습니다.';
+}
+
+/** FILE 유형인데 첨부가 비어 있는지 — RevisionCard가 '파일 제출' 안내로 대신할지 판단하는 근거. */
+export function isFileOnlyRevision(revision: SubmissionRevision): boolean {
+  return isFileContent(revision.content);
+}
+
+function isTextContent(
+  value: unknown,
+): value is { readonly type: 'TEXT'; readonly text: string } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'type' in value &&
+    value.type === 'TEXT' &&
+    'text' in value &&
+    typeof value.text === 'string'
+  );
+}
+
+function isFileContent(value: unknown): value is { readonly type: 'FILE' } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'type' in value &&
+    value.type === 'FILE'
+  );
 }
 
 export function revisionLinks(revision: SubmissionRevision): readonly string[] {

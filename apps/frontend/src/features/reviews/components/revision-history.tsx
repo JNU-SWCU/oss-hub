@@ -12,6 +12,7 @@ import {
 import {
   DECISION_PRESENTATION,
   formatReviewDate,
+  isFileOnlyRevision,
   revisionContent,
   revisionLinks,
 } from '../review-format';
@@ -50,6 +51,13 @@ export function RevisionCard({
   readonly current?: boolean;
 }) {
   const links = revisionLinks(revision);
+  const contentText = revisionContent(revision);
+  // FILE 유형인데 첨부가 비어 있으면(보존 기한 만료 등) 보여 줄 본문 텍스트가 없다 —
+  // 빈 <pre>를 그리는 대신 제출 자체는 있었다는 사실을 짧게 알린다.
+  const showFileOnlyNotice =
+    contentText === '' &&
+    isFileOnlyRevision(revision) &&
+    revision.files.length === 0;
   return (
     <Card size={current ? 'default' : 'sm'}>
       <CardHeader className="border-b border-border">
@@ -61,12 +69,17 @@ export function RevisionCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="grid gap-1">
-          <h3 className="text-sm font-medium">제출 내용</h3>
-          <pre className="max-w-full overflow-x-auto rounded-lg bg-muted p-3 text-sm whitespace-pre-wrap break-words [word-break:keep-all]">
-            {revisionContent(revision)}
-          </pre>
-        </div>
+        {contentText !== '' ? (
+          <div className="grid gap-1">
+            <h3 className="text-sm font-medium">제출 내용</h3>
+            <pre className="max-w-full overflow-x-auto rounded-lg bg-muted p-3 text-sm whitespace-pre-wrap break-words [word-break:keep-all]">
+              {contentText}
+            </pre>
+          </div>
+        ) : null}
+        {showFileOnlyNotice ? (
+          <p className="text-sm text-muted-foreground">파일 제출</p>
+        ) : null}
         {links.length > 0 ? (
           <div className="grid gap-1">
             <h3 className="text-sm font-medium">제출 링크</h3>

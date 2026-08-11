@@ -17,6 +17,7 @@ import { loginLandingUrl } from './domain/login-landing';
 import {
   flowCookieName,
   parseCookies,
+  serializeClearedSessionCookie,
   serializeCookie,
   sessionCookieName,
 } from './cookies';
@@ -205,13 +206,9 @@ export class AuthController {
   }
 
   private clearSessionCookie(res: Response): void {
-    const secure = this.config.useSecureCookies;
     res.setHeader(
       'Set-Cookie',
-      serializeCookie(sessionCookieName(secure), '', {
-        maxAgeSeconds: 0,
-        secure,
-      }),
+      serializeClearedSessionCookie(this.config.useSecureCookies),
     );
   }
 

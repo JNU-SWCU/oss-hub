@@ -122,6 +122,9 @@ describe('ApplicationsService integration', () => {
   });
 
   afterEach(async () => {
+    await prisma.notification.deleteMany({
+      where: { type: 'APPLICATION_DECISION' },
+    });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
@@ -193,6 +196,8 @@ describe('ApplicationsService integration', () => {
         description: 'synthetic-description',
         teamMinSize: 2,
         teamMaxSize: 4,
+        // 저장소 연결 게이트(APP_026)를 지나 min-size 검사에 도달하도록 활성화한다.
+        repositoryProvisioningEnabled: true,
       },
     });
 
@@ -277,8 +282,30 @@ describe('ApplicationsService integration', () => {
       action: 'APPLICATION_APPROVED',
     });
     expect(auditLog.metadata).toMatchObject({
-      schemaVersion: 1,
+      // #736 — 감사 로그 target 라벨이 cuid 대신 프로그램 이름·신청자 핸들을
+      // 보여줄 수 있도록 판정 시점 스냅샷을 남긴다(schemaVersion 2).
+      schemaVersion: 2,
+      programName: `program-${applicationId}`,
+      applicantGithubLogin: 'Synthetic-Applicant',
       after: { status: ApplicationStatus.APPROVED },
+    });
+    const notification = await prisma.notification.findFirstOrThrow({
+      where: {
+        userId: APPLICANT_ID,
+        type: 'APPLICATION_DECISION',
+        status: 'UNREAD',
+      },
+    });
+    expect(notification).toMatchObject({
+      channel: 'IN_APP',
+      payload: {
+        schemaVersion: 1,
+        applicationId,
+        programId: `${applicationId}-program`,
+        programName: `program-${applicationId}`,
+        decision: ApplicationStatus.APPROVED,
+        decidedAt: application.processedAt?.toISOString(),
+      },
     });
   });
 
@@ -338,6 +365,11 @@ describe('ApplicationsService integration', () => {
       teamId,
       collaboratorGithubLogins: ['synthetic-applicant', 'synthetic-staff'],
     });
+    await expect(
+      prisma.notification.count({
+        where: { type: 'APPLICATION_DECISION' },
+      }),
+    ).resolves.toBe(2);
   });
 
   it('반려는 사유를 저장하고 outbox를 만들지 않는다', async () => {
@@ -364,6 +396,13 @@ describe('ApplicationsService integration', () => {
     await expect(
       prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
     ).resolves.toBe(0);
+    const rejectedNotification = await prisma.notification.findFirstOrThrow({
+      where: { userId: APPLICANT_ID, type: 'APPLICATION_DECISION' },
+    });
+    expect(rejectedNotification.payload).toMatchObject({
+      applicationId,
+      decision: ApplicationStatus.REJECTED,
+    });
   });
 
   it('동시 승인은 상태와 idempotencyKey 기준 이벤트 한 건으로 수렴한다', async () => {
@@ -495,6 +534,8 @@ describe('ApplicationsService integration', () => {
               await decisionGate;
               return store.transitionApplication(input);
             },
+            createApplicationDecisionNotifications: (input) =>
+              store.createApplicationDecisionNotifications(input),
             createRepositoryProvisionEvent: (input) =>
               store.createRepositoryProvisionEvent(input),
           }),
@@ -541,20 +582,40 @@ describe('ApplicationsService integration', () => {
     });
   });
 
-  it('판정 트랜잭션 실패는 전용 500을 반환하고 상태와 outbox를 롤백한다', async () => {
+  it('알림 기록 뒤 판정 트랜잭션 실패는 상태·감사·알림을 모두 롤백한다', async () => {
     // Given
     const applicationId = APPLICATION_IDS[7];
     await createApplication(applicationId, true);
+    const originalWithTransaction = repository.withTransaction.bind(repository);
+    jest
+      .spyOn(repository, 'withTransaction')
+      .mockImplementationOnce((operation) =>
+        originalWithTransaction((store) =>
+          operation({
+            auditLogWriter: store.auditLogWriter,
+            findApplicationById: (id) => store.findApplicationById(id),
+            discardRepositoryProvisionRequest: (id) =>
+              store.discardRepositoryProvisionRequest(id),
+            findRepositoryProvisionJob: (id) =>
+              store.findRepositoryProvisionJob(id),
+            findRepositoryProvisionEvent: (key) =>
+              store.findRepositoryProvisionEvent(key),
+            transitionApplication: (input) =>
+              store.transitionApplication(input),
+            createApplicationDecisionNotifications: async (input) => {
+              await store.createApplicationDecisionNotifications(input);
+              throw new Error('synthetic post-notification failure');
+            },
+            createRepositoryProvisionEvent: (input) =>
+              store.createRepositoryProvisionEvent(input),
+          }),
+        ),
+      );
 
     // When
-    const decision = service.decide(
-      'synthetic-missing-actor',
-      applicationId,
-      ACTOR_GITHUB_ID,
-      {
-        action: APPLICATION_DECISION_ACTIONS.APPROVE,
-      },
-    );
+    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     // Then
     await expect(decision).rejects.toMatchObject({
@@ -568,6 +629,14 @@ describe('ApplicationsService integration', () => {
     ).resolves.toMatchObject({ status: ApplicationStatus.SUBMITTED });
     await expect(
       prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.notification.count({ where: { type: 'APPLICATION_DECISION' } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.auditLog.count({
+        where: { targetType: 'APPLICATION', targetId: applicationId },
+      }),
     ).resolves.toBe(0);
   });
 });

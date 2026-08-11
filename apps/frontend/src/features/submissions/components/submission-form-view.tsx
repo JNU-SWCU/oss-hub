@@ -18,13 +18,11 @@ import { SubmissionInput } from './submission-input';
 export const TYPE_LABELS = {
   FILE: '파일',
   TEXT: '텍스트',
-  REPOSITORY_RELEASE: '저장소 태그·릴리스',
 } as const satisfies Readonly<Record<SubmissionType, string>>;
 
 const BLOCKED_MESSAGES = {
   SUBMISSION_ALREADY_EXISTS: '이미 최초 제출을 완료했습니다.',
   MILESTONE_CLOSED: '마감된 마일스톤입니다.',
-  REPOSITORY_NOT_READY: '저장소 생성 중입니다. 잠시 후 새로고침해 주세요.',
   FILE_UPLOAD_UNAVAILABLE:
     '이 마일스톤에는 현재 파일을 제출할 수 없습니다. 담당 교직원에게 다른 제출 방법을 문의해 주세요.',
 } as const satisfies Readonly<Record<SubmissionBlockedReason, string>>;
@@ -41,11 +39,9 @@ export interface SubmissionFormViewProps {
   readonly fileError: string | null;
   readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;
-  readonly onReleaseUrlChange: (value: string) => void;
   readonly onFileChange: (file: File | null) => void;
   readonly onCommentChange: (value: string) => void;
   readonly onSubmit: () => void;
-  readonly onReload: () => void;
   readonly onCancel: () => void;
 }
 
@@ -76,10 +72,6 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                 <Link href={data.existingSubmission.checklistUrl}>
                   제출 내용 확인
                 </Link>
-              </Button>
-            ) : data.blockedReason === 'REPOSITORY_NOT_READY' ? (
-              <Button type="button" onClick={props.onReload}>
-                새로고침
               </Button>
             ) : null}
             <Button type="button" variant="outline" onClick={props.onCancel}>
@@ -120,14 +112,12 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
             <CardContent className="grid min-w-0 gap-5">
               <SubmissionInput
                 submissionType={data.milestone.submissionType}
-                repositoryUrl={data.repository?.url ?? null}
                 input={props.input}
                 errors={props.errors}
                 file={props.file}
                 fileError={props.fileError}
                 disabled={props.submitting}
                 onTextChange={props.onTextChange}
-                onReleaseUrlChange={props.onReleaseUrlChange}
                 onFileChange={props.onFileChange}
               />
               <Field>

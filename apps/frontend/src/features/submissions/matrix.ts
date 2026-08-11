@@ -17,37 +17,51 @@ export interface MatrixQueryInput {
 }
 
 /**
- * 서류 현황 표의 칸은 저장 enum 5종을 **화면 3종으로 접어** 보여 준다
- * (`docs/design.md` §업무 화면 내비게이션 › 서류 현황 표).
- * 교직원이 이 표에서 묻는 것은 "냈나 / 늦게 냈나 / 안 냈나"이지 검토 단계가 아니다.
- * 검토 단계는 행의 「열어 보기」로 들어가 리뷰 화면에서 본다.
+ * 서류 현황 표의 칸은 최신 판정 상태를 그대로 보여 준다
+ * (`docs/design.md` §업무 화면 내비게이션 › 서류 현황 표, QA49).
+ * 이전에는 저장 enum 5종을 화면 3종(제출함/지각/미제출)으로 접었지만,
+ * 그러면 승인·보완 요청·반려가 모두 "제출함"으로 뭉개져 실제 판정 상태를 가렸다.
+ * 검토 전(SUBMITTED) 셀만 마감 초과 여부로 지각 제출을 가른다(`isLateSubmission`).
  */
 export const MATRIX_CELL_DISPLAY_LABELS = {
-  SUBMITTED: '제출함',
-  LATE: '지각',
   NOT_SUBMITTED: '미제출',
+  SUBMITTED: '검토 대기',
+  LATE: '지각 제출',
+  APPROVED: '승인',
+  CHANGES_REQUESTED: '보완 요청',
+  REJECTED: '반려',
 } as const;
 
 export type MatrixCellDisplay = keyof typeof MATRIX_CELL_DISPLAY_LABELS;
 
 export const MATRIX_CELL_DISPLAY_VARIANTS = {
-  SUBMITTED: 'approved',
+  NOT_SUBMITTED: 'closed',
+  SUBMITTED: 'recruiting',
   LATE: 'pending',
-  NOT_SUBMITTED: 'rejected',
+  APPROVED: 'approved',
+  CHANGES_REQUESTED: 'pending',
+  REJECTED: 'rejected',
 } as const satisfies Readonly<
-  Record<MatrixCellDisplay, 'pending' | 'approved' | 'rejected'>
+  Record<
+    MatrixCellDisplay,
+    'closed' | 'recruiting' | 'approved' | 'pending' | 'rejected'
+  >
 >;
 
 /**
- * 저장 enum + 마감 시각을 화면 3종으로 접는다. 빈칸이 곧 미제출이고,
- * 낸 뒤 마감을 넘긴 것은 지각으로 가른다(`isLateSubmission`이 판정 근거).
+ * 저장 enum을 화면에 그대로 옮기되, 검토 전(SUBMITTED) 셀만 마감 시각과
+ * 비교해 지각 제출인지 가른다(`isLateSubmission`이 판정 근거). 승인·보완
+ * 요청·반려는 이미 검토를 거친 결과이므로 지각 여부를 다시 덧붙이지 않는다.
  */
 export function matrixCellDisplay(
   cell: MatrixCell,
   milestone: MatrixMilestone,
 ): MatrixCellDisplay {
   if (cell.status === 'NOT_SUBMITTED') return 'NOT_SUBMITTED';
-  return isLateSubmission(cell, milestone) ? 'LATE' : 'SUBMITTED';
+  if (cell.status === 'SUBMITTED') {
+    return isLateSubmission(cell, milestone) ? 'LATE' : 'SUBMITTED';
+  }
+  return cell.status;
 }
 
 export const MATRIX_MODE_LABELS = {

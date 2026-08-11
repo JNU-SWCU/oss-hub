@@ -17,6 +17,7 @@ const CAPSTONE_DETAIL = {
   category: 'CAPSTONE',
   description:
     '학생이 팀 프로젝트를 오픈소스 저장소로 운영하고, 마일스톤별 산출물과 활동 기록을 제출하는 합성 검토용 프로그램입니다.',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000+09:00',
     endsAt: '2026-07-15T23:59:59.000+09:00',
@@ -47,12 +48,12 @@ const CAPSTONE_DETAIL = {
     },
     {
       id: 'milestones-revision',
-      name: '최종 릴리스',
+      name: '최종 결과 요약',
       dueAt: '2026-08-10T23:59:59.000+09:00',
       dDay: 10,
       deadlineLabel: 'D-10',
-      description: '연결된 저장소의 최종 릴리스와 변경 내역을 확인합니다.',
-      submissionType: 'REPOSITORY_RELEASE',
+      description: '최종 결과와 변경 내역을 글로 정리합니다.',
+      submissionType: 'TEXT',
       viewerSubmissionStatus: 'CHANGES_REQUESTED',
       applicationSubmissionSummary: null,
     },
@@ -66,6 +67,7 @@ const CONTEST_DETAIL = {
   category: 'OSS_CONTEST',
   description:
     '팀별 저장소에서 개발 과정을 기록하고 예선·본선 결과물을 제출하는 합성 검토용 경진대회입니다.',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000+09:00',
     endsAt: '2026-07-10T23:59:59.000+09:00',
@@ -79,7 +81,7 @@ const CONTEST_DETAIL = {
       dDay: -11,
       deadlineLabel: '마감 지남',
       description: '예선 심사용 구현 결과와 실행 방법을 제출합니다.',
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       viewerSubmissionStatus: 'CHANGES_REQUESTED',
       applicationSubmissionSummary: null,
     },
@@ -151,16 +153,16 @@ const CAPSTONE_CHECKLIST = {
     },
     {
       milestoneId: 'milestones-revision',
-      name: '최종 릴리스',
+      name: '최종 결과 요약',
       dueAt: '2026-08-10T23:59:59.000+09:00',
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       submission: {
         id: 'submission-revision',
         status: 'CHANGES_REQUESTED',
         decision: 'CHANGES_REQUESTED',
         currentRevision: 1,
         lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
-        reviewComment: '릴리스 노트에 실행 환경과 변경 내역을 추가해 주세요.',
+        reviewComment: '실행 환경과 변경 내역을 추가해 주세요.',
         canResubmit: true,
         // 본문만 낸 제출이라 첨부는 없다.
         file: null,
@@ -177,14 +179,14 @@ const CONTEST_CHECKLIST = {
       milestoneId: 'milestones-overdue',
       name: '예선 결과물',
       dueAt: '2026-07-20T23:59:59.000+09:00',
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       submission: {
         id: 'submission-contest-revision',
         status: 'CHANGES_REQUESTED',
         decision: 'CHANGES_REQUESTED',
         currentRevision: 2,
         lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
-        reviewComment: '재현 순서와 테스트 결과를 릴리스 노트에 보완해 주세요.',
+        reviewComment: '재현 순서와 테스트 결과를 보완해 주세요.',
         canResubmit: true,
         // 본문만 낸 제출이라 첨부는 없다.
         file: null,
@@ -213,7 +215,6 @@ const CAPSTONE_SUBMISSION_FORM = {
     instructions:
       '[로컬 검토용] 제출 화면의 안내와 차단 상태만 확인합니다. 실제 제출 데이터는 저장되지 않습니다.',
   },
-  repository: null,
   existingSubmission: null,
   canSubmit: false,
   blockedReason: 'MILESTONE_CLOSED',
@@ -232,7 +233,6 @@ const CONTEST_SUBMISSION_FORM = {
     instructions:
       '[로컬 검토용] 파일 제출 안내만 확인합니다. 로컬 검토 환경에서는 실제 업로드와 저장을 실행하지 않습니다.',
   },
-  repository: null,
   existingSubmission: null,
   canSubmit: false,
   blockedReason: 'FILE_UPLOAD_UNAVAILABLE',

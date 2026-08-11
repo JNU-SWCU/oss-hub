@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
+import { hasProgramDeadlinePassed } from '../programs/program-deadline';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
@@ -105,6 +106,7 @@ export class SubmissionFilesService {
     if (authorization.submissionType !== MilestoneSubmissionType.FILE) {
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
     }
+    const now = new Date();
     if (resubmissionContext !== null) {
       // 교체 허용 조건은 submissions.service.ts 의 assertResubmittable 과 같은 계약이다.
       // 보완 요청은 마감과 무관하게 열리고, 아직 판정 전(SUBMITTED)이면 마감 전까지 교체할 수 있다.
@@ -113,7 +115,7 @@ export class SubmissionFilesService {
       const status = authorization.resubmissionStatus;
       const replaceableBeforeDue =
         status === SubmissionStatus.SUBMITTED &&
-        Date.now() <= authorization.dueAt.getTime();
+        !hasProgramDeadlinePassed(authorization.dueAt, now);
       if (
         status !== SubmissionStatus.CHANGES_REQUESTED &&
         !replaceableBeforeDue
@@ -125,17 +127,12 @@ export class SubmissionFilesService {
       }
     }
 
-    const now = new Date();
     if (
       resubmissionContext === null &&
-      authorization.dueAt.getTime() <= now.getTime()
+      hasProgramDeadlinePassed(authorization.dueAt, now)
     ) {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     }
-    if (authorization.programEndAt === null) {
-      throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
-    }
-
     const objectKey = createSubmissionFileObjectKey();
     const originalName = sanitizeSubmissionFileOriginalName(file.originalname);
     const pendingInput: CreatePendingSubmissionFileInput = {

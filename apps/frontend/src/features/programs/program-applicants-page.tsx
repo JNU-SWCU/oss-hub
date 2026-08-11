@@ -27,16 +27,29 @@ import {
   listProgramApplications,
   type ApplicationDecisionInput,
 } from './api';
+import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { useApplicationDecisionFocusReturn } from './application-decision-focus';
+import {
+  APPLICATION_STATUS_BADGE,
+  APPLICATION_STATUS_LABELS,
+  PROVISIONING_LABELS,
+  applicationDecisionTriggerId,
+  displayAnswerText,
+  displayApplicantName,
+  formatSubmittedAt,
+  participationLabel,
+  staleApplicationDecisionTitle,
+} from './application-presentation';
 import { ProgramListPagination } from './program-list-pagination';
 import {
   programApplicationDetailHref,
   programEditHref,
 } from '@/lib/program-route';
 import type {
+  ApplicationDecisionAction,
   ApplicationListItem,
   ApplicationListPage,
   ApplicationListStatus,
-  ApplicationStatus,
   ProgramDetail,
   RepositoryProvisioningJobStatus,
 } from './types';
@@ -84,7 +97,7 @@ type LoadState =
   | { readonly kind: 'error'; readonly message: string };
 type DecisionDialog = {
   readonly applicationId: string;
-  readonly action: 'APPROVE' | 'REJECT' | 'REVERT';
+  readonly action: ApplicationDecisionAction;
 } | null;
 type Notice = {
   readonly kind: 'success' | 'error';
@@ -92,87 +105,6 @@ type Notice = {
   readonly message: string;
 } | null;
 
-/**
- * 판정 실패 중 "내가 보던 행이 이미 낡았다"에 해당하는 응답을 가려낸다.
- *
- * 409는 다른 운영자가 먼저 판정한 경우, 404(`APP_001`)는 학생이 먼저 취소한 경우다.
- * 원인은 다르지만 교직원이 취해야 할 행동은 같다 — 목록을 다시 불러와 최신 상태를 본다.
- * 404를 일반 오류로 흘리면 목록이 갱신되지 않아 이미 사라진 신청이 계속 대기 상태로
- * 남고, 다시 눌러도 같은 404가 반복된다.
- *
- * 프로비저닝이 끝난 승인 되돌리기(409 + `revertBlockedReason` / `APP_023`)도 같은
- * 경로로 처리한다. 목록을 다시 읽되, 내부 잠금 사유 문자열 대신 사람 말 안내를 쓴다.
- */
-export function staleApplicationDecisionTitle(error: unknown): string | null {
-  if (!(error instanceof ApiError)) return null;
-  if (error.problem.status === 404) return '신청이 이미 취소되었습니다';
-  if (error.problem.status === 409) {
-    if (isRevertBlockedDecisionError(error.problem)) {
-      return '저장소가 이미 만들어진 승인은 되돌릴 수 없습니다';
-    }
-    return '신청 상태가 변경되었습니다';
-  }
-  return null;
-}
-
-/** 백엔드 APP_023 — extensions에 `revertBlockedReason`이 실리거나 코드로 구분한다. */
-function isRevertBlockedDecisionError(problem: {
-  readonly code: string;
-}): boolean {
-  if (problem.code === 'APP_023') return true;
-  if (!('revertBlockedReason' in problem)) return false;
-  return (
-    typeof (problem as { readonly revertBlockedReason?: unknown })
-      .revertBlockedReason === 'string'
-  );
-}
-
-const STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
-  SUBMITTED: '제출됨',
-  APPROVED: '승인',
-  REJECTED: '반려',
-};
-const STATUS_BADGE: Readonly<
-  Record<ApplicationStatus, 'pending' | 'approved' | 'rejected'>
-> = {
-  SUBMITTED: 'pending',
-  APPROVED: 'approved',
-  REJECTED: 'rejected',
-};
-const PROVISIONING_LABELS: Readonly<
-  Record<RepositoryProvisioningJobStatus, string>
-> = {
-  NOT_REQUESTED: '요청 전',
-  DISABLED: '사용 안 함',
-  PENDING: '대기 중',
-  PROCESSING: '생성 중',
-  SUCCEEDED: '생성 완료',
-  RETRYABLE_FAILED: '재시도 대기',
-  FAILED: '생성 실패',
-  ANOMALOUS: '확인 필요',
-};
-
-function formatSubmittedAt(value: string): string {
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Seoul',
-  }).format(new Date(value));
-}
-function displayApplicantName(item: ApplicationListItem): string {
-  return (
-    item.answers.applicantName || item.applicant.name || item.applicant.nickname
-  );
-}
-function participationLabel(item: ApplicationListItem): string {
-  if (item.team) {
-    return `${item.team.name} (${item.team.memberCount}명)`;
-  }
-  return '1명';
-}
 function ApplicantsSkeleton(): ReactElement {
   return (
     <main
@@ -202,8 +134,19 @@ export function ProgramApplicantsPage({
     null,
   );
   const [notice, setNotice] = useState<Notice>(null);
+  /**
+   * 판정 저장이 실패했는데 확인창은 열려 있는 경우의 안내.
+   * ⚠ 화면 위쪽 `notice` 에 그리면 **확인창 뒤에 가려** 교직원이 못 본다([#734]).
+   */
+  const [decisionError, setDecisionError] = useState<string | null>(null);
   const requestEpoch = useRef(new ApplicationListRequestEpoch());
   const pollAttempts = useRef(0);
+  /**
+   * 확인창이 **스스로** 닫힌 뒤 그 행의 판정 버튼으로 포커스를 돌려준다([#767]).
+   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 그 행의 새 버튼
+   *   (「되돌리기」)은 재조회 결과가 그려진 뒤에야 생긴다.
+   */
+  const requestDecisionFocusReturn = useApplicationDecisionFocusReturn();
 
   const applicationParams = useCallback(
     () => ({ page, pageSize: PAGE_SIZE, search, status }),
@@ -307,8 +250,13 @@ export function ProgramApplicantsPage({
         : dialog.action === 'REJECT'
           ? { action: 'REJECT', reason }
           : { action: 'REVERT' };
-    setBusyApplicationId(dialog.applicationId);
+    const decidingId = dialog.applicationId;
+    const decidedAction = dialog.action;
+    setBusyApplicationId(decidingId);
     setNotice(null);
+    // FN4: 재시도할 때 이전 실패 안내를 먼저 지운다 — 안 지우면 「처리 중…」과
+    // 이전 실패가 같이 보이고, 같은 문구로 또 실패하면 다시 발표되지도 않는다.
+    setDecisionError(null);
     try {
       const result = await decideApplication(dialog.applicationId, input);
       pollAttempts.current = 0;
@@ -333,12 +281,14 @@ export function ProgramApplicantsPage({
           message: '목록을 다시 조회해 최신 상태를 확인해 주세요.',
         });
       }
+      requestDecisionFocusReturn(decidedAction, decidingId);
     } catch (error: unknown) {
       const staleTitle = staleApplicationDecisionTitle(error);
       if (staleTitle !== null) {
+        // ⚠ 재조회보다 **먼저** 닫는다 — 재조회가 실패하면 아래 안내가 확인창 뒤에 그려진다.
+        setDialog(null);
         try {
           await reloadApplications();
-          setDialog(null);
           setNotice({
             kind: 'error',
             title: staleTitle,
@@ -351,16 +301,20 @@ export function ProgramApplicantsPage({
             message: '현재 상태를 유지했습니다. 다시 시도해 주세요.',
           });
         }
+        requestDecisionFocusReturn(decidedAction, decidingId);
       } else
-        setNotice({
-          kind: 'error',
-          title: '판정을 저장하지 못했습니다',
-          message: '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
-        });
+        // 확인창은 열린 채로 둔다(적어 둔 사유를 잃지 않게) — 그래서 안내도 창 안에 그린다.
+        setDecisionError(
+          '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
+        );
     } finally {
-      setBusyApplicationId(null);
+      // ⚠ 자기 요청일 때만 푼다 — 낡은 상태 재조회를 기다리는 사이 교직원이 **다른 행**을
+      //   판정하면, 늦게 끝난 이 요청이 그 행의 「처리 중」을 지워 확정 버튼이 다시 열린다.
+      setBusyApplicationId((current) =>
+        current === decidingId ? null : current,
+      );
     }
-  }, [dialog, rejectionReason, reloadApplications]);
+  }, [dialog, rejectionReason, reloadApplications, requestDecisionFocusReturn]);
 
   const columns = useMemo<DataTableColumn<ApplicationListItem>[]>(
     () => [
@@ -371,7 +325,7 @@ export function ProgramApplicantsPage({
           <div className="grid gap-0.5">
             <span className="font-medium">{displayApplicantName(row)}</span>
             <span className="text-xs text-muted-foreground">
-              @{row.applicant.nickname}
+              @{displayAnswerText(row.applicant.nickname)}
             </span>
           </div>
         ),
@@ -381,7 +335,9 @@ export function ProgramApplicantsPage({
         id: 'title',
         header: '제목',
         cell: (row) => (
-          <span className="line-clamp-2 break-keep">{row.answers.title}</span>
+          <span className="line-clamp-2 break-keep">
+            {displayAnswerText(row.answers.title)}
+          </span>
         ),
       },
       {
@@ -389,8 +345,8 @@ export function ProgramApplicantsPage({
         header: '상태',
         cell: (row) => (
           <div className="grid gap-1">
-            <StatusBadge variant={STATUS_BADGE[row.status]}>
-              {STATUS_LABELS[row.status]}
+            <StatusBadge variant={APPLICATION_STATUS_BADGE[row.status]}>
+              {APPLICATION_STATUS_LABELS[row.status]}
             </StatusBadge>
             {row.rejectionReason ? (
               <span className="max-w-48 text-xs text-muted-foreground">
@@ -430,20 +386,24 @@ export function ProgramApplicantsPage({
               <>
                 <Button
                   size="sm"
+                  id={applicationDecisionTriggerId('APPROVE', row.id)}
                   disabled={busyApplicationId === row.id}
-                  onClick={() =>
-                    setDialog({ applicationId: row.id, action: 'APPROVE' })
-                  }
+                  onClick={() => {
+                    setDecisionError(null);
+                    setDialog({ applicationId: row.id, action: 'APPROVE' });
+                  }}
                 >
                   승인
                 </Button>
                 <Button
                   size="sm"
+                  id={applicationDecisionTriggerId('REJECT', row.id)}
                   variant="outline"
                   disabled={busyApplicationId === row.id}
                   onClick={() => {
                     setReasonError(false);
                     setRejectionReason('');
+                    setDecisionError(null);
                     setDialog({ applicationId: row.id, action: 'REJECT' });
                   }}
                 >
@@ -454,11 +414,13 @@ export function ProgramApplicantsPage({
             {row.status === 'APPROVED' || row.status === 'REJECTED' ? (
               <Button
                 size="sm"
+                id={applicationDecisionTriggerId('REVERT', row.id)}
                 variant="ghost"
                 disabled={busyApplicationId === row.id}
-                onClick={() =>
-                  setDialog({ applicationId: row.id, action: 'REVERT' })
-                }
+                onClick={() => {
+                  setDecisionError(null);
+                  setDialog({ applicationId: row.id, action: 'REVERT' });
+                }}
               >
                 되돌리기
               </Button>
@@ -576,6 +538,7 @@ export function ProgramApplicantsPage({
       </p>
       <DataTable
         aria-describedby="applicants-table-scroll-hint"
+        scrollRegionLabel="신청자 목록 표"
         columns={columns}
         data={[...applicationPage.items]}
         rowKey={(row) => row.id}
@@ -592,75 +555,27 @@ export function ProgramApplicantsPage({
         onPageChange={setPage}
       />
       {dialog && selected ? (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="decision-title"
-        >
-          <div className="grid w-full max-w-md gap-4 rounded-xl bg-background p-6 shadow-lg">
-            <h2 id="decision-title" className="text-lg font-semibold">
-              {dialog.action === 'APPROVE'
-                ? '신청 승인'
-                : dialog.action === 'REJECT'
-                  ? '신청 반려'
-                  : '판정 되돌리기'}
-            </h2>
-            {dialog.action === 'APPROVE' ? (
-              <p>
-                승인하면 저장소 자동 생성이{' '}
-                {selected.repositoryProvisioning.enabled
-                  ? '활성화되어 저장소 작업을 시작합니다.'
-                  : '비활성화되어 저장소를 생성하지 않습니다.'}
-              </p>
-            ) : dialog.action === 'REJECT' ? (
-              <label className="grid gap-2 text-sm">
-                <span>반려 사유</span>
-                <textarea
-                  className="min-h-28 rounded-md border border-input bg-background p-3"
-                  value={rejectionReason}
-                  onChange={(event) => {
-                    setRejectionReason(event.target.value);
-                    setReasonError(false);
-                  }}
-                  aria-invalid={reasonError}
-                  aria-describedby={reasonError ? 'reason-error' : undefined}
-                />
-                {reasonError ? (
-                  <span id="reason-error" className="text-destructive">
-                    반려 사유를 입력해 주세요.
-                  </span>
-                ) : null}
-              </label>
-            ) : (
-              <p>
-                판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
-                승인·반려를 다시 할 수 있습니다.
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                disabled={busyApplicationId === selected.id}
-                onClick={() => setDialog(null)}
-              >
-                취소
-              </Button>
-              <Button
-                disabled={busyApplicationId === selected.id}
-                onClick={() => void submitDecision()}
-              >
-                {busyApplicationId === selected.id
-                  ? '처리 중…'
-                  : dialog.action === 'APPROVE'
-                    ? '승인 확정'
-                    : dialog.action === 'REJECT'
-                      ? '반려 확정'
-                      : '되돌리기 확정'}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ApplicationDecisionDialog
+          action={dialog.action}
+          repositoryProvisioningEnabled={
+            selected.repositoryProvisioning.enabled
+          }
+          repositoryConnectionMode={selected.repositoryConnectionMode}
+          reason={rejectionReason}
+          reasonError={reasonError}
+          busy={busyApplicationId === selected.id}
+          errorMessage={decisionError}
+          returnFocusId={applicationDecisionTriggerId(
+            dialog.action,
+            dialog.applicationId,
+          )}
+          onReasonChange={(value) => {
+            setRejectionReason(value);
+            setReasonError(false);
+          }}
+          onCancel={() => setDialog(null)}
+          onConfirm={() => void submitDecision()}
+        />
       ) : null}
     </main>
   );

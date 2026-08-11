@@ -55,7 +55,10 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // viewerSubmissionStatus와 앞뒤가 맞아야 한다.
     studentDocumentsCompleted: 2,
     studentDocumentsTotal: 3,
-    nextMilestone: { label: '최종 릴리스', dueAt: '2026-09-12T09:00:00.000Z' },
+    nextMilestone: {
+      label: '최종 결과 요약',
+      dueAt: '2026-09-12T09:00:00.000Z',
+    },
     milestoneDocuments: [
       {
         milestoneId: 'milestones-approved',
@@ -73,7 +76,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
       },
       {
         milestoneId: 'milestones-overdue',
-        title: '최종 릴리스',
+        title: '최종 결과 요약',
         studentCompleted: 0,
         studentTotal: 1,
         staffCompleted: 0,
@@ -114,7 +117,12 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     boardPostCount: 0,
     participantCount: 3,
     teamCount: 0,
-    connectedRepositoryCount: 1,
+    // 교직원 대시보드 카드의 `activity.repositories` 와 같은 수여야 한다 — 백엔드에서
+    // 앞의 것은 프로그램에 걸린 저장소 링크 수이고 이것은 `Repository.count({programId})`
+    // 라 앞의 것이 이것을 넘을 수 없다. 카드가 2인데 여기가 1이면 실제 서버가 만들 수 없는
+    // 상태를 두 교직원 화면이 서로 다르게 보여 준다. 공개 전환 신청이 늘며 저장소도 하나
+    // 늘었다(#753).
+    connectedRepositoryCount: 2,
     // 신청 전 상태라 두 서류 모두 미제출이다(student-program-fixtures.ts BASIC_MILESTONES).
     studentDocumentsCompleted: 0,
     studentDocumentsTotal: 2,
@@ -136,6 +144,23 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
       },
     ],
     fullySubmittedParticipantCount: 1,
+  },
+  // 신청이 반려된 프로그램. 이 학생은 참여자가 아니므로 참여·팀·저장소가 모두 0이고
+  // 서류도 생기지 않는다 — 승인되지 않은 신청에는 제출 대상이 없다.
+  'program-sw-value': {
+    name: '합성 SW가치확산 프로그램',
+    category: 'SW_VALUE_SPREAD',
+    lifecycle: 'PUBLISHED',
+    milestoneCount: 1,
+    boardPostCount: 0,
+    participantCount: 0,
+    teamCount: 0,
+    connectedRepositoryCount: 0,
+    studentDocumentsCompleted: 0,
+    studentDocumentsTotal: 0,
+    nextMilestone: null,
+    milestoneDocuments: [],
+    fullySubmittedParticipantCount: 0,
   },
 };
 
@@ -175,6 +200,8 @@ export function programOverviewFor(
 export interface ProgramOverviewTeamMemberFixture {
   readonly userId: string;
   readonly displayName: string;
+  /** GitHub 로그인. 공개 로스터는 이것을 표시명으로 쓰고, 교직원 목록은 실명과 함께 쓴다. */
+  readonly nickname: string;
   readonly isLeader: boolean;
 }
 
@@ -206,6 +233,7 @@ function generateSyntheticTeams(
       members: Array.from({ length: memberCount }, (_, memberIndex) => ({
         userId: `synthetic-user-${slug}-${teamNumber}-${memberIndex + 1}`,
         displayName: `합성 참여자 ${teamNumber}-${memberIndex + 1}`,
+        nickname: `${slug}-${teamNumber}-${memberIndex + 1}`,
         isLeader: memberIndex === 0,
       })),
     };
@@ -226,6 +254,7 @@ const CAPSTONE_MY_TEAM_ENTRY: ProgramOverviewTeamFixture = (() => {
     members: myTeam.members.map((member) => ({
       userId: member.userId,
       displayName: member.name ?? member.nickname,
+      nickname: member.nickname,
       isLeader: member.isLeader,
     })),
   };
@@ -242,7 +271,48 @@ const PROGRAM_TEAM_DIRECTORIES: Readonly<
   'program-oss-contest': generateSyntheticTeams('contest', '경진대회', 1, 8),
   // 개인형 프로그램이라 팀이 없다.
   'program-basic-study': [],
+  'program-sw-value': [],
 };
+
+/** `programs/:programId/teams`(교직원 전용)가 돌려주는 팀 항목 하나. */
+export interface StaffProgramTeamFixture {
+  readonly teamId: string;
+  readonly name: string;
+  readonly memberCount: number;
+  readonly members: readonly {
+    readonly userId: string;
+    readonly name: string | null;
+    readonly nickname: string;
+    readonly isLeader: boolean;
+  }[];
+}
+
+/**
+ * 교직원 팀 목록은 공개 로스터와 **같은 팀 집합**을 실명까지 붙여 돌려준다.
+ * 두 벌로 적으면 한쪽만 고쳐져 사이드바 팀 수와 목록이 어긋나므로 여기서 파생시킨다.
+ *
+ * 마지막 팀의 팀장은 `name: null`로 둔다 — 프로필을 아직 채우지 않은 계정이 섞였을
+ * 때 화면이 GitHub 계정으로 떨어지는지 검토자가 눈으로 볼 수 있어야 한다.
+ */
+export function staffProgramTeamDirectoryFor(
+  programId: PublicProgramId,
+): readonly StaffProgramTeamFixture[] {
+  const teams = PROGRAM_TEAM_DIRECTORIES[programId];
+  return teams.map((team, teamIndex) => ({
+    teamId: team.teamId,
+    name: team.name,
+    memberCount: team.memberCount,
+    members: team.members.map((member, memberIndex) => ({
+      userId: member.userId,
+      name:
+        teamIndex === teams.length - 1 && memberIndex === 0
+          ? null
+          : member.displayName,
+      nickname: member.nickname,
+      isLeader: member.isLeader,
+    })),
+  }));
+}
 
 export function programTeamDirectoryFor(
   programId: PublicProgramId,

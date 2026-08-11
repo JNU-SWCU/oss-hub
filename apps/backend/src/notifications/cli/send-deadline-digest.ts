@@ -13,22 +13,55 @@
  *   DIGEST_FORCE_TO=you@example.com
  *   → STAFF 조회 대신 이 주소로 1통만 보낸다(DB notify 설정 무시).
  */
-import { Logger } from '@nestjs/common';
+import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { isEmail } from 'class-validator';
 import { AppModule } from '../../app.module';
 import { PROCESS_RUNTIME_CONFIG } from '../../runtime-config/runtime-config.instance';
 import { LogMailSender } from '../adapters/log-mail-sender';
-import { buildStudentDeadlineMail } from '../deadline-digest-mail.template';
+import {
+  buildStudentDeadlineMail,
+  parseFrontendOrigin,
+} from '../deadline-digest-mail.template';
 import { DeadlineDigestService } from '../deadline-digest.service';
 import { resolveMailSender } from '../mail-sender.provider';
+
+const INVALID_FORCE_TO_MESSAGE =
+  'DIGEST_FORCE_TO must be exactly one valid email address.';
+
+class InvalidDigestForceToError extends Error {
+  override readonly name = 'InvalidDigestForceToError';
+
+  constructor() {
+    super(INVALID_FORCE_TO_MESSAGE);
+  }
+}
+
+function parseDigestForceTo(value: string): string {
+  const trimmed = value.trim();
+  const hasControlCharacter = [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+  if (
+    value.includes(',') ||
+    value.includes(';') ||
+    hasControlCharacter ||
+    !isEmail(trimmed)
+  ) {
+    throw new InvalidDigestForceToError();
+  }
+  return trimmed;
+}
 
 async function main(): Promise<void> {
   const logger = new Logger('send-deadline-digest-cli');
   const runtime = PROCESS_RUNTIME_CONFIG;
-  const forceTo = runtime.DIGEST_FORCE_TO?.trim();
+  const forceToValue = runtime.DIGEST_FORCE_TO;
 
   // 강제 경로: DB/Nest 없이 메일 어댑터만 사용한다(로컬 점검용). MAIL_MODE 준수.
-  if (forceTo) {
+  if (forceToValue !== undefined) {
+    const forceTo = parseDigestForceTo(forceToValue);
     const mailer = resolveMailSender(runtime);
     const usingGmail = !(mailer instanceof LogMailSender);
     if (!usingGmail) {
@@ -37,23 +70,25 @@ async function main(): Promise<void> {
       );
     }
     const now = new Date();
-    const sample = buildStudentDeadlineMail({
-      displayName: '점검수신자',
-      milestone: {
-        id: 'local-check',
-        programId: 'local-check',
-        programName: 'oss-hub 로컬 점검',
-        milestoneName: '강제 발송 스모크',
-        dueAt: new Date(now.getTime() + 60 * 60 * 1000),
-      },
+    const mail = buildStudentDeadlineMail({
+      displayName: '합성 로컬 스모크 수신자',
+      milestones: [
+        {
+          id: 'synthetic-local-smoke-milestone',
+          programId: 'synthetic-local-smoke-program',
+          programName: '합성 로컬 점검 프로그램',
+          milestoneName: '강제 발송 스모크 마일스톤',
+          dueAt: new Date(now.getTime() + 3_600_000),
+        },
+      ],
       now,
-      frontendOrigin: runtime.FRONTEND_URL?.trim() || 'http://localhost:3000',
+      frontendOrigin: parseFrontendOrigin(runtime.FRONTEND_URL),
     });
     await mailer.send({
       to: forceTo,
-      subject: sample.subject,
-      body: sample.text,
-      html: sample.html,
+      subject: mail.subject,
+      body: mail.text,
+      html: mail.html,
     });
     logger.log(
       usingGmail
@@ -64,8 +99,12 @@ async function main(): Promise<void> {
   }
 
   const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error', 'warn', 'log'],
+    abortOnError: false,
+    logger: false,
   });
+  app.useLogger(
+    new ConsoleLogger('Nest', { logLevels: ['error', 'warn', 'log'] }),
+  );
   try {
     const service = app.get(DeadlineDigestService);
     await service.sendDeadlineDigests(new Date());
@@ -76,7 +115,10 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
+  process.stderr.write(
+    error instanceof InvalidDigestForceToError
+      ? `${INVALID_FORCE_TO_MESSAGE}\n`
+      : 'Deadline digest command failed.\n',
+  );
   process.exitCode = 1;
 });

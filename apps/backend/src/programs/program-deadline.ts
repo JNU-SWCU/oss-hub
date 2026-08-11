@@ -24,3 +24,7 @@ export function programDeadline(
   const label = dDay < 0 ? '마감 지남' : dDay === 0 ? '오늘 마감' : `D-${dDay}`;
   return { dDay, label };
 }
+
+export function hasProgramDeadlinePassed(dueAt: Date, now: Date): boolean {
+  return now.getTime() > dueAt.getTime();
+}

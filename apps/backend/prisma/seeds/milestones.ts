@@ -33,6 +33,7 @@ const TEAM_MEMBER_ID = seedId('milestones', 'user', 'team-member');
 const TEAM_ID = seedId('milestones', 'team');
 const APPLICATION_PERSONAL_ID = seedId('milestones', 'application', 'personal');
 const APPLICATION_TEAM_ID = seedId('milestones', 'application', 'team');
+const PROGRAM_START_AT = offsetDays(-49);
 
 export const MILESTONE_SCENARIOS = {
   'milestones-upcoming': [
@@ -67,11 +68,16 @@ async function upsertMilestone(
     () =>
       prisma.milestone.upsert({
         where: { id: params.id },
-        update: { name: params.name, dueAt: params.dueAt },
+        update: {
+          name: params.name,
+          startAt: PROGRAM_START_AT,
+          dueAt: params.dueAt,
+        },
         create: {
           id: params.id,
           programId: PROGRAM_ID,
           name: params.name,
+          startAt: PROGRAM_START_AT,
           dueAt: params.dueAt,
           submissionType: params.submissionType,
         },
@@ -174,8 +180,9 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
           category: ProgramCategory.BASIC,
           applicationTemplateKey: ProgramCategory.BASIC.toLowerCase(),
           applicationTemplateVersion: 1,
-          applicationStartAt: offsetDays(-40),
-          applicationEndAt: offsetDays(40),
+          applicationStartAt: offsetDays(-60),
+          applicationEndAt: offsetDays(-50),
+          startAt: PROGRAM_START_AT,
           endAt: programEndAt,
           teamMinSize: 2,
           teamMaxSize: 4,
@@ -413,7 +420,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     id: approvedId,
     name: 'seed-milestone-submission-approved',
     dueAt: offsetDays(8),
-    submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+    submissionType: MilestoneSubmissionType.TEXT,
   });
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-approved',

@@ -3,6 +3,7 @@ import type { ErrorCode } from '../common/error-code';
 export enum TeamsErrorCode {
   STUDENT_ONLY = 'TEAM_001',
   PROGRAM_NOT_FOUND = 'TEAM_002',
+  STAFF_ONLY = 'TEAM_003',
   APPLICATION_PERIOD_CLOSED = 'TEAM_004',
   ALREADY_IN_PROGRAM_TEAM = 'TEAM_006',
   TEAM_FULL = 'TEAM_007',
@@ -21,6 +22,11 @@ export const TEAMS_ERROR_CODES: Record<TeamsErrorCode, ErrorCode> = {
     code: TeamsErrorCode.PROGRAM_NOT_FOUND,
     status: 404,
     message: '프로그램을 찾을 수 없습니다.',
+  },
+  [TeamsErrorCode.STAFF_ONLY]: {
+    code: TeamsErrorCode.STAFF_ONLY,
+    status: 403,
+    message: '교직원 계정만 참여 팀 목록을 볼 수 있습니다.',
   },
   [TeamsErrorCode.APPLICATION_PERIOD_CLOSED]: {
     code: TeamsErrorCode.APPLICATION_PERIOD_CLOSED,

@@ -21,7 +21,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { formatDashboardDeadline } from '../deadline';
+import {
+  formatDashboardDeadline,
+  formatDashboardDeadlineAbsolute,
+} from '../deadline';
 import type {
   DashboardItem,
   DashboardRepositoryProvisionStatus,
@@ -157,8 +160,12 @@ export function StudentDashboardCard({
               />
               <div>
                 <p className="font-medium">신청이 반려되었습니다.</p>
+                {/* 같은 대시보드의 반려 알림(`application-decision-notices.tsx`)과 같은
+                    문장을 쓴다 — 둘 다 `/programs/{id}/apply`로 보내고 사유를 그리는
+                    화면은 그곳뿐이다. 예전 문구("프로그램 상세에서 신청 상태를 확인해
+                    주세요")는 사유도 신청 상태도 없는 화면을 가리켰다(#733). */}
                 <p className="mt-1 text-sm text-muted-foreground">
-                  프로그램 상세에서 신청 상태를 확인해 주세요.
+                  신청 상세에서 반려 사유를 확인해 주세요.
                 </p>
               </div>
             </div>
@@ -184,8 +191,13 @@ export function StudentDashboardCard({
                 <p className="font-heading text-base font-semibold">
                   {item.nextMilestone.name}
                 </p>
-                <span className="font-heading text-lg font-bold text-primary">
-                  {formatDashboardDeadline(item.nextMilestone.dueAt, now)}
+                <span className="flex flex-col items-end gap-0.5">
+                  <span className="font-heading text-lg font-bold text-primary">
+                    {formatDashboardDeadline(item.nextMilestone.dueAt, now)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDashboardDeadlineAbsolute(item.nextMilestone.dueAt)}
+                  </span>
                 </span>
               </div>
               <p className="flex items-center gap-2 text-sm text-muted-foreground">

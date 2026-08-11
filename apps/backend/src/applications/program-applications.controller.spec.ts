@@ -1,4 +1,4 @@
-import { RepositoryConnectionMode } from '@prisma/client';
+import { RepositoryConnectionMode, RepositoryVisibility } from '@prisma/client';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { ApplicationStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
@@ -64,7 +64,7 @@ describe('ProgramApplicationsController', () => {
       teamName: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryConnectionMode: null,
       repositoryUrl: null,
     });
     expect(response).toEqual({
@@ -202,6 +202,10 @@ describe('ProgramApplicationsController', () => {
             updatedAt: new Date('2026-07-15T01:00:00.000Z'),
             safeErrorClass: null,
           },
+          repository: {
+            url: 'https://github.test/synthetic-org/synthetic-application',
+            visibility: RepositoryVisibility.PUBLIC,
+          },
           isRepositoryPublicationPlanned: false,
           participation: 'INDIVIDUAL' as const,
           applicant: {
@@ -254,6 +258,10 @@ describe('ProgramApplicationsController', () => {
             jobStatus: 'DISABLED',
             updatedAt: '2026-07-15T01:00:00.000Z',
             safeErrorClass: null,
+          },
+          repository: {
+            url: 'https://github.test/synthetic-org/synthetic-application',
+            visibility: RepositoryVisibility.PUBLIC,
           },
           isRepositoryPublicationPlanned: false,
           participation: 'INDIVIDUAL',

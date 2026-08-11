@@ -1,15 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { parseArchiveDetail, parseArchivePage } from '@/features/archive/api';
+import { parseRankingPage, parseRankingYears } from '@/features/ranking/api';
 import { dashboardFixture } from '@/features/dashboard/fixtures';
 import {
   parseLandingArchiveDetail,
   parseLandingArchivePage,
   parseLandingProgramPage,
 } from '@/features/landing/landing-overview';
+import type {
+  StaffDashboardApplicationCounts,
+  StaffDashboardSubmissionSummary,
+  StaffDashboardSummary,
+} from '@/features/programs/types';
 import {
   resetLocalReviewFixtureState,
   resolveLocalReviewResponse,
 } from './fixture-response';
+import { STAFF_PROGRAM_FIXTURES } from './handlers/staff-program-fixtures';
 import {
   createLocalReviewActivation,
   type LocalReviewFixtureId,
@@ -62,6 +69,48 @@ function jsonBody(
   if (plan.kind !== 'json') throw new Error('expected a json fixture plan');
   expect(plan.status).toBe(200);
   return plan.body;
+}
+
+/**
+ * 교직원 대시보드 카드가 적어야 할 집계를 카드가 링크하는 픽스처에서 다시 센다.
+ * 세는 방법은 backend와 같다 — 승인 대기는 제출 건수 그대로(`staff-dashboard.service.ts`),
+ * 제출 칸은 승인된 신청 × 마일스톤이고 마일스톤은 프로그램의 전부다
+ * (`submission-dashboard-summary.service.ts`).
+ */
+function staffCardCounts(programId: string): {
+  readonly applications: StaffDashboardApplicationCounts;
+  readonly submissions: StaffDashboardSubmissionSummary;
+} {
+  const fixture = STAFF_PROGRAM_FIXTURES.find(
+    (candidate) => candidate.program.id === programId,
+  );
+  if (fixture === undefined) {
+    throw new Error(`대시보드 카드가 없는 프로그램을 가리킨다: ${programId}`);
+  }
+  const applications = (status: string) =>
+    fixture.applications.filter((item) => item.status === status).length;
+  const cells = fixture.matrixRows.flatMap((row) => row.cells);
+  const cellsWith = (status: string) =>
+    cells.filter((cell) => cell.status === status).length;
+  return {
+    applications: {
+      total: fixture.applications.length,
+      submitted: applications('SUBMITTED'),
+      pendingApproval: applications('SUBMITTED'),
+      approved: applications('APPROVED'),
+      rejected: applications('REJECTED'),
+    },
+    submissions: {
+      approvedApplications: fixture.matrixRows.length,
+      milestones: fixture.program.milestones.length,
+      total: fixture.matrixRows.length * fixture.program.milestones.length,
+      notSubmitted: cellsWith('NOT_SUBMITTED'),
+      submitted: cellsWith('SUBMITTED'),
+      approved: cellsWith('APPROVED'),
+      changesRequested: cellsWith('CHANGES_REQUESTED'),
+      rejected: cellsWith('REJECTED'),
+    },
+  };
 }
 
 describe('local review fixture responses', () => {
@@ -393,6 +442,33 @@ describe('local review fixture responses', () => {
     });
   });
 
+  it('교직원 대시보드 카드의 집계는 카드에서 넘어가는 화면과 같은 값이다', () => {
+    // Given: 교직원 대시보드 요약.
+    const summary = jsonBody(
+      resolveLocalReviewResponse({
+        fixture: 'staff',
+        method: 'GET',
+        path: 'dashboard/staff/summary',
+        searchParams: new URLSearchParams(),
+      }),
+    ) as StaffDashboardSummary;
+
+    // When: 카드가 링크하는 신청자 목록·제출 현황 픽스처에서 같은 값을 다시 센다.
+    const printed = summary.programs.map((program) => ({
+      id: program.id,
+      applications: program.applications,
+      submissions: program.submissions,
+    }));
+    const counted = summary.programs.map((program) => ({
+      id: program.id,
+      ...staffCardCounts(program.id),
+    }));
+
+    // Then: 카드를 누르면 바로 이 숫자들의 출처 화면으로 넘어간다 — 어긋나면
+    // 검토자가 화면의 숫자를 의심하게 되고, 그 자체가 검토 노이즈가 된다.
+    expect(printed).toEqual(counted);
+  });
+
   it.each(['/', '/programs', '/archive'] as const)(
     'public shell route %s is a fixture entry point that renders its session',
     (target) => {
@@ -511,6 +587,71 @@ describe('local review fixture responses', () => {
     });
     const all = parseLandingProgramPage(body);
     expect(all.length).toBeGreaterThanOrEqual(recruiting.length);
+  });
+
+  it('상태 뱃지와 목록 필터가 같은 판정을 쓴다', () => {
+    // Given: 사이드바 뱃지가 5키를 읽는다 — QA8 이 404 로 못 받던 그 응답이다.
+    const counts = jsonBody(
+      publicGet('anonymous', 'programs/status-counts'),
+    ) as Record<string, number>;
+
+    // Then: 5키가 모두 있고 all 이 나머지 넷의 합이다(정의상 파티션).
+    const parts = ['recruiting', 'in_progress', 'upcoming', 'ended'] as const;
+    for (const key of ['all', ...parts]) {
+      expect(typeof counts[key]).toBe('number');
+    }
+    expect(parts.reduce((sum, key) => sum + counts[key], 0)).toBe(counts.all);
+
+    // And: 뱃지 숫자와 그 상태로 거른 목록 건수가 일치한다. 어긋나면 화면은
+    // 멀쩡한데 답이 틀리는 상태가 된다 — 빈 화면보다 나쁘다.
+    // 픽스처가 `scheduled`·`closed` 라는 API 에 없는 어휘를 쓰던 동안에는
+    // `upcoming`·`in_progress`·`ended` 가 전부 0건이었다.
+    for (const status of parts) {
+      const page = jsonBody(
+        publicGet(
+          'anonymous',
+          'programs',
+          `page=1&pageSize=50&status=${status}`,
+        ),
+      ) as { totalItems: number };
+      expect(page.totalItems).toBe(counts[status]);
+    }
+  });
+
+  it('랭킹 응답이 랭킹 화면 파서를 통과한다', () => {
+    // QA9 — 픽스처 폴더 전체에 `ranking` 이 한 번도 없어 두 요청 모두 404 였다.
+    const page = parseRankingPage(
+      jsonBody(publicGet('anonymous', 'ranking', 'page=1&pageSize=20')),
+    );
+    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.total).toBe(page.items.length);
+
+    const years = parseRankingYears(
+      jsonBody(publicGet('anonymous', 'ranking/years')),
+    );
+    expect(years.years.length).toBeGreaterThan(0);
+
+    // 연도를 바꾸면 실제로 다른 결과가 나와야 한다. 모든 연도가 같은 행이면
+    // 검토자가 연도 필터가 도는지 확인할 방법이 없다 — 픽스처가 계약보다
+    // 너그러운 상태이고, 이 PR 이 없애려는 것이 바로 그것이다.
+    const perYear = years.years.map((year) =>
+      parseRankingPage(
+        jsonBody(publicGet('anonymous', 'ranking', `year=${year}`)),
+      ),
+    );
+    for (const [index, yearPage] of perYear.entries()) {
+      expect(yearPage.year).toBe(years.years[index]);
+    }
+    const signatures = perYear.map((yearPage) =>
+      yearPage.items.map((item) => `${item.githubLogin}:${item.total}`).join(),
+    );
+    expect(new Set(signatures).size).toBe(signatures.length);
+
+    // 그리고 전체(`all`)는 연도별 합이라 어느 한 해보다 총점이 크다.
+    const top = (rows: readonly { total: number }[]) => rows[0]?.total ?? 0;
+    expect(top(page.items)).toBeGreaterThanOrEqual(
+      Math.max(...perYear.map((yearPage) => top(yearPage.items))),
+    );
   });
 
   it('public archive reads parse with the archive screen parsers', () => {

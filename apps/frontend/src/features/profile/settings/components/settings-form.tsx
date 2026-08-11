@@ -26,6 +26,7 @@ import type {
   SettingsFormValues,
   SettingsNotificationLoadState,
 } from '../types';
+import { AccountDeactivationSection } from './account-deactivation-section';
 
 interface SettingsFormProps {
   /** 세션 역할. 학번·학과 표시 여부와 필수 여부를 결정한다. */
@@ -85,11 +86,12 @@ export function SettingsForm({
     showValidationErrors && errors.notificationEmail !== null;
   // 저장 버튼은 제출 중일 때만 막는다. 무효 값에서도 클릭해 인라인 오류를 볼 수 있어야 한다(#156).
 
-  // 역할이 요구하지 않는 항목이라고 감추지는 않는다. 조교처럼 대학원생 신분을
-  // 겸하는 교직원은 학번이 실제로 있고 그 값을 남기고 싶어 한다. 필수가 아닌
-  // 역할에게는 선택 항목으로 열어 두고, 한 번 저장하면 학적 식별자로 고정한다.
+  // 학번은 학생만 가질 수 있다 — 교직원·관리자는 아예 입력받지 않는다(요청에
+  // studentId가 실리면 백엔드가 400으로 거절한다). 다만 이 규칙이 생기기 전에
+  // 이미 학번을 저장해 둔 계정은 그대로 읽기 전용으로 계속 보여 준다.
   const requirement = profileFieldRequirement(role);
   const isStudentIdLocked = hasSavedStudentId(values);
+  const showStudentId = requirement.studentId || isStudentIdLocked;
   // 아직 학번이 없는 사용자가 학번을 적어 넣으면 학과도 함께 받아야 한다 — 학번이
   // 유일성 제약 아래 저장되는 행이 학과를 요구하기 때문이다. 이미 고정된 학번은 다시
   // 보내지 않으므로 그때는 역할 기준 그대로 둔다.
@@ -137,43 +139,39 @@ export function SettingsForm({
             {showNameError ? <FieldError>{errors.name}</FieldError> : null}
           </Field>
 
-          <Field data-invalid={showStudentIdError || undefined}>
-            <FieldLabel htmlFor="settings-student-id">
-              학번
-              {/* 이미 고정된 학번에까지 "선택"을 붙이면 아직 고를 수 있다는 뜻이 된다. */}
-              {requirement.studentId || isStudentIdLocked ? null : (
-                <span className="ml-1 text-small font-normal text-muted-foreground">
-                  선택
-                </span>
+          {showStudentId ? (
+            <Field data-invalid={showStudentIdError || undefined}>
+              <FieldLabel htmlFor="settings-student-id">학번</FieldLabel>
+              <Input
+                id="settings-student-id"
+                name="studentId"
+                inputMode="numeric"
+                maxLength={6}
+                value={values.studentId}
+                readOnly={isStudentIdLocked}
+                disabled={isStudentIdLocked}
+                aria-readonly={isStudentIdLocked || undefined}
+                aria-invalid={showStudentIdError}
+                onChange={
+                  isStudentIdLocked
+                    ? undefined
+                    : (event) =>
+                        onChange({
+                          studentId: event.target.value.replace(/\D/g, ''),
+                        })
+                }
+              />
+              {showStudentIdError ? (
+                <FieldError>{errors.studentId}</FieldError>
+              ) : (
+                <FieldDescription>
+                  {isStudentIdLocked
+                    ? '학번은 변경할 수 없습니다.'
+                    : '숫자 6자리로 입력합니다.'}
+                </FieldDescription>
               )}
-            </FieldLabel>
-            <Input
-              id="settings-student-id"
-              name="studentId"
-              inputMode="numeric"
-              value={values.studentId}
-              readOnly={isStudentIdLocked}
-              disabled={isStudentIdLocked}
-              aria-readonly={isStudentIdLocked || undefined}
-              aria-invalid={showStudentIdError}
-              onChange={
-                isStudentIdLocked
-                  ? undefined
-                  : (event) => onChange({ studentId: event.target.value })
-              }
-            />
-            {showStudentIdError ? (
-              <FieldError>{errors.studentId}</FieldError>
-            ) : (
-              <FieldDescription>
-                {isStudentIdLocked
-                  ? '학번은 변경할 수 없습니다.'
-                  : requirement.studentId
-                    ? '숫자 6~10자리로 입력합니다.'
-                    : '학번이 있으면 입력합니다. 한 번 저장하면 변경할 수 없습니다.'}
-              </FieldDescription>
-            )}
-          </Field>
+            </Field>
+          ) : null}
 
           {showDepartment ? (
             <Field data-invalid={showDepartmentError || undefined}>
@@ -287,6 +285,8 @@ export function SettingsForm({
             </>
           )}
         </FormSection>
+
+        <AccountDeactivationSection role={role} />
 
         {submitError ? (
           <Alert variant="destructive">

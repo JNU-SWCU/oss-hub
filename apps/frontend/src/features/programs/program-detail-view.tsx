@@ -79,7 +79,25 @@ function ProgramSummary({ program }: { readonly program: ProgramDetail }) {
         <CardTitle>프로그램 안내</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="grid min-w-0 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+        {/* 넓은 화면에서 세 항목을 왼쪽으로 붙인다(QA32). 예전 템플릿은
+            `auto minmax(0,1fr) auto` 세 칸이라 가운데 `1fr` 이 남는 폭을 통째로 먹고
+            셋째 항목을 카드 오른쪽 끝으로 밀어냈다 — 1280px 실측에서 「신청기간」
+            글자가 x=842 에서 끝나는데 「유형」은 x=1176 에서 시작해 334px 이 비었다.
+            앞 두 항목은 24px(`gap-x-6`)로 붙어 있는데 셋째만 멀리 떨어져 보이는
+            이유가 그것이다.
+
+            ⚠ **칸을 다시 배정하는 길로는 못 푼다.** 세 칸을 유지하면 같은 결함이
+            돌아오고, `auto auto minmax(0,1fr)` 로 남는 폭을 마지막으로 옮기면
+            1024px 에서 긴 주관기관명이 들어왔을 때 「유형」이 **폭 0 으로 찌그러진다**
+            (`minmax(0,auto)` 로 바꿔도 같았다 — 앞 칸들이 먼저 자리를 차지한다).
+            그래서 넓은 화면에서는 칸을 열지 않고 흐르게 두고, 폭이 모자라면 줄을
+            바꾼다. 정상 내용에서는 1024~1920px 전부 한 줄이고 카드 높이도 196px
+            그대로다(수정 전과 같다).
+
+            요청자는 「유형을 아래 줄로」를 제안했지만, 그러면 오른쪽 빈 곳은 남은 채
+            카드만 28px 높아진다 — 세 안을 실제 화면으로 비교한 뒤 이쪽으로 정했다.
+            좁은 화면(375·768px)은 손대지 않았다. */}
+        <div className="grid min-w-0 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:flex lg:flex-wrap">
           <span className="min-w-0 break-words">
             <strong>주관기관</strong> {program.organizer}
           </span>
@@ -119,6 +137,7 @@ export function ProgramFactBar({
     readonly key: string;
     readonly k: string;
     readonly v: string;
+    readonly caption?: string;
   }[] = [
     { key: 'organizer', k: '주관', v: program.organizer },
     {
@@ -155,10 +174,14 @@ export function ProgramFactBar({
       const numerator = overview.fullySubmittedParticipantCount ?? 0;
       const rate =
         denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+      // QA47 — "제출률"만으로는 마일스톤 카드(1/1)·매트릭스(2/3)와 다른
+      // 숫자가 나오는 이유를 알 수 없었다. 이 값은 "현재 마일스톤" 기준
+      // 완주율이라는 측정 범위를 라벨과 캡션에 명시한다.
       items.push({
         key: 'submission-rate',
-        k: '제출률',
+        k: '이번 마일스톤 완주율',
         v: `${rate}% (${numerator}/${denominator})`,
+        caption: '현재 마일스톤 필수 서류를 모두 제출한 참여자 기준',
       });
     }
   }
@@ -171,6 +194,9 @@ export function ProgramFactBar({
         <div key={item.key} className="grid gap-0.5">
           <dt className="text-xs text-muted-foreground">{item.k}</dt>
           <dd className="text-sm font-bold tabular-nums">{item.v}</dd>
+          {item.caption !== undefined ? (
+            <p className="text-xs text-muted-foreground">{item.caption}</p>
+          ) : null}
         </div>
       ))}
     </dl>

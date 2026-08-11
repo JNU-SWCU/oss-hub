@@ -4,17 +4,20 @@ export interface AuditLogRecord {
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
-  // 사람이 읽을 수 있는 대상 라벨. schemaVersion 2 행은 대상의 GitHub 로그인,
-  // 과거(v1·legacy) 행과 REPOSITORY_PUBLISHED(schemaVersion 1, 별개의 sibling
-  // 타입)는 `targetType / targetId` 폴백이다. 백엔드가 이벤트 시점 스냅샷으로
-  // 이미 계산해 내려주는 라벨이며, 화면은 이 필드만 쓰고 raw metadata는 파싱
-  // 단계에서 버린다(parser.ts).
+  // 사람이 읽을 수 있는 대상 라벨. ACCESS_AUDIT schemaVersion 2 행은 대상의 GitHub
+  // 로그인, PROGRAM_LIFECYCLE/REPOSITORY_PUBLISH schemaVersion 2 행은 이벤트 시점
+  // 프로그램/저장소 이름 스냅샷, APPLICATION_DECISION schemaVersion 2 행은 "프로그램
+  // 이름 · @신청자 로그인" 합성 라벨이다. 스냅샷이 없는 PROGRAM/REPOSITORY/APPLICATION
+  // 대상 행은 백엔드가 join으로 찾은 현재 이름/라벨이다. 그 밖(ROLE_REQUEST/USER의
+  // 과거 v1·legacy 행, join도 실패한 경우)은 `targetType / targetId` 폴백이다.
+  // 백엔드가 이벤트 시점 스냅샷·join으로 이미 계산해 내려주는 라벨이며, 화면은 이
+  // 필드만 쓰고 raw metadata는 파싱 단계에서 버린다(parser.ts).
   readonly target: string;
   readonly occurredAt: string;
 }
 
-// apps/backend/src/audit-log/audit-log-metadata.ts의 ACCESS_AUDIT_ACTIONS ∪
-// REPOSITORY_PUBLISH_AUDIT_ACTIONS 값을 미러링한다. 모노레포에 공유 패키지가 없어
+// apps/backend/src/audit-log/audit-log-metadata.ts에 정의된 7개 action registry의
+// 합집합을 미러링한다. 모노레포에 공유 패키지가 없어
 // frontend가 backend/src를 직접 import할 수 없다(apps/frontend/src/features/roles의
 // "Mirrors" 관례와 동일). 이 목록이 backend 정의와 어긋나지 않는지는
 // action-registry.test.ts가 backend 소스를 텍스트로 읽어 검증한다 — 백엔드에 action을
@@ -27,6 +30,14 @@ export const AUDIT_LOG_ACTION_LABELS = {
   USER_ROLE_CHANGED: '역할 변경',
   USER_ACCOUNT_STATUS_CHANGED: '계정 상태 변경',
   REPOSITORY_PUBLISHED: '저장소 공개',
+  PROGRAM_ARCHIVED: '프로그램 보관',
+  PROGRAM_RESTORED: '프로그램 복구',
+  COLLECTION_SYNC_TRIGGERED: '수집 실행',
+  SUBMISSION_FILE_CLEANUP_RETRY_RESET: '제출 파일 정리 재시도',
+  APPLICATION_APPROVED: '신청 승인',
+  APPLICATION_REJECTED: '신청 반려',
+  APPLICATION_REVERTED: '신청 판정 취소',
+  USER_PROFILE_UPDATED: '프로필 수정',
 } as const satisfies Readonly<Record<string, string>>;
 
 export type AuditLogAction = keyof typeof AUDIT_LOG_ACTION_LABELS;

@@ -41,6 +41,12 @@ export type SystemStatusSafeReasonResponseDto =
  * 이름·visibility·raw payload·collection lease/frontier 같은 물리 스키마는 절대 포함하지
  * 않는다(count/checkpoint 시각만). health/safeReason 해석은 `SystemStatusService.decide`
  * 책임이다.
+ *
+ * 2026-08 owner 결정 — "repository 이름을 절대 포함하지 않는다"는 이 집계 object 한정
+ * 경계로 남는다. 저장소 단위 상세가 필요해져 그 경계를 옮긴 곳은 이 DTO가 아니라 아래
+ * `SystemStatusResponseDto`의 형제 필드 `collectionStreams`다 — 집계는 여전히 집계로만
+ * 읽힌다. `nextCycleAt`은 새 필드지만 cron 표현식에서 계산한 시각일 뿐 물리 스키마가
+ * 아니라 이 경계와 무관하다.
  */
 export class CollectionSystemStatusResponseDto {
   constructor(
@@ -55,6 +61,7 @@ export class CollectionSystemStatusResponseDto {
     readonly oldestRetryPendingAt: string | null,
     readonly lastCycleStartedAt: string | null,
     readonly lastCycleCompletedAt: string | null,
+    readonly nextCycleAt: string | null,
     readonly currentRunStatus: CurrentRunStatusResponseDto,
     readonly safeReason: SystemStatusSafeReasonResponseDto | null,
   ) {}
@@ -64,9 +71,97 @@ export class RepositoryProvisioningSystemStatusResponseDto {
   constructor(readonly finalFailureCount: number) {}
 }
 
+export const COLLECTION_STREAM_BUCKET_VALUES = [
+  'READY',
+  'BACKFILLING',
+  'PARTIAL',
+  'RETRY_PENDING',
+] as const;
+export type CollectionStreamBucketResponseDto =
+  (typeof COLLECTION_STREAM_BUCKET_VALUES)[number];
+
+export const COLLECTION_STREAM_TYPE_VALUES = [
+  'COMMIT',
+  'PULL_REQUEST',
+  'RELEASE',
+] as const;
+export type CollectionStreamTypeResponseDto =
+  (typeof COLLECTION_STREAM_TYPE_VALUES)[number];
+
+export class CollectionRepositoryStreamResponseDto {
+  constructor(
+    readonly streamType: CollectionStreamTypeResponseDto,
+    readonly bucket: CollectionStreamBucketResponseDto,
+    readonly lastSuccessAt: string | null,
+    readonly lastErrorCode: string | null,
+    readonly lastErrorAt: string | null,
+  ) {}
+}
+
+/**
+ * 2026-08 owner 결정 — ADMIN 전용 system-status 화면에 한해 저장소 이름과 stream별 상세를
+ * 노출한다. `CollectionSystemStatusResponseDto`(조직 전체 집계)가 지켜온 "repository 이름을
+ * 담지 않는다" 경계를 이 필드가 의도적으로 넘는다 — 무엇이 언제 수집됐는지 저장소 단위로
+ * 들여다볼 관측성이 필요해졌기 때문이다(`collection-read.port.ts`의 boundary 코멘트,
+ * `apps/backend/src/github/AGENTS.md` 참고). ADMIN 가드 밖으로는 절대 재사용하지 않는다.
+ *
+ * `programName`은 이 저장소가 어느 프로그램 소속으로 편입됐는지 보여준다
+ * (`CollectionRepositoryStreamsDto`의 port 코멘트 참고). 연결이 없으면(조직 저장소
+ * 대부분, discovery로만 편입된 external 저장소) `null`이며 이는 정상이다.
+ */
+export class SystemStatusCollectionStreamsResponseDto {
+  constructor(
+    readonly repositoryName: string,
+    readonly programName: string | null,
+    readonly streams: readonly CollectionRepositoryStreamResponseDto[],
+  ) {}
+}
+
+/**
+ * 시스템 상태 관측성 2단계 — sweep 1회 종료 시점의 활동 이력(`CollectionSweepHistory`)을
+ * `sweepFinishedAt` 내림차순, 최대 20건으로 노출한다. `collectionStreams`와 달리 이
+ * 필드는 repository 이름을 담지 않는다 — 집계 전용이다(`collection-read.port.ts`의
+ * `CollectionSweepActivityDto` 참고).
+ */
+export class SystemStatusCollectionActivityResponseDto {
+  constructor(
+    readonly sweepFinishedAt: string,
+    readonly cycleStartedAt: string | null,
+    readonly scope: string,
+    readonly insertedCommitCount: number,
+    readonly insertedPullRequestCount: number,
+    readonly insertedReleaseCount: number,
+    readonly attemptedRepositoryCount: number,
+    readonly processedRepositoryCount: number,
+    readonly failedRepositoryCount: number,
+    readonly cycleCompleted: boolean,
+    readonly stoppedForBudget: boolean,
+  ) {}
+}
+
+/**
+ * 시스템 상태 3단계 — org sweep과 별개인 external(학생 개인 공개 저장소) 수집
+ * 현황. `lastSweep`이 `null`이면 external sweep이 아직 한 번도 끝나지 않은
+ * 것이다(collection-read.port.ts의 `CollectionExternalCollectionStatusDto`
+ * 참고) — sweep 자체는 매시 자동 실행되므로 이 값이 계속 `null`이면 스케줄러가
+ * 아예 안 도는 것이지 대상이 없어서가 아니다.
+ */
+export class SystemStatusExternalCollectionResponseDto {
+  constructor(
+    readonly trackedRepositoryCount: number,
+    readonly lastSweep: SystemStatusCollectionActivityResponseDto | null,
+    readonly cumulativeCommitCount: number,
+    readonly cumulativePullRequestCount: number,
+    readonly cumulativeReleaseCount: number,
+  ) {}
+}
+
 export class SystemStatusResponseDto {
   constructor(
     readonly collection: CollectionSystemStatusResponseDto,
     readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto,
+    readonly collectionStreams: readonly SystemStatusCollectionStreamsResponseDto[],
+    readonly collectionActivity: readonly SystemStatusCollectionActivityResponseDto[],
+    readonly externalCollection: SystemStatusExternalCollectionResponseDto,
   ) {}
 }

@@ -43,15 +43,19 @@ class BarrierTransactionStore implements AdminAccessTransactionStore {
     return this.store.auditLogWriter;
   }
 
-  async findActorByGithubId(
-    githubId: bigint,
-  ): Promise<AdminAccessActor | null> {
-    const actor = await this.store.findActorByGithubId(githubId);
-    await this.barrier.wait();
-    return actor;
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return this.store.findActorByGithubId(githubId);
   }
 
-  lockActiveAdmins(): Promise<number> {
+  /**
+   * 두 트랜잭션이 **잠금을 잡기 전에** 나란히 열려 있도록 만나게 한다.
+   *
+   * 배리어가 이보다 뒤에 있으면 안 된다 — `lockActiveAdmins`는 활성 ADMIN 행을 전부
+   * 잠그므로, 먼저 도착한 쪽이 잠금을 쥔 채 배리어에서 기다리면 다른 쪽은 그 잠금에
+   * 막혀 배리어에 영영 도착하지 못한다(교착).
+   */
+  async lockActiveAdmins(): Promise<number> {
+    await this.barrier.wait();
     return this.store.lockActiveAdmins();
   }
 
@@ -183,6 +187,119 @@ export class PausingRevocationAdminAccessRepository implements AdminAccessReposi
           store,
           this.onRevokedRequestWritten,
         ),
+      ),
+    );
+  }
+
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return this.repository.findActorByGithubId(githubId);
+  }
+
+  list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
+    return this.repository.list(query);
+  }
+
+  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
+    return this.repository.facets(query);
+  }
+
+  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+    return this.repository.findById(userId);
+  }
+
+  listRoleRequestHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessRoleRequestHistoryPage> {
+    return this.repository.listRoleRequestHistory(userId, page);
+  }
+
+  listLoginHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessLoginHistoryPage> {
+    return this.repository.listLoginHistory(userId, page);
+  }
+}
+
+/**
+ * TOCTOU 재검증 경쟁을 재현하기 위해 뮤테이션 트랜잭션을 두 지점에서 멈춰 세운다.
+ *
+ * `onFirstActorRead`는 잠금 이전의 unlocked 첫 actor 읽기 "직후"에, `onAfterLock`은
+ * `lockActiveAdmins()` "직후"에 걸린다 — 재검증(두 번째 actor 읽기)은 절대 멈추지 않는다.
+ * 두 훅이 각각 가리키는 것은 재검증이 막아야 하는 경쟁의 시작 지점과, 잠금이 실제로
+ * 걸린 뒤의 경쟁이다.
+ */
+class PausingActorRevalidationTransactionStore implements AdminAccessTransactionStore {
+  private actorReadCount = 0;
+
+  constructor(
+    private readonly store: AdminAccessTransactionStore,
+    private readonly hooks: {
+      readonly onFirstActorRead?: () => Promise<void>;
+      readonly onAfterLock?: () => Promise<void>;
+    },
+  ) {}
+
+  get auditLogWriter() {
+    return this.store.auditLogWriter;
+  }
+
+  async findActorByGithubId(
+    githubId: bigint,
+  ): Promise<AdminAccessActor | null> {
+    const actor = await this.store.findActorByGithubId(githubId);
+    this.actorReadCount += 1;
+    if (this.actorReadCount === 1 && this.hooks.onFirstActorRead) {
+      await this.hooks.onFirstActorRead();
+    }
+    return actor;
+  }
+
+  async lockActiveAdmins(): Promise<number> {
+    const count = await this.store.lockActiveAdmins();
+    if (this.hooks.onAfterLock) {
+      await this.hooks.onAfterLock();
+    }
+    return count;
+  }
+
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+    return this.store.findUserForUpdate(userId);
+  }
+
+  compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
+    return this.store.compareAndSwapAccess(input);
+  }
+
+  decidePendingRequest(
+    input: AdminAccessPendingDecisionUpdate,
+  ): Promise<boolean> {
+    return this.store.decidePendingRequest(input);
+  }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    return this.store.insertRevokedRequest(input);
+  }
+}
+
+export class PausingActorRevalidationAdminAccessRepository implements AdminAccessRepositoryPort {
+  constructor(
+    private readonly repository: AdminAccessRepositoryPort,
+    private readonly hooks: {
+      readonly onFirstActorRead?: () => Promise<void>;
+      readonly onAfterLock?: () => Promise<void>;
+    },
+  ) {}
+
+  withTransaction<T>(
+    operation: (store: AdminAccessTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.repository.withTransaction((store) =>
+      operation(
+        new PausingActorRevalidationTransactionStore(store, this.hooks),
       ),
     );
   }
