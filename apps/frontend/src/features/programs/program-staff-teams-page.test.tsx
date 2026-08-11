@@ -52,6 +52,7 @@ function application(
   teamId: string | null,
   status: ApplicationListItem['status'],
   repository: ApplicationListItem['repository'] = null,
+  provisioning: Partial<ApplicationListItem['repositoryProvisioning']> = {},
 ): ApplicationListItem {
   return {
     id: `app-${teamId ?? 'none'}`,
@@ -65,6 +66,7 @@ function application(
       jobStatus: 'SUCCEEDED',
       updatedAt: '2026-08-01T00:00:00.000Z',
       safeErrorClass: null,
+      ...provisioning,
     },
     isRepositoryPublicationPlanned: false,
     repository,
@@ -228,16 +230,88 @@ describe('ProgramStaffTeamsPage', () => {
   it('저장소가 없으면 저장소 링크를 만들지 않는다', async () => {
     await render(
       [team('t1', '가팀', [member('a', '김가', true)])],
-      [application('t1', 'SUBMITTED')],
+      [application('t1', 'SUBMITTED', null, { jobStatus: 'NOT_REQUESTED' })],
     );
 
-    expect(container.textContent).toContain('아직 없음');
     // 헤더의 「신청 승인하기」만 남고, github 저장소 링크는 없다.
     const hrefs = [...container.querySelectorAll('a')].map((a) => a.href);
     expect(hrefs.some((href) => href.includes('github.com'))).toBe(false);
     expect(
       hrefs.some((href) => href.includes('/programs/program-1/applicants')),
     ).toBe(true);
+  });
+
+  /**
+   * 2026-08-11 QA — 학생 대시보드는 「저장소 생성에 실패했습니다」를 명시하는데
+   * 이 화면은 같은 팀을 「아직 없음」으로만 보여 줬다. 교직원은 **문제가 있다는 것조차
+   * 몰랐다.** 두 화면이 같은 상황을 다르게 말하지 않게 고정한다.
+   */
+  it('발급이 실패한 팀을 「아직 없음」이 아니라 실패로 보여 준다', async () => {
+    await render(
+      [team('t1', '가팀', [member('a', '김가', true)])],
+      [
+        application('t1', 'APPROVED', null, {
+          jobStatus: 'FAILED',
+          safeErrorClass: 'AUTH',
+        }),
+      ],
+    );
+
+    const text = container.textContent ?? '';
+    expect(text).toContain('생성 실패');
+    expect(text).not.toContain('아직 없음');
+    // 표에서 눈에 띄어야 한다 — 신청 상태는 APPROVED 라 rejected 뱃지는 이 칸뿐이다.
+    // 뱃지는 색·글자·점 세 신호를 함께 쓰므로 색각 이상 사용자도 구분할 수 있다.
+    expect(
+      container.querySelector(
+        '[data-slot="status-badge"][data-variant="rejected"]',
+      )?.textContent,
+    ).toContain('생성 실패');
+  });
+
+  it('재시도 대기도 조용히 넘기지 않는다', async () => {
+    await render(
+      [team('t1', '가팀', [member('a', '김가', true)])],
+      [
+        application('t1', 'APPROVED', null, {
+          jobStatus: 'RETRYABLE_FAILED',
+          safeErrorClass: 'RATE_LIMIT',
+        }),
+      ],
+    );
+
+    const text = container.textContent ?? '';
+    expect(text).toContain('재시도 대기');
+    expect(text).not.toContain('아직 없음');
+    expect(
+      container.querySelector(
+        '[data-slot="status-badge"][data-variant="rejected"]',
+      )?.textContent,
+    ).toContain('재시도 대기');
+  });
+
+  it('진행 중인 발급은 진행 중으로 보여 준다', async () => {
+    await render(
+      [team('t1', '가팀', [member('a', '김가', true)])],
+      [application('t1', 'APPROVED', null, { jobStatus: 'PROCESSING' })],
+    );
+
+    const text = container.textContent ?? '';
+    expect(text).toContain('생성 중');
+    expect(text).not.toContain('아직 없음');
+    // 진행 중은 사람이 손댈 것이 없다 — 실패로 오해하게 만들지 않는다.
+    expect(
+      container.querySelector(
+        '[data-slot="status-badge"][data-variant="rejected"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('신청서를 안 낸 팀만 「아직 없음」으로 남는다', async () => {
+    // 발급을 물을 대상 자체가 없는 유일한 경우다.
+    await render([team('t1', '가팀', [member('a', '김가', true)])], []);
+
+    expect(container.textContent ?? '').toContain('아직 없음');
   });
 
   it('헤더에서 신청자(승인) 목록으로 들어간다', async () => {
