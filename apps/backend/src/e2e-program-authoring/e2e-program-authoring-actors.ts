@@ -38,7 +38,7 @@ export async function ensureE2eProgramAuthoringActors(
         githubId: actors.studentGithubId,
         nickname: 'e2e-program-authoring-student',
         name: 'E2E Student',
-        studentId: '20260001',
+        studentId: '260001',
         department: 'E2E Department',
         notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
         notifyEnabled: true,
@@ -48,7 +48,7 @@ export async function ensureE2eProgramAuthoringActors(
       update: {
         nickname: 'e2e-program-authoring-student',
         name: 'E2E Student',
-        studentId: '20260001',
+        studentId: '260001',
         department: 'E2E Department',
         notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
         notifyEnabled: true,
@@ -62,7 +62,7 @@ export async function ensureE2eProgramAuthoringActors(
         githubId: actors.foreignStudentGithubId,
         nickname: 'e2e-program-authoring-foreign-student',
         name: 'E2E Foreign Student',
-        studentId: '20260002',
+        studentId: '260002',
         department: 'E2E Department',
         notificationEmail:
           'e2e-program-authoring-foreign-student@fixture.invalid',
@@ -73,7 +73,7 @@ export async function ensureE2eProgramAuthoringActors(
       update: {
         nickname: 'e2e-program-authoring-foreign-student',
         name: 'E2E Foreign Student',
-        studentId: '20260002',
+        studentId: '260002',
         department: 'E2E Department',
         notificationEmail:
           'e2e-program-authoring-foreign-student@fixture.invalid',
