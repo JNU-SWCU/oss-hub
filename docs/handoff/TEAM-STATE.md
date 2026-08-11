@@ -554,4 +554,4 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 ## 2026-08-12 GitHub App 자격증명 계약 보강
 
-- [#879](https://github.com/JNU-SWCU/oss-hub/issues/879) 진행 중: Collection·Operations 개인키 입력을 `*_PRIVATE_KEY_FILE` 전용 fail-closed 계약으로 전환한다.
+- [#879](https://github.com/JNU-SWCU/oss-hub/issues/879) 진행 중: 개인키 입력을 `*_PRIVATE_KEY_FILE` 전용으로 전환했고, Operations installation의 `app_id`를 설정 App ID와 대조해 잘못 연결된 키를 token 발급 전에 거부한다.

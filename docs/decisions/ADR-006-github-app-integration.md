@@ -71,7 +71,7 @@ repository의 기술적 owner는 `JNU-SWCU` Organization이다.
 
 서비스는 설정된 조직 login을 사용해 각 App JWT로 `GET /orgs/{org}/installation`을 호출하고 역할별 installation ID와 설치 대상 account를 확인한다.
 installation ID는 credential이 아니며 별도 환경변수로 고정하지 않고 발견 결과를 프로세스 메모리에 캐시한다.
-응답의 account login이 설정된 조직과 다르면 API 호출을 시작하지 않는다.
+응답의 account login 또는 `app_id`가 설정값과 다르면 installation token 발급과 API 호출을 시작하지 않는다.
 `Collection App` installation을 확인할 수 없으면 조직 수집을 중단하고 사용자 OAuth token, user access token, PAT로 대체하지 않는다.
 `Repository Operations App` installation을 확인할 수 없으면 해당 프로그램의 repository provisioning을 비활성화한다.
 #119는 기능이 꺼진 프로그램을 승인하되 outbox를 만들지 않고, 이미 대기 중인 #121 job은 installation 누락 최종 실패로 운영 화면에 남긴다.
