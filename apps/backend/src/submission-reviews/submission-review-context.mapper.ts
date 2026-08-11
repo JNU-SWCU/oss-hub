@@ -1,5 +1,6 @@
 import { SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { isMilestoneComplete } from '../common/milestone-completion';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
@@ -32,9 +33,23 @@ export const REVIEW_CONTEXT_SELECT = {
       // 집합은 submission-reviews.repository.ts 의 findPublishEligibility 와 같아야 한다.
       isRepositoryPublicationPlanned: true,
       program: {
-        select: { endAt: true, milestones: { select: { id: true } } },
+        select: {
+          endAt: true,
+          milestones: {
+            select: {
+              id: true,
+              // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 공개를 영원히 막는다.
+              documents: { where: { required: true }, select: { id: true } },
+            },
+          },
+        },
       },
       submissions: { select: { milestoneId: true, status: true } },
+      // 서류 축의 재료. 마일스톤 쪽이 아니라 신청 쪽에서 읽는다 — 마일스톤을 타고 내려가면
+      // 같은 프로그램 다른 팀들의 제출까지 딸려 온다.
+      milestoneDocumentSubmissions: {
+        select: { milestoneDocumentId: true, status: true },
+      },
       repository: {
         select: {
           id: true,
@@ -149,16 +164,35 @@ function toPublishEligibility(
     requiredMilestonesApproved: requiredMilestonesApproved(
       application.program.milestones,
       application.submissions,
+      application.milestoneDocumentSubmissions,
     ),
     isRepositoryPublicationPlanned: application.isRepositoryPublicationPlanned,
     programEndAt: application.program.endAt,
   };
 }
 
+/**
+ * 프로그램의 모든 마일스톤이 이 신청에 대해 끝났는가 — 저장소 공개 자격의 한 조건.
+ *
+ * 판정 규칙 자체는 여기 없다. `common/milestone-completion.ts` 의 `isMilestoneComplete` 가
+ * 축(코드 `Submission` · 서류 `MilestoneDocument`)을 가려 답하고, 이 함수는 조회 결과를 그
+ * 입력 모양으로 옮겨 마일스톤마다 물을 뿐이다. 교직원 대시보드 요약·프로그램 상세도 같은
+ * 함수를 부른다 — 표면마다 「서류도 본다」를 덧붙이면 판정이 갈라진다(#820).
+ *
+ * ⚠ `milestones[].documents` 는 **필수 서류만** 담겨 와야 한다(조회에서 `required: true` 로
+ * 거른다). 선택 서류가 섞이면 안 낸 선택 서류가 저장소 공개를 영원히 막는다.
+ */
 export function requiredMilestonesApproved(
-  milestones: readonly { readonly id: string }[],
+  milestones: readonly {
+    readonly id: string;
+    readonly documents: readonly { readonly id: string }[];
+  }[],
   submissions: readonly {
     readonly milestoneId: string;
+    readonly status: SubmissionStatus;
+  }[],
+  documentSubmissions: readonly {
+    readonly milestoneDocumentId: string;
     readonly status: SubmissionStatus;
   }[],
 ): boolean {
@@ -168,9 +202,19 @@ export function requiredMilestonesApproved(
       submission.status,
     ]),
   );
-  return milestones.every(
-    (milestone) =>
-      statusByMilestone.get(milestone.id) === SubmissionStatus.APPROVED,
+  const statusByDocument = new Map(
+    documentSubmissions.map((submission) => [
+      submission.milestoneDocumentId,
+      submission.status,
+    ]),
+  );
+  return milestones.every((milestone) =>
+    isMilestoneComplete({
+      requiredDocumentStatuses: milestone.documents.map(
+        (document) => statusByDocument.get(document.id) ?? null,
+      ),
+      submissionStatus: statusByMilestone.get(milestone.id) ?? null,
+    }),
   );
 }
 
