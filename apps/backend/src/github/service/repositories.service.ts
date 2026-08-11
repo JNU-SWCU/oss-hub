@@ -95,7 +95,10 @@ export class RepositoriesService {
       return {
         repositoryId: repository?.id ?? null,
         applicationId: job.application.id,
-        applicationMode: job.application.teamId === null ? 'PERSONAL' : 'TEAM',
+        // 개인 참여는 멤버 1명뿐인 팀이다(D5). 팀 유무가 아니라 인원으로 가른다
+        // (submission-matrix.service.ts isSoloTeam과 동일 규칙).
+        applicationMode:
+          (job.application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL',
         programName: job.application.program.name,
         displayName:
           job.application.team?.name ?? job.application.applicant.nickname,

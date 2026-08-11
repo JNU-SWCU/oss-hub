@@ -117,7 +117,9 @@ export class StudentDashboardService {
               ...COMPATIBLE_PROFILE_NAME_SELECT,
             },
           },
-          team: { select: { name: true } },
+          team: {
+            select: { name: true, _count: { select: { members: true } } },
+          },
           program: {
             select: {
               id: true,
@@ -142,7 +144,10 @@ export class StudentDashboardService {
 
     const items: StudentDashboardItem[] = [];
     for (const application of applications) {
-      const applicationMode = application.teamId === null ? 'PERSONAL' : 'TEAM';
+      // 개인 참여는 멤버 1명뿐인 팀이다(D5). 팀 유무가 아니라 인원으로 가른다
+      // (submission-matrix.service.ts isSoloTeam과 동일 규칙).
+      const applicationMode =
+        (application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL';
       const displayName =
         applicationMode === 'TEAM'
           ? application.team?.name

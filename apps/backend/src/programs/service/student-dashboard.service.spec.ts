@@ -18,10 +18,10 @@ function application(overrides: Record<string, unknown> = {}) {
   return {
     id: 'application-1',
     status: ApplicationStatus.APPROVED,
-    // D5: 개인 참여 = 1인 팀. teamId/team은 항상 있다.
+    // D5: 개인 참여 = 1인 팀. teamId/team은 항상 있고 멤버 수로 개인/팀을 가른다.
     teamId: 'solo-team-1',
     applicant: { name: 'Synthetic Applicant', nickname: 'synthetic' },
-    team: { name: 'Synthetic Applicant' },
+    team: { name: 'Synthetic Applicant', _count: { members: 1 } },
     program: {
       id: 'program-1',
       name: 'Synthetic Program',
@@ -84,17 +84,17 @@ describe('StudentDashboardService', () => {
         id: 'application-2',
         teamId: 'team-1',
         applicant: { name: 'Other applicant', nickname: 'other' },
-        team: { name: 'Synthetic Team' },
+        team: { name: 'Synthetic Team', _count: { members: 2 } },
       }),
     ]);
 
     const items = await service.getStudentDashboard(101n);
 
-    // D5: teamId non-null → applicationMode는 항상 TEAM. displayName은 team.name.
+    // D5: teamId는 항상 non-null이므로 멤버 수(1명 = 개인, 2명 이상 = 팀)로 가른다.
     expect(items).toEqual([
       expect.objectContaining({
         applicationId: 'application-1',
-        applicationMode: 'TEAM',
+        applicationMode: 'PERSONAL',
         displayName: 'Synthetic Applicant',
         detailUrl: '/programs/program-1',
         checklistUrl: '/programs/program-1/submissions',

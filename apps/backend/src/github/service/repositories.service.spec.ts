@@ -82,11 +82,12 @@ function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
   return {
     application: {
       id: 'synthetic-application',
-      teamId: null,
+      // D5: 개인 참여도 항상 1인 팀을 갖는다. teamId/team은 null이 아니다.
+      teamId: 'synthetic-solo-team',
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       applicant: { nickname: 'synthetic-applicant' },
       program: { name: 'Synthetic program' },
-      team: null,
+      team: { name: 'synthetic-applicant', _count: { members: 1 } },
     },
     status: RepositoryProvisionJobStatus.PENDING,
     lastErrorCode: null,
@@ -118,7 +119,7 @@ describe('RepositoriesService.getMyRepositories', () => {
           repositoryConnectionMode: RepositoryConnectionMode.NEW,
           applicant: { nickname: 'other-applicant' },
           program: { name: 'Team program' },
-          team: { name: 'Synthetic team' },
+          team: { name: 'Synthetic team', _count: { members: 2 } },
         },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         repository: {
@@ -181,11 +182,12 @@ describe('RepositoriesService.getMyRepositories', () => {
       job({
         application: {
           id: 'synthetic-own-application',
-          teamId: null,
+          // D5: 개인 참여도 항상 1인 팀을 갖는다. teamId/team은 null이 아니다.
+          teamId: 'synthetic-own-solo-team',
           repositoryConnectionMode: RepositoryConnectionMode.OWN,
           applicant: { nickname: 'synthetic-applicant' },
           program: { name: 'Synthetic program' },
-          team: null,
+          team: { name: 'synthetic-applicant', _count: { members: 1 } },
         },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         repository: {
