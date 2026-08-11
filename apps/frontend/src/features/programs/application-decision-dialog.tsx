@@ -28,6 +28,9 @@ import type {
  */
 export function ApplicationDecisionDialog({
   action,
+  applicantName,
+  teamName,
+  applicationTitle,
   repositoryProvisioningEnabled,
   repositoryConnectionMode,
   reason,
@@ -40,6 +43,17 @@ export function ApplicationDecisionDialog({
   onConfirm,
 }: {
   readonly action: ApplicationDecisionAction;
+  /**
+   * 판정 대상 신청자 이름. 목록의 행 단위 판정이 사라지면 이 창이 **유일한 판정
+   * 지점**이 되는데, 정작 창 안에는 저장소 연결 방식·반려 사유만 있고 누구의
+   * 신청인지는 없었다(#869). 확정 버튼을 누르기 직전에 대상이 보여야 한다 —
+   * 부르는 화면이 `displayApplicantName` 등으로 이미 위생 처리한 값을 넘긴다.
+   */
+  readonly applicantName: string;
+  /** 팀 신청일 때의 팀 이름. 개인 신청(`team`이 `null`)이면 `null` — 팀 줄을 그리지 않는다. */
+  readonly teamName: string | null;
+  /** 신청 제목. 학생 자유 입력이라 비어 있을 수 있고(`''`), 그때는 줄 자체를 그리지 않는다. */
+  readonly applicationTitle: string;
   readonly repositoryProvisioningEnabled: boolean;
   /**
    * `OWN`이면 승인이 저장소를 **새로 만들지 않는다** — 신청자가 낸 저장소를 잇는다.
@@ -60,7 +74,7 @@ export function ApplicationDecisionDialog({
    *
    * ⚠ **취소·Escape 로 닫을 때의 자리다.** 화면이 창을 **스스로** 닫는 경우(판정 성공·
    *   낡은 상태)에는 그 순간 이 버튼이 아직 `disabled` 이고, 성공 뒤에는 아예 다른
-   *   버튼으로 바뀐다(「승인」→「되돌리기」). 그때의 복귀는 재조회가 끝나는 시점을 아는
+   *   버튼으로 바뀐다(「승인」→「판정 취소」). 그때의 복귀는 재조회가 끝나는 시점을 아는
    *   화면 쪽이 맡는다(`application-decision-focus.ts`, [#767]).
    */
   readonly returnFocusId: string;
@@ -123,9 +137,48 @@ export function ApplicationDecisionDialog({
                 ? '신청 승인'
                 : isReject
                   ? '신청 반려'
-                  : '판정 되돌리기'}
+                  : '판정 취소'}
             </h2>
           </AlertDialog.Title>
+          {/*
+           * 판정 대상 요약 — 눈에 띄되 확정 버튼보다 시각적으로 앞서지 않는다(#869).
+           * 그래서 `Alert`가 아니라 옅은 배경의 정보 블록으로, 본문 맨 위(설명·입력
+           * 폼보다 먼저)에 둔다. 내부 id는 애초에 props로 받지 않으므로 노출될 수 없다.
+           *
+           * ⚠ 라벨 없이 값만 나열하지 않는다 — 학생 프로젝트 특성상 팀 이름과 신청
+           * 제목이 거의 같은 문자열인 경우가 흔해, 라벨이 없으면 어느 줄이 팀이고
+           * 어느 줄이 제목인지 읽는 사람이 추론해야 한다. 그래서 값이 아니라
+           * 이름-값 쌍인 `<dl>`을 쓴다(`Row`·`admin-access-profile-section`과 같은 규칙).
+           */}
+          <dl
+            id="application-decision-summary"
+            className="grid gap-2 rounded-md border border-border bg-muted/40 p-3 text-small"
+          >
+            <div className="grid gap-0.5">
+              <dt className="text-muted-foreground">신청자</dt>
+              <dd className="break-keep font-medium text-foreground [overflow-wrap:anywhere]">
+                {applicantName}
+              </dd>
+            </div>
+            {teamName !== null ? (
+              <div className="grid gap-0.5">
+                <dt className="text-muted-foreground">팀</dt>
+                <dd className="break-keep text-muted-foreground [overflow-wrap:anywhere]">
+                  {teamName}
+                </dd>
+              </div>
+            ) : null}
+            {applicationTitle !== '' ? (
+              <div className="grid gap-0.5">
+                {/* 「프로젝트」가 아니라 「제목」이다 — 값의 출처가 `answers.title`이라, */}
+                {/* 화면이 데이터의 실제 정체보다 큰 말을 하면 안 된다. */}
+                <dt className="text-muted-foreground">제목</dt>
+                <dd className="break-keep text-muted-foreground [overflow-wrap:anywhere]">
+                  {applicationTitle}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
           {action === 'APPROVE' ? (
             <AlertDialog.Description asChild>
               <p className="break-keep">
@@ -179,7 +232,7 @@ export function ApplicationDecisionDialog({
           ) : (
             <AlertDialog.Description asChild>
               <p className="break-keep">
-                판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
+                판정을 취소하고 신청을 다시 검토 대기 상태로 되돌립니다. 이후
                 승인·반려를 다시 할 수 있습니다.
               </p>
             </AlertDialog.Description>
@@ -214,7 +267,7 @@ export function ApplicationDecisionDialog({
                   ? '승인 확정'
                   : isReject
                     ? '반려 확정'
-                    : '되돌리기 확정'}
+                    : '판정 취소 확정'}
             </Button>
           </div>
         </AlertDialog.Content>

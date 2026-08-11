@@ -111,14 +111,68 @@ describe('staleApplicationDecisionTitle', () => {
     code,
   });
 
-  it('ApiError 가 아니면 낡음으로 보지 않는다', () => {
-    expect(staleApplicationDecisionTitle(new Error('network'))).toBeNull();
+  it('학생이 먼저 취소해 404가 오면 취소된 신청임을 알리고 목록을 다시 불러오게 한다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(404, 'APP_001'))),
+    ).toBe('신청이 이미 취소되었습니다');
   });
 
-  it('프로비저닝이 끝난 승인 되돌리기는 사람 말로 알린다', () => {
+  it('다른 운영자가 먼저 판정해 409가 오면 상태 변경으로 알린다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
+    ).toBe('신청 상태가 변경되었습니다');
+  });
+
+  it('404와 409는 서로 다른 문구를 쓴다 — 교직원이 원인을 구분할 수 있어야 한다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(404, 'APP_001'))),
+    ).not.toBe(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
+    );
+  });
+
+  it('프로비저닝이 끝난 승인 되돌리기는 코드만으로도 사람 말 안내를 쓴다', () => {
     expect(
       staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_023'))),
     ).toBe('저장소가 이미 만들어진 승인은 되돌릴 수 없습니다');
+  });
+
+  it('revertBlockedReason 이 같이 실려도 같은 사람 말 안내를 쓴다', () => {
+    expect(
+      staleApplicationDecisionTitle(
+        new ApiError({
+          ...problem(409, 'APP_023'),
+          revertBlockedReason:
+            'repository provision already succeeded; undo is locked to protect the provisioned repository',
+        } as ProblemDetail & { readonly revertBlockedReason: string }),
+      ),
+    ).toBe('저장소가 이미 만들어진 승인은 되돌릴 수 없습니다');
+  });
+
+  it('일반 409와 되돌리기 잠금 409는 서로 다른 문구를 쓴다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
+    ).not.toBe(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_023'))),
+    );
+  });
+
+  it('권한·검증 실패는 목록 재조회 경로로 보내지 않는다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(403, 'APP_004'))),
+    ).toBeNull();
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(400, 'APP_003'))),
+    ).toBeNull();
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(500, 'SYS_001'))),
+    ).toBeNull();
+  });
+
+  it('네트워크 오류처럼 ApiError가 아닌 실패는 판단하지 않는다', () => {
+    expect(staleApplicationDecisionTitle(new Error('network'))).toBeNull();
+    expect(staleApplicationDecisionTitle(null)).toBeNull();
+    expect(staleApplicationDecisionTitle({ status: 404 })).toBeNull();
   });
 });
 

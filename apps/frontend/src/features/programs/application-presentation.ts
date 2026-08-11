@@ -8,15 +8,30 @@ import type {
 } from './types';
 
 /**
- * 신청 한 건을 화면 글자로 옮기는 규칙. 목록(`program-applicants-page`)과 상세
- * (`program-application-detail-page`)가 **같은 것을 쓴다** — 같은 신청이 두 화면에서
- * 다른 낱말로 불리면 교직원이 다른 것으로 읽는다.
+ * 신청 한 건을 화면 글자로 옮기는 규칙. 목록(`program-applicants-page`), 참여 팀
+ * (`program-staff-teams-page`), 상세(`program-application-detail-page`)가 **같은
+ * 것을 쓴다** — 같은 신청이 여러 화면에서 다른 낱말로 불리면 교직원이 다른 것으로
+ * 읽는다.
+ *
+ * `SUBMITTED`가 「검토 대기」인 이유([#869]): 판정(승인/반려/되돌리기)을 신청 상세로
+ * 몰아준 뒤로는 목록·참여 팀 화면 모두 판정 자체가 아니라 "볼 차례"를 알리는 자리라,
+ * 라벨도 그 사실에 맞춘다.
+ *
+ * ⚠ **아래 두 상수는 교직원 화면 전용이다.** 학생 본인에게는 자기 신청이 「제출됨」이
+ * 맞다 — 「검토 대기」는 교직원 시점의 낱말이라 학생 화면에 그대로 쓰면 잘못 읽힌다.
+ * 그래서 학생이 보는 화면들은 이름·값이 겹치더라도 **각자 독립된 상수**를 쓴다(같은
+ * "제출됨"이라도 이 모듈의 것과 무관하다):
+ * - `program-detail-format.ts` — 프로그램 상세의 내 신청 상태
+ * - `submissions/submission-checklist.ts` — 제출물 체크리스트
+ * - `milestone-timeline/parser.ts` — 마일스톤 타임라인
+ * 새 화면에서 신청 상태를 표시해야 한다면, 그 화면이 교직원용인지부터 확인하고 —
+ * 학생용이면 이 상수를 재사용하지 말고 그 화면만의 상수를 새로 둔다.
  */
 
 export const APPLICATION_STATUS_LABELS: Readonly<
   Record<ApplicationStatus, string>
 > = {
-  SUBMITTED: '제출됨',
+  SUBMITTED: '검토 대기',
   APPROVED: '승인',
   REJECTED: '반려',
 };
@@ -28,6 +43,14 @@ export const APPLICATION_STATUS_BADGE: Readonly<
   APPROVED: 'approved',
   REJECTED: 'rejected',
 };
+
+/** 팀이 아직 신청서를 내지 않은 행의 배지(`program-staff-teams-page`). 다른 값이
+ * 전부 명사라 형식을 맞춘다. */
+export const NO_APPLICATION_LABEL = '미신청';
+
+/** 판정은 신청 상세에서만 한다 — 목록·참여 팀 화면의 행 액션은 그리로 보내는
+ * 링크뿐이다([#869]). */
+export const REVIEW_ACTION_LABEL = '검토하기';
 
 export const PROVISIONING_LABELS: Readonly<
   Record<RepositoryProvisioningJobStatus, string>
@@ -129,9 +152,11 @@ function isRevertBlockedDecisionError(problem: {
 /**
  * 판정 확인창을 연 버튼의 id. 창이 닫힐 때 이 id 로 포커스를 되돌린다.
  *
- * 두 화면이 규칙을 공유한다 — 상세 화면은 신청이 하나뿐이라 `applicationId` 가 없고,
- * 목록 화면은 한 화면에 여러 행이 있어 행마다 갈라야 한다.
- * ⚠ 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「되돌리기」로 바뀐다). 그때
+ * 지금은 상세 화면(`program-application-detail-page`) 하나만 이 함수를 부른다 —
+ * 신청이 하나뿐이라 `applicationId` 없이 부른다. `applicationId` 매개변수와 그걸
+ * 쓰는 행별 분기는 목록이 판정을 되찾을 때를 위해 남겨 둔 것이고, 지금
+ * 프로덕션 경로에는 없다([#869]).
+ * ⚠ 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「판정 취소」로 바뀐다). 그때
  * 어디로 돌려줄지는 `application-decision-focus.ts` 가 같은 규칙으로 정한다 —
  * 같은 행의 **새 버튼**이고, 그것은 재조회가 끝난 뒤에야 생긴다([#767]).
  */

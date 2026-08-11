@@ -6,11 +6,13 @@ import type { ApplicationDecisionAction } from './types';
 
 /**
  * 판정 확인창이 **스스로** 닫힌 뒤(성공·낡은 상태) 포커스를 어디로 돌려줄지 정하는
- * 규칙. 목록(`program-applicants-page`)과 상세(`program-application-detail-page`)가
- * 같은 것을 쓴다([#767]).
+ * 규칙. 지금은 상세 화면(`program-application-detail-page`) 하나만 쓴다([#767]) —
+ * 판정을 신청 상세로 몰아주기 전에는 목록 화면(`program-applicants-page`)도 같은
+ * 규칙을 썼고, 아래 `applicationDecisionFocusOrder`의 `applicationId` 매개변수는
+ * 그 흔적이다([#869]).
  *
  * ⚠ 확인창의 `onCloseAutoFocus` 로는 풀 수 없다 — 판정에 성공하면 창을 연 버튼이
- *   **사라지고**(「승인」이 「되돌리기」로 바뀐다), 그 새 버튼은 **재조회가 끝난 뒤에야**
+ *   **사라지고**(「승인」이 「판정 취소」로 바뀐다), 그 새 버튼은 **재조회가 끝난 뒤에야**
  *   DOM 에 생긴다. 창이 닫히는 순간에 찾으면 아직 없다. 그래서 재조회가 끝나는 시점을
  *   아는 화면 쪽이 정하고, 그리는 것이 끝난 뒤(effect)에 옮긴다.
  */

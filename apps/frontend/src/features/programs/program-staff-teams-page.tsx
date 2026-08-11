@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DataTable,
@@ -12,8 +13,17 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { programApplicantsHref } from '@/lib/program-route';
+import {
+  programApplicantsHref,
+  programApplicationDetailHref,
+} from '@/lib/program-route';
 import { listProgramApplications, listStaffProgramTeams } from './api';
+import {
+  APPLICATION_STATUS_BADGE,
+  APPLICATION_STATUS_LABELS,
+  NO_APPLICATION_LABEL,
+  REVIEW_ACTION_LABEL,
+} from './application-presentation';
 import type {
   ApplicationListItem,
   ApplicationStatus,
@@ -29,22 +39,10 @@ import type {
  * 이유는 **팀만 만들고 아직 신청하지 않은 팀이 있기 때문**이다. 신청 목록을 축으로
  * 잡으면 그 팀들이 통째로 사라져 사이드바의 팀 수와 어긋난다.
  *
- * 승인·반려는 이 화면에 두지 않는다 — 판정 창구는 `/applicants`다. 사이드바·헤더
- * CTA로 그 경로를 열어 주지 않으면 현황만 보고 판정 입구를 못 찾는다.
+ * 승인·반려는 이 화면에 두지 않는다 — 판정은 신청 상세에서만 한다([#869]). 각 행은
+ * 그 팀의 신청 상세로 가는 「검토하기」 링크를 갖고, 신청이 없는 팀은 갈 곳이 없어
+ * 링크도 행 클릭도 없다.
  */
-
-const STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
-  SUBMITTED: '제출됨',
-  APPROVED: '승인',
-  REJECTED: '반려',
-};
-const STATUS_BADGE: Readonly<
-  Record<ApplicationStatus, 'pending' | 'approved' | 'rejected'>
-> = {
-  SUBMITTED: 'pending',
-  APPROVED: 'approved',
-  REJECTED: 'rejected',
-};
 
 /**
  * 신청 목록 한 페이지 크기. **backend DTO 의 `@Max(100)` 을 넘으면 안 된다** —
@@ -53,14 +51,14 @@ const STATUS_BADGE: Readonly<
 const APPLICATION_PAGE_SIZE = 100;
 /**
  * 폭주 방지 상한. 여기 걸리면 **조용히 자르지 않고 화면에 드러낸다** — 일부만 받은 채
- * 팀을 붙이면 신청이 있는 팀이 「신청서 안 냄」으로 보이고, 그건 빈 화면보다 나쁘다.
+ * 팀을 붙이면 신청이 있는 팀이 「미신청」으로 보이고, 그건 빈 화면보다 나쁘다.
  * 사용자는 틀린 것을 맞다고 읽는다.
  */
 const MAX_APPLICATION_PAGES = 20;
 
 /**
  * 신청을 끝까지 받아 온다. 팀 목록이 기준 축이라 **일부만 받으면 신청이 있는 팀이
- * 「신청서 안 냄」으로 잘못 보인다** — 부분 데이터가 조용히 오답이 되는 자리다.
+ * 「미신청」으로 잘못 보인다** — 부분 데이터가 조용히 오답이 되는 자리다.
  */
 export interface FetchedApplications {
   readonly items: readonly ApplicationListItem[];
@@ -164,6 +162,7 @@ export function ProgramStaffTeamsPage({
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<TeamFilter>('all');
+  const router = useRouter();
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -254,10 +253,12 @@ export function ProgramStaffTeamsPage({
         header: '신청 상태',
         cell: (row) =>
           row.application === null ? (
-            <StatusBadge variant="pending">신청서 안 냄</StatusBadge>
+            <StatusBadge variant="pending">{NO_APPLICATION_LABEL}</StatusBadge>
           ) : (
-            <StatusBadge variant={STATUS_BADGE[row.application.status]}>
-              {STATUS_LABELS[row.application.status]}
+            <StatusBadge
+              variant={APPLICATION_STATUS_BADGE[row.application.status]}
+            >
+              {APPLICATION_STATUS_LABELS[row.application.status]}
             </StatusBadge>
           ),
       },
@@ -283,14 +284,35 @@ export function ProgramStaffTeamsPage({
           );
         },
       },
+      {
+        id: 'actions',
+        header: '작업',
+        // 신청이 없는 팀은 갈 곳이 없다 — 링크를 만들지 않는다(눌리는데 아무
+        // 일도 안 일어나는 행을 만들지 않는다).
+        cell: (row) =>
+          row.application === null ? (
+            <span className="text-muted-foreground text-sm">—</span>
+          ) : (
+            <Button asChild size="sm" variant="outline">
+              <Link
+                href={programApplicationDetailHref(
+                  programId,
+                  row.application.id,
+                )}
+              >
+                {REVIEW_ACTION_LABEL}
+              </Link>
+            </Button>
+          ),
+      },
     ],
-    [],
+    [programId],
   );
 
   const applicantsHref = programApplicantsHref(programId);
   const applicantsAction = (
     <Button asChild>
-      <Link href={applicantsHref}>신청 승인하기</Link>
+      <Link href={applicantsHref}>신청 목록 보기</Link>
     </Button>
   );
 
@@ -312,7 +334,7 @@ export function ProgramStaffTeamsPage({
     <div className="grid gap-4 p-4 sm:p-6">
       <PageHeader
         title="참여 팀"
-        description="팀 구성과 신청 현황을 함께 봅니다. 승인·반려는 신청자 목록에서 합니다."
+        description="팀 구성과 신청 현황을 함께 봅니다. 판정은 신청 상세에서 합니다."
         actions={applicantsAction}
       />
 
@@ -320,8 +342,9 @@ export function ProgramStaffTeamsPage({
         <Alert>
           <AlertTitle>신청 정보를 일부만 불러왔습니다</AlertTitle>
           <AlertDescription>
-            신청 건수가 많아 전부 받지 못했습니다. 아래에서 「신청서 안 냄」으로
-            보이는 팀 중 일부는 실제로 신청했을 수 있습니다.{' '}
+            신청 건수가 많아 전부 받지 못했습니다. 아래에서 「
+            {NO_APPLICATION_LABEL}」으로 보이는 팀 중 일부는 실제로 신청했을 수
+            있습니다.{' '}
             <Link
               href={applicantsHref}
               className="font-medium underline underline-offset-2"
@@ -337,10 +360,22 @@ export function ProgramStaffTeamsPage({
         {(
           [
             ['all', `전체 ${counts.all}`],
-            ['APPROVED', `승인 ${counts.APPROVED}`],
-            ['SUBMITTED', `제출됨 ${counts.SUBMITTED}`],
-            ['REJECTED', `반려 ${counts.REJECTED}`],
-            ['no-application', `신청서 안 냄 ${counts['no-application']}`],
+            [
+              'APPROVED',
+              `${APPLICATION_STATUS_LABELS.APPROVED} ${counts.APPROVED}`,
+            ],
+            [
+              'SUBMITTED',
+              `${APPLICATION_STATUS_LABELS.SUBMITTED} ${counts.SUBMITTED}`,
+            ],
+            [
+              'REJECTED',
+              `${APPLICATION_STATUS_LABELS.REJECTED} ${counts.REJECTED}`,
+            ],
+            [
+              'no-application',
+              `${NO_APPLICATION_LABEL} ${counts['no-application']}`,
+            ],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -368,6 +403,17 @@ export function ProgramStaffTeamsPage({
         data={[...visible]}
         rowKey={(row) => row.team.teamId}
         isLoading={state.kind === 'loading'}
+        // 신청이 있는 행만 클릭 대상이다 — 신청이 없는 팀은 갈 곳이 없다.
+        // `<tr>`을 `<Link>`/`<a>`로 감쌀 수 없어(table 구조가 깨진다) 여기서는
+        // `router.push`로 이동한다 — 「검토하기」 셀 링크는 그대로 둬서 새 탭
+        // 열기·가운데 클릭 같은 네이티브 동작·키보드 동선은 그 링크가 담당한다.
+        onRowClick={(row) => {
+          if (row.application === null) return;
+          router.push(
+            programApplicationDetailHref(programId, row.application.id),
+          );
+        }}
+        isRowClickable={(row) => row.application !== null}
         caption={`${counts.all}팀 중 ${visible.length}팀을 표시합니다. 표를 좌우로 스크롤할 수 있습니다.`}
         emptyState={
           <EmptyState

@@ -16,7 +16,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const TRIGGER_LABELS = {
   APPROVE: '승인',
   REJECT: '반려',
-  REVERT: '되돌리기',
+  REVERT: '판정 취소',
 } as const satisfies Readonly<Record<ApplicationDecisionAction, string>>;
 
 /**
@@ -28,11 +28,17 @@ function Harness({
   errorMessage = null,
   busyAfterConfirm = false,
   reasonError = false,
+  applicantName = '합성 신청자',
+  teamName = null,
+  applicationTitle = '합성 신청 제목',
 }: {
   readonly action?: ApplicationDecisionAction;
   readonly errorMessage?: string | null;
   readonly busyAfterConfirm?: boolean;
   readonly reasonError?: boolean;
+  readonly applicantName?: string;
+  readonly teamName?: string | null;
+  readonly applicationTitle?: string;
 }) {
   const [open, setOpen] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -46,6 +52,9 @@ function Harness({
       {open ? (
         <ApplicationDecisionDialog
           action={action}
+          applicantName={applicantName}
+          teamName={teamName}
+          applicationTitle={applicationTitle}
           repositoryProvisioningEnabled={false}
           repositoryConnectionMode="NEW"
           reason=""
@@ -66,7 +75,7 @@ function Harness({
 
 /**
  * 판정이 저장되어 창이 **스스로** 닫힌 뒤를 줄여 놓은 것 — 창을 연 버튼은 사라지고
- * (「승인」→「되돌리기」) 화면이 그 새 버튼으로 포커스를 옮긴다([#767]).
+ * (「승인」→「판정 취소」) 화면이 그 새 버튼으로 포커스를 옮긴다([#767]).
  */
 function SelfClosingHarness() {
   const [decided, setDecided] = useState(false);
@@ -80,7 +89,7 @@ function SelfClosingHarness() {
     <>
       {decided ? (
         <button id="after-decision" type="button">
-          되돌리기
+          판정 취소
         </button>
       ) : (
         <button id={triggerId} type="button">
@@ -90,6 +99,9 @@ function SelfClosingHarness() {
       {decided ? null : (
         <ApplicationDecisionDialog
           action="APPROVE"
+          applicantName="합성 신청자"
+          teamName={null}
+          applicationTitle="합성 신청 제목"
           repositoryProvisioningEnabled={false}
           repositoryConnectionMode="NEW"
           reason=""
@@ -173,7 +185,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   it.each([
     ['APPROVE', '신청 승인'],
     ['REJECT', '신청 반려'],
-    ['REVERT', '판정 되돌리기'],
+    ['REVERT', '판정 취소'],
   ] as const)(
     '%s 창의 이름이 창 안의 제목을 가리킨다',
     async (action, heading) => {
@@ -333,7 +345,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   });
 
   it('창을 연 버튼이 사라진 채 닫히면 화면이 옮겨 둔 포커스를 덮지 않는다', async () => {
-    // Given: 판정이 저장되어 「승인」이 「되돌리기」로 바뀌고, 화면이 그 새 버튼으로
+    // Given: 판정이 저장되어 「승인」이 「판정 취소」로 바뀌고, 화면이 그 새 버튼으로
     //   포커스를 옮겼다.
     // ⚠ 창이 닫힐 때의 포커스 복귀는 Radix 안의 `setTimeout` 에서 **뒤늦게** 일어난다 —
     //   화면이 먼저 옮겨 둔 포커스를 그때 되돌려 버리면 교직원은 다시 문서 맨 앞으로
@@ -341,7 +353,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     await act(async () => root.render(<SelfClosingHarness />));
     await act(async () => getButton('승인 확정').click());
     expect(dialog()).toBeNull();
-    const replacement = getButton('되돌리기');
+    const replacement = getButton('판정 취소');
     expect(document.activeElement).toBe(replacement);
 
     // When: 창이 미뤄 둔 포커스 복귀가 뒤늦게 일어난다.
@@ -407,5 +419,65 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
 
     // Then
     expect(dialog()?.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  describe('판정 대상 요약 — 무엇을 판정하는지 창 안에 말한다([#869])', () => {
+    // 목록의 행 단위 판정이 사라지면 이 창이 유일한 판정 지점이 된다 — 확정
+    // 버튼을 누르기 직전에 누구의 무엇인지가 창 안에 있어야 한다.
+    it('팀 신청이면 신청자 이름·팀 이름·제목이 창 안에 보인다', async () => {
+      await act(async () =>
+        root.render(
+          <Harness
+            applicantName="합성 신청자"
+            teamName="합성 팀 (3명)"
+            applicationTitle="합성 신청 제목"
+          />,
+        ),
+      );
+
+      const opened = dialog();
+      expect(opened?.textContent).toContain('합성 신청자');
+      expect(opened?.textContent).toContain('합성 팀 (3명)');
+      expect(opened?.textContent).toContain('합성 신청 제목');
+    });
+
+    it('개인 신청(team이 null)이면 팀 줄을 그리지 않는다', async () => {
+      // Given: teamName이 null이다 — 팀 신청과 달리 보여줄 팀이 없다.
+      await act(async () => root.render(<Harness teamName={null} />));
+
+      // Then: 「팀」 라벨 자체가 없다. <dt> 개수를 세면 <dl> 구조가 바뀔 때마다
+      // 깨지므로, 라벨 부재로 직접 검증한다. 빈 값·"-" 같은 자리채움도 없다.
+      const summary = document.getElementById('application-decision-summary');
+      const labels = Array.from(summary?.querySelectorAll('dt') ?? []).map(
+        (dt) => dt.textContent,
+      );
+      expect(labels).not.toContain('팀');
+      expect(summary?.textContent).not.toContain('null');
+      expect(summary?.textContent).not.toContain('undefined');
+    });
+
+    it('제목이 빈 문자열이면 제목 줄을 그리지 않는다', async () => {
+      // Given: 신청서 제목이 비어 있다(학생 자유 입력이라 있을 수 있는 값).
+      await act(async () =>
+        root.render(<Harness teamName="합성 팀 (2명)" applicationTitle="" />),
+      );
+
+      // Then: 「제목」 라벨 자체가 없다(개수 세기 대신 라벨 부재로 검증한다).
+      const summary = document.getElementById('application-decision-summary');
+      const labels = Array.from(summary?.querySelectorAll('dt') ?? []).map(
+        (dt) => dt.textContent,
+      );
+      expect(labels).not.toContain('제목');
+    });
+
+    it('REVERT 창의 제목·확정 버튼 문구가 「판정 취소」다', async () => {
+      // 「되돌리기」는 무엇을 되돌리는지 말하지 않는다 — 판정을 취소한다는 것을 밝힌다.
+      await act(async () => root.render(<Harness action="REVERT" />));
+
+      expect(getButton('판정 취소 확정')).toBeTruthy();
+      expect(dialog()?.textContent).toContain(
+        '판정을 취소하고 신청을 다시 검토 대기 상태로 되돌립니다.',
+      );
+    });
   });
 });

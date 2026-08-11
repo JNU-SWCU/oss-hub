@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataTable, type DataTableColumn } from './data-table';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
