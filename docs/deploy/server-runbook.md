@@ -111,10 +111,10 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | `TEAM_JOIN_CODE_SECRET` | 팀 참가 코드 서명 시크릿 |
 | `FRONTEND_URL` | OAuth 콜백 파생 등에 쓰는 프런트엔드 base URL |
 | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth 로그인 앱 |
-| `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` / `GITHUB_COLLECTION_APP_PRIVATE_KEY` | GitHub 활동 수집 App. `GITHUB_COLLECTION_APP_PRIVATE_KEY`는 비어 있어도 기동하는 롤백용 legacy 값 키이며, 평시에는 파일 시크릿으로 읽는다 |
-| `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 호스트 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
-| `GITHUB_OPERATIONS_APP_ID` / `GITHUB_OPERATIONS_APP_PRIVATE_KEY` | 저장소 생성·설정 변경용 GitHub App. `GITHUB_OPERATIONS_APP_PRIVATE_KEY`는 비어 있어도 기동하는 롤백용 legacy 값 키이며, 평시에는 파일 시크릿으로 읽는다 |
-| `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 호스트 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
+| `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` | GitHub 활동 수집 App 식별자와 대상 조직 |
+| `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
+| `GITHUB_OPERATIONS_APP_ID` | 저장소 생성·설정 변경용 GitHub App 식별자 |
+| `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
 | `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | `MAIL_MODE=send`일 때 필수인 마감 알림 발신 자격증명. `dry-run`에서는 빈 값 허용 |
@@ -133,7 +133,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 - 호스트에서 `sudo -u '#1000' cat /var/lib/oss-hub/secrets/current/*.pem`으로 가독을 확인하면 부모 `/var/lib/oss-hub`의 `700 jenkins:jenkins` 때문에 항상 실패한다. 이 실패는 권한 버그가 아니라 경로 traversal 차단이다.
 - 가독 검증은 반드시 컨테이너 경유로 한다.
 - symlink 교체는 실행 중 컨테이너에 반영되지 않으므로, 키 회전 후에는 `docker compose up -d --force-recreate backend`가 필요하다.
-- 롤백 창에서는 legacy `GITHUB_*_APP_PRIVATE_KEY` 값 키를 잠시 되살려 사용할 수 있다.
+- 값 기반 fallback은 없다.
 
 ### 기본값이 있는 저장소 키
 

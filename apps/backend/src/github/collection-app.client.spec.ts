@@ -1,4 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   CollectionAppClient,
   CollectionAppClientError,
@@ -78,26 +81,39 @@ const releaseFixture = (
 
 describe('CollectionAppConfig', () => {
   it('validates required values and lower caps', () => {
-    expect(
-      CollectionAppConfig.fromEnv({
-        GITHUB_COLLECTION_APP_ID: '1',
-        GITHUB_APP_ORG: 'JNU-SWCU',
-        GITHUB_COLLECTION_APP_PRIVATE_KEY: 'key',
-        GITHUB_COLLECTION_APP_MAX_PAGES: '3',
-        GITHUB_COLLECTION_APP_DEADLINE_MS: '500',
+    const workspace = mkdtempSync(join(tmpdir(), 'collection-config-'));
+    const privateKeyFile = join(workspace, 'collection.pem');
+    writeFileSync(
+      privateKeyFile,
+      generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
+        type: 'pkcs8',
+        format: 'pem',
       }),
-    ).toMatchObject({ maxPages: 3, deadlineMs: 500 });
-    expect(() => CollectionAppConfig.fromEnv({})).toThrow(
-      CollectionAppConfigError,
     );
-    expect(() =>
-      CollectionAppConfig.fromEnv({
-        GITHUB_COLLECTION_APP_ID: '1',
-        GITHUB_APP_ORG: 'org',
-        GITHUB_COLLECTION_APP_PRIVATE_KEY: 'key',
-        GITHUB_COLLECTION_APP_MAX_PAGES: '101',
-      }),
-    ).toThrow(CollectionAppConfigError);
+    try {
+      expect(
+        CollectionAppConfig.fromEnv({
+          GITHUB_COLLECTION_APP_ID: '1',
+          GITHUB_APP_ORG: 'JNU-SWCU',
+          GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: privateKeyFile,
+          GITHUB_COLLECTION_APP_MAX_PAGES: '3',
+          GITHUB_COLLECTION_APP_DEADLINE_MS: '500',
+        }),
+      ).toMatchObject({ maxPages: 3, deadlineMs: 500 });
+      expect(() => CollectionAppConfig.fromEnv({})).toThrow(
+        CollectionAppConfigError,
+      );
+      expect(() =>
+        CollectionAppConfig.fromEnv({
+          GITHUB_COLLECTION_APP_ID: '1',
+          GITHUB_APP_ORG: 'org',
+          GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: privateKeyFile,
+          GITHUB_COLLECTION_APP_MAX_PAGES: '101',
+        }),
+      ).toThrow(CollectionAppConfigError);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 });
 

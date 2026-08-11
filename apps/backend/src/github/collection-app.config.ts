@@ -3,10 +3,7 @@ import {
   type RuntimeConfig,
   type RuntimeEnvKey,
 } from '../runtime-config/runtime-config';
-import { Logger } from '@nestjs/common';
-import { resolvePrivateKeyInput } from '../runtime-config/private-key-file';
-
-const logger = new Logger('CollectionAppConfig');
+import { readPrivateKeyFile } from '../runtime-config/private-key-file';
 
 const DEFAULT_API_BASE = 'https://api.github.com';
 const DEFAULT_MAX_PAGES = 100;
@@ -45,7 +42,6 @@ export class CollectionAppConfig {
   static readonly envNames = {
     appId: 'GITHUB_COLLECTION_APP_ID',
     orgLogin: 'GITHUB_APP_ORG',
-    privateKey: 'GITHUB_COLLECTION_APP_PRIVATE_KEY',
     privateKeyFile: 'GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE',
     apiBaseUrl: 'GITHUB_COLLECTION_APP_API_BASE_URL',
     maxPages: 'GITHUB_COLLECTION_APP_MAX_PAGES',
@@ -172,24 +168,15 @@ function resolvePrivateKey(
   config: RuntimeConfig,
   envNames: typeof CollectionAppConfig.envNames,
 ): string {
-  let resolved: string | null;
+  const filePath = config[envNames.privateKeyFile]?.trim();
+  if (!filePath) {
+    throw new CollectionAppConfigError(envNames.privateKeyFile);
+  }
   try {
-    resolved = resolvePrivateKeyInput(
-      envNames.privateKeyFile,
-      config[envNames.privateKeyFile],
-      config[envNames.privateKey],
-      () =>
-        logger.warn(
-          `${envNames.privateKeyFile} takes precedence; deprecated ${envNames.privateKey} is ignored`,
-        ),
-    );
+    return readPrivateKeyFile(envNames.privateKeyFile, filePath);
   } catch (error) {
     throw new CollectionAppConfigError(envNames.privateKeyFile, {
       cause: error,
     });
   }
-  if (resolved === null) {
-    throw new CollectionAppConfigError(envNames.privateKey);
-  }
-  return resolved;
 }

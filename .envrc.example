@@ -63,13 +63,9 @@ export GITHUB_APP_ORG=
 export GITHUB_COLLECTION_APP_ID=
 export GITHUB_OPERATIONS_APP_ID=
 # 개인키는 값이 아니라 **파일 경로**로 준다. 파일은 gitignore된 secrets/에 사람이 배치한다.
-# 아래 두 키는 Issue #366 Wave 3(파일 로더) 병합 후 유효하다. 그 전에는 아래 legacy 문자열
-# 키를 쓴다. 실제 파일명은 각자의 App에서 내려받은 것을 쓴다(저장소에 파일명을 적지 않는다).
+# 실제 파일명은 각자의 App에서 내려받은 것을 쓴다(저장소에 파일명을 적지 않는다).
 export GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE=./secrets/collection-app.private-key.pem
 export GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE=./secrets/operations-app.private-key.pem
-# legacy 경로 — 개행을 \n으로 escape한 PEM 한 줄. 위 *_FILE이 있으면 그쪽이 우선한다.
-export GITHUB_COLLECTION_APP_PRIVATE_KEY=
-export GITHUB_OPERATIONS_APP_PRIVATE_KEY=
 
 # --- 선택: 역할 시드 ---
 # "githubId:ROLE" 쉼표 구분. ROLE은 ADMIN|STAFF|STUDENT만 허용한다.
