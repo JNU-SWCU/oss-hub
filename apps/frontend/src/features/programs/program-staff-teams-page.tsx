@@ -14,9 +14,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { programApplicantsHref } from '@/lib/program-route';
 import { listProgramApplications, listStaffProgramTeams } from './api';
+import { PROVISIONING_LABELS } from './application-presentation';
 import type {
   ApplicationListItem,
   ApplicationStatus,
+  RepositoryProvisioningJobStatus,
   StaffProgramTeam,
 } from './types';
 
@@ -32,6 +34,19 @@ import type {
  * 승인·반려는 이 화면에 두지 않는다 — 판정 창구는 `/applicants`다. 사이드바·헤더
  * CTA로 그 경로를 열어 주지 않으면 현황만 보고 판정 입구를 못 찾는다.
  */
+
+/**
+ * 사람이 손대야 끝나는 발급 상태. 저장소 칸에서 **눈에 띄게** 그린다.
+ *
+ * ⚠ 이 화면은 교직원이 현황을 한눈에 보는 자리다. 발급이 실패해도 「아직 없음」으로만
+ * 보이던 탓에 교직원은 **문제가 있다는 사실 자체를 몰랐다**(2026-08-11 QA). 학생 화면은
+ * 같은 상황에서 실패를 명시하고 있었으므로 두 화면이 서로 다른 이야기를 하고 있었다.
+ *
+ * `RETRYABLE_FAILED`(재시도 대기)도 포함한다 — 워커가 자동으로 다시 집기는 하지만,
+ * 재시도가 계속 실패해도 교직원 눈에는 조용하다. `ANOMALOUS`(확인 필요)는 이름 그대로다.
+ */
+const PROVISION_FAILURE_STATUSES: ReadonlySet<RepositoryProvisioningJobStatus> =
+  new Set(['FAILED', 'RETRYABLE_FAILED', 'ANOMALOUS']);
 
 const STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
   SUBMITTED: '제출됨',
@@ -266,20 +281,42 @@ export function ProgramStaffTeamsPage({
         header: '저장소',
         cell: (row) => {
           const repository = row.application?.repository ?? null;
-          if (repository === null)
+          if (repository !== null) {
+            const isPublic = repository.visibility === 'PUBLIC';
+            return (
+              <a
+                className="text-sm underline underline-offset-2"
+                href={repository.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {isPublic ? '공개 저장소 열기' : '비공개 저장소 확인'}
+              </a>
+            );
+          }
+          // 신청서를 아직 안 낸 팀은 발급 자체가 시작되지 않았다 — 발급 상태를
+          // 물을 대상이 없으므로 여기만 「아직 없음」이 맞다.
+          if (row.application === null) {
             return (
               <span className="text-muted-foreground text-sm">아직 없음</span>
             );
-          const isPublic = repository.visibility === 'PUBLIC';
+          }
+          const provisioning = row.application.repositoryProvisioning;
           return (
-            <a
-              className="text-sm underline underline-offset-2"
-              href={repository.url}
-              target="_blank"
-              rel="noreferrer"
+            <span
+              className="text-sm"
+              title={provisioning.safeErrorClass ?? undefined}
             >
-              {isPublic ? '공개 저장소 열기' : '비공개 저장소 확인'}
-            </a>
+              {PROVISION_FAILURE_STATUSES.has(provisioning.jobStatus) ? (
+                <StatusBadge variant="rejected">
+                  {PROVISIONING_LABELS[provisioning.jobStatus]}
+                </StatusBadge>
+              ) : (
+                <span className="text-muted-foreground">
+                  {PROVISIONING_LABELS[provisioning.jobStatus]}
+                </span>
+              )}
+            </span>
           );
         },
       },
