@@ -28,7 +28,6 @@ export interface DeadlineDigestRepositoryPort {
     status: DigestNotificationStatus,
     payload: Prisma.InputJsonValue,
   ): Promise<void>;
-  findActiveStaffOrAdmin(githubId: bigint): Promise<boolean>;
 }
 
 const deadlineRecipientSelect = {
@@ -201,17 +200,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     });
     return (
       user?.role === Role.ADMIN && user.accountStatus === AccountStatus.ACTIVE
-    );
-  }
-
-  async findActiveStaffOrAdmin(githubId: bigint): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: { role: true, accountStatus: true },
-    });
-    return (
-      user?.accountStatus === AccountStatus.ACTIVE &&
-      (user.role === Role.STAFF || user.role === Role.ADMIN)
     );
   }
 }
