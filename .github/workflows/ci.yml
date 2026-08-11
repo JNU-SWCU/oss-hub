@@ -243,6 +243,13 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend build
 
+      # 브라우저는 playwright.config.ts의 `channel: 'chrome'`이 러너에 설치된 시스템
+      # Chrome을 쓰지만, `video: 'retain-on-failure'` 녹화는 Playwright 번들 ffmpeg를
+      # 따로 요구한다. 이 단계가 없으면 e2e가 실패할 때 녹화에서 다시 죽는다(#856).
+      - name: Playwright ffmpeg 설치
+        if: ${{ github.event_name == 'push' }}
+        run: pnpm --filter frontend exec playwright install ffmpeg
+
       # #184의 권한 생명주기는 frontend 화면과 backend 권한 경계를 함께 지나지만,
       # 전체 Playwright 묶음은 PR 반복 시간을 늘리므로 main 반영 뒤에만 실행한다.
       - name: 교직원 접근 권한 브라우저 회귀
