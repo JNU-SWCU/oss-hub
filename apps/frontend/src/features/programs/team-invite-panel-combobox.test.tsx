@@ -3,7 +3,10 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInvitePanel, type TeamInvitePanelProps } from './team-invite-panel';
+import {
+  TeamInvitePanel,
+  type TeamInvitePanelProps,
+} from './team-invite-panel';
 import type { InvitationCandidate } from './team-invitation-api';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {

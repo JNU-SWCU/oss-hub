@@ -139,7 +139,8 @@ function getSearchInput(): HTMLInputElement {
 
 function getSearchForm(): HTMLFormElement {
   const form = container.querySelector('form');
-  if (!(form instanceof HTMLFormElement)) throw new Error('검색 폼을 찾지 못했다.');
+  if (!(form instanceof HTMLFormElement))
+    throw new Error('검색 폼을 찾지 못했다.');
   return form;
 }
 
@@ -160,7 +161,9 @@ function typeQuery(value: string): void {
 async function submitSearch(): Promise<void> {
   const form = getSearchForm();
   await act(async () => {
-    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    form.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    );
   });
 }
 
@@ -176,7 +179,9 @@ async function renderReady(): Promise<void> {
 
 describe('ProgramTeamsPage — 초대 검색 자동완성', () => {
   it('빠르게 입력해도 디바운스 지연이 끝난 뒤 마지막 값으로 한 번만 검색한다', async () => {
-    mocks.searchInvitationCandidates.mockResolvedValue([candidate('u9', 'octo9')]);
+    mocks.searchInvitationCandidates.mockResolvedValue([
+      candidate('u9', 'octo9'),
+    ]);
     await renderReady();
 
     typeQuery('o');
