@@ -57,6 +57,7 @@ function formFixture(category: ProgramCategory): ProgramEditForm {
     applicationStartAt: '2026-08-01T09:00',
     applicationEndAt: '2026-08-31T18:00',
     endAt: '2026-12-31T18:00',
+    endAtUndecided: false,
     originalApplicationStartAt: '2026-08-01T09:00',
     originalApplicationEndAt: '2026-08-31T18:00',
     originalEndAt: '2026-12-31T18:00',

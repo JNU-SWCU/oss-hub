@@ -27,6 +27,14 @@ export function updateProgramForm(
       return typeof value === 'boolean'
         ? { ...form, notifyOnDeadline: value }
         : form;
+    /**
+     * 「미정」을 켜면 날짜 칸을 비운다 — 비활성 칸에 남은 날짜는 저장에 쓰이지
+     * 않으므로(`buildProgramEditInput`) 화면에 남겨 두면 뜻이 두 개로 보인다.
+     */
+    case 'endAtUndecided':
+      return typeof value === 'boolean'
+        ? { ...form, endAtUndecided: value, endAt: value ? '' : form.endAt }
+        : form;
     case 'category':
       return typeof value === 'string'
         ? { ...form, category: toCategory(value, form.category) }
