@@ -14,7 +14,6 @@ import type {
   ProgramAuthoringState,
   ProgramAuthoringStep,
 } from './program-authoring-model';
-import { ProgramAuthoringRequirementsStep } from './program-authoring-requirements-step';
 import type { ProgramSubmissionRuntime } from './program-authoring-submit';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
 
@@ -60,14 +59,7 @@ export function ProgramAuthoringStepContent({
             }
             dispatch({ type: 'remove_milestone', milestoneId });
           }}
-        />
-      );
-    case 'requirements':
-      return (
-        <ProgramAuthoringRequirementsStep
-          {...shared}
-          newId={newId}
-          onFileChange={(milestoneId, requirementId, file) => {
+          onRequirementFileChange={(milestoneId, requirementId, file) => {
             discardCachedUpload(runtime, requirementId);
             if (file === null) files.delete(requirementId);
             else files.set(requirementId, file);
@@ -81,7 +73,7 @@ export function ProgramAuthoringStepContent({
                   : { name: file.name, size: file.size, type: file.type },
             });
           }}
-          onRemove={(milestoneId, requirementId) => {
+          onRequirementRemove={(milestoneId, requirementId) => {
             files.delete(requirementId);
             discardCachedUpload(runtime, requirementId);
             dispatch({

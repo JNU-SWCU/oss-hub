@@ -71,7 +71,7 @@ describe('ProgramCreationPage guided authoring', () => {
     container.remove();
   });
 
-  it('renders all seven Korean steps with sidebar and compact progress without an API call', async () => {
+  it('renders all six Korean steps with sidebar and compact progress without an API call', async () => {
     await act(async () => root.render(<ProgramCreationPage />));
 
     for (const label of [
@@ -79,7 +79,6 @@ describe('ProgramCreationPage guided authoring', () => {
       '기본 정보',
       '신청/운영 일정',
       '마일스톤',
-      '요구서류/양식',
       '운영 설정',
       '최종 검토',
     ]) {

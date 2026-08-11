@@ -23,7 +23,7 @@ describe('program authoring reducer', () => {
     // When
     const navigated = programAuthoringReducer(initial, {
       type: 'go_to_step',
-      step: 'requirements',
+      step: 'operations',
     });
 
     // Then
@@ -31,8 +31,8 @@ describe('program authoring reducer', () => {
     expect(navigated.teamMaxSize).toBe('1');
     expect(navigated.repositoryProvisioningEnabled).toBe(false);
     expect(navigated.notifyOnDeadline).toBe(false);
-    expect(navigated.currentStep).toBe('requirements');
-    expect(PROGRAM_AUTHORING_STEPS).toHaveLength(7);
+    expect(navigated.currentStep).toBe('operations');
+    expect(PROGRAM_AUTHORING_STEPS).toHaveLength(6);
   });
 
   it('stores the GitHub repository issuance choice in authoring state', () => {
@@ -196,7 +196,7 @@ describe('program authoring validation', () => {
     expect(issues).toContainEqual(
       expect.objectContaining({
         path: 'requirements.requirement-file.templateFile',
-        step: 'requirements',
+        step: 'milestones',
       }),
     );
   });

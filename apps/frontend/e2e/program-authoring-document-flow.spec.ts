@@ -89,7 +89,6 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       .nth(1)
       .fill(seoulLocalInput(schedule, 9 * HOUR_MS));
     await authorPage.getByText('파일 중심', { exact: true }).nth(1).click();
-    await authorPage.getByRole('button', { name: '다음' }).click();
     await expect(
       authorPage
         .getByLabel(
