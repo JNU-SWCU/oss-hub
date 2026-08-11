@@ -95,7 +95,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 - 컨테이너 안에서는 `github_collection_app_private_key`와 `github_operations_app_private_key`가 각각 `/run/secrets/github_collection_app_private_key`, `/run/secrets/github_operations_app_private_key`로 마운트되고, 앱은 대응하는 `*_PRIVATE_KEY_FILE`만 읽는다.
 - Jenkinsfile의 pipeline `environment`가 `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE`, `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE`를 이미 주입하므로, `oss-hub-production-env`에는 이 두 키를 중복 기재하지 않는다.
 - 수동 compose 실행 시에만 같은 값을 셸 환경이나 임시 env file에서 제공한다.
-- Jenkinsfile의 `개인키 안정 경로 설치` stage가 새 generation을 이 경로에 설치하고, `실행 중 이미지 기준 no-op...` stage 바로 직전에 실행된다.
+- Jenkinsfile의 `개인키 검증 및 안정 경로 설치` stage가 GitHub 실인증을 통과한 key만 새 generation에 설치하고, `실행 중 이미지 기준 no-op...` stage 바로 직전에 실행된다.
 
 `compose.yml`은 아래 키를 `${VAR:?...}`로 요구한다. 하나라도 없으면 compose가 보간 단계에서 중단되며,
 `up -d postgres`처럼 서비스 하나만 다루는 명령도 함께 실패한다.
@@ -111,10 +111,10 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | `TEAM_JOIN_CODE_SECRET` | 팀 참가 코드 서명 시크릿 |
 | `FRONTEND_URL` | OAuth 콜백 파생 등에 쓰는 프런트엔드 base URL |
 | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth 로그인 앱 |
-| `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` / `GITHUB_COLLECTION_APP_PRIVATE_KEY` | GitHub 활동 수집 App. `GITHUB_COLLECTION_APP_PRIVATE_KEY`는 비어 있어도 기동하는 롤백용 legacy 값 키이며, 평시에는 파일 시크릿으로 읽는다 |
-| `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 호스트 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
-| `GITHUB_OPERATIONS_APP_ID` / `GITHUB_OPERATIONS_APP_PRIVATE_KEY` | 저장소 생성·설정 변경용 GitHub App. `GITHUB_OPERATIONS_APP_PRIVATE_KEY`는 비어 있어도 기동하는 롤백용 legacy 값 키이며, 평시에는 파일 시크릿으로 읽는다 |
-| `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 호스트 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
+| `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` | GitHub 활동 수집 App 식별자와 대상 조직 |
+| `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
+| `GITHUB_OPERATIONS_APP_ID` | 저장소 생성·설정 변경용 GitHub App 식별자 |
+| `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
 | `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | `MAIL_MODE=send`일 때 필수인 마감 알림 발신 자격증명. `dry-run`에서는 빈 값 허용 |
@@ -127,13 +127,13 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 #### GitHub App 개인키 파일 시크릿 회전
 
 - generation 레이아웃은 `${SECRETS_DIR}/gen-<BUILD_NUMBER>/{collection,operations}.pem`이고, 활성 포인터는 `${SECRETS_DIR}/current` symlink다.
-- `gen-${BUILD_NUMBER}`는 매 빌드(파라미터 없는 no-op 재실행 포함)마다 새로 생성되며 자동 정리되지 않는다 — 빌드 횟수만큼 세대가 계속 누적된다. 이전 세대는 필요 시 수동으로 정리하되, `current` symlink가 가리키는 세대는 삭제하지 않는다. 각 세대 파일은 2KB 미만이라 디스크 압박은 미미하다.
+- Jenkins file credential 두 개가 활성 generation과 모두 같으면 새 generation과 backend 재생성을 생략한다. 하나라도 다를 때만 `gen-${BUILD_NUMBER}`를 만들며 이전 세대는 자동 정리하지 않는다. 필요 시 수동 정리하되 `current`와 실행 중 롤백 대상이 가리키는 세대는 삭제하지 않는다.
 - 교체는 `ln -sfn`으로 새 generation을 가리킨 뒤 `mv -T`로 포인터를 원자적으로 바꾼다.
 - 파일 모드는 `0640`만 쓴다. `0644`는 쓰지 않는다.
 - 호스트에서 `sudo -u '#1000' cat /var/lib/oss-hub/secrets/current/*.pem`으로 가독을 확인하면 부모 `/var/lib/oss-hub`의 `700 jenkins:jenkins` 때문에 항상 실패한다. 이 실패는 권한 버그가 아니라 경로 traversal 차단이다.
 - 가독 검증은 반드시 컨테이너 경유로 한다.
-- symlink 교체는 실행 중 컨테이너에 반영되지 않으므로, 키 회전 후에는 `docker compose up -d --force-recreate backend`가 필요하다.
-- 롤백 창에서는 legacy `GITHUB_*_APP_PRIVATE_KEY` 값 키를 잠시 되살려 사용할 수 있다.
+- Jenkins는 symlink 교체 결과를 확인한 뒤 backend를 `--force-recreate`하고, 컨테이너에 마운트된 두 파일이 활성 generation과 같은지 검증한다.
+- 값 기반 fallback은 없으며 키 회전 실패 시 이전 generation symlink와 backend를 함께 복구한다.
 
 ### 기본값이 있는 저장소 키
 

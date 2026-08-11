@@ -1074,7 +1074,18 @@ check_v2() {
     fi
   done
 
-  echo "$label: ok (parameterless latest Release, exact RELEASE_SHA checkout, RELEASE_TAG images, running-only no-op, nginx reload+drift smoke, fail-closed stopped/ambiguous, HTTPS+external rollback preflight, success-only retention)"
+  require_exact 'GitHub App credential 실인증 검증은 한 번이어야 함' \
+    'node scripts/jenkins/validate-github-app-credentials.mjs' 1
+  require_exact 'no-op 개인키 변경 반영 stage는 한 번이어야 함' \
+    "stage('no-op 개인키 변경 반영')" 1
+  require_exact 'no-op 개인키 stage는 실제 변경 때만 실행해야 함' \
+    "expression { env.DEPLOY_NOOP == 'true' && env.PRIVATE_KEYS_CHANGED == 'true' }" 1
+  require_regex_at_least '개인키 변경·복구는 backend를 force-recreate해야 함' \
+    'force-recreate[[:space:]]+--no-deps[[:space:]]+--wait[[:space:]]+--wait-timeout[[:space:]]+180[[:space:]]+backend' 2
+  require_exact '활성 generation은 readlink 실경로로 검증해야 함' \
+    'if [ "$(readlink -f "${SECRETS_DIR}/current")" != "$generation" ]; then' 1
+
+  echo "$label: ok (parameterless latest Release, exact RELEASE_SHA checkout, RELEASE_TAG images, running-only no-op, GitHub App credential verification+key reload, nginx reload+drift smoke, fail-closed stopped/ambiguous, HTTPS+external rollback preflight, success-only retention)"
 }
 
 check_v2

@@ -1,3 +1,7 @@
+import { generateKeyPairSync } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConsentsModule } from '../consents/consents.module';
@@ -50,6 +54,25 @@ function findCollectionSyncServiceProvider(
 }
 
 describe('CollectionModule', () => {
+  let privateKeyWorkspace: string;
+  let privateKeyFile: string;
+
+  beforeAll(() => {
+    privateKeyWorkspace = mkdtempSync(join(tmpdir(), 'collection-module-'));
+    privateKeyFile = join(privateKeyWorkspace, 'collection.pem');
+    writeFileSync(
+      privateKeyFile,
+      generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
+        type: 'pkcs8',
+        format: 'pem',
+      }),
+    );
+  });
+
+  afterAll(() => {
+    rmSync(privateKeyWorkspace, { recursive: true, force: true });
+  });
+
   it('ScheduleModule을 초기화한다', () => {
     const imports = getMetadataArray(MODULE_METADATA.IMPORTS);
 
@@ -165,7 +188,7 @@ describe('CollectionModule', () => {
     const runtimeConfig = loadRuntimeConfig({
       GITHUB_COLLECTION_APP_ID: '12345',
       GITHUB_APP_ORG: 'synthetic-org',
-      GITHUB_COLLECTION_APP_PRIVATE_KEY: 'synthetic-private-key',
+      GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: privateKeyFile,
     });
     const fakeIncrementalRepository = {} as CollectionIncrementalRepository;
     const fakePublicTokens = {
