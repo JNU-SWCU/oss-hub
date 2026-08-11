@@ -222,15 +222,58 @@ describe('ProgramDetailPage states', () => {
     expect(html).toContain('aria-label="활동 상세"');
   });
 
-  it('교직원에게 신청자 목록·편집 CTA를 노출하고 미구현 #124 경로는 숨긴다', () => {
+  // 모집 배지는 카드 안이 아니라 제목 옆(PageHeader)에 붙고, 주관기관·유형·신청
+  // 기간은 그 아래 설명 줄 한 곳에서만 표시된다(#865) — 「프로그램 안내」 카드와
+  // 팩트 바에서는 더 이상 중복해서 그리지 않는다.
+  it('제목 줄에 모집 배지가 붙고, 주관기관·유형·신청 기간은 헤더 설명 줄에 한 번만 표시된다', () => {
     const html = renderToStaticMarkup(
-      <ProgramActions program={programWithoutMilestones} />,
+      <ProgramDetailReadyState program={programWithoutMilestones} />,
     );
-    expect(html).toContain('/programs/program-1/edit');
-    expect(html).toContain('/programs/program-1/applicants');
-    expect(html).toContain('신청자 목록');
-    expect(html).not.toContain('/programs/program-1/submissions');
-    expect(html).not.toContain('전체 제출 현황');
+
+    const titleSlot = html.match(
+      /<h1 data-slot="page-header-title"[^>]*>(.*?)<\/h1>/,
+    )?.[1];
+    expect(titleSlot).toBeDefined();
+    expect(titleSlot).toContain('OSS 경진대회');
+    expect(titleSlot).toContain('모집중');
+
+    const description = '운영기관 · OSS 경진대회 · 2026.07.01 ~ 2026.08.31';
+    expect(html.split(description)).toHaveLength(2);
+    expect(html).not.toContain('<strong>주관기관</strong>');
+    expect(html).not.toContain('<strong>신청기간</strong>');
+  });
+
+  // 신청자 목록은 프로그램 스코프 사이드바에 이미 있는 목적지라, 헤더에서는
+  // 중복 노출하지 않는다(#865) — STAFF·ADMIN 모두 프로그램 편집 버튼 하나만 남는다.
+  it.each(['STAFF', 'ADMIN'] as const)(
+    '%s에게 프로그램 편집 CTA만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
+    (role) => {
+      const html = renderToStaticMarkup(
+        <ProgramActions
+          program={{ ...programWithoutMilestones, viewer: { role, applicationStatus: null } }}
+        />,
+      );
+      expect(html).toContain('/programs/program-1/edit');
+      expect(html).toContain('프로그램 편집');
+      expect(html).not.toContain('신청자 목록');
+      expect(html).not.toContain('/programs/program-1/applicants');
+      expect(html).not.toContain('/programs/program-1/submissions');
+      expect(html).not.toContain('전체 제출 현황');
+    },
+  );
+
+  it('신청 전 학생에게 신청하기 CTA를 노출한다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramActions
+        program={{
+          ...programWithoutMilestones,
+          viewer: { role: 'STUDENT', applicationStatus: null },
+        }}
+      />,
+    );
+    expect(html).toContain('신청하기');
+    expect(html).toContain('/programs/program-1/apply');
+    expect(html).not.toContain('신청자 목록');
   });
 
   // 이 갈래에는 비로그인 방문자와 "GitHub만 연결하고 프로필을 안 채운 사람"이 함께
@@ -303,14 +346,13 @@ const overviewBase: ProgramOverview = {
 };
 
 describe('ProgramFactBar', () => {
-  it('overview 조회 실패 시(null) 프로그램 기본 정보만으로 앞 두 항목만 보여준다', () => {
+  // 주관기관·신청 기간은 헤더 설명 줄로 옮겼다(#865) — overview가 없으면(비로그인
+  // 등 조회 실패) 보여줄 숫자 지표가 없으므로 팩트 바 자체를 그리지 않는다.
+  it('overview 조회 실패 시(null) 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <ProgramFactBar program={programWithoutMilestones} overview={null} />,
     );
-    expect(html).toContain('주관');
-    expect(html).toContain('신청 기간');
-    expect(html).not.toContain('참여 학생');
-    expect(html).not.toContain('연결된 저장소');
+    expect(html).toBe('');
   });
 
   it('학생에게는 참여 현황과 함께 내 제출 N/M을 보여준다', () => {
@@ -327,10 +369,13 @@ describe('ProgramFactBar', () => {
     );
     expect(html).toContain('참여 학생');
     expect(html).toContain('12명');
-    expect(html).toContain('연결된 저장소');
+    expect(html).toContain('참여 팀');
+    expect(html).toContain('연결 저장소');
     expect(html).toContain('내 제출');
     expect(html).toContain('2 / 5 서류');
     expect(html).not.toContain('이번 마일스톤 완주율');
+    expect(html).not.toContain('주관');
+    expect(html).not.toContain('신청 기간');
   });
 
   // QA47 — "제출률"만으로는 마일스톤 카드·매트릭스와 다른 숫자가 나오는
