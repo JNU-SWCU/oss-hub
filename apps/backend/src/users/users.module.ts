@@ -17,10 +17,13 @@ import { UsersService } from './users.service';
 
 @Module({
   imports: [AuditLogModule, AuthModule, ConsentsModule],
+  // 순서가 라우팅 계약이다(#787 회귀) — Express는 컨트롤러를 등록 순서대로 매칭하므로
+  // `UsersController`(`/users/me/profile`)가 `AdminAccessController`(`/users/:id/profile`)보다
+  // 먼저 와야 `me`가 `:id`로 흡수되지 않는다.
   controllers: [
     AccountDeactivationController,
-    AdminAccessController,
     UsersController,
+    AdminAccessController,
   ],
   providers: [
     AccountDeactivationRepository,
