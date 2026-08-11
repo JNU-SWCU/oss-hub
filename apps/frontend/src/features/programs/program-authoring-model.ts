@@ -57,7 +57,13 @@ export function createInitialProgramAuthoringState(input: {
     teamMinSize: '1',
     teamMaxSize: '1',
     repositoryProvisioningEnabled: false,
-    notifyOnDeadline: false,
+    /**
+     * 새 프로그램은 마감 알림을 켜고 시작한다. `Program.notifyOnDeadline` 의 DB
+     * 기본값은 `false` 라서(`prisma/schema.prisma`) 그 값을 그대로 물려받으면
+     * 교직원이 켠 적 없다는 사실조차 모른 채 미제출 알림이 한 통도 나가지 않는다.
+     * 알림을 안 받겠다는 선택은 화면에서 체크를 풀어 명시적으로 한다.
+     */
+    notifyOnDeadline: true,
     milestones: [createMilestoneDraft(input.milestoneId)],
   };
 }
