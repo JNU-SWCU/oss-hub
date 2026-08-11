@@ -1,0 +1,122 @@
+/**
+ * 「이 마일스톤이 이 신청에 대해 끝났는가」를 축과 무관하게 답하는 **단 하나의 자리**.
+ *
+ * 마일스톤에는 제출 축이 둘 있다.
+ *
+ * - **코드 축** — `Submission` 한 행(`Milestone.submissionType` 이 FILE/TEXT 를 정한다).
+ * - **서류 축** — `MilestoneDocument` 여러 항목과 (항목 × 신청)당 `MilestoneDocumentSubmission`.
+ *
+ * ⚠ 스키마에는 **「이 마일스톤이 어느 축을 쓰는가」를 알려 주는 필드가 없다.** `Milestone` 은
+ * 늘 `submissionType` 을 갖고, `documents` 는 그와 별개로 0개 이상이다. 화면도 두 축을 함께
+ * 그린다(`program-detail-view.tsx` 가 마일스톤마다 `MilestoneRow` 와
+ * `MilestoneDocumentSection` 을 나란히 붙인다). 그래서 축은 **쓰인 흔적으로만** 추론할 수 있고,
+ * 그 추론 규칙을 여기 한 곳에 둔다.
+ *
+ * 이 모듈이 `common/` 에 있는 이유는 `milestone-document-locks.ts` 와 같다 — 세 표면
+ * (저장소 공개 자격 · 교직원 대시보드 요약 · 프로그램 상세)이 **같은 판정**을 써야 하는데
+ * 어느 한 모듈이 소유하면 형제 모듈이 계약 없이 남의 업무 규칙을 복제하게 된다(ADR-003).
+ * 표면마다 「서류도 본다」를 덧붙이면 다음 변경에서 판정이 세 벌로 갈라진다 — #752 에서 공개
+ * 게이트를 한 함수로 모은 것과 같은 이유다.
+ */
+import { SubmissionStatus } from '@prisma/client';
+
+/** 칸 하나(신청 × 마일스톤)의 상태. 제출 행이 하나도 없는 상태를 `NOT_SUBMITTED` 로 표현하는 것은 기존 DTO 관례를 따른 것이다. */
+export type MilestoneCompletionStatus = SubmissionStatus | 'NOT_SUBMITTED';
+
+export const MILESTONE_NOT_SUBMITTED = 'NOT_SUBMITTED' as const;
+
+/**
+ * 한 마일스톤 × 한 신청의 두 축 재료.
+ *
+ * 두 필드 모두 **호출자가 이미 이 신청으로 좁혀서** 넘긴다 — 이 함수는 신청 id 를 모른다.
+ */
+export interface MilestoneCompletionInput {
+  /**
+   * 이 마일스톤의 **필수**(`required: true`) 서류 항목마다 한 칸씩. 제출 행이 없으면 `null`.
+   *
+   * ⚠ 선택 서류(`required: false`)는 여기 넣지 않는다 — 안 낸 선택 서류가 마일스톤을 영원히
+   * 미완료로 잡아 두면 「필수」라는 구분이 뜻을 잃는다.
+   *
+   * 필수 항목이 하나도 없으면 빈 배열이고, 그때 서류 축은 **쓰이지 않은 것으로** 본다.
+   */
+  readonly requiredDocumentStatuses: readonly (SubmissionStatus | null)[];
+  /** 이 신청의 `Submission` 상태. 행이 없으면 `null`. */
+  readonly submissionStatus: SubmissionStatus | null;
+}
+
+/**
+ * 나쁜 쪽이 이긴다 — 한 축이라도 이 상태면 칸 전체가 이 상태다. 앞쪽이 강하다.
+ *
+ * `APPROVED` 가 맨 뒤인 것이 이 표의 요점이다: **모든** 칸이 승인일 때만 칸이 승인으로 남는다.
+ */
+const STATUS_PRECEDENCE: readonly MilestoneCompletionStatus[] = [
+  SubmissionStatus.REJECTED,
+  SubmissionStatus.CHANGES_REQUESTED,
+  MILESTONE_NOT_SUBMITTED,
+  SubmissionStatus.SUBMITTED,
+  SubmissionStatus.APPROVED,
+];
+
+/**
+ * 코드 축이 이 마일스톤에서 **쓰이고 있는가.**
+ *
+ * - 필수 서류가 없으면 코드 축이 유일한 축이다 → 늘 쓰인다. (기존 동작 그대로. 아무것도 안 낸
+ *   코드 마일스톤이 「완료」로 새어 나가지 않는다.)
+ * - 필수 서류가 있으면 코드 축은 **`Submission` 행이 실제로 있을 때만** 쓰인다. 서류만 받는
+ *   마일스톤은 `Submission` 이 영영 안 생기므로 코드 축을 요구하지 않는다 — #820 이 막혀 있던
+ *   지점이 정확히 여기다.
+ *
+ * ⚠ 이 갈래가 판정을 **넓히는 유일한 지점**이다. 넓어지는 경우는 「필수 서류가 있고 `Submission`
+ * 행이 없다」 하나뿐이고, 두 축이 다 쓰인 칸에서는 **둘 다** 승인이어야 한다(넓어지지 않는다).
+ */
+function isSubmissionAxisInUse(input: MilestoneCompletionInput): boolean {
+  return (
+    input.requiredDocumentStatuses.length === 0 ||
+    input.submissionStatus !== null
+  );
+}
+
+/** 쓰이고 있는 축들의 칸 상태를 모두 모은다. 최소 한 칸은 반드시 들어간다. */
+function collectAxisStatuses(
+  input: MilestoneCompletionInput,
+): readonly MilestoneCompletionStatus[] {
+  const statuses: MilestoneCompletionStatus[] =
+    input.requiredDocumentStatuses.map(
+      (status) => status ?? MILESTONE_NOT_SUBMITTED,
+    );
+  if (isSubmissionAxisInUse(input)) {
+    statuses.push(input.submissionStatus ?? MILESTONE_NOT_SUBMITTED);
+  }
+  return statuses;
+}
+
+/**
+ * 칸 하나의 상태. 교직원 대시보드 요약·프로그램 상세가 이것으로 버킷을 센다.
+ *
+ * 쓰이는 축이 여럿이면 `STATUS_PRECEDENCE` 로 가장 나쁜 상태가 이긴다.
+ */
+export function milestoneCompletionStatus(
+  input: MilestoneCompletionInput,
+): MilestoneCompletionStatus {
+  const statuses = collectAxisStatuses(input);
+  let worst: MilestoneCompletionStatus = SubmissionStatus.APPROVED;
+  let worstRank = STATUS_PRECEDENCE.indexOf(worst);
+  for (const status of statuses) {
+    const rank = STATUS_PRECEDENCE.indexOf(status);
+    if (rank < worstRank) {
+      worst = status;
+      worstRank = rank;
+    }
+  }
+  return worst;
+}
+
+/**
+ * 이 마일스톤이 이 신청에 대해 끝났는가. 저장소 공개 자격이 이것을 마일스톤마다 묻는다.
+ *
+ * ⚠ 저장소 공개는 민감하다 — 이 함수가 참을 더 자주 돌려주면 공개하면 안 될 저장소가 공개된다.
+ * `milestone-completion.spec.ts` 가 「승인 하나를 빼면 거짓이 된다」를 축마다 못 박고 있다.
+ */
+export function isMilestoneComplete(input: MilestoneCompletionInput): boolean {
+  return milestoneCompletionStatus(input) === SubmissionStatus.APPROVED;
+}
