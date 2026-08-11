@@ -41,10 +41,11 @@ const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
 const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
 /**
  * 필터 줄 — 시안은 필터를 카드에 넣지 않는다. 표(카드)와 제목 사이의 조작 줄이다.
- * grid item은 검색 필드 + 버튼 그룹, 2개뿐이다 — grid-cols 수는 item 수와 맞춰야
- * 빈 칸이 남지 않는다(대조: audit-log-view.tsx는 5개 필드 + 5칸).
+ * grid item은 검색 필드 + 버튼 그룹, 2개뿐이다. sm 이상에서는 검색 필드가 남는
+ * 폭을 모두 갖고(1fr) 버튼 그룹은 내용만큼만(auto) 차지해 우측에 정렬된다(#865).
  */
-const FILTER_ROW = 'grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:items-end';
+const FILTER_ROW =
+  'grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end';
 
 export interface SubmissionMatrixViewProps {
   readonly programId: string;
@@ -102,18 +103,19 @@ function MatrixCellContent({
       </span>
     );
   }
-  // 제출 시각 + 최신 판정 배지(#619 스펙 제출 일시 유지, QA49 판정 상태 반영).
+  // 제출 시각 + revision을 한 줄에, 최신 판정 배지는 그 위(#865, QA49 판정 상태 반영).
+  const submittedAtLabel =
+    cell.submittedAt !== null ? formatSubmittedAt(cell.submittedAt) : null;
+  const revisionLabel = cell.revision !== null ? `v${cell.revision}` : null;
+  const secondaryLine = [submittedAtLabel, revisionLabel]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
   const meta = (
     <span className="flex flex-col items-start gap-1">
       <span className="flex flex-wrap items-center gap-1">{badge}</span>
-      {cell.submittedAt !== null ? (
+      {secondaryLine !== '' ? (
         <span className="text-small text-muted-foreground">
-          {formatSubmittedAt(cell.submittedAt)}
-        </span>
-      ) : null}
-      {cell.revision !== null ? (
-        <span className="text-small text-muted-foreground">
-          v{cell.revision}
+          {secondaryLine}
         </span>
       ) : null}
     </span>
@@ -182,7 +184,7 @@ function MatrixSkeleton(): ReactElement {
 }
 
 /**
- * 서류 칸 요약 — #619 스펙의 4칸 통계를 현재 페이지에 로드된 행 기준으로 낸다.
+ * 통계 요약 — #619 스펙의 4종 통계를 현재 페이지에 로드된 행 기준으로 낸다.
  * "전체 47팀" 같은 전수 집계는 페이지네이션 때문에 이 화면만으로 낼 수 없어
  * "이 페이지" 표기를 붙인다(matrix.ts matrixPageStats 주석 참고).
  */
@@ -195,13 +197,10 @@ function MatrixStatsStrip({
 }): ReactElement {
   const stats = matrixPageStats(rows, milestones);
   const facts: { readonly label: string; readonly value: string }[] = [
-    {
-      label: '서류 칸',
-      value: `${stats.filledCells}/${stats.totalCells} 채움`,
-    },
-    { label: '빈 칸', value: `${stats.emptyCells}개` },
-    { label: '한 장도 안 낸 팀', value: `${stats.zeroSubmissionRows}팀` },
-    { label: '지각 제출', value: `${stats.lateCells}건` },
+    { label: '제출', value: `${stats.filledCells}/${stats.totalCells}` },
+    { label: '미제출', value: `${stats.emptyCells}건` },
+    { label: '전체 미제출', value: `${stats.zeroSubmissionRows}팀` },
+    { label: '지각', value: `${stats.lateCells}건` },
   ];
   return (
     <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-card border border-border p-card sm:grid-cols-4">
@@ -216,10 +215,11 @@ function MatrixStatsStrip({
 }
 
 const QUICK_FILTER_BUTTON_BASE =
-  'h-control rounded-control px-4 text-small font-semibold transition-colors';
+  'h-control px-4 text-small font-semibold transition-colors';
 
 /**
- * 3버튼 빠른 필터(#619 스펙) — "전체 N팀"/"빈 칸 있는 팀 N"/"한 장도 안 낸 팀 N".
+ * 3버튼 빠른 필터(#619 스펙) — "전체 N팀"/"미제출 포함 N팀"/"전체 미제출 N팀".
+ * 흩어진 pill이 아니라 한 컨테이너 안에 구분선으로 나뉜 세그먼트 컨트롤(#865).
  * 선택됨: secondary 배경 + foreground 텍스트 / 미선택: card 배경 + muted 텍스트.
  */
 function MatrixQuickFilterButtons({
@@ -244,14 +244,18 @@ function MatrixQuickFilterButtons({
     readonly label: string;
   }[] = [
     { value: 'ALL', label: `전체 ${rows.length}팀` },
-    { value: 'HAS_EMPTY', label: `빈 칸 있는 팀 ${hasEmptyCount}` },
+    { value: 'HAS_EMPTY', label: `미제출 포함 ${hasEmptyCount}팀` },
     {
       value: 'ZERO_SUBMISSION',
-      label: `한 장도 안 낸 팀 ${zeroSubmissionCount}`,
+      label: `전체 미제출 ${zeroSubmissionCount}팀`,
     },
   ];
   return (
-    <div role="group" aria-label="빠른 필터" className="flex flex-wrap gap-2">
+    <div
+      role="group"
+      aria-label="빠른 필터"
+      className="inline-flex w-fit divide-x divide-border overflow-hidden rounded-control border border-border"
+    >
       {options.map((option) => (
         <button
           key={option.value}
@@ -260,7 +264,7 @@ function MatrixQuickFilterButtons({
           className={
             quickFilter === option.value
               ? `${QUICK_FILTER_BUTTON_BASE} bg-secondary text-foreground`
-              : `${QUICK_FILTER_BUTTON_BASE} bg-card text-muted-foreground border border-border`
+              : `${QUICK_FILTER_BUTTON_BASE} bg-card text-muted-foreground`
           }
           onClick={() => onQuickFilterChange(option.value)}
         >
@@ -289,9 +293,7 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
         description="프로그램에 마일스톤을 추가하면 제출 현황을 조회할 수 있습니다."
         action={
           <Button asChild variant="outline">
-            <Link href={programEditHref(props.programId)}>
-              프로그램 편집에서 마일스톤 추가
-            </Link>
+            <Link href={programEditHref(props.programId)}>마일스톤 추가</Link>
           </Button>
         }
       />
@@ -421,6 +423,10 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
     event.preventDefault();
     props.onSearch();
   };
+  // 초기화는 검색어나 빠른 필터 중 하나라도 걸려 있을 때만 보인다(#865) —
+  // 아무 필터도 없으면 누를 게 없는 버튼이라 항상 두지 않는다.
+  const hasActiveFilter =
+    props.search.trim() !== '' || props.quickFilter !== 'ALL';
 
   return (
     <PageBody>
@@ -447,19 +453,21 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
             />
           </div>
           <div className="flex w-full min-w-0 gap-2">
-            {/* 이 화면의 주 행동은 조회 하나뿐이다 — 채운 버튼도 하나뿐이다.
+            {/* 조회는 항상 있는 주 행동, 초기화는 필터가 걸려 있을 때만 보인다(#865).
                 버튼은 글자만큼만 넓힌다. 좁은 화면에서만 한 줄을 반씩 나눠 갖는다. */}
             <Button type="submit" className="h-control flex-1 sm:flex-none">
               조회
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-control flex-1 sm:flex-none"
-              onClick={props.onResetFilters}
-            >
-              초기화
-            </Button>
+            {hasActiveFilter ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-control flex-1 sm:flex-none"
+                onClick={props.onResetFilters}
+              >
+                초기화
+              </Button>
+            ) : null}
           </div>
         </form>
         {props.errorMessage !== null ? (

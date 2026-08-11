@@ -150,12 +150,12 @@ describe('SubmissionMatrixView', () => {
     expect(html).not.toContain('최종 반려');
   });
 
-  it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(OVERDUE/D-n)를 붙인다', () => {
+  it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(마감 초과/D-n)를 붙인다', () => {
     // Given / When
     const html = render();
 
-    // Then — 팀 행 중간 보고(9/12 마감, now 9/15) → OVERDUE D+3.
-    expect(html).toContain('OVERDUE D+3');
+    // Then — 팀 행 중간 보고(9/12 마감, now 9/15) → 마감 초과 D+3.
+    expect(html).toContain('마감 초과 D+3');
     // Then — 개인 행 최종 제출(10/30 마감) → D-45.
     expect(html).toContain('D-45');
   });
@@ -186,12 +186,20 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('08.19 10:00');
   });
 
+  it('제출 시각과 revision을 가운뎃점 하나로 묶어 한 줄에 보여준다(#865)', () => {
+    // Given / When — 개인 행 중간 보고 셀(CHANGES_REQUESTED, revision 2).
+    const html = render();
+
+    // Then
+    expect(html).toContain('08.19 10:00 · v2');
+  });
+
   it('마감(dueAt) 이후 제출됐고 아직 검토 전인 셀은 "지각 제출"로 표시한다', () => {
     // Given — 기획서 마감은 09/10, 픽스처 submittedAt은 08/19(마감 전) → 지각 아님.
-    // (통계 스트립이 항상 "지각 제출" 라벨을 하나 렌더하므로, 등장 횟수로 배지 유무를 가른다.)
+    // (통계 스트립은 "지각"만 쓰므로, "지각 제출"은 LATE 배지에서만 등장한다.)
     const occurrences = (html: string) => html.split('지각 제출').length - 1;
     const html = render();
-    expect(occurrences(html)).toBe(1);
+    expect(occurrences(html)).toBe(0);
 
     // When — 마감을 제출 시각보다 이전으로 옮겨 지각 상태를 만든다.
     // 기획서(milestones-overdue) 칸은 개인 행이 APPROVED, 팀 행이 SUBMITTED다.
@@ -205,34 +213,60 @@ describe('SubmissionMatrixView', () => {
     };
     const lateHtml = render({ data: lateData });
 
-    // Then — 검토 전(SUBMITTED) 셀 배지가 더해져 "지각 제출"이 한 번 더 나온다.
-    expect(occurrences(lateHtml)).toBe(2);
+    // Then — 검토 전(SUBMITTED) 셀 배지가 더해져 "지각 제출"이 한 번 나온다.
+    expect(occurrences(lateHtml)).toBe(1);
     // 이미 검토를 거친 승인 셀은 지각 여부를 다시 덧붙이지 않고 판정만 보여준다.
     expect(lateHtml).toContain('>승인<');
   });
 
-  it('현재 페이지 로드분을 기준으로 서류 칸 요약 4종을 보여준다', () => {
+  it('현재 페이지 로드분을 기준으로 통계 요약 4종을 보여준다', () => {
     // Given / When
     const html = render();
 
-    // Then — 6칸(2행×3열) 중 4칸 채움, 2칸 빈 칸, 미제출 팀 0, 지각 0.
-    expect(html).toContain('서류 칸');
-    expect(html).toContain('4/6 채움');
-    expect(html).toContain('빈 칸');
-    expect(html).toContain('2개');
-    expect(html).toContain('한 장도 안 낸 팀');
-    expect(html).toContain('지각 제출');
+    // Then — 6칸(2행×3열) 중 4칸 제출, 2칸 미제출, 전체 미제출 팀 0, 지각 0.
+    expect(html).toContain('제출');
+    expect(html).toContain('4/6');
+    expect(html).toContain('미제출');
+    expect(html).toContain('2건');
+    expect(html).toContain('전체 미제출');
+    expect(html).toContain('0팀');
+    expect(html).toContain('0건');
     expect(html).toContain('이 페이지 2건(전체 2건) 중 2건 표시');
+    // Then — 구현 중심 문구는 이 화면에서 쓰지 않는다(#865).
+    expect(html).not.toContain('서류 칸');
+    expect(html).not.toContain('빈 칸');
+    expect(html).not.toContain('채움');
+    expect(html).not.toContain('한 장도 안 낸 팀');
   });
 
-  it('3버튼 빠른 필터를 팀 수와 함께 보여준다(#619 스펙)', () => {
-    // Given / When — 픽스처: 팀 행(오픈소스팀)은 빈 칸 있음, 한 장도 안 낸 행은 없음.
+  it('3버튼 빠른 필터를 팀 수와 함께 보여주고, 선택된 세그먼트만 aria-pressed된다(#619 스펙, #865)', () => {
+    // Given
+    const ariaPressedFor = (html: string, label: string): string | null => {
+      const match = html.match(
+        new RegExp(`<button[^>]*aria-pressed="(true|false)"[^>]*>${label}</button>`),
+      );
+      return match?.[1] ?? null;
+    };
+
+    // When — 픽스처: 팀 행(오픈소스팀)은 미제출 포함, 전체 미제출 행은 없음.
     const html = render();
 
     // Then
     expect(html).toContain('전체 2팀');
-    expect(html).toContain('빈 칸 있는 팀 2');
-    expect(html).toContain('한 장도 안 낸 팀 0');
+    expect(html).toContain('미제출 포함 2팀');
+    expect(html).toContain('전체 미제출 0팀');
+
+    // Then — 기본값 ALL만 aria-pressed="true".
+    expect(ariaPressedFor(html, '전체 2팀')).toBe('true');
+    expect(ariaPressedFor(html, '미제출 포함 2팀')).toBe('false');
+    expect(ariaPressedFor(html, '전체 미제출 0팀')).toBe('false');
+
+    // Given / When — HAS_EMPTY를 고르면 그 세그먼트만 aria-pressed="true".
+    const hasEmptyHtml = render({ quickFilter: 'HAS_EMPTY' });
+
+    // Then
+    expect(ariaPressedFor(hasEmptyHtml, '전체 2팀')).toBe('false');
+    expect(ariaPressedFor(hasEmptyHtml, '미제출 포함 2팀')).toBe('true');
   });
 
   it('빈 칸 있는 팀 필터를 고르면 해당 행만 표를 채운다', () => {
@@ -287,6 +321,9 @@ describe('SubmissionMatrixView', () => {
     // Then
     expect(html).toContain('마일스톤이 없습니다');
     expect(html).toContain('href="/programs/program-1/edit"');
+    // Then — 행선지/행동 중심 라벨(#865): 경로 설명이 아니라 할 일만 남긴다.
+    expect(html).toContain('>마일스톤 추가<');
+    expect(html).not.toContain('프로그램 편집에서 마일스톤 추가');
   });
 
   it('전체 페이지가 2 이상일 때만 페이지네이션을 표시한다', () => {
@@ -335,5 +372,25 @@ describe('SubmissionMatrixView', () => {
     expect(html).not.toContain('id="matrix-mode"');
     expect(html).not.toContain('>개인</option>');
     expect(html).not.toContain('형태');
+  });
+
+  it('초기화 버튼은 필터가 걸려 있을 때만 나타난다(#865)', () => {
+    // Given / When — 검색어도 빠른 필터도 없으면 초기화는 누를 게 없다.
+    const inactive = render();
+
+    // Then
+    expect(inactive).not.toContain('>초기화<');
+
+    // Given / When — 검색어가 있으면 초기화가 나타나고 onResetFilters로 연결된다.
+    const withSearch = render({ search: '홍길동' });
+
+    // Then
+    expect(withSearch).toContain('>초기화<');
+
+    // Given / When — 빠른 필터만 걸려 있어도 초기화가 나타난다.
+    const withQuickFilter = render({ quickFilter: 'HAS_EMPTY' });
+
+    // Then
+    expect(withQuickFilter).toContain('>초기화<');
   });
 });
