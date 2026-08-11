@@ -48,18 +48,30 @@ export function loadProgramAuthoringState(
     const parsed: unknown = JSON.parse(raw);
     if (
       !isRecord(parsed) ||
-      parsed.version !== PROGRAM_AUTHORING_STORAGE_VERSION ||
-      !isProgramAuthoringState(parsed.state)
+      parsed.version !== PROGRAM_AUTHORING_STORAGE_VERSION
     ) {
       storage.removeItem(PROGRAM_AUTHORING_STORAGE_KEY);
       return null;
     }
-    return markFilesForReselection(parsed.state);
+    const migrated = migrateLegacyRequirementsStep(parsed.state);
+    if (!isProgramAuthoringState(migrated)) {
+      storage.removeItem(PROGRAM_AUTHORING_STORAGE_KEY);
+      return null;
+    }
+    return markFilesForReselection(migrated);
   } catch (error: unknown) {
     if (!(error instanceof SyntaxError)) throw error;
     storage.removeItem(PROGRAM_AUTHORING_STORAGE_KEY);
     return null;
   }
+}
+
+// '요구서류/양식' 스텝이 마일스톤 스텝으로 흡수되며 사라진 이후에도,
+// 예전 세션이 남긴 currentStep: 'requirements'를 유효한 스텝으로 되돌려
+// 전체 상태를 폐기하지 않고 이어서 작성할 수 있게 한다.
+function migrateLegacyRequirementsStep(value: unknown): unknown {
+  if (!isRecord(value) || value.currentStep !== 'requirements') return value;
+  return { ...value, currentStep: 'milestones' };
 }
 
 function markFilesForReselection(

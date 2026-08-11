@@ -1,5 +1,12 @@
-import { CalendarClock, FileUp, TextCursorInput } from 'lucide-react';
+import {
+  CalendarClock,
+  FilePlus2,
+  FileUp,
+  Info,
+  TextCursorInput,
+} from 'lucide-react';
 import { FormSection } from '@/components/form-section';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,7 +21,9 @@ import type {
   ProgramAuthoringAction,
   ProgramAuthoringState,
 } from './program-authoring-model';
+import { ProgramRequirementEditor } from './program-requirement-editor';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
+import { validateTemplateFile } from './program-authoring-validation';
 import { messageFor } from './program-authoring-detail-steps';
 
 export function ProgramAuthoringMilestoneStep({
@@ -23,12 +32,23 @@ export function ProgramAuthoringMilestoneStep({
   dispatch,
   newId,
   onRemove,
+  onRequirementFileChange,
+  onRequirementRemove,
 }: {
   readonly state: ProgramAuthoringState;
   readonly issues: readonly ProgramAuthoringIssue[];
   readonly dispatch: (action: ProgramAuthoringAction) => void;
   readonly newId: () => string;
   readonly onRemove: (milestoneId: string) => void;
+  readonly onRequirementFileChange: (
+    milestoneId: string,
+    requirementId: string,
+    file: File | null,
+  ) => void;
+  readonly onRequirementRemove: (
+    milestoneId: string,
+    requirementId: string,
+  ) => void;
 }) {
   return (
     <FormSection
@@ -187,6 +207,128 @@ export function ProgramAuthoringMilestoneStep({
                     }
                   />
                 </Field>
+                <section
+                  className="grid gap-4 border-t border-border pt-5"
+                  aria-label={`${milestone.name || '이름 없는 마일스톤'} 요구서류`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="grid gap-1">
+                      <h3 className="font-semibold">요구서류/양식</h3>
+                      <p className="text-small text-muted-foreground">
+                        요구서류 {milestone.requirements.length}개
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={milestone.requirements.length >= 20}
+                      onClick={() =>
+                        dispatch({
+                          type: 'add_requirement',
+                          milestoneId: milestone.id,
+                          requirementId: newId(),
+                        })
+                      }
+                    >
+                      <FilePlus2 aria-hidden="true" />
+                      항목 추가
+                    </Button>
+                  </div>
+                  {milestone.requirements.length === 0 ? (
+                    <Alert>
+                      <Info aria-hidden="true" />
+                      <AlertTitle>안내용 마일스톤</AlertTitle>
+                      <AlertDescription>
+                        받을 항목이 없어도 생성할 수 있습니다.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                  {milestone.requirements.map(
+                    (requirement, requirementIndex) => {
+                      const requirementPrefix = `requirements.${requirement.id}`;
+                      return (
+                        <div
+                          key={requirement.id}
+                          className="grid gap-4 rounded-card border border-border p-card"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="font-semibold">
+                              요구서류 {requirementIndex + 1}
+                            </h4>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                onRequirementRemove(
+                                  milestone.id,
+                                  requirement.id,
+                                )
+                              }
+                            >
+                              삭제
+                            </Button>
+                          </div>
+                          <ProgramRequirementEditor
+                            idPrefix={`authoring-${requirement.id}`}
+                            value={requirement}
+                            templateFile={requirement.templateFile}
+                            errors={{
+                              name: messageFor(
+                                issues,
+                                `${requirementPrefix}.name`,
+                              ),
+                              templateFile: messageFor(
+                                issues,
+                                `${requirementPrefix}.templateFile`,
+                              ),
+                            }}
+                            onNameChange={(name) =>
+                              dispatch({
+                                type: 'set_requirement_name',
+                                milestoneId: milestone.id,
+                                requirementId: requirement.id,
+                                name,
+                              })
+                            }
+                            onRequiredChange={(required) =>
+                              dispatch({
+                                type: 'set_requirement_required',
+                                milestoneId: milestone.id,
+                                requirementId: requirement.id,
+                                required,
+                              })
+                            }
+                            onTypeChange={(submissionType) => {
+                              if (submissionType === 'TEXT') {
+                                onRequirementFileChange(
+                                  milestone.id,
+                                  requirement.id,
+                                  null,
+                                );
+                              }
+                              dispatch({
+                                type: 'set_requirement_type',
+                                milestoneId: milestone.id,
+                                requirementId: requirement.id,
+                                submissionType,
+                              });
+                            }}
+                            onTemplateFile={(file) => {
+                              onRequirementFileChange(
+                                milestone.id,
+                                requirement.id,
+                                file,
+                              );
+                            }}
+                            validateFile={validateTemplateFile}
+                          />
+                        </div>
+                      );
+                    },
+                  )}
+                </section>
               </CardContent>
             </Card>
           );
