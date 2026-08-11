@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 · Updated: 2026-07-31 (에러 계약 서술을 조건부로 정정) -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-11 (라우트 등록 순서·충돌 방지 규칙 추가) -->
 
 # apps/backend — 에이전트 라우팅
 
@@ -54,6 +54,13 @@ NestJS 11 기반 REST API 서버로, Prisma 6 + PostgreSQL을 쓴다.
 - `src/auth/`는 @Lumiere001 전속 경로이므로 다른 레인은 직접 수정하지 않는다.
 - 상세 경계는 [apps/backend/src/AGENTS.md](src/AGENTS.md)를 따른다.
 - 시드 데이터는 프로필(`auth`/`intake`/`milestones`/`repositories`/`all`) 계약을 따른다 — [apps/backend/prisma/AGENTS.md](prisma/AGENTS.md) 참조.
+
+## 라우트 등록 순서와 충돌 방지
+
+같은 URI에 같은 HTTP 메서드로 두 endpoint를 등록하지 않는다 — 완전히 동일한 경로 중복도 금지한다.
+Express 어댑터는 라우트를 리터럴 우선순위 없이 **등록 순서**로만 매칭하므로, `:param` 세그먼트를 가진 라우트가 리터럴 세그먼트(`me` 등)를 가진 라우트보다 먼저 등록되면 그 리터럴 라우트는 `:param` 라우트에 가려 영영 도달 불가능해진다(실사고 사례: `AdminAccessController`의 `PATCH users/:id/profile`이 `UsersController`의 `PATCH users/me/profile`보다 `UsersModule`에서 먼저 등록돼 전 사용자 온보딩이 403이 된 건).
+`me`는 caller-owned 자원을 가리키는 예약어([ADR-004](../../docs/decisions/ADR-004-REST-API-규격.md))이므로, path param을 받는 라우트의 검증 로직에서 리터럴 값 `me`를 정상 식별자로 받아들이지 않는다 — 그렇지 않으면 검증 계층에서도 같은 가로채기가 재발한다.
+새 컨트롤러·라우트를 추가할 때는 같은 prefix 아래 기존 라우트 테이블에서 세그먼트 위치가 겹치는 리터럴 라우트와 `:param` 라우트가 있는지 먼저 확인하고, 겹치면 리터럴 세그먼트를 가진 컨트롤러를 모듈의 `controllers` 배열에서 `:param` 컨트롤러보다 먼저 등록한다 — `ProgramsModule`이 주석으로 남긴 `ApplicationTemplatesController`(`programs/application-templates`)를 `ProgramsController`(`programs/:id`)보다 먼저 등록하는 패턴을 따른다.
 
 ## Dependencies
 
