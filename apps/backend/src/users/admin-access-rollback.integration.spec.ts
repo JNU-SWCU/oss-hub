@@ -40,7 +40,7 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   const target = await createUser(null, 'target');
   const profile = {
     name: '합성 롤백 대상',
-    studentId: `${8_100_000 + sequence}`,
+    studentId: `${810_000 + sequence}`,
     department: '소프트웨어공학과',
   };
   await prisma.user.update({
