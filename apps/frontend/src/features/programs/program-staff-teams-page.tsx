@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DataTable,
@@ -9,7 +10,9 @@ import {
   type DataTableColumn,
 } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { programApplicantsHref } from '@/lib/program-route';
 import { listProgramApplications, listStaffProgramTeams } from './api';
 import type {
   ApplicationListItem,
@@ -25,6 +28,9 @@ import type {
  * 저장소는 교직원 신청자 목록(`GET .../applications`)이다. 팀을 기준 축으로 잡는
  * 이유는 **팀만 만들고 아직 신청하지 않은 팀이 있기 때문**이다. 신청 목록을 축으로
  * 잡으면 그 팀들이 통째로 사라져 사이드바의 팀 수와 어긋난다.
+ *
+ * 승인·반려는 이 화면에 두지 않는다 — 판정 창구는 `/applicants`다. 사이드바·헤더
+ * CTA로 그 경로를 열어 주지 않으면 현황만 보고 판정 입구를 못 찾는다.
  */
 
 const STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
@@ -281,10 +287,17 @@ export function ProgramStaffTeamsPage({
     [],
   );
 
+  const applicantsHref = programApplicantsHref(programId);
+  const applicantsAction = (
+    <Button asChild>
+      <Link href={applicantsHref}>신청 승인하기</Link>
+    </Button>
+  );
+
   if (state.kind === 'error') {
     return (
       <div className="grid gap-4 p-4 sm:p-6">
-        <PageHeader title="참여 팀" />
+        <PageHeader title="참여 팀" actions={applicantsAction} />
         <Alert variant="destructive">
           <AlertTitle>참여 팀을 불러오지 못했습니다</AlertTitle>
           <AlertDescription>
@@ -299,7 +312,8 @@ export function ProgramStaffTeamsPage({
     <div className="grid gap-4 p-4 sm:p-6">
       <PageHeader
         title="참여 팀"
-        description="팀 구성과 신청 현황을 함께 봅니다."
+        description="팀 구성과 신청 현황을 함께 봅니다. 승인·반려는 신청자 목록에서 합니다."
+        actions={applicantsAction}
       />
 
       {state.kind === 'ready' && state.truncated ? (
@@ -307,8 +321,14 @@ export function ProgramStaffTeamsPage({
           <AlertTitle>신청 정보를 일부만 불러왔습니다</AlertTitle>
           <AlertDescription>
             신청 건수가 많아 전부 받지 못했습니다. 아래에서 「신청서 안 냄」으로
-            보이는 팀 중 일부는 실제로 신청했을 수 있습니다. 신청자 목록
-            화면에서 확인해 주세요.
+            보이는 팀 중 일부는 실제로 신청했을 수 있습니다.{' '}
+            <Link
+              href={applicantsHref}
+              className="font-medium underline underline-offset-2"
+            >
+              신청자 목록
+            </Link>
+            에서 확인해 주세요.
           </AlertDescription>
         </Alert>
       ) : null}
