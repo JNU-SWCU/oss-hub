@@ -40,8 +40,24 @@ describe('UsersModule admin access wiring', () => {
     // 컨트롤러는 다시 등록되지 않는다.
     expect(controllers).toEqual([
       AccountDeactivationController,
-      AdminAccessController,
       UsersController,
+      AdminAccessController,
     ]);
+  });
+
+  it('UsersController가 AdminAccessController보다 먼저 등록되어 /users/me/profile 흡수를 막는다(#787)', () => {
+    // Given
+    const controllers: unknown = Reflect.getMetadata(
+      MODULE_METADATA.CONTROLLERS,
+      UsersModule,
+    );
+
+    // When / Then — Express는 등록 순서대로 매칭하므로 `/users/me/profile`이
+    // `AdminAccessController`의 `/users/:id/profile`에 흡수되지 않으려면
+    // `UsersController`가 먼저 와야 한다.
+    const list = controllers as unknown[];
+    expect(list.indexOf(UsersController)).toBeLessThan(
+      list.indexOf(AdminAccessController),
+    );
   });
 });
