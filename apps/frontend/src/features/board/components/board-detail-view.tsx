@@ -173,7 +173,7 @@ export function BoardDetailContent({
                 <AlertDescription>{editError}</AlertDescription>
               </Alert>
             ) : null}
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 size="sm"
