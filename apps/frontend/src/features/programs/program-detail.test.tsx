@@ -250,7 +250,10 @@ describe('ProgramDetailPage states', () => {
     (role) => {
       const html = renderToStaticMarkup(
         <ProgramActions
-          program={{ ...programWithoutMilestones, viewer: { role, applicationStatus: null } }}
+          program={{
+            ...programWithoutMilestones,
+            viewer: { role, applicationStatus: null },
+          }}
         />,
       );
       expect(html).toContain('/programs/program-1/edit');

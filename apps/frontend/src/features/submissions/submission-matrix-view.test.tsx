@@ -243,7 +243,9 @@ describe('SubmissionMatrixView', () => {
     // Given
     const ariaPressedFor = (html: string, label: string): string | null => {
       const match = html.match(
-        new RegExp(`<button[^>]*aria-pressed="(true|false)"[^>]*>${label}</button>`),
+        new RegExp(
+          `<button[^>]*aria-pressed="(true|false)"[^>]*>${label}</button>`,
+        ),
       );
       return match?.[1] ?? null;
     };
