@@ -200,6 +200,54 @@ it.each([
   await expectProblem(response, 403, RolesErrorCode.ADMIN_ONLY);
 });
 
+/**
+ * 쓰기 경로의 관리자 게이트를 실 라우트에서 못 박는다(#687).
+ *
+ * 여기가 비어 있었다 — 읽기 목록에만 403 검사가 있어서 두 PATCH 라우트의 관리자 검사를
+ * 통째로 지워도 모든 테스트가 통과했다. 권한 검증을 잠금 뒤로 옮기는 이번 변경이 그
+ * 검사를 실수로 무력화하면 이 테스트가 먼저 무너진다.
+ */
+it.each([
+  ['access', (id: string) => `/users/${id}/access`],
+  ['profile', (id: string) => `/users/${id}/profile`],
+] as const)(
+  'returns 403/ROL_004 for a non-admin PATCH /users/:id/%s',
+  async (route, path) => {
+    // Given
+    const actor = await harness.createUser(
+      `forbidden-patch-${route}-actor`,
+      Role.STAFF,
+      AccountStatus.ACTIVE,
+    );
+    const target = await harness.createUser(
+      `forbidden-patch-${route}-target`,
+      Role.STUDENT,
+      AccountStatus.ACTIVE,
+    );
+    const body =
+      route === 'access'
+        ? accessBody({ desiredRole: Role.STAFF })
+        : { name: '합성 새 이름' };
+
+    // When
+    const response = await harness.request(
+      'PATCH',
+      path(target.id),
+      actor.githubId,
+      body,
+    );
+
+    // Then
+    await expectProblem(response, 403, RolesErrorCode.ADMIN_ONLY);
+    await expect(
+      harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    ).resolves.toMatchObject({ role: Role.STUDENT, name: null });
+    await expect(
+      harness.prisma.auditLog.count({ where: { targetId: target.id } }),
+    ).resolves.toBe(0);
+  },
+);
+
 it('returns 400/ROL_011 for an invalid user id', async () => {
   const actor = await harness.createUser(
     'invalid-id-actor',

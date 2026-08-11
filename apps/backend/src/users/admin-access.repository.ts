@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Prisma, Role, RoleRequestStatus } from '@prisma/client';
+import { Prisma, RoleRequestStatus } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
-import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  findAdminActorByGithubId,
+  lockActiveAdminRows,
+} from './admin-actor-locks';
 import {
   listAdminAccessLoginHistory,
   listAdminAccessRoleRequestHistory,
@@ -46,18 +46,6 @@ export type {
   AdminAccessUserUpdate,
 } from './admin-access.repository.types';
 
-const ADMIN_ACCESS_ACTOR_SELECT = {
-  id: true,
-  githubId: true,
-  nickname: true,
-  role: true,
-  accountStatus: true,
-  ...COMPATIBLE_PROFILE_NAME_SELECT,
-} as const satisfies Prisma.UserSelect;
-
-type PrismaAdminAccessActor = Prisma.UserGetPayload<{
-  select: typeof ADMIN_ACCESS_ACTOR_SELECT;
-}>;
 type LockedUserRow = Readonly<{ id: string }>;
 
 class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
@@ -67,28 +55,12 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
     return this.transaction;
   }
 
-  async findActorByGithubId(
-    githubId: bigint,
-  ): Promise<AdminAccessActor | null> {
-    const actor = await this.transaction.user.findUnique({
-      where: { githubId },
-      select: ADMIN_ACCESS_ACTOR_SELECT,
-    });
-    return actor ? toAdminAccessActor(actor) : null;
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return findAdminActorByGithubId(this.transaction, githubId);
   }
 
-  async lockActiveAdmins(): Promise<number> {
-    const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
-      Prisma.sql`
-        SELECT id
-        FROM "User"
-        WHERE role = ${Role.ADMIN}::"Role"
-          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
-        ORDER BY id
-        FOR UPDATE
-      `,
-    );
-    return rows.length;
+  lockActiveAdmins(): Promise<number> {
+    return lockActiveAdminRows(this.transaction);
   }
 
   async findUserForUpdate(
@@ -168,14 +140,8 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     );
   }
 
-  async findActorByGithubId(
-    githubId: bigint,
-  ): Promise<AdminAccessActor | null> {
-    const actor = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: ADMIN_ACCESS_ACTOR_SELECT,
-    });
-    return actor ? toAdminAccessActor(actor) : null;
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return findAdminActorByGithubId(this.prisma, githubId);
   }
 
   list(query: AdminAccessListQuery) {
@@ -203,15 +169,4 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
   ): Promise<AdminAccessLoginHistoryPage> {
     return listAdminAccessLoginHistory(this.prisma, userId, page);
   }
-}
-
-function toAdminAccessActor(user: PrismaAdminAccessActor): AdminAccessActor {
-  return {
-    id: user.id,
-    githubId: user.githubId,
-    githubLogin: user.nickname,
-    name: resolveCompatibleProfileName(user),
-    role: user.role,
-    accountStatus: user.accountStatus,
-  };
 }

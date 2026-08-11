@@ -6,6 +6,7 @@ import {
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
 import { PrismaService } from '../prisma/prisma.service';
+import { lockActiveAdminRows } from './admin-actor-locks';
 
 export interface AccountDeactivationTarget {
   readonly id: string;
@@ -73,18 +74,8 @@ class PrismaAccountDeactivationTransactionStore implements AccountDeactivationTr
     return user ? toAccountDeactivationTarget(user) : null;
   }
 
-  async lockActiveAdmins(): Promise<number> {
-    const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
-      Prisma.sql`
-        SELECT id
-        FROM "User"
-        WHERE role = ${Role.ADMIN}::"Role"
-          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
-        ORDER BY id
-        FOR UPDATE
-      `,
-    );
-    return rows.length;
+  lockActiveAdmins(): Promise<number> {
+    return lockActiveAdminRows(this.transaction);
   }
 
   async deactivate(userId: string): Promise<boolean> {

@@ -50,6 +50,39 @@ async function warmUpDevCommand(cwd) {
   return { elapsed: Date.now() - startedAt, output };
 }
 
+// Builds a fixture pnpm project whose `dev` script runs `body`, warms that
+// command up, and hands back a readiness budget scaled to the start-up cost
+// measured on this machine rather than a constant.
+async function prepareFixtureProject(body) {
+  const cwd = await mkdtemp(path.join(tmpdir(), 'card-grid-runner-'));
+  temporaryDirectories.push(cwd);
+  await writeFile(
+    path.join(cwd, 'package.json'),
+    JSON.stringify({ scripts: { dev: 'node dev-command.mjs' } }),
+  );
+  await writeFile(path.join(cwd, '.npmrc'), 'verify-deps-before-run=false\n');
+  await writeFile(
+    path.join(cwd, 'dev-command.mjs'),
+    `if (process.env.CARD_GRID_WARMUP === '1') {
+      console.error('WARMUP_READY');
+      process.exit(0);
+    }
+    // startServer detaches the dev command into its own process group, so
+    // killing the driver does not reap it. If a run dies before stopServer gets
+    // to it, this is what keeps a listening fixture from outliving the suite —
+    // it fires well after the widest budget the clamp above allows.
+    setTimeout(() => process.exit(0), 25_000);
+    ${body}`,
+  );
+  const warmup = await warmUpDevCommand(cwd);
+  return {
+    cwd,
+    // The clamp keeps a pathological warm-up inside the test timeout.
+    readinessBudget: Math.min(15_000, Math.max(4_000, warmup.elapsed * 6)),
+    warmup,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories
@@ -60,20 +93,8 @@ afterEach(async () => {
 
 test('cancels readiness work and preserves logs when the child exits first', async () => {
   // Given: a dev command that logs a diagnostic and exits before serving HTTP.
-  const cwd = await mkdtemp(path.join(tmpdir(), 'card-grid-runner-'));
-  temporaryDirectories.push(cwd);
-  await writeFile(
-    path.join(cwd, 'package.json'),
-    JSON.stringify({ scripts: { dev: 'node exit-before-readiness.mjs' } }),
-  );
-  await writeFile(path.join(cwd, '.npmrc'), 'verify-deps-before-run=false\n');
-  await writeFile(
-    path.join(cwd, 'exit-before-readiness.mjs'),
-    `import { createServer } from 'node:net';
-    if (process.env.CARD_GRID_WARMUP === '1') {
-      console.error('WARMUP_READY');
-      process.exit(0);
-    }
+  const { cwd, readinessBudget, warmup } = await prepareFixtureProject(
+    `const { createServer } = await import('node:net');
     for (let index = 0; index < 30; index += 1) {
       console.error(\`DIAGNOSTIC_\${String(index).padStart(2, '0')}\`);
     }
@@ -90,14 +111,7 @@ test('cancels readiness work and preserves logs when the child exits first', asy
   );
   // And: the dev command is known to reach its own code, so the timed run below
   // can only fail on the cancellation and log behaviour under test.
-  const warmup = await warmUpDevCommand(cwd);
   expect(warmup.output).toContain('WARMUP_READY');
-
-  // The readiness budget is a multiple of the start-up cost just measured on
-  // this machine, not a constant — a loaded machine widens the deadline instead
-  // of losing the race to it. The clamp keeps a pathological warm-up inside the
-  // test timeout.
-  const readinessBudget = Math.min(15_000, Math.max(4_000, warmup.elapsed * 6));
 
   const driver = `
     import { startServer } from ${JSON.stringify(runtimeUrl.href)};
@@ -157,6 +171,73 @@ test('cancels readiness work and preserves logs when the child exits first', asy
   expect(stderr).toContain('DIAGNOSTIC_29');
   expect(stderr).not.toContain('DIAGNOSTIC_00');
   expect(stderr).toContain('LOG_TAIL_LENGTH 20');
+  expect(stderr).not.toContain('UNHANDLED_REJECTION');
+  expect(stdout).toBe('');
+}, 40_000);
+
+test('returns a usable server once the dev command answers the probe', async () => {
+  // Given: a dev command that actually serves the readiness URL.
+  const { cwd, readinessBudget, warmup } = await prepareFixtureProject(
+    `const { createServer } = await import('node:http');
+    const portIndex = process.argv.indexOf('--port');
+    const port = Number(process.argv[portIndex + 1]);
+    createServer((request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('ok');
+    }).listen(port, '127.0.0.1');
+    `,
+  );
+  expect(warmup.output).toContain('WARMUP_READY');
+
+  // The watchdog is what makes a hang legible: dropping the readiness
+  // cancellation leaves `exited` pending forever on this path, so startServer
+  // never returns. Without it that shows up as a suite timeout with no clue.
+  const driver = `
+    import { get } from 'node:http';
+    import { startServer, stopServer } from ${JSON.stringify(runtimeUrl.href)};
+    process.on('unhandledRejection', (error) => {
+      console.error('UNHANDLED_REJECTION', error);
+      process.exitCode = 70;
+    });
+    const watchdog = setTimeout(() => {
+      console.error('STARTSERVER_NEVER_RETURNED');
+      process.exit(9);
+    }, ${readinessBudget});
+    const now = Date.now();
+    const server = await startServer({
+      cwd: ${JSON.stringify(cwd)},
+      env: process.env,
+      totalDeadline: now + ${readinessBudget + 5_000},
+      workDeadline: now + ${readinessBudget},
+    });
+    clearTimeout(watchdog);
+    console.error('SERVER_READY_ON_ATTEMPT', server.attempt);
+    console.error('SERVER_PORT_IS_NUMBER', Number.isInteger(server.port));
+    const status = await new Promise((resolve) => {
+      get(
+        \`http://127.0.0.1:\${server.port}/programs?status=recruiting\`,
+        (response) => {
+          response.resume();
+          resolve(response.statusCode);
+        },
+      ).once('error', () => resolve(0));
+    });
+    console.error('SERVED_STATUS', status);
+    await stopServer(server.child, Date.now() + 5_000, 2_000);
+    console.error('SERVER_STOPPED');
+  `;
+
+  // When: the probe succeeds and startServer hands the running server back.
+  const { exitCode, stderr, stdout } = await runDriver(driver);
+
+  // Then: the call returns, the handle points at the live server, and the
+  // process settles without leaking the readiness work it no longer needs.
+  expect(stderr).not.toContain('STARTSERVER_NEVER_RETURNED');
+  expect(exitCode).toBe(0);
+  expect(stderr).toContain('SERVER_READY_ON_ATTEMPT 1');
+  expect(stderr).toContain('SERVER_PORT_IS_NUMBER true');
+  expect(stderr).toContain('SERVED_STATUS 200');
+  expect(stderr).toContain('SERVER_STOPPED');
   expect(stderr).not.toContain('UNHANDLED_REJECTION');
   expect(stdout).toBe('');
 }, 40_000);
