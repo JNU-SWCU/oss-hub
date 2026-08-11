@@ -149,6 +149,7 @@ function project(value: unknown): PublicProfileProject {
   const publishedAt = isoDate(value.publishedAt);
   const repositoryName = nonEmptyString(value.repositoryName);
   const isObserved = observed(value.observed);
+  const hasCollectedData = observed(value.hasCollectedData);
   const dataAsOf = nullableIsoDate(value.dataAsOf);
   const projectMetrics = nullableMetrics(value.metrics);
 
@@ -159,6 +160,11 @@ function project(value: unknown): PublicProfileProject {
     isObserved === (dataAsOf === null) ||
     isObserved === (projectMetrics === null)
   ) {
+    return invalidResponse();
+  }
+  // #893 — hasCollectedData가 true면 반드시 observed도 true여야 한다(수집이 끝났는데
+  // 미관측일 수는 없다). observed가 false인데 hasCollectedData가 true인 조합은 계약 위반이다.
+  if (hasCollectedData && !isObserved) {
     return invalidResponse();
   }
 
@@ -180,6 +186,7 @@ function project(value: unknown): PublicProfileProject {
       day: 'numeric',
     }).format(new Date(publishedAt)),
     observed: isObserved,
+    hasCollectedData,
     dataAsOf,
     metrics: projectMetrics,
   };

@@ -823,6 +823,7 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
       {
         repositoryId: 101n,
         dataAsOf: new Date('2026-07-31T00:00:00.000Z'),
+        hasCollectedData: true,
         commitCount: 8,
         pullRequestCount: 3,
         releaseCount: 1,
@@ -868,11 +869,41 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
       {
         repositoryId: 202n,
         dataAsOf: observedAt,
+        hasCollectedData: true,
         commitCount: 0,
         pullRequestCount: 0,
         releaseCount: 0,
       },
     ]);
+  });
+
+  // #893 — presence: PRESENT는 provisioning 시점부터 참이라(#617 단계 D)
+  // `lastCompleteInventoryObservedAt`이 여전히 null일 수 있다(첫 sweep 전). 그 상태에서도
+  // 행 자체는 반환되지만(그래서 profile의 `observed`는 true), `hasCollectedData`는 false로
+  // 남아 "관측은 됐지만 실제 수집 데이터는 아직 없다"를 구분한다. dataAsOf는 이 경우 진짜
+  // 수집 시각이 없으니 호출 시점(`new Date()`)으로 대체된다.
+  it('marks hasCollectedData false when lastCompleteInventoryObservedAt is still null (never swept)', async () => {
+    const db = createDb();
+    db.githubRepository.findMany.mockResolvedValue([
+      {
+        githubRepositoryId: 303n,
+        lastCompleteInventoryObservedAt: null,
+        contributions: [],
+      },
+    ]);
+
+    const result = await serviceFor(db).getRepositoryCumulativeMetrics({
+      repositoryIds: [303n],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      repositoryId: 303n,
+      hasCollectedData: false,
+      commitCount: 0,
+      pullRequestCount: 0,
+      releaseCount: 0,
+    });
   });
 
   it('GR-13: excludes an EXTERNAL_PUBLIC repository even when its id is explicitly requested alongside an ORG_PROVISIONED one', async () => {

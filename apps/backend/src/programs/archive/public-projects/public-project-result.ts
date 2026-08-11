@@ -50,10 +50,18 @@ export interface PublicProjectDetailResult {
  * `null`이다. `observed`가 `true`인데 이 사용자의 기여자 행이 없으면(다른 사람만 기여했거나
  * 아직 이 사용자 기여가 전혀 없으면) 관측은 됐지만 0인 것이라 `metrics`가 0값으로 채워진다 —
  * 이 두 상태(미관측 vs 관측된 0)를 프런트가 구분해서 보여줄 수 있게 한다.
+ *
+ * `hasCollectedData`(#893)는 세 번째 상태를 더 나눈다 — #617 단계 D 이후 `presence: PRESENT`가
+ * provisioning 시점부터 참이라 `observed`는 실제 inventory sweep 여부와 무관하게 `true`가 될 수
+ * 있다(알려진 갭, `public-exposure-matrix.integration.spec.ts` outcome-3). `observed: true`이면서
+ * `hasCollectedData: false`면 "첫 sweep 전이라 관측은 PRESENT이지만 실제 수집 데이터는 아직
+ * 없다"는 뜻이고, `observed: false`면 애초에 PRESENT조차 아니므로 `hasCollectedData`도 항상
+ * `false`다.
  */
 export interface PublicUserProfileProjectResult {
   readonly row: PublicProjectRow;
   readonly observed: boolean;
+  readonly hasCollectedData: boolean;
   readonly dataAsOf: Date | null;
   readonly metrics: PublicProjectMetrics | null;
 }

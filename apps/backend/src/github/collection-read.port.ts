@@ -116,6 +116,13 @@ export type CollectionRepositoryCumulativeMetricsDto = {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly releaseCount: number;
+  /**
+   * #893 — `lastCompleteInventoryObservedAt`이 있는지(즉 첫 inventory sweep이 실제로 끝났는지)를
+   * 나타내는 파생 boolean. presence: PRESENT는 provisioning 시점부터 참이라(#617 단계 D) 그
+   * 자체로는 "실제 수집이 끝났는지"를 증명하지 못한다 — 원시 시각이나 presence/nextRunAt 같은
+   * collection-control 필드는 노출하지 않고 이 필드 하나로만 그 구분을 공개 표면까지 전달한다.
+   */
+  readonly hasCollectedData: boolean;
 };
 
 /**

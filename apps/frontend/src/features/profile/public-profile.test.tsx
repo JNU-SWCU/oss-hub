@@ -30,6 +30,7 @@ const observedProject = {
   githubUrl: 'https://github.com/JNU-SWCU/oss-public',
   publishedAt: '2026-07-24T01:00:00.000Z',
   observed: true,
+  hasCollectedData: true,
   dataAsOf: '2026-07-30T00:00:00.000Z',
   metrics: { commitCount: 5, pullRequestCount: 2, releaseCount: 1 },
 };
@@ -46,8 +47,20 @@ const unobservedProject = {
   projectId: 'project_unobserved',
   displayName: '아직 관측되지 않은 프로젝트',
   observed: false,
+  hasCollectedData: false,
   dataAsOf: null,
   metrics: null,
+};
+
+// #893 — presence는 provisioning 시점부터 PRESENT라 observed:true지만, 첫 inventory sweep
+// 전이라 hasCollectedData:false다. metrics는 observedZeroProject와 똑같이 0/0/0이라, 이
+// 필드가 없으면 "관측된 0"과 구분되지 않는다.
+const preSweepProject = {
+  ...observedProject,
+  projectId: 'project_pre_sweep',
+  displayName: '첫 수집 전 저장소',
+  hasCollectedData: false,
+  metrics: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
 };
 
 const profileResponse = {
@@ -91,6 +104,21 @@ describe('public profile parser', () => {
       projects: [observedZeroProject],
     });
     expect(parsed.projects[0]?.observed).toBe(true);
+    expect(parsed.projects[0]?.hasCollectedData).toBe(true);
+    expect(parsed.projects[0]?.metrics).toEqual({
+      commitCount: 0,
+      pullRequestCount: 0,
+      releaseCount: 0,
+    });
+  });
+
+  it('accepts a pre-sweep project (observed:true, hasCollectedData:false, #893) distinct from observed-and-collected', () => {
+    const parsed = parsePublicProfile({
+      ...profileResponse,
+      projects: [preSweepProject],
+    });
+    expect(parsed.projects[0]?.observed).toBe(true);
+    expect(parsed.projects[0]?.hasCollectedData).toBe(false);
     expect(parsed.projects[0]?.metrics).toEqual({
       commitCount: 0,
       pullRequestCount: 0,
@@ -139,6 +167,10 @@ describe('public profile parser', () => {
         ...unobservedProject,
         metrics: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
       },
+    ],
+    [
+      'hasCollectedData:true with observed:false (#893 invariant)',
+      { ...unobservedProject, hasCollectedData: true },
     ],
     [
       'negative metrics',
@@ -229,6 +261,47 @@ describe('public profile views', () => {
 
     expect(html).toContain('관측됨 · 기여 없음');
     expect(html).toContain('아직 관측되지 않음');
+  });
+
+  it('renders a pre-sweep repository (#893) with a neutral badge distinct from the green observed-zero badge', () => {
+    const preSweepHtml = renderToStaticMarkup(
+      <PublicProfileContent
+        state={{
+          kind: 'ready',
+          profile: parsePublicProfile({
+            ...profileResponse,
+            projects: [preSweepProject],
+          }),
+        }}
+        onRetry={onRetry}
+      />,
+    );
+
+    // 서버가 아직 첫 sweep을 마치지 않은 저장소를 "관측됨"류 초록 배지로 보여주면 라이브
+    // 데모 중 발급된 저장소가 검증된 것처럼 오인될 수 있다 — 중립 배지·문구를 명시적으로
+    // 요구한다.
+    expect(preSweepHtml).toContain('수집 대기');
+    expect(preSweepHtml).not.toContain('관측됨');
+    expect(preSweepHtml).toMatch(/data-variant="pending"[^>]*>\s*수집 대기/);
+    expect(preSweepHtml).not.toContain('data-variant="approved"');
+
+    const observedZeroHtml = renderToStaticMarkup(
+      <PublicProfileContent
+        state={{
+          kind: 'ready',
+          profile: parsePublicProfile({
+            ...profileResponse,
+            projects: [observedZeroProject],
+          }),
+        }}
+        onRetry={onRetry}
+      />,
+    );
+
+    // 대조군 — 실제로 관측이 끝난 0-기여 저장소는 계속 초록(approved) 배지를 유지해야 한다.
+    expect(observedZeroHtml).toMatch(
+      /data-variant="approved"[^>]*>\s*관측됨 · 기여 없음/,
+    );
   });
 
   it('renders loading and not-found states', () => {

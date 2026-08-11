@@ -30,6 +30,12 @@ export type PublicProfileProject = {
   readonly publishedLabel: string;
   /** collection이 이 저장소를 한 번이라도 관측했는지. false면 dataAsOf/metrics가 없다(미관측). */
   readonly observed: boolean;
+  /**
+   * #893 — 첫 inventory sweep이 실제로 끝났는지. `observed`는 provisioning 시점부터 true일 수
+   * 있어(알려진 갭) 그것만으로는 "관측된 0"과 "첫 sweep 전"을 구분할 수 없다. `observed`가
+   * `false`면 항상 `false`다.
+   */
+  readonly hasCollectedData: boolean;
   readonly dataAsOf: string | null;
   /** observed가 true인데 metrics가 0값이면 "관측됐지만 이 사용자의 기여가 없음"을 뜻한다. */
   readonly metrics: PublicProfileMetrics | null;
