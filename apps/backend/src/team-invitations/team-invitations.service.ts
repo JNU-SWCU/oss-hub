@@ -7,6 +7,7 @@ import {
 import {
   InvitationCandidateRecord,
   PendingInvitationConflictError,
+  ReceivedTeamInvitationRecord,
   TeamInvitationRecord,
   TeamInvitationsRepository,
 } from './team-invitations.repository';
@@ -25,7 +26,10 @@ export interface AcceptedInvitationResult {
 export class TeamInvitationsService {
   constructor(private readonly repository: TeamInvitationsRepository) {}
 
-  async listReceived(githubId: bigint): Promise<TeamInvitationRecord[]> {
+  /** 내가 받은 초대 전부 — 팀·프로그램 요약이 함께 온다. 상태로 거르지 않는다. */
+  async listReceived(
+    githubId: bigint,
+  ): Promise<ReceivedTeamInvitationRecord[]> {
     const userId = await this.requireUserId(githubId);
     return this.repository.findByInviteeId(userId);
   }
