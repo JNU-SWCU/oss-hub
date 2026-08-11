@@ -1,19 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   getProgramOverview,
   type ProgramOverview,
 } from '@/features/programs/program-overview-api';
-import { AppSidebar } from './app-sidebar';
-import { ProgramScopeSidebar } from './program-scope-sidebar';
+import { AppSidebar, AppSidebarNav } from './app-sidebar';
+import { ProgramScopeSidebar, ProgramScopeSidebarNav } from './program-scope-sidebar';
 import {
   programDetailIdFromPathname,
   SECTION_FACETS,
   type SectionFacetData,
 } from './section-facets';
+import { SidebarDrawer } from './sidebar-drawer';
 import {
   SIDEBAR_COLLAPSED_VALUE,
   SIDEBAR_OPEN_VALUE,
@@ -27,6 +36,45 @@ import {
   type ProgramScopeViewerRole,
 } from './sidebar-menu';
 import { useSessionRole } from './use-session-role';
+
+/**
+ * 900px 미만 드로어 열림 상태 — 이 모듈이 소유한다. `ShellNav`(상단 nav의 햄버거)와
+ * `ProductShell`(실제 드로어 렌더)은 형제 컴포넌트라 지역 state를 공유할 수 없어서
+ * context로 배선한다. Provider 밖에서 쓰면(예: 가입 화면처럼 사이드바가 없는 셸,
+ * 또는 이 파일의 단위 테스트) `null`을 돌려주고 그 경우 토글은 그냥 렌더되지 않는다.
+ */
+interface SidebarDrawerContextValue {
+  readonly open: boolean;
+  readonly toggle: () => void;
+  readonly close: () => void;
+}
+
+const SidebarDrawerContext = createContext<SidebarDrawerContextValue | null>(
+  null,
+);
+
+export function SidebarDrawerProvider({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const toggle = useCallback(() => setOpen((prev) => !prev), []);
+  const close = useCallback(() => setOpen(false), []);
+  const value = useMemo(
+    () => ({ open, toggle, close }),
+    [open, toggle, close],
+  );
+  return (
+    <SidebarDrawerContext.Provider value={value}>
+      {children}
+    </SidebarDrawerContext.Provider>
+  );
+}
+
+export function useSidebarDrawer(): SidebarDrawerContextValue | null {
+  return useContext(SidebarDrawerContext);
+}
 
 export {
   SIDEBAR_COLLAPSED_VALUE,
@@ -66,7 +114,9 @@ export function shouldLoadProgramOverview(
 
 /**
  * 상단 ShellNav 아래 — **현재 섹션** 하위 사이드 패널 + 본문.
- * 모바일(<900px) 사이드바는 AppSidebar가 숨기고, 본문 칩이 필터를 담당한다.
+ * 900px 미만에서는 `AppSidebar`/`ProgramScopeSidebar`(`aside`) 대신 `SidebarDrawer`
+ * 오버레이가 같은 그룹을 보여준다 — 햄버거는 `ShellNav`(상단 nav)가 `useSidebarDrawer()`
+ * 로 이 컴포넌트와 열림 상태를 공유해 연다.
  * 카운트/연도 fetch는 해당 섹션일 때만 한다 (SECTION_FACETS 단일 이펙트).
  *
  * 초기 collapsed 는 서버 cookies() → layout → AppFrame → initialCollapsed 로
@@ -97,6 +147,13 @@ export function ProductShell({
     ProgramOverview | undefined
   >(undefined);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const drawer = useSidebarDrawer();
+  const closeDrawer = drawer?.close;
+
+  // 라우트가 바뀌면 드로어를 닫는다 — 셸은 유지되므로 스스로 닫히지 않는다.
+  useEffect(() => {
+    closeDrawer?.();
+  }, [pathname, closeDrawer]);
 
   // 쿠키 기록 — 첫 페인트는 서버가 이미 맞춰 두었고, 토글 시 동기화만 한다 (F4).
   useEffect(() => {
@@ -197,6 +254,10 @@ export function ProductShell({
       ? scopeGroupsRaw
       : withoutLoadingCounts(scopeGroupsRaw);
 
+  const drawerLabel = programDetailId
+    ? (scopeOverview?.name ?? programDetailId)
+    : (groups[0]?.label ?? '메뉴');
+
   return (
     <div
       data-slot="product-shell"
@@ -241,6 +302,27 @@ export function ProductShell({
       <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
         {children}
       </div>
+      <SidebarDrawer
+        open={drawer?.open ?? false}
+        onClose={closeDrawer ?? (() => {})}
+        label={drawerLabel}
+      >
+        {programDetailId ? (
+          <ProgramScopeSidebarNav
+            groups={scopeGroups}
+            pathname={pathname}
+            collapsed={false}
+            ariaLabel={drawerLabel}
+          />
+        ) : (
+          <AppSidebarNav
+            groups={groups}
+            pathname={pathname}
+            search={search}
+            collapsed={false}
+          />
+        )}
+      </SidebarDrawer>
     </div>
   );
 }
