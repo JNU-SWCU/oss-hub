@@ -90,8 +90,11 @@ function blockingMessages(
     const parts: string[] = [];
     if (counts.applications > 0) parts.push(`신청 ${counts.applications}건`);
     if (counts.teams > 0) parts.push(`팀 ${counts.teams}개`);
+    // 마지막 단위 명사에 맞는 조사를 고른다 — '건'은 받침이 있어 '이', '개'는 받침이
+    // 없어 '가'(신청 단독이면 "…건이", 팀 단독/조합이면 "…개가").
+    const particle = parts[parts.length - 1]?.endsWith('건') ? '이' : '가';
     messages.push({
-      text: `${parts.join(' / ')}가 남아 있습니다. 학생 데이터가 있는 프로그램은 지울 수 없습니다.`,
+      text: `${parts.join(' / ')}${particle} 남아 있습니다. 학생 데이터가 있는 프로그램은 지울 수 없습니다.`,
     });
   }
   return messages;

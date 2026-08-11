@@ -141,6 +141,8 @@ function createDeleteService(
     readonly createRequest?: unknown;
     readonly milestones?: readonly { readonly id: string }[];
     readonly milestoneDocuments?: readonly { readonly id: string }[];
+    readonly orphanRepositoryCount?: number;
+    readonly orphanMilestoneDocumentSubmissionCount?: number;
   } = {},
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
@@ -191,6 +193,12 @@ function createDeleteService(
   const milestoneDocumentDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
   const milestoneDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
   const programDelete = jest.fn().mockResolvedValue(undefined);
+  const repositoryCount = jest
+    .fn()
+    .mockResolvedValue(overrides.orphanRepositoryCount ?? 0);
+  const milestoneDocumentSubmissionCount = jest
+    .fn()
+    .mockResolvedValue(overrides.orphanMilestoneDocumentSubmissionCount ?? 0);
   const record = jest
     .fn<Promise<void>, [AuditLogRecordInput]>()
     .mockResolvedValue(undefined);
@@ -200,6 +208,8 @@ function createDeleteService(
     team: { count: teamCount },
     boardPost: { count: boardPostCount },
     submission: { count: submissionCount },
+    repository: { count: repositoryCount },
+    milestoneDocumentSubmission: { count: milestoneDocumentSubmissionCount },
     programCreateRequest: {
       findUnique: programCreateRequestFindUnique,
       delete: programCreateRequestDelete,
@@ -241,6 +251,8 @@ function createDeleteService(
     milestoneDocumentDeleteMany,
     milestoneDeleteMany,
     programDelete,
+    repositoryCount,
+    milestoneDocumentSubmissionCount,
     record,
   };
 }
@@ -394,5 +406,49 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
 
     expect(programCreateRequestDelete).not.toHaveBeenCalled();
     expect(programAuthoringUploadDeleteMany).not.toHaveBeenCalled();
+  });
+
+  // 불변조건 회귀 테스트: Application 하드삭제는 SUBMITTED 상태에서만 일어나므로
+  // applications===0이면 Repository·MilestoneDocumentSubmission도 0이어야 한다.
+  // 그 불변조건이 깨진 상태(도달 불가능해야 하는 이상 상태)를 합성해, FK 위반 500이
+  // 아니라 기존 409(PRG_012) 차단으로 흡수되는지 확인한다.
+  it('applications==0인데 고아 Repository가 남아 있으면 불변조건 위반으로 보고 기존 409 차단으로 흡수한다', async () => {
+    const { service, programDelete, record } = createDeleteService({
+      orphanRepositoryCount: 1,
+    });
+
+    await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_BLOCKED],
+      extensions: {
+        blockingCounts: {
+          applications: 0,
+          teams: 0,
+          submissions: 0,
+          boardPosts: 0,
+        },
+      },
+    });
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('applications==0인데 고아 MilestoneDocumentSubmission이 남아 있으면 불변조건 위반으로 보고 기존 409 차단으로 흡수한다', async () => {
+    const { service, programDelete, record } = createDeleteService({
+      orphanMilestoneDocumentSubmissionCount: 1,
+    });
+
+    await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_BLOCKED],
+      extensions: {
+        blockingCounts: {
+          applications: 0,
+          teams: 0,
+          submissions: 0,
+          boardPosts: 0,
+        },
+      },
+    });
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
   });
 });
