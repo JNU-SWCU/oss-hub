@@ -22,6 +22,8 @@ import { SubmissionsModule } from './submissions/submissions.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { TeamInvitationsModule } from './team-invitations/team-invitations.module';
 import { UsersModule } from './users/users.module';
+import { e2eProgramAuthoringControlEnabled } from './e2e-program-authoring/e2e-program-authoring.config';
+import { E2eProgramAuthoringModule } from './e2e-program-authoring/e2e-program-authoring.module';
 
 @Module({
   imports: [
@@ -50,6 +52,7 @@ import { UsersModule } from './users/users.module';
     BoardModule,
     TeamInvitationsModule,
     ProgramOverviewModule,
+    ...(e2eProgramAuthoringControlEnabled() ? [E2eProgramAuthoringModule] : []),
   ],
 })
 export class AppModule {}

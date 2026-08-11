@@ -64,7 +64,7 @@ describe('MilestoneDocumentsModule', () => {
         S3SubmissionFileStorage,
         expect.objectContaining({
           provide: SUBMISSION_FILE_STORAGE,
-          useExisting: S3SubmissionFileStorage,
+          inject: [S3SubmissionFileStorage],
         }),
       ]),
     );

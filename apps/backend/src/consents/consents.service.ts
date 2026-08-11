@@ -9,6 +9,10 @@ import { ConsentsRepository } from './consents.repository';
 import { ConsentRecord, ConsentUser } from './domain/consent';
 import { ConsentPolicy, CURRENT_CONSENT_POLICY } from './domain/consent-policy';
 
+// consents 존 밖에서는 domain/을 직접 참조하지 않는다(ADR-003) — 현행 정책
+// 버전이 필요한 다른 모듈(예: E2E 시드)은 이 zone-root re-export를 거친다.
+export { CONSENT_POLICY_VERSION } from './domain/consent-policy';
+
 export interface ConsentStatus {
   policy: ConsentPolicy;
   consented: boolean;

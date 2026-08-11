@@ -9,6 +9,9 @@ compose_file="$repo_root/compose.dev.yml"
 backend_directory="$repo_root/apps/backend"
 frontend_directory="$repo_root/apps/frontend"
 source "$script_directory/support/backend-env.sh"
+source "$script_directory/support/stack-profile.sh"
+
+stack_profile="$(e2e_stack_profile "${E2E_STACK_PROFILE:-full}")"
 
 frontend_port="${E2E_FRONTEND_PORT:-3300}"
 backend_port="${E2E_BACKEND_PORT:-4300}"
@@ -21,6 +24,12 @@ backend_origin="http://127.0.0.1:${backend_port}"
 tool_path="$backend_directory/node_modules/.bin:$frontend_directory/node_modules/.bin:$repo_root/node_modules/.bin:$(dirname "$(command -v node)"):/usr/bin:/bin"
 sanitized_home="$(mktemp -d "${TMPDIR:-/tmp}/oss-hub-e2e-home.XXXXXX")"
 backend_dist="$backend_directory/.e2e-dist-${project_name//[^A-Za-z0-9]/_}"
+artifact_directory="${E2E_ARTIFACT_DIR:-$repo_root/.omo/artifacts/program-authoring-and-document-flow/12-e2e}"
+
+export E2E_ARTIFACT_DIR="$artifact_directory"
+export E2E_FROZEN_NOW="${E2E_FROZEN_NOW:-2026-08-20T00:00:00.000Z}"
+export TZ="Asia/Seoul"
+mkdir -p "$artifact_directory"
 
 backend_pid=''
 frontend_pid=''
@@ -48,6 +57,25 @@ cleanup() {
   exit "$status"
 }
 trap cleanup EXIT INT TERM
+
+run_deadline_digest() {
+  (
+    cd "$backend_directory"
+    e2e_backend_tool_env \
+      "$tool_path" \
+      "$sanitized_home" \
+      "$database_url" \
+      node "$script_directory/support/seed-deadline-digest.mjs"
+    e2e_backend_server_env \
+      "$tool_path" \
+      "$sanitized_home" \
+      "$database_url" \
+      "$session_secret" \
+      "$frontend_origin" \
+      "$backend_port" \
+      ./node_modules/.bin/ts-node src/notifications/cli/send-deadline-digest.ts
+  )
+}
 
 bash "$script_directory/support/backend-env.test.sh"
 
@@ -95,20 +123,9 @@ done
     "$database_url" \
     SEED_PROFILE=auth \
     ./node_modules/.bin/prisma db seed
-  e2e_backend_tool_env \
-    "$tool_path" \
-    "$sanitized_home" \
-    "$database_url" \
-    node "$script_directory/support/seed-deadline-digest.mjs"
-  e2e_backend_server_env \
-    "$tool_path" \
-    "$sanitized_home" \
-    "$database_url" \
-    "$session_secret" \
-    "$frontend_origin" \
-    "$backend_port" \
-    ./node_modules/.bin/ts-node src/notifications/cli/send-deadline-digest.ts
 )
+
+e2e_stack_profile_run_deadline_digest "$stack_profile" run_deadline_digest
 
 (
   cd "$backend_directory"
