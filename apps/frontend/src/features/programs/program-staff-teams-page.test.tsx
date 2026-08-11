@@ -9,7 +9,10 @@ import {
   joinTeamsWithApplications,
   memberSummary,
 } from './program-staff-teams-page';
-import { programApplicationDetailHref } from '@/lib/program-route';
+import {
+  programApplicationDetailHref,
+  programTeamDetailHref,
+} from '@/lib/program-route';
 import { REVIEW_ACTION_LABEL } from './application-presentation';
 import type {
   ApplicationListItem,
@@ -379,6 +382,31 @@ describe('ProgramStaffTeamsPage', () => {
     expect(container.textContent).toContain('참여 팀을 불러오지 못했습니다');
   });
 
+  it('팀명은 그 팀의 팀 상세(#874)로 가는 링크다 — 신청이 없는 팀도 포함한다', async () => {
+    await render(
+      [
+        team('t1', '가팀', [member('a', '김가', true)]),
+        team('t2', '나팀', [member('b', '이나', true)]),
+      ],
+      [application('t1', 'APPROVED')],
+    );
+
+    const gaTeamLink = [...container.querySelectorAll('a')].find(
+      (a) => a.textContent?.trim() === '가팀',
+    );
+    expect(gaTeamLink?.getAttribute('href')).toBe(
+      programTeamDetailHref('program-1', 't1'),
+    );
+    // 신청이 없는 나팀도 팀 상세로는 갈 수 있다 — 신청 상세로 가는
+    // 「검토하기」 링크만 신청 유무에 달려 있다.
+    const naTeamLink = [...container.querySelectorAll('a')].find(
+      (a) => a.textContent?.trim() === '나팀',
+    );
+    expect(naTeamLink?.getAttribute('href')).toBe(
+      programTeamDetailHref('program-1', 't2'),
+    );
+  });
+
   it('신청이 있는 팀 행은 그 신청 상세로 가는 「검토하기」 링크를 갖는다', async () => {
     await render(
       [team('t1', '가팀', [member('a', '김가', true)])],
@@ -393,7 +421,7 @@ describe('ProgramStaffTeamsPage', () => {
     );
   });
 
-  it('신청이 없는 팀 행에는 링크가 없고, 클릭해도 이동하지 않는다', async () => {
+  it('신청이 없는 팀 행에는 「검토하기」 링크가 없고, 클릭해도 이동하지 않는다 (팀명 링크는 있다)', async () => {
     await render(
       [
         team('t1', '가팀', [member('a', '김가', true)]),

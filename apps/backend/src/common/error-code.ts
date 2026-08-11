@@ -16,6 +16,15 @@ export interface ProblemDetailExtensions {
   readonly fieldErrors?: readonly ProblemDetailFieldError[];
   readonly activeRunId?: string;
   readonly currentAccess?: ProblemDetailCurrentAccess;
+  readonly blockingCounts?: ProblemDetailBlockingCounts;
+}
+
+/** 삭제를 막는 연결 데이터 종류별 건수. 0이면 그 종류는 차단 사유가 아니다. */
+export interface ProblemDetailBlockingCounts {
+  readonly applications: number;
+  readonly teams: number;
+  readonly submissions: number;
+  readonly boardPosts: number;
 }
 
 export interface ProblemDetailCurrentAccess {

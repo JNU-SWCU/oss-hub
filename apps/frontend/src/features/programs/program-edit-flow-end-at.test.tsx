@@ -101,6 +101,7 @@ function EditViewHarness({
       isLifecycleBusy={false}
       isLifecycleConfirming={false}
       lifecycleError={null}
+      isAdmin={false}
       onFieldChange={(field, value) => {
         setForm((current) => updateProgramForm(current, field, value));
         setDirtyFields((current) => addDirtyField(current, field));

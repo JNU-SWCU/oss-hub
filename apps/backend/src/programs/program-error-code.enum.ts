@@ -11,6 +11,8 @@ export enum ProgramErrorCode {
   MILESTONE_BEFORE_APPLICATION_END = 'PRG_008',
   MILESTONE_HAS_SUBMISSIONS = 'PRG_009',
   MILESTONE_REQUIRED = 'PRG_010',
+  PROGRAM_DELETE_FORBIDDEN = 'PRG_011',
+  PROGRAM_DELETE_BLOCKED = 'PRG_012',
 }
 
 export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
@@ -63,5 +65,15 @@ export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
     code: ProgramErrorCode.MILESTONE_REQUIRED,
     status: 422,
     message: '팀 프로그램에는 최소 1개 이상의 마일스톤이 필요합니다.',
+  },
+  [ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN]: {
+    code: ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN,
+    status: 403,
+    message: '관리자만 프로그램을 삭제할 수 있습니다.',
+  },
+  [ProgramErrorCode.PROGRAM_DELETE_BLOCKED]: {
+    code: ProgramErrorCode.PROGRAM_DELETE_BLOCKED,
+    status: 409,
+    message: '연결된 데이터가 있어 프로그램을 삭제할 수 없습니다.',
   },
 };

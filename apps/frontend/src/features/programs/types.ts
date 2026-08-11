@@ -240,6 +240,34 @@ export interface StaffProgramTeam {
   readonly members: readonly StaffProgramTeamMember[];
 }
 
+/**
+ * `GET /programs/:programId/teams/:teamId`(교직원 전용, #874) 응답 — 팀 상세.
+ * 목록(`StaffProgramTeam`)에 신청 상태·저장소 발급 상태를 더해 한 요청으로 담는다
+ * — 이 화면(팀 상세)이 신청 목록을 따로 부르지 않게 하려는 것이다. 신청을 아직
+ * 내지 않은 팀은 `application: null`.
+ *
+ * `repository`(url·visibility)는 팀 목록 응답에는 없지만 이 상세에는 **있다** —
+ * 교직원이 이미 신청 목록/상세에서 보는 값이고, 팀 상세가 저장소 상태까지 한
+ * 요청으로 끝내야 하기 때문이다(백엔드 `team-detail-response.dto.ts` 주석 참고).
+ */
+export interface StaffTeamDetailApplication {
+  readonly id: string;
+  readonly status: ApplicationStatus;
+  readonly repository: {
+    readonly url: string;
+    readonly visibility: 'PUBLIC' | 'PRIVATE';
+  } | null;
+  readonly repositoryProvisioning: RepositoryProvisioning;
+}
+
+export interface StaffTeamDetail {
+  readonly teamId: string;
+  readonly name: string;
+  readonly memberCount: number;
+  readonly members: readonly StaffProgramTeamMember[];
+  readonly application: StaffTeamDetailApplication | null;
+}
+
 export interface ApplicationListPage {
   readonly items: readonly ApplicationListItem[];
   readonly page: number;

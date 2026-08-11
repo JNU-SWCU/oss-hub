@@ -11,6 +11,7 @@ import {
 } from '../github/collection-read.port';
 import { ProgramActivityService } from './service/program-activity.service';
 import { ProgramCreationService } from './service/program-creation.service';
+import { ProgramLifecycleService } from './service/program-lifecycle.service';
 import {
   ProgramsController,
   StudentDashboardController,
@@ -48,6 +49,9 @@ beforeAll(async () => {
       { provide: StudentDashboardService, useValue: {} },
       { provide: ProgramCreationService, useValue: {} },
       { provide: ProgramsService, useValue: {} },
+      // #875 — ProgramsController가 DELETE :id 라우트에서 새로 쓰는 의존성.
+      // 이 스펙은 그 라우트를 부르지 않으므로 실제 구현은 필요 없다.
+      { provide: ProgramLifecycleService, useValue: { delete: jest.fn() } },
       {
         provide: ProgramViewerService,
         useValue: {

@@ -16,6 +16,7 @@ import type {
   ProgramStatusCounts,
   RepositoryProvisioning,
   StaffProgramTeam,
+  StaffTeamDetail,
   ProgramParticipation,
   StaffDashboardSummary,
   SubmissionType,
@@ -472,5 +473,32 @@ export function decideApplication(
 export async function getStaffDashboardSummary(): Promise<StaffDashboardSummary> {
   return parseStaffDashboardSummary(
     await apiClient<unknown>('dashboard/staff/summary'),
+  );
+}
+
+/**
+ * ADMIN 전용 영구 삭제(#875). STAFF는 프로그램 생성자여도 백엔드가 403으로
+ * 거절한다 — 화면은 위험 영역 섹션 자체를 ADMIN에게만 보여준다.
+ */
+export function deleteProgram(
+  programId: string,
+): Promise<{ readonly id: string; readonly deleted: true }> {
+  return apiClient<{ readonly id: string; readonly deleted: true }>(
+    `programs/${encodeURIComponent(programId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+/**
+ * 교직원 전용 팀 상세(#874). `listStaffProgramTeams`(팀 목록)와 달리 신청
+ * 상태·저장소 발급 상태까지 한 요청으로 받는다 — 팀 상세 화면이 신청 목록을
+ * 따로 불러 클라이언트에서 잇지 않게 하려는 것이다.
+ */
+export function getStaffProgramTeamDetail(
+  programId: string,
+  teamId: string,
+): Promise<StaffTeamDetail> {
+  return apiClient<StaffTeamDetail>(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
   );
 }

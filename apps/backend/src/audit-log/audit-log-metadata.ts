@@ -235,6 +235,39 @@ export function createProgramLifecycleAuditMetadata(
 }
 
 /**
+ * #875 — ADMIN 프로그램 삭제. `Program` 행 자체가 삭제되므로(PROGRAM_LIFECYCLE의 join
+ * fallback과 달리) 조회 시점에 다시 조회할 대상이 없다 — programName을 **반드시** 작성
+ * 시점에 스냅샷한다. `lifecycle`은 삭제 당시 상태(PUBLISHED/ARCHIVED), `blockingCounts`는
+ * 차단 정책을 통과했다는 근거(전부 0)를 남긴다. 사람 신원(실명·GitHub 로그인·학번)은
+ * 담지 않는다 — 대상은 targetId(programId)로만 식별한다.
+ */
+export const PROGRAM_DELETION_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const PROGRAM_DELETION_AUDIT_ACTIONS = {
+  PROGRAM_DELETED: 'PROGRAM_DELETED',
+} as const;
+
+export type ProgramDeletionAuditBlockingCounts = {
+  readonly applications: number;
+  readonly teams: number;
+  readonly submissions: number;
+  readonly boardPosts: number;
+};
+
+export type ProgramDeletionAuditMetadata = {
+  readonly schemaVersion: typeof PROGRAM_DELETION_AUDIT_SCHEMA_VERSION;
+  readonly programName: string;
+  readonly lifecycle: ProgramLifecycle;
+  readonly blockingCounts: ProgramDeletionAuditBlockingCounts;
+};
+
+export function createProgramDeletionAuditMetadata(
+  input: Omit<ProgramDeletionAuditMetadata, 'schemaVersion'>,
+): ProgramDeletionAuditMetadata {
+  return { schemaVersion: PROGRAM_DELETION_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+/**
  * #547 — ADMIN 수집 트리거. actor는 `AuditLog.actorId` FK로 이미 식별되므로 metadata에
  * 다시 스냅샷하지 않는다. `runId`는 트리거가 202로 돌려준 값과 같은 값이라(#546) 이
  * 기록만으로 실행 이력 조회까지 이어진다. 자격증명·저장소 이름은 담지 않는다.
@@ -401,6 +434,7 @@ export type AuditLogMetadata =
   | AccessAuditMetadata
   | RepositoryPublishAuditMetadata
   | ProgramLifecycleAuditMetadata
+  | ProgramDeletionAuditMetadata
   | CollectionTriggerAuditMetadata
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadata
@@ -467,10 +501,15 @@ export type ApplicationDecisionAuditMetadataView =
 // 이 기능의 요지가 "무엇이 바뀌었는지" 그 자체이므로 가릴 이유가 없다.
 export type UserProfileAuditMetadataView = UserProfileAuditMetadata;
 
+// 네 필드 모두 조회 응답에 그대로 나간다 — programName·lifecycle·blockingCounts는
+// 사람 신원이 아니라 "무엇을, 왜 지울 수 있었는지"를 말하는 행동 메타데이터다.
+export type ProgramDeletionAuditMetadataView = ProgramDeletionAuditMetadata;
+
 export type AuditLogMetadataView =
   | AccessAuditMetadataView
   | RepositoryPublishAuditMetadataView
   | ProgramLifecycleAuditMetadataView
+  | ProgramDeletionAuditMetadataView
   | CollectionTriggerAuditMetadataView
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadataView
@@ -545,6 +584,17 @@ function toProgramLifecycleAuditMetadataView(
         programName: metadata.programName,
       }
     : { ...base, schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1 };
+}
+
+function toProgramDeletionAuditMetadataView(
+  metadata: ProgramDeletionAuditMetadata,
+): ProgramDeletionAuditMetadataView {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    programName: metadata.programName,
+    lifecycle: metadata.lifecycle,
+    blockingCounts: { ...metadata.blockingCounts },
+  };
 }
 
 function toCollectionTriggerAuditMetadataView(
@@ -640,6 +690,12 @@ export function parseAuditLogMetadata(
     return {
       legacy: false,
       metadata: toProgramLifecycleAuditMetadataView(value),
+    };
+  }
+  if (isProgramDeletionAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toProgramDeletionAuditMetadataView(value),
     };
   }
   if (isCollectionTriggerAuditMetadata(value)) {
@@ -794,6 +850,31 @@ function isProgramLifecycleState(
     isJsonObject(value) &&
     (value.lifecycle === ProgramLifecycle.PUBLISHED ||
       value.lifecycle === ProgramLifecycle.ARCHIVED)
+  );
+}
+
+function isProgramDeletionAuditMetadata(
+  value: unknown,
+): value is ProgramDeletionAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === PROGRAM_DELETION_AUDIT_SCHEMA_VERSION &&
+    typeof value.programName === 'string' &&
+    (value.lifecycle === ProgramLifecycle.PUBLISHED ||
+      value.lifecycle === ProgramLifecycle.ARCHIVED) &&
+    isProgramDeletionAuditBlockingCounts(value.blockingCounts)
+  );
+}
+
+function isProgramDeletionAuditBlockingCounts(
+  value: unknown,
+): value is ProgramDeletionAuditBlockingCounts {
+  return (
+    isJsonObject(value) &&
+    typeof value.applications === 'number' &&
+    typeof value.teams === 'number' &&
+    typeof value.submissions === 'number' &&
+    typeof value.boardPosts === 'number'
   );
 }
 
