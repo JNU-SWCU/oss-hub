@@ -1,5 +1,3 @@
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 import { e2eEnvironment } from './e2e/environment';
@@ -8,7 +6,8 @@ export default defineConfig({
   testDir: './e2e',
   outputDir:
     process.env.E2E_OUTPUT_DIR ??
-    join(tmpdir(), `oss-hub-playwright-${process.pid}`),
+    process.env.E2E_ARTIFACT_DIR ??
+    '.omo/artifacts/program-authoring-and-document-flow/12-e2e/playwright',
   fullyParallel: false,
   forbidOnly: true,
   preserveOutput: 'always',

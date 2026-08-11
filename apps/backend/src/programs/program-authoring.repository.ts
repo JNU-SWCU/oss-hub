@@ -6,6 +6,12 @@ import {
   Role,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { e2eProgramAuthoringControlEnabled } from '../e2e-program-authoring/e2e-program-authoring.config';
+import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-external-ports';
+import {
+  E2E_EXTERNAL_FAILURE_OPERATIONS,
+  E2eExternalPortFault,
+} from '../e2e-program-authoring/e2e-external-port-registry';
 import type {
   ProgramAuthoringCreateRequestInput,
   ProgramAuthoringDocumentPlan,
@@ -75,9 +81,20 @@ export class ProgramAuthoringRepository {
   async withTransaction<T>(
     operation: (store: ProgramAuthoringTransactionStore) => Promise<T>,
   ): Promise<T> {
-    return this.prisma.$transaction((transaction) =>
-      operation(new ProgramAuthoringTransactionRepository(transaction)),
-    );
+    return this.prisma.$transaction(async (transaction) => {
+      const result = await operation(
+        new ProgramAuthoringTransactionRepository(transaction),
+      );
+      if (
+        e2eProgramAuthoringControlEnabled() &&
+        e2eProgramAuthoringExternalPorts.failures.consume(
+          E2E_EXTERNAL_FAILURE_OPERATIONS.PRISMA_TRANSACTION,
+        )
+      ) {
+        throw new E2eExternalPortFault();
+      }
+      return result;
+    });
   }
 }
 

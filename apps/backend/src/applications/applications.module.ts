@@ -41,5 +41,6 @@ import { StudentApplicationsController } from './student-applications.controller
       useValue: () => new Date(),
     },
   ],
+  exports: [ApplicationsService],
 })
 export class ApplicationsModule {}
