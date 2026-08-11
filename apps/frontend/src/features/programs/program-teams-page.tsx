@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -15,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ApiError, apiClient } from '@/lib/api-client';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
 import {
   createTeam,
   getMyTeam,
@@ -49,6 +51,11 @@ import {
 } from './team-invite-inbox';
 import { TeamInvitePanel } from './team-invite-panel';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
+
+/** 초대 검색 자동 실행까지의 디바운스 지연. */
+const INVITE_SEARCH_DEBOUNCE_MS = 300;
+/** 이 길이 미만이면 요청을 보내지 않고 결과를 비운다. */
+const MIN_INVITE_SEARCH_QUERY_LENGTH = 2;
 
 function TeamsSkeleton() {
   return (
@@ -565,25 +572,60 @@ export function ProgramTeamsPage({
     }
   };
 
-  const handleSearch = async () => {
-    if (state.kind !== 'ready') return;
-    const query = inviteQuery.trim();
-    if (!query) return;
-    setSearching(true);
-    setSearchError(null);
-    try {
-      const candidates = await searchInvitationCandidates(state.team.id, query);
-      setInviteCandidates(candidates);
-    } catch (error: unknown) {
-      setInviteCandidates([]);
-      setSearchError(
-        error instanceof ApiError
-          ? mapInvitationError(error.problem)
-          : '검색하지 못했습니다.',
-      );
-    } finally {
-      setSearching(false);
-    }
+  const inviteTeamId = state.kind === 'ready' ? state.team.id : null;
+  // 응답이 요청 순서와 다르게 돌아와도 최신 검색만 반영한다 — 빠르게 타이핑하면
+  // 이전 글자로 보낸 요청이 나중에 도착해 최신 결과를 덮어쓸 수 있어서다. 늦게 온
+  // 응답은 화면에 반영하지 않고 조용히 버린다(에러로도 보여주지 않는다).
+  const searchSeqRef = useRef(0);
+
+  const performSearch = useCallback(
+    async (rawQuery: string) => {
+      if (inviteTeamId === null) return;
+      const query = rawQuery.trim();
+      if (query.length < MIN_INVITE_SEARCH_QUERY_LENGTH) {
+        searchSeqRef.current += 1;
+        setInviteCandidates([]);
+        setSearchError(null);
+        setSearching(false);
+        return;
+      }
+      const seq = ++searchSeqRef.current;
+      setSearching(true);
+      setSearchError(null);
+      try {
+        const candidates = await searchInvitationCandidates(
+          inviteTeamId,
+          query,
+        );
+        if (seq !== searchSeqRef.current) return; // 그 사이 최신 검색이 시작됐다.
+        setInviteCandidates(candidates);
+      } catch (error: unknown) {
+        if (seq !== searchSeqRef.current) return;
+        setInviteCandidates([]);
+        setSearchError(
+          error instanceof ApiError
+            ? mapInvitationError(error.problem)
+            : '검색하지 못했습니다.',
+        );
+      } finally {
+        if (seq === searchSeqRef.current) setSearching(false);
+      }
+    },
+    [inviteTeamId],
+  );
+
+  const debouncedInviteQuery = useDebouncedValue(
+    inviteQuery,
+    INVITE_SEARCH_DEBOUNCE_MS,
+  );
+
+  useEffect(() => {
+    void performSearch(debouncedInviteQuery);
+  }, [debouncedInviteQuery, performSearch]);
+
+  // 엔터·검색 버튼으로도 계속 즉시 검색할 수 있다(디바운스를 기다리지 않는다).
+  const handleSearch = () => {
+    void performSearch(inviteQuery);
   };
 
   const handleInvite = async (candidate: InvitationCandidate) => {
