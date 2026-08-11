@@ -68,7 +68,7 @@ describe('mapProgramDeleteError', () => {
       kind: 'blocked',
       messages: [
         {
-          text: '신청 5건가 남아 있습니다. 학생 데이터가 있는 프로그램은 지울 수 없습니다.',
+          text: '신청 5건이 남아 있습니다. 학생 데이터가 있는 프로그램은 지울 수 없습니다.',
         },
       ],
     });

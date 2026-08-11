@@ -127,6 +127,32 @@ export class ProgramLifecycleService {
         );
       }
 
+      // 불변조건: Application 하드삭제는 SUBMITTED 상태에서만 일어난다
+      // (student-application-management.repository.ts의 validateMutation) — 즉 이
+      // 지점에서 applications===0이면 Repository(applicationId 필수 unique FK)와
+      // MilestoneDocumentSubmission(applicationId 필수 FK)도 항상 0이어야 한다.
+      // 스키마상 그 두 관계에 onDelete: Cascade가 없어, 이 불변조건이 깨진 채로
+      // Program을 지우면 FK 위반 500이 터진다. 도달 불가능해야 하는 경로지만
+      // 500을 막기 위해 방어적으로 확인하고, 깨졌다면 새 UI 카테고리를 만드는 대신
+      // 이미 있는 409(PRG_012) 차단으로 흡수한다 — blockingCounts는 여전히 전부
+      // 0이라 프론트는 이를 일반 차단 안내 문구로 보여준다.
+      const [orphanRepositoryCount, orphanMilestoneDocumentSubmissionCount] =
+        await Promise.all([
+          transaction.repository.count({ where: { programId } }),
+          transaction.milestoneDocumentSubmission.count({
+            where: { milestoneDocument: { milestone: { programId } } },
+          }),
+        ]);
+      if (
+        orphanRepositoryCount > 0 ||
+        orphanMilestoneDocumentSubmissionCount > 0
+      ) {
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_BLOCKED],
+          { blockingCounts },
+        );
+      }
+
       // 교직원이 올린 스캐폴딩(작성 임시 파일·작성 요청)은 학생 데이터가 아니라 명시 삭제한다.
       await this.deleteAuthoringArtifacts(transaction, programId);
       await this.deleteMilestoneTree(transaction, programId);
