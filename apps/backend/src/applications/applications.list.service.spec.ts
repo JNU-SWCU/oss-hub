@@ -573,7 +573,11 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
           repository: null,
           program: { repositoryProvisioningEnabled: true },
           applicant: { id: 'student-1', name: null, nickname: 'student' },
-          team: { id: 'team-1', name: '합성 팀', _count: { members: memberCount } },
+          team: {
+            id: 'team-1',
+            name: '합성 팀',
+            _count: { members: memberCount },
+          },
         },
       ]);
       const transaction = {
