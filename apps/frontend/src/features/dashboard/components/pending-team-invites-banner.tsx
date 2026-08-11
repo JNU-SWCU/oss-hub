@@ -19,6 +19,12 @@ export interface PendingTeamInvitesBannerProps {
  * 같은 계약). 수락/거절을 바로 이 자리에서 처리한다 — 이 배너의 목적 자체가 초대가
  * `/programs/[id]/teams`에 직접 들어가야만 보이던 문제를 없애는 것이라, 한 번 더
  * 이동해야 처리할 수 있으면 그 목적이 옅어진다.
+ *
+ * ⚠ 단, **실패 사유가 남아 있으면 항목이 0건이어도 렌더한다.** 수락이 실패하는 흔한
+ * 이유는 그 사이 초대가 닫힌 것이고(취소·중복 수락·정원 초과), 그때 호출부는 목록을
+ * 다시 읽어 죽은 초대를 치운다. 그 결과 마지막 한 건이 사라지는데, 여기서 사유까지
+ * 같이 걷어내면 **누른 사람 눈에는 항목이 조용히 없어진 것 = 수락된 것처럼 보인다.**
+ * 실제로는 팀에 들어가지 못했으므로 사유는 남겨야 한다.
  */
 export function PendingTeamInvitesBanner({
   items,
@@ -27,7 +33,17 @@ export function PendingTeamInvitesBanner({
   onAccept,
   onDecline,
 }: PendingTeamInvitesBannerProps) {
-  if (items.length === 0) return null;
+  const errorAlert =
+    actionError === null ? null : (
+      <Alert variant="destructive">
+        <AlertCircle aria-hidden="true" />
+        <AlertTitle>요청 실패</AlertTitle>
+        <AlertDescription>{actionError}</AlertDescription>
+      </Alert>
+    );
+
+  // 남은 초대가 없으면 「0건」 카드를 세우지 않는다 — 사유만 홀로 남긴다.
+  if (items.length === 0) return errorAlert;
 
   return (
     <Card className="border-primary/40">
@@ -37,13 +53,7 @@ export function PendingTeamInvitesBanner({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {actionError ? (
-          <Alert variant="destructive">
-            <AlertCircle aria-hidden="true" />
-            <AlertTitle>요청 실패</AlertTitle>
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
-        ) : null}
+        {errorAlert}
         <ul className="flex flex-col gap-2">
           {items.map((item) => {
             const responding = respondingInvitationId === item.invitationId;
