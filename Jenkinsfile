@@ -49,6 +49,8 @@ pipeline {
           env.PREV_FE_IMAGE_ID = ''
           env.PREV_BE_IMAGE_ID = ''
           env.PREV_SHA = ''
+          env.PRIVATE_KEYS_CHANGED = 'false'
+          env.PREV_PRIVATE_KEY_GENERATION = ''
 
           def tag = sh(
             script: '''#!/usr/bin/env bash
@@ -109,27 +111,44 @@ printf '%s' "$release_sha"
       }
     }
 
-    stage('개인키 안정 경로 설치') {
+    stage('개인키 검증 및 안정 경로 설치') {
       steps {
         withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
           file(credentialsId: 'oss-hub-collection-app-private-key', variable: 'COLLECTION_PEM_SRC'),
           file(credentialsId: 'oss-hub-operations-app-private-key', variable: 'OPERATIONS_PEM_SRC'),
         ]) {
-          sh '''#!/usr/bin/env bash
+          script {
+            def keyState = sh(
+              script: '''#!/usr/bin/env bash
 set -euo pipefail
 
+# App ID·조직과 각 file credential이 실제 GitHub에서 같은 App으로 인증되고
+# installation token까지 발급하는지 먼저 확인한다. 값·JWT·token은 출력하지 않는다.
+node scripts/jenkins/validate-github-app-credentials.mjs \
+  "$OSS_HUB_ENV_FILE" "$COLLECTION_PEM_SRC" "$OPERATIONS_PEM_SRC"
+
 # 이후 모든 compose 호출이 SECRETS_DIR/current 아래 파일을 요구하므로 probe보다 앞에 둔다.
-# jenkins(uid 105)에는 CAP_CHOWN이 없다. SECRETS_DIR의 setgid 비트가 gid 1000을 상속시켜
-# chown 없이 0640 + gid 1000을 만든다 — 컨테이너(uid 1000)가 읽을 수 있는 최소 권한이다.
+# SECRETS_DIR의 setgid 비트가 gid 1000을 상속시켜 0640 + gid 1000을 만든다.
 umask 027
+mkdir -p "$SECRETS_DIR"
+previous=''
+if [ -L "${SECRETS_DIR}/current" ]; then
+  previous="$(readlink -f "${SECRETS_DIR}/current")"
+fi
+
+if [ -n "$previous" ] && \
+   cmp -s "$COLLECTION_PEM_SRC" "${SECRETS_DIR}/current/collection.pem" && \
+   cmp -s "$OPERATIONS_PEM_SRC" "${SECRETS_DIR}/current/operations.pem"; then
+  printf 'changed=false\nprevious=%s\n' "$previous"
+  exit 0
+fi
 
 generation="${SECRETS_DIR}/gen-${BUILD_NUMBER}"
 mkdir -p "$generation"
-
 install -m 640 "$COLLECTION_PEM_SRC" "${generation}/collection.pem"
 install -m 640 "$OPERATIONS_PEM_SRC" "${generation}/operations.pem"
 
-# 자격증명 내용이 실제 키인지 지금 확인한다. 여기서 걸러야 배포 후 런타임 실패로 번지지 않는다.
 for pem in collection operations; do
   if ! openssl pkey -in "${generation}/${pem}.pem" -noout 2>/dev/null; then
     echo "설치한 ${pem} 개인키를 파싱할 수 없습니다. 자격증명 내용을 확인하세요." >&2
@@ -137,13 +156,27 @@ for pem in collection operations; do
   fi
 done
 
-# current 교체는 원자적이어야 한다 — 교체 도중 compose가 읽으면 경로가 사라진 상태를 볼 수 있다.
+# current 교체는 원자적이어야 한다. 직후 실경로까지 대조해 교체 실패를 숨기지 않는다.
 ln -sfn "$generation" "${SECRETS_DIR}/.current-next"
 mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
+if [ "$(readlink -f "${SECRETS_DIR}/current")" != "$generation" ]; then
+  echo '개인키 활성 generation 검증에 실패했습니다.' >&2
+  exit 1
+fi
+printf 'changed=true\nprevious=%s\n' "$previous"
+''',
+              returnStdout: true,
+            ).trim()
 
-echo "개인키 설치 완료: generation=$(basename "$generation")"
-ls -l "${SECRETS_DIR}/current/" | sed 's/^/  /'
-'''
+            def keyFields = [:]
+            keyState.split(/\r?\n/).each { line ->
+              def idx = line.indexOf('=')
+              if (idx > 0) keyFields[line.substring(0, idx)] = line.substring(idx + 1)
+            }
+            env.PRIVATE_KEYS_CHANGED = keyFields.get('changed', 'false')
+            env.PREV_PRIVATE_KEY_GENERATION = keyFields.get('previous', '')
+            echo env.PRIVATE_KEYS_CHANGED == 'true' ? 'GitHub App 개인키 generation을 교체했습니다.' : 'GitHub App 개인키가 같아 generation 교체를 생략합니다.'
+          }
         }
       }
     }
@@ -326,6 +359,18 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
             def cmp = compareDecimal(targetParts[0], runningParts[0])
             if (cmp == 0) { cmp = compareDecimal(targetParts[1], runningParts[1]) }
             if (cmp == 0) { cmp = compareDecimal(targetParts[2], runningParts[2]) }
+
+            if (cmp < 0 && env.PRIVATE_KEYS_CHANGED == 'true') {
+              if (!env.PREV_PRIVATE_KEY_GENERATION?.trim()) {
+                error('FAIL_CLOSED key_rotation_downgrade: 이전 개인키 generation이 없어 활성 포인터를 복구할 수 없습니다.')
+              }
+              sh '''#!/usr/bin/env bash
+set -euo pipefail
+ln -sfn "$PREV_PRIVATE_KEY_GENERATION" "${SECRETS_DIR}/.current-next"
+mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
+'''
+              error('FAIL_CLOSED key_rotation_downgrade: 하위 Release checkout으로 실행 중 상위 Release의 backend를 재생성할 수 없습니다.')
+            }
 
             if (cmp < 0) {
               env.DEPLOY_NOOP = 'true'
@@ -573,6 +618,18 @@ docker build \
                 # rollout 동안 PREV_TAG rollback 이미지는 삭제하지 않는다(성공 후 retention만 정리).
                 docker compose --env-file "$OSS_HUB_ENV_FILE" pull --quiet postgres minio minio-bucket nginx
                 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
+                mounted_digest() {
+                  docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
+                    node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex'))" "$1"
+                }
+                for pem in collection operations; do
+                  host_digest="$(sha256sum "${SECRETS_DIR}/current/${pem}.pem" | cut -d' ' -f1)"
+                  container_digest="$(mounted_digest "/run/secrets/github_${pem}_app_private_key")"
+                  if [ "$host_digest" != "$container_digest" ]; then
+                    echo "FAIL_CLOSED ${pem} 개인키 mount가 활성 generation과 다릅니다." >&2
+                    exit 1
+                  fi
+                done
                 # bind mount 내용은 Compose 서비스 해시에 없어 up -d가 nginx를 재생성하지 않으므로 명시적 reload 없이는 낡은 설정이 계속 서빙된다.
                 docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
                 docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
@@ -611,6 +668,14 @@ docker build \
                 docker compose --env-file "$OSS_HUB_ENV_FILE" ps || true
                 docker compose --env-file "$OSS_HUB_ENV_FILE" logs --no-color || true
               '''
+
+              if (env.PRIVATE_KEYS_CHANGED == 'true' && env.PREV_PRIVATE_KEY_GENERATION?.trim()) {
+                sh '''#!/usr/bin/env bash
+set -euo pipefail
+ln -sfn "$PREV_PRIVATE_KEY_GENERATION" "${SECRETS_DIR}/.current-next"
+mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
+'''
+              }
 
               if (env.PREV_TAG?.trim()) {
                 echo "서비스 교체 또는 스모크 실패: ${env.PREV_TAG} 이미지로 한 번 복구합니다."
@@ -660,6 +725,52 @@ docker build \
               }
 
               throw deploymentFailure
+            }
+          }
+        }
+      }
+    }
+
+    stage('no-op 개인키 변경 반영') {
+      when {
+        expression { env.DEPLOY_NOOP == 'true' && env.PRIVATE_KEYS_CHANGED == 'true' }
+      }
+      steps {
+        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
+          script {
+            try {
+              sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
+  --force-recreate --no-deps --wait --wait-timeout 180 backend
+
+mounted_digest() {
+  docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
+    node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex'))" "$1"
+}
+for pem in collection operations; do
+  host_digest="$(sha256sum "${SECRETS_DIR}/current/${pem}.pem" | cut -d' ' -f1)"
+  container_digest="$(mounted_digest "/run/secrets/github_${pem}_app_private_key")"
+  if [ "$host_digest" != "$container_digest" ]; then
+    echo "FAIL_CLOSED ${pem} 개인키 mount가 활성 generation과 다릅니다." >&2
+    exit 1
+  fi
+done
+curl --fail --silent --show-error --retry 5 --retry-connrefused \
+  http://127.0.0.1:8081/api/v1/health >/dev/null
+'''
+            } catch (keyReloadFailure) {
+              if (env.PREV_PRIVATE_KEY_GENERATION?.trim()) {
+                sh '''#!/usr/bin/env bash
+set -euo pipefail
+ln -sfn "$PREV_PRIVATE_KEY_GENERATION" "${SECRETS_DIR}/.current-next"
+mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
+docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
+  --force-recreate --no-deps --wait --wait-timeout 180 backend
+'''
+              }
+              throw keyReloadFailure
             }
           }
         }
