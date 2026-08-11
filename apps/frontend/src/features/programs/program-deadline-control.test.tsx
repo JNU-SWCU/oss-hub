@@ -49,7 +49,7 @@ describe('ProgramDeadlineControl', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the default-off authoring toggle without a global preview or send action', () => {
+  it('renders the off authoring toggle without a global preview or send action', () => {
     const html = renderToStaticMarkup(
       <ProgramDeadlineControl
         enabled={false}

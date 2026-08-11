@@ -30,7 +30,7 @@ describe('program authoring reducer', () => {
     expect(navigated.teamMinSize).toBe('1');
     expect(navigated.teamMaxSize).toBe('1');
     expect(navigated.repositoryProvisioningEnabled).toBe(false);
-    expect(navigated.notifyOnDeadline).toBe(false);
+    expect(navigated.notifyOnDeadline).toBe(true);
     expect(navigated.currentStep).toBe('operations');
     expect(PROGRAM_AUTHORING_STEPS).toHaveLength(6);
   });

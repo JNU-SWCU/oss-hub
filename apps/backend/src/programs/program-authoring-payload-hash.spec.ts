@@ -60,7 +60,10 @@ describe('Program authoring canonical payload hash', () => {
       teamMinSize: 1,
       teamMaxSize: 1,
       repositoryProvisioningEnabled: false,
-      notifyOnDeadline: false,
+      // 생략했을 때의 기본값을 그대로 적은 것이다 — 마감 알림의 기본은 켜짐이다
+      // (program-authoring-plan.ts). 값이 다르면 같은 요청이 다른 해시가 되어
+      // 재시도가 중복 생성으로 갈린다.
+      notifyOnDeadline: true,
       milestones: request().milestones.map((milestone) => ({
         ...milestone,
         startAt: '2026-08-10T00:00:00.000Z',

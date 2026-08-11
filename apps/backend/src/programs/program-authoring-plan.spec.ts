@@ -102,7 +102,9 @@ describe('buildProgramAuthoringPlan', () => {
       teamMinSize: 1,
       teamMaxSize: 1,
       repositoryProvisioningEnabled: false,
-      notifyOnDeadline: false,
+      // 저장소 발급은 생략하면 꺼지고, 마감 알림은 생략하면 켜진다 — 알림을 끄는
+      // 쪽만 명시적 선택이어야 하기 때문이다(program-authoring-plan.ts).
+      notifyOnDeadline: true,
       description: 'Synthetic description',
     });
     expect(plan.milestones.map((milestone) => milestone.name)).toEqual([
