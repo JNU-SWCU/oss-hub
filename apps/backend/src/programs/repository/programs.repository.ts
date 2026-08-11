@@ -14,8 +14,8 @@ import {
 import type { ProgramListQuery } from '../program-list-query';
 import {
   emptyProgramStatusCounts,
+  programListOrderBySql,
   programListPrismaWhere,
-  programListSortRankSql,
   programListSqlWhere,
   programStatusCountsSql,
   type ProgramStatusCounts,
@@ -56,6 +56,7 @@ export class ProgramsRepository {
         : {}),
     };
     const sqlWhere = programListSqlWhere(query.status, query.search, now);
+    const orderBy = programListOrderBySql(query.sort, query.direction, now);
     const offset = (query.page - 1) * query.pageSize;
     return this.prisma.$transaction([
       this.prisma.$queryRaw<readonly ProgramListRecord[]>(Prisma.sql`
@@ -73,11 +74,7 @@ export class ProgramsRepository {
           p."teamMaxSize"
         FROM "Program" AS p
         ${sqlWhere}
-        ORDER BY
-          ${programListSortRankSql(now)} ASC,
-          p."applicationEndAt" ASC,
-          p."name" ASC,
-          p."id" ASC
+        ORDER BY ${orderBy}
         LIMIT ${query.pageSize}
         OFFSET ${offset}
       `),
