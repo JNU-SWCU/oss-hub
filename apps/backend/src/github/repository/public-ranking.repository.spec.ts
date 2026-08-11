@@ -77,9 +77,9 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       expect(argsOf(db.contribution.findMany).where?.repository).toEqual(
         RANKING_REPOSITORY_SCOPE,
       );
-      expect(argsOf(db.contribution.findMany).where?.repository).not.toHaveProperty(
-        'visibility',
-      );
+      expect(
+        argsOf(db.contribution.findMany).where?.repository,
+      ).not.toHaveProperty('visibility');
     });
 
     it('연도 목록과 갱신 시각이 같은 저장소 범위를 쓴다', async () => {
