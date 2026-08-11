@@ -18,7 +18,6 @@ const PEM_HEADER = ['-----BEGIN', 'PRIVATE KEY-----'].join(' ');
 const PEM_FOOTER = ['-----END', 'PRIVATE KEY-----'].join(' ');
 
 const FILE_ENV_KEY = 'GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE';
-const LEGACY_ENV_KEY = 'GITHUB_COLLECTION_APP_PRIVATE_KEY';
 
 function syntheticPem(): string {
   const { privateKey } = generateKeyPairSync('rsa', {
@@ -70,38 +69,6 @@ describe('CollectionAppConfig private key input', () => {
     expect(config.privateKey).not.toContain('\\n');
   });
 
-  it('legacy env 문자열만 설정되면 escaped 개행 치환을 유지한다', () => {
-    // Given: 기존 방식대로 escaped 개행이 담긴 한 줄 값이 온다.
-    const legacy = `${PEM_HEADER}\\nsynthetic\\n${PEM_FOOTER}`;
-
-    // When
-    const config = CollectionAppConfig.fromEnv(
-      baseEnv({ [LEGACY_ENV_KEY]: legacy }),
-    );
-
-    // Then: 회귀 없이 실제 개행으로 복원된다.
-    expect(config.privateKey).toBe(`${PEM_HEADER}\nsynthetic\n${PEM_FOOTER}`);
-  });
-
-  it('둘 다 설정되면 파일이 이기고 legacy 값은 무시한다', () => {
-    // Given: 파일과 legacy가 서로 다른 내용을 담는다.
-    const pem = syntheticPem();
-    const path = writeKeyFile('wins.pem', pem);
-    const legacyMarker = 'synthetic-legacy-must-be-ignored';
-
-    // When
-    const config = CollectionAppConfig.fromEnv(
-      baseEnv({
-        [FILE_ENV_KEY]: path,
-        [LEGACY_ENV_KEY]: `${PEM_HEADER}\\n${legacyMarker}\\n${PEM_FOOTER}`,
-      }),
-    );
-
-    // Then
-    expect(config.privateKey).toBe(pem);
-    expect(config.privateKey).not.toContain(legacyMarker);
-  });
-
   it('둘 다 없으면 기존과 같은 설정 오류로 실패한다', () => {
     // Given / When / Then
     expect(() => CollectionAppConfig.fromEnv(baseEnv())).toThrow(
@@ -109,25 +76,16 @@ describe('CollectionAppConfig private key input', () => {
     );
   });
 
-  it('_FILE이 공백만이면 미설정으로 보고 legacy로 넘어간다', () => {
-    // Given: 파일 경로가 공백뿐이고 legacy는 유효하다.
-    const legacy = `${PEM_HEADER}\\nsynthetic\\n${PEM_FOOTER}`;
-
-    // When
-    const config = CollectionAppConfig.fromEnv(
-      baseEnv({ [FILE_ENV_KEY]: '   ', [LEGACY_ENV_KEY]: legacy }),
-    );
-
-    // Then
-    expect(config.privateKey).toBe(`${PEM_HEADER}\nsynthetic\n${PEM_FOOTER}`);
+  it('_FILE이 공백만이면 구성 오류로 fail-closed한다', () => {
+    expect(() =>
+      CollectionAppConfig.fromEnv(baseEnv({ [FILE_ENV_KEY]: '   ' })),
+    ).toThrow(CollectionAppConfigError);
   });
 
-  it('_FILE 경로가 유효하지 않으면 legacy로 fallback하지 않고 fail closed한다', () => {
-    // Given: 명시된 파일이 없고 legacy는 유효하다.
-    const legacyMarker = 'synthetic-legacy-must-not-rescue';
+  it('_FILE 경로가 유효하지 않으면 fail closed한다', () => {
+    // Given
     const env = baseEnv({
       [FILE_ENV_KEY]: join(workspace, 'missing.pem'),
-      [LEGACY_ENV_KEY]: `${PEM_HEADER}\\n${legacyMarker}\\n${PEM_FOOTER}`,
     });
 
     // When
@@ -142,7 +100,6 @@ describe('CollectionAppConfig private key input', () => {
     expect(caught).toBeInstanceOf(CollectionAppConfigError);
     expect((caught as CollectionAppConfigError).field).toBe(FILE_ENV_KEY);
     expect((caught as Error).cause).toBeInstanceOf(PrivateKeyFileError);
-    expect((caught as Error).message).not.toContain(legacyMarker);
   });
 
   it('_FILE이 손상된 PEM을 가리키면 파싱 실패로 fail closed한다', () => {

@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
@@ -9,14 +9,12 @@ import {
   type RuntimeConfig,
 } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
-import { resolvePrivateKeyInput } from '../runtime-config/private-key-file';
+import { readPrivateKeyFile } from '../runtime-config/private-key-file';
 
 const PRIVATE_KEY_FILE_ENV_KEY = 'GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE';
 
 @Injectable()
 export class GithubOperationsConfig {
-  private readonly logger = new Logger(GithubOperationsConfig.name);
-
   constructor(
     @Inject(RUNTIME_CONFIG)
     private readonly runtimeConfig: RuntimeConfig = loadRuntimeConfig(
@@ -49,16 +47,14 @@ export class GithubOperationsConfig {
   }
 
   private resolvePrivateKey(): string | null {
+    const filePath = configValue(
+      this.runtimeConfig.GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE,
+    );
+    if (filePath === null) {
+      return null;
+    }
     try {
-      return resolvePrivateKeyInput(
-        PRIVATE_KEY_FILE_ENV_KEY,
-        this.runtimeConfig.GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE,
-        this.runtimeConfig.GITHUB_OPERATIONS_APP_PRIVATE_KEY,
-        () =>
-          this.logger.warn(
-            `${PRIVATE_KEY_FILE_ENV_KEY} takes precedence; deprecated GITHUB_OPERATIONS_APP_PRIVATE_KEY is ignored`,
-          ),
-      );
+      return readPrivateKeyFile(PRIVATE_KEY_FILE_ENV_KEY, filePath);
     } catch (error) {
       throw new GithubOperationsError(
         GITHUB_OPERATIONS_ERROR_CODES.CONFIGURATION,
