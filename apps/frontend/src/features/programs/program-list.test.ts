@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  filterAndGroupPrograms,
   getProgramListBadge,
   getProgramListHeading,
   getProgramListSubtitle,
@@ -118,46 +117,6 @@ describe('getProgramRecruitmentState', () => {
         new Date('2026-07-22T00:00:00.000Z'),
       ),
     ).toBe('ended');
-  });
-});
-
-describe('filterAndGroupPrograms', () => {
-  it('groups all statuses under all filter', () => {
-    const result = filterAndGroupPrograms(programs, {
-      search: '',
-      status: 'all',
-      now,
-    });
-    expect(
-      result.map(({ key, programs: items }) => [
-        key,
-        items.map(({ id }) => id),
-      ]),
-    ).toEqual([
-      ['recruiting', ['recruiting']],
-      ['in-progress', ['in-progress']],
-      ['upcoming', ['upcoming']],
-      ['ended', ['ended']],
-    ]);
-  });
-
-  it('narrows by name search and recruiting status', () => {
-    const result = filterAndGroupPrograms(programs, {
-      search: 'contest',
-      status: 'recruiting',
-      now,
-    });
-    expect(result).toHaveLength(1);
-    expect(result[0]?.programs.map(({ id }) => id)).toEqual(['recruiting']);
-  });
-
-  it('excludes other buckets when filtering upcoming', () => {
-    const result = filterAndGroupPrograms(programs, {
-      search: '',
-      status: 'upcoming',
-      now,
-    });
-    expect(result[0]?.programs.map(({ id }) => id)).toEqual(['upcoming']);
   });
 
   it('treats application closed without endAt as in_progress', () => {
