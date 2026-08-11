@@ -224,11 +224,11 @@ export function ProgramTeamRosterView({
           <div className="flex flex-wrap gap-3">
             <Button asChild>
               <Link href={applyHrefWithTeam(program.id, team.id)}>
-                신청서 작성으로 이동
+                신청서 작성
               </Link>
             </Button>
-            <Button asChild variant="outline">
-              <Link href={programHref(program.id)}>프로그램 상세로</Link>
+            <Button asChild variant="link">
+              <Link href={programHref(program.id)}>프로그램 개요</Link>
             </Button>
           </div>
         </CardContent>
@@ -328,8 +328,8 @@ export function ProgramTeamsSetupView({
           </CardContent>
         </Card>
       </div>
-      <Button asChild variant="outline">
-        <Link href={programHref(program.id)}>프로그램 상세로</Link>
+      <Button asChild variant="link">
+        <Link href={programHref(program.id)}>프로그램 개요</Link>
       </Button>
     </PageBody>
   );

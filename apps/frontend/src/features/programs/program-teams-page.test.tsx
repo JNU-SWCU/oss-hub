@@ -108,7 +108,7 @@ describe('ProgramTeams views', () => {
     expect(html).not.toContain('참여코드');
     expect(html).toContain('팀장');
     expect(html).toContain('member2');
-    expect(html).toContain('신청서 작성으로 이동');
+    expect(html).toContain('신청서 작성');
     expect(html).toContain('/programs/program-1/apply?teamId=team-1');
   });
 
