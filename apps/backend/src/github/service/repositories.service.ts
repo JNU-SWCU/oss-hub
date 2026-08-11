@@ -92,16 +92,22 @@ export class RepositoriesService {
           ? job.repository
           : null;
 
+      // 개인 참여는 멤버 1명뿐인 팀이다(D5). 팀 유무가 아니라 인원으로 가른다
+      // (submission-matrix.service.ts isSoloTeam과 동일 규칙). displayName도
+      // 같은 분기를 써야 한다 — team은 D5 이후 항상 존재해 게이트 없이 team.name을
+      // 쓰면 개인 신청도 팀 생성 기본명("{닉네임}의 팀")이 표시된다.
+      const applicationMode: 'PERSONAL' | 'TEAM' =
+        (job.application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL';
+
       return {
         repositoryId: repository?.id ?? null,
         applicationId: job.application.id,
-        // 개인 참여는 멤버 1명뿐인 팀이다(D5). 팀 유무가 아니라 인원으로 가른다
-        // (submission-matrix.service.ts isSoloTeam과 동일 규칙).
-        applicationMode:
-          (job.application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL',
+        applicationMode,
         programName: job.application.program.name,
         displayName:
-          job.application.team?.name ?? job.application.applicant.nickname,
+          applicationMode === 'TEAM'
+            ? (job.application.team?.name ?? job.application.applicant.nickname)
+            : job.application.applicant.nickname,
         repositoryName: repository?.name ?? null,
         githubUrl: repository?.url ?? null,
         provisionStatus: job.status,

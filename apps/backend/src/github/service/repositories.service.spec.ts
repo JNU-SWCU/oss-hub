@@ -87,7 +87,10 @@ function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       applicant: { nickname: 'synthetic-applicant' },
       program: { name: 'Synthetic program' },
-      team: { name: 'synthetic-applicant', _count: { members: 1 } },
+      // team.name은 일부러 nickname과 다르게 둔다(팀 생성 기본명 "{닉네임}의 팀").
+      // 두 값이 같으면 displayName이 memberCount로 게이트되지 않아도 우연히
+      // 같은 문자열이 나와 회귀를 못 잡는다.
+      team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
     },
     status: RepositoryProvisionJobStatus.PENDING,
     lastErrorCode: null,
@@ -187,7 +190,7 @@ describe('RepositoriesService.getMyRepositories', () => {
           repositoryConnectionMode: RepositoryConnectionMode.OWN,
           applicant: { nickname: 'synthetic-applicant' },
           program: { name: 'Synthetic program' },
-          team: { name: 'synthetic-applicant', _count: { members: 1 } },
+          team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
         },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         repository: {
