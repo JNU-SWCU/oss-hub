@@ -15,6 +15,7 @@ import {
 } from './components/submission-page-states';
 import { resubmissionContent } from './submission-checklist';
 import {
+  focusSubmissionField,
   getSubmissionFileErrorMessage,
   type SubmissionFormErrors,
   type SubmissionFormInput,
@@ -104,7 +105,13 @@ export function SubmissionPage({
     setFileError(nextFileError);
     setServerError(null);
     setServerErrorKind('generic');
-    if (Object.keys(nextErrors).length > 0 || nextFileError) return;
+    if (Object.keys(nextErrors).length > 0 || nextFileError) {
+      // 제출 창은 세로로 스크롤된다 — 버튼은 바닥에 있고 오류 문구는 한참 위에 뜬다.
+      // 초점을 옮겨 주지 않으면 화면이 그 자리에 그대로 있어, 눌러도 아무 일이
+      // 일어나지 않은 것과 구분되지 않는다.
+      focusSubmissionField(data.milestone.submissionType);
+      return;
+    }
 
     submitInFlight.current = true;
     setSubmitting(true);
@@ -122,7 +129,14 @@ export function SubmissionPage({
         });
         content = resubmissionContent('FILE', input, fileId);
       }
-      if (!content) return;
+      if (!content) {
+        // 예전에는 여기서 조용히 돌아섰다 — 요청도 안 나가고 화면도 그대로라
+        // 사용자에게는 버튼이 죽은 것으로만 보인다. 막힌 이유를 말하고 끝낸다.
+        setServerError(
+          '제출 내용을 만들지 못했습니다. 파일을 다시 선택해 제출해 주세요.',
+        );
+        return;
+      }
 
       setSubmissionPhase('creating');
       const submission = await createSubmission({

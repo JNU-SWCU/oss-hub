@@ -84,6 +84,23 @@ export function getSubmissionFileErrorMessage(code: string): string | null {
   return SUBMISSION_FILE_ERROR_MESSAGES[code] ?? null;
 }
 
+/** 유형별 제출 입력의 DOM id. `SubmissionInput`이 실제로 쓰는 값과 같아야 한다. */
+export const SUBMISSION_FIELD_IDS = {
+  FILE: 'submission-file',
+  TEXT: 'submission-text',
+} as const satisfies Readonly<Record<SubmissionType, string>>;
+
+/**
+ * 검증에 걸려 제출이 멈췄을 때 그 입력으로 초점을 옮긴다. 제출 창은 세로로 스크롤되고
+ * 버튼은 바닥에 붙어 있어, 초점을 옮기지 않으면 한참 위에 뜬 오류 문구가 화면 밖에
+ * 남는다 — 사용자에게는 버튼을 눌러도 아무 일이 없는 것과 같다.
+ */
+export function focusSubmissionField(submissionType: SubmissionType): void {
+  if (typeof document === 'undefined') return;
+  const target = document.getElementById(SUBMISSION_FIELD_IDS[submissionType]);
+  if (target instanceof HTMLElement) target.focus();
+}
+
 export function validateSubmissionFile(
   file: File | null,
 ): SubmissionFileValidation {

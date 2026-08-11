@@ -346,13 +346,8 @@ describe('local review fixture responses', () => {
 
   it.each([
     ['program-capstone', 'milestones-upcoming', 'MILESTONE_CLOSED'],
-    [
-      'program-oss-contest',
-      'milestones-contest-final',
-      'FILE_UPLOAD_UNAVAILABLE',
-    ],
   ] as const)(
-    '%s checklist submit link resolves to a safe synthetic %s form',
+    '%s checklist submit link resolves to a blocked synthetic %s form',
     (programId, milestoneId, blockedReason) => {
       // Given / When: the linked submit screen requests its read model.
       const response = resolveLocalReviewResponse({
@@ -375,6 +370,44 @@ describe('local review fixture responses', () => {
       });
     },
   );
+
+  // 파일 제출 화면을 실제로 눌러 볼 수 있는 마일스톤이 하나는 있어야 한다. 예전에는
+  // 유일한 FILE 마일스톤이 막혀 있어, 학생이 파일을 고르고 제출을 누르는 화면을 로컬
+  // 검토에서 아무도 열어 볼 수 없었다 — 그 사각지대가 「눌러도 아무 일이 없다」는
+  // 결함이 배포까지 살아남은 이유다.
+  it('파일 제출 화면을 눌러 볼 수 있는 마일스톤이 학생 픽스처에 있다', () => {
+    // Given / When
+    const form = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'GET',
+      path: 'programs/program-oss-contest/milestones/milestones-contest-final/submission-form',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then: 파일 유형이고 제출이 열려 있다.
+    expect(form).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: {
+        milestone: { id: 'milestones-contest-final', submissionType: 'FILE' },
+        canSubmit: true,
+        blockedReason: null,
+        existingSubmission: null,
+      },
+    });
+
+    // Then: 그 제출이 실제 backend로 새지 않고 합성 응답으로 끝난다.
+    for (const path of ['submission-files', 'submissions']) {
+      expect(
+        resolveLocalReviewResponse({
+          fixture: 'student',
+          method: 'POST',
+          path,
+          searchParams: new URLSearchParams(),
+        }),
+      ).toMatchObject({ kind: 'json' });
+    }
+  });
 
   it.each(dashboardFixture.items)(
     '$programId exposes every GET read model used by its linked screens',
