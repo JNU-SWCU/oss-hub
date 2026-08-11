@@ -566,7 +566,7 @@ describe('CollectionReadService — getContributorMetrics', () => {
 });
 
 describe('CollectionReadService — getPublicRankingMetrics', () => {
-  it('filters to org/등록된 external public 저장소(visibility 무관) + PRESENT at the query boundary', async () => {
+  it('filters to org 저장소(visibility 무관) + PUBLIC 인 등록된 external 저장소 + PRESENT at the query boundary', async () => {
     const db = createDb();
     db.user.findMany.mockResolvedValue([
       { githubId: 1n, nickname: 'alice' },
@@ -580,8 +580,11 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
       expect.objectContaining({
         where: {
           repository: {
-            source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
             presence: 'PRESENT',
+            OR: [
+              { source: 'ORG_PROVISIONED' },
+              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
+            ],
           },
         },
       }),
@@ -602,8 +605,11 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
       expect.objectContaining({
         where: {
           repository: {
-            source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
             presence: 'PRESENT',
+            OR: [
+              { source: 'ORG_PROVISIONED' },
+              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
+            ],
           },
           // 저장에 연도 칸이 없으므로 Asia/Seoul 연 경계로 자른다(ADR-010 §4).
           date: {
@@ -747,8 +753,11 @@ describe('CollectionReadService — listPublicRankingYears', () => {
       expect.objectContaining({
         where: {
           repository: {
-            source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
             presence: 'PRESENT',
+            OR: [
+              { source: 'ORG_PROVISIONED' },
+              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
+            ],
           },
           OR: [
             { commitCount: { gt: 0 } },

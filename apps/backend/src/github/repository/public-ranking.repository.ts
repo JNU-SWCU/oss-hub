@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import type { RepositorySource } from '../collection-incremental.types';
 import type {
   CollectionPublicRankingMetricsDto,
   CollectionPublicRankingMetricsQueryDto,
@@ -27,24 +26,38 @@ import type {
  * 값으로 이 조건을 바꿀 수 없다 — 인자에 없기 때문이다.
  *
  * PM 확정 정책(2026-08) — 저장소는 PRIVATE 으로 생성되고 4중 게이트 + staff
- * 수동 publish 를 거쳐야 PUBLIC 이 되므로, `visibility: 'PUBLIC'` 만 세면 실제
- * 기여자 대부분이 랭킹에서 사라진다. 그래서 이 필터에는 더 이상 `visibility`가
- * 없다 — org 저장소(`ORG_PROVISIONED`)와 학생이 등록한 조직 밖 public 저장소
- * (`EXTERNAL_PUBLIC`) 모두, `presence`가 `PRESENT`인 한 포함한다. 저장소
- * 이름/visibility 자체는 이 파일 밖으로 select 되지 않으므로, PRIVATE 저장소
- * 활동을 합산해도 응답에 저장소 식별자가 새어나가지 않는다.
+ * 수동 publish 를 거쳐야 PUBLIC 이 되므로, org 저장소(`ORG_PROVISIONED`)에
+ * `visibility: 'PUBLIC'` 만 세면 실제 기여자 대부분이 랭킹에서 사라진다. 그래서
+ * org 저장소는 가시성과 무관하게 합산한다. 다만 학생이 조직 밖에 등록한 개인
+ * 저장소(`EXTERNAL_PUBLIC`)는 다르다 — 동의 문서(`policies/github-activity`)의
+ * 「수집 범위와 목적」이 개인 계정의 비공개 저장소를 수집 대상에서 명시적으로
+ * 배제하므로, `EXTERNAL_PUBLIC` 은 `visibility: 'PUBLIC'` 일 때만 합산한다.
+ * 저장소 이름/visibility 자체는 이 파일 밖으로 select 되지 않으므로, org 저장소의
+ * PRIVATE 활동을 합산해도 응답에 저장소 식별자가 새어나가지 않는다.
  */
 @Injectable()
 export class PublicRankingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 집계 대상 저장소 범위. 이 조건은 호출자가 바꿀 수 없다. */
+  /**
+   * 집계 대상 저장소 범위. 이 조건은 호출자가 바꿀 수 없다.
+   *
+   * source 별로 갈래가 다르다 — 동의 문서(`policies/github-activity`)가 두
+   * 축을 다르게 규정하기 때문이다: org 저장소는 가시성 무관 합산, 개인
+   * (`EXTERNAL_PUBLIC`) 저장소는 PUBLIC 인 동안의 활동만 합산 대상이다.
+   */
   private static readonly RANKING_REPOSITORY_SCOPE: {
-    readonly source: { readonly in: RepositorySource[] };
     readonly presence: 'PRESENT';
+    readonly OR: (
+      | { readonly source: 'ORG_PROVISIONED' }
+      | { readonly source: 'EXTERNAL_PUBLIC'; readonly visibility: 'PUBLIC' }
+    )[];
   } = {
-    source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
     presence: 'PRESENT',
+    OR: [
+      { source: 'ORG_PROVISIONED' },
+      { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
+    ],
   };
 
   /**

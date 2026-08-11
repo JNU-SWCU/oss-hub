@@ -63,13 +63,16 @@ const repositoryFor = (db: MockPrisma): PublicRankingRepository =>
   new PublicRankingRepository(db as unknown as PrismaService);
 
 const RANKING_REPOSITORY_SCOPE = {
-  source: { in: ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] },
   presence: 'PRESENT',
+  OR: [
+    { source: 'ORG_PROVISIONED' },
+    { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
+  ],
 };
 
 describe('PublicRankingRepository — 공개 strict-read 계약', () => {
   describe('저장소 범위는 호출자가 바꿀 수 없다', () => {
-    it('org 저장소와 등록된 외부 public 저장소를, visibility 와 무관하게 조회한다', async () => {
+    it('org 저장소는 visibility 와 무관하게, 개인(EXTERNAL_PUBLIC) 저장소는 PUBLIC 일 때만 조회한다', async () => {
       const db = createDb();
 
       await repositoryFor(db).findMetrics({});
@@ -77,9 +80,6 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       expect(argsOf(db.contribution.findMany).where?.repository).toEqual(
         RANKING_REPOSITORY_SCOPE,
       );
-      expect(
-        argsOf(db.contribution.findMany).where?.repository,
-      ).not.toHaveProperty('visibility');
     });
 
     it('연도 목록과 갱신 시각이 같은 저장소 범위를 쓴다', async () => {
@@ -96,6 +96,58 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       expect(argsOf(db.githubRepository.aggregate).where).toEqual(
         RANKING_REPOSITORY_SCOPE,
       );
+    });
+  });
+
+  describe('source 별로 visibility 규칙이 다르다 (동의 문서 경계)', () => {
+    it('ORG_PROVISIONED + visibility: PRIVATE 저장소의 기여가 합산된다', async () => {
+      const db = createDb();
+
+      await repositoryFor(db).findMetrics({});
+
+      const repository = argsOf(db.contribution.findMany).where?.repository as
+        | Record<string, unknown>
+        | undefined;
+      const or = repository?.['OR'] as Record<string, unknown>[];
+      // org 갈래에는 visibility 조건이 없다 — PRIVATE 저장소 기여도 이 조건을
+      // 통과해 합산된다.
+      expect(or).toContainEqual({ source: 'ORG_PROVISIONED' });
+    });
+
+    it('EXTERNAL_PUBLIC + visibility: PRIVATE 저장소의 기여가 제외된다', async () => {
+      const db = createDb();
+
+      await repositoryFor(db).findMetrics({});
+
+      const repository = argsOf(db.contribution.findMany).where?.repository as
+        | Record<string, unknown>
+        | undefined;
+      const or = repository?.['OR'] as Record<string, unknown>[];
+      const externalBranch = or.find(
+        (clause) => clause['source'] === 'EXTERNAL_PUBLIC',
+      );
+      // 개인(EXTERNAL_PUBLIC) 갈래는 visibility: 'PUBLIC' 을 반드시 요구한다 —
+      // PRIVATE 저장소는 두 OR 갈래 어디에도 매치하지 않아 제외된다(동의
+      // 문서 「수집 범위와 목적」이 개인 비공개 저장소를 배제한다).
+      expect(externalBranch).toEqual({
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PUBLIC',
+      });
+    });
+
+    it('EXTERNAL_PUBLIC + visibility: PUBLIC 저장소의 기여가 합산된다', async () => {
+      const db = createDb();
+
+      await repositoryFor(db).findMetrics({});
+
+      const repository = argsOf(db.contribution.findMany).where?.repository as
+        | Record<string, unknown>
+        | undefined;
+      const or = repository?.['OR'] as Record<string, unknown>[];
+      expect(or).toContainEqual({
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PUBLIC',
+      });
     });
   });
 
