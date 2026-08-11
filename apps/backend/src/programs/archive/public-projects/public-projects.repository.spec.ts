@@ -211,11 +211,7 @@ describe('PublicProjectsRepository', () => {
   });
 
   describe('listForUser', () => {
-    /**
-     * #876: D5 이후 개인 참여도 1인 팀의 리더다 — `teamId: null` 분기는 어떤 행에도
-     * 매치될 수 없어 제거됐다. 팀 리더/팀 멤버 두 경로만 남는다.
-     */
-    it('팀 리더/팀 멤버 두 경로를 OR로 한 번에 조회한다', async () => {
+    it('단독 지원자/팀 리더/팀 멤버 세 경로를 OR로 한 번에 조회한다', async () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const { repository } = repositoryWith({ repositoryFindMany: findMany });
 
@@ -226,6 +222,10 @@ describe('PublicProjectsRepository', () => {
           visibility: 'PUBLIC',
           publishedAt: { not: null },
           OR: [
+            {
+              teamId: null,
+              application: { applicantId: 'synthetic-user-1' },
+            },
             { team: { leaderId: 'synthetic-user-1' } },
             { team: { members: { some: { userId: 'synthetic-user-1' } } } },
           ],
