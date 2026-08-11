@@ -127,7 +127,7 @@ describe('notSubmittedDeadline', () => {
     expect(result).toEqual({ overdue: false, label: '오늘 마감' });
   });
 
-  it('같은 날이라도 dueAt 시각이 지나면 OVERDUE다', () => {
+  it('같은 날이라도 dueAt 시각이 지나면 마감 초과다', () => {
     // Given / When
     const result = notSubmittedDeadline(
       '2026-08-20T09:00:00+09:00',
@@ -135,10 +135,10 @@ describe('notSubmittedDeadline', () => {
     );
 
     // Then
-    expect(result).toEqual({ overdue: true, label: 'OVERDUE' });
+    expect(result).toEqual({ overdue: true, label: '마감 초과' });
   });
 
-  it('마감이 지난 날짜는 OVERDUE D+n을 표시한다', () => {
+  it('마감이 지난 날짜는 마감 초과 D+n을 표시한다', () => {
     // Given / When
     const result = notSubmittedDeadline(
       dueAt,
@@ -146,7 +146,7 @@ describe('notSubmittedDeadline', () => {
     );
 
     // Then
-    expect(result).toEqual({ overdue: true, label: 'OVERDUE D+2' });
+    expect(result).toEqual({ overdue: true, label: '마감 초과 D+2' });
   });
 });
 

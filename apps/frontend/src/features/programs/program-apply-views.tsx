@@ -126,15 +126,15 @@ export function BlockedView({
           reason === 'team-required' ? (
             <div className="flex flex-wrap justify-center gap-2">
               <Button asChild>
-                <Link href={teamSetupHref(program.id)}>팀 구성으로 이동</Link>
+                <Link href={teamSetupHref(program.id)}>팀 구성</Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href={programHref(program.id)}>프로그램 상세로</Link>
+              <Button asChild variant="link">
+                <Link href={programHref(program.id)}>프로그램 개요</Link>
               </Button>
             </div>
           ) : (
-            <Button asChild variant="outline">
-              <Link href={programHref(program.id)}>프로그램 상세로</Link>
+            <Button asChild variant="link">
+              <Link href={programHref(program.id)}>프로그램 개요</Link>
             </Button>
           )
         }
@@ -528,8 +528,8 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                   ? '신청 제출'
                   : '수정 내용 저장'}
             </Button>
-            <Button asChild variant="outline">
-              <Link href={programHref(program.id)}>프로그램 상세</Link>
+            <Button asChild variant="link">
+              <Link href={programHref(program.id)}>프로그램 개요</Link>
             </Button>
             {mode === 'edit' && canManage ? (
               <Button

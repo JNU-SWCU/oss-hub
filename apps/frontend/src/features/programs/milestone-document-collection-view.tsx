@@ -753,10 +753,8 @@ function CollectionBody(
         title="이 프로그램에서 찾을 수 없는 마일스톤입니다"
         description="주소의 프로그램과 마일스톤이 서로 다릅니다. 프로그램 상세에서 마일스톤을 다시 골라 주세요."
         action={
-          <Button asChild variant="outline">
-            <Link href={programHref(props.programId)}>
-              프로그램 상세로 이동
-            </Link>
+          <Button asChild variant="link">
+            <Link href={programHref(props.programId)}>프로그램 개요</Link>
           </Button>
         }
       />
@@ -770,9 +768,7 @@ function CollectionBody(
         description="프로그램 편집에서 서류 항목을 추가하면 팀별 제출 현황을 모아 볼 수 있습니다."
         action={
           <Button asChild variant="outline">
-            <Link href={programEditHref(props.programId)}>
-              프로그램 편집에서 서류 항목 추가
-            </Link>
+            <Link href={programEditHref(props.programId)}>서류 항목 추가</Link>
           </Button>
         }
       />

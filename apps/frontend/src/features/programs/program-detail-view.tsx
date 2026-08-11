@@ -8,17 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
-import {
-  categoryLabel,
-  formatSeoulDate,
-  formatSeoulDateOnly,
-} from './program-detail-format';
-import { programApplicantsHref, programEditHref } from '@/lib/program-route';
+import { categoryLabel, formatSeoulDateOnly } from './program-detail-format';
+import { programEditHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
 import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail } from './types';
 
 const SIGNUP_ENTRY_HREF = '/signup';
+
+/** 신청 기간 기준 모집중 여부 — 헤더 배지·팩트 바가 함께 참조하는 단일 판정 지점. */
+function isRecruiting(period: ProgramDetail['applicationPeriod']): boolean {
+  const now = Date.now();
+  const startsAt = new Date(period.startsAt).getTime();
+  const endsAt = new Date(period.endsAt).getTime();
+  return startsAt <= now && now <= endsAt;
+}
 
 export function ProgramDetailSkeleton() {
   return (
@@ -54,77 +58,41 @@ export function ProgramActions({
     );
   }
   if (role === 'STAFF' || role === 'ADMIN') {
+    // 신청자 목록은 프로그램 스코프 사이드바에 이미 있는 목적지라, 헤더에서는
+    // 중복 노출하지 않는다(#865).
     return (
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline">
-          <Link href={programApplicantsHref(program.id)}>신청자 목록</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href={programEditHref(program.id)}>편집</Link>
-        </Button>
-      </div>
+      <Button asChild variant="outline">
+        <Link href={programEditHref(program.id)}>프로그램 편집</Link>
+      </Button>
     );
   }
   return null;
 }
 
+// 주관기관/신청기간/유형·모집 배지는 PageHeader로 옮겼다(#865) — 이 카드는 이제
+// 설명 문구 하나만 담고, 설명이 없으면 빈 카드를 그리지 않는다.
 function ProgramSummary({ program }: { readonly program: ProgramDetail }) {
-  const now = Date.now();
-  const startsAt = new Date(program.applicationPeriod.startsAt).getTime();
-  const endsAt = new Date(program.applicationPeriod.endsAt).getTime();
-  const recruiting = startsAt <= now && now <= endsAt;
+  if (!program.description) return null;
   return (
     <Card>
       <CardHeader>
         <CardTitle>프로그램 안내</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4">
-        {/* 넓은 화면에서 세 항목을 왼쪽으로 붙인다(QA32). 예전 템플릿은
-            `auto minmax(0,1fr) auto` 세 칸이라 가운데 `1fr` 이 남는 폭을 통째로 먹고
-            셋째 항목을 카드 오른쪽 끝으로 밀어냈다 — 1280px 실측에서 「신청기간」
-            글자가 x=842 에서 끝나는데 「유형」은 x=1176 에서 시작해 334px 이 비었다.
-            앞 두 항목은 24px(`gap-x-6`)로 붙어 있는데 셋째만 멀리 떨어져 보이는
-            이유가 그것이다.
-
-            ⚠ **칸을 다시 배정하는 길로는 못 푼다.** 세 칸을 유지하면 같은 결함이
-            돌아오고, `auto auto minmax(0,1fr)` 로 남는 폭을 마지막으로 옮기면
-            1024px 에서 긴 주관기관명이 들어왔을 때 「유형」이 **폭 0 으로 찌그러진다**
-            (`minmax(0,auto)` 로 바꿔도 같았다 — 앞 칸들이 먼저 자리를 차지한다).
-            그래서 넓은 화면에서는 칸을 열지 않고 흐르게 두고, 폭이 모자라면 줄을
-            바꾼다. 정상 내용에서는 1024~1920px 전부 한 줄이고 카드 높이도 196px
-            그대로다(수정 전과 같다).
-
-            요청자는 「유형을 아래 줄로」를 제안했지만, 그러면 오른쪽 빈 곳은 남은 채
-            카드만 28px 높아진다 — 세 안을 실제 화면으로 비교한 뒤 이쪽으로 정했다.
-            좁은 화면(375·768px)은 손대지 않았다. */}
-        <div className="grid min-w-0 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:flex lg:flex-wrap">
-          <span className="min-w-0 break-words">
-            <strong>주관기관</strong> {program.organizer}
-          </span>
-          <span className="min-w-0 break-words">
-            <strong>신청기간</strong>{' '}
-            {formatSeoulDate(program.applicationPeriod.startsAt)} ~{' '}
-            {formatSeoulDate(program.applicationPeriod.endsAt)}
-          </span>
-          <span className="min-w-0 break-words">
-            <strong>유형</strong> {categoryLabel(program.category)}
-          </span>
-        </div>
+      <CardContent>
         <p className="text-sm leading-6 break-keep whitespace-pre-wrap">
           {program.description}
         </p>
-        <StatusBadge variant={recruiting ? 'recruiting' : 'closed'}>
-          {recruiting ? '모집중' : '모집 마감'}
-        </StatusBadge>
       </CardContent>
     </Card>
   );
 }
 
 /**
- * 팩트 바 — 프로그램 상세 요약 스트립. 6번째 항목은 뷰어 역할별로 갈린다
+ * 팩트 바 — 프로그램 상세 요약 스트립. 숫자 지표만 담는다(주관기관/신청기간은
+ * PageHeader로 옮겼다, #865). 마지막 항목은 뷰어 역할별로 갈린다
  * (program-overview 응답의 viewer* 필드는 역할별 한쪽만 채워진다). overview가
- * 없으면(비로그인 등으로 조회 실패) 프로그램 기본 정보만으로 앞 두 항목만 보여준다.
+ * 없으면(비로그인 등으로 조회 실패) 보여줄 숫자 지표가 없으므로 아무것도
+ * 그리지 않는다 — 빈 테두리 바를 남기지 않는다.
  */
 export function ProgramFactBar({
   program,
@@ -133,57 +101,48 @@ export function ProgramFactBar({
   readonly program: ProgramDetail;
   readonly overview: ProgramOverview | null;
 }) {
+  if (!overview) return null;
   const items: {
     readonly key: string;
     readonly k: string;
     readonly v: string;
     readonly caption?: string;
   }[] = [
-    { key: 'organizer', k: '주관', v: program.organizer },
     {
-      key: 'period',
-      k: '신청 기간',
-      v: `${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`,
+      key: 'participants',
+      k: '참여 학생',
+      v: `${overview.participantCount}명`,
+    },
+    { key: 'teams', k: '참여 팀', v: `${overview.teamCount}팀` },
+    {
+      key: 'repositories',
+      k: '연결 저장소',
+      v: `${overview.connectedRepositoryCount}개`,
     },
   ];
-  if (overview) {
-    items.push(
-      {
-        key: 'participants',
-        k: '참여 학생',
-        v: `${overview.participantCount}명`,
-      },
-      { key: 'teams', k: '팀', v: `${overview.teamCount}팀` },
-      {
-        key: 'repositories',
-        k: '연결된 저장소',
-        v: `${overview.connectedRepositoryCount}개`,
-      },
-    );
-    if (overview.viewerRole === 'STUDENT') {
-      items.push({
-        key: 'my-submission',
-        k: '내 제출',
-        v: `${overview.viewerDocumentsCompleted ?? 0} / ${overview.viewerDocumentsTotal ?? 0} 서류`,
-      });
-    } else if (
-      overview.viewerRole === 'STAFF' ||
-      overview.viewerRole === 'ADMIN'
-    ) {
-      const denominator = overview.participantCount;
-      const numerator = overview.fullySubmittedParticipantCount ?? 0;
-      const rate =
-        denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
-      // QA47 — "제출률"만으로는 마일스톤 카드(1/1)·매트릭스(2/3)와 다른
-      // 숫자가 나오는 이유를 알 수 없었다. 이 값은 "현재 마일스톤" 기준
-      // 완주율이라는 측정 범위를 라벨과 캡션에 명시한다.
-      items.push({
-        key: 'submission-rate',
-        k: '이번 마일스톤 완주율',
-        v: `${rate}% (${numerator}/${denominator})`,
-        caption: '현재 마일스톤 필수 서류를 모두 제출한 참여자 기준',
-      });
-    }
+  if (overview.viewerRole === 'STUDENT') {
+    items.push({
+      key: 'my-submission',
+      k: '내 제출',
+      v: `${overview.viewerDocumentsCompleted ?? 0} / ${overview.viewerDocumentsTotal ?? 0} 서류`,
+    });
+  } else if (
+    overview.viewerRole === 'STAFF' ||
+    overview.viewerRole === 'ADMIN'
+  ) {
+    const denominator = overview.participantCount;
+    const numerator = overview.fullySubmittedParticipantCount ?? 0;
+    const rate =
+      denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+    // QA47 — "제출률"만으로는 마일스톤 카드(1/1)·매트릭스(2/3)와 다른
+    // 숫자가 나오는 이유를 알 수 없었다. 이 값은 "현재 마일스톤" 기준
+    // 완주율이라는 측정 범위를 라벨과 캡션에 명시한다.
+    items.push({
+      key: 'submission-rate',
+      k: '이번 마일스톤 완주율',
+      v: `${rate}% (${numerator}/${denominator})`,
+      caption: '현재 마일스톤 필수 서류를 모두 제출한 참여자 기준',
+    });
   }
   return (
     <dl
@@ -304,7 +263,7 @@ export function ProgramDetailReadyState({
   readonly program: ProgramDetail;
   /**
    * program-overview 팩트 바 데이터. 비로그인 등으로 조회에 실패하면 null —
-   * 이 경우 팩트 바는 프로그램 기본 정보만으로 앞 두 항목만 보여준다.
+   * 이 경우 보여줄 숫자 지표가 없으므로 팩트 바 자체를 그리지 않는다.
    */
   readonly overview?: ProgramOverview | null;
   /**
@@ -326,15 +285,22 @@ export function ProgramDetailReadyState({
     didScrollActivityHash.current = true;
   }, []);
 
+  const recruiting = isRecruiting(program.applicationPeriod);
+
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
       <PageHeader
         title={
-          <span className="break-keep text-2xl sm:text-3xl">
-            {program.name}
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="break-keep text-2xl sm:text-3xl">
+              {program.name}
+            </span>
+            <StatusBadge variant={recruiting ? 'recruiting' : 'closed'}>
+              {recruiting ? '모집중' : '모집 마감'}
+            </StatusBadge>
           </span>
         }
-        description={`${program.organizer} · ${categoryLabel(program.category)}`}
+        description={`${program.organizer} · ${categoryLabel(program.category)} · ${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`}
         actions={<ProgramActions program={program} />}
       />
       <ProgramSummary program={program} />
