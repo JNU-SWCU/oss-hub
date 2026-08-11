@@ -26,9 +26,11 @@ const item: ApplicationListItem = {
   isRepositoryPublicationPlanned: true,
   repository: null,
   submittedAt: '2026-08-05T05:32:00.000Z',
+  // D5 이후 개인 참여도 1인 팀이라 team이 항상 채워진다 — team: null은 더 이상
+  // 실제로 오는 모양이 아니다(#876). participation으로만 개인/팀을 가른다.
   participation: 'INDIVIDUAL',
   applicant: { id: 'student-1', name: '계정 이름', nickname: 'login-1' },
-  team: null,
+  team: { id: 'solo-team-1', name: '계정 이름의 팀', memberCount: 1 },
   answers: { applicantName: '', title: '제목', summary: '요약' },
 };
 
@@ -87,14 +89,18 @@ describe('displayApplicantName', () => {
 });
 
 describe('participationLabel', () => {
-  it('팀이 없으면 인원만 적는다', () => {
+  it('개인 신청이면(1인 팀이 있어도) 인원만 적는다', () => {
+    // #876 회귀: team이 항상 채워지는 D5 이후 모양에서도 participation이
+    // INDIVIDUAL이면 team 유무와 무관하게 「1명」이어야 한다.
+    expect(item.team).not.toBeNull();
     expect(participationLabel(item)).toBe('1명');
   });
 
-  it('팀이 있으면 팀명과 인원을 함께 적는다', () => {
+  it('팀 신청이면 팀명과 인원을 함께 적는다', () => {
     expect(
       participationLabel({
         ...item,
+        participation: 'TEAM',
         team: { id: 'team-1', name: '합성 팀', memberCount: 3 },
       }),
     ).toBe('합성 팀 (3명)');

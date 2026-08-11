@@ -394,7 +394,16 @@ export function ProgramApplicationDetailPage({
             label="신청 구분"
             value={application.participation === 'TEAM' ? '팀' : '개인'}
           />
-          <Row label="팀" value={application.team?.name ?? '없음(개인 신청)'} />
+          <Row
+            label="팀"
+            value={
+              // D5 이후 개인 참여도 1인 팀이라 team이 항상 채워진다(#876) — team
+              // 유무가 아니라 participation으로 갈라야 「없음(개인 신청)」이 실제로 보인다.
+              application.participation === 'TEAM'
+                ? (application.team?.name ?? '없음(개인 신청)')
+                : '없음(개인 신청)'
+            }
+          />
           <Row
             label="신청자"
             value={`${displayAnswerText(application.applicant.name ?? '') || displayAnswerText(application.applicant.nickname)} (@${displayAnswerText(application.applicant.nickname)})`}

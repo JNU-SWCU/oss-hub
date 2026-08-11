@@ -549,4 +549,67 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
       ).not.toHaveProperty('repositories');
     });
   });
+
+  /**
+   * #876 회귀: D5 마이그레이션 이후 모든 신청은 `team`을 갖는다(1인 팀도 팀이다).
+   * `team` 유무가 아니라 멤버 수로 개인/팀을 갈라야 한다 — 이 스펙은 손으로 만든
+   * `team: null` fixture가 아니라 D5 이후 실제 Prisma 행 모양(team 항상 존재)으로
+   * `toApplicationListItem`의 participation 산출을 검증한다.
+   */
+  describe('participation (#876)', () => {
+    const listWithTeam = async (memberCount: number) => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          id: 'app-1',
+          status: ApplicationStatus.APPROVED,
+          submittedAt: applicationUpdatedAt,
+          updatedAt: applicationUpdatedAt,
+          rejectionReason: null,
+          teamId: 'team-1',
+          answers: {},
+          isRepositoryPublicationPlanned: false,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
+          repository: null,
+          program: { repositoryProvisioningEnabled: true },
+          applicant: { id: 'student-1', name: null, nickname: 'student' },
+          team: { id: 'team-1', name: '합성 팀', _count: { members: memberCount } },
+        },
+      ]);
+      const transaction = {
+        application: { findMany, count: jest.fn().mockResolvedValue(1) },
+        outboxEvent: { findMany: jest.fn().mockResolvedValue([]) },
+        repositoryProvisionJob: { findMany: jest.fn().mockResolvedValue([]) },
+      };
+      const prisma = {
+        $transaction: jest
+          .fn()
+          .mockImplementation(
+            (operation: (client: typeof transaction) => Promise<unknown>) =>
+              operation(transaction),
+          ),
+      };
+      const repositoryUnderTest = new ApplicationsRepository(prisma as never, {
+        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+      });
+
+      const page = await repositoryUnderTest.listApplicationsForProgram(
+        PROGRAM_ID,
+        query,
+      );
+      return page.items[0];
+    };
+
+    it('D5 이후 행이라도 팀원이 1명뿐이면 개인 신청으로 읽는다', async () => {
+      const item = await listWithTeam(1);
+
+      expect(item?.participation).toBe('INDIVIDUAL');
+    });
+
+    it('팀원이 2명 이상이면 팀 신청으로 읽는다', async () => {
+      const item = await listWithTeam(2);
+
+      expect(item?.participation).toBe('TEAM');
+    });
+  });
 });

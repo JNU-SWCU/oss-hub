@@ -169,16 +169,17 @@ export class PublicProjectsRepository {
   }
 
   /**
-   * 단독 지원자(팀 없음) 또는 팀(리더·멤버)으로 참여한 공개-발행 저장소를 모두 찾는다.
-   * repositoryIds 크기와 무관하게 findMany 질의 1개다.
+   * 이 사용자가 리더·멤버로 참여한 공개-발행 저장소를 모두 찾는다(개인 참여도 1인 팀의
+   * 리더다 — D5). repositoryIds 크기와 무관하게 findMany 질의 1개다.
    */
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
     const rows = await this.prisma.repository.findMany({
       where: {
         visibility: 'PUBLIC',
         publishedAt: { not: null },
+        // D5 이후 Application.teamId가 항상 채워져 Repository.teamId도 항상 채워진다
+        // (개인 참여도 1인 팀) — `teamId: null` 분기는 어떤 행에도 매치될 수 없어 제거했다(#876).
         OR: [
-          { teamId: null, application: { applicantId: userId } },
           { team: { leaderId: userId } },
           { team: { members: { some: { userId } } } },
         ],

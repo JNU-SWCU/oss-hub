@@ -78,6 +78,17 @@ const individualSubmitted: ApplicationListItem = {
   team: null,
 };
 
+/**
+ * #876: D5 이후 개인 참여도 1인 팀이라 team이 실제로는 항상 채워진다 — `team: null`은
+ * 더 이상 오지 않는 모양이다. 「신청 정보」 절이 team 유무가 아니라 participation으로
+ * 개인/팀을 가르는지는 이 실제 모양으로 검증해야 한다.
+ */
+const individualWithSoloTeam: ApplicationListItem = {
+  ...submitted,
+  participation: 'INDIVIDUAL',
+  team: { id: 'solo-team-1', name: '합성 학생의 팀', memberCount: 1 },
+};
+
 function problem(status: number, code: string): ProblemDetail {
   return {
     type: 'about:blank',
@@ -249,6 +260,44 @@ describe('ProgramApplicationDetailPage', () => {
     // 2026-08-05T05:32Z = KST 오후 2:32. UTC 로 그리면 오전 5:32 가 되어 마감 판단이 어긋난다.
     expect(container.textContent).toContain('오후 02:32');
     expect(container.textContent).not.toContain('오전 05:32');
+  });
+
+  it('팀 신청은 「신청 구분」이 팀이고 팀 이름을 보여준다', async () => {
+    getApplicationDetailMock.mockResolvedValue(submitted);
+
+    await mount();
+
+    const rows = Array.from(container.querySelectorAll('dl > div'));
+    const participationRow = rows.find(
+      (row) => row.querySelector('dt')?.textContent === '신청 구분',
+    );
+    const teamRow = rows.find(
+      (row) => row.querySelector('dt')?.textContent === '팀',
+    );
+    expect(participationRow?.querySelector('dd')?.textContent).toBe('팀');
+    expect(teamRow?.querySelector('dd')?.textContent).toBe(
+      submitted.team?.name,
+    );
+  });
+
+  /**
+   * #876 회귀: D5 이후 1인 팀도 team 객체를 갖고 온다(team: null이 아니다). team
+   * 유무가 아니라 participation으로 갈라야 「개인」/「없음(개인 신청)」이 살아난다.
+   */
+  it('D5 이후 1인 팀 모양이어도 개인 신청이면 「신청 구분」이 개인이고 팀 줄은 없음이다', async () => {
+    getApplicationDetailMock.mockResolvedValue(individualWithSoloTeam);
+
+    await mount();
+
+    const rows = Array.from(container.querySelectorAll('dl > div'));
+    const participationRow = rows.find(
+      (row) => row.querySelector('dt')?.textContent === '신청 구분',
+    );
+    const teamRow = rows.find(
+      (row) => row.querySelector('dt')?.textContent === '팀',
+    );
+    expect(participationRow?.querySelector('dd')?.textContent).toBe('개인');
+    expect(teamRow?.querySelector('dd')?.textContent).toBe('없음(개인 신청)');
   });
 
   it('판정 대기 신청에는 승인·반려가 있고 판정 취소는 없다', async () => {

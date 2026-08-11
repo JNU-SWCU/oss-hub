@@ -984,7 +984,9 @@ function toApplicationListItem(
       ? { url: row.repository.url, visibility: row.repository.visibility }
       : null,
     isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
-    participation: team ? 'TEAM' : 'INDIVIDUAL',
+    // D5로 모든 신청이 team을 갖게 됐다(1인 팀도 팀이다) — team 유무가 아니라
+    // 멤버 수로 개인/팀을 가른다. submission-matrix.service.ts의 isSoloTeam과 같은 규칙.
+    participation: team !== null && team.memberCount > 1 ? 'TEAM' : 'INDIVIDUAL',
     applicant: {
       id: row.applicant.id,
       nickname: row.applicant.nickname,

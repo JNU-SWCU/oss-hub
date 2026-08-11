@@ -107,8 +107,13 @@ export function displayApplicantName(item: ApplicationListItem): string {
   );
 }
 
+/**
+ * D5 이후 개인 참여도 1인 팀이라 `item.team`은 거의 항상 채워져 있다(#876) —
+ * `team` 유무가 아니라 백엔드가 이미 같은 규칙(멤버 수)으로 계산해 준
+ * `item.participation`으로 갈라야 「1명」 분기가 살아난다.
+ */
 export function participationLabel(item: ApplicationListItem): string {
-  if (item.team) {
+  if (item.participation === 'TEAM' && item.team) {
     return `${item.team.name} (${item.team.memberCount}명)`;
   }
   return '1명';
