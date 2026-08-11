@@ -14,6 +14,7 @@ import {
   submitResubmissionRevision,
 } from './submission-checklist';
 import {
+  focusSubmissionField,
   getSubmissionFileErrorMessage,
   SubmissionFileUploadCache,
   type SubmissionFormErrors,
@@ -144,7 +145,10 @@ export function SubmissionChecklistPage({
     setFileError(nextErrors.file ?? null);
     setServerError(null);
     setToastMessage(null);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      focusSubmissionField(item.submissionType);
+      return;
+    }
 
     resubmitInFlight.current = true;
     setSubmitting(true);
@@ -161,7 +165,14 @@ export function SubmissionChecklistPage({
         createResubmission,
         onPhaseChange: setSubmissionPhase,
       });
-      if (!result) return;
+      if (!result) {
+        // 예전에는 조용히 돌아섰다 — 요청도 안 나가고 화면도 그대로라 버튼이 죽은
+        // 것으로만 보인다. 막힌 이유를 말하고 끝낸다.
+        setServerError(
+          '제출 내용을 만들지 못했습니다. 파일을 다시 선택해 제출해 주세요.',
+        );
+        return;
+      }
       setState({
         kind: 'ready',
         data: applyResubmission(checklist, item.milestoneId, result),

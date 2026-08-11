@@ -72,8 +72,12 @@ export function SubmissionInput({
           <FieldError id="submission-text-error">{errors.text}</FieldError>
         </Field>
       );
-    case 'FILE':
+    case 'FILE': {
       if (!onFileChange) return null;
+      // `errors.file`도 함께 본다. 파일 오류를 담는 자리가 둘(`fileError`·`errors.file`)
+      // 인데 이 갈래는 앞의 것만 그려, 뒤의 것만 채운 호출부에서는 제출이 막히고도
+      // 화면에 아무 말이 없었다 — 눌러도 아무 일이 없는 것처럼 보인다.
+      const fileMessage = fileError ?? errors.file ?? null;
       return (
         <div
           className="grid min-w-0 gap-0"
@@ -87,7 +91,7 @@ export function SubmissionInput({
               </span>
               <span className="h-full w-px bg-border" />
             </div>
-            <Field data-invalid={Boolean(fileError)} className="min-w-0 pb-6">
+            <Field data-invalid={Boolean(fileMessage)} className="min-w-0 pb-6">
               <FieldLabel htmlFor="submission-file">1. 파일 선택 *</FieldLabel>
               <Input
                 id="submission-file"
@@ -95,7 +99,7 @@ export function SubmissionInput({
                 type="file"
                 disabled={disabled}
                 aria-required="true"
-                aria-invalid={Boolean(fileError)}
+                aria-invalid={Boolean(fileMessage)}
                 aria-describedby="submission-file-description submission-file-error"
                 accept={SUBMISSION_FILE_ACCEPT}
                 onChange={(event) =>
@@ -109,7 +113,7 @@ export function SubmissionInput({
               <FieldDescription id="submission-file-description">
                 PDF, HWP, JPG, PNG, ZIP · 최대 5MB
               </FieldDescription>
-              <FieldError id="submission-file-error">{fileError}</FieldError>
+              <FieldError id="submission-file-error">{fileMessage}</FieldError>
             </Field>
           </div>
 
@@ -171,6 +175,7 @@ export function SubmissionInput({
           </div>
         </div>
       );
+    }
     default: {
       const exhaustiveType: never = submissionType;
       return exhaustiveType;

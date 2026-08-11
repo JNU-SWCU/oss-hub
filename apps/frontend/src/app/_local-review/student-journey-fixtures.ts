@@ -234,8 +234,8 @@ const CONTEST_SUBMISSION_FORM = {
       '[로컬 검토용] 파일 제출 안내만 확인합니다. 로컬 검토 환경에서는 실제 업로드와 저장을 실행하지 않습니다.',
   },
   existingSubmission: null,
-  canSubmit: false,
-  blockedReason: 'FILE_UPLOAD_UNAVAILABLE',
+  canSubmit: true,
+  blockedReason: null,
 } as const satisfies SubmissionFormData;
 
 export const STUDENT_JOURNEY_RESPONSES: Readonly<

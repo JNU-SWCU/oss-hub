@@ -14,6 +14,7 @@ import type {
   SubmissionFormInput,
 } from '../submission-form';
 import type { ChecklistSubmission, SubmissionChecklistItem } from '../types';
+import { SubmissionFormActions } from './submission-form-actions';
 import { SubmissionInput } from './submission-input';
 import { SubmissionReviewMeta } from './submission-review-meta';
 
@@ -112,29 +113,31 @@ function ResubmissionForm(
   },
 ) {
   const { item, submission } = props;
+  // form이 카드를 감싼다 — 마지막 줄(취소·재제출)은 카드 밖에 있어야 스크롤 상자
+  // 바닥에 붙는다. 카드는 `overflow-hidden`이라 그 안에서는 sticky가 걸리지 않는다.
   return (
-    <PanelCard item={item} status="CHANGES_REQUESTED" testId="resubmission">
-      <p className="text-sm text-muted-foreground">
-        {submission.status === 'CHANGES_REQUESTED'
-          ? '보완 요청에 따라 수정한 뒤 재제출할 수 있습니다.'
-          : '마감 전에는 제출물을 교체할 수 있습니다.'}
-      </p>
-      <SubmissionReviewMeta submission={submission} />
-      <dl className="grid gap-2 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="font-medium">현재 제출본</dt>
-          <dd className="text-muted-foreground">
-            {submission.currentRevision}번
-          </dd>
-        </div>
-      </dl>
-      <form
-        className="grid gap-5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          props.onResubmit();
-        }}
-      >
+    <form
+      className="grid min-w-0 gap-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        props.onResubmit();
+      }}
+    >
+      <PanelCard item={item} status="CHANGES_REQUESTED" testId="resubmission">
+        <p className="text-sm text-muted-foreground">
+          {submission.status === 'CHANGES_REQUESTED'
+            ? '보완 요청에 따라 수정한 뒤 재제출할 수 있습니다.'
+            : '마감 전에는 제출물을 교체할 수 있습니다.'}
+        </p>
+        <SubmissionReviewMeta submission={submission} />
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="font-medium">현재 제출본</dt>
+            <dd className="text-muted-foreground">
+              {submission.currentRevision}번
+            </dd>
+          </div>
+        </dl>
         <SubmissionInput
           submissionType={item.submissionType}
           input={props.input}
@@ -167,24 +170,19 @@ function ResubmissionForm(
               : '제출 정보 저장 중…'}
           </p>
         ) : null}
-        <div className="flex flex-wrap justify-between gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={props.onCloseSelected}
-          >
-            취소
-          </Button>
-          <Button type="submit" disabled={props.submitting}>
-            {props.submitting
-              ? props.submissionPhase === 'uploading'
-                ? '업로드 중…'
-                : '제출 중…'
-              : `제출본 ${submission.currentRevision + 1}번 제출`}
-          </Button>
-        </div>
-      </form>
-    </PanelCard>
+      </PanelCard>
+      <SubmissionFormActions
+        submitting={props.submitting}
+        onCancel={props.onCloseSelected}
+        submitLabel={
+          props.submitting
+            ? props.submissionPhase === 'uploading'
+              ? '업로드 중…'
+              : '제출 중…'
+            : `제출본 ${submission.currentRevision + 1}번 제출`
+        }
+      />
+    </form>
   );
 }
 
