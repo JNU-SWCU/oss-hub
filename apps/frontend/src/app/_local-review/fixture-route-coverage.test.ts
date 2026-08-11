@@ -57,6 +57,14 @@ const OUT_OF_SCOPE: ReadonlyMap<string, string> = new Map([
     'users/me/login-history',
     '화면 호출부 0건 — 미사용 API 처리 확정은 이슈 #550 이 다룬다',
   ],
+  // 아래 셋은 E2E 오케스트레이션 전용 경로다 — env 게이트로 프로덕션에서는
+  // 모듈 자체가 등록되지 않고, 호출부도 화면이 아니라 Playwright 하네스뿐이다.
+  ['_e2e/program-authoring/fixture', 'E2E 전용 — 화면 호출부 0건'],
+  ['_e2e/program-authoring/state/:programId', 'E2E 전용 — 화면 호출부 0건'],
+  [
+    '_e2e/program-authoring/cross-team-current-file',
+    'E2E 전용 — 화면 호출부 0건',
+  ],
 ]);
 
 /**

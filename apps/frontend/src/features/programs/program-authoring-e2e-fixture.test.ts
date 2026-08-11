@@ -20,7 +20,8 @@ const CLEAN_COUNTS = {
   milestones: 1,
   documents: 1,
   applications: 1,
-  teams: 0,
+  // Application.teamId는 non-null — 개인형 신청도 1인 팀이 붙는다(D5).
+  teams: 1,
   notifications: 1,
   mailContentHashes: ['a'.repeat(64)],
   storageContentHashes: ['b'.repeat(64), 'c'.repeat(64)],
