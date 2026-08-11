@@ -16,7 +16,9 @@ export interface ProgramActivitySummaryDataSource {
         readonly programId: true;
         readonly githubRepositoryId: true;
       };
-    }): Promise<readonly { programId: string | null; githubRepositoryId: bigint }[]>;
+    }): Promise<
+      readonly { programId: string | null; githubRepositoryId: bigint }[]
+    >;
   };
 }
 

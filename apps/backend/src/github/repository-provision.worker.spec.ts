@@ -1,7 +1,4 @@
-import {
-  RepositoryInvitationStatus,
-  RepositorySource,
-} from '@prisma/client';
+import { RepositoryInvitationStatus, RepositorySource } from '@prisma/client';
 import {
   githubClientMock,
   jobRepositoryMock,

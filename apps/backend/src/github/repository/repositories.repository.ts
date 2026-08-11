@@ -97,7 +97,9 @@ function toOwnedRepository(row: {
   readonly applicationId: string | null;
   readonly nameWithOwner: string;
   readonly visibility: RepositoryVisibility;
-  readonly invitations: readonly { readonly status: RepositoryInvitationStatus }[];
+  readonly invitations: readonly {
+    readonly status: RepositoryInvitationStatus;
+  }[];
 }): NonNullable<OwnedProvisionJob['repository']> {
   if (row.applicationId === null) {
     throw new RepositoryPublishStateError();

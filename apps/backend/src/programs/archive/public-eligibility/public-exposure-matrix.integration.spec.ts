@@ -439,7 +439,10 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     });
     await prisma.githubRepository.update({
       where: { id: outcome4.repositoryId },
-      data: { visibility: RepositoryVisibility.PUBLIC, publishedAt: PUBLISHED_AT },
+      data: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: PUBLISHED_AT,
+      },
     });
     // ranking 배제가 "현재 관측(presence PRESENT)"을 실제로 반영하는지 의미 있게 증명하려면
     // 기여자 데이터가 존재해야 한다 — 없으면 배제 단언이 트리비얼하게 참이 되어버린다.

@@ -473,7 +473,10 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     };
 
     const listWithRepository = async (
-      repository: { nameWithOwner: string; visibility: RepositoryVisibility } | null,
+      repository: {
+        nameWithOwner: string;
+        visibility: RepositoryVisibility;
+      } | null,
     ) => {
       const findMany = jest.fn().mockResolvedValue([
         {

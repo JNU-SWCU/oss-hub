@@ -3,7 +3,9 @@
 /// 전부 이 helper 하나만 쓴다 — 각자 문자열을 잘라 쓰면 파생 규칙이 흩어진다.
 export function repositoryNameFromNameWithOwner(nameWithOwner: string): string {
   const slashIndex = nameWithOwner.lastIndexOf('/');
-  return slashIndex === -1 ? nameWithOwner : nameWithOwner.slice(slashIndex + 1);
+  return slashIndex === -1
+    ? nameWithOwner
+    : nameWithOwner.slice(slashIndex + 1);
 }
 
 export function repositoryUrlFromNameWithOwner(nameWithOwner: string): string {
