@@ -151,7 +151,7 @@ it('학과까지 없는 이름만의 PATCH도 DTO 검증을 통과한다', async
 
 it.each([
   { name: '학번 5자리', body: { ...validBody, studentId: '1'.repeat(5) } },
-  { name: '학번 11자리', body: { ...validBody, studentId: '1'.repeat(11) } },
+  { name: '학번 7자리', body: { ...validBody, studentId: '1'.repeat(7) } },
   { name: '학번 비숫자', body: { ...validBody, studentId: 'ABCDEF' } },
   { name: '빈 이름', body: { ...validBody, name: '   ' } },
   { name: '빈 학과', body: { ...validBody, department: '   ' } },

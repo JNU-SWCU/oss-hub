@@ -49,7 +49,7 @@ export type UserProfileFields = Pick<
 
 export const USER_NAME_MAX_LENGTH = 100;
 export const USER_DEPARTMENT_MAX_LENGTH = 100;
-const STUDENT_ID_PATTERN = /^\d{6,10}$/;
+const STUDENT_ID_PATTERN = /^\d{6}$/;
 
 /**
  * 역할을 아직 알 수 없는 사용자에게 적용할 기준 역할 — fail-closed.
