@@ -555,31 +555,50 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     }
   });
 
-  it('outcome-1: platform-private 저장소는 발행 전이라 list/detail/profile/ranking 어디에도 절대 나타나지 않는다', async () => {
-    const page = await publicProjectsService.findPage(undefined, 50);
-    expect(page.items.some((item) => item.id === outcome1.repositoryId)).toBe(
-      false,
-    );
+  it(
+    'outcome-1: platform-private 저장소는 발행 전이라 list/detail/profile에는 나타나지 ' +
+      '않지만, 가입자 전원 노출 정책상 ranking에는 0/0/0 행으로 나타난다(집계 대상 ' +
+      '저장소가 아니므로 비공개 활동은 새지 않는다)',
+    async () => {
+      const page = await publicProjectsService.findPage(undefined, 50);
+      expect(
+        page.items.some((item) => item.id === outcome1.repositoryId),
+      ).toBe(false);
 
-    await expect(
-      publicProjectsService.findDetail(outcome1.githubRepositoryId.toString()),
-    ).rejects.toMatchObject({
-      errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
-    });
+      await expect(
+        publicProjectsService.findDetail(
+          outcome1.githubRepositoryId.toString(),
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
+      });
 
-    await expect(
-      publicProjectsService.findProfile(outcome1.applicantId),
-    ).rejects.toMatchObject({
-      errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
-    });
+      await expect(
+        publicProjectsService.findProfile(outcome1.applicantId),
+      ).rejects.toMatchObject({
+        errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
+      });
 
-    const ranking = await rankingService.findPage('all', 1, 100);
-    expect(
-      ranking.items.some(
-        (entry) => entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
-      ),
-    ).toBe(false);
-  });
+      // PM 확정 정책 — 닉네임을 가진 가입자는 전원 ranking에 행을 갖는다
+      // (`ranking.service.ts`의 `buildEntries`, `total > 0` 필터 없음). 이 지원자의
+      // 저장소는 collector가 한 번도 관측하지 않아 CollectionRepository 행 자체가 없으므로
+      // RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 만족할 수 없어 집계 대상 밖이다 —
+      // 그래서 행은 존재하되 수치는 정확히 0이어야 한다. "행이 없다"가 아니라 "행은 있고
+      // 0이다"가 비공개 활동 비노출의 실제 증거다.
+      const ranking = await rankingService.findPage('all', 1, 100);
+      const outcome1Entry = ranking.items.find(
+        (entry) =>
+          entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
+      );
+      expect(outcome1Entry).toBeDefined();
+      expect(outcome1Entry).toMatchObject({
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        total: 0,
+      });
+    },
+  );
 
   it('outcome-2: 발행 후 collection이 최신 관측으로 PUBLIC/PRESENT를 확인하면 list/detail/profile/ranking 전부에 노출되고 기여자 2명이 정확히 분리된다', async () => {
     const page = await publicProjectsService.findPage(undefined, 50);
@@ -614,76 +633,136 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
   });
 
-  it('outcome-3: 발행됐지만 collection이 아직 관측하지 않은 저장소는 list/detail/profile에는 보이되(unknown≠revoke) ranking에는 아직 나타나지 않는다', async () => {
-    const page = await publicProjectsService.findPage(undefined, 50);
-    expect(page.items.some((item) => item.id === outcome3.repositoryId)).toBe(
-      true,
-    );
+  it(
+    'outcome-3: 발행됐지만 collection이 아직 관측하지 않은 저장소는 ' +
+      'list/detail/profile에는 보이되(unknown≠revoke), ranking에는 가입자 행은 있으나 ' +
+      '집계 대상 밖이라 수치가 0/0/0이다',
+    async () => {
+      const page = await publicProjectsService.findPage(undefined, 50);
+      expect(
+        page.items.some((item) => item.id === outcome3.repositoryId),
+      ).toBe(true);
 
-    await expect(
-      publicProjectsService.findDetail(outcome3.githubRepositoryId.toString()),
-    ).resolves.toMatchObject({ row: { id: outcome3.repositoryId } });
+      await expect(
+        publicProjectsService.findDetail(
+          outcome3.githubRepositoryId.toString(),
+        ),
+      ).resolves.toMatchObject({ row: { id: outcome3.repositoryId } });
 
-    const profile = await publicProjectsService.findProfile(
-      outcome3.applicantId,
-    );
-    expect(profile.projects).toHaveLength(1);
-    expect(profile.projects[0]?.observed).toBe(false);
-    expect(profile.projects[0]?.metrics).toBeNull();
+      const profile = await publicProjectsService.findProfile(
+        outcome3.applicantId,
+      );
+      expect(profile.projects).toHaveLength(1);
+      expect(profile.projects[0]?.observed).toBe(false);
+      expect(profile.projects[0]?.metrics).toBeNull();
 
-    // ranking은 CollectionRepository 행 자체가 있어야만 그 저장소의 기여자를 합산한다 —
-    // 행이 아예 없으니(unobserved) 이 지원자의 로그인은 ranking에 등장할 수 없다.
-    const ranking = await rankingService.findPage('all', 1, 100);
-    expect(
-      ranking.items.some(
-        (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
-      ),
-    ).toBe(false);
-  });
+      // ranking은 CollectionRepository 행 자체가 있어야만 그 저장소의 기여자를 합산한다 —
+      // 행이 아예 없으니(unobserved) RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 만족할
+      // 수 없다. 다만 PM 확정 정책상 가입자는 전원 ranking에 행을 갖는다 — "행이 없다"가
+      // 아니라 "행은 있고 수치가 0이다"가 미관측 저장소의 활동이 새지 않는다는 실제
+      // 증거다.
+      const ranking = await rankingService.findPage('all', 1, 100);
+      const outcome3Entry = ranking.items.find(
+        (entry) =>
+          entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
+      );
+      expect(outcome3Entry).toBeDefined();
+      expect(outcome3Entry).toMatchObject({
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        total: 0,
+      });
+    },
+  );
 
-  it('outcome-4: collection이 private/missing으로 관측했지만 발행 이전(stale)이면 list/detail/profile은 그대로 노출하되(stale-allow) ranking은 현재 관측 상태(PRIVATE)를 그대로 반영해 제외한다', async () => {
-    const page = await publicProjectsService.findPage(undefined, 50);
-    expect(page.items.some((item) => item.id === outcome4.repositoryId)).toBe(
-      true,
-    );
+  it(
+    'outcome-4: collection이 PRIVATE/PRESENT로 관측했고 그 관측이 발행 이전(stale)이면 ' +
+      'list/detail/profile은 그대로 노출하고(stale-allow), ranking도 org 저장소는 ' +
+      '가시성과 무관하게 집계한다는 동의 문서(policies/github-activity) 정책에 따라 ' +
+      '이 비공개(PRIVATE) 활동을 그대로 합산한다',
+    async () => {
+      const page = await publicProjectsService.findPage(undefined, 50);
+      expect(
+        page.items.some((item) => item.id === outcome4.repositoryId),
+      ).toBe(true);
 
-    await expect(
-      publicProjectsService.findDetail(outcome4.githubRepositoryId.toString()),
-    ).resolves.toMatchObject({ row: { id: outcome4.repositoryId } });
+      await expect(
+        publicProjectsService.findDetail(
+          outcome4.githubRepositoryId.toString(),
+        ),
+      ).resolves.toMatchObject({ row: { id: outcome4.repositoryId } });
 
-    const ranking = await rankingService.findPage('all', 1, 100);
-    expect(
-      ranking.items.some(
-        (entry) => entry.githubLogin === `${PREFIX}-outcome-4-applicant-login`,
-      ),
-    ).toBe(false);
-  });
+      // RANKING_REPOSITORY_SCOPE(`public-ranking.repository.ts`)는 source가
+      // ORG_PROVISIONED이면 visibility를 보지 않는다 — presence: PRESENT만 만족하면
+      // 합산 대상이다. 이 collection 관측은 visibility PRIVATE이지만 presence PRESENT라
+      // 스코프 안이다(발행 이전 stale 관측이라는 사실은 list/detail/profile의
+      // stale-allow 판단에만 쓰이고 ranking 집계 스코프와는 무관하다). 그래서 fixture가
+      // 심은 정확한 수치(commit 5 / PR 2 / release 1)가 그대로 합산돼야 한다 —
+      // "제외된다"가 아니라 "org 저장소이므로 합산된다"가 실제 정책이다. 동의 문서
+      // (`apps/frontend/public/policies/github-activity/2026-08-04.html` "수집 범위와
+      // 목적")도 "JNU-SWCU Org 저장소(가시성 무관)와 학생 GitHub 계정의 공개(public)
+      // 저장소 활동"을 집계·공개 랭킹 표기에 쓴다고 명시한다 — org 저장소는 가시성
+      // 조건이 없고, 가시성 제한은 개인(EXTERNAL_PUBLIC) 계정에만 걸린다.
+      const ranking = await rankingService.findPage('all', 1, 100);
+      const outcome4Entry = ranking.items.find(
+        (entry) =>
+          entry.githubLogin === `${PREFIX}-outcome-4-applicant-login` &&
+          entry.total > 0,
+      );
+      expect(outcome4Entry).toBeDefined();
+      expect(outcome4Entry).toMatchObject({
+        commitCount: 5,
+        pullRequestCount: 2,
+        releaseCount: 1,
+        total: 8,
+      });
+    },
+  );
 
-  it('outcome-5: collection이 private/missing으로 관측했고 발행 이후(out-of-band 변경)면 즉시 회수되어 list/detail/profile/ranking 어디에도 없다', async () => {
-    const page = await publicProjectsService.findPage(undefined, 50);
-    expect(page.items.some((item) => item.id === outcome5.repositoryId)).toBe(
-      false,
-    );
+  it(
+    'outcome-5: collection이 private/missing으로 관측했고 발행 이후(out-of-band 변경)면 ' +
+      '즉시 회수되어 list/detail/profile에는 없고, ranking도 presence ABSENT라 ' +
+      'RANKING_REPOSITORY_SCOPE 밖이라서 가입자 행은 있으나 수치는 0/0/0이다',
+    async () => {
+      const page = await publicProjectsService.findPage(undefined, 50);
+      expect(
+        page.items.some((item) => item.id === outcome5.repositoryId),
+      ).toBe(false);
 
-    await expect(
-      publicProjectsService.findDetail(outcome5.githubRepositoryId.toString()),
-    ).rejects.toMatchObject({
-      errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
-    });
+      await expect(
+        publicProjectsService.findDetail(
+          outcome5.githubRepositoryId.toString(),
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
+      });
 
-    await expect(
-      publicProjectsService.findProfile(outcome5.applicantId),
-    ).rejects.toMatchObject({
-      errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
-    });
+      await expect(
+        publicProjectsService.findProfile(outcome5.applicantId),
+      ).rejects.toMatchObject({
+        errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
+      });
 
-    const ranking = await rankingService.findPage('all', 1, 100);
-    expect(
-      ranking.items.some(
-        (entry) => entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
-      ),
-    ).toBe(false);
-  });
+      // presence가 ABSENT라 RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 만족하지 못해
+      // 이 저장소의 Contribution은 집계에서 빠진다 — outcome-4(presence PRESENT)와 갈리는
+      // 지점이 정확히 여기다: org 저장소라도 presence ABSENT면 여전히 제외된다. 다만 PM
+      // 확정 정책상 가입자는 전원 ranking에 행을 가지므로 "행이 없다"가 아니라 "행은
+      // 있고 0이다"로 증명한다.
+      const ranking = await rankingService.findPage('all', 1, 100);
+      const outcome5Entry = ranking.items.find(
+        (entry) =>
+          entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
+      );
+      expect(outcome5Entry).toBeDefined();
+      expect(outcome5Entry).toMatchObject({
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        total: 0,
+      });
+    },
+  );
 
   it(
     "outcome-6 [알려진 갭 — report-don't-fix]: 공개 계획이 OFF라 수동 공개가 " +
