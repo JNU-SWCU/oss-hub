@@ -131,6 +131,8 @@ export class ProgramsRepository {
             dueAt: true,
             instructions: true,
             submissionType: true,
+            // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 진행을 0으로 잡아 둔다.
+            documents: { where: { required: true }, select: { id: true } },
           },
         },
       },
@@ -147,6 +149,9 @@ export class ProgramsRepository {
         id: true,
         status: true,
         submissions: { select: { milestoneId: true, status: true } },
+        milestoneDocumentSubmissions: {
+          select: { milestoneDocumentId: true, status: true },
+        },
       },
     });
   }
@@ -156,6 +161,9 @@ export class ProgramsRepository {
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
         submissions: { select: { milestoneId: true, status: true } },
+        milestoneDocumentSubmissions: {
+          select: { milestoneDocumentId: true, status: true },
+        },
       },
     });
   }
