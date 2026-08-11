@@ -348,6 +348,7 @@ describe('ProgramApplicationDetailPage', () => {
     });
     expect(getApplicationDetailMock).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain('판정이 저장되었습니다');
+    expect(container.textContent).toContain('반려 결과를 다시 불러왔습니다.');
   });
 
   it('다른 운영자가 먼저 판정한 409 는 최신 상태로 다시 그린다', async () => {
@@ -634,6 +635,9 @@ describe('ProgramApplicationDetailPage', () => {
     // Then: 문서 맨 앞이 아니라 그 자리를 이어받은 버튼에 있다.
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.activeElement).toBe(getButton('판정 취소'));
+    expect(container.textContent).toContain(
+      '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.',
+    );
   });
 
   it('판정 취소에 성공하면 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
@@ -654,6 +658,12 @@ describe('ProgramApplicationDetailPage', () => {
     await flushCloseAutoFocus();
 
     expect(document.activeElement).toBe(getButton('승인'));
+    // 이 문구가 옛 낱말("되돌린")로 새면, 버튼·안내 문구는 전부 「판정 취소」로
+    // 바뀐 뒤에도 여기만 화면 어디에도 없는 말을 쓰게 된다.
+    expect(container.textContent).toContain(
+      '판정 취소 결과를 다시 불러왔습니다.',
+    );
+    expect(container.textContent).not.toContain('되돌린');
   });
 
   it('낡은 상태(409)로 창이 닫혀도 포커스가 문서 맨 앞으로 떨어지지 않는다', async () => {

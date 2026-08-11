@@ -330,3 +330,141 @@ describe('DataTable pagination', () => {
     );
   });
 });
+
+// `onRowClick`의 두 가드(드래그 선택 중 무시, 셀 안 링크/버튼 클릭 무시)는
+// 정적 마크업으로는 확인할 수 없다 — 실제 클릭 이벤트가 있어야 한다. 그래서
+// 위 pagination 블록과 같은 createRoot/act 실제 마운트를 쓴다.
+describe('DataTable row click', () => {
+  const clickableColumns: DataTableColumn<Applicant>[] = [
+    { id: 'name', header: '이름', cell: (row) => row.name },
+    {
+      id: 'actions',
+      header: '작업',
+      cell: () => <a href="/detail">보기</a>,
+    },
+  ];
+
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    window.getSelection()?.removeAllRanges();
+    container.remove();
+  });
+
+  function firstRow(): HTMLTableRowElement {
+    const row = container.querySelector('tbody tr');
+    if (!(row instanceof HTMLTableRowElement)) {
+      throw new Error('행을 찾지 못했다');
+    }
+    return row;
+  }
+
+  function click(target: Element): Promise<void> {
+    return act(async () => {
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  it('선택이 없으면 행 클릭이 onRowClick을 부른다', async () => {
+    const onRowClick = vi.fn();
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={clickableColumns}
+          data={rows}
+          rowKey={(row) => row.id}
+          onRowClick={onRowClick}
+        />,
+      );
+    });
+
+    // happy-dom 은 Selection API를 지원하지만 아무것도 고르지 않은 채면
+    // `isCollapsed`가 참이다 — 실제로 아무것도 선택하지 않은 상태를 그대로
+    // 쓴다(스텁이 아니다).
+    expect(window.getSelection()?.isCollapsed).not.toBe(false);
+
+    await click(firstRow());
+
+    expect(onRowClick).toHaveBeenCalledWith(rows[0], 0);
+  });
+
+  it('텍스트를 드래그로 고른 채면 행 클릭이 onRowClick을 부르지 않는다', async () => {
+    const onRowClick = vi.fn();
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={clickableColumns}
+          data={rows}
+          rowKey={(row) => row.id}
+          onRowClick={onRowClick}
+        />,
+      );
+    });
+
+    // 실제 드래그 선택을 흉내 낸다 — `window.getSelection`을 흉내 낸(stub)
+    // 값이 아니라, happy-dom의 진짜 Range/Selection으로 이름 칸의 글자를
+    // 고른다. happy-dom이 이 API를 지원하므로 스텁 없이도 된다.
+    const nameCell = container.querySelector('tbody tr td');
+    if (nameCell === null) throw new Error('셀을 찾지 못했다');
+    const range = document.createRange();
+    range.selectNodeContents(nameCell);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    expect(selection?.isCollapsed).toBe(false);
+
+    await click(firstRow());
+
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('셀 안 링크를 클릭하면 행 클릭이 겹쳐 발화하지 않는다', async () => {
+    const onRowClick = vi.fn();
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={clickableColumns}
+          data={rows}
+          rowKey={(row) => row.id}
+          onRowClick={onRowClick}
+        />,
+      );
+    });
+
+    const link = container.querySelector('a');
+    if (link === null) throw new Error('링크를 찾지 못했다');
+
+    await click(link);
+
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('isRowClickable이 false인 행은 클릭해도 onRowClick을 부르지 않고 cursor-pointer도 없다', async () => {
+    const onRowClick = vi.fn();
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={clickableColumns}
+          data={rows}
+          rowKey={(row) => row.id}
+          onRowClick={onRowClick}
+          isRowClickable={() => false}
+        />,
+      );
+    });
+
+    expect(firstRow().className).not.toContain('cursor-pointer');
+
+    await click(firstRow());
+
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+});
