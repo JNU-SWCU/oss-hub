@@ -225,14 +225,32 @@ describe('ProgramStaffTeamsPage', () => {
     expect(links).toContain('https://github.com/org/private-repo');
   });
 
-  it('저장소가 없으면 링크를 만들지 않는다', async () => {
+  it('저장소가 없으면 저장소 링크를 만들지 않는다', async () => {
     await render(
       [team('t1', '가팀', [member('a', '김가', true)])],
       [application('t1', 'SUBMITTED')],
     );
 
     expect(container.textContent).toContain('아직 없음');
-    expect(container.querySelectorAll('a')).toHaveLength(0);
+    // 헤더의 「신청 승인하기」만 남고, github 저장소 링크는 없다.
+    const hrefs = [...container.querySelectorAll('a')].map((a) => a.href);
+    expect(hrefs.some((href) => href.includes('github.com'))).toBe(false);
+    expect(
+      hrefs.some((href) => href.includes('/programs/program-1/applicants')),
+    ).toBe(true);
+  });
+
+  it('헤더에서 신청자(승인) 목록으로 들어간다', async () => {
+    await render(
+      [team('t1', '가팀', [member('a', '김가', true)])],
+      [application('t1', 'SUBMITTED')],
+    );
+
+    expect(container.textContent).toContain('신청 승인하기');
+    const link = [...container.querySelectorAll('a')].find((a) =>
+      a.href.includes('/programs/program-1/applicants'),
+    );
+    expect(link?.textContent).toContain('신청 승인하기');
   });
 
   it('신청을 전부 받으면 잘림 안내를 띄우지 않는다', async () => {
@@ -245,7 +263,7 @@ describe('ProgramStaffTeamsPage', () => {
   });
 
   // 조용히 자르면 신청이 있는 팀이 「신청서 안 냄」으로 보인다 — 빈 화면보다 나쁘다.
-  it('신청이 상한을 넘으면 일부만 받았다고 알린다', async () => {
+  it('신청이 상한을 넘으면 일부만 받았다고 알리고 신청자 목록으로 보낸다', async () => {
     listStaffProgramTeamsMock.mockResolvedValue([
       team('t1', '가팀', [member('a', '김가', true)]),
     ]);
@@ -259,6 +277,10 @@ describe('ProgramStaffTeamsPage', () => {
     });
 
     expect(container.textContent).toContain('일부만 불러왔습니다');
+    const applicantsLinks = [...container.querySelectorAll('a')].filter((a) =>
+      a.href.includes('/programs/program-1/applicants'),
+    );
+    expect(applicantsLinks.length).toBeGreaterThanOrEqual(1);
   });
 
   it('불러오기에 실패하면 안내를 띄운다', async () => {

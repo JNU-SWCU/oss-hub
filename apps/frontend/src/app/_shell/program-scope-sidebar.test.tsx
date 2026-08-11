@@ -111,6 +111,23 @@ describe('ProgramScopeSidebar', () => {
     expect(html).not.toContain('내 제출물');
     expect(html).toContain('프로젝트 계획서 제출');
     expect(html).toContain('>2/47팀<');
+    // 교직원 스코프에는 신청 판정 입구가 사이드바에 있어야 한다.
+    expect(html).toContain('신청자');
+    expect(html).toContain('href="/programs/prog-1/applicants"');
+  });
+
+  it('applicants page highlights the 신청자 item', () => {
+    const html = renderToStaticMarkup(
+      <ProgramScopeSidebar
+        programName="2026-2 오픈소스 SW 프로젝트"
+        groups={staffGroups}
+        pathname="/programs/prog-1/applicants"
+        collapsed={false}
+        onToggle={() => {}}
+      />,
+    );
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('href="/programs/prog-1/applicants"');
   });
 
   it('indents depth-1 milestone children and marks them via data-depth', () => {

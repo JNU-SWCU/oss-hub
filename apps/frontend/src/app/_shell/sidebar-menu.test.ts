@@ -312,6 +312,8 @@ describe('programScopeSidebarGroups', () => {
       '참여 팀',
     ]);
     expect(overview?.items[1]?.count).toBe('47');
+    // 학생은 신청 판정 창구가 없다 — 개요 그룹에 「신청자」를 붙이지 않는다.
+    expect(overview?.items.some((i) => i.label === '신청자')).toBe(false);
     expect(documents?.items[0]).toMatchObject({
       label: '내 제출물',
       count: '2/6',
@@ -345,6 +347,17 @@ describe('programScopeSidebarGroups', () => {
         },
       ],
     });
+    const overview = groups[0];
+    // 승인·반려 입구 — 참여 팀만 있으면 판정 화면에 도달하지 못한다.
+    expect(overview?.items.map((i) => i.label)).toEqual([
+      '프로그램 개요',
+      '참여 팀',
+      '신청자',
+    ]);
+    expect(overview?.items[2]).toMatchObject({
+      label: '신청자',
+      href: '/programs/prog-1/applicants',
+    });
     const documents = groups[1];
     expect(documents?.items[0]?.label).toBe('서류 현황');
     expect(documents?.items[0]?.count).toBeUndefined();
@@ -361,6 +374,7 @@ describe('programScopeSidebarGroups', () => {
 
   it('ADMIN viewer is treated as staff view', () => {
     const groups = programScopeSidebarGroups({ ...base, viewerRole: 'ADMIN' });
+    expect(groups[0]?.items.some((i) => i.label === '신청자')).toBe(true);
     expect(groups[1]?.items[0]?.label).toBe('서류 현황');
   });
 
