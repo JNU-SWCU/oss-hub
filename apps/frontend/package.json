@@ -5,6 +5,7 @@
     "dev": "next dev",
     "build": "next build",
     "e2e": "bash e2e/run-e2e.sh",
+    "e2e:program-authoring": "E2E_STACK_PROFILE=program-authoring bash e2e/run-e2e.sh e2e/program-authoring-document-flow.spec.ts e2e/program-authoring-document-flow-failures.spec.ts",
     "e2e:install": "playwright install chrome",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

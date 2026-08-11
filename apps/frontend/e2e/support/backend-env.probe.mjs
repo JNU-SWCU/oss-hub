@@ -1,6 +1,8 @@
 const EXPECTED_ENV_KEYS = new Set([
   'DATABASE_URL',
+  'E2E_PROGRAM_AUTHORING_CONTROL',
   'FRONTEND_URL',
+  'GITHUB_APP_ORG',
   'GITHUB_OAUTH_CLIENT_ID',
   'GITHUB_OAUTH_CLIENT_SECRET',
   'HOME',
@@ -14,6 +16,8 @@ const EXPECTED_ENV_KEYS = new Set([
 ]);
 
 const REQUIRED_SYNTHETIC_VALUES = {
+  E2E_PROGRAM_AUTHORING_CONTROL: 'enabled',
+  GITHUB_APP_ORG: 'e2e-org',
   GITHUB_OAUTH_CLIENT_ID: 'synthetic-e2e-client',
   GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-e2e-client-secret',
   MAIL_MODE: 'dry-run',

@@ -31,9 +31,11 @@ e2e_backend_server_env() {
     SESSION_SECRET="$session_secret" \
     TEAM_JOIN_CODE_SECRET=synthetic-e2e-join-code-secret-at-least-32-bytes \
     FRONTEND_URL="$frontend_origin" \
+    GITHUB_APP_ORG=e2e-org \
     GITHUB_OAUTH_CLIENT_ID=synthetic-e2e-client \
     GITHUB_OAUTH_CLIENT_SECRET=synthetic-e2e-client-secret \
     PORT="$backend_port" \
     MAIL_MODE=dry-run \
+    E2E_PROGRAM_AUTHORING_CONTROL=enabled \
     "$@"
 }

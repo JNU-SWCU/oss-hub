@@ -8,12 +8,17 @@ import {
   forgeSessionToken,
   sessionCookieName,
 } from './support/session-cookie';
+import { PROGRAM_AUTHORING_E2E } from './support/program-authoring-flow';
 
 type AuthSeedPageFactory = (scenarioId: string) => Promise<Page>;
+type ProgramAuthoringActorPageFactory = (
+  actor: keyof typeof PROGRAM_AUTHORING_E2E.actors,
+) => Promise<Page>;
 
 type AdminFixtures = {
   readonly adminPage: Page;
   readonly authSeedPage: AuthSeedPageFactory;
+  readonly programAuthoringActorPage: ProgramAuthoringActorPageFactory;
   readonly expectAdminResourceStatusError: (status: number) => void;
 };
 
@@ -180,6 +185,24 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
       const session = await createAuthenticatedPage(
         browser,
         authSeedGithubId(scenarioId),
+      );
+      sessions.push(session);
+      return session.page;
+    });
+    for (const session of sessions) {
+      await session.context.close();
+      expect(
+        session.consoleErrors,
+        consoleErrorLabel(session.failedResponses),
+      ).toEqual([]);
+    }
+  },
+  programAuthoringActorPage: async ({ browser }, use) => {
+    const sessions: AuthenticatedPage[] = [];
+    await use(async (actor) => {
+      const session = await createAuthenticatedPage(
+        browser,
+        PROGRAM_AUTHORING_E2E.actors[actor],
       );
       sessions.push(session);
       return session.page;

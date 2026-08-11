@@ -39,5 +39,47 @@ e2e_backend_server_env \
   4300 \
   node "$support_directory/backend-env.probe.mjs"
 
+server_control_flag="$(
+  e2e_backend_server_env \
+    "$tool_path" \
+    "$sanitized_home" \
+    postgresql://synthetic-e2e-database \
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA \
+    http://127.0.0.1:3300 \
+    4300 \
+    node -p 'process.env.E2E_PROGRAM_AUTHORING_CONTROL'
+)"
+test "$server_control_flag" = enabled
+
+server_github_app_org="$(
+  e2e_backend_server_env \
+    "$tool_path" \
+    "$sanitized_home" \
+    postgresql://synthetic-e2e-database \
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA \
+    http://127.0.0.1:3300 \
+    4300 \
+    node -p 'process.env.GITHUB_APP_ORG ?? ""'
+)"
+test "$server_github_app_org" = e2e-org
+
+tool_control_flag="$(
+  e2e_backend_tool_env \
+    "$tool_path" \
+    "$sanitized_home" \
+    postgresql://synthetic-e2e-database \
+    node -p 'process.env.E2E_PROGRAM_AUTHORING_CONTROL ?? ""'
+)"
+test -z "$tool_control_flag"
+
+tool_github_app_org="$(
+  e2e_backend_tool_env \
+    "$tool_path" \
+    "$sanitized_home" \
+    postgresql://synthetic-e2e-database \
+    node -p 'process.env.GITHUB_APP_ORG ?? ""'
+)"
+test -z "$tool_github_app_org"
+
 # Then: the probe exits zero only when sentinels are absent and test values win.
 printf 'backend env isolation: ok\n'
