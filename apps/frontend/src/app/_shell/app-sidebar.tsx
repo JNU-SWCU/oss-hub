@@ -96,39 +96,12 @@ export function AppSidebar({
         </button>
       </div>
 
-      <TooltipProvider delayDuration={200}>
-        <nav
-          data-slot="app-sidebar-nav"
-          aria-label={title}
-          className={cn(
-            'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3',
-            collapsed && 'items-center px-2',
-          )}
-        >
-          {groups.map((group) => (
-            <div
-              key={group.label}
-              role="group"
-              aria-label={group.label}
-              data-slot="app-sidebar-group"
-              className={cn(
-                'flex w-full flex-col gap-0.5',
-                collapsed && 'items-center',
-              )}
-            >
-              {group.items.map((item) => (
-                <SidebarLink
-                  key={item.href}
-                  item={item}
-                  pathname={pathname}
-                  search={search}
-                  collapsed={collapsed}
-                />
-              ))}
-            </div>
-          ))}
-        </nav>
-      </TooltipProvider>
+      <AppSidebarNav
+        groups={groups}
+        pathname={pathname}
+        search={search}
+        collapsed={collapsed}
+      />
 
       <p
         data-slot="app-sidebar-foot"
@@ -142,6 +115,62 @@ export function AppSidebar({
         SW중심대학사업단
       </p>
     </aside>
+  );
+}
+
+export interface AppSidebarNavProps {
+  readonly groups: readonly SidebarGroup[];
+  readonly pathname: string;
+  readonly search?: string;
+  readonly collapsed: boolean;
+}
+
+/**
+ * 그룹 렌더 본체 — `AppSidebar`(데스크톱 rail)와 `SidebarDrawer`(900px 미만 오버레이)가
+ * 공유한다. 메뉴 데이터·아이콘·current 마커·aria-current 규약을 한 곳에서만 유지한다.
+ */
+export function AppSidebarNav({
+  groups,
+  pathname,
+  search = '',
+  collapsed,
+}: AppSidebarNavProps) {
+  const title = groups[0]?.label ?? '메뉴';
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <nav
+        data-slot="app-sidebar-nav"
+        aria-label={title}
+        className={cn(
+          'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3',
+          collapsed && 'items-center px-2',
+        )}
+      >
+        {groups.map((group) => (
+          <div
+            key={group.label}
+            role="group"
+            aria-label={group.label}
+            data-slot="app-sidebar-group"
+            className={cn(
+              'flex w-full flex-col gap-0.5',
+              collapsed && 'items-center',
+            )}
+          >
+            {group.items.map((item) => (
+              <SidebarLink
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                search={search}
+                collapsed={collapsed}
+              />
+            ))}
+          </div>
+        ))}
+      </nav>
+    </TooltipProvider>
   );
 }
 
