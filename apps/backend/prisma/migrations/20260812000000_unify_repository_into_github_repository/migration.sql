@@ -27,9 +27,39 @@ ALTER TABLE "GithubRepository"
   ADD COLUMN "publishedAt" TIMESTAMP(3);
 
 -- 2) 짝이 없는 Repository 행을 GithubRepository로 신규 삽입한다.
---    url은 항상 `https://github.com/<owner>/<name>` 형태로만 저장된다
---    (isValidSucceededRepositoryIdentity가 NEW/OWN 양쪽 모두 이 형태만 통과시킨다) —
---    prefix를 제거하면 nameWithOwner를 안전하게 복원할 수 있다.
+--    주의: 쓰기 시점 검증이 url의 canonical 형태를 보장한다는 가정은 틀렸다 — OWN 모드는
+--    resolveOwnGithubRepository(repository-provision.github.ts:59,76)가 학생이 입력한 URL
+--    문자열을 그대로(verbatim) 저장한다. parseGithubRepositoryUrl은 파싱된 URL 객체만
+--    검증하고 원본 문자열을 canonical 형태로 되쓰지 않으므로, host 대소문자 차이(URL
+--    파서는 hostname만 소문자로 정규화하고 원본 문자열은 그대로 둔다)와 pathname 트레일링
+--    슬래시가 저장된 문자열에 그대로 남을 수 있다. isValidSucceededRepositoryIdentity
+--    (repositories.service.ts)도 읽기 시점에만 재검증할 뿐 쓰기 시점 강제가 아니다.
+--    따라서 prefix 제거를 대소문자 무시 + http/https 허용 + 선택적 www.로 넓히고
+--    트레일링 슬래시를 제거한 뒤, 정규화 후에도 owner/name 형태(슬래시 하나로 나뉘는
+--    두 비공백 세그먼트)가 아닌 행이 있으면 아래 가드가 마이그레이션을 중단시킨다.
+--    (2026-08-12 프로덕션 감사: Repository 1행, 비canonical 0행 — 이 가드는 현재 위반을
+--    고치는 게 아니라 향후 회귀를 막는 방어 장치다.)
+DO $$
+DECLARE
+  bad_id TEXT;
+  bad_url TEXT;
+BEGIN
+  SELECT r."id", r."url" INTO bad_id, bad_url
+  FROM "Repository" r
+  WHERE NOT EXISTS (
+    SELECT 1 FROM "GithubRepository" g WHERE g."githubRepositoryId" = r."githubRepositoryId"
+  )
+  AND regexp_replace(
+        regexp_replace(r."url", '^https?://(www\.)?github\.com/', '', 'i'),
+        '/+$', ''
+      ) !~ '^[^/]+/[^/]+$'
+  LIMIT 1;
+
+  IF bad_id IS NOT NULL THEN
+    RAISE EXCEPTION 'unify-repository-into-github-repository 마이그레이션 중단: Repository.id=% 의 url=% 이 정규화 후에도 canonical owner/name 형태가 아니다', bad_id, bad_url;
+  END IF;
+END $$;
+
 INSERT INTO "GithubRepository" (
   "id",
   "githubOrganizationId",
@@ -55,7 +85,10 @@ SELECT
   r."id",
   NULL,
   r."githubRepositoryId",
-  regexp_replace(r."url", '^https://github\.com/', ''),
+  regexp_replace(
+    regexp_replace(r."url", '^https?://(www\.)?github\.com/', '', 'i'),
+    '/+$', ''
+  ),
   NULL,
   false,
   'ORG_PROVISIONED',
