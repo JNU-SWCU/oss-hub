@@ -243,30 +243,10 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend build
 
-      # 브라우저는 playwright.config.ts의 `channel: 'chrome'`이 러너에 설치된 시스템
-      # Chrome을 쓰지만, `video: 'retain-on-failure'` 녹화는 Playwright 번들 ffmpeg를
-      # 따로 요구한다. 이 단계가 없으면 e2e가 실패할 때 녹화에서 다시 죽는다(#856).
-      - name: Playwright ffmpeg 설치
-        if: ${{ github.event_name == 'push' }}
-        run: pnpm --filter frontend exec playwright install ffmpeg
-
-      # #184의 권한 생명주기는 frontend 화면과 backend 권한 경계를 함께 지나지만,
-      # 전체 Playwright 묶음은 PR 반복 시간을 늘리므로 main 반영 뒤에만 실행한다.
-      - name: 교직원 접근 권한 브라우저 회귀
-        if: ${{ github.event_name == 'push' }}
-        env:
-          E2E_OUTPUT_DIR: ${{ runner.temp }}/oss-hub-playwright
-        run: pnpm --filter frontend e2e
-
-      - name: 교직원 접근 권한 화면 증적 업로드
-        if: ${{ always() && github.event_name == 'push' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: admin-access-lifecycle-${{ github.run_id }}-${{ github.run_attempt }}
-          # 자동 실패 screenshot·video·trace는 마스킹을 거치지 않으므로 공개 artifact에서 제외한다.
-          path: ${{ runner.temp }}/oss-hub-playwright/**/public-evidence-*.png
-          if-no-files-found: warn
-          retention-days: 30
+      # Playwright 묶음은 CI에서 돌리지 않는다(PM 결정, 2026-08-11). 브라우저·ffmpeg
+      # 설치와 dev 서버 온디맨드 컴파일에 의존해 러너 환경 결함이 제품 결함으로
+      # 둔갑하고(#856), PR에서는 어차피 실행되지 않아 회귀를 늦게만 알려 준다.
+      # 실행은 로컬 `pnpm --filter frontend e2e`로 옮긴다 — 릴리스 전 수동 게이트다.
 
   # 1차 도입은 advisory다. drift·unknown은 non-zero로 보고하되 required ci를 차단하지 않는다.
   team-state-drift:
