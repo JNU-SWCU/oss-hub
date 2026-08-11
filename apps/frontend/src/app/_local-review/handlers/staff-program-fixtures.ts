@@ -23,6 +23,18 @@ import type { MatrixRow } from '@/features/submissions/types';
  * (`program-oss-contest`는 대시보드 카드가 없어 집계 제약이 없다.)
  */
 
+/**
+ * 「아직 안 끝난 프로그램」의 종료일. 백엔드 `Program.endAt` 컬럼의 DB 기본값
+ * (`9999-12-31 23:59:59.999`, `apps/backend/prisma/schema.prisma`)과 같은 순간이다 —
+ * 서버가 미종료를 표현하는 방식 그대로여야 픽스처가 서버 대신 말할 수 있다.
+ *
+ * ⚠ 달력이 따라잡을 수 있는 종료일을 쓰면, 그 날이 지나는 순간 서버는 그 프로그램을
+ * 「종료됨」으로 보는데 검토 컨텍스트에 적어 둔 `PROGRAM_NOT_ENDED`만 옛 사유로 남아
+ * 코드 변경 없이 대조가 어긋난다(#812). `staff-publish-gate.test.tsx`가 달력 끝에서
+ * 한 번 더 대조해 그 되돌림을 그 자리에서 잡는다.
+ */
+export const PROGRAM_NEVER_ENDS_AT = '9999-12-31T23:59:59.999Z';
+
 /** `submissionMatrixReviewUrl`(backend)와 같은 규칙으로 검토 화면 경로를 만든다. */
 function reviewUrl(programId: string, submissionId: string): string {
   return `/programs/${programId}/submissions/${submissionId}/review`;
@@ -370,7 +382,9 @@ const CONTEST_PROGRAM = {
   applicationCount: 2,
   applicationStartAt: '2026-07-14T15:00:00.000Z',
   applicationEndAt: '2026-11-30T14:59:59.000Z',
-  endAt: '2026-12-31T14:59:59.000Z',
+  // 세 검토 컨텍스트가 이 프로그램으로 `PROGRAM_NOT_ENDED`를 보여 준다 — 달력이
+  // 지나갈 수 있는 날짜를 적으면 그 날부터 그 사유가 거짓이 된다(#812).
+  endAt: PROGRAM_NEVER_ENDS_AT,
   repositoryProvisioningEnabled: true,
   notifyOnDeadline: true,
   description:
@@ -874,7 +888,7 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
     ],
     // `application-team` 은 저장소 공개 예정이 "아니요"이고 `program-oss-contest` 는
-    // endAt(2026-12-31)이 아직 안 지났다 — 서버는 세 사유를 모두 낸다.
+    // 끝나지 않는 프로그램(`PROGRAM_NEVER_ENDS_AT`)이다 — 서버는 세 사유를 모두 낸다.
     repository: {
       id: 'synthetic-repo-contest-01',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-01',
@@ -914,7 +928,7 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
     },
     history: [],
     // 마일스톤은 전원 승인이지만 `application-contest-champion`이 저장소 공개 예정 "아니요"이고
-    // `program-oss-contest`의 endAt(2026-12-31)이 아직 안 지나 서버가 거절한다.
+    // `program-oss-contest`가 끝나지 않는 프로그램이라 서버가 거절한다.
     repository: {
       id: 'synthetic-repo-contest-02',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-02',

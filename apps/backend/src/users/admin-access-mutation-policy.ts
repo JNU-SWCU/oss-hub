@@ -67,9 +67,36 @@ export function toAdminAccessDecisionKind(
   }
 }
 
+/**
+ * 자기 자신에게 ADMIN을 부여하는 전이인가 — 관리자 승격은 **다른 사람이** 해야 한다(#687).
+ *
+ * ⚠ **지금의 호출 순서에서는 이 조건이 성립하지 않는다.** `mutateAdminAccess`는
+ * `lockActiveAdmins`로 활성 ADMIN 행을 잠근 **뒤** actor를 다시 읽어 ADMIN임을 확인하고,
+ * 그다음 대상 행을 읽는다. actor와 대상이 같은 행이면 그 행은 이미 잠긴 채 ADMIN이므로
+ * `before.role !== ADMIN`이 참이 될 수 없다. 즉 이 가드는 **현재 도달 불가능한
+ * fail-closed 백스톱**이다 — 잠금·재조회 순서가 바뀌어 대상 행이 잠기지 않은 채 읽히는
+ * 날, 자기 승격이 조용히 열리는 대신 여기서 막힌다.
+ *
+ * 그래서 이 함수의 시험은 서비스가 만들 수 없는 상태를 대역으로 꾸며 내지 않고
+ * `enforceAdminAccessGuards`를 직접 불러 확인한다(`admin-access-mutation-policy.spec.ts`).
+ * 서비스 수준에서 검사할 수 있는 것은 "남을 ADMIN으로 올리는 것은 막지 않는다" 쪽뿐이다.
+ */
+function grantsAdminToSelf(
+  actor: AdminAccessActor,
+  before: AdminAccessUserRecord,
+  command: AdminAccessMutationCommand,
+): boolean {
+  return (
+    actor.id === before.id &&
+    command.desiredRole === Role.ADMIN &&
+    before.role !== Role.ADMIN
+  );
+}
+
 export function enforceAdminAccessGuards(
   actor: AdminAccessActor,
   before: AdminAccessUserRecord,
+  command: AdminAccessMutationCommand,
   outcome: {
     readonly requiresCompleteProfile: boolean;
     readonly requiresSelfDeactivationGuard: boolean;
@@ -77,6 +104,9 @@ export function enforceAdminAccessGuards(
   },
   activeAdminCount: number | null,
 ): void {
+  if (grantsAdminToSelf(actor, before, command)) {
+    throw roleError(RolesErrorCode.ADMIN_ONLY);
+  }
   if (outcome.requiresSelfDeactivationGuard && actor.id === before.id) {
     throw roleError(RolesErrorCode.SELF_DEACTIVATION_FORBIDDEN);
   }

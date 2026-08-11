@@ -1,7 +1,13 @@
 import { CalendarClock, FileUp, TextCursorInput } from 'lucide-react';
 import { FormSection } from '@/components/form-section';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import type {
@@ -33,18 +39,27 @@ export function ProgramAuthoringMilestoneStep({
       <div className="grid gap-4">
         {state.milestones.map((milestone, index) => {
           const prefix = `milestones.${milestone.id}`;
+          const isOnlyMilestone = state.milestones.length <= 1;
           return (
             <Card key={milestone.id}>
-              <CardHeader className="flex-row items-start justify-between gap-3">
+              <CardHeader>
                 <CardTitle>마일스톤 {index + 1}</CardTitle>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => onRemove(milestone.id)}
-                >
-                  삭제
-                </Button>
+                <CardAction>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={isOnlyMilestone}
+                    title={
+                      isOnlyMilestone
+                        ? '마일스톤은 최소 1개가 필요합니다.'
+                        : undefined
+                    }
+                    onClick={() => onRemove(milestone.id)}
+                  >
+                    삭제
+                  </Button>
+                </CardAction>
               </CardHeader>
               <CardContent className="grid gap-5">
                 <Field>

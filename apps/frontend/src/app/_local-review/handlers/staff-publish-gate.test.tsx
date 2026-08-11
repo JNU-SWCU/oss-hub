@@ -24,6 +24,7 @@ import {
 } from '../handler-kit';
 import { STAFF_HANDLERS } from './staff-handlers';
 import {
+  PROGRAM_NEVER_ENDS_AT,
   STAFF_PROGRAM_FIXTURES,
   STAFF_REVIEW_CONTEXTS,
 } from './staff-program-fixtures';
@@ -122,6 +123,22 @@ function derivedBlockedReasons(
   ];
 }
 
+/**
+ * 「끝나지 않는 프로그램」 바로 앞 순간이다. 미종료를 나타내는 유일한 값인
+ * `PROGRAM_NEVER_ENDS_AT`에서 파생시켰으므로, 그보다 이른 종료일은 **전부** 이 시각에
+ * 이미 지나간 것이 된다.
+ *
+ * 지금 시각과 달력 끝 **두 번** 대조해서, 달력이 흐른다고 판정이 달라지는 픽스처를
+ * 그 자리에서 RED 로 만든다(#812).
+ *
+ * ⚠ 시각을 고정(freeze)하지 않는다. 잡아내는 범위만 보면 고정해도 같다 — 아래 대조가
+ * 이미 `endAt ∈ (지금, END_OF_CALENDAR]` 를 전부 걸러 내므로 `new Date()` 가 검출력을
+ * 더 주지는 않는다. 고정하지 않는 이유는 다른 데 있다: **이 픽스처는 실제 브라우저에
+ * 진짜 시계로 서빙된다.** 검토자가 화면에서 보는 것과 테스트가 보는 것이 갈리면,
+ * 테스트는 초록인데 화면은 다른 말을 하는 상태가 만들어진다.
+ */
+const END_OF_CALENDAR = new Date(Date.parse(PROGRAM_NEVER_ENDS_AT) - 1);
+
 const REVIEW_CONTEXT_IDS = Object.keys(STAFF_REVIEW_CONTEXTS);
 
 function publishableContexts(now: Date): readonly ReviewContext[] {
@@ -179,6 +196,16 @@ function publishButton(): HTMLButtonElement {
 }
 
 describe('교직원 검토 픽스처의 저장소 공개 게이트', () => {
+  it('미종료 센티널은 달력이 닿을 수 없는 값이다', () => {
+    // Given / When: 하네스가 「안 끝나는 프로그램」에 쓰는 종료일.
+
+    // Then: 4자리 연도로 적을 수 있는 마지막 순간이며, 백엔드 `Program.endAt` 컬럼의
+    // DB 기본값(`9999-12-31 23:59:59.999`, `apps/backend/prisma/schema.prisma`)과 같은
+    // 자리다. 위의 `END_OF_CALENDAR`가 이 값에서 파생되므로 여기를 낮춰 잡으면 대조
+    // 기준도 같이 내려가 아무도 못 잡는다 — 그래서 값 자체를 못으로 박아 둔다(#812).
+    expect(PROGRAM_NEVER_ENDS_AT).toBe('9999-12-31T23:59:59.999Z');
+  });
+
   it.each(REVIEW_CONTEXT_IDS)(
     '%s 의 차단 사유는 신청·프로그램·제출 현황에서 실제로 파생된다',
     (submissionId) => {
@@ -194,6 +221,13 @@ describe('교직원 검토 픽스처의 저장소 공개 게이트', () => {
       expect(context.repository?.blockedReasons ?? []).toEqual(derived);
       expect(context.repository?.publishEligible ?? false).toBe(
         derived.length === 0,
+      );
+
+      // And: 달력이 끝까지 흘러도 같은 판정이다. 종료일이 언젠가 지나가 버리는
+      // 픽스처는 그 날 CI 를 처음 돌린 사람에게 남의 실패로 떨어지므로(#812),
+      // 되돌려 적는 순간 여기서 잡는다.
+      expect(context.repository?.blockedReasons ?? []).toEqual(
+        derivedBlockedReasons(context, END_OF_CALENDAR),
       );
     },
   );

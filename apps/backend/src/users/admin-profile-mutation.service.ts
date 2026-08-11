@@ -2,8 +2,8 @@ import type { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
-import type { AdminProfileActor } from './admin-profile-audit';
 import { createAdminProfileAudit } from './admin-profile-audit';
+import { requireActiveAdmin } from './admin-access-authorization';
 import { roleError } from './admin-access-mutation-policy';
 import { isValidStudentId } from './user-profile-policy';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
@@ -21,7 +21,6 @@ type MutationDependencies = {
 
 type MutationInput = {
   readonly actorGithubId: bigint;
-  readonly actor: AdminProfileActor;
   readonly userId: string;
   readonly command: AdminProfileUpdateCommand;
 };
@@ -33,12 +32,22 @@ type MutationInput = {
  * 적용하지 않는다 — 이미 값이 있는 학번도 관리자는 다른 값으로 덮어쓸 수 있다. 다만
  * 형식(`STUDENT_ID_PATTERN`)·"학번을 채우려면 학과가 필요하다" 규칙·`UserProfile.studentId`
  * 유일성은 두 경로 모두 지킨다.
+ *
+ * actor가 활성 ADMIN인지는 **이 트랜잭션 안에서** 판정한다(#687). 예전에는 서비스가
+ * 트랜잭션 밖에서 한 번 읽고 넘겼는데, 그러면 읽은 뒤 트랜잭션이 열리고 쓰기가 끝날
+ * 때까지가 통째로 창이 된다 — 그 사이에 강등된 관리자도 남의 학번·이름을 고치고 감사
+ * 로그에 정상 actor로 남았다.
  */
 export async function mutateAdminUserProfile(
   dependencies: MutationDependencies,
   input: MutationInput,
 ): Promise<AdminProfileUpdateResult> {
   return dependencies.repository.withTransaction(async (store) => {
+    // 잠금 먼저, 판정은 그다음이다. 순서가 뒤집히면 잠기지 않은 낡은 값으로 판정하게 된다.
+    await store.lockActiveAdmins();
+    const actor = requireActiveAdmin(
+      await store.findActor(input.actorGithubId),
+    );
     const before = await store.findTarget(input.userId);
     if (!before) {
       throw roleError(RolesErrorCode.USER_NOT_FOUND);
@@ -117,7 +126,7 @@ export async function mutateAdminUserProfile(
     };
     // 실제로 바뀐 필드가 없으면(요청 값이 기존 값과 같음) 감사 로그를 쓰지 않는다.
     const audit = createAdminProfileAudit({
-      actor: input.actor,
+      actor: { name: actor.name, githubLogin: actor.githubLogin },
       target: before,
       before,
       after,

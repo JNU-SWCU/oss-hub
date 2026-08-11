@@ -43,15 +43,19 @@ class BarrierTransactionStore implements AdminAccessTransactionStore {
     return this.store.auditLogWriter;
   }
 
-  async findActorByGithubId(
-    githubId: bigint,
-  ): Promise<AdminAccessActor | null> {
-    const actor = await this.store.findActorByGithubId(githubId);
-    await this.barrier.wait();
-    return actor;
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return this.store.findActorByGithubId(githubId);
   }
 
-  lockActiveAdmins(): Promise<number> {
+  /**
+   * 두 트랜잭션이 **잠금을 잡기 전에** 나란히 열려 있도록 만나게 한다.
+   *
+   * 배리어가 이보다 뒤에 있으면 안 된다 — `lockActiveAdmins`는 활성 ADMIN 행을 전부
+   * 잠그므로, 먼저 도착한 쪽이 잠금을 쥔 채 배리어에서 기다리면 다른 쪽은 그 잠금에
+   * 막혀 배리어에 영영 도착하지 못한다(교착).
+   */
+  async lockActiveAdmins(): Promise<number> {
+    await this.barrier.wait();
     return this.store.lockActiveAdmins();
   }
 

@@ -80,6 +80,7 @@ describe('ProgramAuthoringRequestDto', () => {
   });
 
   it.each([
+    ['0 milestones', { milestones: [] }],
     [
       '51 milestones',
       { milestones: Array.from({ length: 51 }, () => milestone()) },
