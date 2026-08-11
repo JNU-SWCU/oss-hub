@@ -317,7 +317,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     const request = await this.prisma.programCreateRequest.findFirst({
       where: {
         actorId: E2E_STAFF_ID,
-        idempotencyKey: 'e2e-prisma-fault',
+        idempotencyKey: 'e2e-prisma-fault', // gitleaks:allow — 결정론적 테스트 상수
       },
       select: {
         actorId: true,
