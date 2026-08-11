@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -141,10 +142,29 @@ export function ProgramEditBasicForm({
               id="program-end-at"
               type="datetime-local"
               value={form.endAt}
-              required={form.originalEndAt !== null}
+              disabled={form.endAtUndecided}
+              required={!form.endAtUndecided && form.originalEndAt !== null}
               aria-invalid={Boolean(errors.endAt)}
               onChange={(event) => onFieldChange('endAt', event.target.value)}
             />
+            <Field orientation="horizontal">
+              <input
+                id="program-end-at-undecided"
+                type="checkbox"
+                checked={form.endAtUndecided}
+                onChange={(event) =>
+                  onFieldChange('endAtUndecided', event.target.checked)
+                }
+              />
+              <FieldLabel htmlFor="program-end-at-undecided">
+                종료일 미정
+              </FieldLabel>
+            </Field>
+            <FieldDescription>
+              종료일을 아직 정하지 않았으면 「종료일 미정」을 선택하세요.
+              프로그램은 끝나지 않은 것으로 다뤄집니다. 나중에 정하려면 체크를
+              풀고 날짜를 고르면 됩니다.
+            </FieldDescription>
             <FieldError>{errors.endAt}</FieldError>
           </Field>
           {requiresTeam ? (

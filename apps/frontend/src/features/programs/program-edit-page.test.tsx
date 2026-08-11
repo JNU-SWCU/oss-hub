@@ -8,6 +8,7 @@ import {
   mapProgramEditError,
   toProgramEditForm,
 } from './program-edit-flow';
+import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 
 const editableProgram: EditableProgram = {
   id: 'program-1',
@@ -72,14 +73,18 @@ describe('ProgramEditPage save payload', () => {
     );
     expect(input.applicationEndAt).toBe(editableProgram.applicationEndAt);
   });
-  it('preserves null endAt and converts a changed endAt to ISO', () => {
+  // 종료일 없음을 뜻하는 표현이 하나로 모였다 — `null` 과 센티널은 같은 뜻이고
+  // 폼은 그것을 「미정」 체크박스로 나르며, 저장은 언제나 센티널로 되돌린다.
+  // 예전에는 이 자리에서 payload 가 `null` 로 나갔는데, 그 값을 받은 서버는
+  // `new Date(null)` 로 Invalid Date 를 만든다(program-editor.service.ts).
+  it('종료일 없는 프로그램은 센티널로 왕복하고, 날짜를 고르면 ISO 로 나간다', () => {
     expect(
       buildProgramEditInput(
         toProgramEditForm({ ...editableProgram, endAt: null }),
         true,
         [],
       ).endAt,
-    ).toBeNull();
+    ).toBe(PROGRAM_END_AT_UNDECIDED);
 
     const input = buildProgramEditInput(
       {

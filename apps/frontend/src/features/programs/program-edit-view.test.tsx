@@ -7,6 +7,7 @@ import {
   toProgramEditForm,
   type ProgramEditErrors,
 } from './program-edit-flow';
+import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 import { ProgramEditView } from './program-edit-view';
 
 const noOp = () => undefined;
@@ -259,10 +260,14 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('팀이 2개 있어 유형을 변경할 수 없습니다');
     expect(html).toContain('disabled=""');
   });
-  it('allows a legacy null end to be set and emits the valid payload', () => {
+  // 종료일이 없던 프로그램은 「미정」으로 열린다 — 날짜를 고르려면 체크를 먼저
+  // 풀어야 하고(화면에서는 그때까지 날짜 칸이 비활성이다), 그 뒤에 고른 날짜가 나간다.
+  it('allows a legacy undecided end to be set and emits the valid payload', () => {
     const legacyProgram = { ...editableProgram, endAt: null };
+    expect(toProgramEditForm(legacyProgram).endAtUndecided).toBe(true);
     const form = {
       ...toProgramEditForm(legacyProgram),
+      endAtUndecided: false,
       endAt: '2026-09-01T12:00',
     };
 
@@ -274,8 +279,14 @@ describe('ProgramEditView contract', () => {
     expect(input.teamMaxSize).toBe(4);
   });
 
-  it('forbids clearing an existing program end', () => {
-    const form = { ...toProgramEditForm(editableProgram), endAt: '' };
+  // 비어 있는 것과 「미정」은 다른 뜻이다 — 비어 있는 것은 아직 안 고른 상태이고,
+  // 안내는 두 갈래(날짜를 고르기·미정을 선택하기)를 모두 알려 준다.
+  it('forbids clearing an existing program end without choosing undecided', () => {
+    const form = {
+      ...toProgramEditForm(editableProgram),
+      endAt: '',
+      endAtUndecided: false,
+    };
 
     let error: unknown;
     try {
@@ -284,7 +295,22 @@ describe('ProgramEditView contract', () => {
       error = caught;
     }
 
-    expect(mapProgramEditError(error).endAt).toContain('비울 수 없습니다');
+    expect(mapProgramEditError(error).endAt).toBe(
+      '종료일을 정하거나 「종료일 미정」을 선택해 주세요.',
+    );
+  });
+
+  // 체크를 켜면 날짜 칸을 보지 않고 센티널로 되돌린다 — 화면에서 그 칸은 비활성이다.
+  it('emits the undecided sentinel when the staff checks undecided', () => {
+    const form = {
+      ...toProgramEditForm(editableProgram),
+      endAtUndecided: true,
+      endAt: '',
+    };
+
+    expect(buildProgramEditInput(form, true, ['endAtUndecided']).endAt).toBe(
+      PROGRAM_END_AT_UNDECIDED,
+    );
   });
 
   it.each([
