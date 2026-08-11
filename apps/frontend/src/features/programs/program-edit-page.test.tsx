@@ -1,6 +1,11 @@
-﻿import { describe, expect, it } from 'vitest';
+﻿// @vitest-environment happy-dom
+
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import type { EditableProgram } from './api';
+import { UNSAVED_PROGRAM_MESSAGE } from './program-creation-flow';
 import {
   buildProgramEditInput,
   mapMilestoneDeleteError,
@@ -9,6 +14,55 @@ import {
   toProgramEditForm,
 } from './program-edit-flow';
 import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
+import { ProgramEditPage } from './program-edit-page';
+
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
+
+const routerReplaceMock = vi.hoisted(() => vi.fn());
+const routerPushMock = vi.hoisted(() => vi.fn());
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: routerPushMock,
+    replace: routerReplaceMock,
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  }),
+}));
+
+vi.mock('next/link', () => ({
+  default: ({
+    href,
+    children,
+  }: {
+    href: string;
+    children: React.ReactNode;
+  }) => <a href={href}>{children}</a>,
+}));
+
+const {
+  getEditableProgramMock,
+  updateProgramMock,
+  updateProgramLifecycleMock,
+} = vi.hoisted(() => ({
+  getEditableProgramMock: vi.fn(),
+  updateProgramMock: vi.fn(),
+  updateProgramLifecycleMock: vi.fn(),
+}));
+
+vi.mock('./api', () => ({
+  getEditableProgram: getEditableProgramMock,
+  updateProgram: updateProgramMock,
+  updateProgramLifecycle: updateProgramLifecycleMock,
+  createMilestone: vi.fn(),
+  updateMilestone: vi.fn(),
+  deleteMilestone: vi.fn(),
+}));
 
 const editableProgram: EditableProgram = {
   id: 'program-1',
@@ -150,5 +204,339 @@ describe('마일스톤 실패 안내', () => {
       '저장소 자동 생성이 켜져 있어 마지막 마일스톤은 삭제할 수 없습니다. 다른 마일스톤을 먼저 추가하거나 저장소 자동 생성을 꺼 주세요.',
     );
     expect(onDelete).not.toContain('팀 프로그램');
+  });
+});
+
+// #867 — 저장은 화면에 머무르고(리다이렉트 없음), 게시 상태 전환은 window.confirm이
+// 아니라 화면 안 확인창으로 처리한다. 이 두 가지는 페이지 컴포넌트를 실제로 렌더링해야
+// 검증된다 — 순수 함수 테스트로는 라우팅·다이얼로그 여부를 볼 수 없다.
+describe('ProgramEditPage 컴포넌트', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let confirmMock: ReturnType<typeof vi.fn>;
+  let originalConfirm: typeof window.confirm;
+
+  function getButton(name: string): HTMLButtonElement {
+    const button = Array.from(document.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.trim() === name,
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new TypeError(`Button not found: ${name}`);
+    }
+    return button;
+  }
+
+  function queryButton(name: string): HTMLButtonElement | undefined {
+    return Array.from(document.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.trim() === name,
+    ) as HTMLButtonElement | undefined;
+  }
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+    routerReplaceMock.mockReset();
+    routerPushMock.mockReset();
+    getEditableProgramMock.mockReset();
+    updateProgramMock.mockReset();
+    updateProgramLifecycleMock.mockReset();
+    // window.confirm은 이 화면에서 더 이상 쓰이지 않아야 한다 — 남아 있다면 호출을
+    // 잡아내되, 값을 돌려주지 않으면 뒤에 이어지는 로직이 확인 없이 막힐 수 있으니
+    // false로 고정해 "여전히 confirm에 의존한다"가 조용히 통과하지 않게 한다.
+    originalConfirm = window.confirm;
+    confirmMock = vi.fn().mockReturnValue(false);
+    window.confirm = confirmMock;
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    window.confirm = originalConfirm;
+  });
+
+  it('저장 후에도 화면에 머무르고 상세 화면으로 이동하지 않는다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('변경사항 저장').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(updateProgramMock).toHaveBeenCalled();
+    expect(routerReplaceMock).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      '저장되었습니다.',
+    );
+  });
+
+  // Addition 2 — 저장 실패 경로는 여태 마운트 테스트가 없었다. submit의 catch가
+  // form을 그대로 두는지(errors만 채우고 setForm/초기화를 하지 않는지)를 실제
+  // DOM으로 확인한다.
+  it('기본 정보 저장이 실패하면 입력값과 dirty 상태를 유지하고 폼 옆에 에러를 보여준다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramMock.mockRejectedValue(new TypeError('network'));
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const nameInput =
+      container.querySelector<HTMLInputElement>('#program-name');
+    if (nameInput === null) throw new TypeError('Missing #program-name.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(nameInput, '저장 실패해도 남아야 하는 이름');
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      getButton('변경사항 저장').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(updateProgramMock).toHaveBeenCalled();
+    // 입력값이 그대로다 — submit의 catch는 setForm으로 되돌리지 않는다.
+    expect(
+      container.querySelector<HTMLInputElement>('#program-name')?.value,
+    ).toBe('저장 실패해도 남아야 하는 이름');
+    // dirtyFields도 비워지지 않았다 — 「변경 취소」가 계속 눌린다.
+    expect(getButton('변경 취소').disabled).toBe(false);
+    // 저장 버튼은 저장 중 상태에서 풀려나 다시 눌러 볼 수 있다.
+    expect(getButton('변경사항 저장')).toBeTruthy();
+    // 에러는 폼 옆(FieldError)에 뜬다 — 페이지 위쪽 generalAlert가 아니다.
+    expect(container.textContent).toContain(
+      '저장에 실패했습니다. 다시 시도해 주세요.',
+    );
+  });
+
+  it('게시 상태 전환은 window.confirm이 아니라 화면 안 확인창으로 처리한다', async () => {
+    // 상태 전환 성공 후에는 load()로 다시 불러오지 않는다(아래 블로커 회귀
+    // 테스트 참고) — getEditableProgram은 최초 진입 한 번만 불린다.
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramLifecycleMock.mockResolvedValue({
+      id: 'program-1',
+      lifecycle: 'ARCHIVED',
+    });
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('프로그램 내리기').click();
+    });
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    const dialog = document.querySelector('[role="alertdialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('프로그램을 내릴까요?');
+
+    await act(async () => {
+      getButton('내리기').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(updateProgramLifecycleMock).toHaveBeenCalledWith(
+      'program-1',
+      'ARCHIVED',
+    );
+    expect(getEditableProgramMock).toHaveBeenCalledTimes(1);
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(queryButton('프로그램 내리기')).toBeUndefined();
+    expect(getButton('다시 게시하기')).toBeTruthy();
+  });
+
+  // 리뷰에서 발견된 블로커 — confirmLifecycleToggle이 성공 후 load()를 불렀다.
+  // load()는 즉시 setState({kind:'loading'})·setForm(null)을 하므로 그 순간
+  // 렌더 가드가 화면 전체를 스켈레톤으로 갈아치우고, 다시 불러온 서버 값으로
+  // form을 되돌려 저장하지 않은 기본 정보 입력을 지워 버렸다. 이 테스트는 그
+  // 회귀를 잡는다 — OLD 코드(await load())로 되돌리면 실패해야 한다.
+  it('게시 상태를 전환해도 저장하지 않은 기본 정보 입력과 화면이 그대로 남는다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    // 요청을 일부러 매달아 둔다 — "진행 중"인 순간을 경쟁 상태 없이 확실하게
+    // 관찰하려면, 프라미스가 언제 풀리는지 테스트가 직접 쥐고 있어야 한다.
+    let resolveLifecycle: (result: {
+      id: string;
+      lifecycle: 'PUBLISHED' | 'ARCHIVED';
+    }) => void = () => undefined;
+    updateProgramLifecycleMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLifecycle = resolve;
+        }),
+    );
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const nameInput =
+      container.querySelector<HTMLInputElement>('#program-name');
+    if (nameInput === null) throw new TypeError('Missing #program-name.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(nameInput, '저장 안 한 이름');
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(nameInput.value).toBe('저장 안 한 이름');
+
+    await act(async () => {
+      getButton('프로그램 내리기').click();
+    });
+    await act(async () => {
+      getButton('내리기').click();
+    });
+
+    // 요청이 아직 안 끝난 이 시점 — 화면이 스켈레톤으로 갈아치워지지 않았고
+    // 입력값도 지워지지 않았는지, 정말 "진행 중"인지(버튼 문구) 확인한다.
+    expect(
+      document.querySelector('[aria-label="프로그램 편집 불러오는 중"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector<HTMLInputElement>('#program-name')?.value,
+    ).toBe('저장 안 한 이름');
+    expect(getButton('내리는 중…')).toBeTruthy();
+
+    await act(async () => {
+      resolveLifecycle({ id: 'program-1', lifecycle: 'ARCHIVED' });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // 완료된 뒤에도 마찬가지 — 게시 상태는 바뀌었지만 폼은 손대지 않았다.
+    expect(
+      document.querySelector('[aria-label="프로그램 편집 불러오는 중"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector<HTMLInputElement>('#program-name')?.value,
+    ).toBe('저장 안 한 이름');
+    expect(getButton('다시 게시하기')).toBeTruthy();
+    expect(container.textContent).toContain('내림');
+  });
+
+  // Addition 1 + 2 — 게시 상태 전환 실패는 여태 마운트 테스트가 없었다. 실패
+  // 메시지가 generalAlert(페이지 맨 위)가 아니라 게시 상태 섹션 안, 버튼과
+  // 같은 자리에 뜨는지, 다이얼로그가 닫히고 버튼이 다시 눌릴 수 있는지,
+  // lifecycle 값 자체는 바뀌지 않았는지를 실제 DOM으로 확인한다.
+  it('게시 상태 전환이 실패하면 다이얼로그를 닫고 게시 상태 섹션 안에 에러를 보여주며 버튼을 되살린다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramLifecycleMock.mockRejectedValue(new TypeError('network'));
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('프로그램 내리기').click();
+    });
+    await act(async () => {
+      getButton('내리기').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // 다이얼로그는 닫혔다 — 실패해도 열린 채 멈추지 않는다.
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+
+    // 버튼은 다시 눌러 볼 수 있는 상태로 돌아온다 — 「내리는 중…」에 갇히지 않는다.
+    const retryButton = getButton('프로그램 내리기');
+    expect(retryButton.disabled).toBe(false);
+
+    // lifecycle 값 자체는 바뀌지 않았다 — 여전히 PUBLISHED다.
+    expect(queryButton('다시 게시하기')).toBeUndefined();
+    expect(container.textContent).not.toContain('내림');
+
+    // 에러는 게시 상태 섹션 안, 그 버튼과 같은 자리에 뜬다 — 페이지 맨 위
+    // generalAlert 자리가 아니다.
+    const alerts = Array.from(document.querySelectorAll('[role="alert"]'));
+    const lifecycleAlert = alerts.find((alert) =>
+      alert.textContent?.includes(
+        '상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      ),
+    );
+    expect(lifecycleAlert).toBeTruthy();
+    const section = lifecycleAlert?.closest('section');
+    expect(section?.textContent).toContain('게시 상태');
+    expect(section?.contains(retryButton)).toBe(true);
+  });
+
+  // 리뷰에서 발견된 기본 폼만 지키던 간극 — 열려 있는 마일스톤 편집기에 저장
+  // 안 한 입력이 있어도 나가기 링크가 그냥 통과했다. #867 요건 7(나가기 보호)은
+  // 마일스톤 편집도 포함해야 한다.
+  it('마일스톤 편집기에 저장 안 한 입력이 있으면 나가기가 확인창을 거친다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('추가').click();
+    });
+
+    const nameInput =
+      container.querySelector<HTMLInputElement>('#milestone-name');
+    if (nameInput === null) throw new TypeError('Missing #milestone-name.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(nameInput, '아직 저장 안 한 마일스톤');
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const exitLink = Array.from(container.querySelectorAll('a')).find(
+      (candidate) => candidate.textContent?.trim() === '← 프로그램 개요',
+    );
+    if (exitLink === undefined) throw new TypeError('Missing exit link.');
+
+    await act(async () => {
+      exitLink.click();
+    });
+
+    expect(confirmMock).toHaveBeenCalledWith(UNSAVED_PROGRAM_MESSAGE);
+    // confirmMock은 beforeEach에서 false를 돌려주므로 이동은 막힌다.
+    expect(routerPushMock).not.toHaveBeenCalled();
   });
 });

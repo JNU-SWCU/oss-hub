@@ -101,8 +101,10 @@ function render(category: ProgramCategory): string {
       form={formFixture(category)}
       errors={{}}
       isSaving={false}
+      isDirty={false}
       onFieldChange={() => undefined}
       onSubmit={() => undefined}
+      onReset={() => undefined}
     />,
   );
 }

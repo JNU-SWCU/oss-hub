@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import type { EditableMilestone } from './api';
 import {
   createMilestone,
@@ -41,12 +40,9 @@ import {
   ProgramEditSkeleton,
   ProgramEditView,
 } from './program-edit-view';
-import { programHref } from './program-paths';
-
-const REDIRECT_DELAY_MS = 1000;
+import { useProgramExitGuard } from './use-program-exit-guard';
 
 export function ProgramEditPage({ programId }: { readonly programId: string }) {
-  const router = useRouter();
   const [state, setState] = useState<ProgramEditLoadState>({ kind: 'loading' });
   const [form, setForm] = useState<ProgramEditForm | null>(null);
   const [dirtyFields, setDirtyFields] = useState<
@@ -73,6 +69,24 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
   );
   const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
   const [isLifecycleBusy, setIsLifecycleBusy] = useState(false);
+  const [isLifecycleConfirming, setIsLifecycleConfirming] = useState(false);
+  /**
+   * 게시 상태 전환 실패 메시지는 generalAlert(페이지 맨 위)가 아니라 따로 갖는다.
+   * 게시 상태 버튼은 페이지 아래쪽 「게시 상태」 섹션에 있어서, generalAlert에
+   * 실으면 원인 버튼과 멀리 떨어진 곳에 뜬다 — 화면 아래에서 누른 사람은
+   * 실패 이유를 보지 못한 채 버튼만 다시 눌러 보게 된다.
+   */
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+
+  const isDirty = dirtyFields.length > 0;
+  // 지금 열려 있는 마일스톤 편집기에 저장 안 한 입력이 있는지. isDirty와 따로
+  // 두는 이유 — 「변경 취소」는 기본 폼만 되돌리는데, 두 값을 합치면 마일스톤만
+  // 고친 상태에서도 그 버튼이 활성화되고 눌러도 아무 일도 안 일어난다.
+  const hasUnsavedMilestoneEdit =
+    milestoneEditor.mode !== 'closed' && milestoneDirtyFields.length > 0;
+  // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
+  // 나가기 확인은 기본 정보뿐 아니라 마일스톤 편집기에 남은 입력도 지켜야 한다(#867).
+  useProgramExitGuard(isDirty || hasUnsavedMilestoneEdit);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -111,6 +125,8 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
     setDirtyFields((current) => addDirtyField(current, field));
     setErrors({});
     setGeneralAlert(null);
+    // 다시 편집을 시작하면 방금 전 저장 성공 메시지는 더 이상 지금 상태를 말하지 않는다.
+    setToastMessage(null);
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -147,11 +163,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
       setState({ kind: 'ready', program: updated });
       setForm(toProgramEditForm(updated));
       setDirtyFields([]);
-      setToastMessage('저장되었습니다. 상세 화면으로 이동합니다.');
-      setTimeout(
-        () => router.replace(programHref(updated.id)),
-        REDIRECT_DELAY_MS,
-      );
+      setToastMessage('저장되었습니다.');
     } catch (error: unknown) {
       setErrors(mapProgramEditError(error));
     } finally {
@@ -234,27 +246,47 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
       setIsMilestoneBusy(false);
     }
   };
-  const toggleLifecycle = async () => {
+  const requestLifecycleToggle = () => setIsLifecycleConfirming(true);
+  const cancelLifecycleToggle = () => setIsLifecycleConfirming(false);
+  const confirmLifecycleToggle = async () => {
+    if (state.kind !== 'ready') return;
     const lifecycle =
-      state.kind === 'ready' && state.program.lifecycle === 'PUBLISHED'
-        ? 'ARCHIVED'
-        : 'PUBLISHED';
-    const message =
-      lifecycle === 'ARCHIVED'
-        ? '프로그램을 내리면 익명 사용자에게 보이지 않고 신청이 차단됩니다. 계속할까요?'
-        : '내린 프로그램을 다시 발행할까요?';
-    if (!window.confirm(message)) return;
+      state.program.lifecycle === 'PUBLISHED' ? 'ARCHIVED' : 'PUBLISHED';
     setIsLifecycleBusy(true);
+    // 새로 시도하는 순간 지난번 실패 메시지는 더 이상 지금 상태를 말하지 않는다.
+    setLifecycleError(null);
     try {
-      await updateProgramLifecycle(programId, lifecycle);
-      await load();
+      const updated = await updateProgramLifecycle(programId, lifecycle);
+      // load()로 통째로 다시 불러오면 그사이 화면이 스켈레톤으로 통째로 갈아치워져
+      // form이 사라지고, 돌아왔을 때 서버 값으로 되돌아가 저장 안 한 기본 정보
+      // 입력이 날아간다. 게시 상태는 폼 내용과 무관하니 마일스톤 저장과 같은
+      // 패턴(updateReadyProgram)으로 program만 그 자리에서 갈아 끼운다.
+      setState((current) =>
+        updateReadyProgram(current, (program) => ({
+          ...program,
+          lifecycle: updated.lifecycle,
+        })),
+      );
     } catch {
-      setGeneralAlert(
+      // 실패 원인은 generalAlert(페이지 맨 위)가 아니라 게시 상태 섹션 안
+      // lifecycleError로 드러난다 — 버튼과 같은 자리에 있어야 한다.
+      setLifecycleError(
         '상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.',
       );
     } finally {
+      // 성공이든 실패든 대화상자가 열린 채 멈추거나 버튼이 계속 비활성으로
+      // 남으면 안 되므로 finally에서 함께 정리한다.
       setIsLifecycleBusy(false);
+      setIsLifecycleConfirming(false);
     }
+  };
+
+  const reset = () => {
+    if (state.kind !== 'ready') return;
+    setForm(toProgramEditForm(state.program));
+    setDirtyFields([]);
+    setErrors({});
+    setToastMessage(null);
   };
 
   if (state.kind === 'failed') {
@@ -270,41 +302,35 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
   }
 
   return (
-    <>
-      <div className="mb-4 flex justify-end">
-        <button
-          type="button"
-          className="rounded-md border border-destructive px-4 py-2 text-sm font-medium text-destructive"
-          disabled={isLifecycleBusy}
-          onClick={() => void toggleLifecycle()}
-        >
-          {state.program.lifecycle === 'PUBLISHED'
-            ? '프로그램 내리기'
-            : '프로그램 복구하기'}
-        </button>
-      </div>
-      <ProgramEditView
-        program={state.program}
-        form={form}
-        errors={errors}
-        toastMessage={toastMessage}
-        generalAlert={generalAlert}
-        isSaving={isSaving}
-        milestoneEditor={milestoneEditor}
-        deleteTarget={deleteTarget}
-        expandedDocumentsMilestoneId={createdMilestoneId}
-        isMilestoneBusy={isMilestoneBusy}
-        onFieldChange={updateField}
-        onSubmit={(event) => void submit(event)}
-        onAddMilestone={openAddMilestone}
-        onEditMilestone={openEditMilestone}
-        onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
-        onMilestoneFieldChange={updateMilestoneField}
-        onSaveMilestone={(event) => void saveMilestone(event)}
-        onRequestDeleteMilestone={setDeleteTarget}
-        onCancelDelete={() => setDeleteTarget(null)}
-        onConfirmDelete={() => void confirmDelete()}
-      />
-    </>
+    <ProgramEditView
+      program={state.program}
+      form={form}
+      errors={errors}
+      toastMessage={toastMessage}
+      generalAlert={generalAlert}
+      isSaving={isSaving}
+      milestoneEditor={milestoneEditor}
+      deleteTarget={deleteTarget}
+      expandedDocumentsMilestoneId={createdMilestoneId}
+      isMilestoneBusy={isMilestoneBusy}
+      isDirty={isDirty}
+      isLifecycleBusy={isLifecycleBusy}
+      isLifecycleConfirming={isLifecycleConfirming}
+      lifecycleError={lifecycleError}
+      onFieldChange={updateField}
+      onSubmit={(event) => void submit(event)}
+      onReset={reset}
+      onRequestLifecycleToggle={requestLifecycleToggle}
+      onCancelLifecycleToggle={cancelLifecycleToggle}
+      onConfirmLifecycleToggle={() => void confirmLifecycleToggle()}
+      onAddMilestone={openAddMilestone}
+      onEditMilestone={openEditMilestone}
+      onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
+      onMilestoneFieldChange={updateMilestoneField}
+      onSaveMilestone={(event) => void saveMilestone(event)}
+      onRequestDeleteMilestone={setDeleteTarget}
+      onCancelDelete={() => setDeleteTarget(null)}
+      onConfirmDelete={() => void confirmDelete()}
+    />
   );
 }

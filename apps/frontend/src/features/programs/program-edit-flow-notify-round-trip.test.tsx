@@ -79,11 +79,19 @@ function EditViewHarness({
       deleteTarget={null}
       expandedDocumentsMilestoneId={null}
       isMilestoneBusy={false}
+      isDirty={dirtyFields.length > 0}
+      isLifecycleBusy={false}
+      isLifecycleConfirming={false}
+      lifecycleError={null}
       onFieldChange={(field, value) => {
         setForm((current) => updateProgramForm(current, field, value));
         setDirtyFields((current) => addDirtyField(current, field));
       }}
       onSubmit={vi.fn()}
+      onReset={noOp}
+      onRequestLifecycleToggle={noOp}
+      onCancelLifecycleToggle={noOp}
+      onConfirmLifecycleToggle={noOp}
       onAddMilestone={noOp}
       onEditMilestone={noOp}
       onCancelMilestone={noOp}
