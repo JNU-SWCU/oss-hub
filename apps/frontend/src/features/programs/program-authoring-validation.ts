@@ -46,9 +46,7 @@ export function validateProgramAuthoringStep(
     case 'schedule':
       return validateSchedule(state);
     case 'milestones':
-      return validateMilestones(state);
-    case 'requirements':
-      return validateRequirements(state);
+      return [...validateMilestones(state), ...validateRequirements(state)];
     case 'operations':
     case 'review':
       return [];

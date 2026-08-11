@@ -95,6 +95,29 @@ describe('program authoring storage recovery', () => {
     );
   });
 
+  it('falls back a stale requirements step to milestones instead of discarding the whole state', () => {
+    // Given
+    const storage = memoryStorage();
+    const legacy = {
+      ...completedAuthoringState(),
+      currentStep: 'requirements',
+    };
+    storage.setItem(
+      PROGRAM_AUTHORING_STORAGE_KEY,
+      JSON.stringify({
+        version: PROGRAM_AUTHORING_STORAGE_VERSION,
+        state: legacy,
+      }),
+    );
+
+    // When
+    const restored = loadProgramAuthoringState(storage);
+
+    // Then
+    expect(restored?.currentStep).toBe('milestones');
+    expect(restored?.name).toBe(legacy.name);
+  });
+
   it('serializes state without a File object', () => {
     const serialized = serializeProgramAuthoringState(
       completedAuthoringState(),

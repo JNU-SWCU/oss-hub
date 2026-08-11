@@ -86,7 +86,7 @@ export function validateRequirements(
       issues.push(
         issue(
           `requirements.${milestone.id}`,
-          'requirements',
+          'milestones',
           '마일스톤마다 요구서류는 최대 20개입니다.',
         ),
       );
@@ -97,11 +97,7 @@ export function validateRequirements(
   }
   if (total > MAX_REQUIREMENTS)
     issues.push(
-      issue(
-        'requirements',
-        'requirements',
-        '전체 요구서류는 최대 100개입니다.',
-      ),
+      issue('requirements', 'milestones', '전체 요구서류는 최대 100개입니다.'),
     );
   return issues;
 }
@@ -116,7 +112,7 @@ function validateRequirement(
     requirement.name,
     `${prefix}.name`,
     '요구서류명을 입력해 주세요.',
-    'requirements',
+    'milestones',
   );
   if (
     requirement.submissionType === 'TEXT' &&
@@ -125,14 +121,14 @@ function validateRequirement(
     issues.push(
       issue(
         `${prefix}.templateFile`,
-        'requirements',
+        'milestones',
         '텍스트 제출에는 양식을 첨부할 수 없습니다.',
       ),
     );
   }
   if (requirement.templateFile?.requiresReselection === true) {
     issues.push(
-      issue(`${prefix}.templateFile`, 'requirements', '파일 재선택 필요'),
+      issue(`${prefix}.templateFile`, 'milestones', '파일 재선택 필요'),
     );
   }
 }

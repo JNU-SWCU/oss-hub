@@ -6,7 +6,6 @@ export const PROGRAM_AUTHORING_STEPS = [
   { id: 'basic', label: '기본 정보' },
   { id: 'schedule', label: '신청/운영 일정' },
   { id: 'milestones', label: '마일스톤' },
-  { id: 'requirements', label: '요구서류/양식' },
   { id: 'operations', label: '운영 설정' },
   { id: 'review', label: '최종 검토' },
 ] as const;
