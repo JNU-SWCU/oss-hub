@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import {
   programApplicantsHref,
   programApplicationDetailHref,
+  programTeamDetailHref,
 } from '@/lib/program-route';
 import { listProgramApplications, listStaffProgramTeams } from './api';
 import {
@@ -230,7 +231,12 @@ export function ProgramStaffTeamsPage({
         header: '팀',
         cell: (row) => (
           <div className="grid gap-0.5">
-            <span className="font-medium break-keep">{row.team.name}</span>
+            <Link
+              href={programTeamDetailHref(programId, row.team.teamId)}
+              className="font-medium break-keep underline underline-offset-2"
+            >
+              {row.team.name}
+            </Link>
             <span className="text-xs text-muted-foreground break-keep">
               {memberSummary(row.team)}
             </span>

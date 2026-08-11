@@ -638,6 +638,23 @@ export function findStaffApplication(
   return null;
 }
 
+/**
+ * 팀 상세(#874)는 팀 id로 신청을 찾는다 — 신청 상세(`findStaffApplication`)와
+ * 달리 신청 id가 아니라 `team.id`로 대조한다. 개인형 신청(`team: null`)은
+ * 애초에 대상이 아니다.
+ */
+export function findApplicationByTeamId(
+  teamId: string,
+): ApplicationListItem | null {
+  for (const fixture of STAFF_PROGRAM_FIXTURES) {
+    const application = fixture.applications.find(
+      (item) => item.team?.id === teamId,
+    );
+    if (application !== undefined) return application;
+  }
+  return null;
+}
+
 export function findStaffMilestone(
   milestoneId: string,
 ): EditableMilestone | null {
