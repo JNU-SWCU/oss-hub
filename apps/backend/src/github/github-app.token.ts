@@ -164,10 +164,13 @@ export class GithubAppTokenProvider implements GithubInstallationTokenProvider {
     }
     const body = await readJsonRecord(response);
     const installationId = body.id;
+    const installationAppId = body.app_id;
     const account = body.account;
     if (
       typeof installationId !== 'number' ||
       !Number.isSafeInteger(installationId) ||
+      typeof installationAppId !== 'number' ||
+      !Number.isSafeInteger(installationAppId) ||
       !isUnknownRecord(account) ||
       typeof account.login !== 'string'
     ) {
@@ -178,6 +181,12 @@ export class GithubAppTokenProvider implements GithubInstallationTokenProvider {
     ) {
       throw new GithubOperationsError(
         GITHUB_OPERATIONS_ERROR_CODES.ORGANIZATION_MISMATCH,
+        false,
+      );
+    }
+    if (String(installationAppId) !== credentials.appId) {
+      throw new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.APP_ID_MISMATCH,
         false,
       );
     }
