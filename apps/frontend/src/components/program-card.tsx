@@ -5,7 +5,7 @@ import type { VariantProps } from 'class-variance-authority';
 import { StatusBadge, statusBadgeVariants } from '@/components/status-badge';
 import { cn } from '@/lib/utils';
 
-/** 카드가 표현하는 업무 상태. 배지 팔레트와 openable 여부를 함께 결정한다. */
+/** 카드가 표현하는 업무 상태. 배지 팔레트를 결정한다. */
 export type ProgramCardStatus =
   | 'recruiting'
   | 'in_progress'
@@ -42,7 +42,7 @@ interface ProgramCardProps extends Omit<
   category?: string;
   /** 모집·진행 기간 문구 */
   period?: string;
-  /** 업무 상태. 배지 팔레트와 openable(`status !== 'ended'`)을 함께 결정한다. */
+  /** 업무 상태. 배지 팔레트를 결정한다. `ended`도 상세 열람은 허용된다 — 신청 등 쓰기만 백엔드 lifecycle이 막는다. */
   status: ProgramCardStatus;
   /**
    * 배지에 표시할 문구. status와 별개로 호출부가 정확한 텍스트를 정한다 —
@@ -55,8 +55,9 @@ interface ProgramCardProps extends Omit<
   /** note 앞에 붙는 아이콘. 프로토타입 스펙상 'team'만 존재한다. */
   noteIcon?: 'team';
   /**
-   * 이동 경로. `status === 'ended'`면 openable이 아니므로 href를 넘겨도
-   * 카드는 열리지 않는다(종료된 프로그램은 클릭 자체가 막힌다).
+   * 이동 경로. 넘기면 카드 전체가 링크가 된다 — `ended`를 포함해 status와
+   * 무관하게 href가 있으면 항상 openable이다(백엔드는 ARCHIVED 상세 읽기를
+   * 이미 허용한다; 신청 등 쓰기만 각 쓰기 경로에서 lifecycle로 거부한다).
    */
   href?: string;
 }
@@ -83,8 +84,9 @@ function TeamIcon() {
 
 /**
  * 프로그램 요약 카드. ProgramCard.dc.html 스펙을 그대로 옮긴다 — 배지는
- * 카드 우상단에 절대 위치, 종료 카드(`status: 'ended'`)는 openable이 아니라
- * href를 받아도 열리지 않고 "자세히 ›" 푸터도 뜨지 않는다.
+ * 카드 우상단에 절대 위치, href가 있으면 status와 무관하게(종료 포함)
+ * 카드 전체가 열리고 "자세히 ›" 푸터가 뜬다. 종료 여부는 배지·톤·
+ * `data-status`로만 구분한다.
  *
  * 색은 전부 semantic 토큰(`--status-*-bg/fg`, `--primary`, `--accent`,
  * `--border`, `--card`)을 통해서만 나온다 — 하드코딩 색상 없음.
@@ -101,15 +103,17 @@ function ProgramCard({
   className,
   ...props
 }: ProgramCardProps) {
-  const openable = status !== 'ended';
+  const openable = Boolean(href);
   const variant = STATUS_BADGE_VARIANT[status];
 
   // 배지 자체는 링크 이름에서 빼고(aria-hidden), 제목 앞에 "상태: …" 한 줄로
   // 정리해 넣는다 — 그대로 두면 링크 이름이 "모집중 SW중심대학사업단 · …"처럼
-  // 배지 문구와 카테고리가 이어 붙어 어색해진다.
-  const srStatusPrefix = openable
-    ? `상태: ${badgeText}. `
-    : `상태: ${badgeText}. 이 프로그램은 종료되어 더 이상 열람할 수 없습니다. `;
+  // 배지 문구와 카테고리가 이어 붙어 어색해진다. 종료는 상세 열람이 막혀
+  // 있지 않으므로(신청만 마감) "열람할 수 없습니다" 같은 거짓 안내는 넣지 않는다.
+  const srStatusPrefix =
+    status === 'ended'
+      ? `상태: ${badgeText}. 신청은 마감되었습니다. `
+      : `상태: ${badgeText}. `;
 
   const content = (
     <>
@@ -159,7 +163,7 @@ function ProgramCard({
   // href는 항상 anchor(next/link)에 두고, 임의 div props(...props)는 안쪽
   // div에만 편다 — Link의 prop 타입이 AnchorHTMLAttributes라 div 이벤트
   // 핸들러 타입과 안 맞는다(HTMLDivElement vs HTMLAnchorElement 이벤트).
-  if (openable && href) {
+  if (href) {
     return (
       <Link
         className="block h-full rounded-card outline-none focus-visible:ring-3 focus-visible:ring-ring/50"

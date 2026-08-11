@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import type {
   DashboardItem,
   ApplicationDecisionNotice,
+  PendingTeamInviteView,
   StudentDashboard,
   StudentDashboardStatus,
 } from '../types';
 import { StudentDashboardCard } from './student-dashboard-card';
 import { ApplicationDecisionNotices } from './application-decision-notices';
+import { PendingTeamInvitesBanner } from './pending-team-invites-banner';
 
 /**
  * 채운 남색은 화면당 주 행동 하나에만 쓴다. 카드마다 "제출 체크리스트"를 채운
@@ -57,6 +59,11 @@ interface StudentDashboardViewProps {
    */
   showSignupCompleteNotice?: boolean;
   applicationDecisionNotices?: readonly ApplicationDecisionNotice[];
+  pendingTeamInvites?: readonly PendingTeamInviteView[];
+  respondingInvitationId?: string | null;
+  inviteActionError?: string | null;
+  onAcceptInvite?: (invitationId: string) => void;
+  onDeclineInvite?: (invitationId: string) => void;
   onRetry: () => void;
 }
 
@@ -79,6 +86,11 @@ export function StudentDashboardView({
   now = new Date(),
   showSignupCompleteNotice = false,
   applicationDecisionNotices = [],
+  pendingTeamInvites = [],
+  respondingInvitationId = null,
+  inviteActionError = null,
+  onAcceptInvite = () => {},
+  onDeclineInvite = () => {},
   onRetry,
 }: StudentDashboardViewProps) {
   const primaryApplicationId = data
@@ -109,6 +121,14 @@ export function StudentDashboardView({
       ) : null}
 
       <ApplicationDecisionNotices notices={applicationDecisionNotices} />
+
+      <PendingTeamInvitesBanner
+        items={pendingTeamInvites}
+        respondingInvitationId={respondingInvitationId}
+        actionError={inviteActionError}
+        onAccept={onAcceptInvite}
+        onDecline={onDeclineInvite}
+      />
 
       {status === 'loading' ? (
         <DashboardSkeleton />

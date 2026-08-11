@@ -38,45 +38,47 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     expect(itemsClass?.split(' ')).toContain('min-[480px]:flex');
   });
 
-  // QA54 — 좌측 사이드바(`AppSidebar`)는 900px 미만에서 아예 숨는다. 그 사이드바와
-  // 같은 목적지를 상단 nav에도 넣는 항목(`belowSidebarBreakpointOnly`)은 ≥900px에서
-  // 사이드바와 중복되지 않도록 접힌 메뉴·한 줄 메뉴 양쪽 모두에서 숨어야 한다.
-  it('belowSidebarBreakpointOnly 항목은 900px 이상에서 접힌 메뉴·한 줄 메뉴 양쪽 모두 숨는다', () => {
-    const items = [
-      ...ITEMS,
-      {
-        label: '접근 목록',
-        href: '/admin/access',
-        belowSidebarBreakpointOnly: true,
-      },
-    ];
+  // feat/sidebar-drawer-below-900 — 900px 미만의 좌측 사이드바 도달 경로는 더 이상
+  // 상단 nav 항목 목록이 아니라 별도의 사이드바 드로어 토글(햄버거)이다.
+  // `onToggleSidebarDrawer`가 주어졌을 때만 그 토글 버튼을 그리고, 항목 목록
+  // 자체(접힌 메뉴·한 줄 메뉴)에는 폭에 따라 숨는 항목이 없다.
+  it('onToggleSidebarDrawer가 있으면 900px 미만 전용 사이드바 드로어 토글을 그린다', () => {
     const html = renderToStaticMarkup(
       <NavBar
         brand={<span>OSS Hub</span>}
-        items={items}
+        items={ITEMS}
         actions={<a href="/login">GitHub으로 로그인</a>}
+        sidebarDrawerOpen={false}
+        onToggleSidebarDrawer={() => {}}
+        sidebarDrawerId="app-sidebar-drawer"
       />,
     );
 
+    const trigger = html.match(
+      /<button[^>]*data-slot="nav-bar-sidebar-drawer-trigger"[^>]*>/,
+    )?.[0];
+    expect(trigger).toBeDefined();
+    expect(trigger).toContain('min-[900px]:hidden');
+    expect(trigger).toContain('aria-expanded="false"');
+    expect(trigger).toContain('aria-controls="app-sidebar-drawer"');
+  });
+
+  it('onToggleSidebarDrawer가 없으면 사이드바 드로어 토글을 그리지 않는다', () => {
+    expect(render()).not.toContain(
+      'data-slot="nav-bar-sidebar-drawer-trigger"',
+    );
+  });
+
+  it('항목 목록 자체에는 900px 기준으로 숨는 항목이 없다 — 좌측 사이드바 도달은 드로어 토글이 전담한다', () => {
+    const html = render();
     const menuPanel = html.match(
       /data-slot="nav-bar-menu-items"[\s\S]*?<\/ul>/,
     )?.[0];
     const inlineList = html.match(
       /data-slot="nav-bar-items"[\s\S]*?<\/ul>/,
     )?.[0];
-
-    expect(menuPanel).toMatch(
-      /<li class="min-\[900px\]:hidden"><a href="\/admin\/access"/,
-    );
-    expect(inlineList).toMatch(
-      /<li class="min-\[900px\]:hidden"><a href="\/admin\/access"/,
-    );
-    // 플래그가 없는 기존 항목은 이 클래스를 받지 않는다.
-    for (const item of ITEMS) {
-      expect(menuPanel).toMatch(
-        new RegExp(`<li><a href="${item.href.replace('/', '\\/')}"`),
-      );
-    }
+    expect(menuPanel).not.toContain('min-[900px]:hidden');
+    expect(inlineList).not.toContain('min-[900px]:hidden');
   });
 
   it('접힌 메뉴도 같은 링크를 모두 담는다 — 좁은 화면에서 길이 끊기지 않는다', () => {

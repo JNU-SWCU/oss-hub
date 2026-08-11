@@ -196,14 +196,13 @@ function ProgramListPage({
         <CardGrid>
           {group.programs.map((program) => {
             const badge = getProgramListBadge(program, now);
-            // ended만 열람 불가 — ProgramCard 내부적으로도 status==='ended'면
-            // href를 넘겨도 열리지 않지만, 애초에 넘기지 않는다.
-            const isOpenable = badge.status !== 'ended';
+            // ended도 상세 열람은 허용된다(백엔드가 ARCHIVED 상세 읽기를
+            // 이미 허용) — 모든 카드에 href를 넘긴다.
             return (
               <ProgramCard
                 badgeText={badge.label}
                 category={`${program.organizer} · ${PROGRAM_CATEGORY_LABELS[program.category]}`}
-                href={isOpenable ? programHref(program.id) : undefined}
+                href={programHref(program.id)}
                 key={program.id}
                 note={program.note?.text}
                 noteIcon={program.note?.icon}

@@ -4,7 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavBar, type NavItem } from '@/components';
+import { useSidebarDrawer } from './product-shell';
+import { programDetailIdFromPathname } from './section-facets';
+import { shellSectionFromPathname } from './sidebar-menu';
 import { COSMOS_GROUND_PATHS } from './signup-routes';
+import { SIDEBAR_DRAWER_DIALOG_ID } from './sidebar-drawer';
 
 interface ShellNavProps {
   items: NavItem[];
@@ -31,6 +35,12 @@ export const LANDING_SOLID_SENTINEL_ID = 'landing-solid-sentinel';
 export function ShellNav({ items, brand, actions }: ShellNavProps) {
   const pathname = usePathname();
   const overlay = pathname === '/';
+  const drawer = useSidebarDrawer();
+  // 이 경로에 실제로 열 사이드바 콘텐츠가 있을 때만 900px 미만 햄버거를 보인다 —
+  // `ProductShell`이 같은 판정(section/programDetailId)으로 드로어 렌더 여부를 정한다.
+  const hasSidebar =
+    shellSectionFromPathname(pathname) !== null ||
+    programDetailIdFromPathname(pathname) !== null;
   /**
    * 가입 화면도 어두운 우주 바탕 위에 선다. 랜딩과 달리 도중에 흰 구간으로
    * 넘어가지 않으므로 표식을 관찰할 것이 없고, 처음부터 끝까지 반전이다.
@@ -107,6 +117,9 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         actions={actions}
         // 경로가 바뀌면 접힌 메뉴를 닫는다 — 셸은 유지되므로 스스로 닫히지 않는다.
         menuResetKey={pathname}
+        sidebarDrawerOpen={drawer?.open}
+        onToggleSidebarDrawer={drawer && hasSidebar ? drawer.toggle : undefined}
+        sidebarDrawerId={SIDEBAR_DRAWER_DIALOG_ID}
         // 터치 타깃은 공개 nav 링크·액션 버튼용이다. 계정 드롭다운의
         // `role=menuitem`까지 잡으면 설정(<a>)만 justify-center가 걸려
         // 로그아웃(<button>)과 글자 정렬이 갈라진다.

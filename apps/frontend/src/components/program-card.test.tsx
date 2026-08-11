@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ProgramCard } from './program-card';
 
-// ProgramCard.dc.html 스펙 검증 — openable 분기, note 렌더, 상태별 팔레트.
+// ProgramCard.dc.html 스펙 검증 — href 유무에 따른 openable 분기, note 렌더, 상태별 팔레트.
 describe('ProgramCard', () => {
   it('renders an openable card as a single link with the "자세히" footer', () => {
     const html = renderToStaticMarkup(
@@ -27,7 +27,7 @@ describe('ProgramCard', () => {
     expect(html).toContain('[overflow-wrap:anywhere]');
   });
 
-  it('renders an ended card without a link, without the footer, and without a working href', () => {
+  it('renders an ended card with an href as a link with the "자세히" footer', () => {
     const html = renderToStaticMarkup(
       <ProgramCard
         badgeText="종료"
@@ -39,11 +39,13 @@ describe('ProgramCard', () => {
       />,
     );
 
-    expect(html).not.toContain('<a');
-    expect(html).not.toContain('자세히');
-    expect(html).not.toContain('href="/programs/program%3Aoss"');
-    // 스크린리더에도 클릭 불가임이 전달돼야 한다.
-    expect(html).toContain('열람할 수 없습니다');
+    expect(html).toContain('<a');
+    expect(html.match(/<a\b/g)).toHaveLength(1);
+    expect(html).toContain('href="/programs/program%3Aoss"');
+    expect(html).toContain('자세히 ›');
+    // 종료는 신청만 마감이지 열람이 막힌 게 아니다 — 거짓 안내를 두지 않는다.
+    expect(html).not.toContain('열람할 수 없습니다');
+    expect(html).toContain('신청은 마감되었습니다');
   });
 
   it('does not render the note row when note is absent', () => {
@@ -124,12 +126,13 @@ describe('ProgramCard', () => {
     },
   );
 
-  it('does not wrap an ended card in a link even without an href', () => {
+  it('does not wrap any card in a link when no href is given, even ended', () => {
     const html = renderToStaticMarkup(
       <ProgramCard badgeText="종료" status="ended" title="종료된 프로그램" />,
     );
 
     expect(html).not.toContain('<a');
+    expect(html).not.toContain('자세히');
     expect(html).toContain('cursor-default');
   });
 });
