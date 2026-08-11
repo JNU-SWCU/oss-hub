@@ -39,9 +39,12 @@ import type {
 
 const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
 const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
-/** 필터 줄 — 시안은 필터를 카드에 넣지 않는다. 표(카드)와 제목 사이의 조작 줄이다. */
-const FILTER_ROW =
-  'grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:items-end';
+/**
+ * 필터 줄 — 시안은 필터를 카드에 넣지 않는다. 표(카드)와 제목 사이의 조작 줄이다.
+ * grid item은 검색 필드 + 버튼 그룹, 2개뿐이다 — grid-cols 수는 item 수와 맞춰야
+ * 빈 칸이 남지 않는다(대조: audit-log-view.tsx는 5개 필드 + 5칸).
+ */
+const FILTER_ROW = 'grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:items-end';
 
 export interface SubmissionMatrixViewProps {
   readonly programId: string;
@@ -443,7 +446,7 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
               placeholder="신청자·팀명·GitHub ID"
             />
           </div>
-          <div className="flex w-full min-w-0 gap-2 sm:col-span-1">
+          <div className="flex w-full min-w-0 gap-2">
             {/* 이 화면의 주 행동은 조회 하나뿐이다 — 채운 버튼도 하나뿐이다.
                 버튼은 글자만큼만 넓힌다. 좁은 화면에서만 한 줄을 반씩 나눠 갖는다. */}
             <Button type="submit" className="h-control flex-1 sm:flex-none">
