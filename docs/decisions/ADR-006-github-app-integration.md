@@ -197,11 +197,13 @@ fine-grained PAT는 repository selection이나 permission 설정과 무관하게
 
 ### 동의 범위 게이트 — 수집 활성화는 동의 문서 개정 이후에만 가능하다
 
-**현재 라이브 동의 문서는 개인 계정 소유 저장소를 명시적으로 수집 범위에서 제외하고 있다.** `CONSENT_POLICY_VERSION`(`apps/backend/src/consents/domain/consent-policy.ts:8`)이 가리키는 `2026-07-21` 버전의 GitHub 활동 동의 문서(`apps/frontend/public/policies/github-activity/2026-07-21.html:14-18`; 같은 디렉터리에 다른 버전 파일은 없으므로 이 버전이 유일한 라이브 버전이다)는 다음과 같이 쓰여 있다.
+**이 절 작성 당시(2026-08-04) 라이브 동의 문서는 개인 계정 소유 저장소를 명시적으로 수집 범위에서 제외하고 있었다.** `CONSENT_POLICY_VERSION`(`apps/backend/src/consents/domain/consent-policy.ts:8`)이 가리키는 GitHub 활동 동의 문서는 다음과 같이 쓰여 있었다.
 
 > "JNU-SWCU Org 저장소의 식별자·가시성, 활동 시각·종류와 저장소 단위 최소 집계값을 프로그램 운영과 커뮤니티 활성화 지표 산출에 사용합니다. 개인 계정 소유 저장소는 이 정책의 수집 대상이 아닙니다."
 
-학생은 이 문구에 동의한 상태다. 이 ADR이 설계하는 조직 밖 public repository 수집은 정확히 이 문구가 제외한 대상(개인 계정 소유 저장소)을 수집 대상으로 삼는다 — 설계와 현재 라이브 동의 범위가 정면으로 어긋난다.
+학생은 이 문구에 동의한 상태였다. 이 ADR이 설계하는 조직 밖 public repository 수집은 정확히 이 문구가 제외한 대상(개인 계정 소유 저장소)을 수집 대상으로 삼는다 — 설계와 당시 라이브 동의 범위가 정면으로 어긋났다.
+
+**2026-08-11 정정.** 위 인용은 이 절이 실제로 커밋된 시점(`464c7b11`, 19:39)에도 이미 stale했다 — 그 17분 전인 19:22에 `6ff4ccb3`이 `CONSENT_POLICY_VERSION`을 `2026-08-04`로 이미 올렸으나, 이 절은 그 이전 버전인 `2026-07-21`을 "현재 라이브"로 인용한 채 커밋됐다. 실제 최신 동의 문서는 `apps/frontend/public/policies/github-activity/2026-08-11.html`이며, 「공개 랭킹 표기」절이 조직 저장소 활동을 가시성과 무관하게 공개 랭킹 집계에 합산한다고 명시한다. **다만 이 확장은 org 저장소 집계 범위에 관한 것이지, 위에서 다루는 조직 밖 개인 public 저장소의 자동 discovery를 여는 것이 아니다** — 아래 "동의 범위 게이트"가 막는 조직 밖 public repository 자동 discovery 비활성 상태는 그대로 유지된다.
 
 **노출 경로.** `GET /ranking`(`apps/backend/src/ranking/ranking.controller.ts:12,16`)은 인증 guard가 없는 비인증 공개 endpoint다. `RankingService`(`apps/backend/src/ranking/ranking.service.ts:110-111`)의 `displayName`은 학생의 실명(`user.name`)이 있으면 실명을 우선하고 없을 때만 `githubLogin`으로 폴백한다. 따라서 이 확장이 활성화되면 학생의 개인 계정·서드파티 OSS 활동이 실명과 함께 비인증 공개 페이지에 집계 노출된다.
 
@@ -435,7 +437,7 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 - unmapped Org repository 처리는 program·team 가짜 매핑을 만들지 않는다.
 - 공개 전환은 review 승인과 분리된 #125 staff/admin action이며 자동화하거나 학생에게 Org-wide visibility write 권한을 주지 않는다.
 - 학생용 read-only 수집 App #15는 post-pilot이며 두 조직 App의 permission을 재사용하지 않는다.
-- 조직 밖 public repository 수집 활성화(`EXTERNAL_PUBLIC` 행을 만들어내는 코드 도입)는 GitHub 활동 동의 문서(`apps/frontend/public/policies/github-activity/`) 개정과 `CONSENT_POLICY_VERSION` 상향 이후에만 가능하다 — 현재 라이브 문서(`2026-07-21.html`)가 "개인 계정 소유 저장소는 이 정책의 수집 대상이 아닙니다"라고 명시하고 있기 때문이다. 이 제약은 스키마·discovery client·REST 배선의 머지를 막지 않으며, 활성화(자동 discovery를 provider로 등록·배선)만 막는다.
+- 조직 밖 public repository 수집 활성화(`EXTERNAL_PUBLIC` 행을 만들어내는 코드 도입)는 GitHub 활동 동의 문서(`apps/frontend/public/policies/github-activity/`) 개정과 `CONSENT_POLICY_VERSION` 상향 이후에만 가능하다 — 최신 라이브 문서(`2026-08-11.html`)도 org 저장소 활동을 가시성과 무관하게 공개 랭킹 집계에 합산한다고만 명시할 뿐, 조직 밖 개인 계정 소유 저장소의 자동 discovery는 여전히 별도 동의 개정 전까지 비활성 대상이기 때문이다(2026-08-11 정정 — 이 항목이 원래 인용하던 `2026-07-21.html`은 이 문장이 커밋되던 시점에 이미 stale했다: 위 "동의 범위 게이트" 절의 2026-08-11 정정 참조). 이 제약은 스키마·discovery client·REST 배선의 머지를 막지 않으며, 활성화(자동 discovery를 provider로 등록·배선)만 막는다.
 - 조직 밖 public repository 수집은 서비스 계정이 발급한 fine-grained PAT(env `GITHUB_PUBLIC_READ_TOKEN` 하나로 REST·GraphQL 공용)만 사용하며 학생 로그인용 `GITHUB_OAUTH_*` App이나 학생 access token을 재사용하지 않는다.
 - discovery(GraphQL `contributionsCollection`)는 installation token이 아니라 위 서비스 계정 PAT를 사용한다 — installation token의 GraphQL 최상위 필드 조회 범위가 문서로 확정되지 않았기 때문이다(미확인).
 - 조직 밖 public repository 수집용 PAT는 C2가 제거한 "조직 수집 authority로서의 webhook·OAuth·PAT"를 되살리는 것이 아니다 — C2의 범위는 조직 저장소 current-pointer authority에 한정되며 이번 PAT는 그 범위 밖(조직 밖 public repository)의 별도 authority다. `apps/backend/src/collection/AGENTS.md` Purpose 문단은 이 스코프 구분을 아직 명시하지 않으므로, 그 문서의 "webhook·OAuth·PAT 수집 경로는 C2로 제거되었다" 문장에 스코프 한정 문구를 추가하는 갱신이 함께 이뤄져야 한다(해당 파일은 `collection` 모듈 소유 레인이 갱신한다 — 이 ADR에서 직접 고치지 않는다).
@@ -469,6 +471,7 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 
 ## Changelog
 
+- 2026-08-11: "동의 범위 게이트" 절과 "New constraints"의 두 인용이 `2026-07-21.html`을 "현재 라이브 동의 문서"로 지칭하던 stale 참조를 정정했다 — 이 두 곳이 실제로 커밋된 시점(`464c7b11`, 19:39)에도 이미 `6ff4ccb3`(19:22)가 `CONSENT_POLICY_VERSION`을 `2026-08-04`로 올려둔 뒤였다. `docs/ranking-exposure-policy` PR이 동의 문서를 `2026-08-11`로 재게시하고 `CONSENT_POLICY_VERSION`을 함께 올렸으므로, 두 참조를 그 최신 버전으로 정정했다. **정정은 참조 버전 문자열에 한정된다** — "조직 밖 public repository 자동 discovery는 별도 동의 개정 전까지 비활성"이라는 게이트의 실질 내용은 그대로 유지했다. 이번 `2026-08-11` 동의 문서 개정은 org 저장소 집계 범위(가입자 전원 노출·private org 저장소 활동의 공개 랭킹 합산)에 관한 것이며, 조직 밖 개인 public 저장소 자동 discovery를 여는 별개 사안이 아니다.
 - 2026-07-21: Issue #120에 따라 조직 자동화 App의 인증·최소 권한·token·당시 webhook·후속 티켓 계약을 Proposed로 기록했다.
 - 2026-07-21: Issue #36과 #120의 PM 결정에 따라 Org-wide read Collection App과 selected-repository write Operations App을 분리하고 파일럿 수집·소유권·공개 경계를 Accepted로 확정했다.
 - 2026-07-22: Issue #205의 조건부 승인에 따라 Collection App의 `Pull requests: read`와 당시 REST read 및 webhook smoke 분리를 기록했다.

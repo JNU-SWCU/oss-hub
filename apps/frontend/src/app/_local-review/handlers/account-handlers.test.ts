@@ -58,7 +58,7 @@ function jsonBody(
  * 백엔드 `consents/domain/consent-policy.ts`의 정책 버전. 문서 파일 이름이 곧 이
  * 버전이라 어긋나면 "전문 보기"가 404가 된다.
  */
-const CONSENT_POLICY_VERSION = '2026-08-04';
+const CONSENT_POLICY_VERSION = '2026-08-11';
 
 const AUTHENTICATED_FIXTURES = [
   'student',
