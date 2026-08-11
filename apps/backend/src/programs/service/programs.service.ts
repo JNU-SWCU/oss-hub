@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ApplicationStatus, Role, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
+import {
+  MILESTONE_NOT_SUBMITTED,
+  milestoneCompletionStatus,
+} from '../../common/milestone-completion';
 import type {
   ApplicationSubmissionSummaryResponseDto,
   ProgramDetailResponseDto,
-  ViewerSubmissionStatusResponseDto,
 } from '../dto/program-detail.dto';
 import { programDeadline } from '../program-deadline';
 import type { ProgramListQuery } from '../program-list-query';
@@ -24,6 +27,33 @@ type SubmissionRecord = {
   readonly milestoneId: string;
   readonly status: SubmissionStatus;
 };
+
+type DocumentSubmissionRecord = {
+  readonly milestoneDocumentId: string;
+  readonly status: SubmissionStatus;
+};
+
+/** 한 신청이 이 마일스톤에서 어디까지 왔는가 — 판정은 `milestoneCompletionStatus` 가 한다. */
+function milestoneStatusFor(
+  milestone: {
+    readonly id: string;
+    readonly documents: readonly { readonly id: string }[];
+  },
+  submissions: readonly SubmissionRecord[],
+  documentSubmissions: readonly DocumentSubmissionRecord[],
+) {
+  return milestoneCompletionStatus({
+    requiredDocumentStatuses: milestone.documents.map(
+      (document) =>
+        documentSubmissions.find(
+          (submission) => submission.milestoneDocumentId === document.id,
+        )?.status ?? null,
+    ),
+    submissionStatus:
+      submissions.find((submission) => submission.milestoneId === milestone.id)
+        ?.status ?? null,
+  });
+}
 
 /** 카드 하단 안내 문구. 값이 없으면 필드 자체를 생략한다(undefined). */
 export interface ProgramListItemNote {
@@ -208,9 +238,6 @@ export class ProgramsService {
         },
         milestones: program.milestones.map((milestone) => {
           const deadline = programDeadline(milestone.dueAt, now);
-          const submission = studentApplication?.submissions.find(
-            (item) => item.milestoneId === milestone.id,
-          );
           return {
             id: milestone.id,
             name: milestone.name,
@@ -220,12 +247,15 @@ export class ProgramsService {
             deadlineLabel: deadline.label,
             description: milestone.instructions,
             submissionType: milestone.submissionType,
-            viewerSubmissionStatus: this.viewerSubmissionStatus(
-              studentApplication?.id ?? null,
-              submission ?? null,
-            ),
+            viewerSubmissionStatus: studentApplication
+              ? milestoneStatusFor(
+                  milestone,
+                  studentApplication.submissions,
+                  studentApplication.milestoneDocumentSubmissions,
+                )
+              : null,
             applicationSubmissionSummary: staffApplications
-              ? this.summaryForMilestone(milestone.id, staffApplications)
+              ? this.summaryForMilestone(milestone, staffApplications)
               : null,
           };
         }),
@@ -236,26 +266,24 @@ export class ProgramsService {
     }
   }
 
-  private viewerSubmissionStatus(
-    applicationId: string | null,
-    submission: SubmissionRecord | null,
-  ): ViewerSubmissionStatusResponseDto {
-    if (!applicationId) return null;
-    return submission?.status ?? 'NOT_SUBMITTED';
-  }
-
   private summaryForMilestone(
-    milestoneId: string,
+    milestone: {
+      readonly id: string;
+      readonly documents: readonly { readonly id: string }[];
+    },
     applications: readonly {
       readonly submissions: readonly SubmissionRecord[];
+      readonly milestoneDocumentSubmissions: readonly DocumentSubmissionRecord[];
     }[],
   ): ApplicationSubmissionSummaryResponseDto {
     const summary = { ...EMPTY_SUMMARY, total: applications.length };
     for (const application of applications) {
-      const status = application.submissions.find(
-        (submission) => submission.milestoneId === milestoneId,
-      )?.status;
-      if (!status) summary.notSubmitted += 1;
+      const status = milestoneStatusFor(
+        milestone,
+        application.submissions,
+        application.milestoneDocumentSubmissions,
+      );
+      if (status === MILESTONE_NOT_SUBMITTED) summary.notSubmitted += 1;
       else if (status === SubmissionStatus.SUBMITTED) summary.submitted += 1;
       else if (status === SubmissionStatus.APPROVED) summary.approved += 1;
       else if (status === SubmissionStatus.CHANGES_REQUESTED)

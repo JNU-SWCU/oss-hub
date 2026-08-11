@@ -30,6 +30,7 @@ const publicProgram = {
       dueAt: new Date('2026-07-21T23:59:59+09:00'),
       instructions: '설명',
       submissionType: 'FILE',
+      documents: [],
     },
     {
       id: 'overdue',
@@ -38,6 +39,7 @@ const publicProgram = {
       dueAt: new Date('2026-07-20T23:59:59+09:00'),
       instructions: null,
       submissionType: 'TEXT',
+      documents: [],
     },
   ],
 };
@@ -101,6 +103,7 @@ describe('ProgramsService detail', () => {
       submissions: [
         { milestoneId: 'today', status: SubmissionStatus.REJECTED },
       ],
+      milestoneDocumentSubmissions: [],
     });
     const viewer: ProgramViewer = {
       githubId: 1n,
@@ -120,6 +123,7 @@ describe('ProgramsService detail', () => {
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
       submissions: [],
+      milestoneDocumentSubmissions: [],
     });
     const viewer: ProgramViewer = {
       githubId: 1n,
@@ -144,6 +148,9 @@ describe('ProgramsService detail', () => {
         id: true,
         status: true,
         submissions: { select: { milestoneId: true, status: true } },
+        milestoneDocumentSubmissions: {
+          select: { milestoneDocumentId: true, status: true },
+        },
       },
     });
     expect(detail.viewer.applicationStatus).toBe(ApplicationStatus.APPROVED);
@@ -155,13 +162,15 @@ describe('ProgramsService detail', () => {
         submissions: [
           { milestoneId: 'today', status: SubmissionStatus.SUBMITTED },
         ],
+        milestoneDocumentSubmissions: [],
       },
       {
         submissions: [
           { milestoneId: 'today', status: SubmissionStatus.CHANGES_REQUESTED },
         ],
+        milestoneDocumentSubmissions: [],
       },
-      { submissions: [] },
+      { submissions: [], milestoneDocumentSubmissions: [] },
     ]);
     const viewer: ProgramViewer = {
       githubId: 2n,
@@ -182,7 +191,9 @@ describe('ProgramsService detail', () => {
   it('교직원 제출 요약은 승인된 신청만 분모에 포함한다', async () => {
     // Given
     const { service, findMany } = createService();
-    findMany.mockResolvedValue([{ submissions: [] }]);
+    findMany.mockResolvedValue([
+      { submissions: [], milestoneDocumentSubmissions: [] },
+    ]);
 
     const viewer: ProgramViewer = {
       githubId: 2n,
@@ -201,13 +212,113 @@ describe('ProgramsService detail', () => {
       },
       select: {
         submissions: { select: { milestoneId: true, status: true } },
+        milestoneDocumentSubmissions: {
+          select: { milestoneDocumentId: true, status: true },
+        },
       },
     });
     expect(detail.milestones[0]?.applicationSubmissionSummary).toEqual(
       expect.objectContaining({ total: 1, notSubmitted: 1 }),
     );
   });
+
+  it('서류만 받는 마일스톤도 학생 진행에 반영한다 (#820)', async () => {
+    // Given: 첫 마일스톤에 필수 서류 두 건이 달렸고 코드 제출은 없다.
+    const { service, findUnique, findFirst } = createService();
+    findUnique.mockResolvedValue(programWithRequiredDocuments());
+    findFirst.mockResolvedValue({
+      id: 'application-1',
+      status: ApplicationStatus.APPROVED,
+      submissions: [],
+      milestoneDocumentSubmissions: [
+        { milestoneDocumentId: 'doc-1', status: SubmissionStatus.APPROVED },
+        { milestoneDocumentId: 'doc-2', status: SubmissionStatus.APPROVED },
+      ],
+    });
+    const viewer: ProgramViewer = {
+      githubId: 1n,
+      userId: 'student-1',
+      role: Role.STUDENT,
+    };
+
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then: 예전에는 Submission 행이 없어 늘 NOT_SUBMITTED 였다.
+    expect(detail.milestones[0]?.viewerSubmissionStatus).toBe('APPROVED');
+  });
+
+  it('필수 서류 한 건이 미제출이면 학생 진행은 미제출이다', async () => {
+    // Given: 두 건 중 하나만 승인.
+    const { service, findUnique, findFirst } = createService();
+    findUnique.mockResolvedValue(programWithRequiredDocuments());
+    findFirst.mockResolvedValue({
+      id: 'application-1',
+      status: ApplicationStatus.APPROVED,
+      submissions: [],
+      milestoneDocumentSubmissions: [
+        { milestoneDocumentId: 'doc-1', status: SubmissionStatus.APPROVED },
+      ],
+    });
+    const viewer: ProgramViewer = {
+      githubId: 1n,
+      userId: 'student-1',
+      role: Role.STUDENT,
+    };
+
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then
+    expect(detail.milestones[0]?.viewerSubmissionStatus).toBe('NOT_SUBMITTED');
+  });
+
+  it('교직원 요약도 서류 축을 센다', async () => {
+    // Given: 한 팀은 서류를 다 냈고, 한 팀은 아무것도 안 냈다.
+    const { service, findUnique, findMany } = createService();
+    findUnique.mockResolvedValue(programWithRequiredDocuments());
+    findMany.mockResolvedValue([
+      {
+        submissions: [],
+        milestoneDocumentSubmissions: [
+          { milestoneDocumentId: 'doc-1', status: SubmissionStatus.APPROVED },
+          { milestoneDocumentId: 'doc-2', status: SubmissionStatus.APPROVED },
+        ],
+      },
+      { submissions: [], milestoneDocumentSubmissions: [] },
+    ]);
+    const viewer: ProgramViewer = {
+      githubId: 2n,
+      userId: 'staff-1',
+      role: Role.STAFF,
+    };
+
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then
+    expect(detail.milestones[0]?.applicationSubmissionSummary).toEqual({
+      notSubmitted: 1,
+      submitted: 0,
+      approved: 1,
+      changesRequested: 0,
+      rejected: 0,
+      total: 2,
+    });
+  });
 });
+
+/** 첫 마일스톤에만 필수 서류 두 건을 단 프로그램. */
+function programWithRequiredDocuments() {
+  return {
+    ...publicProgram,
+    milestones: publicProgram.milestones.map((milestone, index) =>
+      index === 0
+        ? { ...milestone, documents: [{ id: 'doc-1' }, { id: 'doc-2' }] }
+        : milestone,
+    ),
+  };
+}
 
 describe('programDeadline', () => {
   it('Asia/Seoul 달력 날짜를 기준으로 D-day를 계산한다', () => {
