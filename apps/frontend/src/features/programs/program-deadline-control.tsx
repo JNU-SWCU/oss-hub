@@ -173,6 +173,7 @@ function DeadlinePreviewCard({
     ['이메일 없음', preview.noEmailCount, '명'],
     ['미제출 신청', preview.applicationCount, '건'],
     ['대상 마일스톤', preview.milestoneCount, '개'],
+    ['교직원 요약 수신', preview.staffRecipientCount, '명'],
   ] as const;
   return (
     <Card>
@@ -194,6 +195,8 @@ function DeadlinePreviewCard({
         </dl>
         <p className="mt-4 text-small text-muted-foreground">
           미리보기는 10분 동안 유효하며, 대상이 바뀌면 다시 계산해야 합니다.
+          미제출 팀 목록을 담은 교직원 요약은 「알림 보내기」를 눌렀을 때만 함께
+          나갑니다.
         </p>
       </CardContent>
     </Card>

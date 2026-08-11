@@ -95,6 +95,22 @@ it('미제출 신청과 제외 사유를 식별자 없이 집계한다', async (
     inactiveCount: 1,
     optedOutCount: 1,
     noEmailCount: 0,
+    // 전역 STAFF/ADMIN 중 ACTIVE·수신 동의·이메일 있음: staff-on, admin-on.
+    staffRecipientCount: 2,
   });
   expect(JSON.stringify(preview)).not.toContain(DIGEST_FIXTURE.studentMissing);
+  expect(JSON.stringify(preview)).not.toContain(DIGEST_FIXTURE.staffOn);
+});
+
+it('교직원 요약 수신자는 수신 동의한 활성 STAFF/ADMIN만이다', async () => {
+  const staff = await harness.repository.findNotifiableStaff();
+
+  expect(staff.map((recipient) => recipient.id)).toEqual([
+    DIGEST_FIXTURE.adminOn,
+    DIGEST_FIXTURE.staffOn,
+  ]);
+  expect(staff.map((recipient) => recipient.notificationEmail)).toEqual([
+    'admin-on@example.com',
+    'staff-on@example.com',
+  ]);
 });

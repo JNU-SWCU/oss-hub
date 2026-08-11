@@ -108,6 +108,73 @@ it('한 수신자 발송 실패가 다른 수신자의 multipart 발송과 SENT 
   expect(JSON.stringify(ledger)).not.toContain('synthetic-provider-token');
 });
 
+it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다', async () => {
+  const automatic = new RecordingMailSender();
+  await harness.service(automatic).sendDeadlineDigests(DIGEST_FIXTURE.now);
+
+  // 자동(09시 cron) 경로에는 교직원 요약이 없다.
+  expect(automatic.sent.map((mail) => mail.to)).toEqual([
+    'student-missing@example.com',
+  ]);
+
+  await harness.reset();
+  const manual = new RecordingMailSender();
+  const service = harness.service(manual);
+  const preview = await service.previewProgram(
+    DIGEST_FIXTURE.staffOnGithub,
+    DIGEST_FIXTURE.notifyProgram,
+    DIGEST_FIXTURE.now,
+  );
+
+  const result = await service.sendProgramFromPreview(
+    DIGEST_FIXTURE.staffOnGithub,
+    DIGEST_FIXTURE.notifyProgram,
+    preview,
+    DIGEST_FIXTURE.now,
+  );
+
+  expect(result).toMatchObject({ sentCount: 1, staffRecipientCount: 2 });
+  expect(manual.sent.map((mail) => mail.to).sort()).toEqual([
+    'admin-on@example.com',
+    'staff-on@example.com',
+    'student-missing@example.com',
+  ]);
+  const staffMail = manual.sent.find(
+    (mail) => mail.to === 'staff-on@example.com',
+  );
+  for (const content of [staffMail?.body, staffMail?.html]) {
+    expect(content).toContain(`synthetic-${DIGEST_FIXTURE.studentMissing}`);
+    expect(content).toContain(
+      `synthetic-${DIGEST_FIXTURE.studentOff} (수신 거부)`,
+    );
+    expect(content).toContain(
+      `synthetic-${DIGEST_FIXTURE.studentDeactivated} (비활성)`,
+    );
+  }
+  expect(staffMail?.html).toContain('https://oss.example/staff/dashboard');
+
+  const ledger = await harness.prisma.notification.findMany({
+    where: { type: 'DEADLINE_DIGEST' },
+    select: { userId: true, idempotencyKey: true, status: true },
+  });
+  expect(ledger.map((row) => row.idempotencyKey).sort()).toEqual([
+    `deadline-digest-staff:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.adminOn}`,
+    `deadline-digest-staff:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.staffOn}`,
+    `deadline-digest:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.studentMissing}`,
+  ]);
+  expect(ledger.every((row) => row.status === 'SENT')).toBe(true);
+
+  // 같은 날 두 번째 수동 발송은 학생·교직원 양쪽 모두 멱등하게 막힌다.
+  await service.sendProgramFromPreview(
+    DIGEST_FIXTURE.staffOnGithub,
+    DIGEST_FIXTURE.notifyProgram,
+    preview,
+    DIGEST_FIXTURE.now,
+  );
+
+  expect(manual.sent).toHaveLength(3);
+});
+
 it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 된다', async () => {
   await harness.settingsRepository.updateByGithubId(
     DIGEST_FIXTURE.studentMissingGithub,

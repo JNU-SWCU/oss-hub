@@ -151,6 +151,67 @@ describe('deadline digest eligibility', () => {
     });
   });
 
+  it('마일스톤별 미제출 명단에 제외된 후보도 사유와 함께 담고 추가 조회를 하지 않는다', () => {
+    // Given
+    const input = source();
+    const application = input.applications[0];
+    if (application === undefined) throw new TypeError('Missing application.');
+    const classified: DeadlineProgramSource = {
+      ...input,
+      applications: [
+        {
+          ...application,
+          members: [
+            user('deliverable'),
+            user('inactive', { accountStatus: AccountStatus.DEACTIVATED }),
+            user('opted-out', { notifyEnabled: false }),
+            user('no-email', { notificationEmail: null }),
+          ],
+        },
+      ],
+    };
+
+    // When
+    const eligibility = buildDeadlineEligibility(
+      classified,
+      deadlineWindow(NOW),
+    );
+
+    // Then: 발송 가능자는 1명이지만 명단은 5명 전원이다.
+    expect(eligibility.recipients).toHaveLength(2);
+    expect(
+      eligibility.staffMilestones.map((milestone) => [
+        milestone.id,
+        milestone.missingNicknames,
+      ]),
+    ).toEqual([
+      [
+        'at-end',
+        [
+          'nickname-applicant',
+          'nickname-deliverable',
+          'nickname-inactive (비활성)',
+          'nickname-no-email (이메일 없음)',
+          'nickname-opted-out (수신 거부)',
+        ],
+      ],
+    ]);
+  });
+
+  it('제출이 끝난 마일스톤은 교직원 요약 명단에서 빠진다', () => {
+    // Given: 두 마일스톤 중 at-now의 필수 서류는 이미 제출됐다.
+    const eligibility = buildDeadlineEligibility(source(), deadlineWindow(NOW));
+
+    // Then
+    expect(eligibility.milestones.map((milestone) => milestone.id)).toEqual([
+      'at-now',
+      'at-end',
+    ]);
+    expect(
+      eligibility.staffMilestones.map((milestone) => milestone.id),
+    ).toEqual(['at-end']);
+  });
+
   it('selects one adopted-fixture recipient before the required submission and none after it', () => {
     // Given
     const requiredDocumentId = 'e2e:program-authoring:required-document';
