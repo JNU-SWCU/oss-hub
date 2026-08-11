@@ -474,3 +474,16 @@ export async function getStaffDashboardSummary(): Promise<StaffDashboardSummary>
     await apiClient<unknown>('dashboard/staff/summary'),
   );
 }
+
+/**
+ * ADMIN 전용 영구 삭제(#875). STAFF는 프로그램 생성자여도 백엔드가 403으로
+ * 거절한다 — 화면은 위험 영역 섹션 자체를 ADMIN에게만 보여준다.
+ */
+export function deleteProgram(
+  programId: string,
+): Promise<{ readonly id: string; readonly deleted: true }> {
+  return apiClient<{ readonly id: string; readonly deleted: true }>(
+    `programs/${encodeURIComponent(programId)}`,
+    { method: 'DELETE' },
+  );
+}

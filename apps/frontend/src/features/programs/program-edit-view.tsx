@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { EditableMilestone, EditableProgram } from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
+import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
 import {
   lifecycleStatusLabel,
   ProgramEditLifecycleSection,
@@ -41,6 +42,8 @@ interface ProgramEditViewProps {
   readonly isLifecycleBusy: boolean;
   readonly isLifecycleConfirming: boolean;
   readonly lifecycleError: string | null;
+  /** ADMIN만 「위험 영역」(영구 삭제) 섹션을 본다(#875). */
+  readonly isAdmin: boolean;
   readonly onFieldChange: (
     field: ProgramEditableField,
     value: string | boolean,
@@ -110,6 +113,7 @@ export function ProgramEditView({
   isLifecycleBusy,
   isLifecycleConfirming,
   lifecycleError,
+  isAdmin,
   onFieldChange,
   onSubmit,
   onReset,
@@ -215,6 +219,11 @@ export function ProgramEditView({
           onRequestToggle={onRequestLifecycleToggle}
           onCancelToggle={onCancelLifecycleToggle}
           onConfirmToggle={onConfirmLifecycleToggle}
+        />
+        <ProgramEditDangerZoneSection
+          programId={program.id}
+          programName={program.name}
+          isAdmin={isAdmin}
         />
       </div>
     </PageBody>

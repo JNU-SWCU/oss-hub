@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, ProgramLifecycle, Role } from '@prisma/client';
+import { AccountStatus, Prisma, ProgramLifecycle, Role } from '@prisma/client';
 import {
+  createProgramDeletionAuditMetadata,
   createProgramLifecycleAuditMetadata,
+  PROGRAM_DELETION_AUDIT_ACTIONS,
   PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
+  type ProgramDeletionAuditBlockingCounts,
 } from '../../audit-log/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
@@ -72,5 +75,147 @@ export class ProgramLifecycleService {
       }
       return { id: programId, lifecycle };
     });
+  }
+
+  /**
+   * ADMIN 전용 영구 삭제. 신청·팀·제출물·게시글 중 하나라도 남아 있으면 409로 막는다 —
+   * 학생 데이터가 붙은 프로그램을 지우는 강제 경로는 이 기능의 목적 밖이다(#875).
+   * 차단 카운트 확인과 자식 삭제·Program 삭제·감사 로그 기록을 전부 한 트랜잭션 안에서
+   * 수행해 확인-삭제 사이의 race를 없앤다.
+   */
+  async delete(
+    githubId: bigint,
+    programId: string,
+  ): Promise<{ readonly id: string; readonly deleted: true }> {
+    const actor = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { role: true, accountStatus: true },
+    });
+    if (
+      actor?.accountStatus !== AccountStatus.ACTIVE ||
+      actor.role !== Role.ADMIN
+    ) {
+      throw new DomainException(
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
+      );
+    }
+
+    return this.prisma.$transaction(async (transaction) => {
+      const program = await transaction.program.findUnique({
+        where: { id: programId },
+        select: { id: true, name: true, lifecycle: true },
+      });
+      if (!program) {
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+        );
+      }
+
+      const blockingCounts = await this.countDeletionBlockers(
+        transaction,
+        programId,
+      );
+      if (
+        blockingCounts.applications > 0 ||
+        blockingCounts.teams > 0 ||
+        blockingCounts.submissions > 0 ||
+        blockingCounts.boardPosts > 0
+      ) {
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_BLOCKED],
+          { blockingCounts },
+        );
+      }
+
+      // 교직원이 올린 스캐폴딩(작성 임시 파일·작성 요청)은 학생 데이터가 아니라 명시 삭제한다.
+      await this.deleteAuthoringArtifacts(transaction, programId);
+      await this.deleteMilestoneTree(transaction, programId);
+      await transaction.program.delete({ where: { id: programId } });
+
+      await this.auditLog.record(
+        {
+          actorGithubId: githubId,
+          action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
+          targetType: 'PROGRAM',
+          targetId: programId,
+          metadata: createProgramDeletionAuditMetadata({
+            programName: program.name,
+            lifecycle: program.lifecycle,
+            blockingCounts,
+          }),
+        },
+        transaction,
+      );
+
+      return { id: programId, deleted: true as const };
+    });
+  }
+
+  private async countDeletionBlockers(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+  ): Promise<ProgramDeletionAuditBlockingCounts> {
+    const [applications, teams, boardPosts, submissions] = await Promise.all([
+      transaction.application.count({ where: { programId } }),
+      transaction.team.count({ where: { programId } }),
+      transaction.boardPost.count({ where: { programId } }),
+      transaction.submission.count({ where: { milestone: { programId } } }),
+    ]);
+    return { applications, teams, boardPosts, submissions };
+  }
+
+  /** ProgramCreateRequest(actor별 idempotency 기록)와 그에 딸린 임시 업로드를 지운다. */
+  private async deleteAuthoringArtifacts(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+  ): Promise<void> {
+    const createRequest = await transaction.programCreateRequest.findUnique({
+      where: { programId },
+      select: { id: true, actorId: true },
+    });
+    if (!createRequest) return;
+    await transaction.programAuthoringUpload.deleteMany({
+      where: {
+        createRequestId: createRequest.id,
+        createRequestActorId: createRequest.actorId,
+      },
+    });
+    await transaction.programCreateRequest.delete({ where: { programId } });
+  }
+
+  /**
+   * Milestone → MilestoneDocument → MilestoneDocumentTemplateFile 순으로 지운다.
+   * SubmissionFile은 applicationId=0(차단 통과 시점)이어도 milestoneId만 채운 채 첨부 전
+   * 대기 상태로 남은 고아 업로드가 있을 수 있어, Milestone 삭제 전에 명시적으로 함께 치운다.
+   */
+  private async deleteMilestoneTree(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+  ): Promise<void> {
+    const milestones = await transaction.milestone.findMany({
+      where: { programId },
+      select: { id: true },
+    });
+    const milestoneIds = milestones.map((milestone) => milestone.id);
+    if (milestoneIds.length === 0) return;
+
+    const documents = await transaction.milestoneDocument.findMany({
+      where: { milestoneId: { in: milestoneIds } },
+      select: { id: true },
+    });
+    const documentIds = documents.map((document) => document.id);
+    if (documentIds.length > 0) {
+      await transaction.milestoneDocumentTemplateFile.deleteMany({
+        where: { milestoneDocumentId: { in: documentIds } },
+      });
+    }
+
+    await transaction.submissionFile.deleteMany({
+      where: { milestoneId: { in: milestoneIds } },
+    });
+    await transaction.milestoneDocument.deleteMany({
+      where: { milestoneId: { in: milestoneIds } },
+    });
+    await transaction.milestone.deleteMany({ where: { programId } });
   }
 }

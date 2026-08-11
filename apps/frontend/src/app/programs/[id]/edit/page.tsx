@@ -1,6 +1,6 @@
 import { RolePanelShell } from '../../../_shell/role-panel-shell';
-import { ProgramEditPage } from '@/features/programs/program-edit-page';
 import { decodeRouteProgramId } from '@/features/programs/program-paths';
+import { ProgramEditRoute } from './program-edit-route';
 
 // 프로그램 편집(URL: /programs/[id]/edit) — 접근: STAFF, ADMIN.
 export default async function ProgramEditPageRoute({
@@ -11,7 +11,7 @@ export default async function ProgramEditPageRoute({
   const { id } = await params;
   return (
     <RolePanelShell allow={['STAFF', 'ADMIN']}>
-      <ProgramEditPage programId={decodeRouteProgramId(id)} />
+      <ProgramEditRoute programId={decodeRouteProgramId(id)} />
     </RolePanelShell>
   );
 }

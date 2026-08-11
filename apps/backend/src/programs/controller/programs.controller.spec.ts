@@ -8,6 +8,7 @@ import { issueSessionToken } from '../../auth/session-token';
 import { SessionGuard } from '../../auth/session.guard';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
+import { ProgramLifecycleService } from '../service/program-lifecycle.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from '../service/programs.service';
@@ -45,6 +46,7 @@ describe('ProgramsController read boundaries', () => {
   };
   const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
+  const lifecycle = { delete: jest.fn() };
   let controller: ProgramsController;
 
   beforeEach(async () => {
@@ -57,6 +59,7 @@ describe('ProgramsController read boundaries', () => {
         { provide: ProgramActivityService, useValue: activity },
         { provide: ProgramViewerService, useValue: viewers },
         { provide: AuthConfig, useValue: authConfig },
+        { provide: ProgramLifecycleService, useValue: lifecycle },
       ],
     })
       .overrideGuard(OriginGuard)
@@ -266,5 +269,20 @@ describe('ProgramsController read boundaries', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('programActivity')),
     ).toContain(SessionGuard);
+  });
+
+  it('삭제는 세션·origin guard 뒤에 있고 세션 githubId·programId를 lifecycle 서비스에 그대로 넘긴다', async () => {
+    lifecycle.delete.mockResolvedValue({ id: 'program-1', deleted: true });
+    const request = { sessionGithubId: 101n };
+
+    await expect(controller.delete('program-1', request)).resolves.toEqual({
+      id: 'program-1',
+      deleted: true,
+    });
+
+    expect(lifecycle.delete).toHaveBeenCalledWith(101n, 'program-1');
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('delete')),
+    ).toEqual([SessionGuard, OriginGuard]);
   });
 });

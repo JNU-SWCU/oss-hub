@@ -21,6 +21,9 @@ const lifecycleActionProps = {
   isLifecycleBusy: false,
   isLifecycleConfirming: false,
   lifecycleError: null,
+  // #875 「위험 영역」 노출 여부. 대부분의 기존 테스트는 STAFF 화면을 보므로
+  // 기본값은 false — ADMIN 전용 동작은 별도 describe에서만 true로 덮어쓴다.
+  isAdmin: false,
   onReset: noOp,
   onRequestLifecycleToggle: noOp,
   onCancelLifecycleToggle: noOp,
@@ -517,5 +520,78 @@ describe('ProgramEditView contract', () => {
     );
 
     expect(html).toContain('게시 상태');
+  });
+
+  // #875 — 「위험 영역」(영구 삭제)은 ADMIN에게만 보이고, 「게시 상태」 아래
+  // 페이지 맨 끝에 있으며, 「삭제」 버튼은 destructive 톤이다.
+  it('isAdmin=false(STAFF)면 위험 영역 섹션을 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={editableProgram}
+        form={toProgramEditForm(editableProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).not.toContain('위험 영역');
+  });
+
+  it('isAdmin=true(ADMIN)면 게시 상태 아래에 destructive 톤의 위험 영역 섹션을 그린다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={editableProgram}
+        form={toProgramEditForm(editableProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        isAdmin
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    const lifecycleIndex = html.indexOf('게시 상태');
+    const dangerZoneIndex = html.indexOf('위험 영역');
+    expect(lifecycleIndex).toBeGreaterThan(-1);
+    expect(dangerZoneIndex).toBeGreaterThan(lifecycleIndex);
+
+    // '삭제' 만으로 찾으면 위 안내문("...영구히 삭제합니다...")에 먼저 걸린다 —
+    // 버튼은 '>삭제<'로 감싸인 정확한 텍스트라 이걸로 구분한다.
+    const buttonStart = html.indexOf('>삭제<', dangerZoneIndex);
+    expect(buttonStart).toBeGreaterThan(-1);
+    const buttonTag = html.slice(Math.max(0, buttonStart - 1200), buttonStart);
+    expect(buttonTag).toContain('data-variant="destructive"');
   });
 });

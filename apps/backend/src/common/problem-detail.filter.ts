@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import type {
+  ProblemDetailBlockingCounts,
   ProblemDetailCurrentAccess,
   ProblemDetailFieldError,
 } from './error-code';
@@ -26,6 +27,7 @@ interface ProblemDetail {
   retryNotBeforeAt?: string;
   fieldErrors?: readonly ProblemDetailFieldError[];
   currentAccess?: ProblemDetailCurrentAccess;
+  blockingCounts?: ProblemDetailBlockingCounts;
 }
 interface ExceptionLogEvent {
   readonly event: 'http.exception';
