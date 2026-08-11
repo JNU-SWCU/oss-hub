@@ -46,7 +46,10 @@ it('학생이 수동 트리거를 호출하면 STAFF_ONLY로 거부되고 메일
   );
 
   await expect(
-    trigger.triggerSend(DIGEST_FIXTURE.studentMissingGithub, DIGEST_FIXTURE.now),
+    trigger.triggerSend(
+      DIGEST_FIXTURE.studentMissingGithub,
+      DIGEST_FIXTURE.now,
+    ),
   ).rejects.toMatchObject({
     errorCode: { code: 'NOT_001', status: 403 },
   });
