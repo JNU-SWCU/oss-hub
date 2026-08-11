@@ -36,25 +36,22 @@ type PrismaAdminActor = Prisma.UserGetPayload<{
 
 type LockedUserRow = Readonly<{ id: string }>;
 
-/** Prisma가 `$queryRaw` 실패를 감쌀 때 쓰는 코드. 원래 코드는 `meta.code`에 들어간다. */
-const RAW_QUERY_FAILED_CODE = 'P2010';
-/** Postgres `serialization_failure`. */
-const POSTGRES_SERIALIZATION_FAILURE = '40001';
-/** Prisma가 직렬화 실패에 쓰는 표준 코드 — 공용 재시도가 이것만 알아본다. */
-const PRISMA_SERIALIZATION_FAILURE_CODE = 'P2034';
-
 /**
  * 활성 ADMIN 행을 전부 `FOR UPDATE`로 잠그고 그 수를 돌려준다.
  *
  * 돌아온 뒤에는 이 트랜잭션이 끝날 때까지 아무도 그 행들을 바꿀 수 없다 — actor 권한
  * 재검증은 **이 호출 뒤에** 해야 의미가 있다(#687).
+ *
+ * `RepeatableRead` 트랜잭션에서 이 잠금이 대기하다 상대가 커밋하면 Postgres가 `40001`을
+ * 내고 Prisma는 그걸 `P2010`으로 감싼다. 그 모양을 알아보는 일은 공용
+ * `isSerializationFailure`(`common/prisma-serialization-retry.ts`)가 한다 — 예전에는
+ * 여기서 코드를 `P2034`로 되돌리는 우회를 뒀지만, 판정이 공용으로 옮겨가 지웠다(#822).
  */
 export async function lockActiveAdminRows(
   transaction: Prisma.TransactionClient,
 ): Promise<number> {
-  try {
-    const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
-      Prisma.sql`
+  const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
+    Prisma.sql`
         SELECT id
         FROM "User"
         WHERE role = ${Role.ADMIN}::"Role"
@@ -62,44 +59,8 @@ export async function lockActiveAdminRows(
         ORDER BY id
         FOR UPDATE
       `,
-    );
-    return rows.length;
-  } catch (error: unknown) {
-    throw normalizeSerializationFailure(error);
-  }
-}
-
-/**
- * 직렬화 실패를 Prisma의 **표준 모양(P2034)으로 되돌린다.**
- *
- * `RepeatableRead` 트랜잭션에서 이 `FOR UPDATE`가 대기하다 상대가 커밋하면 Postgres는
- * `40001`을 낸다. 그런데 `$queryRaw`로 나온 실패는 Prisma가 P2034가 아니라 **P2010**
- * (`Raw query failed`)으로 감싸고 원래 코드는 `meta.code`에 넣는다. 그래서 공용
- * `withSerializationRetry`(`common/prisma-serialization-retry.ts`)의 P2034 판정에 걸리지
- * 않고, 재시도 없이 raw Prisma 에러가 그대로 500으로 새어 나간다 — 실제로 그렇게 새는
- * 것을 `admin-actor-toctou.integration.spec.ts`의 프로필 거부 시험이 잡아냈다.
- *
- * 여기서 코드만 P2034로 바꿔 주면 그 공용 재시도가 제 일을 한다. 판정을 공용 쪽에
- * 넓히지 않는 이유는 `common/`이 이 레인의 수정 대상이 아니기 때문이다
- * (`apps/backend/src/common/AGENTS.md`: 「새 모듈은 이 파일들을 참조만 하고 수정하지
- * 않는다」). 공용 판정을 고치는 편이 더 낫다고 보면 그건 독립 PR 감이다.
- */
-function normalizeSerializationFailure(error: unknown): unknown {
-  if (
-    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-    error.code !== RAW_QUERY_FAILED_CODE
-  ) {
-    return error;
-  }
-  const meta = error.meta as { readonly code?: string } | undefined;
-  if (meta?.code !== POSTGRES_SERIALIZATION_FAILURE) {
-    return error;
-  }
-  return new Prisma.PrismaClientKnownRequestError(error.message, {
-    code: PRISMA_SERIALIZATION_FAILURE_CODE,
-    clientVersion: error.clientVersion,
-    meta: error.meta,
-  });
+  );
+  return rows.length;
 }
 
 export async function findAdminActorByGithubId(
