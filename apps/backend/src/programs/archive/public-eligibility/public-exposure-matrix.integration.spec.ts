@@ -561,9 +561,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       '저장소가 아니므로 비공개 활동은 새지 않는다)',
     async () => {
       const page = await publicProjectsService.findPage(undefined, 50);
-      expect(
-        page.items.some((item) => item.id === outcome1.repositoryId),
-      ).toBe(false);
+      expect(page.items.some((item) => item.id === outcome1.repositoryId)).toBe(
+        false,
+      );
 
       await expect(
         publicProjectsService.findDetail(
@@ -587,8 +587,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // 0이다"가 비공개 활동 비노출의 실제 증거다.
       const ranking = await rankingService.findPage('all', 1, 100);
       const outcome1Entry = ranking.items.find(
-        (entry) =>
-          entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
+        (entry) => entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
       );
       expect(outcome1Entry).toBeDefined();
       expect(outcome1Entry).toMatchObject({
@@ -639,9 +638,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       '집계 대상 밖이라 수치가 0/0/0이다',
     async () => {
       const page = await publicProjectsService.findPage(undefined, 50);
-      expect(
-        page.items.some((item) => item.id === outcome3.repositoryId),
-      ).toBe(true);
+      expect(page.items.some((item) => item.id === outcome3.repositoryId)).toBe(
+        true,
+      );
 
       await expect(
         publicProjectsService.findDetail(
@@ -663,8 +662,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // 증거다.
       const ranking = await rankingService.findPage('all', 1, 100);
       const outcome3Entry = ranking.items.find(
-        (entry) =>
-          entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
+        (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
       );
       expect(outcome3Entry).toBeDefined();
       expect(outcome3Entry).toMatchObject({
@@ -683,9 +681,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       '이 비공개(PRIVATE) 활동을 그대로 합산한다',
     async () => {
       const page = await publicProjectsService.findPage(undefined, 50);
-      expect(
-        page.items.some((item) => item.id === outcome4.repositoryId),
-      ).toBe(true);
+      expect(page.items.some((item) => item.id === outcome4.repositoryId)).toBe(
+        true,
+      );
 
       await expect(
         publicProjectsService.findDetail(
@@ -726,9 +724,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       'RANKING_REPOSITORY_SCOPE 밖이라서 가입자 행은 있으나 수치는 0/0/0이다',
     async () => {
       const page = await publicProjectsService.findPage(undefined, 50);
-      expect(
-        page.items.some((item) => item.id === outcome5.repositoryId),
-      ).toBe(false);
+      expect(page.items.some((item) => item.id === outcome5.repositoryId)).toBe(
+        false,
+      );
 
       await expect(
         publicProjectsService.findDetail(
@@ -751,8 +749,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // 있고 0이다"로 증명한다.
       const ranking = await rankingService.findPage('all', 1, 100);
       const outcome5Entry = ranking.items.find(
-        (entry) =>
-          entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
+        (entry) => entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
       );
       expect(outcome5Entry).toBeDefined();
       expect(outcome5Entry).toMatchObject({
