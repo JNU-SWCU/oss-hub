@@ -12,7 +12,6 @@ trap 'rm -rf "$sanitized_home"' EXIT
 export E2E_UNKNOWN_PARENT_CREDENTIAL_PATH=sentinel-must-not-reach-child
 export GITHUB_APP_ORG=sentinel-must-not-reach-child
 export GITHUB_COLLECTION_APP_ID=sentinel-must-not-reach-child
-export GITHUB_COLLECTION_APP_PRIVATE_KEY=sentinel-must-not-reach-child
 export GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE=sentinel-must-not-reach-child
 export GITHUB_COLLECTION_APP_API_BASE_URL=sentinel-must-not-reach-child
 export GITHUB_COLLECTION_APP_MAX_PAGES=sentinel-must-not-reach-child
@@ -20,7 +19,6 @@ export GITHUB_COLLECTION_APP_DEADLINE_MS=sentinel-must-not-reach-child
 export GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES=sentinel-must-not-reach-child
 export GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS=sentinel-must-not-reach-child
 export GITHUB_OPERATIONS_APP_ID=sentinel-must-not-reach-child
-export GITHUB_OPERATIONS_APP_PRIVATE_KEY=sentinel-must-not-reach-child
 export GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE=sentinel-must-not-reach-child
 export COLLECTION_CRON_EXPRESSION=sentinel-must-not-reach-child
 export AUTH_INITIAL_ROLES=sentinel-must-not-reach-child

@@ -552,3 +552,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
   #99·#151이 닫혔지만 기존 그룹 행은 아직 `planned`에 포함돼 있으며, 이 부분은 #206 범위 밖의 별도 갱신 대상으로 남긴다.
   #56(Feature Owner 배분)은 이슈 자체는 열려 있으나 마지막 코멘트로 PM 승인이 확인됐다 —
   close 여부는 PM 판단 대기이므로 여기서는 임의로 닫힌 것으로 표기하지 않는다.
+
+## 2026-08-12 GitHub App 자격증명 계약 보강
+
+- [#879](https://github.com/JNU-SWCU/oss-hub/issues/879) 진행 중: Collection·Operations 개인키 입력을 `*_PRIVATE_KEY_FILE` 전용 fail-closed 계약으로 전환한다.

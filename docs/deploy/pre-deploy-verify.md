@@ -71,10 +71,6 @@ GITHUB_OPERATIONS_APP_ID=REPLACE_LOCAL_OPERATIONS_APP_ID
 # 저장소 루트의 추적하지 않는 secrets/ 아래 PEM 파일을 직접 두고, _SOURCE는 그 호스트 경로를 가리킨다.
 GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE=./secrets/localverify/collection.pem
 GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE=./secrets/localverify/operations.pem
-# legacy fallback은 선택값이라 비워 둔다.
-GITHUB_COLLECTION_APP_PRIVATE_KEY=
-GITHUB_OPERATIONS_APP_PRIVATE_KEY=
-
 # GitHub OAuth — 로컬 부팅용 형식만 맞춘 자리표시자.
 # health 확인만 할 때는 형식상 값이면 되지만, backend가 부팅 시 검증하면
 # 개발용 OAuth App의 값으로 대체한다.
