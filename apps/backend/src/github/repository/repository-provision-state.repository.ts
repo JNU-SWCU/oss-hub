@@ -32,6 +32,7 @@ import {
   RepositoryProvisionLeaseLostError,
   toProvisionedRepository,
 } from '../repository-provision-state.helpers';
+import type { ProvisionedRepositoryRow } from '../repository-provision-state.helpers';
 
 @Injectable()
 export class RepositoryProvisionStateRepository implements RepositoryProvisionStateStore {
@@ -112,21 +113,58 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         // source는 호출자가 넘긴 값을 그대로 쓴다 — OWN+EXTERNAL 연결을 여기서
         // ORG_PROVISIONED로 잘못 찍으면, 뒤이은 enrollExternalRepository가
         // "이미 다른 source로 있는 행"으로 보고 조용히 아무것도 안 한다.
-        const repository = await transaction.githubRepository.upsert({
-          where: { applicationId: input.applicationId },
-          update: {},
-          create: {
-            applicationId: input.applicationId,
-            programId: input.programId,
-            teamId: input.teamId,
-            githubRepositoryId: input.metadata.githubRepositoryId,
-            nameWithOwner: input.metadata.nameWithOwner,
-            visibility: input.metadata.visibility,
-            source: input.source,
-            presence: CollectionRepositoryPresence.PRESENT,
-          },
-          select: repositorySelection,
+        //
+        // org sweep(collection-sync.service.ts)이 이 githubRepositoryId를 이미
+        // `applicationId: null`로 관찰해 놨을 수 있다(OWN+ORGANIZATION). 그 경우
+        // applicationId 기준 upsert는 항상 create로 떨어지고, githubRepositoryId
+        // unique 제약과 충돌해 REPOSITORY_MISMATCH로 영구 실패한다 — 그 행을
+        // 새로 만드는 대신 채택(adopt)한다. `applicationId: null` 조건을 건 채로
+        // updateMany해 동시에 다른 job이 같은 행을 먼저 채택하는 경쟁을 막는다
+        // (0건이면 진짜 충돌로 취급).
+        const swept = await transaction.githubRepository.findUnique({
+          where: { githubRepositoryId: input.metadata.githubRepositoryId },
+          select: { id: true, applicationId: true },
         });
+        let repository: ProvisionedRepositoryRow;
+        if (swept !== null && swept.applicationId === null) {
+          const adopted = await transaction.githubRepository.updateMany({
+            where: { id: swept.id, applicationId: null },
+            data: {
+              applicationId: input.applicationId,
+              programId: input.programId,
+              teamId: input.teamId,
+              nameWithOwner: input.metadata.nameWithOwner,
+              visibility: input.metadata.visibility,
+              source: input.source,
+              presence: CollectionRepositoryPresence.PRESENT,
+            },
+          });
+          if (adopted.count !== 1) {
+            throw finalProvisionFailure(
+              PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+            );
+          }
+          repository = await transaction.githubRepository.findUniqueOrThrow({
+            where: { id: swept.id },
+            select: repositorySelection,
+          });
+        } else {
+          repository = await transaction.githubRepository.upsert({
+            where: { applicationId: input.applicationId },
+            update: {},
+            create: {
+              applicationId: input.applicationId,
+              programId: input.programId,
+              teamId: input.teamId,
+              githubRepositoryId: input.metadata.githubRepositoryId,
+              nameWithOwner: input.metadata.nameWithOwner,
+              visibility: input.metadata.visibility,
+              source: input.source,
+              presence: CollectionRepositoryPresence.PRESENT,
+            },
+            select: repositorySelection,
+          });
+        }
         const provisioned = toProvisionedRepository(repository);
         if (!matchesProvisionedMetadata(provisioned, input)) {
           throw finalProvisionFailure(
