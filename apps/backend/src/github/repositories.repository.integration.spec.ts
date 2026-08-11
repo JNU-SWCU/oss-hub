@@ -119,12 +119,25 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         },
       ],
     });
-    await prisma.teamMember.create({
-      data: {
-        teamId: MEMBER_TEAM_ID,
-        programId: PROGRAM_ID,
-        userId: CURRENT_USER_ID,
-      },
+    // CURRENT_USER_ID는 MEMBER_TEAM_ID의 팀원으로 들어가 "리더가 아니라 팀원으로 소유"
+    // 분기(members some)를 검증한다. OTHER_USER_ID는 MEMBER_TEAM_ID의 리더인데,
+    // 실제 D5 생성 흐름(createTeamWithLeader)은 리더도 항상 TeamMember 행을 갖는다
+    // (프로그램당 한 팀에만 소속 가능한 unique 제약상 CURRENT_USER_ID는 이미 이 프로그램의
+    // 유일한 소속 슬롯을 MEMBER_TEAM_ID에 쓰고 있어 PERSONAL_TEAM_ID/LEADER_TEAM_ID에는
+    // 추가할 수 없다 — 이 두 팀은 리더 전용 소유(leader 분기)만 검증한다).
+    await prisma.teamMember.createMany({
+      data: [
+        {
+          teamId: MEMBER_TEAM_ID,
+          programId: PROGRAM_ID,
+          userId: CURRENT_USER_ID,
+        },
+        {
+          teamId: MEMBER_TEAM_ID,
+          programId: PROGRAM_ID,
+          userId: OTHER_USER_ID,
+        },
+      ],
     });
     await createFixtures();
   });
@@ -196,7 +209,10 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-Current` },
         program: { name: `${PREFIX}-program` },
-        team: { name: `${PREFIX}-personal-team` },
+        team: {
+          name: `${PREFIX}-personal-team`,
+          _count: { members: 0 },
+        },
       },
       status: RepositoryProvisionJobStatus.PENDING,
       lastErrorCode: 'SYNTHETIC_ERROR',
@@ -210,7 +226,10 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-other` },
         program: { name: `${PREFIX}-program` },
-        team: { name: `${PREFIX}-leader-team` },
+        team: {
+          name: `${PREFIX}-leader-team`,
+          _count: { members: 0 },
+        },
       },
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       lastErrorCode: 'SYNTHETIC_ERROR',
@@ -231,7 +250,10 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-other` },
         program: { name: `${PREFIX}-program` },
-        team: { name: `${PREFIX}-member-team` },
+        team: {
+          name: `${PREFIX}-member-team`,
+          _count: { members: 2 },
+        },
       },
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       lastErrorCode: 'SYNTHETIC_ERROR',
