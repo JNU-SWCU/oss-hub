@@ -85,6 +85,8 @@ function publicProfileProject(
     // 수집이 이 저장소를 관측했는지. 셋은 서로의 존재를 함께 증명해야 해서
     // 파서가 어긋난 조합(관측했다면서 metrics 가 없는 등)을 거부한다.
     observed: true,
+    // #893 — 이 픽스처는 첫 sweep까지 끝난 상태를 합성한다.
+    hasCollectedData: true,
     dataAsOf: '2026-07-31T00:00:00.000Z',
     metrics: { commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
   };

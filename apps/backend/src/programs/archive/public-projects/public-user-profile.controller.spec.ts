@@ -41,6 +41,7 @@ describe('PublicUserProfileController', () => {
         {
           row: project,
           observed: true,
+          hasCollectedData: true,
           dataAsOf: new Date('2026-07-30T00:00:00.000Z'),
           metrics: { commitCount: 5, pullRequestCount: 1, releaseCount: 0 },
         },
@@ -59,6 +60,7 @@ describe('PublicUserProfileController', () => {
     expect(result.projects).toHaveLength(1);
     expect(result.projects[0]?.projectId).toBe('9001');
     expect(result.projects[0]?.observed).toBe(true);
+    expect(result.projects[0]?.hasCollectedData).toBe(true);
     expect(result.projects[0]?.metrics).toEqual({
       commitCount: 5,
       pullRequestCount: 1,

@@ -84,7 +84,10 @@ describe('PublicProjectsService.findProfile integration', () => {
     // 기여자(OTHER_CONTRIBUTOR_GITHUB_ID)의 기여도 함께 심어 소유자 지표에 섞이지 않음을 본다.
     // repo-c: eligible이지만 collection이 아직 관측하지 않은 저장소(unobserved).
     // repo-d: collection이 관측했지만 소유자의 기여 행이 없는 저장소(observed-zero).
-    const repoKeys = ['a', 'b', 'c', 'd'] as const;
+    // repo-e(#893): presence: PRESENT라 observed:true지만 첫 inventory sweep 전이라
+    // lastCompleteInventoryObservedAt이 여전히 null인 저장소(pre-sweep) — repo-d와 달리
+    // observed는 true인데 hasCollectedData는 false로, "관측된 0"과 다시 구분된다.
+    const repoKeys = ['a', 'b', 'c', 'd', 'e'] as const;
     const applicantIds = repoKeys.map((key) => `${PREFIX}-applicant-${key}`);
     await prisma.user.createMany({
       data: repoKeys.map((key, index) => ({
@@ -130,6 +133,7 @@ describe('PublicProjectsService.findProfile integration', () => {
       b: 8_900_000_000_002n,
       c: 8_900_000_000_003n,
       d: 8_900_000_000_004n,
+      e: 8_900_000_000_005n,
     };
     // #617 단계 D 이후 platform(옛 Repository)과 collection 관측(옛 CollectionRepository)이
     // 한 GithubRepository 행이다 — 더는 같은 githubRepositoryId를 공유하는 두 행을 따로 만들
@@ -137,7 +141,11 @@ describe('PublicProjectsService.findProfile integration', () => {
     // lastCompleteInventoryObservedAt), repo-c는 미관측을 나타내려고 presence: ABSENT로 만든다 —
     // `getRepositoryCumulativeMetrics`가 presence: PRESENT만 보므로 이 한 컬럼 차이가
     // "관측-0(d)"과 "미관측(c)"을 여전히 구분 가능하게 한다.
+    // repo-e(#893)는 presence: PRESENT지만 lastCompleteInventoryObservedAt을 아예 쓰지 않는다
+    // (provisioning 직후, 첫 sweep 전) — presence 하나만으로는 "PRESENT는 되자마자 참"이라
+    // observed:true까지는 repo-a/b/d와 똑같이 나오고, hasCollectedData만 false로 갈린다.
     const observedKeys = ['a', 'b', 'd'] as const;
+    const preSweepKeys = ['e'] as const;
     await prisma.githubRepository.createMany({
       data: repoKeys.map((key, index) => ({
         id: `${PREFIX}-repository-${key}`,
@@ -157,12 +165,18 @@ describe('PublicProjectsService.findProfile integration', () => {
                 '2026-05-01T00:00:00.000Z',
               ),
             }
-          : { presence: CollectionRepositoryPresence.ABSENT }),
+          : (preSweepKeys as readonly string[]).includes(key)
+            ? {
+                githubOrganizationId: 8_800_500_000_000n,
+                defaultBranch: 'main',
+                presence: CollectionRepositoryPresence.PRESENT,
+              }
+            : { presence: CollectionRepositoryPresence.ABSENT }),
       })),
     });
 
-    // 소유자를 세 저장소(a/b/d)의 팀 리더로 묶어 listForUser가 이 저장소들을 찾게 한다.
-    for (const key of observedKeys) {
+    // 소유자를 네 저장소(a/b/d/e)의 팀 리더로 묶어 listForUser가 이 저장소들을 찾게 한다.
+    for (const key of [...observedKeys, ...preSweepKeys]) {
       await prisma.team.create({
         data: {
           id: `${PREFIX}-team-${key}`,
@@ -249,12 +263,12 @@ describe('PublicProjectsService.findProfile integration', () => {
 
   it(
     '두 저장소(a/b) 합산이 정확하고, 다른 기여자의 활동은 배제되며, ' +
-      '관측-0(d)과 미관측(c)이 서로 다르게 표현된다',
+      '관측-0(d)과 미관측(c)과 pre-sweep(e, #893)이 서로 다르게 표현된다',
     async () => {
       const result = await service.findProfile(OWNER_ID);
 
       expect(result.identity.githubNickname).toBe(`${PREFIX}-owner-login`);
-      expect(result.projects).toHaveLength(3);
+      expect(result.projects).toHaveLength(4);
 
       const byKey = new Map(
         result.projects.map((project) => [project.row.id, project]),
@@ -263,9 +277,11 @@ describe('PublicProjectsService.findProfile integration', () => {
       const repoB = byKey.get(`${PREFIX}-repository-b`);
       const repoC = byKey.get(`${PREFIX}-repository-c`);
       const repoD = byKey.get(`${PREFIX}-repository-d`);
+      const repoE = byKey.get(`${PREFIX}-repository-e`);
 
       // repo-a: 소유자 기여만 보이고, 다른 기여자의 999 값은 절대 섞이지 않는다.
       expect(repoA?.observed).toBe(true);
+      expect(repoA?.hasCollectedData).toBe(true);
       expect(repoA?.metrics).toEqual({
         commitCount: 3,
         pullRequestCount: 1,
@@ -273,6 +289,7 @@ describe('PublicProjectsService.findProfile integration', () => {
       });
 
       expect(repoB?.observed).toBe(true);
+      expect(repoB?.hasCollectedData).toBe(true);
       expect(repoB?.metrics).toEqual({
         commitCount: 4,
         pullRequestCount: 0,
@@ -286,6 +303,7 @@ describe('PublicProjectsService.findProfile integration', () => {
       // repo-d: collection이 관측은 했으나(observed: true) 소유자의 기여 행이 없어 0값이다 —
       // "관측했지만 0"과 "미관측"이 서로 다른 상태임을 보여준다.
       expect(repoD?.observed).toBe(true);
+      expect(repoD?.hasCollectedData).toBe(true);
       expect(repoD?.metrics).toEqual({
         commitCount: 0,
         pullRequestCount: 0,
@@ -293,7 +311,21 @@ describe('PublicProjectsService.findProfile integration', () => {
       });
       expect(repoD?.dataAsOf).not.toBeNull();
 
-      // 두 저장소(a/b) 합산 — 다른 기여자의 활동이나 observed-zero 저장소는 포함하지 않는다.
+      // repo-e(#893): presence: PRESENT라 repo-d와 마찬가지로 observed: true / metrics
+      // 0값이지만, lastCompleteInventoryObservedAt이 아직 없어 hasCollectedData는 false다 —
+      // "관측된 0"(d)과 "첫 sweep 전"(e)이 observed만으로는 구분되지 않는다는 게 이 필드가
+      // 메꾸는 갭이다. dataAsOf는 fallback으로 채워지므로 null은 아니다.
+      expect(repoE?.observed).toBe(true);
+      expect(repoE?.hasCollectedData).toBe(false);
+      expect(repoE?.metrics).toEqual({
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      });
+      expect(repoE?.dataAsOf).not.toBeNull();
+
+      // 두 저장소(a/b) 합산 — 다른 기여자의 활동이나 observed-zero/pre-sweep 저장소는
+      // 포함하지 않는다.
       expect(result.observedTotals).toEqual({
         commitCount: 7,
         pullRequestCount: 1,
@@ -321,6 +353,7 @@ describe('PublicProjectsService.findProfile integration', () => {
       );
 
       expect(repoC?.observed).toBe(false);
+      expect(repoC?.hasCollectedData).toBe(false);
       expect(repoC?.dataAsOf).toBeNull();
       expect(repoC?.metrics).toBeNull();
     } finally {

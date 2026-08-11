@@ -537,6 +537,7 @@ export class CollectionReadService implements CollectionReadPort {
         repositoryId: repository.githubRepositoryId,
         dataAsOf:
           dataAsOf ?? repository.lastCompleteInventoryObservedAt ?? new Date(),
+        hasCollectedData: repository.lastCompleteInventoryObservedAt !== null,
         commitCount: repository.contributions.reduce(
           (sum, aggregate) => sum + aggregate.commitCount,
           0,

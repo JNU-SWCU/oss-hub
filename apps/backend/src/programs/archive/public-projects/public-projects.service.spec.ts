@@ -539,6 +539,7 @@ describe('PublicProjectsService', () => {
         {
           repositoryId: 9001n,
           dataAsOf: new Date('2026-07-30T00:00:00.000Z'),
+          hasCollectedData: true,
           commitCount: 42,
           pullRequestCount: 7,
           releaseCount: 3,
@@ -683,7 +684,13 @@ describe('PublicProjectsService', () => {
       expect(profile.identity).toEqual(identity);
       // 아직 collection이 이 저장소를 관측하지 않았다 — 미관측(observed=false)이다.
       expect(profile.projects).toEqual([
-        { row: found, observed: false, dataAsOf: null, metrics: null },
+        {
+          row: found,
+          observed: false,
+          hasCollectedData: false,
+          dataAsOf: null,
+          metrics: null,
+        },
       ]);
       expect(profile.observedTotals).toEqual({
         commitCount: 0,
@@ -714,6 +721,7 @@ describe('PublicProjectsService', () => {
         {
           repositoryId: 9101n,
           dataAsOf: dataAsOfA,
+          hasCollectedData: true,
           commitCount: 999,
           pullRequestCount: 999,
           releaseCount: 999,
@@ -721,6 +729,7 @@ describe('PublicProjectsService', () => {
         {
           repositoryId: 9102n,
           dataAsOf: dataAsOfB,
+          hasCollectedData: true,
           commitCount: 999,
           pullRequestCount: 999,
           releaseCount: 999,
@@ -772,12 +781,14 @@ describe('PublicProjectsService', () => {
         {
           row: projectA,
           observed: true,
+          hasCollectedData: true,
           dataAsOf: dataAsOfA,
           metrics: { commitCount: 5, pullRequestCount: 1, releaseCount: 0 },
         },
         {
           row: projectB,
           observed: true,
+          hasCollectedData: true,
           dataAsOf: dataAsOfB,
           metrics: { commitCount: 3, pullRequestCount: 2, releaseCount: 1 },
         },
@@ -815,6 +826,7 @@ describe('PublicProjectsService', () => {
         {
           repositoryId: 9201n,
           dataAsOf,
+          hasCollectedData: true,
           commitCount: 0,
           pullRequestCount: 0,
           releaseCount: 0,
@@ -836,16 +848,68 @@ describe('PublicProjectsService', () => {
         {
           row: observedZero,
           observed: true,
+          hasCollectedData: true,
           dataAsOf,
           metrics: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
         },
-        { row: unobserved, observed: false, dataAsOf: null, metrics: null },
+        {
+          row: unobserved,
+          observed: false,
+          hasCollectedData: false,
+          dataAsOf: null,
+          metrics: null,
+        },
       ]);
       expect(profile.observedTotals).toEqual({
         commitCount: 0,
         pullRequestCount: 0,
         releaseCount: 0,
       });
+    });
+
+    it('#893: presence는 PRESENT라 observed:true지만 첫 sweep 전이라 hasCollectedData:false인 project를 그대로 전달한다', async () => {
+      const preSweep = row({
+        id: 'synthetic-repository-pre-sweep',
+        githubRepositoryId: 9301n,
+      });
+      const findUserIdentity = jest.fn().mockResolvedValue(identity);
+      const listForUser = jest.fn().mockResolvedValue([preSweep]);
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(new Set([preSweep.githubRepositoryId]));
+      const dataAsOf = new Date('2026-08-12T00:00:00.000Z');
+      // getRepositoryCumulativeMetrics는 presence: PRESENT면 첫 sweep 전이어도 행을 반환한다
+      // (#617 단계 D 이후 알려진 동작) — hasCollectedData만 false로 그 상태를 표시한다.
+      const getRepositoryCumulativeMetrics = jest.fn().mockResolvedValue([
+        {
+          repositoryId: 9301n,
+          dataAsOf,
+          hasCollectedData: false,
+          commitCount: 0,
+          pullRequestCount: 0,
+          releaseCount: 0,
+        },
+      ]);
+      const getContributorCumulativeMetrics = jest.fn().mockResolvedValue([]);
+      const { service } = serviceWith({
+        findUserIdentity,
+        listForUser,
+        filterEligibleRepositoryIds,
+        getRepositoryCumulativeMetrics,
+        getContributorCumulativeMetrics,
+      });
+
+      const profile = await service.findProfile('synthetic-user-1');
+
+      expect(profile.projects).toEqual([
+        {
+          row: preSweep,
+          observed: true,
+          hasCollectedData: false,
+          dataAsOf,
+          metrics: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
+        },
+      ]);
     });
   });
 });

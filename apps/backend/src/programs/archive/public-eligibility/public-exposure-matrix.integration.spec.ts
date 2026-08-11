@@ -691,6 +691,10 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         pullRequestCount: 0,
         releaseCount: 0,
       });
+      // #893 — observed는 위 characterization대로 여전히 true지만(이 갭 자체는 고치지 않는다),
+      // lastCompleteInventoryObservedAt이 없으므로 hasCollectedData는 false다. 프런트는
+      // observed 단독이 아니라 이 필드로 "첫 sweep 전" 상태를 "관측된 0"과 구분해서 보여준다.
+      expect(profile.projects[0]?.hasCollectedData).toBe(false);
 
       // ranking은 RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 요구한다 — provisioning
       // 시점부터 presence가 PRESENT이니 이 저장소도 스코프 안이다. PM 확정 정책상 가입자는

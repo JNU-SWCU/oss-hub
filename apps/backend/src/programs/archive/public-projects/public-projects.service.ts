@@ -245,6 +245,7 @@ export class PublicProjectsService {
           return {
             row: project,
             observed: false,
+            hasCollectedData: false,
             dataAsOf: null,
             metrics: null,
           };
@@ -253,6 +254,7 @@ export class PublicProjectsService {
         return {
           row: project,
           observed: true,
+          hasCollectedData: repositoryMetric.hasCollectedData,
           dataAsOf: repositoryMetric.dataAsOf,
           metrics: {
             commitCount: own?.commitCount ?? 0,

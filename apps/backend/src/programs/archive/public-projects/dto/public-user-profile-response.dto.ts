@@ -16,6 +16,12 @@ import {
  * 아직 collection이 이 저장소를 관측하지 않은 것이라 `dataAsOf`/`metrics`가 `null`이고,
  * `observed`가 `true`인데 `metrics`가 0값이면 관측은 됐지만 이 사용자의 기여가 없다는
  * 뜻이다 — 두 상태를 프런트가 구분할 수 있다.
+ *
+ * `hasCollectedData`(#893)는 `observed: true`를 다시 나눈다 — presence는 provisioning
+ * 시점부터 PRESENT라 `observed`만으로는 "첫 inventory sweep이 실제로 끝났는지"를 알 수 없다
+ * (알려진 갭, `public-exposure-matrix.integration.spec.ts` outcome-3). 이 필드는
+ * `lastCompleteInventoryObservedAt` 존재 여부로 서버가 파생한 boolean일 뿐, 원시 시각이나
+ * `presence`/`nextRunAt` 같은 collection-control 필드 자체는 노출하지 않는다.
  */
 export class PublicUserProfileProjectResponseDto {
   readonly projectId: string;
@@ -28,6 +34,7 @@ export class PublicUserProfileProjectResponseDto {
   readonly githubUrl: string;
   readonly publishedAt: string;
   readonly observed: boolean;
+  readonly hasCollectedData: boolean;
   readonly dataAsOf: string | null;
   readonly metrics: PublicProjectMetricsResponseDto | null;
 
@@ -43,6 +50,7 @@ export class PublicUserProfileProjectResponseDto {
     this.githubUrl = item.githubUrl;
     this.publishedAt = item.publishedAt;
     this.observed = result.observed;
+    this.hasCollectedData = result.hasCollectedData;
     this.dataAsOf =
       result.dataAsOf === null ? null : result.dataAsOf.toISOString();
     this.metrics =
