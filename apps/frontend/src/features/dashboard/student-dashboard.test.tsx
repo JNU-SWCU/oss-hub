@@ -310,6 +310,51 @@ describe('StudentDashboardView', () => {
   });
 });
 
+describe('PendingTeamInvitesBanner를 통한 받은 팀 초대 배너', () => {
+  it('대기 중인 초대가 없으면 배너를 렌더하지 않는다', () => {
+    const html = renderView({ pendingTeamInvites: [] });
+
+    expect(html).not.toContain('받은 팀 초대');
+  });
+
+  it('대기 중인 초대가 있으면 건수와 프로그램·팀 이름을 표시한다', () => {
+    const html = renderView({
+      pendingTeamInvites: [
+        {
+          invitationId: 'invitation-1',
+          teamId: 'team-1',
+          programId: 'program-1',
+          programName: '캡스톤 2026',
+          teamName: '오픈소스팀',
+        },
+      ],
+    });
+
+    expect(html).toContain('받은 팀 초대 1건');
+    expect(html).toContain('캡스톤 2026');
+    expect(html).toContain('오픈소스팀');
+    expect(html).toContain('오픈소스팀 팀 초대 수락');
+    expect(html).toContain('오픈소스팀 팀 초대 거절');
+  });
+
+  it('이름을 알 수 없는 초대는 식별 가능한 대체 문구를 보여준다', () => {
+    const html = renderView({
+      pendingTeamInvites: [
+        {
+          invitationId: 'invitation-1',
+          teamId: 'team-1',
+          programId: 'program-1',
+          programName: null,
+          teamName: null,
+        },
+      ],
+    });
+
+    expect(html).toContain('알 수 없는 팀');
+    expect(html).toContain('알 수 없는 프로그램');
+  });
+});
+
 describe('loadStudentDashboard', () => {
   it('실패 후 다시 호출하면 성공 결과를 받는다', async () => {
     const fetchDashboard = vi

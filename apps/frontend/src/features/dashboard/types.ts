@@ -51,3 +51,16 @@ export interface ApplicationDecisionNotice {
 }
 
 export type StudentDashboardStatus = 'loading' | 'success' | 'error';
+
+/**
+ * 대시보드에 띄울 대기 중(PENDING) 팀 초대 한 건. 원본 계약(`team-invitations/received`)에는
+ * 이름이 없어 프로그램·팀 이름은 별도 조회로 채운다 — 조회에 실패하면 `null`로 남기고
+ * 화면이 식별 가능한 대체 문구를 보여준다(ADR-007).
+ */
+export interface PendingTeamInviteView {
+  readonly invitationId: string;
+  readonly teamId: string;
+  readonly programId: string;
+  readonly programName: string | null;
+  readonly teamName: string | null;
+}

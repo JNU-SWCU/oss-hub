@@ -227,4 +227,36 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
       '/programs?status=recruiting&sort=applicationPeriod',
     );
   });
+
+  // 종료(ended) 프로그램도 상세 열람은 허용된다 — 백엔드가 ARCHIVED/종료
+  // 상세 읽기를 이미 허용한다(program-card.tsx 주석). 평면 그리드로 바뀌며
+  // 섹션별로 openable을 갈랐던 옛 로직이 되살아나지 않는지 지킨다.
+  it('종료된 프로그램 카드에도 상세 href를 그대로 넘긴다', async () => {
+    listProgramsMock.mockResolvedValueOnce({
+      items: [
+        {
+          id: 'program-ended',
+          name: '종료된 합성 프로그램',
+          organizer: '합성 운영처',
+          category: 'BASIC',
+          applicationStartAt: '2020-01-01T00:00:00.000Z',
+          applicationEndAt: '2020-01-31T00:00:00.000Z',
+          endAt: '2020-02-28T00:00:00.000Z',
+          description: '종료 회귀 테스트',
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await renderPage();
+
+    const endedCard = container.querySelector(
+      '[data-slot="program-card"][data-status="ended"]',
+    );
+    const link = endedCard?.closest('a');
+    expect(link?.getAttribute('href')).toBe('/programs/program-ended');
+  });
 });

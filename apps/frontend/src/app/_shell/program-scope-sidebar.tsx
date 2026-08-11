@@ -100,43 +100,12 @@ export function ProgramScopeSidebar({
         </button>
       </div>
 
-      <TooltipProvider delayDuration={200}>
-        <nav
-          data-slot="program-scope-sidebar-nav"
-          aria-label={programName}
-          className={cn(
-            'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3',
-            collapsed && 'items-center px-2',
-          )}
-        >
-          {groups.map((group) => (
-            <div
-              key={group.label}
-              role="group"
-              aria-label={group.label}
-              data-slot="program-scope-sidebar-group"
-              className={cn(
-                'flex w-full flex-col gap-0.5',
-                collapsed && 'items-center',
-              )}
-            >
-              {group.items.map((item, itemIndex) => (
-                <ScopeSidebarLink
-                  // href 는 이 목록에서 유일하지 않다 — 학생 뷰의 「내 제출물」은 부모와
-                  // 마일스톤 자식들이 전부 같은 `/mydocs` 를 가리킨다(교직원 뷰만
-                  // `?milestoneId=` 로 갈린다). React 가 중복 key 경고를 내고, 항목이
-                  // 빠지거나 중복될 수 있다고 경고한 그대로다. 라벨도 유일하지 않다 —
-                  // 같은 이름의 마일스톤이 둘 있을 수 있다. 순서는 이 목록에서 안정적이다.
-                  key={`${itemIndex}-${item.href}`}
-                  item={item}
-                  pathname={pathname}
-                  collapsed={collapsed}
-                />
-              ))}
-            </div>
-          ))}
-        </nav>
-      </TooltipProvider>
+      <ProgramScopeSidebarNav
+        groups={groups}
+        pathname={pathname}
+        collapsed={collapsed}
+        ariaLabel={programName}
+      />
 
       {!collapsed && countdown ? (
         <ProgramCountdown
@@ -157,6 +126,64 @@ export function ProgramScopeSidebar({
         SW중심대학사업단
       </p>
     </aside>
+  );
+}
+
+export interface ProgramScopeSidebarNavProps {
+  readonly groups: readonly ProgramScopeSidebarGroup[];
+  readonly pathname: string;
+  readonly collapsed: boolean;
+  readonly ariaLabel: string;
+}
+
+/**
+ * 그룹 렌더 본체 — `ProgramScopeSidebar`(데스크톱 rail)와 `SidebarDrawer`(900px 미만
+ * 오버레이)가 공유한다. depth·아이콘·current 마커 규약을 한 곳에서만 유지한다.
+ */
+export function ProgramScopeSidebarNav({
+  groups,
+  pathname,
+  collapsed,
+  ariaLabel,
+}: ProgramScopeSidebarNavProps) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <nav
+        data-slot="program-scope-sidebar-nav"
+        aria-label={ariaLabel}
+        className={cn(
+          'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3',
+          collapsed && 'items-center px-2',
+        )}
+      >
+        {groups.map((group) => (
+          <div
+            key={group.label}
+            role="group"
+            aria-label={group.label}
+            data-slot="program-scope-sidebar-group"
+            className={cn(
+              'flex w-full flex-col gap-0.5',
+              collapsed && 'items-center',
+            )}
+          >
+            {group.items.map((item, itemIndex) => (
+              <ScopeSidebarLink
+                // href 는 이 목록에서 유일하지 않다 — 학생 뷰의 「내 제출물」은 부모와
+                // 마일스톤 자식들이 전부 같은 `/mydocs` 를 가리킨다(교직원 뷰만
+                // `?milestoneId=` 로 갈린다). React 가 중복 key 경고를 내고, 항목이
+                // 빠지거나 중복될 수 있다고 경고한 그대로다. 라벨도 유일하지 않다 —
+                // 같은 이름의 마일스톤이 둘 있을 수 있다. 순서는 이 목록에서 안정적이다.
+                key={`${itemIndex}-${item.href}`}
+                item={item}
+                pathname={pathname}
+                collapsed={collapsed}
+              />
+            ))}
+          </div>
+        ))}
+      </nav>
+    </TooltipProvider>
   );
 }
 
