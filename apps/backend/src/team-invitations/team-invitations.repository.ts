@@ -13,6 +13,25 @@ export interface TeamInvitationRecord {
   respondedAt: Date | null;
 }
 
+/**
+ * 받은 초대 하나 + 카드로 보여 줄 요약.
+ *
+ * 왜 서버가 요약까지 싣는가. 초대받은 사람은 **아직 그 프로그램에 참여하지 않았다.**
+ * 그래서 팀 이름·프로그램 이름을 자기 참여 목록에서 찾을 수 없고, 프로그램별 팀
+ * 디렉터리(`getProgramTeamDirectory`)로 메꾸려면 초대에 걸린 프로그램 수만큼 조회가
+ * 늘어난다. 초대 행을 읽는 김에 같은 질의로 실어 보내는 편이 정확하고 싸다.
+ *
+ * ⚠ 초대자에 대해서는 표시용 이름 하나만 싣는다 — 학번·이메일·연락처는 select하지
+ * 않는다(`InvitationCandidateRecord`와 같은 개인정보 경계).
+ */
+export interface ReceivedTeamInvitationRecord extends TeamInvitationRecord {
+  readonly teamName: string;
+  readonly programName: string;
+  readonly invitedByDisplayName: string;
+  readonly memberCount: number;
+  readonly teamMaxSize: number;
+}
+
 /** 팀 검색·초대 권한 판단에 필요한 팀 맥락. */
 export interface TeamContextRecord {
   readonly teamId: string;
@@ -68,12 +87,49 @@ export class TeamInvitationsRepository {
     return user?.id ?? null;
   }
 
-  /** 초대 대상 본인이 받은 초대 목록 — 최신 발송분이 먼저 온다. */
-  async findByInviteeId(inviteeId: string): Promise<TeamInvitationRecord[]> {
-    return this.prisma.teamInvitation.findMany({
+  /**
+   * 초대 대상 본인이 받은 초대 목록 — 최신 발송분이 먼저 온다.
+   *
+   * 상태로 거르지 않는다. `PENDING`만 돌려주면 화면이 응답 직후에 사라진 초대를
+   * "없던 일"로 그려야 하고, 이미 이 목록을 쓰는 팀 화면이 자기 기준으로
+   * 거르고 있다(`program-teams-page.tsx`). 거르는 자리는 호출부에 둔다.
+   */
+  async findByInviteeId(
+    inviteeId: string,
+  ): Promise<ReceivedTeamInvitationRecord[]> {
+    const invitations = await this.prisma.teamInvitation.findMany({
       where: { inviteeId },
       orderBy: { invitedAt: 'desc' },
+      include: {
+        team: {
+          select: {
+            name: true,
+            program: { select: { name: true, teamMaxSize: true } },
+            _count: { select: { members: true } },
+          },
+        },
+        invitedBy: { select: { nickname: true, name: true } },
+      },
     });
+
+    return invitations.map((invitation) => ({
+      id: invitation.id,
+      teamId: invitation.teamId,
+      programId: invitation.programId,
+      inviteeId: invitation.inviteeId,
+      invitedById: invitation.invitedById,
+      status: invitation.status,
+      invitedAt: invitation.invitedAt,
+      respondedAt: invitation.respondedAt,
+      teamName: invitation.team.name,
+      programName: invitation.team.program.name,
+      // 팀 초대 화면이 후보를 그리는 규칙과 같다 — 실명이 있으면 실명, 없으면
+      // GitHub handle. `nickname`은 non-null이라 빈 문자열로 떨어지지 않는다.
+      invitedByDisplayName:
+        invitation.invitedBy.name?.trim() || invitation.invitedBy.nickname,
+      memberCount: invitation.team._count.members,
+      teamMaxSize: invitation.team.program.teamMaxSize,
+    }));
   }
 
   /** 팀이 보낸 초대 목록 — 최신 발송분이 먼저 온다. */

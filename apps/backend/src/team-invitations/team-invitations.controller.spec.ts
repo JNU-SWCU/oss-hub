@@ -8,6 +8,23 @@ import { TeamInvitationsController } from './team-invitations.controller';
 
 const syntheticGithubId = 424242n;
 
+/** `GET /team-invitations/received` 한 항목의 원본 — 요약까지 채운 완전한 모양. */
+const receivedRecord = {
+  id: 'cuid-invitation',
+  teamId: 'cuid-team',
+  programId: 'cuid-program',
+  inviteeId: 'cuid-invitee',
+  invitedById: 'cuid-leader',
+  status: TeamInvitationStatus.PENDING,
+  invitedAt: new Date('2026-08-01T00:00:00.000Z'),
+  respondedAt: null,
+  teamName: '합성 팀',
+  programName: '합성 프로그램',
+  invitedByDisplayName: '합성 팀장',
+  memberCount: 2,
+  teamMaxSize: 5,
+};
+
 function readMethodGuards(target: object, methodName: string): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     target,
@@ -68,19 +85,15 @@ describe('TeamInvitationsController', () => {
     },
   );
 
-  it('listReceived는 service 결과를 DTO 배열로 반환한다', async () => {
-    const invitation = {
-      id: 'cuid-invitation',
-      teamId: 'cuid-team',
-      programId: 'cuid-program',
-      inviteeId: 'cuid-invitee',
-      invitedById: 'cuid-leader',
-      status: TeamInvitationStatus.PENDING,
-      invitedAt: new Date('2026-08-01T00:00:00.000Z'),
-      respondedAt: null,
-    };
+  /**
+   * 요약 필드는 **더한 것**이지 바꾼 것이 아니다. 이 경로에는 이미 소비자가 있고
+   * (`features/programs/team-invitation-api.ts`의 팀 화면), 그쪽 검증기는 아래
+   * 기존 필드들을 읽는다 — 하나라도 이름이 바뀌거나 빠지면 목록을 통째로 거절해
+   * "초대가 하나도 없다"로 보인다. 기대값을 전부 적어 두어 그 순간 빨간불이 뜨게 한다.
+   */
+  it('listReceived는 service 결과를 팀·프로그램 요약까지 담은 DTO 배열로 반환한다', async () => {
     const { controller, mocks } = buildController({
-      listReceived: jest.fn().mockResolvedValue([invitation]),
+      listReceived: jest.fn().mockResolvedValue([receivedRecord]),
     });
 
     const response = await controller.listReceived({
@@ -97,6 +110,11 @@ describe('TeamInvitationsController', () => {
         status: TeamInvitationStatus.PENDING,
         invitedAt: '2026-08-01T00:00:00.000Z',
         respondedAt: null,
+        teamName: '합성 팀',
+        programName: '합성 프로그램',
+        invitedByDisplayName: '합성 팀장',
+        memberCount: 2,
+        teamMaxSize: 5,
       },
     ]);
   });

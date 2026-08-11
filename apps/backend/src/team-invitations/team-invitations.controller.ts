@@ -14,6 +14,7 @@ import { AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { AcceptTeamInvitationResponseDto } from './dto/accept-team-invitation-response.dto';
 import { CreateTeamInvitationRequestDto } from './dto/create-team-invitation-request.dto';
 import { InvitationCandidateResponseDto } from './dto/invitation-candidate-response.dto';
+import { ReceivedTeamInvitationResponseDto } from './dto/received-team-invitation-response.dto';
 import { SearchInvitationCandidatesRequestDto } from './dto/search-invitation-candidates-request.dto';
 import { TeamInvitationResponseDto } from './dto/team-invitation-response.dto';
 import { TeamInvitationsService } from './team-invitations.service';
@@ -26,12 +27,12 @@ export class TeamInvitationsController {
   @Get('received')
   async listReceived(
     @Req() request: AuthenticatedRequest,
-  ): Promise<TeamInvitationResponseDto[]> {
+  ): Promise<ReceivedTeamInvitationResponseDto[]> {
     const invitations = await this.service.listReceived(
       request.sessionGithubId,
     );
     return invitations.map((invitation) =>
-      TeamInvitationResponseDto.from(invitation),
+      ReceivedTeamInvitationResponseDto.from(invitation),
     );
   }
 
