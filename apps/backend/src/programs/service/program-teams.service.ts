@@ -12,6 +12,7 @@ import {
   ProgramTeamsRepository,
   TeamMembershipConflictError,
   type CreatedTeamRecord,
+  type StaffTeamDetailRecord,
   type StaffTeamRecord,
   type TeamDetailRecord,
   type TeamProgramRecord,
@@ -20,6 +21,7 @@ import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
 import type {
   CreatedTeamView,
   ProgramTeamView,
+  StaffTeamDetailView,
   StaffTeamView,
 } from '../program-teams.types';
 
@@ -195,6 +197,43 @@ export class ProgramTeamsService {
     }
     const teams = await this.repository.listStaffTeams(programId);
     return teams.map((team) => this.toStaffTeamView(team));
+  }
+
+  /**
+   * 교직원 전용 팀 상세(#874) — 팀원·신청 상태·저장소 발급 상태를 한 응답에 담는다.
+   * 없는 팀·다른 프로그램의 팀은 구분 없이 같은 404(`TEAM_NOT_FOUND`)로 응답한다 —
+   * repository 조회가 이미 `programId`로 걸러서 두 경우를 하나의 null로 합친다.
+   */
+  async getForStaff(
+    programId: string,
+    teamId: string,
+  ): Promise<StaffTeamDetailView> {
+    const detail = await this.repository.findStaffTeamDetail(programId, teamId);
+    if (!detail) {
+      throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
+    }
+    return this.toStaffTeamDetailView(detail);
+  }
+
+  private toStaffTeamDetailView(
+    detail: StaffTeamDetailRecord,
+  ): StaffTeamDetailView {
+    const members = detail.members.map((member) => ({
+      userId: member.userId,
+      name: member.name,
+      nickname: member.nickname,
+      isLeader: member.userId === detail.leaderId,
+    }));
+    return {
+      teamId: detail.id,
+      name: detail.name,
+      memberCount: members.length,
+      members: [
+        ...members.filter((member) => member.isLeader),
+        ...members.filter((member) => !member.isLeader),
+      ],
+      application: detail.application,
+    };
   }
 
   private toStaffTeamView(team: StaffTeamRecord): StaffTeamView {
