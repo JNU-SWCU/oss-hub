@@ -40,11 +40,12 @@ function eligibleRow(): ReviewContextRow {
       isRepositoryPublicationPlanned: true,
       program: {
         endAt: PROGRAM_ENDED_AT,
-        milestones: [{ id: 'milestone-1' }],
+        milestones: [{ id: 'milestone-1', documents: [] }],
       },
       submissions: [
         { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
       ],
+      milestoneDocumentSubmissions: [],
       repository: {
         id: 'repository-1',
         url: 'https://github.com/synthetic-org/synthetic-repository',
@@ -306,11 +307,12 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         },
         program: {
           endAt: PROGRAM_ENDED_AT,
-          milestones: [{ id: 'milestone-1' }],
+          milestones: [{ id: 'milestone-1', documents: [] }],
         },
         submissions: [
           { milestoneId: 'milestone-1', status: SubmissionStatus.SUBMITTED },
         ],
+        milestoneDocumentSubmissions: [],
       },
     });
     const repository = new SubmissionReviewsRepository({
@@ -344,6 +346,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         },
         program: { endAt: PROGRAM_ENDED_AT, milestones: [] },
         submissions: [],
+        milestoneDocumentSubmissions: [],
       },
     });
     const repository = new SubmissionReviewsRepository({

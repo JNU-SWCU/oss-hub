@@ -150,10 +150,22 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
             program: {
               select: {
                 endAt: true,
-                milestones: { select: { id: true } },
+                milestones: {
+                  select: {
+                    id: true,
+                    // ⚠ 필수 서류만 — 집합은 REVIEW_CONTEXT_SELECT 와 같아야 한다.
+                    documents: {
+                      where: { required: true },
+                      select: { id: true },
+                    },
+                  },
+                },
               },
             },
             submissions: { select: { milestoneId: true, status: true } },
+            milestoneDocumentSubmissions: {
+              select: { milestoneDocumentId: true, status: true },
+            },
           },
         },
       },
@@ -167,6 +179,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       requiredMilestonesApproved: requiredMilestonesApproved(
         repository.application.program.milestones,
         repository.application.submissions,
+        repository.application.milestoneDocumentSubmissions,
       ),
       isRepositoryPublicationPlanned:
         repository.application.isRepositoryPublicationPlanned,

@@ -29,11 +29,12 @@ function contextRow(): ReviewContextInput {
       isRepositoryPublicationPlanned: true,
       program: {
         endAt: programEndedAt,
-        milestones: [{ id: 'milestone-1' }],
+        milestones: [{ id: 'milestone-1', documents: [] }],
       },
       submissions: [
         { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
       ],
+      milestoneDocumentSubmissions: [],
       repository: {
         id: 'repository-1',
         url: 'https://github.com/synthetic-org/synthetic-repository',
@@ -190,16 +191,71 @@ describe('toReviewContext', () => {
 describe('requiredMilestonesApproved', () => {
   it('프로그램의 모든 마일스톤에 승인된 현재 제출이 있어야 한다', () => {
     // Given: 두 필수 마일스톤 중 하나만 승인됐다.
-    const milestones = [{ id: 'm1' }, { id: 'm2' }];
+    const milestones = [
+      { id: 'm1', documents: [] },
+      { id: 'm2', documents: [] },
+    ];
     const submissions = [
       { milestoneId: 'm1', status: SubmissionStatus.APPROVED },
       { milestoneId: 'm2', status: SubmissionStatus.CHANGES_REQUESTED },
     ];
 
     // When: 공개 eligibility를 계산한다.
-    const eligible = requiredMilestonesApproved(milestones, submissions);
+    const eligible = requiredMilestonesApproved(milestones, submissions, []);
 
     // Then: 공개할 수 없다.
+    expect(eligible).toBe(false);
+  });
+
+  it('서류만 받는 마일스톤은 필수 서류가 다 승인이면 공개 자격이 난다 (#820)', () => {
+    // Given: 코드 제출은 없고 필수 서류 두 건만 있는 마일스톤. 둘 다 승인됐다.
+    const milestones = [{ id: 'm1', documents: [{ id: 'd1' }, { id: 'd2' }] }];
+    const documentSubmissions = [
+      { milestoneDocumentId: 'd1', status: SubmissionStatus.APPROVED },
+      { milestoneDocumentId: 'd2', status: SubmissionStatus.APPROVED },
+    ];
+
+    // When
+    const eligible = requiredMilestonesApproved(
+      milestones,
+      [],
+      documentSubmissions,
+    );
+
+    // Then: 예전에는 Submission 행이 없어 영구히 false 였다.
+    expect(eligible).toBe(true);
+  });
+
+  it('필수 서류 한 건이 미제출이면 공개 자격이 나지 않는다', () => {
+    // Given: 필수 서류 두 건 중 하나만 승인이고 나머지는 제출 행이 없다.
+    const milestones = [{ id: 'm1', documents: [{ id: 'd1' }, { id: 'd2' }] }];
+    const documentSubmissions = [
+      { milestoneDocumentId: 'd1', status: SubmissionStatus.APPROVED },
+    ];
+
+    // When
+    const eligible = requiredMilestonesApproved(
+      milestones,
+      [],
+      documentSubmissions,
+    );
+
+    // Then
+    expect(eligible).toBe(false);
+  });
+
+  it('서류가 다 승인이어도 코드 제출 행이 있으면 그것까지 승인이어야 한다', () => {
+    // Given: 두 축이 다 쓰인 마일스톤. 서류는 승인, 코드 제출은 심사 중.
+    const milestones = [{ id: 'm1', documents: [{ id: 'd1' }] }];
+
+    // When
+    const eligible = requiredMilestonesApproved(
+      milestones,
+      [{ milestoneId: 'm1', status: SubmissionStatus.SUBMITTED }],
+      [{ milestoneDocumentId: 'd1', status: SubmissionStatus.APPROVED }],
+    );
+
+    // Then: 서류 축이 코드 축을 덮어쓰지 않는다.
     expect(eligible).toBe(false);
   });
 });
