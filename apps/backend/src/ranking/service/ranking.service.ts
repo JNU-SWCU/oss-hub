@@ -77,24 +77,25 @@ export class RankingService {
       year === RANKING_YEAR_ALL ? {} : { currentYear: year },
     );
 
-    const candidates = activity
-      .map(
-        ({
-          githubId,
-          githubLogin,
-          commitCount,
-          pullRequestCount,
-          releaseCount,
-        }) => ({
-          githubId,
-          githubLogin,
-          commitCount,
-          pullRequestCount,
-          releaseCount,
-          total: commitCount + pullRequestCount + releaseCount,
-        }),
-      )
-      .filter((entry) => entry.total > 0);
+    // PM 확정 정책 — 가입한 모든 사용자가 공개 랭킹에 노출된다. 기여가 없으면
+    // 0/0/0으로 표시한다(`total > 0` 필터는 여기서 걸지 않는다). 아래 정렬의
+    // tiebreak(닉네임 → githubId)가 0점 동률까지 결정적 순서를 보장한다.
+    const candidates = activity.map(
+      ({
+        githubId,
+        githubLogin,
+        commitCount,
+        pullRequestCount,
+        releaseCount,
+      }) => ({
+        githubId,
+        githubLogin,
+        commitCount,
+        pullRequestCount,
+        releaseCount,
+        total: commitCount + pullRequestCount + releaseCount,
+      }),
+    );
 
     // 정책 결정 D3(.omc/plans/student-repo-ranking-tracking.md §1 "확정된 정책" 표,
     // `:41`) — 비인증 공개 /ranking 응답의 공개 표기는 GitHub nickname으로
