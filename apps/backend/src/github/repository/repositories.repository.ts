@@ -40,6 +40,7 @@ export interface OwnedProvisionJob {
     };
     readonly team: {
       readonly name: string;
+      readonly _count: { readonly members: number };
     } | null;
   };
   readonly status: RepositoryProvisionJobStatus;
@@ -286,7 +287,7 @@ export class RepositoriesRepository {
               select: { name: true },
             },
             team: {
-              select: { name: true },
+              select: { name: true, _count: { select: { members: true } } },
             },
           },
         },
