@@ -1,3 +1,4 @@
+import { RepositorySource } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
@@ -19,7 +20,7 @@ import type { RequestFingerprint } from './collection-app.frontier';
  * 단위 테스트(`collection-sync.service.spec.ts`)는 in-memory Prisma double 위에서 돈다.
  * 여기서만 확인할 수 있는 것은 세 가지다 —
  *   1. 필터의 기준이 되는 팀원 목록이 실제 스키마의 조인
- *      (`GithubRepository.githubRepositoryId` → `Repository.teamId` → `TeamMember` → `User`)으로
+ *      (`GithubRepository.teamId` → `TeamMember` → `User`, #617 단계 D 이후 한 테이블)으로
  *      제대로 풀리는가,
  *   2. 거른 항목이 세 원본 fact **테이블에** 진짜로 없는가,
  *   3. 그 결과 `Contribution`에 비팀원 행이 생기지 않는가.
@@ -176,9 +177,11 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     );
 
   /**
-   * 팀을 특정할 수 있는 저장소를 만들려면 `GithubRepository`(수집 측)와 `Repository`(#449
-   * 신청 산출물)가 같은 `githubRepositoryId`로 이어져야 하고, `Repository`가 팀을 가리켜야
-   * 한다. 그래서 Program → User → Team → TeamMember → Application → Repository까지 전부 필요하다.
+   * 팀을 특정할 수 있는 저장소를 만들려면 `GithubRepository`행 자체가 `teamId`를 가리켜야
+   * 한다(#617 단계 D 이후 provision 컬럼도 같은 행에 있다). 그래서 Program → User → Team →
+   * TeamMember → Application → GithubRepository까지 전부 필요하다. 스윕(`service.run()`)이
+   * 같은 `githubRepositoryId`로 관찰 필드만 갱신하고 `teamId`는 절대 건드리지 않는다
+   * (recordRepositoryObservation은 provision 컬럼을 update절에서 제외한다).
    */
   const seed = async (): Promise<void> => {
     await prisma.program.create({
@@ -228,15 +231,15 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         status: 'APPROVED',
       },
     });
-    await prisma.repository.create({
+    await prisma.githubRepository.create({
       data: {
         id: REPOSITORY_ID,
         applicationId: APPLICATION_ID,
         programId: PROGRAM_ID,
         teamId: TEAM_ID,
         githubRepositoryId: GITHUB_REPOSITORY_ID,
-        name: 'member-filter-repo',
-        url: `https://github.com/${ORG_LOGIN}/member-filter-repo`,
+        nameWithOwner: `${ORG_LOGIN}/member-filter-repo`,
+        source: RepositorySource.ORG_PROVISIONED,
       },
     });
   };
@@ -256,7 +259,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       'DELETE FROM "CollectionSyncLease" WHERE "appId" = $1',
       APP_ID,
     );
-    await prisma.repository.deleteMany({ where: { id: REPOSITORY_ID } });
     await prisma.application.deleteMany({ where: { id: APPLICATION_ID } });
     await prisma.teamMember.deleteMany({ where: { teamId: TEAM_ID } });
     await prisma.team.deleteMany({ where: { id: TEAM_ID } });
@@ -363,8 +365,9 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     );
   });
 
-  it('`Repository` 행이 없어 팀을 특정할 수 없어도 가입하지 않은 작성자는 적재하지 않는다', async () => {
-    // seed()를 부르지 않는다 — 수집 저장소와 가입자만 있고 신청 산출물 `Repository`가 없는 상태.
+  it('GithubRepository 행에 teamId가 없어 팀을 특정할 수 없어도 가입하지 않은 작성자는 적재하지 않는다', async () => {
+    // seed()를 부르지 않는다 — 가입자만 있고, 스윕이 처음 만드는 GithubRepository 행에는
+    // teamId가 비어 있는 상태(#617 단계 D 이후 provision 컬럼은 별도 신청 산출물이 아니다).
     await prisma.user.create({
       data: {
         id: MEMBER_USER_ID,

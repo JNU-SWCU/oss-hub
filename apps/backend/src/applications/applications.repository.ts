@@ -22,6 +22,7 @@ import {
   resolveJoinCodeSecretFromConfig,
 } from '../common/join-code-digest';
 import { PrismaService } from '../prisma/prisma.service';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import {
   compatibleProfileNameWhere,
   COMPATIBLE_PROFILE_NAME_SELECT,
@@ -887,8 +888,10 @@ const APPLICATION_LIST_SELECT = {
   repositoryConnectionMode: true,
   repositoryUrl: true,
   // 1:1 Application.repository — 팀의 repositories 로 가지 않는다(#113).
+  // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner에서
+  // repository-identity.ts 헬퍼로 url을 유도한다.
   repository: {
-    select: { url: true, visibility: true },
+    select: { nameWithOwner: true, visibility: true },
   },
   program: {
     select: { repositoryProvisioningEnabled: true },
@@ -922,7 +925,7 @@ type ApplicationListRow = {
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
   readonly repository: {
-    readonly url: string;
+    readonly nameWithOwner: string;
     readonly visibility: RepositoryVisibility;
   } | null;
   readonly program: {
@@ -981,7 +984,10 @@ function toApplicationListItem(
       job,
     ),
     repository: row.repository
-      ? { url: row.repository.url, visibility: row.repository.visibility }
+      ? {
+          url: repositoryUrlFromNameWithOwner(row.repository.nameWithOwner),
+          visibility: row.repository.visibility,
+        }
       : null,
     isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
     participation: team ? 'TEAM' : 'INDIVIDUAL',

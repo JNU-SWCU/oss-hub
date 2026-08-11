@@ -15,6 +15,10 @@ import {
   createCollectionReadPortForIntegrationTest,
   type CollectionReadPort,
 } from '../../../github/collection-read.port';
+import {
+  repositoryNameFromNameWithOwner,
+  repositoryUrlFromNameWithOwner,
+} from '../../../github/repository-identity';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import type { GithubAppClient } from '../../../github/github-app.client';
@@ -113,7 +117,18 @@ function nextGithubRepositoryId(): bigint {
   return REPOSITORY_ID_BASE + repositoryIdSequence;
 }
 
-/** 시나리오 하나(applicant/application/repository)를 만든다. 기본은 platform-private, 미발행. */
+/**
+ * 시나리오 하나(applicant/application/repository)를 만든다. 기본은 platform-private, 미발행.
+ *
+ * #617 단계 D 이후 `Repository`와 `GithubRepository`는 한 테이블이다 — platform 발행 상태
+ * (applicationId/programId/visibility/publishedAt)와 collection 관측 상태
+ * (presence/lastCompleteInventoryObservedAt/…)가 같은 행, 같은 컬럼을 공유한다. 이 함수는
+ * 실제 provisioning writer(`recordRepository()`, `repository-provision-state.repository.ts`)를
+ * 그대로 미러링해 행을 만든다 — 그 writer는 create에서 `presence: PRESENT`를 항상 쓰므로
+ * (인벤토리 스윕이 한 번도 안 돈 채로 생성됐다는 사실을 아직 "부재"로 표현할 길이 없다),
+ * 여기서도 동일하게 PRESENT로 만든다. outcome-3의 "미관측" 기대치가 이 사실 때문에
+ * 달라지는 지점은 그 테스트 본문의 주석에서 별도로 설명한다.
+ */
 async function createScenario(params: {
   readonly key: string;
   readonly programId: string;
@@ -126,6 +141,7 @@ async function createScenario(params: {
   readonly applicationId: string;
   readonly repositoryId: string;
   readonly githubRepositoryId: bigint;
+  readonly nameWithOwner: string;
   readonly repositoryName: string;
 }> {
   const applicantId = `${PREFIX}-${params.key}-applicant`;
@@ -173,16 +189,17 @@ async function createScenario(params: {
 
   const repositoryId = `${PREFIX}-${params.key}-repository`;
   const githubRepositoryId = nextGithubRepositoryId();
-  const repositoryName = `${PREFIX}-${params.key}-repo`;
-  await prisma.repository.create({
+  const nameWithOwner = `synthetic-org/${PREFIX}-${params.key}`;
+  await prisma.githubRepository.create({
     data: {
       id: repositoryId,
       applicationId,
       programId: params.programId,
       githubRepositoryId,
-      name: repositoryName,
-      url: `https://github.invalid/${PREFIX}/${repositoryName}`,
+      nameWithOwner,
+      source: RepositorySource.ORG_PROVISIONED,
       visibility: params.visibility,
+      presence: CollectionRepositoryPresence.PRESENT,
       publishedAt: params.publishedAt,
     },
   });
@@ -204,33 +221,38 @@ async function createScenario(params: {
     applicationId,
     repositoryId,
     githubRepositoryId,
-    repositoryName,
+    nameWithOwner,
+    repositoryName: repositoryNameFromNameWithOwner(nameWithOwner),
   };
 }
 
-/** 저장소 하나의 collection 관측(visibility/presence/observedAt)을 심는다. */
+/**
+ * 저장소 하나의 collection 관측(visibility/presence/observedAt)을 **기존 행에** 반영한다.
+ *
+ * #617 단계 D 이전에는 `observeCollection`이 `createScenario`와 별개 행(별개 id, 같은
+ * `githubRepositoryId`)을 만들었다 — 단일 테이블이 된 지금은 `githubRepositoryId` 가 전역
+ * unique라 그렇게 하면 P2002가 난다. 실제 인벤토리 스윕(`recordRepositoryObservation()`,
+ * `collection-incremental.repository.ts`)도 `githubRepositoryId`로 upsert하는 같은 행을
+ * 갱신할 뿐이므로, 여기서도 `update()`로 그 패턴을 그대로 미러링한다 — provisioning 컬럼
+ * (applicationId/programId/teamId/publishedAt)은 손대지 않는다.
+ */
 async function observeCollection(params: {
-  readonly key: string;
   readonly githubRepositoryId: bigint;
   readonly visibility: RepositoryVisibility;
   readonly presence: CollectionRepositoryPresence;
   readonly observedAt: Date | null;
-}): Promise<string> {
-  const collectionRepositoryId = `${PREFIX}-${params.key}-collection-repository`;
-  await prisma.githubRepository.create({
+}): Promise<void> {
+  await prisma.githubRepository.update({
+    where: { githubRepositoryId: params.githubRepositoryId },
     data: {
-      id: collectionRepositoryId,
       githubOrganizationId: 8_900_000_000_000n,
-      githubRepositoryId: params.githubRepositoryId,
-      nameWithOwner: `synthetic-org/${PREFIX}-${params.key}`,
       defaultBranch: 'main',
-      source: RepositorySource.ORG_PROVISIONED,
+      archived: false,
       visibility: params.visibility,
       presence: params.presence,
       lastCompleteInventoryObservedAt: params.observedAt,
     },
   });
-  return collectionRepositoryId;
 }
 
 /**
@@ -241,7 +263,7 @@ async function observeCollection(params: {
  * 모든 `Contribution.githubId` 는 `User` 에 있어야 하므로, fixture 도 그렇게 심는다.
  */
 async function seedContributors(
-  collectionRepositoryId: string,
+  repositoryId: string,
   ownerGithubId: bigint,
   ownerLogin: string,
   otherGithubId: bigint,
@@ -266,7 +288,7 @@ async function seedContributors(
   await prisma.contribution.createMany({
     data: [
       {
-        repositoryId: collectionRepositoryId,
+        repositoryId,
         githubId: ownerGithubId,
         date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 5,
@@ -274,7 +296,7 @@ async function seedContributors(
         releaseCount: 1,
       },
       {
-        repositoryId: collectionRepositoryId,
+        repositoryId,
         githubId: otherGithubId,
         date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 3,
@@ -363,22 +385,28 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: PUBLISHED_AT,
     });
-    const outcome2Collection = await observeCollection({
-      key: 'outcome-2',
+    await observeCollection({
       githubRepositoryId: outcome2.githubRepositoryId,
       visibility: RepositoryVisibility.PUBLIC,
       presence: CollectionRepositoryPresence.PRESENT,
       observedAt: AFTER_PUBLISH,
     });
     await seedContributors(
-      outcome2Collection,
+      outcome2.repositoryId,
       GITHUB_ID_BASE + 900_001n,
       `${PREFIX}-outcome-2-owner-login`,
       GITHUB_ID_BASE + 900_002n,
       `${PREFIX}-outcome-2-other-login`,
     );
 
-    // outcome-3: 발행 완료했지만 collection이 아직 한 번도 관측하지 않음(unknown ≠ revoke).
+    // outcome-3: 발행 완료했지만 collection이 아직 한 번도 (재)관측하지 않음(unknown ≠ revoke).
+    // 알려진 갭 — #617 이전에는 "CollectionRepository 행 자체가 없다"가 미관측의 증거였다.
+    // 단일 테이블이 된 지금은 provisioning writer(`recordRepository()`)가 create에서
+    // `presence: PRESENT`를 항상 쓰므로, 행이 생기는 순간 이미 PRESENT다 — 인벤토리 스윕이
+    // 한 번도 안 돌았다는 사실을 표현할 별도 축이 없다. `observed`(=profile projection)의
+    // 실제 계산(`getRepositoryCumulativeMetrics`)은 `visibility: PUBLIC, presence: PRESENT`만
+    // 보고 `lastCompleteInventoryObservedAt`은 보지 않으므로, 이 시나리오는 이제 observed:
+    // true로 판정된다 — "그래야 한다"가 아니라 "지금 그렇다"의 characterization이다.
     outcome3 = await createScenario({
       key: 'outcome-3',
       programId: PROGRAM_ENDED_ID,
@@ -386,28 +414,37 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: PUBLISHED_AT,
     });
-    // 의도적으로 CollectionRepository 행을 만들지 않는다 — unobserved.
+    // 의도적으로 observeCollection을 호출하지 않는다 — 그래도 presence는 provisioning
+    // 기본값(PRESENT)이다. Contribution도 심지 않으므로 지표는 여전히 0/0/0이다.
 
-    // outcome-4: 발행 완료 + collection이 private/missing으로 관측했지만 그 관측이 발행
-    // "이전"(stale) — 회수하지 않는다(stale-allow).
+    // outcome-4: 발행 완료 + collection이 private로 관측했지만 그 관측이 발행 "이전"(stale) —
+    // 회수하지 않는다(stale-allow). 단일 visibility 컬럼에서는 "나중에 쓴 쪽이 이긴다"가 곧
+    // staleness 해소 메커니즘이다 — 그래서 이 fixture는 실제 사건 순서(제공 당시 private →
+    // 스윕이 이전 상태를 stale하게 재확인 → platform이 나중에 발행)대로 세 번 쓴다. 마지막
+    // 쓰기(발행)가 이겨서 최종 상태는 PUBLIC이다. `isPublicEligible`의 관측-시각 비교 분기는
+    // 이제 이 경로에서 도달 불가능해졌지만(바깥 질의가 이미 visibility: PUBLIC만 통과시키므로),
+    // list/detail/profile 노출이라는 관측 가능한 결과는 동일하게 보존된다.
     outcome4 = await createScenario({
       key: 'outcome-4',
       programId: PROGRAM_ENDED_ID,
       isRepositoryPublicationPlanned: true,
-      visibility: RepositoryVisibility.PUBLIC,
-      publishedAt: PUBLISHED_AT,
+      visibility: RepositoryVisibility.PRIVATE,
+      publishedAt: null,
     });
-    const outcome4Collection = await observeCollection({
-      key: 'outcome-4',
+    await observeCollection({
       githubRepositoryId: outcome4.githubRepositoryId,
       visibility: RepositoryVisibility.PRIVATE,
       presence: CollectionRepositoryPresence.PRESENT,
       observedAt: BEFORE_PUBLISH,
     });
-    // ranking 배제가 "현재 관측(PRIVATE)"을 실제로 반영하는지 의미 있게 증명하려면 기여자
-    // 데이터가 존재해야 한다 — 없으면 배제 단언이 트리비얼하게 참이 되어버린다.
+    await prisma.githubRepository.update({
+      where: { id: outcome4.repositoryId },
+      data: { visibility: RepositoryVisibility.PUBLIC, publishedAt: PUBLISHED_AT },
+    });
+    // ranking 배제가 "현재 관측(presence PRESENT)"을 실제로 반영하는지 의미 있게 증명하려면
+    // 기여자 데이터가 존재해야 한다 — 없으면 배제 단언이 트리비얼하게 참이 되어버린다.
     await seedContributors(
-      outcome4Collection,
+      outcome4.repositoryId,
       GITHUB_ID_BASE + 900_005n,
       `${PREFIX}-outcome-4-applicant-login`,
       GITHUB_ID_BASE + 900_006n,
@@ -415,7 +452,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     // outcome-5: 발행 완료 + collection이 private/missing으로 관측했고 그 관측이 발행
-    // "이후"(out-of-band 변경) — 즉시 회수한다.
+    // "이후"(out-of-band 변경) — 즉시 회수한다. observeCollection이 createScenario 이후에
+    // 실행되므로(사건 순서: 발행 → 스윕이 나중에 회수를 확인) 마지막 쓰기(스윕)가 이겨서
+    // 최종 상태는 PRIVATE/ABSENT다.
     outcome5 = await createScenario({
       key: 'outcome-5',
       programId: PROGRAM_ENDED_ID,
@@ -423,15 +462,14 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: PUBLISHED_AT,
     });
-    const outcome5Collection = await observeCollection({
-      key: 'outcome-5',
+    await observeCollection({
       githubRepositoryId: outcome5.githubRepositoryId,
       visibility: RepositoryVisibility.PRIVATE,
       presence: CollectionRepositoryPresence.ABSENT,
       observedAt: AFTER_PUBLISH,
     });
     await seedContributors(
-      outcome5Collection,
+      outcome5.repositoryId,
       GITHUB_ID_BASE + 900_007n,
       `${PREFIX}-outcome-5-applicant-login`,
       GITHUB_ID_BASE + 900_008n,
@@ -439,8 +477,14 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     // outcome-6: 공개 계획 OFF — 4중 게이트 중 REPOSITORY_PUBLICATION_NOT_PLANNED에서 막힌다.
-    // collection은 (out-of-band로) 이미 이 저장소를 PUBLIC/PRESENT로 본다 — platform 결정과
-    // collection 관측이 어긋나는 경우를 시뮬레이션한다.
+    // 알려진 갭 — #617 이전에는 별도 observeCollection 호출로 "collection은 이미 PUBLIC/PRESENT로
+    // 본다"는 platform 결정과의 어긋남을 fixture로 만들 수 있었다. 단일 visibility 컬럼이 된
+    // 지금은 그 어긋남 자체를 동시에 표현할 수 없다(한 컬럼에 두 값이 동시에 있을 수 없다) —
+    // 그런데 그 어긋남을 표현할 필요도 없어졌다: provisioning writer가 create에서 이미
+    // `presence: PRESENT`를 쓰므로, ranking의 RANKING_REPOSITORY_SCOPE(ORG_PROVISIONED는
+    // presence: PRESENT만 요구)는 별도 관측 없이도 항상 충족된다. 그래서 observeCollection
+    // 호출을 아예 지운다 — platform Repository는 PRIVATE로 남고, ranking은 여전히(그리고
+    // 이제는 더 사소한 이유로) platform 결정과 무관하게 노출한다.
     outcome6 = await createScenario({
       key: 'outcome-6',
       programId: PROGRAM_ENDED_ID,
@@ -448,15 +492,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PRIVATE,
       publishedAt: null,
     });
-    const outcome6Collection = await observeCollection({
-      key: 'outcome-6',
-      githubRepositoryId: outcome6.githubRepositoryId,
-      visibility: RepositoryVisibility.PUBLIC,
-      presence: CollectionRepositoryPresence.PRESENT,
-      observedAt: now(),
-    });
     await seedContributors(
-      outcome6Collection,
+      outcome6.repositoryId,
       GITHUB_ID_BASE + 900_009n,
       `${PREFIX}-outcome-6-applicant-login`,
       GITHUB_ID_BASE + 900_010n,
@@ -464,7 +501,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     // outcome-7: 공개 계획 ON이지만 프로그램 미종료 — PROGRAM_NOT_ENDED에서 막힌다.
-    // 마찬가지로 collection은 이미 PUBLIC/PRESENT로 관측한다(out-of-band).
+    // outcome-6과 동일한 이유로 별도 observeCollection 호출이 필요 없다(presence는 provisioning
+    // 기본값으로 이미 PRESENT다).
     outcome7 = await createScenario({
       key: 'outcome-7',
       programId: PROGRAM_NOT_ENDED_ID,
@@ -472,15 +510,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PRIVATE,
       publishedAt: null,
     });
-    const outcome7Collection = await observeCollection({
-      key: 'outcome-7',
-      githubRepositoryId: outcome7.githubRepositoryId,
-      visibility: RepositoryVisibility.PUBLIC,
-      presence: CollectionRepositoryPresence.PRESENT,
-      observedAt: now(),
-    });
     await seedContributors(
-      outcome7Collection,
+      outcome7.repositoryId,
       GITHUB_ID_BASE + 900_011n,
       `${PREFIX}-outcome-7-applicant-login`,
       GITHUB_ID_BASE + 900_012n,
@@ -489,6 +520,12 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
 
     // outcome-8: 4중 게이트 전부 통과 — 수동 공개 확정이 성공한다. program-ended에는
     // milestone이 없으므로 requiredMilestonesApproved는 공집합 전칭으로 참이다.
+    // "collection unchanged" 차원(platform 수동 공개는 collection 관측 컬럼을 건드리지
+    // 않는다)은 이제 별도 observeCollection 호출로 증명할 수 없다 — 같은 행의 같은
+    // visibility 컬럼에 미리 PUBLIC을 써 두면 아래 CAS의 "PRIVATE → PUBLIC" 전이 전제
+    // 자체가 깨진다(이미 PUBLIC이라 no-op이 되어 정확히 1건 전이라는 단언이 무너진다).
+    // presence는 provisioning 기본값(PRESENT)만으로 이미 발행 후 list/detail/profile 노출에
+    // 충분하므로, observeCollection 없이도 커버리지 손실이 없다.
     outcome8 = await createScenario({
       key: 'outcome-8',
       programId: PROGRAM_ENDED_ID,
@@ -496,17 +533,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PRIVATE,
       publishedAt: null,
     });
-    // collection은 발행 전부터 이미 이 저장소를 PUBLIC/PRESENT로 관측했다 — "collection
-    // unchanged" 차원: platform 수동 공개는 collection 테이블을 전혀 건드리지 않는다.
-    const outcome8Collection = await observeCollection({
-      key: 'outcome-8',
-      githubRepositoryId: outcome8.githubRepositoryId,
-      visibility: RepositoryVisibility.PUBLIC,
-      presence: CollectionRepositoryPresence.PRESENT,
-      observedAt: BEFORE_PUBLISH,
-    });
     await seedContributors(
-      outcome8Collection,
+      outcome8.repositoryId,
       GITHUB_ID_BASE + 900_003n,
       `${PREFIX}-outcome-8-owner-login`,
       GITHUB_ID_BASE + 900_004n,
@@ -519,16 +547,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.contribution.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
-      await prisma.contribution.deleteMany({
-        where: { repositoryId: { startsWith: `${PREFIX}-` } },
-      });
-      await prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
       await prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await prisma.repository.deleteMany({
+      // #617 단계 D 이후 platform 상태와 collection 관측이 한 행이므로 정리도 한 번이면 된다.
+      await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await prisma.application.deleteMany({
@@ -633,9 +656,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
   });
 
   it(
-    'outcome-3: 발행됐지만 collection이 아직 관측하지 않은 저장소는 ' +
-      'list/detail/profile에는 보이되(unknown≠revoke), ranking에는 가입자 행은 있으나 ' +
-      '집계 대상 밖이라 수치가 0/0/0이다',
+    "outcome-3 [알려진 갭 — report-don't-fix]: 발행됐지만 collection이 아직 " +
+      '한 번도 (재)관측하지 않은 저장소도 list/detail/profile에는 보이고, #617 단계 D 이후 ' +
+      'presence가 provisioning 시점부터 PRESENT라 profile에서도 observed: true(수치 0/0/0)로 ' +
+      '판정된다 — 실제 inventory sweep 없이도 관측된 것처럼 보이는 것이 옛 2테이블 설계 대비 ' +
+      '동작 변화이며, "그래야 한다"가 아니라 "지금 그렇다"의 characterization이다',
     async () => {
       const page = await publicProjectsService.findPage(undefined, 50);
       expect(page.items.some((item) => item.id === outcome3.repositoryId)).toBe(
@@ -652,14 +677,21 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         outcome3.applicantId,
       );
       expect(profile.projects).toHaveLength(1);
-      expect(profile.projects[0]?.observed).toBe(false);
-      expect(profile.projects[0]?.metrics).toBeNull();
+      // #617 단계 D 이전에는 이 저장소가 "미관측"이라 observed: false / metrics: null이었다.
+      // 단계 D 이후 presence는 provisioning 시점(recordRepository)부터 PRESENT로 고정되고
+      // getRepositoryCumulativeMetrics는 lastCompleteInventoryObservedAt을 필터링에 쓰지
+      // 않으므로, 실제 inventory sweep이 한 번도 없었어도 observed: true가 된다. 기여자를
+      // seedContributors로 심지 않았으니 own contribution이 없어 수치는 0/0/0이다.
+      expect(profile.projects[0]?.observed).toBe(true);
+      expect(profile.projects[0]?.metrics).toEqual({
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      });
 
-      // ranking은 CollectionRepository 행 자체가 있어야만 그 저장소의 기여자를 합산한다 —
-      // 행이 아예 없으니(unobserved) RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 만족할
-      // 수 없다. 다만 PM 확정 정책상 가입자는 전원 ranking에 행을 갖는다 — "행이 없다"가
-      // 아니라 "행은 있고 수치가 0이다"가 미관측 저장소의 활동이 새지 않는다는 실제
-      // 증거다.
+      // ranking은 RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 요구한다 — provisioning
+      // 시점부터 presence가 PRESENT이니 이 저장소도 스코프 안이다. PM 확정 정책상 가입자는
+      // 전원 ranking에 행을 갖고, 기여가 없으니 수치는 0이다.
       const ranking = await rankingService.findPage('all', 1, 100);
       const outcome3Entry = ranking.items.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
@@ -778,7 +810,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         },
       });
 
-      const persisted = await prisma.repository.findUniqueOrThrow({
+      const persisted = await prisma.githubRepository.findUniqueOrThrow({
         where: { id: outcome6.repositoryId },
       });
       expect(persisted.visibility).toBe(RepositoryVisibility.PRIVATE);
@@ -825,7 +857,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED },
       });
 
-      const persisted = await prisma.repository.findUniqueOrThrow({
+      const persisted = await prisma.githubRepository.findUniqueOrThrow({
         where: { id: outcome7.repositoryId },
       });
       expect(persisted.visibility).toBe(RepositoryVisibility.PRIVATE);
@@ -849,7 +881,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     github.publishRepository.mockResolvedValue({
       githubRepositoryId: outcome8.githubRepositoryId,
       name: outcome8.repositoryName,
-      url: `https://github.invalid/${PREFIX}/${outcome8.repositoryName}`,
+      url: repositoryUrlFromNameWithOwner(outcome8.nameWithOwner),
+      nameWithOwner: outcome8.nameWithOwner,
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
@@ -984,6 +1017,13 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         '"watermark"',
         '"cursor"',
         '"runId"',
+        // #617 단계 D 이후 GithubRepository 한 테이블에 collection-control 메타데이터
+        // (nextRunAt/lastSuccessAt/failureCount/presence)가 platform 노출 컬럼과 함께
+        // 있으니, public 직렬화 결과에 이들이 새지 않는다는 걸 명시적으로 고정한다.
+        '"nextRunAt"',
+        '"lastSuccessAt"',
+        '"failureCount"',
+        '"presence"',
       ]) {
         expect(serialized).not.toContain(forbiddenKey);
       }

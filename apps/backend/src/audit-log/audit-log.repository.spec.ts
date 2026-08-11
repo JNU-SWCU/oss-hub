@@ -428,7 +428,7 @@ describe('AuditLogRepository', () => {
         ]),
         count: jest.fn().mockResolvedValue(1),
       },
-      repository: { findMany: repositoryFindMany },
+      githubRepository: { findMany: repositoryFindMany },
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
@@ -444,8 +444,7 @@ describe('AuditLogRepository', () => {
     const repositoryFindMany = jest.fn().mockResolvedValue([
       {
         id: 'repository-legacy',
-        name: 'synthetic-repo',
-        url: 'https://github.com/synthetic-org/synthetic-repo',
+        nameWithOwner: 'synthetic-org/synthetic-repo',
       },
     ]);
     const prisma = {
@@ -463,7 +462,7 @@ describe('AuditLogRepository', () => {
         ]),
         count: jest.fn().mockResolvedValue(1),
       },
-      repository: { findMany: repositoryFindMany },
+      githubRepository: { findMany: repositoryFindMany },
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
@@ -471,7 +470,7 @@ describe('AuditLogRepository', () => {
 
     expect(repositoryFindMany).toHaveBeenCalledWith({
       where: { id: { in: ['repository-legacy'] } },
-      select: { id: true, name: true, url: true },
+      select: { id: true, nameWithOwner: true },
     });
     expect(result.items).toEqual([
       expect.objectContaining({ target: 'synthetic-org/synthetic-repo' }),
@@ -495,7 +494,7 @@ describe('AuditLogRepository', () => {
         ]),
         count: jest.fn().mockResolvedValue(1),
       },
-      repository: { findMany: repositoryFindMany },
+      githubRepository: { findMany: repositoryFindMany },
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
@@ -668,8 +667,7 @@ describe('AuditLogRepository', () => {
     const repositoryFindMany = jest.fn().mockResolvedValue([
       {
         id: 'repository-a',
-        name: 'repo-a',
-        url: 'https://github.com/org/repo-a',
+        nameWithOwner: 'org/repo-a',
       },
     ]);
     const applicationFindMany = jest.fn().mockResolvedValue([
@@ -702,7 +700,7 @@ describe('AuditLogRepository', () => {
         ]),
         count: jest.fn().mockResolvedValue(2),
       },
-      repository: { findMany: repositoryFindMany },
+      githubRepository: { findMany: repositoryFindMany },
       application: { findMany: applicationFindMany },
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);

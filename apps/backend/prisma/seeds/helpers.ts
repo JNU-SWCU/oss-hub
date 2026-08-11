@@ -214,9 +214,16 @@ export function seedRepositoryId(slug: string): bigint {
   return deterministicBigInt(SEED_REPOSITORY_ID_PREFIX, slug);
 }
 
-/** RFC 2606 예약 도메인 — 실제 GitHub repository로 연결되지 않는 명백한 fixture URL. */
-export function seedFixtureUrl(slug: string): string {
-  return `https://github.invalid/oss-hub-seed/${slug}`;
+/**
+ * 합성 fixture nameWithOwner — `oss-hub-seed`는 실존 GitHub owner가 아닌 명백한 시드
+ * 네임스페이스다. #617 단계 D 이후 GithubRepository는 name/url 컬럼이 없고 nameWithOwner에서
+ * 파생하므로(`repository-identity.ts`), url을 별도로 위장할 수단이 없다 — 대신 owner 자체를
+ * 합성값으로 고정해 실존 대상을 가리키지 않게 한다. githubRepositoryId는 seedRepositoryId()의
+ * 예약 대역을 쓰므로, 이 값과 짝지으면 "실존 대상 + 합성 식별자" 혼합(반쪽짜리 실제 데이터,
+ * `AGENTS.md` antipattern #2)이 되지 않는다.
+ */
+export function seedNameWithOwner(slug: string): string {
+  return `oss-hub-seed/${slug}`;
 }
 
 type Bucket = { created: number; updated: number };

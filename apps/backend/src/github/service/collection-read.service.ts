@@ -107,30 +107,23 @@ export class CollectionReadService implements CollectionReadPort {
    * 프로그램 표면이 읽을 수 있는 저장소 조건을 만든다.
    *
    * 조직 저장소는 그대로 허용한다. 조직 밖 저장소(`EXTERNAL_PUBLIC`)는 **신청에
-   * 연결됐다는 것이 DB 로 증명될 때만** 허용한다 — 프로비저닝 테이블(`Repository`)에
-   * 같은 `githubRepositoryId` 행이 있어야 한다.
+   * 연결됐다는 것이 증명될 때만** 허용한다.
    *
    * 이렇게 가르는 이유. `ADR-009` §3과 `ADR-010` §5는 학생이 `OWN` 으로 연결한 조직 밖
    * 저장소의 활동을 프로그램 실적으로 세라고 한다. 그런데 호출자가 넘기는 id 배열에
    * 학생의 **무관한** 개인 저장소가 섞이면 그것까지 조직 실적으로 조용히 집계된다.
    * `source` 로 통째 막으면 후자는 막히지만 전자도 함께 막힌다.
    *
-   * 연결 증명을 조건에 넣으면 둘을 동시에 만족한다 — 연결된 것만 들어오고,
-   * 그 판정을 호출자가 아니라 DB 가 한다. `Repository.githubRepositoryId` 가
-   * 유니크이므로 행의 존재 자체가 증명이다.
+   * #617 단계 D 이전에는 이 연결 증명이 별도 프로비저닝 테이블(`Repository`)에 같은
+   * `githubRepositoryId` 행이 있는지로 판정하는 cross-table 질의였다. 지금은 프로비저닝
+   * 결과가 같은 `GithubRepository` 행의 `applicationId`(신청에 연결된 행만 채워진다)에
+   * 바로 있으므로, 같은 행을 한 번 더 조회할 필요 없이 동기 컬럼 비교로 판정한다.
    */
-  private async linkedRepositoryFilter(
-    requestedIds: readonly bigint[],
-  ): Promise<Prisma.GithubRepositoryWhereInput> {
-    const linked = await this.prisma.repository.findMany({
-      where: { githubRepositoryId: { in: [...requestedIds] } },
-      select: { githubRepositoryId: true },
-    });
-    const linkedIds = linked.map((row) => row.githubRepositoryId);
+  private linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
     return {
       OR: [
         { source: 'ORG_PROVISIONED' },
-        { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: linkedIds } },
+        { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
       ],
     };
   }
@@ -176,7 +169,7 @@ export class CollectionReadService implements CollectionReadPort {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...(await this.linkedRepositoryFilter(query.repositoryIds)),
+        ...this.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,
@@ -323,7 +316,7 @@ export class CollectionReadService implements CollectionReadPort {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...(await this.linkedRepositoryFilter(query.repositoryIds)),
+        ...this.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,
@@ -409,7 +402,7 @@ export class CollectionReadService implements CollectionReadPort {
         date: { gte: yearStart, lt: yearEnd },
         repository: {
           githubRepositoryId: { in: [...query.repositoryIds] },
-          ...(await this.linkedRepositoryFilter(query.repositoryIds)),
+          ...this.linkedRepositoryFilter(),
         },
       },
       select: {
@@ -514,7 +507,7 @@ export class CollectionReadService implements CollectionReadPort {
         githubRepositoryId: { in: [...query.repositoryIds] },
         visibility: 'PUBLIC',
         presence: 'PRESENT',
-        ...(await this.linkedRepositoryFilter(query.repositoryIds)),
+        ...this.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,
@@ -579,7 +572,7 @@ export class CollectionReadService implements CollectionReadPort {
           githubRepositoryId: { in: [...query.repositoryIds] },
           visibility: 'PUBLIC',
           presence: 'PRESENT',
-          ...(await this.linkedRepositoryFilter(query.repositoryIds)),
+          ...this.linkedRepositoryFilter(),
         },
       },
       select: {
@@ -786,27 +779,34 @@ export class CollectionReadService implements CollectionReadPort {
 
   /**
    * `CollectionRepositoryStreamsDto.programName`(위 port 코멘트 참고)의 batched 구현.
-   * `Repository`(programId 보유) 조회 1번 + `Program` 조회 1번, 저장소 개수와 무관하게
-   * 쿼리 2개 고정이다(N+1 금지 — `audit-log.repository.ts`의 `resolveProgramNames`와 같은
-   * 원칙, 그 파일은 감사 로그 전용이라 재사용하지 않고 이 서비스 안에서 새로 구현한다).
+   * #617 단계 D 이전에는 별도 프로비저닝 테이블(`Repository`) 조회 1번 + `Program` 조회
+   * 1번으로 나뉘어 있었다. 이제 `programId`가 같은 `GithubRepository` 행의 컬럼이라
+   * `Program` 조회 1번으로 줄었다(N+1 금지 원칙은 그대로 유지 — 저장소 개수와 무관하게
+   * 쿼리 1개 고정).
    *
    * 호출자(`getIncrementalStatusStreams`)가 이미 `PRESENT_REPOSITORY`(org 저장소만)로
    * 걸러진 id만 넘긴다 — external 저장소 id는 이 함수에 아예 들어오지 않는다. 그래서
-   * 여기서 맵에 없는 id는 org 저장소 중 매칭되는 `Repository` 행이 없는 경우(예: 신청
-   * 승인 경로를 거치지 않고 관리자가 직접 만든 저장소)뿐이다 — 호출자가 `null`로 접는다.
+   * 여기서 맵에 없는 id는 org 저장소 중 `programId`가 없는 경우(예: 신청 승인 경로를
+   * 거치지 않고 관리자가 직접 만든 저장소)뿐이다 — 호출자가 `null`로 접는다.
    */
   private async resolveProgramNamesByRepositoryId(
     githubRepositoryIds: readonly bigint[],
   ): Promise<ReadonlyMap<bigint, string>> {
     if (githubRepositoryIds.length === 0) return new Map();
 
-    const links = await this.prisma.repository.findMany({
+    const repositories = await this.prisma.githubRepository.findMany({
       where: { githubRepositoryId: { in: [...githubRepositoryIds] } },
       select: { githubRepositoryId: true, programId: true },
     });
-    if (links.length === 0) return new Map();
+    const programIds = [
+      ...new Set(
+        repositories
+          .map((repository) => repository.programId)
+          .filter((programId): programId is string => programId !== null),
+      ),
+    ];
+    if (programIds.length === 0) return new Map();
 
-    const programIds = [...new Set(links.map((link) => link.programId))];
     const programs = await this.prisma.program.findMany({
       where: { id: { in: programIds } },
       select: { id: true, name: true },
@@ -816,10 +816,13 @@ export class CollectionReadService implements CollectionReadPort {
     );
 
     const programNameById = new Map<bigint, string>();
-    for (const link of links) {
-      const name = nameByProgramId.get(link.programId);
+    for (const repository of repositories) {
+      const name =
+        repository.programId === null
+          ? undefined
+          : nameByProgramId.get(repository.programId);
       if (name !== undefined) {
-        programNameById.set(link.githubRepositoryId, name);
+        programNameById.set(repository.githubRepositoryId, name);
       }
     }
     return programNameById;

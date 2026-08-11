@@ -208,7 +208,7 @@ function createDeleteService(
     team: { count: teamCount },
     boardPost: { count: boardPostCount },
     submission: { count: submissionCount },
-    repository: { count: repositoryCount },
+    githubRepository: { count: repositoryCount },
     milestoneDocumentSubmission: { count: milestoneDocumentSubmissionCount },
     programCreateRequest: {
       findUnique: programCreateRequestFindUnique,

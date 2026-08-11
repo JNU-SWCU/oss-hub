@@ -2,6 +2,7 @@ import {
   ApplicationStatus,
   PrismaClient,
   ProgramCategory,
+  RepositorySource,
   RepositoryVisibility,
   Role,
 } from '@prisma/client';
@@ -84,14 +85,16 @@ describe('PublicProjectsRepository integration', () => {
       })),
     });
     // publishedAt을 인덱스 정렬 순서(desc)와 다르게 흩뿌려 실제 인덱스 스캔이 정렬을 대신함을 보인다.
-    await prisma.repository.createMany({
+    // #617 단계 D 이후 GithubRepository는 name/url 컬럼이 없다 — nameWithOwner에서
+    // repository-identity.ts 헬퍼로 파생한다.
+    await prisma.githubRepository.createMany({
       data: applicationIds.map((id, index) => ({
         id: `${PREFIX}-repository-${index}`,
         applicationId: id,
         programId: PROGRAM_ID,
         githubRepositoryId: 8_700_000_000_000n + BigInt(index),
-        name: `${PREFIX}-repo-${index}`,
-        url: `https://github.com/synthetic-org/${PREFIX}-repo-${index}`,
+        nameWithOwner: `synthetic-org/${PREFIX}-repo-${index}`,
+        source: RepositorySource.ORG_PROVISIONED,
         visibility: RepositoryVisibility.PUBLIC,
         publishedAt: new Date(
           BASE_PUBLISHED_AT.getTime() +
@@ -175,15 +178,15 @@ describe('PublicProjectsRepository integration', () => {
         },
       ],
     });
-    await prisma.repository.createMany({
+    await prisma.githubRepository.createMany({
       data: [
         {
           id: `${PREFIX}-private-repository`,
           applicationId: `${PREFIX}-private-application`,
           programId: PROGRAM_ID,
           githubRepositoryId: 8_700_000_099_001n,
-          name: `${PREFIX}-private-repo`,
-          url: `https://github.com/synthetic-org/${PREFIX}-private-repo`,
+          nameWithOwner: `synthetic-org/${PREFIX}-private-repo`,
+          source: RepositorySource.ORG_PROVISIONED,
           visibility: RepositoryVisibility.PRIVATE,
           publishedAt: null,
         },
@@ -192,18 +195,25 @@ describe('PublicProjectsRepository integration', () => {
           applicationId: `${PREFIX}-unpublished-application`,
           programId: PROGRAM_ID,
           githubRepositoryId: 8_700_000_099_002n,
-          name: `${PREFIX}-unpublished-repo`,
-          url: `https://github.com/synthetic-org/${PREFIX}-unpublished-repo`,
+          nameWithOwner: `synthetic-org/${PREFIX}-unpublished-repo`,
+          source: RepositorySource.ORG_PROVISIONED,
           visibility: RepositoryVisibility.PUBLIC,
           publishedAt: null,
         },
       ],
     });
+    // #617 단계 D 이후 GithubRepository는 provision+수집 관찰 행을 모두 담아
+    // 이 파일 밖 다른 통합 스펙보다 컬럼·인덱스 후보가 넓어졌다. 갓 seed한
+    // 테이블은 autovacuum이 아직 통계를 못 냈을 수 있어, 그 시점의 기본
+    // 추정치로는 플래너가 이 스펙이 단언하는 복합 인덱스 대신 더 작은
+    // (visibility, presence) 인덱스 + 명시적 정렬을 고를 수 있다 — EXPLAIN
+    // 단언 전에 통계를 갱신해 플랜 선택을 결정적으로 만든다.
+    await prisma.$executeRawUnsafe('ANALYZE "GithubRepository"');
   });
 
   afterAll(async () => {
     try {
-      await prisma.repository.deleteMany({
+      await prisma.githubRepository.deleteMany({
         where: { programId: PROGRAM_ID },
       });
       await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -260,7 +270,7 @@ describe('PublicProjectsRepository integration', () => {
     expect(missingResult).toBeNull();
   });
 
-  it('findById는 콜론이 섞인 Repository.id를 그대로 받아도(비숫자) DB를 조회하지 않고 null을 반환한다', async () => {
+  it('findById는 콜론이 섞인 GithubRepository.id를 그대로 받아도(비숫자) DB를 조회하지 않고 null을 반환한다', async () => {
     const result = await repository.findById(
       `${PREFIX}-repository-0`.replace(/-/g, ':'),
     );
@@ -270,7 +280,7 @@ describe('PublicProjectsRepository integration', () => {
 
   it(
     '공개 프로젝션 계약(#archive 회귀) — listPage의 모든 행에서 projectId는 프런트 계약 정규식' +
-      '(/^[A-Za-z0-9_-]+$/)을 만족하고, Repository.id에 콜론이 섞인 seed 스타일 행도 projectId는' +
+      '(/^[A-Za-z0-9_-]+$/)을 만족하고, GithubRepository.id에 콜론이 섞인 seed 스타일 행도 projectId는' +
       'githubRepositoryId 기반 콜론-free 값이며 githubUrl은 JNU-SWCU 정확 계약을 만족한다',
     async () => {
       const page = await repository.listPage(null, PUBLIC_REPOSITORY_COUNT);
@@ -281,11 +291,12 @@ describe('PublicProjectsRepository integration', () => {
 
       const contractApplicantId = `${PREFIX}-contract-applicant`;
       const contractApplicationId = `${PREFIX}-contract-application`;
-      // 실제 oss-hub seed(`prisma/seeds/oss-hub.ts`)와 동일하게 Repository.id에 콜론을
+      // 실제 oss-hub seed(`prisma/seeds/oss-hub.ts`)와 동일하게 GithubRepository.id에 콜론을
       // 의도적으로 섞는다 — 이 값이 그대로 공개 projectId로 새는 게 이 회귀의 근본 원인이었다.
       const contractRepositoryId = `seed:public-projects-contract:jnu-repo:repository`;
       const contractGithubRepositoryId = 8_800_000_000_001n;
       const contractRepositoryName = 'public-projects-contract-repo';
+      const contractNameWithOwner = `JNU-SWCU/${contractRepositoryName}`;
 
       await prisma.user.create({
         data: {
@@ -324,14 +335,14 @@ describe('PublicProjectsRepository integration', () => {
           status: ApplicationStatus.APPROVED,
         },
       });
-      await prisma.repository.create({
+      await prisma.githubRepository.create({
         data: {
           id: contractRepositoryId,
           applicationId: contractApplicationId,
           programId: PROGRAM_ID,
           githubRepositoryId: contractGithubRepositoryId,
-          name: contractRepositoryName,
-          url: `https://github.com/JNU-SWCU/${contractRepositoryName}`,
+          nameWithOwner: contractNameWithOwner,
+          source: RepositorySource.ORG_PROVISIONED,
           visibility: RepositoryVisibility.PUBLIC,
           publishedAt: BASE_PUBLISHED_AT,
         },
@@ -345,10 +356,12 @@ describe('PublicProjectsRepository integration', () => {
         expect(found?.projectId).toBe(contractGithubRepositoryId.toString());
         expect(found?.projectId).toMatch(/^[A-Za-z0-9_-]+$/);
         expect(found?.githubUrl).toBe(
-          `https://github.com/JNU-SWCU/${contractRepositoryName}`,
+          `https://github.com/${contractNameWithOwner}`,
         );
       } finally {
-        await prisma.repository.delete({ where: { id: contractRepositoryId } });
+        await prisma.githubRepository.delete({
+          where: { id: contractRepositoryId },
+        });
         await prisma.application.delete({
           where: { id: contractApplicationId },
         });
@@ -363,7 +376,7 @@ describe('PublicProjectsRepository integration', () => {
 
   it(
     'EXPLAIN 증거 — 첫 페이지(cursor 없음)와 다음 페이지(keyset cursor) 조회 모두 ' +
-      'Repository_visibility_publishedAt_id_idx 인덱스를 사용한다',
+      'GithubRepository_visibility_publishedAt_id_idx 인덱스를 사용한다',
     async () => {
       const firstPagePlan = await explainFirstPage();
       const cursor = {
@@ -373,10 +386,10 @@ describe('PublicProjectsRepository integration', () => {
       const cursoredPlan = await explainCursoredPage(cursor);
 
       expect(queryPlanText(firstPagePlan)).toContain(
-        'Repository_visibility_publishedAt_id_idx',
+        'GithubRepository_visibility_publishedAt_id_idx',
       );
       expect(queryPlanText(cursoredPlan)).toContain(
-        'Repository_visibility_publishedAt_id_idx',
+        'GithubRepository_visibility_publishedAt_id_idx',
       );
     },
   );
@@ -417,7 +430,7 @@ async function explainFirstPage(): Promise<readonly QueryPlanRow[]> {
     return transaction.$queryRaw<readonly QueryPlanRow[]>`
       EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
       SELECT id, "publishedAt"
-      FROM "Repository"
+      FROM "GithubRepository"
       WHERE visibility = 'PUBLIC' AND "publishedAt" IS NOT NULL
       ORDER BY "publishedAt" DESC, id DESC
       LIMIT 10
@@ -434,7 +447,7 @@ async function explainCursoredPage(cursor: {
     return transaction.$queryRaw<readonly QueryPlanRow[]>`
       EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
       SELECT id, "publishedAt"
-      FROM "Repository"
+      FROM "GithubRepository"
       WHERE visibility = 'PUBLIC' AND "publishedAt" IS NOT NULL
         AND (
           "publishedAt" < ${cursor.publishedAt}
@@ -457,7 +470,7 @@ async function countRepositoryQueries<
 >(client: Client, run: () => Promise<unknown>): Promise<number> {
   let count = 0;
   client.$on('query', (event) => {
-    if (event.query.includes('"Repository"')) count += 1;
+    if (event.query.includes('"GithubRepository"')) count += 1;
   });
   await run();
   return count;

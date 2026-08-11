@@ -9,6 +9,7 @@ import {
   type ProgramCategory,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
@@ -299,10 +300,11 @@ export class ProgramTeamsRepository {
    * 교직원 전용 팀 상세(#874) — `listStaffTeams`와 같은 select 원칙(참여코드·저장소·
    * 학과/연락처/이메일·studentId 금지)에 신청·저장소 발급 상태를 더한다.
    *
-   * 저장소는 `Application`을 거쳐서만 읽는다 — `Repository.applicationId`는 필수+unique라
-   * 빠짐이 없지만, `Repository.teamId`는 nullable이라 `Team.repositories`로 조회하면
-   * 저장소가 실제로 있는데도 못 찾는 행이 생긴다. `programId`까지 함께 걸어 다른
-   * 프로그램의 teamId 는 애초에 조회되지 않게 한다(404 로 흘러간다).
+   * 저장소는 `Application`을 거쳐서만 읽는다 — `GithubRepository.applicationId`는
+   * unique라 빠짐이 없지만, `GithubRepository.teamId`는 nullable이라
+   * `Team.repositories`로 조회하면 저장소가 실제로 있는데도 못 찾는 행이 생긴다.
+   * `programId`까지 함께 걸어 다른 프로그램의 teamId 는 애초에 조회되지 않게
+   * 한다(404 로 흘러간다).
    */
   async findStaffTeamDetail(
     programId: string,
@@ -336,7 +338,9 @@ export class ProgramTeamsRepository {
         id: true,
         status: true,
         updatedAt: true,
-        repository: { select: { url: true, visibility: true } },
+        // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) —
+        // nameWithOwner에서 repository-identity.ts 헬퍼로 url을 유도한다.
+        repository: { select: { nameWithOwner: true, visibility: true } },
         program: { select: { repositoryProvisioningEnabled: true } },
       },
     });
@@ -358,7 +362,9 @@ export class ProgramTeamsRepository {
         status: application.status,
         repository: application.repository
           ? {
-              url: application.repository.url,
+              url: repositoryUrlFromNameWithOwner(
+                application.repository.nameWithOwner,
+              ),
               visibility: application.repository.visibility,
             }
           : null,

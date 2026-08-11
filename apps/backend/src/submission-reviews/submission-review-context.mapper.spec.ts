@@ -37,7 +37,7 @@ function contextRow(): ReviewContextInput {
       milestoneDocumentSubmissions: [],
       repository: {
         id: 'repository-1',
-        url: 'https://github.com/synthetic-org/synthetic-repository',
+        nameWithOwner: 'synthetic-org/synthetic-repository',
         visibility: RepositoryVisibility.PRIVATE,
         provisionJob: {
           status: RepositoryProvisionJobStatus.SUCCEEDED,

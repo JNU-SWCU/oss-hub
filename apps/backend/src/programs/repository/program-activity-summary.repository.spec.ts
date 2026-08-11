@@ -12,7 +12,7 @@ describe('ProgramActivitySummaryRepository', () => {
         { programId: 'program-archived', githubRepositoryId: 101n },
       ]);
     const prisma = {
-      repository: { findMany },
+      githubRepository: { findMany },
     } satisfies ProgramActivitySummaryDataSource;
 
     // When
@@ -37,7 +37,7 @@ describe('ProgramActivitySummaryRepository', () => {
     // Given
     const findMany = jest.fn();
     const prisma = {
-      repository: { findMany },
+      githubRepository: { findMany },
     } satisfies ProgramActivitySummaryDataSource;
 
     await expect(

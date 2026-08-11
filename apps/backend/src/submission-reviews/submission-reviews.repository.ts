@@ -138,7 +138,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
   async findPublishEligibility(
     repositoryId: string,
   ): Promise<RepositoryPublishEligibility | null> {
-    const repository = await this.prisma.repository.findUnique({
+    const repository = await this.prisma.githubRepository.findUnique({
       where: { id: repositoryId },
       select: {
         id: true,
@@ -170,7 +170,10 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         },
       },
     });
-    if (repository === null) return null;
+    // application은 #617 단계 D 이후 GithubRepository에서 nullable이지만(인벤토리 스윕이
+    // 만든 행은 applicationId가 없다), 검토 대상 저장소는 항상 recordRepository가 만든
+    // 행이라 application을 가진다 — null이면 잘못된 repositoryId다.
+    if (repository === null || repository.application === null) return null;
     const job = repository.application.provisionJob;
     return {
       repositoryId: repository.id,

@@ -1,5 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { ApplicationStatus, RepositoryInvitationStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  RepositoryInvitationStatus,
+  RepositorySource,
+} from '@prisma/client';
 import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
@@ -72,8 +76,10 @@ export class RepositoryProvisionWorker {
       | 'organization'
     >,
     /**
-     * OWN 저장소를 수집 큐에 편입한다. 프로비저닝과 수집은 별개 모델(`Repository`
-     * vs `GithubRepository`)이라 여기서 잇지 않으면 연결이 끊긴다(ADR-010 §6).
+     * OWN 저장소를 수집 큐에 편입한다. 프로비저닝(recordRepository)과 수집 관찰은
+     * 같은 GithubRepository 행에 쓰지만 책임이 다르다(#617 단계 D 이후에도) —
+     * recordRepository는 provision 컬럼만, 이건 수집 관찰 필드만 갱신한다.
+     * 여기서 잇지 않으면 OWN 저장소는 수집 스윕 대상에서 영영 빠진다(ADR-010 §6).
      */
     private readonly collectionEnrollment: Pick<
       RepositoryOwnEnrollmentService,
@@ -287,12 +293,22 @@ export class RepositoryProvisionWorker {
         }),
         buildRepositoryOwnershipMarker(context.applicationId),
       ));
+    // OWN + EXTERNAL(조직 밖 공개 저장소)만 EXTERNAL_PUBLIC이다. NEW든
+    // OWN + ORGANIZATION(조직 안 저장소를 자기 것으로 연결)이든 조직이 관리하는
+    // 저장소이므로 ORG_PROVISIONED다 — 여기서 잘못 찍으면 뒤이은
+    // enrollExternalRepository가 이 행을 "이미 다른 source로 있음"으로 보고
+    // 수집 관찰 필드를 갱신하지 않는다.
+    const source =
+      ownResolution?.kind === 'EXTERNAL'
+        ? RepositorySource.EXTERNAL_PUBLIC
+        : RepositorySource.ORG_PROVISIONED;
     const repository = await this.state.recordRepository({
       jobId,
       workerId,
       applicationId: context.applicationId,
       programId: context.programId,
       teamId: context.teamId,
+      source,
       metadata,
     });
     return { repository, ownResolution };

@@ -48,7 +48,7 @@ function eligibleRow(): ReviewContextRow {
       milestoneDocumentSubmissions: [],
       repository: {
         id: 'repository-1',
-        url: 'https://github.com/synthetic-org/synthetic-repository',
+        nameWithOwner: 'synthetic-org/synthetic-repository',
         visibility: RepositoryVisibility.PRIVATE,
         provisionJob: {
           status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -316,7 +316,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       },
     });
     const repository = new SubmissionReviewsRepository({
-      repository: { findUnique },
+      githubRepository: { findUnique },
     } as unknown as PrismaService);
 
     // When: 공개 게이트 재료를 조회한다.
@@ -350,7 +350,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       },
     });
     const repository = new SubmissionReviewsRepository({
-      repository: { findUnique },
+      githubRepository: { findUnique },
     } as unknown as PrismaService);
 
     // When: 공개 게이트 재료를 조회한다.

@@ -131,21 +131,38 @@ describe('PublicProjectsService.findProfile integration', () => {
       c: 8_900_000_000_003n,
       d: 8_900_000_000_004n,
     };
-    await prisma.repository.createMany({
+    // #617 단계 D 이후 platform(옛 Repository)과 collection 관측(옛 CollectionRepository)이
+    // 한 GithubRepository 행이다 — 더는 같은 githubRepositoryId를 공유하는 두 행을 따로 만들
+    // 수 없다(만들면 githubRepositoryId @unique 위반). repo-a/b/d는 관측됨(presence: PRESENT +
+    // lastCompleteInventoryObservedAt), repo-c는 미관측을 나타내려고 presence: ABSENT로 만든다 —
+    // `getRepositoryCumulativeMetrics`가 presence: PRESENT만 보므로 이 한 컬럼 차이가
+    // "관측-0(d)"과 "미관측(c)"을 여전히 구분 가능하게 한다.
+    const observedKeys = ['a', 'b', 'd'] as const;
+    await prisma.githubRepository.createMany({
       data: repoKeys.map((key, index) => ({
         id: `${PREFIX}-repository-${key}`,
         applicationId: applicationIds[index]!,
         programId: PROGRAM_ID,
         githubRepositoryId: githubRepositoryIdByKey[key],
-        name: `${PREFIX}-repo-${key}`,
-        url: `https://github.com/synthetic-org/${PREFIX}-repo-${key}`,
+        nameWithOwner: `synthetic-org/${PREFIX}-repo-${key}`,
+        source: RepositorySource.ORG_PROVISIONED,
         visibility: RepositoryVisibility.PUBLIC,
         publishedAt: PUBLISHED_AT,
+        ...((observedKeys as readonly string[]).includes(key)
+          ? {
+              githubOrganizationId: 8_800_500_000_000n,
+              defaultBranch: 'main',
+              presence: CollectionRepositoryPresence.PRESENT,
+              lastCompleteInventoryObservedAt: new Date(
+                '2026-05-01T00:00:00.000Z',
+              ),
+            }
+          : { presence: CollectionRepositoryPresence.ABSENT }),
       })),
     });
 
     // 소유자를 세 저장소(a/b/d)의 팀 리더로 묶어 listForUser가 이 저장소들을 찾게 한다.
-    for (const key of ['a', 'b', 'd'] as const) {
+    for (const key of observedKeys) {
       await prisma.team.create({
         data: {
           id: `${PREFIX}-team-${key}`,
@@ -158,29 +175,11 @@ describe('PublicProjectsService.findProfile integration', () => {
       });
     }
 
-    // collection 관측: repo-a/repo-b/repo-d에는 CollectionRepository 행을 만든다(observed).
-    // repo-c는 만들지 않는다(unobserved).
-    for (const key of ['a', 'b', 'd'] as const) {
-      await prisma.githubRepository.create({
-        data: {
-          id: `${PREFIX}-collection-repository-${key}`,
-          githubOrganizationId: 8_800_500_000_000n,
-          githubRepositoryId: githubRepositoryIdByKey[key],
-          nameWithOwner: `synthetic-org/${PREFIX}-repo-${key}`,
-          defaultBranch: 'main',
-          source: RepositorySource.ORG_PROVISIONED,
-          visibility: RepositoryVisibility.PUBLIC,
-          presence: CollectionRepositoryPresence.PRESENT,
-          lastCompleteInventoryObservedAt: new Date('2026-05-01T00:00:00.000Z'),
-        },
-      });
-    }
-
     // repo-a: 소유자 기여(3/1/0) + 다른 기여자(999/999/999, 반드시 배제되어야 한다).
     await prisma.contribution.createMany({
       data: [
         {
-          repositoryId: `${PREFIX}-collection-repository-a`,
+          repositoryId: `${PREFIX}-repository-a`,
           githubId: OWNER_GITHUB_ID,
           date: new Date(Date.UTC(2026, 0, 2)),
           commitCount: 3,
@@ -188,7 +187,7 @@ describe('PublicProjectsService.findProfile integration', () => {
           releaseCount: 0,
         },
         {
-          repositoryId: `${PREFIX}-collection-repository-a`,
+          repositoryId: `${PREFIX}-repository-a`,
           githubId: OTHER_CONTRIBUTOR_GITHUB_ID,
           date: new Date(Date.UTC(2026, 0, 2)),
           commitCount: 999,
@@ -200,7 +199,7 @@ describe('PublicProjectsService.findProfile integration', () => {
     // repo-b: 소유자 기여(4/0/2) — 두 저장소 합산 정확성 검증용.
     await prisma.contribution.create({
       data: {
-        repositoryId: `${PREFIX}-collection-repository-b`,
+        repositoryId: `${PREFIX}-repository-b`,
         githubId: OWNER_GITHUB_ID,
         date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 4,
@@ -211,7 +210,7 @@ describe('PublicProjectsService.findProfile integration', () => {
     // repo-d: 관측은 됐지만(연간 집계 행은 있으나) 소유자의 기여 행은 없다 — observed-zero.
     await prisma.contribution.create({
       data: {
-        repositoryId: `${PREFIX}-collection-repository-d`,
+        repositoryId: `${PREFIX}-repository-d`,
         githubId: OTHER_CONTRIBUTOR_GITHUB_ID,
         date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 10,
@@ -225,20 +224,12 @@ describe('PublicProjectsService.findProfile integration', () => {
     try {
       await prisma.contribution.deleteMany({
         where: {
-          repositoryId: { startsWith: `${PREFIX}-collection-repository` },
+          repositoryId: { startsWith: `${PREFIX}-repository` },
         },
       });
-      await prisma.contribution.deleteMany({
-        where: {
-          repositoryId: { startsWith: `${PREFIX}-collection-repository` },
-        },
-      });
-      await prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-collection-repository` } },
-      });
-      // Application.teamId / Repository.teamId가 Team을 참조하므로(RESTRICT)
+      // Application.teamId / GithubRepository.teamId가 Team을 참조하므로(RESTRICT)
       // repository·application을 team보다 먼저 지운다.
-      await prisma.repository.deleteMany({
+      await prisma.githubRepository.deleteMany({
         where: { programId: PROGRAM_ID },
       });
       await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -333,8 +324,8 @@ describe('PublicProjectsService.findProfile integration', () => {
       expect(repoC?.dataAsOf).toBeNull();
       expect(repoC?.metrics).toBeNull();
     } finally {
-      // Repository.teamId가 team-c를 참조하므로(RESTRICT) team 삭제 전 연결부터 끊는다.
-      await prisma.repository.update({
+      // GithubRepository.teamId가 team-c를 참조하므로(RESTRICT) team 삭제 전 연결부터 끊는다.
+      await prisma.githubRepository.update({
         where: { id: `${PREFIX}-repository-c` },
         data: { teamId: null },
       });

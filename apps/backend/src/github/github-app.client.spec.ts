@@ -42,6 +42,7 @@ describe('GithubAppClient', () => {
       jsonResponse(201, {
         id: 987654321,
         name: 'synthetic-repository',
+        full_name: 'synthetic-org/synthetic-repository',
         html_url: 'https://github.com/synthetic-org/synthetic-repository',
         visibility: 'private',
         description: OWNERSHIP_MARKER,
@@ -60,6 +61,7 @@ describe('GithubAppClient', () => {
       githubRepositoryId: 987654321n,
       name: 'synthetic-repository',
       url: 'https://github.com/synthetic-org/synthetic-repository',
+      nameWithOwner: 'synthetic-org/synthetic-repository',
       visibility: 'PRIVATE',
       description: OWNERSHIP_MARKER,
     });
@@ -259,6 +261,7 @@ describe('GithubAppClient', () => {
       jsonResponse(200, {
         id: 987654321,
         name: 'synthetic-repository',
+        full_name: 'synthetic-org/synthetic-repository',
         html_url: 'https://github.com/synthetic-org/synthetic-repository',
         visibility: 'private',
         description: OWNERSHIP_MARKER,

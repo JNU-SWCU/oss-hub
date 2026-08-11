@@ -1,4 +1,7 @@
-import { RepositoryInvitationStatus } from '@prisma/client';
+import {
+  RepositoryInvitationStatus,
+  RepositorySource,
+} from '@prisma/client';
 import {
   githubClientMock,
   jobRepositoryMock,
@@ -113,6 +116,7 @@ describe('RepositoryProvisionWorker success', () => {
       githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
       name: PROVISION_REPOSITORY.name,
       url: PROVISION_REPOSITORY.url,
+      nameWithOwner: `synthetic-org/${PROVISION_REPOSITORY.name}`,
       visibility: PROVISION_REPOSITORY.visibility,
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
@@ -197,6 +201,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       githubRepositoryId: provisioned.githubRepositoryId,
       name: provisioned.name,
       url: repositoryUrl,
+      nameWithOwner: `synthetic-org/${provisioned.name}`,
       visibility: 'PRIVATE',
       description: null,
     });
@@ -215,6 +220,11 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     expect(github.findRepository).toHaveBeenCalledWith(provisioned.name);
     expect(github.findPublicRepository).not.toHaveBeenCalled();
     expect(enrollExternalRepository).not.toHaveBeenCalled();
+    // 조직 안 저장소를 자기 것으로 연결해도 ORG_PROVISIONED다 — EXTERNAL_PUBLIC로
+    // 잘못 찍으면 인벤토리 스윕이 관찰한 소유권과 충돌한다(#617 단계 D 회귀 가드).
+    expect(state.recordRepository.mock.calls[0]?.[0].source).toBe(
+      RepositorySource.ORG_PROVISIONED,
+    );
   });
 
   it('OWN 승인은 저장소를 만들지 않고 학생 URL을 그대로 기록한다', async () => {
@@ -260,6 +270,13 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       defaultBranch: 'main',
       description: null,
     });
+    // 조직 밖 저장소는 EXTERNAL_PUBLIC로 기록해야, 뒤이은 enrollExternalRepository의
+    // updateMany(where: source: 'EXTERNAL_PUBLIC')가 이 행을 잡는다 — ORG_PROVISIONED로
+    // 잘못 찍으면 조용히 no-op으로 끝나 수집 관찰 필드가 영영 갱신되지 않는다
+    // (#617 단계 D에서 실제로 발견·수정한 회귀).
+    expect(state.recordRepository.mock.calls[0]?.[0].source).toBe(
+      RepositorySource.EXTERNAL_PUBLIC,
+    );
     expect(enrollExternalRepository.mock.calls).toEqual([
       [
         {

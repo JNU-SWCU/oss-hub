@@ -129,8 +129,10 @@ export class ProgramLifecycleService {
 
       // 불변조건: Application 하드삭제는 SUBMITTED 상태에서만 일어난다
       // (student-application-management.repository.ts의 validateMutation) — 즉 이
-      // 지점에서 applications===0이면 Repository(applicationId 필수 unique FK)와
-      // MilestoneDocumentSubmission(applicationId 필수 FK)도 항상 0이어야 한다.
+      // 지점에서 applications===0이면 GithubRepository(programId — provisioning된 행만
+      // 채워진다, #617 단계 D 이후 applicationId 자체는 nullable이지만 provisioning된
+      // 행은 항상 applicationId·programId를 함께 갖는다)와 MilestoneDocumentSubmission
+      // (applicationId 필수 FK)도 이 programId로는 항상 0이어야 한다.
       // 스키마상 그 두 관계에 onDelete: Cascade가 없어, 이 불변조건이 깨진 채로
       // Program을 지우면 FK 위반 500이 터진다. 도달 불가능해야 하는 경로지만
       // 500을 막기 위해 방어적으로 확인하고, 깨졌다면 새 UI 카테고리를 만드는 대신
@@ -138,7 +140,7 @@ export class ProgramLifecycleService {
       // 0이라 프론트는 이를 일반 차단 안내 문구로 보여준다.
       const [orphanRepositoryCount, orphanMilestoneDocumentSubmissionCount] =
         await Promise.all([
-          transaction.repository.count({ where: { programId } }),
+          transaction.githubRepository.count({ where: { programId } }),
           transaction.milestoneDocumentSubmission.count({
             where: { milestoneDocument: { milestone: { programId } } },
           }),

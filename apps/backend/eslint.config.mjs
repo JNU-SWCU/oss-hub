@@ -39,6 +39,10 @@ const collectionPublicFiles = [
   'repositories.integration-support',
   'github-app.client',
   'github-app.error',
+  // Repository 테이블 통합(#617 단계 D) 이후 name/url을 nameWithOwner에서
+  // 파생하는 순수 헬퍼. DTO 변환 지점마다 파생 로직을 복제하지 않도록
+  // 여러 zone(applications/programs/submission-reviews 등)이 공유한다.
+  'repository-identity',
 ];
 const collectionPublicDirs = ['dto'];
 // 계층 폴더(P20) 도입으로 공개 표면 일부가 zone 루트를 떠났다.

@@ -1,14 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { type ProgramCategory } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  repositoryNameFromNameWithOwner,
+  repositoryUrlFromNameWithOwner,
+} from '../../../github/repository-identity';
 
 /**
- * todo 16 — ADR-003 공개 strict-read 예외를 쓰는 전용 repository. `Repository`(원본) 및
- * `User`(신원 최소 필드)만 명시적 select로 읽는다 — wildcard `include`는 절대 쓰지 않는다.
+ * todo 16 — ADR-003 공개 strict-read 예외를 쓰는 전용 repository. `GithubRepository`(#617
+ * 단계 D부터 원본 통합 테이블) 및 `User`(신원 최소 필드)만 명시적 select로 읽는다 —
+ * wildcard `include`는 절대 쓰지 않는다.
  * 모든 질의가 `visibility: 'PUBLIC'`·`publishedAt: { not: null }`로 platform eligibility를
  * DB 경계에서 먼저 걸러, private/unpublished 저장소와 존재하지 않는 저장소가 서비스 계층에서
  * 항상 동일하게 "행 없음"으로 보이게 한다(동일 404의 토대). Collection freshness fence는
  * 여기서 다루지 않는다 — `PublicEligibilityService`(todo 15)의 책임이다.
+ *
+ * `publishedAt`이 설정되는 경로(`publishRepositoryIfPrivate`)는 항상 provisioning이 만든
+ * 행(`applicationId`/`programId` 모두 설정됨)만 거치므로, 아래 각 질의가 돌려주는 행은
+ * `program`/`application` 관계가 항상 존재한다 — 인벤토리 스윕이 만든 무관한 행
+ * (`applicationId` null)은 애초에 발행될 수 없다.
  */
 export interface PublicProjectRow {
   readonly id: string;
@@ -51,8 +61,7 @@ export interface PublicUserIdentity {
 const PROJECT_ROW_SELECT = {
   id: true,
   githubRepositoryId: true,
-  name: true,
-  url: true,
+  nameWithOwner: true,
   publishedAt: true,
   programId: true,
   program: { select: { name: true, category: true } },
@@ -63,30 +72,30 @@ const PROJECT_ROW_SELECT = {
 type ProjectRowSelection = {
   id: string;
   githubRepositoryId: bigint;
-  name: string;
-  url: string;
+  nameWithOwner: string;
   publishedAt: Date | null;
-  programId: string;
-  program: { name: string; category: ProgramCategory };
+  programId: string | null;
+  program: { name: string; category: ProgramCategory } | null;
   team: { name: string; _count: { members: number } } | null;
-  application: { applicant: { nickname: string } };
+  application: { applicant: { nickname: string } } | null;
 };
 
 function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
+  // where절이 publishedAt: { not: null }을 강제하고, publishedAt은 provisioning이 만든
+  // 행(program/application 모두 있음)에서만 설정되므로 아래 non-null 단언들은 안전하다.
   return {
     id: row.id,
     projectId: row.githubRepositoryId.toString(),
     githubRepositoryId: row.githubRepositoryId,
-    repositoryName: row.name,
-    githubUrl: row.url,
-    // where절이 publishedAt: { not: null }을 강제하므로 null이 아니다.
+    repositoryName: repositoryNameFromNameWithOwner(row.nameWithOwner),
+    githubUrl: repositoryUrlFromNameWithOwner(row.nameWithOwner),
     publishedAt: row.publishedAt!,
-    programId: row.programId,
-    programName: row.program.name,
-    category: row.program.category,
+    programId: row.programId!,
+    programName: row.program!.name,
+    category: row.program!.category,
     teamName: row.team?.name ?? null,
     teamMemberCount: row.team?._count?.members ?? 0,
-    applicantNickname: row.application.applicant.nickname,
+    applicantNickname: row.application!.applicant.nickname,
   };
 }
 
@@ -106,7 +115,7 @@ export class PublicProjectsRepository {
     take: number,
     category?: ProgramCategory,
   ): Promise<PublicProjectRow[]> {
-    const rows = await this.prisma.repository.findMany({
+    const rows = await this.prisma.githubRepository.findMany({
       where: {
         visibility: 'PUBLIC',
         publishedAt: { not: null },
@@ -138,7 +147,7 @@ export class PublicProjectsRepository {
       readonly { category: ProgramCategory; count: bigint }[]
     >`
       SELECT p.category AS category, COUNT(*)::bigint AS count
-      FROM "Repository" r
+      FROM "GithubRepository" r
       INNER JOIN "Program" p ON p.id = r."programId"
       WHERE r.visibility = 'PUBLIC'::"RepositoryVisibility"
         AND r."publishedAt" IS NOT NULL
@@ -157,7 +166,7 @@ export class PublicProjectsRepository {
   async findById(projectId: string): Promise<PublicProjectRow | null> {
     if (!/^[0-9]+$/.test(projectId)) return null;
 
-    const row = await this.prisma.repository.findFirst({
+    const row = await this.prisma.githubRepository.findFirst({
       where: {
         githubRepositoryId: BigInt(projectId),
         visibility: 'PUBLIC',
@@ -171,9 +180,13 @@ export class PublicProjectsRepository {
   /**
    * 단독 지원자(팀 없음) 또는 팀(리더·멤버)으로 참여한 공개-발행 저장소를 모두 찾는다.
    * repositoryIds 크기와 무관하게 findMany 질의 1개다.
+   *
+   * ⚠ `{ teamId: null, application: { applicantId: userId } }` 절을 지운다 —
+   * D5부터 모든 신청이 팀을 갖지만(1인 팀 포함), 과거 팀 없이 만들어진 레거시 저장소가
+   * 여전히 존재해 이 절이 없으면 그 저장소의 단독 지원자가 자기 프로젝트를 못 본다.
    */
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
-    const rows = await this.prisma.repository.findMany({
+    const rows = await this.prisma.githubRepository.findMany({
       where: {
         visibility: 'PUBLIC',
         publishedAt: { not: null },

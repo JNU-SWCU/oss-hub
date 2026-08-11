@@ -4,10 +4,10 @@ import {
   DEFAULT_SEED_PROFILE,
   parseOssHubTeamAccounts,
   resolveSeedProfile,
-  seedFixtureUrl,
   seedGithubId,
   seedId,
   SeedStats,
+  seedNameWithOwner,
   seedRepositoryId,
 } from './helpers';
 
@@ -52,10 +52,10 @@ describe('seedGithubId / seedRepositoryId', () => {
   });
 });
 
-describe('seedFixtureUrl', () => {
-  it('RFC 2606 예약 도메인을 쓰는 명백한 fixture URL을 만든다', () => {
-    const url = seedFixtureUrl('repository-public');
-    expect(url).toBe('https://github.invalid/oss-hub-seed/repository-public');
+describe('seedNameWithOwner', () => {
+  it('실존 owner와 겹치지 않는 합성 네임스페이스(oss-hub-seed)를 쓴다', () => {
+    const nameWithOwner = seedNameWithOwner('repository-public');
+    expect(nameWithOwner).toBe('oss-hub-seed/repository-public');
   });
 });
 

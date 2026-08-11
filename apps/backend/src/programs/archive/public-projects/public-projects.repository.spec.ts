@@ -7,7 +7,7 @@ type FindFirstMock = jest.Mock<Promise<unknown>, [unknown]>;
 type FindUniqueMock = jest.Mock<Promise<unknown>, [unknown]>;
 
 interface MockPrismaClient {
-  repository: { findMany: FindManyMock; findFirst: FindFirstMock };
+  githubRepository: { findMany: FindManyMock; findFirst: FindFirstMock };
   user: { findUnique: FindUniqueMock };
   $queryRaw: jest.Mock;
 }
@@ -19,7 +19,7 @@ function repositoryWith(overrides: {
   queryRaw?: jest.Mock;
 }): { repository: PublicProjectsRepository; prisma: MockPrismaClient } {
   const prisma: MockPrismaClient = {
-    repository: {
+    githubRepository: {
       findMany: overrides.repositoryFindMany ?? jest.fn(),
       findFirst: overrides.repositoryFindFirst ?? jest.fn(),
     },
@@ -41,8 +41,7 @@ function repositoryWith(overrides: {
 const PROJECT_ROW_SELECT = {
   id: true,
   githubRepositoryId: true,
-  name: true,
-  url: true,
+  nameWithOwner: true,
   publishedAt: true,
   programId: true,
   program: { select: { name: true, category: true } },
@@ -53,8 +52,7 @@ const PROJECT_ROW_SELECT = {
 const RAW_ROW = {
   id: 'synthetic-repository-1',
   githubRepositoryId: 9001n,
-  name: 'synthetic-repo',
-  url: 'https://github.com/synthetic-org/synthetic-repo',
+  nameWithOwner: 'synthetic-org/synthetic-repo',
   publishedAt: new Date('2026-07-20T00:00:00.000Z'),
   programId: 'synthetic-program-1',
   program: { name: 'synthetic-program', category: 'BASIC' as ProgramCategory },
@@ -77,8 +75,7 @@ describe('PublicProjectsRepository', () => {
         select: {
           id: true,
           githubRepositoryId: true,
-          name: true,
-          url: true,
+          nameWithOwner: true,
           publishedAt: true,
           programId: true,
           program: { select: { name: true, category: true } },

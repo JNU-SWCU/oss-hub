@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { type AccountStatus, type Prisma, type Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  deriveRepositoryFullName,
   parseAuditLogMetadata,
   type AuditLogMetadata,
   type AuditLogMetadataEvidence,
@@ -217,14 +216,14 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     if (idsNeedingJoin.size === 0) {
       return new Map();
     }
-    const repositories = await this.prisma.repository.findMany({
+    const repositories = await this.prisma.githubRepository.findMany({
       where: { id: { in: [...idsNeedingJoin] } },
-      select: { id: true, name: true, url: true },
+      select: { id: true, nameWithOwner: true },
     });
     return new Map(
       repositories.map((repository) => [
         repository.id,
-        deriveRepositoryFullName(repository.name, repository.url),
+        repository.nameWithOwner,
       ]),
     );
   }

@@ -4,6 +4,7 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
+  RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
   Role,
@@ -27,8 +28,13 @@ const TEAM_ID = seedId('oss-hub', 'team');
 const APPLICATION_ID = seedId('oss-hub', 'application');
 const REPOSITORY_ID = seedId('oss-hub', 'repository');
 const PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
-/** JNU-SWCU/oss-hub 플랫폼 자체의 공개 저장소 — 실제 공개 URL 참조는 허용된다. */
-const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
+/**
+ * JNU-SWCU/oss-hub 플랫폼 자체의 공개 저장소 — 실제 nameWithOwner 참조는 허용된다
+ * (`AGENTS.md` antipattern #2: 실존 대상은 실제 공개 메타데이터를 그대로 쓴다). #617 단계 D
+ * 이후 GithubRepository는 name/url 컬럼이 없고 nameWithOwner에서 파생하므로
+ * (`repository-identity.ts`), 여기서도 url 대신 nameWithOwner를 저장한다.
+ */
+const OSS_HUB_REPOSITORY_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub';
 const PROGRAM_NAME = '오픈소스 플랫폼 구축';
 const PROGRAM_ORGANIZER = '오픈소스 SW 개발 사업단';
 /** JNU-SWCU/oss-hub 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
@@ -50,6 +56,12 @@ const PRACTICE_PROGRAM_NAME = '오픈소스 실습 배포 퀘스트';
 /** JNU-SWCU/oss-hub-practice 학생 실습용 공개 저장소 — 실제 공개 URL 참조는 허용된다. */
 const OSS_HUB_PRACTICE_REPOSITORY_URL =
   'https://github.com/JNU-SWCU/oss-hub-practice';
+/**
+ * #617 단계 D 이후 GithubRepository는 name/url 컬럼이 없고 nameWithOwner에서 파생하므로
+ * (`repository-identity.ts`), 저장소 행 생성에는 url 대신 이 값을 쓴다. 위 URL 상수는 설명
+ * 문구(`PRACTICE_PROGRAM_DESCRIPTION`)에서 계속 쓰인다.
+ */
+const OSS_HUB_PRACTICE_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub-practice';
 /** JNU-SWCU/oss-hub-practice 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
 const OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID = 1296567792n;
 /** 실제 GitHub 저장소 생성일(2026-07-10, public 정보) — Asia/Seoul 자정 기준. */
@@ -521,10 +533,10 @@ export async function seedOssHub(
   // 저장소 추적 — 실제 공개 저장소(github.com/JNU-SWCU/oss-hub)를 연결·공개 완료 상태로 표현한다.
   await upsertTracked(
     stats,
-    'Repository',
-    () => prisma.repository.findUnique({ where: { id: REPOSITORY_ID } }),
+    'GithubRepository',
+    () => prisma.githubRepository.findUnique({ where: { id: REPOSITORY_ID } }),
     () =>
-      prisma.repository.upsert({
+      prisma.githubRepository.upsert({
         where: { id: REPOSITORY_ID },
         update: {
           githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
@@ -536,8 +548,8 @@ export async function seedOssHub(
           programId: PROGRAM_ID,
           teamId: TEAM_ID,
           githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
-          name: 'oss-hub',
-          url: OSS_HUB_REPOSITORY_URL,
+          nameWithOwner: OSS_HUB_REPOSITORY_NAME_WITH_OWNER,
+          source: RepositorySource.ORG_PROVISIONED,
           visibility: RepositoryVisibility.PUBLIC,
           publishedAt: offsetDays(-30),
         },
@@ -692,11 +704,13 @@ export async function seedOssHub(
   // 완료 상태로 표현한다. githubRepositoryId는 GitHub API로 확인한 실제 numeric id다.
   await upsertTracked(
     stats,
-    'Repository',
+    'GithubRepository',
     () =>
-      prisma.repository.findUnique({ where: { id: PRACTICE_REPOSITORY_ID } }),
+      prisma.githubRepository.findUnique({
+        where: { id: PRACTICE_REPOSITORY_ID },
+      }),
     () =>
-      prisma.repository.upsert({
+      prisma.githubRepository.upsert({
         where: { id: PRACTICE_REPOSITORY_ID },
         update: {
           githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
@@ -708,8 +722,8 @@ export async function seedOssHub(
           programId: PRACTICE_PROGRAM_ID,
           teamId: PRACTICE_TEAM_ID,
           githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
-          name: 'oss-hub-practice',
-          url: OSS_HUB_PRACTICE_REPOSITORY_URL,
+          nameWithOwner: OSS_HUB_PRACTICE_NAME_WITH_OWNER,
+          source: RepositorySource.ORG_PROVISIONED,
           visibility: RepositoryVisibility.PUBLIC,
           publishedAt: OSS_HUB_PRACTICE_CREATED_AT,
         },

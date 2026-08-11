@@ -473,7 +473,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     };
 
     const listWithRepository = async (
-      repository: { url: string; visibility: RepositoryVisibility } | null,
+      repository: { nameWithOwner: string; visibility: RepositoryVisibility } | null,
     ) => {
       const findMany = jest.fn().mockResolvedValue([
         {
@@ -519,12 +519,12 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
       '%s 저장소의 url·visibility 를 그대로 내려보낸다',
       async (visibility) => {
         const { item } = await listWithRepository({
-          url: 'https://github.test/synthetic-org/team-1',
+          nameWithOwner: 'synthetic-org/team-1',
           visibility,
         });
 
         expect(item?.repository).toEqual({
-          url: 'https://github.test/synthetic-org/team-1',
+          url: 'https://github.com/synthetic-org/team-1',
           visibility,
         });
       },
@@ -541,7 +541,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
 
       const select = readSelect(findMany);
       expect(select).toMatchObject({
-        repository: { select: { url: true, visibility: true } },
+        repository: { select: { nameWithOwner: true, visibility: true } },
       });
       expect(select).toHaveProperty('team');
       expect(

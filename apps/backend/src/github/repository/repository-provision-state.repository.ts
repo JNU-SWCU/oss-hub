@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  CollectionRepositoryPresence,
   OutboxEventStatus,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
@@ -29,6 +30,7 @@ import {
   matchesProvisionedMetadata,
   repositorySelection,
   RepositoryProvisionLeaseLostError,
+  toProvisionedRepository,
 } from '../repository-provision-state.helpers';
 
 @Injectable()
@@ -90,7 +92,10 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         application.program.repositoryProvisioningEnabled,
       teamId: application.teamId,
       subjectName: application.team?.name ?? application.applicant.nickname,
-      repository: application.repository,
+      repository:
+        application.repository === null
+          ? null
+          : toProvisionedRepository(application.repository),
     };
   }
 
@@ -100,7 +105,14 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await assertProvisionLease(transaction, input.jobId, input.workerId);
-        const repository = await transaction.repository.upsert({
+        // GithubRepository에 직접 upsert한다(#617 단계 D) — 여기서 쓰는 건 provision
+        // 컬럼(applicationId/programId/teamId) + source/presence뿐이다. 수집 큐 필드
+        // (nextRunAt/lastSuccessAt/failureCount)는 create에서 스키마 기본값을 그대로 받고,
+        // update에서는 절대 건드리지 않는다(인벤토리 스윕과 동일한 원칙).
+        // source는 호출자가 넘긴 값을 그대로 쓴다 — OWN+EXTERNAL 연결을 여기서
+        // ORG_PROVISIONED로 잘못 찍으면, 뒤이은 enrollExternalRepository가
+        // "이미 다른 source로 있는 행"으로 보고 조용히 아무것도 안 한다.
+        const repository = await transaction.githubRepository.upsert({
           where: { applicationId: input.applicationId },
           update: {},
           create: {
@@ -108,23 +120,25 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             programId: input.programId,
             teamId: input.teamId,
             githubRepositoryId: input.metadata.githubRepositoryId,
-            name: input.metadata.name,
-            url: input.metadata.url,
+            nameWithOwner: input.metadata.nameWithOwner,
             visibility: input.metadata.visibility,
+            source: input.source,
+            presence: CollectionRepositoryPresence.PRESENT,
           },
           select: repositorySelection,
         });
-        if (!matchesProvisionedMetadata(repository, input)) {
+        const provisioned = toProvisionedRepository(repository);
+        if (!matchesProvisionedMetadata(provisioned, input)) {
           throw finalProvisionFailure(
             PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
           );
         }
         const attached = await transaction.repositoryProvisionJob.updateMany({
           where: claimedJobWhere(input.jobId, input.workerId),
-          data: { repositoryId: repository.id },
+          data: { repositoryId: provisioned.id },
         });
         assertSingleProvisionUpdate(attached.count);
-        return repository;
+        return provisioned;
       });
     } catch (error) {
       if (isPrismaUniqueConstraintError(error)) {

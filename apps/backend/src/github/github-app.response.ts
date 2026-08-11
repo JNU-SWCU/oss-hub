@@ -12,12 +12,12 @@ export type GithubRepositoryMetadata = {
   readonly githubRepositoryId: bigint;
   readonly name: string;
   readonly url: string;
+  readonly nameWithOwner: string;
   readonly visibility: 'PRIVATE' | 'PUBLIC';
   readonly description: string | null;
 };
 
 export type GithubPublicRepositoryMetadata = GithubRepositoryMetadata & {
-  readonly nameWithOwner: string;
   readonly defaultBranch: string | null;
   readonly archived: boolean;
 };
@@ -73,6 +73,7 @@ export function parseGithubRepository(
   const id = value.id;
   const name = value.name;
   const url = value.html_url;
+  const nameWithOwner = value.full_name;
   const visibility = value.visibility;
   const description = value.description;
   if (
@@ -81,6 +82,8 @@ export function parseGithubRepository(
     typeof name !== 'string' ||
     typeof url !== 'string' ||
     !URL.canParse(url) ||
+    typeof nameWithOwner !== 'string' ||
+    !isGithubNameWithOwner(nameWithOwner) ||
     (visibility !== 'private' && visibility !== 'public') ||
     (description !== null && typeof description !== 'string')
   ) {
@@ -90,6 +93,7 @@ export function parseGithubRepository(
     githubRepositoryId: BigInt(id),
     name,
     url,
+    nameWithOwner,
     visibility: visibility === 'private' ? 'PRIVATE' : 'PUBLIC',
     description,
   };
@@ -102,12 +106,9 @@ export function parseGithubPublicRepository(
   if (!isRecord(value)) {
     throw invalidGithubResponseError();
   }
-  const nameWithOwner = value.full_name;
   const defaultBranch = value.default_branch;
   const archived = value.archived;
   if (
-    typeof nameWithOwner !== 'string' ||
-    !isGithubNameWithOwner(nameWithOwner) ||
     (defaultBranch !== null &&
       (typeof defaultBranch !== 'string' || defaultBranch.length === 0)) ||
     typeof archived !== 'boolean'
@@ -116,7 +117,6 @@ export function parseGithubPublicRepository(
   }
   return {
     ...repository,
-    nameWithOwner,
     defaultBranch,
     archived,
   };

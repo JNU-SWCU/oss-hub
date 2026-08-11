@@ -4,6 +4,7 @@ import {
   ApplicationStatus,
   Role,
   RepositoryProvisionJobStatus,
+  RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
   SubmissionStatus,
@@ -12,10 +13,14 @@ import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
 import {
+  repositoryNameFromNameWithOwner,
+  repositoryUrlFromNameWithOwner,
+} from '../github/repository-identity';
+import {
   prisma as seedPrisma,
-  seedFixtureUrl,
   seedGithubId,
   seedId,
+  seedNameWithOwner,
   seedRepositoryId,
   SeedStats,
 } from '../../prisma/seeds/helpers';
@@ -77,6 +82,7 @@ const EXISTING_SUBMISSION_ID = seedId(
 async function createFreshPrivateRepository(): Promise<{
   readonly repositoryId: string;
   readonly githubRepositoryId: bigint;
+  readonly nameWithOwner: string;
   readonly name: string;
   readonly url: string;
 }> {
@@ -124,16 +130,17 @@ async function createFreshPrivateRepository(): Promise<{
   });
   const repositoryId = seedId('repositories', scenarioId, 'repository');
   const githubRepositoryId = seedRepositoryId(scenarioId);
-  const name = `seed-${scenarioId}`;
-  const url = seedFixtureUrl(scenarioId);
-  await prisma.repository.create({
+  const nameWithOwner = seedNameWithOwner(scenarioId);
+  const name = repositoryNameFromNameWithOwner(nameWithOwner);
+  const url = repositoryUrlFromNameWithOwner(nameWithOwner);
+  await prisma.githubRepository.create({
     data: {
       id: repositoryId,
       applicationId,
       programId: REPOSITORIES_PROGRAM_ID,
       githubRepositoryId,
-      name,
-      url,
+      nameWithOwner,
+      source: RepositorySource.ORG_PROVISIONED,
       visibility: RepositoryVisibility.PRIVATE,
     },
   });
@@ -148,7 +155,7 @@ async function createFreshPrivateRepository(): Promise<{
       finishedAt: new Date(),
     },
   });
-  return { repositoryId, githubRepositoryId, name, url };
+  return { repositoryId, githubRepositoryId, nameWithOwner, name, url };
 }
 
 describe('SubmissionReviewsService integration', () => {
@@ -196,7 +203,7 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { application: { programId: REPOSITORIES_PROGRAM_ID } },
     });
-    await prisma.repository.deleteMany({
+    await prisma.githubRepository.deleteMany({
       where: { programId: REPOSITORIES_PROGRAM_ID },
     });
     await prisma.outboxEvent.deleteMany({
@@ -281,25 +288,29 @@ describe('SubmissionReviewsService integration', () => {
   it('provision 성공 seed 저장소를 공개하고 DB 상태를 갱신하며 정확히 1건의 typed audit을 남긴다', async () => {
     const scenarioId = 'repo-job-succeeded';
     const repositoryId = seedId('repositories', scenarioId, 'repository');
-    const repository = await prisma.repository.findUniqueOrThrow({
+    const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { id: repositoryId },
     });
+    const repositoryName = repositoryNameFromNameWithOwner(
+      repository.nameWithOwner,
+    );
     github.publishRepository.mockResolvedValue({
       githubRepositoryId: repository.githubRepositoryId,
-      name: repository.name,
-      url: repository.url,
+      nameWithOwner: repository.nameWithOwner,
+      name: repositoryName,
+      url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
 
     await service.publishRepository(repositoryId, REVIEWER_GITHUB_ID);
 
-    const published = await prisma.repository.findUniqueOrThrow({
+    const published = await prisma.githubRepository.findUniqueOrThrow({
       where: { id: repositoryId },
     });
     expect(published.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(published.publishedAt).toBeInstanceOf(Date);
-    expect(github.publishRepository).toHaveBeenCalledWith(repository.name);
+    expect(github.publishRepository).toHaveBeenCalledWith(repositoryName);
 
     const auditRows = await prisma.auditLog.findMany({
       where: {
@@ -346,7 +357,7 @@ describe('SubmissionReviewsService integration', () => {
     // publishedAt: null을 유지한다(repositories.ts 주석 참고) — 그래서 이 테스트는
     // "이미 PUBLIC" 상태만 필요한 별도 fixture를 직접 만들어 그 불변식과 분리한다.
     const target = await createFreshPrivateRepository();
-    await prisma.repository.update({
+    await prisma.githubRepository.update({
       where: { id: target.repositoryId },
       data: {
         visibility: RepositoryVisibility.PUBLIC,
@@ -382,6 +393,7 @@ describe('SubmissionReviewsService integration', () => {
     const publishedAt = new Date('2026-07-31T00:00:00.000Z');
     github.publishRepository.mockResolvedValue({
       githubRepositoryId: target.githubRepositoryId,
+      nameWithOwner: target.nameWithOwner,
       name: target.name,
       url: target.url,
       visibility: RepositoryVisibility.PUBLIC,
@@ -411,7 +423,7 @@ describe('SubmissionReviewsService integration', () => {
     expect(first.publishedAt).toEqual(publishedAt);
     expect(second.publishedAt).toEqual(publishedAt);
 
-    const finalRepository = await prisma.repository.findUniqueOrThrow({
+    const finalRepository = await prisma.githubRepository.findUniqueOrThrow({
       where: { id: target.repositoryId },
     });
     expect(finalRepository.visibility).toBe(RepositoryVisibility.PUBLIC);

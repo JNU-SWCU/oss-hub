@@ -215,7 +215,7 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
         status: ApplicationStatus.REJECTED,
         rejectionReason: '예산 항목이 비어 있습니다',
         repository: {
-          url: 'https://github.test/synthetic-org/team-1',
+          nameWithOwner: 'synthetic-org/team-1',
           visibility: RepositoryVisibility.PRIVATE,
         },
       }),
@@ -231,7 +231,7 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
       rejectionReason: '예산 항목이 비어 있습니다',
       participation: 'TEAM',
       repository: {
-        url: 'https://github.test/synthetic-org/team-1',
+        url: 'https://github.com/synthetic-org/team-1',
         visibility: RepositoryVisibility.PRIVATE,
       },
       team: { id: 'synthetic-team', name: '합성 팀', memberCount: 3 },

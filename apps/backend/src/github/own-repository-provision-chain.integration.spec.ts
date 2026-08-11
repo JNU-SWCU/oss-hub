@@ -145,9 +145,9 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
-    await prisma.repository.deleteMany({
-      where: { applicationId: { in: [...APPLICATION_IDS] } },
-    });
+    // #617 단계 D 이후 applicationId로 만든 행과 githubRepositoryId로 만든 행이
+    // 같은 GithubRepository 테이블의 같은 행이다 — 위에서 이미 지웠으므로 여기서
+    // applicationId로 다시 지우는 건 중복이다(비어 있는 deleteMany는 안전한 no-op).
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
@@ -268,8 +268,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         defaultBranch: 'main',
         presence: 'PRESENT',
       });
+      // recordRepository(provision)와 enrollExternalRepository(수집 관찰)가
+      // applicationId/githubRepositoryId로 각각 찾아도 같은 통합 행으로 수렴한다.
       await expect(
-        prisma.repository.findUniqueOrThrow({
+        prisma.githubRepository.findUniqueOrThrow({
           where: { applicationId: CHAIN_APPLICATION_ID },
         }),
       ).resolves.toMatchObject({
@@ -285,7 +287,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     },
   );
 
-  it('현재 동의가 없으면 worker 편입이 실패로 끝나고 수집 행을 남기지 않는다', async () => {
+  it('현재 동의가 없으면 job은 재시도 가능 실패로 끝나고 수집 관찰 필드는 채워지지 않는다', async () => {
     // Given — 동의 없는 신청자의 OWN 신청이 승인되어 job까지 만들어졌다.
     await createOwnApplication(
       NO_CONSENT_APPLICATION_ID,
@@ -322,13 +324,22 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     );
 
     // Then — 동의 선행조건(RepositoryOwnEnrollmentService.requireCurrent)에 막혀
-    // job은 재시도 가능 실패로 끝나고 수집 행은 만들어지지 않는다.
+    // job은 재시도 가능 실패로 끝난다. recordRepository(provision)는 동의 확인보다
+    // 먼저 실행되고 #617 단계 D 이후로는 provision과 수집 관찰이 같은
+    // GithubRepository 행을 쓰므로, 행 자체는 만들어진다 — 다만 뒤이은
+    // enrollExternalRepository가 동의 부재로 던지면서 수집 관찰 필드는 생성
+    // 시점 기본값(defaultBranch: null 등)에 머문다.
     expect(result.kind).toBe('FAILED_RETRYABLE');
     await expect(
-      prisma.githubRepository.findFirst({
+      prisma.githubRepository.findFirstOrThrow({
         where: { githubRepositoryId: NO_CONSENT_GITHUB_REPOSITORY_ID },
       }),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({
+      applicationId: NO_CONSENT_APPLICATION_ID,
+      source: 'EXTERNAL_PUBLIC',
+      defaultBranch: null,
+      lastSuccessAt: null,
+    });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { applicationId: NO_CONSENT_APPLICATION_ID },

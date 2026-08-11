@@ -169,6 +169,7 @@ export class E2eFakeGithubAppClient {
       githubRepositoryId: repositoryId(input.owner, input.name),
       name: input.name,
       url: `https://github.com/${input.owner}/${input.name}`,
+      nameWithOwner: `${input.owner}/${input.name}`,
       visibility: input.visibility,
       description: input.description,
     };
