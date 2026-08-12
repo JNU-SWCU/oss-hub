@@ -1,4 +1,9 @@
-import { ProgramCategory, TeamInvitationStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  ProgramCategory,
+  Role,
+  TeamInvitationStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -38,9 +43,27 @@ async function cleanup(): Promise<void> {
 async function seedPendingInvitation(): Promise<void> {
   await prisma.user.createMany({
     data: [
-      { id: LEADER_ID, githubId: 9_100_000_001n, nickname: 'atomic-leader' },
-      { id: INVITEE_ID, githubId: 9_100_000_002n, nickname: 'atomic-invitee' },
-      { id: FILLER_ID, githubId: 9_100_000_003n, nickname: 'atomic-filler' },
+      {
+        id: LEADER_ID,
+        githubId: 9_100_000_001n,
+        nickname: 'atomic-leader',
+        role: Role.STUDENT,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      {
+        id: INVITEE_ID,
+        githubId: 9_100_000_002n,
+        nickname: 'atomic-invitee',
+        role: Role.STUDENT,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      {
+        id: FILLER_ID,
+        githubId: 9_100_000_003n,
+        nickname: 'atomic-filler',
+        role: Role.STUDENT,
+        accountStatus: AccountStatus.ACTIVE,
+      },
     ],
   });
   await prisma.program.create({

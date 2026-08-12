@@ -13,6 +13,7 @@ export enum TeamInvitationErrorCode {
   INVITATION_NOT_FOUND = 'TIV_010',
   INVITATION_NOT_PENDING = 'TIV_011',
   NOT_INVITEE = 'TIV_012',
+  INVITEE_NOT_ELIGIBLE = 'TIV_013',
 }
 
 export const TEAM_INVITATION_ERROR_CODES: Record<
@@ -78,5 +79,10 @@ export const TEAM_INVITATION_ERROR_CODES: Record<
     code: TeamInvitationErrorCode.NOT_INVITEE,
     status: 403,
     message: '본인이 받은 초대만 응답할 수 있습니다.',
+  },
+  [TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE]: {
+    code: TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE,
+    status: 422,
+    message: '활성 학생 계정만 팀원으로 초대할 수 있습니다.',
   },
 };
