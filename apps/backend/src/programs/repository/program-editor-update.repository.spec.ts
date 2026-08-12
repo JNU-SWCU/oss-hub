@@ -25,13 +25,19 @@ describe('ProgramEditorRepository updates', () => {
         repositoryProvisioningEnabled: false,
         notifyOnDeadline: true,
         description: 'overview',
-        _count: { applications: 0, teams: 0 },
+        _count: { applications: 0, teams: 0, boardPosts: 0 },
         milestones: [],
       });
     const updateMany = jest.fn().mockResolvedValue({ count: 2 });
+    const queryRaw = jest
+      .fn()
+      .mockResolvedValue([
+        { applications: 0n, teams: 0n, boardPosts: 0n, submissions: 0n },
+      ]);
     const transaction = {
       program: { update },
       submissionFile: { updateMany },
+      $queryRaw: queryRaw,
     };
     const prisma = {
       $transaction: <T>(operation: (store: typeof transaction) => Promise<T>) =>
@@ -68,6 +74,7 @@ describe('ProgramEditorRepository updates', () => {
       teamMaxSize: 4,
       notifyOnDeadline: true,
     });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(updateMany).toHaveBeenCalledWith({
       where: {
         application: { programId: 'program-1' },

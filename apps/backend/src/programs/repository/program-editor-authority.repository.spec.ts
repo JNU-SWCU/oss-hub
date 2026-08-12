@@ -41,7 +41,7 @@ describe('ProgramEditorRepository authority', () => {
 });
 
 describe('ProgramEditorRepository edit counts', () => {
-  it('maps explicit application and team counts on editable program reads', async () => {
+  it('maps all deletion counts from one snapshot query on editable program reads', async () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'program-1',
       name: 'OSS',
@@ -57,10 +57,18 @@ describe('ProgramEditorRepository edit counts', () => {
       teamMaxSize: 1,
       repositoryProvisioningEnabled: false,
       description: 'overview',
-      _count: { applications: 2, teams: 1 },
+      _count: { applications: 2, teams: 1, boardPosts: 3 },
       milestones: [],
     });
-    const transaction = { program: { findUnique } };
+    const queryRaw = jest
+      .fn()
+      .mockResolvedValue([
+        { applications: 2n, teams: 1n, boardPosts: 3n, submissions: 4n },
+      ]);
+    const transaction = {
+      program: { findUnique },
+      $queryRaw: queryRaw,
+    };
     const prisma = {
       $transaction: <T>(operation: (store: typeof transaction) => Promise<T>) =>
         operation(transaction),
@@ -76,6 +84,12 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(result).toMatchObject({
       applicationCount: 2,
       teamCount: 1,
+      deletionScopeCounts: {
+        applications: 2,
+        teams: 1,
+        boardPosts: 3,
+        submissions: 4,
+      },
       categoryLocked: {
         locked: true,
         byApplications: true,
@@ -87,9 +101,32 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: 'program-1' },
       include: {
-        _count: { select: { applications: true, teams: true } },
+        _count: {
+          select: { applications: true, teams: true, boardPosts: true },
+        },
         milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
       },
     });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    const calls = queryRaw.mock.calls as unknown as readonly (readonly [
+      unknown,
+    ])[];
+    const [scopeQuery] = calls[0] ?? [];
+    const query = scopeQuery as {
+      readonly strings: readonly string[];
+      readonly values: readonly string[];
+    };
+    expect(query.strings.join('')).toContain(
+      'SELECT count(*) FROM "Application"',
+    );
+    expect(query.strings.join('')).toContain(
+      'SELECT count(*) FROM "Submission"',
+    );
+    expect(query.values).toEqual([
+      'program-1',
+      'program-1',
+      'program-1',
+      'program-1',
+    ]);
   });
 });
