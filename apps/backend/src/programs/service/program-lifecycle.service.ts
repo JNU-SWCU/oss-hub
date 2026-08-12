@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, Prisma, ProgramLifecycle, Role } from '@prisma/client';
+import {
+  AccountStatus,
+  Prisma,
+  ProgramAuthoringUploadLifecycle,
+  ProgramLifecycle,
+  Role,
+  SubmissionFileLifecycle,
+} from '@prisma/client';
 import {
   createProgramDeletionAuditMetadata,
   createProgramLifecycleAuditMetadata,
@@ -179,6 +186,240 @@ export class ProgramLifecycleService {
     });
   }
 
+  /**
+   * ADMIN의 의도적 전체 삭제. 기존 `delete`의 409 차단 계약과 독립된 경로다.
+   *
+   * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해
+   * DELETE_PENDING으로 전환한다. phase 2 worker만 storage port를 호출한다.
+   */
+  async purge(
+    githubId: bigint,
+    programId: string,
+  ): Promise<ProgramPurgeResult> {
+    const actor = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { role: true, accountStatus: true },
+    });
+    if (
+      actor?.accountStatus !== AccountStatus.ACTIVE ||
+      actor.role !== Role.ADMIN
+    ) {
+      throw new DomainException(
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
+      );
+    }
+
+    return this.prisma.$transaction(async (transaction) => {
+      const program = await transaction.program.findUnique({
+        where: { id: programId },
+        select: { id: true, name: true, lifecycle: true },
+      });
+      if (!program) {
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+        );
+      }
+
+      const deletedCounts = await this.purgeProgramTree(transaction, programId);
+      await transaction.program.delete({ where: { id: programId } });
+
+      await this.auditLog.record(
+        {
+          actorGithubId: githubId,
+          action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
+          targetType: 'PROGRAM',
+          targetId: programId,
+          metadata: createProgramDeletionAuditMetadata({
+            programName: program.name,
+            lifecycle: program.lifecycle,
+            blockingCounts: {
+              applications: 0,
+              teams: 0,
+              submissions: 0,
+              boardPosts: 0,
+            },
+          }),
+        },
+        transaction,
+      );
+
+      return { id: programId, deleted: true as const, deletedCounts };
+    });
+  }
+
+  private async purgeProgramTree(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+  ): Promise<ProgramPurgeDeletedCounts> {
+    const now = new Date();
+    const fileScope = {
+      OR: [
+        { application: { is: { programId } } },
+        { milestone: { is: { programId } } },
+      ],
+    } satisfies Prisma.SubmissionFileWhereInput;
+
+    const publicShowcaseRepositories =
+      await transaction.publicShowcaseRepository.deleteMany({
+        where: { programId },
+      });
+    const outboxEvents = await transaction.outboxEvent.deleteMany({
+      where: { aggregateType: 'PROGRAM', aggregateId: programId },
+    });
+
+    const boardComments = await transaction.boardComment.deleteMany({
+      where: { post: { programId } },
+    });
+    const boardPosts = await transaction.boardPost.deleteMany({
+      where: { programId },
+    });
+
+    // EXTERNAL_PUBLIC과 ORG_PROVISIONED 모두 전역 수집 자산으로 보존한다.
+    const githubRepositoriesDetached = await transaction.githubRepository.updateMany({
+      where: {
+        OR: [
+          { programId },
+          { application: { is: { programId } } },
+          { team: { is: { programId } } },
+        ],
+      },
+      data: { programId: null, applicationId: null, teamId: null },
+    });
+    const repositoryProvisionJobs =
+      await transaction.repositoryProvisionJob.deleteMany({
+        where: { application: { programId } },
+      });
+
+    // SubmissionFile은 nullable RESTRICT FK를 끊고 기존 cleanup worker에 맡긴다.
+    const submissionFiles = await transaction.submissionFile.updateMany({
+      where: fileScope,
+      data: {
+        lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+        applicationId: null,
+        milestoneId: null,
+        submissionRevisionId: null,
+        milestoneDocumentSubmissionId: null,
+        deleteClaimedAt: null,
+        deleteClaimExpiresAt: null,
+        deleteClaimOwner: null,
+        nextDeleteAttemptAt: now,
+        lastDeleteError: null,
+      },
+    });
+
+    const createRequest = await transaction.programCreateRequest.findUnique({
+      where: { programId },
+      select: { id: true, actorId: true },
+    });
+    const programAuthoringUploads = createRequest
+      ? await transaction.programAuthoringUpload.updateMany({
+          where: {
+            createRequestId: createRequest.id,
+            createRequestActorId: createRequest.actorId,
+          },
+          data: {
+            lifecycle: ProgramAuthoringUploadLifecycle.DELETE_PENDING,
+            attachedAt: null,
+            createRequestId: null,
+            createRequestActorId: null,
+            deleteClaimedAt: null,
+            deleteClaimExpiresAt: null,
+            deleteClaimOwner: null,
+            nextDeleteAttemptAt: now,
+            lastDeleteError: null,
+          },
+        })
+      : { count: 0 };
+
+    const templateFiles = await transaction.milestoneDocumentTemplateFile.findMany({
+      where: { milestoneDocument: { milestone: { programId } } },
+      select: { storageKey: true },
+    });
+    if (templateFiles.length > 0) {
+      await transaction.programPurgeFileTombstone.createMany({
+        data: templateFiles.map((file) => ({
+          storageKey: file.storageKey,
+          nextDeleteAttemptAt: now,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    const reviews = await transaction.review.deleteMany({
+      where: {
+        submissionRevision: { submission: { milestone: { programId } } },
+      },
+    });
+    const submissionRevisions = await transaction.submissionRevision.deleteMany({
+      where: { submission: { milestone: { programId } } },
+    });
+    const submissions = await transaction.submission.deleteMany({
+      where: { milestone: { programId } },
+    });
+
+    const milestoneDocumentReviewHistories =
+      await transaction.milestoneDocumentReviewHistory.deleteMany({
+        where: {
+          milestoneDocumentSubmission: {
+            milestoneDocument: { milestone: { programId } },
+          },
+        },
+      });
+    const milestoneDocumentSubmissions =
+      await transaction.milestoneDocumentSubmission.deleteMany({
+        where: { milestoneDocument: { milestone: { programId } } },
+      });
+    const milestoneDocumentTemplateFiles =
+      await transaction.milestoneDocumentTemplateFile.deleteMany({
+        where: { milestoneDocument: { milestone: { programId } } },
+      });
+    const milestoneDocuments = await transaction.milestoneDocument.deleteMany({
+      where: { milestone: { programId } },
+    });
+
+    const applications = await transaction.application.deleteMany({
+      where: { programId },
+    });
+    const teamInvitations = await transaction.teamInvitation.deleteMany({
+      where: { programId },
+    });
+    const teamMembers = await transaction.teamMember.deleteMany({
+      where: { programId },
+    });
+    const teams = await transaction.team.deleteMany({ where: { programId } });
+    const programCreateRequests = createRequest
+      ? await transaction.programCreateRequest.deleteMany({ where: { programId } })
+      : { count: 0 };
+    const milestones = await transaction.milestone.deleteMany({
+      where: { programId },
+    });
+
+    return {
+      applications: applications.count,
+      teams: teams.count,
+      teamMembers: teamMembers.count,
+      teamInvitations: teamInvitations.count,
+      boardPosts: boardPosts.count,
+      boardComments: boardComments.count,
+      submissions: submissions.count,
+      submissionRevisions: submissionRevisions.count,
+      reviews: reviews.count,
+      submissionFiles: submissionFiles.count,
+      milestones: milestones.count,
+      milestoneDocuments: milestoneDocuments.count,
+      milestoneDocumentSubmissions: milestoneDocumentSubmissions.count,
+      milestoneDocumentReviewHistories: milestoneDocumentReviewHistories.count,
+      milestoneDocumentTemplateFiles: milestoneDocumentTemplateFiles.count,
+      programAuthoringUploads: programAuthoringUploads.count,
+      programCreateRequests: programCreateRequests.count,
+      repositoryProvisionJobs: repositoryProvisionJobs.count,
+      githubRepositoriesDetached: githubRepositoriesDetached.count,
+      publicShowcaseRepositories: publicShowcaseRepositories.count,
+      outboxEvents: outboxEvents.count,
+      programPurgeFileTombstones: templateFiles.length,
+    };
+  }
+
   private async countDeletionBlockers(
     transaction: Prisma.TransactionClient,
     programId: string,
@@ -247,3 +488,34 @@ export class ProgramLifecycleService {
     await transaction.milestone.deleteMany({ where: { programId } });
   }
 }
+
+export type ProgramPurgeDeletedCounts = {
+  readonly applications: number;
+  readonly teams: number;
+  readonly teamMembers: number;
+  readonly teamInvitations: number;
+  readonly boardPosts: number;
+  readonly boardComments: number;
+  readonly submissions: number;
+  readonly submissionRevisions: number;
+  readonly reviews: number;
+  readonly submissionFiles: number;
+  readonly milestones: number;
+  readonly milestoneDocuments: number;
+  readonly milestoneDocumentSubmissions: number;
+  readonly milestoneDocumentReviewHistories: number;
+  readonly milestoneDocumentTemplateFiles: number;
+  readonly programAuthoringUploads: number;
+  readonly programCreateRequests: number;
+  readonly repositoryProvisionJobs: number;
+  readonly githubRepositoriesDetached: number;
+  readonly publicShowcaseRepositories: number;
+  readonly outboxEvents: number;
+  readonly programPurgeFileTombstones: number;
+};
+
+export type ProgramPurgeResult = {
+  readonly id: string;
+  readonly deleted: true;
+  readonly deletedCounts: ProgramPurgeDeletedCounts;
+};

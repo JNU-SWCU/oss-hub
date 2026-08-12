@@ -128,6 +128,16 @@ export class ProgramsController {
     );
   }
 
+  /** ADMIN 전용 전체 삭제 — 연결 자식 행은 명시 순서로 정리하고 파일은 worker에 위임한다. */
+  @Delete(':id/purge')
+  @UseGuards(SessionGuard, OriginGuard)
+  purge(
+    @Param('id') programId: string,
+    @Req() request: SessionIdentity,
+  ) {
+    return this.lifecycle.purge(request.sessionGithubId, programId);
+  }
+
   /** ADMIN 전용 영구 삭제 — STAFF는 프로그램 생성자여도 403이다(#875). */
   @Delete(':id')
   @UseGuards(SessionGuard, OriginGuard)

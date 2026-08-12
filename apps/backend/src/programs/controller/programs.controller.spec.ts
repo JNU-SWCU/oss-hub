@@ -46,7 +46,7 @@ describe('ProgramsController read boundaries', () => {
   };
   const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
-  const lifecycle = { delete: jest.fn() };
+  const lifecycle = { delete: jest.fn(), purge: jest.fn() };
   let controller: ProgramsController;
 
   beforeEach(async () => {
@@ -283,6 +283,25 @@ describe('ProgramsController read boundaries', () => {
     expect(lifecycle.delete).toHaveBeenCalledWith(101n, 'program-1');
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('delete')),
+    ).toEqual([SessionGuard, OriginGuard]);
+  });
+
+  it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId를 lifecycle 서비스에 그대로 넘긴다', async () => {
+    const purgeResult = {
+      id: 'program-1',
+      deleted: true,
+      deletedCounts: { applications: 2, teams: 1 },
+    };
+    lifecycle.purge.mockResolvedValue(purgeResult);
+    const request = { sessionGithubId: 101n };
+
+    await expect(controller.purge('program-1', request)).resolves.toEqual(
+      purgeResult,
+    );
+
+    expect(lifecycle.purge).toHaveBeenCalledWith(101n, 'program-1');
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('purge')),
     ).toEqual([SessionGuard, OriginGuard]);
   });
 });
