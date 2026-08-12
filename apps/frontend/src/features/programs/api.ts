@@ -539,10 +539,22 @@ export interface ProgramPurgeResult {
   readonly deletedCounts: ProgramPurgeDeletedCounts;
 }
 
-export function purgeProgram(programId: string): Promise<ProgramPurgeResult> {
+/**
+ * `expectedScope`는 ADMIN이 확인 다이얼로그에서 마지막으로 본 4종 범위이며 REQUIRED다(#F2) —
+ * 백엔드가 같은 값을 purge 트랜잭션 안에서 다시 읽은 현재 범위와 비교해, 확인 이후 생긴 행이
+ * 있으면 409(PRG_014)로 거부한다.
+ */
+export function purgeProgram(
+  programId: string,
+  expectedScope: ProgramDeletionScopeCounts,
+): Promise<ProgramPurgeResult> {
   return apiClient<ProgramPurgeResult>(
     `programs/${encodeURIComponent(programId)}/purge`,
-    { method: 'DELETE' },
+    {
+      method: 'DELETE',
+      headers: jsonHeaders,
+      body: JSON.stringify({ expectedScope }),
+    },
   );
 }
 

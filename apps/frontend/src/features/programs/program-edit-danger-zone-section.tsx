@@ -18,6 +18,7 @@ import {
 } from './api';
 import {
   mapProgramDeleteError,
+  purgeScopeChangedCounts,
   type ProgramDeleteBlockingCounts,
   type ProgramDeleteError,
 } from './program-edit-delete-flow';
@@ -153,37 +154,33 @@ export function ProgramEditDangerZoneSection({
     }
   };
 
+  /**
+   * 화면이 마지막으로 보여준 `purgeCounts`를 그대로 expectedScope로 보낸다 — 재확인용
+   * 별도 GET 재조회를 먼저 하지 않는다(그 자체가 확인-purge 사이의 또 다른 요청이라
+   * TOCTOU를 재도입한다, #F2). 범위 비교는 백엔드 purge 트랜잭션 안에서만 일어난다.
+   * 409(PRG_014)가 오면 자동 재시도하지 않고 응답이 실은 현재 카운트로 화면을 갱신해
+   * 관리자가 이름을 다시 입력하여 명시적으로 재확인하게 한다.
+   */
   const confirmPurge = async () => {
     if (!canConfirm || !purgeCounts) return;
     setBusy(true);
     setPurgeError(null);
     setPurgeScopeError(null);
-    setIsPurgeScopeLoading(true);
     try {
-      const latestCounts = (await getEditableProgram(programId))
-        .deletionScopeCounts;
-      if (!latestCounts) {
-        setPurgeScopeError(
-          '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
-        );
-        return;
-      }
-      if (!sameCounts(purgeCounts, latestCounts)) {
-        setPurgeCounts(latestCounts);
+      const result = await purgeProgram(programId, purgeCounts);
+      onDeleted(formatDeletedCounts(result.deletedCounts));
+    } catch (reason: unknown) {
+      const changedCounts = purgeScopeChangedCounts(reason);
+      if (changedCounts) {
+        setPurgeCounts(changedCounts);
         setConfirmText('');
         setPurgeScopeError(
           '삭제 범위가 변경되었습니다. 내용을 확인한 뒤 프로그램 이름을 다시 입력해 주세요.',
         );
-        return;
+      } else {
+        setPurgeError(purgeErrorMessage(reason));
       }
-
-      setIsPurgeScopeLoading(false);
-      const result = await purgeProgram(programId);
-      onDeleted(formatDeletedCounts(result.deletedCounts));
-    } catch (reason: unknown) {
-      setPurgeError(purgeErrorMessage(reason));
     } finally {
-      setIsPurgeScopeLoading(false);
       setBusy(false);
     }
   };
@@ -329,9 +326,7 @@ export function ProgramEditDangerZoneSection({
                         }
                       >
                         {isPurgeScopeLoading
-                          ? busy
-                            ? '삭제 범위를 다시 확인하는 중…'
-                            : '삭제 범위를 확인하는 중…'
+                          ? '삭제 범위를 확인하는 중…'
                           : busy
                             ? '삭제하는 중…'
                             : dialog === 'purge'
@@ -347,18 +342,6 @@ export function ProgramEditDangerZoneSection({
         </AlertDialog.Root>
       ) : null}
     </section>
-  );
-}
-
-function sameCounts(
-  left: ProgramDeleteBlockingCounts,
-  right: ProgramDeleteBlockingCounts,
-): boolean {
-  return (
-    left.applications === right.applications &&
-    left.teams === right.teams &&
-    left.boardPosts === right.boardPosts &&
-    left.submissions === right.submissions
   );
 }
 
