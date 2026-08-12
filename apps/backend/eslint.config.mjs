@@ -50,6 +50,9 @@ const collectionPublicDirs = ['dto'];
 const collectionPublicPaths = [
   'service/repositories.service',
   'repository/repositories.repository',
+  // 지원서 제출 시점 OWN repo URL 사전 검증 — 승인 시점 편입 판정과 같은 로직을
+  // applications zone에서 읽기 전용으로 재사용한다(#9 QA econovation 배치).
+  'service/own-repository-url-validation.service',
 ];
 const collectionInternalMessage =
   'github 모듈 밖에서는 COLLECTION_READ_PORT 토큰·CollectionReadPort·DTO만 참조한다 — concrete 구현 직접 import 금지 (ADR-003 DEC-42).';

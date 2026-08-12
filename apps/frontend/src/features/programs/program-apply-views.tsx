@@ -275,13 +275,19 @@ function RepositoryConnectionSection({
             외부 저장소는 공개 저장소만 연결
           </span>
           {repositoryConnectionMode === 'own' ? (
-            <Input
-              aria-label="연결할 저장소 URL"
-              className="ml-6 mt-1 w-[calc(100%-1.5rem)]"
-              placeholder="https://github.com/team/repo"
-              value={repositoryUrl}
-              onChange={(event) => onUrlChange(event.target.value)}
-            />
+            <div className="ml-6 mt-1 w-[calc(100%-1.5rem)] space-y-1">
+              <Input
+                aria-label="연결할 저장소 URL"
+                className="w-full"
+                placeholder="https://github.com/team/repo"
+                value={repositoryUrl}
+                onChange={(event) => onUrlChange(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                GitHub에 공개(Public)로 연동된 저장소만 연결할 수 있습니다.
+                비공개 저장소이거나 주소가 존재하지 않으면 제출이 거부됩니다.
+              </p>
+            </div>
           ) : null}
         </label>
       </div>
