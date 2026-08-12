@@ -352,6 +352,42 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
     });
   });
 
+  it('deletionProtected가 true면 차단 사유 조회 없이 409 PRG_013으로 거부하고 ADMIN도 우회하지 못한다', async () => {
+    const { service, programDelete, applicationCount, record } =
+      createDeleteService({
+        program: {
+          id: 'program-1',
+          name: '합성 보호 대상 프로그램',
+          lifecycle: ProgramLifecycle.PUBLISHED,
+          deletionProtected: true,
+        },
+      });
+
+    await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
+    });
+    expect(applicationCount).not.toHaveBeenCalled();
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('deletionProtected가 false(기본값)인 프로그램은 기존과 동일하게 삭제된다', async () => {
+    const { service, programDelete } = createDeleteService({
+      program: {
+        id: 'program-1',
+        name: '합성 삭제 대상 프로그램',
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        deletionProtected: false,
+      },
+    });
+
+    await expect(service.delete(1001n, 'program-1')).resolves.toEqual({
+      id: 'program-1',
+      deleted: true,
+    });
+    expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+  });
+
   it('신청·팀·제출물·게시글이 하나라도 남아 있으면 409와 함께 4종 blockingCounts를 전부 보고한다', async () => {
     const { service, programDelete, record } = createDeleteService({
       blockingCounts: {
@@ -881,5 +917,47 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       },
     );
     expect(programDelete).not.toHaveBeenCalled();
+  });
+
+  it('deletionProtected가 true면 자식 삭제를 시작하기 전 409 PRG_013으로 거부하고 ADMIN도 우회하지 못한다', async () => {
+    const {
+      service,
+      programDelete,
+      applicationFindMany,
+      publicShowcaseRepositoryDeleteMany,
+      record,
+    } = createPurgeService({
+      program: {
+        id: 'program-1',
+        name: '합성 보호 purge 대상 프로그램',
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        deletionProtected: true,
+      },
+    });
+
+    await expect(service.purge(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
+    });
+    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('deletionProtected가 false(기본값)인 프로그램은 기존과 동일하게 purge된다', async () => {
+    const { service, programDelete } = createPurgeService({
+      program: {
+        id: 'program-1',
+        name: '합성 purge 대상 프로그램',
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        deletionProtected: false,
+      },
+    });
+
+    const result = await service.purge(1001n, 'program-1');
+
+    expect(result.id).toBe('program-1');
+    expect(result.deleted).toBe(true);
+    expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
   });
 });
