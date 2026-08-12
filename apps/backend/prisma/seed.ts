@@ -63,7 +63,19 @@ export async function runProfile(
   if (profile === 'demo') {
     await seedDemo(stats);
   }
-  await backfillUserProfiles(prisma);
+  // production에서는 demo profile만 예외적으로 실행된다(assertSeedAllowed).
+  // 이 경로의 backfill은 그 예외가 만든 seed:demo:* 행만 만져야 한다 — 전체
+  // User를 스캔하면 이미 존재하는 비-demo production 사용자(예: 수동 교정된 OAuth
+  // 계정)의 legacy 프로필 불일치(PROFILE_MISMATCH 등)가 demo 시드 실행을 통째로
+  // 실패시키고, 그 사용자의 프로필을 쓰지도 않는다(프로덕션 장애 사례).
+  // production 외(demo의 기본 경로 포함)와 다른 모든 profile은 기존과 동일하게
+  // 전체 User를 대상으로 backfill한다.
+  const isProductionDemoSeed =
+    profile === 'demo' && process.env.NODE_ENV === 'production';
+  await backfillUserProfiles(
+    prisma,
+    isProductionDemoSeed ? { userIdPrefix: 'seed:demo:' } : {},
+  );
 }
 
 /**

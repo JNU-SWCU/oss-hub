@@ -28,6 +28,10 @@ import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
 import { resolveCompatibleProfile } from '../src/profiles/profile-compatibility';
 import { isCompleteUserProfile } from '../src/users/user-profile-policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';
+import {
+  USER_PROFILE_BACKFILL_ERROR_KIND,
+  backfillUserProfiles,
+} from './user-profile-backfill';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -1389,6 +1393,160 @@ describe('seed profile=demo 계약 (integration)', () => {
       /production/,
     );
   });
+});
+
+/**
+ * #910/#913 파인딩 3 — production에서 demo profile을 돌리면 seed.ts가 post-seed
+ * user-profile backfill을 호출하며(seed.ts:63-66), 이 경로의 backfill은 그 예외가
+ * 만든 seed:demo:* 행만 만져야 한다. 이미 존재하는 비-demo production 사용자의
+ * legacy 프로필 불일치(PROFILE_MISMATCH)가 demo 시드 실행을 실패시키거나 그 사용자의
+ * 프로필을 쓰지 않아야 한다(실제 production 장애 재현).
+ */
+describe('seed profile=demo production 백필 스코프 (integration)', () => {
+  const seedDemoPrefix = 'seed:demo:';
+  const nonDemoUserId = 'test:profile-backfill-scope:non-demo-oauth-user';
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  async function deleteDemoSeeded(): Promise<void> {
+    const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
+    await prisma.review.deleteMany({ where: seedIdFilter });
+    await prisma.submissionFile.deleteMany({ where: seedIdFilter });
+    await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
+    await prisma.submission.deleteMany({ where: seedIdFilter });
+    await prisma.boardComment.deleteMany({ where: seedIdFilter });
+    await prisma.boardPost.deleteMany({ where: seedIdFilter });
+    await prisma.teamMember.deleteMany({ where: seedIdFilter });
+    await prisma.milestone.deleteMany({ where: seedIdFilter });
+    await prisma.application.deleteMany({ where: seedIdFilter });
+    await prisma.team.deleteMany({ where: seedIdFilter });
+    await prisma.program.deleteMany({ where: seedIdFilter });
+    await prisma.consent.deleteMany({
+      where: { userId: { startsWith: seedDemoPrefix } },
+    });
+    await prisma.userProfile.deleteMany({
+      where: { userId: { startsWith: seedDemoPrefix } },
+    });
+    await prisma.user.deleteMany({ where: seedIdFilter });
+  }
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  afterEach(async () => {
+    process.env.NODE_ENV = originalNodeEnv;
+    delete process.env.SEED_DEMO_ALLOW_PRODUCTION;
+    await deleteDemoSeeded();
+    await prisma.userProfile.deleteMany({ where: { userId: nonDemoUserId } });
+    await prisma.user.deleteMany({ where: { id: nonDemoUserId } });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it(
+    'production demo 시드는 이미 존재하는 비-demo PROFILE_MISMATCH 사용자를 건드리지 않고, 그것 때문에 실패하지도 않는다',
+    async () => {
+      // Given: 이미 production에 존재하는 비-demo 사용자(수동 교정된 OAuth 계정)가
+      // legacy User 컴럼이 완료 프로필 모양이면서 UserProfile과 값이 어긋나는
+      // PROFILE_MISMATCH 상태를 직접 심는다 — 실제 production에서 이 오류로 시드 CLI가
+      // 비정상 종료했던 사례를 재현한다.
+      const completeStudentId = ['96', '5501'].join('');
+      await prisma.user.create({
+        data: {
+          id: nonDemoUserId,
+          githubId: seedGithubId(nonDemoUserId),
+          nickname: 'profile-backfill-scope-non-demo',
+          role: Role.STUDENT,
+          name: '비-demo 생산 사용자(fixture)',
+          studentId: completeStudentId,
+          department: '비-demo 학과(fixture)',
+        },
+      });
+      await prisma.userProfile.create({
+        data: {
+          userId: nonDemoUserId,
+          name: '불일치하는 이름(fixture)',
+          studentId: completeStudentId,
+          department: '불일치하는 학과(fixture)',
+        },
+      });
+      const nonDemoUserBefore = await prisma.user.findUniqueOrThrow({
+        where: { id: nonDemoUserId },
+      });
+      const nonDemoProfileBefore = await prisma.userProfile.findUniqueOrThrow({
+        where: { userId: nonDemoUserId },
+      });
+
+      // 사전 조건: 이 불일치가 실제로 전체 backfill을 실패시킨다는 것을 먼저 확인한다
+      // (스코프 없는 기존 동작 그대로).
+      await expect(backfillUserProfiles(prisma)).rejects.toMatchObject({
+        kind: USER_PROFILE_BACKFILL_ERROR_KIND.PROFILE_MISMATCH,
+        userIds: [nonDemoUserId],
+      });
+
+      // When: production + SEED_DEMO_ALLOW_PRODUCTION=1로 demo profile을 실행한다 —
+      // 실제 seed.ts의 production 예외 경로를 그대로 타고(assertSeedAllowed 통과 후
+      // runProfile이 seedDemo + 스코프된 backfillUserProfiles를 호출).
+      process.env.NODE_ENV = 'production';
+      process.env.SEED_DEMO_ALLOW_PRODUCTION = '1';
+      const { assertSeedAllowed } =
+        jest.requireActual<typeof import('./seeds/helpers')>('./seeds/helpers');
+      assertSeedAllowed(process.env.NODE_ENV, 'demo');
+      await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
+
+      // Then: 비-demo 사용자의 User/UserProfile은 전혀 쓰이지 않았다 — 이미
+      // 존재하는 불일치를 그대로 보존한다.
+      const nonDemoUserAfter = await prisma.user.findUniqueOrThrow({
+        where: { id: nonDemoUserId },
+      });
+      const nonDemoProfileAfter = await prisma.userProfile.findUniqueOrThrow({
+        where: { userId: nonDemoUserId },
+      });
+      expect(nonDemoUserAfter).toEqual(nonDemoUserBefore);
+      expect(nonDemoProfileAfter).toEqual(nonDemoProfileBefore);
+
+      // And: demo 자체는 정상적으로 시드되었다(실패하지 않았고, 그 사용자들은 실제로
+      // 프로필이 백필되었다).
+      const demoUserCount = await prisma.user.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      });
+      expect(demoUserCount).toBeGreaterThan(0);
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    '비-production demo 시드는 기존과 동일하게 전체 User를 대상으로 backfill한다(스코프 없음)',
+    async () => {
+      // Given: 비-demo 사용자의 불완전 legacy 프로필(EXPECTED_INCOMPLETE, profile 미생성)를
+      // 심는다 — production이 아니면 이 사용자도 전체 backfill 대상이어야 한다.
+      await prisma.user.create({
+        data: {
+          id: nonDemoUserId,
+          githubId: seedGithubId(nonDemoUserId),
+          nickname: 'profile-backfill-scope-non-demo-dev',
+          role: Role.STUDENT,
+          name: '비-demo 개발 사용자(fixture)',
+          studentId: ['96', '5502'].join(''),
+          department: '비-demo 학과(fixture)',
+        },
+      });
+
+      // When: NODE_ENV가 production이 아닌 채 demo profile을 실행한다(기본 경로).
+      expect(process.env.NODE_ENV).not.toBe('production');
+      await runProfile('demo', new SeedStats());
+
+      // Then: 비-demo 사용자도 전체 backfill 대상에 들어 UserProfile이 생성된다 —
+      // production 외에서는 기존 거동(전체 backfill)이 그대로 유지된다.
+      const nonDemoProfile = await prisma.userProfile.findUnique({
+        where: { userId: nonDemoUserId },
+      });
+      expect(nonDemoProfile).not.toBeNull();
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
 });
 
 describe('seed profile=all 멱등성 (integration)', () => {
