@@ -712,7 +712,9 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     expect(result.id).toBe('program-1');
     expect(result.deleted).toBe(true);
 
-    // GithubRepository는 하드 삭제가 아니라 program/application/team FK만 해제한다.
+    // GithubRepository는 하드 삭제가 아니라 program/application/team FK만 해제하고,
+    // publishedAt도 함께 revoke한다 — 그래야 공개 아카이브가 program 없는 발행 행을
+    // 만나지 않는다(purge 후 공개 노출 자격은 program 존재에 종속).
     expect(githubRepositoryUpdateMany).toHaveBeenCalledWith({
       where: {
         OR: [
@@ -721,7 +723,12 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
           { team: { is: { programId: 'program-1' } } },
         ],
       },
-      data: { programId: null, applicationId: null, teamId: null },
+      data: {
+        programId: null,
+        applicationId: null,
+        teamId: null,
+        publishedAt: null,
+      },
     });
 
     // OutboxEvent는 Program aggregate와 이 프로그램 산하 Application aggregate 둘 다 지운다.
