@@ -21,13 +21,16 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-const { deleteProgramMock, purgeProgramMock } = vi.hoisted(() => ({
-  deleteProgramMock: vi.fn(),
-  purgeProgramMock: vi.fn(),
-}));
+const { deleteProgramMock, getEditableProgramMock, purgeProgramMock } =
+  vi.hoisted(() => ({
+    deleteProgramMock: vi.fn(),
+    getEditableProgramMock: vi.fn(),
+    purgeProgramMock: vi.fn(),
+  }));
 
 vi.mock('./api', () => ({
   deleteProgram: deleteProgramMock,
+  getEditableProgram: getEditableProgramMock,
   purgeProgram: purgeProgramMock,
 }));
 
@@ -45,6 +48,13 @@ function getButton(
   }
   return button;
 }
+
+const deletionScopeCounts = {
+  applications: 2,
+  teams: 3,
+  boardPosts: 4,
+  submissions: 5,
+};
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(
@@ -73,6 +83,8 @@ describe('ProgramEditDangerZoneSection', () => {
     document.body.append(container);
     root = createRoot(container);
     deleteProgramMock.mockReset();
+    getEditableProgramMock.mockReset();
+    getEditableProgramMock.mockResolvedValue({ deletionScopeCounts });
     purgeProgramMock.mockReset();
   });
 
@@ -114,7 +126,15 @@ describe('ProgramEditDangerZoneSection', () => {
     ).toBe('destructive');
   });
 
-  it('409 차단 사유를 건수와 실제 관리 화면 링크로 요약한다', async () => {
+  it('409 차단 사유는 유지하고 전체 삭제 범위는 새로 읽는다', async () => {
+    getEditableProgramMock.mockResolvedValue({
+      deletionScopeCounts: {
+        applications: 6,
+        teams: 7,
+        boardPosts: 8,
+        submissions: 9,
+      },
+    });
     deleteProgramMock.mockRejectedValue(
       new ApiError({
         type: 'about:blank',
@@ -170,9 +190,72 @@ describe('ProgramEditDangerZoneSection', () => {
 
     await act(async () => getButton('취소', dialog).click());
     await openDialog('연결 데이터까지 모두 삭제');
+    await act(async () => void (await Promise.resolve()));
     expect(document.body.textContent).toContain(
-      '삭제될 데이터: 지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
+      '삭제될 데이터: 지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건',
     );
+    expect(getEditableProgramMock).toHaveBeenCalledWith('program-1');
+  });
+
+  it('전체 삭제를 바로 열어도 현재 삭제 범위를 보여주고 0건을 명시한다', async () => {
+    getEditableProgramMock.mockResolvedValue({
+      deletionScopeCounts: {
+        applications: 0,
+        teams: 0,
+        boardPosts: 0,
+        submissions: 0,
+      },
+    });
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+
+    await openDialog('연결 데이터까지 모두 삭제');
+    await act(async () => void (await Promise.resolve()));
+
+    expect(document.body.textContent).toContain('연결된 데이터 없음');
+  });
+
+  it('전체 삭제 범위를 읽는 동안에는 이름이 일치해도 확정 버튼을 비활성으로 유지한다', async () => {
+    let resolveScope:
+      | ((value: { deletionScopeCounts: typeof deletionScopeCounts }) => void)
+      | undefined;
+    getEditableProgramMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveScope = resolve;
+      }),
+    );
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+
+    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const input = document.querySelector<HTMLInputElement>(
+      '#program-purge-confirm-name',
+    );
+    if (input === null) throw new TypeError('Missing purge input.');
+    await act(async () => setInputValue(input, 'OSS 프로그램'));
+
+    expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(true);
+
+    await act(async () => {
+      resolveScope?.({ deletionScopeCounts });
+      await Promise.resolve();
+    });
+
+    expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(false);
   });
 
   it('프로그램 이름이 다르면 전체 삭제 확정 버튼을 비활성으로 유지한다', async () => {

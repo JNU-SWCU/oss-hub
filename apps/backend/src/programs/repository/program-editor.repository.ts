@@ -51,11 +51,16 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   async findEditableProgramById(
     programId: string,
   ): Promise<EditableProgramView | null> {
-    const program = await this.transaction.program.findUnique({
-      where: { id: programId },
-      include: editableProgramInclude,
-    });
-    return program ? toEditableProgramView(program) : null;
+    const [program, submissions] = await Promise.all([
+      this.transaction.program.findUnique({
+        where: { id: programId },
+        include: editableProgramInclude,
+      }),
+      this.transaction.submission.count({
+        where: { milestone: { programId } },
+      }),
+    ]);
+    return program ? toEditableProgramView(program, submissions) : null;
   }
 
   async findEditableProgramForUpdate(
@@ -101,7 +106,10 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       },
       include: editableProgramInclude,
     });
-    return toEditableProgramView(program);
+    const submissions = await this.transaction.submission.count({
+      where: { milestone: { programId: input.programId } },
+    });
+    return toEditableProgramView(program, submissions);
   }
 
   async findProgramScheduleForMilestoneCreate(
@@ -289,11 +297,14 @@ export class ProgramEditorRepository implements ProgramEditorRepositoryPort {
 }
 
 const editableProgramInclude = {
-  _count: { select: { applications: true, teams: true } },
+  _count: { select: { applications: true, teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
 
-function toEditableProgramView(program: ProgramRecord): EditableProgramView {
+function toEditableProgramView(
+  program: ProgramRecord,
+  submissions: number,
+): EditableProgramView {
   return {
     id: program.id,
     name: program.name,
@@ -304,6 +315,12 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     applicationTemplateVersion: program.applicationTemplateVersion,
     applicationCount: program._count.applications,
     teamCount: program._count.teams,
+    deletionScopeCounts: {
+      applications: program._count.applications,
+      teams: program._count.teams,
+      boardPosts: program._count.boardPosts,
+      submissions,
+    },
     categoryLocked: toCategoryLockState(program._count),
     applicationStartAt: program.applicationStartAt,
     applicationEndAt: program.applicationEndAt,

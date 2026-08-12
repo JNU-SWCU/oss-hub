@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { AlertDialog } from 'radix-ui';
 import { SectionHeading } from '@/components';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import {
   deleteProgram,
+  getEditableProgram,
   purgeProgram,
   type ProgramPurgeDeletedCounts,
 } from './api';
@@ -74,22 +75,62 @@ export function ProgramEditDangerZoneSection({
   );
   const [blockingCounts, setBlockingCounts] =
     useState<ProgramDeleteBlockingCounts | null>(null);
+  const [purgeCounts, setPurgeCounts] =
+    useState<ProgramDeleteBlockingCounts | null>(null);
+  const [isPurgeScopeLoading, setIsPurgeScopeLoading] = useState(false);
+  const [purgeScopeError, setPurgeScopeError] = useState<string | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
+  const purgeScopeRequest = useRef(0);
 
   const isOpen = dialog !== null;
-  const canConfirm = confirmText === programName && !busy;
+  const canConfirm =
+    confirmText === programName &&
+    !busy &&
+    (dialog !== 'purge' || (!isPurgeScopeLoading && purgeCounts !== null));
 
   const open = (nextDialog: Exclude<DialogKind, null>) => {
     setDialog(nextDialog);
     setConfirmText('');
     setDeleteError(null);
     setPurgeError(null);
+    if (nextDialog !== 'purge') return;
+
+    const request = purgeScopeRequest.current + 1;
+    purgeScopeRequest.current = request;
+    setPurgeCounts(null);
+    setPurgeScopeError(null);
+    setIsPurgeScopeLoading(true);
+    void getEditableProgram(programId).then(
+      (program) => {
+        if (purgeScopeRequest.current !== request) return;
+        const counts = program.deletionScopeCounts;
+        if (counts) {
+          setPurgeCounts(counts);
+        } else {
+          setPurgeScopeError(
+            '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
+          );
+        }
+        setIsPurgeScopeLoading(false);
+      },
+      () => {
+        if (purgeScopeRequest.current !== request) return;
+        setPurgeScopeError(
+          '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
+        );
+        setIsPurgeScopeLoading(false);
+      },
+    );
   };
   const close = () => {
+    purgeScopeRequest.current += 1;
     setDialog(null);
     setConfirmText('');
     setDeleteError(null);
     setPurgeError(null);
+    setPurgeCounts(null);
+    setPurgeScopeError(null);
+    setIsPurgeScopeLoading(false);
   };
 
   const confirmDelete = async () => {
@@ -187,8 +228,22 @@ export function ProgramEditDangerZoneSection({
                       </span>
                       을(를) 아래에 그대로 입력해 주세요.
                     </AlertDialog.Description>
-                    {dialog === 'purge' && blockingCounts ? (
-                      <BlockingSummary counts={blockingCounts} />
+                    {dialog === 'purge' && isPurgeScopeLoading ? (
+                      <Alert>
+                        <AlertTitle>삭제될 데이터</AlertTitle>
+                        <AlertDescription>
+                          삭제 범위를 확인하는 중입니다.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+                    {dialog === 'purge' && purgeCounts ? (
+                      <BlockingSummary counts={purgeCounts} />
+                    ) : null}
+                    {dialog === 'purge' && purgeScopeError ? (
+                      <Alert variant="destructive">
+                        <AlertTitle>삭제 범위를 확인하지 못했습니다</AlertTitle>
+                        <AlertDescription>{purgeScopeError}</AlertDescription>
+                      </Alert>
                     ) : null}
                     <Field>
                       <FieldLabel
@@ -274,7 +329,7 @@ function BlockingSummary({
     <Alert>
       <AlertTitle>삭제될 데이터</AlertTitle>
       <AlertDescription>
-        {summary ? `삭제될 데이터: ${summary}` : '삭제될 연결 데이터 없음'}
+        {summary ? `삭제될 데이터: ${summary}` : '연결된 데이터 없음'}
       </AlertDescription>
     </Alert>
   );

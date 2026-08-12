@@ -30,6 +30,13 @@ export type ProgramCategoryLockState = {
   readonly teamCount: number;
 };
 
+export type ProgramDeletionScopeCounts = {
+  readonly applications: number;
+  readonly teams: number;
+  readonly boardPosts: number;
+  readonly submissions: number;
+};
+
 export type EditableProgramView = {
   readonly id: string;
   readonly name: string;
@@ -40,6 +47,8 @@ export type EditableProgramView = {
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
   readonly teamCount: number;
+  /** 전체 삭제 확인 전 다시 읽는, 프로그램에 직접 연결된 4종 자식 수. */
+  readonly deletionScopeCounts?: ProgramDeletionScopeCounts;
   readonly categoryLocked: ProgramCategoryLockState;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;

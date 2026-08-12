@@ -57,10 +57,14 @@ describe('ProgramEditorRepository edit counts', () => {
       teamMaxSize: 1,
       repositoryProvisioningEnabled: false,
       description: 'overview',
-      _count: { applications: 2, teams: 1 },
+      _count: { applications: 2, teams: 1, boardPosts: 3 },
       milestones: [],
     });
-    const transaction = { program: { findUnique } };
+    const submissionCount = jest.fn().mockResolvedValue(4);
+    const transaction = {
+      program: { findUnique },
+      submission: { count: submissionCount },
+    };
     const prisma = {
       $transaction: <T>(operation: (store: typeof transaction) => Promise<T>) =>
         operation(transaction),
@@ -76,6 +80,12 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(result).toMatchObject({
       applicationCount: 2,
       teamCount: 1,
+      deletionScopeCounts: {
+        applications: 2,
+        teams: 1,
+        boardPosts: 3,
+        submissions: 4,
+      },
       categoryLocked: {
         locked: true,
         byApplications: true,
@@ -87,9 +97,14 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: 'program-1' },
       include: {
-        _count: { select: { applications: true, teams: true } },
+        _count: {
+          select: { applications: true, teams: true, boardPosts: true },
+        },
         milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
       },
+    });
+    expect(submissionCount).toHaveBeenCalledWith({
+      where: { milestone: { programId: 'program-1' } },
     });
   });
 });
