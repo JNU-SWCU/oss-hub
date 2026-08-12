@@ -33,6 +33,11 @@ export enum ApplicationsErrorCode {
   ANSWER_TOO_LONG = 'APP_024',
   REPOSITORY_CONNECTION_MODE_REQUIRED = 'APP_025',
   REPOSITORY_CONNECTION_MODE_FORBIDDEN = 'APP_026',
+  /**
+   * OWN 연결 URL의 형식은 유효하지만 GitHub에서 찾을 수 없거나 비공개다
+   * (제출 시점 사전 검증 — #9 QA econovation 배치). 형식 오류는 APP_022가 계속 맡는다.
+   */
+  OWN_REPOSITORY_URL_UNREACHABLE = 'APP_027',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -119,6 +124,12 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN,
     status: 400,
     message: '저장소 발급을 사용하지 않는 프로그램입니다.',
+  },
+  [ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE]: {
+    code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
+    status: 400,
+    message:
+      '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
   },
   [ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED]: {
     code: ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED,

@@ -23,6 +23,7 @@ import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
 import { RepositoryProvisionStateRepository } from './repository/repository-provision-state.repository';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
+import { OwnRepositoryUrlValidationService } from './service/own-repository-url-validation.service';
 import {
   REPOSITORY_E2E_ORCHESTRATION_PORT,
   type RepositoryE2eOrchestrationPort,
@@ -109,6 +110,14 @@ export function resolveGithubAppClient(
         new RepositoriesService(repository, github, auditLog, config),
     },
     {
+      provide: OwnRepositoryUrlValidationService,
+      inject: [GithubAppClient],
+      useFactory: (
+        github: GithubAppClient,
+      ): OwnRepositoryUrlValidationService =>
+        new OwnRepositoryUrlValidationService(github),
+    },
+    {
       provide: REPOSITORIES_READ_PORT,
       useExisting: RepositoriesService,
     },
@@ -137,6 +146,7 @@ export function resolveGithubAppClient(
     RepositoriesService,
     REPOSITORIES_READ_PORT,
     REPOSITORY_E2E_ORCHESTRATION_PORT,
+    OwnRepositoryUrlValidationService,
   ],
 })
 export class RepositoriesModule {}
