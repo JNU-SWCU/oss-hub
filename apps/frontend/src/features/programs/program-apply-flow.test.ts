@@ -3,9 +3,11 @@ import type { ProblemDetail } from '@/lib/api-client';
 import {
   applyActionFailureMessage,
   isApplicationPeriodOpen,
+  mapApplyProblemFieldErrors,
   mapCreateApplicationError,
   remainingTeamMembers,
   resolveApplyBlockedReason,
+  resolveApplySubmitFailure,
   resolveTeamMinimum,
   teamSetupHref,
   validateApplyForm,
@@ -186,6 +188,52 @@ describe('program-apply-flow', () => {
     expect(mapCreateApplicationError(problem('APP_011'))).toContain('이미');
     expect(mapCreateApplicationError(problem('APP_016'))).toContain('양식');
     expect(mapCreateApplicationError(problem('APP_999'))).toBe('fallback');
+  });
+
+  // #9 QA econovation 배치 — 제출 시점 OWN repo URL 사전 검증(존재·공개 여부).
+  it('존재하지 않거나 비공개인 저장소 URL 오류(APP_027)를 repositoryUrl 칸으로 옮긴다', () => {
+    const problem: ProblemDetail = {
+      type: 'about:blank',
+      title: 'error',
+      status: 400,
+      detail: 'fallback',
+      instance: '/programs/x/applications',
+      code: 'APP_027',
+      fieldErrors: [
+        {
+          field: 'repositoryUrl',
+          code: 'APP_027',
+          message:
+            '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
+        },
+      ],
+    };
+
+    expect(mapApplyProblemFieldErrors(problem.fieldErrors)).toEqual({
+      repositoryUrl:
+        '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
+    });
+
+    const failure = resolveApplySubmitFailure(problem, 'submit');
+    expect(failure.fieldErrors).toEqual({
+      repositoryUrl:
+        '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
+    });
+    // 서버가 칸을 짚어 줬으니 배너(serverError)는 띄우지 않는다.
+    expect(failure.serverError).toBeNull();
+  });
+
+  it('칸 정보 없이 APP_027만 온 경우엔 배너 문구로 안내한다', () => {
+    const problem: ProblemDetail = {
+      type: 'about:blank',
+      title: 'error',
+      status: 400,
+      detail: '',
+      instance: '/programs/x/applications',
+      code: 'APP_027',
+    };
+
+    expect(mapCreateApplicationError(problem)).toContain('비공개');
   });
 
   it('팀 구성 CTA 경로를 만든다', () => {

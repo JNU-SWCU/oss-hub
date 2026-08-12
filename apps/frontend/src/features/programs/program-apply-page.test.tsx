@@ -160,6 +160,36 @@ describe('ProgramApply views', () => {
     );
 
     expect(html).toContain('https://github.com/team/repo');
+    expect(html).toContain(
+      'GitHub에 공개(Public)로 연동된 저장소만 연결할 수 있습니다.',
+    );
+  });
+
+  // #9 QA econovation 배치 — 제출 시점 URL 사전 검증 실패를 필드 오류로 보여준다.
+  it('저장소 URL 사전 검증 실패를 배너로 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={program}
+        template={template}
+        applicantName="합성 학생"
+        githubHandle="synthetic-student"
+        values={{ ...baseValues, repositoryConnectionMode: 'own' }}
+        errors={{
+          repositoryUrl:
+            '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
+        }}
+        serverError={null}
+        mode="create"
+        canManage={false}
+        confirmation={null}
+        submitting={false}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain(
+      '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
+    );
   });
 
   it('팀형 프로그램은 팀 구성 섹션에 팀 이름·팀원을 표시한다', () => {
