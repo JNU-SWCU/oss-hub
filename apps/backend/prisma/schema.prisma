@@ -240,6 +240,34 @@ enum ProgramAuthoringUploadLifecycle {
   DELETED
 }
 
+enum ProgramPurgeFileTombstoneLifecycle {
+  DELETE_PENDING
+  DELETED
+}
+
+/// Program purge가 MilestoneDocumentTemplateFile을 지운 뒤에도 storageKey를 보존하는 삭제 대기 행.
+/// 트랜잭션에서는 이 행만 만들고, 실제 객체 삭제는 별도 worker가 수행한다.
+model ProgramPurgeFileTombstone {
+  id String @id @default(cuid())
+
+  storageKey String @unique @db.VarChar(512)
+
+  lifecycle ProgramPurgeFileTombstoneLifecycle @default(DELETE_PENDING)
+
+  deleteClaimedAt      DateTime?
+  deleteClaimExpiresAt DateTime?
+  deleteClaimOwner     String?   @db.VarChar(128)
+  deleteAttemptCount   Int       @default(0)
+  nextDeleteAttemptAt  DateTime?
+  lastDeleteError      String?   @db.VarChar(64)
+  deletedAt            DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
+}
+
 /// 최종 Program 작성 전에 교직원이 올린 임시 양식 파일. storageKey는 서버가 생성한다.
 model ProgramAuthoringUpload {
   id String @id @default(cuid())

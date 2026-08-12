@@ -202,7 +202,7 @@ describe('PrismaStorageReferenceRepository', () => {
     expect([...STORAGE_KEY_OWNERS].sort()).toEqual(schemaOwners);
   });
 
-  it('DELETED가 아닌 세 모델의 key를 합집합으로 읽고 삭제 직전에도 셋 모두 재조회한다', async () => {
+  it('DELETED가 아닌 네 모델의 key를 합집합으로 읽고 삭제 직전에도 넷 모두 재조회한다', async () => {
     const prisma = {
       $connect: jest.fn().mockResolvedValue(undefined),
       submissionFile: {
@@ -227,6 +227,14 @@ describe('PrismaStorageReferenceRepository', () => {
           ]),
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      programPurgeFileTombstone: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { storageKey: 'submission-files/live-tombstone' },
+          ]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
     const repository = new PrismaStorageReferenceRepository(prisma as never);
 
@@ -235,6 +243,7 @@ describe('PrismaStorageReferenceRepository', () => {
         'submission-files/live-submission',
         'program-authoring/live-upload',
         'submission-files/live-template',
+        'submission-files/live-tombstone',
       ]),
     );
     await expect(
@@ -252,9 +261,47 @@ describe('PrismaStorageReferenceRepository', () => {
     expect(prisma.milestoneDocumentTemplateFile.findMany).toHaveBeenCalledWith({
       select: { storageKey: true },
     });
+    expect(prisma.programPurgeFileTombstone.findMany).toHaveBeenCalledWith({
+      where: { lifecycle: { not: 'DELETED' } },
+      select: { storageKey: true },
+    });
     expect(prisma.submissionFile.findFirst).toHaveBeenCalled();
     expect(prisma.programAuthoringUpload.findFirst).toHaveBeenCalled();
     expect(prisma.milestoneDocumentTemplateFile.findFirst).toHaveBeenCalled();
+    expect(prisma.programPurgeFileTombstone.findFirst).toHaveBeenCalled();
+  });
+
+  it('tombstone이 DELETE_PENDING이면 live로 취급하고 DELETED가 되면 제외한다', async () => {
+    const prisma = {
+      $connect: jest.fn().mockResolvedValue(undefined),
+      submissionFile: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      programAuthoringUpload: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      milestoneDocumentTemplateFile: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      programPurgeFileTombstone: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
+    const repository = new PrismaStorageReferenceRepository(prisma as never);
+
+    await repository.isLiveKey('submission-files/pending-tombstone');
+
+    expect(prisma.programPurgeFileTombstone.findFirst).toHaveBeenCalledWith({
+      where: {
+        storageKey: 'submission-files/pending-tombstone',
+        lifecycle: { not: 'DELETED' },
+      },
+      select: { id: true },
+    });
   });
 });
 

@@ -452,3 +452,434 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
     expect(record).not.toHaveBeenCalled();
   });
 });
+
+// 합성 데이터만 사용한다 (docs/rules/security.md)
+function createPurgeService(
+  overrides: {
+    readonly user?: unknown;
+    readonly program?: unknown;
+    readonly createRequest?: unknown;
+    readonly templateFiles?: readonly { readonly storageKey: string }[];
+    readonly counts?: Partial<Record<string, number>>;
+    readonly applicationIds?: readonly string[];
+    readonly applicationDecisionNotifications?: readonly {
+      readonly id: string;
+    }[];
+  } = {},
+) {
+  const userFindUnique = jest.fn().mockResolvedValue(
+    overrides.user ?? {
+      role: Role.ADMIN,
+      accountStatus: AccountStatus.ACTIVE,
+    },
+  );
+  const programFindUnique = jest.fn().mockResolvedValue(
+    'program' in overrides
+      ? overrides.program
+      : {
+          id: 'program-1',
+          name: '합성 purge 대상 프로그램',
+          lifecycle: ProgramLifecycle.PUBLISHED,
+        },
+  );
+  const programDelete = jest.fn().mockResolvedValue(undefined);
+
+  const count = (key: string, fallback = 1) =>
+    overrides.counts?.[key] ?? fallback;
+  const countMany = (key: string, fallback = 1) =>
+    jest.fn().mockResolvedValue({ count: count(key, fallback) });
+
+  const publicShowcaseRepositoryDeleteMany = countMany(
+    'publicShowcaseRepositories',
+  );
+  const outboxEventDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
+  const applicationIds = overrides.applicationIds ?? ['application-1'];
+  const applicationFindMany = jest
+    .fn()
+    .mockResolvedValue(applicationIds.map((id) => ({ id })));
+  const applicationDecisionNotifications =
+    overrides.applicationDecisionNotifications ?? [{ id: 'notification-1' }];
+  const notificationFindMany = jest
+    .fn()
+    .mockResolvedValue(applicationDecisionNotifications);
+  const notificationDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
+  const boardCommentDeleteMany = countMany('boardComments');
+  const boardPostDeleteMany = countMany('boardPosts');
+  const githubRepositoryUpdateMany = countMany('githubRepositoriesDetached');
+  const repositoryProvisionJobDeleteMany = countMany('repositoryProvisionJobs');
+  const submissionFileUpdateMany = countMany('submissionFiles');
+  const programCreateRequestFindUnique = jest
+    .fn()
+    .mockResolvedValue(
+      'createRequest' in overrides
+        ? overrides.createRequest
+        : { id: 'create-request-1', actorId: 'actor-1' },
+    );
+  const programAuthoringUploadUpdateMany = countMany('programAuthoringUploads');
+  const templateFiles = overrides.templateFiles ?? [
+    { storageKey: 'program-authoring/template-1' },
+  ];
+  const milestoneDocumentTemplateFileFindMany = jest
+    .fn()
+    .mockResolvedValue(templateFiles);
+  const programPurgeFileTombstoneCreateMany = jest
+    .fn()
+    .mockResolvedValue({ count: templateFiles.length });
+  const reviewDeleteMany = countMany('reviews');
+  const submissionRevisionDeleteMany = countMany('submissionRevisions');
+  const submissionDeleteMany = countMany('submissions');
+  const milestoneDocumentReviewHistoryDeleteMany = countMany(
+    'milestoneDocumentReviewHistories',
+  );
+  const milestoneDocumentSubmissionDeleteMany = countMany(
+    'milestoneDocumentSubmissions',
+  );
+  const milestoneDocumentTemplateFileDeleteMany = countMany(
+    'milestoneDocumentTemplateFiles',
+  );
+  const milestoneDocumentDeleteMany = countMany('milestoneDocuments');
+  const applicationDeleteMany = countMany('applications');
+  const teamInvitationDeleteMany = countMany('teamInvitations');
+  const teamMemberDeleteMany = countMany('teamMembers');
+  const teamDeleteMany = countMany('teams');
+  const programCreateRequestDeleteMany = countMany('programCreateRequests');
+  const milestoneDeleteMany = countMany('milestones');
+
+  const record = jest
+    .fn<Promise<void>, [AuditLogRecordInput]>()
+    .mockResolvedValue(undefined);
+
+  const transactionClient = {
+    program: { findUnique: programFindUnique, delete: programDelete },
+    publicShowcaseRepository: {
+      deleteMany: publicShowcaseRepositoryDeleteMany,
+    },
+    outboxEvent: { deleteMany: outboxEventDeleteMany },
+    notification: {
+      findMany: notificationFindMany,
+      deleteMany: notificationDeleteMany,
+    },
+    boardComment: { deleteMany: boardCommentDeleteMany },
+    boardPost: { deleteMany: boardPostDeleteMany },
+    githubRepository: { updateMany: githubRepositoryUpdateMany },
+    repositoryProvisionJob: { deleteMany: repositoryProvisionJobDeleteMany },
+    submissionFile: { updateMany: submissionFileUpdateMany },
+    programCreateRequest: {
+      findUnique: programCreateRequestFindUnique,
+      deleteMany: programCreateRequestDeleteMany,
+    },
+    programAuthoringUpload: { updateMany: programAuthoringUploadUpdateMany },
+    milestoneDocumentTemplateFile: {
+      findMany: milestoneDocumentTemplateFileFindMany,
+      deleteMany: milestoneDocumentTemplateFileDeleteMany,
+    },
+    programPurgeFileTombstone: {
+      createMany: programPurgeFileTombstoneCreateMany,
+    },
+    review: { deleteMany: reviewDeleteMany },
+    submissionRevision: { deleteMany: submissionRevisionDeleteMany },
+    submission: { deleteMany: submissionDeleteMany },
+    milestoneDocumentReviewHistory: {
+      deleteMany: milestoneDocumentReviewHistoryDeleteMany,
+    },
+    milestoneDocumentSubmission: {
+      deleteMany: milestoneDocumentSubmissionDeleteMany,
+    },
+    milestoneDocument: { deleteMany: milestoneDocumentDeleteMany },
+    teamInvitation: { deleteMany: teamInvitationDeleteMany },
+    teamMember: { deleteMany: teamMemberDeleteMany },
+    team: { deleteMany: teamDeleteMany },
+    milestone: { deleteMany: milestoneDeleteMany },
+    application: {
+      deleteMany: applicationDeleteMany,
+      findMany: applicationFindMany,
+    },
+  };
+  const prisma = {
+    user: { findUnique: userFindUnique },
+    $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+      callback(transactionClient),
+    ),
+  } as unknown as PrismaService;
+  const auditLog = { record } as unknown as AuditLogService;
+  const service = new ProgramLifecycleService(prisma, auditLog);
+  return {
+    service,
+    userFindUnique,
+    programFindUnique,
+    programDelete,
+    publicShowcaseRepositoryDeleteMany,
+    outboxEventDeleteMany,
+    applicationFindMany,
+    notificationFindMany,
+    notificationDeleteMany,
+    boardCommentDeleteMany,
+    boardPostDeleteMany,
+    githubRepositoryUpdateMany,
+    repositoryProvisionJobDeleteMany,
+    submissionFileUpdateMany,
+    programCreateRequestFindUnique,
+    programAuthoringUploadUpdateMany,
+    milestoneDocumentTemplateFileFindMany,
+    programPurgeFileTombstoneCreateMany,
+    reviewDeleteMany,
+    submissionRevisionDeleteMany,
+    submissionDeleteMany,
+    milestoneDocumentReviewHistoryDeleteMany,
+    milestoneDocumentSubmissionDeleteMany,
+    milestoneDocumentTemplateFileDeleteMany,
+    milestoneDocumentDeleteMany,
+    applicationDeleteMany,
+    teamInvitationDeleteMany,
+    teamMemberDeleteMany,
+    teamDeleteMany,
+    programCreateRequestDeleteMany,
+    milestoneDeleteMany,
+    record,
+  };
+}
+
+describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () => {
+  it('ADMIN이 자식 가득한 프로그램을 purge하면 전 계층을 명시 순서로 지우고 파일은 worker에 위임한다', async () => {
+    const {
+      service,
+      outboxEventDeleteMany,
+      applicationFindMany,
+      notificationFindMany,
+      notificationDeleteMany,
+      boardCommentDeleteMany,
+      boardPostDeleteMany,
+      githubRepositoryUpdateMany,
+      repositoryProvisionJobDeleteMany,
+      submissionFileUpdateMany,
+      programAuthoringUploadUpdateMany,
+      programPurgeFileTombstoneCreateMany,
+      reviewDeleteMany,
+      submissionRevisionDeleteMany,
+      submissionDeleteMany,
+      milestoneDocumentReviewHistoryDeleteMany,
+      milestoneDocumentSubmissionDeleteMany,
+      milestoneDocumentTemplateFileDeleteMany,
+      milestoneDocumentDeleteMany,
+      applicationDeleteMany,
+      teamInvitationDeleteMany,
+      teamMemberDeleteMany,
+      teamDeleteMany,
+      programCreateRequestDeleteMany,
+      milestoneDeleteMany,
+      programDelete,
+      record,
+    } = createPurgeService();
+
+    const result = await service.purge(1001n, 'program-1');
+
+    expect(result.id).toBe('program-1');
+    expect(result.deleted).toBe(true);
+
+    // GithubRepository는 하드 삭제가 아니라 program/application/team FK만 해제한다.
+    expect(githubRepositoryUpdateMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { programId: 'program-1' },
+          { application: { is: { programId: 'program-1' } } },
+          { team: { is: { programId: 'program-1' } } },
+        ],
+      },
+      data: { programId: null, applicationId: null, teamId: null },
+    });
+
+    // OutboxEvent는 Program aggregate와 이 프로그램 산하 Application aggregate 둘 다 지운다.
+    expect(applicationFindMany).toHaveBeenCalledWith({
+      where: { programId: 'program-1' },
+      select: { id: true },
+    });
+    expect(outboxEventDeleteMany).toHaveBeenCalledWith({
+      where: { aggregateType: 'PROGRAM', aggregateId: 'program-1' },
+    });
+    expect(outboxEventDeleteMany).toHaveBeenCalledWith({
+      where: {
+        aggregateType: 'Application',
+        aggregateId: { in: ['application-1'] },
+      },
+    });
+
+    // Notification: APPLICATION_DECISION(payload.programId)을 찾아 그 응답 확인 기록과
+    // 함께 지우고, DEADLINE_DIGEST는 idempotencyKey에 박힌 programId로 지운다.
+    expect(notificationFindMany).toHaveBeenCalledWith({
+      where: {
+        type: 'APPLICATION_DECISION',
+        payload: { path: ['programId'], equals: 'program-1' },
+      },
+      select: { id: true },
+    });
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: {
+        type: 'APPLICATION_DECISION_ACKNOWLEDGED',
+        idempotencyKey: {
+          in: ['application-decision-acknowledged:notification-1'],
+        },
+      },
+    });
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['notification-1'] } },
+    });
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: {
+        type: 'DEADLINE_DIGEST',
+        idempotencyKey: { contains: ':program-1:' },
+      },
+    });
+
+    // SubmissionFile은 하드 삭제가 아니라 FK를 분리하고 DELETE_PENDING으로 전환한다.
+    expect(submissionFileUpdateMany).toHaveBeenCalledTimes(1);
+    expect(submissionFileUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lifecycle: 'DELETE_PENDING',
+          applicationId: null,
+          milestoneId: null,
+          submissionRevisionId: null,
+          milestoneDocumentSubmissionId: null,
+        }) as unknown,
+      }) as unknown,
+    );
+
+    // template file은 storage worker가 지울 tombstone으로 옮겨진 뒤 원 행을 지운다 — 트랜잭션에서
+    // storage port를 직접 호출하지 않는다.
+    expect(programPurgeFileTombstoneCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          storageKey: 'program-authoring/template-1',
+        }),
+      ],
+      skipDuplicates: true,
+    });
+
+    // ProgramAuthoringUpload도 하드 삭제가 아니라 DELETE_PENDING 전환 + createRequest FK 해제다.
+    expect(programAuthoringUploadUpdateMany).toHaveBeenCalledWith({
+      where: {
+        createRequestId: 'create-request-1',
+        createRequestActorId: 'actor-1',
+      },
+      data: expect.objectContaining({
+        lifecycle: 'DELETE_PENDING',
+        createRequestId: null,
+        createRequestActorId: null,
+      }) as unknown,
+    });
+
+    for (const mock of [
+      boardCommentDeleteMany,
+      boardPostDeleteMany,
+      repositoryProvisionJobDeleteMany,
+      reviewDeleteMany,
+      submissionRevisionDeleteMany,
+      submissionDeleteMany,
+      milestoneDocumentReviewHistoryDeleteMany,
+      milestoneDocumentSubmissionDeleteMany,
+      milestoneDocumentTemplateFileDeleteMany,
+      milestoneDocumentDeleteMany,
+      applicationDeleteMany,
+      teamInvitationDeleteMany,
+      teamMemberDeleteMany,
+      teamDeleteMany,
+      programCreateRequestDeleteMany,
+      milestoneDeleteMany,
+    ]) {
+      expect(mock).toHaveBeenCalledTimes(1);
+    }
+
+    expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]?.[0]).toMatchObject({
+      action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
+      targetType: 'PROGRAM',
+      targetId: 'program-1',
+      metadata: { programName: '합성 purge 대상 프로그램' },
+    });
+  });
+
+  it('ProgramCreateRequest가 없으면 authoring upload 전환·createRequest 삭제를 건너뛴다', async () => {
+    const {
+      service,
+      programAuthoringUploadUpdateMany,
+      programCreateRequestDeleteMany,
+    } = createPurgeService({ createRequest: null });
+
+    await service.purge(1001n, 'program-1');
+
+    expect(programAuthoringUploadUpdateMany).not.toHaveBeenCalled();
+    expect(programCreateRequestDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it('삭제할 template file이 없으면 tombstone을 만들지 않는다', async () => {
+    const { service, programPurgeFileTombstoneCreateMany } = createPurgeService(
+      { templateFiles: [] },
+    );
+
+    await service.purge(1001n, 'program-1');
+
+    expect(programPurgeFileTombstoneCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('신청서가 없으면 Application 범위 OutboxEvent 삭제를 건너뛴다', async () => {
+    const { service, outboxEventDeleteMany } = createPurgeService({
+      applicationIds: [],
+    });
+
+    await service.purge(1001n, 'program-1');
+
+    expect(outboxEventDeleteMany).toHaveBeenCalledTimes(1);
+    expect(outboxEventDeleteMany).toHaveBeenCalledWith({
+      where: { aggregateType: 'PROGRAM', aggregateId: 'program-1' },
+    });
+  });
+
+  it('APPLICATION_DECISION 알림이 없으면 ACKNOWLEDGED/본체 삭제를 건너뛰고 DEADLINE_DIGEST만 지운다', async () => {
+    const { service, notificationDeleteMany } = createPurgeService({
+      applicationDecisionNotifications: [],
+    });
+
+    await service.purge(1001n, 'program-1');
+
+    expect(notificationDeleteMany).toHaveBeenCalledTimes(1);
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: {
+        type: 'DEADLINE_DIGEST',
+        idempotencyKey: { contains: ':program-1:' },
+      },
+    });
+  });
+
+  it('STAFF는 purge 시도 시 403 PRG_011을 받고 프로그램을 조회하지 않는다', async () => {
+    const { service, programFindUnique } = createPurgeService({
+      user: { role: Role.STAFF, accountStatus: AccountStatus.ACTIVE },
+    });
+
+    await expect(service.purge(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
+    });
+    expect(programFindUnique).not.toHaveBeenCalled();
+  });
+
+  it('STUDENT는 purge 시도 시 403 PRG_011을 받는다', async () => {
+    const { service } = createPurgeService({
+      user: { role: Role.STUDENT, accountStatus: AccountStatus.ACTIVE },
+    });
+
+    await expect(service.purge(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
+    });
+  });
+
+  it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던지고 자식 삭제를 시작하지 않는다', async () => {
+    const { service, programDelete } = createPurgeService({ program: null });
+
+    await expect(service.purge(1001n, 'missing-program')).rejects.toMatchObject(
+      {
+        errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+      },
+    );
+    expect(programDelete).not.toHaveBeenCalled();
+  });
+});

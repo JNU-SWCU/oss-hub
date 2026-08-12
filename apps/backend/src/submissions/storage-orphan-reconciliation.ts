@@ -1,6 +1,11 @@
 export const DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS = 60 * 60 * 1_000;
 
-const KNOWN_STORAGE_PREFIXES = [
+// 이 CLI가 소유하는 storage key prefix 전수 원장이다.
+// StorageObjectInventory 구현체(S3SubmissionFileStorage)는 listObjects()를
+// 이 prefix들로만 scope해야 한다 — 버킷을 다른 용도로 공유하는 통합 테스트
+// 스위트 등 소유하지 않는 객체까지 나열하면 안전 가드가 부당하게 중단된다.
+// prefix 내부의 미지 key는 여전히 아래 assertKnownObjects에서 중단시킨다.
+export const KNOWN_STORAGE_PREFIXES = [
   'submission-files/',
   'program-authoring/',
 ] as const;
@@ -56,7 +61,7 @@ export class StorageOrphanReconciliationService {
     }
     const cutoffAt = new Date(runStartedAt.getTime() - safetyWindowMs);
 
-    // DB를 가장 먼저 읽는다. 연결 또는 세 모델 중 하나의 조회라도 실패하면
+    // DB를 가장 먼저 읽는다. 연결 또는 소유 모델 중 하나의 조회라도 실패하면
     // storage listing과 삭제에 도달하지 않는 fail-closed 경계다.
     const liveKeys = await this.references.loadLiveKeys();
     const objects = await this.storage.listObjects();
@@ -80,7 +85,7 @@ export class StorageOrphanReconciliationService {
       // 운영 evidence에 삭제 예정 key 목록이 실제 side effect보다 먼저 기록되도록 한다.
       await options.onDeletePlan?.(orphanKeys);
       for (const key of orphanKeys) {
-        // listing 이후 생긴 DB 참조를 삭제 직전 세 소유 모델 전체에서 다시 확인한다.
+        // listing 이후 생긴 DB 참조를 삭제 직전 소유 모델 전체에서 다시 확인한다.
         if (await this.references.isLiveKey(key)) {
           skippedReferencedKeys.push(key);
           continue;

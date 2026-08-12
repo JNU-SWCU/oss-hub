@@ -8,6 +8,9 @@ import { ProgramAuthoringController } from './controller/program-authoring.contr
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
+import { ProgramPurgeFileCleanupScheduler } from './program-purge-file-cleanup.scheduler';
+import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
+import { ProgramPurgeFileCleanupRepository } from './repository/program-purge-file-cleanup.repository';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
@@ -63,6 +66,9 @@ import { StudentDashboardService } from './service/student-dashboard.service';
     ProgramAuthoringUploadService,
     ProgramAuthoringUploadMaintenanceService,
     ProgramAuthoringUploadMaintenanceScheduler,
+    ProgramPurgeFileCleanupRepository,
+    ProgramPurgeFileCleanupService,
+    ProgramPurgeFileCleanupScheduler,
     ProgramActivitySummaryRepository,
     ProgramActivitySummaryService,
     {
