@@ -11,6 +11,7 @@ import { lockMilestoneDocumentsOfMilestone } from '../../common/milestone-docume
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   EditableProgramView,
+  ProgramDeletionScopeCounts,
   ProgramCategoryLockState,
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
@@ -25,6 +26,12 @@ import type {
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
+}>;
+type DeletionScopeCountsRow = Readonly<{
+  applications: bigint;
+  teams: bigint;
+  boardPosts: bigint;
+  submissions: bigint;
 }>;
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
 type LockedProgramRow = Readonly<{ id: string }>;
@@ -51,11 +58,14 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   async findEditableProgramById(
     programId: string,
   ): Promise<EditableProgramView | null> {
-    const program = await this.transaction.program.findUnique({
-      where: { id: programId },
-      include: editableProgramInclude,
-    });
-    return program ? toEditableProgramView(program) : null;
+    const [program, deletionScopeCounts] = await Promise.all([
+      this.transaction.program.findUnique({
+        where: { id: programId },
+        include: editableProgramInclude,
+      }),
+      this.readDeletionScopeCounts(programId),
+    ]);
+    return program ? toEditableProgramView(program, deletionScopeCounts) : null;
   }
 
   async findEditableProgramForUpdate(
@@ -101,7 +111,34 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       },
       include: editableProgramInclude,
     });
-    return toEditableProgramView(program);
+    return toEditableProgramView(
+      program,
+      await this.readDeletionScopeCounts(input.programId),
+    );
+  }
+
+  /** 한 SQL 문장의 snapshot으로 전체 삭제 전 사용자에게 보일 4종 범위를 읽는다. */
+  private async readDeletionScopeCounts(
+    programId: string,
+  ): Promise<ProgramDeletionScopeCounts> {
+    const [row] = await this.transaction.$queryRaw<
+      readonly DeletionScopeCountsRow[]
+    >(Prisma.sql`
+      SELECT
+        (SELECT count(*) FROM "Application" WHERE "programId" = ${programId}) AS applications,
+        (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
+        (SELECT count(*) FROM "BoardPost" WHERE "programId" = ${programId}) AS "boardPosts",
+        (SELECT count(*) FROM "Submission" WHERE "milestoneId" IN (
+          SELECT id FROM "Milestone" WHERE "programId" = ${programId}
+        )) AS submissions
+    `);
+    if (!row) throw new Error('Deletion scope count query returned no result.');
+    return {
+      applications: Number(row.applications),
+      teams: Number(row.teams),
+      boardPosts: Number(row.boardPosts),
+      submissions: Number(row.submissions),
+    };
   }
 
   async findProgramScheduleForMilestoneCreate(
@@ -289,11 +326,14 @@ export class ProgramEditorRepository implements ProgramEditorRepositoryPort {
 }
 
 const editableProgramInclude = {
-  _count: { select: { applications: true, teams: true } },
+  _count: { select: { applications: true, teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
 
-function toEditableProgramView(program: ProgramRecord): EditableProgramView {
+function toEditableProgramView(
+  program: ProgramRecord,
+  deletionScopeCounts: ProgramDeletionScopeCounts,
+): EditableProgramView {
   return {
     id: program.id,
     name: program.name,
@@ -304,6 +344,7 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     applicationTemplateVersion: program.applicationTemplateVersion,
     applicationCount: program._count.applications,
     teamCount: program._count.teams,
+    deletionScopeCounts,
     categoryLocked: toCategoryLockState(program._count),
     applicationStartAt: program.applicationStartAt,
     applicationEndAt: program.applicationEndAt,

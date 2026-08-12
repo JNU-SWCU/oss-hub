@@ -9,6 +9,8 @@ import {
   type ProgramCategory,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { requiredMilestonesApproved } from '../../common/milestone-completion';
+import { publishBlockedReasons } from '../../common/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
@@ -338,10 +340,32 @@ export class ProgramTeamsRepository {
         id: true,
         status: true,
         updatedAt: true,
+        repositoryConnectionMode: true,
+        isRepositoryPublicationPlanned: true,
         // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) —
         // nameWithOwner에서 repository-identity.ts 헬퍼로 url을 유도한다.
-        repository: { select: { nameWithOwner: true, visibility: true } },
-        program: { select: { repositoryProvisioningEnabled: true } },
+        repository: {
+          select: { id: true, nameWithOwner: true, visibility: true },
+        },
+        program: {
+          select: {
+            repositoryProvisioningEnabled: true,
+            endAt: true,
+            milestones: {
+              select: {
+                id: true,
+                documents: {
+                  where: { required: true },
+                  select: { id: true },
+                },
+              },
+            },
+          },
+        },
+        submissions: { select: { milestoneId: true, status: true } },
+        milestoneDocumentSubmissions: {
+          select: { milestoneDocumentId: true, status: true },
+        },
       },
     });
 
@@ -354,18 +378,44 @@ export class ProgramTeamsRepository {
         }),
         this.prisma.repositoryProvisionJob.findUnique({
           where: { applicationId: application.id },
-          select: { status: true, updatedAt: true, lastErrorCode: true },
+          select: {
+            status: true,
+            updatedAt: true,
+            lastErrorCode: true,
+            repositoryId: true,
+          },
         }),
       ]);
+      const repository = application.repository;
+      const blockedReasons = repository
+        ? publishBlockedReasons(
+            {
+              visibility: repository.visibility,
+              provisionStatus:
+                job?.repositoryId === repository.id ? job.status : null,
+              requiredMilestonesApproved: requiredMilestonesApproved(
+                application.program.milestones,
+                application.submissions,
+                application.milestoneDocumentSubmissions,
+              ),
+              isRepositoryPublicationPlanned:
+                application.isRepositoryPublicationPlanned,
+              programEndAt: application.program.endAt,
+            },
+            new Date(),
+          )
+        : [];
       applicationView = {
         id: application.id,
         status: application.status,
-        repository: application.repository
+        repositoryConnectionMode: application.repositoryConnectionMode,
+        repository: repository
           ? {
-              url: repositoryUrlFromNameWithOwner(
-                application.repository.nameWithOwner,
-              ),
-              visibility: application.repository.visibility,
+              id: repository.id,
+              url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
+              visibility: repository.visibility,
+              publishEligible: blockedReasons.length === 0,
+              blockedReasons,
             }
           : null,
         repositoryProvisioning: resolveTeamRepositoryProvisioning(

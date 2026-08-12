@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
+import { normalizeMultipartFileName } from '../common/multipart-file-name';
 import { hasProgramDeadlinePassed } from '../programs/program-deadline';
 import {
   createSubmissionFileObjectKey,
@@ -79,9 +80,10 @@ export class SubmissionFilesService {
     if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
       throw this.error(SubmissionsErrorCode.FILE_TOO_LARGE);
     }
+    const normalizedFileName = normalizeMultipartFileName(file.originalname);
     if (
-      !isAllowedSubmissionFileType(file.originalname, file.mimetype) ||
-      !hasValidFileSignature(file.buffer, file.originalname)
+      !isAllowedSubmissionFileType(normalizedFileName, file.mimetype) ||
+      !hasValidFileSignature(file.buffer, normalizedFileName)
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
@@ -134,7 +136,7 @@ export class SubmissionFilesService {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     }
     const objectKey = createSubmissionFileObjectKey();
-    const originalName = sanitizeSubmissionFileOriginalName(file.originalname);
+    const originalName = sanitizeSubmissionFileOriginalName(normalizedFileName);
     const pendingInput: CreatePendingSubmissionFileInput = {
       uploaderId,
       applicationId: normalizedApplicationId,

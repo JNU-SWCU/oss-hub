@@ -24,12 +24,20 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-const { getStaffProgramTeamDetailMock } = vi.hoisted(() => ({
-  getStaffProgramTeamDetailMock: vi.fn(),
-}));
+const { getStaffProgramTeamDetailMock, publishRepositoryMock } = vi.hoisted(
+  () => ({
+    getStaffProgramTeamDetailMock: vi.fn(),
+    publishRepositoryMock: vi.fn(),
+  }),
+);
 
 vi.mock('./api', () => ({
   getStaffProgramTeamDetail: getStaffProgramTeamDetailMock,
+}));
+
+vi.mock('@/lib/repository-publication', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/repository-publication')>()),
+  publishRepository: publishRepositoryMock,
 }));
 
 function problem(status: number, code: string): ProblemDetail {
@@ -54,6 +62,7 @@ const withApplication: StaffTeamDetail = {
   application: {
     id: 'app-1',
     status: 'SUBMITTED',
+    repositoryConnectionMode: 'NEW',
     repository: null,
     repositoryProvisioning: {
       enabled: true,
@@ -83,6 +92,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     document.body.append(container);
     root = createRoot(container);
     getStaffProgramTeamDetailMock.mockReset();
+    publishRepositoryMock.mockReset();
   });
 
   afterEach(() => {
@@ -139,8 +149,11 @@ describe('ProgramStaffTeamDetailPage', () => {
         ...withApplication.application!,
         status: 'APPROVED',
         repository: {
+          id: 'repository-1',
           url: 'https://github.com/org/repo',
           visibility: 'PUBLIC',
+          publishEligible: true,
+          blockedReasons: [],
         },
       },
     });
@@ -151,6 +164,60 @@ describe('ProgramStaffTeamDetailPage', () => {
     );
     expect(repoLink).toBeTruthy();
     expect(container.textContent).toContain('공개');
+  });
+
+  it('NEW 저장소가 공개 조건을 충족하면 팀 상세에서 공개 전환할 수 있다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue({
+      ...withApplication,
+      application: {
+        ...withApplication.application!,
+        status: 'APPROVED',
+        repository: {
+          id: 'repository-1',
+          url: 'https://github.com/org/repo',
+          visibility: 'PRIVATE',
+          publishEligible: true,
+          blockedReasons: [],
+        },
+      },
+    });
+    publishRepositoryMock.mockResolvedValue({
+      repositoryId: 'repository-1',
+      visibility: 'PUBLIC',
+      publishedAt: '2026-08-13T00:00:00.000Z',
+    });
+    await render();
+
+    const publishButton = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'GitHub 저장소 공개 전환',
+    );
+    expect(publishButton?.disabled).toBe(false);
+    await act(async () => publishButton?.click());
+
+    expect(publishRepositoryMock).toHaveBeenCalledWith('repository-1');
+    expect(container.textContent).toContain('PUBLIC');
+    expect(container.textContent).toContain('공개 저장소 열기');
+  });
+
+  it('외부 OWN 저장소에는 공개 전환 카드를 표시하지 않는다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue({
+      ...withApplication,
+      application: {
+        ...withApplication.application!,
+        repositoryConnectionMode: 'OWN',
+        repository: {
+          id: 'repository-own',
+          url: 'https://github.com/student/repo',
+          visibility: 'PUBLIC',
+          publishEligible: true,
+          blockedReasons: [],
+        },
+      },
+    });
+    await render();
+
+    expect(container.textContent).not.toContain('저장소 공개');
+    expect(container.textContent).not.toContain('GitHub 저장소 공개 전환');
   });
 
   it('없는 팀(404)이면 찾을 수 없다는 안내를 보여준다', async () => {

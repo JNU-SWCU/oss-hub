@@ -160,6 +160,26 @@ describe('SubmissionFilesService', () => {
     expect(storage.put).toHaveBeenCalledTimes(1);
   });
 
+  it('restores a multipart latin1 mojibake filename before validation and storage', async () => {
+    const { service, repository, storage } = setup();
+    const mojibake = Buffer.from('제출-양식.pdf', 'utf8').toString('latin1');
+
+    await expect(
+      service.upload(
+        1n,
+        'app:id',
+        'milestone:id',
+        file(mojibake, 'application/pdf'),
+      ),
+    ).resolves.toMatchObject({ fileName: '제출-양식.pdf' });
+    expect(repository.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({ originalFileName: '제출-양식.pdf' }),
+    );
+    expect(storage.put).toHaveBeenCalledWith(
+      expect.objectContaining({ originalName: '제출-양식.pdf' }),
+    );
+  });
+
   it('allows an initial upload at the exact milestone deadline', async () => {
     const { service, repository, storage } = setup();
     repository.findUploadAuthorization.mockResolvedValue(

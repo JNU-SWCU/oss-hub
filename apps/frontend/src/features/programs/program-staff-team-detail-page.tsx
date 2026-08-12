@@ -18,9 +18,9 @@ import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   NO_APPLICATION_LABEL,
-  PROVISIONING_LABELS,
   REVIEW_ACTION_LABEL,
 } from './application-presentation';
+import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import type { StaffTeamDetail } from './types';
 
 type LoadState =
@@ -184,30 +184,7 @@ export function ProgramStaffTeamDetailPage({
       </Section>
 
       <Section title="저장소">
-        {application === null ? (
-          <p className="text-small text-muted-foreground">
-            아직 신청하지 않은 팀입니다. 저장소 발급은 신청 이후에 시작됩니다.
-          </p>
-        ) : application.repository !== null ? (
-          <p className="text-small">
-            저장소{' '}
-            <a
-              className="font-semibold break-all underline underline-offset-4"
-              href={application.repository.url}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              {application.repository.url}
-            </a>{' '}
-            (
-            {application.repository.visibility === 'PUBLIC' ? '공개' : '비공개'}
-            )
-          </p>
-        ) : (
-          <p className="text-small text-muted-foreground">
-            {PROVISIONING_LABELS[application.repositoryProvisioning.jobStatus]}
-          </p>
-        )}
+        <ProgramStaffRepositorySection application={application} />
       </Section>
 
       {application !== null ? (

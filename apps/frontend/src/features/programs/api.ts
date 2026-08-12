@@ -103,6 +103,13 @@ export interface EditableMilestone {
   readonly instructions: string | null;
 }
 
+export interface ProgramDeletionScopeCounts {
+  readonly applications: number;
+  readonly teams: number;
+  readonly boardPosts: number;
+  readonly submissions: number;
+}
+
 export interface EditableProgram {
   readonly categoryLocked: {
     readonly locked: boolean;
@@ -119,6 +126,8 @@ export interface EditableProgram {
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
+  /** GET /programs/:id/edit가 전체 삭제 확인용으로 제공하는 현재 자식 범위. */
+  readonly deletionScopeCounts?: ProgramDeletionScopeCounts;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   /** 이전 로컬 검토 fixture와의 호환을 위해 선택적이지만, 편집 API는 항상 준다. */
