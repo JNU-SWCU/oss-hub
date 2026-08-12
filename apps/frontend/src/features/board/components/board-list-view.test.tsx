@@ -11,6 +11,7 @@ const posts: readonly BoardPostSummary[] = [
     id: 'post-1',
     programId: 'program-1',
     authorId: 'user-1',
+    authorName: '합성 운영자',
     category: 'NOTICE',
     title: '1차 중간 산출물 제출 안내',
     pinned: true,
@@ -21,6 +22,7 @@ const posts: readonly BoardPostSummary[] = [
     id: 'post-2',
     programId: 'program-1',
     authorId: 'user-2',
+    authorName: '합성 질문자',
     category: 'QNA',
     title: '제출 마감일 문의드립니다',
     pinned: false,
@@ -124,6 +126,8 @@ describe('BoardListContent', () => {
     expect(html).toContain('작성자');
     expect(html).toContain('작성일');
     expect(html).toContain('댓글');
+    expect(html).toContain('합성 운영자');
+    expect(html).toContain('합성 질문자');
     expect(html).toContain('교직원');
     expect(html).toContain('학생');
     expect(html).toContain('고정된 글');

@@ -15,6 +15,7 @@ describe('BoardCommentResponseDto', () => {
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
       authorRole: Role.STUDENT,
+      authorName: '합성 학생',
       body: '학생 의견',
       createdAt,
     });
@@ -25,6 +26,7 @@ describe('BoardCommentResponseDto', () => {
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
       authorRole: Role.STAFF,
+      authorName: '합성 교직원',
       body: '교직원 답변',
       createdAt,
     });
@@ -35,6 +37,7 @@ describe('BoardCommentResponseDto', () => {
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
       authorRole: Role.ADMIN,
+      authorName: '합성 관리자',
       body: '관리자 답변',
       createdAt,
     });

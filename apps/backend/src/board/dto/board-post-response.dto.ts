@@ -6,6 +6,7 @@ export class BoardPostResponseDto {
   id: string;
   programId: string;
   authorId: string;
+  authorName: string;
   category: BoardPostCategory;
   title: string;
   pinned: boolean;
@@ -16,6 +17,7 @@ export class BoardPostResponseDto {
     this.id = record.id;
     this.programId = record.programId;
     this.authorId = record.authorId;
+    this.authorName = record.authorName;
     this.category = record.category;
     this.title = record.title;
     this.pinned = record.pinned;

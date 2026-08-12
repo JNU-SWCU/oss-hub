@@ -69,6 +69,7 @@ function columnsFor(programId: string): DataTableColumn<BoardPostSummary>[] {
       header: '작성자',
       cell: (post) => (
         <span className="text-muted-foreground">
+          {post.authorName ?? boardPostAuthorRoleLabel(post.category)} ·{' '}
           {boardPostAuthorRoleLabel(post.category)}
         </span>
       ),

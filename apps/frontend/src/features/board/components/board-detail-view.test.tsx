@@ -10,6 +10,7 @@ const post: BoardPostDetail = {
   id: 'post-1',
   programId: 'program-1',
   authorId: 'user-1',
+  authorName: '합성 질문자',
   category: 'QNA',
   title: '제출 마감일 문의드립니다',
   body: '중간 산출물 마감일이 정확히 언제인가요?',
@@ -23,6 +24,7 @@ const post: BoardPostDetail = {
       postId: 'post-1',
       authorId: 'user-staff',
       authorRole: 'STAFF',
+      authorName: '합성 교직원',
       body: '10월 17일 18시까지입니다.',
       createdAt: '2026-08-01T04:00:00.000Z',
     },
@@ -31,6 +33,7 @@ const post: BoardPostDetail = {
       postId: 'post-1',
       authorId: 'user-student',
       authorRole: 'STUDENT',
+      authorName: '합성 학생',
       body: '감사합니다.',
       createdAt: '2026-08-01T05:00:00.000Z',
     },
@@ -104,11 +107,13 @@ describe('BoardDetailContent', () => {
     );
     expect(html).toContain('제출 마감일 문의드립니다');
     expect(html).toContain('중간 산출물 마감일이 정확히 언제인가요?');
+    expect(html).toContain('합성 질문자');
+    expect(html).toContain('합성 교직원');
+    expect(html).toContain('합성 학생');
     expect(html).toContain('학생'); // 작성자(QNA) 역할 라벨
     expect(html).toContain('질문');
     expect(html).toContain('댓글 2');
     expect(html).toContain('10월 17일 18시까지입니다.');
-    expect(html).toContain('참여자');
     expect(html).toContain('교직원'); // 교직원 댓글 역할 태그
     expect(html).toContain('감사합니다.');
     expect(html).toContain('수정');
@@ -171,6 +176,7 @@ describe('BoardDetailContent', () => {
                   postId: 'post-1',
                   authorId: 'user-admin',
                   authorRole: 'ADMIN',
+                  authorName: '합성 관리자',
                   body: '플랫폼 운영 안내입니다.',
                   createdAt: '2026-08-01T06:00:00.000Z',
                 },

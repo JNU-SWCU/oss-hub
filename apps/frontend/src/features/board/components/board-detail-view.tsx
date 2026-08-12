@@ -199,7 +199,7 @@ export function BoardDetailContent({
         <>
           <PageHeader
             title={state.post.title}
-            description={`${boardPostAuthorRoleLabel(state.post.category)} · ${formatBoardDateTime(state.post.createdAt)}`}
+            description={`${state.post.authorName ?? boardPostAuthorRoleLabel(state.post.category)} · ${boardPostAuthorRoleLabel(state.post.category)} · ${formatBoardDateTime(state.post.createdAt)}`}
             actions={
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge
@@ -271,7 +271,7 @@ export function BoardDetailContent({
                     className="flex flex-wrap items-baseline gap-2 border-b border-border py-2.5 text-sm last:border-b-0"
                   >
                     <span className="font-bold">
-                      {BOARD_COMMENT_AUTHOR_LABEL}
+                      {comment.authorName ?? BOARD_COMMENT_AUTHOR_LABEL}
                     </span>
                     <StatusBadge
                       variant={

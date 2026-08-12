@@ -7,6 +7,7 @@ export class BoardPostDetailResponseDto {
   id: string;
   programId: string;
   authorId: string;
+  authorName: string;
   category: BoardPostCategory;
   title: string;
   body: string;
@@ -20,6 +21,7 @@ export class BoardPostDetailResponseDto {
     this.id = record.id;
     this.programId = record.programId;
     this.authorId = record.authorId;
+    this.authorName = record.authorName;
     this.category = record.category;
     this.title = record.title;
     this.body = record.body;

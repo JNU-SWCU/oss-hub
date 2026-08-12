@@ -11,6 +11,7 @@ export class BoardCommentResponseDto {
    * 표시 라벨(관리자→교직원 접기 등)은 프런트 상수 소유(ADR-008).
    */
   authorRole: Role;
+  authorName: string;
   body: string;
   createdAt: string;
 
@@ -19,6 +20,7 @@ export class BoardCommentResponseDto {
     this.postId = record.postId;
     this.authorId = record.authorId;
     this.authorRole = record.authorRole;
+    this.authorName = record.authorName;
     this.body = record.body;
     this.createdAt = record.createdAt.toISOString();
   }

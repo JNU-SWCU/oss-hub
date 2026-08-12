@@ -8,6 +8,7 @@ export interface BoardPostSummary {
   readonly id: string;
   readonly programId: string;
   readonly authorId: string;
+  readonly authorName?: string;
   readonly category: BoardPostCategory;
   readonly title: string;
   readonly pinned: boolean;
@@ -27,6 +28,7 @@ export interface BoardComment {
   readonly postId: string;
   readonly authorId: string;
   readonly authorRole: BoardAuthorRole;
+  readonly authorName?: string;
   readonly body: string;
   readonly createdAt: string;
 }
@@ -35,6 +37,7 @@ export interface BoardPostDetail {
   readonly id: string;
   readonly programId: string;
   readonly authorId: string;
+  readonly authorName?: string;
   readonly category: BoardPostCategory;
   readonly title: string;
   readonly body: string;
