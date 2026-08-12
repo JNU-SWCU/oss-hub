@@ -61,6 +61,20 @@ describe('validateProgramAuthoringUpload', () => {
     },
   );
 
+  it('restores a multipart latin1 mojibake filename before validating it', () => {
+    const mojibake = Buffer.from('신청-양식.pdf', 'utf8').toString('latin1');
+
+    expect(
+      validateProgramAuthoringUpload(
+        file({
+          name: mojibake,
+          mimeType: 'application/pdf',
+          signature: Buffer.from('%PDF-'),
+        }),
+      ),
+    ).toMatchObject({ originalFileName: '신청-양식.pdf' });
+  });
+
   it('accepts the exact 5 MiB boundary using the actual buffer length', () => {
     // Given
     const upload = file({

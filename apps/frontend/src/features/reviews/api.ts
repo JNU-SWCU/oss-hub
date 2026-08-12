@@ -1,9 +1,9 @@
 import { apiClient } from '@/lib/api-client';
+export { publishRepository } from '@/lib/repository-publication';
 
 import type {
   CreateReviewRequest,
   CreateReviewResponse,
-  PublishRepositoryResponse,
   ReviewContext,
 } from './types';
 
@@ -21,19 +21,6 @@ export function createReview(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
-    },
-  );
-}
-
-export function publishRepository(
-  repositoryId: string,
-): Promise<PublishRepositoryResponse> {
-  return apiClient<PublishRepositoryResponse>(
-    `repositories/${repositoryId}/publish`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isConfirmed: true }),
     },
   );
 }
