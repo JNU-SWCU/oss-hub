@@ -1,0 +1,4 @@
+interface:
+  display_name: 'OSS Hub 핸드북 제작'
+  short_description: '실제 화면 근거로 역할별 사용 핸드북을 제작·검증합니다'
+  default_prompt: 'Use $build-oss-hub-handbook to create or refresh an evidence-based OSS Hub role handbook in Notion.'
