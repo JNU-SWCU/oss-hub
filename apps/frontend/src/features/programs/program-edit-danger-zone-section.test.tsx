@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
@@ -21,18 +21,23 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-const { deleteProgramMock } = vi.hoisted(() => ({
+const { deleteProgramMock, purgeProgramMock } = vi.hoisted(() => ({
   deleteProgramMock: vi.fn(),
+  purgeProgramMock: vi.fn(),
 }));
 
 vi.mock('./api', () => ({
   deleteProgram: deleteProgramMock,
+  purgeProgram: purgeProgramMock,
 }));
 
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
 
-function getButton(name: string): HTMLButtonElement {
-  const button = Array.from(document.querySelectorAll('button')).find(
+function getButton(
+  name: string,
+  scope: ParentNode = document,
+): HTMLButtonElement {
+  const button = Array.from(scope.querySelectorAll('button')).find(
     (candidate) => candidate.textContent?.trim() === name,
   );
   if (!(button instanceof HTMLButtonElement)) {
@@ -41,14 +46,24 @@ function getButton(name: string): HTMLButtonElement {
   return button;
 }
 
-function queryButton(name: string): HTMLButtonElement | undefined {
-  return Array.from(document.querySelectorAll('button')).find(
-    (candidate) => candidate.textContent?.trim() === name,
-  ) as HTMLButtonElement | undefined;
+function setInputValue(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  )?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-// #875 — ADMIN 전용 위험 영역(영구 삭제). STAFF에게는 섹션 자체가 보이지 않아야 하고,
-// 삭제는 프로그램 이름을 정확히 입력해야 확정되며, 409는 카테고리별로 다른 문구를 보여준다.
+async function openDialog(buttonName: string) {
+  await act(async () => {
+    getButton(buttonName).click();
+  });
+  const dialog = document.querySelector('[role="alertdialog"]');
+  if (dialog === null) throw new TypeError('Missing dialog.');
+  return dialog;
+}
+
 describe('ProgramEditDangerZoneSection', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -58,6 +73,7 @@ describe('ProgramEditDangerZoneSection', () => {
     document.body.append(container);
     root = createRoot(container);
     deleteProgramMock.mockReset();
+    purgeProgramMock.mockReset();
   });
 
   afterEach(async () => {
@@ -65,7 +81,7 @@ describe('ProgramEditDangerZoneSection', () => {
     container.remove();
   });
 
-  it('STAFF(isAdmin=false)에게는 아무것도 그리지 않는다', async () => {
+  it('STAFF에게는 삭제 대신 아카이브 안내만 보여주고 두 삭제 버튼을 숨긴다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -76,11 +92,12 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    expect(container.textContent).toBe('');
-    expect(container.querySelector('section')).toBeNull();
+    expect(container.textContent).toContain('아카이브');
+    expect(container.textContent).not.toContain('연결 데이터까지 모두 삭제');
+    expect(Array.from(container.querySelectorAll('button'))).toHaveLength(0);
   });
 
-  it('ADMIN에게는 위험 영역과 destructive 톤의 삭제 버튼을 보여준다', async () => {
+  it('ADMIN에게는 일반 삭제와 전체 삭제 옵션을 모두 보여준다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -91,282 +108,31 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    expect(container.textContent).toContain('위험 영역');
-    const deleteButton = getButton('삭제');
-    expect(deleteButton.getAttribute('data-variant')).toBe('destructive');
-  });
-
-  it('삭제 버튼을 누르면 확인 다이얼로그가 뜨고, 이름을 정확히 입력해야 확정 버튼이 풀린다', async () => {
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          isAdmin
-        />,
-      );
-    });
-
-    await act(async () => {
-      getButton('삭제').click();
-    });
-
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    const confirmInput = document.querySelector<HTMLInputElement>(
-      '#program-delete-confirm-name',
-    );
-    if (confirmInput === null) throw new TypeError('Missing confirm input.');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
-
-    // 다이얼로그가 열린 시점엔 두 개의 「삭제」 버튼(취소 옆 확정 버튼 포함)이
-    // 있으니, disabled 상태의 그 버튼을 다이얼로그 안에서 찾는다.
-    const dialog = document.querySelector('[role="alertdialog"]');
-    const confirmButton = Array.from(
-      dialog?.querySelectorAll('button') ?? [],
-    ).find((candidate) => candidate.textContent?.trim() === '삭제');
-    if (!(confirmButton instanceof HTMLButtonElement)) {
-      throw new TypeError('Missing confirm delete button.');
-    }
-    expect(confirmButton.disabled).toBe(true);
-
-    await act(async () => {
-      setter?.call(confirmInput, '틀린 이름');
-      confirmInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    expect(confirmButton.disabled).toBe(true);
-
-    await act(async () => {
-      setter?.call(confirmInput, 'OSS 프로그램');
-      confirmInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    expect(confirmButton.disabled).toBe(false);
-  });
-
-  it('취소를 누르면 다이얼로그가 닫히고 API를 호출하지 않는다', async () => {
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          isAdmin
-        />,
-      );
-    });
-
-    await act(async () => {
-      getButton('삭제').click();
-    });
-    await act(async () => {
-      getButton('취소').click();
-    });
-
-    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(deleteProgramMock).not.toHaveBeenCalled();
-  });
-
-  it('확정하면 deleteProgram을 호출하고 성공 시 onDeleted를 부른다', async () => {
-    deleteProgramMock.mockResolvedValue({ id: 'program-1', deleted: true });
-    const onDeleted = vi.fn();
-
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          isAdmin
-          onDeleted={onDeleted}
-        />,
-      );
-    });
-
-    await act(async () => {
-      getButton('삭제').click();
-    });
-    const confirmInput = document.querySelector<HTMLInputElement>(
-      '#program-delete-confirm-name',
-    );
-    if (confirmInput === null) throw new TypeError('Missing confirm input.');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(confirmInput, 'OSS 프로그램');
-      confirmInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-
-    const dialog = document.querySelector('[role="alertdialog"]');
-    const confirmButton = Array.from(
-      dialog?.querySelectorAll('button') ?? [],
-    ).find((candidate) => candidate.textContent?.trim() === '삭제');
-    if (!(confirmButton instanceof HTMLButtonElement)) {
-      throw new TypeError('Missing confirm delete button.');
-    }
-
-    await act(async () => {
-      confirmButton.click();
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(deleteProgramMock).toHaveBeenCalledWith('program-1');
-    expect(onDeleted).toHaveBeenCalled();
-  });
-
-  it('boardPosts 409는 게시판 이동 링크가 있는 문구를 보여준다', async () => {
-    deleteProgramMock.mockRejectedValue(
-      new ApiError({
-        type: 'about:blank',
-        title: 'Program has blockers',
-        status: 409,
-        detail: '',
-        code: PROGRAM_DELETE_BLOCKED_CODE,
-        instance: '/programs/program-1',
-        ...{
-          blockingCounts: {
-            applications: 0,
-            teams: 0,
-            submissions: 0,
-            boardPosts: 2,
-          },
-        },
-      }),
-    );
-
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          isAdmin
-        />,
-      );
-    });
-
-    await act(async () => {
-      getButton('삭제').click();
-    });
-    const confirmInput = document.querySelector<HTMLInputElement>(
-      '#program-delete-confirm-name',
-    );
-    if (confirmInput === null) throw new TypeError('Missing confirm input.');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(confirmInput, 'OSS 프로그램');
-      confirmInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-
-    const dialog = document.querySelector('[role="alertdialog"]');
-    const confirmButton = Array.from(
-      dialog?.querySelectorAll('button') ?? [],
-    ).find((candidate) => candidate.textContent?.trim() === '삭제');
-    if (!(confirmButton instanceof HTMLButtonElement)) {
-      throw new TypeError('Missing confirm delete button.');
-    }
-
-    await act(async () => {
-      confirmButton.click();
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(document.body.textContent).toContain(
-      '게시글 2개가 남아 있습니다. 게시판에서 지운 뒤 다시 시도하세요.',
-    );
-    const boardLink = Array.from(document.querySelectorAll('a')).find(
-      (candidate) => candidate.textContent?.trim() === '게시판으로 이동',
-    );
-    expect(boardLink).toBeTruthy();
-    // 다이얼로그는 실패 후에도 열린 채 남는다 — 다시 시도하거나 취소할 수 있어야 한다.
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-  });
-
-  it('applications/teams 409는 사실만 말하고 다음 행동(링크)은 주지 않는다', async () => {
-    deleteProgramMock.mockRejectedValue(
-      new ApiError({
-        type: 'about:blank',
-        title: 'Program has blockers',
-        status: 409,
-        detail: '',
-        code: PROGRAM_DELETE_BLOCKED_CODE,
-        instance: '/programs/program-1',
-        ...{
-          blockingCounts: {
-            applications: 4,
-            teams: 1,
-            submissions: 0,
-            boardPosts: 0,
-          },
-        },
-      }),
-    );
-
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          isAdmin
-        />,
-      );
-    });
-
-    await act(async () => {
-      getButton('삭제').click();
-    });
-    const confirmInput = document.querySelector<HTMLInputElement>(
-      '#program-delete-confirm-name',
-    );
-    if (confirmInput === null) throw new TypeError('Missing confirm input.');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(confirmInput, 'OSS 프로그램');
-      confirmInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-
-    const dialog = document.querySelector('[role="alertdialog"]');
-    const confirmButton = Array.from(
-      dialog?.querySelectorAll('button') ?? [],
-    ).find((candidate) => candidate.textContent?.trim() === '삭제');
-    if (!(confirmButton instanceof HTMLButtonElement)) {
-      throw new TypeError('Missing confirm delete button.');
-    }
-
-    await act(async () => {
-      confirmButton.click();
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(document.body.textContent).toContain(
-      '신청 4건 / 팀 1개가 남아 있습니다. 학생 데이터가 있는 프로그램은 지울 수 없습니다.',
-    );
-    expect(queryButton('게시판으로 이동')).toBeUndefined();
+    expect(getButton('삭제').getAttribute('data-variant')).toBe('destructive');
     expect(
-      Array.from(document.querySelectorAll('a')).some(
-        (link) => link.textContent?.trim() === '게시판으로 이동',
-      ),
-    ).toBe(false);
+      getButton('연결 데이터까지 모두 삭제').getAttribute('data-variant'),
+    ).toBe('destructive');
   });
 
-  it('일반 실패(네트워크 오류 등)는 일반 실패 메시지를 보여준다', async () => {
-    deleteProgramMock.mockRejectedValue(new TypeError('network'));
-
+  it('409 차단 사유를 건수와 실제 관리 화면 링크로 요약한다', async () => {
+    deleteProgramMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Program has blockers',
+        status: 409,
+        detail: '',
+        code: PROGRAM_DELETE_BLOCKED_CODE,
+        instance: '/programs/program-1',
+        ...{
+          blockingCounts: {
+            applications: 2,
+            teams: 3,
+            boardPosts: 4,
+            submissions: 5,
+          },
+        },
+      }),
+    );
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -377,40 +143,129 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    await act(async () => {
-      getButton('삭제').click();
-    });
-    const confirmInput = document.querySelector<HTMLInputElement>(
+    const dialog = await openDialog('삭제');
+    const input = document.querySelector<HTMLInputElement>(
       '#program-delete-confirm-name',
     );
-    if (confirmInput === null) throw new TypeError('Missing confirm input.');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(confirmInput, 'OSS 프로그램');
-      confirmInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-
-    const dialog = document.querySelector('[role="alertdialog"]');
-    const confirmButton = Array.from(
-      dialog?.querySelectorAll('button') ?? [],
-    ).find((candidate) => candidate.textContent?.trim() === '삭제');
-    if (!(confirmButton instanceof HTMLButtonElement)) {
-      throw new TypeError('Missing confirm delete button.');
-    }
-
-    await act(async () => {
-      confirmButton.click();
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    if (input === null) throw new TypeError('Missing confirmation input.');
+    await act(async () => setInputValue(input, 'OSS 프로그램'));
+    await act(async () => getButton('삭제', dialog).click());
+    await act(async () => void (await Promise.resolve()));
 
     expect(document.body.textContent).toContain(
-      '프로그램을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      '지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
     );
+    expect(
+      Array.from(document.querySelectorAll('a')).map((link) =>
+        link.getAttribute('href'),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        '/programs/program-1/applicants',
+        '/programs/program-1/teams',
+        '/programs/program-1/board',
+        '/programs/program-1/status',
+      ]),
+    );
+
+    await act(async () => getButton('취소', dialog).click());
+    await openDialog('연결 데이터까지 모두 삭제');
+    expect(document.body.textContent).toContain(
+      '삭제될 데이터: 지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
+    );
+  });
+
+  it('프로그램 이름이 다르면 전체 삭제 확정 버튼을 비활성으로 유지한다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+
+    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const input = document.querySelector<HTMLInputElement>(
+      '#program-purge-confirm-name',
+    );
+    if (input === null) throw new TypeError('Missing purge input.');
+    await act(async () => setInputValue(input, '다른 프로그램'));
+
+    expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(true);
+  });
+
+  it('전체 삭제 성공 후 즉시 목록 확인으로 이동해 삭제된 프로그램 화면을 남기지 않는다', async () => {
+    purgeProgramMock.mockResolvedValue({
+      id: 'program-1',
+      deleted: true,
+      deletedCounts: { applications: 2, notifications: 3, boardPosts: 0 },
+    });
+    function PurgeNavigationHarness() {
+      const [notice, setNotice] = useState<string | null>(null);
+      if (notice !== null) return <p>{notice}</p>;
+      return (
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+          onDeleted={(nextNotice) => setNotice(nextNotice ?? '')}
+        />
+      );
+    }
+    await act(async () => {
+      root.render(<PurgeNavigationHarness />);
+    });
+
+    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const input = document.querySelector<HTMLInputElement>(
+      '#program-purge-confirm-name',
+    );
+    if (input === null) throw new TypeError('Missing purge input.');
+    await act(async () => setInputValue(input, 'OSS 프로그램'));
+    await act(async () =>
+      getButton('연결 데이터까지 모두 삭제', dialog).click(),
+    );
+    await act(async () => void (await Promise.resolve()));
+
+    expect(purgeProgramMock).toHaveBeenCalledWith('program-1');
+    expect(container.querySelector('section')).toBeNull();
+    expect(container.textContent).toContain('지원서 2건 · 알림 3건');
+  });
+
+  it('전체 삭제가 403이면 오류를 화면에 보여준다', async () => {
+    purgeProgramMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Forbidden',
+        status: 403,
+        detail: '전체 삭제 권한이 없습니다.',
+        code: 'PRG_011',
+        instance: '/programs/program-1/purge',
+      }),
+    );
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+
+    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const input = document.querySelector<HTMLInputElement>(
+      '#program-purge-confirm-name',
+    );
+    if (input === null) throw new TypeError('Missing purge input.');
+    await act(async () => setInputValue(input, 'OSS 프로그램'));
+    await act(async () =>
+      getButton('연결 데이터까지 모두 삭제', dialog).click(),
+    );
+    await act(async () => void (await Promise.resolve()));
+
+    expect(document.body.textContent).toContain('전체 삭제 권한이 없습니다.');
   });
 });

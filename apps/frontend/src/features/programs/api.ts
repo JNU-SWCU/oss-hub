@@ -494,6 +494,46 @@ export function deleteProgram(
   );
 }
 
+/** ADMIN 전용 전체 삭제 응답 — backend `ProgramPurgeDeletedCounts` 계약 미러. */
+export interface ProgramPurgeDeletedCounts {
+  readonly applications: number;
+  readonly teams: number;
+  readonly teamMembers: number;
+  readonly teamInvitations: number;
+  readonly boardPosts: number;
+  readonly boardComments: number;
+  readonly submissions: number;
+  readonly submissionRevisions: number;
+  readonly reviews: number;
+  readonly submissionFiles: number;
+  readonly milestones: number;
+  readonly milestoneDocuments: number;
+  readonly milestoneDocumentSubmissions: number;
+  readonly milestoneDocumentReviewHistories: number;
+  readonly milestoneDocumentTemplateFiles: number;
+  readonly programAuthoringUploads: number;
+  readonly programCreateRequests: number;
+  readonly repositoryProvisionJobs: number;
+  readonly githubRepositoriesDetached: number;
+  readonly publicShowcaseRepositories: number;
+  readonly outboxEvents: number;
+  readonly notifications: number;
+  readonly programPurgeFileTombstones: number;
+}
+
+export interface ProgramPurgeResult {
+  readonly id: string;
+  readonly deleted: true;
+  readonly deletedCounts: ProgramPurgeDeletedCounts;
+}
+
+export function purgeProgram(programId: string): Promise<ProgramPurgeResult> {
+  return apiClient<ProgramPurgeResult>(
+    `programs/${encodeURIComponent(programId)}/purge`,
+    { method: 'DELETE' },
+  );
+}
+
 /**
  * 교직원 전용 팀 상세(#874). `listStaffProgramTeams`(팀 목록)와 달리 신청
  * 상태·저장소 발급 상태까지 한 요청으로 받는다 — 팀 상세 화면이 신청 목록을

@@ -589,7 +589,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(queryButton('삭제')).toBeTruthy();
   });
 
-  it('isAdmin={false}면 위험 영역 섹션을 그리지 않는다', async () => {
+  it('isAdmin={false}면 삭제 버튼 없이 아카이브 안내를 그린다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
@@ -599,7 +599,9 @@ describe('ProgramEditPage 컴포넌트', () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).not.toContain('위험 영역');
+    expect(container.textContent).toContain('위험 영역');
+    expect(container.textContent).toContain('아카이브');
     expect(queryButton('삭제')).toBeUndefined();
+    expect(queryButton('연결 데이터까지 모두 삭제')).toBeUndefined();
   });
 });
