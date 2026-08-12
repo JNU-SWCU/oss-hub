@@ -13,6 +13,7 @@ export enum ProgramErrorCode {
   MILESTONE_REQUIRED = 'PRG_010',
   PROGRAM_DELETE_FORBIDDEN = 'PRG_011',
   PROGRAM_DELETE_BLOCKED = 'PRG_012',
+  PROGRAM_DELETE_PROTECTED = 'PRG_013',
 }
 
 export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
@@ -75,5 +76,10 @@ export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
     code: ProgramErrorCode.PROGRAM_DELETE_BLOCKED,
     status: 409,
     message: '연결된 데이터가 있어 프로그램을 삭제할 수 없습니다.',
+  },
+  [ProgramErrorCode.PROGRAM_DELETE_PROTECTED]: {
+    code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED,
+    status: 409,
+    message: '삭제 보호가 설정된 프로그램은 관리자도 삭제할 수 없습니다.',
   },
 };

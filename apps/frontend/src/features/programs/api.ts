@@ -135,6 +135,9 @@ export interface EditableProgram {
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
+  /** 이전 로컬 검토 fixture와의 호환을 위해 선택적이지만, 편집 API는 항상 준다.
+   * true면 위험 영역의 삭제·전체 삭제가 무조건 거부된다(F2 finding #1). */
+  readonly deletionProtected?: boolean;
   readonly description: string;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;

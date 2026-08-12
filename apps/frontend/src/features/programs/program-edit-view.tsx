@@ -224,6 +224,7 @@ export function ProgramEditView({
           programId={program.id}
           programName={program.name}
           isAdmin={isAdmin}
+          deletionProtected={program.deletionProtected ?? false}
         />
       </div>
     </PageBody>

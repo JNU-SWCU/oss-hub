@@ -58,6 +58,8 @@ export type EditableProgramView = {
   readonly teamMaxSize: number;
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
+  /** true면 위험 영역의 삭제·전체 삭제가 서비스 계층에서 무조건 거부된다(F2 finding #1). */
+  readonly deletionProtected: boolean;
   readonly description: string;
   readonly milestones: readonly ProgramMilestoneView[];
 };

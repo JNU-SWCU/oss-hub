@@ -354,6 +354,7 @@ function toEditableProgramView(
     teamMaxSize: program.teamMaxSize,
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
     notifyOnDeadline: program.notifyOnDeadline,
+    deletionProtected: program.deletionProtected,
     description: program.description,
     milestones: program.milestones.map(toMilestoneView),
   };

@@ -110,11 +110,21 @@ export class ProgramLifecycleService {
     return this.prisma.$transaction(async (transaction) => {
       const program = await transaction.program.findUnique({
         where: { id: programId },
-        select: { id: true, name: true, lifecycle: true },
+        select: {
+          id: true,
+          name: true,
+          lifecycle: true,
+          deletionProtected: true,
+        },
       });
       if (!program) {
         throw new DomainException(
           PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+        );
+      }
+      if (program.deletionProtected) {
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
         );
       }
 
@@ -212,11 +222,21 @@ export class ProgramLifecycleService {
     return this.prisma.$transaction(async (transaction) => {
       const program = await transaction.program.findUnique({
         where: { id: programId },
-        select: { id: true, name: true, lifecycle: true },
+        select: {
+          id: true,
+          name: true,
+          lifecycle: true,
+          deletionProtected: true,
+        },
       });
       if (!program) {
         throw new DomainException(
           PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+        );
+      }
+      if (program.deletionProtected) {
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
         );
       }
 

@@ -42,6 +42,7 @@ export class EditableProgramResponseDto {
   readonly endAt: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
+  readonly deletionProtected: boolean;
   readonly description: string;
   readonly milestones: readonly ProgramMilestoneResponseDto[];
   readonly teamMinSize: number;
@@ -64,6 +65,7 @@ export class EditableProgramResponseDto {
     this.endAt = program.endAt;
     this.repositoryProvisioningEnabled = program.repositoryProvisioningEnabled;
     this.notifyOnDeadline = program.notifyOnDeadline;
+    this.deletionProtected = program.deletionProtected;
     this.description = program.description;
     this.milestones = program.milestones.map((milestone) =>
       ProgramMilestoneResponseDto.from(milestone),
