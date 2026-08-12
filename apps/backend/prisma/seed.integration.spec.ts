@@ -801,6 +801,264 @@ describe('seed profile=oss-hub contract (integration)', () => {
   );
 });
 
+/**
+ * qa-econovation-batch TODO 11 — demo profile 계약 검증.
+ *   ① 두 번 실행해도 seed:demo: 행 수가 그대로다(멱등) ② GithubRepository·Contribution은
+ *   이 profile이 절대 만들지 않는다(0건) ③ production에서는 SEED_DEMO_ALLOW_PRODUCTION=1 없이는
+ *   거부되고, 있으면 허용된다(DB 쓰기 전에 거부하므로 실제 실행은 하지 않고 거부 여부만 단언).
+ */
+describe('seed profile=demo 계약 (integration)', () => {
+  const seedDemoPrefix = 'seed:demo:';
+
+  async function countDemoSeeded(): Promise<Record<string, number>> {
+    const [
+      users,
+      programs,
+      teams,
+      teamMembers,
+      applications,
+      milestones,
+      submissions,
+      submissionRevisions,
+      submissionFiles,
+      boardPosts,
+      boardComments,
+      githubRepositories,
+      contributions,
+    ] = await Promise.all([
+      prisma.user.count({ where: { id: { startsWith: seedDemoPrefix } } }),
+      prisma.program.count({ where: { id: { startsWith: seedDemoPrefix } } }),
+      prisma.team.count({ where: { id: { startsWith: seedDemoPrefix } } }),
+      prisma.teamMember.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.application.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.milestone.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.submission.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.submissionRevision.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.submissionFile.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.boardPost.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.boardComment.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.githubRepository.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      // Contribution은 결정적 seedId 문자열 PK가 없다(repositoryId+githubId+date 복합키) —
+      // 이 profile이 만드는 seed:demo: User의 githubId로 존재 여부를 직접 확인한다.
+      prisma.contribution.count({
+        where: {
+          githubId: {
+            in: await prisma.user
+              .findMany({
+                where: { id: { startsWith: seedDemoPrefix } },
+                select: { githubId: true },
+              })
+              .then((rows) => rows.map((row) => row.githubId)),
+          },
+        },
+      }),
+    ]);
+    return {
+      User: users,
+      Program: programs,
+      Team: teams,
+      TeamMember: teamMembers,
+      Application: applications,
+      Milestone: milestones,
+      Submission: submissions,
+      SubmissionRevision: submissionRevisions,
+      SubmissionFile: submissionFiles,
+      BoardPost: boardPosts,
+      BoardComment: boardComments,
+      GithubRepository: githubRepositories,
+      Contribution: contributions,
+    };
+  }
+
+  async function deleteDemoSeeded(): Promise<void> {
+    const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
+    // SubmissionFile.submissionRevisionId는 onDelete 미지정(RESTRICT)이라
+    // SubmissionRevision보다 먼저 지워야 한다(FILE 타입 마일스톤 제출이 만드는 행).
+    await prisma.submissionFile.deleteMany({ where: seedIdFilter });
+    await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
+    await prisma.submission.deleteMany({ where: seedIdFilter });
+    await prisma.boardComment.deleteMany({ where: seedIdFilter });
+    await prisma.boardPost.deleteMany({ where: seedIdFilter });
+    await prisma.teamMember.deleteMany({ where: seedIdFilter });
+    await prisma.milestone.deleteMany({ where: seedIdFilter });
+    await prisma.application.deleteMany({ where: seedIdFilter });
+    await prisma.team.deleteMany({ where: seedIdFilter });
+    await prisma.program.deleteMany({ where: seedIdFilter });
+    await prisma.consent.deleteMany({
+      where: { userId: { startsWith: seedDemoPrefix } },
+    });
+    await prisma.userProfile.deleteMany({
+      where: { userId: { startsWith: seedDemoPrefix } },
+    });
+    await prisma.user.deleteMany({ where: seedIdFilter });
+  }
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  afterEach(async () => {
+    await deleteDemoSeeded();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it(
+    '같은 profile을 두 번 실행해도 seed:demo: 행 수가 그대로고, 수집/랭킹 테이블은 항상 0건이다',
+    async () => {
+      // Given: 격리된 빈 DB.
+      // When: demo profile을 두 번 연속 실행한다.
+      const firstRunStats = new SeedStats();
+      await runProfile('demo', firstRunStats);
+      const countsAfterFirstRun = await countDemoSeeded();
+
+      const secondRunStats = new SeedStats();
+      await runProfile('demo', secondRunStats);
+      const countsAfterSecondRun = await countDemoSeeded();
+
+      // Then: 각 모델의 seed:demo: 행 수는 두 실행 사이에 변하지 않는다(멱등).
+      expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
+
+      // And: "조용한 no-op"이 아니다 — 프로그램·학생·팀·게시판이 실제로 생긴다.
+      expect(countsAfterFirstRun.Program).toBeGreaterThanOrEqual(3);
+      expect(countsAfterFirstRun.Program).toBeLessThanOrEqual(4);
+      expect(countsAfterFirstRun.User).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.Team).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.Application).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.Milestone).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.Submission).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.SubmissionFile).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.BoardPost).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.BoardComment).toBeGreaterThan(0);
+
+      // And: 수집/랭킹 테이블은 이 profile이 결코 쓰지 않는다 — 두 실행 모두 0건.
+      expect(countsAfterFirstRun.GithubRepository).toBe(0);
+      expect(countsAfterFirstRun.Contribution).toBe(0);
+      expect(countsAfterSecondRun.GithubRepository).toBe(0);
+      expect(countsAfterSecondRun.Contribution).toBe(0);
+
+      // And: 이름은 합성 한국식 학생이고 실명이 아니며, 이메일은 .invalid만 쓴다.
+      const demoUsers = await prisma.user.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: { name: true, notificationEmail: true },
+      });
+      expect(demoUsers.length).toBeGreaterThan(0);
+      for (const user of demoUsers) {
+        expect(user.notificationEmail).toMatch(/@demo\.invalid$/);
+      }
+      expect(demoUsers.some((user) => user.name === '김도윤')).toBe(true);
+
+      // And: 프로그램은 사업단 톤의 합성 이름을 쓴다(실제 공지 문구 미복사).
+      const demoPrograms = await prisma.program.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: { name: true, repositoryProvisioningEnabled: true },
+      });
+      expect(
+        demoPrograms.some((program) => program.name.includes('에코노베이션')),
+      ).toBe(true);
+      for (const program of demoPrograms) {
+        // 이 profile은 GithubRepository를 만들지 않으므로 저장소 프로비저닝도 켜지 않는다.
+        expect(program.repositoryProvisioningEnabled).toBe(false);
+      }
+
+      // And: 모든 시드 SubmissionRevision은 자신이 속한 마일스톤의 submissionType과
+      // 동일한 content.type을 쓴다 — submissions.service.ts가
+      // content.type !== milestone.submissionType을 CONTENT_TYPE_MISMATCH로 거부하는
+      // 도메인 규칙을 시드가 우회하지 않았음을 직접 단언한다.
+      const demoRevisions = await prisma.submissionRevision.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: {
+          id: true,
+          submissionType: true,
+          content: true,
+          submission: {
+            select: { milestone: { select: { submissionType: true } } },
+          },
+        },
+      });
+      expect(demoRevisions.length).toBeGreaterThan(0);
+      for (const revision of demoRevisions) {
+        const milestoneSubmissionType =
+          revision.submission.milestone.submissionType;
+        expect(revision.submissionType).toBe(milestoneSubmissionType);
+        expect((revision.content as { readonly type: string }).type).toBe(
+          milestoneSubmissionType,
+        );
+      }
+      // And: FILE 타입 마일스톤(오픈소스 대회 데모데이)은 실제로 FILE content +
+      // ATTACHED SubmissionFile이 함께 있는지도 확인한다(시드가 문자열만 맞춰놓고 실제
+      // 파일 생명주기는 비워두지 않았는지 검증).
+      const fileTypeRevisions = demoRevisions.filter(
+        (revision) => revision.submissionType === 'FILE',
+      );
+      expect(fileTypeRevisions.length).toBeGreaterThan(0);
+      for (const revision of fileTypeRevisions) {
+        const fileId = (revision.content as { readonly fileId: string }).fileId;
+        const submissionFile = await prisma.submissionFile.findUniqueOrThrow({
+          where: { id: fileId },
+        });
+        expect(submissionFile.submissionRevisionId).toBe(revision.id);
+        expect(submissionFile.lifecycle).toBe('ATTACHED');
+      }
+
+      // And: 실행 로그가 비어있지 않다(조용한 no-op 아님).
+      expect(firstRunStats.report().length).toBeGreaterThan(0);
+      expect(secondRunStats.report().length).toBeGreaterThan(0);
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it('production에서는 SEED_DEMO_ALLOW_PRODUCTION=1 없이 거부된다', () => {
+    // Given & When & Then: DB 쓰기 전에 거부해야 한다 — assertSeedAllowed 자체를 직접 호출해
+    // 실제 seed 실행(격리 DB에도 영향을 주는) 없이 게이트 로직만 검증한다.
+    const { assertSeedAllowed } =
+      jest.requireActual<typeof import('./seeds/helpers')>('./seeds/helpers');
+    expect(() => assertSeedAllowed('production', 'demo', undefined)).toThrow(
+      /SEED_DEMO_ALLOW_PRODUCTION/,
+    );
+    expect(() => assertSeedAllowed('production', 'demo', '0')).toThrow(
+      /SEED_DEMO_ALLOW_PRODUCTION/,
+    );
+  });
+
+  it('production + SEED_DEMO_ALLOW_PRODUCTION=1 조합은 demo profile을 허용한다', () => {
+    const { assertSeedAllowed } =
+      jest.requireActual<typeof import('./seeds/helpers')>('./seeds/helpers');
+    expect(() => assertSeedAllowed('production', 'demo', '1')).not.toThrow();
+  });
+
+  it('production에서는 demo 외 다른 모든 profile이 플래그와 무관하게 거부된다', () => {
+    const { assertSeedAllowed } =
+      jest.requireActual<typeof import('./seeds/helpers')>('./seeds/helpers');
+    expect(() => assertSeedAllowed('production', 'auth', '1')).toThrow(
+      /production/,
+    );
+    expect(() => assertSeedAllowed('production', 'all', '1')).toThrow(
+      /production/,
+    );
+  });
+});
+
 describe('seed profile=all 멱등성 (integration)', () => {
   beforeAll(async () => {
     await prisma.$connect();
