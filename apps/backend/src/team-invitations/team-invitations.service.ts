@@ -68,9 +68,15 @@ export class TeamInvitationsService {
     if (inviteeUserId === actorId) {
       throw this.error(TeamInvitationErrorCode.SELF_INVITE_FORBIDDEN);
     }
-    const inviteeExists = await this.repository.userExists(inviteeUserId);
-    if (!inviteeExists) {
-      throw this.error(TeamInvitationErrorCode.INVITEE_NOT_FOUND);
+    const inviteeEligibility =
+      await this.repository.getInviteeEligibility(inviteeUserId);
+    switch (inviteeEligibility) {
+      case 'not-found':
+        throw this.error(TeamInvitationErrorCode.INVITEE_NOT_FOUND);
+      case 'not-eligible':
+        throw this.error(TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE);
+      case 'eligible':
+        break;
     }
     const alreadyInTeam = await this.repository.isUserInProgramTeam(
       team.programId,
@@ -160,6 +166,8 @@ export class TeamInvitationsService {
         throw this.error(TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM);
       case 'team-full':
         throw this.error(TeamInvitationErrorCode.TEAM_FULL);
+      case 'invitee-not-eligible':
+        throw this.error(TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE);
       case 'ok':
         return { teamId: outcome.teamId, programId: outcome.programId };
     }
