@@ -3,6 +3,7 @@ import {
   AccountStatus,
   ApplicationStatus,
   MilestoneSubmissionType,
+  ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   ReviewDecision,
@@ -10,7 +11,7 @@ import {
   RoleRequestStatus,
   SubmissionStatus,
 } from '@prisma/client';
-import { runProfile } from './seed';
+import { runProfile, runTeardown } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
 import {
   prisma,
@@ -19,6 +20,7 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
+import { computeJoinCodeDigest } from '../src/common/join-code-digest';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -810,6 +812,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
 describe('seed profile=demo 계약 (integration)', () => {
   const seedDemoPrefix = 'seed:demo:';
 
+  /** demo profile이 만지는 모든 테이블 — teardown 잔여 0건 검증(TODO 15)도 이 목록을 재사용한다. */
   async function countDemoSeeded(): Promise<Record<string, number>> {
     const [
       users,
@@ -821,6 +824,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       submissions,
       submissionRevisions,
       submissionFiles,
+      reviews,
       boardPosts,
       boardComments,
       githubRepositories,
@@ -845,6 +849,9 @@ describe('seed profile=demo 계약 (integration)', () => {
         where: { id: { startsWith: seedDemoPrefix } },
       }),
       prisma.submissionFile.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.review.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
       prisma.boardPost.count({
@@ -881,6 +888,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       Submission: submissions,
       SubmissionRevision: submissionRevisions,
       SubmissionFile: submissionFiles,
+      Review: reviews,
       BoardPost: boardPosts,
       BoardComment: boardComments,
       GithubRepository: githubRepositories,
@@ -892,6 +900,8 @@ describe('seed profile=demo 계약 (integration)', () => {
     const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
     // SubmissionFile.submissionRevisionId는 onDelete 미지정(RESTRICT)이라
     // SubmissionRevision보다 먼저 지워야 한다(FILE 타입 마일스톤 제출이 만드는 행).
+    // Review는 SubmissionRevision을 참조하므로 그보다 먼저 지운다.
+    await prisma.review.deleteMany({ where: seedIdFilter });
     await prisma.submissionFile.deleteMany({ where: seedIdFilter });
     await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
     await prisma.submission.deleteMany({ where: seedIdFilter });
@@ -943,11 +953,16 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(countsAfterFirstRun.Program).toBeGreaterThanOrEqual(3);
       expect(countsAfterFirstRun.Program).toBeLessThanOrEqual(4);
       expect(countsAfterFirstRun.User).toBeGreaterThan(0);
-      expect(countsAfterFirstRun.Team).toBeGreaterThan(0);
-      expect(countsAfterFirstRun.Application).toBeGreaterThan(0);
+      // 에코노베이션 연계 대회 프로그램이 팀 5개(TODO 15 다팀 그래프)를 만들고,
+      // 다른 세 프로그램이 각 1개씩 만들어 최소 6팀 이상이다.
+      expect(countsAfterFirstRun.Team).toBeGreaterThanOrEqual(6);
+      expect(countsAfterFirstRun.Application).toBeGreaterThanOrEqual(6);
       expect(countsAfterFirstRun.Milestone).toBeGreaterThan(0);
-      expect(countsAfterFirstRun.Submission).toBeGreaterThan(0);
+      // 대회 프로그램은 팀당 데모데이 제출 1건 + 일부 팀은 최종 발표 제출까지 갖는다.
+      expect(countsAfterFirstRun.Submission).toBeGreaterThanOrEqual(9);
       expect(countsAfterFirstRun.SubmissionFile).toBeGreaterThan(0);
+      // 승인/보완필요 리뷰가 생기는 제출이 있어 Review도 0건이 아니다(사업단 톤이 실제 검토하는 모습).
+      expect(countsAfterFirstRun.Review).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardPost).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardComment).toBeGreaterThan(0);
 
@@ -1021,9 +1036,326 @@ describe('seed profile=demo 계약 (integration)', () => {
         expect(submissionFile.lifecycle).toBe('ATTACHED');
       }
 
+      // And: 대회 프로그램은 팀 5개 이상이 참여하고, 제출 상태가 제출됨(SUBMITTED)·
+      // 보완 필요(CHANGES_REQUESTED)·승인(APPROVED) 세 상태 모두로 섞여 있다(TODO 15 —
+      // '여러 팀이 참여해 기록이 쌓이는 모습'을 화면에서 보여주기 위한 계약).
+      const contestProgramId = seedId(
+        'demo',
+        'program',
+        'oss-developer-contest',
+      );
+      const contestTeams = await prisma.team.count({
+        where: { programId: contestProgramId },
+      });
+      expect(contestTeams).toBeGreaterThanOrEqual(5);
+      const contestApplications = await prisma.application.findMany({
+        where: { programId: contestProgramId },
+        select: { status: true },
+      });
+      expect(contestApplications.length).toBeGreaterThanOrEqual(5);
+      for (const application of contestApplications) {
+        expect(application.status).toBe(ApplicationStatus.APPROVED);
+      }
+      const contestSubmissionStatuses = await prisma.submission.findMany({
+        where: {
+          milestone: { programId: contestProgramId },
+        },
+        select: { status: true },
+      });
+      const contestStatusSet = new Set(
+        contestSubmissionStatuses.map((submission) => submission.status),
+      );
+      expect(contestStatusSet.has(SubmissionStatus.SUBMITTED)).toBe(true);
+      expect(contestStatusSet.has(SubmissionStatus.CHANGES_REQUESTED)).toBe(
+        true,
+      );
+      expect(contestStatusSet.has(SubmissionStatus.APPROVED)).toBe(true);
+
       // And: 실행 로그가 비어있지 않다(조용한 no-op 아님).
       expect(firstRunStats.report().length).toBeGreaterThan(0);
       expect(secondRunStats.report().length).toBeGreaterThan(0);
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    '보강된 다팀 그래프도 teardown 없이 두 번째 실행에서 멱등하다(팀·지원서·마일스톤 제출 상태 포함)',
+    async () => {
+      // Given & When: demo profile을 두 번 실행한다(위 테스트와 별도 시나리오로,
+      // teardown 전 순수 재실행 경로만 검증한다).
+      await runProfile('demo', new SeedStats());
+      const firstRun = await countDemoSeeded();
+      await runProfile('demo', new SeedStats());
+      const secondRun = await countDemoSeeded();
+
+      // Then: 팀·지원서·마일스톤 제출·리뷰까지 전부 행 수가 그대로다.
+      expect(secondRun).toEqual(firstRun);
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    '한빛 팀 데모데이 제출은 TODO 11(이미 병합된 구버전) 시점의 보존 id를 유지해 재시드해도 고유 제약을 깨드리지 않는다',
+    async () => {
+      // Given: TODO 11(이미 병합된 기존 demo profile) 시점의 데이터 모양을 직접 심는다 —
+      // 그 시점은 한빛 팀이 유일한 참가팀이었고, 데모데이 제출(FILE)은 팀 접두사 없는
+      // `seed:demo:submission:oss-contest-demo-day` id로 만들어졌다(리뷰 없음, SUBMITTED).
+      // Program·Milestone·Team·Application·User 부모는 현재 코드와 동일한 id를 쓰므로
+      // 정상 profile 실행으로 먼저 만들고, 그 다음 해당 제출만 지우고 예전 shape로 직접
+      // 재생성해 '이미 그 id로 시드된 DB'를 재현한다.
+      await runProfile('demo', new SeedStats());
+
+      const contestApplicationId = seedId(
+        'demo',
+        'application',
+        'oss-contest-hanbit',
+      );
+      const contestMilestoneId = seedId(
+        'demo',
+        'milestone',
+        'oss-contest-demo-day',
+      );
+      const preservedSubmissionId = seedId(
+        'demo',
+        'submission',
+        'oss-contest-demo-day',
+      );
+      const preservedRevisionId = seedId(
+        'demo',
+        'submission',
+        'oss-contest-demo-day',
+        'revision-1',
+      );
+      const preservedFileId = seedId(
+        'demo',
+        'submission-file',
+        'oss-contest-demo-day',
+      );
+      const parkHaeunUserId = seedId('demo', 'user', 'park-haeun');
+
+      // 현재 코드는 한빛 팀 데모데이 제출을 APPROVED + Review로 만드므로, 예전(TODO 11)
+      // 모양(SUBMITTED, 리뷰 없음)으로 재구성하기 전에 그 Review부터 지우어야 FK 위반이 없다.
+      await prisma.review.deleteMany({
+        where: { submissionRevisionId: preservedRevisionId },
+      });
+      await prisma.submissionFile.deleteMany({
+        where: { id: preservedFileId },
+      });
+      await prisma.submissionRevision.deleteMany({
+        where: { id: preservedRevisionId },
+      });
+      await prisma.submission.deleteMany({
+        where: { id: preservedSubmissionId },
+      });
+      await prisma.submission.create({
+        data: {
+          id: preservedSubmissionId,
+          milestoneId: contestMilestoneId,
+          applicationId: contestApplicationId,
+          status: SubmissionStatus.SUBMITTED,
+          currentRevision: 1,
+        },
+      });
+      await prisma.submissionRevision.create({
+        data: {
+          id: preservedRevisionId,
+          submissionId: preservedSubmissionId,
+          revision: 1,
+          submissionType: MilestoneSubmissionType.FILE,
+          content: {
+            type: MilestoneSubmissionType.FILE,
+            fileId: preservedFileId,
+          },
+          submittedById: parkHaeunUserId,
+        },
+      });
+      await prisma.submissionFile.create({
+        data: {
+          id: preservedFileId,
+          uploaderId: parkHaeunUserId,
+          applicationId: contestApplicationId,
+          milestoneId: contestMilestoneId,
+          submissionRevisionId: preservedRevisionId,
+          storageKey: `demo/${preservedFileId}`,
+          originalFileName: 'oss-contest-demo-day-draft.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 1_048_576,
+          lifecycle: 'ATTACHED',
+        },
+      });
+
+      // When: 현재 코드의 demo profile을 다시 실행한다 — 한빛 팀의 데모데이 제출을
+      // 팀 접두사가 붙은 새 id(`oss-contest-hanbit-demo-day`)로 만들려하면, 위에서 심은
+      // 예전 id 행과 같은 (applicationId, milestoneId) 쌍을 가지므로
+      // `Submission_applicationId_milestoneId_key` 고유 제약 위반으로 예외가 던져야 한다.
+      await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
+
+      // Then: (applicationId, milestoneId) 쌍에 제출이 정확히 1건이고, 그 id는 여전히
+      // 보존 id다(현재 코드가 이 id를 재사용해 upsert했다는 증거 — 새 id로 중복 행을
+      // 만들지 않았다).
+      const submissionsForPair = await prisma.submission.findMany({
+        where: {
+          applicationId: contestApplicationId,
+          milestoneId: contestMilestoneId,
+        },
+      });
+      expect(submissionsForPair).toHaveLength(1);
+      expect(submissionsForPair[0]?.id).toBe(preservedSubmissionId);
+
+      // And: 보존 id의 SubmissionRevision·SubmissionFile도 그대로 재사용된다(새 id로
+      // 따로 만들어지지 않음).
+      const [preservedRevision, preservedFile, teamSuffixedSubmission] =
+        await Promise.all([
+          prisma.submissionRevision.findUnique({
+            where: { id: preservedRevisionId },
+          }),
+          prisma.submissionFile.findUnique({ where: { id: preservedFileId } }),
+          prisma.submission.findUnique({
+            where: {
+              id: seedId('demo', 'submission', 'oss-contest-hanbit-demo-day'),
+            },
+          }),
+        ]);
+      expect(preservedRevision).not.toBeNull();
+      expect(preservedFile).not.toBeNull();
+      expect(teamSuffixedSubmission).toBeNull();
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    'teardown은 시드 후 모든 demo-touched 테이블에서 seed:demo: 행을 0건으로 만든다',
+    async () => {
+      // Given: demo profile을 시드해 다팀 그래프·게시판까지 전부 채운다.
+      await runProfile('demo', new SeedStats());
+      const countsBeforeTeardown = await countDemoSeeded();
+      expect(countsBeforeTeardown.User).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.Program).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.Team).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.Submission).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.Review).toBeGreaterThan(0);
+
+      // When: teardown을 실행한다(이 테스트 자체가 afterEach의 deleteDemoSeeded와
+      // 별개로 teardownDemo 구현을 직접 검증한다 — afterEach는 이후에도 안전하게 no-op).
+      await runTeardown('demo', new SeedStats());
+
+      // Then: seed:demo: 접두사를 가진 모든 테이블(GithubRepository·Contribution포함)이 0건이다.
+      const countsAfterTeardown = await countDemoSeeded();
+      for (const count of Object.values(countsAfterTeardown)) {
+        expect(count).toBe(0);
+      }
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    'teardown은 seed:demo: 접두사가 아닌 비-demo 행을 절대 건드리지 않는다',
+    async () => {
+      // Given: demo profile을 시드하고, seed:demo: 접두사가 아닌 별도 비-demo fixture
+      // 행(User→Program→Team→TeamMember→Application)을 직접 심는다 — teardown 대상
+      // 밖의 데이터가 살아남는지 증명하는 목적의 최소 그래프다.
+      await runProfile('demo', new SeedStats());
+
+      const survivorUserId = 'seed:demo-teardown-guard:user';
+      const survivorProgramId = 'seed:demo-teardown-guard:program';
+      const survivorTeamId = 'seed:demo-teardown-guard:team';
+      const survivorApplicationId = 'seed:demo-teardown-guard:application';
+
+      await prisma.user.create({
+        data: {
+          id: survivorUserId,
+          githubId: seedGithubId(survivorUserId),
+          nickname: 'demo-teardown-guard',
+          role: Role.STUDENT,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+      });
+      await prisma.program.create({
+        data: {
+          id: survivorProgramId,
+          name: 'teardown guard 비-demo 프로그램(fixture)',
+          organizer: 'teardown guard fixture',
+          category: ProgramCategory.BASIC,
+          applicationTemplateKey: 'basic',
+          applicationTemplateVersion: 1,
+          applicationStartAt: new Date('2020-01-01T00:00:00Z'),
+          applicationEndAt: new Date('2020-01-02T00:00:00Z'),
+          description:
+            'teardown이 절대 지우면 안 되는 비-demo 프로그램(fixture).',
+        },
+      });
+      await prisma.team.create({
+        data: {
+          id: survivorTeamId,
+          programId: survivorProgramId,
+          name: 'teardown guard 팀',
+          joinCodeDigest: computeJoinCodeDigest(
+            `TEARDOWN-GUARD-${survivorTeamId}`,
+          ),
+          leaderId: survivorUserId,
+        },
+      });
+      await prisma.teamMember.create({
+        data: {
+          id: 'seed:demo-teardown-guard:team-member',
+          teamId: survivorTeamId,
+          programId: survivorProgramId,
+          userId: survivorUserId,
+        },
+      });
+      await prisma.application.create({
+        data: {
+          id: survivorApplicationId,
+          programId: survivorProgramId,
+          applicantId: survivorUserId,
+          teamId: survivorTeamId,
+          answers: { seedPlaceholder: true, scenarioId: 'teardown-guard' },
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
+        },
+      });
+
+      try {
+        // When: demo profile teardown을 실행한다.
+        await runTeardown('demo', new SeedStats());
+
+        // Then: seed:demo: 접두사 데모 데이터는 모두 사라졌지만,
+        const demoCountsAfterTeardown = await countDemoSeeded();
+        for (const count of Object.values(demoCountsAfterTeardown)) {
+          expect(count).toBe(0);
+        }
+
+        // And: seed:demo-teardown-guard: 접두사(비-demo) 행은 그대로 살아남는다.
+        const [
+          survivorUser,
+          survivorProgram,
+          survivorTeam,
+          survivorApplication,
+        ] = await Promise.all([
+          prisma.user.findUnique({ where: { id: survivorUserId } }),
+          prisma.program.findUnique({ where: { id: survivorProgramId } }),
+          prisma.team.findUnique({ where: { id: survivorTeamId } }),
+          prisma.application.findUnique({
+            where: { id: survivorApplicationId },
+          }),
+        ]);
+        expect(survivorUser).not.toBeNull();
+        expect(survivorProgram).not.toBeNull();
+        expect(survivorTeam).not.toBeNull();
+        expect(survivorApplication).not.toBeNull();
+      } finally {
+        // Cleanup: 이 테스트가 심은 비-demo fixture는 afterEach의 deleteDemoSeeded가
+        // (접두사가 다르므로) 지우지 않는다 — 직접 정리한다.
+        await prisma.application.deleteMany({
+          where: { id: survivorApplicationId },
+        });
+        await prisma.teamMember.deleteMany({
+          where: { teamId: survivorTeamId },
+        });
+        await prisma.team.deleteMany({ where: { id: survivorTeamId } });
+        await prisma.program.deleteMany({ where: { id: survivorProgramId } });
+        await prisma.user.deleteMany({ where: { id: survivorUserId } });
+      }
     },
     SEED_RUN_TIMEOUT_MS,
   );

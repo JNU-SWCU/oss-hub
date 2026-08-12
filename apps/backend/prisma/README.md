@@ -27,6 +27,15 @@ pnpm --filter backend prisma db seed -- --profile demo
 # (아래 "production 실행 예외" 절 참조). 이 플래그 없이는 다른 모든 profile과 동일하게
 # production에서 거부된다.
 NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend prisma db seed -- --profile demo
+
+# demo profile teardown — 이 profile이 만든 seed:demo:* 행 전부를 의존성 순서로 일괄
+# 삭제한다(qa-econovation-batch TODO 15). 비운영 환경은 시드와 동일한 NODE_ENV 게이트만
+# 통과하면 된다.
+pnpm --filter backend prisma db seed -- --profile demo --teardown
+
+# demo profile teardown — production 실행(예외). 시드와 동일한 SEED_DEMO_ALLOW_PRODUCTION=1
+# 게이트를 통과해야 한다 — 새 시드 예외를 추가하지 않는다.
+NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend prisma db seed -- --profile demo --teardown
 ```
 
 profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `program-overview` · `oss-hub` · `demo` · `all`.
@@ -140,16 +149,29 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     연계 → `CORPORATE_INTERNSHIP`, 오픈소스 SW개발자 대회(에코노베이션 연계) → `OSS_CONTEST`,
     신입생 SW역량 강화 → `SW_VALUE_SPREAD`, 소중마일리지 연계 비교과 → `BASIC`)을 모델로 한
     이름·설명이지만, 일정은 모두 `offsetDays` 상대값으로 만든 합성값이다(실제 공지 일정
-    미복사 — `prisma/AGENTS.md` 시드 규칙 #3·#4).
-  - 합성 한국식 학생 6명(예: 김도윤·이서준·박하은 등, 실존 인물 아님)이 네 프로그램에 나눠
-    배치되어 각각 팀장·팀원으로 승인된 지원서 1건을 만든다. 이메일은 모두 `@demo.invalid`
-    (RFC 2606 예약 도메인)만 쓴다. 합성 STAFF 1명(`합성 사업단 담당자`)이 네 프로그램의
-    공통 게시글 작성자다.
-  - 프로그램당 마일스톤 1개씨 — 마감 전(진행 중) 상태로, 각 신청의 팀장이 `SUBMITTED`
-    상태의 TEXT 제출 1건을 남겨 "진행 중" 화면을 만든다(아직 리뷰 없음).
-  - 프로그램당 게시판 1건(공지 또는 질문, 댓글 1~2개 포함)로 시연 화면을 채운다.
+    미복사 — `prisma/AGENTS.md` 시드 규칙 #3·#4). 각 프로그램 설명과 마일스톤 안내는 "모집
+    배경/지원 대상/운영 방식/문의 안내" 구성으로 사업단 공개 페이지(sojoong.kr)의 톤·용어를
+    참고해 계획서처럼 읽히도록 재작성됐다(TODO 15) — 본문을 그대로 옮기지 않고, 문의 안내의
+    담당자 이메일도 합성(`.invalid`)이다.
+  - 합성 한국식 학생 14명(예: 김도윤·이서준·박하은 등, 실존 인물 아님)이 네 프로그램에 나눠
+    배치된다. 이메일은 모두 `@demo.invalid`(RFC 2606 예약 도메인)만 쓴다. 합성 STAFF 1명
+    (`합성 사업단 담당자`)이 네 프로그램의 공통 게시글 작성자이자 리뷰어다.
+  - 하계 SW인턴십·신입생 캠프·소중마일리지 세 프로그램은 기존과 동일하게 팀 1개·승인된 지원서
+    1건·마일스톤 1개를 만든다.
+  - **다팀 그래프(TODO 15)**: '2026 오픈소스 SW개발자 대회(에코노베이션 연계)' 프로그램은
+    참가팀 5개(2~4명씩, 서로 겹치지 않는 학생)가 각각 승인된 지원서 1건을 갖는다. 마일스톤은
+    중간 데모데이 발표자료 제출(FILE)과 최종 발표(TEXT) 2개로, 팀마다 제출 상태를 제출됨
+    (SUBMITTED)·보완 필요(CHANGES_REQUESTED)·승인(APPROVED)으로 섞어 '여러 팀이 참여해
+    기록이 쌓이는 모습'을 화면에서 보여준다. 보완 필요·승인 건은 Review도 함께 만든다.
+  - 프로그램당 게시판 1~2건(공지 또는 질문, 댓글 1~2개 포함)로 시연 화면을 채운다.
   - 모든 id는 결정적 `seed:demo:...`로 upsert된다(멱등). GithubRepository·Contribution 행은
     이 profile이 종료된 뒤에도 항상 0건이어야 한다(`seed.integration.spec.ts`가 검증).
+  - **teardown(TODO 15)**: `--teardown` 플래그로 이 profile이 만든 `seed:demo:*` 행 전부를
+    의존성 순서(SubmissionFile→Review→SubmissionRevision→Submission→BoardComment→BoardPost→
+    TeamMember→Milestone→Application→Team→Program→Consent→UserProfile→User)로 일괄
+    삭제한다. 모든 삭제는 `startsWith: 'seed:demo:'` 필터를 강제해 `seed:demo:` 접두사가
+    아닌 행은 절대 건드리지 않는다. production에서도 시드와 동일한
+    `SEED_DEMO_ALLOW_PRODUCTION=1` 게이트를 통과해야 한다(`assertSeedAllowed`).
 
 `intake`/`milestones`/`repositories`/`program-overview`/`demo` 각 profile은 서로 참조하지 않고 자체
 Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
