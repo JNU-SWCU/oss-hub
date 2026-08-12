@@ -1,6 +1,11 @@
 export const DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS = 60 * 60 * 1_000;
 
-const KNOWN_STORAGE_PREFIXES = [
+// 이 CLI가 소유하는 storage key prefix 전수 원장이다.
+// StorageObjectInventory 구현체(S3SubmissionFileStorage)는 listObjects()를
+// 이 prefix들로만 scope해야 한다 — 버킷을 다른 용도로 공유하는 통합 테스트
+// 스위트 등 소유하지 않는 객체까지 나열하면 안전 가드가 부당하게 중단된다.
+// prefix 내부의 미지 key는 여전히 아래 assertKnownObjects에서 중단시킨다.
+export const KNOWN_STORAGE_PREFIXES = [
   'submission-files/',
   'program-authoring/',
 ] as const;
