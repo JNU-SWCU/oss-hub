@@ -48,6 +48,7 @@ const editableProgram: EditableProgram = {
   },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
+  startAt: '2026-08-16T09:30:59.000Z',
   endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: true,
   notifyOnDeadline: true,
@@ -58,6 +59,7 @@ const editableProgram: EditableProgram = {
     {
       id: 'milestone-canonical-id',
       name: '기획서 제출',
+      startAt: '2026-08-10T12:30:59.000Z',
       dueAt: '2026-08-20T12:30:59.000Z',
       submissionType: 'TEXT',
       instructions: '최종 결과를 글로 제출해 주세요.',

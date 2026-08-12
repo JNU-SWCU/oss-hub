@@ -23,6 +23,8 @@ export interface ProgramEditForm {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly startAt: string;
+  readonly originalStartAt: string;
   readonly endAt: string;
   /**
    * 종료일을 「미정」으로 둔다 — 켜져 있으면 `endAt` 입력은 비활성이고 저장 시
@@ -45,6 +47,7 @@ export type ProgramEditableField = Exclude<
   keyof ProgramEditForm,
   | 'originalApplicationStartAt'
   | 'originalApplicationEndAt'
+  | 'originalStartAt'
   | 'originalEndAt'
   | 'milestoneDueAts'
 >;
@@ -54,6 +57,7 @@ export interface ProgramEditErrors {
   readonly organizer?: string;
   readonly category?: string;
   readonly period?: string;
+  readonly startAt?: string;
   readonly endAt?: string;
   readonly team?: string;
   readonly description?: string;
@@ -63,7 +67,9 @@ export interface ProgramEditErrors {
 export interface ProgramMilestoneForm {
   readonly id: string | null;
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
+  readonly originalStartAt: string | null;
   readonly originalDueAt: string | null;
   readonly submissionType: SubmissionType;
   readonly instructions: string;
@@ -71,11 +77,12 @@ export interface ProgramMilestoneForm {
 
 export type ProgramMilestoneField = Exclude<
   keyof ProgramMilestoneForm,
-  'id' | 'originalDueAt'
+  'id' | 'originalStartAt' | 'originalDueAt'
 >;
 
 export interface ProgramMilestoneErrors {
   readonly name?: string;
+  readonly startAt?: string;
   readonly dueAt?: string;
   readonly instructions?: string;
   readonly general?: string;
@@ -111,6 +118,8 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
     category: program.category,
     applicationStartAt: toDateTimeLocal(program.applicationStartAt),
     applicationEndAt: toDateTimeLocal(program.applicationEndAt),
+    startAt: toDateTimeLocal(program.startAt ?? program.applicationEndAt),
+    originalStartAt: program.startAt ?? program.applicationEndAt,
     endAt: endAtUndecided ? '' : toDateTimeLocal(program.endAt as string),
     endAtUndecided,
     originalApplicationStartAt: program.applicationStartAt,
@@ -131,7 +140,9 @@ export function toMilestoneForm(
   return {
     id: milestone.id,
     name: milestone.name,
+    startAt: toDateTimeLocal(milestone.startAt),
     dueAt: toDateTimeLocal(milestone.dueAt),
+    originalStartAt: milestone.startAt,
     originalDueAt: milestone.dueAt,
     submissionType: milestone.submissionType,
     instructions: milestone.instructions ?? '',
@@ -142,7 +153,9 @@ export function emptyMilestoneForm(): ProgramMilestoneForm {
   return {
     id: null,
     name: '',
+    startAt: '',
     dueAt: '',
+    originalStartAt: null,
     originalDueAt: null,
     submissionType: DEFAULT_MILESTONE_TYPE,
     instructions: '',
@@ -160,6 +173,9 @@ export function buildProgramEditInput(
   const applicationEndAt = dirtyFields.includes('applicationEndAt')
     ? toIsoString(form.applicationEndAt)
     : form.originalApplicationEndAt;
+  const startAt = dirtyFields.includes('startAt')
+    ? toIsoString(form.startAt)
+    : form.originalStartAt;
   /**
    * 「미정」이면 날짜 칸을 보지 않고 센티널로 되돌린다 — 폼에서 비어 있는 것과
    * 「미정」은 다른 뜻이다. 비어 있는 것은 아직 고르지 않은 상태이고, 아래 분기가
@@ -197,6 +213,7 @@ export function buildProgramEditInput(
       ? toIsoString(form.applicationStartAt)
       : form.originalApplicationStartAt,
     applicationEndAt,
+    startAt,
     endAt,
     repositoryProvisioningEnabled: form.repositoryProvisioningEnabled,
     notifyOnDeadline: form.notifyOnDeadline,
@@ -212,6 +229,10 @@ export function buildMilestoneInput(
 ): UpsertMilestoneInput {
   return {
     name: form.name.trim(),
+    startAt:
+      dirtyFields.includes('startAt') || form.originalStartAt === null
+        ? toIsoString(form.startAt)
+        : form.originalStartAt,
     dueAt:
       dirtyFields.includes('dueAt') || form.originalDueAt === null
         ? toIsoString(form.dueAt)
@@ -317,6 +338,7 @@ function mapProblemFieldErrors(
     organizer?: string;
     category?: string;
     period?: string;
+    startAt?: string;
     team?: string;
     description?: string;
     endAt?: string;
@@ -337,6 +359,9 @@ function mapProblemFieldErrors(
       case 'applicationStartAt':
       case 'applicationEndAt':
         errors.period = fieldError.message;
+        break;
+      case 'startAt':
+        errors.startAt = fieldError.message;
         break;
       case 'endAt':
         errors.endAt = fieldError.message;

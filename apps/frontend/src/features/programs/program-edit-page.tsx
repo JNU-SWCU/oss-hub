@@ -145,6 +145,7 @@ export function ProgramEditPage({
       description: form.description.trim()
         ? undefined
         : '프로그램 설명을 입력해 주세요.',
+      startAt: form.startAt ? undefined : '운영 시작일을 입력해 주세요.',
       endAt:
         form.endAt && new Date(form.endAt) < new Date(form.applicationEndAt)
           ? '종료일은 신청 종료일 이후여야 합니다.'
@@ -154,6 +155,7 @@ export function ProgramEditPage({
       clientFieldErrors.name ||
       clientFieldErrors.organizer ||
       clientFieldErrors.description ||
+      clientFieldErrors.startAt ||
       clientFieldErrors.endAt
     ) {
       setErrors(clientFieldErrors);

@@ -97,6 +97,7 @@ export interface CreatedProgram {
 export interface EditableMilestone {
   readonly id: string;
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
   readonly submissionType: SubmissionType;
   readonly instructions: string | null;
@@ -120,6 +121,8 @@ export interface EditableProgram {
   readonly applicationCount: number;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  /** 이전 로컬 검토 fixture와의 호환을 위해 선택적이지만, 편집 API는 항상 준다. */
+  readonly startAt?: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
@@ -130,6 +133,7 @@ export interface EditableProgram {
 }
 
 export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
+  readonly startAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
@@ -137,6 +141,7 @@ export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
 
 export interface UpsertMilestoneInput {
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
   readonly submissionType: SubmissionType;
   readonly instructions: string | null;
