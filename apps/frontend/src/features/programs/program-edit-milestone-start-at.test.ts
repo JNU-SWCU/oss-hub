@@ -28,20 +28,17 @@ describe('마일스톤 시작일 편집 계약', () => {
       name: '중간 점검 안내 수정',
     };
 
-    await updateMilestone(
-      milestone.id,
-      buildMilestoneInput(form, ['name']),
-    );
+    await updateMilestone(milestone.id, buildMilestoneInput(form, ['name']));
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath(`milestones/${milestone.id}`),
       expect.objectContaining({ method: 'PATCH' }),
     );
-    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject(
-      {
-        name: '중간 점검 안내 수정',
-        startAt: milestone.startAt,
-      },
-    );
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)),
+    ).toMatchObject({
+      name: '중간 점검 안내 수정',
+      startAt: milestone.startAt,
+    });
   });
 });

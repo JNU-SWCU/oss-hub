@@ -297,7 +297,8 @@ describe('ProgramEditPage 컴포넌트', () => {
 
     const startAtInput =
       container.querySelector<HTMLInputElement>('#program-start-at');
-    if (startAtInput === null) throw new TypeError('Missing #program-start-at.');
+    if (startAtInput === null)
+      throw new TypeError('Missing #program-start-at.');
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',

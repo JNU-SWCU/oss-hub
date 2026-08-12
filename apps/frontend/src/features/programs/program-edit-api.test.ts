@@ -145,9 +145,9 @@ describe('program edit API', () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       apiPath('milestones/milestone-1'),
     );
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toMatchObject(
-      { startAt: input.startAt },
-    );
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)),
+    ).toMatchObject({ startAt: input.startAt });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       apiPath('milestones/milestone-1'),
     );
