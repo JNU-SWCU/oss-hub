@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
 import { upsertCompatibleProfile } from '../../src/profiles/profile-compatibility.repository';
+import type { SubmissionFileStoragePort } from '../../src/submissions/submission-file-storage.port';
 import {
   offsetDays,
   prisma,
@@ -19,6 +20,29 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
+
+/**
+ * demo profile이 만드는 SubmissionFile storage key 접두사 — reconciliation CLI가
+ * 소유하는 prefix(`submission-files/`, `KNOWN_STORAGE_PREFIXES`) 안에 있어야 고아 객체
+ * 인벤토리가 이 객체를 누락하지 않는다(#910/#913 파인딩 4). `seed-demo/` 하위로
+ * 네임스페이스해 실제 업로드 파일과 시각적으로도 구별된다.
+ */
+const DEMO_SUBMISSION_FILE_STORAGE_PREFIX = 'submission-files/seed-demo/';
+
+function demoSubmissionFileStorageKey(fileId: string): string {
+  return `${DEMO_SUBMISSION_FILE_STORAGE_PREFIX}${fileId}`;
+}
+
+/** placeholder 객체 본문 — 실제 다운로드가 404가 아니라서 응답받게만 하면 된다(TODO 15 생산 QA 지적).
+ * 실제 제출물이 아니라 시연용 플레이스홀더임을 본문에 명시한다.
+ */
+function demoSubmissionFilePlaceholderBody(originalFileName: string): Buffer {
+  return Buffer.from(
+    `이 파일은 oss-hub demo profile이 만든 시연용 placeholder입니다.\n` +
+      `실제 제출물이 아닙니다 (seed fixture, original name: ${originalFileName}).\n`,
+    'utf-8',
+  );
+}
 
 /**
  * demo profile — 내일 시연을 위한 "사업단이 실제 운영하는 느낌"의 합성 데이터 전용
@@ -367,7 +391,8 @@ type InProgressSubmissionContent =
       readonly comment: string;
       readonly originalFileName: string;
       readonly mimeType: string;
-      readonly sizeBytes: number;
+      // sizeBytes는 여기서 받지 않는다 — 실제 storage.put()이 쓴 placeholder 객체의
+      // 바이트 수를 그대로 쓴다(#910/#913 파인딩 4, 가짜 크기가 실제 객체와 어긋나지 않게).
     };
 
 type DemoReview = {
@@ -390,6 +415,7 @@ type DemoReview = {
  */
 async function upsertDemoSubmission(
   stats: SeedStats,
+  storage: SubmissionFileStoragePort,
   params: {
     readonly slug: string;
     readonly milestoneId: string;
@@ -452,7 +478,16 @@ async function upsertDemoSubmission(
 
   const fileContent = params.content;
   if (fileContent.kind === MilestoneSubmissionType.FILE) {
-    const storageKey = `demo/${fileId}`;
+    const storageKey = demoSubmissionFileStorageKey(fileId);
+    // 실제 storage 객체를 먼저 쓴다 — PUT은 같은 key로 몇 번을 다시 놀려도 덮어쓰기만
+    // 하므로 멱등하다(#910/#913 파인딩 4) — DB row upsert 여부와 무관하게 항상 실행해
+    // 이미 객체가 있는 재실행에서도 객체가 사라지지 않았는지를 보장한다.
+    const storedFile = await storage.put({
+      objectKey: storageKey,
+      originalName: fileContent.originalFileName,
+      contentType: fileContent.mimeType,
+      body: demoSubmissionFilePlaceholderBody(fileContent.originalFileName),
+    });
     await upsertTracked(
       stats,
       'SubmissionFile',
@@ -462,6 +497,7 @@ async function upsertDemoSubmission(
           where: { id: fileId },
           update: {
             storageKey,
+            sizeBytes: storedFile.contentLength,
             lifecycle: SubmissionFileLifecycle.ATTACHED,
             submissionRevisionId: revisionId,
           },
@@ -474,7 +510,7 @@ async function upsertDemoSubmission(
             storageKey,
             originalFileName: fileContent.originalFileName,
             mimeType: fileContent.mimeType,
-            sizeBytes: fileContent.sizeBytes,
+            sizeBytes: storedFile.contentLength,
             lifecycle: SubmissionFileLifecycle.ATTACHED,
             expiresAt: offsetDays(365),
           },
@@ -639,7 +675,10 @@ function inquiryParagraph(): string {
   );
 }
 
-export async function seedDemo(stats: SeedStats): Promise<void> {
+export async function seedDemo(
+  stats: SeedStats,
+  storage: SubmissionFileStoragePort,
+): Promise<void> {
   const staff = await upsertDemoStaff(stats, 'staff-lead');
 
   const students = new Map<string, { readonly id: string }>();
@@ -720,7 +759,7 @@ export async function seedDemo(stats: SeedStats): Promise<void> {
       '운영 방식: 실습 4주 차까지의 진행 상황과 배운 점을 A4 1장 내외의 자유 양식으로 ' +
       '정리해 제출합니다. 제출 후 사업단 담당자가 확인 코멘트를 남길 수 있습니다 (seed fixture).',
   });
-  await upsertDemoSubmission(stats, {
+  await upsertDemoSubmission(stats, storage, {
     slug: 'summer-internship-midpoint',
     milestoneId: internshipMilestoneId,
     applicationId: internshipApplicationId,
@@ -1009,7 +1048,7 @@ export async function seedDemo(stats: SeedStats): Promise<void> {
       team.demoDaySubmissionSlug ?? `${team.teamSlug}-demo-day`;
     const demoDayOriginalFileName =
       team.demoDayOriginalFileName ?? `${team.teamSlug}-demo-day-draft.pdf`;
-    await upsertDemoSubmission(stats, {
+    await upsertDemoSubmission(stats, storage, {
       slug: demoDaySubmissionSlug,
       milestoneId: contestMilestoneId,
       applicationId,
@@ -1020,7 +1059,6 @@ export async function seedDemo(stats: SeedStats): Promise<void> {
         comment: team.demoDaySubmission.comment,
         originalFileName: demoDayOriginalFileName,
         mimeType: 'application/pdf',
-        sizeBytes: 1_048_576,
       },
       submittedAt: offsetDays(-2),
       review: team.demoDaySubmission.review,
@@ -1028,7 +1066,7 @@ export async function seedDemo(stats: SeedStats): Promise<void> {
     });
 
     if (team.finalSubmission) {
-      await upsertDemoSubmission(stats, {
+      await upsertDemoSubmission(stats, storage, {
         slug: `${team.teamSlug}-final`,
         milestoneId: contestFinalMilestoneId,
         applicationId,
@@ -1143,7 +1181,7 @@ export async function seedDemo(stats: SeedStats): Promise<void> {
       '운영 방식: 팀 프로젝트 기획안과 역할 분담을 간단히 정리해 제출합니다. 담당 멘토가 ' +
       '확인 후 다음 단계 진행 여부를 안내합니다 (seed fixture).',
   });
-  await upsertDemoSubmission(stats, {
+  await upsertDemoSubmission(stats, storage, {
     slug: 'freshmen-bootcamp-checkpoint',
     milestoneId: freshmenMilestoneId,
     applicationId: freshmenApplicationId,
@@ -1241,7 +1279,7 @@ export async function seedDemo(stats: SeedStats): Promise<void> {
       '운영 방식: 이번 달 기여 활동 내역과 소요 시간을 정리해 제출합니다. 승인된 활동 기록만 ' +
       '마일리지 반영 대상입니다 (seed fixture).',
   });
-  await upsertDemoSubmission(stats, {
+  await upsertDemoSubmission(stats, storage, {
     slug: 'sojoong-mileage-activity-log',
     milestoneId: mileageMilestoneId,
     applicationId: mileageApplicationId,
@@ -1300,7 +1338,10 @@ export async function seedDemo(stats: SeedStats): Promise<void> {
  *   BoardPost → TeamMember → Milestone → Application → Team → Program →
  *   Consent → UserProfile → User.
  */
-export async function teardownDemo(stats: SeedStats): Promise<void> {
+export async function teardownDemo(
+  stats: SeedStats,
+  storage: SubmissionFileStoragePort,
+): Promise<void> {
   const seedDemoPrefix = 'seed:demo:';
   const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
 
@@ -1322,9 +1363,19 @@ export async function teardownDemo(stats: SeedStats): Promise<void> {
       where: { submissionRevisionId: { startsWith: seedDemoPrefix } },
     }),
   );
+  // DB row를 지우기 전에 이 profile이 만든 storage 객체 key를 먼저 읽어둔다 —
+  // deleteMany 이후에는 key를 조회할 방법이 없다(#910/#913 파인딩 4, teardown이
+  // DB row와 storage 객체 둘 다 정리해야 한다).
+  const demoSubmissionFiles = await prisma.submissionFile.findMany({
+    where: seedIdFilter,
+    select: { storageKey: true },
+  });
   await countAndDelete('SubmissionFile', () =>
     prisma.submissionFile.deleteMany({ where: seedIdFilter }),
   );
+  for (const file of demoSubmissionFiles) {
+    await storage.delete(file.storageKey);
+  }
   await countAndDelete('SubmissionRevision', () =>
     prisma.submissionRevision.deleteMany({ where: seedIdFilter }),
   );
