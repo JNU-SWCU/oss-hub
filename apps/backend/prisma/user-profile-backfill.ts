@@ -83,12 +83,29 @@ export function classifyLegacyProfile(
   return { kind: 'IMPOSSIBLE_PARTIAL' };
 }
 
+export interface BackfillUserProfilesOptions {
+  /**
+   * 지정하면 이 접두사로 시작하는 User.id만 backfill 대상으로 스캔한다.
+   * production에서 실행되는 demo profile 예외(`seed.ts`)가 `seed:demo:`로 스코프해,
+   * 이미 존재하는 비-demo production 사용자의 legacy 프로필(PROFILE_MISMATCH 등)이
+   * demo 시드 실행을 실패시키거나 그 행을 건드리지 않게 한다. 생략하면 기존과 동일하게
+   * 전체 User를 대상으로 한다 — 다른 모든 profile의 동작은 바뀌지 않는다.
+   */
+  readonly userIdPrefix?: string;
+}
+
 export async function backfillUserProfiles(
   prisma: PrismaClient,
+  options: BackfillUserProfilesOptions = {},
 ): Promise<number> {
+  const { userIdPrefix } = options;
   return prisma.$transaction(
     async (transaction) => {
       const users = await transaction.user.findMany({
+        where:
+          userIdPrefix !== undefined
+            ? { id: { startsWith: userIdPrefix } }
+            : undefined,
         select: {
           id: true,
           name: true,

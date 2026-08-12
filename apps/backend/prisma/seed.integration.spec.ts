@@ -28,6 +28,14 @@ import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
 import { resolveCompatibleProfile } from '../src/profiles/profile-compatibility';
 import { isCompleteUserProfile } from '../src/users/user-profile-policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';
+import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { S3SubmissionFileStorage } from '../src/submissions/s3-submission-file.storage';
+import { SubmissionFileStorageConfig } from '../src/submissions/submission-file-storage.config';
+import { KNOWN_STORAGE_PREFIXES } from '../src/submissions/storage-orphan-reconciliation';
+import {
+  USER_PROFILE_BACKFILL_ERROR_KIND,
+  backfillUserProfiles,
+} from './user-profile-backfill';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -35,6 +43,40 @@ assertIsolatedIntegrationDatabase({
 });
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
+
+// demo profile이 실제로 쓰는 객체와 동일한 포트/설정을 재사용해 실제 업로드된 객체가
+// 조회 가능한지 직접 S3(MinIO)로 검증한다(#910/#913 파인딩 4).
+const demoStorageConfig = new SubmissionFileStorageConfig();
+const demoStorage = new S3SubmissionFileStorage(demoStorageConfig);
+let demoStorageS3Client: S3Client | undefined;
+function demoStorageS3(): S3Client {
+  if (demoStorageS3Client) return demoStorageS3Client;
+  const settings = demoStorageConfig.requireSettings();
+  demoStorageS3Client = new S3Client({
+    endpoint: settings.endpoint,
+    region: settings.region,
+    forcePathStyle: settings.forcePathStyle,
+    credentials: {
+      accessKeyId: settings.accessKeyId,
+      secretAccessKey: settings.secretAccessKey,
+    },
+  });
+  return demoStorageS3Client;
+}
+async function demoStorageObjectExists(key: string): Promise<boolean> {
+  const settings = demoStorageConfig.requireSettings();
+  try {
+    await demoStorageS3().send(
+      new HeadObjectCommand({ Bucket: settings.bucket, Key: key }),
+    );
+    return true;
+  } catch (error) {
+    const status = (error as { $metadata?: { httpStatusCode?: number } })
+      .$metadata?.httpStatusCode;
+    if (status === 404) return false;
+    throw error;
+  }
+}
 const SEED_RUN_TIMEOUT_MS = 60_000;
 const ISSUE99_OLDER_POLICY_VERSION = '2025-12';
 const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
@@ -898,6 +940,16 @@ describe('seed profile=demo 계약 (integration)', () => {
 
   async function deleteDemoSeeded(): Promise<void> {
     const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
+    // DB row를 지우기 전에 storageKey를 먼저 읽어둔다 — 이 헬퍼는 teardownDemo를 호출하지
+    // 않고 row만 직접 지우므로, 여기서 storage 객체도 함께 정리하지 않으면
+    // 이 describe가 만든 객체가 같은 Jest 프로세스 내 다른 integration spec(reconciliation
+    // 등)으로 새어 오염된다(#910/#913 파인딩 4 회귀).
+    const demoFileStorageKeys = (
+      await prisma.submissionFile.findMany({
+        where: seedIdFilter,
+        select: { storageKey: true },
+      })
+    ).map((file) => file.storageKey);
     // SubmissionFile.submissionRevisionId는 onDelete 미지정(RESTRICT)이라
     // SubmissionRevision보다 먼저 지워야 한다(FILE 타입 마일스톤 제출이 만드는 행).
     // Review는 SubmissionRevision을 참조하므로 그보다 먼저 지운다.
@@ -919,6 +971,9 @@ describe('seed profile=demo 계약 (integration)', () => {
       where: { userId: { startsWith: seedDemoPrefix } },
     });
     await prisma.user.deleteMany({ where: seedIdFilter });
+    for (const storageKey of demoFileStorageKeys) {
+      await demoStorage.delete(storageKey);
+    }
   }
 
   beforeAll(async () => {
@@ -1360,6 +1415,115 @@ describe('seed profile=demo 계약 (integration)', () => {
     SEED_RUN_TIMEOUT_MS,
   );
 
+  /**
+   * #910/#913 파인딩 4 — ATTACHED SubmissionFile은 실제 검색 가능한 storage 객체를
+   * 동반해야 하고, 그 key는 reconciliation CLI 소유 prefix 안에 있어야 하며,
+   * 재시드는 객체를 중복으로 만들지 않고(멱등), teardown은 DB row와 객체를 둘 다
+   * 지운다.
+   */
+  it(
+    'ATTACHED SubmissionFile은 reconciliation 소유 prefix 아래의 실제 검색 가능한 객체를 가진다',
+    async () => {
+      // Given & When: demo profile을 실행한다.
+      await runProfile('demo', new SeedStats());
+
+      // Then: ATTACHED인 모든 SubmissionFile이 실제 객체를 가진다 — 404가 아니라
+      // 응답받을 수 있고, key는 reconciliation CLI가 인벤토리하는 prefix에 속한다.
+      const demoFiles = await prisma.submissionFile.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: { id: true, storageKey: true, lifecycle: true },
+      });
+      expect(demoFiles.length).toBeGreaterThan(0);
+      for (const file of demoFiles) {
+        expect(file.lifecycle).toBe('ATTACHED');
+        expect(
+          KNOWN_STORAGE_PREFIXES.some((prefix) =>
+            file.storageKey.startsWith(prefix),
+          ),
+        ).toBe(true);
+        await expect(demoStorageObjectExists(file.storageKey)).resolves.toBe(
+          true,
+        );
+        // 실제 get()으로도 검색할 수 있어야 한다(단순 HEAD가 아니라 실제 바이너리 본문 조회).
+        const body = await demoStorage.get(file.storageKey);
+        const chunks: Buffer[] = [];
+        for await (const chunk of body as AsyncIterable<Buffer>) {
+          chunks.push(chunk);
+        }
+        expect(Buffer.concat(chunks).byteLength).toBeGreaterThan(0);
+      }
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    'demo profile을 두 번 실행해도 같은 storage 객체 key만 남고 새 객체가 늘지 않는다(멱등)',
+    async () => {
+      // Given & When: demo profile을 두 번 연속 실행한다.
+      await runProfile('demo', new SeedStats());
+      const firstRunFiles = await prisma.submissionFile.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: { storageKey: true },
+        orderBy: { id: 'asc' },
+      });
+      await runProfile('demo', new SeedStats());
+      const secondRunFiles = await prisma.submissionFile.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: { storageKey: true },
+        orderBy: { id: 'asc' },
+      });
+
+      // Then: 같은 key 집합이고, 두 실행 뒤에도 각 객체가 여전히 실제로 존재한다.
+      expect(secondRunFiles).toEqual(firstRunFiles);
+      for (const file of secondRunFiles) {
+        await expect(demoStorageObjectExists(file.storageKey)).resolves.toBe(
+          true,
+        );
+      }
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    'teardown은 자신이 만든 storage 객체를 모두 지우고, 비-demo 객체는 건드리지 않는다',
+    async () => {
+      // Given: demo profile을 시드해 실제 storage 객체까지 만든다.
+      await runProfile('demo', new SeedStats());
+      const demoFiles = await prisma.submissionFile.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: { storageKey: true },
+      });
+      expect(demoFiles.length).toBeGreaterThan(0);
+
+      // And: teardown 대상이 아닌 비-demo 객체를 하나 별도로 심는다(reconciliation 소유
+      // prefix 안이지만 seed-demo 하위 네임스페이스 밖).
+      const survivorKey = `submission-files/seed-demo-teardown-guard-${Date.now()}`;
+      await demoStorage.put({
+        objectKey: survivorKey,
+        originalName: 'survivor.txt',
+        contentType: 'text/plain',
+        body: Buffer.from('teardown이 지우면 안 되는 비-demo 객체(fixture)'),
+      });
+
+      try {
+        // When: teardown을 실행한다.
+        await runTeardown('demo', new SeedStats());
+
+        // Then: demo profile이 만든 모든 storage 객체가 사라졌다.
+        for (const file of demoFiles) {
+          await expect(demoStorageObjectExists(file.storageKey)).resolves.toBe(
+            false,
+          );
+        }
+        // And: 비-demo 객체는 살아남는다.
+        await expect(demoStorageObjectExists(survivorKey)).resolves.toBe(true);
+      } finally {
+        await demoStorage.delete(survivorKey);
+      }
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
   it('production에서는 SEED_DEMO_ALLOW_PRODUCTION=1 없이 거부된다', () => {
     // Given & When & Then: DB 쓰기 전에 거부해야 한다 — assertSeedAllowed 자체를 직접 호출해
     // 실제 seed 실행(격리 DB에도 영향을 주는) 없이 게이트 로직만 검증한다.
@@ -1389,6 +1553,172 @@ describe('seed profile=demo 계약 (integration)', () => {
       /production/,
     );
   });
+});
+
+/**
+ * #910/#913 파인딩 3 — production에서 demo profile을 돌리면 seed.ts가 post-seed
+ * user-profile backfill을 호출하며(seed.ts:63-66), 이 경로의 backfill은 그 예외가
+ * 만든 seed:demo:* 행만 만져야 한다. 이미 존재하는 비-demo production 사용자의
+ * legacy 프로필 불일치(PROFILE_MISMATCH)가 demo 시드 실행을 실패시키거나 그 사용자의
+ * 프로필을 쓰지 않아야 한다(실제 production 장애 재현).
+ */
+describe('seed profile=demo production 백필 스코프 (integration)', () => {
+  const seedDemoPrefix = 'seed:demo:';
+  const nonDemoUserId = 'test:profile-backfill-scope:non-demo-oauth-user';
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  async function deleteDemoSeeded(): Promise<void> {
+    const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
+    // 이 describe도 runProfile('demo', ...)로 실제 storage 객체를 만든다(#910/#913
+    // 파인딩 4) — DB row를 지우기 전에 storageKey를 읽어 같이 정리해야 같은 Jest 프로세스
+    // 내 다른 integration spec(reconciliation 등)으로 새어나가지 않는다.
+    const demoFileStorageKeys = (
+      await prisma.submissionFile.findMany({
+        where: seedIdFilter,
+        select: { storageKey: true },
+      })
+    ).map((file) => file.storageKey);
+    await prisma.review.deleteMany({ where: seedIdFilter });
+    await prisma.submissionFile.deleteMany({ where: seedIdFilter });
+    await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
+    await prisma.submission.deleteMany({ where: seedIdFilter });
+    await prisma.boardComment.deleteMany({ where: seedIdFilter });
+    await prisma.boardPost.deleteMany({ where: seedIdFilter });
+    await prisma.teamMember.deleteMany({ where: seedIdFilter });
+    await prisma.milestone.deleteMany({ where: seedIdFilter });
+    await prisma.application.deleteMany({ where: seedIdFilter });
+    await prisma.team.deleteMany({ where: seedIdFilter });
+    await prisma.program.deleteMany({ where: seedIdFilter });
+    await prisma.consent.deleteMany({
+      where: { userId: { startsWith: seedDemoPrefix } },
+    });
+    await prisma.userProfile.deleteMany({
+      where: { userId: { startsWith: seedDemoPrefix } },
+    });
+    await prisma.user.deleteMany({ where: seedIdFilter });
+    for (const storageKey of demoFileStorageKeys) {
+      await demoStorage.delete(storageKey);
+    }
+  }
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  afterEach(async () => {
+    process.env.NODE_ENV = originalNodeEnv;
+    delete process.env.SEED_DEMO_ALLOW_PRODUCTION;
+    await deleteDemoSeeded();
+    await prisma.userProfile.deleteMany({ where: { userId: nonDemoUserId } });
+    await prisma.user.deleteMany({ where: { id: nonDemoUserId } });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it(
+    'production demo 시드는 이미 존재하는 비-demo PROFILE_MISMATCH 사용자를 건드리지 않고, 그것 때문에 실패하지도 않는다',
+    async () => {
+      // Given: 이미 production에 존재하는 비-demo 사용자(수동 교정된 OAuth 계정)가
+      // legacy User 컴럼이 완료 프로필 모양이면서 UserProfile과 값이 어긋나는
+      // PROFILE_MISMATCH 상태를 직접 심는다 — 실제 production에서 이 오류로 시드 CLI가
+      // 비정상 종료했던 사례를 재현한다.
+      const completeStudentId = ['96', '5501'].join('');
+      await prisma.user.create({
+        data: {
+          id: nonDemoUserId,
+          githubId: seedGithubId(nonDemoUserId),
+          nickname: 'profile-backfill-scope-non-demo',
+          role: Role.STUDENT,
+          name: '비-demo 생산 사용자(fixture)',
+          studentId: completeStudentId,
+          department: '비-demo 학과(fixture)',
+        },
+      });
+      await prisma.userProfile.create({
+        data: {
+          userId: nonDemoUserId,
+          name: '불일치하는 이름(fixture)',
+          studentId: completeStudentId,
+          department: '불일치하는 학과(fixture)',
+        },
+      });
+      const nonDemoUserBefore = await prisma.user.findUniqueOrThrow({
+        where: { id: nonDemoUserId },
+      });
+      const nonDemoProfileBefore = await prisma.userProfile.findUniqueOrThrow({
+        where: { userId: nonDemoUserId },
+      });
+
+      // 사전 조건: 이 불일치가 실제로 전체 backfill을 실패시킨다는 것을 먼저 확인한다
+      // (스코프 없는 기존 동작 그대로).
+      await expect(backfillUserProfiles(prisma)).rejects.toMatchObject({
+        kind: USER_PROFILE_BACKFILL_ERROR_KIND.PROFILE_MISMATCH,
+        userIds: [nonDemoUserId],
+      });
+
+      // When: production + SEED_DEMO_ALLOW_PRODUCTION=1로 demo profile을 실행한다 —
+      // 실제 seed.ts의 production 예외 경로를 그대로 타고(assertSeedAllowed 통과 후
+      // runProfile이 seedDemo + 스코프된 backfillUserProfiles를 호출).
+      process.env.NODE_ENV = 'production';
+      process.env.SEED_DEMO_ALLOW_PRODUCTION = '1';
+      const { assertSeedAllowed } =
+        jest.requireActual<typeof import('./seeds/helpers')>('./seeds/helpers');
+      assertSeedAllowed(process.env.NODE_ENV, 'demo');
+      await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
+
+      // Then: 비-demo 사용자의 User/UserProfile은 전혀 쓰이지 않았다 — 이미
+      // 존재하는 불일치를 그대로 보존한다.
+      const nonDemoUserAfter = await prisma.user.findUniqueOrThrow({
+        where: { id: nonDemoUserId },
+      });
+      const nonDemoProfileAfter = await prisma.userProfile.findUniqueOrThrow({
+        where: { userId: nonDemoUserId },
+      });
+      expect(nonDemoUserAfter).toEqual(nonDemoUserBefore);
+      expect(nonDemoProfileAfter).toEqual(nonDemoProfileBefore);
+
+      // And: demo 자체는 정상적으로 시드되었다(실패하지 않았고, 그 사용자들은 실제로
+      // 프로필이 백필되었다).
+      const demoUserCount = await prisma.user.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      });
+      expect(demoUserCount).toBeGreaterThan(0);
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    '비-production demo 시드는 기존과 동일하게 전체 User를 대상으로 backfill한다(스코프 없음)',
+    async () => {
+      // Given: 비-demo 사용자의 불완전 legacy 프로필(EXPECTED_INCOMPLETE, profile 미생성)를
+      // 심는다 — production이 아니면 이 사용자도 전체 backfill 대상이어야 한다.
+      await prisma.user.create({
+        data: {
+          id: nonDemoUserId,
+          githubId: seedGithubId(nonDemoUserId),
+          nickname: 'profile-backfill-scope-non-demo-dev',
+          role: Role.STUDENT,
+          name: '비-demo 개발 사용자(fixture)',
+          studentId: ['96', '5502'].join(''),
+          department: '비-demo 학과(fixture)',
+        },
+      });
+
+      // When: NODE_ENV가 production이 아닌 채 demo profile을 실행한다(기본 경로).
+      expect(process.env.NODE_ENV).not.toBe('production');
+      await runProfile('demo', new SeedStats());
+
+      // Then: 비-demo 사용자도 전체 backfill 대상에 들어 UserProfile이 생성된다 —
+      // production 외에서는 기존 거동(전체 backfill)이 그대로 유지된다.
+      const nonDemoProfile = await prisma.userProfile.findUnique({
+        where: { userId: nonDemoUserId },
+      });
+      expect(nonDemoProfile).not.toBeNull();
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
 });
 
 describe('seed profile=all 멱등성 (integration)', () => {

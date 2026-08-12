@@ -166,12 +166,36 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
   - 프로그램당 게시판 1~2건(공지 또는 질문, 댓글 1~2개 포함)로 시연 화면을 채운다.
   - 모든 id는 결정적 `seed:demo:...`로 upsert된다(멱등). GithubRepository·Contribution 행은
     이 profile이 종료된 뒤에도 항상 0건이어야 한다(`seed.integration.spec.ts`가 검증).
+  - **ATTACHED SubmissionFile은 실제 검색 가능한 storage 객체를 동반한다(#910/#913 파인딩
+    4)**: 데모데이 마일스톤(FILE) 제출이 만드는 SubmissionFile은 storage key를
+    `submission-files/seed-demo/<fileId>`로 둔다 — reconciliation CLI가 소유하는 prefix
+    (`submission-files/`, `program-authoring/`, `KNOWN_STORAGE_PREFIXES`) 안이면서 `seed-demo/`
+    하위로 네임스페이스해 실제 업로드와 구별된다. 시드는 앱이 실제 쓰는 것과 동일한
+    `S3SubmissionFileStorage`/`SubmissionFileStorageConfig`를 재사용해 시연용 placeholder
+    본문(실제 제출물이 아니라는 안내가 담긴 텍스트)을 그 key에 PUT한다 — 같은 key로
+    반복 PUT해도 덮어쓰기만 하므로 멱등하고, 보존 id(TODO 11 한빛 팀 데모데이 제출)를
+    재시드해도 객체가 사라지지 않는다. 이미 존재하는 구버전(`demo/<fileId>`) key row도 재시드
+    시 `update`경로로 새 prefix로 마이그레이션된다. `sizeBytes`는 호출부가 대는 값이
+    아니라 PUT이 반환한 실제 `contentLength`를 그대로 쓴다(가짜 크기가 실제 객체와
+    어긋나지 않게). 이 경로는 `SUBMISSION_FILE_S3_*` env가 설정된 환경(dev/staging/
+    production, `compose.dev.yml`의 MinIO 포함)에서만 실제 S3 호출을 한다 — `demo`
+    profile 외 다른 profile은 storage를 전혀 사용하지 않으므로 영향이 없다.
   - **teardown(TODO 15)**: `--teardown` 플래그로 이 profile이 만든 `seed:demo:*` 행 전부를
     의존성 순서(SubmissionFile→Review→SubmissionRevision→Submission→BoardComment→BoardPost→
     TeamMember→Milestone→Application→Team→Program→Consent→UserProfile→User)로 일괄
-    삭제한다. 모든 삭제는 `startsWith: 'seed:demo:'` 필터를 강제해 `seed:demo:` 접두사가
-    아닌 행은 절대 건드리지 않는다. production에서도 시드와 동일한
+    삭제한다. DB row를 지우기 전에 삭제될 SubmissionFile의 storageKey를 먼저 읽어둔고,
+    row 삭제 후 그 key들을 storage에서도 삭제한다 — DB row와 storage 객체 둘 다 정리된다.
+    모든 삭제는 `startsWith: 'seed:demo:'` 필터를 강제해 `seed:demo:` 접두사가
+    아닌 행과 객체는 절대 건드리지 않는다. production에서도 시드와 동일한
     `SEED_DEMO_ALLOW_PRODUCTION=1` 게이트를 통과해야 한다(`assertSeedAllowed`).
+  - **production backfill 스코프(#910/#913 파인딩 3)**: `seed.ts`는 모든 profile 실행 후
+    `backfillUserProfiles`(legacy User 컴럼을 UserProfile로 이관)를 호출한다. production에서
+    `demo` profile을 돌릴 때(`SEED_DEMO_ALLOW_PRODUCTION=1`)만 이 backfill을 `seed:demo:`
+    접두사 User로 스코프한다 — 이미 존재하는 비-demo production 사용자(예: 수동 교정된
+    OAuth 계정)의 legacy 프로필 불일치(`PROFILE_MISMATCH` 등)가 demo 시드 실행을 통째로
+    실패시키지 못하게 하고, 그 사용자의 프로필을 쓰지도 않는다(실제 production 장애 재현 수정).
+    production 외(demo의 기본 경로 포함)와 demo 외 모든 profile은 기존과 동일하게 전체
+    User를 대상으로 backfill한다.
 
 `intake`/`milestones`/`repositories`/`program-overview`/`demo` 각 profile은 서로 참조하지 않고 자체
 Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
