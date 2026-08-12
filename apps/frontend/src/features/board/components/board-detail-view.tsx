@@ -19,6 +19,7 @@ import {
   setBoardPostPinned,
   updateBoardPost,
 } from '../api';
+import { invalidateBoardList } from '../board-list-refetch';
 import {
   BOARD_CATEGORY_BADGE_VARIANT,
   BOARD_CATEGORY_LABELS,
@@ -429,6 +430,7 @@ export function BoardDetailView({
     setDeleteError(null);
     deleteBoardPost(programId, postId)
       .then(() => {
+        invalidateBoardList(programId);
         router.push(boardListHref(programId));
       })
       .catch((error: unknown) => {

@@ -18,6 +18,7 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { createBoardPost, listBoardPosts } from '../api';
+import { subscribeBoardListInvalidation } from '../board-list-refetch';
 import {
   BOARD_CATEGORY_BADGE_VARIANT,
   BOARD_CATEGORY_LABELS,
@@ -281,21 +282,26 @@ export function BoardListView({
 
   useEffect(() => {
     let active = true;
-    setState({ kind: 'loading' });
-    listBoardPosts(programId, { page, limit: PAGE_SIZE })
-      .then((result) => {
-        if (active) setState({ kind: 'ready', page: result });
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        const message =
-          error instanceof ApiError
-            ? mapBoardError(error.problem)
-            : '잠시 후 다시 시도해 주세요.';
-        setState({ kind: 'error', message });
-      });
+    const loadPosts = () => {
+      setState({ kind: 'loading' });
+      listBoardPosts(programId, { page, limit: PAGE_SIZE })
+        .then((result) => {
+          if (active) setState({ kind: 'ready', page: result });
+        })
+        .catch((error: unknown) => {
+          if (!active) return;
+          const message =
+            error instanceof ApiError
+              ? mapBoardError(error.problem)
+              : '잠시 후 다시 시도해 주세요.';
+          setState({ kind: 'error', message });
+        });
+    };
+    const unsubscribe = subscribeBoardListInvalidation(programId, loadPosts);
+    loadPosts();
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [programId, page, attempt]);
 
