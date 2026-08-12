@@ -259,13 +259,82 @@ export class ProgramLifecycleService {
       ],
     } satisfies Prisma.SubmissionFileWhereInput;
 
+    const applicationIds = (
+      await transaction.application.findMany({
+        where: { programId },
+        select: { id: true },
+      })
+    ).map((application) => application.id);
+
     const publicShowcaseRepositories =
       await transaction.publicShowcaseRepository.deleteMany({
         where: { programId },
       });
-    const outboxEvents = await transaction.outboxEvent.deleteMany({
+    const programOutboxEvents = await transaction.outboxEvent.deleteMany({
       where: { aggregateType: 'PROGRAM', aggregateId: programId },
     });
+    // repository-provision 이벤트는 aggregateType='Application'/aggregateId=applicationId로
+    // 적재된다(applications.repository.ts createRepositoryProvisionEvent) — Program
+    // aggregateId로는 잡히지 않으므로 이 프로그램 산하 Application id로 별도 조회한다.
+    const applicationOutboxEvents =
+      applicationIds.length > 0
+        ? await transaction.outboxEvent.deleteMany({
+            where: {
+              aggregateType: 'Application',
+              aggregateId: { in: applicationIds },
+            },
+          })
+        : { count: 0 };
+    const outboxEvents = {
+      count: programOutboxEvents.count + applicationOutboxEvents.count,
+    };
+
+    // 프로그램에 붙은 Notification: APPLICATION_DECISION(payload.programId)과
+    // 그 응답 확인 기록(APPLICATION_DECISION_ACKNOWLEDGED, notificationId로 원본을 참조),
+    // DEADLINE_DIGEST(idempotencyKey에 programId가 박혀 있고 payload에는 없다 —
+    // deadline-digest.service.ts sendStaffRecipient/sendRecipient 참조).
+    const applicationDecisionNotifications =
+      await transaction.notification.findMany({
+        where: {
+          type: 'APPLICATION_DECISION',
+          payload: { path: ['programId'], equals: programId },
+        },
+        select: { id: true },
+      });
+    const applicationDecisionNotificationIds =
+      applicationDecisionNotifications.map((notification) => notification.id);
+    const applicationDecisionAcknowledgedNotifications =
+      applicationDecisionNotificationIds.length > 0
+        ? await transaction.notification.deleteMany({
+            where: {
+              type: 'APPLICATION_DECISION_ACKNOWLEDGED',
+              idempotencyKey: {
+                in: applicationDecisionNotificationIds.map(
+                  (id) => `application-decision-acknowledged:${id}`,
+                ),
+              },
+            },
+          })
+        : { count: 0 };
+    const applicationDecisionNotificationsDeleted =
+      applicationDecisionNotificationIds.length > 0
+        ? await transaction.notification.deleteMany({
+            where: { id: { in: applicationDecisionNotificationIds } },
+          })
+        : { count: 0 };
+    const deadlineDigestNotifications =
+      await transaction.notification.deleteMany({
+        where: {
+          type: 'DEADLINE_DIGEST',
+          idempotencyKey: { contains: `:${programId}:` },
+        },
+      });
+    const notifications = {
+      count:
+        applicationDecisionNotificationsDeleted.count +
+        applicationDecisionAcknowledgedNotifications.count +
+        deadlineDigestNotifications.count,
+    };
 
     const boardComments = await transaction.boardComment.deleteMany({
       where: { post: { programId } },
@@ -275,16 +344,17 @@ export class ProgramLifecycleService {
     });
 
     // EXTERNAL_PUBLIC과 ORG_PROVISIONED 모두 전역 수집 자산으로 보존한다.
-    const githubRepositoriesDetached = await transaction.githubRepository.updateMany({
-      where: {
-        OR: [
-          { programId },
-          { application: { is: { programId } } },
-          { team: { is: { programId } } },
-        ],
-      },
-      data: { programId: null, applicationId: null, teamId: null },
-    });
+    const githubRepositoriesDetached =
+      await transaction.githubRepository.updateMany({
+        where: {
+          OR: [
+            { programId },
+            { application: { is: { programId } } },
+            { team: { is: { programId } } },
+          ],
+        },
+        data: { programId: null, applicationId: null, teamId: null },
+      });
     const repositoryProvisionJobs =
       await transaction.repositoryProvisionJob.deleteMany({
         where: { application: { programId } },
@@ -331,10 +401,11 @@ export class ProgramLifecycleService {
         })
       : { count: 0 };
 
-    const templateFiles = await transaction.milestoneDocumentTemplateFile.findMany({
-      where: { milestoneDocument: { milestone: { programId } } },
-      select: { storageKey: true },
-    });
+    const templateFiles =
+      await transaction.milestoneDocumentTemplateFile.findMany({
+        where: { milestoneDocument: { milestone: { programId } } },
+        select: { storageKey: true },
+      });
     if (templateFiles.length > 0) {
       await transaction.programPurgeFileTombstone.createMany({
         data: templateFiles.map((file) => ({
@@ -350,9 +421,11 @@ export class ProgramLifecycleService {
         submissionRevision: { submission: { milestone: { programId } } },
       },
     });
-    const submissionRevisions = await transaction.submissionRevision.deleteMany({
-      where: { submission: { milestone: { programId } } },
-    });
+    const submissionRevisions = await transaction.submissionRevision.deleteMany(
+      {
+        where: { submission: { milestone: { programId } } },
+      },
+    );
     const submissions = await transaction.submission.deleteMany({
       where: { milestone: { programId } },
     });
@@ -388,7 +461,9 @@ export class ProgramLifecycleService {
     });
     const teams = await transaction.team.deleteMany({ where: { programId } });
     const programCreateRequests = createRequest
-      ? await transaction.programCreateRequest.deleteMany({ where: { programId } })
+      ? await transaction.programCreateRequest.deleteMany({
+          where: { programId },
+        })
       : { count: 0 };
     const milestones = await transaction.milestone.deleteMany({
       where: { programId },
@@ -416,6 +491,7 @@ export class ProgramLifecycleService {
       githubRepositoriesDetached: githubRepositoriesDetached.count,
       publicShowcaseRepositories: publicShowcaseRepositories.count,
       outboxEvents: outboxEvents.count,
+      notifications: notifications.count,
       programPurgeFileTombstones: templateFiles.length,
     };
   }
@@ -511,6 +587,7 @@ export type ProgramPurgeDeletedCounts = {
   readonly githubRepositoriesDetached: number;
   readonly publicShowcaseRepositories: number;
   readonly outboxEvents: number;
+  readonly notifications: number;
   readonly programPurgeFileTombstones: number;
 };
 

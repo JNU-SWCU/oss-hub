@@ -461,6 +461,10 @@ function createPurgeService(
     readonly createRequest?: unknown;
     readonly templateFiles?: readonly { readonly storageKey: string }[];
     readonly counts?: Partial<Record<string, number>>;
+    readonly applicationIds?: readonly string[];
+    readonly applicationDecisionNotifications?: readonly {
+      readonly id: string;
+    }[];
   } = {},
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
@@ -488,7 +492,17 @@ function createPurgeService(
   const publicShowcaseRepositoryDeleteMany = countMany(
     'publicShowcaseRepositories',
   );
-  const outboxEventDeleteMany = countMany('outboxEvents');
+  const outboxEventDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
+  const applicationIds = overrides.applicationIds ?? ['application-1'];
+  const applicationFindMany = jest
+    .fn()
+    .mockResolvedValue(applicationIds.map((id) => ({ id })));
+  const applicationDecisionNotifications =
+    overrides.applicationDecisionNotifications ?? [{ id: 'notification-1' }];
+  const notificationFindMany = jest
+    .fn()
+    .mockResolvedValue(applicationDecisionNotifications);
+  const notificationDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
   const boardCommentDeleteMany = countMany('boardComments');
   const boardPostDeleteMany = countMany('boardPosts');
   const githubRepositoryUpdateMany = countMany('githubRepositoriesDetached');
@@ -537,8 +551,14 @@ function createPurgeService(
 
   const transactionClient = {
     program: { findUnique: programFindUnique, delete: programDelete },
-    publicShowcaseRepository: { deleteMany: publicShowcaseRepositoryDeleteMany },
+    publicShowcaseRepository: {
+      deleteMany: publicShowcaseRepositoryDeleteMany,
+    },
     outboxEvent: { deleteMany: outboxEventDeleteMany },
+    notification: {
+      findMany: notificationFindMany,
+      deleteMany: notificationDeleteMany,
+    },
     boardComment: { deleteMany: boardCommentDeleteMany },
     boardPost: { deleteMany: boardPostDeleteMany },
     githubRepository: { updateMany: githubRepositoryUpdateMany },
@@ -566,11 +586,14 @@ function createPurgeService(
       deleteMany: milestoneDocumentSubmissionDeleteMany,
     },
     milestoneDocument: { deleteMany: milestoneDocumentDeleteMany },
-    application: { deleteMany: applicationDeleteMany },
     teamInvitation: { deleteMany: teamInvitationDeleteMany },
     teamMember: { deleteMany: teamMemberDeleteMany },
     team: { deleteMany: teamDeleteMany },
     milestone: { deleteMany: milestoneDeleteMany },
+    application: {
+      deleteMany: applicationDeleteMany,
+      findMany: applicationFindMany,
+    },
   };
   const prisma = {
     user: { findUnique: userFindUnique },
@@ -587,6 +610,9 @@ function createPurgeService(
     programDelete,
     publicShowcaseRepositoryDeleteMany,
     outboxEventDeleteMany,
+    applicationFindMany,
+    notificationFindMany,
+    notificationDeleteMany,
     boardCommentDeleteMany,
     boardPostDeleteMany,
     githubRepositoryUpdateMany,
@@ -617,6 +643,10 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
   it('ADMIN이 자식 가득한 프로그램을 purge하면 전 계층을 명시 순서로 지우고 파일은 worker에 위임한다', async () => {
     const {
       service,
+      outboxEventDeleteMany,
+      applicationFindMany,
+      notificationFindMany,
+      notificationDeleteMany,
       boardCommentDeleteMany,
       boardPostDeleteMany,
       githubRepositoryUpdateMany,
@@ -656,6 +686,48 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
         ],
       },
       data: { programId: null, applicationId: null, teamId: null },
+    });
+
+    // OutboxEvent는 Program aggregate와 이 프로그램 산하 Application aggregate 둘 다 지운다.
+    expect(applicationFindMany).toHaveBeenCalledWith({
+      where: { programId: 'program-1' },
+      select: { id: true },
+    });
+    expect(outboxEventDeleteMany).toHaveBeenCalledWith({
+      where: { aggregateType: 'PROGRAM', aggregateId: 'program-1' },
+    });
+    expect(outboxEventDeleteMany).toHaveBeenCalledWith({
+      where: {
+        aggregateType: 'Application',
+        aggregateId: { in: ['application-1'] },
+      },
+    });
+
+    // Notification: APPLICATION_DECISION(payload.programId)을 찾아 그 응답 확인 기록과
+    // 함께 지우고, DEADLINE_DIGEST는 idempotencyKey에 박힌 programId로 지운다.
+    expect(notificationFindMany).toHaveBeenCalledWith({
+      where: {
+        type: 'APPLICATION_DECISION',
+        payload: { path: ['programId'], equals: 'program-1' },
+      },
+      select: { id: true },
+    });
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: {
+        type: 'APPLICATION_DECISION_ACKNOWLEDGED',
+        idempotencyKey: {
+          in: ['application-decision-acknowledged:notification-1'],
+        },
+      },
+    });
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['notification-1'] } },
+    });
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: {
+        type: 'DEADLINE_DIGEST',
+        idempotencyKey: { contains: ':program-1:' },
+      },
     });
 
     // SubmissionFile은 하드 삭제가 아니라 FK를 분리하고 DELETE_PENDING으로 전환한다.
@@ -741,12 +813,42 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
   });
 
   it('삭제할 template file이 없으면 tombstone을 만들지 않는다', async () => {
-    const { service, programPurgeFileTombstoneCreateMany } =
-      createPurgeService({ templateFiles: [] });
+    const { service, programPurgeFileTombstoneCreateMany } = createPurgeService(
+      { templateFiles: [] },
+    );
 
     await service.purge(1001n, 'program-1');
 
     expect(programPurgeFileTombstoneCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('신청서가 없으면 Application 범위 OutboxEvent 삭제를 건너뛴다', async () => {
+    const { service, outboxEventDeleteMany } = createPurgeService({
+      applicationIds: [],
+    });
+
+    await service.purge(1001n, 'program-1');
+
+    expect(outboxEventDeleteMany).toHaveBeenCalledTimes(1);
+    expect(outboxEventDeleteMany).toHaveBeenCalledWith({
+      where: { aggregateType: 'PROGRAM', aggregateId: 'program-1' },
+    });
+  });
+
+  it('APPLICATION_DECISION 알림이 없으면 ACKNOWLEDGED/본체 삭제를 건너뛰고 DEADLINE_DIGEST만 지운다', async () => {
+    const { service, notificationDeleteMany } = createPurgeService({
+      applicationDecisionNotifications: [],
+    });
+
+    await service.purge(1001n, 'program-1');
+
+    expect(notificationDeleteMany).toHaveBeenCalledTimes(1);
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: {
+        type: 'DEADLINE_DIGEST',
+        idempotencyKey: { contains: ':program-1:' },
+      },
+    });
   });
 
   it('STAFF는 purge 시도 시 403 PRG_011을 받고 프로그램을 조회하지 않는다', async () => {
@@ -773,9 +875,11 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
   it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던지고 자식 삭제를 시작하지 않는다', async () => {
     const { service, programDelete } = createPurgeService({ program: null });
 
-    await expect(service.purge(1001n, 'missing-program')).rejects.toMatchObject({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
-    });
+    await expect(service.purge(1001n, 'missing-program')).rejects.toMatchObject(
+      {
+        errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+      },
+    );
     expect(programDelete).not.toHaveBeenCalled();
   });
 });
