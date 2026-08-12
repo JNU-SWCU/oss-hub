@@ -364,6 +364,11 @@ export class ProgramLifecycleService {
     });
 
     // EXTERNAL_PUBLIC과 ORG_PROVISIONED 모두 전역 수집 자산으로 보존한다.
+    // publicProjects.repository.ts(공개 아카이브)는 publishedAt이 설정된 행이면 항상
+    // program/application 관계가 존재한다고 가정한다(provisioning이 만든 행만 발행되므로).
+    // detach로 그 관계를 끊으면서 publishedAt을 그대로 두면 이 불변식이 깨져 공개
+    // 아카이브 조회가 program/application이 사라진 행에서 500을 낸다 — 그래서 detach와
+    // 함께 publishedAt도 revoke한다(공개 아카이브 노출 자격은 program 존재에 종속).
     const githubRepositoriesDetached =
       await transaction.githubRepository.updateMany({
         where: {
@@ -373,7 +378,12 @@ export class ProgramLifecycleService {
             { team: { is: { programId } } },
           ],
         },
-        data: { programId: null, applicationId: null, teamId: null },
+        data: {
+          programId: null,
+          applicationId: null,
+          teamId: null,
+          publishedAt: null,
+        },
       });
     const repositoryProvisionJobs =
       await transaction.repositoryProvisionJob.deleteMany({

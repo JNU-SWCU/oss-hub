@@ -28,6 +28,7 @@ import { SubmissionFileCleanupService } from '../submissions/submission-file-cle
 import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
 import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { PublicProjectsRepository } from './archive/public-projects/public-projects.repository';
 import { ProgramErrorCode } from './program-error-code.enum';
 import { ProgramPurgeFileCleanupRepository } from './repository/program-purge-file-cleanup.repository';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
@@ -66,6 +67,7 @@ const purgeFileCleanup = new ProgramPurgeFileCleanupService(
   new ProgramPurgeFileCleanupRepository(prisma),
   storage,
 );
+const publicProjects = new PublicProjectsRepository(prisma);
 const submissionFileCleanup = new SubmissionFileCleanupService(
   new SubmissionFilesRepository(prisma),
   storage,
@@ -92,6 +94,8 @@ type Fixture = {
   readonly collectionPullRequestFactId: string;
   readonly collectionReleaseFactId: string;
   readonly publicShowcaseContributorId: string;
+  readonly publishedRepositoryId: string;
+  readonly publishedGithubRepositoryId: bigint;
 };
 
 async function objectExists(key: string): Promise<boolean> {
@@ -289,6 +293,7 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
   const staffId = p('staff-reviewer');
   const teamId = p('team');
   const applicationId = p('application');
+  const publishedApplicationId = p('published-application');
   const submissionId = p('submission');
   const revisionId = p('revision');
   const documentId = p('document');
@@ -299,6 +304,9 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
   const templateFileStorageKey = `${OBJECT_PREFIX}/${label}/template-file.pdf`;
   const externalRepositoryId = p('external-repo');
   const externalGithubRepositoryId = 9_875_500_000n + ordinal;
+  const publishedRepositoryId = p('published-repo');
+  const publishedGithubRepositoryId = 9_875_800_000n + ordinal;
+  const publishedApplicantId = p('published-applicant');
 
   await ensureGlobalActors();
   await prisma.user.createMany({
@@ -314,6 +322,13 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
         id: leaderId,
         githubId: 9_875_200_000n + ordinal,
         nickname: `synthetic-purge7-leader-${label}`,
+        role: Role.STUDENT,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      {
+        id: publishedApplicantId,
+        githubId: 9_875_900_000n + ordinal,
+        nickname: `synthetic-purge7-published-applicant-${label}`,
         role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
@@ -397,6 +412,39 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       programId,
       applicantId,
       teamId,
+      answers: { seedPlaceholder: true, label },
+      applicationTemplateVersion: 1,
+      status: ApplicationStatus.APPROVED,
+      processedById: staffId,
+      processedAt: NOW,
+    },
+  });
+
+  // 공개 아카이브에 발행된 저장소의 소유자 — GithubRepository.applicationId가 unique라 별도
+  // application으로 분리한다(단독 지원자, D5 1인 팀).
+  await prisma.team.create({
+    data: {
+      id: p('published-team'),
+      programId,
+      name: `합성 단독 팀 ${label}`,
+      joinCodeDigest: `digest:${p('published-team')}`,
+      leaderId: publishedApplicantId,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      id: p('published-team-member-leader'),
+      teamId: p('published-team'),
+      programId,
+      userId: publishedApplicantId,
+    },
+  });
+  await prisma.application.create({
+    data: {
+      id: publishedApplicationId,
+      programId,
+      applicantId: publishedApplicantId,
+      teamId: p('published-team'),
       answers: { seedPlaceholder: true, label },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -500,6 +548,24 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       nameWithOwner: `purge7-org/${label}-external-public`,
       source: RepositorySource.EXTERNAL_PUBLIC,
       visibility: RepositoryVisibility.PUBLIC,
+    },
+  });
+
+  // 공개 아카이브에 발행된 저장소 — provisioning이 만든 행(program/application 모두 설정)만
+  // publishedAt을 갖는다는 public-projects.repository.ts의 불변식을 그대로 재현한다.
+  // detach 후에도 publishedAt이 남으면 공개 아카이브 조회가 program/application이 없는 행을
+  // non-null 단언으로 역참조하다 500을 던진다(프로덕션에서 실제로 발생한 결함).
+  await prisma.githubRepository.create({
+    data: {
+      id: publishedRepositoryId,
+      applicationId: publishedApplicationId,
+      programId,
+      teamId: p('published-team'),
+      githubRepositoryId: publishedGithubRepositoryId,
+      nameWithOwner: `purge7-org/${label}-published`,
+      source: RepositorySource.ORG_PROVISIONED,
+      visibility: RepositoryVisibility.PUBLIC,
+      publishedAt: NOW,
     },
   });
 
@@ -784,6 +850,8 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
     collectionPullRequestFactId,
     collectionReleaseFactId,
     publicShowcaseContributorId,
+    publishedRepositoryId,
+    publishedGithubRepositoryId,
   };
 }
 
@@ -958,7 +1026,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.applicationId,
     ]);
     expect(before.milestones).toBe(1);
-    expect(before.applications).toBe(1);
+    // 원래 application의 단독 지원자 + 공개 아카이브 발행 저장소의 소유자 application 둘다.
+    expect(before.applications).toBe(2);
     expect(before.reviews).toBe(1);
     expect(before.milestoneDocumentReviewHistories).toBe(1);
     expect(before.outboxEvents).toBe(2); // program-scoped 1 + application-scoped 1
@@ -996,6 +1065,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.collectionReleaseFactId },
       }),
     ).resolves.not.toBeNull();
+
+    // purge 전: 공개 아카이브가 발행된 저장소를 정상적으로 노출한다.
+    const beforePurgePage = await publicProjects.listPage(null, 50);
+    expect(
+      beforePurgePage.some((row) => row.id === fixture.publishedRepositoryId),
+    ).toBe(true);
 
     const result = await lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId);
     expect(result).toMatchObject({ id: fixture.programId, deleted: true });
@@ -1138,6 +1213,27 @@ describe('Program purge integration — full child graph, worker file deletion, 
       source: RepositorySource.ORG_PROVISIONED,
     });
 
+    // 정극: PUBLIC + publishedAt이 설정된 저장소도 detach와 함께 publishedAt이 revoke되어
+    // 공개 아카이브의 불변식(publishedAt → program/application 존재)이 깨지 않는다.
+    const publishedRepositoryAfter = await prisma.githubRepository.findUnique({
+      where: { id: fixture.publishedRepositoryId },
+    });
+    expect(publishedRepositoryAfter).toMatchObject({
+      programId: null,
+      applicationId: null,
+      teamId: null,
+      publishedAt: null,
+      visibility: RepositoryVisibility.PUBLIC,
+      githubRepositoryId: fixture.publishedGithubRepositoryId,
+    });
+
+    // 공개 아카이브 조회는 500으로 망가리지 않고, purge된 저장소도 더 이상 노출되지 않는다
+    // (프로덕션 회귀 재현 — GET /api/v1/projects SYS_001).
+    const afterPurgePage = await publicProjects.listPage(null, 50);
+    expect(
+      afterPurgePage.some((row) => row.id === fixture.publishedRepositoryId),
+    ).toBe(false);
+
     // 감사 이벤트가 기록됐다.
     const audit = await prisma.auditLog.findFirst({
       where: { targetType: 'PROGRAM', targetId: fixture.programId },
@@ -1165,7 +1261,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.applicationId,
     ]);
     expect(after.milestones).toBe(1);
-    expect(after.applications).toBe(1);
+    expect(after.applications).toBe(2);
   });
 
   it('stale_state: purge 이후 같은 프로그램에 대한 기존 가드 delete는 정지된 blockingCounts가 아니라 PROGRAM_NOT_FOUND를 던진다', async () => {
@@ -1177,7 +1273,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_BLOCKED },
       extensions: {
-        blockingCounts: expect.objectContaining({ applications: 1 }) as unknown,
+        blockingCounts: expect.objectContaining({ applications: 2 }) as unknown,
       },
     });
 
