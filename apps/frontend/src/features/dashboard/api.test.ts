@@ -30,6 +30,36 @@ describe('fetchStudentDashboard', () => {
     );
   });
 
+  it('OWN 성공 저장소의 외부 GitHub URL과 없는 초대 상태를 수용한다', async () => {
+    const item = dashboardFixture.items[0];
+    if (!item?.repository) throw new Error('dashboard fixture is empty');
+    const body = {
+      items: [
+        {
+          ...item,
+          repository: {
+            ...item.repository,
+            repositoryName: 'synthetic-repository',
+            githubUrl:
+              'https://github.com/synthetic-owner/synthetic-repository',
+            invitationStatus: null,
+          },
+        },
+      ],
+    } as const;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(fetchStudentDashboard()).resolves.toEqual(body);
+  });
+
   /**
    * 판정이 끝나지 않았거나(`SUBMITTED`) 반려된(`REJECTED`) 신청은 신청서 화면으로 간다.
    * 서버(`programs/service/student-dashboard.service.ts`의 `detailUrlFor`)와 한 벌인
@@ -217,20 +247,6 @@ describe('fetchStudentDashboard', () => {
               ...dashboardFixture.items[0].repository,
               repositoryName: '../evil',
               githubUrl: 'https://github.com/JNU-SWCU/../evil',
-            },
-          },
-        ],
-      },
-    ],
-    [
-      '생성 완료 저장소에 현재 사용자 초대 상태가 없음',
-      {
-        items: [
-          {
-            ...dashboardFixture.items[0],
-            repository: {
-              ...dashboardFixture.items[0].repository,
-              invitationStatus: null,
             },
           },
         ],

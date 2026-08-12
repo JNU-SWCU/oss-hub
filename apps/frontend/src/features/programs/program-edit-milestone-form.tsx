@@ -53,6 +53,18 @@ export function ProgramEditMilestoneForm({
               <FieldError>{editor.errors.name}</FieldError>
             </Field>
             <Field>
+              <FieldLabel htmlFor="milestone-start-at">시작일 *</FieldLabel>
+              <Input
+                id="milestone-start-at"
+                type="datetime-local"
+                value={editor.form.startAt}
+                onChange={(event) =>
+                  onFieldChange('startAt', event.target.value)
+                }
+              />
+              <FieldError>{editor.errors.startAt}</FieldError>
+            </Field>
+            <Field>
               <FieldLabel htmlFor="milestone-due-at">마감일 *</FieldLabel>
               <Input
                 id="milestone-due-at"

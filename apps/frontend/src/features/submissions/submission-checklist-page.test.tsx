@@ -291,6 +291,32 @@ beforeEach(() => {
 });
 
 describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
+  it('보완 요청 상태면 canResubmit이 false여도 재제출 API를 요청한다', async () => {
+    const [item] = CHECKLIST.items;
+    if (!item?.submission) throw new Error('expected resubmission fixture');
+    vi.mocked(getSubmissionChecklist).mockResolvedValue({
+      ...CHECKLIST,
+      items: [
+        {
+          ...item,
+          submission: { ...item.submission, canResubmit: false },
+        },
+      ],
+    });
+    vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
+    vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
+    await renderReadyPage();
+
+    await selectFileAndSubmit(FILE);
+
+    expect(createResubmission).toHaveBeenCalledWith({
+      submissionId: 'submission-1',
+      baseRevision: 3,
+      content: { type: 'FILE', fileId: 'file-first' },
+      comment: '',
+    });
+  });
+
   it('coalesces repeated submits from the same render into one upload and revision request', async () => {
     // Given
     const pendingUpload = {

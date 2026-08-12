@@ -9,6 +9,7 @@ import {
 } from './api';
 import {
   applyResubmission,
+  isRevisionNeeded,
   type ResubmissionPhase,
   resubmissionFailure,
   submitResubmissionRevision,
@@ -136,7 +137,7 @@ export function SubmissionChecklistPage({
       (candidate) => candidate.milestoneId === milestoneId,
     );
     const submission = item?.submission;
-    if (!item || !submission || !submission.canResubmit) {
+    if (!item || !submission || !isRevisionNeeded(submission)) {
       return;
     }
 
