@@ -33,8 +33,15 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
         count: jest.fn().mockResolvedValue(1),
         create: jest.fn().mockResolvedValue(undefined),
       },
+      application: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       user: {
-        findFirst: jest.fn().mockResolvedValue({ id: syntheticInviteeId }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: syntheticInviteeId,
+          role: 'STUDENT',
+          accountStatus: 'ACTIVE',
+        }),
       },
       $queryRaw: jest.fn().mockResolvedValue([{ id: syntheticTeamId }]),
       ...overrides,
@@ -163,6 +170,24 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(outcome).toEqual({ kind: 'not-pending' });
     expect(tx.teamInvitation.updateMany).not.toHaveBeenCalled();
     expect(tx.teamMember.findUnique).not.toHaveBeenCalled();
+    expect(tx.teamMember.create).not.toHaveBeenCalled();
+  });
+
+  it('신청서가 있는 잠긴 팀은 초대 수락을 거부한다', async () => {
+    const tx = buildTx({
+      application: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'application-1' }),
+      },
+    });
+    const repository = buildRepository(tx);
+
+    const outcome = await repository.withAcceptTransaction(
+      'cuid-invitation',
+      syntheticInviteeId,
+    );
+
+    expect(outcome).toEqual({ kind: 'team-locked' });
+    expect(tx.user.findUnique).not.toHaveBeenCalled();
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 

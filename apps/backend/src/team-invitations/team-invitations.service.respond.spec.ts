@@ -138,6 +138,7 @@ describe('TeamInvitationsService.accept', () => {
     ['already-in-team', TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM],
     ['team-full', TeamInvitationErrorCode.TEAM_FULL],
     ['invitee-not-eligible', TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE],
+    ['team-locked', TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION],
   ] as const)('outcome %s는 %s로 매핑된다', async (kind, expectedCode) => {
     const { service } = buildService({
       withAcceptTransaction: jest.fn().mockResolvedValue({ kind }),

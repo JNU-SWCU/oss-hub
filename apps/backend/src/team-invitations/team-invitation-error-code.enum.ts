@@ -14,6 +14,7 @@ export enum TeamInvitationErrorCode {
   INVITATION_NOT_PENDING = 'TIV_011',
   NOT_INVITEE = 'TIV_012',
   INVITEE_NOT_ELIGIBLE = 'TIV_013',
+  TEAM_LOCKED_AFTER_APPLICATION = 'TIV_014',
 }
 
 export const TEAM_INVITATION_ERROR_CODES: Record<
@@ -84,5 +85,10 @@ export const TEAM_INVITATION_ERROR_CODES: Record<
     code: TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE,
     status: 422,
     message: '활성 학생 계정만 팀원으로 초대할 수 있습니다.',
+  },
+  [TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION]: {
+    code: TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION,
+    status: 409,
+    message: '신청 제출 후에는 팀 구성원을 변경할 수 없습니다.',
   },
 };

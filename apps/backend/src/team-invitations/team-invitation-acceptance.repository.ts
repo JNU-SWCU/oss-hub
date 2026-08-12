@@ -13,6 +13,7 @@ export type AcceptInvitationOutcome =
   | { readonly kind: 'already-in-team' }
   | { readonly kind: 'team-full' }
   | { readonly kind: 'invitee-not-eligible' }
+  | { readonly kind: 'team-locked' }
   | {
       readonly kind: 'ok';
       readonly teamId: string;
@@ -23,9 +24,14 @@ interface LockedTeamRow {
   readonly id: string;
 }
 
+interface LockedUserRow {
+  readonly id: string;
+}
+
 /**
  * 팀 행 잠금부터 초대 CAS와 멤버 생성까지 한 트랜잭션에서 수행한다.
- * 잠금·재검증 순서는 같은 팀에 대한 동시 수락을 직렬화하는 계약이다.
+ * 잠금 순서는 Team → User로 고정한다. Team은 신청 제출·정원 경합을,
+ * User는 수락과 역할 변경·비활성화 경합을 직렬화한다.
  */
 export async function acceptTeamInvitationTransaction(
   prisma: PrismaService,
@@ -61,15 +67,25 @@ export async function acceptTeamInvitationTransaction(
         return { kind: 'not-pending' };
       }
 
-      const eligibleInvitee = await tx.user.findFirst({
-        where: {
-          id: inviteeId,
-          role: Role.STUDENT,
-          accountStatus: AccountStatus.ACTIVE,
-        },
+      const application = await tx.application.findFirst({
+        where: { teamId: invitation.teamId },
         select: { id: true },
       });
-      if (!eligibleInvitee) return { kind: 'invitee-not-eligible' };
+      if (application) return { kind: 'team-locked' };
+
+      await tx.$queryRaw<readonly LockedUserRow[]>(
+        Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${inviteeId} FOR UPDATE`,
+      );
+      const invitee = await tx.user.findUnique({
+        where: { id: inviteeId },
+        select: { id: true, role: true, accountStatus: true },
+      });
+      if (
+        invitee?.role !== Role.STUDENT ||
+        invitee.accountStatus !== AccountStatus.ACTIVE
+      ) {
+        return { kind: 'invitee-not-eligible' };
+      }
 
       const existingMembership = await tx.teamMember.findUnique({
         where: {

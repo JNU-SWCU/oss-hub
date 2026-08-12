@@ -63,6 +63,7 @@ type ApplicationDatabase = Pick<
 >;
 
 type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
+type LockedTeamRow = Readonly<{ id: string }>;
 
 export interface ApplicationsTransactionStore {
   /** #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 함께 커밋되도록 하는 writer. */
@@ -269,6 +270,8 @@ export interface ApplicationCreateStore {
     programId: string,
     userId: string,
   ): Promise<CreatedTeamForApplication | null>;
+  /** 팀 구성 변경과 신청 생성을 직렬화한다. 잠금 순서는 Program → Team이다. */
+  lockTeamForApply(teamId: string): Promise<void>;
   /** 재사용할 팀의 최소 인원 검증용. */
   countTeamMembers(teamId: string): Promise<number>;
   createTeamWithLeader(
@@ -463,6 +466,12 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
 
   async countTeamMembers(teamId: string): Promise<number> {
     return this.database.teamMember.count({ where: { teamId } });
+  }
+
+  async lockTeamForApply(teamId: string): Promise<void> {
+    await this.database.$queryRaw<readonly LockedTeamRow[]>(
+      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    );
   }
 
   async createTeamWithLeader(

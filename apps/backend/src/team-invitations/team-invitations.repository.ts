@@ -54,6 +54,7 @@ export interface TeamContextRecord {
   readonly programId: string;
   readonly leaderId: string;
   readonly teamMaxSize: number;
+  readonly locked: boolean;
 }
 
 export interface CreateInvitationInput {
@@ -65,6 +66,10 @@ export interface CreateInvitationInput {
 
 export class PendingInvitationConflictError extends Error {
   override readonly name = 'PendingInvitationConflictError';
+}
+
+export class TeamInvitationLockedError extends Error {
+  override readonly name = 'TeamInvitationLockedError';
 }
 
 @Injectable()
@@ -140,6 +145,7 @@ export class TeamInvitationsRepository {
         programId: true,
         leaderId: true,
         program: { select: { teamMaxSize: true } },
+        applications: { select: { id: true }, take: 1 },
       },
     });
     if (!team) return null;
@@ -148,6 +154,7 @@ export class TeamInvitationsRepository {
       programId: team.programId,
       leaderId: team.leaderId,
       teamMaxSize: team.program.teamMaxSize,
+      locked: team.applications.length > 0,
     };
   }
 
@@ -201,14 +208,25 @@ export class TeamInvitationsRepository {
     now: Date = new Date(),
   ): Promise<TeamInvitationRecord> {
     try {
-      return await this.prisma.teamInvitation.create({
-        data: {
-          teamId: input.teamId,
-          programId: input.programId,
-          inviteeId: input.inviteeId,
-          invitedById: input.invitedById,
-          invitedAt: now,
-        },
+      return await this.prisma.$transaction(async (transaction) => {
+        await transaction.$queryRaw<readonly { readonly id: string }[]>(
+          Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${input.teamId} FOR UPDATE`,
+        );
+        const application = await transaction.application.findFirst({
+          where: { teamId: input.teamId },
+          select: { id: true },
+        });
+        if (application) throw new TeamInvitationLockedError();
+
+        return transaction.teamInvitation.create({
+          data: {
+            teamId: input.teamId,
+            programId: input.programId,
+            inviteeId: input.inviteeId,
+            invitedById: input.invitedById,
+            invitedAt: now,
+          },
+        });
       });
     } catch (error) {
       if (
