@@ -141,6 +141,17 @@ export function ProgramEditBasicForm({
             <FieldError>{errors.period}</FieldError>
           </Field>
           <Field>
+            <FieldLabel htmlFor="program-start-at">운영 시작일 *</FieldLabel>
+            <Input
+              id="program-start-at"
+              type="datetime-local"
+              value={form.startAt}
+              aria-invalid={Boolean(errors.startAt)}
+              onChange={(event) => onFieldChange('startAt', event.target.value)}
+            />
+            <FieldError>{errors.startAt}</FieldError>
+          </Field>
+          <Field>
             <FieldLabel htmlFor="program-end-at">프로그램 종료 *</FieldLabel>
             <Input
               id="program-end-at"
