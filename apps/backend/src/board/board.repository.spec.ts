@@ -40,6 +40,7 @@ describe('BoardRepository.findByProgramId', () => {
         id: syntheticPostId,
         programId: syntheticProgramId,
         authorId: syntheticAuthorId,
+        author: { name: '합성 운영자', nickname: 'synthetic-staff' },
         category: BoardPostCategory.NOTICE,
         title: '제목',
         pinned: true,
@@ -66,6 +67,7 @@ describe('BoardRepository.findByProgramId', () => {
           id: syntheticPostId,
           programId: syntheticProgramId,
           authorId: syntheticAuthorId,
+          authorName: '합성 운영자',
           category: BoardPostCategory.NOTICE,
           title: '제목',
           pinned: true,
@@ -75,6 +77,96 @@ describe('BoardRepository.findByProgramId', () => {
       ],
       total: 1,
     });
+  });
+});
+
+describe('BoardRepository authorName', () => {
+  it('목록 게시글은 name을 우선하고 없으면 nickname으로 폴백한다', async () => {
+    const common = {
+      programId: syntheticProgramId,
+      category: BoardPostCategory.QNA,
+      title: '합성 질문',
+      pinned: false,
+      createdAt: new Date('2026-07-01T00:00:00.000Z'),
+      _count: { comments: 0 },
+    };
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        ...common,
+        id: syntheticPostId,
+        authorId: syntheticAuthorId,
+        author: { name: '합성 학생', nickname: 'synthetic-author' },
+      },
+      {
+        ...common,
+        id: 'cuid-synthetic-post-fallback',
+        authorId: 'cuid-synthetic-author-fallback',
+        author: { name: null, nickname: 'synthetic-fallback' },
+      },
+    ]);
+    const prisma = {
+      boardPost: { findMany, count: jest.fn().mockResolvedValue(2) },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
+    } as unknown as PrismaService;
+
+    const page = await new BoardRepository(prisma).findByProgramId(
+      syntheticProgramId,
+      1,
+      20,
+    );
+
+    expect(page.items.map((item) => item.authorName)).toEqual([
+      '합성 학생',
+      'synthetic-fallback',
+    ]);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          author: { select: { name: true, nickname: true } },
+        }) as unknown,
+      }),
+    );
+  });
+
+  it('상세 게시글과 댓글에도 name 우선·nickname 폴백 표시이름을 평탄화한다', async () => {
+    const createdAt = new Date('2026-07-01T00:00:00.000Z');
+    const findUnique = jest.fn().mockResolvedValue({
+      id: syntheticPostId,
+      programId: syntheticProgramId,
+      authorId: syntheticAuthorId,
+      author: { name: null, nickname: 'synthetic-author' },
+      category: BoardPostCategory.QNA,
+      title: '합성 질문',
+      body: '합성 본문',
+      pinned: false,
+      createdAt,
+      updatedAt: createdAt,
+      comments: [
+        {
+          id: syntheticCommentId,
+          postId: syntheticPostId,
+          authorId: 'cuid-synthetic-staff',
+          author: {
+            role: Role.STAFF,
+            name: '합성 교직원',
+            nickname: 'synthetic-staff',
+          },
+          body: '합성 답변',
+          createdAt,
+        },
+      ],
+      _count: { comments: 1 },
+    });
+    const prisma = {
+      boardPost: { findUnique },
+    } as unknown as PrismaService;
+
+    const detail = await new BoardRepository(prisma).findDetailById(
+      syntheticPostId,
+    );
+
+    expect(detail?.authorName).toBe('synthetic-author');
+    expect(detail?.comments[0]?.authorName).toBe('합성 교직원');
   });
 });
 
@@ -149,6 +241,7 @@ describe('BoardRepository.findDetailById', () => {
       id: syntheticPostId,
       programId: syntheticProgramId,
       authorId: syntheticAuthorId,
+      author: { name: '합성 질문자', nickname: 'synthetic-author' },
       category: BoardPostCategory.QNA,
       title: '제목',
       body: '본문',
@@ -162,7 +255,11 @@ describe('BoardRepository.findDetailById', () => {
           authorId: 'cuid-synthetic-staff',
           body: '교직원 답변',
           createdAt: commentAt,
-          author: { role: Role.STAFF },
+          author: {
+            role: Role.STAFF,
+            name: '합성 교직원',
+            nickname: 'synthetic-staff',
+          },
         },
         {
           id: 'cuid-synthetic-comment-student',
@@ -170,7 +267,11 @@ describe('BoardRepository.findDetailById', () => {
           authorId: syntheticAuthorId,
           body: '학생 의견',
           createdAt: commentAt,
-          author: { role: Role.STUDENT },
+          author: {
+            role: Role.STUDENT,
+            name: null,
+            nickname: 'synthetic-student',
+          },
         },
         {
           id: 'cuid-synthetic-comment-admin',
@@ -178,7 +279,11 @@ describe('BoardRepository.findDetailById', () => {
           authorId: 'cuid-synthetic-admin',
           body: '관리자 답변',
           createdAt: commentAt,
-          author: { role: Role.ADMIN },
+          author: {
+            role: Role.ADMIN,
+            name: '합성 관리자',
+            nickname: 'synthetic-admin',
+          },
         },
       ],
       _count: { comments: 3 },
@@ -197,6 +302,7 @@ describe('BoardRepository.findDetailById', () => {
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-staff',
         authorRole: Role.STAFF,
+        authorName: '합성 교직원',
         body: '교직원 답변',
         createdAt: commentAt,
       },
@@ -205,6 +311,7 @@ describe('BoardRepository.findDetailById', () => {
         postId: syntheticPostId,
         authorId: syntheticAuthorId,
         authorRole: Role.STUDENT,
+        authorName: 'synthetic-student',
         body: '학생 의견',
         createdAt: commentAt,
       },
@@ -213,6 +320,7 @@ describe('BoardRepository.findDetailById', () => {
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-admin',
         authorRole: Role.ADMIN,
+        authorName: '합성 관리자',
         body: '관리자 답변',
         createdAt: commentAt,
       },
@@ -222,7 +330,9 @@ describe('BoardRepository.findDetailById', () => {
         select: expect.objectContaining({
           comments: expect.objectContaining({
             select: expect.objectContaining({
-              author: { select: { role: true } },
+              author: {
+                select: { role: true, name: true, nickname: true },
+              },
             }) as unknown,
           }) as unknown,
         }) as unknown,
@@ -236,6 +346,7 @@ describe('BoardRepository.findDetailById', () => {
       id: syntheticPostId,
       programId: syntheticProgramId,
       authorId: syntheticAuthorId,
+      author: { name: null, nickname: 'synthetic-author' },
       category: BoardPostCategory.QNA,
       title: '제목',
       body: '본문',
@@ -249,7 +360,11 @@ describe('BoardRepository.findDetailById', () => {
           authorId: syntheticAuthorId,
           body: '역할 미확정',
           createdAt,
-          author: { role: null },
+          author: {
+            role: null,
+            name: null,
+            nickname: 'synthetic-author',
+          },
         },
       ],
       _count: { comments: 1 },
@@ -275,7 +390,11 @@ describe('BoardRepository.createComment', () => {
       authorId: syntheticAuthorId,
       body: '새 댓글',
       createdAt,
-      author: { role: Role.STUDENT },
+      author: {
+        role: Role.STUDENT,
+        name: null,
+        nickname: 'synthetic-author',
+      },
     });
     const prisma = {
       boardComment: { create },
@@ -292,13 +411,16 @@ describe('BoardRepository.createComment', () => {
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
       authorRole: Role.STUDENT,
+      authorName: 'synthetic-author',
       body: '새 댓글',
       createdAt,
     });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          author: { select: { role: true } },
+          author: {
+            select: { role: true, name: true, nickname: true },
+          },
         }) as unknown,
       }),
     );

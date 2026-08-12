@@ -7,6 +7,7 @@ export interface BoardPostSummaryRecord {
   id: string;
   programId: string;
   authorId: string;
+  authorName: string;
   category: BoardPostCategory;
   title: string;
   pinned: boolean;
@@ -26,6 +27,7 @@ export interface BoardCommentRecord {
   authorId: string;
   /** 작성자 `User.role`. null이면 학생으로 본다(게시판 참여자는 역할이 있어야 한다). */
   authorRole: Role;
+  authorName: string;
   body: string;
   createdAt: Date;
 }
@@ -35,6 +37,7 @@ export interface BoardPostDetailRecord {
   id: string;
   programId: string;
   authorId: string;
+  authorName: string;
   category: BoardPostCategory;
   title: string;
   body: string;
@@ -85,13 +88,14 @@ const commentSelect = {
   authorId: true,
   body: true,
   createdAt: true,
-  author: { select: { role: true } },
+  author: { select: { role: true, name: true, nickname: true } },
 } as const;
 
 const postDetailSelect = {
   id: true,
   programId: true,
   authorId: true,
+  author: { select: { name: true, nickname: true } },
   category: true,
   title: true,
   body: true,
@@ -125,6 +129,7 @@ export class BoardRepository {
           id: true,
           programId: true,
           authorId: true,
+          author: { select: { name: true, nickname: true } },
           category: true,
           title: true,
           pinned: true,
@@ -139,6 +144,7 @@ export class BoardRepository {
         id: post.id,
         programId: post.programId,
         authorId: post.authorId,
+        authorName: post.author.name ?? post.author.nickname,
         category: post.category,
         title: post.title,
         pinned: post.pinned,
@@ -252,13 +258,18 @@ interface CommentRow {
   authorId: string;
   body: string;
   createdAt: Date;
-  author: { role: Role | null };
+  author: {
+    role: Role | null;
+    name: string | null;
+    nickname: string;
+  };
 }
 
 interface PostDetailRow {
   id: string;
   programId: string;
   authorId: string;
+  author: { name: string | null; nickname: string };
   category: BoardPostCategory;
   title: string;
   body: string;
@@ -276,6 +287,7 @@ function toCommentRecord(comment: CommentRow): BoardCommentRecord {
     authorId: comment.authorId,
     // 역할 미확정 작성자는 게시판 접근 경로상 거의 없지만, 표시는 학생으로 접는다.
     authorRole: comment.author.role ?? Role.STUDENT,
+    authorName: comment.author.name ?? comment.author.nickname,
     body: comment.body,
     createdAt: comment.createdAt,
   };
@@ -286,6 +298,7 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
     id: post.id,
     programId: post.programId,
     authorId: post.authorId,
+    authorName: post.author.name ?? post.author.nickname,
     category: post.category,
     title: post.title,
     body: post.body,

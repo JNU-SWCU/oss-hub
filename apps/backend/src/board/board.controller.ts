@@ -40,19 +40,31 @@ export class BoardController {
 
   @Get()
   async list(
+    @Req() request: BoardActor,
     @Param('programId') programId: string,
     @Query() query: BoardPostListRequestDto,
   ): Promise<BoardPostsPageResponseDto> {
-    const page = await this.service.listPosts(programId, query.toQuery());
+    const page = await this.service.listPosts(
+      programId,
+      query.toQuery(),
+      request.boardActorId,
+      request.boardActorIsStaff,
+    );
     return BoardPostsPageResponseDto.from(page);
   }
 
   @Get(':postId')
   async detail(
+    @Req() request: BoardActor,
     @Param('programId') programId: string,
     @Param('postId') postId: string,
   ): Promise<BoardPostDetailResponseDto> {
-    const post = await this.service.getPostDetail(programId, postId);
+    const post = await this.service.getPostDetail(
+      programId,
+      postId,
+      request.boardActorId,
+      request.boardActorIsStaff,
+    );
     return BoardPostDetailResponseDto.from(post);
   }
 
