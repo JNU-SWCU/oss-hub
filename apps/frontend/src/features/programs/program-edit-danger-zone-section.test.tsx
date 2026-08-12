@@ -344,16 +344,27 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(true);
   });
 
-  it('확정 직전 범위가 바뀌면 삭제하지 않고 이름 재입력을 요구한다', async () => {
+  // TOCTOU(#F2): 확인 화면(getEditableProgram)이 읽은 이후 purge 전에 범위가 바뀌면
+  // 백엔드가 409(PRG_014)로 거부한다. 화면은 자동 재시도하지 않고, 응답이 실어 온
+  // 현재 카운트로 갱신해 관리자가 이름을 다시 입력해 명시적으로 재확인하게 한다.
+  it('purge가 409 범위 변경 응답을 받으면 자동 재시도하지 않고 새 카운트로 이름 재입력을 요구한다', async () => {
     const changedCounts = {
       applications: 6,
       teams: 7,
       boardPosts: 8,
       submissions: 9,
     };
-    getEditableProgramMock
-      .mockResolvedValueOnce({ deletionScopeCounts })
-      .mockResolvedValueOnce({ deletionScopeCounts: changedCounts });
+    purgeProgramMock.mockRejectedValueOnce(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Purge scope changed',
+        status: 409,
+        detail: '',
+        code: 'PRG_014',
+        instance: '/programs/program-1/purge',
+        ...{ currentScopeCounts: changedCounts },
+      }),
+    );
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -376,7 +387,13 @@ describe('ProgramEditDangerZoneSection', () => {
     );
     await act(async () => void (await Promise.resolve()));
 
-    expect(purgeProgramMock).not.toHaveBeenCalled();
+    // 화면이 마지막으로 보여준 카운트(deletionScopeCounts)를 그대로 expectedScope로 보낸다 —
+    // 별도 재확인 GET 없이 딱 한 번만 purge를 호출했다.
+    expect(purgeProgramMock).toHaveBeenCalledTimes(1);
+    expect(purgeProgramMock).toHaveBeenCalledWith(
+      'program-1',
+      deletionScopeCounts,
+    );
     expect(input.value).toBe('');
     expect(document.body.textContent).toContain(
       '삭제 범위가 변경되었습니다. 내용을 확인한 뒤 프로그램 이름을 다시 입력해 주세요.',
@@ -384,7 +401,25 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(document.body.textContent).toContain(
       '삭제될 데이터: 지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건',
     );
-    expect(getEditableProgramMock).toHaveBeenCalledTimes(2);
+
+    // 이름을 다시 입력해 명시적으로 재확인하면, 갱신된 카운트를 expectedScope로 보내
+    // 이번엔 성공한다 — 자동 재시도가 아니라 관리자의 새 확인이다.
+    purgeProgramMock.mockResolvedValueOnce({
+      id: 'program-1',
+      deleted: true,
+      deletedCounts: { applications: 6 },
+    });
+    await act(async () => setInputValue(input, 'OSS 프로그램'));
+    await act(async () =>
+      getButton('연결 데이터까지 모두 삭제', dialog).click(),
+    );
+    await act(async () => void (await Promise.resolve()));
+
+    expect(purgeProgramMock).toHaveBeenCalledTimes(2);
+    expect(purgeProgramMock).toHaveBeenLastCalledWith(
+      'program-1',
+      changedCounts,
+    );
   });
 
   it('전체 삭제 성공 후 즉시 목록 확인으로 이동해 삭제된 프로그램 화면을 남기지 않는다', async () => {
@@ -420,7 +455,10 @@ describe('ProgramEditDangerZoneSection', () => {
     );
     await act(async () => void (await Promise.resolve()));
 
-    expect(purgeProgramMock).toHaveBeenCalledWith('program-1');
+    expect(purgeProgramMock).toHaveBeenCalledWith(
+      'program-1',
+      deletionScopeCounts,
+    );
     expect(container.querySelector('section')).toBeNull();
     expect(container.textContent).toContain('지원서 2건 · 알림 3건');
   });
