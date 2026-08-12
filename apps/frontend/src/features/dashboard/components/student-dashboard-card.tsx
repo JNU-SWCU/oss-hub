@@ -101,7 +101,8 @@ export function StudentDashboardCard({
     item.applicationStatus === 'APPROVED' && item.nextMilestone === null;
   const repositoryUrl =
     item.repository?.provisionStatus === 'SUCCEEDED' &&
-    item.repository.invitationStatus === 'SUCCEEDED' &&
+    (item.repository.invitationStatus === 'SUCCEEDED' ||
+      item.repository.invitationStatus === null) &&
     item.repository.githubUrl !== null
       ? item.repository.githubUrl
       : null;

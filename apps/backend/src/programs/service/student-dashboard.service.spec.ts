@@ -290,6 +290,7 @@ describe('StudentDashboardService', () => {
     getMyRepositories.mockResolvedValue([
       {
         applicationId: 'application-1',
+        connectionMode: 'NEW',
         repositoryName: 'synthetic-repository',
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         invitationStatus: null,
@@ -304,6 +305,29 @@ describe('StudentDashboardService', () => {
       provisionStatus: 'SUCCEEDED',
       invitationStatus: 'FAILED_FINAL',
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+    });
+  });
+
+  it('keeps a successful OWN repository complete without an organization invitation', async () => {
+    findMany.mockResolvedValue([application()]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        connectionMode: 'OWN',
+        repositoryName: 'synthetic-repository',
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        invitationStatus: null,
+        githubUrl: 'https://github.com/synthetic-owner/synthetic-repository',
+      },
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.repository).toEqual({
+      repositoryName: 'synthetic-repository',
+      provisionStatus: 'SUCCEEDED',
+      invitationStatus: null,
+      githubUrl: 'https://github.com/synthetic-owner/synthetic-repository',
     });
   });
 });

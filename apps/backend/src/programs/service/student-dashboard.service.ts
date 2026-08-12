@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   SubmissionStatus,
@@ -209,7 +210,8 @@ export class StudentDashboardService {
           const invitationStatus =
             projectedRepository.provisionStatus ===
               RepositoryProvisionJobStatus.SUCCEEDED &&
-            projectedRepository.invitationStatus === null
+            projectedRepository.invitationStatus === null &&
+            projectedRepository.connectionMode === RepositoryConnectionMode.NEW
               ? RepositoryInvitationStatus.FAILED_FINAL
               : projectedRepository.invitationStatus;
           repository = {
