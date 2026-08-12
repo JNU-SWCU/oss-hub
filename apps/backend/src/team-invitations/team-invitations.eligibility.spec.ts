@@ -106,7 +106,8 @@ describe('팀 초대 대상 자격', () => {
           .mockResolvedValueOnce({ status: 'PENDING' }),
         updateMany: jest.fn(),
       },
-      user: { findFirst: jest.fn().mockResolvedValue(null) },
+      application: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: { findUnique: jest.fn().mockResolvedValue(null) },
       teamMember: {
         findUnique: jest.fn(),
         count: jest.fn(),
@@ -126,13 +127,9 @@ describe('팀 초대 대상 자격', () => {
     );
 
     // Then
-    expect(tx.user.findFirst).toHaveBeenCalledWith({
-      where: {
-        id: inviteeId,
-        role: Role.STUDENT,
-        accountStatus: AccountStatus.ACTIVE,
-      },
-      select: { id: true },
+    expect(tx.user.findUnique).toHaveBeenCalledWith({
+      where: { id: inviteeId },
+      select: { id: true, role: true, accountStatus: true },
     });
     expect(outcome).toEqual({ kind: 'invitee-not-eligible' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();

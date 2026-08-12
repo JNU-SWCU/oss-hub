@@ -177,7 +177,25 @@ async function renderReady(): Promise<void> {
   );
 }
 
+async function renderLocked(): Promise<void> {
+  mocks.getMyTeam.mockResolvedValue({ ...team, locked: true });
+  act(() => {
+    root.render(<ProgramTeamsPage programId="program-1" />);
+  });
+  await waitForCondition(
+    () => container.textContent?.includes('팀이 잠겼습니다') === true,
+    '잠긴 팀 안내 렌더링',
+  );
+}
+
 describe('ProgramTeamsPage — 초대 검색 자동완성', () => {
+  it('신청을 제출해 잠긴 팀에는 초대 패널을 노출하지 않는다', async () => {
+    await renderLocked();
+
+    expect(container.querySelector('#invite-search')).toBeNull();
+    expect(container.textContent).not.toContain('팀원 초대');
+  });
+
   it('빠르게 입력해도 디바운스 지연이 끝난 뒤 마지막 값으로 한 번만 검색한다', async () => {
     mocks.searchInvitationCandidates.mockResolvedValue([
       candidate('u9', 'octo9'),

@@ -1,6 +1,9 @@
 import { TeamInvitationStatus } from '@prisma/client';
 import { TeamInvitationErrorCode } from './team-invitation-error-code.enum';
-import { PendingInvitationConflictError } from './team-invitations.repository';
+import {
+  PendingInvitationConflictError,
+  TeamInvitationLockedError,
+} from './team-invitations.repository';
 import {
   buildService,
   type MockRepository,
@@ -19,6 +22,7 @@ function leaderService(overrides: Partial<MockRepository> = {}) {
       programId: syntheticProgramId,
       leaderId: syntheticLeaderId,
       teamMaxSize: 4,
+      locked: false,
     }),
     ...overrides,
   });
@@ -83,6 +87,27 @@ describe('TeamInvitationsService.create', () => {
     });
   });
 
+  it('신청을 제출한 팀은 새 초대를 보낼 수 없다', async () => {
+    const { service, repository } = leaderService({
+      findTeamContext: jest.fn().mockResolvedValue({
+        teamId: syntheticTeamId,
+        programId: syntheticProgramId,
+        leaderId: syntheticLeaderId,
+        teamMaxSize: 4,
+        locked: true,
+      }),
+    });
+
+    await expect(
+      service.create(syntheticGithubId, syntheticTeamId, syntheticUserId),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION,
+      },
+    });
+    expect(repository.createInvitation).not.toHaveBeenCalled();
+  });
+
   it('초대 대상 User가 없으면 TIV_006으로 거부한다', async () => {
     const { service } = leaderService({
       getInviteeEligibility: jest.fn().mockResolvedValue('not-found'),
@@ -130,6 +155,22 @@ describe('TeamInvitationsService.create', () => {
       service.create(syntheticGithubId, syntheticTeamId, syntheticUserId),
     ).rejects.toMatchObject({
       errorCode: { code: TeamInvitationErrorCode.ALREADY_INVITED },
+    });
+  });
+
+  it('생성 트랜잭션 직전에 신청이 생기면 TIV_014로 거부한다', async () => {
+    const { service } = leaderService({
+      createInvitation: jest
+        .fn()
+        .mockRejectedValue(new TeamInvitationLockedError()),
+    });
+
+    await expect(
+      service.create(syntheticGithubId, syntheticTeamId, syntheticUserId),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION,
+      },
     });
   });
 });

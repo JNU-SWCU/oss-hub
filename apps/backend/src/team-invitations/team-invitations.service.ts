@@ -9,6 +9,7 @@ import {
   PendingInvitationConflictError,
   ReceivedTeamInvitationRecord,
   TeamInvitationRecord,
+  TeamInvitationLockedError,
   TeamInvitationsRepository,
 } from './team-invitations.repository';
 
@@ -52,6 +53,7 @@ export class TeamInvitationsService {
   ): Promise<InvitationCandidateRecord[]> {
     const userId = await this.requireUserId(githubId);
     const team = await this.requireTeamLeader(teamId, userId);
+    this.requireUnlockedTeam(team.locked);
     const trimmed = query.trim();
     if (!trimmed) return [];
     return this.repository.searchCandidates(team.programId, trimmed, userId);
@@ -64,6 +66,7 @@ export class TeamInvitationsService {
   ): Promise<TeamInvitationRecord> {
     const actorId = await this.requireUserId(githubId);
     const team = await this.requireTeamLeader(teamId, actorId);
+    this.requireUnlockedTeam(team.locked);
 
     if (inviteeUserId === actorId) {
       throw this.error(TeamInvitationErrorCode.SELF_INVITE_FORBIDDEN);
@@ -100,6 +103,9 @@ export class TeamInvitationsService {
     } catch (error) {
       if (error instanceof PendingInvitationConflictError) {
         throw this.error(TeamInvitationErrorCode.ALREADY_INVITED);
+      }
+      if (error instanceof TeamInvitationLockedError) {
+        throw this.error(TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
       }
       throw error;
     }
@@ -168,6 +174,8 @@ export class TeamInvitationsService {
         throw this.error(TeamInvitationErrorCode.TEAM_FULL);
       case 'invitee-not-eligible':
         throw this.error(TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE);
+      case 'team-locked':
+        throw this.error(TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
       case 'ok':
         return { teamId: outcome.teamId, programId: outcome.programId };
     }
@@ -206,5 +214,11 @@ export class TeamInvitationsService {
 
   private error(code: TeamInvitationErrorCode): DomainException {
     return new DomainException(TEAM_INVITATION_ERROR_CODES[code]);
+  }
+
+  private requireUnlockedTeam(locked: boolean): void {
+    if (locked) {
+      throw this.error(TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
+    }
   }
 }
