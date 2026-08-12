@@ -66,7 +66,6 @@ describe('board api', () => {
     const response = {
       id: 'post-1',
       programId: 'program:1',
-      authorId: 'user-1',
       category: 'NOTICE',
       title: '제목',
       body: '본문',
@@ -95,7 +94,6 @@ describe('board api', () => {
     const response = {
       id: 'post-2',
       programId: 'program-1',
-      authorId: 'user-1',
       category: 'QNA',
       title: '질문 있습니다',
       body: '본문 내용',
@@ -131,7 +129,6 @@ describe('board api', () => {
     const response = {
       id: 'post-1',
       programId: 'program-1',
-      authorId: 'user-1',
       category: 'NOTICE',
       title: '수정된 제목',
       body: '수정된 본문',
@@ -205,7 +202,6 @@ describe('board api', () => {
     const response = {
       id: 'comment-1',
       postId: 'post-1',
-      authorId: 'user-2',
       authorRole: 'STAFF',
       body: '댓글 내용',
       createdAt: '2026-08-01T00:00:00.000Z',

@@ -11,8 +11,19 @@ import {
   BoardRepository,
 } from './board.repository';
 
+export interface BoardPostPermissions {
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export type BoardPostSummaryResult = BoardPostSummaryRecord &
+  BoardPostPermissions;
+export type BoardCommentResult = BoardCommentRecord & { canDelete: boolean };
+export type BoardPostDetailResult = Omit<BoardPostDetailRecord, 'comments'> &
+  BoardPostPermissions & { comments: BoardCommentResult[] };
+
 export interface BoardPostsPageResult {
-  items: BoardPostSummaryRecord[];
+  items: BoardPostSummaryResult[];
   total: number;
   page: number;
   limit: number;
@@ -39,26 +50,37 @@ export class BoardService {
   async listPosts(
     programId: string,
     query: BoardPostListQuery,
+    actorId: string,
+    actorIsStaff: boolean,
   ): Promise<BoardPostsPageResult> {
     const { items, total } = await this.repository.findByProgramId(
       programId,
       query.page,
       query.limit,
     );
-    return { items, total, page: query.page, limit: query.limit };
+    return {
+      items: items.map((post) =>
+        this.withPostPermissions(post, actorId, actorIsStaff),
+      ),
+      total,
+      page: query.page,
+      limit: query.limit,
+    };
   }
 
   async getPostDetail(
     programId: string,
     postId: string,
-  ): Promise<BoardPostDetailRecord> {
+    actorId: string,
+    actorIsStaff: boolean,
+  ): Promise<BoardPostDetailResult> {
     const post = await this.repository.findDetailById(postId);
     if (!post || post.programId !== programId) {
       throw new DomainException(
         BOARD_ERROR_CODES[BoardErrorCode.POST_NOT_FOUND],
       );
     }
-    return post;
+    return this.withDetailPermissions(post, actorId, actorIsStaff);
   }
 
   /** 글 종류는 사용자가 고르지 않는다 — 작성자 역할이 그대로 결정한다(프로토타입 계약). */
@@ -67,14 +89,15 @@ export class BoardService {
     actorId: string,
     actorIsStaff: boolean,
     input: BoardPostWriteInput,
-  ): Promise<BoardPostDetailRecord> {
-    return this.repository.create({
+  ): Promise<BoardPostDetailResult> {
+    const post = await this.repository.create({
       programId,
       authorId: actorId,
       category: actorIsStaff ? BoardPostCategory.NOTICE : BoardPostCategory.QNA,
       title: input.title,
       body: input.body,
     });
+    return this.withDetailPermissions(post, actorId, actorIsStaff);
   }
 
   /** 수정은 작성자 본인만 — 교직원도 남의 글은 수정할 수 없다(삭제와 다름). */
@@ -83,12 +106,13 @@ export class BoardService {
     postId: string,
     actorId: string,
     input: BoardPostWriteInput,
-  ): Promise<BoardPostDetailRecord> {
+  ): Promise<BoardPostDetailResult> {
     const ref = await this.requirePostRef(programId, postId);
     if (ref.authorId !== actorId) {
       throw new DomainException(BOARD_ERROR_CODES[BoardErrorCode.NOT_AUTHOR]);
     }
-    return this.repository.update(postId, input);
+    const post = await this.repository.update(postId, input);
+    return this.withDetailPermissions(post, actorId, false);
   }
 
   /** 삭제는 작성자 본인이거나 교직원. */
@@ -124,13 +148,14 @@ export class BoardService {
     postId: string,
     actorId: string,
     input: BoardCommentWriteInput,
-  ): Promise<BoardCommentRecord> {
+  ): Promise<BoardCommentResult> {
     await this.requirePostRef(programId, postId);
-    return this.repository.createComment({
+    const comment = await this.repository.createComment({
       postId,
       authorId: actorId,
       body: input.body,
     });
+    return { ...comment, canDelete: true };
   }
 
   /** 댓글 삭제는 작성자 본인이거나 교직원. */
@@ -151,6 +176,31 @@ export class BoardService {
       throw new DomainException(BOARD_ERROR_CODES[BoardErrorCode.NOT_AUTHOR]);
     }
     await this.repository.deleteComment(commentId);
+  }
+
+  private withPostPermissions<
+    T extends BoardPostSummaryRecord | BoardPostDetailRecord,
+  >(post: T, actorId: string, actorIsStaff: boolean): T & BoardPostPermissions {
+    const isAuthor = post.authorId === actorId;
+    return {
+      ...post,
+      canEdit: isAuthor,
+      canDelete: isAuthor || actorIsStaff,
+    };
+  }
+
+  private withDetailPermissions(
+    post: BoardPostDetailRecord,
+    actorId: string,
+    actorIsStaff: boolean,
+  ): BoardPostDetailResult {
+    return {
+      ...this.withPostPermissions(post, actorId, actorIsStaff),
+      comments: post.comments.map((comment) => ({
+        ...comment,
+        canDelete: comment.authorId === actorId || actorIsStaff,
+      })),
+    };
   }
 
   /** postId가 route의 programId 소속인지까지 확인한다 — 다른 프로그램 글은 404로 감춘다. */
