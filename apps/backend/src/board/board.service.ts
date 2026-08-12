@@ -19,10 +19,7 @@ export interface BoardPostPermissions {
 export type BoardPostSummaryResult = BoardPostSummaryRecord &
   BoardPostPermissions;
 export type BoardCommentResult = BoardCommentRecord & { canDelete: boolean };
-export type BoardPostDetailResult = Omit<
-  BoardPostDetailRecord,
-  'comments'
-> &
+export type BoardPostDetailResult = Omit<BoardPostDetailRecord, 'comments'> &
   BoardPostPermissions & { comments: BoardCommentResult[] };
 
 export interface BoardPostsPageResult {
@@ -181,11 +178,9 @@ export class BoardService {
     await this.repository.deleteComment(commentId);
   }
 
-  private withPostPermissions<T extends BoardPostSummaryRecord | BoardPostDetailRecord>(
-    post: T,
-    actorId: string,
-    actorIsStaff: boolean,
-  ): T & BoardPostPermissions {
+  private withPostPermissions<
+    T extends BoardPostSummaryRecord | BoardPostDetailRecord,
+  >(post: T, actorId: string, actorIsStaff: boolean): T & BoardPostPermissions {
     const isAuthor = post.authorId === actorId;
     return {
       ...post,

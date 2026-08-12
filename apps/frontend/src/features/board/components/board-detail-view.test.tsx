@@ -226,9 +226,7 @@ describe('BoardDetailContent', () => {
               ...post,
               canEdit: true,
               canDelete: true,
-              comments: [
-                { ...post.comments[1]!, canDelete: true },
-              ],
+              comments: [{ ...post.comments[1]!, canDelete: true }],
             },
           },
         })}
@@ -249,9 +247,7 @@ describe('BoardDetailContent', () => {
               ...post,
               canEdit: false,
               canDelete: true,
-              comments: [
-                { ...post.comments[0]!, canDelete: true },
-              ],
+              comments: [{ ...post.comments[0]!, canDelete: true }],
             },
           },
         })}
