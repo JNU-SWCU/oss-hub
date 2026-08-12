@@ -18,6 +18,11 @@ import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  readProgramDeletionScopeCounts,
+  sameProgramDeletionScopeCounts,
+  type ProgramDeletionScopeCounts,
+} from '../program-deletion-scope';
+import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from '../program-error-code.enum';
@@ -201,10 +206,17 @@ export class ProgramLifecycleService {
    *
    * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해
    * DELETE_PENDING으로 전환한다. phase 2 worker만 storage port를 호출한다.
+   *
+   * `expectedScope`는 확인 화면(GET edit)이 보여준 4종 자식 범위의 스냅샷이다 —
+   * 확인과 purge 사이가 별개 요청이라(#F2 TOCTOU) 확인 이후 생긴 행을 관리자가
+   * 보지 못한 채 지울 수 있다. 그래서 삭제 트랜잭션 안에서 GET edit과 동일한
+   * 단일 스냅샷 쿼리(`readProgramDeletionScopeCounts`)로 현재 범위를 다시 읽어 비교하고,
+   * 다르면 트랜잭션 전체를 abort해 아무것도 지우지 않는다(409 PRG_014, 현재 카운트 포함).
    */
   async purge(
     githubId: bigint,
     programId: string,
+    expectedScope: ProgramDeletionScopeCounts,
   ): Promise<ProgramPurgeResult> {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
@@ -237,6 +249,20 @@ export class ProgramLifecycleService {
       if (program.deletionProtected) {
         throw new DomainException(
           PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
+        );
+      }
+
+      // TOCTOU 재확인: 확인 화면이 읽은 이후 생긴 행이 있으면 클라이언트가 보지 못한 채
+      // 지워지는 것을 막는다. purgeProgramTree와 같은 트랜잭션 안에서 읽어야
+      // 이 비교와 실제 삭제 사이에 또 다른 틀이 생기지 않는다.
+      const currentScopeCounts = await readProgramDeletionScopeCounts(
+        transaction,
+        programId,
+      );
+      if (!sameProgramDeletionScopeCounts(expectedScope, currentScopeCounts)) {
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+          { currentScopeCounts },
         );
       }
 
