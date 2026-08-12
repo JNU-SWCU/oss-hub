@@ -6,6 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 backend_directory="$repo_root/apps/backend"
 compose_file="$repo_root/compose.dev.yml"
 project_name="oss-hub-test-$(date +%s)-$$-$RANDOM"
+test_pattern="${BACKEND_INTEGRATION_TEST_PATTERN:-\.integration\.spec\.ts$}"
 
 unset DATABASE_URL OSS_HUB_INTEGRATION_RUNNER TEAM_JOIN_CODE_SECRET
 unset SUBMISSION_FILE_S3_ENDPOINT SUBMISSION_FILE_S3_REGION
@@ -104,5 +105,5 @@ integration_storage_endpoint="http://127.0.0.1:${minio_port}"
     TEAM_JOIN_CODE_SECRET=synthetic-integration-join-code-secret \
     pnpm exec jest \
     --runInBand \
-    --testPathPattern='\.integration\.spec\.ts$'
+    --testPathPattern="$test_pattern"
 )

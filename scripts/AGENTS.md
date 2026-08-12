@@ -13,7 +13,7 @@ CI와 Git 훅, 로컬 검증, 배포 보조에 필요한 실행 파일을 둔다
 | 경로 | 역할 |
 | --- | --- |
 | `check-*.sh`, `check-*.mjs` | nginx·Compose·Jenkins·Docker·public-safe·TEAM-STATE 계약 검사 — 테스트는 합성 입력만 쓴다 |
-| `run-backend-integration*.sh` | backend 통합 테스트 실행 경계 — 격리 컨테이너를 실제로 띄운다 |
+| `run-backend-integration*.sh` | backend 통합 테스트 실행 경계 — 격리 컨테이너를 실제로 띄운다. `BACKEND_INTEGRATION_TEST_PATTERN`을 주면 대상 spec을 좁히고 기본값은 전체 integration spec이다 |
 | `docker-verify-local*.sh`, `_compose-lib.sh` | 정규 로컬 Compose 두 파일을 실제로 실행·검증한다 |
 | `prune-deploy-backups*.sh` | 보존 범위 밖 백업을 실제 삭제하는 Jenkins 성공 경로 전용 스크립트(대응 `.test.sh`만 합성 임시 디렉터리 사용) |
 | `check-docker-context.sh` | Docker daemon 없이 tracked build-context 계약을 정적으로 검사한다 |
