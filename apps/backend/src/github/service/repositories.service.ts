@@ -30,6 +30,7 @@ export interface PublishRepositoryInput {
 export interface MyRepository {
   readonly repositoryId: string | null;
   readonly applicationId: string;
+  readonly connectionMode: RepositoryConnectionMode;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly programName: string;
   readonly displayName: string;
@@ -102,6 +103,7 @@ export class RepositoriesService {
       return {
         repositoryId: repository?.id ?? null,
         applicationId: job.application.id,
+        connectionMode: job.application.repositoryConnectionMode,
         applicationMode,
         programName: job.application.program.name,
         displayName:
