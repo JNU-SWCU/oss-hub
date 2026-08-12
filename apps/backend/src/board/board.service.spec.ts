@@ -12,6 +12,23 @@ const syntheticAuthorId = 'cuid-synthetic-author';
 const syntheticOtherUserId = 'cuid-synthetic-other-user';
 const syntheticStaffId = 'cuid-synthetic-staff';
 
+function syntheticPostDetail() {
+  return {
+    id: syntheticPostId,
+    programId: syntheticProgramId,
+    authorId: syntheticAuthorId,
+    authorName: '합성 작성자',
+    category: BoardPostCategory.QNA,
+    title: '합성 제목',
+    body: '합성 본문',
+    pinned: false,
+    createdAt: new Date('2026-07-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-07-01T00:00:00.000Z'),
+    commentCount: 0,
+    comments: [],
+  };
+}
+
 function buildRepository(overrides: Partial<BoardRepository> = {}) {
   const mocks = {
     findByProgramId: jest.fn(),
@@ -51,10 +68,12 @@ describe('BoardService', () => {
       const service = new BoardService(repository);
 
       // When
-      const result = await service.listPosts(syntheticProgramId, {
-        page: 1,
-        limit: 20,
-      });
+      const result = await service.listPosts(
+        syntheticProgramId,
+        { page: 1, limit: 20 },
+        syntheticAuthorId,
+        false,
+      );
 
       // Then
       expect(mocks.findByProgramId).toHaveBeenCalledWith(
@@ -62,7 +81,12 @@ describe('BoardService', () => {
         1,
         20,
       );
-      expect(result).toEqual({ items, total: 1, page: 1, limit: 20 });
+      expect(result).toEqual({
+        items: [{ ...items[0], canEdit: true, canDelete: true }],
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
     });
   });
 
@@ -76,7 +100,12 @@ describe('BoardService', () => {
 
       // When / Then
       await expect(
-        service.getPostDetail(syntheticProgramId, syntheticPostId),
+        service.getPostDetail(
+          syntheticProgramId,
+          syntheticPostId,
+          syntheticAuthorId,
+          false,
+        ),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.POST_NOT_FOUND },
       });
@@ -103,7 +132,12 @@ describe('BoardService', () => {
 
       // When / Then
       await expect(
-        service.getPostDetail(syntheticProgramId, syntheticPostId),
+        service.getPostDetail(
+          syntheticProgramId,
+          syntheticPostId,
+          syntheticAuthorId,
+          false,
+        ),
       ).rejects.toBeInstanceOf(DomainException);
     });
 
@@ -131,10 +165,127 @@ describe('BoardService', () => {
       const result = await service.getPostDetail(
         syntheticProgramId,
         syntheticPostId,
+        syntheticAuthorId,
+        false,
       );
 
       // Then
-      expect(result).toBe(post);
+      expect(result).toEqual({ ...post, canEdit: true, canDelete: true });
+    });
+  });
+
+  describe('응답 권한 필드', () => {
+    const post = {
+      id: syntheticPostId,
+      programId: syntheticProgramId,
+      authorId: syntheticAuthorId,
+      authorName: '합성 작성자',
+      category: BoardPostCategory.QNA,
+      title: '합성 질문',
+      body: '합성 본문',
+      pinned: false,
+      createdAt: new Date('2026-07-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-07-01T00:00:00.000Z'),
+      commentCount: 2,
+      comments: [
+        {
+          id: syntheticCommentId,
+          postId: syntheticPostId,
+          authorId: syntheticOtherUserId,
+          authorRole: 'STUDENT' as const,
+          authorName: '합성 댓글 작성자',
+          body: '합성 댓글',
+          createdAt: new Date('2026-07-01T01:00:00.000Z'),
+        },
+        {
+          id: 'cuid-synthetic-other-comment',
+          postId: syntheticPostId,
+          authorId: 'cuid-synthetic-third-user',
+          authorRole: 'STUDENT' as const,
+          authorName: '합성 다른 댓글 작성자',
+          body: '합성 다른 댓글',
+          createdAt: new Date('2026-07-01T02:00:00.000Z'),
+        },
+      ],
+    };
+
+    it('작성자는 자기 글을 수정·삭제할 수 있고 타인 댓글은 삭제할 수 없다', async () => {
+      const { repository } = buildRepository({
+        findDetailById: jest.fn().mockResolvedValue(post),
+      });
+
+      const result = await new BoardService(repository).getPostDetail(
+        syntheticProgramId,
+        syntheticPostId,
+        syntheticAuthorId,
+        false,
+      );
+
+      expect(result).toMatchObject({ canEdit: true, canDelete: true });
+      expect(result.comments[0]).toMatchObject({ canDelete: false });
+    });
+
+    it('댓글 작성자는 글 권한 없이 자기 댓글만 삭제할 수 있다', async () => {
+      const { repository } = buildRepository({
+        findDetailById: jest.fn().mockResolvedValue(post),
+      });
+
+      const result = await new BoardService(repository).getPostDetail(
+        syntheticProgramId,
+        syntheticPostId,
+        syntheticOtherUserId,
+        false,
+      );
+
+      expect(result).toMatchObject({ canEdit: false, canDelete: false });
+      expect(result.comments).toEqual([
+        expect.objectContaining({
+          authorId: syntheticOtherUserId,
+          canDelete: true,
+        }),
+        expect.objectContaining({
+          authorId: 'cuid-synthetic-third-user',
+          canDelete: false,
+        }),
+      ]);
+    });
+
+    it('교직원은 타인 글·댓글을 삭제할 수 있지만 타인 글을 수정할 수 없다', async () => {
+      const { repository } = buildRepository({
+        findDetailById: jest.fn().mockResolvedValue(post),
+      });
+
+      const result = await new BoardService(repository).getPostDetail(
+        syntheticProgramId,
+        syntheticPostId,
+        syntheticStaffId,
+        true,
+      );
+
+      expect(result).toMatchObject({ canEdit: false, canDelete: true });
+      expect(result.comments).toEqual([
+        expect.objectContaining({ canDelete: true }),
+        expect.objectContaining({ canDelete: true }),
+      ]);
+    });
+
+    it('제3자는 타인 글을 수정·삭제할 수 없고 타인 댓글도 삭제할 수 없다', async () => {
+      const { repository } = buildRepository({
+        findDetailById: jest.fn().mockResolvedValue(post),
+      });
+
+      const result = await new BoardService(repository).getPostDetail(
+        syntheticProgramId,
+        syntheticPostId,
+        'cuid-synthetic-unrelated-user',
+        false,
+      );
+
+      expect(result).toMatchObject({ canEdit: false, canDelete: false });
+      expect(result.comments).toEqual([
+        expect.objectContaining({ canDelete: false }),
+        expect.objectContaining({ canDelete: false }),
+      ]);
     });
   });
 
@@ -142,7 +293,7 @@ describe('BoardService', () => {
     it('교직원이 쓰면 NOTICE로 만든다', async () => {
       // Given
       const { mocks, repository } = buildRepository({
-        create: jest.fn().mockResolvedValue({}),
+        create: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
       const service = new BoardService(repository);
 
@@ -165,7 +316,7 @@ describe('BoardService', () => {
     it('학생이 쓰면 QNA로 만든다', async () => {
       // Given
       const { mocks, repository } = buildRepository({
-        create: jest.fn().mockResolvedValue({}),
+        create: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
       const service = new BoardService(repository);
 
@@ -195,7 +346,7 @@ describe('BoardService', () => {
           programId: syntheticProgramId,
           authorId: syntheticAuthorId,
         }),
-        update: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
       const service = new BoardService(repository);
 

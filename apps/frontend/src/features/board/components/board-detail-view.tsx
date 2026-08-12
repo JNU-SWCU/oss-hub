@@ -223,23 +223,27 @@ export function BoardDetailContent({
                     {state.post.pinned ? '고정 해제' : '고정'}
                   </Button>
                 ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onToggleEdit}
-                >
-                  수정
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  disabled={deleteSubmitting}
-                  onClick={onDeletePost}
-                >
-                  {deleteSubmitting ? '삭제 중…' : '삭제'}
-                </Button>
+                {state.post.canEdit ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onToggleEdit}
+                  >
+                    수정
+                  </Button>
+                ) : null}
+                {state.post.canDelete ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={deleteSubmitting}
+                    onClick={onDeletePost}
+                  >
+                    {deleteSubmitting ? '삭제 중…' : '삭제'}
+                  </Button>
+                ) : null}
               </div>
             }
           />
@@ -287,15 +291,17 @@ export function BoardDetailContent({
                     <span className="tabular-nums text-xs text-muted-foreground">
                       {formatBoardDateTime(comment.createdAt)}
                     </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      disabled={deletingCommentId === comment.id}
-                      onClick={() => onDeleteComment(comment.id)}
-                    >
-                      삭제
-                    </Button>
+                    {comment.canDelete ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        disabled={deletingCommentId === comment.id}
+                        onClick={() => onDeleteComment(comment.id)}
+                      >
+                        삭제
+                      </Button>
+                    ) : null}
                   </div>
                 ))
               )}

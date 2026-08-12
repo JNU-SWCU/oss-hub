@@ -7,13 +7,16 @@ export type BoardAuthorRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 export interface BoardPostSummary {
   readonly id: string;
   readonly programId: string;
-  readonly authorId: string;
+  /** 로컬 검토 fixture 전용. 실제 API DTO는 사용자 id를 내보내지 않는다. */
+  readonly authorId?: string;
   readonly authorName?: string;
   readonly category: BoardPostCategory;
   readonly title: string;
   readonly pinned: boolean;
   readonly createdAt: string;
   readonly commentCount: number;
+  readonly canEdit?: boolean;
+  readonly canDelete?: boolean;
 }
 
 export interface BoardPostsPage {
@@ -26,17 +29,20 @@ export interface BoardPostsPage {
 export interface BoardComment {
   readonly id: string;
   readonly postId: string;
-  readonly authorId: string;
+  /** 로컬 검토 fixture 전용. 실제 API DTO는 사용자 id를 내보내지 않는다. */
+  readonly authorId?: string;
   readonly authorRole: BoardAuthorRole;
   readonly authorName?: string;
   readonly body: string;
   readonly createdAt: string;
+  readonly canDelete?: boolean;
 }
 
 export interface BoardPostDetail {
   readonly id: string;
   readonly programId: string;
-  readonly authorId: string;
+  /** 로컬 검토 fixture 전용. 실제 API DTO는 사용자 id를 내보내지 않는다. */
+  readonly authorId?: string;
   readonly authorName?: string;
   readonly category: BoardPostCategory;
   readonly title: string;
@@ -46,6 +52,8 @@ export interface BoardPostDetail {
   readonly updatedAt: string;
   readonly commentCount: number;
   readonly comments: readonly BoardComment[];
+  readonly canEdit?: boolean;
+  readonly canDelete?: boolean;
 }
 
 export interface BoardPostWriteInput {

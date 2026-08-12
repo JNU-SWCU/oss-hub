@@ -9,7 +9,6 @@ import type { BoardPostDetail } from '../types';
 const post: BoardPostDetail = {
   id: 'post-1',
   programId: 'program-1',
-  authorId: 'user-1',
   authorName: '합성 질문자',
   category: 'QNA',
   title: '제출 마감일 문의드립니다',
@@ -18,24 +17,26 @@ const post: BoardPostDetail = {
   createdAt: '2026-08-01T03:00:00.000Z',
   updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 2,
+  canEdit: true,
+  canDelete: true,
   comments: [
     {
       id: 'comment-staff',
       postId: 'post-1',
-      authorId: 'user-staff',
       authorRole: 'STAFF',
       authorName: '합성 교직원',
       body: '10월 17일 18시까지입니다.',
       createdAt: '2026-08-01T04:00:00.000Z',
+      canDelete: true,
     },
     {
       id: 'comment-student',
       postId: 'post-1',
-      authorId: 'user-student',
       authorRole: 'STUDENT',
       authorName: '합성 학생',
       body: '감사합니다.',
       createdAt: '2026-08-01T05:00:00.000Z',
+      canDelete: true,
     },
   ],
 };
@@ -174,11 +175,11 @@ describe('BoardDetailContent', () => {
                 {
                   id: 'comment-admin',
                   postId: 'post-1',
-                  authorId: 'user-admin',
                   authorRole: 'ADMIN',
                   authorName: '합성 관리자',
                   body: '플랫폼 운영 안내입니다.',
                   createdAt: '2026-08-01T06:00:00.000Z',
+                  canDelete: true,
                 },
               ],
             },
@@ -190,6 +191,74 @@ describe('BoardDetailContent', () => {
     expect(html).toContain('교직원');
     expect(html).not.toContain('aria-label="관리자 역할"');
     expect(html).not.toContain('>관리자<');
+  });
+
+  it('서버 권한 필드가 없는 제3자에게 수정·삭제 버튼을 숨긴다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: {
+            kind: 'ready',
+            post: {
+              ...post,
+              canEdit: false,
+              canDelete: false,
+              comments: post.comments.map((comment) => ({
+                ...comment,
+                canDelete: false,
+              })),
+            },
+          },
+        })}
+      />,
+    );
+    expect(html).not.toContain('>수정<');
+    expect(html).not.toContain('>삭제<');
+  });
+
+  it('작성자에게 자기 글 수정·삭제와 자기 댓글 삭제 버튼을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: {
+            kind: 'ready',
+            post: {
+              ...post,
+              canEdit: true,
+              canDelete: true,
+              comments: [
+                { ...post.comments[1]!, canDelete: true },
+              ],
+            },
+          },
+        })}
+      />,
+    );
+    expect(html).toContain('>수정<');
+    expect(html.match(/>삭제</g)).toHaveLength(2);
+  });
+
+  it('교직원에게 타인 글 수정은 숨기고 글·댓글 삭제만 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          isStaff: true,
+          state: {
+            kind: 'ready',
+            post: {
+              ...post,
+              canEdit: false,
+              canDelete: true,
+              comments: [
+                { ...post.comments[0]!, canDelete: true },
+              ],
+            },
+          },
+        })}
+      />,
+    );
+    expect(html).not.toContain('>수정<');
+    expect(html.match(/>삭제</g)).toHaveLength(2);
   });
 
   it('학생 뷰에는 고정 버튼이 없다', () => {

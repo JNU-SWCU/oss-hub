@@ -55,7 +55,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const post: BoardPostDetail = {
   id: 'post-1',
   programId: 'program-1',
-  authorId: 'user-1',
   authorName: '합성 질문자',
   category: 'QNA',
   title: '삭제할 합성 질문',
@@ -64,6 +63,8 @@ const post: BoardPostDetail = {
   createdAt: '2026-08-01T03:00:00.000Z',
   updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 0,
+  canEdit: true,
+  canDelete: true,
   comments: [],
 };
 
@@ -72,7 +73,6 @@ const pageWithPost: BoardPostsPage = {
     {
       id: post.id,
       programId: post.programId,
-      authorId: post.authorId,
       authorName: post.authorName,
       category: post.category,
       title: post.title,

@@ -20,16 +20,15 @@ export const BOARD_CATEGORY_BADGE_VARIANT: Readonly<
  * 글 작성자의 역할 라벨. `category`는 작성자 역할이 그대로 결정하므로(교직원→공지,
  * 학생→질문, `board.service.ts` `createPost`) 역산해 보여준다.
  *
- * 서버 `BoardPostResponseDto`/`BoardPostDetailResponseDto`는 `authorId`만 내려주고
- * 표시 이름(닉네임)을 응답에 담지 않는다 — 실명 대신 이 역할 라벨만 보여준다.
+ * 서버가 계산한 표시 이름과 함께 역할을 구분할 때 사용한다.
  */
 export function boardPostAuthorRoleLabel(category: BoardPostCategory): string {
   return category === 'NOTICE' ? '교직원' : '학생';
 }
 
 /**
- * 댓글 작성자 표시 이름 자리. 서버는 `authorId`만 주고 닉네임을 실지 않으므로
- * 공통 자리 표시만 둔다. 역할 구분은 `authorRole` 뱃지가 담당한다.
+ * 구 응답이나 로컬 fixture에 표시 이름이 없을 때 쓰는 자리 표시다.
+ * 역할 구분은 `authorRole` 뱃지가 담당한다.
  */
 export const BOARD_COMMENT_AUTHOR_LABEL = '참여자';
 

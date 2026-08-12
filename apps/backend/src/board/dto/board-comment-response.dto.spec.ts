@@ -17,9 +17,11 @@ describe('BoardCommentResponseDto', () => {
       authorRole: Role.STUDENT,
       authorName: '합성 학생',
       body: '학생 의견',
+      canDelete: true,
       createdAt,
     });
     expect(student.authorRole).toBe(Role.STUDENT);
+    expect(student).not.toHaveProperty('authorId');
 
     const staff = BoardCommentResponseDto.from({
       id: syntheticCommentId,
@@ -28,6 +30,7 @@ describe('BoardCommentResponseDto', () => {
       authorRole: Role.STAFF,
       authorName: '합성 교직원',
       body: '교직원 답변',
+      canDelete: false,
       createdAt,
     });
     expect(staff.authorRole).toBe(Role.STAFF);
@@ -39,6 +42,7 @@ describe('BoardCommentResponseDto', () => {
       authorRole: Role.ADMIN,
       authorName: '합성 관리자',
       body: '관리자 답변',
+      canDelete: true,
       createdAt,
     });
     expect(admin.authorRole).toBe(Role.ADMIN);
