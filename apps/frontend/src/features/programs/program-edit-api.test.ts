@@ -35,6 +35,7 @@ const editableProgram: EditableProgram = {
   },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
+  startAt: '2026-08-16T09:30:59.000Z',
   endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: false,
   notifyOnDeadline: false,
@@ -99,6 +100,7 @@ describe('program edit API', () => {
       category: 'OSS_CONTEST',
       applicationStartAt: '2026-08-01T00:00:00.000Z',
       applicationEndAt: '2026-08-15T00:00:00.000Z',
+      startAt: '2026-08-16T00:00:00.000Z',
       endAt: '2026-08-31T00:00:00.000Z',
       repositoryProvisioningEnabled: false,
       notifyOnDeadline: false,
@@ -115,6 +117,7 @@ describe('program edit API', () => {
       JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)),
     ).toMatchObject({
       category: 'OSS_CONTEST',
+      startAt: '2026-08-16T00:00:00.000Z',
       teamMinSize: 2,
       teamMaxSize: 4,
     });
@@ -171,6 +174,11 @@ describe('program edit API', () => {
               code: PROGRAM_EDIT_ERROR_CODES.INVALID_APPLICATION_PERIOD,
               message: '신청 종료일을 확인해 주세요.',
             },
+            {
+              field: 'startAt',
+              code: PROGRAM_EDIT_ERROR_CODES.VALIDATION_ERROR,
+              message: '운영 시작일을 확인해 주세요.',
+            },
           ],
         }),
         {
@@ -187,6 +195,7 @@ describe('program edit API', () => {
       category: editableProgram.category,
       applicationStartAt: editableProgram.applicationStartAt,
       applicationEndAt: editableProgram.applicationEndAt,
+      startAt: editableProgram.startAt ?? editableProgram.applicationEndAt,
       endAt: editableProgram.endAt,
       repositoryProvisioningEnabled:
         editableProgram.repositoryProvisioningEnabled,
@@ -201,6 +210,7 @@ describe('program edit API', () => {
     expect(mapProgramEditError(error)).toMatchObject({
       name: '프로그램명을 입력해 주세요.',
       period: '신청 종료일을 확인해 주세요.',
+      startAt: '운영 시작일을 확인해 주세요.',
     });
     expect(form.name).toBe('작성 중');
   });

@@ -23,6 +23,8 @@ export interface ProgramEditForm {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly startAt: string;
+  readonly originalStartAt: string;
   readonly endAt: string;
   /**
    * 종료일을 「미정」으로 둔다 — 켜져 있으면 `endAt` 입력은 비활성이고 저장 시
@@ -45,6 +47,7 @@ export type ProgramEditableField = Exclude<
   keyof ProgramEditForm,
   | 'originalApplicationStartAt'
   | 'originalApplicationEndAt'
+  | 'originalStartAt'
   | 'originalEndAt'
   | 'milestoneDueAts'
 >;
@@ -115,6 +118,8 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
     category: program.category,
     applicationStartAt: toDateTimeLocal(program.applicationStartAt),
     applicationEndAt: toDateTimeLocal(program.applicationEndAt),
+    startAt: toDateTimeLocal(program.startAt ?? program.applicationEndAt),
+    originalStartAt: program.startAt ?? program.applicationEndAt,
     endAt: endAtUndecided ? '' : toDateTimeLocal(program.endAt as string),
     endAtUndecided,
     originalApplicationStartAt: program.applicationStartAt,
@@ -168,6 +173,9 @@ export function buildProgramEditInput(
   const applicationEndAt = dirtyFields.includes('applicationEndAt')
     ? toIsoString(form.applicationEndAt)
     : form.originalApplicationEndAt;
+  const startAt = dirtyFields.includes('startAt')
+    ? toIsoString(form.startAt)
+    : form.originalStartAt;
   /**
    * 「미정」이면 날짜 칸을 보지 않고 센티널로 되돌린다 — 폼에서 비어 있는 것과
    * 「미정」은 다른 뜻이다. 비어 있는 것은 아직 고르지 않은 상태이고, 아래 분기가
@@ -205,6 +213,7 @@ export function buildProgramEditInput(
       ? toIsoString(form.applicationStartAt)
       : form.originalApplicationStartAt,
     applicationEndAt,
+    startAt,
     endAt,
     repositoryProvisioningEnabled: form.repositoryProvisioningEnabled,
     notifyOnDeadline: form.notifyOnDeadline,
