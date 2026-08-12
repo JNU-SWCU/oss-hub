@@ -63,8 +63,11 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
           </span>
         </div>
         <p className="text-sm text-muted-foreground [word-break:keep-all]">
-          낼 서류 {count.total}건 중 {count.submitted}건 제출 — 마일스톤별로
-          모아 보고 이 자리에서 바로 냅니다.
+          낼 서류 {count.total}건 중 {count.submitted}건 제출
+          {count.revisionNeeded > 0
+            ? ` · 보완 필요 ${count.revisionNeeded}건`
+            : ''}{' '}
+          — 마일스톤별로 모아 보고 이 자리에서 바로 냅니다.
         </p>
       </header>
       {props.toastMessage ? (

@@ -8,6 +8,7 @@ import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-fil
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_VARIANTS,
+  isRevisionNeeded,
 } from '../submission-checklist';
 import type {
   SubmissionFormErrors,
@@ -56,7 +57,7 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
     );
   }
   const submission = item.submission;
-  if (submission.canResubmit) {
+  if (isRevisionNeeded(submission)) {
     return <ResubmissionForm {...props} submission={submission} />;
   }
   switch (submission.status) {
