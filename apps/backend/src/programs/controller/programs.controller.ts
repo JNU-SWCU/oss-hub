@@ -131,10 +131,7 @@ export class ProgramsController {
   /** ADMIN 전용 전체 삭제 — 연결 자식 행은 명시 순서로 정리하고 파일은 worker에 위임한다. */
   @Delete(':id/purge')
   @UseGuards(SessionGuard, OriginGuard)
-  purge(
-    @Param('id') programId: string,
-    @Req() request: SessionIdentity,
-  ) {
+  purge(@Param('id') programId: string, @Req() request: SessionIdentity) {
     return this.lifecycle.purge(request.sessionGithubId, programId);
   }
 

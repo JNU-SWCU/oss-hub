@@ -40,9 +40,7 @@ describe('ProgramPurgeFileCleanupService', () => {
       now: START,
       leaseExpiresAt: new Date('2026-08-12T00:10:00.000Z'),
     });
-    expect(storage.delete).toHaveBeenCalledWith(
-      'program-authoring/template-1',
-    );
+    expect(storage.delete).toHaveBeenCalledWith('program-authoring/template-1');
     expect(repository.markDeleted).toHaveBeenCalledWith(
       'tombstone-1',
       'claim-owner',
