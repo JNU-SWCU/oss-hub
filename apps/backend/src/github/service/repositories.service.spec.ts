@@ -149,6 +149,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       {
         repositoryId: null,
         applicationId: 'synthetic-application',
+        connectionMode: RepositoryConnectionMode.NEW,
         applicationMode: 'PERSONAL',
         programName: 'Synthetic program',
         displayName: 'synthetic-applicant',
@@ -163,6 +164,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       {
         repositoryId: 'synthetic-completed-repository',
         applicationId: 'synthetic-team-application',
+        connectionMode: RepositoryConnectionMode.NEW,
         applicationMode: 'TEAM',
         programName: 'Team program',
         displayName: 'Synthetic team',
@@ -216,6 +218,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       {
         repositoryId: 'synthetic-own-repository',
         applicationId: 'synthetic-own-application',
+        connectionMode: RepositoryConnectionMode.OWN,
         applicationMode: 'PERSONAL',
         programName: 'Synthetic program',
         displayName: 'synthetic-applicant',

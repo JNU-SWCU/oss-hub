@@ -8,6 +8,7 @@ export type RepositoryInvitationStatusDto =
 
 export interface OwnedRepositoryProjectionDto {
   readonly applicationId: string;
+  readonly connectionMode: 'NEW' | 'OWN';
   readonly repositoryName: string | null;
   readonly githubUrl: string | null;
   readonly provisionStatus: RepositoryProvisionStatusDto;

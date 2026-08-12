@@ -87,16 +87,18 @@ function isSafeGithubUrl(value: string, repositoryName: string): boolean {
   try {
     const url = new URL(value);
     const pathSegments = url.pathname.split('/').filter(Boolean);
+    const owner = pathSegments[0];
     return (
-      value === `https://github.com/JNU-SWCU/${repositoryName}` &&
       url.origin === 'https://github.com' &&
       url.username === '' &&
       url.password === '' &&
       url.search === '' &&
       url.hash === '' &&
       pathSegments.length === 2 &&
-      pathSegments[0] === 'JNU-SWCU' &&
-      pathSegments[1] === repositoryName
+      owner !== undefined &&
+      /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner) &&
+      pathSegments[1] === repositoryName &&
+      value === `https://github.com/${owner}/${repositoryName}`
     );
   } catch {
     return false;
@@ -122,7 +124,6 @@ function isRepository(
   return (
     isNonEmptyString(value.repositoryName) &&
     isNonEmptyString(value.githubUrl) &&
-    value.invitationStatus !== null &&
     isSafeGithubUrl(value.githubUrl, value.repositoryName)
   );
 }
