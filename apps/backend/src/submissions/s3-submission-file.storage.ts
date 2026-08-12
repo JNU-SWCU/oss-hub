@@ -12,7 +12,10 @@ import {
   sanitizeSubmissionFileOriginalName,
 } from './submission-file-name';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
-import type { StoredObjectMetadata } from './storage-orphan-reconciliation';
+import {
+  KNOWN_STORAGE_PREFIXES,
+  type StoredObjectMetadata,
+} from './storage-orphan-reconciliation';
 import {
   SUBMISSION_FILE_STORAGE_ERROR_CODES,
   type StoreSubmissionFileInput,
@@ -82,45 +85,65 @@ export class S3SubmissionFileStorage implements SubmissionFileStoragePort {
   async listObjects(): Promise<readonly StoredObjectMetadata[]> {
     const { client, bucket } = this.requireClient();
     const objects: StoredObjectMetadata[] = [];
-    const seenContinuationTokens = new Set<string>();
-    let continuationToken: string | undefined;
     try {
-      do {
-        const result = (await client.send(
-          new ListObjectsV2Command({
-            Bucket: bucket,
-            ContinuationToken: continuationToken,
-          }),
-          { abortSignal: AbortSignal.timeout(STORAGE_LIST_REQUEST_TIMEOUT_MS) },
-        )) as {
-          Contents?: Array<{ Key?: string; LastModified?: Date }>;
-          IsTruncated?: boolean;
-          NextContinuationToken?: string;
-        };
-        for (const object of result.Contents ?? []) {
-          if (!object.Key || object.LastModified === undefined) {
-            throw new Error('incomplete storage object metadata');
-          }
-          objects.push({ key: object.Key, lastModified: object.LastModified });
-        }
-        const nextToken = result.IsTruncated
-          ? result.NextContinuationToken
-          : undefined;
-        if (
-          result.IsTruncated &&
-          (!nextToken || seenContinuationTokens.has(nextToken))
-        ) {
-          throw new Error('invalid storage listing continuation');
-        }
-        if (nextToken) seenContinuationTokens.add(nextToken);
-        continuationToken = nextToken;
-      } while (continuationToken !== undefined);
+      // 이 메서드의 유일 호출자는 orphan reconciliation이다. 버킷 전체가 아니라
+      // 이 CLI가 소유하는 prefix에만 listing을 scope해야, 같은 버킷을 공유하는
+      // 다른 서브시스템(다른 통합 테스트 스위트 등)의 객체가 안전 가드를 오작동으로
+      // 트리거하지 않는다. prefix 내부의 미지 key는 여전히 나열되어
+      // assertKnownObjects가 중단시킨다.
+      for (const prefix of KNOWN_STORAGE_PREFIXES) {
+        objects.push(
+          ...(await this.listObjectsByPrefix(client, bucket, prefix)),
+        );
+      }
       return objects;
     } catch {
       throw new SubmissionFileStorageError(
         SUBMISSION_FILE_STORAGE_ERROR_CODES.LIST_FAILED,
       );
     }
+  }
+
+  private async listObjectsByPrefix(
+    client: SubmissionFileS3Client,
+    bucket: string,
+    prefix: string,
+  ): Promise<readonly StoredObjectMetadata[]> {
+    const objects: StoredObjectMetadata[] = [];
+    const seenContinuationTokens = new Set<string>();
+    let continuationToken: string | undefined;
+    do {
+      const result = (await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+        { abortSignal: AbortSignal.timeout(STORAGE_LIST_REQUEST_TIMEOUT_MS) },
+      )) as {
+        Contents?: Array<{ Key?: string; LastModified?: Date }>;
+        IsTruncated?: boolean;
+        NextContinuationToken?: string;
+      };
+      for (const object of result.Contents ?? []) {
+        if (!object.Key || object.LastModified === undefined) {
+          throw new Error('incomplete storage object metadata');
+        }
+        objects.push({ key: object.Key, lastModified: object.LastModified });
+      }
+      const nextToken = result.IsTruncated
+        ? result.NextContinuationToken
+        : undefined;
+      if (
+        result.IsTruncated &&
+        (!nextToken || seenContinuationTokens.has(nextToken))
+      ) {
+        throw new Error('invalid storage listing continuation');
+      }
+      if (nextToken) seenContinuationTokens.add(nextToken);
+      continuationToken = nextToken;
+    } while (continuationToken !== undefined);
+    return objects;
   }
 
   async delete(objectKey: string): Promise<void> {

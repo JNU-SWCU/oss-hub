@@ -17,11 +17,15 @@ const DOCUMENT_ID = `${FIXTURE_PREFIX}-document`;
 const SUBMISSION_FILE_ID = `${FIXTURE_PREFIX}-submission-file`;
 const AUTHORING_UPLOAD_ID = `${FIXTURE_PREFIX}-authoring-upload`;
 const TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-template-file`;
+const PENDING_TOMBSTONE_ID = `${FIXTURE_PREFIX}-pending-tombstone`;
+const DELETED_TOMBSTONE_ID = `${FIXTURE_PREFIX}-deleted-tombstone`;
 
 const KEYS = {
   liveSubmission: `submission-files/${FIXTURE_PREFIX}-live-submission`,
   liveAuthoring: `program-authoring/${FIXTURE_PREFIX}-live-authoring`,
   liveTemplate: `submission-files/${FIXTURE_PREFIX}-live-template`,
+  pendingTombstone: `submission-files/${FIXTURE_PREFIX}-pending-tombstone`,
+  deletedTombstone: `submission-files/${FIXTURE_PREFIX}-deleted-tombstone`,
   orphan: `submission-files/${FIXTURE_PREFIX}-orphan`,
   dbFailure: `submission-files/${FIXTURE_PREFIX}-db-failure`,
   concurrent: `submission-files/${FIXTURE_PREFIX}-concurrent`,
@@ -64,6 +68,9 @@ async function putObject(key: string): Promise<void> {
 
 async function clearFixture(): Promise<void> {
   await Promise.all(Object.values(KEYS).map((key) => storage.delete(key)));
+  await prisma.programPurgeFileTombstone.deleteMany({
+    where: { id: { in: [PENDING_TOMBSTONE_ID, DELETED_TOMBSTONE_ID] } },
+  });
   await prisma.milestoneDocumentTemplateFile.deleteMany({
     where: { id: TEMPLATE_FILE_ID },
   });
@@ -167,6 +174,27 @@ async function installLiveFixture(): Promise<void> {
   );
 }
 
+async function installTombstoneFixture(): Promise<void> {
+  await prisma.programPurgeFileTombstone.create({
+    data: {
+      id: PENDING_TOMBSTONE_ID,
+      storageKey: KEYS.pendingTombstone,
+      lifecycle: 'DELETE_PENDING',
+    },
+  });
+  await prisma.programPurgeFileTombstone.create({
+    data: {
+      id: DELETED_TOMBSTONE_ID,
+      storageKey: KEYS.deletedTombstone,
+      lifecycle: 'DELETED',
+      deletedAt: new Date('2026-01-01T00:00:00.000Z'),
+    },
+  });
+  await Promise.all(
+    [KEYS.pendingTombstone, KEYS.deletedTombstone].map(putObject),
+  );
+}
+
 describe('storage orphan reconciliation integration', () => {
   beforeAll(async () => {
     if (process.env.OSS_HUB_INTEGRATION_RUNNER !== INTEGRATION_SENTINEL) {
@@ -204,6 +232,28 @@ describe('storage orphan reconciliation integration', () => {
     await expect(objectExists(KEYS.liveSubmission)).resolves.toBe(true);
     await expect(objectExists(KEYS.liveAuthoring)).resolves.toBe(true);
     await expect(objectExists(KEYS.liveTemplate)).resolves.toBe(true);
+  });
+
+  it('DELETE_PENDING tombstone 객체는 고아로 보고되지 않고, DELETED로 finalize된 tombstone 객체는 고아로 보고된다', async () => {
+    await installTombstoneFixture();
+    const futureRunStart = new Date(Date.now() + 2 * 60 * 60 * 1_000);
+    const service = new StorageOrphanReconciliationService(
+      new PrismaStorageReferenceRepository(prisma),
+      storage,
+      () => futureRunStart,
+    );
+
+    const pendingReport = await service.reconcile({ mode: 'report' });
+    expect(pendingReport.orphanKeys).not.toContain(KEYS.pendingTombstone);
+    expect(pendingReport.orphanKeys).toContain(KEYS.deletedTombstone);
+
+    await prisma.programPurgeFileTombstone.update({
+      where: { id: PENDING_TOMBSTONE_ID },
+      data: { lifecycle: 'DELETED', deletedAt: futureRunStart },
+    });
+
+    const finalizedReport = await service.reconcile({ mode: 'report' });
+    expect(finalizedReport.orphanKeys).toContain(KEYS.pendingTombstone);
   });
 
   it('실행 중 업로드는 cutoff 이후 객체로 분류되어 삭제되지 않는다', async () => {

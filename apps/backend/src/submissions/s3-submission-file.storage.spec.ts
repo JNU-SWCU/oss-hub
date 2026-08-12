@@ -98,9 +98,10 @@ describe('S3SubmissionFileStorage', () => {
     });
   });
 
-  it('버킷 객체를 bounded pagination으로 빠짐없이 나열한다', async () => {
+  it('버킷 전체가 아니라 소유 prefix별로 bounded pagination을 수행해 빠짐없이 나열한다', async () => {
     const firstModified = new Date('2026-08-12T00:00:00.000Z');
     const secondModified = new Date('2026-08-12T01:00:00.000Z');
+    const thirdModified = new Date('2026-08-12T02:00:00.000Z');
     const send = jest
       .fn<
         ReturnType<SubmissionFileS3Client['send']>,
@@ -115,7 +116,13 @@ describe('S3SubmissionFileStorage', () => {
       })
       .mockResolvedValueOnce({
         Contents: [
-          { Key: 'program-authoring/two', LastModified: secondModified },
+          { Key: 'submission-files/two', LastModified: secondModified },
+        ],
+        IsTruncated: false,
+      })
+      .mockResolvedValueOnce({
+        Contents: [
+          { Key: 'program-authoring/three', LastModified: thirdModified },
         ],
         IsTruncated: false,
       });
@@ -123,24 +130,34 @@ describe('S3SubmissionFileStorage', () => {
 
     await expect(storage.listObjects()).resolves.toEqual([
       { key: 'submission-files/one', lastModified: firstModified },
-      { key: 'program-authoring/two', lastModified: secondModified },
+      { key: 'submission-files/two', lastModified: secondModified },
+      { key: 'program-authoring/three', lastModified: thirdModified },
     ]);
-    expect(send).toHaveBeenCalledTimes(2);
-    const firstCommand = send.mock.calls[0]?.[0];
-    const secondCommand = send.mock.calls[1]?.[0];
+    expect(send).toHaveBeenCalledTimes(3);
+    const [firstCommand, secondCommand, thirdCommand] = send.mock.calls.map(
+      (call) => call[0],
+    );
     if (
       !(firstCommand instanceof ListObjectsV2Command) ||
-      !(secondCommand instanceof ListObjectsV2Command)
+      !(secondCommand instanceof ListObjectsV2Command) ||
+      !(thirdCommand instanceof ListObjectsV2Command)
     ) {
       throw new Error('Expected ListObjectsV2Command pagination');
     }
     expect(firstCommand.input).toEqual({
       Bucket: settings.bucket,
+      Prefix: 'submission-files/',
       ContinuationToken: undefined,
     });
     expect(secondCommand.input).toEqual({
       Bucket: settings.bucket,
+      Prefix: 'submission-files/',
       ContinuationToken: 'next-page',
+    });
+    expect(thirdCommand.input).toEqual({
+      Bucket: settings.bucket,
+      Prefix: 'program-authoring/',
+      ContinuationToken: undefined,
     });
     expect(send.mock.calls[0]?.[1]?.abortSignal).toBeInstanceOf(AbortSignal);
   });

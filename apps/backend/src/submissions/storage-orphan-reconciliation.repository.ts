@@ -1,6 +1,7 @@
 import {
   PrismaClient,
   ProgramAuthoringUploadLifecycle,
+  ProgramPurgeFileTombstoneLifecycle,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import type { StorageReferenceRepository } from './storage-orphan-reconciliation';
@@ -13,6 +14,7 @@ export const STORAGE_KEY_OWNERS = [
   'SubmissionFile',
   'ProgramAuthoringUpload',
   'MilestoneDocumentTemplateFile',
+  'ProgramPurgeFileTombstone',
 ] as const;
 
 export class PrismaStorageReferenceRepository implements StorageReferenceRepository {
@@ -20,7 +22,7 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
 
   async loadLiveKeys(): Promise<ReadonlySet<string>> {
     await this.prisma.$connect();
-    const [submissionFiles, authoringUploads, templateFiles] =
+    const [submissionFiles, authoringUploads, templateFiles, purgeTombstones] =
       await Promise.all([
         this.prisma.submissionFile.findMany({
           where: { lifecycle: { not: SubmissionFileLifecycle.DELETED } },
@@ -35,40 +37,58 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
         this.prisma.milestoneDocumentTemplateFile.findMany({
           select: { storageKey: true },
         }),
+        this.prisma.programPurgeFileTombstone.findMany({
+          where: {
+            lifecycle: { not: ProgramPurgeFileTombstoneLifecycle.DELETED },
+          },
+          select: { storageKey: true },
+        }),
       ]);
 
     return new Set(
-      [...submissionFiles, ...authoringUploads, ...templateFiles].map(
-        ({ storageKey }) => storageKey,
-      ),
+      [
+        ...submissionFiles,
+        ...authoringUploads,
+        ...templateFiles,
+        ...purgeTombstones,
+      ].map(({ storageKey }) => storageKey),
     );
   }
 
   async isLiveKey(key: string): Promise<boolean> {
-    const [submissionFile, authoringUpload, templateFile] = await Promise.all([
-      this.prisma.submissionFile.findFirst({
-        where: {
-          storageKey: key,
-          lifecycle: { not: SubmissionFileLifecycle.DELETED },
-        },
-        select: { id: true },
-      }),
-      this.prisma.programAuthoringUpload.findFirst({
-        where: {
-          storageKey: key,
-          lifecycle: { not: ProgramAuthoringUploadLifecycle.DELETED },
-        },
-        select: { id: true },
-      }),
-      this.prisma.milestoneDocumentTemplateFile.findFirst({
-        where: { storageKey: key },
-        select: { id: true },
-      }),
-    ]);
+    const [submissionFile, authoringUpload, templateFile, purgeTombstone] =
+      await Promise.all([
+        this.prisma.submissionFile.findFirst({
+          where: {
+            storageKey: key,
+            lifecycle: { not: SubmissionFileLifecycle.DELETED },
+          },
+          select: { id: true },
+        }),
+        this.prisma.programAuthoringUpload.findFirst({
+          where: {
+            storageKey: key,
+            lifecycle: { not: ProgramAuthoringUploadLifecycle.DELETED },
+          },
+          select: { id: true },
+        }),
+        this.prisma.milestoneDocumentTemplateFile.findFirst({
+          where: { storageKey: key },
+          select: { id: true },
+        }),
+        this.prisma.programPurgeFileTombstone.findFirst({
+          where: {
+            storageKey: key,
+            lifecycle: { not: ProgramPurgeFileTombstoneLifecycle.DELETED },
+          },
+          select: { id: true },
+        }),
+      ]);
     return (
       submissionFile !== null ||
       authoringUpload !== null ||
-      templateFile !== null
+      templateFile !== null ||
+      purgeTombstone !== null
     );
   }
 }
