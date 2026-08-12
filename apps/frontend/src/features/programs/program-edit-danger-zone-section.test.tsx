@@ -126,6 +126,52 @@ describe('ProgramEditDangerZoneSection', () => {
     ).toBe('destructive');
   });
 
+  it('deletionProtected가 true면 두 삭제 경로와 범위 조회를 막고 한국어 설명을 보여준다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+          deletionProtected
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('삭제 보호된 프로그램입니다');
+    expect(container.textContent).toContain(
+      '이 프로그램은 삭제 보호가 설정되어 관리자도 삭제하거나 전체 삭제할 수 없습니다.',
+    );
+    expect(getButton('삭제').disabled).toBe(true);
+    expect(getButton('연결 데이터까지 모두 삭제').disabled).toBe(true);
+
+    await act(async () => {
+      getButton('삭제').click();
+      getButton('연결 데이터까지 모두 삭제').click();
+    });
+
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(deleteProgramMock).not.toHaveBeenCalled();
+    expect(getEditableProgramMock).not.toHaveBeenCalled();
+    expect(purgeProgramMock).not.toHaveBeenCalled();
+  });
+
+  it('deletionProtected가 false(기본값)면 삭제 버튼 둘 다 활성 상태를 유지한다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+
+    expect(container.textContent).not.toContain('삭제 보호된 프로그램입니다');
+    expect(getButton('삭제').disabled).toBe(false);
+    expect(getButton('연결 데이터까지 모두 삭제').disabled).toBe(false);
+  });
+
   it('409 차단 사유는 유지하고 전체 삭제 범위는 새로 읽는다', async () => {
     getEditableProgramMock.mockResolvedValue({
       deletionScopeCounts: {

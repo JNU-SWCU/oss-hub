@@ -26,6 +26,9 @@ interface ProgramEditDangerZoneSectionProps {
   readonly programId: string;
   readonly programName: string;
   readonly isAdmin: boolean;
+  /** true면 이 프로그램은 서버가 삭제·전체 삭제 둘 다 거부한다(F2 finding #1) — ADMIN이어도
+   * API로 우회할 수 없으므로 버튼 자체를 비활성화한다. */
+  readonly deletionProtected?: boolean;
   /** 삭제 완료 후 목록으로 이동하면서 전달할 확인 문구. */
   readonly onDeleted?: (notice?: string) => void;
 }
@@ -62,6 +65,7 @@ export function ProgramEditDangerZoneSection({
   programId,
   programName,
   isAdmin,
+  deletionProtected = false,
   onDeleted = (notice) =>
     window.location.assign(
       notice ? `/programs?purged=${encodeURIComponent(notice)}` : '/programs',
@@ -203,10 +207,20 @@ export function ProgramEditDangerZoneSection({
         일반 삭제는 연결된 데이터가 없을 때만 가능합니다. 연결 데이터를 포함한
         삭제는 되돌릴 수 없습니다.
       </p>
+      {deletionProtected ? (
+        <Alert>
+          <AlertTitle>삭제 보호된 프로그램입니다</AlertTitle>
+          <AlertDescription>
+            이 프로그램은 삭제 보호가 설정되어 관리자도 삭제하거나 전체 삭제할
+            수 없습니다.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           type="button"
           variant="destructive"
+          disabled={deletionProtected}
           onClick={() => open('delete')}
         >
           삭제
@@ -214,6 +228,7 @@ export function ProgramEditDangerZoneSection({
         <Button
           type="button"
           variant="destructive"
+          disabled={deletionProtected}
           onClick={() => open('purge')}
         >
           연결 데이터까지 모두 삭제
