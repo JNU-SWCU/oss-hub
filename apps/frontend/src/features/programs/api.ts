@@ -97,6 +97,7 @@ export interface CreatedProgram {
 export interface EditableMilestone {
   readonly id: string;
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
   readonly submissionType: SubmissionType;
   readonly instructions: string | null;
@@ -137,6 +138,7 @@ export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
 
 export interface UpsertMilestoneInput {
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
   readonly submissionType: SubmissionType;
   readonly instructions: string | null;

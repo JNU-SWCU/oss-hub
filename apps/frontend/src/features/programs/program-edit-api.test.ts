@@ -120,12 +120,13 @@ describe('program edit API', () => {
     });
   });
 
-  it('keeps milestone mutations on canonical id endpoints', async () => {
+  it('keeps milestone mutations on canonical id endpoints and serializes startAt', async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(jsonResponse({ id: 'milestone-1' })),
     );
     const input = {
       name: 'Final',
+      startAt: '2026-08-16T00:00:00.000Z',
       dueAt: '2026-08-20T00:00:00.000Z',
       submissionType: 'TEXT' as const,
       instructions: 'tag',
@@ -140,6 +141,9 @@ describe('program edit API', () => {
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       apiPath('milestones/milestone-1'),
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toMatchObject(
+      { startAt: input.startAt },
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       apiPath('milestones/milestone-1'),

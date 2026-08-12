@@ -71,6 +71,7 @@ const BASIC_MILESTONES = [
   {
     id: 'milestone-basic-orientation',
     name: '합성 오리엔테이션 회고',
+    startAt: '2026-05-01T00:00:00.000Z',
     dueAt: '2026-05-15T14:59:59.000Z',
     submissionType: 'TEXT',
     instructions:
@@ -79,6 +80,7 @@ const BASIC_MILESTONES = [
   {
     id: 'milestone-basic-final',
     name: '합성 최종 실습 결과',
+    startAt: '2026-06-01T00:00:00.000Z',
     dueAt: '2026-06-30T14:59:59.000Z',
     submissionType: 'TEXT',
     instructions: null,
@@ -305,6 +307,7 @@ const CAPSTONE_MILESTONES = [
   {
     id: 'milestones-approved',
     name: '기획서 제출',
+    startAt: '2026-07-01T00:00:00.000Z',
     dueAt: '2026-07-15T14:59:59.000Z',
     submissionType: 'FILE',
     instructions: '[로컬 검토용] 합성 안내 문구입니다.',
@@ -312,6 +315,7 @@ const CAPSTONE_MILESTONES = [
   {
     id: 'milestones-upcoming',
     name: '중간 보고',
+    startAt: '2026-07-16T00:00:00.000Z',
     dueAt: '2026-07-26T14:59:59.000Z',
     submissionType: 'TEXT',
     instructions: null,
@@ -319,6 +323,7 @@ const CAPSTONE_MILESTONES = [
   {
     id: 'milestones-revision',
     name: '최종 결과 요약',
+    startAt: '2026-07-27T00:00:00.000Z',
     dueAt: '2026-08-10T14:59:59.000Z',
     submissionType: 'TEXT',
     instructions: null,
@@ -359,6 +364,7 @@ const CONTEST_MILESTONES = [
   {
     id: 'milestones-overdue',
     name: '예선 결과물',
+    startAt: '2026-07-01T00:00:00.000Z',
     dueAt: '2026-07-20T14:59:59.000Z',
     submissionType: 'TEXT',
     instructions: '[로컬 검토용] 합성 안내 문구입니다.',
@@ -366,6 +372,7 @@ const CONTEST_MILESTONES = [
   {
     id: 'milestones-contest-final',
     name: '본선 발표 자료',
+    startAt: '2026-07-21T00:00:00.000Z',
     dueAt: '2026-08-08T14:59:59.000Z',
     submissionType: 'FILE',
     instructions: null,

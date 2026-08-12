@@ -54,6 +54,7 @@ export interface ProgramEditErrors {
   readonly organizer?: string;
   readonly category?: string;
   readonly period?: string;
+  readonly startAt?: string;
   readonly endAt?: string;
   readonly team?: string;
   readonly description?: string;
@@ -63,7 +64,9 @@ export interface ProgramEditErrors {
 export interface ProgramMilestoneForm {
   readonly id: string | null;
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
+  readonly originalStartAt: string | null;
   readonly originalDueAt: string | null;
   readonly submissionType: SubmissionType;
   readonly instructions: string;
@@ -71,11 +74,12 @@ export interface ProgramMilestoneForm {
 
 export type ProgramMilestoneField = Exclude<
   keyof ProgramMilestoneForm,
-  'id' | 'originalDueAt'
+  'id' | 'originalStartAt' | 'originalDueAt'
 >;
 
 export interface ProgramMilestoneErrors {
   readonly name?: string;
+  readonly startAt?: string;
   readonly dueAt?: string;
   readonly instructions?: string;
   readonly general?: string;
@@ -131,7 +135,9 @@ export function toMilestoneForm(
   return {
     id: milestone.id,
     name: milestone.name,
+    startAt: toDateTimeLocal(milestone.startAt),
     dueAt: toDateTimeLocal(milestone.dueAt),
+    originalStartAt: milestone.startAt,
     originalDueAt: milestone.dueAt,
     submissionType: milestone.submissionType,
     instructions: milestone.instructions ?? '',
@@ -142,7 +148,9 @@ export function emptyMilestoneForm(): ProgramMilestoneForm {
   return {
     id: null,
     name: '',
+    startAt: '',
     dueAt: '',
+    originalStartAt: null,
     originalDueAt: null,
     submissionType: DEFAULT_MILESTONE_TYPE,
     instructions: '',
@@ -212,6 +220,10 @@ export function buildMilestoneInput(
 ): UpsertMilestoneInput {
   return {
     name: form.name.trim(),
+    startAt:
+      dirtyFields.includes('startAt') || form.originalStartAt === null
+        ? toIsoString(form.startAt)
+        : form.originalStartAt,
     dueAt:
       dirtyFields.includes('dueAt') || form.originalDueAt === null
         ? toIsoString(form.dueAt)
@@ -317,6 +329,7 @@ function mapProblemFieldErrors(
     organizer?: string;
     category?: string;
     period?: string;
+    startAt?: string;
     team?: string;
     description?: string;
     endAt?: string;
@@ -337,6 +350,9 @@ function mapProblemFieldErrors(
       case 'applicationStartAt':
       case 'applicationEndAt':
         errors.period = fieldError.message;
+        break;
+      case 'startAt':
+        errors.startAt = fieldError.message;
         break;
       case 'endAt':
         errors.endAt = fieldError.message;
