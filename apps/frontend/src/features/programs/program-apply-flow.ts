@@ -179,10 +179,16 @@ export function applyActionFailureMessage(action: ProgramApplyAction): string {
 export function mapApplyProblemFieldErrors(
   fieldErrors: readonly ProblemDetailFieldError[] | undefined,
 ): ProgramApplyFormErrors {
-  const errors: { title?: string; summary?: string } = {};
+  const errors: {
+    title?: string;
+    summary?: string;
+    repositoryUrl?: string;
+  } = {};
   for (const fieldError of fieldErrors ?? []) {
     if (fieldError.field === 'title') errors.title = fieldError.message;
     if (fieldError.field === 'summary') errors.summary = fieldError.message;
+    if (fieldError.field === 'repositoryUrl')
+      errors.repositoryUrl = fieldError.message;
   }
   return errors;
 }
@@ -221,6 +227,10 @@ export function mapCreateApplicationError(
       return '이미 제출한 신청이 있습니다.';
     case 'APP_022':
       return '연결할 저장소 주소를 확인해 주세요.';
+    case 'APP_027':
+      // 칸별 안내는 `mapApplyProblemFieldErrors` 가 그 칸으로 옮긴다.
+      // 여기 문구는 칸을 하나도 못 옮겼을 때의 마지막 안전망이다.
+      return '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.';
     case 'APP_019':
       return '팀 최소 인원을 충족한 뒤 신청해 주세요.';
     case 'APP_015':

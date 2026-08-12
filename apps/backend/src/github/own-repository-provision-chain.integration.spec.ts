@@ -28,6 +28,7 @@ import { RepositoryProvisionStateRepository } from './repository/repository-prov
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
+import { OwnRepositoryUrlValidationService } from './service/own-repository-url-validation.service';
 
 // allow: SIZE_OK — OWN 저장소 승인→편입 사슬이 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
@@ -62,14 +63,33 @@ const NO_CONSENT_APPLICANT_ID = 'synthetic-own-chain-no-consent-applicant';
 const NO_CONSENT_APPLICANT_GITHUB_ID = 8_400_000_000_004n;
 const ORG_OWN_APPLICANT_ID = 'synthetic-own-chain-org-applicant';
 const ORG_OWN_APPLICANT_GITHUB_ID = 8_400_000_000_005n;
+// #9 QA econovation 배치 — 제출 시점 URL 사전 검증 감사용 신청자.
+const PRECHECK_APPLICANT_ID = 'synthetic-own-chain-precheck-applicant';
+const PRECHECK_APPLICANT_GITHUB_ID = 8_400_000_000_006n;
+// #9 QA econovation 배치 — 외부 ORGANIZATION이 소유한(Econovation식) 공개
+// repo를 자기 계정(nickname)과 다른 조직 이름으로 제출하는 신청자 — owner가
+// 신청자 자신의 개인 GitHub 계정이 아니라 제3자 org라는 점이 CHAIN_APPLICATION_ID
+// 시나리오(신청자 자신의 repo)와 갈린다.
+const ORG_OWNER_EXTERNAL_APPLICANT_ID =
+  'synthetic-own-chain-org-owner-external-applicant';
+const ORG_OWNER_EXTERNAL_APPLICANT_GITHUB_ID = 8_400_000_000_007n;
 
 const CHAIN_APPLICATION_ID = 'synthetic-own-chain-application';
 const NO_CONSENT_APPLICATION_ID = 'synthetic-own-chain-no-consent-application';
 const ORG_OWN_APPLICATION_ID = 'synthetic-own-chain-org-application';
+const PRECHECK_MISSING_APPLICATION_ID =
+  'synthetic-own-chain-precheck-missing-application';
+const PRECHECK_PRIVATE_APPLICATION_ID =
+  'synthetic-own-chain-precheck-private-application';
+const ORG_OWNER_EXTERNAL_APPLICATION_ID =
+  'synthetic-own-chain-org-owner-external-application';
 const APPLICATION_IDS = [
   CHAIN_APPLICATION_ID,
   NO_CONSENT_APPLICATION_ID,
   ORG_OWN_APPLICATION_ID,
+  PRECHECK_MISSING_APPLICATION_ID,
+  PRECHECK_PRIVATE_APPLICATION_ID,
+  ORG_OWNER_EXTERNAL_APPLICATION_ID,
 ] as const;
 
 const OWN_GITHUB_REPOSITORY_ID = 8_520_100_001n;
@@ -88,6 +108,15 @@ const ORG_OWN_ORGANIZATION = 'synthetic-own-chain-org';
 const ORG_GITHUB_REPOSITORY_ID = 8_520_100_003n;
 const ORG_OWN_NAME_WITH_OWNER = `${ORG_OWN_ORGANIZATION}/synthetic-own-chain-org-repo`;
 const ORG_OWN_REPOSITORY_URL = `https://github.com/${ORG_OWN_NAME_WITH_OWNER}`;
+
+// #9 QA econovation 배치 — 실제 계획의 Econovation 2026 외부 org 이름(JNU-econovation)을
+// 본뗐 시나리오로 쓴다 — 이 organization은 mock github client의 organization도,
+// 신청자의 nickname도 아닌 제3자라서 ORGANIZATION 경로(findRepository)가 아닌
+// EXTERNAL 경로(findPublicRepository)로만 판정된다.
+const ECONOVATION_ORGANIZATION = 'JNU-econovation';
+const ECONOVATION_GITHUB_REPOSITORY_ID = 8_520_100_004n;
+const ECONOVATION_NAME_WITH_OWNER = `${ECONOVATION_ORGANIZATION}/eco-knock-be-central`;
+const ECONOVATION_REPOSITORY_URL = `https://github.com/${ECONOVATION_NAME_WITH_OWNER}`;
 
 type ProvisionGithubClient = jest.Mocked<
   Pick<
@@ -138,6 +167,21 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           nickname: 'synthetic-own-chain-org-applicant',
           role: Role.STUDENT,
         },
+        {
+          id: PRECHECK_APPLICANT_ID,
+          githubId: PRECHECK_APPLICANT_GITHUB_ID,
+          nickname: 'synthetic-own-chain-precheck-applicant',
+          role: Role.STUDENT,
+        },
+        {
+          id: ORG_OWNER_EXTERNAL_APPLICANT_ID,
+          githubId: ORG_OWNER_EXTERNAL_APPLICANT_GITHUB_ID,
+          // 신청자의 개인 GitHub 계정(nickname)이 외부 org(ECONOVATION_ORGANIZATION)와
+          // 다르다는 것이 이 시나리오의 핵심이다 — repo owner는 신청자가 아니라
+          // 팀/대회 조직이다.
+          nickname: 'synthetic-own-chain-org-owner-external',
+          role: Role.STUDENT,
+        },
       ],
     });
     // 편입은 현재 동의를 요구한다(RepositoryOwnEnrollmentService) — 정책 버전은
@@ -148,6 +192,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     ).getCurrent(APPLICANT_GITHUB_ID);
     await prisma.consent.create({
       data: { userId: APPLICANT_ID, policyVersion: policy.policyVersion },
+    });
+    await prisma.consent.create({
+      data: {
+        userId: ORG_OWNER_EXTERNAL_APPLICANT_ID,
+        policyVersion: policy.policyVersion,
+      },
     });
     // NO_CONSENT_APPLICANT_ID는 의도적으로 동의 행을 만들지 않는다.
   });
@@ -160,6 +210,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
             OWN_GITHUB_REPOSITORY_ID,
             NO_CONSENT_GITHUB_REPOSITORY_ID,
             ORG_GITHUB_REPOSITORY_ID,
+            ECONOVATION_GITHUB_REPOSITORY_ID,
           ],
         },
       },
@@ -191,7 +242,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
   });
 
   afterAll(async () => {
-    await prisma.consent.deleteMany({ where: { userId: APPLICANT_ID } });
+    await prisma.consent.deleteMany({
+      where: {
+        userId: { in: [APPLICANT_ID, ORG_OWNER_EXTERNAL_APPLICANT_ID] },
+      },
+    });
     // #547 이후 판정이 AuditLog 행을 남긴다 — append-only 트리거가 삭제를 막고
     // actor를 FK(restrict)로 잡으므로 합성 사용자는 지우지 않는다. 통합 DB는
     // run마다 버려지는 컨테이너다.
@@ -302,6 +357,85 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       await expect(
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { applicationId: CHAIN_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      });
+    },
+  );
+
+  it(
+    'Econovation식 외부 ORGANIZATION이 소유한 공개 repo(신청자 개인 계정과 다른 owner)로 ' +
+      'OWN 지원 → 승인 → worker 편입까지 완주해 EXTERNAL_PUBLIC 행을 남긴다',
+    async () => {
+      // Given — repo owner(JNU-econovation)가 신청자의 GitHub 로그인·설정된
+      // 내부 org(synthetic-own-chain-org) 어느 쪽과도 다른 제3자 조직이다.
+      await createOwnApplication(
+        ORG_OWNER_EXTERNAL_APPLICATION_ID,
+        ORG_OWNER_EXTERNAL_APPLICANT_ID,
+        ECONOVATION_REPOSITORY_URL,
+      );
+
+      // When — 실 서비스로 승인 판정을 내린다.
+      const decision = await service.decide(
+        STAFF_ACTOR_ID,
+        ORG_OWNER_EXTERNAL_APPLICATION_ID,
+        STAFF_GITHUB_ID,
+        { action: 'APPROVE' },
+      );
+      expect(decision.kind).toBe('APPROVED');
+
+      // When — outbox를 job으로 소비한다.
+      await expect(
+        outbox.consumeNext(
+          'own-chain-org-owner-external-outbox-worker',
+          new Date(),
+        ),
+      ).resolves.toMatchObject({ kind: 'CONSUMED' });
+
+      // When — worker가 job을 처리한다. owner가 설정된 조직과 다르므로
+      // findPublicRepository(EXTERNAL 경로)만 호출되고 findRepository(ORGANIZATION
+      // 경로)는 호출되지 않는다.
+      const github = githubClient();
+      github.findPublicRepository.mockResolvedValue(
+        ownRepositoryMetadata(
+          ECONOVATION_GITHUB_REPOSITORY_ID,
+          ECONOVATION_NAME_WITH_OWNER,
+        ),
+      );
+      const worker = new RepositoryProvisionWorker(
+        jobs,
+        state,
+        github,
+        ownEnrollment(),
+      );
+      const result = await worker.runNext(
+        'own-chain-org-owner-external-provision-worker',
+        new Date(),
+      );
+
+      // Then — 외부 org 소유 공개 repo가 EXTERNAL_PUBLIC 수집 대상으로 등록된다
+      // (전역 랭킹·수집 스윕이 재사용하는 것과 같은 source 값).
+      expect(result.kind).toBe('SUCCEEDED');
+      expect(github.findRepository).not.toHaveBeenCalled();
+      expect(github.findPublicRepository).toHaveBeenCalledWith(
+        ECONOVATION_ORGANIZATION,
+        'eco-knock-be-central',
+      );
+      await expect(
+        prisma.githubRepository.findFirstOrThrow({
+          where: { githubRepositoryId: ECONOVATION_GITHUB_REPOSITORY_ID },
+        }),
+      ).resolves.toMatchObject({
+        source: 'EXTERNAL_PUBLIC',
+        nameWithOwner: ECONOVATION_NAME_WITH_OWNER,
+        defaultBranch: 'main',
+        presence: 'PRESENT',
+        applicationId: ORG_OWNER_EXTERNAL_APPLICATION_ID,
+      });
+      await expect(
+        prisma.repositoryProvisionJob.findUniqueOrThrow({
+          where: { applicationId: ORG_OWNER_EXTERNAL_APPLICATION_ID },
         }),
       ).resolves.toMatchObject({
         status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -446,6 +580,98 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       });
     },
   );
+  describe('제출 시점 URL 사전 검증 — 승인 시점 편입 판정과 같은 GitHub 경계 규칙을 재사용한다', () => {
+    it('존재하지 않는 외부 저장소 URL은 신청 제출 시점에 repositoryUrl 필드 오류로 거부되고 Application 행을 만들지 않는다', async () => {
+      // Given — 열린 프로그램과 팀에 소속된 학생, GitHub에 없는 저장소 URL.
+      const programId = programIdFor(PRECHECK_MISSING_APPLICATION_ID);
+      await createOpenOwnProgram(PRECHECK_MISSING_APPLICATION_ID);
+      const github = githubClient();
+      github.findPublicRepository.mockResolvedValue(null);
+      const precheckService = new ApplicationsService(
+        repository,
+        new AuditLogService(new AuditLogRepository(prisma)),
+        new OwnRepositoryUrlValidationService(github),
+      );
+
+      // When
+      const attempt = precheckService.create(
+        PRECHECK_APPLICANT_GITHUB_ID,
+        programId,
+        {
+          answers: { title: '제목', summary: '요약' },
+          teamName: null,
+          applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          repositoryUrl:
+            'https://github.com/synthetic-missing-org/synthetic-missing-repo',
+        },
+        new Date('2026-07-15T00:00:00.000Z'),
+      );
+
+      // Then
+      await expect(attempt).rejects.toMatchObject({
+        errorCode: {
+          code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
+          status: 400,
+        },
+        extensions: {
+          fieldErrors: [expect.objectContaining({ field: 'repositoryUrl' })],
+        },
+      });
+      await expect(
+        prisma.application.count({ where: { programId } }),
+      ).resolves.toBe(0);
+    });
+
+    it('비공개 외부 저장소 URL도 승인에 도달하지 못하고 제출 시점에 거부된다', async () => {
+      // Given
+      const programId = programIdFor(PRECHECK_PRIVATE_APPLICATION_ID);
+      await createOpenOwnProgram(PRECHECK_PRIVATE_APPLICATION_ID);
+      const github = githubClient();
+      github.findPublicRepository.mockResolvedValue({
+        githubRepositoryId: 8_520_100_099n,
+        nameWithOwner: 'synthetic-private-org/synthetic-private-repo',
+        defaultBranch: 'main',
+        archived: false,
+        name: 'synthetic-private-repo',
+        url: 'https://github.com/synthetic-private-org/synthetic-private-repo',
+        visibility: RepositoryVisibility.PRIVATE,
+        description: null,
+      });
+      const precheckService = new ApplicationsService(
+        repository,
+        new AuditLogService(new AuditLogRepository(prisma)),
+        new OwnRepositoryUrlValidationService(github),
+      );
+
+      // When
+      const attempt = precheckService.create(
+        PRECHECK_APPLICANT_GITHUB_ID,
+        programId,
+        {
+          answers: { title: '제목', summary: '요약' },
+          teamName: null,
+          applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          repositoryUrl:
+            'https://github.com/synthetic-private-org/synthetic-private-repo',
+        },
+        new Date('2026-07-15T00:00:00.000Z'),
+      );
+
+      // Then
+      await expect(attempt).rejects.toMatchObject({
+        errorCode: {
+          code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
+        },
+      });
+      await expect(
+        prisma.application.count({ where: { programId } }),
+      ).resolves.toBe(0);
+    });
+  });
 });
 
 function programIdFor(applicationId: string): string {
@@ -504,6 +730,29 @@ async function createOwnApplication(
       applicationTemplateVersion: 1,
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
       repositoryUrl,
+    },
+  });
+}
+
+/**
+ * `createOwnApplication`과 달리 Application은 물론 Team도 미리 만들지 않는다 —
+ * 제출 시점 검증은 `ApplicationsService.create()`가 직접 1인 팀을 만들면서
+ * 일어나는 일이라, 열린 프로그램만 선행해 준비한다.
+ */
+async function createOpenOwnProgram(applicationId: string): Promise<void> {
+  const programId = programIdFor(applicationId);
+  await prisma.program.create({
+    data: {
+      id: programId,
+      name: `program-${applicationId}`,
+      organizer: 'synthetic-organizer',
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'synthetic-template',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      description: 'synthetic-description',
+      repositoryProvisioningEnabled: true,
     },
   });
 }

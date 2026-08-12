@@ -18,6 +18,8 @@ import {
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
+import type { OwnRepositoryUrlValidationResult } from '../github/service/own-repository-url-validation.service';
 
 /** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
@@ -68,6 +70,7 @@ function buildService(overrides: {
   readonly createThrows?: Error;
   readonly createTeamThrows?: Error | readonly Error[];
   readonly joinCodes?: readonly string[];
+  readonly ownRepositoryUrlValidation?: OwnRepositoryUrlValidationResult;
 }) {
   const createApplication = jest.fn().mockImplementation((input: unknown) => {
     if (overrides.createThrows) {
@@ -145,12 +148,28 @@ function buildService(overrides: {
     findRepositoryProvisionEvent: jest.fn(),
   } as unknown as ApplicationsRepository;
 
+  const ownRepositoryUrlValidator: Pick<
+    OwnRepositoryUrlValidationService,
+    'validate'
+  > = {
+    validate: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.ownRepositoryUrlValidation ?? { kind: 'VALID' },
+      ),
+  };
+
   return {
-    service: new ApplicationsService(repository, noopAuditLog),
+    service: new ApplicationsService(
+      repository,
+      noopAuditLog,
+      ownRepositoryUrlValidator,
+    ),
     repository,
     store,
     createApplication,
     createTeamWithLeader,
+    ownRepositoryUrlValidator,
   };
 }
 
@@ -508,6 +527,72 @@ describe('ApplicationsService.create', () => {
       },
     });
     expect(createApplication).not.toHaveBeenCalled();
+  });
+
+  it('OWN + GitHub에서 확인된 URL은 사전 검증을 거쳐 신청을 만든다', async () => {
+    const { service, createApplication, ownRepositoryUrlValidator } =
+      buildService({ ownRepositoryUrlValidation: { kind: 'VALID' } });
+
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      {
+        ...DEFAULT_INPUT,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/eco-external-org/econovation-repo',
+      },
+      NOW,
+    );
+
+    expect(ownRepositoryUrlValidator.validate).toHaveBeenCalledWith(
+      'https://github.com/eco-external-org/econovation-repo',
+    );
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repositoryUrl: 'https://github.com/eco-external-org/econovation-repo',
+      }),
+    );
+  });
+
+  it('OWN + 존재하지 않거나 비공개인 URL은 repositoryUrl 필드 오류(APP_027)로 거부하고 신청을 만들지 않는다', async () => {
+    const { service, createApplication } = buildService({
+      ownRepositoryUrlValidation: { kind: 'NOT_FOUND_OR_PRIVATE' },
+    });
+
+    await expect(
+      service.create(
+        GITHUB_ID,
+        PROGRAM_ID,
+        {
+          ...DEFAULT_INPUT,
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          repositoryUrl: 'https://github.com/synthetic-org/missing-or-private',
+        },
+        NOW,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
+        status: 400,
+      },
+      extensions: {
+        fieldErrors: [
+          expect.objectContaining({
+            field: 'repositoryUrl',
+            code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
+          }),
+        ],
+      },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
+  });
+
+  it('NEW 모드는 URL 사전 검증을 호출하지 않는다', async () => {
+    const { service, ownRepositoryUrlValidator } = buildService({});
+
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    expect(ownRepositoryUrlValidator.validate).not.toHaveBeenCalled();
   });
 
   it('구 클라이언트 정규화값(NEW + null)을 store.createApplication 까지 전달한다', async () => {
