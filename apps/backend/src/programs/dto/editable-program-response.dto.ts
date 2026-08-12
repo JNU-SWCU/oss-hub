@@ -34,6 +34,7 @@ export class EditableProgramResponseDto {
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
+  readonly deletionScopeCounts?: EditableProgramView['deletionScopeCounts'];
   readonly categoryLocked: EditableProgramView['categoryLocked'];
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -55,6 +56,7 @@ export class EditableProgramResponseDto {
     this.applicationTemplateKey = program.applicationTemplateKey;
     this.applicationTemplateVersion = program.applicationTemplateVersion;
     this.applicationCount = program.applicationCount;
+    this.deletionScopeCounts = program.deletionScopeCounts;
     this.categoryLocked = program.categoryLocked;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
