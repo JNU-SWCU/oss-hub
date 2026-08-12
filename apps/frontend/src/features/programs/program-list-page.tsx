@@ -11,6 +11,7 @@ import {
   type ReactElement,
 } from 'react';
 import { CardGrid, EmptyState, PageHeader, ProgramCard } from '@/components';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -101,6 +102,7 @@ function ProgramListPage({
   const status = parseStatus(searchParams.get('status'));
   const sort = parseProgramListSort(searchParams.get('sort'));
   const direction = parseProgramListDirection(searchParams.get('direction'));
+  const purgeNotice = searchParams.get('purged');
 
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
@@ -235,6 +237,12 @@ function ProgramListPage({
           ) : undefined
         }
       />
+      {purgeNotice ? (
+        <Alert>
+          <AlertTitle>프로그램 전체 삭제를 완료했습니다</AlertTitle>
+          <AlertDescription>{purgeNotice}</AlertDescription>
+        </Alert>
+      ) : null}
       {/* 좁은 폭: 전역 사이드가 가로 띠라 상태 칩을 본문에 한 번 더 둔다 */}
       <ProgramListStatusChips
         className="min-[900px]:hidden"

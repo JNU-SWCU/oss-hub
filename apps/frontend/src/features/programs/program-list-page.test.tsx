@@ -231,6 +231,17 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
   // 종료(ended) 프로그램도 상세 열람은 허용된다 — 백엔드가 ARCHIVED/종료
   // 상세 읽기를 이미 허용한다(program-card.tsx 주석). 평면 그리드로 바뀌며
   // 섹션별로 openable을 갈랐던 옛 로직이 되살아나지 않는지 지킨다.
+  it('전체 삭제 후 도착한 확인 문구를 목록 상단에 보여준다', async () => {
+    currentSearch = `purged=${encodeURIComponent('지원서 2건 · 알림 3건')}`;
+
+    await renderPage();
+
+    expect(container.textContent).toContain(
+      '프로그램 전체 삭제를 완료했습니다',
+    );
+    expect(container.textContent).toContain('지원서 2건 · 알림 3건');
+  });
+
   it('종료된 프로그램 카드에도 상세 href를 그대로 넘긴다', async () => {
     listProgramsMock.mockResolvedValueOnce({
       items: [

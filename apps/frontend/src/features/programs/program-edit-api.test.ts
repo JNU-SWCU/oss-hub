@@ -5,6 +5,7 @@ import {
   deleteMilestone,
   deleteProgram,
   getEditableProgram,
+  purgeProgram,
   type EditableProgram,
   updateMilestone,
   updateProgram,
@@ -246,6 +247,23 @@ describe('program edit API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('programs/program-1'),
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('purges a program graph through the ADMIN purge endpoint with DELETE', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        id: 'program-1',
+        deleted: true,
+        deletedCounts: { applications: 2, notifications: 3 },
+      }),
+    );
+
+    await purgeProgram('program-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('programs/program-1/purge'),
       expect.objectContaining({ method: 'DELETE' }),
     );
   });

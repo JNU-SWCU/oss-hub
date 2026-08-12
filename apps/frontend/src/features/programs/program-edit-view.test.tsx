@@ -524,9 +524,8 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('게시 상태');
   });
 
-  // #875 — 「위험 영역」(영구 삭제)은 ADMIN에게만 보이고, 「게시 상태」 아래
-  // 페이지 맨 끝에 있으며, 「삭제」 버튼은 destructive 톤이다.
-  it('isAdmin=false(STAFF)면 위험 영역 섹션을 그리지 않는다', () => {
+  // STAFF는 「위험 영역」에서 삭제가 아닌 아카이브 안내만 본다.
+  it('isAdmin=false(STAFF)면 삭제 버튼 없이 아카이브 안내를 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         program={editableProgram}
@@ -553,7 +552,9 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    expect(html).not.toContain('위험 영역');
+    expect(html).toContain('위험 영역');
+    expect(html).toContain('아카이브');
+    expect(html).not.toContain('연결 데이터까지 모두 삭제');
   });
 
   it('isAdmin=true(ADMIN)면 게시 상태 아래에 destructive 톤의 위험 영역 섹션을 그린다', () => {
