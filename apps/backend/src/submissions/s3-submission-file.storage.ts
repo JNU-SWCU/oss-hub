@@ -2,6 +2,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -11,6 +12,7 @@ import {
   sanitizeSubmissionFileOriginalName,
 } from './submission-file-name';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
+import type { StoredObjectMetadata } from './storage-orphan-reconciliation';
 import {
   SUBMISSION_FILE_STORAGE_ERROR_CODES,
   type StoreSubmissionFileInput,
@@ -21,9 +23,16 @@ import {
 
 export const SUBMISSION_FILE_S3_CLIENT = Symbol('SUBMISSION_FILE_S3_CLIENT');
 
+const STORAGE_LIST_REQUEST_TIMEOUT_MS = 30_000;
+
 export interface SubmissionFileS3Client {
   send(
-    command: PutObjectCommand | GetObjectCommand | DeleteObjectCommand,
+    command:
+      | PutObjectCommand
+      | GetObjectCommand
+      | ListObjectsV2Command
+      | DeleteObjectCommand,
+    options?: { abortSignal?: AbortSignal },
   ): Promise<unknown>;
 }
 
@@ -68,6 +77,50 @@ export class S3SubmissionFileStorage implements SubmissionFileStoragePort {
       contentLength: input.body.byteLength,
       contentType: input.contentType,
     };
+  }
+
+  async listObjects(): Promise<readonly StoredObjectMetadata[]> {
+    const { client, bucket } = this.requireClient();
+    const objects: StoredObjectMetadata[] = [];
+    const seenContinuationTokens = new Set<string>();
+    let continuationToken: string | undefined;
+    try {
+      do {
+        const result = (await client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            ContinuationToken: continuationToken,
+          }),
+          { abortSignal: AbortSignal.timeout(STORAGE_LIST_REQUEST_TIMEOUT_MS) },
+        )) as {
+          Contents?: Array<{ Key?: string; LastModified?: Date }>;
+          IsTruncated?: boolean;
+          NextContinuationToken?: string;
+        };
+        for (const object of result.Contents ?? []) {
+          if (!object.Key || object.LastModified === undefined) {
+            throw new Error('incomplete storage object metadata');
+          }
+          objects.push({ key: object.Key, lastModified: object.LastModified });
+        }
+        const nextToken = result.IsTruncated
+          ? result.NextContinuationToken
+          : undefined;
+        if (
+          result.IsTruncated &&
+          (!nextToken || seenContinuationTokens.has(nextToken))
+        ) {
+          throw new Error('invalid storage listing continuation');
+        }
+        if (nextToken) seenContinuationTokens.add(nextToken);
+        continuationToken = nextToken;
+      } while (continuationToken !== undefined);
+      return objects;
+    } catch {
+      throw new SubmissionFileStorageError(
+        SUBMISSION_FILE_STORAGE_ERROR_CODES.LIST_FAILED,
+      );
+    }
   }
 
   async delete(objectKey: string): Promise<void> {

@@ -1,6 +1,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { Readable } from 'node:stream';
@@ -97,6 +98,73 @@ describe('S3SubmissionFileStorage', () => {
     });
   });
 
+  it('버킷 객체를 bounded pagination으로 빠짐없이 나열한다', async () => {
+    const firstModified = new Date('2026-08-12T00:00:00.000Z');
+    const secondModified = new Date('2026-08-12T01:00:00.000Z');
+    const send = jest
+      .fn<
+        ReturnType<SubmissionFileS3Client['send']>,
+        Parameters<SubmissionFileS3Client['send']>
+      >()
+      .mockResolvedValueOnce({
+        Contents: [
+          { Key: 'submission-files/one', LastModified: firstModified },
+        ],
+        IsTruncated: true,
+        NextContinuationToken: 'next-page',
+      })
+      .mockResolvedValueOnce({
+        Contents: [
+          { Key: 'program-authoring/two', LastModified: secondModified },
+        ],
+        IsTruncated: false,
+      });
+    const { storage } = createStorage(send);
+
+    await expect(storage.listObjects()).resolves.toEqual([
+      { key: 'submission-files/one', lastModified: firstModified },
+      { key: 'program-authoring/two', lastModified: secondModified },
+    ]);
+    expect(send).toHaveBeenCalledTimes(2);
+    const firstCommand = send.mock.calls[0]?.[0];
+    const secondCommand = send.mock.calls[1]?.[0];
+    if (
+      !(firstCommand instanceof ListObjectsV2Command) ||
+      !(secondCommand instanceof ListObjectsV2Command)
+    ) {
+      throw new Error('Expected ListObjectsV2Command pagination');
+    }
+    expect(firstCommand.input).toEqual({
+      Bucket: settings.bucket,
+      ContinuationToken: undefined,
+    });
+    expect(secondCommand.input).toEqual({
+      Bucket: settings.bucket,
+      ContinuationToken: 'next-page',
+    });
+    expect(send.mock.calls[0]?.[1]?.abortSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('반복 continuation token을 거부해 listing이 무한 대기하지 않는다', async () => {
+    const send = jest
+      .fn<
+        ReturnType<SubmissionFileS3Client['send']>,
+        Parameters<SubmissionFileS3Client['send']>
+      >()
+      .mockResolvedValue({
+        IsTruncated: true,
+        NextContinuationToken: 'same-page',
+      });
+    const { storage } = createStorage(send);
+
+    await expect(storage.listObjects()).rejects.toEqual(
+      new SubmissionFileStorageError(
+        SUBMISSION_FILE_STORAGE_ERROR_CODES.LIST_FAILED,
+      ),
+    );
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
   it('private 객체를 GetObjectCommand로 스트리밍한다', async () => {
     const body = Readable.from(Buffer.from('private-file-body'));
     const { storage, send } = createStorage(
@@ -145,6 +213,7 @@ describe('S3SubmissionFileStorage', () => {
   it.each([
     ['put', SUBMISSION_FILE_STORAGE_ERROR_CODES.PUT_FAILED],
     ['get', SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED],
+    ['list', SUBMISSION_FILE_STORAGE_ERROR_CODES.LIST_FAILED],
     ['delete', SUBMISSION_FILE_STORAGE_ERROR_CODES.DELETE_FAILED],
   ] as const)(
     '%s 실패를 안전한 typed error로 치환한다',
@@ -171,7 +240,9 @@ describe('S3SubmissionFileStorage', () => {
             })
           : operation === 'get'
             ? storage.get('submission-files/synthetic-key')
-            : storage.delete('submission-files/synthetic-key');
+            : operation === 'list'
+              ? storage.listObjects()
+              : storage.delete('submission-files/synthetic-key');
 
       await expect(action).rejects.toEqual(
         new SubmissionFileStorageError(code),
