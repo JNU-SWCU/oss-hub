@@ -191,6 +191,10 @@ model Program {
   repositoryProvisioningEnabled Boolean @default(false)
   /// #127 프로그램별 마감 임박 알림 발송 여부. 값은 #127 발송 배치가 참조하고, 폼 토글 UI는 #100 소관이다.
   notifyOnDeadline              Boolean @default(false)
+  /// true면 가드 delete·purge 모두 서비스 계층에서 무조건 거부한다(ADMIN도 우회 불가) — API에는
+  /// 이 값을 바꾸는 경로가 없다, 운영자가 DB에서 직접 켠다(F2 finding #1). oss-hub 자체 운영
+  /// 프로그램처럼 어떤 모드에서도 삭제되면 안 되는 행을 표시한다.
+  deletionProtected             Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
