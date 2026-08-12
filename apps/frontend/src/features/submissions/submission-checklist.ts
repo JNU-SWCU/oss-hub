@@ -4,6 +4,7 @@ import type {
   SubmissionFormInput,
 } from './submission-form';
 import type {
+  ChecklistSubmission,
   ChecklistSubmissionStatus,
   CreatedResubmission,
   ResubmissionContent,
@@ -39,9 +40,20 @@ export const CHECKLIST_STATUS_VARIANTS = {
   Record<ChecklistItemStatus, 'pending' | 'approved' | 'rejected'>
 >;
 
+/** 상세 패널·목록 행·요약이 공유하는 재제출 필요 판정이다. */
+export function isRevisionNeeded(
+  submission: ChecklistSubmission | null,
+): boolean {
+  return (
+    submission?.canResubmit === true ||
+    submission?.status === 'CHANGES_REQUESTED'
+  );
+}
+
 export function checklistItemStatus(
   item: SubmissionChecklistItem,
 ): ChecklistItemStatus {
+  if (isRevisionNeeded(item.submission)) return 'CHANGES_REQUESTED';
   return item.submission?.status ?? 'NOT_SUBMITTED';
 }
 
@@ -94,6 +106,7 @@ export function sortChecklistItems(
 export interface ChecklistSubmittedCount {
   readonly total: number;
   readonly submitted: number;
+  readonly revisionNeeded: number;
 }
 
 /**
@@ -106,6 +119,8 @@ export function checklistSubmittedCount(
   return {
     total: items.length,
     submitted: items.filter((item) => item.submission !== null).length,
+    revisionNeeded: items.filter((item) => isRevisionNeeded(item.submission))
+      .length,
   };
 }
 
