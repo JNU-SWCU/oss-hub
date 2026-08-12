@@ -19,14 +19,29 @@ pnpm --filter backend prisma db seed -- --profile milestones
 # 각 항목은 githubId:login:ADMIN[:displayName] — displayName은 선택이며 넣으면 그 계정의
 # User.name까지 채워 로그인 시 온보딩 화면으로 되돌아가지 않는다.
 NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN:<display-name-1>,<github-id-2>:<github-login-2>:ADMIN:<display-name-2>,<github-id-3>:<github-login-3>:ADMIN:<display-name-3>,<github-id-4>:<github-login-4>:ADMIN:<display-name-4>' pnpm --filter backend db:seed -- --profile oss-hub
+
+# demo profile — 비운영 환경(기본값 NODE_ENV). 사업단 톤의 합성 시연 데이터(프로그램·학생·팀·게시판)를 만든다.
+pnpm --filter backend prisma db seed -- --profile demo
+
+# demo profile — production 실행(예외). 소유자가 명시적으로 승인한 플랜에 기록된 건만 허용된다
+# (아래 "production 실행 예외" 절 참조). 이 플래그 없이는 다른 모든 profile과 동일하게
+# production에서 거부된다.
+NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend prisma db seed -- --profile demo
 ```
 
-profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `program-overview` · `oss-hub` · `all`.
+profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `program-overview` · `oss-hub` · `demo` · `all`.
 
 - `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만 돈다 — 안전한 최소).
 - `prisma migrate deploy`(예: `scripts/run-backend-integration.sh`)는 자동 시드를 실행하지 않는다.
 - `NODE_ENV=production`에서는 실행을 거부한다.
+
+  **production 실행 예외(`demo` profile 한정)**: `demo` profile은 소유자(@GoBeromsu)가
+  명시적으로 승인한 경우에만(qa-econovation-batch 플랜 TODO 11) `SEED_DEMO_ALLOW_PRODUCTION=1`을
+  함께 설정해 production에서도 실행할 수 있다(`assertSeedAllowed`, `seeds/helpers.ts`). 플래그가
+  없거나 `1`이 아니면 다른 profile과 동일하게 거부된다. 이 예외는 `demo` 하나뿐이며, 새로운
+  예외를 추가하려면 별도 소유자 승인과 플랜 문서화가 필요하다.
 - `oss-hub`는 `development`·`test`·`staging`·`preview` 중 하나를 `NODE_ENV`에 명시하고 `OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION`을 함께 설정해야만 실행한다.
+- `demo`는 `oss-hub`와 마찬가지로 `all`에 포함되지 않는다 — `--profile demo`를 명시적으로 고를 때만 실행된다.
 - 같은 profile을 여러 번 실행해도 안전하다 — 모든 row는 결정적 id(`seed:...`)로 upsert되어
   행 수가 늘지 않는다(멱등). `apps/backend/prisma/seed.integration.spec.ts`가 이 성질을 검증한다.
 
@@ -116,7 +131,27 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     `public-projects.repository.ts`의 `canonicalByRepository` 패턴 — Program 정체성과
     무관하게 GithubRepository 행 기준으로 조인한다).
 
-`intake`/`milestones`/`repositories`/`program-overview` 각 profile은 서로 참조하지 않고 자체
+- `demo` — `seeds/demo.ts`: 내일 시연을 위한 "사업단이 실제 운영하는 느낌"의 합성 데이터다. 다른
+  profile을 참조하지 않고 자체 Program·User·Team backbone을 만든다. 이 profile은 GithubRepository·
+  Contribution 등 수집/랭킹 테이블을 **절대** 만들지 않는다(`prisma/AGENTS.md` 시드 규칙 #5) —
+  Econovation 공개 저장소 수집 등록은 별도의 실제 ADMIN discovery/enrollment 경로 + 실제 sweep으로만
+  이루어진다.
+  - 프로그램 4개 — 전남대 SW중심대학사업단이 공개 운영하는 실제 프로그램 유형(하계 SW인턴십
+    연계 → `CORPORATE_INTERNSHIP`, 오픈소스 SW개발자 대회(에코노베이션 연계) → `OSS_CONTEST`,
+    신입생 SW역량 강화 → `SW_VALUE_SPREAD`, 소중마일리지 연계 비교과 → `BASIC`)을 모델로 한
+    이름·설명이지만, 일정은 모두 `offsetDays` 상대값으로 만든 합성값이다(실제 공지 일정
+    미복사 — `prisma/AGENTS.md` 시드 규칙 #3·#4).
+  - 합성 한국식 학생 6명(예: 김도윤·이서준·박하은 등, 실존 인물 아님)이 네 프로그램에 나눠
+    배치되어 각각 팀장·팀원으로 승인된 지원서 1건을 만든다. 이메일은 모두 `@demo.invalid`
+    (RFC 2606 예약 도메인)만 쓴다. 합성 STAFF 1명(`합성 사업단 담당자`)이 네 프로그램의
+    공통 게시글 작성자다.
+  - 프로그램당 마일스톤 1개씨 — 마감 전(진행 중) 상태로, 각 신청의 팀장이 `SUBMITTED`
+    상태의 TEXT 제출 1건을 남겨 "진행 중" 화면을 만든다(아직 리뷰 없음).
+  - 프로그램당 게시판 1건(공지 또는 질문, 댓글 1~2개 포함)로 시연 화면을 채운다.
+  - 모든 id는 결정적 `seed:demo:...`로 upsert된다(멱등). GithubRepository·Contribution 행은
+    이 profile이 종료된 뒤에도 항상 0건이어야 한다(`seed.integration.spec.ts`가 검증).
+
+`intake`/`milestones`/`repositories`/`program-overview`/`demo` 각 profile은 서로 참조하지 않고 자체
 Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
 
 ## 알려진 제약

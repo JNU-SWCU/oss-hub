@@ -9,6 +9,7 @@ import {
   SeedStats,
   seedNow,
 } from './seeds/helpers';
+import { seedDemo } from './seeds/demo';
 import { seedIntake } from './seeds/intake';
 import { seedMilestones } from './seeds/milestones';
 import { seedOssHub } from './seeds/oss-hub';
@@ -20,8 +21,11 @@ import { backfillUserProfiles } from './user-profile-backfill';
  * #110 시드 진입점. 실행 계약:
  *   SEED_PROFILE=<profile> pnpm --filter backend prisma db seed
  *   pnpm --filter backend prisma db seed -- --profile <profile>
- * profile: auth | intake | milestones | repositories | program-overview | oss-hub | all (기본값 auth — 안전한 최소).
- * 자세한 시나리오 카탈로그는 apps/backend/prisma/README.md 참조.
+ * profile: auth | intake | milestones | repositories | program-overview | oss-hub | demo | all
+ * (기본값 auth — 안전한 최소). 자세한 시나리오 카탈로그는 apps/backend/prisma/README.md 참조.
+ *
+ * `demo`는 `oss-hub`와 마찬가지로 `all`에 포함되지 않는다 — 명시적으로
+ * `--profile demo`를 고를 때만 실행된다(qa-econovation-batch TODO 11).
  */
 export async function runProfile(
   profile: SeedProfile,
@@ -55,12 +59,15 @@ export async function runProfile(
   if (profile === 'oss-hub' && ossHubAccounts) {
     await seedOssHub(stats, ossHubAccounts);
   }
+  if (profile === 'demo') {
+    await seedDemo(stats);
+  }
   await backfillUserProfiles(prisma);
 }
 
 async function main(): Promise<void> {
-  assertSeedAllowed();
   const profile = resolveSeedProfile();
+  assertSeedAllowed(process.env.NODE_ENV, profile);
   const stats = new SeedStats();
 
   console.log(`[seed] profile=${profile} SEED_NOW=${seedNow().toISOString()}`);

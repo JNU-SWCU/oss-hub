@@ -32,7 +32,7 @@
 
 ## For AI Agents
 
-- **시드 프로필 계약**: `auth`(기본값)·`intake`·`milestones`·`repositories`·`all` 중 하나를 고른다.
+- **시드 프로필 계약**: `auth`(기본값)·`intake`·`milestones`·`repositories`·`program-overview`·`oss-hub`·`demo`·`all` 중 하나를 고른다.
   ```bash
   # 기본값(auth)
   pnpm --filter backend prisma db seed
@@ -41,7 +41,7 @@
   # 프로필 지정 — CLI 인자
   pnpm --filter backend prisma db seed -- --profile milestones
   ```
-- `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만). `prisma migrate deploy`(`scripts/run-backend-integration.sh` 경로)는 자동 시드를 실행하지 않는다. `NODE_ENV=production`에서는 실행이 거부된다.
+- `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만). `prisma migrate deploy`(`scripts/run-backend-integration.sh` 경로)는 자동 시드를 실행하지 않는다. `NODE_ENV=production`에서는 실행이 거부된다 — **예외: `demo` profile은 소유자 승인(@GoBeromsu, qa-econovation-batch 플랜 TODO 11) 하에 `SEED_DEMO_ALLOW_PRODUCTION=1`을 명시했을 때만 production에서도 실행할 수 있다(`assertSeedAllowed`, `seeds/helpers.ts`). 다른 모든 profile은 이 예외의 영향을 받지 않는다.**
 - 모든 row는 결정적 id(`seed:...`)로 upsert되므로 같은 profile을 여러 번 실행해도 행 수가 늘지 않는다(멱등) — `seed.integration.spec.ts`가 이 성질을 검증한다.
 - 시나리오 id 목록·`Application.answers`/`SubmissionRevision.content`의 placeholder 제약·초기 역할 부여가 이 시드가 아니라 `src/auth/auth.repository.ts`의 `AUTH_INITIAL_ROLES` 설정이 소유한다는 사실 등 상세는 **`README.md`가 원본**이다 — 이 문서에서 중복 서술하지 않는다.
 - 로컬 DB 초기화는 `pnpm db:reset`(호스트 lane 개발 DB 대상 — 실행 전 팀과 확인). 대상 주소는 `.envrc`의 `DATABASE_URL`이며 `scripts/check-host-db-url.sh`가 로컬 여부와 `POSTGRES_PORT`·`POSTGRES_DB` 일치를 먼저 검증한다. CI/통합테스트는 매번 새로 띄우는 격리 컨테이너만 쓴다.
@@ -56,7 +56,7 @@ PM 지시로 축적된, 이 디렉터리에서 seed를 만들거나 고칠 때 �
 4. 일정·마일스톤을 임의로 지어내지 않는다. 팀 canonical store(Notion "📅 Schedule" DB)의 실제 마일스톤과 정합시킨다. 단, 개인명이 포함된 항목은 반입하지 않는다.
 5. collection/ranking 테이블에 합성 데이터를 넣지 않는다. 랭킹은 실제 GitHub 수집 파이프라인으로만 채운다 — seed는 platform 도메인(Program/Team/GithubRepository 등)까지만 담당한다.
 6. seed 로그·보고에 env 값을 echo하지 않는다. 존재 여부·개수·exit code만 남긴다.
-7. production에서 seed를 실행하지 않는다. `assertSeedAllowed`/`assertOssHubSeedAllowed` gate를 우회하는 코드를 추가하지 않는다.
+7. production에서 seed를 실행하지 않는다. `assertSeedAllowed`/`assertOssHubSeedAllowed` gate를 우회하는 코드를 추가하지 않는다. 예외는 `demo` profile 하나뿐이다 — 소유자가 명시적으로 승인한 플랜(qa-econovation-batch TODO 11)에 기록된 건만 `SEED_DEMO_ALLOW_PRODUCTION=1` 플래그로 허용된다. 새 예외를 추가할 때는 별도 소유자 승인 적어리가 필요하다.
 8. 결정적 seedId 키를 깨지 않는다. 키 체계(slug)를 바꿀 때는 기존 배포 DB에 orphan·중복 row가 남는지 반드시 검증하고(FK가 RESTRICT인 관계는 자식부터 지운다), 마이그레이션 방법을 `README.md`에 남긴다.
 9. 배포 서버가 실제로 쓰는 seed/운영 env는 Notion Credentials 페이지에 codeblock으로, placeholder 없이 바로 실행 가능한 실값 그대로(키=값 줄) 보관한다. repo에는 루트 `.env.example`에 키 이름만 추가한다 — 일반 규칙은 [루트 AGENTS.md §2](../../../AGENTS.md)와 [보안 규칙](../../../docs/rules/security.md)이 원본이다.
 
