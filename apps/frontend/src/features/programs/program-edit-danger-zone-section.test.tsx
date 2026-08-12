@@ -197,6 +197,25 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(getEditableProgramMock).toHaveBeenCalledWith('program-1');
   });
 
+  it('전체 삭제를 바로 열어도 현재 삭제 범위를 양수 건수로 보여준다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+
+    await openDialog('연결 데이터까지 모두 삭제');
+    await act(async () => void (await Promise.resolve()));
+
+    expect(document.body.textContent).toContain(
+      '삭제될 데이터: 지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
+    );
+  });
+
   it('전체 삭제를 바로 열어도 현재 삭제 범위를 보여주고 0건을 명시한다', async () => {
     getEditableProgramMock.mockResolvedValue({
       deletionScopeCounts: {
@@ -248,7 +267,7 @@ describe('ProgramEditDangerZoneSection', () => {
     if (input === null) throw new TypeError('Missing purge input.');
     await act(async () => setInputValue(input, 'OSS 프로그램'));
 
-    expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(true);
+    expect(getButton('삭제 범위를 확인하는 중…', dialog).disabled).toBe(true);
 
     await act(async () => {
       resolveScope?.({ deletionScopeCounts });
@@ -277,6 +296,49 @@ describe('ProgramEditDangerZoneSection', () => {
     await act(async () => setInputValue(input, '다른 프로그램'));
 
     expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(true);
+  });
+
+  it('확정 직전 범위가 바뀌면 삭제하지 않고 이름 재입력을 요구한다', async () => {
+    const changedCounts = {
+      applications: 6,
+      teams: 7,
+      boardPosts: 8,
+      submissions: 9,
+    };
+    getEditableProgramMock
+      .mockResolvedValueOnce({ deletionScopeCounts })
+      .mockResolvedValueOnce({ deletionScopeCounts: changedCounts });
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+
+    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    await act(async () => void (await Promise.resolve()));
+    const input = document.querySelector<HTMLInputElement>(
+      '#program-purge-confirm-name',
+    );
+    if (input === null) throw new TypeError('Missing purge input.');
+    await act(async () => setInputValue(input, 'OSS 프로그램'));
+    await act(async () =>
+      getButton('연결 데이터까지 모두 삭제', dialog).click(),
+    );
+    await act(async () => void (await Promise.resolve()));
+
+    expect(purgeProgramMock).not.toHaveBeenCalled();
+    expect(input.value).toBe('');
+    expect(document.body.textContent).toContain(
+      '삭제 범위가 변경되었습니다. 내용을 확인한 뒤 프로그램 이름을 다시 입력해 주세요.',
+    );
+    expect(document.body.textContent).toContain(
+      '삭제될 데이터: 지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건',
+    );
+    expect(getEditableProgramMock).toHaveBeenCalledTimes(2);
   });
 
   it('전체 삭제 성공 후 즉시 목록 확인으로 이동해 삭제된 프로그램 화면을 남기지 않는다', async () => {

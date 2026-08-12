@@ -150,15 +150,36 @@ export function ProgramEditDangerZoneSection({
   };
 
   const confirmPurge = async () => {
-    if (!canConfirm) return;
+    if (!canConfirm || !purgeCounts) return;
     setBusy(true);
     setPurgeError(null);
+    setPurgeScopeError(null);
+    setIsPurgeScopeLoading(true);
     try {
+      const latestCounts = (await getEditableProgram(programId))
+        .deletionScopeCounts;
+      if (!latestCounts) {
+        setPurgeScopeError(
+          '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
+        );
+        return;
+      }
+      if (!sameCounts(purgeCounts, latestCounts)) {
+        setPurgeCounts(latestCounts);
+        setConfirmText('');
+        setPurgeScopeError(
+          '삭제 범위가 변경되었습니다. 내용을 확인한 뒤 프로그램 이름을 다시 입력해 주세요.',
+        );
+        return;
+      }
+
+      setIsPurgeScopeLoading(false);
       const result = await purgeProgram(programId);
       onDeleted(formatDeletedCounts(result.deletedCounts));
     } catch (reason: unknown) {
       setPurgeError(purgeErrorMessage(reason));
     } finally {
+      setIsPurgeScopeLoading(false);
       setBusy(false);
     }
   };
@@ -292,11 +313,15 @@ export function ProgramEditDangerZoneSection({
                             : confirmDelete())
                         }
                       >
-                        {busy
-                          ? '삭제하는 중…'
-                          : dialog === 'purge'
-                            ? '연결 데이터까지 모두 삭제'
-                            : '삭제'}
+                        {isPurgeScopeLoading
+                          ? busy
+                            ? '삭제 범위를 다시 확인하는 중…'
+                            : '삭제 범위를 확인하는 중…'
+                          : busy
+                            ? '삭제하는 중…'
+                            : dialog === 'purge'
+                              ? '연결 데이터까지 모두 삭제'
+                              : '삭제'}
                       </Button>
                     </div>
                   </>
@@ -307,6 +332,18 @@ export function ProgramEditDangerZoneSection({
         </AlertDialog.Root>
       ) : null}
     </section>
+  );
+}
+
+function sameCounts(
+  left: ProgramDeleteBlockingCounts,
+  right: ProgramDeleteBlockingCounts,
+): boolean {
+  return (
+    left.applications === right.applications &&
+    left.teams === right.teams &&
+    left.boardPosts === right.boardPosts &&
+    left.submissions === right.submissions
   );
 }
 
