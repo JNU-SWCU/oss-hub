@@ -372,6 +372,28 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
     );
     expect(result.hasTemplateFile).toBe(true);
   });
+
+  it('multipart latin1 깨짐을 복구한 한글 양식 파일명을 저장한다', async () => {
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(repository, storage);
+    const mojibake = Buffer.from('제출-양식.pdf', 'utf8').toString('latin1');
+
+    const result = await service.uploadTemplate(
+      'staff-1',
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      { ...pdfFile, originalname: mojibake },
+    );
+
+    expect(repositoryMocks.upsertTemplateFile).toHaveBeenCalledWith(
+      expect.objectContaining({ originalFileName: '제출-양식.pdf' }),
+    );
+    expect(storageMocks.put).toHaveBeenCalledWith(
+      expect.objectContaining({ originalName: '제출-양식.pdf' }),
+    );
+    expect(result.fileName).toBe('제출-양식.pdf');
+  });
 });
 
 describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)', () => {

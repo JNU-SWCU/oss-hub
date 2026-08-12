@@ -75,9 +75,13 @@ describe('ProgramTeamsService.getForStaff', () => {
         application: {
           id: 'application-1',
           status: 'APPROVED',
+          repositoryConnectionMode: 'NEW',
           repository: {
+            id: 'repository-1',
             url: 'https://github.com/org/repo',
             visibility: 'PUBLIC',
+            publishEligible: true,
+            blockedReasons: [],
           },
           repositoryProvisioning: {
             enabled: true,
@@ -94,7 +98,14 @@ describe('ProgramTeamsService.getForStaff', () => {
     expect(detail.application).toEqual({
       id: 'application-1',
       status: 'APPROVED',
-      repository: { url: 'https://github.com/org/repo', visibility: 'PUBLIC' },
+      repositoryConnectionMode: 'NEW',
+      repository: {
+        id: 'repository-1',
+        url: 'https://github.com/org/repo',
+        visibility: 'PUBLIC',
+        publishEligible: true,
+        blockedReasons: [],
+      },
       repositoryProvisioning: {
         enabled: true,
         jobStatus: 'SUCCEEDED',
@@ -125,6 +136,7 @@ describe('ProgramTeamsService.getForStaff', () => {
         application: {
           id: 'application-1',
           status: 'SUBMITTED',
+          repositoryConnectionMode: 'NEW',
           repository: null,
           repositoryProvisioning: {
             enabled: true,
@@ -159,6 +171,7 @@ describe('ProgramTeamsService.getForStaff', () => {
       application: {
         id: 'application-1',
         status: 'SUBMITTED',
+        repositoryConnectionMode: 'NEW',
         repository: null,
         repositoryProvisioning: {
           enabled: true,
@@ -185,6 +198,8 @@ describe('ProgramTeamsService.getForStaff', () => {
 });
 
 describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
+  afterEach(() => jest.useRealTimers());
+
   function readTeamSelect(spy: jest.Mock): {
     where: Record<string, unknown>;
     select: Record<string, unknown>;
@@ -203,6 +218,8 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
   function buildRepository(overrides: {
     readonly team?: unknown;
     readonly application?: unknown;
+    readonly outbox?: unknown;
+    readonly job?: unknown;
   }) {
     const teamFindFirst = jest
       .fn()
@@ -212,8 +229,10 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
       .mockResolvedValue(
         overrides.application === undefined ? null : overrides.application,
       );
-    const outboxFindUnique = jest.fn().mockResolvedValue(null);
-    const jobFindUnique = jest.fn().mockResolvedValue(null);
+    const outboxFindUnique = jest
+      .fn()
+      .mockResolvedValue(overrides.outbox ?? null);
+    const jobFindUnique = jest.fn().mockResolvedValue(overrides.job ?? null);
     const prisma = {
       team: { findFirst: teamFindFirst },
       application: { findFirst: applicationFindFirst },
@@ -261,6 +280,57 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
         where: { programId: PROGRAM_ID, teamId: TEAM_ID },
       }),
     );
+  });
+
+  it('서류 전용 마일스톤 승인만으로도 같은 공개 게이트를 통과한 저장소를 싣는다', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-13T00:00:00.000Z'));
+    const { repository } = buildRepository({
+      team: {
+        id: TEAM_ID,
+        name: '서류 전용 팀',
+        leaderId: 'user-a',
+        members: [
+          { userId: 'user-a', user: { nickname: 'login-a', name: '가나다' } },
+        ],
+      },
+      application: {
+        id: 'application-1',
+        status: 'APPROVED',
+        updatedAt: new Date('2026-08-12T00:00:00.000Z'),
+        repositoryConnectionMode: 'NEW',
+        isRepositoryPublicationPlanned: true,
+        repository: {
+          id: 'repository-1',
+          nameWithOwner: 'org/repo',
+          visibility: 'PRIVATE',
+        },
+        program: {
+          repositoryProvisioningEnabled: true,
+          endAt: new Date('2026-08-12T00:00:00.000Z'),
+          milestones: [
+            { id: 'milestone-1', documents: [{ id: 'document-1' }] },
+          ],
+        },
+        submissions: [],
+        milestoneDocumentSubmissions: [
+          { milestoneDocumentId: 'document-1', status: 'APPROVED' },
+        ],
+      },
+      job: {
+        status: 'SUCCEEDED',
+        updatedAt: new Date('2026-08-12T01:00:00.000Z'),
+        lastErrorCode: null,
+        repositoryId: 'repository-1',
+      },
+    });
+
+    const result = await repository.findStaffTeamDetail(PROGRAM_ID, TEAM_ID);
+
+    expect(result?.application?.repository).toMatchObject({
+      id: 'repository-1',
+      publishEligible: true,
+      blockedReasons: [],
+    });
   });
 
   it('금지 필드를 select 하지 않는다 (학번·학과·연락처·이메일·참여코드) 그리고 Team.repositories 를 select 하지 않는다', async () => {

@@ -204,7 +204,20 @@ const staffProgramTeamDetailHandler: LocalReviewHandler = (context) => {
         : {
             id: application.id,
             status: application.status,
-            repository: application.repository,
+            repositoryConnectionMode: application.repositoryConnectionMode,
+            repository:
+              application.repository === null
+                ? null
+                : {
+                    id: `repository-${application.id}`,
+                    ...application.repository,
+                    publishEligible:
+                      application.repository.visibility === 'PUBLIC',
+                    blockedReasons:
+                      application.repository.visibility === 'PUBLIC'
+                        ? []
+                        : ['REPOSITORY_PUBLICATION_NOT_PLANNED'],
+                  },
             repositoryProvisioning: application.repositoryProvisioning,
           },
   } satisfies StaffTeamDetail);

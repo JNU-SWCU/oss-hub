@@ -17,6 +17,7 @@ import type {
 export class TeamApplicationResponseDto {
   readonly id: string;
   readonly status: TeamApplicationView['status'];
+  readonly repositoryConnectionMode: TeamApplicationView['repositoryConnectionMode'];
   readonly repository: TeamApplicationView['repository'];
   readonly repositoryProvisioning: {
     readonly enabled: boolean;
@@ -28,6 +29,7 @@ export class TeamApplicationResponseDto {
   private constructor(view: TeamApplicationView) {
     this.id = view.id;
     this.status = view.status;
+    this.repositoryConnectionMode = view.repositoryConnectionMode;
     this.repository = view.repository;
     this.repositoryProvisioning = {
       ...view.repositoryProvisioning,

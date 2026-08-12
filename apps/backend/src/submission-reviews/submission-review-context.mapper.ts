@@ -1,6 +1,6 @@
-import { SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
+import { SubmissionFileLifecycle } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { isMilestoneComplete } from '../common/milestone-completion';
+import { requiredMilestonesApproved } from '../common/milestone-completion';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
@@ -15,6 +15,8 @@ import {
   type SubmissionReviewFileRecord,
   type SubmissionRevisionRecord,
 } from './domain/submission-review';
+
+export { requiredMilestonesApproved } from '../common/milestone-completion';
 
 export const REVIEW_CONTEXT_SELECT = {
   id: true,
@@ -185,42 +187,6 @@ function toPublishEligibility(
  * ⚠ `milestones[].documents` 는 **필수 서류만** 담겨 와야 한다(조회에서 `required: true` 로
  * 거른다). 선택 서류가 섞이면 안 낸 선택 서류가 저장소 공개를 영원히 막는다.
  */
-export function requiredMilestonesApproved(
-  milestones: readonly {
-    readonly id: string;
-    readonly documents: readonly { readonly id: string }[];
-  }[],
-  submissions: readonly {
-    readonly milestoneId: string;
-    readonly status: SubmissionStatus;
-  }[],
-  documentSubmissions: readonly {
-    readonly milestoneDocumentId: string;
-    readonly status: SubmissionStatus;
-  }[],
-): boolean {
-  const statusByMilestone = new Map(
-    submissions.map((submission) => [
-      submission.milestoneId,
-      submission.status,
-    ]),
-  );
-  const statusByDocument = new Map(
-    documentSubmissions.map((submission) => [
-      submission.milestoneDocumentId,
-      submission.status,
-    ]),
-  );
-  return milestones.every((milestone) =>
-    isMilestoneComplete({
-      requiredDocumentStatuses: milestone.documents.map(
-        (document) => statusByDocument.get(document.id) ?? null,
-      ),
-      submissionStatus: statusByMilestone.get(milestone.id) ?? null,
-    }),
-  );
-}
-
 function toRevisionRecord(
   revision: ReviewContextRow['revisions'][number],
   now: Date,

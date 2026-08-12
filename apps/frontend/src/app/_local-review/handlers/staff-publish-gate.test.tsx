@@ -86,7 +86,7 @@ function sourceFor(applicationId: string): ApplicationSource {
 }
 
 /**
- * 백엔드 `publishBlockedReasons`(submission-reviews/domain/submission-review.ts)를
+ * 백엔드 `publishBlockedReasons`(common/repository-publication.ts)를
  * 픽스처 **재료**에서 다시 계산한다. 사유 순서도 서버 순서 그대로다.
  *
  * 검토 컨텍스트에 손으로 적어 둔 `blockedReasons`를 그대로 읽으면 "적힌 것이 사실인지"는
