@@ -14,6 +14,7 @@ export type { DetailPanelLayoutProps } from './detail-panel-layout';
 export { CardGrid } from './card-grid';
 export { ProgramCard } from './program-card';
 export type { ProgramCardProps } from './program-card';
+export { RepositoryPublishCard } from './repository-publish-card';
 export { StatusBadge, statusBadgeVariants } from './status-badge';
 export { EmptyState } from './empty-state';
 export type { EmptyStateProps } from './empty-state';

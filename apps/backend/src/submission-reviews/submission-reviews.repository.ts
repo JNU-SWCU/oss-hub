@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, SubmissionStatus } from '@prisma/client';
 import type { Prisma as PrismaTypes, ReviewDecision } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { requiredMilestonesApproved } from '../common/milestone-completion';
 import type {
   RepositoryPublishEligibility,
   SubmissionReviewContext,
@@ -9,7 +10,6 @@ import type {
 } from './domain/submission-review';
 import {
   REVIEW_CONTEXT_SELECT,
-  requiredMilestonesApproved,
   toReviewContext,
 } from './submission-review-context.mapper';
 

@@ -1,4 +1,5 @@
 import type { ProgramCategory } from './program-templates';
+import type { PublishBlockedReason } from '@/lib/repository-publication';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
 export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -253,9 +254,13 @@ export interface StaffProgramTeam {
 export interface StaffTeamDetailApplication {
   readonly id: string;
   readonly status: ApplicationStatus;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repository: {
+    readonly id: string;
     readonly url: string;
     readonly visibility: 'PUBLIC' | 'PRIVATE';
+    readonly publishEligible: boolean;
+    readonly blockedReasons: readonly PublishBlockedReason[];
   } | null;
   readonly repositoryProvisioning: RepositoryProvisioning;
 }
