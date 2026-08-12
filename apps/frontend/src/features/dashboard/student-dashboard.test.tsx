@@ -100,6 +100,27 @@ describe('StudentDashboardView', () => {
     expect(invitationFailedHtml).not.toContain(
       'href="https://github.com/JNU-SWCU/capstone-hong"',
     );
+
+    const ownRepositoryHtml = renderView({
+      data: {
+        items: [
+          {
+            ...firstItem,
+            repository: {
+              ...firstItem.repository,
+              repositoryName: 'synthetic-repository',
+              githubUrl:
+                'https://github.com/synthetic-owner/synthetic-repository',
+              invitationStatus: null,
+            },
+          },
+        ],
+      },
+    });
+    expect(ownRepositoryHtml).toContain('준비 완료');
+    expect(ownRepositoryHtml).toContain(
+      'href="https://github.com/synthetic-owner/synthetic-repository"',
+    );
   });
   it('최종 저장소 생성 실패는 사용자에게 경고하고 재시도와 구분한다', () => {
     const firstItem = dashboardFixture.items[0];

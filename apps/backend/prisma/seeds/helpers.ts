@@ -33,15 +33,30 @@ export function offsetDays(days: number): Date {
   return new Date(SEED_NOW.getTime() + days * DAY_MS);
 }
 
-/** production 실행을 거부한다(#110 완료 조건: "production 환경에서는 실행을 거부한다"). */
+/**
+ * production 실행을 거부한다(#110 완료 조건: "production 환경에서는 실행을 거부한다").
+ *
+ * `demo` profile만 예외다 — 소유자 승인(@GoBeromsu, qa-econovation-batch TODO 11 플랜) 하에
+ * `SEED_DEMO_ALLOW_PRODUCTION=1`을 명시했을 때만 production에서도 실행을 허용한다
+ * (`prisma/AGENTS.md`·`prisma/README.md`에 문서화된 시드 규칙 개정). 다른 모든 profile은
+ * 이 예외의 영향을 받지 않는다 — `profile`을 넘기지 않는 호출은 계속 무조건 거부한다.
+ */
 export function assertSeedAllowed(
   nodeEnv: string | undefined = process.env.NODE_ENV,
+  profile?: SeedProfile,
+  demoAllowProductionFlag: string | undefined = process.env
+    .SEED_DEMO_ALLOW_PRODUCTION,
 ): void {
-  if (nodeEnv === 'production') {
-    throw new Error(
-      '시드는 production 환경에서 실행할 수 없습니다 (NODE_ENV=production).',
-    );
+  if (nodeEnv !== 'production') {
+    return;
   }
+  if (profile === 'demo' && demoAllowProductionFlag === '1') {
+    return;
+  }
+  throw new Error(
+    '시드는 production 환경에서 실행할 수 없습니다 (NODE_ENV=production). ' +
+      'demo profile은 SEED_DEMO_ALLOW_PRODUCTION=1을 명시했을 때만 예외로 허용됩니다.',
+  );
 }
 
 const OSS_HUB_ALLOWED_NODE_ENVS: readonly string[] = [
@@ -75,6 +90,7 @@ export type SeedProfile =
   | 'repositories'
   | 'program-overview'
   | 'oss-hub'
+  | 'demo'
   | 'all';
 
 const SEED_PROFILES: readonly SeedProfile[] = [
@@ -84,6 +100,7 @@ const SEED_PROFILES: readonly SeedProfile[] = [
   'repositories',
   'program-overview',
   'oss-hub',
+  'demo',
   'all',
 ];
 

@@ -82,6 +82,7 @@ const editableProgram: EditableProgram = {
   },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
+  startAt: '2026-08-16T09:30:59.000Z',
   endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: false,
   notifyOnDeadline: false,
@@ -104,6 +105,7 @@ describe('ProgramEditPage save payload', () => {
       category: 'OSS_CONTEST',
       applicationStartAt: editableProgram.applicationStartAt,
       applicationEndAt: editableProgram.applicationEndAt,
+      startAt: editableProgram.startAt,
       endAt: editableProgram.endAt,
       teamMinSize: 2,
       teamMaxSize: 4,
@@ -283,6 +285,37 @@ describe('ProgramEditPage 컴포넌트', () => {
   // Addition 2 — 저장 실패 경로는 여태 마운트 테스트가 없었다. submit의 catch가
   // form을 그대로 두는지(errors만 채우고 setForm/초기화를 하지 않는지)를 실제
   // DOM으로 확인한다.
+  it('잘못된 운영 시작일 입력은 해당 입력 옆에 오류를 보여준다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const startAtInput =
+      container.querySelector<HTMLInputElement>('#program-start-at');
+    if (startAtInput === null)
+      throw new TypeError('Missing #program-start-at.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(startAtInput, 'invalid-date');
+      startAtInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      getButton('변경사항 저장').click();
+    });
+
+    expect(updateProgramMock).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('운영 시작일을 입력해 주세요.');
+  });
+
   it('기본 정보 저장이 실패하면 입력값과 dirty 상태를 유지하고 폼 옆에 에러를 보여준다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
     updateProgramMock.mockRejectedValue(new TypeError('network'));

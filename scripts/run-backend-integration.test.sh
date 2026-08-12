@@ -81,6 +81,7 @@ run_fixture() {
     INTEGRATION_TEST_LOG="$command_log" \
     INTEGRATION_TEST_JEST_EXIT="$1" \
     INTEGRATION_TEST_DOWN_EXIT="$2" \
+    BACKEND_INTEGRATION_TEST_PATTERN="${3-}" \
     "$runner"
 }
 
@@ -112,6 +113,7 @@ if grep -F '999999:ADMIN' "$command_log" >/dev/null; then
 fi
 grep -F '|SEED=' "$command_log" >/dev/null
 test "$(grep -Fc '|JOIN_SECRET=synthetic-integration-join-code-secret' "$command_log")" -eq 1
+grep -F -- '--testPathPattern=\.integration\.spec\.ts$' "$command_log" >/dev/null
 if grep -F 'inherited-real-join-secret' "$command_log" >/dev/null; then
   echo 'integration contract: 호출자의 TEAM_JOIN_CODE_SECRET이 하위 프로세스에 전달됐습니다.' >&2
   exit 1
@@ -121,6 +123,14 @@ success_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* up -d --wait.*$/\1/p
 success_cleanup_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* down -v --remove-orphans.*$/\1/p' "$command_log")"
 test -n "$success_project"
 test "$success_project" = "$success_cleanup_project"
+
+# Given: 한 통합 spec만 실행하려는 호출자 패턴이 있다.
+# When: 격리 실행기에 명시적 패턴을 전달한다.
+: >"$command_log"
+run_fixture 0 0 'storage-orphan-reconciliation\.integration\.spec\.ts$'
+
+# Then: Jest에 그 패턴을 인자 하나로 그대로 전달한다.
+grep -F -- '--testPathPattern=storage-orphan-reconciliation\.integration\.spec\.ts$' "$command_log" >/dev/null
 
 # Given: 실제 Jest 실행이 실패한다.
 # When: 격리 통합 테스트 실행기가 비정상 종료를 전달한다.
