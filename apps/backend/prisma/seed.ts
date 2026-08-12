@@ -17,6 +17,19 @@ import { seedOssHub } from './seeds/oss-hub';
 import { seedProgramOverview } from './seeds/program-overview';
 import { seedRepositories } from './seeds/repositories';
 import { backfillUserProfiles } from './user-profile-backfill';
+import { S3SubmissionFileStorage } from '../src/submissions/s3-submission-file.storage';
+import { SubmissionFileStorageConfig } from '../src/submissions/submission-file-storage.config';
+import type { SubmissionFileStoragePort } from '../src/submissions/submission-file-storage.port';
+
+/**
+ * demo profile만 `S3SubmissionFileStorage`를 쓴다(#910/#913 파인딩 4) — 실제 앱이
+ * SubmissionFile storage에 쓰는 같은 포트/어댑터를 재사용해 seed FILE 제출이 실제
+ * 검색 가능한 객체를 갖도록 한다. `reconcile-storage-orphans.ts` CLI와 동일하게
+ * Nest DI 밖에서 직접 생성한다 — Prisma 시드와 동일한 단독 스크립트 실행 문맥.
+ */
+function createSubmissionFileStorage(): SubmissionFileStoragePort {
+  return new S3SubmissionFileStorage(new SubmissionFileStorageConfig());
+}
 
 /**
  * #110 시드 진입점. 실행 계약:
@@ -61,9 +74,21 @@ export async function runProfile(
     await seedOssHub(stats, ossHubAccounts);
   }
   if (profile === 'demo') {
-    await seedDemo(stats);
+    await seedDemo(stats, createSubmissionFileStorage());
   }
-  await backfillUserProfiles(prisma);
+  // production에서는 demo profile만 예외적으로 실행된다(assertSeedAllowed).
+  // 이 경로의 backfill은 그 예외가 만든 seed:demo:* 행만 만져야 한다 — 전체
+  // User를 스캔하면 이미 존재하는 비-demo production 사용자(예: 수동 교정된 OAuth
+  // 계정)의 legacy 프로필 불일치(PROFILE_MISMATCH 등)가 demo 시드 실행을 통째로
+  // 실패시키고, 그 사용자의 프로필을 쓰지도 않는다(프로덕션 장애 사례).
+  // production 외(demo의 기본 경로 포함)와 다른 모든 profile은 기존과 동일하게
+  // 전체 User를 대상으로 backfill한다.
+  const isProductionDemoSeed =
+    profile === 'demo' && process.env.NODE_ENV === 'production';
+  await backfillUserProfiles(
+    prisma,
+    isProductionDemoSeed ? { userIdPrefix: 'seed:demo:' } : {},
+  );
 }
 
 /**
@@ -80,7 +105,7 @@ export async function runTeardown(
       `--teardown은 현재 demo profile만 지원합니다 (입력: "${profile}").`,
     );
   }
-  await teardownDemo(stats);
+  await teardownDemo(stats, createSubmissionFileStorage());
 }
 
 async function main(): Promise<void> {

@@ -129,6 +129,71 @@ it('완료 행만 한 번 backfill하고 전체-null·이름-only 행은 건너�
   ]);
 });
 
+it('userIdPrefix를 주면 그 접두사 밖 행은 전혀 보지 않고, 프리픽스 밖 불일치는 backfill을 실패시키지 않는다', async () => {
+  // Given: 프리픽스 안 사용자는 완료 legacy 프로필(backfill 대상)이고,
+  // 프리픽스 밖 사용자는 UserProfile과 값이 어긋나는 PROFILE_MISMATCH 상태다 —
+  // 스코프가 없으면 이 불일치 하나만으로도 backfill 전체가 실패해야 한다.
+  const scopedPrefix = 'test:profile-backfill:scoped:';
+  const inScopeUserId = `${scopedPrefix}complete`;
+  const outOfScopeUserId = userIds[0];
+  const inScopeStudentId = ['96', '5601'].join('');
+
+  await prisma.user.create({
+    data: {
+      id: inScopeUserId,
+      githubId: 9_600_000_000_156_001n,
+      nickname: inScopeUserId.replaceAll(':', '-'),
+      name: '스코프 안 합성 사용자',
+      studentId: inScopeStudentId,
+      department: '인공지능학부',
+    },
+  });
+  await createLegacyUser({
+    id: outOfScopeUserId,
+    githubId: 9_600_000_000_153_201n,
+    name: '프리픽스 밖 불일치 사용자',
+    studentId: completeStudentId,
+    department: '인공지능학부',
+  });
+  await prisma.userProfile.create({
+    data: {
+      userId: outOfScopeUserId,
+      name: '불일치하는 이름',
+      studentId: completeStudentId,
+      department: '불일치하는 학과',
+    },
+  });
+
+  try {
+    // When: userIdPrefix를 주어 프리픽스 안으로만 backfill한다.
+    const created = await backfillUserProfiles(prisma, {
+      userIdPrefix: scopedPrefix,
+    });
+
+    // Then: 프리픽스 안 사용자만 UserProfile이 생성되고, 실패하지 않는다.
+    expect(created).toBe(1);
+    await expect(
+      prisma.userProfile.findUnique({ where: { userId: inScopeUserId } }),
+    ).resolves.toMatchObject({
+      name: '스코프 안 합성 사용자',
+      studentId: inScopeStudentId,
+      department: '인공지능학부',
+    });
+
+    // And: 프리픽스 밖 불일치 행은 전혀 건드려지지 않았다 — 기존 값 그대로다.
+    await expect(
+      prisma.userProfile.findUnique({ where: { userId: outOfScopeUserId } }),
+    ).resolves.toMatchObject({
+      name: '불일치하는 이름',
+      studentId: completeStudentId,
+      department: '불일치하는 학과',
+    });
+  } finally {
+    await prisma.userProfile.deleteMany({ where: { userId: inScopeUserId } });
+    await prisma.user.deleteMany({ where: { id: inScopeUserId } });
+  }
+});
+
 it.each([
   ['ADMIN', { role: Role.ADMIN }, 'LEGACY_ONLY_COMPLETE'],
   ['선택한 STAFF', { selectedRole: Role.STAFF }, 'LEGACY_ONLY_COMPLETE'],
