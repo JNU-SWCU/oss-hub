@@ -171,11 +171,58 @@ describe('checklistSubmittedCount', () => {
     ];
 
     // When / Then
-    expect(checklistSubmittedCount(items)).toEqual({ total: 2, submitted: 1 });
+    expect(checklistSubmittedCount(items)).toEqual({
+      total: 2,
+      submitted: 1,
+      revisionNeeded: 0,
+    });
+  });
+
+  it('재제출 가능 또는 보완 요청 상태를 보완 필요 건으로 구분한다', () => {
+    const items: SubmissionChecklistItem[] = [
+      checklistItem({
+        milestoneId: 'm-resubmit',
+        dueAt: '2026-09-02T00:00:00Z',
+        submission: {
+          id: 's-resubmit',
+          status: 'SUBMITTED',
+          currentRevision: 1,
+          decision: null,
+          lastReviewedAt: null,
+          reviewComment: null,
+          canResubmit: true,
+          file: null,
+        },
+      }),
+      checklistItem({
+        milestoneId: 'm-changes-requested',
+        dueAt: '2026-09-03T00:00:00Z',
+        submission: {
+          id: 's-changes-requested',
+          status: 'CHANGES_REQUESTED',
+          currentRevision: 1,
+          decision: 'CHANGES_REQUESTED',
+          lastReviewedAt: null,
+          reviewComment: null,
+          canResubmit: false,
+          file: null,
+        },
+      }),
+    ];
+
+    expect(checklistSubmittedCount(items)).toEqual({
+      total: 2,
+      submitted: 2,
+      revisionNeeded: 2,
+    });
   });
 
   it('빈 목록은 0/0이다', () => {
-    expect(checklistSubmittedCount([])).toEqual({ total: 0, submitted: 0 });
+    expect(checklistSubmittedCount([])).toEqual({
+      total: 0,
+      submitted: 0,
+      revisionNeeded: 0,
+    });
   });
 });
 
@@ -189,6 +236,27 @@ describe('checklistItemStatus', () => {
         }),
       ),
     ).toBe('NOT_SUBMITTED');
+  });
+
+  it('재제출 가능하면 서버 상태보다 보완 필요를 우선 표시한다', () => {
+    expect(
+      checklistItemStatus(
+        checklistItem({
+          milestoneId: 'milestone-resubmit',
+          dueAt: '2026-09-01T14:59:59.000Z',
+          submission: {
+            id: 'submission-resubmit',
+            status: 'SUBMITTED',
+            currentRevision: 1,
+            decision: null,
+            lastReviewedAt: null,
+            reviewComment: null,
+            canResubmit: true,
+            file: null,
+          },
+        }),
+      ),
+    ).toBe('CHANGES_REQUESTED');
   });
 
   it('상태 라벨 5종은 programs 화면과 같은 한국어 문구다', () => {

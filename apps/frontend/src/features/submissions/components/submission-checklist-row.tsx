@@ -10,6 +10,7 @@ import {
   CHECKLIST_STATUS_VARIANTS,
   checklistItemStatus,
   deadlineVariant,
+  isRevisionNeeded,
   milestoneDeadline,
 } from '../submission-checklist';
 import type { SubmissionChecklistItem, SubmissionFileMetadata } from '../types';
@@ -32,12 +33,16 @@ export function ChecklistRow({
 }) {
   const status = checklistItemStatus(item);
   const deadline = milestoneDeadline(item.dueAt, now);
-  // #619 mydocs 스펙: 미제출 → "올리기", 재제출 가능 → "수정", 그 외(승인·검토중·
+  // 미제출 → "올리기", 재제출 가능 → "다시 제출", 그 외(승인·검토중·
   // 최종반려처럼 손댈 수 없는 상태) → "보기".
-  const canUpload =
-    status === 'NOT_SUBMITTED' || item.submission?.canResubmit === true;
+  const revisionNeeded = isRevisionNeeded(item.submission);
+  const canUpload = status === 'NOT_SUBMITTED' || revisionNeeded;
   const actionLabel =
-    status === 'NOT_SUBMITTED' ? '올리기' : canUpload ? '수정' : '보기';
+    status === 'NOT_SUBMITTED'
+      ? '올리기'
+      : revisionNeeded
+        ? '다시 제출'
+        : '보기';
   // 마감(dueAt)이 지났으면 업로드 자리를 막는다 — "시작 전" 판정은 마일스톤에
   // 시작 시각 데이터가 없어 여기서는 낼 수 없다(스펙 Open Question #4 참고).
   const uploadDisabled = canUpload && deadline.dDay < 0;
