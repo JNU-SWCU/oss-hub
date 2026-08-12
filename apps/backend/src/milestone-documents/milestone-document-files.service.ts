@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, Role } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
+import { normalizeMultipartFileName } from '../common/multipart-file-name';
 import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,
@@ -87,7 +88,7 @@ export class MilestoneDocumentFilesService {
   ): Promise<UploadedMilestoneDocumentFileResponse> {
     const normalizedMilestoneId = this.requiredOpaqueId(milestoneId);
     const normalizedDocumentId = this.requiredOpaqueId(documentId);
-    this.assertValidFile(file);
+    const originalName = this.validateOriginalFileName(file);
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
     const viewer = await this.repository.findActiveUser(sessionGithubId);
@@ -122,9 +123,6 @@ export class MilestoneDocumentFilesService {
 
     const now = new Date();
     const objectKey = createSubmissionFileObjectKey();
-    const originalName = sanitizeSubmissionFileOriginalName(
-      uploadedFile.originalname,
-    );
 
     let created;
     try {
@@ -174,7 +172,7 @@ export class MilestoneDocumentFilesService {
     documentId: string,
     file: MilestoneDocumentFileUpload | undefined,
   ): Promise<UploadedMilestoneDocumentTemplateResponse> {
-    this.assertValidFile(file);
+    const originalName = this.validateOriginalFileName(file);
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
     const documentContext =
@@ -187,9 +185,6 @@ export class MilestoneDocumentFilesService {
     }
 
     const objectKey = createSubmissionFileObjectKey();
-    const originalName = sanitizeSubmissionFileOriginalName(
-      uploadedFile.originalname,
-    );
     const now = new Date();
 
     try {
@@ -344,19 +339,23 @@ export class MilestoneDocumentFilesService {
     };
   }
 
-  private assertValidFile(file: MilestoneDocumentFileUpload | undefined): void {
+  private validateOriginalFileName(
+    file: MilestoneDocumentFileUpload | undefined,
+  ): string {
     if (file === undefined || !Buffer.isBuffer(file.buffer)) {
       throw this.error(MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD);
     }
     if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
       throw this.error(MilestoneDocumentsErrorCode.FILE_TOO_LARGE);
     }
+    const normalizedFileName = normalizeMultipartFileName(file.originalname);
     if (
-      !isAllowedSubmissionFileType(file.originalname, file.mimetype) ||
-      !hasValidFileSignature(file.buffer, file.originalname)
+      !isAllowedSubmissionFileType(normalizedFileName, file.mimetype) ||
+      !hasValidFileSignature(file.buffer, normalizedFileName)
     ) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
+    return sanitizeSubmissionFileOriginalName(normalizedFileName);
   }
 
   private requiredOpaqueId(value: unknown): string {
