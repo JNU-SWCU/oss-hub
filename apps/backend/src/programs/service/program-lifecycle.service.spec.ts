@@ -6,6 +6,7 @@ import {
 import type { AuditLogRecordInput } from '../../audit-log/audit-log.repository';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import type { PrismaService } from '../../prisma/prisma.service';
+import type { ProgramDeletionScopeCounts } from '../program-deletion-scope';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
@@ -490,6 +491,13 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
 });
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
+const ZERO_SCOPE_COUNTS: ProgramDeletionScopeCounts = {
+  applications: 0,
+  teams: 0,
+  boardPosts: 0,
+  submissions: 0,
+};
+
 function createPurgeService(
   overrides: {
     readonly user?: unknown;
@@ -501,6 +509,8 @@ function createPurgeService(
     readonly applicationDecisionNotifications?: readonly {
       readonly id: string;
     }[];
+    /** purge 트랜잭션 안에서 재확인하는 현재 범위 스냅샷 — 기본값은 전부 0이다. */
+    readonly currentScopeCounts?: ProgramDeletionScopeCounts;
   } = {},
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
@@ -519,6 +529,16 @@ function createPurgeService(
         },
   );
   const programDelete = jest.fn().mockResolvedValue(undefined);
+
+  const currentScopeCounts = overrides.currentScopeCounts ?? ZERO_SCOPE_COUNTS;
+  const queryRaw = jest.fn().mockResolvedValue([
+    {
+      applications: BigInt(currentScopeCounts.applications),
+      teams: BigInt(currentScopeCounts.teams),
+      boardPosts: BigInt(currentScopeCounts.boardPosts),
+      submissions: BigInt(currentScopeCounts.submissions),
+    },
+  ]);
 
   const count = (key: string, fallback = 1) =>
     overrides.counts?.[key] ?? fallback;
@@ -586,6 +606,7 @@ function createPurgeService(
     .mockResolvedValue(undefined);
 
   const transactionClient = {
+    $queryRaw: queryRaw,
     program: { findUnique: programFindUnique, delete: programDelete },
     publicShowcaseRepository: {
       deleteMany: publicShowcaseRepositoryDeleteMany,
@@ -644,6 +665,7 @@ function createPurgeService(
     userFindUnique,
     programFindUnique,
     programDelete,
+    queryRaw,
     publicShowcaseRepositoryDeleteMany,
     outboxEventDeleteMany,
     applicationFindMany,
@@ -707,7 +729,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       record,
     } = createPurgeService();
 
-    const result = await service.purge(1001n, 'program-1');
+    const result = await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
     expect(result.id).toBe('program-1');
     expect(result.deleted).toBe(true);
@@ -849,7 +871,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       programCreateRequestDeleteMany,
     } = createPurgeService({ createRequest: null });
 
-    await service.purge(1001n, 'program-1');
+    await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
     expect(programAuthoringUploadUpdateMany).not.toHaveBeenCalled();
     expect(programCreateRequestDeleteMany).not.toHaveBeenCalled();
@@ -860,7 +882,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       { templateFiles: [] },
     );
 
-    await service.purge(1001n, 'program-1');
+    await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
     expect(programPurgeFileTombstoneCreateMany).not.toHaveBeenCalled();
   });
@@ -870,7 +892,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       applicationIds: [],
     });
 
-    await service.purge(1001n, 'program-1');
+    await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
     expect(outboxEventDeleteMany).toHaveBeenCalledTimes(1);
     expect(outboxEventDeleteMany).toHaveBeenCalledWith({
@@ -883,7 +905,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       applicationDecisionNotifications: [],
     });
 
-    await service.purge(1001n, 'program-1');
+    await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
     expect(notificationDeleteMany).toHaveBeenCalledTimes(1);
     expect(notificationDeleteMany).toHaveBeenCalledWith({
@@ -899,7 +921,9 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       user: { role: Role.STAFF, accountStatus: AccountStatus.ACTIVE },
     });
 
-    await expect(service.purge(1001n, 'program-1')).rejects.toMatchObject({
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
     });
     expect(programFindUnique).not.toHaveBeenCalled();
@@ -910,7 +934,9 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       user: { role: Role.STUDENT, accountStatus: AccountStatus.ACTIVE },
     });
 
-    await expect(service.purge(1001n, 'program-1')).rejects.toMatchObject({
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
     });
   });
@@ -918,11 +944,11 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
   it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던지고 자식 삭제를 시작하지 않는다', async () => {
     const { service, programDelete } = createPurgeService({ program: null });
 
-    await expect(service.purge(1001n, 'missing-program')).rejects.toMatchObject(
-      {
-        errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
-      },
-    );
+    await expect(
+      service.purge(1001n, 'missing-program', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+    });
     expect(programDelete).not.toHaveBeenCalled();
   });
 
@@ -942,7 +968,9 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       },
     });
 
-    await expect(service.purge(1001n, 'program-1')).rejects.toMatchObject({
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
     });
     expect(applicationFindMany).not.toHaveBeenCalled();
@@ -961,10 +989,87 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       },
     });
 
-    const result = await service.purge(1001n, 'program-1');
+    const result = await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
     expect(result.id).toBe('program-1');
     expect(result.deleted).toBe(true);
     expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+  });
+
+  // TOCTOU(#F2): 확인 화면과 purge 사이에 생긴 행을 관리자가 못 보고 지우지 않도록,
+  // 클라이언트가 보낸 expectedScope와 트랜잭션이 다시 읽은 현재 범위를 비교한다.
+  it('expectedScope가 현재 범위와 다르면 409 PRG_014로 거부하고 자식 삭제를 시작하지 않는다', async () => {
+    const {
+      service,
+      applicationFindMany,
+      publicShowcaseRepositoryDeleteMany,
+      programDelete,
+      record,
+    } = createPurgeService({
+      currentScopeCounts: {
+        applications: 1,
+        teams: 0,
+        boardPosts: 0,
+        submissions: 0,
+      },
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode:
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+      extensions: {
+        currentScopeCounts: {
+          applications: 1,
+          teams: 0,
+          boardPosts: 0,
+          submissions: 0,
+        },
+      },
+    });
+
+    // 비교에서 이미 막혔으므로 실제 자식 삭제 단계는 하나도 시작하지 않는다 — 부분 삭제 없음.
+    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('expectedScope가 현재 범위와 같으면 정상적으로 purge를 진행한다', async () => {
+    const { service, programDelete } = createPurgeService({
+      currentScopeCounts: {
+        applications: 2,
+        teams: 1,
+        boardPosts: 0,
+        submissions: 3,
+      },
+    });
+
+    const result = await service.purge(1001n, 'program-1', {
+      applications: 2,
+      teams: 1,
+      boardPosts: 0,
+      submissions: 3,
+    });
+
+    expect(result).toMatchObject({ id: 'program-1', deleted: true });
+    expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+  });
+
+  // 단위 테스트로 "비교가 트랜잭션 밖에서 일어나지 않는다"는 것을 직접 증명하기는 어렵지만
+  // (실제 트랜잭션이 아니라 콜백을 그대로 실행하는 목이므로), 이 스위트의 모든 $queryRaw
+  // 호출이 매번 새 $transaction 콜백 실행 안에서만 이뤄진다는 것으로 대신 확인한다 —
+  // $transaction이 호출되지 않은 상태에서 $queryRaw가 먼저 불리면 이 fixture 자체가
+  // 깨진다(스코프 검사 mock이 트랜잭션 클라이언트에만 달려 있기 때문).
+  it('범위 재확인 쿼리는 $transaction 콜백 안(=트랜잭션 클라이언트)에서만 실행된다', async () => {
+    const { service, queryRaw } = createPurgeService();
+
+    await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
+
+    // queryRaw는 트랜잭션 클라이언트 전용 mock이다 — prisma 최상위 객체에는 존재하지 않는다.
+    // 이 mock이 호출됐다는 것 자체가 비교 쿼리가 트랜잭션 클라이언트를 통해서만
+    // 실행됐다는 뜻이다(서비스 코드가 트랜잭션 밖 this.prisma로 같은 쿼리를 쏠 방법이 없다).
+    expect(queryRaw).toHaveBeenCalledTimes(1);
   });
 });

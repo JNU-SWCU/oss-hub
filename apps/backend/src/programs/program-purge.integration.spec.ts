@@ -29,6 +29,7 @@ import { SubmissionFileStorageConfig } from '../submissions/submission-file-stor
 import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './archive/public-projects/public-projects.repository';
+import { readProgramDeletionScopeCounts } from './program-deletion-scope';
 import { ProgramErrorCode } from './program-error-code.enum';
 import { ProgramPurgeFileCleanupRepository } from './repository/program-purge-file-cleanup.repository';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
@@ -855,6 +856,17 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
   };
 }
 
+/**
+ * ADMIN이 확인 화면에서 본 4종 범위 스냅샷을 재현한다 — GET edit과 같은 단일 스냅샷 쿼리를
+ * 단순 읽기 트랜잭션으로 감싸 쓴다. 테스트가 purge 호출 직전 이 값을 expectedScope로 보내면
+ * 실제 UI의 "확인한 범위를 그대로 보낸다" 계약과 같은 모양이 된다.
+ */
+async function currentDeletionScopeCounts(programId: string) {
+  return prisma.$transaction((transaction) =>
+    readProgramDeletionScopeCounts(transaction, programId),
+  );
+}
+
 async function programChildRowCounts(
   programId: string,
   applicationIds: readonly string[] = [],
@@ -1072,7 +1084,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
       beforePurgePage.some((row) => row.id === fixture.publishedRepositoryId),
     ).toBe(true);
 
-    const result = await lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId);
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+    const result = await lifecycle.purge(
+      ADMIN_GITHUB_ID,
+      fixture.programId,
+      expectedScope,
+    );
     expect(result).toMatchObject({ id: fixture.programId, deleted: true });
 
     // 오도된 성공 출력 방지 — 서비스 반환값이 아니라 DB를 직접 조회해 검증한다.
@@ -1244,12 +1261,13 @@ describe('Program purge integration — full child graph, worker file deletion, 
 
   it('STAFF가 purge를 시도하면 403 PRG_011을 받고 프로그램은 그대로 남는다', async () => {
     const fixture = await seedFullChildGraph('staff-forbidden');
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
 
     await expect(
-      lifecycle.purge(STAFF_GITHUB_ID, fixture.programId),
+      lifecycle.purge(STAFF_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toBeInstanceOf(DomainException);
     await expect(
-      lifecycle.purge(STAFF_GITHUB_ID, fixture.programId),
+      lifecycle.purge(STAFF_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN },
     });
@@ -1277,7 +1295,14 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     });
 
-    await lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId);
+    const staleStateExpectedScope = await currentDeletionScopeCounts(
+      fixture.programId,
+    );
+    await lifecycle.purge(
+      ADMIN_GITHUB_ID,
+      fixture.programId,
+      staleStateExpectedScope,
+    );
 
     // purge 후: 프로그램 자체가 사라졌으므로 blockingCounts를 재사용하지 않고 404를 던져야 한다.
     await expect(
@@ -1286,7 +1311,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
       errorCode: { code: ProgramErrorCode.PROGRAM_NOT_FOUND },
     });
     await expect(
-      lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId),
+      lifecycle.purge(
+        ADMIN_GITHUB_ID,
+        fixture.programId,
+        staleStateExpectedScope,
+      ),
     ).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.PROGRAM_NOT_FOUND },
     });
@@ -1307,9 +1336,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma,
       failingAuditLog,
     );
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
 
     await expect(
-      failingLifecycle.purge(ADMIN_GITHUB_ID, fixture.programId),
+      failingLifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toThrow('induced audit failure');
 
     // all-or-nothing: 감사 기록 실패로 트랜잭션 전체가 롤백돼 자식 행이 전부 그대로 남는다.
@@ -1342,13 +1372,20 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.applicationId,
     ]);
 
+    const protectedExpectedScope = await currentDeletionScopeCounts(
+      fixture.programId,
+    );
     await expect(
       lifecycle.delete(ADMIN_GITHUB_ID, fixture.programId),
     ).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
     });
     await expect(
-      lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId),
+      lifecycle.purge(
+        ADMIN_GITHUB_ID,
+        fixture.programId,
+        protectedExpectedScope,
+      ),
     ).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
     });
@@ -1369,7 +1406,94 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.toMatchObject({ deletionProtected: false });
 
-    const result = await lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId);
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+    const result = await lifecycle.purge(
+      ADMIN_GITHUB_ID,
+      fixture.programId,
+      expectedScope,
+    );
+    expect(result).toMatchObject({ id: fixture.programId, deleted: true });
+    await expect(
+      prisma.program.findUnique({ where: { id: fixture.programId } }),
+    ).resolves.toBeNull();
+  });
+
+  // TOCTOU(#F2): 확인 화면(GET edit)이 4종 범위를 읽은 이후, purge가 불리기 전에 생긴
+  // 행이 관리자가 보지 못한 채 지워져서는 안 된다. 이 테스트는 두 요청이 분리된
+  // 실제 UI 흐름(getEditableProgram → confirm → purge)을 그대로 재현한다.
+  it('race: 확인 후·purge 전에 생긴 자식 행이 있으면 409 PRG_014로 거부하고 아무것도 지우지 않는다', async () => {
+    const fixture = await seedFullChildGraph('toctou-race');
+
+    // ADMIN이 확인 다이얼로그를 열어 GET edit이 보여준 범위를 쪽집한 순간(=이 snapshot).
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+    expect(expectedScope).toEqual({
+      applications: 2,
+      teams: 2,
+      boardPosts: 1,
+      submissions: 1,
+    });
+
+    // 확인 이후, purge 호출 이전에 학생이 게시글을 남긴다 — 관리자는 이 행을 확인 다이얼로그에서
+    // 본 적이 없다.
+    const raceBoardPostId = `${fixture.programId}-race-board-post`;
+    const applicant = await prisma.application.findUniqueOrThrow({
+      where: { id: fixture.applicationId },
+      select: { applicantId: true },
+    });
+    await prisma.boardPost.create({
+      data: {
+        id: raceBoardPostId,
+        programId: fixture.programId,
+        authorId: applicant.applicantId,
+        category: BoardPostCategory.NOTICE,
+        title: 'Race-inserted notice',
+        body: 'Inserted after scope confirmation, before purge',
+      },
+    });
+
+    // 확인한 시점의 스냅샷(expectedScope)을 그대로 보내면 트랜잭션 안의 재확인이 이제는 다른
+    // boardPosts 카운트를 보고 거부해야 한다.
+    await expect(
+      lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
+    ).rejects.toMatchObject({
+      errorCode: { code: ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED },
+      extensions: {
+        currentScopeCounts: {
+          applications: 2,
+          teams: 2,
+          boardPosts: 2,
+          submissions: 1,
+        },
+      },
+    });
+
+    // 거부된 후: Program과 모든 자식 행이 그대로 남아 있다 — 레이스로 데이터가 유실되지 않았다.
+    await expect(
+      prisma.program.findUnique({ where: { id: fixture.programId } }),
+    ).resolves.not.toBeNull();
+    await expect(
+      prisma.boardPost.findUnique({ where: { id: raceBoardPostId } }),
+    ).resolves.not.toBeNull();
+    const after = await programChildRowCounts(fixture.programId, [
+      fixture.applicationId,
+    ]);
+    expect(after.milestones).toBe(1);
+    expect(after.applications).toBe(2);
+    expect(after.teams).toBe(2);
+    expect(after.boardPosts).toBe(2);
+    expect(after.submissions).toBe(1);
+  });
+
+  it('purge는 클라이언트가 보낸 expectedScope가 현재 범위와 일치하면 성공한다', async () => {
+    const fixture = await seedFullChildGraph('scope-matches');
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+
+    const result = await lifecycle.purge(
+      ADMIN_GITHUB_ID,
+      fixture.programId,
+      expectedScope,
+    );
+
     expect(result).toMatchObject({ id: fixture.programId, deleted: true });
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
