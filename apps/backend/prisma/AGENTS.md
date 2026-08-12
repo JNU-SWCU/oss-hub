@@ -41,7 +41,7 @@
   # 프로필 지정 — CLI 인자
   pnpm --filter backend prisma db seed -- --profile milestones
   ```
-- `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만). `prisma migrate deploy`(`scripts/run-backend-integration.sh` 경로)는 자동 시드를 실행하지 않는다. `NODE_ENV=production`에서는 실행이 거부된다 — **예외: `demo` profile은 소유자 승인(@GoBeromsu, qa-econovation-batch 플랜 TODO 11) 하에 `SEED_DEMO_ALLOW_PRODUCTION=1`을 명시했을 때만 production에서도 실행할 수 있다(`assertSeedAllowed`, `seeds/helpers.ts`). 다른 모든 profile은 이 예외의 영향을 받지 않는다.**
+- `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만). `prisma migrate deploy`(`scripts/run-backend-integration.sh` 경로)는 자동 시드를 실행하지 않는다. `NODE_ENV=production`에서는 실행이 거부된다 — **예외: `demo` profile은 소유자 승인(@GoBeromsu, qa-econovation-batch 플랜 TODO 11·15) 하에 `SEED_DEMO_ALLOW_PRODUCTION=1`을 명시했을 때만 production에서도 실행할 수 있다(`assertSeedAllowed`, `seeds/helpers.ts`). 다른 모든 profile은 이 예외의 영향을 받지 않는다.** `demo` profile은 같은 게이트 하에 `--teardown` 플래그로 자신이 만든 `seed:demo:*` 행 전부를 의존성 순서로 일괄 삭제할 수도 있다 — 상세는 README.md가 원본이다.
 - 모든 row는 결정적 id(`seed:...`)로 upsert되므로 같은 profile을 여러 번 실행해도 행 수가 늘지 않는다(멱등) — `seed.integration.spec.ts`가 이 성질을 검증한다.
 - 시나리오 id 목록·`Application.answers`/`SubmissionRevision.content`의 placeholder 제약·초기 역할 부여가 이 시드가 아니라 `src/auth/auth.repository.ts`의 `AUTH_INITIAL_ROLES` 설정이 소유한다는 사실 등 상세는 **`README.md`가 원본**이다 — 이 문서에서 중복 서술하지 않는다.
 - 로컬 DB 초기화는 `pnpm db:reset`(호스트 lane 개발 DB 대상 — 실행 전 팀과 확인). 대상 주소는 `.envrc`의 `DATABASE_URL`이며 `scripts/check-host-db-url.sh`가 로컬 여부와 `POSTGRES_PORT`·`POSTGRES_DB` 일치를 먼저 검증한다. CI/통합테스트는 매번 새로 띄우는 격리 컨테이너만 쓴다.

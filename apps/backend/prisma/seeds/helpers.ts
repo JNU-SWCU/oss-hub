@@ -130,6 +130,17 @@ export function resolveSeedProfile(
   return candidate;
 }
 
+/**
+ * `--teardown` CLI 플래그(qa-econovation-batch TODO 15) — 지금은 `demo` profile만 지원한다.
+ * 이 플래그가 있으면 `seed.ts`가 시드를 만드는 대신 그 profile이 만든 `seed:<profile>:*`
+ * 행을 전부 삭제한다. env 대응은 두지 않는다 — teardown은 항상 명시적 CLI 인자로만 트리거한다.
+ */
+export function resolveTeardownFlag(
+  argv: readonly string[] = process.argv,
+): boolean {
+  return argv.includes('--teardown');
+}
+
 export type OssHubTeamAccount = {
   githubId: bigint;
   login: string;

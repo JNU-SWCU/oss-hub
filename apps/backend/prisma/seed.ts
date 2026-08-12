@@ -5,11 +5,12 @@ import {
   parseOssHubTeamAccounts,
   prisma,
   resolveSeedProfile,
+  resolveTeardownFlag,
   SeedProfile,
   SeedStats,
   seedNow,
 } from './seeds/helpers';
-import { seedDemo } from './seeds/demo';
+import { seedDemo, teardownDemo } from './seeds/demo';
 import { seedIntake } from './seeds/intake';
 import { seedMilestones } from './seeds/milestones';
 import { seedOssHub } from './seeds/oss-hub';
@@ -65,10 +66,38 @@ export async function runProfile(
   await backfillUserProfiles(prisma);
 }
 
+/**
+ * `--teardown`(TODO 15) 은 현재 `demo` profile만 지원한다. production에서도
+ * 시드와 동일한 `assertSeedAllowed` 게이트(`SEED_DEMO_ALLOW_PRODUCTION=1`)를 통과해야
+ * 실행된다 — 새 시드 예외를 추가하지 않는다.
+ */
+export async function runTeardown(
+  profile: SeedProfile,
+  stats: SeedStats,
+): Promise<void> {
+  if (profile !== 'demo') {
+    throw new Error(
+      `--teardown은 현재 demo profile만 지원합니다 (입력: "${profile}").`,
+    );
+  }
+  await teardownDemo(stats);
+}
+
 async function main(): Promise<void> {
   const profile = resolveSeedProfile();
   assertSeedAllowed(process.env.NODE_ENV, profile);
+  const teardown = resolveTeardownFlag();
   const stats = new SeedStats();
+
+  if (teardown) {
+    console.log(
+      `[seed] teardown profile=${profile} SEED_NOW=${seedNow().toISOString()}`,
+    );
+    await runTeardown(profile, stats);
+    console.log(`[seed] teardown 완료 (profile=${profile})`);
+    console.log(stats.report());
+    return;
+  }
 
   console.log(`[seed] profile=${profile} SEED_NOW=${seedNow().toISOString()}`);
   await runProfile(profile, stats);

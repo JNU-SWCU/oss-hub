@@ -4,6 +4,7 @@ import {
   DEFAULT_SEED_PROFILE,
   parseOssHubTeamAccounts,
   resolveSeedProfile,
+  resolveTeardownFlag,
   seedGithubId,
   seedId,
   SeedStats,
@@ -140,6 +141,36 @@ describe('resolveSeedProfile', () => {
     expect(
       resolveSeedProfile(['node', 'seed.ts', '--profile', 'oss-hub'], {}),
     ).toBe('oss-hub');
+  });
+});
+
+describe('resolveTeardownFlag', () => {
+  it('--teardown이 없으면 false다', () => {
+    expect(resolveTeardownFlag(['node', 'seed.ts'])).toBe(false);
+    expect(resolveTeardownFlag(['node', 'seed.ts', '--profile', 'demo'])).toBe(
+      false,
+    );
+  });
+
+  it('--teardown이 있으면 true다(profile 인자 순서와 무관)', () => {
+    expect(
+      resolveTeardownFlag([
+        'node',
+        'seed.ts',
+        '--profile',
+        'demo',
+        '--teardown',
+      ]),
+    ).toBe(true);
+    expect(
+      resolveTeardownFlag([
+        'node',
+        'seed.ts',
+        '--teardown',
+        '--profile',
+        'demo',
+      ]),
+    ).toBe(true);
   });
 });
 
