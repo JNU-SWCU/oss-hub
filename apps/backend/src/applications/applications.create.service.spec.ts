@@ -113,6 +113,7 @@ function buildService(overrides: {
       .mockResolvedValue(ProgramLifecycle.PUBLISHED),
     findTeamMinSize: jest.fn().mockResolvedValue(null),
     findExistingTeamMembership: jest.fn().mockResolvedValue(null),
+    lockTeamForApply: jest.fn().mockResolvedValue(undefined),
     countTeamMembers: jest.fn().mockResolvedValue(1),
     createTeamWithLeader,
     createApplication,
@@ -662,11 +663,13 @@ describe('ApplicationsService.create', () => {
   });
   it('이미 팀에 속해 있으면 새 팀을 만들지 않고 그 팀으로 신청한다', async () => {
     // Given — /teams 에서 팀을 먼저 만든 학생.
+    const lockTeamForApply = jest.fn().mockResolvedValue(undefined);
     const { service, createApplication, createTeamWithLeader } = buildService({
       store: {
         findExistingTeamMembership: jest
           .fn()
           .mockResolvedValue({ id: 'existing-team', name: '먼저 만든 팀' }),
+        lockTeamForApply,
         countTeamMembers: jest.fn().mockResolvedValue(1),
       },
     });
@@ -677,6 +680,7 @@ describe('ApplicationsService.create', () => {
     // Then — 새 팀을 만들지 않는다. 만들면 TeamMember unique 에 걸려
     // 학생이 영영 신청하지 못한다.
     expect(createTeamWithLeader).not.toHaveBeenCalled();
+    expect(lockTeamForApply).toHaveBeenCalledWith('existing-team');
     expect(createApplication).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: 'existing-team' }),
     );

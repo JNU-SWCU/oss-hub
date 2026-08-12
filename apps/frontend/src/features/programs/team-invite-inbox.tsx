@@ -18,6 +18,8 @@ export interface ReceivedInvitationView {
  */
 export interface TeamInviteInboxProps {
   readonly items: readonly ReceivedInvitationView[];
+  /** 다른 팀에 아직 속하지 않아 초대를 수락할 수 있는지 여부. */
+  readonly canAccept: boolean;
   readonly respondingInvitationId: string | null;
   readonly actionError: string | null;
   readonly onAccept: (invitationId: string) => void;
@@ -26,6 +28,7 @@ export interface TeamInviteInboxProps {
 
 export function TeamInviteInbox({
   items,
+  canAccept,
   respondingInvitationId,
   actionError,
   onAccept,
@@ -39,6 +42,12 @@ export function TeamInviteInbox({
         <CardTitle>받은 팀 초대</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {!canAccept ? (
+          <p className="text-small text-muted-foreground">
+            이미 다른 팀에 참여 중이라 수락할 수 없습니다. 필요하지 않은 초대는
+            거절해 주세요.
+          </p>
+        ) : null}
         {actionError ? (
           <Alert variant="destructive">
             <AlertTitle>요청 실패</AlertTitle>
@@ -60,14 +69,16 @@ export function TeamInviteInbox({
                   </span>
                 </span>
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={responding}
-                    onClick={() => onAccept(invitation.id)}
-                  >
-                    {responding ? '처리 중…' : '수락'}
-                  </Button>
+                  {canAccept ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={responding}
+                      onClick={() => onAccept(invitation.id)}
+                    >
+                      {responding ? '처리 중…' : '수락'}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"

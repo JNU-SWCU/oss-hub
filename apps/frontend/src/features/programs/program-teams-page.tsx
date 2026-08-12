@@ -179,12 +179,14 @@ export function ProgramTeamRosterView({
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {joinCode ? (
-            <div className="rounded-control border border-border bg-muted/40 px-4 py-3 text-small">
-              <span className="text-muted-foreground">참여 코드 </span>
-              <span className="font-mono font-semibold tracking-wide">
-                {joinCode}
+            <div className="flex flex-col gap-1 rounded-control border border-border bg-muted/40 px-4 py-3 text-small sm:block">
+              <span>
+                <span className="text-muted-foreground">참여 코드 </span>
+                <span className="font-mono font-semibold tracking-wide">
+                  {joinCode}
+                </span>
               </span>
-              <span className="ml-2 text-small text-muted-foreground">
+              <span className="text-small text-muted-foreground sm:ml-2">
                 (생성 직후에만 표시됩니다)
               </span>
             </div>
@@ -201,21 +203,15 @@ export function ProgramTeamRosterView({
             {team.members.map((member) => (
               <li
                 key={member.userId}
-                className="flex min-h-control items-center justify-between gap-4 rounded-control border border-border px-4 py-2"
+                className="flex min-h-control flex-col items-start gap-1 rounded-control border border-border px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
               >
-                <span>
+                <span className="flex flex-wrap items-baseline gap-x-2">
                   {member.name?.trim() || member.nickname}
-                  {member.isLeader ? (
-                    <span className="ml-2 text-small text-muted-foreground">
-                      팀장
-                    </span>
-                  ) : (
-                    <span className="ml-2 text-small text-muted-foreground">
-                      팀원
-                    </span>
-                  )}
+                  <span className="whitespace-nowrap text-small text-muted-foreground">
+                    {member.isLeader ? '팀장' : '팀원'}
+                  </span>
                 </span>
-                <span className="font-mono text-small text-muted-foreground">
+                <span className="max-w-full break-all font-mono text-small text-muted-foreground sm:text-right">
                   {member.nickname}
                 </span>
               </li>
@@ -224,7 +220,7 @@ export function ProgramTeamRosterView({
           <div className="flex flex-wrap gap-3">
             <Button asChild>
               <Link href={applyHrefWithTeam(program.id, team.id)}>
-                신청서 작성
+                {team.locked ? '신청서 확인' : '신청서 작성'}
               </Link>
             </Button>
             <Button asChild variant="link">
@@ -726,12 +722,13 @@ export function ProgramTeamsPage({
       ) : null}
       <TeamInviteInbox
         items={receivedItems}
+        canAccept={state.kind === 'empty'}
         respondingInvitationId={respondingInvitationId}
         actionError={inboxActionError}
         onAccept={(invitationId) => void handleAcceptInvitation(invitationId)}
         onDecline={(invitationId) => void handleDeclineInvitation(invitationId)}
       />
-      {state.kind === 'ready' && state.team.isLeader ? (
+      {state.kind === 'ready' && state.team.isLeader && !state.team.locked ? (
         <TeamInvitePanel
           query={inviteQuery}
           candidates={inviteCandidates}

@@ -207,6 +207,9 @@ export class ApplicationsService {
           programId,
           student.id,
         );
+        if (existingTeam) {
+          await store.lockTeamForApply(existingTeam.id);
+        }
         const teamMinSize = await store.findTeamMinSize(programId);
         const memberCount = existingTeam
           ? await store.countTeamMembers(existingTeam.id)

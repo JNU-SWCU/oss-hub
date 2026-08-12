@@ -133,6 +133,27 @@ describe('TeamInvitationsService.searchCandidates', () => {
     });
   });
 
+  it('신청을 제출한 팀은 초대 후보를 검색할 수 없다', async () => {
+    const { service, repository } = buildService({
+      findTeamContext: jest.fn().mockResolvedValue({
+        teamId: syntheticTeamId,
+        programId: syntheticProgramId,
+        leaderId: syntheticUserId,
+        teamMaxSize: 4,
+        locked: true,
+      }),
+    });
+
+    await expect(
+      service.searchCandidates(syntheticGithubId, syntheticTeamId, 'octo'),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION,
+      },
+    });
+    expect(repository.searchCandidates).not.toHaveBeenCalled();
+  });
+
   it('공백만 있는 검색어는 빈 배열을 반환하고 repository를 호출하지 않는다', async () => {
     const { service, repository } = buildService({
       findTeamContext: jest.fn().mockResolvedValue({

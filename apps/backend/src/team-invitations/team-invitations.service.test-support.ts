@@ -36,6 +36,7 @@ export function buildService(overrides: Partial<MockRepository> = {}): {
       programId: syntheticProgramId,
       leaderId: syntheticLeaderId,
       teamMaxSize: 4,
+      locked: false,
     }),
     isTeamMember: jest.fn().mockResolvedValue(true),
     isUserInProgramTeam: jest.fn().mockResolvedValue(false),

@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PendingInvitationConflictError,
+  TeamInvitationLockedError,
   TeamInvitationsRepository,
 } from './team-invitations.repository';
 
@@ -50,12 +51,24 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
 });
 
 describe('TeamInvitationsRepository.createInvitation', () => {
+  function buildRepository(
+    create: jest.Mock,
+    application: { readonly id: string } | null = null,
+  ): TeamInvitationsRepository {
+    const transaction = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: syntheticTeamId }]),
+      application: { findFirst: jest.fn().mockResolvedValue(application) },
+      teamInvitation: { create },
+    };
+    return new TeamInvitationsRepository({
+      $transaction: <T>(operation: (tx: typeof transaction) => Promise<T>) =>
+        operation(transaction),
+    } as unknown as PrismaService);
+  }
+
   it('P2002는 PendingInvitationConflictError로 변환한다', async () => {
     const create = jest.fn().mockRejectedValue(knownRequestError('P2002'));
-    const prisma = { teamInvitation: { create } };
-    const repository = new TeamInvitationsRepository(
-      prisma as unknown as PrismaService,
-    );
+    const repository = buildRepository(create);
 
     await expect(
       repository.createInvitation({
@@ -69,10 +82,7 @@ describe('TeamInvitationsRepository.createInvitation', () => {
 
   it('partial unique 위반(raw 23505)도 PendingInvitationConflictError로 변환한다', async () => {
     const create = jest.fn().mockRejectedValue(knownRequestError('23505'));
-    const prisma = { teamInvitation: { create } };
-    const repository = new TeamInvitationsRepository(
-      prisma as unknown as PrismaService,
-    );
+    const repository = buildRepository(create);
 
     await expect(
       repository.createInvitation({
@@ -87,10 +97,7 @@ describe('TeamInvitationsRepository.createInvitation', () => {
   it('다른 에러는 그대로 전파한다', async () => {
     const boom = new Error('boom');
     const create = jest.fn().mockRejectedValue(boom);
-    const prisma = { teamInvitation: { create } };
-    const repository = new TeamInvitationsRepository(
-      prisma as unknown as PrismaService,
-    );
+    const repository = buildRepository(create);
 
     await expect(
       repository.createInvitation({
@@ -100,5 +107,20 @@ describe('TeamInvitationsRepository.createInvitation', () => {
         invitedById: 'cuid-synthetic-leader',
       }),
     ).rejects.toBe(boom);
+  });
+
+  it('신청서가 있는 팀은 새 초대 생성을 거부한다', async () => {
+    const create = jest.fn();
+    const repository = buildRepository(create, { id: 'application-1' });
+
+    await expect(
+      repository.createInvitation({
+        teamId: syntheticTeamId,
+        programId: syntheticProgramId,
+        inviteeId: syntheticInviteeId,
+        invitedById: 'cuid-synthetic-leader',
+      }),
+    ).rejects.toBeInstanceOf(TeamInvitationLockedError);
+    expect(create).not.toHaveBeenCalled();
   });
 });

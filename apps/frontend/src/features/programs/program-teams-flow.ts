@@ -102,6 +102,8 @@ export function mapInvitationError(problem: ProblemDetail): string {
       return '이미 처리된 초대입니다.';
     case 'TIV_012':
       return '본인이 받은 초대만 응답할 수 있습니다.';
+    case 'TIV_014':
+      return '신청 제출 후에는 팀 구성원을 변경할 수 없습니다.';
     default:
       return problem.detail || '초대 요청을 처리하지 못했습니다.';
   }

@@ -121,6 +121,8 @@ describe('ProgramTeams views', () => {
       />,
     );
     expect(html).toContain('신청 제출 후 팀을 변경할 수 없습니다');
+    expect(html).toContain('신청서 확인');
+    expect(html).not.toContain('신청서 작성');
   });
 
   it('서버 오류를 표시한다', () => {
