@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { normalizeMultipartFileName } from '../common/multipart-file-name';
 import { isAllowedSubmissionFileType } from '../submissions/submission-file-content-type';
 import { sanitizeSubmissionFileOriginalName } from '../submissions/submission-file-name';
 import {
@@ -50,7 +51,7 @@ export function validateProgramAuthoringUpload(
   }
 
   const originalFileName = sanitizeSubmissionFileOriginalName(
-    file.originalname,
+    normalizeMultipartFileName(file.originalname),
   );
   const mimeType = file.mimetype.toLowerCase();
   if (

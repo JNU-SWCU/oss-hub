@@ -120,3 +120,40 @@ export function milestoneCompletionStatus(
 export function isMilestoneComplete(input: MilestoneCompletionInput): boolean {
   return milestoneCompletionStatus(input) === SubmissionStatus.APPROVED;
 }
+
+/** 프로그램의 모든 마일스톤이 한 신청에 대해 완료됐는지 같은 축 판정으로 집계한다. */
+export function requiredMilestonesApproved(
+  milestones: readonly {
+    readonly id: string;
+    readonly documents: readonly { readonly id: string }[];
+  }[],
+  submissions: readonly {
+    readonly milestoneId: string;
+    readonly status: SubmissionStatus;
+  }[],
+  documentSubmissions: readonly {
+    readonly milestoneDocumentId: string;
+    readonly status: SubmissionStatus;
+  }[],
+): boolean {
+  const statusByMilestone = new Map(
+    submissions.map((submission) => [
+      submission.milestoneId,
+      submission.status,
+    ]),
+  );
+  const statusByDocument = new Map(
+    documentSubmissions.map((submission) => [
+      submission.milestoneDocumentId,
+      submission.status,
+    ]),
+  );
+  return milestones.every((milestone) =>
+    isMilestoneComplete({
+      requiredDocumentStatuses: milestone.documents.map(
+        (document) => statusByDocument.get(document.id) ?? null,
+      ),
+      submissionStatus: statusByMilestone.get(milestone.id) ?? null,
+    }),
+  );
+}

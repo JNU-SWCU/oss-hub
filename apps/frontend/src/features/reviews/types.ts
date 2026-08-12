@@ -1,7 +1,19 @@
+import type {
+  PublishBlockedReason,
+  PublishRepositoryResponse,
+  RepositoryPublication,
+  RepositoryVisibility,
+} from '@/lib/repository-publication';
+
+export type {
+  PublishBlockedReason,
+  PublishRepositoryResponse,
+  RepositoryVisibility,
+};
+
 export type ReviewDecision = 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
 export type ApplicationMode = 'PERSONAL' | 'TEAM';
-export type RepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
 export interface ReviewRecord {
   readonly id: string;
@@ -49,19 +61,7 @@ export interface SubmissionRevision {
  * 공개 확정 게이트 2~5의 실패 사유.
  * 백엔드 `PUBLISH_BLOCKED_REASONS`(domain/submission-review.ts)와 한 벌이며 서버가 거절하는 조건과 같다.
  */
-export type PublishBlockedReason =
-  | 'REPOSITORY_NOT_READY'
-  | 'REPOSITORY_PUBLICATION_NOT_PLANNED'
-  | 'PROGRAM_NOT_ENDED'
-  | 'REQUIRED_MILESTONES_NOT_APPROVED';
-
-export interface ReviewRepository {
-  readonly id: string;
-  readonly url: string;
-  readonly visibility: RepositoryVisibility;
-  readonly publishEligible: boolean;
-  readonly blockedReasons: readonly PublishBlockedReason[];
-}
+export interface ReviewRepository extends RepositoryPublication {}
 
 export interface ReviewContext {
   readonly submissionId: string;
@@ -88,10 +88,4 @@ export interface CreateReviewRequest {
 export interface CreateReviewResponse {
   readonly reviewId: string;
   readonly submissionStatus: ReviewDecision;
-}
-
-export interface PublishRepositoryResponse {
-  readonly repositoryId: string;
-  readonly visibility: 'PUBLIC';
-  readonly publishedAt: string;
 }

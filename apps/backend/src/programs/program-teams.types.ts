@@ -1,3 +1,5 @@
+import type { PublishBlockedReason } from '../common/repository-publication';
+
 export interface TeamMemberView {
   readonly userId: string;
   readonly nickname: string;
@@ -64,9 +66,13 @@ export type TeamRepositoryProvisioningSafeErrorClass =
 export interface TeamApplicationView {
   readonly id: string;
   readonly status: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  readonly repositoryConnectionMode: 'NEW' | 'OWN';
   readonly repository: {
+    readonly id: string;
     readonly url: string;
     readonly visibility: 'PUBLIC' | 'PRIVATE';
+    readonly publishEligible: boolean;
+    readonly blockedReasons: readonly PublishBlockedReason[];
   } | null;
   readonly repositoryProvisioning: {
     readonly enabled: boolean;
