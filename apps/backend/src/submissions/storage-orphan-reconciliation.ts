@@ -56,7 +56,7 @@ export class StorageOrphanReconciliationService {
     }
     const cutoffAt = new Date(runStartedAt.getTime() - safetyWindowMs);
 
-    // DB를 가장 먼저 읽는다. 연결 또는 세 모델 중 하나의 조회라도 실패하면
+    // DB를 가장 먼저 읽는다. 연결 또는 소유 모델 중 하나의 조회라도 실패하면
     // storage listing과 삭제에 도달하지 않는 fail-closed 경계다.
     const liveKeys = await this.references.loadLiveKeys();
     const objects = await this.storage.listObjects();
@@ -80,7 +80,7 @@ export class StorageOrphanReconciliationService {
       // 운영 evidence에 삭제 예정 key 목록이 실제 side effect보다 먼저 기록되도록 한다.
       await options.onDeletePlan?.(orphanKeys);
       for (const key of orphanKeys) {
-        // listing 이후 생긴 DB 참조를 삭제 직전 세 소유 모델 전체에서 다시 확인한다.
+        // listing 이후 생긴 DB 참조를 삭제 직전 소유 모델 전체에서 다시 확인한다.
         if (await this.references.isLiveKey(key)) {
           skippedReferencedKeys.push(key);
           continue;
