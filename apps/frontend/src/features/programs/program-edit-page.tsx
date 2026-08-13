@@ -138,7 +138,7 @@ export function ProgramEditPage({
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (form === null) return;
+    if (form === null || state.kind !== 'ready') return;
     const clientFieldErrors: ProgramEditErrors = {
       name: form.name.trim() ? undefined : '프로그램 이름을 입력해 주세요.',
       organizer: form.organizer.trim() ? undefined : '주최를 입력해 주세요.',
@@ -167,7 +167,18 @@ export function ProgramEditPage({
     try {
       const updated = await updateProgram(
         programId,
-        buildProgramEditInput(form, requiresTeam, dirtyFields),
+        buildProgramEditInput(
+          {
+            ...form,
+            // 마일스톤 변경은 program 상태에 즉시 반영된다. 최초 로드 때 만든
+            // form의 일정 사본을 쓰면 저장 직후에도 예전 마감으로 종료일을 막는다.
+            milestoneDueAts: state.program.milestones.map(
+              (milestone) => milestone.dueAt,
+            ),
+          },
+          requiresTeam,
+          dirtyFields,
+        ),
       );
       setState({ kind: 'ready', program: updated });
       setForm(toProgramEditForm(updated));

@@ -533,6 +533,8 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | OSS Hub 역할별 핸드북 제작 스킬 공유 | @Lumiere001 | review | [#904](https://github.com/JNU-SWCU/oss-hub/issues/904) | (이 PR) | skill-creator `quick_validate.py` pass · 독립 forward test PASS · `pnpm format:check`·public-safe 최종 확인 예정 · **제품 코드/운영 데이터 변경 없음** | `skills/build-oss-hub-handbook/`에 역할별 Notion 핸드북 제작·검증 절차와 학생/교직원/관리자 품질 체크리스트를 추가했다. 계정 정보 수정·알림·비활성화를 필수 범위로 두고, 확인 완료/확인 필요/정책 확인 필요를 분리한다. 라이브 화면과 Notion은 문서 근거 수집·작성에만 사용하며 제품 코드·DB·계정·프로그램·메일·배포를 수정하지 못하도록 명시했다. 제품 결함은 별도 보고 행으로만 남긴다. | 없음 |
 
+| 프로그램 편집 마일스톤 일정 캐시 수정 | @Lumiere001 | review | [#922](https://github.com/JNU-SWCU/oss-hub/issues/922) | (이 PR) | TDD RED→GREEN · 프로그램 편집 9 files/67 tests · frontend 전체 275 files/2841 tests(로컬 포트 제한 1개 파일은 정상 권한 재실행 PASS) · typecheck·변경 파일 lint·prettier·브라우저 PATCH 2건/성공 안내/console clean · **backend·DB 무변경** | 마일스톤을 수정·저장하면 카드 목록은 최신 값으로 바뀌지만, 프로그램 기본 폼이 최초 로드 때 복사한 `milestoneDueAts`를 계속 써 종료일 검증이 예전 마감으로 수행됐다. 프로그램 저장 경계에서 현재 `state.program.milestones`의 마감 목록을 사용하도록 고쳐, 화면을 나갔다 돌아오지 않아도 최신 마감 이후의 종료일을 저장한다. 전체 프로그램 재조회나 폼 재생성을 하지 않아 저장하지 않은 기본 정보 입력은 보존한다. 다른 기능·운영 데이터·PM 변경은 건드리지 않았다. |
+
 ## 외부 게이트
 
 <!-- 팀 밖 의존만. 사람이 아니라 작업을 주어로 쓴다. -->
