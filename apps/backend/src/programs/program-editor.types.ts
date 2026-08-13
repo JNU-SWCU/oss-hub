@@ -6,6 +6,9 @@ import type {
   RoleRequestStatus,
   Role,
 } from '@prisma/client';
+import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
+
+export type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 
 export type ProgramAuthority = {
   readonly role: Role | null;
@@ -28,13 +31,6 @@ export type ProgramCategoryLockState = {
   readonly byTeams: boolean;
   readonly applicationCount: number;
   readonly teamCount: number;
-};
-
-export type ProgramDeletionScopeCounts = {
-  readonly applications: number;
-  readonly teams: number;
-  readonly boardPosts: number;
-  readonly submissions: number;
 };
 
 export type EditableProgramView = {

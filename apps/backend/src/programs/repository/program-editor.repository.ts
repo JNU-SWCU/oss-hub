@@ -9,6 +9,7 @@ import type { Prisma as PrismaTypes } from '@prisma/client';
 // 마일스톤 삭제 경로와 학생 제출 경로가 **같은 행**을 잠가야 직렬화되므로 여기서 다시 쓰지 않는다.
 import { lockMilestoneDocumentsOfMilestone } from '../../common/milestone-document-locks';
 import { PrismaService } from '../../prisma/prisma.service';
+import { readProgramDeletionScopeCounts } from '../program-deletion-scope';
 import type {
   EditableProgramView,
   ProgramDeletionScopeCounts,
@@ -26,12 +27,6 @@ import type {
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
-}>;
-type DeletionScopeCountsRow = Readonly<{
-  applications: bigint;
-  teams: bigint;
-  boardPosts: bigint;
-  submissions: bigint;
 }>;
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
 type LockedProgramRow = Readonly<{ id: string }>;
@@ -117,28 +112,12 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     );
   }
 
-  /** 한 SQL 문장의 snapshot으로 전체 삭제 전 사용자에게 보일 4종 범위를 읽는다. */
-  private async readDeletionScopeCounts(
+  /** 한 SQL 문장의 snapshot으로 전체 삭제 전 사용자에게 보일 4종 범위를 읽는다 —
+   * purge 트랜잭션의 재확인과 같은 쿼리를 쓴다(program-deletion-scope.ts). */
+  private readDeletionScopeCounts(
     programId: string,
   ): Promise<ProgramDeletionScopeCounts> {
-    const [row] = await this.transaction.$queryRaw<
-      readonly DeletionScopeCountsRow[]
-    >(Prisma.sql`
-      SELECT
-        (SELECT count(*) FROM "Application" WHERE "programId" = ${programId}) AS applications,
-        (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
-        (SELECT count(*) FROM "BoardPost" WHERE "programId" = ${programId}) AS "boardPosts",
-        (SELECT count(*) FROM "Submission" WHERE "milestoneId" IN (
-          SELECT id FROM "Milestone" WHERE "programId" = ${programId}
-        )) AS submissions
-    `);
-    if (!row) throw new Error('Deletion scope count query returned no result.');
-    return {
-      applications: Number(row.applications),
-      teams: Number(row.teams),
-      boardPosts: Number(row.boardPosts),
-      submissions: Number(row.submissions),
-    };
+    return readProgramDeletionScopeCounts(this.transaction, programId);
   }
 
   async findProgramScheduleForMilestoneCreate(

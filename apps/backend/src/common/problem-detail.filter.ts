@@ -28,6 +28,7 @@ interface ProblemDetail {
   fieldErrors?: readonly ProblemDetailFieldError[];
   currentAccess?: ProblemDetailCurrentAccess;
   blockingCounts?: ProblemDetailBlockingCounts;
+  currentScopeCounts?: ProblemDetailBlockingCounts;
 }
 interface ExceptionLogEvent {
   readonly event: 'http.exception';

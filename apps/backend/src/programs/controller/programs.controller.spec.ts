@@ -286,7 +286,7 @@ describe('ProgramsController read boundaries', () => {
     ).toEqual([SessionGuard, OriginGuard]);
   });
 
-  it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId를 lifecycle 서비스에 그대로 넘긴다', async () => {
+  it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId·expectedScope를 lifecycle 서비스에 그대로 넘긴다', async () => {
     const purgeResult = {
       id: 'program-1',
       deleted: true,
@@ -294,12 +294,22 @@ describe('ProgramsController read boundaries', () => {
     };
     lifecycle.purge.mockResolvedValue(purgeResult);
     const request = { sessionGithubId: 101n };
+    const expectedScope = {
+      applications: 2,
+      teams: 1,
+      boardPosts: 0,
+      submissions: 0,
+    };
 
-    await expect(controller.purge('program-1', request)).resolves.toEqual(
-      purgeResult,
+    await expect(
+      controller.purge('program-1', { expectedScope }, request),
+    ).resolves.toEqual(purgeResult);
+
+    expect(lifecycle.purge).toHaveBeenCalledWith(
+      101n,
+      'program-1',
+      expectedScope,
     );
-
-    expect(lifecycle.purge).toHaveBeenCalledWith(101n, 'program-1');
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('purge')),
     ).toEqual([SessionGuard, OriginGuard]);

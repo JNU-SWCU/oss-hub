@@ -251,7 +251,8 @@ describe('program edit API', () => {
     );
   });
 
-  it('purges a program graph through the ADMIN purge endpoint with DELETE', async () => {
+  // TOCTOU(#F2) — purge는 확인 화면이 보여준 4종 범위(expectedScope)를 본문에 실어 보낸다.
+  it('purges a program graph through the ADMIN purge endpoint with DELETE and the expected scope body', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         id: 'program-1',
@@ -259,12 +260,22 @@ describe('program edit API', () => {
         deletedCounts: { applications: 2, notifications: 3 },
       }),
     );
+    const expectedScope = {
+      applications: 2,
+      teams: 1,
+      boardPosts: 0,
+      submissions: 3,
+    };
 
-    await purgeProgram('program-1');
+    await purgeProgram('program-1', expectedScope);
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('programs/program-1/purge'),
-      expect.objectContaining({ method: 'DELETE' }),
+      expect.objectContaining({
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedScope }),
+      }),
     );
   });
 });

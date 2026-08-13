@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import {
   mapProgramDeleteError,
+  purgeScopeChangedCounts,
   PROGRAM_DELETE_BLOCKED_CODE,
   PROGRAM_DELETE_FAILED_MESSAGE,
+  PROGRAM_PURGE_SCOPE_CHANGED_CODE,
 } from './program-edit-delete-flow';
 
 function blockedError(blockingCounts: {
@@ -122,5 +124,57 @@ describe('mapProgramDeleteError', () => {
         'program-1',
       ),
     ).toEqual({ kind: 'generic', message: '권한이 없습니다.' });
+  });
+});
+
+describe('purgeScopeChangedCounts', () => {
+  it('409·PRG_014의 currentScopeCounts를 그대로 반환한다', () => {
+    const currentScopeCounts = {
+      applications: 6,
+      teams: 7,
+      boardPosts: 8,
+      submissions: 9,
+    };
+    expect(
+      purgeScopeChangedCounts(
+        new ApiError({
+          type: 'about:blank',
+          title: 'Purge scope changed',
+          status: 409,
+          detail: '',
+          code: PROGRAM_PURGE_SCOPE_CHANGED_CODE,
+          instance: '/programs/program-1/purge',
+          ...{ currentScopeCounts },
+        }),
+      ),
+    ).toEqual(currentScopeCounts);
+  });
+
+  it('다른 코드이거나 currentScopeCounts가 없으면 null을 반환한다', () => {
+    expect(
+      purgeScopeChangedCounts(
+        new ApiError({
+          type: 'about:blank',
+          title: 'Forbidden',
+          status: 403,
+          detail: '',
+          code: 'PRG_011',
+          instance: '/programs/program-1/purge',
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      purgeScopeChangedCounts(
+        new ApiError({
+          type: 'about:blank',
+          title: 'Purge scope changed',
+          status: 409,
+          detail: '',
+          code: PROGRAM_PURGE_SCOPE_CHANGED_CODE,
+          instance: '/programs/program-1/purge',
+        }),
+      ),
+    ).toBeNull();
+    expect(purgeScopeChangedCounts(new Error('boom'))).toBeNull();
   });
 });

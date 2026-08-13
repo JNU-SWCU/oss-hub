@@ -26,6 +26,9 @@ export type ProgramDeleteError =
 
 export const PROGRAM_DELETE_BLOCKED_CODE = 'PRG_012';
 
+/** purge 확인-재확인 사이에 범위가 바뀜(TOCTOU) 409 코드(#F2). */
+export const PROGRAM_PURGE_SCOPE_CHANGED_CODE = 'PRG_014';
+
 export const PROGRAM_DELETE_FAILED_MESSAGE =
   '프로그램을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
@@ -40,6 +43,27 @@ function isProgramDeleteBlockingCounts(
     typeof record.submissions === 'number' &&
     typeof record.boardPosts === 'number'
   );
+}
+
+/**
+ * 409(PRG_014)에서 현재 범위(`currentScopeCounts`)를 꾼다. 있으면 재확인을 요구하는
+ * 화면이 새 카운트를 보여줌 — 자동 재시도는 하지 않는다(#F2).
+ */
+export function purgeScopeChangedCounts(
+  error: unknown,
+): ProgramDeleteBlockingCounts | null {
+  if (!(error instanceof ApiError)) return null;
+  if (
+    error.problem.status !== 409 ||
+    error.problem.code !== PROGRAM_PURGE_SCOPE_CHANGED_CODE
+  ) {
+    return null;
+  }
+  const currentScopeCounts = (error.problem as { currentScopeCounts?: unknown })
+    .currentScopeCounts;
+  return isProgramDeleteBlockingCounts(currentScopeCounts)
+    ? currentScopeCounts
+    : null;
 }
 
 /** 409(PRG_012)의 차단 건수를 실제 교직원 관리 화면과 함께 전달한다. */
