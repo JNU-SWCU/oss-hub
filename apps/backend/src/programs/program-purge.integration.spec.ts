@@ -9,6 +9,7 @@ import {
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramPurgeFileTombstoneLifecycle,
+  Prisma,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositorySource,
@@ -30,6 +31,7 @@ import { SubmissionFilesRepository } from '../submissions/submission-files.repos
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './archive/public-projects/public-projects.repository';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope';
+import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 import { ProgramErrorCode } from './program-error-code.enum';
 import { ProgramPurgeFileCleanupRepository } from './repository/program-purge-file-cleanup.repository';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
@@ -48,6 +50,7 @@ const ADMIN_GITHUB_ID = 9_875_000_001n;
 const STAFF_GITHUB_ID = 9_875_000_002n;
 
 const prisma = new PrismaService();
+const concurrentPrisma = new PrismaService();
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const lifecycle = new ProgramLifecycleService(prisma, auditLog);
 const storageConfig = new SubmissionFileStorageConfig();
@@ -1018,7 +1021,7 @@ const ALL_ZERO = {
 
 describe('Program purge integration — full child graph, worker file deletion, EXTERNAL_PUBLIC preservation', () => {
   beforeAll(async () => {
-    await prisma.$connect();
+    await Promise.all([prisma.$connect(), concurrentPrisma.$connect()]);
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   beforeEach(cleanup);
@@ -1028,7 +1031,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
   afterAll(async () => {
     await cleanup();
     s3.destroy();
-    await prisma.$disconnect();
+    await Promise.all([prisma.$disconnect(), concurrentPrisma.$disconnect()]);
   });
 
   it('purges the entire child graph, defers file deletion to the worker, and preserves+detaches EXTERNAL_PUBLIC repositories', async () => {
@@ -1484,6 +1487,201 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after.submissions).toBe(1);
   });
 
+  // race: 확인-purge 사이 in-transaction scope read 뒤에 커밋되는 4종 자식 각각이
+  // 독립된 FK 경로를 갖는다(Application_programId_fkey/Team_programId_fkey/
+  // Milestone_programId_fkey를 거치는 Submission/BoardPost_programId_fkey) — 하나만
+  // 검증하면 나머지 경로의 SERIALIZABLE 충돌 형태(P2034 vs P2003)를 놓칠 수 있어
+  // 표로 4가지 모두를 구동한다. 각 케이스는 실제 PostgreSQL 위에서 커밋되는 합성
+  // 의존 행(신청자/리더/팀/신청/마일스톤)까지 함께 만든다.
+  const IN_TRANSACTION_RACE_CASES: readonly {
+    readonly scopeField: keyof ProgramDeletionScopeCounts;
+    readonly insertRacingChildRow: (
+      fixture: Fixture,
+      raceId: string,
+    ) => Promise<void>;
+  }[] = [
+    {
+      scopeField: 'boardPosts',
+      insertRacingChildRow: async (fixture, raceId) => {
+        const applicant = await prisma.application.findUniqueOrThrow({
+          where: { id: fixture.applicationId },
+          select: { applicantId: true },
+        });
+        await concurrentPrisma.boardPost.create({
+          data: {
+            id: raceId,
+            programId: fixture.programId,
+            authorId: applicant.applicantId,
+            category: BoardPostCategory.NOTICE,
+            title: 'Committed during purge',
+            body: 'Inserted after purge scope read, before destructive writes',
+          },
+        });
+      },
+    },
+    {
+      scopeField: 'teams',
+      insertRacingChildRow: async (fixture, raceId) => {
+        const applicant = await prisma.application.findUniqueOrThrow({
+          where: { id: fixture.applicationId },
+          select: { applicantId: true },
+        });
+        await concurrentPrisma.team.create({
+          data: {
+            id: raceId,
+            programId: fixture.programId,
+            name: 'Committed team during purge',
+            joinCodeDigest: `digest:${raceId}`,
+            leaderId: applicant.applicantId,
+          },
+        });
+      },
+    },
+    {
+      // Application@@unique([programId, teamId])를 피하기 위해 이 race 전용 팀을 새로 만든다
+      // (기존 fixture.teamId는 이미 신청 1건을 가진다). 새 팀을 만드는 만큼 teams scope도
+      // 함께 증가하므로 currentScopeCounts/after 비교에서 둘 다 반영한다.
+      scopeField: 'applications',
+      insertRacingChildRow: async (fixture, raceId) => {
+        const applicant = await prisma.application.findUniqueOrThrow({
+          where: { id: fixture.applicationId },
+          select: { applicantId: true },
+        });
+        const raceTeamId = `${raceId}-team`;
+        await concurrentPrisma.team.create({
+          data: {
+            id: raceTeamId,
+            programId: fixture.programId,
+            name: 'Committed application team during purge',
+            joinCodeDigest: `digest:${raceTeamId}`,
+            leaderId: applicant.applicantId,
+          },
+        });
+        await concurrentPrisma.application.create({
+          data: {
+            id: raceId,
+            programId: fixture.programId,
+            applicantId: applicant.applicantId,
+            teamId: raceTeamId,
+            answers: { racedDuringPurge: true },
+            applicationTemplateVersion: 1,
+            status: ApplicationStatus.SUBMITTED,
+          },
+        });
+      },
+    },
+    {
+      // 기존 applicationId와 (applicationId, milestoneId) unique를 피해야 하므로 새
+      // Milestone을 같은 program 아래 만들어 그 milestone에 제출물을 달면
+      // submissions만 순수하게 증가한다(milestones는 scope 비교 대상이 아니다).
+      scopeField: 'submissions',
+      insertRacingChildRow: async (fixture, raceId) => {
+        const raceMilestoneId = `${raceId}-milestone`;
+        await concurrentPrisma.milestone.create({
+          data: {
+            id: raceMilestoneId,
+            programId: fixture.programId,
+            name: 'Committed milestone during purge',
+            startAt: NOW,
+            dueAt: new Date('2026-09-01T00:00:00.000Z'),
+            submissionType: MilestoneSubmissionType.FILE,
+          },
+        });
+        await concurrentPrisma.submission.create({
+          data: {
+            id: raceId,
+            milestoneId: raceMilestoneId,
+            applicationId: fixture.applicationId,
+            status: SubmissionStatus.SUBMITTED,
+            currentRevision: 1,
+          },
+        });
+      },
+    },
+  ];
+
+  it.each(IN_TRANSACTION_RACE_CASES)(
+    'race: in-transaction 범위 재확인 뒤 커밋된 $scopeField는 409 PRG_014로 보존한다',
+    async ({ scopeField, insertRacingChildRow }) => {
+      // Given — 확인 화면의 scope와 purge 안의 재확인이 모두 기존 자식 그래프를 본다.
+      const fixture = await seedFullChildGraph(`in-tx-race-${scopeField}`);
+      const before = await programChildRowCounts(fixture.programId, [
+        fixture.applicationId,
+      ]);
+      const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+      const scopeRead = deferred();
+      const resumePurge = deferred();
+      let requestedOptions: InteractiveTransactionOptions | undefined;
+      const pausingLifecycle = new ProgramLifecycleService(
+        pausingScopeReadPrisma(
+          async () => {
+            scopeRead.resolve();
+            await resumePurge.promise;
+          },
+          (options) => {
+            requestedOptions = options;
+          },
+        ),
+        auditLog,
+      );
+      const raceRowId = `${fixture.programId}-in-tx-race-${scopeField}`;
+
+      // When — 첫 Prisma 연결의 purge scope read가 끝난 뒤, 독립 PrismaService 연결이
+      // 자식 행을 commit하고서야 purge의 destructive writes를 재개한다.
+      const purge = pausingLifecycle.purge(
+        ADMIN_GITHUB_ID,
+        fixture.programId,
+        expectedScope,
+      );
+      await scopeRead.promise;
+      try {
+        await insertRacingChildRow(fixture, raceRowId);
+      } finally {
+        resumePurge.resolve();
+      }
+
+      // Then — 관리자가 확인하지 않은 committed row를 지우지 않고, 새 scope를 담아 재확인을
+      // 요구해야 한다.
+      const expectedCurrentScopeCounts =
+        scopeField === 'applications'
+          ? {
+              ...expectedScope,
+              applications: expectedScope.applications + 1,
+              teams: expectedScope.teams + 1,
+            }
+          : {
+              ...expectedScope,
+              [scopeField]: expectedScope[scopeField] + 1,
+            };
+      await expect(purge).rejects.toMatchObject({
+        errorCode: { code: ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED },
+        extensions: { currentScopeCounts: expectedCurrentScopeCounts },
+      });
+      expect(requestedOptions).toEqual({
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+      const after = await programChildRowCounts(fixture.programId, [
+        fixture.applicationId,
+      ]);
+      const expectedAfter = { ...before };
+      if (scopeField === 'boardPosts') {
+        expectedAfter.boardPosts = before.boardPosts + 1;
+      } else if (scopeField === 'teams') {
+        expectedAfter.teams = before.teams + 1;
+      } else if (scopeField === 'applications') {
+        expectedAfter.applications = before.applications + 1;
+        expectedAfter.teams = before.teams + 1;
+      } else {
+        expectedAfter.submissions = before.submissions + 1;
+        expectedAfter.milestones = before.milestones + 1;
+      }
+      expect(after).toEqual(expectedAfter);
+      await expect(
+        prisma.program.findUnique({ where: { id: fixture.programId } }),
+      ).resolves.not.toBeNull();
+    },
+  );
+
   it('purge는 클라이언트가 보낸 expectedScope가 현재 범위와 일치하면 성공한다', async () => {
     const fixture = await seedFullChildGraph('scope-matches');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
@@ -1500,3 +1698,76 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toBeNull();
   });
 });
+
+type InteractiveTransactionOptions = {
+  readonly maxWait?: number;
+  readonly timeout?: number;
+  readonly isolationLevel?: Prisma.TransactionIsolationLevel;
+};
+
+function deferred(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
+  let resolve: () => void = () => undefined;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve: () => resolve() };
+}
+
+/**
+ * 실제 Prisma interactive transaction의 첫 scope query가 끝난 정확한 지점에서만 멈춘다.
+ * production transaction options를 그대로 전달하고 production API에는 test hook을 추가하지 않는다.
+ */
+function pausingScopeReadPrisma(
+  onScopeRead: () => Promise<void>,
+  captureOptions: (options: InteractiveTransactionOptions | undefined) => void,
+): PrismaService {
+  let scopeReadPaused = false;
+  let transactionOptionsCaptured = false;
+  return new Proxy(prisma, {
+    get(target, property, receiver): unknown {
+      if (property !== '$transaction') {
+        return Reflect.get(target, property, receiver);
+      }
+      return <T>(
+        operation: (client: Prisma.TransactionClient) => Promise<T>,
+        options?: InteractiveTransactionOptions,
+      ): Promise<T> => {
+        if (!transactionOptionsCaptured) {
+          transactionOptionsCaptured = true;
+          captureOptions(options);
+        }
+        return prisma.$transaction(async (transaction) => {
+          const pausingTransaction = new Proxy(transaction, {
+            get(
+              transactionTarget,
+              transactionProperty,
+              transactionReceiver,
+            ): unknown {
+              if (transactionProperty !== '$queryRaw') {
+                return Reflect.get(
+                  transactionTarget,
+                  transactionProperty,
+                  transactionReceiver,
+                );
+              }
+              const rawQuery =
+                transactionTarget.$queryRaw.bind(transactionTarget);
+              return async (...args: Parameters<typeof rawQuery>) => {
+                const result = await rawQuery(...args);
+                if (!scopeReadPaused) {
+                  scopeReadPaused = true;
+                  await onScopeRead();
+                }
+                return result;
+              };
+            },
+          });
+          return operation(pausingTransaction);
+        }, options);
+      };
+    },
+  });
+}

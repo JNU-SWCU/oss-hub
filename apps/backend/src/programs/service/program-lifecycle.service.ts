@@ -16,6 +16,7 @@ import {
 } from '../../audit-log/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
+import { isSerializationFailure } from '../../common/prisma-serialization-retry';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   readProgramDeletionScopeCounts,
@@ -231,66 +232,115 @@ export class ProgramLifecycleService {
       );
     }
 
-    return this.prisma.$transaction(async (transaction) => {
-      const program = await transaction.program.findUnique({
-        where: { id: programId },
-        select: {
-          id: true,
-          name: true,
-          lifecycle: true,
-          deletionProtected: true,
+    try {
+      return await this.prisma.$transaction(
+        async (transaction) => {
+          const program = await transaction.program.findUnique({
+            where: { id: programId },
+            select: {
+              id: true,
+              name: true,
+              lifecycle: true,
+              deletionProtected: true,
+            },
+          });
+          if (!program) {
+            throw new DomainException(
+              PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+            );
+          }
+          if (program.deletionProtected) {
+            throw new DomainException(
+              PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
+            );
+          }
+
+          // TOCTOU 재확인: 확인 화면이 읽은 이후 생긴 행이 있으면 클라이언트가 보지 못한 채
+          // 지워지는 것을 막는다. purgeProgramTree와 같은 트랜잭션 안에서 읽어야
+          // 이 비교와 실제 삭제 사이에 또 다른 틀이 생기지 않는다.
+          const currentScopeCounts = await readProgramDeletionScopeCounts(
+            transaction,
+            programId,
+          );
+          if (
+            !sameProgramDeletionScopeCounts(expectedScope, currentScopeCounts)
+          ) {
+            throw new DomainException(
+              PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+              { currentScopeCounts },
+            );
+          }
+
+          const deletedCounts = await this.purgeProgramTree(
+            transaction,
+            programId,
+          );
+          if (
+            !sameProgramDeletionScopeCounts(currentScopeCounts, {
+              applications: deletedCounts.applications,
+              teams: deletedCounts.teams,
+              boardPosts: deletedCounts.boardPosts,
+              submissions: deletedCounts.submissions,
+            })
+          ) {
+            throw new ProgramPurgeDeletedScopeMismatchError();
+          }
+          await transaction.program.delete({ where: { id: programId } });
+
+          await this.auditLog.record(
+            {
+              actorGithubId: githubId,
+              action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
+              targetType: 'PROGRAM',
+              targetId: programId,
+              metadata: createProgramDeletionAuditMetadata({
+                programName: program.name,
+                lifecycle: program.lifecycle,
+                blockingCounts: {
+                  applications: 0,
+                  teams: 0,
+                  submissions: 0,
+                  boardPosts: 0,
+                },
+              }),
+            },
+            transaction,
+          );
+
+          return { id: programId, deleted: true as const, deletedCounts };
         },
-      });
-      if (!program) {
-        throw new DomainException(
-          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
-        );
-      }
-      if (program.deletionProtected) {
-        throw new DomainException(
-          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
-        );
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      const serializationFailure = isSerializationFailure(error);
+      const foreignKeyConflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003';
+      const deletedScopeMismatch =
+        error instanceof ProgramPurgeDeletedScopeMismatchError;
+      if (
+        !serializationFailure &&
+        !foreignKeyConflict &&
+        !deletedScopeMismatch
+      ) {
+        throw error;
       }
 
-      // TOCTOU 재확인: 확인 화면이 읽은 이후 생긴 행이 있으면 클라이언트가 보지 못한 채
-      // 지워지는 것을 막는다. purgeProgramTree와 같은 트랜잭션 안에서 읽어야
-      // 이 비교와 실제 삭제 사이에 또 다른 틀이 생기지 않는다.
-      const currentScopeCounts = await readProgramDeletionScopeCounts(
-        transaction,
-        programId,
+      const currentScopeCounts = await this.prisma.$transaction((transaction) =>
+        readProgramDeletionScopeCounts(transaction, programId),
       );
-      if (!sameProgramDeletionScopeCounts(expectedScope, currentScopeCounts)) {
+      if (
+        serializationFailure ||
+        deletedScopeMismatch ||
+        !sameProgramDeletionScopeCounts(expectedScope, currentScopeCounts)
+      ) {
         throw new DomainException(
           PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
           { currentScopeCounts },
         );
       }
-
-      const deletedCounts = await this.purgeProgramTree(transaction, programId);
-      await transaction.program.delete({ where: { id: programId } });
-
-      await this.auditLog.record(
-        {
-          actorGithubId: githubId,
-          action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
-          targetType: 'PROGRAM',
-          targetId: programId,
-          metadata: createProgramDeletionAuditMetadata({
-            programName: program.name,
-            lifecycle: program.lifecycle,
-            blockingCounts: {
-              applications: 0,
-              teams: 0,
-              submissions: 0,
-              boardPosts: 0,
-            },
-          }),
-        },
-        transaction,
-      );
-
-      return { id: programId, deleted: true as const, deletedCounts };
-    });
+      throw error;
+    }
   }
 
   private async purgeProgramTree(
@@ -618,6 +668,13 @@ export class ProgramLifecycleService {
       where: { milestoneId: { in: milestoneIds } },
     });
     await transaction.milestone.deleteMany({ where: { programId } });
+  }
+}
+
+class ProgramPurgeDeletedScopeMismatchError extends Error {
+  constructor() {
+    super('Program purge deleted counts differ from its confirmed scope.');
+    this.name = 'ProgramPurgeDeletedScopeMismatchError';
   }
 }
 

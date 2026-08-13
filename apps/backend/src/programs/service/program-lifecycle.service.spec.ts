@@ -1,4 +1,4 @@
-import { AccountStatus, ProgramLifecycle, Role } from '@prisma/client';
+import { AccountStatus, Prisma, ProgramLifecycle, Role } from '@prisma/client';
 import {
   PROGRAM_DELETION_AUDIT_ACTIONS,
   PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
@@ -511,6 +511,9 @@ function createPurgeService(
     }[];
     /** purge 트랜잭션 안에서 재확인하는 현재 범위 스냅샷 — 기본값은 전부 0이다. */
     readonly currentScopeCounts?: ProgramDeletionScopeCounts;
+    /** 첫 purge transaction이 충돌하면 뒤의 fresh read가 보는 범위다. */
+    readonly freshScopeCounts?: ProgramDeletionScopeCounts;
+    readonly transactionError?: Error;
   } = {},
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
@@ -531,17 +534,33 @@ function createPurgeService(
   const programDelete = jest.fn().mockResolvedValue(undefined);
 
   const currentScopeCounts = overrides.currentScopeCounts ?? ZERO_SCOPE_COUNTS;
+  const freshScopeCounts = overrides.freshScopeCounts ?? currentScopeCounts;
   const queryRaw = jest.fn().mockResolvedValue([
     {
-      applications: BigInt(currentScopeCounts.applications),
-      teams: BigInt(currentScopeCounts.teams),
-      boardPosts: BigInt(currentScopeCounts.boardPosts),
-      submissions: BigInt(currentScopeCounts.submissions),
+      applications: BigInt(freshScopeCounts.applications),
+      teams: BigInt(freshScopeCounts.teams),
+      boardPosts: BigInt(freshScopeCounts.boardPosts),
+      submissions: BigInt(freshScopeCounts.submissions),
     },
   ]);
 
-  const count = (key: string, fallback = 1) =>
-    overrides.counts?.[key] ?? fallback;
+  const count = (key: string, fallback = 1) => {
+    if (overrides.counts?.[key] !== undefined) {
+      return overrides.counts[key];
+    }
+    switch (key) {
+      case 'applications':
+        return currentScopeCounts.applications;
+      case 'teams':
+        return currentScopeCounts.teams;
+      case 'boardPosts':
+        return currentScopeCounts.boardPosts;
+      case 'submissions':
+        return currentScopeCounts.submissions;
+      default:
+        return fallback;
+    }
+  };
   const countMany = (key: string, fallback = 1) =>
     jest.fn().mockResolvedValue({ count: count(key, fallback) });
 
@@ -652,11 +671,17 @@ function createPurgeService(
       findMany: applicationFindMany,
     },
   };
+  let transactionCount = 0;
+  const prismaTransaction = jest.fn((callback: (tx: unknown) => unknown) => {
+    transactionCount += 1;
+    if (transactionCount === 1 && overrides.transactionError) {
+      return Promise.reject(overrides.transactionError);
+    }
+    return callback(transactionClient);
+  });
   const prisma = {
     user: { findUnique: userFindUnique },
-    $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-      callback(transactionClient),
-    ),
+    $transaction: prismaTransaction,
   } as unknown as PrismaService;
   const auditLog = { record } as unknown as AuditLogService;
   const service = new ProgramLifecycleService(prisma, auditLog);
@@ -665,6 +690,7 @@ function createPurgeService(
     userFindUnique,
     programFindUnique,
     programDelete,
+    prismaTransaction,
     queryRaw,
     publicShowcaseRepositoryDeleteMany,
     outboxEventDeleteMany,
@@ -1071,5 +1097,113 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     // 이 mock이 호출됐다는 것 자체가 비교 쿼리가 트랜잭션 클라이언트를 통해서만
     // 실행됐다는 뜻이다(서비스 코드가 트랜잭션 밖 this.prisma로 같은 쿼리를 쏠 방법이 없다).
     expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('purge transaction은 Serializable을 요청한다', async () => {
+    const { service, prismaTransaction } = createPurgeService();
+
+    await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
+
+    expect(prismaTransaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+  });
+
+  it('P2034는 fresh scope를 담은 PRG_014로 변환한다', async () => {
+    const error = new Prisma.PrismaClientKnownRequestError('serialization', {
+      code: 'P2034',
+      clientVersion: 'test',
+    });
+    const { service, queryRaw } = createPurgeService({
+      transactionError: error,
+      freshScopeCounts: { ...ZERO_SCOPE_COUNTS, boardPosts: 2 },
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode:
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+      extensions: {
+        currentScopeCounts: { ...ZERO_SCOPE_COUNTS, boardPosts: 2 },
+      },
+    });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('P2034는 fresh scope가 expected와 동일해도 PRG_014로 변환한다 — identity churn도 보존대상이다', async () => {
+    const error = new Prisma.PrismaClientKnownRequestError('serialization', {
+      code: 'P2034',
+      clientVersion: 'test',
+    });
+    const { service } = createPurgeService({
+      transactionError: error,
+      freshScopeCounts: ZERO_SCOPE_COUNTS,
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode:
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+      extensions: { currentScopeCounts: ZERO_SCOPE_COUNTS },
+    });
+  });
+
+  it('P2003와 fresh scope 변경은 PRG_014로 변환한다', async () => {
+    const error = new Prisma.PrismaClientKnownRequestError('foreign key', {
+      code: 'P2003',
+      clientVersion: 'test',
+    });
+    const { service } = createPurgeService({
+      transactionError: error,
+      freshScopeCounts: { ...ZERO_SCOPE_COUNTS, boardPosts: 2 },
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode:
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+      extensions: {
+        currentScopeCounts: { ...ZERO_SCOPE_COUNTS, boardPosts: 2 },
+      },
+    });
+  });
+
+  it('purgeProgramTree의 삭제 건수와 scope가 다르면 fresh scope를 담은 PRG_014로 롤백한다', async () => {
+    const { service, programDelete } = createPurgeService({
+      counts: { boardPosts: 1 },
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode:
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+      extensions: { currentScopeCounts: ZERO_SCOPE_COUNTS },
+    });
+    expect(programDelete).not.toHaveBeenCalled();
+  });
+
+  it('P2003와 fresh scope 불변은 그대로 다시 던진다', async () => {
+    const error = new Prisma.PrismaClientKnownRequestError('foreign key', {
+      code: 'P2003',
+      clientVersion: 'test',
+    });
+    const { service } = createPurgeService({ transactionError: error });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toBe(error);
+  });
+
+  it('알 수 없는 transaction 오류는 그대로 다시 던진다', async () => {
+    const error = new Error('unexpected purge failure');
+    const { service } = createPurgeService({ transactionError: error });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toBe(error);
   });
 });
