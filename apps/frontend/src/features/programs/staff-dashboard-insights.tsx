@@ -1,10 +1,13 @@
 import type { ReactElement } from 'react';
+import { cn } from '@/lib/utils';
 import { formatStaffActivityTime } from './staff-dashboard-format';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardApplicationCounts,
   StaffDashboardSubmissionSummary,
 } from './types';
+
+type MetricTone = 'pending' | 'rejected';
 
 interface ApplicationsProps {
   readonly applications: StaffDashboardApplicationCounts;
@@ -14,11 +17,15 @@ export function StaffApplicationInsights({
   applications,
 }: ApplicationsProps): ReactElement {
   return (
-    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm tabular-nums">
+    <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
       <Metric label="전체" value={applications.total} />
-      <Metric label="승인 대기" value={applications.pendingApproval} />
+      <Metric
+        label="승인 대기"
+        value={applications.pendingApproval}
+        tone="pending"
+      />
       <Metric label="승인" value={applications.approved} />
-      <Metric label="반려" value={applications.rejected} />
+      <Metric label="반려" value={applications.rejected} tone="rejected" />
     </dl>
   );
 }
@@ -30,37 +37,17 @@ interface ActivityProps {
 export function StaffActivityInsights({
   activity,
 }: ActivityProps): ReactElement {
-  const activityCount =
-    activity.commits + activity.pullRequests + activity.releases;
-  let activityStatus: string | null = null;
-  if (activity.repositories === 0) {
-    activityStatus = '연결된 저장소가 없습니다.';
-  } else if (activity.dataAsOf === null) {
-    activityStatus = '수집된 활동 기준 시점이 없습니다.';
-  } else if (activityCount === 0) {
-    activityStatus = '수집은 완료됐지만 활동이 없습니다.';
-  }
   return (
     <div className="grid gap-2">
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm tabular-nums">
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
         <Metric label="저장소" value={activity.repositories} />
         <Metric label="커밋" value={activity.commits} />
         <Metric label="PR" value={activity.pullRequests} />
         <Metric label="릴리스" value={activity.releases} />
       </dl>
-      {activityStatus ? (
-        <p className="text-xs text-muted-foreground">{activityStatus}</p>
-      ) : null}
       <p className="text-xs text-muted-foreground">
-        {activity.lastActivityAt
-          ? `최근 활동 ${formatStaffActivityTime(activity.lastActivityAt)}`
-          : '최근 활동 없음'}
+        {activityCaption(activity)}
       </p>
-      {activity.dataAsOf ? (
-        <p className="text-xs text-muted-foreground">
-          데이터 기준 {formatStaffActivityTime(activity.dataAsOf)}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -72,46 +59,77 @@ interface SubmissionsProps {
 export function StaffSubmissionInsights({
   submissions,
 }: SubmissionsProps): ReactElement {
-  const reviewedOrWaiting =
-    submissions.submitted +
-    submissions.approved +
-    submissions.changesRequested +
-    submissions.rejected;
   return (
     <div className="grid gap-2">
       <p className="text-xs text-muted-foreground">
-        마일스톤 {submissions.milestones} · 제출 대상 {submissions.total}
+        {submissions.milestones === 0
+          ? '마일스톤 없음'
+          : `마일스톤 ${submissions.milestones} · 대상 ${submissions.total}`}
       </p>
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm tabular-nums">
-        <Metric label="미제출" value={submissions.notSubmitted} />
-        <Metric label="검토 대기" value={submissions.submitted} />
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <Metric
+          label="미제출"
+          value={submissions.notSubmitted}
+          tone="pending"
+        />
+        <Metric
+          label="검토 대기"
+          value={submissions.submitted}
+          tone="pending"
+        />
         <Metric label="승인" value={submissions.approved} />
-        <Metric label="보완 요청" value={submissions.changesRequested} />
-        <Metric label="반려" value={submissions.rejected} />
+        <Metric
+          label="보완 요청"
+          value={submissions.changesRequested}
+          tone="pending"
+        />
+        <Metric label="반려" value={submissions.rejected} tone="rejected" />
       </dl>
-      {submissions.milestones === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          등록된 마일스톤이 없습니다.
-        </p>
-      ) : null}
-      {reviewedOrWaiting === 0 ? (
-        <p className="text-xs text-muted-foreground">제출된 항목이 없습니다.</p>
-      ) : null}
     </div>
   );
+}
+
+function activityCaption(activity: StaffDashboardActivitySummary): string {
+  const activityCount =
+    activity.commits + activity.pullRequests + activity.releases;
+  if (activity.repositories === 0) {
+    return '저장소 없음';
+  }
+  if (activity.dataAsOf === null) {
+    return '수집 전';
+  }
+  if (activityCount === 0) {
+    return '활동 없음';
+  }
+  if (activity.lastActivityAt) {
+    return `최근 활동 ${formatStaffActivityTime(activity.lastActivityAt)}`;
+  }
+  return '최근 활동 없음';
 }
 
 function Metric({
   label,
   value,
+  tone,
 }: {
   readonly label: string;
   readonly value: number;
+  readonly tone?: MetricTone;
 }): ReactElement {
+  const emphasize = value > 0 ? tone : undefined;
   return (
-    <div>
-      <dt className="inline text-muted-foreground">{label} </dt>
-      <dd className="inline font-medium">{value}</dd>
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          'text-base font-semibold tabular-nums',
+          value === 0 && 'text-muted-foreground',
+          emphasize === 'pending' && 'text-status-pending-fg',
+          emphasize === 'rejected' && 'text-status-rejected-fg',
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
