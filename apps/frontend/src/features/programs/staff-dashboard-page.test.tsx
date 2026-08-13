@@ -85,7 +85,7 @@ describe('staff dashboard parser and model', () => {
 });
 
 describe('StaffDashboardOverview', () => {
-  it('한 화면에 프로그램별 신청, 활동, 제출 요약과 직접 링크를 렌더한다', () => {
+  it('한 화면에 프로그램별 신청, 활동, 제출 요약과 편집 진입을 렌더한다', () => {
     const html = renderToStaticMarkup(
       <StaffDashboardOverview
         programs={summary.programs.slice(0, 1)}
@@ -97,25 +97,33 @@ describe('StaffDashboardOverview', () => {
     expect(html).toContain('승인 대기');
     expect(html).toContain('저장소');
     expect(html).toContain('검토 대기');
-    expect(html).toContain('/programs/program%3Abasic');
     expect(html).toContain('href="/programs/program%3Abasic/edit"');
     expect(html).toContain('aria-label="기본 프로그램 편집"');
     expect(html).toContain('after:absolute');
     expect(html).toContain('after:inset-0');
     expect(html).toContain('after:z-[1]');
-    expect(html).toContain('/programs/program%3Abasic#activity');
-    expect(html).toContain('/programs/program%3Abasic/applicants');
-    expect(html).toContain('/programs/program%3Abasic/status');
+    expect(html).toContain('text-status-pending-fg');
+    expect(html).toContain('text-status-rejected-fg');
+    expect(html).not.toContain('바로가기');
+    expect(html).not.toContain('활동 상세');
+    expect(html).not.toContain('제출 현황');
+    expect(html).not.toContain('/programs/program%3Abasic#activity');
+    expect(html).not.toContain('/programs/program%3Abasic/applicants');
+    expect(html).not.toContain('/programs/program%3Abasic/status');
   });
 
-  it('저장소 없음, 수집 기준 없음, 미제출, 마일스톤 없음 상태를 분리해 표시한다', () => {
+  it('저장소 없음, 수집 전, 마일스톤 없음을 짧은 한 줄로 분리해 표시한다', () => {
     const html = renderToStaticMarkup(
       <StaffDashboardOverview programs={summary.programs} now={now} />,
     );
-    expect(html).toContain('연결된 저장소가 없습니다.');
-    expect(html).toContain('수집된 활동 기준 시점이 없습니다.');
-    expect(html).toContain('제출된 항목이 없습니다.');
-    expect(html).toContain('등록된 마일스톤이 없습니다.');
+    expect(html).toContain('저장소 없음');
+    expect(html).toContain('수집 전');
+    expect(html).toContain('마일스톤 없음');
+    expect(html).not.toContain('연결된 저장소가 없습니다.');
+    expect(html).not.toContain('수집된 활동 기준 시점이 없습니다.');
+    expect(html).not.toContain('제출된 항목이 없습니다.');
+    expect(html).not.toContain('등록된 마일스톤이 없습니다.');
+    expect(html).not.toContain('데이터 기준');
   });
 });
 
