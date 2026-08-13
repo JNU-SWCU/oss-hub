@@ -17,7 +17,7 @@ export function StaffApplicationInsights({
   applications,
 }: ApplicationsProps): ReactElement {
   return (
-    <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+    <dl className="grid gap-1">
       <Metric label="전체" value={applications.total} />
       <Metric
         label="승인 대기"
@@ -39,7 +39,7 @@ export function StaffActivityInsights({
 }: ActivityProps): ReactElement {
   return (
     <div className="grid gap-2">
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+      <dl className="grid gap-1">
         <Metric label="저장소" value={activity.repositories} />
         <Metric label="커밋" value={activity.commits} />
         <Metric label="PR" value={activity.pullRequests} />
@@ -66,7 +66,7 @@ export function StaffSubmissionInsights({
           ? '마일스톤 없음'
           : `마일스톤 ${submissions.milestones} · 대상 ${submissions.total}`}
       </p>
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+      <dl className="grid gap-1">
         <Metric
           label="미제출"
           value={submissions.notSubmitted}
@@ -118,11 +118,11 @@ function Metric({
 }): ReactElement {
   const emphasize = value > 0 ? tone : undefined;
   return (
-    <div className="min-w-0">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="min-w-0 text-xs text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          'text-base font-semibold tabular-nums',
+          'shrink-0 text-sm font-semibold tabular-nums',
           value === 0 && 'text-muted-foreground',
           emphasize === 'pending' && 'text-status-pending-fg',
           emphasize === 'rejected' && 'text-status-rejected-fg',

@@ -66,9 +66,9 @@ function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
     <tbody
       data-slot="table-body"
       className={cn(
-        // 행 높이 `--row-height`(76) · 행 사이는 옅은 선. 마지막 행은 긋지 않는다
-        // (카드 테두리와 겹쳐 이중선이 된다).
-        '[&>tr]:h-row [&>tr]:border-border/50 [&_tr:last-child]:border-0',
+        // 최소 높이 `--row-height`(76). 고정 높이면 칸 안 여러 줄이 겹친다.
+        // 행 사이는 옅은 선. 마지막 행은 긋지 않는다(카드 테두리와 겹쳐 이중선이 된다).
+        '[&>tr]:min-h-row [&>tr]:border-border/50 [&_tr:last-child]:border-0',
         className,
       )}
       {...props}
