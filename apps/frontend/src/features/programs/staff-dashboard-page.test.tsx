@@ -104,6 +104,8 @@ describe('StaffDashboardOverview', () => {
     expect(html).toContain('after:z-[1]');
     expect(html).toContain('text-status-pending-fg');
     expect(html).toContain('text-status-rejected-fg');
+    expect(html).toContain('justify-between');
+    expect(html).not.toContain('grid-cols-2');
     expect(html).not.toContain('바로가기');
     expect(html).not.toContain('활동 상세');
     expect(html).not.toContain('제출 현황');
