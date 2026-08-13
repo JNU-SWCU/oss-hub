@@ -1,17 +1,14 @@
 import Link from 'next/link';
 import type { ReactElement, ReactNode } from 'react';
 import { DataTable, StatusBadge, type DataTableColumn } from '@/components';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { programEditHref, programStatusHref } from '@/lib/program-route';
-import { programHref } from './program-paths';
+import { programEditHref } from '@/lib/program-route';
 import {
   formatStaffApplicationPeriod,
   getStaffRecruitmentBadge,
@@ -29,6 +26,8 @@ interface StaffDashboardOverviewProps {
   readonly totalPrograms?: number;
   readonly now: Date;
 }
+
+const INSIGHT_CELL_CLASS = 'align-top whitespace-normal min-w-0';
 
 export function StaffDashboardOverview({
   programs,
@@ -48,13 +47,13 @@ export function StaffDashboardOverview({
       cell: (program) => (
         <StaffApplicationInsights applications={program.applications} />
       ),
-      cellClassName: 'align-top',
+      cellClassName: INSIGHT_CELL_CLASS,
     },
     {
       id: 'activity',
       header: '활동',
       cell: (program) => <StaffActivityInsights activity={program.activity} />,
-      cellClassName: 'align-top',
+      cellClassName: INSIGHT_CELL_CLASS,
     },
     {
       id: 'submissions',
@@ -62,13 +61,7 @@ export function StaffDashboardOverview({
       cell: (program) => (
         <StaffSubmissionInsights submissions={program.submissions} />
       ),
-      cellClassName: 'align-top',
-    },
-    {
-      id: 'actions',
-      header: '바로가기',
-      cell: (program) => <StaffDashboardActions program={program} />,
-      cellClassName: 'align-top',
+      cellClassName: INSIGHT_CELL_CLASS,
     },
   ];
 
@@ -104,9 +97,6 @@ export function StaffDashboardOverview({
                 <StaffSubmissionInsights submissions={program.submissions} />
               </InsightSection>
             </CardContent>
-            <CardFooter>
-              <StaffDashboardActions program={program} />
-            </CardFooter>
           </Card>
         ))}
       </section>
@@ -156,28 +146,5 @@ function InsightSection({
       <h3 className="text-sm font-semibold">{title}</h3>
       {children}
     </section>
-  );
-}
-
-function StaffDashboardActions({
-  program,
-}: {
-  readonly program: StaffDashboardProgramSummary;
-}): ReactElement {
-  return (
-    <div className="relative z-10 flex min-w-0 flex-wrap gap-2">
-      <Button asChild size="sm" variant="outline">
-        <Link href={programHref(program.id)}>프로그램</Link>
-      </Button>
-      <Button asChild size="sm" variant="outline">
-        <Link href={programHref(program.id, '#activity')}>활동 상세</Link>
-      </Button>
-      <Button asChild size="sm" variant="outline">
-        <Link href={program.applicantsPath}>신청자</Link>
-      </Button>
-      <Button asChild size="sm" variant="outline">
-        <Link href={programStatusHref(program.id)}>제출 현황</Link>
-      </Button>
-    </div>
   );
 }
