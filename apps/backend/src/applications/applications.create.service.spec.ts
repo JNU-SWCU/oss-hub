@@ -109,7 +109,9 @@ function buildService(overrides: {
       });
     });
 
-  const record = jest.fn().mockResolvedValue(undefined);
+  const record = jest
+    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+    .mockResolvedValue(undefined);
   const auditLogWriter = {} as ApplicationCreateStore['auditLogWriter'];
   const store: ApplicationCreateStore = {
     auditLogWriter,
@@ -741,38 +743,41 @@ describe('ApplicationsService.create', () => {
     await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
     expect(record).toHaveBeenCalledTimes(2);
-    expect(record.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        actorGithubId: GITHUB_ID,
-        action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
-        targetType: 'TEAM',
-        targetId: 'synthetic-team',
-        metadata: expect.objectContaining({
-          schemaVersion: 1,
-          programName: OPEN_PROGRAM.name,
-          teamName: 'synthetic-login의 팀',
-        }),
-      }),
-    );
-    expect(record.mock.calls[1]?.[0]).toEqual(
-      expect.objectContaining({
-        actorGithubId: GITHUB_ID,
-        action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
-        targetType: 'APPLICATION',
-        targetId: 'synthetic-application',
-        metadata: expect.objectContaining({
-          schemaVersion: 1,
-          programName: OPEN_PROGRAM.name,
-          teamName: 'synthetic-login의 팀',
-        }),
-      }),
-    );
-    expect(record.mock.calls[0]?.[1]).toBe(auditLogWriter);
-    expect(record.mock.calls[1]?.[1]).toBe(auditLogWriter);
-    expect(JSON.stringify(record.mock.calls[0]?.[0].metadata)).not.toContain(
+    const createdCall = record.mock.calls[0];
+    const submittedCall = record.mock.calls[1];
+    if (createdCall === undefined || submittedCall === undefined) {
+      throw new Error(
+        'expected TEAM_CREATED and APPLICATION_SUBMITTED records',
+      );
+    }
+    expect(createdCall[0]).toMatchObject({
+      actorGithubId: GITHUB_ID,
+      action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
+      targetType: 'TEAM',
+      targetId: 'synthetic-team',
+      metadata: {
+        schemaVersion: 1,
+        programName: OPEN_PROGRAM.name,
+        teamName: 'synthetic-login의 팀',
+      },
+    });
+    expect(submittedCall[0]).toMatchObject({
+      actorGithubId: GITHUB_ID,
+      action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
+      targetType: 'APPLICATION',
+      targetId: 'synthetic-application',
+      metadata: {
+        schemaVersion: 1,
+        programName: OPEN_PROGRAM.name,
+        teamName: 'synthetic-login의 팀',
+      },
+    });
+    expect(createdCall[1]).toBe(auditLogWriter);
+    expect(submittedCall[1]).toBe(auditLogWriter);
+    expect(JSON.stringify(createdCall[0].metadata)).not.toContain(
       'applicantGithubLogin',
     );
-    expect(JSON.stringify(record.mock.calls[1]?.[0].metadata)).not.toContain(
+    expect(JSON.stringify(submittedCall[0].metadata)).not.toContain(
       'applicantGithubLogin',
     );
   });
@@ -790,17 +795,20 @@ describe('ApplicationsService.create', () => {
 
     expect(createTeamWithLeader).not.toHaveBeenCalled();
     expect(record).toHaveBeenCalledTimes(1);
-    expect(record.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
-        targetType: 'APPLICATION',
-        metadata: expect.objectContaining({
-          teamName: '먼저 만든 팀',
-          programName: OPEN_PROGRAM.name,
-        }),
-      }),
-    );
-    expect(record.mock.calls[0]?.[0].metadata.teamName).not.toBe(
+    const submittedCall = record.mock.calls[0];
+    if (submittedCall === undefined) {
+      throw new Error('expected APPLICATION_SUBMITTED record');
+    }
+    expect(submittedCall[0]).toMatchObject({
+      action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
+      targetType: 'APPLICATION',
+      metadata: {
+        schemaVersion: 1,
+        teamName: '먼저 만든 팀',
+        programName: OPEN_PROGRAM.name,
+      },
+    });
+    expect(JSON.stringify(submittedCall[0].metadata)).not.toContain(
       'synthetic-login의 팀',
     );
   });

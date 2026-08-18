@@ -205,10 +205,10 @@ describe('ProgramAuthoringService', () => {
         action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
         targetType: 'PROGRAM',
         targetId: 'program-id',
-        metadata: expect.objectContaining({
+        metadata: {
           schemaVersion: 1,
           programName: 'Program',
-        }),
+        },
       }),
       transaction.auditLogWriter,
     );

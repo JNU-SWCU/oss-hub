@@ -37,7 +37,9 @@ describe('ProgramsService', () => {
       return Promise.resolve({ id: 'program', name: request.data.name });
     },
   );
-  const record = jest.fn().mockResolvedValue(undefined);
+  const record = jest
+    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+    .mockResolvedValue(undefined);
   const writer = {
     program: { create },
     auditLog: {},
@@ -288,10 +290,10 @@ describe('ProgramsService', () => {
         action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
         targetType: 'PROGRAM',
         targetId: 'program-audit',
-        metadata: expect.objectContaining({
+        metadata: {
           schemaVersion: 1,
           programName: '2026 OSS Contest',
-        }),
+        },
       }),
       writer,
     );

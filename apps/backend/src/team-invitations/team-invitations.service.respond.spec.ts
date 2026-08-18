@@ -137,9 +137,12 @@ describe('TeamInvitationsService.accept', () => {
 
   it('records TEAM_JOINED inside the accept transaction, not after it resolves', async () => {
     let acceptResolved = false;
-    const record = jest.fn().mockImplementation(() => {
-      expect(acceptResolved).toBe(false);
-    });
+    const record = jest
+      .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+      .mockImplementation(() => {
+        expect(acceptResolved).toBe(false);
+        return Promise.resolve(undefined);
+      });
     const auditLogWriter = {};
     const { service } = buildService(
       {
@@ -191,11 +194,11 @@ describe('TeamInvitationsService.accept', () => {
         action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
         targetType: 'TEAM',
         targetId: syntheticTeamId,
-        metadata: expect.objectContaining({
+        metadata: {
           schemaVersion: 1,
           programName: '합성 프로그램',
           teamName: '합성 팀',
-        }),
+        },
       }),
       auditLogWriter,
     );

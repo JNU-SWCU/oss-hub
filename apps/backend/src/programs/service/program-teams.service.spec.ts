@@ -84,7 +84,9 @@ function buildService(overrides: {
     .mockResolvedValue({ memberCount: 1, hasApplication: false });
 
   const auditLogWriter = {} as ProgramTeamsCreateStore['auditLogWriter'];
-  const record = jest.fn().mockResolvedValue(undefined);
+  const record = jest
+    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+    .mockResolvedValue(undefined);
   const createStore: ProgramTeamsCreateStore = {
     auditLogWriter,
     findMembershipByProgramUser: findMembership,
@@ -191,15 +193,19 @@ describe('ProgramTeamsService', () => {
         action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
         targetType: 'TEAM',
         targetId: 'synthetic-team',
-        metadata: expect.objectContaining({
+        metadata: {
           schemaVersion: 1,
           programName: TEAM_PROGRAM.name,
           teamName: '오픈소스팀',
-        }),
+        },
       }),
       auditLogWriter,
     );
-    expect(JSON.stringify(record.mock.calls[0]?.[0].metadata)).not.toMatch(
+    const createdCall = record.mock.calls[0];
+    if (createdCall === undefined) {
+      throw new Error('expected TEAM_CREATED record');
+    }
+    expect(JSON.stringify(createdCall[0].metadata)).not.toMatch(
       /joinCode|joinCodeDigest/,
     );
   });
@@ -294,15 +300,19 @@ describe('ProgramTeamsService', () => {
         action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
         targetType: 'TEAM',
         targetId: 'synthetic-team',
-        metadata: expect.objectContaining({
+        metadata: {
           schemaVersion: 1,
           programName: TEAM_PROGRAM.name,
           teamName: '오픈소스팀',
-        }),
+        },
       }),
       auditLogWriter,
     );
-    expect(JSON.stringify(record.mock.calls[0]?.[0].metadata)).not.toMatch(
+    const joinedCall = record.mock.calls[0];
+    if (joinedCall === undefined) {
+      throw new Error('expected TEAM_JOINED record');
+    }
+    expect(JSON.stringify(joinedCall[0].metadata)).not.toMatch(
       /joinCode|joinCodeDigest/,
     );
   });
