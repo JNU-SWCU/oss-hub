@@ -19,23 +19,34 @@ const ITEMS: NavItem[] = [
 ];
 
 describe('ShellNav', () => {
-  it('랜딩(/)에서는 반전 스코프 data-surface="inverted"를 부여한다', () => {
+  it('랜딩(/)은 흰 바이고 여정용 fixed만 둔다', () => {
     mocks.usePathname.mockReturnValue('/');
 
     const html = renderToStaticMarkup(
       <ShellNav items={ITEMS} brand="OSS Hub" />,
     );
 
-    expect(html).toContain('data-surface="inverted"');
+    expect(html).not.toContain('data-surface="inverted"');
+    expect(html).not.toContain('border-transparent');
+    expect(html).not.toContain('data-landing-surface');
+    expect(html).not.toContain('shadow-sm');
     // 여정이 560vh 동안 sticky 무대로 이어지므로 헤더는 absolute가 아니라 fixed다.
-    // z-40 인 이유: 예전에는 아래 흰 구간(z-30)이 헤더를 덮어 버려 여정이 끝나면
-    // 메뉴가 사라졌다. 이제 헤더가 위에 남고 표면만 바꾼다.
+    // z-40 인 이유: 아래 흰 구간이 헤더를 덮어 메뉴가 사라지지 않게 한다.
     expect(html).toContain('fixed inset-x-0 top-0 z-40');
     expect(html).not.toContain('absolute inset-x-0 top-0');
-    expect(html).toContain('border-transparent');
-    // 첫 렌더는 우주 위 — 흰 바로 바뀌는 것은 표식이 헤더에 닿은 뒤다.
-    expect(html).toContain('data-landing-surface="over-cosmos"');
-    expect(html).not.toContain('shadow-sm');
+  });
+
+  it('/signup 도 흰 바이고 fixed가 아니다', () => {
+    mocks.usePathname.mockReturnValue('/signup');
+
+    const html = renderToStaticMarkup(
+      <ShellNav items={ITEMS} brand="OSS Hub" />,
+    );
+
+    expect(html).not.toContain('data-surface="inverted"');
+    expect(html).not.toContain('border-transparent');
+    expect(html).not.toContain('data-landing-surface');
+    expect(html).not.toContain('fixed inset-x-0 top-0');
   });
 
   it('/programs 에서는 data-surface도 class도 붙이지 않는다(회귀 없음)', () => {
@@ -45,8 +56,8 @@ describe('ShellNav', () => {
       <ShellNav items={ITEMS} brand="OSS Hub" />,
     );
 
-    // 반전 스코프만 없으면 된다. NavBar 안의 접힌 메뉴 패널은 랜딩의 반전 표면
-    // 안에 중첩될 수 있어 항상 `data-surface="default"` 리셋을 달고 다닌다
+    // 반전 스코프만 없으면 된다. NavBar 안의 접힌 메뉴 패널은 가입 본문 반전
+    // 표면 안에 중첩될 수 있어 항상 `data-surface="default"` 리셋을 달고 다닌다
     // (globals.css의 `[data-surface='inverted'] [data-surface='default']`).
     expect(html).not.toContain('data-surface="inverted"');
     expect(html).not.toContain('fixed inset-x-0 top-0');
