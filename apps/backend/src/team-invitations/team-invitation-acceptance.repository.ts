@@ -4,6 +4,7 @@ import {
   Role,
   TeamInvitationStatus,
 } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type { PrismaService } from '../prisma/prisma.service';
 
 export type AcceptInvitationOutcome =
@@ -28,6 +29,22 @@ interface LockedUserRow {
   readonly id: string;
 }
 
+export type AcceptInvitationOkContext = {
+  readonly teamId: string;
+  readonly programId: string;
+  readonly teamName: string;
+  readonly programName: string;
+};
+
+export type AcceptInvitationOkStore = {
+  readonly auditLogWriter: AuditLogTransactionWriter;
+};
+
+export type AcceptInvitationOnOk = (
+  store: AcceptInvitationOkStore,
+  names: AcceptInvitationOkContext,
+) => Promise<void>;
+
 /**
  * 팀 행 잠금부터 초대 CAS와 멤버 생성까지 한 트랜잭션에서 수행한다.
  * 잠금 순서는 Team → User로 고정한다. Team은 신청 제출·정원 경합을,
@@ -38,6 +55,7 @@ export async function acceptTeamInvitationTransaction(
   invitationId: string,
   inviteeId: string,
   now: Date,
+  onOk?: AcceptInvitationOnOk,
 ): Promise<AcceptInvitationOutcome> {
   const acceptance = prisma.$transaction<AcceptInvitationOutcome>(
     async (tx) => {
@@ -48,7 +66,12 @@ export async function acceptTeamInvitationTransaction(
           teamId: true,
           programId: true,
           inviteeId: true,
-          team: { select: { program: { select: { teamMaxSize: true } } } },
+          team: {
+            select: {
+              name: true,
+              program: { select: { teamMaxSize: true, name: true } },
+            },
+          },
         },
       });
       if (!invitation) return { kind: 'not-found' };
@@ -117,6 +140,18 @@ export async function acceptTeamInvitationTransaction(
           userId: inviteeId,
         },
       });
+
+      if (onOk) {
+        await onOk(
+          { auditLogWriter: tx },
+          {
+            teamId: invitation.teamId,
+            programId: invitation.programId,
+            teamName: invitation.team.name,
+            programName: invitation.team.program.name,
+          },
+        );
+      }
 
       return {
         kind: 'ok',

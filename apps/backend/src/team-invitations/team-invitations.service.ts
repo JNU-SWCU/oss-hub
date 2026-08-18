@@ -1,4 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import {
+  createTeamJoinedAuditMetadata,
+  TEAM_JOINED_AUDIT_ACTIONS,
+} from '../audit-log/audit-log-metadata';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import {
   TEAM_INVITATION_ERROR_CODES,
@@ -25,7 +30,10 @@ export interface AcceptedInvitationResult {
  */
 @Injectable()
 export class TeamInvitationsService {
-  constructor(private readonly repository: TeamInvitationsRepository) {}
+  constructor(
+    private readonly repository: TeamInvitationsRepository,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   /** 내가 받은 초대 전부 — 팀·프로그램 요약이 함께 온다. 상태로 거르지 않는다. */
   async listReceived(
@@ -160,6 +168,22 @@ export class TeamInvitationsService {
     const outcome = await this.repository.withAcceptTransaction(
       invitationId,
       actorId,
+      new Date(),
+      async (store, names) => {
+        await this.auditLog.record(
+          {
+            actorGithubId: githubId,
+            action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
+            targetType: 'TEAM',
+            targetId: names.teamId,
+            metadata: createTeamJoinedAuditMetadata({
+              programName: names.programName,
+              teamName: names.teamName,
+            }),
+          },
+          store.auditLogWriter,
+        );
+      },
     );
     switch (outcome.kind) {
       case 'not-found':

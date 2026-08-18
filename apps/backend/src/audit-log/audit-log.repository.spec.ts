@@ -9,7 +9,9 @@ import type { PrismaService } from '../prisma/prisma.service';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
+  createProgramCreatedAuditMetadata,
   createProgramLifecycleAuditMetadata,
+  createTeamCreatedAuditMetadata,
 } from './audit-log-metadata';
 import { AuditLogRepository } from './audit-log.repository';
 
@@ -712,6 +714,106 @@ describe('AuditLogRepository', () => {
     expect(result.items).toEqual([
       expect.objectContaining({ target: 'org/repo-a' }),
       expect.objectContaining({ target: '프로그램 A' }),
+    ]);
+  });
+
+  it('teamName+programName compose wins over programName-only', async () => {
+    const metadata = createTeamCreatedAuditMetadata({
+      programName: '스냅샷 프로그램',
+      teamName: '스냅샷 팀',
+    });
+    const teamFindMany = jest.fn();
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-team-created',
+            actor: { nickname: 'synthetic-student' },
+            action: 'TEAM_CREATED',
+            targetType: 'TEAM',
+            targetId: 'team-1',
+            metadata,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      team: { findMany: teamFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(teamFindMany).not.toHaveBeenCalled();
+    expect(result.items).toEqual([
+      expect.objectContaining({ target: '스냅샷 프로그램 · 스냅샷 팀' }),
+    ]);
+  });
+
+  it('APPLICATION_APPROVED v2 still composes @login', async () => {
+    const metadata = {
+      schemaVersion: 2,
+      programName: '스냅샷 프로그램',
+      applicantGithubLogin: 'snapshot-applicant',
+      before: { status: 'SUBMITTED' },
+      after: { status: 'APPROVED' },
+    } as const;
+    const applicationFindMany = jest.fn();
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-application-v2-compose',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'application-1',
+            metadata,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      application: { findMany: applicationFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        target: '스냅샷 프로그램 · @snapshot-applicant',
+      }),
+    ]);
+  });
+
+  it('if View drops teamName, compose fails (program name only)', async () => {
+    const metadata = createProgramCreatedAuditMetadata({
+      programName: '스냅샷 프로그램',
+    });
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-program-created',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'PROGRAM_CREATED',
+            targetType: 'PROGRAM',
+            targetId: 'program-1',
+            metadata,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(result.items).toEqual([
+      expect.objectContaining({ target: '스냅샷 프로그램' }),
     ]);
   });
 

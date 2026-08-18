@@ -8,6 +8,7 @@ import {
   Role,
   type ProgramCategory,
 } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { requiredMilestonesApproved } from '../../common/milestone-completion';
 import { publishBlockedReasons } from '../../common/repository-publication';
@@ -30,6 +31,7 @@ export interface TeamStudentActor {
 
 export interface TeamProgramRecord {
   readonly id: string;
+  readonly name: string;
   readonly category: ProgramCategory;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
@@ -129,6 +131,7 @@ export class JoinCodeDigestConflictError extends Error {
 }
 
 export interface ProgramTeamsCreateStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   findMembershipByProgramUser(
     programId: string,
     userId: string,
@@ -139,6 +142,7 @@ export interface ProgramTeamsCreateStore {
 }
 
 export interface ProgramTeamsJoinStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   findMembershipByProgramUser(
     programId: string,
     userId: string,
@@ -190,6 +194,7 @@ export class ProgramTeamsRepository {
       where: { id: programId },
       select: {
         id: true,
+        name: true,
         category: true,
         applicationStartAt: true,
         applicationEndAt: true,
@@ -460,7 +465,7 @@ export class ProgramTeamsRepository {
 
 type TeamsTx = Pick<
   Prisma.TransactionClient,
-  'team' | 'teamMember' | 'application' | '$queryRaw'
+  'team' | 'teamMember' | 'application' | 'auditLog' | '$queryRaw'
 >;
 
 interface LockedTeamRow {
@@ -469,6 +474,10 @@ interface LockedTeamRow {
 
 class PrismaProgramTeamsCreateStore implements ProgramTeamsCreateStore {
   constructor(private readonly tx: TeamsTx) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.tx;
+  }
 
   async findMembershipByProgramUser(
     programId: string,
@@ -525,6 +534,10 @@ class PrismaProgramTeamsCreateStore implements ProgramTeamsCreateStore {
 
 class PrismaProgramTeamsJoinStore implements ProgramTeamsJoinStore {
   constructor(private readonly tx: TeamsTx) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.tx;
+  }
 
   async findMembershipByProgramUser(
     programId: string,

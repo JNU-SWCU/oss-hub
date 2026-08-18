@@ -7,12 +7,17 @@ import {
   Role,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
+import { buildProgramAuthoringPlan } from './program-authoring-plan';
+import { hashProgramAuthoringPayload } from './program-authoring-payload-hash';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
-import type {
-  ProgramAuthoringProgram,
-  ProgramAuthoringRequest,
-  ProgramAuthoringTransactionStore,
+import {
+  ProgramAuthoringIdempotencyRaceError,
+  type ProgramAuthoringProgram,
+  type ProgramAuthoringRequest,
+  type ProgramAuthoringTransactionStore,
 } from './program-authoring.types';
 
 const ACTOR_ID = 'actor-id';
@@ -72,7 +77,12 @@ function program(): ProgramAuthoringProgram {
 }
 
 function setup() {
+  const auditLogWriter =
+    {} as ProgramAuthoringTransactionStore['auditLogWriter'];
+  const record = jest.fn().mockResolvedValue(undefined);
+  const auditLog = { record } as unknown as AuditLogService;
   const transaction: jest.Mocked<ProgramAuthoringTransactionStore> = {
+    auditLogWriter,
     createProgram: jest.fn().mockResolvedValue(program()),
     createRequest: jest.fn().mockResolvedValue('request-id'),
     lockUploads: jest.fn().mockResolvedValue([]),
@@ -98,7 +108,8 @@ function setup() {
   return {
     repository,
     transaction,
-    service: new ProgramAuthoringService(repository),
+    record,
+    service: new ProgramAuthoringService(repository, auditLog),
   };
 }
 
@@ -110,6 +121,7 @@ describe('ProgramAuthoringService', () => {
       providers: [
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
+        { provide: AuditLogService, useValue: { record: jest.fn() } },
       ],
     }).compile();
 
@@ -179,5 +191,58 @@ describe('ProgramAuthoringService', () => {
       service.create(GITHUB_ID, 'key', request('upload-id')),
     ).rejects.toMatchObject({ reason: 'NOT_OWNED' });
     expect(transaction.createProgram.mock.calls).toEqual([]);
+  });
+
+  it('records PROGRAM_CREATED once inside the success transaction', async () => {
+    const { service, record, transaction } = setup();
+
+    await service.create(GITHUB_ID, 'key', request());
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorGithubId: GITHUB_ID,
+        action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
+        targetType: 'PROGRAM',
+        targetId: 'program-id',
+        metadata: {
+          schemaVersion: 1,
+          programName: 'Program',
+        },
+      }),
+      transaction.auditLogWriter,
+    );
+  });
+
+  it('does not record on idempotent replay', async () => {
+    const { service, repository, record } = setup();
+    const created = program();
+    repository.findReplay.mockResolvedValue({
+      payloadHash: hashProgramAuthoringPayload(
+        buildProgramAuthoringPlan(request()),
+      ),
+      program: created,
+    });
+
+    await service.create(GITHUB_ID, 'key', request());
+
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('does not record when the idempotency race replays', async () => {
+    const { service, repository, record, transaction } = setup();
+    transaction.createRequest.mockRejectedValue(
+      new ProgramAuthoringIdempotencyRaceError(new Error('p2002')),
+    );
+    repository.findReplay.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      payloadHash: hashProgramAuthoringPayload(
+        buildProgramAuthoringPlan(request()),
+      ),
+      program: program(),
+    });
+
+    await service.create(GITHUB_ID, 'key', request());
+
+    expect(record).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import { ProgramCategory } from '@prisma/client';
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { StaffProgramTeamResponseDto } from './dto/team-response.dto';
 import {
@@ -19,6 +20,7 @@ const JOIN_CODE_SECRET = 'synthetic-staff-list-secret';
 
 const PROGRAM: TeamProgramRecord = {
   id: PROGRAM_ID,
+  name: '합성 프로그램',
   category: ProgramCategory.OSS_CONTEST,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
@@ -43,6 +45,7 @@ function buildService(overrides: {
   const service = new ProgramTeamsService(
     repository,
     loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
+    { record: jest.fn() } as unknown as AuditLogService,
   );
   return { service, findProgramById, listStaffTeams };
 }

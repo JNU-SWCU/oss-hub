@@ -54,6 +54,7 @@ function createRepository() {
     .spyOn(applicationsRepository, 'findProgramById')
     .mockResolvedValue({
       id: 'program-1',
+      name: '합성 프로그램',
       category: 'BASIC',
       repositoryProvisioningEnabled: false,
       ...OPEN_PROGRAM,

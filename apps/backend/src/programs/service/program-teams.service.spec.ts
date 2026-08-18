@@ -1,4 +1,9 @@
 import { ProgramCategory } from '@prisma/client';
+import type { AuditLogService } from '../../audit-log/audit-log.service';
+import {
+  TEAM_CREATED_AUDIT_ACTIONS,
+  TEAM_JOINED_AUDIT_ACTIONS,
+} from '../../audit-log/audit-log-metadata';
 import { DomainException } from '../../common/error-code';
 import { computeJoinCodeDigest } from '../../common/join-code-digest';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
@@ -25,6 +30,7 @@ const STUDENT: TeamStudentActor = {
 
 const TEAM_PROGRAM: TeamProgramRecord = {
   id: PROGRAM_ID,
+  name: '합성 프로그램',
   category: ProgramCategory.OSS_CONTEST,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
@@ -77,13 +83,19 @@ function buildService(overrides: {
     .fn()
     .mockResolvedValue({ memberCount: 1, hasApplication: false });
 
+  const auditLogWriter = {} as ProgramTeamsCreateStore['auditLogWriter'];
+  const record = jest
+    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+    .mockResolvedValue(undefined);
   const createStore: ProgramTeamsCreateStore = {
+    auditLogWriter,
     findMembershipByProgramUser: findMembership,
     createTeamWithLeader,
     ...overrides.createStore,
   };
 
   const joinStore: ProgramTeamsJoinStore = {
+    auditLogWriter,
     findMembershipByProgramUser: findMembership,
     findTeamByJoinCodeDigest,
     lockTeamForJoin,
@@ -123,6 +135,7 @@ function buildService(overrides: {
       loadRuntimeConfig({
         TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET,
       }),
+      { record } as unknown as AuditLogService,
     ),
     repository,
     createTeamWithLeader,
@@ -130,6 +143,8 @@ function buildService(overrides: {
     findMembership,
     findTeamByJoinCodeDigest,
     lockTeamForJoin,
+    record,
+    auditLogWriter,
   };
 }
 
@@ -163,6 +178,35 @@ describe('ProgramTeamsService', () => {
           JOIN_CODE_SECRET,
         ),
       }),
+    );
+  });
+
+  it('records TEAM_CREATED once inside the create transaction without joinCode', async () => {
+    const { service, record, auditLogWriter } = buildService({});
+
+    await service.create(GITHUB_ID, PROGRAM_ID, '오픈소스팀', NOW);
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorGithubId: GITHUB_ID,
+        action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
+        targetType: 'TEAM',
+        targetId: 'synthetic-team',
+        metadata: {
+          schemaVersion: 1,
+          programName: TEAM_PROGRAM.name,
+          teamName: '오픈소스팀',
+        },
+      }),
+      auditLogWriter,
+    );
+    const createdCall = record.mock.calls[0];
+    if (createdCall === undefined) {
+      throw new Error('expected TEAM_CREATED record');
+    }
+    expect(JSON.stringify(createdCall[0].metadata)).not.toMatch(
+      /joinCode|joinCodeDigest/,
     );
   });
 
@@ -233,6 +277,44 @@ describe('ProgramTeamsService', () => {
     );
     expect(result.id).toBe('synthetic-team');
     expect(result).not.toHaveProperty('joinCode');
+  });
+
+  it('records TEAM_JOINED once inside the join transaction without joinCode', async () => {
+    const { service, record, auditLogWriter, findTeamByJoinCodeDigest } =
+      buildService({});
+    findTeamByJoinCodeDigest.mockResolvedValue({
+      id: 'synthetic-team',
+      programId: PROGRAM_ID,
+      name: '오픈소스팀',
+      leaderId: 'leader-id',
+      memberCount: 1,
+      hasApplication: false,
+    });
+
+    await service.join(GITHUB_ID, PROGRAM_ID, 'ABCD1234XY', NOW);
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorGithubId: GITHUB_ID,
+        action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
+        targetType: 'TEAM',
+        targetId: 'synthetic-team',
+        metadata: {
+          schemaVersion: 1,
+          programName: TEAM_PROGRAM.name,
+          teamName: '오픈소스팀',
+        },
+      }),
+      auditLogWriter,
+    );
+    const joinedCall = record.mock.calls[0];
+    if (joinedCall === undefined) {
+      throw new Error('expected TEAM_JOINED record');
+    }
+    expect(JSON.stringify(joinedCall[0].metadata)).not.toMatch(
+      /joinCode|joinCodeDigest/,
+    );
   });
 
   it('잠금 전 스냅샷엔 여유가 있어도, 잠근 뒤 재조회에서 정원이 찼으면 409(#164 패턴)', async () => {

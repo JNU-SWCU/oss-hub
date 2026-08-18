@@ -268,6 +268,87 @@ export function createProgramDeletionAuditMetadata(
 }
 
 /**
+ * Wave 1 — committed web state: program create, team create/join, application
+ * submit. Four independent typed schemas even when JSON fields overlap.
+ * Do not snapshot answers, join codes, real names, studentId, email, or
+ * rejectionReason — AuditLog is append-only and GET /audit-logs returns
+ * metadata through the view allowlist only.
+ */
+export const PROGRAM_CREATED_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const PROGRAM_CREATED_AUDIT_ACTIONS = {
+  PROGRAM_CREATED: 'PROGRAM_CREATED',
+} as const;
+
+export type ProgramCreatedAuditMetadata = {
+  readonly schemaVersion: typeof PROGRAM_CREATED_AUDIT_SCHEMA_VERSION;
+  readonly programName: string;
+};
+
+export function createProgramCreatedAuditMetadata(
+  input: Omit<ProgramCreatedAuditMetadata, 'schemaVersion'>,
+): ProgramCreatedAuditMetadata {
+  return { schemaVersion: PROGRAM_CREATED_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export const TEAM_CREATED_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const TEAM_CREATED_AUDIT_ACTIONS = {
+  TEAM_CREATED: 'TEAM_CREATED',
+} as const;
+
+export type TeamCreatedAuditMetadata = {
+  readonly schemaVersion: typeof TEAM_CREATED_AUDIT_SCHEMA_VERSION;
+  readonly programName: string;
+  readonly teamName: string;
+};
+
+export function createTeamCreatedAuditMetadata(
+  input: Omit<TeamCreatedAuditMetadata, 'schemaVersion'>,
+): TeamCreatedAuditMetadata {
+  return { schemaVersion: TEAM_CREATED_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export const TEAM_JOINED_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const TEAM_JOINED_AUDIT_ACTIONS = {
+  TEAM_JOINED: 'TEAM_JOINED',
+} as const;
+
+export type TeamJoinedAuditMetadata = {
+  readonly schemaVersion: typeof TEAM_JOINED_AUDIT_SCHEMA_VERSION;
+  readonly programName: string;
+  readonly teamName: string;
+};
+
+export function createTeamJoinedAuditMetadata(
+  input: Omit<TeamJoinedAuditMetadata, 'schemaVersion'>,
+): TeamJoinedAuditMetadata {
+  return { schemaVersion: TEAM_JOINED_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export const APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const APPLICATION_SUBMITTED_AUDIT_ACTIONS = {
+  APPLICATION_SUBMITTED: 'APPLICATION_SUBMITTED',
+} as const;
+
+export type ApplicationSubmittedAuditMetadata = {
+  readonly schemaVersion: typeof APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION;
+  readonly programName: string;
+  readonly teamName: string;
+};
+
+export function createApplicationSubmittedAuditMetadata(
+  input: Omit<ApplicationSubmittedAuditMetadata, 'schemaVersion'>,
+): ApplicationSubmittedAuditMetadata {
+  return {
+    schemaVersion: APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
+    ...input,
+  };
+}
+
+/**
  * #547 — ADMIN 수집 트리거. actor는 `AuditLog.actorId` FK로 이미 식별되므로 metadata에
  * 다시 스냅샷하지 않는다. `runId`는 트리거가 202로 돌려준 값과 같은 값이라(#546) 이
  * 기록만으로 실행 이력 조회까지 이어진다. 자격증명·저장소 이름은 담지 않는다.
@@ -435,6 +516,10 @@ export type AuditLogMetadata =
   | RepositoryPublishAuditMetadata
   | ProgramLifecycleAuditMetadata
   | ProgramDeletionAuditMetadata
+  | ProgramCreatedAuditMetadata
+  | TeamCreatedAuditMetadata
+  | TeamJoinedAuditMetadata
+  | ApplicationSubmittedAuditMetadata
   | CollectionTriggerAuditMetadata
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadata
@@ -505,11 +590,24 @@ export type UserProfileAuditMetadataView = UserProfileAuditMetadata;
 // 사람 신원이 아니라 "무엇을, 왜 지울 수 있었는지"를 말하는 행동 메타데이터다.
 export type ProgramDeletionAuditMetadataView = ProgramDeletionAuditMetadata;
 
+export type ProgramCreatedAuditMetadataView = ProgramCreatedAuditMetadata;
+
+export type TeamCreatedAuditMetadataView = TeamCreatedAuditMetadata;
+
+export type TeamJoinedAuditMetadataView = TeamJoinedAuditMetadata;
+
+export type ApplicationSubmittedAuditMetadataView =
+  ApplicationSubmittedAuditMetadata;
+
 export type AuditLogMetadataView =
   | AccessAuditMetadataView
   | RepositoryPublishAuditMetadataView
   | ProgramLifecycleAuditMetadataView
   | ProgramDeletionAuditMetadataView
+  | ProgramCreatedAuditMetadataView
+  | TeamCreatedAuditMetadataView
+  | TeamJoinedAuditMetadataView
+  | ApplicationSubmittedAuditMetadataView
   | CollectionTriggerAuditMetadataView
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadataView
@@ -594,6 +692,45 @@ function toProgramDeletionAuditMetadataView(
     programName: metadata.programName,
     lifecycle: metadata.lifecycle,
     blockingCounts: { ...metadata.blockingCounts },
+  };
+}
+
+function toProgramCreatedAuditMetadataView(
+  metadata: ProgramCreatedAuditMetadata,
+): ProgramCreatedAuditMetadataView {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    programName: metadata.programName,
+  };
+}
+
+function toTeamCreatedAuditMetadataView(
+  metadata: TeamCreatedAuditMetadata,
+): TeamCreatedAuditMetadataView {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    programName: metadata.programName,
+    teamName: metadata.teamName,
+  };
+}
+
+function toTeamJoinedAuditMetadataView(
+  metadata: TeamJoinedAuditMetadata,
+): TeamJoinedAuditMetadataView {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    programName: metadata.programName,
+    teamName: metadata.teamName,
+  };
+}
+
+function toApplicationSubmittedAuditMetadataView(
+  metadata: ApplicationSubmittedAuditMetadata,
+): ApplicationSubmittedAuditMetadataView {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    programName: metadata.programName,
+    teamName: metadata.teamName,
   };
 }
 
@@ -696,6 +833,32 @@ export function parseAuditLogMetadata(
     return {
       legacy: false,
       metadata: toProgramDeletionAuditMetadataView(value),
+    };
+  }
+  // Team/apply schemas before PROGRAM_CREATED: they share programName and the
+  // more specific teamName allowlist must win so compose is not dropped.
+  if (isTeamCreatedAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toTeamCreatedAuditMetadataView(value),
+    };
+  }
+  if (isTeamJoinedAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toTeamJoinedAuditMetadataView(value),
+    };
+  }
+  if (isApplicationSubmittedAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toApplicationSubmittedAuditMetadataView(value),
+    };
+  }
+  if (isProgramCreatedAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toProgramCreatedAuditMetadataView(value),
     };
   }
   if (isCollectionTriggerAuditMetadata(value)) {
@@ -863,6 +1026,75 @@ function isProgramDeletionAuditMetadata(
     (value.lifecycle === ProgramLifecycle.PUBLISHED ||
       value.lifecycle === ProgramLifecycle.ARCHIVED) &&
     isProgramDeletionAuditBlockingCounts(value.blockingCounts)
+  );
+}
+
+const WEB_STATE_AUDIT_FORBIDDEN_KEYS = [
+  'answers',
+  'joinCode',
+  'joinCodeDigest',
+  'name',
+  'studentId',
+  'email',
+  'rejectionReason',
+  'applicantGithubLogin',
+  'target',
+] as const;
+
+function hasForbiddenWebStateAuditKey(value: Record<string, unknown>): boolean {
+  return WEB_STATE_AUDIT_FORBIDDEN_KEYS.some((key) => key in value);
+}
+
+function isProgramCreatedAuditMetadata(
+  value: unknown,
+): value is ProgramCreatedAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === PROGRAM_CREATED_AUDIT_SCHEMA_VERSION &&
+    typeof value.programName === 'string' &&
+    !('teamName' in value) &&
+    !('lifecycle' in value) &&
+    !('blockingCounts' in value) &&
+    !('before' in value) &&
+    !('after' in value) &&
+    !hasForbiddenWebStateAuditKey(value)
+  );
+}
+
+function isTeamCreatedAuditMetadata(
+  value: unknown,
+): value is TeamCreatedAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === TEAM_CREATED_AUDIT_SCHEMA_VERSION &&
+    typeof value.programName === 'string' &&
+    typeof value.teamName === 'string' &&
+    !hasForbiddenWebStateAuditKey(value)
+  );
+}
+
+function isTeamJoinedAuditMetadata(
+  value: unknown,
+): value is TeamJoinedAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === TEAM_JOINED_AUDIT_SCHEMA_VERSION &&
+    typeof value.programName === 'string' &&
+    typeof value.teamName === 'string' &&
+    !hasForbiddenWebStateAuditKey(value)
+  );
+}
+
+function isApplicationSubmittedAuditMetadata(
+  value: unknown,
+): value is ApplicationSubmittedAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION &&
+    typeof value.programName === 'string' &&
+    typeof value.teamName === 'string' &&
+    !('applicantGithubLogin' in value) &&
+    !hasForbiddenWebStateAuditKey(value)
   );
 }
 

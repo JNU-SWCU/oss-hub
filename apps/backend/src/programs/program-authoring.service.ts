@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
+import {
+  createProgramCreatedAuditMetadata,
+  PROGRAM_CREATED_AUDIT_ACTIONS,
+} from '../audit-log/audit-log-metadata';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { buildProgramAuthoringPlan } from './program-authoring-plan';
 import { hashProgramAuthoringPayload } from './program-authoring-payload-hash';
 import {
@@ -28,6 +33,7 @@ export class ProgramAuthoringService {
   constructor(
     @Inject(ProgramAuthoringRepository)
     private readonly repository: ProgramAuthoringStore,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async create(
@@ -52,6 +58,7 @@ export class ProgramAuthoringService {
       return await this.repository.withTransaction((store) =>
         this.createInTransaction(
           store,
+          githubId,
           actor.id,
           idempotencyKey,
           payloadHash,
@@ -68,6 +75,7 @@ export class ProgramAuthoringService {
 
   private async createInTransaction(
     store: ProgramAuthoringTransactionStore,
+    githubId: bigint,
     actorId: string,
     idempotencyKey: string,
     payloadHash: string,
@@ -87,6 +95,18 @@ export class ProgramAuthoringService {
     } catch (error) {
       throw new ProgramAuthoringIdempotencyRaceError(error);
     }
+    await this.auditLog.record(
+      {
+        actorGithubId: githubId,
+        action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
+        targetType: 'PROGRAM',
+        targetId: program.id,
+        metadata: createProgramCreatedAuditMetadata({
+          programName: program.name,
+        }),
+      },
+      store.auditLogWriter,
+    );
     for (const milestone of plan.milestones) {
       const milestoneId = await store.createMilestone(program.id, milestone);
       for (const document of milestone.documents) {

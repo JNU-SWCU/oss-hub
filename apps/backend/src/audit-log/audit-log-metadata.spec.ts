@@ -14,13 +14,21 @@ import {
   createAccessAuditMetadata,
   createApplicationDecisionAuditMetadata,
   createCollectionTriggerAuditMetadata,
+  createApplicationSubmittedAuditMetadata,
+  createProgramCreatedAuditMetadata,
   createProgramDeletionAuditMetadata,
   createProgramLifecycleAuditMetadata,
+  createTeamCreatedAuditMetadata,
+  createTeamJoinedAuditMetadata,
   createRepositoryPublishAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   InvalidAuditLogMetadataError,
   parseAuditLogMetadata,
+  APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
+  PROGRAM_CREATED_AUDIT_SCHEMA_VERSION,
   PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
+  TEAM_CREATED_AUDIT_SCHEMA_VERSION,
+  TEAM_JOINED_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
   REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
@@ -552,5 +560,127 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
     const evidence = parseAuditLogMetadata(ACCESS_V2);
 
     expect(evidence).toEqual({ legacy: false, metadata: ACCESS_V2 });
+  });
+});
+
+describe('createProgramCreatedAuditMetadata / parseAuditLogMetadata — PROGRAM_CREATED', () => {
+  it('schemaVersion 1로 프로그램 이름만 도장 찍는다', () => {
+    const metadata = createProgramCreatedAuditMetadata({
+      programName: '합성 프로그램',
+    });
+
+    expect(metadata.schemaVersion).toBe(PROGRAM_CREATED_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('forbidden keys fail closed', () => {
+    for (const key of [
+      'answers',
+      'joinCode',
+      'joinCodeDigest',
+      'name',
+      'studentId',
+      'email',
+      'rejectionReason',
+    ]) {
+      expect(() =>
+        parseAuditLogMetadata({
+          schemaVersion: PROGRAM_CREATED_AUDIT_SCHEMA_VERSION,
+          programName: '합성 프로그램',
+          [key]: 'forbidden',
+        }),
+      ).toThrow(InvalidAuditLogMetadataError);
+    }
+  });
+});
+
+describe('createTeamCreatedAuditMetadata / parseAuditLogMetadata — TEAM_CREATED', () => {
+  it('allowlists both programName and teamName', () => {
+    const metadata = createTeamCreatedAuditMetadata({
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+    });
+
+    expect(metadata.schemaVersion).toBe(TEAM_CREATED_AUDIT_SCHEMA_VERSION);
+    const evidence = parseAuditLogMetadata(metadata);
+    expect(evidence).toEqual({ legacy: false, metadata });
+    expect(evidence.metadata).toEqual({
+      schemaVersion: 1,
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+    });
+  });
+
+  it('strips unregistered keys from the view', () => {
+    const stored = {
+      ...createTeamCreatedAuditMetadata({
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+      }),
+      joinCode: 'LEAK',
+    };
+
+    expect(() => parseAuditLogMetadata(stored)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+});
+
+describe('createTeamJoinedAuditMetadata / parseAuditLogMetadata — TEAM_JOINED', () => {
+  it('allowlists both programName and teamName', () => {
+    const metadata = createTeamJoinedAuditMetadata({
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+    });
+
+    expect(metadata.schemaVersion).toBe(TEAM_JOINED_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('forbidden keys fail closed', () => {
+    expect(() =>
+      parseAuditLogMetadata({
+        schemaVersion: TEAM_JOINED_AUDIT_SCHEMA_VERSION,
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        joinCodeDigest: 'digest',
+      }),
+    ).toThrow(InvalidAuditLogMetadataError);
+  });
+});
+
+describe('createApplicationSubmittedAuditMetadata / parseAuditLogMetadata — APPLICATION_SUBMITTED', () => {
+  it('allowlists both names and never snapshots applicantGithubLogin', () => {
+    const metadata = createApplicationSubmittedAuditMetadata({
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+    });
+
+    expect(metadata.schemaVersion).toBe(
+      APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
+    );
+    expect(Object.keys(metadata).sort()).toEqual(
+      ['programName', 'schemaVersion', 'teamName'].sort(),
+    );
+    const evidence = parseAuditLogMetadata(metadata);
+    expect(evidence).toEqual({ legacy: false, metadata });
+    expect(JSON.stringify(evidence)).not.toContain('applicantGithubLogin');
+  });
+
+  it('fails closed when applicantGithubLogin is present', () => {
+    expect(() =>
+      parseAuditLogMetadata({
+        schemaVersion: APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        applicantGithubLogin: 'synthetic-login',
+      }),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 });

@@ -5,6 +5,7 @@ import {
   ProgramAuthoringUploadLifecycle,
   Role,
 } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { e2eProgramAuthoringControlEnabled } from '../e2e-program-authoring/e2e-program-authoring.config';
 import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-external-ports';
@@ -100,6 +101,10 @@ export class ProgramAuthoringRepository {
 
 class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransactionStore {
   constructor(private readonly prisma: Prisma.TransactionClient) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.prisma;
+  }
 
   createProgram(
     plan: ProgramAuthoringProgramPlan,

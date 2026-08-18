@@ -1,3 +1,4 @@
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { StaffTeamDetailResponseDto } from './dto/team-detail-response.dto';
 import {
@@ -31,6 +32,7 @@ function buildService(overrides: {
   const service = new ProgramTeamsService(
     repository,
     loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
+    { record: jest.fn() } as unknown as AuditLogService,
   );
   return { service, findStaffTeamDetail };
 }

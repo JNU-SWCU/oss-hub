@@ -17,12 +17,13 @@ import {
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
+import {
+  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
+  TEAM_CREATED_AUDIT_ACTIONS,
+} from '../audit-log/audit-log-metadata';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import type { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
 import type { OwnRepositoryUrlValidationResult } from '../github/service/own-repository-url-validation.service';
-
-/** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
-const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
@@ -35,6 +36,7 @@ const STUDENT: ApplicationStudentActor = {
 
 const OPEN_PROGRAM: ApplyProgramRecord = {
   id: PROGRAM_ID,
+  name: '합성 프로그램',
   category: ProgramCategory.BASIC,
   lifecycle: ProgramLifecycle.PUBLISHED,
   applicationTemplateVersion: 1,
@@ -107,7 +109,12 @@ function buildService(overrides: {
       });
     });
 
+  const record = jest
+    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+    .mockResolvedValue(undefined);
+  const auditLogWriter = {} as ApplicationCreateStore['auditLogWriter'];
   const store: ApplicationCreateStore = {
+    auditLogWriter,
     lockProgramForApply: jest
       .fn()
       .mockResolvedValue(ProgramLifecycle.PUBLISHED),
@@ -163,7 +170,7 @@ function buildService(overrides: {
   return {
     service: new ApplicationsService(
       repository,
-      noopAuditLog,
+      { record } as unknown as AuditLogService,
       ownRepositoryUrlValidator,
     ),
     repository,
@@ -171,6 +178,8 @@ function buildService(overrides: {
     createApplication,
     createTeamWithLeader,
     ownRepositoryUrlValidator,
+    record,
+    auditLogWriter,
   };
 }
 
@@ -725,6 +734,82 @@ describe('ApplicationsService.create', () => {
     // Then
     expect(createApplication).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: 'existing-team' }),
+    );
+  });
+
+  it('records TEAM_CREATED and APPLICATION_SUBMITTED when creating a new team', async () => {
+    const { service, record, auditLogWriter } = buildService({});
+
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    expect(record).toHaveBeenCalledTimes(2);
+    const createdCall = record.mock.calls[0];
+    const submittedCall = record.mock.calls[1];
+    if (createdCall === undefined || submittedCall === undefined) {
+      throw new Error(
+        'expected TEAM_CREATED and APPLICATION_SUBMITTED records',
+      );
+    }
+    expect(createdCall[0]).toMatchObject({
+      actorGithubId: GITHUB_ID,
+      action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
+      targetType: 'TEAM',
+      targetId: 'synthetic-team',
+      metadata: {
+        schemaVersion: 1,
+        programName: OPEN_PROGRAM.name,
+        teamName: 'synthetic-login의 팀',
+      },
+    });
+    expect(submittedCall[0]).toMatchObject({
+      actorGithubId: GITHUB_ID,
+      action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
+      targetType: 'APPLICATION',
+      targetId: 'synthetic-application',
+      metadata: {
+        schemaVersion: 1,
+        programName: OPEN_PROGRAM.name,
+        teamName: 'synthetic-login의 팀',
+      },
+    });
+    expect(createdCall[1]).toBe(auditLogWriter);
+    expect(submittedCall[1]).toBe(auditLogWriter);
+    expect(JSON.stringify(createdCall[0].metadata)).not.toContain(
+      'applicantGithubLogin',
+    );
+    expect(JSON.stringify(submittedCall[0].metadata)).not.toContain(
+      'applicantGithubLogin',
+    );
+  });
+
+  it('records APPLICATION_SUBMITTED only with the existing team name', async () => {
+    const { service, record, createTeamWithLeader } = buildService({
+      store: {
+        findExistingTeamMembership: jest
+          .fn()
+          .mockResolvedValue({ id: 'existing-team', name: '먼저 만든 팀' }),
+      },
+    });
+
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    expect(createTeamWithLeader).not.toHaveBeenCalled();
+    expect(record).toHaveBeenCalledTimes(1);
+    const submittedCall = record.mock.calls[0];
+    if (submittedCall === undefined) {
+      throw new Error('expected APPLICATION_SUBMITTED record');
+    }
+    expect(submittedCall[0]).toMatchObject({
+      action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
+      targetType: 'APPLICATION',
+      metadata: {
+        schemaVersion: 1,
+        teamName: '먼저 만든 팀',
+        programName: OPEN_PROGRAM.name,
+      },
+    });
+    expect(JSON.stringify(submittedCall[0].metadata)).not.toContain(
+      'synthetic-login의 팀',
     );
   });
 });

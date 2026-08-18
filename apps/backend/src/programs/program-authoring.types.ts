@@ -4,6 +4,7 @@ import type {
   ProgramCategory,
   ProgramLifecycle,
 } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 
 export type ProgramAuthoringDocumentRequest = {
   readonly name: string;
@@ -167,6 +168,7 @@ export type ProgramAuthoringTemplateInput = {
 };
 
 export interface ProgramAuthoringTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   createProgram(
     plan: ProgramAuthoringProgramPlan,
   ): Promise<ProgramAuthoringProgram>;

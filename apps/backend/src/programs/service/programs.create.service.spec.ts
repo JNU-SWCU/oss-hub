@@ -1,4 +1,6 @@
 import { AccountStatus, ProgramCategory, Role } from '@prisma/client';
+import type { AuditLogService } from '../../audit-log/audit-log.service';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../../audit-log/audit-log-metadata';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { CreateProgramRequestDto } from '../dto/create-program-request.dto';
@@ -27,23 +29,49 @@ describe('ProgramsService', () => {
   const create = jest.fn(
     (request: {
       readonly data: {
+        readonly name: string;
         readonly teamMinSize: number;
         readonly teamMaxSize: number;
       };
     }) => {
-      void request;
-      return Promise.resolve({ id: 'program' });
+      return Promise.resolve({ id: 'program', name: request.data.name });
     },
+  );
+  const record = jest
+    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+    .mockResolvedValue(undefined);
+  const writer = {
+    program: { create },
+    auditLog: {},
+  };
+  const $transaction = jest.fn((operation: (tx: typeof writer) => unknown) =>
+    operation(writer),
   );
   const prisma = {
     user: { findUnique },
-    program: { create },
+    $transaction,
   } as unknown as PrismaService;
-  const service = new ProgramCreationService(new ProgramsRepository(prisma));
+  const auditLog = { record } as unknown as AuditLogService;
+  const service = new ProgramCreationService(
+    new ProgramsRepository(prisma),
+    auditLog,
+  );
 
   beforeEach(() => {
     findUnique.mockReset();
     create.mockReset();
+    create.mockImplementation(
+      (request: {
+        readonly data: {
+          readonly name: string;
+          readonly teamMinSize: number;
+          readonly teamMaxSize: number;
+        };
+      }) => Promise.resolve({ id: 'program', name: request.data.name }),
+    );
+    record.mockReset();
+    record.mockResolvedValue(undefined);
+    $transaction.mockClear();
   });
 
   it('stores the server-owned OSS contest template for an approved staff member', async () => {
@@ -51,7 +79,7 @@ describe('ProgramsService', () => {
       role: Role.STAFF,
       accountStatus: AccountStatus.ACTIVE,
     });
-    create.mockResolvedValue({ id: 'program-1' });
+    create.mockResolvedValue({ id: 'program-1', name: '2026 OSS Contest' });
 
     await service.create(101n, input);
 
@@ -78,7 +106,7 @@ describe('ProgramsService', () => {
       role: Role.ADMIN,
       accountStatus: AccountStatus.ACTIVE,
     });
-    create.mockResolvedValue({ id: 'program-2' });
+    create.mockResolvedValue({ id: 'program-2', name: '2026 OSS Contest' });
 
     await service.create(101n, {
       ...input,
@@ -112,7 +140,10 @@ describe('ProgramsService', () => {
         role: Role.STAFF,
         accountStatus: AccountStatus.ACTIVE,
       });
-      create.mockResolvedValue({ id: 'program-default-range' });
+      create.mockResolvedValue({
+        id: 'program-default-range',
+        name: '2026 OSS Contest',
+      });
 
       await service.create(101n, {
         ...input,
@@ -132,14 +163,20 @@ describe('ProgramsService', () => {
       role: Role.STAFF,
       accountStatus: AccountStatus.ACTIVE,
     });
-    create.mockResolvedValue({ id: 'program-equal-boundary' });
+    create.mockResolvedValue({
+      id: 'program-equal-boundary',
+      name: '2026 OSS Contest',
+    });
 
     await expect(
       service.create(101n, {
         ...input,
         startAt: input.applicationEndAt,
       }),
-    ).resolves.toEqual({ id: 'program-equal-boundary' });
+    ).resolves.toEqual({
+      id: 'program-equal-boundary',
+      name: '2026 OSS Contest',
+    });
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -232,5 +269,33 @@ describe('ProgramsService', () => {
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
     });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('records PROGRAM_CREATED on the same TransactionClient as create', async () => {
+    findUnique.mockResolvedValue({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    create.mockResolvedValue({ id: 'program-audit', name: '2026 OSS Contest' });
+
+    await service.create(101n, input);
+
+    expect($transaction).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]?.[1]).toBe(writer);
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorGithubId: 101n,
+        action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
+        targetType: 'PROGRAM',
+        targetId: 'program-audit',
+        metadata: {
+          schemaVersion: 1,
+          programName: '2026 OSS Contest',
+        },
+      }),
+      writer,
+    );
   });
 });

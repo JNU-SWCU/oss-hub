@@ -1,3 +1,4 @@
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
 
@@ -23,9 +24,13 @@ export type MockRepository = TeamInvitationsRepository & {
   withAcceptTransaction: jest.Mock;
 };
 
-export function buildService(overrides: Partial<MockRepository> = {}): {
+export function buildService(
+  overrides: Partial<MockRepository> = {},
+  auditLog?: Pick<AuditLogService, 'record'>,
+): {
   readonly service: TeamInvitationsService;
   readonly repository: MockRepository;
+  readonly auditLog: Pick<AuditLogService, 'record'>;
 } {
   const repository = {
     findUserIdByGithubId: jest.fn().mockResolvedValue(syntheticUserId),
@@ -49,8 +54,13 @@ export function buildService(overrides: Partial<MockRepository> = {}): {
     withAcceptTransaction: jest.fn(),
     ...overrides,
   } as unknown as MockRepository;
+  const resolvedAuditLog = auditLog ?? { record: jest.fn() };
   return {
-    service: new TeamInvitationsService(repository),
+    service: new TeamInvitationsService(
+      repository,
+      resolvedAuditLog as AuditLogService,
+    ),
     repository,
+    auditLog: resolvedAuditLog,
   };
 }

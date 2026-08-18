@@ -16,7 +16,7 @@ export interface AuditLogRecord {
   readonly occurredAt: string;
 }
 
-// apps/backend/src/audit-log/audit-log-metadata.ts에 정의된 7개 action registry의
+// apps/backend/src/audit-log/audit-log-metadata.ts에 정의된 action registry의
 // 합집합을 미러링한다. 모노레포에 공유 패키지가 없어
 // frontend가 backend/src를 직접 import할 수 없다(apps/frontend/src/features/roles의
 // "Mirrors" 관례와 동일). 이 목록이 backend 정의와 어긋나지 않는지는
@@ -30,10 +30,15 @@ export const AUDIT_LOG_ACTION_LABELS = {
   USER_ROLE_CHANGED: '역할 변경',
   USER_ACCOUNT_STATUS_CHANGED: '계정 상태 변경',
   REPOSITORY_PUBLISHED: '저장소 공개',
+  PROGRAM_CREATED: '프로그램 생성',
   PROGRAM_ARCHIVED: '프로그램 보관',
   PROGRAM_RESTORED: '프로그램 복구',
+  PROGRAM_DELETED: '프로그램 삭제',
+  TEAM_CREATED: '팀 생성',
+  TEAM_JOINED: '팀 합류',
   COLLECTION_SYNC_TRIGGERED: '수집 실행',
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: '제출 파일 정리 재시도',
+  APPLICATION_SUBMITTED: '신청 제출',
   APPLICATION_APPROVED: '신청 승인',
   APPLICATION_REJECTED: '신청 반려',
   APPLICATION_REVERTED: '신청 판정 취소',
