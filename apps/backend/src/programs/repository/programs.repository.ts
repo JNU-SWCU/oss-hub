@@ -323,20 +323,31 @@ export class ProgramsRepository {
     });
   }
 
-  createProgram(data: {
-    readonly name: string;
-    readonly organizer: string;
-    readonly category: ProgramCategory;
-    readonly applicationTemplateKey: string;
-    readonly applicationTemplateVersion: number;
-    readonly applicationStartAt: Date;
-    readonly applicationEndAt: Date;
-    readonly startAt: Date;
-    readonly endAt: Date;
-    readonly teamMinSize: number;
-    readonly teamMaxSize: number;
-    readonly description: string;
-  }) {
-    return this.prisma.program.create({ data });
+  withCreateTransaction<T>(
+    operation: (
+      writer: Pick<Prisma.TransactionClient, 'program' | 'auditLog'>,
+    ) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) => operation(transaction));
+  }
+
+  createProgram(
+    data: {
+      readonly name: string;
+      readonly organizer: string;
+      readonly category: ProgramCategory;
+      readonly applicationTemplateKey: string;
+      readonly applicationTemplateVersion: number;
+      readonly applicationStartAt: Date;
+      readonly applicationEndAt: Date;
+      readonly startAt: Date;
+      readonly endAt: Date;
+      readonly teamMinSize: number;
+      readonly teamMaxSize: number;
+      readonly description: string;
+    },
+    writer: Pick<Prisma.TransactionClient, 'program'>,
+  ) {
+    return writer.program.create({ data });
   }
 }

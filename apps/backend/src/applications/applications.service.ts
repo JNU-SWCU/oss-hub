@@ -7,7 +7,11 @@ import {
 import { Injectable, Logger } from '@nestjs/common';
 import {
   APPLICATION_DECISION_AUDIT_ACTIONS,
+  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   createApplicationDecisionAuditMetadata,
+  createApplicationSubmittedAuditMetadata,
+  createTeamCreatedAuditMetadata,
+  TEAM_CREATED_AUDIT_ACTIONS,
 } from '../audit-log/audit-log-metadata';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
@@ -227,23 +231,25 @@ export class ApplicationsService {
           );
         }
 
-        let teamId: string | null = existingTeam?.id ?? null;
+        let createdTeam: { readonly id: string; readonly name: string } | null =
+          null;
         for (
           let attempt = 0;
-          teamId === null && attempt < JOIN_CODE_ATTEMPTS;
+          createdTeam === null &&
+          existingTeam === null &&
+          attempt < JOIN_CODE_ATTEMPTS;
           attempt += 1
         ) {
           const joinCode = this.repository.generateJoinCode();
           const joinCodeDigest =
             this.repository.computeJoinCodeDigest(joinCode);
           try {
-            const team = await store.createTeamWithLeader({
+            createdTeam = await store.createTeamWithLeader({
               programId,
               name: teamName,
               joinCodeDigest,
               leaderId: student.id,
             });
-            teamId = team.id;
             break;
           } catch (error) {
             if (error instanceof ApplicationJoinCodeDigestConflictError) {
@@ -255,20 +261,51 @@ export class ApplicationsService {
             throw error;
           }
         }
-        if (teamId === null) {
+        const applicationTeam = existingTeam ?? createdTeam;
+        if (applicationTeam === null) {
           throw new Error('join code digest collision retries exhausted');
         }
 
-        return store.createApplication({
+        const application = await store.createApplication({
           programId,
           applicantId: student.id,
-          teamId,
+          teamId: applicationTeam.id,
           answers: answersResult.answers,
           applicationTemplateVersion: program.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
           repositoryConnectionMode: repositoryConnection.mode,
           repositoryUrl: repositoryConnection.url,
         });
+
+        if (createdTeam !== null) {
+          await this.auditLog.record(
+            {
+              actorGithubId: githubId,
+              action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
+              targetType: 'TEAM',
+              targetId: createdTeam.id,
+              metadata: createTeamCreatedAuditMetadata({
+                programName: program.name,
+                teamName: createdTeam.name,
+              }),
+            },
+            store.auditLogWriter,
+          );
+        }
+        await this.auditLog.record(
+          {
+            actorGithubId: githubId,
+            action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
+            targetType: 'APPLICATION',
+            targetId: application.id,
+            metadata: createApplicationSubmittedAuditMetadata({
+              programName: program.name,
+              teamName: applicationTeam.name,
+            }),
+          },
+          store.auditLogWriter,
+        );
+        return application;
       });
     } catch (error) {
       if (error instanceof DomainException) throw error;

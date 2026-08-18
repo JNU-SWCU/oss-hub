@@ -1,4 +1,5 @@
 import { AccountStatus, Role } from '@prisma/client';
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
@@ -78,6 +79,7 @@ describe('팀 초대 대상 자격', () => {
     };
     const service = new TeamInvitationsService(
       repository as unknown as TeamInvitationsRepository,
+      { record: jest.fn() } as unknown as AuditLogService,
     );
 
     // When

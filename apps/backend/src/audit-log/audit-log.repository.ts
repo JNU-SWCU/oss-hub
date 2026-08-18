@@ -37,6 +37,7 @@ import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
 const PROGRAM_TARGET_TYPE = 'PROGRAM';
 const REPOSITORY_TARGET_TYPE = 'REPOSITORY';
 const APPLICATION_TARGET_TYPE = 'APPLICATION';
+// TEAM is snapshot-only (ADR-007). Do not add a list-time Team join.
 
 const auditLogSelect = {
   id: true,
@@ -241,7 +242,8 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     logs.forEach((log, index) => {
       if (
         log.targetType === APPLICATION_TARGET_TYPE &&
-        !hasApplicationDecisionSnapshot(evidenceByLog[index]!)
+        !hasApplicationDecisionSnapshot(evidenceByLog[index]!) &&
+        !hasProgramNameSnapshot(evidenceByLog[index]!)
       ) {
         idsNeedingJoin.add(log.targetId);
       }
@@ -332,6 +334,13 @@ function composeApplicationTargetLabel(
   return `${programName} · @${applicantGithubLogin}`;
 }
 
+function composeTeamTargetLabel(
+  programName: string,
+  teamName: string,
+): string {
+  return `${programName} · ${teamName}`;
+}
+
 function toAuditLogRecord(
   log: PrismaAuditLog,
   evidence: AuditLogMetadataEvidence,
@@ -373,14 +382,16 @@ function toAuditLogRecord(
 }
 
 // 라벨 우선순위: 이벤트 시점 스냅샷 > (PROGRAM/REPOSITORY/APPLICATION만) join으로 찾은
-// 현재 이름 > cuid 폴백. `'target' in`/`'programName' in`/`'repositoryFullName' in`/
-// `'applicantGithubLogin' in`으로 판별한다 — schemaVersion 숫자는 metadata 종류마다
-// 재사용되므로(ACCESS_AUDIT V2도 2, PROGRAM_LIFECYCLE V2도 2, APPLICATION_DECISION V2도
-// 2) 숫자만으로는 종류를 구분할 수 없다.
+// 현재 이름 > cuid 폴백. `'target' in`/`'applicantGithubLogin' in`/
+// teamName+programName / `'programName' in`/`'repositoryFullName' in`으로 판별한다 —
+// schemaVersion 숫자는 metadata 종류마다 재사용되므로 숫자만으로는 종류를 구분할 수 없다.
+// TEAM은 스냅샷만 쓴다(ADR-007). list-time Team join은 두지 않는다.
 //
 // APPLICATION_DECISION v2는 programName 필드도 가지고 있어(신청이 속한 프로그램 이름)
 // 'programName' in 검사가 PROGRAM_LIFECYCLE v2와 겹친다 — applicantGithubLogin은
 // APPLICATION_DECISION에만 있는 필드라 반드시 'programName' 검사보다 먼저 확인한다.
+// teamName+programName compose는 그 다음이다. View가 teamName을 빼면 compose는
+// 실패하고 programName만 남는다.
 function resolveAuditTargetLabel(
   targetType: string,
   targetId: string,
@@ -394,6 +405,16 @@ function resolveAuditTargetLabel(
     return composeApplicationTargetLabel(
       evidence.metadata.programName,
       evidence.metadata.applicantGithubLogin,
+    );
+  }
+  if (
+    !evidence.legacy &&
+    'teamName' in evidence.metadata &&
+    'programName' in evidence.metadata
+  ) {
+    return composeTeamTargetLabel(
+      evidence.metadata.programName,
+      evidence.metadata.teamName,
     );
   }
   if (!evidence.legacy && 'programName' in evidence.metadata) {

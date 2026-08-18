@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
+import {
+  createProgramCreatedAuditMetadata,
+  PROGRAM_CREATED_AUDIT_ACTIONS,
+} from '../../audit-log/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import type { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import { ProgramsRepository } from '../repository/programs.repository';
@@ -18,7 +23,10 @@ const INVALID_END_AT_FIELD_ERROR = {
 
 @Injectable()
 export class ProgramCreationService {
-  constructor(private readonly repository: ProgramsRepository) {}
+  constructor(
+    private readonly repository: ProgramsRepository,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   async create(githubId: bigint, input: CreateProgramRequestDto) {
     const user = await this.repository.findCreatorRole(githubId);
@@ -79,19 +87,37 @@ export class ProgramCreationService {
       );
     }
 
-    return this.repository.createProgram({
-      name,
-      organizer,
-      category: input.category,
-      applicationTemplateKey: template.key,
-      applicationTemplateVersion: template.version,
-      applicationStartAt,
-      applicationEndAt,
-      startAt,
-      endAt,
-      teamMinSize,
-      teamMaxSize,
-      description,
+    return this.repository.withCreateTransaction(async (writer) => {
+      const program = await this.repository.createProgram(
+        {
+          name,
+          organizer,
+          category: input.category,
+          applicationTemplateKey: template.key,
+          applicationTemplateVersion: template.version,
+          applicationStartAt,
+          applicationEndAt,
+          startAt,
+          endAt,
+          teamMinSize,
+          teamMaxSize,
+          description,
+        },
+        writer,
+      );
+      await this.auditLog.record(
+        {
+          actorGithubId: githubId,
+          action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
+          targetType: 'PROGRAM',
+          targetId: program.id,
+          metadata: createProgramCreatedAuditMetadata({
+            programName: program.name,
+          }),
+        },
+        writer,
+      );
+      return program;
     });
   }
 }

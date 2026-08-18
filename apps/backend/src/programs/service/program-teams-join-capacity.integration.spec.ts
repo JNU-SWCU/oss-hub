@@ -1,4 +1,5 @@
 import { ProgramCategory } from '@prisma/client';
+import type { AuditLogService } from '../../audit-log/audit-log.service';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { computeJoinCodeDigest } from '../../common/join-code-digest';
 import { DomainException } from '../../common/error-code';
@@ -31,6 +32,7 @@ const repository = new ProgramTeamsRepository(prisma);
 const service = new ProgramTeamsService(
   repository,
   loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
+  { record: jest.fn() } as unknown as AuditLogService,
 );
 
 async function cleanup(): Promise<void> {

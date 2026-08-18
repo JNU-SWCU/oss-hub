@@ -16,6 +16,7 @@ export const AUDIT_LOG_TARGET_TYPE_LABELS = {
   ROLE_REQUEST: '권한 요청',
   REPOSITORY: '저장소',
   PROGRAM: '프로그램',
+  TEAM: '팀',
   COLLECTION_SYNC: '데이터 수집',
   SUBMISSION_FILE: '제출 파일',
   APPLICATION: '신청',
@@ -236,6 +237,23 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
   // 현재 이름이 있으면 그 이름을, 없으면(과거 행이면서 프로그램도 이미 없으면)
   // targetId 폴백을 보여준다. 이름은 GitHub 로그인이 아니므로 nameSegment로
   // '@' 접두 없이 렌더한다.
+  // PROGRAM_CREATED / PROGRAM_DELETED / TEAM_* / APPLICATION_SUBMITTED use one
+  // nameSegment target only. Do not prefix "프로그램" in the happy path — TEAM
+  // and APPLICATION_SUBMITTED targets are already "프로그램 · 팀이름".
+  PROGRAM_CREATED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 만들었습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          nameSegment(record),
+          text('을(를) 만들었습니다'),
+        ],
   PROGRAM_ARCHIVED: (record) =>
     isFallbackTarget(record)
       ? [
@@ -264,6 +282,48 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
           nameSegment(record),
           text('을(를) 복구했습니다'),
         ],
+  PROGRAM_DELETED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 삭제했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          nameSegment(record),
+          text('을(를) 삭제했습니다'),
+        ],
+  TEAM_CREATED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 만들었습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          nameSegment(record),
+          text('을(를) 만들었습니다'),
+        ],
+  TEAM_JOINED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('에 합류했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          nameSegment(record),
+          text('에 합류했습니다'),
+        ],
   COLLECTION_SYNC_TRIGGERED: (record) => [
     actorSegment(record),
     text('님이 데이터 수집을 수동 실행했습니다'),
@@ -272,6 +332,23 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
     actorSegment(record),
     text('님이 제출 파일 정리 재시도를 초기화했습니다'),
   ],
+  // APPLICATION_SUBMITTED target is "프로그램 · 팀이름", not an applicant handle.
+  // Reusing APPLICATION_APPROVED's "{target}님의 신청을 승인했습니다" would render
+  // "프로그램 · 팀이름님의".
+  APPLICATION_SUBMITTED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('에 신청했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          nameSegment(record),
+          text('에 신청했습니다'),
+        ],
   // APPLICATION_*는 이름 스냅샷(schemaVersion 2)/join이 있으면 target이
   // "{프로그램 이름} · @{신청자 로그인}" 합성 라벨이다(audit-log.repository.ts의
   // composeApplicationTargetLabel) — 이미 "@"를 스스로 포함하므로 GitHub 로그인
@@ -349,7 +426,7 @@ function autoTargetSegment(record: AuditLogRecord): AuditLogSentenceSegment {
     : { kind: 'target', value: record.target, variant: 'handle' };
 }
 
-// 등록된 15종 action 밖의 값(과거 스키마 변경 이전 행 등)도 화면이 문장 없이 raw
+// 등록된 action 밖의 값(과거 스키마 변경 이전 행 등)도 화면이 문장 없이 raw
 // 데이터만 던지지 않도록 최소한의 문장을 만든다. affordance를 상태 추측으로 숨기지
 // 않는다는 원칙(docs/rules/frontend.md)과 같은 맥락 — 모르는 값도 감춘 채 지나가지
 // 않고, 원본 action 문자열을 그대로 보여준다.

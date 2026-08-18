@@ -161,6 +161,115 @@ describe('describeAuditLog', () => {
     );
   });
 
+  it('PROGRAM_CREATED는 이름 하나만으로 "만들었습니다"를 쓴다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-program-created-name',
+      actor: 'synthetic-staff',
+      action: 'PROGRAM_CREATED',
+      targetType: 'PROGRAM',
+      targetId: 'program-synthetic-4',
+      target: '합성 프로그램 이름',
+      occurredAt: '2026-07-24T04:33:00.000Z',
+    };
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: '합성 프로그램 이름',
+      variant: 'name',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 합성 프로그램 이름을(를) 만들었습니다',
+    );
+  });
+
+  it('PROGRAM_DELETED는 이름 하나만으로 "삭제했습니다"를 쓴다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-program-deleted-name',
+      actor: 'synthetic-staff',
+      action: 'PROGRAM_DELETED',
+      targetType: 'PROGRAM',
+      targetId: 'program-synthetic-5',
+      target: '합성 프로그램 이름',
+      occurredAt: '2026-07-24T04:34:00.000Z',
+    };
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: '합성 프로그램 이름',
+      variant: 'name',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 합성 프로그램 이름을(를) 삭제했습니다',
+    );
+  });
+
+  it('TEAM_CREATED는 "프로그램 · 팀이름" 합성 target을 "@" 없이 만들기로 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-team-created-name',
+      actor: 'synthetic-student',
+      action: 'TEAM_CREATED',
+      targetType: 'TEAM',
+      targetId: 'team-synthetic-1',
+      target: '합성 프로그램 · 합성 팀',
+      occurredAt: '2026-07-24T04:35:00.000Z',
+    };
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: '합성 프로그램 · 합성 팀',
+      variant: 'name',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 합성 프로그램 · 합성 팀을(를) 만들었습니다',
+    );
+  });
+
+  it('TEAM_JOINED는 "프로그램 · 팀이름"에 합류했다고 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-team-joined-name',
+      actor: 'synthetic-student',
+      action: 'TEAM_JOINED',
+      targetType: 'TEAM',
+      targetId: 'team-synthetic-2',
+      target: '합성 프로그램 · 합성 팀',
+      occurredAt: '2026-07-24T04:36:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 합성 프로그램 · 합성 팀에 합류했습니다',
+    );
+  });
+
+  it('APPLICATION_SUBMITTED는 승인 문형("님의 신청을 승인했습니다")을 쓰지 않는다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-application-submitted-name',
+      actor: 'synthetic-student',
+      action: 'APPLICATION_SUBMITTED',
+      targetType: 'APPLICATION',
+      targetId: 'application-synthetic-3',
+      target: '합성 프로그램 · 합성 팀',
+      occurredAt: '2026-07-24T06:10:00.000Z',
+    };
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: '합성 프로그램 · 합성 팀',
+      variant: 'name',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 합성 프로그램 · 합성 팀에 신청했습니다',
+    );
+    expect(sentenceText(record)).not.toContain('님의 신청을 승인했습니다');
+  });
+
   it('target이 없는 action(COLLECTION_SYNC_TRIGGERED)은 target 조각을 만들지 않는다', () => {
     const record: AuditLogRecord = {
       id: 'audit-collection-sync',
@@ -239,6 +348,7 @@ describe('describeAuditLog', () => {
 
 describe('describeTargetType', () => {
   it('알려진 targetType을 한국어 라벨로 바꾼다', () => {
+    expect(AUDIT_LOG_TARGET_TYPE_LABELS.TEAM).toBe('팀');
     for (const [targetType, label] of Object.entries(
       AUDIT_LOG_TARGET_TYPE_LABELS,
     )) {

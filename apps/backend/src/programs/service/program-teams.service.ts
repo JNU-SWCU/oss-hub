@@ -1,5 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  createTeamCreatedAuditMetadata,
+  createTeamJoinedAuditMetadata,
+  TEAM_CREATED_AUDIT_ACTIONS,
+  TEAM_JOINED_AUDIT_ACTIONS,
+} from '../../audit-log/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import {
   computeJoinCodeDigest,
@@ -38,6 +45,7 @@ export class ProgramTeamsService {
   constructor(
     private readonly repository: ProgramTeamsRepository,
     @Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig,
+    private readonly auditLog: AuditLogService,
   ) {
     this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
   }
@@ -49,7 +57,7 @@ export class ProgramTeamsService {
     now: Date = new Date(),
   ): Promise<CreatedTeamView> {
     const student = await this.requireStudent(githubId);
-    await this.requireOpenProgram(programId, now);
+    const program = await this.requireOpenProgram(programId, now);
     const trimmedName = name.trim();
 
     let joinCode = '';
@@ -70,12 +78,26 @@ export class ProgramTeamsService {
           if (existing) {
             throw this.error(TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
           }
-          return store.createTeamWithLeader({
+          const team = await store.createTeamWithLeader({
             programId,
             name: trimmedName,
             joinCodeDigest,
             leaderId: student.id,
           });
+          await this.auditLog.record(
+            {
+              actorGithubId: githubId,
+              action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
+              targetType: 'TEAM',
+              targetId: team.id,
+              metadata: createTeamCreatedAuditMetadata({
+                programName: program.name,
+                teamName: team.name,
+              }),
+            },
+            store.auditLogWriter,
+          );
+          return team;
         });
         break;
       } catch (error) {
@@ -157,6 +179,19 @@ export class ProgramTeamsService {
         }
 
         await store.addMember(team.id, programId, student.id);
+        await this.auditLog.record(
+          {
+            actorGithubId: githubId,
+            action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
+            targetType: 'TEAM',
+            targetId: team.id,
+            metadata: createTeamJoinedAuditMetadata({
+              programName: program.name,
+              teamName: team.name,
+            }),
+          },
+          store.auditLogWriter,
+        );
       });
     } catch (error) {
       if (error instanceof DomainException) throw error;

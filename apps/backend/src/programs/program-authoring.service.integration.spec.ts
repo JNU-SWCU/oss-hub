@@ -8,6 +8,7 @@ import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,
 } from './program-authoring.types';
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import {
@@ -22,6 +23,7 @@ describe('ProgramAuthoringService integration', () => {
   const harness = new ProgramAuthoringIntegrationHarness();
   const service = new ProgramAuthoringService(
     new ProgramAuthoringRepository(harness.prisma),
+    { record: jest.fn() } as unknown as AuditLogService,
   );
 
   beforeAll(async () => {

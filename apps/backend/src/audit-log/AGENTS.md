@@ -5,7 +5,7 @@
 
 ## Purpose
 
-관리자 접근 변경(actor·target·before/after)을 append-only로 기록하고 조회하는 원장이다.
+append-only ADMIN ledger of committed web state transitions
 버전이 다른 행이 섞여 있어도 과거 사실을 왜곡하지 않고 그대로 읽어낼 수 있어야 한다.
 
 ## Key Files

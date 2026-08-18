@@ -23,6 +23,7 @@ const PROGRAM_ID = 'synthetic-program';
 
 const OPEN_PROGRAM: ApplyProgramRecord = {
   id: PROGRAM_ID,
+  name: '합성 프로그램',
   category: ProgramCategory.BASIC,
   applicationTemplateVersion: 1,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),

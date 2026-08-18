@@ -3,6 +3,7 @@ import { Prisma, TeamInvitationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   acceptTeamInvitationTransaction,
+  type AcceptInvitationOnOk,
   type AcceptInvitationOutcome,
 } from './team-invitation-acceptance.repository';
 import {
@@ -12,7 +13,10 @@ import {
   searchInvitationCandidates,
 } from './team-invitation-candidates.repository';
 
-export type { AcceptInvitationOutcome } from './team-invitation-acceptance.repository';
+export type {
+  AcceptInvitationOnOk,
+  AcceptInvitationOutcome,
+} from './team-invitation-acceptance.repository';
 export type {
   InvitationCandidateRecord,
   InviteeEligibility,
@@ -287,12 +291,14 @@ export class TeamInvitationsRepository {
     invitationId: string,
     inviteeId: string,
     now: Date = new Date(),
+    onOk?: AcceptInvitationOnOk,
   ): Promise<AcceptInvitationOutcome> {
     return acceptTeamInvitationTransaction(
       this.prisma,
       invitationId,
       inviteeId,
       now,
+      onOk,
     );
   }
 }

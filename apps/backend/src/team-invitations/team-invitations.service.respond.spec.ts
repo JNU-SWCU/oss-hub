@@ -1,4 +1,6 @@
 import { TeamInvitationStatus } from '@prisma/client';
+import { TEAM_JOINED_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { TeamInvitationErrorCode } from './team-invitation-error-code.enum';
 import {
   buildService,
@@ -124,11 +126,79 @@ describe('TeamInvitationsService.accept', () => {
     expect(repository.withAcceptTransaction).toHaveBeenCalledWith(
       'cuid-invitation',
       syntheticUserId,
+      expect.any(Date),
+      expect.any(Function),
     );
     expect(result).toEqual({
       teamId: syntheticTeamId,
       programId: syntheticProgramId,
     });
+  });
+
+  it('records TEAM_JOINED inside the accept transaction, not after it resolves', async () => {
+    let acceptResolved = false;
+    const record = jest.fn().mockImplementation(() => {
+      expect(acceptResolved).toBe(false);
+    });
+    const auditLogWriter = {};
+    const { service } = buildService(
+      {
+        withAcceptTransaction: jest.fn(
+          async (
+            _id: string,
+            _inviteeId: string,
+            _now: Date,
+            onOk?: (
+              store: { readonly auditLogWriter: unknown },
+              names: {
+                readonly teamId: string;
+                readonly programId: string;
+                readonly teamName: string;
+                readonly programName: string;
+              },
+            ) => Promise<void>,
+          ) => {
+            if (onOk) {
+              await onOk(
+                { auditLogWriter },
+                {
+                  teamId: syntheticTeamId,
+                  programId: syntheticProgramId,
+                  teamName: '합성 팀',
+                  programName: '합성 프로그램',
+                },
+              );
+            }
+            acceptResolved = true;
+            return {
+              kind: 'ok' as const,
+              teamId: syntheticTeamId,
+              programId: syntheticProgramId,
+            };
+          },
+        ),
+      },
+      { record } as Pick<AuditLogService, 'record'>,
+    );
+
+    await service.accept(syntheticGithubId, 'cuid-invitation');
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(acceptResolved).toBe(true);
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorGithubId: syntheticGithubId,
+        action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
+        targetType: 'TEAM',
+        targetId: syntheticTeamId,
+        metadata: expect.objectContaining({
+          schemaVersion: 1,
+          programName: '합성 프로그램',
+          teamName: '합성 팀',
+        }),
+      }),
+      auditLogWriter,
+    );
   });
 
   it.each([

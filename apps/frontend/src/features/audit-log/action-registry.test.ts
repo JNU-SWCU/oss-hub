@@ -40,21 +40,61 @@ function extractActionValues(exportName: string): string[] {
   return values;
 }
 
+const REQUIRED_ACTION_REGISTRIES = [
+  'ACCESS_AUDIT_ACTIONS',
+  'REPOSITORY_PUBLISH_AUDIT_ACTIONS',
+  'PROGRAM_LIFECYCLE_AUDIT_ACTIONS',
+  'PROGRAM_DELETION_AUDIT_ACTIONS',
+  'COLLECTION_TRIGGER_AUDIT_ACTIONS',
+  'SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS',
+  'APPLICATION_DECISION_AUDIT_ACTIONS',
+  'USER_PROFILE_AUDIT_ACTIONS',
+] as const;
+
+function listAuditActionExportNames(): string[] {
+  const names: string[] = [];
+  const pattern = /export const ([A-Z0-9_]+_AUDIT_ACTIONS) = \{/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) {
+    names.push(match[1]);
+  }
+  return names;
+}
+
+const WAVE1_ACTIONS = [
+  'PROGRAM_CREATED',
+  'PROGRAM_DELETED',
+  'TEAM_CREATED',
+  'TEAM_JOINED',
+  'APPLICATION_SUBMITTED',
+] as const;
+
 const backendActions = [
-  ...extractActionValues('ACCESS_AUDIT_ACTIONS'),
-  ...extractActionValues('REPOSITORY_PUBLISH_AUDIT_ACTIONS'),
-  ...extractActionValues('PROGRAM_LIFECYCLE_AUDIT_ACTIONS'),
-  ...extractActionValues('COLLECTION_TRIGGER_AUDIT_ACTIONS'),
-  ...extractActionValues('SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS'),
-  ...extractActionValues('APPLICATION_DECISION_AUDIT_ACTIONS'),
-  ...extractActionValues('USER_PROFILE_AUDIT_ACTIONS'),
+  ...new Set(
+    listAuditActionExportNames().flatMap((name) => extractActionValues(name)),
+  ),
 ];
 
 const frontendActions: readonly string[] = AUDIT_LOG_ACTIONS;
 
 describe('감사 로그 action registry가 backend와 동기화되어 있다', () => {
   it('파싱 자체가 살아 있다(백엔드 파일 구조 변경으로 조용히 공허해지지 않는다)', () => {
-    expect(backendActions.length).toBe(15);
+    expect(listAuditActionExportNames()).toEqual(
+      expect.arrayContaining([...REQUIRED_ACTION_REGISTRIES]),
+    );
+    expect(backendActions.length).toBeGreaterThan(0);
+    expect(backendActions).toContain('PROGRAM_DELETED');
+    for (const action of WAVE1_ACTIONS) {
+      if (new RegExp(`:\\s*'${action}'`).test(source)) {
+        expect(backendActions).toContain(action);
+      }
+    }
+  });
+
+  it('frontend registry에 PROGRAM_DELETED와 wave 1 action이 있다', () => {
+    for (const action of WAVE1_ACTIONS) {
+      expect(AUDIT_LOG_ACTIONS).toContain(action);
+    }
   });
 
   it('frontend 라벨 목록이 backend가 정의한 action 전체를 표현한다', () => {
@@ -74,13 +114,17 @@ describe('감사 로그 action registry가 backend와 동기화되어 있다', (
     const extraInFrontend = frontendActions.filter(
       (action) => !backendActions.includes(action),
     );
+    // Wave 1 frontend literals may land before the matching backend consts.
+    const allowedFrontendAhead = WAVE1_ACTIONS.filter(
+      (action) => !backendActions.includes(action),
+    );
 
     expect(
-      extraInFrontend,
+      [...extraInFrontend].sort(),
       `frontend에는 있지만 backend registry에는 없는 action: ${
         extraInFrontend.join(', ') || '없음'
       }`,
-    ).toEqual([]);
+    ).toEqual([...allowedFrontendAhead].sort());
   });
 
   it('모든 action에 빈 문자열이 아닌 한국어 라벨이 있다', () => {

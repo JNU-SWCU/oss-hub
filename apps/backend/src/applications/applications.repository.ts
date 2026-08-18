@@ -59,7 +59,13 @@ type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
 
 type ApplicationDatabase = Pick<
   PrismaTypes.TransactionClient,
-  'user' | 'program' | 'team' | 'teamMember' | 'application' | '$queryRaw'
+  | 'user'
+  | 'program'
+  | 'team'
+  | 'teamMember'
+  | 'application'
+  | 'auditLog'
+  | '$queryRaw'
 >;
 
 type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
@@ -108,6 +114,7 @@ export interface ApplicationStudentActor {
 
 export interface ApplyProgramRecord {
   readonly id: string;
+  readonly name: string;
   readonly lifecycle?: ProgramLifecycle;
   readonly category: ProgramCategory;
   readonly applicationTemplateVersion: number;
@@ -260,6 +267,7 @@ export class ApplicationJoinCodeDigestConflictError extends Error {
 }
 
 export interface ApplicationCreateStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
   findTeamMinSize(programId: string): Promise<number | null>;
   /**
@@ -435,6 +443,10 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
 
 class PrismaApplicationCreateStore implements ApplicationCreateStore {
   constructor(private readonly database: ApplicationDatabase) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.database;
+  }
 
   async lockProgramForApply(
     programId: string,
@@ -620,6 +632,7 @@ export class ApplicationsRepository {
       where: { id: programId },
       select: {
         id: true,
+        name: true,
         lifecycle: true,
         category: true,
         applicationTemplateVersion: true,
