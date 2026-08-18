@@ -71,9 +71,9 @@ describe('AppFrame', () => {
     }
   });
 
-  it('랜딩(/)은 반전·fixed Nav이고 사이드바가 없다', () => {
+  it('랜딩(/)은 고정 흰 바 Nav이고 사이드바가 없다', () => {
     const html = render('/');
-    expect(html).toContain('data-surface="inverted"');
+    expect(html).not.toContain('data-surface="inverted"');
     expect(html).toContain('fixed inset-x-0 top-0 z-40');
     expect(html).not.toContain('data-slot="app-sidebar"');
   });

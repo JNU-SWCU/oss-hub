@@ -10,7 +10,6 @@ import { LandingJourney } from '@/features/landing/components/landing-journey';
 import { LandingFooter } from '@/features/landing/components/landing-footer';
 import { ProgramFlowSection } from '@/features/landing/components/program-flow-section';
 import { LandingEntryActionView } from './_shell/landing-entry-action';
-import { LANDING_SOLID_SENTINEL_ID } from './_shell/shell-nav';
 import { SessionError } from './_shell/session-error';
 import { useSessionRole } from './_shell/use-session-role';
 
@@ -51,17 +50,10 @@ export default function HomePage() {
 
         {/*
           우주 연출은 첫 화면에서 끝난다. 여기부터는 실제 업무 화면과 같은 밝은
-          레이아웃이다. 예전에는 이 구간이 헤더를 덮어 버려 아래쪽에서는 메뉴가
-          아예 사라졌다. 이제는 헤더가 위에 남고(z-40) 대신 표면을 흰 바로 바꾼다
-          — 아래 표식이 헤더에 닿는 순간이 그 전환 시점이다(ShellNav).
+          레이아웃이다. 헤더는 전 화면 흰 바로 고정되어 있고(z-40), 이 구간이
+          메뉴를 덮지 않는다.
         */}
         <div className="relative z-10 bg-background">
-          <div
-            id={LANDING_SOLID_SENTINEL_ID}
-            aria-hidden="true"
-            className="h-px w-full"
-          />
-
           {status === 'error' ? <SessionError onRetry={retry} /> : null}
           <CurrentProgramSection />
           <ProgramFlowSection />

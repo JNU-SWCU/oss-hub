@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { NavBar, type NavItem } from '@/components';
 import { useSidebarDrawer } from './product-shell';
 import { programDetailIdFromPathname } from './section-facets';
 import { shellSectionFromPathname } from './sidebar-menu';
-import { COSMOS_GROUND_PATHS } from './signup-routes';
 import { SIDEBAR_DRAWER_DIALOG_ID } from './sidebar-drawer';
 
 interface ShellNavProps {
@@ -16,21 +15,14 @@ interface ShellNavProps {
   actions?: ReactNode;
 }
 
-/** 랜딩에서 일반 페이지 구간이 시작되는 지점에 두는 표식 */
-export const LANDING_SOLID_SENTINEL_ID = 'landing-solid-sentinel';
-
 /**
- * 전 화면 상단 nav. 컴포넌트는 항상 같고, **색 톤만** 경로에 따라 갈린다.
- * `NavBar`는 건드리지 않고, `[data-surface='inverted']` 토큰 스코프(globals.css)가
- * 하위 shadcn 컴포넌트를 `.dark`와 같은 메커니즘으로 다시 색칠한다.
+ * 전 화면 상단 nav. 색 톤은 경로와 무관하게 `/archive`와 같은 흰 바다.
+ * 가입 본문의 우주 반전(`SignupStage`의 `data-surface="inverted"`)은 이 컴포넌트
+ * 밖이고, 여기서는 표면을 뒤집지 않는다.
  *
- * - 랜딩(`/`) 우주 위: 투명 + 흰 글자, `fixed` (sticky 무대 560vh 동안 떠 있음)
- * - 가입 cosmos 경로: 반전 톤, document flow (fixed 아님 — 본문 첫 줄을 덮지 않음)
- * - 그 외(대시보드·공개 목록 등): 흰 바 + 어두운 글자
- *
- * 랜딩에서 여정이 끝나 흰 페이지가 올라오면 흰 글자 헤더는 흰 배경 위에서
- * 사라져 버린다. 그 순간 표면을 바꾼다. 전환 시점을 스크롤 숫자로 박지 않고,
- * 일반 페이지 구간 맨 앞 표식이 헤더 높이까지 올라왔는지를 관찰한다.
+ * 위치만 랜딩(`/`)이 다르다. 여정이 560vh sticky 무대라 문서 흐름이면 스크롤
+ * 중 메뉴가 사라지므로 그 경로만 `fixed`로 띄운다. 가입 화면은 한 화면짜리
+ * 폼이라 떠 있으면 좁은 폭에서 본문 첫 줄을 덮는다.
  */
 export function ShellNav({ items, brand, actions }: ShellNavProps) {
   const pathname = usePathname();
@@ -41,47 +33,6 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
   const hasSidebar =
     shellSectionFromPathname(pathname) !== null ||
     programDetailIdFromPathname(pathname) !== null;
-  /**
-   * 가입 화면도 어두운 우주 바탕 위에 선다. 랜딩과 달리 도중에 흰 구간으로
-   * 넘어가지 않으므로 표식을 관찰할 것이 없고, 처음부터 끝까지 반전이다.
-   * `fixed`도 쓰지 않는다 — 가입 화면은 sticky 무대가 아니라 한 화면짜리 폼이라
-   * 헤더가 떠 있을 이유가 없고, 떠 있으면 좁은 화면에서 본문 첫 줄을 덮는다.
-   */
-  const onCosmosGround = COSMOS_GROUND_PATHS.has(pathname);
-  const [onSolid, setOnSolid] = useState(false);
-
-  useEffect(() => {
-    if (!overlay) {
-      setOnSolid(false);
-      return;
-    }
-
-    let frame: number | null = null;
-    // 표식을 매번 다시 찾는다. 헤더는 셸에 있어 본문보다 먼저 준비되므로,
-    // 한 번 찾아 보고 없다고 포기하면 영영 전환되지 않는다(실제로 그랬다).
-    const sync = (): void => {
-      frame = null;
-      const sentinel = document.getElementById(LANDING_SOLID_SENTINEL_ID);
-      // 헤더 높이(3.5rem)까지 올라왔으면 그 아래는 흰 화면이다.
-      setOnSolid(
-        sentinel !== null && sentinel.getBoundingClientRect().top <= 56,
-      );
-    };
-    const schedule = (): void => {
-      if (frame === null) frame = window.requestAnimationFrame(sync);
-    };
-
-    sync();
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
-    return () => {
-      window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
-      if (frame !== null) window.cancelAnimationFrame(frame);
-    };
-  }, [overlay, pathname]);
-
-  const inverted = (overlay && !onSolid) || onCosmosGround;
 
   /**
    * 접힌 메뉴에서 항목을 고르면 메뉴를 닫는다.
@@ -106,10 +57,6 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
     <div
       onClick={closeCollapsedMenu}
       className={overlay ? 'fixed inset-x-0 top-0 z-40' : undefined}
-      data-surface={inverted ? 'inverted' : undefined}
-      data-landing-surface={
-        overlay ? (onSolid ? 'solid' : 'over-cosmos') : undefined
-      }
     >
       <NavBar
         brand={brand}
@@ -123,9 +70,7 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         // 터치 타깃은 공개 nav 링크·액션 버튼용이다. 계정 드롭다운의
         // `role=menuitem`까지 잡으면 설정(<a>)만 justify-center가 걸려
         // 로그아웃(<button>)과 글자 정렬이 갈라진다.
-        className={`max-[479px]:px-1 [&_a:not([role=menuitem])]:inline-flex [&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11 [&_a:not([role=menuitem])]:items-center [&_a:not([role=menuitem])]:justify-center [&_button:not([role=menuitem])]:min-h-11 [&_button:not([role=menuitem])]:min-w-11${
-          inverted ? ' border-transparent' : ''
-        }${overlay && onSolid ? ' shadow-sm' : ''}`}
+        className="max-[479px]:px-1 [&_a:not([role=menuitem])]:inline-flex [&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11 [&_a:not([role=menuitem])]:items-center [&_a:not([role=menuitem])]:justify-center [&_button:not([role=menuitem])]:min-h-11 [&_button:not([role=menuitem])]:min-w-11"
         linkComponent={Link}
       />
     </div>

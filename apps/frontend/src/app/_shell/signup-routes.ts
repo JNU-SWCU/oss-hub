@@ -15,11 +15,12 @@ export const PRE_MEMBER_PATHS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * 그중 어두운 우주 바탕 위에 서는 화면. 헤더가 흰 바 대신 투명 + 흰 글자가 된다.
+ * 그중 본문이 어두운 우주 바탕 위에 서는 화면. `AppFrame`이 `bg-cosmos-void`를
+ * 주는 목록이다. 상단 바는 여기와 무관하게 전 화면 흰 바다.
  *
- * 랜딩(`/`)은 빠져 있다 — 랜딩만 스크롤을 따라 어두운 여정에서 흰 구간으로 넘어가
- * 헤더 표면이 도중에 바뀌고, 그 전환은 `shell-nav.tsx`가 표식을 관찰해 따로
- * 처리한다. 가입 화면은 처음부터 끝까지 어두우므로 관찰할 것이 없다.
+ * 랜딩(`/`)은 빠져 있다 — 랜딩 본문의 우주는 `LandingJourney`가 스스로 칠하고,
+ * 그 아래 밝은 구간은 페이지가 이어 붙인다. 가입 화면은 처음부터 끝까지 이
+ * 바탕 한 장이다.
  */
 export const COSMOS_GROUND_PATHS: ReadonlySet<string> = new Set([
   '/signup',
