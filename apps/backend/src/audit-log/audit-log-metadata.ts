@@ -1041,9 +1041,7 @@ const WEB_STATE_AUDIT_FORBIDDEN_KEYS = [
   'target',
 ] as const;
 
-function hasForbiddenWebStateAuditKey(
-  value: Record<string, unknown>,
-): boolean {
+function hasForbiddenWebStateAuditKey(value: Record<string, unknown>): boolean {
   return WEB_STATE_AUDIT_FORBIDDEN_KEYS.some((key) => key in value);
 }
 

@@ -77,7 +77,8 @@ function program(): ProgramAuthoringProgram {
 }
 
 function setup() {
-  const auditLogWriter = {} as ProgramAuthoringTransactionStore['auditLogWriter'];
+  const auditLogWriter =
+    {} as ProgramAuthoringTransactionStore['auditLogWriter'];
   const record = jest.fn().mockResolvedValue(undefined);
   const auditLog = { record } as unknown as AuditLogService;
   const transaction: jest.Mocked<ProgramAuthoringTransactionStore> = {
@@ -233,14 +234,12 @@ describe('ProgramAuthoringService', () => {
     transaction.createRequest.mockRejectedValue(
       new ProgramAuthoringIdempotencyRaceError(new Error('p2002')),
     );
-    repository.findReplay
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        payloadHash: hashProgramAuthoringPayload(
-          buildProgramAuthoringPlan(request()),
-        ),
-        program: program(),
-      });
+    repository.findReplay.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      payloadHash: hashProgramAuthoringPayload(
+        buildProgramAuthoringPlan(request()),
+      ),
+      program: program(),
+    });
 
     await service.create(GITHUB_ID, 'key', request());
 

@@ -334,10 +334,7 @@ function composeApplicationTargetLabel(
   return `${programName} · @${applicantGithubLogin}`;
 }
 
-function composeTeamTargetLabel(
-  programName: string,
-  teamName: string,
-): string {
+function composeTeamTargetLabel(programName: string, teamName: string): string {
   return `${programName} · ${teamName}`;
 }
 
