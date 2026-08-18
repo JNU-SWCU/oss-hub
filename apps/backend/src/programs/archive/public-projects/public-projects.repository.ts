@@ -181,9 +181,10 @@ export class PublicProjectsRepository {
    * 단독 지원자(팀 없음) 또는 팀(리더·멤버)으로 참여한 공개-발행 저장소를 모두 찾는다.
    * repositoryIds 크기와 무관하게 findMany 질의 1개다.
    *
-   * ⚠ `{ teamId: null, application: { applicantId: userId } }` 절을 지운다 —
-   * D5부터 모든 신청이 팀을 갖지만(1인 팀 포함), 과거 팀 없이 만들어진 레거시 저장소가
-   * 여전히 존재해 이 절이 없으면 그 저장소의 단독 지원자가 자기 프로젝트를 못 본다.
+   * `{ teamId: null, application: { applicantId: userId } }` 절은 지우지 않는다(#876).
+   * D5가 NOT NULL로 만든 건 `Application.teamId`뿐이고 `GithubRepository.teamId`는
+   * 여전히 nullable이다. 팀 없이 만들어진 레거시 저장소가 남아 있어 이 절이 없으면
+   * 그 저장소의 단독 지원자가 자기 프로젝트를 못 본다.
    */
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
     const rows = await this.prisma.githubRepository.findMany({
