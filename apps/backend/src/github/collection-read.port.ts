@@ -305,7 +305,11 @@ export interface CollectionReadPort {
   getRepositoryMetrics(
     query: CollectionRepositoryMetricsQueryDto,
   ): Promise<readonly CollectionRepositoryMetricsDto[]>;
-  /** todo 11 — 증분 facts에서 deterministic rebuild된 기여자별 연도 누적(ranking source). */
+  /**
+   * todo 11 — 증분 facts에서 deterministic rebuild된 기여자별 연도 누적.
+   * ② 프로그램/팀 기여도 표면 전용이므로 **`programId`나 `teamId`가 있는 저장소만**
+   * 집계한다 — 프로그램에 속하지 않는 조직 저장소는 명시적으로 요청해도 제외된다.
+   */
   getContributorMetrics(
     query: CollectionContributorMetricsQueryDto,
   ): Promise<readonly CollectionContributorMetricsDto[]>;
@@ -350,7 +354,11 @@ export interface CollectionReadPort {
   getRepositoryCumulativeMetrics(
     query: CollectionRepositoryCumulativeMetricsQueryDto,
   ): Promise<readonly CollectionRepositoryCumulativeMetricsDto[]>;
-  /** todo 16 — 공개 프로젝트 상세 기여자 배치 지표(연도 무관 lifetime 누적, githubLogin만 노출). */
+  /**
+   * todo 16 — 공개 프로젝트 상세 기여자 배치 지표(연도 무관 lifetime 누적, githubLogin만 노출).
+   * `getContributorMetrics`와 같은 ② 표면이므로 **`programId`나 `teamId`가 있는
+   * 저장소만** 집계한다.
+   */
   getContributorCumulativeMetrics(
     query: CollectionContributorCumulativeMetricsQueryDto,
   ): Promise<readonly CollectionContributorCumulativeMetricsDto[]>;

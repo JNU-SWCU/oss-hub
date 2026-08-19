@@ -118,49 +118,84 @@ const REPOSITORY_SOURCE_BY_ID = new Map<bigint, string>([
  * 계속 고정하게 한다.
  */
 const CONNECTED_REPOSITORY_IDS = new Set<bigint>();
+/**
+ * ② 프로그램/팀 표면은 GR-13 연결 증명에 더해 `programId`/`teamId`까지 요구한다.
+ * 이 집합은 "프로그램이나 팀에 연결된 저장소"를 뜻하며, 기존 GR-13 테스트가 `source`
+ * 가드만을 계속 재도록 두 고정 저장소를 모두 연결된 것으로 둔다 — 미연결 저장소
+ * 제외는 아래 전용 테스트가 따로 고정한다.
+ */
+const PROGRAM_LINKED_REPOSITORY_IDS = new Set<bigint>([
+  ORG_REPOSITORY_ID,
+  EXTERNAL_REPOSITORY_ID,
+]);
 
-/** `githubRepository.findMany` 호출을 `where.githubRepositoryId.in`/`where.source`로 필터링한다. */
+/**
+ * 저장소 where 절을 실제 Prisma처럼 해석한다 — `AND`/`OR` 중첩을 그대로 따라간다.
+ * 서비스가 가드 한 칸을 빼면 그만큼 행이 새어 나와 GR-13·프로그램 연결 테스트가
+ * 실제로 실패한다(인자 스냅샷 비교가 아니다).
+ */
+type RepositoryWhereClause = {
+  source?: string;
+  applicationId?: { not: null };
+  programId?: { not: null };
+  teamId?: { not: null };
+  AND?: readonly RepositoryWhereClause[];
+  OR?: readonly RepositoryWhereClause[];
+};
+
+function matchesRepositoryClause(
+  id: bigint,
+  clause: RepositoryWhereClause,
+): boolean {
+  if (
+    clause.source !== undefined &&
+    clause.source !== REPOSITORY_SOURCE_BY_ID.get(id)
+  ) {
+    return false;
+  }
+  if (clause.applicationId !== undefined && !CONNECTED_REPOSITORY_IDS.has(id)) {
+    return false;
+  }
+  if (
+    clause.programId !== undefined &&
+    !PROGRAM_LINKED_REPOSITORY_IDS.has(id)
+  ) {
+    return false;
+  }
+  if (clause.teamId !== undefined && !PROGRAM_LINKED_REPOSITORY_IDS.has(id)) {
+    return false;
+  }
+  if (
+    clause.AND !== undefined &&
+    !clause.AND.every((nested) => matchesRepositoryClause(id, nested))
+  ) {
+    return false;
+  }
+  if (
+    clause.OR !== undefined &&
+    !clause.OR.some((nested) => matchesRepositoryClause(id, nested))
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** `githubRepository.findMany` 호출을 `where.githubRepositoryId.in` + 저장소 절로 필터링한다. */
 function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
   rows: readonly Row[],
 ): jest.Mock {
   return jest.fn(
     (args: {
-      where: {
+      where: RepositoryWhereClause & {
         githubRepositoryId: { in: readonly bigint[] };
-        source?: string;
-        OR?: readonly {
-          source?: string;
-          applicationId?: { not: null };
-        }[];
       };
     }) => {
       const { in: ids } = args.where.githubRepositoryId;
-      const { source, OR } = args.where;
-      // 서비스는 이제 `OR` 로 "조직 저장소이거나, 신청에 연결된 조직 밖 저장소"를
-      // 표현한다. 실제 Prisma 처럼 절 하나라도 맞으면 통과시킨다 —
-      // 여기서 흉내내지 않으면 GR-13 가드가 코드에서 사라져도 테스트가 통과한다.
-      const matchesOr = (row: Row): boolean =>
-        OR === undefined ||
-        OR.some((clause) => {
-          const rowSource = REPOSITORY_SOURCE_BY_ID.get(row.githubRepositoryId);
-          if (clause.source !== undefined && clause.source !== rowSource) {
-            return false;
-          }
-          if (
-            clause.applicationId !== undefined &&
-            !CONNECTED_REPOSITORY_IDS.has(row.githubRepositoryId)
-          ) {
-            return false;
-          }
-          return true;
-        });
       return Promise.resolve(
         rows.filter(
           (row) =>
             ids.includes(row.githubRepositoryId) &&
-            (source === undefined ||
-              REPOSITORY_SOURCE_BY_ID.get(row.githubRepositoryId) === source) &&
-            matchesOr(row),
+            matchesRepositoryClause(row.githubRepositoryId, args.where),
         ),
       );
     },
@@ -168,8 +203,7 @@ function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
 }
 
 /**
- * `contribution.findMany` 호출을
- * `where.repository.githubRepositoryId.in`/`where.repository.source`로 필터링한다.
+ * `contribution.findMany` 호출을 `where.repository`의 저장소 절로 필터링한다.
  */
 function findManyContributorYearAggregate<
   Row extends { repository: { githubRepositoryId: bigint } },
@@ -177,42 +211,20 @@ function findManyContributorYearAggregate<
   return jest.fn(
     (args: {
       where: {
-        repository: {
+        repository: RepositoryWhereClause & {
           githubRepositoryId: { in: readonly bigint[] };
-          source?: string;
-          OR?: readonly {
-            source?: string;
-            applicationId?: { not: null };
-          }[];
         };
       };
     }) => {
       const { in: ids } = args.where.repository.githubRepositoryId;
-      const { source, OR } = args.where.repository;
-      // 위 저장소 필터와 같은 이유로 `OR` 를 흉내낸다.
-      const matchesOr = (id: bigint): boolean =>
-        OR === undefined ||
-        OR.some((clause) => {
-          const rowSource = REPOSITORY_SOURCE_BY_ID.get(id);
-          if (clause.source !== undefined && clause.source !== rowSource) {
-            return false;
-          }
-          if (
-            clause.applicationId !== undefined &&
-            !CONNECTED_REPOSITORY_IDS.has(id)
-          ) {
-            return false;
-          }
-          return true;
-        });
       return Promise.resolve(
         rows.filter(
           (row) =>
             ids.includes(row.repository.githubRepositoryId) &&
-            (source === undefined ||
-              REPOSITORY_SOURCE_BY_ID.get(row.repository.githubRepositoryId) ===
-                source) &&
-            matchesOr(row.repository.githubRepositoryId),
+            matchesRepositoryClause(
+              row.repository.githubRepositoryId,
+              args.where.repository,
+            ),
         ),
       );
     },
@@ -509,9 +521,16 @@ describe('CollectionReadService — getContributorMetrics', () => {
           },
           repository: {
             githubRepositoryId: { in: [101n] },
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+            // ② 표면은 GR-13 연결 증명과 프로그램/팀 연결을 **둘 다** 요구한다.
+            // 하나로 펼치면 뒤 절이 앞 가드를 덮어쓰므로 `AND`로 묶인다.
+            AND: [
+              {
+                OR: [
+                  { source: 'ORG_PROVISIONED' },
+                  { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+                ],
+              },
+              { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
             ],
           },
         },
@@ -1006,9 +1025,14 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
             githubRepositoryId: { in: [101n] },
             visibility: 'PUBLIC',
             presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+            AND: [
+              {
+                OR: [
+                  { source: 'ORG_PROVISIONED' },
+                  { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+                ],
+              },
+              { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
             ],
           },
         },
