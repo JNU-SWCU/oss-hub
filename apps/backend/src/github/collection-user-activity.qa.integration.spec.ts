@@ -3,6 +3,11 @@ import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  countForeignActiveUsers,
+  restoreForeignActivityRows,
+  snapshotForeignActivityRows,
+} from './collection-user-activity.integration-support';
+import {
   CollectionDiscoveryClient,
   CollectionDiscoveryClientError,
   type CollectionUserActivityMetrics,
@@ -43,6 +48,21 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
   let rateLimitCost = 0;
   const queriedLogins: string[] = [];
   let rateLimitedLogin: string | null = null;
+  /**
+   * 이 스펙이 심지 않았는데 이미 DB에 있는 ACTIVE 유저 수.
+   *
+   * sweep은 가입자 전원을 도는 게 제품 동작이고(바꾸지 않는다), CI는 79개 통합
+   * 스펙이 Postgres 하나를 공유한다. 그래서 "한 tick이 전원을 순회한다"는 이 파일의
+   * 핵심 주장은 절대 수 51이 아니라 **기준선 + 시드 51명**으로 고정해야 순서에
+   * 의존하지 않고 같은 강도로 남는다 — 시드 한 명이라도 빠지면 즉시 빨간색이다.
+   */
+  let foreignActiveUserCount = 0;
+  let foreignActivitySnapshot: Awaited<
+    ReturnType<typeof snapshotForeignActivityRows>
+  > = [];
+  /** 이 스펙이 심은 login만 남긴다 — 형제 스펙의 유저는 세지 않는다. */
+  const seededQueriedLogins = (): string[] =>
+    queriedLogins.filter((login) => login.startsWith(`${QA_PREFIX}-`));
 
   const fetchUserActivityMetrics = (
     login: string,
@@ -97,6 +117,24 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
     });
   });
 
+  beforeEach(async () => {
+    foreignActiveUserCount = await countForeignActiveUsers(prisma, seededIds);
+    // sweep은 형제 유저에게도 관측 행을 쓴다 — 그 쓰기를 되돌려야 랭킹을
+    // 읽는 스펙이 실행 순서에 따라 깨지지 않는다.
+    foreignActivitySnapshot = await snapshotForeignActivityRows(
+      prisma,
+      seededIds,
+    );
+  });
+
+  afterEach(async () => {
+    await restoreForeignActivityRows(
+      prisma,
+      seededIds,
+      foreignActivitySnapshot,
+    );
+  });
+
   afterAll(async () => {
     await cleanup();
     await prisma.$disconnect();
@@ -113,15 +151,21 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
       where: { githubId: { in: seededIds } },
     });
 
-    expect(result.observedUserCount).toBe(ACTIVE_USER_COUNT);
+    expect(result.observedUserCount).toBe(
+      foreignActiveUserCount + ACTIVE_USER_COUNT,
+    );
     expect(rows).toHaveLength(ACTIVE_USER_COUNT);
     expect(rows.every((row) => row.year === CURRENT_YEAR)).toBe(true);
-    expect(rateLimitCost).toBe(ACTIVE_USER_COUNT);
+    // 시드 코호트 몫의 예산은 정확히 학생 1명 × 연도 1개 = cost 1이다.
+    expect(seededQueriedLogins()).toHaveLength(ACTIVE_USER_COUNT);
+    expect(new Set(seededQueriedLogins()).size).toBe(ACTIVE_USER_COUNT);
+    expect(rateLimitCost).toBe(foreignActiveUserCount + ACTIVE_USER_COUNT);
     expect(queriedLogins).not.toContain(OUTSIDER_LOGIN);
   });
 
   it('재실행이 멱등이다 — 행 수가 늘지 않는다(stale_state)', async () => {
     rateLimitCost = 0;
+    queriedLogins.length = 0;
     rateLimitedLogin = null;
 
     await buildService().run();
@@ -131,7 +175,8 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
 
     expect(rows).toBe(ACTIVE_USER_COUNT);
     // 올해 행은 매 실행 갱신한다 — 재실행이 조회를 건너뛰지 않는다.
-    expect(rateLimitCost).toBe(ACTIVE_USER_COUNT);
+    expect(seededQueriedLogins()).toHaveLength(ACTIVE_USER_COUNT);
+    expect(rateLimitCost).toBe(foreignActiveUserCount + ACTIVE_USER_COUNT);
   });
 
   it('한 학생에 429를 주입해도 나머지 50명이 그대로 적재된다', async () => {

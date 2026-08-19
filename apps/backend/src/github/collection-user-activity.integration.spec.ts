@@ -4,6 +4,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  countForeignActiveUsers,
+  restoreForeignActivityRows,
+  snapshotForeignActivityRows,
+} from './collection-user-activity.integration-support';
+import {
   CollectionDiscoveryClient,
   CollectionDiscoveryClientError,
   type CollectionUserActivityMetrics,
@@ -62,6 +67,24 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     Promise<CollectionUserActivityMetrics>,
     [string, string, string]
   >();
+  /**
+   * 이 스펙 밖(다른 통합 스펙이 남긴)에서 이미 존재하는 ACTIVE 유저 수.
+   *
+   * sweep은 **가입자 전원**을 도는 게 제품 동작이라(`collection-user-activity.service.ts`)
+   * 한 DB를 79개 스펙이 공유하는 CI에서는 관측 수가 시드 3명일 수 없다. 그렇다고
+   * "3 이상"으로 느슨하게 두면 시드 한 명을 빠뜨려도 초록이 된다. 그래서 매 테스트
+   * 직전에 **이 스펙이 통제하지 못하는 몫**을 세어 기준선으로 잡고, 관측 수를
+   * `기준선 + 시드 수`로 정확히 고정한다 — 전원 순회 보장은 그대로 검증되면서
+   * 형제 스펙의 실행 순서에는 의존하지 않는다.
+   */
+  let foreignActiveUserCount = 0;
+  /**
+   * sweep 직전 형제 유저의 관측 행 스냅샷. sweep은 이 스펙의 mock 수치를 형제
+   * 유저에게도 쓰므로, 되돌리지 않으면 랭킹을 읽는 스펙이 실행 순서에 따라 깨진다.
+   */
+  let foreignActivitySnapshot: Awaited<
+    ReturnType<typeof snapshotForeignActivityRows>
+  > = [];
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
@@ -114,6 +137,22 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     await seedUser(BRAVO_GITHUB_ID, AccountStatus.ACTIVE);
     await seedUser(CHARLIE_GITHUB_ID, AccountStatus.ACTIVE);
     await seedUser(DEACTIVATED_GITHUB_ID, AccountStatus.DEACTIVATED);
+    foreignActiveUserCount = await countForeignActiveUsers(
+      prisma,
+      SEEDED_GITHUB_IDS,
+    );
+    foreignActivitySnapshot = await snapshotForeignActivityRows(
+      prisma,
+      SEEDED_GITHUB_IDS,
+    );
+  });
+
+  afterEach(async () => {
+    await restoreForeignActivityRows(
+      prisma,
+      SEEDED_GITHUB_IDS,
+      foreignActivitySnapshot,
+    );
   });
 
   const seededRows = () =>
@@ -122,16 +161,27 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       orderBy: [{ githubId: 'asc' }, { year: 'asc' }],
     });
 
+  /** 이 스펙이 심은 login만 남긴 조회 목록 — 형제 스펙의 유저는 세지 않는다. */
+  const seededQueriedLogins = (): string[] =>
+    fetchUserActivityMetrics.mock.calls
+      .map(([login]) => login)
+      .filter((login) => login.startsWith(`${SEED_PREFIX}-`));
+
   // (a) 학생 3명 관측 후 3행 — 로그가 아니라 되읽은 행으로 증명한다.
   it('ACTIVE 학생 3명을 관측하면 (githubId, year) 3행이 실제로 적재된다', async () => {
     const result = await buildService().run();
 
     expect(result).toEqual({
-      observedUserCount: 3,
-      upsertedRowCount: 3,
+      observedUserCount: foreignActiveUserCount + 3,
+      upsertedRowCount: foreignActiveUserCount + 3,
       skippedPastYearCount: 0,
       failedUserCount: 0,
     });
+    expect(seededQueriedLogins().sort()).toEqual([
+      `${SEED_PREFIX}-alpha`,
+      `${SEED_PREFIX}-bravo`,
+      `${SEED_PREFIX}-charlie`,
+    ]);
 
     const rows = await seededRows();
     expect(rows).toHaveLength(3);
@@ -198,8 +248,8 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     const result = await buildService().run();
 
     expect(result).toEqual({
-      observedUserCount: 3,
-      upsertedRowCount: 2,
+      observedUserCount: foreignActiveUserCount + 3,
+      upsertedRowCount: foreignActiveUserCount + 2,
       skippedPastYearCount: 0,
       failedUserCount: 1,
     });
@@ -232,7 +282,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
   it('가입하지 않은 login은 한 번도 조회하지 않는다', async () => {
     await buildService().run();
 
-    const queried = fetchUserActivityMetrics.mock.calls.map(([login]) => login);
+    const queried = seededQueriedLogins();
     expect(queried).not.toContain(`${SEED_PREFIX}-outsider`);
     expect(queried).not.toContain(`${SEED_PREFIX}-deactivated`);
     expect(queried.sort()).toEqual([
@@ -260,12 +310,29 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       },
     });
 
+    // 형제 ACTIVE 유저 중 이미 지난 연도 행을 가진 사람도 정당하게 건너뛴다 — 이
+    // 스펙이 통제하는 몫(alpha 1건)만 그 기준선 위에 더해 고정한다.
+    const foreignPastYearGithubIds = new Set(
+      foreignActivitySnapshot
+        .filter((row) => row.year === PAST_YEAR)
+        .map((row) => row.githubId.toString()),
+    );
+    const foreignSkippedCount = (
+      await prisma.user.findMany({
+        where: {
+          accountStatus: AccountStatus.ACTIVE,
+          githubId: { notIn: SEEDED_GITHUB_IDS },
+        },
+        select: { githubId: true },
+      })
+    ).filter((user) =>
+      foreignPastYearGithubIds.has(user.githubId.toString()),
+    ).length;
+
     const result = await buildService().run([PAST_YEAR]);
 
-    expect(result.skippedPastYearCount).toBe(1);
-    expect(
-      fetchUserActivityMetrics.mock.calls.map(([login]) => login),
-    ).not.toContain(`${SEED_PREFIX}-alpha`);
+    expect(result.skippedPastYearCount).toBe(foreignSkippedCount + 1);
+    expect(seededQueriedLogins()).not.toContain(`${SEED_PREFIX}-alpha`);
     const alpha = await prisma.githubUserActivityHistory.findUnique({
       where: {
         githubId_year: { githubId: ALPHA_GITHUB_ID, year: PAST_YEAR },

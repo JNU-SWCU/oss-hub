@@ -92,6 +92,28 @@ const submissionReviewsService = new SubmissionReviewsService(
 const PREFIX = 'synthetic-exposure-matrix';
 const now = () => new Date();
 
+/**
+ * 랭킹은 "가입자 전원이 행을 가진다"가 제품 정책이라(`ranking.service.ts`), 한
+ * Postgres를 공유하는 CI에서는 형제 스펙이 심은 가입자도 같은 목록에 들어온다.
+ * 그래서 첫 페이지만 보면 이 스펙의 fixture가 0점 동률 뒤로 밀려 보이지 않을 수
+ * 있다 — 순서 의존이다. 목록 전체를 페이징해 모으면 "이 fixture가 랭킹에 있다/
+ * 없다"를 페이지 경계와 무관하게 같은 강도로 말할 수 있다.
+ */
+const RANKING_PAGE_SIZE = 100;
+
+async function collectRankingEntries(): Promise<
+  Awaited<ReturnType<typeof rankingService.findPage>>['items']
+> {
+  const first = await rankingService.findPage('all', 1, RANKING_PAGE_SIZE);
+  const items = [...first.items];
+  const pageCount = Math.ceil(first.total / RANKING_PAGE_SIZE);
+  for (let page = 2; page <= pageCount; page += 1) {
+    const next = await rankingService.findPage('all', page, RANKING_PAGE_SIZE);
+    items.push(...next.items);
+  }
+  return items;
+}
+
 const PROGRAM_ENDED_ID = `${PREFIX}-program-ended`;
 const PROGRAM_NOT_ENDED_ID = `${PREFIX}-program-not-ended`;
 
@@ -609,8 +631,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // 사람 축(`GithubUserActivityHistory`)만 읽으므로 저장소 축 기여(`Contribution`)는
       // 어느 저장소에 있든 랭킹 수치에 들어오지 않는다 — 이 fixture는 사람 축 관측을
       // 심지 않았으니 행은 존재하되 5종 전부 0이어야 한다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome1Entry = ranking.items.find(
+      const rankingEntries = await collectRankingEntries();
+      const outcome1Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
       );
       expect(outcome1Entry).toBeDefined();
@@ -648,8 +670,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     expect(profile.projects).toHaveLength(1);
     expect(profile.projects[0]?.observed).toBe(true);
 
-    const ranking = await rankingService.findPage('all', 1, 100);
-    const rankedLogins = ranking.items.map((entry) => entry.githubLogin);
+    const rankedLogins = (await collectRankingEntries()).map(
+      (entry) => entry.githubLogin,
+    );
     expect(rankedLogins).toEqual(
       expect.arrayContaining([
         `${PREFIX}-outcome-2-owner-login`,
@@ -698,8 +721,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
 
       // ranking은 저장소 관측 상태를 아예 보지 않는다(사람 축 전환). PM 확정 정책상
       // 가입자는 전원 ranking에 행을 갖고, 사람 축 관측이 없으니 5종 전부 0이다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome3Entry = ranking.items.find(
+      const rankingEntries = await collectRankingEntries();
+      const outcome3Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
       );
       expect(outcome3Entry).toBeDefined();
@@ -735,8 +758,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // (`GithubUserActivityHistory`)만 읽으므로 그 수치가 공개 랭킹에 단 하나도 나타나지
       // 않는다. 가입자라 행 자체는 있고 값이 전부 0이다 — "행이 없다"가 아니라 "행은 있고
       // 0이다"가 비공개 저장소 활동 비노출의 증거다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome4Entry = ranking.items.find(
+      const rankingEntries = await collectRankingEntries();
+      const outcome4Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-4-applicant-login`,
       );
       expect(outcome4Entry).toBeDefined();
@@ -778,8 +801,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // ranking은 저장소 관측(presence/visibility)을 아예 참조하지 않는다 — outcome-4와
       // 결과가 같은 이유가 바로 그것이다. PM 확정 정책상 가입자는 전원 ranking에 행을
       // 가지므로 "행이 없다"가 아니라 "행은 있고 0이다"로 증명한다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome5Entry = ranking.items.find(
+      const rankingEntries = await collectRankingEntries();
+      const outcome5Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
       );
       expect(outcome5Entry).toBeDefined();
@@ -833,9 +856,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // (`getPublicRankingMetrics`는 사람 축 `GithubUserActivityHistory`와 가입자 목록만
       // 읽는다). 그래서 가입자인 이상 이 지원자도 랭킹 목록에는 행을 갖는다 — 수치가
       // 아니라 "행의 존재"만 여기서 고정한다.
-      const ranking = await rankingService.findPage('all', 1, 100);
+      const rankingEntries = await collectRankingEntries();
       expect(
-        ranking.items.some(
+        rankingEntries.some(
           (entry) =>
             entry.githubLogin === `${PREFIX}-outcome-6-applicant-login`,
         ),
@@ -867,9 +890,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         false,
       );
 
-      const ranking = await rankingService.findPage('all', 1, 100);
+      const rankingEntries = await collectRankingEntries();
       expect(
-        ranking.items.some(
+        rankingEntries.some(
           (entry) =>
             entry.githubLogin === `${PREFIX}-outcome-7-applicant-login`,
         ),
@@ -982,7 +1005,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       const profile = await publicProjectsService.findProfile(
         outcome2.applicantId,
       );
-      const ranking = await rankingService.findPage('all', 1, 100);
+      const rankingEntries = await collectRankingEntries();
 
       // raw 도메인 결과에는 bigint 필드(githubRepositoryId/githubId)가 그대로 남아 있어
       // 기본 JSON.stringify는 TypeError를 던진다 — bigint를 문자열로 바꾸는 replacer로
@@ -995,7 +1018,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         bigintSafeStringify(page),
         bigintSafeStringify(detail),
         bigintSafeStringify(profile),
-        bigintSafeStringify(ranking),
+        bigintSafeStringify(rankingEntries),
       ].join('\n');
 
       // 실명·학번은 어느 공개 표면에도 없다 — 이 불변식은 사람 축 전환 이후에도 그대로다.
@@ -1014,7 +1037,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         'synthetic-forbidden-department',
       );
       expect(serializedWithoutRanking).not.toContain('"department"');
-      const bystanderEntry = ranking.items.find(
+      const bystanderEntry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-9-bystander-login`,
       );
       expect(bystanderEntry).toMatchObject({

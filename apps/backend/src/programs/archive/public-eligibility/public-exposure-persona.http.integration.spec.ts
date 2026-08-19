@@ -50,6 +50,52 @@ const FOREIGN_SUITE_ROLE_REQUEST_ID =
 const PROGRAM_ID = `${PREFIX}-program`;
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 
+/** `GET /ranking` 이 허용하는 최대 pageSize(`ranking-query.dto.ts`). */
+const RANKING_MAX_PAGE_SIZE = 100;
+
+type RankingWireBody = {
+  readonly items: Record<string, unknown>[];
+  readonly total: number;
+};
+
+/**
+ * `GET /ranking` 응답 전 페이지를 실제 HTTP 로 모은다.
+ *
+ * 랭킹은 "가입자 전원이 행을 갖는다"가 제품 정책이라(`ranking.service.ts`), Postgres 를
+ * 공유하는 CI 에서는 형제 스펙이 심은 가입자도 같은 목록에 정당하게 들어온다. 기본
+ * pageSize 는 20 이므로 첫 페이지만 보면 이 파일의 persona 가 0점 동률 뒤로 밀려
+ * 보이지 않을 수 있다 — 실행 순서에 따라 초록/빨강이 갈리는 defect 다. 전 페이지를
+ * 모으면 "이 persona 가 어떻게 보이는가"를 페이지 경계와 무관하게 못 박을 수 있고,
+ * 그러면서도 persona 가 목록에서 통째로 빠지면 여전히 빨강이다.
+ */
+async function fetchRankingPages(
+  query: string,
+  githubId?: bigint,
+): Promise<{
+  readonly response: Response;
+  readonly items: RankingWireBody['items'];
+}> {
+  const first = await harness.request(
+    'GET',
+    `${query}&page=1&pageSize=${RANKING_MAX_PAGE_SIZE}`,
+    githubId,
+  );
+  if (first.status !== 200) return { response: first, items: [] };
+  const firstBody = (await first.clone().json()) as RankingWireBody;
+  const items = [...firstBody.items];
+  const pageCount = Math.ceil(firstBody.total / RANKING_MAX_PAGE_SIZE);
+  for (let page = 2; page <= pageCount; page += 1) {
+    const next = await harness.request(
+      'GET',
+      `${query}&page=${page}&pageSize=${RANKING_MAX_PAGE_SIZE}`,
+      githubId,
+    );
+    expect(next.status).toBe(200);
+    items.push(...((await next.json()) as RankingWireBody).items);
+  }
+  return { response: first, items };
+}
+
 let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let adminPersona: Awaited<ReturnType<typeof harness.createUser>>;
@@ -311,9 +357,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ];
 
     const allBodies: unknown[] = [];
-    const rankingBodies: Record<string, unknown>[] = [];
+    const rankingItemLists: Record<string, unknown>[][] = [];
     // 공개 계층(비로그인·STUDENT) 응답만 따로 모은다 — 실명 금지 검사는 이쪽에만 건다.
-    const publicTierRankingBodies: Record<string, unknown>[] = [];
+    const publicTierRankingItemLists: Record<string, unknown>[][] = [];
     for (const githubId of personas) {
       const [list, detail, profile, ranking] = await Promise.all([
         harness.request('GET', '/projects', githubId),
@@ -327,28 +373,26 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           `/users/${publicProject.applicantId}/public-profile`,
           githubId,
         ),
-        harness.request('GET', '/ranking?period=ALL', githubId),
+        fetchRankingPages('/ranking?period=ALL', githubId),
       ]);
 
       expect([
         list.status,
         detail.status,
         profile.status,
-        ranking.status,
+        ranking.response.status,
       ]).toEqual([200, 200, 200, 200]);
 
       type WireBody = Record<string, unknown>;
-      const [listBody, detailBody, profileBody, rankingBody] =
-        (await Promise.all([
-          list.json(),
-          detail.json(),
-          profile.json(),
-          ranking.json(),
-        ])) as readonly [WireBody, WireBody, WireBody, WireBody];
+      const [listBody, detailBody, profileBody] = (await Promise.all([
+        list.json(),
+        detail.json(),
+        profile.json(),
+      ])) as readonly [WireBody, WireBody, WireBody];
       allBodies.push(listBody, detailBody, profileBody);
-      rankingBodies.push(rankingBody);
+      rankingItemLists.push(ranking.items);
       if (githubId === undefined || githubId === studentPersona.githubId) {
-        publicTierRankingBodies.push(rankingBody);
+        publicTierRankingItemLists.push(ranking.items);
       }
 
       expect(listBody.items).toEqual(
@@ -366,16 +410,21 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         userId: publicProject.applicantId,
         projects: [expect.objectContaining({ observed: true })],
       });
-      expect(rankingBody.items).toEqual(
-        expect.arrayContaining([expect.objectContaining({})]),
+      // 이 파일이 심은 persona 가 랭킹 목록에 실제로 있는지를 고정한다 — "뭔가 하나라도
+      // 있다"가 아니라 시드 코호트가 있다는 게 이 라우트가 열려 있다는 증거다.
+      expect(ranking.items.map((item) => item.githubLogin as string)).toEqual(
+        expect.arrayContaining([
+          studentPersona.nickname,
+          staffPersona.nickname,
+          adminPersona.nickname,
+        ]),
       );
     }
 
     // ranking wire body는 5종 지표 + 봉투를 정확히 이 키들로만 내려준다 — 실명은 별도
     // 칸이 아니라 `displayName` 안에서만 바뀜므로 키 집합은 어느 계층이든 같다.
     // (allowlist 를 통째로 고정하므로 새 칸이 조용히 새어 나가면 여기서 깨진다.)
-    for (const rankingBody of rankingBodies) {
-      const items = rankingBody.items as Record<string, unknown>[];
+    for (const items of rankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
         expect(Object.keys(item).sort()).toEqual([
@@ -426,13 +475,13 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(serialized).not.toContain(forbiddenKey);
     }
     // 공개 계층(비로그인·STUDENT)은 `displayName` 이 항상 `githubLogin` 과 같다.
-    for (const rankingBody of publicTierRankingBodies) {
-      for (const item of rankingBody.items as Record<string, unknown>[]) {
+    for (const items of publicTierRankingItemLists) {
+      for (const item of items) {
         expect(item.displayName).toBe(item.githubLogin);
       }
     }
 
-    const rankingSerialized = JSON.stringify(rankingBodies);
+    const rankingSerialized = JSON.stringify(rankingItemLists);
     for (const forbiddenKey of [
       '"name"',
       '"studentId"',
@@ -445,7 +494,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(rankingSerialized).not.toContain(forbiddenKey);
     }
     // DB 에 실명이 채워져 있는 persona 인데도 공개 계층 응답 바디에는 그 값이 없다.
-    expect(JSON.stringify(publicTierRankingBodies)).not.toContain(
+    expect(JSON.stringify(publicTierRankingItemLists)).not.toContain(
       NAMED_PERSONA_REAL_NAME,
     );
   });
@@ -453,51 +502,46 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
   it('같은 /ranking URL 이 계층별로 다른 표기를 내린다 — 교직원·관리자만 실명을 본다 (todo 15)', async () => {
     const path = `/ranking?year=${RANKING_FIXTURE_YEAR}`;
     const [anonymous, student, staff, admin] = await Promise.all([
-      harness.request('GET', path, undefined),
-      harness.request('GET', path, studentPersona.githubId),
-      harness.request('GET', path, staffPersona.githubId),
-      harness.request('GET', path, adminPersona.githubId),
+      fetchRankingPages(path, undefined),
+      fetchRankingPages(path, studentPersona.githubId),
+      fetchRankingPages(path, staffPersona.githubId),
+      fetchRankingPages(path, adminPersona.githubId),
     ]);
     expect([
-      anonymous.status,
-      student.status,
-      staff.status,
-      admin.status,
+      anonymous.response.status,
+      student.response.status,
+      staff.response.status,
+      admin.response.status,
     ]).toEqual([200, 200, 200, 200]);
 
     // (g) 인증(교직원·관리자) 응답은 공유 캐시에 남지 않는다.
-    expect(anonymous.headers.get('cache-control')).toBe('no-store');
-    expect(student.headers.get('cache-control')).toBe('no-store');
-    expect(staff.headers.get('cache-control')).toBe('private, no-store');
-    expect(admin.headers.get('cache-control')).toBe('private, no-store');
-
-    type RankingBody = { items: Record<string, unknown>[] };
-    const [anonymousBody, studentBody, staffBody, adminBody] =
-      (await Promise.all([
-        anonymous.json(),
-        student.json(),
-        staff.json(),
-        admin.json(),
-      ])) as readonly [RankingBody, RankingBody, RankingBody, RankingBody];
+    expect(anonymous.response.headers.get('cache-control')).toBe('no-store');
+    expect(student.response.headers.get('cache-control')).toBe('no-store');
+    expect(staff.response.headers.get('cache-control')).toBe(
+      'private, no-store',
+    );
+    expect(admin.response.headers.get('cache-control')).toBe(
+      'private, no-store',
+    );
 
     // (a) 비로그인은 학과를 보고 실명은 보지 않는다.
-    const anonymousEntry = anonymousBody.items.find(
+    const anonymousEntry = anonymous.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
     expect(anonymousEntry).toMatchObject({
       department: NAMED_PERSONA_DEPARTMENT,
       displayName: studentPersona.nickname,
     });
-    expect(JSON.stringify(anonymousBody)).not.toContain(
+    expect(JSON.stringify(anonymous.items)).not.toContain(
       NAMED_PERSONA_REAL_NAME,
     );
 
     // (b) STUDENT 세션 응답은 비로그인과 바이트 동일하다.
-    expect(JSON.stringify(studentBody)).toBe(JSON.stringify(anonymousBody));
+    expect(JSON.stringify(student.items)).toBe(JSON.stringify(anonymous.items));
 
     // (c)(d) STAFF·ADMIN 은 displayName 이 실명이다.
-    for (const staffTierBody of [staffBody, adminBody]) {
-      const entry = staffTierBody.items.find(
+    for (const staffTierItems of [staff.items, admin.items]) {
+      const entry = staffTierItems.find(
         (item) => item.githubLogin === studentPersona.nickname,
       );
       expect(entry).toMatchObject({
@@ -507,10 +551,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       });
     }
     // ADMIN 응답은 STAFF 응답과 같다.
-    expect(JSON.stringify(adminBody)).toBe(JSON.stringify(staffBody));
+    expect(JSON.stringify(admin.items)).toBe(JSON.stringify(staff.items));
 
     // (e) 실명이 비어 있는 persona 는 교직원 응답에서도 githubLogin 이다.
-    const namelessEntry = staffBody.items.find(
+    const namelessEntry = staff.items.find(
       (item) => item.githubLogin === staffPersona.nickname,
     );
     expect(namelessEntry).toMatchObject({
@@ -518,26 +562,20 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     });
 
     // (f) 등수 순서는 네 계층이 완전히 같다 — 실명이 순서를 바트지 않는다.
-    const order = (body: RankingBody) =>
-      body.items.map(
-        (item) => `${String(item.rank)}:${String(item.githubLogin)}`,
-      );
-    expect(order(studentBody)).toEqual(order(anonymousBody));
-    expect(order(staffBody)).toEqual(order(anonymousBody));
-    expect(order(adminBody)).toEqual(order(anonymousBody));
+    const order = (items: Record<string, unknown>[]) =>
+      items.map((item) => `${String(item.rank)}:${String(item.githubLogin)}`);
+    expect(order(student.items)).toEqual(order(anonymous.items));
+    expect(order(staff.items)).toEqual(order(anonymous.items));
+    expect(order(admin.items)).toEqual(order(anonymous.items));
   });
 
   it('연도 질의는 그 해 관측만 합산한다 — 지난 연도 행이 있어도 섞이지 않는다', async () => {
-    const response = await harness.request(
-      'GET',
+    const ranking = await fetchRankingPages(
       `/ranking?year=${RANKING_FIXTURE_YEAR}`,
       undefined,
     );
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as {
-      items: Record<string, unknown>[];
-    };
-    const entry = body.items.find(
+    expect(ranking.response.status).toBe(200);
+    const entry = ranking.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
     // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 지난해가 새면 total 이
@@ -552,7 +590,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       starCount: 1,
       total: 20,
     });
-    expect(JSON.stringify(body)).not.toContain(NAMED_PERSONA_REAL_NAME);
+    expect(JSON.stringify(ranking.items)).not.toContain(
+      NAMED_PERSONA_REAL_NAME,
+    );
   });
 
   it('POST /repositories/:id/publish — 익명은 401, STUDENT는 403, STAFF/ADMIN은 200이다(실제 SessionGuard+SubmissionReviewsStaffGuard)', async () => {
