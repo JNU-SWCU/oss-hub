@@ -165,9 +165,16 @@ export function emptyMilestoneForm(): ProgramMilestoneForm {
   };
 }
 
+/**
+ * 빈 칸은 `null`(= 서버에서 변경 없음)로 보낸다 — `Number('')`는 `0`이라 그대로 실으면
+ * 정원을 0으로 바꾸라는 뜻이 되어 저장이 통째로 거부된다.
+ */
+function teamSizeValue(value: string): number | null {
+  return value.trim() === '' ? null : Number(value);
+}
+
 export function buildProgramEditInput(
   form: ProgramEditForm,
-  requiresTeam: boolean,
   dirtyFields: readonly ProgramEditableField[] = [
     'applicationStartAt',
     'applicationEndAt',
@@ -238,8 +245,8 @@ export function buildProgramEditInput(
     repositoryProvisioningEnabled: form.repositoryProvisioningEnabled,
     notifyOnDeadline: form.notifyOnDeadline,
     description: form.description.trim(),
-    teamMinSize: requiresTeam ? Number(form.teamMinSize) : null,
-    teamMaxSize: requiresTeam ? Number(form.teamMaxSize) : null,
+    teamMinSize: teamSizeValue(form.teamMinSize),
+    teamMaxSize: teamSizeValue(form.teamMaxSize),
   };
 }
 

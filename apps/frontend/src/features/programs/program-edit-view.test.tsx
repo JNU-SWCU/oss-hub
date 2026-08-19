@@ -302,7 +302,7 @@ describe('ProgramEditView contract', () => {
       endAt: '2026-09-01T12:00',
     };
 
-    const input = buildProgramEditInput(form, true, ['endAt']);
+    const input = buildProgramEditInput(form, ['endAt']);
 
     expect(input.endAt).toBe(new Date(form.endAt).toISOString());
     expect(input.applicationEndAt).toBe(legacyProgram.applicationEndAt);
@@ -321,7 +321,7 @@ describe('ProgramEditView contract', () => {
 
     let error: unknown;
     try {
-      buildProgramEditInput(form, true, ['endAt']);
+      buildProgramEditInput(form, ['endAt']);
     } catch (caught) {
       error = caught;
     }
@@ -339,7 +339,7 @@ describe('ProgramEditView contract', () => {
       endAt: '',
     };
 
-    expect(buildProgramEditInput(form, true, ['endAtUndecided']).endAt).toBe(
+    expect(buildProgramEditInput(form, ['endAtUndecided']).endAt).toBe(
       PROGRAM_END_AT_UNDECIDED,
     );
   });
@@ -367,7 +367,7 @@ describe('ProgramEditView contract', () => {
 
     let error: unknown;
     try {
-      buildProgramEditInput(form, true, ['applicationEndAt', 'startAt']);
+      buildProgramEditInput(form, ['applicationEndAt', 'startAt']);
     } catch (caught) {
       error = caught;
     }
@@ -388,7 +388,7 @@ describe('ProgramEditView contract', () => {
 
     let error: unknown;
     try {
-      buildProgramEditInput(form, true, ['endAt']);
+      buildProgramEditInput(form, ['endAt']);
     } catch (caught) {
       error = caught;
     }

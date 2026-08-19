@@ -146,7 +146,7 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
       );
     });
     return {
-      payload: () => buildProgramEditInput(latest, true, latestDirty),
+      payload: () => buildProgramEditInput(latest, latestDirty),
     };
   }
 
