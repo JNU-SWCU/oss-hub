@@ -563,15 +563,25 @@ const RANKING_YEARS = [2026, 2025] as const;
  * 확인할 방법이 없다 — 픽스처가 계약보다 너그러운 바로 그 상태다.
  * backend `RankingService`는 실제로 연도로 집계를 좁힌다.
  */
-type RankingActivity = Omit<RankingItem, 'rank' | 'total'>;
+/**
+ * `displayName` 은 여기 담지 않는다 — 그 칸은 **계층이 정하는 값**이라
+ * (`rankingWireItem`) 픽스처가 미리 적어 두면 비로그인 응답에 실명이 섞이는
+ * 모양을 만들어 낸다. 실명은 `realName` 으로 따로 들고, 학과는 공개 정보라
+ * 계층과 무관하게 그대로 나간다(owner 결정 2026-08-19).
+ */
+type RankingActivity = Omit<RankingItem, 'rank' | 'total' | 'displayName'> & {
+  /** 교직원·관리자 응답에서만 `displayName` 으로 나가는 실명. 없는 사람도 있다. */
+  readonly realName: string | null;
+};
 
 const RANKING_ACTIVITY_BY_YEAR: Readonly<
   Record<number, readonly RankingActivity[]>
 > = {
   2026: [
     {
-      displayName: 'synthetic-top',
       githubLogin: 'synthetic-top',
+      realName: '강서준',
+      department: '소프트웨어공학과',
       commitCount: 128,
       pullRequestCount: 24,
       issueCount: 17,
@@ -579,8 +589,9 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
       starCount: 213,
     },
     {
-      displayName: 'synthetic-second',
       githubLogin: 'synthetic-second',
+      realName: '임나영',
+      department: '인공지능학부',
       commitCount: 96,
       pullRequestCount: 18,
       issueCount: 11,
@@ -589,9 +600,11 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
     },
     // 활동이 아직 0인 가입자. 사람 축 랭킹은 이런 사람을 목록에서 빼지 않는다 —
     // 빼버리면 신입이 화면에서 사라져 "가입은 됐는데 어디에도 없는" 상태가 된다.
+    // 학과가 비어 있는 사람이기도 하다 — 화면이 그 칸을 대시로 채우는지 보이는 행이다.
     {
-      displayName: 'synthetic-newcomer',
       githubLogin: 'synthetic-newcomer',
+      realName: null,
+      department: null,
       commitCount: 0,
       pullRequestCount: 0,
       issueCount: 0,
@@ -601,8 +614,9 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
   ],
   2025: [
     {
-      displayName: 'synthetic-veteran',
       githubLogin: 'synthetic-veteran',
+      realName: '박지훈',
+      department: '컴퓨터정보통신공학과',
       commitCount: 64,
       pullRequestCount: 11,
       issueCount: 8,
@@ -610,8 +624,9 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
       starCount: 91,
     },
     {
-      displayName: 'synthetic-top',
       githubLogin: 'synthetic-top',
+      realName: '강서준',
+      department: '소프트웨어공학과',
       commitCount: 41,
       pullRequestCount: 7,
       issueCount: 3,
@@ -621,10 +636,16 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
   ],
 };
 
+/** 순위가 매겨진 행. 계층별 `displayName` 은 아직 정해지지 않았다. */
+type RankedActivity = RankingActivity & {
+  readonly rank: number;
+  readonly total: number;
+};
+
 /** total 과 rank 는 저장하지 않고 계산한다 — 손으로 적으면 서로 어긋난다. */
 function rankedItems(
   activities: readonly RankingActivity[],
-): readonly RankingItem[] {
+): readonly RankedActivity[] {
   return activities
     .map((activity) => ({
       ...activity,
@@ -640,7 +661,7 @@ function rankedItems(
 }
 
 /** `all` 은 연도별 활동을 사람 단위로 합친다 — 같은 사람이 두 해에 걸쳐 있다. */
-function rankingItemsFor(year: RankingYear): readonly RankingItem[] {
+function rankingItemsFor(year: RankingYear): readonly RankedActivity[] {
   if (year !== RANKING_YEAR_ALL) {
     return rankedItems(RANKING_ACTIVITY_BY_YEAR[year] ?? []);
   }
@@ -670,15 +691,35 @@ function rankingItemsFor(year: RankingYear): readonly RankingItem[] {
 }
 
 /**
- * backend `RankingEntryResponseDto` 가 내려주는 칸을 그대로 맞춘다. 프론트 타입이
- * 이미 wire 이름을 쓰므로 개명할 칸은 없고, 공개 계약에만 있는 `department`를 더한다
- * — 화면이 지금 그리지 않는 칸이라도 파서가 실제 응답과 같은 모양을 받아봐야 한다.
+ * backend `RankingEntryResponseDto` 가 내려주는 칸을 그대로 맞춘다 — **계층까지**.
+ *
+ * 키 집합은 계층과 무관하게 같고, 바뀌는 것은 `displayName` 의 **값**이다.
+ * 공개·학생은 `githubLogin`(D3), 교직원·관리자는 실명(없으면 다시 `githubLogin`)이다.
+ * 픽스처가 비로그인에게도 실명을 실어 보내면 검토자가 계층 계약을 확인할 수 없다.
  */
-function rankingWireItem(item: RankingItem): unknown {
-  return { ...item, department: null };
+function rankingWireItem(item: RankedActivity, role: AuthRole | null): unknown {
+  const seesRealName = role === 'STAFF' || role === 'ADMIN';
+  return {
+    rank: item.rank,
+    displayName: seesRealName
+      ? (item.realName ?? item.githubLogin)
+      : item.githubLogin,
+    githubLogin: item.githubLogin,
+    // 학과는 공개 정보다 — 비로그인에게도 그대로 나간다.
+    department: item.department,
+    commitCount: item.commitCount,
+    pullRequestCount: item.pullRequestCount,
+    issueCount: item.issueCount,
+    repositoryCount: item.repositoryCount,
+    starCount: item.starCount,
+    total: item.total,
+  };
 }
 
-function rankingPage(searchParams: URLSearchParams): unknown {
+function rankingPage(
+  searchParams: URLSearchParams,
+  role: AuthRole | null,
+): unknown {
   const page = positiveIntParam(searchParams.get('page'), 1);
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 20);
   const rawYear = searchParams.get('year');
@@ -693,7 +734,9 @@ function rankingPage(searchParams: URLSearchParams): unknown {
 
   return {
     year,
-    items: items.slice(offset, offset + pageSize).map(rankingWireItem),
+    items: items
+      .slice(offset, offset + pageSize)
+      .map((item) => rankingWireItem(item, role)),
     page,
     pageSize,
     total: items.length,
@@ -839,7 +882,8 @@ export function resolveLocalReviewResponse({
   // 랭킹은 비로그인도 보는 공개 화면인데 픽스처에 규칙이 아예 없어 두 요청 모두
   // 404로 떨어졌다(QA9). 페르소나를 가리지 않는다.
   if (method === 'GET' && path === 'ranking') {
-    return json(200, rankingPage(searchParams));
+    // 같은 URL 이 역할에 따라 다른 칸을 내린다(backend `RankingViewerRepository`).
+    return json(200, rankingPage(searchParams, roleForFixture(fixture)));
   }
 
   if (method === 'GET' && path === 'ranking/years') {

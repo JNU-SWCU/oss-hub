@@ -72,6 +72,7 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
     rank: 1,
     displayName: 'mina',
     githubLogin: 'mina',
+    department: null,
     commitCount: 2,
     pullRequestCount: 1,
     issueCount: 3,
@@ -101,6 +102,8 @@ test('지표 칸이 없으면 0으로, displayName 이 없으면 로그인으로
     rank: 1,
     displayName: 'mina',
     githubLogin: 'mina',
+    // 학과 칸이 없는 응답도 페이지를 버리지 않는다 — 화면이 대시로 채운다.
+    department: null,
     commitCount: 0,
     pullRequestCount: 0,
     issueCount: 0,
@@ -132,6 +135,7 @@ test('새 지표 칸이 없는 구식 항목도 0 으로 읽힌다 — 백엔드
     rank: 1,
     displayName: 'mina',
     githubLogin: 'mina',
+    department: null,
     commitCount: 2,
     pullRequestCount: 1,
     issueCount: 0,
@@ -193,6 +197,25 @@ test('봉투 필수 필드가 없거나 형이 어긋나면 거부한다', () =>
   expect(() =>
     parseRankingPage({ ...rankingPage(2026), items: { 0: 'nope' } }),
   ).toThrow(RankingResponseError);
+});
+
+// 학과 칸 (owner 결정 2026-08-19 — 공개 계층에도 내려간다).
+
+test('학과는 문자열이면 그대로 읽고, 없거나 비어 있으면 null 로 떨어뜨린다', () => {
+  const base = rankingPage(2026);
+  const read = (department: unknown) =>
+    parseRankingPage({
+      ...base,
+      items: [{ ...base.items[0], department }],
+    }).items[0]?.department;
+
+  expect(read('소프트웨어공학과')).toBe('소프트웨어공학과');
+  expect(read('  인공지능학부  ')).toBe('인공지능학부');
+  expect(read(null)).toBeNull();
+  expect(read(undefined)).toBeNull();
+  expect(read('   ')).toBeNull();
+  // 형이 어긋나도 페이지를 버리지 않는다 — 화면은 대시로 성립한다.
+  expect(read(42)).toBeNull();
 });
 
 test('연도 목록 응답을 파싱하고 모르는 필드는 무시한다', () => {

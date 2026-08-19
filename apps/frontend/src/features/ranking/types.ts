@@ -17,6 +17,15 @@ export type RankingPeriod =
   (typeof RANKING_PERIODS)[keyof typeof RANKING_PERIODS];
 
 /**
+ * 이 화면을 보는 사람의 역할. 서버 응답 계층과 같은 값 집합이다.
+ *
+ * `app/_shell/role.ts`의 `AppRole` 과 같은 문자열이지만 그쪽을 import 하지 않는 이유는
+ * 의존 방향(app → features 단방향)과 feature 간 직접 의존 금지 때문이다
+ * (`docs/rules/frontend.md`). 값은 app 계층이 넘겨준다.
+ */
+export type RankingViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN';
+
+/**
  * 사람 축 랭킹 항목 — 지표 이름은 **wire 이름 그대로** 쓴다.
  *
  * 내부에서만 통하는 별칭(`prCount`)을 두면 파서 한쪽만 개명됐을 때 HTTP는 200인데
@@ -27,8 +36,21 @@ export type RankingPeriod =
  */
 export interface RankingItem {
   readonly rank: number;
+  /**
+   * 표시 이름. 공개·학생 응답에서는 `githubLogin`과 같고(D3), 교직원·관리자
+   * 응답에서만 서버가 실명으로 바꿔 내려 준다(백엔드 계층, ADR-010 개정).
+   *
+   * 화면은 **도착한 값을 그대로 그린다** — 볼 자격이 없는 사람에게는 애초에
+   * 실명이 오지 않으므로, 프런트가 다시 지우는 단계(redact-later)를 두지 않는다.
+   */
   readonly displayName: string;
   readonly githubLogin: string;
+  /**
+   * 학과. 공개 가능 정보다(owner 결정 2026-08-19) — 비로그인도 본다.
+   * 미입력이거나 아직 이 칸을 안 내려 주는 백엔드면 `null`이고, 화면은 자리를
+   * 비워 두는 대신 대시(-)를 그린다.
+   */
+  readonly department: string | null;
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly issueCount: number;

@@ -43,6 +43,18 @@ function readOptionalCount(value: unknown): number | null {
   return isNonNegativeInteger(value) ? value : null;
 }
 
+/**
+ * 학과 — 없을 수도, null 일 수도 있다.
+ *
+ * 화면이 자리를 대시로 채우면 성립하는 값이라 형이 어긋나도 페이지를 버리지
+ * 않는다. 빈 문자열은 값이 없는 것과 같게 다뤄 화면에 빈칸이 남지 않게 한다.
+ */
+function readOptionalDepartment(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 /** 갱신 시각 — ISO 문자열이거나 null 이거나, 아직 없을 수 있다. */
 function isDataAsOf(value: unknown): boolean {
   if (value === undefined || value === null) return true;
@@ -93,6 +105,7 @@ function parseRankingItem(value: unknown): RankingItem | null {
         ? value.displayName
         : value.githubLogin,
     githubLogin: value.githubLogin,
+    department: readOptionalDepartment(value.department),
     commitCount,
     pullRequestCount,
     issueCount,
