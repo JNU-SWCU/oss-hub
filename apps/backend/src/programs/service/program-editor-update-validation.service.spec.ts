@@ -12,10 +12,17 @@ import {
 } from '../../../test/program-editor-service-fixtures';
 
 describe('ProgramEditorService update validation', () => {
-  it('defaults a missing team range to the category 1..1 contract', async () => {
+  /**
+   * 이 자리에는 원래 "생략하면 템플릿 기본값 1..1 로 되돌린다"는 반대 계약이 있었다.
+   * 그 계약이 #936 을 만들었다 — 개인형 유형 프로그램은 수정 화면이 팀 인원 칸을
+   * 렌더하지 않아 값을 실을 수 없었고, 교직원이 설명만 고쳐 저장해도 정원 3..5 가
+   * 1..1 로 깎여 아무도 팀에 합류할 수 없게 됐다. 생략은 변경 없음이다.
+   */
+  it('요청이 팀 인원을 생략하면 지금 저장된 값을 그대로 둔다', async () => {
     const { service, store } = createProgramEditorServiceHarness();
-    store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
-    store.updateProgram.mockResolvedValue(editableProgram);
+    const stored = { ...editableProgram, teamMinSize: 3, teamMaxSize: 5 };
+    store.findEditableProgramForUpdate.mockResolvedValue(stored);
+    store.updateProgram.mockResolvedValue(stored);
 
     await service.updateProgram(101n, 'program-1', {
       ...updateInput,
@@ -24,8 +31,59 @@ describe('ProgramEditorService update validation', () => {
     });
 
     expect(store.updateProgram.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ teamMinSize: 1, teamMaxSize: 1 }),
+      expect.objectContaining({ teamMinSize: 3, teamMaxSize: 5 }),
     );
+  });
+
+  it('한쪽만 생략해도 생략한 쪽만 저장된 값을 유지한다', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    const stored = { ...editableProgram, teamMinSize: 3, teamMaxSize: 5 };
+    store.findEditableProgramForUpdate.mockResolvedValue(stored);
+    store.updateProgram.mockResolvedValue(stored);
+
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      teamMinSize: null,
+      teamMaxSize: 10,
+    });
+
+    expect(store.updateProgram.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ teamMinSize: 3, teamMaxSize: 10 }),
+    );
+  });
+
+  it('명시한 팀 인원은 저장된 값을 대체한다', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    const stored = { ...editableProgram, teamMinSize: 3, teamMaxSize: 5 };
+    store.findEditableProgramForUpdate.mockResolvedValue(stored);
+    store.updateProgram.mockResolvedValue(stored);
+
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      teamMinSize: 1,
+      teamMaxSize: 10,
+    });
+
+    expect(store.updateProgram.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ teamMinSize: 1, teamMaxSize: 10 }),
+    );
+  });
+
+  it('정수가 아닌 팀 인원은 저장하지 않고 거부한다', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+
+    const exception = await expectDomainException(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        teamMaxSize: 2.5,
+      }),
+    );
+
+    expect(exception.errorCode).toBe(
+      PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+    );
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
   it('rejects a reversed application period with the exact editor period contract', async () => {

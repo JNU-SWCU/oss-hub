@@ -127,7 +127,7 @@ export class ProgramEditorService {
           : null;
       const categoryChanged = existing.category !== input.category;
       const template = getProgramTemplate(input.category);
-      const teamSize = teamSizeForTemplate(input, template.teamSize);
+      const teamSize = resolveTeamSize(input, existing);
       // Preserve template binding when category is unchanged so past Application.answers
       // keep a stable validation baseline (even if the registry later bumps versions).
       const applicationTemplateKey = categoryChanged
@@ -398,18 +398,32 @@ function validPeriod(startAt: Date, endAt: Date): boolean {
   );
 }
 
-function teamSizeForTemplate(
+/**
+ * 요청이 팀 인원을 싣지 않으면 **지금 저장된 값을 그대로 둔다.**
+ *
+ * 예전에는 템플릿 기본값(1명~1명)으로 대체했다. 그러면 "이 항목을 보내지 않았다"가
+ * "기본값으로 되돌려라"로 읽힌다. 개인형 유형 프로그램은 수정 화면이 팀 인원 칸을
+ * 렌더하지 않아 값을 실을 수 없었고, 그래서 교직원이 설명 한 줄만 고쳐 저장해도
+ * 정원이 조용히 1로 깎였다(#936). 정원이 1이 되면 참여 코드 합류·팀 초대·초대 수락이
+ * 전부 `TEAM_007`·`TIV_009`로 막힌다.
+ *
+ * 화면 쪽 원인(칸을 안 보여 주던 것)은 따로 고쳤지만, 그 화면만 고치면 다른 호출자가
+ * 값을 생략하는 순간 같은 사고가 재현된다. 생략은 변경 없음이고, 정원을 바꾸려면
+ * 값을 명시해야 한다.
+ */
+function resolveTeamSize(
   input: Pick<UpdateProgramRequestDto, 'teamMinSize' | 'teamMaxSize'>,
-  defaults: {
-    readonly defaultMin: number;
-    readonly defaultMax: number;
+  current: {
+    readonly teamMinSize: number;
+    readonly teamMaxSize: number;
   },
 ): {
   readonly teamMinSize: number;
   readonly teamMaxSize: number;
 } | null {
-  const min = input.teamMinSize ?? defaults.defaultMin;
-  const max = input.teamMaxSize ?? defaults.defaultMax;
+  const min = input.teamMinSize ?? current.teamMinSize;
+  const max = input.teamMaxSize ?? current.teamMaxSize;
+  if (!Number.isInteger(min) || !Number.isInteger(max)) return null;
   if (min < 1 || min > max) return null;
   return { teamMinSize: min, teamMaxSize: max };
 }
