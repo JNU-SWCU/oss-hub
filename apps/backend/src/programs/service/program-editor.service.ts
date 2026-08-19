@@ -54,7 +54,7 @@ const INVALID_PROGRAM_END_FIELD_ERROR = {
   field: 'endAt',
   code: 'INVALID_PROGRAM_END',
   message:
-    'Program end must be after the application period and every milestone.',
+    '프로그램 종료일은 운영 시작일과 모든 마일스톤 마감 이후여야 합니다.',
 } as const;
 
 const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {
@@ -68,6 +68,13 @@ const INVALID_PROGRAM_START_FIELD_ERROR = {
   code: 'INVALID_PROGRAM_START',
   message:
     'Program start must be after applications close and before Program end.',
+} as const;
+
+const MILESTONE_BEFORE_PROGRAM_START_FIELD_ERROR = {
+  field: 'startAt',
+  code: 'INVALID_PROGRAM_START',
+  message:
+    '운영 시작일은 모든 마일스톤 시작일보다 이르거나 같아야 합니다. 마일스톤 시작일을 먼저 바꿔 주세요.',
 } as const;
 
 const INVALID_MILESTONE_START_FIELD_ERROR = {
@@ -181,12 +188,16 @@ export class ProgramEditorService {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
       }
+      // Milestone starts that fall before the new program start are a startAt
+      // problem. Reporting them on endAt made a later end date look invalid.
       if (
-        existing.milestones.some(
-          (milestone) =>
-            milestone.startAt < startAt || milestone.dueAt >= endAt,
-        )
+        existing.milestones.some((milestone) => milestone.startAt < startAt)
       ) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [MILESTONE_BEFORE_PROGRAM_START_FIELD_ERROR],
+        });
+      }
+      if (existing.milestones.some((milestone) => milestone.dueAt >= endAt)) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
