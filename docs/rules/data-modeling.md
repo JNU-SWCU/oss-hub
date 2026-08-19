@@ -38,7 +38,7 @@ grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
 
 ## 3. projection 행은 내부 FK 없이 독립적으로 완결시킨다
 
-공개 집계·공개 응답용 테이블은 내부 `User`를 FK로 참조하지 않는다. GitHub 숫자 id로 키를 잡고 표시값(`githubLogin`, `nameWithOwner`)을 비정규화해 행 하나만으로 표시가 끝나게 한다 — `CanonicalContributorProjection`과 `PublicShowcaseRepository`/`PublicShowcaseContributor`가 이 패턴이다.
+공개 집계·공개 응답용 테이블은 내부 `User`를 FK로 참조하지 않는다. GitHub 숫자 id로 키를 잡고 표시값(`githubLogin`, `nameWithOwner`)을 비정규화해 행 하나만으로 표시가 끝나게 한다 — `GithubUserActivityHistory`가 이 패턴이다. `githubId`로 키를 잡고 `githubLogin`까지만 비정규화하며 실명·학과는 담지 않고 조회 시점에 join한다.
 
 이유는 둘이다.
 
@@ -61,7 +61,7 @@ grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
 
 기존 모델도 이 규칙을 따르도록 개명한다. 다만 개명은 동작 변경과 섞이므로 **개명만 담는 별도 PR**로 다루고(`pr-scope.md:9`), 마이그레이션은 직렬로 넣는다(루트 AGENTS.md §3).
 
-삭제가 확정된 테이블은 개명 대상에서 제외한다 — `Canonical*`(todo 14 전환으로 authority 상실, 1개 릴리스 보존 후 제거)과 `PublicShowcase*`(writer 0건, Issue #463)는 개명하지 않고 지운다.
+지우기로 결정된 테이블은 개명 대상에서 제외한다 — 개명하지 않고 지운다. `Canonical*` 8개(todo 14 전환으로 authority 상실)가 그 선례다 — ADR-006이 정한 보존 기간(1개 릴리스)을 넘기고 전 테이블 0행을 실측한 뒤 `20260820000000_drop_canonical_generation_tables`가 단일 FK 클러스터를 통째로 드롭해 **제거가 완료됐다**. 아직 남은 건 `PublicShowcase*`(writer 0건, Issue #463)이다.
 
 ## 5. 외부 API 전제는 문서 기억이 아니라 실측으로 확정한다
 

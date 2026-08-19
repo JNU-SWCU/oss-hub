@@ -70,14 +70,32 @@ describe('collection incremental migration — DB invariants', () => {
     await prisma.$disconnect();
   });
 
-  it('기존 legacy/canonical 물리 테이블은 이 migration 이후에도 그대로 존재한다', async () => {
+  it('기존 legacy 관측 테이블은 이 migration 이후에도 그대로 존재한다', async () => {
     await expect(tableExists('CollectionRun')).resolves.toBe(true);
     await expect(tableExists('GithubRawObservation')).resolves.toBe(true);
-    await expect(tableExists('CanonicalCollectionRun')).resolves.toBe(true);
-    await expect(tableExists('CanonicalRepository')).resolves.toBe(true);
-    await expect(tableExists('CanonicalContributorProjection')).resolves.toBe(
-      true,
-    );
+  });
+
+  /**
+   * `Canonical*` 8개는 ADR-006 "누적 저장소로의 1회 전환" 4·5항이 정한 한 릴리스
+   * read-only 보존 기간을 넘겨 후속 migration으로 제거됐다(전 테이블 0행 실측 후).
+   * 이 단언은 그 제거가 실제 Postgres에 반영됐는지를 고정한다 — 스키마에서 model만
+   * 지우고 migration을 빠뜨리면 여기서 걸린다.
+   */
+  it('보존 기간이 끝난 canonical 세대 테이블 8개는 물리적으로 존재하지 않는다', async () => {
+    const dropped = [
+      'CanonicalCollectionRun',
+      'CanonicalOrganizationState',
+      'CanonicalCollectionLease',
+      'CanonicalRepository',
+      'CanonicalDefaultBranchCommit',
+      'CanonicalPullRequest',
+      'CanonicalRelease',
+      'CanonicalContributorProjection',
+    ];
+
+    for (const table of dropped) {
+      await expect(tableExists(table)).resolves.toBe(false);
+    }
   });
 
   it('eligibility/frontier/author/year 인덱스가 모두 존재한다', async () => {

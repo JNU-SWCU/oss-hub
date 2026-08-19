@@ -8,12 +8,9 @@ import type { RuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAppClient } from './collection-app.client';
 import { CollectionAppConfig } from './collection-app.config';
 import { CollectionAppTokenProvider } from './collection-app.token';
-import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
-import { CollectionCutoverService } from './service/collection-cutover.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionExternalDiscoveryService } from './service/collection-external-discovery.service';
-import { CollectionGenerationImportService } from './service/collection-generation-import.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { CollectionAdminController } from './controller/collection-admin.controller';
 import { ContributionInvariants } from './contribution-invariants';
@@ -22,11 +19,6 @@ import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { COLLECTION_READ_PORT } from './collection-read.port';
 import { CollectionReadService } from './service/collection-read.service';
-import {
-  CollectionReconciliationRuntimeFactory,
-  CollectionReconciliationRuntime,
-  CollectionReconciliationService,
-} from './service/collection-reconciliation.service';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
@@ -37,10 +29,12 @@ import {
 } from './service/collection-sync.service';
 
 /**
- * todo 14 원자 전환(ADR-006): 유일하게 배선된 live writer trigger가 old(`CollectionReconciliationService`)
- * 에서 new(`CollectionSyncService`)로 바뀌었다 — 스케줄러/관리자 트리거 모두 새 writer만 부른다.
- * old writer는 rollback 참조용 코드로만 provider에 남는다(어떤 controller/scheduler도 더 이상
- * 주입하지 않는다). `CollectionCutoverService`(todo 14 전환 orchestration)는 CLI에서만 실행한다.
+ * todo 14 원자 전환(ADR-006)으로 live writer는 `CollectionSyncService` 하나다 — 스케줄러/관리자
+ * 트리거 모두 이 writer만 부른다. 전환 이후 한 릴리스 동안 rollback 참조용으로 남겨 두었던 old
+ * canonical writer/전환 orchestration은 `Canonical*` 8개 테이블과 함께 제거됐다(ADR-006 "누적
+ * 저장소로의 1회 전환" 5항의 후속 migration) — 되돌리기는 이전 릴리스 재배포 + 백업 restore라는
+ * 순수 운영 절차다. `CollectionCutoverRepository`는 남는다 — 그건 별개 테이블(`CollectionCutoverLease`)
+ * 의 quiesce 게이트이고 scheduler/admin 트리거가 매번 확인한다.
  */
 @Module({
   imports: [ScheduleModule.forRoot(), AuditLogModule, AuthModule],
@@ -50,7 +44,6 @@ import {
     ContributionInvariants,
     PublicRankingRepository,
     CollectionSchedulerService,
-    CollectionCanonicalRepository,
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
     CollectionReadService,
@@ -119,80 +112,6 @@ import {
         discoveryClient: CollectionDiscoveryClient,
       ): CollectionUserActivityService =>
         new CollectionUserActivityService(prisma, discoveryClient),
-    },
-    {
-      provide: CollectionCutoverService,
-      inject: [
-        CollectionCanonicalRepository,
-        CollectionIncrementalRepository,
-        CollectionCutoverRepository,
-        CollectionSyncService,
-        RUNTIME_CONFIG,
-      ],
-      useFactory: (
-        canonicalRepository: CollectionCanonicalRepository,
-        incrementalRepository: CollectionIncrementalRepository,
-        cutoverRepository: CollectionCutoverRepository,
-        syncService: CollectionSyncService,
-        runtimeConfig: RuntimeConfig,
-      ): CollectionCutoverService => {
-        let tokens: CollectionAppTokenProvider | undefined;
-        const resolveGithubOrganizationId = async (): Promise<bigint> => {
-          if (!tokens) {
-            // Lazy: credentials validated on first cutover run, not module bootstrap.
-            const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-            tokens = new CollectionAppTokenProvider(config);
-          }
-          const identity = await tokens.getInstallationIdentity();
-          return BigInt(identity.organizationId);
-        };
-        const generationImportService = new CollectionGenerationImportService(
-          canonicalRepository,
-          incrementalRepository,
-          resolveGithubOrganizationId,
-        );
-        return new CollectionCutoverService(
-          canonicalRepository,
-          generationImportService,
-          syncService,
-          cutoverRepository,
-          incrementalRepository,
-          () => {
-            const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-            return Promise.resolve({
-              appId: BigInt(config.appId),
-              organizationLogin: config.orgLogin.toLowerCase(),
-            });
-          },
-        );
-      },
-    },
-    {
-      provide: CollectionReconciliationService,
-      inject: [CollectionCanonicalRepository, RUNTIME_CONFIG],
-      useFactory: (
-        canonicalRepository: CollectionCanonicalRepository,
-        runtimeConfig: RuntimeConfig,
-      ): CollectionReconciliationService => {
-        let runtime: CollectionReconciliationRuntime | undefined;
-        const runtimeFactory: CollectionReconciliationRuntimeFactory = () => {
-          if (runtime) return runtime;
-          // Lazy: credentials validated on first trigger, not module bootstrap.
-          const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-          const tokens = new CollectionAppTokenProvider(config);
-          runtime = {
-            appId: config.appId,
-            organizationLogin: config.orgLogin.toLowerCase(),
-            tokens,
-            client: new CollectionAppClient(config, tokens),
-          };
-          return runtime;
-        };
-        return new CollectionReconciliationService(
-          canonicalRepository,
-          runtimeFactory,
-        );
-      },
     },
     {
       provide: CollectionSyncService,
