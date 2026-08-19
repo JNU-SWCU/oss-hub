@@ -8,9 +8,9 @@ describe('RankingService canonical actor attribution', () => {
     harness = setupRankingService();
   });
 
-  it('uses the canonical author numeric ID and login without repository-owner attribution', async () => {
+  it('uses the canonical actor numeric ID and login without repository-owner attribution', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(22n, 'release-author', 0, 0, 1),
+      activity(22n, 'issue-author', { issueCount: 1 }),
     ]);
 
     const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
@@ -18,11 +18,14 @@ describe('RankingService canonical actor attribution', () => {
     expect(result.items).toEqual([
       {
         rank: 1,
-        displayName: 'release-author',
-        githubLogin: 'release-author',
+        displayName: 'issue-author',
+        githubLogin: 'issue-author',
+        department: null,
         commitCount: 0,
         pullRequestCount: 0,
-        releaseCount: 1,
+        issueCount: 1,
+        repositoryCount: 0,
+        starCount: 0,
         total: 1,
       },
     ]);
@@ -38,11 +41,11 @@ describe('RankingService canonical actor attribution', () => {
 
   it('orders exact ties by metrics, normalized login, then numeric actor ID', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(40n, 'zeta', 1, 2, 0),
-      activity(30n, 'beta', 2, 0, 1),
-      activity(20n, 'Alpha', 2, 0, 1),
-      activity(10n, 'same', 1, 1, 0),
-      activity(9n, 'same', 1, 1, 0),
+      activity(40n, 'zeta', { commitCount: 1, pullRequestCount: 2 }),
+      activity(30n, 'beta', { commitCount: 2, issueCount: 1 }),
+      activity(20n, 'Alpha', { commitCount: 2, issueCount: 1 }),
+      activity(10n, 'same', { commitCount: 1, pullRequestCount: 1 }),
+      activity(9n, 'same', { commitCount: 1, pullRequestCount: 1 }),
     ]);
 
     const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);

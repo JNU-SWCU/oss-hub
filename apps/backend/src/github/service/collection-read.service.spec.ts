@@ -23,6 +23,7 @@ interface MockPrisma {
     aggregate: jest.Mock;
   };
   contribution: { findMany: jest.Mock };
+  githubUserActivityHistory: { findMany: jest.Mock; aggregate: jest.Mock };
   program: { findMany: jest.Mock };
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
@@ -46,6 +47,11 @@ const createDb = (): MockPrisma => ({
   },
   contribution: {
     findMany: jest.fn().mockResolvedValue([]),
+  },
+  // 사람 축 관측 — 공개 랭킹의 유일한 수치 출처다.
+  githubUserActivityHistory: {
+    findMany: jest.fn().mockResolvedValue([]),
+    aggregate: jest.fn().mockResolvedValue({ _max: { observedAt: null } }),
   },
   // (저장소 → 프로그램) 배치 조인의 두 번째 단계
   // (`resolveProgramNamesByRepositoryId` — 첫 단계는 이제 별도 프로비저닝 테이블이
@@ -589,167 +595,124 @@ describe('CollectionReadService — getContributorMetrics', () => {
   });
 });
 
-describe('CollectionReadService — getPublicRankingMetrics', () => {
-  it('filters to org 저장소(visibility 무관) + PUBLIC 인 등록된 external 저장소 + PRESENT at the query boundary', async () => {
+describe('CollectionReadService — getPublicRankingMetrics (사람 축)', () => {
+  const signup = (
+    githubId: bigint,
+    nickname: string,
+    department: string | null = null,
+  ) => ({ githubId, nickname, department, profile: null });
+
+  const observation = (
+    githubId: bigint,
+    year: number,
+    counts: Partial<{
+      commitCount: number;
+      pullRequestCount: number;
+      issueCount: number;
+      repositoryCount: number;
+      starCount: number;
+    }> = {},
+  ) => ({
+    githubId,
+    year,
+    commitCount: 0,
+    pullRequestCount: 0,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
+    ...counts,
+  });
+
+  it('저장소가 아니라 사람 축 이력을 읽는다 — 저장소 조건이 질의에 없다', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([signup(1n, 'alice')]);
 
     await serviceFor(db).getPublicRankingMetrics({});
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repository: {
-            presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
-            ],
-          },
-        },
-      }),
+    expect(db.contribution.findMany).not.toHaveBeenCalled();
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} }),
     );
   });
 
-  it('adds a year filter only when currentYear is provided (THIS_YEAR vs ALL)', async () => {
+  it('연도를 지정하면 그 해 행만 읽는다 (THIS_YEAR vs ALL)', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([signup(1n, 'alice')]);
 
     await serviceFor(db).getPublicRankingMetrics({ currentYear: 2026 });
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repository: {
-            presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
-            ],
-          },
-          // 저장에 연도 칸이 없으므로 Asia/Seoul 연 경계로 자른다(ADR-010 §4).
-          date: {
-            gte: new Date(Date.UTC(2026, 0, 1) - 9 * 60 * 60 * 1000),
-            lt: new Date(Date.UTC(2027, 0, 1) - 9 * 60 * 60 * 1000),
-          },
-        },
-      }),
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { year: 2026 } }),
     );
   });
 
-  it('merges repository/year rows into one entry per githubUserId, 기여 없는 User 는 0/0/0으로 포함한다', async () => {
+  it('5종 지표를 그대로 넘기고, 관측 없는 가입자는 전부 0으로 포함한다', async () => {
     const db = createDb();
     db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
+      signup(1n, 'alice', '소프트웨어공학과'),
+      signup(2n, 'bob'),
     ]);
-    db.contribution.findMany.mockResolvedValue([
-      {
-        githubId: 1n,
-        commitCount: 2,
-        pullRequestCount: 1,
-        releaseCount: 0,
-      },
-      {
-        githubId: 1n,
-        commitCount: 3,
-        pullRequestCount: 0,
-        releaseCount: 1,
-      },
-    ]);
-
-    const result = await serviceFor(db).getPublicRankingMetrics({});
-
-    expect(result).toEqual([
-      {
-        githubId: 1n,
-        githubLogin: 'alice',
+    db.githubUserActivityHistory.findMany.mockResolvedValue([
+      observation(1n, 2026, {
         commitCount: 5,
         pullRequestCount: 1,
-        releaseCount: 1,
-      },
-      // PM 확정 정책 — 가입한 모든 사용자가 노출된다. bob 은 기여 행이 없어도
-      // 0/0/0으로 포함된다.
-      {
-        githubId: 2n,
-        githubLogin: 'bob',
-        commitCount: 0,
-        pullRequestCount: 0,
-        releaseCount: 0,
-      },
-    ]);
-  });
-
-  // 옛 집계는 `githubLogin` 을 비정규화해 들고 있어서 같은 사람의 login 이 행마다
-  // 갈릴 수 있었고, 그래서 정규화 소문자 기준 tie-break 가 필요했다.
-  // 이제 표시명 원본이 `User` 하나이므로(ADR-010 §4) 갈릴 수가 없다 —
-  // 검증할 것은 tie-break 가 아니라 "여러 행이 한 사람으로 접히는가"다.
-  it('같은 사람의 여러 행이 하나로 접히고 표시명은 User 에서 온다', async () => {
-    const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([
-      {
-        githubId: 1n,
-        commitCount: 1,
-        pullRequestCount: 0,
-        releaseCount: 0,
-      },
-      {
-        githubId: 1n,
-        commitCount: 1,
-        pullRequestCount: 0,
-        releaseCount: 0,
-      },
+        issueCount: 2,
+        repositoryCount: 3,
+        starCount: 40,
+      }),
     ]);
 
-    const result = await serviceFor(db).getPublicRankingMetrics({});
+    const result = await serviceFor(db).getPublicRankingMetrics({
+      currentYear: 2026,
+    });
 
     expect(result).toEqual([
       {
         githubId: 1n,
         githubLogin: 'alice',
-        commitCount: 2,
-        pullRequestCount: 0,
-        releaseCount: 0,
+        department: '소프트웨어공학과',
+        commitCount: 5,
+        pullRequestCount: 1,
+        issueCount: 2,
+        repositoryCount: 3,
+        starCount: 40,
       },
+      // PM 확정 정책 — 가입한 모든 사용자가 노출된다. bob 은 관측 행이 없어도
+      // 5종 전부 0으로 포함된다.
       {
         githubId: 2n,
         githubLogin: 'bob',
+        department: null,
         commitCount: 0,
         pullRequestCount: 0,
-        releaseCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
       },
     ]);
   });
 
-  it('does not select repositoryId, year, dataAsOf, or any private/platform field', async () => {
+  it('실명·저장소 식별자를 select 하지 않는다', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([signup(1n, 'alice')]);
 
     await serviceFor(db).getPublicRankingMetrics({});
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
+    const userCalls = db.user.findMany.mock.calls as [
+      { select: Record<string, unknown> },
+    ][];
+    const userArgs = userCalls.at(-1)?.[0];
+    expect(userArgs?.select).not.toHaveProperty('name');
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: {
           githubId: true,
+          year: true,
           commitCount: true,
           pullRequestCount: true,
-          releaseCount: true,
+          issueCount: true,
+          repositoryCount: true,
+          starCount: true,
         },
       }),
     );
@@ -757,39 +720,21 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 });
 
 describe('CollectionReadService — listPublicRankingYears', () => {
-  it('lists distinct years with public non-zero activity newest first', async () => {
+  it('사람 축 관측 연도를 최신 순으로 돌려준다', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([
-      // Asia/Seoul 자정을 UTC 로 담은 날짜 — 코드가 여기서 연도를 뽑는다.
-      { date: new Date(Date.UTC(2026, 4, 1)) },
-      { date: new Date(Date.UTC(2025, 10, 20)) },
+    db.githubUserActivityHistory.findMany.mockResolvedValue([
+      { year: 2025 },
+      { year: 2026 },
     ]);
 
     await expect(serviceFor(db).listPublicRankingYears()).resolves.toEqual([
       2026, 2025,
     ]);
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          repository: {
-            presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
-            ],
-          },
-          OR: [
-            { commitCount: { gt: 0 } },
-            { pullRequestCount: { gt: 0 } },
-            { releaseCount: { gt: 0 } },
-          ],
-        },
-        select: { date: true },
+        select: { year: true },
+        distinct: ['year'],
       }),
     );
   });

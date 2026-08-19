@@ -18,7 +18,7 @@ describe('RankingService display name (D3 — GitHub nickname 단일화)', () =>
 
   it('실명 조회 결과가 있어도 displayName은 githubLogin이다 — 실명이 비인증 공개 응답에 노출되지 않는다', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(1n, 'octo-cat', 2, 0, 0),
+      activity(1n, 'octo-cat', { commitCount: 2 }),
     ]);
     harness.findByGithubIds.mockResolvedValue([
       { githubId: 1n, name: 'Octo Cat' },
@@ -37,7 +37,7 @@ describe('RankingService display name (D3 — GitHub nickname 단일화)', () =>
 
   it('name lookup 자체를 호출하지 않는다 — 표시값이 githubLogin 하나뿐이라 실명 조회가 불필요하다', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(2n, 'nameless', 1, 0, 0),
+      activity(2n, 'nameless', { commitCount: 1 }),
     ]);
 
     await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
@@ -47,8 +47,8 @@ describe('RankingService display name (D3 — GitHub nickname 단일화)', () =>
 
   it('여러 항목 모두 githubLogin으로만 표기된다', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(3n, 'blank-name', 1, 0, 0),
-      activity(4n, 'whitespace-name', 1, 0, 0),
+      activity(3n, 'blank-name', { commitCount: 1 }),
+      activity(4n, 'whitespace-name', { commitCount: 1 }),
     ]);
     harness.findByGithubIds.mockResolvedValue([
       { githubId: 3n, name: '' },
@@ -72,7 +72,7 @@ describe('RankingService display name (D3 — GitHub nickname 단일화)', () =>
 
   it('user 행이 없어도 githubLogin으로 표기된다', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(5n, 'ghost-user', 1, 0, 0),
+      activity(5n, 'ghost-user', { commitCount: 1 }),
     ]);
 
     const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);

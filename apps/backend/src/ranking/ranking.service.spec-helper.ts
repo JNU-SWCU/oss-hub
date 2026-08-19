@@ -9,14 +9,32 @@ import type {
 } from '../users/user-display-name.repository';
 import { RankingService } from './service/ranking.service';
 
+/**
+ * 사람 축 관측 한 행. 지정하지 않은 지표는 0이고 학과는 null 이다 — 테스트가
+ * 관심 있는 칸만 적게 한다.
+ */
 export function activity(
   githubId: bigint,
   githubLogin: string,
-  commitCount: number,
-  pullRequestCount: number,
-  releaseCount: number,
+  metrics: Partial<{
+    commitCount: number;
+    pullRequestCount: number;
+    issueCount: number;
+    repositoryCount: number;
+    starCount: number;
+    department: string | null;
+  }> = {},
 ): CollectionPublicRankingMetricsDto {
-  return { githubId, githubLogin, commitCount, pullRequestCount, releaseCount };
+  return {
+    githubId,
+    githubLogin,
+    department: metrics.department ?? null,
+    commitCount: metrics.commitCount ?? 0,
+    pullRequestCount: metrics.pullRequestCount ?? 0,
+    issueCount: metrics.issueCount ?? 0,
+    repositoryCount: metrics.repositoryCount ?? 0,
+    starCount: metrics.starCount ?? 0,
+  };
 }
 
 export function setupRankingService(): {

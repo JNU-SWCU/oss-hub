@@ -77,23 +77,35 @@ export class RankingService {
       year === RANKING_YEAR_ALL ? {} : { currentYear: year },
     );
 
-    // PM 확정 정책 — 가입한 모든 사용자가 공개 랭킹에 노출된다. 기여가 없으면
-    // 0/0/0으로 표시한다(`total > 0` 필터는 여기서 걸지 않는다). 아래 정렬의
+    // PM 확정 정책 — 가입한 모든 사용자가 공개 랭킹에 노출된다. 관측이 없으면
+    // 5종 전부 0으로 표시한다(`total > 0` 필터는 여기서 걸지 않는다). 아래 정렬의
     // tiebreak(닉네임 → githubId)가 0점 동률까지 결정적 순서를 보장한다.
     const candidates = activity.map(
       ({
         githubId,
         githubLogin,
+        department,
         commitCount,
         pullRequestCount,
-        releaseCount,
+        issueCount,
+        repositoryCount,
+        starCount,
       }) => ({
         githubId,
         githubLogin,
+        department,
         commitCount,
         pullRequestCount,
-        releaseCount,
-        total: commitCount + pullRequestCount + releaseCount,
+        issueCount,
+        repositoryCount,
+        starCount,
+        // 봉투 이름은 그대로 `total` — 5종의 단순 합이다.
+        total:
+          commitCount +
+          pullRequestCount +
+          issueCount +
+          repositoryCount +
+          starCount,
       }),
     );
 
@@ -121,7 +133,9 @@ export class RankingService {
           right.total - left.total ||
           right.commitCount - left.commitCount ||
           right.pullRequestCount - left.pullRequestCount ||
-          right.releaseCount - left.releaseCount ||
+          right.issueCount - left.issueCount ||
+          right.repositoryCount - left.repositoryCount ||
+          right.starCount - left.starCount ||
           normalizedLoginOrder ||
           (left.githubId < right.githubId
             ? -1
@@ -134,9 +148,12 @@ export class RankingService {
         rank: index + 1,
         displayName: entry.displayName,
         githubLogin: entry.githubLogin,
+        department: entry.department,
         commitCount: entry.commitCount,
         pullRequestCount: entry.pullRequestCount,
-        releaseCount: entry.releaseCount,
+        issueCount: entry.issueCount,
+        repositoryCount: entry.repositoryCount,
+        starCount: entry.starCount,
         total: entry.total,
       }));
   }

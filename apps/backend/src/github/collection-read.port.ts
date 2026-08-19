@@ -148,12 +148,20 @@ export type CollectionPublicRankingMetricsQueryDto = {
   readonly currentYear?: number;
 };
 
+/**
+ * 사람 축(`GithubUserActivityHistory`) 관측을 사용자 단위로 접은 공개 랭킹 행.
+ * 실명은 담지 않는다 — 공개 표기는 `githubLogin`, 소속 표기는 `department` 뿐이다.
+ * `releaseCount`는 저장소 축(② 프로그램 표면) 전속이라 여기 없다.
+ */
 export type CollectionPublicRankingMetricsDto = {
   readonly githubId: bigint;
   readonly githubLogin: string;
+  readonly department: string | null;
   readonly commitCount: number;
   readonly pullRequestCount: number;
-  readonly releaseCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
 };
 
 /**
@@ -314,18 +322,17 @@ export interface CollectionReadPort {
     query: CollectionContributorMetricsQueryDto,
   ): Promise<readonly CollectionContributorMetricsDto[]>;
   /**
-   * todo 19 — ranking 공개 페이지 전용 질의. `getContributorMetrics`와 같은 증분 소스
-   * (`Contribution`)을 읽되, PUBLIC + PRESENT 저장소만 port 경계에서
-   * 필터링하고 githubId(githubUserId) 단위로 저장소·연도를 넘어 합산해 이미 병합된 행을
-   * 반환한다 — private facts·platform User join·실명 없이 githubLogin만 노출한다.
-   * `currentYear`를 생략하면 전체 기간 누적, 지정하면 해당 연도만 반환한다.
+   * ranking 공개 페이지 전용 질의. 사람 축(`GithubUserActivityHistory`)을 읽어
+   * githubId 단위로 이미 병합된 행을 반환한다 — 실명 없이 `githubLogin`과
+   * `department`만 노출한다. `currentYear`를 생략하면 전 연도 누적, 지정하면
+   * 해당 연도만 반환한다.
    */
   getPublicRankingMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]>;
   /**
-   * Distinct calendar years that have public ranking activity on PUBLIC + PRESENT
-   * repositories (desc). Empty years are omitted — shell year sidebar only.
+   * Distinct calendar years observed on the person axis
+   * (`GithubUserActivityHistory.year`, desc). Shell year sidebar only.
    */
   listPublicRankingYears(): Promise<readonly number[]>;
 
@@ -335,7 +342,7 @@ export interface CollectionReadPort {
    * 랭킹 목록과 **따로** 묻는다. 목록 수치와 수집 성공 시각은 서로 다른
    * 의미이므로 한 응답을 만들 때 각각 현재 DB 상태에서 읽는다.
    *
-   * 관측된 공개 기여가 하나도 없으면 `null`.
+   * 사람 축 관측이 하나도 없으면 `null`.
    */
   getPublicRankingDataAsOf(): Promise<Date | null>;
   /** todo 12 — 조직 전체 증분 collection의 per-repo/stream 진행 상황 집계(system-status source). */

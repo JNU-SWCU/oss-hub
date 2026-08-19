@@ -10,7 +10,7 @@ describe('RankingService cache and year scope', () => {
 
   it('동시 요청만 같은 집계를 공유하고 다음 요청은 공개 상태를 다시 읽는다', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(1n, 'mina', 2, 0, 0),
+      activity(1n, 'mina', { commitCount: 2 }),
     ]);
 
     await Promise.all([
@@ -30,8 +30,8 @@ describe('RankingService cache and year scope', () => {
 
   it('연도별로 별도 요청 key와 metric 기간을 사용한다', async () => {
     harness.getPublicRankingMetrics
-      .mockResolvedValueOnce([activity(1n, 'mina', 2, 0, 0)])
-      .mockResolvedValueOnce([activity(1n, 'mina', 3, 0, 0)]);
+      .mockResolvedValueOnce([activity(1n, 'mina', { commitCount: 2 })])
+      .mockResolvedValueOnce([activity(1n, 'mina', { commitCount: 3 })]);
 
     await expect(harness.service.findPage(2025, 1, 20)).resolves.toMatchObject({
       year: 2025,
@@ -53,10 +53,10 @@ describe('RankingService cache and year scope', () => {
 
   it('특정 연도와 전체는 별도 요청 key와 metric 기간을 사용한다', async () => {
     harness.getPublicRankingMetrics
-      .mockResolvedValueOnce([activity(1n, 'mina', 2, 0, 0)])
+      .mockResolvedValueOnce([activity(1n, 'mina', { commitCount: 2 })])
       .mockResolvedValueOnce([
-        activity(1n, 'mina', 2, 0, 0),
-        activity(2n, 'june', 0, 0, 1),
+        activity(1n, 'mina', { commitCount: 2 }),
+        activity(2n, 'june', { issueCount: 1 }),
       ]);
 
     await expect(harness.service.findPage(2026, 1, 20)).resolves.toMatchObject({

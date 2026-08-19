@@ -8,25 +8,26 @@ import type { PrismaService } from '../../prisma/prisma.service';
  * 그 조합이 허용되는 유일한 경로가 이 repository 이므로, 여기서 지켜야 하는
  * 것들을 테스트가 직접 잡는다 — 코드 리뷰에만 맡기지 않는다.
  *
- * PM 확정 정책(2026-08) — 가입한 모든 사용자가 노출되고(기여 없으면 0/0/0),
- * 집계 범위는 visibility 무관 JNU-SWCU org 저장소 전체로 넓어졌다. `findMetrics`
- * 는 이제 `User` 에서 시작해 `Contribution` 을 애플리케이션 레벨에서 LEFT
- * JOIN 한다(FK 가 아니라 githubId 값 조인이라 Prisma relation include 가 안
- * 된다) — 아래 테스트는 그 계약을 고정한다.
+ * 수치의 출처는 **사람 축**(`GithubUserActivityHistory`)이다. 저장소 축
+ * (`Contribution`)이 아니다 — 저장소 가시성·소속 조건이 이 파일에 없다는 것
+ * 자체가 계약이며 아래 테스트가 그걸 고정한다. `findMetrics` 는 `User` 에서
+ * 시작해 사람 축 이력을 애플리케이션 레벨에서 LEFT JOIN 한다(FK 가 아니라
+ * githubId 값 조인이라 Prisma relation include 가 안 된다).
  */
 
 /** Prisma 호출 인자를 구조로 본다 — any 로 두면 계약 검사가 무의미해진다. */
 interface FindManyArgs {
   where?: Record<string, unknown>;
   select?: Record<string, unknown>;
+  distinct?: unknown;
   include?: unknown;
 }
 
 interface MockPrisma {
-  contribution: { findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]> };
-  githubRepository: {
+  githubUserActivityHistory: {
+    findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]>;
     aggregate: jest.Mock<
-      Promise<{ _max: { lastSuccessAt: Date | null } }>,
+      Promise<{ _max: { observedAt: Date | null } }>,
       [FindManyArgs]
     >;
   };
@@ -46,15 +47,14 @@ const createDb = (): MockPrisma => {
   const findMany = jest.fn<Promise<unknown[]>, [FindManyArgs]>();
   findMany.mockResolvedValue([]);
   const aggregate = jest.fn<
-    Promise<{ _max: { lastSuccessAt: Date | null } }>,
+    Promise<{ _max: { observedAt: Date | null } }>,
     [FindManyArgs]
   >();
-  aggregate.mockResolvedValue({ _max: { lastSuccessAt: null } });
+  aggregate.mockResolvedValue({ _max: { observedAt: null } });
   const userFindMany = jest.fn<Promise<unknown[]>, [FindManyArgs]>();
   userFindMany.mockResolvedValue([]);
   return {
-    contribution: { findMany },
-    githubRepository: { aggregate },
+    githubUserActivityHistory: { findMany, aggregate },
     user: { findMany: userFindMany },
   };
 };
@@ -62,106 +62,101 @@ const createDb = (): MockPrisma => {
 const repositoryFor = (db: MockPrisma): PublicRankingRepository =>
   new PublicRankingRepository(db as unknown as PrismaService);
 
-const RANKING_REPOSITORY_SCOPE = {
-  presence: 'PRESENT',
-  OR: [
-    { source: 'ORG_PROVISIONED' },
-    { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
-  ],
-};
+/** 사람 축 관측 한 행 — 테스트 가독성을 위한 조립기. */
+const observation = (
+  githubId: bigint,
+  year: number,
+  counts: Partial<{
+    commitCount: number;
+    pullRequestCount: number;
+    issueCount: number;
+    repositoryCount: number;
+    starCount: number;
+  }> = {},
+): Record<string, unknown> => ({
+  githubId,
+  year,
+  commitCount: 0,
+  pullRequestCount: 0,
+  issueCount: 0,
+  repositoryCount: 0,
+  starCount: 0,
+  ...counts,
+});
+
+/** 가입자 한 명 — 학과는 legacy `User.department` 만 채운 형태가 기본이다. */
+const signup = (
+  githubId: bigint,
+  nickname: string | null,
+  department: string | null = null,
+  profileDepartment: string | null = null,
+): Record<string, unknown> => ({
+  githubId,
+  nickname,
+  department,
+  profile:
+    profileDepartment === null ? null : { department: profileDepartment },
+});
 
 describe('PublicRankingRepository — 공개 strict-read 계약', () => {
-  describe('저장소 범위는 호출자가 바꿀 수 없다', () => {
-    it('org 저장소는 visibility 와 무관하게, 개인(EXTERNAL_PUBLIC) 저장소는 PUBLIC 일 때만 조회한다', async () => {
+  describe('사람 축을 읽는다 (저장소 축이 아니다)', () => {
+    it('저장소 조건 없이 사람 축 이력만 조회한다', async () => {
       const db = createDb();
 
       await repositoryFor(db).findMetrics({});
 
-      expect(argsOf(db.contribution.findMany).where?.repository).toEqual(
-        RANKING_REPOSITORY_SCOPE,
-      );
+      const args = argsOf(db.githubUserActivityHistory.findMany);
+      // 저장소 가시성·소속은 사람 축 질문과 무관하다 — 조건 자체가 없어야 한다.
+      expect(args.where).toEqual({});
+      const whereKeys = JSON.stringify(args.where ?? {});
+      expect(whereKeys).not.toContain('repository');
+      expect(whereKeys).not.toContain('visibility');
+      expect(whereKeys).not.toContain('presence');
+      expect(whereKeys).not.toContain('source');
     });
 
-    it('연도 목록과 갱신 시각이 같은 저장소 범위를 쓴다', async () => {
+    it('연도를 지정하면 그 해 행만 읽는다', async () => {
       const db = createDb();
 
-      await repositoryFor(db).listYears();
-      await repositoryFor(db).findDataAsOf();
+      await repositoryFor(db).findMetrics({ currentYear: 2026 });
 
-      // 연도 목록은 기여를 통해, 갱신 시각은 저장소를 통해 같은 조건을 건다.
-      expect(argsOf(db.contribution.findMany).where?.repository).toEqual(
-        RANKING_REPOSITORY_SCOPE,
-      );
-      // 갱신 시각은 "마지막 수집 성공"이라 저장소 행을 본다(ADR-010 §10).
-      expect(argsOf(db.githubRepository.aggregate).where).toEqual(
-        RANKING_REPOSITORY_SCOPE,
-      );
-    });
-  });
-
-  describe('source 별로 visibility 규칙이 다르다 (동의 문서 경계)', () => {
-    it('ORG_PROVISIONED + visibility: PRIVATE 저장소의 기여가 합산된다', async () => {
-      const db = createDb();
-
-      await repositoryFor(db).findMetrics({});
-
-      const repository = argsOf(db.contribution.findMany).where?.repository as
-        Record<string, unknown> | undefined;
-      const or = repository?.['OR'] as Record<string, unknown>[];
-      // org 갈래에는 visibility 조건이 없다 — PRIVATE 저장소 기여도 이 조건을
-      // 통과해 합산된다.
-      expect(or).toContainEqual({ source: 'ORG_PROVISIONED' });
-    });
-
-    it('EXTERNAL_PUBLIC + visibility: PRIVATE 저장소의 기여가 제외된다', async () => {
-      const db = createDb();
-
-      await repositoryFor(db).findMetrics({});
-
-      const repository = argsOf(db.contribution.findMany).where?.repository as
-        Record<string, unknown> | undefined;
-      const or = repository?.['OR'] as Record<string, unknown>[];
-      const externalBranch = or.find(
-        (clause) => clause['source'] === 'EXTERNAL_PUBLIC',
-      );
-      // 개인(EXTERNAL_PUBLIC) 갈래는 visibility: 'PUBLIC' 을 반드시 요구한다 —
-      // PRIVATE 저장소는 두 OR 갈래 어디에도 매치하지 않아 제외된다(동의
-      // 문서 「수집 범위와 목적」이 개인 비공개 저장소를 배제한다).
-      expect(externalBranch).toEqual({
-        source: 'EXTERNAL_PUBLIC',
-        visibility: 'PUBLIC',
+      expect(argsOf(db.githubUserActivityHistory.findMany).where).toEqual({
+        year: 2026,
       });
     });
 
-    it('EXTERNAL_PUBLIC + visibility: PUBLIC 저장소의 기여가 합산된다', async () => {
+    it('연도가 여러 해 있어도 요청한 해만 합산된다 (stale 연도 혼입 금지)', async () => {
       const db = createDb();
+      db.user.findMany.mockResolvedValue([signup(1n, 'multi-year')]);
+      // where 는 위 테스트가 고정하지만, 그래도 다른 해 행이 들어오면 접기
+      // 단계에서 섞이지 않는지 본다 — 필터가 뚫려도 값이 오염되지 않아야 한다.
+      db.githubUserActivityHistory.findMany.mockResolvedValue([
+        observation(1n, 2026, { commitCount: 7, starCount: 3 }),
+      ]);
 
-      await repositoryFor(db).findMetrics({});
+      const result = await repositoryFor(db).findMetrics({ currentYear: 2026 });
 
-      const repository = argsOf(db.contribution.findMany).where?.repository as
-        Record<string, unknown> | undefined;
-      const or = repository?.['OR'] as Record<string, unknown>[];
-      expect(or).toContainEqual({
-        source: 'EXTERNAL_PUBLIC',
-        visibility: 'PUBLIC',
-      });
+      expect(result[0]).toMatchObject({ commitCount: 7, starCount: 3 });
     });
   });
 
   describe('allowlist 밖의 값을 읽지 않는다', () => {
-    it('기여 조회는 명시적 select 만 쓰고 include 를 쓰지 않는다', async () => {
+    it('사람 축 조회는 명시적 select 만 쓰고 include 를 쓰지 않는다', async () => {
       const db = createDb();
 
       await repositoryFor(db).findMetrics({});
 
-      const args = argsOf(db.contribution.findMany);
+      const args = argsOf(db.githubUserActivityHistory.findMany);
       // include 는 스키마에 칸이 늘 때 조용히 같이 새어 나간다.
       expect(args).not.toHaveProperty('include');
       expect(Object.keys(args.select ?? {}).sort()).toEqual([
         'commitCount',
         'githubId',
+        'issueCount',
         'pullRequestCount',
-        'releaseCount',
+        'repositoryCount',
+        'starCount',
+        'year',
       ]);
     });
 
@@ -174,64 +169,70 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       expect(args).not.toHaveProperty('include');
       // 이 값이 인증 없는 공개 응답으로 그대로 나간다.
       // 동의 철회 endpoint 가 없는 상태에서 실명 노출은 되돌릴 수 없다.
-      expect(args.select).toEqual({ githubId: true, nickname: true });
+      expect(args.select).toEqual({
+        githubId: true,
+        nickname: true,
+        department: true,
+        profile: { select: { department: true } },
+      });
       expect(args.select).not.toHaveProperty('name');
       expect(args.select).not.toHaveProperty('email');
+      expect(
+        (args.select?.['profile'] as { select: Record<string, unknown> })
+          .select,
+      ).not.toHaveProperty('name');
     });
 
-    it('사용자 조회에 저장소 식별자를 select 하지 않는다', async () => {
+    it('DB 에 실명이 있어도 응답에는 새어 나가지 않는다', async () => {
       const db = createDb();
+      // Prisma 는 select 밖의 칸을 돌려주지 않지만, 만약 돌려주더라도 이
+      // repository 가 DTO allowlist 밖의 값을 통과시키지 않는다는 증명이다.
+      db.user.findMany.mockResolvedValue([
+        { ...signup(1n, 'octo-cat', '컴퓨터정보통신공학과'), name: '홍길동' },
+      ]);
 
-      await repositoryFor(db).findMetrics({});
+      const result = await repositoryFor(db).findMetrics({});
 
-      const contributionArgs = argsOf(db.contribution.findMany);
-      const selectKeys = Object.keys(contributionArgs.select ?? {});
-      expect(selectKeys).not.toContain('repository');
-      expect(selectKeys).not.toContain('repositoryId');
+      const serialized = JSON.stringify(
+        result,
+        (_key: string, value: unknown) =>
+          typeof value === 'bigint' ? value.toString() : value,
+      );
+      expect(serialized).not.toContain('홍길동');
+      expect(result[0]).not.toHaveProperty('name');
+      expect(Object.keys(result[0] ?? {}).sort()).toEqual([
+        'commitCount',
+        'department',
+        'githubId',
+        'githubLogin',
+        'issueCount',
+        'pullRequestCount',
+        'repositoryCount',
+        'starCount',
+      ]);
     });
   });
 
   describe('가입한 모든 사용자가 노출된다 (PM 확정 정책)', () => {
-    it('Contribution 행이 하나도 없는 신규 User 도 0/0/0으로 포함된다', async () => {
+    it('관측 행이 하나도 없는 신규 User 도 5종 0으로 포함된다', async () => {
       const db = createDb();
       db.user.findMany.mockResolvedValue([
-        { githubId: 1n, nickname: 'fresh-signup' },
+        signup(1n, 'fresh-signup', '전자공학과'),
       ]);
-      db.contribution.findMany.mockResolvedValue([]);
+      db.githubUserActivityHistory.findMany.mockResolvedValue([]);
 
-      const result = await repositoryFor(db).findMetrics({});
+      const result = await repositoryFor(db).findMetrics({ currentYear: 2026 });
 
       expect(result).toEqual([
         {
           githubId: 1n,
           githubLogin: 'fresh-signup',
+          department: '전자공학과',
           commitCount: 0,
           pullRequestCount: 0,
-          releaseCount: 0,
-        },
-      ]);
-    });
-
-    it('PRIVATE org 저장소에만 기여한 사용자가 실제 수치로 나타난다', async () => {
-      const db = createDb();
-      db.user.findMany.mockResolvedValue([
-        { githubId: 2n, nickname: 'private-repo-contributor' },
-      ]);
-      // 저장소 필터는 mock 이 강제하지 않지만, 이 값이 나온다는 것 자체가
-      // visibility 로 걸러지지 않는다는 뜻이다 — private repo 도 여기 포함된다.
-      db.contribution.findMany.mockResolvedValue([
-        { githubId: 2n, commitCount: 5, pullRequestCount: 2, releaseCount: 1 },
-      ]);
-
-      const result = await repositoryFor(db).findMetrics({});
-
-      expect(result).toEqual([
-        {
-          githubId: 2n,
-          githubLogin: 'private-repo-contributor',
-          commitCount: 5,
-          pullRequestCount: 2,
-          releaseCount: 1,
+          issueCount: 0,
+          repositoryCount: 0,
+          starCount: 0,
         },
       ]);
     });
@@ -239,8 +240,8 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
     it('nickname 이 없는 사용자는 제외한다', async () => {
       const db = createDb();
       db.user.findMany.mockResolvedValue([
-        { githubId: 3n, nickname: null },
-        { githubId: 4n, nickname: 'has-login' },
+        signup(3n, null),
+        signup(4n, 'has-login'),
       ]);
 
       const result = await repositoryFor(db).findMetrics({});
@@ -249,70 +250,115 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
     });
   });
 
-  describe('집계', () => {
-    it('같은 사람의 여러 날짜 행을 하나로 접는다', async () => {
+  describe('학과는 UserProfile 을 우선한다 (실명은 읽지 않는다)', () => {
+    it('UserProfile 만 있는 사용자도 학과가 채워진다', async () => {
       const db = createDb();
       db.user.findMany.mockResolvedValue([
-        { githubId: 1n, nickname: 'alice' },
-        { githubId: 2n, nickname: 'bob' },
-      ]);
-      db.contribution.findMany.mockResolvedValue([
-        { githubId: 1n, commitCount: 2, pullRequestCount: 1, releaseCount: 0 },
-        { githubId: 1n, commitCount: 3, pullRequestCount: 0, releaseCount: 1 },
-        { githubId: 2n, commitCount: 1, pullRequestCount: 0, releaseCount: 0 },
+        signup(1n, 'profile-only', null, '소프트웨어공학과'),
       ]);
 
       const result = await repositoryFor(db).findMetrics({});
 
-      expect(result).toEqual([
-        {
-          githubId: 1n,
-          githubLogin: 'alice',
-          commitCount: 5,
-          pullRequestCount: 1,
-          releaseCount: 1,
-        },
-        {
-          githubId: 2n,
-          githubLogin: 'bob',
-          commitCount: 1,
-          pullRequestCount: 0,
-          releaseCount: 0,
-        },
-      ]);
+      expect(result[0]?.department).toBe('소프트웨어공학과');
     });
 
-    it('연도를 지정하면 Asia/Seoul 연 경계로 자른다', async () => {
-      const db = createDb();
-
-      await repositoryFor(db).findMetrics({ currentYear: 2026 });
-
-      const where = argsOf(db.contribution.findMany).where ?? {};
-      // 저장에 연도 칸이 없으므로 날짜 범위로 자른다(ADR-010 §4).
-      expect(where.date).toEqual({
-        gte: new Date(Date.UTC(2026, 0, 1) - 9 * 60 * 60 * 1000),
-        lt: new Date(Date.UTC(2027, 0, 1) - 9 * 60 * 60 * 1000),
-      });
-    });
-
-    it('연도를 지정해도 기여 없는 사용자는 0/0/0으로 포함된다', async () => {
+    it('UserProfile 이 없으면 legacy User.department 로 떨어진다', async () => {
       const db = createDb();
       db.user.findMany.mockResolvedValue([
-        { githubId: 5n, nickname: 'no-activity-this-year' },
+        signup(2n, 'legacy-only', '지능형모빌리티융합학과'),
       ]);
-      db.contribution.findMany.mockResolvedValue([]);
+
+      const result = await repositoryFor(db).findMetrics({});
+
+      expect(result[0]?.department).toBe('지능형모빌리티융합학과');
+    });
+
+    it('둘 다 없으면 null 이다 — 빈 값을 지어내지 않는다', async () => {
+      const db = createDb();
+      db.user.findMany.mockResolvedValue([signup(3n, 'no-department')]);
+
+      const result = await repositoryFor(db).findMetrics({});
+
+      expect(result[0]?.department).toBeNull();
+    });
+  });
+
+  describe('집계', () => {
+    it('사람 축 관측을 사용자별로 LEFT JOIN 한다', async () => {
+      const db = createDb();
+      db.user.findMany.mockResolvedValue([
+        signup(1n, 'alice'),
+        signup(2n, 'bob'),
+      ]);
+      db.githubUserActivityHistory.findMany.mockResolvedValue([
+        observation(1n, 2026, {
+          commitCount: 5,
+          pullRequestCount: 1,
+          issueCount: 2,
+          repositoryCount: 3,
+          starCount: 40,
+        }),
+      ]);
 
       const result = await repositoryFor(db).findMetrics({ currentYear: 2026 });
 
       expect(result).toEqual([
         {
-          githubId: 5n,
-          githubLogin: 'no-activity-this-year',
+          githubId: 1n,
+          githubLogin: 'alice',
+          department: null,
+          commitCount: 5,
+          pullRequestCount: 1,
+          issueCount: 2,
+          repositoryCount: 3,
+          starCount: 40,
+        },
+        {
+          githubId: 2n,
+          githubLogin: 'bob',
+          department: null,
           commitCount: 0,
           pullRequestCount: 0,
-          releaseCount: 0,
+          issueCount: 0,
+          repositoryCount: 0,
+          starCount: 0,
         },
       ]);
+    });
+
+    it('연도를 지정하지 않으면 흐름 지표는 더하고 star 는 최신 연도 값을 쓴다', async () => {
+      const db = createDb();
+      db.user.findMany.mockResolvedValue([signup(1n, 'veteran')]);
+      db.githubUserActivityHistory.findMany.mockResolvedValue([
+        observation(1n, 2025, {
+          commitCount: 10,
+          pullRequestCount: 2,
+          issueCount: 1,
+          repositoryCount: 4,
+          starCount: 30,
+        }),
+        observation(1n, 2026, {
+          commitCount: 5,
+          pullRequestCount: 3,
+          issueCount: 2,
+          repositoryCount: 6,
+          starCount: 50,
+        }),
+      ]);
+
+      const result = await repositoryFor(db).findMetrics({});
+
+      // star 는 그 시점 누적이라 연도별로 더하면 같은 별을 두 번 센다.
+      expect(result[0]).toEqual({
+        githubId: 1n,
+        githubLogin: 'veteran',
+        department: null,
+        commitCount: 15,
+        pullRequestCount: 5,
+        issueCount: 3,
+        repositoryCount: 10,
+        starCount: 50,
+      });
     });
 
     it('연도를 지정하지 않으면 기간 필터를 걸지 않는다', async () => {
@@ -320,21 +366,42 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
 
       await repositoryFor(db).findMetrics({});
 
-      const where = argsOf(db.contribution.findMany).where ?? {};
-      expect(where).not.toHaveProperty('date');
+      expect(argsOf(db.githubUserActivityHistory.findMany).where).toEqual({});
     });
+  });
 
-    it('날짜에서 연도를 뽑아 최신 순으로 돌려준다', async () => {
+  describe('연도 목록과 기준 시각', () => {
+    it('사람 축 year 에서 연도를 뽑아 최신 순으로 돌려준다', async () => {
       const db = createDb();
-      db.contribution.findMany.mockResolvedValue([
-        { date: new Date(Date.UTC(2025, 10, 20)) },
-        { date: new Date(Date.UTC(2026, 4, 1)) },
-        { date: new Date(Date.UTC(2026, 6, 1)) },
+      db.githubUserActivityHistory.findMany.mockResolvedValue([
+        { year: 2025 },
+        { year: 2026 },
       ]);
 
       await expect(repositoryFor(db).listYears()).resolves.toEqual([
         2026, 2025,
       ]);
+      const args = argsOf(db.githubUserActivityHistory.findMany);
+      expect(args.select).toEqual({ year: true });
+      expect(args.distinct).toEqual(['year']);
+    });
+
+    it('기준 시각은 마지막 사람 축 관측 시각이다', async () => {
+      const db = createDb();
+      const observedAt = new Date('2026-08-19T02:00:00.000Z');
+      db.githubUserActivityHistory.aggregate.mockResolvedValue({
+        _max: { observedAt },
+      });
+
+      await expect(repositoryFor(db).findDataAsOf()).resolves.toEqual(
+        observedAt,
+      );
+    });
+
+    it('관측이 하나도 없으면 기준 시각은 null 이다', async () => {
+      const db = createDb();
+
+      await expect(repositoryFor(db).findDataAsOf()).resolves.toBeNull();
     });
   });
 });

@@ -27,16 +27,29 @@ export const RANKING_PERIODS = LEGACY_RANKING_PERIODS;
 /** @deprecated Use `RankingYear`. */
 export type RankingPeriod = LegacyRankingPeriod;
 
+/**
+ * 공개 랭킹 지표 5종(관리자 요청 — release 대신 star·repo·issue).
+ * `starCount`는 그 계정 공개 저장소의 **누적** star다 — GitHub이 연도별
+ * 분해를 주지 않는다. release는 저장소 축(② 프로그램 표면) 전속이다.
+ */
 export interface RankingMetrics {
   readonly commitCount: number;
   readonly pullRequestCount: number;
-  readonly releaseCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
 }
 
 export interface RankingEntry extends RankingMetrics {
   readonly rank: number;
+  /**
+   * 현행 계약상 항상 `githubLogin`과 같다(D3). 프론트가 이미 이 키를 렌더하므로
+   * 내려주되, 실명을 여기 넣지 않는다.
+   */
   readonly displayName: string;
   readonly githubLogin: string;
+  /** 학과. `UserProfile` 우선, 없으면 legacy `User.department`. 미입력이면 null. */
+  readonly department: string | null;
   readonly total: number;
 }
 

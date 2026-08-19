@@ -19,49 +19,70 @@ describe('RankingService deterministic ordering', () => {
         githubLogin: 'z',
         commitCount: 2,
         pullRequestCount: 1,
-        releaseCount: 1,
+        issueCount: 1,
+        repositoryCount: 0,
+        starCount: 0,
+        department: null,
       },
       {
         githubId: 21n,
         githubLogin: 'a',
         commitCount: 3,
         pullRequestCount: 0,
-        releaseCount: 1,
+        issueCount: 1,
+        repositoryCount: 0,
+        starCount: 0,
+        department: null,
       },
       {
         githubId: 22n,
         githubLogin: 'b',
         commitCount: 3,
         pullRequestCount: 1,
-        releaseCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        department: null,
       },
       {
         githubId: 23n,
         githubLogin: 'c',
         commitCount: 3,
         pullRequestCount: 1,
-        releaseCount: 1,
+        issueCount: 1,
+        repositoryCount: 0,
+        starCount: 0,
+        department: null,
       },
       {
         githubId: 10n,
         githubLogin: 'Same',
         commitCount: 3,
         pullRequestCount: 1,
-        releaseCount: 1,
+        issueCount: 1,
+        repositoryCount: 0,
+        starCount: 0,
+        department: null,
       },
       {
         githubId: 2n,
         githubLogin: 'same',
         commitCount: 3,
         pullRequestCount: 1,
-        releaseCount: 1,
+        issueCount: 1,
+        repositoryCount: 0,
+        starCount: 0,
+        department: null,
       },
       {
         githubId: 30n,
         githubLogin: 'top',
         commitCount: 6,
         pullRequestCount: 0,
-        releaseCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        department: null,
       },
     ]);
     const collection = {
@@ -119,6 +140,8 @@ describe('RankingService deterministic ordering', () => {
       'a',
       'z',
     ]);
-    expect(page.items[0]).not.toHaveProperty('starCount');
+    // 공개 응답은 사람 축 5종 + 봉투가 전부다 — 실명은 어느 계층에도 없다.
+    expect(page.items[0]).not.toHaveProperty('name');
+    expect(page.items[0]).not.toHaveProperty('releaseCount');
   });
 });
