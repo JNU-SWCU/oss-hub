@@ -18,6 +18,7 @@ vi.mock('@/components', async (importOriginal) => {
     }: {
       readonly columns: readonly {
         readonly id: string;
+        readonly header: React.ReactNode;
         readonly headClassName?: string;
         readonly cell: (item: RankingItem) => React.ReactNode;
       }[];
@@ -35,6 +36,13 @@ vi.mock('@/components', async (importOriginal) => {
         data-row-keys={data.map(rowKey).join(',')}
       >
         {caption}
+        {/* 머리글도 실제 DOM 으로 내늘다 — 열 이름은 사용자가 읽는 문구라
+            props 만 보면 "Star(누적)" 같은 표기가 사라져도 통과해 버린다. */}
+        {columns.map((column) => (
+          <div key={`head-${column.id}`} data-column-head={column.id}>
+            {column.header}
+          </div>
+        ))}
         {data.length === 0 ? emptyState : null}
         {data.map((item) => (
           <div key={rowKey(item)}>
@@ -71,8 +79,10 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
               displayName,
               githubLogin,
               commitCount: 3,
-              prCount: 2,
-              releaseCount: 1,
+              pullRequestCount: 2,
+              issueCount: 1,
+              repositoryCount: 1,
+              starCount: 7,
               total: 6,
             },
           ],
@@ -93,7 +103,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
   expect(html).toContain('break-keep');
   expect(html).toContain('table-fixed');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,release:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   expect(html).toContain(displayName);
   expect(html).toContain(`@${githubLogin}`);
@@ -116,8 +126,10 @@ test('표 캡션을 렌더하지 않는다', () => {
               displayName: 'mina',
               githubLogin: 'mina',
               commitCount: 1,
-              prCount: 0,
-              releaseCount: 0,
+              pullRequestCount: 0,
+              issueCount: 0,
+              repositoryCount: 1,
+              starCount: 7,
               total: 1,
             },
           ],
@@ -194,8 +206,10 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
               displayName: '첫 번째 참여자',
               githubLogin: 'same-login',
               commitCount: 3,
-              prCount: 2,
-              releaseCount: 1,
+              pullRequestCount: 2,
+              issueCount: 1,
+              repositoryCount: 1,
+              starCount: 7,
               total: 6,
             },
             {
@@ -203,8 +217,10 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
               displayName: '두 번째 참여자',
               githubLogin: 'same-login',
               commitCount: 2,
-              prCount: 1,
-              releaseCount: 1,
+              pullRequestCount: 1,
+              issueCount: 1,
+              repositoryCount: 1,
+              starCount: 7,
               total: 4,
             },
           ],
@@ -248,8 +264,10 @@ test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭
               displayName: 'synthetic 활성 참여자',
               githubLogin: 'synthetic-outcome2-owner-login',
               commitCount: 5,
-              prCount: 2,
-              releaseCount: 1,
+              pullRequestCount: 2,
+              issueCount: 1,
+              repositoryCount: 1,
+              starCount: 7,
               total: 8,
             },
           ],
@@ -281,8 +299,10 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
               displayName: 'synthetic-outcome2-owner-login',
               githubLogin: 'synthetic-outcome2-owner-login',
               commitCount: 5,
-              prCount: 2,
-              releaseCount: 1,
+              pullRequestCount: 2,
+              issueCount: 1,
+              repositoryCount: 1,
+              starCount: 7,
               total: 8,
             },
             {
@@ -290,8 +310,10 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
               displayName: 'synthetic-outcome2-other-login',
               githubLogin: 'synthetic-outcome2-other-login',
               commitCount: 3,
-              prCount: 1,
-              releaseCount: 0,
+              pullRequestCount: 1,
+              issueCount: 0,
+              repositoryCount: 1,
+              starCount: 7,
               total: 4,
             },
           ],
@@ -327,8 +349,10 @@ test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전�
               displayName: 'synthetic 다른 활성 참여자',
               githubLogin: 'synthetic-outcome2-other-login',
               commitCount: 3,
-              prCount: 1,
-              releaseCount: 0,
+              pullRequestCount: 1,
+              issueCount: 0,
+              repositoryCount: 1,
+              starCount: 7,
               total: 4,
             },
           ],
@@ -360,8 +384,10 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
               displayName: 'synthetic 회수 예정 참여자',
               githubLogin: 'synthetic-outcome5-applicant-login',
               commitCount: 3,
-              prCount: 1,
-              releaseCount: 0,
+              pullRequestCount: 1,
+              issueCount: 0,
+              repositoryCount: 1,
+              starCount: 7,
               total: 4,
             },
           ],
@@ -424,7 +450,9 @@ test('갱신 시각이 있으면 화면에 기준 시각을 보여준다', () =>
   expect(html).toContain('data-ranking-as-of');
 });
 
-test('갱신 시각이 없으면 기준 시각 문구를 넣지 않는다', () => {
+test('갱신 시각이 없으면 시각을 숨기지 않고 "아직 수집 전"이라고 말한다', () => {
+  // 예전에는 시각을 통째 생략했다. 그러면 배포 직후처럼 수집이 아직 한 번도
+  // 안 돌았을 때 화면이 아무 신호도 주지 않아, 수집이 멈춘 것과 구별되지 않는다.
   const html = renderToStaticMarkup(
     <RankingView
       page={1}
@@ -444,5 +472,202 @@ test('갱신 시각이 없으면 기준 시각 문구를 넣지 않는다', () =
     />,
   );
 
-  expect(html).not.toContain('data-ranking-as-of');
+  expect(html).toContain('data-ranking-as-of="none"');
+  expect(html).toContain('아직 수집 전');
+});
+
+// 사람 축 5종 지표 (ADR-010 개정 노트 2026-08-19).
+//
+// 아래는 전부 **렌더된 DOM 문자열**을 본다 — 컬럼 정의나 props 를 들여다보면
+// 열이 화면에서 빠져도 통과한다.
+
+const personAxisItem = (
+  overrides: Partial<RankingItem> = {},
+): RankingItem => ({
+  rank: 1,
+  displayName: 'synthetic-top',
+  githubLogin: 'synthetic-top',
+  commitCount: 128,
+  pullRequestCount: 24,
+  issueCount: 17,
+  repositoryCount: 9,
+  starCount: 213,
+  total: 391,
+  ...overrides,
+});
+
+const personAxisMarkup = (
+  items: readonly RankingItem[],
+  dataAsOf: Date | null = new Date('2026-08-19T02:30:00.000Z'),
+) =>
+  renderToStaticMarkup(
+    <RankingView
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          year: 2026,
+          items,
+          page: 1,
+          pageSize: 20,
+          total: items.length,
+          dataAsOf,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+
+test('commit·PR·issue·repo·star 5종과 합계를 화면에 그린다', () => {
+  const html = personAxisMarkup([personAxisItem()]);
+
+  for (const header of ['Commit', 'PR', 'Issue', 'Repo', 'Star', '합계']) {
+    expect(html).toContain(header);
+  }
+  for (const value of ['128', '24', '17', '9', '213', '391']) {
+    expect(html).toContain(`>${value}<`);
+  }
+});
+
+test('release 지표는 랭킹 화면에서 사라진다 — 저장소 축 전속이다', () => {
+  const html = personAxisMarkup([personAxisItem()]);
+
+  expect(html).not.toContain('Release');
+  expect(html).not.toContain('릴리스');
+});
+
+test('star 는 올해가 아니라 누적임을 화면이 밝힌다', () => {
+  // 이 문구가 없으면 옆 열들과 같은 규칙(해당 연도)으로 읽혀 "올해 받은 별"로
+  // 오해된다. GitHub 이 올해분 star 를 싸게 주지 않아 수집기는 계정 전체를 센다.
+  const html = personAxisMarkup([personAxisItem()]);
+
+  expect(html).toContain('누적');
+  expect(html).toContain('계정 전체 누적');
+  expect(html).toContain('(누적)');
+});
+
+test('활동이 0인 가입자도 목록에서 0으로 남는다 — 빠지지 않는다', () => {
+  const html = personAxisMarkup([
+    personAxisItem(),
+    personAxisItem({
+      rank: 2,
+      displayName: 'synthetic-newcomer',
+      githubLogin: 'synthetic-newcomer',
+      commitCount: 0,
+      pullRequestCount: 0,
+      issueCount: 0,
+      repositoryCount: 0,
+      starCount: 0,
+      total: 0,
+    }),
+  ]);
+
+  expect(html).toContain('@synthetic-newcomer');
+  expect(html).toContain('data-row-keys="1,2"');
+  expect(html).not.toContain('집계된 활동 데이터가 없습니다');
+});
+
+test('갱신 시각을 사람이 읽는 문구로 함께 보여준다', () => {
+  const html = personAxisMarkup([personAxisItem()]);
+
+  expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
+  // Asia/Seoul 기준 표기 — 속성만 있고 눈에 보이는 글자가 없으면 소용없다.
+  expect(html).toContain('기준');
+  expect(html).toMatch(/2026[^<]*8[^<]*19/);
+});
+
+test('비로그인 화면 DOM 에는 실명·학과 같은 비공개 값이 없다', () => {
+  // 이 화면에는 세션이 없다. 실명은 권한 계층이 붙는 후속 작업에서만 다뤄지며
+  // 지금 경로로는 어떤 값도 도달하지 않는다.
+  const html = personAxisMarkup([
+    personAxisItem(),
+    personAxisItem({
+      rank: 2,
+      displayName: 'synthetic-second',
+      githubLogin: 'synthetic-second',
+      total: 3,
+    }),
+  ]);
+
+  for (const forbidden of [...forbiddenRankingFields, '홍길동']) {
+    expect(html).not.toContain(forbidden);
+  }
+});
+
+// 수집 전 / 전원 0 상태 (배포 직후 첫 sweep 이전).
+//
+// 이 두 화면은 "모두가 진짜로 아무것도 안 했다"와 글자 그대로 같아 보인다.
+// 그대로 두면 이번에 고치려는 버그(학생이 0으로만 보임)와 구별이 안 된다.
+
+test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만 남기지 않는다', () => {
+  const html = personAxisMarkup(
+    [
+      personAxisItem({
+        commitCount: 0,
+        pullRequestCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        total: 0,
+      }),
+    ],
+    null,
+  );
+
+  expect(html).toContain('아직 수집 전입니다');
+  expect(html).toContain('수집 전 기본값');
+  expect(html).toContain('data-ranking-as-of="none"');
+  // 설명만 붙일 뿐 사람을 지우지 않는다.
+  expect(html).toContain('@synthetic-top');
+  expect(html).toContain('data-row-keys="1"');
+});
+
+test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목록에 남긴다', () => {
+  // `items.length === 0` 은 사람 축에서 사실상 오지 않는다 — 가입자는 항상 행을
+  // 갖는다. 그래서 빈 목록 문구에 기대면 이 상태는 영원히 설명되지 않는다.
+  const zero = (rank: number, login: string): RankingItem =>
+    personAxisItem({
+      rank,
+      displayName: login,
+      githubLogin: login,
+      commitCount: 0,
+      pullRequestCount: 0,
+      issueCount: 0,
+      repositoryCount: 0,
+      starCount: 0,
+      total: 0,
+    });
+  const html = personAxisMarkup([
+    zero(1, 'synthetic-top'),
+    zero(2, 'synthetic-second'),
+    zero(3, 'synthetic-newcomer'),
+  ]);
+
+  expect(html).toContain('집계된 활동이 아직 없습니다');
+  expect(html).toContain('참여자 전원이 그대로 남아');
+  expect(html).toContain('data-row-keys="1,2,3"');
+  expect(html).toContain('@synthetic-newcomer');
+  // 수집은 돌았으므로 기준 시각은 그대로 보인다.
+  expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
+  expect(html).not.toContain('아직 수집 전입니다');
+});
+
+test('한 명이라도 활동이 있으면 대기 안내를 띄우지 않는다', () => {
+  const html = personAxisMarkup([
+    personAxisItem(),
+    personAxisItem({
+      rank: 2,
+      displayName: 'synthetic-newcomer',
+      githubLogin: 'synthetic-newcomer',
+      commitCount: 0,
+      pullRequestCount: 0,
+      issueCount: 0,
+      repositoryCount: 0,
+      starCount: 0,
+      total: 0,
+    }),
+  ]);
+
+  expect(html).not.toContain('집계된 활동이 아직 없습니다');
+  expect(html).not.toContain('아직 수집 전입니다');
 });

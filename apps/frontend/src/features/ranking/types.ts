@@ -16,13 +16,24 @@ export const RANKING_PERIODS = {
 export type RankingPeriod =
   (typeof RANKING_PERIODS)[keyof typeof RANKING_PERIODS];
 
+/**
+ * 사람 축 랭킹 항목 — 지표 이름은 **wire 이름 그대로** 쓴다.
+ *
+ * 내부에서만 통하는 별칭(`prCount`)을 두면 파서 한쪽만 개명됐을 때 HTTP는 200인데
+ * 열 하나가 조용히 0이 된다(`activity-timeline/api.ts`의 사고 기록 참고).
+ *
+ * `starCount`는 **누적(lifetime)** 값이다 — GitHub이 올해분 star를 싸게 주지 않아
+ * 수집기가 계정 전체 star를 센다(ADR-010). 화면은 이 사실을 반드시 문구로 밝힌다.
+ */
 export interface RankingItem {
   readonly rank: number;
   readonly displayName: string;
   readonly githubLogin: string;
   readonly commitCount: number;
-  readonly prCount: number;
-  readonly releaseCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
   readonly total: number;
 }
 

@@ -68,14 +68,18 @@ function parseRankingItem(value: unknown): RankingItem | null {
 
   const commitCount = readOptionalCount(value.commitCount);
   const pullRequestCount = readOptionalCount(value.pullRequestCount);
-  const releaseCount = readOptionalCount(value.releaseCount);
+  const issueCount = readOptionalCount(value.issueCount);
+  const repositoryCount = readOptionalCount(value.repositoryCount);
+  const starCount = readOptionalCount(value.starCount);
   if (
     !isPositiveInteger(value.rank) ||
     typeof value.githubLogin !== 'string' ||
     !isNonNegativeInteger(value.total) ||
     commitCount === null ||
     pullRequestCount === null ||
-    releaseCount === null
+    issueCount === null ||
+    repositoryCount === null ||
+    starCount === null
   ) {
     return null;
   }
@@ -90,8 +94,10 @@ function parseRankingItem(value: unknown): RankingItem | null {
         : value.githubLogin,
     githubLogin: value.githubLogin,
     commitCount,
-    prCount: pullRequestCount,
-    releaseCount,
+    pullRequestCount,
+    issueCount,
+    repositoryCount,
+    starCount,
     total: value.total,
   };
 }

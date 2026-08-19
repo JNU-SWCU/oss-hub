@@ -18,10 +18,13 @@ const rankingPage = (year: number | typeof RANKING_YEAR_ALL) => ({
       rank: 1,
       displayName: 'mina',
       githubLogin: 'mina',
+      department: null,
       commitCount: 2,
       pullRequestCount: 1,
-      releaseCount: 1,
-      total: 4,
+      issueCount: 3,
+      repositoryCount: 4,
+      starCount: 5,
+      total: 15,
     },
   ],
   page: 1,
@@ -35,7 +38,16 @@ test.each([RANKING_YEAR_ALL, 2025, 2026] as const)(
   (year) => {
     expect(parseRankingPage(rankingPage(year))).toMatchObject({
       year,
-      items: [{ prCount: 1, releaseCount: 1, total: 4 }],
+      items: [
+        {
+          commitCount: 2,
+          pullRequestCount: 1,
+          issueCount: 3,
+          repositoryCount: 4,
+          starCount: 5,
+          total: 15,
+        },
+      ],
       total: 1,
       dataAsOf: null,
     });
@@ -53,15 +65,7 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
   const page = parseRankingPage({
     ...base,
     futureField: 'x',
-    items: [
-      {
-        ...base.items[0],
-        futureField: 'x',
-        issueCount: 4,
-        repositoryCount: 5,
-        starCount: 6,
-      },
-    ],
+    items: [{ ...base.items[0], futureField: 'x', releaseCount: 9 }],
   });
 
   expect(page.items[0]).toEqual({
@@ -69,9 +73,11 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
     displayName: 'mina',
     githubLogin: 'mina',
     commitCount: 2,
-    prCount: 1,
-    releaseCount: 1,
-    total: 4,
+    pullRequestCount: 1,
+    issueCount: 3,
+    repositoryCount: 4,
+    starCount: 5,
+    total: 15,
   });
 });
 
@@ -96,16 +102,48 @@ test('지표 칸이 없으면 0으로, displayName 이 없으면 로그인으로
     displayName: 'mina',
     githubLogin: 'mina',
     commitCount: 0,
-    prCount: 0,
-    releaseCount: 0,
+    pullRequestCount: 0,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
     total: 7,
   });
 });
 
+test('새 지표 칸이 없는 구식 항목도 0 으로 읽힌다 — 백엔드가 아직 안 바뀜 상태', () => {
+  // 배포 틈에는 이전 계약(commit·PR·release)이 그대로 올 수 있다. 그때 화면은
+  // 새 열을 0으로 그려야 하며 페이지 전체를 버리면 안 된다.
+  const page = parseRankingPage({
+    ...rankingPage(2026),
+    items: [
+      {
+        rank: 1,
+        displayName: 'mina',
+        githubLogin: 'mina',
+        commitCount: 2,
+        pullRequestCount: 1,
+        releaseCount: 1,
+        total: 4,
+      },
+    ],
+  });
+
+  expect(page.items[0]).toEqual({
+    rank: 1,
+    displayName: 'mina',
+    githubLogin: 'mina',
+    commitCount: 2,
+    pullRequestCount: 1,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
+    total: 4,
+  });
+});
+
 test('total 은 백엔드가 준 값을 그대로 쓴다 — 지표 합으로 검산하지 않는다', () => {
-  // 사람 축 전환 뒤 total 은 issue·repo·star 까지 더한 값이라 화면이 아는
-  // 세 칸의 합과 일치하지 않는다. 여기서 재계산하면 백엔드 판정을 프런트가
-  // 다시 내리게 된다(ADR-008).
+  // 지표 구성은 또 바뀔 수 있다. 화면이 합을 다시 내면 백엔드 판정을 프런트가
+  // 재현하게 되고(ADR-008), 그때마다 화면이 먼저 깨진다.
   const base = rankingPage(2026);
   const page = parseRankingPage({
     ...base,

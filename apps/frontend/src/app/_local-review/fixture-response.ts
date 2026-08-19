@@ -551,8 +551,9 @@ function programListStatus(
  * (`docs/rules/security.md` public-safe 규칙).
  *
  * 파서는 관용적 읽기(tolerant reader)라 모르는 키를 무시하지만, **화면이 쓰는
- * 키는 wire 이름 그대로** 내려야 한다 — PR 수 칸은 `pullRequestCount`다
- * (내부 표현 `prCount`를 그대로 내보내면 HTTP 는 200인데 PR 열만 0이 된다).
+ * 키는 wire 이름 그대로** 내려야 한다 — 지표는 commit·PR·issue·repo·star 5종이며
+ * 한 칸이라도 이름이 어긋나면 HTTP 는 200인데 그 열만 조용히 0이 된다.
+ * `starCount`는 계정 전체 누적이라 연도별로 더하지 않는다(아래 `all` 병합 참고).
  */
 const RANKING_YEARS = [2026, 2025] as const;
 
@@ -572,15 +573,30 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
       displayName: 'synthetic-top',
       githubLogin: 'synthetic-top',
       commitCount: 128,
-      prCount: 24,
-      releaseCount: 3,
+      pullRequestCount: 24,
+      issueCount: 17,
+      repositoryCount: 9,
+      starCount: 213,
     },
     {
       displayName: 'synthetic-second',
       githubLogin: 'synthetic-second',
       commitCount: 96,
-      prCount: 18,
-      releaseCount: 1,
+      pullRequestCount: 18,
+      issueCount: 11,
+      repositoryCount: 6,
+      starCount: 48,
+    },
+    // 활동이 아직 0인 가입자. 사람 축 랭킹은 이런 사람을 목록에서 빼지 않는다 —
+    // 빼버리면 신입이 화면에서 사라져 "가입은 됐는데 어디에도 없는" 상태가 된다.
+    {
+      displayName: 'synthetic-newcomer',
+      githubLogin: 'synthetic-newcomer',
+      commitCount: 0,
+      pullRequestCount: 0,
+      issueCount: 0,
+      repositoryCount: 0,
+      starCount: 0,
     },
   ],
   2025: [
@@ -588,15 +604,19 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
       displayName: 'synthetic-veteran',
       githubLogin: 'synthetic-veteran',
       commitCount: 64,
-      prCount: 11,
-      releaseCount: 2,
+      pullRequestCount: 11,
+      issueCount: 8,
+      repositoryCount: 5,
+      starCount: 91,
     },
     {
       displayName: 'synthetic-top',
       githubLogin: 'synthetic-top',
       commitCount: 41,
-      prCount: 7,
-      releaseCount: 0,
+      pullRequestCount: 7,
+      issueCount: 3,
+      repositoryCount: 2,
+      starCount: 213,
     },
   ],
 };
@@ -608,7 +628,12 @@ function rankedItems(
   return activities
     .map((activity) => ({
       ...activity,
-      total: activity.commitCount + activity.prCount + activity.releaseCount,
+      total:
+        activity.commitCount +
+        activity.pullRequestCount +
+        activity.issueCount +
+        activity.repositoryCount +
+        activity.starCount,
     }))
     .sort((left, right) => right.total - left.total)
     .map((item, index) => ({ ...item, rank: index + 1 }));
@@ -630,8 +655,13 @@ function rankingItemsFor(year: RankingYear): readonly RankingItem[] {
           : {
               ...previous,
               commitCount: previous.commitCount + activity.commitCount,
-              prCount: previous.prCount + activity.prCount,
-              releaseCount: previous.releaseCount + activity.releaseCount,
+              pullRequestCount:
+                previous.pullRequestCount + activity.pullRequestCount,
+              issueCount: previous.issueCount + activity.issueCount,
+              repositoryCount:
+                previous.repositoryCount + activity.repositoryCount,
+              // star 는 누적치라 연도별로 더하면 같은 별을 두 번 센다.
+              starCount: Math.max(previous.starCount, activity.starCount),
             },
       );
     }
@@ -639,10 +669,13 @@ function rankingItemsFor(year: RankingYear): readonly RankingItem[] {
   return rankedItems([...merged.values()]);
 }
 
-/** backend `RankingItemResponseDto` 와 같은 wire 이름으로 되돌린다. */
+/**
+ * backend `RankingEntryResponseDto` 가 내려주는 칸을 그대로 맞춘다. 프론트 타입이
+ * 이미 wire 이름을 쓰므로 개명할 칸은 없고, 공개 계약에만 있는 `department`를 더한다
+ * — 화면이 지금 그리지 않는 칸이라도 파서가 실제 응답과 같은 모양을 받아봐야 한다.
+ */
 function rankingWireItem(item: RankingItem): unknown {
-  const { prCount, ...rest } = item;
-  return { ...rest, pullRequestCount: prCount };
+  return { ...item, department: null };
 }
 
 function rankingPage(searchParams: URLSearchParams): unknown {
@@ -664,8 +697,10 @@ function rankingPage(searchParams: URLSearchParams): unknown {
     page,
     pageSize,
     total: items.length,
-    // 로컬 리뷰 픽스처는 수집이 없으므로 갱신 시각이 없다.
-    dataAsOf: null,
+    // 수집이 한 번 돌아간 상태를 흔낸다. `null`로 두면 화면이 항상 "아직 수집 전"
+    // 안내만 띄워 검토자가 정상 랭킹 화면을 볼 수 없다 — 그 대기 상태는
+    // `ranking-view.test.tsx`가 고정한다.
+    dataAsOf: '2026-08-19T02:30:00.000Z',
   };
 }
 
