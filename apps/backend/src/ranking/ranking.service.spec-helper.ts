@@ -60,8 +60,6 @@ export function setupRankingService(): {
   getPublicRankingDataAsOf.mockResolvedValue(null);
   const collection = {
     findRepositoryActivity: () => Promise.resolve([]),
-    findRankingActivity: () => Promise.resolve([]),
-    getStatusSnapshot: () => Promise.resolve(null),
     getRepositoryMetrics: () => Promise.resolve([]),
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics,

@@ -1,13 +1,10 @@
 import { CronTime } from 'cron';
 import { CollectionReadService } from './collection-read.service';
 import { PublicRankingRepository } from '../repository/public-ranking.repository';
-import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import type { PrismaService } from '../../prisma/prisma.service';
 
 /**
- * todo 11 — `getRepositoryMetrics`/`getContributorMetrics`만 다룬다. `findRankingActivity`/
- * `getStatusSnapshot`은 이 todo에서 변경하지 않았고 별도 spec 커버리지도 요구하지 않는다
- * (old canonical rollback 참조 전용, `GithubRepository`를 읽지 않는다).
+ * todo 11 — `getRepositoryMetrics`/`getContributorMetrics`만 다룬다.
  * todo 12 — `getIncrementalStatusSnapshot`은 아래 별도 describe 블록에서 다룬다.
  * GR-13(`.omc/plans/github-repository-unification.md:496`) — `findRepositoryActivity`·
  * `getRepositoryMetrics`·`getContributorMetrics`·`getRepositoryCumulativeMetrics`·
@@ -99,7 +96,6 @@ function argsOfGithubRepository(db: MockPrisma): {
 const serviceFor = (db: MockPrisma): CollectionReadService =>
   new CollectionReadService(
     db as unknown as PrismaService,
-    {} as CollectionCanonicalRepository,
     new PublicRankingRepository(db as unknown as PrismaService),
   );
 

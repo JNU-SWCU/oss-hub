@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { CronTime } from 'cron';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import { PublicRankingRepository } from '../repository/public-ranking.repository';
 import { asiaSeoulYear } from '../repository/collection-incremental.repository';
 import { COLLECTION_CRON_EXPRESSION } from './collection-scheduler.service';
@@ -19,8 +18,6 @@ import type {
   CollectionPublicRankingMetricsDto,
   CollectionPublicRankingMetricsQueryDto,
   CollectionIncrementalStatusSnapshotDto,
-  CollectionRankingActivityDto,
-  CollectionRankingActivityQueryDto,
   CollectionReadPort,
   CollectionRepositoryActivityDto,
   CollectionRepositoryActivityQueryDto,
@@ -30,7 +27,6 @@ import type {
   CollectionRepositoryMetricsQueryDto,
   CollectionRepositoryStreamDetailDto,
   CollectionRepositoryStreamsDto,
-  CollectionStatusSnapshotDto,
   CollectionStreamDetailBucketDto,
   CollectionSweepActivityDto,
 } from '../collection-read.port';
@@ -99,7 +95,6 @@ const seoulYearBoundsUtcForRead = (year: number): readonly [Date, Date] => [
 export class CollectionReadService implements CollectionReadPort {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly canonicalRepository: CollectionCanonicalRepository,
     private readonly publicRanking: PublicRankingRepository,
   ) {}
 
@@ -182,8 +177,6 @@ export class CollectionReadService implements CollectionReadPort {
   /**
    * todo 14 원자 전환 — 증분 저장소(`CollectionRepository`/facts)를 직접 읽는다. 이 포트의 유일한
    * 활성 호출자(`program-activity.service.ts`)를 새 authority로 옮기는 것이 이 메서드의 목적이다.
-   * 다른 두 legacy 메서드(`findRankingActivity`/`getStatusSnapshot`)는 실제 운영 호출자가 없어
-   * ADR-006의 "old generation 테이블 rollback 참조" 용도로만 old Canonical 테이블을 그대로 읽는다.
    * GR-13 — `repositoryIds`는 이 저장소가 연결된 프로그램/신청 활동을 조회하는 것이라는 의미를
    * 그대로 지키기 위해 `linkedRepositoryFilter`로 거른다(아래 메서드 참고).
    */
@@ -230,102 +223,6 @@ export class CollectionReadService implements CollectionReadPort {
       ),
       releaseDates: repository.releases.map((release) => release.publishedAt),
     }));
-  }
-
-  async findRankingActivity(
-    query: CollectionRankingActivityQueryDto,
-  ): Promise<readonly CollectionRankingActivityDto[]> {
-    const projections =
-      await this.prisma.canonicalContributorProjection.findMany({
-        where: {
-          generation: { activeFor: { some: {} } },
-          ...(query.currentYear === undefined
-            ? {}
-            : { currentYear: query.currentYear }),
-        },
-        select: {
-          githubUserId: true,
-          githubLogin: true,
-          commitCount: true,
-          pullRequestCount: true,
-          releaseCount: true,
-          currentYearCommitCount: true,
-          currentYearPullRequestCount: true,
-          currentYearReleaseCount: true,
-        },
-      });
-
-    const activity = new Map<string, CollectionRankingActivityDto>();
-    for (const row of projections) {
-      const key = row.githubUserId.toString();
-      const current = activity.get(key);
-      const githubLogin =
-        !current ||
-        row.githubLogin.normalize().toLocaleLowerCase('en-US') <
-          current.githubLogin.normalize().toLocaleLowerCase('en-US')
-          ? row.githubLogin
-          : current.githubLogin;
-      const commitCount =
-        query.currentYear === undefined
-          ? row.commitCount
-          : row.currentYearCommitCount;
-      const pullRequestCount =
-        query.currentYear === undefined
-          ? row.pullRequestCount
-          : row.currentYearPullRequestCount;
-      const releaseCount =
-        query.currentYear === undefined
-          ? row.releaseCount
-          : row.currentYearReleaseCount;
-      activity.set(key, {
-        githubId: row.githubUserId,
-        githubLogin,
-        commitCount: (current?.commitCount ?? 0) + commitCount,
-        pullRequestCount: (current?.pullRequestCount ?? 0) + pullRequestCount,
-        releaseCount: (current?.releaseCount ?? 0) + releaseCount,
-      });
-    }
-    return [...activity.values()];
-  }
-
-  async getStatusSnapshot(): Promise<CollectionStatusSnapshotDto | null> {
-    const keys = await this.prisma.$queryRawUnsafe<
-      Array<{ appId: bigint; organizationLogin: string }>
-    >(
-      `SELECT "appId", "organizationLogin" FROM "CanonicalOrganizationState" ORDER BY "updatedAt" DESC LIMIT 1`,
-    );
-    const key = keys[0];
-    if (!key) return null;
-
-    const canonical = await this.canonicalRepository.getStatusSnapshot(key);
-    if (!canonical) return null;
-
-    const timestamps = await this.prisma.$queryRawUnsafe<
-      Array<{
-        lastCompleteSuccessAt: Date | null;
-        dataAsOf: Date | null;
-      }>
-    >(
-      `SELECT
-         MAX(r."finishedAt") FILTER (WHERE r."status" = 'SUCCEEDED') AS "lastCompleteSuccessAt",
-         active."finishedAt" AS "dataAsOf"
-       FROM "CanonicalOrganizationState" s
-       LEFT JOIN "CanonicalCollectionRun" r
-         ON r."appId" = s."appId" AND r."organizationLogin" = s."organizationLogin"
-       LEFT JOIN "CanonicalCollectionRun" active ON active."id" = s."activeGenerationId"
-       WHERE s."appId" = $1 AND s."organizationLogin" = $2
-       GROUP BY active."finishedAt"`,
-      key.appId,
-      key.organizationLogin,
-    );
-
-    return {
-      installationValid: canonical.installationValid,
-      permissionsValid: canonical.permissionsValid,
-      runStatus: canonical.runStatus,
-      lastCompleteSuccessAt: timestamps[0]?.lastCompleteSuccessAt ?? null,
-      dataAsOf: timestamps[0]?.dataAsOf ?? null,
-    };
   }
 
   /**

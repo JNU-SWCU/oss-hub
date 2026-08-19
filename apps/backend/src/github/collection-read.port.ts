@@ -5,21 +5,9 @@ import type {
 } from './collection-incremental.types';
 import type { PrismaService } from '../prisma/prisma.service';
 import { PublicRankingRepository } from './repository/public-ranking.repository';
-import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
 import { CollectionReadService } from './service/collection-read.service';
 
 export const COLLECTION_READ_PORT = Symbol('COLLECTION_READ_PORT');
-
-export const COLLECTION_RUN_STATUSES = [
-  'PENDING',
-  'PROCESSING',
-  'SUCCEEDED',
-  'INCOMPLETE',
-  'RATE_LIMITED',
-  'FAILED',
-] as const;
-
-export type CollectionRunStatusDto = (typeof COLLECTION_RUN_STATUSES)[number];
 
 export type CollectionRepositoryActivityQueryDto = {
   readonly repositoryIds: readonly bigint[];
@@ -32,26 +20,6 @@ export type CollectionRepositoryActivityDto = {
   readonly commitDates: readonly Date[];
   readonly pullRequestDates: readonly Date[];
   readonly releaseDates: readonly Date[];
-};
-
-export type CollectionRankingActivityQueryDto = {
-  readonly currentYear?: number;
-};
-
-export type CollectionRankingActivityDto = {
-  readonly githubId: bigint;
-  readonly githubLogin: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly releaseCount: number;
-};
-
-export type CollectionStatusSnapshotDto = {
-  readonly installationValid: boolean;
-  readonly permissionsValid: boolean;
-  readonly runStatus: CollectionRunStatusDto | null;
-  readonly lastCompleteSuccessAt: Date | null;
-  readonly dataAsOf: Date | null;
 };
 
 /**
@@ -315,10 +283,6 @@ export interface CollectionReadPort {
   findRepositoryActivity(
     query: CollectionRepositoryActivityQueryDto,
   ): Promise<readonly CollectionRepositoryActivityDto[]>;
-  findRankingActivity(
-    query: CollectionRankingActivityQueryDto,
-  ): Promise<readonly CollectionRankingActivityDto[]>;
-  getStatusSnapshot(): Promise<CollectionStatusSnapshotDto | null>;
   /** todo 11 — 증분 facts에서 deterministic rebuild된 저장소별 연도 누적. */
   getRepositoryMetrics(
     query: CollectionRepositoryMetricsQueryDto,
@@ -415,9 +379,5 @@ export interface CollectionReadPort {
 export function createCollectionReadPortForIntegrationTest(
   prisma: PrismaService,
 ): CollectionReadPort {
-  return new CollectionReadService(
-    prisma,
-    new CollectionCanonicalRepository(prisma),
-    new PublicRankingRepository(prisma),
-  );
+  return new CollectionReadService(prisma, new PublicRankingRepository(prisma));
 }
