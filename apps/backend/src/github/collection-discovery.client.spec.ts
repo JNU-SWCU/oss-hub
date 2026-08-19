@@ -64,6 +64,54 @@ function contributionsBody(overrides: {
   });
 }
 
+function activityBody(overrides: {
+  totalCommitContributions?: number;
+  totalPullRequestContributions?: number;
+  totalIssueContributions?: number;
+  totalRepositoryContributions?: number;
+  stargazerCounts?: number[];
+  totalCount?: number;
+  hasNextPage?: boolean;
+  endCursor?: string | null;
+  rateLimitCost?: number;
+}) {
+  const stargazerCounts = overrides.stargazerCounts ?? [];
+  return json({
+    data: {
+      rateLimit: {
+        cost: overrides.rateLimitCost ?? 1,
+        remaining: 4_999,
+      },
+      user: {
+        contributionsCollection: {
+          totalCommitContributions: overrides.totalCommitContributions ?? 0,
+          totalPullRequestContributions:
+            overrides.totalPullRequestContributions ?? 0,
+          totalIssueContributions: overrides.totalIssueContributions ?? 0,
+          totalRepositoryContributions:
+            overrides.totalRepositoryContributions ?? 0,
+        },
+        repositories: {
+          totalCount: overrides.totalCount ?? stargazerCounts.length,
+          nodes: stargazerCounts.map((stargazerCount) => ({ stargazerCount })),
+          pageInfo: {
+            hasNextPage: overrides.hasNextPage ?? false,
+            endCursor: overrides.endCursor ?? null,
+          },
+        },
+      },
+    },
+  });
+}
+
+function sentVariables(fetcher: Fetcher, call: number) {
+  const init = fetcher.mock.calls[call]?.[1];
+  const sent = JSON.parse(init?.body as string) as {
+    variables: Record<string, unknown>;
+  };
+  return sent.variables;
+}
+
 describe('CollectionDiscoveryClient', () => {
   it('maps the happy-path shape and reports the restricted count', async () => {
     const fetcher = fetchMock().mockResolvedValueOnce(
@@ -314,6 +362,347 @@ describe('CollectionDiscoveryClient', () => {
     ).rejects.toMatchObject({
       kind: 'RATE_LIMITED',
       retryAfterSeconds: 30,
+    });
+  });
+
+  describe('fetchUserActivityMetrics', () => {
+    it('parses the five person-axis counters from a single page', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        activityBody({
+          totalCommitContributions: 6939,
+          totalPullRequestContributions: 1369,
+          totalIssueContributions: 816,
+          totalRepositoryContributions: 32,
+          stargazerCounts: [10, 4, 0],
+        }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      const result = await client.fetchUserActivityMetrics(
+        'octostudent',
+        '2026-01-01T00:00:00Z',
+        '2026-12-31T23:59:59Z',
+      );
+
+      expect(result).toEqual({
+        commitCount: 6939,
+        pullRequestCount: 1369,
+        issueCount: 816,
+        repositoryCount: 32,
+        starCount: 14,
+      });
+    });
+
+    it('sums stars across pages while hasNextPage and does not double-count the contribution counters', async () => {
+      const fetcher = fetchMock()
+        .mockResolvedValueOnce(
+          activityBody({
+            totalCommitContributions: 100,
+            totalPullRequestContributions: 20,
+            totalIssueContributions: 5,
+            totalRepositoryContributions: 3,
+            stargazerCounts: [7, 3],
+            hasNextPage: true,
+            endCursor: 'CURSOR_PAGE_2',
+          }),
+        )
+        .mockResolvedValueOnce(
+          activityBody({
+            totalCommitContributions: 100,
+            totalPullRequestContributions: 20,
+            totalIssueContributions: 5,
+            totalRepositoryContributions: 3,
+            stargazerCounts: [11, 1],
+          }),
+        );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      const result = await client.fetchUserActivityMetrics(
+        'octostudent',
+        '2026-01-01T00:00:00Z',
+        '2026-12-31T23:59:59Z',
+      );
+
+      expect(result).toEqual({
+        commitCount: 100,
+        pullRequestCount: 20,
+        issueCount: 5,
+        repositoryCount: 3,
+        starCount: 22,
+      });
+      const firstVariables = sentVariables(fetcher, 0);
+      const secondVariables = sentVariables(fetcher, 1);
+      expect(firstVariables.after).toBeNull();
+      expect(secondVariables).toMatchObject({
+        login: 'octostudent',
+        after: 'CURSOR_PAGE_2',
+      });
+    });
+
+    it('surfaces the upstream one-year window rejection as GRAPHQL_ERROR', async () => {
+      // GitHub rejects a `contributionsCollection` span wider than one year
+      // with a hard VALIDATION error (HTTP 200 + top-level `errors`).
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        json({
+          data: null,
+          errors: [
+            {
+              type: 'VALIDATION',
+              message:
+                'The `from` and `to` must be within one year of each other',
+            },
+          ],
+        }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      await expect(
+        client.fetchUserActivityMetrics(
+          'octostudent',
+          '2024-01-01T00:00:00Z',
+          '2026-01-01T00:00:00Z',
+        ),
+      ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
+    });
+
+    it('throws RATE_LIMITED with retryAfterSeconds on a 429 HTTP response', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        new Response(null, {
+          status: 429,
+          headers: { 'retry-after': '45' },
+        }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      await expect(
+        client.fetchUserActivityMetrics(
+          'octostudent',
+          '2026-01-01T00:00:00Z',
+          '2026-12-31T23:59:59Z',
+        ),
+      ).rejects.toMatchObject({
+        kind: 'RATE_LIMITED',
+        retryAfterSeconds: 45,
+      });
+    });
+
+    it('throws USER_NOT_FOUND when the login does not resolve to a user', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        json({ data: { rateLimit: { cost: 1, remaining: 4999 }, user: null } }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      await expect(
+        client.fetchUserActivityMetrics(
+          'ghost',
+          '2026-01-01T00:00:00Z',
+          '2026-12-31T23:59:59Z',
+        ),
+      ).rejects.toMatchObject({ kind: 'USER_NOT_FOUND' });
+    });
+
+    it.each([
+      [
+        'a null contributionsCollection',
+        {
+          contributionsCollection: null,
+          repositories: {
+            totalCount: 0,
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      ],
+      [
+        'a missing counter field',
+        {
+          contributionsCollection: {
+            totalCommitContributions: 1,
+            totalPullRequestContributions: 1,
+            totalIssueContributions: 1,
+          },
+          repositories: {
+            totalCount: 0,
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      ],
+      [
+        'a null counter value',
+        {
+          contributionsCollection: {
+            totalCommitContributions: null,
+            totalPullRequestContributions: 1,
+            totalIssueContributions: 1,
+            totalRepositoryContributions: 1,
+          },
+          repositories: {
+            totalCount: 0,
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      ],
+      [
+        'a missing repositories connection',
+        {
+          contributionsCollection: {
+            totalCommitContributions: 1,
+            totalPullRequestContributions: 1,
+            totalIssueContributions: 1,
+            totalRepositoryContributions: 1,
+          },
+        },
+      ],
+      [
+        'a null stargazerCount',
+        {
+          contributionsCollection: {
+            totalCommitContributions: 1,
+            totalPullRequestContributions: 1,
+            totalIssueContributions: 1,
+            totalRepositoryContributions: 1,
+          },
+          repositories: {
+            totalCount: 1,
+            nodes: [{ stargazerCount: null }],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      ],
+      [
+        'hasNextPage true with a null cursor',
+        {
+          contributionsCollection: {
+            totalCommitContributions: 1,
+            totalPullRequestContributions: 1,
+            totalIssueContributions: 1,
+            totalRepositoryContributions: 1,
+          },
+          repositories: {
+            totalCount: 1,
+            nodes: [{ stargazerCount: 1 }],
+            pageInfo: { hasNextPage: true, endCursor: null },
+          },
+        },
+      ],
+    ])(
+      'throws a typed RESPONSE error rather than crashing on %s',
+      async (_label, user) => {
+        const fetcher = fetchMock().mockResolvedValue(
+          json({ data: { rateLimit: { cost: 1, remaining: 4999 }, user } }),
+        );
+        const client = new CollectionDiscoveryClient(
+          config,
+          fakeTokenProvider(),
+          fetcher,
+        );
+
+        const error = await client
+          .fetchUserActivityMetrics(
+            'octostudent',
+            '2026-01-01T00:00:00Z',
+            '2026-12-31T23:59:59Z',
+          )
+          .then(
+            (value) => {
+              throw new Error(
+                `expected a typed rejection, resolved with ${JSON.stringify(value)}`,
+              );
+            },
+            (thrown: unknown) => thrown,
+          );
+
+        expect(error).toBeInstanceOf(CollectionDiscoveryClientError);
+        expect(error).toMatchObject({ kind: 'RESPONSE' });
+      },
+    );
+
+    it('skips null repository nodes instead of failing the whole page', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        json({
+          data: {
+            rateLimit: { cost: 1, remaining: 4999 },
+            user: {
+              contributionsCollection: {
+                totalCommitContributions: 2,
+                totalPullRequestContributions: 0,
+                totalIssueContributions: 0,
+                totalRepositoryContributions: 0,
+              },
+              repositories: {
+                totalCount: 2,
+                nodes: [null, { stargazerCount: 9 }],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      const result = await client.fetchUserActivityMetrics(
+        'octostudent',
+        '2026-01-01T00:00:00Z',
+        '2026-12-31T23:59:59Z',
+      );
+
+      expect(result.starCount).toBe(9);
+    });
+
+    it('never puts the token anywhere except the Authorization header', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        new Response(null, { status: 500 }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider('injected-fake-token'),
+        fetcher,
+      );
+
+      const error = await client
+        .fetchUserActivityMetrics(
+          'octostudent',
+          '2026-01-01T00:00:00Z',
+          '2026-12-31T23:59:59Z',
+        )
+        .then(
+          () => {
+            throw new Error('expected the 500 response to reject');
+          },
+          (thrown: unknown) => thrown as CollectionDiscoveryClientError,
+        );
+
+      expect(error).toBeInstanceOf(CollectionDiscoveryClientError);
+      expect(error.message).not.toContain('injected-fake-token');
+      expect(JSON.stringify(error)).not.toContain('injected-fake-token');
+      const init = fetcher.mock.calls[0]?.[1];
+      expect(init?.body as string).not.toContain('injected-fake-token');
     });
   });
 
