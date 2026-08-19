@@ -26,10 +26,14 @@ import type {
  *    새 칸이 스키마에 생겨도 이 파일을 고치지 않는 한 밖으로 나가지 않는다.
  * 2. **DTO allowlist 밖의 값을 돌려주지 않는다.** 아래 `select` 는
  *    `CollectionPublicRankingMetricsDto` 가 선언한 것만 뽑는다.
- * 3. **교직원·관리자 계층이 아니면 실명(`User.name`)을 읽지 않는다.**
- *    비로그인·학생 응답의 표기는 `githubLogin` 단일이며, 동의 철회 endpoint 가
- *    없는 상태에서 그쪽 실명 노출은 되돌릴 수 없다. 그래서 실명 컬럼은
- *    `includeRealName: true`(교직원·관리자 세션)일 때만 `select` 에 붙인다 —
+ * 3. **인증되지 않은 요청에는 실명(`User.name`)을 select 하지 않는다.**
+ *    근거는 비인증 표면에 대한 것이다 — 동의 철회 endpoint 가 없는 상태에서
+ *    익명 응답으로 한 번 나간 실명은 되돌릴 수 없다. 그래서 이 규칙은 "절대
+ *    읽지 않는다"가 아니라 **비인증 표면에서 읽지 않는다**로 읽어야 한다:
+ *    세션이 증명된 교직원·관리자 계층은 실명을 본다(todo 15 의 계층 정책).
+ *    학생 계층은 세션이 있어도 공개 계층과 동일하게 실명을 받지 않는다.
+ *    구현상 실명 컬럼은 `includeRealName: true`(교직원·관리자 세션)일 때만
+ *    `select` 에 붙는다 —
  *    모두 읽어 둔 뒤 계층별로 지우는 설계(redact-later)는 금지다(`AGENTS.md` §4).
  *    학과는 항상 `resolveCompatibleProfileDepartment` 로 읽는다 —
  *    `COMPATIBLE_PROFILE_SELECT` 를 쓰면 계층과 무관하게 실명이 딸려 와

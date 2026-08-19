@@ -3,10 +3,6 @@ import type {
   CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
 } from '../github/collection-read.port';
-import type {
-  UserDisplayName,
-  UserDisplayNameRepository,
-} from '../users/user-display-name.repository';
 import {
   RANKING_VIEWER_TIERS,
   type RankingViewerTier,
@@ -53,10 +49,6 @@ export function setupRankingService(): {
   >;
   readonly listPublicRankingYears: jest.Mock<Promise<readonly number[]>, []>;
   readonly getPublicRankingDataAsOf: jest.Mock<Promise<Date | null>, []>;
-  readonly findByGithubIds: jest.Mock<
-    Promise<readonly UserDisplayName[]>,
-    [readonly bigint[]]
-  >;
   /** 세션 githubId → 계층. 기본은 공개 계층이다. */
   readonly findTier: jest.Mock<
     Promise<RankingViewerTier>,
@@ -112,15 +104,6 @@ export function setupRankingService(): {
       }),
   } satisfies CollectionReadPort;
 
-  const findByGithubIds = jest.fn<
-    Promise<readonly UserDisplayName[]>,
-    [readonly bigint[]]
-  >();
-  findByGithubIds.mockResolvedValue([]);
-  const displayNameRepository = {
-    findByGithubIds,
-  } as unknown as UserDisplayNameRepository;
-
   const findTier = jest.fn<Promise<RankingViewerTier>, [bigint | null]>();
   findTier.mockResolvedValue(RANKING_VIEWER_TIERS.PUBLIC);
   const viewerRepository = {
@@ -128,15 +111,10 @@ export function setupRankingService(): {
   } as unknown as RankingViewerRepository;
 
   return {
-    service: new RankingService(
-      collection,
-      displayNameRepository,
-      viewerRepository,
-    ),
+    service: new RankingService(collection, viewerRepository),
     getPublicRankingMetrics,
     listPublicRankingYears,
     getPublicRankingDataAsOf,
-    findByGithubIds,
     findTier,
   };
 }

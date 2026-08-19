@@ -3,7 +3,6 @@ import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
 } from '../../github/collection-read.port';
-import { UserDisplayNameRepository } from '../../users/user-display-name.repository';
 import { RankingViewerRepository } from '../repository/ranking-viewer.repository';
 import {
   RANKING_VIEWER_TIERS,
@@ -24,7 +23,6 @@ export class RankingService {
   constructor(
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
-    private readonly displayNames: UserDisplayNameRepository,
     private readonly viewers: RankingViewerRepository,
   ) {}
 
@@ -182,13 +180,5 @@ export class RankingService {
         starCount: entry.starCount,
         total: entry.total,
       }));
-  }
-
-  private async findDisplayNames(
-    githubIds: readonly bigint[],
-  ): Promise<ReadonlyMap<bigint, string | null>> {
-    const uniqueIds = [...new Set(githubIds)];
-    const users = await this.displayNames.findByGithubIds(uniqueIds);
-    return new Map(users.map((user) => [user.githubId, user.name]));
   }
 }
