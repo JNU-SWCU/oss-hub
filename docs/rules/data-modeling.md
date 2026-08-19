@@ -25,11 +25,16 @@ grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
 | 축 | 답하는 질문 |
 | --- | --- |
 | `user ↔ repository` | 누가 어느 저장소에 얼마나 기여했는가 |
+| `user ↔ yearly activity history` | 그 사람이 한 해 동안 GitHub에서 얼마나 활동했는가 |
 | `repository ↔ history` | 그 저장소가 시점별로 어떤 상태였는가 |
 
-새 테이블은 둘 중 한 축에 배치할 수 있어야 한다. 어느 축에도 속하지 않는 테이블은 죽는다 — 이 저장소에서 실제로 셋이 그렇게 됐다. `OrgRepositoryInventory`·`OrgRepositoryActivityEvent`는 production writer가 0건이었고, `RepositoryOwnerProjection`은 reader가 한 곳뿐인데 그 모듈을 쓰는 곳이 없었다. 셋 다 "저장소 그 자체"를 독립 엔티티로 붙잡으려다 아무 질문에도 답하지 못하게 되어 제거됐다.
+새 테이블은 셋 중 한 축에 배치할 수 있어야 한다. 어느 축에도 속하지 않는 테이블은 죽는다 — 이 저장소에서 실제로 셋이 그렇게 됐다. `OrgRepositoryInventory`·`OrgRepositoryActivityEvent`는 production writer가 0건이었고, `RepositoryOwnerProjection`은 reader가 한 곳뿐인데 그 모듈을 쓰는 곳이 없었다. 셋 다 "저장소 그 자체"를 독립 엔티티로 붙잡으려다 아무 질문에도 답하지 못하게 되어 제거됐다.
 
 반대로 축이 다르면 합치지 않는다. 이력을 갖는 관계와 시점 사실은 키가 다르다 — 억지로 한 테이블에 넣으면 한쪽 행에서 PK 컬럼이 NULL이 되어야 하는데 PostgreSQL은 이를 허용하지 않는다.
+
+`user ↔ repository`와 `user ↔ yearly activity history`가 정확히 그 관계다. 앞의 축은 `Contribution(repositoryId, githubId, date)`이 담고 "우리 저장소에서 무엇이 일어났는가"(② 팀 기여도·프로그램 지표)에 답한다. 뒤의 축은 `GithubUserActivityHistory(githubId, year)`가 담고 저장소를 거치지 않은 채 "그 사람이 올 한 해 얼마나 활동했는가"(랭킹)에 답한다. 뒤의 축에는 `repositoryId`가 존재하지 않으므로 두 축을 한 테이블에 합칠 수 없고, 가짜 `repositoryId`를 만들어 억지로 넣지도 않는다.
+
+`GithubUserActivityHistory`의 grain은 그 writer가 정의한다(§1) — 사람 축 수집 서비스가 가입(ACTIVE) 사용자를 순회하며 `(githubId, year)` 한 행을 관측할 때마다 전량 재계산으로 upsert한다. 당해 연도 행은 관측마다 덮어쓰고 지난 연도 행은 그대로 남으므로 연도 축을 따라 행이 쌓이며, 그래서 이름이 `History`로 끝난다(§4). `User` FK는 걸지 않고 `githubId` 값으로 키를 잡아 `githubLogin`까지만 비정규화한다(§3) — 실명·학과는 담지 않고 조회 시점에 join한다.
 
 ## 3. projection 행은 내부 FK 없이 독립적으로 완결시킨다
 

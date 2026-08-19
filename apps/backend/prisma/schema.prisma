@@ -1259,6 +1259,47 @@ model Contribution {
   @@index([date])
 }
 
+/// 사람 축 활동 이력 (data-modeling.md §2 `user ↔ yearly activity history`).
+///
+/// 한 행 = "이 GitHub 계정이 이 해에 얼마나 활동했는가". `Contribution`(저장소 축)과
+/// 답하는 질문이 다르다 — 저장소 축은 "우리 저장소에서 무엇이 일어났는가"를 세고,
+/// 이 테이블은 저장소를 거치지 않고 그 사람의 한 해 활동 전체를 GitHub에게 직접 묻는다.
+/// 키가 다르므로(`repositoryId` 없음) 한 테이블로 합칠 수 없다(§2 — PK 컬럼 NULL 불가).
+///
+/// **연도 축으로 행이 쌓인다.** 지난 연도 행을 지우지 않고 새 연도 행이 늘어나므로
+/// 이름이 `History`로 끝난다(§4 · `LoginHistory` 선례). 당해 연도 행은 관측할 때마다
+/// 전량 재계산으로 덮어쓰고, 지난 연도 행은 그대로 둔다.
+///
+/// **`User` FK를 걸지 않는다**(§3). `githubId` 값으로 키를 잡고 `githubLogin`만
+/// 비정규화해 행 하나로 공개 표시가 끝나게 한다 — 아직 가입하지 않은 사람이 조용히
+/// 사라지지 않고, 공개 응답이 private 원본과 join할 구조적 여지도 생기지 않는다.
+/// 실명(`User.name`)·학과는 담지 않는다 — 조회 시점에 join해서 붙인다.
+///
+/// 관측값만 담는다. 순위는 저장하지 않고 조회 시점에 계산한다(ADR-010 §4).
+/// `starCount`는 그 계정 공개 저장소의 **누적** star다 — GitHub이 연도별 분해를 주지 않는다.
+model GithubUserActivityHistory {
+  /// GitHub 숫자 id. `User.githubId`와 같은 값이지만 FK가 아니다 — 값으로만 잇는다.
+  githubId    BigInt
+  /// 표시용 비정규화 값. 이 테이블은 관측마다 전량 덮어쓰므로 drift가 남지 않는다(§3).
+  githubLogin String
+  /// Asia/Seoul 경계로 자른 관측 연도. 연도 창 해석은 쓰기 시점이 아니라 이 칸의 정의에만 있다.
+  year        Int
+
+  commitCount      Int @default(0)
+  pullRequestCount Int @default(0)
+  issueCount       Int @default(0)
+  repositoryCount  Int @default(0)
+  starCount        Int @default(0)
+
+  /// 이 행을 만든 관측 시각. 화면의 `dataAsOf`와 수집 신선도 판정이 이 칸을 읽는다.
+  observedAt DateTime
+
+  /// grain 은 이름이 아니라 기본키가 정의한다 — 사람 1명 × 연도 1개 = 1행.
+  @@id([githubId, year])
+  /// 랭킹은 언제나 연도로 먼저 자른다.
+  @@index([year])
+}
+
 enum CollectionStreamType {
   COMMIT
   PULL_REQUEST
