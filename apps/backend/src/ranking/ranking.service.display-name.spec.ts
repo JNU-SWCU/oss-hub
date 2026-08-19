@@ -3,13 +3,15 @@ import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 /**
  * 정책 결정 D3(.omc/plans/student-repo-ranking-tracking.md §1 "확정된 정책" 표,
- * `:41`) — 비인증 공개 `/ranking` 응답의 공개 표기는 GitHub nickname으로
+ * `:41`) — **공개·학생 계층**의 `/ranking` 응답 표기는 GitHub nickname으로
  * 단일화한다. `d7bfc566`(`feat(ranking): 랭킹 표시 이름을 사용자 실명 우선으로
  * 바꾼다`)가 이 정책을 어기고 실명을 우선 노출하도록 바꿨던 것을 되돌린 회귀
  * 테스트다 — 실명 조회 결과가 무엇이든 `displayName`은 항상 `githubLogin`과
- * 같아야 하고, name lookup 자체가 더는 호출되지 않아야 한다.
+ * 같아야 하고, name lookup 자체가 더는 호출되지 않아야 한다. 이 파일은 계층을 주지
+ * 않은(그래서 공개 계층인) 호출만 다룬다 — 교직원·관리자 계층은
+ * `ranking.service.viewer-tier.spec.ts` 가 따로 고정한다(todo 15).
  */
-describe('RankingService display name (D3 — GitHub nickname 단일화)', () => {
+describe('RankingService display name — 공개 계층 (D3 — GitHub nickname 단일화)', () => {
   let harness: ReturnType<typeof setupRankingService>;
 
   beforeEach(() => {

@@ -4,7 +4,8 @@ import type {
   CollectionReadPort,
 } from '../github/collection-read.port';
 import type { UserDisplayNameRepository } from '../users/user-display-name.repository';
-import { RANKING_YEAR_ALL } from './domain/ranking';
+import { RANKING_VIEWER_TIERS, RANKING_YEAR_ALL } from './domain/ranking';
+import type { RankingViewerRepository } from './repository/ranking-viewer.repository';
 import { RankingService } from './service/ranking.service';
 
 describe('RankingService deterministic ordering', () => {
@@ -127,7 +128,14 @@ describe('RankingService deterministic ordering', () => {
     const displayNameRepository = {
       findByGithubIds: () => Promise.resolve([]),
     } as unknown as UserDisplayNameRepository;
-    const service = new RankingService(collection, displayNameRepository);
+    const viewerRepository = {
+      findTier: () => Promise.resolve(RANKING_VIEWER_TIERS.PUBLIC),
+    } as unknown as RankingViewerRepository;
+    const service = new RankingService(
+      collection,
+      displayNameRepository,
+      viewerRepository,
+    );
 
     const page = await service.findPage(RANKING_YEAR_ALL, 1, 20);
 

@@ -40,11 +40,28 @@ export interface RankingMetrics {
   readonly starCount: number;
 }
 
+/**
+ * 응답 계층. 같은 `GET /ranking` URL 이 세션 역할에 따라 다른 칸을 내린다.
+ *
+ * 계층은 실질적으로 **둘**이다 — 학과는 공개 가능 정보로 판단했으므로
+ * (owner 결정 2026-08-19) 비로그인과 학생이 보는 것이 같다. 교직원·관리자만
+ * 거기에 실명을 더해 본다.
+ */
+export const RANKING_VIEWER_TIERS = {
+  /** 비로그인 · STUDENT · 역할 미확정 세션. */
+  PUBLIC: 'PUBLIC',
+  /** STAFF · ADMIN — 실명까지 본다. */
+  STAFF: 'STAFF',
+} as const;
+
+export type RankingViewerTier =
+  (typeof RANKING_VIEWER_TIERS)[keyof typeof RANKING_VIEWER_TIERS];
+
 export interface RankingEntry extends RankingMetrics {
   readonly rank: number;
   /**
-   * 현행 계약상 항상 `githubLogin`과 같다(D3). 프론트가 이미 이 키를 렌더하므로
-   * 내려주되, 실명을 여기 넣지 않는다.
+   * 공개·학생 계층에서는 항상 `githubLogin`과 같다(D3). 교직원·관리자
+   * 계층에서만 `User.name` 으로 바뀜고, 실명이 없으면 다시 `githubLogin` 이다.
    */
   readonly displayName: string;
   readonly githubLogin: string;

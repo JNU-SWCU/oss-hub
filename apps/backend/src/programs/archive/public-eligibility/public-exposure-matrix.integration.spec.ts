@@ -24,6 +24,7 @@ import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import type { GithubAppClient } from '../../../github/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
+import { RankingViewerRepository } from '../../../ranking/repository/ranking-viewer.repository';
 import { RankingService } from '../../../ranking/service/ranking.service';
 import { UserDisplayNameRepository } from '../../../users/user-display-name.repository';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
@@ -70,6 +71,7 @@ const publicProjectsService = new PublicProjectsService(
 const rankingService = new RankingService(
   collection,
   new UserDisplayNameRepository(prisma),
+  new RankingViewerRepository(prisma),
 );
 
 const github = {

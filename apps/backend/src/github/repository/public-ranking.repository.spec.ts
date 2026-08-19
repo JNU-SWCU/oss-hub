@@ -283,6 +283,111 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
     });
   });
 
+  describe('실명은 교직원·관리자 계층에서만 질의된다 (redact-later 금지)', () => {
+    it('includeRealName 을 주지 않으면 생성되는 select 에 name 이 아예 없다', async () => {
+      const db = createDb();
+
+      await repositoryFor(db).findMetrics({ currentYear: 2026 });
+
+      const select = argsOf(db.user.findMany).select ?? {};
+      // "가져온 뒤 지우기"가 아니라 질의 자체에 컬럼이 없어야 한다.
+      // (`nickname` 은 문자열로 'name' 을 포함하므로 키 단위로 본다.)
+      expect(Object.keys(select).sort()).toEqual([
+        'department',
+        'githubId',
+        'nickname',
+        'profile',
+      ]);
+      expect(select).not.toHaveProperty('name');
+      expect(
+        (select['profile'] as { select: Record<string, unknown> }).select,
+      ).not.toHaveProperty('name');
+    });
+
+    it('includeRealName: false 도 같다 — 학생 세션은 비로그인과 바이트 동일하다', async () => {
+      const db = createDb();
+      const anonymousDb = createDb();
+
+      await repositoryFor(db).findMetrics({
+        currentYear: 2026,
+        includeRealName: false,
+      });
+      await repositoryFor(anonymousDb).findMetrics({ currentYear: 2026 });
+
+      expect(argsOf(db.user.findMany).select).toEqual(
+        argsOf(anonymousDb.user.findMany).select,
+      );
+    });
+
+    it('includeRealName: true 일 때만 name 컬럼이 select 에 붙는다', async () => {
+      const db = createDb();
+
+      await repositoryFor(db).findMetrics({
+        currentYear: 2026,
+        includeRealName: true,
+      });
+
+      const args = argsOf(db.user.findMany);
+      expect(args).not.toHaveProperty('include');
+      // 학과는 그대로 읽고 실명 한 칸만 더한다 — 2차 조회를 만들지 않는다.
+      expect(args.select).toEqual({
+        githubId: true,
+        nickname: true,
+        name: true,
+        department: true,
+        profile: { select: { name: true, department: true } },
+      });
+      // 같은 사실을 두 번 읽지 않는다 — user 조회는 여전히 한 번이다.
+      expect(db.user.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('교직원 계층은 UserProfile 실명을 우선하고 없으면 legacy User.name 으로 떨어진다', async () => {
+      const db = createDb();
+      db.user.findMany.mockResolvedValue([
+        {
+          githubId: 1n,
+          nickname: 'profile-named',
+          name: 'legacy-name',
+          department: null,
+          profile: { name: 'profile-name', department: null },
+        },
+        {
+          githubId: 2n,
+          nickname: 'legacy-named',
+          name: 'legacy-name-2',
+          department: null,
+          profile: null,
+        },
+        {
+          githubId: 3n,
+          nickname: 'nameless',
+          name: null,
+          department: null,
+          profile: null,
+        },
+      ]);
+
+      const result = await repositoryFor(db).findMetrics({
+        includeRealName: true,
+      });
+
+      expect(result.map((entry) => entry.realName)).toEqual([
+        'profile-name',
+        'legacy-name-2',
+        null,
+      ]);
+    });
+
+    it('실명을 물지 않은 결과에는 realName 칸 자체가 없다', async () => {
+      const db = createDb();
+      db.user.findMany.mockResolvedValue([signup(1n, 'octo-cat')]);
+
+      const result = await repositoryFor(db).findMetrics({});
+
+      expect(result[0]).not.toHaveProperty('realName');
+    });
+  });
+
   describe('집계', () => {
     it('사람 축 관측을 사용자별로 LEFT JOIN 한다', async () => {
       const db = createDb();

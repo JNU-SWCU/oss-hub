@@ -5,8 +5,10 @@ import {
 } from '../domain/ranking';
 
 /**
- * 공개 랭킹 항목 allowlist. 여기 적은 칸만 응답으로 나간다 — 실명은 없다.
- * `displayName`은 현행 계약이라 유지하고 항상 `githubLogin`과 같다(D3).
+ * 공개 랭킹 항목 allowlist. 여기 적은 칸만 응답으로 나간다 — 실명 전용 칸은 없다.
+ * 키 집합은 계층과 무관하게 동일하며, 바뀌는 것은 `displayName` 의 **값** 뿐이다 —
+ * 공개·학생 계층은 `githubLogin`(D3), 교직원·관리자는 `User.name`(없으면
+ * `githubLogin`)이다(todo 15).
  */
 class RankingEntryResponseDto {
   readonly rank: number;

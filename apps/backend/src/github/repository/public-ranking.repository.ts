@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import type { Prisma } from '@prisma/client';
 import {
   COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
   resolveCompatibleProfileDepartment,
+  resolveCompatibleProfileName,
+  type CompatibleProfileNameSource,
 } from '../../profiles/profile-compatibility';
 import type {
   CollectionPublicRankingMetricsDto,
@@ -23,10 +26,14 @@ import type {
  *    새 칸이 스키마에 생겨도 이 파일을 고치지 않는 한 밖으로 나가지 않는다.
  * 2. **DTO allowlist 밖의 값을 돌려주지 않는다.** 아래 `select` 는
  *    `CollectionPublicRankingMetricsDto` 가 선언한 것만 뽑는다.
- * 3. **실명(`User.name`)을 읽지 않는다.** 공개 표기는 `githubLogin` 단일이며,
- *    동의 철회 endpoint 가 없는 상태에서 실명 노출은 되돌릴 수 없다. 학과는
- *    `resolveCompatibleProfileDepartment` 로 읽는다 — `COMPATIBLE_PROFILE_SELECT`
- *    를 쓰면 실명이 같이 딸려 와 이 규칙이 깨진다.
+ * 3. **교직원·관리자 계층이 아니면 실명(`User.name`)을 읽지 않는다.**
+ *    비로그인·학생 응답의 표기는 `githubLogin` 단일이며, 동의 철회 endpoint 가
+ *    없는 상태에서 그쪽 실명 노출은 되돌릴 수 없다. 그래서 실명 컬럼은
+ *    `includeRealName: true`(교직원·관리자 세션)일 때만 `select` 에 붙인다 —
+ *    모두 읽어 둔 뒤 계층별로 지우는 설계(redact-later)는 금지다(`AGENTS.md` §4).
+ *    학과는 항상 `resolveCompatibleProfileDepartment` 로 읽는다 —
+ *    `COMPATIBLE_PROFILE_SELECT` 를 쓰면 계층과 무관하게 실명이 딸려 와
+ *    이 규칙이 깨진다.
  *
  * 수치의 출처는 **사람 축**(`GithubUserActivityHistory`)이다. 저장소 축
  * (`Contribution`)이 아니다 — 랭킹이 묻는 질문은 "이 사람이 올 한 해 얼마나
@@ -34,6 +41,42 @@ import type {
  * 가시성·소속 조건이 이 파일에 존재하지 않는다: 사람 축 관측은 GitHub GraphQL
  * 이 공개 활동만 돌려주는 값이라 이미 공개 범위로 닫혀 있다.
  */
+/**
+ * 비로그인·학생 계층이 쓰는 select. 실명 컬럼이 없다.
+ */
+const RANKING_USER_SELECT = {
+  githubId: true,
+  nickname: true,
+  ...COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
+} as const satisfies Prisma.UserSelect;
+
+/**
+ * 교직원·관리자 계층 전용 select. 위 공개 select 에 실명 한 칸만 더한다 —
+ * githubId 목록을 들고 다시 도는 2차 조회를 만들지 않는다(같은 사실을 두 번 읽지
+ * 않는다). `profile` 은 두 shim 이 같은 칸을 공유하므로 명시적으로 합친다.
+ */
+const RANKING_USER_SELECT_WITH_REAL_NAME = {
+  githubId: true,
+  nickname: true,
+  name: true,
+  department: true,
+  profile: { select: { name: true, department: true } },
+} as const satisfies Prisma.UserSelect;
+
+type RankingUserRow = {
+  readonly name?: string | null;
+  readonly profile: { readonly name?: string; readonly department?: string } | null;
+};
+
+/** 실명 select 를 켠 요청의 행만 이 함수를 통과한다 — 그때는 `name` 칸이 있다. */
+function toNameSource(user: RankingUserRow): CompatibleProfileNameSource {
+  const profileName = user.profile?.name;
+  return {
+    name: user.name ?? null,
+    profile: profileName === undefined ? null : { name: profileName },
+  };
+}
+
 @Injectable()
 export class PublicRankingRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -54,14 +97,15 @@ export class PublicRankingRepository {
   async findMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]> {
+    // 실명은 계층이 허락할 때만 select 에 들어간다. 아니면 그 컬럼은 생성되는
+    // SQL 에 아예 등장하지 않는다(redact-later 금지).
+    const includeRealName = query.includeRealName === true;
     const [users, activityRows] = await Promise.all([
       // 가입한 모든 사용자 — 관측 유무와 무관하게 전원 포함한다.
       this.prisma.user.findMany({
-        select: {
-          githubId: true,
-          nickname: true,
-          ...COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
-        },
+        select: includeRealName
+          ? RANKING_USER_SELECT_WITH_REAL_NAME
+          : RANKING_USER_SELECT,
       }),
       this.prisma.githubUserActivityHistory.findMany({
         where:
@@ -123,6 +167,14 @@ export class PublicRankingRepository {
           githubId: user.githubId,
           githubLogin: user.nickname,
           department: resolveCompatibleProfileDepartment(user),
+          // 실명을 물지 않은 요청은 칸 자체를 만들지 않는다.
+          ...(includeRealName
+            ? {
+                realName: resolveCompatibleProfileName(
+                  toNameSource(user),
+                ),
+              }
+            : {}),
           commitCount: totals?.commitCount ?? 0,
           pullRequestCount: totals?.pullRequestCount ?? 0,
           issueCount: totals?.issueCount ?? 0,

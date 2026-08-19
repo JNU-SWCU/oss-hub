@@ -146,17 +146,27 @@ export type CollectionContributorCumulativeMetricsDto = {
 
 export type CollectionPublicRankingMetricsQueryDto = {
   readonly currentYear?: number;
+  /**
+   * 교직원·관리자 계층에서만 `true`다. `true`일 때에만 조회가 실명 컬럼을
+   * 애초에 select한다 — 가져온 뒤 지우는 설계(redact-later)는 금지다
+   * (`AGENTS.md` §4). 생략하면 실명은 질의되지 않는다.
+   */
+  readonly includeRealName?: boolean;
 };
 
 /**
  * 사람 축(`GithubUserActivityHistory`) 관측을 사용자 단위로 접은 공개 랭킹 행.
- * 실명은 담지 않는다 — 공개 표기는 `githubLogin`, 소속 표기는 `department` 뿐이다.
+ * 공개 표기는 `githubLogin`, 소속 표기는 `department`다.
+ * `realName`은 `includeRealName: true`로 물었을 때에만 채워진다 — 그 밖의
+ * 요청에서는 컬럼 자체를 읽지 않으므로 `undefined`다.
  * `releaseCount`는 저장소 축(② 프로그램 표면) 전속이라 여기 없다.
  */
 export type CollectionPublicRankingMetricsDto = {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly department: string | null;
+  /** 교직원·관리자 계층 전용. 그 밖에서는 `undefined`(미조회)다. */
+  readonly realName?: string | null;
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly issueCount: number;
@@ -323,9 +333,10 @@ export interface CollectionReadPort {
   ): Promise<readonly CollectionContributorMetricsDto[]>;
   /**
    * ranking 공개 페이지 전용 질의. 사람 축(`GithubUserActivityHistory`)을 읽어
-   * githubId 단위로 이미 병합된 행을 반환한다 — 실명 없이 `githubLogin`과
-   * `department`만 노출한다. `currentYear`를 생략하면 전 연도 누적, 지정하면
-   * 해당 연도만 반환한다.
+   * githubId 단위로 이미 병합된 행을 반환한다 — 기본은 `githubLogin`과
+   * `department`뿐이고, `includeRealName: true`(교직원·관리자 계층)일 때에만
+   * `realName`이 함께 조회된다. `currentYear`를 생략하면 전 연도 누적,
+   * 지정하면 해당 연도만 반환한다.
    */
   getPublicRankingMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
