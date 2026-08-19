@@ -18,11 +18,7 @@ import type {
   StaffDashboardSummary,
 } from '@/features/programs/types';
 import { RANKING_YEAR_ALL } from '@/features/ranking/types';
-import type {
-  RankingItem,
-  RankingPage,
-  RankingYear,
-} from '@/features/ranking/types';
+import type { RankingItem, RankingYear } from '@/features/ranking/types';
 import { apiPath } from '@/lib/api-client';
 import type { LocalReviewFixtureId } from './fixture-contract';
 import {
@@ -553,7 +549,10 @@ function programListStatus(
 /**
  * 공개 랭킹. 실명·실제 계정을 남기지 않도록 합성 핸들만 쓴다
  * (`docs/rules/security.md` public-safe 규칙).
- * 키는 `parseRankingPage`가 `hasExactKeys`로 정확히 검사하므로 더도 덜도 안 된다.
+ *
+ * 파서는 관용적 읽기(tolerant reader)라 모르는 키를 무시하지만, **화면이 쓰는
+ * 키는 wire 이름 그대로** 내려야 한다 — PR 수 칸은 `pullRequestCount`다
+ * (내부 표현 `prCount`를 그대로 내보내면 HTTP 는 200인데 PR 열만 0이 된다).
  */
 const RANKING_YEARS = [2026, 2025] as const;
 
@@ -640,7 +639,13 @@ function rankingItemsFor(year: RankingYear): readonly RankingItem[] {
   return rankedItems([...merged.values()]);
 }
 
-function rankingPage(searchParams: URLSearchParams): RankingPage {
+/** backend `RankingItemResponseDto` 와 같은 wire 이름으로 되돌린다. */
+function rankingWireItem(item: RankingItem): unknown {
+  const { prCount, ...rest } = item;
+  return { ...rest, pullRequestCount: prCount };
+}
+
+function rankingPage(searchParams: URLSearchParams): unknown {
   const page = positiveIntParam(searchParams.get('page'), 1);
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 20);
   const rawYear = searchParams.get('year');
@@ -655,7 +660,7 @@ function rankingPage(searchParams: URLSearchParams): RankingPage {
 
   return {
     year,
-    items: items.slice(offset, offset + pageSize),
+    items: items.slice(offset, offset + pageSize).map(rankingWireItem),
     page,
     pageSize,
     total: items.length,
