@@ -8,7 +8,7 @@
 
 - 이 저장소는 public이다([security](../rules/security.md)).
 - 실제 호스트명·IP·SSH 별칭·계정명·시크릿·실데이터 행·스크린샷은 이 문서와 커밋·PR·로그 어디에도 적지 않는다.
-- 아래 `<...>` 자리표시자의 실제 값은 Notion Credentials 페이지가 원본이다(AGENTS.md §2, [server-runbook](./server-runbook.md) §8).
+- 아래 `<...>` 자리표시자의 실제 값은 **운영 credentials vault**가 원본이다(AGENTS.md §2, [server-runbook](./server-runbook.md) §8). vault 이름·내부 경로·노트명은 이 저장소에 적지 않는다.
 - oss-hub 구축 프로그램(D3에서 ID를 보호 목록에 고정)은 어떤 단계에서도 삭제·개명하지 않는다.
 - 실제 OAuth로 가입한 사용자 계정은 삭제·name 변경 대상에서 제외한다.
 - 이름·언어 휴리스틱으로 직접 DML을 실행하지 않는다 — 모든 UPDATE·purge는 D3에서 작성한 ID 매니페스트에 있는 ID로만 수행한다.
@@ -18,8 +18,8 @@
 
 ## 1. 표기 규약
 
-- `<deploy-host-alias>` — 운영자가 자신의 SSH 설정에 등록한 배포 호스트 별칭 (실제 값: Notion Credentials)
-- `<public-host>` — 서비스 공개 도메인 또는 공인 접점 (실제 값: Notion Credentials)
+- `<deploy-host-alias>` — 운영자가 자신의 SSH 설정에 등록한 배포 호스트 별칭 (실제 값: 운영 credentials vault)
+- `<public-host>` — 서비스 공개 도메인 또는 공인 접점 (실제 값: 운영 credentials vault)
 - `<release-tag>` / `<release-sha>` — 이번 배포의 Release tag와 main 40-hex SHA
 - `<production-env-file>` — 운영 env 파일의 서버 내 임시 경로 (원본: Jenkins Credentials Store `oss-hub-production-env`)
 - `<admin-session-cookie>` — ADMIN 계정으로 로그인한 브라우저 세션의 `__Host-oss_session` 쿠키 값
@@ -55,7 +55,7 @@ gh run list --workflow deploy.yml --limit 1
 ssh <deploy-host-alias>
 ```
 
-- 별칭이 가리키는 실제 호스트·계정·키의 원본은 Notion Credentials 페이지다 — 이 저장소에는 어떤 형태로도 적지 않는다.
+- 별칭이 가리키는 실제 호스트·계정·키의 원본은 **운영 credentials vault**다 — 이 저장소에는 어떤 형태로도 적지 않는다.
 - 검증: [server-runbook](./server-runbook.md) M1과 동일하게 대상 서버가 맞는지 먼저 확인하고, 아니면 즉시 종료한다.
 - 이후 DB 질의는 실행 중 postgres 컨테이너를 경유한다(호스트에 DB 포트가 공개돼 있지 않다).
 

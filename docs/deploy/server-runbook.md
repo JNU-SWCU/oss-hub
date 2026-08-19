@@ -126,7 +126,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 
 #### 수집 운영 표면은 세 개다 (2026-08-19 추가)
 
-매시 도는 스케줄러가 tick 한 번에 sweep 세 개를 돌린다. 장애를 볼 때 어느 표면이 멈첤는지를 먼저 가른다.
+매시 도는 스케줄러가 tick 한 번에 sweep 세 개를 돌린다. 장애를 볼 때 어느 표면이 멈췄는지를 먼저 가른다.
 
 | sweep | 읽는 것 | 채우는 것 | 자격증명 |
 | --- | --- | --- | --- |
@@ -134,7 +134,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | external | 조직 밖 등록 저장소(REST) | 같은 위 | `GITHUB_PUBLIC_READ_TOKEN` |
 | **person** | 가입(ACTIVE) 유저의 한 해 활동(GraphQL) | `GithubUserActivityHistory` | `GITHUB_PUBLIC_READ_TOKEN` (같은 PAT) |
 
-**person sweep이 세 번째 표면이다.** 공개 랭킹은 이제 이 표면만 읽으므로, org·external이 멈춰도 랭킹은 갱신된다 — 반대로 랭킹이 멈춰도 ② 프로그램 화면은 멀족할 수 있다. 둘을 같은 증상으로 읽지 않는다. 진단은 `scripts/diagnose-collection.sh`(read-only)이 한번에 보여 준다. 축 경계의 결정 근거는 [ADR-010](../decisions/ADR-010-contribution-tracking-context.md) 2026-08-19 개정 노트다.
+**person sweep이 세 번째 표면이다.** 공개 랭킹은 이제 이 표면만 읽으므로, org·external이 멈춰도 랭킹은 갱신된다 — 반대로 랭킹이 멈춰도 ② 프로그램 화면은 멀쩡할 수 있다. 둘을 같은 증상으로 읽지 않는다. 진단은 `scripts/diagnose-collection.sh`(read-only)이 한번에 보여 준다. 축 경계의 결정 근거는 [ADR-010](../decisions/ADR-010-contribution-tracking-context.md) 2026-08-19 개정 노트다.
 
 #### GitHub App 개인키 파일 시크릿 회전
 
@@ -343,7 +343,7 @@ M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트
 
 ## 8. 운영 credentials vault에 기록할 접근 정보 체크리스트 (aside 위임)
 
-아래 항목의 **실제 값**은 이 저장소가 아니라 **운영 credentials vault**가 원본이다(2026-08-19 정정 — 이전에 이 문서가 Notion을 가리켜 실행자가 엉뚜한 곳을 뒤졌다. AGENTS.md §2 — 한 사실은 한 원본). vault 이름·내부 경로·노트명은 공개 저장소인 여기 적지 않으며, 위치를 모르면 운영 담당자에게 묻는다. 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
+아래 항목의 **실제 값**은 이 저장소가 아니라 **운영 credentials vault**가 원본이다(2026-08-19 정정 — 이전에 이 문서가 다른 곳을 가리켜 실행자가 엉뚱한 곳을 뒤졌다. AGENTS.md §2 — 한 사실은 한 원본). vault 이름·내부 경로·노트명은 공개 저장소인 여기 적지 않으며, 위치를 모르면 운영 담당자에게 묻는다. 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
 
 - [ ] 배포 EC2 인스턴스 ID / Tailscale 호스트명 / 접속 방법(SSM·Tailscale)
 - [ ] Jenkins 개인 관리자 계정(공용 계정 공유 금지)
