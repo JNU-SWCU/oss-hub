@@ -6,7 +6,7 @@ import {
   type ProgramMilestoneField,
 } from './program-edit-flow';
 import { MilestoneDocumentEditorSection } from './milestone-document-editor';
-import { formatSeoulDate } from './program-detail-format';
+import { formatSeoulDate, submissionTypeLabel } from './program-detail-format';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 interface ProgramEditMilestonesProps {
   readonly milestones: readonly EditableMilestone[];
@@ -55,7 +55,8 @@ export function ProgramEditMilestones({
             마일스톤
           </h2>
           <p className="text-small text-muted-foreground">
-            학생이 제출물을 올릴 마일스톤을 등록·수정·삭제할 수 있습니다.
+            학생이 제출물을 올릴 마일스톤을 등록·수정·삭제할 수 있습니다. 시작과
+            마감은 운영 기간 안에 있어야 합니다.
           </p>
         </div>
         <Button type="button" variant="outline" onClick={onAdd}>
@@ -85,8 +86,9 @@ export function ProgramEditMilestones({
                 <div className="grid gap-1">
                   <CardTitle>{milestone.name}</CardTitle>
                   <p className="text-small text-muted-foreground">
-                    ID {milestone.id} · {formatSeoulDate(milestone.dueAt)} ·{' '}
-                    <code>{milestone.submissionType}</code>
+                    {formatSeoulDate(milestone.startAt)} ~{' '}
+                    {formatSeoulDate(milestone.dueAt)} ·{' '}
+                    {submissionTypeLabel(milestone.submissionType)}
                   </p>
                 </div>
                 <div className="flex gap-2">

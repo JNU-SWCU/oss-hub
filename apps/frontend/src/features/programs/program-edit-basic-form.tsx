@@ -16,6 +16,10 @@ import {
 } from './program-edit-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 import { ProgramDeadlineControl } from './program-deadline-control';
+import {
+  programEndBoundHint,
+  programStartBoundHint,
+} from './program-edit-schedule-hint';
 
 interface ProgramEditBasicFormProps {
   readonly program: EditableProgram;
@@ -48,6 +52,10 @@ export function ProgramEditBasicForm({
     (definition) => definition.category === form.category,
   );
   const requiresTeam = selectedTemplate?.template.participation === 'team';
+  const startBoundHint = programStartBoundHint(form.milestoneStartAts);
+  const endBoundHint = form.endAtUndecided
+    ? null
+    : programEndBoundHint(form.milestoneDueAts);
 
   return (
     <FormSection title="기본 정보">
@@ -149,6 +157,11 @@ export function ProgramEditBasicForm({
               aria-invalid={Boolean(errors.startAt)}
               onChange={(event) => onFieldChange('startAt', event.target.value)}
             />
+            {startBoundHint ? (
+              <FieldDescription>
+                {startBoundHint} <a href="#milestones">마일스톤 시작일 수정</a>
+              </FieldDescription>
+            ) : null}
             <FieldError>{errors.startAt}</FieldError>
           </Field>
           <Field>
@@ -180,6 +193,11 @@ export function ProgramEditBasicForm({
               프로그램은 끝나지 않은 것으로 다뤄집니다. 나중에 정하려면 체크를
               풀고 날짜를 고르면 됩니다.
             </FieldDescription>
+            {endBoundHint ? (
+              <FieldDescription>
+                {endBoundHint} <a href="#milestones">마일스톤 마감 확인</a>
+              </FieldDescription>
+            ) : null}
             <FieldError>{errors.endAt}</FieldError>
           </Field>
           {requiresTeam ? (

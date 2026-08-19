@@ -7,6 +7,7 @@ import {
   toProgramEditForm,
   type ProgramEditErrors,
 } from './program-edit-flow';
+import { formatSeoulDate } from './program-detail-format';
 import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 import { ProgramEditView } from './program-edit-view';
 
@@ -114,7 +115,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('v1');
     expect(html).toContain('milestone-canonical-id');
     expect(html).toContain('기획서 제출');
-    expect(html).toContain('TEXT');
+    expect(html).toContain('텍스트');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
     // 페이지를 나가는 길은 제목 위의 이 링크 하나뿐이다.
@@ -157,6 +158,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain(
       '학생이 제출물을 올릴 마일스톤을 등록·수정·삭제할 수 있습니다.',
     );
+    expect(html).toContain('시작과 마감은 운영 기간 안에 있어야 합니다.');
 
     for (const internalTerm of [
       '템플릿 키',
@@ -166,6 +168,43 @@ describe('ProgramEditView contract', () => {
     ]) {
       expect(html).not.toContain(internalTerm);
     }
+  });
+
+  it('shows the milestone window that bounds program start and end', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={editableProgram}
+        form={toProgramEditForm(editableProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+    const startBound = formatSeoulDate(editableProgram.milestones[0].startAt);
+    const dueBound = formatSeoulDate(editableProgram.milestones[0].dueAt);
+
+    expect(html).toContain(`가장 이른 마일스톤 시작은 ${startBound}`);
+    expect(html).toContain(`가장 늦은 마일스톤 마감은 ${dueBound}`);
+    expect(html).toContain(`${startBound} ~ ${dueBound}`);
+    expect(html).toContain('href="#milestones"');
+    expect(html).toContain('마일스톤 시작일 수정');
+    expect(html).not.toContain('ID milestone-canonical-id');
   });
 
   it('renders field errors without dropping current input values', () => {
