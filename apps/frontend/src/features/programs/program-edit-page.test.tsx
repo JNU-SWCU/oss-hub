@@ -98,7 +98,7 @@ describe('ProgramEditPage save payload', () => {
     const form = toProgramEditForm(editableProgram);
 
     // When
-    const input = buildProgramEditInput(form, true, []);
+    const input = buildProgramEditInput(form, []);
 
     // Then
     expect(input).toMatchObject({
@@ -121,7 +121,7 @@ describe('ProgramEditPage save payload', () => {
     };
 
     // When
-    const input = buildProgramEditInput(form, true, ['applicationStartAt']);
+    const input = buildProgramEditInput(form, ['applicationStartAt']);
 
     // Then
     expect(input.applicationStartAt).toBe(
@@ -137,7 +137,6 @@ describe('ProgramEditPage save payload', () => {
     expect(
       buildProgramEditInput(
         toProgramEditForm({ ...editableProgram, endAt: null }),
-        true,
         [],
       ).endAt,
     ).toBe(PROGRAM_END_AT_UNDECIDED);
@@ -147,7 +146,6 @@ describe('ProgramEditPage save payload', () => {
         ...toProgramEditForm(editableProgram),
         endAt: '2026-09-01T19:45',
       },
-      true,
       ['endAt'],
     );
 

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { EditableMilestone } from './api';
 import {
   createMilestone,
@@ -34,7 +34,6 @@ import {
   updateReadyProgram,
   upsertMilestone,
 } from './program-edit-state';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 import {
   ProgramEditLoadFailure,
   ProgramEditSkeleton,
@@ -114,14 +113,6 @@ export function ProgramEditPage({
     void load();
   }, [load]);
 
-  const requiresTeam = useMemo(() => {
-    const category = form?.category;
-    const template = PROGRAM_TEMPLATE_DEFINITIONS.find(
-      (item) => item.category === category,
-    );
-    return template?.template.participation === 'team';
-  }, [form?.category]);
-
   const updateField = (
     field: ProgramEditableField,
     value: string | boolean,
@@ -179,7 +170,6 @@ export function ProgramEditPage({
               (milestone) => milestone.dueAt,
             ),
           },
-          requiresTeam,
           dirtyFields,
         ),
       );

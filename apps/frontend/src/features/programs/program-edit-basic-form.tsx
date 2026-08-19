@@ -44,10 +44,6 @@ export function ProgramEditBasicForm({
   onReset,
 }: ProgramEditBasicFormProps) {
   const templateLockReason = categoryLockReason(program);
-  const selectedTemplate = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (definition) => definition.category === form.category,
-  );
-  const requiresTeam = selectedTemplate?.template.participation === 'team';
 
   return (
     <FormSection title="기본 정보">
@@ -182,50 +178,52 @@ export function ProgramEditBasicForm({
             </FieldDescription>
             <FieldError>{errors.endAt}</FieldError>
           </Field>
-          {requiresTeam ? (
-            <Field>
-              <FieldLabel>팀 인원 *</FieldLabel>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <FieldLabel
-                    className="text-small"
-                    htmlFor="program-team-min-size"
-                  >
-                    최소
-                  </FieldLabel>
-                  <Input
-                    id="program-team-min-size"
-                    type="number"
-                    min="1"
-                    value={form.teamMinSize}
-                    aria-invalid={Boolean(errors.team)}
-                    onChange={(event) =>
-                      onFieldChange('teamMinSize', event.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <FieldLabel
-                    className="text-small"
-                    htmlFor="program-team-max-size"
-                  >
-                    최대
-                  </FieldLabel>
-                  <Input
-                    id="program-team-max-size"
-                    type="number"
-                    min="1"
-                    value={form.teamMaxSize}
-                    aria-invalid={Boolean(errors.team)}
-                    onChange={(event) =>
-                      onFieldChange('teamMaxSize', event.target.value)
-                    }
-                  />
-                </div>
+          <Field>
+            <FieldLabel>팀 인원 *</FieldLabel>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2">
+                <FieldLabel
+                  className="text-small"
+                  htmlFor="program-team-min-size"
+                >
+                  최소
+                </FieldLabel>
+                <Input
+                  id="program-team-min-size"
+                  type="number"
+                  min="1"
+                  value={form.teamMinSize}
+                  aria-invalid={Boolean(errors.team)}
+                  onChange={(event) =>
+                    onFieldChange('teamMinSize', event.target.value)
+                  }
+                />
               </div>
-              <FieldError>{errors.team}</FieldError>
-            </Field>
-          ) : null}
+              <div className="space-y-2">
+                <FieldLabel
+                  className="text-small"
+                  htmlFor="program-team-max-size"
+                >
+                  최대
+                </FieldLabel>
+                <Input
+                  id="program-team-max-size"
+                  type="number"
+                  min="1"
+                  value={form.teamMaxSize}
+                  aria-invalid={Boolean(errors.team)}
+                  onChange={(event) =>
+                    onFieldChange('teamMaxSize', event.target.value)
+                  }
+                />
+              </div>
+            </div>
+            <FieldError>{errors.team}</FieldError>
+            <FieldDescription>
+              개인 신청도 1인 팀으로 다뤄집니다. 팀을 받지 않으려면 최소·최대를
+              모두 1로 둡니다.
+            </FieldDescription>
+          </Field>
           <Field>
             <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
             <textarea

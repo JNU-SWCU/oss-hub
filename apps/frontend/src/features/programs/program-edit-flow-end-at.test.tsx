@@ -165,7 +165,7 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
         />,
       );
     });
-    return { payload: () => buildProgramEditInput(latest, true, latestDirty) };
+    return { payload: () => buildProgramEditInput(latest, latestDirty) };
   }
 
   it('센티널을 든 프로그램은 「종료일 미정」이 켜진 채 열리고 날짜 칸이 비활성이다', async () => {
