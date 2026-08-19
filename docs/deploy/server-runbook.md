@@ -8,14 +8,14 @@
 
 - **대상 서버는 오직 하나다.** 이 런북의 모든 접속·명령은 JNU OSS Platform 배포 EC2(리전 `ap-northeast-2`) **한 대에만** 적용한다.
 - **Tailscale 망의 다른 호스트(운영 무관 서버 포함)에는 접속하지 않는다.** 이 런북에는 다른 tailnet 호스트로 붙는 절차가 없으며, 추가해서도 안 된다.
-- **실제 시크릿·토큰·PAT·공인 IP·인스턴스 ID 등 접근 정보는 이 저장소에 적지 않는다.** 아래 `<...>` 자리표시자는 Notion credentials 페이지에서 실제 값을 조회해 사용한다(§8).
+- **실제 시크릿·토큰·PAT·공인 IP·인스턴스 ID 등 접근 정보는 이 저장소에 적지 않는다.** 아래 `<...>` 자리표시자는 **운영 credentials vault**에서 실제 값을 조회해 사용한다(§8). vault 내부 경로·노트명은 이 저장소에 적지 않는다 — 이 문서는 공개 저장소에 추적된다.
 
 ## 1. 표기 규약
 
-- `<INSTANCE_ID>` — 배포 EC2 인스턴스 ID (실제 값: Notion credentials)
-- `<EC2_TAILSCALE_HOST>` — 배포 EC2의 Tailscale 호스트명 (실제 값: Notion credentials)
+- `<INSTANCE_ID>` — 배포 EC2 인스턴스 ID (실제 값: 운영 credentials vault)
+- `<EC2_TAILSCALE_HOST>` — 배포 EC2의 Tailscale 호스트명 (실제 값: 운영 credentials vault)
 - `<GITHUB_OWNER>/<GITHUB_REPO>` — 배포 대상 저장소 (`Jenkinsfile`의 release 검증 URL 참조)
-- `<JENKINS_ADMIN_USER>` — Jenkins 개인 관리자 계정 (실제 값: Notion credentials)
+- `<JENKINS_ADMIN_USER>` — Jenkins 개인 관리자 계정 (실제 값: 운영 credentials vault)
 
 - 각 스텝은 **명령 → 예상 출력 → 검증**의 세 요소로 적는다. 배포판·버전 차이는 스텝 의도를 유지한 채 조정한다.
 - 접속 방식은 두 가지 중 하나다: AWS SSM Session Manager 또는 Tailscale SSH. 공인 SSH(22)는 열지 않는다.
@@ -76,7 +76,7 @@ sudo ss -ltnp | grep 8080 # Jenkins가 127.0.0.1:8080에만 LISTEN (0.0.0.0:8080
 ```sh
 # 운영 env를 Jenkins Credentials Store의 secret file로 등록 (UI 또는 JCasC)
 #   credential id: oss-hub-production-env
-#   ※ 실제 값은 이 저장소에 두지 않는다. Notion credentials → Jenkins Credentials Store로만.
+#   ※ 실제 값은 이 저장소에 두지 않는다. 운영 credentials vault → Jenkins Credentials Store로만.
 
 # 백업 디렉터리 (Jenkins 소유, 0700)
 sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
@@ -123,6 +123,18 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 `compose.yml`에 env 키를 추가하거나 지우면 이 표도 같은 PR에서 갱신한다.
 
 `GITHUB_PUBLIC_READ_TOKEN` — 외부 public 저장소 수집 전용 GitHub fine-grained PAT(REST + GraphQL 겸용)이며 위 표에는 없다. 위 `GITHUB_COLLECTION_APP_*`(Collection GitHub App installation token)는 조직 설치 범위 밖 저장소를 읽지 못하고, GitHub GraphQL v4는 OAuth App client_id:client_secret Basic Auth를 받지 않아 이 경로는 PAT 하나로 둔다. `compose.yml`이 이 키를 `${VAR:?...}`로 요구하지 않는다 — 조직 collection이 이 값 없이도 그대로 기동·동작해야 하기 때문이다. 값이 비어 있으면 외부 수집을 실제로 시도하는 시점에만 fail-closed로 실패하며, 조용히 0건으로 넘어가지 않는다. 이 PAT은 반드시 사업단 서비스 계정으로 발급한다 — 개인 계정으로 발급하면 그 사람이 조직을 떠날 때 외부 수집이 끊기고 public 저장소 조회 이력이 개인 실명에 결부되는 위험이 있다. 만료일을 설정하고 갱신 책임자를 지정해 둔다. 값은 다른 GitHub App 자격증명과 동일하게 배포 secret store에만 둔다.
+
+#### 수집 운영 표면은 세 개다 (2026-08-19 추가)
+
+매시 도는 스케줄러가 tick 한 번에 sweep 세 개를 돌린다. 장애를 볼 때 어느 표면이 멈췄는지를 먼저 가른다.
+
+| sweep | 읽는 것 | 채우는 것 | 자격증명 |
+| --- | --- | --- | --- |
+| org | 조직 저장소 inventory + 상세(REST) | `Contribution`, fact 세 테이블 | `GITHUB_COLLECTION_APP_*` installation token |
+| external | 조직 밖 등록 저장소(REST) | 같은 위 | `GITHUB_PUBLIC_READ_TOKEN` |
+| **person** | 가입(ACTIVE) 유저의 한 해 활동(GraphQL) | `GithubUserActivityHistory` | `GITHUB_PUBLIC_READ_TOKEN` (같은 PAT) |
+
+**person sweep이 세 번째 표면이다.** 공개 랭킹은 이제 이 표면만 읽으므로, org·external이 멈춰도 랭킹은 갱신된다 — 반대로 랭킹이 멈춰도 ② 프로그램 화면은 멀쩡할 수 있다. 둘을 같은 증상으로 읽지 않는다. 진단은 `scripts/diagnose-collection.sh`(read-only)이 한번에 보여 준다. 축 경계의 결정 근거는 [ADR-010](../decisions/ADR-010-contribution-tracking-context.md) 2026-08-19 개정 노트다.
 
 #### GitHub App 개인키 파일 시크릿 회전
 
@@ -180,7 +192,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 - read-only PAT를 Jenkins Credentials Store에 **준비·문서화**한다(레이트리밋/향후 private 대비).
 - **`Jenkinsfile`에 인증 헤더를 넣는 코드 변경은 이 런북 범위가 아니다.** 현재 파이프라인은 미인증 curl을 사용한다.
-- PAT 실제 값은 저장소·PR·로그에 남기지 않는다. Notion credentials → Jenkins Credentials Store로만.
+- PAT 실제 값은 저장소·PR·로그에 남기지 않는다. 운영 credentials vault → Jenkins Credentials Store로만.
 
 ## M6. 배포 전 단계 검증 (로컬 → EC2 드라이런)
 
@@ -329,9 +341,9 @@ docker run --rm --network "${COMPOSE_PROJECT_NAME}_default" \
 
 M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트의 `teamId`가 null이라는 이유는 사라졌지만, 스키마 변경 전에 진행 중인 프로비저닝을 비워 두는 것은 여전히 안전한 습관이다.
 
-## 8. Notion에 기록할 접근 정보 체크리스트 (aside 위임)
+## 8. 운영 credentials vault에 기록할 접근 정보 체크리스트 (aside 위임)
 
-아래 항목의 **실제 값**은 이 저장소가 아니라 **Notion credentials 페이지**가 원본이다. Notion 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
+아래 항목의 **실제 값**은 이 저장소가 아니라 **운영 credentials vault**가 원본이다(2026-08-19 정정 — 이전에 이 문서가 다른 곳을 가리켜 실행자가 엉뚱한 곳을 뒤졌다. AGENTS.md §2 — 한 사실은 한 원본). vault 이름·내부 경로·노트명은 공개 저장소인 여기 적지 않으며, 위치를 모르면 운영 담당자에게 묻는다. 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
 
 - [ ] 배포 EC2 인스턴스 ID / Tailscale 호스트명 / 접속 방법(SSM·Tailscale)
 - [ ] Jenkins 개인 관리자 계정(공용 계정 공유 금지)

@@ -8,9 +8,16 @@ describe('RankingService public metrics', () => {
     harness = setupRankingService();
   });
 
-  it('returns the canonical commit, pull request, and release metrics', async () => {
+  it('5종 지표와 그 단순 합을 total 로 돌려준다', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(1n, 'mina', 2, 1, 3),
+      activity(1n, 'mina', {
+        commitCount: 2,
+        pullRequestCount: 1,
+        issueCount: 3,
+        repositoryCount: 4,
+        starCount: 5,
+        department: '소프트웨어공학과',
+      }),
     ]);
 
     await expect(
@@ -22,10 +29,13 @@ describe('RankingService public metrics', () => {
           rank: 1,
           displayName: 'mina',
           githubLogin: 'mina',
+          department: '소프트웨어공학과',
           commitCount: 2,
           pullRequestCount: 1,
-          releaseCount: 3,
-          total: 6,
+          issueCount: 3,
+          repositoryCount: 4,
+          starCount: 5,
+          total: 15,
         },
       ],
       page: 1,
@@ -56,7 +66,11 @@ describe('RankingService — 수치와 갱신 시각은 모두 현재 상태에�
   it('같은 연도를 두 번 조회해도 목록과 갱신 시각을 모두 다시 묻는다', async () => {
     const harness = setupRankingService();
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(1n, 'mina', 2, 1, 3),
+      activity(1n, 'mina', {
+        commitCount: 2,
+        pullRequestCount: 1,
+        issueCount: 3,
+      }),
     ]);
     harness.getPublicRankingDataAsOf.mockResolvedValue(
       new Date('2026-08-09T00:00:00.000Z'),

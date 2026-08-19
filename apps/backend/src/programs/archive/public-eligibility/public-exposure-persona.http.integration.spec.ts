@@ -29,6 +29,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const PREFIX = 'synthetic-exposure-persona';
+/** 실명이 채워진 persona — 공개 랭킹 응답에 이 문자열이 나오면 즉시 실패다. */
+const NAMED_PERSONA_REAL_NAME = 'synthetic-forbidden-persona-real-name';
+const NAMED_PERSONA_DEPARTMENT = 'synthetic-persona-department';
+/** 사람 축 관측 fixture 연도. 직전 연도에도 행을 심어 연도 필터를 증명한다. */
+const RANKING_FIXTURE_YEAR = 2026;
 const harness = new PublicExposurePersonaHttpHarness(PREFIX);
 
 // `harness.createUser`가 만드는 페르소나 nickname의 공통 접두사다(`${PREFIX}-http-<label>-<seq>-login`).
@@ -44,6 +49,52 @@ const FOREIGN_SUITE_ROLE_REQUEST_ID =
 
 const PROGRAM_ID = `${PREFIX}-program`;
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
+
+/** `GET /ranking` 이 허용하는 최대 pageSize(`ranking-query.dto.ts`). */
+const RANKING_MAX_PAGE_SIZE = 100;
+
+type RankingWireBody = {
+  readonly items: Record<string, unknown>[];
+  readonly total: number;
+};
+
+/**
+ * `GET /ranking` 응답 전 페이지를 실제 HTTP 로 모은다.
+ *
+ * 랭킹은 "가입자 전원이 행을 갖는다"가 제품 정책이라(`ranking.service.ts`), Postgres 를
+ * 공유하는 CI 에서는 형제 스펙이 심은 가입자도 같은 목록에 정당하게 들어온다. 기본
+ * pageSize 는 20 이므로 첫 페이지만 보면 이 파일의 persona 가 0점 동률 뒤로 밀려
+ * 보이지 않을 수 있다 — 실행 순서에 따라 초록/빨강이 갈리는 defect 다. 전 페이지를
+ * 모으면 "이 persona 가 어떻게 보이는가"를 페이지 경계와 무관하게 못 박을 수 있고,
+ * 그러면서도 persona 가 목록에서 통째로 빠지면 여전히 빨강이다.
+ */
+async function fetchRankingPages(
+  query: string,
+  githubId?: bigint,
+): Promise<{
+  readonly response: Response;
+  readonly items: RankingWireBody['items'];
+}> {
+  const first = await harness.request(
+    'GET',
+    `${query}&page=1&pageSize=${RANKING_MAX_PAGE_SIZE}`,
+    githubId,
+  );
+  if (first.status !== 200) return { response: first, items: [] };
+  const firstBody = (await first.clone().json()) as RankingWireBody;
+  const items = [...firstBody.items];
+  const pageCount = Math.ceil(firstBody.total / RANKING_MAX_PAGE_SIZE);
+  for (let page = 2; page <= pageCount; page += 1) {
+    const next = await harness.request(
+      'GET',
+      `${query}&page=${page}&pageSize=${RANKING_MAX_PAGE_SIZE}`,
+      githubId,
+    );
+    expect(next.status).toBe(200);
+    items.push(...((await next.json()) as RankingWireBody).items);
+  }
+  return { response: first, items };
+}
 
 let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
@@ -202,6 +253,43 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     // 옛 저장소 총계 행은 넣지 않는다 — `Contribution` 은 사람 축 하나이고
     // 키가 (repositoryId, githubId, date) 라 위 행과 PK 가 충돌한다(ADR-010 §4).
 
+    // 공개 랭킹 실명 비노출을 실물 HTTP 응답으로 증명할 fixture — DB 에 실명이
+    // **채워져 있는데도** 응답에 나오지 않아야 한다. 동시에 연도가 둘인 사람 축 관측을
+    // 심어, 연도 질의가 요청한 해만 집계하는지(과거 연도 혼입 없음)도 같은 fixture 로 본다.
+    await harness.prisma.user.update({
+      where: { id: studentPersona.id },
+      data: {
+        name: NAMED_PERSONA_REAL_NAME,
+        department: NAMED_PERSONA_DEPARTMENT,
+      },
+    });
+    await harness.prisma.githubUserActivityHistory.createMany({
+      data: [
+        {
+          githubId: studentPersona.githubId,
+          githubLogin: studentPersona.nickname ?? '',
+          year: RANKING_FIXTURE_YEAR,
+          commitCount: 10,
+          pullRequestCount: 4,
+          issueCount: 3,
+          repositoryCount: 2,
+          starCount: 1,
+          observedAt: new Date('2026-08-19T00:00:00.000Z'),
+        },
+        {
+          githubId: studentPersona.githubId,
+          githubLogin: studentPersona.nickname ?? '',
+          year: RANKING_FIXTURE_YEAR - 1,
+          commitCount: 1_000,
+          pullRequestCount: 1_000,
+          issueCount: 1_000,
+          repositoryCount: 1_000,
+          starCount: 1_000,
+          observedAt: new Date('2025-12-31T00:00:00.000Z'),
+        },
+      ],
+    });
+
     // 4중 게이트를 전부 통과하는 PRIVATE 저장소 2개 — 하나는 STAFF가, 하나는 ADMIN이
     // 실제 HTTP POST로 확정한다(둘 다 SubmissionReviewsStaffGuard를 통과해야 하는
     // STAFF+ADMIN 게이트라는 걸 증명). AuditLog 라우트는 반대로 ADMIN 전용임을 별도로
@@ -222,6 +310,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     try {
       await harness.prisma.contribution.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
+      });
+      await harness.prisma.githubUserActivityHistory.deleteMany({
+        where: { githubId: studentPersona.githubId },
       });
       await harness.prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
@@ -266,6 +357,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ];
 
     const allBodies: unknown[] = [];
+    const rankingItemLists: Record<string, unknown>[][] = [];
+    // 공개 계층(비로그인·STUDENT) 응답만 따로 모은다 — 실명 금지 검사는 이쪽에만 건다.
+    const publicTierRankingItemLists: Record<string, unknown>[][] = [];
     for (const githubId of personas) {
       const [list, detail, profile, ranking] = await Promise.all([
         harness.request('GET', '/projects', githubId),
@@ -279,25 +373,27 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           `/users/${publicProject.applicantId}/public-profile`,
           githubId,
         ),
-        harness.request('GET', '/ranking?period=ALL', githubId),
+        fetchRankingPages('/ranking?period=ALL', githubId),
       ]);
 
       expect([
         list.status,
         detail.status,
         profile.status,
-        ranking.status,
+        ranking.response.status,
       ]).toEqual([200, 200, 200, 200]);
 
       type WireBody = Record<string, unknown>;
-      const [listBody, detailBody, profileBody, rankingBody] =
-        (await Promise.all([
-          list.json(),
-          detail.json(),
-          profile.json(),
-          ranking.json(),
-        ])) as readonly [WireBody, WireBody, WireBody, WireBody];
-      allBodies.push(listBody, detailBody, profileBody, rankingBody);
+      const [listBody, detailBody, profileBody] = (await Promise.all([
+        list.json(),
+        detail.json(),
+        profile.json(),
+      ])) as readonly [WireBody, WireBody, WireBody];
+      allBodies.push(listBody, detailBody, profileBody);
+      rankingItemLists.push(ranking.items);
+      if (githubId === undefined || githubId === studentPersona.githubId) {
+        publicTierRankingItemLists.push(ranking.items);
+      }
 
       expect(listBody.items).toEqual(
         expect.arrayContaining([
@@ -314,14 +410,49 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         userId: publicProject.applicantId,
         projects: [expect.objectContaining({ observed: true })],
       });
-      expect(rankingBody.items).toEqual(
-        expect.arrayContaining([expect.objectContaining({})]),
+      // 이 파일이 심은 persona 가 랭킹 목록에 실제로 있는지를 고정한다 — "뭔가 하나라도
+      // 있다"가 아니라 시드 코호트가 있다는 게 이 라우트가 열려 있다는 증거다.
+      expect(ranking.items.map((item) => item.githubLogin as string)).toEqual(
+        expect.arrayContaining([
+          studentPersona.nickname,
+          staffPersona.nickname,
+          adminPersona.nickname,
+        ]),
       );
+    }
+
+    // ranking wire body는 5종 지표 + 봉투를 정확히 이 키들로만 내려준다 — 실명은 별도
+    // 칸이 아니라 `displayName` 안에서만 바뀜므로 키 집합은 어느 계층이든 같다.
+    // (allowlist 를 통째로 고정하므로 새 칸이 조용히 새어 나가면 여기서 깨진다.)
+    for (const items of rankingItemLists) {
+      expect(items.length).toBeGreaterThan(0);
+      for (const item of items) {
+        expect(Object.keys(item).sort()).toEqual([
+          'commitCount',
+          'department',
+          'displayName',
+          'githubLogin',
+          'issueCount',
+          'pullRequestCount',
+          'rank',
+          'repositoryCount',
+          'starCount',
+          'total',
+        ]);
+        expect(item.total).toBe(
+          (item.commitCount as number) +
+            (item.pullRequestCount as number) +
+            (item.issueCount as number) +
+            (item.repositoryCount as number) +
+            (item.starCount as number),
+        );
+      }
     }
 
     // 동일 wire body가 4-페르소나 전부에서 반복 수집된다 — 아래 forbidden-key 검사는
     // 이 실제 HTTP 직렬화 결과에 대해서만 의미가 있다(DB 레벨 파일은 raw 도메인 결과라
-    // githubId 등 내부 전용 필드가 남아 있어 이 검사를 미뤘다).
+    // githubId 등 내부 전용 필드가 남아 있어 이 검사를 미뤘다). `"department"` 는
+    // ranking 전용 공개 필드라 여기(list/detail/profile)에서는 여전히 금지다.
     const serialized = JSON.stringify(allBodies);
     for (const forbiddenKey of [
       '"name"',
@@ -343,6 +474,125 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ]) {
       expect(serialized).not.toContain(forbiddenKey);
     }
+    // 공개 계층(비로그인·STUDENT)은 `displayName` 이 항상 `githubLogin` 과 같다.
+    for (const items of publicTierRankingItemLists) {
+      for (const item of items) {
+        expect(item.displayName).toBe(item.githubLogin);
+      }
+    }
+
+    const rankingSerialized = JSON.stringify(rankingItemLists);
+    for (const forbiddenKey of [
+      '"name"',
+      '"studentId"',
+      '"email"',
+      '"role"',
+      '"accountStatus"',
+      '"githubId"',
+      '"releaseCount"',
+    ]) {
+      expect(rankingSerialized).not.toContain(forbiddenKey);
+    }
+    // DB 에 실명이 채워져 있는 persona 인데도 공개 계층 응답 바디에는 그 값이 없다.
+    expect(JSON.stringify(publicTierRankingItemLists)).not.toContain(
+      NAMED_PERSONA_REAL_NAME,
+    );
+  });
+
+  it('같은 /ranking URL 이 계층별로 다른 표기를 내린다 — 교직원·관리자만 실명을 본다 (todo 15)', async () => {
+    const path = `/ranking?year=${RANKING_FIXTURE_YEAR}`;
+    const [anonymous, student, staff, admin] = await Promise.all([
+      fetchRankingPages(path, undefined),
+      fetchRankingPages(path, studentPersona.githubId),
+      fetchRankingPages(path, staffPersona.githubId),
+      fetchRankingPages(path, adminPersona.githubId),
+    ]);
+    expect([
+      anonymous.response.status,
+      student.response.status,
+      staff.response.status,
+      admin.response.status,
+    ]).toEqual([200, 200, 200, 200]);
+
+    // (g) 인증(교직원·관리자) 응답은 공유 캐시에 남지 않는다.
+    expect(anonymous.response.headers.get('cache-control')).toBe('no-store');
+    expect(student.response.headers.get('cache-control')).toBe('no-store');
+    expect(staff.response.headers.get('cache-control')).toBe(
+      'private, no-store',
+    );
+    expect(admin.response.headers.get('cache-control')).toBe(
+      'private, no-store',
+    );
+
+    // (a) 비로그인은 학과를 보고 실명은 보지 않는다.
+    const anonymousEntry = anonymous.items.find(
+      (item) => item.githubLogin === studentPersona.nickname,
+    );
+    expect(anonymousEntry).toMatchObject({
+      department: NAMED_PERSONA_DEPARTMENT,
+      displayName: studentPersona.nickname,
+    });
+    expect(JSON.stringify(anonymous.items)).not.toContain(
+      NAMED_PERSONA_REAL_NAME,
+    );
+
+    // (b) STUDENT 세션 응답은 비로그인과 바이트 동일하다.
+    expect(JSON.stringify(student.items)).toBe(JSON.stringify(anonymous.items));
+
+    // (c)(d) STAFF·ADMIN 은 displayName 이 실명이다.
+    for (const staffTierItems of [staff.items, admin.items]) {
+      const entry = staffTierItems.find(
+        (item) => item.githubLogin === studentPersona.nickname,
+      );
+      expect(entry).toMatchObject({
+        githubLogin: studentPersona.nickname,
+        displayName: NAMED_PERSONA_REAL_NAME,
+        department: NAMED_PERSONA_DEPARTMENT,
+      });
+    }
+    // ADMIN 응답은 STAFF 응답과 같다.
+    expect(JSON.stringify(admin.items)).toBe(JSON.stringify(staff.items));
+
+    // (e) 실명이 비어 있는 persona 는 교직원 응답에서도 githubLogin 이다.
+    const namelessEntry = staff.items.find(
+      (item) => item.githubLogin === staffPersona.nickname,
+    );
+    expect(namelessEntry).toMatchObject({
+      displayName: staffPersona.nickname,
+    });
+
+    // (f) 등수 순서는 네 계층이 완전히 같다 — 실명이 순서를 바트지 않는다.
+    const order = (items: Record<string, unknown>[]) =>
+      items.map((item) => `${String(item.rank)}:${String(item.githubLogin)}`);
+    expect(order(student.items)).toEqual(order(anonymous.items));
+    expect(order(staff.items)).toEqual(order(anonymous.items));
+    expect(order(admin.items)).toEqual(order(anonymous.items));
+  });
+
+  it('연도 질의는 그 해 관측만 합산한다 — 지난 연도 행이 있어도 섞이지 않는다', async () => {
+    const ranking = await fetchRankingPages(
+      `/ranking?year=${RANKING_FIXTURE_YEAR}`,
+      undefined,
+    );
+    expect(ranking.response.status).toBe(200);
+    const entry = ranking.items.find(
+      (item) => item.githubLogin === studentPersona.nickname,
+    );
+    // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 지난해가 새면 total 이
+    // 5020 이 된다.
+    expect(entry).toMatchObject({
+      displayName: studentPersona.nickname,
+      department: NAMED_PERSONA_DEPARTMENT,
+      commitCount: 10,
+      pullRequestCount: 4,
+      issueCount: 3,
+      repositoryCount: 2,
+      starCount: 1,
+      total: 20,
+    });
+    expect(JSON.stringify(ranking.items)).not.toContain(
+      NAMED_PERSONA_REAL_NAME,
+    );
   });
 
   it('POST /repositories/:id/publish — 익명은 401, STUDENT는 403, STAFF/ADMIN은 200이다(실제 SessionGuard+SubmissionReviewsStaffGuard)', async () => {

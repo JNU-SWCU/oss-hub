@@ -4,8 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ConsentsModule } from '../consents/consents.module';
-import { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
@@ -20,6 +18,7 @@ import { COLLECTION_READ_PORT } from './collection-read.port';
 import { CollectionReadService } from './service/collection-read.service';
 import { CollectionReconciliationService } from './service/collection-reconciliation.service';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
+import { CollectionUserActivityService } from './service/collection-user-activity.service';
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
@@ -136,10 +135,16 @@ describe('CollectionModule', () => {
     expect(controllers).toHaveLength(1);
   });
 
-  it('ConsentsModule을 초기화해 동의 게이트 재사용 경로를 사용할 수 있게 한다', () => {
+  it('배경 수집 모듈은 동의 모듈에 더 이상 의존하지 않는다', () => {
+    // 동의 게이트는 온보딩 경로(roles·users·repository-own-enrollment) 전속이다.
+    // 이 모듈이 다시 ConsentsModule을 끌어오면 배경 수집이 동의를 두 번 묻는
+    // 상태로 되돌아간다.
     const imports = getMetadataArray(MODULE_METADATA.IMPORTS);
+    const names = imports.map((entry) =>
+      typeof entry === 'function' ? entry.name : String(entry),
+    );
 
-    expect(imports).toContain(ConsentsModule);
+    expect(names).not.toContain('ConsentsModule');
   });
 
   it('CollectionDiscoveryClient가 CollectionPublicTokenProvider를 주입받도록 배선한다', () => {
@@ -155,7 +160,7 @@ describe('CollectionModule', () => {
     );
   });
 
-  it('CollectionExternalDiscoveryService가 discovery client·증분 저장소·동의 서비스를 주입받도록 배선한다', () => {
+  it('CollectionExternalDiscoveryService가 동의 서비스 없이 discovery client·증분 저장소만 주입받도록 배선한다', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     expect(providers).toEqual(
@@ -164,10 +169,22 @@ describe('CollectionModule', () => {
           provide: CollectionExternalDiscoveryService,
           inject: [
             PrismaService,
-            ConsentsService,
             CollectionIncrementalRepository,
             CollectionDiscoveryClient,
           ],
+        }),
+      ]),
+    );
+  });
+
+  it('CollectionUserActivityService가 prisma·discovery client를 주입받도록 배선한다', () => {
+    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
+
+    expect(providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provide: CollectionUserActivityService,
+          inject: [PrismaService, CollectionDiscoveryClient],
         }),
       ]),
     );

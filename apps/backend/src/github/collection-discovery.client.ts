@@ -80,6 +80,19 @@ export interface CollectionDiscoveryResult {
   readonly restrictedContributionsCount: number;
 }
 
+/**
+ * Person-axis (not repository-axis) activity observation for one GitHub
+ * login. `starCount` is cumulative across the account's public owned
+ * repositories, not "stars earned in the window".
+ */
+export interface CollectionUserActivityMetrics {
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+}
+
 interface RawRepository {
   readonly databaseId: string;
   readonly nameWithOwner: string;
@@ -124,6 +137,55 @@ ${REPOSITORY_FIELDS}
     }
   }
 `;
+
+/**
+ * Person-axis activity query: one call answers "how much did this person do
+ * in `[from, to)`" without going through any repository we track. The
+ * window MUST be at most one year — GitHub rejects a longer
+ * `contributionsCollection(from, to)` span with a hard `VALIDATION` GraphQL
+ * error (verified against the live API, `docs/rules/data-modeling.md` §5),
+ * so callers never widen it and this client never splits/retries it.
+ *
+ * `repositories(ownerAffiliations: OWNER, privacy: PUBLIC)` is paginated:
+ * star totals are summed across pages while `pageInfo.hasNextPage` holds.
+ * The contribution counters are read from the first page only — they do not
+ * depend on the repository cursor, and re-reading them per page would let a
+ * mid-pagination change silently double-count.
+ */
+const USER_ACTIVITY_QUERY = `
+  query CollectionUserActivity($login: String!, $from: DateTime!, $to: DateTime!, $after: String) {
+    rateLimit {
+      cost
+      remaining
+    }
+    user(login: $login) {
+      contributionsCollection(from: $from, to: $to) {
+        totalCommitContributions
+        totalPullRequestContributions
+        totalIssueContributions
+        totalRepositoryContributions
+      }
+      repositories(first: 100, ownerAffiliations: OWNER, privacy: PUBLIC, after: $after) {
+        totalCount
+        nodes {
+          stargazerCount
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Upper bound on `repositories` pages walked for one user. 100 nodes per
+ * page × 50 pages = 5,000 owned public repositories, far above any
+ * plausible student account; the bound exists so a server-side cursor bug
+ * cannot spin this loop forever.
+ */
+const MAX_ACTIVITY_PAGES = 50;
 
 function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
   const seen = new Set<string>();
@@ -196,6 +258,69 @@ export class CollectionDiscoveryClient {
         archived: r.archived,
       }));
     return { repositories, restrictedContributionsCount };
+  }
+
+  /**
+   * Person-axis activity metrics for one GitHub login over `[from, to)`.
+   *
+   * `from`/`to` must span at most one year (see `USER_ACTIVITY_QUERY`); a
+   * wider window is rejected upstream and surfaces as `GRAPHQL_ERROR`.
+   * `starCount` is a lifetime cumulative figure — GitHub does not expose
+   * "stars earned this year" cheaply — and is summed across every
+   * `repositories` page.
+   */
+  async fetchUserActivityMetrics(
+    login: string,
+    from: string,
+    to: string,
+  ): Promise<CollectionUserActivityMetrics> {
+    let counts: {
+      commitCount: number;
+      pullRequestCount: number;
+      issueCount: number;
+      repositoryCount: number;
+    } | null = null;
+    let starCount = 0;
+    let after: string | null = null;
+    for (let page = 0; ; page += 1) {
+      if (page >= MAX_ACTIVITY_PAGES) {
+        throw new CollectionDiscoveryClientError('RESPONSE');
+      }
+      const body = await this.request({
+        query: USER_ACTIVITY_QUERY,
+        variables: { login, from, to, after },
+      });
+      const user = this.record(body.data).user;
+      if (user === null || user === undefined) {
+        throw new CollectionDiscoveryClientError('USER_NOT_FOUND');
+      }
+      const record = this.record(user);
+      if (counts === null) {
+        const collection = this.record(record.contributionsCollection);
+        counts = {
+          commitCount: this.count(collection.totalCommitContributions),
+          pullRequestCount: this.count(
+            collection.totalPullRequestContributions,
+          ),
+          issueCount: this.count(collection.totalIssueContributions),
+          repositoryCount: this.count(collection.totalRepositoryContributions),
+        };
+      }
+      const repositories = this.record(record.repositories);
+      const nodes = repositories.nodes;
+      if (!Array.isArray(nodes)) this.invalid();
+      for (const node of nodes) {
+        // GitHub returns `null` nodes for entries the token cannot see;
+        // they carry no star fact, so they are skipped rather than
+        // treated as a malformed page.
+        if (node === null || node === undefined) continue;
+        starCount += this.count(this.record(node).stargazerCount);
+      }
+      const pageInfo = this.record(repositories.pageInfo);
+      if (!this.boolean(pageInfo.hasNextPage)) break;
+      after = this.string(pageInfo.endCursor);
+    }
+    return { ...counts, starCount };
   }
 
   private async request(payload: {

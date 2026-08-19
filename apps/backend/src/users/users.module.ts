@@ -10,7 +10,6 @@ import { AdminProfileService } from './admin-profile.service';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
-import { UserDisplayNameRepository } from './user-display-name.repository';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
@@ -32,10 +31,9 @@ import { UsersService } from './users.service';
     AdminAccessService,
     AdminProfileRepository,
     AdminProfileService,
-    UserDisplayNameRepository,
     UsersRepository,
     UsersService,
   ],
-  exports: [UserDisplayNameRepository, UsersService],
+  exports: [UsersService],
 })
 export class UsersModule {}

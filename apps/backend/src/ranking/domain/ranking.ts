@@ -27,16 +27,46 @@ export const RANKING_PERIODS = LEGACY_RANKING_PERIODS;
 /** @deprecated Use `RankingYear`. */
 export type RankingPeriod = LegacyRankingPeriod;
 
+/**
+ * 공개 랭킹 지표 5종(관리자 요청 — release 대신 star·repo·issue).
+ * `starCount`는 그 계정 공개 저장소의 **누적** star다 — GitHub이 연도별
+ * 분해를 주지 않는다. release는 저장소 축(② 프로그램 표면) 전속이다.
+ */
 export interface RankingMetrics {
   readonly commitCount: number;
   readonly pullRequestCount: number;
-  readonly releaseCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
 }
+
+/**
+ * 응답 계층. 같은 `GET /ranking` URL 이 세션 역할에 따라 다른 칸을 내린다.
+ *
+ * 계층은 실질적으로 **둘**이다 — 학과는 공개 가능 정보로 판단했으므로
+ * (owner 결정 2026-08-19) 비로그인과 학생이 보는 것이 같다. 교직원·관리자만
+ * 거기에 실명을 더해 본다.
+ */
+export const RANKING_VIEWER_TIERS = {
+  /** 비로그인 · STUDENT · 역할 미확정 세션. */
+  PUBLIC: 'PUBLIC',
+  /** STAFF · ADMIN — 실명까지 본다. */
+  STAFF: 'STAFF',
+} as const;
+
+export type RankingViewerTier =
+  (typeof RANKING_VIEWER_TIERS)[keyof typeof RANKING_VIEWER_TIERS];
 
 export interface RankingEntry extends RankingMetrics {
   readonly rank: number;
+  /**
+   * 공개·학생 계층에서는 항상 `githubLogin`과 같다(D3). 교직원·관리자
+   * 계층에서만 `User.name` 으로 바뀜고, 실명이 없으면 다시 `githubLogin` 이다.
+   */
   readonly displayName: string;
   readonly githubLogin: string;
+  /** 학과. `UserProfile` 우선, 없으면 legacy `User.department`. 미입력이면 null. */
+  readonly department: string | null;
   readonly total: number;
 }
 

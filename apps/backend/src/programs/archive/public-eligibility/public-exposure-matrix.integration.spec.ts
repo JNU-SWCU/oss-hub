@@ -24,8 +24,8 @@ import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import type { GithubAppClient } from '../../../github/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
+import { RankingViewerRepository } from '../../../ranking/repository/ranking-viewer.repository';
 import { RankingService } from '../../../ranking/service/ranking.service';
-import { UserDisplayNameRepository } from '../../../users/user-display-name.repository';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
@@ -69,7 +69,7 @@ const publicProjectsService = new PublicProjectsService(
 );
 const rankingService = new RankingService(
   collection,
-  new UserDisplayNameRepository(prisma),
+  new RankingViewerRepository(prisma),
 );
 
 const github = {
@@ -91,6 +91,28 @@ const submissionReviewsService = new SubmissionReviewsService(
 
 const PREFIX = 'synthetic-exposure-matrix';
 const now = () => new Date();
+
+/**
+ * 랭킹은 "가입자 전원이 행을 가진다"가 제품 정책이라(`ranking.service.ts`), 한
+ * Postgres를 공유하는 CI에서는 형제 스펙이 심은 가입자도 같은 목록에 들어온다.
+ * 그래서 첫 페이지만 보면 이 스펙의 fixture가 0점 동률 뒤로 밀려 보이지 않을 수
+ * 있다 — 순서 의존이다. 목록 전체를 페이징해 모으면 "이 fixture가 랭킹에 있다/
+ * 없다"를 페이지 경계와 무관하게 같은 강도로 말할 수 있다.
+ */
+const RANKING_PAGE_SIZE = 100;
+
+async function collectRankingEntries(): Promise<
+  Awaited<ReturnType<typeof rankingService.findPage>>['items']
+> {
+  const first = await rankingService.findPage('all', 1, RANKING_PAGE_SIZE);
+  const items = [...first.items];
+  const pageCount = Math.ceil(first.total / RANKING_PAGE_SIZE);
+  for (let page = 2; page <= pageCount; page += 1) {
+    const next = await rankingService.findPage('all', page, RANKING_PAGE_SIZE);
+    items.push(...next.items);
+  }
+  return items;
+}
 
 const PROGRAM_ENDED_ID = `${PREFIX}-program-ended`;
 const PROGRAM_NOT_ENDED_ID = `${PREFIX}-program-not-ended`;
@@ -483,11 +505,10 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     // 알려진 갭 — #617 이전에는 별도 observeCollection 호출로 "collection은 이미 PUBLIC/PRESENT로
     // 본다"는 platform 결정과의 어긋남을 fixture로 만들 수 있었다. 단일 visibility 컬럼이 된
     // 지금은 그 어긋남 자체를 동시에 표현할 수 없다(한 컬럼에 두 값이 동시에 있을 수 없다) —
-    // 그런데 그 어긋남을 표현할 필요도 없어졌다: provisioning writer가 create에서 이미
-    // `presence: PRESENT`를 쓰므로, ranking의 RANKING_REPOSITORY_SCOPE(ORG_PROVISIONED는
-    // presence: PRESENT만 요구)는 별도 관측 없이도 항상 충족된다. 그래서 observeCollection
-    // 호출을 아예 지운다 — platform Repository는 PRIVATE로 남고, ranking은 여전히(그리고
-    // 이제는 더 사소한 이유로) platform 결정과 무관하게 노출한다.
+    // 그런데 그 어긋남을 표현할 필요도 없어졌다: ranking은 사람 축만 읽어 저장소 관측
+    // 상태를 아예 참조하지 않으므로, 어느 쪽 값이든 랭킹 결과가 달라지지 않는다. 그래서
+    // observeCollection 호출을 아예 지운다 — platform Repository는 PRIVATE로 남고,
+    // ranking은 여전히 platform 결정과 무관하게 가입자 행을 노출한다.
     outcome6 = await createScenario({
       key: 'outcome-6',
       programId: PROGRAM_ENDED_ID,
@@ -606,20 +627,21 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       });
 
       // PM 확정 정책 — 닉네임을 가진 가입자는 전원 ranking에 행을 갖는다
-      // (`ranking.service.ts`의 `buildEntries`, `total > 0` 필터 없음). 이 지원자의
-      // 저장소는 collector가 한 번도 관측하지 않아 CollectionRepository 행 자체가 없으므로
-      // RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 만족할 수 없어 집계 대상 밖이다 —
-      // 그래서 행은 존재하되 수치는 정확히 0이어야 한다. "행이 없다"가 아니라 "행은 있고
-      // 0이다"가 비공개 활동 비노출의 실제 증거다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome1Entry = ranking.items.find(
+      // (`ranking.service.ts`의 `buildEntries`, `total > 0` 필터 없음). ranking은 이제
+      // 사람 축(`GithubUserActivityHistory`)만 읽으므로 저장소 축 기여(`Contribution`)는
+      // 어느 저장소에 있든 랭킹 수치에 들어오지 않는다 — 이 fixture는 사람 축 관측을
+      // 심지 않았으니 행은 존재하되 5종 전부 0이어야 한다.
+      const rankingEntries = await collectRankingEntries();
+      const outcome1Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
       );
       expect(outcome1Entry).toBeDefined();
       expect(outcome1Entry).toMatchObject({
         commitCount: 0,
         pullRequestCount: 0,
-        releaseCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
         total: 0,
       });
     },
@@ -648,8 +670,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     expect(profile.projects).toHaveLength(1);
     expect(profile.projects[0]?.observed).toBe(true);
 
-    const ranking = await rankingService.findPage('all', 1, 100);
-    const rankedLogins = ranking.items.map((entry) => entry.githubLogin);
+    const rankedLogins = (await collectRankingEntries()).map(
+      (entry) => entry.githubLogin,
+    );
     expect(rankedLogins).toEqual(
       expect.arrayContaining([
         `${PREFIX}-outcome-2-owner-login`,
@@ -696,18 +719,19 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // observed 단독이 아니라 이 필드로 "첫 sweep 전" 상태를 "관측된 0"과 구분해서 보여준다.
       expect(profile.projects[0]?.hasCollectedData).toBe(false);
 
-      // ranking은 RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 요구한다 — provisioning
-      // 시점부터 presence가 PRESENT이니 이 저장소도 스코프 안이다. PM 확정 정책상 가입자는
-      // 전원 ranking에 행을 갖고, 기여가 없으니 수치는 0이다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome3Entry = ranking.items.find(
+      // ranking은 저장소 관측 상태를 아예 보지 않는다(사람 축 전환). PM 확정 정책상
+      // 가입자는 전원 ranking에 행을 갖고, 사람 축 관측이 없으니 5종 전부 0이다.
+      const rankingEntries = await collectRankingEntries();
+      const outcome3Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
       );
       expect(outcome3Entry).toBeDefined();
       expect(outcome3Entry).toMatchObject({
         commitCount: 0,
         pullRequestCount: 0,
-        releaseCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
         total: 0,
       });
     },
@@ -715,9 +739,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
 
   it(
     'outcome-4: collection이 PRIVATE/PRESENT로 관측했고 그 관측이 발행 이전(stale)이면 ' +
-      'list/detail/profile은 그대로 노출하고(stale-allow), ranking도 org 저장소는 ' +
-      '가시성과 무관하게 집계한다는 동의 문서(policies/github-activity) 정책에 따라 ' +
-      '이 비공개(PRIVATE) 활동을 그대로 합산한다',
+      'list/detail/profile은 그대로 노출하고(stale-allow), ranking은 저장소 축 기여를 ' +
+      '아예 읽지 않으므로 이 비공개(PRIVATE) 저장소 활동이 공개 랭킹으로 새지 않는다',
     async () => {
       const page = await publicProjectsService.findPage(undefined, 50);
       expect(page.items.some((item) => item.id === outcome4.repositoryId)).toBe(
@@ -730,37 +753,31 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         ),
       ).resolves.toMatchObject({ row: { id: outcome4.repositoryId } });
 
-      // RANKING_REPOSITORY_SCOPE(`public-ranking.repository.ts`)는 source가
-      // ORG_PROVISIONED이면 visibility를 보지 않는다 — presence: PRESENT만 만족하면
-      // 합산 대상이다. 이 collection 관측은 visibility PRIVATE이지만 presence PRESENT라
-      // 스코프 안이다(발행 이전 stale 관측이라는 사실은 list/detail/profile의
-      // stale-allow 판단에만 쓰이고 ranking 집계 스코프와는 무관하다). 그래서 fixture가
-      // 심은 정확한 수치(commit 5 / PR 2 / release 1)가 그대로 합산돼야 한다 —
-      // "제외된다"가 아니라 "org 저장소이므로 합산된다"가 실제 정책이다. 동의 문서
-      // (`apps/frontend/public/policies/github-activity/2026-08-04.html` "수집 범위와
-      // 목적")도 "JNU-SWCU Org 저장소(가시성 무관)와 학생 GitHub 계정의 공개(public)
-      // 저장소 활동"을 집계·공개 랭킹 표기에 쓴다고 명시한다 — org 저장소는 가시성
-      // 조건이 없고, 가시성 제한은 개인(EXTERNAL_PUBLIC) 계정에만 걸린다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome4Entry = ranking.items.find(
-        (entry) =>
-          entry.githubLogin === `${PREFIX}-outcome-4-applicant-login` &&
-          entry.total > 0,
+      // 두 축 MECE의 실물 증거다. fixture는 이 PRIVATE 저장소에 저장소 축 기여
+      // (`Contribution` — commit 5 / PR 2 / release 1)를 심었지만, ranking은 사람 축
+      // (`GithubUserActivityHistory`)만 읽으므로 그 수치가 공개 랭킹에 단 하나도 나타나지
+      // 않는다. 가입자라 행 자체는 있고 값이 전부 0이다 — "행이 없다"가 아니라 "행은 있고
+      // 0이다"가 비공개 저장소 활동 비노출의 증거다.
+      const rankingEntries = await collectRankingEntries();
+      const outcome4Entry = rankingEntries.find(
+        (entry) => entry.githubLogin === `${PREFIX}-outcome-4-applicant-login`,
       );
       expect(outcome4Entry).toBeDefined();
       expect(outcome4Entry).toMatchObject({
-        commitCount: 5,
-        pullRequestCount: 2,
-        releaseCount: 1,
-        total: 8,
+        commitCount: 0,
+        pullRequestCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        total: 0,
       });
     },
   );
 
   it(
     'outcome-5: collection이 private/missing으로 관측했고 발행 이후(out-of-band 변경)면 ' +
-      '즉시 회수되어 list/detail/profile에는 없고, ranking도 presence ABSENT라 ' +
-      'RANKING_REPOSITORY_SCOPE 밖이라서 가입자 행은 있으나 수치는 0/0/0이다',
+      '즉시 회수되어 list/detail/profile에는 없고, ranking은 저장소 축을 읽지 않으므로 ' +
+      '가입자 행은 있으나 5종 전부 0이다',
     async () => {
       const page = await publicProjectsService.findPage(undefined, 50);
       expect(page.items.some((item) => item.id === outcome5.repositoryId)).toBe(
@@ -781,20 +798,20 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
 
-      // presence가 ABSENT라 RANKING_REPOSITORY_SCOPE(presence: PRESENT)를 만족하지 못해
-      // 이 저장소의 Contribution은 집계에서 빠진다 — outcome-4(presence PRESENT)와 갈리는
-      // 지점이 정확히 여기다: org 저장소라도 presence ABSENT면 여전히 제외된다. 다만 PM
-      // 확정 정책상 가입자는 전원 ranking에 행을 가지므로 "행이 없다"가 아니라 "행은
-      // 있고 0이다"로 증명한다.
-      const ranking = await rankingService.findPage('all', 1, 100);
-      const outcome5Entry = ranking.items.find(
+      // ranking은 저장소 관측(presence/visibility)을 아예 참조하지 않는다 — outcome-4와
+      // 결과가 같은 이유가 바로 그것이다. PM 확정 정책상 가입자는 전원 ranking에 행을
+      // 가지므로 "행이 없다"가 아니라 "행은 있고 0이다"로 증명한다.
+      const rankingEntries = await collectRankingEntries();
+      const outcome5Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
       );
       expect(outcome5Entry).toBeDefined();
       expect(outcome5Entry).toMatchObject({
         commitCount: 0,
         pullRequestCount: 0,
-        releaseCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
         total: 0,
       });
     },
@@ -835,14 +852,13 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
       });
 
-      // 알려진 갭: ranking은 platform publish 상태를 전혀 참조하지 않는다
-      // (`CollectionReadService.getPublicRankingMetrics`가 `CollectionRepository.visibility`/
-      // `presence`만 본다 — `Repository.visibility`/`isRepositoryPublicationPlanned`는 관여하지
-      // 않는다). 이 outcome은 그 현재 동작을 characterization으로 고정한다 — "그래야 한다"가
-      // 아니라 "지금 그렇다"의 증거다.
-      const ranking = await rankingService.findPage('all', 1, 100);
+      // ranking은 platform publish 상태도 저장소 관측 상태도 전혀 참조하지 않는다
+      // (`getPublicRankingMetrics`는 사람 축 `GithubUserActivityHistory`와 가입자 목록만
+      // 읽는다). 그래서 가입자인 이상 이 지원자도 랭킹 목록에는 행을 갖는다 — 수치가
+      // 아니라 "행의 존재"만 여기서 고정한다.
+      const rankingEntries = await collectRankingEntries();
       expect(
-        ranking.items.some(
+        rankingEntries.some(
           (entry) =>
             entry.githubLogin === `${PREFIX}-outcome-6-applicant-login`,
         ),
@@ -874,9 +890,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         false,
       );
 
-      const ranking = await rankingService.findPage('all', 1, 100);
+      const rankingEntries = await collectRankingEntries();
       expect(
-        ranking.items.some(
+        rankingEntries.some(
           (entry) =>
             entry.githubLogin === `${PREFIX}-outcome-7-applicant-login`,
         ),
@@ -939,7 +955,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     expect(profile.projects[0]?.observed).toBe(true);
   });
 
-  it('outcome-9: 공개 가능한 기여가 하나도 없는 사용자는 존재하지 않는 사용자와 동일한 404이고, list/detail/profile/ranking 직렬화 결과 어디에도 금지 키(실명/학번/학과/이메일/역할/계정상태/제출내용/거절사유/provision 에러/raw githubId 등)가 없다', async () => {
+  it('outcome-9: 공개 가능한 기여가 하나도 없는 사용자는 존재하지 않는 사용자와 동일한 404이고, list/detail/profile/ranking 직렬화 결과 어디에도 금지 키(실명/학번/이메일/역할/계정상태/제출내용/거절사유/provision 에러 등)가 없다 — 학과는 ranking 전용 공개 필드로만 나간다', async () => {
     const bystanderId = `${PREFIX}-outcome-9-bystander`;
     await prisma.user.create({
       data: {
@@ -989,7 +1005,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       const profile = await publicProjectsService.findProfile(
         outcome2.applicantId,
       );
-      const ranking = await rankingService.findPage('all', 1, 100);
+      const rankingEntries = await collectRankingEntries();
 
       // raw 도메인 결과에는 bigint 필드(githubRepositoryId/githubId)가 그대로 남아 있어
       // 기본 JSON.stringify는 TypeError를 던진다 — bigint를 문자열로 바꾸는 replacer로
@@ -1002,16 +1018,36 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         bigintSafeStringify(page),
         bigintSafeStringify(detail),
         bigintSafeStringify(profile),
-        bigintSafeStringify(ranking),
+        bigintSafeStringify(rankingEntries),
       ].join('\n');
 
+      // 실명·학번은 어느 공개 표면에도 없다 — 이 불변식은 사람 축 전환 이후에도 그대로다.
       expect(serialized).not.toContain('synthetic-forbidden-real-name');
       expect(serialized).not.toContain(`${PREFIX}-forbidden-student-id`);
-      expect(serialized).not.toContain('synthetic-forbidden-department');
+      // ranking은 이제 학과를 의도적으로 내려준다(owner 결정 2026-08-19 — 학과는 공개
+      // 가능 정보). 그래서 `"department"` 키 금지는 list/detail/profile에만 적용하고,
+      // ranking에는 "이 사용자의 학과가 정확히 그 값으로 나온다"를 따로 고정한다 —
+      // 금지 목록에서 빼기만 하면 무엇이 나가는지 아무도 안 보게 된다.
+      const serializedWithoutRanking = [
+        bigintSafeStringify(page),
+        bigintSafeStringify(detail),
+        bigintSafeStringify(profile),
+      ].join('\n');
+      expect(serializedWithoutRanking).not.toContain(
+        'synthetic-forbidden-department',
+      );
+      expect(serializedWithoutRanking).not.toContain('"department"');
+      const bystanderEntry = rankingEntries.find(
+        (entry) => entry.githubLogin === `${PREFIX}-outcome-9-bystander-login`,
+      );
+      expect(bystanderEntry).toMatchObject({
+        department: 'synthetic-forbidden-department',
+      });
+      expect(bystanderEntry).not.toHaveProperty('name');
+      expect(bystanderEntry).not.toHaveProperty('studentId');
       for (const forbiddenKey of [
         '"name"',
         '"studentId"',
-        '"department"',
         '"email"',
         '"role"',
         '"accountStatus"',

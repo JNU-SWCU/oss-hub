@@ -129,6 +129,36 @@ export class CollectionReadService implements CollectionReadPort {
   }
 
   /**
+   * ② 프로그램/팀 기여도 표면이 세는 저장소 조건을 만든다 (MECE 저장소 축).
+   *
+   * `linkedRepositoryFilter`보다 한 칸 더 좁다. 그쪽은 `source: ORG_PROVISIONED`를 통째로
+   * 통과시키는데, 조직 저장소에는 **프로그램에 속하지 않는 운영/개발용 저장소**도 섞여
+   * 있다(`programId`·`teamId`가 둘 다 null인 행). 그 기여가 프로그램 실적으로 조용히
+   * 합산되면 화면이 사업단 성과를 부풀린다.
+   *
+   * 그래서 ② 표면은 **프로그램이나 팀에 연결됐다는 것이 컬럼으로 증명된 저장소만** 센다.
+   * `GithubRepository.programId`/`teamId`는 프로비저닝 흐름에서만 채워지고 인벤토리
+   * 스윙 upsert(`recordRepositoryObservation`)가 절대 건드리지 않으므로
+   * (`schema.prisma`의 `GithubRepository` 주석), 이 조건은 관측 노이즈에 흔들리지 않는다.
+   *
+   * **연결 저장소에 아직 기여가 없으면 이 표면은 0을 낸다.** 그건 데이터 부재이지 버그가
+   * 아니며(빈 상태 문구가 말한다), 숫자를 만들려고 이 조건을 무르게 하지 않는다.
+   *
+   * 랭킹(사람 축)은 이 조건을 쓰지 않는다 — 그쪽은 `PublicRankingRepository`가 소유하는
+   * 별도 질의이며 묻는 질문 자체가 다르다(저장소 축 vs 사람 축).
+   */
+  private programLinkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
+    return {
+      // 두 조건을 `AND`로 묶는다. 둘 다 최상위 `OR`를 쓰므로 하나로 펼치면
+      // 뒤에 오는 절이 앞의 가드를 조용히 덮어쓴다.
+      AND: [
+        this.linkedRepositoryFilter(),
+        { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
+      ],
+    };
+  }
+
+  /**
    * `githubId` → GitHub login 해석.
    *
    * `Contribution` 은 집계 수치만 담고 표시명을 들지 않는다(ADR-010 §4).
@@ -378,7 +408,9 @@ export class CollectionReadService implements CollectionReadPort {
    * (ranking source). repository 집계와 달리 0값 기본 행을 만들지 않는다 — 해당 연도에 실제
    * fact가 있는 (repository, contributor) 조합만 존재한다(기존 `getContributorYearAggregate`와
    * 동일한 규약).
-   * GR-13 — `repositoryIds`는 `linkedRepositoryFilter`가 거른다: 조직 저장소이거나, 신청에 연결됐음이 DB로 증명된 조직 밖 저장소만 통과한다.
+   * GR-13 — `repositoryIds`는 `programLinkedRepositoryFilter`가 거른다: GR-13 연결 증명에
+   * 더해 **`programId`나 `teamId`가 있는 저장소만** 통과한다 — 이 메서드는 ② 프로그램/팀
+   * 기여도 표면의 지표이므로 프로그램에 속하지 않는 운영/개발용 조직 저장소가 섞이면 안 된다.
    * "ranking source"라는 위 표현은 `getRepositoryMetrics`와 같은 batch-by-id aggregate라는
    * 뜻이며, 학생 개인 이력을 의도적으로 섞는 `getPublicRankingMetrics`(org 밖 저장소도 포함)와는
    * 다르다 — 이 메서드는 현재 실운영 호출자가 없다. 나중에 이 메서드를 개인 랭킹 용도로 새로
@@ -402,7 +434,7 @@ export class CollectionReadService implements CollectionReadPort {
         date: { gte: yearStart, lt: yearEnd },
         repository: {
           githubRepositoryId: { in: [...query.repositoryIds] },
-          ...this.linkedRepositoryFilter(),
+          ...this.programLinkedRepositoryFilter(),
         },
       },
       select: {
@@ -559,7 +591,8 @@ export class CollectionReadService implements CollectionReadPort {
    * `year`로 필터링하지 않고 (저장소, 기여자) 조합별 전체 연도를 합산한다(lifetime 누적).
    * repositoryIds 배열 크기와 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세 페이지의
    * 기여자 목록용이며 githubLogin만 노출한다(platform User join 없음).
-   * GR-13 — `repositoryIds`는 `linkedRepositoryFilter`가 거른다: 조직 저장소이거나, 신청에 연결됐음이 DB로 증명된 조직 밖 저장소만 통과한다.
+   * GR-13 — `repositoryIds`는 `programLinkedRepositoryFilter`가 거른다: GR-13 연결 증명에
+   * 더해 **`programId`나 `teamId`가 있는 저장소만** 통과한다 — 이 메서드도 ② 표면의 지표다.
    */
   async getContributorCumulativeMetrics(
     query: CollectionContributorCumulativeMetricsQueryDto,
@@ -573,7 +606,7 @@ export class CollectionReadService implements CollectionReadPort {
           githubRepositoryId: { in: [...query.repositoryIds] },
           visibility: 'PUBLIC',
           presence: 'PRESENT',
-          ...this.linkedRepositoryFilter(),
+          ...this.programLinkedRepositoryFilter(),
         },
       },
       select: {

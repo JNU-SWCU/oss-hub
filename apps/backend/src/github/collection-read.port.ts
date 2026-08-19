@@ -146,14 +146,32 @@ export type CollectionContributorCumulativeMetricsDto = {
 
 export type CollectionPublicRankingMetricsQueryDto = {
   readonly currentYear?: number;
+  /**
+   * 교직원·관리자 계층에서만 `true`다. `true`일 때에만 조회가 실명 컬럼을
+   * 애초에 select한다 — 가져온 뒤 지우는 설계(redact-later)는 금지다
+   * (`AGENTS.md` §4). 생략하면 실명은 질의되지 않는다.
+   */
+  readonly includeRealName?: boolean;
 };
 
+/**
+ * 사람 축(`GithubUserActivityHistory`) 관측을 사용자 단위로 접은 공개 랭킹 행.
+ * 공개 표기는 `githubLogin`, 소속 표기는 `department`다.
+ * `realName`은 `includeRealName: true`로 물었을 때에만 채워진다 — 그 밖의
+ * 요청에서는 컬럼 자체를 읽지 않으므로 `undefined`다.
+ * `releaseCount`는 저장소 축(② 프로그램 표면) 전속이라 여기 없다.
+ */
 export type CollectionPublicRankingMetricsDto = {
   readonly githubId: bigint;
   readonly githubLogin: string;
+  readonly department: string | null;
+  /** 교직원·관리자 계층 전용. 그 밖에서는 `undefined`(미조회)다. */
+  readonly realName?: string | null;
   readonly commitCount: number;
   readonly pullRequestCount: number;
-  readonly releaseCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
 };
 
 /**
@@ -305,23 +323,27 @@ export interface CollectionReadPort {
   getRepositoryMetrics(
     query: CollectionRepositoryMetricsQueryDto,
   ): Promise<readonly CollectionRepositoryMetricsDto[]>;
-  /** todo 11 — 증분 facts에서 deterministic rebuild된 기여자별 연도 누적(ranking source). */
+  /**
+   * todo 11 — 증분 facts에서 deterministic rebuild된 기여자별 연도 누적.
+   * ② 프로그램/팀 기여도 표면 전용이므로 **`programId`나 `teamId`가 있는 저장소만**
+   * 집계한다 — 프로그램에 속하지 않는 조직 저장소는 명시적으로 요청해도 제외된다.
+   */
   getContributorMetrics(
     query: CollectionContributorMetricsQueryDto,
   ): Promise<readonly CollectionContributorMetricsDto[]>;
   /**
-   * todo 19 — ranking 공개 페이지 전용 질의. `getContributorMetrics`와 같은 증분 소스
-   * (`Contribution`)을 읽되, PUBLIC + PRESENT 저장소만 port 경계에서
-   * 필터링하고 githubId(githubUserId) 단위로 저장소·연도를 넘어 합산해 이미 병합된 행을
-   * 반환한다 — private facts·platform User join·실명 없이 githubLogin만 노출한다.
-   * `currentYear`를 생략하면 전체 기간 누적, 지정하면 해당 연도만 반환한다.
+   * ranking 공개 페이지 전용 질의. 사람 축(`GithubUserActivityHistory`)을 읽어
+   * githubId 단위로 이미 병합된 행을 반환한다 — 기본은 `githubLogin`과
+   * `department`뿐이고, `includeRealName: true`(교직원·관리자 계층)일 때에만
+   * `realName`이 함께 조회된다. `currentYear`를 생략하면 전 연도 누적,
+   * 지정하면 해당 연도만 반환한다.
    */
   getPublicRankingMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]>;
   /**
-   * Distinct calendar years that have public ranking activity on PUBLIC + PRESENT
-   * repositories (desc). Empty years are omitted — shell year sidebar only.
+   * Distinct calendar years observed on the person axis
+   * (`GithubUserActivityHistory.year`, desc). Shell year sidebar only.
    */
   listPublicRankingYears(): Promise<readonly number[]>;
 
@@ -331,7 +353,7 @@ export interface CollectionReadPort {
    * 랭킹 목록과 **따로** 묻는다. 목록 수치와 수집 성공 시각은 서로 다른
    * 의미이므로 한 응답을 만들 때 각각 현재 DB 상태에서 읽는다.
    *
-   * 관측된 공개 기여가 하나도 없으면 `null`.
+   * 사람 축 관측이 하나도 없으면 `null`.
    */
   getPublicRankingDataAsOf(): Promise<Date | null>;
   /** todo 12 — 조직 전체 증분 collection의 per-repo/stream 진행 상황 집계(system-status source). */
@@ -350,7 +372,11 @@ export interface CollectionReadPort {
   getRepositoryCumulativeMetrics(
     query: CollectionRepositoryCumulativeMetricsQueryDto,
   ): Promise<readonly CollectionRepositoryCumulativeMetricsDto[]>;
-  /** todo 16 — 공개 프로젝트 상세 기여자 배치 지표(연도 무관 lifetime 누적, githubLogin만 노출). */
+  /**
+   * todo 16 — 공개 프로젝트 상세 기여자 배치 지표(연도 무관 lifetime 누적, githubLogin만 노출).
+   * `getContributorMetrics`와 같은 ② 표면이므로 **`programId`나 `teamId`가 있는
+   * 저장소만** 집계한다.
+   */
   getContributorCumulativeMetrics(
     query: CollectionContributorCumulativeMetricsQueryDto,
   ): Promise<readonly CollectionContributorCumulativeMetricsDto[]>;

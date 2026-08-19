@@ -20,6 +20,8 @@ Accepted
 
 > **2026-08-12 amendment**: `#617` 단계 D에서 `Repository`가 `GithubRepository`로 통합되어, 이 문서에서 `Repository`를 별개 프로비저닝 테이블로 서술하는 부분(§6 등)은 현재 `GithubRepository`의 `applicationId`/`programId`/`teamId`/`publishedAt` 컬럼을 가리킨다. 결정 기록 보존을 위해 본문은 그대로 두고 이 노트만 추가한다.
 
+> **2026-08-19 amendment — 두 축이 각자 획득을 갖는다.** 아래 §1~§4의 본문은 두 화면이 같은 `Contribution` 한 장을 나눠 읽던 시기의 기록이다. 그 서술을 지우지 않고, 지금 확정된 형태를 이 노트에 덧붙인다. 자세한 내용은 아래 **[2026-08-19 개정 노트](#2026-08-19-개정-노트--두-축-획득과-랭킹-5종-지표)** 절에 있다.
+
 ## Date
 
 2026-08-09
@@ -185,6 +187,57 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 3. 집계 합계가 fact 건수를 넘지 않는다
 4. 음수 없음 — **재실행 멱등성의 대리 지표다.** 전량 재계산이 COUNT 로만 값을 만들므로 음수는 원리상 나올 수 없고, 나왔다면 증분 누적 경로가 되살아났다는 뜻이다. 같은 입력으로 두 번 돌려 같은 값이 나오는지는 실 Postgres 통합 스펙이 직접 본다 — 전수로 두 번 돌리는 비용이 크기 때문이다.
 
+## 2026-08-19 개정 노트 — 두 축 획득과 랭킹 5종 지표
+
+> 이 절은 **덧붙임**이다. 위 §1~§11의 어떤 문장도 지우지 않았다. 두 서술이 어긋나면 **이 절이 현재**이고 위쪽은 그렇게 결정했던 시점의 기록이다.
+
+### A. 사람 축이 자기 획득을 갖는다 (§1 이행)
+
+§1 근거 3이 목표로만 남겨 뒀던 것 — "①을 `contributionsCollection`으로 옮긴다" — 을 실제로 이행한다. 두 축은 이제 **각자 자기 획득 경로와 자기 테이블**을 갖는다.
+
+```
+① 랭킹     사람 축   GithubUserActivityHistory ← contributionsCollection + repositories(star), GraphQL, 학생당 연도당 cost=1
+② 프로그램  저장소 축  Contribution              ← 조직·external 저장소 sweep(REST)
+```
+
+랭킹은 더 이상 저장소 sweep의 건강에 종속되지 않는다. org sweep이 멈춰도 사람 축 수치는 자기 sweep으로 갱신된다 — §1이 "현재 성질이 아니다"라고 적어 둔 바로 그 독립성이 이제 성질이 됐다.
+
+**한 테이블로 합치지 않았다.** 두 축은 키가 달라 물리적으로 병합할 수 없고(저장소 축은 `repositoryId`를 요구한다), `Contribution`에는 issue·star·repo 칸이 없다. 사람 축 테이블의 형태·명명·FK 부재 근거는 [`docs/rules/data-modeling.md`](../rules/data-modeling.md)가 원본이며 여기서 되풀이하지 않는다.
+
+### B. 사람 축 입자는 `(githubId, year)`다 (§4 병기)
+
+§4가 정한 저장소 축 입자 `(repositoryId, githubId, date)`는 **그대로 유효하다** — ② 화면이 계속 그 입자를 읽는다. 사람 축은 별도로 `(githubId, year)` 한 행을 갖는다. 연도 축으로 행이 쌓이므로 과거 연도가 보존되고 새해에 롤오버 작업이 없다. §4의 나머지 원칙(랭킹 순위 미저장, 개별 식별자 미보존, 사람 식별자는 `githubId`)은 사람 축에도 같이 적용된다.
+
+### C. 랭킹 지표는 5종이고 release는 ② 전속이다 (§3 D7 개정)
+
+§3은 `D7`(commit + PR + release 3종)을 유지한다고 적었다. **이 노트가 그 부분을 개정한다.** 랭킹 지표는 다음 5종과 그 단순 합이다.
+
+| 지표 | 출처 |
+| --- | --- |
+| `commitCount` | `contributionsCollection.totalCommitContributions` |
+| `pullRequestCount` | `contributionsCollection.totalPullRequestContributions` |
+| `issueCount` | `contributionsCollection.totalIssueContributions` |
+| `repositoryCount` | `contributionsCollection.totalRepositoryContributions` |
+| `starCount` | `repositories(ownerAffiliations: OWNER, privacy: PUBLIC)`의 stargazer 합 (**누적**) |
+
+`release`는 **② 프로그램 화면 전속**이 된다. `contributionsCollection`이 release를 세지 않으므로 사람 축에는 release 칸이 없고, 저장소 축 수집이 유일한 출처로 남는다. §3이 예고한 "release는 ② 수집값을 얹되 없으면 0"은 채택하지 않았다 — 축을 넘겨 값을 얹으면 MECE 경계가 다시 흐려진다. 화면에서 release 수치가 사라지는 것은 의도된 변화다.
+
+봉투 이름은 §3대로 `total`이며 가중치는 없다. `issue`를 세게 됐으므로 우리 숫자와 GitHub 프로필 그래프의 차이는 줄지만 여전히 같지 않다(기간·시간대·star 포함 여부) — 화면 문구가 그 차이를 계속 밝힌다.
+
+**이 5종 구성은 관리자 요청에서 왔다** — release 개수 대신 star · 작업한 저장소 수 · issue 수로 세자는 요청이다. 제품·기획 결정의 원본은 [`AGENTS.md`](../../AGENTS.md) §2가 정한 대로 **Notion Decision Log**이며, 이 ADR은 그 결정을 여기서 다시 내리지 않고 기술적 귀결(테이블·획득 경로·축 경계)만 기록한다.
+
+### D. 조작 가능성을 밝혀 둔다
+
+`starCount`와 `repositoryCount`는 **본인이 값을 만들 수 있는 지표**다. 저장소는 얼마든지 만들 수 있고 star는 서로 눌러 줄 수 있다. commit·PR·issue도 완전히 안전하지는 않지만 이 둘은 비용이 특히 낮다.
+
+그럼에도 넣는다 — 랭킹은 상금이 걸린 심사가 아니라 활동을 보여 주는 화면이고, 관리자가 원한 것이 "우리 저장소 밖 활동까지 보이게 하자"이기 때문이다. 대신 이 성질을 여기 적어 둔다: 나중에 이 숫자로 무언가를 판정하려 하면 그때는 가중치나 검증이 먼저 필요하다. star를 "누적"으로 표기하는 화면 문구도 같은 이유로 필수다.
+
+### E. D15 문구 정정 — 폐기가 아니다
+
+공개 랭킹의 표기 정책(`D15`)은 **유지된다.** 다만 표기 항목이 늘었으므로 문구를 "`githubLogin`과 `department`"로 정정한다. 실명은 여전히 공개 표면에 나가지 않으며, `department`는 공개 가능 정보로 판단한 owner 결정(2026-08-19)에 따라 비로그인 계층에도 포함된다. 학과는 `resolveCompatibleProfileDepartment` shim으로 읽고 `User.department`를 직접 select하지 않는다 — `UserProfile`만 가진 사용자가 전부 null로 비어 "0으로 위장"되는 것을 막기 위해서다.
+
+공개 랭킹 repository가 실명을 읽지 않는다는 불변식은 그대로다.
+
 ## Consequences
 
 - **private 비중이 큰 학생은 랭킹 수치가 지금보다 낮아진다.** private 자체는 ② 화면에서 보이고 플랫폼은 계속 수집한다. 전환 전후 순위 변동을 배포 전에 측정하고 표본 학생에게 고지한다. 공개 PR 본문에는 집계 판정만 남기고 학생별 원시 수치는 남기지 않는다
@@ -218,6 +271,7 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 
 ## Changelog
 
+- 2026-08-19: 두 축이 각자 획득을 갖게 된 형태를 개정 노트로 덧붙였다(기존 본문 삭제 없음). 사람 축은 `GithubUserActivityHistory`를 `contributionsCollection` + `repositories(star)` GraphQL 조회로 채우고 입자는 `(githubId, year)`이며, 랭킹 지표는 commit·PR·issue·repo·star 5종과 그 단순 합으로 바뀌었다 — `D7`의 3종 합계를 이 노트가 개정한다. `release`는 ② 프로그램 화면 전속이 됐다(사람 축이 release를 세지 않으므로 저장소 축이 유일 출처). 5종 구성의 제품 결정 원본은 관리자 요청을 받은 Notion Decision Log이며(`AGENTS.md` §2) 이 ADR은 기술적 귀결만 기록한다. `star`·`repository` 수가 본인 조작에 열려 있다는 성질을 명시했고, `D15`는 폐기가 아니라 "`githubLogin`과 `department`"로 문구를 정정했다. 테이블 형태·명명·FK 부재 근거는 `docs/rules/data-modeling.md`가 원본이라 여기서 중복 서술하지 않는다.
 - 2026-08-11: §2 "랭킹 필터는 사람 축이다"가 집계 축만 다루고 표시(display) 포함 여부·집계 대상 저장소 범위를 다루지 않던 것을 바로잡아, 집계 축(기존 서술 유지)·표시 축(가입자 전원, 기여 0이어도 표시, PM 결정 2026-08-11 신규)·저장소 축(org 저장소 전체·가시성 무관, PM 결정 2026-08-11 신규) 세 축을 명시적으로 분리해 서술했다. 저장소 축 확장(private org 저장소 활동도 공개 랭킹 숫자에 합산)은 저장소 자체의 공개 여부(`ADR-006`·`docs/rules/security.md`가 정한 명시적 publish 동작)와는 별개임을 명시했다. 동의 문서(`apps/frontend/public/policies/`)를 `2026-08-11` 버전으로 재게시하고 `CONSENT_POLICY_VERSION`을 올려 이 표시·집계 범위 확장을 반영했다.
 - 2026-08-10: 신규 fact writer의 `githubId ∈ User` 경계를 ORG/EXTERNAL source-neutral로 통일해 팀 미특정 조직 저장소에서도 미가입자·작성자 불명 신원을 적재하지 않게 했다. 가입자 집합은 D9대로 run/import 시작 때 한 번 고정하고 조회 실패는 첫 write 전에 전파한다. 팀원 목록·PR 백필 fingerprint도 같은 run snapshot으로 좁혀 도중 가입 계정의 과거 PR이 누락되지 않게 했고, cutover는 import·provider 검증·fact parity 전체에서 하나의 가입자 snapshot을 공유한다. 기존 레거시 행은 runtime에서 삭제하지 않고 별도 승인 데이터 마이그레이션으로 추적한다.
 - 2026-08-10: #730의 신청 연결 DB 증명으로 프로그램 화면의 OWN 저장소 제외 충돌이 해결된 현재 상태를 반영했다.

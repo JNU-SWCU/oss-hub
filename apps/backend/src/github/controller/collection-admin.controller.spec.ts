@@ -14,6 +14,10 @@ import { CollectionExternalDiscoveryService } from '../service/collection-extern
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type { CollectionSyncRunRow } from '../collection-incremental.types';
 import { CollectionSyncService } from '../service/collection-sync.service';
+import {
+  CollectionUserActivityService,
+  type CollectionUserActivitySweepResult,
+} from '../service/collection-user-activity.service';
 
 const check = jest.fn();
 
@@ -41,6 +45,10 @@ describe('CollectionAdminController', () => {
     [string]
   >();
   const record = jest.fn<Promise<AuditLogRecord>, [unknown]>();
+  const runUserActivity = jest.fn<
+    Promise<CollectionUserActivitySweepResult>,
+    []
+  >();
   const sessionRequest = { sessionGithubId: 4242n };
 
   beforeEach(() => {
@@ -57,6 +65,13 @@ describe('CollectionAdminController', () => {
     discoverForStudent.mockReset();
     record.mockReset();
     record.mockResolvedValue({} as AuditLogRecord);
+    runUserActivity.mockReset();
+    runUserActivity.mockResolvedValue({
+      observedUserCount: 0,
+      upsertedRowCount: 0,
+      skippedPastYearCount: 0,
+      failedUserCount: 0,
+    });
   });
 
   it('실행을 시작하고 202 응답 DTO를 반환한다', async () => {
@@ -75,6 +90,10 @@ describe('CollectionAdminController', () => {
           useValue: { listSyncRuns },
         },
         { provide: AuditLogService, useValue: { record } },
+        {
+          provide: CollectionUserActivityService,
+          useValue: { run: runUserActivity },
+        },
       ],
     })
       .overrideGuard(SessionGuard)
@@ -105,6 +124,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     await controller.trigger(sessionRequest);
@@ -113,6 +133,73 @@ describe('CollectionAdminController', () => {
     expect(runExternal.mock.calls[0]?.[0]).toMatch(/^admin:/);
     // org sweep과 external sweep은 같은 ownerId를 공유한다(lease scope만 다르다).
     expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
+  });
+
+  it('수동 트리거도 사람 축 sweep을 세 번째로 함께 돌린다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    runUserActivity.mockResolvedValue({
+      observedUserCount: 51,
+      upsertedRowCount: 51,
+      skippedPastYearCount: 0,
+      failedUserCount: 0,
+    });
+    const controller = new CollectionAdminController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await controller.trigger(sessionRequest);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(runUserActivity).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.admin.completed',
+        scope: 'person',
+        observedUserCount: 51,
+        upsertedRowCount: 51,
+      }),
+    );
+    logger.mockRestore();
+  });
+
+  it('사람 축 sweep 실패는 별도 이벤트로만 기록되고 org sweep을 막지 않는다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    runUserActivity.mockRejectedValue(new Error('person sweep unavailable'));
+    const controller = new CollectionAdminController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(controller.trigger(sessionRequest)).resolves.toEqual(
+      expect.objectContaining({ status: 'PENDING' }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.admin.person_sync_failed',
+        scope: 'person',
+      }),
+    );
+    logger.mockRestore();
   });
 
   it('quiesce lease가 걸려 있으면 COL_008을 던지고 새 writer를 호출하지 않는다', async () => {
@@ -124,6 +211,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     await expect(controller.trigger(sessionRequest)).rejects.toMatchObject({
@@ -146,6 +234,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     const result = await controller.trigger(sessionRequest);
@@ -196,6 +285,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     const result = await controller.discoverExternal({
@@ -239,6 +329,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     const response = await controller.trigger(sessionRequest);
@@ -257,6 +348,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     const response = await controller.trigger(sessionRequest);
@@ -280,6 +372,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     await expect(controller.trigger(sessionRequest)).rejects.toBeDefined();
@@ -315,6 +408,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     const result = await controller.listRuns();
@@ -368,6 +462,7 @@ describe('CollectionAdminController', () => {
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     const serialized = JSON.stringify(await controller.listRuns());
@@ -421,6 +516,7 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
       {} as unknown as CollectionIncrementalRepository,
       {} as unknown as AuditLogService,
       { check: checkInvariants } as unknown as ContributionInvariants,
+      {} as unknown as CollectionUserActivityService,
     );
 
     await expect(controller.checkInvariants()).resolves.toEqual(report);
@@ -447,6 +543,7 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
       {} as unknown as CollectionIncrementalRepository,
       {} as unknown as AuditLogService,
       { check: checkInvariants } as unknown as ContributionInvariants,
+      {} as unknown as CollectionUserActivityService,
     );
 
     const serialized = JSON.stringify(await controller.checkInvariants());

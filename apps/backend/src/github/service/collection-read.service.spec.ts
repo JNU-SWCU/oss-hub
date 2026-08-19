@@ -23,6 +23,7 @@ interface MockPrisma {
     aggregate: jest.Mock;
   };
   contribution: { findMany: jest.Mock };
+  githubUserActivityHistory: { findMany: jest.Mock; aggregate: jest.Mock };
   program: { findMany: jest.Mock };
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
@@ -46,6 +47,11 @@ const createDb = (): MockPrisma => ({
   },
   contribution: {
     findMany: jest.fn().mockResolvedValue([]),
+  },
+  // 사람 축 관측 — 공개 랭킹의 유일한 수치 출처다.
+  githubUserActivityHistory: {
+    findMany: jest.fn().mockResolvedValue([]),
+    aggregate: jest.fn().mockResolvedValue({ _max: { observedAt: null } }),
   },
   // (저장소 → 프로그램) 배치 조인의 두 번째 단계
   // (`resolveProgramNamesByRepositoryId` — 첫 단계는 이제 별도 프로비저닝 테이블이
@@ -118,49 +124,84 @@ const REPOSITORY_SOURCE_BY_ID = new Map<bigint, string>([
  * 계속 고정하게 한다.
  */
 const CONNECTED_REPOSITORY_IDS = new Set<bigint>();
+/**
+ * ② 프로그램/팀 표면은 GR-13 연결 증명에 더해 `programId`/`teamId`까지 요구한다.
+ * 이 집합은 "프로그램이나 팀에 연결된 저장소"를 뜻하며, 기존 GR-13 테스트가 `source`
+ * 가드만을 계속 재도록 두 고정 저장소를 모두 연결된 것으로 둔다 — 미연결 저장소
+ * 제외는 아래 전용 테스트가 따로 고정한다.
+ */
+const PROGRAM_LINKED_REPOSITORY_IDS = new Set<bigint>([
+  ORG_REPOSITORY_ID,
+  EXTERNAL_REPOSITORY_ID,
+]);
 
-/** `githubRepository.findMany` 호출을 `where.githubRepositoryId.in`/`where.source`로 필터링한다. */
+/**
+ * 저장소 where 절을 실제 Prisma처럼 해석한다 — `AND`/`OR` 중첩을 그대로 따라간다.
+ * 서비스가 가드 한 칸을 빼면 그만큼 행이 새어 나와 GR-13·프로그램 연결 테스트가
+ * 실제로 실패한다(인자 스냅샷 비교가 아니다).
+ */
+type RepositoryWhereClause = {
+  source?: string;
+  applicationId?: { not: null };
+  programId?: { not: null };
+  teamId?: { not: null };
+  AND?: readonly RepositoryWhereClause[];
+  OR?: readonly RepositoryWhereClause[];
+};
+
+function matchesRepositoryClause(
+  id: bigint,
+  clause: RepositoryWhereClause,
+): boolean {
+  if (
+    clause.source !== undefined &&
+    clause.source !== REPOSITORY_SOURCE_BY_ID.get(id)
+  ) {
+    return false;
+  }
+  if (clause.applicationId !== undefined && !CONNECTED_REPOSITORY_IDS.has(id)) {
+    return false;
+  }
+  if (
+    clause.programId !== undefined &&
+    !PROGRAM_LINKED_REPOSITORY_IDS.has(id)
+  ) {
+    return false;
+  }
+  if (clause.teamId !== undefined && !PROGRAM_LINKED_REPOSITORY_IDS.has(id)) {
+    return false;
+  }
+  if (
+    clause.AND !== undefined &&
+    !clause.AND.every((nested) => matchesRepositoryClause(id, nested))
+  ) {
+    return false;
+  }
+  if (
+    clause.OR !== undefined &&
+    !clause.OR.some((nested) => matchesRepositoryClause(id, nested))
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** `githubRepository.findMany` 호출을 `where.githubRepositoryId.in` + 저장소 절로 필터링한다. */
 function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
   rows: readonly Row[],
 ): jest.Mock {
   return jest.fn(
     (args: {
-      where: {
+      where: RepositoryWhereClause & {
         githubRepositoryId: { in: readonly bigint[] };
-        source?: string;
-        OR?: readonly {
-          source?: string;
-          applicationId?: { not: null };
-        }[];
       };
     }) => {
       const { in: ids } = args.where.githubRepositoryId;
-      const { source, OR } = args.where;
-      // 서비스는 이제 `OR` 로 "조직 저장소이거나, 신청에 연결된 조직 밖 저장소"를
-      // 표현한다. 실제 Prisma 처럼 절 하나라도 맞으면 통과시킨다 —
-      // 여기서 흉내내지 않으면 GR-13 가드가 코드에서 사라져도 테스트가 통과한다.
-      const matchesOr = (row: Row): boolean =>
-        OR === undefined ||
-        OR.some((clause) => {
-          const rowSource = REPOSITORY_SOURCE_BY_ID.get(row.githubRepositoryId);
-          if (clause.source !== undefined && clause.source !== rowSource) {
-            return false;
-          }
-          if (
-            clause.applicationId !== undefined &&
-            !CONNECTED_REPOSITORY_IDS.has(row.githubRepositoryId)
-          ) {
-            return false;
-          }
-          return true;
-        });
       return Promise.resolve(
         rows.filter(
           (row) =>
             ids.includes(row.githubRepositoryId) &&
-            (source === undefined ||
-              REPOSITORY_SOURCE_BY_ID.get(row.githubRepositoryId) === source) &&
-            matchesOr(row),
+            matchesRepositoryClause(row.githubRepositoryId, args.where),
         ),
       );
     },
@@ -168,8 +209,7 @@ function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
 }
 
 /**
- * `contribution.findMany` 호출을
- * `where.repository.githubRepositoryId.in`/`where.repository.source`로 필터링한다.
+ * `contribution.findMany` 호출을 `where.repository`의 저장소 절로 필터링한다.
  */
 function findManyContributorYearAggregate<
   Row extends { repository: { githubRepositoryId: bigint } },
@@ -177,42 +217,20 @@ function findManyContributorYearAggregate<
   return jest.fn(
     (args: {
       where: {
-        repository: {
+        repository: RepositoryWhereClause & {
           githubRepositoryId: { in: readonly bigint[] };
-          source?: string;
-          OR?: readonly {
-            source?: string;
-            applicationId?: { not: null };
-          }[];
         };
       };
     }) => {
       const { in: ids } = args.where.repository.githubRepositoryId;
-      const { source, OR } = args.where.repository;
-      // 위 저장소 필터와 같은 이유로 `OR` 를 흉내낸다.
-      const matchesOr = (id: bigint): boolean =>
-        OR === undefined ||
-        OR.some((clause) => {
-          const rowSource = REPOSITORY_SOURCE_BY_ID.get(id);
-          if (clause.source !== undefined && clause.source !== rowSource) {
-            return false;
-          }
-          if (
-            clause.applicationId !== undefined &&
-            !CONNECTED_REPOSITORY_IDS.has(id)
-          ) {
-            return false;
-          }
-          return true;
-        });
       return Promise.resolve(
         rows.filter(
           (row) =>
             ids.includes(row.repository.githubRepositoryId) &&
-            (source === undefined ||
-              REPOSITORY_SOURCE_BY_ID.get(row.repository.githubRepositoryId) ===
-                source) &&
-            matchesOr(row.repository.githubRepositoryId),
+            matchesRepositoryClause(
+              row.repository.githubRepositoryId,
+              args.where.repository,
+            ),
         ),
       );
     },
@@ -509,9 +527,16 @@ describe('CollectionReadService — getContributorMetrics', () => {
           },
           repository: {
             githubRepositoryId: { in: [101n] },
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+            // ② 표면은 GR-13 연결 증명과 프로그램/팀 연결을 **둘 다** 요구한다.
+            // 하나로 펼치면 뒤 절이 앞 가드를 덮어쓰므로 `AND`로 묶인다.
+            AND: [
+              {
+                OR: [
+                  { source: 'ORG_PROVISIONED' },
+                  { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+                ],
+              },
+              { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
             ],
           },
         },
@@ -570,167 +595,124 @@ describe('CollectionReadService — getContributorMetrics', () => {
   });
 });
 
-describe('CollectionReadService — getPublicRankingMetrics', () => {
-  it('filters to org 저장소(visibility 무관) + PUBLIC 인 등록된 external 저장소 + PRESENT at the query boundary', async () => {
+describe('CollectionReadService — getPublicRankingMetrics (사람 축)', () => {
+  const signup = (
+    githubId: bigint,
+    nickname: string,
+    department: string | null = null,
+  ) => ({ githubId, nickname, department, profile: null });
+
+  const observation = (
+    githubId: bigint,
+    year: number,
+    counts: Partial<{
+      commitCount: number;
+      pullRequestCount: number;
+      issueCount: number;
+      repositoryCount: number;
+      starCount: number;
+    }> = {},
+  ) => ({
+    githubId,
+    year,
+    commitCount: 0,
+    pullRequestCount: 0,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
+    ...counts,
+  });
+
+  it('저장소가 아니라 사람 축 이력을 읽는다 — 저장소 조건이 질의에 없다', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([signup(1n, 'alice')]);
 
     await serviceFor(db).getPublicRankingMetrics({});
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repository: {
-            presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
-            ],
-          },
-        },
-      }),
+    expect(db.contribution.findMany).not.toHaveBeenCalled();
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} }),
     );
   });
 
-  it('adds a year filter only when currentYear is provided (THIS_YEAR vs ALL)', async () => {
+  it('연도를 지정하면 그 해 행만 읽는다 (THIS_YEAR vs ALL)', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([signup(1n, 'alice')]);
 
     await serviceFor(db).getPublicRankingMetrics({ currentYear: 2026 });
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repository: {
-            presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
-            ],
-          },
-          // 저장에 연도 칸이 없으므로 Asia/Seoul 연 경계로 자른다(ADR-010 §4).
-          date: {
-            gte: new Date(Date.UTC(2026, 0, 1) - 9 * 60 * 60 * 1000),
-            lt: new Date(Date.UTC(2027, 0, 1) - 9 * 60 * 60 * 1000),
-          },
-        },
-      }),
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { year: 2026 } }),
     );
   });
 
-  it('merges repository/year rows into one entry per githubUserId, 기여 없는 User 는 0/0/0으로 포함한다', async () => {
+  it('5종 지표를 그대로 넘기고, 관측 없는 가입자는 전부 0으로 포함한다', async () => {
     const db = createDb();
     db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
+      signup(1n, 'alice', '소프트웨어공학과'),
+      signup(2n, 'bob'),
     ]);
-    db.contribution.findMany.mockResolvedValue([
-      {
-        githubId: 1n,
-        commitCount: 2,
-        pullRequestCount: 1,
-        releaseCount: 0,
-      },
-      {
-        githubId: 1n,
-        commitCount: 3,
-        pullRequestCount: 0,
-        releaseCount: 1,
-      },
-    ]);
-
-    const result = await serviceFor(db).getPublicRankingMetrics({});
-
-    expect(result).toEqual([
-      {
-        githubId: 1n,
-        githubLogin: 'alice',
+    db.githubUserActivityHistory.findMany.mockResolvedValue([
+      observation(1n, 2026, {
         commitCount: 5,
         pullRequestCount: 1,
-        releaseCount: 1,
-      },
-      // PM 확정 정책 — 가입한 모든 사용자가 노출된다. bob 은 기여 행이 없어도
-      // 0/0/0으로 포함된다.
-      {
-        githubId: 2n,
-        githubLogin: 'bob',
-        commitCount: 0,
-        pullRequestCount: 0,
-        releaseCount: 0,
-      },
-    ]);
-  });
-
-  // 옛 집계는 `githubLogin` 을 비정규화해 들고 있어서 같은 사람의 login 이 행마다
-  // 갈릴 수 있었고, 그래서 정규화 소문자 기준 tie-break 가 필요했다.
-  // 이제 표시명 원본이 `User` 하나이므로(ADR-010 §4) 갈릴 수가 없다 —
-  // 검증할 것은 tie-break 가 아니라 "여러 행이 한 사람으로 접히는가"다.
-  it('같은 사람의 여러 행이 하나로 접히고 표시명은 User 에서 온다', async () => {
-    const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([
-      {
-        githubId: 1n,
-        commitCount: 1,
-        pullRequestCount: 0,
-        releaseCount: 0,
-      },
-      {
-        githubId: 1n,
-        commitCount: 1,
-        pullRequestCount: 0,
-        releaseCount: 0,
-      },
+        issueCount: 2,
+        repositoryCount: 3,
+        starCount: 40,
+      }),
     ]);
 
-    const result = await serviceFor(db).getPublicRankingMetrics({});
+    const result = await serviceFor(db).getPublicRankingMetrics({
+      currentYear: 2026,
+    });
 
     expect(result).toEqual([
       {
         githubId: 1n,
         githubLogin: 'alice',
-        commitCount: 2,
-        pullRequestCount: 0,
-        releaseCount: 0,
+        department: '소프트웨어공학과',
+        commitCount: 5,
+        pullRequestCount: 1,
+        issueCount: 2,
+        repositoryCount: 3,
+        starCount: 40,
       },
+      // PM 확정 정책 — 가입한 모든 사용자가 노출된다. bob 은 관측 행이 없어도
+      // 5종 전부 0으로 포함된다.
       {
         githubId: 2n,
         githubLogin: 'bob',
+        department: null,
         commitCount: 0,
         pullRequestCount: 0,
-        releaseCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
       },
     ]);
   });
 
-  it('does not select repositoryId, year, dataAsOf, or any private/platform field', async () => {
+  it('실명·저장소 식별자를 select 하지 않는다', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([signup(1n, 'alice')]);
 
     await serviceFor(db).getPublicRankingMetrics({});
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
+    const userCalls = db.user.findMany.mock.calls as [
+      { select: Record<string, unknown> },
+    ][];
+    const userArgs = userCalls.at(-1)?.[0];
+    expect(userArgs?.select).not.toHaveProperty('name');
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: {
           githubId: true,
+          year: true,
           commitCount: true,
           pullRequestCount: true,
-          releaseCount: true,
+          issueCount: true,
+          repositoryCount: true,
+          starCount: true,
         },
       }),
     );
@@ -738,39 +720,21 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 });
 
 describe('CollectionReadService — listPublicRankingYears', () => {
-  it('lists distinct years with public non-zero activity newest first', async () => {
+  it('사람 축 관측 연도를 최신 순으로 돌려준다', async () => {
     const db = createDb();
-    db.user.findMany.mockResolvedValue([
-      { githubId: 1n, nickname: 'alice' },
-      { githubId: 2n, nickname: 'bob' },
-    ]);
-    db.contribution.findMany.mockResolvedValue([
-      // Asia/Seoul 자정을 UTC 로 담은 날짜 — 코드가 여기서 연도를 뽑는다.
-      { date: new Date(Date.UTC(2026, 4, 1)) },
-      { date: new Date(Date.UTC(2025, 10, 20)) },
+    db.githubUserActivityHistory.findMany.mockResolvedValue([
+      { year: 2025 },
+      { year: 2026 },
     ]);
 
     await expect(serviceFor(db).listPublicRankingYears()).resolves.toEqual([
       2026, 2025,
     ]);
 
-    expect(db.contribution.findMany).toHaveBeenCalledWith(
+    expect(db.githubUserActivityHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          repository: {
-            presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', visibility: 'PUBLIC' },
-            ],
-          },
-          OR: [
-            { commitCount: { gt: 0 } },
-            { pullRequestCount: { gt: 0 } },
-            { releaseCount: { gt: 0 } },
-          ],
-        },
-        select: { date: true },
+        select: { year: true },
+        distinct: ['year'],
       }),
     );
   });
@@ -1006,9 +970,14 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
             githubRepositoryId: { in: [101n] },
             visibility: 'PUBLIC',
             presence: 'PRESENT',
-            OR: [
-              { source: 'ORG_PROVISIONED' },
-              { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+            AND: [
+              {
+                OR: [
+                  { source: 'ORG_PROVISIONED' },
+                  { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+                ],
+              },
+              { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
             ],
           },
         },

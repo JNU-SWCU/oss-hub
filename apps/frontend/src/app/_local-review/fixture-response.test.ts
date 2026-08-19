@@ -687,6 +687,43 @@ describe('local review fixture responses', () => {
     );
   });
 
+  it('랭킹 픽스처가 계층을 지킨다 — 비로그인·학생은 같고 교직원만 실명을 받는다', () => {
+    // 픽스처가 계층을 무시하면 검토자가 권한별 화면을 눈으로 확인할 수 없고,
+    // 더 나쁘게는 비로그인 응답에 실명이 섞인 모양을 정상으로 보게 된다.
+    const read = (fixture: LocalReviewFixtureId) =>
+      parseRankingPage(jsonBody(publicGet(fixture, 'ranking', 'year=2026')));
+
+    const anonymous = read('anonymous');
+    const student = read('student');
+    const staff = read('staff');
+    const admin = read('admin');
+
+    // 공개·학생 계층은 표시 이름이 곳 닉네임이다(D3).
+    for (const item of [...anonymous.items, ...student.items]) {
+      expect(item.displayName).toBe(item.githubLogin);
+    }
+    expect(student.items).toEqual(anonymous.items);
+
+    // 교직원·관리자만 실명을 받는다. 실명이 없는 사람은 닉네임으로 내려앉는다.
+    expect(staff.items).toEqual(admin.items);
+    expect(
+      staff.items.some((item) => item.displayName !== item.githubLogin),
+    ).toBe(true);
+
+    // 순서는 계층과 무관하다 — 누가 보든 같은 사람이 같은 등수다.
+    expect(staff.items.map((item) => item.githubLogin)).toEqual(
+      anonymous.items.map((item) => item.githubLogin),
+    );
+
+    // 학과는 공개 정보다 — 비로그인에게도 같은 값이 간다(owner 결정 2026-08-19).
+    expect(anonymous.items.map((item) => item.department)).toEqual(
+      staff.items.map((item) => item.department),
+    );
+    expect(anonymous.items.some((item) => item.department !== null)).toBe(true);
+    // 미입력인 사람도 있다 — 화면이 대시로 채우는 자리가 실제로 보인다.
+    expect(anonymous.items.some((item) => item.department === null)).toBe(true);
+  });
+
   it('public archive reads parse with the archive screen parsers', () => {
     // Given / When: the /archive list and one of its detail links.
     const list = parseArchivePage(
