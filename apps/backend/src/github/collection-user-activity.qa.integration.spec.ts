@@ -70,8 +70,9 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
       () => NOW,
     );
 
-  const seededIds = Array.from({ length: ACTIVE_USER_COUNT }, (_unused, index) =>
-    githubIdAt(index),
+  const seededIds = Array.from(
+    { length: ACTIVE_USER_COUNT },
+    (_unused, index) => githubIdAt(index),
   );
   // 비가입(=DB에 없는) login 1건 — 절대 조회되지 않아야 한다.
   const OUTSIDER_LOGIN = `${QA_PREFIX}-outsider`;

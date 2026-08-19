@@ -101,7 +101,9 @@ describe('GithubUserActivityHistory (실 Postgres)', () => {
     );
 
     await expect(
-      prisma.githubUserActivityHistory.count({ where: { githubId: GITHUB_ID } }),
+      prisma.githubUserActivityHistory.count({
+        where: { githubId: GITHUB_ID },
+      }),
     ).resolves.toBe(1);
   });
 
@@ -154,7 +156,9 @@ describe('GithubUserActivityHistory (실 Postgres)', () => {
     ).rejects.toMatchObject({ code: 'P2002' });
 
     await expect(
-      prisma.githubUserActivityHistory.count({ where: { githubId: GITHUB_ID } }),
+      prisma.githubUserActivityHistory.count({
+        where: { githubId: GITHUB_ID },
+      }),
     ).resolves.toBe(1);
   });
 });

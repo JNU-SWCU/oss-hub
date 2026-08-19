@@ -19,9 +19,7 @@ import {
  */
 @Injectable()
 export class RankingViewerRepository {
-  constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-  ) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findTier(githubId: bigint | null): Promise<RankingViewerTier> {
     if (githubId === null) return RANKING_VIEWER_TIERS.PUBLIC;

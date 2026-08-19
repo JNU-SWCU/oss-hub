@@ -138,7 +138,9 @@ describe('CollectionUserActivityService', () => {
     ]);
     fetchUserActivityMetrics
       .mockResolvedValueOnce(metrics(1))
-      .mockRejectedValueOnce(new CollectionDiscoveryClientError('RATE_LIMITED', 30))
+      .mockRejectedValueOnce(
+        new CollectionDiscoveryClientError('RATE_LIMITED', 30),
+      )
       .mockResolvedValueOnce(metrics(3));
 
     const result = await buildService().run();

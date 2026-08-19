@@ -69,7 +69,10 @@ const RANKING_USER_SELECT_WITH_REAL_NAME = {
 
 type RankingUserRow = {
   readonly name?: string | null;
-  readonly profile: { readonly name?: string; readonly department?: string } | null;
+  readonly profile: {
+    readonly name?: string;
+    readonly department?: string;
+  } | null;
 };
 
 /** 실명 select 를 켠 요청의 행만 이 함수를 통과한다 — 그때는 `name` 칸이 있다. */
@@ -174,9 +177,7 @@ export class PublicRankingRepository {
           // 실명을 물지 않은 요청은 칸 자체를 만들지 않는다.
           ...(includeRealName
             ? {
-                realName: resolveCompatibleProfileName(
-                  toNameSource(user),
-                ),
+                realName: resolveCompatibleProfileName(toNameSource(user)),
               }
             : {}),
           commitCount: totals?.commitCount ?? 0,

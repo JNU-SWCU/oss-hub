@@ -30,9 +30,7 @@ export class RankingService {
    * 세션 githubId 로 응답 계층을 정한다. 쿠키가 없거나 무효하면 `null` 이 오고,
    * 그때는 공개 계층이다 — 공개 endpoint 이므로 예외를 던지지 않는다.
    */
-  async resolveViewerTier(
-    githubId: bigint | null,
-  ): Promise<RankingViewerTier> {
+  async resolveViewerTier(githubId: bigint | null): Promise<RankingViewerTier> {
     return this.viewers.findTier(githubId);
   }
 

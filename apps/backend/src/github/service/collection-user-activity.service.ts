@@ -73,7 +73,9 @@ export class CollectionUserActivityService {
    * 올해 행은 매 실행 갱신하고, 과거 연도는 행이 이미 있으면 GraphQL을 부르지
    * 않는다 — 지난 해의 활동은 더 이상 변하지 않으므로 재조회가 순수 낭비다.
    */
-  async run(years?: readonly number[]): Promise<CollectionUserActivitySweepResult> {
+  async run(
+    years?: readonly number[],
+  ): Promise<CollectionUserActivitySweepResult> {
     const startedAt = this.now();
     const currentYear = seoulYearOf(startedAt);
     const targetYears = years === undefined ? [currentYear] : [...years];

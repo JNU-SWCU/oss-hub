@@ -153,9 +153,9 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       }),
     );
     // DEACTIVATED 계정은 애초에 순회 대상이 아니다.
-    expect(
-      rows.some((row) => row.githubId === DEACTIVATED_GITHUB_ID),
-    ).toBe(false);
+    expect(rows.some((row) => row.githubId === DEACTIVATED_GITHUB_ID)).toBe(
+      false,
+    );
   });
 
   // (b) 재실행 멱등 — 행이 늘지 않고 값만 갱신된다(stale_state 방어).
@@ -272,7 +272,10 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       },
     });
     expect(alpha).toEqual(
-      expect.objectContaining({ commitCount: 1234, observedAt: pastObservedAt }),
+      expect.objectContaining({
+        commitCount: 1234,
+        observedAt: pastObservedAt,
+      }),
     );
     // 행이 없는 나머지 두 명은 과거 연도라도 새로 관측된다.
     const rows = await seededRows();

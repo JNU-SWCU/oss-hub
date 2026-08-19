@@ -43,11 +43,7 @@ import {
  * 주입하지 않는다). `CollectionCutoverService`(todo 14 전환 orchestration)는 CLI에서만 실행한다.
  */
 @Module({
-  imports: [
-    ScheduleModule.forRoot(),
-    AuditLogModule,
-    AuthModule,
-  ],
+  imports: [ScheduleModule.forRoot(), AuditLogModule, AuthModule],
   controllers: [CollectionAdminController],
   providers: [
     CollectionAdminGuard,

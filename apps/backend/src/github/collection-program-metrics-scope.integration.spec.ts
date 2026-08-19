@@ -223,9 +223,7 @@ describe('② 프로그램 지표는 연결된 저장소만 센다 (실 Postgres
       year: YEAR,
     });
 
-    const byRepository = new Map(
-      metrics.map((row) => [row.repositoryId, row]),
-    );
+    const byRepository = new Map(metrics.map((row) => [row.repositoryId, row]));
 
     // (a) 연결 저장소의 기여는 그대로 잡힌다.
     expect(byRepository.get(PROGRAM_GITHUB_REPO)).toEqual(
@@ -253,8 +251,7 @@ describe('② 프로그램 지표는 연결된 저장소만 센다 (실 Postgres
     const totals = metrics.reduce(
       (accumulator, row) => ({
         commitCount: accumulator.commitCount + row.commitCount,
-        pullRequestCount:
-          accumulator.pullRequestCount + row.pullRequestCount,
+        pullRequestCount: accumulator.pullRequestCount + row.pullRequestCount,
         releaseCount: accumulator.releaseCount + row.releaseCount,
       }),
       { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
@@ -293,9 +290,7 @@ describe('② 프로그램 지표는 연결된 저장소만 센다 (실 Postgres
       repositoryIds: allGithubRepositoryIds,
     });
 
-    const byRepository = new Map(
-      metrics.map((row) => [row.repositoryId, row]),
-    );
+    const byRepository = new Map(metrics.map((row) => [row.repositoryId, row]));
 
     expect(byRepository.get(PROGRAM_GITHUB_REPO)).toEqual(
       expect.objectContaining({

@@ -519,7 +519,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
 
     // (f) 등수 순서는 네 계층이 완전히 같다 — 실명이 순서를 바트지 않는다.
     const order = (body: RankingBody) =>
-      body.items.map((item) => `${String(item.rank)}:${String(item.githubLogin)}`);
+      body.items.map(
+        (item) => `${String(item.rank)}:${String(item.githubLogin)}`,
+      );
     expect(order(studentBody)).toEqual(order(anonymousBody));
     expect(order(staffBody)).toEqual(order(anonymousBody));
     expect(order(adminBody)).toEqual(order(anonymousBody));
