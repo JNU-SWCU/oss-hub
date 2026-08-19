@@ -195,6 +195,8 @@ fine-grained PAT는 repository selection이나 permission 설정과 무관하게
 
 **GraphQL의 역할은 discovery뿐이다.** 조직 밖 repository 목록(`nameWithOwner`)을 얻는 데만 GraphQL `contributionsCollection`을 쓰고, 그 목록을 얻은 뒤의 commit·PR·release 상세 수집은 위 "endpoint와 최소 권한" 표의 기존 REST 경로를 그대로 재사용한다. discovery의 자격증명도 위 서비스 계정 PAT(`GITHUB_PUBLIC_READ_TOKEN`)를 그대로 쓴다 — **미확인:** installation token으로 `user(login:)`·`contributionsCollection`처럼 installation 범위 밖 사용자에 대한 최상위 필드를 조회할 수 있는지는 GraphQL 문서·GitHub Apps 인증 문서 어느 쪽에도 허용·차단이 명시되어 있지 않다. 이 미확인 항목에 기능을 의존시키지 않기 위해 discovery도 installation token이 아니라 위 PAT로 통일한다.
 
+> **2026-08-19 개정 — GraphQL의 역할이 discovery뿐이 아니다.** 위 문단은 2026-08-04 시점의 기록으로 그대로 두고 범위만 넓힌다. 사람 축 랭킹(ADR-010 2026-08-19 개정 노트)이 학생당 한 해 활동을 GraphQL로 직접 조회하므로, GraphQL은 이제 **discovery와 사람 축 지표 조회** 둘 다에 쓰인다. 지표 조회는 `user(login:){ contributionsCollection(from,to) … repositories(ownerAffiliations: OWNER, privacy: PUBLIC) }`이며 **같은 서비스 계정 PAT(`GITHUB_PUBLIC_READ_TOKEN`)를 그대로 쓴다** — 새 자격증명도, installation token 의존도 늘지 않는다. 이 확장은 위 "바뀌지 않는 경계"를 건드리지 않는다: 조회는 public 범위만이고(`privacy: PUBLIC`), 학생 access token을 쓰거나 저장하지 않으며, token pooling도 없다. REST 상세 수집은 저장소 축 그대로다. 비용은 학생당 연도당 `cost=1`로 실측했다(2026-08-19).
+
 ### 동의 범위 게이트 — 수집 활성화는 동의 문서 개정 이후에만 가능하다
 
 **이 절 작성 당시(2026-08-04) 라이브 동의 문서는 개인 계정 소유 저장소를 명시적으로 수집 범위에서 제외하고 있었다.** `CONSENT_POLICY_VERSION`(`apps/backend/src/consents/domain/consent-policy.ts:8`)이 가리키는 GitHub 활동 동의 문서는 다음과 같이 쓰여 있었다.
@@ -471,6 +473,7 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 
 ## Changelog
 
+- 2026-08-19: "GraphQL의 역할은 discovery뿐이다" 문장의 범위를 넓히는 개정 노트를 덧붙였다(기존 문단 삭제 없음). ADR-010이 랭킹을 사람 축으로 옮기면서 GraphQL이 discovery뿐 아니라 사람 축 지표 조회(`contributionsCollection` + `repositories(star)`)에도 쓰인다. 자격증명은 기존 서비스 계정 PAT `GITHUB_PUBLIC_READ_TOKEN` 하나 그대로고, public 전용 수집·학생 access token 미저장·token pooling 금지 경계는 변하지 않는다.
 - 2026-08-11: "동의 범위 게이트" 절과 "New constraints"의 두 인용이 `2026-07-21.html`을 "현재 라이브 동의 문서"로 지칭하던 stale 참조를 정정했다 — 이 두 곳이 실제로 커밋된 시점(`464c7b11`, 19:39)에도 이미 `6ff4ccb3`(19:22)가 `CONSENT_POLICY_VERSION`을 `2026-08-04`로 올려둔 뒤였다. `docs/ranking-exposure-policy` PR이 동의 문서를 `2026-08-11`로 재게시하고 `CONSENT_POLICY_VERSION`을 함께 올렸으므로, 두 참조를 그 최신 버전으로 정정했다. **정정은 참조 버전 문자열에 한정된다** — "조직 밖 public repository 자동 discovery는 별도 동의 개정 전까지 비활성"이라는 게이트의 실질 내용은 그대로 유지했다. 이번 `2026-08-11` 동의 문서 개정은 org 저장소 집계 범위(가입자 전원 노출·private org 저장소 활동의 공개 랭킹 합산)에 관한 것이며, 조직 밖 개인 public 저장소 자동 discovery를 여는 별개 사안이 아니다.
 - 2026-07-21: Issue #120에 따라 조직 자동화 App의 인증·최소 권한·token·당시 webhook·후속 티켓 계약을 Proposed로 기록했다.
 - 2026-07-21: Issue #36과 #120의 PM 결정에 따라 Org-wide read Collection App과 selected-repository write Operations App을 분리하고 파일럿 수집·소유권·공개 경계를 Accepted로 확정했다.

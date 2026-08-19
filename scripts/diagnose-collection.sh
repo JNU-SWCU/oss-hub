@@ -10,6 +10,15 @@
 #   O2 집합축  — 무엇이 수집 대상인가 (source/presence/visibility 분포)
 #   O3 표면축  — 화면이 DB를 따라오는가 (공개 랭킹 응답)
 #
+# 운영 표면은 셋이다 (2026-08-19) — org sweep · external sweep · person sweep.
+#   앞의 둘은 저장소 축이라 `Contribution` 과 fact 테이블을 채우고 ② 프로그램 화면이 읽는다.
+#   person sweep 은 사람 축이라 가입(ACTIVE) 유저의 한 해 활동을 GraphQL 로 받아
+#   `GithubUserActivityHistory`(githubId, year) 를 채우고 ① 공개 랭킹이 그것만 읽는다.
+#   따라서 org 가 멈춰도 랭킹은 살아 있고, 랭킹이 멈춰도 ② 화면은 멀쩡할 수 있다 —
+#   두 축을 같은 증상으로 읽지 않는다. 축 경계의 근거는 ADR-010 2026-08-19 개정 노트다.
+#   아래 O1 은 아직 저장소 축 테이블만 본다. 사람 축은 `max("observedAt")` 을
+#   `GithubUserActivityHistory` 에서 직접 확인한다(다음 tick ≤1h 에 전진해야 한다).
+#
 # 이 스크립트는 SELECT 만 실행한다. 쓰기·삭제·마이그레이션을 하지 않는다.
 # 출력에 저장소 이름·학생 식별자·접속 문자열을 담지 않는다 — CI 로그와 PR 본문이 공개 범위다.
 #
