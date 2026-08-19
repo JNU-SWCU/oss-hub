@@ -272,6 +272,56 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
+  it('rejects moving program start after an existing milestone start on startAt', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      applicationStartAt: new Date('2026-04-13T03:40:00.000Z'),
+      applicationEndAt: new Date('2026-08-01T03:40:00.000Z'),
+      startAt: new Date('2026-08-18T03:41:00.000Z'),
+      endAt: '2026-08-30T03:41:00.000Z',
+      milestones: [
+        {
+          id: 'milestone-1',
+          name: '계획서',
+          startAt: new Date('2026-08-18T03:41:00.000Z'),
+          dueAt: new Date('2026-08-29T03:41:00.000Z'),
+          submissionType: editableProgram.milestones[0].submissionType,
+          instructions: null,
+        },
+        {
+          id: 'milestone-2',
+          name: '결과보고서',
+          startAt: new Date('2026-08-18T03:42:00.000Z'),
+          dueAt: new Date('2026-08-29T03:42:00.000Z'),
+          submissionType: editableProgram.milestones[0].submissionType,
+          instructions: null,
+        },
+      ],
+    });
+
+    const exception = await expectDomainException(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        applicationStartAt: '2026-04-13T03:40:00.000Z',
+        applicationEndAt: '2026-08-24T03:40:00.000Z',
+        startAt: '2026-08-24T03:41:00.000Z',
+        endAt: '2026-08-30T03:41:00.000Z',
+      }),
+    );
+
+    expect(exception.errorCode).toBe(
+      PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+    );
+    expect(exception.extensions.fieldErrors).toEqual([
+      expect.objectContaining({
+        field: 'startAt',
+        code: 'INVALID_PROGRAM_START',
+      }),
+    ]);
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  });
+
   it('rejects a program end date at an existing milestone boundary', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
