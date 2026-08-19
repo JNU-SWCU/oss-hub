@@ -35,6 +35,10 @@ import {
   CollectionSyncService,
   type CollectionSyncRunResult,
 } from '../service/collection-sync.service';
+import {
+  CollectionUserActivityService,
+  type CollectionUserActivitySweepResult,
+} from '../service/collection-user-activity.service';
 import { CollectionExternalDiscoveryRequestDto } from '../dto/collection-external-discovery-request.dto';
 import { CollectionExternalDiscoveryResponseDto } from '../dto/collection-external-discovery-response.dto';
 import { CollectionRunListResponseDto } from '../dto/collection-run-list-response.dto';
@@ -59,6 +63,7 @@ export class CollectionAdminController {
     private readonly incrementalRepository: CollectionIncrementalRepository,
     private readonly auditLog: AuditLogService,
     private readonly invariants: ContributionInvariants,
+    private readonly userActivity: CollectionUserActivityService,
   ) {}
 
   /**
@@ -116,6 +121,10 @@ export class CollectionAdminController {
       startedAt,
       this.sync.runExternal(this.ownerId, runId),
     );
+    // 사람 축 sweep도 스케줄러와 대칭으로 같은 트리거에서 도는다 — 수동
+    // 트리거가 cron tick과 다른 집합을 돌면 운영자가 "눈으로 본 것"과 "도는 것"이
+    // 엇갈리게 된다.
+    this.observePersonSweep(runId, startedAt, this.userActivity.run());
     return new CollectionTriggerResponseDto(runId);
   }
 
@@ -155,6 +164,40 @@ export class CollectionAdminController {
               ? 'collection.admin.sync_failed'
               : 'collection.admin.external_sync_failed',
           scope,
+          runId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+      },
+    );
+  }
+
+  /**
+   * 사람 축 sweep 관측 — 위 `observeSweep`과 같은 계약(성공 1줄·실패 1줄,
+   * 집계 수치만)을 따르되 결과 모양이 달라 별도 helper로 둔다. 기존 두 sweep의
+   * 이벤트 이름은 그대로 둔다.
+   */
+  private observePersonSweep(
+    runId: string,
+    startedAt: number,
+    sweep: Promise<CollectionUserActivitySweepResult>,
+  ): void {
+    void sweep.then(
+      (result) => {
+        this.logger.log({
+          event: 'collection.admin.completed',
+          scope: 'person',
+          runId,
+          durationMs: Date.now() - startedAt,
+          observedUserCount: result.observedUserCount,
+          upsertedRowCount: result.upsertedRowCount,
+          skippedPastYearCount: result.skippedPastYearCount,
+          failedUserCount: result.failedUserCount,
+        });
+      },
+      (error: unknown) => {
+        this.logger.error({
+          event: 'collection.admin.person_sync_failed',
+          scope: 'person',
           runId,
           errorName: error instanceof Error ? error.name : 'UnknownError',
         });

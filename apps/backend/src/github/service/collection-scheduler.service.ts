@@ -13,6 +13,10 @@ import {
   CollectionSyncService,
   type CollectionSyncRunResult,
 } from './collection-sync.service';
+import {
+  CollectionUserActivityService,
+  type CollectionUserActivitySweepResult,
+} from './collection-user-activity.service';
 
 export const COLLECTION_CRON_JOB_NAME = 'collection-reconciliation';
 export const DEFAULT_COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
@@ -46,6 +50,7 @@ export class CollectionSchedulerService {
   constructor(
     private readonly sync: CollectionSyncService,
     private readonly cutover: CollectionCutoverRepository,
+    private readonly userActivity: CollectionUserActivityService,
   ) {}
 
   @Cron(COLLECTION_CRON_EXPRESSION, {
@@ -88,6 +93,11 @@ export class CollectionSchedulerService {
       startedAt,
       this.sync.runExternal(this.ownerId, runId),
     );
+    // 세 번째 sweep — 사람 축(person-axis) 활동 수집. 저장소 축 두 sweep과
+    // 서로 다른 표면(GraphQL PAT, `GithubUserActivityHistory`)을 쓰므로 실패도
+    // 독립적이다. 결과 모양이 달라 별도 관측 helper를 쓰되, 성공 1줄·실패 1줄
+    // 이라는 관례는 그대로다.
+    this.observePersonSweep(runId, startedAt, this.userActivity.run());
     return { runId, status: 'PENDING' };
   }
 
@@ -131,6 +141,41 @@ export class CollectionSchedulerService {
               ? 'collection.scheduler.sync_failed'
               : 'collection.scheduler.external_sync_failed',
           scope,
+          runId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+      },
+    );
+  }
+
+  /**
+   * 사람 축 sweep 관측 — 위 `observeSweep`과 같은 계약(성공 1줄·실패 1줄,
+   * 집계 수치만·식별자 금지)을 따르되, 결과 모양이 저장소 축(`CollectionSyncRunResult`)
+   * 과 달라 별도 helper로 둔다. 기존 두 sweep의 이벤트 이름은 건드리지 않는다 —
+   * 이미 걸려 있는 경보를 깨뜨리지 않기 위해서다.
+   */
+  private observePersonSweep(
+    runId: string,
+    startedAt: number,
+    sweep: Promise<CollectionUserActivitySweepResult>,
+  ): void {
+    void sweep.then(
+      (result) => {
+        this.logger.log({
+          event: 'collection.scheduler.completed',
+          scope: 'person',
+          runId,
+          durationMs: Date.now() - startedAt,
+          observedUserCount: result.observedUserCount,
+          upsertedRowCount: result.upsertedRowCount,
+          skippedPastYearCount: result.skippedPastYearCount,
+          failedUserCount: result.failedUserCount,
+        });
+      },
+      (error: unknown) => {
+        this.logger.error({
+          event: 'collection.scheduler.person_sync_failed',
+          scope: 'person',
           runId,
           errorName: error instanceof Error ? error.name : 'UnknownError',
         });

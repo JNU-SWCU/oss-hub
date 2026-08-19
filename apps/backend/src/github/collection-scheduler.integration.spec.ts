@@ -3,6 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
 import { CollectionSyncService } from './service/collection-sync.service';
+import {
+  CollectionUserActivityService,
+  type CollectionUserActivitySweepResult,
+} from './service/collection-user-activity.service';
 
 describe('CollectionScheduler integration', () => {
   let testingModule: TestingModule;
@@ -16,6 +20,10 @@ describe('CollectionScheduler integration', () => {
     [string]
   >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
+  const runUserActivity = jest.fn<
+    Promise<CollectionUserActivitySweepResult>,
+    []
+  >();
 
   beforeAll(async () => {
     testingModule = await Test.createTestingModule({
@@ -23,6 +31,10 @@ describe('CollectionScheduler integration', () => {
         CollectionSchedulerService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
+        {
+          provide: CollectionUserActivityService,
+          useValue: { run: runUserActivity },
+        },
       ],
     }).compile();
     scheduler = testingModule.get(CollectionSchedulerService);
@@ -32,6 +44,7 @@ describe('CollectionScheduler integration', () => {
     run.mockReset();
     runExternal.mockReset();
     isQuiesced.mockReset();
+    runUserActivity.mockReset();
   });
 
   afterAll(async () => {
@@ -47,6 +60,12 @@ describe('CollectionScheduler integration', () => {
     runExternal.mockResolvedValue({
       runId: 'synthetic-scheduler-external-run-id',
       status: 'COMPLETED',
+    });
+    runUserActivity.mockResolvedValue({
+      observedUserCount: 0,
+      upsertedRowCount: 0,
+      skippedPastYearCount: 0,
+      failedUserCount: 0,
     });
 
     const result = await scheduler.trigger();
@@ -65,5 +84,6 @@ describe('CollectionScheduler integration', () => {
     });
     expect(run).not.toHaveBeenCalled();
     expect(runExternal).not.toHaveBeenCalled();
+    expect(runUserActivity).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,10 @@ import {
   CollectionSyncService,
   type CollectionSyncRunResult,
 } from './collection-sync.service';
+import {
+  CollectionUserActivityService,
+  type CollectionUserActivitySweepResult,
+} from './collection-user-activity.service';
 
 const completedRun = (
   overrides: Partial<CollectionSyncRunResult> = {},
@@ -32,9 +36,20 @@ describe('CollectionSchedulerService', () => {
   const run = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
   const runExternal = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
+  const runUserActivity = jest.fn<
+    Promise<CollectionUserActivitySweepResult>,
+    []
+  >();
 
   beforeEach(async () => {
     run.mockReset();
+    runUserActivity.mockReset();
+    runUserActivity.mockResolvedValue({
+      observedUserCount: 3,
+      upsertedRowCount: 3,
+      skippedPastYearCount: 0,
+      failedUserCount: 0,
+    });
     runExternal.mockReset();
     runExternal.mockResolvedValue(
       completedRun({ runId: 'synthetic-external-run-id' }),
@@ -47,6 +62,10 @@ describe('CollectionSchedulerService', () => {
         CollectionSchedulerService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
+        {
+          provide: CollectionUserActivityService,
+          useValue: { run: runUserActivity },
+        },
       ],
     }).compile();
     await testingModule.init();
@@ -102,6 +121,85 @@ describe('CollectionSchedulerService', () => {
     });
     expect(run).not.toHaveBeenCalled();
     expect(runExternal).not.toHaveBeenCalled();
+    expect(runUserActivity).not.toHaveBeenCalled();
+  });
+
+  it('cron tick 1회가 org·external·person 세 sweep을 모두 관측한다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue(completedRun());
+
+    await expect(service.handleCron()).resolves.toBeUndefined();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(runExternal).toHaveBeenCalledTimes(1);
+    expect(runUserActivity).toHaveBeenCalledTimes(1);
+    const scopes = logger.mock.calls
+      .map(([entry]) => (entry as { scope?: string }).scope)
+      .filter((scope): scope is string => typeof scope === 'string');
+    expect(new Set(scopes)).toEqual(new Set(['org', 'external', 'person']));
+  });
+
+  it('사람 축 sweep 성공은 집계 수치만 담은 완료 로그 1줄을 남긴다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue(completedRun());
+    runUserActivity.mockResolvedValue({
+      observedUserCount: 51,
+      upsertedRowCount: 50,
+      skippedPastYearCount: 0,
+      failedUserCount: 1,
+    });
+
+    await expect(service.handleCron()).resolves.toBeUndefined();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.scheduler.completed',
+        scope: 'person',
+        observedUserCount: 51,
+        upsertedRowCount: 50,
+        skippedPastYearCount: 0,
+        failedUserCount: 1,
+      }),
+    );
+  });
+
+  it('사람 축 sweep 실패는 org·external sweep이나 트리거 응답에 영향을 주지 않는다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue(completedRun());
+    runUserActivity.mockRejectedValue(
+      Object.assign(new Error('person sweep unavailable'), {
+        token: 'must-not-be-logged',
+      }),
+    );
+
+    await expect(service.trigger()).resolves.toEqual(
+      expect.objectContaining({ status: 'PENDING' }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(runExternal).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.scheduler.person_sync_failed',
+        scope: 'person',
+        errorName: 'Error',
+      }),
+    );
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(
+      'must-not-be-logged',
+    );
+    expect(logger).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'collection.scheduler.sync_failed' }),
+    );
   });
 
   it('cron 실패를 안전한 분류만 기록하고 프로세스로 전파하지 않는다', async () => {

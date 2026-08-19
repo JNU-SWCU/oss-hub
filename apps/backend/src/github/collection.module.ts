@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
-import { ConsentsModule } from '../consents/consents.module';
-import { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import type { RuntimeConfig } from '../runtime-config/runtime-config';
@@ -30,6 +28,7 @@ import {
   CollectionReconciliationService,
 } from './service/collection-reconciliation.service';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
+import { CollectionUserActivityService } from './service/collection-user-activity.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import {
   CollectionSyncRuntime,
@@ -48,7 +47,6 @@ import {
     ScheduleModule.forRoot(),
     AuditLogModule,
     AuthModule,
-    ConsentsModule,
   ],
   controllers: [CollectionAdminController],
   providers: [
@@ -100,22 +98,31 @@ import {
       provide: CollectionExternalDiscoveryService,
       inject: [
         PrismaService,
-        ConsentsService,
         CollectionIncrementalRepository,
         CollectionDiscoveryClient,
       ],
       useFactory: (
         prisma: PrismaService,
-        consents: ConsentsService,
         incrementalRepository: CollectionIncrementalRepository,
         discoveryClient: CollectionDiscoveryClient,
       ): CollectionExternalDiscoveryService =>
         new CollectionExternalDiscoveryService(
           prisma,
-          consents,
           incrementalRepository,
           discoveryClient,
         ),
+    },
+    {
+      // 사람 축(person-axis) 활동 수집 — 스케줄러·관리자 트리거의 세 번째 sweep.
+      // 자격증명은 external discovery와 같은 `CollectionDiscoveryClient`(서비스
+      // 계정 PAT)를 재사용한다 — installation token이 아니다.
+      provide: CollectionUserActivityService,
+      inject: [PrismaService, CollectionDiscoveryClient],
+      useFactory: (
+        prisma: PrismaService,
+        discoveryClient: CollectionDiscoveryClient,
+      ): CollectionUserActivityService =>
+        new CollectionUserActivityService(prisma, discoveryClient),
     },
     {
       provide: CollectionCutoverService,

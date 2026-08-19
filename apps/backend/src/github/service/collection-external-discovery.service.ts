@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 
 import { DomainException } from '../../common/error-code';
-import { ConsentsService } from '../../consents/consents.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CollectionDiscoveryClient,
@@ -39,9 +38,9 @@ export interface DiscoverExternalRepositoriesResult {
  * `source`와 무관하게 동일 적용).
  *
  * 실행마다 다음 두 게이트를 통과해야 한다:
- * 1. 대상 학생이 **현재** 동의 정책 버전(`CURRENT_CONSENT_POLICY.policyVersion`,
- *    하드코딩 금지)에 동의했어야 한다 — `ConsentsService.requireCurrent`를
- *    그대로 재사용한다(GR-14 활성화 게이트).
+ * 1. 대상이 **가입한 활성 계정**(`accountStatus: ACTIVE`)이어야 한다. 배경
+ *    수집 경로는 동의 테이블을 조회하지 않는다 — 동의 게이트는 온보딩
+ *    경로(`roles`·`users`·`repository-own-enrollment`)가 그대로 지킨다.
  * 2. private 저장소는 discovery client가 이미 필터링한다
  *    (`collection-discovery.client.ts`의 `!r.isPrivate` 필터) — 이 서비스는
  *    client가 돌려준 결과를 그대로 신뢰한다.
@@ -52,7 +51,6 @@ export class CollectionExternalDiscoveryService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly consents: ConsentsService,
     private readonly incrementalRepository: CollectionIncrementalRepository,
     private readonly discoveryClient: CollectionDiscoveryClient,
     private readonly now: () => Date = () => new Date(),
@@ -61,7 +59,7 @@ export class CollectionExternalDiscoveryService {
   async discoverForStudent(
     githubLogin: string,
   ): Promise<DiscoverExternalRepositoriesResult> {
-    await this.requireConsentedStudent(githubLogin);
+    await this.requireActiveStudent(githubLogin);
 
     const to = this.now();
     const from = new Date(to.getTime() - DEFAULT_DISCOVERY_WINDOW_MS);
@@ -131,11 +129,10 @@ export class CollectionExternalDiscoveryService {
 
   /**
    * login → githubId 매핑은 이 서비스 고유의 새 조회다(기존 저장소 어디에도
-   * login 기반 조회가 없다). 이후 ACTIVE·동의 여부 판정은 여기서 다시 만들지
-   * 않고 `ConsentsService.requireCurrent`에 위임한다 — 정책 버전 문자열은
-   * 그 안에서 `CURRENT_CONSENT_POLICY.policyVersion`으로만 참조된다.
+   * login 기반 조회가 없다). 게이트는 가입 활성 계정 확인 하나뿐이다 — 배경
+   * 수집 경로는 동의 테이블을 조회하지 않는다.
    */
-  private async requireConsentedStudent(githubLogin: string): Promise<bigint> {
+  private async requireActiveStudent(githubLogin: string): Promise<bigint> {
     const user = await this.prisma.user.findFirst({
       where: { nickname: githubLogin, accountStatus: AccountStatus.ACTIVE },
       select: { githubId: true },
@@ -145,7 +142,6 @@ export class CollectionExternalDiscoveryService {
         COLLECTION_ERROR_CODES[CollectionErrorCode.EXTERNAL_STUDENT_NOT_FOUND],
       );
     }
-    await this.consents.requireCurrent(user.githubId);
     return user.githubId;
   }
 }
