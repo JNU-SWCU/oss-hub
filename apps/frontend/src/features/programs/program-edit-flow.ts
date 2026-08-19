@@ -35,6 +35,7 @@ export interface ProgramEditForm {
   readonly originalApplicationStartAt: string;
   readonly originalApplicationEndAt: string;
   readonly originalEndAt: string | null;
+  readonly milestoneStartAts: readonly string[];
   readonly milestoneDueAts: readonly string[];
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
@@ -49,6 +50,7 @@ export type ProgramEditableField = Exclude<
   | 'originalApplicationEndAt'
   | 'originalStartAt'
   | 'originalEndAt'
+  | 'milestoneStartAts'
   | 'milestoneDueAts'
 >;
 
@@ -125,6 +127,7 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
     originalApplicationStartAt: program.applicationStartAt,
     originalApplicationEndAt: program.applicationEndAt,
     originalEndAt: program.endAt,
+    milestoneStartAts: program.milestones.map((milestone) => milestone.startAt),
     milestoneDueAts: program.milestones.map((milestone) => milestone.dueAt),
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
     notifyOnDeadline: program.notifyOnDeadline,
@@ -192,6 +195,23 @@ export function buildProgramEditInput(
   if (form.originalEndAt !== null && endAt === null) {
     throw new ProgramEditValidationError({
       endAt: '종료일을 정하거나 「종료일 미정」을 선택해 주세요.',
+    });
+  }
+  // Same rule as the editor service: a later program start that leaves
+  // milestone starts behind is a startAt error, not an endAt error.
+  if (
+    form.milestoneStartAts.some(
+      (milestoneStartAt) => milestoneStartAt < startAt,
+    )
+  ) {
+    throw new ProgramEditValidationError({
+      startAt:
+        '운영 시작일은 모든 마일스톤 시작일보다 이르거나 같아야 합니다. 마일스톤 시작일을 먼저 바꿔 주세요.',
+    });
+  }
+  if (endAt !== null && startAt >= endAt) {
+    throw new ProgramEditValidationError({
+      endAt: '프로그램 종료일은 운영 시작일 이후여야 합니다.',
     });
   }
   if (

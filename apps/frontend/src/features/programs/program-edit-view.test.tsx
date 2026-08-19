@@ -59,7 +59,7 @@ const editableProgram: EditableProgram = {
     {
       id: 'milestone-canonical-id',
       name: '기획서 제출',
-      startAt: '2026-08-10T12:30:59.000Z',
+      startAt: '2026-08-16T09:30:59.000Z',
       dueAt: '2026-08-20T12:30:59.000Z',
       submissionType: 'TEXT',
       instructions: '최종 결과를 글로 제출해 주세요.',
@@ -344,10 +344,46 @@ describe('ProgramEditView contract', () => {
     );
   });
 
+  it('rejects moving program start after an existing milestone start on startAt', () => {
+    const program = {
+      ...editableProgram,
+      applicationStartAt: '2026-04-13T03:40:00.000Z',
+      applicationEndAt: '2026-08-01T03:40:00.000Z',
+      startAt: '2026-08-18T03:41:00.000Z',
+      endAt: '2026-08-30T03:41:00.000Z',
+      milestones: [
+        {
+          ...editableProgram.milestones[0],
+          startAt: '2026-08-18T03:41:00.000Z',
+          dueAt: '2026-08-29T03:41:00.000Z',
+        },
+      ],
+    };
+    const form = {
+      ...toProgramEditForm(program),
+      applicationEndAt: '2026-08-24T12:40',
+      startAt: '2026-08-24T12:41',
+    };
+
+    let error: unknown;
+    try {
+      buildProgramEditInput(form, true, ['applicationEndAt', 'startAt']);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(mapProgramEditError(error).startAt).toContain('마일스톤 시작일');
+    expect(mapProgramEditError(error).endAt).toBeUndefined();
+  });
+
   it.each([
-    ['application end', '2026-08-15T09:30'],
-    ['milestone due', '2026-08-20T12:30'],
-  ])('rejects a program end at the %s boundary', (_label, endAt) => {
+    ['application end', '2026-08-15T09:30', '운영 시작일 이후'],
+    [
+      'milestone due',
+      '2026-08-20T12:30',
+      '신청 종료일과 모든 마일스톤 마감 이후',
+    ],
+  ])('rejects a program end at the %s boundary', (_label, endAt, message) => {
     const form = { ...toProgramEditForm(editableProgram), endAt };
 
     let error: unknown;
@@ -357,9 +393,7 @@ describe('ProgramEditView contract', () => {
       error = caught;
     }
 
-    expect(mapProgramEditError(error).endAt).toContain(
-      '신청 종료일과 모든 마일스톤 마감 이후',
-    );
+    expect(mapProgramEditError(error).endAt).toContain(message);
   });
 
   // #867 — 「변경 취소」/「변경사항 저장」은 우측 정렬이고(docs/rules/frontend.md),

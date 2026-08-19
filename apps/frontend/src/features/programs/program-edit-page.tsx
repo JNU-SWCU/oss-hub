@@ -172,6 +172,9 @@ export function ProgramEditPage({
             ...form,
             // 마일스톤 변경은 program 상태에 즉시 반영된다. 최초 로드 때 만든
             // form의 일정 사본을 쓰면 저장 직후에도 예전 마감으로 종료일을 막는다.
+            milestoneStartAts: state.program.milestones.map(
+              (milestone) => milestone.startAt,
+            ),
             milestoneDueAts: state.program.milestones.map(
               (milestone) => milestone.dueAt,
             ),
