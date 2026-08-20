@@ -7,6 +7,15 @@ const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticPostId = 'cuid-synthetic-post';
 const syntheticCommentId = 'cuid-synthetic-comment';
 const syntheticAuthorId = 'cuid-synthetic-author';
+const expectedAuthorNameSelect = {
+  name: true,
+  profile: { select: { name: true } },
+  nickname: true,
+} as const;
+const expectedCommentAuthorSelect = {
+  role: true,
+  ...expectedAuthorNameSelect,
+} as const;
 
 describe('BoardRepository.findByProgramId', () => {
   it('page/limit을 skip/take로 변환하고 고정글·최신순으로 조회한다', async () => {
@@ -122,7 +131,7 @@ describe('BoardRepository authorName', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          author: { select: { name: true, nickname: true } },
+          author: { select: expectedAuthorNameSelect },
         }) as unknown,
       }),
     );
@@ -330,9 +339,7 @@ describe('BoardRepository.findDetailById', () => {
         select: expect.objectContaining({
           comments: expect.objectContaining({
             select: expect.objectContaining({
-              author: {
-                select: { role: true, name: true, nickname: true },
-              },
+              author: { select: expectedCommentAuthorSelect },
             }) as unknown,
           }) as unknown,
         }) as unknown,
@@ -418,9 +425,7 @@ describe('BoardRepository.createComment', () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          author: {
-            select: { role: true, name: true, nickname: true },
-          },
+          author: { select: expectedCommentAuthorSelect },
         }) as unknown,
       }),
     );

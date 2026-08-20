@@ -1,5 +1,10 @@
 import { AccountStatus, Role } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  compatibleProfileNameWhere,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 
 /** 초대 검색 결과 후보 — 공개 가능한 필드만 담는다. */
 export interface InvitationCandidateRecord {
@@ -30,25 +35,36 @@ export async function getInviteeEligibility(
  * 이름 또는 GitHub handle 부분 일치 검색. 본인과 같은 프로그램 팀 소속 사용자는
  * 제외하고, 학번·이메일·연락처는 조회하지 않는다.
  */
-export function searchInvitationCandidates(
+export async function searchInvitationCandidates(
   prisma: Pick<PrismaService, 'user'>,
   programId: string,
   query: string,
   excludeUserId: string,
 ): Promise<InvitationCandidateRecord[]> {
-  return prisma.user.findMany({
+  const users = await prisma.user.findMany({
     where: {
       id: { not: excludeUserId },
       role: Role.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
       OR: [
         { nickname: { contains: query, mode: 'insensitive' } },
-        { name: { contains: query, mode: 'insensitive' } },
+        compatibleProfileNameWhere(query),
       ],
       teamMemberships: { none: { programId } },
     },
-    select: { id: true, nickname: true, name: true, avatarUrl: true },
+    select: {
+      id: true,
+      nickname: true,
+      ...COMPATIBLE_PROFILE_NAME_SELECT,
+      avatarUrl: true,
+    },
     orderBy: { nickname: 'asc' },
     take: 20,
   });
+  return users.map((user) => ({
+    id: user.id,
+    nickname: user.nickname,
+    name: resolveCompatibleProfileName(user),
+    avatarUrl: user.avatarUrl,
+  }));
 }
