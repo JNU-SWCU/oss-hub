@@ -1,20 +1,17 @@
 import {
   type RankingEntry,
   type RankingPage,
+  type RankingViewerClass,
   type RankingYear,
 } from '../domain/ranking';
 
-/**
- * 공개 랭킹 항목 allowlist. 여기 적은 칸만 응답으로 나간다 — 실명 전용 칸은 없다.
- * 키 집합은 계층과 무관하게 동일하며, 바뀌는 것은 `displayName` 의 **값** 뿐이다 —
- * 공개·학생 계층은 `githubLogin`(D3), 교직원·관리자는 `User.name`(없으면
- * `githubLogin`)이다(todo 15).
- */
 class RankingEntryResponseDto {
   readonly rank: number;
   readonly displayName: string;
   readonly githubLogin: string;
   readonly department: string | null;
+  /** Staff envelope only. Absent on public items — not `undefined`. */
+  declare readonly name?: string | null;
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly issueCount: number;
@@ -33,6 +30,9 @@ class RankingEntryResponseDto {
     this.repositoryCount = entry.repositoryCount;
     this.starCount = entry.starCount;
     this.total = entry.total;
+    if ('name' in entry) {
+      this.name = entry.name ?? null;
+    }
   }
 
   static from(entry: RankingEntry): RankingEntryResponseDto {
@@ -46,8 +46,10 @@ export class RankingPageResponseDto {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
-  /** 이 수치의 기준 시각. 관측이 없으면 null (ADR-010 §10). */
+  /** Observation time for these numbers. Null when nothing was observed. */
   readonly dataAsOf: string | null;
+  readonly viewerClass: RankingViewerClass;
+  readonly nextCycleAt: string | null;
 
   private constructor(page: RankingPage) {
     this.year = page.year;
@@ -56,6 +58,9 @@ export class RankingPageResponseDto {
     this.pageSize = page.pageSize;
     this.total = page.total;
     this.dataAsOf = page.dataAsOf === null ? null : page.dataAsOf.toISOString();
+    this.viewerClass = page.viewerClass;
+    this.nextCycleAt =
+      page.nextCycleAt === null ? null : page.nextCycleAt.toISOString();
   }
 
   static from(page: RankingPage): RankingPageResponseDto {

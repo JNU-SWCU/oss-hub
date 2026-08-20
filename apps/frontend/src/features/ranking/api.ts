@@ -1,8 +1,10 @@
 import { apiClient } from '@/lib/api-client';
 import {
+  RANKING_VIEWER_CLASSES,
   RANKING_YEAR_ALL,
   type RankingItem,
   type RankingPage,
+  type RankingViewerClass,
   type RankingYear,
   type RankingYears,
 } from './types';
@@ -55,10 +57,25 @@ function readOptionalDepartment(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/** 갱신 시각 — ISO 문자열이거나 null 이거나, 아직 없을 수 있다. */
-function isDataAsOf(value: unknown): boolean {
+/** Observation time — ISO string, null, or omitted. */
+function isOptionalIsoInstant(value: unknown): boolean {
   if (value === undefined || value === null) return true;
   return typeof value === 'string' && !Number.isNaN(Date.parse(value));
+}
+
+function isViewerClass(value: unknown): value is RankingViewerClass {
+  return (
+    value === RANKING_VIEWER_CLASSES.PUBLIC ||
+    value === RANKING_VIEWER_CLASSES.STAFF
+  );
+}
+
+function readOptionalName(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 /**
@@ -73,8 +90,15 @@ function isDataAsOf(value: unknown): boolean {
  * 합계를 그대로 싣는다 — 여기서 지표를 다시 더해 검산하면 프런트가 백엔드
  * 판정을 재현하게 되고(ADR-008), 지표 구성이 바뀔 때마다 화면이 먼저 깨진다.
  */
-function parseRankingItem(value: unknown): RankingItem | null {
+function parseRankingItem(
+  value: unknown,
+  viewerClass: RankingViewerClass,
+): RankingItem | null {
   if (!isRecord(value)) {
+    return null;
+  }
+
+  if (viewerClass === RANKING_VIEWER_CLASSES.PUBLIC && 'name' in value) {
     return null;
   }
 
@@ -96,10 +120,8 @@ function parseRankingItem(value: unknown): RankingItem | null {
     return null;
   }
 
-  return {
+  const item: RankingItem = {
     rank: value.rank,
-    // 표시 이름은 없으면 GitHub 로그인으로 대신한다 — 사람을 못 알아보는
-    // 행보다 로그인으로라도 보이는 행이 낫다.
     displayName:
       typeof value.displayName === 'string'
         ? value.displayName
@@ -113,12 +135,25 @@ function parseRankingItem(value: unknown): RankingItem | null {
     starCount,
     total: value.total,
   };
+
+  if (viewerClass !== RANKING_VIEWER_CLASSES.STAFF) {
+    return item;
+  }
+
+  if (!('name' in value)) {
+    return { ...item, name: null };
+  }
+  if (value.name !== null && typeof value.name !== 'string') {
+    return null;
+  }
+  return { ...item, name: readOptionalName(value.name) ?? null };
 }
 
 export function parseRankingPage(value: unknown): RankingPage {
   if (
     !isRecord(value) ||
-    !isDataAsOf(value.dataAsOf) ||
+    !isOptionalIsoInstant(value.dataAsOf) ||
+    !isOptionalIsoInstant(value.nextCycleAt) ||
     !isRankingYear(value.year) ||
     !Array.isArray(value.items) ||
     !isPositiveInteger(value.page) ||
@@ -128,7 +163,12 @@ export function parseRankingPage(value: unknown): RankingPage {
     throw new RankingResponseError();
   }
 
-  const items = value.items.map(parseRankingItem);
+  const viewerClass = value.viewerClass;
+  if (!isViewerClass(viewerClass)) {
+    throw new RankingResponseError();
+  }
+
+  const items = value.items.map((item) => parseRankingItem(item, viewerClass));
   if (items.some((item) => item === null)) {
     throw new RankingResponseError();
   }
@@ -141,6 +181,9 @@ export function parseRankingPage(value: unknown): RankingPage {
     total: value.total,
     dataAsOf:
       typeof value.dataAsOf === 'string' ? new Date(value.dataAsOf) : null,
+    viewerClass,
+    nextCycleAt:
+      typeof value.nextCycleAt === 'string' ? value.nextCycleAt : null,
   };
 }
 

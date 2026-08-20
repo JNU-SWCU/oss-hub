@@ -193,6 +193,19 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     expect(render('/programs/prog-1')).toContain('id="main-content"');
   });
 
+  it('/dashboard 등 다른 섹션은 랭킹 시계를 그리지 않는다', () => {
+    mockSession({
+      status: 'assigned',
+      role: 'STUDENT',
+      isProfileComplete: true,
+    });
+    const html = render('/dashboard');
+
+    expect(html).toContain('data-slot="app-sidebar"');
+    expect(html).not.toContain('data-slot="program-countdown"');
+    expect(html).not.toContain('다음 수집까지');
+  });
+
   it('/dashboard 등 다른 섹션은 여전히 역할 메뉴 AppSidebar다(회귀)', () => {
     mockSession({
       status: 'assigned',

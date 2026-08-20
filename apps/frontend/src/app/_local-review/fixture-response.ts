@@ -581,7 +581,7 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
   2026: [
     {
       githubLogin: 'synthetic-top',
-      realName: '강서준',
+      realName: 'synthetic-name-top',
       department: '소프트웨어공학과',
       commitCount: 128,
       pullRequestCount: 24,
@@ -591,7 +591,7 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
     },
     {
       githubLogin: 'synthetic-second',
-      realName: '임나영',
+      realName: 'synthetic-name-second',
       department: '인공지능학부',
       commitCount: 96,
       pullRequestCount: 18,
@@ -616,7 +616,7 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
   2025: [
     {
       githubLogin: 'synthetic-veteran',
-      realName: '박지훈',
+      realName: 'synthetic-name-veteran',
       department: '컴퓨터정보통신공학과',
       commitCount: 64,
       pullRequestCount: 11,
@@ -626,7 +626,7 @@ const RANKING_ACTIVITY_BY_YEAR: Readonly<
     },
     {
       githubLogin: 'synthetic-top',
-      realName: '강서준',
+      realName: 'synthetic-name-top',
       department: '소프트웨어공학과',
       commitCount: 41,
       pullRequestCount: 7,
@@ -692,21 +692,16 @@ function rankingItemsFor(year: RankingYear): readonly RankedActivity[] {
 }
 
 /**
- * backend `RankingEntryResponseDto` 가 내려주는 칸을 그대로 맞춘다 — **계층까지**.
- *
- * 키 집합은 계층과 무관하게 같고, 바뀌는 것은 `displayName` 의 **값**이다.
- * 공개·학생은 `githubLogin`(D3), 교직원·관리자는 실명(없으면 다시 `githubLogin`)이다.
- * 픽스처가 비로그인에게도 실명을 실어 보내면 검토자가 계층 계약을 확인할 수 없다.
+ * Matches backend RankingEntryResponseDto. displayName is always githubLogin.
+ * Staff envelopes add `name`; public items omit that key.
  */
 function rankingWireItem(item: RankedActivity, role: AuthRole | null): unknown {
-  const seesRealName = role === 'STAFF' || role === 'ADMIN';
+  const staff = role === 'STAFF' || role === 'ADMIN';
   return {
     rank: item.rank,
-    displayName: seesRealName
-      ? (item.realName ?? item.githubLogin)
-      : item.githubLogin,
+    displayName: item.githubLogin,
     githubLogin: item.githubLogin,
-    // 학과는 공개 정보다 — 비로그인에게도 그대로 나간다.
+    ...(staff ? { name: item.realName } : {}),
     department: item.department,
     commitCount: item.commitCount,
     pullRequestCount: item.pullRequestCount,
@@ -745,6 +740,8 @@ function rankingPage(
     // 안내만 띄워 검토자가 정상 랭킹 화면을 볼 수 없다 — 그 대기 상태는
     // `ranking-view.test.tsx`가 고정한다.
     dataAsOf: '2026-08-19T02:30:00.000Z',
+    viewerClass: role === 'STAFF' || role === 'ADMIN' ? 'staff' : 'public',
+    nextCycleAt: '2026-08-21T00:00:00.000Z',
   };
 }
 

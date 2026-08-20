@@ -1,14 +1,11 @@
+import type { RankingService } from '../ranking/service/ranking.service';
 import { DEPARTMENT_COHORTS } from './department-cohort';
 import { StaffInsightsService } from './staff-insights.service';
 import type { StaffInsightsRepository } from './staff-insights.repository';
 
 function repository(): Pick<
   StaffInsightsRepository,
-  | 'listStudents'
-  | 'listApprovedParticipations'
-  | 'listActivityTotals'
-  | 'findActivityDataAsOf'
-  | 'listActivityYears'
+  'listStudents' | 'listApprovedParticipations'
 > {
   return {
     listStudents: jest.fn().mockResolvedValue([
@@ -35,9 +32,19 @@ function repository(): Pick<
         userIds: ['student-sw', 'student-non'],
       },
     ]),
-    listActivityTotals: jest.fn().mockResolvedValue([
+  };
+}
+
+function ranking(): Pick<
+  RankingService,
+  'findPublicActivity' | 'findDataAsOf' | 'listYears'
+> {
+  return {
+    findPublicActivity: jest.fn().mockResolvedValue([
       {
         githubId: 11n,
+        githubLogin: 'sw-student',
+        department: '소프트웨어공학과',
         commitCount: 10,
         pullRequestCount: 2,
         issueCount: 1,
@@ -46,6 +53,8 @@ function repository(): Pick<
       },
       {
         githubId: 22n,
+        githubLogin: 'non-sw-student',
+        department: '국어국문학과',
         commitCount: 1,
         pullRequestCount: 0,
         issueCount: 0,
@@ -53,23 +62,27 @@ function repository(): Pick<
         starCount: 0,
       },
     ]),
-    findActivityDataAsOf: jest
+    findDataAsOf: jest
       .fn()
       .mockResolvedValue(new Date('2026-08-01T00:00:00.000Z')),
-    listActivityYears: jest.fn().mockResolvedValue([2026, 2025]),
+    listYears: jest.fn().mockResolvedValue([2026, 2025]),
   };
 }
 
 describe('StaffInsightsService', () => {
   it('splits ranking and participation by department cohort', async () => {
     const store = repository();
-    const service = new StaffInsightsService(store as StaffInsightsRepository);
+    const rankingService = ranking();
+    const service = new StaffInsightsService(
+      store as StaffInsightsRepository,
+      rankingService as RankingService,
+    );
 
     const summary = await service.summarize({ kind: 'all' });
 
-    expect(store.listActivityTotals).toHaveBeenCalledWith({});
-    expect(store.findActivityDataAsOf).toHaveBeenCalledTimes(1);
-    expect(store.listActivityYears).toHaveBeenCalledTimes(1);
+    expect(rankingService.findPublicActivity).toHaveBeenCalledWith({});
+    expect(rankingService.findDataAsOf).toHaveBeenCalledTimes(1);
+    expect(rankingService.listYears).toHaveBeenCalledTimes(1);
     const sw = summary.cohorts.find(
       (row) => row.cohort === DEPARTMENT_COHORTS.SW_MAJOR,
     );
@@ -109,13 +122,17 @@ describe('StaffInsightsService', () => {
     });
   });
 
-  it('passes only a numeric year into activity totals', async () => {
+  it('passes only a numeric year into ranking activity', async () => {
     const store = repository();
-    const service = new StaffInsightsService(store as StaffInsightsRepository);
+    const rankingService = ranking();
+    const service = new StaffInsightsService(
+      store as StaffInsightsRepository,
+      rankingService as RankingService,
+    );
 
     await service.summarize({ kind: 'calendar', year: 2026 });
 
-    expect(store.listActivityTotals).toHaveBeenCalledWith({
+    expect(rankingService.findPublicActivity).toHaveBeenCalledWith({
       currentYear: 2026,
     });
   });

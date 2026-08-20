@@ -698,17 +698,22 @@ describe('local review fixture responses', () => {
     const staff = read('staff');
     const admin = read('admin');
 
-    // 공개·학생 계층은 표시 이름이 곳 닉네임이다(D3).
+    expect(anonymous.viewerClass).toBe('public');
+    expect(student.viewerClass).toBe('public');
+    expect(staff.viewerClass).toBe('staff');
+    expect(admin.viewerClass).toBe('staff');
+
     for (const item of [...anonymous.items, ...student.items]) {
       expect(item.displayName).toBe(item.githubLogin);
+      expect(item).not.toHaveProperty('name');
     }
     expect(student.items).toEqual(anonymous.items);
 
-    // 교직원·관리자만 실명을 받는다. 실명이 없는 사람은 닉네임으로 내려앉는다.
     expect(staff.items).toEqual(admin.items);
     expect(
-      staff.items.some((item) => item.displayName !== item.githubLogin),
+      staff.items.every((item) => item.displayName === item.githubLogin),
     ).toBe(true);
+    expect(staff.items.some((item) => item.name !== null)).toBe(true);
 
     // 순서는 계층과 무관하다 — 누가 보든 같은 사람이 같은 등수다.
     expect(staff.items.map((item) => item.githubLogin)).toEqual(
