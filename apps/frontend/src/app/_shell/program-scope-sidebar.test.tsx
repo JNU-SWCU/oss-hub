@@ -60,6 +60,7 @@ function render(
       pathname="/programs/prog-1"
       collapsed={false}
       onToggle={() => {}}
+      backHref="/programs"
       {...overrides}
     />,
   );
@@ -105,6 +106,7 @@ describe('ProgramScopeSidebar', () => {
         pathname="/programs/prog-1"
         collapsed={false}
         onToggle={() => {}}
+        backHref="/programs"
       />,
     );
     expect(html).toContain('서류 현황');
@@ -124,6 +126,7 @@ describe('ProgramScopeSidebar', () => {
         pathname="/programs/prog-1/applicants"
         collapsed={false}
         onToggle={() => {}}
+        backHref="/programs"
       />,
     );
     expect(html).toContain('aria-current="page"');
