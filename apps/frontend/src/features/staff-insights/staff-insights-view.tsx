@@ -132,7 +132,11 @@ export function StaffInsightsView({
         aria-label="기간과 비교 단위"
       >
         <YearLinks scope={summary.scope} years={summary.years} />
-        <div className="flex flex-wrap gap-2" role="group" aria-label="비교 단위">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="비교 단위"
+        >
           <CutButton
             current={cut}
             value={INSIGHTS_CUTS.COHORT}
@@ -203,7 +207,10 @@ function YearLinks({
 }): ReactElement {
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="기간">
-      <YearLink href={insightsPageHref({ kind: 'all' })} current={scope.kind === 'all'}>
+      <YearLink
+        href={insightsPageHref({ kind: 'all' })}
+        current={scope.kind === 'all'}
+      >
         전체
       </YearLink>
       {years.map((year) => (
@@ -319,7 +326,10 @@ function ActivityPanel({
       <CardContent>
         <div className="h-80 w-full" aria-hidden="true">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+            <BarChart
+              data={data}
+              margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="metric"

@@ -249,7 +249,10 @@ function buildDepartmentRows(
       cohort: row.cohort,
       ...row.metrics,
     }))
-    .sort((left, right) => right.total - left.total || right.studentCount - left.studentCount);
+    .sort(
+      (left, right) =>
+        right.total - left.total || right.studentCount - left.studentCount,
+    );
 }
 
 function buildProgramRows(

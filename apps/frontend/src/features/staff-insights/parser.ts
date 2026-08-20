@@ -49,7 +49,9 @@ function parseScope(value: unknown): InsightsYearScope | null {
   return null;
 }
 
-function parseMetrics(value: Record<string, unknown>): StaffInsightsMetrics | null {
+function parseMetrics(
+  value: Record<string, unknown>,
+): StaffInsightsMetrics | null {
   if (
     !isNonNegativeInteger(value.studentCount) ||
     !isNonNegativeInteger(value.activeStudentCount) ||
@@ -120,7 +122,9 @@ function parseProgram(value: unknown): StaffInsightsProgramRow | null {
   };
 }
 
-export function parseStaffInsightsSummary(value: unknown): StaffInsightsSummary {
+export function parseStaffInsightsSummary(
+  value: unknown,
+): StaffInsightsSummary {
   if (
     !isRecord(value) ||
     !Array.isArray(value.years) ||
