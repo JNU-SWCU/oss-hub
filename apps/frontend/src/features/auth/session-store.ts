@@ -1,15 +1,16 @@
 'use client';
 
 import { fetchSession } from './api';
+import { ApiError } from '@/lib/api-client';
 import type { Me } from './types';
 
 /**
  * `error`는 조회 자체가 실패한 상태다 — 비로그인(`anonymous`)과 반드시 구분한다.
  *
- * `/auth/session`은 비로그인일 때도 200으로 `isAuthenticated: false`를 돌려주므로,
- * 예외가 던져지는 경우는 전부 진짜 실패(네트워크 단절·5xx·응답 파싱 실패)다.
- * 실패를 비로그인으로 접으면 로그인한 사용자가 랜딩으로 밀려나고, 화면상 로그아웃된
- * 것처럼 보이지만 세션은 살아 있어 사용자가 원인도 재시도 수단도 알 수 없다.
+ * `/auth/session`의 401은 만료·비활성화 등으로 기존 세션을 더 이상 쓸 수 없다는
+ * 응답이므로 비로그인으로 정규화한다. 그 외 예외(네트워크 단절·5xx·응답 파싱
+ * 실패)는 진짜 조회 실패다. 이 실패를 비로그인으로 접으면 살아 있는 세션을 로그아웃처럼
+ * 표시해 사용자가 원인도 재시도 수단도 알 수 없다.
  */
 export type AuthSessionStatus =
   'loading' | 'error' | 'anonymous' | 'authenticated';
@@ -41,6 +42,7 @@ const ANONYMOUS_STATE: AuthSessionState = { status: 'anonymous', user: null };
 let snapshot: AuthSessionState = LOADING_STATE;
 const listeners = new Set<() => void>();
 let inFlight: Promise<void> | null = null;
+let generation = 0;
 
 function publish(next: AuthSessionState): void {
   snapshot = next;
@@ -49,15 +51,23 @@ function publish(next: AuthSessionState): void {
   }
 }
 
-async function load(): Promise<void> {
+async function load(loadGeneration: number): Promise<void> {
   try {
     const session = await fetchSession();
-    publish(
-      session.isAuthenticated
-        ? { status: 'authenticated', user: session.user }
-        : ANONYMOUS_STATE,
-    );
-  } catch {
+    if (loadGeneration !== generation) return;
+    if (!session.isAuthenticated) {
+      publish(ANONYMOUS_STATE);
+      return;
+    }
+
+    publish({ status: 'authenticated', user: session.user });
+  } catch (error: unknown) {
+    if (loadGeneration !== generation) return;
+    if (error instanceof ApiError && error.problem.status === 401) {
+      publish(ANONYMOUS_STATE);
+      return;
+    }
+
     publish(ERROR_STATE);
   }
 }
@@ -67,9 +77,12 @@ export function ensureSessionLoaded(): void {
   if (inFlight !== null || snapshot.status !== 'loading') {
     return;
   }
-  inFlight = load().finally(() => {
-    inFlight = null;
+  const request = load(generation).finally(() => {
+    if (inFlight === request) {
+      inFlight = null;
+    }
   });
+  inFlight = request;
 }
 
 export function subscribeSession(listener: () => void): () => void {
@@ -93,6 +106,7 @@ export function getSessionServerSnapshot(): AuthSessionState {
 
 /** 조회 실패 후 다시 시도한다. 구독 중인 모든 소비자가 함께 갱신된다. */
 export function refreshSession(): void {
+  generation += 1;
   inFlight = null;
   publish(LOADING_STATE);
   ensureSessionLoaded();
@@ -100,6 +114,7 @@ export function refreshSession(): void {
 
 /** 테스트 전용 — 모듈 수준 상태를 초기화한다. */
 export function resetSessionStore(): void {
+  generation += 1;
   inFlight = null;
   snapshot = LOADING_STATE;
   listeners.clear();

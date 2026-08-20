@@ -12,6 +12,7 @@ import { createApplication } from './api';
 import {
   loadProgramApplyContext,
   type ProgramApplyContext,
+  type ProgramApplySessionUser,
 } from './load-program-apply-context';
 import {
   applyActionFailureMessage,
@@ -56,9 +57,11 @@ function applicationAnswers(values: ProgramApplyFormValues) {
 
 export function ProgramApplyPage({
   programId,
+  sessionUser,
   teamId = null,
 }: {
   readonly programId: string;
+  readonly sessionUser: ProgramApplySessionUser;
   readonly teamId?: string | null;
 }) {
   const router = useRouter();
@@ -78,13 +81,17 @@ export function ProgramApplyPage({
   const load = useCallback(async () => {
     const generation = loadGeneration.current;
     setState({ kind: 'loading' });
-    const context = await loadProgramApplyContext(programId, teamId);
+    const context = await loadProgramApplyContext(
+      programId,
+      teamId,
+      sessionUser,
+    );
     if (generation !== loadGeneration.current) return;
     if (context.kind === 'ready' && !hasUserInput.current) {
       setValues(context.initialValues);
     }
     setState(context);
-  }, [programId, teamId]);
+  }, [programId, sessionUser, teamId]);
 
   useEffect(() => {
     loadGeneration.current += 1;

@@ -105,3 +105,21 @@
 - blocker: 없음
 - 검증: 프로그램 목록·상태 집계·상세의 익명/인증 HTTP 200과 전체 인증 라우트 manifest 분류를 고정
 - simplifier: 공식 code-simplifier 1.0.0 Codex pass, 변경 파일 allowlist 밖 수정 0건
+
+## 2026-08-21 — 프론트 세션 조회 경계를 단일화
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3/authenticated-shell.png`, `401-anonymous-shell.png`
+- 결과: `/auth/session` 단일 조회 경계, 401·만료·비활성 전환, 합성 Chrome 셀 QA 검증 완료
+
+## 2026-08-21 — 프런트 세션 최신 응답 게시를 보장한다
+
+- 상태: review
+- Issue: #969
+- PR: #972
+- blocker: 없음
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3/browser-session-transition.json`, `authenticated-shell.png`, `generic-401-session-transition.png`, `expired-session-transition.png`, `inactive-session-transition.png`, `server-error-session-transition.png`
+- 결과: 겹친 세션 갱신은 최신 세대만 게시하며, 구독 기반 결정론 테스트와 합성 Chrome 인증·401·만료·비활성·서버 오류 전환을 검증 완료

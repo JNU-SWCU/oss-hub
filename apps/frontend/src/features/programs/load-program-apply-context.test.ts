@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { ApiError } from '@/lib/api-client';
 import { getMyTeam, getProgramDetail, listApplicationTemplates } from './api';
 import { loadProgramApplyContext } from './load-program-apply-context';
 import {
@@ -16,7 +16,6 @@ vi.mock('@/lib/api-client', () => ({
       super(problem.code);
     }
   },
-  apiClient: vi.fn(),
 }));
 
 vi.mock('./api', () => ({
@@ -75,17 +74,21 @@ const application = {
   canCancel: true,
 } satisfies StudentApplication;
 
+const sessionUser = {
+  name: 'Applicant',
+  nickname: 'applicant',
+} as const;
+
+function loadDefaultContext(): ReturnType<typeof loadProgramApplyContext> {
+  return loadProgramApplyContext('program-1', null, sessionUser);
+}
+
 describe('loadProgramApplyContext', () => {
   beforeEach(() => {
-    vi.mocked(apiClient).mockReset();
     vi.mocked(getMyApplication).mockReset();
     vi.mocked(getMyTeam).mockReset();
     vi.mocked(getProgramDetail).mockReset();
     vi.mocked(listApplicationTemplates).mockReset();
-    vi.mocked(apiClient).mockResolvedValue({
-      isAuthenticated: true,
-      user: { name: 'Applicant', nickname: 'applicant' },
-    });
     vi.mocked(getProgramDetail).mockResolvedValue(program);
     vi.mocked(listApplicationTemplates).mockResolvedValue([template]);
     vi.mocked(getMyApplication).mockResolvedValue(application);
@@ -97,7 +100,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(readonlyApplication);
 
     // When
-    const result = await loadProgramApplyContext('program-1', null);
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -123,7 +126,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(decidedApplication);
 
     // When
-    const result = await loadProgramApplyContext('program-1', null);
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -155,7 +158,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(rejectedApplication);
 
     // When
-    const result = await loadProgramApplyContext('program-1', null);
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -197,7 +200,7 @@ describe('loadProgramApplyContext', () => {
     );
 
     // When
-    const result = await loadProgramApplyContext('program-1', null);
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -214,7 +217,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(editableApplication);
 
     // When
-    const result = await loadProgramApplyContext('program-1', null);
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -252,7 +255,7 @@ describe('loadProgramApplyContext', () => {
       }),
     );
 
-    const result = await loadProgramApplyContext('program-1', null);
+    const result = await loadDefaultContext();
 
     expect(result).toEqual({
       kind: 'failed',
@@ -297,7 +300,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getProgramDetail).mockResolvedValue(noApplicationProgram);
     vi.mocked(getMyTeam).mockResolvedValue(team);
 
-    const result = await loadProgramApplyContext('program-1', null);
+    const result = await loadDefaultContext();
 
     expect(result).toEqual({
       kind: 'ready',
@@ -319,6 +322,28 @@ describe('loadProgramApplyContext', () => {
         repositoryUrl: '',
         personalDataConsent: false,
       },
+    });
+  });
+
+  it('shared session 스냅샷으로 신청자 표시를 채운다', async () => {
+    const noApplicationProgram = {
+      ...program,
+      applicationPeriod: {
+        startsAt: '2020-01-01T00:00:00.000Z',
+        endsAt: '2099-12-31T23:59:59.000Z',
+      },
+      viewer: { role: 'STUDENT', applicationStatus: null },
+    } satisfies ProgramDetail;
+    vi.mocked(getProgramDetail).mockResolvedValue(noApplicationProgram);
+    const result = await loadProgramApplyContext('program-1', null, {
+      name: 'Shared Applicant',
+      nickname: 'shared-applicant',
+    });
+
+    expect(result).toMatchObject({
+      kind: 'ready',
+      applicantName: 'Shared Applicant',
+      githubHandle: 'shared-applicant',
     });
   });
 });
