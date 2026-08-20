@@ -24,6 +24,7 @@ const {
   reorderMilestoneDocumentsMock,
   updateMilestoneDocumentMock,
   uploadMilestoneDocumentTemplateMock,
+  milestoneDocumentTemplateHrefMock,
 } = vi.hoisted(() => ({
   createMilestoneDocumentMock: vi.fn(),
   deleteMilestoneDocumentMock: vi.fn(),
@@ -31,6 +32,10 @@ const {
   reorderMilestoneDocumentsMock: vi.fn(),
   updateMilestoneDocumentMock: vi.fn(),
   uploadMilestoneDocumentTemplateMock: vi.fn(),
+  milestoneDocumentTemplateHrefMock: (
+    milestoneId: string,
+    documentId: string,
+  ) => `milestones/${milestoneId}/documents/${documentId}/template`,
 }));
 
 vi.mock('./milestone-document-api', () => ({
@@ -40,6 +45,7 @@ vi.mock('./milestone-document-api', () => ({
   reorderMilestoneDocuments: reorderMilestoneDocumentsMock,
   updateMilestoneDocument: updateMilestoneDocumentMock,
   uploadMilestoneDocumentTemplate: uploadMilestoneDocumentTemplateMock,
+  milestoneDocumentTemplateHref: milestoneDocumentTemplateHrefMock,
 }));
 
 function documentFixture(
@@ -61,7 +67,11 @@ function documentFixture(
   };
 }
 
-const planner = documentFixture('a', 1, { name: '계획서' });
+const planner = documentFixture('a', 1, {
+  name: '계획서',
+  hasTemplateFile: true,
+  templateFileName: '운영 결과보고서 최종본 2026.docx',
+});
 const budget = documentFixture('b', 2, {
   name: '예산서',
   submissionType: 'TEXT',
@@ -144,6 +154,14 @@ describe('받을 서류 섹션의 렌더 계약', () => {
   });
 
   // 드래그 손잡이는 키보드·화면 읽기 도구로 쓸 수 없어 버튼 두 개로 대체했다.
+  it('양식 파일명과 인증된 다운로드 링크를 함께 보여 준다', () => {
+    const html = renderBody();
+
+    expect(html).toContain('운영 결과보고서 최종본 2026.docx');
+    expect(html).toContain('milestones/milestone-1/documents/a/template');
+    expect(html).toContain('title="운영 결과보고서 최종본 2026.docx"');
+  });
+
   it('순서 바꾸기는 드래그가 아니라 이름표가 붙은 버튼이다', () => {
     const html = renderBody();
 
