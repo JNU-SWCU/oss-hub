@@ -18,6 +18,7 @@ const document: MilestoneDocument = {
   sortOrder: 0,
   submissionType: 'FILE',
   hasTemplateFile: false,
+  templateFileName: null,
 };
 
 afterEach(() => {
@@ -139,6 +140,8 @@ describe('uploadMilestoneDocumentTemplate', () => {
     const uploaded = {
       documentId: 'document-1',
       hasTemplateFile: true,
+      templateFileName: null,
+
       fileName: 'template.docx',
       uploadedAt: '2026-08-10T00:00:00.000Z',
     };

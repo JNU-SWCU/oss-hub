@@ -55,6 +55,7 @@ export interface MilestoneDocument {
   readonly sortOrder: number;
   readonly submissionType: SubmissionType;
   readonly hasTemplateFile: boolean;
+  readonly templateFileName: string | null;
   /** 학생 뷰에서만 채워진다. */
   readonly viewerSubmission?: MilestoneDocumentViewerSubmission;
   /** 교직원 뷰에서만 채워진다. */

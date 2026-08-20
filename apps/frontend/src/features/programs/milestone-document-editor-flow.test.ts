@@ -35,6 +35,8 @@ function document(
     sortOrder,
     submissionType: 'FILE',
     hasTemplateFile: false,
+    templateFileName: null,
+
     ...overrides,
   };
 }

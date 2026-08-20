@@ -30,3 +30,10 @@
 - PR: (이 PR)
 - blocker: 없음
 
+## 2026-08-20 — 마일스톤 양식 파일명 계약
+
+- 상태: review
+- Issue: #959
+- PR: (이 PR)
+- blocker: 없음
+
