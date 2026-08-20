@@ -27,6 +27,7 @@ const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
 describe('AdminAccessController routes', () => {
   it.each([
     ['list', RequestMethod.GET, 'access', [SessionGuard]],
+    ['listRequests', RequestMethod.GET, 'access/requests', [SessionGuard]],
     ['facets', RequestMethod.GET, 'access/facets', [SessionGuard]],
     ['get', RequestMethod.GET, ':id/access', [SessionGuard]],
     ['getHistory', RequestMethod.GET, ':id/access/history', [SessionGuard]],
@@ -98,6 +99,24 @@ describe('AdminAccessController delegation', () => {
       });
     },
   );
+
+  it('forces PENDING and createdAt desc on GET /users/access/requests', async () => {
+    const service = serviceHarness();
+    const profileService = profileServiceHarness();
+    const controller = new AdminAccessController(service, profileService);
+    const query = new AdminAccessListRequestDto();
+
+    await controller.listRequests(REQUEST, query);
+
+    expect(service.listRequests).toHaveBeenCalledWith(REQUEST.sessionGithubId, {
+      query: '',
+      pendingRequest: 'PENDING',
+      sort: 'createdAt',
+      direction: 'desc',
+      page: 1,
+      limit: 20,
+    });
+  });
 
   it('passes independent history pages to the service', async () => {
     // Given
@@ -268,6 +287,13 @@ function serviceHarness() {
       total: 0,
       facets: emptyFacets(),
     }),
+    listRequests: jest.fn().mockResolvedValue({
+      items: [],
+      page: 1,
+      limit: 20,
+      total: 0,
+      facets: emptyFacets(),
+    }),
     facets: jest.fn().mockResolvedValue(emptyFacets()),
     get: jest.fn().mockResolvedValue({}),
     getHistory: jest.fn().mockResolvedValue({
@@ -277,7 +303,7 @@ function serviceHarness() {
     patchAccess: jest.fn().mockResolvedValue({}),
   } satisfies Pick<
     AdminAccessService,
-    'list' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
+    'list' | 'listRequests' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
   >;
 }
 

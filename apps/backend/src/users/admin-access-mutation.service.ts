@@ -2,7 +2,12 @@ import { RoleRequestStatus } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { createAdminAccessAudit } from './admin-access-audit';
-import { requireActiveAdmin } from './admin-access-authorization';
+import {
+  assertAccessMutationAllowed,
+  isAdminActor,
+  requireActiveAdmin,
+  requireActiveStaffOrAdmin,
+} from './admin-access-authorization';
 import {
   ADMIN_ACCESS_REQUEST_WRITE_KINDS,
   enforceAdminAccessGuards,
@@ -47,23 +52,28 @@ export async function mutateAdminAccess(
 ): Promise<AdminAccessMutationResult> {
   try {
     return await dependencies.repository.withTransaction(async (store) => {
-      requireActiveAdmin(await store.findActorByGithubId(input.actorGithubId));
-      // 위 읽기는 잠금 이전의 unlocked read라 TOCTOU 창이 있다: 이 시점과 lockActiveAdmins()
-      // 사이에 actor가 강등/비활성화되어 커밋되면 그 사실을 놓친 채 오래된 actor로 뮤테이션이
-      // 완주할 수 있다. lockActiveAdmins()가 ADMIN+ACTIVE 행을 FOR UPDATE로 잠근 "뒤"
-      // actor를 다시 읽어 재검증하면 두 경우 모두 안전하다: (a) 강등이 이미 커밋됐다면 이
-      // 재조회가 그 커밋을 그대로 보고 requireActiveAdmin이 던진다. (b) 아직 커밋 전이라면
-      // actor 행(여전히 ADMIN+ACTIVE)이 lockActiveAdmins()에 의해 FOR UPDATE로 잠겨 있으므로
-      // 강등 트랜잭션의 UPDATE는 이 트랜잭션이 끝날 때까지 블록되고, 이 뮤테이션이 강등보다
-      // 먼저 유효하게 직렬화된다.
-      //
-      // actor 행을 먼저 잠그지 않는 이유는 잠금 순서다 — 활성 ADMIN 집합(id 오름차순)이
-      // 먼저이고 개별 대상 행이 그다음이며, 이 규칙의 원본은 `admin-actor-locks.ts` 하나다.
-      // actor를 먼저 잠그면 그 순서가 뒤집혀 두 관리자가 서로를 동시에 정리할 때 교착한다.
-      const activeAdminCount = await store.lockActiveAdmins();
-      const actor = requireActiveAdmin(
+      const unlockedActor = requireActiveStaffOrAdmin(
         await store.findActorByGithubId(input.actorGithubId),
       );
+      assertAccessMutationAllowed(
+        unlockedActor,
+        input.userId,
+        input.command,
+      );
+      // ADMIN 쓰기는 마지막 관리자·강등 TOCTOU를 막기 위해 활성 ADMIN 집합을
+      // 먼저 잠근다. STAFF 승인/반려는 그 집합을 바꾸지 않으므로 잠그지 않고,
+      // 대상 행 잠금 뒤 actor를 다시 읽어 비활성·강등만 거절한다.
+      const activeAdminCount = isAdminActor(unlockedActor)
+        ? await store.lockActiveAdmins()
+        : Number.MAX_SAFE_INTEGER;
+      const actor = isAdminActor(unlockedActor)
+        ? requireActiveAdmin(
+            await store.findActorByGithubId(input.actorGithubId),
+          )
+        : requireActiveStaffOrAdmin(
+            await store.findActorByGithubId(input.actorGithubId),
+          );
+      assertAccessMutationAllowed(actor, input.userId, input.command);
       const before = await store.findUserForUpdate(input.userId);
       if (!before) {
         throw roleError(RolesErrorCode.USER_NOT_FOUND);

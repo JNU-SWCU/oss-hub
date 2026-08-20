@@ -43,7 +43,7 @@ export class AdminAccessController {
     @Inject(AdminAccessService)
     private readonly service: Pick<
       AdminAccessService,
-      'list' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
+      'list' | 'listRequests' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
     >,
     @Inject(AdminProfileService)
     private readonly profileService: Pick<AdminProfileService, 'patchProfile'>,
@@ -58,6 +58,21 @@ export class AdminAccessController {
   ): Promise<AdminAccessUserPageResponseDto> {
     return AdminAccessUserPageResponseDto.from(
       await this.service.list(request.sessionGithubId, query.toQuery()),
+    );
+  }
+
+  @Get('access/requests')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  async listRequests(
+    @Req() request: SessionIdentity,
+    @Query() query: AdminAccessListRequestDto,
+  ): Promise<AdminAccessUserPageResponseDto> {
+    return AdminAccessUserPageResponseDto.from(
+      await this.service.listRequests(
+        request.sessionGithubId,
+        query.toRequestQuery(),
+      ),
     );
   }
 

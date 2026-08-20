@@ -20,6 +20,7 @@ export enum RolesErrorCode {
   SELF_DEACTIVATION_FORBIDDEN = 'ROL_017',
   LAST_ACTIVE_ADMIN_REQUIRED = 'ROL_018',
   ACCESS_CHANGE_REQUIRED = 'ROL_019',
+  SELF_ACCESS_MUTATION_FORBIDDEN = 'ROL_020',
 }
 
 export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
@@ -41,7 +42,7 @@ export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
   [RolesErrorCode.ADMIN_ONLY]: {
     code: RolesErrorCode.ADMIN_ONLY,
     status: 403,
-    message: '관리자만 교직원 권한 요청을 관리할 수 있습니다.',
+    message: '관리자만 사용자 목록과 역할을 변경할 수 있습니다.',
   },
   [RolesErrorCode.REJECTION_REASON_REQUIRED]: {
     code: RolesErrorCode.REJECTION_REASON_REQUIRED,
@@ -56,7 +57,7 @@ export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
   [RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED]: {
     code: RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED,
     status: 409,
-    message: '다른 관리자가 이미 처리한 요청입니다.',
+    message: '다른 처리자가 이미 처리한 요청입니다.',
   },
   [RolesErrorCode.ROLE_STATE_CONFLICT]: {
     code: RolesErrorCode.ROLE_STATE_CONFLICT,
@@ -117,5 +118,10 @@ export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
     code: RolesErrorCode.ACCESS_CHANGE_REQUIRED,
     status: 400,
     message: '변경할 접근 상태나 처리할 요청을 지정해 주세요.',
+  },
+  [RolesErrorCode.SELF_ACCESS_MUTATION_FORBIDDEN]: {
+    code: RolesErrorCode.SELF_ACCESS_MUTATION_FORBIDDEN,
+    status: 409,
+    message: '자신의 가입 신청은 처리할 수 없습니다.',
   },
 };
