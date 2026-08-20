@@ -73,15 +73,19 @@ describe('sidebarGroupsFor (context)', () => {
     );
   });
 
-  it('교직원 대시보드 메뉴는 운영과 학생 활성을 보여 준다', () => {
+  it('교직원 대시보드 메뉴는 운영·학생 활성·가입 신청을 보여 준다', () => {
     expect(STAFF_MENU).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '학생 활성', href: '/dashboard/insights' },
+      { label: '가입 신청', href: '/dashboard/applicants' },
     ]);
     const groups = sidebarGroupsFor('dashboard', 'STAFF');
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('교직원');
-    expect(groups[0]?.items).toHaveLength(2);
+    expect(groups[0]?.items).toHaveLength(3);
+    expect(
+      groups[0]?.items.map(({ label, href }) => ({ label, href })),
+    ).not.toContainEqual({ label: '사용자 목록', href: '/admin/access' });
   });
 
   it('ADMIN 대시보드는 교직원·관리자 두 그룹이고 입구는 /dashboard다', () => {
@@ -93,6 +97,7 @@ describe('sidebarGroupsFor (context)', () => {
     ).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '학생 활성', href: '/dashboard/insights' },
+      { label: '가입 신청', href: '/dashboard/applicants' },
     ]);
     expect(groups[1]?.label).toBe('관리자');
     expect(
@@ -284,6 +289,19 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard', '')).toBe(
       false,
     );
+    expect(
+      isCurrentSidebarItem('/dashboard/applicants', '/dashboard/applicants', ''),
+    ).toBe(true);
+    expect(
+      isCurrentSidebarItem(
+        '/dashboard/applicants/users/u1',
+        '/dashboard/applicants',
+        '',
+      ),
+    ).toBe(true);
+    expect(
+      isCurrentSidebarItem('/dashboard/applicants', '/dashboard', ''),
+    ).toBe(false);
     expect(isCurrentSidebarItem('/my-repos', '/dashboard', '')).toBe(false);
   });
 });

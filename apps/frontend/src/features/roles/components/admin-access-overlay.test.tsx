@@ -56,7 +56,9 @@ afterEach(() => {
 
 function mountOverlay() {
   act(() => {
-    root.render(<AdminAccessOverlay userId={USER_ID} />);
+    root.render(
+      <AdminAccessOverlay userId={USER_ID} workspace="directory" />,
+    );
   });
 }
 

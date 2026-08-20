@@ -33,6 +33,15 @@ export async function openDetail(
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 }
 
+export async function openApplicantDetail(
+  page: Page,
+  userId: string,
+  name: string,
+): Promise<void> {
+  await page.goto(`/dashboard/applicants/users/${encodeURIComponent(userId)}`);
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+}
+
 /**
  * 대기 중인 요청 카드의 「승인」/「반려」를 눌러 확인 다이얼로그가 뜨는
  * 지점까지만 진행한다.

@@ -169,6 +169,8 @@ describe('local review activation contract', () => {
     '/programs/program-capstone/applicants',
     '/dashboard/activity',
     '/dashboard/insights',
+    '/dashboard/applicants',
+    '/dashboard/applicants/users/synthetic-admin-target',
     '/onboarding/pending',
     '/profile/synthetic-user-01',
     // 관리자 접근 상세는 사용자 id가 열려 있는 유일한 관리자 화면이라 완전 일치

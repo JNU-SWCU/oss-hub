@@ -9,6 +9,7 @@ import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_FILTER_STATE,
   ADMIN_ACCESS_DEFAULT_SORT,
+  APPLICANT_QUEUE_DEFAULT_FILTER_STATE,
   type AdminAccessListFilterState,
 } from './admin-access-list-query';
 
@@ -138,6 +139,45 @@ export function buildAdminAccessSearchParams(
     search.set('direction', state.direction);
   }
   if (state.page !== ADMIN_ACCESS_DEFAULT_FILTER_STATE.page) {
+    search.set('page', String(state.page));
+  }
+  return search;
+}
+
+export function parseApplicantQueueSearchParams(
+  searchParams: URLSearchParams,
+): AdminAccessListFilterState {
+  const parsed = parseAdminAccessSearchParams(searchParams);
+  const sortRaw = searchParams.get('sort');
+  const directionRaw = searchParams.get('direction');
+  return {
+    ...parsed,
+    pendingRequest: '',
+    sort:
+      sortRaw !== null && (SORT_FIELD_VALUES as readonly string[]).includes(sortRaw)
+        ? parsed.sort
+        : APPLICANT_QUEUE_DEFAULT_FILTER_STATE.sort,
+    direction:
+      directionRaw !== null &&
+      (DIRECTION_VALUES as readonly string[]).includes(directionRaw)
+        ? parsed.direction
+        : APPLICANT_QUEUE_DEFAULT_FILTER_STATE.direction,
+  };
+}
+
+export function buildApplicantQueueSearchParams(
+  state: AdminAccessListFilterState,
+): URLSearchParams {
+  const search = new URLSearchParams();
+  const trimmedQuery = state.query.trim();
+  if (trimmedQuery) search.set('query', trimmedQuery);
+  if (state.sort !== APPLICANT_QUEUE_DEFAULT_FILTER_STATE.sort) {
+    search.set('sort', state.sort);
+  }
+  if (state.direction !== APPLICANT_QUEUE_DEFAULT_FILTER_STATE.direction) {
+    search.set('direction', state.direction);
+  }
+  if (state.page !== APPLICANT_QUEUE_DEFAULT_FILTER_STATE.page) {
     search.set('page', String(state.page));
   }
   return search;

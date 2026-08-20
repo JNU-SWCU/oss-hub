@@ -32,6 +32,10 @@ import {
   type AdminAccessDetailData,
 } from '../admin-access-detail-api';
 import {
+  accessListPath,
+  type AccessWorkspace,
+} from '../admin-access-list-query';
+import {
   ACCOUNT_STATUS_LABEL,
   ROLE_LABEL,
   adminAccessMutationErrorMessage,
@@ -278,10 +282,13 @@ function ErrorState({
 
 function NotFoundState({
   layoutContext,
+  workspace,
 }: {
   readonly layoutContext: AdminAccessDetailLayoutContext;
+  readonly workspace: AccessWorkspace;
 }) {
   const Root = detailRootTag(layoutContext);
+  const isQueue = workspace === 'queue';
   return (
     <Root
       className={detailRootClassName(
@@ -295,7 +302,9 @@ function NotFoundState({
         description="존재하지 않는 사용자이거나 삭제된 계정입니다."
         action={
           <Button asChild variant="outline">
-            <Link href="/admin/access">사용자 목록으로</Link>
+            <Link href={accessListPath(workspace)}>
+              {isQueue ? '가입 신청으로' : '사용자 목록으로'}
+            </Link>
           </Button>
         }
       />
@@ -480,6 +489,7 @@ function AdminAccessDetailContent({
   history,
   mutation,
   layoutContext,
+  workspace,
   historyLoading,
   onRoleRequestPageChange,
   onLoginHistoryPageChange,
@@ -487,6 +497,7 @@ function AdminAccessDetailContent({
 }: AdminAccessDetailData & {
   readonly mutation: AdminAccessDetailMutationController;
   readonly layoutContext: AdminAccessDetailLayoutContext;
+  readonly workspace: AccessWorkspace;
   readonly historyLoading: boolean;
   readonly onRoleRequestPageChange: (page: number) => void;
   readonly onLoginHistoryPageChange: (page: number) => void;
@@ -494,6 +505,7 @@ function AdminAccessDetailContent({
 }) {
   const Root = detailRootTag(layoutContext);
   const isOverlay = layoutContext === 'overlay';
+  const isQueue = workspace === 'queue';
   const heading = detailHeadingTags(layoutContext);
   const confirmDialog =
     mutation.confirmAction && mutation.confirmAction !== 'REJECT'
@@ -584,6 +596,7 @@ function AdminAccessDetailContent({
                 profile={detail.profile}
                 headingTag={heading.section}
                 isOverlay={isOverlay}
+                allowEdit={!isQueue}
                 onSaved={onProfileSaved}
               />
             </section>
@@ -613,11 +626,13 @@ function AdminAccessDetailContent({
               processingAction={mutation.processingAction}
               onRequestAction={mutation.onRequestAction}
             />
-            <AdminAccessMutationActions
-              detail={detail}
-              processingAction={mutation.processingAction}
-              onRequestAction={mutation.onRequestAction}
-            />
+            {isQueue ? null : (
+              <AdminAccessMutationActions
+                detail={detail}
+                processingAction={mutation.processingAction}
+                onRequestAction={mutation.onRequestAction}
+              />
+            )}
           </div>
         }
       />
@@ -654,6 +669,7 @@ export function AdminAccessDetailContentForState({
   onRetry,
   mutation,
   layoutContext = 'standalone',
+  workspace = 'directory',
   historyLoading = false,
   onRoleRequestPageChange = () => {},
   onLoginHistoryPageChange = () => {},
@@ -663,6 +679,7 @@ export function AdminAccessDetailContentForState({
   readonly onRetry: () => void;
   readonly mutation: AdminAccessDetailMutationController;
   readonly layoutContext?: AdminAccessDetailLayoutContext;
+  readonly workspace?: AccessWorkspace;
   readonly historyLoading?: boolean;
   readonly onRoleRequestPageChange?: (page: number) => void;
   readonly onLoginHistoryPageChange?: (page: number) => void;
@@ -675,7 +692,7 @@ export function AdminAccessDetailContentForState({
     return <ErrorState onRetry={onRetry} layoutContext={layoutContext} />;
   }
   if (state.kind === 'not-found') {
-    return <NotFoundState layoutContext={layoutContext} />;
+    return <NotFoundState layoutContext={layoutContext} workspace={workspace} />;
   }
   return (
     <AdminAccessDetailContent
@@ -683,6 +700,7 @@ export function AdminAccessDetailContentForState({
       history={state.history}
       mutation={mutation}
       layoutContext={layoutContext}
+      workspace={workspace}
       historyLoading={historyLoading}
       onRoleRequestPageChange={onRoleRequestPageChange}
       onLoginHistoryPageChange={onLoginHistoryPageChange}
@@ -703,7 +721,7 @@ export function AdminAccessDetailContentForState({
  * 최신화한다(기존 로딩 패턴 재사용, 이력 페이지도 1페이지로 되돌아간다).
  * 409 CAS 충돌(`ROL_013`)은 재조회 대신 에러 응답에 실린 authoritative
  * projection으로 `state.detail`만 직접 교체한다 — 이렇게 하면 그 자리에서
- * 바로 "다른 관리자가 먼저 변경했다"는 사실이 반영되고, 방금 실패한 쓰기가
+ * 바로 "다른 처리자가 먼저 변경했다"는 사실이 반영되고, 방금 실패한 쓰기가
  * 새 상태에 대해 자동으로 재시도되는 일이 없다(사용자가 다이얼로그를 다시
  * 열어야만 재시도된다).
  *
@@ -716,9 +734,11 @@ export function AdminAccessDetailContentForState({
 export function AdminAccessDetailView({
   userId,
   layoutContext = 'standalone',
+  workspace = 'directory',
 }: {
   readonly userId: string;
   readonly layoutContext?: AdminAccessDetailLayoutContext;
+  readonly workspace?: AccessWorkspace;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<AdminAccessDetailState>({
@@ -849,7 +869,7 @@ export function AdminAccessDetailView({
         setRejectReason('');
         setMutationSuccess(null);
         setConflictNotice(
-          '다른 관리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
+          '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
         );
         return;
       }
@@ -890,6 +910,7 @@ export function AdminAccessDetailView({
       onRetry={retry}
       mutation={mutation}
       layoutContext={layoutContext}
+      workspace={workspace}
       historyLoading={historyLoading}
       onRoleRequestPageChange={(page) => void changeRoleRequestPage(page)}
       onLoginHistoryPageChange={(page) => void changeLoginHistoryPage(page)}
