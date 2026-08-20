@@ -10,10 +10,10 @@ import {
 } from 'class-validator';
 import { AccountStatus } from '@prisma/client';
 import {
-  ADMIN_ACCESS_PENDING_FILTERS,
-  ADMIN_ACCESS_ROLE_FILTERS,
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_SORT,
+  ADMIN_ACCESS_PENDING_FILTERS,
+  ADMIN_ACCESS_ROLE_FILTERS,
   ADMIN_ACCESS_SORT_DIRECTIONS,
   ADMIN_ACCESS_SORT_FIELDS,
   type AdminAccessListQuery,
@@ -78,6 +78,25 @@ export class AdminAccessListRequestDto {
         : { pendingRequest: this.pendingRequest }),
       sort: this.sort ?? ADMIN_ACCESS_DEFAULT_SORT,
       direction: this.direction ?? ADMIN_ACCESS_DEFAULT_DIRECTION,
+      page: this.page ?? 1,
+      limit: this.limit ?? 20,
+    };
+  }
+
+  /**
+   * 가입 신청 큐 — 클라이언트 pendingRequest는 무시하고 항상 PENDING.
+   * 기본 정렬은 요청 시각(createdAt desc).
+   */
+  toRequestQuery(): AdminAccessListQuery {
+    return {
+      query: this.query ?? '',
+      ...(this.role === undefined ? {} : { role: this.role }),
+      ...(this.accountStatus === undefined
+        ? {}
+        : { accountStatus: this.accountStatus }),
+      pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
+      sort: this.sort ?? ADMIN_ACCESS_SORT_FIELDS.CREATED_AT,
+      direction: this.direction ?? ADMIN_ACCESS_SORT_DIRECTIONS.DESC,
       page: this.page ?? 1,
       limit: this.limit ?? 20,
     };

@@ -482,6 +482,21 @@ export async function fetchAdminAccessList(
   return parseAdminAccessListPage(value);
 }
 
+export async function fetchAdminAccessRequests(
+  params: AdminAccessListParams,
+  signal?: AbortSignal,
+): Promise<AdminAccessListPage> {
+  const search = serializeAdminAccessListQuery({
+    ...params,
+    pendingRequest: undefined,
+  });
+  const value = await apiClient<unknown>(
+    `users/access/requests${search ? `?${search}` : ''}`,
+    signal ? { signal } : undefined,
+  );
+  return parseAdminAccessListPage(value);
+}
+
 export async function fetchAdminAccessFacets(
   params: AdminAccessListParams,
   signal?: AbortSignal,

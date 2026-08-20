@@ -21,5 +21,5 @@ export default async function AdminAccessOverlayInterceptPage({
     decodedUserId = userId;
   }
 
-  return <AdminAccessOverlay userId={decodedUserId} />;
+  return <AdminAccessOverlay userId={decodedUserId} workspace="directory" />;
 }

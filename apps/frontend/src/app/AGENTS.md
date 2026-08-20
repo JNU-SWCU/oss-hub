@@ -27,10 +27,11 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | `onboarding/role/`, `onboarding/pending/` | `/onboarding/role`, `/onboarding/pending` | `AuthGate` |
 | `dashboard/` | `/dashboard` | 가입 완료 회원 전원(STUDENT · STAFF · ADMIN). 본문은 세션 역할로 갈린다 |
 | `dashboard/insights/` | `/dashboard/insights` | `STAFF`·`ADMIN` — 학생 활성 통계 |
+| `dashboard/applicants/` | `/dashboard/applicants` | `STAFF`·`ADMIN` — 교직원 역할 가입 신청 큐. 상세는 `/dashboard/applicants/users/:id`. 전체 사용자 명부는 `/admin/access` |
 | `my-repos/` | `/my-repos` | 로그인한 모든 역할(학생 메뉴 아래 있지만 role 무관 접근 허용) |
 | `programs/`, `programs/[id]/apply/`, `programs/[id]/milestones/[milestoneId]/submit/` | `/programs`, 신청, 마일스톤 제출 | 화면별 상이 — 각 `page.tsx` 주석 확인 |
 | `programs/new/`, `programs/[id]/edit/`, `programs/[id]/applicants/`, `programs/[id]/applications/[applicationId]/`, `programs/[id]/status/`, `programs/[id]/submissions/[submissionId]/review/` | 프로그램 운영 화면 | `STAFF`·`ADMIN` — 프로그램 내부 화면은 `/programs/:id` 한 스코프에 있고 역할로 본문만 갈린다. `programs/new`는 programId가 없어 프로그램 스코프가 아닌 섹션 사이드바를 쓴다 |
-| `admin/access/`, `admin/audit-log/`, `admin/system-status/` | 관리 도구 | `ADMIN` |
+| `admin/access/`, `admin/audit-log/`, `admin/system-status/` | 관리 도구 | `ADMIN` — `/admin/access`는 사용자 목록(역할·계정 상태 변경). 가입 신청은 `/dashboard/applicants` |
 | `archive/`, `archive/[repositoryId]/` | `/archive`, `/archive/:repositoryId` | 공개 — 게이트 없음(비로그인 접근 가능), `public-projects/` 목록·상세 API 소비 |
 | `ranking/` | `/ranking` | 공개 — 게이트 없음(비로그인 접근 가능) |
 | `profile/[userId]/` | `/profile/:userId` | 공개 — 게이트 없음(비로그인 접근 가능), `public-projects/`의 공개 프로필 API 소비 |

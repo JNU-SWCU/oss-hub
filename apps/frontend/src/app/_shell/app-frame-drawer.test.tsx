@@ -153,6 +153,11 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     );
     expect(staffLink).not.toBeNull();
     expect(staffLink?.textContent).toContain('운영 대시보드');
+    const applicantsLink = staffGroup?.querySelector<HTMLAnchorElement>(
+      'a[href="/dashboard/applicants"]',
+    );
+    expect(applicantsLink).not.toBeNull();
+    expect(applicantsLink?.textContent).toContain('가입 신청');
 
     for (const [label, href] of [
       ['사용자 목록', '/admin/access'],

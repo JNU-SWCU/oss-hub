@@ -5,6 +5,7 @@ import {
   changeRole,
   chooseMutation,
   chooseStaffRole,
+  openApplicantDetail,
   openDetail,
   requestStaffRoleRevocation,
 } from './support/admin-access-actions';
@@ -18,34 +19,21 @@ const REJECTION_REASON =
   '합성 E2E 반려 사유 — 담당 프로그램 소속을 다시 확인해 주세요.';
 
 test.describe.serial('관리자 접근 권한 lifecycle', () => {
-  test('목록에서 PENDING 교직원 요청을 찾아 승인한다', async ({
+  test('사용자 목록에서 검색과 페이지네이션을 통과한다', async ({
     adminPage,
   }, testInfo) => {
-    // Given: auth seed의 두 PENDING 요청이 있는 관리자 접근 목록.
+    // Given: auth seed 사용자가 있는 관리자 전용 사용자 목록. 가입 신청 탭은
+    // `/dashboard/applicants`로 분리됐으므로 여기서는 검색·페이지네이션만 본다.
     await adminPage.goto('/admin/access');
     await expect(
       adminPage.getByRole('heading', { name: '사용자 목록' }),
     ).toBeVisible();
-    const allTab = adminPage.getByRole('button', {
-      name: '전체 목록',
-      exact: true,
-    });
-    const pendingTab = adminPage.getByRole('button', { name: /요청함 \(2\)/ });
-    await expect(allTab).toHaveAttribute('aria-pressed', 'true');
-    await pendingTab.click();
-    await expect(adminPage).toHaveURL(/pendingRequest=PENDING/);
-    await expect(pendingTab).toHaveAttribute('aria-pressed', 'true');
     await expect(
-      adminPage.getByRole('link', { name: '합성 대기 사용자', exact: true }),
-    ).toBeVisible();
-    await expect(
-      adminPage.getByRole('link', {
-        name: '합성 두 번째 대기 사용자',
-        exact: true,
-      }),
-    ).toBeVisible();
-    await allTab.click();
-    await expect(allTab).toHaveAttribute('aria-pressed', 'true');
+      adminPage.getByRole('button', { name: '전체 목록', exact: true }),
+    ).toHaveCount(0);
+    await expect(adminPage.getByRole('button', { name: /요청함/ })).toHaveCount(
+      0,
+    );
     await expect(
       adminPage.getByText(/1 \/ \d+ 페이지 \(총 \d+명\)/),
     ).toBeVisible();
@@ -75,23 +63,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await attachStateScreenshot(adminPage, testInfo, 'list-second-page');
 
     await adminPage.getByRole('button', { name: '이전' }).click();
-
-    // Then: PENDING 요청 승인 후 STAFF와 승인 이력이 함께 보인다.
-    await openDetail(adminPage, STAFF_PENDING, '합성 대기 사용자');
-    await chooseMutation(adminPage, '요청 승인');
-    await adminPage.getByRole('button', { name: '승인 확정' }).click();
-    await expect(
-      adminPage.getByText('교직원', { exact: true }).first(),
-    ).toBeVisible();
-    await expect(
-      adminPage
-        .getByRole('status')
-        .filter({ hasText: '요청 승인 처리를 완료했습니다' }),
-    ).toBeVisible();
-    await expect(
-      adminPage.getByRole('heading', { name: '요청 이력' }).locator('..'),
-    ).toContainText('승인');
-    await attachStateScreenshot(adminPage, testInfo, 'pending-approved');
+    await attachStateScreenshot(adminPage, testInfo, 'list-first-page');
   });
 
   test('PENDING 요청을 반려한 뒤 사용자가 교직원으로 재신청한다', async ({
@@ -129,13 +101,13 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await attachStateScreenshot(applicantPage, testInfo, 'rejected-reapplied');
   });
 
-  test('STAFF는 관리자 화면과 읽기·쓰기 API 모두 즉시 거부된다', async ({
+  test('STAFF는 사용자 목록과 역할 변경 API를 즉시 거부된다', async ({
     authSeedPage,
   }) => {
     // Given: 아직 회수되지 않은 ACTIVE STAFF 세션.
     const staffPage = await authSeedPage('staff-revocable');
 
-    // When / Then: 관리자 화면은 권한 안내를, API는 403을 반환한다.
+    // When / Then: 명부 화면은 권한 안내를, 명부·역할 변경 API는 403을 반환한다.
     await staffPage.goto('/admin/access');
     await expect(
       staffPage.getByText('접근 권한이 없는 페이지 입니다', {
@@ -151,6 +123,55 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       STAFF_APPROVED,
     );
     expect(mutationResponse.status()).toBe(403);
+  });
+
+  test('STAFF는 가입 신청을 승인하고 관리자는 감사 로그에서 누가 누구를 본다', async ({
+    adminPage,
+    authSeedPage,
+  }, testInfo) => {
+    const staffPage = await authSeedPage('staff-revocable');
+    await staffPage.goto('/dashboard/applicants');
+    await expect(
+      staffPage.getByRole('heading', { name: '가입 신청' }),
+    ).toBeVisible();
+    await expect(
+      staffPage.getByRole('link', { name: '합성 대기 사용자', exact: true }),
+    ).toBeVisible();
+    await expect(
+      staffPage.getByRole('link', { name: '가입 신청', exact: true }),
+    ).toBeVisible();
+    await expect(
+      staffPage.getByRole('link', { name: '사용자 목록', exact: true }),
+    ).toHaveCount(0);
+
+    await openApplicantDetail(staffPage, STAFF_PENDING, '합성 대기 사용자');
+    await chooseMutation(staffPage, '요청 승인');
+    await staffPage.getByRole('button', { name: '승인 확정' }).click();
+    await expect(
+      staffPage
+        .getByRole('status')
+        .filter({ hasText: '요청 승인 처리를 완료했습니다' }),
+    ).toBeVisible();
+    await attachStateScreenshot(staffPage, testInfo, 'staff-pending-approved');
+
+    await adminPage.goto('/admin/audit-log');
+    await expect(
+      adminPage.getByRole('heading', { name: '감사 로그' }),
+    ).toBeVisible();
+    await adminPage
+      .locator('#audit-action')
+      .selectOption('STAFF_ROLE_REQUEST_APPROVED');
+    await adminPage.getByRole('button', { name: '조회', exact: true }).click();
+    const approvedRow = adminPage.getByRole('row').filter({
+      hasText: '합성 활성 교직원',
+    });
+    await expect(
+      approvedRow.filter({ hasText: '합성 대기 사용자' }),
+    ).toBeVisible();
+    await expect(
+      approvedRow.getByText('@seed-auth-staff-pending'),
+    ).toBeVisible();
+    await attachStateScreenshot(adminPage, testInfo, 'audit-log-approver');
   });
 
   test('STAFF를 학생으로 전환하면 즉시 접근이 막히고, API 회수는 역할 재선택으로 이어진다', async ({
@@ -271,7 +292,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await changeRole(adminPage, '학생');
     await expect(
       adminPage.getByText(
-        '다른 관리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
+        '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
       ),
     ).toBeVisible();
     await expect(

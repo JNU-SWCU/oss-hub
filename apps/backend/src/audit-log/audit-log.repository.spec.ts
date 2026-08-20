@@ -239,10 +239,12 @@ describe('AuditLogRepository', () => {
 
     expect(result.items).toEqual([
       expect.objectContaining({
-        actor: 'event-time-admin',
+        actor: '이벤트 시점 관리자',
+        actorHandle: 'event-time-admin',
         legacy: false,
         metadata,
-        target: 'event-time-target',
+        target: '이벤트 시점 대상',
+        targetHandle: 'event-time-target',
       }),
     ]);
   });
