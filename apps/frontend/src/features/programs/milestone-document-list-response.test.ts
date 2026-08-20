@@ -10,11 +10,33 @@ const document: MilestoneDocument = {
   sortOrder: 0,
   submissionType: 'FILE',
   hasTemplateFile: false,
+  templateFileName: null,
 };
 
 describe('requireMilestoneDocumentList', () => {
   it('서류 배열은 그대로 반환한다', () => {
     expect(requireMilestoneDocumentList([document])).toEqual([document]);
+  });
+
+  it('양식 파일 이름을 present/null 그대로 유지한다', () => {
+    const result = requireMilestoneDocumentList([
+      {
+        ...document,
+        hasTemplateFile: true,
+        templateFileName: '운영결과보고서_2026.docx',
+      },
+      {
+        ...document,
+        id: 'document-2',
+        hasTemplateFile: false,
+        templateFileName: null,
+      },
+    ]);
+
+    expect(result[0]?.templateFileName).toBe('운영결과보고서_2026.docx');
+    expect(result[1]?.templateFileName).toBeNull();
+    expect(result[0]?.hasTemplateFile).toBe(true);
+    expect(result[1]?.hasTemplateFile).toBe(false);
   });
 
   it.each([null, {}, 'documents'])(

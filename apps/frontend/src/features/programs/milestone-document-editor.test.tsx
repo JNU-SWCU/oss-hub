@@ -55,6 +55,8 @@ function documentFixture(
     sortOrder,
     submissionType: 'FILE',
     hasTemplateFile: false,
+    templateFileName: null,
+
     ...overrides,
   };
 }
@@ -69,6 +71,7 @@ const pledge = documentFixture('c', 3, {
   name: '서약서',
   submissionType: 'TEXT',
   hasTemplateFile: true,
+  templateFileName: null,
 });
 
 const noOp = () => undefined;

@@ -312,6 +312,7 @@ export function milestoneDocumentsFor(
     required: seed.required,
     sortOrder: seed.sortOrder,
     submissionType: seed.submissionType,
+    templateFileName: null,
     // 로컬 검토 응답 계약은 바이너리를 표현할 수 없어 양식 다운로드를 흉내 낼 수
     // 없다 — 항상 false로 둬 다운로드 버튼이 뜨지 않게 한다(handlers 파일 주석 참고).
     hasTemplateFile: false,
