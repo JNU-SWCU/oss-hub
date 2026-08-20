@@ -47,7 +47,7 @@ NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 - 도메인 실패 enum을 가진 모듈은 기존 prefix와 `DomainException` 경로를 유지한다.
 - `submissions/`와 `submission-reviews/`는 독립 enum이면서 모두 `SUB_*` prefix를 쓰므로 실제 문자열 중복을 확인한다.
 - 테스트는 `pnpm --filter backend test:unit`(기본)과 `test:integration`(`*.integration.spec.ts`, 격리 DB 컨테이너) 두 트랙으로 나뉜다 — 파일명이 트랙을 결정한다.
-- `github/` 밖에서는 `COLLECTION_READ_PORT`/`CollectionReadPort`/DTO로만 collection을 소비한다 — concrete 구현·Prisma delegate 직접 import는 `eslint.config.mjs`가 강제하는 4가지 경계로 차단된다(ADR-003 DEC-42, `common/architecture-boundary.eslint.spec.ts`가 회귀 고정).
+- 같은 DB collection 조회는 소비자 repository가 소유한다. 그 앞에 Port를 두지 않는다 — [ADR-003](../../../docs/decisions/ADR-003-backend-architecture.md).
 - `showcase/`는 **제거됐다**(2026-08-09, Issue #463 흡수). 공개 read 는 `programs/archive/public-projects/`가 담당한다.
 
 ## Dependencies
