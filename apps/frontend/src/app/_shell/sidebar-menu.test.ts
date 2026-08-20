@@ -98,7 +98,7 @@ describe('sidebarGroupsFor (context)', () => {
     expect(
       groups[1]?.items.map(({ label, href }) => ({ label, href })),
     ).toEqual([
-      { label: '접근 목록', href: '/admin/access' },
+      { label: '사용자 목록', href: '/admin/access' },
       { label: '감사 로그', href: '/admin/audit-log' },
       { label: '시스템 상태', href: '/admin/system-status' },
     ]);

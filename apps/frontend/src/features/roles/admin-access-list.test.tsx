@@ -119,13 +119,13 @@ describe('buildAdminAccessListParams — 필터/정렬/페이지 상태를 어�
   });
 });
 
-describe('AdminAccessView — 읽기 전용 접근 목록 화면', () => {
+describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
   it('로딩 중에는 로딩 문구를 표시하고 데이터 행을 렌더링하지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessView {...baseViewProps} items={[]} isLoading={true} />,
     );
 
-    expect(html).toContain('접근 목록을 불러오는 중…');
+    expect(html).toContain('사용자 목록을 불러오는 중…');
     expect(html).not.toContain('synthetic-user');
   });
 

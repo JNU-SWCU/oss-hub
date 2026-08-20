@@ -71,6 +71,8 @@ describe('AdminAccessController delegation', () => {
     ['name', 'asc'],
     ['createdAt', 'desc'],
     ['lastLoginAt', 'asc'],
+    ['role', 'desc'],
+    ['accountStatus', 'asc'],
   ] as const)(
     'passes sort=%s&direction=%s to the service',
     async (sort, direction) => {

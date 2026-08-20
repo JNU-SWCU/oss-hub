@@ -295,7 +295,7 @@ function NotFoundState({
         description="존재하지 않는 사용자이거나 삭제된 계정입니다."
         action={
           <Button asChild variant="outline">
-            <Link href="/admin/access">접근 목록으로</Link>
+            <Link href="/admin/access">사용자 목록으로</Link>
           </Button>
         }
       />

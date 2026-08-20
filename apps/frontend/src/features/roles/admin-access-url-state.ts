@@ -49,6 +49,8 @@ const SORT_FIELD_VALUES: readonly AdminAccessSortField[] = [
   'name',
   'createdAt',
   'lastLoginAt',
+  'role',
+  'accountStatus',
 ];
 const DIRECTION_VALUES: readonly AdminAccessSortDirection[] = ['asc', 'desc'];
 
