@@ -522,11 +522,14 @@ describe('AdminAccessService mutation', () => {
     });
     expect(repository.operations).not.toContain('lock-active-admins');
     expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({
+      {
         actorGithubId: STAFF_GITHUB_ID,
         action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_APPROVED,
-        metadata: expect.objectContaining({
+        targetType: 'ROLE_REQUEST',
+        targetId: PENDING_REQUEST.id,
+        metadata: {
           schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
           actor: {
             displayName: '합성 교직원',
             githubLogin: 'synthetic-staff',
@@ -535,8 +538,18 @@ describe('AdminAccessService mutation', () => {
             displayName: '합성 사용자',
             githubLogin: 'synthetic-target',
           },
-        }),
-      }),
+          before: {
+            role: null,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: RoleRequestStatus.PENDING,
+          },
+          after: {
+            role: Role.STAFF,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: RoleRequestStatus.APPROVED,
+          },
+        },
+      },
       repository.auditLogWriter,
     );
   });
