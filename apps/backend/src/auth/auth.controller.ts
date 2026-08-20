@@ -11,9 +11,10 @@ import {
 } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Request, Response } from 'express';
+import { LoginHistoryService } from '../login-history/login-history.service';
 import { AuthConfig } from './auth.config';
+import { OptionalSession, Protected, Public } from './auth-route-metadata';
 import { AuthService } from './auth.service';
-import { loginLandingUrl } from './domain/login-landing';
 import {
   flowCookieName,
   parseCookies,
@@ -21,16 +22,15 @@ import {
   serializeCookie,
   sessionCookieName,
 } from './cookies';
-import { decodeFlowCookie, isSameState } from './oauth-flow';
+import { loginLandingUrl } from './domain/login-landing';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { SessionResponseDto } from './dto/session-response.dto';
+import { decodeFlowCookie, isSameState } from './oauth-flow';
 import { OriginGuard } from './origin.guard';
 import { resolveSession } from './session-resolution';
 import { AuthenticatedRequest, SessionGuard } from './session.guard';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
-import { LoginHistoryService } from '../login-history/login-history.service';
-import { OptionalSession, Protected, Public } from './auth-route-metadata';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 

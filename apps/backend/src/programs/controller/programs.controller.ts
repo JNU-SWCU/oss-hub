@@ -14,7 +14,11 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthConfig } from '../../auth/auth.config';
-import { Protected } from '../../auth/auth-route-metadata';
+import {
+  OptionalSession,
+  Protected,
+  Public,
+} from '../../auth/auth-route-metadata';
 import { OriginGuard } from '../../auth/origin.guard';
 import { resolveSession } from '../../auth/session-resolution';
 import {
@@ -69,6 +73,7 @@ export class ProgramsController {
    * 없거나 무효하면 익명으로 취급해 공개 필드만 반환한다(getSession과 동일 패턴).
    */
   @Get()
+  @OptionalSession()
   async list(
     @Query() query: ProgramListQueryRequestDto,
     @Req() request: Request,
@@ -85,6 +90,7 @@ export class ProgramsController {
 
   /** static sibling before programs/:id — 사이드바 상태 뱃지용 공개 집계. */
   @Get('status-counts')
+  @Public()
   async statusCounts(): Promise<ProgramStatusCountsResponseDto> {
     return ProgramStatusCountsResponseDto.from(
       await this.programs.statusCounts(),
@@ -103,6 +109,7 @@ export class ProgramsController {
   }
 
   @Get(':id')
+  @Public()
   detail(@Param('id') programId: string): Promise<ProgramDetailResponseDto> {
     return this.programs.detail(programId, ANONYMOUS_VIEWER);
   }

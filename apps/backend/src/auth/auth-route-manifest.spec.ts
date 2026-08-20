@@ -1,5 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import { Controller, Get, type INestApplication } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  type INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
@@ -8,6 +13,12 @@ import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { HealthController } from '../health/health.controller';
 import { HealthService } from '../health/health.service';
 import { LoginHistoryService } from '../login-history/login-history.service';
+import { ProgramsController } from '../programs/controller/programs.controller';
+import { ProgramActivityService } from '../programs/service/program-activity.service';
+import { ProgramCreationService } from '../programs/service/program-creation.service';
+import { ProgramLifecycleService } from '../programs/service/program-lifecycle.service';
+import { ProgramsService } from '../programs/service/programs.service';
+import { ProgramViewerService } from '../programs/service/program-viewer.service';
 import { RankingController } from '../ranking/controller/ranking.controller';
 import { RankingService } from '../ranking/service/ranking.service';
 import { AuthConfig } from './auth.config';
@@ -124,12 +135,22 @@ describe('authentication route metadata manifest', () => {
       { method: 'GET', path: '/api/v1/health', access: 'PUBLIC' },
       {
         method: 'GET',
+        path: '/api/v1/programs/:id',
+        access: 'PUBLIC',
+      },
+      {
+        method: 'GET',
         path: '/api/v1/programs/:programId/overview/teams',
         access: 'PUBLIC',
       },
       {
         method: 'GET',
         path: '/api/v1/programs/application-templates',
+        access: 'PUBLIC',
+      },
+      {
+        method: 'GET',
+        path: '/api/v1/programs/status-counts',
         access: 'PUBLIC',
       },
       { method: 'GET', path: '/api/v1/projects', access: 'PUBLIC' },
@@ -159,6 +180,11 @@ describe('authentication route metadata manifest', () => {
       },
       {
         method: 'GET',
+        path: '/api/v1/programs',
+        access: 'OPTIONAL_SESSION',
+      },
+      {
+        method: 'GET',
         path: '/api/v1/ranking',
         access: 'OPTIONAL_SESSION',
       },
@@ -183,8 +209,30 @@ describe('authentication route metadata manifest', () => {
         findMe: jest.fn().mockResolvedValue(syntheticUser),
         getMe: jest.fn().mockResolvedValue(syntheticUser),
       };
+      const programsService = {
+        list: jest.fn().mockResolvedValue({
+          items: [],
+          page: 1,
+          pageSize: 20,
+          totalItems: 0,
+          totalPages: 0,
+        }),
+        statusCounts: jest.fn().mockResolvedValue({
+          all: 0,
+          recruiting: 0,
+          in_progress: 0,
+          upcoming: 0,
+          ended: 0,
+        }),
+        detail: jest.fn().mockResolvedValue({ id: 'synthetic-program' }),
+      };
       const moduleRef = await Test.createTestingModule({
-        controllers: [AuthController, HealthController, RankingController],
+        controllers: [
+          AuthController,
+          HealthController,
+          ProgramsController,
+          RankingController,
+        ],
         providers: [
           SessionGuard,
           OriginGuard,
@@ -227,11 +275,44 @@ describe('authentication route metadata manifest', () => {
               listYears: jest.fn().mockResolvedValue([]),
             },
           },
+          {
+            provide: ProgramCreationService,
+            useValue: { create: jest.fn() },
+          },
+          {
+            provide: ProgramsService,
+            useValue: programsService,
+          },
+          {
+            provide: ProgramActivityService,
+            useValue: { activity: jest.fn() },
+          },
+          {
+            provide: ProgramViewerService,
+            useValue: {
+              fromGithubId: jest.fn().mockResolvedValue({
+                githubId: null,
+                userId: null,
+                role: null,
+              }),
+            },
+          },
+          {
+            provide: ProgramLifecycleService,
+            useValue: { delete: jest.fn(), purge: jest.fn() },
+          },
         ],
       }).compile();
 
       application = moduleRef.createNestApplication();
       application.setGlobalPrefix('api/v1');
+      application.useGlobalPipes(
+        new ValidationPipe({
+          transform: true,
+          whitelist: true,
+          forbidNonWhitelisted: true,
+        }),
+      );
       application.useGlobalFilters(new ProblemDetailFilter());
       await application.listen(0, '127.0.0.1');
       baseUrl = await application.getUrl();
@@ -259,6 +340,9 @@ describe('authentication route metadata manifest', () => {
       ['/api/v1/auth/github', 302, 302],
       ['/api/v1/auth/github/callback', 302, 302],
       ['/api/v1/health', 200, 200],
+      ['/api/v1/programs', 200, 200],
+      ['/api/v1/programs/status-counts', 200, 200],
+      ['/api/v1/programs/synthetic-program', 200, 200],
       ['/api/v1/ranking', 200, 200],
       ['/api/v1/ranking/years', 200, 200],
       ['/api/v1/auth/session', 200, 200],
