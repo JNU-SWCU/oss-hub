@@ -291,6 +291,15 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     null,
     AccountStatus.ACTIVE,
   );
+  const pendingProfile = {
+    name: '합성 승인 대상',
+    studentId: '813017',
+    department: '소프트웨어공학과',
+  };
+  await harness.prisma.user.update({
+    where: { id: pending.id },
+    data: { ...pendingProfile, profile: { create: pendingProfile } },
+  });
   const request = await harness.createPendingRequest(pending.id);
   const student = await harness.createUser(
     'approve-student',
