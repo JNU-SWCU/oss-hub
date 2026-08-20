@@ -452,8 +452,8 @@ export function sidebarGroupsFor(
 
 /**
  * 현재 메뉴 강조.
- * 패싯 섹션은 `spec.param` 쿼리 피어 비교. 아카이브 상세 예외는 `matchDetail`.
- * 상세(`/programs/id`)는 필터 비강조(프로그램·랭킹).
+ * 패싯 섹션은 `spec.param` 쿼리 피어 비교.
+ * 상세(`/programs/id`, `/archive/id`)는 필터 비강조.
  */
 export function isCurrentSidebarItem(
   pathname: string,
@@ -469,10 +469,7 @@ export function isCurrentSidebarItem(
     const spec = SECTION_FACETS[facetSection];
     if (!spec) return false;
 
-    if (spec.matchDetail) {
-      const detail = spec.matchDetail(pathname, href, hrefQuery);
-      if (detail !== null) return detail;
-    } else if (pathname !== hrefPath) {
+    if (pathname !== hrefPath) {
       return false;
     }
 

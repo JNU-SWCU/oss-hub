@@ -266,11 +266,11 @@ describe('isCurrentSidebarItem', () => {
     ).toBe(true);
   });
 
-  it('archive detail does not highlight 전체; category peers highlight', () => {
+  it('archive detail does not highlight filters', () => {
     expect(isCurrentSidebarItem('/archive/123', '/archive', '')).toBe(false);
     expect(
       isCurrentSidebarItem('/archive/123', '/archive?category=CAPSTONE', ''),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('회원 공통 홈 메뉴는 /dashboard에서만 강조된다', () => {

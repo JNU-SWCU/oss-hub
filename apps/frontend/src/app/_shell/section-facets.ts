@@ -29,16 +29,6 @@ export interface SectionFacetSpec {
   readonly items: (
     data: SectionFacetData | undefined,
   ) => readonly SidebarItem[];
-  /**
-   * 상세 경로 하이라이트 예외.
-   * - `null`: 목록 경로 — 기본 쿼리 파라미터 비교 사용
-   * - `boolean`: 상세(또는 비대상) — 그 값을 그대로 반환
-   */
-  readonly matchDetail?: (
-    pathname: string,
-    href: string,
-    hrefQuery: string,
-  ) => boolean | null;
 }
 
 function abortIfSignalAborted(signal: AbortSignal): void {
@@ -88,12 +78,6 @@ export const SECTION_FACETS: Partial<
     param: 'category',
     load: loadArchiveFacets,
     items: (data) => archiveSidebarGroup(data?.archiveCounts).items,
-    matchDetail: (pathname, _href, hrefQuery) => {
-      if (pathname === '/archive') return null;
-      if (!pathname.startsWith('/archive/')) return false;
-      // 상세는 "전체"에만 걸지 않음 — category 쿼리가 있는 항목만
-      return hrefQuery !== '' && pathname.startsWith('/archive/');
-    },
   },
   ranking: {
     groupLabel: '랭킹',
