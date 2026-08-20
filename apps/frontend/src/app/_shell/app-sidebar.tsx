@@ -8,6 +8,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ProgramCountdown } from '@/components';
+import { useOptionalRankingNextCycleAt } from './ranking-cycle-context';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
 
@@ -54,6 +56,9 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const title = brandTitle ?? groups[0]?.label ?? '메뉴';
   const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
+  const nextCycleAt = useOptionalRankingNextCycleAt();
+  const showRankingCountdown =
+    !collapsed && pathname === '/ranking' && nextCycleAt !== null;
 
   return (
     <aside
@@ -106,6 +111,14 @@ export function AppSidebar({
         collapsed={collapsed}
         brandTitle={title}
       />
+
+      {showRankingCountdown && nextCycleAt !== null ? (
+        <ProgramCountdown
+          nextMilestoneLabel="다음 수집"
+          dueAt={nextCycleAt}
+          untilLabel="다음 수집까지"
+        />
+      ) : null}
 
       <p
         data-slot="app-sidebar-foot"

@@ -29,8 +29,11 @@
 #      HEAD가 "Merge <head 40자 SHA> into <base 40자 SHA>" 형태의 자동 생성 병합
 #      커밋이다. 이 메시지의 SHA 자체는 검사 대상 콘텐츠가 아니므로 병합 커밋은
 #      스캔에서 제외한다(학번 추정 패턴 등 숫자열 오탐 방지). 병합 안 된 실제
-#      커밋 메시지는 그대로 검사한다. %h(축약 해시)도 스캔 대상에서 제외한다 —
-#      해시가 우연히 전부 숫자로 축약되면 같은 클래스의 오탐이 나기 때문이다.
+#      커밋 메시지는 학번·전화번호·개인 경로·실명만 검사한다. 이메일 후보는
+#      커밋 메시지 자동 검사에서 뺀다 — 에이전트가 메시지를 쓰는 경로에서
+#      오탐이 잦고, 실제 유출 신호는 파일·PR·Issue 표면과 리뷰가 담당한다.
+#      %h(축약 해시)도 스캔 대상에서 제외한다 — 해시가 우연히 전부 숫자로
+#      축약되면 같은 클래스의 오탐이 나기 때문이다.
 #   3) $PR_TEXT        (CI가 PR 제목+본문을 주입) — full 모드만
 #   4) $ISSUE_TEXT     (CI가 Issue/댓글 제목+본문을 주입) — 두 모드 모두
 #
@@ -119,6 +122,10 @@ report() { # $1=라벨 $2=매치 내용
   FAIL=1
 }
 
+line_evidence() { # grep -n 출력에서 매치 원문을 빼고 라인 번호만 증거로 남긴다
+  printf '%s\n' "$1" | cut -d: -f1 | sort -nu | sed 's/^/  line /'
+}
+
 safe_path_id() { # 파일명 원문을 로그에 내보내지 않는 안정적 식별자
   local path="$1" digest
   if ! digest="$(printf '%s' "$path" | git hash-object --stdin 2>/dev/null)"; then
@@ -149,82 +156,60 @@ is_forbidden_file() { # 금지 확장자는 대소문자 무관, 허용 예외�
   return "$matched"
 }
 
-run_grep() { # grep의 1(매치 없음)과 2+(검사 오류)를 구분한다.
-  local output status
-  if output="$(grep "$@")"; then
-    printf '%s' "$output"
-    return 0
-  else
-    status=$?
+run_grep() { # grep의 1(매치 없음)은 빈 출력으로 정규화하고 2+(검사 오류)만 올린다.
+  local output status=0
+  output="$(grep "$@")" || status=$?
+  if [ "$status" -gt 1 ]; then
+    echo "::error::public-safe 텍스트 검사를 실행할 수 없습니다." >&2
+    return 2
   fi
-  [ "$status" -eq 1 ] && return 1
-  echo "::error::public-safe 텍스트 검사를 실행할 수 없습니다." >&2
-  return 2
+  printf '%s' "$output"
 }
 
-scan_text() { # $1=출처 라벨, stdin=텍스트
-  local src="$1" text entry label re hits filtered evidence name name_hits status
-  local candidates quoted_candidates non_ascii_candidates punycode_candidates unsupported_candidates
+# EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
+# punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
+report_unsupported_email_candidates() {
+  local src="$1" text="$2"
+  local candidates quoted_candidates non_ascii_candidates punycode_candidates unsupported
+
+  candidates="$(printf '%s\n' "$text" | run_grep -EIno "$CANDIDATE_EMAIL_RE")" || return 2
+  [ -z "$candidates" ] && return 0
+
+  quoted_candidates="$(printf '%s\n' "$candidates" | run_grep -E '^[0-9]+:"')" || return 2
+  non_ascii_candidates="$(printf '%s\n' "$candidates" | LC_ALL=C run_grep -E '[^ -~]')" || return 2
+  punycode_candidates="$(printf '%s\n' "$candidates" | run_grep -Ei '@[^[:space:]@]*xn--')" || return 2
+
+  unsupported="$(printf '%s\n%s\n%s\n' \
+    "$quoted_candidates" "$non_ascii_candidates" "$punycode_candidates" | sed '/^$/d')"
+  if [ -n "$unsupported" ]; then
+    report "quoted·비ASCII·IDN 이메일 후보 @ $src" "$(line_evidence "$unsupported")"
+  fi
+  return 0
+}
+
+scan_text() { # $1=출처 라벨 $2=이메일 검사(0=함 1=건너뜀) stdin=텍스트
+  local src="$1" skip_email="$2" text entry label re hits name name_hits
   text="$(cat)"
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
     label="${entry%%|*}"
     re="${entry#*|}"
     if [ "$label" = "이메일" ]; then
-      if hits="$(printf '%s\n' "$text" | run_grep -EIno "$re")"; then
-        if filtered="$(printf '%s\n' "$hits" | run_grep -Eiv "$ALLOW_EMAIL_RE")"; then
-          hits="$filtered"
-        else
-          status=$?
-          [ "$status" -eq 1 ] && hits="" || return 2
-        fi
-      else
-        status=$?
-        [ "$status" -eq 1 ] && hits="" || return 2
+      [ "$skip_email" -eq 1 ] && continue
+      hits="$(printf '%s\n' "$text" | run_grep -EIno "$re")" || return 2
+      if [ -n "$hits" ]; then
+        hits="$(printf '%s\n' "$hits" | run_grep -Eiv "$ALLOW_EMAIL_RE")" || return 2
       fi
     else
-      if hits="$(printf '%s\n' "$text" | run_grep -EIn "$re")"; then
-        :
-      else
-        status=$?
-        [ "$status" -eq 1 ] && hits="" || return 2
-      fi
+      hits="$(printf '%s\n' "$text" | run_grep -EIn "$re")" || return 2
     fi
     if [ -n "$hits" ]; then
-      evidence="$(printf '%s\n' "$hits" | cut -d: -f1 | sort -nu | sed 's/^/  line /')"
-      report "$label @ $src" "$evidence"
+      report "$label @ $src" "$(line_evidence "$hits")"
     fi
   done
 
-  # EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
-  # punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
-  if candidates="$(printf '%s\n' "$text" | run_grep -EIno "$CANDIDATE_EMAIL_RE")"; then
-    unsupported_candidates=""
-    if quoted_candidates="$(printf '%s\n' "$candidates" | run_grep -E '^[0-9]+:"')"; then
-      unsupported_candidates="$quoted_candidates"
-    else
-      status=$?
-      [ "$status" -eq 1 ] || return 2
-    fi
-    if non_ascii_candidates="$(printf '%s\n' "$candidates" | LC_ALL=C run_grep -E '[^ -~]')"; then
-      unsupported_candidates="${unsupported_candidates}${unsupported_candidates:+$'\n'}${non_ascii_candidates}"
-    else
-      status=$?
-      [ "$status" -eq 1 ] || return 2
-    fi
-    if punycode_candidates="$(printf '%s\n' "$candidates" | run_grep -Ei '@[^[:space:]@]*xn--')"; then
-      unsupported_candidates="${unsupported_candidates}${unsupported_candidates:+$'\n'}${punycode_candidates}"
-    else
-      status=$?
-      [ "$status" -eq 1 ] || return 2
-    fi
-    if [ -n "$unsupported_candidates" ]; then
-      evidence="$(printf '%s\n' "$unsupported_candidates" | cut -d: -f1 | sort -nu | sed 's/^/  line /')"
-      report "quoted·비ASCII·IDN 이메일 후보 @ $src" "$evidence"
-    fi
-  else
-    status=$?
-    [ "$status" -eq 1 ] || return 2
+  if [ "$skip_email" -eq 0 ]; then
+    report_unsupported_email_candidates "$src" "$text" || return 2
   fi
 
   if [ -n "${BLOCKED_NAMES:-}" ]; then
@@ -234,12 +219,10 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
       IFS="$OLDIFS"
       name="$(printf '%s' "$name" | sed 's/^ *//;s/ *$//')"
       [ -z "$name" ] && continue
-      if name_hits="$(printf '%s\n' "$text" | run_grep -Fn -- "$name")"; then
+      name_hits="$(printf '%s\n' "$text" | run_grep -Fn -- "$name")" || return 2
+      if [ -n "$name_hits" ]; then
         # 이름 자체를 로그에 남기면 그것도 유출이므로 라인 번호만 출력
-        report "실명 @ $src" "$(printf '%s\n' "$name_hits" | cut -d: -f1 | sed 's/^/  line /')"
-      else
-        status=$?
-        [ "$status" -eq 1 ] || return 2
+        report "실명 @ $src" "$(line_evidence "$name_hits")"
       fi
     done
     IFS="$OLDIFS"
@@ -277,7 +260,7 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
       echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
       exit 2
     fi
-    scan_text "파일 $file_id" <<<"$file_text"
+    scan_text "파일 $file_id" 0 <<<"$file_text"
   done <"$changed_file_list"
 
   # 0) 금지 파일 경로 — 내용과 무관하게 커밋 자체를 차단
@@ -298,19 +281,20 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
     echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다 (docs/rules/security.md)"
   fi
 
-  # 2) 커밋 메시지 — 병합 커밋(합성 merge ref 포함) 제외, %h(축약 해시)도 제외
+  # 2) 커밋 메시지 — 병합 커밋(합성 merge ref 포함) 제외, %h(축약 해시)도 제외.
+  #    이메일 후보는 검사하지 않는다(파일·PR·Issue 표면과 리뷰가 담당).
   if ! commit_text="$(git log --no-merges --format='%s%n%b' "$BASE_REF"..HEAD)"; then
     echo "::error::public-safe 커밋 메시지를 읽을 수 없습니다."
     exit 2
   fi
-  scan_text "커밋 메시지" <<<"$commit_text"
+  scan_text "커밋 메시지" 1 <<<"$commit_text"
 
   # 3) PR 제목·본문 (CI에서 env로 주입)
-  scan_text "PR 제목·본문" <<<"${PR_TEXT:-}"
+  scan_text "PR 제목·본문" 0 <<<"${PR_TEXT:-}"
 fi
 
 # 4) Issue·댓글 제목+본문 (CI에서 env로 주입 — text-only 모드, issues·issue_comment 이벤트)
-scan_text "Issue 본문·댓글" <<<"${ISSUE_TEXT:-}"
+scan_text "Issue 본문·댓글" 0 <<<"${ISSUE_TEXT:-}"
 
 if [ "$FAIL" -ne 0 ]; then
   echo ""

@@ -1,9 +1,9 @@
-import type {
-  CollectionContributorCumulativeMetricsDto,
-  CollectionReadPort,
-  CollectionRepositoryCumulativeMetricsDto,
-} from '../../../github/collection-read.port';
 import { DomainException } from '../../../common/error-code';
+import type {
+  ProgramContributorCumulativeMetrics,
+  ProgramMetricsRepository,
+  ProgramRepositoryCumulativeMetrics,
+} from '../../repository/program-metrics.repository';
 import type { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import {
@@ -79,20 +79,13 @@ function serviceWith(overrides: {
     isEligible: overrides.isEligible ?? jest.fn().mockResolvedValue(false),
   } as unknown as PublicEligibilityService;
   const collection = {
-    findRepositoryActivity: jest.fn(),
-    getRepositoryMetrics: jest.fn(),
-    getContributorMetrics: jest.fn(),
-    getPublicRankingMetrics: jest.fn(),
-    listPublicRankingYears: jest.fn(),
-    getPublicRankingDataAsOf: () => Promise.resolve(null),
-    getIncrementalStatusSnapshot: jest.fn(),
     getRepositoryCumulativeMetrics:
       overrides.getRepositoryCumulativeMetrics ??
       jest.fn().mockResolvedValue([]),
     getContributorCumulativeMetrics:
       overrides.getContributorCumulativeMetrics ??
       jest.fn().mockResolvedValue([]),
-  } as unknown as CollectionReadPort;
+  } as unknown as ProgramMetricsRepository;
   const service = new PublicProjectsService(
     repository,
     eligibility,
@@ -306,7 +299,7 @@ describe('PublicProjectsService', () => {
         {
           filterEligibleRepositoryIds: jest.fn().mockResolvedValue(new Set()),
         } as unknown as PublicEligibilityService,
-        {} as unknown as CollectionReadPort,
+        {} as unknown as ProgramMetricsRepository,
         loadRuntimeConfig({
           SESSION_SECRET: Buffer.from(
             'synthetic-public-projects-other-secret-01',
@@ -533,7 +526,7 @@ describe('PublicProjectsService', () => {
       });
       const findById = jest.fn().mockResolvedValue(found);
       const isEligible = jest.fn().mockResolvedValue(true);
-      const metrics: CollectionRepositoryCumulativeMetricsDto[] = [
+      const metrics: ProgramRepositoryCumulativeMetrics[] = [
         {
           repositoryId: 9001n,
           dataAsOf: new Date('2026-07-30T00:00:00.000Z'),
@@ -543,7 +536,7 @@ describe('PublicProjectsService', () => {
           releaseCount: 3,
         },
       ];
-      const contributors: CollectionContributorCumulativeMetricsDto[] = [
+      const contributors: ProgramContributorCumulativeMetrics[] = [
         {
           repositoryId: 9001n,
           githubUserId: 1n,

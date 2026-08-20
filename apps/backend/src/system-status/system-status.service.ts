@@ -1,14 +1,12 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
 import {
-  COLLECTION_READ_PORT,
+  SystemStatusRepository,
   type CollectionExternalCollectionStatusDto,
   type CollectionIncrementalStatusSnapshotDto,
-  type CollectionReadPort,
   type CollectionRepositoryStreamsDto,
   type CollectionSweepActivityDto,
-} from '../github/collection-read.port';
-import { SystemStatusRepository } from './system-status.repository';
+} from './system-status.repository';
 import {
   CollectionRepositoryStreamResponseDto,
   CollectionSystemStatusResponseDto,
@@ -43,8 +41,6 @@ interface StatusDecision {
 export class SystemStatusService {
   constructor(
     private readonly repository: SystemStatusRepository,
-    @Inject(COLLECTION_READ_PORT)
-    private readonly collection: CollectionReadPort,
     @Inject(SYSTEM_STATUS_CLOCK) private readonly clock: SystemStatusClock,
   ) {}
 
@@ -57,21 +53,15 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const [
-      snapshot,
-      finalFailureCount,
-      streams,
-      nextCycleAt,
-      activity,
-      externalStatus,
-    ] = await Promise.all([
-      this.collection.getIncrementalStatusSnapshot(),
-      this.repository.countFinalProvisionFailures(),
-      this.collection.getIncrementalStatusStreams(),
-      this.collection.getNextScheduledCycleAt(this.clock()),
-      this.collection.getRecentSweepActivity(RECENT_SWEEP_ACTIVITY_LIMIT),
-      this.collection.getExternalCollectionStatus(),
-    ]);
+    const nextCycleAt = this.repository.findNextCycleAt(this.clock());
+    const [snapshot, finalFailureCount, streams, activity, externalStatus] =
+      await Promise.all([
+        this.repository.getIncrementalStatusSnapshot(),
+        this.repository.countFinalProvisionFailures(),
+        this.repository.getIncrementalStatusStreams(),
+        this.repository.getRecentSweepActivity(RECENT_SWEEP_ACTIVITY_LIMIT),
+        this.repository.getExternalCollectionStatus(),
+      ]);
     const decision = this.decide(snapshot);
     return new SystemStatusResponseDto(
       new CollectionSystemStatusResponseDto(

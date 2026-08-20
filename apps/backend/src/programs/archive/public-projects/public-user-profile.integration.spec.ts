@@ -7,8 +7,8 @@ import {
   Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
-import { createCollectionReadPortForIntegrationTest } from '../../../github/collection-read.port';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
@@ -26,14 +26,13 @@ const SYNTHETIC_SESSION_SECRET = Buffer.from(
 ).toString('base64url');
 
 const prisma = new PrismaService();
-const collectionReadService =
-  createCollectionReadPortForIntegrationTest(prisma);
-const eligibilityService = new PublicEligibilityService(collectionReadService);
+const metrics = new ProgramMetricsRepository(prisma);
+const eligibilityService = new PublicEligibilityService(metrics);
 const publicProjectsRepository = new PublicProjectsRepository(prisma);
 const service = new PublicProjectsService(
   publicProjectsRepository,
   eligibilityService,
-  collectionReadService,
+  metrics,
   loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
 );
 

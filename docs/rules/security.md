@@ -34,9 +34,13 @@ selector 및 integration review evidence가 없거나 exact-head owner receipt�
 
 ### 랭킹 표시명
 
-공개 랭킹은 `githubLogin`만 노출한다(PM 결정, 2026-08-08).
-2026-08-03의 실명 노출 허용 결정을 철회한다 — 동의 철회 endpoint가 없는 상태([#554](https://github.com/JNU-SWCU/oss-hub/issues/554))에서 실명을 노출하면 되돌릴 수 없는 노출이 된다.
-GitHub ID는 사용자가 이미 공개적으로 선택한 식별자이므로 같은 문제가 생기지 않는다.
+`GET /ranking`은 전원에게 공개다. 표시 필드는 `viewerClass`로 갈린다.
+
+공개 뷰어(익명, STUDENT, 비ACTIVE 세션)는 `githubLogin`·`department`·공개 지표만 본다. 실명과 `studentId`는 내려가지 않는다. 2026-08-03의 실명 노출 허용은 공개 표면에 한해 철회한다 — 동의 철회 endpoint가 없는 상태([#554](https://github.com/JNU-SWCU/oss-hub/issues/554))에서 공개 실명은 되돌릴 수 없다. GitHub login은 사용자가 이미 공개적으로 선택한 식별자라 같은 문제가 생기지 않는다. `department`는 공개 가능 정보다(owner 결정, 2026-08-19).
+
+Staff/Admin ACTIVE 세션(`viewerClass` staff)은 같은 공개 칸에 실명을 더 본다. Staff CSV에는 실명을 넣을 수 있다. CSV에 `studentId`와 `githubId`는 넣지 않는다.
+
+Issue·PR 스크린샷에는 실제 실명을 넣지 않는다 — 제품 화면의 staff 예외는 공개 저장소 표면에 적용되지 않는다.
 
 가입한 모든 사용자가 노출 대상이다. 기여 유무를 조건으로 걸지 않는다(PM 결정, 2026-08-11) — 기여가 없어도 0으로 표시된다.
 집계 범위는 JNU-SWCU Org 저장소 전체(가시성 무관)와 학생 개인 계정의 public 저장소 활동이다.
@@ -44,7 +48,7 @@ GitHub ID는 사용자가 이미 공개적으로 선택한 식별자이므로 �
 
 미가입 org 기여자를 '미가입'으로 구분하던 규칙도 함께 삭제한다 — 미가입자 기여는 적재 시점에 걸러져 행 자체가 존재하지 않는다.
 
-학번·학과·연락처를 비롯한 나머지 금지 항목은 랭킹에서도 그대로 금지한다.
+학번·연락처를 비롯한 나머지 금지 항목은 랭킹에서도 그대로 금지한다.
 
 ### Git commit identity 이메일 예외
 
@@ -54,7 +58,7 @@ GitHub ID는 사용자가 이미 공개적으로 선택한 식별자이므로 �
 - 본인이 선택하지 않은 identity이거나 제3자 이메일 공개가 의심되면 아래 유출 사고 절차로 처리한다.
 - 자동화 계정 식별용 noreply 주소와 RFC 2606 예약 도메인의 합성 예시는 연락처 이메일로 보지 않는다.
 - tracked file, Issue·PR 본문, 댓글, 커밋 메시지, CI 로그, 스크린샷에 연락처 이메일을 직접 기록하는 행위는 계속 금지한다.
-- `scripts/check-public-safe.sh`는 존재 자체가 유출인 파일 경로(env 실값·개인키·로컬 DB·덤프·자격증명 메모)를 파일명 단계에서 차단하고, 변경된 tracked file의 커밋된 Git blob 내용(`scripts/check-public-safe.sh` 자체와 `pnpm-lock.yaml` 제외), 커밋 메시지, PR 제목·본문의 이메일을 검사하되 위 noreply·합성 예시는 허용한다. author·committer identity 메타데이터는 검사하지 않는다. `--text-only` 모드(`ISSUE_TEXT` 주입)는 Issue 제목·본문과 Issue/PR 댓글에도 동일한 deny-list를 적용한다. CI 로그, 스크린샷은 이 스크립트의 자동 검사 대상이 아니며 금지 정책과 리뷰로 통제한다.
+- `scripts/check-public-safe.sh`는 존재 자체가 유출인 파일 경로(env 실값·개인키·로컬 DB·덤프·자격증명 메모)를 파일명 단계에서 차단하고, 변경된 tracked file의 커밋된 Git blob 내용(`scripts/check-public-safe.sh` 자체와 `pnpm-lock.yaml` 제외), PR 제목·본문의 이메일을 검사하되 위 noreply·합성 예시는 허용한다. 커밋 메시지의 이메일 후보는 자동 검사하지 않는다 — 학번·전화번호·개인 경로·실명만 검사하고, 이메일 정책은 리뷰로 통제한다. author·committer identity 메타데이터는 검사하지 않는다. `--text-only` 모드(`ISSUE_TEXT` 주입)는 Issue 제목·본문과 Issue/PR 댓글에도 동일한 deny-list를 적용한다. CI 로그, 스크린샷은 이 스크립트의 자동 검사 대상이 아니며 금지 정책과 리뷰로 통제한다.
 - 금지 파일 경로의 `.env` 계열·개인키·로컬 DB 확장자는 대소문자와 무관하게 차단한다. 허용 예외는 정확한 소문자 `.env.example` 한 가지뿐이다.
 - PR이 제어할 수 있는 파일명은 CI 로그에 원문을 출력하지 않고 Git hash 기반 `path-id`로만 표시한다. 줄바꿈·제어문자·Actions annotation 문자열이 포함된 파일명도 같은 규칙을 적용한다.
 - quoted local-part, EAI local-part, Unicode domain은 자동 검사의 허용 예외로 지원하지 않는다. 자동 검사는 점으로 구분된 domain과 2자 이상 마지막 label을 가진 quoted·비ASCII email-shaped token, punycode IDN 후보를 보수적으로 차단한다. 점 없는 token은 GitHub handle·멘션 나열·셸 변수 오탐을 피하기 위해 이메일 후보로 간주하지 않고 리뷰로 통제한다. 실제 제품 입력에서 이 범위를 지원하려면 별도 입력 검증 계약과 합성 fixture를 먼저 추가한다.

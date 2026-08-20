@@ -17,6 +17,7 @@ vi.mock('next/link', () => ({
 }));
 
 import { AppSidebar, formatSidebarCount } from './app-sidebar';
+import { RankingCycleProvider } from './ranking-cycle-context';
 import { sidebarBrandTitle, sidebarGroupsFor } from './sidebar-menu';
 
 function render(
@@ -173,6 +174,63 @@ describe('AppSidebar', () => {
     expect(formatSidebarCount(99)).toBe('99');
     expect(formatSidebarCount(100)).toBe('99+');
     expect(formatSidebarCount(1500)).toBe('99+');
+  });
+
+  it('shows ranking countdown only on /ranking when nextCycleAt is set and expanded', () => {
+    const groups = sidebarGroupsFor('ranking', null, {
+      rankingYears: [2026],
+    });
+    const onRanking = renderToStaticMarkup(
+      <RankingCycleProvider initialNextCycleAt="2026-08-21T00:00:00.000Z">
+        <AppSidebar
+          groups={groups}
+          pathname="/ranking"
+          search=""
+          collapsed={false}
+          onToggle={() => {}}
+        />
+      </RankingCycleProvider>,
+    );
+    expect(onRanking).toContain('data-slot="program-countdown"');
+
+    const collapsed = renderToStaticMarkup(
+      <RankingCycleProvider initialNextCycleAt="2026-08-21T00:00:00.000Z">
+        <AppSidebar
+          groups={groups}
+          pathname="/ranking"
+          search=""
+          collapsed={true}
+          onToggle={() => {}}
+        />
+      </RankingCycleProvider>,
+    );
+    expect(collapsed).not.toContain('data-slot="program-countdown"');
+
+    const dashboard = renderToStaticMarkup(
+      <RankingCycleProvider initialNextCycleAt="2026-08-21T00:00:00.000Z">
+        <AppSidebar
+          groups={sidebarGroupsFor('dashboard', 'STUDENT')}
+          pathname="/dashboard"
+          search=""
+          collapsed={false}
+          onToggle={() => {}}
+        />
+      </RankingCycleProvider>,
+    );
+    expect(dashboard).not.toContain('data-slot="program-countdown"');
+
+    const noCycle = renderToStaticMarkup(
+      <RankingCycleProvider initialNextCycleAt={null}>
+        <AppSidebar
+          groups={groups}
+          pathname="/ranking"
+          search=""
+          collapsed={false}
+          onToggle={() => {}}
+        />
+      </RankingCycleProvider>,
+    );
+    expect(noCycle).not.toContain('data-slot="program-countdown"');
   });
 
   it('collapsed ranking years are icon-only with year in aria-label', () => {

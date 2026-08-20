@@ -9,57 +9,68 @@ describe('RankingService identity and privacy', () => {
   });
 
   it('canonical activity의 결정된 login과 집계 metric을 그대로 사용한다', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([
+    harness.findMetrics.mockResolvedValue([
       activity(77n, 'new-login', { commitCount: 2, pullRequestCount: 1 }),
     ]);
 
     await expect(
-      harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
+      harness.service.findPage(RANKING_YEAR_ALL, 1, 20, null),
     ).resolves.toMatchObject({
       items: [
         {
           githubLogin: 'new-login',
+          department: null,
           commitCount: 2,
           pullRequestCount: 1,
           total: 3,
         },
       ],
       total: 1,
+      viewerClass: 'public',
+      nextCycleAt: null,
     });
   });
 
   it('canonical 공개 활동에 포함된 identity만 랭킹에 사용한다', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([
+    harness.findMetrics.mockResolvedValue([
       activity(77n, 'old-login', { commitCount: 2 }),
     ]);
 
     await expect(
-      harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
+      harness.service.findPage(RANKING_YEAR_ALL, 1, 20, null),
     ).resolves.toMatchObject({
       items: [
         {
           githubLogin: 'old-login',
+          department: null,
           commitCount: 2,
           pullRequestCount: 0,
           total: 2,
         },
       ],
       total: 1,
+      viewerClass: 'public',
     });
   });
 
   it('login이 같아도 githubId가 다르면 별도 entry로 유지한다', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([
+    harness.findMetrics.mockResolvedValue([
       activity(1n, 'shared', { commitCount: 2 }),
       activity(2n, 'shared', { pullRequestCount: 1 }),
     ]);
 
-    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
+    const result = await harness.service.findPage(
+      RANKING_YEAR_ALL,
+      1,
+      20,
+      null,
+    );
     expect(result.items).toHaveLength(2);
     expect(result.items.map((item) => item.githubLogin)).toEqual([
       'shared',
       'shared',
     ]);
     expect(result.items.map((item) => item.total)).toEqual([2, 1]);
+    expect(result.items[0]).not.toHaveProperty('name');
   });
 });

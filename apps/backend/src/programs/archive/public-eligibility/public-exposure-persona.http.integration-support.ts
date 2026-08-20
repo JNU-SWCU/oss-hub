@@ -18,7 +18,7 @@ import type { GithubAppClient } from '../../../github/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
 import { RankingController } from '../../../ranking/controller/ranking.controller';
-import { RankingViewerRepository } from '../../../ranking/repository/ranking-viewer.repository';
+import { RankingRepository } from '../../../ranking/repository/ranking.repository';
 import { RankingService } from '../../../ranking/service/ranking.service';
 import { PublicProjectsController } from '../public-projects/public-projects.controller';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
@@ -28,10 +28,7 @@ import { SubmissionRepositoryPublishingController } from '../../../submission-re
 import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
 import { SubmissionReviewsStaffGuard } from '../../../submission-reviews/submission-reviews-staff.guard';
-import {
-  createCollectionReadPortForIntegrationTest,
-  type CollectionReadPort,
-} from '../../../github/collection-read.port';
+import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
 const sessionSecret = new Uint8Array(32).fill(23);
@@ -55,8 +52,7 @@ export class PublicExposurePersonaHttpHarness {
   constructor(private readonly fixtureNamespace: string) {}
 
   readonly prisma = new PrismaService();
-  readonly collection: CollectionReadPort =
-    createCollectionReadPortForIntegrationTest(this.prisma);
+  readonly metrics = new ProgramMetricsRepository(this.prisma);
   private application: INestApplication | null = null;
   private baseUrl = '';
   private sequence = 0;
@@ -67,17 +63,16 @@ export class PublicExposurePersonaHttpHarness {
   async start(): Promise<void> {
     await this.prisma.$connect();
 
-    const eligibilityService = new PublicEligibilityService(this.collection);
+    const eligibilityService = new PublicEligibilityService(this.metrics);
     const publicProjectsRepository = new PublicProjectsRepository(this.prisma);
     const publicProjectsService = new PublicProjectsService(
       publicProjectsRepository,
       eligibilityService,
-      this.collection,
+      this.metrics,
       loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
     );
     const rankingService = new RankingService(
-      this.collection,
-      new RankingViewerRepository(this.prisma),
+      new RankingRepository(this.prisma),
     );
 
     const github = {
