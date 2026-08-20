@@ -8,3 +8,10 @@
 - Issue: -
 - PR: (이 PR)
 - blocker: 없음
+
+## 2026-08-20 — 랭킹 참여자에서 @ 제거 + GitHub 링크
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
