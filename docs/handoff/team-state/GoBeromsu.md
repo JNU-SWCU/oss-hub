@@ -30,6 +30,21 @@
 - PR: (이 PR)
 - blocker: 없음
 
+## 2026-08-21 — 프로그램 lifecycle 영구 삭제 UX P4 검증
+
+- 상태: blocked
+- Issue: #960
+- PR: 없음
+- blocker: 없음
+
+## 2026-08-21 — 프로그램 lifecycle 영구 삭제 UX synthetic Chrome 검증 완료
+
+- 상태: review
+- Issue: #960
+- PR: 예정
+- blocker: 없음
+- 증거: `.omo/evidence/task-5-browser/admin-purge-success.png`, `purge-network-request-log.json`
+- 결과: ADMIN/STAFF, 보호 프로그램, zero-count, exact scope, no normal DELETE, cancel/focus, scope drift/no-retry를 4개 Chrome 테스트로 검증 (`4 passed`)
 ## 2026-08-20 — 랭킹 CSV 다운로드와 기준 시각 위계
 
 - 상태: review
