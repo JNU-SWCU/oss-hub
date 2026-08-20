@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# PR 제출 전 docs/handoff/TEAM-STATE.md 갱신을 강제하는 pre-push 가드 로직.
-# .githooks/pre-push의 얇은 래퍼가 이 스크립트를 호출한다. 훅은 오프라인·즉답이어야 하므로
-# 네트워크 fetch를 하지 않고 로컬에 이미 있는 refs/remotes/origin/main(또는 그 대체)만 비교 기준으로 쓴다.
-# 사실 일치(문서 내용이 GitHub 상태와 맞는지)는 검사하지 않는다 — 그건 team-state-drift advisory job의 몫이다.
+# Pre-push guard: the pushed range vs origin/main must change at least one
+# member journal under docs/handoff/team-state/*.md.
+# .githooks/pre-push is a thin wrapper. The hook must stay offline, so this
+# script compares against the local refs/remotes/origin/main (or fallback) only.
+# It does not check that journal contents match GitHub — that is the
+# team-state-drift advisory job.
 #
-# 표준입력: git pre-push 프로토콜 그대로 —
-#   <local ref> <local sha1> <remote ref> <remote sha1>  줄 단위, 여러 ref를 한 번에 받을 수 있다.
+# stdin: git pre-push protocol —
+#   <local ref> <local sha1> <remote ref> <remote sha1>  one line per ref
 #
-# 제외 대상: main으로의 direct push(remote ref가 refs/heads/main), 브랜치 삭제 push(local sha1이 전부 0).
-# 우회: TEAM_STATE_SKIP=1 (경고만 출력하고 검사 자체를 생략 — PR 본문에 사유를 남겨야 한다).
+# Skipped: direct push to main (remote ref refs/heads/main), branch-delete
+# push (local sha1 is all zeros).
+# Bypass: TEAM_STATE_SKIP=1 (warn and skip the check — record the reason
+# in the PR body).
 
 set -euo pipefail
 
-TEAM_STATE_PATH='docs/handoff/TEAM-STATE.md'
+JOURNAL_PATH_PATTERN='docs/handoff/team-state/[^/]+\.md'
 ZERO_SHA='0000000000000000000000000000000000000000'
 
 if [ "${TEAM_STATE_SKIP:-}" = '1' ]; then
@@ -36,10 +40,10 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   [ -n "${local_ref:-}" ] || continue
 
   if [ "$local_sha" = "$ZERO_SHA" ]; then
-    continue # 브랜치 삭제 push는 검사 제외
+    continue # branch-delete push
   fi
   if [ "$remote_ref" = 'refs/heads/main' ]; then
-    continue # main으로의 direct push는 검사 제외
+    continue # direct push to main
   fi
   if [ -z "$base_ref" ]; then
     echo "check-team-state-updated: 비교 기준(origin/main)을 찾을 수 없어 ${local_ref} 검사를 건너뜁니다." >&2
@@ -53,15 +57,15 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   fi
 
   changed_files="$(git diff --name-only "$merge_base" "$local_sha")"
-  if ! grep -qxF -- "$TEAM_STATE_PATH" <<<"$changed_files"; then
+  if ! printf '%s\n' "$changed_files" | grep -qxE -- "$JOURNAL_PATH_PATTERN"; then
     blocked=1
   fi
 done
 
 if [ "$blocked" -eq 1 ]; then
   cat >&2 <<EOF
-check-team-state-updated: ${TEAM_STATE_PATH} 갱신이 감지되지 않았습니다.
-PR 제출 전 ${TEAM_STATE_PATH}의 해당 기능 행(상태·PR·blocker)을 이 브랜치에서 갱신하세요.
+check-team-state-updated: docs/handoff/team-state/ 저널 갱신이 감지되지 않았습니다.
+PR 제출 전 작성자 저널(docs/handoff/team-state/)에 항목을 추가하세요.
 문서 갱신이 정말 불필요한 사소한 변경이면 TEAM_STATE_SKIP=1 git push 로 우회하고 사유를 PR 본문에 적으세요.
 EOF
   exit 1

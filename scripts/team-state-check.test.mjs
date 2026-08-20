@@ -7,27 +7,56 @@ import {
   formatReport,
 } from './team-state-check-lib.mjs';
 
-const RECENT_GENERATED_AT = '2026-07-20T09:00:00+09:00';
-const NOW = new Date('2026-07-20T10:00:00+09:00');
+function journalEntry(fields) {
+  return `## ${fields.date} — ${fields.title}
 
-function teamStateFixture() {
-  return `# TEAM-STATE
-
-## 메타
-
-| 항목 | 값 |
-| --- | --- |
-| generated_at | ${RECENT_GENERATED_AT} |
-| source_commit | abc1234 (main) |
-
-## 기능 상태
-
-| 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
-| --- | --- | --- | --- | --- | --- | --- |
-| 합성 가이드 | @synthetic-owner | review | #111 | #112 | pass | 없음 |
-| 합성 로그인 | @synthetic-owner | review | #109 | #113 | pass | 없음 |
-| 합성 수집기 | @synthetic-owner | review | #110 | #114 | pass | #113 merge 후 base 전환 (@synthetic-reviewer 리뷰) |
+- 상태: ${fields.state}
+- Issue: ${fields.issue}
+- PR: ${fields.pull}
+- blocker: ${fields.blocker}
 `;
+}
+
+function journalText(entries) {
+  return `# @synthetic 저널\n\n${entries.join('\n')}`;
+}
+
+function journalsFromEntries(entries) {
+  return [
+    {
+      path: 'docs/handoff/team-state/synthetic.md',
+      text: journalText(entries),
+    },
+  ];
+}
+
+function reviewFixture() {
+  return journalsFromEntries([
+    journalEntry({
+      date: '2026-07-20',
+      title: '합성 가이드',
+      state: 'review',
+      issue: '#111',
+      pull: '#112',
+      blocker: '없음',
+    }),
+    journalEntry({
+      date: '2026-07-20',
+      title: '합성 로그인',
+      state: 'review',
+      issue: '#109',
+      pull: '#113',
+      blocker: '없음',
+    }),
+    journalEntry({
+      date: '2026-07-20',
+      title: '합성 수집기',
+      state: 'review',
+      issue: '#110',
+      pull: '#114',
+      blocker: '#113 merge 후 base 전환 (@synthetic-reviewer 리뷰)',
+    }),
+  ]);
 }
 
 function activePlanFixture() {
@@ -43,31 +72,12 @@ function activePlanFixture() {
 `;
 }
 
-function teamStateRowsFixture(rows) {
-  return `# TEAM-STATE
-
-## 메타
-
-| 항목 | 값 |
-| --- | --- |
-| generated_at | ${RECENT_GENERATED_AT} |
-| source_commit | abc1234 (main) |
-
-## 기능 상태
-
-| 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
-| --- | --- | --- | --- | --- | --- | --- |
-${rows.join('\n')}
-`;
-}
-
-function singleFeatureGithub({
-  issue = { state: 'open' },
-  pull = { number: 202, state: 'open', mergedAt: null, base: 'main' },
-  branchPulls = [],
-  failPull = false,
-  failBranch = false,
-} = {}) {
+function singleFeatureGithub(options) {
+  const issue = options.issue;
+  const pull = options.pull;
+  const branchPulls = options.branchPulls;
+  const failPull = options.failPull;
+  const failBranch = options.failBranch;
   return {
     async getIssue() {
       return issue;
@@ -87,23 +97,12 @@ function singleFeatureGithub({
   };
 }
 
-function singleFeatureCheck({
-  row = '| 합성 기능 | @synthetic-owner | review | #201 | #202 | pass | 없음 |',
-  activePlans = [],
-  github = singleFeatureGithub(),
-  inspectSourceCommit = async () => ({ status: 'clean', commitsBehind: 0 }),
-} = {}) {
-  return checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: teamStateRowsFixture([row]),
-    activePlans,
-    github,
-    now: NOW,
-    inspectSourceCommit,
-  });
+function openMainPull(number) {
+  return { number, state: 'open', mergedAt: null, base: 'main' };
 }
 
-function githubFixture({ failIssue = null } = {}) {
+function githubFixture(options) {
+  const failIssue = options.failIssue;
   const issues = new Map([
     [109, { state: 'closed' }],
     [110, { state: 'open' }],
@@ -143,18 +142,11 @@ function githubFixture({ failIssue = null } = {}) {
   };
 }
 
-test('TEAM-STATE의 종료 PR·해소된 stacked blocker·source commit drift를 탐지한다', async () => {
+test('종료 PR과 해소된 stacked blocker를 stale로 보고한다', async () => {
   const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: teamStateFixture(),
+    journals: reviewFixture(),
     activePlans: [],
-    github: githubFixture(),
-    now: NOW,
-    inspectSourceCommit: async () => ({
-      status: 'stale',
-      commitsBehind: 7,
-      changedFiles: ['apps/synthetic/example.mjs'],
-    }),
+    github: githubFixture({ failIssue: null }),
   });
 
   const findingKeys = result.findings.map(
@@ -163,23 +155,19 @@ test('TEAM-STATE의 종료 PR·해소된 stacked blocker·source commit drift를
   assert.ok(findingKeys.includes('TEAM_STATE_PR_TERMINAL:PR #112'));
   assert.ok(findingKeys.includes('TEAM_STATE_PR_TERMINAL:PR #113'));
   assert.ok(findingKeys.includes('TEAM_STATE_BLOCKER_RESOLVED:PR #114'));
-  assert.ok(findingKeys.includes('SOURCE_COMMIT_STALE:abc1234'));
   assert.equal(exitCodeFor(result), 1);
 });
 
 test('active exec-plan의 종료 parent Issue와 main 병합 PR을 재검토로 보고한다', async () => {
   const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: teamStateFixture(),
+    journals: reviewFixture(),
     activePlans: [
       {
         path: 'docs/exec-plan/active/synthetic-login.md',
         text: activePlanFixture(),
       },
     ],
-    github: githubFixture(),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+    github: githubFixture({ failIssue: null }),
   });
 
   const codes = result.findings.map(({ code }) => code);
@@ -190,12 +178,9 @@ test('active exec-plan의 종료 parent Issue와 main 병합 PR을 재검토로 
 
 test('GitHub 조회 실패를 unknown과 exit code 2로 보고한다', async () => {
   const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: teamStateFixture(),
+    journals: reviewFixture(),
     activePlans: [],
     github: githubFixture({ failIssue: 109 }),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
   });
 
   assert.ok(
@@ -209,101 +194,146 @@ test('GitHub 조회 실패를 unknown과 exit code 2로 보고한다', async () 
   assert.equal(exitCodeFor(result), 2);
 });
 
-test('generated_at 48시간 초과를 stale로 보고한다', async () => {
-  const oldTeamState = teamStateFixture().replace(
-    RECENT_GENERATED_AT,
-    '2026-07-17T09:59:59+09:00',
-  );
+test('저널 파일이 없으면 unknown으로 보고한다', async () => {
   const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: oldTeamState,
+    journals: [],
     activePlans: [],
-    github: githubFixture(),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+    github: githubFixture({ failIssue: null }),
   });
 
-  assert.ok(result.findings.some(({ code }) => code === 'GENERATED_AT_STALE'));
-});
-
-// TEAM-STATE는 union merge를 쓴다(.gitattributes). 양쪽이 같은 메타 행을 각자 수정하면
-// 충돌 없이 두 행이 함께 남고, metadataValue는 첫 행만 읽어 뒤 값을 조용히 버린다.
-// 그 상태를 검출하지 못하면 낡은 스냅샷이 유효한 것으로 통과한다.
-
-test('union merge로 generated_at이 중복되면 유효한 값 2개여도 보고한다', async () => {
-  const duplicated = teamStateFixture().replace(
-    `| generated_at | ${RECENT_GENERATED_AT} |`,
-    `| generated_at | ${RECENT_GENERATED_AT} |\n| generated_at | 2026-07-20T09:30:00+09:00 |`,
+  assert.ok(
+    result.findings.some(({ code }) => code === 'TEAM_STATE_JOURNAL_UNKNOWN'),
   );
-  const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: duplicated,
-    activePlans: [],
-    github: githubFixture(),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
-  });
-
-  const hit = result.findings.find(({ code }) => code === 'METADATA_DUPLICATE');
-  assert.ok(hit, JSON.stringify(result.findings.map((f) => f.code)));
-  assert.equal(hit.subject, 'generated_at');
   assert.equal(exitCodeFor(result), 2);
 });
 
-test('source_commit 중복도 보고한다', async () => {
-  const duplicated = teamStateFixture().replace(
-    '| source_commit | abc1234 (main) |',
-    '| source_commit | abc1234 (main) |\n| source_commit | def5678 (main) |',
-  );
+test('제목만 있는 저널은 항목 0건으로 clean이다', async () => {
   const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: duplicated,
+    journals: [
+      {
+        path: 'docs/handoff/team-state/empty.md',
+        text: '# @synthetic 저널\n',
+      },
+    ],
     activePlans: [],
-    github: githubFixture(),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+    github: githubFixture({ failIssue: null }),
+  });
+
+  assert.deepEqual(result.findings, []);
+  assert.equal(exitCodeFor(result), 0);
+});
+
+test('파싱할 수 없는 저널 항목을 unknown으로 보고한다', async () => {
+  const result = await checkTeamStateDrift({
+    journals: journalsFromEntries([
+      journalEntry({
+        date: '2026-07-20',
+        title: '정상 기능',
+        state: 'planned',
+        issue: '-',
+        pull: '-',
+        blocker: '없음',
+      }),
+      '## 2026-07-20 — 깨진 항목\n\n- 상태: review\n',
+    ]),
+    activePlans: [],
+    github: singleFeatureGithub({
+      issue: { state: 'open' },
+      pull: openMainPull(202),
+      branchPulls: [],
+      failPull: false,
+      failBranch: false,
+    }),
   });
 
   assert.ok(
     result.findings.some(
-      ({ code, subject }) =>
-        code === 'METADATA_DUPLICATE' && subject === 'source_commit',
+      ({ status, code, subject }) =>
+        status === 'unknown' &&
+        code === 'TEAM_STATE_ROW_UNKNOWN' &&
+        subject.startsWith('저널 항목 line '),
     ),
   );
+  assert.equal(exitCodeFor(result), 2);
 });
 
-test('메타 행이 하나면 중복으로 보고하지 않는다', async () => {
+test('(이 PR)은 유효하고 PR 조회를 하지 않는다', async () => {
   const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: teamStateFixture(),
-    activePlans: [],
-    github: githubFixture(),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
-  });
-
-  assert.ok(!result.findings.some(({ code }) => code === 'METADATA_DUPLICATE'));
-});
-
-test('기능 표의 동일 기능명 중복은 메타 중복으로 보지 않는다', async () => {
-  const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: teamStateRowsFixture([
-      '| 합성 가이드 | @synthetic-owner | review | #111 | #112 | pass | 없음 |',
-      '| 합성 가이드 | @synthetic-owner | review | #109 | #113 | pass | 없음 |',
+    journals: journalsFromEntries([
+      journalEntry({
+        date: '2026-07-20',
+        title: '번호 없는 PR',
+        state: 'review',
+        issue: '-',
+        pull: '(이 PR)',
+        blocker: '없음',
+      }),
     ]),
     activePlans: [],
-    github: githubFixture(),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+    github: singleFeatureGithub({
+      issue: { state: 'open' },
+      pull: openMainPull(202),
+      branchPulls: [],
+      failPull: true,
+      failBranch: false,
+    }),
   });
 
-  assert.ok(!result.findings.some(({ code }) => code === 'METADATA_DUPLICATE'));
+  assert.deepEqual(result.findings, []);
+  assert.equal(exitCodeFor(result), 0);
+});
+
+test('같은 Issue의 나중 done이 이전 review stale을 덮는다', async () => {
+  const result = await checkTeamStateDrift({
+    journals: journalsFromEntries([
+      journalEntry({
+        date: '2026-07-18',
+        title: '합성 완료',
+        state: 'review',
+        issue: '#201',
+        pull: '#202',
+        blocker: '없음',
+      }),
+      journalEntry({
+        date: '2026-07-20',
+        title: '합성 완료',
+        state: 'done',
+        issue: '#201',
+        pull: '#202',
+        blocker: '없음',
+      }),
+    ]),
+    activePlans: [],
+    github: singleFeatureGithub({
+      issue: { state: 'closed' },
+      pull: {
+        number: 202,
+        state: 'closed',
+        mergedAt: '2026-07-19T01:00:00Z',
+        base: 'main',
+      },
+      branchPulls: [],
+      failPull: false,
+      failBranch: false,
+    }),
+  });
+
+  assert.deepEqual(result.findings, []);
+  assert.equal(exitCodeFor(result), 0);
 });
 
 test('active exec-plan의 선언됐지만 파싱할 수 없는 참조를 unknown으로 보고한다', async () => {
-  const result = await singleFeatureCheck({
-    row: '| 합성 대기 | @synthetic-owner | planned | - | - | - | 없음 |',
+  const result = await checkTeamStateDrift({
+    journals: journalsFromEntries([
+      journalEntry({
+        date: '2026-07-20',
+        title: '합성 대기',
+        state: 'planned',
+        issue: '-',
+        pull: '-',
+        blocker: '없음',
+      }),
+    ]),
     activePlans: [
       {
         path: 'docs/exec-plan/active/malformed.md',
@@ -314,6 +344,13 @@ test('active exec-plan의 선언됐지만 파싱할 수 없는 참조를 unknown
 `,
       },
     ],
+    github: singleFeatureGithub({
+      issue: { state: 'open' },
+      pull: openMainPull(202),
+      branchPulls: [],
+      failPull: false,
+      failBranch: false,
+    }),
   });
 
   const unknownKeys = result.findings
@@ -326,43 +363,32 @@ test('active exec-plan의 선언됐지만 파싱할 수 없는 참조를 unknown
   assert.equal(exitCodeFor(result), 2);
 });
 
-test('TEAM-STATE의 파싱할 수 없는 기능 행을 unknown으로 보고한다', async () => {
-  const result = await checkTeamStateDrift({
-    teamStatePath: 'docs/handoff/TEAM-STATE.md',
-    teamStateText: teamStateRowsFixture([
-      '| 정상 기능 | @synthetic-owner | planned | - | - | - | 없음 |',
-      '| 열이 부족한 기능 | @synthetic-owner | review | #201 | #202 | pass |',
-    ]),
-    activePlans: [],
-    github: singleFeatureGithub(),
-    now: NOW,
-    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
-  });
-
-  assert.ok(
-    result.findings.some(
-      ({ status, code, subject }) =>
-        status === 'unknown' &&
-        code === 'TEAM_STATE_ROW_UNKNOWN' &&
-        subject.startsWith('기능 상태 표 line '),
-    ),
-  );
-  assert.equal(exitCodeFor(result), 2);
-});
-
 for (const [label, pull] of [
-  ['open PR', { number: 202, state: 'open', mergedAt: null, base: 'main' }],
+  ['open PR', openMainPull(202)],
   [
     'closed-unmerged PR',
     { number: 202, state: 'closed', mergedAt: null, base: 'main' },
   ],
 ]) {
-  test(`TEAM-STATE의 done과 ${label} 불일치를 stale로 보고한다`, async () => {
-    const result = await singleFeatureCheck({
-      row: '| 합성 완료 | @synthetic-owner | done | #201 | #202 | pass | 없음 |',
+  test(`done과 ${label} 불일치를 stale로 보고한다`, async () => {
+    const result = await checkTeamStateDrift({
+      journals: journalsFromEntries([
+        journalEntry({
+          date: '2026-07-20',
+          title: '합성 완료',
+          state: 'done',
+          issue: '#201',
+          pull: '#202',
+          blocker: '없음',
+        }),
+      ]),
+      activePlans: [],
       github: singleFeatureGithub({
         issue: { state: 'closed' },
         pull,
+        branchPulls: [],
+        failPull: false,
+        failBranch: false,
       }),
     });
 
@@ -371,7 +397,7 @@ for (const [label, pull] of [
         ({ status, code, subject }) =>
           status === 'stale' &&
           code === 'TEAM_STATE_DONE_MISMATCH' &&
-          subject === '기능 “합성 완료”',
+          subject === '저널 항목 “합성 완료”',
       ),
     );
     assert.equal(exitCodeFor(result), 1);
@@ -379,19 +405,24 @@ for (const [label, pull] of [
 }
 
 test('같은 branch의 최신 open PR이 있으면 과거 merged PR로 stale을 추론하지 않는다', async () => {
-  const openPull = {
-    number: 203,
-    state: 'open',
-    mergedAt: null,
-    base: 'main',
-  };
+  const openPull = openMainPull(203);
   const historicalMergedPull = {
     number: 199,
     state: 'closed',
     mergedAt: '2026-07-01T01:00:00Z',
     base: 'main',
   };
-  const result = await singleFeatureCheck({
+  const result = await checkTeamStateDrift({
+    journals: journalsFromEntries([
+      journalEntry({
+        date: '2026-07-20',
+        title: '합성 기능',
+        state: 'review',
+        issue: '#201',
+        pull: '#202',
+        blocker: '없음',
+      }),
+    ]),
     activePlans: [
       {
         path: 'docs/exec-plan/active/reused-branch.md',
@@ -403,7 +434,11 @@ test('같은 branch의 최신 open PR이 있으면 과거 merged PR로 stale을 
       },
     ],
     github: singleFeatureGithub({
+      issue: { state: 'open' },
+      pull: openPull,
       branchPulls: [openPull, historicalMergedPull],
+      failPull: false,
+      failBranch: false,
     }),
   });
 
@@ -414,13 +449,18 @@ test('같은 branch의 최신 open PR이 있으면 과거 merged PR로 stale을 
 });
 
 test('모든 문서 참조와 GitHub 상태가 일치하면 clean과 exit code 0을 반환한다', async () => {
-  const openPull = {
-    number: 202,
-    state: 'open',
-    mergedAt: null,
-    base: 'main',
-  };
-  const result = await singleFeatureCheck({
+  const openPull = openMainPull(202);
+  const result = await checkTeamStateDrift({
+    journals: journalsFromEntries([
+      journalEntry({
+        date: '2026-07-20',
+        title: '합성 기능',
+        state: 'review',
+        issue: '#201',
+        pull: '#202',
+        blocker: '없음',
+      }),
+    ]),
     activePlans: [
       {
         path: 'docs/exec-plan/active/clean.md',
@@ -434,8 +474,11 @@ test('모든 문서 참조와 GitHub 상태가 일치하면 clean과 exit code 0
       },
     ],
     github: singleFeatureGithub({
+      issue: { state: 'open' },
       pull: openPull,
       branchPulls: [openPull],
+      failPull: false,
+      failBranch: false,
     }),
   });
 
@@ -444,8 +487,18 @@ test('모든 문서 참조와 GitHub 상태가 일치하면 clean과 exit code 0
   assert.match(formatReport(result), /^# TEAM-STATE drift report\n\n\[clean\]/);
 });
 
-test('source commit·PR·branch 조회 실패를 모두 unknown으로 보고한다', async () => {
-  const result = await singleFeatureCheck({
+test('PR·branch 조회 실패를 unknown으로 보고한다', async () => {
+  const result = await checkTeamStateDrift({
+    journals: journalsFromEntries([
+      journalEntry({
+        date: '2026-07-20',
+        title: '합성 기능',
+        state: 'review',
+        issue: '#201',
+        pull: '#202',
+        blocker: '없음',
+      }),
+    ]),
     activePlans: [
       {
         path: 'docs/exec-plan/active/api-failure.md',
@@ -456,14 +509,16 @@ test('source commit·PR·branch 조회 실패를 모두 unknown으로 보고한�
 `,
       },
     ],
-    github: singleFeatureGithub({ failPull: true, failBranch: true }),
-    inspectSourceCommit: async () => {
-      throw new Error('synthetic Git failure');
-    },
+    github: singleFeatureGithub({
+      issue: { state: 'open' },
+      pull: openMainPull(202),
+      branchPulls: [],
+      failPull: true,
+      failBranch: true,
+    }),
   });
 
   const codes = result.findings.map(({ code }) => code);
-  assert.ok(codes.includes('SOURCE_COMMIT_UNKNOWN'));
   assert.ok(codes.includes('GITHUB_PR_UNKNOWN'));
   assert.ok(codes.includes('GITHUB_BRANCH_PRS_UNKNOWN'));
   assert.ok(result.findings.every(({ status }) => status === 'unknown'));

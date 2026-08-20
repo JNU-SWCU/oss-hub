@@ -1,7 +1,7 @@
 # AGENTS.md — 에이전트·작업자 공용 규칙
 
 이 문서는 oss-hub에서 작업하는 모든 AI 에이전트(Claude Code·Codex 등)와 사람의 공용 진입점이다.
-본문은 라우팅·프로토콜·표만 담고 상세 규칙은 링크된 문서가 원본이며 이 문서는 100줄을 넘기지 않는다.
+본문은 라우팅·프로토콜·표만 담고 상세 규칙은 링크된 문서가 원본이며 이 문서는 250줄을 넘기지 않는다.
 문서는 한 문장을 한 줄에 쓴다 — 열 폭 하드랩은 렌더링 공백과 diff 노이즈를 만들므로 쓰지 않는다.
 티켓 수행 워크플로의 원본은 `.claude/skills/tickets/SKILL.md`다 — Codex 등 다른 에이전트도 티켓 요청을 받으면 이 파일을 따른다.
 저장소 검사·운영 보조 스크립트는 [scripts/AGENTS.md](scripts/AGENTS.md), claude.ai/design 번들 도구는 [.design-sync/AGENTS.md](.design-sync/AGENTS.md)가 원본이며 `deploy/**`와 `scripts/check-jenkinsfile*.sh`는 ADR-005의 배포 계약 경로다.
@@ -11,10 +11,10 @@
 새 세션은 아래 순서로만 읽고 작업을 시작하며 그 밖의 문서는 링크를 따라갈 때만 연다.
 
 1. 이 파일 (AGENTS.md)
-2. `docs/handoff/TEAM-STATE.md` — 팀 상태 스냅샷이며 as-of 시각 기준의 과거이고 실시간이 아니다.
+2. `docs/handoff/TEAM-STATE.md` — 멤버 저널 인덱스다. 진행 기록은 `docs/handoff/team-state/<핸들>.md`의 마지막 항목을 보고, 상태의 원본은 GitHub Issue·PR이다.
 3. 자기 기능의 exec-plan — `docs/exec-plan/active/<기능>.md`
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
-5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR을 확인한다.
+5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 저널 이후 열린 PR을 확인한다.
 6. `bash scripts/setup-hooks.sh` 1회 — 저장소 Git 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
 7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`를 따른다 — 호스트 hot reload(`pnpm dev`)와 컨테이너 통합 검증(`pnpm local:up`)의 선택 기준이 거기 있다.
 
@@ -39,7 +39,7 @@ PR 본문에 대상 기능과 owner를 명시해 owner를 리뷰어로 지정하
 PR은 항상 Ready로 연다 — 유일한 예외는 스택의 하위 PR이고, base가 아직 병합되지 않은 상위 PR의 브랜치인 동안만 Draft로 두며 상위가 병합되면 즉시 Ready로 전환한다(스택을 쓸 조건은 `docs/rules/pr-scope.md` §4).
 Draft는 GitHub에서 병합이 원천 차단되고(`--admin`으로도 우회되지 않는다) required check가 전부 green이어도 아무 신호가 없어 완성된 변경이 조용히 방치되는 주차장으로 쓰였으므로, 진행 중 공유가 필요하면 Draft가 아니라 Issue 코멘트나 PR 본문 갱신으로 알린다.
 그래서 base가 `main`인 Draft PR은 예외 밖이며 위반으로 본다 — 상위가 병합되면 GitHub이 하위 PR의 base를 자동으로 `main`으로 옮기므로, 전환 의무를 사람의 기억이 아니라 PR의 base와 draft 상태만으로 판정할 수 있다.
-PR을 제출하기 전 `docs/handoff/TEAM-STATE.md`의 해당 기능 행을 이 브랜치에서 갱신한다 — pre-push 훅이 검사하며, 우회는 `TEAM_STATE_SKIP=1` + PR 본문에 사유 명시다(`docs/handoff/team-state-drift-check.md`).
+PR을 제출하기 전 자기 저널(`docs/handoff/team-state/<GitHub핸들>.md`) 끝에 항목을 추가한다 — 옛 항목·남 파일·인덱스·archive는 고치지 않는다. 항목 형식은 인덱스가 원본이다. pre-push 훅이 저널 파일 변경을 검사하며, 우회는 `TEAM_STATE_SKIP=1` + PR 본문에 사유 명시다(`docs/handoff/team-state-drift-check.md`). 없는 핸들은 저널 파일을 새로 만든다. 같은 기능의 상태 전이는 행을 고치지 않고 새 항목을 붙이며, 현재 상태는 같은 Issue·PR(없으면 제목)의 마지막 항목이다.
 
 | 기능 | owner | exec-plan 경로 | 코드 경로 |
 | --- | --- | --- | --- |
