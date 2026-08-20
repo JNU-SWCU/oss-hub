@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { Public } from '../../auth/auth-route-metadata';
 import { ApplicationTemplateListResponseDto } from '../dto/application-template-response.dto';
 import { listProgramTemplates } from '../program-template.registry';
 
@@ -7,6 +8,7 @@ import { listProgramTemplates } from '../program-template.registry';
  * 경로: GET /api/v1/programs/application-templates
  */
 @Controller('programs/application-templates')
+@Public()
 export class ApplicationTemplatesController {
   @Get()
   list(): ApplicationTemplateListResponseDto {

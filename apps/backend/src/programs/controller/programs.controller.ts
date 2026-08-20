@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthConfig } from '../../auth/auth.config';
+import { Protected } from '../../auth/auth-route-metadata';
 import { OriginGuard } from '../../auth/origin.guard';
 import { resolveSession } from '../../auth/session-resolution';
 import {
@@ -51,6 +52,7 @@ const ANONYMOUS_VIEWER = {
 } as const;
 
 @Controller('programs')
+@Protected()
 export class ProgramsController {
   constructor(
     private readonly creation: ProgramCreationService,

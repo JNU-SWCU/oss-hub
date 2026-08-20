@@ -1,6 +1,7 @@
 import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthConfig } from '../../auth/auth.config';
+import { OptionalSession, Public } from '../../auth/auth-route-metadata';
 import { resolveSession } from '../../auth/session-resolution';
 import { RANKING_VIEWER_CLASSES } from '../domain/ranking';
 import {
@@ -27,6 +28,7 @@ export class RankingController {
    * never stored as a staff response.
    */
   @Get()
+  @OptionalSession()
   async findPage(
     @Query() query: RankingQueryRequestDto,
     @Req() request: Request,
@@ -49,6 +51,7 @@ export class RankingController {
 
   /** Distinct years that have public ranking data (desc). Sidebar year list. */
   @Get('years')
+  @Public()
   @Header('Cache-Control', 'no-store')
   async listYears(): Promise<RankingYearsResponseDto> {
     return RankingYearsResponseDto.from(await this.rankingService.listYears());

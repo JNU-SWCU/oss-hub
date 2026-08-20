@@ -80,3 +80,12 @@
 - Issue: #965
 - PR: (이 PR; verifier gap from #962)
 - blocker: 없음
+
+## 2026-08-21 — 인증 경로 메타데이터 계약을 고정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 검증: 인증 경로 manifest Jest happy/failure, backend lint·typecheck·test·build 통과
+- simplifier: 공식 code-simplifier 1.0.0 Codex pass, 변경 파일 allowlist 밖 수정 0건
