@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
+import { Download, Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +26,7 @@ interface RankingViewProps {
   readonly onRetry: () => void;
   readonly onExportCsv: () => void;
   readonly isExportingCsv: boolean;
+  readonly exportStatus?: 'idle' | 'preparing' | 'error';
 }
 
 /** Empty department or staff name — a blank cell looks broken. */
@@ -198,6 +199,7 @@ export function RankingView({
   onRetry,
   onExportCsv,
   isExportingCsv,
+  exportStatus = 'idle',
 }: RankingViewProps) {
   const ranking = state.kind === 'ready' ? state.ranking : null;
   const showName = ranking?.viewerClass === RANKING_VIEWER_CLASSES.STAFF;
@@ -215,7 +217,6 @@ export function RankingView({
         actions={
           ranking ? (
             <>
-              {rankingAsOfAction(ranking)}
               {showName ? (
                 <Button
                   type="button"
@@ -223,13 +224,30 @@ export function RankingView({
                   onClick={onExportCsv}
                   disabled={isExportingCsv}
                 >
-                  CSV 내려받기
+                  <Download data-icon="inline-start" />
+                  CSV 다운로드
                 </Button>
               ) : null}
             </>
           ) : null
         }
       />
+      {ranking ? (
+        <div
+          className="flex flex-wrap items-center gap-3 text-sm"
+          aria-live="polite"
+        >
+          {rankingAsOfAction(ranking)}
+          {exportStatus === 'preparing' ? (
+            <span>CSV를 준비하는 중입니다.</span>
+          ) : null}
+          {exportStatus === 'error' ? (
+            <span role="alert">
+              CSV를 준비하지 못했습니다. 다시 시도해 주세요.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {state.kind === 'error' ? (
         <Alert variant="destructive">
           <AlertTitle>랭킹을 불러오지 못했습니다.</AlertTitle>
