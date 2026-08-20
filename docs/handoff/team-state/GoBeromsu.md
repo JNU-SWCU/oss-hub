@@ -30,6 +30,14 @@
 - PR: (이 PR)
 - blocker: 없음
 
+## 2026-08-20 — 랭킹 CSV 다운로드와 기준 시각 위계
+
+- 상태: review
+- Issue: #958
+- PR: (생성 예정)
+- blocker: 없음
+- evidence: `.omo/evidence/task-3-insights-chart-template-file-ux.md`
+- browser: Playwright 3 passed; 205-row download and page-2 failure artifacts captured
 ## 2026-08-20 — 마일스톤 양식 파일명 계약
 
 - 상태: review
