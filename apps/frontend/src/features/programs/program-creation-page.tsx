@@ -61,10 +61,7 @@ export function ProgramCreationPage() {
     );
     runtimeRef.current.uploads.clear();
   };
-  const { leavePage, completeAndNavigate } = useProgramExitGuard(
-    dirty,
-    discard,
-  );
+  const { completeAndNavigate } = useProgramExitGuard(dirty, discard);
 
   useEffect(() => {
     const restored = loadProgramAuthoringState(window.sessionStorage);
@@ -198,26 +195,21 @@ export function ProgramCreationPage() {
           runtime={runtimeRef.current}
           newId={newAuthoringId}
         />
-        <div className="flex flex-wrap justify-between gap-3 border-t border-border pt-6">
-          <Button type="button" variant="outline" onClick={() => leavePage()}>
-            취소
-          </Button>
-          <div className="flex flex-wrap gap-3">
-            {state.currentStep !== 'type' ? (
-              <Button type="button" variant="outline" onClick={() => move(-1)}>
-                이전
-              </Button>
-            ) : null}
-            {state.currentStep === 'review' ? (
-              <Button type="button" onClick={review}>
-                프로그램 만들기
-              </Button>
-            ) : (
-              <Button type="button" onClick={next}>
-                다음
-              </Button>
-            )}
-          </div>
+        <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
+          {state.currentStep !== 'type' ? (
+            <Button type="button" variant="outline" onClick={() => move(-1)}>
+              이전
+            </Button>
+          ) : null}
+          {state.currentStep === 'review' ? (
+            <Button type="button" onClick={review}>
+              프로그램 만들기
+            </Button>
+          ) : (
+            <Button type="button" onClick={next}>
+              다음
+            </Button>
+          )}
         </div>
       </div>
       {confirmationOpen ? (

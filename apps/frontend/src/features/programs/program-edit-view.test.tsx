@@ -13,18 +13,16 @@ import { ProgramEditView } from './program-edit-view';
 const noOp = () => undefined;
 
 /**
- * #867에서 새로 생긴 props다. 게시 상태 전환·「변경 취소」가 필요로 하는 값들이라
+ * #867에서 새로 생긴 게시 상태 전환 props다.
  * 대부분의 테스트에서 값 자체는 중요하지 않다 — 필요한 테스트만 덮어쓴다.
  */
 const lifecycleActionProps = {
-  isDirty: false,
   isLifecycleBusy: false,
   isLifecycleConfirming: false,
   lifecycleError: null,
   // #875 「위험 영역」 노출 여부. 대부분의 기존 테스트는 STAFF 화면을 보므로
   // 기본값은 false — ADMIN 전용 동작은 별도 describe에서만 true로 덮어쓴다.
   isAdmin: false,
-  onReset: noOp,
   onRequestLifecycleToggle: noOp,
   onCancelLifecycleToggle: noOp,
   onConfirmLifecycleToggle: noOp,
@@ -396,9 +394,9 @@ describe('ProgramEditView contract', () => {
     expect(mapProgramEditError(error).endAt).toContain(message);
   });
 
-  // #867 — 「변경 취소」/「변경사항 저장」은 우측 정렬이고(docs/rules/frontend.md),
-  // 그 액션 묶음은 오른쪽 끝에 붙는 것이지 양 끝으로 벌어지는 게 아니다.
-  it('폼의 제출/취소 버튼 묶음은 justify-end이고 justify-between이 아니다', () => {
+  // #867 — 「변경사항 저장」은 우측 정렬이고(docs/rules/frontend.md),
+  // 오른쪽 끝에 붙는 것이지 양 끝으로 벌어지는 게 아니다.
+  it('폼의 제출 버튼은 justify-end이고 justify-between이 아니다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         program={editableProgram}
@@ -436,7 +434,6 @@ describe('ProgramEditView contract', () => {
     expect(formEnd).toBeGreaterThan(-1);
     const footer = html.slice(footerStart, formEnd);
     expect(footer).not.toContain('justify-between');
-    expect(footer).toContain('변경 취소');
     expect(footer).toContain('변경사항 저장');
   });
 

@@ -2,7 +2,6 @@ export interface ProgramExitGuard {
   readonly setDirty: (dirty: boolean) => void;
   readonly isDirty: () => boolean;
   readonly shouldInterceptNavigation: () => boolean;
-  readonly requestLeave: () => boolean;
   readonly requestNavigate: (path: string) => boolean;
   readonly completeAndNavigate: (path: string) => void;
   readonly dispose: () => void;
@@ -20,7 +19,6 @@ interface ProgramExitGuardDependencies {
 type PendingTransition =
   | { readonly kind: 'collapse' }
   | { readonly kind: 'dispose' }
-  | { readonly kind: 'leave' }
   | { readonly kind: 'navigate'; readonly path: string };
 
 export function installProgramExitGuard(
@@ -53,9 +51,6 @@ export function installProgramExitGuard(
       case 'dispose':
         disposed = true;
         unsubscribePopState();
-        return;
-      case 'leave':
-        dependencies.back();
         return;
       case 'navigate':
         dependencies.navigate(transition.path);
@@ -107,12 +102,6 @@ export function installProgramExitGuard(
     isDirty: () => dirty,
     shouldInterceptNavigation: () =>
       dirty || sentinelActive || pendingTransition !== null,
-    requestLeave: () => {
-      if (disposed || !confirmIfDirty()) return false;
-      dirty = false;
-      startTransition({ kind: 'leave' });
-      return true;
-    },
     requestNavigate: (path) => {
       if (disposed || !confirmIfDirty()) return false;
       dirty = false;
