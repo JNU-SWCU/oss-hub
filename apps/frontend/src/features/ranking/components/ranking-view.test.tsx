@@ -786,7 +786,7 @@ test('공개 화면은 login 한 줄과 학과만 보이고 이름·CSV 가 없�
   expect(html).toContain('rel="noreferrer"');
   expect(html).not.toContain(STAFF_ROW.name);
   expect(html).not.toContain('>이름<');
-  expect(html).not.toContain('CSV 내려받기');
+  expect(html).not.toContain('CSV 다운로드');
   expect(html).toContain('data-slot="page-header-actions"');
   expect(html).toContain('data-ranking-as-of="none"');
   expect(html).not.toContain('data-slot="program-countdown"');
@@ -799,7 +799,7 @@ test('viewerClass public 이면 세션이 학생처럼 보여도 이름·CSV 를
   });
 
   expect(html).not.toContain('>이름<');
-  expect(html).not.toContain('CSV 내려받기');
+  expect(html).not.toContain('CSV 다운로드');
   expect(html).not.toContain(STAFF_ROW.name);
 });
 
@@ -814,7 +814,7 @@ test('viewerClass staff 이면 이름 열과 CSV 버튼을 그린다', () => {
   expect(html).toContain(STAFF_ROW.githubLogin);
   expect(html).not.toContain(`@${STAFF_ROW.githubLogin}`);
   expect(html).toContain(STAFF_ROW.department);
-  expect(html).toContain('CSV 내려받기');
+  expect(html).toContain('CSV 다운로드');
   expect(html).toContain(
     'data-column-widths="rank:w-8,name:w-24,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
@@ -882,7 +882,7 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
   expect(staff).toContain('계정 전체 누적');
   expect(staff).toContain('아직 수집 전입니다');
   expect(staff).toContain('data-ranking-as-of="none"');
-  expect(staff).toContain('CSV 내려받기');
+  expect(staff).toContain('CSV 다운로드');
 
   const collected = personAxisMarkup(
     [
