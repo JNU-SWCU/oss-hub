@@ -2,6 +2,7 @@ import { AlertDialog } from 'radix-ui';
 import { SectionHeading } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { EditableProgram } from './api';
 
@@ -64,8 +65,15 @@ export function ProgramEditLifecycleSection({
   const copy = LIFECYCLE_COPY[lifecycle];
 
   return (
-    <section className="grid gap-6">
-      <SectionHeading title="게시 상태" />
+    <section className="grid gap-6 rounded-card border border-border bg-card p-card">
+      <div className="flex items-center justify-between gap-4">
+        <SectionHeading title="게시 상태" />
+        <StatusBadge
+          variant={lifecycle === 'PUBLISHED' ? 'recruiting' : 'closed'}
+        >
+          {copy.status}
+        </StatusBadge>
+      </div>
       <p className="text-body text-muted-foreground [word-break:keep-all]">
         {copy.description}
       </p>

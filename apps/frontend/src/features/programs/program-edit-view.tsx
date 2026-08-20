@@ -5,10 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { EditableMilestone, EditableProgram } from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
-import {
-  lifecycleStatusLabel,
-  ProgramEditLifecycleSection,
-} from './program-edit-lifecycle-section';
+import { ProgramEditLifecycleSection } from './program-edit-lifecycle-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
 import {
   type ProgramEditableField,
@@ -19,7 +16,7 @@ import {
 } from './program-edit-flow';
 import { programHref } from './program-paths';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
-import { PageBody, PageHeader, StatusBadge } from '@/components';
+import { PageBody, PageHeader } from '@/components';
 
 /** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
 const FORM_WIDTH = 'max-w-4xl';
@@ -136,19 +133,7 @@ export function ProgramEditView({
         <Button asChild variant="ghost" size="sm" className="self-start">
           <Link href={programHref(program.id)}>← 프로그램 개요</Link>
         </Button>
-        <PageHeader
-          title="프로그램 편집"
-          description={program.name}
-          actions={
-            <StatusBadge
-              variant={
-                program.lifecycle === 'PUBLISHED' ? 'recruiting' : 'closed'
-              }
-            >
-              {lifecycleStatusLabel(program.lifecycle)}
-            </StatusBadge>
-          }
-        />
+        <PageHeader title="프로그램 편집" description={program.name} />
         {/*
           양식 키(`oss-contest`)와 버전은 구현 식별자다. 화면에는 사람이 읽을 양식명만
           두고, 버전은 평소 볼 일이 없으므로 접어 둔다.
@@ -214,12 +199,14 @@ export function ProgramEditView({
           onCancelToggle={onCancelLifecycleToggle}
           onConfirmToggle={onConfirmLifecycleToggle}
         />
-        <ProgramEditDangerZoneSection
-          programId={program.id}
-          programName={program.name}
-          isAdmin={isAdmin}
-          deletionProtected={program.deletionProtected ?? false}
-        />
+        <div className="border-t border-border pt-10">
+          <ProgramEditDangerZoneSection
+            programId={program.id}
+            programName={program.name}
+            isAdmin={isAdmin}
+            deletionProtected={program.deletionProtected ?? false}
+          />
+        </div>
       </div>
     </PageBody>
   );

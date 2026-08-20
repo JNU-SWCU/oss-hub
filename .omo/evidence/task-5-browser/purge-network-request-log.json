@@ -1,0 +1,13 @@
+{
+  "purgeRequests": [
+    {
+      "expectedScope": {
+        "applications": 4,
+        "teams": 4,
+        "boardPosts": 2,
+        "submissions": 3
+      }
+    }
+  ],
+  "normalDeletes": []
+}
