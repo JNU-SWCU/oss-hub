@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { BoardPostCategory, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  type CompatibleProfileNameSource,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 
 /** 게시판 목록 화면 한 행 — 본문(body)은 목록에서 쓰지 않아 select에서 뺀다. */
 export interface BoardPostSummaryRecord {
@@ -82,20 +87,29 @@ export interface CreateBoardCommentInput {
   body: string;
 }
 
+const authorNameSelect = {
+  nickname: true,
+  ...COMPATIBLE_PROFILE_NAME_SELECT,
+} as const;
+
 const commentSelect = {
   id: true,
   postId: true,
   authorId: true,
   body: true,
   createdAt: true,
-  author: { select: { role: true, name: true, nickname: true } },
+  author: {
+    select: { role: true, ...authorNameSelect },
+  },
 } as const;
 
 const postDetailSelect = {
   id: true,
   programId: true,
   authorId: true,
-  author: { select: { name: true, nickname: true } },
+  author: {
+    select: authorNameSelect,
+  },
   category: true,
   title: true,
   body: true,
@@ -129,7 +143,9 @@ export class BoardRepository {
           id: true,
           programId: true,
           authorId: true,
-          author: { select: { name: true, nickname: true } },
+          author: {
+            select: authorNameSelect,
+          },
           category: true,
           title: true,
           pinned: true,
@@ -144,7 +160,7 @@ export class BoardRepository {
         id: post.id,
         programId: post.programId,
         authorId: post.authorId,
-        authorName: post.author.name ?? post.author.nickname,
+        authorName: resolveAuthorName(post.author),
         category: post.category,
         title: post.title,
         pinned: post.pinned,
@@ -258,9 +274,8 @@ interface CommentRow {
   authorId: string;
   body: string;
   createdAt: Date;
-  author: {
+  author: CompatibleProfileNameSource & {
     role: Role | null;
-    name: string | null;
     nickname: string;
   };
 }
@@ -269,7 +284,7 @@ interface PostDetailRow {
   id: string;
   programId: string;
   authorId: string;
-  author: { name: string | null; nickname: string };
+  author: CompatibleProfileNameSource & { nickname: string };
   category: BoardPostCategory;
   title: string;
   body: string;
@@ -287,7 +302,7 @@ function toCommentRecord(comment: CommentRow): BoardCommentRecord {
     authorId: comment.authorId,
     // 역할 미확정 작성자는 게시판 접근 경로상 거의 없지만, 표시는 학생으로 접는다.
     authorRole: comment.author.role ?? Role.STUDENT,
-    authorName: comment.author.name ?? comment.author.nickname,
+    authorName: resolveAuthorName(comment.author),
     body: comment.body,
     createdAt: comment.createdAt,
   };
@@ -298,7 +313,7 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
     id: post.id,
     programId: post.programId,
     authorId: post.authorId,
-    authorName: post.author.name ?? post.author.nickname,
+    authorName: resolveAuthorName(post.author),
     category: post.category,
     title: post.title,
     body: post.body,
@@ -308,4 +323,10 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
     commentCount: post._count.comments,
     comments: post.comments.map(toCommentRecord),
   };
+}
+
+function resolveAuthorName(
+  author: CompatibleProfileNameSource & { nickname: string },
+): string {
+  return resolveCompatibleProfileName(author) ?? author.nickname;
 }

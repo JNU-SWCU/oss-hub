@@ -39,11 +39,31 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
         accountStatus: 'ACTIVE',
         OR: [
           { nickname: { contains: 'octo', mode: 'insensitive' } },
-          { name: { contains: 'octo', mode: 'insensitive' } },
+          {
+            OR: [
+              {
+                profile: {
+                  is: {
+                    name: { contains: 'octo', mode: 'insensitive' },
+                  },
+                },
+              },
+              {
+                profile: { is: null },
+                name: { contains: 'octo', mode: 'insensitive' },
+              },
+            ],
+          },
         ],
         teamMemberships: { none: { programId: syntheticProgramId } },
       },
-      select: { id: true, nickname: true, name: true, avatarUrl: true },
+      select: {
+        id: true,
+        nickname: true,
+        name: true,
+        profile: { select: { name: true } },
+        avatarUrl: true,
+      },
       orderBy: { nickname: 'asc' },
       take: 20,
     });

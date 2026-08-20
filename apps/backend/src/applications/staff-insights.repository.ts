@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
+  resolveCompatibleProfileDepartment,
+} from '../profiles/profile-compatibility';
 
 export interface StaffInsightsStudentRecord {
   readonly id: string;
@@ -36,14 +40,13 @@ export class StaffInsightsRepository {
       select: {
         id: true,
         githubId: true,
-        department: true,
-        profile: { select: { department: true } },
+        ...COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
       },
     });
     return rows.map((row) => ({
       id: row.id,
       githubId: row.githubId,
-      department: row.profile?.department ?? row.department,
+      department: resolveCompatibleProfileDepartment(row),
     }));
   }
 
