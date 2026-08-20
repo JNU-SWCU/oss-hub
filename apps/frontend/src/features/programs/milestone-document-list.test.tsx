@@ -25,6 +25,7 @@ const milestoneDocument: MilestoneDocument = {
   sortOrder: 0,
   submissionType: 'FILE',
   hasTemplateFile: false,
+  templateFileName: null,
 };
 
 function jsonResponse(body: unknown): Response {

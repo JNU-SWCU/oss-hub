@@ -35,6 +35,7 @@ export interface MilestoneDocumentRecord {
   sortOrder: number;
   submissionType: MilestoneSubmissionType;
   templateFileId: string | null;
+  templateFileName: string | null;
 }
 
 export interface MilestoneDocumentViewer {
@@ -423,7 +424,7 @@ const documentRecordSelect = {
   required: true,
   sortOrder: true,
   submissionType: true,
-  templateFile: { select: { id: true } },
+  templateFile: { select: { id: true, originalFileName: true } },
 } as const;
 
 function toDocumentRecord(row: {
@@ -433,7 +434,7 @@ function toDocumentRecord(row: {
   required: boolean;
   sortOrder: number;
   submissionType: MilestoneSubmissionType;
-  templateFile: { id: string } | null;
+  templateFile: { id: string; originalFileName: string } | null;
 }): MilestoneDocumentRecord {
   return {
     id: row.id,
@@ -443,6 +444,7 @@ function toDocumentRecord(row: {
     sortOrder: row.sortOrder,
     submissionType: row.submissionType,
     templateFileId: row.templateFile?.id ?? null,
+    templateFileName: row.templateFile?.originalFileName ?? null,
   };
 }
 
@@ -565,7 +567,11 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
         submissionType: true,
       },
     });
-    return { ...created, templateFileId: null };
+    return {
+      ...created,
+      templateFileId: null,
+      templateFileName: null,
+    };
   }
 
   /**

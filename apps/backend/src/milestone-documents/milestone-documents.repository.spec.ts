@@ -34,7 +34,10 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
         required: true,
         sortOrder: 1,
         submissionType: MilestoneSubmissionType.FILE,
-        templateFile: { id: 'cuid-synthetic-template' },
+        templateFile: {
+          id: 'cuid-synthetic-template',
+          originalFileName: '운영결과보고서_2026.docx',
+        },
       },
       {
         id: 'cuid-synthetic-document-2',
@@ -55,14 +58,23 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
     const result = await repository.findByMilestoneId(syntheticMilestoneId);
 
     // Then
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { milestoneId: syntheticMilestoneId },
-        orderBy: { sortOrder: 'asc' },
-      }),
-    );
+    expect(findMany).toHaveBeenCalledWith({
+      where: { milestoneId: syntheticMilestoneId },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        id: true,
+        milestoneId: true,
+        name: true,
+        required: true,
+        sortOrder: true,
+        submissionType: true,
+        templateFile: { select: { id: true, originalFileName: true } },
+      },
+    });
     expect(result[0]?.templateFileId).toBe('cuid-synthetic-template');
+    expect(result[0]?.templateFileName).toBe('운영결과보고서_2026.docx');
     expect(result[1]?.templateFileId).toBeNull();
+    expect(result[1]?.templateFileName).toBeNull();
   });
 });
 

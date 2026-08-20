@@ -55,6 +55,7 @@ export class MilestoneDocumentResponseDto {
   sortOrder: number;
   submissionType: MilestoneSubmissionType;
   hasTemplateFile: boolean;
+  templateFileName: string | null;
   /** 학생 뷰에서만 채워진다. */
   viewerSubmission?: MilestoneDocumentViewerSubmissionResponseDto;
   /** 교직원 뷰에서만 채워진다. */
@@ -71,6 +72,7 @@ export class MilestoneDocumentResponseDto {
     this.sortOrder = record.sortOrder;
     this.submissionType = record.submissionType;
     this.hasTemplateFile = record.templateFileId !== null;
+    this.templateFileName = record.templateFileName;
     this.viewerSubmission = viewer.viewerSubmission;
     this.teamSubmissionCount = viewer.teamSubmissionCount;
   }
