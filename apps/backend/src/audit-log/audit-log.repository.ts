@@ -67,6 +67,7 @@ export interface AuditLogActor {
 type AuditLogRecordBase = {
   readonly id: string;
   readonly actor: string;
+  readonly actorHandle: string | null;
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
@@ -77,6 +78,7 @@ type AuditLogRecordBase = {
   // REPOSITORY/APPLICATION 대상 행은 join으로 찾은 현재 이름/라벨이다. 그 밖(ROLE_REQUEST/
   // USER의 v1·legacy, 또는 join도 실패한 경우)은 `targetType / targetId` 폴백이다.
   readonly target: string;
+  readonly targetHandle: string | null;
   readonly occurredAt: Date;
 };
 
@@ -338,11 +340,20 @@ function composeTeamTargetLabel(programName: string, teamName: string): string {
   return `${programName} · ${teamName}`;
 }
 
+function personLabel(snapshot: {
+  readonly displayName: string | null;
+  readonly githubLogin: string;
+}): string {
+  const name = snapshot.displayName?.trim();
+  return name ? name : snapshot.githubLogin;
+}
+
 function toAuditLogRecord(
   log: PrismaAuditLog,
   evidence: AuditLogMetadataEvidence,
   joinMaps: AuditTargetJoinMaps,
 ): AuditLogRecord {
+  const people = resolveAuditPeople(log, evidence);
   const target = resolveAuditTargetLabel(
     log.targetType,
     log.targetId,
@@ -352,11 +363,13 @@ function toAuditLogRecord(
   if (evidence.legacy) {
     return {
       id: log.id,
-      actor: log.actor.nickname,
+      actor: people.actor,
+      actorHandle: people.actorHandle,
       action: log.action,
       targetType: log.targetType,
       targetId: log.targetId,
       target,
+      targetHandle: people.targetHandle,
       occurredAt: log.occurredAt,
       legacy: true,
       metadata: null,
@@ -364,17 +377,41 @@ function toAuditLogRecord(
   }
   return {
     id: log.id,
-    actor:
-      'actor' in evidence.metadata
-        ? evidence.metadata.actor.githubLogin
-        : log.actor.nickname,
+    actor: people.actor,
+    actorHandle: people.actorHandle,
     action: log.action,
     targetType: log.targetType,
     targetId: log.targetId,
     target,
+    targetHandle: people.targetHandle,
     occurredAt: log.occurredAt,
     legacy: false,
     metadata: evidence.metadata,
+  };
+}
+
+function resolveAuditPeople(
+  log: PrismaAuditLog,
+  evidence: AuditLogMetadataEvidence,
+): {
+  readonly actor: string;
+  readonly actorHandle: string | null;
+  readonly targetHandle: string | null;
+} {
+  if (!evidence.legacy && 'actor' in evidence.metadata) {
+    const actorSnapshot = evidence.metadata.actor;
+    const targetSnapshot =
+      'target' in evidence.metadata ? evidence.metadata.target : null;
+    return {
+      actor: personLabel(actorSnapshot),
+      actorHandle: actorSnapshot.githubLogin,
+      targetHandle: targetSnapshot ? targetSnapshot.githubLogin : null,
+    };
+  }
+  return {
+    actor: log.actor.nickname,
+    actorHandle: log.actor.nickname,
+    targetHandle: null,
   };
 }
 
@@ -396,7 +433,7 @@ function resolveAuditTargetLabel(
   joinMaps: AuditTargetJoinMaps,
 ): string {
   if (!evidence.legacy && 'target' in evidence.metadata) {
-    return evidence.metadata.target.githubLogin;
+    return personLabel(evidence.metadata.target);
   }
   if (!evidence.legacy && 'applicantGithubLogin' in evidence.metadata) {
     return composeApplicationTargetLabel(

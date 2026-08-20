@@ -21,7 +21,8 @@ import {
 /**
  * 관리자 동선의 로컬 검토 응답.
  * 담당 경로: `audit-logs`, `system-status`, `users/access`,
- * `users/access/facets`, `users/{id}/access`, `users/{id}/access/history`.
+ * `users/access/requests`, `users/access/facets`, `users/{id}/access`,
+ * `users/{id}/access/history`.
  *
  * 사용자 목록(`users`)·역할 변경(`users/{id}/role`)·교직원 요청 판정
  * (`role-requests/{id}`) 응답도 여기 있었지만, 그 화면들이 관리자 접근
@@ -35,6 +36,10 @@ import {
 
 function isAdmin(context: LocalReviewContext): boolean {
   return context.role === 'ADMIN';
+}
+
+function isStaffOrAdmin(context: LocalReviewContext): boolean {
+  return context.role === 'ADMIN' || context.role === 'STAFF';
 }
 
 const AUDIT_LOG_FIXTURES = [
@@ -387,6 +392,34 @@ function adminAccessContextFacets(
   };
 }
 
+const adminAccessRequestsHandler: LocalReviewHandler = (context) => {
+  if (
+    !isStaffOrAdmin(context) ||
+    matchGet(context, 'users/access/requests') === null
+  ) {
+    return null;
+  }
+  const pendingParams = new URLSearchParams(context.searchParams);
+  pendingParams.set('pendingRequest', 'PENDING');
+  const items = filteredAdminAccessItems({
+    ...context,
+    searchParams: pendingParams,
+  });
+  const page = positiveIntParam(context.searchParams.get('page'), 1);
+  const limit = positiveIntParam(context.searchParams.get('limit'), 20);
+  const start = (page - 1) * limit;
+  return json(200, {
+    items: items.slice(start, start + limit),
+    page,
+    limit,
+    total: items.length,
+    facets: adminAccessContextFacets({
+      ...context,
+      searchParams: pendingParams,
+    }),
+  });
+};
+
 const adminAccessListHandler: LocalReviewHandler = (context) => {
   if (!isAdmin(context) || matchGet(context, 'users/access') === null) {
     return null;
@@ -413,12 +446,13 @@ const adminAccessFacetsHandler: LocalReviewHandler = (context) => {
 
 const adminAccessDetailHandler: LocalReviewHandler = (context) => {
   const params = matchGet(context, 'users/:userId/access');
-  if (!isAdmin(context) || params === null) return null;
+  if (!isStaffOrAdmin(context) || params === null) return null;
   const detail = findAdminAccessFixtureDetail(params.userId as string);
-  if (!detail) {
+  if (!detail || (context.role === 'STAFF' && detail.pendingRequest === null)) {
     // 상세 화면은 `ROL_010`일 때만 "사용자를 찾을 수 없습니다" 빈 화면을
     // 그린다(admin-access-detail-api.ts의 `isNotFound`). 기본 404 코드를
     // 쓰면 같은 화면이 일반 오류로 보여 검토자가 제품 결함으로 오해한다.
+    // STAFF는 대기 요청이 없는 사용자를 없는 사용자와 같은 404로 본다.
     return problem(404, 'ROL_010', apiPath(context.path));
   }
   return json(200, detail);
@@ -426,9 +460,10 @@ const adminAccessDetailHandler: LocalReviewHandler = (context) => {
 
 const adminAccessHistoryHandler: LocalReviewHandler = (context) => {
   const params = matchGet(context, 'users/:userId/access/history');
-  if (!isAdmin(context) || params === null) return null;
+  if (!isStaffOrAdmin(context) || params === null) return null;
   const userId = params.userId as string;
-  if (!findAdminAccessFixtureDetail(userId)) {
+  const detail = findAdminAccessFixtureDetail(userId);
+  if (!detail || (context.role === 'STAFF' && detail.pendingRequest === null)) {
     return problem(404, 'ROL_010', apiPath(context.path));
   }
   return json(
@@ -454,6 +489,7 @@ export const ADMIN_HANDLERS: readonly LocalReviewHandler[] = [
   // 패싯이 목록보다 앞에 온다 — 경로 길이가 달라 실제로 겹치지는 않지만,
   // 더 구체적인 경로를 먼저 두는 편이 나중에 세그먼트가 늘어도 안전하다.
   adminAccessFacetsHandler,
+  adminAccessRequestsHandler,
   adminAccessListHandler,
   adminAccessHistoryHandler,
   adminAccessDetailHandler,

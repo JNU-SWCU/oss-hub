@@ -166,10 +166,11 @@ const STAFF_DASHBOARD_FIXTURE = {
   ],
 } as const satisfies StaffDashboardSummary;
 
-// 화면 DTO(AuditLogRecord)는 7키지만 backend 가 내려주는 wire record 는 판별 필드
-// legacy·metadata 까지 9키다. 파서가 9키를 exact key 로 검증해 하나만 어긋나도
-// 던지므로, fixture 가 화면 DTO 만 흉내 내면 HTTP 는 200인데 화면은 "감사 로그를
-// 불러오지 못했습니다"·총 0건으로 죽는다. 그래서 wire 계약 쪽을 미러링한다.
+// 화면 DTO(AuditLogRecord)는 라벨 필드만 쓰지만 backend 가 내려주는 wire record 는
+// 판별 필드 legacy·metadata 와 핸들 필드까지 11키다. 파서가 exact key 로 검증해
+// 하나만 어긋나도 던지므로, fixture 가 화면 DTO 만 흉내 내면 HTTP 는 200인데
+// 화면은 "감사 로그를 불러오지 못했습니다"·총 0건으로 죽는다. 그래서 wire 계약
+// 쪽을 미러링한다.
 type AuditLogWireRecord = AuditLogRecord & {
   readonly legacy: boolean;
   readonly metadata: Record<string, unknown> | null;

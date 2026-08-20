@@ -42,12 +42,14 @@ export function AdminAccessProfileSection({
   profile,
   headingTag: HeadingTag,
   isOverlay,
+  allowEdit,
   onSaved,
 }: {
   readonly userId: string;
   readonly profile: AdminAccessProfile;
   readonly headingTag: 'h2' | 'h3';
   readonly isOverlay: boolean;
+  readonly allowEdit: boolean;
   readonly onSaved: () => void;
 }) {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
@@ -110,9 +112,16 @@ export function AdminAccessProfileSection({
           >
             프로필
           </HeadingTag>
-          <Button type="button" variant="outline" size="sm" onClick={startEdit}>
-            수정
-          </Button>
+          {allowEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={startEdit}
+            >
+              수정
+            </Button>
+          ) : null}
         </div>
         {!profile.isComplete ? (
           <p className="text-sm text-destructive">

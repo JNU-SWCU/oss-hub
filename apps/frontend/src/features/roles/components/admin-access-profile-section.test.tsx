@@ -77,6 +77,7 @@ async function render(
         profile={profile(overrides)}
         headingTag="h2"
         isOverlay={props.isOverlay ?? false}
+        allowEdit={true}
         onSaved={onSaved}
       />,
     );

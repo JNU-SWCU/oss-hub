@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { ADMIN_ACCESS_DEFAULT_FILTER_STATE } from './admin-access-list-query';
+import {
+  ADMIN_ACCESS_DEFAULT_FILTER_STATE,
+  APPLICANT_QUEUE_DEFAULT_FILTER_STATE,
+} from './admin-access-list-query';
 import type { AdminAccessListFilterState } from './admin-access-list-query';
 import {
   buildAdminAccessSearchParams,
+  buildApplicantQueueSearchParams,
   parseAdminAccessSearchParams,
+  parseApplicantQueueSearchParams,
 } from './admin-access-url-state';
 
 function parse(query: string) {
@@ -205,5 +210,32 @@ describe('요청함(pendingRequest) 필터 왕복', () => {
       pendingRequest: '',
     });
     expect(search.has('pendingRequest')).toBe(false);
+  });
+});
+
+describe('가입 신청 URL 상태', () => {
+  it('쿼리가 없으면 요청 시각 내림차순을 기본값으로 쓴다', () => {
+    expect(parseApplicantQueueSearchParams(new URLSearchParams(''))).toEqual(
+      APPLICANT_QUEUE_DEFAULT_FILTER_STATE,
+    );
+  });
+
+  it('기본 상태는 query string을 만들지 않는다', () => {
+    expect(
+      buildApplicantQueueSearchParams(
+        APPLICANT_QUEUE_DEFAULT_FILTER_STATE,
+      ).toString(),
+    ).toBe('');
+  });
+
+  it('pendingRequest 파라미터는 무시하고 검색·페이지는 유지한다', () => {
+    const parsed = parseApplicantQueueSearchParams(
+      new URLSearchParams('query=합성&pendingRequest=PENDING&page=2'),
+    );
+    expect(parsed.query).toBe('합성');
+    expect(parsed.pendingRequest).toBe('');
+    expect(parsed.page).toBe(2);
+    expect(parsed.sort).toBe('createdAt');
+    expect(parsed.direction).toBe('desc');
   });
 });

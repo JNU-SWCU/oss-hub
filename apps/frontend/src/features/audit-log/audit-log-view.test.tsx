@@ -116,6 +116,35 @@ describe('AuditLogView', () => {
     expect(html).toContain('<time dateTime="2026-07-24T03:00:00.000Z"');
   });
 
+  it('승인 행은 행위자·대상 열에서 문장 밖에도 두 사람을 보여 준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-named-approval',
+            actor: '합성 교직원',
+            actorHandle: 'synthetic-staff',
+            action: 'STAFF_ROLE_REQUEST_APPROVED',
+            targetType: 'ROLE_REQUEST',
+            targetId: 'request-named',
+            target: '합성 대기 사용자',
+            targetHandle: 'synthetic-pending',
+            occurredAt: '2026-07-24T03:00:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('행위자');
+    expect(html).toContain('대상');
+    expect(html).toContain('합성 교직원');
+    expect(html).toContain('합성 대기 사용자');
+    expect(html).toContain('@synthetic-pending');
+  });
+
   it('target이 legacy 폴백 라벨이면 서술문에서 코드체로 표시하고 @를 붙이지 않는다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView

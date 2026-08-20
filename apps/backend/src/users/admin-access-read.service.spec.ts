@@ -1,13 +1,17 @@
 import { AccountStatus, Role } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { ADMIN_ACCESS_PENDING_FILTERS } from './domain/admin-access';
 import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_GITHUB_ID,
   InMemoryAdminAccessRepository,
+  PENDING_REQUEST,
+  STAFF_GITHUB_ID,
   accessUser,
   adminActor,
   auditLogHarness,
+  staffActor,
 } from './admin-access.service.spec-support';
 
 describe('AdminAccessService reads', () => {
@@ -112,5 +116,76 @@ describe('AdminAccessService reads', () => {
     ).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
     });
+  });
+
+  it('lets STAFF list the pending queue but not the directory', async () => {
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actor = staffActor();
+    repository.target = accessUser({
+      role: null,
+      pendingRequest: PENDING_REQUEST,
+    });
+    const service = new AdminAccessService(
+      repository,
+      auditLogHarness().service,
+    );
+
+    await expect(
+      service.list(STAFF_GITHUB_ID, { query: '', page: 1, limit: 20 }),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
+    });
+    await expect(
+      service.listRequests(STAFF_GITHUB_ID, {
+        query: '',
+        page: 1,
+        limit: 20,
+        pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
+      }),
+    ).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: 'target' })],
+    });
+  });
+
+  it('hides a user without a pending request from STAFF as ROL_010', async () => {
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actor = staffActor();
+    repository.target = accessUser({ pendingRequest: null });
+    const service = new AdminAccessService(
+      repository,
+      auditLogHarness().service,
+    );
+
+    await expect(service.get(STAFF_GITHUB_ID, 'target')).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
+    });
+    await expect(
+      service.getHistory(STAFF_GITHUB_ID, 'target', {
+        roleRequests: { page: 1, limit: 20 },
+        loginHistory: { page: 1, limit: 20 },
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
+    });
+  });
+
+  it('lets STAFF read a pending target', async () => {
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actor = staffActor();
+    repository.target = accessUser({
+      role: null,
+      pendingRequest: PENDING_REQUEST,
+    });
+    const service = new AdminAccessService(
+      repository,
+      auditLogHarness().service,
+    );
+
+    await expect(service.get(STAFF_GITHUB_ID, 'target')).resolves.toMatchObject(
+      {
+        id: 'target',
+        pendingRequest: PENDING_REQUEST,
+      },
+    );
   });
 });
