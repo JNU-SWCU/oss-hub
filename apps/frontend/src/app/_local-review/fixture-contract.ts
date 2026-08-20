@@ -21,6 +21,10 @@ export const LOCAL_REVIEW_FIXTURE_IDS = [
   // 페르소나가 없으면 반려 사유가 신청자에게 실제로 보이는지 아무도 눈으로 확인할 수
   // 없다. 그 사각지대가 이 결함이 살아남은 이유이기도 하다.
   'role-rejected',
+  'insights-long',
+  'insights-zero',
+  'insights-empty',
+  'insights-unregistered',
 ] as const;
 
 export type LocalReviewFixtureId = (typeof LOCAL_REVIEW_FIXTURE_IDS)[number];
