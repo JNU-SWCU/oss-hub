@@ -11,18 +11,24 @@ Ranking staff CSV export UX, with no backend or export endpoint changes.
 - Passing focused command: `pnpm --filter frontend exec vitest run src/features/ranking/components/ranking-screen.test.tsx src/features/ranking/components/ranking-view.test.tsx src/features/ranking/csv.test.ts src/features/ranking/api.test.ts`
 - Result: 4 files, 58 tests passed.
 
-## Browser evidence contract
+## Real-browser evidence
 
-Synthetic fixture: 205 staff rows, selected year `2026`.
+Command (real Chrome, Playwright, local stack, no sleeps):
 
-Expected browser observations:
+`E2E_OUTPUT_DIR=../../.omo/evidence/task-3-ranking-browser/playwright-2 pnpm exec playwright test e2e/ranking-export.spec.ts`
 
-- exactly one downloaded file: `ranking-2026.csv`
-- UTF-8 BOM and RFC4180 header retained
-- 205 data rows (206 CSV lines including header)
-- page requests are page 1 and page 2, each once, with `pageSize=100` (plus page 3 for the remaining rows when the API page contract returns 100 rows)
-- page-2 failure produces no Blob and no download
-- public viewer has no export action
+Result: 3 passed.
+
+- Downloaded bytes: `.omo/evidence/task-3-ranking-browser/ranking-2026.csv`
+- Staff screenshot: `.omo/evidence/task-3-ranking-browser/staff-ready.png`
+- Page-2 failure screenshot: `.omo/evidence/task-3-ranking-browser/page-2-failure.png`
+- Playwright report/artifacts: `.omo/evidence/task-3-ranking-browser/playwright-2/`
+- Actual filename: `ranking-2026.csv`
+- Actual bytes begin with UTF-8 BOM; parsed CSV contains exactly 205 data rows.
+- Actual ordered requests: `page=1&pageSize=100`, `page=2&pageSize=100`, `page=3&pageSize=100`, each once.
+- Page-2 failure announced `CSV를 준비하지 못했습니다. 다시 시도해 주세요.`, with zero download events and no Blob download.
+- Public viewer rendered no export action; staff rendered Download icon + `CSV 다운로드`.
+- Freshness rendered as semantic `<time>` outside `[data-slot=page-header-actions]`.
 
 No personal data is used; all evidence values are synthetic.
 

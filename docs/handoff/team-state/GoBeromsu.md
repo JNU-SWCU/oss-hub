@@ -37,4 +37,5 @@
 - PR: (생성 예정)
 - blocker: 없음
 - evidence: `.omo/evidence/task-3-insights-chart-template-file-ux.md`
+- browser: Playwright 3 passed; 205-row download and page-2 failure artifacts captured
 
