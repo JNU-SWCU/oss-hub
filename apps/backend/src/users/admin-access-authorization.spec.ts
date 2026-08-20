@@ -117,6 +117,18 @@ describe('assertAccessMutationAllowed', () => {
     );
   });
 
+  it('lets self-deactivation through so ROL_017 stays the contract', () => {
+    expect(() =>
+      assertAccessMutationAllowed(adminActor({ id: 'admin' }), 'admin', {
+        expectedRole: Role.ADMIN,
+        desiredRole: Role.ADMIN,
+        expectedAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.DEACTIVATED,
+        expectedPendingRequest: null,
+      }),
+    ).not.toThrow();
+  });
+
   it('allows ADMIN SET_ROLE on another user', () => {
     expect(() =>
       assertAccessMutationAllowed(adminActor(), 'target', SET_ROLE_COMMAND),
