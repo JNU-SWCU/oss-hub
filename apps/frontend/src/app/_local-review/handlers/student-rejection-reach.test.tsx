@@ -33,6 +33,10 @@ import { MY_APPLICATION_FIXTURES } from './student-program-fixtures';
 const FIXTURE: LocalReviewFixtureId = 'student';
 /** 반려된 신청 픽스처가 있는 프로그램. 사유는 이 프로그램 응답에만 실려 온다. */
 const PROGRAM_ID = 'program-sw-value';
+const SESSION_USER = {
+  name: '합성 학생',
+  nickname: 'synthetic-student',
+} as const;
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -135,7 +139,7 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
       root.render(
         <ProgramApplyPage
           programId={PROGRAM_ID}
-          sessionUser={{ name: '합성 학생', nickname: 'synthetic-student' }}
+          sessionUser={SESSION_USER}
           teamId={null}
         />,
       );
@@ -163,7 +167,7 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
       root.render(
         <ProgramApplyPage
           programId={PROGRAM_ID}
-          sessionUser={{ name: '합성 학생', nickname: 'synthetic-student' }}
+          sessionUser={SESSION_USER}
           teamId={null}
         />,
       );

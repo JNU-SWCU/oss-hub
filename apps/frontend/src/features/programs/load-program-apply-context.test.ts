@@ -79,6 +79,10 @@ const sessionUser = {
   nickname: 'applicant',
 } as const;
 
+function loadDefaultContext(): ReturnType<typeof loadProgramApplyContext> {
+  return loadProgramApplyContext('program-1', null, sessionUser);
+}
+
 describe('loadProgramApplyContext', () => {
   beforeEach(() => {
     vi.mocked(getMyApplication).mockReset();
@@ -96,11 +100,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(readonlyApplication);
 
     // When
-    const result = await loadProgramApplyContext(
-      'program-1',
-      null,
-      sessionUser,
-    );
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -126,11 +126,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(decidedApplication);
 
     // When
-    const result = await loadProgramApplyContext(
-      'program-1',
-      null,
-      sessionUser,
-    );
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -162,11 +158,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(rejectedApplication);
 
     // When
-    const result = await loadProgramApplyContext(
-      'program-1',
-      null,
-      sessionUser,
-    );
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -208,11 +200,7 @@ describe('loadProgramApplyContext', () => {
     );
 
     // When
-    const result = await loadProgramApplyContext(
-      'program-1',
-      null,
-      sessionUser,
-    );
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -229,11 +217,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyApplication).mockResolvedValue(editableApplication);
 
     // When
-    const result = await loadProgramApplyContext(
-      'program-1',
-      null,
-      sessionUser,
-    );
+    const result = await loadDefaultContext();
 
     // Then
     expect(result).toEqual({
@@ -271,11 +255,7 @@ describe('loadProgramApplyContext', () => {
       }),
     );
 
-    const result = await loadProgramApplyContext(
-      'program-1',
-      null,
-      sessionUser,
-    );
+    const result = await loadDefaultContext();
 
     expect(result).toEqual({
       kind: 'failed',
@@ -320,11 +300,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getProgramDetail).mockResolvedValue(noApplicationProgram);
     vi.mocked(getMyTeam).mockResolvedValue(team);
 
-    const result = await loadProgramApplyContext(
-      'program-1',
-      null,
-      sessionUser,
-    );
+    const result = await loadDefaultContext();
 
     expect(result).toEqual({
       kind: 'ready',

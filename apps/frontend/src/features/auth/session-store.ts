@@ -42,6 +42,7 @@ const ANONYMOUS_STATE: AuthSessionState = { status: 'anonymous', user: null };
 let snapshot: AuthSessionState = LOADING_STATE;
 const listeners = new Set<() => void>();
 let inFlight: Promise<void> | null = null;
+let generation = 0;
 
 function publish(next: AuthSessionState): void {
   snapshot = next;
@@ -50,9 +51,10 @@ function publish(next: AuthSessionState): void {
   }
 }
 
-async function load(): Promise<void> {
+async function load(loadGeneration: number): Promise<void> {
   try {
     const session = await fetchSession();
+    if (loadGeneration !== generation) return;
     if (!session.isAuthenticated) {
       publish(ANONYMOUS_STATE);
       return;
@@ -60,6 +62,7 @@ async function load(): Promise<void> {
 
     publish({ status: 'authenticated', user: session.user });
   } catch (error: unknown) {
+    if (loadGeneration !== generation) return;
     if (error instanceof ApiError && error.problem.status === 401) {
       publish(ANONYMOUS_STATE);
       return;
@@ -74,9 +77,12 @@ export function ensureSessionLoaded(): void {
   if (inFlight !== null || snapshot.status !== 'loading') {
     return;
   }
-  inFlight = load().finally(() => {
-    inFlight = null;
+  const request = load(generation).finally(() => {
+    if (inFlight === request) {
+      inFlight = null;
+    }
   });
+  inFlight = request;
 }
 
 export function subscribeSession(listener: () => void): () => void {
@@ -100,6 +106,7 @@ export function getSessionServerSnapshot(): AuthSessionState {
 
 /** 조회 실패 후 다시 시도한다. 구독 중인 모든 소비자가 함께 갱신된다. */
 export function refreshSession(): void {
+  generation += 1;
   inFlight = null;
   publish(LOADING_STATE);
   ensureSessionLoaded();
@@ -107,6 +114,7 @@ export function refreshSession(): void {
 
 /** 테스트 전용 — 모듈 수준 상태를 초기화한다. */
 export function resetSessionStore(): void {
+  generation += 1;
   inFlight = null;
   snapshot = LOADING_STATE;
   listeners.clear();
