@@ -127,16 +127,14 @@ export function StaffInsightsView({
         title="학생 활성"
         description="가입 학과를 SW전공과 비SW전공으로 접어, 랭킹 지표와 프로그램 참여를 따로 비교합니다. 활성은 공개 랭킹과 같은 commit · PR · issue · repo · star이고, Star는 계정 전체 누적입니다. 참여는 현재 승인된 프로그램입니다."
       />
-      <section
-        className="flex flex-wrap items-center gap-3"
-        aria-label="기간과 비교 단위"
-      >
-        <YearLinks scope={summary.scope} years={summary.years} />
-        <div
-          className="flex flex-wrap gap-2"
-          role="group"
-          aria-label="비교 단위"
-        >
+      <section className="flex flex-wrap items-end gap-4" aria-label="필터">
+        <div className="grid gap-2" role="group" aria-label="기간">
+          <span className="text-xs font-semibold text-muted-foreground">기간</span>
+          <YearLinks scope={summary.scope} years={summary.years} />
+        </div>
+        <div className="grid gap-2" role="group" aria-label="비교 관점">
+          <span className="text-xs font-semibold text-muted-foreground">비교 관점</span>
+          <div className="flex flex-wrap gap-2">
           <CutButton
             current={cut}
             value={INSIGHTS_CUTS.COHORT}
@@ -151,6 +149,7 @@ export function StaffInsightsView({
           >
             학과
           </CutButton>
+          </div>
         </div>
       </section>
       <p className="text-sm text-muted-foreground">
@@ -168,7 +167,7 @@ export function StaffInsightsView({
             title="가입 학생"
             sw={sw.studentCount}
             nonSw={nonSw.studentCount}
-            extra={`미등록 ${unregistered.studentCount}`}
+            extra={`미등록 ${unregistered.studentCount} · 활동률 ${rate(sw.activeStudentCount, sw.studentCount)}`}
           />
         </FadeUp>
         <FadeUp delayMs={60}>
@@ -176,7 +175,7 @@ export function StaffInsightsView({
             title="활동 학생"
             sw={sw.activeStudentCount}
             nonSw={nonSw.activeStudentCount}
-            extra="랭킹 합계가 1 이상"
+            extra={`랭킹 합계가 1 이상 · 비SW ${rate(nonSw.activeStudentCount, nonSw.studentCount)}`}
           />
         </FadeUp>
         <FadeUp delayMs={120}>
@@ -184,7 +183,7 @@ export function StaffInsightsView({
             title="프로그램 참여자"
             sw={sw.participantCount}
             nonSw={nonSw.participantCount}
-            extra={`미등록 ${unregistered.participantCount}`}
+            extra={`미등록 ${unregistered.participantCount} · SW ${rate(sw.participantCount, sw.studentCount)}`}
           />
         </FadeUp>
       </section>
@@ -320,7 +319,7 @@ function ActivityPanel({
         <CardDescription>
           공개 랭킹과 같은 commit · PR · issue · repo · star 합입니다. Star는
           해당 연도가 아니라 계정 전체 누적입니다. 프로그램 신청은 넣지
-          않습니다.
+          않습니다. 학과 미등록은 별도 집계로 공개하며 직접 비교 막대에는 섞지 않습니다. 막대는 색상 외에도 범례와 좌우 위치로 구분합니다.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -515,13 +514,11 @@ function ParticipationPanel({
               <Bar
                 dataKey="swMajor"
                 name={COHORT_LABELS[DEPARTMENT_COHORTS.SW_MAJOR]}
-                stackId="participants"
                 fill="var(--primary)"
               />
               <Bar
                 dataKey="nonSw"
                 name={COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW]}
-                stackId="participants"
                 fill="var(--accent)"
               />
             </BarChart>
@@ -562,6 +559,10 @@ function cohortRow(
     return { cohort, ...EMPTY_COHORT_METRICS };
   }
   return row;
+}
+
+function rate(numerator: number, denominator: number): string {
+  return denominator === 0 ? 'x/0 (계산 불가)' : `${numerator}/${denominator}`;
 }
 
 function scopeCaption(scope: InsightsYearScope): string {

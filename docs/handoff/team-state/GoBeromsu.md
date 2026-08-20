@@ -30,3 +30,10 @@
 - PR: (이 PR)
 - blocker: 없음
 
+## 2026-08-20 — 전공·비전공 활성 비교를 명확히 한다
+
+- 상태: review
+- Issue: #957
+- PR: (이 PR)
+- blocker: browser QA unavailable in this environment; frontend module remains above the repository 250 LOC split threshold
+
