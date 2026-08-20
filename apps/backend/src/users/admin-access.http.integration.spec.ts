@@ -298,28 +298,41 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     AccountStatus.ACTIVE,
   );
 
-  const [detail, missing, approve, setRole] = await Promise.all([
-    harness.request('GET', `/users/${pending.id}/access`, staff.githubId),
-    harness.request('GET', `/users/${student.id}/access`, staff.githubId),
-    harness.request('PATCH', `/users/${pending.id}/access`, staff.githubId, {
+  const detail = await harness.request(
+    'GET',
+    `/users/${pending.id}/access`,
+    staff.githubId,
+  );
+  const missing = await harness.request(
+    'GET',
+    `/users/${student.id}/access`,
+    staff.githubId,
+  );
+  const approve = await harness.request(
+    'PATCH',
+    `/users/${pending.id}/access`,
+    staff.githubId,
+    accessBody({
       expectedRole: null,
       desiredRole: Role.STAFF,
-      expectedAccountStatus: AccountStatus.ACTIVE,
-      desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: { id: request.id, status: 'PENDING' },
       requestDecision: { decision: 'APPROVE' },
     }),
-    harness.request(
-      'PATCH',
-      `/users/${student.id}/access`,
-      staff.githubId,
-      accessBody({ desiredRole: Role.STAFF }),
-    ),
-  ]);
+  );
+  const setRole = await harness.request(
+    'PATCH',
+    `/users/${student.id}/access`,
+    staff.githubId,
+    accessBody({ desiredRole: Role.STAFF }),
+  );
 
   expect(detail.status).toBe(200);
   await expectProblem(missing, 404, RolesErrorCode.USER_NOT_FOUND);
-  expect(approve.status).toBe(200);
+  if (approve.status !== 200) {
+    throw new Error(
+      `STAFF approve expected 200, got ${String(approve.status)} ${JSON.stringify(await approve.json())}`,
+    );
+  }
   await expectProblem(setRole, 403, RolesErrorCode.ADMIN_ONLY);
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: pending.id } }),
