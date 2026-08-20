@@ -13,7 +13,7 @@ describe('resolveSessionEntry', () => {
   it.each([
     ['STUDENT', '/dashboard', '내 대시보드'],
     ['STAFF', '/dashboard', '운영 대시보드'],
-    ['ADMIN', '/dashboard', '관리 콘솔'],
+    ['ADMIN', '/dashboard', '운영 대시보드'],
   ] as const)(
     'role이 확정된(assigned) %s는 회원 공통 대시보드 입구를 반환한다(랜딩 CTA 등)',
     (role, href, label) => {

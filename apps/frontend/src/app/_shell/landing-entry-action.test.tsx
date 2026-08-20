@@ -77,7 +77,7 @@ describe('LandingEntryActionView', () => {
     expect(html).toContain('href="/dashboard"');
   });
 
-  it('offers staff approval to an assigned administrator', () => {
+  it('offers the operations dashboard to an assigned administrator', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="assigned"
@@ -86,7 +86,7 @@ describe('LandingEntryActionView', () => {
       />,
     );
 
-    expect(html).toContain('관리 콘솔');
+    expect(html).toContain('운영 대시보드');
     expect(html).toContain('href="/dashboard"');
   });
 

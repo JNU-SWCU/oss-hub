@@ -10,7 +10,7 @@ import { DashboardHome } from './dashboard-home';
  * "접근 권한이 없는 페이지"를 띄우지 않는다. 본문은 세션 역할로만 갈린다
  * (`dashboard-home.tsx`).
  *
- * `/staff/dashboard`·`/admin/access`는 각 도구 딥링크로 유지한다(입구는 아님).
+ * 관리 도구는 `/admin/*`만 담당한다. 운영 대시보드 입구는 이 경로 하나다.
  */
 export default function DashboardPage() {
   return (

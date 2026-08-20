@@ -56,7 +56,7 @@ describe('deadline-digest-mail.template', () => {
       expect(content).toContain('합성 프로그램');
       expect(content).toContain('최종 제출');
       expect(content).toContain('inactive-student (비활성)');
-      expect(content).toContain('https://oss.example/staff/dashboard');
+      expect(content).toContain('https://oss.example/dashboard');
     }
   });
 

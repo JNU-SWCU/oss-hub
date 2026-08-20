@@ -34,6 +34,7 @@ import {
 import {
   programScopeSidebarGroups,
   shellSectionFromPathname,
+  sidebarBrandTitle,
   sidebarGroupsFor,
   type ProgramScopeSidebarGroup,
   type ProgramScopeViewerRole,
@@ -256,7 +257,7 @@ export function ProductShell({
 
   const drawerLabel = programDetailId
     ? (scopeOverview?.name ?? programDetailId)
-    : (groups[0]?.label ?? '메뉴');
+    : sidebarBrandTitle(section, groups);
 
   return (
     <div
@@ -297,6 +298,7 @@ export function ProductShell({
           search={search}
           collapsed={collapsed}
           onToggle={toggle}
+          brandTitle={sidebarBrandTitle(section, groups)}
         />
       )}
       <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
@@ -320,6 +322,7 @@ export function ProductShell({
             pathname={pathname}
             search={search}
             collapsed={false}
+            brandTitle={sidebarBrandTitle(section, groups)}
           />
         )}
       </SidebarDrawer>

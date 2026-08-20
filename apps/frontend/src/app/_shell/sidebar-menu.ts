@@ -15,7 +15,12 @@ import {
 } from '@/features/programs/types';
 import { RANKING_YEAR_ALL, rankingListHref } from '@/features/ranking/types';
 import type { AppRole } from './role';
-import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
+import {
+  ADMIN_STAFF_MENU,
+  ADMIN_SYSTEM_MENU,
+  STAFF_MENU,
+  STUDENT_MENU,
+} from './role-menus';
 import {
   facetSectionFromHrefPath,
   SECTION_FACETS,
@@ -47,7 +52,6 @@ const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard': 'home',
   '/dashboard/activity': 'chart',
   '/my-repos': 'repo',
-  '/staff/dashboard': 'chart',
   '/programs/new': 'detail',
   '/admin/access': 'people',
   '/admin/audit-log': 'shield',
@@ -349,17 +353,25 @@ export function rankingSidebarGroup(
   return { label: '랭킹', items };
 }
 
-const ROLE_GROUP_LABEL: Readonly<Record<AppRole, string>> = {
+export const DASHBOARD_SIDEBAR_BRAND = '대시보드';
+
+const ROLE_GROUP_LABEL: Readonly<Record<'STUDENT' | 'STAFF', string>> = {
   STUDENT: '대시보드',
-  STAFF: '대시보드',
-  ADMIN: '대시보드',
+  STAFF: '교직원',
 };
 
-const ROLE_MENU: Readonly<Record<AppRole, readonly NavItem[]>> = {
+const ROLE_MENU: Readonly<Record<'STUDENT' | 'STAFF', readonly NavItem[]>> = {
   STUDENT: STUDENT_MENU,
   STAFF: STAFF_MENU,
-  ADMIN: ADMIN_MENU,
 };
+
+export function sidebarBrandTitle(
+  section: ShellSection,
+  groups: readonly SidebarGroup[],
+): string {
+  if (section === 'dashboard') return DASHBOARD_SIDEBAR_BRAND;
+  return groups[0]?.label ?? '메뉴';
+}
 
 export function shellSectionFromPathname(pathname: string): ShellSection {
   if (pathname === '/programs' || pathname.startsWith('/programs/')) {
@@ -376,7 +388,6 @@ export function shellSectionFromPathname(pathname: string): ShellSection {
     pathname.startsWith('/dashboard/') ||
     pathname === '/my-repos' ||
     pathname.startsWith('/my-repos/') ||
-    pathname.startsWith('/staff/') ||
     pathname.startsWith('/admin/')
   ) {
     return 'dashboard';
@@ -401,6 +412,12 @@ export function sidebarGroupsFor(
 ): readonly SidebarGroup[] {
   if (section === 'dashboard') {
     if (role === null) return [];
+    if (role === 'ADMIN') {
+      return [
+        { label: '교직원', items: withIcons(ADMIN_STAFF_MENU, 0) },
+        { label: '관리자', items: withIcons(ADMIN_SYSTEM_MENU, 0) },
+      ];
+    }
     return [
       {
         label: ROLE_GROUP_LABEL[role],
@@ -467,13 +484,8 @@ export function isCurrentSidebarItem(
   }
 
   if (pathname === hrefPath) return true;
-  // 회원 공통 홈(`/dashboard`)과 같은 본문의 딥링크 — 메뉴 강조만 맞춘다.
   // `/dashboard/activity` 는 별 사이드 항목이라 부모 매칭하지 않는다.
   if (hrefPath === '/dashboard') {
-    if (pathname === '/staff/dashboard') return true;
-    if (pathname === '/admin/access' || pathname.startsWith('/admin/access/')) {
-      return true;
-    }
     return false;
   }
   return pathname.startsWith(`${hrefPath}/`);

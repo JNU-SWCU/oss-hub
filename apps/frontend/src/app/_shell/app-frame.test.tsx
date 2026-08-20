@@ -130,7 +130,7 @@ describe('AppFrame', () => {
   // 드로어 도입(feat/sidebar-drawer-below-900) 이후: 900px 미만에서 관리자·역할
   // 메뉴는 상단 nav가 아니라 햄버거 드로어(SidebarDrawer)로 닿는다. 상단 nav의
   // 항목 목록 자체는 role 무관하게 `items`(공개 메뉴) + 로그인 시 대시보드뿐이다.
-  it('ADMIN 세션이어도 상단 nav 항목 목록에 역할 전용 메뉴(관리 콘솔 하위)를 섞지 않는다', () => {
+  it('ADMIN 세션이어도 상단 nav 항목 목록에 역할 전용 메뉴(관리자 하위)를 섞지 않는다', () => {
     const html = render('/dashboard', {
       status: 'assigned',
       role: 'ADMIN',

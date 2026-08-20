@@ -4,7 +4,7 @@ test('교직원 대시보드에는 전역 즉시 발송 액션이 없고 학생�
   authSeedPage,
 }) => {
   const staffPage = await authSeedPage('staff-revocable');
-  await staffPage.goto('/staff/dashboard');
+  await staffPage.goto('/dashboard');
   await expect(
     staffPage.getByRole('heading', { name: '운영 대시보드' }),
   ).toBeVisible();

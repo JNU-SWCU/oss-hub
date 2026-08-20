@@ -129,7 +129,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     ).not.toBeNull();
   });
 
-  it('ADMIN 세션, /dashboard: 햄버거를 열면 대시보드 그룹 아래 4항목이 드로어에 뜬다', async () => {
+  it('ADMIN 세션, /dashboard: 햄버거를 열면 교직원·관리자 그룹이 드로어에 뜬다', async () => {
     mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
     await renderFrame('/dashboard');
 
@@ -139,16 +139,29 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(dlg).not.toBeNull();
     expect(dlg?.getAttribute('aria-modal')).toBe('true');
 
-    const group = dlg?.querySelector('[role="group"][aria-label="대시보드"]');
-    expect(group).not.toBeNull();
+    const staffGroup = dlg?.querySelector(
+      '[role="group"][aria-label="교직원"]',
+    );
+    const adminGroup = dlg?.querySelector(
+      '[role="group"][aria-label="관리자"]',
+    );
+    expect(staffGroup).not.toBeNull();
+    expect(adminGroup).not.toBeNull();
+
+    const staffLink = staffGroup?.querySelector<HTMLAnchorElement>(
+      'a[href="/dashboard"]',
+    );
+    expect(staffLink).not.toBeNull();
+    expect(staffLink?.textContent).toContain('운영 대시보드');
 
     for (const [label, href] of [
-      ['관리 콘솔', '/dashboard'],
       ['접근 목록', '/admin/access'],
       ['감사 로그', '/admin/audit-log'],
       ['시스템 상태', '/admin/system-status'],
     ]) {
-      const link = group?.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);
+      const link = adminGroup?.querySelector<HTMLAnchorElement>(
+        `a[href="${href}"]`,
+      );
       expect(link, href).not.toBeNull();
       expect(link?.textContent, href).toContain(label);
     }

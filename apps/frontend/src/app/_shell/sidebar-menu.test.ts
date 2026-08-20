@@ -10,6 +10,7 @@ import {
   programSidebarGroup,
   rankingSidebarGroup,
   shellSectionFromPathname,
+  sidebarBrandTitle,
   sidebarGroupsFor,
 } from './sidebar-menu';
 
@@ -22,7 +23,7 @@ describe('shellSectionFromPathname', () => {
     expect(shellSectionFromPathname('/ranking')).toBe('ranking');
     expect(shellSectionFromPathname('/dashboard')).toBe('dashboard');
     expect(shellSectionFromPathname('/my-repos')).toBe('dashboard');
-    expect(shellSectionFromPathname('/staff/dashboard')).toBe('dashboard');
+    expect(shellSectionFromPathname('/staff/dashboard')).toBeNull();
     expect(shellSectionFromPathname('/settings')).toBeNull();
   });
 });
@@ -75,11 +76,51 @@ describe('sidebarGroupsFor (context)', () => {
     expect(STAFF_MENU).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
     ]);
-    expect(sidebarGroupsFor('dashboard', 'STAFF')[0]?.items).toHaveLength(1);
+    const groups = sidebarGroupsFor('dashboard', 'STAFF');
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.label).toBe('교직원');
+    expect(groups[0]?.items).toHaveLength(1);
+  });
+
+  it('ADMIN 대시보드는 교직원·관리자 두 그룹이고 입구는 /dashboard다', () => {
+    const groups = sidebarGroupsFor('dashboard', 'ADMIN');
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.label).toBe('교직원');
+    expect(
+      groups[0]?.items.map(({ label, href }) => ({ label, href })),
+    ).toEqual([{ label: '운영 대시보드', href: '/dashboard' }]);
+    expect(groups[1]?.label).toBe('관리자');
+    expect(
+      groups[1]?.items.map(({ label, href }) => ({ label, href })),
+    ).toEqual([
+      { label: '접근 목록', href: '/admin/access' },
+      { label: '감사 로그', href: '/admin/audit-log' },
+      { label: '시스템 상태', href: '/admin/system-status' },
+    ]);
+    expect(
+      groups.flatMap((group) => group.items.map((item) => item.href)),
+    ).not.toContain('/staff/dashboard');
   });
 
   it('dashboard without role is empty', () => {
     expect(sidebarGroupsFor('dashboard', null)).toEqual([]);
+  });
+
+  it('dashboard brand stays 대시보드 when group labels are role names', () => {
+    const adminGroups = sidebarGroupsFor('dashboard', 'ADMIN');
+    const staffGroups = sidebarGroupsFor('dashboard', 'STAFF');
+    expect(sidebarBrandTitle('dashboard', adminGroups)).toBe('대시보드');
+    expect(sidebarBrandTitle('dashboard', staffGroups)).toBe('대시보드');
+    expect(
+      sidebarBrandTitle('programs', sidebarGroupsFor('programs', null)),
+    ).toBe('프로그램 메뉴');
+  });
+
+  it('STAFF 메뉴에 관리자 경로가 없다', () => {
+    const hrefs = sidebarGroupsFor('dashboard', 'STAFF').flatMap((group) =>
+      group.items.map((item) => item.href),
+    );
+    expect(hrefs.every((href) => !href.startsWith('/admin/'))).toBe(true);
   });
 
   it('no practice competition item', () => {
@@ -222,15 +263,18 @@ describe('isCurrentSidebarItem', () => {
     ).toBe(true);
   });
 
-  it('회원 공통 홈 메뉴는 운영·관리 콘솔 딥링크에서도 강조된다', () => {
+  it('회원 공통 홈 메뉴는 /dashboard에서만 강조된다', () => {
     expect(isCurrentSidebarItem('/dashboard', '/dashboard', '')).toBe(true);
     expect(isCurrentSidebarItem('/staff/dashboard', '/dashboard', '')).toBe(
-      true,
+      false,
     );
-    expect(isCurrentSidebarItem('/admin/access', '/dashboard', '')).toBe(true);
+    expect(isCurrentSidebarItem('/admin/access', '/dashboard', '')).toBe(false);
     expect(
       isCurrentSidebarItem('/admin/access/users/u1', '/dashboard', ''),
-    ).toBe(true);
+    ).toBe(false);
+    expect(isCurrentSidebarItem('/admin/access', '/admin/access', '')).toBe(
+      true,
+    );
     // 별 사이드 항목 — 홈의 자식으로 취급하지 않는다
     expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard', '')).toBe(
       false,
