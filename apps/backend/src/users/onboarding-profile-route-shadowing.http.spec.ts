@@ -17,7 +17,7 @@ import { UsersService } from './users.service';
  * Issue #787 — 온보딩 프로필 저장이 관리자 대리 수정 라우트에 가로채여 403(ROL_004)이
  * 났던 회귀를 고정한다.
  *
- * `UsersController`(`PATCH /users/me/profile`, SessionGuard 보호)와
+ * `UsersController`(`POST|PATCH /users/me/profile`, SessionGuard 보호)와
  * `AdminAccessController`(`PATCH /users/:id/profile`, admin 전용)는 같은 `users`
  * 리소스 프리픽스 아래에서 **경로 모양 자체가 겹친다**(`me`가 `:id`에 그대로 매치).
  * #551의 공개 프로필 라우트와 달리 마지막 세그먼트가 같으므로, 등록 순서를 뒤집으면
@@ -41,6 +41,7 @@ const myProfile = {
 
 const usersService = {
   getMyProfile: jest.fn().mockResolvedValue(myProfile),
+  completeMyProfile: jest.fn().mockResolvedValue(myProfile),
   patchMyProfile: jest.fn().mockResolvedValue(myProfile),
 };
 const adminAccessService = {
@@ -116,25 +117,27 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
     await application.close();
   });
 
-  it('일반 사용자의 PATCH /users/me/profile은 온보딩 컨트롤러가 처리한다(200)', async () => {
+  it('일반 사용자의 POST /users/me/profile은 온보딩 컨트롤러가 처리한다(201)', async () => {
     const response = await fetch(`${baseUrl}/api/v1/users/me/profile`, {
-      method: 'PATCH',
+      method: 'POST',
       headers: {
         connection: 'close',
         'content-type': 'application/json',
         cookie: sessionCookie,
         origin: allowedOrigin,
       },
-      body: JSON.stringify({ name: '합성 새 이름' }),
+      body: JSON.stringify({
+        name: '합성 새 이름',
+        department: '인공지능학부',
+      }),
     });
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual(myProfile);
-    expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
+    expect(usersService.completeMyProfile).toHaveBeenCalledWith(githubId, {
       name: '합성 새 이름',
+      department: '인공지능학부',
     });
-    // 'me'가 관리자 대리 수정의 `:id`로 흡수되지 않았다는 직접 증거 —
-    // 흡수됐다면 admin 전용 게이트(ROL_004)에 막혀 403이 났을 것이다.
     expect(adminProfileService.patchProfile).not.toHaveBeenCalled();
   });
 

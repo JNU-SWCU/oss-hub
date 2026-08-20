@@ -19,12 +19,11 @@ function trimString({ value }: { value: unknown }): unknown {
 }
 
 /**
- * 단일 permissive DTO — 이름만 필수, 학번·학과는 있을 때만 형식을 검증한다.
+ * 본인 프로필 쓰기 DTO — 이름·학과는 항상 필수, 학번은 있을 때만 형식을 본다.
  *
- * 어떤 항목이 실제로 필요한지는 역할마다 다르고(#439) DTO는 역할을 모른다.
- * 그래서 형식 검증만 여기서 하고, 필수 여부·완료 판정은 서비스 정책이 담당한다.
- * 관리자는 이름만, 교직원은 이름·학과만 보내므로 학과에 `@IsOptional()`이 붙는다
- * — 키가 없으면 기존 값을 유지하고, 빈 문자열로 지우는 것은 계속 막는다.
+ * POST(가입 마치기)와 PATCH(설정 갱신)가 같은 본문을 쓴다. 스크립트가 이름만
+ * 보내 학과를 null로 남기는 구멍을 여기서 막는다. 학번 필수 여부는 역할을 아는
+ * 서비스가 판정한다 — DTO는 역할을 모른다.
  */
 export class UpdateMyProfileRequestDto {
   @Transform(trimString)
@@ -39,12 +38,11 @@ export class UpdateMyProfileRequestDto {
   @Matches(/^\d{6}$/, { message: '학번은 숫자 6자리로 입력해 주세요.' })
   declare readonly studentId?: string;
 
-  @IsOptional()
   @Transform(trimString)
   @IsString()
   @IsNotEmpty()
   @MaxLength(USER_DEPARTMENT_MAX_LENGTH)
-  declare readonly department?: string;
+  declare readonly department: string;
 
   toInput(): PatchUserProfileInput {
     return {
@@ -52,9 +50,7 @@ export class UpdateMyProfileRequestDto {
       ...(typeof this.studentId === 'string'
         ? { studentId: this.studentId }
         : {}),
-      ...(typeof this.department === 'string'
-        ? { department: this.department }
-        : {}),
+      department: this.department,
     };
   }
 }

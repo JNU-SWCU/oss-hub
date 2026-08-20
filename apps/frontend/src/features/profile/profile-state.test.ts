@@ -138,25 +138,21 @@ describe('profile onboarding state', () => {
     ).toBe('학과를 선택하거나 입력해 주세요.');
   });
 
-  it('관리자 폼은 학번·학과가 비어도 이름만으로 요청을 만든다', () => {
+  it('관리자 폼도 학과가 비면 요청을 만들지 않는다', () => {
     const values = validValues({ studentId: '', departmentOption: '' });
 
     expect(validateProfileForm(values, 'ADMIN')).toEqual({
       name: null,
       studentId: null,
-      department: null,
+      department: '학과를 선택하거나 입력해 주세요.',
     });
-    expect(toCompleteProfileRequest(values, 'ADMIN')).toEqual({
-      name: '합성 사용자',
-    });
+    expect(toCompleteProfileRequest(values, 'ADMIN')).toBeNull();
     expect(
       toUpdateProfileRequest(
         settingsValues({ ...values, savedStudentId: '' }),
         'ADMIN',
       ),
-    ).toEqual({
-      name: '합성 사용자',
-    });
+    ).toBeNull();
   });
 
   it('역할이 요구하지 않아도 이미 있는 값은 완료 요청에 그대로 실어 보낸다', () => {

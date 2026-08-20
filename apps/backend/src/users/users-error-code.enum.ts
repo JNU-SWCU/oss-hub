@@ -10,6 +10,7 @@ export enum UsersErrorCode {
   LAST_ACTIVE_ADMIN = 'USR_007',
   STUDENT_ID_TAKEN_BY_ADMIN = 'USR_008',
   PROFILE_UPDATE_CONFLICT = 'USR_009',
+  PROFILE_COMPLETE_REQUIRES_POST = 'USR_010',
 }
 
 export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
@@ -67,5 +68,13 @@ export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
     status: 409,
     message:
       '다른 관리자가 동시에 같은 사용자의 프로필을 수정하고 있어 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  },
+  // PATCH는 이미 가입을 마친 사람의 이름·학과 갱신만 받는다. 미완료 프로필을
+  // 부분 수정으로 완료하면 스크립트가 이름만 보내 학과를 null로 남길 수 있다.
+  [UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST]: {
+    code: UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST,
+    status: 409,
+    message:
+      '가입을 마치려면 이름과 학과를 한 번에 보내야 합니다. 부분 수정으로는 가입할 수 없습니다.',
   },
 };

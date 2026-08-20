@@ -1,6 +1,5 @@
 import { DEPARTMENT_OPTIONS, OTHER_DEPARTMENT } from './departments';
 import {
-  isDepartmentRequiredForProfile,
   isProfileComplete,
   isValidDepartment,
   isValidProfileName,
@@ -118,10 +117,7 @@ export function validateProfileForm(
     studentId: isUnchangedStudentId(values)
       ? null
       : studentIdError(values.studentId.trim(), requirement.studentId),
-    department: departmentError(
-      resolveDepartment(values),
-      isDepartmentRequiredForProfile(role, values.studentId),
-    ),
+    department: departmentError(resolveDepartment(values), true),
   };
 }
 
@@ -145,10 +141,8 @@ export function toCompleteProfileRequest(
   const department = resolveDepartment(values);
   return {
     name: values.name.trim(),
-    // 값이 있으면 역할이 요구하지 않아도 그대로 보낸다 — 역할이 바뀐 사용자의
-    // 기존 값을 프런트에서 지워 버리지 않기 위해서다. 비어 있을 때만 키를 뺀다.
     ...(studentId ? { studentId } : {}),
-    ...(department ? { department } : {}),
+    department,
   };
 }
 
@@ -189,13 +183,7 @@ export function validateSettingsProfileForm(
     studentId: hasSavedStudentId(values)
       ? null
       : studentIdError(values.studentId.trim(), requirement.studentId),
-    department: departmentError(
-      resolveDepartment(values),
-      // 이미 저장된 학번은 다시 보내지 않으므로 학과를 새로 요구할 이유가 없다.
-      hasSavedStudentId(values)
-        ? requirement.department
-        : isDepartmentRequiredForProfile(role, values.studentId),
-    ),
+    department: departmentError(resolveDepartment(values), true),
   };
 }
 
@@ -214,6 +202,6 @@ export function toUpdateProfileRequest(
   return {
     name: values.name.trim(),
     ...(studentId ? { studentId } : {}),
-    ...(department ? { department } : {}),
+    department,
   };
 }

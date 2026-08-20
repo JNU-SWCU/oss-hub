@@ -35,7 +35,6 @@ import {
 } from '../api';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../departments';
 import {
-  isDepartmentRequiredForProfile,
   profileFieldRequirement,
   type ProfileRole,
 } from '../profile-requirements';
@@ -137,17 +136,13 @@ export function ProfileForm({
 
   // 학번은 학생만 가질 수 있다 — 교직원·관리자는 학번이 없는 신분이라 이 화면에서
   // 아예 입력받지 않는다(요청에 studentId가 실리면 백엔드가 400으로 거절한다,
-  // users.service.ts). 학과와 마찬가지로 역할이 요구하지 않으면 칸 자체를 감춘다.
+  // users.service.ts). 이름·학과는 모든 역할이 한 번에 보낸다.
   const requirement = profileFieldRequirement(role);
   const showStudentId = requirement.studentId;
-  // 학번을 적어 넣는 순간 학과도 필요해진다 — 학번이 유일성 제약 아래 저장되는 자리가
-  // 학과를 요구하는 행이기 때문이다(`isDepartmentRequiredForProfile`). 그래서 학과 칸은
-  // 역할이 요구할 때뿐 아니라 사용자가 학번을 적었을 때도 함께 연다.
-  const showDepartment = isDepartmentRequiredForProfile(role, values.studentId);
   const profileFields = [
     '이름',
     ...(requirement.studentId ? ['학번'] : []),
-    ...(requirement.department ? ['학과'] : []),
+    '학과',
   ];
 
   const showNameError = showRequiredErrors && errors.name !== null;
@@ -237,89 +232,87 @@ export function ProfileForm({
             </Field>
           ) : null}
 
-          {showDepartment ? (
-            <Field data-invalid={showDepartmentError || undefined}>
-              <FieldLabel htmlFor="profile-department">
-                학과
-                <RequiredMark />
-              </FieldLabel>
-              <Select
-                id="profile-department"
-                name="department"
-                ref={departmentRef}
-                aria-required="true"
-                // 네이티브 select 규격(`components/ui/select`)에는 입력칸과 달리
-                // 오류 테두리가 없다. 빈 학과를 알리는 자리가 이 칸이라 여기서만 덧댄다.
-                //
-                // 목록 색도 여기서만 덧댄다(QA34). 이 화면은 가입 무대
-                // (`_shell/signup-stage.tsx`의 `data-surface="inverted"`) 안이라
-                // `color`가 `--hero-foreground`(#ffffff)로 상속된다. 규격의
-                // `bg-transparent`와 합쳐지면 option·optgroup이 **흰 글자 + 투명
-                // 배경**이 되는데(측정: `color` rgb(255,255,255), `background-color`
-                // rgba(0,0,0,0)), 열린 목록은 페이지가 아니라 브라우저가 그리고 그
-                // 바탕은 시스템 `Canvas`다 — 이 문서에서 #ffffff로 측정된다. 흰 글자가
-                // 흰 바탕에 얹혀 1.00:1이 되고, 마우스가 얹힌 한 줄만 강조색 덕에 읽힌다.
-                // 그래서 팝오버 한 쌍(#ffffff / #444444, 9.74:1)을 목록에 직접 입혀
-                // 브라우저가 무엇을 깔든 읽히게 한다. 닫힌 칸의 글자색은 그대로
-                // 흰색이라 어두운 무대 위 대비는 건드리지 않는다.
-                //
-                // ⚠ `globals.css`의 반전 스코프에 토큰을 더하는 길로는 풀지 않는다 —
-                // 같은 무대의 주 버튼(`signupPrimaryClassName`)이 흰 배경 + `--primary`
-                // 글자라 그 토큰을 밝게 바꾸면 그쪽이 무너진다(#708이 실측한 사실).
-                // 규격(`components/ui/select`)이 아니라 이 호출부인 이유는, 나머지 세
-                // 곳(설정·교직원 대시보드·신청자 목록)은 흰 업무 화면이라 같은 결함이
-                // 없기 때문이다.
-                className="aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_optgroup]:bg-popover [&_optgroup]:text-popover-foreground [&_option]:bg-popover [&_option]:text-popover-foreground"
-                value={values.departmentOption}
+          <Field data-invalid={showDepartmentError || undefined}>
+            <FieldLabel htmlFor="profile-department">
+              학과
+              <RequiredMark />
+            </FieldLabel>
+            <Select
+              id="profile-department"
+              name="department"
+              ref={departmentRef}
+              aria-required="true"
+              // 네이티브 select 규격(`components/ui/select`)에는 입력칸과 달리
+              // 오류 테두리가 없다. 빈 학과를 알리는 자리가 이 칸이라 여기서만 덧댄다.
+              //
+              // 목록 색도 여기서만 덧댄다(QA34). 이 화면은 가입 무대
+              // (`_shell/signup-stage.tsx`의 `data-surface="inverted"`) 안이라
+              // `color`가 `--hero-foreground`(#ffffff)로 상속된다. 규격의
+              // `bg-transparent`와 합쳐지면 option·optgroup이 **흰 글자 + 투명
+              // 배경**이 되는데(측정: `color` rgb(255,255,255), `background-color`
+              // rgba(0,0,0,0)), 열린 목록은 페이지가 아니라 브라우저가 그리고 그
+              // 바탕은 시스템 `Canvas`다 — 이 문서에서 #ffffff로 측정된다. 흰 글자가
+              // 흰 바탕에 얹혀 1.00:1이 되고, 마우스가 얹힌 한 줄만 강조색 덕에 읽힌다.
+              // 그래서 팝오버 한 쌍(#ffffff / #444444, 9.74:1)을 목록에 직접 입혀
+              // 브라우저가 무엇을 깔든 읽히게 한다. 닫힌 칸의 글자색은 그대로
+              // 흰색이라 어두운 무대 위 대비는 건드리지 않는다.
+              //
+              // ⚠ `globals.css`의 반전 스코프에 토큰을 더하는 길로는 풀지 않는다 —
+              // 같은 무대의 주 버튼(`signupPrimaryClassName`)이 흰 배경 + `--primary`
+              // 글자라 그 토큰을 밝게 바꾸면 그쪽이 무너진다(#708이 실측한 사실).
+              // 규격(`components/ui/select`)이 아니라 이 호출부인 이유는, 나머지 세
+              // 곳(설정·교직원 대시보드·신청자 목록)은 흰 업무 화면이라 같은 결함이
+              // 없기 때문이다.
+              className="aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_optgroup]:bg-popover [&_optgroup]:text-popover-foreground [&_option]:bg-popover [&_option]:text-popover-foreground"
+              value={values.departmentOption}
+              aria-invalid={showDepartmentError}
+              aria-describedby={
+                showDepartmentError ? DEPARTMENT_ERROR_ID : undefined
+              }
+              onChange={(event) =>
+                onChange({
+                  departmentOption: event.target.value,
+                  otherDepartment:
+                    event.target.value === OTHER_DEPARTMENT
+                      ? values.otherDepartment
+                      : '',
+                })
+              }
+            >
+              <option value="">학과를 선택해 주세요</option>
+              {DEPARTMENT_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.departments.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
+            </Select>
+            {values.departmentOption === OTHER_DEPARTMENT ? (
+              <Input
+                aria-label="기타 학과"
+                ref={otherDepartmentRef}
+                placeholder="학과 또는 전공을 입력해 주세요"
+                maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
+                value={values.otherDepartment}
                 aria-invalid={showDepartmentError}
                 aria-describedby={
                   showDepartmentError ? DEPARTMENT_ERROR_ID : undefined
                 }
                 onChange={(event) =>
-                  onChange({
-                    departmentOption: event.target.value,
-                    otherDepartment:
-                      event.target.value === OTHER_DEPARTMENT
-                        ? values.otherDepartment
-                        : '',
-                  })
+                  onChange({ otherDepartment: event.target.value })
                 }
-              >
-                <option value="">학과를 선택해 주세요</option>
-                {DEPARTMENT_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.departments.map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-                <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
-              </Select>
-              {values.departmentOption === OTHER_DEPARTMENT ? (
-                <Input
-                  aria-label="기타 학과"
-                  ref={otherDepartmentRef}
-                  placeholder="학과 또는 전공을 입력해 주세요"
-                  maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
-                  value={values.otherDepartment}
-                  aria-invalid={showDepartmentError}
-                  aria-describedby={
-                    showDepartmentError ? DEPARTMENT_ERROR_ID : undefined
-                  }
-                  onChange={(event) =>
-                    onChange({ otherDepartment: event.target.value })
-                  }
-                />
-              ) : null}
-              {showDepartmentError ? (
-                <FieldError id={DEPARTMENT_ERROR_ID}>
-                  {errors.department}
-                </FieldError>
-              ) : null}
-            </Field>
-          ) : null}
+              />
+            ) : null}
+            {showDepartmentError ? (
+              <FieldError id={DEPARTMENT_ERROR_ID}>
+                {errors.department}
+              </FieldError>
+            ) : null}
+          </Field>
         </FormSection>
 
         {submitError ? (

@@ -124,16 +124,16 @@ describe('profile onboarding view', () => {
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
-  it('관리자에게는 학번·학과 칸을 모두 감춘다', () => {
+  it('관리자에게는 학번 칸만 감추고 학과는 받는다', () => {
     const html = renderForm(values({ studentId: '', departmentOption: '' }), {
       role: 'ADMIN',
       showRequiredErrors: true,
     });
 
     expect(html).not.toContain('profile-student-id');
-    expect(html).not.toContain('profile-department');
+    expect(html).toContain('profile-department');
     expect(html).toContain('profile-name');
-    expect(html).toContain('항목(이름)');
+    expect(html).toContain('항목(이름, 학과)');
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 

@@ -30,6 +30,7 @@ const usersService = {
     department: null,
     isComplete: false,
   }),
+  completeMyProfile: jest.fn().mockResolvedValue(completeProfile),
   patchMyProfile: jest.fn().mockResolvedValue(completeProfile),
 };
 
@@ -37,9 +38,13 @@ let application: INestApplication;
 let baseUrl = '';
 let sessionCookie = '';
 
-async function patch(body: unknown, origin = allowedOrigin): Promise<Response> {
+async function write(
+  method: 'POST' | 'PATCH',
+  body: unknown,
+  origin = allowedOrigin,
+): Promise<Response> {
   return fetch(`${baseUrl}/api/v1/users/me/profile`, {
-    method: 'PATCH',
+    method,
     headers: {
       connection: 'close',
       'content-type': 'application/json',
@@ -48,6 +53,14 @@ async function patch(body: unknown, origin = allowedOrigin): Promise<Response> {
     },
     body: JSON.stringify(body),
   });
+}
+
+async function post(body: unknown, origin = allowedOrigin): Promise<Response> {
+  return write('POST', body, origin);
+}
+
+async function patch(body: unknown, origin = allowedOrigin): Promise<Response> {
+  return write('PATCH', body, origin);
 }
 
 beforeAll(async () => {
@@ -113,7 +126,21 @@ it('인증된 GET 프로필 응답은 private no-store 캐시 제어를 설정�
   expect(response.headers.get('cache-control')).toBe('private, no-store');
 });
 
-it('유효한 PATCH를 정규화해 저장한다', async () => {
+it('유효한 POST를 정규화해 가입을 마친다', async () => {
+  const response = await post({
+    ...validBody,
+    name: `  ${validBody.name}  `,
+  });
+
+  expect(response.status).toBe(201);
+  await expect(response.json()).resolves.toEqual(completeProfile);
+  expect(usersService.completeMyProfile).toHaveBeenCalledWith(
+    githubId,
+    validBody,
+  );
+});
+
+it('유효한 PATCH를 정규화해 갱신한다', async () => {
   const response = await patch({
     ...validBody,
     name: `  ${validBody.name}  `,
@@ -124,29 +151,26 @@ it('유효한 PATCH를 정규화해 저장한다', async () => {
   expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, validBody);
 });
 
-it('학번 없는 name·department PATCH도 DTO 검증을 통과한다', async () => {
-  const response = await patch({
+it('학번 없는 name·department POST도 DTO 검증을 통과한다', async () => {
+  const response = await post({
     name: validBody.name,
     department: validBody.department,
   });
 
-  expect(response.status).toBe(200);
-  expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
+  expect(response.status).toBe(201);
+  expect(usersService.completeMyProfile).toHaveBeenCalledWith(githubId, {
     name: validBody.name,
     department: validBody.department,
   });
 });
 
-it('학과까지 없는 이름만의 PATCH도 DTO 검증을 통과한다', async () => {
-  // Given — 관리자는 이름만 필수라 학과 키 자체를 보내지 않는다(#439)
-  // When
-  const response = await patch({ name: validBody.name });
+it('학과가 없는 이름만의 요청을 400 SYS_003으로 거부한다', async () => {
+  const response = await post({ name: validBody.name });
 
-  // Then
-  expect(response.status).toBe(200);
-  expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
-    name: validBody.name,
-  });
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(usersService.completeMyProfile).not.toHaveBeenCalled();
+  expect(usersService.patchMyProfile).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -172,6 +196,7 @@ it.each([
 
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(usersService.completeMyProfile).not.toHaveBeenCalled();
   expect(usersService.patchMyProfile).not.toHaveBeenCalled();
 });
 

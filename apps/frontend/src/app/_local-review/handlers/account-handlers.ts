@@ -635,7 +635,10 @@ function accountMutationHandler(
     return json(200, { isAuthenticated: false });
   }
 
-  if (context.method === 'PATCH' && context.path === 'users/me/profile') {
+  if (
+    (context.method === 'POST' || context.method === 'PATCH') &&
+    context.path === 'users/me/profile'
+  ) {
     // 온보딩 중인 페르소나만 저장을 기억한다 — 저장 뒤 다음 화면의 게이트가 다시
     // 프로필을 조회하기 때문에, 잊어버리면 그 자리에서 왕복이 시작된다.
     const profile = patchedProfile(context);

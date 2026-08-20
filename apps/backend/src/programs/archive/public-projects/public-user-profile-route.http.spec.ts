@@ -43,6 +43,7 @@ const publicProfile = {
 
 const usersService = {
   getMyProfile: jest.fn().mockResolvedValue(myProfile),
+  completeMyProfile: jest.fn().mockResolvedValue(myProfile),
   patchMyProfile: jest.fn().mockResolvedValue(myProfile),
 };
 const publicProjectsService = {

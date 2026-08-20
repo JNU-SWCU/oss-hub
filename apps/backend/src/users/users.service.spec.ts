@@ -136,7 +136,7 @@ it('빈 프로필을 한 번만 저장하고 완료 응답을 반환한다', asy
   const { service, completeProfileIfUnchanged, updateProfileFields } =
     buildService();
 
-  await expect(service.patchMyProfile(githubId, input)).resolves.toEqual({
+  await expect(service.completeMyProfile(githubId, input)).resolves.toEqual({
     ...input,
     isComplete: true,
   });
@@ -162,7 +162,7 @@ it('미완료 프로필에 학번이 없으면 400 검증 오류로 거부한다
     buildService();
 
   const error = await captureDomainException(() =>
-    service.patchMyProfile(githubId, {
+    service.completeMyProfile(githubId, {
       name: input.name,
       department: input.department,
     }),
@@ -232,7 +232,7 @@ it('동시 저장에서 선점에 실패하면 덮어쓰지 않고 409로 거부
   const { service } = buildService({ completed: false });
 
   const error = await captureDomainException(() =>
-    service.patchMyProfile(githubId, input),
+    service.completeMyProfile(githubId, input),
   );
 
   expect(error.errorCode.code).toBe(UsersErrorCode.PROFILE_ALREADY_COMPLETE);
@@ -293,7 +293,7 @@ describe('역할별 필수 항목', () => {
     });
 
     // When
-    const profile = await service.patchMyProfile(githubId, {
+    const profile = await service.completeMyProfile(githubId, {
       name: input.name,
       department: input.department,
     });
@@ -320,7 +320,10 @@ describe('역할별 필수 항목', () => {
 
     // When
     const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, { name: input.name }),
+      service.completeMyProfile(githubId, {
+        name: input.name,
+        department: '',
+      }),
     );
 
     // Then
@@ -350,7 +353,7 @@ describe('역할별 필수 항목', () => {
     });
 
     // When
-    const profile = await service.patchMyProfile(githubId, {
+    const profile = await service.completeMyProfile(githubId, {
       name: input.name,
       department: input.department,
     });
@@ -376,7 +379,7 @@ describe('역할별 필수 항목', () => {
 
     // When
     const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, {
+      service.completeMyProfile(githubId, {
         name: input.name,
         studentId: '9'.repeat(9),
         department: input.department,
@@ -391,29 +394,45 @@ describe('역할별 필수 항목', () => {
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
 
-  it('관리자는 이름만으로 완료된다', async () => {
-    // Given — 이름조차 없는 관리자만 완료 저장 경로를 탄다
+  it('관리자도 이름·학과가 있어야 완료된다', async () => {
     const { service, completeProfileIfUnchanged } = buildService({
       user: { ...emptyUser('ADMIN'), name: null },
     });
 
-    // When
-    const profile = await service.patchMyProfile(githubId, {
+    const profile = await service.completeMyProfile(githubId, {
       name: input.name,
+      department: input.department,
     });
 
-    // Then
     expect(profile).toEqual({
       name: input.name,
       studentId: null,
-      department: null,
+      department: input.department,
       isComplete: true,
     });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
       name: input.name,
       studentId: null,
-      department: null,
+      department: input.department,
     });
+  });
+
+  it('미완료 프로필을 PATCH하면 USR_010으로 거부한다', async () => {
+    const { service, completeProfileIfUnchanged, updateProfileFields } =
+      buildService({ user: { ...emptyUser('ADMIN'), name: null } });
+
+    const error = await captureDomainException(() =>
+      service.patchMyProfile(githubId, {
+        name: input.name,
+        department: input.department,
+      }),
+    );
+
+    expect(error.errorCode.code).toBe(
+      UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST,
+    );
+    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
+    expect(updateProfileFields).not.toHaveBeenCalled();
   });
 
   it('GitHub 이름이 실린 관리자는 온보딩 없이 이미 완료 상태다', async () => {
@@ -426,11 +445,15 @@ describe('역할별 필수 항목', () => {
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: true,
     });
-    await service.patchMyProfile(githubId, { name: input.name });
+    await service.patchMyProfile(githubId, {
+      name: input.name,
+      department: input.department,
+    });
 
     // Then — 완료 상태이므로 1회 저장이 아니라 갱신 경로를 탄다
     expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
       name: input.name,
+      department: input.department,
     });
   });
 
@@ -440,7 +463,7 @@ describe('역할별 필수 항목', () => {
 
     // When
     const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, {
+      service.completeMyProfile(githubId, {
         name: input.name,
         department: input.department,
       }),
@@ -459,7 +482,7 @@ describe('역할별 필수 항목', () => {
 
     // When
     const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, {
+      service.completeMyProfile(githubId, {
         name: input.name,
         department: input.department,
       }),
@@ -548,8 +571,7 @@ describe('기존 데이터 호환', () => {
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
 
-  it('학과를 생략한 관리자 갱신은 기존 학과를 지우지 않는다', async () => {
-    // Given
+  it('관리자 갱신도 이름·학과를 함께 보낸다', async () => {
     const { service, updateProfileFields } = buildService({
       user: {
         id: 'synthetic-user',
@@ -560,15 +582,15 @@ describe('기존 데이터 호환', () => {
       },
     });
 
-    // When
     const profile = await service.patchMyProfile(githubId, {
       name: '수정된 이름',
+      department: input.department,
     });
 
-    // Then
     expect(profile.department).toBe(input.department);
     expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
       name: '수정된 이름',
+      department: input.department,
     });
   });
 
@@ -601,20 +623,21 @@ describe('기존 데이터 호환', () => {
     expect(updateProfileFields).not.toHaveBeenCalled();
   });
 
-  it('학과 없는 미완료 학생이 학번만 보내도 USR_005로 거부한다', async () => {
-    // Given — 1회 완료 저장도 같은 이유로 학번만 따로 남길 수 없다
+  it('학과가 빈 미완료 학생이 학번만 채워도 완료되지 않는다', async () => {
     const { service, completeProfileIfUnchanged } = buildService({
       user: { ...emptyUser('STUDENT'), name: null },
     });
 
-    // When
     const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, { name: input.name, studentId }),
+      service.completeMyProfile(githubId, {
+        name: input.name,
+        studentId,
+        department: '',
+      }),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
-      code: UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT,
+      code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
     });
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
@@ -715,7 +738,7 @@ describe('역할 변경 경계', () => {
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
-    const profile = await service.patchMyProfile(githubId, input);
+    const profile = await service.completeMyProfile(githubId, input);
 
     // Then — 학번이 아직 없었으므로 USR_003이 아니라 최초 저장으로 처리한다
     expect(profile).toEqual({ ...input, isComplete: true });
@@ -742,7 +765,7 @@ describe('역할 변경 경계', () => {
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
-    const profile = await service.patchMyProfile(githubId, {
+    const profile = await service.completeMyProfile(githubId, {
       name: input.name,
       department: input.department,
     });

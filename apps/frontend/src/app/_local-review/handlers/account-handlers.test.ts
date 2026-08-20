@@ -314,7 +314,7 @@ describe('account fixture responses', () => {
   it('온보딩 프로필 저장은 미완성 입력을 미완성으로 답한다', () => {
     // Given / When: 파서는 isComplete와 값의 정합성이 어긋나면 응답을 거부한다.
     const profile = jsonBody(
-      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      callWithBody('unassigned', 'POST', 'users/me/profile', {
         name: '합성 온보딩 사용자',
         studentId: '12',
         department: '인공지능학부',
@@ -509,7 +509,7 @@ describe('account fixture responses', () => {
     });
 
     // When
-    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+    callWithBody('unassigned', 'POST', 'users/me/profile', {
       name: '합성 학생 사용자',
       studentId: '260001',
       department: '인공지능학부',
@@ -530,7 +530,7 @@ describe('account fixture responses', () => {
     });
 
     // When
-    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+    callWithBody('unassigned', 'POST', 'users/me/profile', {
       name: '합성 교직원 사용자',
       department: '인공지능학부',
     });
@@ -553,7 +553,7 @@ describe('account fixture responses', () => {
     callWithBody('unassigned', 'POST', 'onboarding/role', {
       selectedRole: 'STAFF',
     });
-    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+    callWithBody('unassigned', 'POST', 'users/me/profile', {
       name: '합성 교직원 사용자',
       department: '인공지능학부',
     });
@@ -580,7 +580,7 @@ describe('account fixture responses', () => {
 
     // When
     const profile = jsonBody(
-      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      callWithBody('unassigned', 'POST', 'users/me/profile', {
         name: '합성 교직원 사용자',
         department: '인공지능학부',
       }),
@@ -607,7 +607,7 @@ describe('account fixture responses', () => {
 
     // When
     const profile = jsonBody(
-      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      callWithBody('unassigned', 'POST', 'users/me/profile', {
         name: '합성 교직원 사용자',
         studentId: '12',
         department: '인공지능학부',
@@ -726,7 +726,7 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
     // 4 — 프로필 저장. 교직원이라 학번은 묻지 않는다.
     expect(
       jsonBody(
-        callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+        callWithBody('unassigned', 'POST', 'users/me/profile', {
           name: '합성 교직원 사용자',
           department: '인공지능학부',
         }),
@@ -759,7 +759,7 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
     callWithBody('unassigned', 'POST', 'onboarding/role', {
       selectedRole: 'STAFF',
     });
-    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+    callWithBody('unassigned', 'POST', 'users/me/profile', {
       name: '합성 교직원 사용자',
       department: '인공지능학부',
     });

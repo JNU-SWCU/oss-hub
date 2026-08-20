@@ -5,6 +5,7 @@ import {
   Header,
   Inject,
   Patch,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -22,7 +23,7 @@ export class UsersController {
     @Inject(UsersService)
     private readonly usersService: Pick<
       UsersService,
-      'getMyProfile' | 'patchMyProfile'
+      'getMyProfile' | 'completeMyProfile' | 'patchMyProfile'
     >,
   ) {}
 
@@ -34,6 +35,20 @@ export class UsersController {
   ): Promise<UserProfileResponseDto> {
     return UserProfileResponseDto.from(
       await this.usersService.getMyProfile(request.sessionGithubId),
+    );
+  }
+
+  @Post()
+  @UseGuards(SessionGuard, OriginGuard)
+  async completeMyProfile(
+    @Req() request: SessionIdentity,
+    @Body() body: UpdateMyProfileRequestDto,
+  ): Promise<UserProfileResponseDto> {
+    return UserProfileResponseDto.from(
+      await this.usersService.completeMyProfile(
+        request.sessionGithubId,
+        body.toInput(),
+      ),
     );
   }
 

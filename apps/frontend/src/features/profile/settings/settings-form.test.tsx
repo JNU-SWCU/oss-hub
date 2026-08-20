@@ -116,19 +116,19 @@ describe('settings form view', () => {
     expect(html).not.toContain('>선택</span>');
   });
 
-  it('관리자에게는 학번·학과 칸을 모두 감춘다', () => {
+  it('관리자에게는 학번 칸만 감추고 학과는 받는다', () => {
     const html = renderForm(values({ studentId: '', savedStudentId: '' }), {
       role: 'ADMIN',
     });
 
     expect(html).not.toContain('settings-student-id');
-    expect(html).not.toContain('settings-department');
+    expect(html).toContain('settings-department');
     expect(html).toContain('settings-name');
-    expect(html).toContain('이름을 수정할 수 있습니다.');
+    expect(html).toContain('이름과 학과를 수정할 수 있습니다.');
     expect(html).toContain('settings-notification-email');
   });
 
-  it('감춘 항목은 필수 오류를 만들지 않는다', () => {
+  it('학과가 비면 역할과 무관하게 필수 오류를 만든다', () => {
     const emptyProfileFields = values({
       studentId: '',
       savedStudentId: '',
@@ -141,7 +141,7 @@ describe('settings form view', () => {
         role: 'ADMIN',
         showValidationErrors: true,
       }),
-    ).not.toContain('학과를 선택하거나 입력해 주세요.');
+    ).toContain('학과를 선택하거나 입력해 주세요.');
     expect(
       renderForm(emptyProfileFields, {
         role: 'STAFF',
