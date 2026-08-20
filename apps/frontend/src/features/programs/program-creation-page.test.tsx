@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   createAuthoringProgram: vi.fn(),
   deleteAuthoringUpload: vi.fn(),
   uploadAuthoringFile: vi.fn(),
-  leavePage: vi.fn(() => true),
   completeAndNavigate: vi.fn(),
   useProgramExitGuard: vi.fn(),
 }));
@@ -28,7 +27,6 @@ vi.mock('./use-program-exit-guard', () => ({
   useProgramExitGuard: (dirty: boolean) => {
     mocks.useProgramExitGuard(dirty);
     return {
-      leavePage: mocks.leavePage,
       completeAndNavigate: mocks.completeAndNavigate,
     };
   },
@@ -58,7 +56,6 @@ describe('ProgramCreationPage guided authoring', () => {
     mocks.createAuthoringProgram.mockReset();
     mocks.deleteAuthoringUpload.mockReset();
     mocks.uploadAuthoringFile.mockReset();
-    mocks.leavePage.mockClear();
     mocks.completeAndNavigate.mockClear();
     mocks.useProgramExitGuard.mockClear();
     container = document.createElement('div');

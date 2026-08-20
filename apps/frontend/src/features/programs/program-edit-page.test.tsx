@@ -349,8 +349,6 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(
       container.querySelector<HTMLInputElement>('#program-name')?.value,
     ).toBe('저장 실패해도 남아야 하는 이름');
-    // dirtyFields도 비워지지 않았다 — 「변경 취소」가 계속 눌린다.
-    expect(getButton('변경 취소').disabled).toBe(false);
     // 저장 버튼은 저장 중 상태에서 풀려나 다시 눌러 볼 수 있다.
     expect(getButton('변경사항 저장')).toBeTruthy();
     // 에러는 폼 옆(FieldError)에 뜬다 — 페이지 위쪽 generalAlert가 아니다.

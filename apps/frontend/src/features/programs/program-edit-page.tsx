@@ -85,9 +85,6 @@ export function ProgramEditPage({
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
   const isDirty = dirtyFields.length > 0;
-  // 지금 열려 있는 마일스톤 편집기에 저장 안 한 입력이 있는지. isDirty와 따로
-  // 두는 이유 — 「변경 취소」는 기본 폼만 되돌리는데, 두 값을 합치면 마일스톤만
-  // 고친 상태에서도 그 버튼이 활성화되고 눌러도 아무 일도 안 일어난다.
   const hasUnsavedMilestoneEdit =
     milestoneEditor.mode !== 'closed' && milestoneDirtyFields.length > 0;
   // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
@@ -294,14 +291,6 @@ export function ProgramEditPage({
     }
   };
 
-  const reset = () => {
-    if (state.kind !== 'ready') return;
-    setForm(toProgramEditForm(state.program));
-    setDirtyFields([]);
-    setErrors({});
-    setToastMessage(null);
-  };
-
   if (state.kind === 'failed') {
     return (
       <ProgramEditLoadFailure
@@ -326,14 +315,12 @@ export function ProgramEditPage({
       deleteTarget={deleteTarget}
       expandedDocumentsMilestoneId={createdMilestoneId}
       isMilestoneBusy={isMilestoneBusy}
-      isDirty={isDirty}
       isLifecycleBusy={isLifecycleBusy}
       isLifecycleConfirming={isLifecycleConfirming}
       lifecycleError={lifecycleError}
       isAdmin={isAdmin}
       onFieldChange={updateField}
       onSubmit={(event) => void submit(event)}
-      onReset={reset}
       onRequestLifecycleToggle={requestLifecycleToggle}
       onCancelLifecycleToggle={cancelLifecycleToggle}
       onConfirmLifecycleToggle={() => void confirmLifecycleToggle()}

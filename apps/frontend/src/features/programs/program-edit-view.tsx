@@ -38,7 +38,6 @@ interface ProgramEditViewProps {
   /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「받을 서류」가 펼쳐진 채로 뜬다. */
   readonly expandedDocumentsMilestoneId: string | null;
   readonly isMilestoneBusy: boolean;
-  readonly isDirty: boolean;
   readonly isLifecycleBusy: boolean;
   readonly isLifecycleConfirming: boolean;
   readonly lifecycleError: string | null;
@@ -49,7 +48,6 @@ interface ProgramEditViewProps {
     value: string | boolean,
   ) => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  readonly onReset: () => void;
   readonly onRequestLifecycleToggle: () => void;
   readonly onCancelLifecycleToggle: () => void;
   readonly onConfirmLifecycleToggle: () => void;
@@ -109,14 +107,12 @@ export function ProgramEditView({
   deleteTarget,
   expandedDocumentsMilestoneId,
   isMilestoneBusy,
-  isDirty,
   isLifecycleBusy,
   isLifecycleConfirming,
   lifecycleError,
   isAdmin,
   onFieldChange,
   onSubmit,
-  onReset,
   onRequestLifecycleToggle,
   onCancelLifecycleToggle,
   onConfirmLifecycleToggle,
@@ -187,10 +183,8 @@ export function ProgramEditView({
           form={form}
           errors={errors}
           isSaving={isSaving}
-          isDirty={isDirty}
           onFieldChange={onFieldChange}
           onSubmit={onSubmit}
-          onReset={onReset}
         />
         <Card>
           <CardContent className="pt-card">
