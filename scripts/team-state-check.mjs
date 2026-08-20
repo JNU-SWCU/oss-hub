@@ -8,10 +8,9 @@ import {
   formatReport,
 } from './team-state-check-lib.mjs';
 
-const TEAM_STATE_PATH = 'docs/handoff/TEAM-STATE.md';
+const JOURNAL_DIRECTORY = 'docs/handoff/team-state';
 const ACTIVE_PLAN_DIRECTORY = 'docs/exec-plan/active';
 const COMMAND_TIMEOUT_MS = 30_000;
-const REMOTE_MAIN_REF = 'refs/remotes/origin/main';
 
 function run(command, args) {
   return execFileSync(command, args, {
@@ -66,61 +65,24 @@ function githubClient(repository) {
   };
 }
 
-async function inspectSourceCommit(sourceCommit, teamStatePath) {
-  try {
-    run('git', [
-      'fetch',
-      '--no-tags',
-      'origin',
-      `+refs/heads/main:${REMOTE_MAIN_REF}`,
-    ]);
-    run('git', ['merge-base', '--is-ancestor', sourceCommit, REMOTE_MAIN_REF]);
-    const commitsBehind = Number(
-      run('git', [
-        'rev-list',
-        '--count',
-        `${sourceCommit}..${REMOTE_MAIN_REF}`,
-      ]),
-    );
-    const changedFiles = run('git', [
-      'diff',
-      '--name-only',
-      `${sourceCommit}..${REMOTE_MAIN_REF}`,
-    ])
-      .split('\n')
-      .filter(Boolean);
-    const materialChanges = changedFiles.filter(
-      (filePath) => filePath !== teamStatePath,
-    );
-    return {
-      status:
-        commitsBehind > 0 && materialChanges.length > 0 ? 'stale' : 'clean',
-      commitsBehind,
-      changedFiles,
-    };
-  } catch {
-    return { status: 'unknown', commitsBehind: 0, changedFiles: [] };
+function loadMarkdownFiles(directory, sortNames) {
+  const fileNames = readdirSync(directory).filter((fileName) =>
+    fileName.endsWith('.md'),
+  );
+  if (sortNames) {
+    fileNames.sort();
   }
-}
-
-function activePlans() {
-  return readdirSync(ACTIVE_PLAN_DIRECTORY)
-    .filter((fileName) => fileName.endsWith('.md'))
-    .map((fileName) => {
-      const filePath = path.join(ACTIVE_PLAN_DIRECTORY, fileName);
-      return { path: filePath, text: readFileSync(filePath, 'utf8') };
-    });
+  return fileNames.map((fileName) => {
+    const filePath = path.join(directory, fileName);
+    return { path: filePath, text: readFileSync(filePath, 'utf8') };
+  });
 }
 
 async function main() {
-  const teamStateText = readFileSync(TEAM_STATE_PATH, 'utf8');
   const result = await checkTeamStateDrift({
-    teamStatePath: TEAM_STATE_PATH,
-    teamStateText,
-    activePlans: activePlans(),
+    journals: loadMarkdownFiles(JOURNAL_DIRECTORY, true),
+    activePlans: loadMarkdownFiles(ACTIVE_PLAN_DIRECTORY, false),
     github: githubClient(repositoryName()),
-    now: new Date(),
-    inspectSourceCommit,
   });
   const report = formatReport(result);
   process.stdout.write(report);
