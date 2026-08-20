@@ -324,7 +324,12 @@ expect_fail '허용·금지 주소가 같은 줄인 변경 파일' scan_fixture_
 
 init_fixture_repo commit-message
 commit_fixture commit --allow-empty -qm "$mixed_same_line"
-expect_fail '허용·금지 주소가 같은 줄인 커밋 메시지' scan_fixture_repo
+expect_pass '커밋 메시지의 이메일 후보는 자동 검사하지 않음' scan_fixture_repo
+
+init_fixture_repo commit-message-eai
+commit_fixture commit --allow-empty -qm "$blocked_eai_local"
+expect_pass '커밋 메시지의 비ASCII 이메일 후보도 자동 검사하지 않음' \
+  scan_fixture_repo
 
 init_fixture_repo commit-message-student-id
 commit_fixture commit --allow-empty -qm "$blocked_student_id_like"
