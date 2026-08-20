@@ -62,7 +62,7 @@ export function Horizontal() {
 export function RadioSetInFieldSet() {
   return (
     <FieldSet>
-      <FieldLegend>판정 선택</FieldLegend>
+      <FieldLegend>결과 선택</FieldLegend>
       <div className="grid gap-2">
         <FieldLabel>
           <Field orientation="horizontal">

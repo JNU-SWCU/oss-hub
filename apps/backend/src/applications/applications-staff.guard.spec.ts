@@ -64,7 +64,7 @@ describe('ApplicationsStaffGuard', () => {
       await decision;
     } catch (error: unknown) {
       const message = readDomainMessage(error);
-      expect(message).toContain('판정');
+      expect(message).toContain('승인하거나 반려');
     }
   });
 

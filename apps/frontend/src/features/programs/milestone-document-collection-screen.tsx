@@ -212,7 +212,11 @@ export function MilestoneDocumentCollectionScreen({
       setReview((previous) =>
         previous === null
           ? previous
-          : { ...previous, errorMessage: formError ?? '판정을 골라 주세요.' },
+          : {
+              ...previous,
+              errorMessage:
+                formError ?? '승인, 보완 요청, 반려 중 하나를 골라 주세요.',
+            },
       );
       return;
     }
@@ -250,7 +254,7 @@ export function MilestoneDocumentCollectionScreen({
         reload();
         return;
       }
-      // 저장한 판정은 곧바로 칸의 배지와 「지난 판정」이 되어야 한다 — 그 값은 서버가
+      // 저장한 결과는 곧바로 칸의 배지와 「지난 검토」가 되어야 한다 — 그 값은 서버가
       // 소유하므로 응답을 손으로 표에 꽂지 않고 표를 다시 부른다.
       setReviewNotice(null);
       setReview(null);
@@ -288,7 +292,7 @@ export function MilestoneDocumentCollectionScreen({
               errorMessage:
                 error instanceof ApiError
                   ? error.problem.detail
-                  : '판정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+                  : '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
             },
       );
       if (conflict !== null) {

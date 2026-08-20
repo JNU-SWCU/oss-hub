@@ -91,11 +91,11 @@ const REVIEW_CONFLICT_LEAD: Readonly<
   Record<MilestoneDocumentReviewConflict, string>
 > = {
   'target-changed':
-    '검토하는 사이에 이 서류의 제출물 또는 판정이 바뀌어, 방금 고른 판정은 저장하지 않았습니다.',
+    '검토하는 사이에 이 서류의 제출물 또는 검토 결과가 바뀌어, 방금 고른 결과는 저장하지 않았습니다.',
   'review-changed':
-    '검토하는 사이에 다른 판정이 먼저 등록되어, 방금 고른 판정은 저장하지 않았습니다.',
+    '검토하는 사이에 다른 검토 결과가 먼저 등록되어, 방금 고른 결과는 저장하지 않았습니다.',
   'submission-missing':
-    '판정하려던 제출을 찾지 못해, 방금 고른 판정은 저장하지 않았습니다.',
+    '검토하려던 제출을 찾지 못해, 방금 고른 결과는 저장하지 않았습니다.',
 };
 
 /**
@@ -109,9 +109,9 @@ const REVIEW_CONFLICT_RELOAD_TAIL: Readonly<
   Record<MilestoneDocumentReloadResult, string>
 > = {
   reloaded:
-    '표를 최신 내용으로 다시 불러왔습니다 — 제출 내용을 다시 확인한 뒤 판정해 주세요.',
+    '표를 최신 내용으로 다시 불러왔습니다 — 제출 내용을 다시 확인한 뒤 다시 검토해 주세요.',
   failed:
-    '표를 다시 불러오지 못했습니다 — 낡은 내용을 그대로 두지 않으려고 표를 걷었습니다. 「다시 시도」로 불러온 뒤 판정해 주세요.',
+    '표를 다시 불러오지 못했습니다 — 낡은 내용을 그대로 두지 않으려고 표를 걷었습니다. 「다시 시도」로 불러온 뒤 다시 검토해 주세요.',
 };
 
 /**
@@ -165,8 +165,8 @@ export function milestoneDocumentSubmitConflictNotice(
   documentName: string,
   result: MilestoneDocumentReloadResult,
 ): string {
-  const lead = `제출하는 사이에 「${documentName}」에 교직원 판정이 등록되어, 방금 제출은 저장되지 않았습니다.`;
+  const lead = `제출하는 사이에 「${documentName}」에 교직원 검토 결과가 등록되어, 방금 제출은 저장되지 않았습니다.`;
   return result === 'reloaded'
-    ? `${lead} 서류 상태를 다시 불러왔습니다 — 판정 내용을 확인한 뒤 진행해 주세요.`
-    : `${lead} 서류 상태를 다시 불러오지 못했습니다 — 「다시 시도」로 불러온 뒤 판정 내용을 확인해 주세요.`;
+    ? `${lead} 서류 상태를 다시 불러왔습니다 — 검토 내용을 확인한 뒤 진행해 주세요.`
+    : `${lead} 서류 상태를 다시 불러오지 못했습니다 — 「다시 시도」로 불러온 뒤 검토 내용을 확인해 주세요.`;
 }

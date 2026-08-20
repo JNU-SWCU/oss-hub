@@ -331,6 +331,38 @@ describe('describeAuditLog', () => {
     );
   });
 
+  it('APPLICATION_REVERTED 폴백 target은 검토 대기로 되돌렸다고 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-application-reverted',
+      actor: 'synthetic-staff',
+      action: 'APPLICATION_REVERTED',
+      targetType: 'APPLICATION',
+      targetId: 'application-synthetic-1',
+      target: 'APPLICATION / application-synthetic-1',
+      occurredAt: '2026-07-24T06:10:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 신청 application-synthetic-1을(를) 검토 대기로 되돌렸습니다',
+    );
+  });
+
+  it('APPLICATION_REVERTED가 합성 라벨을 받으면 그 신청을 검토 대기로 되돌렸다고 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-application-reverted-resolved',
+      actor: 'synthetic-staff',
+      action: 'APPLICATION_REVERTED',
+      targetType: 'APPLICATION',
+      targetId: 'application-synthetic-2',
+      target: '합성 프로그램 · @synthetic-applicant-login',
+      occurredAt: '2026-07-24T06:15:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 합성 프로그램 · @synthetic-applicant-login님의 신청을 검토 대기로 되돌렸습니다',
+    );
+  });
+
   it('등록되지 않은 action은 원본 action 문자열을 담은 폴백 문장을 만든다', () => {
     const record: AuditLogRecord = {
       ...BASE_RECORD,

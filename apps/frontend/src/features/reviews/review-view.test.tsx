@@ -64,7 +64,7 @@ describe('SubmissionReviewView', () => {
         comment=""
         isSaving={false}
         isPublishing={false}
-        formError="판정을 선택해 주세요."
+        formError="승인, 보완 요청, 반려 중 하나를 골라 주세요."
         notice={null}
         publishError={null}
         onDecisionChange={noOp}
@@ -92,7 +92,7 @@ describe('SubmissionReviewView', () => {
     expect(html).toContain('value="APPROVED"');
     expect(html).toContain('value="CHANGES_REQUESTED"');
     expect(html).toContain('value="REJECTED"');
-    expect(html).toContain('판정 저장');
+    expect(html).toContain('>저장<');
     expect(html).toContain('제출 링크');
     expect(html).toContain('href="https://example.com/repository"');
     // QA48 — 제출 본문이 그대로 문서로 보여야 하고, raw JSON은 새 나가면 안 된다.
@@ -114,7 +114,7 @@ describe('SubmissionReviewView', () => {
 
     // Then
     expect(html).toContain('제출본 1번');
-    expect(html).toContain('이전 제출본과 판정 이력');
+    expect(html).toContain('이전 제출본과 검토 이력');
     expect(html).toContain('이전 제출본이 없습니다');
     expect(html).toContain('최초 제출입니다');
     expect(html).toContain('현재 제출본을 승인합니다');

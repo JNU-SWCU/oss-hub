@@ -217,7 +217,7 @@ export async function fetchUnreadApplicationDecisionNotices(): Promise<
     !Array.isArray(response) ||
     !response.every(isApplicationDecisionNotice)
   ) {
-    throw new Error('신청 판정 알림 응답 형식이 올바르지 않습니다.');
+    throw new Error('신청 승인 알림 응답 형식이 올바르지 않습니다.');
   }
   return response;
 }
