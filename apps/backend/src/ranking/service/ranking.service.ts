@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import {
   RANKING_VIEWER_CLASSES,
   RANKING_YEAR_ALL,
-  type RankingActivity,
   type RankingEntry,
   type RankingPage,
   type RankingYear,
@@ -84,12 +83,6 @@ export class RankingService {
 
   async findDataAsOf(): Promise<Date | null> {
     return this.ranking.findDataAsOf();
-  }
-
-  async findPublicActivity(query: {
-    readonly currentYear?: number;
-  }): Promise<readonly RankingActivity[]> {
-    return this.ranking.findMetrics(query);
   }
 
   private async findPublicEntries(

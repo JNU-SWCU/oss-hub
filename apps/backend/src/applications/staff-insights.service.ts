@@ -8,9 +8,9 @@ import {
   rankingYearFilter,
   type InsightsYearScope,
 } from './staff-insights-year';
-import { RankingService } from '../ranking/service/ranking.service';
 import {
   StaffInsightsRepository,
+  type StaffInsightsActivityRecord,
   type StaffInsightsStudentRecord,
 } from './staff-insights.repository';
 
@@ -93,19 +93,16 @@ function rankingTotal(activity: ActivityTotals): number {
 
 @Injectable()
 export class StaffInsightsService {
-  constructor(
-    private readonly repository: StaffInsightsRepository,
-    private readonly ranking: RankingService,
-  ) {}
+  constructor(private readonly repository: StaffInsightsRepository) {}
 
   async summarize(scope: InsightsYearScope): Promise<StaffInsightsSummary> {
     const [students, participations, activity, dataAsOf, years] =
       await Promise.all([
         this.repository.listStudents(),
         this.repository.listApprovedParticipations(),
-        this.ranking.findPublicActivity(rankingYearFilter(scope)),
-        this.ranking.findDataAsOf(),
-        this.ranking.listYears(),
+        this.repository.listActivityTotals(rankingYearFilter(scope)),
+        this.repository.findActivityDataAsOf(),
+        this.repository.listActivityYears(),
       ]);
 
     const activityByGithubId = foldActivity(activity);
@@ -136,7 +133,7 @@ export class StaffInsightsService {
 }
 
 function foldActivity(
-  rows: Awaited<ReturnType<RankingService['findPublicActivity']>>,
+  rows: readonly StaffInsightsActivityRecord[],
 ): ReadonlyMap<string, ActivityTotals> {
   const folded = new Map<string, ActivityTotals>();
   for (const row of rows) {

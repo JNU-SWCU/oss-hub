@@ -5,7 +5,6 @@ import { AuthModule } from '../auth/auth.module';
 import { RepositoriesModule } from '../github/repositories.module';
 import { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
 import { ProgramsModule } from '../programs/programs.module';
-import { RankingModule } from '../ranking/ranking.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
 import {
   ApplicationsStaffGuard,
@@ -32,7 +31,6 @@ import { StudentApplicationsController } from './student-applications.controller
     AuthModule,
     RepositoriesModule,
     ProgramsModule,
-    RankingModule,
     SubmissionsModule,
   ],
   controllers: [
