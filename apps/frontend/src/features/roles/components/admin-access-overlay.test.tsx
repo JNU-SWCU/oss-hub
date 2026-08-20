@@ -22,7 +22,11 @@ vi.mock('./admin-access-detail-view', () => ({
   AdminAccessDetailView: () => null,
 }));
 
-import { AdminAccessOverlay } from './admin-access-overlay';
+import {
+  AdminAccessOverlay,
+  readProductShellScrollTop,
+  writeProductShellScrollTop,
+} from './admin-access-overlay';
 
 const USER_ID = 'synthetic-admin-target';
 
@@ -95,5 +99,45 @@ describe('AdminAccessOverlay — 닫을 때 초점 복원', () => {
     });
 
     expect(document.activeElement).toBe(triggerRow);
+  });
+});
+
+describe('AdminAccessOverlay — 회원 셸 스크롤 복원', () => {
+  it('#main-content가 있으면 그 칸의 scrollTop을 읽고 되돌린다', () => {
+    const scroller = document.createElement('div');
+    scroller.id = 'main-content';
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      writable: true,
+      value: 240,
+    });
+    document.body.append(scroller);
+
+    expect(readProductShellScrollTop()).toBe(240);
+    writeProductShellScrollTop(80);
+    expect(scroller.scrollTop).toBe(80);
+
+    scroller.remove();
+  });
+
+  it('오버레이를 닫으면 #main-content 스크롤을 열릴 때 값으로 되돌린다', () => {
+    const scroller = document.createElement('div');
+    scroller.id = 'main-content';
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      writable: true,
+      value: 180,
+    });
+    document.body.append(scroller);
+
+    mountOverlay();
+    scroller.scrollTop = 0;
+
+    act(() => {
+      root.render(null);
+    });
+
+    expect(scroller.scrollTop).toBe(180);
+    scroller.remove();
   });
 });

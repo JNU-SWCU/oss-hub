@@ -23,3 +23,10 @@
 - PR: (이 PR)
 - blocker: 없음
 
+## 2026-08-20 — 사이드바 스크롤·상세 오버레이 UX
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+

@@ -142,10 +142,10 @@ export type ProgramScopeViewerRole = 'GUEST' | 'STUDENT' | 'STAFF' | 'ADMIN';
 
 /**
  * 프로그램 스코프 브랜드 행 「‹ 프로그램 목록」의 목적지.
- * 교직원·관리자의 운영 목록은 `/dashboard`이고, 학생·비회원은 공개 목록 `/programs`다.
+ * 라벨이 프로그램 목록이므로 역할과 무관하게 `/programs`로 보낸다.
+ * 교직원 운영 대시보드(`/dashboard`)와는 다른 화면이다.
  */
-export function programScopeBackHref(role: ProgramScopeViewerRole): string {
-  if (role === 'STAFF' || role === 'ADMIN') return '/dashboard';
+export function programScopeBackHref(): string {
   return '/programs';
 }
 

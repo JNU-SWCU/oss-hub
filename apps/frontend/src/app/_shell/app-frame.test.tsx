@@ -183,6 +183,12 @@ describe('AppFrame', () => {
       'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
     );
   });
+
+  it('회원 셸은 뷰포트를 고정하고 본문만 스크롤한다', () => {
+    const html = render('/dashboard');
+    expect(html).toContain('flex h-dvh flex-col overflow-hidden');
+    expect(html).toContain('overflow-y-auto');
+  });
 });
 
 describe('readStoredCollapsed', () => {

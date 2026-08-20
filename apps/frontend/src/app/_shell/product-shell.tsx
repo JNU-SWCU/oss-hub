@@ -221,7 +221,11 @@ export function ProductShell({
   if (!programDetailId && groups.length === 0) {
     return (
       <RankingCycleProvider>
-        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
+        <div
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto"
+        >
           {children}
         </div>
       </RankingCycleProvider>
@@ -287,7 +291,7 @@ export function ProductShell({
             pathname={pathname}
             collapsed={collapsed}
             onToggle={toggle}
-            backHref={programScopeBackHref(scopeViewerRole)}
+            backHref={programScopeBackHref()}
             countdown={
               scopeOverview?.nextMilestone
                 ? {
@@ -307,7 +311,11 @@ export function ProductShell({
             brandTitle={sidebarBrandTitle(section, groups)}
           />
         )}
-        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
+        <div
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-0 min-w-0 overflow-y-auto"
+        >
           {children}
         </div>
         <SidebarDrawer

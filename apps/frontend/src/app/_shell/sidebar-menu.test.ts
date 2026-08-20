@@ -356,11 +356,8 @@ describe('programDetailIdFromPathname', () => {
 });
 
 describe('programScopeBackHref', () => {
-  it('교직원·관리자는 운영 대시보드로, 학생·비회원은 공개 목록으로 보낸다', () => {
-    expect(programScopeBackHref('STAFF')).toBe('/dashboard');
-    expect(programScopeBackHref('ADMIN')).toBe('/dashboard');
-    expect(programScopeBackHref('STUDENT')).toBe('/programs');
-    expect(programScopeBackHref('GUEST')).toBe('/programs');
+  it('역할과 무관하게 프로그램 목록으로 보낸다', () => {
+    expect(programScopeBackHref()).toBe('/programs');
   });
 });
 

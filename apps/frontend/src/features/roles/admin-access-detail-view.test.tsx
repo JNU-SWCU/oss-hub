@@ -282,7 +282,7 @@ describe('"자격 상태"·"마지막 로그인" 카드 제거', () => {
     expect(html).not.toContain('자격 상태');
   });
 
-  it('마지막 로그인은 별도 카드가 아니라 로그인 이력 제목 옆에 붙는다', () => {
+  it('로그인 이력 제목 옆에 마지막 로그인을 다시 쓰지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -294,24 +294,9 @@ describe('"자격 상태"·"마지막 로그인" 카드 제거', () => {
         mutation={mutation()}
       />,
     );
-    expect(html).toContain('마지막 로그인');
-    expect(html).toContain('2026');
-  });
-
-  it('로그인 기록이 없으면 "기록 없음"을 그린다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={{
-          kind: 'ready',
-          detail: detail({ lastLoginAt: null }),
-          history: history(),
-        }}
-        onRetry={() => {}}
-        mutation={mutation()}
-      />,
-    );
-    expect(html).toContain('마지막 로그인');
-    expect(html).toContain('기록 없음');
+    expect(html).toContain('로그인 이력');
+    expect(html).not.toContain('마지막 로그인');
+    expect(html).not.toContain('기록 없음');
   });
 });
 
@@ -900,6 +885,44 @@ describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레
       />,
     );
     expect(html).not.toContain('md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]');
+  });
+
+  it('overlay는 접근 변경을 이력보다 앞에 두고 이력 라벨로 구분한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="overlay"
+      />,
+    );
+    const accessChangeAt = html.indexOf('접근 변경');
+    const historyLabelAt = html.indexOf('>이력</');
+    const loginHistoryAt = html.indexOf('로그인 이력');
+    expect(accessChangeAt).toBeGreaterThan(-1);
+    expect(historyLabelAt).toBeGreaterThan(accessChangeAt);
+    expect(loginHistoryAt).toBeGreaterThan(historyLabelAt);
+  });
+
+  it('standalone 왼쪽은 이력, 오른쪽은 편집이다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="standalone"
+      />,
+    );
+    const primary =
+      html.match(
+        /data-slot="detail-panel-primary"[^>]*>([\s\S]*?)data-slot="detail-panel-secondary"/,
+      )?.[1] ?? '';
+    const secondary =
+      html.match(/data-slot="detail-panel-secondary"[^>]*>([\s\S]*)$/)?.[1] ??
+      '';
+    expect(primary).toContain('로그인 이력');
+    expect(primary).not.toContain('접근 변경');
+    expect(secondary).toContain('접근 변경');
   });
 
   it('standalone은 DetailPanelLayout을 2열로 유지한다', () => {

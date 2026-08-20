@@ -66,8 +66,8 @@ export function AppSidebar({
       data-collapsed={collapsed ? 'true' : 'false'}
       className={cn(
         // 모바일: 숨김 — 필터는 페이지 칩이 담당
-        'hidden min-[900px]:flex min-[900px]:flex-col',
-        'border-sidebar-border bg-sidebar min-[900px]:sticky min-[900px]:top-0 min-[900px]:max-h-[calc(100dvh-3.5rem)] min-[900px]:min-h-[calc(100dvh-3.5rem)] min-[900px]:border-r',
+        'hidden min-[900px]:flex min-[900px]:h-full min-[900px]:min-h-0 min-[900px]:flex-col min-[900px]:overflow-hidden',
+        'border-sidebar-border bg-sidebar min-[900px]:border-r',
       )}
     >
       <div
@@ -123,7 +123,7 @@ export function AppSidebar({
       <p
         data-slot="app-sidebar-foot"
         className={cn(
-          'mt-auto border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
+          'mt-auto shrink-0 border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
           collapsed && 'hidden',
         )}
       >

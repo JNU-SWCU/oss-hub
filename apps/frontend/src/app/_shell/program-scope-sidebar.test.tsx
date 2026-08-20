@@ -70,6 +70,10 @@ describe('ProgramScopeSidebar', () => {
   it('is desktop-only, same shell as AppSidebar', () => {
     const html = render();
     expect(html).toContain('hidden min-[900px]:flex');
+    expect(html).not.toContain('sticky');
+    expect(html).not.toContain('100dvh-3.5rem');
+    expect(html).toContain('min-h-0');
+    expect(html).toContain('overflow-hidden');
   });
 
   it('shows the back link and program title instead of an eyebrow group label', () => {
