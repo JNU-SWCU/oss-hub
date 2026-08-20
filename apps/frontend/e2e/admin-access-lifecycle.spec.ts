@@ -24,7 +24,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     // Given: auth seed의 두 PENDING 요청이 있는 관리자 접근 목록.
     await adminPage.goto('/admin/access');
     await expect(
-      adminPage.getByRole('heading', { name: '접근 목록' }),
+      adminPage.getByRole('heading', { name: '사용자 목록' }),
     ).toBeVisible();
     const allTab = adminPage.getByRole('button', {
       name: '전체 목록',

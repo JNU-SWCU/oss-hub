@@ -155,7 +155,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(staffLink?.textContent).toContain('운영 대시보드');
 
     for (const [label, href] of [
-      ['접근 목록', '/admin/access'],
+      ['사용자 목록', '/admin/access'],
       ['감사 로그', '/admin/audit-log'],
       ['시스템 상태', '/admin/system-status'],
     ]) {

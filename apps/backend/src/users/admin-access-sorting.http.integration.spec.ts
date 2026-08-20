@@ -23,6 +23,8 @@ it.each([
   ['name', 'asc'],
   ['createdAt', 'desc'],
   ['lastLoginAt', 'asc'],
+  ['role', 'desc'],
+  ['accountStatus', 'asc'],
 ] as const)('accepts sort=%s&direction=%s', async (sort, direction) => {
   // Given: the authenticated ADMIN actor created in beforeAll
   // When
@@ -40,7 +42,7 @@ it.each([
   [
     'sort',
     'sort=arbitrary',
-    'sort must be one of the following values: name, createdAt, lastLoginAt',
+    'sort must be one of the following values: name, createdAt, lastLoginAt, role, accountStatus',
   ],
   [
     'direction',

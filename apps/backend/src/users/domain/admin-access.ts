@@ -26,6 +26,8 @@ export const ADMIN_ACCESS_SORT_FIELDS = {
   NAME: 'name',
   CREATED_AT: 'createdAt',
   LAST_LOGIN_AT: 'lastLoginAt',
+  ROLE: 'role',
+  ACCOUNT_STATUS: 'accountStatus',
 } as const;
 
 export const ADMIN_ACCESS_SORT_DIRECTIONS = {

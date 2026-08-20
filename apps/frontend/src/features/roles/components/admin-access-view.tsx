@@ -137,6 +137,7 @@ function SortableColumnHeader({
   readonly onSortToggle: (field: AdminAccessSortField) => void;
 }) {
   const active = sort === field;
+  const Icon = active && direction === 'desc' ? ChevronDown : ChevronUp;
   return (
     <button
       type="button"
@@ -144,13 +145,12 @@ function SortableColumnHeader({
       onClick={() => onSortToggle(field)}
     >
       {label}
-      {active ? (
-        direction === 'asc' ? (
-          <ChevronUp aria-hidden="true" className="size-4" />
-        ) : (
-          <ChevronDown aria-hidden="true" className="size-4" />
-        )
-      ) : null}
+      <Icon
+        aria-hidden="true"
+        className={
+          active ? 'size-4' : 'size-4 text-muted-foreground opacity-40'
+        }
+      />
     </button>
   );
 }
@@ -227,14 +227,39 @@ export function AdminAccessView(props: AdminAccessViewProps) {
     },
     {
       id: 'role',
-      header: '역할',
+      header: (
+        <SortableColumnHeader
+          label="역할"
+          field="role"
+          sort={props.sort}
+          direction={props.direction}
+          onSortToggle={props.onSortToggle}
+        />
+      ),
+      headProps: {
+        'aria-sort': sortAriaValue(props.sort === 'role', props.direction),
+      },
       headClassName: 'hidden lg:table-cell',
       cellClassName: 'hidden lg:table-cell',
       cell: (item) => <RoleBadge role={item.role} />,
     },
     {
       id: 'accountStatus',
-      header: '계정 상태',
+      header: (
+        <SortableColumnHeader
+          label="계정 상태"
+          field="accountStatus"
+          sort={props.sort}
+          direction={props.direction}
+          onSortToggle={props.onSortToggle}
+        />
+      ),
+      headProps: {
+        'aria-sort': sortAriaValue(
+          props.sort === 'accountStatus',
+          props.direction,
+        ),
+      },
       headClassName: 'hidden lg:table-cell',
       cellClassName: 'hidden lg:table-cell',
       cell: (item) => <AccountStatusBadge status={item.accountStatus} />,
@@ -282,8 +307,8 @@ export function AdminAccessView(props: AdminAccessViewProps) {
   return (
     <section className="flex flex-col gap-6 p-4 sm:p-6">
       <PageHeader
-        title="접근 목록"
-        description="통합 접근 화면에서 사용자 역할·계정 상태·승인 대기 요청을 조회합니다."
+        title="사용자 목록"
+        description="역할·계정 상태·마지막 로그인을 조회하고 변경합니다."
       />
       {props.errorMessage ? (
         <Alert variant="destructive">
@@ -388,13 +413,13 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           클립하는 역할만 남긴다. */}
       <div className="overflow-hidden rounded-lg border border-border">
         <DataTable
-          scrollRegionLabel="사용자 접근 목록 표"
+          scrollRegionLabel="사용자 목록 표"
           columns={columns}
           data={[...props.items]}
           rowKey={(item) => item.id}
           onRowClick={(item) => props.onRowClick(item)}
           isLoading={props.isLoading}
-          loadingSlot="접근 목록을 불러오는 중…"
+          loadingSlot="사용자 목록을 불러오는 중…"
           emptyState={
             isPendingInboxEmpty ? (
               <EmptyState title="승인 대기 중인 요청이 없습니다" />

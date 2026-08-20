@@ -137,6 +137,48 @@ describe('AdminAccessView — 헤더 클릭 정렬 토글', () => {
     expect(onSortToggle).toHaveBeenCalledWith('name');
   });
 
+  it('"역할" 헤더 클릭은 onSortToggle을 role로 호출한다', () => {
+    const onSortToggle = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessView {...baseViewProps} onSortToggle={onSortToggle} />,
+      );
+    });
+
+    const roleHeaderButton = Array.from(
+      container.querySelectorAll('th button'),
+    ).find((button) => button.textContent?.includes('역할'));
+    expect(roleHeaderButton).not.toBeUndefined();
+    act(() => {
+      roleHeaderButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+
+    expect(onSortToggle).toHaveBeenCalledWith('role');
+  });
+
+  it('"계정 상태" 헤더 클릭은 onSortToggle을 accountStatus로 호출한다', () => {
+    const onSortToggle = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessView {...baseViewProps} onSortToggle={onSortToggle} />,
+      );
+    });
+
+    const statusHeaderButton = Array.from(
+      container.querySelectorAll('th button'),
+    ).find((button) => button.textContent?.includes('계정 상태'));
+    expect(statusHeaderButton).not.toBeUndefined();
+    act(() => {
+      statusHeaderButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+
+    expect(onSortToggle).toHaveBeenCalledWith('accountStatus');
+  });
+
   it('"마지막 로그인" 헤더 클릭은 onSortToggle을 lastLoginAt으로 호출한다', () => {
     const onSortToggle = vi.fn();
     act(() => {

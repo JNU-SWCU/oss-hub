@@ -1,4 +1,10 @@
-import { LoginHistoryEvent, Prisma, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  LoginHistoryEvent,
+  Prisma,
+  Role,
+  RoleRequestStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
@@ -61,6 +67,24 @@ function adminAccessOrderBy(query: AdminAccessListQuery): Prisma.Sql {
         ORDER BY h."loginAt" DESC, h."id" DESC
         LIMIT 1
       ) ${directionSql} NULLS LAST,
+      u."id" ${directionSql}
+    `,
+    [ADMIN_ACCESS_SORT_FIELDS.ROLE]: Prisma.sql`
+      CASE
+        WHEN u."role" IS NULL THEN 0
+        WHEN u."role" = ${Role.STUDENT}::"Role" THEN 1
+        WHEN u."role" = ${Role.STAFF}::"Role" THEN 2
+        WHEN u."role" = ${Role.ADMIN}::"Role" THEN 3
+        ELSE 4
+      END ${directionSql},
+      u."id" ${directionSql}
+    `,
+    [ADMIN_ACCESS_SORT_FIELDS.ACCOUNT_STATUS]: Prisma.sql`
+      CASE
+        WHEN u."accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus" THEN 0
+        WHEN u."accountStatus" = ${AccountStatus.DEACTIVATED}::"AccountStatus" THEN 1
+        ELSE 2
+      END ${directionSql},
       u."id" ${directionSql}
     `,
   } as const satisfies Readonly<Record<AdminAccessSortField, Prisma.Sql>>;

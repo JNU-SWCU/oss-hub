@@ -39,10 +39,12 @@ describe('parseAdminAccessSearchParams — URL → 상태 (7개 파라미터 전
     expect(parse('pendingRequest=PENDING').pendingRequest).toBe('PENDING');
   });
 
-  it('sort 파라미터의 허용값(name/createdAt/lastLoginAt)을 읽는다', () => {
+  it('sort 파라미터의 허용값(name/createdAt/lastLoginAt/role/accountStatus)을 읽는다', () => {
     expect(parse('sort=name').sort).toBe('name');
     expect(parse('sort=createdAt').sort).toBe('createdAt');
     expect(parse('sort=lastLoginAt').sort).toBe('lastLoginAt');
+    expect(parse('sort=role').sort).toBe('role');
+    expect(parse('sort=accountStatus').sort).toBe('accountStatus');
   });
 
   it('direction 파라미터의 허용값(asc/desc)을 읽는다', () => {
