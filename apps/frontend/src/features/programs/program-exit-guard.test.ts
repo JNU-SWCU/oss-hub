@@ -51,24 +51,6 @@ describe('program exit guard history lifecycle', () => {
     expect(harness.confirmExit).not.toHaveBeenCalled();
   });
 
-  it('dirty-clean-dirty 뒤 취소해도 sentinel 한 개만 접고 이전 화면으로 이동한다', () => {
-    // Given
-    const harness = createHarness();
-    harness.guard.setDirty(true);
-    harness.guard.setDirty(false);
-    harness.dispatchPopState();
-    harness.guard.setDirty(true);
-
-    // When
-    const leaving = harness.guard.requestLeave();
-    harness.dispatchPopState();
-
-    // Then
-    expect(leaving).toBe(true);
-    expect(harness.pushSentinel).toHaveBeenCalledTimes(2);
-    expect(harness.back).toHaveBeenCalledTimes(3);
-  });
-
   it('저장 성공은 sentinel을 먼저 접고 상세 이동 후 browser back을 방해하지 않는다', () => {
     // Given
     const harness = createHarness();

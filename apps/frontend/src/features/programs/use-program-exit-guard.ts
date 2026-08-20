@@ -84,13 +84,6 @@ export function useProgramExitGuard(
   }, []);
 
   return {
-    leavePage: () => {
-      if (!exitGuard.current) {
-        router.back();
-        return true;
-      }
-      return exitGuard.current.requestLeave();
-    },
     completeAndNavigate: (path: string) => {
       if (!exitGuard.current) router.push(path);
       else exitGuard.current.completeAndNavigate(path);
