@@ -12,10 +12,12 @@ import { resolveLocalReviewResponse } from './fixture-response';
 const RECORD_KEYS = [
   'id',
   'actor',
+  'actorHandle',
   'action',
   'targetType',
   'targetId',
   'target',
+  'targetHandle',
   'occurredAt',
   'legacy',
   'metadata',
@@ -65,7 +67,7 @@ describe('audit log fixture wire contract', () => {
     expect(empty.total).toBe(0);
   });
 
-  it('모든 fixture 레코드가 wire record 9키를 정확히 갖는다', () => {
+  it('모든 fixture 레코드가 wire record 11키를 정확히 갖는다', () => {
     // Given
     const body = auditLogFixtureBody('page=1&limit=100') as {
       readonly items: readonly Record<string, unknown>[];

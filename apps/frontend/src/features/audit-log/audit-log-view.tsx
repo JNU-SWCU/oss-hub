@@ -102,6 +102,39 @@ export function AuditLogView(props: AuditLogViewProps) {
       ),
     },
     {
+      id: 'actor',
+      header: '행위자',
+      headClassName: 'min-w-28 whitespace-nowrap',
+      cellClassName: 'min-w-28 align-top',
+      cell: (record) => (
+        <span className="text-sm font-medium break-keep">{record.actor}</span>
+      ),
+    },
+    {
+      id: 'target',
+      header: '대상',
+      headClassName: 'min-w-36',
+      cellClassName: 'min-w-36 align-top',
+      cell: (record) => {
+        const hideTarget =
+          isFallbackTarget(record) &&
+          TARGETLESS_FALLBACK_TARGET_TYPES.has(record.targetType);
+        if (hideTarget) {
+          return <span className="text-muted-foreground text-sm">—</span>;
+        }
+        return (
+          <div className="flex flex-col gap-0.5 text-sm">
+            <span className="font-medium break-keep">{record.target}</span>
+            {record.targetHandle ? (
+              <span className="text-muted-foreground text-xs">
+                @{record.targetHandle}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
       id: 'content',
       header: '내용',
       headClassName: 'min-w-64',

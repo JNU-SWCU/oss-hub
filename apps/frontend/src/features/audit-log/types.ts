@@ -1,6 +1,8 @@
 export interface AuditLogRecord {
   readonly id: string;
   readonly actor: string;
+  /** Event-time GitHub login when the row has a person snapshot. */
+  readonly actorHandle?: string | null;
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
@@ -13,6 +15,8 @@ export interface AuditLogRecord {
   // 백엔드가 이벤트 시점 스냅샷·join으로 이미 계산해 내려주는 라벨이며, 화면은 이
   // 필드만 쓰고 raw metadata는 파싱 단계에서 버린다(parser.ts).
   readonly target: string;
+  /** Event-time GitHub login for a person target. */
+  readonly targetHandle?: string | null;
   readonly occurredAt: string;
 }
 
