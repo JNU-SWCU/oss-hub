@@ -210,8 +210,7 @@ export function milestoneDocumentReviewFormError(
   decision: MilestoneDocumentReviewDecision | null,
   comment: string,
 ): string | null {
-  if (decision === null)
-    return '승인, 보완 요청, 반려 중 하나를 골라 주세요.';
+  if (decision === null) return '승인, 보완 요청, 반려 중 하나를 골라 주세요.';
   if (
     isMilestoneDocumentReviewCommentRequired(decision) &&
     comment.trim() === ''
