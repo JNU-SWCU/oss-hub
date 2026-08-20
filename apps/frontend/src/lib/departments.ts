@@ -6,7 +6,12 @@ export interface DepartmentGroup {
 export const DEPARTMENT_GROUPS: readonly DepartmentGroup[] = [
   {
     label: 'SW학과',
-    departments: ['인공지능학부', '소프트웨어공학과', '컴퓨터정보통신공학과'],
+    departments: [
+      '인공지능학부',
+      '소프트웨어공학과',
+      '컴퓨터정보통신공학과',
+      '전자컴퓨터공학부(컴퓨터공학전공)',
+    ],
   },
   {
     label: 'SW융합학과',

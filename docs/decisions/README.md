@@ -16,6 +16,7 @@
 | ADR-008 | Accepted | API 응답 필드 소유 경계 | [ADR-008-api-response-field-ownership](ADR-008-api-response-field-ownership.md) |
 | ADR-009 | Accepted | 학생 소유 저장소 연결(OWN)의 권한·수집 경계 | [ADR-009-own-repository-connection](ADR-009-own-repository-connection.md) |
 | ADR-010 | Accepted | 기여 추적 컨텍스트 — 두 읽기 표면과 그 데이터원 | [ADR-010-contribution-tracking-context](ADR-010-contribution-tracking-context.md) |
+| ADR-011 | Accepted | 질의 필터의 타입 경계 — sentinel 문자열을 SQL 값으로 보내지 않는다 | [ADR-011-query-filter-type-boundary](ADR-011-query-filter-type-boundary.md) |
 
 ## ADR 라이프사이클
 

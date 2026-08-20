@@ -17,6 +17,7 @@ import type {
   ProgramStatusCounts,
   StaffDashboardSummary,
 } from '@/features/programs/types';
+import { staffInsightsWireFixture } from '@/features/staff-insights/fixtures';
 import { RANKING_YEAR_ALL } from '@/features/ranking/types';
 import type { RankingItem, RankingYear } from '@/features/ranking/types';
 import { apiPath } from '@/lib/api-client';
@@ -938,6 +939,14 @@ export function resolveLocalReviewResponse({
     (fixture === 'staff' || fixture === 'admin')
   ) {
     return json(200, STAFF_DASHBOARD_FIXTURE);
+  }
+
+  if (
+    method === 'GET' &&
+    path === 'dashboard/staff/insights' &&
+    (fixture === 'staff' || fixture === 'admin')
+  ) {
+    return json(200, staffInsightsWireFixture());
   }
 
   // `role-requests` 목록 응답은 여기 있었지만 그 화면이 관리자 접근으로

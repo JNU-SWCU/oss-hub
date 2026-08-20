@@ -9,7 +9,10 @@ import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
 
-function readGuards(target: object, methodName: 'summary'): unknown[] {
+function readGuards(
+  target: object,
+  methodName: 'summary' | 'insightsSummary',
+): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     target,
     methodName,
@@ -87,7 +90,8 @@ describe('StaffDashboardController', () => {
       ],
     });
     const service: Pick<StaffDashboardService, 'summary'> = { summary };
-    const controller = new StaffDashboardController(service);
+    const insights = { summarize: jest.fn() };
+    const controller = new StaffDashboardController(service, insights);
 
     // When / Then
     await expect(controller.summary()).resolves.toEqual({
@@ -130,5 +134,41 @@ describe('StaffDashboardController', () => {
       ],
     });
     expect(summary).toHaveBeenCalledTimes(1);
+  });
+
+  it('guards insights the same way and resolves a missing year to all-time', async () => {
+    const summarize = jest.fn().mockResolvedValue({
+      scope: { kind: 'all' },
+      dataAsOf: new Date('2026-08-01T00:00:00.000Z'),
+      years: [2026],
+      cohorts: [],
+      departments: [],
+      programs: [],
+    });
+    const controller = new StaffDashboardController(
+      { summary: jest.fn() },
+      { summarize },
+    );
+    const insightsSummary: unknown = Object.getOwnPropertyDescriptor(
+      StaffDashboardController.prototype,
+      'insightsSummary',
+    )?.value;
+    if (typeof insightsSummary !== 'function') {
+      throw new TypeError(
+        'StaffDashboardController.insightsSummary is missing',
+      );
+    }
+
+    await expect(controller.insightsSummary({})).resolves.toMatchObject({
+      scope: { kind: 'all' },
+      years: [2026],
+    });
+    expect(summarize).toHaveBeenCalledWith({ kind: 'all' });
+    expect(
+      readGuards(StaffDashboardController.prototype, 'insightsSummary'),
+    ).toEqual([SessionGuard, ApplicationsStaffListGuard]);
+    expect(Reflect.getMetadata(PATH_METADATA, insightsSummary)).toBe(
+      'insights',
+    );
   });
 });
