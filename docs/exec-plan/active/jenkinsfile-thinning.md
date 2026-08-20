@@ -317,4 +317,4 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 - [ ] hot edit·Jenkins UI 임시 교체 없이 PR 역순 revert와 사후 검증 절차를 확인했다.
 - [x] `bash scripts/check-jenkinsfile.test.sh`와 `bash scripts/check-jenkinsfile.sh Jenkinsfile`가 통과했다.
 - [ ] `bash scripts/check-public-safe.sh origin/main`이 통과했고 문서에 공개 금지 정보·시크릿·실명·개인 절대경로가 없다.
-- [ ] TEAM-STATE 기능 상태 행과 실제 PR 번호를 갱신하고 `node --test scripts/team-state-check.test.mjs`가 통과했다.
+- [ ] 자기 저널에 항목을 추가하고 `node --test scripts/team-state-check.test.mjs`가 통과했다.
