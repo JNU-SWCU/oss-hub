@@ -100,3 +100,12 @@ production release 배포의 인가·트리거·실행 검증과 실패·복구 
 - 활성화: `bash scripts/setup-hooks.sh` (§1 부트스트랩 6번, 멱등) — `pnpm install`은 Git 설정을 건드리지 않는다.
 - 동작: `.githooks/post-merge`가 main에서 merge 기반 pull로 실제 FF/merge가 완료될 때 `scripts/tidy-branches.sh`를 실행하고 origin/main 이력에 포함된 gone 브랜치만 `git branch -d`로 삭제하며 그 외에는 보류 안내만 하고 rebase 기반 pull·변경 없는 pull에서는 발화하지 않는다.
 - 다른 `core.hooksPath`를 쓰고 있으면 그 설정을 보존하고 이 훅은 비활성으로 두며 이 경우 `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행하고 기존 설정은 `git config --show-origin --get core.hooksPath`로 확인한다.
+
+## Cursor Cloud specific instructions
+
+실행 명령·순서의 원본은 각 `package.json`과 `docs/rules/local-dev.md`다 — 여기에는 클라우드 VM 고유의 비자명한 주의점만 남긴다.
+- Node: 프로젝트는 Node >=24(`engineStrict`)를 요구하지만 VM의 `/exec-daemon` shim이 PATH 맨 앞에서 Node 22로 이긴다 — nvm v24 bin을 PATH 앞에 둬야 하며 로그인·인터랙티브 쉘은 `~/.bashrc`가 처리한다. 비인터랙티브 쉘에서는 `export PATH="$HOME/.nvm/versions/node/v24.19.0/bin:$PATH"`를 먼저 실행한다.
+- Docker: systemd가 없어 데몬을 수동 기동한다 — `sudo dockerd >/tmp/dockerd.log 2>&1 &` (계정 `ubuntu`는 이미 `docker` 그룹). postgres·minio 인프라는 `pnpm db:up`(compose.dev.yml).
+- 로컬 실행: `direnv`가 이 VM에 없으므로 `pnpm dev` 전에 `.envrc`를 수동 주입한다 — `set -a; source .envrc; set +a`. `scripts/dev.sh`는 쉘 환경변수를 읽는다(포트 3000·4000, `pnpm local:up`과 동시 실행 불가).
+- `.envrc`(gitignore)에는 합성 `SESSION_SECRET`·`TEAM_JOIN_CODE_SECRET`과 placeholder GitHub OAuth 값이 들어 있어 기동은 되지만, 실제 GitHub 로그인은 실 dev OAuth App 값이 있어야 완료된다.
+- 실 OAuth 없이 인증 경로를 테스트하려면 dev 세션 쿠키를 직접 발급한다: HS256 JWT(`sub`=githubId, `iss`=`oss-hub`, `aud`=`oss-hub-web`, secret=base64url 디코드한 `SESSION_SECRET`, `session-token.ts` 참조)를 쿠키 `oss_session_dev`(dev는 non-secure 이름)로 넣는다. 시연 데이터는 `SEED_PROFILE=demo pnpm --filter backend exec prisma db seed`로 만든다.
