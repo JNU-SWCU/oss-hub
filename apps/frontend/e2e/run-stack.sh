@@ -174,6 +174,7 @@ node "$script_directory/support/assert-loopback-only.mjs" "$backend_port"
     PATH="$tool_path" \
     HOME="$sanitized_home" \
     BACKEND_ORIGIN="$backend_origin" \
+    OSS_HUB_LOCAL_REVIEW_FIXTURES="${OSS_HUB_LOCAL_REVIEW_FIXTURES:-}" \
     ./node_modules/.bin/next dev \
       --hostname 127.0.0.1 --port "$frontend_port"
 ) &
