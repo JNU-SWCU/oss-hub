@@ -357,9 +357,22 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ];
 
     const allBodies: unknown[] = [];
-    const rankingItemLists: Record<string, unknown>[][] = [];
-    // 공개 계층(비로그인·STUDENT) 응답만 따로 모은다 — 실명 금지 검사는 이쪽에만 건다.
-    const publicTierRankingItemLists: Record<string, unknown>[][] = [];
+    // Public class (anonymous · STUDENT) — 실명 금지 검사는 이쪽에만 건다.
+    const publicClassRankingItemLists: Record<string, unknown>[][] = [];
+    const staffClassRankingItemLists: Record<string, unknown>[][] = [];
+    const publicItemKeys = [
+      'commitCount',
+      'department',
+      'displayName',
+      'githubLogin',
+      'issueCount',
+      'pullRequestCount',
+      'rank',
+      'repositoryCount',
+      'starCount',
+      'total',
+    ];
+    const staffItemKeys = [...publicItemKeys, 'name'].sort();
     for (const githubId of personas) {
       const [list, detail, profile, ranking] = await Promise.all([
         harness.request('GET', '/projects', githubId),
@@ -390,9 +403,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         profile.json(),
       ])) as readonly [WireBody, WireBody, WireBody];
       allBodies.push(listBody, detailBody, profileBody);
-      rankingItemLists.push(ranking.items);
       if (githubId === undefined || githubId === studentPersona.githubId) {
-        publicTierRankingItemLists.push(ranking.items);
+        publicClassRankingItemLists.push(ranking.items);
+      } else {
+        staffClassRankingItemLists.push(ranking.items);
       }
 
       expect(listBody.items).toEqual(
@@ -421,24 +435,28 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       );
     }
 
-    // ranking wire body는 5종 지표 + 봉투를 정확히 이 키들로만 내려준다 — 실명은 별도
-    // 칸이 아니라 `displayName` 안에서만 바뀜므로 키 집합은 어느 계층이든 같다.
-    // (allowlist 를 통째로 고정하므로 새 칸이 조용히 새어 나가면 여기서 깨진다.)
-    for (const items of rankingItemLists) {
+    // Public items omit `name`. Staff items add `name` and keep displayName as login.
+    for (const items of publicClassRankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
-        expect(Object.keys(item).sort()).toEqual([
-          'commitCount',
-          'department',
-          'displayName',
-          'githubLogin',
-          'issueCount',
-          'pullRequestCount',
-          'rank',
-          'repositoryCount',
-          'starCount',
-          'total',
-        ]);
+        expect(Object.keys(item).sort()).toEqual(publicItemKeys);
+        expect(item).not.toHaveProperty('name');
+        expect(item.displayName).toBe(item.githubLogin);
+        expect(item.total).toBe(
+          (item.commitCount as number) +
+            (item.pullRequestCount as number) +
+            (item.issueCount as number) +
+            (item.repositoryCount as number) +
+            (item.starCount as number),
+        );
+      }
+    }
+    for (const items of staffClassRankingItemLists) {
+      expect(items.length).toBeGreaterThan(0);
+      for (const item of items) {
+        expect(Object.keys(item).sort()).toEqual(staffItemKeys);
+        expect(item).toHaveProperty('name');
+        expect(item.displayName).toBe(item.githubLogin);
         expect(item.total).toBe(
           (item.commitCount as number) +
             (item.pullRequestCount as number) +
@@ -474,14 +492,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ]) {
       expect(serialized).not.toContain(forbiddenKey);
     }
-    // 공개 계층(비로그인·STUDENT)은 `displayName` 이 항상 `githubLogin` 과 같다.
-    for (const items of publicTierRankingItemLists) {
-      for (const item of items) {
-        expect(item.displayName).toBe(item.githubLogin);
-      }
-    }
-
-    const rankingSerialized = JSON.stringify(rankingItemLists);
+    const publicRankingSerialized = JSON.stringify(publicClassRankingItemLists);
     for (const forbiddenKey of [
       '"name"',
       '"studentId"',
@@ -491,12 +502,21 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       '"githubId"',
       '"releaseCount"',
     ]) {
-      expect(rankingSerialized).not.toContain(forbiddenKey);
+      expect(publicRankingSerialized).not.toContain(forbiddenKey);
+    }
+    const staffRankingSerialized = JSON.stringify(staffClassRankingItemLists);
+    for (const forbiddenKey of [
+      '"studentId"',
+      '"email"',
+      '"role"',
+      '"accountStatus"',
+      '"githubId"',
+      '"releaseCount"',
+    ]) {
+      expect(staffRankingSerialized).not.toContain(forbiddenKey);
     }
     // DB 에 실명이 채워져 있는 persona 인데도 공개 계층 응답 바디에는 그 값이 없다.
-    expect(JSON.stringify(publicTierRankingItemLists)).not.toContain(
-      NAMED_PERSONA_REAL_NAME,
-    );
+    expect(publicRankingSerialized).not.toContain(NAMED_PERSONA_REAL_NAME);
   });
 
   it('같은 /ranking URL 이 계층별로 다른 표기를 내린다 — 교직원·관리자만 실명을 본다 (todo 15)', async () => {
@@ -520,9 +540,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(staff.response.headers.get('cache-control')).toBe(
       'private, no-store',
     );
+    expect(staff.response.headers.get('vary')).toBe('Cookie');
     expect(admin.response.headers.get('cache-control')).toBe(
       'private, no-store',
     );
+    expect(admin.response.headers.get('vary')).toBe('Cookie');
 
     // (a) 비로그인은 학과를 보고 실명은 보지 않는다.
     const anonymousEntry = anonymous.items.find(
@@ -539,15 +561,16 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     // (b) STUDENT 세션 응답은 비로그인과 바이트 동일하다.
     expect(JSON.stringify(student.items)).toBe(JSON.stringify(anonymous.items));
 
-    // (c)(d) STAFF·ADMIN 은 displayName 이 실명이다.
-    for (const staffTierItems of [staff.items, admin.items]) {
-      const entry = staffTierItems.find(
+    // (c)(d) STAFF·ADMIN keep displayName as githubLogin and put 실명 on `name`.
+    for (const staffClassItems of [staff.items, admin.items]) {
+      const entry = staffClassItems.find(
         (item) => item.githubLogin === studentPersona.nickname,
       );
       expect(entry).toMatchObject({
         githubLogin: studentPersona.nickname,
-        displayName: NAMED_PERSONA_REAL_NAME,
+        displayName: studentPersona.nickname,
         department: NAMED_PERSONA_DEPARTMENT,
+        name: NAMED_PERSONA_REAL_NAME,
       });
     }
     // ADMIN 응답은 STAFF 응답과 같다.
@@ -559,6 +582,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     );
     expect(namelessEntry).toMatchObject({
       displayName: staffPersona.nickname,
+      name: null,
     });
 
     // (f) 등수 순서는 네 계층이 완전히 같다 — 실명이 순서를 바트지 않는다.

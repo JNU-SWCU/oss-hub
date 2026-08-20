@@ -31,6 +31,8 @@ const rankingPage = (year: number | typeof RANKING_YEAR_ALL) => ({
   pageSize: 20,
   total: 1,
   dataAsOf: null,
+  viewerClass: 'public' as const,
+  nextCycleAt: null,
 });
 
 test.each([RANKING_YEAR_ALL, 2025, 2026] as const)(
@@ -80,6 +82,8 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
     starCount: 5,
     total: 15,
   });
+  expect(page.viewerClass).toBe('public');
+  expect(page.nextCycleAt).toBeNull();
 });
 
 test('구식 응답의 notice·period 같은 잔여 필드도 그냥 무시한다', () => {
@@ -268,4 +272,73 @@ test('dataAsOf 가 날짜가 아니면 거부한다', () => {
   expect(() =>
     parseRankingPage({ ...rankingPage(2026), dataAsOf: 'not-a-date' }),
   ).toThrow(RankingResponseError);
+});
+
+test('viewerClass 가 없으면 거부한다', () => {
+  const { viewerClass: _omitted, ...withoutViewerClass } = rankingPage(2026);
+  expect(() => parseRankingPage(withoutViewerClass)).toThrow(
+    RankingResponseError,
+  );
+});
+
+test('viewerClass 가 public|staff 가 아니면 거부한다', () => {
+  expect(() =>
+    parseRankingPage({ ...rankingPage(2026), viewerClass: 'STUDENT' }),
+  ).toThrow(RankingResponseError);
+  expect(() =>
+    parseRankingPage({ ...rankingPage(2026), viewerClass: 'ADMIN' }),
+  ).toThrow(RankingResponseError);
+});
+
+test('nextCycleAt 이 없어도 파싱되고 null 로 떨어진다', () => {
+  const { nextCycleAt: _omitted, ...withoutNextCycleAt } = rankingPage(2026);
+  expect(parseRankingPage(withoutNextCycleAt).nextCycleAt).toBeNull();
+});
+
+test('nextCycleAt 이 ISO 이면 문자열로 유지한다', () => {
+  const page = parseRankingPage({
+    ...rankingPage(2026),
+    nextCycleAt: '2026-08-20T10:00:00.000Z',
+  });
+  expect(page.nextCycleAt).toBe('2026-08-20T10:00:00.000Z');
+});
+
+test('nextCycleAt 이 날짜가 아니면 거부한다', () => {
+  expect(() =>
+    parseRankingPage({ ...rankingPage(2026), nextCycleAt: 'soon' }),
+  ).toThrow(RankingResponseError);
+});
+
+test('public 항목에 name 키가 있으면 거부한다', () => {
+  const base = rankingPage(2026);
+  expect(() =>
+    parseRankingPage({
+      ...base,
+      viewerClass: 'public',
+      items: [{ ...base.items[0], name: 'synthetic-staff-name' }],
+    }),
+  ).toThrow(RankingResponseError);
+});
+
+test('staff 항목의 name 은 문자열 또는 null 이다', () => {
+  const base = rankingPage(2026);
+  const withName = parseRankingPage({
+    ...base,
+    viewerClass: 'staff',
+    items: [{ ...base.items[0], name: 'synthetic-staff-name' }],
+  });
+  expect(withName.items[0]?.name).toBe('synthetic-staff-name');
+
+  const withNull = parseRankingPage({
+    ...base,
+    viewerClass: 'staff',
+    items: [{ ...base.items[0], name: null }],
+  });
+  expect(withNull.items[0]?.name).toBeNull();
+
+  const omitted = parseRankingPage({
+    ...base,
+    viewerClass: 'staff',
+  });
+  expect(omitted.items[0]?.name).toBeNull();
 });

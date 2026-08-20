@@ -1,13 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  COLLECTION_READ_PORT,
-  type CollectionReadPort,
-  type CollectionRepositoryActivityDto,
-} from '../../github/collection-read.port';
 import type {
   ProgramActivitySummary,
   ProgramActivitySummaryPort,
 } from '../program-activity-summary.port';
+import {
+  ProgramActivityRepository,
+  type ProgramRepositoryActivity,
+} from '../repository/program-activity.repository';
 import { ProgramActivitySummaryRepository } from '../repository/program-activity-summary.repository';
 
 @Injectable()
@@ -18,9 +17,9 @@ export class ProgramActivitySummaryService implements ProgramActivitySummaryPort
       ProgramActivitySummaryRepository,
       'findRepositoryLinks'
     >,
-    @Inject(COLLECTION_READ_PORT)
-    private readonly collection: Pick<
-      CollectionReadPort,
+    @Inject(ProgramActivityRepository)
+    private readonly activity: Pick<
+      ProgramActivityRepository,
       'findRepositoryActivity'
     >,
   ) {}
@@ -34,7 +33,7 @@ export class ProgramActivitySummaryService implements ProgramActivitySummaryPort
     const repositoryIds = [
       ...new Set(links.map((link) => link.githubRepositoryId)),
     ];
-    const activityRows = await this.collection.findRepositoryActivity({
+    const activityRows = await this.activity.findRepositoryActivity({
       repositoryIds,
     });
     const activityByRepository = latestActivityByRepository(activityRows);
@@ -93,9 +92,9 @@ export class ProgramActivitySummaryService implements ProgramActivitySummaryPort
 }
 
 function latestActivityByRepository(
-  activityRows: readonly CollectionRepositoryActivityDto[],
-): ReadonlyMap<bigint, CollectionRepositoryActivityDto> {
-  const byRepository = new Map<bigint, CollectionRepositoryActivityDto>();
+  activityRows: readonly ProgramRepositoryActivity[],
+): ReadonlyMap<bigint, ProgramRepositoryActivity> {
+  const byRepository = new Map<bigint, ProgramRepositoryActivity>();
   for (const activity of activityRows) {
     const current = byRepository.get(activity.repositoryId);
     if (!current || current.dataAsOf < activity.dataAsOf) {
@@ -105,9 +104,7 @@ function latestActivityByRepository(
   return byRepository;
 }
 
-function newestActivityDate(
-  activity: CollectionRepositoryActivityDto,
-): Date | null {
+function newestActivityDate(activity: ProgramRepositoryActivity): Date | null {
   let newest: Date | null = null;
   for (const date of [
     ...activity.commitDates,

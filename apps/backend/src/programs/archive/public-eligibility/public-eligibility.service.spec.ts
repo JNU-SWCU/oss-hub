@@ -1,8 +1,8 @@
 import type {
-  CollectionReadPort,
-  CollectionRepositoryMetricsDto,
-  CollectionRepositoryMetricsQueryDto,
-} from '../../../github/collection-read.port';
+  ProgramMetricsRepository,
+  ProgramRepositoryMetrics,
+  ProgramRepositoryMetricsQuery,
+} from '../../repository/program-metrics.repository';
 import {
   PublicEligibilityService,
   type PublicEligibilityCandidate,
@@ -11,9 +11,9 @@ import {
 const publishedAt = new Date('2026-07-15T00:00:00.000Z');
 
 function metric(
-  overrides: Partial<CollectionRepositoryMetricsDto> &
-    Pick<CollectionRepositoryMetricsDto, 'repositoryId'>,
-): CollectionRepositoryMetricsDto {
+  overrides: Partial<ProgramRepositoryMetrics> &
+    Pick<ProgramRepositoryMetrics, 'repositoryId'>,
+): ProgramRepositoryMetrics {
   return {
     year: 2026,
     dataAsOf: new Date('2026-07-31T00:00:00.000Z'),
@@ -29,55 +29,21 @@ function metric(
 
 function serviceWith(
   getRepositoryMetrics: jest.Mock<
-    Promise<readonly CollectionRepositoryMetricsDto[]>,
-    [CollectionRepositoryMetricsQueryDto]
+    Promise<readonly ProgramRepositoryMetrics[]>,
+    [ProgramRepositoryMetricsQuery]
   >,
 ): PublicEligibilityService {
-  const collection: CollectionReadPort = {
-    findRepositoryActivity: () => Promise.resolve([]),
+  const metrics = {
     getRepositoryMetrics,
-    getContributorMetrics: () => Promise.resolve([]),
-    getPublicRankingMetrics: () => Promise.resolve([]),
-    listPublicRankingYears: () => Promise.resolve([]),
-    getPublicRankingDataAsOf: () => Promise.resolve(null),
-    getRepositoryCumulativeMetrics: () => Promise.resolve([]),
-    getContributorCumulativeMetrics: () => Promise.resolve([]),
-    getIncrementalStatusSnapshot: () =>
-      Promise.resolve({
-        trackedRepositoryCount: 0,
-        readyStreamCount: 0,
-        backfillingStreamCount: 0,
-        partialStreamCount: 0,
-        retryPendingStreamCount: 0,
-        oldestReadyCheckpointAt: null,
-        latestCheckpointAt: null,
-        oldestRetryPendingAt: null,
-        lastCycleStartedAt: null,
-        lastCycleCompletedAt: null,
-        dueRepositoryCount: 0,
-        failingRepositoryCount: 0,
-        lastRepositorySuccessAt: null,
-      }),
-    getIncrementalStatusStreams: () => Promise.resolve([]),
-    getNextScheduledCycleAt: () => Promise.resolve(null),
-    getRecentSweepActivity: () => Promise.resolve([]),
-    getExternalCollectionStatus: () =>
-      Promise.resolve({
-        trackedRepositoryCount: 0,
-        lastSweep: null,
-        cumulativeCommitCount: 0,
-        cumulativePullRequestCount: 0,
-        cumulativeReleaseCount: 0,
-      }),
-  };
-  return new PublicEligibilityService(collection);
+  } as unknown as ProgramMetricsRepository;
+  return new PublicEligibilityService(metrics);
 }
 
 describe('PublicEligibilityService', () => {
   it('빈 후보 배치는 port를 호출하지 않고 빈 집합을 반환한다', async () => {
     const getRepositoryMetrics = jest.fn<
-      Promise<readonly CollectionRepositoryMetricsDto[]>,
-      [CollectionRepositoryMetricsQueryDto]
+      Promise<readonly ProgramRepositoryMetrics[]>,
+      [ProgramRepositoryMetricsQuery]
     >();
     const service = serviceWith(getRepositoryMetrics);
 
@@ -90,8 +56,8 @@ describe('PublicEligibilityService', () => {
   it('managed publication fixture — 다음 inventory 전이라도 collection 관측이 아예 없으면 즉시 공개된다', async () => {
     const getRepositoryMetrics = jest
       .fn<
-        Promise<readonly CollectionRepositoryMetricsDto[]>,
-        [CollectionRepositoryMetricsQueryDto]
+        Promise<readonly ProgramRepositoryMetrics[]>,
+        [ProgramRepositoryMetricsQuery]
       >()
       .mockResolvedValue([]);
     const service = serviceWith(getRepositoryMetrics);
@@ -111,8 +77,8 @@ describe('PublicEligibilityService', () => {
   it('managed publication fixture — 발행 이후 complete PUBLIC/PRESENT 관측이면 공개를 유지한다', async () => {
     const getRepositoryMetrics = jest
       .fn<
-        Promise<readonly CollectionRepositoryMetricsDto[]>,
-        [CollectionRepositoryMetricsQueryDto]
+        Promise<readonly ProgramRepositoryMetrics[]>,
+        [ProgramRepositoryMetricsQuery]
       >()
       .mockResolvedValue([
         metric({
@@ -134,8 +100,8 @@ describe('PublicEligibilityService', () => {
   it('발행 이후 complete private 관측은 회수한다(비공개)', async () => {
     const getRepositoryMetrics = jest
       .fn<
-        Promise<readonly CollectionRepositoryMetricsDto[]>,
-        [CollectionRepositoryMetricsQueryDto]
+        Promise<readonly ProgramRepositoryMetrics[]>,
+        [ProgramRepositoryMetricsQuery]
       >()
       .mockResolvedValue([
         metric({
@@ -157,8 +123,8 @@ describe('PublicEligibilityService', () => {
   it('발행 이전(stale)의 complete private 관측은 회수하지 않는다', async () => {
     const getRepositoryMetrics = jest
       .fn<
-        Promise<readonly CollectionRepositoryMetricsDto[]>,
-        [CollectionRepositoryMetricsQueryDto]
+        Promise<readonly ProgramRepositoryMetrics[]>,
+        [ProgramRepositoryMetricsQuery]
       >()
       .mockResolvedValue([
         metric({
@@ -180,8 +146,8 @@ describe('PublicEligibilityService', () => {
   it('partial inventory fixture — complete 관측이 없는(observedAt null) 저장소는 missing을 주장하지 않는다', async () => {
     const getRepositoryMetrics = jest
       .fn<
-        Promise<readonly CollectionRepositoryMetricsDto[]>,
-        [CollectionRepositoryMetricsQueryDto]
+        Promise<readonly ProgramRepositoryMetrics[]>,
+        [ProgramRepositoryMetricsQuery]
       >()
       .mockResolvedValue([
         metric({
@@ -211,8 +177,8 @@ describe('PublicEligibilityService', () => {
     };
     const getRepositoryMetrics = jest
       .fn<
-        Promise<readonly CollectionRepositoryMetricsDto[]>,
-        [CollectionRepositoryMetricsQueryDto]
+        Promise<readonly ProgramRepositoryMetrics[]>,
+        [ProgramRepositoryMetricsQuery]
       >()
       .mockResolvedValue([
         metric({
@@ -246,8 +212,8 @@ describe('PublicEligibilityService', () => {
   it('platform-private(후보에 없는) 저장소는 collection 관측과 무관하게 항상 결과에서 빠진다', async () => {
     const getRepositoryMetrics = jest
       .fn<
-        Promise<readonly CollectionRepositoryMetricsDto[]>,
-        [CollectionRepositoryMetricsQueryDto]
+        Promise<readonly ProgramRepositoryMetrics[]>,
+        [ProgramRepositoryMetricsQuery]
       >()
       .mockResolvedValue([
         metric({
@@ -270,8 +236,8 @@ describe('PublicEligibilityService', () => {
     it('단건 후보를 배치 경로로 위임해 동일한 정책을 적용한다', async () => {
       const getRepositoryMetrics = jest
         .fn<
-          Promise<readonly CollectionRepositoryMetricsDto[]>,
-          [CollectionRepositoryMetricsQueryDto]
+          Promise<readonly ProgramRepositoryMetrics[]>,
+          [ProgramRepositoryMetricsQuery]
         >()
         .mockResolvedValue([
           metric({

@@ -5,10 +5,7 @@ import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
-import {
-  COLLECTION_READ_PORT,
-  type CollectionReadPort,
-} from '../github/collection-read.port';
+import { ProgramActivityRepository } from './repository/program-activity.repository';
 import { ProgramActivityService } from './service/program-activity.service';
 import { ProgramCreationService } from './service/program-creation.service';
 import { ProgramLifecycleService } from './service/program-lifecycle.service';
@@ -75,7 +72,7 @@ beforeAll(async () => {
         useValue: { sessionSecret: new Uint8Array(32), useSecureCookies: true },
       },
       {
-        provide: COLLECTION_READ_PORT,
+        provide: ProgramActivityRepository,
         useValue: {
           findRepositoryActivity: jest.fn().mockResolvedValue([
             {
@@ -89,7 +86,7 @@ beforeAll(async () => {
               releaseDates: [new Date('2026-07-04T00:00:00.000Z')],
             },
           ]),
-        } satisfies Pick<CollectionReadPort, 'findRepositoryActivity'>,
+        } satisfies Pick<ProgramActivityRepository, 'findRepositoryActivity'>,
       },
     ],
   })

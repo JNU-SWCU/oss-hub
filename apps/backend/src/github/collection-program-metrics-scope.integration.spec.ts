@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
 import { CollectionReadService } from './service/collection-read.service';
-import { PublicRankingRepository } from './repository/public-ranking.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { PrismaService } from '../prisma/prisma.service';
 
@@ -26,10 +25,7 @@ assertIsolatedIntegrationDatabase({
 
 describe('② 프로그램 지표는 연결된 저장소만 센다 (실 Postgres)', () => {
   const prisma = new PrismaClient();
-  const service = new CollectionReadService(
-    prisma as unknown as PrismaService,
-    new PublicRankingRepository(prisma as unknown as PrismaService),
-  );
+  const service = new CollectionReadService(prisma as unknown as PrismaService);
 
   const PREFIX = 'program-scope';
   const PROGRAM_ID = `${PREFIX}-program`;
@@ -259,52 +255,6 @@ describe('② 프로그램 지표는 연결된 저장소만 센다 (실 Postgres
       pullRequestCount: 6,
       releaseCount: 8,
     });
-  });
-
-  it('getContributorCumulativeMetrics(연도 무관 누적)도 같은 경계를 지킨다', async () => {
-    // 다른 연도 기여를 하나 더 심어 "연도 무관 합산"이 실제로 도는지 함께 본다.
-    await prisma.contribution.create({
-      data: {
-        repositoryId: PROGRAM_REPO_ID,
-        githubId: CONTRIBUTOR,
-        date: new Date('2025-06-01T00:00:00.000Z'),
-        commitCount: 10,
-        pullRequestCount: 0,
-        releaseCount: 2,
-      },
-    });
-    await prisma.contribution.create({
-      data: {
-        repositoryId: UNLINKED_REPO_ID,
-        githubId: CONTRIBUTOR,
-        date: new Date('2025-06-01T00:00:00.000Z'),
-        commitCount: 999,
-        pullRequestCount: 999,
-        releaseCount: 999,
-      },
-    });
-
-    const metrics = await service.getContributorCumulativeMetrics({
-      repositoryIds: allGithubRepositoryIds,
-    });
-
-    const byRepository = new Map(metrics.map((row) => [row.repositoryId, row]));
-
-    expect(byRepository.get(PROGRAM_GITHUB_REPO)).toEqual(
-      expect.objectContaining({
-        commitCount: 13,
-        pullRequestCount: 2,
-        releaseCount: 3,
-      }),
-    );
-    expect(byRepository.get(TEAM_GITHUB_REPO)).toEqual(
-      expect.objectContaining({
-        commitCount: 5,
-        pullRequestCount: 4,
-        releaseCount: 7,
-      }),
-    );
-    expect(byRepository.has(UNLINKED_GITHUB_REPO)).toBe(false);
   });
 
   it('연결이 끊기면 그 저장소의 기여는 다음 조회에서 곧바로 빠진다 (캐시된 지표가 필터를 우회하지 않는다)', async () => {

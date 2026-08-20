@@ -1,12 +1,12 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
-import type {
-  CollectionExternalCollectionStatusDto,
-  CollectionIncrementalStatusSnapshotDto,
-  CollectionRepositoryStreamsDto,
-  CollectionSweepActivityDto,
-} from '../github/collection-read.port';
-import { SystemStatusRepository } from './system-status.repository';
+import {
+  SystemStatusRepository,
+  type CollectionExternalCollectionStatusDto,
+  type CollectionIncrementalStatusSnapshotDto,
+  type CollectionRepositoryStreamsDto,
+  type CollectionSweepActivityDto,
+} from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
@@ -50,7 +50,7 @@ describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
   const getIncrementalStatusStreams = jest.fn();
-  const getNextScheduledCycleAt = jest.fn();
+  const findNextCycleAt = jest.fn();
   const getRecentSweepActivity = jest.fn();
   const getExternalCollectionStatus = jest.fn();
   const countFinalProvisionFailures = jest.fn();
@@ -58,14 +58,12 @@ describe('SystemStatusService', () => {
     {
       findActor,
       countFinalProvisionFailures,
-    } as unknown as SystemStatusRepository,
-    {
       getIncrementalStatusSnapshot,
       getIncrementalStatusStreams,
-      getNextScheduledCycleAt,
+      findNextCycleAt,
       getRecentSweepActivity,
       getExternalCollectionStatus,
-    } as unknown as ConstructorParameters<typeof SystemStatusService>[1],
+    } as unknown as SystemStatusRepository,
     () => NOW,
   );
 
@@ -76,9 +74,9 @@ describe('SystemStatusService', () => {
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
     getIncrementalStatusStreams.mockReset().mockResolvedValue([]);
-    getNextScheduledCycleAt
+    findNextCycleAt
       .mockReset()
-      .mockResolvedValue(new Date('2026-07-25T20:30:00.000Z'));
+      .mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
     getRecentSweepActivity.mockReset().mockResolvedValue([]);
     getExternalCollectionStatus.mockReset().mockResolvedValue(externalStatus());
     countFinalProvisionFailures.mockReset().mockResolvedValue(2);
@@ -118,7 +116,7 @@ describe('SystemStatusService', () => {
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
     expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
-    expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
+    expect(findNextCycleAt).toHaveBeenCalledWith(NOW);
     expect(getRecentSweepActivity).toHaveBeenCalledWith(20);
     expect(getExternalCollectionStatus).toHaveBeenCalledTimes(1);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
@@ -138,7 +136,7 @@ describe('SystemStatusService', () => {
     );
     expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
     expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
-    expect(getNextScheduledCycleAt).not.toHaveBeenCalled();
+    expect(findNextCycleAt).not.toHaveBeenCalled();
     expect(getRecentSweepActivity).not.toHaveBeenCalled();
     expect(getExternalCollectionStatus).not.toHaveBeenCalled();
     expect(countFinalProvisionFailures).not.toHaveBeenCalled();
@@ -358,19 +356,17 @@ describe('SystemStatusService', () => {
   });
 
   describe('nextCycleAt', () => {
-    it('port가 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
-      getNextScheduledCycleAt.mockResolvedValue(
-        new Date('2026-07-25T20:30:00.000Z'),
-      );
+    it('repository가 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
+      findNextCycleAt.mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
 
       const result = await service.getStatus(ACTOR_ID);
 
-      expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
+      expect(findNextCycleAt).toHaveBeenCalledWith(NOW);
       expect(result.collection.nextCycleAt).toBe('2026-07-25T20:30:00.000Z');
     });
 
-    it('port가 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
-      getNextScheduledCycleAt.mockResolvedValue(null);
+    it('repository가 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
+      findNextCycleAt.mockReturnValue(null);
 
       const result = await service.getStatus(ACTOR_ID);
 

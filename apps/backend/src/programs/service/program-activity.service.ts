@@ -1,11 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
-import {
-  COLLECTION_READ_PORT,
-  type CollectionReadPort,
-  type CollectionRepositoryActivityDto,
-} from '../../github/collection-read.port';
 import type { ProgramActivityResponseDto } from '../dto/program-detail.dto';
 import type {
   ActivityPointResponseDto,
@@ -18,9 +13,13 @@ import {
   PROGRAM_ERROR_CODES as CREATION_ERROR_CODES,
 } from '../program-error-code.enum';
 import type { ProgramViewer } from './program-viewer.service';
+import {
+  ProgramActivityRepository,
+  type ProgramRepositoryActivity,
+} from '../repository/program-activity.repository';
 import { ProgramsRepository } from '../repository/programs.repository';
 
-export type ProgramActivityRepository = Pick<
+export type ProgramActivityProgramStore = Pick<
   ProgramsRepository,
   'findProgramRepositories' | 'findStudentActivityApplications'
 >;
@@ -43,9 +42,12 @@ function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
 export class ProgramActivityService {
   constructor(
     @Inject(ProgramsRepository)
-    private readonly repository: ProgramActivityRepository,
-    @Inject(COLLECTION_READ_PORT)
-    private readonly collection: CollectionReadPort,
+    private readonly repository: ProgramActivityProgramStore,
+    @Inject(ProgramActivityRepository)
+    private readonly activityReads: Pick<
+      ProgramActivityRepository,
+      'findRepositoryActivity'
+    >,
   ) {}
 
   async activity(
@@ -58,14 +60,14 @@ export class ProgramActivityService {
         programId,
         viewer.role === Role.STUDENT ? viewer.userId : null,
       );
-      const activity = await this.collection.findRepositoryActivity({
+      const activity = await this.activityReads.findRepositoryActivity({
         repositoryIds: repositories.map(
           (repository) => repository.githubRepositoryId,
         ),
       });
       const canonicalByRepository = new Map<
         bigint,
-        CollectionRepositoryActivityDto
+        ProgramRepositoryActivity
       >();
       for (const record of activity) {
         const current = canonicalByRepository.get(record.repositoryId);
@@ -130,13 +132,13 @@ export class ProgramActivityService {
           ),
         ),
       ];
-      const activity = await this.collection.findRepositoryActivity({
+      const activity = await this.activityReads.findRepositoryActivity({
         repositoryIds,
         authorGithubId: viewer.githubId,
       });
       const canonicalByRepository = new Map<
         bigint,
-        CollectionRepositoryActivityDto
+        ProgramRepositoryActivity
       >();
       for (const record of activity) {
         const current = canonicalByRepository.get(record.repositoryId);

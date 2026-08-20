@@ -153,50 +153,48 @@ export class LintFixtureGreenControllerServiceController {
   });
 
   describe('규칙 2 — collection concrete 구현의 모듈 외부 import 금지', () => {
-    const redPath = 'src/ranking/__lint_fixture_red_collection_internal.ts';
-    const redContent = `import { CollectionReadService } from '../github/service/collection-read.service';
+    const redPath =
+      'src/ranking/service/__lint_fixture_red_collection_internal.service.ts';
+    const redContent = `import { CollectionReadService } from '../../github/service/collection-read.service';
 
 export function useFixture(service: CollectionReadService): CollectionReadService {
   return service;
 }
 `;
 
-    it('RED: collection 밖에서 CollectionReadService(concrete)를 직접 import하면 그 import 노드에서 실패한다', () => {
-      // Given: ranking(소비자)이 collection의 concrete 구현을 직접 import한다.
+    it('RED: ranking 또는 programs SERVICE가 github/service/collection-read.service를 import하면 실패한다', () => {
       writeFixture(redPath, redContent);
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(redPath));
 
-      // Then: boundary/module-zone이 1행(import 선언)에서 발화한다.
       expect(messages).toHaveLength(1);
       expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(1);
-      expect(messages[0]?.message).toContain('COLLECTION_READ_PORT');
+      expect(messages[0]?.message).toContain('concrete repository');
+      expect(messages[0]?.message).not.toContain('COLLECTION_READ_PORT');
     });
 
-    it('mutation: 같은 자리에서 concrete 대신 port를 import하면 위반이 사라진다', () => {
-      // Given: 동일 파일에서 import 대상만 concrete → port로 바꾼다.
+    it('mutation: collection-read.port 또는 github repository를 service에서 import해도 실패한다', () => {
       const mutatedPath =
-        'src/ranking/__lint_fixture_red_collection_internal.mutated.ts';
-      const mutatedContent = `import type { CollectionReadPort } from '../github/collection-read.port';
+        'src/ranking/service/__lint_fixture_red_collection_internal.mutated.service.ts';
+      const mutatedContent = `import { PublicRankingRepository } from '../../github/repository/public-ranking.repository';
 
-export function useFixture(service: CollectionReadPort): CollectionReadPort {
-  return service;
+export function useFixture(
+  repository: PublicRankingRepository,
+): PublicRankingRepository {
+  return repository;
 }
 `;
       writeFixture(mutatedPath, mutatedContent);
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(mutatedPath));
 
-      // Then: 허용된 public surface(port)는 통과 — 규칙이 "collection을 참조한다"가
-      // 아니라 "concrete 구현을 참조한다"라는 정확한 import 대상에서만 발화함을 증명한다.
-      expect(messages).toHaveLength(0);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+      expect(messages[0]?.message).toContain('concrete repository');
     });
 
-    it('GREEN: service→repository DTO 경계(같은 모듈 내부)는 통과한다', () => {
-      // Given: 같은 모듈 안에서 persistence DTO만 오가는 service/repository 쌍.
+    it('GREEN: 소비자 Service는 자기 repository를 쓴다', () => {
       writeFixture(
         'src/ranking/__lint_fixture_green_repository.ts',
         `export interface LintFixtureRankingRow {
@@ -226,38 +224,26 @@ export class LintFixtureGreenServiceRepositoryConsumer {
 `,
       );
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(servicePath));
 
-      // Then: 위반 없음.
       expect(messages).toHaveLength(0);
     });
 
-    it('GREEN: cross-module port injection(COLLECTION_READ_PORT 토큰)은 통과한다', () => {
-      // Given: 실제 ranking.service.ts와 동일한 패턴으로 port token을 주입받는다.
-      const portPath = 'src/ranking/__lint_fixture_green_port_injection.ts';
+    it('GREEN: 소비자 Repository는 PrismaService를 import해도 된다', () => {
+      const repositoryPath =
+        'src/ranking/repository/__lint_fixture_green_prisma.repository.ts';
       writeFixture(
-        portPath,
-        `import { Inject, Injectable } from '@nestjs/common';
-import {
-  COLLECTION_READ_PORT,
-  type CollectionReadPort,
-} from '../github/collection-read.port';
+        repositoryPath,
+        `import { PrismaService } from '../../prisma/prisma.service';
 
-@Injectable()
-export class LintFixtureGreenPortInjectionService {
-  constructor(
-    @Inject(COLLECTION_READ_PORT)
-    private readonly collection: CollectionReadPort,
-  ) {}
+export class LintFixtureGreenRankingRepository {
+  constructor(private readonly prisma: PrismaService) {}
 }
 `,
       );
 
-      // When: lint한다.
-      const messages = boundaryMessages(lintFixture(portPath));
+      const messages = boundaryMessages(lintFixture(repositoryPath));
 
-      // Then: 토큰+인터페이스는 허용 surface이므로 위반 없음.
       expect(messages).toHaveLength(0);
     });
   });
@@ -422,24 +408,39 @@ export type Fixture = CollectionReadService;
         // Then: 공개 surface allowlist 밖이므로 깊이와 무관하게 막힌다.
         expect(messages).toHaveLength(1);
         expect(messages[0]?.ruleId).toBe('boundary/module-zone');
-        expect(messages[0]?.message).toContain('COLLECTION_READ_PORT');
+        expect(messages[0]?.message).toContain('concrete repository');
+        expect(messages[0]?.message).not.toContain('COLLECTION_READ_PORT');
       });
 
-      it(`mutation: 깊이 ${depth}에서 port로 바꾸면 위반이 사라진다`, () => {
-        // Given: 같은 자리에서 대상만 concrete → port로 바꾼다.
+      it(`mutation: 깊이 ${depth}에서 github repository를 service가 import해도 실패한다`, () => {
         const relPath = `${dir}/__lint_fixture_depth${depth}_collection.mutated.ts`;
         writeFixture(
           relPath,
-          `import type { CollectionReadPort } from '${up}/github/collection-read.port';
+          `import { PublicRankingRepository } from '${up}/github/repository/public-ranking.repository';
 
-export type Fixture = CollectionReadPort;
+export type Fixture = PublicRankingRepository;
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(relPath));
 
-        // Then: 규칙이 "깊은 경로 전부"가 아니라 캡슐화 경계에서만 발화함을 증명한다.
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+        expect(messages[0]?.message).toContain('concrete repository');
+      });
+
+      it(`GREEN: 깊이 ${depth}에서 공개 surface(collection-schedule)는 통과한다`, () => {
+        const relPath = `${dir}/__lint_fixture_depth${depth}_collection.allowed.ts`;
+        writeFixture(
+          relPath,
+          `import { nextScheduledCollectionAt } from '${up}/github/collection-schedule';
+
+export const fixture = nextScheduledCollectionAt;
+`,
+        );
+
+        const messages = boundaryMessages(lintFixture(relPath));
+
         expect(messages).toHaveLength(0);
       });
     }

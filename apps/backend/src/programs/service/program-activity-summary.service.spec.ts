@@ -1,4 +1,4 @@
-import type { CollectionReadPort } from '../../github/collection-read.port';
+import type { ProgramActivityRepository } from '../repository/program-activity.repository';
 import type { ProgramActivitySummaryPort } from '../program-activity-summary.port';
 import type {
   ProgramActivitySummaryRepository,
@@ -38,7 +38,7 @@ describe('ProgramActivitySummaryService', () => {
     } satisfies Pick<ProgramActivitySummaryRepository, 'findRepositoryLinks'>;
     const collection = {
       findRepositoryActivity,
-    } satisfies Pick<CollectionReadPort, 'findRepositoryActivity'>;
+    } satisfies Pick<ProgramActivityRepository, 'findRepositoryActivity'>;
 
     // When
     const result = await new ProgramActivitySummaryService(
@@ -115,7 +115,7 @@ describe('ProgramActivitySummaryService', () => {
     } satisfies Pick<ProgramActivitySummaryRepository, 'findRepositoryLinks'>;
     const collection = {
       findRepositoryActivity,
-    } satisfies Pick<CollectionReadPort, 'findRepositoryActivity'>;
+    } satisfies Pick<ProgramActivityRepository, 'findRepositoryActivity'>;
 
     // When
     const result = await new ProgramActivitySummaryService(
@@ -195,7 +195,7 @@ describe('ProgramActivitySummaryService', () => {
     } satisfies Pick<ProgramActivitySummaryRepository, 'findRepositoryLinks'>;
     const collection = {
       findRepositoryActivity,
-    } satisfies Pick<CollectionReadPort, 'findRepositoryActivity'>;
+    } satisfies Pick<ProgramActivityRepository, 'findRepositoryActivity'>;
 
     // When
     const result = await new ProgramActivitySummaryService(

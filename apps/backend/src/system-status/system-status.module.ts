@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { CollectionModule } from '../github/collection.module';
 import { SystemStatusController } from './system-status.controller';
 import { SystemStatusRepository } from './system-status.repository';
 import {
@@ -9,7 +8,7 @@ import {
 } from './system-status.service';
 
 @Module({
-  imports: [AuthModule, CollectionModule],
+  imports: [AuthModule],
   controllers: [SystemStatusController],
   providers: [
     SystemStatusRepository,
