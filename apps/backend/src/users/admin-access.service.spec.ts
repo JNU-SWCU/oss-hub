@@ -13,9 +13,11 @@ import {
   INSERTED_REVOKED_REQUEST_ID,
   InMemoryAdminAccessRepository,
   PENDING_REQUEST,
+  STAFF_GITHUB_ID,
   accessUser,
   adminActor,
   auditLogHarness,
+  staffActor,
 } from './admin-access.service.spec-support';
 
 describe('AdminAccessService mutation', () => {
@@ -485,6 +487,89 @@ describe('AdminAccessService mutation', () => {
         code: AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED].code,
         status: 401,
       },
+    });
+    expect(repository.userUpdates).toEqual([]);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('allows STAFF to approve a pending request and writes the same v2 audit snapshot', async () => {
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actor = staffActor();
+    repository.target = accessUser({
+      role: null,
+      pendingRequest: PENDING_REQUEST,
+    });
+    const audit = auditLogHarness();
+    const service = new AdminAccessService(repository, audit.service);
+
+    const result = await service.patchAccess(STAFF_GITHUB_ID, 'target', {
+      expectedRole: null,
+      desiredRole: Role.STAFF,
+      expectedAccountStatus: AccountStatus.ACTIVE,
+      desiredAccountStatus: AccountStatus.ACTIVE,
+      expectedPendingRequest: {
+        id: PENDING_REQUEST.id,
+        status: PENDING_REQUEST.status,
+      },
+      requestDecision: {
+        decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE,
+      },
+    });
+
+    expect(result.decidedRequest).toEqual({
+      id: PENDING_REQUEST.id,
+      status: RoleRequestStatus.APPROVED,
+    });
+    expect(repository.operations).not.toContain('lock-active-admins');
+    expect(audit.record).toHaveBeenCalledWith(
+      {
+        actorGithubId: STAFF_GITHUB_ID,
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_APPROVED,
+        targetType: 'ROLE_REQUEST',
+        targetId: PENDING_REQUEST.id,
+        metadata: {
+          schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
+          actor: {
+            displayName: '합성 교직원',
+            githubLogin: 'synthetic-staff',
+          },
+          target: {
+            displayName: '합성 사용자',
+            githubLogin: 'synthetic-target',
+          },
+          before: {
+            role: null,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: RoleRequestStatus.PENDING,
+          },
+          after: {
+            role: Role.STAFF,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: RoleRequestStatus.APPROVED,
+          },
+        },
+      },
+      repository.auditLogWriter,
+    );
+  });
+
+  it('rejects STAFF SET_ROLE with ROL_004 and writes nothing', async () => {
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actor = staffActor();
+    const audit = auditLogHarness();
+    const service = new AdminAccessService(repository, audit.service);
+
+    await expect(
+      service.patchAccess(STAFF_GITHUB_ID, 'target', {
+        expectedRole: Role.STUDENT,
+        desiredRole: Role.STAFF,
+        expectedAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.ACTIVE,
+        expectedPendingRequest: null,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
     });
     expect(repository.userUpdates).toEqual([]);
     expect(audit.record).not.toHaveBeenCalled();

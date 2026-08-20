@@ -33,6 +33,7 @@ function item(
 }
 
 const baseViewProps = {
+  workspace: 'directory' as const,
   items: [item()],
   query: '',
   role: '' as const,

@@ -8,6 +8,10 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import {
+  accessDetailPath,
+  type AccessWorkspace,
+} from '../admin-access-list-query';
+import {
   ADMIN_ACCESS_OVERLAY_BREAKPOINT_PX,
   adminAccessOverlayContentClassName,
   adminAccessOverlayScrimClassName,
@@ -66,20 +70,33 @@ function useAdminAccessOverlayVariant(): AdminAccessOverlayVariant {
  * 한 번만 시도하면 놓칠 수 있어서, 재요청이 끝날 시간을 벌 만큼(약 400ms)
  * 여러 번 재시도한다.
  */
-function adminAccessOverlayTriggerSelector(userId: string): string {
-  return `a[href="/admin/access/users/${encodeURIComponent(userId)}"]`;
+function adminAccessOverlayTriggerSelector(
+  workspace: AccessWorkspace,
+  userId: string,
+): string {
+  return `a[href="${accessDetailPath(workspace, userId)}"]`;
 }
 
 const RESTORE_INTERVAL_MS = 50;
 const RESTORE_TICKS = 8;
 
-export function AdminAccessOverlay({ userId }: { readonly userId: string }) {
+export function AdminAccessOverlay({
+  userId,
+  workspace,
+}: {
+  readonly userId: string;
+  readonly workspace: AccessWorkspace;
+}) {
   const router = useRouter();
   const variant = useAdminAccessOverlayVariant();
+  const isQueue = workspace === 'queue';
 
   useEffect(() => {
     const scrollYOnOpen = window.scrollY;
-    const triggerSelector = adminAccessOverlayTriggerSelector(userId);
+    const triggerSelector = adminAccessOverlayTriggerSelector(
+      workspace,
+      userId,
+    );
 
     return () => {
       const restore = () => {
@@ -103,7 +120,7 @@ export function AdminAccessOverlay({ userId }: { readonly userId: string }) {
         }
       }, RESTORE_INTERVAL_MS);
     };
-  }, [userId]);
+  }, [userId, workspace]);
 
   const close = () => router.back();
 
@@ -123,10 +140,12 @@ export function AdminAccessOverlay({ userId }: { readonly userId: string }) {
           className={adminAccessOverlayContentClassName(variant)}
         >
           <DialogPrimitive.Title className="sr-only">
-            사용자 접근 상세
+            {isQueue ? '가입 신청 상세' : '사용자 목록 상세'}
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
-            선택한 사용자의 프로필과 요청·로그인 이력을 확인합니다.
+            {isQueue
+              ? '선택한 가입 신청의 프로필과 요청을 확인합니다.'
+              : '선택한 사용자의 프로필과 요청·로그인 이력을 확인합니다.'}
           </DialogPrimitive.Description>
           <DialogPrimitive.Close asChild>
             <Button
@@ -139,7 +158,11 @@ export function AdminAccessOverlay({ userId }: { readonly userId: string }) {
               <X aria-hidden="true" />
             </Button>
           </DialogPrimitive.Close>
-          <AdminAccessDetailView userId={userId} layoutContext="overlay" />
+          <AdminAccessDetailView
+            userId={userId}
+            layoutContext="overlay"
+            workspace={workspace}
+          />
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

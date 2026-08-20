@@ -162,6 +162,20 @@ describe('상태별 기본 렌더링', () => {
     expect(html).toContain('사용자를 찾을 수 없습니다');
     expect(html).toContain('href="/admin/access"');
   });
+
+  it('가입 신청 찾을 수 없음은 가입 신청 목록으로 돌아간다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'not-found' }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        workspace="queue"
+      />,
+    );
+    expect(html).toContain('href="/dashboard/applicants"');
+    expect(html).toContain('가입 신청으로');
+    expect(html).not.toContain('href="/admin/access"');
+  });
 });
 
 describe('머리말 — 이름·GitHub 링크·역할/상태 배지 (중복 제거된 헤더)', () => {
@@ -534,6 +548,30 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
     expect(html).toContain('대기 중인 요청을 먼저 처리해 주세요.');
   });
 
+  it('가입 신청 상세는 승인·반려만 두고 역할 변경 컨트롤은 숨긴다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail({
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          }),
+          history: history(),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        workspace="queue"
+      />,
+    );
+    expect(html).toContain('대기 중인 요청');
+    expect(html).not.toContain('접근 변경');
+    expect(html).not.toContain('>수정<');
+  });
+
   it('결정 카드의 승인 버튼 클릭은 mutation.onRequestAction을 APPROVE로 호출한다', () => {
     const onRequestAction = vi.fn();
     act(() => {
@@ -753,12 +791,12 @@ describe('배너 — 충돌 알림·성공 메시지·다이얼로그 에러 (�
         state={{ kind: 'ready', detail: detail(), history: history() }}
         onRetry={() => {}}
         mutation={mutation({
-          conflictNotice: '다른 관리자가 먼저 변경했습니다.',
+          conflictNotice: '다른 처리자가 먼저 변경했습니다.',
         })}
       />,
     );
     expect(html).toContain('접근 상태가 변경되었습니다');
-    expect(html).toContain('다른 관리자가 먼저 변경했습니다.');
+    expect(html).toContain('다른 처리자가 먼저 변경했습니다.');
   });
 
   it('successMessage가 있으면 상태 배너로 그린다', () => {
