@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, apiPath } from '@/lib/api-client';
 import { toAccountMenuSession } from './session-view';
 import type { AuthSession, Me } from './types';
 
@@ -25,6 +26,17 @@ const syntheticUser: Me = {
   role: 'STUDENT',
   isProfileComplete: true,
 };
+
+function unauthorizedSession(detail: string): ApiError {
+  return new ApiError({
+    type: 'about:blank',
+    title: '로그인이 필요합니다.',
+    status: 401,
+    detail,
+    instance: apiPath('auth/session'),
+    code: 'AUT_003',
+  });
+}
 
 /** 저장소가 in-flight 요청을 끝낼 때까지 microtask를 흘려보낸다. */
 async function settle(): Promise<void> {
@@ -56,6 +68,76 @@ describe('공유 인증 세션 저장소', () => {
 
     expect(getSessionSnapshot().status).toBe('anonymous');
   });
+
+  it('unassigned session은 역할 없는 인증 사용자를 그대로 게시한다', async () => {
+    const unassignedUser: Me = { ...syntheticUser, role: null };
+    fetchSession.mockResolvedValue({
+      isAuthenticated: true,
+      user: unassignedUser,
+    });
+
+    ensureSessionLoaded();
+    await settle();
+
+    expect(getSessionSnapshot()).toEqual({
+      status: 'authenticated',
+      user: unassignedUser,
+    });
+  });
+
+  it('authenticated shell consumers share one assigned session', async () => {
+    fetchSession.mockResolvedValue({
+      isAuthenticated: true,
+      user: syntheticUser,
+    });
+    const shellGate = vi.fn();
+    const accountMenu = vi.fn();
+    subscribeSession(shellGate);
+    subscribeSession(accountMenu);
+
+    ensureSessionLoaded();
+    await settle();
+
+    const assignedSession = getSessionSnapshot();
+    expect(assignedSession).toEqual({
+      status: 'authenticated',
+      user: syntheticUser,
+    });
+    expect(toAccountMenuSession(assignedSession)).toEqual({
+      isAuthenticated: true,
+      user: syntheticUser,
+    });
+    expect(shellGate).toHaveBeenCalledOnce();
+    expect(accountMenu).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['401 session', '인증 정보가 없습니다.'],
+    ['expired session', '만료된 세션입니다.'],
+    ['deactivated account', '비활성 계정입니다.'],
+  ])(
+    '%s transition clears cached authority to anonymous',
+    async (_, detail) => {
+      fetchSession.mockResolvedValueOnce({
+        isAuthenticated: true,
+        user: syntheticUser,
+      });
+      ensureSessionLoaded();
+      await settle();
+      expect(getSessionSnapshot().user?.role).toBe('STUDENT');
+
+      const shellGate = vi.fn();
+      subscribeSession(shellGate);
+      fetchSession.mockRejectedValueOnce(unauthorizedSession(detail));
+      refreshSession();
+
+      expect(getSessionSnapshot()).toEqual({ status: 'loading', user: null });
+      await settle();
+      expect(getSessionSnapshot()).toEqual({ status: 'anonymous', user: null });
+      expect(fetchSession).toHaveBeenCalledTimes(2);
+      expect(shellGate).toHaveBeenCalledTimes(2);
+    },
+  );
 
   // 리뷰에서 지적된 결함: 소비자마다 상태를 따로 들고 있으면 한 화면에서
   // 로그인된 본문과 비로그인 헤더가 동시에 보인다. 저장소를 하나만 두고 모든

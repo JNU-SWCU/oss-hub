@@ -132,7 +132,13 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
 
     // When: 반려 카드·반려 알림이 보내는 목적지 화면을 불러오기째 연다
     await act(async () => {
-      root.render(<ProgramApplyPage programId={PROGRAM_ID} teamId={null} />);
+      root.render(
+        <ProgramApplyPage
+          programId={PROGRAM_ID}
+          sessionUser={{ name: '합성 학생', nickname: 'synthetic-student' }}
+          teamId={null}
+        />,
+      );
     });
     await settleUntil(() => {
       expect(container.textContent ?? '').toContain('반려 사유');
@@ -154,7 +160,13 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
   it('판정이 끝난 신청이라 수정·취소로 갈리지 않는다', async () => {
     // Given / When
     await act(async () => {
-      root.render(<ProgramApplyPage programId={PROGRAM_ID} teamId={null} />);
+      root.render(
+        <ProgramApplyPage
+          programId={PROGRAM_ID}
+          sessionUser={{ name: '합성 학생', nickname: 'synthetic-student' }}
+          teamId={null}
+        />,
+      );
     });
     await settleUntil(() => {
       expect(container.textContent ?? '').toContain(

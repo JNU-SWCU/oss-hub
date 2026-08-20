@@ -80,3 +80,12 @@
 - Issue: #965
 - PR: (이 PR; verifier gap from #962)
 - blocker: 없음
+
+## 2026-08-21 — 프론트 세션 조회 경계를 단일화
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3/authenticated-shell.png`, `401-anonymous-shell.png`
+- 결과: `/auth/session` 단일 조회 경계, 401·만료·비활성 전환, 합성 Chrome 셀 QA 검증 완료

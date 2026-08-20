@@ -1,4 +1,4 @@
-import { apiClient, ApiError } from '@/lib/api-client';
+import { ApiError } from '@/lib/api-client';
 import {
   getMyTeam,
   getProgramDetail,
@@ -19,15 +19,10 @@ import {
 } from './student-application-api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
-type SessionSnapshot =
-  | { readonly isAuthenticated: false }
-  | {
-      readonly isAuthenticated: true;
-      readonly user: {
-        readonly name: string | null;
-        readonly nickname: string;
-      };
-    };
+export interface ProgramApplySessionUser {
+  readonly name: string | null;
+  readonly nickname: string;
+}
 
 export type ProgramApplyContext =
   | { readonly kind: 'not-found' }
@@ -62,21 +57,16 @@ export type ProgramApplyContext =
       readonly initialValues: ProgramApplyFormValues;
     };
 
-function loadSessionSnapshot(): Promise<SessionSnapshot> {
-  return apiClient<SessionSnapshot>('auth/session');
-}
-
 async function resolveTeam(
   programId: string,
   template: ApplicationFormTemplate,
   requestedTeamId: string | null,
-  isAuthenticated: boolean,
 ): Promise<{
   readonly teamId: string | null;
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
-  if (template.participation !== 'team' || !isAuthenticated) {
+  if (template.participation !== 'team') {
     return { teamId: requestedTeamId, minimum: null, team: null };
   }
   try {
@@ -93,21 +83,19 @@ async function resolveTeam(
 export async function loadProgramApplyContext(
   programId: string,
   requestedTeamId: string | null,
+  sessionUser: ProgramApplySessionUser,
 ): Promise<ProgramApplyContext> {
   try {
-    const [program, templates, session] = await Promise.all([
+    const [program, templates] = await Promise.all([
       getProgramDetail(programId),
       listApplicationTemplates().catch(() => [] as ApplicationFormTemplate[]),
-      loadSessionSnapshot().catch(() => ({ isAuthenticated: false as const })),
     ]);
     const template = resolveProgramApplicationTemplate(program, templates);
     if (!template) {
       return { kind: 'failed', message: '신청 양식을 찾을 수 없습니다.' };
     }
-    const applicantName = session.isAuthenticated
-      ? (session.user.name ?? session.user.nickname)
-      : '';
-    const githubHandle = session.isAuthenticated ? session.user.nickname : '';
+    const applicantName = sessionUser.name ?? sessionUser.nickname;
+    const githubHandle = sessionUser.nickname;
 
     if (program.viewer.applicationStatus !== null) {
       const application = await getMyApplication(programId).catch(
@@ -149,7 +137,6 @@ export async function loadProgramApplyContext(
         programId,
         template,
         application.teamId,
-        session.isAuthenticated,
       );
       return {
         kind: 'ready',
@@ -177,12 +164,7 @@ export async function loadProgramApplyContext(
       };
     }
 
-    const team = await resolveTeam(
-      programId,
-      template,
-      requestedTeamId,
-      session.isAuthenticated,
-    );
+    const team = await resolveTeam(programId, template, requestedTeamId);
     const blocked = resolveApplyBlockedReason(program, template, team.teamId);
     if (blocked) {
       // 이 갈래는 신청서를 조회하지 않는다 — 아직 신청이 없거나 팀이 없어 막힌다.

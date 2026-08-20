@@ -39,8 +39,8 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 ## For AI Agents
 
 - **`_shell/`는 Next.js 라우트가 아니다** — 파일명이 밑줄로 시작해 라우팅에서 제외되는 private 폴더로, 여러 라우트가 공유하는 역할 게이트·패널 컴포넌트만 담는다(괄호 route group이 아님에 주의). 새 화면을 추가할 때는 이 폴더의 컴포넌트를 가져다 쓰고, 화면별로 게이트 로직을 새로 만들지 않는다.
-  - `role.ts` — `AppRole = 'STUDENT' | 'STAFF' | 'ADMIN'`과 `roleHomePath(role)`(회원 공통 입구 `/dashboard`. 본문은 세션 `User.role`로 갈림. JWT에는 githubId만 있고 역할은 DB→`/auth/me`).
-  - `use-session-role.ts` — `/auth/me`를 호출해 `{status: 'loading'|'anonymous'|'unassigned'|'assigned', role}`를 반환하는 훅. `features/auth`(owner 전속)가 아직 응답에 `role`을 노출하지 않아 이 훅 안에서만 로컬로 타입을 넓혀 쓴다 — owner 경로는 건드리지 않는다.
+  - `role.ts` — `AppRole = 'STUDENT' | 'STAFF' | 'ADMIN'`과 `roleHomePath(role)`(회원 공통 입구 `/dashboard`. 본문은 세션 `User.role`로 갈림. JWT에는 githubId만 있고 역할은 DB→`/auth/session`).
+  - `use-session-role.ts` — `features/auth` 공유 저장소의 `/auth/session` 응답을 `{status: 'loading'|'anonymous'|'unassigned'|'assigned', role}`로 조합하는 훅.
   - `role-gate.tsx`(`RoleGate`) — 비로그인은 `/`, 역할 미확정은 `/onboarding/role`, `allow`에 없는 역할은 접근 안내 화면(`AccessDenied`). `auth-gate.tsx`(`AuthGate`)는 로그인 여부만 확인(역할 무관 공용 화면용).
     - **역할 없이 열어 주는 예외는 `unassignedAccess` 규칙 하나로만 정한다** — `(state: SessionRoleState) => boolean`. 화면이 자기 규칙을 갖고, 게이트는 그 위에 "`unassigned`가 아니면 무조건 닫는다"를 한 번 더 얹는다. `unassignedNotice`는 그 판단이 끝난 뒤 자식 위에 얹히는 **표시일 뿐 권한이 아니다** — 둘을 묶었다가 `null`·`false`처럼 아무것도 그리지 않는 안내가 권한을 열어 주는 fail-open이 났었다(#581 후속). 규칙을 함수로 넘기므로 그 `page.tsx`는 클라이언트 컴포넌트여야 한다.
     - 판단에 쓴 세션 스냅샷은 `session-role-context.tsx`(`SessionRoleProvider`)로 자식에게 물려준다. 화면은 `useSessionRole()`을 다시 부르지 말고 `useSharedSessionRole()`로 받는다 — 다시 부르면 역할 요청 조회가 한 번 더 나가고, 접근을 정한 근거와 폼이 무엇을 물을지 정하는 근거가 서로 다른 순간의 답이 될 수 있다. 게이트 밖에서 부르면 fallback 없이 던진다.
@@ -61,5 +61,5 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 ## Dependencies
 
 - [apps/frontend/src/AGENTS.md](../AGENTS.md)
-- `features/auth`(`fetchMe`) — `use-session-role.ts`가 의존.
+- `features/auth`(`useSession`) — `use-session-role.ts`가 공유 세션 스냅샷을 구독.
 - `components/`(`DetailPanelLayout`·`EmptyState`·`NavItem` 등) — `_shell/`이 조합해 쓴다.

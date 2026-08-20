@@ -30,6 +30,10 @@ vi.mock('./load-program-apply-context', () => ({
 }));
 
 const loadProgramApplyContextMock = vi.mocked(loadProgramApplyContext);
+const sessionUser = {
+  name: '합성 학생',
+  nickname: 'synthetic-student',
+} as const;
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -124,7 +128,13 @@ describe('ProgramApplyPage 비동기 초기화', () => {
 
   async function renderPage(programId: string, teamId: string | null = null) {
     await act(async () => {
-      root.render(<ProgramApplyPage programId={programId} teamId={teamId} />);
+      root.render(
+        <ProgramApplyPage
+          programId={programId}
+          sessionUser={sessionUser}
+          teamId={teamId}
+        />,
+      );
       await Promise.resolve();
     });
   }
@@ -198,6 +208,7 @@ describe('ProgramApplyPage 비동기 초기화', () => {
     expect(loadProgramApplyContextMock).toHaveBeenLastCalledWith(
       'program-current',
       'team-current',
+      sessionUser,
     );
     expect(titleInput().value).toBe('새 기본값');
   });
