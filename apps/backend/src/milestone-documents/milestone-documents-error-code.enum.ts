@@ -144,7 +144,7 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.REVIEW_CHANGED,
     status: 409,
     message:
-      '제출하는 사이에 판정이 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
+      '제출하는 사이에 교직원 검토 결과가 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
   },
   /**
    * 교직원이 **본 그 버전**이 아닌 것에 판정이 붙으려 했다 — 표를 그린 뒤 학생이 다시 냈거나
@@ -159,7 +159,7 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
     status: 409,
     message:
-      '검토하는 사이에 제출물 또는 판정이 바뀌었습니다. 새로고침 후 다시 확인해 주세요.',
+      '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다. 새로고침 후 다시 확인해 주세요.',
   },
   /**
    * 일괄 내려받기가 한 번에 흘려 보낼 수 있는 크기를 넘겼다.

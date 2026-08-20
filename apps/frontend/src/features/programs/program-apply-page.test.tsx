@@ -345,10 +345,12 @@ describe('ProgramApply views', () => {
   });
 
   it('서버 오류 상태를 표시한다', () => {
-    const html = renderForm({ serverError: '이미 판정된 신청입니다.' });
+    const html = renderForm({
+      serverError: '이미 승인되거나 반려된 신청입니다.',
+    });
 
     expect(html).toContain('저장 실패');
-    expect(html).toContain('이미 판정된 신청입니다.');
+    expect(html).toContain('이미 승인되거나 반려된 신청입니다.');
   });
 
   it('team-required blocked state keeps detail CTA and shows team setup CTA', () => {

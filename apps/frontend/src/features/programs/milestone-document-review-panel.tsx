@@ -134,11 +134,11 @@ function SubmittedContent({
 }
 
 /**
- * 지난 판정. 판정은 덮어쓰지 않고 쌓이므로, 교직원이 바뀌어도 앞사람이 무엇을 지적했는지
+ * 지난 검토. 검토는 덮어쓰지 않고 쌓이므로, 교직원이 바뀌어도 앞사람이 무엇을 지적했는지
  * 보이는 것이 이 기능의 요구다.
  *
  * ⚠ 응답이 주는 것은 **최신 한 건**뿐이다(`cells[].review`). 이력 전체를 주는 조회는 없다 —
- * 「지난 판정 목록」을 그리고 싶어도 여기서 지어낼 수 없으니 만들지 마라.
+ * 「지난 검토 목록」을 그리고 싶어도 여기서 지어낼 수 없으니 만들지 마라.
  */
 function PreviousReview({
   review,
@@ -151,7 +151,7 @@ function PreviousReview({
       className="grid gap-1 rounded-card border border-border bg-card p-card"
     >
       <p className="flex flex-wrap items-center gap-2 text-small font-semibold">
-        지난 판정
+        지난 검토
         <StatusBadge
           variant={MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS[review.decision]}
         >
@@ -162,10 +162,10 @@ function PreviousReview({
         </span>
       </p>
       <p className="text-small break-keep whitespace-pre-wrap">
-        {review.comment ?? '사유 없이 저장된 판정입니다.'}
+        {review.comment ?? '사유 없이 저장되었습니다.'}
       </p>
       <p className="text-small text-muted-foreground break-keep">
-        판정은 덮어쓰지 않고 쌓입니다. 새로 저장해도 이 기록은 남습니다.
+        검토는 덮어쓰지 않고 쌓입니다. 새로 저장해도 이 기록은 남습니다.
       </p>
     </div>
   );
@@ -221,7 +221,7 @@ export function MilestoneDocumentReviewPanel(
 
       <div
         role="group"
-        aria-label="판정"
+        aria-label="검토"
         className="flex flex-wrap items-center gap-2"
       >
         {MILESTONE_DOCUMENT_REVIEW_DECISION_ORDER.map((option) => (
@@ -286,7 +286,7 @@ export function MilestoneDocumentReviewPanel(
           disabled={props.isSubmitting}
           onClick={props.onSubmit}
         >
-          {props.isSubmitting ? '저장 중…' : '판정 저장'}
+          {props.isSubmitting ? '저장 중…' : '저장'}
         </Button>
       </div>
     </div>

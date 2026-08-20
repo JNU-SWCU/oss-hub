@@ -191,12 +191,12 @@ describe('SubmissionReviewScreen 실패 안내 (#354)', () => {
     // Then — 문구가 "유지했다"고 말하고, 화면 상태도 실제로 유지한다.
     const props = currentProps();
     expect(props.formError).toBe(
-      '판정을 저장하지 못했습니다. 선택한 판정과 코멘트는 그대로 남아 있으니 다시 저장해 주세요.',
+      '저장하지 못했습니다. 선택한 결과와 코멘트는 그대로 남아 있으니 다시 저장해 주세요.',
     );
     expect(props.decision).toBe('CHANGES_REQUESTED');
     expect(props.comment).toBe('실행 화면 캡처를 추가해 주세요.');
     // 옛 문구는 한 문장으로 끝나 입력이 남았는지 알 수 없었다.
-    expect(props.formError).not.toBe('판정을 저장하지 못했습니다.');
+    expect(props.formError).not.toBe('저장하지 못했습니다.');
   });
 
   it('저장소 공개 전환 실패 안내는 확인할 대상과 다음 행동을 알려준다', async () => {

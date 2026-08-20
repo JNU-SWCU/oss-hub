@@ -208,7 +208,7 @@ describe('수합 표에서 판정하기', () => {
       collection([row('a', '가팀', [cell('d1'), cell('d2')])]),
     );
     await render();
-    await click(byLabel('가팀 기획서 판정'));
+    await click(byLabel('가팀 기획서 검토'));
   }
 
   it('제출된 칸을 누르면 표를 떠나지 않고 그 자리에서 판정이 열린다', async () => {
@@ -227,7 +227,7 @@ describe('수합 표에서 판정하기', () => {
     await openPanelForGaTeam();
     expect(panel()).not.toBeNull();
 
-    await click(byLabel('가팀 기획서 판정'));
+    await click(byLabel('가팀 기획서 검토'));
 
     expect(panel()).toBeNull();
   });
@@ -246,12 +246,12 @@ describe('수합 표에서 판정하기', () => {
 
     expect(
       buttons().some(
-        (button) => button.getAttribute('aria-label') === '가팀 기획서 판정',
+        (button) => button.getAttribute('aria-label') === '가팀 기획서 검토',
       ),
     ).toBe(false);
     expect(
       buttons().some(
-        (button) => button.getAttribute('aria-label') === '가팀 중간 보고 판정',
+        (button) => button.getAttribute('aria-label') === '가팀 중간 보고 검토',
       ),
     ).toBe(true);
   });
@@ -264,7 +264,7 @@ describe('수합 표에서 판정하기', () => {
     await openPanelForGaTeam();
 
     await click(byText('보완 요청'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(createMilestoneDocumentReviewMock).not.toHaveBeenCalled();
     expect(panel()?.textContent).toContain(
@@ -277,10 +277,12 @@ describe('수합 표에서 판정하기', () => {
   it('판정을 고르지 않고 저장하면 고르라고 말한다', async () => {
     await openPanelForGaTeam();
 
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(createMilestoneDocumentReviewMock).not.toHaveBeenCalled();
-    expect(panel()?.textContent).toContain('판정을 골라 주세요.');
+    expect(panel()?.textContent).toContain(
+      '승인, 보완 요청, 반려 중 하나를 골라 주세요.',
+    );
   });
 
   it('승인은 사유 없이 저장한다', async () => {
@@ -294,7 +296,7 @@ describe('수합 표에서 판정하기', () => {
     });
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(createMilestoneDocumentReviewMock).toHaveBeenCalledWith(
       'milestone-1',
@@ -341,9 +343,9 @@ describe('수합 표에서 판정하기', () => {
       reviewerNickname: '교직원',
     });
 
-    await click(byLabel('가팀 기획서 판정'));
+    await click(byLabel('가팀 기획서 검토'));
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(createMilestoneDocumentReviewMock).toHaveBeenCalledWith(
       'milestone-1',
@@ -372,7 +374,7 @@ describe('수합 표에서 판정하기', () => {
     await act(async () => {
       typeComment('  표지를 고쳐 주세요.  ');
     });
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(createMilestoneDocumentReviewMock).toHaveBeenCalledWith(
       'milestone-1',
@@ -388,7 +390,7 @@ describe('수합 표에서 판정하기', () => {
   });
 
   /**
-   * 저장한 판정은 곧바로 칸의 배지와 「지난 판정」이 되어야 한다. 그 값은 서버가
+   * 저장한 결과는 곧바로 칸의 배지와 「지난 검토」가 되어야 한다. 그 값은 서버가
    * 소유하므로 응답을 손으로 표에 꽂지 않고 같은 조건으로 표를 다시 부른다.
    */
   it('저장에 성공하면 패널을 닫고 같은 조건으로 표를 다시 부른다', async () => {
@@ -403,7 +405,7 @@ describe('수합 표에서 판정하기', () => {
     const loadsBefore = getMilestoneDocumentCollectionMock.mock.calls.length;
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(panel()).toBeNull();
     expect(getMilestoneDocumentCollectionMock.mock.calls.length).toBe(
@@ -433,7 +435,7 @@ describe('수합 표에서 판정하기', () => {
     );
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     // 문자열이 아니라 DOM의 boolean으로 본다.
     expect(byText('저장 중…').disabled).toBe(true);
@@ -446,7 +448,7 @@ describe('수합 표에서 판정하기', () => {
 
   /**
    * 「그 사이 판정이 바뀜」(409)은 손에 든 표가 낡았다는 뜻이다. 문구만 띄우고 표를
-   * 그대로 두면 교직원은 낡은 「지난 판정」을 보며 같은 실패를 되풀이한다.
+   * 그대로 두면 교직원은 낡은 「지난 검토」를 보며 같은 실패를 되풀이한다.
    */
   it('그 사이 판정이 바뀌었다는 409는 문구와 함께 표를 다시 부른다', async () => {
     await openPanelForGaTeam();
@@ -455,7 +457,7 @@ describe('수합 표에서 판정하기', () => {
         type: 'about:blank',
         title: 'Conflict',
         status: 409,
-        detail: '제출하는 사이에 판정이 등록되었습니다.',
+        detail: '제출하는 사이에 교직원 검토 결과가 등록되었습니다.',
         instance: '/x',
         code: 'MSD_024',
       }),
@@ -463,10 +465,10 @@ describe('수합 표에서 판정하기', () => {
     const loadsBefore = getMilestoneDocumentCollectionMock.mock.calls.length;
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(panel()?.textContent).toContain(
-      '제출하는 사이에 판정이 등록되었습니다.',
+      '제출하는 사이에 교직원 검토 결과가 등록되었습니다.',
     );
     expect(getMilestoneDocumentCollectionMock.mock.calls.length).toBe(
       loadsBefore + 1,
@@ -489,7 +491,7 @@ describe('수합 표에서 판정하기', () => {
     const loadsBefore = getMilestoneDocumentCollectionMock.mock.calls.length;
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(panel()?.textContent).toContain(
       '보완 요청과 반려는 사유를 입력해 주세요.',
@@ -540,7 +542,7 @@ describe('수합 표에서 판정하기', () => {
     );
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
     await click(byText('필수 서류 미제출 12팀'));
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
@@ -588,7 +590,7 @@ describe('수합 표에서 판정하기', () => {
     );
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
     await click(byText('필수 서류 미제출 12팀'));
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
@@ -627,8 +629,8 @@ describe('수합 표에서 판정하기', () => {
     );
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
-    await click(byLabel('가팀 중간 보고 판정'));
+    await click(byText('저장'));
+    await click(byLabel('가팀 중간 보고 검토'));
     expect(panel()?.textContent).toContain('가팀 — 중간 보고');
 
     await act(async () => {
@@ -702,7 +704,7 @@ describe('수합 표에서 판정하기', () => {
     );
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     // 갱신 중 — 표는 그대로 서 있고 뼈대는 서지 않는다.
     expect(skeleton()).toBeNull();
@@ -732,7 +734,7 @@ describe('수합 표에서 판정하기', () => {
         type: 'about:blank',
         title: 'Conflict',
         status: 409,
-        detail: '검토하는 사이에 제출물 또는 판정이 바뀌었습니다.',
+        detail: '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다.',
         instance: '/x',
         code,
       }),
@@ -742,7 +744,7 @@ describe('수합 표에서 판정하기', () => {
     );
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     expect(skeleton()).toBeNull();
     expect(container.textContent).toContain('가팀');
@@ -871,10 +873,10 @@ describe('수합 표에서 판정하기', () => {
     expect(cells[1]?.textContent).toContain('검토 대기');
     expect(cells[1]?.textContent).not.toContain('보완 요청');
 
-    await click(byLabel('가팀 기획서 판정'));
+    await click(byLabel('가팀 기획서 검토'));
 
     // 지난 지적은 사라지지 않는다 — 다시 보는 교직원이 무엇을 지적했는지 알아야 한다.
-    expect(panel()?.textContent).toContain('지난 판정');
+    expect(panel()?.textContent).toContain('지난 검토');
     expect(panel()?.textContent).toContain('표지의 이름이 신청서와 다릅니다.');
   });
 
@@ -891,7 +893,7 @@ describe('수합 표에서 판정하기', () => {
         title: 'Conflict',
         status: 409,
         detail:
-          '검토하는 사이에 제출물 또는 판정이 바뀌었습니다. 새로고침 후 다시 확인해 주세요.',
+          '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다. 새로고침 후 다시 확인해 주세요.',
         instance: '/x',
         code: 'MSD_025',
       }),
@@ -899,7 +901,7 @@ describe('수합 표에서 판정하기', () => {
     const loadsBefore = getMilestoneDocumentCollectionMock.mock.calls.length;
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     // 고른 판정은 버려진다 — 패널이 열린 채면 같은 판정을 다시 눌러 통과시킬 수 있다.
     expect(panel()).toBeNull();
@@ -914,13 +916,13 @@ describe('수합 표에서 판정하기', () => {
     // 세 가지를 다 말해야 한다: 저장되지 않았다 · 표는 되돌렸다 · 다시 **보고** 판정하라.
     expect(notice?.textContent).toContain('저장하지 않았습니다');
     expect(notice?.textContent).toContain('다시 불러왔습니다');
-    expect(notice?.textContent).toContain('다시 확인한 뒤 판정해 주세요');
+    expect(notice?.textContent).toContain('다시 확인한 뒤 다시 검토해 주세요');
     /*
      * 학생 제출 경로의 409(MSD_024) 문구를 그대로 쓰지 않는다 — 두 자리에 같은 말을
      * 띄우면 「무엇이 바뀌었는지」가 사라진다.
      */
     expect(notice?.textContent).not.toContain(
-      '제출하는 사이에 판정이 등록되었습니다',
+      '제출하는 사이에 교직원 검토 결과가 등록되었습니다',
     );
   });
 
@@ -932,7 +934,7 @@ describe('수합 표에서 판정하기', () => {
         type: 'about:blank',
         title: 'Conflict',
         status: 409,
-        detail: '검토하는 사이에 제출물 또는 판정이 바뀌었습니다.',
+        detail: '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다.',
         instance: '/x',
         code,
       }),
@@ -941,7 +943,7 @@ describe('수합 표에서 판정하기', () => {
       collection([row('a', '가팀', [cell('d1'), cell('d2')])]),
     );
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
     return release;
   }
 
@@ -953,7 +955,7 @@ describe('수합 표에서 판정하기', () => {
         type: 'about:blank',
         title: 'Conflict',
         status: 409,
-        detail: '검토하는 사이에 제출물 또는 판정이 바뀌었습니다.',
+        detail: '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다.',
         instance: '/x',
         code,
       }),
@@ -962,7 +964,7 @@ describe('수합 표에서 판정하기', () => {
       new Error('네트워크가 끊겼습니다.'),
     );
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
     await settle();
   }
 
@@ -1001,7 +1003,7 @@ describe('수합 표에서 판정하기', () => {
     // 낡은 칸이 남아 조작되는 일이 없어야 한다 — 문자열이 아니라 버튼 자체로 본다.
     expect(
       buttons().some(
-        (button) => button.getAttribute('aria-label') === '가팀 기획서 판정',
+        (button) => button.getAttribute('aria-label') === '가팀 기획서 검토',
       ),
     ).toBe(false);
     // 다시 부르는 중도 아니다 — 뼈대를 세워 두면 영원히 부르는 것처럼 보인다.
@@ -1030,7 +1032,7 @@ describe('수합 표에서 판정하기', () => {
     expect(panel()).toBeNull();
 
     const notice = reviewNotice();
-    expect(notice?.textContent).toContain('다른 판정이 먼저 등록되어');
+    expect(notice?.textContent).toContain('다른 검토 결과가 먼저 등록되어');
     expect(notice?.textContent).toContain('저장하지 않았습니다');
     expect(notice?.textContent).toContain('다시 불러오지 못했습니다');
   });
@@ -1043,15 +1045,15 @@ describe('수합 표에서 판정하기', () => {
         type: 'about:blank',
         title: 'Conflict',
         status: 409,
-        detail: '검토하는 사이에 제출물 또는 판정이 바뀌었습니다.',
+        detail: '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다.',
         instance: '/x',
         code: 'MSD_025',
       }),
     );
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
-    await click(byLabel('가팀 중간 보고 판정'));
+    await click(byText('저장'));
+    await click(byLabel('가팀 중간 보고 검토'));
 
     expect(
       container.querySelector(
@@ -1087,9 +1089,9 @@ describe('수합 표에서 판정하기', () => {
     );
 
     // 2. 중간 보고를 판정해 전송을 띄워 둔다.
-    await click(byLabel('가팀 중간 보고 판정'));
+    await click(byLabel('가팀 중간 보고 검토'));
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     // 3. 그 사이 학생이 기획서를 다시 내고 다른 교직원이 판정을 붙였다.
     getMilestoneDocumentCollectionMock.mockResolvedValue(
@@ -1111,7 +1113,7 @@ describe('수합 표에서 판정하기', () => {
     );
 
     // 4. 기획서 패널을 연다 — 이때 화면에 있던 값은 아직 옛 표(07-28 · 판정 없음)다.
-    await click(byLabel('가팀 기획서 판정'));
+    await click(byLabel('가팀 기획서 검토'));
 
     // 5. 띄워 둔 전송이 늦게 끝난다 → 버려진 성공이므로 표를 다시 부른다(내용이 바뀐다).
     await act(async () => {
@@ -1133,7 +1135,7 @@ describe('수합 표에서 판정하기', () => {
     });
 
     await click(byText('승인'));
-    await click(byText('판정 저장'));
+    await click(byText('저장'));
 
     /*
      * 열 때 본 값이 나간다. 보내는 순간의 표를 읽었다면 08-05·review-99가 실려 서버가

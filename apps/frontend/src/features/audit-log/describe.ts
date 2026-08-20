@@ -389,13 +389,13 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
           actorSegment(record),
           text(`님이 ${targetTypeLabel(record)} `),
           fallbackTargetSegment(record),
-          text('의 판정을 취소했습니다'),
+          text('을(를) 검토 대기로 되돌렸습니다'),
         ]
       : [
           actorSegment(record),
           text('님이 '),
           nameSegment(record),
-          text('님의 신청 판정을 취소했습니다'),
+          text('님의 신청을 검토 대기로 되돌렸습니다'),
         ],
   USER_PROFILE_UPDATED: (record) =>
     isFallbackTarget(record)

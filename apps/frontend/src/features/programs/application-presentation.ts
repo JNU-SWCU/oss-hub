@@ -48,7 +48,7 @@ export const APPLICATION_STATUS_BADGE: Readonly<
  * 전부 명사라 형식을 맞춘다. */
 export const NO_APPLICATION_LABEL = '미신청';
 
-/** 판정은 신청 상세에서만 한다 — 목록·참여 팀 화면의 행 액션은 그리로 보내는
+/** 승인·반려는 신청 상세에서만 한다 — 목록·참여 팀 화면의 행 액션은 그리로 보내는
  * 링크뿐이다([#869]). */
 export const REVIEW_ACTION_LABEL = '검토하기';
 
@@ -156,7 +156,7 @@ function isRevertBlockedDecisionError(problem: {
  * 신청이 하나뿐이라 `applicationId` 없이 부른다. `applicationId` 매개변수와 그걸
  * 쓰는 행별 분기는 목록이 판정을 되찾을 때를 위해 남겨 둔 것이고, 지금
  * 프로덕션 경로에는 없다([#869]).
- * ⚠ 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「판정 취소」로 바뀐다). 그때
+ * ⚠ 승인·반려에 **성공**하면 그 버튼이 사라진다(「승인」이 「검토 대기로」로 바뀐다). 그때
  * 어디로 돌려줄지는 `application-decision-focus.ts` 가 같은 규칙으로 정한다 —
  * 같은 행의 **새 버튼**이고, 그것은 재조회가 끝난 뒤에야 생긴다([#767]).
  */

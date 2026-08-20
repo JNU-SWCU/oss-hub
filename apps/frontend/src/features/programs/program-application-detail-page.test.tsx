@@ -251,22 +251,22 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).not.toContain('오전 05:32');
   });
 
-  it('판정 대기 신청에는 승인·반려가 있고 판정 취소는 없다', async () => {
+  it('검토 대기 신청에는 승인·반려가 있고 검토 대기로는 없다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 
     await mount();
 
     expect(getButton('승인')).toBeTruthy();
     expect(getButton('반려')).toBeTruthy();
-    expect(queryButton('판정 취소')).toBeUndefined();
+    expect(queryButton('검토 대기로')).toBeUndefined();
   });
 
-  it('판정된 신청에는 판정 취소만 있다', async () => {
+  it('승인되거나 반려된 신청에는 검토 대기로만 있다', async () => {
     getApplicationDetailMock.mockResolvedValue(rejected);
 
     await mount();
 
-    expect(getButton('판정 취소')).toBeTruthy();
+    expect(getButton('검토 대기로')).toBeTruthy();
     expect(queryButton('승인')).toBeUndefined();
     expect(queryButton('반려')).toBeUndefined();
   });
@@ -347,7 +347,7 @@ describe('ProgramApplicationDetailPage', () => {
       reason: '예산 항목이 비어 있습니다',
     });
     expect(getApplicationDetailMock).toHaveBeenCalledTimes(2);
-    expect(container.textContent).toContain('판정이 저장되었습니다');
+    expect(container.textContent).toContain('반려를 저장했습니다');
     expect(container.textContent).toContain('반려 결과를 다시 불러왔습니다.');
   });
 
@@ -398,7 +398,9 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).toContain('신청이 이미 취소되었습니다');
     // 「주소가 잘못되었습니다」는 여기서 틀린 안내다 — 주소는 멀쩡했고 학생이 취소했다.
     expect(container.textContent).not.toContain('주소가 잘못되었습니다');
-    expect(container.textContent).toContain('판정은 저장되지 않았습니다');
+    expect(container.textContent).toContain(
+      '방금 고른 내용은 저장되지 않았습니다',
+    );
   });
 
   it('주소의 프로그램과 다른 신청은 그리지 않는다', async () => {
@@ -530,7 +532,7 @@ describe('ProgramApplicationDetailPage', () => {
     // Then: 창은 열린 채이고, 실패 안내가 그 **창 안에** 있다.
     const dialog = document.querySelector('[role="alertdialog"]');
     expect(dialog).not.toBeNull();
-    expect(dialog?.textContent).toContain('판정을 저장하지 못했습니다');
+    expect(dialog?.textContent).toContain('저장하지 못했습니다');
     expect(dialog?.textContent).toContain('입력과 현재 상태를 유지했습니다');
   });
 
@@ -611,7 +613,7 @@ describe('ProgramApplicationDetailPage', () => {
 
   it('판정에 성공해 확인창이 스스로 닫히면 그 자리의 새 버튼으로 포커스가 간다', async () => {
     // Given: 승인 확인창이 열려 있다.
-    // ⚠ 성공하면 「승인」이 **사라지고** 「판정 취소」가 생긴다 — 창을 연 버튼으로는
+    // ⚠ 성공하면 「승인」이 **사라지고** 「검토 대기로」가 생긴다 — 창을 연 버튼으로는
     //   돌아갈 수 없고, 새 버튼은 **재조회가 끝난 뒤에야** DOM 에 생긴다([#767]).
     getApplicationDetailMock.mockResolvedValueOnce(submitted);
     decideApplicationMock.mockResolvedValue({
@@ -634,14 +636,13 @@ describe('ProgramApplicationDetailPage', () => {
 
     // Then: 문서 맨 앞이 아니라 그 자리를 이어받은 버튼에 있다.
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(document.activeElement).toBe(getButton('판정 취소'));
+    expect(document.activeElement).toBe(getButton('검토 대기로'));
     expect(container.textContent).toContain(
       '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.',
     );
   });
 
-  it('판정 취소에 성공하면 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
-    // 판정마다 무엇이 남는지가 다르다 — 승인 한 갈래만 고치면 판정 취소는 그대로 튕긴다.
+  it('검토 대기로 되돌리면 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
     getApplicationDetailMock.mockResolvedValueOnce(rejected);
     decideApplicationMock.mockResolvedValue({
       applicationId: 'app-1',
@@ -649,21 +650,19 @@ describe('ProgramApplicationDetailPage', () => {
     });
     getApplicationDetailMock.mockResolvedValueOnce(submitted);
     await mount();
-    await act(async () => getButton('판정 취소').click());
+    await act(async () => getButton('검토 대기로').click());
 
-    await act(async () => getButton('판정 취소 확정').click());
+    await act(async () => getButton('검토 대기로 되돌리기').click());
     await act(async () => {
       await Promise.resolve();
     });
     await flushCloseAutoFocus();
 
     expect(document.activeElement).toBe(getButton('승인'));
-    // 이 문구가 옛 낱말("되돌린")로 새면, 버튼·안내 문구는 전부 「판정 취소」로
-    // 바뀐 뒤에도 여기만 화면 어디에도 없는 말을 쓰게 된다.
+    expect(container.textContent).toContain('검토 대기로 되돌렸습니다');
     expect(container.textContent).toContain(
-      '판정 취소 결과를 다시 불러왔습니다.',
+      '신청을 다시 검토 대기 상태로 불러왔습니다.',
     );
-    expect(container.textContent).not.toContain('되돌린');
   });
 
   it('낡은 상태(409)로 창이 닫혀도 포커스가 문서 맨 앞으로 떨어지지 않는다', async () => {
@@ -684,7 +683,7 @@ describe('ProgramApplicationDetailPage', () => {
     await flushCloseAutoFocus();
 
     expect(document.activeElement).not.toBe(document.body);
-    expect(document.activeElement).toBe(getButton('판정 취소'));
+    expect(document.activeElement).toBe(getButton('검토 대기로'));
   });
 
   it('재조회까지 실패해 신청이 그대로면 누르던 그 버튼으로 돌아온다', async () => {

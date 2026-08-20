@@ -291,7 +291,7 @@ function CollectionCellContent({
         <button
           type="button"
           aria-expanded={isReviewOpen}
-          aria-label={`${teamName} ${documentName} 판정`}
+          aria-label={`${teamName} ${documentName} 검토`}
           className="flex flex-col items-start gap-0.5 rounded-control text-left hover:opacity-80"
           /*
            * 판정을 묶어 둘 버전을 **이 순간의 칸에서** 떠 온다. 저장할 때 다시 읽으면

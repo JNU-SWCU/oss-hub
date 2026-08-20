@@ -36,7 +36,7 @@ function tagOf(html: string, label: string): string {
 }
 
 /**
- * 배지 문구만 그린 순서대로. 머리의 「지금 상태」와 「지난 판정」의 배지가 서로 다른 말을
+ * 배지 문구만 그린 순서대로. 머리의 「지금 상태」와 「지난 검토」의 배지가 서로 다른 말을
  * 할 수 있으므로, 문서 전체를 `toContain`으로 훑는 대신 **어느 배지가 무엇을 말하는지**를 본다.
  */
 function badgeTexts(html: string): readonly string[] {
@@ -107,13 +107,13 @@ describe('판정 패널 머리', () => {
       }),
     });
 
-    // 머리 배지와 「지난 판정」 배지가 둘 다 반려다.
+    // 머리 배지와 「지난 검토」 배지가 둘 다 반려다.
     expect(badgeTexts(html)).toEqual(['반려', '반려']);
     expect(html).not.toContain('검토 대기');
   });
 
   /**
-   * 다시 낸 칸 — 머리의 배지는 **지금 상태**(검토 대기)를, 아래 「지난 판정」은 **왜
+   * 다시 낸 칸 — 머리의 배지는 **지금 상태**(검토 대기)를, 아래 「지난 검토」는 **왜
    * 되돌아갔었는지**(보완 요청)를 말한다. 머리까지 보완 요청이면 교직원은 이 건을 이미
    * 처리한 것으로 읽고 지나간다.
    */
@@ -133,7 +133,7 @@ describe('판정 패널 머리', () => {
 
     // 머리는 지금 상태, 그 아래는 지난 지적 — 두 배지가 서로 다른 말을 한다.
     expect(badgeTexts(html)).toEqual(['검토 대기', '보완 요청']);
-    expect(html).toContain('지난 판정');
+    expect(html).toContain('지난 검토');
     expect(html).toContain('표지의 이름이 신청서와 다릅니다.');
   });
 });
@@ -229,7 +229,7 @@ describe('보여 줄 내용이 없는 제출', () => {
   it('그래도 판정 버튼은 잠그지 않는다', () => {
     const html = render();
 
-    for (const label of ['승인', '보완 요청', '반려', '판정 저장']) {
+    for (const label of ['승인', '보완 요청', '반려', '저장']) {
       expect(tagOf(html, label)).not.toContain('disabled=""');
     }
   });
@@ -279,10 +279,10 @@ describe('지난 판정', () => {
       }),
     });
 
-    expect(html).toContain('지난 판정');
+    expect(html).toContain('지난 검토');
     expect(html).toContain('표지의 이름이 신청서와 다릅니다.');
     expect(html).toContain('2026년 7월 30일');
-    expect(html).toContain('판정은 덮어쓰지 않고 쌓입니다.');
+    expect(html).toContain('검토는 덮어쓰지 않고 쌓입니다.');
   });
 
   // 승인은 사유가 선택이라 비어 올 수 있다. 빈칸으로 두면 「사유를 못 불러왔다」로 읽힌다.
@@ -298,11 +298,11 @@ describe('지난 판정', () => {
       }),
     });
 
-    expect(html).toContain('사유 없이 저장된 판정입니다.');
+    expect(html).toContain('사유 없이 저장되었습니다.');
   });
 
   it('판정이 없으면 지난 판정 자리를 만들지 않는다', () => {
-    expect(render()).not.toContain('지난 판정');
+    expect(render()).not.toContain('지난 검토');
   });
 });
 
@@ -379,7 +379,7 @@ describe('판정 저장 중', () => {
      * `disabled=""`로 정확히 본다. `disabled`만 찾으면 Button의 Tailwind 클래스에 있는
      * `disabled:pointer-events-none`이 걸려, 잠기지 않은 버튼도 잠긴 것으로 통과한다.
      */
-    for (const label of ['승인', '보완 요청', '반려', '닫기', '판정 저장']) {
+    for (const label of ['승인', '보완 요청', '반려', '닫기', '저장']) {
       expect(tagOf(html, label)).not.toContain('disabled=""');
     }
     expect(textareaTag(html)).not.toContain('disabled=""');

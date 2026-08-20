@@ -18,13 +18,13 @@ function apiError(code: string): ApiError {
 describe('reviewConflictMessage', () => {
   it('SUB_003이면 새 제출본 안내를 반환한다', () => {
     expect(reviewConflictMessage(apiError('SUB_003'))).toBe(
-      '학생이 새 제출본을 올려 최신 내용을 다시 불러왔습니다. 새 제출본을 확인한 뒤 다시 판정해 주세요.',
+      '학생이 새 제출본을 올려 최신 내용을 다시 불러왔습니다. 새 제출본을 확인한 뒤 다시 검토해 주세요.',
     );
   });
 
-  it('SUB_004이면 이미 판정된 제출본 안내를 반환한다', () => {
+  it('SUB_004이면 이미 검토가 끝난 제출본 안내를 반환한다', () => {
     expect(reviewConflictMessage(apiError('SUB_004'))).toBe(
-      '이미 판정이 끝난 제출본입니다. 최신 내용을 다시 불러왔으니 화면의 판정 결과를 확인해 주세요.',
+      '이미 검토가 끝난 제출본입니다. 최신 내용을 다시 불러왔으니 화면의 결과를 확인해 주세요.',
     );
   });
 
