@@ -117,13 +117,22 @@ describe('assertAccessMutationAllowed', () => {
     );
   });
 
-  it('lets self-deactivation through so ROL_017 stays the contract', () => {
+  it('does not intercept self-deactivation or self-demotion', () => {
     expect(() =>
       assertAccessMutationAllowed(adminActor({ id: 'admin' }), 'admin', {
         expectedRole: Role.ADMIN,
         desiredRole: Role.ADMIN,
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.DEACTIVATED,
+        expectedPendingRequest: null,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertAccessMutationAllowed(adminActor({ id: 'admin' }), 'admin', {
+        expectedRole: Role.ADMIN,
+        desiredRole: Role.STAFF,
+        expectedAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
       }),
     ).not.toThrow();

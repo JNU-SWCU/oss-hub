@@ -39,27 +39,27 @@ export function isAdminActor(actor: AdminAccessActor): boolean {
   return actor.role === Role.ADMIN;
 }
 
-function isSelfDeactivationCommand(
+function isRequestDecisionCommand(
   command: AdminAccessMutationCommand,
 ): boolean {
+  const decision = command.requestDecision?.decision;
   return (
-    command.expectedAccountStatus === AccountStatus.ACTIVE &&
-    command.desiredAccountStatus === AccountStatus.DEACTIVATED
+    decision === ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE ||
+    decision === ADMIN_ACCESS_REQUEST_DECISIONS.REJECT
   );
 }
 
 /**
  * STAFF는 대기 요청의 승인·반려만 할 수 있다. 역할·상태·회수는 관리자 전용이다.
- * 자기 자신 PENDING은 현재 가입 흐름에서 나오지 않지만, actor === target이면
- * 거절한다 — 동료 가입을 승인하는 것이 의도이지 자기 결재가 아니다.
- * 자기 계정 비활성은 기존 `ROL_017`이 원본이므로 여기서 가로채지 않는다.
+ * 자기 가입 신청 처리만 `ROL_020`이다. 자기 계정 비활성(`ROL_017`)과
+ * 마지막 관리자 강등(`ROL_018`)은 기존 가드가 원본이다.
  */
 export function assertAccessMutationAllowed(
   actor: AdminAccessActor,
   targetUserId: string,
   command: AdminAccessMutationCommand,
 ): void {
-  if (actor.id === targetUserId && !isSelfDeactivationCommand(command)) {
+  if (actor.id === targetUserId && isRequestDecisionCommand(command)) {
     throw new DomainException(
       ROLES_ERROR_CODES[RolesErrorCode.SELF_ACCESS_MUTATION_FORBIDDEN],
     );
