@@ -6,6 +6,7 @@ import { STAFF_MENU, STUDENT_MENU } from './role-menus';
 import {
   archiveSidebarGroup,
   isCurrentSidebarItem,
+  programScopeBackHref,
   programScopeSidebarGroups,
   programSidebarGroup,
   rankingSidebarGroup,
@@ -325,6 +326,15 @@ describe('programDetailIdFromPathname', () => {
   it('other sections are not program detail scope', () => {
     expect(programDetailIdFromPathname('/archive/1')).toBeNull();
     expect(programDetailIdFromPathname('/dashboard')).toBeNull();
+  });
+});
+
+describe('programScopeBackHref', () => {
+  it('교직원·관리자는 운영 대시보드로, 학생·비회원은 공개 목록으로 보낸다', () => {
+    expect(programScopeBackHref('STAFF')).toBe('/dashboard');
+    expect(programScopeBackHref('ADMIN')).toBe('/dashboard');
+    expect(programScopeBackHref('STUDENT')).toBe('/programs');
+    expect(programScopeBackHref('GUEST')).toBe('/programs');
   });
 });
 

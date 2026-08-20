@@ -138,6 +138,15 @@ export interface ProgramScopeSidebarGroup {
  */
 export type ProgramScopeViewerRole = 'GUEST' | 'STUDENT' | 'STAFF' | 'ADMIN';
 
+/**
+ * 프로그램 스코프 브랜드 행 「‹ 프로그램 목록」의 목적지.
+ * 교직원·관리자의 운영 목록은 `/dashboard`이고, 학생·비회원은 공개 목록 `/programs`다.
+ */
+export function programScopeBackHref(role: ProgramScopeViewerRole): string {
+  if (role === 'STAFF' || role === 'ADMIN') return '/dashboard';
+  return '/programs';
+}
+
 export interface ProgramScopeMilestoneDocsSummary {
   readonly milestoneId: string;
   readonly title: string;

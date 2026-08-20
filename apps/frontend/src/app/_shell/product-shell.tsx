@@ -32,6 +32,7 @@ import {
   SIDEBAR_STORAGE_KEY,
 } from './sidebar-collapsed';
 import {
+  programScopeBackHref,
   programScopeSidebarGroups,
   shellSectionFromPathname,
   sidebarBrandTitle,
@@ -282,6 +283,7 @@ export function ProductShell({
           pathname={pathname}
           collapsed={collapsed}
           onToggle={toggle}
+          backHref={programScopeBackHref(scopeViewerRole)}
           countdown={
             scopeOverview?.nextMilestone
               ? {

@@ -96,6 +96,7 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     expect(html).toContain('data-slot="program-scope-sidebar"');
     expect(html).not.toContain('data-slot="app-sidebar"');
     expect(html).toContain('‹ 프로그램 목록');
+    expect(html).toMatch(/href="\/programs"/);
     expect(html).toContain('프로그램 개요');
     expect(html).toContain('참여 팀');
     expect(html).toContain('게시판');
@@ -138,6 +139,8 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     expect(html).not.toContain('내 제출물');
     expect(html).toContain('신청자');
     expect(html).toContain('/programs/prog-1/applicants');
+    expect(html).toContain('‹ 프로그램 목록');
+    expect(html).toMatch(/href="\/dashboard"/);
   });
 
   it('비회원·미배정·미완료 프로필은 참여 팀·신청자·서류 현황·게시판 없는 공개 개요만 본다(QA46)', () => {

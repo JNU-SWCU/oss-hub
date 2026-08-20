@@ -29,8 +29,7 @@ export interface ProgramScopeSidebarProps {
   readonly pathname: string;
   readonly collapsed: boolean;
   readonly onToggle: () => void;
-  /** 기본 `/programs`. */
-  readonly backHref?: string;
+  readonly backHref: string;
   /** 다음 마감 마일스톤 — 없으면(전부 지났으면) 카운트다운 블록 자체를 렌더하지 않는다. */
   readonly countdown?: {
     readonly nextMilestoneLabel: string;
@@ -44,7 +43,7 @@ export function ProgramScopeSidebar({
   pathname,
   collapsed,
   onToggle,
-  backHref = '/programs',
+  backHref,
   countdown = null,
 }: ProgramScopeSidebarProps) {
   const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
