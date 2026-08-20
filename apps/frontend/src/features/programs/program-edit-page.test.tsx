@@ -582,7 +582,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     expect(container.textContent).toContain('위험 영역');
-    expect(queryButton('삭제')).toBeTruthy();
+    expect(queryButton('프로그램 영구 삭제')).toBeTruthy();
   });
 
   it('isAdmin={false}면 삭제 버튼 없이 아카이브 안내를 그린다', async () => {
@@ -597,7 +597,7 @@ describe('ProgramEditPage 컴포넌트', () => {
 
     expect(container.textContent).toContain('위험 영역');
     expect(container.textContent).toContain('아카이브');
-    expect(queryButton('삭제')).toBeUndefined();
+    expect(queryButton('프로그램 영구 삭제')).toBeUndefined();
     expect(queryButton('연결 데이터까지 모두 삭제')).toBeUndefined();
   });
 });

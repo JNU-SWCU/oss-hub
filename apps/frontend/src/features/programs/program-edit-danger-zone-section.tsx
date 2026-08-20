@@ -1,27 +1,20 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import Link from 'next/link';
-import { AlertDialog } from 'radix-ui';
 import { SectionHeading } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import {
-  deleteProgram,
   getEditableProgram,
   purgeProgram,
   type ProgramPurgeDeletedCounts,
 } from './api';
 import {
-  mapProgramDeleteError,
   purgeScopeChangedCounts,
   type ProgramDeleteBlockingCounts,
-  type ProgramDeleteError,
 } from './program-edit-delete-flow';
+import { ProgramEditPurgeConfirmation } from './program-edit-purge-confirmation';
 
 interface ProgramEditDangerZoneSectionProps {
   readonly programId: string;
@@ -34,7 +27,7 @@ interface ProgramEditDangerZoneSectionProps {
   readonly onDeleted?: (notice?: string) => void;
 }
 
-type DialogKind = 'delete' | 'purge' | null;
+type DialogKind = 'purge' | null;
 
 const PURGE_COUNT_LABELS: Readonly<Record<string, string>> = {
   applications: '지원서',
@@ -75,28 +68,19 @@ export function ProgramEditDangerZoneSection({
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [confirmText, setConfirmText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState<ProgramDeleteError | null>(
-    null,
-  );
-  const [blockingCounts, setBlockingCounts] =
-    useState<ProgramDeleteBlockingCounts | null>(null);
   const [purgeCounts, setPurgeCounts] =
     useState<ProgramDeleteBlockingCounts | null>(null);
   const [isPurgeScopeLoading, setIsPurgeScopeLoading] = useState(false);
   const [purgeScopeError, setPurgeScopeError] = useState<string | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
   const purgeScopeRequest = useRef(0);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const isOpen = dialog !== null;
-  const canConfirm =
-    confirmText === programName &&
-    !busy &&
-    (dialog !== 'purge' || (!isPurgeScopeLoading && purgeCounts !== null));
 
   const open = (nextDialog: Exclude<DialogKind, null>) => {
     setDialog(nextDialog);
     setConfirmText('');
-    setDeleteError(null);
     setPurgeError(null);
     if (nextDialog !== 'purge') return;
 
@@ -131,27 +115,10 @@ export function ProgramEditDangerZoneSection({
     purgeScopeRequest.current += 1;
     setDialog(null);
     setConfirmText('');
-    setDeleteError(null);
     setPurgeError(null);
     setPurgeCounts(null);
     setPurgeScopeError(null);
     setIsPurgeScopeLoading(false);
-  };
-
-  const confirmDelete = async () => {
-    if (!canConfirm) return;
-    setBusy(true);
-    setDeleteError(null);
-    try {
-      await deleteProgram(programId);
-      onDeleted();
-    } catch (reason: unknown) {
-      const error = mapProgramDeleteError(reason, programId);
-      setDeleteError(error);
-      if (error.kind === 'blocked') setBlockingCounts(error.counts);
-    } finally {
-      setBusy(false);
-    }
   };
 
   /**
@@ -162,7 +129,14 @@ export function ProgramEditDangerZoneSection({
    * 관리자가 이름을 다시 입력하여 명시적으로 재확인하게 한다.
    */
   const confirmPurge = async () => {
-    if (!canConfirm || !purgeCounts) return;
+    if (
+      confirmText !== programName ||
+      busy ||
+      isPurgeScopeLoading ||
+      !purgeCounts
+    ) {
+      return;
+    }
     setBusy(true);
     setPurgeError(null);
     setPurgeScopeError(null);
@@ -201,8 +175,7 @@ export function ProgramEditDangerZoneSection({
     <section className="grid gap-6">
       <SectionHeading title="위험 영역" />
       <p className="text-body text-muted-foreground [word-break:keep-all]">
-        일반 삭제는 연결된 데이터가 없을 때만 가능합니다. 연결 데이터를 포함한
-        삭제는 되돌릴 수 없습니다.
+        연결된 데이터와 관련 기록을 포함해 되돌릴 수 없이 삭제합니다.
       </p>
       {deletionProtected ? (
         <Alert>
@@ -217,186 +190,31 @@ export function ProgramEditDangerZoneSection({
         <Button
           type="button"
           variant="destructive"
-          disabled={deletionProtected}
-          onClick={() => open('delete')}
-        >
-          삭제
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
+          ref={triggerRef}
           disabled={deletionProtected}
           onClick={() => open('purge')}
         >
-          연결 데이터까지 모두 삭제
+          프로그램 영구 삭제
         </Button>
       </div>
       {isOpen ? (
-        <AlertDialog.Root
-          open
-          onOpenChange={(next) => !next && !busy && close()}
-        >
-          <AlertDialog.Portal>
-            <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-            <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none">
-              <Card className="shadow-xl">
-                <CardHeader>
-                  <AlertDialog.Title asChild>
-                    <CardTitle>
-                      {dialog === 'purge'
-                        ? '연결 데이터까지 모두 삭제할까요?'
-                        : '프로그램을 영구히 삭제할까요?'}
-                    </CardTitle>
-                  </AlertDialog.Title>
-                </CardHeader>
-                <CardContent className="grid gap-5">
-                  <>
-                    <AlertDialog.Description className="text-body text-muted-foreground [word-break:keep-all]">
-                      {dialog === 'purge'
-                        ? '연결된 지원서, 팀, 게시글, 제출물과 관련 기록을 모두 삭제합니다.'
-                        : '연결된 데이터가 있으면 삭제할 수 없습니다.'}{' '}
-                      계속하려면 프로그램 이름{' '}
-                      <span className="font-semibold text-foreground">
-                        {programName}
-                      </span>
-                      을(를) 아래에 그대로 입력해 주세요.
-                    </AlertDialog.Description>
-                    {dialog === 'purge' && isPurgeScopeLoading ? (
-                      <Alert>
-                        <AlertTitle>삭제될 데이터</AlertTitle>
-                        <AlertDescription>
-                          삭제 범위를 확인하는 중입니다.
-                        </AlertDescription>
-                      </Alert>
-                    ) : null}
-                    {dialog === 'purge' && purgeCounts ? (
-                      <BlockingSummary counts={purgeCounts} />
-                    ) : null}
-                    {dialog === 'purge' && purgeScopeError ? (
-                      <Alert variant="destructive">
-                        <AlertTitle>삭제 범위를 확인하지 못했습니다</AlertTitle>
-                        <AlertDescription>{purgeScopeError}</AlertDescription>
-                      </Alert>
-                    ) : null}
-                    <Field>
-                      <FieldLabel
-                        htmlFor={
-                          dialog === 'purge'
-                            ? 'program-purge-confirm-name'
-                            : 'program-delete-confirm-name'
-                        }
-                      >
-                        프로그램 이름
-                      </FieldLabel>
-                      <Input
-                        id={
-                          dialog === 'purge'
-                            ? 'program-purge-confirm-name'
-                            : 'program-delete-confirm-name'
-                        }
-                        value={confirmText}
-                        disabled={busy}
-                        autoComplete="off"
-                        onChange={(event) => setConfirmText(event.target.value)}
-                      />
-                    </Field>
-                    {dialog === 'delete' && deleteError ? (
-                      <DeleteErrorAlert error={deleteError} />
-                    ) : null}
-                    {dialog === 'purge' && purgeError ? (
-                      <Alert variant="destructive">
-                        <AlertTitle>전체 삭제 실패</AlertTitle>
-                        <AlertDescription>{purgeError}</AlertDescription>
-                      </Alert>
-                    ) : null}
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <AlertDialog.Cancel asChild>
-                        <Button type="button" variant="outline" disabled={busy}>
-                          취소
-                        </Button>
-                      </AlertDialog.Cancel>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={!canConfirm}
-                        onClick={() =>
-                          void (dialog === 'purge'
-                            ? confirmPurge()
-                            : confirmDelete())
-                        }
-                      >
-                        {isPurgeScopeLoading
-                          ? '삭제 범위를 확인하는 중…'
-                          : busy
-                            ? '삭제하는 중…'
-                            : dialog === 'purge'
-                              ? '연결 데이터까지 모두 삭제'
-                              : '삭제'}
-                      </Button>
-                    </div>
-                  </>
-                </CardContent>
-              </Card>
-            </AlertDialog.Content>
-          </AlertDialog.Portal>
-        </AlertDialog.Root>
+        <ProgramEditPurgeConfirmation
+          programName={programName}
+          confirmText={confirmText}
+          busy={busy}
+          purgeCounts={purgeCounts}
+          isPurgeScopeLoading={isPurgeScopeLoading}
+          purgeScopeError={purgeScopeError}
+          purgeError={purgeError}
+          onConfirmTextChange={setConfirmText}
+          onConfirm={() => void confirmPurge()}
+          onClose={() => {
+            close();
+            requestAnimationFrame(() => triggerRef.current?.focus());
+          }}
+        />
       ) : null}
     </section>
-  );
-}
-
-function BlockingSummary({
-  counts,
-}: {
-  readonly counts: ProgramDeleteBlockingCounts;
-}) {
-  const summaryItems: ReadonlyArray<readonly [string, number, string]> = [
-    ['지원서', counts.applications, '건'],
-    ['팀', counts.teams, '개'],
-    ['게시글', counts.boardPosts, '건'],
-    ['제출물', counts.submissions, '건'],
-  ];
-  const summary = summaryItems
-    .filter(([, count]) => count > 0)
-    .map(([label, count, unit]) => `${label} ${count}${unit}`)
-    .join(' · ');
-  return (
-    <Alert>
-      <AlertTitle>삭제될 데이터</AlertTitle>
-      <AlertDescription>
-        {summary ? `삭제될 데이터: ${summary}` : '연결된 데이터 없음'}
-      </AlertDescription>
-    </Alert>
-  );
-}
-
-function DeleteErrorAlert({ error }: { readonly error: ProgramDeleteError }) {
-  if (error.kind === 'generic') {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>삭제 실패</AlertTitle>
-        <AlertDescription>{error.message}</AlertDescription>
-      </Alert>
-    );
-  }
-  return (
-    <Alert variant="destructive">
-      <AlertTitle>삭제할 수 없습니다</AlertTitle>
-      <AlertDescription>
-        <p>연결된 데이터를 먼저 정리하거나 전체 삭제를 진행해 주세요.</p>
-        <p className="flex flex-wrap gap-x-1 gap-y-1">
-          {error.items.map((item, index) => (
-            <span key={item.label}>
-              {index > 0 ? ' · ' : null}
-              <Link href={item.href}>
-                {item.label} {item.count}
-                {item.unit}
-              </Link>
-            </span>
-          ))}
-        </p>
-      </AlertDescription>
-    </Alert>
   );
 }
 

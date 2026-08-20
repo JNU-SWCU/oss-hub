@@ -622,8 +622,8 @@ describe('ProgramEditView contract', () => {
     expect(dangerZoneIndex).toBeGreaterThan(lifecycleIndex);
 
     // '삭제' 만으로 찾으면 위 안내문("...영구히 삭제합니다...")에 먼저 걸린다 —
-    // 버튼은 '>삭제<'로 감싸인 정확한 텍스트라 이걸로 구분한다.
-    const buttonStart = html.indexOf('>삭제<', dangerZoneIndex);
+    // 버튼은 '>프로그램 영구 삭제<'로 감싸인 정확한 텍스트라 이걸로 구분한다.
+    const buttonStart = html.indexOf('>프로그램 영구 삭제<', dangerZoneIndex);
     expect(buttonStart).toBeGreaterThan(-1);
     const buttonTag = html.slice(Math.max(0, buttonStart - 1200), buttonStart);
     expect(buttonTag).toContain('data-variant="destructive"');

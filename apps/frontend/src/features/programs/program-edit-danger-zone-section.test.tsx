@@ -105,11 +105,11 @@ describe('ProgramEditDangerZoneSection', () => {
     });
 
     expect(container.textContent).toContain('아카이브');
-    expect(container.textContent).not.toContain('연결 데이터까지 모두 삭제');
+    expect(container.textContent).not.toContain('프로그램 영구 삭제');
     expect(Array.from(container.querySelectorAll('button'))).toHaveLength(0);
   });
 
-  it('ADMIN에게는 일반 삭제와 전체 삭제 옵션을 모두 보여준다', async () => {
+  it('ADMIN에게는 영구 삭제 의도 하나만 보여주고 일반 삭제 action은 렌더링하지 않는다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -120,10 +120,23 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    expect(getButton('삭제').getAttribute('data-variant')).toBe('destructive');
-    expect(
-      getButton('연결 데이터까지 모두 삭제').getAttribute('data-variant'),
-    ).toBe('destructive');
+    expect(container.textContent).toContain('프로그램 영구 삭제');
+    expect(container.textContent).not.toContain('일반 삭제');
+    expect(container.querySelectorAll('button')).toHaveLength(1);
+  });
+
+  it('ADMIN에게는 영구 삭제 버튼 하나만 활성화한다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          isAdmin
+        />,
+      );
+    });
+    expect(getButton('프로그램 영구 삭제').disabled).toBe(false);
+    expect(container.querySelectorAll('button')).toHaveLength(1);
   });
 
   it('deletionProtected가 true면 두 삭제 경로와 범위 조회를 막고 한국어 설명을 보여준다', async () => {
@@ -142,12 +155,10 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(container.textContent).toContain(
       '이 프로그램은 삭제 보호가 설정되어 관리자도 삭제하거나 전체 삭제할 수 없습니다.',
     );
-    expect(getButton('삭제').disabled).toBe(true);
-    expect(getButton('연결 데이터까지 모두 삭제').disabled).toBe(true);
+    expect(getButton('프로그램 영구 삭제').disabled).toBe(true);
 
     await act(async () => {
-      getButton('삭제').click();
-      getButton('연결 데이터까지 모두 삭제').click();
+      getButton('프로그램 영구 삭제').click();
     });
 
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
@@ -168,37 +179,10 @@ describe('ProgramEditDangerZoneSection', () => {
     });
 
     expect(container.textContent).not.toContain('삭제 보호된 프로그램입니다');
-    expect(getButton('삭제').disabled).toBe(false);
-    expect(getButton('연결 데이터까지 모두 삭제').disabled).toBe(false);
+    expect(getButton('프로그램 영구 삭제').disabled).toBe(false);
   });
 
-  it('409 차단 사유는 유지하고 전체 삭제 범위는 새로 읽는다', async () => {
-    getEditableProgramMock.mockResolvedValue({
-      deletionScopeCounts: {
-        applications: 6,
-        teams: 7,
-        boardPosts: 8,
-        submissions: 9,
-      },
-    });
-    deleteProgramMock.mockRejectedValue(
-      new ApiError({
-        type: 'about:blank',
-        title: 'Program has blockers',
-        status: 409,
-        detail: '',
-        code: PROGRAM_DELETE_BLOCKED_CODE,
-        instance: '/programs/program-1',
-        ...{
-          blockingCounts: {
-            applications: 2,
-            teams: 3,
-            boardPosts: 4,
-            submissions: 5,
-          },
-        },
-      }),
-    );
+  it('영구 삭제는 purge 범위를 읽는다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -208,38 +192,7 @@ describe('ProgramEditDangerZoneSection', () => {
         />,
       );
     });
-
-    const dialog = await openDialog('삭제');
-    const input = document.querySelector<HTMLInputElement>(
-      '#program-delete-confirm-name',
-    );
-    if (input === null) throw new TypeError('Missing confirmation input.');
-    await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () => getButton('삭제', dialog).click());
-    await act(async () => void (await Promise.resolve()));
-
-    expect(document.body.textContent).toContain(
-      '지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
-    );
-    expect(
-      Array.from(document.querySelectorAll('a')).map((link) =>
-        link.getAttribute('href'),
-      ),
-    ).toEqual(
-      expect.arrayContaining([
-        '/programs/program-1/applicants',
-        '/programs/program-1/teams',
-        '/programs/program-1/board',
-        '/programs/program-1/status',
-      ]),
-    );
-
-    await act(async () => getButton('취소', dialog).click());
-    await openDialog('연결 데이터까지 모두 삭제');
-    await act(async () => void (await Promise.resolve()));
-    expect(document.body.textContent).toContain(
-      '삭제될 데이터: 지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건',
-    );
+    await openDialog('프로그램 영구 삭제');
     expect(getEditableProgramMock).toHaveBeenCalledWith('program-1');
   });
 
@@ -254,7 +207,7 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    await openDialog('연결 데이터까지 모두 삭제');
+    await openDialog('프로그램 영구 삭제');
     await act(async () => void (await Promise.resolve()));
 
     expect(document.body.textContent).toContain(
@@ -281,7 +234,7 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    await openDialog('연결 데이터까지 모두 삭제');
+    await openDialog('프로그램 영구 삭제');
     await act(async () => void (await Promise.resolve()));
 
     expect(document.body.textContent).toContain('연결된 데이터 없음');
@@ -306,7 +259,7 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const dialog = await openDialog('프로그램 영구 삭제');
     const input = document.querySelector<HTMLInputElement>(
       '#program-purge-confirm-name',
     );
@@ -320,7 +273,7 @@ describe('ProgramEditDangerZoneSection', () => {
       await Promise.resolve();
     });
 
-    expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(false);
+    expect(getButton('프로그램 영구 삭제', dialog).disabled).toBe(false);
   });
 
   it('프로그램 이름이 다르면 전체 삭제 확정 버튼을 비활성으로 유지한다', async () => {
@@ -334,14 +287,14 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const dialog = await openDialog('프로그램 영구 삭제');
     const input = document.querySelector<HTMLInputElement>(
       '#program-purge-confirm-name',
     );
     if (input === null) throw new TypeError('Missing purge input.');
     await act(async () => setInputValue(input, '다른 프로그램'));
 
-    expect(getButton('연결 데이터까지 모두 삭제', dialog).disabled).toBe(true);
+    expect(getButton('프로그램 영구 삭제', dialog).disabled).toBe(true);
   });
 
   // TOCTOU(#F2): 확인 화면(getEditableProgram)이 읽은 이후 purge 전에 범위가 바뀌면
@@ -375,16 +328,14 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const dialog = await openDialog('프로그램 영구 삭제');
     await act(async () => void (await Promise.resolve()));
     const input = document.querySelector<HTMLInputElement>(
       '#program-purge-confirm-name',
     );
     if (input === null) throw new TypeError('Missing purge input.');
     await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () =>
-      getButton('연결 데이터까지 모두 삭제', dialog).click(),
-    );
+    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
     await act(async () => void (await Promise.resolve()));
 
     // 화면이 마지막으로 보여준 카운트(deletionScopeCounts)를 그대로 expectedScope로 보낸다 —
@@ -410,9 +361,7 @@ describe('ProgramEditDangerZoneSection', () => {
       deletedCounts: { applications: 6 },
     });
     await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () =>
-      getButton('연결 데이터까지 모두 삭제', dialog).click(),
-    );
+    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
     await act(async () => void (await Promise.resolve()));
 
     expect(purgeProgramMock).toHaveBeenCalledTimes(2);
@@ -444,15 +393,13 @@ describe('ProgramEditDangerZoneSection', () => {
       root.render(<PurgeNavigationHarness />);
     });
 
-    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const dialog = await openDialog('프로그램 영구 삭제');
     const input = document.querySelector<HTMLInputElement>(
       '#program-purge-confirm-name',
     );
     if (input === null) throw new TypeError('Missing purge input.');
     await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () =>
-      getButton('연결 데이터까지 모두 삭제', dialog).click(),
-    );
+    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
     await act(async () => void (await Promise.resolve()));
 
     expect(purgeProgramMock).toHaveBeenCalledWith(
@@ -484,15 +431,13 @@ describe('ProgramEditDangerZoneSection', () => {
       );
     });
 
-    const dialog = await openDialog('연결 데이터까지 모두 삭제');
+    const dialog = await openDialog('프로그램 영구 삭제');
     const input = document.querySelector<HTMLInputElement>(
       '#program-purge-confirm-name',
     );
     if (input === null) throw new TypeError('Missing purge input.');
     await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () =>
-      getButton('연결 데이터까지 모두 삭제', dialog).click(),
-    );
+    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
     await act(async () => void (await Promise.resolve()));
 
     expect(document.body.textContent).toContain('전체 삭제 권한이 없습니다.');
