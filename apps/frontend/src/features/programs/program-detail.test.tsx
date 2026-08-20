@@ -413,6 +413,8 @@ function buildDocument(
     sortOrder: 0,
     submissionType: 'FILE',
     hasTemplateFile: false,
+    templateFileName: null,
+
     ...overrides,
   };
 }
@@ -472,6 +474,8 @@ describe('MilestoneDocumentSectionBody', () => {
           documents: [
             buildDocument({
               hasTemplateFile: true,
+              templateFileName: null,
+
               teamSubmissionCount: { submitted: 2, total: 4 },
             }),
           ],
