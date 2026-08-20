@@ -1,4 +1,5 @@
 import { Controller, Get, Header, Param, Query } from '@nestjs/common';
+import { Public } from '../../../auth/auth-route-metadata';
 import { PublicProjectQueryRequestDto } from './dto/public-project-query.dto';
 import {
   PublicProjectCategoryCountsResponseDto,
@@ -8,6 +9,7 @@ import {
 import { PublicProjectsService } from './public-projects.service';
 
 @Controller('projects')
+@Public()
 export class PublicProjectsController {
   constructor(private readonly publicProjectsService: PublicProjectsService) {}
 
