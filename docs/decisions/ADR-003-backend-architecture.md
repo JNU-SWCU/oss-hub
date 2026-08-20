@@ -15,6 +15,8 @@ refines: []
 Accepted
 
 > **2026-08-20 amendment — `COLLECTION_READ_PORT` 삭제.** DEC-42가 같은 DB 읽기 앞에 둔 in-process Port는 이 개정으로 폐지한다. 아래 Decision이 현재 결정이다. 폐지 직전 DEC-42 문장은 Changelog 2026-08-20에 그대로 둔다.
+>
+> **같은 날 후속 — 다른 모듈 Service hop 금지.** `RankingService.findPublicActivity`는 `return this.ranking.findMetrics(query)` 한 줄이었다. Port를 Service로 옮긴 것과 같은 안티패턴이다. staff-insights는 자기 Repository로 읽는다.
 
 ## Date
 
@@ -26,13 +28,15 @@ NestJS backend는 기능이 늘어나도 관련 코드의 탐색 경로와 의�
 
 DEC-42는 collection 모듈의 같은 DB 조회를 `COLLECTION_READ_PORT` 뒤로 모았다. 실제로 `CollectionReadService.getPublicRankingMetrics`는 `return this.publicRanking.findMetrics(query)` 한 줄 hop이었다. 그 Port는 Fowler Gateway를 프로세스 안 조회 버스로 쓴 것이고, 그 hop은 Service Layer와 겹치는 pass-through였다. 테이블당 Repository(Table Data Gateway / 레거시 DAL)와 쓰기 Repository 규칙으로 조회 JOIN을 막는 관행이 같이 붙어 있었다.
 
+같은 안티패턴이 Port를 지운 뒤 Service에 다시 나타났다. `RankingService.findPublicActivity`는 insights가 부르기 위한 `return this.ranking.findMetrics(query)`였다. Fowler Service Layer는 자기 usecase 경계이지, 다른 화면의 같은-DB 조회 버스가 아니다. 출석부 테이블이 같다고 랭킹 질문을 insights가 빌리는 것은 Table Data Gateway/repository-per-table이다. Microsoft Learn persistence layer가 금지하는 그것이다.
+
 ## Decision
 
 backend는 기능 모듈 폴더를 최상위 구성 단위로 사용한다. 모듈 내부는 Controller → Service → Repository의 단방향 Layered 구조다. Prisma는 Repository에만 둔다. Service는 Fowler Service Layer다 — usecase와 트랜잭션(Unit of Work)을 소유하고, HTTP 전송 타입과 Prisma model을 노출하지 않는다. Controller는 HTTP 입력 검증, request DTO→application DTO 변환, guard/header/status와 response DTO 변환을 담당하고 Prisma와 업무 규칙을 소유하지 않는다. Repository는 영속성 접근과 persistence DTO를 담당하고 Prisma row를 계층 밖으로 흘리지 않는다. DTO와 도메인 모델은 분리한다.
 
 NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. 모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 Service Layer가 소유한다. Controller↔Service와 Service↔Repository 계약은 명시적 DTO를 쓰며 Controller와 Service 사이에 Port를 만들지 않는다. 기능 요구가 없는 포트·어댑터·추가 추상화는 도입하지 않는다. 한 줄 hop은 orchestration이 아니다.
 
-모듈을 넘거나 프로세스 밖을 향하는 의존은 외부 시스템(GitHub HTTP 등)에만 Fowler Gateway/Port를 둔다. 같은 데이터베이스를 읽는 조회 앞에 `COLLECTION_READ_PORT`를 두지 않는다. `COLLECTION_READ_PORT`는 삭제한다.
+모듈을 넘거나 프로세스 밖을 향하는 의존은 외부 시스템(GitHub HTTP 등)에만 Fowler Gateway/Port를 둔다. 같은 데이터베이스를 읽는 조회 앞에 `COLLECTION_READ_PORT`를 두지 않는다. `COLLECTION_READ_PORT`는 삭제한다. 다른 모듈의 Fowler Service Layer를 같은-DB 조회 버스로 쓰지 않는다. `RankingService.findPublicActivity`는 삭제한다. staff-insights 활성 조회는 `StaffInsightsRepository`가 소유한다. 자기 모듈 Controller가 부르는 `listYears`/`findDataAsOf`처럼 계층을 지키는 위임은 hop이 아니다.
 
 읽기 Repository는 테이블이 아니라 화면 질문 하나에 답한다. Fowler Repository는 한 집합의 객체에 대한 컬렉션형 인터페이스이지, 테이블당 하나씩 두는 Table Data Gateway/레거시 DAL이 아니다. Microsoft Learn persistence layer도 repository-per-table을 금지한다. Meyer/Fowler Command Query Separation과 Microsoft Learn CQS/CQRS에서 조회는 JOIN할 수 있다. 쓰기 Repository 규칙을 읽기에 그대로 씌워 조인을 막지 않는다.
 
@@ -68,6 +72,12 @@ NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. �
 - Cons: 같은 잘못된 Port가 남은 소비자에 그대로 산다.
 - **Rejected:** 이 작업이 Port 삭제와 전 소비자 이관을 요구했다.
 
+### staff-insights가 RankingService.findPublicActivity를 재사용한다
+
+- Pros: fold 코드가 한곳이다.
+- Cons: 한 줄 hop이 다시 Service Layer를 조회 버스로 만든다. 랭킹 질문(가입자 전원 순위 행)과 insights 질문(ACTIVE 학생 코호트)이 다른데 테이블이 같다고 빌린다. Table Data Gateway / repository-per-table이다.
+- **Rejected:** 화면 질문마다 Repository를 둔다. fold가 두 벌인 것은 허용된 비용이다.
+
 ## Consequences
 
 ### Enables
@@ -88,8 +98,9 @@ NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. �
 
 - controller는 service를 거치지 않고 repository에 접근하지 않는다.
 - Prisma는 Repository에만 둔다. repository는 업무 규칙과 HTTP 표현을 소유하지 않는다.
-- Service는 Fowler Service Layer이며 한 줄 hop을 orchestration으로 치지 않는다.
+- Service는 Fowler Service Layer이며 한 줄 hop을 orchestration으로 치지 않는다. 다른 모듈 Service를 같은-DB 조회 버스로 쓰지 않는다.
 - Gateway/Port는 외부 시스템에만 둔다. 같은 DB 읽기 앞에 `COLLECTION_READ_PORT`를 두지 않는다.
+- staff-insights는 RankingService를 호출하지 않는다. 활성·연도·기준시각은 `StaffInsightsRepository`가 읽는다.
 - 읽기 Repository는 테이블이 아니라 화면 질문 하나에 답한다.
 - `github`는 소비자 모듈을 역import하지 않는다. 소비자 Service는 github concrete repository를 import하지 않는다.
 - public query repository만 owner 승인된 strict-read allowlist 경계에서 explicit select로 공개 조회를 수행한다.
@@ -106,7 +117,7 @@ NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. �
 - 2026-07-31: 공개 strict-read를 dedicated allowlist repository로 한정하고 Controller→Service→Repository DTO 및 cross-module/external behavioral dependency의 Port-only 규칙을 명문화했다.
 - 2026-08-04: DEC-42(collection 모듈의 `COLLECTION_READ_PORT` 전용 소비 경계)를 개정해, collection 수집원이 `ORG_PROVISIONED`/`EXTERNAL_PUBLIC` 두 가지로 늘어나도 그 차이(자격증명·discovery)를 흡수하는 지점은 collection 서비스 계층이며 Port 경계·delegate 접근 규칙 자체는 바뀌지 않음을 명시했다. 이 문서 본문에 `DEC-42` 식별자가 명시된 것은 이번이 처음이다 — 이전까지는 `eslint.config.mjs`·테스트·`AGENTS.md`가 이 결정을 "(ADR-003 DEC-42)"로 인용해 왔으나 ADR 본문에는 그 식별자가 없어 추적이 간접적이었다.
 - 2026-08-09: DEC-42의 "새 Port를 만들지 않는다" 제약을 [ADR-010](ADR-010-contribution-tracking-context.md) §7로 개정했다. 기여 추적 port 3개 + 프로비저닝 port 별도 등재가 허용되며, Port 경계와 delegate 직접 접근 금지 규칙 자체는 변하지 않는다.
-- 2026-08-20: `COLLECTION_READ_PORT`를 삭제하고 같은 DB 조회를 소비자 Repository로 옮겼다. eslint DEC-42를 다시 썼다. CollectionReadService 조회는 RankingRepository·ProgramActivityRepository·ProgramMetricsRepository·SystemStatusRepository로 이동했고, staff-insights는 자기 Repository로 같은 활동 테이블을 읽는다. 폐지 직전 DEC-42 문장은 다음이었다. 「collection 모듈의 cross-module 공개 surface는 `COLLECTION_READ_PORT` 토큰과 `CollectionReadPort`뿐이며(DEC-42), consumer 모듈(`programs`/`ranking`/`system-status` 등)은 concrete 구현이나 Prisma delegate를 직접 참조하지 않는다. collection의 수집원은 `ORG_PROVISIONED`(조직 소속 저장소)와 `EXTERNAL_PUBLIC`(학생이 등록한 조직 밖 public 저장소) 두 가지이며, 이 둘은 자격증명과 저장소 목록 discovery만 다르고 저장소 메타·commit·PR·release 수집, 커서·frontier, fact 적재, 연도 집계, 리스·전송 큐는 source와 무관하게 공유한다. 어느 source에 어떤 수집 전략을 쓸지 고르는 분기는 collection 서비스 계층의 책임이며, 이 분기가 `COLLECTION_READ_PORT`에 새 포트를 추가하거나 consumer에게 노출되는 테이블을 늘리지 않는다 — Port 경계 자체와 그 뒤의 단일 delegate 접근 규칙(DEC-42)은 이 확장으로 변하지 않는다. DEC-42의 "새 Port를 만들지 않는다"는 제약은 [ADR-010](ADR-010-contribution-tracking-context.md) §7로 개정됐다. 기여 추적 컨텍스트는 밖으로 여는 port를 기여 집계 · 공개 자격 · 건강 셋으로 두고, 프로비저닝 port(`REPOSITORIES_READ_PORT`)를 별도 등재한다 — 답하는 질문의 종류도, 변하는 주기도, 보는 사람도 넷이 서로 다르기 때문이다. Port 경계 자체와 그 뒤의 단일 delegate 접근 규칙은 그대로이며, 바뀐 것은 "port는 하나여야 한다"는 개수 제약뿐이다.」 이전 Changelog 2026-08-04·2026-08-09 항목은 그 문장의 이력을 가리킨다.
+- 2026-08-20: `COLLECTION_READ_PORT`를 삭제하고 같은 DB 조회를 소비자 Repository로 옮겼다. eslint DEC-42를 다시 썼다. CollectionReadService 조회는 RankingRepository·ProgramActivityRepository·ProgramMetricsRepository·SystemStatusRepository로 이동했고, staff-insights는 자기 Repository로 같은 활동 테이블을 읽는다. 같은 날 `RankingService.findPublicActivity` hop을 삭제했다. 그 hop은 Port와 같이 Fowler Service Layer를 프로세스 안 조회 버스로 쓴 것이었고, 같은 테이블을 이유로 랭킹 질문을 insights가 빌리는 Table Data Gateway/repository-per-table이었다. 폐지 직전 DEC-42 문장은 다음이었다. 「collection 모듈의 cross-module 공개 surface는 `COLLECTION_READ_PORT` 토큰과 `CollectionReadPort`뿐이며(DEC-42), consumer 모듈(`programs`/`ranking`/`system-status` 등)은 concrete 구현이나 Prisma delegate를 직접 참조하지 않는다. collection의 수집원은 `ORG_PROVISIONED`(조직 소속 저장소)와 `EXTERNAL_PUBLIC`(학생이 등록한 조직 밖 public 저장소) 두 가지이며, 이 둘은 자격증명과 저장소 목록 discovery만 다르고 저장소 메타·commit·PR·release 수집, 커서·frontier, fact 적재, 연도 집계, 리스·전송 큐는 source와 무관하게 공유한다. 어느 source에 어떤 수집 전략을 쓸지 고르는 분기는 collection 서비스 계층의 책임이며, 이 분기가 `COLLECTION_READ_PORT`에 새 포트를 추가하거나 consumer에게 노출되는 테이블을 늘리지 않는다 — Port 경계 자체와 그 뒤의 단일 delegate 접근 규칙(DEC-42)은 이 확장으로 변하지 않는다. DEC-42의 "새 Port를 만들지 않는다"는 제약은 [ADR-010](ADR-010-contribution-tracking-context.md) §7로 개정됐다. 기여 추적 컨텍스트는 밖으로 여는 port를 기여 집계 · 공개 자격 · 건강 셋으로 두고, 프로비저닝 port(`REPOSITORIES_READ_PORT`)를 별도 등재한다 — 답하는 질문의 종류도, 변하는 주기도, 보는 사람도 넷이 서로 다르기 때문이다. Port 경계 자체와 그 뒤의 단일 delegate 접근 규칙은 그대로이며, 바뀐 것은 "port는 하나여야 한다"는 개수 제약뿐이다.」 이전 Changelog 2026-08-04·2026-08-09 항목은 그 문장의 이력을 가리킨다.
 
 ## References
 
