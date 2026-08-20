@@ -38,4 +38,10 @@
 - blocker: 없음
 - evidence: `.omo/evidence/task-3-insights-chart-template-file-ux.md`
 - browser: Playwright 3 passed; 205-row download and page-2 failure artifacts captured
+## 2026-08-20 — 전공·비전공 활성 비교를 명확히 한다
+
+- 상태: review
+- Issue: #957
+- PR: (이 PR)
+- blocker: browser QA unavailable in this environment; frontend module remains above the repository 250 LOC split threshold
 
