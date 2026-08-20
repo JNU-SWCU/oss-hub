@@ -93,7 +93,13 @@ export function SubmissionReviewScreen({
         ...(comment.trim() ? { comment: comment.trim() } : {}),
       });
       await load();
-      setNotice('판정을 저장했습니다.');
+      setNotice(
+        decision === 'APPROVED'
+          ? '승인을 저장했습니다.'
+          : decision === 'CHANGES_REQUESTED'
+            ? '보완 요청을 저장했습니다.'
+            : '반려를 저장했습니다.',
+      );
     } catch (error: unknown) {
       if (error instanceof ApiError) {
         const conflictMessage = reviewConflictMessage(error);
@@ -106,7 +112,7 @@ export function SubmissionReviewScreen({
       } else {
         // decision·comment state를 건드리지 않으므로 "유지했다"는 안내가 사실이다.
         setFormError(
-          '판정을 저장하지 못했습니다. 선택한 판정과 코멘트는 그대로 남아 있으니 다시 저장해 주세요.',
+          '저장하지 못했습니다. 선택한 결과와 코멘트는 그대로 남아 있으니 다시 저장해 주세요.',
         );
       }
     } finally {

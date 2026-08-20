@@ -478,8 +478,8 @@ describe('MilestoneDocumentCollectionView 표', () => {
   it('제출된 칸에만 판정을 여는 버튼을 단다', () => {
     const html = render({ data: collection(documents, rows) });
 
-    expect(html).toContain('aria-label="가팀 기획서 판정"');
-    expect(html).not.toContain('aria-label="나팀 기획서 판정"');
+    expect(html).toContain('aria-label="가팀 기획서 검토"');
+    expect(html).not.toContain('aria-label="나팀 기획서 검토"');
   });
 
   /**

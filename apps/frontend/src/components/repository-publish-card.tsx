@@ -52,7 +52,7 @@ export function RepositoryPublishCard({
           </StatusBadge>
         </CardTitle>
         <CardDescription className="[word-break:keep-all]">
-          판정 저장과 별도로 GitHub 저장소를 공개 전환합니다.
+          저장과 별도로 GitHub 저장소를 공개 전환합니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">

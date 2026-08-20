@@ -24,7 +24,7 @@ export function SubmissionReviewMeta({
       ) : null}
       {submission.decision !== null ? (
         <div>
-          <dt className="font-medium">판정</dt>
+          <dt className="font-medium">결과</dt>
           <dd className="text-muted-foreground">
             {REVIEW_DECISION_LABELS[submission.decision]}
           </dd>

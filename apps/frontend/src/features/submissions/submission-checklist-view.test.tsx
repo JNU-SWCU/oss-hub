@@ -372,7 +372,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
     // Then
     expect(html).toContain('교직원 코멘트');
     expect(html).toContain('실행 화면 캡처를 추가해 주세요.');
-    expect(html).toContain('판정');
+    expect(html).toContain('결과');
     expect(html).toContain('보완 요청');
     expect(html).toContain('수정한 뒤 재제출할 수 있습니다.');
     expect(html).toContain('현재 제출본');
@@ -404,7 +404,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('제출본 1번이 승인되었습니다');
     expect(html).toContain('data-variant="approved"');
     expect(html).toContain('검토 시각');
-    expect(html).toContain('판정');
+    expect(html).toContain('결과');
     expect(html).toContain('승인');
     expect(html).toContain('data-testid="milestone-document-current-files"');
     expect(html).not.toMatch(/revision/i);
@@ -417,7 +417,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
     // Then
     expect(html).toContain('중복 제출로 최종 반려되었습니다.');
     expect(html).toContain('최종 반려된 제출은 재제출할 수 없습니다.');
-    expect(html).toContain('판정');
+    expect(html).toContain('결과');
     expect(html).toContain('반려');
     expect(html).not.toContain('<form');
     expect(html).not.toContain('id="submission-text"');

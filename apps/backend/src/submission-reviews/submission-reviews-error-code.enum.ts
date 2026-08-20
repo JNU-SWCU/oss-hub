@@ -39,7 +39,7 @@ export const SUBMISSION_REVIEWS_ERROR_CODES: Record<
   [SubmissionReviewsErrorCode.ALREADY_REVIEWED]: {
     code: SubmissionReviewsErrorCode.ALREADY_REVIEWED,
     status: 409,
-    message: '이미 판정된 제출 revision입니다.',
+    message: '이미 검토가 끝난 제출본입니다.',
   },
   [SubmissionReviewsErrorCode.COMMENT_REQUIRED]: {
     code: SubmissionReviewsErrorCode.COMMENT_REQUIRED,

@@ -87,7 +87,7 @@ export function PublishBlockedCard() {
           <StatusBadge variant="pending">PRIVATE</StatusBadge>
         </CardTitle>
         <CardDescription>
-          판정 저장과 별도로 GitHub 저장소를 공개 전환합니다. 모든 필수
+          저장과 별도로 GitHub 저장소를 공개 전환합니다. 모든 필수
           마일스톤이 승인되어야 공개 버튼이 활성화됩니다.
         </CardDescription>
       </CardHeader>

@@ -83,7 +83,7 @@ function submittedDisplay(
  * ⚠ 배지는 `status`로 정한다. **`review.decision`으로 되돌리지 마라** — 판정 이력은
  * 재제출로 되돌아가지 않으므로, 보완 요청을 받아 **다시 낸 칸이 계속 「보완 요청」**으로
  * 남는다. 교직원은 그 칸을 이미 처리한 것으로 읽고 다시 검토해야 할 건을 놓친다.
- * `review`는 패널에서 「지난 판정」을 보여 주는 데만 쓴다.
+ * `review`는 패널에서 「지난 검토」를 보여 주는 데만 쓴다.
  */
 export function milestoneDocumentCellDisplay(
   cell: Pick<MilestoneDocumentCollectionCell, 'isSubmitted' | 'status'>,
@@ -177,7 +177,7 @@ export function shouldHighlightMilestoneDocumentReview(
  *   말한 「승인」 아래에 빈 상자만 남는다 — 그래서 그리지 않는다.
  * - 보완 요청·반려는 사유가 필수라(서버 422 MSD_021) 비어 오는 것이 계약에 없다. 그래도
  *   상자는 그린다: 사유를 못 읽었다고 **되돌아왔다는 사실과 그 날짜까지** 지우면, 학생은
- *   서류가 되돌아온 줄도 모른다. 그 자리는 화면이 「사유 없이 저장된 판정」이라고 적는다.
+ *   서류가 되돌아온 줄도 모른다. 그 자리는 화면이 「사유 없이 저장되었습니다」라고 적는다.
  */
 export type MilestoneDocumentReviewNoticeTone = 'warning' | 'neutral';
 
@@ -210,7 +210,8 @@ export function milestoneDocumentReviewFormError(
   decision: MilestoneDocumentReviewDecision | null,
   comment: string,
 ): string | null {
-  if (decision === null) return '판정을 골라 주세요.';
+  if (decision === null)
+    return '승인, 보완 요청, 반려 중 하나를 골라 주세요.';
   if (
     isMilestoneDocumentReviewCommentRequired(decision) &&
     comment.trim() === ''
@@ -291,7 +292,7 @@ export function milestoneDocumentReviewVersionError(
   version: MilestoneDocumentReviewVersion | null,
 ): string | null {
   return version === null
-    ? '이 칸의 제출 정보를 읽지 못해 판정할 수 없습니다. 표를 다시 불러 주세요.'
+    ? '이 칸의 제출 정보를 읽지 못해 검토할 수 없습니다. 표를 다시 불러 주세요.'
     : null;
 }
 

@@ -11,7 +11,7 @@ describe('reviewFormError', () => {
     const error = reviewFormError(decision, '검토 의견');
 
     // Then
-    expect(error).toBe('판정을 선택해 주세요.');
+    expect(error).toBe('승인, 보완 요청, 반려 중 하나를 골라 주세요.');
   });
 
   it.each(['CHANGES_REQUESTED', 'REJECTED'] as const)(
