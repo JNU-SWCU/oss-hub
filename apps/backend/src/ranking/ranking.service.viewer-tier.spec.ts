@@ -183,8 +183,8 @@ describe('RankingService viewer class', () => {
     harness.findNamesByGithubIds.mockResolvedValue(
       new Map<bigint, string | null>([[1n, '홍길동']]),
     );
-    harness.findViewerClass.mockImplementation(async (githubId) =>
-      githubId === null ? 'public' : 'staff',
+    harness.findViewerClass.mockImplementation((githubId) =>
+      Promise.resolve(githubId === null ? 'public' : 'staff'),
     );
 
     const [publicPage, staffPage] = await Promise.all([
