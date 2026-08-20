@@ -45,4 +45,10 @@
 - blocker: 없음
 - 증거: `.omo/evidence/task-5-browser/admin-purge-success.png`, `purge-network-request-log.json`
 - 결과: ADMIN/STAFF, 보호 프로그램, zero-count, exact scope, no normal DELETE, cancel/focus, scope drift/no-retry를 4개 Chrome 테스트로 검증 (`4 passed`)
+## 2026-08-20 — 전공·비전공 활성 비교를 명확히 한다
+
+- 상태: review
+- Issue: #957
+- PR: (이 PR)
+- blocker: browser QA unavailable in this environment; frontend module remains above the repository 250 LOC split threshold
 
