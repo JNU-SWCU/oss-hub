@@ -106,20 +106,42 @@ describe('RankingScreen', () => {
     root = createRoot(container);
   });
 
-  it('CSV 는 같은 GET /ranking 을 pageSize=100 으로 다시 부른다', async () => {
+  it('CSV 는 첫 응답의 total 만큼 pageSize=100으로 각 페이지를 한 번씩 가져온다', async () => {
+    const pageTwo = {
+      ...staffPage,
+      page: 2,
+      items: [{ ...staffPage.items[0], rank: 2 }],
+    };
+    api.getRanking
+      .mockReset()
+      .mockResolvedValueOnce(staffPage)
+      .mockResolvedValueOnce({ ...staffPage, pageSize: 100, total: 101 })
+      .mockResolvedValueOnce(pageTwo);
+
     await act(async () => {
       root.render(<RankingScreen onNextCycleAt={() => undefined} />);
     });
-    expect(captured.props).not.toBeNull();
+    await act(async () => captured.props?.onExportCsv());
 
-    await act(async () => {
-      captured.props?.onExportCsv();
-    });
-
-    expect(api.getRanking).toHaveBeenCalledWith(2026, 1, 100);
+    expect(api.getRanking).toHaveBeenNthCalledWith(2, 2026, 1, 100);
+    expect(api.getRanking).toHaveBeenNthCalledWith(3, 2026, 2, 100);
     expect(api.downloadTextFile).toHaveBeenCalledWith(
       'ranking-2026.csv',
       expect.stringContaining('\uFEFFrank,name,githubLogin'),
     );
+  });
+
+  it('페이지 실패에서는 CSV를 다운로드하지 않는다', async () => {
+    api.getRanking.mockReset().mockRejectedValue(new Error('page failed'));
+    await act(async () =>
+      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
+    );
+    api.downloadTextFile.mockReset();
+    await act(async () => {
+      captured.props?.onExportCsv();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(api.downloadTextFile).not.toHaveBeenCalled();
   });
 });
