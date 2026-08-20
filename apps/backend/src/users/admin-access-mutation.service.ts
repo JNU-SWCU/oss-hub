@@ -55,11 +55,7 @@ export async function mutateAdminAccess(
       const unlockedActor = requireActiveStaffOrAdmin(
         await store.findActorByGithubId(input.actorGithubId),
       );
-      assertAccessMutationAllowed(
-        unlockedActor,
-        input.userId,
-        input.command,
-      );
+      assertAccessMutationAllowed(unlockedActor, input.userId, input.command);
       // ADMIN 쓰기는 마지막 관리자·강등 TOCTOU를 막기 위해 활성 ADMIN 집합을
       // 먼저 잠근다. STAFF 승인/반려는 그 집합을 바꾸지 않으므로 잠그지 않고,
       // 대상 행 잠금 뒤 actor를 다시 읽어 비활성·강등만 거절한다.

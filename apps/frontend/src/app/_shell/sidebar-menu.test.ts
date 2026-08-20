@@ -290,7 +290,11 @@ describe('isCurrentSidebarItem', () => {
       false,
     );
     expect(
-      isCurrentSidebarItem('/dashboard/applicants', '/dashboard/applicants', ''),
+      isCurrentSidebarItem(
+        '/dashboard/applicants',
+        '/dashboard/applicants',
+        '',
+      ),
     ).toBe(true);
     expect(
       isCurrentSidebarItem(

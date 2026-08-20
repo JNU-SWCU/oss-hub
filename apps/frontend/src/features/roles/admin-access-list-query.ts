@@ -40,15 +40,16 @@ export const ADMIN_ACCESS_DEFAULT_FILTER_STATE: AdminAccessListFilterState = {
   page: 1,
 };
 
-export const APPLICANT_QUEUE_DEFAULT_FILTER_STATE: AdminAccessListFilterState = {
-  query: '',
-  role: '',
-  accountStatus: '',
-  pendingRequest: '',
-  sort: 'createdAt',
-  direction: 'desc',
-  page: 1,
-};
+export const APPLICANT_QUEUE_DEFAULT_FILTER_STATE: AdminAccessListFilterState =
+  {
+    query: '',
+    role: '',
+    accountStatus: '',
+    pendingRequest: '',
+    sort: 'createdAt',
+    direction: 'desc',
+    page: 1,
+  };
 
 export type AccessWorkspace = 'directory' | 'queue';
 

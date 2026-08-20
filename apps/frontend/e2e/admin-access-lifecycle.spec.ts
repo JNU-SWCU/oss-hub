@@ -158,15 +158,19 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await expect(
       adminPage.getByRole('heading', { name: '감사 로그' }),
     ).toBeVisible();
-    await adminPage.locator('#audit-action').selectOption(
-      'STAFF_ROLE_REQUEST_APPROVED',
-    );
+    await adminPage
+      .locator('#audit-action')
+      .selectOption('STAFF_ROLE_REQUEST_APPROVED');
     await adminPage.getByRole('button', { name: '조회', exact: true }).click();
     const approvedRow = adminPage.getByRole('row').filter({
       hasText: '합성 활성 교직원',
     });
-    await expect(approvedRow.filter({ hasText: '합성 대기 사용자' })).toBeVisible();
-    await expect(approvedRow.getByText('@seed-auth-staff-pending')).toBeVisible();
+    await expect(
+      approvedRow.filter({ hasText: '합성 대기 사용자' }),
+    ).toBeVisible();
+    await expect(
+      approvedRow.getByText('@seed-auth-staff-pending'),
+    ).toBeVisible();
     await attachStateScreenshot(adminPage, testInfo, 'audit-log-approver');
   });
 

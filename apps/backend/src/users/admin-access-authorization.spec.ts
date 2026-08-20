@@ -30,11 +30,7 @@ const SET_ROLE_COMMAND: AdminAccessMutationCommand = {
   expectedPendingRequest: null,
 };
 
-function expectThrownCode(
-  run: () => void,
-  code: string,
-  status: number,
-): void {
+function expectThrownCode(run: () => void, code: string, status: number): void {
   try {
     run();
   } catch (error) {
@@ -70,11 +66,7 @@ describe('requireActiveStaffOrAdmin', () => {
       403,
     ],
   ] as const)('rejects a %s actor', (_, actor, code, status) => {
-    expectThrownCode(
-      () => requireActiveStaffOrAdmin(actor),
-      code,
-      status,
-    );
+    expectThrownCode(() => requireActiveStaffOrAdmin(actor), code, status);
   });
 });
 

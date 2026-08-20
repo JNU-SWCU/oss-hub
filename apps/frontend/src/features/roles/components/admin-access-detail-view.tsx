@@ -692,7 +692,9 @@ export function AdminAccessDetailContentForState({
     return <ErrorState onRetry={onRetry} layoutContext={layoutContext} />;
   }
   if (state.kind === 'not-found') {
-    return <NotFoundState layoutContext={layoutContext} workspace={workspace} />;
+    return (
+      <NotFoundState layoutContext={layoutContext} workspace={workspace} />
+    );
   }
   return (
     <AdminAccessDetailContent

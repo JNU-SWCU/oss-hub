@@ -181,9 +181,11 @@ describe('AdminAccessService reads', () => {
       auditLogHarness().service,
     );
 
-    await expect(service.get(STAFF_GITHUB_ID, 'target')).resolves.toMatchObject({
-      id: 'target',
-      pendingRequest: PENDING_REQUEST,
-    });
+    await expect(service.get(STAFF_GITHUB_ID, 'target')).resolves.toMatchObject(
+      {
+        id: 'target',
+        pendingRequest: PENDING_REQUEST,
+      },
+    );
   });
 });

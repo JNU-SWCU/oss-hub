@@ -154,7 +154,8 @@ export function parseApplicantQueueSearchParams(
     ...parsed,
     pendingRequest: '',
     sort:
-      sortRaw !== null && (SORT_FIELD_VALUES as readonly string[]).includes(sortRaw)
+      sortRaw !== null &&
+      (SORT_FIELD_VALUES as readonly string[]).includes(sortRaw)
         ? parsed.sort
         : APPLICANT_QUEUE_DEFAULT_FILTER_STATE.sort,
     direction:

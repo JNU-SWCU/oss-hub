@@ -276,14 +276,14 @@ describe('admin access local review handlers (QA7)', () => {
     );
   });
 
-  it.each([
-    'users/access',
-    'users/access/facets',
-  ])('명부·패싯은 관리자가 아닌 페르소나에 응답하지 않는다', (path) => {
-    expect(resolve('GET', path, '', 'staff')).toBeNull();
-    expect(resolve('GET', path, '', 'student')).toBeNull();
-    expect(resolve('GET', path, '', 'anonymous')).toBeNull();
-  });
+  it.each(['users/access', 'users/access/facets'])(
+    '명부·패싯은 관리자가 아닌 페르소나에 응답하지 않는다',
+    (path) => {
+      expect(resolve('GET', path, '', 'staff')).toBeNull();
+      expect(resolve('GET', path, '', 'student')).toBeNull();
+      expect(resolve('GET', path, '', 'anonymous')).toBeNull();
+    },
+  );
 
   it('가입 신청 목록은 교직원에게 PENDING만 돌려준다', () => {
     const page = parseAdminAccessListPage(

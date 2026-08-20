@@ -174,8 +174,7 @@ export function AdminAccessView(props: AdminAccessViewProps) {
   const hasActiveFilters =
     props.query.trim() !== '' ||
     (!isQueue && (props.role !== '' || props.accountStatus !== ''));
-  const isEmptyInbox =
-    isQueue && props.items.length === 0 && !hasActiveFilters;
+  const isEmptyInbox = isQueue && props.items.length === 0 && !hasActiveFilters;
 
   const columns: DataTableColumn<AdminAccessListItem>[] = [
     {
