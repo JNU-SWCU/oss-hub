@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 import { CollectionReadService } from './service/collection-read.service';
 import { PublicRankingRepository } from './repository/public-ranking.repository';
-import type { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { PrismaService } from '../prisma/prisma.service';
 
@@ -29,7 +28,6 @@ describe('② 프로그램 지표는 연결된 저장소만 센다 (실 Postgres
   const prisma = new PrismaClient();
   const service = new CollectionReadService(
     prisma as unknown as PrismaService,
-    {} as CollectionCanonicalRepository,
     new PublicRankingRepository(prisma as unknown as PrismaService),
   );
 

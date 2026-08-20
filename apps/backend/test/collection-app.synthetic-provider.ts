@@ -12,8 +12,8 @@ import type { CollectionSyncRuntime } from '../src/github/service/collection-syn
 
 /**
  * Fetcher-level synthetic GitHub REST provider for the public-admin-exposure
- * todo 13 100-repository scale/idempotency integration suite. Unlike
- * `test/collection-app.fixture.ts` (which stubs `CollectionAppClient`'s
+ * todo 13 100-repository scale/idempotency integration suite. Unlike a
+ * client-level double (which stubs `CollectionAppClient`'s
  * methods directly), this fixture answers at the `Fetcher` boundary
  * (`(input, init) => Promise<Response>`) so the *real* `CollectionAppClient`
  * pagination, conditional-GET (ETag/304), and Link-header traversal all run

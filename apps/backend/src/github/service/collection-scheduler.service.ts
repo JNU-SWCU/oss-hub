@@ -35,10 +35,10 @@ export const COLLECTION_CRON_EXPRESSION =
   DEFAULT_COLLECTION_CRON_EXPRESSION;
 
 /**
- * todo 14 원자 전환: 유일하게 배선된 트리거 경로가 old writer(`CollectionReconciliationService`)
- * 에서 new writer(`CollectionSyncService`)로 전환됐다 — old writer는 rollback 용도 코드로만
- * 남는다(ADR-006). `CollectionSyncService.run()`은 완료까지 await하는 동기 호출이라, 기존
- * reconciliation.trigger()와 같은 "즉시 PENDING 반환 + 백그라운드 진행" 계약을 유지하려면
+ * todo 14 원자 전환: 유일하게 배선된 트리거 경로가 old writer에서 new writer
+ * (`CollectionSyncService`)로 전환됐고, 그 old writer는 보존 기간이 끝나 `Canonical*` 8개
+ * 테이블과 함께 제거됐다(ADR-006). `CollectionSyncService.run()`은 완료까지 await하는 동기
+ * 호출이라, 예전 trigger()와 같은 "즉시 PENDING 반환 + 백그라운드 진행" 계약을 유지하려면
  * fire-and-forget으로 감싼다. `CollectionCutoverLease`가 걸려 있는 동안(todo 14 절차 진행 중)은
  * 트리거를 명시적으로 거부한다 — silent skip이 아니라 별도 에러 코드로 reject한다.
  */

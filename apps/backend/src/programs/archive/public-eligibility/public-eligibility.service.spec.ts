@@ -35,8 +35,6 @@ function serviceWith(
 ): PublicEligibilityService {
   const collection: CollectionReadPort = {
     findRepositoryActivity: () => Promise.resolve([]),
-    findRankingActivity: () => Promise.resolve([]),
-    getStatusSnapshot: () => Promise.resolve(null),
     getRepositoryMetrics,
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics: () => Promise.resolve([]),

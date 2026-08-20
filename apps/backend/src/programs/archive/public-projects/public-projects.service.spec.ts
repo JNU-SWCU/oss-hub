@@ -80,8 +80,6 @@ function serviceWith(overrides: {
   } as unknown as PublicEligibilityService;
   const collection = {
     findRepositoryActivity: jest.fn(),
-    findRankingActivity: jest.fn(),
-    getStatusSnapshot: jest.fn(),
     getRepositoryMetrics: jest.fn(),
     getContributorMetrics: jest.fn(),
     getPublicRankingMetrics: jest.fn(),

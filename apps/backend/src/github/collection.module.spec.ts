@@ -8,7 +8,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAdminController } from './controller/collection-admin.controller';
-import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionExternalDiscoveryService } from './service/collection-external-discovery.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
@@ -16,7 +15,6 @@ import { ProviderRequestQueue } from './collection-provider-queue';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { COLLECTION_READ_PORT } from './collection-read.port';
 import { CollectionReadService } from './service/collection-read.service';
-import { CollectionReconciliationService } from './service/collection-reconciliation.service';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
 import {
@@ -86,20 +84,40 @@ describe('CollectionModule', () => {
     ).toBe(true);
   });
 
-  it('canonical reconciliation providers and admin surface are reachable', () => {
+  it('sync writer and admin surface are reachable', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
-    const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
 
     expect(providers).toEqual(
       expect.arrayContaining([
-        CollectionCanonicalRepository,
         CollectionSchedulerService,
-        expect.objectContaining({ provide: CollectionReconciliationService }),
+        expect.objectContaining({ provide: CollectionSyncService }),
       ]),
     );
     expect(controllers).toContain(CollectionAdminController);
-    expect(exports).not.toContain(CollectionReconciliationService);
+  });
+
+  /**
+   * `Canonical*` 8개 테이블과 그걸 읽던 old writer는 ADR-006 보존 기간이 끝나 제거됐다.
+   * 이 모듈이 다시 그쪽을 배선하면 부팅 시점이 아니라 첫 질의 시점에 relation-not-exist로
+   * 깨지므로, 이름으로라도 되살아나지 않았는지를 여기서 고정한다.
+   */
+  it('does not re-register any provider bound to the dropped canonical tables', () => {
+    const names = getMetadataArray(MODULE_METADATA.PROVIDERS).map((provider) =>
+      typeof provider === 'function'
+        ? provider.name
+        : typeof provider === 'object' &&
+            provider !== null &&
+            'provide' in provider &&
+            typeof provider.provide === 'function'
+          ? provider.provide.name
+          : String(provider),
+    );
+
+    expect(names).not.toContain('CollectionCanonicalRepository');
+    expect(names).not.toContain('CollectionReconciliationService');
+    expect(names).not.toContain('CollectionCutoverService');
+    expect(names).not.toContain('CollectionGenerationImportService');
   });
 
   it('exports the read-port token without exposing its concrete implementation', () => {

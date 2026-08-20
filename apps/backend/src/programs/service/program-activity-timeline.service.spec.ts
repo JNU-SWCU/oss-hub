@@ -52,8 +52,6 @@ function collectionReadPort(
 ): CollectionReadPort {
   return {
     findRepositoryActivity,
-    findRankingActivity: () => Promise.resolve([]),
-    getStatusSnapshot: () => Promise.resolve(null),
     getRepositoryMetrics: () => Promise.resolve([]),
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics: () => Promise.resolve([]),

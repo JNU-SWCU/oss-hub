@@ -25,8 +25,8 @@ import { ProviderRequestQueue } from '../collection-provider-queue';
 
 /**
  * In-memory Prisma double for `CollectionIncrementalRepository`, extending
- * the same clone/commit/discard `$transaction` pattern used by
- * `collection-generation-import.service.spec.ts` with the todo 10 additions
+ * the same clone/commit/discard `$transaction` pattern once shared with the
+ * (now removed) canonical generation import spec, with the todo 10 additions
  * (sync cursor, inventory presence, and the raw-SQL `CollectionSyncLease`
  * table). Running the sync service against the *real* repository class (not
  * a jest.fn() stub of it) is what lets these tests actually verify the
