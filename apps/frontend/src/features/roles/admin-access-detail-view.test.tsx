@@ -918,9 +918,8 @@ describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레
         /data-slot="detail-panel-primary"[^>]*>([\s\S]*?)data-slot="detail-panel-secondary"/,
       )?.[1] ?? '';
     const secondary =
-      html.match(
-        /data-slot="detail-panel-secondary"[^>]*>([\s\S]*)$/,
-      )?.[1] ?? '';
+      html.match(/data-slot="detail-panel-secondary"[^>]*>([\s\S]*)$/)?.[1] ??
+      '';
     expect(primary).toContain('로그인 이력');
     expect(primary).not.toContain('접근 변경');
     expect(secondary).toContain('접근 변경');
