@@ -1,4 +1,5 @@
 import { Controller, Get, Header, Param } from '@nestjs/common';
+import { Public } from '../../../auth/auth-route-metadata';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
 import { PublicProjectsService } from './public-projects.service';
 
@@ -13,6 +14,7 @@ import { PublicProjectsService } from './public-projects.service';
  * 회귀 고정: `public-user-profile-route.http.spec.ts`(두 등록 순서 모두 검증).
  */
 @Controller('users')
+@Public()
 export class PublicUserProfileController {
   constructor(private readonly publicProjectsService: PublicProjectsService) {}
 

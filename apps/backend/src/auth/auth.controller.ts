@@ -11,9 +11,10 @@ import {
 } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Request, Response } from 'express';
+import { LoginHistoryService } from '../login-history/login-history.service';
 import { AuthConfig } from './auth.config';
+import { OptionalSession, Protected, Public } from './auth-route-metadata';
 import { AuthService } from './auth.service';
-import { loginLandingUrl } from './domain/login-landing';
 import {
   flowCookieName,
   parseCookies,
@@ -21,19 +22,20 @@ import {
   serializeCookie,
   sessionCookieName,
 } from './cookies';
-import { decodeFlowCookie, isSameState } from './oauth-flow';
+import { loginLandingUrl } from './domain/login-landing';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { SessionResponseDto } from './dto/session-response.dto';
+import { decodeFlowCookie, isSameState } from './oauth-flow';
 import { OriginGuard } from './origin.guard';
 import { resolveSession } from './session-resolution';
 import { AuthenticatedRequest, SessionGuard } from './session.guard';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
-import { LoginHistoryService } from '../login-history/login-history.service';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 
 @Controller('auth')
+@Protected()
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
@@ -44,6 +46,7 @@ export class AuthController {
   ) {}
 
   @Get('github')
+  @Public()
   startGithubLogin(@Res() res: Response): void {
     const redirect = this.authService.buildAuthorizeRedirect();
     res.setHeader(
@@ -65,6 +68,7 @@ export class AuthController {
    * 어떤 실패도 예외로 흘리지 않고 frontend 고정 오류 경로로 redirect한다.
    */
   @Get('github/callback')
+  @Public()
   async githubCallback(
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,
@@ -135,6 +139,7 @@ export class AuthController {
 
   /** UI용 조회에서는 정상적인 익명 상태를 모두 200으로 반환한다. */
   @Get('session')
+  @OptionalSession()
   async getSession(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -161,6 +166,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @Public()
   @UseGuards(OriginGuard)
   @HttpCode(200)
   async logout(

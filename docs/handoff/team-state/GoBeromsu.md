@@ -87,3 +87,21 @@
 - Issue: #969
 - PR: (이 PR)
 - blocker: 없음
+
+## 2026-08-21 — 인증 경로 메타데이터 계약을 고정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 검증: 인증 경로 manifest Jest happy/failure, backend lint·typecheck·test·build 통과
+- simplifier: 공식 code-simplifier 1.0.0 Codex pass, 변경 파일 allowlist 밖 수정 0건
+
+## 2026-08-21 — 프로그램 공개 인증 메타데이터를 복구
+
+- 상태: review
+- Issue: #969
+- PR: #970
+- blocker: 없음
+- 검증: 프로그램 목록·상태 집계·상세의 익명/인증 HTTP 200과 전체 인증 라우트 manifest 분류를 고정
+- simplifier: 공식 code-simplifier 1.0.0 Codex pass, 변경 파일 allowlist 밖 수정 0건
