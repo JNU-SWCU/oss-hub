@@ -140,7 +140,7 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     expect(html).toContain('신청자');
     expect(html).toContain('/programs/prog-1/applicants');
     expect(html).toContain('‹ 프로그램 목록');
-    expect(html).toMatch(/href="\/dashboard"/);
+    expect(html).toMatch(/href="\/programs"/);
   });
 
   it('비회원·미배정·미완료 프로필은 참여 팀·신청자·서류 현황·게시판 없는 공개 개요만 본다(QA46)', () => {
@@ -191,6 +191,12 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
   it('본문을 SkipLink 목적지(#main-content)로 감싼다', () => {
     mockSession();
     expect(render('/programs/prog-1')).toContain('id="main-content"');
+  });
+
+  it('본문 칸만 세로 스크롤한다', () => {
+    mockSession();
+    const html = render('/programs/prog-1');
+    expect(html).toMatch(/id="main-content"[^>]*overflow-y-auto/);
   });
 
   it('/dashboard 등 다른 섹션은 랭킹 시계를 그리지 않는다', () => {

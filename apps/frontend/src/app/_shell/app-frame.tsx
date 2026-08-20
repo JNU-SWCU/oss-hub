@@ -83,7 +83,7 @@ export function AppFrame({
   return (
     <SessionRoleProvider value={session}>
       <SidebarDrawerProvider>
-        <div className="flex min-h-dvh flex-col">
+        <div className="flex h-dvh flex-col overflow-hidden">
           <ShellNav brand={brand} items={navItems} actions={actions} />
           <ProductShell initialCollapsed={initialSidebarCollapsed}>
             {children}

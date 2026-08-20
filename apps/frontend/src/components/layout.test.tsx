@@ -140,7 +140,7 @@ describe('layout components', () => {
   /**
    * 셸이 이미 채운 뷰포트를 한 번 더 요구하지 않는가(#598).
    *
-   * 모든 라우트가 `app/layout.tsx` → `AppFrame`(`min-h-dvh`) 안에 서고 그 위에
+   * 모든 라우트가 `app/layout.tsx` → `AppFrame`(`h-dvh`) 안에 서고 그 위에
    * 머리글이 얹힌다. 이 부품이 `min-h-dvh`를 다시 걸면 머리글 높이만큼 내용이 없는
    * 빈 스크롤이 남는다 — chromium 실측으로 1440x900·768x1024·375x812 모두 56px이
    * 넘쳤고, `min-h-[50svh]`에서는 세 폭 모두 0px이다.

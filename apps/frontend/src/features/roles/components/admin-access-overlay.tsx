@@ -65,11 +65,26 @@ function useAdminAccessOverlayVariant(): AdminAccessOverlayVariant {
  * 표로 높이가 바뀌며 브라우저의 popstate 스크롤 복원만으로는 그 리플로우만큼
  * 밀린다). 그래서 마운트 시점 `document.activeElement` 참조 대신, 트리거
  * 행의 `href`(이미 prop으로 있는 `userId`로 재구성 가능)를 언마운트 뒤 짧게
- * 반복 조회해 포커스하고, 같은 반복 안에서 오버레이가 열릴 때의 `scrollY`로
+ * 반복 조회해 포커스하고, 같은 반복 안에서 오버레이가 열릴 때의 셸 스크롤을
  * 계속 되돌린다 — 목록 재요청이 끝나기 전(행이 아직 DOM에 없는 로딩 중)에
  * 한 번만 시도하면 놓칠 수 있어서, 재요청이 끝날 시간을 벌 만큼(약 400ms)
- * 여러 번 재시도한다.
+ * 여러 번 재시도한다. 회원 셸의 스크롤 원본은 `#main-content`다.
  */
+export function readProductShellScrollTop(): number {
+  const scroller = document.getElementById('main-content');
+  if (scroller === null) return window.scrollY;
+  return scroller.scrollTop;
+}
+
+export function writeProductShellScrollTop(top: number): void {
+  const scroller = document.getElementById('main-content');
+  if (scroller === null) {
+    window.scrollTo(0, top);
+    return;
+  }
+  scroller.scrollTop = top;
+}
+
 function adminAccessOverlayTriggerSelector(
   workspace: AccessWorkspace,
   userId: string,
@@ -92,7 +107,7 @@ export function AdminAccessOverlay({
   const isQueue = workspace === 'queue';
 
   useEffect(() => {
-    const scrollYOnOpen = window.scrollY;
+    const scrollTopOnOpen = readProductShellScrollTop();
     const triggerSelector = adminAccessOverlayTriggerSelector(
       workspace,
       userId,
@@ -103,11 +118,11 @@ export function AdminAccessOverlay({
         const trigger = document.querySelector<HTMLElement>(triggerSelector);
         if (trigger && document.activeElement !== trigger) {
           // `preventScroll`이 없으면 브라우저가 포커스된 요소를 뷰포트 안으로
-          // 스크롤시켜 버려서, 바로 아래의 scrollTo가 무의미해진다(실측: 이
-          // 옵션 없이는 scrollY가 200에서 0으로 되돌아갔다).
+          // 스크롤시켜 버려서, 바로 아래의 셸 스크롤 복원이 무의미해진다(실측: 이
+          // 옵션 없이는 오프셋이 200에서 0으로 되돌아갔다).
           trigger.focus({ preventScroll: true });
         }
-        window.scrollTo(0, scrollYOnOpen);
+        writeProductShellScrollTop(scrollTopOnOpen);
       };
 
       restore();

@@ -72,6 +72,10 @@ describe('AppSidebar', () => {
     expect(html).toContain('href="/programs?status=recruiting"');
     expect(html).toContain('data-icon="megaphone"');
     expect(html).toContain('data-icon="play"');
+    expect(html).not.toContain('sticky');
+    expect(html).not.toContain('100dvh-3.5rem');
+    expect(html).toContain('min-h-0');
+    expect(html).toContain('overflow-hidden');
   });
 
   it('shows count badge when provided', () => {
