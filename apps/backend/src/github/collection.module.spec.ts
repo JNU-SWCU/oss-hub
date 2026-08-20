@@ -13,7 +13,6 @@ import { CollectionExternalDiscoveryService } from './service/collection-externa
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import { CollectionPublicTokenProvider } from './collection-public.token';
-import { COLLECTION_READ_PORT } from './collection-read.port';
 import { CollectionReadService } from './service/collection-read.service';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
@@ -120,21 +119,20 @@ describe('CollectionModule', () => {
     expect(names).not.toContain('CollectionGenerationImportService');
   });
 
-  it('exports the read-port token without exposing its concrete implementation', () => {
+  it('does not export COLLECTION_READ_PORT or CollectionReadService', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
-
-    expect(providers).toEqual(
-      expect.arrayContaining([
-        CollectionReadService,
-        expect.objectContaining({
-          provide: COLLECTION_READ_PORT,
-          useExisting: CollectionReadService,
-        }),
-      ]),
+    const exportNames = exports.map((entry) =>
+      typeof entry === 'function'
+        ? entry.name
+        : typeof entry === 'symbol'
+          ? entry.description
+          : String(entry),
     );
-    expect(exports).toContain(COLLECTION_READ_PORT);
+
+    expect(providers).toEqual(expect.arrayContaining([CollectionReadService]));
     expect(exports).not.toContain(CollectionReadService);
+    expect(exportNames).not.toContain('COLLECTION_READ_PORT');
   });
 
   it('retires webhook ingress and legacy collection runtime from the module', () => {

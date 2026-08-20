@@ -2,12 +2,12 @@ import { Role } from '@prisma/client';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { SessionGuard } from '../../auth/session.guard';
 import type {
-  CollectionReadPort,
-  CollectionRepositoryActivityDto,
-} from '../../github/collection-read.port';
+  ProgramActivityRepository,
+  ProgramRepositoryActivity,
+} from '../repository/program-activity.repository';
 import {
   ProgramActivityService,
-  type ProgramActivityRepository,
+  type ProgramActivityProgramStore,
 } from './program-activity.service';
 import type { ProgramViewer } from './program-viewer.service';
 import { StudentDashboardController } from '../controller/programs.controller';
@@ -36,10 +36,10 @@ const application = {
 function repositoryActivity(
   dataAsOf: string,
   fields: Pick<
-    CollectionRepositoryActivityDto,
+    ProgramRepositoryActivity,
     'commitDates' | 'pullRequestDates' | 'releaseDates'
   >,
-): CollectionRepositoryActivityDto {
+): ProgramRepositoryActivity {
   return {
     repositoryId: 101n,
     dataAsOf: new Date(dataAsOf),
@@ -47,46 +47,10 @@ function repositoryActivity(
   };
 }
 
-function collectionReadPort(
-  findRepositoryActivity: CollectionReadPort['findRepositoryActivity'],
-): CollectionReadPort {
-  return {
-    findRepositoryActivity,
-    getRepositoryMetrics: () => Promise.resolve([]),
-    getContributorMetrics: () => Promise.resolve([]),
-    getPublicRankingMetrics: () => Promise.resolve([]),
-    listPublicRankingYears: () => Promise.resolve([]),
-    getPublicRankingDataAsOf: () => Promise.resolve(null),
-    getRepositoryCumulativeMetrics: () => Promise.resolve([]),
-    getContributorCumulativeMetrics: () => Promise.resolve([]),
-    getIncrementalStatusSnapshot: () =>
-      Promise.resolve({
-        trackedRepositoryCount: 0,
-        readyStreamCount: 0,
-        backfillingStreamCount: 0,
-        partialStreamCount: 0,
-        retryPendingStreamCount: 0,
-        oldestReadyCheckpointAt: null,
-        latestCheckpointAt: null,
-        oldestRetryPendingAt: null,
-        lastCycleStartedAt: null,
-        lastCycleCompletedAt: null,
-        dueRepositoryCount: 0,
-        failingRepositoryCount: 0,
-        lastRepositorySuccessAt: null,
-      }),
-    getIncrementalStatusStreams: () => Promise.resolve([]),
-    getNextScheduledCycleAt: () => Promise.resolve(null),
-    getRecentSweepActivity: () => Promise.resolve([]),
-    getExternalCollectionStatus: () =>
-      Promise.resolve({
-        trackedRepositoryCount: 0,
-        lastSweep: null,
-        cumulativeCommitCount: 0,
-        cumulativePullRequestCount: 0,
-        cumulativeReleaseCount: 0,
-      }),
-  };
+function activityReads(
+  findRepositoryActivity: ProgramActivityRepository['findRepositoryActivity'],
+): Pick<ProgramActivityRepository, 'findRepositoryActivity'> {
+  return { findRepositoryActivity };
 }
 
 describe('ProgramActivityService canonical activity', () => {
@@ -112,8 +76,8 @@ describe('ProgramActivityService canonical activity', () => {
 
   it('buckets all three collection resources from the latest observed activity', async () => {
     const findRepositoryActivity = jest.fn<
-      ReturnType<CollectionReadPort['findRepositoryActivity']>,
-      Parameters<CollectionReadPort['findRepositoryActivity']>
+      ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
+      Parameters<ProgramActivityRepository['findRepositoryActivity']>
     >();
     findRepositoryActivity.mockResolvedValue([
       repositoryActivity('2026-08-01T00:00:00.000Z', {
@@ -128,11 +92,11 @@ describe('ProgramActivityService canonical activity', () => {
     const repository = {
       findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
-    } satisfies ProgramActivityRepository;
+    } satisfies ProgramActivityProgramStore;
 
     const result = await new ProgramActivityService(
       repository,
-      collectionReadPort(findRepositoryActivity),
+      activityReads(findRepositoryActivity),
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toBe('2026-08-01T00:00:00.000Z');
@@ -153,8 +117,8 @@ describe('ProgramActivityService canonical activity', () => {
 
   it('reflects force-push replacement semantics from the latest observed activity', async () => {
     const findRepositoryActivity = jest.fn<
-      ReturnType<CollectionReadPort['findRepositoryActivity']>,
-      Parameters<CollectionReadPort['findRepositoryActivity']>
+      ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
+      Parameters<ProgramActivityRepository['findRepositoryActivity']>
     >();
     findRepositoryActivity.mockResolvedValue([
       repositoryActivity('2026-08-02T00:00:00.000Z', {
@@ -166,11 +130,11 @@ describe('ProgramActivityService canonical activity', () => {
     const repository = {
       findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
-    } satisfies ProgramActivityRepository;
+    } satisfies ProgramActivityProgramStore;
 
     const result = await new ProgramActivityService(
       repository,
-      collectionReadPort(findRepositoryActivity),
+      activityReads(findRepositoryActivity),
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toBe('2026-08-02T00:00:00.000Z');
@@ -187,18 +151,18 @@ describe('ProgramActivityService canonical activity', () => {
 
   it('returns an empty series with no data-as-of when no activity is observed', async () => {
     const findRepositoryActivity = jest.fn<
-      ReturnType<CollectionReadPort['findRepositoryActivity']>,
-      Parameters<CollectionReadPort['findRepositoryActivity']>
+      ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
+      Parameters<ProgramActivityRepository['findRepositoryActivity']>
     >();
     findRepositoryActivity.mockResolvedValue([]);
     const repository = {
       findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
-    } satisfies ProgramActivityRepository;
+    } satisfies ProgramActivityProgramStore;
 
     const result = await new ProgramActivityService(
       repository,
-      collectionReadPort(findRepositoryActivity),
+      activityReads(findRepositoryActivity),
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toBeNull();
@@ -207,8 +171,8 @@ describe('ProgramActivityService canonical activity', () => {
 
   it('returns an empty series but a real data-as-of when the repository has no dated events', async () => {
     const findRepositoryActivity = jest.fn<
-      ReturnType<CollectionReadPort['findRepositoryActivity']>,
-      Parameters<CollectionReadPort['findRepositoryActivity']>
+      ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
+      Parameters<ProgramActivityRepository['findRepositoryActivity']>
     >();
     findRepositoryActivity.mockResolvedValue([
       repositoryActivity('2026-08-01T00:00:00.000Z', {
@@ -220,11 +184,11 @@ describe('ProgramActivityService canonical activity', () => {
     const repository = {
       findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
-    } satisfies ProgramActivityRepository;
+    } satisfies ProgramActivityProgramStore;
 
     const result = await new ProgramActivityService(
       repository,
-      collectionReadPort(findRepositoryActivity),
+      activityReads(findRepositoryActivity),
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toBe('2026-08-01T00:00:00.000Z');
@@ -236,18 +200,18 @@ describe('ProgramActivityService canonical activity', () => {
     async (role) => {
       const findStudentActivityApplications = jest.fn();
       const findRepositoryActivity = jest.fn<
-        ReturnType<CollectionReadPort['findRepositoryActivity']>,
-        Parameters<CollectionReadPort['findRepositoryActivity']>
+        ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
+        Parameters<ProgramActivityRepository['findRepositoryActivity']>
       >();
       const repository = {
         findStudentActivityApplications,
-      } as unknown as ProgramActivityRepository;
+      } as unknown as ProgramActivityProgramStore;
       const viewer: ProgramViewer = { githubId: 11n, userId: 'user-1', role };
 
       await expect(
         new ProgramActivityService(
           repository,
-          collectionReadPort(findRepositoryActivity),
+          activityReads(findRepositoryActivity),
         ).activityTimeline(viewer, 'MONTH'),
       ).rejects.toMatchObject({ errorCode: { status: 403 } });
       expect(findStudentActivityApplications).not.toHaveBeenCalled();

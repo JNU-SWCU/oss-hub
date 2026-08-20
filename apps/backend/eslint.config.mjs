@@ -15,8 +15,9 @@ import moduleZoneBoundary from './eslint-rules/module-zone-boundary.mjs';
 const srcDir = path.join(import.meta.dirname, 'src');
 const sharedDirs = new Set(['common', 'prisma']);
 
-// ADR-003 DEC-42 — github 모듈(옛 collection)의 공개 surface는 COLLECTION_READ_PORT
-// 토큰·CollectionReadPort 인터페이스·DTO뿐이다.
+// ADR-003 DEC-42 — github 모듈(옛 collection)의 공개 surface는 모듈·스케줄
+// 헬퍼·프로비저닝 파일뿐이다. 소비자 Service는 github concrete repository를
+// import하지 않고, 소비자 Repository는 Prisma를 쓴다.
 //
 // 예전에는 collection 폴더를 `readdirSync`로 스캔해 deny list를 만들었는데,
 // 그러면 (1) 폴더를 옮기는 순간 설정 로드가 ENOENT로 죽고 (2) 상대경로 문자열
@@ -25,7 +26,6 @@ const sharedDirs = new Set(['common', 'prisma']);
 const collectionPublicFiles = [
   // 수집 쪽 공개 surface — DEC-42.
   'collection.module',
-  'collection-read.port',
   // 프로비저닝 쪽 공개 surface.
   //
   // 합병 전 `repositories/` 는 캡슐화 대상이 아니었으므로 아래 파일들은 원래
@@ -43,6 +43,9 @@ const collectionPublicFiles = [
   // 파생하는 순수 헬퍼. DTO 변환 지점마다 파생 로직을 복제하지 않도록
   // 여러 zone(applications/programs/submission-reviews 등)이 공유한다.
   'repository-identity',
+  // Next collection tick for ranking `nextCycleAt`. Pure cron math — not a
+  // reader, so ranking can import it without a github repository.
+  'collection-schedule',
 ];
 const collectionPublicDirs = ['dto'];
 // 계층 폴더(P20) 도입으로 공개 표면 일부가 zone 루트를 떠났다.
@@ -55,7 +58,7 @@ const collectionPublicPaths = [
   'service/own-repository-url-validation.service',
 ];
 const collectionInternalMessage =
-  'github 모듈 밖에서는 COLLECTION_READ_PORT 토큰·CollectionReadPort·DTO만 참조한다 — concrete 구현 직접 import 금지 (ADR-003 DEC-42).';
+  '소비자 Service는 github의 concrete repository를 import하지 않는다. 소비자 Repository는 Prisma를 쓴다. (ADR-003 DEC-42)';
 
 // github(수집)은 데이터를 제공하는 쪽이며 소비자를 역참조하지 않는다.
 const collectionConsumerZones = ['programs', 'ranking', 'system-status'];
@@ -139,7 +142,7 @@ const collectionDelegateRestrictedSyntax = {
   selector:
     'MemberExpression[property.name=/^(canonical[A-Z]|collectionRun|githubRawObservation)/]',
   message:
-    'collection Prisma delegate(canonical*/collectionRun/githubRawObservation)는 collection 구현 밖에서 접근하지 않는다 — CollectionReadPort로만 조회한다 (ADR-003 DEC-42).',
+    'collection Prisma delegate(canonical*/collectionRun/githubRawObservation)는 collection 구현 밖에서 접근하지 않는다 (ADR-003 DEC-42).',
 };
 
 export default tseslint.config(
@@ -179,10 +182,9 @@ export default tseslint.config(
     },
   },
   // collection 구현 밖에서는 canonical*/collectionRun/githubRawObservation
-  // Prisma delegate를 직접 만질 수 없다 — CollectionReadPort로만 조회한다
-  // (ADR-003 DEC-42). collection 폴더는 제외되므로(config 병합 규칙상 이 config가
-  // collection 파일에는 매치되지 않아 위 env 규칙만 남는다) 구현 내부에서는
-  // 그대로 delegate를 쓸 수 있다.
+  // Prisma delegate를 직접 만질 수 없다 (ADR-003 DEC-42). collection 폴더는
+  // 제외되므로(config 병합 규칙상 이 config가 collection 파일에는 매치되지
+  // 않아 위 env 규칙만 남는다) 구현 내부에서는 그대로 delegate를 쓸 수 있다.
   {
     files: ['src/**/*.ts'],
     ignores: ['src/github/**/*.ts'],

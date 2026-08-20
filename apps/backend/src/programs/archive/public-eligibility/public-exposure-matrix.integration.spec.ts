@@ -12,19 +12,16 @@ import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
 import { AuditLogService } from '../../../audit-log/audit-log.service';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../../audit-log/audit-log-metadata';
 import {
-  createCollectionReadPortForIntegrationTest,
-  type CollectionReadPort,
-} from '../../../github/collection-read.port';
-import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from '../../../github/repository-identity';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import type { GithubAppClient } from '../../../github/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
-import { RankingViewerRepository } from '../../../ranking/repository/ranking-viewer.repository';
+import { RankingRepository } from '../../../ranking/repository/ranking.repository';
 import { RankingService } from '../../../ranking/service/ranking.service';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
@@ -57,20 +54,16 @@ const SYNTHETIC_SESSION_SECRET = Buffer.from(
 ).toString('base64url');
 
 const prisma = new PrismaService();
-const collection: CollectionReadPort =
-  createCollectionReadPortForIntegrationTest(prisma);
-const eligibilityService = new PublicEligibilityService(collection);
+const metrics = new ProgramMetricsRepository(prisma);
+const eligibilityService = new PublicEligibilityService(metrics);
 const publicProjectsRepository = new PublicProjectsRepository(prisma);
 const publicProjectsService = new PublicProjectsService(
   publicProjectsRepository,
   eligibilityService,
-  collection,
+  metrics,
   loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
 );
-const rankingService = new RankingService(
-  collection,
-  new RankingViewerRepository(prisma),
-);
+const rankingService = new RankingService(new RankingRepository(prisma));
 
 const github = {
   publishRepository: jest.fn(),
@@ -104,11 +97,21 @@ const RANKING_PAGE_SIZE = 100;
 async function collectRankingEntries(): Promise<
   Awaited<ReturnType<typeof rankingService.findPage>>['items']
 > {
-  const first = await rankingService.findPage('all', 1, RANKING_PAGE_SIZE);
+  const first = await rankingService.findPage(
+    'all',
+    1,
+    RANKING_PAGE_SIZE,
+    null,
+  );
   const items = [...first.items];
   const pageCount = Math.ceil(first.total / RANKING_PAGE_SIZE);
   for (let page = 2; page <= pageCount; page += 1) {
-    const next = await rankingService.findPage('all', page, RANKING_PAGE_SIZE);
+    const next = await rankingService.findPage(
+      'all',
+      page,
+      RANKING_PAGE_SIZE,
+      null,
+    );
     items.push(...next.items);
   }
   return items;

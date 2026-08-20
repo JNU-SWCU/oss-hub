@@ -1,8 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import {
-  COLLECTION_READ_PORT,
-  type CollectionReadPort,
-} from '../../../github/collection-read.port';
+import { Injectable } from '@nestjs/common';
+import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { isPublicEligible } from './domain/public-eligibility';
 
 /**
@@ -17,7 +14,7 @@ export interface PublicEligibilityCandidate {
 /**
  * todo 15 — Public eligibility service.
  *
- * platform eligibility(managed publish)가 이미 확정된 후보 배치를 받아 `CollectionReadPort`의
+ * platform eligibility(managed publish)가 이미 확정된 후보 배치를 받아 `ProgramMetricsRepository`의
  * 최신 complete inventory 관측(`visibility`/`presence`/`visibilityObservedAt`)으로 Collection
  * freshness fence(`domain/public-eligibility.ts`)를 적용한다. list/detail/profile/ranking
  * 행 선택이 이 서비스 하나를 공유한다 — 반환값은 공개 가능한 `githubRepositoryId` 집합뿐이며,
@@ -25,17 +22,14 @@ export interface PublicEligibilityCandidate {
  */
 @Injectable()
 export class PublicEligibilityService {
-  constructor(
-    @Inject(COLLECTION_READ_PORT)
-    private readonly collection: CollectionReadPort,
-  ) {}
+  constructor(private readonly metrics: ProgramMetricsRepository) {}
 
   async filterEligibleRepositoryIds(
     candidates: readonly PublicEligibilityCandidate[],
   ): Promise<ReadonlySet<bigint>> {
     if (candidates.length === 0) return new Set();
 
-    const metrics = await this.collection.getRepositoryMetrics({
+    const metrics = await this.metrics.getRepositoryMetrics({
       repositoryIds: candidates.map(
         (candidate) => candidate.githubRepositoryId,
       ),
