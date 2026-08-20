@@ -159,7 +159,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
   }, testInfo) => {
     // Given: 전환 전 STAFF 세션은 운영 대시보드에 접근한다.
     const staffPage = await authSeedPage('staff-revocable');
-    await staffPage.goto('/staff/dashboard');
+    await staffPage.goto('/dashboard');
     await expect(
       staffPage.getByRole('heading', { name: '운영 대시보드' }),
     ).toBeVisible();
@@ -185,7 +185,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     // Then: 같은 STAFF 세션은 즉시 보호 화면에서 거부된다 — 역할이 null이
     // 아니라 학생으로 남아 있어 온보딩 역할 재선택이 아니라 접근 거부
     // 안내로 간다.
-    await staffPage.goto('/staff/dashboard');
+    await staffPage.goto('/programs/new');
     await expect(
       staffPage.getByText('접근 권한이 없는 페이지 입니다', { exact: true }),
     ).toBeVisible();

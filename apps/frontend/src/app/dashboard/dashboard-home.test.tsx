@@ -22,10 +22,6 @@ vi.mock('@/features/programs/staff-dashboard-page', () => ({
   ),
 }));
 
-vi.mock('@/features/roles/components/admin-access-screen', () => ({
-  AdminAccessScreen: () => <div data-testid="admin-access">관리 콘솔</div>,
-}));
-
 import { DashboardHome } from './dashboard-home';
 
 function session(role: 'STUDENT' | 'STAFF' | 'ADMIN'): SessionRoleResult {
@@ -46,7 +42,6 @@ describe('DashboardHome', () => {
     const html = renderToStaticMarkup(<DashboardHome />);
     expect(html).toContain('data-testid="student-dashboard"');
     expect(html).not.toContain('data-testid="staff-dashboard"');
-    expect(html).not.toContain('data-testid="admin-access"');
   });
 
   it('STAFF 세션이면 운영 대시보드 본문을 그린다', () => {
@@ -56,10 +51,10 @@ describe('DashboardHome', () => {
     expect(html).not.toContain('data-testid="student-dashboard"');
   });
 
-  it('ADMIN 세션이면 관리 콘솔 본문을 그린다', () => {
+  it('ADMIN 세션이면 운영 대시보드 본문을 그린다', () => {
     mocks.useSharedSessionRole.mockReturnValue(session('ADMIN'));
     const html = renderToStaticMarkup(<DashboardHome />);
-    expect(html).toContain('data-testid="admin-access"');
+    expect(html).toContain('data-testid="staff-dashboard"');
     expect(html).not.toContain('data-testid="student-dashboard"');
   });
 });

@@ -17,7 +17,7 @@ vi.mock('next/link', () => ({
 }));
 
 import { AppSidebar, formatSidebarCount } from './app-sidebar';
-import { sidebarGroupsFor } from './sidebar-menu';
+import { sidebarBrandTitle, sidebarGroupsFor } from './sidebar-menu';
 
 function render(
   pathname: string,
@@ -144,6 +144,28 @@ describe('AppSidebar', () => {
     expect(withoutCountsCollapsed).not.toContain(
       'data-slot="app-sidebar-count"',
     );
+  });
+
+  it('ADMIN dashboard shows two group labels and keeps brand 대시보드', () => {
+    const groups = sidebarGroupsFor('dashboard', 'ADMIN');
+    const html = renderToStaticMarkup(
+      <AppSidebar
+        groups={groups}
+        pathname="/dashboard"
+        search=""
+        collapsed={false}
+        onToggle={() => {}}
+        brandTitle={sidebarBrandTitle('dashboard', groups)}
+      />,
+    );
+    expect(html).toContain('>대시보드<');
+    expect(html).toContain('data-slot="app-sidebar-group-label"');
+    expect(html).toContain('>교직원<');
+    expect(html).toContain('>관리자<');
+    expect(html).toContain('href="/dashboard"');
+    expect(html).toContain('운영 대시보드');
+    expect(html).not.toContain('관리 콘솔');
+    expect(html).toContain('gap-4');
   });
 
   it('formatSidebarCount caps above 99', () => {

@@ -21,6 +21,8 @@ interface AppSidebarProps {
   readonly search?: string;
   readonly collapsed: boolean;
   readonly onToggle: () => void;
+  /** 브랜드 행. 없으면 첫 그룹 라벨. 대시보드 섹션은 `대시보드`로 고정한다. */
+  readonly brandTitle?: string;
 }
 
 /** 사이드바 카운트 표시: 99 초과는 `99+`. 펼침 뱃지·툴팁/aria 공통. */
@@ -48,8 +50,9 @@ export function AppSidebar({
   search = '',
   collapsed,
   onToggle,
+  brandTitle,
 }: AppSidebarProps) {
-  const title = groups[0]?.label ?? '메뉴';
+  const title = brandTitle ?? groups[0]?.label ?? '메뉴';
   const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
 
   return (
@@ -101,6 +104,7 @@ export function AppSidebar({
         pathname={pathname}
         search={search}
         collapsed={collapsed}
+        brandTitle={title}
       />
 
       <p
@@ -123,6 +127,7 @@ export interface AppSidebarNavProps {
   readonly pathname: string;
   readonly search?: string;
   readonly collapsed: boolean;
+  readonly brandTitle?: string;
 }
 
 /**
@@ -134,8 +139,10 @@ export function AppSidebarNav({
   pathname,
   search = '',
   collapsed,
+  brandTitle,
 }: AppSidebarNavProps) {
-  const title = groups[0]?.label ?? '메뉴';
+  const title = brandTitle ?? groups[0]?.label ?? '메뉴';
+  const showGroupLabels = !collapsed;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -143,7 +150,8 @@ export function AppSidebarNav({
         data-slot="app-sidebar-nav"
         aria-label={title}
         className={cn(
-          'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3',
+          'flex min-h-0 flex-1 flex-col overflow-y-auto p-3',
+          groups.length > 1 ? 'gap-4' : 'gap-0.5',
           collapsed && 'items-center px-2',
         )}
       >
@@ -158,6 +166,14 @@ export function AppSidebarNav({
               collapsed && 'items-center',
             )}
           >
+            {showGroupLabels && group.label !== title ? (
+              <p
+                data-slot="app-sidebar-group-label"
+                className="px-3 pt-1 text-xs font-semibold tracking-wide text-muted-foreground"
+              >
+                {group.label}
+              </p>
+            ) : null}
             {group.items.map((item) => (
               <SidebarLink
                 key={item.href}

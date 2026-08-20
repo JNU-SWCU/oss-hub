@@ -16,11 +16,23 @@ export const STAFF_MENU: NavItem[] = [
   { label: '운영 대시보드', href: '/dashboard' },
 ];
 
-export const ADMIN_MENU: NavItem[] = [
-  // 입구 URL은 회원 공통 `/dashboard`. 본문만 세션 역할(ADMIN)로 갈린다.
-  // `/admin/access` 물리 경로·모달 intercept는 deep link로 당분간 유지한다.
-  { label: '관리 콘솔', href: '/dashboard' },
+/** ADMIN 교직원 그룹 — 입구는 STAFF와 같은 `/dashboard`. */
+export const ADMIN_STAFF_MENU: NavItem[] = [
+  { label: '운영 대시보드', href: '/dashboard' },
+];
+
+/** ADMIN 관리자 그룹 — 시스템 도구는 `/admin/*`만 쓴다. */
+export const ADMIN_SYSTEM_MENU: NavItem[] = [
   { label: '접근 목록', href: '/admin/access' },
   { label: '감사 로그', href: '/admin/audit-log' },
   { label: '시스템 상태', href: '/admin/system-status' },
+];
+
+/**
+ * ADMIN 메뉴 평탄 목록. 첫 항목이 역할 홈(`/dashboard`)이다.
+ * 사이드 그룹 조립은 `ADMIN_STAFF_MENU` / `ADMIN_SYSTEM_MENU`를 쓴다.
+ */
+export const ADMIN_MENU: NavItem[] = [
+  ...ADMIN_STAFF_MENU,
+  ...ADMIN_SYSTEM_MENU,
 ];

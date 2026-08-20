@@ -177,7 +177,7 @@ export function buildStaffDeadlineMail(input: {
     input.milestones.length === 1 && first
       ? `${deadlineHeadline(first.dueAt, input.now)} · ${first.milestoneName}`
       : `마감 임박 마일스톤 ${input.milestones.length}건`;
-  const ctaUrl = routeUrl(input.frontendOrigin, '/staff/dashboard');
+  const ctaUrl = routeUrl(input.frontendOrigin, '/dashboard');
   const rows = input.milestones.flatMap((milestone) => [
     {
       label: '프로그램 / 마일스톤',

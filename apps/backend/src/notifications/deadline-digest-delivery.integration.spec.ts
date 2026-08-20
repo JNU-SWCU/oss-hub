@@ -151,7 +151,7 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
       `synthetic-${DIGEST_FIXTURE.studentDeactivated} (비활성)`,
     );
   }
-  expect(staffMail?.html).toContain('https://oss.example/staff/dashboard');
+  expect(staffMail?.html).toContain('https://oss.example/dashboard');
 
   const ledger = await harness.prisma.notification.findMany({
     where: { type: 'DEADLINE_DIGEST' },

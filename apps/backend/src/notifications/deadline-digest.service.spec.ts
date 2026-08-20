@@ -180,7 +180,7 @@ describe('DeadlineDigestService Program preview and send', () => {
       .map((call) => call[0])
       .find((mail) => mail.to === 'staff-1@example.com');
     expect(staffMail?.body).toContain('미제출자: 학생 1');
-    expect(staffMail?.html).toContain('/staff/dashboard');
+    expect(staffMail?.html).toContain('/dashboard');
   });
 
   it('미제출 명단에 비활성·수신 거부·이메일 없음으로 제외된 사람도 사유와 함께 남긴다', async () => {

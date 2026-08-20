@@ -91,7 +91,7 @@ export function RoleMenu() {
       primary={
         <nav aria-label="역할 메뉴" className="flex flex-col gap-1">
           <a
-            href="/staff/dashboard"
+            href="/dashboard"
             className="rounded-md bg-muted px-3 py-2 text-sm font-medium text-foreground"
           >
             운영 대시보드
