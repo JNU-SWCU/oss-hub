@@ -14,11 +14,13 @@ export const STUDENT_MENU: NavItem[] = [
 export const STAFF_MENU: NavItem[] = [
   // 입구 URL은 회원 공통 `/dashboard`. 본문만 세션 역할(STAFF)로 갈린다.
   { label: '운영 대시보드', href: '/dashboard' },
+  { label: '학생 활성', href: '/dashboard/insights' },
 ];
 
 /** ADMIN 교직원 그룹 — 입구는 STAFF와 같은 `/dashboard`. */
 export const ADMIN_STAFF_MENU: NavItem[] = [
   { label: '운영 대시보드', href: '/dashboard' },
+  { label: '학생 활성', href: '/dashboard/insights' },
 ];
 
 /** ADMIN 관리자 그룹 — 시스템 도구는 `/admin/*`만 쓴다. */

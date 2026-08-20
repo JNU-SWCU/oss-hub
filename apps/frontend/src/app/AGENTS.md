@@ -26,6 +26,7 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | `settings/` | `/settings` | `RoleGate`(세 역할 모두) + **역할을 기다리는 교직원 예외** — #156 프로필·알림 설정. 역할이 없어도 여는 갈래는 `unassigned` + 살아 있는 역할 요청(`PENDING`·`APPROVED`) 둘뿐이다(`settings/settings-access.ts`의 `isSettingsOpenForStaffAwaitingRole`, #581). `APPROVED`까지 여는 것은 유지보수자의 명시적 결정이다(2026-08-04) — 결재가 끝나고 세션에 역할이 아직 오지 않은 사람도 자기 이름을 못 고치는 것은 #581과 같은 증상이다. 요청 없음·`REJECTED`·`REVOKED`·가입 중 역할만 고른 사용자는 종전대로 온보딩으로 되돌린다 |
 | `onboarding/role/`, `onboarding/pending/` | `/onboarding/role`, `/onboarding/pending` | `AuthGate` |
 | `dashboard/` | `/dashboard` | 가입 완료 회원 전원(STUDENT · STAFF · ADMIN). 본문은 세션 역할로 갈린다 |
+| `dashboard/insights/` | `/dashboard/insights` | `STAFF`·`ADMIN` — 학생 활성 통계 |
 | `my-repos/` | `/my-repos` | 로그인한 모든 역할(학생 메뉴 아래 있지만 role 무관 접근 허용) |
 | `programs/`, `programs/[id]/apply/`, `programs/[id]/milestones/[milestoneId]/submit/` | `/programs`, 신청, 마일스톤 제출 | 화면별 상이 — 각 `page.tsx` 주석 확인 |
 | `programs/new/`, `programs/[id]/edit/`, `programs/[id]/applicants/`, `programs/[id]/applications/[applicationId]/`, `programs/[id]/status/`, `programs/[id]/submissions/[submissionId]/review/` | 프로그램 운영 화면 | `STAFF`·`ADMIN` — 프로그램 내부 화면은 `/programs/:id` 한 스코프에 있고 역할로 본문만 갈린다. `programs/new`는 programId가 없어 프로그램 스코프가 아닌 섹션 사이드바를 쓴다 |

@@ -7,6 +7,7 @@ references:
   - ADR-003
   - ADR-006
   - ADR-009
+  - ADR-011
 refines:
   - ADR-006
   - ADR-009
@@ -63,6 +64,8 @@ Accepted
 4. 공개 랭킹에 조직 private 기여를 합산하면 저장소를 밝히지 않아도 *"이 사람이 비공개로 많이 했다"*가 드러난다. 공개 표면에서 빼는 쪽이 누출 경계와 화면 문구를 동시에 맞춘다
 
 **대안(단일 데이터원 유지)을 기각한 이유.** 그 장점(release 포함·조직 private 포함)은 아래 3·5로 대체 가능하지만, 단점(랭킹이 sweep 건강에 계속 종속·누출을 정책으로 공식화)은 대체 불가능하다.
+
+`?year=`가 없을 때 랭킹이 **올해**를 읽는 것도 이 절이다. 그 값이 영속 계층에 어떤 타입으로 도착하는지는 [ADR-011](ADR-011-query-filter-type-boundary.md)이 원본이다 — `"all"`과 `"2026"`을 같은 문자열로 SQL에 넣지 않는다. 교직원 학생 활성의 부재 기본(전체 기간)은 랭킹을 베끼지 않으며 ADR-011 Decision 5다.
 
 ### 2. 랭킹 필터는 사람 축이다
 
@@ -271,6 +274,7 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 
 ## Changelog
 
+- 2026-08-20: §1에 `?year=` 부재=올해는 이 절, 영속 타입 경계와 학생 활성 기본(부재=전체)은 [ADR-011](ADR-011-query-filter-type-boundary.md)임을 교차 기록했다.
 - 2026-08-19: 두 축이 각자 획득을 갖게 된 형태를 개정 노트로 덧붙였다(기존 본문 삭제 없음). 사람 축은 `GithubUserActivityHistory`를 `contributionsCollection` + `repositories(star)` GraphQL 조회로 채우고 입자는 `(githubId, year)`이며, 랭킹 지표는 commit·PR·issue·repo·star 5종과 그 단순 합으로 바뀌었다 — `D7`의 3종 합계를 이 노트가 개정한다. `release`는 ② 프로그램 화면 전속이 됐다(사람 축이 release를 세지 않으므로 저장소 축이 유일 출처). 5종 구성의 제품 결정 원본은 관리자 요청을 받은 Notion Decision Log이며(`AGENTS.md` §2) 이 ADR은 기술적 귀결만 기록한다. `star`·`repository` 수가 본인 조작에 열려 있다는 성질을 명시했고, `D15`는 폐기가 아니라 "`githubLogin`과 `department`"로 문구를 정정했다. 테이블 형태·명명·FK 부재 근거는 `docs/rules/data-modeling.md`가 원본이라 여기서 중복 서술하지 않는다.
 - 2026-08-11: §2 "랭킹 필터는 사람 축이다"가 집계 축만 다루고 표시(display) 포함 여부·집계 대상 저장소 범위를 다루지 않던 것을 바로잡아, 집계 축(기존 서술 유지)·표시 축(가입자 전원, 기여 0이어도 표시, PM 결정 2026-08-11 신규)·저장소 축(org 저장소 전체·가시성 무관, PM 결정 2026-08-11 신규) 세 축을 명시적으로 분리해 서술했다. 저장소 축 확장(private org 저장소 활동도 공개 랭킹 숫자에 합산)은 저장소 자체의 공개 여부(`ADR-006`·`docs/rules/security.md`가 정한 명시적 publish 동작)와는 별개임을 명시했다. 동의 문서(`apps/frontend/public/policies/`)를 `2026-08-11` 버전으로 재게시하고 `CONSENT_POLICY_VERSION`을 올려 이 표시·집계 범위 확장을 반영했다.
 - 2026-08-10: 신규 fact writer의 `githubId ∈ User` 경계를 ORG/EXTERNAL source-neutral로 통일해 팀 미특정 조직 저장소에서도 미가입자·작성자 불명 신원을 적재하지 않게 했다. 가입자 집합은 D9대로 run/import 시작 때 한 번 고정하고 조회 실패는 첫 write 전에 전파한다. 팀원 목록·PR 백필 fingerprint도 같은 run snapshot으로 좁혀 도중 가입 계정의 과거 PR이 누락되지 않게 했고, cutover는 import·provider 검증·fact parity 전체에서 하나의 가입자 snapshot을 공유한다. 기존 레거시 행은 runtime에서 삭제하지 않고 별도 승인 데이터 마이그레이션으로 추적한다.

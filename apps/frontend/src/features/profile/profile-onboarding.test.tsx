@@ -57,11 +57,11 @@ describe('profile onboarding view', () => {
     expect(html).toContain('animate-pulse');
   });
 
-  it('초기 폼에 15개 학과·트랙과 기타 직접 입력을 모두 표시한다', () => {
+  it('초기 폼에 16개 학과·트랙과 기타 직접 입력을 모두 표시한다', () => {
     const html = renderForm(values());
     const departments = DEPARTMENT_GROUPS.flatMap((group) => group.departments);
 
-    expect(departments).toHaveLength(15);
+    expect(departments).toHaveLength(16);
     for (const department of departments) {
       expect(html).toContain(department);
     }
