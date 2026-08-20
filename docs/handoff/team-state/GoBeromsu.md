@@ -66,3 +66,10 @@
 - PR: (이 PR)
 - blocker: browser QA unavailable in this environment; frontend module remains above the repository 250 LOC split threshold
 
+
+## 2026-08-21 — 브라우저 비교 경계 상태를 고정한다
+
+- 상태: review
+- Issue: #965
+- PR: (이 PR; verifier gap from #962)
+- blocker: 없음

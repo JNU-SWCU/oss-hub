@@ -196,6 +196,10 @@ export function roleForFixture(fixture: LocalReviewFixtureId): AuthRole | null {
     case 'error-once':
       return 'STUDENT';
     case 'staff':
+    case 'insights-long':
+    case 'insights-zero':
+    case 'insights-empty':
+    case 'insights-unregistered':
       return 'STAFF';
     case 'admin':
       return 'ADMIN';

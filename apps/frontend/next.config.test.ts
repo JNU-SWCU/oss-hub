@@ -49,7 +49,8 @@ describe('nextConfig rewrites', () => {
     vi.stubEnv('BACKEND_ORIGIN', 'http://localhost:4000');
     vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');
 
-    await expect(getRewrites()).resolves.toEqual({
+    const rewrites = await getRewrites();
+    expect(rewrites).toEqual({
       beforeFiles: [
         {
           source: '/api/v1/:path*',
@@ -62,7 +63,7 @@ describe('nextConfig rewrites', () => {
               type: 'cookie',
               key: 'oss_hub_local_review_fixture',
               value:
-                '(?:anonymous|student|staff|admin|settings|loading|error|error-once|unassigned|wrong-role|role-pending|role-rejected)',
+                '(?:anonymous|student|staff|admin|settings|loading|error|error-once|unassigned|wrong-role|role-pending|role-rejected|insights-long|insights-zero|insights-empty|insights-unregistered)',
             },
           ],
           destination: '/local-review-api/:path*',
@@ -76,6 +77,27 @@ describe('nextConfig rewrites', () => {
         },
       ],
     });
+    if (Array.isArray(rewrites)) {
+      throw new Error('fixture rewrite groups 설정이 필요합니다.');
+    }
+    const cookieRewrite = rewrites.beforeFiles?.[0];
+    if (
+      cookieRewrite === undefined ||
+      !('has' in cookieRewrite) ||
+      cookieRewrite.has === undefined
+    ) {
+      throw new Error('fixture cookie rewrite 설정이 필요합니다.');
+    }
+    const cookieMatcher = cookieRewrite.has[1];
+    if (cookieMatcher === undefined || cookieMatcher.type !== 'cookie') {
+      throw new Error('fixture cookie matcher 설정이 필요합니다.');
+    }
+    expect(new RegExp(`^${cookieMatcher.value}$`).test('insights-long')).toBe(
+      true,
+    );
+    expect(
+      new RegExp(`^${cookieMatcher.value}$`).test('arbitrary-fixture'),
+    ).toBe(false);
   });
 
   it('production에서는 fixture flag가 있어도 adapter rewrite를 만들지 않는다', async () => {
