@@ -125,7 +125,12 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
     'data-column-widths="rank:w-8,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   expect(html).not.toContain(displayName);
-  expect(html).toContain(`@${githubLogin}`);
+  expect(html).toContain(githubLogin);
+  expect(html).not.toContain(`@${githubLogin}`);
+  expect(html).toContain(`href="https://github.com/${githubLogin}"`);
+  expect(html).toContain('target="_blank"');
+  expect(html).toContain('rel="noreferrer"');
+  expect(html).toContain(`${githubLogin}의 GitHub 프로필 (새 탭에서 열림)`);
   expect(html).not.toContain('truncate');
   expect(html).toContain('whitespace-normal');
   expect(html).not.toContain('break-all');
@@ -365,8 +370,10 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
     />,
   );
 
-  expect(html).toContain('@synthetic-outcome2-owner-login');
-  expect(html).toContain('@synthetic-outcome2-other-login');
+  expect(html).toContain('synthetic-outcome2-owner-login');
+  expect(html).toContain('synthetic-outcome2-other-login');
+  expect(html).not.toContain('@synthetic-outcome2-owner-login');
+  expect(html).not.toContain('@synthetic-outcome2-other-login');
   expect(html).toContain('data-row-keys="1,2"');
   for (const forbidden of forbiddenRankingFields) {
     expect(html).not.toContain(forbidden);
@@ -624,7 +631,7 @@ test('활동이 0인 가입자도 목록에서 0으로 남는다 — 빠지지 �
     {},
   );
 
-  expect(html).toContain('@synthetic-newcomer');
+  expect(html).toContain('synthetic-newcomer');
   expect(html).toContain('data-row-keys="1,2"');
   expect(html).not.toContain('집계된 활동 데이터가 없습니다');
 });
@@ -684,7 +691,7 @@ test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만
   expect(html).toContain('수집 전 기본값');
   expect(html).toContain('data-ranking-as-of="none"');
   // 설명만 붙일 뿐 사람을 지우지 않는다.
-  expect(html).toContain('@synthetic-top');
+  expect(html).toContain('synthetic-top');
   expect(html).toContain('data-row-keys="1"');
 });
 
@@ -716,7 +723,7 @@ test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목
   expect(html).toContain('집계된 활동이 아직 없습니다');
   expect(html).toContain('참여자 전원이 그대로 남아');
   expect(html).toContain('data-row-keys="1,2,3"');
-  expect(html).toContain('@synthetic-newcomer');
+  expect(html).toContain('synthetic-newcomer');
   // 수집은 돌았으므로 기준 시각은 그대로 보인다.
   expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
   expect(html).not.toContain('아직 수집 전입니다');
@@ -767,12 +774,16 @@ const staffTierRow = (): RankingItem =>
     department: STAFF_ROW.department,
   });
 
-test('공개 화면은 @login 한 줄과 학과만 보이고 이름·CSV 가 없다', () => {
+test('공개 화면은 login 한 줄과 학과만 보이고 이름·CSV 가 없다', () => {
   const html = personAxisMarkup([publicTierRow()], { dataAsOf: null });
 
   expect(html).toContain('학과');
   expect(html).toContain(STAFF_ROW.department);
-  expect(html).toContain(`@${STAFF_ROW.githubLogin}`);
+  expect(html).toContain(STAFF_ROW.githubLogin);
+  expect(html).not.toContain(`@${STAFF_ROW.githubLogin}`);
+  expect(html).toContain(`href="https://github.com/${STAFF_ROW.githubLogin}"`);
+  expect(html).toContain('target="_blank"');
+  expect(html).toContain('rel="noreferrer"');
   expect(html).not.toContain(STAFF_ROW.name);
   expect(html).not.toContain('>이름<');
   expect(html).not.toContain('CSV 내려받기');
@@ -800,7 +811,8 @@ test('viewerClass staff 이면 이름 열과 CSV 버튼을 그린다', () => {
 
   expect(html).toContain('>이름<');
   expect(html).toContain(`>${STAFF_ROW.name}<`);
-  expect(html).toContain(`@${STAFF_ROW.githubLogin}`);
+  expect(html).toContain(STAFF_ROW.githubLogin);
+  expect(html).not.toContain(`@${STAFF_ROW.githubLogin}`);
   expect(html).toContain(STAFF_ROW.department);
   expect(html).toContain('CSV 내려받기');
   expect(html).toContain(
@@ -822,7 +834,8 @@ test('staff 행의 name 이 null 이면 이름 칸에 대시를 그린다', () =
   );
 
   expect(html).toContain('이름 미입력');
-  expect(html).toContain('@nameless-login');
+  expect(html).toContain('nameless-login');
+  expect(html).not.toContain('@nameless-login');
 });
 
 test('학과가 없으면 대시를 그린다 — 빈칸으로 두거나 깨지지 않는다', () => {
@@ -832,7 +845,7 @@ test('학과가 없으면 대시를 그린다 — 빈칸으로 두거나 깨지�
 
   expect(html).toContain('>-<');
   expect(html).toContain('학과 미입력');
-  expect(html).toContain('@synthetic-top');
+  expect(html).toContain('synthetic-top');
 });
 
 test('department 칸이 아예 없는 낡은 응답도 대시로 그린다 — 크래시하지 않는다', () => {
@@ -843,7 +856,7 @@ test('department 칸이 아예 없는 낡은 응답도 대시로 그린다 — �
   });
 
   expect(html).toContain('>-<');
-  expect(html).toContain('@synthetic-top');
+  expect(html).toContain('synthetic-top');
 });
 
 test('기준 시각은 PageHeader actions 의 time 요소에 있다', () => {
@@ -894,7 +907,7 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
     },
   );
 
-  expect(collected).toContain('@synthetic-zero');
+  expect(collected).toContain('synthetic-zero');
   expect(collected).toContain('data-row-keys="1,2"');
   expect(collected).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
 
