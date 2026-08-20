@@ -81,10 +81,6 @@ export class RankingService {
     return this.ranking.listYears();
   }
 
-  async findDataAsOf(): Promise<Date | null> {
-    return this.ranking.findDataAsOf();
-  }
-
   private async findPublicEntries(
     year: RankingYear,
   ): Promise<readonly RankedPublicEntry[]> {

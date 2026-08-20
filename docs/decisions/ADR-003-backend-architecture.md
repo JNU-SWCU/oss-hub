@@ -36,7 +36,7 @@ backend는 기능 모듈 폴더를 최상위 구성 단위로 사용한다. 모�
 
 NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. 모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 Service Layer가 소유한다. Controller↔Service와 Service↔Repository 계약은 명시적 DTO를 쓰며 Controller와 Service 사이에 Port를 만들지 않는다. 기능 요구가 없는 포트·어댑터·추가 추상화는 도입하지 않는다. 한 줄 hop은 orchestration이 아니다.
 
-모듈을 넘거나 프로세스 밖을 향하는 의존은 외부 시스템(GitHub HTTP 등)에만 Fowler Gateway/Port를 둔다. 같은 데이터베이스를 읽는 조회 앞에 `COLLECTION_READ_PORT`를 두지 않는다. `COLLECTION_READ_PORT`는 삭제한다. 다른 모듈의 Fowler Service Layer를 같은-DB 조회 버스로 쓰지 않는다. `RankingService.findPublicActivity`는 삭제한다. staff-insights 활성 조회는 `StaffInsightsRepository`가 소유한다. 자기 모듈 Controller가 부르는 `listYears`/`findDataAsOf`처럼 계층을 지키는 위임은 hop이 아니다.
+모듈을 넘거나 프로세스 밖을 향하는 의존은 외부 시스템(GitHub HTTP 등)에만 Fowler Gateway/Port를 둔다. 같은 데이터베이스를 읽는 조회 앞에 `COLLECTION_READ_PORT`를 두지 않는다. `COLLECTION_READ_PORT`는 삭제한다. 다른 모듈의 Fowler Service Layer를 같은-DB 조회 버스로 쓰지 않는다. `RankingService.findPublicActivity`는 삭제한다. staff-insights 활성 조회는 `StaffInsightsRepository`가 소유한다. 자기 모듈 Controller가 부르는 `listYears`처럼 계층을 지키는 위임은 hop이 아니다.
 
 읽기 Repository는 테이블이 아니라 화면 질문 하나에 답한다. Fowler Repository는 한 집합의 객체에 대한 컬렉션형 인터페이스이지, 테이블당 하나씩 두는 Table Data Gateway/레거시 DAL이 아니다. Microsoft Learn persistence layer도 repository-per-table을 금지한다. Meyer/Fowler Command Query Separation과 Microsoft Learn CQS/CQRS에서 조회는 JOIN할 수 있다. 쓰기 Repository 규칙을 읽기에 그대로 씌워 조인을 막지 않는다.
 

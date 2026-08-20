@@ -10,7 +10,6 @@ import {
 } from './staff-insights-year';
 import {
   StaffInsightsRepository,
-  type StaffInsightsActivityRecord,
   type StaffInsightsStudentRecord,
 } from './staff-insights.repository';
 
@@ -105,7 +104,9 @@ export class StaffInsightsService {
         this.repository.listActivityYears(),
       ]);
 
-    const activityByGithubId = foldActivity(activity);
+    const activityByGithubId = new Map(
+      activity.map((row) => [row.githubId.toString(), row]),
+    );
     const participantIds = new Set<string>();
     for (const participation of participations) {
       for (const userId of participation.userIds) {
@@ -130,22 +131,6 @@ export class StaffInsightsService {
       programs: buildProgramRows(participations, studentsById),
     };
   }
-}
-
-function foldActivity(
-  rows: readonly StaffInsightsActivityRecord[],
-): ReadonlyMap<string, ActivityTotals> {
-  const folded = new Map<string, ActivityTotals>();
-  for (const row of rows) {
-    folded.set(row.githubId.toString(), {
-      commitCount: row.commitCount,
-      pullRequestCount: row.pullRequestCount,
-      issueCount: row.issueCount,
-      repositoryCount: row.repositoryCount,
-      starCount: row.starCount,
-    });
-  }
-  return folded;
 }
 
 function activityFor(
