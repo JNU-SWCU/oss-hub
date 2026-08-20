@@ -13,11 +13,7 @@ export type AdminAccessRoleFilter = 'UNASSIGNED' | AdminAccessRole;
 export type AdminAccessAccountStatus = 'ACTIVE' | 'DEACTIVATED';
 export type AdminAccessPendingFilter = 'NONE' | 'PENDING';
 export type AdminAccessSortField =
-  | 'name'
-  | 'createdAt'
-  | 'lastLoginAt'
-  | 'role'
-  | 'accountStatus';
+  'name' | 'createdAt' | 'lastLoginAt' | 'role' | 'accountStatus';
 export type AdminAccessSortDirection = 'asc' | 'desc';
 export type AdminAccessRoleRequestStatus =
   'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
