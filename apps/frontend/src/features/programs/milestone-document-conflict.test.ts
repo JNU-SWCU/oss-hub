@@ -65,7 +65,7 @@ describe('충돌 뒤 교직원에게 하는 말', () => {
     );
     expect(reloaded).toContain('저장하지 않았습니다');
     expect(reloaded).toContain('다시 불러왔습니다');
-    expect(reloaded).toContain('다시 확인한 뒤 판정해 주세요');
+    expect(reloaded).toContain('다시 확인한 뒤 다시 검토해 주세요');
 
     const failed = milestoneDocumentReviewConflictNotice(
       'target-changed',
@@ -90,13 +90,13 @@ describe('충돌 뒤 교직원에게 하는 말', () => {
   it('첫마디는 충돌마다 다르다', () => {
     expect(
       milestoneDocumentReviewConflictNotice('target-changed', 'failed'),
-    ).toContain('제출물 또는 판정이 바뀌어');
+    ).toContain('제출물 또는 검토 결과가 바뀌어');
     expect(
       milestoneDocumentReviewConflictNotice('review-changed', 'failed'),
-    ).toContain('다른 판정이 먼저 등록되어');
+    ).toContain('다른 검토 결과가 먼저 등록되어');
     expect(
       milestoneDocumentReviewConflictNotice('submission-missing', 'failed'),
-    ).toContain('판정하려던 제출을 찾지 못해');
+    ).toContain('검토하려던 제출을 찾지 못해');
   });
 
   /**

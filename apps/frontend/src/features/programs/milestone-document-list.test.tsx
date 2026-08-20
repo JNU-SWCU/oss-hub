@@ -223,7 +223,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
         problemResponse(
           409,
           'MSD_024',
-          '제출하는 사이에 판정이 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
+          '제출하는 사이에 교직원 검토 결과가 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
         ),
       )
       .mockResolvedValueOnce(jsonResponse([APPROVED]));
@@ -263,7 +263,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
         problemResponse(
           409,
           'MSD_024',
-          '제출하는 사이에 판정이 등록되었습니다.',
+          '제출하는 사이에 교직원 검토 결과가 등록되었습니다.',
         ),
       )
       .mockResolvedValueOnce(

@@ -120,7 +120,7 @@ export function RevisionCard({
           </div>
         ) : null}
         <div className="grid gap-1">
-          <h3 className="text-sm font-medium">판정</h3>
+          <h3 className="text-sm font-medium">결과</h3>
           <ReviewResult revision={revision} />
         </div>
       </CardContent>

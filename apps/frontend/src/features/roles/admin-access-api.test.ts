@@ -6,6 +6,7 @@ import {
   fetchAdminAccessFacets,
   fetchAdminAccessHistory,
   fetchAdminAccessList,
+  fetchAdminAccessRequests,
   parseAdminAccessConflictProjection,
   parseAdminAccessDetail,
   parseAdminAccessHistory,
@@ -89,6 +90,28 @@ describe('관리자 접근 통합 API 클라이언트', () => {
 
       expect(apiClient).toHaveBeenCalledWith(
         'users/access?sort=name&direction=asc&page=1',
+        undefined,
+      );
+    });
+
+    it('가입 신청 목록은 users/access/requests를 호출하고 pendingRequest를 빼낸다', async () => {
+      vi.mocked(apiClient).mockResolvedValue({
+        items: [listItem()],
+        page: 1,
+        limit: 20,
+        total: 1,
+        facets: facets(),
+      });
+
+      await fetchAdminAccessRequests({
+        sort: 'createdAt',
+        direction: 'desc',
+        page: 1,
+        pendingRequest: 'PENDING',
+      });
+
+      expect(apiClient).toHaveBeenCalledWith(
+        'users/access/requests?sort=createdAt&direction=desc&page=1',
         undefined,
       );
     });

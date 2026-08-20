@@ -27,10 +27,12 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
         {
           id: 'newer',
           actor: 'synthetic-admin',
+          actorHandle: 'synthetic-admin',
           action: 'STAFF_ROLE_REQUEST_APPROVED',
           targetType: 'ROLE_REQUEST',
           targetId: 'request-2',
           target: 'ROLE_REQUEST / request-2',
+          targetHandle: null,
           occurredAt: new Date('2026-07-24T02:00:00.000Z'),
           legacy: true,
           metadata: null,
@@ -38,10 +40,12 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
         {
           id: 'older',
           actor: 'other-admin',
+          actorHandle: 'other-admin',
           action: 'STAFF_ROLE_REQUEST_REJECTED',
           targetType: 'ROLE_REQUEST',
           targetId: 'request-1',
           target: 'ROLE_REQUEST / request-1',
+          targetHandle: null,
           occurredAt: new Date('2026-07-24T01:00:00.000Z'),
           legacy: true,
           metadata: null,
@@ -64,6 +68,12 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
           'actor' in input.metadata
             ? input.metadata.actor.githubLogin
             : 'synthetic-actor',
+        actorHandle:
+          'actor' in input.metadata
+            ? input.metadata.actor.githubLogin
+            : 'synthetic-actor',
+        targetHandle:
+          'target' in input.metadata ? input.metadata.target.githubLogin : null,
         legacy: false,
         metadata: input.metadata,
       }),

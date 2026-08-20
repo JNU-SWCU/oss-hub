@@ -276,14 +276,44 @@ describe('admin access local review handlers (QA7)', () => {
     );
   });
 
-  it.each([
-    'users/access',
-    'users/access/facets',
-    `users/${TARGET_ID}/access`,
-    `users/${TARGET_ID}/access/history`,
-  ])('관리자가 아닌 페르소나에는 %s 를 응답하지 않는다', (path) => {
-    expect(resolve('GET', path, '', 'staff')).toBeNull();
-    expect(resolve('GET', path, '', 'student')).toBeNull();
-    expect(resolve('GET', path, '', 'anonymous')).toBeNull();
+  it.each(['users/access', 'users/access/facets'])(
+    '명부·패싯은 관리자가 아닌 페르소나에 응답하지 않는다',
+    (path) => {
+      expect(resolve('GET', path, '', 'staff')).toBeNull();
+      expect(resolve('GET', path, '', 'student')).toBeNull();
+      expect(resolve('GET', path, '', 'anonymous')).toBeNull();
+    },
+  );
+
+  it('가입 신청 목록은 교직원에게 PENDING만 돌려준다', () => {
+    const page = parseAdminAccessListPage(
+      bodyOf(resolve('GET', 'users/access/requests', '', 'staff')),
+    );
+
+    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.items.every((item) => item.pendingRequest !== null)).toBe(true);
+  });
+
+  it('교직원은 대기 중인 사용자 상세만 볼 수 있다', () => {
+    const pending = parseAdminAccessDetail(
+      bodyOf(resolve('GET', `users/${TARGET_ID}/access`, '', 'staff')),
+    );
+    expect(pending.id).toBe(TARGET_ID);
+
+    const missing = resolve(
+      'GET',
+      'users/synthetic-admin-staff/access',
+      '',
+      'staff',
+    );
+    expect(missing).not.toBeNull();
+    if (missing?.kind !== 'json') return;
+    expect(missing.status).toBe(404);
+    expect((missing.body as { readonly code: string }).code).toBe('ROL_010');
+  });
+
+  it('학생·비회원은 가입 신청 목록도 받지 않는다', () => {
+    expect(resolve('GET', 'users/access/requests', '', 'student')).toBeNull();
+    expect(resolve('GET', 'users/access/requests', '', 'anonymous')).toBeNull();
   });
 });

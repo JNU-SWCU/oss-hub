@@ -28,6 +28,10 @@ import type {
   AdminAccessSortField,
 } from '../admin-access-api';
 import {
+  accessDetailPath,
+  type AccessWorkspace,
+} from '../admin-access-list-query';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -51,6 +55,7 @@ const ALL_ROLES = 'ALL_ROLES';
 const ALL_ACCOUNT_STATUSES = 'ALL_ACCOUNT_STATUSES';
 
 export interface AdminAccessViewProps {
+  readonly workspace: AccessWorkspace;
   readonly items: readonly AdminAccessListItem[];
   readonly query: string;
   readonly role: AdminAccessRoleFilter | '';
@@ -155,18 +160,21 @@ function SortableColumnHeader({
   );
 }
 
+function formatRequestAt(value: string | null): string {
+  if (!value) return '기록 없음';
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
 export function AdminAccessView(props: AdminAccessViewProps) {
   const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
-  // 요청함(pendingRequest === 'PENDING') 탭은 화면 전환일 뿐 필터가 아니다 —
-  // 그 탭에서 0건은 "검색 실패"가 아니라 "대기 없음"이라는 별개의 사실이다.
+  const isQueue = props.workspace === 'queue';
   const hasActiveFilters =
     props.query.trim() !== '' ||
-    props.role !== '' ||
-    props.accountStatus !== '';
-  const isPendingInboxEmpty =
-    props.items.length === 0 &&
-    !hasActiveFilters &&
-    props.pendingRequest === 'PENDING';
+    (!isQueue && (props.role !== '' || props.accountStatus !== ''));
+  const isEmptyInbox = isQueue && props.items.length === 0 && !hasActiveFilters;
 
   const columns: DataTableColumn<AdminAccessListItem>[] = [
     {
@@ -187,7 +195,7 @@ export function AdminAccessView(props: AdminAccessViewProps) {
       cell: (item) => (
         <div className="flex min-w-0 flex-col gap-2 lg:min-w-48 lg:gap-1">
           <Link
-            href={`/admin/access/users/${encodeURIComponent(item.id)}`}
+            href={accessDetailPath(props.workspace, item.id)}
             className="line-clamp-2 break-all font-medium underline-offset-2 hover:underline"
             // 오버레이(PR04F)로 열리는 소프트 내비게이션이라 목록 스크롤 위치를
             // 유지해야 한다 — next/link 기본값(scroll=true)은 네비게이션마다
@@ -214,77 +222,116 @@ export function AdminAccessView(props: AdminAccessViewProps) {
             {item.isProfileComplete ? null : (
               <StatusBadge variant="rejected">프로필 미완료</StatusBadge>
             )}
-            {item.pendingRequest ? (
+            {isQueue ? null : item.pendingRequest ? (
               <StatusBadge variant="pending">요청 대기</StatusBadge>
             ) : null}
-            <div className="flex flex-wrap items-center gap-2 lg:hidden">
-              <RoleBadge role={item.role} />
-              <AccountStatusBadge status={item.accountStatus} />
-            </div>
+            {isQueue ? (
+              <span className="text-muted-foreground lg:hidden">
+                {formatRequestAt(item.pendingRequest?.createdAt ?? null)}
+              </span>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 lg:hidden">
+                <RoleBadge role={item.role} />
+                <AccountStatusBadge status={item.accountStatus} />
+              </div>
+            )}
           </div>
         </div>
       ),
     },
-    {
-      id: 'role',
-      header: (
-        <SortableColumnHeader
-          label="역할"
-          field="role"
-          sort={props.sort}
-          direction={props.direction}
-          onSortToggle={props.onSortToggle}
-        />
-      ),
-      headProps: {
-        'aria-sort': sortAriaValue(props.sort === 'role', props.direction),
-      },
-      headClassName: 'hidden lg:table-cell',
-      cellClassName: 'hidden lg:table-cell',
-      cell: (item) => <RoleBadge role={item.role} />,
-    },
-    {
-      id: 'accountStatus',
-      header: (
-        <SortableColumnHeader
-          label="계정 상태"
-          field="accountStatus"
-          sort={props.sort}
-          direction={props.direction}
-          onSortToggle={props.onSortToggle}
-        />
-      ),
-      headProps: {
-        'aria-sort': sortAriaValue(
-          props.sort === 'accountStatus',
-          props.direction,
-        ),
-      },
-      headClassName: 'hidden lg:table-cell',
-      cellClassName: 'hidden lg:table-cell',
-      cell: (item) => <AccountStatusBadge status={item.accountStatus} />,
-    },
-    {
-      id: 'lastLoginAt',
-      header: (
-        <SortableColumnHeader
-          label="마지막 로그인"
-          field="lastLoginAt"
-          sort={props.sort}
-          direction={props.direction}
-          onSortToggle={props.onSortToggle}
-        />
-      ),
-      headProps: {
-        'aria-sort': sortAriaValue(
-          props.sort === 'lastLoginAt',
-          props.direction,
-        ),
-      },
-      headClassName: 'hidden lg:table-cell',
-      cellClassName: 'hidden lg:table-cell text-muted-foreground',
-      cell: (item) => formatLastLoginAt(item.lastLoginAt),
-    },
+    ...(isQueue
+      ? [
+          {
+            id: 'requestedAt',
+            header: (
+              <SortableColumnHeader
+                label="요청 시각"
+                field="createdAt"
+                sort={props.sort}
+                direction={props.direction}
+                onSortToggle={props.onSortToggle}
+              />
+            ),
+            headProps: {
+              'aria-sort': sortAriaValue(
+                props.sort === 'createdAt',
+                props.direction,
+              ),
+            },
+            headClassName: 'hidden lg:table-cell',
+            cellClassName: 'hidden lg:table-cell text-muted-foreground',
+            cell: (item: AdminAccessListItem) =>
+              formatRequestAt(item.pendingRequest?.createdAt ?? null),
+          } satisfies DataTableColumn<AdminAccessListItem>,
+        ]
+      : [
+          {
+            id: 'role',
+            header: (
+              <SortableColumnHeader
+                label="역할"
+                field="role"
+                sort={props.sort}
+                direction={props.direction}
+                onSortToggle={props.onSortToggle}
+              />
+            ),
+            headProps: {
+              'aria-sort': sortAriaValue(
+                props.sort === 'role',
+                props.direction,
+              ),
+            },
+            headClassName: 'hidden lg:table-cell',
+            cellClassName: 'hidden lg:table-cell',
+            cell: (item: AdminAccessListItem) => <RoleBadge role={item.role} />,
+          } satisfies DataTableColumn<AdminAccessListItem>,
+          {
+            id: 'accountStatus',
+            header: (
+              <SortableColumnHeader
+                label="계정 상태"
+                field="accountStatus"
+                sort={props.sort}
+                direction={props.direction}
+                onSortToggle={props.onSortToggle}
+              />
+            ),
+            headProps: {
+              'aria-sort': sortAriaValue(
+                props.sort === 'accountStatus',
+                props.direction,
+              ),
+            },
+            headClassName: 'hidden lg:table-cell',
+            cellClassName: 'hidden lg:table-cell',
+            cell: (item: AdminAccessListItem) => (
+              <AccountStatusBadge status={item.accountStatus} />
+            ),
+          } satisfies DataTableColumn<AdminAccessListItem>,
+          {
+            id: 'lastLoginAt',
+            header: (
+              <SortableColumnHeader
+                label="마지막 로그인"
+                field="lastLoginAt"
+                sort={props.sort}
+                direction={props.direction}
+                onSortToggle={props.onSortToggle}
+              />
+            ),
+            headProps: {
+              'aria-sort': sortAriaValue(
+                props.sort === 'lastLoginAt',
+                props.direction,
+              ),
+            },
+            headClassName: 'hidden lg:table-cell',
+            cellClassName: 'hidden lg:table-cell text-muted-foreground',
+            cell: (item: AdminAccessListItem) =>
+              formatLastLoginAt(item.lastLoginAt),
+          } satisfies DataTableColumn<AdminAccessListItem>,
+        ]),
     {
       id: 'chevron',
       header: <span className="sr-only">상세</span>,
@@ -307,8 +354,12 @@ export function AdminAccessView(props: AdminAccessViewProps) {
   return (
     <section className="flex flex-col gap-6 p-4 sm:p-6">
       <PageHeader
-        title="사용자 목록"
-        description="역할·계정 상태·마지막 로그인을 조회하고 변경합니다."
+        title={isQueue ? '가입 신청' : '사용자 목록'}
+        description={
+          isQueue
+            ? '교직원 역할 신청을 승인하거나 반려합니다.'
+            : '역할·계정 상태·마지막 로그인을 조회하고 변경합니다.'
+        }
       />
       {props.errorMessage ? (
         <Alert variant="destructive">
@@ -320,32 +371,12 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           </AlertDescription>
         </Alert>
       ) : null}
-      <div
-        className="flex flex-wrap gap-2"
-        role="group"
-        aria-label="접근 화면 전환"
-      >
-        <Button
-          className="h-11"
-          type="button"
-          variant={props.pendingRequest === '' ? 'default' : 'outline'}
-          aria-pressed={props.pendingRequest === ''}
-          onClick={() => props.onPendingRequestChange('')}
-        >
-          전체 목록
-        </Button>
-        <Button
-          className="h-11"
-          type="button"
-          variant={props.pendingRequest === 'PENDING' ? 'default' : 'outline'}
-          aria-pressed={props.pendingRequest === 'PENDING'}
-          onClick={() => props.onPendingRequestChange('PENDING')}
-        >
-          요청함{props.pendingCount > 0 ? ` (${props.pendingCount})` : ''}
-        </Button>
-      </div>
       <form
-        className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_9rem_9rem_auto]"
+        className={
+          isQueue
+            ? 'grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]'
+            : 'grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_9rem_9rem_auto]'
+        }
         onSubmit={submitSearch}
       >
         <Input
@@ -355,54 +386,58 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           value={props.query}
           onChange={(event) => props.onQueryChange(event.target.value)}
         />
-        <label className="sr-only" htmlFor="admin-access-role-filter">
-          역할 필터
-        </label>
-        <Select
-          value={props.role || ALL_ROLES}
-          onValueChange={(role) =>
-            props.onRoleChange(
-              role === ALL_ROLES ? '' : (role as AdminAccessRoleFilter),
-            )
-          }
-        >
-          <SelectTrigger id="admin-access-role-filter" className="h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_ROLES}>전체 역할</SelectItem>
-            {Object.entries(ROLE_FILTER_LABEL).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="sr-only" htmlFor="admin-access-status-filter">
-          계정 상태 필터
-        </label>
-        <Select
-          value={props.accountStatus || ALL_ACCOUNT_STATUSES}
-          onValueChange={(status) =>
-            props.onAccountStatusChange(
-              status === ALL_ACCOUNT_STATUSES
-                ? ''
-                : (status as AdminAccessAccountStatus),
-            )
-          }
-        >
-          <SelectTrigger id="admin-access-status-filter" className="h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_ACCOUNT_STATUSES}>전체 상태</SelectItem>
-            {Object.entries(ACCOUNT_STATUS_LABEL).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isQueue ? null : (
+          <>
+            <label className="sr-only" htmlFor="admin-access-role-filter">
+              역할 필터
+            </label>
+            <Select
+              value={props.role || ALL_ROLES}
+              onValueChange={(role) =>
+                props.onRoleChange(
+                  role === ALL_ROLES ? '' : (role as AdminAccessRoleFilter),
+                )
+              }
+            >
+              <SelectTrigger id="admin-access-role-filter" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ROLES}>전체 역할</SelectItem>
+                {Object.entries(ROLE_FILTER_LABEL).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <label className="sr-only" htmlFor="admin-access-status-filter">
+              계정 상태 필터
+            </label>
+            <Select
+              value={props.accountStatus || ALL_ACCOUNT_STATUSES}
+              onValueChange={(status) =>
+                props.onAccountStatusChange(
+                  status === ALL_ACCOUNT_STATUSES
+                    ? ''
+                    : (status as AdminAccessAccountStatus),
+                )
+              }
+            >
+              <SelectTrigger id="admin-access-status-filter" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ACCOUNT_STATUSES}>전체 상태</SelectItem>
+                {Object.entries(ACCOUNT_STATUS_LABEL).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
         <Button className="h-11" type="submit" variant="outline">
           검색
         </Button>
@@ -413,15 +448,17 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           클립하는 역할만 남긴다. */}
       <div className="overflow-hidden rounded-lg border border-border">
         <DataTable
-          scrollRegionLabel="사용자 목록 표"
+          scrollRegionLabel={isQueue ? '가입 신청 표' : '사용자 목록 표'}
           columns={columns}
           data={[...props.items]}
           rowKey={(item) => item.id}
           onRowClick={(item) => props.onRowClick(item)}
           isLoading={props.isLoading}
-          loadingSlot="사용자 목록을 불러오는 중…"
+          loadingSlot={
+            isQueue ? '가입 신청을 불러오는 중…' : '사용자 목록을 불러오는 중…'
+          }
           emptyState={
-            isPendingInboxEmpty ? (
+            isEmptyInbox ? (
               <EmptyState title="승인 대기 중인 요청이 없습니다" />
             ) : (
               <EmptyState

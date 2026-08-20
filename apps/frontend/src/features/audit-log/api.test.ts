@@ -61,10 +61,12 @@ describe('fetchAuditLogs', () => {
     expect(page.items[0]).toEqual({
       id: 'audit-access-approved',
       actor: 'synthetic-admin',
+      actorHandle: 'synthetic-admin',
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       targetType: 'ROLE_REQUEST',
       targetId: 'request-synthetic-1',
       target: 'synthetic-target-login',
+      targetHandle: 'synthetic-target-login',
       occurredAt: '2026-07-24T03:00:00.000Z',
     });
   });

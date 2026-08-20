@@ -29,6 +29,7 @@ function item(
 }
 
 const baseViewProps = {
+  workspace: 'directory' as const,
   items: [item()],
   query: '',
   role: '' as const,
@@ -269,35 +270,14 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).toContain('다시 시도');
   });
 
-  it('요청함 탭은 대기 중인 요청 수를 표시하고, 전체 목록이 기본 활성 상태다', () => {
+  it('사용자 목록에는 전체 목록·요청함 탭이 없다', () => {
     const html = renderToStaticMarkup(
-      <AdminAccessView {...baseViewProps} pendingRequest="" pendingCount={3} />,
+      <AdminAccessView {...baseViewProps} pendingCount={3} />,
     );
 
-    expect(html).toContain('요청함 (3)');
-    const allTabIndex = html.indexOf('전체 목록');
-    const allTabStart = html.lastIndexOf('<button', allTabIndex);
-    expect(html.slice(allTabStart, allTabIndex)).toContain(
-      'aria-pressed="true"',
-    );
-  });
-
-  it('요청함 탭 활성 상태에서는 요청함 버튼이 aria-pressed를 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessView
-        {...baseViewProps}
-        pendingRequest="PENDING"
-        pendingCount={0}
-      />,
-    );
-
-    expect(html).toContain('요청함');
-    expect(html).not.toContain('요청함 (0)');
-    const inboxTabIndex = html.indexOf('요청함');
-    const inboxTabStart = html.lastIndexOf('<button', inboxTabIndex);
-    expect(html.slice(inboxTabStart, inboxTabIndex)).toContain(
-      'aria-pressed="true"',
-    );
+    expect(html).toContain('사용자 목록');
+    expect(html).not.toContain('요청함');
+    expect(html).not.toContain('전체 목록');
   });
 
   it('검색 결과가 없으면 안내와 필터 초기화 동작을 표시한다', () => {
@@ -309,13 +289,40 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).toContain('필터 초기화');
   });
 
-  it('요청함 탭에서 필터 없이 0건이면 대기 없음 안내를 표시하고 필터 초기화는 없다', () => {
+  it('가입 신청 화면은 제목·요청 시각만 두고 역할·계정 상태 열은 숨긴다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessView
         {...baseViewProps}
+        workspace="queue"
+        items={[
+          item({
+            pendingRequest: {
+              id: 'synthetic-request',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          }),
+        ]}
+        sort="createdAt"
+        direction="desc"
+      />,
+    );
+
+    expect(html).toContain('가입 신청');
+    expect(html).toContain('요청 시각');
+    expect(html).toContain('href="/dashboard/applicants/users/synthetic-user"');
+    expect(html).not.toContain('사용자 목록');
+    expect(html).not.toContain('id="admin-access-role-filter"');
+    expect(html).not.toContain('id="admin-access-status-filter"');
+  });
+
+  it('가입 신청에서 필터 없이 0건이면 대기 없음 안내를 표시하고 필터 초기화는 없다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        workspace="queue"
         items={[]}
         total={0}
-        pendingRequest="PENDING"
       />,
     );
 
@@ -324,13 +331,13 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).not.toContain('필터 초기화');
   });
 
-  it('요청함 탭이라도 검색어 필터가 걸려 있으면 기존 검색 실패 안내를 유지한다', () => {
+  it('가입 신청이라도 검색어 필터가 걸려 있으면 기존 검색 실패 안내를 유지한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessView
         {...baseViewProps}
+        workspace="queue"
         items={[]}
         total={0}
-        pendingRequest="PENDING"
         query="없음"
       />,
     );

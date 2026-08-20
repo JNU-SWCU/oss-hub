@@ -370,7 +370,7 @@ function StudentReviewNotice({
            * 닿는 것은 사유가 필수인데도 비어 온 보완 요청·반려뿐이다. 그 자리에서 상자를
            * 통째로 지우면 학생은 서류가 되돌아온 사실조차 모른다.
            */}
-          {review.comment ?? '사유 없이 저장된 판정입니다.'}
+          {review.comment ?? '사유 없이 저장되었습니다.'}
         </span>
       </AlertDescription>
     </Alert>

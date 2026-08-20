@@ -6,7 +6,7 @@ export function reviewFormError(
   decision: ReviewDecisionInput,
   comment: string,
 ): string | null {
-  if (decision === '') return '판정을 선택해 주세요.';
+  if (decision === '') return '승인, 보완 요청, 반려 중 하나를 골라 주세요.';
   if (
     (decision === 'CHANGES_REQUESTED' || decision === 'REJECTED') &&
     comment.trim() === ''

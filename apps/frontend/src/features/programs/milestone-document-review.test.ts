@@ -328,7 +328,7 @@ describe('isMilestoneDocumentReviewCommentRequired', () => {
 describe('milestoneDocumentReviewFormError', () => {
   it('판정을 고르기 전에는 저장할 수 없다', () => {
     expect(milestoneDocumentReviewFormError(null, '무엇이든')).toBe(
-      '판정을 골라 주세요.',
+      '승인, 보완 요청, 반려 중 하나를 골라 주세요.',
     );
   });
 
@@ -481,7 +481,7 @@ describe('milestoneDocumentReviewVersionError', () => {
 
   it('버전이 없으면 표를 다시 부르라고 말한다', () => {
     expect(milestoneDocumentReviewVersionError(null)).toBe(
-      '이 칸의 제출 정보를 읽지 못해 판정할 수 없습니다. 표를 다시 불러 주세요.',
+      '이 칸의 제출 정보를 읽지 못해 검토할 수 없습니다. 표를 다시 불러 주세요.',
     );
   });
 });

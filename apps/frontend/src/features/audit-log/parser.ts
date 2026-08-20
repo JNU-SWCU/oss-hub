@@ -33,6 +33,11 @@ function nonEmptyString(value: unknown): string {
   return invalidResponse();
 }
 
+function nullableHandle(value: unknown): string | null {
+  if (value === null) return null;
+  return nonEmptyString(value);
+}
+
 function nonNegativeInteger(value: unknown): number {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
     return value;
@@ -67,10 +72,12 @@ function isoTimestamp(value: unknown): string {
 const RECORD_KEYS = [
   'id',
   'actor',
+  'actorHandle',
   'action',
   'targetType',
   'targetId',
   'target',
+  'targetHandle',
   'occurredAt',
   'legacy',
   'metadata',
@@ -90,10 +97,12 @@ function auditLogRecord(value: unknown): AuditLogRecord {
   return {
     id: nonEmptyString(value.id),
     actor: nonEmptyString(value.actor),
+    actorHandle: nullableHandle(value.actorHandle),
     action: nonEmptyString(value.action),
     targetType: nonEmptyString(value.targetType),
     targetId: nonEmptyString(value.targetId),
     target: nonEmptyString(value.target),
+    targetHandle: nullableHandle(value.targetHandle),
     occurredAt: isoTimestamp(value.occurredAt),
   };
 }

@@ -76,7 +76,7 @@ function ReviewForm(props: SubmissionReviewViewProps) {
   return (
     <Card>
       <CardHeader className="border-b border-border">
-        <CardTitle>판정</CardTitle>
+        <CardTitle>검토</CardTitle>
         <CardDescription>
           보완 요청과 최종 반려에는 코멘트가 필요합니다.
         </CardDescription>
@@ -89,7 +89,7 @@ function ReviewForm(props: SubmissionReviewViewProps) {
               decisionError ? 'review-decision-error' : undefined
             }
           >
-            <FieldLegend>판정 선택</FieldLegend>
+            <FieldLegend>결과 선택</FieldLegend>
             <div className="grid gap-2 lg:grid-cols-3">
               {DECISION_OPTIONS.map((option) => (
                 <FieldLabel key={option.value}>
@@ -135,7 +135,7 @@ function ReviewForm(props: SubmissionReviewViewProps) {
               }
               onChange={(event) => props.onCommentChange(event.target.value)}
               className="min-h-28 w-full resize-y rounded-control border border-input bg-transparent p-4 text-body outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
-              placeholder="판정 근거와 필요한 보완 내용을 입력하세요."
+              placeholder="검토 근거와 필요한 보완 내용을 입력하세요."
             />
             <FieldDescription id="review-comment-description">
               승인 코멘트는 선택 사항입니다.
@@ -154,7 +154,7 @@ function ReviewForm(props: SubmissionReviewViewProps) {
               취소
             </Button>
             <Button type="submit" disabled={props.isSaving}>
-              {props.isSaving ? '저장 중' : '판정 저장'}
+              {props.isSaving ? '저장 중' : '저장'}
             </Button>
           </div>
         </form>
@@ -209,7 +209,7 @@ export function SubmissionReviewView(props: SubmissionReviewViewProps) {
             id="revision-history-title"
             className="font-heading text-section font-semibold tracking-[-0.02em]"
           >
-            이전 제출본과 판정 이력
+            이전 제출본과 검토 이력
           </h2>
           {reviewContext.history.length > 0 ? (
             reviewContext.history.map((revision) => (

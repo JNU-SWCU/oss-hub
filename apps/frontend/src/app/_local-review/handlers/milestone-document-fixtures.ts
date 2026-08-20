@@ -87,7 +87,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
        * 아무도 볼 수 없다(사유 없는 승인은 상자를 아예 세우지 않는 것이 규칙이다).
        * 승인에 붙은 사유가 반려처럼 빨갛게 보이지 않는지가 눈으로 확인할 자리다.
        *
-       * 「사유 없이 저장된 판정입니다」 문구는 교직원 패널 쪽에 남아 있다 —
+       * 「사유 없이 저장되었습니다」 문구는 교직원 패널 쪽에 남아 있다 —
        * 아래 `COLLECTION_REVIEW_COMMENTS.APPROVED`가 `null`이다.
        */
       viewerSubmission: submittedViewer(
@@ -432,7 +432,7 @@ const COLLECTION_CELL_STATE_CYCLE: readonly CollectionCellStateSeed[] = [
 const COLLECTION_REVIEW_COMMENTS: Readonly<
   Record<MilestoneDocumentReviewDecision, string | null>
 > = {
-  // 승인은 사유가 선택이다 — 비운 판정도 화면에 나와야 「사유 없이 저장된 판정입니다」가
+  // 승인은 사유가 선택이다 — 비운 결과도 화면에 나와야 「사유 없이 저장되었습니다」가
   // 눈으로 확인된다.
   APPROVED: null,
   CHANGES_REQUESTED:

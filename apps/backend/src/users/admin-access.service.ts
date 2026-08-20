@@ -1,7 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
-import { requireActiveAdmin } from './admin-access-authorization';
+import {
+  isAdminActor,
+  requireActiveAdmin,
+  requireActiveStaffOrAdmin,
+} from './admin-access-authorization';
 import { roleError } from './admin-access-mutation-policy';
 import { mutateAdminAccess } from './admin-access-mutation.service';
 import {
@@ -12,6 +16,7 @@ import {
   type AdminAccessUserRecord,
 } from './admin-access.repository';
 import {
+  ADMIN_ACCESS_PENDING_FILTERS,
   type AdminAccessFacets,
   type AdminAccessHistoryQuery,
   type AdminAccessListQuery,
@@ -44,14 +49,32 @@ export class AdminAccessService {
     };
   }
 
+  async listRequests(
+    actorGithubId: bigint,
+    query: AdminAccessListQuery,
+  ): Promise<AdminAccessUserPage> {
+    const actor = requireActiveStaffOrAdmin(
+      await this.repository.findActorByGithubId(actorGithubId),
+    );
+    const page = await this.repository.list({
+      ...query,
+      pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
+    });
+    return {
+      ...page,
+      items: page.items.map((user) => withSelfState(user, actor)),
+    };
+  }
+
   async get(
     actorGithubId: bigint,
     userId: string,
   ): Promise<AdminAccessUserDetail> {
-    const actor = requireActiveAdmin(
+    const actor = requireActiveStaffOrAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
-    return withSelfState(await this.requireTarget(userId), actor);
+    const target = await this.requireVisibleTarget(actor, userId);
+    return withSelfState(target, actor);
   }
 
   async facets(
@@ -69,10 +92,10 @@ export class AdminAccessService {
     userId: string,
     query: AdminAccessHistoryQuery,
   ): Promise<AdminAccessUserHistory> {
-    requireActiveAdmin(
+    const actor = requireActiveStaffOrAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
-    await this.requireTarget(userId);
+    await this.requireVisibleTarget(actor, userId);
     const [roleRequests, loginHistory] = await Promise.all([
       this.repository.listRoleRequestHistory(userId, query.roleRequests),
       this.repository.listLoginHistory(userId, query.loginHistory),
@@ -99,6 +122,17 @@ export class AdminAccessService {
       throw roleError(RolesErrorCode.USER_NOT_FOUND);
     }
     return target;
+  }
+
+  private async requireVisibleTarget(
+    actor: AdminAccessActor,
+    userId: string,
+  ): Promise<AdminAccessUserDetailRecord> {
+    const target = await this.requireTarget(userId);
+    if (isAdminActor(actor) || target.pendingRequest) {
+      return target;
+    }
+    throw roleError(RolesErrorCode.USER_NOT_FOUND);
   }
 }
 

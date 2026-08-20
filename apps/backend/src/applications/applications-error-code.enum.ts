@@ -52,7 +52,7 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED]: {
     code: ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
     status: 409,
-    message: '이미 판정된 신청입니다.',
+    message: '이미 승인되거나 반려된 신청입니다.',
   },
   [ApplicationsErrorCode.REJECTION_REASON_REQUIRED]: {
     code: ApplicationsErrorCode.REJECTION_REASON_REQUIRED,
@@ -62,7 +62,8 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.STAFF_ONLY]: {
     code: ApplicationsErrorCode.STAFF_ONLY,
     status: 403,
-    message: '승인된 교직원 또는 관리자만 신청을 판정할 수 있습니다.',
+    message:
+      '승인된 교직원 또는 관리자만 신청을 승인하거나 반려할 수 있습니다.',
   },
   [ApplicationsErrorCode.REPOSITORY_EVENT_ALREADY_EXISTS]: {
     code: ApplicationsErrorCode.REPOSITORY_EVENT_ALREADY_EXISTS,
@@ -72,12 +73,12 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.INVALID_DECISION_ACTION]: {
     code: ApplicationsErrorCode.INVALID_DECISION_ACTION,
     status: 400,
-    message: '지원하지 않는 신청 판정 방식입니다.',
+    message: '지원하지 않는 승인·반려 방식입니다.',
   },
   [ApplicationsErrorCode.DECISION_TRANSACTION_FAILED]: {
     code: ApplicationsErrorCode.DECISION_TRANSACTION_FAILED,
     status: 500,
-    message: '신청 판정을 처리하지 못했습니다.',
+    message: '승인·반려를 저장하지 못했습니다.',
     exposeToClient: true,
   },
   [ApplicationsErrorCode.STUDENT_ONLY]: {
@@ -169,6 +170,6 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS]: {
     code: ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS,
     status: 409,
-    message: '판정된 신청만 되돌릴 수 있습니다.',
+    message: '승인되거나 반려된 신청만 검토 대기로 되돌릴 수 있습니다.',
   },
 };

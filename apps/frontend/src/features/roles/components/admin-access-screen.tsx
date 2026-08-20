@@ -5,7 +5,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { ApiError } from '@/lib/api-client';
 
-import { fetchAdminAccessList } from '../admin-access-api';
+import {
+  fetchAdminAccessList,
+  fetchAdminAccessRequests,
+} from '../admin-access-api';
 import type {
   AdminAccessListItem,
   AdminAccessSortField,
@@ -13,12 +16,17 @@ import type {
 import {
   ADMIN_ACCESS_DEFAULT_FILTER_STATE,
   ADMIN_ACCESS_LIST_LIMIT,
+  APPLICANT_QUEUE_DEFAULT_FILTER_STATE,
+  accessDetailPath,
   buildAdminAccessListParams,
+  type AccessWorkspace,
   type AdminAccessListFilterState,
 } from '../admin-access-list-query';
 import {
   buildAdminAccessSearchParams,
+  buildApplicantQueueSearchParams,
   parseAdminAccessSearchParams,
+  parseApplicantQueueSearchParams,
 } from '../admin-access-url-state';
 import { AdminAccessView } from './admin-access-view';
 
@@ -29,23 +37,32 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * `/admin/access` list screen (PR04C, URL state PR04D). Filter/sort/page
- * state lives in the URL's `searchParams` (query/role/accountStatus/
- * pendingRequest/sort/direction/page) so a refresh or a Back/Forward
- * navigation reproduces the same screen — see `admin-access-url-state.ts`
- * for the parse/serialize contract and its invalid-value policy. Sort is
- * always resolved by the 04A server contract; this screen never re-sorts
- * already-fetched rows. No PATCH/mutation affordances — the unified writer
- * lands in PR04G.
+ * Directory (`/admin/access`) and applicant queue (`/dashboard/applicants`)
+ * list screen. Filter/sort/page state lives in the URL's `searchParams` so
+ * a refresh or a Back/Forward navigation reproduces the same screen — see
+ * `admin-access-url-state.ts` for the parse/serialize contract. Sort is
+ * always resolved by the server contract; this screen never re-sorts
+ * already-fetched rows.
  */
-export function AdminAccessScreen() {
+export function AdminAccessScreen({
+  workspace,
+}: {
+  readonly workspace: AccessWorkspace;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isQueue = workspace === 'queue';
+  const defaults = isQueue
+    ? APPLICANT_QUEUE_DEFAULT_FILTER_STATE
+    : ADMIN_ACCESS_DEFAULT_FILTER_STATE;
 
   const state = useMemo(
-    () => parseAdminAccessSearchParams(searchParams),
-    [searchParams],
+    () =>
+      isQueue
+        ? parseApplicantQueueSearchParams(searchParams)
+        : parseAdminAccessSearchParams(searchParams),
+    [isQueue, searchParams],
   );
 
   const [items, setItems] = useState<readonly AdminAccessListItem[]>([]);
@@ -69,12 +86,16 @@ export function AdminAccessScreen() {
 
   const navigate = useCallback(
     (next: AdminAccessListFilterState) => {
-      const search = buildAdminAccessSearchParams(next).toString();
+      const search = (
+        isQueue
+          ? buildApplicantQueueSearchParams(next)
+          : buildAdminAccessSearchParams(next)
+      ).toString();
       router.push(search ? `${pathname}?${search}` : pathname, {
         scroll: false,
       });
     },
-    [pathname, router],
+    [isQueue, pathname, router],
   );
 
   const load = useCallback(async () => {
@@ -82,7 +103,9 @@ export function AdminAccessScreen() {
     setError(null);
     try {
       const params = buildAdminAccessListParams(state);
-      const result = await fetchAdminAccessList(params);
+      const result = isQueue
+        ? await fetchAdminAccessRequests(params)
+        : await fetchAdminAccessList(params);
       setItems(result.items);
       setTotal(result.total);
       setPendingCount(result.facets.pendingRequests.pending);
@@ -91,20 +114,21 @@ export function AdminAccessScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [state]);
+  }, [isQueue, state]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const resetFilters = () => {
-    committedQueryRef.current = ADMIN_ACCESS_DEFAULT_FILTER_STATE.query;
-    setQueryInput(ADMIN_ACCESS_DEFAULT_FILTER_STATE.query);
-    navigate(ADMIN_ACCESS_DEFAULT_FILTER_STATE);
+    committedQueryRef.current = defaults.query;
+    setQueryInput(defaults.query);
+    navigate(defaults);
   };
 
   return (
     <AdminAccessView
+      workspace={workspace}
       items={items}
       query={queryInput}
       role={state.role}
@@ -142,7 +166,7 @@ export function AdminAccessScreen() {
       onRetry={() => void load()}
       onResetFilters={resetFilters}
       onRowClick={(item) =>
-        router.push(`/admin/access/users/${encodeURIComponent(item.id)}`, {
+        router.push(accessDetailPath(workspace, item.id), {
           scroll: false,
         })
       }

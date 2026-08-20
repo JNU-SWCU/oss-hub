@@ -56,7 +56,7 @@ export interface MilestoneDocumentCollectionFile {
  * 「미제출」 기준은 여전히 `isSubmitted`이고 필터·합계는 이 값을 보지 않는다 — 반려된
  * 서류를 미제출로 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
  *
- * ⚠ 응답은 최신 한 건만 준다. 이력 전체를 주는 조회는 **없다** — 화면이 「지난 판정 목록」을
+ * ⚠ 응답은 최신 한 건만 준다. 이력 전체를 주는 조회는 **없다** — 화면이 「지난 검토 목록」을
  * 그리고 싶어도 여기서 만들어 낼 수 없다.
  */
 export interface MilestoneDocumentCollectionReview {

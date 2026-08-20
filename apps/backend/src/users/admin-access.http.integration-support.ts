@@ -118,6 +118,17 @@ export class AdminAccessHttpHarness {
     });
   }
 
+  async createPendingRequest(userId: string) {
+    return this.prisma.roleRequest.create({
+      data: {
+        id: `${userId}:pending`,
+        userId,
+        status: 'PENDING',
+      },
+      select: { id: true },
+    });
+  }
+
   async demoteAllActiveAdmins(): Promise<void> {
     await this.prisma.user.updateMany({
       where: { role: 'ADMIN', accountStatus: 'ACTIVE' },

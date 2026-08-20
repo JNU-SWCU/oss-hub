@@ -21,6 +21,20 @@ import type {
 
 export const ADMIN_GITHUB_ID = 9_131_300_001n;
 export const TARGET_GITHUB_ID = 9_131_300_002n;
+export const STAFF_GITHUB_ID = 9_131_300_003n;
+
+export function staffActor(
+  overrides: Partial<AdminAccessActor> = {},
+): AdminAccessActor {
+  return adminActor({
+    id: 'staff',
+    githubId: STAFF_GITHUB_ID,
+    githubLogin: 'synthetic-staff',
+    name: '합성 교직원',
+    role: Role.STAFF,
+    ...overrides,
+  });
+}
 
 export function adminActor(
   overrides: Partial<AdminAccessActor> = {},
