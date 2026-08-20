@@ -230,16 +230,17 @@ describe('UsersRepository profile field updates', () => {
     // When
     await repository.updateProfileFields('user-legacy-only', {
       name: '수정된 이름',
+      department: '인공지능학부',
     });
 
     // Then
     expect(userProfileUpdateMany).toHaveBeenCalledWith({
       where: { userId: 'user-legacy-only' },
-      data: { name: '수정된 이름' },
+      data: { name: '수정된 이름', department: '인공지능학부' },
     });
     expect(userUpdate).toHaveBeenCalledWith({
       where: { id: 'user-legacy-only' },
-      data: { name: '수정된 이름' },
+      data: { name: '수정된 이름', department: '인공지능학부' },
     });
   });
 });

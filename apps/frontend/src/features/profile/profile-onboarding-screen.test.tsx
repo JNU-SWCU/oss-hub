@@ -157,7 +157,7 @@ describe('프로필 온보딩 화면', () => {
   }
 
   function savedRequest(): { method: string; body: unknown } | undefined {
-    return requests.find((request) => request.method === 'PATCH');
+    return requests.find((request) => request.method === 'POST');
   }
 
   const STUDENT_ID_ERROR = '학번은 숫자 6자리로 입력해 주세요.';

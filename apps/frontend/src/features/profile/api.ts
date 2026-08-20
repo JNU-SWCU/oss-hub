@@ -65,7 +65,7 @@ export async function completeMyProfile(
 ): Promise<UserProfile> {
   return parseProfile(
     await apiClient<unknown>('users/me/profile', {
-      method: 'PATCH',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
     }),

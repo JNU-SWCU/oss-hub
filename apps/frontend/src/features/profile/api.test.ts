@@ -38,7 +38,7 @@ test('본인 프로필을 단일 API 클라이언트 경로로 조회한다', as
   );
 });
 
-test('완료 프로필을 PATCH JSON 본문으로 저장한다', async () => {
+test('완료 프로필을 POST JSON 본문으로 저장한다', async () => {
   const response = { ...completeRequest, isComplete: true };
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(response), {
@@ -50,7 +50,7 @@ test('완료 프로필을 PATCH JSON 본문으로 저장한다', async () => {
 
   await expect(completeMyProfile(completeRequest)).resolves.toEqual(response);
   expect(fetchMock).toHaveBeenCalledWith(apiPath('users/me/profile'), {
-    method: 'PATCH',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(completeRequest),
   });

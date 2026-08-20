@@ -93,27 +93,25 @@ describe('새 교직원 가입 동선', () => {
 });
 
 describe('새 관리자 가입 동선', () => {
-  it('이름만으로 프로필을 마치고 학번도 학과도 묻지 않는다', () => {
-    // Given — 관리자 역할은 관리자가 부여하므로 프로필 단계에서 이미 배정돼 있다
+  it('학번은 묻지 않아도 이름·학과는 한 번에 보낸다', () => {
     const role: AppRole = 'ADMIN';
     const values = {
       name: '합성 관리자',
       studentId: '',
       savedStudentId: '',
-      departmentOption: '',
+      departmentOption: '인공지능학부',
       otherDepartment: '',
     };
 
-    // When
     const requirement = profileFieldRequirement(role);
     const errors = validateProfileForm(values, role);
 
-    // Then
-    expect(requirement).toEqual({ studentId: false, department: false });
+    expect(requirement.studentId).toBe(false);
     expect(errors.studentId).toBeNull();
     expect(errors.department).toBeNull();
     expect(toCompleteProfileRequest(values, role)).toEqual({
       name: '합성 관리자',
+      department: '인공지능학부',
     });
   });
 });

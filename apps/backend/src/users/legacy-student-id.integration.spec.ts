@@ -233,7 +233,7 @@ describe('학번이 아무 데도 없는 학생', () => {
     });
 
     await expect(
-      service.patchMyProfile(githubId, {
+      service.completeMyProfile(githubId, {
         name,
         studentId: NEW_ONBOARDING_STUDENT_ID,
         department,
@@ -250,7 +250,7 @@ describe('학번이 아무 데도 없는 학생', () => {
 
   it('형식이 틀린 새 학번은 400으로 거부한다', async () => {
     const exception = await captureDomainException(() =>
-      service.patchMyProfile(githubId, {
+      service.completeMyProfile(githubId, {
         name,
         studentId: LEGACY_STUDENT_ID,
         department,

@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../../departments';
 import {
-  isDepartmentRequiredForProfile,
   profileFieldRequirement,
   type ProfileRole,
 } from '../../profile-requirements';
@@ -95,13 +94,7 @@ export function SettingsForm({
   // 아직 학번이 없는 사용자가 학번을 적어 넣으면 학과도 함께 받아야 한다 — 학번이
   // 유일성 제약 아래 저장되는 행이 학과를 요구하기 때문이다. 이미 고정된 학번은 다시
   // 보내지 않으므로 그때는 역할 기준 그대로 둔다.
-  const showDepartment =
-    !isStudentIdLocked && isDepartmentRequiredForProfile(role, values.studentId)
-      ? true
-      : requirement.department;
-  const editableFields = requirement.department
-    ? '이름과 학과를 수정할 수 있습니다.'
-    : '이름을 수정할 수 있습니다.';
+  const editableFields = '이름과 학과를 수정할 수 있습니다.';
   const profileSectionDescription = isStudentIdLocked
     ? `${editableFields} 학번은 변경할 수 없습니다.`
     : editableFields;
@@ -173,53 +166,51 @@ export function SettingsForm({
             </Field>
           ) : null}
 
-          {showDepartment ? (
-            <Field data-invalid={showDepartmentError || undefined}>
-              <FieldLabel htmlFor="settings-department">학과</FieldLabel>
-              <Select
-                id="settings-department"
-                name="department"
-                value={values.departmentOption}
+          <Field data-invalid={showDepartmentError || undefined}>
+            <FieldLabel htmlFor="settings-department">학과</FieldLabel>
+            <Select
+              id="settings-department"
+              name="department"
+              value={values.departmentOption}
+              aria-invalid={showDepartmentError}
+              onChange={(event) =>
+                onChange({
+                  departmentOption: event.target.value,
+                  otherDepartment:
+                    event.target.value === OTHER_DEPARTMENT
+                      ? values.otherDepartment
+                      : '',
+                })
+              }
+            >
+              <option value="">학과를 선택해 주세요</option>
+              {DEPARTMENT_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.departments.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
+            </Select>
+            {values.departmentOption === OTHER_DEPARTMENT ? (
+              <Input
+                aria-label="기타 학과"
+                placeholder="학과 또는 전공을 입력해 주세요"
+                maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
+                value={values.otherDepartment}
                 aria-invalid={showDepartmentError}
                 onChange={(event) =>
-                  onChange({
-                    departmentOption: event.target.value,
-                    otherDepartment:
-                      event.target.value === OTHER_DEPARTMENT
-                        ? values.otherDepartment
-                        : '',
-                  })
+                  onChange({ otherDepartment: event.target.value })
                 }
-              >
-                <option value="">학과를 선택해 주세요</option>
-                {DEPARTMENT_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.departments.map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-                <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
-              </Select>
-              {values.departmentOption === OTHER_DEPARTMENT ? (
-                <Input
-                  aria-label="기타 학과"
-                  placeholder="학과 또는 전공을 입력해 주세요"
-                  maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
-                  value={values.otherDepartment}
-                  aria-invalid={showDepartmentError}
-                  onChange={(event) =>
-                    onChange({ otherDepartment: event.target.value })
-                  }
-                />
-              ) : null}
-              {showDepartmentError ? (
-                <FieldError>{errors.department}</FieldError>
-              ) : null}
-            </Field>
-          ) : null}
+              />
+            ) : null}
+            {showDepartmentError ? (
+              <FieldError>{errors.department}</FieldError>
+            ) : null}
+          </Field>
         </FormSection>
 
         <FormSection
