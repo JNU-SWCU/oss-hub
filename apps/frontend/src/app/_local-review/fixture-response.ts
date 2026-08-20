@@ -478,6 +478,11 @@ function sessionResponse(
     case 'role-pending':
     case 'role-rejected':
       return authenticatedSession(null, true);
+    case 'insights-long':
+    case 'insights-zero':
+    case 'insights-empty':
+    case 'insights-unregistered':
+      return authenticatedSession('STAFF');
     case 'loading':
       return { kind: 'delay', milliseconds: 60_000 };
     case 'error':
@@ -942,9 +947,21 @@ export function resolveLocalReviewResponse({
   if (
     method === 'GET' &&
     path === 'dashboard/staff/insights' &&
-    (fixture === 'staff' || fixture === 'admin')
+    (fixture === 'staff' ||
+      fixture === 'admin' ||
+      fixture.startsWith('insights-'))
   ) {
-    return json(200, staffInsightsWireFixture());
+    const variant =
+      fixture === 'insights-long'
+        ? 'long'
+        : fixture === 'insights-zero'
+          ? 'zero'
+          : fixture === 'insights-empty'
+            ? 'empty'
+            : fixture === 'insights-unregistered'
+              ? 'unregistered'
+              : 'default';
+    return json(200, staffInsightsWireFixture(variant));
   }
 
   // `role-requests` 목록 응답은 여기 있었지만 그 화면이 관리자 접근으로

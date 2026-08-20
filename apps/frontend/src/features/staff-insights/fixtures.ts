@@ -156,7 +156,63 @@ export const STAFF_INSIGHTS_FIXTURE: StaffInsightsSummary = {
   ],
 };
 
-export function staffInsightsWireFixture(): Record<string, unknown> {
+export function staffInsightsWireFixture(
+  variant: 'default' | 'long' | 'zero' | 'empty' | 'unregistered' = 'default',
+): Record<string, unknown> {
+  const summary =
+    variant === 'long'
+      ? {
+          ...STAFF_INSIGHTS_FIXTURE,
+          programs: STAFF_INSIGHTS_FIXTURE.programs.map((program) => ({
+            ...program,
+            name: '2026학년도 전공·비전공 협업을 위한 아주 긴 한국어 프로그램 레이블 테스트',
+          })),
+        }
+      : variant === 'zero'
+        ? {
+            ...STAFF_INSIGHTS_FIXTURE,
+            cohorts: STAFF_INSIGHTS_FIXTURE.cohorts.map((row) => ({
+              ...row,
+              studentCount: 0,
+              activeStudentCount: 0,
+              participantCount: 0,
+            })),
+            programs: [],
+          }
+        : variant === 'empty'
+          ? {
+              ...STAFF_INSIGHTS_FIXTURE,
+              cohorts: [],
+              departments: [],
+              programs: [],
+            }
+          : variant === 'unregistered'
+            ? {
+                ...STAFF_INSIGHTS_FIXTURE,
+                cohorts: [STAFF_INSIGHTS_FIXTURE.cohorts[2]],
+                departments: [STAFF_INSIGHTS_FIXTURE.departments[6]],
+                programs: [
+                  {
+                    ...STAFF_INSIGHTS_FIXTURE.programs[0],
+                    swMajorCount: 0,
+                    nonSwCount: 0,
+                    unregisteredCount: 2,
+                    participantCount: 2,
+                  },
+                ],
+              }
+            : STAFF_INSIGHTS_FIXTURE;
+  return {
+    scope: summary.scope,
+    dataAsOf: summary.dataAsOf?.toISOString() ?? null,
+    years: summary.years,
+    cohorts: summary.cohorts,
+    departments: summary.departments,
+    programs: summary.programs,
+  };
+}
+
+export function staffInsightsWireFixtureLegacy(): Record<string, unknown> {
   return {
     scope: { kind: 'all' },
     dataAsOf: '2026-08-01T00:00:00.000Z',

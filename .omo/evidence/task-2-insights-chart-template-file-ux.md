@@ -13,3 +13,6 @@
 - Refactor module pure LOC: `staff-insights-view.tsx` 157, `insights-panels.tsx` 186, `participation-panel.tsx` 109, `insights-controls.tsx` 111, `insights-model.ts` 53.
 - Post-refactor verification: `pnpm --filter frontend exec vitest run src/features/staff-insights/staff-insights-view.test.tsx` passed; `pnpm --filter frontend typecheck` passed; `pnpm --filter frontend lint` passed with 5 pre-existing warnings; `pnpm --filter frontend build` passed; `bash scripts/check-public-safe.sh origin/main` passed.
 - Notes: comparison controls now have separate `기간` and `비교 관점` groups; rate copy preserves numerator/denominator and zero-denominator handling; unregistered disclosure is explicit; participation bars are not stacked; chart identity is not color-only; existing backend semantics and accessible tables remain unchanged.
+
+- Real Chrome Playwright: 4 passed with local-review insights-long/zero/empty/unregistered fixtures; artifacts under `.omo/evidence/task-2-browser/playwright/`.
+- Fixture gate: local-review runtime requires `NODE_ENV=development`, `OSS_HUB_LOCAL_REVIEW_FIXTURES=1`, and loopback backend origin; production cannot activate these IDs.
