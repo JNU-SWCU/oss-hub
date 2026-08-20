@@ -9,12 +9,19 @@ describe('RankingService canonical actor attribution', () => {
   });
 
   it('uses the canonical actor numeric ID and login without repository-owner attribution', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([
+    harness.findMetrics.mockResolvedValue([
       activity(22n, 'issue-author', { issueCount: 1 }),
     ]);
 
-    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
+    const result = await harness.service.findPage(
+      RANKING_YEAR_ALL,
+      1,
+      20,
+      null,
+    );
 
+    expect(result.viewerClass).toBe('public');
+    expect(result.nextCycleAt).toBeNull();
     expect(result.items).toEqual([
       {
         rank: 1,
@@ -29,18 +36,24 @@ describe('RankingService canonical actor attribution', () => {
         total: 1,
       },
     ]);
+    expect(result.items[0]).not.toHaveProperty('name');
   });
 
   it('does not invent entries for private or ghost activity excluded by the repository', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([]);
+    harness.findMetrics.mockResolvedValue([]);
 
     await expect(
-      harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
-    ).resolves.toMatchObject({ items: [], total: 0 });
+      harness.service.findPage(RANKING_YEAR_ALL, 1, 20, null),
+    ).resolves.toMatchObject({
+      items: [],
+      total: 0,
+      viewerClass: 'public',
+      nextCycleAt: null,
+    });
   });
 
   it('orders exact ties by metrics, normalized login, then numeric actor ID', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([
+    harness.findMetrics.mockResolvedValue([
       activity(40n, 'zeta', { commitCount: 1, pullRequestCount: 2 }),
       activity(30n, 'beta', { commitCount: 2, issueCount: 1 }),
       activity(20n, 'Alpha', { commitCount: 2, issueCount: 1 }),
@@ -48,7 +61,12 @@ describe('RankingService canonical actor attribution', () => {
       activity(9n, 'same', { commitCount: 1, pullRequestCount: 1 }),
     ]);
 
-    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
+    const result = await harness.service.findPage(
+      RANKING_YEAR_ALL,
+      1,
+      20,
+      null,
+    );
 
     expect(
       result.items.map(({ githubLogin, total, rank }) => ({

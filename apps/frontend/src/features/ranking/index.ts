@@ -6,6 +6,6 @@ export {
   type RankingYear,
   type RankingPage,
   type RankingItem,
-  type RankingViewerRole,
+  type RankingViewerClass,
 } from './types';
 export { getRanking, getRankingYears } from './api';

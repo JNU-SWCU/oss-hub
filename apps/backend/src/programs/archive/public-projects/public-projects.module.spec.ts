@@ -1,5 +1,4 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { CollectionModule } from '../../../github/collection.module';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { PublicEligibilityModule } from '../../../programs/archive/public-eligibility/public-eligibility.module';
 import { PublicProjectsController } from './public-projects.controller';
@@ -15,15 +14,11 @@ describe('PublicProjectsModule', () => {
     return Array.isArray(metadata) ? metadata : [];
   };
 
-  it('todo 15의 PublicEligibilityModule과 CollectionModule을 import한다', () => {
+  it('todo 15의 PublicEligibilityModule을 import한다', () => {
     const imports = getMetadataArray(MODULE_METADATA.IMPORTS);
 
     expect(imports).toEqual(
-      expect.arrayContaining([
-        PrismaModule,
-        PublicEligibilityModule,
-        CollectionModule,
-      ]),
+      expect.arrayContaining([PrismaModule, PublicEligibilityModule]),
     );
   });
 

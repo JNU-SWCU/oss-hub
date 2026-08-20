@@ -27,10 +27,18 @@ export const RANKING_PERIODS = LEGACY_RANKING_PERIODS;
 /** @deprecated Use `RankingYear`. */
 export type RankingPeriod = LegacyRankingPeriod;
 
+export const RANKING_VIEWER_CLASSES = {
+  PUBLIC: 'public',
+  STAFF: 'staff',
+} as const;
+
+export type RankingViewerClass =
+  (typeof RANKING_VIEWER_CLASSES)[keyof typeof RANKING_VIEWER_CLASSES];
+
 /**
- * 공개 랭킹 지표 5종(관리자 요청 — release 대신 star·repo·issue).
- * `starCount`는 그 계정 공개 저장소의 **누적** star다 — GitHub이 연도별
- * 분해를 주지 않는다. release는 저장소 축(② 프로그램 표면) 전속이다.
+ * Person-axis ranking metrics (admin request — star/repo/issue instead of release).
+ * `starCount` is the account's cumulative public-repo stars — GitHub does not
+ * split stars by year. Release stays on the repository axis (program surface).
  */
 export interface RankingMetrics {
   readonly commitCount: number;
@@ -40,33 +48,21 @@ export interface RankingMetrics {
   readonly starCount: number;
 }
 
-/**
- * 응답 계층. 같은 `GET /ranking` URL 이 세션 역할에 따라 다른 칸을 내린다.
- *
- * 계층은 실질적으로 **둘**이다 — 학과는 공개 가능 정보로 판단했으므로
- * (owner 결정 2026-08-19) 비로그인과 학생이 보는 것이 같다. 교직원·관리자만
- * 거기에 실명을 더해 본다.
- */
-export const RANKING_VIEWER_TIERS = {
-  /** 비로그인 · STUDENT · 역할 미확정 세션. */
-  PUBLIC: 'PUBLIC',
-  /** STAFF · ADMIN — 실명까지 본다. */
-  STAFF: 'STAFF',
-} as const;
-
-export type RankingViewerTier =
-  (typeof RANKING_VIEWER_TIERS)[keyof typeof RANKING_VIEWER_TIERS];
+/** Public metrics row before rank/name are attached. */
+export interface RankingActivity extends RankingMetrics {
+  readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly department: string | null;
+}
 
 export interface RankingEntry extends RankingMetrics {
   readonly rank: number;
-  /**
-   * 공개·학생 계층에서는 항상 `githubLogin`과 같다(D3). 교직원·관리자
-   * 계층에서만 `User.name` 으로 바뀜고, 실명이 없으면 다시 `githubLogin` 이다.
-   */
+  /** Always `githubLogin`. Staff real names live on optional `name`. */
   readonly displayName: string;
   readonly githubLogin: string;
-  /** 학과. `UserProfile` 우선, 없으면 legacy `User.department`. 미입력이면 null. */
   readonly department: string | null;
+  /** Staff envelope only. Public items omit this key. */
+  readonly name?: string | null;
   readonly total: number;
 }
 
@@ -77,20 +73,17 @@ export interface RankingPage {
   readonly pageSize: number;
   readonly total: number;
   /**
-   * 이 수치가 언제 기준인지 (ADR-010 §10).
-   *
-   * 이번 사고의 본질은 "멈췄는데 아무도 몰랐다"였다. 화면에 숫자만 있으면
-   * 오늘 값인지 석 달 전 값인지 구분할 방법이 없다 — 그래서 갱신 시각을
-   * 봉투에 실어 화면이 먼저 말하게 한다.
-   *
-   * 관측된 기여가 하나도 없으면 `null` 이다.
+   * When these numbers were observed (ADR-010 §10).
+   * Null when no person-axis observation exists.
    */
   readonly dataAsOf: Date | null;
+  readonly viewerClass: RankingViewerClass;
+  readonly nextCycleAt: Date | null;
 }
 
 /**
  * Resolve ranking scope from preferred `year` or legacy `period`.
- * Default when neither is set: all-time (`all`).
+ * Default when neither is set: Asia/Seoul calendar year.
  */
 export function resolveRankingYearFromQuery(
   year: RankingYear | undefined,
@@ -102,11 +95,5 @@ export function resolveRankingYearFromQuery(
     return rankingYearInAsiaSeoul(now);
   }
   if (period === LEGACY_RANKING_PERIODS.ALL) return RANKING_YEAR_ALL;
-  // 아무 것도 지정하지 않으면 **올해**다(ADR-010 §1).
-  //
-  // 예전 기본값은 전체 누적이었다. 그러면 먼저 들어온 학생이 영구히 위에 남아
-  // 신입생이 아무리 활동해도 화면에서 보이지 않는다 — 랭킹이 재학 기간 순서를
-  // 보여주는 셈이다. 학생이 묻는 것은 "올해 내가 얼마나 했나"이므로
-  // 기본을 올해로 두고 과거 연도는 선택으로 남긴다.
   return rankingYearInAsiaSeoul(now);
 }

@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
-import { CollectionModule } from '../github/collection.module';
 import { RepositoriesModule } from '../github/repositories.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
 import { ProgramAuthoringController } from './controller/program-authoring.controller';
@@ -18,6 +17,7 @@ import { ApplicationTemplatesController } from './controller/application-templat
 import { MilestonesController } from './controller/milestones.controller';
 import { ProgramCreationService } from './service/program-creation.service';
 import { PROGRAM_ACTIVITY_SUMMARY_PORT } from './program-activity-summary.port';
+import { ProgramActivityRepository } from './repository/program-activity.repository';
 import { ProgramActivitySummaryRepository } from './repository/program-activity-summary.repository';
 import { ProgramActivitySummaryService } from './service/program-activity-summary.service';
 import { ProgramActivityService } from './service/program-activity.service';
@@ -39,13 +39,7 @@ import { ProgramsService } from './service/programs.service';
 import { StudentDashboardService } from './service/student-dashboard.service';
 
 @Module({
-  imports: [
-    AuthModule,
-    AuditLogModule,
-    CollectionModule,
-    RepositoriesModule,
-    SubmissionsModule,
-  ],
+  imports: [AuthModule, AuditLogModule, RepositoriesModule, SubmissionsModule],
   controllers: [
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
@@ -69,6 +63,7 @@ import { StudentDashboardService } from './service/student-dashboard.service';
     ProgramPurgeFileCleanupRepository,
     ProgramPurgeFileCleanupService,
     ProgramPurgeFileCleanupScheduler,
+    ProgramActivityRepository,
     ProgramActivitySummaryRepository,
     ProgramActivitySummaryService,
     {

@@ -2,7 +2,7 @@ import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthConfig } from '../../auth/auth.config';
 import { resolveSession } from '../../auth/session-resolution';
-import { RANKING_VIEWER_TIERS } from '../domain/ranking';
+import { RANKING_VIEWER_CLASSES } from '../domain/ranking';
 import {
   RankingQueryRequestDto,
   resolveRankingQueryYear,
@@ -21,36 +21,30 @@ export class RankingController {
   ) {}
 
   /**
-   * 공개 랭킹 — **인증 가드를 붙이지 않는다.** 붙이면 비로그인이 401 이 돼 공개
-   * 랭킹이 죽는다. 대신 `resolveSession` 을 optional 로 쓴다 — 그 함수는 실패해도
-   * 예외가 아니라 `githubId: null` 을 돌려주므로, 쿠키가 없거나 무효하면 그대로
-   * 공개 계층이 된다.
-   *
-   * 교직원·관리자 응답에는 실명이 들어가므로 `private, no-store` 로 내린다
-   * (보호 경로의 가드가 쓰는 값과 동일) — 공유 캐시가 그 응답을 비로그인
-   * 방문자에게 되돌려주는 경로를 막는다. 비로그인 응답은 데코레이터의 `no-store` 그대로다.
+   * Public ranking — no auth guard. `resolveSession` is optional: missing or
+   * invalid cookies yield `githubId: null` and the public envelope (200).
+   * Cache headers follow `page.viewerClass` so a fail-closed public page is
+   * never stored as a staff response.
    */
   @Get()
-  @Header('Cache-Control', 'no-store')
   async findPage(
     @Query() query: RankingQueryRequestDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<RankingPageResponseDto> {
-    const tier = await this.rankingService.resolveViewerTier(
+    const page = await this.rankingService.findPage(
+      resolveRankingQueryYear(query),
+      query.page,
+      query.pageSize,
       (await resolveSession(this.config, request.headers.cookie)).githubId,
     );
-    if (tier !== RANKING_VIEWER_TIERS.PUBLIC) {
+    if (page.viewerClass === RANKING_VIEWER_CLASSES.STAFF) {
       response.setHeader('Cache-Control', 'private, no-store');
+      response.setHeader('Vary', 'Cookie');
+    } else {
+      response.setHeader('Cache-Control', 'no-store');
     }
-    return RankingPageResponseDto.from(
-      await this.rankingService.findPage(
-        resolveRankingQueryYear(query),
-        query.page,
-        query.pageSize,
-        tier,
-      ),
-    );
+    return RankingPageResponseDto.from(page);
   }
 
   /** Distinct years that have public ranking data (desc). Sidebar year list. */

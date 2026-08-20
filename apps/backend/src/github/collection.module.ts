@@ -14,10 +14,8 @@ import { CollectionExternalDiscoveryService } from './service/collection-externa
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { CollectionAdminController } from './controller/collection-admin.controller';
 import { ContributionInvariants } from './contribution-invariants';
-import { PublicRankingRepository } from './repository/public-ranking.repository';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionPublicTokenProvider } from './collection-public.token';
-import { COLLECTION_READ_PORT } from './collection-read.port';
 import { CollectionReadService } from './service/collection-read.service';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
@@ -42,12 +40,10 @@ import {
   providers: [
     CollectionAdminGuard,
     ContributionInvariants,
-    PublicRankingRepository,
     CollectionSchedulerService,
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
     CollectionReadService,
-    { provide: COLLECTION_READ_PORT, useExisting: CollectionReadService },
     {
       // 외부 public 저장소 수집용 서비스 계정 PAT provider. GITHUB_PUBLIC_READ_TOKEN이
       // 없어도 이 factory 자체는 실패하지 않는다 — fail-closed 검증은
@@ -202,6 +198,6 @@ import {
       },
     },
   ],
-  exports: [COLLECTION_READ_PORT],
+  exports: [],
 })
 export class CollectionModule {}

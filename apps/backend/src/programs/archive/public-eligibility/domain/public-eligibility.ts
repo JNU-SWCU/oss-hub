@@ -1,8 +1,5 @@
-import type { CollectionRepositoryMetricsDto } from '../../../../github/collection-read.port';
-
-type CollectionRepositoryVisibility =
-  CollectionRepositoryMetricsDto['visibility'];
-type CollectionRepositoryPresence = CollectionRepositoryMetricsDto['presence'];
+type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
+type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
 
 /**
  * todo 15 — 저장소 하나에 대한 최신 complete inventory 관측.

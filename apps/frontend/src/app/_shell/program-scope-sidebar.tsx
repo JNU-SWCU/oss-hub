@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ProgramCountdown } from '@/features/programs/program-countdown';
+import { ProgramCountdown } from '@/components';
 import { ShellIcon } from './shell-icons';
 import type {
   ProgramScopeSidebarGroup,

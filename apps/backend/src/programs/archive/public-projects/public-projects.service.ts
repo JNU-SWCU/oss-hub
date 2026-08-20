@@ -1,10 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ProgramCategory } from '@prisma/client';
-import {
-  COLLECTION_READ_PORT,
-  type CollectionReadPort,
-} from '../../../github/collection-read.port';
 import { DomainException } from '../../../common/error-code';
+import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { PublicEligibilityService } from '../../../programs/archive/public-eligibility/public-eligibility.service';
 import type {
   PublicProjectCategoryCountsResult,
@@ -31,7 +28,7 @@ import { RUNTIME_CONFIG } from '../../../runtime-config/runtime-config.module';
 /**
  * todo 16 — list/detail/profile 행 선택이 todo 15의 `PublicEligibilityService` 하나를
  * 공유한다. 이 서비스가 하는 일은 (1) 전용 repository로 platform-public 후보를 읽고,
- * (2) eligibility fence를 배치로 적용하고, (3) 필요할 때만 `CollectionReadPort`로 지표/
+ * (2) eligibility fence를 배치로 적용하고, (3) 필요할 때만 `ProgramMetricsRepository`로 지표/
  * 기여자를 배치 조회하는 것뿐이다 — 페이지 크기가 커져도 페이지당 질의 개수는 상수다.
  */
 @Injectable()
@@ -47,8 +44,7 @@ export class PublicProjectsService {
   constructor(
     private readonly repository: PublicProjectsRepository,
     private readonly eligibility: PublicEligibilityService,
-    @Inject(COLLECTION_READ_PORT)
-    private readonly collection: CollectionReadPort,
+    private readonly metrics: ProgramMetricsRepository,
     @Inject(RUNTIME_CONFIG)
     runtimeConfig: Pick<RuntimeConfig, 'SESSION_SECRET'>,
   ) {
@@ -153,10 +149,10 @@ export class PublicProjectsService {
     }
 
     const [metricsRows, contributorRows] = await Promise.all([
-      this.collection.getRepositoryCumulativeMetrics({
+      this.metrics.getRepositoryCumulativeMetrics({
         repositoryIds: [row.githubRepositoryId],
       }),
-      this.collection.getContributorCumulativeMetrics({
+      this.metrics.getContributorCumulativeMetrics({
         repositoryIds: [row.githubRepositoryId],
       }),
     ]);
@@ -215,8 +211,8 @@ export class PublicProjectsService {
 
     const repositoryIds = projects.map((project) => project.githubRepositoryId);
     const [repositoryMetricsRows, contributorRows] = await Promise.all([
-      this.collection.getRepositoryCumulativeMetrics({ repositoryIds }),
-      this.collection.getContributorCumulativeMetrics({ repositoryIds }),
+      this.metrics.getRepositoryCumulativeMetrics({ repositoryIds }),
+      this.metrics.getContributorCumulativeMetrics({ repositoryIds }),
     ]);
 
     const observedByRepository = new Map(

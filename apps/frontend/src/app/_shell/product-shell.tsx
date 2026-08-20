@@ -40,6 +40,7 @@ import {
   type ProgramScopeSidebarGroup,
   type ProgramScopeViewerRole,
 } from './sidebar-menu';
+import { RankingCycleProvider } from './ranking-cycle-context';
 import { useSessionRole } from './use-session-role';
 
 /**
@@ -219,9 +220,11 @@ export function ProductShell({
 
   if (!programDetailId && groups.length === 0) {
     return (
-      <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
-        {children}
-      </div>
+      <RankingCycleProvider>
+        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
+          {children}
+        </div>
+      </RankingCycleProvider>
     );
   }
 
@@ -261,73 +264,75 @@ export function ProductShell({
     : sidebarBrandTitle(section, groups);
 
   return (
-    <div
-      data-slot="product-shell"
-      data-collapsed={collapsed ? 'true' : 'false'}
-      data-section={section ?? undefined}
-      className={cn(
-        'grid min-h-0 flex-1 grid-cols-1',
-        // 의도적 레이아웃 애니메이션(grid-template-columns).
-        // transform-only 는 main padding 이 어긋나므로 폭 자체에 트랜지션을 건다.
-        // 사용자 토글 1회당 1번 — prefers-reduced-motion 시 duration 0 (F5 / §4.6).
-        'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
-        collapsed
-          ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
-          : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
-      )}
-    >
-      {programDetailId ? (
-        <ProgramScopeSidebar
-          programName={scopeOverview?.name ?? programDetailId}
-          groups={scopeGroups}
-          pathname={pathname}
-          collapsed={collapsed}
-          onToggle={toggle}
-          backHref={programScopeBackHref(scopeViewerRole)}
-          countdown={
-            scopeOverview?.nextMilestone
-              ? {
-                  nextMilestoneLabel: scopeOverview.nextMilestone.label,
-                  dueAt: scopeOverview.nextMilestone.dueAt,
-                }
-              : null
-          }
-        />
-      ) : (
-        <AppSidebar
-          groups={groups}
-          pathname={pathname}
-          search={search}
-          collapsed={collapsed}
-          onToggle={toggle}
-          brandTitle={sidebarBrandTitle(section, groups)}
-        />
-      )}
-      <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
-        {children}
-      </div>
-      <SidebarDrawer
-        open={drawer?.open ?? false}
-        onClose={closeDrawer ?? (() => {})}
-        label={drawerLabel}
+    <RankingCycleProvider>
+      <div
+        data-slot="product-shell"
+        data-collapsed={collapsed ? 'true' : 'false'}
+        data-section={section ?? undefined}
+        className={cn(
+          'grid min-h-0 flex-1 grid-cols-1',
+          // 의도적 레이아웃 애니메이션(grid-template-columns).
+          // transform-only 는 main padding 이 어긋나므로 폭 자체에 트랜지션을 건다.
+          // 사용자 토글 1회당 1번 — prefers-reduced-motion 시 duration 0 (F5 / §4.6).
+          'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
+          collapsed
+            ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
+            : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
+        )}
       >
         {programDetailId ? (
-          <ProgramScopeSidebarNav
+          <ProgramScopeSidebar
+            programName={scopeOverview?.name ?? programDetailId}
             groups={scopeGroups}
             pathname={pathname}
-            collapsed={false}
-            ariaLabel={drawerLabel}
+            collapsed={collapsed}
+            onToggle={toggle}
+            backHref={programScopeBackHref(scopeViewerRole)}
+            countdown={
+              scopeOverview?.nextMilestone
+                ? {
+                    nextMilestoneLabel: scopeOverview.nextMilestone.label,
+                    dueAt: scopeOverview.nextMilestone.dueAt,
+                  }
+                : null
+            }
           />
         ) : (
-          <AppSidebarNav
+          <AppSidebar
             groups={groups}
             pathname={pathname}
             search={search}
-            collapsed={false}
+            collapsed={collapsed}
+            onToggle={toggle}
             brandTitle={sidebarBrandTitle(section, groups)}
           />
         )}
-      </SidebarDrawer>
-    </div>
+        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
+          {children}
+        </div>
+        <SidebarDrawer
+          open={drawer?.open ?? false}
+          onClose={closeDrawer ?? (() => {})}
+          label={drawerLabel}
+        >
+          {programDetailId ? (
+            <ProgramScopeSidebarNav
+              groups={scopeGroups}
+              pathname={pathname}
+              collapsed={false}
+              ariaLabel={drawerLabel}
+            />
+          ) : (
+            <AppSidebarNav
+              groups={groups}
+              pathname={pathname}
+              search={search}
+              collapsed={false}
+              brandTitle={sidebarBrandTitle(section, groups)}
+            />
+          )}
+        </SidebarDrawer>
+      </div>
+    </RankingCycleProvider>
   );
 }
