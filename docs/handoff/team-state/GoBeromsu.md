@@ -15,3 +15,11 @@
 - Issue: -
 - PR: (이 PR)
 - blocker: 없음
+
+## 2026-08-20 — 가입 마치기를 POST 한 방으로 고정
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
