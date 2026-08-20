@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type {
   ApplicationDecisionAction,
+  ApplicationStatus,
   RepositoryConnectionMode,
 } from './types';
 
@@ -28,6 +29,7 @@ import type {
  */
 export function ApplicationDecisionDialog({
   action,
+  currentStatus,
   applicantName,
   teamName,
   applicationTitle,
@@ -43,6 +45,11 @@ export function ApplicationDecisionDialog({
   onConfirm,
 }: {
   readonly action: ApplicationDecisionAction;
+  /**
+   * 지금 배지. 되돌리기 확인창만 읽는다 — 승인된 신청과 반려된 신청을
+   * 같은 「취소」로 부르지 않고, 철회하는 칸을 밝힌다.
+   */
+  readonly currentStatus: ApplicationStatus;
   /**
    * 판정 대상 신청자 이름. 목록의 행 단위 판정이 사라지면 이 창이 **유일한 판정
    * 지점**이 되는데, 정작 창 안에는 저장소 연결 방식·반려 사유만 있고 누구의
@@ -74,7 +81,7 @@ export function ApplicationDecisionDialog({
    *
    * ⚠ **취소·Escape 로 닫을 때의 자리다.** 화면이 창을 **스스로** 닫는 경우(판정 성공·
    *   낡은 상태)에는 그 순간 이 버튼이 아직 `disabled` 이고, 성공 뒤에는 아예 다른
-   *   버튼으로 바뀐다(「승인」→「판정 취소」). 그때의 복귀는 재조회가 끝나는 시점을 아는
+   *   버튼으로 바뀐다(「승인」→「검토 대기로」). 그때의 복귀는 재조회가 끝나는 시점을 아는
    *   화면 쪽이 맡는다(`application-decision-focus.ts`, [#767]).
    */
   readonly returnFocusId: string;
@@ -137,7 +144,7 @@ export function ApplicationDecisionDialog({
                 ? '신청 승인'
                 : isReject
                   ? '신청 반려'
-                  : '판정 취소'}
+                  : '검토 대기로'}
             </h2>
           </AlertDialog.Title>
           {/*
@@ -232,14 +239,15 @@ export function ApplicationDecisionDialog({
           ) : (
             <AlertDialog.Description asChild>
               <p className="break-keep">
-                판정을 취소하고 신청을 다시 검토 대기 상태로 되돌립니다. 이후
-                승인·반려를 다시 할 수 있습니다.
+                {currentStatus === 'REJECTED'
+                  ? '반려를 철회하고 다시 검토 대기로 둡니다. 이후 승인·반려를 다시 할 수 있습니다.'
+                  : '승인을 철회하고 다시 검토 대기로 둡니다. 이후 승인·반려를 다시 할 수 있습니다.'}
               </p>
             </AlertDialog.Description>
           )}
           {errorMessage !== null ? (
             <Alert variant="destructive">
-              <AlertTitle>판정을 저장하지 못했습니다</AlertTitle>
+              <AlertTitle>저장하지 못했습니다</AlertTitle>
               <AlertDescription className="[word-break:keep-all]">
                 {errorMessage}
               </AlertDescription>
@@ -267,7 +275,7 @@ export function ApplicationDecisionDialog({
                   ? '승인 확정'
                   : isReject
                     ? '반려 확정'
-                    : '판정 취소 확정'}
+                    : '검토 대기로 되돌리기'}
             </Button>
           </div>
         </AlertDialog.Content>

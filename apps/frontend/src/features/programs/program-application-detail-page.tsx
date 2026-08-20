@@ -64,7 +64,7 @@ const NOT_FOUND_COPY: Readonly<
   'cancelled-while-deciding': {
     title: '신청이 이미 취소되었습니다',
     description:
-      '판정하려는 사이에 학생이 신청을 취소했습니다. 판정은 저장되지 않았습니다.',
+      '승인·반려하려는 사이에 학생이 신청을 취소했습니다. 방금 고른 내용은 저장되지 않았습니다.',
   },
 };
 
@@ -148,7 +148,7 @@ export function ProgramApplicationDetailPage({
   const cancelled = useRef(false);
   /**
    * 확인창이 **스스로** 닫힌 뒤 판정 버튼으로 포커스를 돌려준다([#767]).
-   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 새 버튼(「판정 취소」)은
+   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 새 버튼(「검토 대기로」)은
    *   재조회 결과가 그려진 뒤에야 생긴다. 목록 화면과 같은 규칙을 쓴다.
    */
   const requestDecisionFocusReturn = useApplicationDecisionFocusReturn();
@@ -229,18 +229,23 @@ export function ProgramApplicationDetailPage({
         await reload();
         setNotice({
           kind: 'success',
-          title: '판정이 저장되었습니다',
+          title:
+            result.status === 'APPROVED'
+              ? '승인을 저장했습니다'
+              : result.status === 'REJECTED'
+                ? '반려를 저장했습니다'
+                : '검토 대기로 되돌렸습니다',
           message:
             result.status === 'APPROVED'
               ? '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.'
               : result.status === 'REJECTED'
                 ? '반려 결과를 다시 불러왔습니다.'
-                : '판정 취소 결과를 다시 불러왔습니다.',
+                : '신청을 다시 검토 대기 상태로 불러왔습니다.',
         });
       } catch {
         setNotice({
           kind: 'error',
-          title: '판정은 저장되었지만 최신 상태를 불러오지 못했습니다',
+          title: '저장은 되었지만 최신 상태를 불러오지 못했습니다',
           message: '이 화면을 다시 불러와 최신 상태를 확인해 주세요.',
         });
       }
@@ -501,7 +506,7 @@ export function ProgramApplicationDetailPage({
             disabled={busy}
             onClick={() => openDecisionDialog('REVERT')}
           >
-            판정 취소
+            검토 대기로
           </Button>
         ) : null}
       </div>
@@ -509,6 +514,7 @@ export function ProgramApplicationDetailPage({
       {dialogAction !== null ? (
         <ApplicationDecisionDialog
           action={dialogAction}
+          currentStatus={application.status}
           applicantName={displayApplicantName(application)}
           teamName={application.team ? application.team.name : null}
           applicationTitle={displayAnswerText(application.answers.title)}

@@ -323,7 +323,7 @@ describe('application decision notices', () => {
     );
 
     await expect(fetchUnreadApplicationDecisionNotices()).rejects.toThrow(
-      '신청 판정 알림 응답 형식이 올바르지 않습니다.',
+      '신청 승인 알림 응답 형식이 올바르지 않습니다.',
     );
   });
 });
