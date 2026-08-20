@@ -67,9 +67,15 @@ function rankingColumns(showName: boolean): DataTableColumn<RankingItem>[] {
       id: 'member',
       header: '참여자',
       cell: (item) => (
-        <span className="break-keep whitespace-normal">
-          @{item.githubLogin}
-        </span>
+        <a
+          href={`https://github.com/${item.githubLogin}`}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
+          className="break-keep whitespace-normal hover:underline"
+        >
+          {item.githubLogin}
+        </a>
       ),
       headClassName: 'w-24',
     },
