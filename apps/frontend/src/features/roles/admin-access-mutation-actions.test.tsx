@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe('AdminAccessMutationActions — 역할/계정 상태 세그먼트 컨트롤', () => {
-  it('역할 라디오그룹이 STUDENT/STAFF/ADMIN 세 버튼을 렌더링하고 현재 값에 "(현재)"를 붙인다', () => {
+  it('역할 라디오그룹이 STUDENT/STAFF/ADMIN 세 버튼을 렌더링하고 "(현재)"는 쓰지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessMutationActions
         detail={detail({ role: 'STAFF' })}
@@ -73,7 +73,20 @@ describe('AdminAccessMutationActions — 역할/계정 상태 세그먼트 컨�
     expect(html).toContain('학생');
     expect(html).toContain('교직원');
     expect(html).toContain('관리자');
-    expect(html).toContain('(현재)');
+    expect(html).not.toContain('(현재)');
+  });
+
+  it('선택되지 않은 비활성도 outline이고 destructive가 아니다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessMutationActions
+        detail={detail({ accountStatus: 'ACTIVE' })}
+        processingAction={null}
+        onRequestAction={() => {}}
+      />,
+    );
+
+    expect(html).toContain('비활성');
+    expect(html).not.toContain('bg-destructive/10');
   });
 
   it('현재 역할·상태 버튼은 aria-checked="true"이고 나머지는 false다', () => {

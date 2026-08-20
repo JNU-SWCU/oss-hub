@@ -426,7 +426,6 @@ function LoginHistorySection({
   totalPages,
   isLoading,
   onPageChange,
-  lastLoginAt,
   headingTag: HeadingTag,
 }: {
   readonly items: readonly AdminAccessLoginHistoryItem[];
@@ -434,7 +433,6 @@ function LoginHistorySection({
   readonly totalPages: number;
   readonly isLoading: boolean;
   readonly onPageChange: (page: number) => void;
-  readonly lastLoginAt: string | null;
   readonly headingTag: DetailHeadingTag;
 }) {
   return (
@@ -442,18 +440,12 @@ function LoginHistorySection({
       aria-labelledby="admin-access-login-history"
       className="grid gap-3"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <HeadingTag
-          id="admin-access-login-history"
-          className="font-heading text-lg font-semibold"
-        >
-          로그인 이력
-        </HeadingTag>
-        <span className="text-sm text-muted-foreground">
-          마지막 로그인{' '}
-          {lastLoginAt ? formatAdminAccessDateTime(lastLoginAt) : '기록 없음'}
-        </span>
-      </div>
+      <HeadingTag
+        id="admin-access-login-history"
+        className="font-heading text-lg font-semibold"
+      >
+        로그인 이력
+      </HeadingTag>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">로그인 이력이 없습니다.</p>
       ) : (
@@ -514,6 +506,61 @@ function AdminAccessDetailContent({
           ...mutationDialogCopy(mutation.confirmAction, detail),
         }
       : null;
+
+  const editBlock = (
+    <div className="grid gap-4">
+      <section aria-labelledby="admin-access-profile" className="grid gap-3">
+        <AdminAccessProfileSection
+          userId={detail.id}
+          profile={detail.profile}
+          headingTag={heading.section}
+          isOverlay={isOverlay}
+          allowEdit={!isQueue}
+          onSaved={onProfileSaved}
+        />
+      </section>
+      <AdminAccessPendingRequestCard
+        detail={detail}
+        processingAction={mutation.processingAction}
+        onRequestAction={mutation.onRequestAction}
+      />
+      {isQueue ? null : (
+        <AdminAccessMutationActions
+          detail={detail}
+          processingAction={mutation.processingAction}
+          onRequestAction={mutation.onRequestAction}
+        />
+      )}
+    </div>
+  );
+
+  const historyBlock = (
+    <div
+      className={
+        isOverlay ? 'grid gap-8 border-t border-border pt-8' : 'grid gap-8'
+      }
+    >
+      <p className="text-xs font-semibold tracking-wide text-muted-foreground">
+        이력
+      </p>
+      <RoleRequestHistorySection
+        items={history.roleRequests.items}
+        page={history.roleRequests.page}
+        totalPages={adminAccessHistoryPageCount(history.roleRequests)}
+        isLoading={historyLoading}
+        onPageChange={onRoleRequestPageChange}
+        headingTag={heading.section}
+      />
+      <LoginHistorySection
+        items={history.loginHistory.items}
+        page={history.loginHistory.page}
+        totalPages={adminAccessHistoryPageCount(history.loginHistory)}
+        isLoading={historyLoading}
+        onPageChange={onLoginHistoryPageChange}
+        headingTag={heading.section}
+      />
+    </div>
+  );
 
   return (
     <Root
@@ -584,57 +631,9 @@ function AdminAccessDetailContent({
         }
       />
       <DetailPanelLayout
-        stacked={layoutContext === 'overlay'}
-        primary={
-          <div className="grid gap-8">
-            <section
-              aria-labelledby="admin-access-profile"
-              className="grid gap-3"
-            >
-              <AdminAccessProfileSection
-                userId={detail.id}
-                profile={detail.profile}
-                headingTag={heading.section}
-                isOverlay={isOverlay}
-                allowEdit={!isQueue}
-                onSaved={onProfileSaved}
-              />
-            </section>
-            <RoleRequestHistorySection
-              items={history.roleRequests.items}
-              page={history.roleRequests.page}
-              totalPages={adminAccessHistoryPageCount(history.roleRequests)}
-              isLoading={historyLoading}
-              onPageChange={onRoleRequestPageChange}
-              headingTag={heading.section}
-            />
-            <LoginHistorySection
-              items={history.loginHistory.items}
-              page={history.loginHistory.page}
-              totalPages={adminAccessHistoryPageCount(history.loginHistory)}
-              isLoading={historyLoading}
-              onPageChange={onLoginHistoryPageChange}
-              lastLoginAt={detail.lastLoginAt}
-              headingTag={heading.section}
-            />
-          </div>
-        }
-        secondary={
-          <div className="grid gap-4">
-            <AdminAccessPendingRequestCard
-              detail={detail}
-              processingAction={mutation.processingAction}
-              onRequestAction={mutation.onRequestAction}
-            />
-            {isQueue ? null : (
-              <AdminAccessMutationActions
-                detail={detail}
-                processingAction={mutation.processingAction}
-                onRequestAction={mutation.onRequestAction}
-              />
-            )}
-          </div>
-        }
+        stacked={isOverlay}
+        primary={isOverlay ? editBlock : historyBlock}
+        secondary={isOverlay ? historyBlock : editBlock}
       />
       {mutation.confirmAction === 'REJECT' ? (
         <AdminAccessMutationRejectDialog

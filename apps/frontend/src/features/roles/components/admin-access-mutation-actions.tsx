@@ -41,7 +41,7 @@ const ACCOUNT_STATUS_ORDER: readonly AdminAccessAccountStatus[] = [
 /**
  * `/admin/access` 상세(04E)·오버레이(04F)가 공유하는 접근 변경 패널
  * (PR04G, 직접 선택 방식으로 재설계). 드롭다운 대신 역할·계정 상태 각각을
- * 세그먼트 버튼으로 보여준다 — 현재 값은 채워진 버튼 + "(현재)"로 표시되고,
+ * 세그먼트 버튼으로 보여준다 — 현재 값은 채워진 버튼(`default`)으로만 표시되고,
  * 다른 값을 고르면 `onRequestAction`이 곧장 확인 다이얼로그를 연다(쓰기가
  * 다이얼로그 없이 실행되는 경로는 없다). 막힌 선택지는 숨기지 않고 비활성화
  * 상태로 두며, 바로 아래에 이유를 문장으로 보여준다 — 이미 응답에 들어있는
@@ -100,14 +100,11 @@ export function AdminAccessMutationActions({
                   aria-checked={isCurrent}
                   variant={isCurrent ? 'default' : 'outline'}
                   size="sm"
-                  className="h-auto min-h-10 w-full flex-col gap-0.5 px-2 py-1.5"
+                  className="h-auto min-h-10 w-full px-2 py-1.5"
                   disabled={disabled}
                   onClick={() => onRequestAction(actionForRole(role))}
                 >
-                  <span>{ROLE_LABEL[role]}</span>
-                  {isCurrent ? (
-                    <span className="text-xs leading-none">(현재)</span>
-                  ) : null}
+                  {ROLE_LABEL[role]}
                 </Button>
               );
             })}
@@ -144,24 +141,15 @@ export function AdminAccessMutationActions({
                   type="button"
                   role="radio"
                   aria-checked={isCurrent}
-                  variant={
-                    isCurrent
-                      ? 'default'
-                      : status === 'DEACTIVATED'
-                        ? 'destructive'
-                        : 'outline'
-                  }
+                  variant={isCurrent ? 'default' : 'outline'}
                   size="sm"
-                  className="h-auto min-h-10 w-full flex-col gap-0.5 px-2 py-1.5"
+                  className="h-auto min-h-10 w-full px-2 py-1.5"
                   disabled={disabled}
                   onClick={() =>
                     onRequestAction(actionForAccountStatus(status))
                   }
                 >
-                  <span>{ACCOUNT_STATUS_LABEL[status]}</span>
-                  {isCurrent ? (
-                    <span className="text-xs leading-none">(현재)</span>
-                  ) : null}
+                  {ACCOUNT_STATUS_LABEL[status]}
                 </Button>
               );
             })}
