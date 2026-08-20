@@ -66,6 +66,13 @@
 - PR: (이 PR)
 - blocker: browser QA unavailable in this environment; frontend module remains above the repository 250 LOC split threshold
 
+## 2026-08-20 — 마일스톤 행 양식 확인과 동작
+
+- 상태: review
+- Issue: #961
+- PR: (이 PR)
+- blocker: 실제 Chrome QA는 환경 제약으로 미실행; focused Vitest·lint·typecheck·build 통과
+
 
 ## 2026-08-21 — 브라우저 비교 경계 상태를 고정한다
 

@@ -1,6 +1,12 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Upload } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  MoreHorizontal,
+  Upload,
+} from 'lucide-react';
+import { DropdownMenu } from 'radix-ui';
 import {
   useCallback,
   useEffect,
@@ -17,6 +23,7 @@ import {
   reorderMilestoneDocuments,
   updateMilestoneDocument,
   uploadMilestoneDocumentTemplate,
+  milestoneDocumentTemplateHref,
   type MilestoneDocument,
 } from './milestone-document-api';
 import {
@@ -398,11 +405,16 @@ export function MilestoneDocumentEditorSection({
     setIsBusy(true);
     setRowError(null);
     try {
-      await uploadMilestoneDocumentTemplate(milestoneId, document.id, file);
+      const uploaded = await uploadMilestoneDocumentTemplate(
+        milestoneId,
+        document.id,
+        file,
+      );
       applyDocuments(
         upsertMilestoneDocumentInList(documents, {
           ...document,
           hasTemplateFile: true,
+          templateFileName: uploaded.fileName,
         }),
       );
     } catch (error: unknown) {
@@ -504,7 +516,10 @@ function MilestoneDocumentRow({
   return (
     <li className="grid gap-1" data-testid="milestone-document-editor-row">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-small">
+        <span
+          className="min-w-0 flex-1 truncate text-small"
+          title={document.name}
+        >
           {document.name}
           {document.required ? (
             <span aria-label="필수" className="ml-0.5 text-destructive">
@@ -512,6 +527,19 @@ function MilestoneDocumentRow({
             </span>
           ) : null}
         </span>
+        {document.hasTemplateFile && document.templateFileName ? (
+          <a
+            className="min-w-0 max-w-56 truncate text-small underline underline-offset-2"
+            href={milestoneDocumentTemplateHref(
+              document.milestoneId,
+              document.id,
+            )}
+            title={document.templateFileName}
+            download={document.templateFileName}
+          >
+            {document.templateFileName}
+          </a>
+        ) : null}
         <StatusBadge variant="recruiting">
           {submissionTypeLabel(document.submissionType)}
         </StatusBadge>
@@ -553,6 +581,38 @@ function MilestoneDocumentRow({
         >
           삭제
         </Button>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isBusy}
+              aria-label={`${document.name} 작업 메뉴`}
+            >
+              <MoreHorizontal aria-hidden /> 작업
+            </Button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              className="z-50 min-w-32 rounded-control border border-border bg-background p-1 shadow-lg"
+            >
+              <DropdownMenu.Item
+                className="cursor-pointer rounded px-3 py-2 text-small outline-none focus:bg-muted"
+                onSelect={() => onEdit(document)}
+              >
+                수정
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className="cursor-pointer rounded px-3 py-2 text-small text-destructive outline-none focus:bg-muted"
+                onSelect={() => onRequestDelete(document)}
+              >
+                삭제
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
         {/*
          * 순서 바꾸기는 드래그가 아니라 버튼 두 개다 — 드래그 손잡이는 키보드·화면 읽기
          * 도구 사용자가 쓸 수 없어 같은 결함으로 QA를 반복해 받았다. 버튼은 그대로 동작한다.
