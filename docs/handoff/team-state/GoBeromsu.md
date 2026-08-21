@@ -188,3 +188,14 @@
 - Issue: #979
 - PR: (이 PR)
 - blocker: 없음
+
+## 2026-08-21 — Task 3 병합 증거를 교정하고 종료
+
+- 상태: done
+- Issue: #969
+- PR: #977
+- blocker: 없음
+- 병합 상태: merged
+- merge SHA: `97ea2b0a7bf7386f3538cc48038b16a8ccb07bba`
+- 검증: exact head `f0d55cae7cd38e8269e3af4522111ec9378020f2`와 required `ci`·`public-safe`·`commitlint` 성공을 확인
+- 기록: 이 교정 항목 자체를 현재 저널 EOF에 append-only로 추가
