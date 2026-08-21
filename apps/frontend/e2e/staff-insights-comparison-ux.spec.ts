@@ -1,55 +1,17 @@
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
+import {
+  expectProgramChartLayout,
+  hideNextDevTools,
+  PROGRAM_TICK_SELECTOR,
+} from './staff-insights-chart-layout';
 
 const target = '/dashboard/insights';
-const programTickSelector = '.recharts-cartesian-axis-tick-value';
 const participationEvidenceDir = '.omo/evidence/participation-program-labels';
-
-interface TickBounds {
-  readonly text: string;
-  readonly left: number;
-  readonly right: number;
-  readonly top: number;
-  readonly bottom: number;
-}
 
 async function openFixture(page: Page, fixture: string) {
   await page.goto(`/local-review/${fixture}?to=${encodeURIComponent(target)}`);
   await page.locator('main').waitFor();
-}
-
-async function overlappingProgramTicks(page: Page): Promise<string[]> {
-  const ticks = page.locator(programTickSelector).filter({
-    hasText: '프로그램',
-  });
-  await expect(ticks).toHaveCount(8);
-  const bounds = await ticks.evaluateAll((elements): TickBounds[] =>
-    elements.map((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        text: element.textContent ?? '',
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-      };
-    }),
-  );
-  const overlaps: string[] = [];
-  for (const [index, current] of bounds.entries()) {
-    for (const candidate of bounds.slice(index + 1)) {
-      const horizontal =
-        Math.min(current.right, candidate.right) -
-        Math.max(current.left, candidate.left);
-      const vertical =
-        Math.min(current.bottom, candidate.bottom) -
-        Math.max(current.top, candidate.top);
-      if (horizontal > 0 && vertical > 0) {
-        overlaps.push(`${current.text} <> ${candidate.text}`);
-      }
-    }
-  }
-  return overlaps;
 }
 
 test.describe('staff insights comparison UX', () => {
@@ -62,35 +24,61 @@ test.describe('staff insights comparison UX', () => {
       ['tablet', 768],
       ['mobile', 375],
     ] as const) {
-      // Given: eight long program names in the participation chart.
+      // Given: twelve long program names in the participation chart.
       await page.setViewportSize({ width, height: 1000 });
       await openFixture(page, 'insights-long');
+      await hideNextDevTools(page);
       const card = page
         .getByText('참여 — 프로그램별', { exact: true })
         .locator('xpath=ancestor::*[@data-slot="card"][1]');
 
       // When: the chart is rendered at each supported width.
       await card.scrollIntoViewIfNeeded();
+      const chartViewport = card.locator('div[aria-hidden="true"]').first();
 
       // Then: all program labels remain separate without widening the page.
-      expect(await overlappingProgramTicks(page)).toEqual([]);
-      expect(
-        await page
-          .locator(programTickSelector)
-          .filter({ hasText: '프로그램' })
-          .evaluateAll((elements) =>
-            elements
-              .filter((element) => element.querySelectorAll('tspan').length > 1)
-              .map((element) => element.textContent ?? ''),
-          ),
-      ).toEqual([]);
-      expect(
-        await page
-          .locator('main')
-          .evaluate((element) => element.scrollWidth <= element.clientWidth),
-      ).toBe(true);
+      await expectProgramChartLayout(page);
+      const scrollBounds = await chartViewport.evaluate((element) => ({
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+      }));
+      expect(scrollBounds.clientHeight).toBeLessThanOrEqual(560);
+      expect(scrollBounds.scrollHeight).toBeGreaterThan(
+        scrollBounds.clientHeight,
+      );
+      await expect(
+        card.locator('[data-slot="participation-chart-legend"]'),
+      ).toBeVisible();
+      await expect(
+        card.locator('[data-slot="participation-chart-scroll-hint"]'),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
       await card.screenshot({
         path: `${participationEvidenceDir}/${name}.png`,
+      });
+      await chartViewport.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect(
+        page.locator(PROGRAM_TICK_SELECTOR).filter({ hasText: '프로그램 12' }),
+      ).toBeInViewport();
+      await page.mouse.move(0, 0);
+      await chartViewport.screenshot({
+        path: `${participationEvidenceDir}/${name}-scrolled.png`,
+      });
+      await chartViewport.evaluate((element) => {
+        element.scrollTop = 0;
+      });
+      expect(await chartViewport.evaluate((element) => element.scrollTop)).toBe(
+        0,
+      );
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%';
+      });
+      await expectProgramChartLayout(page);
+      await page.mouse.move(0, 0);
+      await card.screenshot({
+        path: `${participationEvidenceDir}/${name}-200-text.png`,
       });
     }
   });
@@ -112,15 +100,11 @@ test.describe('staff insights comparison UX', () => {
           })
           .first(),
       ).toBeVisible();
-      expect(await overlappingProgramTicks(page)).toEqual([]);
-      expect(
-        await page
-          .locator('main')
-          .evaluate((element) => element.scrollWidth <= element.clientWidth),
-      ).toBe(true);
+      await expectProgramChartLayout(page);
       await page.evaluate(() => {
         document.documentElement.style.fontSize = '200%';
       });
+      await expectProgramChartLayout(page);
       await expect(
         page.getByRole('group', { name: '비교 관점' }),
       ).toBeVisible();

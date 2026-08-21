@@ -3,7 +3,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,6 +19,13 @@ import {
 import { COHORT_LABELS, DEPARTMENT_COHORTS } from './types';
 import type { StaffInsightsSummary } from './types';
 
+const programLabelSegmenter = new Intl.Segmenter('ko', {
+  granularity: 'grapheme',
+});
+const chartMinimumHeight = 320;
+const chartMaximumHeight = 560;
+const programRowHeight = 52;
+
 interface ProgramNameTickProps {
   readonly x?: number;
   readonly y?: number;
@@ -32,9 +38,13 @@ function ProgramNameTick({
   payload,
 }: ProgramNameTickProps): ReactElement | null {
   if (payload === undefined) return null;
+  const graphemes = Array.from(
+    programLabelSegmenter.segment(payload.value),
+    ({ segment }) => segment,
+  );
   const label =
-    payload.value.length > 14
-      ? `${payload.value.slice(0, 13)}…`
+    graphemes.length > 12
+      ? `${graphemes.slice(0, 11).join('')}…`
       : payload.value;
   return (
     <text
@@ -70,6 +80,10 @@ export function ParticipationPanel({
     swMajor: program.swMajorCount,
     nonSw: program.nonSwCount,
   }));
+  const chartHeight = Math.max(
+    chartMinimumHeight,
+    data.length * programRowHeight,
+  );
   return (
     <Card>
       <CardHeader>
@@ -80,48 +94,72 @@ export function ParticipationPanel({
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {chartHeight > chartMaximumHeight ? (
+          <p
+            data-slot="participation-chart-scroll-hint"
+            className="mb-2 text-xs text-muted-foreground"
+          >
+            프로그램이 많아 차트 안에서 세로로 스크롤할 수 있습니다.
+          </p>
+        ) : null}
         <div
-          className="w-full"
-          style={{ height: Math.max(320, data.length * 52) }}
+          className="w-full overflow-y-auto"
+          style={{ maxHeight: chartMaximumHeight }}
           aria-hidden="true"
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={data}
-              margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis
-                type="number"
-                allowDecimals={false}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={168}
-                tick={<ProgramNameTick />}
-                tickLine={false}
-                axisLine={false}
-                interval={0}
-              />
-              <Tooltip />
-              <Legend />
-              <Bar
-                dataKey="swMajor"
-                name={COHORT_LABELS[DEPARTMENT_COHORTS.SW_MAJOR]}
-                fill="var(--primary)"
-              />
-              <Bar
-                dataKey="nonSw"
-                name={COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW]}
-                fill="var(--accent)"
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="w-full" style={{ height: chartHeight }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={data}
+                margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  type="number"
+                  orientation="top"
+                  allowDecimals={false}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={168}
+                  tick={<ProgramNameTick />}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={0}
+                />
+                <Tooltip />
+                <Bar
+                  dataKey="swMajor"
+                  name={COHORT_LABELS[DEPARTMENT_COHORTS.SW_MAJOR]}
+                  fill="var(--primary)"
+                />
+                <Bar
+                  dataKey="nonSw"
+                  name={COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW]}
+                  fill="var(--accent)"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div
+          data-slot="participation-chart-legend"
+          className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm text-muted-foreground"
+          aria-hidden="true"
+        >
+          <span className="flex items-center gap-1">
+            <span className="size-3 bg-primary" />
+            {COHORT_LABELS[DEPARTMENT_COHORTS.SW_MAJOR]}
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="size-3 bg-accent" />
+            {COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW]}
+          </span>
         </div>
         <table className="sr-only">
           <caption>프로그램별 SW전공과 비SW전공 참여자</caption>
