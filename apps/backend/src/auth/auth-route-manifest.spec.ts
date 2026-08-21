@@ -1,13 +1,29 @@
 import { randomBytes } from 'node:crypto';
 import {
   Controller,
+  type DynamicModule,
+  forwardRef,
   Get,
   type INestApplication,
+  Module,
+  RequestMethod,
+  type Type,
+  UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
-import { MODULE_METADATA } from '@nestjs/common/constants';
+import { PATH_METADATA } from '@nestjs/common/constants';
+import { ApplicationConfig } from '@nestjs/core/application-config';
+import { NestContainer } from '@nestjs/core/injector/container';
+import { GraphInspector } from '@nestjs/core/inspector/graph-inspector';
+import { MetadataScanner } from '@nestjs/core/metadata-scanner';
+import { DependenciesScanner } from '@nestjs/core/scanner';
+import { PathsExplorer } from '@nestjs/core/router/paths-explorer';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
+import {
+  discoverAppModuleControllers,
+  discoverModuleControllers,
+} from '../app-controller-discovery';
 import { AppModule } from '../app.module';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { HealthController } from '../health/health.controller';
@@ -19,6 +35,8 @@ import { ProgramCreationService } from '../programs/service/program-creation.ser
 import { ProgramLifecycleService } from '../programs/service/program-lifecycle.service';
 import { ProgramsService } from '../programs/service/programs.service';
 import { ProgramViewerService } from '../programs/service/program-viewer.service';
+import { ProgramOverviewController } from '../programs/archive/program-overview/program-overview.controller';
+import { ProgramOverviewService } from '../programs/archive/program-overview/program-overview.service';
 import { RankingController } from '../ranking/controller/ranking.controller';
 import { RankingService } from '../ranking/service/ranking.service';
 import { AuthConfig } from './auth.config';
@@ -28,11 +46,13 @@ import {
   OptionalSession,
   Protected,
   Public,
+  PUBLIC_ROUTE_METADATA,
 } from './auth-route-metadata';
+import { createAuthRouteManifest } from './auth-route-manifest';
 import {
-  createAuthRouteManifest,
-  type ControllerType,
-} from './auth-route-manifest';
+  EXPECTED_APP_CONTROLLER_NAMES,
+  EXPECTED_AUTH_ROUTE_INVENTORY,
+} from './auth-route-inventory.fixture';
 import { AuthService } from './auth.service';
 import { sessionCookieName } from './cookies';
 import type { AuthUser } from './domain/auth-user';
@@ -68,37 +88,99 @@ class DuplicateMetadataController {
   get(): void {}
 }
 
-function collectControllers(rootModule: ControllerType): ControllerType[] {
-  const controllers = new Set<ControllerType>();
-  const visitedModules = new Set<ControllerType>();
+@Public()
+@OptionalSession()
+@Controller('fixture/masked-class-duplicate')
+class MaskedClassDuplicateController {
+  @Get()
+  @Protected()
+  get(): void {}
+}
 
-  function visit(moduleType: ControllerType): void {
-    if (visitedModules.has(moduleType)) {
-      return;
-    }
-    visitedModules.add(moduleType);
+@Controller('fixture/masked-class-invalid')
+class MaskedClassInvalidController {
+  @Get()
+  @Protected()
+  get(): void {}
+}
+Reflect.defineMetadata(
+  PUBLIC_ROUTE_METADATA,
+  'invalid-public-marker',
+  MaskedClassInvalidController,
+);
 
-    const moduleControllers = Reflect.getMetadata(
-      MODULE_METADATA.CONTROLLERS,
-      moduleType,
-    ) as ControllerType[] | undefined;
-    for (const controller of moduleControllers ?? []) {
-      controllers.add(controller);
-    }
+@Controller('fixture/guard-conflict')
+@UseGuards(SessionGuard)
+class GuardConflictController {
+  @Get()
+  @Public()
+  get(): void {}
+}
 
-    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, moduleType) as
-      Array<ControllerType | { module?: ControllerType }> | undefined;
-    for (const imported of imports ?? []) {
-      const importedModule =
-        typeof imported === 'function' ? imported : imported.module;
-      if (importedModule) {
-        visit(importedModule);
-      }
-    }
-  }
+@Public()
+@Controller('fixture/masked-class-guard-conflict')
+@UseGuards(SessionGuard)
+class MaskedClassGuardConflictController {
+  @Get()
+  @Protected()
+  get(): void {}
+}
 
-  visit(rootModule);
-  return [...controllers];
+@Controller('fixture/dynamic')
+class DynamicController {}
+
+@Module({ controllers: [DynamicController] })
+class DynamicFeatureModule {}
+
+@Module({ imports: [forwardRef(() => DynamicFeatureModule)] })
+class ForwardRefRootModule {}
+
+async function discoverRuntimeControllers(): Promise<Type<unknown>[]> {
+  const applicationConfig = new ApplicationConfig();
+  const container = new NestContainer(applicationConfig);
+  const scanner = new DependenciesScanner(
+    container,
+    new MetadataScanner(),
+    new GraphInspector(container),
+    applicationConfig,
+  );
+  await scanner.scan(AppModule);
+
+  return [...container.getModules().values()]
+    .flatMap((module) => [...module.controllers.values()])
+    .map((wrapper) => wrapper.metatype)
+    .filter((controller): controller is Type<unknown> => Boolean(controller));
+}
+
+function collectRuntimeRouteKeys(
+  controllers: readonly Type<unknown>[],
+): string[] {
+  const pathsExplorer = new PathsExplorer(new MetadataScanner());
+
+  return controllers
+    .flatMap((controller) => {
+      const prototype = controller.prototype as unknown as object;
+      const controllerPathMetadata = Reflect.getMetadata(
+        PATH_METADATA,
+        controller,
+      ) as string | string[];
+      const controllerPaths = Array.isArray(controllerPathMetadata)
+        ? controllerPathMetadata
+        : [controllerPathMetadata];
+
+      return pathsExplorer.scanForPaths(prototype, prototype).flatMap((route) =>
+        controllerPaths.flatMap((controllerPath) =>
+          route.path.map((handlerPath) => {
+            const path = ['api/v1', controllerPath, handlerPath]
+              .flatMap((segment) => segment.split('/'))
+              .filter(Boolean)
+              .join('/');
+            return `${RequestMethod[route.requestMethod]} /${path}`;
+          }),
+        ),
+      );
+    })
+    .sort((left, right) => left.localeCompare(right));
 }
 
 describe('authentication route metadata manifest', () => {
@@ -109,10 +191,42 @@ describe('authentication route metadata manifest', () => {
     expect(() =>
       createAuthRouteManifest([DuplicateMetadataController]),
     ).toThrow(/duplicate authentication metadata/i);
+    expect(() =>
+      createAuthRouteManifest([MaskedClassDuplicateController]),
+    ).toThrow(/duplicate authentication metadata.*class/i);
+    expect(() =>
+      createAuthRouteManifest([MaskedClassInvalidController]),
+    ).toThrow(/invalid authentication metadata.*class/i);
+    expect(() => createAuthRouteManifest([GuardConflictController])).toThrow(
+      /conflicting authentication metadata.*sessionguard/i,
+    );
+    expect(() =>
+      createAuthRouteManifest([MaskedClassGuardConflictController]),
+    ).toThrow(/conflicting authentication metadata.*class/i);
   });
 
-  it('classifies every discovered route', () => {
-    const manifest = createAuthRouteManifest(collectControllers(AppModule));
+  it('fails closed on unsupported module import shapes', () => {
+    const unsupportedImport = Promise.resolve({
+      module: DynamicFeatureModule,
+    } satisfies DynamicModule);
+
+    @Module({ imports: [unsupportedImport] })
+    class UnsupportedRootModule {}
+
+    expect(() => discoverModuleControllers(UnsupportedRootModule)).toThrow(
+      /unsupported nest module import.*promise/i,
+    );
+  });
+
+  it('discovers forward references deterministically', () => {
+    expect(discoverModuleControllers(ForwardRefRootModule)).toEqual([
+      DynamicController,
+    ]);
+  });
+
+  it('classifies every discovered route and locks the complete inventory', async () => {
+    const controllers = discoverAppModuleControllers();
+    const manifest = createAuthRouteManifest(controllers);
     const routesByAccess = {
       [AUTH_ROUTE_ACCESS.PUBLIC]: manifest.filter(
         (route) => route.access === AUTH_ROUTE_ACCESS.PUBLIC,
@@ -125,6 +239,12 @@ describe('authentication route metadata manifest', () => {
       ),
     };
 
+    expect(controllers.map((controller) => controller.name)).toEqual(
+      EXPECTED_APP_CONTROLLER_NAMES,
+    );
+    expect(
+      manifest.map(({ access, method, path }) => `${access} ${method} ${path}`),
+    ).toEqual(EXPECTED_AUTH_ROUTE_INVENTORY);
     expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toEqual([
       { method: 'GET', path: '/api/v1/auth/github', access: 'PUBLIC' },
       {
@@ -136,11 +256,6 @@ describe('authentication route metadata manifest', () => {
       {
         method: 'GET',
         path: '/api/v1/programs/:id',
-        access: 'PUBLIC',
-      },
-      {
-        method: 'GET',
-        path: '/api/v1/programs/:programId/overview/teams',
         access: 'PUBLIC',
       },
       {
@@ -189,10 +304,23 @@ describe('authentication route metadata manifest', () => {
         access: 'OPTIONAL_SESSION',
       },
     ]);
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).not.toHaveLength(0);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(105);
+    expect(manifest).toHaveLength(120);
     expect(
       new Set(manifest.map(({ method, path }) => `${method} ${path}`)).size,
     ).toBe(manifest.length);
+
+    const runtimeControllers = await discoverRuntimeControllers();
+
+    expect(
+      runtimeControllers
+        .map((controller) => controller.name)
+        .sort((left, right) => left.localeCompare(right)),
+    ).toEqual(controllers.map((controller) => controller.name));
+
+    expect(collectRuntimeRouteKeys(runtimeControllers)).toEqual(
+      manifest.map(({ method, path }) => `${method} ${path}`),
+    );
   });
 
   describe('preserves current status matrix', () => {
@@ -231,6 +359,7 @@ describe('authentication route metadata manifest', () => {
           AuthController,
           HealthController,
           ProgramsController,
+          ProgramOverviewController,
           RankingController,
         ],
         providers: [
@@ -301,6 +430,13 @@ describe('authentication route metadata manifest', () => {
             provide: ProgramLifecycleService,
             useValue: { delete: jest.fn(), purge: jest.fn() },
           },
+          {
+            provide: ProgramOverviewService,
+            useValue: {
+              getOverview: jest.fn().mockResolvedValue({}),
+              getPublicTeams: jest.fn().mockResolvedValue([]),
+            },
+          },
         ],
       }).compile();
 
@@ -343,6 +479,7 @@ describe('authentication route metadata manifest', () => {
       ['/api/v1/programs', 200, 200],
       ['/api/v1/programs/status-counts', 200, 200],
       ['/api/v1/programs/synthetic-program', 200, 200],
+      ['/api/v1/programs/synthetic-program/overview/teams', 401, 200],
       ['/api/v1/ranking', 200, 200],
       ['/api/v1/ranking/years', 200, 200],
       ['/api/v1/auth/session', 200, 200],

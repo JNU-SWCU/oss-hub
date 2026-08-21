@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, TeamInvitationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
+import {
   acceptTeamInvitationTransaction,
   type AcceptInvitationOnOk,
   type AcceptInvitationOutcome,
@@ -109,7 +113,9 @@ export class TeamInvitationsRepository {
             _count: { select: { members: true } },
           },
         },
-        invitedBy: { select: { nickname: true, name: true } },
+        invitedBy: {
+          select: { nickname: true, ...COMPATIBLE_PROFILE_NAME_SELECT },
+        },
       },
     });
 
@@ -127,7 +133,8 @@ export class TeamInvitationsRepository {
       // 팀 초대 화면이 후보를 그리는 규칙과 같다 — 실명이 있으면 실명, 없으면
       // GitHub handle. `nickname`은 non-null이라 빈 문자열로 떨어지지 않는다.
       invitedByDisplayName:
-        invitation.invitedBy.name?.trim() || invitation.invitedBy.nickname,
+        resolveCompatibleProfileName(invitation.invitedBy)?.trim() ||
+        invitation.invitedBy.nickname,
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
     }));

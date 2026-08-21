@@ -74,7 +74,14 @@ function controllerRoutes(
   globalPrefix: string,
 ): AuthRouteManifestEntry[] {
   const controllerPaths = metadataPaths(controller) ?? [''];
-  const classAccess = ownAccessMetadata(controller);
+  const classLocation = `${controller.name} class`;
+  const classAccess = requireValidAccessMetadata(controller, classLocation);
+  const classHasSessionGuard = hasSessionGuard(controller);
+  requireConsistentSessionGuard(
+    classAccess,
+    classHasSessionGuard,
+    classLocation,
+  );
   const prototype = controller.prototype as Record<string, unknown>;
 
   return Object.getOwnPropertyNames(prototype).flatMap((propertyName) => {
@@ -91,17 +98,31 @@ function controllerRoutes(
       return [];
     }
 
-    const handlerAccess = ownAccessMetadata(handler);
+    const handlerLocation = `${controller.name}.${propertyName} handler`;
+    const handlerAccess = requireValidAccessMetadata(handler, handlerLocation);
+    const handlerHasSessionGuard = hasSessionGuard(handler);
+    requireConsistentSessionGuard(
+      handlerAccess,
+      handlerHasSessionGuard,
+      handlerLocation,
+    );
     const declaredAccess =
       handlerAccess.length > 0 ? handlerAccess : classAccess;
-    const effectiveAccess =
-      declaredAccess.length > 0
-        ? declaredAccess
-        : sessionGuardAccess(controller, handler);
+    const hasEffectiveSessionGuard =
+      classHasSessionGuard || handlerHasSessionGuard;
+    let effectiveAccess = declaredAccess;
+    if (effectiveAccess.length === 0 && hasEffectiveSessionGuard) {
+      effectiveAccess = [AUTH_ROUTE_ACCESS.PROTECTED];
+    }
     const access = requireSingleAccessMetadata(
       effectiveAccess,
       `${controller.name}.${propertyName}`,
     );
+    if (hasEffectiveSessionGuard && access !== AUTH_ROUTE_ACCESS.PROTECTED) {
+      throw new Error(
+        `Conflicting authentication metadata and SessionGuard: ${controller.name}.${propertyName}`,
+      );
+    }
     const handlerPaths = metadataPaths(handler) ?? [''];
 
     return controllerPaths.flatMap((controllerPath) =>
@@ -114,12 +135,8 @@ function controllerRoutes(
   });
 }
 
-function sessionGuardAccess(
-  controller: ControllerType,
-  handler: object,
-): AuthRouteAccess[] {
-  const guards = [...metadataGuards(controller), ...metadataGuards(handler)];
-  return guards.includes(SessionGuard) ? [AUTH_ROUTE_ACCESS.PROTECTED] : [];
+function hasSessionGuard(target: object): boolean {
+  return metadataGuards(target).includes(SessionGuard);
 }
 
 function metadataGuards(target: object): unknown[] {
@@ -129,10 +146,41 @@ function metadataGuards(target: object): unknown[] {
   );
 }
 
-function ownAccessMetadata(target: object): AuthRouteAccess[] {
-  return ACCESS_METADATA.filter(({ key }) =>
-    Reflect.getOwnMetadata(key, target),
-  ).map(({ access }) => access);
+function requireValidAccessMetadata(
+  target: object,
+  location: string,
+): AuthRouteAccess[] {
+  const accesses: AuthRouteAccess[] = [];
+  for (const { access, key } of ACCESS_METADATA) {
+    if (!Reflect.hasOwnMetadata(key, target)) {
+      continue;
+    }
+    if (Reflect.getOwnMetadata(key, target) !== true) {
+      throw new Error(`Invalid authentication metadata: ${location}`);
+    }
+    accesses.push(access);
+  }
+  if (accesses.length > 1) {
+    throw new Error(`Duplicate authentication metadata: ${location}`);
+  }
+  return accesses;
+}
+
+function requireConsistentSessionGuard(
+  accesses: readonly AuthRouteAccess[],
+  hasGuard: boolean,
+  location: string,
+): void {
+  const [access] = accesses;
+  if (
+    hasGuard &&
+    access !== undefined &&
+    access !== AUTH_ROUTE_ACCESS.PROTECTED
+  ) {
+    throw new Error(
+      `Conflicting authentication metadata and SessionGuard: ${location}`,
+    );
+  }
 }
 
 function requireSingleAccessMetadata(

@@ -31,11 +31,14 @@ const PENDING_A_ID = `${TEST_PREFIX}pending-a`;
 const PENDING_B_ID = `${TEST_PREFIX}pending-b`;
 const DECLINED_A_ID = `${TEST_PREFIX}declined-a`;
 const NAMED_LEADER_ID = `${TEST_PREFIX}named-leader`;
+const LEGACY_LEADER_ID = `${TEST_PREFIX}legacy-leader`;
 const HANDLE_ONLY_LEADER_ID = `${TEST_PREFIX}handle-only-leader`;
 const MEMBER_ID = `${TEST_PREFIX}member`;
 const INVITEE_ID = `${TEST_PREFIX}invitee`;
 
-const NAMED_LEADER_REAL_NAME = '김초대';
+const NAMED_LEADER_FALLBACK_NAME = '예전 초대자';
+const NAMED_LEADER_PROFILE_NAME = '김초대';
+const LEGACY_LEADER_NAME = '레거시 초대자';
 const HANDLE_ONLY_LEADER_HANDLE = 'summary-handle-only-leader';
 const TEAM_A_NAME = '요약 대상 팀';
 const TEAM_B_NAME = '다른 프로그램 팀';
@@ -84,7 +87,13 @@ async function seed(): Promise<void> {
         id: NAMED_LEADER_ID,
         githubId: 9_200_000_001n,
         nickname: 'summary-named-leader',
-        name: NAMED_LEADER_REAL_NAME,
+        name: NAMED_LEADER_FALLBACK_NAME,
+      },
+      {
+        id: LEGACY_LEADER_ID,
+        githubId: 9_200_000_005n,
+        nickname: 'summary-legacy-leader',
+        name: LEGACY_LEADER_NAME,
       },
       {
         id: HANDLE_ONLY_LEADER_ID,
@@ -94,6 +103,14 @@ async function seed(): Promise<void> {
       { id: MEMBER_ID, githubId: 9_200_000_003n, nickname: 'summary-member' },
       { id: INVITEE_ID, githubId: 9_200_000_004n, nickname: 'summary-invitee' },
     ],
+  });
+  await prisma.userProfile.create({
+    data: {
+      userId: NAMED_LEADER_ID,
+      name: NAMED_LEADER_PROFILE_NAME,
+      studentId: '920001',
+      department: 'Synthetic department',
+    },
   });
   await prisma.program.createMany({
     data: [
@@ -139,7 +156,7 @@ async function seed(): Promise<void> {
         teamId: TEAM_A_ID,
         programId: PROGRAM_A_ID,
         inviteeId: INVITEE_ID,
-        invitedById: NAMED_LEADER_ID,
+        invitedById: LEGACY_LEADER_ID,
         status: TeamInvitationStatus.DECLINED,
         invitedAt: new Date('2026-08-01T00:00:00.000Z'),
         respondedAt: new Date('2026-08-02T00:00:00.000Z'),
@@ -195,7 +212,7 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
       programId: PROGRAM_A_ID,
       teamName: TEAM_A_NAME,
       programName: PROGRAM_A_NAME,
-      invitedByDisplayName: NAMED_LEADER_REAL_NAME,
+      invitedByDisplayName: NAMED_LEADER_PROFILE_NAME,
       memberCount: 2,
       teamMaxSize: 4,
     });
@@ -204,6 +221,17 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
         where: { userId: INVITEE_ID },
       }),
     ).resolves.toBe(0);
+  });
+
+  it('falls back to the legacy name only when the inviter has no profile', async () => {
+    // When
+    const invitations = await repository.findByInviteeId(INVITEE_ID);
+    const legacyInvitation = invitations.find(
+      (invitation) => invitation.id === DECLINED_A_ID,
+    );
+
+    // Then
+    expect(legacyInvitation?.invitedByDisplayName).toBe(LEGACY_LEADER_NAME);
   });
 
   it('reads capacity per team rather than reusing the first team', async () => {

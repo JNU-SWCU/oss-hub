@@ -124,6 +124,30 @@
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3/browser-session-transition.json`, `authenticated-shell.png`, `generic-401-session-transition.png`, `expired-session-transition.png`, `inactive-session-transition.png`, `server-error-session-transition.png`
 - 결과: 겹친 세션 갱신은 최신 세대만 게시하며, 구독 기반 결정론 테스트와 합성 Chrome 인증·401·만료·비활성·서버 오류 전환을 검증 완료
 
+## 2026-08-21 — 인증 라우트 manifest 보안 감사를 교정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #970 후속)
+- blocker: 없음
+- 검증: AppModule 45개 controller·120개 route 전체 인벤토리와 Nest runtime graph를 대조하고, overview teams 익명 401·인증 200 및 전체 품질 행렬을 고정
+- simplifier: 공식 code-simplifier 1.0.0 Codex pass, 5개 코드 allowlist 밖 수정 0건
+## 2026-08-21 — 받은 팀 초대 프로필 호환 조회를 복구
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 검증: 받은 초대 canonical/legacy/nickname 표시와 후보 검색·게시판 목록/상세/댓글을 격리 PostgreSQL에서 검증
+- simplifier: 공식 code-simplifier 1.0.0 Codex pre/post 검증, 변경 파일 allowlist 밖 수정 0건
+## 2026-08-21 — 최신 main과 초점 검증 follow-up 병합
+
+- 상태: review
+- Issue: #973
+- PR: #975
+- blocker: 없음
+- 결과: origin/main 97a1f60c를 정상 merge하고 #974의 제품 초점 수정과 #975의 fixture bootstrap·Chrome 검증을 함께 보존
+
 ## 2026-08-21 — 스태프 인사이트 필터 키보드 초점 표시를 복구
 
 - 상태: review
