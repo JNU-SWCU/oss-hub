@@ -33,7 +33,7 @@ export class SessionGuard implements CanActivate {
       );
     }
     const principal = await this.authService.getMe(githubId);
-    attachAuthenticatedPrincipal(request, principal);
+    attachAuthenticatedPrincipal(request, principal, githubId);
     return true;
   }
 }

@@ -48,6 +48,7 @@ export function attachAnonymousAuth(
 export function attachAuthenticatedPrincipal(
   request: Request,
   principal: ActiveAccountPrincipal,
+  verifiedGithubId: bigint,
 ): void {
   Object.assign(request, {
     auth: {
@@ -56,6 +57,6 @@ export function attachAuthenticatedPrincipal(
       principal,
     },
     principal,
-    sessionGithubId: principal.githubId,
+    sessionGithubId: verifiedGithubId,
   });
 }

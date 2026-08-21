@@ -60,7 +60,7 @@ export class AuthenticationGuard implements CanActivate {
         attachAnonymousAuth(request, hasSessionCookie);
         return true;
       }
-      attachAuthenticatedPrincipal(request, principal);
+      attachAuthenticatedPrincipal(request, principal, githubId);
       return true;
     }
 
@@ -70,7 +70,7 @@ export class AuthenticationGuard implements CanActivate {
       );
     }
     const principal = await this.authService.getMe(githubId);
-    attachAuthenticatedPrincipal(request, principal);
+    attachAuthenticatedPrincipal(request, principal, githubId);
     return true;
   }
 }
