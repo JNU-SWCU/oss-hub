@@ -592,6 +592,55 @@ docker build \
       }
     }
 
+    stage('회원 권한 backfill') {
+      when {
+        expression { env.DEPLOY_NOOP != 'true' }
+      }
+      steps {
+        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+backfill_tmp="$(mktemp -d "${TMPDIR:-/tmp}/member-authority-backfill.XXXXXX")"
+trap 'rm -rf "$backfill_tmp"' EXIT
+
+docker run --rm \
+  --network "${COMPOSE_PROJECT_NAME}_default" \
+  --env-file "$OSS_HUB_ENV_FILE" \
+  "oss-hub-backend:${IMAGE_TAG}" \
+  node scripts/prisma-migration-ledger.mjs prisma/migrations \
+  >"$backfill_tmp/ledger.json"
+
+docker run --rm \
+  --network "${COMPOSE_PROJECT_NAME}_default" \
+  --env-file "$OSS_HUB_ENV_FILE" \
+  "oss-hub-backend:${IMAGE_TAG}" \
+  node dist/prisma/member-authority-backfill.js --status-production --evidence - \
+  >"$backfill_tmp/baseline.json"
+
+docker run --rm \
+  --network "${COMPOSE_PROJECT_NAME}_default" \
+  --env-file "$OSS_HUB_ENV_FILE" \
+  "oss-hub-backend:${IMAGE_TAG}" \
+  node dist/prisma/member-authority-backfill.js --apply-production --evidence - \
+  >"$backfill_tmp/apply.json"
+
+docker run --rm \
+  --network "${COMPOSE_PROJECT_NAME}_default" \
+  --env-file "$OSS_HUB_ENV_FILE" \
+  "oss-hub-backend:${IMAGE_TAG}" \
+  node dist/prisma/member-authority-backfill.js --status-production --evidence - \
+  >"$backfill_tmp/post.json"
+
+node scripts/jenkins/verify-member-authority-backfill.mjs \
+  "$backfill_tmp/ledger.json" \
+  "$backfill_tmp/baseline.json" \
+  "$backfill_tmp/apply.json" \
+  "$backfill_tmp/post.json"
+'''
+        }
+      }
+    }
+
     stage('서비스 교체 및 스모크 확인') {
       when {
         expression { env.DEPLOY_NOOP != 'true' }

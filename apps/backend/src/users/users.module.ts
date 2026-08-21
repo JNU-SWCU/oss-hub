@@ -13,6 +13,9 @@ import { AccountDeactivationService } from './account-deactivation.service';
 import { IndependentAuthorityController } from './independent-authority.controller';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
+import { LegacyMemberReclassificationController } from './legacy-member-reclassification.controller';
+import { LegacyMemberReclassificationRepository } from './legacy-member-reclassification.repository';
+import { LegacyMemberReclassificationService } from './legacy-member-reclassification.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
@@ -25,6 +28,7 @@ import { UsersService } from './users.service';
   controllers: [
     AccountDeactivationController,
     UsersController,
+    LegacyMemberReclassificationController,
     AdminAccessController,
     IndependentAuthorityController,
   ],
@@ -35,6 +39,8 @@ import { UsersService } from './users.service';
     AdminAccessService,
     IndependentAuthorityRepository,
     IndependentAuthorityService,
+    LegacyMemberReclassificationRepository,
+    LegacyMemberReclassificationService,
     AdminProfileRepository,
     AdminProfileService,
     UsersRepository,

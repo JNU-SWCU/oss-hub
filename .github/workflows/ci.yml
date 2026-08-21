@@ -59,6 +59,11 @@ jobs:
               - 'scripts/prisma-migration-ledger.mjs'
               - 'scripts/member-authority-expand-contract.mjs'
               - 'scripts/rehearse-member-authority-migrations*'
+              - 'scripts/check-member-authority-production*'
+              - 'scripts/member-authority-production-report.mjs'
+              - 'scripts/member-authority-jenkins-contract.test.mjs'
+              - 'scripts/ci-path-contract.test.mjs'
+              - 'scripts/jenkins/verify-member-authority-backfill*'
               - '.github/workflows/**'
             nginx:
               - 'deploy/nginx/**'
@@ -87,6 +92,11 @@ jobs:
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - 'scripts/check-jenkinsfile.test.mjs'
+              - 'scripts/check-member-authority-production*'
+              - 'scripts/member-authority-production-report.mjs'
+              - 'scripts/member-authority-jenkins-contract.test.mjs'
+              - 'scripts/ci-path-contract.test.mjs'
+              - 'scripts/jenkins/verify-member-authority-backfill*'
               - 'scripts/prune-deploy-backups.sh'
               - 'scripts/prune-deploy-backups.test.sh'
               - '.github/workflows/**'
@@ -131,6 +141,9 @@ jobs:
 
       - name: TEAM-STATE drift 검사기 단위테스트
         run: node --test scripts/team-state-check.test.mjs
+
+      - name: CI path 계약 검사
+        run: node --test scripts/ci-path-contract.test.mjs
 
       # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
       # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
@@ -182,6 +195,7 @@ jobs:
         if: ${{ steps.scope.outputs.jenkins == 'true' }}
         run: |
           node --test scripts/jenkins/validate-github-app-credentials.test.mjs
+          node --test scripts/check-member-authority-production.test.mjs scripts/jenkins/verify-member-authority-backfill.test.mjs scripts/member-authority-jenkins-contract.test.mjs
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh

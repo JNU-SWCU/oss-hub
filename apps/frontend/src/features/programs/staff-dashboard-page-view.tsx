@@ -97,6 +97,7 @@ function StaffDashboardReadyState({
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
       <PageHeader
+        className="break-keep [overflow-wrap:anywhere]"
         title="운영 대시보드"
         description="프로그램 행에서 바로 편집하거나 운영 현황을 확인합니다."
         actions={
@@ -114,6 +115,7 @@ function StaffDashboardReadyState({
       />
       {model.isEmptyCatalog ? (
         <EmptyState
+          className="break-keep [overflow-wrap:anywhere]"
           title="등록된 프로그램이 없습니다"
           description="프로그램을 만들면 운영 현황이 여기에 표시됩니다."
           action={

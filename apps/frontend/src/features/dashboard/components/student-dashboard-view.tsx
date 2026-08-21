@@ -100,6 +100,7 @@ export function StudentDashboardView({
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
+        className="break-keep [overflow-wrap:anywhere]"
         title="내 대시보드"
         description="신청한 프로그램과 다음 제출 일정을 확인합니다."
       />
@@ -162,9 +163,10 @@ export function StudentDashboardView({
         </CardGrid>
       ) : (
         <EmptyState
+          className="break-keep [overflow-wrap:anywhere]"
           icon={<FolderOpen className="size-8" />}
           title="아직 신청한 프로그램이 없습니다"
-          description="참여할 프로그램을 둘러보고 첫 신청을 시작해 보세요."
+          description="참여할 프로그램을 둘러보고 첫 신청을 시작해 보세요."
           action={
             <Button asChild className="min-h-10 px-3">
               <Link href="/programs">프로그램 둘러보기</Link>

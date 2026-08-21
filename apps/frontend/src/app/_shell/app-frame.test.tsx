@@ -42,6 +42,9 @@ function render(
   session: {
     status: 'loading' | 'anonymous' | 'unassigned' | 'assigned' | 'error';
     role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
+    memberKind?: 'STUDENT' | 'STAFF' | null;
+    hasStaffAccess?: boolean;
+    hasAdminAccess?: boolean;
     isProfileComplete: boolean;
   } = {
     status: 'assigned',
@@ -54,11 +57,19 @@ function render(
     status: session.status,
     role: session.role,
     memberKind:
-      session.role === 'STUDENT' || session.role === 'STAFF'
-        ? session.role
-        : null,
-    hasStaffAccess: session.role === 'STAFF',
-    hasAdminAccess: session.role === 'ADMIN',
+      session.memberKind === undefined
+        ? session.role === 'STUDENT' || session.role === 'STAFF'
+          ? session.role
+          : null
+        : session.memberKind,
+    hasStaffAccess:
+      session.hasStaffAccess === undefined
+        ? session.role === 'STAFF'
+        : session.hasStaffAccess,
+    hasAdminAccess:
+      session.hasAdminAccess === undefined
+        ? session.role === 'ADMIN'
+        : session.hasAdminAccess,
     roleRequestStatus: null,
     roleRequestRejectionReason: null,
     selectedRole: null,
@@ -142,6 +153,9 @@ describe('AppFrame', () => {
     const html = render('/dashboard', {
       status: 'assigned',
       role: 'ADMIN',
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: true,
       isProfileComplete: true,
     });
     const navItemsList =
@@ -170,6 +184,9 @@ describe('AppFrame', () => {
     const html = render('/dashboard', {
       status: 'assigned',
       role: 'ADMIN',
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: true,
       isProfileComplete: true,
     });
     // 대시보드(공통) 항목만 있어야 한다 — role 메뉴는 더 이상 상단 nav에 섞이지 않는다.
@@ -190,6 +207,25 @@ describe('AppFrame', () => {
     expect(html).toContain(
       'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
     );
+  });
+
+  it('legacy ADMIN with unresolved member kind is forced into reclassification', () => {
+    // Given
+    const session = {
+      status: 'assigned' as const,
+      role: 'ADMIN' as const,
+      memberKind: null,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+      isProfileComplete: true,
+    };
+
+    // When
+    const html = render('/dashboard', session);
+
+    // Then
+    expect(html).toContain('data-slot="legacy-member-reclassification"');
+    expect(html).not.toContain('<p>본문</p>');
   });
 
   it('회원 셸은 뷰포트를 고정하고 본문만 스크롤한다', () => {
