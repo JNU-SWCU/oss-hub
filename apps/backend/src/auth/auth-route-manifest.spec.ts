@@ -28,6 +28,9 @@ import { AUTH_ROUTE_ACCESS } from './auth-route-metadata';
 import {
   EXPECTED_APP_CONTROLLER_NAMES,
   EXPECTED_AUTH_ROUTE_INVENTORY,
+  EXPECTED_INDEPENDENT_AUTHORITY_PROTECTED_ROUTES,
+  EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES,
+  EXPECTED_PUBLIC_AUTH_ROUTES,
 } from './auth-route-inventory.fixture';
 import { createAuthRouteManifest } from './auth-route-manifest';
 
@@ -109,70 +112,27 @@ describe('authentication route metadata manifest', () => {
     expect(
       manifest.map(({ access, method, path }) => `${access} ${method} ${path}`),
     ).toEqual(EXPECTED_AUTH_ROUTE_INVENTORY);
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toEqual([
-      { method: 'GET', path: '/api/v1/auth/github', access: 'PUBLIC' },
-      {
-        method: 'GET',
-        path: '/api/v1/auth/github/callback',
-        access: 'PUBLIC',
-      },
-      { method: 'GET', path: '/api/v1/health', access: 'PUBLIC' },
-      { method: 'GET', path: '/api/v1/programs/:id', access: 'PUBLIC' },
-      {
-        method: 'GET',
-        path: '/api/v1/programs/:programId/overview/teams',
-        access: 'PUBLIC',
-      },
-      {
-        method: 'GET',
-        path: '/api/v1/programs/application-templates',
-        access: 'PUBLIC',
-      },
-      {
-        method: 'GET',
-        path: '/api/v1/programs/status-counts',
-        access: 'PUBLIC',
-      },
-      { method: 'GET', path: '/api/v1/projects', access: 'PUBLIC' },
-      {
-        method: 'GET',
-        path: '/api/v1/projects/:projectId',
-        access: 'PUBLIC',
-      },
-      {
-        method: 'GET',
-        path: '/api/v1/projects/category-counts',
-        access: 'PUBLIC',
-      },
-      { method: 'GET', path: '/api/v1/ranking/years', access: 'PUBLIC' },
-      {
-        method: 'GET',
-        path: '/api/v1/users/:userId/public-profile',
-        access: 'PUBLIC',
-      },
-      { method: 'POST', path: '/api/v1/auth/logout', access: 'PUBLIC' },
-    ]);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toEqual(
+      EXPECTED_PUBLIC_AUTH_ROUTES,
+    );
     expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toHaveLength(13);
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toEqual([
-      {
-        method: 'GET',
-        path: '/api/v1/auth/session',
-        access: 'OPTIONAL_SESSION',
-      },
-      {
-        method: 'GET',
-        path: '/api/v1/programs',
-        access: 'OPTIONAL_SESSION',
-      },
-      {
-        method: 'GET',
-        path: '/api/v1/ranking',
-        access: 'OPTIONAL_SESSION',
-      },
-    ]);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toEqual(
+      EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES,
+    );
     expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(3);
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(103);
-    expect(manifest).toHaveLength(119);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(105);
+    expect(manifest).toHaveLength(121);
+    expect(
+      manifest.filter(
+        ({ method, path }) =>
+          (method === 'GET' && path === '/api/v1/users/:id/access') ||
+          (method === 'PATCH' &&
+            [
+              '/api/v1/users/:id/admin-access',
+              '/api/v1/users/:id/staff-access',
+            ].includes(path)),
+      ),
+    ).toEqual(EXPECTED_INDEPENDENT_AUTHORITY_PROTECTED_ROUTES);
     expect(
       new Set(manifest.map(({ method, path }) => `${method} ${path}`)).size,
     ).toBe(manifest.length);

@@ -398,3 +398,13 @@
 - 결과: 관리자 상세에 canonical 회원·권한을 노출하고 staff/admin grant·revoke를 별도 typed command와 HTTP route로 분리해 다른 권한과 회원 유형을 보존
 - 검증: 신규 controller/service/repository/transition/HTTP 7 suites/26 tests, Task 8 권한 행렬 11 suites/58 tests, backend lint·typecheck·format
 - simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e` 단일 실행, 20파일 allowlist 밖 최종 변경 0건
+
+## 2026-08-22 — 독립 권한 API를 인증 manifest에 고정
+
+- 상태: review
+- Issue: #969
+- PR: #996
+- blocker: 없음
+- 결과: IndependentAuthorityController와 GET access·PATCH staff/admin access의 PROTECTED 분류를 전체 inventory·runtime route 대조에 추가하고 익명 401·인증 계약을 고정
+- 검증: auth manifest happy/failure/inheritance 2 suites/20 tests, 독립 권한 API 8 suites/30 tests
+- simplifier: 기존 corrective allowlist 밖 신규 3파일만 source `0fc2bb13a805969c14b0fe9398bad41db346d84e` plugin 1.0.0으로 조건부 단일 실행
