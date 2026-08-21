@@ -166,6 +166,19 @@ describe('AuthService', () => {
     expect(upsertUser).not.toHaveBeenCalled();
   });
 
+  it('getMe는 DB의 현재 active 계정·권한을 principal로 반환한다', async () => {
+    // Given: DB 조회가 현재 STAFF 권한의 active 계정을 반환한다.
+    const staffUser: AuthUser = { ...syntheticUser, role: Role.STAFF };
+    findByGithubId.mockResolvedValueOnce(staffUser);
+
+    // When: HTTP 인증 경계가 principal을 요청한다.
+    const principal = await service.getMe(staffUser.githubId);
+
+    // Then: 토큰이 아니라 DB의 현재 계정·권한이 보존된다.
+    expect(principal).toEqual(staffUser);
+    expect(principal.accountStatus).toBe(AccountStatus.ACTIVE);
+  });
+
   it('getMe: 사용자 없으면 AUT_003', async () => {
     findByGithubId.mockResolvedValueOnce(null);
     await expect(service.getMe(1n)).rejects.toBeInstanceOf(DomainException);

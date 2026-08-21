@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
+import { AuthenticationGuard } from '../src/auth/authentication.guard';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthController } from '../src/auth/auth.controller';
 import { AuthService } from '../src/auth/auth.service';
@@ -82,6 +83,7 @@ export class AuthRouteStatusHarness {
         flowCookieValue: 'synthetic-flow-cookie',
         url: 'https://github.example/login',
       }),
+      findActivePrincipal: jest.fn().mockResolvedValue(syntheticUser),
       findMe: jest.fn().mockResolvedValue(syntheticUser),
       getMe: jest.fn().mockResolvedValue(syntheticUser),
     };
@@ -111,6 +113,7 @@ export class AuthRouteStatusHarness {
         RankingController,
       ],
       providers: [
+        AuthenticationGuard,
         SessionGuard,
         OriginGuard,
         { provide: AuthService, useValue: authService },
@@ -180,6 +183,7 @@ export class AuthRouteStatusHarness {
     }).compile();
 
     this.application = moduleRef.createNestApplication();
+    this.application.useGlobalGuards(moduleRef.get(AuthenticationGuard));
     this.application.setGlobalPrefix('api/v1');
     this.application.useGlobalPipes(
       new ValidationPipe({
