@@ -64,7 +64,7 @@ function deferred<T>(): {
 
 function nextSessionSnapshot(
   status: ReturnType<typeof getSessionSnapshot>['status'],
-) {
+): Promise<ReturnType<typeof getSessionSnapshot>> {
   return new Promise<ReturnType<typeof getSessionSnapshot>>(
     (resolve, reject) => {
       const timeout = setTimeout(() => {
