@@ -164,6 +164,14 @@
 - blocker: 없음
 - 검증: Nest 상속·override runtime 대조, 45개 controller·120개 route 인벤토리, 11-route HTTP 매트릭스와 전체 품질 행렬 통과
 - simplifier: 공식 code-simplifier 1.0.0 Codex PASS, 6개 코드 allowlist 밖 수정 0건
+## 2026-08-21 — Task 1 fixture 반환 타입을 명시
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #971·#976 교정)
+- blocker: 없음
+- 검증: backend lint·typecheck·unit·build, 정확한 2 suites/6 tests 통합 패턴, forbidden-field·public strict-read·public-safe 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit PASS, 9개 hand-written allowlist 밖 변경 0건
 ## 2026-08-21 — 프런트 세션 신청 경계 타입을 명시
 
 - 상태: review
@@ -209,3 +217,20 @@
 - 결과: 상속 handler 탐색과 locale 비의존 순서를 고정하고 기존 인증 상태 행렬을 보존
 - 검증: Task 2 초점·전체 backend CI·격리 PostgreSQL·실제 Nest HTTP QA
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-2/`
+## 2026-08-21 — Task 1 fixture 타입 교정을 최종 검증
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #971·#976 교정)
+- blocker: 없음
+- 결과: 최신 main 동기화, 정확한 PostgreSQL 2 suites/6 tests와 공개 strict-read, 전체 backend 품질·public-safe 검증 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit 실행, 최종 변경 allowlist 밖 수정 0건
+
+## 2026-08-21 — Task 1 simplifier 증거를 교정
+
+- 상태: review
+- Issue: #969
+- PR: #982
+- blocker: 없음
+- 교정: 앞선 9개 파일 allowlist simplifier 시도는 `SIMPLIFIER_FAIL`이었고, 이후 2개 파일 corrective allowlist는 pinned code-simplifier 1.0.0 검증을 통과
+- 범위: 기존 저널은 수정하지 않고 현재 EOF에 교정 항목만 추가
