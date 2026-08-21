@@ -38,6 +38,52 @@ test.describe('staff insights comparison UX', () => {
     }
   });
 
+  test('shows keyboard-only focus indicators without mouse emphasis', async ({
+    page,
+  }) => {
+    for (const [name, width] of [
+      ['desktop', 1440],
+      ['mobile', 375],
+    ] as const) {
+      await page.setViewportSize({ width, height: 1000 });
+      await openFixture(page, 'insights-long');
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%';
+      });
+
+      for (const label of ['전공·비전공', '학과'] as const) {
+        const button = page.getByRole('button', { name: label });
+        await button.click();
+        await page.evaluate(() => {
+          (document.activeElement as HTMLElement | null)?.blur();
+        });
+        const mouseFocusVisible = await button.evaluate((element) =>
+          element.matches(':focus-visible'),
+        );
+        await button.focus();
+        await expect
+          .poll(() =>
+            button.evaluate((element) => {
+              const style = getComputedStyle(element);
+              const hasVisibleOutline =
+                style.outlineWidth !== '0px' &&
+                style.outlineColor !== 'rgba(0, 0, 0, 0)';
+              const hasVisibleShadow = style.boxShadow !== 'none';
+              return {
+                visible: hasVisibleOutline || hasVisibleShadow,
+              };
+            }),
+          )
+          .toMatchObject({ visible: true });
+        expect(mouseFocusVisible).toBe(false);
+      }
+      await page.screenshot({
+        path: `.omo/evidence/focus-visible-fix/${name}-200-focus-visible.png`,
+        fullPage: true,
+      });
+    }
+  });
+
   test('renders all-zero state without divide-by-zero output', async ({
     page,
   }) => {

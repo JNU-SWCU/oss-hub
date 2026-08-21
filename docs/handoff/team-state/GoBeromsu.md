@@ -132,3 +132,18 @@
 - blocker: 없음
 - 검증: AppModule 45개 controller·120개 route 전체 인벤토리와 Nest runtime graph를 대조하고, overview teams 익명 401·인증 200 및 전체 품질 행렬을 고정
 - simplifier: 공식 code-simplifier 1.0.0 Codex pass, 5개 코드 allowlist 밖 수정 0건
+## 2026-08-21 — 최신 main과 초점 검증 follow-up 병합
+
+- 상태: review
+- Issue: #973
+- PR: #975
+- blocker: 없음
+- 결과: origin/main 97a1f60c를 정상 merge하고 #974의 제품 초점 수정과 #975의 fixture bootstrap·Chrome 검증을 함께 보존
+
+## 2026-08-21 — 스태프 인사이트 필터 키보드 초점 표시를 복구
+
+- 상태: review
+- Issue: #973
+- PR: 생성 예정
+- blocker: 기존 local-review `insights-long` fixture가 현재 브랜치에서 404라 Chrome 회귀 스펙은 fixture 라우팅에서 중단됨
+- 검증: focused Vitest 2949 passed, typecheck passed, lint passed (기존 경고 5건)
