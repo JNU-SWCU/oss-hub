@@ -156,6 +156,21 @@ export const STAFF_INSIGHTS_FIXTURE: StaffInsightsSummary = {
   ],
 };
 
+const LONG_PROGRAM_NAMES = [
+  '프로그램 1 — 전공·비전공 오픈소스 협업 기초 과정',
+  '프로그램 2 — 지역 문제 해결형 공개 소프트웨어 실습',
+  '프로그램 3 — 학과 연합 GitHub 프로젝트 집중 과정',
+  '프로그램 4 — 오픈소스 기여자 성장 지원 프로그램',
+  '프로그램 5 — 산학 협력 소프트웨어 개발 프로젝트',
+  '프로그램 6 — 전공 융합 공개 저장소 운영 실습',
+  '프로그램 7 — 학생 주도 커뮤니티 기여 챌린지',
+  '프로그램 8 — 캡스톤 오픈소스 성과 공유 과정',
+  '프로그램 👩‍💻 9 — 긴 이름 협업 실습',
+  '프로그램 10 — 경계👩‍💻 유니코드 절단 회귀 과정',
+  '프로그램 11 — 지역 연계 공개 소프트웨어 집중 과정',
+  '프로그램 12 — 다학제 팀 프로젝트 성과 공유회',
+] as const;
+
 export function staffInsightsWireFixture(
   variant: 'default' | 'long' | 'zero' | 'empty' | 'unregistered' = 'default',
 ): Record<string, unknown> {
@@ -163,9 +178,13 @@ export function staffInsightsWireFixture(
     variant === 'long'
       ? {
           ...STAFF_INSIGHTS_FIXTURE,
-          programs: STAFF_INSIGHTS_FIXTURE.programs.map((program) => ({
-            ...program,
-            name: '2026학년도 전공·비전공 협업을 위한 아주 긴 한국어 프로그램 레이블 테스트',
+          programs: LONG_PROGRAM_NAMES.map((name, index) => ({
+            programId: `program-long-${index + 1}`,
+            name,
+            swMajorCount: index + 4,
+            nonSwCount: index + 2,
+            unregisteredCount: index % 2,
+            participantCount: index * 2 + 6 + (index % 2),
           })),
         }
       : variant === 'zero'

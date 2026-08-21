@@ -1,6 +1,13 @@
+import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
+import {
+  expectProgramChartLayout,
+  hideNextDevTools,
+  PROGRAM_TICK_SELECTOR,
+} from './staff-insights-chart-layout';
 
 const target = '/dashboard/insights';
+const participationEvidenceDir = '.omo/evidence/participation-program-labels';
 
 async function openFixture(page: Page, fixture: string) {
   await page.goto(`/local-review/${fixture}?to=${encodeURIComponent(target)}`);
@@ -8,6 +15,139 @@ async function openFixture(page: Page, fixture: string) {
 }
 
 test.describe('staff insights comparison UX', () => {
+  test('keeps dense program labels separate at responsive widths', async ({
+    page,
+  }) => {
+    await mkdir(participationEvidenceDir, { recursive: true });
+    for (const [name, width] of [
+      ['desktop', 1280],
+      ['tablet', 768],
+      ['mobile', 375],
+    ] as const) {
+      // Given: twelve long program names in the participation chart.
+      await page.setViewportSize({ width, height: 1000 });
+      await openFixture(page, 'insights-long');
+      await hideNextDevTools(page);
+      const card = page
+        .getByText('참여 — 프로그램별', { exact: true })
+        .locator('xpath=ancestor::*[@data-slot="card"][1]');
+
+      // When: the chart is rendered at each supported width.
+      await card.scrollIntoViewIfNeeded();
+      const chartViewport = card.locator(
+        '[data-slot="participation-chart-viewport"]',
+      );
+
+      // Then: all program labels remain separate without widening the page.
+      await expectProgramChartLayout(page);
+      const baseProgramLabelFontSize = await page
+        .locator(PROGRAM_TICK_SELECTOR)
+        .filter({ hasText: '프로그램' })
+        .first()
+        .evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize),
+        );
+      const scrollBounds = await chartViewport.evaluate((element) => ({
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+      }));
+      expect(scrollBounds.clientHeight).toBeLessThanOrEqual(560);
+      expect(scrollBounds.scrollHeight).toBeGreaterThan(
+        scrollBounds.clientHeight,
+      );
+      await expect(
+        card.locator('[data-slot="participation-chart-legend"]'),
+      ).toBeVisible();
+      await expect(
+        card.locator('[data-slot="participation-chart-scroll-hint"]'),
+      ).toBeVisible();
+      await expect(chartViewport).toHaveAttribute('role', 'region');
+      await expect(chartViewport).toHaveAttribute(
+        'aria-label',
+        '프로그램별 참여 차트',
+      );
+      await expect(chartViewport).toHaveAttribute(
+        'aria-describedby',
+        'participation-chart-scroll-hint',
+      );
+      await page.mouse.move(0, 0);
+      await card.screenshot({
+        path: `${participationEvidenceDir}/${name}.png`,
+      });
+      const keyboardScroll = chartViewport.evaluate(
+        (element) =>
+          new Promise<number>((resolve, reject) => {
+            const timeout = window.setTimeout(() => {
+              reject(new Error('키보드 스크롤 이벤트가 발생하지 않았습니다.'));
+            }, 2_000);
+            element.addEventListener(
+              'scrollend',
+              () => {
+                window.clearTimeout(timeout);
+                resolve(element.scrollTop);
+              },
+              { once: true },
+            );
+          }),
+      );
+      await chartViewport.press('PageDown');
+      await expect(chartViewport).toBeFocused();
+      expect(await keyboardScroll).toBeGreaterThan(0);
+      await chartViewport.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      expect(
+        await chartViewport.evaluate(
+          (element) => getComputedStyle(element).outlineStyle,
+        ),
+      ).not.toBe('none');
+      expect(
+        await chartViewport.evaluate(
+          (element) => getComputedStyle(element).outlineWidth,
+        ),
+      ).not.toBe('0px');
+      const lastTickBounds = await page
+        .locator(PROGRAM_TICK_SELECTOR)
+        .filter({ hasText: '프로그램 12' })
+        .boundingBox();
+      const viewportBounds = await chartViewport.boundingBox();
+      if (lastTickBounds === null || viewportBounds === null) {
+        throw new Error('차트와 마지막 프로그램의 화면 경계가 필요합니다.');
+      }
+      expect(lastTickBounds.y).toBeGreaterThanOrEqual(viewportBounds.y);
+      expect(lastTickBounds.y + lastTickBounds.height).toBeLessThanOrEqual(
+        viewportBounds.y + viewportBounds.height + 2,
+      );
+      await page.mouse.move(0, 0);
+      await chartViewport.screenshot({
+        path: `${participationEvidenceDir}/${name}-scrolled.png`,
+      });
+      await chartViewport.evaluate((element) => {
+        element.scrollTop = 0;
+      });
+      expect(
+        await chartViewport.evaluate((element) => element.scrollTop),
+      ).toBeLessThanOrEqual(1);
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%';
+      });
+      await expectProgramChartLayout(page);
+      expect(
+        await page
+          .locator(PROGRAM_TICK_SELECTOR)
+          .filter({ hasText: '프로그램' })
+          .first()
+          .evaluate((element) =>
+            Number.parseFloat(getComputedStyle(element).fontSize),
+          ),
+      ).toBeGreaterThanOrEqual(baseProgramLabelFontSize * 1.9);
+      await page.mouse.move(0, 0);
+      await card.screenshot({
+        path: `${participationEvidenceDir}/${name}-200-text.png`,
+      });
+    }
+  });
+
   test('renders long Korean labels at desktop and mobile with keyboard and 200% text', async ({
     page,
   }) => {
@@ -21,13 +161,15 @@ test.describe('staff insights comparison UX', () => {
       await expect(
         page
           .getByRole('cell', {
-            name: '2026학년도 전공·비전공 협업을 위한 아주 긴 한국어 프로그램 레이블 테스트',
+            name: '프로그램 1 — 전공·비전공 오픈소스 협업 기초 과정',
           })
           .first(),
       ).toBeVisible();
+      await expectProgramChartLayout(page);
       await page.evaluate(() => {
         document.documentElement.style.fontSize = '200%';
       });
+      await expectProgramChartLayout(page);
       await expect(
         page.getByRole('group', { name: '비교 관점' }),
       ).toBeVisible();
