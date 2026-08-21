@@ -59,7 +59,7 @@ import { sessionCookieName } from './cookies';
 import type { AuthUser } from './domain/auth-user';
 import { OriginGuard } from './origin.guard';
 import { SessionGuard } from './session.guard';
-import { issueSessionToken } from './session-token';
+import { issueSessionToken, SESSION_MAX_AGE_SECONDS } from './session-token';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const syntheticGithubId = 424242n;
@@ -328,6 +328,7 @@ describe('authentication route metadata manifest', () => {
     let application: INestApplication;
     let baseUrl: string;
     let sessionCookie: string;
+    let expiredSessionCookie: string;
 
     beforeAll(async () => {
       const authService = {
@@ -457,6 +458,11 @@ describe('authentication route metadata manifest', () => {
         sessionSecret,
         syntheticGithubId,
       )}`;
+      expiredSessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
+        sessionSecret,
+        syntheticGithubId,
+        Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60,
+      )}`;
     });
 
     afterAll(async () => {
@@ -474,23 +480,26 @@ describe('authentication route metadata manifest', () => {
     }
 
     it.each([
-      ['/api/v1/auth/github', 302, 302],
-      ['/api/v1/auth/github/callback', 302, 302],
-      ['/api/v1/health', 200, 200],
-      ['/api/v1/programs', 200, 200],
-      ['/api/v1/programs/status-counts', 200, 200],
-      ['/api/v1/programs/synthetic-program', 200, 200],
-      ['/api/v1/programs/synthetic-program/overview/teams', 401, 200],
-      ['/api/v1/ranking', 200, 200],
-      ['/api/v1/ranking/years', 200, 200],
-      ['/api/v1/auth/session', 200, 200],
-      ['/api/v1/auth/me', 401, 200],
+      ['/api/v1/auth/github', 302, 302, 302],
+      ['/api/v1/auth/github/callback', 302, 302, 302],
+      ['/api/v1/health', 200, 200, 200],
+      ['/api/v1/programs', 200, 200, 200],
+      ['/api/v1/programs/status-counts', 200, 200, 200],
+      ['/api/v1/programs/synthetic-program', 200, 200, 200],
+      ['/api/v1/programs/synthetic-program/overview/teams', 401, 200, 401],
+      ['/api/v1/ranking', 200, 200, 200],
+      ['/api/v1/ranking/years', 200, 200, 200],
+      ['/api/v1/auth/session', 200, 200, 200],
+      ['/api/v1/auth/me', 401, 200, 401],
     ])(
-      '%s keeps anonymous=%i and authenticated=%i',
-      async (path, anonymousStatus, authenticatedStatus) => {
+      '%s keeps anonymous=%i, authenticated=%i, and expired=%i',
+      async (path, anonymousStatus, authenticatedStatus, expiredStatus) => {
         await expect(status(path)).resolves.toBe(anonymousStatus);
         await expect(status(path, sessionCookie)).resolves.toBe(
           authenticatedStatus,
+        );
+        await expect(status(path, expiredSessionCookie)).resolves.toBe(
+          expiredStatus,
         );
       },
     );
