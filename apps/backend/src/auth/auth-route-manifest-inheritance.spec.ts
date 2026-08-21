@@ -102,22 +102,22 @@ class DuplicateInheritedHandlerBaseController {
 class DuplicateInheritedHandlerController extends DuplicateInheritedHandlerBaseController {}
 
 @Public()
-@Controller('inherited-guard-conflict')
+@Controller('inherited-guard-migration')
 @UseGuards(SessionGuard)
-class InheritedGuardConflictBaseController {
+class InheritedGuardMigrationBaseController {
   @Get()
   route(): void {}
 }
-class InheritedGuardConflictController extends InheritedGuardConflictBaseController {}
+class InheritedGuardMigrationController extends InheritedGuardMigrationBaseController {}
 
-@Controller('inherited-handler-guard-conflict')
-class InheritedHandlerGuardConflictBaseController {
+@Controller('inherited-handler-guard-migration')
+class InheritedHandlerGuardMigrationBaseController {
   @Get()
   @Public()
   @UseGuards(SessionGuard)
   route(): void {}
 }
-class InheritedHandlerGuardConflictController extends InheritedHandlerGuardConflictBaseController {}
+class InheritedHandlerGuardMigrationController extends InheritedHandlerGuardMigrationBaseController {}
 
 @Public()
 @Controller('Z')
@@ -174,7 +174,7 @@ describe('authentication route manifest inheritance', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [InheritedRouteController],
+      controllers: [InheritedRouteController, OverriddenRouteController],
     }).compile();
     application = moduleRef.createNestApplication();
     await application.listen(0, '127.0.0.1');
@@ -190,6 +190,9 @@ describe('authentication route manifest inheritance', () => {
 
     await expect(
       fetch(`${await application.getUrl()}/inherited`),
+    ).resolves.toMatchObject({ status: 200 });
+    await expect(
+      fetch(`${await application.getUrl()}/override/derived`),
     ).resolves.toMatchObject({ status: 200 });
     expect(manifest).toEqual([
       { access: 'PUBLIC', method: 'GET', path: '/api/v1/inherited' },
@@ -219,13 +222,25 @@ describe('authentication route manifest inheritance', () => {
     ).toThrow(/duplicate authentication metadata.*handler/i);
   });
 
-  it('rejects inherited SessionGuard conflicts', () => {
-    expect(() =>
-      createAuthRouteManifest([InheritedGuardConflictController]),
-    ).toThrow(/conflicting authentication metadata.*sessionguard/i);
-    expect(() =>
-      createAuthRouteManifest([InheritedHandlerGuardConflictController]),
-    ).toThrow(/conflicting authentication metadata.*sessionguard/i);
+  it('keeps inherited SessionGuard enforcement separate from declared access', () => {
+    expect(
+      createAuthRouteManifest([InheritedGuardMigrationController]),
+    ).toEqual([
+      {
+        access: 'PUBLIC',
+        method: 'GET',
+        path: '/api/v1/inherited-guard-migration',
+      },
+    ]);
+    expect(
+      createAuthRouteManifest([InheritedHandlerGuardMigrationController]),
+    ).toEqual([
+      {
+        access: 'PUBLIC',
+        method: 'GET',
+        path: '/api/v1/inherited-handler-guard-migration',
+      },
+    ]);
   });
 
   it('orders controllers and routes without locale-sensitive comparison', () => {

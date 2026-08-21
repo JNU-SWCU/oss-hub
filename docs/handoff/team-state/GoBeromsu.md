@@ -234,3 +234,15 @@
 - blocker: 없음
 - 교정: 앞선 9개 파일 allowlist simplifier 시도는 `SIMPLIFIER_FAIL`이었고, 이후 2개 파일 corrective allowlist는 pinned code-simplifier 1.0.0 검증을 통과
 - 범위: 기존 저널은 수정하지 않고 현재 EOF에 교정 항목만 추가
+
+## 2026-08-21 — Task 2 인증 manifest 교정을 종료
+
+- 상태: review
+- Issue: #969
+- PR: #983
+- blocker: 없음
+- 결과: overview teams의 미래 PUBLIC 계약과 현재 SessionGuard 401/200/401 동작을 분리하고 상속·override HTTP 증명을 보강
+- 구조: 인증 manifest 테스트와 fixture를 책임별로 분리해 변경 TypeScript 파일을 모두 250 pure LOC 미만으로 유지
+- 검증: Task 2 초점·전체 backend unit/integration·lint·typecheck·build·public-safe·실제 Nest HTTP 통과
+- 저널 이력: 이전 Task 2 항목은 additions-only였지만 동시 base 내용 뒤에 놓여 old base의 byte-prefix는 아니며, 이 종료 항목만 현재 EOF에 append
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-2/`

@@ -88,7 +88,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/programs/:programId/board/posts/:postId',
   'PROTECTED GET /api/v1/programs/:programId/milestones/:milestoneId/submission-form',
   'PROTECTED GET /api/v1/programs/:programId/overview',
-  'PROTECTED GET /api/v1/programs/:programId/overview/teams',
+  'PUBLIC GET /api/v1/programs/:programId/overview/teams',
   'PROTECTED GET /api/v1/programs/:programId/submissions/matrix',
   'PROTECTED GET /api/v1/programs/:programId/submissions/me',
   'PROTECTED GET /api/v1/programs/:programId/teams',

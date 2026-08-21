@@ -1,188 +1,35 @@
-import { randomBytes } from 'node:crypto';
-import {
-  Controller,
-  type DynamicModule,
-  forwardRef,
-  Get,
-  type INestApplication,
-  Module,
-  RequestMethod,
-  type Type,
-  UseGuards,
-  ValidationPipe,
-} from '@nestjs/common';
-import { PATH_METADATA } from '@nestjs/common/constants';
-import { ApplicationConfig } from '@nestjs/core/application-config';
-import { NestContainer } from '@nestjs/core/injector/container';
-import { GraphInspector } from '@nestjs/core/inspector/graph-inspector';
-import { MetadataScanner } from '@nestjs/core/metadata-scanner';
-import { DependenciesScanner } from '@nestjs/core/scanner';
-import { PathsExplorer } from '@nestjs/core/router/paths-explorer';
-import { Test } from '@nestjs/testing';
-import { AccountStatus } from '@prisma/client';
 import {
   discoverAppModuleControllers,
   discoverModuleControllers,
 } from '../app-controller-discovery';
-import { AppModule } from '../app.module';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { compareStringsByCodeUnit } from '../deterministic-string-order';
-import { HealthController } from '../health/health.controller';
-import { HealthService } from '../health/health.service';
-import { LoginHistoryService } from '../login-history/login-history.service';
-import { ProgramsController } from '../programs/controller/programs.controller';
-import { ProgramActivityService } from '../programs/service/program-activity.service';
-import { ProgramCreationService } from '../programs/service/program-creation.service';
-import { ProgramLifecycleService } from '../programs/service/program-lifecycle.service';
-import { ProgramsService } from '../programs/service/programs.service';
-import { ProgramViewerService } from '../programs/service/program-viewer.service';
 import { ProgramOverviewController } from '../programs/archive/program-overview/program-overview.controller';
-import { ProgramOverviewService } from '../programs/archive/program-overview/program-overview.service';
-import { RankingController } from '../ranking/controller/ranking.controller';
-import { RankingService } from '../ranking/service/ranking.service';
-import { AuthConfig } from './auth.config';
-import { AuthController } from './auth.controller';
 import {
-  AUTH_ROUTE_ACCESS,
-  OptionalSession,
-  Protected,
-  Public,
-  PUBLIC_ROUTE_METADATA,
-} from './auth-route-metadata';
-import { createAuthRouteManifest } from './auth-route-manifest';
+  collectRuntimeRouteKeys,
+  discoverRuntimeControllers,
+} from '../../test/auth-route-runtime-inventory.fixture';
+import {
+  DuplicateMetadataController,
+  DynamicController,
+  ForwardRefRootModule,
+  GuardFallbackController,
+  GuardMigrationController,
+  MaskedClassDuplicateController,
+  MaskedClassInvalidController,
+  MethodOverrideMigrationController,
+  MissingMetadataController,
+  UnsupportedRootModule,
+} from '../../test/auth-route-manifest-validation.fixture';
+import {
+  AUTH_ROUTE_STATUS_CASES,
+  AuthRouteStatusHarness,
+} from '../../test/auth-route-status-matrix.fixture';
+import { AUTH_ROUTE_ACCESS } from './auth-route-metadata';
 import {
   EXPECTED_APP_CONTROLLER_NAMES,
   EXPECTED_AUTH_ROUTE_INVENTORY,
 } from './auth-route-inventory.fixture';
-import { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies';
-import type { AuthUser } from './domain/auth-user';
-import { OriginGuard } from './origin.guard';
-import { SessionGuard } from './session.guard';
-import { issueSessionToken, SESSION_MAX_AGE_SECONDS } from './session-token';
-
-const sessionSecret = new Uint8Array(randomBytes(32));
-const syntheticGithubId = 424242n;
-const syntheticUser: AuthUser = {
-  id: 'synthetic-route-manifest-user',
-  githubId: syntheticGithubId,
-  nickname: 'synthetic-route-user',
-  name: null,
-  avatarUrl: null,
-  accountStatus: AccountStatus.ACTIVE,
-  role: null,
-  isProfileComplete: false,
-};
-
-@Controller('fixture/missing')
-class MissingMetadataController {
-  @Get()
-  get(): void {}
-}
-
-@Protected()
-@Controller('fixture/duplicate')
-class DuplicateMetadataController {
-  @Get()
-  @Public()
-  @OptionalSession()
-  get(): void {}
-}
-
-@Public()
-@OptionalSession()
-@Controller('fixture/masked-class-duplicate')
-class MaskedClassDuplicateController {
-  @Get()
-  @Protected()
-  get(): void {}
-}
-
-@Controller('fixture/masked-class-invalid')
-class MaskedClassInvalidController {
-  @Get()
-  @Protected()
-  get(): void {}
-}
-Reflect.defineMetadata(
-  PUBLIC_ROUTE_METADATA,
-  'invalid-public-marker',
-  MaskedClassInvalidController,
-);
-
-@Controller('fixture/guard-conflict')
-@UseGuards(SessionGuard)
-class GuardConflictController {
-  @Get()
-  @Public()
-  get(): void {}
-}
-
-@Public()
-@Controller('fixture/masked-class-guard-conflict')
-@UseGuards(SessionGuard)
-class MaskedClassGuardConflictController {
-  @Get()
-  @Protected()
-  get(): void {}
-}
-
-@Controller('fixture/dynamic')
-class DynamicController {}
-
-@Module({ controllers: [DynamicController] })
-class DynamicFeatureModule {}
-
-@Module({ imports: [forwardRef(() => DynamicFeatureModule)] })
-class ForwardRefRootModule {}
-
-async function discoverRuntimeControllers(): Promise<Type<unknown>[]> {
-  const applicationConfig = new ApplicationConfig();
-  const container = new NestContainer(applicationConfig);
-  const scanner = new DependenciesScanner(
-    container,
-    new MetadataScanner(),
-    new GraphInspector(container),
-    applicationConfig,
-  );
-  await scanner.scan(AppModule);
-
-  return [...container.getModules().values()]
-    .flatMap((module) => [...module.controllers.values()])
-    .map((wrapper) => wrapper.metatype)
-    .filter((controller): controller is Type<unknown> => Boolean(controller));
-}
-
-function collectRuntimeRouteKeys(
-  controllers: readonly Type<unknown>[],
-): string[] {
-  const pathsExplorer = new PathsExplorer(new MetadataScanner());
-
-  return controllers
-    .flatMap((controller) => {
-      const prototype = controller.prototype as unknown as object;
-      const controllerPathMetadata = Reflect.getMetadata(
-        PATH_METADATA,
-        controller,
-      ) as string | string[];
-      const controllerPaths = Array.isArray(controllerPathMetadata)
-        ? controllerPathMetadata
-        : [controllerPathMetadata];
-
-      return pathsExplorer.scanForPaths(prototype, prototype).flatMap((route) =>
-        controllerPaths.flatMap((controllerPath) =>
-          route.path.map((handlerPath) => {
-            const path = ['api/v1', controllerPath, handlerPath]
-              .flatMap((segment) => segment.split('/'))
-              .filter(Boolean)
-              .join('/');
-            return `${RequestMethod[route.requestMethod]} /${path}`;
-          }),
-        ),
-      );
-    })
-    .sort(compareStringsByCodeUnit);
-}
+import { createAuthRouteManifest } from './auth-route-manifest';
 
 describe('authentication route metadata manifest', () => {
   it('rejects missing or duplicate metadata', () => {
@@ -198,22 +45,38 @@ describe('authentication route metadata manifest', () => {
     expect(() =>
       createAuthRouteManifest([MaskedClassInvalidController]),
     ).toThrow(/invalid authentication metadata.*class/i);
-    expect(() => createAuthRouteManifest([GuardConflictController])).toThrow(
-      /conflicting authentication metadata.*sessionguard/i,
-    );
-    expect(() =>
-      createAuthRouteManifest([MaskedClassGuardConflictController]),
-    ).toThrow(/conflicting authentication metadata.*class/i);
+  });
+
+  it('keeps transitional SessionGuard enforcement separate from declared access', () => {
+    expect(createAuthRouteManifest([GuardMigrationController])).toEqual([
+      {
+        access: 'PUBLIC',
+        method: 'GET',
+        path: '/api/v1/fixture/guard-migration',
+      },
+    ]);
+    expect(
+      createAuthRouteManifest([MethodOverrideMigrationController]),
+    ).toEqual([
+      {
+        access: 'PROTECTED',
+        method: 'GET',
+        path: '/api/v1/fixture/method-override-migration',
+      },
+    ]);
+  });
+
+  it('classifies a route with only the current SessionGuard as protected', () => {
+    expect(createAuthRouteManifest([GuardFallbackController])).toEqual([
+      {
+        access: 'PROTECTED',
+        method: 'GET',
+        path: '/api/v1/fixture/guard-fallback',
+      },
+    ]);
   });
 
   it('fails closed on unsupported module import shapes', () => {
-    const unsupportedImport = Promise.resolve({
-      module: DynamicFeatureModule,
-    } satisfies DynamicModule);
-
-    @Module({ imports: [unsupportedImport] })
-    class UnsupportedRootModule {}
-
     expect(() => discoverModuleControllers(UnsupportedRootModule)).toThrow(
       /unsupported nest module import.*promise/i,
     );
@@ -254,9 +117,10 @@ describe('authentication route metadata manifest', () => {
         access: 'PUBLIC',
       },
       { method: 'GET', path: '/api/v1/health', access: 'PUBLIC' },
+      { method: 'GET', path: '/api/v1/programs/:id', access: 'PUBLIC' },
       {
         method: 'GET',
-        path: '/api/v1/programs/:id',
+        path: '/api/v1/programs/:programId/overview/teams',
         access: 'PUBLIC',
       },
       {
@@ -288,6 +152,7 @@ describe('authentication route metadata manifest', () => {
       },
       { method: 'POST', path: '/api/v1/auth/logout', access: 'PUBLIC' },
     ]);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toHaveLength(13);
     expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toEqual([
       {
         method: 'GET',
@@ -305,203 +170,62 @@ describe('authentication route metadata manifest', () => {
         access: 'OPTIONAL_SESSION',
       },
     ]);
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(105);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(3);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(104);
     expect(manifest).toHaveLength(120);
     expect(
       new Set(manifest.map(({ method, path }) => `${method} ${path}`)).size,
     ).toBe(manifest.length);
 
     const runtimeControllers = await discoverRuntimeControllers();
-
     expect(
       runtimeControllers
         .map((controller) => controller.name)
         .sort(compareStringsByCodeUnit),
     ).toEqual(controllers.map((controller) => controller.name));
-
     expect(collectRuntimeRouteKeys(runtimeControllers)).toEqual(
       manifest.map(({ method, path }) => `${method} ${path}`),
     );
   });
 
   describe('preserves current status matrix', () => {
-    let application: INestApplication;
-    let baseUrl: string;
-    let sessionCookie: string;
-    let expiredSessionCookie: string;
+    const harness = new AuthRouteStatusHarness();
 
     beforeAll(async () => {
-      const authService = {
-        buildAuthorizeRedirect: jest.fn().mockReturnValue({
-          flowCookieValue: 'synthetic-flow-cookie',
-          url: 'https://github.example/login',
-        }),
-        findMe: jest.fn().mockResolvedValue(syntheticUser),
-        getMe: jest.fn().mockResolvedValue(syntheticUser),
-      };
-      const programsService = {
-        list: jest.fn().mockResolvedValue({
-          items: [],
-          page: 1,
-          pageSize: 20,
-          totalItems: 0,
-          totalPages: 0,
-        }),
-        statusCounts: jest.fn().mockResolvedValue({
-          all: 0,
-          recruiting: 0,
-          in_progress: 0,
-          upcoming: 0,
-          ended: 0,
-        }),
-        detail: jest.fn().mockResolvedValue({ id: 'synthetic-program' }),
-      };
-      const moduleRef = await Test.createTestingModule({
-        controllers: [
-          AuthController,
-          HealthController,
-          ProgramsController,
-          ProgramOverviewController,
-          RankingController,
-        ],
-        providers: [
-          SessionGuard,
-          OriginGuard,
-          { provide: AuthService, useValue: authService },
-          {
-            provide: AuthConfig,
-            useValue: {
-              allowedOrigin: 'http://frontend.test',
-              frontendUrl: 'http://frontend.test',
-              sessionSecret,
-              useSecureCookies: false,
-            },
-          },
-          {
-            provide: LoginHistoryService,
-            useValue: {
-              recordLogin: jest.fn(),
-              recordLogout: jest.fn(),
-            },
-          },
-          {
-            provide: HealthService,
-            useValue: {
-              isDatabaseReachable: jest.fn().mockResolvedValue(true),
-            },
-          },
-          {
-            provide: RankingService,
-            useValue: {
-              findPage: jest.fn().mockResolvedValue({
-                year: 'all',
-                items: [],
-                page: 1,
-                pageSize: 20,
-                total: 0,
-                dataAsOf: null,
-                viewerClass: 'public',
-                nextCycleAt: null,
-              }),
-              listYears: jest.fn().mockResolvedValue([]),
-            },
-          },
-          {
-            provide: ProgramCreationService,
-            useValue: { create: jest.fn() },
-          },
-          {
-            provide: ProgramsService,
-            useValue: programsService,
-          },
-          {
-            provide: ProgramActivityService,
-            useValue: { activity: jest.fn() },
-          },
-          {
-            provide: ProgramViewerService,
-            useValue: {
-              fromGithubId: jest.fn().mockResolvedValue({
-                githubId: null,
-                userId: null,
-                role: null,
-              }),
-            },
-          },
-          {
-            provide: ProgramLifecycleService,
-            useValue: { delete: jest.fn(), purge: jest.fn() },
-          },
-          {
-            provide: ProgramOverviewService,
-            useValue: {
-              getOverview: jest.fn().mockResolvedValue({}),
-              getPublicTeams: jest.fn().mockResolvedValue([]),
-            },
-          },
-        ],
-      }).compile();
-
-      application = moduleRef.createNestApplication();
-      application.setGlobalPrefix('api/v1');
-      application.useGlobalPipes(
-        new ValidationPipe({
-          transform: true,
-          whitelist: true,
-          forbidNonWhitelisted: true,
-        }),
-      );
-      application.useGlobalFilters(new ProblemDetailFilter());
-      await application.listen(0, '127.0.0.1');
-      baseUrl = await application.getUrl();
-      sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
-        sessionSecret,
-        syntheticGithubId,
-      )}`;
-      expiredSessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
-        sessionSecret,
-        syntheticGithubId,
-        Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60,
-      )}`;
+      await harness.start();
     });
 
     afterAll(async () => {
-      await application.close();
+      await harness.close();
     });
 
-    async function status(path: string, cookie?: string): Promise<number> {
-      const response = await fetch(`${baseUrl}${path}`, {
-        headers: cookie
-          ? { connection: 'close', cookie }
-          : { connection: 'close' },
-        redirect: 'manual',
-      });
-      return response.status;
-    }
-
-    it.each([
-      ['/api/v1/auth/github', 302, 302, 302],
-      ['/api/v1/auth/github/callback', 302, 302, 302],
-      ['/api/v1/health', 200, 200, 200],
-      ['/api/v1/programs', 200, 200, 200],
-      ['/api/v1/programs/status-counts', 200, 200, 200],
-      ['/api/v1/programs/synthetic-program', 200, 200, 200],
-      ['/api/v1/programs/synthetic-program/overview/teams', 401, 200, 401],
-      ['/api/v1/ranking', 200, 200, 200],
-      ['/api/v1/ranking/years', 200, 200, 200],
-      ['/api/v1/auth/session', 200, 200, 200],
-      ['/api/v1/auth/me', 401, 200, 401],
-    ])(
-      '%s keeps anonymous=%i, authenticated=%i, and expired=%i',
-      async (path, anonymousStatus, authenticatedStatus, expiredStatus) => {
-        await expect(status(path)).resolves.toBe(anonymousStatus);
-        await expect(status(path, sessionCookie)).resolves.toBe(
-          authenticatedStatus,
+    it.each(Object.entries(AUTH_ROUTE_STATUS_CASES))(
+      '%s keeps the current anonymous/authenticated/expired statuses',
+      async (path, expected) => {
+        await expect(harness.status(path, 'anonymous')).resolves.toBe(
+          expected.anonymous,
         );
-        await expect(status(path, expiredSessionCookie)).resolves.toBe(
-          expiredStatus,
+        await expect(harness.status(path, 'authenticated')).resolves.toBe(
+          expected.authenticated,
+        );
+        await expect(harness.status(path, 'expired')).resolves.toBe(
+          expected.expired,
         );
       },
     );
+
+    it('declares overview teams PUBLIC while its local guard keeps 401/200/401', async () => {
+      const path = '/api/v1/programs/synthetic-program/overview/teams';
+      expect(
+        createAuthRouteManifest([ProgramOverviewController]),
+      ).toContainEqual({
+        access: 'PUBLIC',
+        method: 'GET',
+        path: '/api/v1/programs/:programId/overview/teams',
+      });
+      await expect(harness.status(path, 'anonymous')).resolves.toBe(401);
+      await expect(harness.status(path, 'authenticated')).resolves.toBe(200);
+      await expect(harness.status(path, 'expired')).resolves.toBe(401);
+    });
   });
 });
