@@ -51,6 +51,7 @@ RUN apk add --no-cache curl
 COPY --from=builder --chown=node:node /deploy ./
 COPY --from=builder --chown=node:node /workspace/apps/backend/dist ./dist
 COPY --from=builder --chown=node:node /workspace/apps/backend/prisma ./prisma
+COPY --chown=node:node scripts/prisma-migration-ledger.mjs ./scripts/prisma-migration-ledger.mjs
 
 USER node
 

@@ -26,6 +26,7 @@ const STUDENT_ID_ERROR_ID = 'profile-student-id-error';
 const STUDENT_ID_DESCRIPTION_ID = 'profile-student-id-description';
 
 interface ProfileOnboardingFormProps {
+  readonly mode?: 'onboarding' | 'reclassification';
   readonly memberKind: ProfileMemberKind;
   readonly values: ProfileFormValues;
   readonly errors: ProfileFormErrors;
@@ -37,6 +38,7 @@ interface ProfileOnboardingFormProps {
 }
 
 export function ProfileOnboardingForm({
+  mode = 'onboarding',
   memberKind,
   values,
   errors,
@@ -82,16 +84,30 @@ export function ProfileOnboardingForm({
     values.affiliationKind === 'DEPARTMENT' ? '학과' : '사업단',
   ];
 
+  const reclassification = mode === 'reclassification';
+  let submitLabel = '가입 마치기';
+  if (isSubmitting) {
+    submitLabel = '저장 중…';
+  } else if (reclassification) {
+    submitLabel = '회원 유형 확인 완료';
+  }
+
   return (
     <>
-      <SignupEyebrow>STEP 3 / 3 · 마지막</SignupEyebrow>
-      <SignupTitle>
-        기본 정보를 입력하면
-        <br />
-        가입이 끝납니다
-      </SignupTitle>
+      {reclassification ? null : (
+        <>
+          <SignupEyebrow>STEP 3 / 3 · 마지막</SignupEyebrow>
+          <SignupTitle>
+            기본 정보를 입력하면
+            <br />
+            가입이 끝납니다
+          </SignupTitle>
+        </>
+      )}
       <SignupLede>
-        {`프로그램 신청과 팀 구성에 쓰이는 정보입니다. 필요한 항목(${profileFields.join(', ')})을 확인합니다.`}
+        {reclassification
+          ? `필요한 항목(${profileFields.join(', ')})을 확인하면 관리자 권한은 그대로 유지됩니다.`
+          : `프로그램 신청과 팀 구성에 쓰이는 정보입니다. 필요한 항목(${profileFields.join(', ')})을 확인합니다.`}
       </SignupLede>
       <form className="flex flex-col gap-10" onSubmit={handleSubmit}>
         <FormSection
@@ -170,10 +186,23 @@ export function ProfileOnboardingForm({
         </FormSection>
 
         {submitError ? (
-          <Alert variant="destructive">
-            <AlertTitle>프로필을 저장하지 못했습니다</AlertTitle>
-            <AlertDescription>{submitError}</AlertDescription>
-          </Alert>
+          <div data-surface={reclassification ? 'default' : undefined}>
+            <Alert
+              variant="destructive"
+              className={
+                reclassification
+                  ? 'break-keep text-destructive-on-tint [overflow-wrap:anywhere] *:data-[slot=alert-description]:text-destructive-on-tint'
+                  : undefined
+              }
+            >
+              <AlertTitle>
+                {reclassification
+                  ? '회원 정보를 저장하지 못했습니다'
+                  : '프로필을 저장하지 못했습니다'}
+              </AlertTitle>
+              <AlertDescription>{submitError}</AlertDescription>
+            </Alert>
+          </div>
         ) : null}
 
         <Button
@@ -182,7 +211,7 @@ export function ProfileOnboardingForm({
           size="lg"
           disabled={isSubmitting}
         >
-          {isSubmitting ? '저장 중…' : '가입 마치기'}
+          {submitLabel}
         </Button>
       </form>
     </>

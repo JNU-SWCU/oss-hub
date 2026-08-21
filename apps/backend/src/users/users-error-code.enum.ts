@@ -11,6 +11,8 @@ export enum UsersErrorCode {
   STUDENT_ID_TAKEN_BY_ADMIN = 'USR_008',
   PROFILE_UPDATE_CONFLICT = 'USR_009',
   PROFILE_COMPLETE_REQUIRES_POST = 'USR_010',
+  LEGACY_RECLASSIFICATION_NOT_FOUND = 'USR_011',
+  LEGACY_RECLASSIFICATION_CONFLICT = 'USR_012',
 }
 
 export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
@@ -76,5 +78,15 @@ export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
     status: 409,
     message:
       '가입을 마치려면 이름과 학과를 한 번에 보내야 합니다. 부분 수정으로는 가입할 수 없습니다.',
+  },
+  [UsersErrorCode.LEGACY_RECLASSIFICATION_NOT_FOUND]: {
+    code: UsersErrorCode.LEGACY_RECLASSIFICATION_NOT_FOUND,
+    status: 404,
+    message: '재분류할 회원 정보를 찾을 수 없습니다.',
+  },
+  [UsersErrorCode.LEGACY_RECLASSIFICATION_CONFLICT]: {
+    code: UsersErrorCode.LEGACY_RECLASSIFICATION_CONFLICT,
+    status: 409,
+    message: '이미 다른 회원 유형으로 재분류되었습니다.',
   },
 };

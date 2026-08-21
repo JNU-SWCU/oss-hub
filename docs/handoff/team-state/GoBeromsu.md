@@ -455,3 +455,15 @@
 - 결과: 테스트 픽스처 타입을 실제 상태 계약에 맞추고 독립 권한 감사 4종만 명시적 backend-ahead로 제한해 다른 누락은 계속 fail-closed
 - 검증: frontend typecheck, audit/settings 초점 4 files/50 tests, 대상 ESLint·LSP, Prettier 통과; backend 변경 0
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/` (`hashes.sha256` SHA-256 `66e67c6ee2dc6d924b41eee2e5f50829b665e64e65809422abc2bc15c48b05d5`)
+
+## 2026-08-22 — Task 10 회원 권한 backfill과 기존 관리자 자기 재분류를 준비
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 운영 승인·exact-SHA CI/Jenkins·production cutover gate는 release 단계로 이관
+- 결과: 62명 canonical 권한을 versioned·transactional·idempotent backfill로 투영하고, 미해결 legacy 관리자 5명에게 STUDENT/STAFF 자기 재분류 API와 강제 UI를 제공하며 Jenkins가 baseline→exactly-once apply→post-check→zero-change replay를 검증
+- 검증: fixture 1 suite/2 tests, 격리 PostgreSQL 3 suites/10 tests, frontend 4 files/25 tests, exact Chrome 4 tests/22 screenshots, 변경 frontend/backend lint·typecheck·LSP·Prettier·public-safe·commitlint 통과
+- simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e` entrypoint 1회는 weekly quota로 분석 전 무변경 종료했고, 같은 pinned source prompt를 가용 Codex provider로 동일 55파일 allowlist에 1회 실행해 명료성 변경 3건만 적용; allowlist 밖 product 변경 0건
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10/` (sanitized local-synthetic; production evidence 아님)
+- 금지 작업: production 접근·backfill·release·deploy·Jenkins trigger 없음
