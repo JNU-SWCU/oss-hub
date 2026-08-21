@@ -4,6 +4,7 @@ import {
   isValidDepartment,
   isValidProfileName,
   isValidStudentId,
+  normalizeProfileText,
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
   profileFieldRequirement,
@@ -138,9 +139,9 @@ export function toCompleteProfileRequest(
   // 없다(설정 화면의 `toUpdateProfileRequest`와 같은 판단). 생략하면 백엔드가
   // 저장된 값을 그대로 쓴다.
   const studentId = isUnchangedStudentId(values) ? '' : values.studentId.trim();
-  const department = resolveDepartment(values);
+  const department = normalizeProfileText(resolveDepartment(values));
   return {
-    name: values.name.trim(),
+    name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
     department,
   };
@@ -195,12 +196,12 @@ export function toUpdateProfileRequest(
   if (!isProfileFormValid(errors)) {
     return null;
   }
-  const department = resolveDepartment(values);
+  const department = normalizeProfileText(resolveDepartment(values));
   // 저장된 학번이 없을 때 새로 입력한 값만 싣는다. 이미 있는 값을 다시 보내도
   // 백엔드는 통과시키지만, 굳이 불변 항목을 요청에 태우지 않는다.
   const studentId = hasSavedStudentId(values) ? '' : values.studentId.trim();
   return {
-    name: values.name.trim(),
+    name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
     department,
   };
