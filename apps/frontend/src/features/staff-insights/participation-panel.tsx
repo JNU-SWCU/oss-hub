@@ -121,6 +121,7 @@ export function ParticipationPanel({
                   type="number"
                   orientation="top"
                   height={40}
+                  tickCount={3}
                   allowDecimals={false}
                   tick={{
                     fill: 'var(--muted-foreground)',
