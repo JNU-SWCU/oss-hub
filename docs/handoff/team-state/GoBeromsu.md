@@ -199,3 +199,12 @@
 - merge SHA: `97ea2b0a7bf7386f3538cc48038b16a8ccb07bba`
 - 검증: exact head `f0d55cae7cd38e8269e3af4522111ec9378020f2`와 required `ci`·`public-safe`·`commitlint` 성공을 확인
 - 기록: 이 교정 항목 자체를 현재 저널 EOF에 append-only로 추가
+
+## 2026-08-21 — Task 1 fixture 타입 교정을 최종 검증
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #971·#976 교정)
+- blocker: 없음
+- 결과: 최신 main 동기화, 정확한 PostgreSQL 2 suites/6 tests와 공개 strict-read, 전체 backend 품질·public-safe 검증 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit 실행, 최종 변경 allowlist 밖 수정 0건
