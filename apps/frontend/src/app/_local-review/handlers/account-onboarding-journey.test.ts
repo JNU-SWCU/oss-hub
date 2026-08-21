@@ -4,6 +4,7 @@ import { onboardingPathFor } from '../../_shell/onboarding-route';
 import type { AppRole } from '../../_shell/role';
 import { profileOnboardingView } from '../../onboarding/profile/profile-onboarding-route';
 import { resetLocalReviewFixtureState } from '../fixture-response';
+import { canonicalLocalReviewSessionBody } from '../session-contract';
 import { call, callWithBody, jsonBody } from './account-handlers-test-support';
 
 /**
@@ -44,12 +45,23 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
     ) as {
       readonly selectedRole: 'STUDENT' | 'STAFF' | null;
     };
-    const session = jsonBody(call('unassigned', 'GET', 'auth/session')) as {
-      readonly user: { readonly role: AppRole | null };
+    const session = canonicalLocalReviewSessionBody(
+      'auth/session',
+      jsonBody(call('unassigned', 'GET', 'auth/session')),
+    ) as {
+      readonly user: {
+        readonly role: AppRole | null;
+        readonly memberKind: 'STUDENT' | 'STAFF' | null;
+        readonly hasStaffAccess: boolean;
+        readonly hasAdminAccess: boolean;
+      };
     };
     return profileOnboardingView({
       status: session.user.role ? 'assigned' : 'unassigned',
       role: session.user.role,
+      memberKind: session.user.memberKind,
+      hasStaffAccess: session.user.hasStaffAccess,
+      hasAdminAccess: session.user.hasAdminAccess,
       roleRequestStatus: roleRequest?.status ?? null,
       roleRequestRejectionReason: null,
       selectedRole: selection.selectedRole,
@@ -144,13 +156,16 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
     // When: `/onboarding/pending`을 처음 여는 순간과 같은 모듈 재평가.
     vi.resetModules();
     const reloaded = await import('../fixture-response');
-    const readAfterReload = (path: string) =>
-      reloaded.resolveLocalReviewResponse({
+    function readAfterReload(
+      path: string,
+    ): ReturnType<typeof reloaded.resolveLocalReviewResponse> {
+      return reloaded.resolveLocalReviewResponse({
         fixture: 'unassigned',
         method: 'GET',
         path,
         searchParams: new URLSearchParams(),
       });
+    }
 
     // Then: 역할 요청이 `null`로 바뀌면 대기 화면이 역할 선택으로 되튕겨,
     // 검토자는 방금 고른 교직원이 안 골라진 것으로 본다.

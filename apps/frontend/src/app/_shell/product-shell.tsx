@@ -3,20 +3,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import {
-  getProgramOverview,
-  type ProgramOverview,
-} from '@/features/programs/program-overview-api';
 import { AppSidebar, AppSidebarNav } from './app-sidebar';
 import {
   ProgramScopeSidebar,
   ProgramScopeSidebarNav,
 } from './program-scope-sidebar';
-import {
-  programDetailIdFromPathname,
-  SECTION_FACETS,
-  type SectionFacetData,
-} from './section-facets';
+import { programDetailIdFromPathname } from './section-facets';
 import { SidebarDrawer } from './sidebar-drawer';
 import {
   SIDEBAR_COLLAPSED_VALUE,
@@ -30,13 +22,13 @@ import {
   sidebarBrandTitle,
 } from './sidebar-menu';
 import { RankingCycleProvider } from './ranking-cycle-context';
-import { memberSurfaces, resolveMemberAccess } from './member-access';
+import { EMPTY_MEMBER_ACCESS, memberSurfaces } from './member-access';
 import { sidebarGroupsForMemberAccess } from './member-sidebar';
 import { useSidebarDrawer } from './sidebar-drawer-context';
 import { useSessionRole } from './use-session-role';
+import { useProductShellData } from './use-product-shell-data';
 import {
   programScopeViewerRole,
-  shouldLoadProgramOverview,
   withoutLoadingCounts,
 } from './program-shell-policy';
 
@@ -80,12 +72,11 @@ export function ProductShell({
   // 잡히므로 이 id 하나로 두 렌더 경로를 가른다.
   const programDetailId = programDetailIdFromPathname(pathname);
 
-  const [facetData, setFacetData] = useState<SectionFacetData | undefined>(
-    undefined,
-  );
-  const [scopeOverview, setScopeOverview] = useState<
-    ProgramOverview | undefined
-  >(undefined);
+  const { facetData, scopeOverview } = useProductShellData({
+    section,
+    programDetailId,
+    member,
+  });
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useSidebarDrawer();
   const closeDrawer = drawer?.close;
@@ -102,61 +93,13 @@ export function ProductShell({
     }; Path=/; Max-Age=31536000; SameSite=Lax`;
   }, [collapsed]);
 
-  // 섹션 패싯 단일 fetch — AbortController 로 스테일 응답 차단 (C5 / §3.3).
-  // 프로그램 상세 스코프에서는 목록 패싯이 필요 없다 — 아래 scopeOverview 이펙트가 대신한다.
-  useEffect(() => {
-    const spec =
-      !programDetailId && section ? SECTION_FACETS[section] : undefined;
-    if (!spec?.load) {
-      setFacetData(undefined);
-      return;
-    }
-    const controller = new AbortController();
-    setFacetData(undefined); // clear stale on section change (C5)
-    void spec
-      .load(controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setFacetData(data);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFacetData(undefined);
-      });
-    return () => controller.abort();
-  }, [section, programDetailId]);
-
-  // 프로그램 스코프 패널 데이터 단일 fetch — 같은 AbortController 규약(C5 / §3.3).
-  // getProgramOverview는 signal을 받지 않으므로, 응답 후 aborted 여부만 확인한다
-  // (section-facets.ts의 loadProgramFacets 등과 동일한 완화).
-  useEffect(() => {
-    if (!shouldLoadProgramOverview(programDetailId, member)) {
-      setScopeOverview(undefined);
-      return;
-    }
-    const controller = new AbortController();
-    setScopeOverview(undefined); // clear stale on program id change (C5)
-    void getProgramOverview(programDetailId)
-      .then((data) => {
-        if (!controller.signal.aborted) setScopeOverview(data);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setScopeOverview(undefined);
-      });
-    return () => controller.abort();
-  }, [programDetailId, member]);
-
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
 
   const groups = programDetailId
     ? []
     : sidebarGroupsForMemberAccess(
         section,
-        member
-          ? session
-          : {
-              memberKind: null,
-              hasStaffAccess: false,
-              hasAdminAccess: false,
-            },
+        member ? session : EMPTY_MEMBER_ACCESS,
         {
           programCounts: facetData?.programCounts,
           archiveCounts: facetData?.archiveCounts,
@@ -182,10 +125,20 @@ export function ProductShell({
   // 비회원·미배정·미완료 프로필은 회원 전용 데이터(참여 팀·서류 현황·게시판)를 보일
   // 근거가 없다 — STAFF 골격으로 낮춰 그 항목들을 그대로 보여주던 과거 방식(QA46) 대신
   // 공개 개요 항목만 남는 GUEST로 낮춘다.
-  const scopeViewerRole = programScopeViewerRole(
-    member,
-    resolveMemberAccess(session),
-  );
+  const scopeViewerRole = programScopeViewerRole(member, session);
+
+  let viewerDocuments:
+    { readonly completed: number; readonly total: number } | undefined;
+  if (
+    scopeViewerRole === 'STUDENT' &&
+    scopeOverview?.viewerDocumentsCompleted != null &&
+    scopeOverview.viewerDocumentsTotal != null
+  ) {
+    viewerDocuments = {
+      completed: scopeOverview.viewerDocumentsCompleted,
+      total: scopeOverview.viewerDocumentsTotal,
+    };
+  }
 
   const scopeGroupsRaw = programDetailId
     ? programScopeSidebarGroups({
@@ -193,15 +146,7 @@ export function ProductShell({
         viewerRole: scopeViewerRole,
         teamCount: scopeOverview?.teamCount ?? 0,
         boardPostCount: scopeOverview?.boardPostCount ?? 0,
-        viewerDocuments:
-          scopeViewerRole === 'STUDENT' &&
-          scopeOverview?.viewerDocumentsCompleted != null &&
-          scopeOverview?.viewerDocumentsTotal != null
-            ? {
-                completed: scopeOverview.viewerDocumentsCompleted,
-                total: scopeOverview.viewerDocumentsTotal,
-              }
-            : undefined,
+        viewerDocuments,
         // 서류가 있는 마일스톤을 depth-1 자식으로 편다. 이 값을 넘기지 않으면
         // `programScopeSidebarGroups`의 기본값 `[]` 때문에 자식이 영영 0개다.
         milestoneDocuments: scopeOverview?.milestoneDocuments,

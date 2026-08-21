@@ -23,10 +23,10 @@ import {
   actionForAccountStatus,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
-import { adminAccessAuthority } from '../admin-access-authority';
+import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 
 interface AdminAccessMutationActionsProps {
-  readonly detail: AdminAccessDetail;
+  readonly detail: CanonicalAdminAccessDetail;
   readonly processingAction: AdminAccessMutationAction | null;
   readonly onRequestAction: (action: AdminAccessMutationAction) => void;
 }
@@ -52,18 +52,15 @@ export function AdminAccessMutationActions({
   onRequestAction,
 }: AdminAccessMutationActionsProps) {
   const guards = deriveAdminAccessGuards(detail);
-  const authority = adminAccessAuthority(detail);
   const controlBlocked = guards.controlBlockedReason !== null;
   const isProcessing = processingAction !== null;
-  const elevatedBlocked = guards.elevatedRoleBlockedReason !== null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>접근 변경</CardTitle>
         <CardDescription>
-          교직원·관리자 접근과 계정 상태를 각각 선택합니다. 다른 값을 고르면
-          확인 후에만 적용됩니다.
+          교직원 접근, 관리자 접근, 계정 상태를 서로 독립적으로 변경합니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
@@ -74,27 +71,27 @@ export function AdminAccessMutationActions({
         ) : null}
         <AuthorityControl
           label="교직원 접근"
-          enabled={authority.hasStaffAccess}
-          disabled={controlBlocked || isProcessing || elevatedBlocked}
+          enabled={detail.hasStaffAccess}
+          disabled={controlBlocked || isProcessing}
+          grantBlocked={guards.elevatedRoleBlockedReason !== null}
           onChange={(enabled) =>
             onRequestAction(
               enabled
-                ? ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STAFF
-                : ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STUDENT,
+                ? ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_STAFF_ACCESS
+                : ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_STAFF_ACCESS,
             )
           }
         />
         <AuthorityControl
           label="관리자 접근"
-          enabled={authority.hasAdminAccess}
-          disabled={controlBlocked || isProcessing || elevatedBlocked}
+          enabled={detail.hasAdminAccess}
+          disabled={controlBlocked || isProcessing}
+          grantBlocked={guards.elevatedRoleBlockedReason !== null}
           onChange={(enabled) =>
             onRequestAction(
               enabled
-                ? ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_ADMIN
-                : authority.hasStaffAccess
-                  ? ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STAFF
-                  : ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STUDENT,
+                ? ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_ADMIN_ACCESS
+                : ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_ADMIN_ACCESS,
             )
           }
         />
@@ -157,11 +154,13 @@ function AuthorityControl({
   label,
   enabled,
   disabled,
+  grantBlocked,
   onChange,
 }: {
   readonly label: '교직원 접근' | '관리자 접근';
   readonly enabled: boolean;
   readonly disabled: boolean;
+  readonly grantBlocked: boolean;
   readonly onChange: (enabled: boolean) => void;
 }) {
   const labelId =
@@ -189,7 +188,7 @@ function AuthorityControl({
               variant={isCurrent ? 'default' : 'outline'}
               size="sm"
               className="h-auto min-h-10 w-full px-2 py-1.5"
-              disabled={disabled || isCurrent}
+              disabled={disabled || isCurrent || (nextEnabled && grantBlocked)}
               onClick={() => onChange(nextEnabled)}
             >
               <span className="sr-only">{label}</span>

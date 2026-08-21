@@ -209,18 +209,19 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
       case 'anonymous':
         return ANONYMOUS;
       case 'authenticated': {
-        const role = session.user?.role ?? null;
-        if (role !== null) {
+        const user = session.user;
+        if (user === null) return LOADING;
+        if (user.role !== null) {
           return {
             status: 'assigned',
-            role,
-            memberKind: session.user?.memberKind ?? null,
-            hasStaffAccess: session.user?.hasStaffAccess ?? false,
-            hasAdminAccess: session.user?.hasAdminAccess ?? false,
+            role: user.role,
+            memberKind: user.memberKind,
+            hasStaffAccess: user.hasStaffAccess,
+            hasAdminAccess: user.hasAdminAccess,
             roleRequestStatus: null,
             roleRequestRejectionReason: null,
             selectedRole: null,
-            isProfileComplete: session.user?.isProfileComplete ?? false,
+            isProfileComplete: user.isProfileComplete,
           };
         }
         if (onboardingSubject === null) {
@@ -238,9 +239,9 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
             return {
               status: 'unassigned',
               role: null,
-              memberKind: session.user?.memberKind ?? null,
-              hasStaffAccess: session.user?.hasStaffAccess ?? false,
-              hasAdminAccess: session.user?.hasAdminAccess ?? false,
+              memberKind: user.memberKind,
+              hasStaffAccess: user.hasStaffAccess,
+              hasAdminAccess: user.hasAdminAccess,
               roleRequestStatus: onboarding.status,
               roleRequestRejectionReason: onboarding.rejectionReason,
               selectedRole: onboarding.selectedRole,

@@ -20,7 +20,7 @@ export interface AuditLogRecord {
   readonly occurredAt: string;
 }
 
-// apps/backend/src/audit-log/audit-log-metadata.ts에 정의된 action registry의
+// apps/backend/src/audit-log/*-audit-metadata.ts에 정의된 action registry의
 // 합집합을 미러링한다. 모노레포에 공유 패키지가 없어
 // frontend가 backend/src를 직접 import할 수 없다(apps/frontend/src/features/roles의
 // "Mirrors" 관례와 동일). 이 목록이 backend 정의와 어긋나지 않는지는
@@ -32,6 +32,10 @@ export const AUDIT_LOG_ACTION_LABELS = {
   STAFF_ROLE_REQUEST_REVOKED: '회수',
   STAFF_ROLE_REQUEST_RESTORED: '복구',
   USER_ROLE_CHANGED: '역할 변경',
+  GRANT_STAFF_ACCESS: '교직원 접근 부여',
+  REVOKE_STAFF_ACCESS: '교직원 접근 회수',
+  GRANT_ADMIN_ACCESS: '관리자 접근 부여',
+  REVOKE_ADMIN_ACCESS: '관리자 접근 회수',
   USER_ACCOUNT_STATUS_CHANGED: '계정 상태 변경',
   REPOSITORY_PUBLISHED: '저장소 공개',
   PROGRAM_CREATED: '프로그램 생성',

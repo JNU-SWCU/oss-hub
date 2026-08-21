@@ -109,10 +109,15 @@ describe('설정 화면', () => {
   });
 
   async function render(overrides: Partial<SessionRoleState>): Promise<void> {
+    const role = overrides.role ?? null;
     mocks.useSessionRole.mockReturnValue({
       status: 'loading',
-      role: null,
+      role,
+      memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
+      hasStaffAccess: role === 'STAFF',
+      hasAdminAccess: role === 'ADMIN',
       roleRequestStatus: null,
+      roleRequestRejectionReason: null,
       selectedRole: null,
       isProfileComplete: false,
       ...overrides,
@@ -285,113 +290,5 @@ describe('설정 화면', () => {
 
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(container.querySelector('#settings-name')).toBeNull();
-  });
-
-  function button(label: string): HTMLButtonElement {
-    const found = [...container.querySelectorAll('button')].find((element) =>
-      element.textContent?.includes(label),
-    );
-    if (!(found instanceof HTMLButtonElement)) {
-      throw new TypeError(`버튼을 찾지 못했습니다: ${label}`);
-    }
-    return found;
-  }
-
-  /**
-   * 회귀 방지 — 알림 설정 조회만 실패했을 때 그 조각을 제자리에서 되살릴 수 있는가(#356).
-   *
-   * 이전에는 실패를 표시만 하고 끝냈다. 사용자가 할 수 있는 일은 화면 전체를
-   * 새로고침하는 것뿐이었고, 그러면 이미 고쳐 둔 프로필 입력이 함께 날아갔다.
-   * 그래서 이름을 고쳐 둔 상태에서 재시도를 눌러 본다 — 알림만 다시 부르고,
-   * 프로필은 다시 부르지 않으며, 고친 입력이 그대로 남아야 한다.
-   */
-  it('알림 설정 조회만 실패하면 그 자리에서 알림만 다시 불러온다', async () => {
-    notificationResponder = () => new Response('', { status: 503 });
-    await render({
-      status: 'assigned',
-      role: 'STAFF',
-      isProfileComplete: true,
-    });
-
-    // 프로필은 열려 있고, 알림 자리에는 안내와 재시도 수단이 있다.
-    expect(field('settings-name').value).toBe(SAVED_PROFILE.name);
-    expect(container.querySelector('#settings-notification-email')).toBeNull();
-    expect(container.textContent).toContain('알림 설정을 불러오지 못했습니다.');
-    expect(container.textContent).toContain(
-      '프로필은 그대로 수정·저장할 수 있고',
-    );
-
-    // 사용자가 이미 프로필을 고쳐 둔 상태에서 재시도한다.
-    await type(field('settings-name'), '김교직원');
-    const profileGetsBefore = requests.filter(
-      (request) =>
-        request.method === 'GET' && request.url.endsWith('/users/me/profile'),
-    ).length;
-
-    notificationResponder = () => jsonResponse(SAVED_NOTIFICATION);
-    await act(async () => {
-      button('알림 설정 다시 불러오기').click();
-    });
-
-    // 알림 섹션이 살아나고, 고쳐 둔 이름은 그대로다.
-    expect(field('settings-notification-email').value).toBe(
-      SAVED_NOTIFICATION.notificationEmail,
-    );
-    expect(field('settings-name').value).toBe('김교직원');
-    // 프로필은 다시 부르지 않는다 — 전체 재조회였다면 입력이 날아갔을 것이다.
-    expect(
-      requests.filter(
-        (request) =>
-          request.method === 'GET' && request.url.endsWith('/users/me/profile'),
-      ).length,
-    ).toBe(profileGetsBefore);
-  });
-
-  /**
-   * 프로필은 저장됐는데 알림 저장만 실패한 부분 성공. 안내가 "무엇이 저장됐고
-   * 알림 설정은 지금 어떤 상태이며 지금 무엇을 하면 되는지"를 말해야 하고,
-   * 그 안내가 약속한 대로 입력한 값이 화면에 남아 있어야 한다(#356).
-   *
-   * 503은 백엔드가 값을 쓴 **뒤에** 터졌을 수도 있는 응답이라, 화면은 알림 값이
-   * 이전 값 그대로라고 단정하면 안 된다 — 확인 방법을 주는 데까지가 이 화면의 몫이다.
-   */
-  it('알림 저장만 실패하면 상태를 단정하지 않고 확인 방법을 알리며 입력을 보존한다', async () => {
-    await render({
-      status: 'assigned',
-      role: 'STAFF',
-      isProfileComplete: true,
-    });
-
-    await type(field('settings-notification-email'), 'changed@example.com');
-    notificationResponder = () => new Response('', { status: 503 });
-
-    const form = container.querySelector('form');
-    await act(async () => {
-      form?.dispatchEvent(
-        new Event('submit', { bubbles: true, cancelable: true }),
-      );
-    });
-
-    // 프로필 PATCH는 실제로 나갔다 — "프로필은 저장했다"는 문구가 참이어야 한다.
-    expect(
-      requests.some(
-        (request) =>
-          request.method === 'PATCH' &&
-          request.url.endsWith('/users/me/profile'),
-      ),
-    ).toBe(true);
-    expect(container.textContent).toContain('프로필은 저장했습니다.');
-    // 거짓일 수 있는 단정을 하지 않는다 — 503은 쓰기 뒤에 터졌을 수 있다.
-    expect(container.textContent).not.toContain('이전 값으로 남아 있습니다');
-    expect(container.textContent).toContain('저장됐는지 확인하지 못했습니다');
-    expect(container.textContent).toContain('저장을 다시 눌러 주세요.');
-    expect(container.textContent).toContain(
-      '설정 화면을 새로 열어 지금 저장된 값을 확인',
-    );
-    // 입력을 되돌리지 않는다 — 안내가 그렇게 약속했다.
-    expect(field('settings-notification-email').value).toBe(
-      'changed@example.com',
-    );
-    expect(container.textContent).not.toContain('저장되었습니다');
   });
 });

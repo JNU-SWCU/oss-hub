@@ -10,14 +10,12 @@ import {
 } from '../../_shell/onboarding-route';
 import { roleHomePath } from '../../_shell/role';
 import { SessionError } from '../../_shell/session-error';
-import type { MemberAccess } from '../../_shell/member-access';
 import {
   useSessionRole,
   type SessionRoleState,
 } from '../../_shell/use-session-role';
 
-type ProfileOnboardingState = Omit<SessionRoleState, keyof MemberAccess> &
-  Partial<MemberAccess>;
+type ProfileOnboardingState = SessionRoleState;
 
 /** 아직 가입을 마치지 않은 사용자를 되돌릴 자리 — `AuthGate`가 비로그인을 보내는 곳과 같다. */
 const LANDING_PATH = '/';
@@ -58,10 +56,11 @@ export type ProfileOnboardingView =
  * 정하는 상태들이다.
  */
 export function signupDestination(state: ProfileOnboardingState): string {
-  if (state.memberKind != null || state.hasAdminAccess === true) {
-    return state.hasAdminAccess && state.memberKind === null
-      ? '/admin/access'
-      : '/dashboard';
+  if (state.memberKind !== null) {
+    return '/dashboard';
+  }
+  if (state.hasAdminAccess) {
+    return '/admin/access';
   }
   if (state.role) return roleHomePath(state.role);
   switch (state.selectedRole) {
@@ -110,10 +109,7 @@ export function signupDestination(state: ProfileOnboardingState): string {
 function profileMemberKind(
   state: ProfileOnboardingState,
 ): ProfileMemberKind | null {
-  if (state.memberKind !== undefined && state.memberKind !== null) {
-    return state.memberKind;
-  }
-  if (state.role === 'STUDENT' || state.role === 'STAFF') return state.role;
+  if (state.memberKind !== null) return state.memberKind;
   if (state.selectedRole !== null) return state.selectedRole;
   return state.roleRequestStatus === 'PENDING' ||
     state.roleRequestStatus === 'APPROVED'

@@ -433,3 +433,14 @@
 - 결과: 독립 staff/admin grant·revoke를 별도 typed audit event로 등록하고 command·회원 유형·두 권한·role·계정 상태가 저장 JSON에서 parser와 조회 view까지 손실 없이 왕복하며 malformed·unknown·extra 필드를 fail-closed 처리
 - 검증: audit metadata/parser/view 2 suites/52 tests, 감사 transaction 2 suites/7 tests, 독립 권한 API 8 suites/32 tests, Task 8 권한 행렬 11 suites/58 tests, auth manifest 2 suites/20 tests, backend lint·typecheck·format·public-safe 회귀 통과
 - simplifier: source `0fc2bb13a805969c14b0fe9398bad41db346d84e`, plugin 1.0.0으로 metadata corrective TypeScript 11파일 allowlist 단일 실행
+
+## 2026-08-22 — Task 9 canonical 권한 UI 최종 정정
+
+- 상태: review
+- Issue: #969
+- PR: #995
+- blocker: 없음
+- 결과: merged main `72cb9b73`의 canonical detail/감사 계약에 맞춰 회원 유형·교직원 접근·관리자 접근을 독립 사용하고, 학생/교직원/관리자 화면 합집합·admin-only 호환·소속 온보딩·별도 staff/admin mutation을 유지
+- 검증: frontend 초점 36 files/348 tests, exact Chrome happy 3/failure 4, changed ESLint 146 files, responsive PNG 34건 browser/network·keyboard·CJK overflow audit, pure LOC max 245, backend 변경 0
+- simplifier: 공식 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e`를 44파일 + corrective 9파일 allowlist에 실행; 설치된 Claude entrypoint quota 실패는 무변경으로 기록하고 같은 pinned source prompt 실행 결과와 사후 검증을 증적화
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/` (`hashes.sha256` manifest SHA-256 `b9e093170d9cc59b00067cd39f34fb634fc924098c63d7d7ea70b4880bb218c2`)

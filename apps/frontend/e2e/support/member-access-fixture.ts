@@ -31,7 +31,11 @@ function sessionBody(authority: SyntheticAuthority) {
   };
 }
 
-async function fulfillJson(route: Route, body: unknown, status = 200) {
+async function fulfillJson(
+  route: Route,
+  body: unknown,
+  status = 200,
+): Promise<void> {
   await route.fulfill({
     status,
     contentType: 'application/json',
@@ -43,9 +47,12 @@ export async function installSyntheticAuthority(
   page: Page,
   authority: SyntheticAuthority,
 ): Promise<void> {
-  await page.route('**/api/v1/auth/session', (route) =>
-    fulfillJson(route, sessionBody(authority)),
-  );
+  await page.route('**/api/v1/**', (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    return pathname.endsWith('/auth/session')
+      ? fulfillJson(route, sessionBody(authority))
+      : fulfillJson(route, {});
+  });
 }
 
 export async function installOnboardingFixture(
@@ -126,7 +133,7 @@ export async function installOnboardingFixture(
       await fulfillJson(route, savedProfile);
       return;
     }
-    await route.continue();
+    await fulfillJson(route, {});
   });
 
   return { selectedKind: () => selectedKind };
@@ -134,8 +141,11 @@ export async function installOnboardingFixture(
 
 export async function installUnassignedFixture(
   page: Page,
-  requestStatus: 'REJECTED' | 'REVOKED',
-): Promise<void> {
+  initialRequestStatus: 'NONE' | 'REJECTED' | 'REVOKED',
+): Promise<{
+  setRequestStatus: (status: 'NONE' | 'REJECTED' | 'REVOKED') => void;
+}> {
+  let requestStatus = initialRequestStatus;
   await page.route('**/api/v1/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname.endsWith('/auth/session')) {
@@ -143,7 +153,7 @@ export async function installUnassignedFixture(
         route,
         sessionBody({
           role: null,
-          memberKind: 'STAFF',
+          memberKind: requestStatus === 'NONE' ? null : 'STAFF',
           hasStaffAccess: false,
           hasAdminAccess: false,
           isProfileComplete: false,
@@ -152,20 +162,34 @@ export async function installUnassignedFixture(
       return;
     }
     if (pathname.endsWith('/role-requests/me')) {
-      await fulfillJson(route, {
-        id: `synthetic-${requestStatus.toLowerCase()}`,
-        status: requestStatus,
-        requestedAt: '2026-08-20T00:00:00.000Z',
-        decidedAt: '2026-08-21T00:00:00.000Z',
-        rejectionReason:
-          requestStatus === 'REJECTED' ? '합성 소속 확인 실패' : null,
-      });
+      await fulfillJson(
+        route,
+        requestStatus === 'NONE'
+          ? null
+          : {
+              id: `synthetic-${requestStatus.toLowerCase()}`,
+              status: requestStatus,
+              requestedAt: '2026-08-20T00:00:00.000Z',
+              decidedAt: '2026-08-21T00:00:00.000Z',
+              rejectionReason:
+                requestStatus === 'REJECTED' ? '합성 소속 확인 실패' : null,
+            },
+      );
       return;
     }
     if (pathname.endsWith('/onboarding/role')) {
       await fulfillJson(route, { selectedRole: null });
       return;
     }
-    await route.continue();
+    if (pathname.endsWith('/users/me/profile')) {
+      await fulfillJson(route, EMPTY_PROFILE);
+      return;
+    }
+    await fulfillJson(route, {});
   });
+  return {
+    setRequestStatus(status) {
+      requestStatus = status;
+    },
+  };
 }

@@ -4,24 +4,25 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CanonicalAdminAccessDetail } from './independent-authority-api';
+import { AdminAccessMutationActions } from './components/admin-access-mutation-actions';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
 
-import type { AdminAccessDetail } from './admin-access-api';
-import type { AdminAccessAuthoritySource } from './admin-access-authority';
-import { AdminAccessMutationActions } from './components/admin-access-mutation-actions';
-
-type AuthorityDetail = AdminAccessDetail & AdminAccessAuthoritySource;
-
-function detail(overrides: Partial<AuthorityDetail> = {}): AuthorityDetail {
+function detail(
+  overrides: Partial<CanonicalAdminAccessDetail> = {},
+): CanonicalAdminAccessDetail {
   return {
     id: 'target',
     githubLogin: 'octocat',
     name: '합성 사용자',
-    role: 'STAFF',
+    role: 'STUDENT',
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -51,105 +52,96 @@ afterEach(() => {
   container.remove();
 });
 
-describe('AdminAccessMutationActions 독립 접근 컨트롤', () => {
-  it('교직원 접근과 관리자 접근을 별도 라디오그룹으로 렌더링한다', () => {
-    const html = renderToStaticMarkup(
+function render(source: CanonicalAdminAccessDetail, onRequestAction = vi.fn()) {
+  act(() => {
+    root.render(
       <AdminAccessMutationActions
-        detail={detail({
-          memberKind: 'STUDENT',
-          hasStaffAccess: false,
-          hasAdminAccess: true,
-        })}
+        detail={source}
         processingAction={null}
-        onRequestAction={() => {}}
+        onRequestAction={onRequestAction}
       />,
     );
-
-    expect(html).toContain('교직원 접근');
-    expect(html).toContain('관리자 접근');
-    expect(html.match(/role="radiogroup"/g)).toHaveLength(3);
-    expect(html).not.toContain('(현재)');
   });
+  return onRequestAction;
+}
 
-  it('선택되지 않은 비활성도 outline이고 destructive가 아니다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessMutationActions
-        detail={detail({ accountStatus: 'ACTIVE' })}
-        processingAction={null}
-        onRequestAction={() => {}}
-      />,
-    );
+function authorityButton(label: string, value: '허용' | '해제') {
+  const group = container.querySelector(`[aria-labelledby="${label}"]`);
+  return Array.from(group?.querySelectorAll('button') ?? []).find((button) =>
+    button.textContent?.endsWith(value),
+  );
+}
 
-    expect(html).toContain('비활성');
-    expect(html).not.toContain('bg-destructive/10');
-  });
-
-  it('각 접근 권한과 계정 상태 그룹에 현재 값이 하나씩 있다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessMutationActions
-        detail={detail({
-          hasStaffAccess: false,
-          hasAdminAccess: true,
-        })}
-        processingAction={null}
-        onRequestAction={() => {}}
-      />,
-    );
-
-    const trueCount = html.match(/aria-checked="true"/g)?.length ?? 0;
-    expect(trueCount).toBe(3);
-  });
-
-  it('관리자 접근 허용은 SET_ROLE_ADMIN 액션을 요청한다', () => {
-    const onRequestAction = vi.fn();
-    act(() => {
-      root.render(
+describe('independent admin authority controls', () => {
+  it.each([
+    ['student-admin', 'STUDENT', false, true],
+    ['staff-only', 'STAFF', true, false],
+    ['staff-admin', 'STAFF', true, true],
+    ['admin-only', null, false, true],
+  ] as const)(
+    'renders canonical %s without legacy role projection',
+    (_, memberKind, hasStaffAccess, hasAdminAccess) => {
+      const html = renderToStaticMarkup(
         <AdminAccessMutationActions
-          detail={detail({ hasAdminAccess: false })}
+          detail={detail({ memberKind, hasStaffAccess, hasAdminAccess })}
           processingAction={null}
-          onRequestAction={onRequestAction}
+          onRequestAction={() => {}}
         />,
       );
-    });
+      expect(html.match(/role="radiogroup"/g)).toHaveLength(3);
+      expect(html.match(/aria-checked="true"/g)).toHaveLength(3);
+      expect(html).not.toContain('canonical 관리 API');
+    },
+  );
 
-    const adminGroup = container.querySelector(
-      '[aria-labelledby="admin-admin-access-control-label"]',
+  it('staff-admin revoke staff requests only REVOKE_STAFF_ACCESS', () => {
+    const request = render(
+      detail({
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      }),
     );
-    const allowButton = Array.from(
-      adminGroup?.querySelectorAll('button[role="radio"]') ?? [],
-    ).find((button) => button.textContent?.includes('허용'));
-    expect(allowButton).toBeDefined();
-    act(() => {
-      allowButton?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true }),
-      );
-    });
-
-    expect(onRequestAction).toHaveBeenCalledWith('SET_ROLE_ADMIN');
+    act(() =>
+      authorityButton('admin-staff-access-control-label', '해제')?.click(),
+    );
+    expect(request).toHaveBeenCalledWith('REVOKE_STAFF_ACCESS');
   });
 
-  it('계정 상태 버튼은 기존 SET_STATUS_* 액션을 유지한다', () => {
-    const onRequestAction = vi.fn();
-    act(() => {
-      root.render(
-        <AdminAccessMutationActions
-          detail={detail({ accountStatus: 'ACTIVE' })}
-          processingAction={null}
-          onRequestAction={onRequestAction}
-        />,
-      );
-    });
+  it('staff-admin revoke admin requests only REVOKE_ADMIN_ACCESS', () => {
+    const request = render(
+      detail({
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      }),
+    );
+    act(() =>
+      authorityButton('admin-admin-access-control-label', '해제')?.click(),
+    );
+    expect(request).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
+  });
 
-    const deactivateButton = Array.from(
-      container.querySelectorAll('button[role="radio"]'),
-    ).find((button) => button.textContent?.includes('비활성'));
-    expect(deactivateButton).toBeDefined();
-    act(() => {
-      deactivateButton?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true }),
-      );
-    });
+  it('grants staff and admin with separate exact commands', () => {
+    const request = render(detail());
+    act(() =>
+      authorityButton('admin-staff-access-control-label', '허용')?.click(),
+    );
+    act(() =>
+      authorityButton('admin-admin-access-control-label', '허용')?.click(),
+    );
+    expect(request.mock.calls).toEqual([
+      ['GRANT_STAFF_ACCESS'],
+      ['GRANT_ADMIN_ACCESS'],
+    ]);
+  });
 
-    expect(onRequestAction).toHaveBeenCalledWith('SET_STATUS_DEACTIVATED');
+  it('disables same-state controls without emitting a mutation', () => {
+    const request = render(detail({ hasAdminAccess: true }));
+    const current = authorityButton('admin-admin-access-control-label', '허용');
+    expect(current).toBeInstanceOf(HTMLButtonElement);
+    expect((current as HTMLButtonElement).disabled).toBe(true);
+    act(() => current?.click());
+    expect(request).not.toHaveBeenCalled();
   });
 });

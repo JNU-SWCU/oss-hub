@@ -6,11 +6,7 @@ import { LandingEntryActionView } from './landing-entry-action';
 describe('LandingEntryActionView', () => {
   it('shows only a loading status while the session is loading', () => {
     const html = renderToStaticMarkup(
-      <LandingEntryActionView
-        status="loading"
-        role={null}
-        isProfileComplete={false}
-      />,
+      <LandingEntryActionView status="loading" isProfileComplete={false} />,
     );
 
     expect(html).toContain('세션 확인 중');
@@ -21,11 +17,7 @@ describe('LandingEntryActionView', () => {
   // 없는 방문자는 그대로 막힌다. 그래서 `/signup`을 한 번 거친다.
   it('sends an anonymous visitor to the signup entry instead of GitHub', () => {
     const html = renderToStaticMarkup(
-      <LandingEntryActionView
-        status="anonymous"
-        role={null}
-        isProfileComplete={false}
-      />,
+      <LandingEntryActionView status="anonymous" isProfileComplete={false} />,
     );
 
     expect(html).toContain('회원가입 / 로그인');
@@ -38,11 +30,7 @@ describe('LandingEntryActionView', () => {
   // 행동을 두지 않고, 재개 지점 판단은 `/signup`이 맡는다.
   it('sends an unassigned user to the same signup entry', () => {
     const html = renderToStaticMarkup(
-      <LandingEntryActionView
-        status="unassigned"
-        role={null}
-        isProfileComplete={false}
-      />,
+      <LandingEntryActionView status="unassigned" isProfileComplete={false} />,
     );
 
     expect(html).toContain('회원가입 / 로그인');
@@ -54,7 +42,11 @@ describe('LandingEntryActionView', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="assigned"
-        role="STUDENT"
+        access={{
+          memberKind: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+        }}
         isProfileComplete
       />,
     );
@@ -68,7 +60,11 @@ describe('LandingEntryActionView', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="assigned"
-        role="STAFF"
+        access={{
+          memberKind: 'STAFF',
+          hasStaffAccess: true,
+          hasAdminAccess: false,
+        }}
         isProfileComplete
       />,
     );
@@ -81,7 +77,11 @@ describe('LandingEntryActionView', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="assigned"
-        role="ADMIN"
+        access={{
+          memberKind: null,
+          hasStaffAccess: false,
+          hasAdminAccess: true,
+        }}
         isProfileComplete
       />,
     );
@@ -97,7 +97,11 @@ describe('LandingEntryActionView', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="assigned"
-        role="STUDENT"
+        access={{
+          memberKind: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+        }}
         isProfileComplete={false}
       />,
     );
@@ -111,11 +115,7 @@ describe('LandingEntryActionView', () => {
   // `/signup`이다 — 진입점이 둘이어도 목적지가 갈라지면 안 된다.
   it('still offers a way forward when the session lookup fails', () => {
     const html = renderToStaticMarkup(
-      <LandingEntryActionView
-        status="error"
-        role={null}
-        isProfileComplete={false}
-      />,
+      <LandingEntryActionView status="error" isProfileComplete={false} />,
     );
 
     expect(html).toContain('회원가입 / 로그인');
@@ -125,11 +125,7 @@ describe('LandingEntryActionView', () => {
 
   it('does not pass a failed session lookup off as a logged-out visitor', () => {
     const html = renderToStaticMarkup(
-      <LandingEntryActionView
-        status="error"
-        role={null}
-        isProfileComplete={false}
-      />,
+      <LandingEntryActionView status="error" isProfileComplete={false} />,
     );
 
     expect(html).toContain('로그인 정보를 확인하지 못했습니다');
@@ -140,7 +136,6 @@ describe('LandingEntryActionView', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="error"
-        role={null}
         isProfileComplete={false}
         inverted
       />,
@@ -154,7 +149,6 @@ describe('LandingEntryActionView', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="anonymous"
-        role={null}
         isProfileComplete={false}
         hasAuthError
       />,

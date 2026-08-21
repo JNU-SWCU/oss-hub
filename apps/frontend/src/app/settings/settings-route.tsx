@@ -1,7 +1,6 @@
 'use client';
 
 import { SettingsScreen } from '@/features/profile/settings/components/settings-screen';
-import { resolveMemberAccess } from '../_shell/member-access';
 import { useSharedSessionRole } from '../_shell/session-role-context';
 
 /**
@@ -30,9 +29,8 @@ import { useSharedSessionRole } from '../_shell/session-role-context';
 export function SettingsRoute() {
   const state = useSharedSessionRole();
 
-  const authority = resolveMemberAccess(state);
   const memberKind =
-    authority.memberKind ??
+    state.memberKind ??
     state.selectedRole ??
     (state.roleRequestStatus === 'PENDING' ||
     state.roleRequestStatus === 'APPROVED'
@@ -42,7 +40,7 @@ export function SettingsRoute() {
   return (
     <SettingsScreen
       memberKind={memberKind}
-      hasAdminAccess={authority.hasAdminAccess}
+      hasAdminAccess={state.hasAdminAccess}
     />
   );
 }

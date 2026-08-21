@@ -10,7 +10,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-import type { AdminAccessDetail } from './admin-access-api';
+import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import {
   AdminAccessMutationActions,
   AdminAccessPendingRequestCard,
@@ -24,12 +24,17 @@ import {
  * `admin-access-overlay.test.tsx`와 같은 happy-dom + createRoot/act 패턴을 쓴다.
  */
 
-function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
+function detail(
+  overrides: Partial<CanonicalAdminAccessDetail> = {},
+): CanonicalAdminAccessDetail {
   return {
     id: 'target',
     githubLogin: 'octocat',
     name: '합성 사용자',
     role: 'STAFF',
+    memberKind: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -106,7 +111,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼�
     expect(disabledCount).toBe(buttonCount);
   });
 
-  it('프로필이 미완료면 교직원·관리자 버튼만 막히고 안내문이 뜬다', () => {
+  it('프로필이 미완료면 authority grant를 막고 이유를 설명한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessMutationActions
         detail={detail({
@@ -126,6 +131,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼�
     expect(html).toContain(
       '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
     );
+    expect(html).not.toContain('canonical 관리 API');
   });
 
   it('본인 계정이면 비활성화 버튼만 막히고 안내문이 뜬다', () => {

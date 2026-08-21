@@ -25,10 +25,15 @@ function sessionFor(role: AppRole): SessionRoleResult {
   return {
     status: 'assigned',
     role,
+    memberKind: role === 'ADMIN' ? null : role,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
     isProfileComplete: true,
     roleRequestStatus: null,
+    roleRequestRejectionReason: null,
+    selectedRole: null,
     retry: vi.fn(),
-  } as unknown as SessionRoleResult;
+  };
 }
 
 describe('ProgramTeamsRouteView', () => {

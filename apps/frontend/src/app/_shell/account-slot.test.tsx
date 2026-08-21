@@ -30,11 +30,16 @@ function mockSession(
     roleRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
     isProfileComplete?: boolean;
   } = {},
-) {
+): void {
+  const role = overrides.role ?? null;
   mocks.useSessionRole.mockReturnValue({
     status: overrides.status ?? 'assigned',
-    role: overrides.role ?? null,
+    role,
+    memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
     roleRequestStatus: overrides.roleRequestStatus ?? null,
+    roleRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: overrides.isProfileComplete ?? false,
     retry: () => {},

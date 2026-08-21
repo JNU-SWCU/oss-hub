@@ -11,10 +11,18 @@ describe('resolveSessionEntry', () => {
   });
 
   it.each([
-    ['STUDENT', '내 대시보드'],
-    ['STAFF', '운영 대시보드'],
-  ] as const)('회원 유형 %s는 대시보드 입구를 반환한다', (role, label) => {
-    expect(resolveSessionEntry('assigned', role, true)).toEqual({
+    [
+      'STUDENT',
+      { memberKind: 'STUDENT', hasStaffAccess: false, hasAdminAccess: false },
+      '내 대시보드',
+    ],
+    [
+      'STAFF',
+      { memberKind: 'STAFF', hasStaffAccess: true, hasAdminAccess: false },
+      '운영 대시보드',
+    ],
+  ] as const)('회원 유형 %s는 대시보드 입구를 반환한다', (_, access, label) => {
+    expect(resolveSessionEntry('assigned', access, true)).toEqual({
       href: '/dashboard',
       label,
       compactLabel: '대시보드',
@@ -22,7 +30,13 @@ describe('resolveSessionEntry', () => {
   });
 
   it('admin-only 호환 사용자는 관리자 화면 입구를 반환한다', () => {
-    expect(resolveSessionEntry('assigned', 'ADMIN', true)).toEqual({
+    expect(
+      resolveSessionEntry(
+        'assigned',
+        { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
+        true,
+      ),
+    ).toEqual({
       href: '/admin/access',
       label: '사용자 목록',
       compactLabel: '관리',
@@ -44,10 +58,14 @@ describe('resolveSessionEntry', () => {
   // 학생은 역할을 고르는 즉시 배정되므로 프로필 단계에서 창을 닫으면 역할만 남는다.
   // 그 사람에게 역할 홈을 내밀면 헤더가 회원의 것이 되고, 눌러도 게이트가 프로필로
   // 되돌려 고장으로 읽힌다. 남은 단계로 데려가는 버튼 하나만 준다.
-  it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
-    '프로필을 마치지 않은 %s에게는 역할 홈 대신 가입·로그인 진입을 준다',
-    (role) => {
-      const destination = resolveSessionEntry('assigned', role, false);
+  it.each([
+    { memberKind: 'STUDENT', hasStaffAccess: false, hasAdminAccess: false },
+    { memberKind: 'STAFF', hasStaffAccess: true, hasAdminAccess: false },
+    { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
+  ] as const)(
+    '프로필을 마치지 않은 canonical 회원은 역할 홈 대신 가입·로그인 진입을 준다',
+    (access) => {
+      const destination = resolveSessionEntry('assigned', access, false);
 
       expect(destination).toEqual({
         href: '/signup',

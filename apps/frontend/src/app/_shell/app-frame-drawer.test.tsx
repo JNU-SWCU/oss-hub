@@ -59,11 +59,19 @@ function mockSession(session: {
   status: 'loading' | 'anonymous' | 'unassigned' | 'assigned' | 'error';
   role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   isProfileComplete: boolean;
-}) {
+}): void {
   mocks.useSessionRole.mockReturnValue({
     status: session.status,
     role: session.role,
+    memberKind:
+      session.role === 'STUDENT' || session.role === 'STAFF'
+        ? session.role
+        : null,
+    hasStaffAccess: session.role === 'STAFF',
+    hasAdminAccess: session.role === 'ADMIN',
     roleRequestStatus: null,
+    roleRequestRejectionReason: null,
+    selectedRole: null,
     isProfileComplete: session.isProfileComplete,
     retry: () => {},
   });

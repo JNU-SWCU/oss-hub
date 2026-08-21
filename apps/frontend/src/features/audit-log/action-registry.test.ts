@@ -3,25 +3,35 @@
 // 필터 목록에는 반영되지 않았던 사례가 실제로 있었다). 모노레포에 공유 패키지가 없어
 // frontend가 apps/backend/src를 직접 import할 수 없으므로(백엔드 모듈이
 // @nestjs/common·@prisma/client에 의존하고 frontend workspace에는 그 의존성이 없다),
-// apps/backend/src/audit-log/audit-log-metadata.ts를 텍스트로 읽어 action 문자열
+// apps/backend/src/audit-log/*-audit-metadata.ts를 텍스트로 읽어 action 문자열
 // 값을 직접 추출해 비교한다 — apps/frontend/src/app/globals.css.test.ts와 같은 방식이다.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AUDIT_LOG_ACTION_LABELS, AUDIT_LOG_ACTIONS } from './types';
 
-const METADATA_PATH = path.resolve(
-  __dirname,
-  '../../../../backend/src/audit-log/audit-log-metadata.ts',
-);
-const source = readFileSync(METADATA_PATH, 'utf-8');
+const METADATA_FILES = [
+  'access-audit-metadata.ts',
+  'application-decision-audit-metadata.ts',
+  'independent-authority-audit-metadata.ts',
+  'operations-audit-metadata.ts',
+  'repository-program-audit-metadata.ts',
+  'user-profile-audit-metadata.ts',
+  'web-state-audit-metadata.ts',
+] as const;
+const source = METADATA_FILES.map((file) =>
+  readFileSync(
+    path.resolve(__dirname, '../../../../backend/src/audit-log', file),
+    'utf-8',
+  ),
+).join('\n');
 
 function extractActionValues(exportName: string): string[] {
   const declaration = `export const ${exportName} = {`;
   const start = source.indexOf(declaration);
   if (start === -1) {
     throw new Error(
-      `audit-log-metadata.ts에서 ${exportName} 선언을 찾지 못했다`,
+      `backend audit metadata에서 ${exportName} 선언을 찾지 못했다`,
     );
   }
   const braceOpen = start + declaration.length - 1;
@@ -42,6 +52,7 @@ function extractActionValues(exportName: string): string[] {
 
 const REQUIRED_ACTION_REGISTRIES = [
   'ACCESS_AUDIT_ACTIONS',
+  'INDEPENDENT_AUTHORITY_AUDIT_COMMANDS',
   'REPOSITORY_PUBLISH_AUDIT_ACTIONS',
   'PROGRAM_LIFECYCLE_AUDIT_ACTIONS',
   'PROGRAM_DELETION_AUDIT_ACTIONS',
@@ -53,7 +64,7 @@ const REQUIRED_ACTION_REGISTRIES = [
 
 function listAuditActionExportNames(): string[] {
   const names: string[] = [];
-  const pattern = /export const ([A-Z0-9_]+_AUDIT_ACTIONS) = \{/g;
+  const pattern = /export const ([A-Z0-9_]+_AUDIT_(?:ACTIONS|COMMANDS)) = \{/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) !== null) {
     names.push(match[1]);

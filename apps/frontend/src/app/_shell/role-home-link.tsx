@@ -8,7 +8,7 @@ import {
   shouldShowEntryLink,
 } from '@/features/auth/signup-entry-link';
 import { useSessionRole, type SessionStatus } from './use-session-role';
-import { memberAccessFromLegacyRole, type MemberAccess } from './member-access';
+import type { MemberAccess } from './member-access';
 import type { AppRole } from './role';
 import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 
@@ -57,13 +57,9 @@ interface SessionEntry {
  */
 export function resolveSessionEntry(
   status: SessionStatus,
-  access: MemberAccess | AppRole | null,
+  access: MemberAccess | null,
   isProfileComplete: boolean,
 ): SessionEntry | null {
-  const memberAccess =
-    typeof access === 'string' || access === null
-      ? memberAccessFromLegacyRole(access)
-      : access;
   switch (status) {
     case 'loading':
     case 'anonymous':
@@ -90,9 +86,9 @@ export function resolveSessionEntry(
       }
       // 랜딩 히어로 CTA 등 본문 진입은 역할 홈을 쓴다. nav actions 슬롯은
       // `SessionEntryNavLink`가 상단 items와 겹치지 않게 따로 숨긴다.
-      if (memberAccess.hasStaffAccess) return STAFF_HOME;
-      if (memberAccess.memberKind === 'STUDENT') return STUDENT_HOME;
-      return memberAccess.hasAdminAccess ? ADMIN_HOME : null;
+      if (access?.hasStaffAccess) return STAFF_HOME;
+      if (access?.memberKind === 'STUDENT') return STUDENT_HOME;
+      return access?.hasAdminAccess ? ADMIN_HOME : null;
     default: {
       const exhaustive: never = status;
       return exhaustive;

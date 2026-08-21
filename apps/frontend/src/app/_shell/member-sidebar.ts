@@ -1,4 +1,4 @@
-import { resolveMemberAccess, type MemberAccess } from './member-access';
+import type { MemberAccess } from './member-access';
 import {
   sidebarGroupsFor,
   type ShellSection,
@@ -28,16 +28,15 @@ export function sidebarGroupsForMemberAccess(
   }
 
   const groups: SidebarGroup[] = [];
-  const authority = resolveMemberAccess(access);
-  if (authority.memberKind === 'STUDENT') {
+  if (access.memberKind === 'STUDENT') {
     const student = dashboardGroup('STUDENT', '대시보드');
     if (student) groups.push(student);
   }
-  if (authority.hasStaffAccess) {
+  if (access.hasStaffAccess) {
     const staff = dashboardGroup('STAFF', '교직원');
     if (staff) groups.push(staff);
   }
-  if (authority.hasAdminAccess) {
+  if (access.hasAdminAccess) {
     const admin = dashboardGroup('ADMIN', '관리자');
     if (admin) groups.push(admin);
   }
