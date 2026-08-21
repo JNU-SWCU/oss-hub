@@ -123,3 +123,11 @@
 - blocker: 없음
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3/browser-session-transition.json`, `authenticated-shell.png`, `generic-401-session-transition.png`, `expired-session-transition.png`, `inactive-session-transition.png`, `server-error-session-transition.png`
 - 결과: 겹친 세션 갱신은 최신 세대만 게시하며, 구독 기반 결정론 테스트와 합성 Chrome 인증·401·만료·비활성·서버 오류 전환을 검증 완료
+
+## 2026-08-21 — 스태프 인사이트 필터 키보드 초점 표시를 복구
+
+- 상태: review
+- Issue: #973
+- PR: 생성 예정
+- blocker: 기존 local-review `insights-long` fixture가 현재 브랜치에서 404라 Chrome 회귀 스펙은 fixture 라우팅에서 중단됨
+- 검증: focused Vitest 2949 passed, typecheck passed, lint passed (기존 경고 5건)
