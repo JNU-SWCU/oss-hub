@@ -164,3 +164,9 @@
 - blocker: 없음
 - 검증: backend lint·typecheck·unit·build, 정확한 2 suites/6 tests 통합 패턴, forbidden-field·public strict-read·public-safe 통과
 - simplifier: 공식 code-simplifier 1.0.0 pinned commit PASS, 9개 hand-written allowlist 밖 변경 0건
+## 2026-08-21 — 랭킹 CSV 전체 행 수 검증
+
+- 상태: review
+- Issue: #979
+- PR: (이 PR)
+- blocker: 없음

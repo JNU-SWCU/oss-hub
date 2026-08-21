@@ -86,9 +86,13 @@ export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
         ) {
           throw new Error('CSV export viewer class changed');
         }
+        const items = allPages.flatMap((page) => page.items);
+        if (items.length !== firstPage.total) {
+          throw new Error('CSV export item count does not match total');
+        }
         downloadTextFile(
           rankingCsvFilename(firstPage.year),
-          buildRankingCsv(allPages.flatMap((page) => page.items)),
+          buildRankingCsv(items),
         );
         setExportStatus('idle');
       })
