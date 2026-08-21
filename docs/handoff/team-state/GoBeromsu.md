@@ -124,6 +124,14 @@
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3/browser-session-transition.json`, `authenticated-shell.png`, `generic-401-session-transition.png`, `expired-session-transition.png`, `inactive-session-transition.png`, `server-error-session-transition.png`
 - 결과: 겹친 세션 갱신은 최신 세대만 게시하며, 구독 기반 결정론 테스트와 합성 Chrome 인증·401·만료·비활성·서버 오류 전환을 검증 완료
 
+## 2026-08-21 — 최신 main과 초점 검증 follow-up 병합
+
+- 상태: review
+- Issue: #973
+- PR: #975
+- blocker: 없음
+- 결과: origin/main 97a1f60c를 정상 merge하고 #974의 제품 초점 수정과 #975의 fixture bootstrap·Chrome 검증을 함께 보존
+
 ## 2026-08-21 — 스태프 인사이트 필터 키보드 초점 표시를 복구
 
 - 상태: review
