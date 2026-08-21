@@ -262,3 +262,13 @@
 - 결과: 단일 APP_GUARD가 미분류 경로를 기본 거부하고 PUBLIC·OPTIONAL_SESSION 계약과 DB 기반 active principal을 적용
 - 검증: 기본 거부 통합 5건, malformed·expired·issuer·audience·deactivated 401, principal·guard 초점 27건, HTTP 상태 매트릭스 11건, backend lint·typecheck·format·public-safe·commitlint 통과
 - simplifier: 공식 code-simplifier 1.0.0 Codex 단일 실행; wrapper timeout 뒤 최종 코드 allowlist와 초점 게이트 재검증
+
+## 2026-08-21 — 프로그램별 참여 라벨 교정을 최신 main에 동기화
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 프로그램별 참여 차트를 긴 한국어 이름에도 겹치지 않는 세로 막대와 bounded keyboard scroll 영역으로 교정
+- 검증: Chrome 6건, 200% 실제 label 확대, ZWJ grapheme mutation 회귀, frontend lint·typecheck·build·public-safe 통과
+- 저널 이력: 기존 #984 항목은 유지하고 동시 병합된 main 상태 뒤 현재 항목을 EOF에 append
