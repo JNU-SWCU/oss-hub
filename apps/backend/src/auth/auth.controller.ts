@@ -33,7 +33,6 @@ import {
   type OptionalSessionRequest,
 } from './http-auth';
 import { resolveSession } from './session-resolution';
-import { type AuthenticatedRequest, SessionGuard } from './session.guard';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
@@ -132,13 +131,6 @@ export class AuthController {
           : undefined,
       );
     }
-  }
-
-  @Get('me')
-  @UseGuards(SessionGuard)
-  async getMe(@Req() req: AuthenticatedRequest): Promise<MeResponseDto> {
-    const user = await this.authService.getMe(req.sessionGithubId);
-    return MeResponseDto.from(user, user.role);
   }
 
   /** UI용 조회에서는 정상적인 익명 상태를 모두 200으로 반환한다. */

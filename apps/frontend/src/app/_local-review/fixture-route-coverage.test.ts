@@ -73,15 +73,7 @@ const OUT_OF_SCOPE: ReadonlyMap<string, string> = new Map([
  * 여기에 두는 이유는 「지금 이 PR 에서 고치지 않는다」이지 「고칠 필요 없다」가
  * 아니다. 조용히 통과시키지 않으려고 목록으로 드러낸다.
  */
-const KNOWN_GAPS: ReadonlyMap<string, string> = new Map([
-  // 관리자 접근 화면 네 경로(`users/access`·`users/access/facets`·
-  // `users/:id/access`·`users/:id/access/history`)는 이 PR 에서 메웠다 —
-  // 그 공백이 QA7 의 원인이었다. 목록에서 뺀다.
-  [
-    'auth/me',
-    '`features/auth` 는 owner 전속 경로다(app/AGENTS.md) — 임의로 픽스처를 세우지 않는다',
-  ],
-]);
+const KNOWN_GAPS: ReadonlyMap<string, string> = new Map();
 
 function collectControllerFiles(directory: string): readonly string[] {
   const found: string[] = [];
