@@ -1,6 +1,7 @@
 import { type Type } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { AppModule } from './app.module';
+import { compareStringsByCodeUnit } from './deterministic-string-order';
 
 export function discoverAppModuleControllers(): Type<unknown>[] {
   return discoverModuleControllers(AppModule);
@@ -110,7 +111,7 @@ export function discoverModuleControllers(
 
   visitModuleType(rootModule, rootModule.name || 'RootModule');
   return [...controllers].sort((left, right) =>
-    left.name.localeCompare(right.name),
+    compareStringsByCodeUnit(left.name, right.name),
   );
 }
 
