@@ -367,3 +367,14 @@
 - 검증: Task 8 투영·음수·principal/session·승인/거절/회수·동시 완료·중복 학번 초점 테스트, backend lint·typecheck·format 통과
 - simplifier: 공식 code-simplifier 1.0.0 pinned commit Codex 단일 실행; schema·migration 제외
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-8/`
+
+## 2026-08-21 — Task 8 canonical 프로필 backfill 재실행을 안전하게 한다
+
+- 상태: review
+- Issue: #969
+- PR: #994
+- blocker: 없음
+- 원인: 공유 통합 DB에 남은 정상 canonical STAFF 프로필을 legacy-only 분류가 PROFILE_MISMATCH로 거부
+- 결과: 단일 회원·소속 호환 seam에서 canonical STUDENT/STAFF 완전성과 legacy mirror 일치를 검증해 정상 행만 idempotent하게 건너뛰고 malformed legacy-only 행은 계속 fail-closed
+- 검증: backfill red→green 2건, Task 8 초점 11 suites/57 tests, 기존 실패 2 suites/14 tests, backend lint·typecheck·format
+- simplifier: 공식 code-simplifier 1.0.0을 신규 변경 3파일 allowlist에 한 번 실행
