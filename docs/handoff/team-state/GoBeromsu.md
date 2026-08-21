@@ -289,3 +289,12 @@
 - 결과: 프로그램별 참여 차트를 긴 한국어 이름에도 겹치지 않는 세로 막대와 bounded keyboard scroll 영역으로 교정
 - 검증: Chrome 6건, 200% 실제 label 확대, ZWJ grapheme mutation 회귀, frontend lint·typecheck·build·public-safe 통과
 - 저널 이력: 기존 #984 항목은 유지하고 동시 병합된 main 상태 뒤 현재 항목을 EOF에 append
+
+## 2026-08-21 — 프로그램별 의미 테이블의 모바일 overflow를 교정
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR; #988 production QA 후속)
+- blocker: 없음
+- 결과: screen-reader 의미 테이블을 clipping block으로 감싸 375px document overflow를 제거
+- 검증: production Aside 재현, documentElement/body overflow red-green, Chrome responsive 초점 검증

@@ -101,8 +101,11 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
   expect(result.clipped).toEqual([]);
   expect(result.emojiVisible).toBe(true);
   expect(
-    await page
-      .locator('main')
-      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth &&
+        document.body.scrollWidth <= document.body.clientWidth,
+    ),
   ).toBe(true);
 }
