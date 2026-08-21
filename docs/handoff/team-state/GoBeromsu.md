@@ -155,3 +155,10 @@
 - PR: 생성 예정
 - blocker: 기존 local-review `insights-long` fixture가 현재 브랜치에서 404라 Chrome 회귀 스펙은 fixture 라우팅에서 중단됨
 - 검증: focused Vitest 2949 passed, typecheck passed, lint passed (기존 경고 5건)
+
+## 2026-08-21 — 랭킹 CSV 전체 행 수 검증
+
+- 상태: review
+- Issue: #979
+- PR: (이 PR)
+- blocker: 없음
