@@ -444,3 +444,14 @@
 - 검증: frontend 초점 36 files/348 tests, exact Chrome happy 3/failure 4, changed ESLint 146 files, responsive PNG 34건 browser/network·keyboard·CJK overflow audit, pure LOC max 245, backend 변경 0
 - simplifier: 공식 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e`를 44파일 + corrective 9파일 allowlist에 실행; 설치된 Claude entrypoint quota 실패는 무변경으로 기록하고 같은 pinned source prompt 실행 결과와 사후 검증을 증적화
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/` (`hashes.sha256` manifest SHA-256 `b9e093170d9cc59b00067cd39f34fb634fc924098c63d7d7ea70b4880bb218c2`)
+
+## 2026-08-22 — Task 9 exact-head CI typecheck 정정
+
+- 상태: review
+- Issue: #969
+- PR: #995
+- blocker: 없음
+- 원인: 최종 테스트 분리 파일의 반환 타입에 `SessionRoleResult.retry`를 `SessionRoleState`로 잘못 선언했고, main의 분리된 audit registry를 읽는 frontend 계약 테스트에 Task 8 독립 권한 action의 backend-ahead 예외가 없었음
+- 결과: 테스트 픽스처 타입을 실제 상태 계약에 맞추고 독립 권한 감사 4종만 명시적 backend-ahead로 제한해 다른 누락은 계속 fail-closed
+- 검증: frontend typecheck, audit/settings 초점 4 files/50 tests, 대상 ESLint·LSP, Prettier 통과; backend 변경 0
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/` (`hashes.sha256` SHA-256 `66e67c6ee2dc6d924b41eee2e5f50829b665e64e65809422abc2bc15c48b05d5`)

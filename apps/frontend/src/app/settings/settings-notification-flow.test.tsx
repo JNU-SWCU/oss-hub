@@ -54,7 +54,6 @@ function assignedStaffSession(): SessionRoleState {
     roleRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: true,
-    retry: () => {},
   };
 }
 

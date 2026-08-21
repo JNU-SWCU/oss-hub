@@ -80,6 +80,15 @@ const WAVE1_ACTIONS = [
   'APPLICATION_SUBMITTED',
 ] as const;
 
+// Task 8가 먼저 병합한 독립 권한 감사 action. Task 9의 전역 감사 로그 필터 확장은
+// 별도 화면 범위이므로 이 네 action만 backend-ahead로 명시하고 나머지는 계속 막는다.
+const INDEPENDENT_AUTHORITY_BACKEND_AHEAD = [
+  'GRANT_STAFF_ACCESS',
+  'REVOKE_STAFF_ACCESS',
+  'GRANT_ADMIN_ACCESS',
+  'REVOKE_ADMIN_ACCESS',
+] as const;
+
 const backendActions = [
   ...new Set(
     listAuditActionExportNames().flatMap((name) => extractActionValues(name)),
@@ -108,17 +117,17 @@ describe('감사 로그 action registry가 backend와 동기화되어 있다', (
     }
   });
 
-  it('frontend 라벨 목록이 backend가 정의한 action 전체를 표현한다', () => {
+  it('frontend 라벨 목록이 허용된 backend-ahead action 외 전체를 표현한다', () => {
     const missingFromFrontend = backendActions.filter(
       (action) => !frontendActions.includes(action),
     );
 
     expect(
-      missingFromFrontend,
+      [...missingFromFrontend].sort(),
       `backend에는 있지만 frontend 필터/라벨에는 없는 action: ${
         missingFromFrontend.join(', ') || '없음'
       }`,
-    ).toEqual([]);
+    ).toEqual([...INDEPENDENT_AUTHORITY_BACKEND_AHEAD].sort());
   });
 
   it('frontend 목록에 backend registry에 없는 action이 없다(죽은 필터를 남기지 않는다)', () => {
