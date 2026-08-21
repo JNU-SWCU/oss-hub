@@ -156,6 +156,14 @@
 - blocker: 기존 local-review `insights-long` fixture가 현재 브랜치에서 404라 Chrome 회귀 스펙은 fixture 라우팅에서 중단됨
 - 검증: focused Vitest 2949 passed, typecheck passed, lint passed (기존 경고 5건)
 
+## 2026-08-21 — 상속 인증 라우트 manifest 누락을 교정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #978 후속)
+- blocker: 없음
+- 검증: Nest 상속·override runtime 대조, 45개 controller·120개 route 인벤토리, 11-route HTTP 매트릭스와 전체 품질 행렬 통과
+- simplifier: 공식 code-simplifier 1.0.0 Codex PASS, 6개 코드 allowlist 밖 수정 0건
 ## 2026-08-21 — Task 1 fixture 반환 타입을 명시
 
 - 상태: review
@@ -200,6 +208,15 @@
 - 검증: exact head `f0d55cae7cd38e8269e3af4522111ec9378020f2`와 required `ci`·`public-safe`·`commitlint` 성공을 확인
 - 기록: 이 교정 항목 자체를 현재 저널 EOF에 append-only로 추가
 
+## 2026-08-21 — 상속 인증 라우트 manifest 교정을 제출
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #978 후속)
+- blocker: 없음
+- 결과: 상속 handler 탐색과 locale 비의존 순서를 고정하고 기존 인증 상태 행렬을 보존
+- 검증: Task 2 초점·전체 backend CI·격리 PostgreSQL·실제 Nest HTTP QA
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-2/`
 ## 2026-08-21 — Task 1 fixture 타입 교정을 최종 검증
 
 - 상태: review
@@ -224,3 +241,14 @@
 - Issue: #984
 - PR: (이 PR)
 - blocker: 없음
+## 2026-08-21 — Task 2 인증 manifest 교정을 종료
+
+- 상태: review
+- Issue: #969
+- PR: #983
+- blocker: 없음
+- 결과: overview teams의 미래 PUBLIC 계약과 현재 SessionGuard 401/200/401 동작을 분리하고 상속·override HTTP 증명을 보강
+- 구조: 인증 manifest 테스트와 fixture를 책임별로 분리해 변경 TypeScript 파일을 모두 250 pure LOC 미만으로 유지
+- 검증: Task 2 초점·전체 backend unit/integration·lint·typecheck·build·public-safe·실제 Nest HTTP 통과
+- 저널 이력: 이전 Task 2 항목은 additions-only였지만 동시 base 내용 뒤에 놓여 old base의 byte-prefix는 아니며, 이 종료 항목만 현재 EOF에 append
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-2/`
