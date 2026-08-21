@@ -61,7 +61,7 @@ async function createUser(
   return prisma.user.create({
     data: {
       id: `${prefix}${label}:${sequence}`,
-      githubId: 9_920_000_000n + BigInt(sequence),
+      githubId: 9_921_000_000n + BigInt(sequence),
       nickname: `synthetic-task10-preflight-${sequence}`,
       role: Role.STUDENT,
       selectedRole: Role.STUDENT,
