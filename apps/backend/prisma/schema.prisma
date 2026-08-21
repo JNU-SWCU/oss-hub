@@ -14,6 +14,18 @@ enum Role {
   ADMIN
 }
 
+/// 회원 유형. 권한과 독립적으로 학생·교직원 정체성을 표현한다.
+enum MemberKind {
+  STUDENT
+  STAFF
+}
+
+/// 현재 소속의 유형.
+enum AffiliationKind {
+  DEPARTMENT
+  PROGRAM_OFFICE
+}
+
 /// 계정 생명주기. 역할과 독립적으로 권한 접근 가능 여부를 결정한다(#187, #188).
 enum AccountStatus {
   ACTIVE
@@ -21,20 +33,20 @@ enum AccountStatus {
 }
 
 model User {
-  id                String        @id @default(cuid())
-  githubId          BigInt        @unique
-  nickname          String        @map("login")
-  name              String?
-  studentId         String?
-  department        String?
-  avatarUrl         String?
-  accountStatus     AccountStatus @default(ACTIVE)
+  id                 String        @id @default(cuid())
+  githubId           BigInt        @unique
+  nickname           String        @map("login")
+  name               String?
+  studentId          String?
+  department         String?
+  avatarUrl          String?
+  accountStatus      AccountStatus @default(ACTIVE)
   /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(opt-in 기본 off).
-  notificationEmail String?
-  notifyEnabled     Boolean       @default(false)
+  notificationEmail  String?
+  notifyEnabled      Boolean       @default(false)
   /// 확정된 역할. 역할 선택만으로는 채워지지 않는다 — 학생은 가입을 마칠 때(프로필 완료) STUDENT가
   /// 붙고, 교직원은 요청이 승인될 때에만 STAFF가 된다(#109, #569).
-  role              Role?
+  role               Role?
   /// 가입 절차에서 **고른** 역할 — 기록일 뿐 확정이 아니다(#569).
   ///
   /// `role`로는 이 사실을 담을 수 없다. 그 칸은 확정된 권한을 뜻해서, 프로필을 채우는 동안
@@ -42,9 +54,14 @@ model User {
   /// 프로필 화면이 무엇을 물어야 할지 모른다 — 교직원에게 학번을 요구하게 된다.
   ///
   /// 값은 STUDENT · STAFF · null뿐이다. ADMIN은 역할 선택 화면에 없는 값이라 여기 들어오지 않는다.
-  selectedRole      Role?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  selectedRole       Role?
+  /// 회원 유형 선택 기록. expand 단계에서는 nullable이며 legacy selectedRole을 유지한다.
+  selectedMemberKind MemberKind?
+  /// 교직원·관리자 접근 권한. expand 단계에서는 기존 행을 변경하지 않도록 nullable로 둔다.
+  hasStaffAccess     Boolean?
+  hasAdminAccess     Boolean?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   roleRequests                           RoleRequest[]                    @relation("RoleRequestUser")
   decidedRoleRequests                    RoleRequest[]                    @relation("RoleRequestDecidedBy")
@@ -77,11 +94,14 @@ model UserProfile {
   userId String @id
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  name       String
-  studentId  String   @unique
-  department String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  name            String
+  studentId       String?          @unique
+  department      String
+  memberKind      MemberKind?
+  affiliationKind AffiliationKind?
+  affiliationName String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 enum LoginHistoryEvent {

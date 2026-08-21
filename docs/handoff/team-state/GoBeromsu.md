@@ -256,3 +256,13 @@
 - 결과: 단일 APP_GUARD가 미분류 경로를 기본 거부하고 PUBLIC·OPTIONAL_SESSION 계약과 DB 기반 active principal을 적용
 - 검증: 기본 거부 통합 5건, malformed·expired·issuer·audience·deactivated 401, principal·guard 초점 27건, HTTP 상태 매트릭스 11건, backend lint·typecheck·format·public-safe·commitlint 통과
 - simplifier: 공식 code-simplifier 1.0.0 Codex 단일 실행; wrapper timeout 뒤 최종 코드 allowlist와 초점 게이트 재검증
+
+## 2026-08-21 — 회원 권한과 소속 nullable 확장 스키마를 제출
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: production release는 credential/MFA receipt 전까지 차단
+- 결과: 회원 유형·소속·독립 권한 nullable 확장과 studentId NOT NULL 제거, migration PR mutex·동시 deploy 검증을 추가하고 legacy Role·selectedRole·profile mirror를 유지
+- 검증: fresh/legacy-shaped migration, 이전 이미지 health/session, 동시 deploy 2건과 51개 finished ledger, Jenkins/mutex failure fixture, backend lint·typecheck·초점 unit 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit 단일 실행, schema·migration 제외 및 hand-written code allowlist 밖 최종 변경 0건

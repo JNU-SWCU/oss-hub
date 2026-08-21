@@ -42,7 +42,7 @@ export type CompleteCompatibleProfile = {
 export type CompatibleProfileSource = CompatibleProfile & {
   readonly profile: {
     readonly name: string;
-    readonly studentId: string;
+    readonly studentId: string | null;
     readonly department: string;
   } | null;
 };

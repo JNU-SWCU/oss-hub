@@ -130,8 +130,8 @@ export async function fillCompatibleStudentIdIfUnchanged(
 }
 
 /**
- * `profile`은 새 `UserProfile` 행을 만들 때 쓴다(그 테이블 세 컬럼 모두 NOT NULL이라
- * 부분 값으로는 만들 수 없다). 이미 있는 행을 갱신할 때는 `changedFields`(호출부의
+ * `profile`은 새 `UserProfile` 행을 만들 때 쓴다. nullable expand 뒤에도 이 호환 writer는
+ * 완성된 세 legacy 필드만 create한다. 이미 있는 행을 갱신할 때는 `changedFields`(호출부의
  * 커맨드에 실제로 실린 필드만)만 UPDATE 문에 싣는다 — 관리자 두 명이 같은 사용자의
  * 서로 다른 필드를 거의 동시에 고치면, 세 필드를 통째로 다시 쓰는 쪽이 상대가 막
  * 저장한 필드를 건드리지도 않고 옛 값으로 되돌리는 lost-update가 생긴다(#787 리뷰).

@@ -54,6 +54,11 @@ jobs:
               - 'pnpm-lock.yaml'
               - 'compose.dev.yml'
               - 'scripts/run-backend-integration*.sh'
+              - 'scripts/check-open-prisma-migration-prs*'
+              - 'scripts/test-prisma-migration-concurrency*'
+              - 'scripts/prisma-migration-ledger.mjs'
+              - 'scripts/member-authority-expand-contract.mjs'
+              - 'scripts/rehearse-member-authority-migrations*'
               - '.github/workflows/**'
             nginx:
               - 'deploy/nginx/**'
@@ -81,6 +86,7 @@ jobs:
               - 'scripts/jenkins/**'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
+              - 'scripts/check-jenkinsfile.test.mjs'
               - 'scripts/prune-deploy-backups.sh'
               - 'scripts/prune-deploy-backups.test.sh'
               - '.github/workflows/**'
@@ -220,6 +226,10 @@ jobs:
         if: ${{ steps.scope.outputs.frontend == 'true' }}
         run: pnpm --filter frontend build
 
+      - name: Prisma migration contract unit tests
+        if: ${{ steps.scope.outputs.backend == 'true' }}
+        run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/check-jenkinsfile.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
+
       - name: backend lint
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend lint
@@ -239,6 +249,10 @@ jobs:
       - name: backend integration test
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend test:integration
+
+      - name: Prisma migration concurrency
+        if: ${{ steps.scope.outputs.backend == 'true' }}
+        run: bash scripts/test-prisma-migration-concurrency.sh
 
       - name: backend build
         if: ${{ steps.scope.outputs.backend == 'true' }}
