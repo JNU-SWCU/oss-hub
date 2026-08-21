@@ -26,11 +26,7 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
   });
   await expect(ticks).toHaveCount(denseProgramCount);
   const result = await ticks.evaluateAll((elements) => {
-    const visibleText = (element: Element): string =>
-      Array.from(element.childNodes)
-        .filter((node) => node.nodeType === Node.TEXT_NODE)
-        .map((node) => node.textContent ?? '')
-        .join('');
+    const visibleText = (element: Element): string => element.textContent ?? '';
     const hasBrokenUnicode = (text: string): boolean => {
       if (text.includes('\uFFFD')) return true;
       for (let index = 0; index < text.length; index += 1) {
@@ -66,10 +62,9 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
       });
       if (element.querySelectorAll('tspan').length > 1) multiline.push(text);
       if (hasBrokenUnicode(text)) malformed.push(text);
-      const svgBounds =
-        element instanceof SVGElement
-          ? element.ownerSVGElement?.getBoundingClientRect()
-          : undefined;
+      const svgBounds = element
+        .closest('foreignObject')
+        ?.ownerSVGElement?.getBoundingClientRect();
       if (
         svgBounds === undefined ||
         rectangle.left < svgBounds.left ||

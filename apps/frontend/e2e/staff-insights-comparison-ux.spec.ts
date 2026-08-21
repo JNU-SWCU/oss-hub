@@ -40,6 +40,13 @@ test.describe('staff insights comparison UX', () => {
 
       // Then: all program labels remain separate without widening the page.
       await expectProgramChartLayout(page);
+      const baseProgramLabelFontSize = await page
+        .locator(PROGRAM_TICK_SELECTOR)
+        .filter({ hasText: '프로그램' })
+        .first()
+        .evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize),
+        );
       const scrollBounds = await chartViewport.evaluate((element) => ({
         clientHeight: element.clientHeight,
         scrollHeight: element.scrollHeight,
@@ -125,6 +132,15 @@ test.describe('staff insights comparison UX', () => {
         document.documentElement.style.fontSize = '200%';
       });
       await expectProgramChartLayout(page);
+      expect(
+        await page
+          .locator(PROGRAM_TICK_SELECTOR)
+          .filter({ hasText: '프로그램' })
+          .first()
+          .evaluate((element) =>
+            Number.parseFloat(getComputedStyle(element).fontSize),
+          ),
+      ).toBeGreaterThanOrEqual(baseProgramLabelFontSize * 1.9);
       await page.mouse.move(0, 0);
       await card.screenshot({
         path: `${participationEvidenceDir}/${name}-200-text.png`,

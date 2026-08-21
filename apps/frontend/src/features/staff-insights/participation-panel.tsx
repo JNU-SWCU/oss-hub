@@ -16,12 +16,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { formatProgramChartLabel } from './program-label';
 import { COHORT_LABELS, DEPARTMENT_COHORTS } from './types';
 import type { StaffInsightsSummary } from './types';
 
-const programLabelSegmenter = new Intl.Segmenter('ko', {
-  granularity: 'grapheme',
-});
 const chartMinimumHeight = 320;
 const chartMaximumHeight = 560;
 const programRowHeight = 52;
@@ -39,27 +37,20 @@ function ProgramNameTick({
   payload,
 }: ProgramNameTickProps): ReactElement | null {
   if (payload === undefined) return null;
-  const graphemes = Array.from(
-    programLabelSegmenter.segment(payload.value),
-    ({ segment }) => segment,
-  );
-  const label =
-    graphemes.length > 12
-      ? `${graphemes.slice(0, 11).join('')}…`
-      : payload.value;
+  const label = formatProgramChartLabel(payload.value);
   return (
-    <text
-      className="recharts-text recharts-cartesian-axis-tick-value"
-      x={x - 8}
-      y={y}
-      dy="0.355em"
-      textAnchor="end"
-      fill="var(--muted-foreground)"
-      fontSize={12}
-    >
+    <g>
       <title>{payload.value}</title>
-      {label}
-    </text>
+      <foreignObject x={0} y={y - 20} width={Math.max(x - 8, 0)} height={40}>
+        <div
+          className="recharts-text recharts-cartesian-axis-tick-value overflow-hidden text-ellipsis whitespace-nowrap text-right text-muted-foreground"
+          style={{ fontSize: '0.75rem', lineHeight: 1.5 }}
+          title={payload.value}
+        >
+          {label}
+        </div>
+      </foreignObject>
+    </g>
   );
 }
 
@@ -129,8 +120,12 @@ export function ParticipationPanel({
                 <XAxis
                   type="number"
                   orientation="top"
+                  height={40}
                   allowDecimals={false}
-                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                  tick={{
+                    fill: 'var(--muted-foreground)',
+                    fontSize: '0.75rem',
+                  }}
                   tickLine={false}
                   axisLine={false}
                 />
