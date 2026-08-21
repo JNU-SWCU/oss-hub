@@ -19,19 +19,31 @@ const canonicalUserId = 'test:profile-compatibility:canonical';
 const legacyUserId = 'test:profile-compatibility:legacy';
 const programId = 'test:profile-compatibility:program';
 const postId = 'test:profile-compatibility:post';
+const legacyPostId = 'test:profile-compatibility:legacy-post';
+const canonicalCommentId = 'test:profile-compatibility:canonical-comment';
+const legacyCommentId = 'test:profile-compatibility:legacy-comment';
 const createdAt = new Date('2026-08-21T00:00:00.000Z');
 const prisma = new PrismaService();
+
+async function cleanup(): Promise<void> {
+  await prisma.boardComment.deleteMany({
+    where: { id: { in: [canonicalCommentId, legacyCommentId] } },
+  });
+  await prisma.boardPost.deleteMany({
+    where: { id: { in: [postId, legacyPostId] } },
+  });
+  await prisma.program.deleteMany({ where: { id: programId } });
+  await prisma.user.deleteMany({
+    where: { id: { in: [canonicalUserId, legacyUserId] } },
+  });
+}
 
 beforeAll(async () => {
   await prisma.$connect();
 });
 
 beforeEach(async () => {
-  await prisma.boardPost.deleteMany({ where: { id: postId } });
-  await prisma.program.deleteMany({ where: { id: programId } });
-  await prisma.user.deleteMany({
-    where: { id: { in: [canonicalUserId, legacyUserId] } },
-  });
+  await cleanup();
   await prisma.user.createMany({
     data: [
       {
@@ -88,14 +100,39 @@ beforeEach(async () => {
       createdAt,
     },
   });
+  await prisma.boardPost.create({
+    data: {
+      id: legacyPostId,
+      programId,
+      authorId: legacyUserId,
+      category: BoardPostCategory.QNA,
+      title: 'Synthetic legacy compatibility post',
+      body: 'Synthetic legacy compatibility body',
+      createdAt: new Date('2026-08-20T00:00:00.000Z'),
+    },
+  });
+  await prisma.boardComment.createMany({
+    data: [
+      {
+        id: canonicalCommentId,
+        postId,
+        authorId: canonicalUserId,
+        body: 'Synthetic canonical comment',
+        createdAt: new Date('2026-08-21T01:00:00.000Z'),
+      },
+      {
+        id: legacyCommentId,
+        postId,
+        authorId: legacyUserId,
+        body: 'Synthetic legacy comment',
+        createdAt: new Date('2026-08-21T02:00:00.000Z'),
+      },
+    ],
+  });
 });
 
 afterAll(async () => {
-  await prisma.boardPost.deleteMany({ where: { id: postId } });
-  await prisma.program.deleteMany({ where: { id: programId } });
-  await prisma.user.deleteMany({
-    where: { id: { in: [canonicalUserId, legacyUserId] } },
-  });
+  await cleanup();
   await prisma.$disconnect();
 });
 
@@ -112,6 +149,12 @@ it('preserves canonical and legacy fallback projections across all three consume
     'canonical-person',
     legacyUserId,
   );
+  const staleLegacyCandidates = await searchInvitationCandidates(
+    prisma,
+    programId,
+    'legacy-person',
+    legacyUserId,
+  );
   const legacyCandidates = await searchInvitationCandidates(
     prisma,
     programId,
@@ -119,6 +162,7 @@ it('preserves canonical and legacy fallback projections across all three consume
     canonicalUserId,
   );
   const posts = await board.findByProgramId(programId, 1, 20);
+  const detail = await board.findDetailById(postId);
 
   // Then
   expect(students).toEqual(
@@ -143,6 +187,7 @@ it('preserves canonical and legacy fallback projections across all three consume
       avatarUrl: null,
     },
   ]);
+  expect(staleLegacyCandidates).toEqual([]);
   expect(legacyCandidates).toEqual([
     {
       id: legacyUserId,
@@ -161,7 +206,26 @@ it('preserves canonical and legacy fallback projections across all three consume
       title: 'Synthetic compatibility post',
       pinned: false,
       createdAt,
+      commentCount: 2,
+    },
+    {
+      id: legacyPostId,
+      programId,
+      authorId: legacyUserId,
+      authorName: 'legacy-only-person',
+      category: BoardPostCategory.QNA,
+      title: 'Synthetic legacy compatibility post',
+      pinned: false,
+      createdAt: new Date('2026-08-20T00:00:00.000Z'),
       commentCount: 0,
     },
   ]);
+  expect(detail).toMatchObject({
+    id: postId,
+    authorName: 'canonical-person',
+    comments: [
+      { id: canonicalCommentId, authorName: 'canonical-person' },
+      { id: legacyCommentId, authorName: 'legacy-only-person' },
+    ],
+  });
 });
