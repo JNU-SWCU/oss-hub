@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind, Role } from '@prisma/client';
 import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -24,6 +24,9 @@ const activeUser: AuthUser = {
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
   role: Role.STAFF,
+  memberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
+  hasAdminAccess: false,
   isProfileComplete: true,
 };
 
@@ -138,6 +141,9 @@ describe('canonical auth session HTTP contract', () => {
         avatarUrl: null,
         accountStatus: AccountStatus.ACTIVE,
         role: Role.STAFF,
+        memberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
+        hasAdminAccess: false,
         isProfileComplete: true,
       },
     });

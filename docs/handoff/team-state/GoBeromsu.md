@@ -356,3 +356,35 @@
 - 결과: mobile 200% 최대 수치 tick을 card 안에 유지하고 exact `0·6·12` 경계를 고정
 - 검증: production raw bounds, Chrome 6건, frontend lint·typecheck·build, public-safe·commitlint
 - 저널 이력: 기존 #984 항목은 유지하고 journal-only #993 뒤 현재 항목을 EOF에 append
+
+## 2026-08-21 — 회원·소속·권한 호환 투영을 단일화
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: canonical 회원 유형·소속·독립 staff/admin 권한을 우선하고 미해결 nullable 행에만 legacy Role fallback을 적용하며, 학생/교직원 프로필 완료를 단일 트랜잭션으로 유지
+- 검증: Task 8 투영·음수·principal/session·승인/거절/회수·동시 완료·중복 학번 초점 테스트, backend lint·typecheck·format 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit Codex 단일 실행; schema·migration 제외
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-8/`
+
+## 2026-08-21 — Task 8 canonical 프로필 backfill 재실행을 안전하게 한다
+
+- 상태: review
+- Issue: #969
+- PR: #994
+- blocker: 없음
+- 원인: 공유 통합 DB에 남은 정상 canonical STAFF 프로필을 legacy-only 분류가 PROFILE_MISMATCH로 거부
+- 결과: 단일 회원·소속 호환 seam에서 canonical STUDENT/STAFF 완전성과 legacy mirror 일치를 검증해 정상 행만 idempotent하게 건너뛰고 malformed legacy-only 행은 계속 fail-closed
+- 검증: backfill red→green 2건, Task 8 초점 11 suites/57 tests, 기존 실패 2 suites/14 tests, backend lint·typecheck·format
+- simplifier: 공식 code-simplifier 1.0.0을 신규 변경 3파일 allowlist에 한 번 실행
+
+## 2026-08-21 — Task 8 nullable canonical 키의 legacy 투영을 보존
+
+- 상태: review
+- Issue: #969
+- PR: #994
+- blocker: 없음
+- 결과: compatible profile 반환을 이름·학번·학과로 명시적으로 좁혀 nullable canonical 키가 단일 회원·권한 fallback 결과를 덮어쓰지 않게 함
+- 검증: repository red→green, Task 8 초점 11 suites/57 tests, backend lint·typecheck·format
+- simplifier: source `0fc2bb13a805969c14b0fe9398bad41db346d84e`, plugin 1.0.0으로 현재 Task 8 TypeScript 55파일 전체 allowlist 단일 실행; 기존 `08f17369` receipt는 무효로 교체

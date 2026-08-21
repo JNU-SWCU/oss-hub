@@ -1,4 +1,9 @@
-import type { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import type {
+  AccountStatus,
+  MemberKind,
+  Role,
+  RoleRequestStatus,
+} from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type {
   AdminAccessFacets,
@@ -20,6 +25,9 @@ export type AdminAccessActor = {
 
 export type AdminAccessUserRecord = Omit<AdminAccessUser, 'isSelf'> & {
   readonly githubId: bigint;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
 };
 
 export type AdminAccessUserDetailRecord = Omit<
@@ -27,6 +35,9 @@ export type AdminAccessUserDetailRecord = Omit<
   'isSelf'
 > & {
   readonly githubId: bigint;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
 };
 
 export type AdminAccessUserPageRecord = {
@@ -43,6 +54,8 @@ export type AdminAccessUserUpdate = {
   readonly expectedAccountStatus: AccountStatus;
   readonly desiredRole: Role | null;
   readonly desiredAccountStatus: AccountStatus;
+  readonly desiredHasStaffAccess: boolean;
+  readonly desiredHasAdminAccess: boolean;
 };
 
 export type AdminAccessPendingDecisionUpdate = {

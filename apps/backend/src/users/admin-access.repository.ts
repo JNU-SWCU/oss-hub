@@ -89,6 +89,8 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
       data: {
         role: input.desiredRole,
         accountStatus: input.desiredAccountStatus,
+        hasStaffAccess: input.desiredHasStaffAccess,
+        hasAdminAccess: input.desiredHasAdminAccess,
       },
     });
     return result.count === 1;

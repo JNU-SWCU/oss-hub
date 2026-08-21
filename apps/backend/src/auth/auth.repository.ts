@@ -1,11 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  Role,
+  RoleRequestStatus,
+} from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_SELECT,
   resolveCompatibleProfile,
 } from '../profiles/profile-compatibility';
+import { resolveMemberAuthorityCompatibility } from '../profiles/member-authority-compatibility';
 import { isCompleteProfileFields } from '../users/user-profile-policy';
 import { AuthConfig } from './auth.config';
 import type {
@@ -22,6 +28,10 @@ const AUTH_USER_SELECT = {
   notificationEmail: true,
   accountStatus: true,
   role: true,
+  selectedRole: true,
+  selectedMemberKind: true,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
   // 이름만이 아니라 학번·학과까지 읽는다 — 세션이 `isProfileComplete`를 함께 실어야
   // 화면 게이트가 "역할은 정해졌는데 프로필이 비어 있는" 사용자를 프로필 단계로
   // 되돌릴 수 있다. 온보딩 순서를 역할 → 프로필로 바꾸면서 생긴 상태다.
@@ -124,7 +134,11 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
           // 갱신하는지 새 행을 만드는지에도 좌우되지 않는 조건을 택했다.
           roleRequests: { none: { status: RoleRequestStatus.REVOKED } },
         },
-        data: { role: initialRole },
+        data: {
+          role: initialRole,
+          hasStaffAccess: initialRole === Role.STAFF,
+          hasAdminAccess: initialRole === Role.ADMIN,
+        },
       });
       if (promoted.count === 1) {
         if (initialRole === Role.STAFF) {
@@ -227,6 +241,7 @@ export class AuthRepository {
 
 function toDomain(user: AuthUserRow): AuthUser {
   const profile = resolveCompatibleProfile(user);
+  const authority = resolveMemberAuthorityCompatibility(user);
   return {
     id: user.id,
     githubId: user.githubId,
@@ -234,10 +249,27 @@ function toDomain(user: AuthUserRow): AuthUser {
     name: profile.name,
     avatarUrl: user.avatarUrl,
     accountStatus: user.accountStatus,
-    role: user.role,
-    // 역할이 아직 없는 사용자는 이 값을 쓰지 않는다 — 그쪽은 온보딩 게이트가 프로필을
-    // 직접 조회해 판단하고, 승인 대기 중인 교직원처럼 역할이 null인 상태까지 본다.
-    // 여기서 필요한 것은 "역할이 정해진 사용자의 프로필이 완료됐는가" 하나다.
-    isProfileComplete: isCompleteProfileFields(profile, user.role),
+    role: authority.role,
+    memberKind: authority.memberKind,
+    hasStaffAccess: authority.hasStaffAccess,
+    hasAdminAccess: authority.hasAdminAccess,
+    isProfileComplete: isCompleteProfileFields(
+      profile,
+      profileRole(authority.memberKind, authority.role),
+    ),
   };
+}
+
+function profileRole(
+  memberKind: MemberKind | null,
+  role: Role | null,
+): Role | null {
+  switch (memberKind) {
+    case MemberKind.STUDENT:
+      return Role.STUDENT;
+    case MemberKind.STAFF:
+      return Role.STAFF;
+    case null:
+      return role;
+  }
 }

@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 
 export const COMPATIBLE_PROFILE_SELECT = {
   name: true,
@@ -9,6 +9,9 @@ export const COMPATIBLE_PROFILE_SELECT = {
       name: true,
       studentId: true,
       department: true,
+      memberKind: true,
+      affiliationKind: true,
+      affiliationName: true,
     },
   },
 } as const satisfies Prisma.UserSelect;
@@ -44,6 +47,9 @@ export type CompatibleProfileSource = CompatibleProfile & {
     readonly name: string;
     readonly studentId: string | null;
     readonly department: string;
+    readonly memberKind?: MemberKind | null;
+    readonly affiliationKind?: AffiliationKind | null;
+    readonly affiliationName?: string | null;
   } | null;
 };
 
@@ -60,13 +66,20 @@ export type CompatibleProfileDepartmentSource = {
 export function resolveCompatibleProfile(
   source: CompatibleProfileSource,
 ): CompatibleProfile {
-  return (
-    source.profile ?? {
+  const profile = source.profile;
+  if (profile === null || profile === undefined) {
+    return {
       name: source.name,
       studentId: source.studentId,
       department: source.department,
-    }
-  );
+    };
+  }
+
+  return {
+    name: profile.name,
+    studentId: profile.studentId,
+    department: profile.department,
+  };
 }
 
 export function resolveCompatibleProfileName(

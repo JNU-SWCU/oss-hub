@@ -14,6 +14,9 @@ export const syntheticUser: AuthUser = {
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
   role: null,
+  memberKind: null,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
   isProfileComplete: false,
 };
 

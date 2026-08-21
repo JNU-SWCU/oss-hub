@@ -1,4 +1,9 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  Role,
+  RoleRequestStatus,
+} from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import type {
@@ -59,6 +64,9 @@ export function accessUser(
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
     role: Role.STUDENT,
+    memberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     isProfileComplete: true,
     pendingRequest: null,
@@ -78,6 +86,11 @@ export function auditLogHarness(): {
   };
 }
 
+type LegacyAdminAccessUserUpdate = Omit<
+  AdminAccessUserUpdate,
+  'desiredHasStaffAccess' | 'desiredHasAdminAccess'
+>;
+
 export class InMemoryAdminAccessRepository
   implements AdminAccessRepositoryPort, AdminAccessTransactionStore
 {
@@ -94,7 +107,7 @@ export class InMemoryAdminAccessRepository
   userCasSucceeds = true;
   requestCasSucceeds = true;
   operations: string[] = [];
-  userUpdates: AdminAccessUserUpdate[] = [];
+  userUpdates: LegacyAdminAccessUserUpdate[] = [];
   requestUpdates: AdminAccessPendingDecisionUpdate[] = [];
   revokedInserts: AdminAccessRevokedRequestInsert[] = [];
 
@@ -177,12 +190,16 @@ export class InMemoryAdminAccessRepository
 
   compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
     this.operations.push('compare-and-swap-access');
-    this.userUpdates.push(input);
+    const { desiredHasStaffAccess, desiredHasAdminAccess, ...legacyUpdate } =
+      input;
+    this.userUpdates.push(legacyUpdate);
     if (this.userCasSucceeds && this.target) {
       this.target = {
         ...this.target,
         role: input.desiredRole,
         accountStatus: input.desiredAccountStatus,
+        hasStaffAccess: desiredHasStaffAccess,
+        hasAdminAccess: desiredHasAdminAccess,
       };
     }
     return Promise.resolve(this.userCasSucceeds);

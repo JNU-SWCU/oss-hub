@@ -1,5 +1,9 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
+  isCompatibleCanonicalProfile,
+  type CanonicalProfileCompatibilitySource,
+} from '../src/profiles/member-authority-compatibility';
+import {
   effectiveProfileRole,
   isCompleteProfileFields,
   isValidCompleteUserProfileFields,
@@ -48,6 +52,11 @@ type LegacyProfileInput = Pick<
   | 'selectedRole'
   | 'hasPendingStaffRequest'
 >;
+
+type CanonicalBackfillUser = CanonicalProfileCompatibilitySource & {
+  readonly id: string;
+  readonly roleRequests: readonly { readonly id: string }[];
+};
 
 export function classifyLegacyProfile(
   row: LegacyProfileInput,
@@ -113,6 +122,9 @@ export async function backfillUserProfiles(
           department: true,
           role: true,
           selectedRole: true,
+          selectedMemberKind: true,
+          hasStaffAccess: true,
+          hasAdminAccess: true,
           roleRequests: {
             where: { status: 'PENDING' },
             select: { id: true },
@@ -123,6 +135,9 @@ export async function backfillUserProfiles(
               name: true,
               studentId: true,
               department: true,
+              memberKind: true,
+              affiliationKind: true,
+              affiliationName: true,
             },
           },
         },
@@ -159,7 +174,7 @@ export async function backfillUserProfiles(
           state.kind === 'EXPECTED_INCOMPLETE' ||
           state.kind === 'LEGACY_ONLY_COMPLETE'
         ) {
-          if (user.profile !== null) {
+          if (hasLegacyOnlyProfileMismatch(user)) {
             throw new UserProfileBackfillInvariantError(
               USER_PROFILE_BACKFILL_ERROR_KIND.PROFILE_MISMATCH,
               [user.id],
@@ -177,18 +192,14 @@ export async function backfillUserProfiles(
         }
         studentIdOwners.set(state.fields.studentId, user.id);
 
-        if (user.profile !== null) {
-          if (
-            user.profile.name !== state.fields.name ||
-            user.profile.studentId !== state.fields.studentId ||
-            user.profile.department !== state.fields.department
-          ) {
-            throw new UserProfileBackfillInvariantError(
-              USER_PROFILE_BACKFILL_ERROR_KIND.PROFILE_MISMATCH,
-              [user.id],
-            );
-          }
+        if (matchesCompleteLegacyProfile(user, state.fields)) {
           continue;
+        }
+        if (user.profile !== null) {
+          throw new UserProfileBackfillInvariantError(
+            USER_PROFILE_BACKFILL_ERROR_KIND.PROFILE_MISMATCH,
+            [user.id],
+          );
         }
         candidates.push({ userId: user.id, fields: state.fields });
       }
@@ -202,6 +213,22 @@ export async function backfillUserProfiles(
       return created.count;
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+}
+
+function hasLegacyOnlyProfileMismatch(user: CanonicalBackfillUser): boolean {
+  return user.profile !== null && !isCompatibleCanonicalProfile(user);
+}
+
+function matchesCompleteLegacyProfile(
+  user: CanonicalBackfillUser,
+  fields: CompleteProfileFields,
+): boolean {
+  return (
+    user.profile !== null &&
+    user.profile.name === fields.name &&
+    user.profile.studentId === fields.studentId &&
+    user.profile.department === fields.department
   );
 }
 

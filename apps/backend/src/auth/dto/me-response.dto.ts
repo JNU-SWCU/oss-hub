@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind, Role } from '@prisma/client';
 import { AuthUser } from '../domain/auth-user';
 
 /** githubId(BigInt)는 노출하지 않는다 — JSON 직렬화 불가 + 외부 계약에 불필요. */
@@ -8,7 +8,10 @@ export class MeResponseDto {
   avatarUrl: string | null;
   readonly accountStatus: AccountStatus;
   /** 역할의 정식 소스는 DB `User.role`이다. */
-  role: Role | null;
+  readonly role: Role | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   /**
    * 배정된 역할 기준 프로필 완료 여부.
    *
@@ -18,16 +21,19 @@ export class MeResponseDto {
    */
   readonly isProfileComplete: boolean;
 
-  private constructor(user: AuthUser, role: Role | null) {
+  private constructor(user: AuthUser) {
     this.nickname = user.nickname;
     this.name = user.name;
     this.avatarUrl = user.avatarUrl;
     this.accountStatus = user.accountStatus;
-    this.role = role;
+    this.role = user.role;
+    this.memberKind = user.memberKind;
+    this.hasStaffAccess = user.hasStaffAccess;
+    this.hasAdminAccess = user.hasAdminAccess;
     this.isProfileComplete = user.isProfileComplete;
   }
 
-  static from(user: AuthUser, role: Role | null): MeResponseDto {
-    return new MeResponseDto(user, role);
+  static from(user: AuthUser): MeResponseDto {
+    return new MeResponseDto(user);
   }
 }
