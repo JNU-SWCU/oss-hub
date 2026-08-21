@@ -181,10 +181,10 @@ export function staffInsightsWireFixture(
           programs: LONG_PROGRAM_NAMES.map((name, index) => ({
             programId: `program-long-${index + 1}`,
             name,
-            swMajorCount: index + 4,
-            nonSwCount: index + 2,
+            swMajorCount: index + 1,
+            nonSwCount: index,
             unregisteredCount: index % 2,
-            participantCount: index * 2 + 6 + (index % 2),
+            participantCount: index * 2 + 1 + (index % 2),
           })),
         }
       : variant === 'zero'

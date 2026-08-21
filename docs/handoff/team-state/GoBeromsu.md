@@ -306,6 +306,15 @@
 - blocker: 없음
 - 결과: screen-reader 의미 테이블을 clipping block으로 감싸 375px document overflow를 제거
 - 검증: production Aside 재현, documentElement/body overflow red-green, Chrome responsive 초점 검증
+
+## 2026-08-21 — 프로그램별 수치 축의 확대 clipping을 교정
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR; #989 production QA 후속)
+- blocker: 없음
+- 결과: chart right margin을 보강해 mobile 200%의 최대 수치 tick을 hidden-overflow card 안에 유지
+- 검증: production raw SVG/card bounds, max=12 fixture, numeric tick count·card inset, Chrome responsive 초점 검증
 ## 2026-08-21 — 현재 사용자 조회를 세션 계약으로 통합
 
 - 상태: review
@@ -317,6 +326,15 @@
 - simplifier: 공식 code-simplifier 1.0.0 Codex 단일 실행, 변경 파일 allowlist 밖 수정 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-7/`
 
+## 2026-08-21 — 프로그램별 수치 축 교정을 최신 main에 동기화
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR; #990 동기화 후)
+- blocker: 없음
+- 결과: mobile 200% 최대 수치 tick을 card 안에 유지하고 numeric tick 경계를 E2E로 고정
+- 검증: production raw bounds, max=12 fixture, Chrome 6건, frontend lint·typecheck·build·public-safe
+- 저널 이력: 기존 #984 수치 축 항목은 유지하고 #990 상태 뒤 현재 항목을 EOF에 append
 
 ## 2026-08-21 — Task 7 세션 계약 저널 교정 완료
 
@@ -328,3 +346,13 @@
 - 교정: 앞선 unsupported `corrective`/pending-creation line은 superseded이며, 이전 journal bytes/lines는 수정하지 않고 이 Task 7 correction block만 EOF에 append
 - 검증: verifier-confirmed session contract, 11 preserved tests, TypeScript pure LOC `130/107/56`, `ci`·`public-safe`·`commitlint` green
 - 범위: #991은 test-only corrective이며 product delta 없음
+
+## 2026-08-21 — 프로그램별 수치 축 교정을 journal 후속 뒤에 동기화
+
+- 상태: review
+- Issue: #984
+- PR: #992
+- blocker: 없음
+- 결과: mobile 200% 최대 수치 tick을 card 안에 유지하고 exact `0·6·12` 경계를 고정
+- 검증: production raw bounds, Chrome 6건, frontend lint·typecheck·build, public-safe·commitlint
+- 저널 이력: 기존 #984 항목은 유지하고 journal-only #993 뒤 현재 항목을 EOF에 append

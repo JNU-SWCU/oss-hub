@@ -114,7 +114,7 @@ export function ParticipationPanel({
               <BarChart
                 layout="vertical"
                 data={data}
-                margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                margin={{ top: 8, right: 28, left: 0, bottom: 8 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
