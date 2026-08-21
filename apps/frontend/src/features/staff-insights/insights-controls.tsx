@@ -48,7 +48,12 @@ export function YearLink({
   readonly children: string;
 }): ReactElement {
   return (
-    <Button asChild variant={current ? 'default' : 'outline'} size="sm">
+    <Button
+      asChild
+      variant={current ? 'default' : 'outline'}
+      size="sm"
+      className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
       <Link href={href} aria-current={current ? 'page' : undefined}>
         {children}
       </Link>
@@ -74,6 +79,7 @@ export function CutButton({
       variant={current === value ? 'default' : 'outline'}
       aria-pressed={current === value}
       onClick={() => onCutChange(value)}
+      className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       {children}
     </Button>
