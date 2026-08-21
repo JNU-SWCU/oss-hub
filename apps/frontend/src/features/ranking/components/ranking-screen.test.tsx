@@ -107,15 +107,27 @@ describe('RankingScreen', () => {
   });
 
   it('CSV 는 첫 응답의 total 만큼 pageSize=100으로 각 페이지를 한 번씩 가져온다', async () => {
+    const firstPageItems = Array.from({ length: 100 }, (_, index) => ({
+      ...staffPage.items[0],
+      rank: index + 1,
+      githubLogin: `synthetic-${index + 1}`,
+    }));
     const pageTwo = {
       ...staffPage,
       page: 2,
-      items: [{ ...staffPage.items[0], rank: 2 }],
+      items: [
+        { ...staffPage.items[0], rank: 101, githubLogin: 'synthetic-101' },
+      ],
     };
     api.getRanking
       .mockReset()
       .mockResolvedValueOnce(staffPage)
-      .mockResolvedValueOnce({ ...staffPage, pageSize: 100, total: 101 })
+      .mockResolvedValueOnce({
+        ...staffPage,
+        items: firstPageItems,
+        pageSize: 100,
+        total: 101,
+      })
       .mockResolvedValueOnce(pageTwo);
 
     await act(async () => {
@@ -129,6 +141,47 @@ describe('RankingScreen', () => {
       'ranking-2026.csv',
       expect.stringContaining('\uFEFFrank,name,githubLogin'),
     );
+  });
+
+  it('total=0이면 빈 CSV를 다운로드한다', async () => {
+    api.getRanking
+      .mockReset()
+      .mockResolvedValueOnce(staffPage)
+      .mockResolvedValueOnce({
+        ...staffPage,
+        items: [],
+        pageSize: 100,
+        total: 0,
+      });
+    await act(async () =>
+      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
+    );
+    api.downloadTextFile.mockReset();
+    await act(async () => captured.props?.onExportCsv());
+    expect(api.downloadTextFile).toHaveBeenCalledWith(
+      'ranking-2026.csv',
+      expect.stringContaining('\uFEFFrank,name,githubLogin'),
+    );
+  });
+
+  it('광고된 total보다 수집된 항목이 적으면 CSV를 다운로드하지 않는다', async () => {
+    api.getRanking
+      .mockReset()
+      .mockResolvedValueOnce(staffPage)
+      .mockResolvedValueOnce({ ...staffPage, pageSize: 100, total: 2 })
+      .mockResolvedValueOnce({
+        ...staffPage,
+        page: 2,
+        pageSize: 100,
+        total: 2,
+        items: [],
+      });
+    await act(async () =>
+      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
+    );
+    api.downloadTextFile.mockReset();
+    await act(async () => captured.props?.onExportCsv());
+    expect(api.downloadTextFile).not.toHaveBeenCalled();
   });
 
   it('페이지 실패에서는 CSV를 다운로드하지 않는다', async () => {
