@@ -156,6 +156,14 @@
 - blocker: 기존 local-review `insights-long` fixture가 현재 브랜치에서 404라 Chrome 회귀 스펙은 fixture 라우팅에서 중단됨
 - 검증: focused Vitest 2949 passed, typecheck passed, lint passed (기존 경고 5건)
 
+## 2026-08-21 — Task 1 fixture 반환 타입을 명시
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #971·#976 교정)
+- blocker: 없음
+- 검증: backend lint·typecheck·unit·build, 정확한 2 suites/6 tests 통합 패턴, forbidden-field·public strict-read·public-safe 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit PASS, 9개 hand-written allowlist 밖 변경 0건
 ## 2026-08-21 — 프런트 세션 신청 경계 타입을 명시
 
 - 상태: review
@@ -191,3 +199,21 @@
 - merge SHA: `97ea2b0a7bf7386f3538cc48038b16a8ccb07bba`
 - 검증: exact head `f0d55cae7cd38e8269e3af4522111ec9378020f2`와 required `ci`·`public-safe`·`commitlint` 성공을 확인
 - 기록: 이 교정 항목 자체를 현재 저널 EOF에 append-only로 추가
+
+## 2026-08-21 — Task 1 fixture 타입 교정을 최종 검증
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #971·#976 교정)
+- blocker: 없음
+- 결과: 최신 main 동기화, 정확한 PostgreSQL 2 suites/6 tests와 공개 strict-read, 전체 backend 품질·public-safe 검증 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit 실행, 최종 변경 allowlist 밖 수정 0건
+
+## 2026-08-21 — Task 1 simplifier 증거를 교정
+
+- 상태: review
+- Issue: #969
+- PR: #982
+- blocker: 없음
+- 교정: 앞선 9개 파일 allowlist simplifier 시도는 `SIMPLIFIER_FAIL`이었고, 이후 2개 파일 corrective allowlist는 pinned code-simplifier 1.0.0 검증을 통과
+- 범위: 기존 저널은 수정하지 않고 현재 EOF에 교정 항목만 추가
