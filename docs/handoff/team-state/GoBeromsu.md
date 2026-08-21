@@ -174,3 +174,9 @@
 - 결과: #978을 포함한 최신 `origin/main`을 정상 merge하고 두 파일의 type-only corrective diff를 보존
 - 검증: frontend lint·typecheck·full tests·build, focused 4 files/26 tests, 공식 code-simplifier 1.0.0, synthetic Chrome 7 scenarios 재검증
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3-corrective/`
+## 2026-08-21 — 랭킹 CSV 전체 행 수 검증
+
+- 상태: review
+- Issue: #979
+- PR: (이 PR)
+- blocker: 없음
