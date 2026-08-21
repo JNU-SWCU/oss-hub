@@ -13,6 +13,6 @@ export function ProgramEditRoute({
 }: {
   readonly programId: string;
 }) {
-  const { role } = useSharedSessionRole();
-  return <ProgramEditPage programId={programId} isAdmin={role === 'ADMIN'} />;
+  const { hasAdminAccess } = useSharedSessionRole();
+  return <ProgramEditPage programId={programId} isAdmin={hasAdminAccess} />;
 }

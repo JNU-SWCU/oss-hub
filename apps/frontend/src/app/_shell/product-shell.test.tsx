@@ -42,6 +42,9 @@ function mockSession(
     status?: SessionStatus;
     role?: AppRole | null;
     isProfileComplete?: boolean;
+    memberKind?: 'STUDENT' | 'STAFF' | null;
+    hasStaffAccess?: boolean;
+    hasAdminAccess?: boolean;
   } = {},
 ) {
   mocks.useSessionRole.mockReturnValue({
@@ -49,6 +52,15 @@ function mockSession(
     role: overrides.role ?? 'STUDENT',
     roleRequestStatus: null,
     selectedRole: null,
+    memberKind:
+      overrides.memberKind ??
+      (overrides.role === 'STAFF'
+        ? 'STAFF'
+        : overrides.role === null
+          ? null
+          : 'STUDENT'),
+    hasStaffAccess: overrides.hasStaffAccess ?? overrides.role === 'STAFF',
+    hasAdminAccess: overrides.hasAdminAccess ?? overrides.role === 'ADMIN',
     isProfileComplete: overrides.isProfileComplete ?? true,
     retry: () => {},
   });

@@ -21,6 +21,8 @@ function validValues(
     studentId: '1'.repeat(6),
     // 기본은 아직 학번이 저장되지 않은 상태 — 새로 입력하는 값이라 형식을 본다.
     savedStudentId: '',
+    affiliationKind: 'DEPARTMENT',
+    affiliationName: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
     ...overrides,
@@ -70,7 +72,8 @@ describe('profile onboarding state', () => {
     expect(toCompleteProfileRequest(values, 'STUDENT')).toEqual({
       name: '합성 사용자',
       studentId: '1'.repeat(6),
-      department: '합성 융합전공',
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: '합성 융합전공',
     });
   });
 
@@ -124,7 +127,8 @@ describe('profile onboarding state', () => {
     expect(validateProfileForm(values, 'STAFF').studentId).toBeNull();
     expect(toCompleteProfileRequest(values, 'STAFF')).toEqual({
       name: '합성 사용자',
-      department: '인공지능학부',
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: '인공지능학부',
     });
     expect(toCompleteProfileRequest(values, 'STAFF')).not.toHaveProperty(
       'studentId',
@@ -138,13 +142,13 @@ describe('profile onboarding state', () => {
     ).toBe('학과를 선택하거나 입력해 주세요.');
   });
 
-  it('관리자 폼도 학과가 비면 요청을 만들지 않는다', () => {
+  it('legacy ADMIN 선택은 새 회원 완료 요청을 만들지 않는다', () => {
     const values = validValues({ studentId: '', departmentOption: '' });
 
     expect(validateProfileForm(values, 'ADMIN')).toEqual({
       name: null,
       studentId: null,
-      department: '학과를 선택하거나 입력해 주세요.',
+      department: null,
     });
     expect(toCompleteProfileRequest(values, 'ADMIN')).toBeNull();
     expect(
@@ -155,12 +159,8 @@ describe('profile onboarding state', () => {
     ).toBeNull();
   });
 
-  it('역할이 요구하지 않아도 이미 있는 값은 완료 요청에 그대로 실어 보낸다', () => {
-    expect(toCompleteProfileRequest(validValues(), 'ADMIN')).toEqual({
-      name: '합성 사용자',
-      studentId: '1'.repeat(6),
-      department: '인공지능학부',
-    });
+  it('legacy ADMIN은 값이 있어도 회원 유형 선택으로 사용하지 않는다', () => {
+    expect(toCompleteProfileRequest(validValues(), 'ADMIN')).toBeNull();
   });
 });
 

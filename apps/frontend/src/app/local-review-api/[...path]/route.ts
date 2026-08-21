@@ -9,6 +9,7 @@ import {
   parseRequestHostname,
 } from '../../_local-review/fixture-contract';
 import { resolveLocalReviewResponse } from '../../_local-review/fixture-response';
+import { canonicalLocalReviewSessionBody } from '../../_local-review/session-contract';
 
 type RouteContext = {
   readonly params: Promise<{ readonly path: readonly string[] }>;
@@ -54,13 +55,14 @@ async function handle(
   }
 
   const { path } = await context.params;
+  const fixturePath = path.join('/');
   const plan = resolveLocalReviewResponse({
     fixture,
     // Next는 HEAD를 GET 핸들러로 넘기면서 method는 'HEAD'로 남긴다. 그대로 두면
     // GET 규칙이 전부 빗나가 모든 경로가 404가 된다 — 응답 본문은 어차피
     // 버려지므로 GET과 같은 규칙을 태운다.
     method: request.method === 'HEAD' ? 'GET' : request.method,
-    path: path.join('/'),
+    path: fixturePath,
     searchParams: request.nextUrl.searchParams,
     body: await readJsonBody(request),
   });
@@ -107,13 +109,16 @@ async function handle(
     );
   }
 
-  return NextResponse.json(plan.body, {
-    status: plan.status,
-    headers: {
-      'Cache-Control': 'private, no-store',
-      'X-OSS-Hub-Local-Fixture': fixture,
+  return NextResponse.json(
+    canonicalLocalReviewSessionBody(fixturePath, plan.body),
+    {
+      status: plan.status,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'X-OSS-Hub-Local-Fixture': fixture,
+      },
     },
-  });
+  );
 }
 
 export function GET(

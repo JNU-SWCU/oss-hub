@@ -28,12 +28,17 @@ vi.mock('@/features/programs/program-list-page', () => ({
 import ProgramsPage from './page';
 
 function assigned(
-  role: 'STUDENT' | 'STAFF' | 'ADMIN',
+  memberKind: 'STUDENT' | 'STAFF' | null,
+  hasStaffAccess: boolean,
+  hasAdminAccess: boolean,
   isProfileComplete: boolean,
 ): SessionRoleResult {
   return {
     status: 'assigned',
-    role,
+    role: hasAdminAccess ? 'ADMIN' : hasStaffAccess ? 'STAFF' : 'STUDENT',
+    memberKind,
+    hasStaffAccess,
+    hasAdminAccess,
     roleRequestStatus: null,
     roleRequestRejectionReason: null,
     selectedRole: null,
@@ -43,28 +48,29 @@ function assigned(
 }
 
 function renderedCapability(
-  role: 'STUDENT' | 'STAFF' | 'ADMIN',
+  memberKind: 'STUDENT' | 'STAFF' | null,
+  hasStaffAccess: boolean,
+  hasAdminAccess: boolean,
   isProfileComplete: boolean,
 ): string {
-  mocks.useSessionRole.mockReturnValue(assigned(role, isProfileComplete));
+  mocks.useSessionRole.mockReturnValue(
+    assigned(memberKind, hasStaffAccess, hasAdminAccess, isProfileComplete),
+  );
   return renderToStaticMarkup(<ProgramsPage />);
 }
 
 describe('ProgramsPage 생성 capability', () => {
-  it.each(['STAFF', 'ADMIN'] as const)(
-    '프로필을 마친 %s에게만 생성 동선을 연다',
-    (role) => {
-      expect(renderedCapability(role, true)).toContain(
-        'data-can-create="true"',
-      );
-      expect(renderedCapability(role, false)).toContain(
-        'data-can-create="false"',
-      );
-    },
-  );
+  it('staff-admin은 staff access로 생성 동선을 쓴다', () => {
+    expect(renderedCapability('STAFF', true, true, true)).toContain(
+      'data-can-create="true"',
+    );
+    expect(renderedCapability('STAFF', true, true, false)).toContain(
+      'data-can-create="false"',
+    );
+  });
 
   it('프로필을 마친 학생에게도 생성 동선을 열지 않는다', () => {
-    const html = renderedCapability('STUDENT', true);
+    const html = renderedCapability('STUDENT', false, true, true);
 
     expect(html).toContain('data-can-create="false"');
     expect(html).toContain('data-viewer-role="STUDENT"');

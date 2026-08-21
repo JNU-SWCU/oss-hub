@@ -66,6 +66,9 @@ describe('RoleGate 렌더', () => {
     return {
       status: 'loading',
       role: null,
+      memberKind: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       roleRequestStatus: null,
       roleRequestRejectionReason: null,
       selectedRole: null,
@@ -87,7 +90,7 @@ describe('RoleGate 렌더', () => {
     });
     await act(async () =>
       root.render(
-        <RoleGate allow={['STUDENT', 'STAFF', 'ADMIN']} {...gate}>
+        <RoleGate allow={['student', 'staff', 'admin']} {...gate}>
           <p>{CHILD}</p>
         </RoleGate>,
       ),
@@ -202,7 +205,13 @@ describe('RoleGate 렌더', () => {
 
   it('역할이 배정되고 프로필까지 마친 사용자는 안내 없이 자기 화면을 본다', async () => {
     const text = await render(
-      { status: 'assigned', role: 'STAFF', isProfileComplete: true },
+      {
+        status: 'assigned',
+        role: 'STAFF',
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        isProfileComplete: true,
+      },
       { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
     );
 
@@ -245,7 +254,7 @@ describe('RoleGate 렌더', () => {
 
     await act(async () =>
       root.render(
-        <RoleGate allow={['STUDENT']} unassignedAccess={OPEN}>
+        <RoleGate allow={['student']} unassignedAccess={OPEN}>
           <Probe />
         </RoleGate>,
       ),

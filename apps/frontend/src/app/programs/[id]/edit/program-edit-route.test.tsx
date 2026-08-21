@@ -15,7 +15,7 @@ type ProgramEditPageProps = {
 };
 
 const session = vi.hoisted(() => ({
-  role: null as string | null,
+  hasAdminAccess: false,
 }));
 
 const captured = vi.hoisted(() => ({
@@ -23,7 +23,9 @@ const captured = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../_shell/session-role-context', () => ({
-  useSharedSessionRole: () => ({ role: session.role }),
+  useSharedSessionRole: () => ({
+    hasAdminAccess: session.hasAdminAccess,
+  }),
 }));
 
 vi.mock('@/features/programs/program-edit-page', () => ({
@@ -54,8 +56,8 @@ describe('ProgramEditRoute', () => {
     container.remove();
   });
 
-  it('ADMIN이면 isAdmin=true를 ProgramEditPage로 넘긴다', async () => {
-    session.role = 'ADMIN';
+  it('관리자 접근이 있으면 isAdmin=true를 ProgramEditPage로 넘긴다', async () => {
+    session.hasAdminAccess = true;
 
     await act(async () => {
       root.render(<ProgramEditRoute programId="program-1" />);
@@ -67,8 +69,8 @@ describe('ProgramEditRoute', () => {
     });
   });
 
-  it('STAFF면 isAdmin=false를 넘긴다 — 프로그램 생성자여도 위험 영역을 보지 못한다', async () => {
-    session.role = 'STAFF';
+  it('관리자 접근이 없으면 isAdmin=false를 넘긴다 — 프로그램 생성자여도 위험 영역을 보지 못한다', async () => {
+    session.hasAdminAccess = false;
 
     await act(async () => {
       root.render(<ProgramEditRoute programId="program-1" />);
@@ -81,7 +83,7 @@ describe('ProgramEditRoute', () => {
   });
 
   it('programId를 그대로 전달한다', async () => {
-    session.role = 'ADMIN';
+    session.hasAdminAccess = true;
 
     await act(async () => {
       root.render(<ProgramEditRoute programId="program:with-colon" />);

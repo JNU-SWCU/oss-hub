@@ -21,10 +21,10 @@ vi.mock('@/features/programs/program-creation-page', () => ({
 import ProgramNewPage from './page';
 
 describe('ProgramNewPage access contract', () => {
-  it('STAFF와 ADMIN만 프로그램 생성 화면에 허용한다', () => {
+  it('교직원 접근이 있는 회원만 프로그램 생성 화면에 허용한다', () => {
     const html = renderToStaticMarkup(<ProgramNewPage />);
 
-    expect(html).toContain('data-allow="STAFF,ADMIN"');
+    expect(html).toContain('data-allow="staff"');
     expect(html).not.toContain('STUDENT');
   });
 
@@ -38,6 +38,6 @@ describe('ProgramNewPage access contract', () => {
     // 생성 페이지가 ProgramCreationPage를 마운트하는지로 정적 라우트 소유를 단언한다.
     const html = renderToStaticMarkup(<ProgramNewPage />);
     expect(html).toContain('program creation');
-    expect(html).toContain('data-allow="STAFF,ADMIN"');
+    expect(html).toContain('data-allow="staff"');
   });
 });

@@ -5,6 +5,7 @@ import { useSession } from '@/features/auth/use-session';
 import { fetchMyRoleRequest, fetchMyRoleSelection } from '@/features/roles/api';
 import type { RoleRequestStatus, RoleSelection } from '@/features/roles/types';
 import type { AppRole } from './role';
+import { EMPTY_MEMBER_ACCESS, type MemberAccess } from './member-access';
 import { useOptionalSharedSessionRole } from './session-role-context';
 
 /**
@@ -30,8 +31,9 @@ export type SessionStatus =
  *   끌려온다. 사실만 내려 주고 문장은 화면이 짓는다(`ClosedRoleRequestNotice`가
  *   그 예다: 사유는 여기서 오고, "교직원 요청이 반려되었습니다"는 화면이 만든다).
  */
-export interface SessionRoleState {
+export interface SessionRoleState extends MemberAccess {
   readonly status: SessionStatus;
+  /** Todo 13까지 온보딩 호환 상태에만 쓰는 legacy projection. */
   readonly role: AppRole | null;
   readonly roleRequestStatus: RoleRequestStatus | null;
   /**
@@ -75,6 +77,7 @@ export interface SessionRoleResult extends SessionRoleState {
 const LOADING: SessionRoleState = {
   status: 'loading',
   role: null,
+  ...EMPTY_MEMBER_ACCESS,
   roleRequestStatus: null,
   roleRequestRejectionReason: null,
   selectedRole: null,
@@ -83,6 +86,7 @@ const LOADING: SessionRoleState = {
 const ERROR: SessionRoleState = {
   status: 'error',
   role: null,
+  ...EMPTY_MEMBER_ACCESS,
   roleRequestStatus: null,
   roleRequestRejectionReason: null,
   selectedRole: null,
@@ -91,6 +95,7 @@ const ERROR: SessionRoleState = {
 const ANONYMOUS: SessionRoleState = {
   status: 'anonymous',
   role: null,
+  ...EMPTY_MEMBER_ACCESS,
   roleRequestStatus: null,
   roleRequestRejectionReason: null,
   selectedRole: null,
@@ -204,15 +209,19 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
       case 'anonymous':
         return ANONYMOUS;
       case 'authenticated': {
-        const role = session.user?.role ?? null;
-        if (role !== null) {
+        const user = session.user;
+        if (user === null) return LOADING;
+        if (user.role !== null) {
           return {
             status: 'assigned',
-            role,
+            role: user.role,
+            memberKind: user.memberKind,
+            hasStaffAccess: user.hasStaffAccess,
+            hasAdminAccess: user.hasAdminAccess,
             roleRequestStatus: null,
             roleRequestRejectionReason: null,
             selectedRole: null,
-            isProfileComplete: session.user?.isProfileComplete ?? false,
+            isProfileComplete: user.isProfileComplete,
           };
         }
         if (onboardingSubject === null) {
@@ -230,6 +239,9 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
             return {
               status: 'unassigned',
               role: null,
+              memberKind: user.memberKind,
+              hasStaffAccess: user.hasStaffAccess,
+              hasAdminAccess: user.hasAdminAccess,
               roleRequestStatus: onboarding.status,
               roleRequestRejectionReason: onboarding.rejectionReason,
               selectedRole: onboarding.selectedRole,

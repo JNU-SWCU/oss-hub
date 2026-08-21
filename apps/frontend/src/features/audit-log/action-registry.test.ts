@@ -3,25 +3,35 @@
 // 필터 목록에는 반영되지 않았던 사례가 실제로 있었다). 모노레포에 공유 패키지가 없어
 // frontend가 apps/backend/src를 직접 import할 수 없으므로(백엔드 모듈이
 // @nestjs/common·@prisma/client에 의존하고 frontend workspace에는 그 의존성이 없다),
-// apps/backend/src/audit-log/audit-log-metadata.ts를 텍스트로 읽어 action 문자열
+// apps/backend/src/audit-log/*-audit-metadata.ts를 텍스트로 읽어 action 문자열
 // 값을 직접 추출해 비교한다 — apps/frontend/src/app/globals.css.test.ts와 같은 방식이다.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AUDIT_LOG_ACTION_LABELS, AUDIT_LOG_ACTIONS } from './types';
 
-const METADATA_PATH = path.resolve(
-  __dirname,
-  '../../../../backend/src/audit-log/audit-log-metadata.ts',
-);
-const source = readFileSync(METADATA_PATH, 'utf-8');
+const METADATA_FILES = [
+  'access-audit-metadata.ts',
+  'application-decision-audit-metadata.ts',
+  'independent-authority-audit-metadata.ts',
+  'operations-audit-metadata.ts',
+  'repository-program-audit-metadata.ts',
+  'user-profile-audit-metadata.ts',
+  'web-state-audit-metadata.ts',
+] as const;
+const source = METADATA_FILES.map((file) =>
+  readFileSync(
+    path.resolve(__dirname, '../../../../backend/src/audit-log', file),
+    'utf-8',
+  ),
+).join('\n');
 
 function extractActionValues(exportName: string): string[] {
   const declaration = `export const ${exportName} = {`;
   const start = source.indexOf(declaration);
   if (start === -1) {
     throw new Error(
-      `audit-log-metadata.ts에서 ${exportName} 선언을 찾지 못했다`,
+      `backend audit metadata에서 ${exportName} 선언을 찾지 못했다`,
     );
   }
   const braceOpen = start + declaration.length - 1;
@@ -42,6 +52,7 @@ function extractActionValues(exportName: string): string[] {
 
 const REQUIRED_ACTION_REGISTRIES = [
   'ACCESS_AUDIT_ACTIONS',
+  'INDEPENDENT_AUTHORITY_AUDIT_COMMANDS',
   'REPOSITORY_PUBLISH_AUDIT_ACTIONS',
   'PROGRAM_LIFECYCLE_AUDIT_ACTIONS',
   'PROGRAM_DELETION_AUDIT_ACTIONS',
@@ -53,7 +64,7 @@ const REQUIRED_ACTION_REGISTRIES = [
 
 function listAuditActionExportNames(): string[] {
   const names: string[] = [];
-  const pattern = /export const ([A-Z0-9_]+_AUDIT_ACTIONS) = \{/g;
+  const pattern = /export const ([A-Z0-9_]+_AUDIT_(?:ACTIONS|COMMANDS)) = \{/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) !== null) {
     names.push(match[1]);
@@ -67,6 +78,15 @@ const WAVE1_ACTIONS = [
   'TEAM_CREATED',
   'TEAM_JOINED',
   'APPLICATION_SUBMITTED',
+] as const;
+
+// Task 8가 먼저 병합한 독립 권한 감사 action. Task 9의 전역 감사 로그 필터 확장은
+// 별도 화면 범위이므로 이 네 action만 backend-ahead로 명시하고 나머지는 계속 막는다.
+const INDEPENDENT_AUTHORITY_BACKEND_AHEAD = [
+  'GRANT_STAFF_ACCESS',
+  'REVOKE_STAFF_ACCESS',
+  'GRANT_ADMIN_ACCESS',
+  'REVOKE_ADMIN_ACCESS',
 ] as const;
 
 const backendActions = [
@@ -97,17 +117,17 @@ describe('감사 로그 action registry가 backend와 동기화되어 있다', (
     }
   });
 
-  it('frontend 라벨 목록이 backend가 정의한 action 전체를 표현한다', () => {
+  it('frontend 라벨 목록이 허용된 backend-ahead action 외 전체를 표현한다', () => {
     const missingFromFrontend = backendActions.filter(
       (action) => !frontendActions.includes(action),
     );
 
     expect(
-      missingFromFrontend,
+      [...missingFromFrontend].sort(),
       `backend에는 있지만 frontend 필터/라벨에는 없는 action: ${
         missingFromFrontend.join(', ') || '없음'
       }`,
-    ).toEqual([]);
+    ).toEqual([...INDEPENDENT_AUTHORITY_BACKEND_AHEAD].sort());
   });
 
   it('frontend 목록에 backend registry에 없는 action이 없다(죽은 필터를 남기지 않는다)', () => {

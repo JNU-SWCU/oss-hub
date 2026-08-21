@@ -20,7 +20,7 @@ export default async function ProgramApplyRoutePage({
     typeof rawTeamId === 'string' && rawTeamId.length > 0 ? rawTeamId : null;
 
   return (
-    <RoleGate allow={['STUDENT']}>
+    <RoleGate allow={['student']}>
       <ProgramApplyRoute programId={decodeRouteProgramId(id)} teamId={teamId} />
     </RoleGate>
   );

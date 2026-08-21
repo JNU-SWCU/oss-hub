@@ -17,7 +17,13 @@ const emptyProfile = {
 const completeRequest = {
   name: '합성 사용자',
   studentId: '1'.repeat(6),
-  department: '인공지능학부',
+  affiliationKind: 'DEPARTMENT' as const,
+  affiliationName: '인공지능학부',
+};
+const completeProfile = {
+  name: completeRequest.name,
+  studentId: completeRequest.studentId,
+  department: completeRequest.affiliationName,
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -39,7 +45,7 @@ test('본인 프로필을 단일 API 클라이언트 경로로 조회한다', as
 });
 
 test('완료 프로필을 POST JSON 본문으로 저장한다', async () => {
-  const response = { ...completeRequest, isComplete: true };
+  const response = { ...completeProfile, isComplete: true };
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(response), {
       status: 200,
@@ -57,10 +63,10 @@ test('완료 프로필을 POST JSON 본문으로 저장한다', async () => {
 });
 
 test('완료 사용자는 이름·학과만 PATCH하고 학번은 보내지 않는다', async () => {
-  const response = { ...completeRequest, isComplete: true };
+  const response = { ...completeProfile, isComplete: true };
   const updateRequest = {
-    name: completeRequest.name,
-    department: completeRequest.department,
+    name: completeProfile.name,
+    department: completeProfile.department,
   };
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(response), {
@@ -100,7 +106,7 @@ test('학번·학과가 비어도 완료로 표시된 응답은 그대로 파싱
 });
 
 test('세 필드를 모두 담은 서버 응답도 그대로 파싱한다', async () => {
-  const fullProfile = { ...completeRequest, isComplete: true };
+  const fullProfile = { ...completeProfile, isComplete: true };
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(

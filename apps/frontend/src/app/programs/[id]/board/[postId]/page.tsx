@@ -11,7 +11,7 @@ export default async function ProgramBoardDetailRoutePage({
   const { id, postId } = await params;
 
   return (
-    <RoleGate allow={['STUDENT', 'STAFF', 'ADMIN']}>
+    <RoleGate allow={['student', 'staff']}>
       <BoardDetailRoute
         programId={decodeRouteProgramId(id)}
         postId={decodeURIComponent(postId)}

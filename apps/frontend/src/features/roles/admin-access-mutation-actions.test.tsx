@@ -10,7 +10,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-import type { AdminAccessDetail } from './admin-access-api';
+import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import {
   AdminAccessMutationActions,
   AdminAccessPendingRequestCard,
@@ -24,12 +24,17 @@ import {
  * `admin-access-overlay.test.tsx`와 같은 happy-dom + createRoot/act 패턴을 쓴다.
  */
 
-function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
+function detail(
+  overrides: Partial<CanonicalAdminAccessDetail> = {},
+): CanonicalAdminAccessDetail {
   return {
     id: 'target',
     githubLogin: 'octocat',
     name: '합성 사용자',
     role: 'STAFF',
+    memberKind: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -59,100 +64,7 @@ afterEach(() => {
   container.remove();
 });
 
-describe('AdminAccessMutationActions — 역할/계정 상태 세그먼트 컨트롤', () => {
-  it('역할 라디오그룹이 STUDENT/STAFF/ADMIN 세 버튼을 렌더링하고 "(현재)"는 쓰지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessMutationActions
-        detail={detail({ role: 'STAFF' })}
-        processingAction={null}
-        onRequestAction={() => {}}
-      />,
-    );
-
-    expect(html).toContain('role="radiogroup"');
-    expect(html).toContain('학생');
-    expect(html).toContain('교직원');
-    expect(html).toContain('관리자');
-    expect(html).not.toContain('(현재)');
-  });
-
-  it('선택되지 않은 비활성도 outline이고 destructive가 아니다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessMutationActions
-        detail={detail({ accountStatus: 'ACTIVE' })}
-        processingAction={null}
-        onRequestAction={() => {}}
-      />,
-    );
-
-    expect(html).toContain('비활성');
-    expect(html).not.toContain('bg-destructive/10');
-  });
-
-  it('현재 역할·상태 버튼은 aria-checked="true"이고 나머지는 false다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessMutationActions
-        detail={detail({ role: 'STUDENT' })}
-        processingAction={null}
-        onRequestAction={() => {}}
-      />,
-    );
-
-    const trueCount = html.match(/aria-checked="true"/g)?.length ?? 0;
-    // 역할 라디오그룹 + 계정 상태 라디오그룹 각각 현재 값 하나씩, 총 2개.
-    expect(trueCount).toBe(2);
-  });
-
-  it('다른 역할 버튼을 클릭하면 onRequestAction이 해당 SET_ROLE_* 액션으로 호출된다', () => {
-    const onRequestAction = vi.fn();
-    act(() => {
-      root.render(
-        <AdminAccessMutationActions
-          detail={detail({ role: 'STUDENT' })}
-          processingAction={null}
-          onRequestAction={onRequestAction}
-        />,
-      );
-    });
-
-    const adminButton = Array.from(
-      container.querySelectorAll('button[role="radio"]'),
-    ).find((button) => button.textContent?.includes('관리자'));
-    expect(adminButton).toBeDefined();
-    act(() => {
-      adminButton?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true }),
-      );
-    });
-
-    expect(onRequestAction).toHaveBeenCalledWith('SET_ROLE_ADMIN');
-  });
-
-  it('계정 상태 버튼을 클릭하면 onRequestAction이 SET_STATUS_* 액션으로 호출된다', () => {
-    const onRequestAction = vi.fn();
-    act(() => {
-      root.render(
-        <AdminAccessMutationActions
-          detail={detail({ accountStatus: 'ACTIVE' })}
-          processingAction={null}
-          onRequestAction={onRequestAction}
-        />,
-      );
-    });
-
-    const deactivateButton = Array.from(
-      container.querySelectorAll('button[role="radio"]'),
-    ).find((button) => button.textContent?.includes('비활성'));
-    expect(deactivateButton).toBeDefined();
-    act(() => {
-      deactivateButton?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true }),
-      );
-    });
-
-    expect(onRequestAction).toHaveBeenCalledWith('SET_STATUS_DEACTIVATED');
-  });
-
+describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼트 컨트롤', () => {
   it('현재 값 버튼은 클릭해도 onRequestAction이 호출되지 않는다(disabled)', () => {
     const onRequestAction = vi.fn();
     act(() => {
@@ -199,7 +111,7 @@ describe('AdminAccessMutationActions — 역할/계정 상태 세그먼트 컨�
     expect(disabledCount).toBe(buttonCount);
   });
 
-  it('프로필이 미완료면 교직원·관리자 버튼만 막히고 안내문이 뜬다', () => {
+  it('프로필이 미완료면 authority grant를 막고 이유를 설명한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessMutationActions
         detail={detail({
@@ -219,6 +131,7 @@ describe('AdminAccessMutationActions — 역할/계정 상태 세그먼트 컨�
     expect(html).toContain(
       '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
     );
+    expect(html).not.toContain('canonical 관리 API');
   });
 
   it('본인 계정이면 비활성화 버튼만 막히고 안내문이 뜬다', () => {

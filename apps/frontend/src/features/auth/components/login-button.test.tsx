@@ -18,6 +18,9 @@ const authenticatedSession = {
     email: null,
     avatarUrl: 'https://avatars.example/u/1',
     role: 'STUDENT',
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     isProfileComplete: true,
   },
 } satisfies AuthSession;

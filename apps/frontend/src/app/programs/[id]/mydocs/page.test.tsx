@@ -31,7 +31,7 @@ describe('ProgramMyDocsPage access contract', () => {
     });
     const html = renderToStaticMarkup(page);
 
-    expect(html).toContain('data-allow="STUDENT"');
+    expect(html).toContain('data-allow="student"');
     expect(html).toContain('data-mydocs-program-id="program:basic"');
   });
 });

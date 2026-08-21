@@ -389,12 +389,17 @@
 - 검증: repository red→green, Task 8 초점 11 suites/57 tests, backend lint·typecheck·format
 - simplifier: source `0fc2bb13a805969c14b0fe9398bad41db346d84e`, plugin 1.0.0으로 현재 Task 8 TypeScript 55파일 전체 allowlist 단일 실행; 기존 `08f17369` receipt는 무효로 교체
 
+## 2026-08-21 — Task 9 회원 화면과 접근 권한을 독립 조합으로 전환
 ## 2026-08-21 — 교직원·관리자 권한 변경 API를 분리
 
 - 상태: review
 - Issue: #969
 - PR: (이 PR)
 - blocker: 없음
+- 결과: STUDENT/STAFF 회원 유형과 소속 입력을 유지하면서 학생·교직원·관리자 화면을 canonical 권한 합집합으로 구성하고, admin-only 호환 경로와 교직원/관리자 접근 제어를 분리
+- 검증: frontend lint(기존 경고 5건)·typecheck·296 files/2992 tests·build, synthetic Chrome happy 3/failure 4 scenarios 통과
+- simplifier: changed-files gate PASS, 독점 역할 switch 재도입 없음, 변경 TypeScript/TSX 전부 250 pure LOC 이하
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/`
 - 결과: 관리자 상세에 canonical 회원·권한을 노출하고 staff/admin grant·revoke를 별도 typed command와 HTTP route로 분리해 다른 권한과 회원 유형을 보존
 - 검증: 신규 controller/service/repository/transition/HTTP 7 suites/26 tests, Task 8 권한 행렬 11 suites/58 tests, backend lint·typecheck·format
 - simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e` 단일 실행, 20파일 allowlist 밖 최종 변경 0건
@@ -428,3 +433,25 @@
 - 결과: 독립 staff/admin grant·revoke를 별도 typed audit event로 등록하고 command·회원 유형·두 권한·role·계정 상태가 저장 JSON에서 parser와 조회 view까지 손실 없이 왕복하며 malformed·unknown·extra 필드를 fail-closed 처리
 - 검증: audit metadata/parser/view 2 suites/52 tests, 감사 transaction 2 suites/7 tests, 독립 권한 API 8 suites/32 tests, Task 8 권한 행렬 11 suites/58 tests, auth manifest 2 suites/20 tests, backend lint·typecheck·format·public-safe 회귀 통과
 - simplifier: source `0fc2bb13a805969c14b0fe9398bad41db346d84e`, plugin 1.0.0으로 metadata corrective TypeScript 11파일 allowlist 단일 실행
+
+## 2026-08-22 — Task 9 canonical 권한 UI 최종 정정
+
+- 상태: review
+- Issue: #969
+- PR: #995
+- blocker: 없음
+- 결과: merged main `72cb9b73`의 canonical detail/감사 계약에 맞춰 회원 유형·교직원 접근·관리자 접근을 독립 사용하고, 학생/교직원/관리자 화면 합집합·admin-only 호환·소속 온보딩·별도 staff/admin mutation을 유지
+- 검증: frontend 초점 36 files/348 tests, exact Chrome happy 3/failure 4, changed ESLint 146 files, responsive PNG 34건 browser/network·keyboard·CJK overflow audit, pure LOC max 245, backend 변경 0
+- simplifier: 공식 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e`를 44파일 + corrective 9파일 allowlist에 실행; 설치된 Claude entrypoint quota 실패는 무변경으로 기록하고 같은 pinned source prompt 실행 결과와 사후 검증을 증적화
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/` (`hashes.sha256` manifest SHA-256 `b9e093170d9cc59b00067cd39f34fb634fc924098c63d7d7ea70b4880bb218c2`)
+
+## 2026-08-22 — Task 9 exact-head CI typecheck 정정
+
+- 상태: review
+- Issue: #969
+- PR: #995
+- blocker: 없음
+- 원인: 최종 테스트 분리 파일의 반환 타입에 `SessionRoleResult.retry`를 `SessionRoleState`로 잘못 선언했고, main의 분리된 audit registry를 읽는 frontend 계약 테스트에 Task 8 독립 권한 action의 backend-ahead 예외가 없었음
+- 결과: 테스트 픽스처 타입을 실제 상태 계약에 맞추고 독립 권한 감사 4종만 명시적 backend-ahead로 제한해 다른 누락은 계속 fail-closed
+- 검증: frontend typecheck, audit/settings 초점 4 files/50 tests, 대상 ESLint·LSP, Prettier 통과; backend 변경 0
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/` (`hashes.sha256` SHA-256 `66e67c6ee2dc6d924b41eee2e5f50829b665e64e65809422abc2bc15c48b05d5`)

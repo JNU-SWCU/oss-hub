@@ -8,8 +8,9 @@ import {
   shouldShowEntryLink,
 } from '@/features/auth/signup-entry-link';
 import { useSessionRole, type SessionStatus } from './use-session-role';
-import { roleHomePath, type AppRole } from './role';
-import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
+import type { MemberAccess } from './member-access';
+import type { AppRole } from './role';
+import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 
 /**
  * 역할 홈 라벨 — 리터럴을 따로 두지 않고 `role-menus.ts`의 역할별 첫 메뉴
@@ -17,10 +18,27 @@ import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
  * actions 슬롯에는 더 이상 역할 홈을 올리지 않지만(상단 items가 담당),
  * 다른 화면·테스트가 같은 라벨을 읽을 수 있게 export를 유지한다.
  */
+const STUDENT_HOME: SessionEntry = {
+  href: '/dashboard',
+  label: STUDENT_MENU[0].label,
+  compactLabel: '대시보드',
+};
+const STAFF_HOME: SessionEntry = {
+  href: '/dashboard',
+  label: STAFF_MENU[0].label,
+  compactLabel: '대시보드',
+};
+const ADMIN_HOME: SessionEntry = {
+  href: ADMIN_SYSTEM_MENU[0].href,
+  label: ADMIN_SYSTEM_MENU[0].label,
+  compactLabel: '관리',
+};
+
+/** legacy signup 단위 테스트·호환 경계용. surface 조합에는 사용하지 않는다. */
 export const ROLE_HOME_LABEL: Record<AppRole, string> = {
-  STUDENT: STUDENT_MENU[0].label,
-  STAFF: STAFF_MENU[0].label,
-  ADMIN: ADMIN_MENU[0].label,
+  STUDENT: STUDENT_HOME.label,
+  STAFF: STAFF_HOME.label,
+  ADMIN: ADMIN_HOME.label,
 };
 
 interface SessionEntry {
@@ -39,7 +57,7 @@ interface SessionEntry {
  */
 export function resolveSessionEntry(
   status: SessionStatus,
-  role: AppRole | null,
+  access: MemberAccess | null,
   isProfileComplete: boolean,
 ): SessionEntry | null {
   switch (status) {
@@ -68,13 +86,9 @@ export function resolveSessionEntry(
       }
       // 랜딩 히어로 CTA 등 본문 진입은 역할 홈을 쓴다. nav actions 슬롯은
       // `SessionEntryNavLink`가 상단 items와 겹치지 않게 따로 숨긴다.
-      return role
-        ? {
-            href: roleHomePath(role),
-            label: ROLE_HOME_LABEL[role],
-            compactLabel: '대시보드',
-          }
-        : null;
+      if (access?.hasStaffAccess) return STAFF_HOME;
+      if (access?.memberKind === 'STUDENT') return STUDENT_HOME;
+      return access?.hasAdminAccess ? ADMIN_HOME : null;
     default: {
       const exhaustive: never = status;
       return exhaustive;
@@ -92,14 +106,15 @@ export function resolveSessionEntry(
  * 사용자가 스스로 들어온 `/signup` 안에서만 일어난다. 다시 넣지 않는다.
  */
 export function SessionEntryNavLink() {
-  const { status, role, isProfileComplete } = useSessionRole();
+  const session = useSessionRole();
+  const { status, isProfileComplete } = session;
   const pathname = usePathname();
   // 가입 완료 시 역할 홈은 상단 "대시보드" 항목과 좌측 대시보드 섹션이 담당한다.
   // actions에 또 올리면 중복. 랜딩 히어로 CTA는 resolveSessionEntry를 직접 쓴다.
   if (status === 'assigned' && isProfileComplete) {
     return null;
   }
-  const destination = resolveSessionEntry(status, role, isProfileComplete);
+  const destination = resolveSessionEntry(status, session, isProfileComplete);
   // 지금 있는 화면을 다시 가리키는 링크는 내지 않는다 — 눌러도 제자리라 고장으로 읽힌다.
   if (!destination || !shouldShowEntryLink(destination.href, pathname)) {
     return null;

@@ -1,4 +1,4 @@
-import type { AppRole } from '../_shell/role';
+import type { MemberSurface } from '../_shell/member-access';
 import type { SessionRoleState } from '../_shell/use-session-role';
 
 /**
@@ -11,10 +11,10 @@ import type { SessionRoleState } from '../_shell/use-session-role';
  * 특정 역할을 가리는 화면이 아니므로 세 역할을 모두 허용한다 — 여기서 걸러야 할
  * 것은 "어떤 역할인가"가 아니라 "역할이 있는가"다.
  */
-export const SETTINGS_ALLOWED_ROLES: readonly AppRole[] = [
-  'STUDENT',
-  'STAFF',
-  'ADMIN',
+export const SETTINGS_ALLOWED_SURFACES: readonly MemberSurface[] = [
+  'student',
+  'staff',
+  'admin',
 ];
 
 /**

@@ -48,12 +48,20 @@ function render(
     role: 'STUDENT',
     isProfileComplete: true,
   },
-) {
+): string {
   mocks.usePathname.mockReturnValue(pathname);
   mocks.useSessionRole.mockReturnValue({
     status: session.status,
     role: session.role,
+    memberKind:
+      session.role === 'STUDENT' || session.role === 'STAFF'
+        ? session.role
+        : null,
+    hasStaffAccess: session.role === 'STAFF',
+    hasAdminAccess: session.role === 'ADMIN',
     roleRequestStatus: null,
+    roleRequestRejectionReason: null,
+    selectedRole: null,
     isProfileComplete: session.isProfileComplete,
     retry: () => {},
   });

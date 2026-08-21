@@ -12,7 +12,7 @@ export default async function ProgramStatusPage({
 }) {
   const { id } = await params;
   return (
-    <RolePanelShell allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['staff']}>
       <SubmissionMatrixScreen programId={decodeRouteProgramId(id)} />
     </RolePanelShell>
   );

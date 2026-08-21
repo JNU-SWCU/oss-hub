@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiClient } from '@/lib/api-client';
 
-import type { AdminAccessDetail } from './admin-access-api';
+import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import {
   ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
   AdminAccessDetailLoadError,
@@ -20,12 +20,17 @@ vi.mock('@/lib/api-client', async () => {
   return { ...actual, apiClient: vi.fn() };
 });
 
-function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
+function detail(
+  overrides: Partial<CanonicalAdminAccessDetail> = {},
+): CanonicalAdminAccessDetail {
   return {
     id: 'target',
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
     role: 'STUDENT',
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,

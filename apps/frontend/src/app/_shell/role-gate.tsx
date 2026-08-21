@@ -9,7 +9,7 @@ import { SessionError } from './session-error';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
 import type { SessionRoleState } from './use-session-role';
-import { roleHomePath, type AppRole } from './role';
+import { hasMemberSurface, type MemberSurface } from './member-access';
 
 /**
  * 상태만 보고 이동할 곳을 정한다.
@@ -57,11 +57,8 @@ export function roleGateRedirectPath(state: SessionRoleState): string | null {
  * 권한 불일치 안내 화면에서 "돌아가기"가 향할 곳.
  * `deniedPath`가 주어지면 그곳, 아니면 자기 역할 홈이다.
  */
-export function roleGateDeniedHomePath(
-  role: AppRole,
-  deniedPath?: string,
-): string {
-  return deniedPath ?? roleHomePath(role);
+export function roleGateDeniedHomePath(deniedPath?: string): string {
+  return deniedPath ?? '/dashboard';
 }
 
 /**
@@ -128,7 +125,7 @@ export function RoleGate({
   unassignedNotice,
   children,
 }: {
-  allow: readonly AppRole[];
+  allow: readonly MemberSurface[];
   deniedPath?: string;
   unassignedAccess?: UnassignedAccessPolicy;
   unassignedNotice?: ReactNode;
@@ -136,7 +133,7 @@ export function RoleGate({
 }) {
   const router = useRouter();
   const state = useSessionRole();
-  const { status, role, retry } = state;
+  const { status, retry } = state;
   const openForUnassigned = shouldOpenForUnassigned(state, unassignedAccess);
 
   useEffect(() => {
@@ -152,8 +149,7 @@ export function RoleGate({
 
   const isAllowed =
     status === 'assigned' &&
-    !!role &&
-    allow.includes(role) &&
+    hasMemberSurface(state, allow) &&
     state.isProfileComplete;
 
   let content: ReactNode;
@@ -165,13 +161,10 @@ export function RoleGate({
     // 프로필 미완료는 권한 문제가 아니라 남은 단계다 — 접근 거부 안내를 띄우면
     // 사용자는 자기 화면에서 쫓겨난 것으로 읽는다. 위 리다이렉트에 맡긴다.
     status === 'assigned' &&
-    !!role &&
     state.isProfileComplete &&
-    !allow.includes(role)
+    !hasMemberSurface(state, allow)
   ) {
-    content = (
-      <AccessDenied homePath={roleGateDeniedHomePath(role, deniedPath)} />
-    );
+    content = <AccessDenied homePath={roleGateDeniedHomePath(deniedPath)} />;
   } else if (openForUnassigned) {
     // 안내가 자식보다 앞에 오는 것은 순서가 곧 읽는 순서이기 때문이다 — 왜 이 화면이
     // 평소와 다른지 먼저 알고 폼을 만져야 한다.

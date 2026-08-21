@@ -30,11 +30,16 @@ function mockSession(
     roleRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
     isProfileComplete?: boolean;
   } = {},
-) {
+): void {
+  const role = overrides.role ?? null;
   mocks.useSessionRole.mockReturnValue({
     status: overrides.status ?? 'assigned',
-    role: overrides.role ?? null,
+    role,
+    memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
     roleRequestStatus: overrides.roleRequestStatus ?? null,
+    roleRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: overrides.isProfileComplete ?? false,
     retry: () => {},
@@ -55,7 +60,7 @@ describe('AccountSlot', () => {
     expect(html).toContain('학생');
     expect(html).toContain('bg-status-recruiting-bg');
     expect(html).toContain('text-status-recruiting-fg');
-    expect(html).toContain('aria-label="학생 역할"');
+    expect(html).toContain('aria-label="학생 권한"');
     expect(html).toContain('data-testid="login-button"');
   });
 
@@ -68,7 +73,7 @@ describe('AccountSlot', () => {
     expect(html).toContain('교직원');
     expect(html).toContain('bg-status-approved-bg');
     expect(html).toContain('text-status-approved-fg');
-    expect(html).toContain('aria-label="교직원 역할"');
+    expect(html).toContain('aria-label="교직원 권한"');
   });
 
   // PM 결정: ADMIN 전용 색을 새로 만들지 않고 STAFF와 같은 approved 톤을 재사용한다.
@@ -80,7 +85,7 @@ describe('AccountSlot', () => {
 
     expect(html).toContain('관리자');
     expect(html).toContain('bg-status-approved-bg');
-    expect(html).toContain('aria-label="관리자 역할"');
+    expect(html).toContain('aria-label="관리자 권한"');
   });
 
   it('비로그인 상태에서는 역할칩 없이 기존 로그인 진입만 유지한다', () => {

@@ -28,7 +28,7 @@ afterEach(() => {
 describe('AccountDeactivationSection', () => {
   it('explains the immediate block, retained records, and admin-only recovery', () => {
     const html = renderToStaticMarkup(
-      <AccountDeactivationSection role="STUDENT" />,
+      <AccountDeactivationSection hasAdminAccess={false} />,
     );
     const rendered = document.createElement('div');
     rendered.innerHTML = html;
@@ -44,7 +44,7 @@ describe('AccountDeactivationSection', () => {
 
   it('warns an admin about the final-admin safety guard', () => {
     const html = renderToStaticMarkup(
-      <AccountDeactivationSection role="ADMIN" />,
+      <AccountDeactivationSection hasAdminAccess />,
     );
 
     expect(html).toContain('마지막 활성 관리자');
@@ -65,7 +65,7 @@ describe('AccountDeactivationSection', () => {
     await act(async () => {
       root.render(
         <AccountDeactivationSection
-          role="STUDENT"
+          hasAdminAccess={false}
           onDeactivated={onDeactivated}
         />,
       );

@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AppRole } from '../_shell/role';
+import type { MemberSurface } from '../_shell/member-access';
 import { RolePanelShell } from '../_shell/role-panel-shell';
-import { DASHBOARD_ALLOWED_ROLES } from './dashboard-access';
+import { DASHBOARD_ALLOWED_SURFACES } from './dashboard-access';
 
 // 본문 컴포넌트는 이 파일의 관심사가 아니다 — 여기서 고정하는 것은 게이트 하나다.
 // (본문 분기는 `dashboard-home.test.tsx`.)
@@ -12,7 +12,7 @@ vi.mock('./dashboard-home', () => ({ DashboardHome: () => null }));
 import DashboardPage from './page';
 
 interface GateProps {
-  readonly allow: readonly AppRole[];
+  readonly allow: readonly MemberSurface[];
   readonly deniedPath?: string;
 }
 
@@ -28,19 +28,19 @@ function renderGate(): ReactElement<GateProps> {
  * 메뉴를 눌러 접근 거부 화면으로 떨어졌다. 본문 분기 테스트는 게이트를 통과한 뒤를
  * 보므로 그 회귀에 초록을 준다. 그래서 게이트를 따로 못 박는다.
  */
-describe('DASHBOARD_ALLOWED_ROLES', () => {
-  it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
-    '역할이 확정된 %s는 대시보드에 들어온다 — 여기서 가리는 것은 역할 종류가 아니다',
-    (role) => {
-      expect(DASHBOARD_ALLOWED_ROLES).toContain(role);
+describe('DASHBOARD_ALLOWED_SURFACES', () => {
+  it.each(['student', 'staff', 'admin'] as const)(
+    '%s surface는 대시보드 입구를 쓴다',
+    (surface) => {
+      expect(DASHBOARD_ALLOWED_SURFACES).toContain(surface);
     },
   );
 
   it('회원 공통 입구라 세 역할 말고는 늘지도 줄지도 않는다', () => {
-    expect([...DASHBOARD_ALLOWED_ROLES].sort()).toEqual([
-      'ADMIN',
-      'STAFF',
-      'STUDENT',
+    expect([...DASHBOARD_ALLOWED_SURFACES].sort()).toEqual([
+      'admin',
+      'staff',
+      'student',
     ]);
   });
 });
@@ -52,7 +52,7 @@ describe('DashboardPage', () => {
     const gate = renderGate();
 
     expect(gate.type).toBe(RolePanelShell);
-    expect(gate.props.allow).toBe(DASHBOARD_ALLOWED_ROLES);
+    expect(gate.props.allow).toBe(DASHBOARD_ALLOWED_SURFACES);
   });
 
   it('역할 불일치를 다른 역할 홈으로 떠넘기지 않는다', () => {

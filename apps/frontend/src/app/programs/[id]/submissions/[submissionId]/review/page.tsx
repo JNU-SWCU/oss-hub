@@ -12,7 +12,7 @@ export default async function ProgramSubmissionReviewPage({
 }) {
   const { submissionId } = await params;
   return (
-    <RoleGate allow={['STAFF', 'ADMIN']}>
+    <RoleGate allow={['staff']}>
       <SubmissionReviewScreen submissionId={submissionId} />
     </RoleGate>
   );

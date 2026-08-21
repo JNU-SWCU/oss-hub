@@ -10,22 +10,18 @@ import type {
 
 /**
  * Frontend policy for the `/admin/access` write surface. 이전에는 GRANT/REVOKE
- * 두 액션이 `admin-access-transition-table.ts`의 사다리(한 단계씩만 이동)를
- * 흉내 냈지만, 백엔드는 사실 `null` 대상만 제외하면 임의의 역할 점프를
- * 허용한다(`apps/backend/src/users/admin-access-transition-table.ts`의
- * `classifyTransition` — role과 accountStatus를 동시에 바꾸는 요청만 막고,
- * 역할 단독 변경은 사다리 제약이 없다). 그래서 이 파일은 역할을 직접
- * 선택하는 세 액션(SET_ROLE_*)과 계정 상태를 직접 선택하는 두 액션
- * (SET_STATUS_*)으로 재구성한다. 모든 쓰기는 여전히 서버에서 검증된다 —
- * 이 파일은 버튼을 무엇으로 보여줄지만 결정한다.
+ * Authority changes use Task 8's independent staff/admin commands. The legacy
+ * CAS resource remains only for request decisions and account status. Every
+ * write is still validated by the backend.
  */
 
 export const ADMIN_ACCESS_MUTATION_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
-  SET_ROLE_STUDENT: 'SET_ROLE_STUDENT',
-  SET_ROLE_STAFF: 'SET_ROLE_STAFF',
-  SET_ROLE_ADMIN: 'SET_ROLE_ADMIN',
+  GRANT_STAFF_ACCESS: 'GRANT_STAFF_ACCESS',
+  REVOKE_STAFF_ACCESS: 'REVOKE_STAFF_ACCESS',
+  GRANT_ADMIN_ACCESS: 'GRANT_ADMIN_ACCESS',
+  REVOKE_ADMIN_ACCESS: 'REVOKE_ADMIN_ACCESS',
   SET_STATUS_ACTIVE: 'SET_STATUS_ACTIVE',
   SET_STATUS_DEACTIVATED: 'SET_STATUS_DEACTIVATED',
 } as const;
@@ -33,10 +29,16 @@ export const ADMIN_ACCESS_MUTATION_ACTIONS = {
 export type AdminAccessMutationAction =
   (typeof ADMIN_ACCESS_MUTATION_ACTIONS)[keyof typeof ADMIN_ACCESS_MUTATION_ACTIONS];
 
-export type AdminAccessSetRoleAction =
-  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STUDENT
-  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STAFF
-  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_ADMIN;
+export type IndependentAuthorityMutationAction =
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_STAFF_ACCESS
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_STAFF_ACCESS
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_ADMIN_ACCESS
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_ADMIN_ACCESS;
+
+export type AdminAccessLegacyMutationAction = Exclude<
+  AdminAccessMutationAction,
+  IndependentAuthorityMutationAction
+>;
 
 export type AdminAccessSetStatusAction =
   | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_ACTIVE
@@ -53,50 +55,15 @@ export const ACCOUNT_STATUS_LABEL: Record<AdminAccessAccountStatus, string> = {
   DEACTIVATED: '비활성',
 };
 
-/** 역할 선택 컨트롤이 버튼을 그리는 순서 — 낮은 권한에서 높은 권한 순. */
-export const ROLE_ORDER: readonly AdminAccessRole[] = [
-  'STUDENT',
-  'STAFF',
-  'ADMIN',
-];
-
-const ROLE_RANK: Record<AdminAccessRole, number> = {
-  STUDENT: 0,
-  STAFF: 1,
-  ADMIN: 2,
-};
-
-/** 미지정(`null`)은 `STUDENT`와 같은 순위로 취급한다 — 첫 역할 배정은 강등이 아니다. */
-export function rankOfAdminAccessRole(role: AdminAccessRole | null): number {
-  return role === null ? 0 : ROLE_RANK[role];
-}
-
-export function actionForRole(role: AdminAccessRole): AdminAccessSetRoleAction {
-  switch (role) {
-    case 'STUDENT':
-      return ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STUDENT;
-    case 'STAFF':
-      return ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STAFF;
-    case 'ADMIN':
-      return ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_ADMIN;
-    default:
-      return assertNever(role);
-  }
-}
-
-export function roleForAction(
-  action: AdminAccessSetRoleAction,
-): AdminAccessRole {
-  switch (action) {
-    case 'SET_ROLE_STUDENT':
-      return 'STUDENT';
-    case 'SET_ROLE_STAFF':
-      return 'STAFF';
-    case 'SET_ROLE_ADMIN':
-      return 'ADMIN';
-    default:
-      return assertNever(action);
-  }
+export function isIndependentAuthorityMutationAction(
+  action: AdminAccessMutationAction,
+): action is IndependentAuthorityMutationAction {
+  return (
+    action === 'GRANT_STAFF_ACCESS' ||
+    action === 'REVOKE_STAFF_ACCESS' ||
+    action === 'GRANT_ADMIN_ACCESS' ||
+    action === 'REVOKE_ADMIN_ACCESS'
+  );
 }
 
 export function actionForAccountStatus(
@@ -112,16 +79,11 @@ export interface AdminAccessMutationExtra {
 }
 
 /**
- * Builds the CAS PATCH body for `action` from the projection currently on
- * screen (`detail`) — never from a cached/stale copy. `expected*` fields
- * pin the caller's last-known state; the backend rejects with `ROL_013`
- * (`ACCESS_STATE_MISMATCH`) and returns the authoritative projection if
- * they no longer match. 역할 변경 액션은 accountStatus를, 계정 상태 변경
- * 액션은 role을 현재 값 그대로 보내 — 백엔드가 둘의 동시 변경을 거부하므로
- * (`classifyTransition`) 한 번에 하나만 바뀐다.
+ * Builds the legacy CAS PATCH body for request decisions and account status.
+ * Independent authority actions never pass through this resource.
  */
 export function buildAdminAccessPatchRequest(
-  action: AdminAccessMutationAction,
+  action: AdminAccessLegacyMutationAction,
   detail: AdminAccessDetail,
   extra: AdminAccessMutationExtra = {},
 ): AdminAccessPatchRequest {
@@ -149,24 +111,6 @@ export function buildAdminAccessPatchRequest(
         desiredAccountStatus: detail.accountStatus,
         requestDecision: { decision: 'REJECT', reason: extra.reason ?? '' },
       };
-    case 'SET_ROLE_STUDENT':
-      return {
-        ...base,
-        desiredRole: 'STUDENT',
-        desiredAccountStatus: detail.accountStatus,
-      };
-    case 'SET_ROLE_STAFF':
-      return {
-        ...base,
-        desiredRole: 'STAFF',
-        desiredAccountStatus: detail.accountStatus,
-      };
-    case 'SET_ROLE_ADMIN':
-      return {
-        ...base,
-        desiredRole: 'ADMIN',
-        desiredAccountStatus: detail.accountStatus,
-      };
     case 'SET_STATUS_ACTIVE':
       return {
         ...base,
@@ -191,10 +135,10 @@ export function buildAdminAccessPatchRequest(
  * conflict projection — profile/history/etc. are untouched, since the
  * conflict response does not carry them.
  */
-export function applyAdminAccessConflictProjection(
-  detail: AdminAccessDetail,
+export function applyAdminAccessConflictProjection<T extends AdminAccessDetail>(
+  detail: T,
   projection: AdminAccessConflictProjection,
-): AdminAccessDetail {
+): T {
   return {
     ...detail,
     role: projection.role,
@@ -245,9 +189,10 @@ export function adminAccessMutationErrorMessage(error: unknown): string {
 const ACTION_SUCCESS_LABEL: Record<AdminAccessMutationAction, string> = {
   APPROVE: '요청 승인',
   REJECT: '요청 반려',
-  SET_ROLE_STUDENT: '학생으로 역할 변경',
-  SET_ROLE_STAFF: '교직원으로 역할 변경',
-  SET_ROLE_ADMIN: '관리자로 역할 변경',
+  GRANT_STAFF_ACCESS: '교직원 접근 허용',
+  REVOKE_STAFF_ACCESS: '교직원 접근 회수',
+  GRANT_ADMIN_ACCESS: '관리자 접근 허용',
+  REVOKE_ADMIN_ACCESS: '관리자 접근 회수',
   SET_STATUS_ACTIVE: '계정 재활성화',
   SET_STATUS_DEACTIVATED: '계정 비활성화',
 };

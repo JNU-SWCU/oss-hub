@@ -15,7 +15,9 @@
  * 금지돼 있기 때문이다(eslint feature 경계 규칙). 같은 값 집합을 여기서 다시
  * 선언하고, 세션을 아는 app 계층이 이 타입으로 역할을 넘긴다.
  */
-export type ProfileRole = 'STUDENT' | 'STAFF' | 'ADMIN';
+export type ProfileMemberKind = 'STUDENT' | 'STAFF';
+/** Todo 13까지 local-review legacy fixture 해석에만 쓰는 호환 타입. */
+export type ProfileRole = ProfileMemberKind | 'ADMIN';
 
 export const PROFILE_NAME_MAX_LENGTH = 100;
 export const PROFILE_DEPARTMENT_MAX_LENGTH = 100;
@@ -26,10 +28,12 @@ export interface ProfileFieldRequirement {
   readonly department: boolean;
 }
 
-const REQUIREMENT_BY_ROLE: Record<ProfileRole, ProfileFieldRequirement> = {
+const REQUIREMENT_BY_MEMBER_KIND: Record<
+  ProfileMemberKind,
+  ProfileFieldRequirement
+> = {
   STUDENT: { studentId: true, department: true },
   STAFF: { studentId: false, department: true },
-  ADMIN: { studentId: false, department: false },
 };
 
 /**
@@ -40,9 +44,11 @@ const REQUIREMENT_BY_ROLE: Record<ProfileRole, ProfileFieldRequirement> = {
  * 백엔드가 역할 배정 전에 학번을 포함한 완료 프로필을 요구한다(`USR_002`).
  */
 export function profileFieldRequirement(
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ): ProfileFieldRequirement {
-  return REQUIREMENT_BY_ROLE[role ?? 'STUDENT'];
+  return memberKind === 'ADMIN'
+    ? { studentId: false, department: false }
+    : REQUIREMENT_BY_MEMBER_KIND[memberKind ?? 'STUDENT'];
 }
 
 /**
@@ -54,11 +60,12 @@ export function profileFieldRequirement(
  * 필수가 아닌 역할에서만 실제로 달라지는 규칙이다.
  */
 export function isDepartmentRequiredForProfile(
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
   studentId: string,
 ): boolean {
   return (
-    profileFieldRequirement(role).department || studentId.trim().length > 0
+    profileFieldRequirement(memberKind).department ||
+    studentId.trim().length > 0
   );
 }
 
@@ -121,9 +128,9 @@ export interface ProfileCompletionFields {
 /** 역할이 요구하는 항목이 모두 채워졌는지 — 요구하지 않는 항목은 비어 있어도 완성이다. */
 export function isProfileComplete(
   fields: ProfileCompletionFields,
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ): boolean {
-  const requirement = profileFieldRequirement(role);
+  const requirement = profileFieldRequirement(memberKind);
   if (!isValidProfileName(fields.name)) {
     return false;
   }

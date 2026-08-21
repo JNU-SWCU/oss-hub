@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
 import { resolveSessionEntry } from './role-home-link';
-import type { AppRole } from './role';
+import { EMPTY_MEMBER_ACCESS, type MemberAccess } from './member-access';
 import type { SessionStatus } from './use-session-role';
 
 interface LandingEntryActionViewProps {
   readonly status: SessionStatus;
-  readonly role: AppRole | null;
+  readonly access?: MemberAccess;
   /**
    * 배정된 역할 기준 프로필 완료 여부. 기본값을 두지 않는다 — 모르는 채로 회원
    * 취급하면 가입을 마치지 않은 사람에게 랜딩의 주 행동이 "내 대시보드"가 된다.
@@ -23,7 +23,7 @@ interface LandingEntryActionViewProps {
 
 export function LandingEntryActionView({
   status,
-  role,
+  access,
   isProfileComplete,
   hasAuthError = false,
   inverted = false,
@@ -79,7 +79,11 @@ export function LandingEntryActionView({
     );
   }
 
-  const destination = resolveSessionEntry(status, role, isProfileComplete);
+  const destination = resolveSessionEntry(
+    status,
+    access ?? EMPTY_MEMBER_ACCESS,
+    isProfileComplete,
+  );
   if (!destination) return null;
 
   return (

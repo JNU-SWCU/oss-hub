@@ -1,4 +1,4 @@
-import type { AppRole } from '../_shell/role';
+import type { MemberSurface } from '../_shell/member-access';
 
 /**
  * `/dashboard` 접근 허용 역할 — 역할이 확정된 회원 전원.
@@ -17,8 +17,8 @@ import type { AppRole } from '../_shell/role';
  * 역할이 아직 없는 사용자는 여기서 가리지 않는다 — 가입 미완료는 권한 문제가 아니라
  * 남은 단계라, `RoleGate`가 온보딩으로 되돌린다.
  */
-export const DASHBOARD_ALLOWED_ROLES: readonly AppRole[] = [
-  'STUDENT',
-  'STAFF',
-  'ADMIN',
+export const DASHBOARD_ALLOWED_SURFACES: readonly MemberSurface[] = [
+  'student',
+  'staff',
+  'admin',
 ];

@@ -1,10 +1,11 @@
 import { ApiError } from '@/lib/api-client';
 
-import {
-  fetchAdminAccessDetail,
-  fetchAdminAccessHistory,
-} from './admin-access-api';
+import { fetchAdminAccessHistory } from './admin-access-api';
 import type { AdminAccessDetail, AdminAccessHistory } from './admin-access-api';
+import {
+  fetchCanonicalAdminAccessDetail,
+  type CanonicalAdminAccessDetail,
+} from './independent-authority-api';
 
 /**
  * `/admin/access/users/[userId]` 직접 진입 상세(PR04E)의 fetch/파생 로직.
@@ -35,7 +36,7 @@ export class AdminAccessDetailLoadError extends Error {
 }
 
 export interface AdminAccessDetailData {
-  readonly detail: AdminAccessDetail;
+  readonly detail: CanonicalAdminAccessDetail;
   readonly history: AdminAccessHistory;
 }
 
@@ -59,7 +60,7 @@ export async function loadAdminAccessDetail(
 ): Promise<AdminAccessDetailData> {
   try {
     const [detail, history] = await Promise.all([
-      fetchAdminAccessDetail(userId, signal),
+      fetchCanonicalAdminAccessDetail(userId, signal),
       fetchAdminAccessHistory(
         userId,
         {

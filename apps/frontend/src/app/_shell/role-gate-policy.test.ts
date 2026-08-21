@@ -20,6 +20,9 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
     role: null,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     roleRequestStatus: null,
     roleRequestRejectionReason: null,
     selectedRole: null,
@@ -91,10 +94,8 @@ describe('roleGateRedirectPath', () => {
 
 describe('roleGateDeniedHomePath', () => {
   it('안내 화면의 돌아가기는 deniedPath를, 없으면 회원 공통 대시보드 입구를 가리킨다', () => {
-    expect(roleGateDeniedHomePath('STAFF', '/programs')).toBe('/programs');
-    expect(roleGateDeniedHomePath('STAFF')).toBe('/dashboard');
-    expect(roleGateDeniedHomePath('STUDENT')).toBe('/dashboard');
-    expect(roleGateDeniedHomePath('ADMIN')).toBe('/dashboard');
+    expect(roleGateDeniedHomePath('/programs')).toBe('/programs');
+    expect(roleGateDeniedHomePath()).toBe('/dashboard');
   });
 });
 

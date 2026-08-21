@@ -6,7 +6,6 @@ import { FormSection } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ProfileRole } from '../../profile-requirements';
 import {
   classifyAccountDeactivationError,
   deactivateMyAccount,
@@ -24,10 +23,10 @@ function errorMessage(error: unknown): string {
 }
 
 export function AccountDeactivationSection({
-  role,
+  hasAdminAccess,
   onDeactivated = () => window.location.assign('/account-deactivated'),
 }: {
-  readonly role: ProfileRole | null;
+  readonly hasAdminAccess: boolean;
   /** 테스트와 앱 경계를 위한 완료 이동. 기본값은 비활성화 완료 전용 화면이다. */
   readonly onDeactivated?: () => void;
 }) {
@@ -63,7 +62,7 @@ export function AccountDeactivationSection({
         <p className="text-sm leading-6 text-muted-foreground [word-break:keep-all]">
           비활성화하면 즉시 로그아웃되며 재로그인이 차단됩니다. 다시 사용하려면
           관리자에게 재활성화를 요청해야 합니다.
-          {role === 'ADMIN'
+          {hasAdminAccess
             ? ' 마지막 활성 관리자는 서비스 운영 보호를 위해 비활성화할 수 없습니다.'
             : ''}
         </p>

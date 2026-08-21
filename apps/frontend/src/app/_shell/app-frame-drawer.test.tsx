@@ -59,11 +59,19 @@ function mockSession(session: {
   status: 'loading' | 'anonymous' | 'unassigned' | 'assigned' | 'error';
   role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   isProfileComplete: boolean;
-}) {
+}): void {
   mocks.useSessionRole.mockReturnValue({
     status: session.status,
     role: session.role,
+    memberKind:
+      session.role === 'STUDENT' || session.role === 'STAFF'
+        ? session.role
+        : null,
+    hasStaffAccess: session.role === 'STAFF',
+    hasAdminAccess: session.role === 'ADMIN',
     roleRequestStatus: null,
+    roleRequestRejectionReason: null,
+    selectedRole: null,
     isProfileComplete: session.isProfileComplete,
     retry: () => {},
   });
@@ -129,7 +137,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     ).not.toBeNull();
   });
 
-  it('ADMIN 세션, /dashboard: 햄버거를 열면 교직원·관리자 그룹이 드로어에 뜬다', async () => {
+  it('admin-only 세션은 관리자 그룹만 드로어에 표시한다', async () => {
     mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
     await renderFrame('/dashboard');
 
@@ -145,19 +153,8 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     const adminGroup = dlg?.querySelector(
       '[role="group"][aria-label="관리자"]',
     );
-    expect(staffGroup).not.toBeNull();
+    expect(staffGroup).toBeNull();
     expect(adminGroup).not.toBeNull();
-
-    const staffLink = staffGroup?.querySelector<HTMLAnchorElement>(
-      'a[href="/dashboard"]',
-    );
-    expect(staffLink).not.toBeNull();
-    expect(staffLink?.textContent).toContain('운영 대시보드');
-    const applicantsLink = staffGroup?.querySelector<HTMLAnchorElement>(
-      'a[href="/dashboard/applicants"]',
-    );
-    expect(applicantsLink).not.toBeNull();
-    expect(applicantsLink?.textContent).toContain('가입 신청');
 
     for (const [label, href] of [
       ['사용자 목록', '/admin/access'],

@@ -8,6 +8,7 @@ import {
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
   profileFieldRequirement,
+  type ProfileMemberKind,
   type ProfileRole,
 } from './profile-requirements';
 import type {
@@ -33,10 +34,10 @@ export { PROFILE_DEPARTMENT_MAX_LENGTH, PROFILE_NAME_MAX_LENGTH };
 
 export function getProfileRedirect(
   profile: UserProfile,
-  role: ProfileRole | null,
+  memberKind: ProfileMemberKind | null,
   nextPath: string,
 ): string | null {
-  return isProfileComplete(profile, role) ? nextPath : null;
+  return isProfileComplete(profile, memberKind) ? nextPath : null;
 }
 
 export function createInitialProfileForm(
@@ -49,6 +50,8 @@ export function createInitialProfileForm(
     studentId: profile.studentId ?? '',
     // 불러온 값을 그대로 기억해 둔다 — 형식 검증의 예외와 요청 제외를 가르는 기준이다.
     savedStudentId: profile.studentId ?? '',
+    affiliationKind: 'DEPARTMENT',
+    affiliationName: '',
     departmentOption: isListed
       ? department
       : department
@@ -64,6 +67,20 @@ export function resolveDepartment(
   return values.departmentOption === OTHER_DEPARTMENT
     ? values.otherDepartment.trim()
     : values.departmentOption;
+}
+
+export function resolveAffiliationName(
+  values: Pick<
+    ProfileFormValues,
+    | 'affiliationKind'
+    | 'affiliationName'
+    | 'departmentOption'
+    | 'otherDepartment'
+  >,
+): string {
+  return values.affiliationKind === 'DEPARTMENT'
+    ? resolveDepartment(values)
+    : values.affiliationName;
 }
 
 function nameError(name: string): string | null {
@@ -110,15 +127,22 @@ function isUnchangedStudentId(
 
 export function validateProfileForm(
   values: ProfileFormValues,
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ): ProfileFormErrors {
-  const requirement = profileFieldRequirement(role);
+  const requirement = profileFieldRequirement(memberKind);
+  const affiliationError =
+    memberKind === 'STUDENT' && values.affiliationKind !== 'DEPARTMENT'
+      ? '학생은 학과 소속을 선택해 주세요.'
+      : departmentError(
+          resolveAffiliationName(values),
+          profileFieldRequirement(memberKind).department,
+        );
   return {
     name: nameError(values.name),
     studentId: isUnchangedStudentId(values)
       ? null
       : studentIdError(values.studentId.trim(), requirement.studentId),
-    department: departmentError(resolveDepartment(values), true),
+    department: affiliationError,
   };
 }
 
@@ -128,10 +152,10 @@ export function isProfileFormValid(errors: ProfileFormErrors): boolean {
 
 export function toCompleteProfileRequest(
   values: ProfileFormValues,
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ): CompleteProfileRequest | null {
-  const errors = validateProfileForm(values, role);
-  if (!isProfileFormValid(errors)) {
+  const errors = validateProfileForm(values, memberKind);
+  if (memberKind === 'ADMIN' || !isProfileFormValid(errors)) {
     return null;
   }
   // 불러온 값 그대로면 싣지 않는다. 백엔드 DTO는 6자리만 받으므로 예전 형식 값을
@@ -139,11 +163,11 @@ export function toCompleteProfileRequest(
   // 없다(설정 화면의 `toUpdateProfileRequest`와 같은 판단). 생략하면 백엔드가
   // 저장된 값을 그대로 쓴다.
   const studentId = isUnchangedStudentId(values) ? '' : values.studentId.trim();
-  const department = normalizeProfileText(resolveDepartment(values));
   return {
     name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
-    department,
+    affiliationKind: values.affiliationKind,
+    affiliationName: normalizeProfileText(resolveAffiliationName(values)),
   };
 }
 
@@ -176,9 +200,9 @@ export function hasSavedStudentId(values: SettingsProfileFields): boolean {
  */
 export function validateSettingsProfileForm(
   values: SettingsProfileFields,
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ): ProfileFormErrors {
-  const requirement = profileFieldRequirement(role);
+  const requirement = profileFieldRequirement(memberKind);
   return {
     name: nameError(values.name),
     studentId: hasSavedStudentId(values)
@@ -190,9 +214,9 @@ export function validateSettingsProfileForm(
 
 export function toUpdateProfileRequest(
   values: SettingsProfileFields,
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ): UpdateProfileRequest | null {
-  const errors = validateSettingsProfileForm(values, role);
+  const errors = validateSettingsProfileForm(values, memberKind);
   if (!isProfileFormValid(errors)) {
     return null;
   }

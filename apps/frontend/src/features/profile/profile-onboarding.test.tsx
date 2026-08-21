@@ -10,7 +10,7 @@ import {
   PROFILE_NAME_MAX_LENGTH,
   validateProfileForm,
 } from './profile-state';
-import type { ProfileRole } from './profile-requirements';
+import type { ProfileMemberKind } from './profile-requirements';
 import type { ProfileFormValues } from './types';
 
 const noOp = () => undefined;
@@ -20,6 +20,8 @@ function values(overrides: Partial<ProfileFormValues> = {}): ProfileFormValues {
     name: 'GitHub 합성 이름',
     studentId: '1'.repeat(6),
     savedStudentId: '',
+    affiliationKind: 'DEPARTMENT',
+    affiliationName: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
     ...overrides,
@@ -29,18 +31,19 @@ function values(overrides: Partial<ProfileFormValues> = {}): ProfileFormValues {
 function renderForm(
   formValues: ProfileFormValues,
   options: {
-    readonly role?: ProfileRole | null;
+    readonly memberKind?: ProfileMemberKind;
+    readonly role?: ProfileMemberKind;
     readonly showRequiredErrors?: boolean;
     readonly isSubmitting?: boolean;
     readonly submitError?: string | null;
   } = {},
 ) {
-  const role = options.role ?? null;
+  const memberKind = options.memberKind ?? options.role ?? 'STUDENT';
   return renderToStaticMarkup(
     <ProfileForm
-      role={role}
+      memberKind={memberKind}
       values={formValues}
-      errors={validateProfileForm(formValues, role)}
+      errors={validateProfileForm(formValues, memberKind)}
       showRequiredErrors={options.showRequiredErrors ?? false}
       isSubmitting={options.isSubmitting ?? false}
       submitError={options.submitError ?? null}
@@ -101,7 +104,7 @@ describe('profile onboarding view', () => {
   });
 
   it('학생에게는 이름·학번·학과를 모두 보여 준다', () => {
-    const html = renderForm(values(), { role: 'STUDENT' });
+    const html = renderForm(values(), { memberKind: 'STUDENT' });
 
     expect(html).toContain('profile-name');
     expect(html).toContain('profile-student-id');
@@ -113,7 +116,7 @@ describe('profile onboarding view', () => {
     // 학번은 학생만 가질 수 있다 — 교직원이 요청에 studentId를 실으면
     // 백엔드가 400으로 거절하므로(users.service.ts), 화면은 애초에 입력받지 않는다.
     const html = renderForm(values({ studentId: '' }), {
-      role: 'STAFF',
+      memberKind: 'STAFF',
       showRequiredErrors: true,
     });
 
@@ -124,17 +127,20 @@ describe('profile onboarding view', () => {
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
-  it('관리자에게는 학번 칸만 감추고 학과는 받는다', () => {
-    const html = renderForm(values({ studentId: '', departmentOption: '' }), {
-      role: 'ADMIN',
-      showRequiredErrors: true,
-    });
+  it('교직원은 사업단 소속을 선택할 수 있다', () => {
+    const html = renderForm(
+      values({
+        studentId: '',
+        affiliationKind: 'PROGRAM_OFFICE',
+        affiliationName: '합성 사업단',
+        departmentOption: '',
+      }),
+      { memberKind: 'STAFF', showRequiredErrors: true },
+    );
 
     expect(html).not.toContain('profile-student-id');
-    expect(html).toContain('profile-department');
-    expect(html).toContain('profile-name');
-    expect(html).toContain('항목(이름, 학과)');
-    expect(html).not.toMatch(/type="submit"[^>]*disabled/);
+    expect(html).toContain('profile-affiliation-kind');
+    expect(html).toContain('합성 사업단');
   });
 
   it('학과·학번이 비어 있어도 가입 마치기 버튼은 눌린다', () => {

@@ -1,8 +1,8 @@
 'use client';
 
-import { useSharedSessionRole } from '../../../_shell/session-role-context';
 import { ProgramStaffTeamsPage } from '@/features/programs/program-staff-teams-page';
 import { ProgramTeamsPage } from '@/features/programs/program-teams-page';
+import { useSharedSessionRole } from '../../../_shell/session-role-context';
 
 /**
  * `/programs/[id]/teams`의 역할 분기.
@@ -20,9 +20,9 @@ export function ProgramTeamsRouteView({
 }: {
   readonly programId: string;
 }) {
-  const { role } = useSharedSessionRole();
+  const { hasStaffAccess } = useSharedSessionRole();
 
-  return role === 'STAFF' || role === 'ADMIN' ? (
+  return hasStaffAccess ? (
     <ProgramStaffTeamsPage programId={programId} />
   ) : (
     <ProgramTeamsPage programId={programId} />

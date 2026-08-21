@@ -20,15 +20,13 @@ import {
 import {
   ACCOUNT_STATUS_LABEL,
   ADMIN_ACCESS_MUTATION_ACTIONS,
-  ROLE_LABEL,
-  ROLE_ORDER,
   actionForAccountStatus,
-  actionForRole,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
+import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 
 interface AdminAccessMutationActionsProps {
-  readonly detail: AdminAccessDetail;
+  readonly detail: CanonicalAdminAccessDetail;
   readonly processingAction: AdminAccessMutationAction | null;
   readonly onRequestAction: (action: AdminAccessMutationAction) => void;
 }
@@ -62,8 +60,7 @@ export function AdminAccessMutationActions({
       <CardHeader>
         <CardTitle>접근 변경</CardTitle>
         <CardDescription>
-          역할과 계정 상태를 직접 선택합니다. 다른 값을 고르면 확인 후에만
-          적용됩니다.
+          교직원 접근, 관리자 접근, 계정 상태를 서로 독립적으로 변경합니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
@@ -72,49 +69,37 @@ export function AdminAccessMutationActions({
             {guards.controlBlockedReason}
           </p>
         ) : null}
-        <div className="grid gap-2">
-          <span
-            className="text-sm font-medium"
-            id="admin-access-role-control-label"
-          >
-            역할
-          </span>
-          <div
-            role="radiogroup"
-            aria-labelledby="admin-access-role-control-label"
-            className="grid grid-cols-3 gap-2"
-          >
-            {ROLE_ORDER.map((role) => {
-              const isCurrent = detail.role === role;
-              const elevated = role === 'STAFF' || role === 'ADMIN';
-              const disabled =
-                isCurrent ||
-                controlBlocked ||
-                isProcessing ||
-                (elevated && guards.elevatedRoleBlockedReason !== null);
-              return (
-                <Button
-                  key={role}
-                  type="button"
-                  role="radio"
-                  aria-checked={isCurrent}
-                  variant={isCurrent ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-auto min-h-10 w-full px-2 py-1.5"
-                  disabled={disabled}
-                  onClick={() => onRequestAction(actionForRole(role))}
-                >
-                  {ROLE_LABEL[role]}
-                </Button>
-              );
-            })}
-          </div>
-          {!controlBlocked && guards.elevatedRoleBlockedReason ? (
-            <p className="text-sm text-muted-foreground">
-              {guards.elevatedRoleBlockedReason}
-            </p>
-          ) : null}
-        </div>
+        <AuthorityControl
+          label="교직원 접근"
+          enabled={detail.hasStaffAccess}
+          disabled={controlBlocked || isProcessing}
+          grantBlocked={guards.elevatedRoleBlockedReason !== null}
+          onChange={(enabled) =>
+            onRequestAction(
+              enabled
+                ? ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_STAFF_ACCESS
+                : ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_STAFF_ACCESS,
+            )
+          }
+        />
+        <AuthorityControl
+          label="관리자 접근"
+          enabled={detail.hasAdminAccess}
+          disabled={controlBlocked || isProcessing}
+          grantBlocked={guards.elevatedRoleBlockedReason !== null}
+          onChange={(enabled) =>
+            onRequestAction(
+              enabled
+                ? ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_ADMIN_ACCESS
+                : ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_ADMIN_ACCESS,
+            )
+          }
+        />
+        {!controlBlocked && guards.elevatedRoleBlockedReason ? (
+          <p className="text-sm text-muted-foreground">
+            {guards.elevatedRoleBlockedReason}
+          </p>
+        ) : null}
         <div className="grid gap-2">
           <span
             className="text-sm font-medium"
@@ -162,6 +147,57 @@ export function AdminAccessMutationActions({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function AuthorityControl({
+  label,
+  enabled,
+  disabled,
+  grantBlocked,
+  onChange,
+}: {
+  readonly label: '교직원 접근' | '관리자 접근';
+  readonly enabled: boolean;
+  readonly disabled: boolean;
+  readonly grantBlocked: boolean;
+  readonly onChange: (enabled: boolean) => void;
+}) {
+  const labelId =
+    label === '교직원 접근'
+      ? 'admin-staff-access-control-label'
+      : 'admin-admin-access-control-label';
+  return (
+    <div className="grid gap-2">
+      <span className="text-sm font-medium" id={labelId}>
+        {label}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={labelId}
+        className="grid grid-cols-2 gap-2"
+      >
+        {[true, false].map((nextEnabled) => {
+          const isCurrent = enabled === nextEnabled;
+          return (
+            <Button
+              key={String(nextEnabled)}
+              type="button"
+              role="radio"
+              aria-checked={isCurrent}
+              variant={isCurrent ? 'default' : 'outline'}
+              size="sm"
+              className="h-auto min-h-10 w-full px-2 py-1.5"
+              disabled={disabled || isCurrent || (nextEnabled && grantBlocked)}
+              onClick={() => onChange(nextEnabled)}
+            >
+              <span className="sr-only">{label}</span>
+              {nextEnabled ? '허용' : '해제'}
+            </Button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

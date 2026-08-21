@@ -9,7 +9,7 @@ import { AdminAccessScreen } from '@/features/roles/components/admin-access-scre
 // searchParams라 `useSearchParams()`를 Suspense로 감싼다.
 export default function ApplicantQueuePage() {
   return (
-    <RolePanelShell allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['staff']}>
       <Suspense fallback={null}>
         <AdminAccessScreen workspace="queue" />
       </Suspense>

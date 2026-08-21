@@ -30,6 +30,8 @@ function formWithoutStudentId() {
     name: '합성 조교',
     studentId: '',
     savedStudentId: '',
+    affiliationKind: 'DEPARTMENT' as const,
+    affiliationName: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
   };
@@ -81,7 +83,11 @@ describe('새 교직원 가입 동선', () => {
     // Then — 요청 본문에 학번 키 자체가 없다
     expect(errors.studentId).toBeNull();
     expect(isProfileFormValid(errors)).toBe(true);
-    expect(request).toEqual({ name: '합성 조교', department: '인공지능학부' });
+    expect(request).toEqual({
+      name: '합성 조교',
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: '인공지능학부',
+    });
   });
 
   it('프로필을 마치면 승인 대기 화면으로 간다', () => {
@@ -92,13 +98,15 @@ describe('새 교직원 가입 동선', () => {
   });
 });
 
-describe('새 관리자 가입 동선', () => {
-  it('학번은 묻지 않아도 이름·학과는 한 번에 보낸다', () => {
+describe('legacy 관리자 호환', () => {
+  it('ADMIN을 새 회원 유형으로 제출하지 않는다', () => {
     const role: AppRole = 'ADMIN';
     const values = {
       name: '합성 관리자',
       studentId: '',
       savedStudentId: '',
+      affiliationKind: 'DEPARTMENT' as const,
+      affiliationName: '',
       departmentOption: '인공지능학부',
       otherDepartment: '',
     };
@@ -109,9 +117,6 @@ describe('새 관리자 가입 동선', () => {
     expect(requirement.studentId).toBe(false);
     expect(errors.studentId).toBeNull();
     expect(errors.department).toBeNull();
-    expect(toCompleteProfileRequest(values, role)).toEqual({
-      name: '합성 관리자',
-      department: '인공지능학부',
-    });
+    expect(toCompleteProfileRequest(values, role)).toBeNull();
   });
 });
