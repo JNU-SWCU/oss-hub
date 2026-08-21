@@ -155,3 +155,12 @@
 - PR: 생성 예정
 - blocker: 기존 local-review `insights-long` fixture가 현재 브랜치에서 404라 Chrome 회귀 스펙은 fixture 라우팅에서 중단됨
 - 검증: focused Vitest 2949 passed, typecheck passed, lint passed (기존 경고 5건)
+
+## 2026-08-21 — 상속 인증 라우트 manifest 누락을 교정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #978 후속)
+- blocker: 없음
+- 검증: Nest 상속·override runtime 대조, 45개 controller·120개 route 인벤토리, 11-route HTTP 매트릭스와 전체 품질 행렬 통과
+- simplifier: 공식 code-simplifier 1.0.0 Codex PASS, 6개 코드 allowlist 밖 수정 0건

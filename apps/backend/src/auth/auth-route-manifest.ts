@@ -4,6 +4,8 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
+import { MetadataScanner } from '@nestjs/core/metadata-scanner';
+import { compareStringsByCodeUnit } from '../deterministic-string-order';
 import {
   AUTH_ROUTE_ACCESS,
   type AuthRouteAccess,
@@ -40,6 +42,7 @@ const ACCESS_METADATA: readonly AccessMetadata[] = [
     key: PROTECTED_ROUTE_METADATA,
   },
 ];
+const metadataScanner = new MetadataScanner();
 
 export function createAuthRouteManifest(
   controllers: readonly ControllerType[],
@@ -61,7 +64,7 @@ export function createAuthRouteManifest(
   }
 
   return manifest.sort((left, right) =>
-    routeKey(left).localeCompare(routeKey(right)),
+    compareStringsByCodeUnit(routeKey(left), routeKey(right)),
   );
 }
 
@@ -78,72 +81,53 @@ function controllerRoutes(
   const classAccess = requireValidAccessMetadata(controller, classLocation);
   const classHasSessionGuard = hasSessionGuard(controller);
   requireConsistentSessionGuard(
-    classAccess,
+    classAccess[0],
     classHasSessionGuard,
     classLocation,
   );
-  const prototype = controller.prototype as Record<string, unknown>;
+  const prototypeValue: unknown = controller.prototype;
+  if (typeof prototypeValue !== 'object' || prototypeValue === null) {
+    throw new Error(`Invalid controller prototype: ${controller.name}`);
+  }
+  const prototype = prototypeValue;
 
-  return Object.getOwnPropertyNames(prototype).flatMap((propertyName) => {
-    if (propertyName === 'constructor') {
-      return [];
-    }
-    const handler = prototype[propertyName];
-    if (typeof handler !== 'function') {
-      return [];
-    }
-    const requestMethod = Reflect.getOwnMetadata(METHOD_METADATA, handler) as
-      RequestMethod | undefined;
-    if (requestMethod === undefined) {
-      return [];
-    }
+  return metadataScanner
+    .getAllMethodNames(prototype)
+    .flatMap((propertyName) => {
+      const handler: unknown = Reflect.get(prototype, propertyName);
+      if (typeof handler !== 'function') {
+        return [];
+      }
+      const requestMethod = Reflect.getMetadata(METHOD_METADATA, handler) as
+        RequestMethod | undefined;
+      if (requestMethod === undefined) {
+        return [];
+      }
 
-    const handlerLocation = `${controller.name}.${propertyName} handler`;
-    const handlerAccess = requireValidAccessMetadata(handler, handlerLocation);
-    const handlerHasSessionGuard = hasSessionGuard(handler);
-    requireConsistentSessionGuard(
-      handlerAccess,
-      handlerHasSessionGuard,
-      handlerLocation,
-    );
-    const declaredAccess =
-      handlerAccess.length > 0 ? handlerAccess : classAccess;
-    const hasEffectiveSessionGuard =
-      classHasSessionGuard || handlerHasSessionGuard;
-    let effectiveAccess = declaredAccess;
-    if (effectiveAccess.length === 0 && hasEffectiveSessionGuard) {
-      effectiveAccess = [AUTH_ROUTE_ACCESS.PROTECTED];
-    }
-    const access = requireSingleAccessMetadata(
-      effectiveAccess,
-      `${controller.name}.${propertyName}`,
-    );
-    if (hasEffectiveSessionGuard && access !== AUTH_ROUTE_ACCESS.PROTECTED) {
-      throw new Error(
-        `Conflicting authentication metadata and SessionGuard: ${controller.name}.${propertyName}`,
+      const handlerName = `${controller.name}.${propertyName}`;
+      const access = resolveHandlerAccess(
+        handler,
+        handlerName,
+        classAccess,
+        classHasSessionGuard,
       );
-    }
-    const handlerPaths = metadataPaths(handler) ?? [''];
+      const handlerPaths = metadataPaths(handler) ?? [''];
 
-    return controllerPaths.flatMap((controllerPath) =>
-      handlerPaths.map((handlerPath) => ({
-        method: requestMethodName(requestMethod),
-        path: joinRoutePath(globalPrefix, controllerPath, handlerPath),
-        access,
-      })),
-    );
-  });
+      return controllerPaths.flatMap((controllerPath) =>
+        handlerPaths.map((handlerPath) => ({
+          method: requestMethodName(requestMethod),
+          path: joinRoutePath(globalPrefix, controllerPath, handlerPath),
+          access,
+        })),
+      );
+    });
 }
 
 function hasSessionGuard(target: object): boolean {
-  return metadataGuards(target).includes(SessionGuard);
-}
-
-function metadataGuards(target: object): unknown[] {
-  return (
-    (Reflect.getOwnMetadata(GUARDS_METADATA, target) as
-      unknown[] | undefined) ?? []
-  );
+  const guards =
+    (Reflect.getMetadata(GUARDS_METADATA, target) as unknown[] | undefined) ??
+    [];
+  return guards.includes(SessionGuard);
 }
 
 function requireValidAccessMetadata(
@@ -152,10 +136,10 @@ function requireValidAccessMetadata(
 ): AuthRouteAccess[] {
   const accesses: AuthRouteAccess[] = [];
   for (const { access, key } of ACCESS_METADATA) {
-    if (!Reflect.hasOwnMetadata(key, target)) {
+    if (!Reflect.hasMetadata(key, target)) {
       continue;
     }
-    if (Reflect.getOwnMetadata(key, target) !== true) {
+    if (Reflect.getMetadata(key, target) !== true) {
       throw new Error(`Invalid authentication metadata: ${location}`);
     }
     accesses.push(access);
@@ -167,11 +151,10 @@ function requireValidAccessMetadata(
 }
 
 function requireConsistentSessionGuard(
-  accesses: readonly AuthRouteAccess[],
+  access: AuthRouteAccess | undefined,
   hasGuard: boolean,
   location: string,
 ): void {
-  const [access] = accesses;
   if (
     hasGuard &&
     access !== undefined &&
@@ -183,21 +166,36 @@ function requireConsistentSessionGuard(
   }
 }
 
-function requireSingleAccessMetadata(
-  accesses: readonly AuthRouteAccess[],
+function resolveHandlerAccess(
+  handler: object,
   handlerName: string,
+  classAccess: readonly AuthRouteAccess[],
+  classHasSessionGuard: boolean,
 ): AuthRouteAccess {
-  if (accesses.length === 0) {
+  const handlerLocation = `${handlerName} handler`;
+  const handlerAccess = requireValidAccessMetadata(handler, handlerLocation);
+  const handlerHasSessionGuard = hasSessionGuard(handler);
+  requireConsistentSessionGuard(
+    handlerAccess[0],
+    handlerHasSessionGuard,
+    handlerLocation,
+  );
+
+  const hasEffectiveSessionGuard =
+    classHasSessionGuard || handlerHasSessionGuard;
+  let access = handlerAccess[0] ?? classAccess[0];
+  if (access === undefined && hasEffectiveSessionGuard) {
+    access = AUTH_ROUTE_ACCESS.PROTECTED;
+  }
+  if (access === undefined) {
     throw new Error(`Missing authentication metadata: ${handlerName}`);
   }
-  if (accesses.length > 1) {
-    throw new Error(`Duplicate authentication metadata: ${handlerName}`);
-  }
-  return accesses[0]!;
+  requireConsistentSessionGuard(access, hasEffectiveSessionGuard, handlerName);
+  return access;
 }
 
 function metadataPaths(target: object): string[] | undefined {
-  const paths = Reflect.getOwnMetadata(PATH_METADATA, target) as
+  const paths = Reflect.getMetadata(PATH_METADATA, target) as
     string | string[] | undefined;
   if (paths === undefined) {
     return undefined;

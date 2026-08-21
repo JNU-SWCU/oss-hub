@@ -26,6 +26,7 @@ import {
 } from '../app-controller-discovery';
 import { AppModule } from '../app.module';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { compareStringsByCodeUnit } from '../deterministic-string-order';
 import { HealthController } from '../health/health.controller';
 import { HealthService } from '../health/health.service';
 import { LoginHistoryService } from '../login-history/login-history.service';
@@ -180,7 +181,7 @@ function collectRuntimeRouteKeys(
         ),
       );
     })
-    .sort((left, right) => left.localeCompare(right));
+    .sort(compareStringsByCodeUnit);
 }
 
 describe('authentication route metadata manifest', () => {
@@ -315,7 +316,7 @@ describe('authentication route metadata manifest', () => {
     expect(
       runtimeControllers
         .map((controller) => controller.name)
-        .sort((left, right) => left.localeCompare(right)),
+        .sort(compareStringsByCodeUnit),
     ).toEqual(controllers.map((controller) => controller.name));
 
     expect(collectRuntimeRouteKeys(runtimeControllers)).toEqual(
