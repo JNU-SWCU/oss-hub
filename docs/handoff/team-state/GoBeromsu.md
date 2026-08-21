@@ -255,6 +255,12 @@
 - 검증: Task 5 초점 happy/failure, backend/frontend lint·typecheck, public-safe
 - simplifier: 공식 code-simplifier 1.0.0 Codex pass, 변경 파일 allowlist 밖 수정 0건
 
+## 2026-08-21 — 프로그램별 참여 라벨 겹침 해소
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR)
+- blocker: 없음
 ## 2026-08-21 — 전역 기본 거부 인증 경계를 적용
 
 - 상태: review
@@ -274,3 +280,12 @@
 - 결과: 회원 유형·소속·독립 권한 nullable 확장과 studentId NOT NULL 제거, migration PR mutex·동시 deploy 검증을 추가하고 legacy Role·selectedRole·profile mirror를 유지
 - 검증: fresh/legacy-shaped migration, 이전 이미지 health/session, 동시 deploy 2건과 51개 finished ledger, Jenkins/mutex failure fixture, backend lint·typecheck·초점 unit 통과
 - simplifier: 공식 code-simplifier 1.0.0 pinned commit 단일 실행, schema·migration 제외 및 hand-written code allowlist 밖 최종 변경 0건
+## 2026-08-21 — 프로그램별 참여 라벨 교정을 최신 main에 동기화
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 프로그램별 참여 차트를 긴 한국어 이름에도 겹치지 않는 세로 막대와 bounded keyboard scroll 영역으로 교정
+- 검증: Chrome 6건, 200% 실제 label 확대, ZWJ grapheme mutation 회귀, frontend lint·typecheck·build·public-safe 통과
+- 저널 이력: 기존 #984 항목은 유지하고 동시 병합된 main 상태 뒤 현재 항목을 EOF에 append
