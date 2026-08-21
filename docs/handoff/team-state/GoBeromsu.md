@@ -235,12 +235,6 @@
 - 교정: 앞선 9개 파일 allowlist simplifier 시도는 `SIMPLIFIER_FAIL`이었고, 이후 2개 파일 corrective allowlist는 pinned code-simplifier 1.0.0 검증을 통과
 - 범위: 기존 저널은 수정하지 않고 현재 EOF에 교정 항목만 추가
 
-## 2026-08-21 — 프로그램별 참여 라벨 겹침 해소
-
-- 상태: review
-- Issue: #984
-- PR: (이 PR)
-- blocker: 없음
 ## 2026-08-21 — Task 2 인증 manifest 교정을 종료
 
 - 상태: review
@@ -252,3 +246,10 @@
 - 검증: Task 2 초점·전체 backend unit/integration·lint·typecheck·build·public-safe·실제 Nest HTTP 통과
 - 저널 이력: 이전 Task 2 항목은 additions-only였지만 동시 base 내용 뒤에 놓여 old base의 byte-prefix는 아니며, 이 종료 항목만 현재 EOF에 append
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-2/`
+
+## 2026-08-21 — 프로그램별 참여 라벨 겹침 해소
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR)
+- blocker: 없음
