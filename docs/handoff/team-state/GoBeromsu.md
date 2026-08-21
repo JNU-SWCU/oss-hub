@@ -197,6 +197,14 @@
 - PR: (이 PR)
 - blocker: 없음
 
+## 2026-08-21 — 세션 컨트롤러 테스트를 분리
+
+- 상태: corrective
+- Issue: Task 7
+- PR: 생성 예정
+- blocker: 없음
+- 검증: 분리한 2개 스펙 11 tests passed, backend lint·typecheck·Prettier·public-safe passed; 기존 journal drift 보고는 pre-existing
+
 ## 2026-08-21 — Task 3 병합 증거를 교정하고 종료
 
 - 상태: done
