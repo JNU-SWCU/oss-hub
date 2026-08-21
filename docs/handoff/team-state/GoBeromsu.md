@@ -298,3 +298,12 @@
 - blocker: 없음
 - 결과: screen-reader 의미 테이블을 clipping block으로 감싸 375px document overflow를 제거
 - 검증: production Aside 재현, documentElement/body overflow red-green, Chrome responsive 초점 검증
+
+## 2026-08-21 — 프로그램별 수치 축의 확대 clipping을 교정
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR; #989 production QA 후속)
+- blocker: 없음
+- 결과: chart right margin을 보강해 mobile 200%의 최대 수치 tick을 hidden-overflow card 안에 유지
+- 검증: production raw SVG/card bounds, max=12 fixture, numeric tick count·card inset, Chrome responsive 초점 검증
