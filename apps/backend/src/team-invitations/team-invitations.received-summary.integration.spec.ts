@@ -1,4 +1,5 @@
 import { ProgramCategory, TeamInvitationStatus } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -64,7 +65,11 @@ async function cleanup(): Promise<void> {
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
 }
 
-function programData(id: string, name: string, teamMaxSize: number) {
+function programData(
+  id: string,
+  name: string,
+  teamMaxSize: number,
+): Prisma.ProgramCreateManyInput {
   return {
     id,
     name,
