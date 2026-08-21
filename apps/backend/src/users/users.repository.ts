@@ -74,11 +74,10 @@ export class UsersRepository implements UsersRepositoryPort {
   /**
    * 학번·학과가 모두 있으면 UserProfile + 구버전 User 컬럼에 함께 쓴다.
    *
-   * 하나라도 null이면 UserProfile 행을 만들 수 없다 — 그 테이블의 studentId·
-   * department가 NOT NULL이라서다. 학번·학과가 필요 없는 역할(STAFF·ADMIN)은
-   * 그래서 구버전 User 컬럼에만 저장한다. 읽기는 `resolveCompatibleProfile`이
-   * UserProfile 행이 없을 때 User 컬럼으로 떨어지므로 그대로 동작한다.
-   * (UserProfile.studentId를 nullable로 바꾸는 스키마 변경은 별도 승인 사항.)
+   * nullable expand 뒤에도 이 호환 writer는 학번 없는 UserProfile 행을 아직 만들지 않는다.
+   * 학번·학과가 필요 없는 역할(STAFF·ADMIN)은 기존 동작대로 구버전 User 컬럼에만 저장한다.
+   * 읽기는 `resolveCompatibleProfile`이 UserProfile 행이 없을 때 User 컬럼으로 떨어지므로
+   * 데이터 전환 전 런타임 동작은 그대로다.
    *
    * 학번이 실린 채로 legacy 분기에 오는 일은 없다 — 그 조합(학번 있음 + 학과 없음)은
    * 유일성 제약이 걸리지 않는 User 컬럼에만 학번을 남기게 되므로 서비스가 먼저 400으로
@@ -121,9 +120,9 @@ export class UsersRepository implements UsersRepositoryPort {
   /**
    * 완료된 프로필에 학번을 처음 채운다 — UserProfile 행을 만드는 경로 하나로만 간다.
    *
-   * `expected`는 직전에 읽은 프로필이고, 학번이 비어 있다는 것은 곧 UserProfile 행이
-   * 없다는 뜻이다(그 테이블의 studentId는 NOT NULL이라 비어 있을 수 없다). 그래서
-   * `expected`의 이름·학과는 구버전 User 컬럼 값과 같고, 아래 CAS의 기준값으로 쓸 수 있다.
+   * `expected`는 직전에 읽은 프로필이다. expand 단계는 nullable이지만 아직 null 학번
+   * UserProfile을 쓰지 않으므로, 이 릴리스에서 학번이 비어 있다는 것은 기존처럼 행이 없다는
+   * 뜻이다. 그래서 이름·학과는 구버전 User 컬럼 값과 같고 아래 CAS 기준값으로 쓸 수 있다.
    */
   fillStudentId(
     expected: UserProfileRecord,

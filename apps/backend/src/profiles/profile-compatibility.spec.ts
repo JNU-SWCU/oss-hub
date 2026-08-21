@@ -1,7 +1,28 @@
 import {
   COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
+  resolveCompatibleProfile,
   resolveCompatibleProfileDepartment,
 } from './profile-compatibility';
+
+it('keeps a canonical null student ID instead of falling back to the legacy mirror', () => {
+  // Given
+  const source = {
+    name: '레거시 이름',
+    studentId: '123456',
+    department: '레거시 학부',
+    profile: {
+      name: '프로필 이름',
+      studentId: null,
+      department: '프로필 학부',
+    },
+  };
+
+  // When
+  const profile = resolveCompatibleProfile(source);
+
+  // Then
+  expect(profile.studentId).toBeNull();
+});
 
 it('prefers the UserProfile department over the legacy User column', () => {
   // Given
