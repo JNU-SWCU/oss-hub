@@ -132,6 +132,14 @@
 - blocker: 없음
 - 검증: 받은 초대 canonical/legacy/nickname 표시와 후보 검색·게시판 목록/상세/댓글을 격리 PostgreSQL에서 검증
 - simplifier: 공식 code-simplifier 1.0.0 Codex pre/post 검증, 변경 파일 allowlist 밖 수정 0건
+## 2026-08-21 — 최신 main과 초점 검증 follow-up 병합
+
+- 상태: review
+- Issue: #973
+- PR: #975
+- blocker: 없음
+- 결과: origin/main 97a1f60c를 정상 merge하고 #974의 제품 초점 수정과 #975의 fixture bootstrap·Chrome 검증을 함께 보존
+
 ## 2026-08-21 — 스태프 인사이트 필터 키보드 초점 표시를 복구
 
 - 상태: review
