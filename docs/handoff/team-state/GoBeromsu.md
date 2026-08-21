@@ -208,3 +208,12 @@
 - blocker: 없음
 - 결과: 최신 main 동기화, 정확한 PostgreSQL 2 suites/6 tests와 공개 strict-read, 전체 backend 품질·public-safe 검증 통과
 - simplifier: 공식 code-simplifier 1.0.0 pinned commit 실행, 최종 변경 allowlist 밖 수정 0건
+
+## 2026-08-21 — Task 1 simplifier 증거를 교정
+
+- 상태: review
+- Issue: #969
+- PR: #982
+- blocker: 없음
+- 교정: 앞선 9개 파일 allowlist simplifier 시도는 `SIMPLIFIER_FAIL`이었고, 이후 2개 파일 corrective allowlist는 pinned code-simplifier 1.0.0 검증을 통과
+- 범위: 기존 저널은 수정하지 않고 현재 EOF에 교정 항목만 추가
