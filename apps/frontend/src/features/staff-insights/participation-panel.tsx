@@ -25,6 +25,7 @@ const programLabelSegmenter = new Intl.Segmenter('ko', {
 const chartMinimumHeight = 320;
 const chartMaximumHeight = 560;
 const programRowHeight = 52;
+const scrollHintId = 'participation-chart-scroll-hint';
 
 interface ProgramNameTickProps {
   readonly x?: number;
@@ -84,6 +85,7 @@ export function ParticipationPanel({
     chartMinimumHeight,
     data.length * programRowHeight,
   );
+  const isScrollable = chartHeight > chartMaximumHeight;
   return (
     <Card>
       <CardHeader>
@@ -94,8 +96,9 @@ export function ParticipationPanel({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {chartHeight > chartMaximumHeight ? (
+        {isScrollable ? (
           <p
+            id={scrollHintId}
             data-slot="participation-chart-scroll-hint"
             className="mb-2 text-xs text-muted-foreground"
           >
@@ -103,11 +106,19 @@ export function ParticipationPanel({
           </p>
         ) : null}
         <div
-          className="w-full overflow-y-auto"
+          data-slot="participation-chart-viewport"
+          role={isScrollable ? 'region' : undefined}
+          aria-label={isScrollable ? '프로그램별 참여 차트' : undefined}
+          aria-describedby={isScrollable ? scrollHintId : undefined}
+          tabIndex={isScrollable ? 0 : undefined}
+          className="w-full overflow-y-auto rounded-md"
           style={{ maxHeight: chartMaximumHeight }}
-          aria-hidden="true"
         >
-          <div className="w-full" style={{ height: chartHeight }}>
+          <div
+            className="w-full"
+            style={{ height: chartHeight }}
+            aria-hidden="true"
+          >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 layout="vertical"
