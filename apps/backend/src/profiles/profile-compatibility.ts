@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 
 export const COMPATIBLE_PROFILE_SELECT = {
   name: true,
@@ -9,6 +9,9 @@ export const COMPATIBLE_PROFILE_SELECT = {
       name: true,
       studentId: true,
       department: true,
+      memberKind: true,
+      affiliationKind: true,
+      affiliationName: true,
     },
   },
 } as const satisfies Prisma.UserSelect;
@@ -44,6 +47,9 @@ export type CompatibleProfileSource = CompatibleProfile & {
     readonly name: string;
     readonly studentId: string | null;
     readonly department: string;
+    readonly memberKind?: MemberKind | null;
+    readonly affiliationKind?: AffiliationKind | null;
+    readonly affiliationName?: string | null;
   } | null;
 };
 

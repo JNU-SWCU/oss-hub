@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, RoleRequestStatus } from '@prisma/client';
+import { MemberKind, Prisma, Role, RoleRequestStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  completeCompatibleProfileIfUnchanged,
   fillCompatibleStudentIdIfUnchanged,
   type StudentIdFillOutcome,
 } from '../profiles/profile-compatibility.repository';
@@ -11,6 +10,7 @@ import {
   resolveCompatibleProfile,
   type CompleteCompatibleProfile,
 } from '../profiles/profile-compatibility';
+import { resolveMemberAuthorityCompatibility } from '../profiles/member-authority-compatibility';
 import { confirmSelectedRole } from '../roles/role-confirmation';
 import type {
   CompleteUserProfileInput,
@@ -19,13 +19,34 @@ import type {
 } from './domain/user-profile';
 
 export type { StudentIdFillOutcome };
+export type ProfileCompletionOutcome =
+  'completed' | 'conflict' | 'student-id-taken';
+
+const PROFILE_MEMBER_SELECT = {
+  id: true,
+  role: true,
+  selectedRole: true,
+  selectedMemberKind: true,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  ...COMPATIBLE_PROFILE_SELECT,
+  roleRequests: {
+    where: { status: RoleRequestStatus.PENDING },
+    select: { id: true },
+    take: 1,
+  },
+} as const satisfies Prisma.UserSelect;
+
+type ProfileMemberRow = Prisma.UserGetPayload<{
+  select: typeof PROFILE_MEMBER_SELECT;
+}>;
 
 export interface UsersRepositoryPort {
   findByGithubId(githubId: bigint): Promise<UserProfileRecord | null>;
   completeProfileIfUnchanged(
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
-  ): Promise<boolean>;
+  ): Promise<ProfileCompletionOutcome>;
   fillStudentId(
     expected: UserProfileRecord,
     profile: CompleteCompatibleProfile,
@@ -43,32 +64,9 @@ export class UsersRepository implements UsersRepositoryPort {
   async findByGithubId(githubId: bigint): Promise<UserProfileRecord | null> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: {
-        id: true,
-        // 완료 판정이 역할에 따라 달라져 함께 읽는다(#439).
-        role: true,
-        // 확정을 `가입 마치기`로 미룬 뒤(#569) 프로필을 입력하는 동안에는 role도
-        // 승인 요청도 없다. 그 구간에서 무엇을 필수로 볼지 아는 근거가 이 값뿐이다.
-        selectedRole: true,
-        // 승인 대기 중인 교직원은 아직 role이 null이다. 그 사람이 지금 프로필을
-        // 채우는 당사자라, 이 표시가 없으면 학생 기준으로 학번을 요구받는다.
-        roleRequests: {
-          where: { status: RoleRequestStatus.PENDING },
-          select: { id: true },
-          take: 1,
-        },
-        ...COMPATIBLE_PROFILE_SELECT,
-      },
+      select: PROFILE_MEMBER_SELECT,
     });
-    return user
-      ? {
-          id: user.id,
-          role: user.role,
-          selectedRole: user.selectedRole,
-          hasPendingStaffRequest: user.roleRequests.length > 0,
-          ...resolveCompatibleProfile(user),
-        }
-      : null;
+    return user ? toUserProfileRecord(user) : null;
   }
 
   /**
@@ -92,28 +90,64 @@ export class UsersRepository implements UsersRepositoryPort {
   async completeProfileIfUnchanged(
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
-  ): Promise<boolean> {
+  ): Promise<ProfileCompletionOutcome> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
-        const completed = await completeFields(transaction, expected, input);
-        if (!completed) {
-          return false;
+        await transaction.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${expected.id} FOR UPDATE`,
+        );
+        const current = await transaction.user.findUnique({
+          where: { id: expected.id },
+          select: PROFILE_MEMBER_SELECT,
+        });
+        if (
+          !current ||
+          !sameProfileSnapshot(toUserProfileRecord(current), expected)
+        ) {
+          return 'conflict';
         }
+        const profile = profileWrite(input);
+        await transaction.userProfile.upsert({
+          where: { userId: expected.id },
+          update: profile,
+          create: { userId: expected.id, ...profile },
+        });
+        await transaction.user.update({
+          where: { id: expected.id },
+          data: {
+            name: input.name,
+            studentId: input.studentId,
+            department: input.department,
+            selectedRole: memberKindToRole(input.memberKind),
+            selectedMemberKind: input.memberKind,
+            hasStaffAccess: input.hasStaffAccess,
+            hasAdminAccess: input.hasAdminAccess,
+          },
+        });
         await confirmSelectedRole(transaction, {
           id: expected.id,
-          role: expected.role ?? null,
-          selectedRole: expected.selectedRole ?? null,
+          role: current.role,
+          selectedRole: memberKindToRole(input.memberKind),
         });
-        return true;
+        return 'completed';
       });
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
       ) {
-        return false;
+        throw error;
       }
-      throw error;
+      if (input.studentId === null) {
+        return 'conflict';
+      }
+      const owner = await this.prisma.userProfile.findUnique({
+        where: { studentId: input.studentId },
+        select: { userId: true },
+      });
+      return owner !== null && owner.userId !== expected.id
+        ? 'student-id-taken'
+        : 'conflict';
     }
   }
 
@@ -150,57 +184,66 @@ export class UsersRepository implements UsersRepositoryPort {
         where: { userId },
         data: fields,
       });
-      await transaction.user.update({ where: { id: userId }, data: fields });
+      await transaction.user.update({
+        where: { id: userId },
+        data: { name: fields.name, department: fields.department },
+      });
     });
   }
 }
 
-/**
- * 프로필 값만 쓴다 — 역할 확정은 호출부가 같은 트랜잭션 안에서 이어서 한다.
- *
- * 학번이 실린 저장은 UserProfile 행을 만드는 경로로 가고(유일성 제약이 거기에만 있다),
- * 학번이 없는 저장은 구버전 User 컬럼에만 남긴다. 두 경로 모두 "직전에 읽은 값이
- * 그대로인가"를 CAS로 확인해, 같은 계정의 동시 저장 두 건 중 하나만 통과시킨다.
- */
-async function completeFields(
-  transaction: Prisma.TransactionClient,
-  expected: UserProfileRecord,
-  input: CompleteUserProfileInput,
-): Promise<boolean> {
-  if (input.studentId !== null) {
-    return completeCompatibleProfileIfUnchanged(
-      transaction,
-      expected,
-      requireStorableStudentId(input.name, input.studentId, input.department),
-    );
-  }
-  const updated = await transaction.user.updateMany({
-    where: {
-      id: expected.id,
-      name: expected.name,
-      studentId: expected.studentId,
-      department: expected.department,
-    },
-    data: input,
-  });
-  return updated.count === 1;
+function toUserProfileRecord(user: ProfileMemberRow): UserProfileRecord {
+  const profile = resolveCompatibleProfile(user);
+  const authority = resolveMemberAuthorityCompatibility(user);
+  return {
+    id: user.id,
+    role: authority.role,
+    selectedRole: user.selectedRole,
+    selectedMemberKind: authority.selectedMemberKind,
+    memberKind: authority.memberKind,
+    affiliationKind: authority.affiliationKind,
+    affiliationName: authority.affiliationName,
+    hasStaffAccess: authority.hasStaffAccess,
+    hasAdminAccess: authority.hasAdminAccess,
+    hasPendingStaffRequest: user.roleRequests.length > 0,
+    ...profile,
+  };
 }
 
-/**
- * 학번이 실린 완료 저장은 학과가 함께 있어야 한다 — 학번이 유일성 제약 아래 놓이는 곳은
- * UserProfile 행뿐이고 그 행은 학과를 요구한다. 서비스가 먼저 400으로 막으므로 여기까지
- * 오면 계약이 깨진 것이다. 조용히 legacy 컬럼에 쓰는 대신 멈춘다 — 그 조용한 쓰기가
- * 서로 다른 두 사람에게 같은 학번을 허용하던 결함이었다.
- */
-function requireStorableStudentId(
-  name: string,
-  studentId: string,
-  department: string | null,
-): CompleteCompatibleProfile {
-  if (department === null) {
-    throw new Error(
-      '학번을 저장하려면 학과가 필요합니다 — 서비스가 먼저 걸렀어야 합니다.',
-    );
+function sameProfileSnapshot(
+  current: UserProfileRecord,
+  expected: UserProfileRecord,
+): boolean {
+  return (
+    current.name === expected.name &&
+    current.studentId === expected.studentId &&
+    current.department === expected.department &&
+    current.role === expected.role &&
+    current.selectedMemberKind === expected.selectedMemberKind &&
+    current.memberKind === expected.memberKind &&
+    current.affiliationKind === expected.affiliationKind &&
+    current.affiliationName === expected.affiliationName &&
+    current.hasStaffAccess === expected.hasStaffAccess &&
+    current.hasAdminAccess === expected.hasAdminAccess
+  );
+}
+
+function profileWrite(input: CompleteUserProfileInput) {
+  return {
+    name: input.name,
+    studentId: input.studentId,
+    department: input.department,
+    memberKind: input.memberKind,
+    affiliationKind: input.affiliationKind,
+    affiliationName: input.affiliationName,
+  };
+}
+
+function memberKindToRole(memberKind: MemberKind): Role {
+  switch (memberKind) {
+    case MemberKind.STUDENT:
+      return Role.STUDENT;
+    case MemberKind.STAFF:
+      return Role.STAFF;
   }
-  return { name, studentId, department };
 }

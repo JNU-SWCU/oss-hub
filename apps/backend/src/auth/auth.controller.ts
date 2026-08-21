@@ -148,7 +148,7 @@ export class AuthController {
         return SessionResponseDto.anonymous();
       case HTTP_AUTH_KINDS.AUTHENTICATED:
         return SessionResponseDto.authenticated(
-          MeResponseDto.from(req.auth.principal, req.auth.principal.role),
+          MeResponseDto.from(req.auth.principal),
         );
       default:
         return assertNeverHttpAuth(req.auth);

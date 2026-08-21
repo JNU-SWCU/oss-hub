@@ -17,6 +17,9 @@ const syntheticUser: AuthUser = {
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
   role: null,
+  memberKind: null,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
   isProfileComplete: false,
 };
 const sessionSecret = new Uint8Array(randomBytes(32));

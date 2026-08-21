@@ -1,6 +1,6 @@
+import type { AffiliationKind, MemberKind } from '@prisma/client';
 import {
   isCompleteUserProfile,
-  normalizeProfileText,
   type UserProfileRecord,
 } from '../user-profile-policy';
 
@@ -35,7 +35,12 @@ export interface UserProfile {
 export interface CompleteUserProfileInput {
   readonly name: string;
   readonly studentId: string | null;
-  readonly department: string | null;
+  readonly department: string;
+  readonly memberKind: MemberKind;
+  readonly affiliationKind: AffiliationKind;
+  readonly affiliationName: string;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
 }
 
 /**
@@ -48,7 +53,9 @@ export interface CompleteUserProfileInput {
 export interface PatchUserProfileInput {
   readonly name: string;
   readonly studentId?: string;
-  readonly department: string;
+  readonly department?: string;
+  readonly affiliationKind?: AffiliationKind;
+  readonly affiliationName?: string;
 }
 
 /**
@@ -61,6 +68,8 @@ export interface PatchUserProfileInput {
 export interface UpdateProfileFieldsInput {
   readonly name: string;
   readonly department: string;
+  readonly affiliationKind?: AffiliationKind;
+  readonly affiliationName?: string;
 }
 
 export function toUserProfile(record: UserProfileRecord): UserProfile {
@@ -82,15 +91,17 @@ export type NormalizedProfileRecord = Omit<
 
 export function nextProfileRecord(
   user: UserProfileRecord,
-  input: PatchUserProfileInput,
+  input: CompleteUserProfileInput,
 ): NormalizedProfileRecord {
   return {
-    id: user.id,
-    role: user.role,
-    selectedRole: user.selectedRole,
-    hasPendingStaffRequest: user.hasPendingStaffRequest,
-    name: normalizeProfileText(input.name),
-    studentId: input.studentId ?? user.studentId,
-    department: normalizeProfileText(input.department),
+    ...user,
+    name: input.name,
+    studentId: input.studentId,
+    department: input.department,
+    memberKind: input.memberKind,
+    affiliationKind: input.affiliationKind,
+    affiliationName: input.affiliationName,
+    hasStaffAccess: input.hasStaffAccess,
+    hasAdminAccess: input.hasAdminAccess,
   };
 }

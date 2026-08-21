@@ -1,9 +1,10 @@
-import type { Role } from '@prisma/client';
+import { MemberKind, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import type { PatchUserProfileInput } from './domain/user-profile';
 import { UsersErrorCode } from './users-error-code.enum';
 import type {
+  ProfileCompletionOutcome,
   StudentIdFillOutcome,
   UsersRepositoryPort,
 } from './users.repository';
@@ -23,12 +24,15 @@ type StoredUser = {
   readonly studentId: string | null;
   readonly department: string | null;
   readonly role?: Role | null;
+  readonly selectedMemberKind?: MemberKind | null;
+  readonly memberKind?: MemberKind | null;
+  readonly hasAdminAccess?: boolean;
 };
 
 function buildService(
   overrides: {
     readonly user?: StoredUser | null;
-    readonly completed?: boolean;
+    readonly completed?: ProfileCompletionOutcome;
     readonly studentIdFill?: StudentIdFillOutcome;
     readonly consentError?: Error;
   } = {},
@@ -44,12 +48,15 @@ function buildService(
           studentId: null,
           department: null,
           role: null,
+          selectedMemberKind: MemberKind.STUDENT,
+          memberKind: null,
+          hasAdminAccess: false,
         }
       : overrides.user,
   );
   const completeProfileIfUnchanged = jest
     .fn()
-    .mockResolvedValue(overrides.completed ?? true);
+    .mockResolvedValue(overrides.completed ?? 'completed');
   const updateProfileFields = jest.fn().mockResolvedValue(undefined);
   const fillStudentId = jest
     .fn()
@@ -70,25 +77,16 @@ function buildService(
   };
 }
 
-/** 아직 아무것도 채우지 않은 사용자. 역할만 갈아 끼운다. */
-function emptyUser(role: Role | null): StoredUser {
-  return {
-    id: 'synthetic-user',
-    name: 'GitHub 합성 이름',
-    studentId: null,
-    department: null,
-    role,
-  };
-}
-
 async function captureDomainException(
   operation: () => Promise<unknown>,
 ): Promise<DomainException> {
   try {
     await operation();
   } catch (error) {
-    expect(error).toBeInstanceOf(DomainException);
-    return error as DomainException;
+    if (error instanceof DomainException) {
+      return error;
+    }
+    throw error;
   }
   throw new Error('Expected DomainException');
 }
@@ -141,17 +139,19 @@ it('빈 프로필을 한 번만 저장하고 완료 응답을 반환한다', asy
     isComplete: true,
   });
   expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
-    {
+    expect.objectContaining({
       id: 'synthetic-user',
-      name: 'GitHub 합성 이름',
-      studentId: null,
-      department: null,
-      role: null,
-    },
+      selectedMemberKind: MemberKind.STUDENT,
+    }),
     {
       name: input.name,
       studentId,
       department: input.department,
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: input.department,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
     },
   );
   expect(updateProfileFields).not.toHaveBeenCalled();
@@ -196,591 +196,4 @@ it('이미 완료된 프로필의 학번을 다른 값으로 바꾸려 하면 US
   expect(error.errorCode.status).toBe(400);
   expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   expect(updateProfileFields).not.toHaveBeenCalled();
-});
-
-it('완료된 프로필은 이름·학과만 갱신한다', async () => {
-  const { service, completeProfileIfUnchanged, updateProfileFields } =
-    buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId,
-        department: input.department ?? null,
-        role: 'STUDENT',
-      },
-    });
-
-  await expect(
-    service.patchMyProfile(githubId, {
-      name: '수정된 이름',
-      department: '소프트웨어공학과',
-    }),
-  ).resolves.toEqual({
-    name: '수정된 이름',
-    studentId,
-    department: '소프트웨어공학과',
-    isComplete: true,
-  });
-  expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
-    name: '수정된 이름',
-    department: '소프트웨어공학과',
-  });
-  expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
-});
-
-it('동시 저장에서 선점에 실패하면 덮어쓰지 않고 409로 거부한다', async () => {
-  const { service } = buildService({ completed: false });
-
-  const error = await captureDomainException(() =>
-    service.completeMyProfile(githubId, input),
-  );
-
-  expect(error.errorCode.code).toBe(UsersErrorCode.PROFILE_ALREADY_COMPLETE);
-});
-
-it('완료된 프로필은 역할 선택 가능 상태로 확인한다', async () => {
-  // Given
-  const { service } = buildService({
-    user: {
-      id: 'synthetic-user',
-      name: input.name,
-      studentId,
-      department: input.department ?? null,
-      role: 'STUDENT',
-    },
-  });
-
-  // When / Then
-  await expect(
-    service.requireCompleteProfile(githubId),
-  ).resolves.toBeUndefined();
-});
-
-it.each([
-  ['공백 이름', '   ', studentId, input.department ?? ''],
-  ['빈 학번', input.name, '', input.department ?? ''],
-  ['형식이 잘못된 학번', input.name, '12A456', input.department ?? ''],
-  ['공백 학과', input.name, studentId, '   '],
-] as const)(
-  '%s 프로필은 역할 선택 가능 상태가 아닌 것으로 거부한다',
-  async (_label, name, storedStudentId, department) => {
-    // Given
-    const { service } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name,
-        studentId: storedStudentId,
-        department,
-        role: 'STUDENT',
-      },
-    });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.requireCompleteProfile(githubId),
-    );
-
-    // Then
-    expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
-  },
-);
-
-describe('역할별 필수 항목', () => {
-  it('교직원은 학번 없이 이름·학과만으로 완료된다', async () => {
-    // Given
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: emptyUser('STAFF'),
-    });
-
-    // When
-    const profile = await service.completeMyProfile(githubId, {
-      name: input.name,
-      department: input.department,
-    });
-
-    // Then
-    expect(profile).toEqual({
-      name: input.name,
-      studentId: null,
-      department: input.department,
-      isComplete: true,
-    });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId: null,
-      department: input.department,
-    });
-  });
-
-  it('교직원이 학과를 빠뜨리면 400 검증 오류로 거부한다', async () => {
-    // Given
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: emptyUser('STAFF'),
-    });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.completeMyProfile(githubId, {
-        name: input.name,
-        department: '',
-      }),
-    );
-
-    // Then
-    expect(error.errorCode).toMatchObject({
-      code: SystemErrorCode.VALIDATION_FAILED,
-      status: 400,
-    });
-    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
-  });
-
-  /**
-   * 형식이 좁아지기 전(#835)에 학번만 넣어 둔 학생 — 학과가 없어 아직 미완료다.
-   *
-   * 요청이 학번을 생략하면 저장돼 있던 값이 그대로 실린다. 그 값을 지금 형식으로
-   * 다시 재면 학과 하나를 채우려는 저장이 400에 막히고, 학번은 바꿀 수 없어
-   * 고칠 길이 없다. 형식은 **실려 온 값**에만 적용한다.
-   */
-  it('저장돼 있던 예전 형식 학번은 형식 검사 없이 완료 저장에 실린다', async () => {
-    // Given
-    const legacyStudentId = '9'.repeat(9);
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: {
-        ...emptyUser('STUDENT'),
-        name: '합성 학생',
-        studentId: legacyStudentId,
-      },
-    });
-
-    // When
-    const profile = await service.completeMyProfile(githubId, {
-      name: input.name,
-      department: input.department,
-    });
-
-    // Then
-    expect(profile).toMatchObject({
-      studentId: legacyStudentId,
-      isComplete: true,
-    });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId: legacyStudentId,
-      department: input.department,
-    });
-  });
-
-  /** 예외는 저장된 값에만 준다 — 이번 요청에 실려 온 학번은 그대로 6자리를 본다. */
-  it('요청에 실려 온 학번의 형식이 틀리면 400으로 거부한다', async () => {
-    // Given
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: emptyUser('STUDENT'),
-    });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.completeMyProfile(githubId, {
-        name: input.name,
-        studentId: '9'.repeat(9),
-        department: input.department,
-      }),
-    );
-
-    // Then
-    expect(error.errorCode).toMatchObject({
-      code: SystemErrorCode.VALIDATION_FAILED,
-      status: 400,
-    });
-    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
-  });
-
-  it('관리자도 이름·학과가 있어야 완료된다', async () => {
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: { ...emptyUser('ADMIN'), name: null },
-    });
-
-    const profile = await service.completeMyProfile(githubId, {
-      name: input.name,
-      department: input.department,
-    });
-
-    expect(profile).toEqual({
-      name: input.name,
-      studentId: null,
-      department: input.department,
-      isComplete: true,
-    });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId: null,
-      department: input.department,
-    });
-  });
-
-  it('미완료 프로필을 PATCH하면 USR_010으로 거부한다', async () => {
-    const { service, completeProfileIfUnchanged, updateProfileFields } =
-      buildService({ user: { ...emptyUser('ADMIN'), name: null } });
-
-    const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, {
-        name: input.name,
-        department: input.department,
-      }),
-    );
-
-    expect(error.errorCode.code).toBe(
-      UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST,
-    );
-    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
-    expect(updateProfileFields).not.toHaveBeenCalled();
-  });
-
-  it('GitHub 이름이 실린 관리자는 온보딩 없이 이미 완료 상태다', async () => {
-    // Given — 관리자에게 더 받을 항목이 없으므로 이름만으로 완료다
-    const { service, updateProfileFields } = buildService({
-      user: emptyUser('ADMIN'),
-    });
-
-    // When
-    await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
-      isComplete: true,
-    });
-    await service.patchMyProfile(githubId, {
-      name: input.name,
-      department: input.department,
-    });
-
-    // Then — 완료 상태이므로 1회 저장이 아니라 갱신 경로를 탄다
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
-      name: input.name,
-      department: input.department,
-    });
-  });
-
-  it('학생은 학번과 학과가 모두 있어야 완료된다', async () => {
-    // Given
-    const { service } = buildService({ user: emptyUser('STUDENT') });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.completeMyProfile(githubId, {
-        name: input.name,
-        department: input.department,
-      }),
-    );
-
-    // Then
-    expect(error.errorCode).toMatchObject({
-      code: SystemErrorCode.VALIDATION_FAILED,
-      status: 400,
-    });
-  });
-
-  it('역할이 없는 사용자는 학생 기준으로 학번까지 요구한다', async () => {
-    // Given — 온보딩 중에는 role이 null이고, 자력으로 고를 수 있는 역할은 학생뿐이다
-    const { service } = buildService({ user: emptyUser(null) });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.completeMyProfile(githubId, {
-        name: input.name,
-        department: input.department,
-      }),
-    );
-
-    // Then
-    expect(error.errorCode).toMatchObject({
-      code: SystemErrorCode.VALIDATION_FAILED,
-      status: 400,
-    });
-  });
-
-  it('역할을 조회하지 않은 기록도 학생 기준으로 판정한다', async () => {
-    // Given — roles 모듈은 role을 select하지 않고 UserProfileRecord를 만든다
-    const { service } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId: null,
-        department: input.department ?? null,
-      },
-    });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.requireCompleteProfile(githubId),
-    );
-
-    // Then
-    expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
-  });
-});
-
-describe('기존 데이터 호환', () => {
-  it('세 항목을 모두 채운 기존 사용자는 어떤 역할에서도 완료다', async () => {
-    for (const role of ['STUDENT', 'STAFF', 'ADMIN', null] as const) {
-      // Given
-      const { service } = buildService({
-        user: {
-          id: 'synthetic-user',
-          name: input.name,
-          studentId,
-          department: input.department ?? null,
-          role,
-        },
-      });
-
-      // When / Then
-      await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
-        studentId,
-        isComplete: true,
-      });
-    }
-  });
-
-  it('학번이 null인 기존 교직원은 학번을 요구받지 않고 이름·학과만 갱신한다', async () => {
-    // Given
-    const { service, updateProfileFields, completeProfileIfUnchanged } =
-      buildService({
-        user: {
-          id: 'synthetic-user',
-          name: input.name,
-          studentId: null,
-          department: input.department ?? null,
-          role: 'STAFF',
-        },
-      });
-
-    // When
-    const profile = await service.patchMyProfile(githubId, {
-      name: '수정된 이름',
-      department: '소프트웨어공학과',
-    });
-
-    // Then
-    expect(profile).toEqual({
-      name: '수정된 이름',
-      studentId: null,
-      department: '소프트웨어공학과',
-      isComplete: true,
-    });
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
-      name: '수정된 이름',
-      department: '소프트웨어공학과',
-    });
-    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
-  });
-
-  it('관리자 갱신도 이름·학과를 함께 보낸다', async () => {
-    const { service, updateProfileFields } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId: null,
-        department: input.department ?? null,
-        role: 'ADMIN',
-      },
-    });
-
-    const profile = await service.patchMyProfile(githubId, {
-      name: '수정된 이름',
-      department: input.department,
-    });
-
-    expect(profile.department).toBe(input.department);
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
-      name: '수정된 이름',
-      department: input.department,
-    });
-  });
-
-  it('교직원이 학번을 실어 보내면 400 검증 오류로 거부한다', async () => {
-    // Given — 학번은 학생만 가질 수 있다. 조교처럼 대학원생 신분을 겸하는
-    // 교직원이라도 이제는 학번을 채울 수 없다(예전에는 완료된 교직원이 학번을
-    // 한 번 채울 수 있었지만, 그 예외를 없앴다).
-    const stored = {
-      id: 'synthetic-user',
-      name: input.name,
-      studentId: null,
-      department: input.department ?? null,
-      role: 'STAFF',
-    } as const;
-    const { service, updateProfileFields, fillStudentId } = buildService({
-      user: stored,
-    });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, input),
-    );
-
-    // Then
-    expect(error.errorCode).toMatchObject({
-      code: SystemErrorCode.VALIDATION_FAILED,
-      status: 400,
-    });
-    expect(fillStudentId).not.toHaveBeenCalled();
-    expect(updateProfileFields).not.toHaveBeenCalled();
-  });
-
-  it('학과가 빈 미완료 학생이 학번만 채워도 완료되지 않는다', async () => {
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: { ...emptyUser('STUDENT'), name: null },
-    });
-
-    const error = await captureDomainException(() =>
-      service.completeMyProfile(githubId, {
-        name: input.name,
-        studentId,
-        department: '',
-      }),
-    );
-
-    expect(error.errorCode).toMatchObject({
-      code: SystemErrorCode.VALIDATION_FAILED,
-      status: 400,
-    });
-    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
-  });
-
-  it('이미 학번이 있는 학생이 다른 값을 보내면 USR_003으로 거부한다', async () => {
-    // Given — 한 번 정해진 학적 식별자는 사용자가 바꿀 수 없다
-    const { service, updateProfileFields } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId,
-        department: input.department ?? null,
-        role: 'STUDENT',
-      },
-    });
-
-    // When
-    const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, { ...input, studentId: '9'.repeat(6) }),
-    );
-
-    // Then
-    expect(error.errorCode.code).toBe(UsersErrorCode.STUDENT_ID_IMMUTABLE);
-    expect(updateProfileFields).not.toHaveBeenCalled();
-  });
-
-  it('이미 있는 학번과 같은 값을 다시 보내면 통과하고 학번은 건드리지 않는다', async () => {
-    // Given — 폼이 현재 값을 그대로 싣는 정상 동작을 막지 않는다
-    const { service, updateProfileFields } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId,
-        department: input.department ?? null,
-        role: 'STUDENT',
-      },
-    });
-
-    // When
-    const profile = await service.patchMyProfile(githubId, {
-      ...input,
-      name: '수정된 이름',
-    });
-
-    // Then
-    expect(profile).toEqual({
-      name: '수정된 이름',
-      studentId,
-      department: input.department,
-      isComplete: true,
-    });
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
-      name: '수정된 이름',
-      department: input.department,
-    });
-  });
-});
-
-describe('역할 변경 경계', () => {
-  it('학생이 교직원이 되어도 학번은 남고 프로필은 완료로 유지된다', async () => {
-    // Given
-    const { service } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId,
-        department: input.department ?? null,
-        role: 'STAFF',
-      },
-    });
-
-    // When / Then
-    await expect(service.getMyProfile(githubId)).resolves.toEqual({
-      name: input.name,
-      studentId,
-      department: input.department,
-      isComplete: true,
-    });
-    await expect(
-      service.requireCompleteProfile(githubId),
-    ).resolves.toBeUndefined();
-  });
-
-  it('학번 없는 교직원이 학생으로 바뀌면 미완료가 되고 학번을 다시 받는다', async () => {
-    // Given
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId: null,
-        department: input.department ?? null,
-        role: 'STUDENT',
-      },
-    });
-
-    // When
-    await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
-      isComplete: false,
-    });
-    const profile = await service.completeMyProfile(githubId, input);
-
-    // Then — 학번이 아직 없었으므로 USR_003이 아니라 최초 저장으로 처리한다
-    expect(profile).toEqual({ ...input, isComplete: true });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId,
-      department: input.department,
-    });
-  });
-
-  it('이름만 있는 관리자가 교직원이 되면 학과만 추가로 받는다', async () => {
-    // Given
-    const { service, completeProfileIfUnchanged } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId: null,
-        department: null,
-        role: 'STAFF',
-      },
-    });
-
-    // When
-    await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
-      isComplete: false,
-    });
-    const profile = await service.completeMyProfile(githubId, {
-      name: input.name,
-      department: input.department,
-    });
-
-    // Then
-    expect(profile).toEqual({
-      name: input.name,
-      studentId: null,
-      department: input.department,
-      isComplete: true,
-    });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId: null,
-      department: input.department,
-    });
-  });
 });

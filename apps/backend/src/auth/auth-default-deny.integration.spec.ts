@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind, Role } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthModule } from './auth.module';
 import { OptionalSession, Public } from './auth-route-metadata';
@@ -33,6 +33,9 @@ const activeUser: AuthUser = {
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
   role: Role.STUDENT,
+  memberKind: MemberKind.STUDENT,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
   isProfileComplete: true,
 };
 

@@ -59,6 +59,8 @@ describe('AdminAccessRepository transaction store', () => {
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredRole: Role.STAFF,
         desiredAccountStatus: AccountStatus.ACTIVE,
+        desiredHasStaffAccess: true,
+        desiredHasAdminAccess: false,
       }),
       requestUpdated: await store.decidePendingRequest({
         requestId: 'request-pending',
@@ -95,7 +97,12 @@ describe('AdminAccessRepository transaction store', () => {
         role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
-      data: { role: Role.STAFF, accountStatus: AccountStatus.ACTIVE },
+      data: {
+        role: Role.STAFF,
+        accountStatus: AccountStatus.ACTIVE,
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      },
     });
     expect(updateRequest).toHaveBeenCalledWith({
       where: { id: 'request-pending', status: RoleRequestStatus.PENDING },

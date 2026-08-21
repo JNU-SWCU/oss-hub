@@ -18,6 +18,7 @@ import {
   toAdminAccessRequestWrite,
   type AdminAccessRequestWrite,
 } from './admin-access-mutation-policy';
+import { authorityAfterLegacyTransition } from './admin-access-authority-write';
 import type {
   AdminAccessActor,
   AdminAccessRepositoryPort,
@@ -103,12 +104,19 @@ export async function mutateAdminAccess(
         activeAdminCount,
       );
 
+      const authority = authorityAfterLegacyTransition(
+        before,
+        input.command,
+        transition.outcome.requestEffect,
+      );
       const userUpdated = await store.compareAndSwapAccess({
         userId: input.userId,
         expectedRole: input.command.expectedRole,
         expectedAccountStatus: input.command.expectedAccountStatus,
         desiredRole: input.command.desiredRole,
         desiredAccountStatus: input.command.desiredAccountStatus,
+        desiredHasStaffAccess: authority.hasStaffAccess,
+        desiredHasAdminAccess: authority.hasAdminAccess,
       });
       if (!userUpdated) {
         throw staleAccessError(before);

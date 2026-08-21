@@ -1,4 +1,4 @@
-import type { Role } from '@prisma/client';
+import type { AffiliationKind, MemberKind, Role } from '@prisma/client';
 
 /**
  * 역할별 프로필 필수 항목 — 백엔드 판정 규칙의 단일 출처다(#439).
@@ -40,6 +40,12 @@ export interface UserProfileRecord {
    * 학생 기준으로 학번을 요구받는다.
    */
   readonly selectedRole?: Role | null;
+  readonly selectedMemberKind?: MemberKind | null;
+  readonly memberKind?: MemberKind | null;
+  readonly affiliationKind?: AffiliationKind | null;
+  readonly affiliationName?: string | null;
+  readonly hasStaffAccess?: boolean;
+  readonly hasAdminAccess?: boolean;
 }
 
 export type UserProfileFields = Pick<

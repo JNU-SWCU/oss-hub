@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, RoleRequestStatus } from '@prisma/client';
+import { MemberKind, Prisma, Role, RoleRequestStatus } from '@prisma/client';
 import type {
   Prisma as PrismaTypes,
-  Role,
   RoleRequest as PrismaRoleRequest,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,6 +9,7 @@ import {
   COMPATIBLE_PROFILE_SELECT,
   resolveCompatibleProfile,
 } from '../profiles/profile-compatibility';
+import { resolveMemberAuthorityCompatibility } from '../profiles/member-authority-compatibility';
 import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import { confirmSelectedRole } from './role-confirmation';
 import type {
@@ -29,6 +29,9 @@ const ROLE_USER_SELECT = {
   id: true,
   role: true,
   selectedRole: true,
+  selectedMemberKind: true,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
   accountStatus: true,
   ...COMPATIBLE_PROFILE_SELECT,
 } as const satisfies PrismaTypes.UserSelect;
@@ -86,7 +89,10 @@ class PrismaRolesTransactionStore implements RolesTransactionStore {
   async updateSelectedRole(userId: string, role: Role): Promise<RoleUser> {
     const user = await this.transaction.user.update({
       where: { id: userId },
-      data: { selectedRole: role },
+      data: {
+        selectedRole: role,
+        selectedMemberKind: memberKindForRole(role),
+      },
       select: ROLE_USER_SELECT,
     });
     return toRoleUser(user);
@@ -146,13 +152,36 @@ export class RolesRepository implements RolesRepositoryPort {
 }
 
 function toRoleUser(user: RoleUserRow): RoleUser {
+  const authority = resolveMemberAuthorityCompatibility(user);
   return {
     id: user.id,
-    role: user.role,
-    selectedRole: user.selectedRole,
+    role: authority.role,
+    selectedRole: roleForMemberKind(authority.selectedMemberKind),
     accountStatus: user.accountStatus,
     profile: resolveCompatibleProfile(user),
   };
+}
+
+function roleForMemberKind(memberKind: MemberKind | null): Role | null {
+  switch (memberKind) {
+    case MemberKind.STUDENT:
+      return Role.STUDENT;
+    case MemberKind.STAFF:
+      return Role.STAFF;
+    case null:
+      return null;
+  }
+}
+
+function memberKindForRole(role: Role): MemberKind | null {
+  switch (role) {
+    case Role.STUDENT:
+      return MemberKind.STUDENT;
+    case Role.STAFF:
+      return MemberKind.STAFF;
+    case Role.ADMIN:
+      return null;
+  }
 }
 
 function toRoleRequest(request: PrismaRoleRequest): RoleRequestRecord {

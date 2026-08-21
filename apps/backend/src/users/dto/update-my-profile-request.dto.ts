@@ -1,5 +1,8 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { AffiliationKind } from '@prisma/client';
+import { IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
+import { DomainException } from '../../common/error-code';
+import { SystemErrorCode } from '../../common/system-error-code.enum';
 import {
   isValidDepartment,
   isValidUserName,
@@ -34,10 +37,29 @@ export class UpdateMyProfileRequestDto {
   @Matches(/^\d{6}$/, { message: '학번은 숫자 6자리로 입력해 주세요.' })
   declare readonly studentId?: string;
 
+  @ValidateIf(
+    (request: UpdateMyProfileRequestDto) =>
+      request.affiliationKind === undefined &&
+      request.affiliationName === undefined,
+  )
   @Transform(transformProfileText)
   @IsString()
   @IsProfileText('isValidDepartment', isValidDepartment)
-  declare readonly department: string;
+  declare readonly department?: string;
+
+  @ValidateIf(
+    (request: UpdateMyProfileRequestDto) => request.department === undefined,
+  )
+  @IsString()
+  declare readonly affiliationKind?: string;
+
+  @ValidateIf(
+    (request: UpdateMyProfileRequestDto) => request.department === undefined,
+  )
+  @Transform(transformProfileText)
+  @IsString()
+  @IsProfileText('isValidAffiliationName', isValidDepartment)
+  declare readonly affiliationName?: string;
 
   toInput(): PatchUserProfileInput {
     return {
@@ -45,7 +67,29 @@ export class UpdateMyProfileRequestDto {
       ...(typeof this.studentId === 'string'
         ? { studentId: this.studentId }
         : {}),
-      department: this.department,
+      ...(typeof this.department === 'string'
+        ? { department: this.department }
+        : {}),
+      ...(typeof this.affiliationKind === 'string'
+        ? { affiliationKind: parseAffiliationKind(this.affiliationKind) }
+        : {}),
+      ...(typeof this.affiliationName === 'string'
+        ? { affiliationName: this.affiliationName }
+        : {}),
     };
+  }
+}
+
+function parseAffiliationKind(value: string): AffiliationKind {
+  switch (value) {
+    case AffiliationKind.DEPARTMENT:
+    case AffiliationKind.PROGRAM_OFFICE:
+      return value;
+    default:
+      throw new DomainException({
+        code: SystemErrorCode.VALIDATION_FAILED,
+        status: 400,
+        message: '지원하지 않는 소속 유형입니다.',
+      });
   }
 }

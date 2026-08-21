@@ -11,12 +11,15 @@ import type {
 import {
   effectiveProfileRole,
   isCompleteUserProfile,
-  isValidDepartment,
   isValidStudentId,
   nextProfileRecord,
   profileFieldRequirement,
   toUserProfile,
 } from './domain/user-profile';
+import {
+  buildProfileCompletion,
+  buildProfileUpdate,
+} from './member-profile-completion';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 import { UsersRepository } from './users.repository';
 import type { UsersRepositoryPort } from './users.repository';
@@ -63,19 +66,23 @@ export class UsersService {
         USERS_ERROR_CODES[UsersErrorCode.PROFILE_ALREADY_COMPLETE],
       );
     }
-    const next = nextProfileRecord(user, input);
-    this.requireFieldsForRole(next, input.studentId !== undefined);
-    const completed = await this.repository.completeProfileIfUnchanged(user, {
-      name: next.name,
-      studentId: next.studentId,
-      department: next.department,
-    });
-    if (!completed) {
-      throw new DomainException(
-        USERS_ERROR_CODES[UsersErrorCode.PROFILE_ALREADY_COMPLETE],
-      );
+    const completion = buildProfileCompletion(user, input);
+    const outcome = await this.repository.completeProfileIfUnchanged(
+      user,
+      completion,
+    );
+    switch (outcome) {
+      case 'completed':
+        return toUserProfile(nextProfileRecord(user, completion));
+      case 'student-id-taken':
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_TAKEN],
+        );
+      case 'conflict':
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.PROFILE_ALREADY_COMPLETE],
+        );
     }
-    return toUserProfile(next);
   }
 
   /**
@@ -95,7 +102,14 @@ export class UsersService {
         USERS_ERROR_CODES[UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST],
       );
     }
-    const next = nextProfileRecord(user, input);
+    const fields = buildProfileUpdate(user, input);
+    const next: UserProfileRecord = {
+      ...user,
+      ...fields,
+      affiliationKind: fields.affiliationKind ?? user.affiliationKind,
+      affiliationName: fields.affiliationName ?? user.affiliationName,
+      studentId: input.studentId ?? user.studentId,
+    };
     const changesExistingStudentId =
       input.studentId !== undefined &&
       user.studentId !== null &&
@@ -118,17 +132,14 @@ export class UsersService {
       await this.fillStudentId(
         user,
         {
-          name: next.name,
-          department: next.department,
+          name: fields.name,
+          department: fields.department,
         },
         input.studentId,
       );
       return toUserProfile(next);
     }
-    await this.repository.updateProfileFields(user.id, {
-      name: next.name,
-      department: next.department,
-    });
+    await this.repository.updateProfileFields(user.id, fields);
     return toUserProfile(next);
   }
 
@@ -187,50 +198,6 @@ export class UsersService {
         throw new DomainException(
           USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_IMMUTABLE],
         );
-    }
-  }
-
-  /**
-   * 역할이 요구하는 항목이 비었거나 형식이 깨졌으면 400으로 멈춘다.
-   *
-   * 역할이 학과를 요구하지 않아도 **학번을 함께 저장하려면 학과가 필요하다**. 학번의
-   * 유일성을 보증하는 곳은 UserProfile 행의 unique 제약뿐이고 그 행은 학과를 NOT NULL로
-   * 요구하기 때문이다. 학과 없이 학번만 받으면 제약이 없는 구버전 `User.studentId`
-   * 컬럼에만 남아 서로 다른 두 사람이 같은 학번을 갖게 된다.
-   *
-   * 학번 형식은 이번 요청에 **실려 온 값에만** 적용한다. 요청이 학번을 생략하면
-   * 저장돼 있던 값이 그대로 실리는데(`input.studentId ?? user.studentId`), 그 값을
-   * 지금 형식으로 다시 재면 형식이 좁아지기 전에(#835) 학번을 넣어 둔 사용자는
-   * 학과 하나를 채우려 해도 400에 막힌다 — 학번은 바꿀 수 없어 고칠 길이 없다.
-   */
-  private requireFieldsForRole(
-    next: UserProfileRecord,
-    /** 학번이 이번 요청에 실려 왔는가 — 저장돼 있던 값은 형식을 다시 보지 않는다. */
-    hasIncomingStudentId: boolean,
-  ): void {
-    const requirement = profileFieldRequirement(effectiveProfileRole(next));
-    if (next.studentId !== null && next.department === null) {
-      throw new DomainException(
-        USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
-      );
-    }
-    if (
-      requirement.studentId &&
-      (next.studentId === null ||
-        (hasIncomingStudentId && !isValidStudentId(next.studentId)))
-    ) {
-      throw new DomainException({
-        code: SystemErrorCode.VALIDATION_FAILED,
-        status: 400,
-        message: '온보딩 프로필 완료에는 학번이 필요합니다.',
-      });
-    }
-    if (next.department === null || !isValidDepartment(next.department)) {
-      throw new DomainException({
-        code: SystemErrorCode.VALIDATION_FAILED,
-        status: 400,
-        message: '온보딩 프로필 완료에는 학과가 필요합니다.',
-      });
     }
   }
 

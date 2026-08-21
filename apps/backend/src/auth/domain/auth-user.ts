@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind, Role } from '@prisma/client';
 
 export interface AuthUser {
   readonly id: string;
@@ -7,8 +7,11 @@ export interface AuthUser {
   readonly name: string | null;
   readonly avatarUrl: string | null;
   readonly accountStatus: AccountStatus;
-  /** DB 정식 소스(Issue #109) — 역할 선택 전 null. */
+  /** Task 11까지 유지하는 legacy 역할 projection. 서버 권한 판정은 아직 이 값을 읽는다. */
   readonly role: Role | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   /**
    * 배정된 역할 기준으로 프로필이 완료됐는가.
    *

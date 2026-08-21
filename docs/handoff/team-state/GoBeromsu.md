@@ -328,3 +328,14 @@
 - 교정: 앞선 unsupported `corrective`/pending-creation line은 superseded이며, 이전 journal bytes/lines는 수정하지 않고 이 Task 7 correction block만 EOF에 append
 - 검증: verifier-confirmed session contract, 11 preserved tests, TypeScript pure LOC `130/107/56`, `ci`·`public-safe`·`commitlint` green
 - 범위: #991은 test-only corrective이며 product delta 없음
+
+## 2026-08-21 — 회원·소속·권한 호환 투영을 단일화
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: canonical 회원 유형·소속·독립 staff/admin 권한을 우선하고 미해결 nullable 행에만 legacy Role fallback을 적용하며, 학생/교직원 프로필 완료를 단일 트랜잭션으로 유지
+- 검증: Task 8 투영·음수·principal/session·승인/거절/회수·동시 완료·중복 학번 초점 테스트, backend lint·typecheck·format 통과
+- simplifier: 공식 code-simplifier 1.0.0 pinned commit Codex 단일 실행; schema·migration 제외
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-8/`
