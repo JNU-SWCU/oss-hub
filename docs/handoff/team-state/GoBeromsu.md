@@ -246,6 +246,14 @@
 - 검증: Task 2 초점·전체 backend unit/integration·lint·typecheck·build·public-safe·실제 Nest HTTP 통과
 - 저널 이력: 이전 Task 2 항목은 additions-only였지만 동시 base 내용 뒤에 놓여 old base의 byte-prefix는 아니며, 이 종료 항목만 현재 EOF에 append
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-2/`
+## 2026-08-21 — 이름과 학번 검증 계약을 통일
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 검증: Task 5 초점 happy/failure, backend/frontend lint·typecheck, public-safe
+- simplifier: 공식 code-simplifier 1.0.0 Codex pass, 변경 파일 allowlist 밖 수정 0건
 
 ## 2026-08-21 — 프로그램별 참여 라벨 겹침 해소
 

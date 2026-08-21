@@ -1,34 +1,25 @@
 import { Transform } from 'class-transformer';
-import {
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-} from 'class-validator';
-import {
-  USER_DEPARTMENT_MAX_LENGTH,
-  USER_NAME_MAX_LENGTH,
-} from '../domain/user-profile';
+import { IsOptional, IsString, Matches } from 'class-validator';
 import type { AdminProfileUpdateCommand } from '../domain/admin-profile';
-
-function trimString({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
+import { isValidDepartment, isValidUserName } from '../domain/user-profile';
+import {
+  IsProfileText,
+  transformProfileText,
+  trimString,
+} from './profile-text-transform';
 
 /**
  * 관리자가 다른 사용자의 프로필을 고치는 PATCH 본문 — `UpdateMyProfileRequestDto`와
  * 달리 세 항목 모두 선택이고 실린 항목만 바뀐다(부분 갱신). 형식 검증
- * (`@Matches`/`@MaxLength`)은 본인 경로와 같은 규칙을 그대로 쓴다 — 다른 것은
+ * (NFC 이름·학과, 학번 6자리)은 본인 경로와 같은 규칙을 그대로 쓴다 — 다른 것은
  * "이미 값이 있는 학번을 바꿀 수 있는가"뿐이고, 그 불변 규칙 우회는 서비스 계층
  * (`admin-profile-mutation.service.ts`)이 담당한다.
  */
 export class PatchAdminUserProfileRequestDto {
   @IsOptional()
-  @Transform(trimString)
+  @Transform(transformProfileText)
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(USER_NAME_MAX_LENGTH)
+  @IsProfileText('isValidUserName', isValidUserName)
   declare readonly name?: string;
 
   @IsOptional()
@@ -38,10 +29,9 @@ export class PatchAdminUserProfileRequestDto {
   declare readonly studentId?: string;
 
   @IsOptional()
-  @Transform(trimString)
+  @Transform(transformProfileText)
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(USER_DEPARTMENT_MAX_LENGTH)
+  @IsProfileText('isValidDepartment', isValidDepartment)
   declare readonly department?: string;
 
   toCommand(): AdminProfileUpdateCommand {
