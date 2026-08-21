@@ -164,3 +164,13 @@
 - blocker: 없음
 - 검증: 공식 code-simplifier 1.0.0 PASS, frontend lint·typecheck·2949 tests·build, focused 4 files/26 tests, synthetic Chrome 7 scenarios PASS
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3-corrective/`
+
+## 2026-08-21 — 프런트 세션 타입 교정을 최신 main에 동기화
+
+- 상태: review
+- Issue: #969
+- PR: #977
+- blocker: 없음
+- 결과: #978을 포함한 최신 `origin/main`을 정상 merge하고 두 파일의 type-only corrective diff를 보존
+- 검증: frontend lint·typecheck·full tests·build, focused 4 files/26 tests, 공식 code-simplifier 1.0.0, synthetic Chrome 7 scenarios 재검증
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-3-corrective/`
