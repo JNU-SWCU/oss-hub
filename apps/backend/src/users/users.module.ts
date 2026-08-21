@@ -10,6 +10,9 @@ import { AdminProfileService } from './admin-profile.service';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
+import { IndependentAuthorityController } from './independent-authority.controller';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { IndependentAuthorityService } from './independent-authority.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
@@ -23,12 +26,15 @@ import { UsersService } from './users.service';
     AccountDeactivationController,
     UsersController,
     AdminAccessController,
+    IndependentAuthorityController,
   ],
   providers: [
     AccountDeactivationRepository,
     AccountDeactivationService,
     AdminAccessRepository,
     AdminAccessService,
+    IndependentAuthorityRepository,
+    IndependentAuthorityService,
     AdminProfileRepository,
     AdminProfileService,
     UsersRepository,

@@ -12,6 +12,7 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'DeadlineDigestController',
   'DeadlineDigestFailuresController',
   'HealthController',
+  'IndependentAuthorityController',
   'LoginHistoryController',
   'MilestoneDocumentCurrentFileController',
   'MilestoneDocumentFilesController',
@@ -44,6 +45,42 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'SystemStatusController',
   'TeamInvitationsController',
   'UsersController',
+] as const;
+
+function route(
+  method: string,
+  path: string,
+  access: 'PUBLIC' | 'OPTIONAL_SESSION' | 'PROTECTED',
+) {
+  return { method, path, access } as const;
+}
+
+export const EXPECTED_PUBLIC_AUTH_ROUTES = [
+  route('GET', '/api/v1/auth/github', 'PUBLIC'),
+  route('GET', '/api/v1/auth/github/callback', 'PUBLIC'),
+  route('GET', '/api/v1/health', 'PUBLIC'),
+  route('GET', '/api/v1/programs/:id', 'PUBLIC'),
+  route('GET', '/api/v1/programs/:programId/overview/teams', 'PUBLIC'),
+  route('GET', '/api/v1/programs/application-templates', 'PUBLIC'),
+  route('GET', '/api/v1/programs/status-counts', 'PUBLIC'),
+  route('GET', '/api/v1/projects', 'PUBLIC'),
+  route('GET', '/api/v1/projects/:projectId', 'PUBLIC'),
+  route('GET', '/api/v1/projects/category-counts', 'PUBLIC'),
+  route('GET', '/api/v1/ranking/years', 'PUBLIC'),
+  route('GET', '/api/v1/users/:userId/public-profile', 'PUBLIC'),
+  route('POST', '/api/v1/auth/logout', 'PUBLIC'),
+] as const;
+
+export const EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES = [
+  route('GET', '/api/v1/auth/session', 'OPTIONAL_SESSION'),
+  route('GET', '/api/v1/programs', 'OPTIONAL_SESSION'),
+  route('GET', '/api/v1/ranking', 'OPTIONAL_SESSION'),
+] as const;
+
+export const EXPECTED_INDEPENDENT_AUTHORITY_PROTECTED_ROUTES = [
+  route('GET', '/api/v1/users/:id/access', 'PROTECTED'),
+  route('PATCH', '/api/v1/users/:id/admin-access', 'PROTECTED'),
+  route('PATCH', '/api/v1/users/:id/staff-access', 'PROTECTED'),
 ] as const;
 
 export const EXPECTED_AUTH_ROUTE_INVENTORY = [
@@ -129,7 +166,9 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED PATCH /api/v1/programs/:programId/board/posts/:postId',
   'PROTECTED PATCH /api/v1/programs/:programId/board/posts/:postId/pin',
   'PROTECTED PATCH /api/v1/users/:id/access',
+  'PROTECTED PATCH /api/v1/users/:id/admin-access',
   'PROTECTED PATCH /api/v1/users/:id/profile',
+  'PROTECTED PATCH /api/v1/users/:id/staff-access',
   'PROTECTED PATCH /api/v1/users/me/account/deactivate',
   'PROTECTED PATCH /api/v1/users/me/notification-email',
   'PROTECTED PATCH /api/v1/users/me/notifications/application-decisions/:notificationId/read',

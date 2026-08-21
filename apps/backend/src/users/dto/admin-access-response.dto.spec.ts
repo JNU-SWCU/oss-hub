@@ -64,7 +64,10 @@ describe('admin access response DTO allowlists', () => {
       id: 'target',
       githubLogin: 'synthetic-target',
       name: '합성 사용자',
-      role: Role.STAFF,
+      role: Role.ADMIN,
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,
@@ -119,6 +122,12 @@ describe('admin access response DTO allowlists', () => {
       },
     });
 
+    expect(detail).toMatchObject({
+      role: Role.ADMIN,
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+    });
     expect(detail.profile.studentId).toBe('123456');
     expect(history.roleRequests.items[0]?.createdAt).toBe(
       PENDING_AT.toISOString(),

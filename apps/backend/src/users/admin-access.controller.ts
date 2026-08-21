@@ -154,7 +154,7 @@ export class AdminAccessController {
   }
 }
 
-function requireValidUserId(id: string): void {
+export function requireValidUserId(id: string): void {
   // 'me'는 세션 사용자를 가리키는 예약어라 관리자 대리 조회/수정의 유효한 대상 ID가
   // 아니다(#787) — 라우트 등록 순서가 흔들려도 이중 방어로 남긴다.
   if (id === 'me' || !USER_ID_PATTERN.test(id)) {
