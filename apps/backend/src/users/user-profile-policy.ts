@@ -110,10 +110,21 @@ export function profileFieldRequirement(
   return REQUIREMENT_BY_ROLE[role ?? DEFAULT_PROFILE_ROLE];
 }
 
+/**
+ * 쓰기 경계 문자열: 바깥 공백을 자른 뒤 NFC. NFKC는 쓰지 않는다.
+ * 코드 포인트 수는 `Array.from(value).length`로 센다.
+ */
+export function normalizeProfileText(value: string): string {
+  return value.trim().normalize('NFC');
+}
+
+function isValidProfileText(value: string, maxCodePoints: number): boolean {
+  const count = Array.from(normalizeProfileText(value)).length;
+  return count >= 1 && count <= maxCodePoints;
+}
+
 export function isValidUserName(name: string): boolean {
-  return (
-    name.trim().length > 0 && Array.from(name).length <= USER_NAME_MAX_LENGTH
-  );
+  return isValidProfileText(name, USER_NAME_MAX_LENGTH);
 }
 
 export function isValidStudentId(studentId: string): boolean {
@@ -148,10 +159,7 @@ export function isStoredStudentId(studentId: string): boolean {
 }
 
 export function isValidDepartment(department: string): boolean {
-  return (
-    department.trim().length > 0 &&
-    Array.from(department).length <= USER_DEPARTMENT_MAX_LENGTH
-  );
+  return isValidProfileText(department, USER_DEPARTMENT_MAX_LENGTH);
 }
 
 /**

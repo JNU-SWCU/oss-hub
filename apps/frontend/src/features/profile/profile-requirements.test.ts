@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { ApiError } from '@/lib/api-client';
+import { classifyProfileApiError } from './api';
 import {
   isConsistentCompleteProfile,
   isDepartmentRequiredForProfile,
   isProfileComplete,
+  isStoredStudentId,
+  isValidDepartment,
+  isValidProfileName,
+  isValidStudentId,
   profileFieldRequirement,
   type ProfileRole,
 } from './profile-requirements';
@@ -117,5 +123,89 @@ describe('학번을 함께 저장할 때의 학과', () => {
       expect(isDepartmentRequiredForProfile(role, '')).toBe(true);
       expect(isDepartmentRequiredForProfile(role, STUDENT_ID)).toBe(true);
     }
+  });
+});
+
+/**
+ * Lockstep values with `user-profile-policy.spec.ts`.
+ * Student IDs are synthetic local-unique fixtures, not roster data.
+ */
+const PROFILE_UNICODE_CONTRACT = {
+  asciiName: 'Synthetic User',
+  hangulName: '합성가',
+  combiningMark: '\u0301',
+  emoji: '😀',
+  sixDigitId: '100001',
+  legacyStoredIds: ['100001', '1000012', '1000012345'] as const,
+  legacyTenDigitId: '1000012345',
+  blank: '   \n\t  ',
+  nonSixDigitIds: ['12A456', '10000', '1000012', '１２３４５６'] as const,
+} as const;
+
+const nfdCombiningE = `e${PROFILE_UNICODE_CONTRACT.combiningMark}`;
+
+describe('unicode name and student-id contract', () => {
+  it.each([
+    ['ASCII', PROFILE_UNICODE_CONTRACT.asciiName],
+    ['Hangul NFC', PROFILE_UNICODE_CONTRACT.hangulName],
+    ['Hangul NFD', PROFILE_UNICODE_CONTRACT.hangulName.normalize('NFD')],
+    ['combining marks', nfdCombiningE.repeat(100)],
+    ['emoji/surrogate pairs', PROFILE_UNICODE_CONTRACT.emoji.repeat(100)],
+    ['NFD Hangul 100 syllables', '가'.repeat(100).normalize('NFD')],
+  ] as const)(
+    'accepts %s after NFC within 100 code points',
+    (_label: string, name: string) => {
+      expect(isValidProfileName(name)).toBe(true);
+      expect(isValidDepartment(name)).toBe(true);
+    },
+  );
+
+  it('accepts six digits for new student IDs and keeps legacy 6-10 stored IDs complete', () => {
+    expect(isValidStudentId(PROFILE_UNICODE_CONTRACT.sixDigitId)).toBe(true);
+    for (const studentId of PROFILE_UNICODE_CONTRACT.legacyStoredIds) {
+      expect(isStoredStudentId(studentId)).toBe(true);
+      expect(
+        isProfileComplete(
+          fields({ name: PROFILE_UNICODE_CONTRACT.hangulName, studentId }),
+          'STUDENT',
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('rejects blank names and affiliation after trim', () => {
+    expect(isValidProfileName(PROFILE_UNICODE_CONTRACT.blank)).toBe(false);
+    expect(isValidDepartment(PROFILE_UNICODE_CONTRACT.blank)).toBe(false);
+    expect(isValidProfileName('')).toBe(false);
+  });
+
+  it('rejects 101 code points after NFC', () => {
+    expect(isValidProfileName(nfdCombiningE.repeat(101))).toBe(false);
+    expect(isValidProfileName('가'.repeat(101))).toBe(false);
+    expect(isValidProfileName(PROFILE_UNICODE_CONTRACT.emoji.repeat(101))).toBe(
+      false,
+    );
+    expect(isValidDepartment('가'.repeat(101))).toBe(false);
+  });
+
+  it('maps duplicate student IDs to USR_004', () => {
+    const error = new ApiError({
+      type: 'about:blank',
+      title: 'synthetic',
+      status: 409,
+      detail: 'synthetic',
+      instance: '/users/me/profile',
+      code: 'USR_004',
+    });
+    expect(classifyProfileApiError(error)).toBe('student-id-taken');
+  });
+
+  it('rejects non-six-digit new student IDs', () => {
+    for (const studentId of PROFILE_UNICODE_CONTRACT.nonSixDigitIds) {
+      expect(isValidStudentId(studentId)).toBe(false);
+    }
+    expect(isValidStudentId(PROFILE_UNICODE_CONTRACT.legacyTenDigitId)).toBe(
+      false,
+    );
   });
 });
