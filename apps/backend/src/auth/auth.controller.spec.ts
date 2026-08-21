@@ -8,7 +8,6 @@ import { AuthService } from './auth.service';
 import { flowCookieName, serializeCookie, sessionCookieName } from './cookies';
 import { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
-import { AuthenticatedRequest } from './session.guard';
 import { LoginHistoryService } from '../login-history/login-history.service';
 
 const syntheticUser: AuthUser = {
@@ -314,35 +313,4 @@ describe('AuthController github callback', () => {
       'https://oss.example/?authError=1',
     );
   });
-});
-
-describe('AuthController getMe', () => {
-  function createController(dbRole: Role | null): AuthController {
-    const getMe = jest
-      .fn()
-      .mockResolvedValue({ ...syntheticUser, role: dbRole });
-    return new AuthController(
-      { getMe } as unknown as AuthService,
-      {} as AuthConfig,
-      {} as LoginHistoryService,
-    );
-  }
-
-  const request = {
-    sessionGithubId: syntheticUser.githubId,
-  } as AuthenticatedRequest;
-
-  it.each([Role.ADMIN, Role.STAFF, Role.STUDENT, null])(
-    '응답 role은 DB role을 그대로 사용한다: %s',
-    async (dbRole) => {
-      const controller = createController(dbRole);
-
-      const result = await controller.getMe(request);
-
-      expect(result.role).toBe(dbRole);
-      expect(result).toMatchObject({ nickname: 'synthetic-login' });
-      expect(result).not.toHaveProperty('login');
-      expect(result.accountStatus).toBe(AccountStatus.ACTIVE);
-    },
-  );
 });
