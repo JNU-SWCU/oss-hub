@@ -38,6 +38,38 @@ test.describe('staff insights comparison UX', () => {
     }
   });
 
+  test('shows a visible focus indicator on both filter button groups', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await openFixture(page, 'insights-long');
+
+    const buttons = [
+      page.getByRole('button', { name: '전공·비전공' }),
+      page.getByRole('button', { name: '학과' }),
+    ];
+    for (const button of buttons) {
+      await button.focus();
+      await expect
+        .poll(async () =>
+          button.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return {
+              borderColor: style.borderTopColor,
+              outlineColor: style.outlineColor,
+              outlineWidth: style.outlineWidth,
+              boxShadow: style.boxShadow,
+            };
+          }),
+        )
+        .toMatchObject({ outlineWidth: '2px' });
+    }
+    await page.screenshot({
+      path: '.omo/evidence/focus-visible-fix/red-focus-visible.png',
+      fullPage: true,
+    });
+  });
+
   test('renders all-zero state without divide-by-zero output', async ({
     page,
   }) => {

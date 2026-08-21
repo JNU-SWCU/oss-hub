@@ -132,3 +132,10 @@
 - blocker: 없음
 - 검증: 받은 초대 canonical/legacy/nickname 표시와 후보 검색·게시판 목록/상세/댓글을 격리 PostgreSQL에서 검증
 - simplifier: 공식 code-simplifier 1.0.0 Codex pre/post 검증, 변경 파일 allowlist 밖 수정 0건
+## 2026-08-21 — 스태프 인사이트 필터 키보드 초점 표시를 복구
+
+- 상태: review
+- Issue: #973
+- PR: 생성 예정
+- blocker: 기존 local-review `insights-long` fixture가 현재 브랜치에서 404라 Chrome 회귀 스펙은 fixture 라우팅에서 중단됨
+- 검증: focused Vitest 2949 passed, typecheck passed, lint passed (기존 경고 5건)
