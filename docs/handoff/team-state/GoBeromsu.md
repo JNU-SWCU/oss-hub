@@ -388,3 +388,13 @@
 - 결과: compatible profile 반환을 이름·학번·학과로 명시적으로 좁혀 nullable canonical 키가 단일 회원·권한 fallback 결과를 덮어쓰지 않게 함
 - 검증: repository red→green, Task 8 초점 11 suites/57 tests, backend lint·typecheck·format
 - simplifier: source `0fc2bb13a805969c14b0fe9398bad41db346d84e`, plugin 1.0.0으로 현재 Task 8 TypeScript 55파일 전체 allowlist 단일 실행; 기존 `08f17369` receipt는 무효로 교체
+
+## 2026-08-21 — 교직원·관리자 권한 변경 API를 분리
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 관리자 상세에 canonical 회원·권한을 노출하고 staff/admin grant·revoke를 별도 typed command와 HTTP route로 분리해 다른 권한과 회원 유형을 보존
+- 검증: 신규 controller/service/repository/transition/HTTP 7 suites/26 tests, Task 8 권한 행렬 11 suites/58 tests, backend lint·typecheck·format
+- simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e` 단일 실행, 20파일 allowlist 밖 최종 변경 0건

@@ -4,6 +4,9 @@ import { AccountDeactivationController } from './account-deactivation.controller
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { IndependentAuthorityController } from './independent-authority.controller';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { IndependentAuthorityService } from './independent-authority.service';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
 
@@ -21,10 +24,18 @@ describe('UsersModule admin access wiring', () => {
 
     // When / Then
     expect(controllers).toEqual(
-      expect.arrayContaining([AdminAccessController]),
+      expect.arrayContaining([
+        AdminAccessController,
+        IndependentAuthorityController,
+      ]),
     );
     expect(providers).toEqual(
-      expect.arrayContaining([AdminAccessRepository, AdminAccessService]),
+      expect.arrayContaining([
+        AdminAccessRepository,
+        AdminAccessService,
+        IndependentAuthorityRepository,
+        IndependentAuthorityService,
+      ]),
     );
   });
 
@@ -42,6 +53,7 @@ describe('UsersModule admin access wiring', () => {
       AccountDeactivationController,
       UsersController,
       AdminAccessController,
+      IndependentAuthorityController,
     ]);
   });
 

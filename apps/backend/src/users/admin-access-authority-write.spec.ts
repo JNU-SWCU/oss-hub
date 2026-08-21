@@ -40,6 +40,22 @@ describe('canonical authority writes behind legacy transitions', () => {
     });
   });
 
+  it('legacy role changes cannot clear independent canonical authority', () => {
+    const before = accessUser({
+      role: Role.ADMIN,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+    });
+
+    expect(
+      authorityAfterLegacyTransition(
+        before,
+        command(Role.ADMIN, Role.STUDENT),
+        ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
+      ),
+    ).toEqual({ hasStaffAccess: true, hasAdminAccess: true });
+  });
+
   it.each([
     [ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED, true],
     [ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED, false],
