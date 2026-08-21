@@ -81,6 +81,13 @@
 - PR: (이 PR; verifier gap from #962)
 - blocker: 없음
 
+## 2026-08-21 — 프로그램별 참여 라벨 겹침 해소
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR)
+- blocker: 없음
+
 ## 2026-08-21 — 프로필 호환 조회 경계를 단일화한다
 
 - 상태: review

@@ -20,6 +20,38 @@ import {
 import { COHORT_LABELS, DEPARTMENT_COHORTS } from './types';
 import type { StaffInsightsSummary } from './types';
 
+interface ProgramNameTickProps {
+  readonly x?: number;
+  readonly y?: number;
+  readonly payload?: { readonly value: string };
+}
+
+function ProgramNameTick({
+  x = 0,
+  y = 0,
+  payload,
+}: ProgramNameTickProps): ReactElement | null {
+  if (payload === undefined) return null;
+  const label =
+    payload.value.length > 14
+      ? `${payload.value.slice(0, 13)}…`
+      : payload.value;
+  return (
+    <text
+      className="recharts-text recharts-cartesian-axis-tick-value"
+      x={x - 8}
+      y={y}
+      dy="0.355em"
+      textAnchor="end"
+      fill="var(--muted-foreground)"
+      fontSize={12}
+    >
+      <title>{payload.value}</title>
+      {label}
+    </text>
+  );
+}
+
 export function ParticipationPanel({
   summary,
 }: {
@@ -48,25 +80,33 @@ export function ParticipationPanel({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-80 w-full" aria-hidden="true">
+        <div
+          className="w-full"
+          style={{ height: Math.max(320, data.length * 52) }}
+          aria-hidden="true"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
+              layout="vertical"
               data={data}
-              margin={{ top: 8, right: 8, left: -12, bottom: 24 }}
+              margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
-                dataKey="name"
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                tickLine={false}
-                interval={0}
-              />
-              <YAxis
+                type="number"
                 allowDecimals={false}
-                width={44}
                 tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={168}
+                tick={<ProgramNameTick />}
+                tickLine={false}
+                axisLine={false}
+                interval={0}
               />
               <Tooltip />
               <Legend />
