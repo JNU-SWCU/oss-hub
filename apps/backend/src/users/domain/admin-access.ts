@@ -1,6 +1,7 @@
 import {
   AccountStatus,
   LoginHistoryEvent,
+  MemberKind,
   Role,
   RoleRequestStatus,
 } from '@prisma/client';
@@ -159,6 +160,9 @@ export type AdminAccessUserPage = {
 };
 
 export type AdminAccessUserDetail = AdminAccessUser & {
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   readonly profile: AdminAccessProfile;
 };
 

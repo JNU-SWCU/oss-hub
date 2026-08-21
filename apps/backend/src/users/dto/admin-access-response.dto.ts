@@ -1,4 +1,9 @@
-import type { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import type {
+  AccountStatus,
+  MemberKind,
+  Role,
+  RoleRequestStatus,
+} from '@prisma/client';
 import type {
   AdminAccessFacets,
   AdminAccessMutationResult,
@@ -8,6 +13,7 @@ import type {
   AdminAccessUserPage,
 } from '../domain/admin-access';
 import type { AdminProfileUpdateResult } from '../domain/admin-profile';
+import type { IndependentAuthorityMutationResult } from '../domain/independent-authority';
 
 export { AdminAccessUserHistoryResponseDto } from './admin-access-history-response.dto';
 
@@ -88,6 +94,9 @@ export class AdminAccessUserDetailResponseDto {
   readonly githubLogin: string;
   readonly name: string | null;
   readonly role: Role | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
@@ -100,6 +109,9 @@ export class AdminAccessUserDetailResponseDto {
     this.githubLogin = user.githubLogin;
     this.name = user.name;
     this.role = user.role;
+    this.memberKind = user.memberKind;
+    this.hasStaffAccess = user.hasStaffAccess;
+    this.hasAdminAccess = user.hasAdminAccess;
     this.accountStatus = user.accountStatus;
     this.isSelf = user.isSelf;
     this.isProfileComplete = user.isProfileComplete;
@@ -132,6 +144,28 @@ export class AdminAccessMutationResponseDto {
     result: AdminAccessMutationResult,
   ): AdminAccessMutationResponseDto {
     return new AdminAccessMutationResponseDto(result);
+  }
+}
+
+export class IndependentAuthorityMutationResponseDto {
+  readonly id: string;
+  readonly role: Role | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+
+  private constructor(result: IndependentAuthorityMutationResult) {
+    this.id = result.id;
+    this.role = result.role;
+    this.memberKind = result.memberKind;
+    this.hasStaffAccess = result.hasStaffAccess;
+    this.hasAdminAccess = result.hasAdminAccess;
+  }
+
+  static from(
+    result: IndependentAuthorityMutationResult,
+  ): IndependentAuthorityMutationResponseDto {
+    return new IndependentAuthorityMutationResponseDto(result);
   }
 }
 

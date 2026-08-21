@@ -63,7 +63,7 @@ export function resolveMemberAuthorityCompatibility(
 
   return {
     role: hasCanonicalFact
-      ? projectLegacyRole(memberKind, hasStaffAccess, hasAdminAccess)
+      ? projectLegacyAuthorityRole(memberKind, hasStaffAccess, hasAdminAccess)
       : source.role,
     selectedMemberKind:
       source.selectedMemberKind ?? legacyMemberKind(source.selectedRole),
@@ -167,7 +167,7 @@ function legacyHasStaffAccess(role: Role | null): boolean {
   }
 }
 
-function projectLegacyRole(
+export function projectLegacyAuthorityRole(
   memberKind: MemberKind | null,
   hasStaffAccess: boolean,
   hasAdminAccess: boolean,

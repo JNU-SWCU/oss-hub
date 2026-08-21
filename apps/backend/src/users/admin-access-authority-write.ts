@@ -33,9 +33,6 @@ function adminAccessAfterLegacyTransition(
   if (command.desiredRole === Role.ADMIN) {
     return true;
   }
-  if (command.expectedRole === Role.ADMIN) {
-    return false;
-  }
   return before.hasAdminAccess;
 }
 
@@ -54,9 +51,7 @@ function staffAccessAfterLegacyTransition(
       if (command.desiredRole === Role.STAFF) {
         return true;
       }
-      return command.expectedRole === Role.STAFF
-        ? false
-        : before.hasStaffAccess;
+      return before.hasStaffAccess;
     default:
       return assertNever(requestEffect);
   }
