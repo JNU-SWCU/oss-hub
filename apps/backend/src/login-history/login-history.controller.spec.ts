@@ -1,6 +1,3 @@
-import { DomainException } from '../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
-import { AuthService } from '../auth/auth.service';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { LOGIN_HISTORY_EVENTS } from './domain/login-history';
 import { LoginHistoryController } from './login-history.controller';
@@ -16,20 +13,17 @@ const syntheticUser = {
 };
 
 describe('LoginHistoryController', () => {
-  const getMe = jest.fn();
   const findMine = jest.fn();
-  const controller = new LoginHistoryController(
-    { getMe } as unknown as AuthService,
-    { findMine } as unknown as LoginHistoryService,
-  );
+  const controller = new LoginHistoryController({
+    findMine,
+  } as unknown as LoginHistoryService);
   const request = {
+    principal: syntheticUser,
     sessionGithubId: syntheticUser.githubId,
   } as AuthenticatedRequest;
 
   beforeEach(() => {
-    getMe.mockReset();
     findMine.mockReset();
-    getMe.mockResolvedValue(syntheticUser);
     findMine.mockResolvedValue({
       items: [
         {
@@ -47,13 +41,11 @@ describe('LoginHistoryController', () => {
   });
 
   it('세션 사용자의 DB ID로만 페이지 조회한다', async () => {
-    // Given: 인증된 사용자가 첫 페이지를 요청한다.
-
+    // Given: 인증 경계가 active principal을 붙인 요청이다.
     // When: 본인 로그인 이력을 조회한다.
     const result = await controller.findMine(request, { page: 1, size: 20 });
 
-    // Then: 세션 신원을 DB 사용자로 해석해 그 ID만 조회한다.
-    expect(getMe).toHaveBeenCalledWith(syntheticUser.githubId);
+    // Then: principal의 DB 사용자 ID만 서비스에 전달한다.
     expect(findMine).toHaveBeenCalledWith(syntheticUser.id, 1, 20);
     expect(result).toEqual({
       items: [
@@ -71,19 +63,12 @@ describe('LoginHistoryController', () => {
     });
   });
 
-  it('세션 사용자 레코드가 없으면 401을 유지하고 이력을 조회하지 않는다', async () => {
-    // Given: 토큰의 사용자가 DB에 없다.
-    getMe.mockRejectedValue(
-      new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]),
-    );
-
+  it('feature controller에서 쿠키나 계정을 다시 해석하지 않는다', async () => {
+    // Given: 세션 cookie 없이 typed principal만 있는 요청이다.
     // When: 본인 로그인 이력을 조회한다.
-    const action = controller.findMine(request, { page: 1, size: 20 });
+    await controller.findMine(request, { page: 1, size: 20 });
 
-    // Then: 기존 인증 오류를 그대로 반환한다.
-    await expect(action).rejects.toMatchObject({
-      errorCode: { code: AuthErrorCode.UNAUTHENTICATED, status: 401 },
-    });
-    expect(findMine).not.toHaveBeenCalled();
+    // Then: principal의 내부 ID로 서비스 호출이 완료된다.
+    expect(findMine).toHaveBeenCalledWith(syntheticUser.id, 1, 20);
   });
 });

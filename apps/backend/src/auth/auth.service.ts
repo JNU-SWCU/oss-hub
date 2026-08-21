@@ -5,6 +5,7 @@ import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
 import { AuthRepository } from './auth.repository';
 import type {
+  ActiveAccountPrincipal,
   AuthLoginResult,
   AuthUser,
   GithubProfile,
@@ -78,26 +79,36 @@ export class AuthService {
   }
 
   async issueSession(user: AuthUser): Promise<string> {
-    this.requireActive(user);
-    return issueSessionToken(this.config.sessionSecret, user.githubId);
-  }
-
-  async getMe(githubId: bigint): Promise<AuthUser> {
-    const user = await this.repository.findByGithubId(githubId);
-    return this.requireActive(user);
-  }
-
-  async findMe(githubId: bigint): Promise<AuthUser | null> {
-    return this.repository.findByGithubId(githubId);
-  }
-
-  private requireActive(user: AuthUser | null): AuthUser {
-    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
+    if (user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );
     }
-    return user;
+    return issueSessionToken(this.config.sessionSecret, user.githubId);
+  }
+
+  async getMe(githubId: bigint): Promise<ActiveAccountPrincipal> {
+    const principal = await this.findActivePrincipal(githubId);
+    if (principal === null) {
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
+    }
+    return principal;
+  }
+
+  async findActivePrincipal(
+    githubId: bigint,
+  ): Promise<ActiveAccountPrincipal | null> {
+    const user = await this.repository.findByGithubId(githubId);
+    if (user?.accountStatus !== AccountStatus.ACTIVE) {
+      return null;
+    }
+    return { ...user, accountStatus: AccountStatus.ACTIVE };
+  }
+
+  async findMe(githubId: bigint): Promise<AuthUser | null> {
+    return this.repository.findByGithubId(githubId);
   }
 
   private async exchangeCode(code: string, verifier: string): Promise<string> {
