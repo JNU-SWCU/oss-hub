@@ -107,6 +107,7 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
     'svg text.recharts-cartesian-axis-tick-value',
   );
   await expect(numericTicks).toHaveCount(3);
+  await expect(numericTicks).toHaveText(['0', '6', '12']);
   const numericTickBounds = await numericTicks.evaluateAll((elements) =>
     elements.map((element) => ({
       text: element.textContent ?? '',
