@@ -335,3 +335,14 @@
 - 결과: mobile 200% 최대 수치 tick을 card 안에 유지하고 numeric tick 경계를 E2E로 고정
 - 검증: production raw bounds, max=12 fixture, Chrome 6건, frontend lint·typecheck·build·public-safe
 - 저널 이력: 기존 #984 수치 축 항목은 유지하고 #990 상태 뒤 현재 항목을 EOF에 append
+
+## 2026-08-21 — Task 7 세션 계약 저널 교정 완료
+
+- 상태: done
+- Issue: Task 7
+- PR: #991
+- blocker: 없음
+- 병합 상태: implementation PR #990 merged at `16a83f0650352b8941adf4c896101a97f5e2f663`; test-only corrective PR #991 merged at `aabd38fab70bde702be925df9184a251ab80ecd1`
+- 교정: 앞선 unsupported `corrective`/pending-creation line은 superseded이며, 이전 journal bytes/lines는 수정하지 않고 이 Task 7 correction block만 EOF에 append
+- 검증: verifier-confirmed session contract, 11 preserved tests, TypeScript pure LOC `130/107/56`, `ci`·`public-safe`·`commitlint` green
+- 범위: #991은 test-only corrective이며 product delta 없음
