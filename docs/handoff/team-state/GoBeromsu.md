@@ -316,3 +316,15 @@
 - 검증: exact `auth-session-contract.integration.spec.ts` 6 passed, focused frontend auth/session 34 passed, backend/frontend lint·typecheck, public-safe
 - simplifier: 공식 code-simplifier 1.0.0 Codex 단일 실행, 변경 파일 allowlist 밖 수정 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-7/`
+
+
+## 2026-08-21 — Task 7 세션 계약 저널 교정 완료
+
+- 상태: done
+- Issue: Task 7
+- PR: #991
+- blocker: 없음
+- 병합 상태: implementation PR #990 merged at `16a83f0650352b8941adf4c896101a97f5e2f663`; test-only corrective PR #991 merged at `aabd38fab70bde702be925df9184a251ab80ecd1`
+- 교정: 앞선 unsupported `corrective`/pending-creation line은 superseded이며, 이전 journal bytes/lines는 수정하지 않고 이 Task 7 correction block만 EOF에 append
+- 검증: verifier-confirmed session contract, 11 preserved tests, TypeScript pure LOC `130/107/56`, `ci`·`public-safe`·`commitlint` green
+- 범위: #991은 test-only corrective이며 product delta 없음
