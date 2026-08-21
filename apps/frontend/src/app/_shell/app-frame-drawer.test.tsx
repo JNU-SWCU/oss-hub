@@ -55,24 +55,40 @@ const ITEMS: NavItem[] = [
   { label: '랭킹', href: '/ranking' },
 ];
 
-function mockSession(session: {
-  status: 'loading' | 'anonymous' | 'unassigned' | 'assigned' | 'error';
-  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
-  isProfileComplete: boolean;
-}): void {
+interface DrawerSession {
+  readonly status:
+    'loading' | 'anonymous' | 'unassigned' | 'assigned' | 'error';
+  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
+  readonly memberKind: 'STUDENT' | 'STAFF' | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+  readonly isProfileComplete: boolean;
+}
+
+const STUDENT_ADMIN_SESSION: DrawerSession = {
+  status: 'assigned',
+  role: 'ADMIN',
+  memberKind: 'STUDENT',
+  hasStaffAccess: false,
+  hasAdminAccess: true,
+  isProfileComplete: true,
+};
+const STUDENT_SESSION: DrawerSession = {
+  ...STUDENT_ADMIN_SESSION,
+  role: 'STUDENT',
+  hasAdminAccess: false,
+};
+const UNRESOLVED_LEGACY_ADMIN_SESSION: DrawerSession = {
+  ...STUDENT_ADMIN_SESSION,
+  memberKind: null,
+};
+
+function mockSession(session: DrawerSession): void {
   mocks.useSessionRole.mockReturnValue({
-    status: session.status,
-    role: session.role,
-    memberKind:
-      session.role === 'STUDENT' || session.role === 'STAFF'
-        ? session.role
-        : null,
-    hasStaffAccess: session.role === 'STAFF',
-    hasAdminAccess: session.role === 'ADMIN',
+    ...session,
     roleRequestStatus: null,
     roleRequestRejectionReason: null,
     selectedRole: null,
-    isProfileComplete: session.isProfileComplete,
     retry: () => {},
   });
 }
@@ -106,7 +122,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     return container.querySelector('[role="dialog"]');
   }
 
-  async function renderFrame(pathname: string) {
+  async function renderFrame(pathname: string): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
       root.render(
@@ -117,7 +133,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     });
   }
 
-  async function openDrawer() {
+  async function openDrawer(): Promise<void> {
     // 실제 클릭은 버튼에 포커스를 남긴다(브라우저 기본 동작) — happy-dom의
     // 합성 `.click()`은 그걸 흉내 내지 않으므로 직접 포커스를 맞춰 준다.
     // 키보드로 여는 사용자는 애초에 이 버튼에 포커스가 있어 같은 상태가 된다.
@@ -127,8 +143,8 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     });
   }
 
-  it('ADMIN 세션, /dashboard: 닫혀 있을 때는 드로어가 없고 aside가 있다', async () => {
-    mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
+  it('resolved student-admin 세션은 닫힌 드로어와 aside를 렌더한다', async () => {
+    mockSession(STUDENT_ADMIN_SESSION);
     await renderFrame('/dashboard');
 
     expect(dialog()).toBeNull();
@@ -137,8 +153,23 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     ).not.toBeNull();
   });
 
+  it('unresolved legacy ADMIN은 재분류 화면만 렌더한다', async () => {
+    mockSession(UNRESOLVED_LEGACY_ADMIN_SESSION);
+    await renderFrame('/dashboard');
+
+    expect(
+      container.querySelector('[data-slot="legacy-member-reclassification"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('aside[data-slot="app-sidebar"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-slot="nav-bar-sidebar-drawer-trigger"]'),
+    ).toBeNull();
+  });
+
   it('admin-only 세션은 관리자 그룹만 드로어에 표시한다', async () => {
-    mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
+    mockSession(STUDENT_ADMIN_SESSION);
     await renderFrame('/dashboard');
 
     await openDrawer();
@@ -170,7 +201,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   });
 
   it('열려 있는 동안 상단 nav 항목 목록에는 역할 메뉴가 섞이지 않는다', async () => {
-    mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
+    mockSession(STUDENT_ADMIN_SESSION);
     await renderFrame('/dashboard');
     await openDrawer();
 
@@ -185,11 +216,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   });
 
   it('프로그램 상세 경로에서는 ProgramScopeSidebar 그룹이 드로어에 뜬다', async () => {
-    mockSession({
-      status: 'assigned',
-      role: 'STUDENT',
-      isProfileComplete: true,
-    });
+    mockSession(STUDENT_SESSION);
     mocks.getProgramOverview.mockReturnValue(new Promise(() => {})); // 로딩 고정
     await renderFrame('/programs/prog-1');
 
@@ -202,7 +229,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   });
 
   it('Escape를 누르면 닫히고 초점이 햄버거로 돌아온다', async () => {
-    mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
+    mockSession(STUDENT_ADMIN_SESSION);
     await renderFrame('/dashboard');
     await openDrawer();
     expect(dialog()).not.toBeNull();
@@ -222,7 +249,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   });
 
   it('경로가 바뀌면(라우트 전환) 드로어가 자동으로 닫힌다', async () => {
-    mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
+    mockSession(STUDENT_ADMIN_SESSION);
     await renderFrame('/dashboard');
     await openDrawer();
     expect(dialog()).not.toBeNull();
