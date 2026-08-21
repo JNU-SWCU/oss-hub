@@ -317,3 +317,13 @@
 - 검증: exact `auth-session-contract.integration.spec.ts` 6 passed, focused frontend auth/session 34 passed, backend/frontend lint·typecheck, public-safe
 - simplifier: 공식 code-simplifier 1.0.0 Codex 단일 실행, 변경 파일 allowlist 밖 수정 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-7/`
+
+## 2026-08-21 — 프로그램별 수치 축 교정을 최신 main에 동기화
+
+- 상태: review
+- Issue: #984
+- PR: (이 PR; #990 동기화 후)
+- blocker: 없음
+- 결과: mobile 200% 최대 수치 tick을 card 안에 유지하고 numeric tick 경계를 E2E로 고정
+- 검증: production raw bounds, max=12 fixture, Chrome 6건, frontend lint·typecheck·build·public-safe
+- 저널 이력: 기존 #984 수치 축 항목은 유지하고 #990 상태 뒤 현재 항목을 EOF에 append
