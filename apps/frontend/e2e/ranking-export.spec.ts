@@ -49,6 +49,7 @@ async function installRankingApi(
   options: {
     readonly viewerClass: ViewerClass;
     readonly failPageTwo?: boolean;
+    readonly shortPage?: boolean;
   },
 ) {
   const requests: string[] = [];
@@ -69,11 +70,14 @@ async function installRankingApi(
       });
       return;
     }
+    const response = envelope(requestPage, pageSize, 205, options.viewerClass);
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(
-        envelope(requestPage, pageSize, 205, options.viewerClass),
+        options.shortPage && requestPage === 2 && pageSize === 100
+          ? { ...response, items: [] }
+          : response,
       ),
     });
   });
@@ -145,6 +149,25 @@ test('page-two failure announces failure and creates no download', async ({
     path: path.join(evidenceDir, 'page-2-failure.png'),
     fullPage: true,
   });
+});
+
+test('short page announces failure and creates no download', async ({
+  page,
+}) => {
+  await installRankingApi(page, { viewerClass: 'staff', shortPage: true });
+  await page.goto('/ranking?year=2026');
+  await expect(
+    page.getByRole('button', { name: 'CSV 다운로드' }),
+  ).toBeVisible();
+  const downloads: string[] = [];
+  page.on('download', (download) =>
+    downloads.push(download.suggestedFilename()),
+  );
+  await page.getByRole('button', { name: 'CSV 다운로드' }).click();
+  await expect(
+    page.getByText('CSV를 준비하지 못했습니다. 다시 시도해 주세요.'),
+  ).toBeVisible();
+  expect(downloads).toEqual([]);
 });
 
 test('public viewer has no export action', async ({ page }) => {
