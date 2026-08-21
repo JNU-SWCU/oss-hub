@@ -199,3 +199,13 @@
 - merge SHA: `97ea2b0a7bf7386f3538cc48038b16a8ccb07bba`
 - 검증: exact head `f0d55cae7cd38e8269e3af4522111ec9378020f2`와 required `ci`·`public-safe`·`commitlint` 성공을 확인
 - 기록: 이 교정 항목 자체를 현재 저널 EOF에 append-only로 추가
+
+## 2026-08-21 — 상속 인증 라우트 manifest 교정을 제출
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR; #978 후속)
+- blocker: 없음
+- 결과: 상속 handler 탐색과 locale 비의존 순서를 고정하고 기존 인증 상태 행렬을 보존
+- 검증: Task 2 초점·전체 backend CI·격리 PostgreSQL·실제 Nest HTTP QA
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-2/`
