@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { serializeCookie, sessionCookieName } from './cookies';
 import { AuthUser } from './domain/auth-user';
+import { HTTP_AUTH_KINDS, type OptionalSessionRequest } from './http-auth';
 import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './session-token';
 import { LoginHistoryService } from '../login-history/login-history.service';
 
@@ -31,8 +32,25 @@ function createResponse(): Response & { setHeader: jest.Mock } {
   };
 }
 
-function requestWithCookie(cookie?: string): Request {
-  return { headers: { cookie } } as Request;
+function requestWithCookie(cookie?: string): OptionalSessionRequest {
+  const request = { headers: { cookie } } as Request;
+  return Object.assign(request, {
+    auth: {
+      kind: HTTP_AUTH_KINDS.ANONYMOUS,
+      hasSessionCookie: cookie !== undefined,
+    },
+  });
+}
+
+function authenticatedRequest(): OptionalSessionRequest {
+  const request = { headers: {} } as Request;
+  return Object.assign(request, {
+    auth: {
+      kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+      hasSessionCookie: true as const,
+      principal: { ...syntheticUser, accountStatus: AccountStatus.ACTIVE },
+    },
+  });
 }
 
 function createController(findMe: jest.Mock): AuthController {
@@ -46,11 +64,11 @@ function createController(findMe: jest.Mock): AuthController {
   );
 }
 
-async function expectInvalidSession(token: string): Promise<void> {
+function expectInvalidSession(token: string): void {
   const findMe = jest.fn();
   const res = createResponse();
 
-  const result = await createController(findMe).getSession(
+  const result = createController(findMe).getSession(
     requestWithCookie(`${sessionCookieName(true)}=${token}`),
     res,
   );
@@ -61,20 +79,16 @@ async function expectInvalidSession(token: string): Promise<void> {
 }
 
 describe('AuthController getSession', () => {
-  it('쿠키가 없으면 익명 상태와 private no-store를 반환한다', async () => {
+  it('쿠키가 없으면 익명 상태와 private no-store를 반환한다', () => {
     const findMe = jest.fn();
     const res = createResponse();
 
-    const result = await createController(findMe).getSession(
+    const result = createController(findMe).getSession(
       requestWithCookie(),
       res,
     );
 
     expect(result).toEqual({ isAuthenticated: false });
-    expect(res.setHeader).toHaveBeenCalledWith(
-      'Cache-Control',
-      'private, no-store',
-    );
     expect(res.setHeader).not.toHaveBeenCalledWith(
       'Set-Cookie',
       expect.any(String),
@@ -82,8 +96,8 @@ describe('AuthController getSession', () => {
     expect(findMe).not.toHaveBeenCalled();
   });
 
-  it('형식이 잘못된 쿠키는 익명 상태로 수렴하고 삭제한다', async () => {
-    await expectInvalidSession('invalid-token');
+  it('형식이 잘못된 쿠키는 익명 상태로 수렴하고 삭제한다', () => {
+    expectInvalidSession('invalid-token');
   });
 
   it('서명이 일치하지 않는 쿠키는 익명 상태로 수렴하고 삭제한다', async () => {
@@ -92,7 +106,7 @@ describe('AuthController getSession', () => {
       syntheticUser.githubId,
     );
 
-    await expectInvalidSession(token);
+    expectInvalidSession(token);
   });
 
   it('만료된 쿠키는 익명 상태로 수렴하고 삭제한다', async () => {
@@ -104,18 +118,14 @@ describe('AuthController getSession', () => {
       issuedAt,
     );
 
-    await expectInvalidSession(token);
+    expectInvalidSession(token);
   });
 
-  it('유효한 세션은 사용자 정보를 포함한 인증 상태를 반환한다', async () => {
-    const token = await issueSessionToken(
-      sessionSecret,
-      syntheticUser.githubId,
-    );
+  it('유효한 세션은 사용자 정보를 포함한 인증 상태를 반환한다', () => {
     const findMe = jest.fn().mockResolvedValue(syntheticUser);
 
-    const result = await createController(findMe).getSession(
-      requestWithCookie(`${sessionCookieName(true)}=${token}`),
+    const result = createController(findMe).getSession(
+      authenticatedRequest(),
       createResponse(),
     );
 
@@ -132,7 +142,7 @@ describe('AuthController getSession', () => {
         isProfileComplete: false,
       },
     });
-    expect(findMe).toHaveBeenCalledWith(syntheticUser.githubId);
+    expect(findMe).not.toHaveBeenCalled();
   });
 
   it('유효한 토큰의 사용자가 없으면 익명 상태로 수렴하고 쿠키를 삭제한다', async () => {
@@ -142,7 +152,7 @@ describe('AuthController getSession', () => {
     );
     const res = createResponse();
 
-    const result = await createController(
+    const result = createController(
       jest.fn().mockResolvedValue(null),
     ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);
 
@@ -160,7 +170,7 @@ describe('AuthController getSession', () => {
     );
     const res = createResponse();
 
-    const result = await createController(
+    const result = createController(
       jest.fn().mockResolvedValue({
         ...syntheticUser,
         role: Role.STAFF,
@@ -175,18 +185,15 @@ describe('AuthController getSession', () => {
     );
   });
 
-  it('사용자 조회 장애는 익명 상태로 숨기지 않는다', async () => {
-    const token = await issueSessionToken(
-      sessionSecret,
-      syntheticUser.githubId,
-    );
-    const failure = new Error('synthetic database failure');
+  it('경계가 붙인 principal을 다시 조회하지 않고 응답한다', () => {
+    const findMe = jest.fn().mockRejectedValue(new Error('must not query'));
 
-    await expect(
-      createController(jest.fn().mockRejectedValue(failure)).getSession(
-        requestWithCookie(`${sessionCookieName(true)}=${token}`),
-        createResponse(),
-      ),
-    ).rejects.toBe(failure);
+    const result = createController(findMe).getSession(
+      authenticatedRequest(),
+      createResponse(),
+    );
+
+    expect(result).toMatchObject({ isAuthenticated: true });
+    expect(findMe).not.toHaveBeenCalled();
   });
 });

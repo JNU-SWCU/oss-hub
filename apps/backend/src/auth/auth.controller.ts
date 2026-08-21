@@ -9,7 +9,6 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
 import { Request, Response } from 'express';
 import { LoginHistoryService } from '../login-history/login-history.service';
 import { AuthConfig } from './auth.config';
@@ -28,8 +27,13 @@ import { MeResponseDto } from './dto/me-response.dto';
 import { SessionResponseDto } from './dto/session-response.dto';
 import { decodeFlowCookie, isSameState } from './oauth-flow';
 import { OriginGuard } from './origin.guard';
+import {
+  assertNeverHttpAuth,
+  HTTP_AUTH_KINDS,
+  type OptionalSessionRequest,
+} from './http-auth';
 import { resolveSession } from './session-resolution';
-import { AuthenticatedRequest, SessionGuard } from './session.guard';
+import { type AuthenticatedRequest, SessionGuard } from './session.guard';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
@@ -140,29 +144,23 @@ export class AuthController {
   /** UI용 조회에서는 정상적인 익명 상태를 모두 200으로 반환한다. */
   @Get('session')
   @OptionalSession()
-  async getSession(
-    @Req() req: Request,
+  getSession(
+    @Req() req: OptionalSessionRequest,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<SessionResponseDto> {
-    res.setHeader('Cache-Control', 'private, no-store');
-    const { githubId, hasSessionCookie } = await resolveSession(
-      this.config,
-      req.headers.cookie,
-    );
-    if (githubId === null) {
-      if (hasSessionCookie) {
-        this.clearSessionCookie(res);
-      }
-      return SessionResponseDto.anonymous();
+  ): SessionResponseDto {
+    switch (req.auth.kind) {
+      case HTTP_AUTH_KINDS.ANONYMOUS:
+        if (req.auth.hasSessionCookie) {
+          this.clearSessionCookie(res);
+        }
+        return SessionResponseDto.anonymous();
+      case HTTP_AUTH_KINDS.AUTHENTICATED:
+        return SessionResponseDto.authenticated(
+          MeResponseDto.from(req.auth.principal, req.auth.principal.role),
+        );
+      default:
+        return assertNeverHttpAuth(req.auth);
     }
-    const user = await this.authService.findMe(githubId);
-    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
-      this.clearSessionCookie(res);
-      return SessionResponseDto.anonymous();
-    }
-    return SessionResponseDto.authenticated(
-      MeResponseDto.from(user, user.role),
-    );
   }
 
   @Post('logout')

@@ -1,14 +1,14 @@
 import { AccountStatus, Role } from '@prisma/client';
 
 export interface AuthUser {
-  id: string;
-  githubId: bigint;
-  nickname: string;
-  name: string | null;
-  avatarUrl: string | null;
+  readonly id: string;
+  readonly githubId: bigint;
+  readonly nickname: string;
+  readonly name: string | null;
+  readonly avatarUrl: string | null;
   readonly accountStatus: AccountStatus;
   /** DB 정식 소스(Issue #109) — 역할 선택 전 null. */
-  role: Role | null;
+  readonly role: Role | null;
   /**
    * 배정된 역할 기준으로 프로필이 완료됐는가.
    *
@@ -17,6 +17,10 @@ export interface AuthUser {
    * 이 사실을 알아야 한다. 역할이 null인 사용자에 대해서는 의미를 두지 않는다.
    */
   readonly isProfileComplete: boolean;
+}
+
+export interface ActiveAccountPrincipal extends AuthUser {
+  readonly accountStatus: typeof AccountStatus.ACTIVE;
 }
 
 export interface AuthLoginResult {
