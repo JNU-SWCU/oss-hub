@@ -40,6 +40,51 @@ describe('UsersRepository profile compatibility reads', () => {
     });
   });
 
+  it('projects legacy STUDENT authority when canonical profile keys are null', async () => {
+    // Given
+    const { findUnique, repository } = harness();
+    findUnique.mockResolvedValue({
+      id: 'user-profile-null-canonical-keys',
+      role: 'STUDENT',
+      selectedRole: 'STUDENT',
+      selectedMemberKind: null,
+      hasStaffAccess: null,
+      hasAdminAccess: null,
+      roleRequests: [],
+      name: 'Legacy Name',
+      studentId: '111111',
+      department: 'Legacy Department',
+      profile: {
+        name: 'Profile Name',
+        studentId: '222222',
+        department: 'Profile Department',
+        memberKind: null,
+        affiliationKind: null,
+        affiliationName: null,
+      },
+    });
+
+    // When
+    const result = await repository.findByGithubId(9_600_000_000_153_104n);
+
+    // Then
+    expect(result).toEqual({
+      id: 'user-profile-null-canonical-keys',
+      role: 'STUDENT',
+      selectedRole: 'STUDENT',
+      selectedMemberKind: 'STUDENT',
+      memberKind: 'STUDENT',
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: 'Profile Department',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      hasPendingStaffRequest: false,
+      name: 'Profile Name',
+      studentId: '222222',
+      department: 'Profile Department',
+    });
+  });
+
   it('falls back to legacy User fields while no UserProfile row exists', async () => {
     // Given
     const { findUnique, repository } = harness();

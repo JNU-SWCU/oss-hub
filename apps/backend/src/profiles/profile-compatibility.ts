@@ -66,13 +66,20 @@ export type CompatibleProfileDepartmentSource = {
 export function resolveCompatibleProfile(
   source: CompatibleProfileSource,
 ): CompatibleProfile {
-  return (
-    source.profile ?? {
+  const profile = source.profile;
+  if (profile === null || profile === undefined) {
+    return {
       name: source.name,
       studentId: source.studentId,
       department: source.department,
-    }
-  );
+    };
+  }
+
+  return {
+    name: profile.name,
+    studentId: profile.studentId,
+    department: profile.department,
+  };
 }
 
 export function resolveCompatibleProfileName(
