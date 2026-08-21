@@ -346,3 +346,13 @@
 - 교정: 앞선 unsupported `corrective`/pending-creation line은 superseded이며, 이전 journal bytes/lines는 수정하지 않고 이 Task 7 correction block만 EOF에 append
 - 검증: verifier-confirmed session contract, 11 preserved tests, TypeScript pure LOC `130/107/56`, `ci`·`public-safe`·`commitlint` green
 - 범위: #991은 test-only corrective이며 product delta 없음
+
+## 2026-08-21 — 프로그램별 수치 축 교정을 journal 후속 뒤에 동기화
+
+- 상태: review
+- Issue: #984
+- PR: #992
+- blocker: 없음
+- 결과: mobile 200% 최대 수치 tick을 card 안에 유지하고 exact `0·6·12` 경계를 고정
+- 검증: production raw bounds, Chrome 6건, frontend lint·typecheck·build, public-safe·commitlint
+- 저널 이력: 기존 #984 항목은 유지하고 journal-only #993 뒤 현재 항목을 EOF에 append
