@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export function validateMigrationLedger(committedNames, rows) {
@@ -31,23 +31,34 @@ export function validateMigrationLedger(committedNames, rows) {
   return issues;
 }
 
-async function main() {
-  const migrationsPath = process.argv[2];
-  if (migrationsPath === undefined) {
-    process.stderr.write(
-      'Usage: node scripts/prisma-migration-ledger.mjs <migrations-directory>\n',
-    );
-    process.exitCode = 2;
-    return;
-  }
+export function resolveMigrationLedgerPaths(
+  migrationsPath,
+  cwd = process.cwd(),
+) {
+  const migrationsDirectory = resolve(cwd, migrationsPath);
+  const backendDirectory = dirname(dirname(migrationsDirectory));
+  return {
+    migrationsDirectory,
+    packagePath: join(backendDirectory, 'package.json'),
+  };
+}
 
-  const committedNames = readdirSync(migrationsPath, { withFileTypes: true })
+export async function runMigrationLedger(
+  migrationsPath,
+  { cwd = process.cwd(), createRequireFromPath = createRequire } = {},
+) {
+  const { migrationsDirectory, packagePath } = resolveMigrationLedgerPaths(
+    migrationsPath,
+    cwd,
+  );
+  const committedNames = readdirSync(migrationsDirectory, {
+    withFileTypes: true,
+  })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
-  const backendDirectory = dirname(dirname(migrationsPath));
-  const require = createRequire(join(backendDirectory, 'package.json'));
-  const { PrismaClient } = require('@prisma/client');
+  const requireFromBackend = createRequireFromPath(packagePath);
+  const { PrismaClient } = requireFromBackend('@prisma/client');
   const prisma = new PrismaClient();
   try {
     const rows = await prisma.$queryRaw`
@@ -72,6 +83,18 @@ async function main() {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+async function main() {
+  const migrationsPath = process.argv[2];
+  if (migrationsPath === undefined) {
+    process.stderr.write(
+      'Usage: node scripts/prisma-migration-ledger.mjs <migrations-directory>\n',
+    );
+    process.exitCode = 2;
+    return;
+  }
+  await runMigrationLedger(migrationsPath);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

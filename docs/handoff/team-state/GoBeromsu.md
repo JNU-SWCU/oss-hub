@@ -467,3 +467,16 @@
 - simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e` entrypoint 1회는 weekly quota로 분석 전 무변경 종료했고, 같은 pinned source prompt를 가용 Codex provider로 동일 55파일 allowlist에 1회 실행해 명료성 변경 3건만 적용; allowlist 밖 product 변경 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10/` (sanitized local-synthetic; production evidence 아님)
 - 금지 작업: production 접근·backfill·release·deploy·Jenkins trigger 없음
+
+## 2026-08-22 — Task 10 migration ledger 모듈 경로를 절대 경로로 교정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: production v0.6.103 cutover는 fail-closed 중단 상태이며 v0.6.102 유지; 재배포는 이 PR 범위 밖
+- 원인: candidate image의 `/app` cwd에서 상대 `prisma/migrations`가 backend directory `.`로 축약되어 `createRequire('package.json')`가 `ERR_INVALID_ARG_VALUE`를 발생
+- 결과: relative·absolute migration 입력을 모두 절대 migrations/backend/package 경로로 정규화한 뒤 `@prisma/client`를 해석하고, 기존 ledger 판정과 오류 JSON은 유지
+- 검증: 신규 path/CLI seam 3 tests와 기존 ledger·Jenkins·checker 계약 합계 27 tests, Node syntax·LSP·Prettier·diff·public-safe·commitlint 통과
+- simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e`를 신규 hand-written 2파일 allowlist에 1회 실행해 test seam 함수 표기만 명료화; allowlist 밖 변경 0건
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-ledger-resolution-fix/` (sanitized synthetic; production 접근 증거 아님)
+- 금지 작업: production 접근·write·release·deploy·Jenkins trigger 없음
