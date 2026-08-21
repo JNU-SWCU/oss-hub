@@ -1,5 +1,6 @@
 import {
   isCompleteUserProfile,
+  normalizeProfileText,
   type UserProfileRecord,
 } from '../user-profile-policy';
 
@@ -10,6 +11,7 @@ export {
   isValidDepartment,
   isValidStudentId,
   isValidUserName,
+  normalizeProfileText,
   profileFieldRequirement,
   USER_DEPARTMENT_MAX_LENGTH,
   USER_NAME_MAX_LENGTH,
@@ -67,5 +69,28 @@ export function toUserProfile(record: UserProfileRecord): UserProfile {
     studentId: record.studentId,
     department: record.department,
     isComplete: isCompleteUserProfile(record),
+  };
+}
+
+export type NormalizedProfileRecord = Omit<
+  UserProfileRecord,
+  'name' | 'department'
+> & {
+  readonly name: string;
+  readonly department: string;
+};
+
+export function nextProfileRecord(
+  user: UserProfileRecord,
+  input: PatchUserProfileInput,
+): NormalizedProfileRecord {
+  return {
+    id: user.id,
+    role: user.role,
+    selectedRole: user.selectedRole,
+    hasPendingStaffRequest: user.hasPendingStaffRequest,
+    name: normalizeProfileText(input.name),
+    studentId: input.studentId ?? user.studentId,
+    department: normalizeProfileText(input.department),
   };
 }

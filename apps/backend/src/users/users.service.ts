@@ -13,6 +13,7 @@ import {
   isCompleteUserProfile,
   isValidDepartment,
   isValidStudentId,
+  nextProfileRecord,
   profileFieldRequirement,
   toUserProfile,
 } from './domain/user-profile';
@@ -65,7 +66,7 @@ export class UsersService {
     const next = nextProfileRecord(user, input);
     this.requireFieldsForRole(next, input.studentId !== undefined);
     const completed = await this.repository.completeProfileIfUnchanged(user, {
-      name: input.name,
+      name: next.name,
       studentId: next.studentId,
       department: next.department,
     });
@@ -116,14 +117,17 @@ export class UsersService {
     if (fillsStudentId) {
       await this.fillStudentId(
         user,
-        { name: input.name, department: next.department },
+        {
+          name: next.name,
+          department: next.department,
+        },
         input.studentId,
       );
       return toUserProfile(next);
     }
     await this.repository.updateProfileFields(user.id, {
-      name: input.name,
-      department: input.department,
+      name: next.name,
+      department: next.department,
     });
     return toUserProfile(next);
   }
@@ -239,19 +243,4 @@ export class UsersService {
     }
     return user;
   }
-}
-
-function nextProfileRecord(
-  user: UserProfileRecord,
-  input: PatchUserProfileInput,
-): UserProfileRecord {
-  return {
-    id: user.id,
-    role: user.role,
-    selectedRole: user.selectedRole,
-    hasPendingStaffRequest: user.hasPendingStaffRequest,
-    name: input.name,
-    studentId: input.studentId ?? user.studentId,
-    department: input.department,
-  };
 }
