@@ -388,3 +388,14 @@
 - 결과: compatible profile 반환을 이름·학번·학과로 명시적으로 좁혀 nullable canonical 키가 단일 회원·권한 fallback 결과를 덮어쓰지 않게 함
 - 검증: repository red→green, Task 8 초점 11 suites/57 tests, backend lint·typecheck·format
 - simplifier: source `0fc2bb13a805969c14b0fe9398bad41db346d84e`, plugin 1.0.0으로 현재 Task 8 TypeScript 55파일 전체 allowlist 단일 실행; 기존 `08f17369` receipt는 무효로 교체
+
+## 2026-08-21 — Task 9 회원 화면과 접근 권한을 독립 조합으로 전환
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: STUDENT/STAFF 회원 유형과 소속 입력을 유지하면서 학생·교직원·관리자 화면을 canonical 권한 합집합으로 구성하고, admin-only 호환 경로와 교직원/관리자 접근 제어를 분리
+- 검증: frontend lint(기존 경고 5건)·typecheck·296 files/2992 tests·build, synthetic Chrome happy 3/failure 4 scenarios 통과
+- simplifier: changed-files gate PASS, 독점 역할 switch 재도입 없음, 변경 TypeScript/TSX 전부 250 pure LOC 이하
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-9/`

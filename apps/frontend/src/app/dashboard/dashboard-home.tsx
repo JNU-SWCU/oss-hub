@@ -1,5 +1,6 @@
 'use client';
 
+import { redirect } from 'next/navigation';
 import { StudentDashboardScreen } from '@/features/dashboard';
 import { StaffDashboardPage } from '@/features/programs/staff-dashboard-page';
 import { useSharedSessionRole } from '../_shell/session-role-context';
@@ -18,20 +19,10 @@ import { useSharedSessionRole } from '../_shell/session-role-context';
  * 비회원·미완료 가입자는 여기까지 오지 않으므로 AccessDenied를 그리지 않는다.
  */
 export function DashboardHome() {
-  const { role } = useSharedSessionRole();
+  const { memberKind, hasStaffAccess, hasAdminAccess } = useSharedSessionRole();
 
-  switch (role) {
-    case 'STAFF':
-    case 'ADMIN':
-      return <StaffDashboardPage />;
-    case 'STUDENT':
-      return <StudentDashboardScreen />;
-    case null:
-      // RoleGate allow 통과 뒤에만 마운트된다. null이면 게이트 조합 오류다.
-      return null;
-    default: {
-      const exhaustive: never = role;
-      return exhaustive;
-    }
-  }
+  if (hasStaffAccess) return <StaffDashboardPage />;
+  if (memberKind === 'STUDENT') return <StudentDashboardScreen />;
+  if (hasAdminAccess) redirect('/admin/access');
+  return null;
 }

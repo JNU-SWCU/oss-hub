@@ -23,7 +23,7 @@ export default async function AdminAccessDetailPage({
   }
 
   return (
-    <RolePanelShell allow={['ADMIN']}>
+    <RolePanelShell allow={['admin']}>
       <AdminAccessDetailView userId={decodedUserId} workspace="directory" />
     </RolePanelShell>
   );

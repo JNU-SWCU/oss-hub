@@ -1,8 +1,7 @@
 'use client';
 
 import { SettingsScreen } from '@/features/profile/settings/components/settings-screen';
-import type { ProfileRole } from '@/features/profile/profile-requirements';
-import { effectiveProfileRole } from '../_shell/onboarding-route';
+import { resolveMemberAccess } from '../_shell/member-access';
 import { useSharedSessionRole } from '../_shell/session-role-context';
 
 /**
@@ -31,11 +30,19 @@ import { useSharedSessionRole } from '../_shell/session-role-context';
 export function SettingsRoute() {
   const state = useSharedSessionRole();
 
-  const role: ProfileRole | null = effectiveProfileRole(
-    state.role,
-    state.roleRequestStatus,
-    state.selectedRole,
-  );
+  const authority = resolveMemberAccess(state);
+  const memberKind =
+    authority.memberKind ??
+    state.selectedRole ??
+    (state.roleRequestStatus === 'PENDING' ||
+    state.roleRequestStatus === 'APPROVED'
+      ? 'STAFF'
+      : null);
 
-  return <SettingsScreen role={role} />;
+  return (
+    <SettingsScreen
+      memberKind={memberKind}
+      hasAdminAccess={authority.hasAdminAccess}
+    />
+  );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { resolveMemberAccess } from '../../../_shell/member-access';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
 import { ProgramStaffTeamsPage } from '@/features/programs/program-staff-teams-page';
 import { ProgramTeamsPage } from '@/features/programs/program-teams-page';
@@ -20,9 +21,9 @@ export function ProgramTeamsRouteView({
 }: {
   readonly programId: string;
 }) {
-  const { role } = useSharedSessionRole();
+  const authority = resolveMemberAccess(useSharedSessionRole());
 
-  return role === 'STAFF' || role === 'ADMIN' ? (
+  return authority.hasStaffAccess ? (
     <ProgramStaffTeamsPage programId={programId} />
   ) : (
     <ProgramTeamsPage programId={programId} />

@@ -35,7 +35,7 @@ describe('ProgramApplicationDetailRoute access contract', () => {
       }),
     );
 
-    expect(html).toContain('data-allow="STAFF,ADMIN"');
+    expect(html).toContain('data-allow="staff"');
     // 인코딩된 채로 넘기면 조회가 다른 id 를 찾는다.
     expect(html).toContain('data-program-id="program:basic"');
     expect(html).toContain('data-application-id="app:1"');

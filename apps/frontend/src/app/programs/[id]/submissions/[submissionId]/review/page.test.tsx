@@ -29,7 +29,7 @@ describe('ProgramSubmissionReviewPage access contract', () => {
     const page = await ProgramSubmissionReviewPage({ params });
     const html = renderToStaticMarkup(page);
 
-    expect(html).toContain('data-allow="STAFF,ADMIN"');
+    expect(html).toContain('data-allow="staff"');
     expect(html).toContain('data-submission-id="submission-existing"');
     expect(html).not.toContain('STUDENT');
   });

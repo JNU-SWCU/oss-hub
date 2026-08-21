@@ -126,7 +126,7 @@ describe('ProgramApplyRoute 세션 조립', () => {
 
     await act(async () => {
       root.render(
-        <RoleGate allow={['STUDENT']}>
+        <RoleGate allow={['student']}>
           <ProgramApplyRoute programId="synthetic-program" teamId={null} />
         </RoleGate>,
       );
@@ -142,6 +142,9 @@ describe('ProgramApplyRoute 세션 조립', () => {
         email: null,
         avatarUrl: null,
         role: 'STUDENT',
+        memberKind: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         isProfileComplete: true,
       },
     });

@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProfileRole } from './profile-requirements';
+import type { ProfileMemberKind } from './profile-requirements';
 
 /**
  * `router`는 렌더마다 같은 객체여야 한다 — 화면의 조회 effect가 그 참조를 의존성으로
@@ -101,9 +101,16 @@ describe('프로필 온보딩 화면', () => {
     vi.unstubAllGlobals();
   });
 
-  async function render(role: ProfileRole | null = 'STUDENT'): Promise<void> {
+  async function render(
+    memberKind: ProfileMemberKind = 'STUDENT',
+  ): Promise<void> {
     await act(async () => {
-      root.render(<ProfileOnboardingScreen role={role} nextPath={NEXT_PATH} />);
+      root.render(
+        <ProfileOnboardingScreen
+          memberKind={memberKind}
+          nextPath={NEXT_PATH}
+        />,
+      );
     });
   }
 
@@ -201,7 +208,8 @@ describe('프로필 온보딩 화면', () => {
     // 어차피 바꿀 수 없는 항목이다. 설정 화면이 이미 그렇게 한다.
     expect(savedRequest()?.body).toEqual({
       name: '합성 학생',
-      department: '인공지능학부',
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: '인공지능학부',
     });
     expect(mocks.assign).toHaveBeenCalledWith(NEXT_PATH);
   });
@@ -230,7 +238,8 @@ describe('프로필 온보딩 화면', () => {
     expect(savedRequest()?.body).toEqual({
       name: '합성 학생',
       studentId: '1'.repeat(6),
-      department: '인공지능학부',
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: '인공지능학부',
     });
   });
 

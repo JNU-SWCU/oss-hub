@@ -3,7 +3,7 @@ import { ActivityTimelineScreen } from '@/features/activity-timeline';
 
 export default function ActivityTimelinePage() {
   return (
-    <RolePanelShell allow={['STUDENT']}>
+    <RolePanelShell allow={['student']}>
       <ActivityTimelineScreen />
     </RolePanelShell>
   );

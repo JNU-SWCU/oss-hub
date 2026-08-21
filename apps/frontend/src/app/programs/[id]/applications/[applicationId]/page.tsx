@@ -21,7 +21,7 @@ export default async function ProgramApplicationDetailRoute({
   }
 
   return (
-    <RolePanelShell allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['staff']}>
       {/*
        * `key`로 신청이 바뀌면 화면 인스턴스를 새로 만든다. 재사용하면 앞 신청의
        * 느린 응답이 뒤에 도착해 화면을 덮고, 열어 둔 확인창·안내가 그대로 남는다.

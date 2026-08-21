@@ -4,7 +4,10 @@ import type { SessionRoleResult } from '../_shell/use-session-role';
 
 const mocks = vi.hoisted(() => ({
   useSharedSessionRole: vi.fn(),
+  redirect: vi.fn(),
 }));
+
+vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 
 vi.mock('../_shell/session-role-context', () => ({
   useSharedSessionRole: mocks.useSharedSessionRole,
@@ -24,10 +27,17 @@ vi.mock('@/features/programs/staff-dashboard-page', () => ({
 
 import { DashboardHome } from './dashboard-home';
 
-function session(role: 'STUDENT' | 'STAFF' | 'ADMIN'): SessionRoleResult {
+function session(
+  memberKind: 'STUDENT' | 'STAFF' | null,
+  hasStaffAccess: boolean,
+  hasAdminAccess: boolean,
+): SessionRoleResult {
   return {
     status: 'assigned',
-    role,
+    role: hasAdminAccess ? 'ADMIN' : hasStaffAccess ? 'STAFF' : 'STUDENT',
+    memberKind,
+    hasStaffAccess,
+    hasAdminAccess,
     roleRequestStatus: null,
     roleRequestRejectionReason: null,
     selectedRole: null,
@@ -38,23 +48,22 @@ function session(role: 'STUDENT' | 'STAFF' | 'ADMIN'): SessionRoleResult {
 
 describe('DashboardHome', () => {
   it('STUDENT 세션이면 학생 대시보드 본문을 그린다', () => {
-    mocks.useSharedSessionRole.mockReturnValue(session('STUDENT'));
+    mocks.useSharedSessionRole.mockReturnValue(session('STUDENT', false, true));
     const html = renderToStaticMarkup(<DashboardHome />);
     expect(html).toContain('data-testid="student-dashboard"');
     expect(html).not.toContain('data-testid="staff-dashboard"');
   });
 
   it('STAFF 세션이면 운영 대시보드 본문을 그린다', () => {
-    mocks.useSharedSessionRole.mockReturnValue(session('STAFF'));
+    mocks.useSharedSessionRole.mockReturnValue(session('STAFF', true, true));
     const html = renderToStaticMarkup(<DashboardHome />);
     expect(html).toContain('data-testid="staff-dashboard"');
     expect(html).not.toContain('data-testid="student-dashboard"');
   });
 
-  it('ADMIN 세션이면 운영 대시보드 본문을 그린다', () => {
-    mocks.useSharedSessionRole.mockReturnValue(session('ADMIN'));
-    const html = renderToStaticMarkup(<DashboardHome />);
-    expect(html).toContain('data-testid="staff-dashboard"');
-    expect(html).not.toContain('data-testid="student-dashboard"');
+  it('admin-only compatibility는 교직원 본문 대신 관리자 화면으로 보낸다', () => {
+    mocks.useSharedSessionRole.mockReturnValue(session(null, false, true));
+    renderToStaticMarkup(<DashboardHome />);
+    expect(mocks.redirect).toHaveBeenCalledWith('/admin/access');
   });
 });

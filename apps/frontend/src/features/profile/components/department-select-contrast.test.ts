@@ -26,7 +26,7 @@ const css = readFileSync(
   'utf-8',
 );
 const screenSource = readFileSync(
-  path.resolve(__dirname, './profile-onboarding-screen.tsx'),
+  path.resolve(__dirname, './profile-affiliation-fields.tsx'),
   'utf-8',
 );
 const appFrameSource = readFileSync(
@@ -156,7 +156,7 @@ function readDepartmentSelectClassName(): string {
   const start = screenSource.indexOf('<Select');
   if (start === -1) {
     throw new Error(
-      'profile-onboarding-screen.tsx에서 <Select>를 찾지 못했습니다',
+      'profile-affiliation-fields.tsx에서 <Select>를 찾지 못했습니다',
     );
   }
   const match = /className="([^"]+)"/.exec(screenSource.slice(start));

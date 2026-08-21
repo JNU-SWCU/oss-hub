@@ -11,7 +11,7 @@ export default async function ProgramMyDocsPage({
 }) {
   const { id } = await params;
   return (
-    <RolePanelShell allow={['STUDENT']}>
+    <RolePanelShell allow={['student']}>
       <MyDocsRoute programId={decodeRouteProgramId(id)} />
     </RolePanelShell>
   );

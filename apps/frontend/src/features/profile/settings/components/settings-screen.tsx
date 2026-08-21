@@ -1,15 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PageBody } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import {
   classifyProfileApiError,
   getMyProfile,
   updateMyProfile,
 } from '../../api';
-import type { ProfileRole } from '../../profile-requirements';
+import type { ProfileMemberKind } from '../../profile-requirements';
 import {
   classifyNotificationChannelApiError,
   getMyNotificationChannel,
@@ -28,13 +25,16 @@ import type {
   SettingsFormValues,
   SettingsNotificationLoadState,
 } from '../types';
+import { settingsFormErrors } from '../settings-validation';
 import { SettingsForm, SettingsSkeleton } from './settings-form';
+import { SettingsLoadError } from './settings-load-error';
 
 export function SettingsScreen({
-  role,
+  memberKind,
+  hasAdminAccess,
 }: {
-  /** app 계층이 세션에서 읽어 넘긴다 — feature는 auth·roles에 직접 의존할 수 없다. */
-  readonly role: ProfileRole | null;
+  readonly memberKind: ProfileMemberKind | null;
+  readonly hasAdminAccess: boolean;
 }) {
   const [values, setValues] = useState<SettingsFormValues | null>(null);
   const [notificationLoad, setNotificationLoad] =
@@ -154,15 +154,8 @@ export function SettingsScreen({
 
   const errors = useMemo(
     () =>
-      values
-        ? validateSettingsForm(values, notificationLoad.kind === 'ready', role)
-        : {
-            name: null,
-            studentId: null,
-            department: null,
-            notificationEmail: null,
-          },
-    [values, notificationLoad.kind, role],
+      settingsFormErrors(values, notificationLoad.kind === 'ready', memberKind),
+    [values, notificationLoad.kind, memberKind],
   );
 
   async function submit(): Promise<void> {
@@ -175,9 +168,9 @@ export function SettingsScreen({
     const nextErrors = validateSettingsForm(
       values,
       notificationLoad.kind === 'ready',
-      role,
+      memberKind,
     );
-    const profileRequest = toSettingsProfileRequest(values, role);
+    const profileRequest = toSettingsProfileRequest(values, memberKind);
     if (!profileRequest || !isSettingsFormValid(nextErrors)) {
       return;
     }
@@ -250,21 +243,10 @@ export function SettingsScreen({
 
   if (loadError) {
     return (
-      <PageBody className="max-w-2xl">
-        <Alert variant="destructive">
-          <AlertTitle>설정을 불러오지 못했습니다</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-4">
-            <span>{loadError}</span>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void loadSettings()}
-            >
-              다시 시도
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </PageBody>
+      <SettingsLoadError
+        message={loadError}
+        onRetry={() => void loadSettings()}
+      />
     );
   }
 
@@ -274,7 +256,8 @@ export function SettingsScreen({
 
   return (
     <SettingsForm
-      role={role}
+      memberKind={memberKind}
+      hasAdminAccess={hasAdminAccess}
       values={values}
       errors={errors}
       showValidationErrors={hasSubmitted}

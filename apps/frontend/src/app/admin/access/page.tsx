@@ -10,7 +10,7 @@ import { AdminAccessScreen } from '@/features/roles/components/admin-access-scre
 // Suspense로 감싼다.
 export default function AdminAccessPage() {
   return (
-    <RolePanelShell allow={['ADMIN']}>
+    <RolePanelShell allow={['admin']}>
       <Suspense fallback={null}>
         <AdminAccessScreen workspace="directory" />
       </Suspense>

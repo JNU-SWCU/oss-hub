@@ -44,9 +44,11 @@ function renderForm(
 ) {
   const notificationAvailable = options.notificationAvailable ?? true;
   const role = options.role ?? 'STUDENT';
+  const memberKind = role === 'ADMIN' ? null : role;
   return renderToStaticMarkup(
     <SettingsForm
-      role={role}
+      memberKind={memberKind}
+      hasAdminAccess={role === 'ADMIN'}
       values={formValues}
       errors={validateSettingsForm(formValues, notificationAvailable, role)}
       showValidationErrors={options.showValidationErrors ?? false}

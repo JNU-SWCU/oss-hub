@@ -29,7 +29,7 @@ describe('AdminSystemStatusPage', () => {
   it('ADMIN RolePanelShell을 유지하고 실제 상태 화면을 렌더링한다', () => {
     const html = renderToStaticMarkup(<AdminSystemStatusPage />);
     expect(html).toContain('data-shell="role-panel"');
-    expect(html).toContain('data-allow="ADMIN"');
+    expect(html).toContain('data-allow="admin"');
     expect(html).toContain('data-testid="system-status-screen"');
     expect(html).toContain('실제 시스템 상태 화면');
     expect(html).not.toContain('Ticket #133');

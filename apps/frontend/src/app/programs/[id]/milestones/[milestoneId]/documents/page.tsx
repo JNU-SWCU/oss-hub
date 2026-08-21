@@ -17,7 +17,7 @@ export default async function MilestoneDocumentCollectionPage({
   // seed id에는 `:`가 들어가 링크가 인코딩해 보낸다 — 두 값 모두 되돌려 놓아야
   // 조회 경로가 다시 인코딩할 때 이중 인코딩이 되지 않는다.
   return (
-    <RolePanelShell allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['staff']}>
       <MilestoneDocumentCollectionScreen
         programId={decodeRouteProgramId(id)}
         milestoneId={decodeRouteProgramId(milestoneId)}

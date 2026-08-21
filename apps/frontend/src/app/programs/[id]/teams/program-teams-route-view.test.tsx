@@ -64,14 +64,11 @@ describe('ProgramTeamsRouteView', () => {
 
   // QA33: 사이드바가 교직원에게도 「참여 팀」을 내보내는데 누르면 학생 전용 게이트에
   // 막혀 "접근 권한이 없는 페이지"가 뜨던 것이 이 결함이었다.
-  it.each<AppRole>(['STAFF', 'ADMIN'])(
-    '%s 에게는 참여 팀 목록을 주고 접근 거부 화면을 띄우지 않는다',
-    (role) => {
-      renderAs(role);
+  it('교직원 접근이 있으면 참여 팀 목록을 주고 접근 거부 화면을 띄우지 않는다', () => {
+    renderAs('STAFF');
 
-      expect(container.textContent).toContain('교직원 참여 팀 목록');
-      expect(container.textContent).not.toContain('접근 권한이 없는');
-      expect(container.textContent).not.toContain('학생 팀 구성 화면');
-    },
-  );
+    expect(container.textContent).toContain('교직원 참여 팀 목록');
+    expect(container.textContent).not.toContain('접근 권한이 없는');
+    expect(container.textContent).not.toContain('학생 팀 구성 화면');
+  });
 });

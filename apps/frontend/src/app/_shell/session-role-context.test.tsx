@@ -10,6 +10,9 @@ import type { SessionRoleResult } from './use-session-role';
 const SNAPSHOT: SessionRoleResult = {
   status: 'unassigned',
   role: null,
+  memberKind: 'STAFF',
+  hasStaffAccess: false,
+  hasAdminAccess: false,
   roleRequestStatus: 'PENDING',
   roleRequestRejectionReason: null,
   selectedRole: 'STAFF',

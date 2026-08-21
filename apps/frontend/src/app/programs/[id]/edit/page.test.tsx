@@ -28,7 +28,7 @@ describe('ProgramEditPageRoute access contract', () => {
       }),
     );
 
-    expect(html).toContain('data-allow="STAFF,ADMIN"');
+    expect(html).toContain('data-allow="staff"');
     expect(html).toContain('data-program-id="program-canonical-id"');
     expect(html).not.toContain('STUDENT');
   });

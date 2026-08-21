@@ -1,3 +1,5 @@
+export type AffiliationKind = 'DEPARTMENT' | 'PROGRAM_OFFICE';
+
 export interface UserProfile {
   readonly name: string;
   readonly studentId: string | null;
@@ -12,7 +14,8 @@ export interface UserProfile {
 export interface CompleteProfileRequest {
   readonly name: string;
   readonly studentId?: string;
-  readonly department: string;
+  readonly affiliationKind: AffiliationKind;
+  readonly affiliationName: string;
 }
 
 /**
@@ -41,6 +44,8 @@ export interface ProfileFormValues {
    * 같은 항목을 들고 있다.
    */
   readonly savedStudentId: string;
+  readonly affiliationKind: AffiliationKind;
+  readonly affiliationName: string;
   readonly departmentOption: string;
   readonly otherDepartment: string;
 }

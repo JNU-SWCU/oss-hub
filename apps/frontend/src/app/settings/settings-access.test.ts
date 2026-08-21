@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest';
 import type { SessionRoleState } from '../_shell/use-session-role';
 import {
   isSettingsOpenForStaffAwaitingRole,
-  SETTINGS_ALLOWED_ROLES,
+  SETTINGS_ALLOWED_SURFACES,
 } from './settings-access';
 
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
     role: null,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     roleRequestStatus: null,
     roleRequestRejectionReason: null,
     selectedRole: null,
@@ -18,11 +21,11 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   };
 }
 
-describe('SETTINGS_ALLOWED_ROLES', () => {
-  it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
-    '역할이 확정된 %s는 설정을 쓴다 — 여기서 가리는 것은 역할 종류가 아니다',
-    (role) => {
-      expect(SETTINGS_ALLOWED_ROLES).toContain(role);
+describe('SETTINGS_ALLOWED_SURFACES', () => {
+  it.each(['student', 'staff', 'admin'] as const)(
+    '%s surface는 설정을 쓴다',
+    (surface) => {
+      expect(SETTINGS_ALLOWED_SURFACES).toContain(surface);
     },
   );
 });

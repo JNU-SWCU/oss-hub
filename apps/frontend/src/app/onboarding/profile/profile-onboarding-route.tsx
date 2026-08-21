@@ -3,18 +3,21 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ProfileOnboardingScreen } from '@/features/profile/components/profile-onboarding-screen';
-import type { ProfileRole } from '@/features/profile/profile-requirements';
+import type { ProfileMemberKind } from '@/features/profile/profile-requirements';
 import {
-  effectiveProfileRole,
   isClosedRoleRequest,
   onboardingPathFor,
 } from '../../_shell/onboarding-route';
 import { roleHomePath } from '../../_shell/role';
 import { SessionError } from '../../_shell/session-error';
+import type { MemberAccess } from '../../_shell/member-access';
 import {
   useSessionRole,
   type SessionRoleState,
 } from '../../_shell/use-session-role';
+
+type ProfileOnboardingState = Omit<SessionRoleState, keyof MemberAccess> &
+  Partial<MemberAccess>;
 
 /** 아직 가입을 마치지 않은 사용자를 되돌릴 자리 — `AuthGate`가 비로그인을 보내는 곳과 같다. */
 const LANDING_PATH = '/';
@@ -31,7 +34,7 @@ export type ProfileOnboardingView =
     }
   | {
       readonly kind: 'form';
-      readonly role: ProfileRole | null;
+      readonly memberKind: ProfileMemberKind;
       readonly nextPath: string;
       /**
        * 역할 선택으로 되돌아갈 수 있는가.
@@ -54,10 +57,13 @@ export type ProfileOnboardingView =
  * (`onboardingPathFor`)에 맡긴다 — 반려·회수처럼 선택이 아니라 이력이 목적지를
  * 정하는 상태들이다.
  */
-export function signupDestination(state: SessionRoleState): string {
-  if (state.role) {
-    return roleHomePath(state.role);
+export function signupDestination(state: ProfileOnboardingState): string {
+  if (state.memberKind != null || state.hasAdminAccess === true) {
+    return state.hasAdminAccess && state.memberKind === null
+      ? '/admin/access'
+      : '/dashboard';
   }
+  if (state.role) return roleHomePath(state.role);
   switch (state.selectedRole) {
     case 'STUDENT':
       return roleHomePath('STUDENT');
@@ -101,8 +107,22 @@ export function signupDestination(state: SessionRoleState): string {
  * 비로그인은 바깥 `AuthGate`가 랜딩으로 되돌린다 — 여기서는 그 이동이 일어날 때까지
  * 폼을 그리지 않고 기다리기만 하면 된다.
  */
+function profileMemberKind(
+  state: ProfileOnboardingState,
+): ProfileMemberKind | null {
+  if (state.memberKind !== undefined && state.memberKind !== null) {
+    return state.memberKind;
+  }
+  if (state.role === 'STUDENT' || state.role === 'STAFF') return state.role;
+  if (state.selectedRole !== null) return state.selectedRole;
+  return state.roleRequestStatus === 'PENDING' ||
+    state.roleRequestStatus === 'APPROVED'
+    ? 'STAFF'
+    : null;
+}
+
 export function profileOnboardingView(
-  state: SessionRoleState,
+  state: ProfileOnboardingState,
 ): ProfileOnboardingView {
   switch (state.status) {
     case 'loading':
@@ -137,13 +157,13 @@ export function profileOnboardingView(
         return { kind: 'redirect', path: ROLE_PATH };
       }
 
+      const memberKind = profileMemberKind(state);
+      if (memberKind === null) {
+        return { kind: 'redirect', path: ROLE_PATH };
+      }
       return {
         kind: 'form',
-        role: effectiveProfileRole(
-          state.role,
-          state.roleRequestStatus,
-          state.selectedRole,
-        ),
+        memberKind,
         nextPath: signupDestination(state),
         // 확정된 것이 하나도 없을 때만 되돌아갈 수 있다.
         canChangeRole:
@@ -209,7 +229,10 @@ export function ProfileOnboardingRoute() {
 
   return (
     <>
-      <ProfileOnboardingScreen role={view.role} nextPath={view.nextPath} />
+      <ProfileOnboardingScreen
+        memberKind={view.memberKind}
+        nextPath={view.nextPath}
+      />
       {view.canChangeRole ? <ChangeRoleLink /> : null}
     </>
   );

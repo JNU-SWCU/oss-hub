@@ -11,17 +11,23 @@ describe('resolveSessionEntry', () => {
   });
 
   it.each([
-    ['STUDENT', '/dashboard', '내 대시보드'],
-    ['STAFF', '/dashboard', '운영 대시보드'],
-    ['ADMIN', '/dashboard', '운영 대시보드'],
-  ] as const)(
-    'role이 확정된(assigned) %s는 회원 공통 대시보드 입구를 반환한다(랜딩 CTA 등)',
-    (role, href, label) => {
-      const destination = resolveSessionEntry('assigned', role, true);
+    ['STUDENT', '내 대시보드'],
+    ['STAFF', '운영 대시보드'],
+  ] as const)('회원 유형 %s는 대시보드 입구를 반환한다', (role, label) => {
+    expect(resolveSessionEntry('assigned', role, true)).toEqual({
+      href: '/dashboard',
+      label,
+      compactLabel: '대시보드',
+    });
+  });
 
-      expect(destination).toEqual({ href, label, compactLabel: '대시보드' });
-    },
-  );
+  it('admin-only 호환 사용자는 관리자 화면 입구를 반환한다', () => {
+    expect(resolveSessionEntry('assigned', 'ADMIN', true)).toEqual({
+      href: '/admin/access',
+      label: '사용자 목록',
+      compactLabel: '관리',
+    });
+  });
 
   // 온보딩을 끝내지 못한 사용자에게 별도의 "이어서" 행동을 만들지 않는다.
   // 비로그인 방문자와 같은 버튼 하나를 주고, 재개 지점 판단은 `/signup`이 한다.

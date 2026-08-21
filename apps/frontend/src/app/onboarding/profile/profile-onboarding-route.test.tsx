@@ -39,6 +39,9 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
     role: null,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     roleRequestStatus: null,
     roleRequestRejectionReason: null,
     selectedRole: null,
@@ -104,7 +107,7 @@ describe('profileOnboardingView', () => {
       ),
     ).toEqual({
       kind: 'form',
-      role: 'STAFF',
+      memberKind: 'STAFF',
       nextPath: '/onboarding/pending',
       // 이미 확정된 사람이다. 되돌아가면 백엔드가 409로 막으므로 길을 열지 않는다.
       canChangeRole: false,
@@ -116,7 +119,7 @@ describe('profileOnboardingView', () => {
       profileOnboardingView(state({ status: 'assigned', role: 'STUDENT' })),
     ).toEqual({
       kind: 'form',
-      role: 'STUDENT',
+      memberKind: 'STUDENT',
       nextPath: '/dashboard',
       canChangeRole: false,
     });
@@ -129,7 +132,7 @@ describe('profileOnboardingView', () => {
       ),
     ).toEqual({
       kind: 'form',
-      role: 'STAFF',
+      memberKind: 'STAFF',
       nextPath: '/onboarding/pending',
       canChangeRole: false,
     });
@@ -159,7 +162,7 @@ describe('profileOnboardingView', () => {
         profileOnboardingView(state({ status: 'unassigned', selectedRole })),
       ).toEqual({
         kind: 'form',
-        role: selectedRole,
+        memberKind: selectedRole,
         nextPath:
           selectedRole === 'STUDENT' ? '/dashboard' : '/onboarding/pending',
         // 아직 확정 전이라 되돌아갈 수 있다.
@@ -185,7 +188,7 @@ describe('profileOnboardingView', () => {
     );
 
     // Then
-    expect(view).toMatchObject({ kind: 'form', role: 'STAFF' });
+    expect(view).toMatchObject({ kind: 'form', memberKind: 'STAFF' });
   });
 
   // 회수·반려는 살아 있는 신청이 없는 상태라 역할부터 다시 고른다(#535).
@@ -225,8 +228,8 @@ describe('profileOnboardingView', () => {
     },
   );
 
-  it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
-    '역할이 배정된 %s 사용자는 되돌리지 않는다',
+  it.each(['STUDENT', 'STAFF'] as const)(
+    '회원 유형이 배정된 %s 사용자는 되돌리지 않는다',
     (role) => {
       expect(
         profileOnboardingView(state({ status: 'assigned', role })).kind,

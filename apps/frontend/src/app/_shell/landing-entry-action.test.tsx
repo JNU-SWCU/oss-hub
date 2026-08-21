@@ -77,7 +77,7 @@ describe('LandingEntryActionView', () => {
     expect(html).toContain('href="/dashboard"');
   });
 
-  it('offers the operations dashboard to an assigned administrator', () => {
+  it('offers admin-only compatibility users the admin entry', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView
         status="assigned"
@@ -86,8 +86,8 @@ describe('LandingEntryActionView', () => {
       />,
     );
 
-    expect(html).toContain('운영 대시보드');
-    expect(html).toContain('href="/dashboard"');
+    expect(html).toContain('사용자 목록');
+    expect(html).toContain('href="/admin/access"');
   });
 
   // 학생은 역할을 고르는 즉시 배정되므로, 프로필 단계에서 창을 닫은 사람은 역할만

@@ -1,4 +1,5 @@
 export type AuthRole = 'STUDENT' | 'STAFF' | 'ADMIN';
+export type MemberKind = 'STUDENT' | 'STAFF';
 
 export interface Me {
   readonly nickname: string;
@@ -6,7 +7,11 @@ export interface Me {
   /** GitHub OAuth primary 캐시. 없을 수 있다. 알림 수신 주소 SoT는 notification-email API. */
   readonly email: string | null;
   readonly avatarUrl: string | null;
+  /** Todo 13까지 유지하는 legacy 호환 projection. UI surface 판정에는 쓰지 않는다. */
   readonly role: AuthRole | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   /**
    * 배정된 역할 기준 프로필 완료 여부.
    *

@@ -40,9 +40,9 @@ export function createInitialSettingsForm(
 export function validateSettingsForm(
   values: SettingsFormValues,
   notificationAvailable: boolean,
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ): SettingsFormErrors {
-  const profileErrors = validateSettingsProfileForm(values, role);
+  const profileErrors = validateSettingsProfileForm(values, memberKind);
   return {
     name: profileErrors.name,
     studentId: profileErrors.studentId,
@@ -61,9 +61,9 @@ export function isSettingsFormValid(errors: SettingsFormErrors): boolean {
 
 export function toSettingsProfileRequest(
   values: SettingsFormValues,
-  role: ProfileRole | null,
+  memberKind: ProfileRole | null,
 ) {
-  return toUpdateProfileRequest(values, role);
+  return toUpdateProfileRequest(values, memberKind);
 }
 
 export function toSettingsNotificationRequest(values: SettingsFormValues) {

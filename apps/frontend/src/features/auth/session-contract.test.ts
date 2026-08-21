@@ -21,6 +21,9 @@ const syntheticUser: Me = {
   email: null,
   avatarUrl: null,
   role: 'STUDENT',
+  memberKind: 'STUDENT',
+  hasStaffAccess: false,
+  hasAdminAccess: false,
   isProfileComplete: true,
 };
 

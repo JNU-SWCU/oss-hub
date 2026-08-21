@@ -5,7 +5,7 @@ import { ProgramCreationPage } from '@/features/programs/program-creation-page';
 // programId가 없으므로 섹션 스코프(`programs`) 사이드바를 쓴다.
 export default function ProgramNewPage() {
   return (
-    <RolePanelShell allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['staff']}>
       <ProgramCreationPage />
     </RolePanelShell>
   );

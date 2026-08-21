@@ -8,7 +8,7 @@ export default async function ProgramTimelinePage({
 }) {
   const { id } = await params;
   return (
-    <RolePanelShell allow={['STUDENT']}>
+    <RolePanelShell allow={['student']}>
       <MilestoneTimelineScreen programId={decodeURIComponent(id)} />
     </RolePanelShell>
   );

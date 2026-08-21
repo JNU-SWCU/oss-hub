@@ -11,9 +11,12 @@ export function BoardDetailRoute({
   readonly programId: string;
   readonly postId: string;
 }) {
-  const { role } = useSharedSessionRole();
-  const isStaff = role === 'STAFF' || role === 'ADMIN';
+  const { hasStaffAccess } = useSharedSessionRole();
   return (
-    <BoardDetailView programId={programId} postId={postId} isStaff={isStaff} />
+    <BoardDetailView
+      programId={programId}
+      postId={postId}
+      isStaff={hasStaffAccess}
+    />
   );
 }

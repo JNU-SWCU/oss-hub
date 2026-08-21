@@ -22,7 +22,7 @@ export default async function ApplicantQueueDetailPage({
   }
 
   return (
-    <RolePanelShell allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['staff']}>
       <AdminAccessDetailView userId={decodedUserId} workspace="queue" />
     </RolePanelShell>
   );

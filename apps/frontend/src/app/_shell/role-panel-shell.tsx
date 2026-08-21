@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { RoleGate } from './role-gate';
-import type { AppRole } from './role';
+import type { MemberSurface } from './member-access';
 
 /**
  * 역할 화면 셸 — 접근 게이트(`RoleGate`)만 담당한다.
@@ -13,7 +13,7 @@ export function RolePanelShell({
   deniedPath,
   children,
 }: {
-  allow: readonly AppRole[];
+  allow: readonly MemberSurface[];
   deniedPath?: string;
   children: ReactNode;
 }) {

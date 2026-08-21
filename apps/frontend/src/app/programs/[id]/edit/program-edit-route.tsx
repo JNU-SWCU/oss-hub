@@ -1,6 +1,7 @@
 'use client';
 
 import { ProgramEditPage } from '@/features/programs/program-edit-page';
+import { resolveMemberAccess } from '../../../_shell/member-access';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
 
 /**
@@ -13,6 +14,8 @@ export function ProgramEditRoute({
 }: {
   readonly programId: string;
 }) {
-  const { role } = useSharedSessionRole();
-  return <ProgramEditPage programId={programId} isAdmin={role === 'ADMIN'} />;
+  const authority = resolveMemberAccess(useSharedSessionRole());
+  return (
+    <ProgramEditPage programId={programId} isAdmin={authority.hasAdminAccess} />
+  );
 }

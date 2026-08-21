@@ -3,15 +3,15 @@
 import { usePathname } from 'next/navigation';
 import { StatusBadge } from '@/components/status-badge';
 import { LoginButton } from '@/features/auth/components/login-button';
-import type { AppRole } from './role';
+import { memberSurfaces, type MemberSurface } from './member-access';
 import { shouldShowAccountSlot } from './signup-completion';
 import { useSessionRole } from './use-session-role';
 
 /** 역할칩 라벨. */
-const ROLE_CHIP_LABEL: Record<AppRole, string> = {
-  STUDENT: '학생',
-  STAFF: '교직원',
-  ADMIN: '관리자',
+const SURFACE_CHIP_LABEL: Record<MemberSurface, string> = {
+  student: '학생',
+  staff: '교직원',
+  admin: '관리자',
 };
 
 /**
@@ -19,10 +19,10 @@ const ROLE_CHIP_LABEL: Record<AppRole, string> = {
  * 새로 만들지 않는다). 학생 = recruiting(남색), 교직원 = approved(초록). ADMIN도
  * 전용 색을 새로 만들지 않고 교직원과 같은 approved 톤을 재사용한다.
  */
-const ROLE_CHIP_VARIANT: Record<AppRole, 'recruiting' | 'approved'> = {
-  STUDENT: 'recruiting',
-  STAFF: 'approved',
-  ADMIN: 'approved',
+const SURFACE_CHIP_VARIANT: Record<MemberSurface, 'recruiting' | 'approved'> = {
+  student: 'recruiting',
+  staff: 'approved',
+  admin: 'approved',
 };
 
 /**
@@ -47,19 +47,22 @@ export function AccountSlot() {
     return null;
   }
 
-  const role =
-    state.status === 'assigned' && state.isProfileComplete ? state.role : null;
+  const surfaces =
+    state.status === 'assigned' && state.isProfileComplete
+      ? memberSurfaces(state)
+      : [];
 
   return (
     <div className="flex items-center gap-2">
-      {role !== null ? (
+      {surfaces.map((surface) => (
         <StatusBadge
-          variant={ROLE_CHIP_VARIANT[role]}
-          aria-label={`${ROLE_CHIP_LABEL[role]} 역할`}
+          key={surface}
+          variant={SURFACE_CHIP_VARIANT[surface]}
+          aria-label={`${SURFACE_CHIP_LABEL[surface]} 권한`}
         >
-          {ROLE_CHIP_LABEL[role]}
+          {SURFACE_CHIP_LABEL[surface]}
         </StatusBadge>
-      ) : null}
+      ))}
       <LoginButton />
     </div>
   );
