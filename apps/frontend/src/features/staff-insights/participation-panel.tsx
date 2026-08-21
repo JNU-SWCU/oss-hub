@@ -168,27 +168,29 @@ export function ParticipationPanel({
             {COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW]}
           </span>
         </div>
-        <table className="sr-only">
-          <caption>프로그램별 SW전공과 비SW전공 참여자</caption>
-          <thead>
-            <tr>
-              <th>프로그램</th>
-              <th>SW전공</th>
-              <th>비SW전공</th>
-              <th>미등록</th>
-            </tr>
-          </thead>
-          <tbody>
-            {summary.programs.map((program) => (
-              <tr key={program.programId}>
-                <td>{program.name}</td>
-                <td>{program.swMajorCount}</td>
-                <td>{program.nonSwCount}</td>
-                <td>{program.unregisteredCount}</td>
+        <div className="sr-only">
+          <table>
+            <caption>프로그램별 SW전공과 비SW전공 참여자</caption>
+            <thead>
+              <tr>
+                <th>프로그램</th>
+                <th>SW전공</th>
+                <th>비SW전공</th>
+                <th>미등록</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {summary.programs.map((program) => (
+                <tr key={program.programId}>
+                  <td>{program.name}</td>
+                  <td>{program.swMajorCount}</td>
+                  <td>{program.nonSwCount}</td>
+                  <td>{program.unregisteredCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   );
