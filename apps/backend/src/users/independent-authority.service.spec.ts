@@ -1,4 +1,5 @@
 import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import type { AdminAccessActor } from './admin-access.repository.types';
 import {
@@ -20,6 +21,7 @@ class AuthorityStore
     IndependentAuthorityRepositoryPort,
     IndependentAuthorityTransactionStore
 {
+  readonly auditLogWriter = new PrismaService();
   actor: AdminAccessActor | null = {
     id: 'actor',
     githubId: actorGithubId,
@@ -67,7 +69,7 @@ it.each([
   async (command, hasStaffAccess, hasAdminAccess) => {
     const store = new AuthorityStore();
     store.target = target({ hasStaffAccess: true, hasAdminAccess: true });
-    const service = new IndependentAuthorityService(store);
+    const service = new IndependentAuthorityService(store, noopAuditLog());
 
     const result =
       command === STAFF_ACCESS_COMMANDS.REVOKE
@@ -86,7 +88,7 @@ it.each([
 it('treats a same-state grant as an idempotent success without writing', async () => {
   const store = new AuthorityStore();
   store.target = target({ hasAdminAccess: true, role: Role.ADMIN });
-  const service = new IndependentAuthorityService(store);
+  const service = new IndependentAuthorityService(store, noopAuditLog());
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
@@ -106,7 +108,7 @@ it('rejects a non-admin actor before writing', async () => {
     role: Role.STAFF,
     accountStatus: AccountStatus.ACTIVE,
   };
-  const service = new IndependentAuthorityService(store);
+  const service = new IndependentAuthorityService(store, noopAuditLog());
 
   await expect(
     service.patchStaffAccess(actorGithubId, 'target', {
@@ -122,7 +124,7 @@ it('rejects revoking the final active admin', async () => {
   const store = new AuthorityStore();
   store.activeAdminCount = 1;
   store.target = target({ hasAdminAccess: true, role: Role.ADMIN });
-  const service = new IndependentAuthorityService(store);
+  const service = new IndependentAuthorityService(store, noopAuditLog());
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
@@ -133,6 +135,10 @@ it('rejects revoking the final active admin', async () => {
   });
   expect(store.updates).toHaveLength(0);
 });
+
+function noopAuditLog() {
+  return { record: jest.fn().mockResolvedValue({}) };
+}
 
 function target(
   overrides: Partial<IndependentAuthorityUserRecord> = {},

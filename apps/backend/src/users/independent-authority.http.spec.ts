@@ -1,6 +1,7 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies';
@@ -8,6 +9,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import { issueSessionToken } from '../auth/session-token';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { PrismaService } from '../prisma/prisma.service';
 import type { AdminAccessActor } from './admin-access.repository.types';
 import {
   ADMIN_ACCESS_COMMANDS,
@@ -32,6 +34,7 @@ class HttpAuthorityStore
     IndependentAuthorityRepositoryPort,
     IndependentAuthorityTransactionStore
 {
+  readonly auditLogWriter = new PrismaService();
   actor: AdminAccessActor = adminActor();
   target: IndependentAuthorityUserRecord = targetUser();
   activeAdminCount = 2;
@@ -87,6 +90,10 @@ describe('independent authority HTTP contracts', () => {
         SessionGuard,
         OriginGuard,
         { provide: IndependentAuthorityRepository, useValue: store },
+        {
+          provide: AuditLogService,
+          useValue: { record: jest.fn().mockResolvedValue({}) },
+        },
         {
           provide: AuthService,
           useValue: { getMe: jest.fn().mockResolvedValue({ id: 'actor' }) },

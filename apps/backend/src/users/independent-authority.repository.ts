@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   findAdminActorByGithubId,
@@ -21,6 +22,7 @@ export type IndependentAuthorityUserRecord = ReturnType<
 };
 
 export interface IndependentAuthorityTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   lockActiveAdmins(): Promise<number>;
   findUserForUpdate(
@@ -42,6 +44,10 @@ type LockedUserRow = Readonly<{ id: string }>;
 
 class PrismaIndependentAuthorityStore implements IndependentAuthorityTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.transaction;
+  }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
     return findAdminActorByGithubId(this.transaction, githubId);

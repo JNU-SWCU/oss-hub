@@ -408,3 +408,13 @@
 - 결과: IndependentAuthorityController와 GET access·PATCH staff/admin access의 PROTECTED 분류를 전체 inventory·runtime route 대조에 추가하고 익명 401·인증 계약을 고정
 - 검증: auth manifest happy/failure/inheritance 2 suites/20 tests, 독립 권한 API 8 suites/30 tests
 - simplifier: 기존 corrective allowlist 밖 신규 3파일만 source `0fc2bb13a805969c14b0fe9398bad41db346d84e` plugin 1.0.0으로 조건부 단일 실행
+
+## 2026-08-22 — 독립 권한 변경과 감사 원장을 원자화
+
+- 상태: review
+- Issue: #969
+- PR: #996
+- blocker: 없음
+- 결과: 실제 staff/admin 권한 변경 뒤 기존 AuditLogService를 같은 Prisma transaction writer로 호출해 권한 쓰기와 감사 이벤트를 함께 commit·rollback하고 idempotent no-op에는 phantom audit를 남기지 않음
+- 검증: 감사 transaction/rollback/idempotency 2 suites/7 tests, 독립 권한 API 8 suites/32 tests, Task 8 권한 행렬 11 suites/58 tests, auth manifest 2 suites/20 tests, backend lint·typecheck·format·public-safe 회귀 통과
+- simplifier: source `0fc2bb13a805969c14b0fe9398bad41db346d84e`, plugin 1.0.0으로 신규 audit corrective TypeScript 7파일 allowlist 단일 실행

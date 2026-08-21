@@ -45,6 +45,7 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
 
   // When
   await repository.withTransaction(async (store) => {
+    expect(store.auditLogWriter).toBe(transaction);
     const before = await store.findUserForUpdate('target');
     if (!before) {
       throw new TypeError('Expected target');
