@@ -100,6 +100,30 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
   expect(result.malformed).toEqual([]);
   expect(result.clipped).toEqual([]);
   expect(result.emojiVisible).toBe(true);
+  const chartCard = page
+    .getByText('참여 — 프로그램별', { exact: true })
+    .locator('xpath=ancestor::*[@data-slot="card"][1]');
+  const numericTicks = chartCard.locator(
+    'svg text.recharts-cartesian-axis-tick-value',
+  );
+  await expect(numericTicks).toHaveCount(3);
+  const numericTickBounds = await numericTicks.evaluateAll((elements) =>
+    elements.map((element) => ({
+      text: element.textContent ?? '',
+      ...element.getBoundingClientRect().toJSON(),
+    })),
+  );
+  const cardBounds = await chartCard.boundingBox();
+  if (cardBounds === null) {
+    throw new Error('프로그램별 참여 카드의 화면 경계가 필요합니다.');
+  }
+  const clippedNumericTicks = numericTickBounds.flatMap((rectangle) =>
+    rectangle.x >= cardBounds.x + 8 &&
+    rectangle.x + rectangle.width <= cardBounds.x + cardBounds.width - 8
+      ? []
+      : [rectangle.text],
+  );
+  expect(clippedNumericTicks).toEqual([]);
   expect(
     await page.evaluate(
       () =>
