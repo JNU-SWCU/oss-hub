@@ -61,7 +61,6 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/audit-logs',
   'PUBLIC GET /api/v1/auth/github',
   'PUBLIC GET /api/v1/auth/github/callback',
-  'PROTECTED GET /api/v1/auth/me',
   'OPTIONAL_SESSION GET /api/v1/auth/session',
   'PROTECTED GET /api/v1/consents/current',
   'PROTECTED GET /api/v1/dashboard/staff/insights',

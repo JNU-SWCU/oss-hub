@@ -188,6 +188,16 @@ describe('LoginButton 로그아웃 착지', () => {
     },
   );
 
+  it('로그아웃이 확정되지 않으면 공유 세션만 다시 읽는다', async () => {
+    mocks.logout.mockResolvedValue({ isAuthenticated: true });
+
+    await logoutFrom('/dashboard');
+
+    expect(mocks.assign).not.toHaveBeenCalled();
+    expect(mocks.logout).toHaveBeenCalledOnce();
+    expect(mocks.refreshSession).toHaveBeenCalledOnce();
+  });
+
   it('로그아웃 요청이 실패하면 이동하지 않고 오류를 남긴다', async () => {
     // Given — 세션이 아직 살아 있는데 완료 화면을 띄우면 거짓말이 된다.
     mocks.logout.mockRejectedValue(new Error('network'));

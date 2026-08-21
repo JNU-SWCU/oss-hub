@@ -42,13 +42,19 @@ function requestWithCookie(cookie?: string): OptionalSessionRequest {
   });
 }
 
-function authenticatedRequest(): OptionalSessionRequest {
+function authenticatedRequest(
+  role: Role | null = syntheticUser.role,
+): OptionalSessionRequest {
   const request = { headers: {} } as Request;
   return Object.assign(request, {
     auth: {
       kind: HTTP_AUTH_KINDS.AUTHENTICATED,
       hasSessionCookie: true as const,
-      principal: { ...syntheticUser, accountStatus: AccountStatus.ACTIVE },
+      principal: {
+        ...syntheticUser,
+        role,
+        accountStatus: AccountStatus.ACTIVE,
+      },
     },
   });
 }
@@ -144,6 +150,26 @@ describe('AuthController getSession', () => {
     });
     expect(findMe).not.toHaveBeenCalled();
   });
+
+  it.each([Role.ADMIN, Role.STAFF, Role.STUDENT, null])(
+    'authenticated session role is the DB role: %s',
+    (dbRole) => {
+      const result = createController(jest.fn()).getSession(
+        authenticatedRequest(dbRole),
+        createResponse(),
+      );
+
+      expect(result).toMatchObject({
+        isAuthenticated: true,
+        user: {
+          nickname: syntheticUser.nickname,
+          role: dbRole,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+      });
+      expect(result).not.toHaveProperty('login');
+    },
+  );
 
   it('유효한 토큰의 사용자가 없으면 익명 상태로 수렴하고 쿠키를 삭제한다', async () => {
     const token = await issueSessionToken(

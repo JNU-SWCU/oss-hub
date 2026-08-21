@@ -68,7 +68,6 @@ export const AUTH_ROUTE_STATUS_CASES = {
     expired: 200,
   },
   '/api/v1/auth/session': { anonymous: 200, authenticated: 200, expired: 200 },
-  '/api/v1/auth/me': { anonymous: 401, authenticated: 200, expired: 401 },
 } as const;
 
 export class AuthRouteStatusHarness {

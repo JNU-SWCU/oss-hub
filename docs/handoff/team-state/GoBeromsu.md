@@ -298,3 +298,13 @@
 - blocker: 없음
 - 결과: screen-reader 의미 테이블을 clipping block으로 감싸 375px document overflow를 제거
 - 검증: production Aside 재현, documentElement/body overflow red-green, Chrome responsive 초점 검증
+## 2026-08-21 — 현재 사용자 조회를 세션 계약으로 통합
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `/auth/me`를 제거하고 `/auth/session`만 현재 사용자 조회 계약으로 유지하며 레거시 role projection을 인증 DTO에 보존
+- 검증: exact `auth-session-contract.integration.spec.ts` 6 passed, focused frontend auth/session 34 passed, backend/frontend lint·typecheck, public-safe
+- simplifier: 공식 code-simplifier 1.0.0 Codex 단일 실행, 변경 파일 allowlist 밖 수정 0건
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-7/`
