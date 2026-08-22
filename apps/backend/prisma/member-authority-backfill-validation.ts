@@ -6,6 +6,7 @@ export const MEMBER_AUTHORITY_BACKFILL_ERROR_KIND = {
   UNKNOWN_SELECTION_COMBINATION: 'UNKNOWN_SELECTION_COMBINATION',
   DUPLICATE_STUDENT_ID: 'DUPLICATE_STUDENT_ID',
   UNAPPROVED_PROFILE_MISMATCH: 'UNAPPROVED_PROFILE_MISMATCH',
+  NON_IDEMPOTENT_PROJECTION: 'NON_IDEMPOTENT_PROJECTION',
 } as const;
 
 export type MemberAuthorityBackfillErrorKind =
@@ -28,20 +29,99 @@ export function requireKnownSelection(user: MemberAuthorityBackfillUser): void {
   const selected = user.selectedMemberKind;
   const selectedFromLegacyRole = legacySelectedMemberKind(user.selectedRole);
   const canonical = user.profile?.memberKind ?? null;
-  const incompatible =
-    user.selectedRole === Role.ADMIN ||
-    (selected !== null &&
-      selectedFromLegacyRole !== null &&
-      selected !== selectedFromLegacyRole) ||
-    (canonical === null &&
-      user.role === Role.STUDENT &&
-      selected === MemberKind.STAFF) ||
-    (canonical === null &&
-      user.role === Role.STAFF &&
-      selected === MemberKind.STUDENT) ||
-    (canonical === null && user.role === Role.ADMIN && selected !== null) ||
-    (canonical !== null && selected !== null && canonical !== selected);
-  if (incompatible) throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
+  if (user.selectedRole === Role.ADMIN) {
+    throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
+  }
+  if (user.role === null) {
+    const incompatible =
+      (selected !== null &&
+        selectedFromLegacyRole !== null &&
+        selected !== selectedFromLegacyRole) ||
+      (canonical !== null && selected !== null && canonical !== selected);
+    if (incompatible) throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
+    return;
+  }
+
+  const expected = assignedMemberKind(user.role);
+  const canonicalConflict =
+    user.role === Role.ADMIN
+      ? canonical !== null
+      : canonical !== null && canonical !== expected;
+  const selectionConflict = selected !== null && selected !== expected;
+  if (
+    canonicalConflict ||
+    (selectionConflict && !isExactV1SelectionConflict(user, expected)) ||
+    (canonical !== null && !hasCompatibleCanonicalAccess(user))
+  ) {
+    throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
+  }
+}
+
+export function projectedSelectedMemberKind(
+  user: MemberAuthorityBackfillUser,
+): MemberKind | null {
+  return user.role === null
+    ? (user.selectedMemberKind ?? legacySelectedMemberKind(user.selectedRole))
+    : assignedMemberKind(user.role);
+}
+
+function assignedMemberKind(role: Role): MemberKind | null {
+  switch (role) {
+    case Role.STUDENT:
+      return MemberKind.STUDENT;
+    case Role.STAFF:
+      return MemberKind.STAFF;
+    case Role.ADMIN:
+      return null;
+  }
+}
+
+function isExactV1SelectionConflict(
+  user: MemberAuthorityBackfillUser,
+  expected: MemberKind | null,
+): boolean {
+  const staleSelection = legacySelectedMemberKind(user.selectedRole);
+  if (
+    staleSelection === null ||
+    staleSelection === expected ||
+    user.selectedMemberKind !== staleSelection
+  ) {
+    return false;
+  }
+  const canonical = user.profile?.memberKind ?? null;
+  switch (user.role) {
+    case Role.STUDENT:
+      return (
+        canonical === MemberKind.STUDENT &&
+        user.hasStaffAccess === false &&
+        user.hasAdminAccess === false
+      );
+    case Role.STAFF:
+      return (
+        canonical === MemberKind.STAFF &&
+        user.hasStaffAccess === true &&
+        user.hasAdminAccess === false
+      );
+    case Role.ADMIN:
+      return (
+        canonical === null &&
+        user.hasStaffAccess === true &&
+        user.hasAdminAccess === true
+      );
+    case null:
+      return false;
+  }
+}
+
+function hasCompatibleCanonicalAccess(
+  user: MemberAuthorityBackfillUser,
+): boolean {
+  const expectedStaff = user.role !== Role.STUDENT;
+  const expectedAdmin = user.role === Role.ADMIN;
+  return (
+    (user.hasStaffAccess === null || user.hasStaffAccess === expectedStaff) &&
+    (user.hasAdminAccess === null || user.hasAdminAccess === expectedAdmin)
+  );
 }
 
 export function requireApprovedProfileSource(
@@ -73,6 +153,7 @@ export function legacySelectedMemberKind(role: Role | null): MemberKind | null {
 
 export function backfillInvariant(
   kind: MemberAuthorityBackfillErrorKind,
+  affectedCount = 1,
 ): MemberAuthorityBackfillInvariantError {
-  return new MemberAuthorityBackfillInvariantError(kind, 1);
+  return new MemberAuthorityBackfillInvariantError(kind, affectedCount);
 }

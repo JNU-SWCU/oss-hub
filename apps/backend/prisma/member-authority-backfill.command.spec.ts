@@ -1,9 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { AffiliationKind, MemberKind, Role } from '@prisma/client';
-import { applyMemberAuthorityBackfill } from './member-authority-backfill-core';
+import {
+  applyMemberAuthorityBackfill,
+  MemberAuthorityBackfillInvariantError,
+} from './member-authority-backfill-core';
 import { parseMemberAuthorityFixture } from './member-authority-backfill-fixture';
 import type { MemberAuthorityBackfillUser } from './member-authority-backfill-types';
 
@@ -14,7 +17,7 @@ const fixturePath = resolve(
 );
 
 describe('member authority backfill command', () => {
-  it('accepts a canonical student-admin without treating independent admin access as a legacy mismatch', () => {
+  it('rejects an unrelated canonical student-admin conflict', () => {
     const user: MemberAuthorityBackfillUser = {
       id: 'synthetic-canonical-student-admin',
       githubId: '9990000001',
@@ -37,10 +40,46 @@ describe('member authority backfill command', () => {
       },
     };
 
-    expect(applyMemberAuthorityBackfill([user])).toMatchObject({
-      changedUsers: 0,
-      users: [{ role: Role.ADMIN, hasAdminAccess: true }],
-    });
+    expectUnknownSelection(user);
+  });
+
+  it('logs only aggregate invariant kind and count on CLI failure', () => {
+    const root = mkdtempSync(join(tmpdir(), 'member-authority-failure-'));
+    const inputPath = join(root, 'fixture.json');
+    const evidencePath = join(root, 'evidence.json');
+    const fixture = parseMemberAuthorityFixture(
+      JSON.parse(readFileSync(fixturePath, 'utf8')),
+    );
+    const source = fixture.users[0];
+    if (source === undefined || source.profile === null) {
+      throw new TypeError('Missing synthetic failure fixture');
+    }
+    const input = {
+      version: 1,
+      users: [
+        {
+          ...source,
+          selectedRole: Role.STUDENT,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          profile: { ...source.profile, memberKind: MemberKind.STUDENT },
+        },
+      ],
+      requests: [],
+    };
+    writeFileSync(inputPath, JSON.stringify(input));
+
+    try {
+      const result = spawnFixture(inputPath, evidencePath);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        'failed kind=UNKNOWN_SELECTION_COMBINATION count=1',
+      );
+      expect(result.stderr).not.toContain(source.id);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('backfills the exact fixture and proves the second pass changes zero rows', () => {
@@ -57,6 +96,43 @@ describe('member authority backfill command', () => {
     expect(fixture.users.map(({ githubId }) => githubId)).toEqual(
       Array.from({ length: 62 }, (_, index) => String(9_900_000_001 + index)),
     );
+    expect(
+      fixture.users
+        .filter(({ id }) =>
+          [
+            'fixture:member-authority:user:student:001',
+            'fixture:member-authority:user:student:002',
+            'fixture:member-authority:user:admin:001',
+          ].includes(id),
+        )
+        .map(({ id, role, selectedRole }) => ({
+          id,
+          role,
+          selectedRole,
+          approved: fixture.requests.some(
+            (request) => request.userId === id && request.status === 'APPROVED',
+          ),
+        })),
+    ).toEqual([
+      {
+        id: 'fixture:member-authority:user:student:001',
+        role: Role.STUDENT,
+        selectedRole: Role.STAFF,
+        approved: true,
+      },
+      {
+        id: 'fixture:member-authority:user:student:002',
+        role: Role.STUDENT,
+        selectedRole: Role.STAFF,
+        approved: false,
+      },
+      {
+        id: 'fixture:member-authority:user:admin:001',
+        role: Role.ADMIN,
+        selectedRole: Role.STAFF,
+        approved: true,
+      },
+    ]);
     expect(
       fixture.users
         .filter(({ role }) => role === null)
@@ -90,25 +166,15 @@ describe('member authority backfill command', () => {
 
     try {
       // When
-      const result = spawnSync(
-        'pnpm',
-        [
-          '--filter',
-          'backend',
-          'db:backfill:member-authority',
-          '--',
-          '--fixture',
-          'apps/backend/prisma/fixtures/member-authority-62-users.json',
-          '--evidence',
-          evidencePath,
-        ],
-        { cwd: repositoryRoot, encoding: 'utf8' },
+      const result = spawnFixture(
+        'apps/backend/prisma/fixtures/member-authority-62-users.json',
+        evidencePath,
       );
 
       // Then
       expect(result.status).toBe(0);
       expect(JSON.parse(readFileSync(evidencePath, 'utf8'))).toMatchObject({
-        version: '20260821-member-authority-v1',
+        version: '20260822-member-authority-v2',
         fixture: {
           users: 62,
           legacyRoles: {
@@ -144,6 +210,33 @@ describe('member authority backfill command', () => {
     }
   });
 });
+
+function expectUnknownSelection(user: MemberAuthorityBackfillUser): void {
+  try {
+    applyMemberAuthorityBackfill([user]);
+    throw new Error('Expected selection invariant failure');
+  } catch (error: unknown) {
+    if (!(error instanceof MemberAuthorityBackfillInvariantError)) throw error;
+    expect(error.kind).toBe('UNKNOWN_SELECTION_COMBINATION');
+  }
+}
+
+function spawnFixture(inputPath: string, evidencePath: string) {
+  return spawnSync(
+    'pnpm',
+    [
+      '--filter',
+      'backend',
+      'db:backfill:member-authority',
+      '--',
+      '--fixture',
+      inputPath,
+      '--evidence',
+      evidencePath,
+    ],
+    { cwd: repositoryRoot, encoding: 'utf8' },
+  );
+}
 
 function stableIds(kind: string, count: number): string[] {
   return Array.from(

@@ -3,7 +3,10 @@ import { join } from 'node:path';
 import { MemberKind, PrismaClient } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { parseMemberAuthorityFixture } from './member-authority-backfill-fixture';
-import { backfillMemberAuthority } from './member-authority-backfill';
+import {
+  backfillMemberAuthority,
+  readMemberAuthorityStatus,
+} from './member-authority-backfill';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -63,7 +66,13 @@ it('backfills the exact 62-user and four-request fixture twice without identity 
   const beforeRequests = await requestHistory();
 
   // When
+  const pristineStatus = await readMemberAuthorityStatus(prisma, {
+    userIdPrefix: prefix,
+  });
   const first = await backfillMemberAuthority(prisma, {
+    userIdPrefix: prefix,
+  });
+  const settledStatus = await readMemberAuthorityStatus(prisma, {
     userIdPrefix: prefix,
   });
   const second = await backfillMemberAuthority(prisma, {
@@ -71,7 +80,12 @@ it('backfills the exact 62-user and four-request fixture twice without identity 
   });
 
   // Then
+  expect(pristineStatus).toMatchObject({
+    version: '20260822-member-authority-v2',
+    expected: { changedUsers: 62 },
+  });
   expect(first).toMatchObject({
+    version: '20260822-member-authority-v2',
     changedUsers: 62,
     changedProfiles: 60,
     createdProfiles: 4,
@@ -88,7 +102,15 @@ it('backfills the exact 62-user and four-request fixture twice without identity 
       compatibilityOnlyAdminAuthorities: 5,
     },
   });
-  expect(second).toMatchObject({ changedUsers: 0, changedProfiles: 0 });
+  expect(settledStatus).toMatchObject({
+    version: '20260822-member-authority-v2',
+    expected: { changedUsers: 0, changedProfiles: 0 },
+  });
+  expect(second).toMatchObject({
+    version: '20260822-member-authority-v2',
+    changedUsers: 0,
+    changedProfiles: 0,
+  });
   await expect(
     prisma.user.findMany({
       where: { id: { startsWith: prefix } },

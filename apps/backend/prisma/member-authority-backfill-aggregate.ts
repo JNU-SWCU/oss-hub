@@ -5,6 +5,7 @@ import type {
   MemberAuthorityBackfillUser,
   MemberAuthorityRequestSnapshot,
 } from './member-authority-backfill-types';
+import { projectedSelectedMemberKind } from './member-authority-backfill-validation';
 
 export function memberAuthorityAggregate(
   users: readonly MemberAuthorityBackfillUser[],
@@ -48,13 +49,17 @@ export function memberAuthorityAggregate(
     if (memberKind === null && user.role === Role.STAFF) {
       backfillTargets.memberKinds.STAFF += 1;
     }
+    const projectedSelection = projectedSelectedMemberKind(user);
     if (
-      user.selectedMemberKind === null &&
-      user.selectedRole === Role.STUDENT
+      user.selectedMemberKind !== projectedSelection &&
+      projectedSelection === MemberKind.STUDENT
     ) {
       backfillTargets.selectedMemberKinds.STUDENT += 1;
     }
-    if (user.selectedMemberKind === null && user.selectedRole === Role.STAFF) {
+    if (
+      user.selectedMemberKind !== projectedSelection &&
+      projectedSelection === MemberKind.STAFF
+    ) {
       backfillTargets.selectedMemberKinds.STAFF += 1;
     }
     if (user.hasStaffAccess === true) staffAccess += 1;
@@ -91,9 +96,7 @@ function requestHistoryHash(
   requests: readonly MemberAuthorityRequestSnapshot[],
 ): string {
   const stable = [...requests]
-    .sort((left, right) =>
-      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
-    )
+    .sort(compareRequestIds)
     .map(({ id, userId, status, decidedById }) => ({
       id,
       userId,
@@ -101,4 +104,13 @@ function requestHistoryHash(
       decidedById,
     }));
   return createHash('sha256').update(JSON.stringify(stable)).digest('hex');
+}
+
+function compareRequestIds(
+  left: MemberAuthorityRequestSnapshot,
+  right: MemberAuthorityRequestSnapshot,
+): number {
+  if (left.id < right.id) return -1;
+  if (left.id > right.id) return 1;
+  return 0;
 }

@@ -480,3 +480,17 @@
 - simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e`를 신규 hand-written 2파일 allowlist에 1회 실행해 test seam 함수 표기만 명료화; allowlist 밖 변경 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-ledger-resolution-fix/` (sanitized synthetic; production 접근 증거 아님)
 - 금지 작업: production 접근·write·release·deploy·Jenkins trigger 없음
+
+## 2026-08-22 — Task 10 확정 회원 유형을 backfill 선택 기준으로 교정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: production은 pristine 또는 v1 once-applied 상태일 수 있으며 v2 승인·재실행은 이 PR 범위 밖
+- 원인: v1이 assigned `role`로 canonical member/access를 만들면서도 retained `selectedRole`로 `selectedMemberKind`를 투영해 category-wide 3건의 자기모순 상태를 생성
+- 결과: assigned STUDENT/STAFF/ADMIN은 확정 role을 selection 원본으로 쓰고 unassigned만 legacy selection을 사용하며, exact v1 conflict signature 3건만 repair하고 unrelated canonical/profile/access/selection 충돌은 계속 fail-closed
+- 안전성: pure projection을 DB write 전에 두 번 적용해 byte-identical·zero-change를 강제하고 version을 `20260822-member-authority-v2`로 올렸으며 Jenkins는 pristine 62 또는 once-applied 3 change set만 허용
+- 검증: pure/command 2 suites/12 tests, 격리 PostgreSQL 3 suites/4 tests, Jenkins·checker 19 tests, exact 62 fixture 독립 2회(first 62/second 0), backend lint·typecheck·LSP·Node syntax·Prettier·diff·public-safe·commitlint 통과
+- simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e`를 변경 hand-written 13파일 allowlist에 1회 실행해 명료성 변경 3건만 적용; fixture/evidence와 allowlist 밖 변경 0건
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-selection-fix/` (sanitized synthetic; production 접근 증거 아님)
+- 금지 작업: production 접근·write·release·deploy·Jenkins trigger·merge 없음

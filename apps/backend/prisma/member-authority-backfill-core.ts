@@ -11,7 +11,7 @@ import type {
 } from './member-authority-backfill-types';
 import {
   backfillInvariant,
-  legacySelectedMemberKind,
+  projectedSelectedMemberKind,
   requireApprovedProfileSource,
   requireKnownSelection,
 } from './member-authority-backfill-validation';
@@ -25,8 +25,8 @@ export {
 export function applyMemberAuthorityBackfill(
   users: readonly MemberAuthorityBackfillUser[],
 ): MemberAuthorityBackfillResult {
-  const studentIds = new Set<string>();
-  const nextUsers = users.map((user) => projectUser(user, studentIds));
+  const nextUsers = projectUsers(users);
+  assertProjectionIdempotent(nextUsers);
   let changedUsers = 0;
   let changedProfiles = 0;
   let createdProfiles = 0;
@@ -54,6 +54,25 @@ export function applyMemberAuthorityBackfill(
   };
 }
 
+function projectUsers(
+  users: readonly MemberAuthorityBackfillUser[],
+): readonly MemberAuthorityBackfillUser[] {
+  const studentIds = new Set<string>();
+  return users.map((user) => projectUser(user, studentIds));
+}
+
+function assertProjectionIdempotent(
+  users: readonly MemberAuthorityBackfillUser[],
+): void {
+  const repeated = projectUsers(users);
+  const affectedCount = users.filter(
+    (user, index) => JSON.stringify(user) !== JSON.stringify(repeated[index]),
+  ).length;
+  if (affectedCount > 0) {
+    throw backfillInvariant('NON_IDEMPOTENT_PROJECTION', affectedCount);
+  }
+}
+
 function projectUser(
   user: MemberAuthorityBackfillUser,
   studentIds: Set<string>,
@@ -62,13 +81,8 @@ function projectUser(
   requireApprovedProfileSource(user);
   const selectedUser = {
     ...user,
-    selectedMemberKind:
-      user.selectedMemberKind ?? legacySelectedMemberKind(user.selectedRole),
+    selectedMemberKind: projectedSelectedMemberKind(user),
   };
-  const canonicalKind = selectedUser.profile?.memberKind ?? null;
-  if (canonicalKind !== null) {
-    return projectCanonicalUser(selectedUser, canonicalKind, studentIds);
-  }
   switch (selectedUser.role) {
     case Role.STUDENT:
       return projectMember(
@@ -88,8 +102,12 @@ function projectUser(
       );
     case Role.ADMIN:
       return projectUnresolvedAdmin(selectedUser);
-    case null:
-      return { ...selectedUser, hasStaffAccess: false, hasAdminAccess: false };
+    case null: {
+      const canonicalKind = selectedUser.profile?.memberKind ?? null;
+      return canonicalKind === null
+        ? { ...selectedUser, hasStaffAccess: false, hasAdminAccess: false }
+        : projectCanonicalUser(selectedUser, canonicalKind, studentIds);
+    }
   }
 }
 

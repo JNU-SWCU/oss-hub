@@ -2,7 +2,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 const MODES = new Set(['status', 'ready-for-cutover']);
-const BACKFILL_VERSION = '20260821-member-authority-v1';
+const BACKFILL_VERSION = '20260822-member-authority-v2';
 const EXPECTED_MIGRATION_COUNT = 51;
 
 async function main() {

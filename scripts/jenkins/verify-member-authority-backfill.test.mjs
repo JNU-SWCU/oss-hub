@@ -15,13 +15,45 @@ const afterState = aggregateAfter();
 
 after(() => rmSync(root, { recursive: true, force: true }));
 
-test('Jenkins verifier accepts the exact nonzero deterministic transition', () => {
+test('Jenkins verifier accepts the exact pristine deterministic transition', () => {
   const result = verify();
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('Jenkins verifier accepts the exact once-applied v1 repair transition', () => {
+  const result = verify({
+    baselineAggregate: aggregateOnceAppliedV1(),
+    expectedChanges: {
+      changedUsers: 3,
+      changedProfiles: 0,
+      createdProfiles: 0,
+      clearedNonStudentIds: 0,
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('Jenkins verifier rejects a no-op first apply', () => {
-  const result = verify({ changedUsers: 0 });
+  const result = verify({
+    expectedChanges: {
+      changedUsers: 0,
+      changedProfiles: 0,
+      createdProfiles: 0,
+      clearedNonStudentIds: 0,
+    },
+  });
+  assert.equal(result.status, 1);
+});
+
+test('Jenkins verifier rejects a nonzero change set other than 62 or 3', () => {
+  const result = verify({
+    expectedChanges: {
+      changedUsers: 4,
+      changedProfiles: 0,
+      createdProfiles: 0,
+      clearedNonStudentIds: 0,
+    },
+  });
   assert.equal(result.status, 1);
 });
 
@@ -72,35 +104,35 @@ test('Jenkins verifier rejects a different backfill version', () => {
 });
 
 function verify({
-  version = '20260821-member-authority-v1',
+  version = '20260822-member-authority-v2',
   ledger = { status: 'ok', migrationCount: 51 },
-  changedUsers = 62,
+  baselineAggregate = before,
+  expectedChanges = {
+    changedUsers: 62,
+    changedProfiles: 60,
+    createdProfiles: 4,
+    clearedNonStudentIds: 8,
+  },
   appliedAfter = afterState,
   postAggregate = afterState,
 } = {}) {
   const ledgerPath = write('ledger.json', ledger);
   const baselinePath = write('baseline.json', {
-    version: '20260821-member-authority-v1',
-    aggregate: before,
+    version: '20260822-member-authority-v2',
+    aggregate: baselineAggregate,
     expected: {
-      changedUsers: 62,
-      changedProfiles: 60,
-      createdProfiles: 4,
-      clearedNonStudentIds: 8,
+      ...expectedChanges,
       aggregate: afterState,
     },
   });
   const applyPath = write('apply.json', {
     version,
-    changedUsers,
-    changedProfiles: 60,
-    createdProfiles: 4,
-    clearedNonStudentIds: 8,
-    before,
+    ...expectedChanges,
+    before: baselineAggregate,
     after: appliedAfter,
   });
   const postPath = write('post.json', {
-    version: '20260821-member-authority-v1',
+    version: '20260822-member-authority-v2',
     aggregate: postAggregate,
     expected: {
       changedUsers: 0,
@@ -157,5 +189,16 @@ function aggregateAfter() {
     staffAccess: 8,
     adminAccess: 5,
     compatibilityOnlyAdminAuthorities: 5,
+  };
+}
+
+function aggregateOnceAppliedV1() {
+  return {
+    ...aggregateAfter(),
+    selectedMemberKinds: { STUDENT: 52, STAFF: 6, UNRESOLVED: 4 },
+    backfillTargets: {
+      memberKinds: { STUDENT: 0, STAFF: 0 },
+      selectedMemberKinds: { STUDENT: 2, STAFF: 0 },
+    },
   };
 }
