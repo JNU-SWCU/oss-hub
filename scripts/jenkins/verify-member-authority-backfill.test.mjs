@@ -15,20 +15,28 @@ const afterState = aggregateAfter();
 
 after(() => rmSync(root, { recursive: true, force: true }));
 
-test('Jenkins verifier accepts the exact pristine deterministic transition', () => {
+test('production debugger fixture retains exact state-class partitions', () => {
+  assert.deepEqual(productionStateClasses(), {
+    pristine: {
+      assignedMatchedSelection: 39,
+      assignedNullSelection: 20,
+      staleSelection: 3,
+      unassigned: 2,
+    },
+    onceAppliedV1: { valid: 45, nullGaps: 16, staleConflicts: 3, unsafe: 0 },
+    exactV2: { assigned: 62, unassigned: 2, unsafe: 0 },
+  });
+});
+
+test('Jenkins verifier accepts the production-shaped pristine projection', () => {
   const result = verify();
   assert.equal(result.status, 0, result.stderr);
 });
 
-test('Jenkins verifier accepts the exact once-applied v1 repair transition', () => {
+test('Jenkins verifier accepts the production-shaped once-v1 projection', () => {
   const result = verify({
     baselineAggregate: aggregateOnceAppliedV1(),
-    expectedChanges: {
-      changedUsers: 3,
-      changedProfiles: 0,
-      createdProfiles: 0,
-      clearedNonStudentIds: 0,
-    },
+    expectedChanges: onceAppliedChanges(),
   });
   assert.equal(result.status, 0, result.stderr);
 });
@@ -45,15 +53,76 @@ test('Jenkins verifier rejects a no-op first apply', () => {
   assert.equal(result.status, 1);
 });
 
-test('Jenkins verifier rejects a nonzero change set other than 62 or 3', () => {
+test('Jenkins verifier accepts any positive tuple bound to baseline.expected', () => {
+  const expectedChanges = {
+    changedUsers: 7,
+    changedProfiles: 2,
+    createdProfiles: 1,
+    clearedNonStudentIds: 1,
+  };
+  const result = verify({ expectedChanges });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('Jenkins verifier rejects pristine baseline paired with once-applied tuple', () => {
+  const result = verify({ appliedChanges: onceAppliedChanges() });
+  assert.equal(result.status, 1);
+});
+
+test('Jenkins verifier rejects old synthetic 62 tuple for production pristine baseline', () => {
   const result = verify({
-    expectedChanges: {
-      changedUsers: 4,
+    appliedChanges: {
+      changedUsers: 62,
+      changedProfiles: 60,
+      createdProfiles: 4,
+      clearedNonStudentIds: 8,
+    },
+  });
+  assert.equal(result.status, 1);
+});
+
+test('Jenkins verifier rejects old synthetic 3 tuple for production once-v1 baseline', () => {
+  const result = verify({
+    baselineAggregate: aggregateOnceAppliedV1(),
+    expectedChanges: onceAppliedChanges(),
+    appliedChanges: {
+      changedUsers: 3,
       changedProfiles: 0,
       createdProfiles: 0,
       clearedNonStudentIds: 0,
     },
   });
+  assert.equal(result.status, 1);
+});
+
+test('Jenkins verifier rejects once-applied baseline paired with pristine tuple', () => {
+  const expectedChanges = onceAppliedChanges();
+  const result = verify({
+    baselineAggregate: aggregateOnceAppliedV1(),
+    expectedChanges,
+    appliedChanges: pristineChanges(),
+  });
+  assert.equal(result.status, 1);
+});
+
+test('Jenkins verifier rejects apply.before drift from the fresh baseline', () => {
+  const appliedBefore = {
+    ...before,
+    staffAccess: before.staffAccess + 1,
+  };
+  const result = verify({ appliedBefore });
+  assert.equal(result.status, 1);
+});
+
+test('Jenkins verifier rejects baseline projection aggregate drift', () => {
+  const projectedAggregate = {
+    ...afterState,
+    selectedMemberKinds: {
+      ...afterState.selectedMemberKinds,
+      UNRESOLVED: afterState.selectedMemberKinds.UNRESOLVED + 1,
+    },
+  };
+  const result = verify({ projectedAggregate });
   assert.equal(result.status, 1);
 });
 
@@ -107,12 +176,10 @@ function verify({
   version = '20260822-member-authority-v2',
   ledger = { status: 'ok', migrationCount: 51 },
   baselineAggregate = before,
-  expectedChanges = {
-    changedUsers: 62,
-    changedProfiles: 60,
-    createdProfiles: 4,
-    clearedNonStudentIds: 8,
-  },
+  expectedChanges = pristineChanges(),
+  appliedChanges = expectedChanges,
+  appliedBefore = baselineAggregate,
+  projectedAggregate = afterState,
   appliedAfter = afterState,
   postAggregate = afterState,
 } = {}) {
@@ -122,13 +189,13 @@ function verify({
     aggregate: baselineAggregate,
     expected: {
       ...expectedChanges,
-      aggregate: afterState,
+      aggregate: projectedAggregate,
     },
   });
   const applyPath = write('apply.json', {
     version,
-    ...expectedChanges,
-    before: baselineAggregate,
+    ...appliedChanges,
+    before: appliedBefore,
     after: appliedAfter,
   });
   const postPath = write('post.json', {
@@ -155,18 +222,49 @@ function write(name, value) {
   return path;
 }
 
+function productionStateClasses() {
+  return {
+    pristine: {
+      assignedMatchedSelection: 39,
+      assignedNullSelection: 20,
+      staleSelection: 3,
+      unassigned: 2,
+    },
+    onceAppliedV1: { valid: 45, nullGaps: 16, staleConflicts: 3, unsafe: 0 },
+    exactV2: { assigned: 62, unassigned: 2, unsafe: 0 },
+  };
+}
+
+function pristineChanges() {
+  return {
+    changedUsers: 64,
+    changedProfiles: 62,
+    createdProfiles: 4,
+    clearedNonStudentIds: 4,
+  };
+}
+
+function onceAppliedChanges() {
+  return {
+    changedUsers: 19,
+    changedProfiles: 0,
+    createdProfiles: 0,
+    clearedNonStudentIds: 0,
+  };
+}
+
 function aggregateBefore() {
   return {
-    users: 62,
-    profiles: 56,
+    users: 64,
+    profiles: 58,
     requests: 4,
-    legacyRoles: { STUDENT: 52, STAFF: 3, ADMIN: 5, UNASSIGNED: 2 },
-    memberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED_ASSIGNED: 60 },
-    selectedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 62 },
+    legacyRoles: { STUDENT: 54, STAFF: 3, ADMIN: 5, UNASSIGNED: 2 },
+    memberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED_ASSIGNED: 62 },
+    selectedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 64 },
     unassignedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 2 },
     backfillTargets: {
-      memberKinds: { STUDENT: 52, STAFF: 3 },
-      selectedMemberKinds: { STUDENT: 54, STAFF: 3 },
+      memberKinds: { STUDENT: 54, STAFF: 3 },
+      selectedMemberKinds: { STUDENT: 56, STAFF: 3, UNRESOLVED: 0 },
     },
     requestStatuses: { PENDING: 0, APPROVED: 4, REJECTED: 0, REVOKED: 0 },
     requestHistoryHash: 'b'.repeat(64),
@@ -179,12 +277,12 @@ function aggregateBefore() {
 function aggregateAfter() {
   return {
     ...aggregateBefore(),
-    profiles: 60,
-    memberKinds: { STUDENT: 52, STAFF: 3, UNRESOLVED_ASSIGNED: 5 },
-    selectedMemberKinds: { STUDENT: 54, STAFF: 3, UNRESOLVED: 5 },
+    profiles: 62,
+    memberKinds: { STUDENT: 54, STAFF: 3, UNRESOLVED_ASSIGNED: 5 },
+    selectedMemberKinds: { STUDENT: 56, STAFF: 3, UNRESOLVED: 5 },
     backfillTargets: {
       memberKinds: { STUDENT: 0, STAFF: 0 },
-      selectedMemberKinds: { STUDENT: 0, STAFF: 0 },
+      selectedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 0 },
     },
     staffAccess: 8,
     adminAccess: 5,
@@ -195,10 +293,10 @@ function aggregateAfter() {
 function aggregateOnceAppliedV1() {
   return {
     ...aggregateAfter(),
-    selectedMemberKinds: { STUDENT: 52, STAFF: 6, UNRESOLVED: 4 },
+    selectedMemberKinds: { STUDENT: 39, STAFF: 5, UNRESOLVED: 20 },
     backfillTargets: {
       memberKinds: { STUDENT: 0, STAFF: 0 },
-      selectedMemberKinds: { STUDENT: 2, STAFF: 0 },
+      selectedMemberKinds: { STUDENT: 17, STAFF: 1, UNRESOLVED: 1 },
     },
   };
 }

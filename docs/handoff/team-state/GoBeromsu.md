@@ -494,3 +494,18 @@
 - simplifier: 공식 code-simplifier 1.0.0 source `0fc2bb13a805969c14b0fe9398bad41db346d84e`를 변경 hand-written 13파일 allowlist에 1회 실행해 명료성 변경 3건만 적용; fixture/evidence와 allowlist 밖 변경 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-selection-fix/` (sanitized synthetic; production 접근 증거 아님)
 - 금지 작업: production 접근·write·release·deploy·Jenkins trigger·merge 없음
+
+## 2026-08-22 — Task 10 exact-state classifier와 baseline-bound verifier를 고정
+
+- 상태: review
+- Issue: #969
+- PR: #1000
+- blocker: production v2 실행은 승인된 release 절차로 이관
+- 원인: field-wise access/selection 허용이 canonical-null hybrid를 정규화할 수 있었고 Jenkins가 synthetic 62/3 change tuple을 알고리즘 allowlist로 사용
+- 결과: 모든 입력을 pristine nullable legacy·byte-equivalent exact v1·byte-equivalent exact v2 중 한 상태로만 분류하고 profile/root mirror/affiliation/student ID/access/selection hybrid는 write 전에 거부하며, pre-write double projection을 유지
+- verifier: fresh baseline.expected의 positive change tuple과 projected aggregate에 apply/post를 완전히 결박하고 selected target에 `UNRESOLVED` correction을 추가해 user total·change tuple을 hardcode하지 않음
+- production-shaped evidence: pristine v2 `64/62/4/4`, once-v1 v2 `19/0/0/0`, final selected `56/3/5`, member `54/3/5`, access `8/5`, compatibility admin `5`, request history unchanged
+- 검증: pure/command 2 suites/18 tests, 격리 PostgreSQL 3 suites/8 tests, Jenkins·checker 26 tests, pristine/exact-v1 replay와 hybrid no-write, exact 62 fixture 2회, backend lint·typecheck·LSP·Node syntax·Prettier·diff·public-safe·commitlint 통과
+- simplifier: reviewer corrective 8파일과 debugger tuple 6파일의 pinned follow-up에서 명료성 변경만 적용하고 각 allowlist 밖 변경 0건
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-selection-fix/` exact-state follow-up로 갱신
+- 금지 작업: production 접근·write·release·deploy·Jenkins trigger·merge 없음

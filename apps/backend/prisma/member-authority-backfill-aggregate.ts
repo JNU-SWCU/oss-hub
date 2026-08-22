@@ -17,7 +17,7 @@ export function memberAuthorityAggregate(
   const unassignedMemberKinds = { STUDENT: 0, STAFF: 0, UNRESOLVED: 0 };
   const backfillTargets = {
     memberKinds: { STUDENT: 0, STAFF: 0 },
-    selectedMemberKinds: { STUDENT: 0, STAFF: 0 },
+    selectedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 0 },
   };
   const requestStatuses = {
     PENDING: 0,
@@ -50,17 +50,14 @@ export function memberAuthorityAggregate(
       backfillTargets.memberKinds.STAFF += 1;
     }
     const projectedSelection = projectedSelectedMemberKind(user);
-    if (
-      user.selectedMemberKind !== projectedSelection &&
-      projectedSelection === MemberKind.STUDENT
-    ) {
-      backfillTargets.selectedMemberKinds.STUDENT += 1;
-    }
-    if (
-      user.selectedMemberKind !== projectedSelection &&
-      projectedSelection === MemberKind.STAFF
-    ) {
-      backfillTargets.selectedMemberKinds.STAFF += 1;
+    if (user.selectedMemberKind !== projectedSelection) {
+      if (projectedSelection === MemberKind.STUDENT) {
+        backfillTargets.selectedMemberKinds.STUDENT += 1;
+      } else if (projectedSelection === MemberKind.STAFF) {
+        backfillTargets.selectedMemberKinds.STAFF += 1;
+      } else if (projectedSelection === null) {
+        backfillTargets.selectedMemberKinds.UNRESOLVED += 1;
+      }
     }
     if (user.hasStaffAccess === true) staffAccess += 1;
     if (user.hasAdminAccess === true) adminAccess += 1;

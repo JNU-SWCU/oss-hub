@@ -24,7 +24,8 @@ beforeAll(async () => {
   await clearFixtures();
   const studentApproved = await createOnceAppliedStudent('approved', 1);
   await createOnceAppliedStudent('without-request', 2);
-  const adminApproved = await createOnceAppliedAdmin();
+  const adminApproved = await createOnceAppliedAdmin('approved', Role.STAFF, 3);
+  await createOnceAppliedAdmin('retained-null', null, 4);
   await prisma.roleRequest.createMany({
     data: [studentApproved.id, adminApproved.id].map((userId, index) => ({
       id: `${prefix}request:${index + 1}`,
@@ -78,6 +79,7 @@ it('status -> apply -> status -> apply repairs exactly three v1 selection confli
     }),
   ).resolves.toEqual([
     { role: Role.ADMIN, selectedMemberKind: null },
+    { role: Role.ADMIN, selectedMemberKind: null },
     { role: Role.STUDENT, selectedMemberKind: MemberKind.STUDENT },
     { role: Role.STUDENT, selectedMemberKind: MemberKind.STUDENT },
   ]);
@@ -115,17 +117,21 @@ async function createOnceAppliedStudent(label: string, sequence: number) {
   });
 }
 
-async function createOnceAppliedAdmin() {
-  const name = '합성 선택 관리자';
+async function createOnceAppliedAdmin(
+  label: string,
+  selectedRole: Role | null,
+  sequence: number,
+) {
+  const name = `합성 선택 관리자 ${sequence}`;
   const department = '합성 선택 운영학과';
   return prisma.user.create({
     data: {
-      id: `${prefix}admin:approved`,
-      githubId: 9_923_000_003n,
-      nickname: 'synthetic-selection-admin',
+      id: `${prefix}admin:${label}`,
+      githubId: 9_923_000_000n + BigInt(sequence),
+      nickname: `synthetic-selection-admin-${sequence}`,
       role: Role.ADMIN,
-      selectedRole: Role.STAFF,
-      selectedMemberKind: MemberKind.STAFF,
+      selectedRole,
+      selectedMemberKind: selectedRole === Role.STAFF ? MemberKind.STAFF : null,
       hasStaffAccess: true,
       hasAdminAccess: true,
       name,

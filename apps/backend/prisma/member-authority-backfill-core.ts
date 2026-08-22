@@ -4,6 +4,10 @@ import {
   isValidDepartment,
   isValidUserName,
 } from '../src/users/user-profile-policy';
+import {
+  requireAcceptedMachineState,
+  requireIdempotentProjection,
+} from './member-authority-backfill-state';
 import type {
   MemberAuthorityBackfillProfile,
   MemberAuthorityBackfillResult,
@@ -13,7 +17,6 @@ import {
   backfillInvariant,
   projectedSelectedMemberKind,
   requireApprovedProfileSource,
-  requireKnownSelection,
 } from './member-authority-backfill-validation';
 
 export {
@@ -26,21 +29,22 @@ export function applyMemberAuthorityBackfill(
   users: readonly MemberAuthorityBackfillUser[],
 ): MemberAuthorityBackfillResult {
   const nextUsers = projectUsers(users);
-  assertProjectionIdempotent(nextUsers);
+  requireIdempotentProjection(nextUsers, projectUsers);
   let changedUsers = 0;
   let changedProfiles = 0;
   let createdProfiles = 0;
   let clearedNonStudentIds = 0;
   for (const [index, user] of users.entries()) {
-    const next = nextUsers[index];
-    if (next === undefined) continue;
-    if (!sameUser(user, next)) changedUsers += 1;
-    if (!sameProfile(user.profile, next.profile)) changedProfiles += 1;
-    if (user.profile === null && next.profile !== null) createdProfiles += 1;
+    const nextUser = nextUsers[index];
+    if (nextUser === undefined) continue;
+    if (!sameUser(user, nextUser)) changedUsers += 1;
+    if (!sameProfile(user.profile, nextUser.profile)) changedProfiles += 1;
+    if (user.profile === null && nextUser.profile !== null)
+      createdProfiles += 1;
     if (
       user.profile?.studentId !== null &&
       user.profile?.studentId !== undefined &&
-      next.profile?.studentId === null
+      nextUser.profile?.studentId === null
     ) {
       clearedNonStudentIds += 1;
     }
@@ -61,28 +65,24 @@ function projectUsers(
   return users.map((user) => projectUser(user, studentIds));
 }
 
-function assertProjectionIdempotent(
-  users: readonly MemberAuthorityBackfillUser[],
-): void {
-  const repeated = projectUsers(users);
-  const affectedCount = users.filter(
-    (user, index) => JSON.stringify(user) !== JSON.stringify(repeated[index]),
-  ).length;
-  if (affectedCount > 0) {
-    throw backfillInvariant('NON_IDEMPOTENT_PROJECTION', affectedCount);
-  }
-}
-
 function projectUser(
   user: MemberAuthorityBackfillUser,
   studentIds: Set<string>,
 ): MemberAuthorityBackfillUser {
-  requireKnownSelection(user);
   requireApprovedProfileSource(user);
-  const selectedUser = {
-    ...user,
-    selectedMemberKind: projectedSelectedMemberKind(user),
-  };
+  requireAcceptedMachineState(user, (selectedMemberKind) =>
+    projectSelectedUser({ ...user, selectedMemberKind }, new Set<string>()),
+  );
+  return projectSelectedUser(
+    { ...user, selectedMemberKind: projectedSelectedMemberKind(user) },
+    studentIds,
+  );
+}
+
+function projectSelectedUser(
+  selectedUser: MemberAuthorityBackfillUser,
+  studentIds: Set<string>,
+): MemberAuthorityBackfillUser {
   switch (selectedUser.role) {
     case Role.STUDENT:
       return projectMember(
