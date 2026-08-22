@@ -25,38 +25,6 @@ export class MemberAuthorityBackfillInvariantError extends Error {
   }
 }
 
-export function requireKnownSelection(user: MemberAuthorityBackfillUser): void {
-  const selected = user.selectedMemberKind;
-  const selectedFromLegacyRole = legacySelectedMemberKind(user.selectedRole);
-  const canonical = user.profile?.memberKind ?? null;
-  if (user.selectedRole === Role.ADMIN) {
-    throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
-  }
-  if (user.role === null) {
-    const incompatible =
-      (selected !== null &&
-        selectedFromLegacyRole !== null &&
-        selected !== selectedFromLegacyRole) ||
-      (canonical !== null && selected !== null && canonical !== selected);
-    if (incompatible) throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
-    return;
-  }
-
-  const expected = assignedMemberKind(user.role);
-  const canonicalConflict =
-    user.role === Role.ADMIN
-      ? canonical !== null
-      : canonical !== null && canonical !== expected;
-  const selectionConflict = selected !== null && selected !== expected;
-  if (
-    canonicalConflict ||
-    (selectionConflict && !isExactV1SelectionConflict(user, expected)) ||
-    (canonical !== null && !hasCompatibleCanonicalAccess(user))
-  ) {
-    throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
-  }
-}
-
 export function projectedSelectedMemberKind(
   user: MemberAuthorityBackfillUser,
 ): MemberKind | null {
@@ -74,54 +42,6 @@ function assignedMemberKind(role: Role): MemberKind | null {
     case Role.ADMIN:
       return null;
   }
-}
-
-function isExactV1SelectionConflict(
-  user: MemberAuthorityBackfillUser,
-  expected: MemberKind | null,
-): boolean {
-  const staleSelection = legacySelectedMemberKind(user.selectedRole);
-  if (
-    staleSelection === null ||
-    staleSelection === expected ||
-    user.selectedMemberKind !== staleSelection
-  ) {
-    return false;
-  }
-  const canonical = user.profile?.memberKind ?? null;
-  switch (user.role) {
-    case Role.STUDENT:
-      return (
-        canonical === MemberKind.STUDENT &&
-        user.hasStaffAccess === false &&
-        user.hasAdminAccess === false
-      );
-    case Role.STAFF:
-      return (
-        canonical === MemberKind.STAFF &&
-        user.hasStaffAccess === true &&
-        user.hasAdminAccess === false
-      );
-    case Role.ADMIN:
-      return (
-        canonical === null &&
-        user.hasStaffAccess === true &&
-        user.hasAdminAccess === true
-      );
-    case null:
-      return false;
-  }
-}
-
-function hasCompatibleCanonicalAccess(
-  user: MemberAuthorityBackfillUser,
-): boolean {
-  const expectedStaff = user.role !== Role.STUDENT;
-  const expectedAdmin = user.role === Role.ADMIN;
-  return (
-    (user.hasStaffAccess === null || user.hasStaffAccess === expectedStaff) &&
-    (user.hasAdminAccess === null || user.hasAdminAccess === expectedAdmin)
-  );
 }
 
 export function requireApprovedProfileSource(

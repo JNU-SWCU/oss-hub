@@ -234,7 +234,7 @@ function aggregate(unresolved, compatibilityOnly) {
       unassignedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 2 },
       backfillTargets: {
         memberKinds: { STUDENT: 0, STAFF: 0 },
-        selectedMemberKinds: { STUDENT: 0, STAFF: 0 },
+        selectedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 0 },
       },
       requestStatuses: { PENDING: 0, APPROVED: 4, REJECTED: 0, REVOKED: 0 },
       requestHistoryHash: 'b'.repeat(64),

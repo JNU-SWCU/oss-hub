@@ -69,6 +69,7 @@ export type MemberAuthorityAggregate = {
     readonly selectedMemberKinds: {
       readonly STUDENT: number;
       readonly STAFF: number;
+      readonly UNRESOLVED: number;
     };
   };
   readonly requestStatuses: Readonly<Record<RoleRequestStatus, number>>;

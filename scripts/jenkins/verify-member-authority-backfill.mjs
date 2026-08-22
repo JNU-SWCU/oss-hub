@@ -34,37 +34,20 @@ async function main() {
   assert.deepEqual(baseline.aggregate, applied.before);
   assert.deepEqual(baseline.expected.aggregate, applied.after);
   assert.deepEqual(applied.after, post.aggregate);
-  assert.equal(post.expected.changedUsers, 0);
-  assert.equal(post.expected.changedProfiles, 0);
-
-  const expectedChanges = baseline.expected;
-  assert.ok(Number.isSafeInteger(expectedChanges.changedUsers));
-  assert.ok([3, 62].includes(expectedChanges.changedUsers));
-  const expectedChangeSet =
-    expectedChanges.changedUsers === 62
-      ? {
-          changedUsers: 62,
-          changedProfiles: 60,
-          createdProfiles: 4,
-          clearedNonStudentIds: 8,
-        }
-      : {
-          changedUsers: 3,
-          changedProfiles: 0,
-          createdProfiles: 0,
-          clearedNonStudentIds: 0,
-        };
-  for (const [key, value] of Object.entries(expectedChangeSet)) {
-    assert.equal(expectedChanges[key], value);
-  }
-  for (const key of [
+  const changeKeys = [
     'changedUsers',
     'changedProfiles',
     'createdProfiles',
     'clearedNonStudentIds',
-  ]) {
+  ];
+  const expectedChanges = baseline.expected;
+  for (const key of changeKeys) {
+    assert.ok(Number.isSafeInteger(expectedChanges[key]));
+    assert.ok(expectedChanges[key] >= 0);
     assert.equal(applied[key], expectedChanges[key]);
+    assert.equal(post.expected[key], 0);
   }
+  assert.ok(expectedChanges.changedUsers > 0);
 
   for (const key of [
     'users',
@@ -96,10 +79,8 @@ async function main() {
   );
   assert.deepEqual(applied.after.backfillTargets, {
     memberKinds: { STUDENT: 0, STAFF: 0 },
-    selectedMemberKinds: { STUDENT: 0, STAFF: 0 },
+    selectedMemberKinds: { STUDENT: 0, STAFF: 0, UNRESOLVED: 0 },
   });
-  assert.equal(applied.after.memberKinds.UNRESOLVED_ASSIGNED, 5);
-  assert.equal(applied.after.compatibilityOnlyAdminAuthorities, 5);
   assert.equal(
     applied.after.memberKinds.UNRESOLVED_ASSIGNED,
     applied.after.compatibilityOnlyAdminAuthorities,

@@ -1,4 +1,9 @@
-import { MemberKind, PrismaClient, Role } from '@prisma/client';
+import {
+  AffiliationKind,
+  MemberKind,
+  PrismaClient,
+  Role,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { backfillMemberAuthority } from './member-authority-backfill';
 
@@ -51,6 +56,85 @@ it('unknown legacy role-selection combination aborts the transaction', async () 
     hasAdminAccess: null,
   });
 });
+
+it.each([
+  {
+    kind: 'canonical-null-contradictory-access',
+    expectedErrorKind: 'UNKNOWN_SELECTION_COMBINATION',
+  },
+  {
+    kind: 'staff-profile-student-id',
+    expectedErrorKind: 'UNKNOWN_SELECTION_COMBINATION',
+  },
+  {
+    kind: 'affiliation-mirror-mismatch',
+    expectedErrorKind: 'UNAPPROVED_PROFILE_MISMATCH',
+  },
+  {
+    kind: 'partial-canonical-fields',
+    expectedErrorKind: 'UNKNOWN_SELECTION_COMBINATION',
+  },
+] as const)(
+  '$kind hybrid aborts without writes',
+  async ({ kind, expectedErrorKind }) => {
+    const user = await createUser(kind);
+    await makeHybrid(user.id, kind);
+    const before = await storedUser(user.id);
+
+    await expect(
+      backfillMemberAuthority(prisma, { userIdPrefix: user.id }),
+    ).rejects.toMatchObject({
+      kind: expectedErrorKind,
+    });
+    await expect(storedUser(user.id)).resolves.toEqual(before);
+  },
+);
+
+async function makeHybrid(
+  id: string,
+  kind:
+    | 'canonical-null-contradictory-access'
+    | 'staff-profile-student-id'
+    | 'affiliation-mirror-mismatch'
+    | 'partial-canonical-fields',
+): Promise<void> {
+  if (kind === 'canonical-null-contradictory-access') {
+    await prisma.user.update({ where: { id }, data: { hasStaffAccess: true } });
+    return;
+  }
+  if (kind === 'affiliation-mirror-mismatch') {
+    await prisma.userProfile.update({
+      where: { userId: id },
+      data: { affiliationName: '합성 불일치 소속' },
+    });
+    return;
+  }
+  if (kind === 'partial-canonical-fields') {
+    await prisma.user.update({
+      where: { id },
+      data: { selectedMemberKind: MemberKind.STUDENT },
+    });
+    return;
+  }
+  await prisma.user.update({
+    where: { id },
+    data: {
+      role: Role.STAFF,
+      selectedRole: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    },
+  });
+  await prisma.userProfile.update({
+    where: { userId: id },
+    data: {
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '합성 운영학과',
+    },
+  });
+}
 
 async function createUser(
   label: string,

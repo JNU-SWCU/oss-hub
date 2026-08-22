@@ -113,7 +113,7 @@ function parseAggregate(value) {
       ]),
       selectedMemberKinds: countRecord(
         aggregate.backfillTargets?.selectedMemberKinds,
-        ['STUDENT', 'STAFF'],
+        ['STUDENT', 'STAFF', 'UNRESOLVED'],
       ),
     },
     requestStatuses: countRecord(aggregate.requestStatuses, [
