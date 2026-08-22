@@ -509,3 +509,13 @@
 - simplifier: reviewer corrective 8파일과 debugger tuple 6파일의 pinned follow-up에서 명료성 변경만 적용하고 각 allowlist 밖 변경 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-selection-fix/` exact-state follow-up로 갱신
 - 금지 작업: production 접근·write·release·deploy·Jenkins trigger·merge 없음
+
+## 2026-08-22 — Task 10 exact-state correction을 post-merge PR로 이관
+
+- 상태: review
+- Issue: #969
+- PR: #1001
+- blocker: production v2 실행은 승인된 release 절차로 이관
+- 이관: reviewer remediation 중 #1000이 외부에서 merge되어 merged PR head 갱신이 불가능해졌고, 동일 corrective branch에 origin/main history를 product delta 없이 병합해 #1001 diff를 exact-state correction으로 정리
+- 결과·검증·증거: 바로 앞 exact-state classifier와 baseline-bound verifier 항목을 계승
+- 금지 작업: PR merge·production 접근/write·release·deploy·Jenkins trigger 없음
