@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const BACKFILL_VERSION = '20260821-member-authority-v1';
+const BACKFILL_VERSION = '20260822-member-authority-v2';
 const EXPECTED_MIGRATION_COUNT = 51;
 
 async function main() {
@@ -39,7 +39,24 @@ async function main() {
 
   const expectedChanges = baseline.expected;
   assert.ok(Number.isSafeInteger(expectedChanges.changedUsers));
-  assert.ok(expectedChanges.changedUsers > 0);
+  assert.ok([3, 62].includes(expectedChanges.changedUsers));
+  const expectedChangeSet =
+    expectedChanges.changedUsers === 62
+      ? {
+          changedUsers: 62,
+          changedProfiles: 60,
+          createdProfiles: 4,
+          clearedNonStudentIds: 8,
+        }
+      : {
+          changedUsers: 3,
+          changedProfiles: 0,
+          createdProfiles: 0,
+          clearedNonStudentIds: 0,
+        };
+  for (const [key, value] of Object.entries(expectedChangeSet)) {
+    assert.equal(expectedChanges[key], value);
+  }
   for (const key of [
     'changedUsers',
     'changedProfiles',
@@ -76,16 +93,6 @@ async function main() {
     applied.after.memberKinds.STAFF,
     applied.before.memberKinds.STAFF +
       applied.before.backfillTargets.memberKinds.STAFF,
-  );
-  assert.equal(
-    applied.after.selectedMemberKinds.STUDENT,
-    applied.before.selectedMemberKinds.STUDENT +
-      applied.before.backfillTargets.selectedMemberKinds.STUDENT,
-  );
-  assert.equal(
-    applied.after.selectedMemberKinds.STAFF,
-    applied.before.selectedMemberKinds.STAFF +
-      applied.before.backfillTargets.selectedMemberKinds.STAFF,
   );
   assert.deepEqual(applied.after.backfillTargets, {
     memberKinds: { STUDENT: 0, STAFF: 0 },

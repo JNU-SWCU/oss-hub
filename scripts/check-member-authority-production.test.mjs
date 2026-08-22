@@ -219,7 +219,7 @@ function runChecker(
 
 function aggregate(unresolved, compatibilityOnly) {
   return {
-    version: '20260821-member-authority-v1',
+    version: '20260822-member-authority-v2',
     aggregate: {
       users: 62,
       profiles: 60,

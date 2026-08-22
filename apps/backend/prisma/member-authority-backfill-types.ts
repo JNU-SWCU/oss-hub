@@ -6,7 +6,7 @@ import type {
 } from '@prisma/client';
 
 export const MEMBER_AUTHORITY_BACKFILL_VERSION =
-  '20260821-member-authority-v1' as const;
+  '20260822-member-authority-v2' as const;
 
 export type MemberAuthorityBackfillProfile = {
   readonly name: string;

@@ -2,7 +2,10 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { memberAuthorityAggregate } from './member-authority-backfill-aggregate';
-import { applyMemberAuthorityBackfill } from './member-authority-backfill-core';
+import {
+  applyMemberAuthorityBackfill,
+  MemberAuthorityBackfillInvariantError,
+} from './member-authority-backfill-core';
 import { runMemberAuthorityFixture } from './member-authority-backfill-fixture';
 import {
   MEMBER_AUTHORITY_BACKFILL_VERSION,
@@ -95,8 +98,11 @@ export async function backfillMemberAuthority(
   );
 }
 
-export async function readMemberAuthorityStatus(prisma: PrismaClient) {
-  const state = await loadState(prisma);
+export async function readMemberAuthorityStatus(
+  prisma: PrismaClient,
+  options: BackfillMemberAuthorityOptions = {},
+) {
+  const state = await loadState(prisma, options.userIdPrefix);
   const expected = applyMemberAuthorityBackfill(state.users);
   return {
     version: MEMBER_AUTHORITY_BACKFILL_VERSION,
@@ -234,8 +240,17 @@ function resolveCliPath(path: string): string {
 
 if (require.main === module) {
   void main().catch((error: unknown) => {
-    const kind = error instanceof Error ? error.name : 'UnknownError';
-    process.stderr.write(`[member-authority-backfill] failed kind=${kind}\n`);
+    process.stderr.write(
+      `[member-authority-backfill] failed ${failureDetail(error)}\n`,
+    );
     process.exitCode = 1;
   });
+}
+
+function failureDetail(error: unknown): string {
+  if (error instanceof MemberAuthorityBackfillInvariantError) {
+    return `kind=${error.kind} count=${error.affectedCount}`;
+  }
+  if (error instanceof Error) return `kind=${error.name}`;
+  return 'kind=UnknownError';
 }
