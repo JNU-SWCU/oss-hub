@@ -1,4 +1,4 @@
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -15,17 +15,31 @@ describe('팀 초대 대상 자격', () => {
     ['없는 계정', null, 'not-found'],
     [
       '활성 학생',
-      { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
+      {
+        profile: { memberKind: MemberKind.STUDENT },
+        accountStatus: AccountStatus.ACTIVE,
+      },
       'eligible',
     ],
     [
       '교직원',
-      { role: 'STAFF', accountStatus: AccountStatus.ACTIVE },
+      {
+        profile: { memberKind: MemberKind.STAFF },
+        accountStatus: AccountStatus.ACTIVE,
+      },
       'not-eligible',
     ],
     [
       '비활성 학생',
-      { role: 'STUDENT', accountStatus: AccountStatus.DEACTIVATED },
+      {
+        profile: { memberKind: MemberKind.STUDENT },
+        accountStatus: AccountStatus.DEACTIVATED,
+      },
+      'not-eligible',
+    ],
+    [
+      '가입을 마치지 않은 계정',
+      { profile: null, accountStatus: AccountStatus.ACTIVE },
       'not-eligible',
     ],
   ] as const)('%s의 초대 자격을 판정한다', async (_, user, expected) => {
@@ -55,8 +69,8 @@ describe('팀 초대 대상 자격', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          hasStaffAccess: false,
-          hasAdminAccess: false,
+          // 학생 자격은 프로필의 canonical 회원 유형이 정한다.
+          profile: { is: { memberKind: MemberKind.STUDENT } },
           accountStatus: AccountStatus.ACTIVE,
         }) as unknown,
       }),
@@ -134,8 +148,7 @@ describe('팀 초대 대상 자격', () => {
       where: { id: inviteeId },
       select: {
         id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        profile: { select: { memberKind: true } },
         accountStatus: true,
       },
     });

@@ -35,25 +35,13 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         id: { not: syntheticInviteeId },
-        hasStaffAccess: false,
-        hasAdminAccess: false,
+        profile: { is: { memberKind: 'STUDENT' } },
         accountStatus: 'ACTIVE',
         OR: [
           { nickname: { contains: 'octo', mode: 'insensitive' } },
+          // 이름의 정본은 프로필 행뿐이라 legacy fallback 갈래가 사라졌다.
           {
-            OR: [
-              {
-                profile: {
-                  is: {
-                    name: { contains: 'octo', mode: 'insensitive' },
-                  },
-                },
-              },
-              {
-                profile: { is: null },
-                name: { contains: 'octo', mode: 'insensitive' },
-              },
-            ],
+            profile: { is: { name: { contains: 'octo', mode: 'insensitive' } } },
           },
         ],
         teamMemberships: { none: { programId: syntheticProgramId } },
@@ -61,7 +49,6 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
       select: {
         id: true,
         nickname: true,
-        name: true,
         profile: { select: { name: true } },
         avatarUrl: true,
       },
