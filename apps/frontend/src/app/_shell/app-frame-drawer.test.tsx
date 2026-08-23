@@ -78,9 +78,10 @@ const STUDENT_SESSION: DrawerSession = {
   role: 'STUDENT',
   hasAdminAccess: false,
 };
-const UNRESOLVED_LEGACY_ADMIN_SESSION: DrawerSession = {
+const UNRESOLVED_COMPATIBILITY_ADMIN_SESSION: DrawerSession = {
   ...STUDENT_ADMIN_SESSION,
   memberKind: null,
+  hasStaffAccess: true,
 };
 
 function mockSession(session: DrawerSession): void {
@@ -153,19 +154,25 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     ).not.toBeNull();
   });
 
-  it('unresolved legacy ADMIN은 재분류 화면만 렌더한다', async () => {
-    mockSession(UNRESOLVED_LEGACY_ADMIN_SESSION);
+  it('미해결 호환 ADMIN도 정상 셸과 드로어 탐색을 렌더한다', async () => {
+    mockSession(UNRESOLVED_COMPATIBILITY_ADMIN_SESSION);
     await renderFrame('/dashboard');
 
     expect(
-      container.querySelector('[data-slot="legacy-member-reclassification"]'),
+      container.querySelector('aside[data-slot="app-sidebar"]'),
     ).not.toBeNull();
     expect(
-      container.querySelector('aside[data-slot="app-sidebar"]'),
-    ).toBeNull();
-    expect(
       container.querySelector('[data-slot="nav-bar-sidebar-drawer-trigger"]'),
-    ).toBeNull();
+    ).not.toBeNull();
+
+    await openDrawer();
+
+    expect(
+      dialog()?.querySelector('[role="group"][aria-label="교직원"]'),
+    ).not.toBeNull();
+    expect(
+      dialog()?.querySelector('[role="group"][aria-label="관리자"]'),
+    ).not.toBeNull();
   });
 
   it('admin-only 세션은 관리자 그룹만 드로어에 표시한다', async () => {
