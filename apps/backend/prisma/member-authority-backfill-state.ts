@@ -44,8 +44,9 @@ export function requireAcceptedMachineState(
   }
   if (
     user.role === Role.ADMIN &&
-    user.selectedRole === null &&
-    user.selectedMemberKind !== null
+    user.selectedMemberKind !== null &&
+    (user.selectedRole === null ||
+      legacySelectedMemberKind(user.selectedRole) === user.selectedMemberKind)
   ) {
     const exactTerminal = projectCandidate.terminal(user.selectedMemberKind);
     if (sameState(user, exactTerminal)) return exactTerminal;

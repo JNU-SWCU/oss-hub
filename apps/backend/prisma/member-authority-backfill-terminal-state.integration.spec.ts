@@ -35,7 +35,7 @@ afterAll(async () => {
 
 it('status reports endpoint-equivalent STUDENT and STAFF terminal states as zero-change', async () => {
   // Given
-  const exactPrefix = await createTerminalPair('status');
+  const exactPrefix = await createTerminalSet('status');
 
   // When
   const status = await readMemberAuthorityStatus(prisma, {
@@ -43,16 +43,23 @@ it('status reports endpoint-equivalent STUDENT and STAFF terminal states as zero
   });
 
   // Then
-  expect(status.expected).toMatchObject({
-    changedUsers: 0,
-    changedProfiles: 0,
-    createdProfiles: 0,
+  expect(status).toMatchObject({
+    aggregate: {
+      legacyRoles: { ADMIN: 5 },
+      memberKinds: { STUDENT: 3, STAFF: 2, UNRESOLVED_ASSIGNED: 0 },
+      compatibilityOnlyAdminAuthorities: 0,
+    },
+    expected: {
+      changedUsers: 0,
+      changedProfiles: 0,
+      createdProfiles: 0,
+    },
   });
 });
 
 it('apply keeps endpoint-equivalent STUDENT and STAFF terminal states byte-equivalent', async () => {
   // Given
-  const exactPrefix = await createTerminalPair('apply');
+  const exactPrefix = await createTerminalSet('apply');
   const before = await storedUsers(exactPrefix);
 
   // When
@@ -63,21 +70,30 @@ it('apply keeps endpoint-equivalent STUDENT and STAFF terminal states byte-equiv
   // Then
   expect(applied).toMatchObject({ changedUsers: 0, changedProfiles: 0 });
   await expect(storedUsers(exactPrefix)).resolves.toEqual(before);
-  expect(before).toMatchObject([
-    {
-      role: Role.ADMIN,
-      selectedRole: null,
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-    },
-    {
-      role: Role.ADMIN,
-      selectedRole: null,
-      selectedMemberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: true,
-    },
+  expect(
+    before.map((user) => [
+      user.role,
+      user.selectedRole,
+      user.selectedMemberKind,
+      user.hasStaffAccess,
+      user.hasAdminAccess,
+      user.profile?.affiliationKind,
+      user.studentId === user.profile?.studentId,
+    ]),
+  ).toEqual([
+    [Role.ADMIN, null, MemberKind.STAFF, true, true, 'DEPARTMENT', true],
+    [
+      Role.ADMIN,
+      Role.STAFF,
+      MemberKind.STAFF,
+      true,
+      true,
+      'PROGRAM_OFFICE',
+      true,
+    ],
+    [Role.ADMIN, null, MemberKind.STUDENT, false, true, 'DEPARTMENT', true],
+    [Role.ADMIN, null, MemberKind.STUDENT, false, true, 'DEPARTMENT', true],
+    [Role.ADMIN, null, MemberKind.STUDENT, false, true, 'DEPARTMENT', true],
   ]);
 });
 
@@ -89,7 +105,7 @@ const hybridCases = [
   },
   {
     label: 'staff-admin-access',
-    input: staffInput(),
+    input: staffInput(AffiliationKind.PROGRAM_OFFICE),
     data: { hasAdminAccess: false },
   },
 ] as const;
@@ -129,15 +145,33 @@ it.each(hybridCases)('apply rejects one-field hybrid: $label', async (test) => {
   ).resolves.toEqual(before);
 });
 
-async function createTerminalPair(lane: string): Promise<string> {
+async function createTerminalSet(lane: string): Promise<string> {
   const exactPrefix = `${prefix}exact:${lane}:`;
-  const student = await createLegacyAdmin(`exact:${lane}:student`);
-  const staff = await createLegacyAdmin(`exact:${lane}:staff`);
-  await service.reclassify(
-    student.githubId,
-    studentInput(`7480${sequence.toString().padStart(2, '0')}`),
+  const staffDepartment = await createLegacyAdmin(
+    `exact:${lane}:staff-department`,
   );
-  await service.reclassify(staff.githubId, staffInput());
+  const staffProgram = await createLegacyAdmin(`exact:${lane}:staff-program`);
+  await service.reclassify(
+    staffDepartment.githubId,
+    staffInput(AffiliationKind.DEPARTMENT),
+  );
+  await service.reclassify(
+    staffProgram.githubId,
+    staffInput(AffiliationKind.PROGRAM_OFFICE),
+  );
+  await prisma.user.update({
+    where: { id: staffProgram.id },
+    data: { selectedRole: Role.STAFF },
+  });
+  for (const studentIndex of [1, 2, 3] as const) {
+    const student = await createLegacyAdmin(
+      `exact:${lane}:student-${studentIndex}`,
+    );
+    await service.reclassify(
+      student.githubId,
+      studentInput(`7482${sequence.toString().padStart(2, '0')}`),
+    );
+  }
   return exactPrefix;
 }
 
@@ -198,12 +232,18 @@ function studentInput(studentId: string): LegacyMemberReclassificationInput {
   };
 }
 
-function staffInput(): LegacyMemberReclassificationInput {
+function staffInput(
+  affiliationKind: AffiliationKind,
+): LegacyMemberReclassificationInput {
+  const affiliationName = {
+    [AffiliationKind.DEPARTMENT]: '  합성 terminal 학과  ',
+    [AffiliationKind.PROGRAM_OFFICE]: '  합성 terminal 사업단  ',
+  } satisfies Readonly<Record<AffiliationKind, string>>;
   return {
     memberKind: MemberKind.STAFF,
     name: '  합성 terminal 교직원  ',
-    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-    affiliationName: '  합성 terminal 사업단  ',
+    affiliationKind,
+    affiliationName: affiliationName[affiliationKind],
   };
 }
 

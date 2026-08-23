@@ -14,8 +14,16 @@ type TerminalUser = MemberAuthorityBackfillUser & {
 
 const exactCases = [
   terminalUser(MemberKind.STUDENT, AffiliationKind.DEPARTMENT, 1),
-  terminalUser(MemberKind.STAFF, AffiliationKind.DEPARTMENT, 2),
-  terminalUser(MemberKind.STAFF, AffiliationKind.PROGRAM_OFFICE, 3),
+  {
+    ...terminalUser(MemberKind.STUDENT, AffiliationKind.DEPARTMENT, 2),
+    selectedRole: Role.STUDENT,
+  },
+  terminalUser(MemberKind.STAFF, AffiliationKind.DEPARTMENT, 3),
+  terminalUser(MemberKind.STAFF, AffiliationKind.PROGRAM_OFFICE, 4),
+  {
+    ...terminalUser(MemberKind.STAFF, AffiliationKind.PROGRAM_OFFICE, 5),
+    selectedRole: Role.STAFF,
+  },
 ] as const;
 
 describe('legacy-admin terminal backfill states', () => {
@@ -97,8 +105,8 @@ function oneFieldHybrids(): readonly {
   return [
     { name: 'STUDENT role', user: { ...student, role: Role.STUDENT } },
     {
-      name: 'STUDENT selected role',
-      user: { ...student, selectedRole: Role.STUDENT },
+      name: 'STUDENT opposite selected role',
+      user: { ...student, selectedRole: Role.STAFF },
     },
     {
       name: 'STUDENT selected kind',
@@ -140,6 +148,10 @@ function oneFieldHybrids(): readonly {
           affiliationKind: AffiliationKind.PROGRAM_OFFICE,
         },
       },
+    },
+    {
+      name: 'STAFF opposite selected role',
+      user: { ...staff, selectedRole: Role.STUDENT },
     },
     {
       name: 'STAFF selected kind',
