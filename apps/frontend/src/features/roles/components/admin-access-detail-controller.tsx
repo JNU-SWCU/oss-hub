@@ -16,6 +16,7 @@ import {
   adminAccessMutationErrorMessage,
   adminAccessMutationSuccessMessage,
   applyAdminAccessConflictProjection,
+  applyAdminAccessDecidedRequestToHistory,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
 import {
@@ -118,14 +119,44 @@ export function AdminAccessDetailView({
     setProcessingAction(action);
     setDialogError(null);
     try {
-      await executeAdminAccessMutation(userId, action, detail, rejectReason);
+      const result = await executeAdminAccessMutation(
+        userId,
+        action,
+        detail,
+        rejectReason,
+      );
       setConfirmAction(null);
       setRejectReason('');
       setConflictNotice(null);
       setSuccessMessage(
         adminAccessMutationSuccessMessage(action, detail.githubLogin),
       );
-      retry();
+      // 가입 신청(queue)은 결정과 동시에 대상을 볼 권한을 잃는다 — 백엔드
+      // `requireVisibleTarget`은 관리자가 아닌 STAFF에게 "대기 요청이 살아
+      // 있는 대상"만 열어 준다. 그래서 재조회 대신 PATCH가 돌려준 권위 있는
+      // projection으로만 화면을 갱신한다. 명부(directory)는 결정 뒤에도 대상을
+      // 읽을 수 있으므로 canonical 권한 플래그와 서버가 채운 감사 필드를 다시
+      // 읽는다. 세션 역할이 아닌 workspace로 갈라야 한다 — 관리자도 가입 신청
+      // 화면을 쓴다.
+      if (workspace === 'queue' && result) {
+        setState((current) =>
+          current.kind === 'ready'
+            ? {
+                kind: 'ready',
+                detail: applyAdminAccessConflictProjection(
+                  current.detail,
+                  result,
+                ),
+                history: applyAdminAccessDecidedRequestToHistory(
+                  current.history,
+                  result.decidedRequest,
+                ),
+              }
+            : current,
+        );
+      } else {
+        retry();
+      }
     } catch (error) {
       const projection = parseAdminAccessConflictProjection(error);
       if (projection) {
