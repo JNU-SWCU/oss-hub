@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
 import { addOneCalendarYear } from '../../common/add-one-calendar-year';
 import type { ProblemDetailExtensions } from '../../common/error-code';
@@ -381,10 +381,10 @@ function editorPermissionError(
   if (authority?.accountStatus !== AccountStatus.ACTIVE) {
     return ProgramErrorCode.FORBIDDEN;
   }
-  if (authority.role === Role.STAFF || authority.role === Role.ADMIN) {
+  if (authority.hasStaffAccess || authority.hasAdminAccess) {
     return null;
   }
-  if (authority.role === null && authority.roleRequests.length > 0) {
+  if (authority.staffAccessRequests.length > 0) {
     return ProgramErrorCode.STAFF_APPROVAL_REQUIRED;
   }
   return ProgramErrorCode.FORBIDDEN;

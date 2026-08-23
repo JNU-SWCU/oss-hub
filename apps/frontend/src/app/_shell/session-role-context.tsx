@@ -6,7 +6,7 @@ import type { SessionRoleResult } from './use-session-role';
 /**
  * 공통 셸이 이미 읽은 세션·역할 스냅샷을 그 아래 화면이 그대로 물려받는 자리.
  *
- * `useSessionRole()`을 화면에서 한 번 더 부르면 역할 요청 조회(`fetchMyRoleRequest`
+ * `useSessionRole()`을 화면에서 한 번 더 부르면 역할 요청 조회(`fetchMyStaffAccessRequest`
  * ·`fetchMyRoleSelection`)가 두 번 나가고, 더 나쁘게는 **서로 다른 순간의 답**을
  * 본다 — 게이트는 "승인 대기 교직원"으로 판단해 화면을 열어 줬는데 그 사이 승인이
  * 떨어지면, 같은 렌더 트리 안에서 화면은 다른 근거로 폼을 그린다. 접근을 판단한

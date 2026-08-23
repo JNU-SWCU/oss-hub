@@ -123,7 +123,7 @@ export class ProgramAuthoringController {
     if (
       actor === null ||
       actor.accountStatus !== 'ACTIVE' ||
-      (actor.role !== 'STAFF' && actor.role !== 'ADMIN')
+      (!actor.hasStaffAccess && !actor.hasAdminAccess)
     ) {
       throw new ConflictException('Program authoring is unavailable.');
     }

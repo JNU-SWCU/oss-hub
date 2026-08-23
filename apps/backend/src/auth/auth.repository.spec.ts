@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { Logger } from '@nestjs/common';
 import {
   buildAuthConfig,
@@ -53,7 +53,7 @@ describe('AuthRepository.upsertUser', () => {
         id: 'cuid-synthetic',
         accountStatus: AccountStatus.ACTIVE,
         role: null,
-        roleRequests: { none: { status: RoleRequestStatus.REVOKED } },
+        staffAccessRequests: { none: { status: StaffAccessRequestStatus.REVOKED } },
       },
       data: {
         role: Role.ADMIN,
@@ -74,7 +74,7 @@ describe('AuthRepository.upsertUser', () => {
 
     const promoteArgs = updateMany.mock.calls[0]?.[0];
     expect(promoteArgs?.where).toMatchObject({
-      roleRequests: { none: { status: RoleRequestStatus.REVOKED } },
+      staffAccessRequests: { none: { status: StaffAccessRequestStatus.REVOKED } },
     });
   });
 

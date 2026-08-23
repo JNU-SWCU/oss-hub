@@ -8,7 +8,7 @@ import {
   RepositoryVisibility,
   ReviewDecision,
   Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile, runTeardown } from './seed';
@@ -25,7 +25,7 @@ import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
-import { resolveCompatibleProfile } from '../src/profiles/profile-compatibility';
+import { resolveUserProfile } from '../src/profiles/user-profile-read';
 import { isCompleteUserProfile } from '../src/users/user-profile-policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -153,8 +153,8 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
       }),
   ],
   [
-    'RoleRequest',
-    () => prisma.roleRequest.count({ where: { id: { startsWith: 'seed:' } } }),
+    'StaffAccessRequest',
+    () => prisma.staffAccessRequest.count({ where: { id: { startsWith: 'seed:' } } }),
   ],
   [
     'Consent',
@@ -270,7 +270,7 @@ async function countAllSeeded(): Promise<Record<string, number>> {
  *   → MilestoneDocumentSubmission → MilestoneDocumentTemplateFile → MilestoneDocument
  *   → BoardComment → BoardPost → TeamInvitation
  *   → TeamMember → Milestone → Application → Team → Program
- *   → RoleRequest → Consent → UserProfile → User
+ *   → StaffAccessRequest → Consent → UserProfile → User
  *
  * program-overview 프로필은 서류 제출 예시를 위해 자신의 MilestoneDocumentSubmission을
  * 참조하는 SubmissionFile을 함께 심는다. 이 행은 milestoneDocumentSubmissionId FK가
@@ -378,7 +378,7 @@ async function deleteAllSeeded(): Promise<void> {
   });
   await prisma.team.deleteMany({ where: seedIdFilter });
   await prisma.program.deleteMany({ where: seedIdFilter });
-  await prisma.roleRequest.deleteMany({ where: seedIdFilter });
+  await prisma.staffAccessRequest.deleteMany({ where: seedIdFilter });
   await prisma.consent.deleteMany({
     where: { userId: { startsWith: seedPrefix } },
   });
@@ -600,7 +600,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         expect(
           isCompleteUserProfile({
             id: configuredUser.id,
-            ...resolveCompatibleProfile(configuredUser),
+            ...resolveUserProfile(configuredUser),
             role: configuredUser.role,
           }),
         ).toBe(true);
@@ -1958,12 +1958,12 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(revocable?.isProfileComplete).toBe(true);
 
       // And: 회수의 출발점인 APPROVED 요청이 정확히 하나 있고 REVOKED 행은 아직 없다.
-      const requests = await prisma.roleRequest.findMany({
+      const requests = await prisma.staffAccessRequest.findMany({
         where: { userId: staffRevocableUserId },
         orderBy: { createdAt: 'asc' },
       });
       expect(requests.length).toBe(1);
-      expect(requests[0]?.status).toBe(RoleRequestStatus.APPROVED);
+      expect(requests[0]?.status).toBe(StaffAccessRequestStatus.APPROVED);
       expect(requests[0]?.decidedById).toBe(adminConfirmedUserId);
 
       // And: 기존 회수 페르소나는 그대로다 — 로그인 자체가 막히는 상태를 쓰는

@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { AccountStatus, ApplicationStatus, Role } from '@prisma/client';
+import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
@@ -32,7 +32,12 @@ export class BoardAccessGuard implements CanActivate {
 
     const user = await this.prisma.user.findUnique({
       where: { githubId: request.sessionGithubId },
-      select: { id: true, role: true, accountStatus: true },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
@@ -40,7 +45,8 @@ export class BoardAccessGuard implements CanActivate {
       );
     }
 
-    if (user.role === Role.STAFF || user.role === Role.ADMIN) {
+    // 교직원 접근과 관리자 접근은 서로 독립이다 — 어느 한쪽만 있어도 교직원 면을 얻는다.
+    if (user.hasStaffAccess || user.hasAdminAccess) {
       Object.assign(request, {
         boardActorId: user.id,
         boardActorIsStaff: true,

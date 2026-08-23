@@ -108,14 +108,14 @@ export class AdminAccessHistoryRequestDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  declare readonly roleRequestPage?: number;
+  declare readonly staffAccessRequestPage?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  declare readonly roleRequestLimit?: number;
+  declare readonly staffAccessRequestLimit?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -132,9 +132,9 @@ export class AdminAccessHistoryRequestDto {
 
   toQuery(): AdminAccessHistoryQuery {
     return {
-      roleRequests: {
-        page: this.roleRequestPage ?? 1,
-        limit: this.roleRequestLimit ?? 20,
+      staffAccessRequests: {
+        page: this.staffAccessRequestPage ?? 1,
+        limit: this.staffAccessRequestLimit ?? 20,
       },
       loginHistory: {
         page: this.loginPage ?? 1,

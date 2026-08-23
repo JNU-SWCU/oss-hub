@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -21,7 +21,7 @@ describe('AdminAccessRepository', () => {
         },
         pendingRequest: {
           id: 'request-pending',
-          status: RoleRequestStatus.PENDING,
+          status: StaffAccessRequestStatus.PENDING,
           createdAt: new Date('2026-07-20T00:00:00.000Z'),
         },
         lastLoginAt: new Date('2026-07-22T00:00:00.000Z'),
@@ -83,7 +83,7 @@ describe('AdminAccessRepository', () => {
           '%synthetic%',
           Role.STUDENT,
           AccountStatus.ACTIVE,
-          RoleRequestStatus.PENDING,
+          StaffAccessRequestStatus.PENDING,
           1,
           0,
         ],
@@ -97,7 +97,7 @@ describe('AdminAccessRepository', () => {
               OR: syntheticSearchConditions(),
               role: Role.STUDENT,
               accountStatus: AccountStatus.ACTIVE,
-              roleRequests: { some: { status: RoleRequestStatus.PENDING } },
+              staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
             },
             { id: { in: ['student'] } },
           ],
@@ -110,7 +110,7 @@ describe('AdminAccessRepository', () => {
         OR: syntheticSearchConditions(),
         role: null,
         accountStatus: AccountStatus.ACTIVE,
-        roleRequests: { some: { status: RoleRequestStatus.PENDING } },
+        staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
     });
     expect(count).toHaveBeenNthCalledWith(6, {
@@ -118,7 +118,7 @@ describe('AdminAccessRepository', () => {
         OR: syntheticSearchConditions(),
         role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
-        roleRequests: { some: { status: RoleRequestStatus.PENDING } },
+        staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
     });
     expect(count).toHaveBeenNthCalledWith(8, {
@@ -126,7 +126,7 @@ describe('AdminAccessRepository', () => {
         OR: syntheticSearchConditions(),
         role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
-        roleRequests: { none: { status: RoleRequestStatus.PENDING } },
+        staffAccessRequests: { none: { status: StaffAccessRequestStatus.PENDING } },
       },
     });
   });
@@ -134,10 +134,10 @@ describe('AdminAccessRepository', () => {
   it('maps detail and stable role-request/login histories', async () => {
     // Given
     const detail = userRow({ id: 'target', role: Role.STAFF });
-    const roleRequestFindMany = jest.fn().mockResolvedValue([
+    const staffAccessRequestFindMany = jest.fn().mockResolvedValue([
       {
         id: 'request-2',
-        status: RoleRequestStatus.REJECTED,
+        status: StaffAccessRequestStatus.REJECTED,
         rejectionReason: '합성 반려 사유',
         decidedAt: new Date('2026-07-22T00:00:00.000Z'),
         decidedBy: { nickname: 'synthetic-admin' },
@@ -155,8 +155,8 @@ describe('AdminAccessRepository', () => {
     ]);
     const repository = new AdminAccessRepository({
       user: { findUnique: jest.fn().mockResolvedValue(detail) },
-      roleRequest: {
-        findMany: roleRequestFindMany,
+      staffAccessRequest: {
+        findMany: staffAccessRequestFindMany,
         count: jest.fn().mockResolvedValue(1),
       },
       loginHistory: {
@@ -166,9 +166,9 @@ describe('AdminAccessRepository', () => {
     } as unknown as PrismaService);
 
     // When
-    const [user, roleRequests, logins] = await Promise.all([
+    const [user, staffAccessRequests, logins] = await Promise.all([
       repository.findById('target'),
-      repository.listRoleRequestHistory('target', { page: 2, limit: 10 }),
+      repository.listStaffAccessRequestHistory('target', { page: 2, limit: 10 }),
       repository.listLoginHistory('target', { page: 2, limit: 10 }),
     ]);
 
@@ -184,7 +184,7 @@ describe('AdminAccessRepository', () => {
         },
       }),
     );
-    expect(roleRequests).toEqual({
+    expect(staffAccessRequests).toEqual({
       items: [
         expect.objectContaining({
           id: 'request-2',
@@ -201,7 +201,7 @@ describe('AdminAccessRepository', () => {
       limit: 10,
       total: 1,
     });
-    expect(roleRequestFindMany).toHaveBeenCalledWith(
+    expect(staffAccessRequestFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: 10,
@@ -239,7 +239,7 @@ type UserRowOptions = {
   } | null;
   readonly pendingRequest?: {
     readonly id: string;
-    readonly status: RoleRequestStatus;
+    readonly status: StaffAccessRequestStatus;
     readonly createdAt: Date;
   } | null;
   readonly lastLoginAt?: Date | null;
@@ -256,7 +256,7 @@ function userRow(options: UserRowOptions) {
     profile: options.profile ?? null,
     role: options.role === undefined ? Role.STUDENT : options.role,
     accountStatus: options.accountStatus ?? AccountStatus.ACTIVE,
-    roleRequests: options.pendingRequest ? [options.pendingRequest] : [],
+    staffAccessRequests: options.pendingRequest ? [options.pendingRequest] : [],
     loginHistories: options.lastLoginAt
       ? [{ loginAt: options.lastLoginAt }]
       : [],

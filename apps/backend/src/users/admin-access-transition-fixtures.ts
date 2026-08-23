@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import {
   ADMIN_ACCESS_DECISION_KINDS,
@@ -20,12 +20,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'unchanged access without a request is rejected',
     current: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -43,7 +43,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.APPROVE,
     },
@@ -56,7 +56,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'a confirmed STUDENT cannot return to unassigned',
     current: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
@@ -74,7 +74,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'an ADMIN cannot return to unassigned',
     current: {
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
@@ -92,7 +92,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'revoking STAFF clears the role and appends a REVOKED request',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
@@ -114,7 +114,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'a deactivated STAFF grant can still be revoked',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
@@ -136,7 +136,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'revocation cannot be combined with deactivation',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
@@ -154,7 +154,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'STAFF cannot be revoked while a request is still pending',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
@@ -172,7 +172,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'rejecting a pending request cannot revoke STAFF in the same operation',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
@@ -190,12 +190,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'role and account status cannot change in one direct mutation',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.DEACTIVATED,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -213,7 +213,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -230,12 +230,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'deactivation preserves role and enables the self guard',
     current: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.DEACTIVATED,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -252,12 +252,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'admin demotion enables the final-admin guard',
     current: {
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -274,12 +274,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'admin deactivation enables both contextual guards',
     current: {
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.DEACTIVATED,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -296,12 +296,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'reactivation preserves role',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
       pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
     },
     desired: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -341,7 +341,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     desired: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
@@ -359,7 +359,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     desired: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.APPROVE,
     },
@@ -381,7 +381,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     desired: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.APPROVE,
     },
@@ -399,7 +399,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     desired: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
       decision: ADMIN_ACCESS_DECISION_KINDS.APPROVE,
     },
@@ -412,12 +412,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'rejection may preserve the current active access state',
     current: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     desired: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.REJECT,
     },
@@ -461,7 +461,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     desired: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.REJECT,
     },
@@ -474,12 +474,12 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'rejection cannot combine a role change and deactivation',
     current: {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     desired: {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.DEACTIVATED,
       decision: ADMIN_ACCESS_DECISION_KINDS.REJECT,
     },

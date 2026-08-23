@@ -1,11 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Prisma, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Prisma, StaffAccessRequestStatus } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  authorityLabel,
+  type AuthorityLabel,
+} from './domain/authority-label';
 import { lockActiveAdminRows } from './admin-actor-locks';
 
 export interface AccountDeactivationTarget {
@@ -13,9 +17,12 @@ export interface AccountDeactivationTarget {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly displayName: string | null;
-  readonly role: Role | null;
+  /** 감사 이력에 남길 표시 값 — 판정에는 쓰지 않는다(`domain/authority-label.ts`). */
+  readonly role: AuthorityLabel | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
-  readonly requestStatus: RoleRequestStatus | null;
+  readonly requestStatus: StaffAccessRequestStatus | null;
 }
 
 export interface AccountDeactivationTransactionStore {
@@ -35,14 +42,15 @@ const ACCOUNT_DEACTIVATION_TARGET_SELECT = {
   id: true,
   githubId: true,
   nickname: true,
-  role: true,
   accountStatus: true,
-  roleRequests: {
-    where: { status: RoleRequestStatus.PENDING },
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  staffAccessRequests: {
+    where: { status: StaffAccessRequestStatus.PENDING },
     select: { status: true },
     take: 1,
   },
-  ...COMPATIBLE_PROFILE_NAME_SELECT,
+  profile: { select: { name: true, memberKind: true } },
 } as const satisfies Prisma.UserSelect;
 
 type PrismaAccountDeactivationTarget = Prisma.UserGetPayload<{
@@ -107,9 +115,15 @@ function toAccountDeactivationTarget(
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    displayName: resolveCompatibleProfileName(user),
-    role: user.role,
+    displayName: resolveUserProfileName(user),
+    role: authorityLabel({
+      memberKind: user.profile?.memberKind ?? null,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+    }),
+    hasStaffAccess: user.hasStaffAccess,
+    hasAdminAccess: user.hasAdminAccess,
     accountStatus: user.accountStatus,
-    requestStatus: user.roleRequests[0]?.status ?? null,
+    requestStatus: user.staffAccessRequests[0]?.status ?? null,
   };
 }

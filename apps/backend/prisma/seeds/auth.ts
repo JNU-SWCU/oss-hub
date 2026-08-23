@@ -1,11 +1,12 @@
-import { AccountStatus, Role, RoleRequestStatus, User } from '@prisma/client';
-import { upsertCompatibleProfile } from '../../src/profiles/profile-compatibility.repository';
+import { AccountStatus, StaffAccessRequestStatus, User } from '@prisma/client';
 import {
   offsetDays,
   prisma,
   seedId,
   SeedStats,
+  type SeedRole,
   upsertConsent,
+  upsertSeedProfile,
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
@@ -31,41 +32,40 @@ type AuthScenarioId = keyof typeof AUTH_SCENARIOS;
 async function upsertUser(
   stats: SeedStats,
   scenarioId: AuthScenarioId,
-  role: Role | null,
+  role: SeedRole | null,
 ): Promise<User> {
   return upsertSeedUser(stats, { id: AUTH_SCENARIOS[scenarioId], role });
 }
 
+/**
+ * 시나리오 프로필을 만든다 — 프로필 행이 있다는 것이 곧 "가입을 마쳤다"는 뜻이다.
+ *
+ * 학번이 있으면 학생, 없으면 교직원이다. 계약 스키마가 그 대응을 CHECK로 강제하므로
+ * (`UserProfile_studentId_memberKind_check`) 시드도 같은 규칙을 따른다.
+ */
 async function setProfile(
   userId: string,
-  profile:
-    | {
-        readonly name: string;
-        readonly studentId: null;
-        readonly department: null;
-      }
-    | {
-        readonly name: string;
-        readonly studentId: string;
-        readonly department: string;
-      },
+  profile: {
+    readonly name: string;
+    readonly studentId: string | null;
+    readonly department: string;
+  },
 ): Promise<void> {
-  if (profile.studentId === null) {
-    await prisma.user.update({ where: { id: userId }, data: profile });
-    return;
-  }
-  // 시드는 항상 세 필드를 전부 채워 넣는다 — 부분 갱신 없이 매번 전체 값을 쓴다.
-  await prisma.$transaction((transaction) =>
-    upsertCompatibleProfile(transaction, userId, profile, profile),
-  );
+  await upsertSeedProfile({
+    userId,
+    name: profile.name,
+    studentId: profile.studentId,
+    department: profile.department,
+    memberKind: profile.studentId === null ? 'STAFF' : 'STUDENT',
+  });
 }
 
-async function upsertRoleRequest(
+async function upsertStaffAccessRequest(
   stats: SeedStats,
   params: {
     id: string;
     userId: string;
-    status: RoleRequestStatus;
+    status: StaffAccessRequestStatus;
     createdAt: Date;
     rejectionReason?: string;
     decidedById?: string;
@@ -75,10 +75,10 @@ async function upsertRoleRequest(
   const { id, ...rest } = params;
   await upsertTracked(
     stats,
-    'RoleRequest',
-    () => prisma.roleRequest.findUnique({ where: { id } }),
+    'StaffAccessRequest',
+    () => prisma.staffAccessRequest.findUnique({ where: { id } }),
     () =>
-      prisma.roleRequest.upsert({
+      prisma.staffAccessRequest.upsert({
         where: { id },
         update: rest,
         create: { id, ...rest },
@@ -88,7 +88,7 @@ async function upsertRoleRequest(
 
 export async function seedAuth(stats: SeedStats): Promise<void> {
   // admin-confirmed를 가장 먼저 만들어 이후 시나리오의 decidedById로 재사용한다.
-  const admin = await upsertUser(stats, 'admin-confirmed', Role.ADMIN);
+  const admin = await upsertUser(stats, 'admin-confirmed', 'ADMIN');
   await upsertConsent(stats, admin.id);
   // 이름을 채우지 않으면 관리자 화면에 들어갈 수 없다. ADMIN의 프로필 완료 요건은
   // 이름 하나뿐인데(`user-profile-policy.ts`의 REQUIREMENT_BY_ROLE), 그것이 비면
@@ -101,7 +101,7 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   await setProfile(admin.id, {
     name: '합성 관리자',
     studentId: null,
-    department: null,
+    department: '오픈소스 SW 개발 사업단',
   });
 
   // 두 번째 ADMIN. 관리자 경쟁 처리(#184 인수 조건: 409 후 목록 재조회)를 **서로 다른 두
@@ -111,24 +111,20 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   // 두 번째 계정을 두는 이유는 결정 이력에 남는 `decidedBy`(관리자 상세 화면이 그대로
   // 그린다) 때문이다. 한 명뿐이면 "다른 관리자가 먼저 처리했다"와 "내가 처리했다"가
   // 화면에서 같은 이름으로 보여 단언이 헛돈다.
-  const adminSecond = await upsertUser(stats, 'admin-second', Role.ADMIN);
+  const adminSecond = await upsertUser(stats, 'admin-second', 'ADMIN');
   await upsertConsent(stats, adminSecond.id);
   await setProfile(adminSecond.id, {
     name: '합성 두 번째 관리자',
     studentId: null,
-    department: null,
+    department: '오픈소스 SW 개발 사업단',
   });
 
   await upsertUser(stats, 'consent-required', null);
   // Consent를 만들지 않는다 — 동의 전 상태 자체가 이 시나리오다.
 
+  // 프로필을 만들지 않는다 — 아직 아무것도 고르지 않은 상태 자체가 이 시나리오다.
   const roleUnselected = await upsertUser(stats, 'user-role-unselected', null);
   await upsertConsent(stats, roleUnselected.id);
-  await setProfile(roleUnselected.id, {
-    name: 'GitHub 합성 이름',
-    studentId: null,
-    department: null,
-  });
 
   const profileComplete = await upsertUser(stats, 'profile-complete', null);
   await upsertConsent(stats, profileComplete.id);
@@ -141,7 +137,7 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   const studentConfirmed = await upsertUser(
     stats,
     'student-confirmed',
-    Role.STUDENT,
+    'STUDENT',
   );
   await upsertConsent(stats, studentConfirmed.id);
 
@@ -152,10 +148,10 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     studentId: '202602',
     department: '인공지능학부',
   });
-  await upsertRoleRequest(stats, {
+  await upsertStaffAccessRequest(stats, {
     id: seedId('auth', 'staff-pending', 'role-request'),
     userId: staffPending.id,
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     createdAt: offsetDays(-10),
   });
 
@@ -170,10 +166,10 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     studentId: '202603',
     department: '소프트웨어공학과',
   });
-  await upsertRoleRequest(stats, {
+  await upsertStaffAccessRequest(stats, {
     id: seedId('auth', 'staff-pending-second', 'role-request'),
     userId: staffPendingSecond.id,
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     // staff-pending보다 나중에 신청한 두 번째 PENDING — 정렬·페이지 검증용.
     createdAt: offsetDays(-5),
   });
@@ -185,22 +181,22 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     studentId: '202604',
     department: '컴퓨터공학과',
   });
-  await upsertRoleRequest(stats, {
+  await upsertStaffAccessRequest(stats, {
     id: seedId('auth', 'staff-rejected', 'role-request'),
     userId: staffRejected.id,
-    status: RoleRequestStatus.REJECTED,
+    status: StaffAccessRequestStatus.REJECTED,
     createdAt: offsetDays(-7),
     rejectionReason: '담당 프로그램 소속 확인 불가 (seed fixture)',
     decidedById: admin.id,
     decidedAt: offsetDays(-6),
   });
 
-  const staffApproved = await upsertUser(stats, 'staff-approved', Role.STAFF);
+  const staffApproved = await upsertUser(stats, 'staff-approved', 'STAFF');
   await upsertConsent(stats, staffApproved.id);
-  await upsertRoleRequest(stats, {
+  await upsertStaffAccessRequest(stats, {
     id: seedId('auth', 'staff-approved', 'role-request'),
     userId: staffApproved.id,
-    status: RoleRequestStatus.APPROVED,
+    status: StaffAccessRequestStatus.APPROVED,
     createdAt: offsetDays(-9),
     decidedById: admin.id,
     decidedAt: offsetDays(-8),
@@ -216,17 +212,17 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   // 이름·학과이고 학번은 선택인데(`user-profile-policy.ts`), 이 페르소나는 학번이 실제로
   // 있는 조교형 교직원으로 두어 UserProfile 행까지 만드는 기존 fixture 모양을 유지한다.
   // 학번 없는 STAFF도 이제 backfill의 정상 legacy 상태로 별도 회귀 테스트가 고정한다.
-  const staffRevocable = await upsertUser(stats, 'staff-revocable', Role.STAFF);
+  const staffRevocable = await upsertUser(stats, 'staff-revocable', 'STAFF');
   await upsertConsent(stats, staffRevocable.id);
   await setProfile(staffRevocable.id, {
     name: '합성 활성 교직원',
     studentId: '202605',
     department: '전자컴퓨터공학부',
   });
-  await upsertRoleRequest(stats, {
+  await upsertStaffAccessRequest(stats, {
     id: seedId('auth', 'staff-revocable', 'role-request'),
     userId: staffRevocable.id,
-    status: RoleRequestStatus.APPROVED,
+    status: StaffAccessRequestStatus.APPROVED,
     createdAt: offsetDays(-4),
     decidedById: admin.id,
     decidedAt: offsetDays(-3),
@@ -234,23 +230,23 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
 
   const staffRevoked = await upsertSeedUser(stats, {
     id: AUTH_SCENARIOS['staff-revoked'],
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.DEACTIVATED,
   });
   await upsertConsent(stats, staffRevoked.id);
   // 역할은 STAFF로 보존하고 계정만 비활성화한다. 승인·회수 이력도 모두 남긴다(#187, #188).
-  await upsertRoleRequest(stats, {
+  await upsertStaffAccessRequest(stats, {
     id: seedId('auth', 'staff-revoked', 'role-request-approved'),
     userId: staffRevoked.id,
-    status: RoleRequestStatus.APPROVED,
+    status: StaffAccessRequestStatus.APPROVED,
     createdAt: offsetDays(-30),
     decidedById: admin.id,
     decidedAt: offsetDays(-29),
   });
-  await upsertRoleRequest(stats, {
+  await upsertStaffAccessRequest(stats, {
     id: seedId('auth', 'staff-revoked', 'role-request-revoked'),
     userId: staffRevoked.id,
-    status: RoleRequestStatus.REVOKED,
+    status: StaffAccessRequestStatus.REVOKED,
     createdAt: offsetDays(-2),
     decidedById: admin.id,
     decidedAt: offsetDays(-1),
@@ -263,7 +259,7 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     const ordinal = index.toString().padStart(2, '0');
     await upsertSeedUser(stats, {
       id: seedId('auth', 'pagination', ordinal),
-      role: Role.STUDENT,
+      role: 'STUDENT',
     });
   }
 }

@@ -16,7 +16,7 @@ function state(
 ): SignupCompletionState {
   return {
     status: 'unassigned',
-    roleRequestStatus: null,
+    staffAccessRequestStatus: null,
     isProfileComplete: false,
     ...overrides,
   };
@@ -29,7 +29,7 @@ describe('isSignupComplete', () => {
   it('승인 대기 교직원은 역할이 없어도 회원이다', () => {
     expect(
       isSignupComplete(
-        state({ status: 'unassigned', roleRequestStatus: 'PENDING' }),
+        state({ status: 'unassigned', staffAccessRequestStatus: 'PENDING' }),
       ),
     ).toBe(true);
   });
@@ -38,7 +38,7 @@ describe('isSignupComplete', () => {
   it('승인 대기 교직원은 가입 화면 밖에서도 계정 표식을 유지한다', () => {
     expect(
       shouldShowAccountSlot(
-        state({ status: 'unassigned', roleRequestStatus: 'PENDING' }),
+        state({ status: 'unassigned', staffAccessRequestStatus: 'PENDING' }),
         OUTSIDE,
       ),
     ).toBe(true);
@@ -47,7 +47,7 @@ describe('isSignupComplete', () => {
   it('승인된 요청을 든 미배정 사용자도 회원으로 본다', () => {
     expect(
       isSignupComplete(
-        state({ status: 'unassigned', roleRequestStatus: 'APPROVED' }),
+        state({ status: 'unassigned', staffAccessRequestStatus: 'APPROVED' }),
       ),
     ).toBe(true);
   });
@@ -55,14 +55,14 @@ describe('isSignupComplete', () => {
   // GitHub 로그인만 한 사람 / 약관까지만 동의한 사람. 세션 모양이 같다 —
   // 역할 요청이 없다.
   it('로그인·약관 동의만 한 사람은 회원이 아니다', () => {
-    expect(isSignupComplete(state({ roleRequestStatus: null }))).toBe(false);
+    expect(isSignupComplete(state({ staffAccessRequestStatus: null }))).toBe(false);
   });
 
   // 반려·회수는 살아 있는 요청이 아니다. 그 사람은 역할을 다시 고르러 간다.
   it.each(['REJECTED', 'REVOKED'] as const)(
     '%s 요청은 가입을 마친 것으로 보지 않는다',
-    (roleRequestStatus) => {
-      expect(isSignupComplete(state({ roleRequestStatus }))).toBe(false);
+    (staffAccessRequestStatus) => {
+      expect(isSignupComplete(state({ staffAccessRequestStatus }))).toBe(false);
     },
   );
 

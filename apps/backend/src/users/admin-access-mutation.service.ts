@@ -1,4 +1,4 @@
-import { RoleRequestStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { createAdminAccessAudit } from './admin-access-audit';
@@ -111,9 +111,9 @@ export async function mutateAdminAccess(
       );
       const userUpdated = await store.compareAndSwapAccess({
         userId: input.userId,
-        expectedRole: input.command.expectedRole,
+        expectedHasStaffAccess: before.hasStaffAccess,
+        expectedHasAdminAccess: before.hasAdminAccess,
         expectedAccountStatus: input.command.expectedAccountStatus,
-        desiredRole: input.command.desiredRole,
         desiredAccountStatus: input.command.desiredAccountStatus,
         desiredHasStaffAccess: authority.hasStaffAccess,
         desiredHasAdminAccess: authority.hasAdminAccess,
@@ -219,7 +219,7 @@ async function applyRequestWrite(
         actorId: actor.id,
         decidedAt: new Date(),
       });
-      return { id: inserted.id, status: RoleRequestStatus.REVOKED };
+      return { id: inserted.id, status: StaffAccessRequestStatus.REVOKED };
     }
     default:
       return assertNever(write);

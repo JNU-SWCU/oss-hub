@@ -37,10 +37,10 @@ import type { RoleSelection } from '../types';
  * 더하고 아래 `CLOSED_REQUEST_NOTICE`에 항목 하나만 추가하면 된다 — 표시 코드는
  * 상태를 직접 묻지 않고 이 표만 읽는다.
  */
-export type ClosedRoleRequestStatus = 'REJECTED';
+export type ClosedStaffAccessRequestStatus = 'REJECTED';
 
-export interface ClosedRoleRequestNotice {
-  readonly status: ClosedRoleRequestStatus;
+export interface ClosedStaffAccessRequestNotice {
+  readonly status: ClosedStaffAccessRequestStatus;
   /** 관리자가 남긴 사유. 사유 없이 닫힌 과거 건은 `null`이다. */
   readonly reason: string | null;
 }
@@ -52,7 +52,7 @@ interface ClosedRequestPresentation {
 }
 
 const CLOSED_REQUEST_NOTICE: Record<
-  ClosedRoleRequestStatus,
+  ClosedStaffAccessRequestStatus,
   ClosedRequestPresentation
 > = {
   REJECTED: {
@@ -65,7 +65,7 @@ const CLOSED_REQUEST_NOTICE: Record<
     // 교직원을 다시 고르면 승인 요청이 한 번 더 접수됩니다."로 두 문장이었는데, 둘이
     // 같은 말을 하면서 375px에서 설명만 59px를 먹었다. 고를 카드와 `선택 완료`가
     // 바로 아래 보이는 화면이라 두 번째 문장은 잉여였다. 이 상자의 높이가 곧
-    // 사용자가 감수할 스크롤이라(아래 `ClosedRoleRequestAlert` 주석의 실측) 문구를
+    // 사용자가 감수할 스크롤이라(아래 `ClosedStaffAccessRequestAlert` 주석의 실측) 문구를
     // 늘릴 때는 그 숫자를 다시 재라.
     description: '아래에서 교직원을 다시 고르면 승인 요청이 새로 접수됩니다.',
     reasonLabel: '반려 사유',
@@ -77,7 +77,7 @@ interface RoleSelectionFormProps {
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
   /** 살아 있는 신청이 없어진 사유. 해당하지 않으면 `null`이라 아무것도 그리지 않는다. */
-  readonly rejection: ClosedRoleRequestNotice | null;
+  readonly rejection: ClosedStaffAccessRequestNotice | null;
   readonly onSelect: (role: RoleSelection) => void;
   readonly onSubmit: () => void;
 }
@@ -263,10 +263,10 @@ function RoleGuidanceSlot({
  * 와도 상자 밖으로 밀고 나가지 못하게 끊는다(한글 문장은 `break-keep`이 자연스럽지만,
  * 여기서는 넘치지 않는 쪽이 먼저다). 길이 자체는 `clampRejectionReason`이 자른다.
  */
-function ClosedRoleRequestAlert({
+function ClosedStaffAccessRequestAlert({
   notice,
 }: {
-  readonly notice: ClosedRoleRequestNotice;
+  readonly notice: ClosedStaffAccessRequestNotice;
 }) {
   const presentation = CLOSED_REQUEST_NOTICE[notice.status];
   const reason = clampRejectionReason(notice.reason);
@@ -338,7 +338,7 @@ export function RoleSelectionForm({
             두면 이미 고르고 나서야 사유를 만난다. 폼 안에 두는 이유는 무대 본문의
             간격(`gap-8`)이 아니라 폼의 간격(`gap-3`)을 따라야 카드에 붙어 보이기
             때문이다 — 무대 간격을 쓰면 안내가 화면 위쪽에 홀로 떨어진다. */}
-        {rejection ? <ClosedRoleRequestAlert notice={rejection} /> : null}
+        {rejection ? <ClosedStaffAccessRequestAlert notice={rejection} /> : null}
 
         {/* 두 카드는 좁은 화면에서도 나란히 둔다. 세로로 쌓으면 카드 하나 높이(약
             190px)가 통째로 더해져 375×812에서 주 버튼이 접히는 선 아래로 내려갔다 —
@@ -346,7 +346,7 @@ export function RoleSelectionForm({
             나쁘다. 둘을 나란히 두면 서로 비교하기도 쉽다.
 
             **단 반려 안내가 서 있을 때는 예외다** — 그때는 버튼이 접히는 선 아래로
-            내려가는 것을 알고 허용했다(위 `ClosedRoleRequestAlert` 주석의 실측과 근거).
+            내려가는 것을 알고 허용했다(위 `ClosedStaffAccessRequestAlert` 주석의 실측과 근거).
             이 가로 배치 자체는 안내와 무관하게 그대로 지킨다: 여기서 세로로 쌓으면
             안내가 없는 첫 가입자까지 함께 스크롤하게 된다. */}
         <fieldset className="grid grid-cols-2 items-stretch gap-3">
@@ -437,7 +437,7 @@ export function RoleSelectionForm({
 /**
  * 이 화면이 그리는 데 필요한 것 전부. **스스로 조회하지 않는다.**
  *
- * 예전에는 이 컴포넌트가 `fetchMyRoleSelection`·`fetchMyRoleRequest`를 직접 불렀다.
+ * 예전에는 이 컴포넌트가 `fetchMyRoleSelection`·`fetchMyStaffAccessRequest`를 직접 불렀다.
  * 그런데 이 화면을 여는 `OnboardingGate`는 그 두 값을 **이미 읽어서** 접근을 판단한
  * 뒤다(`app/_shell/use-session-role.ts`). 같은 것을 두 번 묻는 셈이고, 더 나쁘게는
  * 두 답이 서로 다른 순간의 값일 수 있다 — 게이트는 반려로 판단해 이 화면을 열어
@@ -464,7 +464,7 @@ interface RoleSelectionScreenProps {
    */
   readonly initialSelectedRole: RoleSelection | null;
   /** 살아 있는 신청이 없어진 사유. 해당하지 않으면 `null`이다. */
-  readonly rejection: ClosedRoleRequestNotice | null;
+  readonly rejection: ClosedStaffAccessRequestNotice | null;
 }
 
 export function RoleSelectionScreen({

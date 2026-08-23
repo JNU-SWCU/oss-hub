@@ -7,13 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// 사용자 역할. 신규 사용자는 역할 선택 전 null이다(#109 계약 잠금) — @default를 두지 않는다.
-enum Role {
-  STUDENT
-  STAFF
-  ADMIN
-}
-
 /// 회원 유형. 권한과 독립적으로 학생·교직원 정체성을 표현한다.
 enum MemberKind {
   STUDENT
@@ -36,35 +29,24 @@ model User {
   id                 String        @id @default(cuid())
   githubId           BigInt        @unique
   nickname           String        @map("login")
-  name               String?
-  studentId          String?
-  department         String?
   avatarUrl          String?
   accountStatus      AccountStatus @default(ACTIVE)
   /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(opt-in 기본 off).
   notificationEmail  String?
   notifyEnabled      Boolean       @default(false)
-  /// 확정된 역할. 역할 선택만으로는 채워지지 않는다 — 학생은 가입을 마칠 때(프로필 완료) STUDENT가
-  /// 붙고, 교직원은 요청이 승인될 때에만 STAFF가 된다(#109, #569).
-  role               Role?
-  /// 가입 절차에서 **고른** 역할 — 기록일 뿐 확정이 아니다(#569).
+  /// 가입 절차에서 **고른** 회원 유형 — 기록일 뿐 접근 권한이 아니다.
   ///
-  /// `role`로는 이 사실을 담을 수 없다. 그 칸은 확정된 권한을 뜻해서, 프로필을 채우는 동안
-  /// 채워 두면 아직 가입을 마치지 않은 사람이 그 역할의 화면에 들어간다. 그렇다고 비워 두면
-  /// 프로필 화면이 무엇을 물어야 할지 모른다 — 교직원에게 학번을 요구하게 된다.
-  ///
-  /// 값은 STUDENT · STAFF · null뿐이다. ADMIN은 역할 선택 화면에 없는 값이라 여기 들어오지 않는다.
-  selectedRole       Role?
-  /// 회원 유형 선택 기록. expand 단계에서는 nullable이며 legacy selectedRole을 유지한다.
+  /// 프로필을 채우는 동안 무엇을 물어야 하는지(학생이면 학번) 아는 유일한 근거다.
+  /// 아직 아무것도 고르지 않은 사용자는 null이다.
   selectedMemberKind MemberKind?
-  /// 교직원·관리자 접근 권한. expand 단계에서는 기존 행을 변경하지 않도록 nullable로 둔다.
-  hasStaffAccess     Boolean?
-  hasAdminAccess     Boolean?
+  /// 교직원·관리자 접근 권한. 서로를 함의하지 않는다 — 관리자가 곧 교직원은 아니다.
+  hasStaffAccess     Boolean       @default(false)
+  hasAdminAccess     Boolean       @default(false)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  roleRequests                           RoleRequest[]                    @relation("RoleRequestUser")
-  decidedRoleRequests                    RoleRequest[]                    @relation("RoleRequestDecidedBy")
+  staffAccessRequests                    StaffAccessRequest[]             @relation("StaffAccessRequestUser")
+  decidedStaffAccessRequests             StaffAccessRequest[]             @relation("StaffAccessRequestDecidedBy")
   consents                               Consent[]
   applications                           Application[]                    @relation("ApplicationApplicant")
   processedApplications                  Application[]                    @relation("ApplicationProcessedBy")
@@ -88,20 +70,27 @@ model User {
   profile                                UserProfile?
 }
 
-/// 플랫폼에서 직접 수집·확정한 비공개 사용자 프로필.
-/// expand 단계에서는 User의 legacy 프로필 컬럼과 함께 유지한다.
+/// 플랫폼에서 직접 수집·확정한 비공개 사용자 프로필. 회원 정체성의 유일한 정본이다.
+/// 행이 존재한다는 것은 곧 가입을 마쳤다는 뜻이다.
 model UserProfile {
   userId String @id
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  name            String
-  studentId       String?          @unique
-  department      String
-  memberKind      MemberKind?
-  affiliationKind AffiliationKind?
-  affiliationName String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  /// 비어 있지 않고 1~100 코드 포인트. NFC 정규화는 쓰기 경계 불변식이다
+  /// — stock PostgreSQL에 정규화 제약이 없어 DB는 길이·공백만 막는다(마이그레이션 CHECK).
+  name String
+  /// STUDENT는 필수·전역 유일, STAFF는 null이다. 정확히 6자리 규칙은 새 쓰기 경계가
+  /// 지킨다 — 6~10자리 legacy 값이 남아 있어 DB는 그 보존 형식까지 받는다(마이그레이션 CHECK).
+  studentId String? @unique
+  /// `affiliationName`의 legacy 사본. 두 값은 언제나 같다(마이그레이션 CHECK).
+  department String
+
+  memberKind      MemberKind
+  affiliationKind AffiliationKind
+  affiliationName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum LoginHistoryEvent {
@@ -126,25 +115,25 @@ model LoginHistory {
 }
 
 /// PENDING → APPROVED/REJECTED. REVOKED는 회수(REVOKE) 이력을 표현한다(#109 계약 잠금 이행 — #113에서 additive로 추가).
-enum RoleRequestStatus {
+enum StaffAccessRequestStatus {
   PENDING
   APPROVED
   REJECTED
   REVOKED
 }
 
-/// 교직원 권한 요청 이력. 회수(REVOKE)도 상태를 지우지 않고 이력으로 남긴다(#108이 소비).
+/// 교직원 접근 권한 요청 이력. 회수(REVOKE)도 상태를 지우지 않고 이력으로 남긴다(#108이 소비).
 /// 사용자당 PENDING 1건 제한 partial unique는 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
-model RoleRequest {
+model StaffAccessRequest {
   id     String @id @default(cuid())
   userId String
-  user   User   @relation("RoleRequestUser", fields: [userId], references: [id])
+  user   User   @relation("StaffAccessRequestUser", fields: [userId], references: [id])
 
-  status          RoleRequestStatus @default(PENDING)
+  status          StaffAccessRequestStatus @default(PENDING)
   rejectionReason String?
 
   decidedById String?
-  decidedBy   User?     @relation("RoleRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedBy   User?     @relation("StaffAccessRequestDecidedBy", fields: [decidedById], references: [id])
   decidedAt   DateTime?
 
   createdAt DateTime @default(now())

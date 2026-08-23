@@ -2,7 +2,7 @@ import {
   AccountStatus,
   ApplicationStatus,
   Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
@@ -129,13 +129,13 @@ describe('SubmissionMatrixService integration', () => {
       ],
       skipDuplicates: true,
     });
-    await prisma.roleRequest.upsert({
+    await prisma.staffAccessRequest.upsert({
       where: { id: PENDING_REQUEST_ID },
-      update: { status: RoleRequestStatus.PENDING },
+      update: { status: StaffAccessRequestStatus.PENDING },
       create: {
         id: PENDING_REQUEST_ID,
         userId: PENDING_STAFF_ID,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
     });
     const unsubmittedTeamId = `${UNSUBMITTED_APPLICATION_ID}-team`;
@@ -190,7 +190,7 @@ describe('SubmissionMatrixService integration', () => {
     await prisma.team.deleteMany({
       where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },
     });
-    await prisma.roleRequest.deleteMany({ where: { id: PENDING_REQUEST_ID } });
+    await prisma.staffAccessRequest.deleteMany({ where: { id: PENDING_REQUEST_ID } });
     await prisma.user.deleteMany({
       where: {
         id: {

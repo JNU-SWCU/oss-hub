@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { MilestoneSubmissionType, Role } from '@prisma/client';
+import { MilestoneSubmissionType } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import { normalizeMultipartFileName } from '../common/multipart-file-name';
@@ -92,7 +92,7 @@ export class MilestoneDocumentFilesService {
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
     const viewer = await this.repository.findActiveUser(sessionGithubId);
-    if (viewer === null || viewer.role !== Role.STUDENT) {
+    if (viewer === null || viewer.hasStaffAccess || viewer.hasAdminAccess) {
       throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
     }
 
@@ -236,7 +236,7 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
-    if (viewer.role !== Role.STAFF && viewer.role !== Role.ADMIN) {
+    if (!viewer.hasStaffAccess && !viewer.hasAdminAccess) {
       const application = await this.repository.findStudentApplication(
         viewer.id,
         documentContext.programId,

@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { DomainException } from '../common/error-code';
 import { withSerializationRetry } from '../common/prisma-serialization-retry';
 import {
-  COMPATIBLE_PROFILE_SELECT,
-  resolveCompatibleProfile,
-} from '../profiles/profile-compatibility';
-import { upsertCompatibleProfile } from '../profiles/profile-compatibility.repository';
+  USER_PROFILE_SELECT,
+  resolveUserProfile,
+} from '../profiles/user-profile-read';
+import { upsertUserProfile } from '../profiles/user-profile-write.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 import type { AdminAccessActor } from './admin-access.repository.types';
@@ -36,7 +36,7 @@ export type {
 const ADMIN_PROFILE_TARGET_SELECT = {
   id: true,
   nickname: true,
-  ...COMPATIBLE_PROFILE_SELECT,
+  ...USER_PROFILE_SELECT,
 } as const satisfies Prisma.UserSelect;
 
 type PrismaAdminProfileTarget = Prisma.UserGetPayload<{
@@ -67,7 +67,7 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
   }
 
   /**
-   * `upsertCompatibleProfile`(#profiles/profile-compatibility.repository)을 그대로
+   * `upsertUserProfile`(#profiles/user-profile-write.repository)을 그대로
    * 쓴다 — UserProfile 행이 없던 계정은 `fields`(세 컬럼 모두)로 새로 만들고, 있던
    * 계정은 `changedFields`(커맨드에 실제로 실린 필드만)로 갱신하면서 구버전 `User`
    * 컬럼도 같은 트랜잭션에서 맞춘다. 커맨드에 없는 필드를 UPDATE 문에 싣지 않아야
@@ -82,11 +82,18 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
     changedFields: Partial<AdminProfileWriteFields>,
   ): Promise<AdminProfileApplyOutcome> {
     try {
-      await upsertCompatibleProfile(
+      await upsertUserProfile(
         this.transaction,
         userId,
-        fields,
-        changedFields,
+        {
+          ...fields,
+          // 학번이 실린 프로필은 학생이다 — 계약 CHECK가 그 대응을 강제한다
+          // (`UserProfile_studentId_memberKind_check`).
+          memberKind: MemberKind.STUDENT,
+          affiliationKind: AffiliationKind.DEPARTMENT,
+          affiliationName: fields.department,
+        },
+        withAffiliationName(changedFields),
       );
       return 'applied';
     } catch (error) {
@@ -100,6 +107,12 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
     }
   }
 
+  /**
+   * 학번이 없는(그리고 앞으로도 없을) 계정의 이름·소속만 고친다.
+   *
+   * 프로필 행이 없으면 조용히 넘어간다 — 아직 가입을 마치지 않은 사람에게 관리자가
+   * 이름만 붙여 반쪽짜리 프로필을 만들 수는 없다(세 canonical 칸이 NOT NULL이다).
+   */
   async applyLegacyFields(
     userId: string,
     fields: AdminProfileLegacyFields,
@@ -107,7 +120,10 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
     if (Object.keys(fields).length === 0) {
       return;
     }
-    await this.transaction.user.update({ where: { id: userId }, data: fields });
+    await this.transaction.userProfile.updateMany({
+      where: { userId },
+      data: withAffiliationName(fields),
+    });
   }
 }
 
@@ -161,6 +177,20 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
 function toAdminProfileTargetRecord(
   user: PrismaAdminProfileTarget,
 ): AdminProfileTargetRecord {
-  const profile = resolveCompatibleProfile(user);
+  const profile = resolveUserProfile(user);
   return { id: user.id, githubLogin: user.nickname, ...profile };
+}
+
+/**
+ * `department`를 고칠 때 `affiliationName`도 함께 옮긴다.
+ *
+ * 두 칸은 같은 사실의 두 사본이라 한쪽만 쓰면 계약 CHECK가 거부한다
+ * (`UserProfile_department_affiliationName_check`).
+ */
+function withAffiliationName<T extends { readonly department?: string }>(
+  fields: T,
+): T & { readonly affiliationName?: string } {
+  return fields.department === undefined
+    ? fields
+    : { ...fields, affiliationName: fields.department };
 }

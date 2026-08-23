@@ -7,7 +7,6 @@ import {
   RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
-  Role,
   SubmissionStatus,
   User,
 } from '@prisma/client';
@@ -93,8 +92,6 @@ async function upsertConfiguredUser(
   account: OssHubTeamAccount,
 ): Promise<User> {
   const id = seedId('oss-hub', 'user', account.githubId.toString());
-  const nameField =
-    account.displayName !== undefined ? { name: account.displayName } : {};
   const user = await upsertTracked(
     stats,
     'User',
@@ -104,17 +101,15 @@ async function upsertConfiguredUser(
         where: { githubId: account.githubId },
         update: {
           nickname: account.login,
-          role: Role.ADMIN,
           accountStatus: AccountStatus.ACTIVE,
-          ...nameField,
+          hasAdminAccess: true,
         },
         create: {
           id,
           githubId: account.githubId,
           nickname: account.login,
-          role: Role.ADMIN,
           accountStatus: AccountStatus.ACTIVE,
-          ...nameField,
+          hasAdminAccess: true,
         },
       }),
   );

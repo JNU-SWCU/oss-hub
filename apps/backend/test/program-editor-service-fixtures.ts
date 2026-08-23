@@ -100,7 +100,7 @@ export function createProgramEditorServiceHarness(): {
   store.findUserAuthorityByGithubId.mockResolvedValue({
     role: Role.STAFF,
     accountStatus: AccountStatus.ACTIVE,
-    roleRequests: [],
+    staffAccessRequests: [],
   });
   return {
     service: new ProgramEditorService(repository),

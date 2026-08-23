@@ -1,4 +1,4 @@
-import { AccountStatus, RoleRequestStatus, Role } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus, Role } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
@@ -28,7 +28,7 @@ describe('ProgramEditorService authority', () => {
     store.findUserAuthorityByGithubId.mockResolvedValue({
       role: Role.STAFF,
       accountStatus: AccountStatus.DEACTIVATED,
-      roleRequests: [],
+      staffAccessRequests: [],
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<
@@ -44,7 +44,7 @@ describe('ProgramEditorService authority', () => {
     store.findUserAuthorityByGithubId.mockResolvedValue({
       role: null,
       accountStatus: AccountStatus.ACTIVE,
-      roleRequests: [{ status: RoleRequestStatus.PENDING }],
+      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<
@@ -60,7 +60,7 @@ describe('ProgramEditorService authority', () => {
     store.findUserAuthorityByGithubId.mockResolvedValue({
       role: null,
       accountStatus: AccountStatus.DEACTIVATED,
-      roleRequests: [{ status: RoleRequestStatus.PENDING }],
+      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<

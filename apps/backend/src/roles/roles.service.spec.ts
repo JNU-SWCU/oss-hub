@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import {
@@ -6,8 +6,8 @@ import {
   ConsentErrorCode,
 } from '../consents/consent-error-code.enum';
 import type { ConsentsService } from '../consents/consents.service';
-import type { CompatibleProfile } from '../profiles/profile-compatibility';
-import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
+import type { UserProfileView } from '../profiles/user-profile-read';
+import type { StaffAccessRequestRecord, RoleUser } from './domain/member-onboarding';
 import { confirmSelectedRole } from './role-confirmation';
 import type {
   RoleConfirmation,
@@ -23,14 +23,14 @@ import { RolesService } from './roles.service';
 const REQUESTED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 /** 아직 아무것도 채우지 않은 프로필 — 가입을 막 시작한 사람의 상태다. */
-const EMPTY_PROFILE: CompatibleProfile = {
+const EMPTY_PROFILE: UserProfileView = {
   name: null,
   studentId: null,
   department: null,
 };
 
 /** 학생 기준으로도 완성된 프로필 — 이미 가입을 마친 사람의 상태다. */
-const COMPLETE_PROFILE: CompatibleProfile = {
+const COMPLETE_PROFILE: UserProfileView = {
   name: '합성 사용자',
   studentId: '260001',
   department: '인공지능학부',
@@ -42,7 +42,7 @@ const COMPLETE_PROFILE: CompatibleProfile = {
  * 회수된 교직원의 실제 모습이다. 교직원은 학번을 요구받지 않으므로
  * (`users/user-profile-policy.ts`) 대부분 이 상태로 남아 있다.
  */
-const STAFF_ONLY_PROFILE: CompatibleProfile = {
+const STAFF_ONLY_PROFILE: UserProfileView = {
   name: '합성 교직원',
   studentId: null,
   department: '인공지능학부',
@@ -50,13 +50,13 @@ const STAFF_ONLY_PROFILE: CompatibleProfile = {
 
 class InMemoryRolesStore implements RolesTransactionStore {
   private user: RoleUser | null;
-  private readonly requests: RoleRequestRecord[];
+  private readonly requests: StaffAccessRequestRecord[];
 
   constructor(
     userRole: Role | null,
-    requests: RoleRequestRecord[] = [],
+    requests: StaffAccessRequestRecord[] = [],
     accountStatus: AccountStatus = AccountStatus.ACTIVE,
-    profile: CompatibleProfile = EMPTY_PROFILE,
+    profile: UserProfileView = EMPTY_PROFILE,
     selectedRole: Role | null = null,
   ) {
     this.user = {
@@ -98,7 +98,7 @@ class InMemoryRolesStore implements RolesTransactionStore {
             return Promise.resolve({ count: 1 });
           }) as never,
         },
-        roleRequest: {
+        staffAccessRequest: {
           findFirst: (() => this.findPendingRequest()) as never,
           create: (({ data }: { data: { userId: string } }) =>
             this.createPendingRequest(data.userId)) as never,
@@ -108,23 +108,23 @@ class InMemoryRolesStore implements RolesTransactionStore {
     );
   }
 
-  findPendingRequest(): Promise<RoleRequestRecord | null> {
+  findPendingRequest(): Promise<StaffAccessRequestRecord | null> {
     return Promise.resolve(
       this.requests.find(
-        (request) => request.status === RoleRequestStatus.PENDING,
+        (request) => request.status === StaffAccessRequestStatus.PENDING,
       ) ?? null,
     );
   }
 
-  findLatestRequest(): Promise<RoleRequestRecord | null> {
+  findLatestRequest(): Promise<StaffAccessRequestRecord | null> {
     return Promise.resolve(this.requests.at(-1) ?? null);
   }
 
-  createPendingRequest(userId: string): Promise<RoleRequestRecord> {
-    const request: RoleRequestRecord = {
+  createPendingRequest(userId: string): Promise<StaffAccessRequestRecord> {
+    const request: StaffAccessRequestRecord = {
       id: `synthetic-request-${this.requests.length + 1}`,
       userId,
-      status: RoleRequestStatus.PENDING,
+      status: StaffAccessRequestStatus.PENDING,
       rejectionReason: null,
       decidedAt: null,
       createdAt: REQUESTED_AT,
@@ -159,17 +159,17 @@ class InMemoryRolesRepository implements RolesRepositoryPort {
     return this.store.findUserByGithubId();
   }
 
-  findLatestRequest(): Promise<RoleRequestRecord | null> {
+  findLatestRequest(): Promise<StaffAccessRequestRecord | null> {
     return this.store.findLatestRequest();
   }
 }
 
 function createService(
   role: Role | null,
-  requests: RoleRequestRecord[] = [],
+  requests: StaffAccessRequestRecord[] = [],
   consented = true,
   accountStatus: AccountStatus = AccountStatus.ACTIVE,
-  profile: CompatibleProfile = EMPTY_PROFILE,
+  profile: UserProfileView = EMPTY_PROFILE,
   selectedRole: Role | null = null,
 ): { service: RolesService; store: InMemoryRolesStore } {
   const store = new InMemoryRolesStore(
@@ -199,16 +199,16 @@ function createService(
   };
 }
 
-function roleRequest(
-  status: RoleRequestStatus,
+function staffAccessRequest(
+  status: StaffAccessRequestStatus,
   rejectionReason: string | null = null,
-): RoleRequestRecord {
+): StaffAccessRequestRecord {
   return {
     id: `synthetic-${status.toLowerCase()}`,
     userId: 'synthetic-user',
     status,
     rejectionReason,
-    decidedAt: status === RoleRequestStatus.PENDING ? null : REQUESTED_AT,
+    decidedAt: status === StaffAccessRequestStatus.PENDING ? null : REQUESTED_AT,
     createdAt: REQUESTED_AT,
   };
 }
@@ -315,7 +315,7 @@ describe('RolesService', () => {
    */
   it('프로필을 이미 마친 사용자는 고르는 그 자리에서 확정된다', async () => {
     // Given
-    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(
       null,
       [revoked],
@@ -357,7 +357,7 @@ describe('RolesService', () => {
 
   it('활성 교직원 요청이 있으면 학생 전환을 거부한다', async () => {
     // Given
-    const pending = roleRequest(RoleRequestStatus.PENDING);
+    const pending = staffAccessRequest(StaffAccessRequestStatus.PENDING);
     const { service, store } = createService(null, [pending]);
 
     // When
@@ -374,7 +374,7 @@ describe('RolesService', () => {
   it('활성 요청이 있으면 교직원 선택을 멱등 처리한다', async () => {
     // Given: '선택 완료'를 두 번 누른 상황이다. 여기서 409를 주면 아무것도 바뀌지
     // 않는 조작에 오류 화면이 뜬다.
-    const pending = roleRequest(RoleRequestStatus.PENDING);
+    const pending = staffAccessRequest(StaffAccessRequestStatus.PENDING);
     const { service, store } = createService(
       null,
       [pending],
@@ -403,7 +403,7 @@ describe('RolesService', () => {
    */
   it('권한이 회수된 사용자도 교직원을 다시 고를 수 있다', async () => {
     // Given: 회수된 뒤의 상태 — 확정 역할이 비었고 마지막 요청이 REVOKED다.
-    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(null, [revoked]);
 
     // When
@@ -429,7 +429,7 @@ describe('RolesService', () => {
    */
   it('프로필을 마친 회수 사용자가 교직원을 고르면 승인 대기 요청이 만들어진다', async () => {
     // Given
-    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(
       null,
       [revoked],
@@ -456,7 +456,7 @@ describe('RolesService', () => {
    */
   it('권한이 회수된 사용자는 학생도 고를 수 있다', async () => {
     // Given
-    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(
       null,
       [revoked],
@@ -487,7 +487,7 @@ describe('RolesService', () => {
     '회수 이력이 있어도 %s 역할이 확정된 사용자는 선택을 바꿀 수 없다',
     async (confirmedRole) => {
       // Given
-      const revoked = roleRequest(RoleRequestStatus.REVOKED);
+      const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
       const { service, store } = createService(confirmedRole, [revoked]);
 
       // When
@@ -520,7 +520,7 @@ describe('RolesService', () => {
 
   it('가장 최근 역할 요청을 반환한다', async () => {
     // Given
-    const rejected = roleRequest(RoleRequestStatus.REJECTED, '합성 사유');
+    const rejected = staffAccessRequest(StaffAccessRequestStatus.REJECTED, '합성 사유');
     const { service } = createService(null, [rejected]);
 
     // When
@@ -543,14 +543,14 @@ describe('RolesService', () => {
 
   it('거절 이력이 있으면 새 PENDING 요청을 만들고 이력을 보존한다', async () => {
     // Given
-    const rejected = roleRequest(RoleRequestStatus.REJECTED, '합성 사유');
+    const rejected = staffAccessRequest(StaffAccessRequestStatus.REJECTED, '합성 사유');
     const { service, store } = createService(null, [rejected]);
 
     // When
     const result = await service.retryStaffRequest(424242n);
 
     // Then
-    expect(result.status).toBe(RoleRequestStatus.PENDING);
+    expect(result.status).toBe(StaffAccessRequestStatus.PENDING);
     expect(store.requestCount()).toBe(2);
     expect(store.currentSelectedRole()).toBe(Role.STAFF);
   });
@@ -567,14 +567,14 @@ describe('RolesService', () => {
    */
   it('권한이 회수된 사용자도 새 PENDING 요청을 만들고 이력을 보존한다', async () => {
     // Given
-    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(null, [revoked]);
 
     // When
     const result = await service.retryStaffRequest(424242n);
 
     // Then
-    expect(result.status).toBe(RoleRequestStatus.PENDING);
+    expect(result.status).toBe(StaffAccessRequestStatus.PENDING);
     expect(store.requestCount()).toBe(2);
     expect(store.currentSelectedRole()).toBe(Role.STAFF);
   });
@@ -585,7 +585,7 @@ describe('RolesService', () => {
    */
   it('회수 이력이 있어도 역할이 확정된 사용자는 재요청할 수 없다', async () => {
     // Given: 회수된 뒤 다시 승인받아 STAFF가 된 사람. 이력에는 REVOKED가 남아 있다.
-    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(Role.STAFF, [revoked]);
 
     // When
@@ -599,7 +599,7 @@ describe('RolesService', () => {
   });
 
   it('비활성 교직원은 기존 온보딩·재요청 경로를 사용할 수 없다', async () => {
-    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(
       Role.STAFF,
       [revoked],
@@ -615,7 +615,7 @@ describe('RolesService', () => {
 
   it('현행 정책 미동의 사용자의 교직원 재요청을 거부한다', async () => {
     // Given: 과거 요청 이력은 있지만 현행 정책에는 동의하지 않았다.
-    const rejected = roleRequest(RoleRequestStatus.REJECTED, '합성 사유');
+    const rejected = staffAccessRequest(StaffAccessRequestStatus.REJECTED, '합성 사유');
     const { service, store } = createService(null, [rejected], false);
 
     // When
@@ -630,7 +630,7 @@ describe('RolesService', () => {
 
   it('활성 요청이 있으면 재요청을 거부한다', async () => {
     // Given
-    const pending = roleRequest(RoleRequestStatus.PENDING);
+    const pending = staffAccessRequest(StaffAccessRequestStatus.PENDING);
     const { service } = createService(null, [pending]);
 
     // When

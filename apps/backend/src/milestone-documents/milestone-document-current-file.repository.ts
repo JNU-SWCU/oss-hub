@@ -4,7 +4,6 @@ import {
   ApplicationStatus,
   MilestoneSubmissionType,
   Prisma,
-  Role,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -61,7 +60,8 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
     const activeStudent = {
       githubId: sessionGithubId,
       accountStatus: AccountStatus.ACTIVE,
-      role: Role.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
     } as const;
     const submission = await this.prisma.milestoneDocumentSubmission.findFirst({
       where: {

@@ -2,7 +2,7 @@ import {
   AffiliationKind,
   MemberKind,
   Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './domain/admin-access';
@@ -75,7 +75,7 @@ it('staff completion writes program-office affiliation, null student ID, default
   // Then
   const [stored, requests] = await Promise.all([
     storedMember(user.id),
-    prisma.roleRequest.findMany({ where: { userId: user.id } }),
+    prisma.staffAccessRequest.findMany({ where: { userId: user.id } }),
   ]);
   expect(stored).toMatchObject({
     role: null,
@@ -93,7 +93,7 @@ it('staff completion writes program-office affiliation, null student ID, default
     },
   });
   expect(requests).toHaveLength(1);
-  expect(requests[0]?.status).toBe(RoleRequestStatus.PENDING);
+  expect(requests[0]?.status).toBe(StaffAccessRequestStatus.PENDING);
 });
 
 it('approval grants staff access without changing staff member kind or admin access', async () => {
@@ -109,7 +109,7 @@ it('approval grants staff access without changing staff member kind or admin acc
     desiredRole: Role.STAFF,
     expectedPendingRequest: {
       id: request.id,
-      status: RoleRequestStatus.PENDING,
+      status: StaffAccessRequestStatus.PENDING,
     },
     requestDecision: { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE },
   });
@@ -136,7 +136,7 @@ it('rejection keeps staff access disabled without erasing staff member kind', as
     desiredRole: null,
     expectedPendingRequest: {
       id: request.id,
-      status: RoleRequestStatus.PENDING,
+      status: StaffAccessRequestStatus.PENDING,
     },
     requestDecision: {
       decision: ADMIN_ACCESS_REQUEST_DECISIONS.REJECT,
@@ -164,7 +164,7 @@ it('revocation removes staff access without erasing staff member kind or grantin
     desiredRole: Role.STAFF,
     expectedPendingRequest: {
       id: request.id,
-      status: RoleRequestStatus.PENDING,
+      status: StaffAccessRequestStatus.PENDING,
     },
     requestDecision: { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE },
   });
@@ -185,8 +185,8 @@ it('revocation removes staff access without erasing staff member kind or grantin
     profile: { memberKind: MemberKind.STAFF },
   });
   await expect(
-    prisma.roleRequest.count({
-      where: { userId: target.id, status: RoleRequestStatus.REVOKED },
+    prisma.staffAccessRequest.count({
+      where: { userId: target.id, status: StaffAccessRequestStatus.REVOKED },
     }),
   ).resolves.toBe(1);
 });

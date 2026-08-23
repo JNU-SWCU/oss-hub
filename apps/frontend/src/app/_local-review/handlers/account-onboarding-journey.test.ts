@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import { onboardingPathFor } from '../../_shell/onboarding-route';
 import type { AppRole } from '../../_shell/role';
 import { profileOnboardingView } from '../../onboarding/profile/profile-onboarding-route';
@@ -18,14 +18,14 @@ import { call, callWithBody, jsonBody } from './account-handlers-test-support';
 describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인 대기', () => {
   /** 지금 이 검토자가 있어야 할 온보딩 화면. 게이트가 읽는 두 값에서 파생시킨다. */
   function currentOnboardingPath(): string | null {
-    const roleRequest = jsonBody(
+    const staffAccessRequest = jsonBody(
       call('unassigned', 'GET', 'role-requests/me'),
-    ) as { readonly status: RoleRequestStatus } | null;
+    ) as { readonly status: StaffAccessRequestStatus } | null;
     const profile = jsonBody(call('unassigned', 'GET', 'users/me/profile')) as {
       readonly isComplete: boolean;
     };
     return onboardingPathFor(
-      roleRequest?.status ?? null,
+      staffAccessRequest?.status ?? null,
       profile.isComplete ? 'complete' : 'incomplete',
     );
   }
@@ -37,9 +37,9 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
    * 아니라 이 테스트 자신이 된다.
    */
   function currentProfileView() {
-    const roleRequest = jsonBody(
+    const staffAccessRequest = jsonBody(
       call('unassigned', 'GET', 'role-requests/me'),
-    ) as { readonly status: RoleRequestStatus } | null;
+    ) as { readonly status: StaffAccessRequestStatus } | null;
     const selection = jsonBody(
       call('unassigned', 'GET', 'onboarding/role'),
     ) as {
@@ -62,8 +62,8 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
       memberKind: session.user.memberKind,
       hasStaffAccess: session.user.hasStaffAccess,
       hasAdminAccess: session.user.hasAdminAccess,
-      roleRequestStatus: roleRequest?.status ?? null,
-      roleRequestRejectionReason: null,
+      staffAccessRequestStatus: staffAccessRequest?.status ?? null,
+      staffAccessRequestRejectionReason: null,
       selectedRole: selection.selectedRole,
       isProfileComplete: false,
     });

@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import type {
   AdminAccessHistory,
   AdminAccessLoginHistoryItem,
-  AdminAccessRoleRequestHistoryItem,
+  AdminAccessStaffAccessRequestHistoryItem,
 } from './admin-access-api';
 import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import type { AdminAccessDetailMutationController } from './components/admin-access-detail-view';
@@ -53,7 +53,7 @@ export function adminHistory(
   overrides: Partial<AdminAccessHistory> = {},
 ): AdminAccessHistory {
   return {
-    roleRequests: historyPage<AdminAccessRoleRequestHistoryItem>(),
+    staffAccessRequests: historyPage<AdminAccessStaffAccessRequestHistoryItem>(),
     loginHistory: historyPage<AdminAccessLoginHistoryItem>(),
     ...overrides,
   };

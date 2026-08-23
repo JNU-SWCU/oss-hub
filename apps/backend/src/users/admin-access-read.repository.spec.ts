@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
@@ -168,7 +168,7 @@ describe('admin access read profile completeness', () => {
   });
 
   /**
-   * `ADMIN_ACCESS_USER_SELECT`를 넓힌 것이 `roleRequests` 소비자를 건드리지 않았다.
+   * `ADMIN_ACCESS_USER_SELECT`를 넓힌 것이 `staffAccessRequests` 소비자를 건드리지 않았다.
    *
    * 그 배열은 PENDING만 골라 오고 두 곳이 읽는다 — 하나는 `pendingRequest`(승인·반려
    * 버튼의 근거이며 status를 PENDING으로 하드코딩한다), 다른 하나는
@@ -328,7 +328,7 @@ function approveStaffCommand(): AdminAccessMutationCommand {
     desiredAccountStatus: AccountStatus.ACTIVE,
     expectedPendingRequest: {
       id: 'request-pending',
-      status: RoleRequestStatus.PENDING,
+      status: StaffAccessRequestStatus.PENDING,
     },
     requestDecision: { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE },
   };
@@ -350,7 +350,7 @@ function actor(): AdminAccessActor {
 function pendingRequest() {
   return {
     id: 'request-pending',
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     createdAt: new Date('2026-07-20T00:00:00.000Z'),
   };
 }
@@ -367,7 +367,7 @@ type UserRowOptions = {
 
 /**
  * 학번 없는 교직원은 UserProfile 행을 만들 수 없어(studentId NOT NULL) 구버전 User
- * 컬럼에만 남는다 — `resolveCompatibleProfile`이 그때 User 컬럼으로 떨어진다.
+ * 컬럼에만 남는다 — `resolveUserProfile`이 그때 User 컬럼으로 떨어진다.
  */
 function userRow(options: UserRowOptions) {
   return {
@@ -381,7 +381,7 @@ function userRow(options: UserRowOptions) {
     role: options.role,
     selectedRole: options.selectedRole ?? null,
     accountStatus: AccountStatus.ACTIVE,
-    roleRequests: options.pendingRequest ? [options.pendingRequest] : [],
+    staffAccessRequests: options.pendingRequest ? [options.pendingRequest] : [],
     loginHistories: [],
   };
 }

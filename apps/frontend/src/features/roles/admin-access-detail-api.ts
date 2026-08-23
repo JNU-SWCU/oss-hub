@@ -64,8 +64,8 @@ export async function loadAdminAccessDetail(
       fetchAdminAccessHistory(
         userId,
         {
-          roleRequestPage: 1,
-          roleRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
+          staffAccessRequestPage: 1,
+          staffAccessRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
           loginPage: 1,
           loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
         },

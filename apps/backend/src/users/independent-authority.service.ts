@@ -141,6 +141,6 @@ function authorityChanged(
     before.hasStaffAccess !== transition.hasStaffAccess ||
     before.hasAdminAccess !== transition.hasAdminAccess ||
     before.role !== transition.role ||
-    before.selectedRole !== transition.selectedRole
+    before.selectedMemberKind !== transition.selectedMemberKind
   );
 }

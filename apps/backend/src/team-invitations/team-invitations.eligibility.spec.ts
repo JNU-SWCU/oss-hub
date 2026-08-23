@@ -131,7 +131,12 @@ describe('팀 초대 대상 자격', () => {
     // Then
     expect(tx.user.findUnique).toHaveBeenCalledWith({
       where: { id: inviteeId },
-      select: { id: true, role: true, accountStatus: true },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     expect(outcome).toEqual({ kind: 'invitee-not-eligible' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();

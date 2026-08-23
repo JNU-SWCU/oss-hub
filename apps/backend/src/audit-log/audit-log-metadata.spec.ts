@@ -4,7 +4,7 @@ import {
   ProgramLifecycle,
   Role,
   RepositoryVisibility,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
@@ -123,7 +123,7 @@ describe('parseAuditLogMetadata', () => {
     );
   });
 
-  it('RoleRequest 관련 없는 필드 이름·타입이 어긋나면 거부한다', () => {
+  it('StaffAccessRequest 관련 없는 필드 이름·타입이 어긋나면 거부한다', () => {
     expect(() => parseAuditLogMetadata({ schemaVersion: 2 })).toThrow(
       InvalidAuditLogMetadataError,
     );
@@ -142,8 +142,8 @@ describe('createAccessAuditMetadata', () => {
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
       actor: { displayName: null, githubLogin: 'synthetic-admin' },
       target: { displayName: null, githubLogin: 'synthetic-target' },
-      before: { ...STATE, requestStatus: RoleRequestStatus.PENDING },
-      after: { ...STATE, requestStatus: RoleRequestStatus.REJECTED },
+      before: { ...STATE, requestStatus: StaffAccessRequestStatus.PENDING },
+      after: { ...STATE, requestStatus: StaffAccessRequestStatus.REJECTED },
       rejectionReason: '합성 반려 사유',
     });
 
@@ -533,8 +533,8 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
       actor: { displayName: null, githubLogin: 'synthetic-admin' },
       target: { displayName: null, githubLogin: 'synthetic-target' },
-      before: { ...STATE, requestStatus: RoleRequestStatus.PENDING },
-      after: { ...STATE, requestStatus: RoleRequestStatus.REJECTED },
+      before: { ...STATE, requestStatus: StaffAccessRequestStatus.PENDING },
+      after: { ...STATE, requestStatus: StaffAccessRequestStatus.REJECTED },
       rejectionReason: '합성 반려 사유',
     });
 
@@ -547,8 +547,8 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
         eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
         actor: { displayName: null, githubLogin: 'synthetic-admin' },
         target: { displayName: null, githubLogin: 'synthetic-target' },
-        before: { ...STATE, requestStatus: RoleRequestStatus.PENDING },
-        after: { ...STATE, requestStatus: RoleRequestStatus.REJECTED },
+        before: { ...STATE, requestStatus: StaffAccessRequestStatus.PENDING },
+        after: { ...STATE, requestStatus: StaffAccessRequestStatus.REJECTED },
       },
     });
     expect(JSON.stringify(evidence)).not.toMatch(

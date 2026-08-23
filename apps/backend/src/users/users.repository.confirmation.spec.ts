@@ -27,7 +27,7 @@ const staffCompletion = canonicalCompletion(
 describe('UsersRepository 가입 마치기 확정', () => {
   it('학생 완료는 rollback 역할도 같은 트랜잭션에서 배정한다', async () => {
     // Given
-    const { repository, userUpdateMany, roleRequestCreate } = harness(student);
+    const { repository, userUpdateMany, staffAccessRequestCreate } = harness(student);
 
     // When
     const outcome = await repository.completeProfileIfUnchanged(
@@ -41,12 +41,12 @@ describe('UsersRepository 가입 마치기 확정', () => {
       where: { id: student.id, role: null },
       data: { role: Role.STUDENT },
     });
-    expect(roleRequestCreate).not.toHaveBeenCalled();
+    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
   });
 
   it('교직원 완료는 rollback 역할 없이 승인 요청 하나를 만든다', async () => {
     // Given
-    const { repository, roleRequestCreate, userUpdateMany } = harness(staff);
+    const { repository, staffAccessRequestCreate, userUpdateMany } = harness(staff);
 
     // When
     const outcome = await repository.completeProfileIfUnchanged(
@@ -56,7 +56,7 @@ describe('UsersRepository 가입 마치기 확정', () => {
 
     // Then
     expect(outcome).toBe('completed');
-    expect(roleRequestCreate).toHaveBeenCalledWith({
+    expect(staffAccessRequestCreate).toHaveBeenCalledWith({
       data: { userId: staff.id },
     });
     expect(userUpdateMany).not.toHaveBeenCalled();
@@ -64,9 +64,9 @@ describe('UsersRepository 가입 마치기 확정', () => {
 
   it('이미 승인 대기 요청이 있으면 다시 만들지 않는다', async () => {
     // Given
-    const { repository, roleRequestFindFirst, roleRequestCreate } =
+    const { repository, staffAccessRequestFindFirst, staffAccessRequestCreate } =
       harness(staff);
-    roleRequestFindFirst.mockResolvedValue({
+    staffAccessRequestFindFirst.mockResolvedValue({
       id: 'synthetic-existing',
       status: 'PENDING',
     });
@@ -75,12 +75,12 @@ describe('UsersRepository 가입 마치기 확정', () => {
     await repository.completeProfileIfUnchanged(staff, staffCompletion);
 
     // Then
-    expect(roleRequestCreate).not.toHaveBeenCalled();
+    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
   });
 
   it('잠금 뒤 스냅샷이 달라지면 확정 부수효과도 만들지 않는다', async () => {
     // Given
-    const { repository, transactionFindUnique, roleRequestCreate } =
+    const { repository, transactionFindUnique, staffAccessRequestCreate } =
       harness(staff);
     transactionFindUnique.mockResolvedValue(null);
 
@@ -92,7 +92,7 @@ describe('UsersRepository 가입 마치기 확정', () => {
 
     // Then
     expect(outcome).toBe('conflict');
-    expect(roleRequestCreate).not.toHaveBeenCalled();
+    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
   });
 
   it('canonical 선택은 비어 있는 legacy 선택을 복구한다', async () => {
@@ -124,14 +124,14 @@ describe('UsersRepository 가입 마치기 확정', () => {
       selectedMemberKind: MemberKind.STAFF,
       hasStaffAccess: true,
     });
-    const { repository, userUpdateMany, roleRequestCreate } =
+    const { repository, userUpdateMany, staffAccessRequestCreate } =
       harness(confirmed);
 
     // When
     await repository.completeProfileIfUnchanged(confirmed, staffCompletion);
 
     // Then
-    expect(roleRequestCreate).not.toHaveBeenCalled();
+    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
     expect(userUpdateMany).not.toHaveBeenCalled();
   });
 });

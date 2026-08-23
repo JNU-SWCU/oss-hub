@@ -1,7 +1,7 @@
 import { MemberKind, Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { completeCompatibleProfileIfUnchanged } from '../profiles/profile-compatibility.repository';
+import { completeUserProfileViewIfUnchanged } from '../profiles/profile-compatibility.repository';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
 import type { ProfileCompletionOutcome } from './users.repository';
@@ -167,7 +167,7 @@ it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 �
   };
   const complete = () =>
     prisma.$transaction((transaction) =>
-      completeCompatibleProfileIfUnchanged(transaction, expected, firstProfile),
+      completeUserProfileViewIfUnchanged(transaction, expected, firstProfile),
     );
 
   // When

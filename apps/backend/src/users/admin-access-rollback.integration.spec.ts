@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -47,7 +47,7 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
     where: { id: target.id },
     data: { ...profile, profile: { create: profile } },
   });
-  const request = await prisma.roleRequest.create({
+  const request = await prisma.staffAccessRequest.create({
     data: { id: `${target.id}:request`, userId: target.id },
   });
   const realRepository = new AdminAccessRepository(prisma);
@@ -65,7 +65,7 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: {
         id: request.id,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
       requestDecision: {
         decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE,
@@ -81,9 +81,9 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    prisma.roleRequest.findUniqueOrThrow({ where: { id: request.id } }),
+    prisma.staffAccessRequest.findUniqueOrThrow({ where: { id: request.id } }),
   ).resolves.toMatchObject({
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     decidedById: null,
   });
   await expect(

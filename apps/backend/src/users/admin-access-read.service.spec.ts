@@ -53,7 +53,7 @@ describe('AdminAccessService reads', () => {
     const [facets, history] = await Promise.all([
       service.facets(ADMIN_GITHUB_ID, { query: '', page: 1, limit: 20 }),
       service.getHistory(ADMIN_GITHUB_ID, 'target', {
-        roleRequests: { page: 2, limit: 5 },
+        staffAccessRequests: { page: 2, limit: 5 },
         loginHistory: { page: 3, limit: 10 },
       }),
     ]);
@@ -61,7 +61,7 @@ describe('AdminAccessService reads', () => {
     // Then
     expect(facets.roles.student).toBe(1);
     expect(history).toEqual({
-      roleRequests: { items: [], page: 2, limit: 5, total: 0 },
+      staffAccessRequests: { items: [], page: 2, limit: 5, total: 0 },
       loginHistory: { items: [], page: 3, limit: 10, total: 0 },
     });
   });
@@ -115,7 +115,7 @@ describe('AdminAccessService reads', () => {
     });
     await expect(
       service.getHistory(ADMIN_GITHUB_ID, 'missing-user', {
-        roleRequests: { page: 1, limit: 20 },
+        staffAccessRequests: { page: 1, limit: 20 },
         loginHistory: { page: 1, limit: 20 },
       }),
     ).rejects.toMatchObject({
@@ -166,7 +166,7 @@ describe('AdminAccessService reads', () => {
     });
     await expect(
       service.getHistory(STAFF_GITHUB_ID, 'target', {
-        roleRequests: { page: 1, limit: 20 },
+        staffAccessRequests: { page: 1, limit: 20 },
         loginHistory: { page: 1, limit: 20 },
       }),
     ).rejects.toMatchObject({

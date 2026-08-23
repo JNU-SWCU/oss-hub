@@ -10,12 +10,12 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import { AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
-import { RoleRequestResponseDto } from './dto/role-request-response.dto';
+import { StaffAccessRequestResponseDto } from './dto/role-request-response.dto';
 import {
   RoleSelectionResponseDto,
   RoleSelectionStateResponseDto,
 } from './dto/role-selection-response.dto';
-import { SelectRoleRequestDto } from './dto/select-role-request.dto';
+import { SelectStaffAccessRequestDto } from './dto/select-role-request.dto';
 import { RolesService } from './roles.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -26,16 +26,16 @@ export class OnboardingController {
     @Inject(RolesService)
     private readonly rolesService: Pick<
       RolesService,
-      'selectRole' | 'getMySelection'
+      'selectMemberKind' | 'getMySelection'
     >,
   ) {}
 
   /**
-   * 지금 고른 역할을 돌려준다. 역할 선택 화면이 다시 열릴 때 이전 선택을 되살리고,
+   * 지금 고른 회원 유형을 돌려준다. 선택 화면이 다시 열릴 때 이전 선택을 되살리고,
    * 프로필 화면이 무엇을 물을지 정하는 데 쓴다(#569).
    *
    * `Cache-Control`을 `OriginGuard`처럼 붙이지 않는 이유는 이 값이 권한이 아니라
-   * 진행 상태이기 때문이다 — 세션 응답(`auth/me`)과 달리 캐시돼도 권한이 새지 않는다.
+   * 진행 상태이기 때문이다 — 세션 응답과 달리 캐시돼도 권한이 새지 않는다.
    * 다만 사용자별 값이라 공유 캐시에 남으면 안 되므로 `private, no-store`를 건다.
    */
   @Get('role')
@@ -53,18 +53,18 @@ export class OnboardingController {
   @UseGuards(SessionGuard, OriginGuard)
   async selectRole(
     @Req() request: SessionIdentity,
-    @Body() body: SelectRoleRequestDto,
+    @Body() body: SelectStaffAccessRequestDto,
   ): Promise<RoleSelectionResponseDto> {
-    const result = await this.rolesService.selectRole(
+    const result = await this.rolesService.selectMemberKind(
       request.sessionGithubId,
-      body.toRole(),
+      body.toMemberKind(),
     );
     return RoleSelectionResponseDto.from(result);
   }
 }
 
 @Controller('role-requests')
-export class RoleRequestsController {
+export class StaffAccessRequestsController {
   constructor(
     @Inject(RolesService)
     private readonly rolesService: Pick<
@@ -77,21 +77,21 @@ export class RoleRequestsController {
   @UseGuards(SessionGuard)
   async getMe(
     @Req() request: SessionIdentity,
-  ): Promise<RoleRequestResponseDto | null> {
-    const roleRequest = await this.rolesService.getMyRequest(
+  ): Promise<StaffAccessRequestResponseDto | null> {
+    const staffAccessRequest = await this.rolesService.getMyRequest(
       request.sessionGithubId,
     );
-    return roleRequest ? RoleRequestResponseDto.from(roleRequest) : null;
+    return staffAccessRequest ? StaffAccessRequestResponseDto.from(staffAccessRequest) : null;
   }
 
   @Post()
   @UseGuards(SessionGuard, OriginGuard)
   async retry(
     @Req() request: SessionIdentity,
-  ): Promise<RoleRequestResponseDto> {
-    const roleRequest = await this.rolesService.retryStaffRequest(
+  ): Promise<StaffAccessRequestResponseDto> {
+    const staffAccessRequest = await this.rolesService.retryStaffRequest(
       request.sessionGithubId,
     );
-    return RoleRequestResponseDto.from(roleRequest);
+    return StaffAccessRequestResponseDto.from(staffAccessRequest);
   }
 }

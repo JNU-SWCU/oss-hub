@@ -8,7 +8,8 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import type { AuthorityLabel } from '../domain/authority-label';
 import { DomainException } from '../../common/error-code';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
@@ -30,10 +31,10 @@ class ExpectedPendingRequestDto {
   declare readonly status: string;
 
   toExpectation(): AdminAccessExpectedPendingRequest {
-    if (this.status !== RoleRequestStatus.PENDING) {
+    if (this.status !== StaffAccessRequestStatus.PENDING) {
       throw invalidDecision();
     }
-    return { id: this.id, status: RoleRequestStatus.PENDING };
+    return { id: this.id, status: StaffAccessRequestStatus.PENDING };
   }
 }
 
@@ -111,13 +112,13 @@ export class PatchAdminAccessRequestDto {
   }
 }
 
-function parseRole(value: string | null): Role | null {
+function parseRole(value: string | null): AuthorityLabel | null {
   switch (value) {
     case null:
       return null;
-    case Role.STUDENT:
-    case Role.STAFF:
-    case Role.ADMIN:
+    case 'STUDENT':
+    case 'STAFF':
+    case 'ADMIN':
       return value;
     default:
       throw new DomainException(

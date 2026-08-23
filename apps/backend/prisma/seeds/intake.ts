@@ -2,8 +2,7 @@ import {
   ApplicationStatus,
   Prisma,
   ProgramCategory,
-  Role,
-} from '@prisma/client';
+  } from '@prisma/client';
 import {
   offsetDays,
   prisma,
@@ -333,23 +332,23 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
   // --- 개인형 신청 지원 사용자 ------------------------------------------
   const applicantPersonal = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'applicant-personal'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const applicantPending = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'applicant-pending'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const applicantApproved = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'applicant-approved'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const applicantRejected = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'applicant-rejected'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const processor = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'processor'),
-    role: Role.STAFF,
+    role: 'STAFF',
   });
 
   // application-personal: 개인형, teamId=null, 유효(placeholder) answers.
@@ -398,7 +397,7 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
   // --- 팀형 신청 -------------------------------------------------------
   const teamEmptyUser = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'team-empty-applicant'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   // team-empty: team-track 프로그램은 있지만 이 사용자는 어떤 Team에도 속하지 않는다
   // (Team/TeamMember row를 만들지 않는다 — 사용자의 "팀 없음" 상태 자체가 시나리오다).
@@ -406,13 +405,13 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
 
   const teamLeaderFull = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'team-full-leader'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const teamFullMembers = await Promise.all(
     [0, 1, 2].map((index) =>
       upsertSeedUser(stats, {
         id: seedId('intake', 'user', 'team-full-member', String(index)),
-        role: Role.STUDENT,
+        role: 'STUDENT',
       }),
     ),
   );
@@ -442,11 +441,11 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
 
   const teamLeaderApp = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'application-team-leader'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const teamMemberApp = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'application-team-member'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   await createTeamWithApplication(stats, {
     scenarioId: 'application-team',
@@ -457,11 +456,11 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
 
   const teamLeaderLocked = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'team-locked-leader'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const teamMemberLocked = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'team-locked-member'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   // team-locked: 신청 제출 후 membership이 잠긴 팀 — application-team과 동일한 구성을
   // 재사용 helper로 독립된 팀·신청 행에 적용한다.

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '@/features/auth/use-session';
-import { fetchMyRoleRequest, fetchMyRoleSelection } from '@/features/roles/api';
-import type { RoleRequestStatus, RoleSelection } from '@/features/roles/types';
+import { fetchMyStaffAccessRequest, fetchMyRoleSelection } from '@/features/roles/api';
+import type { StaffAccessRequestStatus, RoleSelection } from '@/features/roles/types';
 import type { AppRole } from './role';
 import { EMPTY_MEMBER_ACCESS, type MemberAccess } from './member-access';
 import { useOptionalSharedSessionRole } from './session-role-context';
@@ -18,7 +18,7 @@ export type SessionStatus =
 /**
  * 게이트가 읽고, 게이트 아래 화면이 물려받는 스냅샷.
  *
- * **무엇을 여기 실어도 되는가 — 경계를 적어 둔다.** `roleRequestRejectionReason`이
+ * **무엇을 여기 실어도 되는가 — 경계를 적어 둔다.** `staffAccessRequestRejectionReason`이
  * 들어오면서 이 타입은 "접근 판단에 필요한 값"을 넘어 "목적지가 표시할 값"까지 담게
  * 됐다. 그 문이 열린 이상 규칙이 없으면 다음 사람이 계속 얹는다.
  *
@@ -28,16 +28,16 @@ export type SessionStatus =
  * - **실으면 안 되는 것**: 화면이 **만들어 내는 것**. 제목·라벨·안내 문구 같은
  *   표시 문자열, JSX, 번역된 문장, 화면별 파생 상태가 그렇다. 그것들은 화면마다
  *   다르고 번역·문안 변경이 이 공용 타입을 흔든다 — 게이트를 쓰는 모든 화면이 함께
- *   끌려온다. 사실만 내려 주고 문장은 화면이 짓는다(`ClosedRoleRequestNotice`가
+ *   끌려온다. 사실만 내려 주고 문장은 화면이 짓는다(`ClosedStaffAccessRequestNotice`가
  *   그 예다: 사유는 여기서 오고, "교직원 요청이 반려되었습니다"는 화면이 만든다).
  */
 export interface SessionRoleState extends MemberAccess {
   readonly status: SessionStatus;
   /** Todo 13까지 온보딩 호환 상태에만 쓰는 legacy projection. */
   readonly role: AppRole | null;
-  readonly roleRequestStatus: RoleRequestStatus | null;
+  readonly staffAccessRequestStatus: StaffAccessRequestStatus | null;
   /**
-   * 관리자가 남긴 반려 사유. `roleRequestStatus === 'REJECTED'`에서만 값이 있다.
+   * 관리자가 남긴 반려 사유. `staffAccessRequestStatus === 'REJECTED'`에서만 값이 있다.
    *
    * 이 값이 여기 있는 이유는 **그것을 보여 줄 화면이 게이트의 목적지**이기 때문이다.
    * 반려 사용자는 `/onboarding/role`로 보내지는데(#535), 그 화면이 사유를 직접 다시
@@ -49,12 +49,12 @@ export interface SessionRoleState extends MemberAccess {
    * 요청이 없거나 반려가 아니면 `null`이다. 회수(`REVOKED`)는 사유를 저장하지 않으므로
    * (`admin-access.repository.ts`의 `decidePendingRequest`) 언제나 `null`이다.
    */
-  readonly roleRequestRejectionReason: string | null;
+  readonly staffAccessRequestRejectionReason: string | null;
   /**
    * 가입 절차에서 고른 역할 — 아직 확정되지 않은 선택이다(#569).
    *
    * 확정을 `가입 마치기`로 미룬 뒤, 프로필을 입력하는 동안에는 `role`도
-   * `roleRequestStatus`도 비어 있다. 그 구간에서 이 사람이 무엇을 고른 사람인지 아는
+   * `staffAccessRequestStatus`도 비어 있다. 그 구간에서 이 사람이 무엇을 고른 사람인지 아는
    * 근거가 이 값뿐이다 — 프로필 화면이 무엇을 물을지, 저장 뒤 어디로 갈지가 여기서
    * 갈린다. 역할이 이미 배정된 사용자(`assigned`)에게는 조회하지 않으므로 `null`이다.
    */
@@ -78,8 +78,8 @@ const LOADING: SessionRoleState = {
   status: 'loading',
   role: null,
   ...EMPTY_MEMBER_ACCESS,
-  roleRequestStatus: null,
-  roleRequestRejectionReason: null,
+  staffAccessRequestStatus: null,
+  staffAccessRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -87,8 +87,8 @@ const ERROR: SessionRoleState = {
   status: 'error',
   role: null,
   ...EMPTY_MEMBER_ACCESS,
-  roleRequestStatus: null,
-  roleRequestRejectionReason: null,
+  staffAccessRequestStatus: null,
+  staffAccessRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -96,8 +96,8 @@ const ANONYMOUS: SessionRoleState = {
   status: 'anonymous',
   role: null,
   ...EMPTY_MEMBER_ACCESS,
-  roleRequestStatus: null,
-  roleRequestRejectionReason: null,
+  staffAccessRequestStatus: null,
+  staffAccessRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -115,7 +115,7 @@ type OnboardingFetch =
       readonly kind: 'loaded';
       /** 같은 브라우저 탭에서 계정이 바뀌어도 이전 사용자의 값을 섞지 않는 키. */
       readonly subject: string;
-      readonly status: RoleRequestStatus | null;
+      readonly status: StaffAccessRequestStatus | null;
       /** 반려 사유. 반려가 아니면 `null`이다 — 표시할 화면이 게이트의 목적지라 함께 싣는다. */
       readonly rejectionReason: string | null;
       readonly selectedRole: RoleSelection | null;
@@ -155,7 +155,7 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
     }
 
     let active = true;
-    Promise.all([fetchMyRoleRequest(), fetchMyRoleSelection()])
+    Promise.all([fetchMyStaffAccessRequest(), fetchMyRoleSelection()])
       .then(([request, selection]) => {
         if (active) {
           setOnboarding({
@@ -218,8 +218,8 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
             memberKind: user.memberKind,
             hasStaffAccess: user.hasStaffAccess,
             hasAdminAccess: user.hasAdminAccess,
-            roleRequestStatus: null,
-            roleRequestRejectionReason: null,
+            staffAccessRequestStatus: null,
+            staffAccessRequestRejectionReason: null,
             selectedRole: null,
             isProfileComplete: user.isProfileComplete,
           };
@@ -242,8 +242,8 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
               memberKind: user.memberKind,
               hasStaffAccess: user.hasStaffAccess,
               hasAdminAccess: user.hasAdminAccess,
-              roleRequestStatus: onboarding.status,
-              roleRequestRejectionReason: onboarding.rejectionReason,
+              staffAccessRequestStatus: onboarding.status,
+              staffAccessRequestRejectionReason: onboarding.rejectionReason,
               selectedRole: onboarding.selectedRole,
               isProfileComplete: false,
             };

@@ -1,9 +1,9 @@
-import type { LoginHistoryEvent, RoleRequestStatus } from '@prisma/client';
+import type { LoginHistoryEvent, StaffAccessRequestStatus } from '@prisma/client';
 import type { AdminAccessUserHistory } from '../domain/admin-access';
 
-type RoleRequestHistoryItemResponseDto = {
+type StaffAccessRequestHistoryItemResponseDto = {
   readonly id: string;
-  readonly status: RoleRequestStatus;
+  readonly status: StaffAccessRequestStatus;
   readonly rejectionReason: string | null;
   readonly decidedAt: string | null;
   readonly decidedBy: string | null;
@@ -19,8 +19,8 @@ type LoginHistoryItemResponseDto = {
 };
 
 export class AdminAccessUserHistoryResponseDto {
-  readonly roleRequests: {
-    readonly items: readonly RoleRequestHistoryItemResponseDto[];
+  readonly staffAccessRequests: {
+    readonly items: readonly StaffAccessRequestHistoryItemResponseDto[];
     readonly page: number;
     readonly limit: number;
     readonly total: number;
@@ -33,9 +33,9 @@ export class AdminAccessUserHistoryResponseDto {
   };
 
   private constructor(history: AdminAccessUserHistory) {
-    this.roleRequests = {
-      ...history.roleRequests,
-      items: history.roleRequests.items.map((item) => ({
+    this.staffAccessRequests = {
+      ...history.staffAccessRequests,
+      items: history.staffAccessRequests.items.map((item) => ({
         ...item,
         decidedAt: item.decidedAt?.toISOString() ?? null,
         createdAt: item.createdAt.toISOString(),

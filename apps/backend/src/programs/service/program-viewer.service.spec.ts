@@ -12,7 +12,7 @@ describe('ProgramViewerService', () => {
       id: 'staff-1',
       role: Role.STAFF,
       accountStatus: AccountStatus.DEACTIVATED,
-      roleRequests: [],
+      staffAccessRequests: [],
     });
     const prisma = { user: { findUnique } } as unknown as PrismaService;
     const service = new ProgramViewerService(new ProgramsRepository(prisma));
@@ -28,7 +28,7 @@ describe('ProgramViewerService', () => {
         id: true,
         accountStatus: true,
         role: true,
-        roleRequests: {
+        staffAccessRequests: {
           where: { status: 'PENDING' },
           select: { id: true },
           take: 1,

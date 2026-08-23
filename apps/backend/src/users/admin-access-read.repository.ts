@@ -1,6 +1,10 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { compatibleProfileNameWhere } from '../profiles/profile-compatibility';
+import { userProfileNameWhere } from '../profiles/user-profile-read';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -72,10 +76,30 @@ export async function listAdminAccessFacets(
     none,
     pending,
   ] = await Promise.all([
-    prisma.user.count({ where: { ...roleBase, role: null } }),
-    prisma.user.count({ where: { ...roleBase, role: Role.STUDENT } }),
-    prisma.user.count({ where: { ...roleBase, role: Role.STAFF } }),
-    prisma.user.count({ where: { ...roleBase, role: Role.ADMIN } }),
+    // 표시 역할 집계는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
+    prisma.user.count({
+      where: {
+        ...roleBase,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        OR: [
+          { profile: { is: null } },
+          { profile: { isNot: { memberKind: MemberKind.STUDENT } } },
+        ],
+      },
+    }),
+    prisma.user.count({
+      where: {
+        ...roleBase,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        profile: { is: { memberKind: MemberKind.STUDENT } },
+      },
+    }),
+    prisma.user.count({
+      where: { ...roleBase, hasStaffAccess: true, hasAdminAccess: false },
+    }),
+    prisma.user.count({ where: { ...roleBase, hasAdminAccess: true } }),
     prisma.user.count({
       where: { ...accountStatusBase, accountStatus: AccountStatus.ACTIVE },
     }),
@@ -88,13 +112,13 @@ export async function listAdminAccessFacets(
     prisma.user.count({
       where: {
         ...pendingRequestBase,
-        roleRequests: { none: { status: RoleRequestStatus.PENDING } },
+        staffAccessRequests: { none: { status: StaffAccessRequestStatus.PENDING } },
       },
     }),
     prisma.user.count({
       where: {
         ...pendingRequestBase,
-        roleRequests: { some: { status: RoleRequestStatus.PENDING } },
+        staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
     }),
   ]);
@@ -123,7 +147,7 @@ function adminAccessWhere(
   omitted?: FacetDimension,
 ): Prisma.UserWhereInput {
   const profileConditions = query.query
-    ? (compatibleProfileNameWhere(query.query).OR ?? [])
+    ? (userProfileNameWhere(query.query).OR ?? [])
     : [];
   return {
     ...(query.query
@@ -153,10 +177,10 @@ function adminAccessWhere(
     ...(omitted === 'pendingRequest' || query.pendingRequest === undefined
       ? {}
       : {
-          roleRequests:
+          staffAccessRequests:
             query.pendingRequest === ADMIN_ACCESS_PENDING_FILTERS.PENDING
-              ? { some: { status: RoleRequestStatus.PENDING } }
-              : { none: { status: RoleRequestStatus.PENDING } },
+              ? { some: { status: StaffAccessRequestStatus.PENDING } }
+              : { none: { status: StaffAccessRequestStatus.PENDING } },
         }),
   };
 }

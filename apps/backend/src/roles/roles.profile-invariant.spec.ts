@@ -12,14 +12,14 @@
  * 이제 그 새 방향을 고정한다 — 프로필이 비어 있어도 역할을 고를 수 있어야 하고,
  * 동의는 여전히 그보다 먼저여야 한다.
  */
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from '../consents/consent-error-code.enum';
 import type { ConsentsService } from '../consents/consents.service';
-import type { RoleUser } from './domain/role-onboarding';
+import type { RoleUser } from './domain/member-onboarding';
 import type {
   RolesRepositoryPort,
   RolesTransactionStore,
@@ -70,7 +70,7 @@ function buildService(
   const createPendingRequest = jest.fn().mockResolvedValue({
     id: 'synthetic-request',
     userId: USER.id,
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     rejectionReason: null,
     decidedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),

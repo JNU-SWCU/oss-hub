@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import {
-  completeCompatibleProfileIfUnchanged,
+  completeUserProfileViewIfUnchanged,
   fillCompatibleStudentIdIfUnchanged,
 } from './profile-compatibility.repository';
 
@@ -21,7 +21,7 @@ it('treats a profile-create unique conflict as a compare-and-set miss', async ()
   };
 
   // When
-  const completion = completeCompatibleProfileIfUnchanged(
+  const completion = completeUserProfileViewIfUnchanged(
     transaction,
     {
       id: 'synthetic-user',
@@ -50,7 +50,7 @@ it('rethrows profile-create failures other than unique conflicts', async () => {
   };
 
   // When
-  const completion = completeCompatibleProfileIfUnchanged(
+  const completion = completeUserProfileViewIfUnchanged(
     transaction,
     {
       id: 'synthetic-user',

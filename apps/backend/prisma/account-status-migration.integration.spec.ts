@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../src/auth/auth-error-code.enum';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
@@ -86,16 +86,16 @@ describe('accountStatus migration regression', () => {
         (${STAFF_ID}, ${STAFF_GITHUB_ID}, 'synthetic-migration-staff', NULL, CURRENT_TIMESTAMP)
     `;
     await prisma.$executeRaw`
-      INSERT INTO "RoleRequest" (
+      INSERT INTO "StaffAccessRequest" (
         "id", "userId", "status", "decidedById", "decidedAt", "createdAt", "updatedAt"
       )
       VALUES
         (
-          ${APPROVED_REQUEST_ID}, ${STAFF_ID}, 'APPROVED'::"RoleRequestStatus", ${ADMIN_ID},
+          ${APPROVED_REQUEST_ID}, ${STAFF_ID}, 'APPROVED'::"StaffAccessRequestStatus", ${ADMIN_ID},
           '2026-07-20T09:00:00.000Z', '2026-07-20T09:00:00.000Z', '2026-07-20T09:00:00.000Z'
         ),
         (
-          ${REVOKED_REQUEST_ID}, ${STAFF_ID}, 'REVOKED'::"RoleRequestStatus", ${ADMIN_ID},
+          ${REVOKED_REQUEST_ID}, ${STAFF_ID}, 'REVOKED'::"StaffAccessRequestStatus", ${ADMIN_ID},
           '2026-07-21T09:00:00.000Z', '2026-07-21T09:00:00.000Z', '2026-07-21T09:00:00.000Z'
         )
     `;
@@ -139,7 +139,7 @@ describe('accountStatus migration regression', () => {
 
     const [reactivatedStaff, requests] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: STAFF_ID } }),
-      prisma.roleRequest.findMany({
+      prisma.staffAccessRequest.findMany({
         where: { userId: STAFF_ID },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       }),
@@ -154,18 +154,18 @@ describe('accountStatus migration regression', () => {
       decidedRequest: null,
     });
     // 통합 접근(AdminAccess) 경로는 대기 중 요청이 없는 계정 상태 전환에
-    // 새 RoleRequest 이력 행을 만들지 않는다 — 마이그레이션이 이관한 두 행만
+    // 새 StaffAccessRequest 이력 행을 만들지 않는다 — 마이그레이션이 이관한 두 행만
     // (APPROVED, REVOKED) 그대로 남아야 한다.
     expect(requests).toHaveLength(2);
     expect(requests).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: APPROVED_REQUEST_ID,
-          status: RoleRequestStatus.APPROVED,
+          status: StaffAccessRequestStatus.APPROVED,
         }),
         expect.objectContaining({
           id: REVOKED_REQUEST_ID,
-          status: RoleRequestStatus.REVOKED,
+          status: StaffAccessRequestStatus.REVOKED,
         }),
       ]),
     );

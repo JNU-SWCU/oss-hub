@@ -4,7 +4,6 @@ import {
   Prisma,
   ProgramAuthoringUploadLifecycle,
   ProgramLifecycle,
-  Role,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import {
@@ -42,11 +41,11 @@ export class ProgramLifecycleService {
   ) {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||
-      (actor.role !== Role.STAFF && actor.role !== Role.ADMIN)
+      (!actor.hasStaffAccess && !actor.hasAdminAccess)
     ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.STAFF_APPROVAL_REQUIRED],
@@ -102,11 +101,11 @@ export class ProgramLifecycleService {
   ): Promise<{ readonly id: string; readonly deleted: true }> {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||
-      actor.role !== Role.ADMIN
+      !actor.hasAdminAccess
     ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
@@ -221,11 +220,11 @@ export class ProgramLifecycleService {
   ): Promise<ProgramPurgeResult> {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||
-      actor.role !== Role.ADMIN
+      !actor.hasAdminAccess
     ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],

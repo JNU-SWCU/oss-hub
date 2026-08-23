@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { nextScheduledCollectionAt } from '../github/collection-schedule';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface SystemStatusActor {
-  role: Role | null;
+  hasStaffAccess: boolean;
+  hasAdminAccess: boolean;
   accountStatus: AccountStatus;
 }
 
@@ -130,7 +131,7 @@ export class SystemStatusRepository {
   findActor(githubId: bigint): Promise<SystemStatusActor | null> {
     return this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
     });
   }
 

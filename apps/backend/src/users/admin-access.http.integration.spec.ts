@@ -57,7 +57,7 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
     harness.request('GET', `/users/${target.id}/access`, actor.githubId),
     harness.request(
       'GET',
-      `/users/${target.id}/access/history?roleRequestLimit=1&loginLimit=1`,
+      `/users/${target.id}/access/history?staffAccessRequestLimit=1&loginLimit=1`,
       actor.githubId,
     ),
   ]);
@@ -87,7 +87,7 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
     lastLoginAt: loginAt.toISOString(),
   });
   await expect(history.json()).resolves.toMatchObject({
-    roleRequests: { page: 1, limit: 1 },
+    staffAccessRequests: { page: 1, limit: 1 },
     loginHistory: { page: 1, limit: 1 },
   });
 });

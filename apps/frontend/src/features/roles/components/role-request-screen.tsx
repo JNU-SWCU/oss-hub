@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 
 import { requestStaffRole } from '../api';
-import type { RoleRequest, RoleRequestStatus } from '../types';
+import type { StaffAccessRequest, StaffAccessRequestStatus } from '../types';
 
 /**
  * 재요청 제출이 실패했는데 **원인을 알 수 없을** 때의 안내.
@@ -41,7 +41,7 @@ const ROLE_REQUEST_RETRY_CONFLICT_STATUS = 409;
  * 우리 문구로 덮으면 실제로 무슨 일이 일어났는지가 사라진다. 대신 서버 문장은
  * 원인만 말하고 다음 행동을 말해 주지 않으므로, 원인 뒤에 우리가 행동을 붙인다.
  */
-export function roleRequestRetryFailureMessage(error: unknown): string {
+export function staffAccessRequestRetryFailureMessage(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return ROLE_REQUEST_RETRY_FAILURE_MESSAGE;
   }
@@ -85,10 +85,10 @@ export function roleRequestRetryFailureMessage(error: unknown): string {
  */
 export const PENDING_PROFILE_EDIT_PATH = '/settings';
 
-type RoleRequestView = Pick<RoleRequest, 'status' | 'rejectionReason'>;
+type StaffAccessRequestView = Pick<StaffAccessRequest, 'status' | 'rejectionReason'>;
 
-interface RoleRequestStatusViewProps {
-  readonly request: RoleRequestView;
+interface StaffAccessRequestStatusViewProps {
+  readonly request: StaffAccessRequestView;
   readonly isRetrying: boolean;
   readonly errorMessage: string | null;
   readonly onRefresh: () => void;
@@ -102,7 +102,7 @@ interface StatusPresentation {
   readonly badge: ReactNode;
 }
 
-function statusPresentation(request: RoleRequestView): StatusPresentation {
+function statusPresentation(request: StaffAccessRequestView): StatusPresentation {
   switch (request.status) {
     case 'PENDING':
       return {
@@ -139,13 +139,13 @@ function statusPresentation(request: RoleRequestView): StatusPresentation {
   }
 }
 
-export function RoleRequestStatusView({
+export function StaffAccessRequestStatusView({
   request,
   isRetrying,
   errorMessage,
   onRefresh,
   onRetry,
-}: RoleRequestStatusViewProps) {
+}: StaffAccessRequestStatusViewProps) {
   const presentation = statusPresentation(request);
 
   return (
@@ -240,30 +240,30 @@ export function RoleRequestStatusView({
 
 type RequestViewState =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'ready'; readonly request: RoleRequestView };
+  | { readonly kind: 'ready'; readonly request: StaffAccessRequestView };
 
 function unreachable(value: never): never {
   throw new TypeError(`처리하지 않은 역할 요청 화면 상태: ${String(value)}`);
 }
 
-export function RoleRequestScreen({
-  roleRequestStatus,
-  roleRequestRejectionReason,
+export function StaffAccessRequestScreen({
+  staffAccessRequestStatus,
+  staffAccessRequestRejectionReason,
   onRefresh,
 }: {
-  readonly roleRequestStatus: RoleRequestStatus | null;
-  readonly roleRequestRejectionReason: string | null;
+  readonly staffAccessRequestStatus: StaffAccessRequestStatus | null;
+  readonly staffAccessRequestRejectionReason: string | null;
   /** 공통 셸의 세션·역할 요청 스냅샷을 함께 다시 읽는다. */
   readonly onRefresh: () => void;
 }) {
   const router = useRouter();
   const [state, setState] = useState<RequestViewState>(() => {
-    if (roleRequestStatus === 'PENDING' || roleRequestStatus === 'REJECTED') {
+    if (staffAccessRequestStatus === 'PENDING' || staffAccessRequestStatus === 'REJECTED') {
       return {
         kind: 'ready',
         request: {
-          status: roleRequestStatus,
-          rejectionReason: roleRequestRejectionReason,
+          status: staffAccessRequestStatus,
+          rejectionReason: staffAccessRequestRejectionReason,
         },
       };
     }
@@ -273,14 +273,14 @@ export function RoleRequestScreen({
   const [retryError, setRetryError] = useState<string | null>(null);
 
   useEffect(() => {
-    switch (roleRequestStatus) {
+    switch (staffAccessRequestStatus) {
       case 'PENDING':
       case 'REJECTED':
         setState({
           kind: 'ready',
           request: {
-            status: roleRequestStatus,
-            rejectionReason: roleRequestRejectionReason,
+            status: staffAccessRequestStatus,
+            rejectionReason: staffAccessRequestRejectionReason,
           },
         });
         return;
@@ -293,11 +293,11 @@ export function RoleRequestScreen({
         router.replace('/onboarding/role');
         return;
       default: {
-        const exhaustive: never = roleRequestStatus;
+        const exhaustive: never = staffAccessRequestStatus;
         unreachable(exhaustive);
       }
     }
-  }, [roleRequestRejectionReason, roleRequestStatus, router]);
+  }, [staffAccessRequestRejectionReason, staffAccessRequestStatus, router]);
 
   async function handleRetry(): Promise<void> {
     if (isRetrying) {
@@ -313,7 +313,7 @@ export function RoleRequestScreen({
       // 공통 owner를 갱신해 한 번의 새 스냅샷으로 모두 함께 전환한다.
       onRefresh();
     } catch (error) {
-      setRetryError(roleRequestRetryFailureMessage(error));
+      setRetryError(staffAccessRequestRetryFailureMessage(error));
     } finally {
       setIsRetrying(false);
     }
@@ -330,7 +330,7 @@ export function RoleRequestScreen({
       );
     case 'ready':
       return (
-        <RoleRequestStatusView
+        <StaffAccessRequestStatusView
           request={state.request}
           isRetrying={isRetrying}
           errorMessage={retryError}

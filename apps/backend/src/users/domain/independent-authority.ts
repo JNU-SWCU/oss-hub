@@ -1,4 +1,5 @@
-import type { MemberKind, Role } from '@prisma/client';
+import type { MemberKind } from '@prisma/client';
+import type { AuthorityLabel } from './authority-label';
 
 export const STAFF_ACCESS_COMMANDS = {
   GRANT: 'GRANT_STAFF_ACCESS',
@@ -34,7 +35,7 @@ export type AdminAuthorityMutationCommand =
 
 export type IndependentAuthorityMutationResult = {
   readonly id: string;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;

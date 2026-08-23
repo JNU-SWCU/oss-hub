@@ -88,7 +88,7 @@ beforeEach(() => {
   store.findUserAuthorityByGithubId.mockResolvedValue({
     role: Role.STAFF,
     accountStatus: AccountStatus.ACTIVE,
-    roleRequests: [],
+    staffAccessRequests: [],
   });
   store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
 });

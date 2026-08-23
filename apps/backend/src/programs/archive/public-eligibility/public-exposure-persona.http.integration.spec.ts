@@ -8,7 +8,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import {
@@ -813,12 +813,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           before: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.PENDING,
+            requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.REJECTED,
+            requestStatus: StaffAccessRequestStatus.REJECTED,
           },
         }),
       },

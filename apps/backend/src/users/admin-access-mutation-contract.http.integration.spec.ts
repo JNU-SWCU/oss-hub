@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -120,7 +120,7 @@ it('returns 409/ROL_015 when a pending request has no decision', async () => {
       desiredRole: Role.STAFF,
       expectedPendingRequest: {
         id: requestId,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
     }),
   );
@@ -144,7 +144,7 @@ it('returns 400/ROL_016 for a contradictory pending-request decision', async () 
       desiredRole: Role.STUDENT,
       expectedPendingRequest: {
         id: requestId,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
       requestDecision: { decision: 'APPROVE' },
     }),
@@ -227,20 +227,20 @@ it('revokes STAFF access through the real route, clearing the role and appending
     readonly decidedRequest: { readonly id: string; readonly status: string };
   };
   expect(body.role).toBeNull();
-  expect(body.decidedRequest.status).toBe(RoleRequestStatus.REVOKED);
+  expect(body.decidedRequest.status).toBe(StaffAccessRequestStatus.REVOKED);
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
     role: null,
     accountStatus: AccountStatus.ACTIVE,
   });
-  const requests = await harness.prisma.roleRequest.findMany({
+  const requests = await harness.prisma.staffAccessRequest.findMany({
     where: { userId: target.id },
   });
   expect(requests).toHaveLength(1);
   expect(requests[0]).toMatchObject({
     id: body.decidedRequest.id,
-    status: RoleRequestStatus.REVOKED,
+    status: StaffAccessRequestStatus.REVOKED,
     decidedById: actor.id,
   });
   const revocationLogs = await harness.prisma.auditLog.findMany({
@@ -260,7 +260,7 @@ it('revokes STAFF access through the real route, clearing the role and appending
       after: {
         role: null,
         accountStatus: AccountStatus.ACTIVE,
-        requestStatus: RoleRequestStatus.REVOKED,
+        requestStatus: StaffAccessRequestStatus.REVOKED,
       },
     },
   });
@@ -307,7 +307,7 @@ it('demotes STAFF to STUDENT through the real route without touching the request
   });
   // 강등은 회수가 아니다 — 요청 이력에 아무 행도 남기지 않는다.
   await expect(
-    harness.prisma.roleRequest.count({ where: { userId: target.id } }),
+    harness.prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
   const logs = await harness.prisma.auditLog.findMany({
     where: { targetId: target.id },
@@ -472,7 +472,7 @@ async function pendingScenario(label: string) {
     AccountStatus.ACTIVE,
   );
   const requestId = `${target.id}:pending`;
-  await harness.prisma.roleRequest.create({
+  await harness.prisma.staffAccessRequest.create({
     data: { id: requestId, userId: target.id },
   });
   return { actor, target, requestId };

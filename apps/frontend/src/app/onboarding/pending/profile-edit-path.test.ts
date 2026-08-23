@@ -21,8 +21,8 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: false,
     ...overrides,
@@ -37,7 +37,7 @@ describe('승인 대기 화면이 가리키는 프로필 수정 경로', () => {
 
   it('링크를 내주는 승인 대기 교직원에게 그 화면이 열려 있다', () => {
     // Given — 이 링크가 실제로 그려지는 유일한 갈래
-    const pending = state({ roleRequestStatus: 'PENDING' });
+    const pending = state({ staffAccessRequestStatus: 'PENDING' });
 
     // When / Then
     expect(isSettingsOpenForStaffAwaitingRole(pending)).toBe(true);
@@ -45,9 +45,9 @@ describe('승인 대기 화면이 가리키는 프로필 수정 경로', () => {
 
   it.each(['REJECTED', 'REVOKED'] as const)(
     '%s 상태에는 그 화면이 닫혀 있다 — 그래서 링크도 그리지 않는다',
-    (roleRequestStatus) => {
+    (staffAccessRequestStatus) => {
       // Given
-      const closed = state({ roleRequestStatus });
+      const closed = state({ staffAccessRequestStatus });
 
       // When / Then — 열려 있다면 링크 조건(`PENDING`만)이 너무 좁다는 뜻이다
       expect(isSettingsOpenForStaffAwaitingRole(closed)).toBe(false);

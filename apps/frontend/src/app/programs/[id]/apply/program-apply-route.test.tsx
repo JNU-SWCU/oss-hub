@@ -25,7 +25,7 @@ vi.mock('@/features/auth/api', () => ({
 }));
 
 vi.mock('@/features/roles/api', () => ({
-  fetchMyRoleRequest: vi.fn(),
+  fetchMyStaffAccessRequest: vi.fn(),
   fetchMyRoleSelection: vi.fn(),
 }));
 

@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -39,10 +39,10 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
   // Given
   const actor = await createUser('approved-actor', Role.ADMIN);
   const target = await createUser('approved-target', Role.STAFF);
-  const approved = await prisma.roleRequest.create({
+  const approved = await prisma.staffAccessRequest.create({
     data: {
       userId: target.id,
-      status: RoleRequestStatus.APPROVED,
+      status: StaffAccessRequestStatus.APPROVED,
       decidedById: actor.id,
       decidedAt: new Date('2026-08-01T00:00:00.000Z'),
     },
@@ -59,7 +59,7 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
 
   // Then
   expect(result.role).toBeNull();
-  expect(result.decidedRequest?.status).toBe(RoleRequestStatus.REVOKED);
+  expect(result.decidedRequest?.status).toBe(StaffAccessRequestStatus.REVOKED);
   expect(result.decidedRequest?.id).not.toBe(approved.id);
   const persisted = await prisma.user.findUniqueOrThrow({
     where: { id: target.id },
@@ -68,21 +68,21 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
   expect(persisted.accountStatus).toBe(AccountStatus.ACTIVE);
 
   // 승인 이력은 장학금 근거라 회수가 덮어쓰지 않는다 — "누가 언제 승인했는가"가 그대로다.
-  const preservedApproval = await prisma.roleRequest.findUniqueOrThrow({
+  const preservedApproval = await prisma.staffAccessRequest.findUniqueOrThrow({
     where: { id: approved.id },
   });
-  expect(preservedApproval.status).toBe(RoleRequestStatus.APPROVED);
+  expect(preservedApproval.status).toBe(StaffAccessRequestStatus.APPROVED);
   expect(preservedApproval.decidedById).toBe(actor.id);
   expect(preservedApproval.decidedAt).toEqual(approved.decidedAt);
 
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: target.id },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
   expect(requests).toHaveLength(2);
   expect(requests.map((request) => request.status)).toEqual([
-    RoleRequestStatus.APPROVED,
-    RoleRequestStatus.REVOKED,
+    StaffAccessRequestStatus.APPROVED,
+    StaffAccessRequestStatus.REVOKED,
   ]);
   expect(requests[1]?.decidedById).toBe(actor.id);
   expect(requests[1]?.decidedAt).not.toBeNull();
@@ -95,7 +95,7 @@ it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴�
   const actor = await createUser('direct-actor', Role.ADMIN);
   const target = await createUser('direct-target', Role.STAFF);
   await expect(
-    prisma.roleRequest.count({ where: { userId: target.id } }),
+    prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
 
   // When
@@ -109,17 +109,17 @@ it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴�
 
   // Then
   expect(result.role).toBeNull();
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: target.id },
   });
   expect(requests).toHaveLength(1);
-  expect(requests[0]?.status).toBe(RoleRequestStatus.REVOKED);
+  expect(requests[0]?.status).toBe(StaffAccessRequestStatus.REVOKED);
   expect(requests[0]?.id).toBe(result.decidedRequest?.id);
 
   // 이 행이 있어야 로그인 시드 가드(`auth.repository.ts`)가 회수된 계정으로 알아본다.
   await expect(
-    prisma.roleRequest.count({
-      where: { userId: target.id, status: RoleRequestStatus.REVOKED },
+    prisma.staffAccessRequest.count({
+      where: { userId: target.id, status: StaffAccessRequestStatus.REVOKED },
     }),
   ).resolves.toBe(1);
 });
@@ -157,7 +157,7 @@ it('회수는 새 REVOKED 행을 대상으로 하는 감사 기록을 남긴다'
       after: {
         role: null,
         accountStatus: AccountStatus.ACTIVE,
-        requestStatus: RoleRequestStatus.REVOKED,
+        requestStatus: StaffAccessRequestStatus.REVOKED,
       },
     },
   });
@@ -190,7 +190,7 @@ it.each([
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({ role });
   await expect(
-    prisma.roleRequest.count({ where: { userId: target.id } }),
+    prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
 });
 
@@ -226,7 +226,7 @@ it('두 관리자가 동시에 회수하면 한쪽만 성공하고 REVOKED 행�
     },
   });
   await expect(
-    prisma.roleRequest.count({ where: { userId: target.id } }),
+    prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(1);
 });
 
@@ -259,7 +259,7 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    prisma.roleRequest.count({ where: { userId: target.id } }),
+    prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
 });
 
@@ -290,7 +290,7 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    prisma.roleRequest.count({ where: { userId: target.id } }),
+    prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
 });
 
@@ -299,10 +299,10 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
   // 커밋하기 전에 `AUTH_INITIAL_ROLES=STAFF` 로그인이 같은 User 행을 만지러 온다.
   const actor = await createUser('login-race-actor', Role.ADMIN);
   const target = await createUser('login-race-target', Role.STAFF);
-  const approved = await prisma.roleRequest.create({
+  const approved = await prisma.staffAccessRequest.create({
     data: {
       userId: target.id,
-      status: RoleRequestStatus.APPROVED,
+      status: StaffAccessRequestStatus.APPROVED,
       decidedById: actor.id,
       decidedAt: new Date('2026-08-01T00:00:00.000Z'),
     },
@@ -363,15 +363,15 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
     where: { id: target.id },
   });
   expect(persisted.role).toBeNull();
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: target.id },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
   // 시드가 이겼다면 여기에 `decidedById: null`인 APPROVED 행이 하나 더 있고 역할도 STAFF다.
   expect(requests).toHaveLength(2);
   expect(requests.map((request) => request.status)).toEqual([
-    RoleRequestStatus.APPROVED,
-    RoleRequestStatus.REVOKED,
+    StaffAccessRequestStatus.APPROVED,
+    StaffAccessRequestStatus.REVOKED,
   ]);
   expect(requests[0]?.id).toBe(approved.id);
   expect(requests[0]?.decidedById).toBe(actor.id);

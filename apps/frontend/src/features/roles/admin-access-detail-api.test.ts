@@ -161,9 +161,9 @@ describe('loadAdminAccessDetail — 상세·이력 병렬 조회와 404 판별',
       if (path === 'users/target/access') return detail();
       if (
         path ===
-        `users/target/access/history?roleRequestPage=1&roleRequestLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}&loginPage=1&loginLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}`
+        `users/target/access/history?staffAccessRequestPage=1&staffAccessRequestLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}&loginPage=1&loginLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}`
       ) {
-        return { roleRequests: historyPage(), loginHistory: historyPage() };
+        return { staffAccessRequests: historyPage(), loginHistory: historyPage() };
       }
       throw new Error(`unexpected path: ${path}`);
     });
@@ -171,7 +171,7 @@ describe('loadAdminAccessDetail — 상세·이력 병렬 조회와 404 판별',
     const result = await loadAdminAccessDetail('target');
 
     expect(result.detail.id).toBe('target');
-    expect(result.history.roleRequests).toEqual(historyPage());
+    expect(result.history.staffAccessRequests).toEqual(historyPage());
     expect(result.history.loginHistory).toEqual(historyPage());
   });
 

@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import { SessionRoleProvider } from '../../_shell/session-role-context';
 import type { SessionRoleResult } from '../../_shell/use-session-role';
 
@@ -28,13 +28,13 @@ import type { SessionRoleResult } from '../../_shell/use-session-role';
  */
 
 const mocks = vi.hoisted(() => ({
-  fetchMyRoleRequest: vi.fn(),
+  fetchMyStaffAccessRequest: vi.fn(),
   fetchMyRoleSelection: vi.fn(),
   selectRole: vi.fn(),
 }));
 
 vi.mock('@/features/roles/api', () => ({
-  fetchMyRoleRequest: mocks.fetchMyRoleRequest,
+  fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: mocks.selectRole,
   requestStaffRole: vi.fn(),
@@ -59,8 +59,8 @@ function snapshot(
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: false,
     retry: () => {},
@@ -100,8 +100,8 @@ describe('역할 선택 라우트 — 게이트 스냅샷 배선', () => {
     // Given / When
     const text = await render(
       snapshot({
-        roleRequestStatus: 'REJECTED',
-        roleRequestRejectionReason: REASON,
+        staffAccessRequestStatus: 'REJECTED',
+        staffAccessRequestRejectionReason: REASON,
       }),
     );
 
@@ -118,13 +118,13 @@ describe('역할 선택 라우트 — 게이트 스냅샷 배선', () => {
     // Given / When
     await render(
       snapshot({
-        roleRequestStatus: 'REJECTED',
-        roleRequestRejectionReason: REASON,
+        staffAccessRequestStatus: 'REJECTED',
+        staffAccessRequestRejectionReason: REASON,
       }),
     );
 
     // Then
-    expect(mocks.fetchMyRoleRequest).not.toHaveBeenCalled();
+    expect(mocks.fetchMyStaffAccessRequest).not.toHaveBeenCalled();
     expect(mocks.fetchMyRoleSelection).not.toHaveBeenCalled();
   });
 
@@ -147,14 +147,14 @@ describe('역할 선택 라우트 — 게이트 스냅샷 배선', () => {
     ['승인', 'APPROVED'],
     // 회수는 사유를 저장하지 않는다 — 안내 대상이 아니다.
     ['회수', 'REVOKED'],
-  ] as readonly (readonly [string, RoleRequestStatus | null])[])(
+  ] as readonly (readonly [string, StaffAccessRequestStatus | null])[])(
     '%s 스냅샷에는 반려 안내를 그리지 않는다',
-    async (_label, roleRequestStatus) => {
+    async (_label, staffAccessRequestStatus) => {
       // Given / When: 사유가 실려 와도 상태가 반려가 아니면 그리지 않는다.
       const text = await render(
         snapshot({
-          roleRequestStatus,
-          roleRequestRejectionReason: REASON,
+          staffAccessRequestStatus,
+          staffAccessRequestRejectionReason: REASON,
         }),
       );
 
@@ -169,8 +169,8 @@ describe('역할 선택 라우트 — 게이트 스냅샷 배선', () => {
     // Given / When
     const text = await render(
       snapshot({
-        roleRequestStatus: 'REJECTED',
-        roleRequestRejectionReason: null,
+        staffAccessRequestStatus: 'REJECTED',
+        staffAccessRequestRejectionReason: null,
       }),
     );
 

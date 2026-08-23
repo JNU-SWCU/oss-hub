@@ -184,12 +184,12 @@ describe('admin access local review handlers (QA7)', () => {
         resolve(
           'GET',
           `users/${TARGET_ID}/access/history`,
-          'roleRequestPage=1&roleRequestLimit=20&loginPage=1&loginLimit=20',
+          'staffAccessRequestPage=1&staffAccessRequestLimit=20&loginPage=1&loginLimit=20',
         ),
       ),
     );
 
-    expect(history.roleRequests.items.length).toBeGreaterThan(0);
+    expect(history.staffAccessRequests.items.length).toBeGreaterThan(0);
     expect(history.loginHistory.items.length).toBeGreaterThan(0);
   });
 

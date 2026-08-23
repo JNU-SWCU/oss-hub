@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import type { SessionRoleState } from './use-session-role';
 
 // 판단 함수만 불러오지만 모듈이 `next/navigation`을 import한다 — 라우터 컨텍스트
@@ -23,8 +23,8 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: false,
     ...overrides,
@@ -80,12 +80,12 @@ describe('roleGateRedirectPath', () => {
     ['APPROVED', '/onboarding/pending'],
     // 반려는 살아 있는 신청이 없어 역할부터 다시 고른다(#535).
     ['REJECTED', '/onboarding/role'],
-  ] as readonly (readonly [RoleRequestStatus | null, string])[])(
+  ] as readonly (readonly [StaffAccessRequestStatus | null, string])[])(
     '%s 미배정 사용자의 온보딩 목적지는 %s 다',
-    (roleRequestStatus, path) => {
+    (staffAccessRequestStatus, path) => {
       expect(
         roleGateRedirectPath(
-          state({ status: 'unassigned', roleRequestStatus }),
+          state({ status: 'unassigned', staffAccessRequestStatus }),
         ),
       ).toBe(path);
     },
@@ -139,7 +139,7 @@ describe('shouldOpenForUnassigned', () => {
     const seen: SessionRoleState[] = [];
     const given = state({
       status: 'unassigned',
-      roleRequestStatus: 'PENDING',
+      staffAccessRequestStatus: 'PENDING',
       selectedRole: 'STAFF',
     });
 

@@ -31,7 +31,14 @@ export interface ProblemDetailBlockingCounts {
 
 export interface ProblemDetailCurrentAccess {
   readonly id: string;
-  readonly role: Role | null;
+  /**
+   * 표시 역할 — 관리 화면이 "지금 상태"를 한 단어로 되돌려 줄 때 쓴다.
+   *
+   * 값 집합을 `users/domain/authority-label.ts`와 맞추되 그 모듈을 import하지 않는다.
+   * `common`은 feature를 참조하지 않는 경계이기 때문이다
+   * (`common/architecture-boundary.eslint.spec.ts`).
+   */
+  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly accountStatus: AccountStatus;
   readonly pendingRequest: {
     readonly id: string;
@@ -49,4 +56,4 @@ export class DomainException extends Error {
     this.name = 'DomainException';
   }
 }
-import type { AccountStatus, Role } from '@prisma/client';
+import type { AccountStatus } from '@prisma/client';

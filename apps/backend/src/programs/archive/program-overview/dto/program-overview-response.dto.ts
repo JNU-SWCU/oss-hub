@@ -1,4 +1,4 @@
-import type { Role } from '@prisma/client';
+import type { AuthorityLabel } from '../../../../users/domain/authority-label';
 import {
   ProgramOverviewMilestoneDocument,
   ProgramOverviewNextMilestone,
@@ -61,7 +61,7 @@ export class ProgramOverviewResponseDto {
   /** 마감 카운트다운(공개, 역할 무관). 다가오는 마일스톤이 없으면 null. */
   nextMilestone: NextMilestoneResponseDto | null;
   /** 아래 viewer 필드는 요청자 전용 — 역할별로 한쪽만 채워진다. */
-  viewerRole: Role | null;
+  viewerRole: AuthorityLabel | null;
   /**
    * 학생 전용: "내 제출물" 부모 합계 N.
    * 범위는 **프로그램 전체 서류** 합(현재 마일스톤만이 아님).

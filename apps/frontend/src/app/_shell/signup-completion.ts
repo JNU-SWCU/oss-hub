@@ -9,7 +9,7 @@ import type { SessionRoleState } from './use-session-role';
  */
 export type SignupCompletionState = Pick<
   SessionRoleState,
-  'status' | 'roleRequestStatus' | 'isProfileComplete'
+  'status' | 'staffAccessRequestStatus' | 'isProfileComplete'
 >;
 
 /**
@@ -43,8 +43,8 @@ export function isSignupComplete(state: SignupCompletionState): boolean {
       return state.isProfileComplete;
     case 'unassigned':
       return (
-        state.roleRequestStatus === 'PENDING' ||
-        state.roleRequestStatus === 'APPROVED'
+        state.staffAccessRequestStatus === 'PENDING' ||
+        state.staffAccessRequestStatus === 'APPROVED'
       );
     default: {
       const exhaustive: never = state.status;

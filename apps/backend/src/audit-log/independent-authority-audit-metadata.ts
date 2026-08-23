@@ -1,4 +1,5 @@
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
+import type { AuthorityLabel } from '../users/domain/authority-label';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
@@ -43,7 +44,7 @@ export type IndependentAuthorityAuditState = {
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
 };
 export type IndependentAuthorityAuditMetadata = {
@@ -127,9 +128,9 @@ function isState(value: unknown): value is IndependentAuthorityAuditState {
     typeof value.hasStaffAccess === 'boolean' &&
     typeof value.hasAdminAccess === 'boolean' &&
     (value.role === null ||
-      value.role === Role.STUDENT ||
-      value.role === Role.STAFF ||
-      value.role === Role.ADMIN) &&
+      value.role === 'STUDENT' ||
+      value.role === 'STAFF' ||
+      value.role === 'ADMIN') &&
     (value.accountStatus === AccountStatus.ACTIVE ||
       value.accountStatus === AccountStatus.DEACTIVATED)
   );

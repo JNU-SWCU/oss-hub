@@ -22,7 +22,7 @@ import type {
   AdminAccessFacets,
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,
-  AdminAccessRoleRequestHistoryPage,
+  AdminAccessStaffAccessRequestHistoryPage,
 } from './domain/admin-access';
 
 /**
@@ -121,11 +121,11 @@ export class PausingActorReadAdminAccessRepository implements AdminAccessReposit
     return this.repository.findById(userId);
   }
 
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage> {
-    return this.repository.listRoleRequestHistory(userId, page);
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
+    return this.repository.listStaffAccessRequestHistory(userId, page);
   }
 
   listLoginHistory(

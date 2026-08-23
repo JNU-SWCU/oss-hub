@@ -87,8 +87,8 @@ const UNRESOLVED_COMPATIBILITY_ADMIN_SESSION: DrawerSession = {
 function mockSession(session: DrawerSession): void {
   mocks.useSessionRole.mockReturnValue({
     ...session,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     retry: () => {},
   });

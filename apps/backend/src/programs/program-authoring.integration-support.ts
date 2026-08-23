@@ -1,3 +1,4 @@
+import { authorityFactsFor } from '../users/canonical-user-fixture';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
@@ -5,7 +6,6 @@ import {
   MilestoneSubmissionType,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
-  Role,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
@@ -65,7 +65,7 @@ export class ProgramAuthoringIntegrationHarness {
 
   async createActor(
     label: string,
-    role: Role = Role.STAFF,
+    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null = 'STAFF',
   ): Promise<{ readonly id: string; readonly githubId: bigint }> {
     const ordinal = BigInt(
       [...label].reduce((sum, value) => sum + value.charCodeAt(0), 0),
@@ -75,7 +75,7 @@ export class ProgramAuthoringIntegrationHarness {
         id: `${AUTHORING_TEST_PREFIX}actor:${label}`,
         githubId: 9_748_000_000_000n + ordinal,
         nickname: `synthetic-p5-${label}`,
-        role,
+        ...authorityFactsFor(role),
         accountStatus: AccountStatus.ACTIVE,
       },
       select: { id: true, githubId: true },

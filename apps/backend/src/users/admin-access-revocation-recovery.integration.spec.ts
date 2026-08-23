@@ -34,7 +34,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('Admin access account status transitions (PR04H, formerly StaffRoleRequestsService.decide)', () => {
+describe('Admin access account status transitions (PR04H, formerly StaffAccessRequestsService.decide)', () => {
   it('DEACTIVATED 전환은 STAFF 역할과 연결 자산을 보존하고 계정만 비활성화하며, 재활성화도 동일하게 보존한다', async () => {
     sequence += 1;
     const prefix = `${TEST_PREFIX}${sequence}:`;

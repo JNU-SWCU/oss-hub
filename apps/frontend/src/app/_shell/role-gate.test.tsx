@@ -4,7 +4,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import type { SessionRoleState } from './use-session-role';
 
 const mocks = vi.hoisted(() => ({
@@ -69,8 +69,8 @@ describe('RoleGate 렌더', () => {
       memberKind: null,
       hasStaffAccess: false,
       hasAdminAccess: false,
-      roleRequestStatus: null,
-      roleRequestRejectionReason: null,
+      staffAccessRequestStatus: null,
+      staffAccessRequestRejectionReason: null,
       selectedRole: null,
       isProfileComplete: false,
       ...overrides,
@@ -102,7 +102,7 @@ describe('RoleGate 렌더', () => {
   // 승인 대기 화면으로 되돌아갔다. 이제는 되돌아가지 않고 폼까지 닿는다.
   it('규칙이 인정한 미배정 사용자는 되돌리지 않고 안내와 자식을 함께 그린다', async () => {
     const text = await render(
-      { status: 'unassigned', roleRequestStatus: 'PENDING' },
+      { status: 'unassigned', staffAccessRequestStatus: 'PENDING' },
       { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
     );
 
@@ -113,7 +113,7 @@ describe('RoleGate 렌더', () => {
 
   it('규칙이 거절한 미배정 사용자는 안내를 준 화면에서도 되돌린다', async () => {
     const text = await render(
-      { status: 'unassigned', roleRequestStatus: 'REJECTED' },
+      { status: 'unassigned', staffAccessRequestStatus: 'REJECTED' },
       { unassignedAccess: () => false, unassignedNotice: <p>{NOTICE}</p> },
     );
 
@@ -139,7 +139,7 @@ describe('RoleGate 렌더', () => {
     '아무것도 그리지 않는 %s 안내는 규칙 없이 권한을 열지 않는다',
     async (_label, notice) => {
       const text = await render(
-        { status: 'unassigned', roleRequestStatus: 'PENDING' },
+        { status: 'unassigned', staffAccessRequestStatus: 'PENDING' },
         { unassignedNotice: notice },
       );
 
@@ -150,7 +150,7 @@ describe('RoleGate 렌더', () => {
 
   it('규칙이 있으면 안내가 없어도 화면은 열린다 — 안내는 표시일 뿐이다', async () => {
     const text = await render(
-      { status: 'unassigned', roleRequestStatus: 'PENDING' },
+      { status: 'unassigned', staffAccessRequestStatus: 'PENDING' },
       { unassignedAccess: OPEN },
     );
 
@@ -193,10 +193,10 @@ describe('RoleGate 렌더', () => {
     ['APPROVED', '/onboarding/pending'],
     // 반려는 살아 있는 신청이 없어 역할부터 다시 고른다(#535).
     ['REJECTED', '/onboarding/role'],
-  ] as readonly (readonly [RoleRequestStatus | null, string])[])(
+  ] as readonly (readonly [StaffAccessRequestStatus | null, string])[])(
     '규칙을 주지 않은 화면은 %s 미배정 사용자를 %s 로 종전대로 되돌린다',
-    async (roleRequestStatus, path) => {
-      const text = await render({ status: 'unassigned', roleRequestStatus });
+    async (staffAccessRequestStatus, path) => {
+      const text = await render({ status: 'unassigned', staffAccessRequestStatus });
 
       expect(mocks.replace).toHaveBeenCalledWith(path);
       expect(text).not.toContain(CHILD);
@@ -239,7 +239,7 @@ describe('RoleGate 렌더', () => {
     const snapshot = {
       ...state({
         status: 'unassigned',
-        roleRequestStatus: 'PENDING',
+        staffAccessRequestStatus: 'PENDING',
         selectedRole: 'STAFF',
       }),
       retry: () => {},

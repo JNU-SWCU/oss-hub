@@ -13,7 +13,6 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'DeadlineDigestFailuresController',
   'HealthController',
   'IndependentAuthorityController',
-  'LegacyMemberReclassificationController',
   'LoginHistoryController',
   'MilestoneDocumentCurrentFileController',
   'MilestoneDocumentFilesController',
@@ -31,7 +30,7 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'PublicUserProfileController',
   'RankingController',
   'RepositoriesController',
-  'RoleRequestsController',
+  'StaffAccessRequestsController',
   'StaffDashboardController',
   'StudentApplicationsController',
   'StudentDashboardController',
@@ -205,6 +204,5 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED POST /api/v1/team-invitations/:invitationId/cancel',
   'PROTECTED POST /api/v1/team-invitations/:invitationId/decline',
   'PROTECTED POST /api/v1/team-invitations/teams/:teamId/invitations',
-  'PROTECTED POST /api/v1/users/me/legacy-member-reclassification',
   'PROTECTED POST /api/v1/users/me/profile',
 ] as const;

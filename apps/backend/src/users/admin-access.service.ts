@@ -96,11 +96,11 @@ export class AdminAccessService {
       await this.repository.findActorByGithubId(actorGithubId),
     );
     await this.requireVisibleTarget(actor, userId);
-    const [roleRequests, loginHistory] = await Promise.all([
-      this.repository.listRoleRequestHistory(userId, query.roleRequests),
+    const [staffAccessRequests, loginHistory] = await Promise.all([
+      this.repository.listStaffAccessRequestHistory(userId, query.staffAccessRequests),
       this.repository.listLoginHistory(userId, query.loginHistory),
     ]);
-    return { roleRequests, loginHistory };
+    return { staffAccessRequests, loginHistory };
   }
 
   patchAccess(

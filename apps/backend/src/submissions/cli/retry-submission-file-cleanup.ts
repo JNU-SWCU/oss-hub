@@ -39,9 +39,9 @@ export async function main(): Promise<void> {
     const prisma = app.get(PrismaService);
     const operator = await prisma.user.findUnique({
       where: { id: operatorId },
-      select: { githubId: true, role: true, accountStatus: true },
+      select: { githubId: true, hasAdminAccess: true, accountStatus: true },
     });
-    if (operator?.role !== 'ADMIN' || operator.accountStatus !== 'ACTIVE') {
+    if (operator?.hasAdminAccess !== true || operator.accountStatus !== 'ACTIVE') {
       throw new Error('Operator is not authorized for cleanup maintenance');
     }
 

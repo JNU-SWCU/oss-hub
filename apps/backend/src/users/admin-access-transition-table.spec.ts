@@ -66,7 +66,7 @@ const ADMIN_ACCESS_TRANSITION_ORACLE: readonly OracleCase[] =
 /**
  * 프로덕션 로직을 독립 재구현한 오라클이다. **기대값은 프로덕션 상수를 쓰지 않고 문자열
  * 리터럴로 적는다** — `ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED`를 그대로 재사용하면 상수의
- * 값 자체가 잘못 바뀌어도(예: `REVOKED: RoleRequestStatus.REJECTED`) 양쪽이 함께 움직여
+ * 값 자체가 잘못 바뀌어도(예: `REVOKED: StaffAccessRequestStatus.REJECTED`) 양쪽이 함께 움직여
  * 이 테스트가 초록으로 남는다. 이중 구현을 두는 이유가 바로 그 변이를 잡는 것이다.
  * 입력(역할·계정 상태·대기 상태·결정)은 `resolveAdminAccessTransition`의 인자 타입이라
  * 상수를 그대로 쓴다 — 그쪽은 기대값이 아니라 호출 규약이다.

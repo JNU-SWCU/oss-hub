@@ -2,7 +2,7 @@ import {
   AccountStatus,
   LoginHistoryEvent,
   Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import {
   AdminAccessFacetsResponseDto,
@@ -29,7 +29,7 @@ describe('admin access response DTO allowlists', () => {
           isProfileComplete: true,
           pendingRequest: {
             id: 'request-pending',
-            status: RoleRequestStatus.PENDING,
+            status: StaffAccessRequestStatus.PENDING,
             createdAt: PENDING_AT,
           },
           lastLoginAt: LOGIN_AT,
@@ -51,7 +51,7 @@ describe('admin access response DTO allowlists', () => {
       isProfileComplete: true,
       pendingRequest: {
         id: 'request-pending',
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
         createdAt: PENDING_AT.toISOString(),
       },
       lastLoginAt: LOGIN_AT.toISOString(),
@@ -81,11 +81,11 @@ describe('admin access response DTO allowlists', () => {
       },
     });
     const history = AdminAccessUserHistoryResponseDto.from({
-      roleRequests: {
+      staffAccessRequests: {
         items: [
           {
             id: 'request-1',
-            status: RoleRequestStatus.REJECTED,
+            status: StaffAccessRequestStatus.REJECTED,
             rejectionReason: '합성 반려 사유',
             decidedAt: PENDING_AT,
             decidedBy: 'synthetic-admin',
@@ -118,7 +118,7 @@ describe('admin access response DTO allowlists', () => {
       pendingRequest: null,
       decidedRequest: {
         id: 'request-1',
-        status: RoleRequestStatus.APPROVED,
+        status: StaffAccessRequestStatus.APPROVED,
       },
     });
 
@@ -129,12 +129,12 @@ describe('admin access response DTO allowlists', () => {
       hasAdminAccess: true,
     });
     expect(detail.profile.studentId).toBe('123456');
-    expect(history.roleRequests.items[0]?.createdAt).toBe(
+    expect(history.staffAccessRequests.items[0]?.createdAt).toBe(
       PENDING_AT.toISOString(),
     );
     expect(history.loginHistory.items[0]?.loginAt).toBe(LOGIN_AT.toISOString());
     expect(AdminAccessFacetsResponseDto.from(facets())).toEqual(facets());
-    expect(mutation.decidedRequest?.status).toBe(RoleRequestStatus.APPROVED);
+    expect(mutation.decidedRequest?.status).toBe(StaffAccessRequestStatus.APPROVED);
   });
 });
 

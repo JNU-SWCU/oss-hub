@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -116,14 +116,14 @@ describe('AdminAccessService mutation', () => {
       pendingRequest: null,
       decidedRequest: {
         id: PENDING_REQUEST.id,
-        status: RoleRequestStatus.APPROVED,
+        status: StaffAccessRequestStatus.APPROVED,
       },
     });
     expect(repository.requestUpdates).toEqual([
       expect.objectContaining({
         requestId: PENDING_REQUEST.id,
         actorId: 'admin',
-        nextStatus: RoleRequestStatus.APPROVED,
+        nextStatus: StaffAccessRequestStatus.APPROVED,
         rejectionReason: null,
       }),
     ]);
@@ -148,12 +148,12 @@ describe('AdminAccessService mutation', () => {
           before: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.PENDING,
+            requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
             role: Role.STAFF,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.APPROVED,
+            requestStatus: StaffAccessRequestStatus.APPROVED,
           },
         },
       },
@@ -205,12 +205,12 @@ describe('AdminAccessService mutation', () => {
           before: {
             role: Role.STUDENT,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.PENDING,
+            requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
             role: Role.STUDENT,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.REJECTED,
+            requestStatus: StaffAccessRequestStatus.REJECTED,
           },
           rejectionReason: '합성 반려 사유',
         },
@@ -244,7 +244,7 @@ describe('AdminAccessService mutation', () => {
       pendingRequest: null,
       decidedRequest: {
         id: INSERTED_REVOKED_REQUEST_ID,
-        status: RoleRequestStatus.REVOKED,
+        status: StaffAccessRequestStatus.REVOKED,
       },
     });
     expect(repository.userUpdates).toEqual([
@@ -310,7 +310,7 @@ describe('AdminAccessService mutation', () => {
           after: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.REVOKED,
+            requestStatus: StaffAccessRequestStatus.REVOKED,
           },
         },
       },
@@ -521,7 +521,7 @@ describe('AdminAccessService mutation', () => {
 
     expect(result.decidedRequest).toEqual({
       id: PENDING_REQUEST.id,
-      status: RoleRequestStatus.APPROVED,
+      status: StaffAccessRequestStatus.APPROVED,
     });
     expect(repository.operations).not.toContain('lock-active-admins');
     expect(audit.record).toHaveBeenCalledWith(
@@ -544,12 +544,12 @@ describe('AdminAccessService mutation', () => {
           before: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.PENDING,
+            requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
             role: Role.STAFF,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.APPROVED,
+            requestStatus: StaffAccessRequestStatus.APPROVED,
           },
         },
       },

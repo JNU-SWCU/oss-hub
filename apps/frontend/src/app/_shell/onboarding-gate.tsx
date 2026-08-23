@@ -31,10 +31,10 @@ export function OnboardingGate({
   // 스냅샷을 통째로 들고 있는다 — 아래에서 자식에게 그대로 물려주기 때문이다.
   // `useSessionRole`이 memo로 참조를 고정하므로 effect 의존성으로 써도 안전하다.
   const session = useSessionRole();
-  const { status, role, roleRequestStatus, retry } = session;
+  const { status, role, staffAccessRequestStatus, retry } = session;
   const [profileStatus, setProfileStatus] =
     useState<ProfileCheckStatus>('checking');
-  const expectedPath = onboardingPathFor(roleRequestStatus, profileStatus);
+  const expectedPath = onboardingPathFor(staffAccessRequestStatus, profileStatus);
 
   useEffect(() => {
     if (status !== 'unassigned') {

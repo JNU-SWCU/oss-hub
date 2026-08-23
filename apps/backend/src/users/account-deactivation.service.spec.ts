@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -86,7 +86,7 @@ describe('AccountDeactivationService', () => {
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
               role: null,
-              requestStatus: RoleRequestStatus.PENDING,
+              requestStatus: StaffAccessRequestStatus.PENDING,
             }),
             lockActiveAdmins: jest.fn(),
             deactivate: jest.fn().mockResolvedValue(true),
@@ -99,8 +99,8 @@ describe('AccountDeactivationService', () => {
 
     const pendingAudit = record.mock.calls[0]?.[0];
     expect(pendingAudit?.metadata).toMatchObject({
-      before: { requestStatus: RoleRequestStatus.PENDING },
-      after: { requestStatus: RoleRequestStatus.PENDING },
+      before: { requestStatus: StaffAccessRequestStatus.PENDING },
+      after: { requestStatus: StaffAccessRequestStatus.PENDING },
     });
   });
 

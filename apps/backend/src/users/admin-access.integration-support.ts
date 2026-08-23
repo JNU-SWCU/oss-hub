@@ -14,7 +14,7 @@ import type {
   AdminAccessFacets,
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,
-  AdminAccessRoleRequestHistoryPage,
+  AdminAccessStaffAccessRequestHistoryPage,
 } from './domain/admin-access';
 
 class TwoPartyBarrier {
@@ -109,11 +109,11 @@ export class BarrierAdminAccessRepository implements AdminAccessRepositoryPort {
     return this.repository.findById(userId);
   }
 
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage> {
-    return this.repository.listRoleRequestHistory(userId, page);
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
+    return this.repository.listStaffAccessRequestHistory(userId, page);
   }
 
   listLoginHistory(
@@ -207,11 +207,11 @@ export class PausingRevocationAdminAccessRepository implements AdminAccessReposi
     return this.repository.findById(userId);
   }
 
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage> {
-    return this.repository.listRoleRequestHistory(userId, page);
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
+    return this.repository.listStaffAccessRequestHistory(userId, page);
   }
 
   listLoginHistory(
@@ -320,11 +320,11 @@ export class PausingActorRevalidationAdminAccessRepository implements AdminAcces
     return this.repository.findById(userId);
   }
 
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage> {
-    return this.repository.listRoleRequestHistory(userId, page);
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
+    return this.repository.listStaffAccessRequestHistory(userId, page);
   }
 
   listLoginHistory(
@@ -396,11 +396,11 @@ export class FailingDecisionAdminAccessRepository implements AdminAccessReposito
     return this.repository.findById(userId);
   }
 
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage> {
-    return this.repository.listRoleRequestHistory(userId, page);
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
+    return this.repository.listStaffAccessRequestHistory(userId, page);
   }
 
   listLoginHistory(

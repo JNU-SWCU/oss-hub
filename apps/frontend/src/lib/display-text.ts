@@ -22,7 +22,7 @@
  *
  * ⚠ **300이라는 숫자 자체에는 근거가 없다.** 넘치는 것보다 낫다는 것 말고는 잰 것이
  * 없다. 관리자가 실제로 쓰는 사유 길이를 아는 사람이 조정하라 — 늘릴 때는
- * `role-selection-screen.tsx`의 `ClosedRoleRequestAlert` 주석에 있는 실측을 함께 다시
+ * `role-selection-screen.tsx`의 `ClosedStaffAccessRequestAlert` 주석에 있는 실측을 함께 다시
  * 재야 한다.
  */
 export const REJECTION_REASON_MAX_LENGTH = 300;
@@ -35,7 +35,7 @@ export const REJECTION_REASON_MAX_LENGTH = 300;
  * 수로는 통과하는 값이 레이아웃을 깨는 셈이다. 줄도 함께 잰다.
  *
  * 6줄인 이유: 375px에서 한 줄이 약 20px이라 6줄이면 사유 블록이 약 120px이고, 지금
- * 실측한 사유 블록(101.5px, `role-selection-screen.tsx`의 `ClosedRoleRequestAlert`
+ * 실측한 사유 블록(101.5px, `role-selection-screen.tsx`의 `ClosedStaffAccessRequestAlert`
  * 주석의 표)에서 한 줄 남짓만 더 늘어나는 선이다.
  */
 export const REJECTION_REASON_MAX_LINES = 6;

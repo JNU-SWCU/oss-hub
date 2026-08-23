@@ -1,4 +1,4 @@
-import { MemberKind, Role, RoleRequestStatus } from '@prisma/client';
+import { MemberKind, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -48,7 +48,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
   const REVOKED_AT = new Date('2026-02-02T00:00:00.000Z');
 
   beforeEach(async () => {
-    await prisma.roleRequest.deleteMany({ where: { userId: revokedUserId } });
+    await prisma.staffAccessRequest.deleteMany({ where: { userId: revokedUserId } });
     await prisma.user.deleteMany({ where: { id: revokedUserId } });
     await prisma.user.create({
       data: {
@@ -63,10 +63,10 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         selectedMemberKind: MemberKind.STAFF,
       },
     });
-    await prisma.roleRequest.create({
+    await prisma.staffAccessRequest.create({
       data: {
         userId: revokedUserId,
-        status: RoleRequestStatus.REVOKED,
+        status: StaffAccessRequestStatus.REVOKED,
         createdAt: REVOKED_AT,
         decidedAt: REVOKED_AT,
       },
@@ -74,7 +74,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
   });
 
   afterAll(async () => {
-    await prisma.roleRequest.deleteMany({ where: { userId: revokedUserId } });
+    await prisma.staffAccessRequest.deleteMany({ where: { userId: revokedUserId } });
     await prisma.user.deleteMany({ where: { id: revokedUserId } });
   });
 
@@ -103,7 +103,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     // Then
     const [stored, requests] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
-      prisma.roleRequest.findMany({
+      prisma.staffAccessRequest.findMany({
         where: { userId: revokedUserId },
         orderBy: [{ createdAt: 'asc' }],
       }),
@@ -111,8 +111,8 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     expect(completed).toBe('completed');
     // 회수 이력은 남고 그 위에 새 신청이 얹힌다 — 덮어쓰지 않는다.
     expect(requests).toHaveLength(2);
-    expect(requests[0]?.status).toBe(RoleRequestStatus.REVOKED);
-    expect(requests[1]?.status).toBe(RoleRequestStatus.PENDING);
+    expect(requests[0]?.status).toBe(StaffAccessRequestStatus.REVOKED);
+    expect(requests[1]?.status).toBe(StaffAccessRequestStatus.PENDING);
     // 승인은 여전히 관리자 손에 있다.
     expect(stored.role).toBeNull();
   });
@@ -144,8 +144,8 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     // Then: 고른 역할이 학생이면 확정도 학생이다 — 신청이 생기지 않는다.
     const [stored, pendingCount] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
-      prisma.roleRequest.count({
-        where: { userId: revokedUserId, status: RoleRequestStatus.PENDING },
+      prisma.staffAccessRequest.count({
+        where: { userId: revokedUserId, status: StaffAccessRequestStatus.PENDING },
       }),
     ]);
     expect(stored.role).toBe(Role.STUDENT);

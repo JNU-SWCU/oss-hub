@@ -1,4 +1,4 @@
-import { Role, RoleRequestStatus } from '@prisma/client';
+import { Role, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -35,7 +35,7 @@ describe('RolesRepository integration', () => {
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   beforeEach(async () => {
-    await prisma.roleRequest.deleteMany({
+    await prisma.staffAccessRequest.deleteMany({
       where: { user: { id: { startsWith: TEST_PREFIX } } },
     });
     await prisma.user.deleteMany({
@@ -44,7 +44,7 @@ describe('RolesRepository integration', () => {
   });
 
   afterAll(async () => {
-    await prisma.roleRequest.deleteMany({
+    await prisma.staffAccessRequest.deleteMany({
       where: { user: { id: { startsWith: TEST_PREFIX } } },
     });
     await prisma.user.deleteMany({
@@ -71,8 +71,8 @@ describe('RolesRepository integration', () => {
     ]);
 
     // Then
-    const pendingCount = await prisma.roleRequest.count({
-      where: { userId: user.id, status: RoleRequestStatus.PENDING },
+    const pendingCount = await prisma.staffAccessRequest.count({
+      where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
     });
     expect(results).toHaveLength(2);
     expect(results.every((result) => result.selectedRole === Role.STAFF)).toBe(
@@ -101,8 +101,8 @@ describe('RolesRepository integration', () => {
     // Then
     const [storedUser, pendingCount] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
-      prisma.roleRequest.count({
-        where: { userId: user.id, status: RoleRequestStatus.PENDING },
+      prisma.staffAccessRequest.count({
+        where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
       }),
     ]);
     expect(
@@ -117,7 +117,7 @@ describe('RolesRepository integration', () => {
    * 온보딩 순서가 약관 → 역할 → 프로필로 바뀌어, 역할을 고르는 시점에 프로필은 아직
    * 비어 있는 것이 정상이다. 그 상태에서 확정까지 해 버리면 이름·학과가 빈 미완성
    * 신청이 관리자 대기줄에 올라가고, 학생은 이름 없이 학생 권한을 갖는다. 고른 사실만
-   * `selectedRole`에 남고 `role`·`RoleRequest`는 그대로여야 한다.
+   * `selectedRole`에 남고 `role`·`StaffAccessRequest`는 그대로여야 한다.
    */
   it.each([Role.STUDENT, Role.STAFF])(
     '프로필이 비어 있으면 %s 선택은 기록만 남기고 아무것도 확정하지 않는다',
@@ -142,7 +142,7 @@ describe('RolesRepository integration', () => {
       });
       const [storedUser, requestCount] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
-        prisma.roleRequest.count({ where: { userId: user.id } }),
+        prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
       expect(storedUser.selectedRole).toBe(selectedRole);
       expect(storedUser.role).toBeNull();
@@ -200,18 +200,18 @@ describe('RolesRepository integration', () => {
           ...STAFF_ONLY_PROFILE,
         },
       });
-      await prisma.roleRequest.create({
+      await prisma.staffAccessRequest.create({
         data: {
           userId: user.id,
-          status: RoleRequestStatus.APPROVED,
+          status: StaffAccessRequestStatus.APPROVED,
           createdAt: APPROVED_AT,
           decidedAt: APPROVED_AT,
         },
       });
-      await prisma.roleRequest.create({
+      await prisma.staffAccessRequest.create({
         data: {
           userId: user.id,
-          status: RoleRequestStatus.REVOKED,
+          status: StaffAccessRequestStatus.REVOKED,
           createdAt: REVOKED_AT,
           decidedAt: REVOKED_AT,
         },
@@ -229,7 +229,7 @@ describe('RolesRepository integration', () => {
       // Then: 고른 사실만 남고 권한은 돌아오지 않는다.
       const [stored, requestCount] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
-        prisma.roleRequest.count({ where: { userId: user.id } }),
+        prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
       expect(result.selectedRole).toBe(Role.STUDENT);
       expect(result.redirectTo).toBe('/onboarding/profile');
@@ -261,10 +261,10 @@ describe('RolesRepository integration', () => {
       // Then
       const [stored, pendingCount, requestCount] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
-        prisma.roleRequest.count({
-          where: { userId: user.id, status: RoleRequestStatus.PENDING },
+        prisma.staffAccessRequest.count({
+          where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
         }),
-        prisma.roleRequest.count({ where: { userId: user.id } }),
+        prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
       expect(result.selectedRole).toBe(Role.STAFF);
       expect(stored.role).toBeNull();
@@ -282,8 +282,8 @@ describe('RolesRepository integration', () => {
       await service.selectRole(user.githubId, Role.STAFF);
 
       // Then
-      const pendingCount = await prisma.roleRequest.count({
-        where: { userId: user.id, status: RoleRequestStatus.PENDING },
+      const pendingCount = await prisma.staffAccessRequest.count({
+        where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
       });
       expect(pendingCount).toBe(1);
     });
@@ -298,18 +298,18 @@ describe('RolesRepository integration', () => {
       // Then
       const [stored, requests] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
-        prisma.roleRequest.findMany({
+        prisma.staffAccessRequest.findMany({
           where: { userId: user.id },
           orderBy: [{ createdAt: 'asc' }],
         }),
       ]);
-      expect(result.status).toBe(RoleRequestStatus.PENDING);
+      expect(result.status).toBe(StaffAccessRequestStatus.PENDING);
       // 새 행이지 덮어쓴 행이 아니다 — 옛 상태가 이 행에 실려 오면 이력이 지워진 것이다.
       expect(result.status).not.toMatch(/APPROVED|REVOKED/);
       expect(requests).toHaveLength(3);
-      expect(requests[0]?.status).toBe(RoleRequestStatus.APPROVED);
-      expect(requests[1]?.status).toBe(RoleRequestStatus.REVOKED);
-      expect(requests[2]?.status).toBe(RoleRequestStatus.PENDING);
+      expect(requests[0]?.status).toBe(StaffAccessRequestStatus.APPROVED);
+      expect(requests[1]?.status).toBe(StaffAccessRequestStatus.REVOKED);
+      expect(requests[2]?.status).toBe(StaffAccessRequestStatus.PENDING);
       // 승인은 여전히 관리자 손에 있다 — 재요청이 권한을 되돌리지 않는다.
       expect(stored.role).toBeNull();
       expect(stored.selectedRole).toBe(Role.STAFF);
@@ -326,9 +326,9 @@ describe('RolesRepository integration', () => {
       ]);
 
       // Then: 행 잠금이 먼저 걸러도, 빠져나가면 partial unique
-      // (`RoleRequest_userId_pending_key`)가 남은 1건을 막는다.
-      const pendingCount = await prisma.roleRequest.count({
-        where: { userId: user.id, status: RoleRequestStatus.PENDING },
+      // (`StaffAccessRequest_userId_pending_key`)가 남은 1건을 막는다.
+      const pendingCount = await prisma.staffAccessRequest.count({
+        where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
       });
       expect(
         results.filter((result) => result.status === 'fulfilled'),

@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import type { SessionRoleState } from '../_shell/use-session-role';
 
 const mocks = vi.hoisted(() => ({
@@ -116,8 +116,8 @@ describe('설정 화면', () => {
       memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
       hasStaffAccess: role === 'STAFF',
       hasAdminAccess: role === 'ADMIN',
-      roleRequestStatus: null,
-      roleRequestRejectionReason: null,
+      staffAccessRequestStatus: null,
+      staffAccessRequestRejectionReason: null,
       selectedRole: null,
       isProfileComplete: false,
       ...overrides,
@@ -127,11 +127,11 @@ describe('설정 화면', () => {
   }
 
   function renderStaffAwaitingRole(
-    roleRequestStatus: RoleRequestStatus = 'PENDING',
+    staffAccessRequestStatus: StaffAccessRequestStatus = 'PENDING',
   ): Promise<void> {
     return render({
       status: 'unassigned',
-      roleRequestStatus,
+      staffAccessRequestStatus,
       selectedRole: 'STAFF',
     });
   }
@@ -168,8 +168,8 @@ describe('설정 화면', () => {
    */
   it.each(['PENDING', 'APPROVED'] as const)(
     '역할 요청이 %s 인 교직원은 안내와 함께 폼에 도달하고, 고친 이름이 저장된다',
-    async (roleRequestStatus) => {
-      await renderStaffAwaitingRole(roleRequestStatus);
+    async (staffAccessRequestStatus) => {
+      await renderStaffAwaitingRole(staffAccessRequestStatus);
 
       // 되돌려보내지 않는다 — 신고된 증상("다시 이 창으로 돌아와지더라구요")이다.
       expect(mocks.replace).not.toHaveBeenCalled();
@@ -247,12 +247,12 @@ describe('설정 화면', () => {
       // 반려는 살아 있는 신청이 없어 역할 선택으로 되돌린다(#535).
       '반려된 사용자',
       '/onboarding/role',
-      { roleRequestStatus: 'REJECTED' as RoleRequestStatus },
+      { staffAccessRequestStatus: 'REJECTED' as StaffAccessRequestStatus },
     ],
     [
       '회수된 사용자',
       '/onboarding/role',
-      { roleRequestStatus: 'REVOKED' as RoleRequestStatus },
+      { staffAccessRequestStatus: 'REVOKED' as StaffAccessRequestStatus },
     ],
   ] as readonly (readonly [string, string, Partial<SessionRoleState>])[])(
     '%s 에게는 설정을 열지 않고 %s 로 되돌린다',

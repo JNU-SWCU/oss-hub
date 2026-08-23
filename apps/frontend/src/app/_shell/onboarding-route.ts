@@ -1,5 +1,5 @@
 import type { ProfileRole } from '@/features/profile/profile-requirements';
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 
 export type ProfileCheckStatus =
   'checking' | 'complete' | 'incomplete' | 'error';
@@ -19,8 +19,8 @@ type OnboardingPath =
  * 않은 사람"이라 화면마다 답이 갈린다 — 온보딩 게이트는 역할 선택으로 보내지만,
  * 프로필 화면은 랜딩으로 되돌린다(#493, `profile-onboarding-route.tsx`).
  */
-export function isClosedRoleRequest(
-  requestStatus: RoleRequestStatus | null,
+export function isClosedStaffAccessRequest(
+  requestStatus: StaffAccessRequestStatus | null,
 ): boolean {
   return requestStatus === 'REVOKED' || requestStatus === 'REJECTED';
 }
@@ -48,14 +48,14 @@ export function isClosedRoleRequest(
  * 프로필로, 프로필까지 마친 교직원은 승인 대기로 간다.
  */
 export function onboardingPathFor(
-  requestStatus: RoleRequestStatus | null,
+  requestStatus: StaffAccessRequestStatus | null,
 ): '/onboarding/role' | '/onboarding/pending';
 export function onboardingPathFor(
-  requestStatus: RoleRequestStatus | null,
+  requestStatus: StaffAccessRequestStatus | null,
   profileStatus: ProfileCheckStatus,
 ): OnboardingPath | null;
 export function onboardingPathFor(
-  requestStatus: RoleRequestStatus | null,
+  requestStatus: StaffAccessRequestStatus | null,
   profileStatus: ProfileCheckStatus = 'complete',
 ): OnboardingPath | null {
   // 아직 아무것도 고르지 않은 사람 — 가입의 첫 질문이 역할이다.
@@ -63,7 +63,7 @@ export function onboardingPathFor(
     return '/onboarding/role';
   }
   // 회수·반려 — 살아 있는 신청이 없어 역할부터 다시 고른다(#535).
-  if (isClosedRoleRequest(requestStatus)) {
+  if (isClosedStaffAccessRequest(requestStatus)) {
     return '/onboarding/role';
   }
   // 남은 것은 살아 있는 신청(`PENDING`·`APPROVED`)뿐이다. 그 사람의 다음 단계는
@@ -97,7 +97,7 @@ export function onboardingPathFor(
  */
 export function effectiveProfileRole(
   role: ProfileRole | null,
-  requestStatus: RoleRequestStatus | null,
+  requestStatus: StaffAccessRequestStatus | null,
   selectedRole: ProfileRole | null = null,
 ): ProfileRole | null {
   if (role !== null) {

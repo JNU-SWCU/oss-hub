@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 
@@ -31,12 +31,12 @@ describe('AdminAccessRepository transaction store', () => {
           profile: null,
           role: Role.STUDENT,
           accountStatus: AccountStatus.ACTIVE,
-          roleRequests: [],
+          staffAccessRequests: [],
           loginHistories: [],
         }),
         updateMany: updateUser,
       },
-      roleRequest: {
+      staffAccessRequest: {
         updateMany: updateRequest,
         create: createRequest,
       },
@@ -65,7 +65,7 @@ describe('AdminAccessRepository transaction store', () => {
       requestUpdated: await store.decidePendingRequest({
         requestId: 'request-pending',
         actorId: 'admin-a',
-        nextStatus: RoleRequestStatus.APPROVED,
+        nextStatus: StaffAccessRequestStatus.APPROVED,
         rejectionReason: null,
         decidedAt,
       }),
@@ -105,9 +105,9 @@ describe('AdminAccessRepository transaction store', () => {
       },
     });
     expect(updateRequest).toHaveBeenCalledWith({
-      where: { id: 'request-pending', status: RoleRequestStatus.PENDING },
+      where: { id: 'request-pending', status: StaffAccessRequestStatus.PENDING },
       data: {
-        status: RoleRequestStatus.APPROVED,
+        status: StaffAccessRequestStatus.APPROVED,
         rejectionReason: null,
         decidedById: 'admin-a',
         decidedAt,
@@ -117,7 +117,7 @@ describe('AdminAccessRepository transaction store', () => {
     expect(createRequest).toHaveBeenCalledWith({
       data: {
         userId: 'target',
-        status: RoleRequestStatus.REVOKED,
+        status: StaffAccessRequestStatus.REVOKED,
         decidedById: 'admin-a',
         decidedAt,
       },

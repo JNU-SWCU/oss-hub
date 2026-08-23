@@ -29,8 +29,8 @@ function sessionFor(role: AppRole): SessionRoleResult {
     hasStaffAccess: role === 'STAFF',
     hasAdminAccess: role === 'ADMIN',
     isProfileComplete: true,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     retry: vi.fn(),
   };

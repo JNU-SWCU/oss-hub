@@ -1,15 +1,15 @@
 import type {
   AccountStatus,
   MemberKind,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
+import type { AuthorityLabel } from './domain/authority-label';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type {
   AdminAccessFacets,
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,
-  AdminAccessRoleRequestHistoryPage,
+  AdminAccessStaffAccessRequestHistoryPage,
   AdminAccessUser,
   AdminAccessUserDetail,
 } from './domain/admin-access';
@@ -20,7 +20,7 @@ export type AdminAccessActor = {
   readonly githubLogin: string;
   readonly name: string | null;
   /** legacy 투영치 — 감사 로그와 응답 호환성용이다. 인가 판정은 아래 canonical 칸이 원본이다. */
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
@@ -53,9 +53,16 @@ export type AdminAccessUserPageRecord = {
 
 export type AdminAccessUserUpdate = {
   readonly userId: string;
-  readonly expectedRole: Role | null;
+  /**
+   * CAS 기준값 — 관리자가 화면에서 보고 있던 그 상태다.
+   *
+   * 표시 역할(`expectedRole`)은 세 사실을 접은 요약이라 CAS 기준으로 쓸 수 없다.
+   * 서로 다른 canonical 상태가 같은 표시 값으로 접히면 CAS가 통과해 관리자가 보지
+   * 못한 상태를 덮어쓴다. 그래서 DB 조건은 canonical 두 칸을 그대로 건다.
+   */
+  readonly expectedHasStaffAccess: boolean;
+  readonly expectedHasAdminAccess: boolean;
   readonly expectedAccountStatus: AccountStatus;
-  readonly desiredRole: Role | null;
   readonly desiredAccountStatus: AccountStatus;
   readonly desiredHasStaffAccess: boolean;
   readonly desiredHasAdminAccess: boolean;
@@ -65,7 +72,7 @@ export type AdminAccessPendingDecisionUpdate = {
   readonly requestId: string;
   readonly actorId: string;
   readonly nextStatus:
-    typeof RoleRequestStatus.APPROVED | typeof RoleRequestStatus.REJECTED;
+    typeof StaffAccessRequestStatus.APPROVED | typeof StaffAccessRequestStatus.REJECTED;
   readonly rejectionReason: string | null;
   readonly decidedAt: Date;
 };
@@ -110,10 +117,10 @@ export interface AdminAccessRepositoryPort {
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord>;
   facets(query: AdminAccessListQuery): Promise<AdminAccessFacets>;
   findById(userId: string): Promise<AdminAccessUserDetailRecord | null>;
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage>;
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage>;
   listLoginHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },

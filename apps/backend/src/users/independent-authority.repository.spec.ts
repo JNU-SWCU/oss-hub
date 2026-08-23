@@ -30,7 +30,7 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
           affiliationKind: 'PROGRAM_OFFICE',
           affiliationName: '합성 사업단',
         },
-        roleRequests: [],
+        staffAccessRequests: [],
         loginHistories: [],
       }),
       update,

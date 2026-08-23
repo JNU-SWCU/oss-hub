@@ -1,6 +1,7 @@
+import { authorityFactsFor } from './canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import type { AccountStatus, Role } from '@prisma/client';
+import type { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -81,7 +82,7 @@ export class AdminAccessHttpHarness {
 
   async createUser(
     label: string,
-    role: Role | null,
+    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null | null,
     accountStatus: AccountStatus,
   ) {
     this.sequence += 1;
@@ -90,7 +91,7 @@ export class AdminAccessHttpHarness {
         id: `test:pr03:admin-access-http:${this.fixtureNamespace}:${label}:${this.sequence}`,
         githubId: this.githubIdBase + BigInt(this.sequence),
         nickname: `synthetic-http-${label}-${this.sequence}`,
-        role,
+        ...authorityFactsFor(role),
         accountStatus,
       },
       select: { id: true, githubId: true, nickname: true },
@@ -119,7 +120,7 @@ export class AdminAccessHttpHarness {
   }
 
   async createPendingRequest(userId: string) {
-    return this.prisma.roleRequest.create({
+    return this.prisma.staffAccessRequest.create({
       data: {
         id: `${userId}:pending`,
         userId,
@@ -131,8 +132,8 @@ export class AdminAccessHttpHarness {
 
   async demoteAllActiveAdmins(): Promise<void> {
     await this.prisma.user.updateMany({
-      where: { role: 'ADMIN', accountStatus: 'ACTIVE' },
-      data: { role: 'STAFF' },
+      where: { hasAdminAccess: true, accountStatus: 'ACTIVE' },
+      data: { hasAdminAccess: false, hasStaffAccess: true },
     });
   }
 

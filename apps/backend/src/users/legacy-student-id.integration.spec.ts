@@ -161,7 +161,7 @@ it('학번을 6자리로 바꾸려는 저장은 거절하고 데이터를 그대
  * 운영 DB 실측이 알려 온 계정 모양 — `User.studentId`는 비어 있는데 `UserProfile`
  * 행에는 예전 형식 학번이 들어 있다.
  *
- * 화면이 보는 값은 `UserProfile` 행이다(`resolveCompatibleProfile`이 그 행을 먼저
+ * 화면이 보는 값은 `UserProfile` 행이다(`resolveUserProfile`이 그 행을 먼저
  * 본다). 그래서 legacy 컬럼만 조회하면 학번이 없어 보이지만, 프로필 응답에는 9자리
  * 값이 실려 화면의 학번 칸이 그 값으로 채워진다 — QA가 본 그대로다.
  *

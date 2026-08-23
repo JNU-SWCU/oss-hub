@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,
   PROGRAM_CREATED_AUDIT_ACTIONS,
@@ -45,7 +45,7 @@ export class ProgramAuthoringService {
     if (
       actor === null ||
       actor.accountStatus !== AccountStatus.ACTIVE ||
-      (actor.role !== Role.STAFF && actor.role !== Role.ADMIN)
+      (!actor.hasStaffAccess && !actor.hasAdminAccess)
     ) {
       throw new ProgramAuthoringForbiddenError();
     }

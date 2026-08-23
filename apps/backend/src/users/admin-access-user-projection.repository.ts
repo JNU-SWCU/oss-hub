@@ -1,11 +1,11 @@
-import { LoginHistoryEvent, RoleRequestStatus } from '@prisma/client';
+import { LoginHistoryEvent, StaffAccessRequestStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { resolveMemberAuthorityCompatibility } from '../profiles/member-authority-compatibility';
+import { authorityLabel } from './domain/authority-label';
 import {
-  COMPATIBLE_PROFILE_SELECT,
-  resolveCompatibleProfile,
-  type CompatibleProfileSource,
-} from '../profiles/profile-compatibility';
+  USER_PROFILE_SELECT,
+  resolveUserProfile,
+  type UserProfileSource,
+} from '../profiles/user-profile-read';
 import type {
   AdminAccessUserDetailRecord,
   AdminAccessUserRecord,
@@ -19,15 +19,13 @@ export const ADMIN_ACCESS_USER_SELECT = {
   id: true,
   githubId: true,
   nickname: true,
-  role: true,
-  selectedRole: true,
   selectedMemberKind: true,
   hasStaffAccess: true,
   hasAdminAccess: true,
   accountStatus: true,
-  ...COMPATIBLE_PROFILE_SELECT,
-  roleRequests: {
-    where: { status: RoleRequestStatus.PENDING },
+  ...USER_PROFILE_SELECT,
+  staffAccessRequests: {
+    where: { status: StaffAccessRequestStatus.PENDING },
     orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
     take: 1,
     select: { id: true, status: true, createdAt: true },
@@ -44,43 +42,30 @@ type PrismaAdminAccessUser = Prisma.UserGetPayload<{
   select: typeof ADMIN_ACCESS_USER_SELECT;
 }>;
 
-export type AdminAccessUserSource = Omit<
-  PrismaAdminAccessUser,
-  | 'name'
-  | 'studentId'
-  | 'department'
-  | 'profile'
-  | 'selectedMemberKind'
-  | 'hasStaffAccess'
-  | 'hasAdminAccess'
-> &
-  CompatibleProfileSource & {
-    readonly selectedMemberKind?: PrismaAdminAccessUser['selectedMemberKind'];
-    readonly hasStaffAccess?: boolean | null;
-    readonly hasAdminAccess?: boolean | null;
-  };
+export type AdminAccessUserSource = Omit<PrismaAdminAccessUser, 'profile'> &
+  UserProfileSource;
 
 export function toAdminAccessUserRecord(
   user: AdminAccessUserSource,
 ): AdminAccessUserRecord {
-  const profile = resolveCompatibleProfile(user);
-  const authority = resolveMemberAuthorityCompatibility(user);
-  const pendingRequest = user.roleRequests[0];
+  const profile = resolveUserProfile(user);
+  const memberKind = user.profile?.memberKind ?? null;
+  const pendingRequest = user.staffAccessRequests[0];
   return {
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
     name: profile.name,
-    role: user.role,
-    memberKind: authority.memberKind,
-    hasStaffAccess: authority.hasStaffAccess,
-    hasAdminAccess: authority.hasAdminAccess,
+    role: authorityLabel({ ...user, memberKind }),
+    memberKind,
+    hasStaffAccess: user.hasStaffAccess,
+    hasAdminAccess: user.hasAdminAccess,
     accountStatus: user.accountStatus,
     isProfileComplete: isCompleteAdminAccessProfile(user, profile),
     pendingRequest: pendingRequest
       ? {
           id: pendingRequest.id,
-          status: RoleRequestStatus.PENDING,
+          status: StaffAccessRequestStatus.PENDING,
           createdAt: pendingRequest.createdAt,
         }
       : null,
@@ -91,7 +76,7 @@ export function toAdminAccessUserRecord(
 export function toAdminAccessUserDetailRecord(
   user: AdminAccessUserSource,
 ): AdminAccessUserDetailRecord {
-  const profile = resolveCompatibleProfile(user);
+  const profile = resolveUserProfile(user);
   return {
     ...toAdminAccessUserRecord(user),
     profile: {
@@ -108,8 +93,8 @@ function isCompleteAdminAccessProfile(
   return isCompleteUserProfile({
     id: user.id,
     ...profile,
-    role: user.role,
-    hasPendingStaffRequest: user.roleRequests.length > 0,
-    selectedRole: user.selectedRole,
+    memberKind: user.profile?.memberKind ?? null,
+    hasPendingStaffRequest: user.staffAccessRequests.length > 0,
+    selectedMemberKind: user.selectedMemberKind,
   });
 }

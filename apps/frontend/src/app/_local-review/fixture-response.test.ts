@@ -153,7 +153,7 @@ describe('local review fixture responses', () => {
   it('unassigned fixture has no role and no role request', () => {
     // Given / When
     const session = sessionFor('unassigned');
-    const roleRequest = resolveLocalReviewResponse({
+    const staffAccessRequest = resolveLocalReviewResponse({
       fixture: 'unassigned',
       method: 'GET',
       path: 'role-requests/me',
@@ -168,7 +168,7 @@ describe('local review fixture responses', () => {
         user: { role: null },
       },
     });
-    expect(roleRequest).toEqual({ kind: 'json', status: 200, body: null });
+    expect(staffAccessRequest).toEqual({ kind: 'json', status: 200, body: null });
   });
 
   it('loading and error fixtures remain distinguishable at the session boundary', () => {

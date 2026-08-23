@@ -2,9 +2,9 @@ import {
   AccountStatus,
   LoginHistoryEvent,
   MemberKind,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
+import type { AuthorityLabel } from './authority-label';
 
 export const ADMIN_ACCESS_REQUEST_DECISIONS = {
   APPROVE: 'APPROVE',
@@ -13,14 +13,14 @@ export const ADMIN_ACCESS_REQUEST_DECISIONS = {
 
 export const ADMIN_ACCESS_ROLE_FILTERS = {
   UNASSIGNED: 'UNASSIGNED',
-  STUDENT: Role.STUDENT,
-  STAFF: Role.STAFF,
-  ADMIN: Role.ADMIN,
+  STUDENT: 'STUDENT',
+  STAFF: 'STAFF',
+  ADMIN: 'ADMIN',
 } as const;
 
 export const ADMIN_ACCESS_PENDING_FILTERS = {
   NONE: 'NONE',
-  PENDING: RoleRequestStatus.PENDING,
+  PENDING: StaffAccessRequestStatus.PENDING,
 } as const;
 
 export const ADMIN_ACCESS_SORT_FIELDS = {
@@ -50,12 +50,12 @@ export type AdminAccessRequestDecision =
 
 export type AdminAccessExpectedPendingRequest = {
   readonly id: string;
-  readonly status: typeof RoleRequestStatus.PENDING;
+  readonly status: typeof StaffAccessRequestStatus.PENDING;
 };
 
 export type AdminAccessMutationCommand = {
-  readonly expectedRole: Role | null;
-  readonly desiredRole: Role | null;
+  readonly expectedRole: AuthorityLabel | null;
+  readonly desiredRole: AuthorityLabel | null;
   readonly expectedAccountStatus: AccountStatus;
   readonly desiredAccountStatus: AccountStatus;
   readonly expectedPendingRequest: AdminAccessExpectedPendingRequest | null;
@@ -64,13 +64,13 @@ export type AdminAccessMutationCommand = {
 
 export type AdminAccessPendingRequest = {
   readonly id: string;
-  readonly status: typeof RoleRequestStatus.PENDING;
+  readonly status: typeof StaffAccessRequestStatus.PENDING;
   readonly createdAt: Date;
 };
 
 export type AdminAccessCasProjection = {
   readonly id: string;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly pendingRequest: AdminAccessPendingRequest | null;
 };
@@ -83,9 +83,9 @@ export type AdminAccessCasProjection = {
 export type AdminAccessDecidedRequest = {
   readonly id: string;
   readonly status:
-    | typeof RoleRequestStatus.APPROVED
-    | typeof RoleRequestStatus.REJECTED
-    | typeof RoleRequestStatus.REVOKED;
+    | typeof StaffAccessRequestStatus.APPROVED
+    | typeof StaffAccessRequestStatus.REJECTED
+    | typeof StaffAccessRequestStatus.REVOKED;
 };
 
 export type AdminAccessMutationResult = AdminAccessCasProjection & {
@@ -126,7 +126,7 @@ export type AdminAccessUser = {
   readonly id: string;
   readonly githubLogin: string;
   readonly name: string | null;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
@@ -166,17 +166,17 @@ export type AdminAccessUserDetail = AdminAccessUser & {
   readonly profile: AdminAccessProfile;
 };
 
-export type AdminAccessRoleRequestHistoryItem = {
+export type AdminAccessStaffAccessRequestHistoryItem = {
   readonly id: string;
-  readonly status: RoleRequestStatus;
+  readonly status: StaffAccessRequestStatus;
   readonly rejectionReason: string | null;
   readonly decidedAt: Date | null;
   readonly decidedBy: string | null;
   readonly createdAt: Date;
 };
 
-export type AdminAccessRoleRequestHistoryPage = {
-  readonly items: readonly AdminAccessRoleRequestHistoryItem[];
+export type AdminAccessStaffAccessRequestHistoryPage = {
+  readonly items: readonly AdminAccessStaffAccessRequestHistoryItem[];
   readonly page: number;
   readonly limit: number;
   readonly total: number;
@@ -198,11 +198,11 @@ export type AdminAccessLoginHistoryPage = {
 };
 
 export type AdminAccessHistoryQuery = {
-  readonly roleRequests: { readonly page: number; readonly limit: number };
+  readonly staffAccessRequests: { readonly page: number; readonly limit: number };
   readonly loginHistory: { readonly page: number; readonly limit: number };
 };
 
 export type AdminAccessUserHistory = {
-  readonly roleRequests: AdminAccessRoleRequestHistoryPage;
+  readonly staffAccessRequests: AdminAccessStaffAccessRequestHistoryPage;
   readonly loginHistory: AdminAccessLoginHistoryPage;
 };

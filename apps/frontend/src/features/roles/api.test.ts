@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchMyRoleRequest, fetchMyRoleSelection } from './api';
+import { fetchMyStaffAccessRequest, fetchMyRoleSelection } from './api';
 
 /**
  * 역할 요청이 아직 없는 사용자 — 갓 가입한 사람이 여기 해당한다.
@@ -13,7 +13,7 @@ import { fetchMyRoleRequest, fetchMyRoleSelection } from './api';
  * 그래서 여기서는 Response를 실물 그대로 세워 놓고 검사한다 — `apiClient`를
  * 대역으로 바꾸면 정확히 이 지점(본문 없는 200을 어떻게 읽는가)이 사라진다.
  */
-describe('fetchMyRoleRequest', () => {
+describe('fetchMyStaffAccessRequest', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -24,7 +24,7 @@ describe('fetchMyRoleRequest', () => {
       vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
     );
 
-    await expect(fetchMyRoleRequest()).resolves.toBeNull();
+    await expect(fetchMyStaffAccessRequest()).resolves.toBeNull();
   });
 
   it('요청이 있으면 그 상태를 그대로 돌려준다', async () => {
@@ -44,7 +44,7 @@ describe('fetchMyRoleRequest', () => {
       ),
     );
 
-    await expect(fetchMyRoleRequest()).resolves.toMatchObject({
+    await expect(fetchMyStaffAccessRequest()).resolves.toMatchObject({
       status: 'PENDING',
     });
   });

@@ -9,7 +9,7 @@ import type {
   UserProfileRecord,
 } from './domain/user-profile';
 import {
-  effectiveProfileRole,
+  effectiveProfileMemberKind,
   isCompleteUserProfile,
   isValidStudentId,
   nextProfileRecord,
@@ -151,7 +151,7 @@ export class UsersService {
     const user = await this.requireUser(githubId);
     if (
       input.studentId !== undefined &&
-      !profileFieldRequirement(effectiveProfileRole(user)).studentId
+      !profileFieldRequirement(effectiveProfileMemberKind(user)).studentId
     ) {
       throw new DomainException({
         code: SystemErrorCode.VALIDATION_FAILED,
@@ -180,11 +180,7 @@ export class UsersService {
         USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
       );
     }
-    const outcome = await this.repository.fillStudentId(user, {
-      name: next.name,
-      studentId,
-      department: next.department,
-    });
+    const outcome = await this.repository.fillStudentId(user, studentId);
     switch (outcome) {
       case 'filled':
         return;

@@ -13,8 +13,8 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: false,
     ...overrides,
@@ -49,12 +49,12 @@ describe('isSettingsOpenForStaffAwaitingRole', () => {
    */
   it.each(['PENDING', 'APPROVED'] as const)(
     '역할 요청이 %s 인 교직원에게 연다',
-    (roleRequestStatus) => {
+    (staffAccessRequestStatus) => {
       expect(
         isSettingsOpenForStaffAwaitingRole(
           state({
             status: 'unassigned',
-            roleRequestStatus,
+            staffAccessRequestStatus,
             selectedRole: 'STAFF',
           }),
         ),
@@ -67,7 +67,7 @@ describe('isSettingsOpenForStaffAwaitingRole', () => {
   it('역할 요청이 없는 사용자에게는 열지 않는다', () => {
     expect(
       isSettingsOpenForStaffAwaitingRole(
-        state({ status: 'unassigned', roleRequestStatus: null }),
+        state({ status: 'unassigned', staffAccessRequestStatus: null }),
       ),
     ).toBe(false);
   });
@@ -80,7 +80,7 @@ describe('isSettingsOpenForStaffAwaitingRole', () => {
         isSettingsOpenForStaffAwaitingRole(
           state({
             status: 'unassigned',
-            roleRequestStatus: null,
+            staffAccessRequestStatus: null,
             selectedRole,
           }),
         ),
@@ -91,10 +91,10 @@ describe('isSettingsOpenForStaffAwaitingRole', () => {
   // 교직원이 아니게 된 사람이다. 기다릴 역할이 없으므로 그 예외를 물려받을 근거가 없다.
   it.each(['REJECTED', 'REVOKED'] as const)(
     '%s 상태에는 열지 않는다',
-    (roleRequestStatus) => {
+    (staffAccessRequestStatus) => {
       expect(
         isSettingsOpenForStaffAwaitingRole(
-          state({ status: 'unassigned', roleRequestStatus }),
+          state({ status: 'unassigned', staffAccessRequestStatus }),
         ),
       ).toBe(false);
     },
@@ -107,10 +107,10 @@ describe('isSettingsOpenForStaffAwaitingRole', () => {
   it.each(['anonymous', 'loading', 'error', 'assigned'] as const)(
     '%s 상태에는 역할 요청이 살아 있어도 열지 않는다',
     (status) => {
-      for (const roleRequestStatus of ['PENDING', 'APPROVED'] as const) {
+      for (const staffAccessRequestStatus of ['PENDING', 'APPROVED'] as const) {
         expect(
           isSettingsOpenForStaffAwaitingRole(
-            state({ status, roleRequestStatus }),
+            state({ status, staffAccessRequestStatus }),
           ),
         ).toBe(false);
       }

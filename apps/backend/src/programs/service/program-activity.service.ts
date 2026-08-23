@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import type { ProgramActivityResponseDto } from '../dto/program-detail.dto';
 import type {
@@ -58,7 +57,7 @@ export class ProgramActivityService {
     try {
       const repositories = await this.repository.findProgramRepositories(
         programId,
-        viewer.role === Role.STUDENT ? viewer.userId : null,
+        viewer.role === 'STUDENT' ? viewer.userId : null,
       );
       const activity = await this.activityReads.findRepositoryActivity({
         repositoryIds: repositories.map(
@@ -114,7 +113,7 @@ export class ProgramActivityService {
     viewer: ProgramViewer,
     granularity: ActivityGranularity,
   ): Promise<ActivityTimelineResponseDto> {
-    if (viewer.role !== Role.STUDENT || !viewer.userId || !viewer.githubId) {
+    if (viewer.role !== 'STUDENT' || !viewer.userId || !viewer.githubId) {
       throw new DomainException(
         CREATION_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
       );

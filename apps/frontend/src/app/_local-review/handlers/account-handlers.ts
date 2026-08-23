@@ -11,7 +11,7 @@ import type {
 import type { UserProfile } from '@/features/profile/types';
 import type { MyRepositoryResponseItem } from '@/features/repositories/types';
 import type {
-  RoleRequest,
+  StaffAccessRequest,
   RoleSelection,
   RoleSelectionResult,
 } from '@/features/roles/types';
@@ -337,7 +337,7 @@ const PENDING_STAFF_ROLE_REQUEST = {
   requestedAt: '2026-07-30T02:00:00.000Z',
   decidedAt: null,
   rejectionReason: null,
-} as const satisfies RoleRequest;
+} as const satisfies StaffAccessRequest;
 
 /**
  * 반려된 교직원 요청(#673).
@@ -360,7 +360,7 @@ const REJECTED_STAFF_ROLE_REQUEST = {
   requestedAt: '2026-07-30T02:00:00.000Z',
   decidedAt: '2026-07-31T05:00:00.000Z',
   rejectionReason: '사업단을 통해 소속을 확인한 뒤 다시 신청해 주세요.',
-} as const satisfies RoleRequest;
+} as const satisfies StaffAccessRequest;
 
 /**
  * 가입을 마쳤는가 — 고른 역할이 확정될 조건을 갖췄는가.
@@ -705,7 +705,7 @@ function onboardingRoleHandler(
  * `REJECTED`면 다시 역할 선택 화면으로 간다(#535). 그래서 대기 화면을 검토하려면
  * `role-pending`이, 반려 안내를 검토하려면 `role-rejected` 페르소나가 필요하다.
  */
-function myRoleRequestHandler(
+function myStaffAccessRequestHandler(
   context: LocalReviewContext,
 ): LocalReviewResponsePlan | null {
   if (matchGet(context, 'role-requests/me') === null) return null;
@@ -726,7 +726,7 @@ function myRoleRequestHandler(
 
 export const ACCOUNT_HANDLERS: readonly LocalReviewHandler[] = [
   githubLoginHandler,
-  myRoleRequestHandler,
+  myStaffAccessRequestHandler,
   publicProfileHandler,
   myRepositoriesHandler,
   consentHandler,

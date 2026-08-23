@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import { onboardingPathFor } from '../../_shell/onboarding-route';
 import { resetLocalReviewFixtureState } from '../fixture-response';
 import { call, callWithBody, jsonBody } from './account-handlers-test-support';
@@ -100,16 +100,16 @@ describe('account onboarding fixture responses', () => {
    */
   it('반려 페르소나의 다음 화면은 역할 선택이다', () => {
     // Given
-    const roleRequest = jsonBody(
+    const staffAccessRequest = jsonBody(
       call('role-rejected', 'GET', 'role-requests/me'),
-    ) as { readonly status: RoleRequestStatus };
+    ) as { readonly status: StaffAccessRequestStatus };
     const profile = jsonBody(
       call('role-rejected', 'GET', 'users/me/profile'),
     ) as { readonly isComplete: boolean };
 
     // When
     const path = onboardingPathFor(
-      roleRequest.status,
+      staffAccessRequest.status,
       profile.isComplete ? 'complete' : 'incomplete',
     );
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import type { AuthorityLabel } from '../../../users/domain/authority-label';
 import { DomainException } from '../../../common/error-code';
 import {
   PROGRAM_OVERVIEW_ERROR_CODES,
@@ -24,7 +24,8 @@ import {
  * `ProgramScopeMilestoneDocsSummary`와 필드명이 같다(milestoneId/title/completed/total).
  */
 export interface ProgramOverviewViewerStats {
-  role: Role | null;
+  /** 표시 역할 — 화면이 한 단어로 뷰어를 부를 때 쓴다(`users/domain/authority-label.ts`). */
+  role: AuthorityLabel | null;
   myDocumentsCompleted: number | null;
   myDocumentsTotal: number | null;
   fullySubmittedParticipantCount: number | null;
@@ -175,10 +176,10 @@ export class ProgramOverviewService {
       return { ...EMPTY_VIEWER_STATS, role: identity?.role ?? null };
     }
 
-    if (identity.role === Role.STUDENT) {
+    if (identity.role === 'STUDENT') {
       return this.resolveStudentStats(programId, identity.userId);
     }
-    if (identity.role === Role.STAFF || identity.role === Role.ADMIN) {
+    if (identity.role === 'STAFF' || identity.role === 'ADMIN') {
       return this.resolveStaffStats(programId, identity.role, teamCount);
     }
     return { ...EMPTY_VIEWER_STATS, role: identity.role };
@@ -194,7 +195,7 @@ export class ProgramOverviewService {
       new Date(),
     );
     if (!hasDocuments) {
-      return { ...EMPTY_VIEWER_STATS, role: Role.STUDENT };
+      return { ...EMPTY_VIEWER_STATS, role: 'STUDENT' };
     }
 
     const [applicationId, catalog] = await Promise.all([
@@ -214,7 +215,7 @@ export class ProgramOverviewService {
     );
 
     return {
-      role: Role.STUDENT,
+      role: 'STUDENT',
       myDocumentsCompleted: completed,
       myDocumentsTotal: total,
       fullySubmittedParticipantCount: null,
@@ -233,7 +234,7 @@ export class ProgramOverviewService {
 
   private async resolveStaffStats(
     programId: string,
-    role: typeof Role.STAFF | typeof Role.ADMIN,
+    role: 'STAFF' | 'ADMIN',
     teamCount: number,
   ): Promise<ProgramOverviewViewerStats> {
     const milestone = await this.repository.findCurrentSubmissionMilestone(

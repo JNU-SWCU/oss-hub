@@ -3,7 +3,6 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
-  Role,
   SubmissionStatus,
 } from '@prisma/client';
 import {
@@ -193,20 +192,20 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
 
   const reviewer = await upsertSeedUser(stats, {
     id: REVIEWER_ID,
-    role: Role.STAFF,
+    role: 'STAFF',
   });
   void reviewer;
   const applicantPersonal = await upsertSeedUser(stats, {
     id: APPLICANT_PERSONAL_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const teamLeader = await upsertSeedUser(stats, {
     id: TEAM_LEADER_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const teamMember = await upsertSeedUser(stats, {
     id: TEAM_MEMBER_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
 
   // 모든 신청이 Team을 갖는다(D5). 개인 시나리오도 신청자 1인 팀을 만들어 붙인다.

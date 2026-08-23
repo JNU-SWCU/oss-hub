@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { BoardPostCategory, Role } from '@prisma/client';
+import { BoardPostCategory, type MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  type CompatibleProfileNameSource,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  authorityLabel,
+  type AuthorityLabel,
+} from '../users/domain/authority-label';
+import {
+  USER_PROFILE_NAME_SELECT,
+  type UserProfileNameSource,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 
 /** 게시판 목록 화면 한 행 — 본문(body)은 목록에서 쓰지 않아 select에서 뺀다. */
 export interface BoardPostSummaryRecord {
@@ -30,8 +34,8 @@ export interface BoardCommentRecord {
   id: string;
   postId: string;
   authorId: string;
-  /** 작성자 `User.role`. null이면 학생으로 본다(게시판 참여자는 역할이 있어야 한다). */
-  authorRole: Role;
+  /** 작성자 표시 역할. 아무 사실도 없으면 학생으로 접는다. */
+  authorRole: AuthorityLabel;
   authorName: string;
   body: string;
   createdAt: Date;
@@ -89,7 +93,9 @@ export interface CreateBoardCommentInput {
 
 const authorNameSelect = {
   nickname: true,
-  ...COMPATIBLE_PROFILE_NAME_SELECT,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  profile: { select: { name: true, memberKind: true } },
 } as const;
 
 const commentSelect = {
@@ -99,7 +105,7 @@ const commentSelect = {
   body: true,
   createdAt: true,
   author: {
-    select: { role: true, ...authorNameSelect },
+    select: authorNameSelect,
   },
 } as const;
 
@@ -274,9 +280,11 @@ interface CommentRow {
   authorId: string;
   body: string;
   createdAt: Date;
-  author: CompatibleProfileNameSource & {
-    role: Role | null;
+  author: {
     nickname: string;
+    hasStaffAccess: boolean;
+    hasAdminAccess: boolean;
+    profile: { readonly name: string; readonly memberKind: MemberKind } | null;
   };
 }
 
@@ -284,7 +292,7 @@ interface PostDetailRow {
   id: string;
   programId: string;
   authorId: string;
-  author: CompatibleProfileNameSource & { nickname: string };
+  author: UserProfileNameSource & { nickname: string };
   category: BoardPostCategory;
   title: string;
   body: string;
@@ -300,8 +308,13 @@ function toCommentRecord(comment: CommentRow): BoardCommentRecord {
     id: comment.id,
     postId: comment.postId,
     authorId: comment.authorId,
-    // 역할 미확정 작성자는 게시판 접근 경로상 거의 없지만, 표시는 학생으로 접는다.
-    authorRole: comment.author.role ?? Role.STUDENT,
+    // 유형 미확정 작성자는 게시판 접근 경로상 거의 없지만, 표시는 학생으로 접는다.
+    authorRole:
+      authorityLabel({
+        memberKind: comment.author.profile?.memberKind ?? null,
+        hasStaffAccess: comment.author.hasStaffAccess,
+        hasAdminAccess: comment.author.hasAdminAccess,
+      }) ?? 'STUDENT',
     authorName: resolveAuthorName(comment.author),
     body: comment.body,
     createdAt: comment.createdAt,
@@ -326,7 +339,7 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
 }
 
 function resolveAuthorName(
-  author: CompatibleProfileNameSource & { nickname: string },
+  author: UserProfileNameSource & { nickname: string },
 ): string {
-  return resolveCompatibleProfileName(author) ?? author.nickname;
+  return resolveUserProfileName(author) ?? author.nickname;
 }

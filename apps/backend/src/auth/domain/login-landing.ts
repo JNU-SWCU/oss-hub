@@ -34,13 +34,31 @@ const ONBOARDING_ENTRY_PATH = '/consent';
 export function loginLandingUrl(
   frontendUrl: string,
   login: {
-    readonly user: Pick<AuthUser, 'role' | 'isProfileComplete'>;
+    readonly user: Pick<
+      AuthUser,
+      'memberKind' | 'hasStaffAccess' | 'hasAdminAccess' | 'isProfileComplete'
+    >;
     readonly isNew: boolean;
   },
 ): string {
   const needsOnboarding =
-    login.isNew || login.user.role === null || !login.user.isProfileComplete;
+    login.isNew || !hasSettledIdentity(login.user) || !login.user.isProfileComplete;
   return needsOnboarding
     ? `${frontendUrl}${ONBOARDING_ENTRY_PATH}`
     : frontendUrl;
+}
+
+/**
+ * 가입 절차가 남긴 사실이 하나라도 있는가.
+ *
+ * 예전에는 `role !== null` 하나로 물었다. 회원 정체성과 접근 권한이 갈라진 뒤로는
+ * 세 칸 중 하나라도 채워져 있으면 이 사람은 온보딩을 지나온 사람이다 —
+ * 학생 관리자처럼 유형과 권한이 함께 붙은 계정도 그 안에 들어온다.
+ */
+function hasSettledIdentity(
+  user: Pick<AuthUser, 'memberKind' | 'hasStaffAccess' | 'hasAdminAccess'>,
+): boolean {
+  return (
+    user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess
+  );
 }

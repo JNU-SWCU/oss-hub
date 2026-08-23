@@ -93,7 +93,7 @@ async function cleanFixtures(): Promise<void> {
     where: { id: { startsWith: TEST_PREFIX } },
   });
   await prisma.team.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
-  await prisma.roleRequest.deleteMany({
+  await prisma.staffAccessRequest.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
   await prisma.program.deleteMany({
@@ -210,12 +210,12 @@ describe('core schema invariants integration', () => {
 
   it('사용자당 PENDING 역할 요청은 한 건만 허용한다', async () => {
     // Given
-    await prisma.roleRequest.create({
+    await prisma.staffAccessRequest.create({
       data: { id: `${TEST_PREFIX}role:first`, userId: USER_A_ID },
     });
 
     // When
-    const duplicateInsert = prisma.roleRequest.create({
+    const duplicateInsert = prisma.staffAccessRequest.create({
       data: { id: `${TEST_PREFIX}role:second`, userId: USER_A_ID },
     });
 

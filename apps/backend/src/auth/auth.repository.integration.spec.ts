@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthConfig } from './auth.config';
@@ -46,7 +46,7 @@ function upsertUser(
 }
 
 async function cleanup(): Promise<void> {
-  await prisma.roleRequest.deleteMany({
+  await prisma.staffAccessRequest.deleteMany({
     where: { user: { githubId: { in: githubIds } } },
   });
   await prisma.user.deleteMany({ where: { githubId: { in: githubIds } } });
@@ -131,14 +131,14 @@ it('STAFF 초기 역할 시드는 APPROVED 역할 요청을 함께 만든다', a
   const user = await prisma.user.findUniqueOrThrow({
     where: { githubId: staffGithubId },
   });
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
   expect(user.role).toBe(Role.STAFF);
   expect(requests).toHaveLength(1);
   const [approvedRequest] = requests;
   expect(approvedRequest).toMatchObject({
-    status: RoleRequestStatus.APPROVED,
+    status: StaffAccessRequestStatus.APPROVED,
     decidedById: null,
   });
   expect(approvedRequest?.decidedAt).not.toBeNull();
@@ -155,8 +155,8 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
       role: null,
     },
   });
-  const revoked = await prisma.roleRequest.create({
-    data: { userId: user.id, status: RoleRequestStatus.REVOKED },
+  const revoked = await prisma.staffAccessRequest.create({
+    data: { userId: user.id, status: StaffAccessRequestStatus.REVOKED },
   });
   const repository = repositoryWithInitialRole(Role.STAFF);
 
@@ -175,13 +175,13 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
   expect(persisted.role).toBeNull();
   // 회수 이력 자체도 그대로여야 한다 — 새 APPROVED 신청이 붙으면 관리자 화면의
   // 결정 이력이 시드가 만든 decidedById=null 행으로 덮인다.
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
   expect(requests).toHaveLength(1);
   expect(requests[0]).toMatchObject({
     id: revoked.id,
-    status: RoleRequestStatus.REVOKED,
+    status: StaffAccessRequestStatus.REVOKED,
   });
 });
 
@@ -195,8 +195,8 @@ it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는�
       role: null,
     },
   });
-  await prisma.roleRequest.create({
-    data: { userId: user.id, status: RoleRequestStatus.REJECTED },
+  await prisma.staffAccessRequest.create({
+    data: { userId: user.id, status: StaffAccessRequestStatus.REJECTED },
   });
   const repository = repositoryWithInitialRole(Role.STAFF);
 
@@ -209,13 +209,13 @@ it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는�
   });
 
   expect(result.user.role).toBe(Role.STAFF);
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
     orderBy: { status: 'asc' },
   });
   expect(requests.map((request) => request.status)).toEqual([
-    RoleRequestStatus.APPROVED,
-    RoleRequestStatus.REJECTED,
+    StaffAccessRequestStatus.APPROVED,
+    StaffAccessRequestStatus.REJECTED,
   ]);
 });
 
@@ -230,11 +230,11 @@ it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 역할과 �
       role: Role.STAFF,
     },
   });
-  await prisma.roleRequest.create({
-    data: { userId: user.id, status: RoleRequestStatus.REVOKED },
+  await prisma.staffAccessRequest.create({
+    data: { userId: user.id, status: StaffAccessRequestStatus.REVOKED },
   });
-  await prisma.roleRequest.create({
-    data: { userId: user.id, status: RoleRequestStatus.APPROVED },
+  await prisma.staffAccessRequest.create({
+    data: { userId: user.id, status: StaffAccessRequestStatus.APPROVED },
   });
   const repository = repositoryWithInitialRole(Role.STAFF);
 
@@ -247,7 +247,7 @@ it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 역할과 �
   });
 
   expect(result.user.role).toBe(Role.STAFF);
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
   expect(requests).toHaveLength(2);
@@ -261,8 +261,8 @@ it('기존 PENDING 역할 요청은 STAFF 초기 역할 시드에서 새로 만�
       accountStatus: AccountStatus.ACTIVE,
     },
   });
-  const pending = await prisma.roleRequest.create({
-    data: { userId: user.id, status: RoleRequestStatus.PENDING },
+  const pending = await prisma.staffAccessRequest.create({
+    data: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
   });
   const repository = repositoryWithInitialRole(Role.STAFF);
 
@@ -274,14 +274,14 @@ it('기존 PENDING 역할 요청은 STAFF 초기 역할 시드에서 새로 만�
     email: null,
   });
 
-  const requests = await prisma.roleRequest.findMany({
+  const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
   expect(requests).toHaveLength(1);
   const [transitionedRequest] = requests;
   expect(transitionedRequest).toMatchObject({
     id: pending.id,
-    status: RoleRequestStatus.APPROVED,
+    status: StaffAccessRequestStatus.APPROVED,
     decidedById: null,
   });
   expect(transitionedRequest?.decidedAt).not.toBeNull();
