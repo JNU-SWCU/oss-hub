@@ -1,3 +1,4 @@
+import { authorityFactsFor } from './canonical-user-fixture';
 import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -43,8 +44,8 @@ describe('Admin access real PostgreSQL transactions', () => {
   it('serializes two final-admin demotions so exactly one commits', async () => {
     // Given
     await prisma.user.updateMany({
-      where: { role: 'ADMIN', accountStatus: AccountStatus.ACTIVE },
-      data: { role: 'STAFF' },
+      where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
+      data: { hasAdminAccess: false, hasStaffAccess: true },
     });
     const first = await createUser('ADMIN', 'race-a');
     const second = await createUser('ADMIN', 'race-b');
@@ -92,7 +93,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     }
     await expect(
       prisma.user.count({
-        where: { role: 'ADMIN', accountStatus: AccountStatus.ACTIVE },
+        where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
       }),
     ).resolves.toBe(1);
     await expect(
@@ -135,7 +136,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     const target = await createUser('STUDENT', 'stale-target');
     await prisma.user.update({
       where: { id: target.id },
-      data: { role: 'STAFF' },
+      data: { hasStaffAccess: true },
     });
     // 이 테스트는 patchAccess만 호출한다 — profile 서비스는 실제로 쓰이지 않으므로
     // 실행되면 실패하는 스텁만 채워 생성자 계약을 맞춘다.
@@ -194,14 +195,17 @@ async function installAuditFailureTrigger(): Promise<void> {
   `);
 }
 
-async function createUser(role: Role, label: string) {
+async function createUser(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN',
+  label: string,
+) {
   sequence += 1;
   return prisma.user.create({
     data: {
       id: `test:pr03:admin-access:${label}:${sequence}`,
       githubId: 9_003_500_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      role,
+      ...authorityFactsFor(role),
     },
     select: { id: true, githubId: true },
   });

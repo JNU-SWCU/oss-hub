@@ -70,7 +70,9 @@ const USER_RECORDS = [
 ] satisfies readonly {
   readonly id: string;
   readonly githubId: bigint;
-  readonly role: Role;
+  readonly memberKind?: MemberKind;
+  readonly hasStaffAccess?: boolean;
+  readonly hasAdminAccess?: boolean;
   readonly accountStatus: AccountStatus;
 }[];
 const FILE_IDS: string[] = [
