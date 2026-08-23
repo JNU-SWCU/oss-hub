@@ -12,7 +12,11 @@
  * 이제 그 새 방향을 고정한다 — 프로필이 비어 있어도 역할을 고를 수 있어야 하고,
  * 동의는 여전히 그보다 먼저여야 한다.
  */
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   CONSENT_ERROR_CODES,
@@ -30,6 +34,9 @@ const GITHUB_ID = 424242n;
 const USER: MemberUser = {
   id: 'synthetic-user',
   memberKind: null,
+  selectedMemberKind: null,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
   accountStatus: AccountStatus.ACTIVE,
   // 한 글자도 채워지지 않은 프로필. 이 파일이 고정하려는 상태가 바로 이것이다.
   profile: { name: null, studentId: null, department: null },
@@ -63,8 +70,8 @@ function buildService(
 ) {
   const updateSelectedMemberKind = jest
     .fn()
-    .mockImplementation((_userId: string, role: Role) =>
-      Promise.resolve({ ...USER, selectedRole: role }),
+    .mockImplementation((_userId: string, memberKind: MemberKind) =>
+      Promise.resolve({ ...USER, selectedMemberKind: memberKind }),
     );
   const createPendingRequest = jest.fn().mockResolvedValue({
     id: 'synthetic-request',
@@ -104,7 +111,7 @@ function buildService(
   };
 }
 
-it.each(['STUDENT', 'STAFF'])(
+it.each<MemberKind>(['STUDENT', 'STAFF'])(
   '프로필이 비어 있어도 %s 선택은 통과한다',
   async (role) => {
     // Given — 프로필은 아직 한 글자도 채워지지 않았다. 역할이 먼저다.
@@ -120,7 +127,7 @@ it.each(['STUDENT', 'STAFF'])(
   },
 );
 
-it.each(['STUDENT', 'STAFF'])(
+it.each<MemberKind>(['STUDENT', 'STAFF'])(
   '%s 선택은 고른 사실만 남기고 남은 단계인 프로필로 보낸다',
   async (selectedRole) => {
     // Given
@@ -147,7 +154,7 @@ it.each(['STUDENT', 'STAFF'])(
  * 학생은 이름 없이 학생 권한을 들고 제품 안으로 들어간다. `requestStaffAccess`이
  * 아예 불리지 않아야 한다 — 불린 뒤 안에서 걸러지는 것으로는 부족하다.
  */
-it.each(['STUDENT', 'STAFF'])(
+it.each<MemberKind>(['STUDENT', 'STAFF'])(
   '프로필이 비어 있으면 %s 선택은 확정을 부르지 않는다',
   async (selectedRole) => {
     // Given
