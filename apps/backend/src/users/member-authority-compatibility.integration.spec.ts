@@ -30,7 +30,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('student completion writes canonical profile, authority defaults, and rollback mirrors atomically', async () => {
+it('student completion writes canonical profile and authority defaults atomically', async () => {
   // Given
   const user = await createOnboardingUser('student', MemberKind.STUDENT);
 
@@ -43,18 +43,16 @@ it('student completion writes canonical profile, authority defaults, and rollbac
 
   // Then
   await expect(storedMember(user.id)).resolves.toMatchObject({
-    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    name: '합성 학생',
-    studentId: '801001',
-    department: '인공지능학부',
     profile: {
+      name: '합성 학생',
       memberKind: MemberKind.STUDENT,
       affiliationKind: AffiliationKind.DEPARTMENT,
       affiliationName: '인공지능학부',
       studentId: '801001',
+      department: '인공지능학부',
     },
   });
 });
@@ -76,17 +74,16 @@ it('staff completion writes program-office affiliation, null student ID, default
     prisma.staffAccessRequest.findMany({ where: { userId: user.id } }),
   ]);
   expect(stored).toMatchObject({
-    role: null,
     selectedMemberKind: MemberKind.STAFF,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    studentId: null,
-    department: '합성 사업단',
     profile: {
+      name: '합성 교직원',
       memberKind: MemberKind.STAFF,
       affiliationKind: AffiliationKind.PROGRAM_OFFICE,
       affiliationName: '합성 사업단',
       studentId: null,
+      department: '합성 사업단',
     },
   });
   expect(requests).toHaveLength(1);
@@ -113,7 +110,6 @@ it('approval grants staff access without changing staff member kind or admin acc
 
   // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
     profile: { memberKind: MemberKind.STAFF },
@@ -143,7 +139,6 @@ it('rejection keeps staff access disabled without erasing staff member kind', as
 
   // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     profile: { memberKind: MemberKind.STAFF },
@@ -176,7 +171,6 @@ it('revocation removes staff access without erasing staff member kind or grantin
 
   // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     profile: { memberKind: MemberKind.STAFF },
@@ -209,9 +203,8 @@ it('admin grant stays independent from student membership and staff access', asy
     expectedPendingRequest: null,
   });
 
-  // Then
+  // Then — 관리자 접근은 교직원 접근·회원 유형을 함의하지 않는다
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: 'ADMIN',
     hasStaffAccess: false,
     hasAdminAccess: true,
     profile: { memberKind: MemberKind.STUDENT },
@@ -240,8 +233,12 @@ it('concurrent completion allows exactly one atomic winner', async () => {
   );
   expect(results.filter(({ status }) => status === 'rejected')).toHaveLength(1);
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: 'STUDENT',
-    profile: { memberKind: MemberKind.STUDENT, studentId: '801011' },
+    selectedMemberKind: MemberKind.STUDENT,
+    profile: {
+      memberKind: MemberKind.STUDENT,
+      studentId: '801011',
+      name: '합성 동시 학생',
+    },
   });
 });
 
@@ -273,7 +270,8 @@ it('duplicate student ID completion fails closed without partial writes', async 
     errorCode: { code: 'USR_004', status: 409 },
   });
   await expect(storedMember(second.id)).resolves.toMatchObject({
-    role: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     profile: null,
   });
 });

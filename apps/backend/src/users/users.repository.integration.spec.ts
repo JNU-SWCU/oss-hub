@@ -19,16 +19,25 @@ const firstProfile = {
   department: '인공지능학부',
 };
 type StoredProfileFields = {
-  readonly name: string | null;
+  readonly name: string;
   readonly studentId: string | null;
-  readonly department: string | null;
+  readonly department: string;
+  readonly memberKind: MemberKind;
+  readonly affiliationKind: AffiliationKind;
+  readonly affiliationName: string;
 };
 
 const prisma = new PrismaService();
 const repository = new UsersRepository(prisma);
 
 async function completeCurrentProfile(
-  profile: typeof firstProfile,
+  profile: {
+    readonly name: string;
+    readonly studentId: string | null;
+    readonly department: string;
+  },
+  memberKind: MemberKind = MemberKind.STUDENT,
+  affiliationKind: AffiliationKind = AffiliationKind.DEPARTMENT,
 ): Promise<ProfileCompletionOutcome> {
   const current = await repository.findByGithubId(githubId);
   if (!current) {
@@ -36,8 +45,17 @@ async function completeCurrentProfile(
   }
   return repository.completeProfileIfUnchanged(
     current,
-    canonicalCompletion(profile),
+    canonicalCompletion(profile, memberKind, affiliationKind),
   );
+}
+
+function readProfileRow(): Promise<StoredProfileFields[]> {
+  return prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department",
+           "memberKind", "affiliationKind", "affiliationName"
+    FROM "UserProfile"
+    WHERE "userId" = ${userId}
+  `;
 }
 
 beforeAll(async () => {
@@ -54,6 +72,8 @@ beforeEach(async () => {
       githubId,
       nickname: 'synthetic-profile-user',
       selectedMemberKind: MemberKind.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
     },
   });
 });
@@ -65,15 +85,14 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
+it('학번·학과를 UserProfile에 저장하고 다시 조회한다', async () => {
   await expect(completeCurrentProfile(firstProfile)).resolves.toBe('completed');
 
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
-    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
-    affiliationKind: 'DEPARTMENT',
+    affiliationKind: AffiliationKind.DEPARTMENT,
     affiliationName: firstProfile.department,
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -82,79 +101,86 @@ it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
   });
 });
 
-it('학번 없는 교직원 프로필은 UserProfile 행 없이 legacy 컬럼에만 저장한다', async () => {
-  // Given — UserProfile.studentId가 NOT NULL이라 행을 만들 수 없다(#439)
+it('학번 없는 교직원 프로필은 UserProfile 행으로 저장된다', async () => {
+  // Given — STAFF는 학번이 null인 canonical 행이다
   await prisma.user.update({
     where: { id: userId },
     data: {
       selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
     },
   });
-  const current = await repository.findByGithubId(githubId);
-  if (!current) {
-    throw new Error('합성 프로필 사용자가 존재해야 합니다.');
-  }
 
   // When
   await expect(
-    repository.completeProfileIfUnchanged(current, {
-      ...canonicalCompletion(
-        {
-          name: '합성 교직원',
-          studentId: null,
-          department: '인공지능학부',
-        },
-        MemberKind.STAFF,
-      ),
-      hasStaffAccess: true,
-    }),
+    completeCurrentProfile(
+      {
+        name: '합성 교직원',
+        studentId: null,
+        department: '인공지능학부',
+      },
+      MemberKind.STAFF,
+      AffiliationKind.PROGRAM_OFFICE,
+    ),
   ).resolves.toBe('completed');
 
   // Then
-  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
-    SELECT "name", "studentId", "department"
-    FROM "User"
-    WHERE "id" = ${userId}
-  `;
-  const profileRows = await prisma.$queryRaw<StoredProfileFields[]>`
-    SELECT "name", "studentId", "department"
-    FROM "UserProfile"
-    WHERE "userId" = ${userId}
-  `;
-  expect(legacyRows).toEqual([
-    { name: '합성 교직원', studentId: null, department: '인공지능학부' },
-  ]);
-  expect(profileRows).toEqual([
-    { name: '합성 교직원', studentId: null, department: '인공지능학부' },
+  await expect(readProfileRow()).resolves.toEqual([
+    {
+      name: '합성 교직원',
+      studentId: null,
+      department: '인공지능학부',
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '인공지능학부',
+    },
   ]);
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
-    role: 'STAFF',
+    selectedMemberKind: MemberKind.STAFF,
+    memberKind: MemberKind.STAFF,
+    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+    affiliationName: '인공지능학부',
     studentId: null,
     department: '인공지능학부',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    hasPendingStaffRequest: true,
   });
 });
 
-it('UserProfile 행이 없는 프로필도 이름·학과를 갱신할 수 있다', async () => {
+it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => {
   // Given
   await prisma.user.update({
     where: { id: userId },
-    data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF, },
+    data: {
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+    },
   });
+  await expect(
+    completeCurrentProfile(
+      {
+        name: '합성 교직원',
+        studentId: null,
+        department: '인공지능학부',
+      },
+      MemberKind.STAFF,
+      AffiliationKind.PROGRAM_OFFICE,
+    ),
+  ).resolves.toBe('completed');
 
   // When
   await repository.updateProfileFields(userId, {
     name: '합성 수정 교직원',
     department: '소프트웨어공학과',
+    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+    affiliationName: '소프트웨어공학과',
   });
 
   // Then
-  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
-    SELECT "name", "studentId", "department"
-    FROM "User"
-    WHERE "id" = ${userId}
-  `;
-  expect(legacyRows).toEqual([
+  await expect(readProfileRow()).resolves.toEqual([
     {
       name: '합성 수정 교직원',
       studentId: null,
@@ -166,7 +192,7 @@ it('UserProfile 행이 없는 프로필도 이름·학과를 갱신할 수 있�
   ]);
 });
 
-it('프로필 저장은 UserProfile과 구버전 User 컬럼을 같은 값으로 유지한다', async () => {
+it('프로필 저장은 UserProfile 한 행에 canonical 사실을 남긴다', async () => {
   // Given
   const expected = firstProfile;
 
@@ -174,21 +200,17 @@ it('프로필 저장은 UserProfile과 구버전 User 컬럼을 같은 값으로
   await expect(completeCurrentProfile(expected)).resolves.toBe('completed');
 
   // Then
-  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
-    SELECT "name", "studentId", "department"
-    FROM "User"
-    WHERE "id" = ${userId}
-  `;
-  const profileRows = await prisma.$queryRaw<StoredProfileFields[]>`
-    SELECT "name", "studentId", "department"
-    FROM "UserProfile"
-    WHERE "userId" = ${userId}
-  `;
-  expect(legacyRows).toEqual([expected]);
-  expect(profileRows).toEqual([expected]);
+  await expect(readProfileRow()).resolves.toEqual([
+    {
+      ...expected,
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: expected.department,
+    },
+  ]);
 });
 
-it('완료 후 이름·학과 수정도 UserProfile과 구버전 User 컬럼을 함께 갱신한다', async () => {
+it('완료 후 이름·학과 수정도 UserProfile만 갱신한다', async () => {
   // Given
   await expect(completeCurrentProfile(firstProfile)).resolves.toBe('completed');
   const mutableFields = {
@@ -197,20 +219,20 @@ it('완료 후 이름·학과 수정도 UserProfile과 구버전 User 컬럼을 
   };
 
   // When
-  await repository.updateProfileFields(userId, mutableFields);
+  await repository.updateProfileFields(userId, {
+    ...mutableFields,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: mutableFields.department,
+  });
 
   // Then
-  const expected = { ...firstProfile, ...mutableFields };
-  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
-    SELECT "name", "studentId", "department"
-    FROM "User"
-    WHERE "id" = ${userId}
-  `;
-  const profileRows = await prisma.$queryRaw<StoredProfileFields[]>`
-    SELECT "name", "studentId", "department"
-    FROM "UserProfile"
-    WHERE "userId" = ${userId}
-  `;
-  expect(legacyRows).toEqual([expected]);
-  expect(profileRows).toEqual([expected]);
+  await expect(readProfileRow()).resolves.toEqual([
+    {
+      ...firstProfile,
+      ...mutableFields,
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: mutableFields.department,
+    },
+  ]);
 });

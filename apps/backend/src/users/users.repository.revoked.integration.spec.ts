@@ -1,4 +1,4 @@
-import { MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import { AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -29,6 +29,8 @@ beforeEach(async () => {
       githubId,
       nickname: 'synthetic-profile-user',
       selectedMemberKind: MemberKind.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
     },
   });
 });
@@ -53,9 +55,10 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         id: revokedUserId,
         githubId: revokedGithubId,
         nickname: 'synthetic-184-revoked-incomplete',
-        // 학과가 비어 있어 교직원 기준으로도 미완료다.
-        selectedMemberKind: null,
-        hasStaffAccess: true,
+        // 회수는 고른 유형을 비우지 않는다. 프로필 행이 없어 미완료다.
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
       },
     });
     await prisma.staffAccessRequest.create({
@@ -80,7 +83,9 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
       throw new Error('합성 회수 사용자가 존재해야 합니다.');
     }
     expect(current.hasStaffAccess).toBe(false);
-    expect(current.selectedMemberKind).toBe('STAFF');
+    expect(current.hasAdminAccess).toBe(false);
+    expect(current.selectedMemberKind).toBe(MemberKind.STAFF);
+    expect(current.memberKind).toBeNull();
 
     // When: 미완료 → 완료 저장. 이것이 `가입 마치기`다.
     const completed = await repository.completeProfileIfUnchanged(
@@ -92,32 +97,44 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
           department: '인공지능학부',
         },
         MemberKind.STAFF,
+        AffiliationKind.PROGRAM_OFFICE,
       ),
     );
 
     // Then
-    const [stored, requests] = await Promise.all([
+    const [stored, profile, requests] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
+      prisma.userProfile.findUniqueOrThrow({ where: { userId: revokedUserId } }),
       prisma.staffAccessRequest.findMany({
         where: { userId: revokedUserId },
         orderBy: [{ createdAt: 'asc' }],
       }),
     ]);
     expect(completed).toBe('completed');
+    expect(profile).toMatchObject({
+      name: '합성 교직원',
+      studentId: null,
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '인공지능학부',
+    });
     // 회수 이력은 남고 그 위에 새 신청이 얹힌다 — 덮어쓰지 않는다.
     expect(requests).toHaveLength(2);
     expect(requests[0]?.status).toBe(StaffAccessRequestStatus.REVOKED);
     expect(requests[1]?.status).toBe(StaffAccessRequestStatus.PENDING);
     // 승인은 여전히 관리자 손에 있다.
     expect(stored.hasStaffAccess).toBe(false);
+    expect(stored.hasAdminAccess).toBe(false);
   });
 
   it('학생을 고른 뒤 프로필을 마치면 교직원 신청은 만들어지지 않는다', async () => {
-    // Given: 회수 화면이 역할 선택으로 보냈고 그가 학생을 골랐다.
+    // Given: 회수 화면이 유형 선택으로 보냈고 그가 학생을 골랐다.
     await prisma.user.update({
       where: { id: revokedUserId },
       data: {
         selectedMemberKind: MemberKind.STUDENT,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
       },
     });
     const current = await repository.findByGithubId(revokedGithubId);
@@ -135,14 +152,17 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
       }),
     );
 
-    // Then: 고른 역할이 학생이면 확정도 학생이다 — 신청이 생기지 않는다.
-    const [stored, pendingCount] = await Promise.all([
+    // Then: 고른 유형이 학생이면 확정도 학생이다 — 신청이 생기지 않는다.
+    const [stored, profile, pendingCount] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
+      prisma.userProfile.findUniqueOrThrow({ where: { userId: revokedUserId } }),
       prisma.staffAccessRequest.count({
         where: { userId: revokedUserId, status: StaffAccessRequestStatus.PENDING },
       }),
     ]);
     expect(stored.hasStaffAccess).toBe(false);
+    expect(stored.hasAdminAccess).toBe(false);
+    expect(profile.memberKind).toBe(MemberKind.STUDENT);
     expect(pendingCount).toBe(0);
   });
 });
