@@ -1676,7 +1676,8 @@ describe('issue-99 auth seed contract', () => {
         department: '컴퓨터공학과',
       });
       expect(staffRevoked).toMatchObject({
-        role: 'STAFF',
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
         accountStatus: AccountStatus.DEACTIVATED,
       });
     },

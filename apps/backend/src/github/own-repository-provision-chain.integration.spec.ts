@@ -1,5 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus, RepositoryVisibility } from '@prisma/client';
+import { AffiliationKind, MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus, RepositoryVisibility, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsErrorCode } from '../applications/applications-error-code.enum';
 import { ApplicationsStaffGuard } from '../applications/applications-staff.guard';
@@ -134,6 +134,22 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           nickname: 'synthetic-own-chain-staff',
           selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,
+          profile: {
+            create: {
+              name: 'Synthetic Own Chain Staff',
+              studentId: null,
+              department: 'Synthetic Program Office',
+              memberKind: MemberKind.STAFF,
+              affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+              affiliationName: 'Synthetic Program Office',
+            },
+          },
+          staffAccessRequests: {
+            create: {
+              id: `${STAFF_ACTOR_ID}:access`,
+              status: StaffAccessRequestStatus.APPROVED,
+            },
+          },
         },
         {
           id: STUDENT_ACTOR_ID,

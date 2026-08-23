@@ -134,6 +134,26 @@ export class E2eProgramAuthoringFixture {
           accountStatus: AccountStatus.ACTIVE,
           selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,
+          profile: {
+            upsert: {
+              create: {
+                name: 'E2E Staff',
+                studentId: null,
+                department: 'E2E Program Office',
+                memberKind: MemberKind.STAFF,
+                affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+                affiliationName: 'E2E Program Office',
+              },
+              update: {
+                name: 'E2E Staff',
+                studentId: null,
+                department: 'E2E Program Office',
+                memberKind: MemberKind.STAFF,
+                affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+                affiliationName: 'E2E Program Office',
+              },
+            },
+          },
         },
       });
       await transaction.user.upsert({
