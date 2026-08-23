@@ -1,4 +1,4 @@
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -58,7 +58,7 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
   // 없이 곧장 커밋된다.
   await prisma.user.update({
     where: { id: actor.id },
-    data: { role: 'STAFF' },
+    data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF },
   });
   releasePauseBeforeLock.resolve();
 
@@ -115,7 +115,7 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
     (transaction) =>
       transaction.user.update({
         where: { id: actor.id },
-        data: { role: 'STAFF' },
+        data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF },
       }),
   );
   // 강등이 **뮤테이션의 잠금에** 막혀 있음을 지목해 확인한 뒤에만 놓아 준다.

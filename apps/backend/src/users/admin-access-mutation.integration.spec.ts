@@ -35,7 +35,7 @@ afterAll(async () => {
     }),
     prisma.user.updateMany({
       where: { id: { startsWith: 'test:pr03:admin-access-mutation:' } },
-      data: { name: null, studentId: null, department: null },
+      data: {   },
     }),
   ]);
   await prisma.$disconnect();

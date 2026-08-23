@@ -139,7 +139,7 @@ it('UserProfile 행이 없는 프로필도 이름·학과를 갱신할 수 있�
   // Given
   await prisma.user.update({
     where: { id: userId },
-    data: { role: 'STAFF', department: '인공지능학부' },
+    data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF, },
   });
 
   // When

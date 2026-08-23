@@ -82,7 +82,7 @@ describe('account self-deactivation integration', () => {
 
   it('serializes concurrent admin deactivation and preserves one active admin', async () => {
     const existingActiveAdmins = await prisma.user.findMany({
-      where: { role: 'ADMIN', accountStatus: AccountStatus.ACTIVE },
+      where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
       select: { id: true },
     });
     await prisma.user.updateMany({
@@ -132,7 +132,7 @@ describe('account self-deactivation integration', () => {
       });
       await expect(
         prisma.user.count({
-          where: { role: 'ADMIN', accountStatus: AccountStatus.ACTIVE },
+          where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
         }),
       ).resolves.toBe(1);
     } finally {

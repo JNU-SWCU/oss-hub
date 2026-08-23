@@ -1,4 +1,4 @@
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -293,7 +293,7 @@ function startHeldDemotion(userId: string): {
       backend.capture(row?.pid ?? 0);
       await transaction.user.update({
         where: { id: userId },
-        data: { role: 'STAFF' },
+        data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF },
       });
       applied.resolve();
       await release.promise;
