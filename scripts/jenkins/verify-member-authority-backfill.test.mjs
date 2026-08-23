@@ -64,6 +64,49 @@ test('Jenkins verifier accepts any positive tuple bound to baseline.expected', (
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('Jenkins verifier accepts a steady-state zero-change rerun', () => {
+  const steady = aggregateSteadyTerminal();
+  const result = verify({
+    baselineAggregate: steady,
+    expectedChanges: zeroChanges(),
+    projectedAggregate: steady,
+    appliedAfter: steady,
+    postAggregate: steady,
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('Jenkins verifier rejects steady-state baseline paired with nonzero tuple', () => {
+  const steady = aggregateSteadyTerminal();
+  const result = verify({
+    baselineAggregate: steady,
+    expectedChanges: zeroChanges(),
+    appliedChanges: {
+      changedUsers: 3,
+      changedProfiles: 3,
+      createdProfiles: 0,
+      clearedNonStudentIds: 0,
+    },
+    projectedAggregate: steady,
+    appliedAfter: steady,
+    postAggregate: steady,
+  });
+  assert.equal(result.status, 1);
+});
+
+test('Jenkins verifier rejects steady-state rerun with before/after drift', () => {
+  const steady = aggregateSteadyTerminal();
+  const drifted = { ...steady, staffAccess: steady.staffAccess + 1 };
+  const result = verify({
+    baselineAggregate: steady,
+    expectedChanges: zeroChanges(),
+    projectedAggregate: drifted,
+    appliedAfter: drifted,
+    postAggregate: drifted,
+  });
+  assert.equal(result.status, 1);
+});
+
 test('Jenkins verifier rejects pristine baseline paired with once-applied tuple', () => {
   const result = verify({ appliedChanges: onceAppliedChanges() });
   assert.equal(result.status, 1);
@@ -241,6 +284,24 @@ function pristineChanges() {
     changedProfiles: 62,
     createdProfiles: 4,
     clearedNonStudentIds: 4,
+  };
+}
+
+function zeroChanges() {
+  return {
+    changedUsers: 0,
+    changedProfiles: 0,
+    createdProfiles: 0,
+    clearedNonStudentIds: 0,
+  };
+}
+
+function aggregateSteadyTerminal() {
+  return {
+    ...aggregateAfter(),
+    memberKinds: { STUDENT: 57, STAFF: 5, UNRESOLVED_ASSIGNED: 0 },
+    selectedMemberKinds: { STUDENT: 57, STAFF: 5, UNRESOLVED: 0 },
+    compatibilityOnlyAdminAuthorities: 0,
   };
 }
 

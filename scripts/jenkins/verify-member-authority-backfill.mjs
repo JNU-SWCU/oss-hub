@@ -47,7 +47,21 @@ async function main() {
     assert.equal(applied[key], expectedChanges[key]);
     assert.equal(post.expected[key], 0);
   }
-  assert.ok(expectedChanges.changedUsers > 0);
+  const targets = baseline.aggregate.backfillTargets;
+  const steadyState =
+    targets.memberKinds.STUDENT === 0 &&
+    targets.memberKinds.STAFF === 0 &&
+    targets.selectedMemberKinds.STUDENT === 0 &&
+    targets.selectedMemberKinds.STAFF === 0 &&
+    targets.selectedMemberKinds.UNRESOLVED === 0 &&
+    baseline.aggregate.memberKinds.UNRESOLVED_ASSIGNED === 0 &&
+    baseline.aggregate.compatibilityOnlyAdminAuthorities === 0;
+  if (steadyState) {
+    assert.equal(expectedChanges.changedUsers, 0);
+    assert.deepEqual(applied.before, applied.after);
+  } else {
+    assert.ok(expectedChanges.changedUsers > 0);
+  }
 
   for (const key of [
     'users',
