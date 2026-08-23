@@ -41,12 +41,37 @@ const FORBIDDEN_MIGRATION_PATTERNS = [
  * 가입 INSERT(두 칸 생략)가 계속 통과한다 — 순서까지 함께 잠근다.
  */
 const REQUIRED_MIGRATION_PATTERNS = [
-  /UPDATE "User"\s*\n\s*SET "hasStaffAccess" = \("role" IN \('STAFF', 'ADMIN'\)\)/,
-  /UPDATE "User"\s*\n\s*SET "hasAdminAccess" = \("role" = 'ADMIN'\)/,
+  // `COALESCE`는 장식이 아니다. SQL 3값 논리에서 `NULL IN (...)`는 FALSE가 아니라
+  // NULL이라, 이게 빠지면 역할 없는 계정이 NULL로 남아 SET NOT NULL이 터진다.
+  /UPDATE "User"\s*\n\s*SET "hasStaffAccess" = COALESCE\(\("role" IN \('STAFF', 'ADMIN'\)\), FALSE\)/,
+  /UPDATE "User"\s*\n\s*SET "hasAdminAccess" = COALESCE\(\("role" = 'ADMIN'\), FALSE\)/,
   /ALTER COLUMN "hasStaffAccess" SET DEFAULT FALSE/,
   /ALTER COLUMN "hasAdminAccess" SET DEFAULT FALSE/,
   /ALTER COLUMN "hasStaffAccess" SET NOT NULL/,
   /ALTER COLUMN "hasAdminAccess" SET NOT NULL/,
+  // 정본 프로필 세 칸을 기존 행에 채우는 backfill. 이게 없으면 다음 contract
+  // 마이그레이션의 preflight가 비어 있는 `memberKind` 행에서 배포를 멈운다.
+  /UPDATE "UserProfile" AS p\s*\n\s*SET "memberKind"/,
+  /UPDATE "UserProfile"\s*\n\s*SET "affiliationName" = "department"/,
+  /UPDATE "UserProfile"\s*\n\s*SET "affiliationKind"/,
+];
+
+/**
+ * backfill이 legacy 역할에서 직접 유도하면 **안 되는** 것.
+ *
+ * 관리자라는 사실에서 회원 유형을 지어내면 안 된다 — 권한과 정체성은 독립이라
+ * 「관리자니까 교직원」은 추정이지 사실이 아니다. 삭제된 원본 backfill의
+ * `projectUnresolvedAdmin`도 관리자의 세 칸을 null로 남겼다.
+ */
+const FORBIDDEN_MIGRATION_INFERENCE_PATTERNS = [
+  [
+    /SET "memberKind"[^;]*WHEN 'ADMIN' THEN 'STAFF'/s,
+    'an ADMIN=>STAFF member kind inference',
+  ],
+  [
+    /SET "memberKind"[^;]*WHEN 'ADMIN' THEN 'STUDENT'/s,
+    'an ADMIN=>STUDENT member kind inference',
+  ],
 ];
 
 /** bridge 이후 schema.prisma가 반드시 만족해야 하는 모양. */
@@ -134,12 +159,27 @@ export function validateBridgeContract(schema, migrationSql, sourceFiles = []) {
     }
   }
 
-  const defaultAt = migrationSql.search(/SET DEFAULT FALSE/);
-  const notNullAt = migrationSql.search(/SET NOT NULL/);
-  if (defaultAt >= 0 && notNullAt >= 0 && defaultAt > notNullAt) {
-    failures.push(
-      'bridge migration locks NOT NULL before it sets DEFAULT FALSE',
+  for (const [pattern, label] of FORBIDDEN_MIGRATION_INFERENCE_PATTERNS) {
+    if (pattern.test(stripComments(migrationSql))) {
+      failures.push(`bridge migration contains ${label}`);
+    }
+  }
+
+  // 순서는 **접근 권한 두 칸**에서만 따진다. 다른 칸의 `SET NOT NULL`이 문서
+  // 뒤쪽에 오는 것은 상관없으므로 전체에서 처음 만나는 토큰을 재지 않는다.
+  const executable = stripComments(migrationSql);
+  for (const column of ['hasStaffAccess', 'hasAdminAccess']) {
+    const defaultAt = executable.search(
+      new RegExp(`ALTER COLUMN "${column}" SET DEFAULT FALSE`),
     );
+    const notNullAt = executable.search(
+      new RegExp(`ALTER COLUMN "${column}" SET NOT NULL`),
+    );
+    if (defaultAt >= 0 && notNullAt >= 0 && defaultAt > notNullAt) {
+      failures.push(
+        `bridge migration locks ${column} NOT NULL before it sets DEFAULT FALSE`,
+      );
+    }
   }
 
   for (const { path, contents } of sourceFiles) {

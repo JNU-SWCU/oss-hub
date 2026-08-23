@@ -15,6 +15,10 @@ const rehearsalPath = new URL(
   './rehearse-member-authority-bridge.sh',
   import.meta.url,
 );
+const upgradeRehearsalPath = new URL(
+  './rehearse-member-authority-bridge-upgrade.sh',
+  import.meta.url,
+);
 
 function readSchema() {
   return readFileSync(schemaPath, 'utf8');
@@ -99,9 +103,90 @@ test('bridge contract rejects NOT NULL that runs before DEFAULT FALSE', () => {
   // Then
   assert.ok(
     failures.includes(
-      'bridge migration locks NOT NULL before it sets DEFAULT FALSE',
+      'bridge migration locks hasStaffAccess NOT NULL before it sets DEFAULT FALSE',
     ),
   );
+  assert.ok(
+    failures.includes(
+      'bridge migration locks hasAdminAccess NOT NULL before it sets DEFAULT FALSE',
+    ),
+  );
+});
+
+test('bridge contract rejects an access-flag backfill without COALESCE', () => {
+  // Given — SQL 3값 논리에서 `NULL IN (...)`는 FALSE가 아니라 NULL이다. 역할이
+  // 없는 계정(가입 직후·회수 이후)이 그대로 NULL로 남아 SET NOT NULL이 터진다.
+  // 빈 테이블에서는 재현되지 않아 정적 검사가 따로 잡아야 하는 결함이다.
+  const withoutCoalesce = readMigration()
+    .replace(
+      `SET "hasStaffAccess" = COALESCE(("role" IN ('STAFF', 'ADMIN')), FALSE)`,
+      `SET "hasStaffAccess" = ("role" IN ('STAFF', 'ADMIN'))`,
+    )
+    .replace(
+      `SET "hasAdminAccess" = COALESCE(("role" = 'ADMIN'), FALSE)`,
+      `SET "hasAdminAccess" = ("role" = 'ADMIN')`,
+    );
+
+  // When
+  const failures = validateBridgeContract(readSchema(), withoutCoalesce);
+
+  // Then
+  assert.equal(
+    failures.filter((failure) =>
+      failure.startsWith('bridge migration is missing required statement'),
+    ).length,
+    2,
+  );
+});
+
+test('bridge contract rejects an ADMIN-derived member kind', () => {
+  // Given — 권한과 정체성은 독립이다. 삭제된 원본 backfill의
+  // `projectUnresolvedAdmin`도 관리자의 세 칸을 null로 남겼다.
+  const inferences = [
+    ["WHEN 'ADMIN' THEN 'STAFF'", 'an ADMIN=>STAFF member kind inference'],
+    ["WHEN 'ADMIN' THEN 'STUDENT'", 'an ADMIN=>STUDENT member kind inference'],
+  ];
+
+  for (const [clause, label] of inferences) {
+    // When
+    const migration = readMigration().replace(
+      `SET "memberKind" = CASE u."role"`,
+      `SET "memberKind" = CASE u."role"\n    ${clause}`,
+    );
+    const failures = validateBridgeContract(readSchema(), migration);
+
+    // Then
+    assert.ok(
+      failures.includes(`bridge migration contains ${label}`),
+      `expected the checker to reject ${label}`,
+    );
+  }
+});
+
+test('bridge contract requires the canonical profile backfill', () => {
+  // Given — 이 backfill이 없으면 다음 contract 마이그레이션의 preflight가
+  // 비어 있는 `memberKind` 행에서 배포를 멈췠 세운다.
+  const removals = [
+    /UPDATE "UserProfile" AS p\n\s*SET "memberKind"[^;]*;/s,
+    /UPDATE "UserProfile"\n\s*SET "affiliationName" = "department"[^;]*;/s,
+    /UPDATE "UserProfile"\n\s*SET "affiliationKind"[^;]*;/s,
+  ];
+
+  for (const pattern of removals) {
+    // When
+    const failures = validateBridgeContract(
+      readSchema(),
+      readMigration().replace(pattern, ''),
+    );
+
+    // Then
+    assert.ok(
+      failures.some((failure) =>
+        failure.startsWith('bridge migration is missing required statement'),
+      ),
+      `expected the checker to demand ${pattern}`,
+    );
+  }
 });
 
 test('bridge contract rejects a schema that drops the rollback surface', () => {
@@ -170,6 +255,32 @@ test('bridge contract rejects production code that reads legacy authority as tru
       `expected the checker to reject ${label}`,
     );
   }
+});
+
+test('bridge upgrade rehearsal seeds rows before the migration runs', () => {
+  // Given — 호환 레인은 빈 테이블에 `migrate deploy`를 돌려 backfill이 0행을
+  // 건드린다. 그 레인만 보면 backfill 결함이 통과하므로, 업그레이드 레인은
+  // 반드시 **행을 먼저 심고** 마이그레이션을 돌려야 한다.
+  const upgrade = readFileSync(upgradeRehearsalPath, 'utf8');
+
+  // When — 스테이징 트리(bridge 제외) 적용 → seed → 진짜 마이그레이션 순서다.
+  const stagedDeployAt = upgrade.indexOf('--schema "$staged/schema.prisma"');
+  const seedAt = upgrade.indexOf('seed_rows');
+  const realDeployAt = upgrade.indexOf(
+    'pnpm exec prisma migrate deploy >/dev/null)',
+  );
+
+  // Then
+  assert.ok(stagedDeployAt >= 0 && seedAt >= 0 && realDeployAt >= 0);
+  assert.ok(
+    stagedDeployAt < seedAt && seedAt < realDeployAt,
+    'upgrade rehearsal must seed rows between the staged apply and the bridge migration',
+  );
+  // role NULL 행이 실제로 심기는지 — 이 행이 결함을 잡는다.
+  assert.match(upgrade, /upgrade-unassigned/);
+  // negative 레인이 COALESCE를 걷어내고 실패를 요구하는지.
+  assert.match(upgrade, /unexpectedly succeeded on NULL role rows/);
+  assert.doesNotMatch(upgrade, /\.skip\(|TODO/);
 });
 
 test('bridge rehearsal boots both images against one schema', () => {

@@ -46,13 +46,20 @@
 --       이미 값이 있는 행은 건드리지 않는다(`IS NULL` 조건). 정본 쓰기가 이미
 --       확정한 권한을 legacy 역할이 되돌리면 안 된다 — 이 둘이 어긋난 계정이
 --       cutover 도중 생길 수 있고, 그때 정본 값이 최신이다.
+--
+--       `COALESCE`가 없으면 이 마이그레이션은 운영에서 통째로 실패한다.
+--       SQL의 3값 논리에서 `NULL IN ('STAFF','ADMIN')`은 FALSE가 아니라 **NULL**이다.
+--       역할이 없는 계정(가입 직후·권한 회수 이후)은 `role`이 NULL이라 그대로
+--       NULL이 써지고, 아래 [2/2]의 SET NOT NULL이 `contains null values`로
+--       터져 트랜잭션 전체가 롯백된다. 빈 테이블에서는 잡힐 수 없는 결함이라
+--       업그레이드 레인 리허설이 반드시 행을 먼저 심고 돌려야 한다.
 -- ---------------------------------------------------------------------------
 UPDATE "User"
-SET "hasStaffAccess" = ("role" IN ('STAFF', 'ADMIN'))
+SET "hasStaffAccess" = COALESCE(("role" IN ('STAFF', 'ADMIN')), FALSE)
 WHERE "hasStaffAccess" IS NULL;
 
 UPDATE "User"
-SET "hasAdminAccess" = ("role" = 'ADMIN')
+SET "hasAdminAccess" = COALESCE(("role" = 'ADMIN'), FALSE)
 WHERE "hasAdminAccess" IS NULL;
 
 -- ---------------------------------------------------------------------------
@@ -68,3 +75,55 @@ ALTER TABLE "User"
 ALTER TABLE "User"
   ALTER COLUMN "hasStaffAccess" SET NOT NULL,
   ALTER COLUMN "hasAdminAccess" SET NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- [3/3] 정본 프로필 세 칸을 legacy 사실로 backfill한다.
+--
+--       칸은 nullable로 **남긴다** — v0.6.110이 새 프로필 행을 만들 때 이 세 칸을
+--       쓰지 않으므로 NOT NULL을 걸면 그 이미지의 가입이 막힌다. 그러나 **지금
+--       존재하는** 행은 채워 둔다. 그래야 다음 contract 마이그레이션의
+--       preflight(「`memberKind`가 비어 있는 행 0건」)이 통과한다.
+--
+--       규칙은 삭제된 `member-authority-backfill-core.ts`(41b101b7)의 투영을 그대로
+--       옷긴 것이다. 핵심은 둘이다.
+--
+--         1. **ADMIN에서 회원 유형을 유도하지 않는다.** 원본의
+--            `projectUnresolvedAdmin`은 관리자의 세 칸을 null로 남겼다 — 권한과
+--            정체성은 독립이라 「관리자니까 교직원」은 추정이지 사실이 아니다.
+--            그 행은 여기서도 그대로 둘 다 null로 둔다.
+--         2. **있는 사실만 쓴다.** 유형은 legacy `role` → `selectedRole` 순서로
+--            읽고, 둘 다 없으면 채우지 않는다(가입 미완료 행).
+--
+--       이미 값이 있는 칸은 건드리지 않는다 — 정본 쓰기가 먼저 채운 값이 최신이다.
+-- ---------------------------------------------------------------------------
+
+-- 회원 유형: legacy 역할이 말해 주는 경우에만 채운다.
+-- ADMIN은 의도적으로 제외된다(위 규칙 1).
+UPDATE "UserProfile" AS p
+SET "memberKind" = CASE u."role"
+    WHEN 'STUDENT' THEN 'STUDENT'::"MemberKind"
+    WHEN 'STAFF' THEN 'STAFF'::"MemberKind"
+    ELSE CASE u."selectedRole"
+      WHEN 'STUDENT' THEN 'STUDENT'::"MemberKind"
+      WHEN 'STAFF' THEN 'STAFF'::"MemberKind"
+      ELSE NULL
+    END
+  END
+FROM "User" AS u
+WHERE p."userId" = u."id" AND p."memberKind" IS NULL;
+
+-- 소속명: `department`의 사본이다. `department`는 NOT NULL이므로 추정이 아니라
+-- 같은 값의 다른 이름이다(원본 `requireMemberProfile`의 affiliationName 투영).
+UPDATE "UserProfile"
+SET "affiliationName" = "department"
+WHERE "affiliationName" IS NULL;
+
+-- 소속 유형: 원본은 모르는 경우 DEPARTMENT로 보았다. 단, 유형을 끝내 모르는 행은
+-- 그대로 비워 둔다 — 정체성이 없는데 소속만 지어내지 않는다.
+UPDATE "UserProfile"
+SET "affiliationKind" = CASE "memberKind"
+    WHEN 'STAFF' THEN 'PROGRAM_OFFICE'::"AffiliationKind"
+    WHEN 'STUDENT' THEN 'DEPARTMENT'::"AffiliationKind"
+    ELSE NULL
+  END
+WHERE "affiliationKind" IS NULL;
