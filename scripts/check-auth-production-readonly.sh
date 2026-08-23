@@ -134,28 +134,30 @@ session_status=$(require_status '/api/v1/auth/session' 200)
 protected_status=$(require_status '/api/v1/users/me/profile' 401)
 
 # 집계는 서버 로컬 신뢰 경로로만 읽는다. 행 값은 출력되지 않는다.
-"${compose[@]}" exec -T postgres psql -Atq -c '
+# psql 은 컨테이너 환경의 POSTGRES_USER/DB 로만 접속한다 — exec 기본 사용자는 root 라 role 이 없다.
+"${compose[@]}" exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atq' <<'SQL' >"$aggregate_path"
 SELECT json_build_object(
-  '\''version'\'', '\''20260823-auth-production-readonly-v1'\'',
-  '\''aggregate'\'', json_build_object(
-    '\''totalUsers'\'', (SELECT count(*) FROM "User"),
-    '\''totalProfiles'\'', (SELECT count(*) FROM "UserProfile"),
-    '\''memberKinds'\'', json_build_object(
-      '\''STUDENT'\'', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" = '\''STUDENT'\''),
-      '\''STAFF'\'', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" = '\''STAFF'\''),
-      '\''NULL'\'', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" IS NULL)
+  'version', '20260823-auth-production-readonly-v1',
+  'aggregate', json_build_object(
+    'totalUsers', (SELECT count(*) FROM "User"),
+    'totalProfiles', (SELECT count(*) FROM "UserProfile"),
+    'memberKinds', json_build_object(
+      'STUDENT', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" = 'STUDENT'),
+      'STAFF', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" = 'STAFF'),
+      'NULL', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" IS NULL)
     ),
-    '\''usersWithStaffAccess'\'', (SELECT count(*) FROM "User" WHERE "hasStaffAccess"),
-    '\''usersWithAdminAccess'\'', (SELECT count(*) FROM "User" WHERE "hasAdminAccess"),
-    '\''staffAccessRequests'\'', json_build_object(
-      '\''PENDING'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''PENDING'\''),
-      '\''APPROVED'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''APPROVED'\''),
-      '\''REJECTED'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''REJECTED'\''),
-      '\''REVOKED'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''REVOKED'\'')
+    'usersWithStaffAccess', (SELECT count(*) FROM "User" WHERE "hasStaffAccess"),
+    'usersWithAdminAccess', (SELECT count(*) FROM "User" WHERE "hasAdminAccess"),
+    'staffAccessRequests', json_build_object(
+      'PENDING', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = 'PENDING'),
+      'APPROVED', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = 'APPROVED'),
+      'REJECTED', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = 'REJECTED'),
+      'REVOKED', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = 'REVOKED')
     ),
-    '\''blankNames'\'', (SELECT count(*) FROM "UserProfile" WHERE btrim("name") = '\''''\'')
+    'blankNames', (SELECT count(*) FROM "UserProfile" WHERE btrim("name") = '')
   )
-);' >"$aggregate_path"
+);
+SQL
 
 observed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
