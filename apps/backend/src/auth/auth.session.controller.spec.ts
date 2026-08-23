@@ -144,10 +144,9 @@ describe('AuthController getSession', () => {
         name: null,
         avatarUrl: null,
         accountStatus: AccountStatus.ACTIVE,
-        role: null,
-        memberKind: null,
         hasStaffAccess: false,
         hasAdminAccess: false,
+        memberKind: null,
         // 화면 게이트가 "역할은 있는데 프로필이 비어 있는" 사용자를 프로필 단계로
         // 되돌리려면 세션이 이 사실을 함께 실어야 한다.
         isProfileComplete: false,
@@ -209,7 +208,8 @@ describe('AuthController getSession', () => {
     const result = createController(
       jest.fn().mockResolvedValue({
         ...syntheticUser,
-        role: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.DEACTIVATED,
       }),
     ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);

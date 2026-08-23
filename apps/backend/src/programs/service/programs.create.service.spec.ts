@@ -76,7 +76,8 @@ describe('ProgramsService', () => {
 
   it('stores the server-owned OSS contest template for an approved staff member', async () => {
     findUnique.mockResolvedValue({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     create.mockResolvedValue({ id: 'program-1', name: '2026 OSS Contest' });
@@ -103,7 +104,8 @@ describe('ProgramsService', () => {
 
   it('stores an editable team range for an individual template', async () => {
     findUnique.mockResolvedValue({
-      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     });
     create.mockResolvedValue({ id: 'program-2', name: '2026 OSS Contest' });
@@ -137,7 +139,8 @@ describe('ProgramsService', () => {
     'defaults %s to the editable 1..1 range',
     async (category) => {
       findUnique.mockResolvedValue({
-        role: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
       });
       create.mockResolvedValue({
@@ -160,7 +163,8 @@ describe('ProgramsService', () => {
 
   it('allows applicationEndAt to equal the operating start', async () => {
     findUnique.mockResolvedValue({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     create.mockResolvedValue({
@@ -194,7 +198,8 @@ describe('ProgramsService', () => {
     ],
   ])('rejects %s before a program is stored', async (_case, startAt, endAt) => {
     findUnique.mockResolvedValue({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
 
@@ -208,7 +213,8 @@ describe('ProgramsService', () => {
 
   it('rejects a reversed team range before a program is stored', async () => {
     findUnique.mockResolvedValue({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
 
@@ -232,7 +238,8 @@ describe('ProgramsService', () => {
     ['before application end', '2026-08-15T23:59:58+09:00'],
   ])('rejects an endAt that is %s', async (_case, endAt) => {
     findUnique.mockResolvedValue({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
 
@@ -259,7 +266,8 @@ describe('ProgramsService', () => {
 
   it('rejects inactive staff before a program is stored', async () => {
     findUnique.mockResolvedValue({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
 
@@ -273,7 +281,8 @@ describe('ProgramsService', () => {
 
   it('records PROGRAM_CREATED on the same TransactionClient as create', async () => {
     findUnique.mockResolvedValue({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     create.mockResolvedValue({ id: 'program-audit', name: '2026 OSS Contest' });

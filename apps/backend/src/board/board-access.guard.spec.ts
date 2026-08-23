@@ -59,7 +59,8 @@ describe('BoardAccessGuard', () => {
     // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-student-user',
-      role: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     findFirstApplication.mockResolvedValue({
@@ -101,7 +102,8 @@ describe('BoardAccessGuard', () => {
     // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-outsider-user',
-      role: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     findFirstApplication.mockResolvedValue(null);
@@ -139,7 +141,8 @@ describe('BoardAccessGuard', () => {
     // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-deactivated-staff',
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const request = {

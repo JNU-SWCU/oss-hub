@@ -10,7 +10,8 @@ describe('ProgramViewerService', () => {
     // Given
     const findUnique = jest.fn().mockResolvedValue({
       id: 'staff-1',
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
       staffAccessRequests: [],
     });

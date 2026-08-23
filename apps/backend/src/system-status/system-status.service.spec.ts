@@ -69,7 +69,8 @@ describe('SystemStatusService', () => {
 
   beforeEach(() => {
     findActor.mockReset().mockResolvedValue({
-      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());

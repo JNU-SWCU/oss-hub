@@ -39,7 +39,8 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: syntheticInviteeId,
-          role: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
           accountStatus: 'ACTIVE',
         }),
       },

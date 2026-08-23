@@ -34,7 +34,8 @@ const decide = jest.fn().mockResolvedValue({
 
 const findUnique = jest.fn().mockResolvedValue({
   id: staffUserId,
-  role: 'STAFF',
+  hasStaffAccess: true,
+  hasAdminAccess: false,
   accountStatus: AccountStatus.ACTIVE,
 });
 

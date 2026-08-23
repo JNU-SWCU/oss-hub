@@ -66,7 +66,6 @@ it.each([
           memberKind: MemberKind.STUDENT,
           hasStaffAccess: false,
           hasAdminAccess: false,
-          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
         },
         after: {

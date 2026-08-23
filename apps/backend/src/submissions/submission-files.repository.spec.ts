@@ -42,19 +42,22 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
   it('treats only ACTIVE administrators as authorized operators', async () => {
     // Given / When / Then
     findUnique.mockResolvedValueOnce({
-      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(repository.findActiveAdminByGithubId(1n)).resolves.toBe(true);
 
     findUnique.mockResolvedValueOnce({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(repository.findActiveAdminByGithubId(2n)).resolves.toBe(false);
 
     findUnique.mockResolvedValueOnce({
-      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(repository.findActiveAdminByGithubId(3n)).resolves.toBe(false);

@@ -58,7 +58,8 @@ describe('ProgramTeamsStaffGuard', () => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-staff',
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 3003n }]);

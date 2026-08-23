@@ -41,7 +41,8 @@ describe('AdminAccessService mutation', () => {
       extensions: {
         currentAccess: {
           id: 'target',
-          role: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
           accountStatus: AccountStatus.ACTIVE,
           pendingRequest: null,
         },
@@ -111,7 +112,8 @@ describe('AdminAccessService mutation', () => {
     // Then
     expect(result).toMatchObject({
       id: 'target',
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: {
@@ -146,12 +148,14 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            role: null,
+            hasStaffAccess: false,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            role: 'STAFF',
+            hasStaffAccess: true,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.APPROVED,
           },
@@ -203,12 +207,14 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            role: 'STUDENT',
+            hasStaffAccess: false,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            role: 'STUDENT',
+            hasStaffAccess: false,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.REJECTED,
           },
@@ -239,7 +245,8 @@ describe('AdminAccessService mutation', () => {
     // Then
     expect(result).toEqual({
       id: 'target',
-      role: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: {
@@ -303,12 +310,14 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            role: 'STAFF',
+            hasStaffAccess: true,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: null,
           },
           after: {
-            role: null,
+            hasStaffAccess: false,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.REVOKED,
           },
@@ -401,7 +410,8 @@ describe('AdminAccessService mutation', () => {
       extensions: {
         currentAccess: {
           id: 'target',
-          role: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
           accountStatus: AccountStatus.ACTIVE,
           pendingRequest: null,
         },
@@ -542,12 +552,14 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            role: null,
+            hasStaffAccess: false,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            role: 'STAFF',
+            hasStaffAccess: true,
+            hasAdminAccess: false,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.APPROVED,
           },

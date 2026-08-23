@@ -94,7 +94,8 @@ function setup() {
     findActor: jest.fn().mockResolvedValue({
       id: ACTOR_ID,
       accountStatus: AccountStatus.ACTIVE,
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
     }),
     findReplay: jest.fn().mockResolvedValue(null),
     withTransaction: <T>(

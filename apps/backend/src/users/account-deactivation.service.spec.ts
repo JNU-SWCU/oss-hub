@@ -60,12 +60,14 @@ describe('AccountDeactivationService', () => {
         actor: { displayName: '학생', githubLogin: 'student' },
         target: { displayName: '학생', githubLogin: 'student' },
         before: {
-          role: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
           accountStatus: AccountStatus.ACTIVE,
           requestStatus: null,
         },
         after: {
-          role: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
           accountStatus: AccountStatus.DEACTIVATED,
           requestStatus: null,
         },

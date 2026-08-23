@@ -305,7 +305,7 @@ describe('admin access read profile completeness', () => {
 function approveStaffTransition() {
   const transition = resolveAdminAccessTransition(
     {
-      role: null,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
@@ -342,8 +342,8 @@ function actor(): AdminAccessActor {
     githubLogin: 'synthetic-admin',
     name: null,
     role: 'ADMIN',
+    hasStaffAccess: false,
     hasAdminAccess: true,
-    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
 }

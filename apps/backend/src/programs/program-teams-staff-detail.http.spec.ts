@@ -98,7 +98,8 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
   // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   getForStaff.mockResolvedValue({
@@ -157,7 +158,8 @@ it('없는 팀·다른 프로그램의 팀은 구분 없이 404 TEAM_010 이다'
   // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   getForStaff.mockRejectedValue(

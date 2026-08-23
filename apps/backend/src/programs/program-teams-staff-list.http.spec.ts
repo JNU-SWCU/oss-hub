@@ -94,7 +94,8 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
   // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   listForStaff.mockResolvedValue([
@@ -162,7 +163,8 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
 it('ACTIVE ADMIN 도 통과한다', async () => {
   findUnique.mockResolvedValue({
     id: 'synthetic-admin',
-    role: 'ADMIN',
+    hasStaffAccess: false,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   });
   listForStaff.mockResolvedValue([]);

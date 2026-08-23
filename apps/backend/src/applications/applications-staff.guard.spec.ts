@@ -24,7 +24,6 @@ describe('ApplicationsStaffGuard', () => {
       // Given
       findUnique.mockResolvedValue({
         id: 'synthetic-actor',
-        role: null,
         ...access,
         accountStatus: AccountStatus.ACTIVE,
       });
@@ -75,8 +74,7 @@ describe('ApplicationsStaffGuard', () => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
-      role: 'STAFF',
-      hasStaffAccess: false,
+      hasStaffAccess: true,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
@@ -126,7 +124,6 @@ describe('ApplicationsStaffGuard', () => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
-      role: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
@@ -170,7 +167,6 @@ describe('ApplicationsStaffListGuard', () => {
   it('학생은 generic 조회 403 으로 거부한다 (판정 문구 없음)', async () => {
     findUnique.mockResolvedValue({
       id: 'synthetic-student',
-      role: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
@@ -196,8 +192,7 @@ describe('ApplicationsStaffListGuard', () => {
   it('ACTIVE STAFF 를 허용한다', async () => {
     findUnique.mockResolvedValue({
       id: 'synthetic-staff',
-      role: null,
-      hasStaffAccess: true,
+      hasStaffAccess: false,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });

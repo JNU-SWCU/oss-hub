@@ -5,7 +5,8 @@ import { ProgramEditorRepository } from './program-editor.repository';
 describe('ProgramEditorRepository authority', () => {
   it('loads pending staff-role requests with editor authority', async () => {
     const findUnique = jest.fn().mockResolvedValue({
-      role: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: 'ACTIVE',
       staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });

@@ -35,7 +35,8 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         id: { not: syntheticInviteeId },
-        role: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: 'ACTIVE',
         OR: [
           { nickname: { contains: 'octo', mode: 'insensitive' } },

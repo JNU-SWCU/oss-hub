@@ -100,14 +100,14 @@ describe('AdminAccessRepository transaction store', () => {
     expect(updateUser).toHaveBeenCalledWith({
       where: {
         id: 'target',
-        role: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
       },
       data: {
-        role: 'STAFF',
-        accountStatus: AccountStatus.ACTIVE,
         hasStaffAccess: true,
         hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
       },
     });
     expect(updateRequest).toHaveBeenCalledWith({

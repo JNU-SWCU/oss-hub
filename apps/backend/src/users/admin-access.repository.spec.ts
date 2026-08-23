@@ -95,7 +95,8 @@ describe('AdminAccessRepository', () => {
           AND: [
             {
               OR: syntheticSearchConditions(),
-              role: 'STUDENT',
+              hasStaffAccess: false,
+              hasAdminAccess: false,
               accountStatus: AccountStatus.ACTIVE,
               staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
             },
@@ -108,7 +109,8 @@ describe('AdminAccessRepository', () => {
     expect(count).toHaveBeenNthCalledWith(2, {
       where: {
         OR: syntheticSearchConditions(),
-        role: null,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
@@ -116,7 +118,8 @@ describe('AdminAccessRepository', () => {
     expect(count).toHaveBeenNthCalledWith(6, {
       where: {
         OR: syntheticSearchConditions(),
-        role: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
@@ -124,7 +127,8 @@ describe('AdminAccessRepository', () => {
     expect(count).toHaveBeenNthCalledWith(8, {
       where: {
         OR: syntheticSearchConditions(),
-        role: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { none: { status: StaffAccessRequestStatus.PENDING } },
       },

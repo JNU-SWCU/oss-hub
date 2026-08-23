@@ -22,7 +22,8 @@ function createService(
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
     overrides.user ?? {
-      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     },
   );
@@ -148,7 +149,8 @@ function createDeleteService(
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
     overrides.user ?? {
-      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     },
   );
@@ -518,7 +520,8 @@ function createPurgeService(
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
     overrides.user ?? {
-      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     },
   );

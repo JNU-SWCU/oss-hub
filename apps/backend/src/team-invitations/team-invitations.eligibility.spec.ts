@@ -55,7 +55,8 @@ describe('팀 초대 대상 자격', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          role: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
           accountStatus: AccountStatus.ACTIVE,
         }) as unknown,
       }),
