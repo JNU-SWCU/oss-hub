@@ -48,7 +48,7 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
   - `public-menus.ts` — 상단 공개 3종 원본(#513). 4번째 **대시보드**는 `AppFrame`이 가입 완료 시 붙인다.
   - `app-frame.tsx`(`AppFrame`) — 상단 `ShellNav`. 가입 전 경로는 본문만, 그 외 `ProductShell`.
   - `shell-nav.tsx`(`ShellNav`) — `NavBar` 래퍼. 랜딩 fixed+표면 전환, 가입 cosmos inverted, 그 외 흰 바.
-  - `sidebar-menu.ts` — `shellSectionFromPathname` + `sidebarGroupsFor(section)` **컨텍스트형**. 프로그램/아카이브/랭킹/대시보드 각 섹션 하위만. 필터는 flat 피어.
+  - `sidebar-menu.ts` — `shellSectionFromPathname` + `sidebarGroupsFor(section, access)` **컨텍스트형**. 프로그램/아카이브/랭킹/대시보드 각 섹션 하위만. 필터는 flat 피어. 대시보드 그룹은 legacy `role`이 아니라 canonical `MemberAccess`(`memberKind`·`hasStaffAccess`·`hasAdminAccess`)로 고른 surface들의 합집합이라, 교직원 권한을 가진 학생·관리자 권한만 있는 계정도 자기 메뉴를 그대로 받는다.
   - `product-shell.tsx`·`app-sidebar.tsx` — ≥900px 세로 패널. &lt;900px 숨김(본문 칩). 섹션 패싯은 `section-facets.ts` 레지스트리 단일 fetch. 접힘 쿠키 `oss-hub-sidebar`(layout `cookies()` → 첫 페인트).
   - `signup-completion.ts`(`isSignupComplete`·`shouldShowAccountSlot`) — **"이 사람이 회원인가"의 단일 판정**. 가입은 약관 → 역할 → 프로필을 다 마쳐야 끝나고, GitHub 로그인만으로는 회원이 아니다. 승인 대기 교직원(`unassigned` + 살아 있는 역할 요청)은 역할이 비어 있어도 회원으로 본다 — 세션의 `isProfileComplete`는 **배정된 역할** 기준이라 그 사람에게는 쓸 수 없다(backend `auth/auth.repository.ts`). 새 화면이 "회원인가"를 물어야 하면 여기서 읽고, 화면마다 판정을 다시 만들지 않는다.
   - `account-slot.tsx`(`AccountSlot`) — 헤더 오른쪽 계정 슬롯. 위 판정으로 `LoginButton`을 낼지만 정한다. 가입을 마치지 않은 사람은 가입 절차 화면(`signup-routes.ts`의 `SIGNUP_FLOW_PATHS`) 안에서만 계정 표식을 본다 — 밖에서는 그 표식이 "회원이다"로 읽힌다. 비로그인은 언제나 낸다(그 슬롯이 곧 로그인 버튼이다).

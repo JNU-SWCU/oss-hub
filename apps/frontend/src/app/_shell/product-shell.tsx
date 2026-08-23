@@ -20,10 +20,10 @@ import {
   programScopeSidebarGroups,
   shellSectionFromPathname,
   sidebarBrandTitle,
+  sidebarGroupsFor,
 } from './sidebar-menu';
 import { RankingCycleProvider } from './ranking-cycle-context';
 import { EMPTY_MEMBER_ACCESS, memberSurfaces } from './member-access';
-import { sidebarGroupsForMemberAccess } from './member-sidebar';
 import { useSidebarDrawer } from './sidebar-drawer-context';
 import { useSessionRole } from './use-session-role';
 import { useProductShellData } from './use-product-shell-data';
@@ -97,16 +97,12 @@ export function ProductShell({
 
   const groups = programDetailId
     ? []
-    : sidebarGroupsForMemberAccess(
-        section,
-        member ? session : EMPTY_MEMBER_ACCESS,
-        {
-          programCounts: facetData?.programCounts,
-          archiveCounts: facetData?.archiveCounts,
-          rankingYears: facetData?.rankingYears,
-          rankingCounts: facetData?.rankingCounts,
-        },
-      );
+    : sidebarGroupsFor(section, member ? session : EMPTY_MEMBER_ACCESS, {
+        programCounts: facetData?.programCounts,
+        archiveCounts: facetData?.archiveCounts,
+        rankingYears: facetData?.rankingYears,
+        rankingCounts: facetData?.rankingCounts,
+      });
 
   if (!programDetailId && groups.length === 0) {
     return (
