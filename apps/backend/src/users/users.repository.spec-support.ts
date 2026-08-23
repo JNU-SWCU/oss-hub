@@ -18,6 +18,7 @@ export function usersRepositoryHarness(
   const userUpdate = jest.fn().mockResolvedValue({});
   const userProfileCreate = jest.fn().mockResolvedValue({});
   const userProfileUpsert = jest.fn().mockResolvedValue({});
+  const userProfileUpdate = jest.fn().mockResolvedValue({});
   const userProfileUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
   const userProfileFindUnique = jest.fn().mockResolvedValue(null);
   const staffAccessRequestFindFirst = jest.fn().mockResolvedValue(null);
@@ -34,6 +35,7 @@ export function usersRepositoryHarness(
     userProfile: {
       create: userProfileCreate,
       upsert: userProfileUpsert,
+      update: userProfileUpdate,
       updateMany: userProfileUpdateMany,
       findUnique: userProfileFindUnique,
     },
@@ -44,7 +46,11 @@ export function usersRepositoryHarness(
   };
   const prisma = prismaServiceWith({
     user: { findUnique },
-    userProfile: { findUnique: userProfileFindUnique },
+    userProfile: {
+      findUnique: userProfileFindUnique,
+      update: userProfileUpdate,
+      updateMany: userProfileUpdateMany,
+    },
     $transaction: <T>(callback: TransactionCallback<T>) =>
       callback(transaction),
   });
@@ -55,6 +61,7 @@ export function usersRepositoryHarness(
     userUpdate,
     userProfileCreate,
     userProfileUpsert,
+    userProfileUpdate,
     userProfileUpdateMany,
     userProfileFindUnique,
     staffAccessRequestFindFirst,

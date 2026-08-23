@@ -39,28 +39,21 @@ describe('UsersRepository profile completion writes', () => {
       update: profileData,
       create: { userId: expected.id, ...profileData },
     });
+    // `User` 행에는 canonical 접근 칸과 고른 유형만 남는다 — 프로필 mirror는 없다.
     expect(userUpdate).toHaveBeenCalledWith({
       where: { id: expected.id },
       data: {
-        name: completion.name,
-        studentId: completion.studentId,
-        department: completion.department,
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: completion.department,
         selectedMemberKind: MemberKind.STUDENT,
         hasStaffAccess: false,
         hasAdminAccess: false,
       },
     });
-    expect(userUpdateMany).toHaveBeenCalledTimes(1);
+    expect(userUpdateMany).not.toHaveBeenCalled();
   });
 
   it('교직원 완료도 null 학번 canonical UserProfile을 만든다', async () => {
     // Given
     const staff = profileRecord('user-complete-staff', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
       selectedMemberKind: MemberKind.STAFF,
     });
     const { repository, userProfileUpsert } = harness(staff);
@@ -71,6 +64,7 @@ describe('UsersRepository profile completion writes', () => {
         department: '인공지능학부',
       },
       MemberKind.STAFF,
+      AffiliationKind.PROGRAM_OFFICE,
     );
 
     // When
@@ -119,9 +113,9 @@ describe('UsersRepository profile completion writes', () => {
 });
 
 describe('UsersRepository profile field updates', () => {
-  it('UserProfile 행이 없어도 실패하지 않고 User 컬럼을 갱신한다', async () => {
+  it('프로필 행 하나만 갱신하고 소속 사본을 함께 옮긴다', async () => {
     // Given
-    const { repository, userProfileUpdateMany, userUpdate } = harness();
+    const { repository, userProfileUpdate, userUpdate } = harness();
 
     // When
     await repository.updateProfileFields('user-legacy-only', {
@@ -129,15 +123,17 @@ describe('UsersRepository profile field updates', () => {
       department: '인공지능학부',
     });
 
-    // Then
-    expect(userProfileUpdateMany).toHaveBeenCalledWith({
+    // Then — `department`와 `affiliationName`은 같은 사실의 두 사본이라
+    // 한쪽만 쓰면 계약 CHECK가 거부한다.
+    expect(userProfileUpdate).toHaveBeenCalledWith({
       where: { userId: 'user-legacy-only' },
-      data: { name: '수정된 이름', department: '인공지능학부' },
+      data: {
+        name: '수정된 이름',
+        department: '인공지능학부',
+        affiliationName: '인공지능학부',
+      },
     });
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: 'user-legacy-only' },
-      data: { name: '수정된 이름', department: '인공지능학부' },
-    });
+    expect(userUpdate).not.toHaveBeenCalled();
   });
 });
 

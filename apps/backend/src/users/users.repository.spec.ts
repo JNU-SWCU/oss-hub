@@ -1,20 +1,28 @@
 import { usersRepositoryHarness as harness } from './users.repository.spec-support';
 
-describe('UsersRepository profile compatibility reads', () => {
-  it('prefers UserProfile fields over stale legacy User fields', async () => {
+/**
+ * 프로필 읽기의 정본은 `UserProfile` 행 하나다.
+ *
+ * 계약 마이그레이션이 `User`의 이름·학번·학과 mirror를 지운 뒤로는 "어느 쪽이 이기는가"를
+ * 묻는 fallback이 없다 — 행이 있으면 그 값이고, 없으면 아직 가입을 마치지 않은 사람이다.
+ */
+describe('UsersRepository canonical profile reads', () => {
+  it('프로필 행의 값을 그대로 읽는다', async () => {
     // Given
     const { findUnique, repository } = harness();
     findUnique.mockResolvedValue({
       id: 'user-profile-first',
-      role: 'STUDENT',
+      selectedMemberKind: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       staffAccessRequests: [],
-      name: 'Legacy Name',
-      studentId: '111111',
-      department: 'Legacy Department',
       profile: {
         name: 'Profile Name',
         studentId: '222222',
         department: 'Profile Department',
+        memberKind: 'STUDENT',
+        affiliationKind: 'DEPARTMENT',
+        affiliationName: 'Profile Department',
       },
     });
 
@@ -24,7 +32,6 @@ describe('UsersRepository profile compatibility reads', () => {
     // Then
     expect(result).toEqual({
       id: 'user-profile-first',
-      role: 'STUDENT',
       selectedMemberKind: 'STUDENT',
       memberKind: 'STUDENT',
       affiliationKind: 'DEPARTMENT',
@@ -38,59 +45,15 @@ describe('UsersRepository profile compatibility reads', () => {
     });
   });
 
-  it('projects legacy STUDENT authority when canonical profile keys are null', async () => {
-    // Given
+  it('프로필 행이 없으면 세 칸이 모두 비어 있다', async () => {
+    // Given — 아직 가입을 마치지 않은 계정
     const { findUnique, repository } = harness();
     findUnique.mockResolvedValue({
-      id: 'user-profile-null-canonical-keys',
-      role: 'STUDENT',
+      id: 'user-without-profile',
       selectedMemberKind: null,
-      hasStaffAccess: null,
-      hasAdminAccess: null,
-      staffAccessRequests: [],
-      name: 'Legacy Name',
-      studentId: '111111',
-      department: 'Legacy Department',
-      profile: {
-        name: 'Profile Name',
-        studentId: '222222',
-        department: 'Profile Department',
-        memberKind: null,
-        affiliationKind: null,
-        affiliationName: null,
-      },
-    });
-
-    // When
-    const result = await repository.findByGithubId(9_600_000_000_153_104n);
-
-    // Then
-    expect(result).toEqual({
-      id: 'user-profile-null-canonical-keys',
-      role: 'STUDENT',
-      selectedMemberKind: 'STUDENT',
-      memberKind: 'STUDENT',
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: 'Profile Department',
       hasStaffAccess: false,
       hasAdminAccess: false,
-      hasPendingStaffRequest: false,
-      name: 'Profile Name',
-      studentId: '222222',
-      department: 'Profile Department',
-    });
-  });
-
-  it('falls back to legacy User fields while no UserProfile row exists', async () => {
-    // Given
-    const { findUnique, repository } = harness();
-    findUnique.mockResolvedValue({
-      id: 'user-legacy-fallback',
-      role: null,
       staffAccessRequests: [],
-      name: 'Legacy Name',
-      studentId: null,
-      department: null,
       profile: null,
     });
 
@@ -99,8 +62,7 @@ describe('UsersRepository profile compatibility reads', () => {
 
     // Then
     expect(result).toEqual({
-      id: 'user-legacy-fallback',
-      role: null,
+      id: 'user-without-profile',
       selectedMemberKind: null,
       memberKind: null,
       affiliationKind: null,
@@ -108,33 +70,34 @@ describe('UsersRepository profile compatibility reads', () => {
       hasStaffAccess: false,
       hasAdminAccess: false,
       hasPendingStaffRequest: false,
-      name: 'Legacy Name',
+      name: null,
       studentId: null,
       department: null,
     });
   });
 
-  it('완료 판정에 쓰이도록 role과 승인 대기 요청을 함께 조회한다', async () => {
+  it('완료 판정에 쓰이도록 승인 대기 요청을 함께 조회한다', async () => {
     // Given
     const { findUnique, repository } = harness();
     findUnique.mockResolvedValue({
-      id: 'user-role-selected',
-      role: 'STAFF',
+      id: 'user-pending-staff',
+      selectedMemberKind: 'STAFF',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       staffAccessRequests: [{ id: 'synthetic-pending-request' }],
-      name: 'Legacy Name',
-      studentId: null,
-      department: '인공지능학부',
       profile: null,
     });
 
     // When
     const result = await repository.findByGithubId(9_600_000_000_153_103n);
 
-    // Then — 승인을 기다리는 교직원은 role이 아직 null이라, 이 표시가 없으면 학생
-    // 기준으로 판정돼 학번을 요구받는다.
+    // Then — 승인을 기다리는 교직원은 아직 프로필 행이 없어, 이 표시가 없으면
+    // 학생 기준으로 판정돼 학번을 요구받는다.
     expect(findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        select: expect.objectContaining({ role: true }) as unknown,
+        select: expect.objectContaining({
+          staffAccessRequests: expect.anything() as unknown,
+        }) as unknown,
       }),
     );
     expect(result).toMatchObject({ hasPendingStaffRequest: true });
