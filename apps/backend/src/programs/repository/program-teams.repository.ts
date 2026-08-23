@@ -5,7 +5,6 @@ import {
   OutboxEventStatus,
   Prisma,
   RepositoryProvisionJobStatus,
-  Role,
   type ProgramCategory,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
@@ -14,9 +13,10 @@ import { requiredMilestonesApproved } from '../../common/milestone-completion';
 import { publishBlockedReasons } from '../../common/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../../profiles/profile-compatibility';
+  STUDENT_MEMBER_WHERE,
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../../profiles/user-profile-read';
 import type {
   TeamApplicationView,
   TeamRepositoryProvisioningJobStatus,
@@ -172,19 +172,19 @@ export class ProgramTeamsRepository {
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
+        ...STUDENT_MEMBER_WHERE,
       },
       select: {
         id: true,
         nickname: true,
-        ...COMPATIBLE_PROFILE_NAME_SELECT,
+        ...USER_PROFILE_NAME_SELECT,
       },
     });
     return user
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: resolveCompatibleProfileName(user),
+          name: resolveUserProfileName(user),
         }
       : null;
   }
@@ -229,7 +229,7 @@ export class ProgramTeamsRepository {
                 user: {
                   select: {
                     nickname: true,
-                    ...COMPATIBLE_PROFILE_NAME_SELECT,
+                    ...USER_PROFILE_NAME_SELECT,
                   },
                 },
               },
@@ -252,7 +252,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveCompatibleProfileName(member.user),
+        name: resolveUserProfileName(member.user),
       })),
     };
   }
@@ -262,7 +262,7 @@ export class ProgramTeamsRepository {
    * 참여코드(`joinCodeDigest`)·저장소(`repositories`)·`TeamMember`의 학과/연락처/이메일·
    * `User.studentId` 는 이 select 에 절대 포함하지 않는다.
    *
-   * 실명은 `COMPATIBLE_PROFILE_NAME_SELECT` + `resolveCompatibleProfileName()` 로만 읽는다
+   * 실명은 `USER_PROFILE_NAME_SELECT` + `resolveUserProfileName()` 로만 읽는다
    * (`UserProfile.name` 과 legacy `User.name` 을 합치는 정식 경로). `TeamMember.name` 은
    * 스키마 주석과 달리 아무 writer 도 채우지 않아 항상 null 이므로 쓰지 않는다.
    *
@@ -283,7 +283,7 @@ export class ProgramTeamsRepository {
             user: {
               select: {
                 nickname: true,
-                ...COMPATIBLE_PROFILE_NAME_SELECT,
+                ...USER_PROFILE_NAME_SELECT,
               },
             },
           },
@@ -298,7 +298,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveCompatibleProfileName(member.user),
+        name: resolveUserProfileName(member.user),
       })),
     }));
   }
@@ -329,7 +329,7 @@ export class ProgramTeamsRepository {
             user: {
               select: {
                 nickname: true,
-                ...COMPATIBLE_PROFILE_NAME_SELECT,
+                ...USER_PROFILE_NAME_SELECT,
               },
             },
           },
@@ -440,7 +440,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveCompatibleProfileName(member.user),
+        name: resolveUserProfileName(member.user),
       })),
       application: applicationView,
     };

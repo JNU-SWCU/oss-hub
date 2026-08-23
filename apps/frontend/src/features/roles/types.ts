@@ -1,11 +1,12 @@
 export type RoleSelection = 'STUDENT' | 'STAFF';
 
-export type RoleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
+export type StaffAccessRequestStatus =
+  'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
 
 export interface RoleSelectionResult {
   readonly selectedRole: RoleSelection;
   /**
-   * 백엔드 `roles/domain/role-onboarding.ts`와 같은 단일 값 — 학생·교직원 모두
+   * 백엔드 `roles/domain/member-onboarding.ts`와 같은 단일 값 — 학생·교직원 모두
    * 프로필 입력으로 간다. 역할이 정해져도 프로필을 받아야 가입이 끝나기 때문이다.
    *
    * 화면은 이 값을 그대로 `window.location.assign`에 넘길 뿐 검사하지 않는다
@@ -30,9 +31,9 @@ export interface RoleSelectionState {
   readonly selectedRole: RoleSelection | null;
 }
 
-export interface RoleRequest {
+export interface StaffAccessRequest {
   readonly requestedRole: 'STAFF';
-  readonly status: RoleRequestStatus;
+  readonly status: StaffAccessRequestStatus;
   readonly requestedAt: string;
   readonly decidedAt: string | null;
   readonly rejectionReason: string | null;

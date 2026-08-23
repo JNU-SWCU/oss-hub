@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './domain/admin-access';
 import { AdminAccessService } from './admin-access.service';
@@ -27,7 +27,7 @@ describe('AdminAccessService pending request CAS', () => {
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
         expectedRole: null,
-        desiredRole: Role.STAFF,
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: {

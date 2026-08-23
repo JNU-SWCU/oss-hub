@@ -1,4 +1,4 @@
-import { AccountStatus, RoleRequestStatus, Role } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
@@ -26,9 +26,10 @@ describe('ProgramEditorService authority', () => {
   it('rejects inactive staff before edit data is exposed', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
-      role: Role.STAFF,
+      hasAdminAccess: false,
+      hasStaffAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,
-      roleRequests: [],
+      staffAccessRequests: [],
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<
@@ -42,9 +43,10 @@ describe('ProgramEditorService authority', () => {
   it('rejects pending staff approval with the dedicated editor error before data is exposed', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
-      role: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
-      roleRequests: [{ status: RoleRequestStatus.PENDING }],
+      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<
@@ -58,9 +60,10 @@ describe('ProgramEditorService authority', () => {
   it('keeps inactive pending staff approval on the common forbidden path', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
-      role: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
-      roleRequests: [{ status: RoleRequestStatus.PENDING }],
+      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<

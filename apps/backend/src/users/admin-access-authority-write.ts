@@ -1,4 +1,3 @@
-import { Role } from '@prisma/client';
 import type { AdminAccessUserRecord } from './admin-access.repository';
 import {
   ADMIN_ACCESS_REQUEST_EFFECTS,
@@ -30,7 +29,7 @@ function adminAccessAfterLegacyTransition(
   before: AdminAccessUserRecord,
   command: AdminAccessMutationCommand,
 ): boolean {
-  if (command.desiredRole === Role.ADMIN) {
+  if (command.desiredRole === 'ADMIN') {
     return true;
   }
   return before.hasAdminAccess;
@@ -48,7 +47,7 @@ function staffAccessAfterLegacyTransition(
     case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED:
       return false;
     case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
-      if (command.desiredRole === Role.STAFF) {
+      if (command.desiredRole === 'STAFF') {
         return true;
       }
       return before.hasStaffAccess;

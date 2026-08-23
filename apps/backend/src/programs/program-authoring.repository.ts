@@ -3,7 +3,6 @@ import {
   AccountStatus,
   Prisma,
   ProgramAuthoringUploadLifecycle,
-  Role,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,7 +27,8 @@ import type {
 type AuthoringActor = {
   readonly id: string;
   readonly accountStatus: AccountStatus;
-  readonly role: Role | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
 };
 
 @Injectable()
@@ -38,7 +38,12 @@ export class ProgramAuthoringRepository {
   findActor(githubId: bigint): Promise<AuthoringActor | null> {
     return this.prisma.user.findUnique({
       where: { githubId },
-      select: { id: true, accountStatus: true, role: true },
+      select: {
+        id: true,
+        accountStatus: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      },
     });
   }
 

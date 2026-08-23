@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, RoleRequestStatus } from '@prisma/client';
+import { Prisma, StaffAccessRequestStatus } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -8,7 +8,7 @@ import {
 } from './admin-actor-locks';
 import {
   listAdminAccessLoginHistory,
-  listAdminAccessRoleRequestHistory,
+  listAdminAccessStaffAccessRequestHistory,
 } from './admin-access-history.repository';
 import {
   ADMIN_ACCESS_USER_SELECT,
@@ -30,7 +30,7 @@ import type {
 import type {
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,
-  AdminAccessRoleRequestHistoryPage,
+  AdminAccessStaffAccessRequestHistoryPage,
 } from './domain/admin-access';
 
 export type {
@@ -83,11 +83,11 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
     const result = await this.transaction.user.updateMany({
       where: {
         id: input.userId,
-        role: input.expectedRole,
+        hasStaffAccess: input.expectedHasStaffAccess,
+        hasAdminAccess: input.expectedHasAdminAccess,
         accountStatus: input.expectedAccountStatus,
       },
       data: {
-        role: input.desiredRole,
         accountStatus: input.desiredAccountStatus,
         hasStaffAccess: input.desiredHasStaffAccess,
         hasAdminAccess: input.desiredHasAdminAccess,
@@ -99,8 +99,8 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
   async decidePendingRequest(
     input: AdminAccessPendingDecisionUpdate,
   ): Promise<boolean> {
-    const result = await this.transaction.roleRequest.updateMany({
-      where: { id: input.requestId, status: RoleRequestStatus.PENDING },
+    const result = await this.transaction.staffAccessRequest.updateMany({
+      where: { id: input.requestId, status: StaffAccessRequestStatus.PENDING },
       data: {
         status: input.nextStatus,
         rejectionReason: input.rejectionReason,
@@ -114,13 +114,13 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
   async insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    // partial unique(`RoleRequest_userId_pending_key`)는 PENDING 행만 묶으므로
+    // partial unique(`StaffAccessRequest_userId_pending_key`)는 PENDING 행만 묶으므로
     // REVOKED 행은 몇 번을 회수하든 매번 새로 쌓인다 — 회수·재승인이 반복된 사람의
     // 이력이 관리자 상세에서 시간순으로 그대로 읽힌다.
-    const created = await this.transaction.roleRequest.create({
+    const created = await this.transaction.staffAccessRequest.create({
       data: {
         userId: input.userId,
-        status: RoleRequestStatus.REVOKED,
+        status: StaffAccessRequestStatus.REVOKED,
         decidedById: input.actorId,
         decidedAt: input.decidedAt,
       },
@@ -158,11 +158,11 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     return findAdminAccessUserById(this.prisma, userId);
   }
 
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage> {
-    return listAdminAccessRoleRequestHistory(this.prisma, userId, page);
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
+    return listAdminAccessStaffAccessRequestHistory(this.prisma, userId, page);
   }
 
   listLoginHistory(

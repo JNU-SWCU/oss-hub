@@ -1,21 +1,23 @@
-import type { RoleRequestStatus } from '@prisma/client';
-import type { RoleRequestRecord } from '../domain/role-onboarding';
+import type { StaffAccessRequestStatus } from '@prisma/client';
+import type { StaffAccessRequestRecord } from '../domain/member-onboarding';
 
-export class RoleRequestResponseDto {
+export class StaffAccessRequestResponseDto {
   readonly requestedRole = 'STAFF' as const;
-  readonly status: RoleRequestStatus;
+  readonly status: StaffAccessRequestStatus;
   readonly requestedAt: string;
   readonly decidedAt: string | null;
   readonly rejectionReason: string | null;
 
-  private constructor(request: RoleRequestRecord) {
+  private constructor(request: StaffAccessRequestRecord) {
     this.status = request.status;
     this.requestedAt = request.createdAt.toISOString();
     this.decidedAt = request.decidedAt?.toISOString() ?? null;
     this.rejectionReason = request.rejectionReason;
   }
 
-  static from(request: RoleRequestRecord): RoleRequestResponseDto {
-    return new RoleRequestResponseDto(request);
+  static from(
+    request: StaffAccessRequestRecord,
+  ): StaffAccessRequestResponseDto {
+    return new StaffAccessRequestResponseDto(request);
   }
 }

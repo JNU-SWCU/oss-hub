@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
@@ -22,7 +22,7 @@ type OracleCase = {
   readonly expected: AdminAccessTransitionOutcome;
 };
 
-const ORACLE_ROLES = [null, Role.STUDENT, Role.STAFF, Role.ADMIN] as const;
+const ORACLE_ROLES = [null, 'STUDENT', 'STAFF', 'ADMIN'] as const;
 const ORACLE_ACCOUNT_STATUSES = [
   AccountStatus.ACTIVE,
   AccountStatus.DEACTIVATED,
@@ -66,7 +66,7 @@ const ADMIN_ACCESS_TRANSITION_ORACLE: readonly OracleCase[] =
 /**
  * 프로덕션 로직을 독립 재구현한 오라클이다. **기대값은 프로덕션 상수를 쓰지 않고 문자열
  * 리터럴로 적는다** — `ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED`를 그대로 재사용하면 상수의
- * 값 자체가 잘못 바뀌어도(예: `REVOKED: RoleRequestStatus.REJECTED`) 양쪽이 함께 움직여
+ * 값 자체가 잘못 바뀌어도(예: `REVOKED: StaffAccessRequestStatus.REJECTED`) 양쪽이 함께 움직여
  * 이 테스트가 초록으로 남는다. 이중 구현을 두는 이유가 바로 그 변이를 잡는 것이다.
  * 입력(역할·계정 상태·대기 상태·결정)은 `resolveAdminAccessTransition`의 인자 타입이라
  * 상수를 그대로 쓴다 — 그쪽은 기대값이 아니라 호출 규약이다.
@@ -78,7 +78,7 @@ function expectedTransitionOutcome(
   // 회수(#184)만 확정된 역할을 다시 비운다. 오라클도 같은 규칙을 독립적으로 적는다 —
   // 확정된 STAFF이고 대기 중 요청이 없을 때만 통과하고, 그 전이는 REVOKED 행을 남긴다.
   const revokesStaff =
-    current.role === Role.STAFF &&
+    current.role === 'STAFF' &&
     current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE &&
     desired.role === null;
   if (current.role !== null && desired.role === null && !revokesStaff) {
@@ -96,9 +96,17 @@ function expectedTransitionOutcome(
     if (desired.decision !== ADMIN_ACCESS_DECISION_KINDS.NONE) {
       return denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
     }
-    return changesAccessState
-      ? allowed(current, desired, revokesStaff ? 'REVOKED' : 'UNCHANGED')
-      : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
+    if (!changesAccessState) {
+      return denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
+    }
+    if (
+      (current.role === 'ADMIN' &&
+        (desired.role === 'STAFF' || desired.role === 'STUDENT')) ||
+      (current.role === 'STAFF' && desired.role === 'STUDENT')
+    ) {
+      return denied(RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED, 400);
+    }
+    return allowed(current, desired, revokesStaff ? 'REVOKED' : 'UNCHANGED');
   }
 
   switch (desired.decision) {
@@ -107,12 +115,12 @@ function expectedTransitionOutcome(
         ? denied(RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED, 409)
         : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
     case ADMIN_ACCESS_DECISION_KINDS.APPROVE:
-      return desired.role === Role.STAFF &&
+      return desired.role === 'STAFF' &&
         desired.accountStatus === AccountStatus.ACTIVE
         ? allowed(current, desired, 'APPROVED')
         : denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
     case ADMIN_ACCESS_DECISION_KINDS.REJECT:
-      return current.role !== Role.STAFF && desired.role === Role.STAFF
+      return current.role !== 'STAFF' && desired.role === 'STAFF'
         ? denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400)
         : allowed(current, desired, 'REJECTED');
     default: {
@@ -139,9 +147,9 @@ function allowed(
       current.accountStatus === AccountStatus.ACTIVE &&
       desired.accountStatus === AccountStatus.DEACTIVATED,
     requiresLastActiveAdminGuard:
-      current.role === Role.ADMIN &&
+      current.role === 'ADMIN' &&
       current.accountStatus === AccountStatus.ACTIVE &&
-      (desired.role !== Role.ADMIN ||
+      (desired.role !== 'ADMIN' ||
         desired.accountStatus !== AccountStatus.ACTIVE),
   };
 }
@@ -151,7 +159,8 @@ function denied(
     | RolesErrorCode.ACCESS_CHANGE_REQUIRED
     | RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED
     | RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED
-    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION,
+    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION
+    | RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
   status: 400 | 409,
 ): AdminAccessTransitionOutcome {
   return { allowed: false, status, code };

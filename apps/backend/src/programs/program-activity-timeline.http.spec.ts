@@ -1,6 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { Role } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
@@ -55,7 +54,7 @@ beforeAll(async () => {
           fromGithubId: jest.fn().mockResolvedValue({
             githubId: 11n,
             userId: 'student-1',
-            role: Role.STUDENT,
+            role: 'STUDENT',
           }),
         },
       },

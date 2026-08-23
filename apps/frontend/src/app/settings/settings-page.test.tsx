@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import type { SessionRoleState } from '../_shell/use-session-role';
 
 const mocks = vi.hoisted(() => ({
@@ -109,15 +109,13 @@ describe('설정 화면', () => {
   });
 
   async function render(overrides: Partial<SessionRoleState>): Promise<void> {
-    const role = overrides.role ?? null;
     mocks.useSessionRole.mockReturnValue({
       status: 'loading',
-      role,
-      memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
-      hasStaffAccess: role === 'STAFF',
-      hasAdminAccess: role === 'ADMIN',
-      roleRequestStatus: null,
-      roleRequestRejectionReason: null,
+      memberKind: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      staffAccessRequestStatus: null,
+      staffAccessRequestRejectionReason: null,
       selectedRole: null,
       isProfileComplete: false,
       ...overrides,
@@ -127,11 +125,11 @@ describe('설정 화면', () => {
   }
 
   function renderStaffAwaitingRole(
-    roleRequestStatus: RoleRequestStatus = 'PENDING',
+    staffAccessRequestStatus: StaffAccessRequestStatus = 'PENDING',
   ): Promise<void> {
     return render({
       status: 'unassigned',
-      roleRequestStatus,
+      staffAccessRequestStatus,
       selectedRole: 'STAFF',
     });
   }
@@ -168,8 +166,8 @@ describe('설정 화면', () => {
    */
   it.each(['PENDING', 'APPROVED'] as const)(
     '역할 요청이 %s 인 교직원은 안내와 함께 폼에 도달하고, 고친 이름이 저장된다',
-    async (roleRequestStatus) => {
-      await renderStaffAwaitingRole(roleRequestStatus);
+    async (staffAccessRequestStatus) => {
+      await renderStaffAwaitingRole(staffAccessRequestStatus);
 
       // 되돌려보내지 않는다 — 신고된 증상("다시 이 창으로 돌아와지더라구요")이다.
       expect(mocks.replace).not.toHaveBeenCalled();
@@ -213,7 +211,11 @@ describe('설정 화면', () => {
   it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
     '역할이 배정된 %s는 안내 없이 설정을 그대로 연다',
     async (role) => {
-      await render({ status: 'assigned', role, isProfileComplete: true });
+      await render({
+        status: 'assigned',
+        ...accessFor(role),
+        isProfileComplete: true,
+      });
 
       expect(mocks.replace).not.toHaveBeenCalled();
       expect(container.textContent).not.toContain(
@@ -247,12 +249,12 @@ describe('설정 화면', () => {
       // 반려는 살아 있는 신청이 없어 역할 선택으로 되돌린다(#535).
       '반려된 사용자',
       '/onboarding/role',
-      { roleRequestStatus: 'REJECTED' as RoleRequestStatus },
+      { staffAccessRequestStatus: 'REJECTED' as StaffAccessRequestStatus },
     ],
     [
       '회수된 사용자',
       '/onboarding/role',
-      { roleRequestStatus: 'REVOKED' as RoleRequestStatus },
+      { staffAccessRequestStatus: 'REVOKED' as StaffAccessRequestStatus },
     ],
   ] as readonly (readonly [string, string, Partial<SessionRoleState>])[])(
     '%s 에게는 설정을 열지 않고 %s 로 되돌린다',
@@ -292,3 +294,12 @@ describe('설정 화면', () => {
     expect(container.querySelector('#settings-name')).toBeNull();
   });
 });
+
+/** 표시 역할 한 단어를 canonical 세 사실로 펼친다. 관리자는 회원 유형을 남기지 않는다. */
+function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN') {
+  return {
+    memberKind: role === 'ADMIN' ? null : role,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
+  } as const;
+}

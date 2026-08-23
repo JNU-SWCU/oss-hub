@@ -1,7 +1,8 @@
 import {
+  AffiliationKind,
+  MemberKind,
   MilestoneSubmissionType,
   ReviewDecision,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -91,10 +92,23 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           id: OUTSIDER_USER_ID,
           githubId: seedGithubId(OUTSIDER_USER_ID),
           nickname: OUTSIDER_USER_ID,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
       skipDuplicates: true,
+    });
+    await prisma.userProfile.upsert({
+      where: { userId: OUTSIDER_USER_ID },
+      update: {},
+      create: {
+        userId: OUTSIDER_USER_ID,
+        name: '합성 외부 학생',
+        studentId: '261098',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
     });
     // 마감이 지난 TEXT 마일스톤 — 보완 재제출이 dueAt 이후에도 허용됨을 검증한다.
     await prisma.milestone.createMany({

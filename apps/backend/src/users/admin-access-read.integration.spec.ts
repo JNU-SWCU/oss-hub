@@ -1,13 +1,18 @@
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
   LoginHistoryEvent,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  STAFF_ACCESS_REQUEST_TABLE,
+  STAFF_ACCESS_REQUEST_USER_CREATED_INDEX,
+  STAFF_ACCESS_REQUEST_USER_STATUS_CREATED_INDEX,
+} from '../roles/staff-access-request-physical-names';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import {
@@ -33,27 +38,27 @@ let studentPlain: { readonly id: string; readonly githubId: bigint };
 
 beforeAll(async () => {
   await prisma.$connect();
-  actor = await createUser('actor', 1n, Role.ADMIN, AccountStatus.ACTIVE);
+  actor = await createUser('actor', 1n, 'ADMIN', AccountStatus.ACTIVE);
   studentPending = await createUser(
     'student-pending',
     2n,
-    Role.STUDENT,
+    'STUDENT',
     AccountStatus.ACTIVE,
   );
-  await createUser('staff-pending', 3n, Role.STAFF, AccountStatus.ACTIVE);
+  await createUser('staff-pending', 3n, 'STAFF', AccountStatus.ACTIVE);
   await createUser(
     'student-deactivated-pending',
     4n,
-    Role.STUDENT,
+    'STUDENT',
     AccountStatus.DEACTIVATED,
   );
   studentPlain = await createUser(
     'student-plain',
     5n,
-    Role.STUDENT,
+    'STUDENT',
     AccountStatus.ACTIVE,
   );
-  await prisma.roleRequest.createMany({
+  await prisma.staffAccessRequest.createMany({
     data: [
       pendingRequest(`${prefix}student-pending`),
       pendingRequest(`${prefix}staff-pending`),
@@ -139,11 +144,11 @@ it('derives lastLoginAt from the latest successful LOGIN and preserves null', as
 it('returns separately bounded stable history pages using matching deployed indexes', async () => {
   // Given
   const createdAt = new Date('2026-07-28T00:00:00.000Z');
-  await prisma.roleRequest.createMany({
+  await prisma.staffAccessRequest.createMany({
     data: [1, 2, 3].map((value) => ({
       id: `${prefix}history-request:${value}`,
       userId: studentPlain.id,
-      status: RoleRequestStatus.REJECTED,
+      status: StaffAccessRequestStatus.REJECTED,
       rejectionReason: `합성 반려 ${value}`,
       decidedById: actor.id,
       decidedAt: createdAt,
@@ -164,7 +169,7 @@ it('returns separately bounded stable history pages using matching deployed inde
 
   // When
   const history = await service.getHistory(actor.githubId, studentPlain.id, {
-    roleRequests: { page: 2, limit: 1 },
+    staffAccessRequests: { page: 2, limit: 1 },
     loginHistory: { page: 1, limit: 2 },
   });
   const indexes = await prisma.$queryRaw<readonly { indexname: string }[]>`
@@ -172,29 +177,35 @@ it('returns separately bounded stable history pages using matching deployed inde
     FROM pg_indexes
     WHERE schemaname = 'public'
       AND indexname IN (
-        'RoleRequest_userId_createdAt_id_idx',
-        'RoleRequest_userId_status_createdAt_id_idx',
+        ${STAFF_ACCESS_REQUEST_USER_CREATED_INDEX},
+        ${STAFF_ACCESS_REQUEST_USER_STATUS_CREATED_INDEX},
         'LoginHistory_userId_provider_loginAt_id_idx',
         'LoginHistory_userId_provider_event_success_loginAt_id_idx'
       )
   `;
-  const [roleRequestPlan, loginHistoryPlan] = await historyQueryPlans(
+  const [staffAccessRequestPlan, loginHistoryPlan] = await historyQueryPlans(
     studentPlain.id,
   );
 
   // Then
-  expect(history.roleRequests).toMatchObject({ page: 2, limit: 1, total: 3 });
-  expect(history.roleRequests.items).toHaveLength(1);
+  expect(history.staffAccessRequests).toMatchObject({
+    page: 2,
+    limit: 1,
+    total: 3,
+  });
+  expect(history.staffAccessRequests.items).toHaveLength(1);
   expect(history.loginHistory).toMatchObject({ page: 1, limit: 2, total: 3 });
   expect(history.loginHistory.items).toHaveLength(2);
-  expect(indexes.map((index) => index.indexname).sort()).toEqual([
-    'LoginHistory_userId_provider_event_success_loginAt_id_idx',
-    'LoginHistory_userId_provider_loginAt_id_idx',
-    'RoleRequest_userId_createdAt_id_idx',
-    'RoleRequest_userId_status_createdAt_id_idx',
-  ]);
-  expect(queryPlanText(roleRequestPlan)).toContain(
-    'RoleRequest_userId_createdAt_id_idx',
+  expect(indexes.map((index) => index.indexname).sort()).toEqual(
+    [
+      'LoginHistory_userId_provider_event_success_loginAt_id_idx',
+      'LoginHistory_userId_provider_loginAt_id_idx',
+      STAFF_ACCESS_REQUEST_USER_CREATED_INDEX,
+      STAFF_ACCESS_REQUEST_USER_STATUS_CREATED_INDEX,
+    ].sort(),
+  );
+  expect(queryPlanText(staffAccessRequestPlan)).toContain(
+    STAFF_ACCESS_REQUEST_USER_CREATED_INDEX,
   );
   expect(queryPlanText(loginHistoryPlan)).toContain(
     'LoginHistory_userId_provider_loginAt_id_idx',
@@ -208,12 +219,12 @@ async function historyQueryPlans(
 ): Promise<readonly [readonly QueryPlanRow[], readonly QueryPlanRow[]]> {
   return prisma.$transaction(async (transaction) => {
     await transaction.$executeRaw`SET LOCAL enable_seqscan = off`;
-    const roleRequestPlan = await transaction.$queryRaw<
+    const staffAccessRequestPlan = await transaction.$queryRaw<
       readonly QueryPlanRow[]
     >`
       EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
       SELECT id
-      FROM "RoleRequest"
+      FROM ${STAFF_ACCESS_REQUEST_TABLE}
       WHERE "userId" = ${userId}
       ORDER BY "createdAt" DESC, id DESC
       LIMIT 2
@@ -229,7 +240,7 @@ async function historyQueryPlans(
       ORDER BY "loginAt" DESC, id DESC
       LIMIT 2
     `;
-    return [roleRequestPlan, loginHistoryPlan];
+    return [staffAccessRequestPlan, loginHistoryPlan];
   });
 }
 
@@ -240,23 +251,26 @@ function queryPlanText(plan: readonly QueryPlanRow[]): string {
 function createUser(
   label: string,
   suffix: bigint,
-  role: Role,
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
   accountStatus: AccountStatus,
 ) {
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${prefix}${label}`,
       githubId: 9_003_800_000n + suffix,
       nickname: `${queryFragment}-${label}`,
-      role,
       accountStatus,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }
 
 function pendingRequest(userId: string) {
-  return { id: `${userId}:pending`, userId, status: RoleRequestStatus.PENDING };
+  return {
+    id: `${userId}:pending`,
+    userId,
+    status: StaffAccessRequestStatus.PENDING,
+  };
 }
 
 function login(

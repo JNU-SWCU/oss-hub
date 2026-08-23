@@ -1,4 +1,4 @@
-import { ProgramCategory, Role } from '@prisma/client';
+import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -95,8 +95,17 @@ describe('StudentApplicationManagementService integration races', () => {
         id: STUDENT_ID,
         githubId: GITHUB_ID,
         nickname: 'synthetic-student',
-        name: 'Synthetic Student',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
+        profile: {
+          create: {
+            name: 'Synthetic user',
+            studentId: '304001',
+            department: 'Synthetic department',
+            memberKind: MemberKind.STUDENT,
+            affiliationKind: AffiliationKind.DEPARTMENT,
+            affiliationName: 'Synthetic department',
+          },
+        },
       },
     });
   });

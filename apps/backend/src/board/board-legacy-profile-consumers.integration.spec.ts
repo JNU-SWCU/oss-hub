@@ -1,8 +1,9 @@
 import {
   AccountStatus,
+  AffiliationKind,
   BoardPostCategory,
+  MemberKind,
   ProgramCategory,
-  Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../applications/staff-insights.repository';
@@ -50,31 +51,39 @@ beforeEach(async () => {
         id: canonicalUserId,
         githubId: 9_690_000_001n,
         nickname: 'canonical-login',
-        name: 'legacy-person',
-        studentId: '100001',
-        department: 'legacy-department',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: legacyUserId,
         githubId: 9_690_000_002n,
         nickname: 'legacy-login',
-        name: 'legacy-only-person',
-        studentId: '100002',
-        department: 'legacy-only-department',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],
   });
-  await prisma.userProfile.create({
-    data: {
-      userId: canonicalUserId,
-      name: 'canonical-person',
-      studentId: '100001',
-      department: 'canonical-department',
-    },
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: canonicalUserId,
+        name: 'canonical-person',
+        studentId: '100001',
+        department: 'canonical-department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'canonical-department',
+      },
+      {
+        userId: legacyUserId,
+        name: 'legacy-only-person',
+        studentId: '100002',
+        department: 'legacy-only-department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'legacy-only-department',
+      },
+    ],
   });
   await prisma.program.create({
     data: {

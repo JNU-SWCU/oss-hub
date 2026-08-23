@@ -1,7 +1,6 @@
-import { MemberKind, Role } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { completeCompatibleProfileIfUnchanged } from '../profiles/profile-compatibility.repository';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
 import type { ProfileCompletionOutcome } from './users.repository';
@@ -54,9 +53,9 @@ beforeEach(async () => {
       id: userId,
       githubId,
       nickname: 'synthetic-profile-user',
-      name: 'GitHub 합성 이름',
-      selectedRole: Role.STUDENT,
       selectedMemberKind: MemberKind.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
     },
   });
 });
@@ -84,46 +83,37 @@ it('완료된 프로필은 두 번째 요청으로 덮어쓰지 않는다', asyn
       canonicalCompletion(secondProfile),
     ),
   ).resolves.toBe('conflict');
-  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject(
-    firstProfile,
-  );
+  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
+    ...firstProfile,
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: firstProfile.department,
+  });
 });
 
-it('이름만 비어 있는 미완료 프로필도 다시 저장할 수 있다', async () => {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      name: null,
-      studentId: firstProfile.studentId,
-      department: firstProfile.department,
-    },
-  });
-
+it('프로필 행이 없는 미완료 계정도 완료 저장할 수 있다', async () => {
   await expect(completeCurrentProfile(secondProfile)).resolves.toBe(
     'completed',
   );
-  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject(
-    secondProfile,
-  );
-});
-
-it('비어 있거나 형식이 잘못된 기존 프로필도 유효한 값으로 복구할 수 있다', async () => {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      name: '   ',
-      studentId: '12A456',
-      department: '',
-    },
+  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
+    ...secondProfile,
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: secondProfile.department,
   });
-
-  await expect(completeCurrentProfile(firstProfile)).resolves.toBe('completed');
-  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject(
-    firstProfile,
-  );
 });
 
-it('이미 생성된 UserProfile과 충돌하면 legacy User 변경도 롤백한다', async () => {
+it('미완료 계정은 유효한 값으로 완료할 수 있다', async () => {
+  await expect(completeCurrentProfile(firstProfile)).resolves.toBe('completed');
+  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
+    ...firstProfile,
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: firstProfile.department,
+  });
+});
+
+it('이미 생성된 UserProfile과 충돌하면 선점된 행은 바뀌지 않는다', async () => {
   // Given
   const expected = await repository.findByGithubId(githubId);
   if (!expected) {
@@ -135,11 +125,21 @@ it('이미 생성된 UserProfile과 충돌하면 legacy User 변경도 롤백한
       name: '합성 선점 프로필',
       studentId: '153404',
       department: '인공지능학부',
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '인공지능학부',
     },
   });
-  const legacyBefore = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { name: true, studentId: true, department: true },
+  const profileBefore = await prisma.userProfile.findUniqueOrThrow({
+    where: { userId },
+    select: {
+      name: true,
+      studentId: true,
+      department: true,
+      memberKind: true,
+      affiliationKind: true,
+      affiliationName: true,
+    },
   });
 
   // When
@@ -148,35 +148,47 @@ it('이미 생성된 UserProfile과 충돌하면 legacy User 변경도 롤백한
     canonicalCompletion(firstProfile),
   );
 
-  // Then
+  // Then — 선점된 프로필은 한 글자도 바뀌지 않는다
   await expect(completed).resolves.toBe('conflict');
   await expect(
-    prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { name: true, studentId: true, department: true },
+    prisma.userProfile.findUniqueOrThrow({
+      where: { userId },
+      select: {
+        name: true,
+        studentId: true,
+        department: true,
+        memberKind: true,
+        affiliationKind: true,
+        affiliationName: true,
+      },
     }),
-  ).resolves.toEqual(legacyBefore);
+  ).resolves.toEqual(profileBefore);
 });
 
 it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 요청은 CAS miss로 수렴한다', async () => {
-  // Given
-  await prisma.user.update({ where: { id: userId }, data: firstProfile });
-  const expected = {
-    id: userId,
-    ...firstProfile,
-  };
+  // Given — 같은 스냅샷을 두 요청이 함께 들고 들어간다
+  const expected = await repository.findByGithubId(githubId);
+  if (!expected) {
+    throw new Error('합성 프로필 사용자가 존재해야 합니다.');
+  }
   const complete = () =>
-    prisma.$transaction((transaction) =>
-      completeCompatibleProfileIfUnchanged(transaction, expected, firstProfile),
+    repository.completeProfileIfUnchanged(
+      expected,
+      canonicalCompletion(firstProfile),
     );
 
   // When
   const results = await Promise.all([complete(), complete()]);
 
-  // Then
-  expect(results.filter((result) => result)).toHaveLength(1);
-  expect(results.filter((result) => !result)).toHaveLength(1);
-  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject(
-    expected,
-  );
+  // Then — 행 잠금이 둘을 직렬화하고, 진 쪽은 조용히 덮어쓰지 않는다
+  expect(results.filter((outcome) => outcome === 'completed')).toHaveLength(1);
+  expect(results.filter((outcome) => outcome === 'conflict')).toHaveLength(1);
+  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
+    name: firstProfile.name,
+    studentId: firstProfile.studentId,
+    department: firstProfile.department,
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: firstProfile.department,
+  });
 });

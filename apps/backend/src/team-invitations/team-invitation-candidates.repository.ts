@@ -1,10 +1,11 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { MemberKind, AccountStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  compatibleProfileNameWhere,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  STUDENT_MEMBER_WHERE,
+  USER_PROFILE_NAME_SELECT,
+  userProfileNameWhere,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 
 /** 초대 검색 결과 후보 — 공개 가능한 필드만 담는다. */
 export interface InvitationCandidateRecord {
@@ -22,10 +23,13 @@ export async function getInviteeEligibility(
 ): Promise<InviteeEligibility> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, accountStatus: true },
+    select: {
+      accountStatus: true,
+      profile: { select: { memberKind: true } },
+    },
   });
   if (!user) return 'not-found';
-  return user.role === Role.STUDENT &&
+  return user.profile?.memberKind === MemberKind.STUDENT &&
     user.accountStatus === AccountStatus.ACTIVE
     ? 'eligible'
     : 'not-eligible';
@@ -44,18 +48,18 @@ export async function searchInvitationCandidates(
   const users = await prisma.user.findMany({
     where: {
       id: { not: excludeUserId },
-      role: Role.STUDENT,
+      ...STUDENT_MEMBER_WHERE,
       accountStatus: AccountStatus.ACTIVE,
       OR: [
         { nickname: { contains: query, mode: 'insensitive' } },
-        compatibleProfileNameWhere(query),
+        userProfileNameWhere(query),
       ],
       teamMemberships: { none: { programId } },
     },
     select: {
       id: true,
       nickname: true,
-      ...COMPATIBLE_PROFILE_NAME_SELECT,
+      ...USER_PROFILE_NAME_SELECT,
       avatarUrl: true,
     },
     orderBy: { nickname: 'asc' },
@@ -64,7 +68,7 @@ export async function searchInvitationCandidates(
   return users.map((user) => ({
     id: user.id,
     nickname: user.nickname,
-    name: resolveCompatibleProfileName(user),
+    name: resolveUserProfileName(user),
     avatarUrl: user.avatarUrl,
   }));
 }

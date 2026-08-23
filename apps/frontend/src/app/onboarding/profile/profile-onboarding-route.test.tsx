@@ -38,12 +38,11 @@ const ROLE_REDIRECT_DIGEST = 'NEXT_REDIRECT;replace;/onboarding/role;307;';
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
-    role: null,
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: false,
     ...overrides,
@@ -71,7 +70,7 @@ function renderRedirectDigest(overrides: Partial<SessionRoleState>) {
 describe('profileOnboardingView', () => {
   // 회귀 방지(PR #492 리뷰): 바깥 `AuthGate`가 통과시킨 뒤에도 이 라우트의
   // `useSessionRole`은 새로 마운트되어 역할 요청을 다시 조회한다. 그 창에서 상태를
-  // 그대로 화면에 넘기면 role·roleRequestStatus가 모두 null이라 화면이 학생 기준으로
+  // 그대로 화면에 넘기면 role·staffAccessRequestStatus가 모두 null이라 화면이 학생 기준으로
   // 되돌아간다 — 승인을 기다리는 교직원이 학번을 요구받는다.
   it('역할 조회 중에는 폼을 만들지 않는다', () => {
     expect(profileOnboardingView(state({ status: 'loading' }))).toEqual({
@@ -103,7 +102,7 @@ describe('profileOnboardingView', () => {
   it('승인 대기 중인 교직원 요청은 교직원 기준으로 묻고 대기 화면으로 보낸다', () => {
     expect(
       profileOnboardingView(
-        state({ status: 'unassigned', roleRequestStatus: 'PENDING' }),
+        state({ status: 'unassigned', staffAccessRequestStatus: 'PENDING' }),
       ),
     ).toEqual({
       kind: 'form',
@@ -114,10 +113,10 @@ describe('profileOnboardingView', () => {
     });
   });
 
-  it('역할이 배정된 사용자는 자기 역할 홈으로 보낸다', () => {
+  it('회원 유형이 배정된 사용자는 자기 홈으로 보낸다', () => {
     expect(
       profileOnboardingView(
-        state({ status: 'assigned', role: 'STUDENT', memberKind: 'STUDENT' }),
+        state({ status: 'assigned', memberKind: 'STUDENT' }),
       ),
     ).toEqual({
       kind: 'form',
@@ -130,7 +129,7 @@ describe('profileOnboardingView', () => {
   it('승인된 역할 요청도 폼을 연다', () => {
     expect(
       profileOnboardingView(
-        state({ status: 'unassigned', roleRequestStatus: 'APPROVED' }),
+        state({ status: 'unassigned', staffAccessRequestStatus: 'APPROVED' }),
       ),
     ).toEqual({
       kind: 'form',
@@ -184,7 +183,7 @@ describe('profileOnboardingView', () => {
     const view = profileOnboardingView(
       state({
         status: 'unassigned',
-        roleRequestStatus: 'PENDING',
+        staffAccessRequestStatus: 'PENDING',
         selectedRole: null,
       }),
     );
@@ -200,10 +199,10 @@ describe('profileOnboardingView', () => {
   // 한 번 저장하면 백엔드가 그 값을 잠근다(`USR_003`).
   it.each(['REVOKED', 'REJECTED'] as const)(
     '살아 있는 신청이 없는 %s 사용자는 역할 선택으로 되돌린다',
-    (roleRequestStatus) => {
+    (staffAccessRequestStatus) => {
       expect(
         profileOnboardingView(
-          state({ status: 'unassigned', roleRequestStatus }),
+          state({ status: 'unassigned', staffAccessRequestStatus }),
         ),
       ).toEqual({ kind: 'redirect', path: '/onboarding/role' });
     },
@@ -214,17 +213,17 @@ describe('profileOnboardingView', () => {
     // 다시 골라야 한다"를 알면서도 화면은 폼을 그렸다.
     expect(
       profileOnboardingView(
-        state({ status: 'unassigned', roleRequestStatus: 'REVOKED' }),
+        state({ status: 'unassigned', staffAccessRequestStatus: 'REVOKED' }),
       ),
     ).toEqual({ kind: 'redirect', path: '/onboarding/role' });
   });
 
   it.each(['PENDING', 'APPROVED'] as const)(
     '역할을 고른 %s 상태의 교직원은 되돌리지 않는다',
-    (roleRequestStatus) => {
+    (staffAccessRequestStatus) => {
       expect(
         profileOnboardingView(
-          state({ status: 'unassigned', roleRequestStatus }),
+          state({ status: 'unassigned', staffAccessRequestStatus }),
         ).kind,
       ).toBe('form');
     },
@@ -234,9 +233,8 @@ describe('profileOnboardingView', () => {
     '회원 유형이 배정된 %s 사용자는 되돌리지 않는다',
     (role) => {
       expect(
-        profileOnboardingView(
-          state({ status: 'assigned', role, memberKind: role }),
-        ).kind,
+        profileOnboardingView(state({ status: 'assigned', memberKind: role }))
+          .kind,
       ).toBe('form');
     },
   );
@@ -247,7 +245,7 @@ describe('profileOnboardingView', () => {
   it('반려된 사용자도 역할 선택으로 되돌린다', () => {
     expect(
       profileOnboardingView(
-        state({ status: 'unassigned', roleRequestStatus: 'REJECTED' }),
+        state({ status: 'unassigned', staffAccessRequestStatus: 'REJECTED' }),
       ),
     ).toEqual({ kind: 'redirect', path: '/onboarding/role' });
   });
@@ -264,7 +262,10 @@ describe('ProfileOnboardingRoute', () => {
   // 승인 전 교직원은 세션 `role`이 비어 있을 뿐 역할을 고른 사람이다. 여기서 되돌리면
   // 교직원 가입이 통째로 막힌다.
   it('승인 대기 중인 교직원은 되돌리지 않고 프로필 화면을 연다', () => {
-    const html = render({ status: 'unassigned', roleRequestStatus: 'PENDING' });
+    const html = render({
+      status: 'unassigned',
+      staffAccessRequestStatus: 'PENDING',
+    });
 
     expect(html).toContain(PROFILE_SCREEN_MARK);
     expect(html).not.toContain('확인 중…');
@@ -274,9 +275,12 @@ describe('ProfileOnboardingRoute', () => {
   // 일어나는지 본다(#535).
   it.each(['REVOKED', 'REJECTED'] as const)(
     '살아 있는 신청이 없는 %s 사용자는 폼을 그리기 전에 역할 선택으로 이동한다',
-    (roleRequestStatus) => {
+    (staffAccessRequestStatus) => {
       expect(
-        renderRedirectDigest({ status: 'unassigned', roleRequestStatus }),
+        renderRedirectDigest({
+          status: 'unassigned',
+          staffAccessRequestStatus,
+        }),
       ).toBe(ROLE_REDIRECT_DIGEST);
     },
   );
@@ -284,7 +288,6 @@ describe('ProfileOnboardingRoute', () => {
   it('역할이 배정된 사용자는 되돌리지 않는다', () => {
     const html = render({
       status: 'assigned',
-      role: 'STUDENT',
       memberKind: 'STUDENT',
     });
 
@@ -314,7 +317,6 @@ describe('ProfileOnboardingRoute', () => {
   it('역할이 확정되면 프로필 화면을 연다', () => {
     const html = render({
       status: 'assigned',
-      role: 'STUDENT',
       memberKind: 'STUDENT',
     });
 

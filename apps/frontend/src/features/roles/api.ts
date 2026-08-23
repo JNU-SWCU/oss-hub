@@ -1,7 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 
 import type {
-  RoleRequest,
+  StaffAccessRequest,
   RoleSelection,
   RoleSelectionResult,
   RoleSelectionState,
@@ -44,10 +44,10 @@ export async function fetchMyRoleSelection(
   };
 }
 
-export function fetchMyRoleRequest(): Promise<RoleRequest | null> {
-  return apiClient<RoleRequest | null>('role-requests/me');
+export function fetchMyStaffAccessRequest(): Promise<StaffAccessRequest | null> {
+  return apiClient<StaffAccessRequest | null>('role-requests/me');
 }
 
-export function requestStaffRole(): Promise<RoleRequest> {
-  return apiClient<RoleRequest>('role-requests', { method: 'POST' });
+export function requestStaffRole(): Promise<StaffAccessRequest> {
+  return apiClient<StaffAccessRequest>('role-requests', { method: 'POST' });
 }

@@ -35,12 +35,11 @@ function assigned(
 ): SessionRoleResult {
   return {
     status: 'assigned',
-    role: hasAdminAccess ? 'ADMIN' : hasStaffAccess ? 'STAFF' : 'STUDENT',
     memberKind,
     hasStaffAccess,
     hasAdminAccess,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete,
     retry: () => {},

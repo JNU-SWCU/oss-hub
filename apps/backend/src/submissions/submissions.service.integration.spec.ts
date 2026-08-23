@@ -1,7 +1,8 @@
 import {
+  AffiliationKind,
   ApplicationStatus,
+  MemberKind,
   MilestoneSubmissionType,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -55,16 +56,30 @@ describe('SubmissionsService integration', () => {
           id: NON_STUDENT_USER_ID,
           githubId: seedGithubId(NON_STUDENT_USER_ID),
           nickname: 'synthetic-submission-non-student',
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
         {
           id: UNAPPROVED_USER_ID,
           githubId: seedGithubId(UNAPPROVED_USER_ID),
           nickname: 'synthetic-submission-unapproved-student',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
       skipDuplicates: true,
+    });
+    await prisma.userProfile.upsert({
+      where: { userId: UNAPPROVED_USER_ID },
+      update: {},
+      create: {
+        userId: UNAPPROVED_USER_ID,
+        name: '합성 미승인 학생',
+        studentId: '261099',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
     });
     const unapprovedTeamId = `${UNAPPROVED_APPLICATION_ID}-team`;
     await prisma.team.upsert({

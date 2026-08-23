@@ -1,12 +1,18 @@
+import type { AuthorityLabel } from '../../common/authority-label';
 import type {
   ApplicationStatus,
   MilestoneSubmissionType,
   ProgramCategory,
-  Role,
   SubmissionStatus,
 } from '@prisma/client';
 
-export type ProgramViewerRoleResponseDto = Role | 'PENDING' | null;
+/**
+ * 프로그램 상세가 뷰어를 한 단어로 부르는 값. 표시 전용이다.
+ *
+ * `PENDING`은 승인을 기다리는 교직원이라 표시 역할과 같은 칸에 들어간다 — 화면이
+ * "심사 중" 안내를 내는 근거이고, 권한 판정에는 쓰지 않는다.
+ */
+export type ProgramViewerRoleResponseDto = AuthorityLabel | 'PENDING' | null;
 export type ViewerSubmissionStatusResponseDto =
   SubmissionStatus | 'NOT_SUBMITTED' | null;
 

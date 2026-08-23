@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import {
   AUTHORITY_TARGETS,
   resolveIndependentAuthorityTransition,
@@ -6,7 +6,7 @@ import {
 
 const student = {
   memberKind: MemberKind.STUDENT,
-  selectedRole: Role.STUDENT,
+  selectedMemberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
 } as const;
@@ -20,7 +20,7 @@ it('grants admin to a student without granting staff', () => {
     ),
   ).toEqual({
     ...student,
-    role: Role.ADMIN,
+    role: 'ADMIN',
     hasAdminAccess: true,
   });
 });
@@ -34,7 +34,7 @@ it('grants staff without granting admin', () => {
     ),
   ).toEqual({
     ...student,
-    role: Role.STAFF,
+    role: 'STAFF',
     hasStaffAccess: true,
   });
 });
@@ -48,7 +48,7 @@ it('revokes staff from staff-admin while preserving admin', () => {
     ),
   ).toMatchObject({
     memberKind: MemberKind.STUDENT,
-    role: Role.ADMIN,
+    role: 'ADMIN',
     hasStaffAccess: false,
     hasAdminAccess: true,
   });
@@ -63,7 +63,7 @@ it('revokes admin from staff-admin while preserving staff', () => {
     ),
   ).toMatchObject({
     memberKind: MemberKind.STUDENT,
-    role: Role.STAFF,
+    role: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
   });
@@ -74,7 +74,7 @@ it('supports admin-only compatibility without inventing membership', () => {
     resolveIndependentAuthorityTransition(
       {
         memberKind: null,
-        selectedRole: null,
+        selectedMemberKind: null,
         hasStaffAccess: false,
         hasAdminAccess: false,
       },
@@ -83,8 +83,8 @@ it('supports admin-only compatibility without inventing membership', () => {
     ),
   ).toEqual({
     memberKind: null,
-    selectedRole: null,
-    role: Role.ADMIN,
+    selectedMemberKind: null,
+    role: 'ADMIN',
     hasStaffAccess: false,
     hasAdminAccess: true,
   });

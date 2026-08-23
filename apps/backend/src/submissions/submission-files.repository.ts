@@ -5,11 +5,11 @@ import {
   ApplicationStatus,
   MilestoneSubmissionType,
   Prisma,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
+import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
 
@@ -91,7 +91,7 @@ export class SubmissionFilesRepository {
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
+        ...STUDENT_MEMBER_WHERE,
       },
       select: { id: true },
     });
@@ -101,10 +101,15 @@ export class SubmissionFilesRepository {
   async findActiveAdminByGithubId(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     return (
-      user?.role === Role.ADMIN && user.accountStatus === AccountStatus.ACTIVE
+      user?.hasAdminAccess === true &&
+      user.accountStatus === AccountStatus.ACTIVE
     );
   }
 
@@ -137,29 +142,29 @@ export class SubmissionFilesRepository {
   ): Promise<DownloadableSubmissionFile | null> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { id: true, role: true, accountStatus: true },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     if (user?.accountStatus !== AccountStatus.ACTIVE) return null;
 
-    switch (user.role) {
-      case Role.STAFF:
-      case Role.ADMIN:
-        return this.findAuthorizedDownloadableFile({
-          ...downloadableFileWhere(fileId, now),
-        });
-      case Role.STUDENT:
-        return this.findAuthorizedDownloadableFile({
-          ...downloadableFileWhere(fileId, now),
-          OR: [
-            { uploaderId: user.id },
-            { submissionRevision: { submittedById: user.id } },
-            { application: { is: submissionParticipantWhere(user.id) } },
-          ],
-        });
-      case null:
-      case undefined:
-        return null;
+    // 교직원·관리자는 모든 파일을 받을 수 있다. 그 밖에는 자기가 참여한 제출물만이다.
+    if (user.hasStaffAccess || user.hasAdminAccess) {
+      return this.findAuthorizedDownloadableFile({
+        ...downloadableFileWhere(fileId, now),
+      });
     }
+    return this.findAuthorizedDownloadableFile({
+      ...downloadableFileWhere(fileId, now),
+      OR: [
+        { uploaderId: user.id },
+        { submissionRevision: { submittedById: user.id } },
+        { application: { is: submissionParticipantWhere(user.id) } },
+      ],
+    });
   }
 
   async findUploadAuthorization(

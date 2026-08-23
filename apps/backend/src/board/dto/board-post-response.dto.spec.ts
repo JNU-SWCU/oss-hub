@@ -1,4 +1,4 @@
-import { BoardPostCategory, Role } from '@prisma/client';
+import { BoardPostCategory } from '@prisma/client';
 import { BoardPostDetailResponseDto } from './board-post-detail-response.dto';
 import { BoardPostResponseDto } from './board-post-response.dto';
 
@@ -35,7 +35,7 @@ describe('게시판 글 응답 권한 계약', () => {
           id: 'cuid-synthetic-comment',
           postId: post.id,
           authorId: 'cuid-synthetic-comment-author',
-          authorRole: Role.STUDENT,
+          authorRole: 'STUDENT',
           authorName: '합성 댓글 작성자',
           body: '합성 댓글',
           createdAt,

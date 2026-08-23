@@ -5,7 +5,6 @@ import {
   MilestoneSubmissionType,
   Prisma,
   type ReviewDecision,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -18,9 +17,9 @@ import {
 } from '../common/milestone-document-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 // 재사용: 신청 참여자(개인 신청자 본인 또는 팀장/팀원) where 절 — submissions 모듈이 이미
 // 검증한 계약을 그대로 쓴다. 이 파일은 읽기 전용 import만 한다(submissions/**는 수정하지 않는다).
 import { submissionParticipantWhere } from '../submissions/submission-application.record';
@@ -40,7 +39,8 @@ export interface MilestoneDocumentRecord {
 
 export interface MilestoneDocumentViewer {
   readonly id: string;
-  readonly role: Role | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
 }
 
 export interface MilestoneContext {
@@ -78,7 +78,7 @@ export interface MilestoneDocumentSubmissionSummary {
 export interface MilestoneDocumentCollectionApplication {
   readonly applicationId: string;
   readonly teamName: string;
-  /** profiles/profile-compatibility의 resolveCompatibleProfileName 결과 — 프로필 미작성이면 null. */
+  /** profiles/profile-compatibility의 resolveUserProfileName 결과 — 프로필 미작성이면 null. */
   readonly applicantName: string | null;
   readonly memberNicknames: readonly string[];
 }
@@ -455,7 +455,7 @@ function toDocumentRecord(row: {
  */
 const collectionApplicationSelect = {
   id: true,
-  applicant: { select: COMPATIBLE_PROFILE_NAME_SELECT },
+  applicant: { select: USER_PROFILE_NAME_SELECT },
   team: {
     select: {
       name: true,
@@ -734,7 +734,7 @@ export class MilestoneDocumentsRepository {
   ): Promise<MilestoneDocumentViewer | null> {
     return this.prisma.user.findFirst({
       where: { githubId, accountStatus: AccountStatus.ACTIVE },
-      select: { id: true, role: true },
+      select: { id: true, hasStaffAccess: true, hasAdminAccess: true },
     });
   }
 
@@ -892,7 +892,7 @@ export class MilestoneDocumentsRepository {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: resolveCompatibleProfileName(application.applicant),
+      applicantName: resolveUserProfileName(application.applicant),
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),

@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   SystemStatusRepository,
   type CollectionExternalCollectionStatusDto,
@@ -47,7 +47,7 @@ export class SystemStatusService {
   async getStatus(actorGithubId: bigint): Promise<SystemStatusResponseDto> {
     const actor = await this.repository.findActor(actorGithubId);
     if (
-      actor?.role !== Role.ADMIN ||
+      actor?.hasAdminAccess !== true ||
       actor.accountStatus !== AccountStatus.ACTIVE
     ) {
       throw new ForbiddenException('Active administrator access is required');

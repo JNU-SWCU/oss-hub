@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind, Role } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import type { PatchUserProfileInput } from './domain/user-profile';
@@ -9,7 +9,8 @@ import { UsersService } from './users.service';
 
 const student = profileRecord('negative-student');
 const staff = profileRecord('negative-staff', {
-  selectedRole: Role.STAFF,
+  memberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
   selectedMemberKind: MemberKind.STAFF,
 });
 const validStudentInput = {

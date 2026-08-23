@@ -46,12 +46,11 @@ function jsonResponse(value: unknown): Response {
 function assignedStaffSession(): SessionRoleState {
   return {
     status: 'assigned',
-    role: 'STAFF',
     memberKind: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: true,
   };

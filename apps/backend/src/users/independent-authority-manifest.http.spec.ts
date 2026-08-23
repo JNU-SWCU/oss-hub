@@ -1,6 +1,6 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies';
@@ -31,7 +31,7 @@ const detail = {
   id: 'target',
   githubLogin: 'synthetic-target',
   name: '합성 학생 관리자',
-  role: Role.ADMIN,
+  role: 'ADMIN',
   memberKind: MemberKind.STUDENT,
   hasStaffAccess: false,
   hasAdminAccess: true,
@@ -68,7 +68,7 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
     patchStaffAccess: jest.fn(),
     patchAdminAccess: jest.fn().mockResolvedValue({
       id: 'target',
-      role: Role.STUDENT,
+      role: 'STUDENT',
       memberKind: MemberKind.STUDENT,
       hasStaffAccess: false,
       hasAdminAccess: false,

@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import {
   canonicalCompletion,
   profileRecord,
@@ -39,25 +39,21 @@ describe('UsersRepository profile completion writes', () => {
       update: profileData,
       create: { userId: expected.id, ...profileData },
     });
+    // `User` 행에는 canonical 접근 칸과 고른 유형만 남는다 — 프로필 mirror는 없다.
     expect(userUpdate).toHaveBeenCalledWith({
       where: { id: expected.id },
       data: {
-        name: completion.name,
-        studentId: completion.studentId,
-        department: completion.department,
-        selectedRole: 'STUDENT',
         selectedMemberKind: MemberKind.STUDENT,
         hasStaffAccess: false,
         hasAdminAccess: false,
       },
     });
-    expect(userUpdateMany).toHaveBeenCalledTimes(1);
+    expect(userUpdateMany).not.toHaveBeenCalled();
   });
 
   it('교직원 완료도 null 학번 canonical UserProfile을 만든다', async () => {
     // Given
     const staff = profileRecord('user-complete-staff', {
-      selectedRole: 'STAFF',
       selectedMemberKind: MemberKind.STAFF,
     });
     const { repository, userProfileUpsert } = harness(staff);
@@ -68,6 +64,7 @@ describe('UsersRepository profile completion writes', () => {
         department: '인공지능학부',
       },
       MemberKind.STAFF,
+      AffiliationKind.PROGRAM_OFFICE,
     );
 
     // When
@@ -116,9 +113,9 @@ describe('UsersRepository profile completion writes', () => {
 });
 
 describe('UsersRepository profile field updates', () => {
-  it('UserProfile 행이 없어도 실패하지 않고 User 컬럼을 갱신한다', async () => {
+  it('프로필 행 하나만 갱신하고 소속 사본을 함께 옮긴다', async () => {
     // Given
-    const { repository, userProfileUpdateMany, userUpdate } = harness();
+    const { repository, userProfileUpdate, userUpdate } = harness();
 
     // When
     await repository.updateProfileFields('user-legacy-only', {
@@ -126,15 +123,17 @@ describe('UsersRepository profile field updates', () => {
       department: '인공지능학부',
     });
 
-    // Then
-    expect(userProfileUpdateMany).toHaveBeenCalledWith({
+    // Then — `department`와 `affiliationName`은 같은 사실의 두 사본이라
+    // 한쪽만 쓰면 계약 CHECK가 거부한다.
+    expect(userProfileUpdate).toHaveBeenCalledWith({
       where: { userId: 'user-legacy-only' },
-      data: { name: '수정된 이름', department: '인공지능학부' },
+      data: {
+        name: '수정된 이름',
+        department: '인공지능학부',
+        affiliationName: '인공지능학부',
+      },
     });
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: 'user-legacy-only' },
-      data: { name: '수정된 이름', department: '인공지능학부' },
-    });
+    expect(userUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -145,26 +144,33 @@ describe('UsersRepository 학번 최초 저장', () => {
     name: '합성 교직원',
     studentId: null,
     department: '인공지능학부',
+    memberKind: MemberKind.STAFF,
+    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+    affiliationName: '인공지능학부',
   };
   const profile = {
     name: '합성 교직원',
     studentId: '153406',
     department: '인공지능학부',
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: '인공지능학부',
   };
 
   it('UserProfile 행이 없던 교직원도 행을 만들어 제약 아래 학번을 넣는다', async () => {
-    // Given — 갱신 경로(updateMany)는 0행을 갱신하고 제약 없는 User 컬럼만 남겼다
-    const { repository, userProfileUpdateMany, userProfileCreate } = harness();
+    // Given — 학번은 프로필 행의 unique 제약 아래로만 들어간다
+    const { repository, userProfileUpdateMany } = harness();
+    userProfileUpdateMany.mockResolvedValue({ count: 1 });
 
     // When
-    const outcome = await repository.fillStudentId(expected, profile);
+    const outcome = await repository.fillStudentId(expected, profile.studentId);
 
-    // Then
+    // Then — `studentId: null` 조건이 CAS다
     expect(outcome).toBe('filled');
-    expect(userProfileCreate).toHaveBeenCalledWith({
-      data: { userId: expected.id, ...profile },
+    expect(userProfileUpdateMany).toHaveBeenCalledWith({
+      where: { userId: expected.id, studentId: null },
+      data: { studentId: profile.studentId },
     });
-    expect(userProfileUpdateMany).not.toHaveBeenCalled();
   });
 
   it('다른 계정이 소유한 학번은 쓰지 않고 taken을 돌려준다', async () => {
@@ -173,9 +179,9 @@ describe('UsersRepository 학번 최초 저장', () => {
     userProfileFindUnique.mockResolvedValue({ userId: 'other-user' });
 
     // When / Then
-    await expect(repository.fillStudentId(expected, profile)).resolves.toBe(
-      'taken',
-    );
+    await expect(
+      repository.fillStudentId(expected, profile.studentId),
+    ).resolves.toBe('taken');
     expect(userUpdateMany).not.toHaveBeenCalled();
   });
 });

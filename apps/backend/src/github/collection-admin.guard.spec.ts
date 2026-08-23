@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 
@@ -32,7 +32,6 @@ describe('CollectionAdminGuard', () => {
 
   it('canonical hasAdminAccess 사용자를 허용한다', async () => {
     findUnique.mockResolvedValue({
-      role: null,
       hasStaffAccess: false,
       hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
@@ -44,7 +43,6 @@ describe('CollectionAdminGuard', () => {
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 424242n },
       select: {
-        role: true,
         hasStaffAccess: true,
         hasAdminAccess: true,
         accountStatus: true,
@@ -52,22 +50,9 @@ describe('CollectionAdminGuard', () => {
     });
   });
 
-  it('canonical 컬럼이 비어 있으면 legacy ADMIN 역할로 허용한다', async () => {
+  // 교직원 접근은 관리자 문을 열지 않는다 — 두 권한은 서로 독립이다.
+  it('교직원 접근만으로는 거부한다', async () => {
     findUnique.mockResolvedValue({
-      role: Role.ADMIN,
-      hasStaffAccess: null,
-      hasAdminAccess: null,
-      accountStatus: AccountStatus.ACTIVE,
-    });
-    const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
-    context.setType('http');
-
-    await expect(guard.canActivate(context)).resolves.toBe(true);
-  });
-
-  it('legacy 역할이 ADMIN이어도 canonical hasAdminAccess=false면 거부한다', async () => {
-    findUnique.mockResolvedValue({
-      role: Role.ADMIN,
       hasStaffAccess: true,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
@@ -80,13 +65,11 @@ describe('CollectionAdminGuard', () => {
     });
   });
 
-  it.each([Role.STUDENT, Role.STAFF, null])(
-    'ADMIN이 아닌 역할 %s은 COL_004 403으로 거부한다',
-    async (role) => {
+  it('관리자 접근이 없으면 COL_004 403으로 거부한다', async () => {
+    {
       findUnique.mockResolvedValue({
-        role,
-        hasStaffAccess: null,
-        hasAdminAccess: null,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
       });
       const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
@@ -98,13 +81,12 @@ describe('CollectionAdminGuard', () => {
           status: 403,
         },
       });
-    },
-  );
+    }
+  });
 
   it('비활성 ADMIN도 COL_004 403으로 거부한다', async () => {
     findUnique.mockResolvedValue({
-      role: Role.ADMIN,
-      hasStaffAccess: true,
+      hasStaffAccess: false,
       hasAdminAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,
     });

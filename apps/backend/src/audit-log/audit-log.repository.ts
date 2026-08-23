@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { type AccountStatus, type Prisma, type Role } from '@prisma/client';
+import { type AccountStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   parseAuditLogMetadata,
@@ -60,7 +60,8 @@ export type AuditLogTransactionWriter = Pick<
 
 export interface AuditLogActor {
   readonly id: string;
-  readonly role: Role | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
 }
 
@@ -122,7 +123,12 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
   findActorByGithubId(githubId: bigint): Promise<AuditLogActor | null> {
     return this.prisma.user.findUnique({
       where: { githubId },
-      select: { id: true, role: true, accountStatus: true },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
   }
 

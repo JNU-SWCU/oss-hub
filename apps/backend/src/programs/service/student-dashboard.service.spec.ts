@@ -20,7 +20,10 @@ function application(overrides: Record<string, unknown> = {}) {
     status: ApplicationStatus.APPROVED,
     // D5: 개인 참여 = 1인 팀. teamId/team은 항상 있고 멤버 수로 개인/팀을 가른다.
     teamId: 'solo-team-1',
-    applicant: { name: 'Synthetic Applicant', nickname: 'synthetic' },
+    applicant: {
+      profile: { name: 'Synthetic Applicant' },
+      nickname: 'synthetic',
+    },
     team: { name: 'Synthetic Applicant', _count: { members: 1 } },
     program: {
       id: 'program-1',
@@ -83,7 +86,7 @@ describe('StudentDashboardService', () => {
       application({
         id: 'application-2',
         teamId: 'team-1',
-        applicant: { name: 'Other applicant', nickname: 'other' },
+        applicant: { profile: { name: 'Other applicant' }, nickname: 'other' },
         team: { name: 'Synthetic Team', _count: { members: 2 } },
       }),
     ]);

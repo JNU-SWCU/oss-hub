@@ -4,7 +4,6 @@ import {
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
-  Role,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -95,7 +94,8 @@ function setup() {
     findActor: jest.fn().mockResolvedValue({
       id: ACTOR_ID,
       accountStatus: AccountStatus.ACTIVE,
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
     }),
     findReplay: jest.fn().mockResolvedValue(null),
     withTransaction: <T>(

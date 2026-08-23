@@ -1,6 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AccountStatus, ApplicationStatus, Role } from '@prisma/client';
+import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -34,7 +34,8 @@ const decide = jest.fn().mockResolvedValue({
 
 const findUnique = jest.fn().mockResolvedValue({
   id: staffUserId,
-  role: Role.STAFF,
+  hasStaffAccess: true,
+  hasAdminAccess: false,
   accountStatus: AccountStatus.ACTIVE,
 });
 

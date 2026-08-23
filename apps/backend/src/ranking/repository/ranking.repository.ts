@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, MemberKind, Role, type Prisma } from '@prisma/client';
+import { AccountStatus, MemberKind, type Prisma } from '@prisma/client';
 import { nextScheduledCollectionAt } from '../../github/collection-schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileDepartment,
-  resolveCompatibleProfileName,
-} from '../../profiles/profile-compatibility';
+  USER_PROFILE_DEPARTMENT_SELECT,
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileDepartment,
+  resolveUserProfileName,
+} from '../../profiles/user-profile-read';
 
 export type RankingViewerClass = 'public' | 'staff';
 
@@ -53,11 +53,15 @@ export class RankingRepository {
     }
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     if (
       actor !== null &&
-      (actor.role === Role.STAFF || actor.role === Role.ADMIN) &&
+      (actor.hasStaffAccess || actor.hasAdminAccess) &&
       actor.accountStatus === AccountStatus.ACTIVE
     ) {
       return 'staff';
@@ -74,7 +78,7 @@ export class RankingRepository {
         select: {
           githubId: true,
           nickname: true,
-          ...COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
+          ...USER_PROFILE_DEPARTMENT_SELECT,
         },
       }),
       this.prisma.githubUserActivityHistory.findMany({
@@ -134,7 +138,7 @@ export class RankingRepository {
         return {
           githubId: user.githubId,
           githubLogin: user.nickname,
-          department: resolveCompatibleProfileDepartment(user),
+          department: resolveUserProfileDepartment(user),
           commitCount: totals?.commitCount ?? 0,
           pullRequestCount: totals?.pullRequestCount ?? 0,
           issueCount: totals?.issueCount ?? 0,
@@ -155,11 +159,11 @@ export class RankingRepository {
       where: { githubId: { in: uniqueIds } },
       select: {
         githubId: true,
-        ...COMPATIBLE_PROFILE_NAME_SELECT,
+        ...USER_PROFILE_NAME_SELECT,
       },
     });
     return new Map(
-      users.map((user) => [user.githubId, resolveCompatibleProfileName(user)]),
+      users.map((user) => [user.githubId, resolveUserProfileName(user)]),
     );
   }
 

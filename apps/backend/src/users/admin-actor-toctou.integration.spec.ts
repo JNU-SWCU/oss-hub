@@ -1,4 +1,5 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -62,8 +63,8 @@ it(
   '권한 변경: actor를 강등하는 트랜잭션과 겹치면 ROL_004로 거부하고 아무것도 쓰지 않는다',
   async () => {
     // Given — 강등이 먼저 행을 잡고 커밋을 미룬다. 권한 변경은 그 뒤에 들어와 잠금에 막힌다.
-    const actor = await createUser('reject-actor', Role.ADMIN);
-    const target = await createUser('reject-target', Role.STUDENT);
+    const actor = await createUser('reject-actor', 'ADMIN');
+    const target = await createUser('reject-target', 'STUDENT');
     const demotion = startHeldDemotion(actor.id);
     await demotion.applied;
 
@@ -75,8 +76,8 @@ it(
 
     // When
     const mutation = service.patchAccess(actor.githubId, target.id, {
-      expectedRole: Role.STUDENT,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STUDENT',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
@@ -97,7 +98,8 @@ it(
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: Role.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
@@ -111,8 +113,8 @@ it(
   '권한 변경: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다',
   async () => {
     // Given
-    const actor = await createUser('pinned-actor', Role.ADMIN);
-    const target = await createUser('pinned-target', Role.STUDENT);
+    const actor = await createUser('pinned-actor', 'ADMIN');
+    const target = await createUser('pinned-target', 'STUDENT');
     const reachedActorRead = deferred();
     const releaseMutation = deferred();
     const mutationBackend = backendPid();
@@ -129,8 +131,8 @@ it(
 
     // When
     const mutation = service.patchAccess(actor.githubId, target.id, {
-      expectedRole: Role.STUDENT,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STUDENT',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
@@ -152,11 +154,14 @@ it(
       releaseMutation.resolve();
       demotion.commit();
     }
-    await expect(mutation).resolves.toMatchObject({ role: Role.STAFF });
+    await expect(mutation).resolves.toMatchObject({ role: 'STAFF' });
     await demotion.done;
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-    ).resolves.toMatchObject({ role: Role.STAFF });
+    ).resolves.toMatchObject({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
@@ -165,8 +170,8 @@ it(
   '프로필 대리 수정: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다',
   async () => {
     // Given
-    const actor = await createUser('profile-actor', Role.ADMIN);
-    const target = await createUser('profile-target', Role.STUDENT);
+    const actor = await createUser('profile-actor', 'ADMIN');
+    const target = await createUser('profile-target', 'STUDENT');
     const reachedActorRead = deferred();
     const releaseMutation = deferred();
     const mutationBackend = backendPid();
@@ -202,12 +207,15 @@ it(
     await expect(mutation).resolves.toMatchObject({ name: '합성 새 이름' });
     await demotion.done;
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.userProfile.findUniqueOrThrow({ where: { userId: target.id } }),
     ).resolves.toMatchObject({ name: '합성 새 이름' });
     // 강등은 막혔던 것이지 사라진 것이 아니다 — 프로필 수정이 커밋된 뒤에 이어서 반영된다.
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
-    ).resolves.toMatchObject({ role: Role.STAFF });
+    ).resolves.toMatchObject({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
@@ -216,8 +224,8 @@ it(
   '프로필 대리 수정: actor를 강등하는 트랜잭션과 겹치면 ROL_004로 거부하고 아무것도 쓰지 않는다',
   async () => {
     // Given — 강등이 먼저 행을 잡고 커밋을 미룬다. 프로필 수정은 그 뒤에 들어와 잠금에 막힌다.
-    const actor = await createUser('profile-reject-actor', Role.ADMIN);
-    const target = await createUser('profile-reject-target', Role.STUDENT);
+    const actor = await createUser('profile-reject-actor', 'ADMIN');
+    const target = await createUser('profile-reject-target', 'STUDENT');
     const demotion = startHeldDemotion(actor.id);
     await demotion.applied;
 
@@ -246,8 +254,8 @@ it(
       errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
     });
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-    ).resolves.toMatchObject({ name: null });
+      prisma.userProfile.findUniqueOrThrow({ where: { userId: target.id } }),
+    ).resolves.not.toMatchObject({ name: '합성 거부될 이름' });
     await expect(
       prisma.auditLog.count({ where: { targetId: target.id } }),
     ).resolves.toBe(0);
@@ -255,16 +263,15 @@ it(
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
 
-function createUser(label: string, role: Role) {
+function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-687-${label}-${sequence}`,
-      role,
       accountStatus: AccountStatus.ACTIVE,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }
@@ -293,7 +300,11 @@ function startHeldDemotion(userId: string): {
       backend.capture(row?.pid ?? 0);
       await transaction.user.update({
         where: { id: userId },
-        data: { role: Role.STAFF },
+        data: {
+          hasAdminAccess: false,
+          hasStaffAccess: true,
+          selectedMemberKind: MemberKind.STAFF,
+        },
       });
       applied.resolve();
       await release.promise;

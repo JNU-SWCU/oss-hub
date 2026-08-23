@@ -1,9 +1,9 @@
-import { AccountStatus, Prisma, Role } from '@prisma/client';
-import { resolveMemberAuthorityCompatibility } from '../profiles/member-authority-compatibility';
+import { AccountStatus, Prisma } from '@prisma/client';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
+import { authorityLabel } from '../common/authority-label';
 import type { AdminAccessActor } from './admin-access.repository.types';
 
 /**
@@ -26,13 +26,11 @@ export const ADMIN_ACTOR_SELECT = {
   id: true,
   githubId: true,
   nickname: true,
-  role: true,
-  selectedRole: true,
   selectedMemberKind: true,
   hasStaffAccess: true,
   hasAdminAccess: true,
   accountStatus: true,
-  ...COMPATIBLE_PROFILE_NAME_SELECT,
+  ...USER_PROFILE_NAME_SELECT,
 } as const satisfies Prisma.UserSelect;
 
 type PrismaAdminActor = Prisma.UserGetPayload<{
@@ -47,18 +45,10 @@ type LockedUserRow = Readonly<{ id: string }>;
  * 돌아온 뒤에는 이 트랜잭션이 끝날 때까지 아무도 그 행들을 바꿀 수 없다 — actor 권한
  * 재검증은 **이 호출 뒤에** 해야 의미가 있다(#687).
  *
- * **세는 기준은 legacy `role`이다 — canonical `hasAdminAccess`가 아니다.** 이 잠금이
- * 지키는 불변식은 "활성 ADMIN **역할**이 최소 하나 남는다"이고, 그 불변식을 가지는
- * 전이는 `role`을 옮기는 legacy 경로뿐이다. 두 칸은 일부러 갈라질 수 있다 — #996이
- * 교직원과 관리자 권한 변경을 분리하면서 legacy 역할 변경이 canonical 권한을 지우지
- * **않도록** 했기 때문이다(`admin-access-authority-write.ts`). 그래서 ADMIN에서 STAFF로
- * 강등된 사람은 `role = STAFF`이면서 `hasAdminAccess = true`일 수 있다. 여기서
- * canonical 칸을 세면 이미 강등된 사람을 활성 관리자로 오해해 마지막 관리자 가드가
- * 끩는다(`admin-access.integration.spec.ts`의 경쟁 스펙이 그것을 잡는다).
- *
- * 독립 권한 경로(`independent-authority.service.ts`)가 canonical 칸의 유일한 주인이고,
- * 그쪽은 `role`과 canonical을 함께 옥긴다 — 그래서 이 집합은 양쪽 경로 모두에서
- * 일관되게 남는다.
+ * **세는 기준은 `hasAdminAccess`다.** 계약 마이그레이션이 legacy `role`을 지운 뒤로는
+ * 그 칸이 관리자 권한의 유일한 정본이고, 관리자 권한을 옮기는 모든 경로가 그 칸만
+ * 쓴다(`admin-access-authority-write.ts`·`independent-authority.service.ts`). 두 칸이
+ * 갈라질 수 있던 호환 구간은 끝났으므로 여기서 세는 집합과 전이가 바꾸는 집합이 같다.
  *
  * `RepeatableRead` 트랜잭션에서 이 잠금이 대기하다 상대가 커밋하면 Postgres가 `40001`을
  * 내고 Prisma는 그걸 `P2010`으로 감싼다. 그 모양을 알아보는 일은 공용
@@ -72,7 +62,7 @@ export async function lockActiveAdminRows(
     Prisma.sql`
         SELECT id
         FROM "User"
-        WHERE role = ${Role.ADMIN}::"Role"
+        WHERE "hasAdminAccess" = TRUE
           AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
         ORDER BY id
         FOR UPDATE
@@ -92,27 +82,20 @@ export async function findAdminActorByGithubId(
   return actor ? toAdminActor(actor) : null;
 }
 
-/**
- * actor 행을 canonical 접근 권한과 함께 읽어 온다.
- *
- * `hasStaffAccess`·`hasAdminAccess`가 `NULL`인 backfill 이전 행은 compat 계층이 legacy
- * `role`에서 되살린다 — 그래야 인가 판정(`admin-access-authorization.ts`)이 두 세대의 행을
- * 같은 규칙으로 본다.
- */
+/** actor 행을 canonical 접근 권한과 함께 읽어 온다. */
 export function toAdminActor(user: PrismaAdminActor): AdminAccessActor {
-  const authority = resolveMemberAuthorityCompatibility({
-    ...user,
-    department: null,
-    profile: null,
-  });
   return {
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    name: resolveCompatibleProfileName(user),
-    role: user.role,
-    hasStaffAccess: authority.hasStaffAccess,
-    hasAdminAccess: authority.hasAdminAccess,
+    name: resolveUserProfileName(user),
+    role: authorityLabel({
+      memberKind: user.selectedMemberKind,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+    }),
+    hasStaffAccess: user.hasStaffAccess,
+    hasAdminAccess: user.hasAdminAccess,
     accountStatus: user.accountStatus,
   };
 }

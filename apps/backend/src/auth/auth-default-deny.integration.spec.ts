@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthModule } from './auth.module';
 import { OptionalSession, Public } from './auth-route-metadata';
@@ -26,38 +26,35 @@ import { PrismaModule } from '../prisma/prisma.module';
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
 const activeUser: AuthUser = {
+  name: null,
   id: 'synthetic-default-deny-user',
   githubId,
   nickname: 'synthetic-user',
-  name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: Role.STUDENT,
   memberKind: MemberKind.STUDENT,
   hasStaffAccess: false,
   hasAdminAccess: false,
   isProfileComplete: true,
 };
 
-type PrincipalShape = Readonly<{
-  id: string;
-  githubId: bigint;
-  role: Role | null;
-}>;
-
-type PrincipalRequest = Request & Readonly<{ principal: PrincipalShape }>;
+type PrincipalRequest = Request & Readonly<{ principal: AuthUser }>;
 
 @Injectable()
 class PrincipalProbeService {
-  read(principal: PrincipalShape): Readonly<{
+  read(principal: AuthUser): Readonly<{
     userId: string;
     githubId: string;
-    role: Role | null;
+    memberKind: MemberKind | null;
+    hasStaffAccess: boolean;
+    hasAdminAccess: boolean;
   }> {
     return {
       userId: principal.id,
       githubId: principal.githubId.toString(10),
-      role: principal.role,
+      memberKind: principal.memberKind,
+      hasStaffAccess: principal.hasStaffAccess,
+      hasAdminAccess: principal.hasAdminAccess,
     };
   }
 }
@@ -66,7 +63,7 @@ class PrincipalProbeService {
 class StaffFixtureGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<PrincipalRequest>();
-    if (request.principal.role !== Role.STAFF) {
+    if (!request.principal.hasStaffAccess) {
       throw new ForbiddenException();
     }
     return true;
@@ -188,7 +185,11 @@ describe('global default-deny authentication boundary', () => {
 
   it('passes a database-backed active principal to a representative service', async () => {
     // Given: a valid identity token and current mutable authority from the DB seam.
-    currentUser = { ...activeUser, role: Role.STAFF };
+    currentUser = {
+      ...activeUser,
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
+    };
 
     // When: the unannotated route is requested with the same identity token.
     const response = await fetch(
@@ -196,12 +197,14 @@ describe('global default-deny authentication boundary', () => {
       { headers: { cookie: sessionCookie } },
     );
 
-    // Then: the service receives the current account principal, including DB role.
+    // Then: the service receives the current account principal, including access facts.
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       userId: activeUser.id,
       githubId: githubId.toString(10),
-      role: Role.STAFF,
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
     });
   });
 

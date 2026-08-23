@@ -1,4 +1,8 @@
-import { MilestoneSubmissionType, ProgramCategory, Role } from '@prisma/client';
+import {
+  MemberKind,
+  MilestoneSubmissionType,
+  ProgramCategory,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
@@ -13,7 +17,8 @@ export const NOW = new Date('2026-08-18T00:00:00.000Z');
 export const STAFF_VIEWER = {
   githubId: STAFF_GITHUB_ID,
   userId: `${TEST_PREFIX}staff`,
-  role: Role.STAFF,
+  selectedMemberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
 } as const;
 
 export const prisma = new PrismaService();

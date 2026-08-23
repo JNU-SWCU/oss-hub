@@ -1,7 +1,8 @@
 import {
   AccountStatus,
+  AffiliationKind,
+  MemberKind,
   ProgramCategory,
-  Role,
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -49,50 +50,103 @@ async function seedEligibilityFixture(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_300_000_001n,
         nickname: 'eligibility-leader',
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_300_000_002n,
         nickname: 'eligibility-invitee',
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: ACTIVE_STUDENT_ID,
         githubId: 9_300_000_003n,
         nickname: `${CANDIDATE_QUERY}-student`,
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: STAFF_ID,
         githubId: 9_300_000_004n,
         nickname: `${CANDIDATE_QUERY}-staff`,
-        role: Role.STAFF,
+        hasStaffAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: ADMIN_ID,
         githubId: 9_300_000_005n,
         nickname: `${CANDIDATE_QUERY}-admin`,
-        role: Role.ADMIN,
+        hasAdminAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: DEACTIVATED_STUDENT_ID,
         githubId: 9_300_000_006n,
         nickname: `${CANDIDATE_QUERY}-deactivated`,
-        role: Role.STUDENT,
         accountStatus: AccountStatus.DEACTIVATED,
       },
       {
         id: UNASSIGNED_ROLE_ID,
         githubId: 9_300_000_007n,
         nickname: `${CANDIDATE_QUERY}-unassigned`,
-        role: null,
         accountStatus: AccountStatus.ACTIVE,
+      },
+    ],
+  });
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: LEADER_ID,
+        name: 'Synthetic user',
+        studentId: '303001',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: INVITEE_ID,
+        name: 'Synthetic user',
+        studentId: '303002',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: ACTIVE_STUDENT_ID,
+        name: 'Synthetic user',
+        studentId: '303003',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: STAFF_ID,
+        name: 'Synthetic user',
+        studentId: null,
+        department: 'Synthetic program office',
+        memberKind: MemberKind.STAFF,
+        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+        affiliationName: 'Synthetic program office',
+      },
+      {
+        userId: ADMIN_ID,
+        name: 'Synthetic user',
+        studentId: null,
+        department: 'Synthetic program office',
+        memberKind: MemberKind.STAFF,
+        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+        affiliationName: 'Synthetic program office',
+      },
+      {
+        userId: DEACTIVATED_STUDENT_ID,
+        name: 'Synthetic user',
+        studentId: '303006',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
       },
     ],
   });
@@ -172,7 +226,22 @@ describe('TeamInvitationsRepository eligibility integration', () => {
   });
 
   it.each([
-    ['교직원으로 역할 변경', { role: Role.STAFF }],
+    [
+      '교직원으로 역할 변경',
+      {
+        hasStaffAccess: true,
+        selectedMemberKind: MemberKind.STAFF,
+        profile: {
+          update: {
+            memberKind: MemberKind.STAFF,
+            studentId: null,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            department: 'Synthetic program office',
+            affiliationName: 'Synthetic program office',
+          },
+        },
+      },
+    ],
     ['계정 비활성화', { accountStatus: AccountStatus.DEACTIVATED }],
   ] as const)('%s 후에는 기존 초대를 수락할 수 없다', async (_, update) => {
     // Given: ACTIVE STUDENT일 때 받은 대기 중 초대가 있고 이후 자격이 바뀐다.

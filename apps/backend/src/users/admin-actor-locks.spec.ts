@@ -1,4 +1,4 @@
-import { AccountStatus, Prisma, Role } from '@prisma/client';
+import { AccountStatus, MemberKind, Prisma } from '@prisma/client';
 import { lockActiveAdminRows, toAdminActor } from './admin-actor-locks';
 
 type ActorRow = Parameters<typeof toAdminActor>[0];
@@ -8,12 +8,9 @@ function actorRow(overrides: Partial<ActorRow> = {}): ActorRow {
     id: 'actor',
     githubId: 9_140_000_001n,
     nickname: 'synthetic-actor',
-    name: '합성 액터',
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
-    selectedMemberKind: null,
-    hasStaffAccess: null,
-    hasAdminAccess: null,
+    selectedMemberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     profile: null,
     ...overrides,
@@ -23,15 +20,14 @@ function actorRow(overrides: Partial<ActorRow> = {}): ActorRow {
 /**
  * actor 행이 인가 판정으로 넘어갈 때 접근 권한을 **무엇에서** 읽는지 고정한다.
  *
- * expand 단계라 `hasStaffAccess`·`hasAdminAccess`는 아직 nullable이다. 값이 있으면 그것이
- * 정본이고, `NULL`인 backfill 이전 행만 legacy `role`로 떨어진다 — 그 우선순위가 뒤집히면
- * 독립 권한 부여(`independent-authority-transition.ts`)로 갈라 둔 상태가 인가에서 무시된다.
+ * 계약 단계 이후 `hasStaffAccess`·`hasAdminAccess`가 유일한 정본이다. 표시 역할
+ * (`role`)은 세 사실을 접은 요약이라 판정에 쓰이지 않는다 — 접는 순간 학생 관리자의
+ * 학생이라는 사실이 사라지기 때문이다.
  */
 describe('toAdminActor', () => {
-  it('takes canonical access columns as the source of truth over the legacy role', () => {
-    // Given: role은 STAFF지만 canonical로는 관리자인 행
+  it('takes canonical access columns as the source of truth', () => {
+    // Given: 교직원 접근과 관리자 접근을 함께 가진 행
     const row = actorRow({
-      role: Role.STAFF,
       hasStaffAccess: true,
       hasAdminAccess: true,
     });
@@ -44,58 +40,54 @@ describe('toAdminActor', () => {
     expect(actor.hasAdminAccess).toBe(true);
   });
 
-  it('reports no access when the canonical columns deny it despite an ADMIN role', () => {
+  // 관리자 권한이 교직원 권한을 함의하지 않는다 — 관리자가 곧 교직원은 아니다.
+  it('does not imply staff access from admin access', () => {
     // Given
-    const row = actorRow({
-      role: Role.ADMIN,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    });
+    const row = actorRow({ hasAdminAccess: true, hasStaffAccess: false });
 
     // When
     const actor = toAdminActor(row);
 
     // Then
     expect(actor.hasStaffAccess).toBe(false);
-    expect(actor.hasAdminAccess).toBe(false);
+    expect(actor.hasAdminAccess).toBe(true);
   });
 
   it.each([
-    [Role.ADMIN, true, true],
-    [Role.STAFF, true, false],
-    [Role.STUDENT, false, false],
-    [null, false, false],
+    [MemberKind.STUDENT, false, false, 'STUDENT'],
+    [MemberKind.STUDENT, false, true, 'ADMIN'],
+    [MemberKind.STAFF, true, false, 'STAFF'],
+    [null, false, false, null],
   ] as const)(
-    'falls back to the legacy role %s for rows the backfill has not reached',
-    (role, hasStaffAccess, hasAdminAccess) => {
-      // Given: canonical 칸이 아직 NULL인 행
+    'folds (%s, staff=%s, admin=%s) into the display role %s',
+    (selectedMemberKind, hasStaffAccess, hasAdminAccess, expected) => {
+      // Given
       const row = actorRow({
-        role,
-        hasStaffAccess: null,
-        hasAdminAccess: null,
+        selectedMemberKind,
+        hasStaffAccess,
+        hasAdminAccess,
       });
 
       // When
       const actor = toAdminActor(row);
 
-      // Then
+      // Then — 표시 값은 접히지만 판정용 두 칸은 그대로 살아 있다
+      expect(actor.role).toBe(expected);
       expect(actor.hasStaffAccess).toBe(hasStaffAccess);
       expect(actor.hasAdminAccess).toBe(hasAdminAccess);
-      expect(actor.role).toBe(role);
     },
   );
 });
 
 /**
- * 이 잠금은 일부러 canonical 칸을 안 센다.
+ * 이 잠금은 `hasAdminAccess`를 센다.
  *
- * 지키는 불변식이 "활성 ADMIN **역할**이 최소 하나"이고, #996 이후 legacy 역할 변경은
- * canonical 권한을 지우지 않으므로 ADMIN→STAFF로 강등된 행은 `hasAdminAccess`가
- * `true`로 남는다. 그 칸을 세면 강등된 사람이 활성 관리자로 계속 잡혀 마지막 관리자
- * 가드가 끩는다.
+ * 계약 마이그레이션이 legacy `role`을 지운 뒤로는 그 칸이 관리자 권한의 유일한
+ * 정본이고, 권한을 옮기는 모든 경로가 그 칸만 쓴다. 두 칸이 갈라질 수 있던 호환
+ * 구간은 끝났으므로 여기서 세는 집합과 전이가 바꾸는 집합이 같다.
  */
 describe('lockActiveAdminRows', () => {
-  it('counts active admins by the legacy role column that the guard is defined over', async () => {
+  it('counts active admins by the canonical hasAdminAccess column', async () => {
     // Given
     const queries: Prisma.Sql[] = [];
     const transaction = {
@@ -116,10 +108,9 @@ describe('lockActiveAdminRows', () => {
       throw new Error('expected the lock to issue exactly one query');
     }
     const sql = query.sql.replace(/\s+/g, ' ');
-    expect(sql).toContain('WHERE role =');
-    expect(sql).not.toContain('hasAdminAccess');
+    expect(sql).toContain('"hasAdminAccess" = TRUE');
+    expect(sql).not.toContain('role');
     expect(sql).toContain('FOR UPDATE');
-    expect(query.values).toContain(Role.ADMIN);
     expect(query.values).toContain(AccountStatus.ACTIVE);
   });
 });

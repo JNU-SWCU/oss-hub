@@ -1,8 +1,8 @@
 import {
+  ApplicationStatus,
+  MemberKind,
   MilestoneSubmissionType,
   ProgramCategory,
-  ApplicationStatus,
-  Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../common/error-code';
@@ -97,14 +97,15 @@ async function seed(): Promise<void> {
         id: `${TEST_PREFIX}staff`,
         githubId: STAFF_GITHUB_ID,
         nickname: 'deadline-staff',
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
         accountStatus: 'ACTIVE',
       },
       {
         id: LEADER_ID,
         githubId: 9_127_000_002n,
         nickname: 'deadline-leader',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
         notifyEnabled: true,
         notificationEmail: 'deadline-leader@example.invalid',
@@ -113,7 +114,7 @@ async function seed(): Promise<void> {
         id: MEMBER_ID,
         githubId: 9_127_000_003n,
         nickname: 'deadline-member',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
         notifyEnabled: true,
         notificationEmail: 'deadline-member@example.invalid',

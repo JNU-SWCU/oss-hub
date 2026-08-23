@@ -1,20 +1,22 @@
 /**
- * 라우트 골격·역할별 패널 셸 (#136) 전용 역할 상수.
- * 백엔드 `AUTH_INITIAL_ROLES`가 허용하는 역할과 동일한 값 집합이다.
- */
-import type { AuthRole } from '@/features/auth/types';
-
-export type AppRole = AuthRole;
-
-/**
- * 회원 공통 역할 홈 입구.
+ * 회원 공통 홈 입구.
  *
- * 세션 쿠키 JWT에는 `sub`(githubId)만 있고 역할 클레임은 없다. 역할은 DB
- * `User.role`에 저장되며 `/auth/session`이 세션 주체로 조회해 내려준다. 프론트는 그
- * 값으로 `/dashboard` **본문만** 가르고, URL 입구는 역할과 무관하게 하나다.
+ * 세션 쿠키 JWT에는 `sub`(githubId)만 있고 권한 클레임은 없다. 회원 유형과 접근
+ * 권한은 DB가 들고 있고 `/auth/session`이 세션 주체로 조회해 내려준다. 프런트는 그
+ * 값으로 `/dashboard` **본문만** 가르고, URL 입구는 하나다.
  *
- * `_role`은 호출부·테스트 시그니처를 유지하기 위해 받는다(역할별 경로는 쓰지 않음).
+ * 예전에는 역할을 인자로 받았지만 값과 무관하게 언제나 같은 경로를 돌려줬다 —
+ * 배타적 역할이 사라진 지금 그 인자는 "역할별 경로가 있다"는 잘못된 여지만 남긴다.
  */
-export function roleHomePath(_role: AppRole): string {
+export function roleHomePath(): string {
   return '/dashboard';
 }
+
+/**
+ * 화면이 한 사람을 한 단어로 부를 때 쓰는 표시 값 — 백엔드 `AuthorityLabel`과 같은 집합.
+ *
+ * **surface 판정에 쓰지 않는다.** 사이드바·게이트는 `member-access.ts`의 세 사실을
+ * 각각 본다 — 한 칸으로 접으면 학생 관리자가 "관리자"로만 보이고 학생이라는 사실이
+ * 사라진다. 이 타입은 재개 버튼 라벨처럼 하나만 골라야 하는 자리에만 쓴다.
+ */
+export type AppRole = 'STUDENT' | 'STAFF' | 'ADMIN';

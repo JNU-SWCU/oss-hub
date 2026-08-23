@@ -9,7 +9,6 @@ import {
 } from '@/features/auth/signup-entry-link';
 import { useSessionRole, type SessionStatus } from './use-session-role';
 import type { MemberAccess } from './member-access';
-import type { AppRole } from './role';
 import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 
 /**
@@ -34,8 +33,11 @@ const ADMIN_HOME: SessionEntry = {
   compactLabel: '관리',
 };
 
-/** legacy signup 단위 테스트·호환 경계용. surface 조합에는 사용하지 않는다. */
-export const ROLE_HOME_LABEL: Record<AppRole, string> = {
+/**
+ * 표시 역할별 홈 라벨. 가입 재개 버튼이 "어디로 돌아가는지"를 한 단어로 말할 때만 쓴다.
+ * surface 조합(사이드바·게이트)은 `member-access.ts`가 담당한다.
+ */
+export const ROLE_HOME_LABEL: Record<'STUDENT' | 'STAFF' | 'ADMIN', string> = {
   STUDENT: STUDENT_HOME.label,
   STAFF: STAFF_HOME.label,
   ADMIN: ADMIN_HOME.label,

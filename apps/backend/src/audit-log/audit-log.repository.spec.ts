@@ -1,8 +1,7 @@
 import {
   AccountStatus,
   ProgramLifecycle,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
   type Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -77,12 +76,12 @@ describe('AuditLogRepository', () => {
       before: {
         role: null,
         accountStatus: AccountStatus.ACTIVE,
-        requestStatus: RoleRequestStatus.PENDING,
+        requestStatus: StaffAccessRequestStatus.PENDING,
       },
       after: {
         role: null,
         accountStatus: AccountStatus.ACTIVE,
-        requestStatus: RoleRequestStatus.REJECTED,
+        requestStatus: StaffAccessRequestStatus.REJECTED,
       },
       rejectionReason: '합성 반려 사유',
     } as const;
@@ -157,12 +156,12 @@ describe('AuditLogRepository', () => {
         githubLogin: 'event-time-admin',
       },
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
       after: {
-        role: Role.ADMIN,
+        role: 'ADMIN',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
@@ -207,12 +206,12 @@ describe('AuditLogRepository', () => {
         githubLogin: 'event-time-target',
       },
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
       after: {
-        role: Role.ADMIN,
+        role: 'ADMIN',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },

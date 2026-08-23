@@ -8,9 +8,9 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../../profiles/profile-compatibility';
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../../profiles/user-profile-read';
 import {
   REPOSITORIES_READ_PORT,
   type RepositoriesReadPort,
@@ -115,7 +115,7 @@ export class StudentDashboardService {
           applicant: {
             select: {
               nickname: true,
-              ...COMPATIBLE_PROFILE_NAME_SELECT,
+              ...USER_PROFILE_NAME_SELECT,
             },
           },
           team: {
@@ -152,7 +152,7 @@ export class StudentDashboardService {
       const displayName =
         applicationMode === 'TEAM'
           ? application.team?.name
-          : (resolveCompatibleProfileName(application.applicant) ??
+          : (resolveUserProfileName(application.applicant) ??
             application.applicant.nickname);
 
       if (

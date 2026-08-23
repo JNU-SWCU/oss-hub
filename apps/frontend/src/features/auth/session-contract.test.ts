@@ -20,7 +20,6 @@ const syntheticUser: Me = {
   name: null,
   email: null,
   avatarUrl: null,
-  role: 'STUDENT',
   memberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,

@@ -21,7 +21,7 @@ export const SETTINGS_ALLOWED_SURFACES: readonly MemberSurface[] = [
  * 역할이 아직 없는 사용자 중 설정을 열어 줄 갈래: **역할을 기다리는 교직원**.
  *
  * 역할 요청은 교직원만 만든다(`features/roles/types.ts`의
- * `RoleRequest.requestedRole`이 `'STAFF'` 하나다). 그래서 살아 있는 요청이 붙어 있는
+ * `StaffAccessRequest.requestedRole`이 `'STAFF'` 하나다). 그래서 살아 있는 요청이 붙어 있는
  * 미배정 사용자는 곧 "세션에 아직 역할이 오지 않은 교직원"이다. 그 사람이 자기 이름의
  * 오타 하나를 고칠 자리가 없었던 것이 #581이다.
  *
@@ -62,7 +62,7 @@ export function isSettingsOpenForStaffAwaitingRole(
     return false;
   }
   return (
-    state.roleRequestStatus === 'PENDING' ||
-    state.roleRequestStatus === 'APPROVED'
+    state.staffAccessRequestStatus === 'PENDING' ||
+    state.staffAccessRequestStatus === 'APPROVED'
   );
 }

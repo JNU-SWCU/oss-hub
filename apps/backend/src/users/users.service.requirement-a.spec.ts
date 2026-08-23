@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import type { PatchUserProfileInput } from './domain/user-profile';
@@ -22,7 +22,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
-  readonly role?: Role | null;
+  readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
@@ -77,11 +77,11 @@ function buildService(
 }
 
 /** 아직 아무것도 채우지 않은 사용자. 역할만 갈아 끼운다. */
-function emptyUser(role: Role | null): StoredUser {
+function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
   const selectedMemberKind =
-    role === Role.STUDENT
+    role === 'STUDENT'
       ? MemberKind.STUDENT
-      : role === Role.STAFF
+      : role === 'STAFF'
         ? MemberKind.STAFF
         : null;
   return {
@@ -92,7 +92,7 @@ function emptyUser(role: Role | null): StoredUser {
     role,
     selectedMemberKind,
     memberKind: selectedMemberKind,
-    hasAdminAccess: role === Role.ADMIN,
+    hasAdminAccess: role === 'ADMIN',
   };
 }
 

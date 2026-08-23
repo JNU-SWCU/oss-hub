@@ -1,10 +1,11 @@
 import {
+  AffiliationKind,
   ApplicationStatus,
   CollectionRepositoryPresence,
+  MemberKind,
   ProgramCategory,
   RepositorySource,
   RepositoryVisibility,
-  Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -68,12 +69,15 @@ describe('PublicProjectsService.findProfile integration', () => {
         githubId: OWNER_GITHUB_ID,
         nickname: `${PREFIX}-owner-login`,
         avatarUrl: `https://avatars.githubusercontent.com/u/${PREFIX}-owner-avatar`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         profile: {
           create: {
             name: 'synthetic-real-name',
-            studentId: `${PREFIX}-student-id`,
+            studentId: '880001',
             department: 'synthetic-department',
+            memberKind: MemberKind.STUDENT,
+            affiliationKind: AffiliationKind.DEPARTMENT,
+            affiliationName: 'synthetic-department',
           },
         },
       },
@@ -93,7 +97,7 @@ describe('PublicProjectsService.findProfile integration', () => {
         id: `${PREFIX}-applicant-${key}`,
         githubId: 8_800_000_001_000n + BigInt(index),
         nickname: `${PREFIX}-applicant-${key}`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
       })),
     });
     const applicationIds = repoKeys.map(
@@ -372,7 +376,7 @@ describe('PublicProjectsService.findProfile integration', () => {
         id: bystanderId,
         githubId: 8_800_999_000_001n,
         nickname: `${PREFIX}-bystander-login`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
       },
     });
     try {

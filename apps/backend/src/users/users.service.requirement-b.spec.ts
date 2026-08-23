@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import type { PatchUserProfileInput } from './domain/user-profile';
@@ -23,7 +23,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
-  readonly role?: Role | null;
+  readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
@@ -78,11 +78,11 @@ function buildService(
 }
 
 /** 아직 아무것도 채우지 않은 사용자. 역할만 갈아 끼운다. */
-function emptyUser(role: Role | null): StoredUser {
+function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
   const selectedMemberKind =
-    role === Role.STUDENT
+    role === 'STUDENT'
       ? MemberKind.STUDENT
-      : role === Role.STAFF
+      : role === 'STAFF'
         ? MemberKind.STAFF
         : null;
   return {
@@ -93,7 +93,7 @@ function emptyUser(role: Role | null): StoredUser {
     role,
     selectedMemberKind,
     memberKind: selectedMemberKind,
-    hasAdminAccess: role === Role.ADMIN,
+    hasAdminAccess: role === 'ADMIN',
   };
 }
 
@@ -130,26 +130,37 @@ describe('역할별 필수 항목 후속', () => {
     expect(updateProfileFields).not.toHaveBeenCalled();
   });
 
-  it('GitHub 이름이 실린 관리자는 온보딩 없이 이미 완료 상태다', async () => {
-    // Given — 관리자에게 더 받을 항목이 없으므로 이름만으로 완료다
+  /**
+   * 관리자도 가입을 마쳐야 한다.
+   *
+   * 예전에는 배타적 `Role.ADMIN`이 프로필 필수 항목을 통째로 면제해, GitHub 이름만
+   * 실린 관리자가 온보딩 없이 완료로 읽혔다. 관리자 권한이 회원 정체성과 갈라진
+   * 뒤로는 그가 어떤 회원인지 아무도 모르므로(`auth/initial-roles.ts`가 유형을 지어내지
+   * 않는다) 판정은 가장 엄격한 학생 기준으로 되돌아간다 — fail-closed다. 그는 로그인
+   * 뒤 자기 유형을 직접 고르고 프로필을 채운다.
+   */
+  it('회원 유형이 없는 관리자는 아직 완료가 아니다', async () => {
+    // Given
     const { service, updateProfileFields } = buildService({
       user: emptyUser('ADMIN'),
     });
 
-    // When
+    // When / Then
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
-      isComplete: true,
+      isComplete: false,
     });
-    await service.patchMyProfile(githubId, {
-      name: input.name,
-      department: input.department,
-    });
+    const error = await captureDomainException(() =>
+      service.patchMyProfile(githubId, {
+        name: input.name,
+        department: input.department,
+      }),
+    );
 
-    // Then — 완료 상태이므로 1회 저장이 아니라 갱신 경로를 탄다
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
-      name: input.name,
-      department: input.department,
-    });
+    // Then — 미완료이므로 부분 수정이 아니라 1회 완료 저장을 요구한다
+    expect(error.errorCode.code).toBe(
+      UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST,
+    );
+    expect(updateProfileFields).not.toHaveBeenCalled();
   });
 
   it('학생은 학번과 학과가 모두 있어야 완료된다', async () => {

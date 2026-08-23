@@ -22,7 +22,7 @@ vi.mock('next/navigation', () => ({
 
 import {
   ROLE_REQUEST_RETRY_FAILURE_MESSAGE,
-  RoleRequestScreen,
+  StaffAccessRequestScreen,
 } from './components/role-request-screen';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -102,9 +102,9 @@ describe('교직원 재요청 실패 안내', () => {
   async function renderRejectedScreen(): Promise<void> {
     await act(async () =>
       root.render(
-        <RoleRequestScreen
-          roleRequestStatus="REJECTED"
-          roleRequestRejectionReason="합성 반려 사유"
+        <StaffAccessRequestScreen
+          staffAccessRequestStatus="REJECTED"
+          staffAccessRequestRejectionReason="합성 반려 사유"
           onRefresh={refreshShared}
         />,
       ),

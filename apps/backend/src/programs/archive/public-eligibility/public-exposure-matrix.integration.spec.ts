@@ -7,7 +7,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
@@ -147,18 +146,12 @@ function nextGithubRepositoryId(): bigint {
 let studentIdSequence = 910_000;
 
 /**
- * 순위에 오를 학생 fixture 한 명분 — legacy 칸과 canonical 행을 동시에 반환한다.
- *
- * 둘을 묶어 둔 이유는 둘이 갈라지면 backfill 불변식이 이 파일뿐 아니라 같은 PostgreSQL 을
- * 쓰는 다른 스펙까지 멈췄 버리기 때문이다.
+ * 순위에 오를 학생 fixture 한 명분 — canonical UserProfile을 반환한다.
  */
 function canonicalStudentFields(name: string, department: string) {
   studentIdSequence += 1;
   const studentId = String(studentIdSequence);
   return {
-    name,
-    studentId,
-    department,
     profile: {
       create: {
         name,
@@ -220,10 +213,8 @@ async function createScenario(params: {
       id: applicantId,
       githubId: nextGithubId(),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
-      role: Role.STUDENT,
-      // 순위 자격은 canonical `UserProfile.memberKind`가 정한다 — 학생 지원자 fixture는
-      // 그 유형을 실제로 갖고 있어야 랭킹 단언이 공허해지지 않는다. legacy 칸과 같은 값으로
-      // 둔다 — 형제 스펙이 돌리는 backfill 불변식은 두 면이 갈라지면 전체를 멈췄다.
+      selectedMemberKind: MemberKind.STUDENT,
+      // 순위 자격은 canonical `UserProfile.memberKind`가 정한다.
       ...applicantProfileFields(params.key),
     },
   });
@@ -354,7 +345,7 @@ async function seedContributors(
         id: `${PREFIX}-contributor-${githubId.toString()}`,
         githubId,
         nickname,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         ...contributorProfileFields(githubId),
       },
     });
@@ -439,7 +430,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         id: REVIEWER_ID,
         githubId: REVIEWER_GITHUB_ID,
         nickname: `${PREFIX}-reviewer-login`,
-        role: Role.ADMIN,
+        hasAdminAccess: true,
       },
     });
 
@@ -1015,12 +1006,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         id: bystanderId,
         githubId: nextGithubId(),
         nickname: `${PREFIX}-outcome-9-bystander-login`,
-        role: Role.STUDENT,
-        // 금지 키 누출 검사용 fixture — 순위에 행이 나오려면 canonical 학생이어야 하고,
-        // backfill 불변식을 건드리지 않으려면 legacy 칸과 바이트 단위로 같아야 한다.
-        name: 'synthetic-forbidden-real-name',
-        studentId: '990009',
-        department: 'synthetic-forbidden-department',
+        selectedMemberKind: MemberKind.STUDENT,
+        // 금지 키 누출 검사용 canonical 학생 fixture.
         profile: {
           create: {
             name: 'synthetic-forbidden-real-name',

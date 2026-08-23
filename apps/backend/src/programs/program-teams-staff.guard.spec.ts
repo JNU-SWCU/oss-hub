@@ -1,5 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { TeamsErrorCode } from './teams-error-code.enum';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 
@@ -10,13 +10,16 @@ describe('ProgramTeamsStaffGuard', () => {
 
   beforeEach(() => findUnique.mockReset());
 
-  it.each([Role.STAFF, Role.ADMIN])(
+  it.each([
+    ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
     'ACTIVE %s 역할을 허용하고 actor id 를 요청에 붙인다',
-    async (role) => {
+    async (_label, access) => {
       // Given
       findUnique.mockResolvedValue({
         id: 'synthetic-staff',
-        role,
+        ...access,
         accountStatus: AccountStatus.ACTIVE,
       });
       const request: {
@@ -35,30 +38,29 @@ describe('ProgramTeamsStaffGuard', () => {
     },
   );
 
-  it.each([Role.STUDENT, null])(
-    '%s 역할은 TEAM_003 403 으로 거부한다',
-    async (role) => {
-      // Given
-      findUnique.mockResolvedValue({
-        id: 'synthetic-actor',
-        role,
-        accountStatus: AccountStatus.ACTIVE,
-      });
-      const context = new ExecutionContextHost([{ sessionGithubId: 3002n }]);
-      context.setType('http');
+  it('두 접근권이 모두 없으면 거부한다', async () => {
+    // Given
+    findUnique.mockResolvedValue({
+      id: 'synthetic-actor',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    const context = new ExecutionContextHost([{ sessionGithubId: 3002n }]);
+    context.setType('http');
 
-      // When · Then
-      await expect(guard.canActivate(context)).rejects.toMatchObject({
-        errorCode: { code: TeamsErrorCode.STAFF_ONLY, status: 403 },
-      });
-    },
-  );
+    // When · Then
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      errorCode: { code: TeamsErrorCode.STAFF_ONLY, status: 403 },
+    });
+  });
 
   it('비활성(DEACTIVATED) STAFF 계정은 TEAM_003 403 으로 거부한다', async () => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-staff',
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 3003n }]);

@@ -1,5 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { AccountStatus, ApplicationStatus, Role } from '@prisma/client';
+import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { BoardAccessGuard } from './board-access.guard';
 import { BoardErrorCode } from './board-error-code.enum';
@@ -28,13 +28,16 @@ describe('BoardAccessGuard', () => {
     findFirstApplication.mockReset();
   });
 
-  it.each([Role.STAFF, Role.ADMIN])(
+  it.each([
+    ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
     '%s 역할은 참여 여부와 무관하게 허용하고 boardActorIsStaff=true를 붙인다',
-    async (role) => {
+    async (_label, access) => {
       // Given
       findUniqueUser.mockResolvedValue({
         id: 'synthetic-staff-user',
-        role,
+        ...access,
         accountStatus: AccountStatus.ACTIVE,
       });
       const request = {
@@ -59,7 +62,8 @@ describe('BoardAccessGuard', () => {
     // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-student-user',
-      role: Role.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     findFirstApplication.mockResolvedValue({
@@ -101,7 +105,8 @@ describe('BoardAccessGuard', () => {
     // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-outsider-user',
-      role: Role.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     findFirstApplication.mockResolvedValue(null);
@@ -139,7 +144,8 @@ describe('BoardAccessGuard', () => {
     // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-deactivated-staff',
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const request = {

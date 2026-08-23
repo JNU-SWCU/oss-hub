@@ -1,4 +1,9 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 
@@ -15,7 +20,7 @@ describe('AdminAccessRepository transaction store', () => {
       $queryRaw: <T>(query: unknown): Promise<T> => {
         const sql = sqlText(query);
         operations.push(sql);
-        const rows = sql.includes('role =')
+        const rows = sql.includes('"hasAdminAccess" = TRUE')
           ? [{ id: 'admin-a' }, { id: 'admin-b' }]
           : [{ id: 'target' }];
         return Promise.resolve(rows as T);
@@ -25,18 +30,24 @@ describe('AdminAccessRepository transaction store', () => {
           id: 'target',
           githubId: 9_131_000_002n,
           nickname: 'synthetic-target',
-          name: '합성 사용자',
-          studentId: '123456',
-          department: '소프트웨어공학과',
-          profile: null,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: '합성 사용자',
+              studentId: '123456',
+              department: '소프트웨어공학과',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: '소프트웨어공학과',
+            },
+          },
           accountStatus: AccountStatus.ACTIVE,
-          roleRequests: [],
+          staffAccessRequests: [],
           loginHistories: [],
         }),
         updateMany: updateUser,
       },
-      roleRequest: {
+      staffAccessRequest: {
         updateMany: updateRequest,
         create: createRequest,
       },
@@ -55,9 +66,9 @@ describe('AdminAccessRepository transaction store', () => {
       target: await store.findUserForUpdate('target'),
       userUpdated: await store.compareAndSwapAccess({
         userId: 'target',
-        expectedRole: Role.STUDENT,
+        expectedHasStaffAccess: false,
+        expectedHasAdminAccess: false,
         expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredRole: Role.STAFF,
         desiredAccountStatus: AccountStatus.ACTIVE,
         desiredHasStaffAccess: true,
         desiredHasAdminAccess: false,
@@ -65,7 +76,7 @@ describe('AdminAccessRepository transaction store', () => {
       requestUpdated: await store.decidePendingRequest({
         requestId: 'request-pending',
         actorId: 'admin-a',
-        nextStatus: RoleRequestStatus.APPROVED,
+        nextStatus: StaffAccessRequestStatus.APPROVED,
         rejectionReason: null,
         decidedAt,
       }),
@@ -94,20 +105,23 @@ describe('AdminAccessRepository transaction store', () => {
     expect(updateUser).toHaveBeenCalledWith({
       where: {
         id: 'target',
-        role: Role.STUDENT,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
       },
       data: {
-        role: Role.STAFF,
-        accountStatus: AccountStatus.ACTIVE,
         hasStaffAccess: true,
         hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
       },
     });
     expect(updateRequest).toHaveBeenCalledWith({
-      where: { id: 'request-pending', status: RoleRequestStatus.PENDING },
+      where: {
+        id: 'request-pending',
+        status: StaffAccessRequestStatus.PENDING,
+      },
       data: {
-        status: RoleRequestStatus.APPROVED,
+        status: StaffAccessRequestStatus.APPROVED,
         rejectionReason: null,
         decidedById: 'admin-a',
         decidedAt,
@@ -117,7 +131,7 @@ describe('AdminAccessRepository transaction store', () => {
     expect(createRequest).toHaveBeenCalledWith({
       data: {
         userId: 'target',
-        status: RoleRequestStatus.REVOKED,
+        status: StaffAccessRequestStatus.REVOKED,
         decidedById: 'admin-a',
         decidedAt,
       },

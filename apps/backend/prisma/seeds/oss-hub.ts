@@ -1,13 +1,14 @@
 import {
   AccountStatus,
+  AffiliationKind,
   ApplicationStatus,
+  MemberKind,
   MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
-  Role,
   SubmissionStatus,
   User,
 } from '@prisma/client';
@@ -84,17 +85,14 @@ function kstMidnight(isoDate: string): Date {
  * accountStatus=ACTIVE, Consent 완료, (제공된 경우) name까지 채워 로그인 시 온보딩/동의
  * 화면으로 되돌아가지 않게 한다(`auth.repository.ts`의 `isProfileComplete` 계약과 동일).
  *
- * name은 `account.displayName`이 있을 때만 쓴다 — 없으면 생성 시 비워 두고, 갱신 시에도
- * 기존 값을 지우지 않는다(재로그인이 온보딩에서 확정한 이름을 덮어쓰지 않는다는
- * `auth.repository.ts`의 원칙과 같은 이유).
+ * displayName은 canonical UserProfile.name에만 쓴다. User의 dropped mirror 컬럼은
+ * 시드에서 갱신하지 않는다.
  */
 async function upsertConfiguredUser(
   stats: SeedStats,
   account: OssHubTeamAccount,
 ): Promise<User> {
   const id = seedId('oss-hub', 'user', account.githubId.toString());
-  const nameField =
-    account.displayName !== undefined ? { name: account.displayName } : {};
   const user = await upsertTracked(
     stats,
     'User',
@@ -104,20 +102,53 @@ async function upsertConfiguredUser(
         where: { githubId: account.githubId },
         update: {
           nickname: account.login,
-          role: Role.ADMIN,
           accountStatus: AccountStatus.ACTIVE,
-          ...nameField,
+          hasAdminAccess: true,
         },
         create: {
           id,
           githubId: account.githubId,
           nickname: account.login,
-          role: Role.ADMIN,
           accountStatus: AccountStatus.ACTIVE,
-          ...nameField,
+          hasAdminAccess: true,
         },
       }),
   );
+  // 좁힌 값을 지역 const로 받는다 — `account.displayName`을 클로저 안에서 다시 읽으면
+  // 위의 `!== undefined` 좁힘이 풀려 `string | undefined`가 된다.
+  const displayName = account.displayName;
+  if (displayName !== undefined) {
+    const affiliationName = '오픈소스 SW 개발 사업단';
+    await upsertTracked(
+      stats,
+      'UserProfile',
+      () => prisma.userProfile.findUnique({ where: { userId: user.id } }),
+      () =>
+        prisma.userProfile.upsert({
+          where: { userId: user.id },
+          // 이미 있는 행도 canonical 세 칸을 함께 다시 쓴다 — bridge 이전에 만들어져
+          // 그 칸들이 비어 있는 행이 남아 있을 수 있고, 재시드가 그것을 고치지
+          // 않으면 다음 contract 단계의 NOT NULL이 그 행에서 멈췄다.
+          update: {
+            name: displayName,
+            memberKind: MemberKind.STAFF,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            affiliationName,
+            department: affiliationName,
+          },
+          create: {
+            userId: user.id,
+            name: displayName,
+            department: affiliationName,
+            // 시드가 만드는 행은 canonical 사실을 처음부터 채운다 — 운영 계정은
+            // 사업단 소속 교직원이다. 소속명은 학과의 사본이다.
+            memberKind: MemberKind.STAFF,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            affiliationName,
+          },
+        }),
+    );
+  }
   await upsertConsent(stats, user.id);
   return user;
 }

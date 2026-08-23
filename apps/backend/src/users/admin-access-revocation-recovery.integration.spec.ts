@@ -1,9 +1,9 @@
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
   LoginHistoryEvent,
   ProgramCategory,
   RepositorySource,
-  Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -34,31 +34,32 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('Admin access account status transitions (PR04H, formerly StaffRoleRequestsService.decide)', () => {
+describe('Admin access account status transitions (PR04H, formerly StaffAccessRequestsService.decide)', () => {
   it('DEACTIVATED 전환은 STAFF 역할과 연결 자산을 보존하고 계정만 비활성화하며, 재활성화도 동일하게 보존한다', async () => {
     sequence += 1;
     const prefix = `${TEST_PREFIX}${sequence}:`;
-    const actor = await createUser(Role.ADMIN, `${prefix}admin`);
-    const target = await createUser(Role.STAFF, `${prefix}staff`);
+    const actor = await createUser('ADMIN', `${prefix}admin`);
+    const target = await createUser('STAFF', `${prefix}staff`);
     await createPreservedAssets(prefix, target.id);
 
     const deactivated = await service.patchAccess(actor.githubId, target.id, {
-      expectedRole: Role.STAFF,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STAFF',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.DEACTIVATED,
       expectedPendingRequest: null,
     });
 
     expect(deactivated).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
       decidedRequest: null,
     });
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(countPreservedAssets(prefix, target.id)).resolves.toEqual({
@@ -70,22 +71,23 @@ describe('Admin access account status transitions (PR04H, formerly StaffRoleRequ
     });
 
     const reactivated = await service.patchAccess(actor.githubId, target.id, {
-      expectedRole: Role.STAFF,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STAFF',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.DEACTIVATED,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
     });
 
     expect(reactivated).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decidedRequest: null,
     });
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(countPreservedAssets(prefix, target.id)).resolves.toEqual({
@@ -98,15 +100,17 @@ describe('Admin access account status transitions (PR04H, formerly StaffRoleRequ
   });
 });
 
-async function createUser(role: Role | null, label: string) {
+async function createUser(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+  label: string,
+) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${label}:user`,
       githubId: 9_004_800_000n + BigInt(sequence),
       nickname: `synthetic-pr04h-${sequence}`,
-      role,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

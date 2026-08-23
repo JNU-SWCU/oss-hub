@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   ROLES_ERROR_CODES,
@@ -23,26 +23,40 @@ export function matchesExpectedAccessState(
   current: AdminAccessUserRecord,
   command: AdminAccessMutationCommand,
 ): boolean {
-  if (
-    current.role !== command.expectedRole ||
-    current.accountStatus !== command.expectedAccountStatus
-  ) {
+  if (current.accountStatus !== command.expectedAccountStatus) {
     return false;
   }
   const expectedRequest = command.expectedPendingRequest;
   const currentRequest = current.pendingRequest;
-  return expectedRequest === null
-    ? currentRequest === null
-    : currentRequest?.id === expectedRequest.id;
+  const pendingMatches =
+    expectedRequest === null
+      ? currentRequest === null
+      : currentRequest?.id === expectedRequest.id;
+  if (!pendingMatches) {
+    return false;
+  }
+  const expectedStaff = command.expectedHasStaffAccess;
+  const expectedAdmin = command.expectedHasAdminAccess;
+  if (expectedStaff !== undefined || expectedAdmin !== undefined) {
+    return (
+      expectedStaff !== undefined &&
+      expectedAdmin !== undefined &&
+      current.hasStaffAccess === expectedStaff &&
+      current.hasAdminAccess === expectedAdmin
+    );
+  }
+  // 표시 역할은 admin-only와 staff+admin을 구분하지 못한다. 정본 칸이 없으면
+  // 레거시 호환으로만 접힌 값을 보고, CAS WHERE는 정본 boolean을 쓴다.
+  return current.role === command.expectedRole;
 }
 
 export function removesExpectedActiveAdmin(
   command: AdminAccessMutationCommand,
 ): boolean {
   return (
-    command.expectedRole === Role.ADMIN &&
+    command.expectedRole === 'ADMIN' &&
     command.expectedAccountStatus === AccountStatus.ACTIVE &&
-    (command.desiredRole !== Role.ADMIN ||
+    (command.desiredRole !== 'ADMIN' ||
       command.desiredAccountStatus !== AccountStatus.ACTIVE)
   );
 }
@@ -88,8 +102,8 @@ function grantsAdminToSelf(
 ): boolean {
   return (
     actor.id === before.id &&
-    command.desiredRole === Role.ADMIN &&
-    before.role !== Role.ADMIN
+    command.desiredRole === 'ADMIN' &&
+    before.role !== 'ADMIN'
   );
 }
 
@@ -130,7 +144,7 @@ export const ADMIN_ACCESS_REQUEST_WRITE_KINDS = {
 } as const;
 
 /**
- * 이 변경이 `RoleRequest`에 해야 하는 쓰기. 결정과 회수는 **쓰기 방식이 다르다** —
+ * 이 변경이 `StaffAccessRequest`에 해야 하는 쓰기. 결정과 회수는 **쓰기 방식이 다르다** —
  * 결정은 대기 중이던 행 하나를 노리는 CAS라 대상 id를 미리 알지만, 회수는 새 행을
  * 삽입하므로 id가 쓰기 이후에야 생긴다(#184). 그 차이를 타입으로 갈라 두어야 회수를
  * 결정 경로에 얹으려는 시도가 컴파일에서 막힌다.
@@ -141,7 +155,8 @@ export type AdminAccessRequestWrite =
       readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.DECIDE_PENDING;
       readonly requestId: string;
       readonly nextStatus:
-        typeof RoleRequestStatus.APPROVED | typeof RoleRequestStatus.REJECTED;
+        | typeof StaffAccessRequestStatus.APPROVED
+        | typeof StaffAccessRequestStatus.REJECTED;
     }
   | { readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
 
@@ -189,7 +204,7 @@ export function staleAccessError(
         pendingRequest: current.pendingRequest
           ? {
               id: current.pendingRequest.id,
-              status: RoleRequestStatus.PENDING,
+              status: StaffAccessRequestStatus.PENDING,
               createdAt: current.pendingRequest.createdAt.toISOString(),
             }
           : null,

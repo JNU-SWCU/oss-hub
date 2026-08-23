@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   AdminAccessLoginHistoryItem,
-  AdminAccessRoleRequestHistoryItem,
+  AdminAccessStaffAccessRequestHistoryItem,
 } from './admin-access-api';
 import {
   adminDetail,
@@ -59,7 +59,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
           kind: 'ready',
           detail: adminDetail(),
           history: adminHistory({
-            roleRequests: historyPage({
+            staffAccessRequests: historyPage({
               items: [
                 {
                   id: 'req-1',
@@ -103,7 +103,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
           kind: 'ready',
           detail: adminDetail(),
           history: adminHistory({
-            roleRequests: historyPage({ total: 50 }),
+            staffAccessRequests: historyPage({ total: 50 }),
           }),
         }}
         onRetry={() => {}}
@@ -120,7 +120,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
           kind: 'ready',
           detail: adminDetail(),
           history: adminHistory({
-            roleRequests: historyPage({ page: 1, limit: 20, total: 25 }),
+            staffAccessRequests: historyPage({ page: 1, limit: 20, total: 25 }),
           }),
         }}
         onRetry={() => {}}
@@ -137,7 +137,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
           kind: 'ready',
           detail: adminDetail(),
           history: adminHistory({
-            roleRequests: historyPage({ page: 1, limit: 20, total: 25 }),
+            staffAccessRequests: historyPage({ page: 1, limit: 20, total: 25 }),
           }),
         }}
         onRetry={() => {}}
@@ -156,7 +156,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
           kind: 'ready',
           detail: adminDetail(),
           history: adminHistory({
-            roleRequests: historyPage({ page: 2, limit: 20, total: 25 }),
+            staffAccessRequests: historyPage({ page: 2, limit: 20, total: 25 }),
           }),
         }}
         onRetry={() => {}}
@@ -176,7 +176,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
           kind: 'ready',
           detail: adminDetail(),
           history: adminHistory({
-            roleRequests: historyPage({ page: 2, limit: 20, total: 60 }),
+            staffAccessRequests: historyPage({ page: 2, limit: 20, total: 60 }),
             loginHistory: historyPage({ page: 2, limit: 20, total: 60 }),
           }),
         }}
@@ -190,8 +190,8 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
     expect(disabledCount).toBeGreaterThanOrEqual(4);
   });
 
-  it('"다음" 버튼 클릭은 onRoleRequestPageChange/onLoginHistoryPageChange를 다음 페이지 번호로 호출한다', () => {
-    const onRoleRequestPageChange = vi.fn();
+  it('"다음" 버튼 클릭은 onStaffAccessRequestPageChange/onLoginHistoryPageChange를 다음 페이지 번호로 호출한다', () => {
+    const onStaffAccessRequestPageChange = vi.fn();
     const onLoginHistoryPageChange = vi.fn();
     act(() => {
       root.render(
@@ -200,13 +200,17 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
             kind: 'ready',
             detail: adminDetail(),
             history: adminHistory({
-              roleRequests: historyPage({ page: 1, limit: 20, total: 40 }),
+              staffAccessRequests: historyPage({
+                page: 1,
+                limit: 20,
+                total: 40,
+              }),
               loginHistory: historyPage({ page: 1, limit: 20, total: 40 }),
             }),
           }}
           onRetry={() => {}}
           mutation={adminMutation()}
-          onRoleRequestPageChange={onRoleRequestPageChange}
+          onStaffAccessRequestPageChange={onStaffAccessRequestPageChange}
           onLoginHistoryPageChange={onLoginHistoryPageChange}
         />,
       );
@@ -222,7 +226,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
         new MouseEvent('click', { bubbles: true, cancelable: true }),
       );
     });
-    expect(onRoleRequestPageChange).toHaveBeenCalledWith(2);
+    expect(onStaffAccessRequestPageChange).toHaveBeenCalledWith(2);
 
     act(() => {
       nextButtons[1].dispatchEvent(

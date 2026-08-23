@@ -1,4 +1,10 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -28,7 +34,7 @@ afterAll(async () => {
     }),
     prisma.user.updateMany({
       where: { id: { startsWith: 'test:pr03:admin-access-rollback:' } },
-      data: { name: null, studentId: null, department: null },
+      data: { hasAdminAccess: false, hasStaffAccess: false },
     }),
   ]);
   await prisma.$disconnect();
@@ -36,18 +42,21 @@ afterAll(async () => {
 
 it('rolls back the user CAS when the pending-request CAS fails second', async () => {
   // Given
-  const actor = await createUser(Role.ADMIN, 'actor');
+  const actor = await createUser('ADMIN', 'actor');
   const target = await createUser(null, 'target');
   const profile = {
     name: '합성 롤백 대상',
     studentId: `${810_000 + sequence}`,
     department: '소프트웨어공학과',
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: '소프트웨어공학과',
   };
   await prisma.user.update({
     where: { id: target.id },
-    data: { ...profile, profile: { create: profile } },
+    data: { profile: { create: profile } },
   });
-  const request = await prisma.roleRequest.create({
+  const request = await prisma.staffAccessRequest.create({
     data: { id: `${target.id}:request`, userId: target.id },
   });
   const realRepository = new AdminAccessRepository(prisma);
@@ -60,12 +69,12 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   await expect(
     service.patchAccess(actor.githubId, target.id, {
       expectedRole: null,
-      desiredRole: Role.STAFF,
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: {
         id: request.id,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
       requestDecision: {
         decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE,
@@ -77,13 +86,14 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    prisma.roleRequest.findUniqueOrThrow({ where: { id: request.id } }),
+    prisma.staffAccessRequest.findUniqueOrThrow({ where: { id: request.id } }),
   ).resolves.toMatchObject({
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     decidedById: null,
   });
   await expect(
@@ -91,15 +101,17 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   ).resolves.toBe(0);
 });
 
-async function createUser(role: Role | null, label: string) {
+async function createUser(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+  label: string,
+) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `test:pr03:admin-access-rollback:${label}:${sequence}`,
       githubId: 9_003_700_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      role,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

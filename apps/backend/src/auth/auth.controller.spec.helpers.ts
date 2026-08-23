@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -13,7 +13,6 @@ export const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: null,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -22,7 +21,7 @@ export const syntheticUser: AuthUser = {
 
 export const syntheticOnboardedUser: AuthUser = {
   ...syntheticUser,
-  role: Role.STUDENT,
+  memberKind: MemberKind.STUDENT,
   isProfileComplete: true,
 };
 

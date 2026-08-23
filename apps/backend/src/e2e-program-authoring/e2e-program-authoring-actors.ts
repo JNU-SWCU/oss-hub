@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type E2eProgramAuthoringActors = {
@@ -23,12 +23,24 @@ export async function ensureE2eProgramAuthoringActors(
         githubId: actors.staffGithubId,
         nickname: 'e2e-program-authoring-staff',
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
+        profile: {
+          create: {
+            name: 'E2E Staff',
+            studentId: null,
+            department: 'E2E Program Office',
+            memberKind: MemberKind.STAFF,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            affiliationName: 'E2E Program Office',
+          },
+        },
       },
       update: {
         nickname: 'e2e-program-authoring-staff',
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
       },
     });
     await transaction.user.upsert({
@@ -37,19 +49,23 @@ export async function ensureE2eProgramAuthoringActors(
         id: actors.studentId,
         githubId: actors.studentGithubId,
         nickname: 'e2e-program-authoring-student',
-        name: 'E2E Student',
-        studentId: '260001',
-        department: 'E2E Department',
         notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
+        profile: {
+          create: {
+            name: 'E2E Student',
+            studentId: '260001',
+            department: 'E2E Department',
+            memberKind: MemberKind.STUDENT,
+            affiliationKind: AffiliationKind.DEPARTMENT,
+            affiliationName: 'E2E Department',
+          },
+        },
       },
       update: {
         nickname: 'e2e-program-authoring-student',
-        name: 'E2E Student',
-        studentId: '260001',
-        department: 'E2E Department',
         notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
@@ -61,20 +77,24 @@ export async function ensureE2eProgramAuthoringActors(
         id: actors.foreignStudentId,
         githubId: actors.foreignStudentGithubId,
         nickname: 'e2e-program-authoring-foreign-student',
-        name: 'E2E Foreign Student',
-        studentId: '260002',
-        department: 'E2E Department',
         notificationEmail:
           'e2e-program-authoring-foreign-student@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
+        profile: {
+          create: {
+            name: 'E2E Foreign Student',
+            studentId: '260002',
+            department: 'E2E Department',
+            memberKind: MemberKind.STUDENT,
+            affiliationKind: AffiliationKind.DEPARTMENT,
+            affiliationName: 'E2E Department',
+          },
+        },
       },
       update: {
         nickname: 'e2e-program-authoring-foreign-student',
-        name: 'E2E Foreign Student',
-        studentId: '260002',
-        department: 'E2E Department',
         notificationEmail:
           'e2e-program-authoring-foreign-student@fixture.invalid',
         notifyEnabled: true,

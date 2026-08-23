@@ -137,13 +137,13 @@ const HISTORIES: Readonly<
   Record<
     string,
     {
-      readonly roleRequests: AdminAccessHistory['roleRequests']['items'];
+      readonly staffAccessRequests: AdminAccessHistory['staffAccessRequests']['items'];
       readonly loginHistory: AdminAccessHistory['loginHistory']['items'];
     }
   >
 > = {
   [TARGET_ID]: {
-    roleRequests: [
+    staffAccessRequests: [
       {
         id: 'synthetic-access-request-01',
         status: 'PENDING',
@@ -179,7 +179,7 @@ const HISTORIES: Readonly<
     ],
   },
   'synthetic-admin-staff': {
-    roleRequests: [
+    staffAccessRequests: [
       {
         id: 'synthetic-access-request-02',
         status: 'APPROVED',
@@ -237,23 +237,26 @@ export function findAdminAccessFixtureDetail(
 export function adminAccessFixtureHistory(
   userId: string,
   limits: {
-    readonly roleRequestPage: number;
-    readonly roleRequestLimit: number;
+    readonly staffAccessRequestPage: number;
+    readonly staffAccessRequestLimit: number;
     readonly loginPage: number;
     readonly loginLimit: number;
   },
 ): AdminAccessHistory {
-  const source = HISTORIES[userId] ?? { roleRequests: [], loginHistory: [] };
+  const source = HISTORIES[userId] ?? {
+    staffAccessRequests: [],
+    loginHistory: [],
+  };
   return {
-    roleRequests: {
+    staffAccessRequests: {
       items: paginate(
-        source.roleRequests,
-        limits.roleRequestPage,
-        limits.roleRequestLimit,
+        source.staffAccessRequests,
+        limits.staffAccessRequestPage,
+        limits.staffAccessRequestLimit,
       ),
-      page: limits.roleRequestPage,
-      limit: limits.roleRequestLimit,
-      total: source.roleRequests.length,
+      page: limits.staffAccessRequestPage,
+      limit: limits.staffAccessRequestLimit,
+      total: source.staffAccessRequests.length,
     },
     loginHistory: {
       items: paginate(source.loginHistory, limits.loginPage, limits.loginLimit),

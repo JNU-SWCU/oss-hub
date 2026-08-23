@@ -1,10 +1,11 @@
 import {
   AccountStatus,
+  AffiliationKind,
+  MemberKind,
   ApplicationStatus,
   MilestoneSubmissionType,
   ProgramCategory,
   ProgramLifecycle,
-  Role,
 } from '@prisma/client';
 import { stateForE2eProgramGraph } from './e2e-program-authoring-state';
 import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
@@ -112,21 +113,47 @@ export class E2eProgramAuthoringFixture {
           id: E2E_STAFF_ID,
           githubId: E2E_STAFF_GITHUB_ID,
           nickname: 'e2e-program-authoring-staff',
-          // isCompleteProfileFields(user-profile-policy.ts REQUIREMENT_BY_ROLE)는
-          // STAFF에게 name과 department를 요구한다(studentId만 면제) — 비워 두면
-          // RoleGate가 staffPage를 프로필 미완료로 보고 /onboarding/profile로
-          // 되돌리려 해, 이 화면 진입이 "확인 중…"에 갇힌다.
-          name: 'E2E Staff',
-          department: 'E2E Department',
           accountStatus: AccountStatus.ACTIVE,
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
+          // 프로필 행이 없으면 RoleGate가 staffPage를 미완료로 보고
+          // /onboarding/profile로 되돌려, 이 화면 진입이 "확인 중…"에 갇힌다.
+          profile: {
+            create: {
+              name: 'E2E Staff',
+              studentId: null,
+              department: 'E2E Program Office',
+              memberKind: MemberKind.STAFF,
+              affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+              affiliationName: 'E2E Program Office',
+            },
+          },
         },
         update: {
           nickname: 'e2e-program-authoring-staff',
-          name: 'E2E Staff',
-          department: 'E2E Department',
           accountStatus: AccountStatus.ACTIVE,
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
+          profile: {
+            upsert: {
+              create: {
+                name: 'E2E Staff',
+                studentId: null,
+                department: 'E2E Program Office',
+                memberKind: MemberKind.STAFF,
+                affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+                affiliationName: 'E2E Program Office',
+              },
+              update: {
+                name: 'E2E Staff',
+                studentId: null,
+                department: 'E2E Program Office',
+                memberKind: MemberKind.STAFF,
+                affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+                affiliationName: 'E2E Program Office',
+              },
+            },
+          },
         },
       });
       await transaction.user.upsert({
@@ -135,22 +162,27 @@ export class E2eProgramAuthoringFixture {
           id: E2E_STUDENT_ID,
           githubId: E2E_STUDENT_GITHUB_ID,
           nickname: 'e2e-program-authoring-student',
-          name: 'E2E Student',
-          studentId: '260001',
-          department: 'E2E Department',
           notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
           notifyEnabled: true,
           accountStatus: AccountStatus.ACTIVE,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: 'E2E Student',
+              studentId: '260001',
+              department: 'E2E Department',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: 'E2E Department',
+            },
+          },
         },
         update: {
           nickname: 'e2e-program-authoring-student',
-          name: 'E2E Student',
-          studentId: '260001',
-          department: 'E2E Department',
           notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
           notifyEnabled: true,
           accountStatus: AccountStatus.ACTIVE,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       });
       await transaction.user.upsert({
@@ -159,24 +191,29 @@ export class E2eProgramAuthoringFixture {
           id: E2E_FOREIGN_STUDENT_ID,
           githubId: E2E_FOREIGN_STUDENT_GITHUB_ID,
           nickname: 'e2e-program-authoring-foreign-student',
-          name: 'E2E Foreign Student',
-          studentId: '260002',
-          department: 'E2E Department',
           notificationEmail:
             'e2e-program-authoring-foreign-student@fixture.invalid',
           notifyEnabled: true,
           accountStatus: AccountStatus.ACTIVE,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: 'E2E Foreign Student',
+              studentId: '260002',
+              department: 'E2E Department',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: 'E2E Department',
+            },
+          },
         },
         update: {
           nickname: 'e2e-program-authoring-foreign-student',
-          name: 'E2E Foreign Student',
-          studentId: '260002',
-          department: 'E2E Department',
           notificationEmail:
             'e2e-program-authoring-foreign-student@fixture.invalid',
           notifyEnabled: true,
           accountStatus: AccountStatus.ACTIVE,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       });
       await transaction.consent.createMany({

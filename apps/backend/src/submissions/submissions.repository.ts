@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import {
   AccountStatus,
   Prisma,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
   type ApplicationStatus,
@@ -211,7 +211,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
+        ...STUDENT_MEMBER_WHERE,
       },
       select: { id: true },
     });

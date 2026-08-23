@@ -46,7 +46,7 @@ test.describe('레거시 관리자 화면·API는 전환 이후 tombstone 상태
     // When: the real browser opens the removed staff requests page.
     const pageResponse = await adminPage.goto('/admin/staff-requests');
 
-    // Then: StaffRoleRequestsController가 모듈 등록에서 빠졌고 페이지도
+    // Then: StaffAccessRequestsController가 모듈 등록에서 빠졌고 페이지도
     // 삭제됐으므로, 리다이렉트 없이 순수 404를 받는다.
     expect(pageResponse?.status()).toBe(404);
     expect(adminPage.url()).toBe(requestedUrl);

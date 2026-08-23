@@ -5,7 +5,7 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { SessionGuard } from '../auth/session.guard';
@@ -124,8 +124,8 @@ describe('AdminAccessController delegation', () => {
     const profileService = profileServiceHarness();
     const controller = new AdminAccessController(service, profileService);
     const query = Object.assign(new AdminAccessHistoryRequestDto(), {
-      roleRequestPage: 2,
-      roleRequestLimit: 5,
+      staffAccessRequestPage: 2,
+      staffAccessRequestLimit: 5,
       loginPage: 3,
       loginLimit: 10,
     });
@@ -138,7 +138,7 @@ describe('AdminAccessController delegation', () => {
       REQUEST.sessionGithubId,
       'target-user',
       {
-        roleRequests: { page: 2, limit: 5 },
+        staffAccessRequests: { page: 2, limit: 5 },
         loginHistory: { page: 3, limit: 10 },
       },
     );
@@ -150,8 +150,8 @@ describe('AdminAccessController delegation', () => {
     const profileService = profileServiceHarness();
     const controller = new AdminAccessController(service, profileService);
     const command = {
-      expectedRole: Role.STUDENT,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STUDENT',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
@@ -297,7 +297,7 @@ function serviceHarness() {
     facets: jest.fn().mockResolvedValue(emptyFacets()),
     get: jest.fn().mockResolvedValue({}),
     getHistory: jest.fn().mockResolvedValue({
-      roleRequests: { items: [], page: 1, limit: 20, total: 0 },
+      staffAccessRequests: { items: [], page: 1, limit: 20, total: 0 },
       loginHistory: { items: [], page: 1, limit: 20, total: 0 },
     }),
     patchAccess: jest.fn().mockResolvedValue({}),

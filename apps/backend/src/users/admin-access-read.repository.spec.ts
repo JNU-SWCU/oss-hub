@@ -1,4 +1,10 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { authorityFactsFor } from './canonical-user-fixture';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
@@ -61,7 +67,7 @@ describe('admin access read profile completeness', () => {
     const prisma = prismaReturning(
       userRow({
         id: 'student',
-        role: Role.STUDENT,
+        role: 'STUDENT',
         name: '가나다 학생',
         studentId: null,
         department: '소프트웨어공학과',
@@ -119,7 +125,9 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'revoked-staff',
         role: null,
-        selectedRole: Role.STAFF,
+        // 회수는 고른 유형을 비우지 않는다(#184) — 그 기록이 남아 있어야
+        // 한 글자도 바뀌지 않은 프로필이 갑자기 미완료로 읽히지 않는다.
+        selectedRole: 'STAFF',
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
@@ -149,7 +157,6 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'selected-student',
         role: null,
-        selectedRole: Role.STUDENT,
         name: '가나다 학생',
         studentId: null,
         department: '소프트웨어공학과',
@@ -168,7 +175,7 @@ describe('admin access read profile completeness', () => {
   });
 
   /**
-   * `ADMIN_ACCESS_USER_SELECT`를 넓힌 것이 `roleRequests` 소비자를 건드리지 않았다.
+   * `ADMIN_ACCESS_USER_SELECT`를 넓힌 것이 `staffAccessRequests` 소비자를 건드리지 않았다.
    *
    * 그 배열은 PENDING만 골라 오고 두 곳이 읽는다 — 하나는 `pendingRequest`(승인·반려
    * 버튼의 근거이며 status를 PENDING으로 하드코딩한다), 다른 하나는
@@ -181,7 +188,6 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'revoked-staff-projection',
         role: null,
-        selectedRole: Role.STAFF,
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
@@ -234,7 +240,7 @@ describe('admin access read profile completeness', () => {
    * 기준을 받고 있었으므로, 고른 역할이 무엇이든 판정이 달라질 수 없다 — 이 검사가
    * 없으면 "게이트가 느슨해지지 않았다"는 주장이 코드 어디에도 적혀 있지 않다.
    */
-  it.each([null, Role.STAFF, Role.STUDENT])(
+  it.each<'STAFF' | 'STUDENT' | null>([null, 'STAFF', 'STUDENT'])(
     'keeps the approval gate identical when the selected role is %s',
     (selectedRole) => {
       // Given: 학과가 빠진 승인 대기 교직원 — 게이트가 막아야 하는 사람이다.
@@ -304,12 +310,12 @@ describe('admin access read profile completeness', () => {
 function approveStaffTransition() {
   const transition = resolveAdminAccessTransition(
     {
-      role: null,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.APPROVE,
     },
@@ -323,12 +329,12 @@ function approveStaffTransition() {
 function approveStaffCommand(): AdminAccessMutationCommand {
   return {
     expectedRole: null,
-    desiredRole: Role.STAFF,
+    desiredRole: 'STAFF',
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
     expectedPendingRequest: {
       id: 'request-pending',
-      status: RoleRequestStatus.PENDING,
+      status: StaffAccessRequestStatus.PENDING,
     },
     requestDecision: { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE },
   };
@@ -339,9 +345,9 @@ function actor(): AdminAccessActor {
     id: 'synthetic-admin',
     githubId: 910_000_001n,
     githubLogin: 'synthetic-admin',
-    name: '가나다 관리자',
-    role: Role.ADMIN,
-    hasStaffAccess: true,
+    name: null,
+    role: 'ADMIN',
+    hasStaffAccess: false,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
@@ -350,38 +356,62 @@ function actor(): AdminAccessActor {
 function pendingRequest() {
   return {
     id: 'request-pending',
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     createdAt: new Date('2026-07-20T00:00:00.000Z'),
   };
 }
 
 type UserRowOptions = {
   readonly id: string;
-  readonly role: Role | null;
+  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
   readonly pendingRequest: ReturnType<typeof pendingRequest> | null;
-  readonly selectedRole?: Role | null;
+  readonly selectedRole?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
 };
 
 /**
- * 학번 없는 교직원은 UserProfile 행을 만들 수 없어(studentId NOT NULL) 구버전 User
- * 컬럼에만 남는다 — `resolveCompatibleProfile`이 그때 User 컬럼으로 떨어진다.
+ * 프로필 행은 이름·소속이 모두 있을 때만 만든다 — 계약 스키마에서 세 canonical 칸이
+ * NOT NULL이라 "행은 있는데 이름만 비어 있는" 상태가 존재하지 않는다.
  */
 function userRow(options: UserRowOptions) {
+  const facts = authorityFactsFor(options.role);
+  const hasProfile = options.name !== null && options.department !== null;
+  // 회원 유형은 시나리오가 정한다 — 확정 역할, 고른 역할, 살아 있는 요청 순이다.
+  // 학번 유무로 되짚으면 "학번 없는 학생"(미완료여야 하는 상태)이 교직원으로
+  // 오분류돼 검사가 헛돈다.
+  const memberKind =
+    options.role === 'STAFF' ||
+    options.selectedRole === 'STAFF' ||
+    (options.role === null && options.pendingRequest !== null)
+      ? MemberKind.STAFF
+      : MemberKind.STUDENT;
   return {
     id: options.id,
     githubId: BigInt(`92${options.id.length}000001`),
     nickname: `synthetic-${options.id}`,
-    name: options.name,
-    studentId: options.studentId,
-    department: options.department,
-    profile: null,
-    role: options.role,
-    selectedRole: options.selectedRole ?? null,
+    profile: hasProfile
+      ? {
+          name: options.name,
+          studentId: options.studentId,
+          department: options.department,
+          memberKind,
+          affiliationKind:
+            memberKind === MemberKind.STUDENT
+              ? AffiliationKind.DEPARTMENT
+              : AffiliationKind.PROGRAM_OFFICE,
+          affiliationName: options.department,
+        }
+      : null,
+    selectedMemberKind:
+      options.selectedRole === 'ADMIN'
+        ? null
+        : (options.selectedRole ?? facts.selectedMemberKind),
+    hasStaffAccess: facts.hasStaffAccess,
+    hasAdminAccess: facts.hasAdminAccess,
     accountStatus: AccountStatus.ACTIVE,
-    roleRequests: options.pendingRequest ? [options.pendingRequest] : [],
+    staffAccessRequests: options.pendingRequest ? [options.pendingRequest] : [],
     loginHistories: [],
   };
 }

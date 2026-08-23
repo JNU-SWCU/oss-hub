@@ -64,16 +64,18 @@ export function AdminAccessDetailView({
   }, [attempt, userId]);
 
   const changeHistoryPage = async (
-    kind: 'roleRequest' | 'login',
+    kind: 'staffAccessRequest' | 'login',
     nextPage: number,
   ) => {
     if (state.kind !== 'ready') return;
     setHistoryLoading(true);
     try {
       const history = await fetchAdminAccessHistory(userId, {
-        roleRequestPage:
-          kind === 'roleRequest' ? nextPage : state.history.roleRequests.page,
-        roleRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
+        staffAccessRequestPage:
+          kind === 'staffAccessRequest'
+            ? nextPage
+            : state.history.staffAccessRequests.page,
+        staffAccessRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
         loginPage:
           kind === 'login' ? nextPage : state.history.loginHistory.page,
         loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
@@ -180,8 +182,8 @@ export function AdminAccessDetailView({
       layoutContext={layoutContext}
       workspace={workspace}
       historyLoading={historyLoading}
-      onRoleRequestPageChange={(page) =>
-        void changeHistoryPage('roleRequest', page)
+      onStaffAccessRequestPageChange={(page) =>
+        void changeHistoryPage('staffAccessRequest', page)
       }
       onLoginHistoryPageChange={(page) => void changeHistoryPage('login', page)}
       onProfileSaved={handleProfileSaved}

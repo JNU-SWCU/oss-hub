@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { ProfileOnboardingScreen } from '@/features/profile/components/profile-onboarding-screen';
 import type { ProfileMemberKind } from '@/features/profile/profile-requirements';
 import {
-  isClosedRoleRequest,
+  isClosedStaffAccessRequest,
   onboardingPathFor,
 } from '../../_shell/onboarding-route';
 import { roleHomePath } from '../../_shell/role';
@@ -62,21 +62,20 @@ export function signupDestination(state: ProfileOnboardingState): string {
   if (state.hasAdminAccess) {
     return '/admin/access';
   }
-  if (state.role) return roleHomePath(state.role);
   switch (state.selectedRole) {
     case 'STUDENT':
-      return roleHomePath('STUDENT');
+      return roleHomePath();
     case 'STAFF':
       return '/onboarding/pending';
     case null:
-      return onboardingPathFor(state.roleRequestStatus);
+      return onboardingPathFor(state.staffAccessRequestStatus);
   }
 }
 
 /**
  * 세션·역할 상태를 프로필 화면의 표시 결정으로 바꾼다.
  *
- * 역할이 확정되기 전에는 폼을 만들지 않는다. `role`도 `roleRequestStatus`도 아직
+ * 역할이 확정되기 전에는 폼을 만들지 않는다. `role`도 `staffAccessRequestStatus`도 아직
  * 비어 있는 조회 중 상태를 그대로 넘기면 `effectiveProfileRole`이 null을 돌려주고,
  * 화면은 그것을 가장 엄격한 학생 기준으로 읽는다 — 승인을 기다리는 교직원에게 잠깐
  * 학번 필수 폼이 뜨고, `nextPath`도 역할 홈이 아니라 `/onboarding/role`을 가리킨다.
@@ -97,7 +96,7 @@ export function signupDestination(state: ProfileOnboardingState): string {
  * `role`이 비어 있어도 역할을 이미 골랐고 프로필을 반드시 채워야 한다. 확정을
  * `가입 마치기`로 미룬 뒤로는(#569) **프로필을 처음 채우는 사람도 그 상태다** — 역할도
  * 요청도 없고 고른 기록만 있다. 그래서 판정은 "고른 흔적이 하나도 없는가"로 한다:
- * 살아 있는 요청도 없고(`roleRequestStatus === null`) 고른 역할도 없을 때만 되돌린다.
+ * 살아 있는 요청도 없고(`staffAccessRequestStatus === null`) 고른 역할도 없을 때만 되돌린다.
  *
  * 되돌리는 범위는 딱 그 하나다. 회수(`REVOKED`)·반려(`REJECTED`)는 역할을 고르긴 고른
  * 사용자라 여기서 함께 묶지 않고 기존 경로를 그대로 둔다 — 그 상태들의 처리는
@@ -111,8 +110,8 @@ function profileMemberKind(
 ): ProfileMemberKind | null {
   if (state.memberKind !== null) return state.memberKind;
   if (state.selectedRole !== null) return state.selectedRole;
-  return state.roleRequestStatus === 'PENDING' ||
-    state.roleRequestStatus === 'APPROVED'
+  return state.staffAccessRequestStatus === 'PENDING' ||
+    state.staffAccessRequestStatus === 'APPROVED'
     ? 'STAFF'
     : null;
 }
@@ -128,12 +127,12 @@ export function profileOnboardingView(
       return { kind: 'error' };
     case 'unassigned':
     case 'assigned':
-      // `assigned`는 세션에 역할이 붙은 사용자다. 그쪽의 `roleRequestStatus`·
+      // `assigned`는 세션에 역할이 붙은 사용자다. 그쪽의 `staffAccessRequestStatus`·
       // `selectedRole`은 조회하지 않아 항상 null이므로 상태를 함께 봐야 배정된
       // 사용자를 되돌리지 않는다.
       if (
         state.status === 'unassigned' &&
-        state.roleRequestStatus === null &&
+        state.staffAccessRequestStatus === null &&
         state.selectedRole === null
       ) {
         return { kind: 'redirect', path: LANDING_PATH };
@@ -148,7 +147,7 @@ export function profileOnboardingView(
       // 화면만 그 계약을 따르지 않고 있었다.
       if (
         state.status === 'unassigned' &&
-        isClosedRoleRequest(state.roleRequestStatus)
+        isClosedStaffAccessRequest(state.staffAccessRequestStatus)
       ) {
         return { kind: 'redirect', path: ROLE_PATH };
       }
@@ -163,7 +162,8 @@ export function profileOnboardingView(
         nextPath: signupDestination(state),
         // 확정된 것이 하나도 없을 때만 되돌아갈 수 있다.
         canChangeRole:
-          state.status === 'unassigned' && state.roleRequestStatus === null,
+          state.status === 'unassigned' &&
+          state.staffAccessRequestStatus === null,
       };
     default: {
       const exhaustive: never = state.status;

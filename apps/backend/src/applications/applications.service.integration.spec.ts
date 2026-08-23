@@ -1,9 +1,10 @@
 import {
+  AffiliationKind,
   ApplicationStatus,
+  MemberKind,
   ProgramCategory,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
-  Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -109,13 +110,36 @@ describe('ApplicationsService integration', () => {
           id: ACTOR_ID,
           githubId: 8_000_000_000_001n,
           nickname: 'Synthetic-Staff',
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
         {
           id: APPLICANT_ID,
           githubId: APPLICANT_GITHUB_ID,
           nickname: 'Synthetic-Applicant',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
+        },
+      ],
+    });
+    await prisma.userProfile.createMany({
+      data: [
+        {
+          userId: ACTOR_ID,
+          name: 'Synthetic user',
+          studentId: null,
+          department: 'Synthetic program office',
+          memberKind: MemberKind.STAFF,
+          affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+          affiliationName: 'Synthetic program office',
+        },
+        {
+          userId: APPLICANT_ID,
+          name: 'Synthetic user',
+          studentId: '800002',
+          department: 'Synthetic department',
+          memberKind: MemberKind.STUDENT,
+          affiliationKind: AffiliationKind.DEPARTMENT,
+          affiliationName: 'Synthetic department',
         },
       ],
     });

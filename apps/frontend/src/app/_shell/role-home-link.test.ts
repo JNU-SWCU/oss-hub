@@ -92,15 +92,15 @@ describe('resolveSessionEntry', () => {
 // role-menus.ts에서 파생되므로(role-home-link.tsx) 별도로 동등성을 검증할
 // 필요가 없다 — 대신 이 불변식 자체가 깨지지 않는지 검증한다.
 describe('역할별 첫 메뉴 href = 역할 홈 경로', () => {
-  it('STUDENT_MENU의 첫 메뉴 href는 roleHomePath(STUDENT)와 같다', () => {
-    expect(STUDENT_MENU[0].href).toBe(roleHomePath('STUDENT'));
+  it('STUDENT_MENU의 첫 메뉴 href는 roleHomePath()와 같다', () => {
+    expect(STUDENT_MENU[0].href).toBe(roleHomePath());
   });
 
-  it('STAFF_MENU의 첫 메뉴 href는 roleHomePath(STAFF)와 같다', () => {
-    expect(STAFF_MENU[0].href).toBe(roleHomePath('STAFF'));
+  it('STAFF_MENU의 첫 메뉴 href는 roleHomePath()와 같다', () => {
+    expect(STAFF_MENU[0].href).toBe(roleHomePath());
   });
 
-  it('ADMIN_MENU의 첫 메뉴 href는 roleHomePath(ADMIN)와 같다', () => {
-    expect(ADMIN_MENU[0].href).toBe(roleHomePath('ADMIN'));
+  it('ADMIN_MENU의 첫 메뉴 href는 roleHomePath()와 같다', () => {
+    expect(ADMIN_MENU[0].href).toBe(roleHomePath());
   });
 });

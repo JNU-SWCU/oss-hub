@@ -3,15 +3,14 @@ import {
   AccountStatus,
   ApplicationStatus,
   Prisma,
-  Role,
   type SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  compatibleProfileNameWhere,
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  userProfileNameWhere,
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 import type { SubmissionMatrixFilter } from './domain/submission-matrix';
 
 export interface SubmissionMatrixViewer {
@@ -86,7 +85,7 @@ export function submissionMatrixApplicationWhere(
   if (filter.q.length > 0) {
     const contains = { contains: filter.q, mode: 'insensitive' as const };
     where.OR = [
-      { applicant: compatibleProfileNameWhere(filter.q) },
+      { applicant: userProfileNameWhere(filter.q) },
       { applicant: { nickname: contains } },
       { team: { name: contains } },
       { team: { members: { some: { user: { nickname: contains } } } } },
@@ -100,7 +99,7 @@ const matrixApplicationSelect = {
   applicant: {
     select: {
       nickname: true,
-      ...COMPATIBLE_PROFILE_NAME_SELECT,
+      ...USER_PROFILE_NAME_SELECT,
     },
   },
   team: {
@@ -124,7 +123,7 @@ function toMatrixApplication(
   return {
     id: application.id,
     applicant: {
-      name: resolveCompatibleProfileName(application.applicant),
+      name: resolveUserProfileName(application.applicant),
       nickname: application.applicant.nickname,
     },
     team: application.team
@@ -149,7 +148,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
-        role: { in: [Role.STAFF, Role.ADMIN] },
+        OR: [{ hasStaffAccess: true }, { hasAdminAccess: true }],
       },
       select: { id: true },
     });

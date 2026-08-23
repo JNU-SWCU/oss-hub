@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 
 export const DIGEST_FIXTURE = {
   notifyProgram: 'test:notifications:program:notify',
@@ -49,7 +49,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.staffOn,
     DIGEST_FIXTURE.staffOnGithub,
-    Role.STAFF,
+    'STAFF',
     true,
     'staff-on@example.com',
     AccountStatus.ACTIVE,
@@ -57,7 +57,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.staffOff,
     9_600_000_000_127_002n,
-    Role.STAFF,
+    'STAFF',
     false,
     'staff-off@example.com',
     AccountStatus.ACTIVE,
@@ -65,7 +65,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.adminOn,
     9_600_000_000_127_004n,
-    Role.ADMIN,
+    'ADMIN',
     true,
     'admin-on@example.com',
     AccountStatus.ACTIVE,
@@ -73,7 +73,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.studentMissing,
     9_600_000_000_127_003n,
-    Role.STUDENT,
+    'STUDENT',
     true,
     'student-missing@example.com',
     AccountStatus.ACTIVE,
@@ -81,7 +81,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.studentSubmitted,
     9_600_000_000_127_005n,
-    Role.STUDENT,
+    'STUDENT',
     true,
     'student-submitted@example.com',
     AccountStatus.ACTIVE,
@@ -89,7 +89,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.studentOff,
     9_600_000_000_127_006n,
-    Role.STUDENT,
+    'STUDENT',
     false,
     'student-off@example.com',
     AccountStatus.ACTIVE,
@@ -97,7 +97,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.staffDeactivated,
     9_600_000_000_127_007n,
-    Role.STAFF,
+    'STAFF',
     true,
     'staff-deactivated@example.com',
     AccountStatus.DEACTIVATED,
@@ -105,7 +105,7 @@ export const DIGEST_USER_FIXTURES = [
   [
     DIGEST_FIXTURE.studentDeactivated,
     9_600_000_000_127_008n,
-    Role.STUDENT,
+    'STUDENT',
     true,
     'student-deactivated@example.com',
     AccountStatus.DEACTIVATED,
@@ -113,7 +113,7 @@ export const DIGEST_USER_FIXTURES = [
 ] satisfies readonly (readonly [
   string,
   bigint,
-  Role,
+  'STUDENT' | 'STAFF' | 'ADMIN',
   boolean,
   string,
   AccountStatus,

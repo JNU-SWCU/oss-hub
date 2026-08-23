@@ -21,6 +21,7 @@ export enum RolesErrorCode {
   LAST_ACTIVE_ADMIN_REQUIRED = 'ROL_018',
   ACCESS_CHANGE_REQUIRED = 'ROL_019',
   SELF_ACCESS_MUTATION_FORBIDDEN = 'ROL_020',
+  INDEPENDENT_AUTHORITY_REQUIRED = 'ROL_021',
 }
 
 export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
@@ -123,5 +124,11 @@ export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
     code: RolesErrorCode.SELF_ACCESS_MUTATION_FORBIDDEN,
     status: 409,
     message: '자신의 가입 신청은 처리할 수 없습니다.',
+  },
+  [RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED]: {
+    code: RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
+    status: 400,
+    message:
+      '역할 강등은 이 엔드포인트에서 처리하지 않습니다. PATCH /users/:id/staff-access 또는 PATCH /users/:id/admin-access 를 사용하세요.',
   },
 };

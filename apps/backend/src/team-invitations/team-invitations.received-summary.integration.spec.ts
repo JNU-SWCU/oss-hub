@@ -1,4 +1,9 @@
-import { ProgramCategory, TeamInvitationStatus } from '@prisma/client';
+import {
+  AffiliationKind,
+  MemberKind,
+  ProgramCategory,
+  TeamInvitationStatus,
+} from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,7 +42,6 @@ const HANDLE_ONLY_LEADER_ID = `${TEST_PREFIX}handle-only-leader`;
 const MEMBER_ID = `${TEST_PREFIX}member`;
 const INVITEE_ID = `${TEST_PREFIX}invitee`;
 
-const NAMED_LEADER_FALLBACK_NAME = '예전 초대자';
 const NAMED_LEADER_PROFILE_NAME = '김초대';
 const LEGACY_LEADER_NAME = '레거시 초대자';
 const HANDLE_ONLY_LEADER_HANDLE = 'summary-handle-only-leader';
@@ -92,13 +96,11 @@ async function seed(): Promise<void> {
         id: NAMED_LEADER_ID,
         githubId: 9_200_000_001n,
         nickname: 'summary-named-leader',
-        name: NAMED_LEADER_FALLBACK_NAME,
       },
       {
         id: LEGACY_LEADER_ID,
         githubId: 9_200_000_005n,
         nickname: 'summary-legacy-leader',
-        name: LEGACY_LEADER_NAME,
       },
       {
         id: HANDLE_ONLY_LEADER_ID,
@@ -109,13 +111,29 @@ async function seed(): Promise<void> {
       { id: INVITEE_ID, githubId: 9_200_000_004n, nickname: 'summary-invitee' },
     ],
   });
-  await prisma.userProfile.create({
-    data: {
-      userId: NAMED_LEADER_ID,
-      name: NAMED_LEADER_PROFILE_NAME,
-      studentId: '920001',
-      department: 'Synthetic department',
-    },
+  // 표시 이름의 정본은 프로필 행뿐이다 — 행이 없는 초대자는 GitHub handle로 떨어진다
+  // (`HANDLE_ONLY_LEADER`). 두 갈래를 모두 고정한다.
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: NAMED_LEADER_ID,
+        name: NAMED_LEADER_PROFILE_NAME,
+        studentId: '920001',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: LEGACY_LEADER_ID,
+        name: LEGACY_LEADER_NAME,
+        studentId: '920005',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+    ],
   });
   await prisma.program.createMany({
     data: [

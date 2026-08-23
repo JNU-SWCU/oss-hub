@@ -1,6 +1,10 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { compatibleProfileNameWhere } from '../profiles/profile-compatibility';
+import { userProfileNameWhere } from '../profiles/user-profile-read';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -72,10 +76,34 @@ export async function listAdminAccessFacets(
     none,
     pending,
   ] = await Promise.all([
-    prisma.user.count({ where: { ...roleBase, role: null } }),
-    prisma.user.count({ where: { ...roleBase, role: Role.STUDENT } }),
-    prisma.user.count({ where: { ...roleBase, role: Role.STAFF } }),
-    prisma.user.count({ where: { ...roleBase, role: Role.ADMIN } }),
+    // 표시 역할 집계는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
+    prisma.user.count({
+      where: {
+        AND: [
+          roleBase,
+          {
+            hasStaffAccess: false,
+            hasAdminAccess: false,
+            OR: [
+              { profile: { is: null } },
+              { profile: { isNot: { memberKind: MemberKind.STUDENT } } },
+            ],
+          },
+        ],
+      },
+    }),
+    prisma.user.count({
+      where: {
+        ...roleBase,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        profile: { is: { memberKind: MemberKind.STUDENT } },
+      },
+    }),
+    prisma.user.count({
+      where: { ...roleBase, hasStaffAccess: true, hasAdminAccess: false },
+    }),
+    prisma.user.count({ where: { ...roleBase, hasAdminAccess: true } }),
     prisma.user.count({
       where: { ...accountStatusBase, accountStatus: AccountStatus.ACTIVE },
     }),
@@ -88,13 +116,17 @@ export async function listAdminAccessFacets(
     prisma.user.count({
       where: {
         ...pendingRequestBase,
-        roleRequests: { none: { status: RoleRequestStatus.PENDING } },
+        staffAccessRequests: {
+          none: { status: StaffAccessRequestStatus.PENDING },
+        },
       },
     }),
     prisma.user.count({
       where: {
         ...pendingRequestBase,
-        roleRequests: { some: { status: RoleRequestStatus.PENDING } },
+        staffAccessRequests: {
+          some: { status: StaffAccessRequestStatus.PENDING },
+        },
       },
     }),
   ]);
@@ -122,41 +154,68 @@ function adminAccessWhere(
   query: AdminAccessListQuery,
   omitted?: FacetDimension,
 ): Prisma.UserWhereInput {
-  const profileConditions = query.query
-    ? (compatibleProfileNameWhere(query.query).OR ?? [])
-    : [];
-  return {
-    ...(query.query
-      ? {
-          OR: [
-            ...profileConditions,
-            {
-              nickname: {
-                contains: query.query,
-                mode: 'insensitive' as const,
-              },
-            },
-          ],
-        }
-      : {}),
-    ...(omitted === 'role' || query.role === undefined
-      ? {}
-      : {
-          role:
-            query.role === ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED
-              ? null
-              : query.role,
-        }),
-    ...(omitted === 'accountStatus' || query.accountStatus === undefined
-      ? {}
-      : { accountStatus: query.accountStatus }),
-    ...(omitted === 'pendingRequest' || query.pendingRequest === undefined
-      ? {}
-      : {
-          roleRequests:
-            query.pendingRequest === ADMIN_ACCESS_PENDING_FILTERS.PENDING
-              ? { some: { status: RoleRequestStatus.PENDING } }
-              : { none: { status: RoleRequestStatus.PENDING } },
-        }),
-  };
+  const clauses: Prisma.UserWhereInput[] = [];
+  if (query.query) {
+    clauses.push({
+      OR: [
+        userProfileNameWhere(query.query),
+        {
+          nickname: {
+            contains: query.query,
+            mode: 'insensitive' as const,
+          },
+        },
+      ],
+    });
+  }
+  // 표시 역할 필터는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
+  // 검색어의 OR와 미배정 필터의 OR가 한 객체에서 덮어쓰지 않도록 AND로 묶는다.
+  if (omitted !== 'role' && query.role !== undefined) {
+    clauses.push(adminAccessRoleFilterWhere(query.role));
+  }
+  if (omitted !== 'accountStatus' && query.accountStatus !== undefined) {
+    clauses.push({ accountStatus: query.accountStatus });
+  }
+  if (omitted !== 'pendingRequest' && query.pendingRequest !== undefined) {
+    clauses.push({
+      staffAccessRequests:
+        query.pendingRequest === ADMIN_ACCESS_PENDING_FILTERS.PENDING
+          ? { some: { status: StaffAccessRequestStatus.PENDING } }
+          : { none: { status: StaffAccessRequestStatus.PENDING } },
+    });
+  }
+  if (clauses.length === 0) {
+    return {};
+  }
+  if (clauses.length === 1) {
+    return clauses[0] ?? {};
+  }
+  return { AND: clauses };
+}
+
+/** 표시 역할 필터를 canonical 컬럼 조건으로 되짚는다. `authorityLabel`과 같은 우선순위다. */
+function adminAccessRoleFilterWhere(
+  filter: NonNullable<AdminAccessListQuery['role']>,
+): Prisma.UserWhereInput {
+  switch (filter) {
+    case ADMIN_ACCESS_ROLE_FILTERS.ADMIN:
+      return { hasAdminAccess: true };
+    case ADMIN_ACCESS_ROLE_FILTERS.STAFF:
+      return { hasStaffAccess: true, hasAdminAccess: false };
+    case ADMIN_ACCESS_ROLE_FILTERS.STUDENT:
+      return {
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        profile: { is: { memberKind: MemberKind.STUDENT } },
+      };
+    case ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED:
+      return {
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        OR: [
+          { profile: { is: null } },
+          { profile: { isNot: { memberKind: MemberKind.STUDENT } } },
+        ],
+      };
+  }
 }

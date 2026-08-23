@@ -1,4 +1,5 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import type { AuthorityLabel } from '../common/authority-label';
 import { isJsonObject } from './audit-metadata-validation';
 
 export const ACCESS_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
@@ -36,9 +37,9 @@ export type AuditActorSnapshot = AuditPersonSnapshot;
 export type AuditTargetSnapshot = AuditPersonSnapshot;
 
 export type AccessAuditState = {
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
-  readonly requestStatus: RoleRequestStatus | null;
+  readonly requestStatus: StaffAccessRequestStatus | null;
 };
 
 type AccessAuditMetadataBaseV1 = {
@@ -151,21 +152,23 @@ function isAccessState(value: unknown): value is AccessAuditState {
     isRequestStatus(value.requestStatus)
   );
 }
-function isRole(value: unknown): value is Role | null {
+function isRole(value: unknown): value is AuthorityLabel | null {
   return (
     value === null ||
-    value === Role.STUDENT ||
-    value === Role.STAFF ||
-    value === Role.ADMIN
+    value === 'STUDENT' ||
+    value === 'STAFF' ||
+    value === 'ADMIN'
   );
 }
 function isAccountStatus(value: unknown): value is AccountStatus {
   return value === AccountStatus.ACTIVE || value === AccountStatus.DEACTIVATED;
 }
-function isRequestStatus(value: unknown): value is RoleRequestStatus | null {
+function isRequestStatus(
+  value: unknown,
+): value is StaffAccessRequestStatus | null {
   return (
     value === null ||
-    Object.values(RoleRequestStatus).some((status) => status === value)
+    Object.values(StaffAccessRequestStatus).some((status) => status === value)
   );
 }
 function personView(value: AuditPersonSnapshot): AuditPersonSnapshot {
