@@ -6,10 +6,6 @@ import {
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
-  STAFF_ACCESS_REQUEST_STATUS_TYPE,
-  STAFF_ACCESS_REQUEST_TABLE,
-} from '../roles/staff-access-request-physical-names';
-import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_SORT,
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -120,17 +116,17 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
         ? Prisma.sql`
             EXISTS (
               SELECT 1
-              FROM ${STAFF_ACCESS_REQUEST_TABLE} AS r
+              FROM "StaffAccessRequest" AS r
               WHERE r."userId" = u."id"
-                AND r."status" = ${StaffAccessRequestStatus.PENDING}::${STAFF_ACCESS_REQUEST_STATUS_TYPE}
+                AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
             )
           `
         : Prisma.sql`
             NOT EXISTS (
               SELECT 1
-              FROM ${STAFF_ACCESS_REQUEST_TABLE} AS r
+              FROM "StaffAccessRequest" AS r
               WHERE r."userId" = u."id"
-                AND r."status" = ${StaffAccessRequestStatus.PENDING}::${STAFF_ACCESS_REQUEST_STATUS_TYPE}
+                AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
             )
           `,
     );

@@ -25,23 +25,24 @@ const tests = [
 ];
 
 /**
- * bridge 산출물은 backend scope에만 든다.
+ * 계약(contract) 산출물은 backend scope에만 든다.
  *
  * 위의 `paths`가 backend와 Jenkins를 동시에 고르는 것과 갈라진다 — 저쪽은
- * 운영 backfill처럼 배포 파이프라인이 함께 소유하는 계약이고, bridge 스키마·
+ * 운영 backfill처럼 배포 파이프라인이 함께 소유하는 계약이고, 계약 스키마·
  * 마이그레이션·리허설은 backend 검증만이 소유한다. 그래서 집합을 섞지 않고
- * 따로 둔다 — 섞으면 bridge 파일을 고치는 PR이 Jenkins scope까지 끌어온다.
+ * 따로 둔다 — 섞으면 계약 파일을 고치는 PR이 Jenkins scope까지 끌어온다.
  */
 const backendOnlyPaths = [
-  'scripts/member-authority-bridge-contract*',
-  'scripts/member-authority-bridge-sources.mjs',
-  'scripts/check-member-authority-bridge.sh',
-  'scripts/rehearse-member-authority-bridge*.sh',
+  'scripts/member-authority-contract-contract*',
+  'scripts/member-authority-contract-sources.mjs',
+  'scripts/member-authority-contract-seed.mjs',
+  'scripts/check-member-authority-contract.sh',
+  'scripts/rehearse-member-authority-contract*',
 ];
 
-/** bridge 정적 계약은 Prisma migration contract 단계가 required CI에서 돌린다. */
-const bridgeTests = [
-  'scripts/member-authority-bridge-contract.test.mjs',
+/** 계약 정적 계약은 Prisma migration contract 단계가 required CI에서 돌린다. */
+const contractTests = [
+  'scripts/member-authority-contract-contract.test.mjs',
   // 배포된 마이그레이션을 같은 타임스탬프로 갈아끼우는 것을 거절하는 원장 계약.
   'scripts/prisma-migration-ledger.test.mjs',
 ];
@@ -67,14 +68,14 @@ function validate(workflowSource, docsSource) {
     assert.match(docsSource, new RegExp(escapeRegex(path)));
   }
 
-  // bridge 계약 테스트는 그 이름이 workflow 어딘가에 있는 것으로는 부족하고,
+  // 계약 테스트는 그 이름이 workflow 어딘가에 있는 것으로는 부족하고,
   // backend scope가 골랐을 때 실제로 도는 단계 안에 있어야 한다.
   const migrationContractStep = section(
     workflowSource,
     '      - name: Prisma migration contract unit tests',
     '      - name: backend lint',
   );
-  for (const testPath of bridgeTests) {
+  for (const testPath of contractTests) {
     assert.match(migrationContractStep, new RegExp(escapeRegex(testPath)));
   }
 
@@ -83,7 +84,7 @@ function validate(workflowSource, docsSource) {
   // 규칙을 지키는지는 아무도 확인하지 않는다.
   assert.match(
     workflowSource,
-    /name: bridge contract on real sources\s+if: [^\n]+\s+run: bash scripts\/check-member-authority-bridge\.sh/,
+    /name: contract on real sources\s+if: [^\n]+\s+run: bash scripts\/check-member-authority-contract\.sh/,
   );
 
   const command = tests.join(' ');
@@ -111,7 +112,7 @@ test('path and required-test drift fail closed', () => {
   }
 });
 
-test('bridge paths select backend and run the bridge contract test', () => {
+test('contract paths select backend and run the contract test', () => {
   validate(workflow, docs);
 
   const backend = section(
@@ -124,13 +125,13 @@ test('bridge paths select backend and run the bridge contract test', () => {
   }
 });
 
-test('bridge path and required-test drift fail closed', () => {
+test('contract path and required-test drift fail closed', () => {
   for (const path of backendOnlyPaths) {
-    // filter 배선이 사라지면 bridge 파일만 고친 PR이 backend 검증 없이 통과한다.
+    // filter 배선이 사라지면 계약 파일만 고친 PR이 backend 검증 없이 통과한다.
     assert.throws(() => validate(workflow.replaceAll(`'${path}'`, ''), docs));
     assert.throws(() => validate(workflow, docs.replaceAll(path, '')));
   }
-  for (const testPath of bridgeTests) {
+  for (const testPath of contractTests) {
     // 단계에서 테스트가 빠지면 정적 계약이 required CI에서 사라진다.
     assert.throws(() => validate(workflow.replace(testPath, ''), docs));
   }
@@ -138,7 +139,7 @@ test('bridge path and required-test drift fail closed', () => {
   assert.throws(() =>
     validate(
       workflow.replace(
-        'run: bash scripts/check-member-authority-bridge.sh',
+        'run: bash scripts/check-member-authority-contract.sh',
         '',
       ),
       docs,

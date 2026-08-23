@@ -2,14 +2,26 @@
 set -euo pipefail
 
 scenario=${1:-}
-if [[ $# -ne 1 ]] || [[ $scenario != 'expand' ]]; then
-  printf 'Usage: scripts/rehearse-member-authority-migrations.sh expand\n' >&2
+if [[ $# -ne 1 ]] ||
+  [[ $scenario != 'expand' && $scenario != 'contract' && $scenario != 'contract-negative' ]]; then
+  printf 'Usage: scripts/rehearse-member-authority-migrations.sh expand|contract|contract-negative\n' >&2
   exit 2
 fi
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 schema="$repo_root/apps/backend/prisma/schema.prisma"
-migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
+expand_migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
+contract_migration="$repo_root/apps/backend/prisma/migrations/20260824000000_contract_member_authority/migration.sql"
+
+# 계약 레인은 정적 계약을 먼저 통과시킨 뒤에야 컨테이너를 띄운다 — 검사기가
+# 잡을 수 있는 결함에 대해 30초짜리 Docker 리허설을 낭비하지 않는다.
+if [[ $scenario == 'contract' || $scenario == 'contract-negative' ]]; then
+  node "$repo_root/scripts/member-authority-contract-contract.mjs" \
+    "$schema" "$contract_migration"
+  exec bash "$repo_root/scripts/rehearse-member-authority-contract.sh" "$scenario"
+fi
+
+migration="$expand_migration"
 node "$repo_root/scripts/member-authority-expand-contract.mjs" "$schema" "$migration"
 
 legacy_sha=08419aec35492abd3a416795f091997dfbe1f712

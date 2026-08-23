@@ -87,9 +87,8 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
         userId,
         {
           ...fields,
-          // 학번이 실린 프로필은 학생이다. bridge 단계의 DB에는 아직 그 대응을
-          // 막는 CHECK가 없어 지금은 이 쓰기 경계가 지킨다 — 최종 contract
-          // 마이그레이션이 `UserProfile_studentId_memberKind_check`로 내린다.
+          // 학번이 실린 프로필은 학생이다 — 계약 CHECK가 그 대응을 강제한다
+          // (`UserProfile_studentId_memberKind_check`).
           memberKind: MemberKind.STUDENT,
           affiliationKind: AffiliationKind.DEPARTMENT,
           affiliationName: fields.department,
@@ -190,9 +189,8 @@ function toAdminProfileTargetRecord(
 /**
  * `department`를 고칠 때 `affiliationName`도 함께 옮긴다.
  *
- * 두 칸은 같은 사실의 두 사본이라 한쪽만 쓸 수 없다. bridge 단계의 DB에는 아직 그것을
- * 막는 CHECK가 없어 지금은 이 쓰기 경계가 지킨다 — 최종 contract 마이그레이션이
- * `UserProfile_department_affiliationName_check`로 DB 경계에 내린다.
+ * 두 칸은 같은 사실의 두 사본이라 한쪽만 쓰면 계약 CHECK가 거부한다
+ * (`UserProfile_department_affiliationName_check`).
  */
 function withAffiliationName<T extends { readonly department?: string }>(
   fields: T,

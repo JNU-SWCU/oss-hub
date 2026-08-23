@@ -26,12 +26,8 @@ export type UserProfileWrite = {
 /**
  * 이미 있는 행에서 바꿀 수 있는 항목. 커맨드에 실제로 실린 필드만 담는다.
  *
- * `department`와 `affiliationName`은 같은 사실의 두 사본이라 한쪽만 바꿀 수 없다.
- *
- * bridge 단계의 DB에는 아직 그것을 막는 CHECK가 없다 — 지금 이 불변식을 지키는 것은
- * **이 쓰기 경계뿐이다**(`UserProfilePatch`가 한쪽만 담은 입력을 만들 수 없게 한다).
- * 최종 contract 마이그레이션이 `UserProfile_department_affiliationName_check`로 그것을
- * DB 경계에 내린다.
+ * `department`와 `affiliationName`은 같은 사실의 두 사본이므로
+ * (`UserProfile_department_affiliationName_check`) 한쪽만 바꿀 수 없다.
  */
 export type UserProfilePatch = {
   readonly name?: string;

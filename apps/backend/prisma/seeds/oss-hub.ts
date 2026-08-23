@@ -126,9 +126,8 @@ async function upsertConfiguredUser(
       () =>
         prisma.userProfile.upsert({
           where: { userId: user.id },
-          // 이미 있는 행도 canonical 세 칸을 함께 다시 쓴다 — bridge 이전에 만들어져
-          // 그 칸들이 비어 있는 행이 남아 있을 수 있고, 재시드가 그것을 고치지
-          // 않으면 다음 contract 단계의 NOT NULL이 그 행에서 멈췄다.
+          // 계약 이후 canonical 세 칸은 NOT NULL이다. 이미 있는 행도 함께 다시 써서
+          // 재시드가 그 칸을 비워 두지 않게 한다. 소속명은 학과의 사본이다(계약 CHECK).
           update: {
             name: displayName,
             memberKind: MemberKind.STAFF,
@@ -140,8 +139,7 @@ async function upsertConfiguredUser(
             userId: user.id,
             name: displayName,
             department: affiliationName,
-            // 시드가 만드는 행은 canonical 사실을 처음부터 채운다 — 운영 계정은
-            // 사업단 소속 교직원이다. 소속명은 학과의 사본이다.
+            // 운영 계정은 사업단 소속 교직원이다 — 학번을 갖지 않는다(계약 CHECK).
             memberKind: MemberKind.STAFF,
             affiliationKind: AffiliationKind.PROGRAM_OFFICE,
             affiliationName,

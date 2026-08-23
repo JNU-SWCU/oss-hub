@@ -592,7 +592,14 @@ describe('seed profile=oss-hub contract (integration)', () => {
       for (const configuredUser of configuredUsers) {
         expect(configuredUser.hasAdminAccess).toBe(true);
         expect(configuredUser.hasStaffAccess).toBe(false);
-        expect(configuredUser.name).toBeNull();
+        // 계약 이후 이름의 정본은 `UserProfile`뿐이다 — `User`의 mirror 칸은 사라졌고,
+        // 시드는 운영 계정을 사업단 소속 교직원으로 분류한다.
+        expect(configuredUser.profile).toMatchObject({
+          memberKind: MemberKind.STAFF,
+          affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+          affiliationName: '오픈소스 SW 개발 사업단',
+          studentId: null,
+        });
       }
       // Consent — 4명 모두 현행 정책 버전으로 동의 완료 상태다.
       expect(configuredUsersConsentCount).toBe(4);
