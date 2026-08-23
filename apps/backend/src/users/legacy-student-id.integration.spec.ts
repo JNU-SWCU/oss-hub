@@ -78,10 +78,17 @@ beforeEach(async () => {
       id: userId,
       githubId,
       nickname: 'synthetic-legacy-student',
-      name,
-      department,
       selectedMemberKind: MemberKind.STUDENT,
-      profile: { create: { name, studentId: LEGACY_STUDENT_ID, department } },
+      profile: {
+        create: {
+          name,
+          studentId: LEGACY_STUDENT_ID,
+          department,
+          memberKind: MemberKind.STUDENT,
+          affiliationKind: AffiliationKind.DEPARTMENT,
+          affiliationName: department,
+        },
+      },
     },
   });
 });
@@ -220,11 +227,9 @@ describe('학번이 아무 데도 없는 학생', () => {
   const NEW_ONBOARDING_STUDENT_ID = '2'.repeat(6);
 
   beforeEach(async () => {
+    // 프로필 행 자체를 지운다 — 계약 스키마에서는 "행은 있는데 학번·소속만
+    // 비어 있는" 상태가 존재하지 않는다.
     await prisma.userProfile.deleteMany({ where: { userId } });
-    await prisma.user.update({
-      where: { id: userId },
-      data: { studentId: null, department: null },
-    });
   });
 
   it('미완료로 읽히고 새 6자리 학번으로 가입을 마친다', async () => {

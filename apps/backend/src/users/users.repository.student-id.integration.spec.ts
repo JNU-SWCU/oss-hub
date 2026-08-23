@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersRepository } from './users.repository';
@@ -54,22 +54,33 @@ describe('학번 최초 저장의 유일성', () => {
   };
   const graduateStudentId = '9'.repeat(6);
 
-  /** 학번 없이 완료된 교직원 — UserProfile 행이 아직 없는 상태다. */
+  /** 학번 없이 가입을 마친 교직원 — 프로필 행은 있고 학번만 비어 있다. */
   async function makeLegacyOnlyStaff(
     id: string,
     github: bigint,
     nickname: string,
   ): Promise<void> {
+    const profile = {
+      ...staffProfile,
+      studentId: null,
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: staffProfile.department,
+    };
     await prisma.user.upsert({
       where: { id },
-      update: { role: 'STAFF', ...staffProfile, studentId: null },
+      update: {
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
+        profile: { upsert: { create: profile, update: profile } },
+      },
       create: {
         id,
         githubId: github,
         nickname,
         selectedMemberKind: MemberKind.STAFF,
         hasStaffAccess: true,
-        ...staffProfile,
+        profile: { create: profile },
       },
     });
   }
@@ -91,10 +102,7 @@ describe('학번 최초 저장의 유일성', () => {
     const current = await currentProfile(githubId);
 
     // When
-    const outcome = await repository.fillStudentId(current, {
-      ...staffProfile,
-      studentId: graduateStudentId,
-    });
+    const outcome = await repository.fillStudentId(current, graduateStudentId);
 
     // Then
     expect(outcome).toBe('filled');
@@ -120,18 +128,12 @@ describe('학번 최초 저장의 유일성', () => {
     );
     const first = await currentProfile(githubId);
     await expect(
-      repository.fillStudentId(first, {
-        ...staffProfile,
-        studentId: graduateStudentId,
-      }),
+      repository.fillStudentId(first, graduateStudentId),
     ).resolves.toBe('filled');
 
     // When
     const second = await currentProfile(otherGithubId);
-    const outcome = await repository.fillStudentId(second, {
-      ...staffProfile,
-      studentId: graduateStudentId,
-    });
+    const outcome = await repository.fillStudentId(second, graduateStudentId);
 
     // Then
     expect(outcome).toBe('taken');
@@ -144,7 +146,7 @@ describe('학번 최초 저장의 유일성', () => {
     // Given — 두 요청 모두 학번이 비어 있는 같은 상태를 읽는다
     const current = await currentProfile(githubId);
     const fill = (studentId: string) =>
-      repository.fillStudentId(current, { ...staffProfile, studentId });
+      repository.fillStudentId(current, studentId);
 
     // When
     const outcomes = await Promise.all([
