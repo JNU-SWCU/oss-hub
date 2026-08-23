@@ -4,6 +4,7 @@ import {
   isValidDepartment,
   isValidUserName,
 } from '../src/users/user-profile-policy';
+import { memberAuthorityBackfillResult } from './member-authority-backfill-result';
 import {
   requireAcceptedMachineState,
   requireIdempotentProjection,
@@ -30,32 +31,7 @@ export function applyMemberAuthorityBackfill(
 ): MemberAuthorityBackfillResult {
   const nextUsers = projectUsers(users);
   requireIdempotentProjection(nextUsers, projectUsers);
-  let changedUsers = 0;
-  let changedProfiles = 0;
-  let createdProfiles = 0;
-  let clearedNonStudentIds = 0;
-  for (const [index, user] of users.entries()) {
-    const nextUser = nextUsers[index];
-    if (nextUser === undefined) continue;
-    if (!sameUser(user, nextUser)) changedUsers += 1;
-    if (!sameProfile(user.profile, nextUser.profile)) changedProfiles += 1;
-    if (user.profile === null && nextUser.profile !== null)
-      createdProfiles += 1;
-    if (
-      user.profile?.studentId !== null &&
-      user.profile?.studentId !== undefined &&
-      nextUser.profile?.studentId === null
-    ) {
-      clearedNonStudentIds += 1;
-    }
-  }
-  return {
-    users: nextUsers,
-    changedUsers,
-    changedProfiles,
-    createdProfiles,
-    clearedNonStudentIds,
-  };
+  return memberAuthorityBackfillResult(users, nextUsers);
 }
 
 function projectUsers(
@@ -70,9 +46,19 @@ function projectUser(
   studentIds: Set<string>,
 ): MemberAuthorityBackfillUser {
   requireApprovedProfileSource(user);
-  requireAcceptedMachineState(user, (selectedMemberKind) =>
-    projectSelectedUser({ ...user, selectedMemberKind }, new Set<string>()),
-  );
+  const exactTerminal = requireAcceptedMachineState(user, {
+    selected: (selectedMemberKind) =>
+      projectSelectedUser({ ...user, selectedMemberKind }, new Set<string>()),
+    terminal: (selectedMemberKind) =>
+      projectMember(
+        user,
+        selectedMemberKind,
+        terminalStaffAccess(selectedMemberKind),
+        true,
+        studentIds,
+      ),
+  });
+  if (exactTerminal !== null) return exactTerminal;
   return projectSelectedUser(
     { ...user, selectedMemberKind: projectedSelectedMemberKind(user) },
     studentIds,
@@ -123,6 +109,15 @@ function projectCanonicalUser(
     user.hasAdminAccess ?? user.role === Role.ADMIN,
     studentIds,
   );
+}
+
+function terminalStaffAccess(memberKind: MemberKind): boolean {
+  switch (memberKind) {
+    case MemberKind.STUDENT:
+      return false;
+    case MemberKind.STAFF:
+      return true;
+  }
 }
 
 function projectMember(
@@ -225,34 +220,4 @@ function projectUnresolvedAdmin(
       affiliationName: null,
     },
   };
-}
-
-function sameUser(
-  before: MemberAuthorityBackfillUser,
-  after: MemberAuthorityBackfillUser,
-): boolean {
-  return (
-    before.selectedMemberKind === after.selectedMemberKind &&
-    before.name === after.name &&
-    before.studentId === after.studentId &&
-    before.department === after.department &&
-    before.hasStaffAccess === after.hasStaffAccess &&
-    before.hasAdminAccess === after.hasAdminAccess &&
-    sameProfile(before.profile, after.profile)
-  );
-}
-
-function sameProfile(
-  before: MemberAuthorityBackfillProfile | null,
-  after: MemberAuthorityBackfillProfile | null,
-): boolean {
-  if (before === null || after === null) return before === after;
-  return (
-    before.name === after.name &&
-    before.studentId === after.studentId &&
-    before.department === after.department &&
-    before.memberKind === after.memberKind &&
-    before.affiliationKind === after.affiliationKind &&
-    before.affiliationName === after.affiliationName
-  );
 }
