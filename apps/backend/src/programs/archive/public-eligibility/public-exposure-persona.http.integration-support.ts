@@ -186,9 +186,6 @@ export class PublicExposurePersonaHttpHarness {
         ...(memberKind === undefined
           ? {}
           : {
-              name: canonicalName,
-              studentId: canonicalStudentId,
-              department: canonicalDepartment,
               profile: {
                 create: {
                   name: canonicalName,

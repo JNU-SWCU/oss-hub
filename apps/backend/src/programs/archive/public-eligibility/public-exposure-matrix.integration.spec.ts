@@ -155,9 +155,6 @@ function canonicalStudentFields(name: string, department: string) {
   studentIdSequence += 1;
   const studentId = String(studentIdSequence);
   return {
-    name,
-    studentId,
-    department,
     profile: {
       create: {
         name,
