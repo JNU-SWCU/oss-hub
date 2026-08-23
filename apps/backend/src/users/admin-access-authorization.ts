@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import {
@@ -17,7 +17,7 @@ export function requireActiveAdmin(
   if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
     throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]);
   }
-  if (actor.role !== Role.ADMIN) {
+  if (!actor.hasAdminAccess) {
     throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
   }
   return actor;
@@ -29,14 +29,14 @@ export function requireActiveStaffOrAdmin(
   if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
     throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]);
   }
-  if (actor.role !== Role.ADMIN && actor.role !== Role.STAFF) {
+  if (!actor.hasStaffAccess && !actor.hasAdminAccess) {
     throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
   }
   return actor;
 }
 
 export function isAdminActor(actor: AdminAccessActor): boolean {
-  return actor.role === Role.ADMIN;
+  return actor.hasAdminAccess;
 }
 
 function isRequestDecisionCommand(

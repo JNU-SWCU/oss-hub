@@ -37,6 +37,8 @@ export function staffActor(
     githubLogin: 'synthetic-staff',
     name: '합성 교직원',
     role: Role.STAFF,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     ...overrides,
   });
 }
@@ -50,6 +52,8 @@ export function adminActor(
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
     role: Role.ADMIN,
+    hasStaffAccess: true,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
     ...overrides,
   };

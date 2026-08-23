@@ -165,7 +165,11 @@ describe('independent authority HTTP contracts', () => {
   });
 
   it('denies a non-admin actor', async () => {
-    store.actor = { ...adminActor(), role: Role.STAFF };
+    store.actor = {
+      ...adminActor(),
+      role: Role.STAFF,
+      hasAdminAccess: false,
+    };
     const response = await request(
       'staff-access',
       STAFF_ACCESS_COMMANDS.GRANT,
@@ -245,6 +249,8 @@ function adminActor(): AdminAccessActor {
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
     role: Role.ADMIN,
+    hasStaffAccess: true,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
 }

@@ -74,7 +74,12 @@ describe('AdminAccessService reads', () => {
       AuthErrorCode.UNAUTHENTICATED,
       401,
     ],
-    ['staff', adminActor({ role: Role.STAFF }), RolesErrorCode.ADMIN_ONLY, 403],
+    [
+      'staff',
+      adminActor({ role: Role.STAFF, hasAdminAccess: false }),
+      RolesErrorCode.ADMIN_ONLY,
+      403,
+    ],
   ] as const)(
     'rejects %s actors before reading users',
     async (_, actor, code, status) => {

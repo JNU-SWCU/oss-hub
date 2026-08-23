@@ -441,7 +441,10 @@ describe('AdminAccessService mutation', () => {
   it('rejects the mutation when the actor is demoted between the unlocked read and the lock', async () => {
     // Given — lockActiveAdmins()가 도는 순간 강등이 커밋된 경쟁을 흉내 낸다.
     const repository = new InMemoryAdminAccessRepository();
-    repository.actorAfterLock = adminActor({ role: Role.STAFF });
+    repository.actorAfterLock = adminActor({
+      role: Role.STAFF,
+      hasAdminAccess: false,
+    });
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 

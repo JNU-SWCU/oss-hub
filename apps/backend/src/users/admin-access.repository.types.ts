@@ -19,7 +19,10 @@ export type AdminAccessActor = {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly name: string | null;
+  /** legacy 투영치 — 감사 로그와 응답 호환성용이다. 인가 판정은 아래 canonical 칸이 원본이다. */
   readonly role: Role | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
 };
 

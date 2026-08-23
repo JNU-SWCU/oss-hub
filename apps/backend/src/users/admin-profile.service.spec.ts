@@ -20,6 +20,8 @@ describe('AdminProfileService.patchProfile', () => {
     const profileRepository = new InMemoryAdminProfileRepository();
     profileRepository.actor = adminActor({
       role: Role.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     const audit = auditLogHarness();
@@ -39,7 +41,7 @@ describe('AdminProfileService.patchProfile', () => {
   it.each([
     [
       'STAFF로 강등된',
-      adminActor({ role: Role.STAFF }),
+      adminActor({ role: Role.STAFF, hasAdminAccess: false }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],

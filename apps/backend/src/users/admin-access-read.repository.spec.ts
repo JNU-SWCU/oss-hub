@@ -341,6 +341,8 @@ function actor(): AdminAccessActor {
     githubLogin: 'synthetic-admin',
     name: '가나다 관리자',
     role: Role.ADMIN,
+    hasStaffAccess: true,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
 }
