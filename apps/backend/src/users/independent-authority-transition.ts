@@ -1,5 +1,5 @@
 import { MemberKind } from '@prisma/client';
-import { authorityLabel, type AuthorityLabel } from './domain/authority-label';
+import { authorityLabel, type AuthorityLabel } from '../common/authority-label';
 
 export const AUTHORITY_TARGETS = {
   STAFF: 'STAFF',

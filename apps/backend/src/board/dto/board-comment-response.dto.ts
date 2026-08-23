@@ -1,4 +1,4 @@
-import type { AuthorityLabel } from '../../users/domain/authority-label';
+import type { AuthorityLabel } from '../../common/authority-label';
 import { BoardCommentResult } from '../board.service';
 
 /** 게시글 상세 응답 안 댓글 한 건, 그리고 댓글 작성 응답. */

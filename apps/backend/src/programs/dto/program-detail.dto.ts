@@ -1,4 +1,4 @@
-import type { AuthorityLabel } from '../../users/domain/authority-label';
+import type { AuthorityLabel } from '../../common/authority-label';
 import type {
   ApplicationStatus,
   MilestoneSubmissionType,

@@ -18,7 +18,8 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
     findActorByGithubId: jest.fn((githubId) =>
       Promise.resolve({
         id: githubId === ADMIN_GITHUB_ID ? 'admin-id' : 'staff-id',
-        role: githubId === ADMIN_GITHUB_ID ? 'ADMIN' : 'STAFF',
+        hasAdminAccess: githubId === ADMIN_GITHUB_ID,
+        hasStaffAccess: githubId !== ADMIN_GITHUB_ID,
         accountStatus: AccountStatus.ACTIVE,
       }),
     ),

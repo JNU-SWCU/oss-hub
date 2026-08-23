@@ -156,7 +156,12 @@ describe('AuthController getSession', () => {
     expect(findMe).not.toHaveBeenCalled();
   });
 
-  it.each(['ADMIN', 'STAFF', 'STUDENT', null])(
+  it.each<'ADMIN' | 'STAFF' | 'STUDENT' | null>([
+    'ADMIN',
+    'STAFF',
+    'STUDENT',
+    null,
+  ])(
     'authenticated session role is the DB role: %s',
     (dbRole) => {
       const result = createController(jest.fn()).getSession(

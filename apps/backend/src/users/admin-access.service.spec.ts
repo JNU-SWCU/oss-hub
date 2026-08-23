@@ -318,7 +318,7 @@ describe('AdminAccessService mutation', () => {
     );
   });
 
-  it.each([
+  it.each<[string, 'ADMIN' | 'STUDENT']>([
     ['ADMIN', 'ADMIN'],
     ['STUDENT', 'STUDENT'],
   ])('refuses to clear a confirmed %s role', async (_label, role) => {

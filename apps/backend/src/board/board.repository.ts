@@ -4,9 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   authorityLabel,
   type AuthorityLabel,
-} from '../users/domain/authority-label';
+} from '../common/authority-label';
 import {
-  USER_PROFILE_NAME_SELECT,
   type UserProfileNameSource,
   resolveUserProfileName,
 } from '../profiles/user-profile-read';

@@ -9,7 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuthorityLabel } from '../domain/authority-label';
+import type { AuthorityLabel } from '../../common/authority-label';
 import { DomainException } from '../../common/error-code';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,

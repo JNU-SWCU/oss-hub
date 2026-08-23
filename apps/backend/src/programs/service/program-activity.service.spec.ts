@@ -1,4 +1,3 @@
-import { MemberKind } from '@prisma/client';
 import type {
   ProgramActivityRepository,
   ProgramRepositoryActivity,

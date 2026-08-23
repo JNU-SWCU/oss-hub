@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import { MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -142,7 +142,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         where: { userId: revokedUserId, status: StaffAccessRequestStatus.PENDING },
       }),
     ]);
-    expect(stored.role).toBe('STUDENT');
+    expect(stored.hasStaffAccess).toBe(false);
     expect(pendingCount).toBe(0);
   });
 });

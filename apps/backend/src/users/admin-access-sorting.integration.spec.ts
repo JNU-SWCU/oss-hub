@@ -1,4 +1,4 @@
-import { AccountStatus, LoginHistoryEvent, MemberKind } from '@prisma/client';
+import { AccountStatus, AffiliationKind, LoginHistoryEvent, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -211,13 +211,14 @@ function createSortingUser(input: SortingUserInput) {
       ...(input.profileName === null
         ? {}
         : {
-            studentId: input.studentId,
-            department,
             profile: {
               create: {
                 name: input.profileName,
                 studentId: input.studentId,
                 department,
+                memberKind: MemberKind.STUDENT,
+                affiliationKind: AffiliationKind.DEPARTMENT,
+                affiliationName: department,
               },
             },
           }),

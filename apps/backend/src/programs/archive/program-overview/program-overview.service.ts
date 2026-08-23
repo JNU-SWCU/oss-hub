@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AuthorityLabel } from '../../../users/domain/authority-label';
+import type { AuthorityLabel } from '../../../common/authority-label';
 import { DomainException } from '../../../common/error-code';
 import {
   PROGRAM_OVERVIEW_ERROR_CODES,

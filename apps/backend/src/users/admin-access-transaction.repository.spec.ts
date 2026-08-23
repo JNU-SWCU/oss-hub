@@ -61,9 +61,9 @@ describe('AdminAccessRepository transaction store', () => {
       target: await store.findUserForUpdate('target'),
       userUpdated: await store.compareAndSwapAccess({
         userId: 'target',
-        expectedRole: 'STUDENT',
+        expectedHasStaffAccess: false,
+        expectedHasAdminAccess: false,
         expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredRole: 'STAFF',
         desiredAccountStatus: AccountStatus.ACTIVE,
         desiredHasStaffAccess: true,
         desiredHasAdminAccess: false,

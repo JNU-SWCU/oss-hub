@@ -4,7 +4,7 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuthorityLabel } from './authority-label';
+import type { AuthorityLabel } from '../../common/authority-label';
 
 export const ADMIN_ACCESS_REQUEST_DECISIONS = {
   APPROVE: 'APPROVE',

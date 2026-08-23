@@ -1,4 +1,3 @@
-import { MemberKind } from '@prisma/client';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { SessionGuard } from '../../auth/session.guard';
 import type {
@@ -195,7 +194,7 @@ describe('ProgramActivityService canonical activity', () => {
     expect(result.series.points).toEqual([]);
   });
 
-  it.each(['STAFF', 'ADMIN', null])(
+  it.each<'STAFF' | 'ADMIN' | null>(['STAFF', 'ADMIN', null])(
     'rejects non-student role %s before reading activity',
     async (role) => {
       const findStudentActivityApplications = jest.fn();

@@ -1,7 +1,7 @@
 import {
   authorityLabel,
   type AuthorityLabel,
-} from '../../../users/domain/authority-label';
+} from '../../../common/authority-label';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';

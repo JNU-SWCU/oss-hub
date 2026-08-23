@@ -14,8 +14,6 @@ import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
-import { resolveUserProfile } from '../src/profiles/user-profile-read';
-import { isCompleteUserProfile } from '../src/users/user-profile-policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3SubmissionFileStorage } from '../src/submissions/s3-submission-file.storage';
@@ -79,12 +77,6 @@ const OSS_HUB_TEAM_ACCOUNTS = [
   '9800000000000003:seed-operator-gamma:ADMIN:시드운영자감마',
   '9800000000000004:seed-operator-delta:ADMIN:시드운영자델타',
 ].join(',');
-const OSS_HUB_TEAM_ACCOUNT_DISPLAY_NAMES = [
-  '시드운영자알파',
-  '시드운영자베타',
-  '시드운영자감마',
-  '시드운영자델타',
-];
 const OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS = [
   9800000000000001n,
   9800000000000002n,

@@ -1,5 +1,5 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuthorityLabel } from './domain/authority-label';
+import type { AuthorityLabel } from '../common/authority-label';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 
 /**

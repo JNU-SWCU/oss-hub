@@ -164,7 +164,7 @@ it('회수는 새 REVOKED 행을 대상으로 하는 감사 기록을 남긴다'
   });
 });
 
-it.each([
+it.each<[string, 'ADMIN' | 'STUDENT']>([
   ['ADMIN', 'ADMIN'],
   ['STUDENT', 'STUDENT'],
 ])('%s는 여전히 역할을 비울 수 없다', async (label, role) => {

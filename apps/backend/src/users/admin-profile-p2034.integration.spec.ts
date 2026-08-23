@@ -72,7 +72,6 @@ async function createAdminActor(
       githubId: GITHUB_ID_BASE + 100_000n + BigInt(sequence),
       nickname: `synthetic-qa58-actor-${label}-${sequence}`,
       hasAdminAccess: true,
-      name,
     },
     select: { githubId: true },
   });
@@ -152,6 +151,7 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
 
     const persisted = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
+      include: { profile: true },
     });
     if (fulfilled.length === 2) {
       expect(persisted.profile?.name).toBe('이름 A');

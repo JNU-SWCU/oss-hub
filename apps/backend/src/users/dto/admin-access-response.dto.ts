@@ -3,7 +3,7 @@ import type {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuthorityLabel } from '../domain/authority-label';
+import type { AuthorityLabel } from '../../common/authority-label';
 import type {
   AdminAccessFacets,
   AdminAccessMutationResult,

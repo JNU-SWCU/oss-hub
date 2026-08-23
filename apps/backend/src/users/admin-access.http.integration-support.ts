@@ -82,7 +82,7 @@ export class AdminAccessHttpHarness {
 
   async createUser(
     label: string,
-    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null | null,
+    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null  ,
     accountStatus: AccountStatus,
   ) {
     this.sequence += 1;

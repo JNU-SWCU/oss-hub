@@ -1,6 +1,6 @@
 import { LoginHistoryEvent, StaffAccessRequestStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { authorityLabel } from './domain/authority-label';
+import { authorityLabel } from '../common/authority-label';
 import {
   USER_PROFILE_SELECT,
   resolveUserProfile,

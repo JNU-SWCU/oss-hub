@@ -1,4 +1,4 @@
-import { ApplicationStatus, MemberKind, ProgramCategory, SubmissionStatus } from '@prisma/client';
+import { ApplicationStatus, ProgramCategory, SubmissionStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { hasProgramDeadlinePassed, programDeadline } from '../program-deadline';
 import type { ProgramViewer } from './program-viewer.service';

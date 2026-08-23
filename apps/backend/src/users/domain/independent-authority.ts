@@ -1,5 +1,5 @@
 import type { MemberKind } from '@prisma/client';
-import type { AuthorityLabel } from './authority-label';
+import type { AuthorityLabel } from '../../common/authority-label';
 
 export const STAFF_ACCESS_COMMANDS = {
   GRANT: 'GRANT_STAFF_ACCESS',

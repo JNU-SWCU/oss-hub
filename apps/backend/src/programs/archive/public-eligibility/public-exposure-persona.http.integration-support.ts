@@ -158,7 +158,7 @@ export class PublicExposurePersonaHttpHarness {
    */
   async createUser(
     label: string,
-    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null | null,
+    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null  ,
     githubIdOverride?: bigint,
     memberKind?: MemberKind,
   ) {
