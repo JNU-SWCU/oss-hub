@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -49,9 +49,8 @@ beforeAll(async () => {
       id: `${prefix}actor`,
       githubId: 8_003_900_001_001n,
       nickname: 'synthetic-admin',
-      name: 'Admin',
       profileName: null,
-      role: Role.ADMIN,
+      hasAdminAccess: true,
     })
   ).githubId;
   await Promise.all([
@@ -59,65 +58,57 @@ beforeAll(async () => {
       id: orderingUserIds.legacyAlpha,
       githubId: 8_003_900_001_002n,
       nickname: 'legacy-alpha',
-      name: `Alpha ${queryFragment}`,
       profileName: null,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
     createUser({
       id: orderingUserIds.profileBravo,
       githubId: 8_003_900_001_003n,
       nickname: 'profile-bravo',
-      name: `Bravo ${queryFragment}`,
       profileName: `Bravo ${queryFragment}`,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
     createUser({
       id: orderingUserIds.legacyCharlie,
       githubId: 8_003_900_001_004n,
       nickname: 'legacy-charlie',
-      name: `Charlie ${queryFragment}`,
       profileName: null,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
     createUser({
       id: orderingUserIds.profileDelta,
       githubId: 8_003_900_001_005n,
       nickname: 'profile-delta',
-      name: `Delta ${queryFragment}`,
       profileName: `Delta ${queryFragment}`,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
     createUser({
       id: orderingUserIds.profileEchoLogin,
       githubId: 8_003_900_001_006n,
       nickname: 'a-login',
-      name: `Echo ${queryFragment}`,
       profileName: `Echo ${queryFragment}`,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
     createUser({
       id: orderingUserIds.profileEchoIdA,
       githubId: 8_003_900_001_007n,
       nickname: 'same-login',
-      name: `Echo ${queryFragment}`,
       profileName: `Echo ${queryFragment}`,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
     createUser({
       id: orderingUserIds.profileEchoIdB,
       githubId: 8_003_900_001_008n,
       nickname: 'same-login',
-      name: `Echo ${queryFragment}`,
       profileName: `Echo ${queryFragment}`,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
     createUser({
       id: orderingUserIds.profileZulu,
       githubId: 8_003_900_001_009n,
       nickname: 'profile-zulu',
-      name: `Zulu ${queryFragment}`,
       profileName: `Zulu ${queryFragment}`,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     }),
   ]);
 });

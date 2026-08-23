@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -36,8 +36,7 @@ describe('account self-deactivation integration', () => {
         id: USER_ID,
         githubId: GITHUB_ID,
         nickname: 'synthetic-self-deactivation',
-        name: '합성 사용자',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         consents: {
           create: {
             policyVersion: 'synthetic-policy-v1',
@@ -83,7 +82,7 @@ describe('account self-deactivation integration', () => {
 
   it('serializes concurrent admin deactivation and preserves one active admin', async () => {
     const existingActiveAdmins = await prisma.user.findMany({
-      where: { role: Role.ADMIN, accountStatus: AccountStatus.ACTIVE },
+      where: { role: 'ADMIN', accountStatus: AccountStatus.ACTIVE },
       select: { id: true },
     });
     await prisma.user.updateMany({
@@ -100,7 +99,7 @@ describe('account self-deactivation integration', () => {
           id,
           githubId,
           nickname: `${id}-login`,
-          role: Role.ADMIN,
+          hasAdminAccess: true,
         };
       }),
     });
@@ -133,7 +132,7 @@ describe('account self-deactivation integration', () => {
       });
       await expect(
         prisma.user.count({
-          where: { role: Role.ADMIN, accountStatus: AccountStatus.ACTIVE },
+          where: { role: 'ADMIN', accountStatus: AccountStatus.ACTIVE },
         }),
       ).resolves.toBe(1);
     } finally {

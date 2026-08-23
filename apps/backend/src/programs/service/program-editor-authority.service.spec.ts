@@ -1,4 +1,4 @@
-import { AccountStatus, StaffAccessRequestStatus, Role } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
@@ -26,7 +26,7 @@ describe('ProgramEditorService authority', () => {
   it('rejects inactive staff before edit data is exposed', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
       staffAccessRequests: [],
     });

@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { UsersErrorCode } from './users-error-code.enum';
@@ -18,15 +18,15 @@ describe('AdminAccessService mutation guards', () => {
     // Given
     const repository = new InMemoryAdminAccessRepository();
     repository.activeAdminCount = 1;
-    repository.target = accessUser({ role: Role.ADMIN });
+    repository.target = accessUser({ role: 'ADMIN' });
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 
     // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-        expectedRole: Role.ADMIN,
-        desiredRole: Role.STAFF,
+        expectedRole: 'ADMIN',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -56,7 +56,7 @@ describe('AdminAccessService mutation guards', () => {
     repository.target = accessUser({
       id: 'admin',
       githubId: ADMIN_GITHUB_ID,
-      role: Role.ADMIN,
+      hasAdminAccess: true,
     });
     const service = new AdminAccessService(
       repository,
@@ -66,8 +66,8 @@ describe('AdminAccessService mutation guards', () => {
     // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'admin', {
-        expectedRole: Role.ADMIN,
-        desiredRole: Role.ADMIN,
+        expectedRole: 'ADMIN',
+        desiredRole: 'ADMIN',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.DEACTIVATED,
         expectedPendingRequest: null,
@@ -84,7 +84,7 @@ describe('AdminAccessService mutation guards', () => {
   it.each([
     [
       'STAFF로 강등된',
-      adminActor({ role: Role.STAFF, hasAdminAccess: false }),
+      adminActor({ role: 'STAFF', hasAdminAccess: false }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],
@@ -109,8 +109,8 @@ describe('AdminAccessService mutation guards', () => {
       // When / Then
       await expect(
         service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-          expectedRole: Role.STUDENT,
-          desiredRole: Role.STAFF,
+          expectedRole: 'STUDENT',
+          desiredRole: 'STAFF',
           expectedAccountStatus: AccountStatus.ACTIVE,
           desiredAccountStatus: AccountStatus.ACTIVE,
           expectedPendingRequest: null,
@@ -137,7 +137,7 @@ describe('AdminAccessService mutation guards', () => {
     // Given — 자기 승격 가드가 관리자 임명 자체를 막아 버리면 운영이 멈춘다.
     const repository = new InMemoryAdminAccessRepository();
     repository.actor = adminActor();
-    repository.target = accessUser({ role: Role.STAFF });
+    repository.target = accessUser({ role: 'STAFF' });
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
@@ -145,15 +145,15 @@ describe('AdminAccessService mutation guards', () => {
 
     // When
     const result = await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-      expectedRole: Role.STAFF,
-      desiredRole: Role.ADMIN,
+      expectedRole: 'STAFF',
+      desiredRole: 'ADMIN',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
     });
 
     // Then
-    expect(result.role).toBe(Role.ADMIN);
+    expect(result.role).toBe('ADMIN');
   });
 
   it('requires a complete profile before approving a pending staff request', async () => {
@@ -173,7 +173,7 @@ describe('AdminAccessService mutation guards', () => {
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
         expectedRole: null,
-        desiredRole: Role.STAFF,
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: {

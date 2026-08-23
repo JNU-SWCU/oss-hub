@@ -1,14 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  Role,
-  RepositoryProvisionJobStatus,
-  RepositorySource,
-  RepositoryVisibility,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, MemberKind, RepositoryProvisionJobStatus, RepositorySource, RepositoryVisibility, ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
@@ -93,7 +84,7 @@ async function createFreshPrivateRepository(): Promise<{
       id: applicantId,
       githubId: seedGithubId(applicantId),
       nickname: applicantId.replace(/:/g, '-'),
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
     },
   });

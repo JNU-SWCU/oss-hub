@@ -2,7 +2,6 @@ import {
   AccountStatus,
   ApplicationStatus,
   ProgramLifecycle,
-  Role,
   RepositoryVisibility,
   StaffAccessRequestStatus,
 } from '@prisma/client';
@@ -36,7 +35,7 @@ import {
 } from './audit-log-metadata';
 
 const STATE = {
-  role: Role.STUDENT,
+  role: 'STUDENT',
   accountStatus: AccountStatus.ACTIVE,
   requestStatus: null,
 } as const;

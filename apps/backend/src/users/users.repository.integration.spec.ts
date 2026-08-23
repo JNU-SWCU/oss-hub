@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -54,7 +54,7 @@ beforeEach(async () => {
       githubId,
       nickname: 'synthetic-profile-user',
       name: 'GitHub 합성 이름',
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });
@@ -72,8 +72,8 @@ it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
 
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
+    role: 'STUDENT',
+    selectedRole: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     affiliationKind: 'DEPARTMENT',
@@ -90,8 +90,8 @@ it('학번 없는 교직원 프로필은 UserProfile 행 없이 legacy 컬럼에
   await prisma.user.update({
     where: { id: userId },
     data: {
-      role: Role.STAFF,
-      selectedRole: Role.STAFF,
+      role: 'STAFF',
+      selectedRole: 'STAFF',
       selectedMemberKind: MemberKind.STAFF,
     },
   });
@@ -133,7 +133,7 @@ it('학번 없는 교직원 프로필은 UserProfile 행 없이 legacy 컬럼에
     { name: '합성 교직원', studentId: null, department: '인공지능학부' },
   ]);
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
-    role: Role.STAFF,
+    role: 'STAFF',
     studentId: null,
     department: '인공지능학부',
   });
@@ -143,7 +143,7 @@ it('UserProfile 행이 없는 프로필도 이름·학과를 갱신할 수 있�
   // Given
   await prisma.user.update({
     where: { id: userId },
-    data: { role: Role.STAFF, department: '인공지능학부' },
+    data: { role: 'STAFF', department: '인공지능학부' },
   });
 
   // When

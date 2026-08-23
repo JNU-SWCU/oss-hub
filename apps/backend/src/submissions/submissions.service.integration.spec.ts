@@ -1,10 +1,4 @@
-import {
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  Role,
-  SubmissionFileLifecycle,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, MilestoneSubmissionType, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -55,13 +49,14 @@ describe('SubmissionsService integration', () => {
           id: NON_STUDENT_USER_ID,
           githubId: seedGithubId(NON_STUDENT_USER_ID),
           nickname: 'synthetic-submission-non-student',
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
         {
           id: UNAPPROVED_USER_ID,
           githubId: seedGithubId(UNAPPROVED_USER_ID),
           nickname: 'synthetic-submission-unapproved-student',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
       skipDuplicates: true,

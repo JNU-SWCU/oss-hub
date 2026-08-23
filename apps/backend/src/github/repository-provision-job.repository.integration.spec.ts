@@ -1,9 +1,4 @@
-import {
-  ApplicationStatus,
-  ProgramCategory,
-  RepositoryProvisionJobStatus,
-  Role,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, ProgramCategory, RepositoryProvisionJobStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
@@ -35,7 +30,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
         id: APPLICANT_ID,
         githubId: 8_200_000_000_001n,
         nickname: 'synthetic-provision-job-applicant',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
       },
     });
   });

@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   SystemStatusRepository,
   type CollectionExternalCollectionStatusDto,
@@ -69,7 +69,7 @@ describe('SystemStatusService', () => {
 
   beforeEach(() => {
     findActor.mockReset().mockResolvedValue({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
@@ -124,10 +124,10 @@ describe('SystemStatusService', () => {
 
   it.each([
     ['없는 사용자', null],
-    ['비 ADMIN', { role: Role.STAFF, accountStatus: AccountStatus.ACTIVE }],
+    ['비 ADMIN', { role: 'STAFF', accountStatus: AccountStatus.ACTIVE }],
     [
       '비활성 ADMIN',
-      { role: Role.ADMIN, accountStatus: AccountStatus.DEACTIVATED },
+      { role: 'ADMIN', accountStatus: AccountStatus.DEACTIVATED },
     ],
   ])('%s는 거부하고 상태 데이터를 조회하지 않는다', async (_label, actor) => {
     findActor.mockResolvedValue(actor);

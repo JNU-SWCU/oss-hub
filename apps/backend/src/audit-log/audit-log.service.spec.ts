@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
@@ -18,7 +18,7 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
     findActorByGithubId: jest.fn((githubId) =>
       Promise.resolve({
         id: githubId === ADMIN_GITHUB_ID ? 'admin-id' : 'staff-id',
-        role: githubId === ADMIN_GITHUB_ID ? Role.ADMIN : Role.STAFF,
+        role: githubId === ADMIN_GITHUB_ID ? 'ADMIN' : 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
       }),
     ),
@@ -150,7 +150,7 @@ describe('AuditLogService', () => {
           requestStatus: null,
         },
         after: {
-          role: Role.STAFF,
+          role: 'STAFF',
           accountStatus: AccountStatus.ACTIVE,
           requestStatus: null,
         },

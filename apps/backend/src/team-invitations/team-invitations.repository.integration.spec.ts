@@ -1,9 +1,4 @@
-import {
-  AccountStatus,
-  ProgramCategory,
-  Role,
-  TeamInvitationStatus,
-} from '@prisma/client';
+import { AccountStatus, MemberKind, ProgramCategory, TeamInvitationStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -47,21 +42,21 @@ async function seedPendingInvitation(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_100_000_001n,
         nickname: 'atomic-leader',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_100_000_002n,
         nickname: 'atomic-invitee',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: FILLER_ID,
         githubId: 9_100_000_003n,
         nickname: 'atomic-filler',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],

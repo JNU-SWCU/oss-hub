@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import {
@@ -15,7 +15,7 @@ import { adminActor } from './admin-access.service.spec-support';
 
 const APPROVE_COMMAND: AdminAccessMutationCommand = {
   expectedRole: null,
-  desiredRole: Role.STAFF,
+  desiredRole: 'STAFF',
   expectedAccountStatus: AccountStatus.ACTIVE,
   desiredAccountStatus: AccountStatus.ACTIVE,
   expectedPendingRequest: { id: 'request-pending', status: 'PENDING' },
@@ -23,8 +23,8 @@ const APPROVE_COMMAND: AdminAccessMutationCommand = {
 };
 
 const SET_ROLE_COMMAND: AdminAccessMutationCommand = {
-  expectedRole: Role.STUDENT,
-  desiredRole: Role.STAFF,
+  expectedRole: 'STUDENT',
+  desiredRole: 'STAFF',
   expectedAccountStatus: AccountStatus.ACTIVE,
   desiredAccountStatus: AccountStatus.ACTIVE,
   expectedPendingRequest: null,
@@ -44,7 +44,7 @@ describe('requireActiveStaffOrAdmin', () => {
   it('allows an active STAFF actor', () => {
     const actor = adminActor({
       id: 'staff',
-      role: Role.STAFF,
+      role: 'STAFF',
       hasAdminAccess: false,
     });
     expect(requireActiveStaffOrAdmin(actor)).toBe(actor);
@@ -66,7 +66,7 @@ describe('requireActiveStaffOrAdmin', () => {
     [
       'student',
       adminActor({
-        role: Role.STUDENT,
+        role: 'STUDENT',
         hasStaffAccess: false,
         hasAdminAccess: false,
       }),
@@ -83,7 +83,7 @@ describe('requireActiveAdmin', () => {
     expectThrownCode(
       () =>
         requireActiveAdmin(
-          adminActor({ role: Role.STAFF, hasAdminAccess: false }),
+          adminActor({ role: 'STAFF', hasAdminAccess: false }),
         ),
       RolesErrorCode.ADMIN_ONLY,
       403,
@@ -101,14 +101,14 @@ describe('requireActiveAdmin', () => {
  */
 describe('canonical access fields outrank legacy role', () => {
   it('grants admin authorization on hasAdminAccess even when the role says STAFF', () => {
-    const actor = adminActor({ role: Role.STAFF, hasAdminAccess: true });
+    const actor = adminActor({ role: 'STAFF', hasAdminAccess: true });
 
     expect(requireActiveAdmin(actor)).toBe(actor);
     expect(isAdminActor(actor)).toBe(true);
   });
 
   it('denies admin authorization without hasAdminAccess even when the role says ADMIN', () => {
-    const actor = adminActor({ role: Role.ADMIN, hasAdminAccess: false });
+    const actor = adminActor({ role: 'ADMIN', hasAdminAccess: false });
 
     expectThrownCode(
       () => requireActiveAdmin(actor),
@@ -120,7 +120,7 @@ describe('canonical access fields outrank legacy role', () => {
 
   it('grants staff authorization on hasStaffAccess even when the role says STUDENT', () => {
     const actor = adminActor({
-      role: Role.STUDENT,
+      role: 'STUDENT',
       hasStaffAccess: true,
       hasAdminAccess: false,
     });
@@ -133,7 +133,7 @@ describe('canonical access fields outrank legacy role', () => {
       () =>
         requireActiveStaffOrAdmin(
           adminActor({
-            role: Role.ADMIN,
+            role: 'ADMIN',
             hasStaffAccess: false,
             hasAdminAccess: false,
           }),
@@ -150,7 +150,7 @@ describe('canonical access fields outrank legacy role', () => {
         assertAccessMutationAllowed(
           adminActor({
             id: 'demoted',
-            role: Role.ADMIN,
+            role: 'ADMIN',
             hasAdminAccess: false,
           }),
           'target',
@@ -166,7 +166,7 @@ describe('assertAccessMutationAllowed', () => {
   it('allows STAFF to approve another user', () => {
     expect(() =>
       assertAccessMutationAllowed(
-        adminActor({ id: 'staff', role: Role.STAFF, hasAdminAccess: false }),
+        adminActor({ id: 'staff', role: 'STAFF', hasAdminAccess: false }),
         'target',
         APPROVE_COMMAND,
       ),
@@ -177,7 +177,7 @@ describe('assertAccessMutationAllowed', () => {
     expectThrownCode(
       () =>
         assertAccessMutationAllowed(
-          adminActor({ id: 'staff', role: Role.STAFF, hasAdminAccess: false }),
+          adminActor({ id: 'staff', role: 'STAFF', hasAdminAccess: false }),
           'target',
           SET_ROLE_COMMAND,
         ),
@@ -190,7 +190,7 @@ describe('assertAccessMutationAllowed', () => {
     expectThrownCode(
       () =>
         assertAccessMutationAllowed(
-          adminActor({ id: 'target', role: Role.STAFF, hasAdminAccess: false }),
+          adminActor({ id: 'target', role: 'STAFF', hasAdminAccess: false }),
           'target',
           APPROVE_COMMAND,
         ),
@@ -202,8 +202,8 @@ describe('assertAccessMutationAllowed', () => {
   it('does not intercept self-deactivation or self-demotion', () => {
     expect(() =>
       assertAccessMutationAllowed(adminActor({ id: 'admin' }), 'admin', {
-        expectedRole: Role.ADMIN,
-        desiredRole: Role.ADMIN,
+        expectedRole: 'ADMIN',
+        desiredRole: 'ADMIN',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.DEACTIVATED,
         expectedPendingRequest: null,
@@ -211,8 +211,8 @@ describe('assertAccessMutationAllowed', () => {
     ).not.toThrow();
     expect(() =>
       assertAccessMutationAllowed(adminActor({ id: 'admin' }), 'admin', {
-        expectedRole: Role.ADMIN,
-        desiredRole: Role.STAFF,
+        expectedRole: 'ADMIN',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -229,7 +229,7 @@ describe('assertAccessMutationAllowed', () => {
   it('isAdminActor is true only for ADMIN', () => {
     expect(isAdminActor(adminActor())).toBe(true);
     expect(
-      isAdminActor(adminActor({ role: Role.STAFF, hasAdminAccess: false })),
+      isAdminActor(adminActor({ role: 'STAFF', hasAdminAccess: false })),
     ).toBe(false);
   });
 });

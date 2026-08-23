@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -20,10 +20,10 @@ const activeUser: AuthUser = {
   id: 'synthetic-session-contract-user',
   githubId,
   nickname: 'synthetic-user',
-  name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: Role.STAFF,
+  selectedMemberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
   memberKind: MemberKind.STAFF,
   hasStaffAccess: true,
   hasAdminAccess: false,
@@ -137,10 +137,10 @@ describe('canonical auth session HTTP contract', () => {
       isAuthenticated: true,
       user: {
         nickname: activeUser.nickname,
-        name: null,
         avatarUrl: null,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
         memberKind: MemberKind.STAFF,
         hasStaffAccess: true,
         hasAdminAccess: false,

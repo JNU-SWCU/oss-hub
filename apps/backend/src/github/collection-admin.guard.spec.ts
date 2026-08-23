@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 
@@ -54,7 +54,7 @@ describe('CollectionAdminGuard', () => {
 
   it('canonical 컬럼이 비어 있으면 legacy ADMIN 역할로 허용한다', async () => {
     findUnique.mockResolvedValue({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       hasStaffAccess: null,
       hasAdminAccess: null,
       accountStatus: AccountStatus.ACTIVE,
@@ -67,7 +67,7 @@ describe('CollectionAdminGuard', () => {
 
   it('legacy 역할이 ADMIN이어도 canonical hasAdminAccess=false면 거부한다', async () => {
     findUnique.mockResolvedValue({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       hasStaffAccess: true,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
@@ -80,7 +80,7 @@ describe('CollectionAdminGuard', () => {
     });
   });
 
-  it.each([Role.STUDENT, Role.STAFF, null])(
+  it.each(['STUDENT', 'STAFF', null])(
     'ADMIN이 아닌 역할 %s은 COL_004 403으로 거부한다',
     async (role) => {
       findUnique.mockResolvedValue({
@@ -103,7 +103,7 @@ describe('CollectionAdminGuard', () => {
 
   it('비활성 ADMIN도 COL_004 403으로 거부한다', async () => {
     findUnique.mockResolvedValue({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       hasStaffAccess: true,
       hasAdminAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,

@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import type {
   ProgramActivityRepository,
   ProgramRepositoryActivity,
@@ -12,7 +12,8 @@ import type { ProgramViewer } from './program-viewer.service';
 const staff: ProgramViewer = {
   githubId: 1n,
   userId: 'staff-1',
-  role: Role.STAFF,
+  selectedMemberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
 };
 
 function repositoryActivity(updatedAt: string): ProgramRepositoryActivity {
@@ -141,7 +142,7 @@ describe('ProgramActivityService', () => {
     const leader: ProgramViewer = {
       githubId: 11n,
       userId: 'leader-1',
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     };
 
     await new ProgramActivityService(

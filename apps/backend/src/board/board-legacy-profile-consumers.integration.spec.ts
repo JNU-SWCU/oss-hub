@@ -1,9 +1,4 @@
-import {
-  AccountStatus,
-  BoardPostCategory,
-  ProgramCategory,
-  Role,
-} from '@prisma/client';
+import { AccountStatus, BoardPostCategory, MemberKind, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../applications/staff-insights.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,20 +45,14 @@ beforeEach(async () => {
         id: canonicalUserId,
         githubId: 9_690_000_001n,
         nickname: 'canonical-login',
-        name: 'legacy-person',
-        studentId: '100001',
-        department: 'legacy-department',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: legacyUserId,
         githubId: 9_690_000_002n,
         nickname: 'legacy-login',
-        name: 'legacy-only-person',
-        studentId: '100002',
-        department: 'legacy-only-department',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],

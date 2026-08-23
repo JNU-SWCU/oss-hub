@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { MemberKind, ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { computeJoinCodeDigest } from '../../common/join-code-digest';
@@ -49,21 +49,21 @@ async function seedTeamWithOneSlotLeft(): Promise<void> {
         id: LEADER_ID,
         githubId: GITHUB_ID_BASE,
         nickname: 'synthetic-qa59-leader',
-        role: 'STUDENT',
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
       },
       {
         id: CHALLENGER_A_ID,
         githubId: GITHUB_ID_BASE + 1n,
         nickname: 'synthetic-qa59-challenger-a',
-        role: 'STUDENT',
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
       },
       {
         id: CHALLENGER_B_ID,
         githubId: GITHUB_ID_BASE + 2n,
         nickname: 'synthetic-qa59-challenger-b',
-        role: 'STUDENT',
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
       },
     ],

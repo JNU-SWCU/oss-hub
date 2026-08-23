@@ -1,12 +1,4 @@
-import {
-  ApplicationStatus,
-  OutboxEventStatus,
-  ProgramCategory,
-  RepositoryInvitationStatus,
-  RepositoryProvisionJobStatus,
-  RepositoryVisibility,
-  Role,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, OutboxEventStatus, ProgramCategory, RepositoryInvitationStatus, RepositoryProvisionJobStatus, RepositoryVisibility } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -77,7 +69,7 @@ describe('RepositoryProvisionWorker integration', () => {
         id: APPLICANT_ID,
         githubId: APPLICANT_GITHUB_ID,
         nickname: 'synthetic-worker-applicant',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
       },
     });
     // OWN 편입은 현재 동의를 요구한다 — 동의 없이 수집 행을 만들지 않는다.

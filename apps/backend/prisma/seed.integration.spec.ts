@@ -1,16 +1,5 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  ProgramCategory,
-  RepositoryProvisionJobStatus,
-  RepositoryVisibility,
-  ReviewDecision,
-  Role,
-  StaffAccessRequestStatus,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, AffiliationKind, ApplicationStatus, MemberKind, MilestoneSubmissionType, ProgramCategory, RepositoryProvisionJobStatus, RepositoryVisibility, ReviewDecision, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
 import { runProfile, runTeardown } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
 import {
@@ -554,7 +543,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         syntheticAdmin.role,
         syntheticStaff.role,
         syntheticStudent.role,
-      ]).toEqual([Role.ADMIN, Role.STAFF, Role.STUDENT]);
+      ]).toEqual(['ADMIN', 'STAFF', 'STUDENT']);
       expect(configuredUsers).toHaveLength(4);
       expect(
         configuredUsers.map(({ id, nickname, role, name, accountStatus }) => ({
@@ -568,29 +557,25 @@ describe('seed profile=oss-hub contract (integration)', () => {
         {
           id: seedId('oss-hub', 'user', '9800000000000001'),
           nickname: 'seed-operator-alpha',
-          role: Role.ADMIN,
-          name: '시드운영자알파',
+          hasAdminAccess: true,
           accountStatus: AccountStatus.ACTIVE,
         },
         {
           id: seedId('oss-hub', 'user', '9800000000000002'),
           nickname: 'seed-operator-beta',
-          role: Role.ADMIN,
-          name: '시드운영자베타',
+          hasAdminAccess: true,
           accountStatus: AccountStatus.ACTIVE,
         },
         {
           id: seedId('oss-hub', 'user', '9800000000000003'),
           nickname: 'seed-operator-gamma',
-          role: Role.ADMIN,
-          name: '시드운영자감마',
+          hasAdminAccess: true,
           accountStatus: AccountStatus.ACTIVE,
         },
         {
           id: seedId('oss-hub', 'user', '9800000000000004'),
           nickname: 'seed-operator-delta',
-          role: Role.ADMIN,
-          name: '시드운영자델타',
+          hasAdminAccess: true,
           accountStatus: AccountStatus.ACTIVE,
         },
       ]);
@@ -1321,7 +1306,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           id: survivorUserId,
           githubId: seedGithubId(survivorUserId),
           nickname: 'demo-teardown-guard',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
           accountStatus: AccountStatus.ACTIVE,
         },
       });
@@ -1630,10 +1615,17 @@ describe('seed profile=demo production 백필 스코프 (integration)', () => {
           id: nonDemoUserId,
           githubId: seedGithubId(nonDemoUserId),
           nickname: 'profile-backfill-scope-non-demo',
-          role: Role.STUDENT,
-          name: '비-demo 생산 사용자(fixture)',
-          studentId: completeStudentId,
-          department: '비-demo 학과(fixture)',
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: '비-demo 생산 사용자(fixture)',
+              studentId: completeStudentId,
+              department: '비-demo 학과(fixture)',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: '비-demo 학과(fixture)',
+            },
+          },
         },
       });
       await prisma.userProfile.create({
@@ -1699,10 +1691,18 @@ describe('seed profile=demo production 백필 스코프 (integration)', () => {
           id: nonDemoUserId,
           githubId: seedGithubId(nonDemoUserId),
           nickname: 'profile-backfill-scope-non-demo-dev',
-          role: Role.STUDENT,
-          name: '비-demo 개발 사용자(fixture)',
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: '비-demo 개발 사용자(fixture)',
+              studentId: null,
+              department: '비-demo 학과(fixture)',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: '비-demo 학과(fixture)',
+            },
+          },
           studentId: ['96', '5502'].join(''),
-          department: '비-demo 학과(fixture)',
         },
       });
 
@@ -1867,7 +1867,7 @@ describe('issue-99 auth seed contract', () => {
         department: '컴퓨터공학과',
       });
       expect(staffRevoked).toMatchObject({
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.DEACTIVATED,
       });
     },
@@ -1914,12 +1914,12 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       ]);
 
       expect(admin?.id).toBe(adminConfirmedUserId);
-      expect(admin?.role).toBe(Role.ADMIN);
+      expect(admin?.role).toBe('ADMIN');
       expect(admin?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(admin?.isProfileComplete).toBe(true);
 
       expect(adminSecond?.id).toBe(adminSecondUserId);
-      expect(adminSecond?.role).toBe(Role.ADMIN);
+      expect(adminSecond?.role).toBe('ADMIN');
       expect(adminSecond?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(adminSecond?.isProfileComplete).toBe(true);
 
@@ -1953,7 +1953,7 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
         seedGithubId(staffRevocableUserId),
       );
       expect(revocable?.id).toBe(staffRevocableUserId);
-      expect(revocable?.role).toBe(Role.STAFF);
+      expect(revocable?.role).toBe('STAFF');
       expect(revocable?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(revocable?.isProfileComplete).toBe(true);
 
@@ -1972,7 +1972,7 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
         where: { id: staffRevokedUserId },
       });
       expect(revoked.accountStatus).toBe(AccountStatus.DEACTIVATED);
-      expect(revoked.role).toBe(Role.STAFF);
+      expect(revoked.role).toBe('STAFF');
     },
     SEED_RUN_TIMEOUT_MS,
   );

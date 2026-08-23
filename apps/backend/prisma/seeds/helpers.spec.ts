@@ -203,20 +203,20 @@ describe('parseOssHubTeamAccounts', () => {
       {
         githubId: 101n,
         login: 'team-alpha',
-        role: 'ADMIN',
+        hasAdminAccess: true,
         displayName: '시드운영자알파',
       },
       {
         githubId: 102n,
         login: 'team-beta',
-        role: 'ADMIN',
+        hasAdminAccess: true,
         displayName: '시드운영자베타',
       },
       { githubId: 103n, login: 'team-gamma', role: 'ADMIN' },
       {
         githubId: 104n,
         login: 'team-delta',
-        role: 'ADMIN',
+        hasAdminAccess: true,
         displayName: '시드운영자델타',
       },
     ]);

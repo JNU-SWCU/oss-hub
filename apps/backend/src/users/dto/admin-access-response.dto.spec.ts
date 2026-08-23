@@ -1,7 +1,6 @@
 import {
   AccountStatus,
   LoginHistoryEvent,
-  Role,
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import {
@@ -23,7 +22,7 @@ describe('admin access response DTO allowlists', () => {
           id: 'target',
           githubLogin: 'synthetic-target',
           name: '합성 사용자',
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
           isSelf: false,
           isProfileComplete: true,
@@ -45,7 +44,7 @@ describe('admin access response DTO allowlists', () => {
       id: 'target',
       githubLogin: 'synthetic-target',
       name: '합성 사용자',
-      role: Role.STUDENT,
+      role: 'STUDENT',
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,
@@ -64,7 +63,7 @@ describe('admin access response DTO allowlists', () => {
       id: 'target',
       githubLogin: 'synthetic-target',
       name: '합성 사용자',
-      role: Role.ADMIN,
+      role: 'ADMIN',
       memberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,
@@ -113,7 +112,7 @@ describe('admin access response DTO allowlists', () => {
     });
     const mutation = AdminAccessMutationResponseDto.from({
       id: 'target',
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: {
@@ -123,7 +122,7 @@ describe('admin access response DTO allowlists', () => {
     });
 
     expect(detail).toMatchObject({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       memberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,

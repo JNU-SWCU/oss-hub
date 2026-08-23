@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AdminAccessActor } from './admin-access.repository.types';
@@ -48,8 +48,7 @@ class AuditAuthorityStore
       id: 'actor',
       githubId: actorGithubId,
       githubLogin: 'synthetic-admin',
-      name: '합성 관리자',
-      role: Role.ADMIN,
+      hasAdminAccess: true,
       hasStaffAccess: true,
       hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
@@ -80,8 +79,8 @@ class AuditAuthorityStore
 }
 
 it.each([
-  ['staff', STAFF_ACCESS_COMMANDS.GRANT, Role.STAFF, true, false],
-  ['admin', ADMIN_ACCESS_COMMANDS.GRANT, Role.ADMIN, false, true],
+  ['staff', STAFF_ACCESS_COMMANDS.GRANT, 'STAFF', true, false],
+  ['admin', ADMIN_ACCESS_COMMANDS.GRANT, 'ADMIN', false, true],
 ] as const)(
   '%s mutation writes one audit with the transaction writer',
   async (family, command, role, hasStaffAccess, hasAdminAccess) => {
@@ -139,7 +138,7 @@ it.each([
           memberKind: MemberKind.STUDENT,
           hasStaffAccess: false,
           hasAdminAccess: false,
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
         },
         after: {
@@ -156,7 +155,7 @@ it.each([
 
 it('does not write a phantom audit for an idempotent same-state command', async () => {
   const store = new AuditAuthorityStore();
-  store.target = targetUser({ role: Role.ADMIN, hasAdminAccess: true });
+  store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
   const record = jest.fn();
   const service = new IndependentAuthorityService(store, { record });
 
@@ -188,7 +187,7 @@ it('propagates audit failure so the authority transaction rolls back', async () 
 it('does not update or audit when the final-admin guard fails', async () => {
   const store = new AuditAuthorityStore();
   store.activeAdminCount = 1;
-  store.target = targetUser({ role: Role.ADMIN, hasAdminAccess: true });
+  store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
   const record = jest.fn();
   const service = new IndependentAuthorityService(store, { record });
 
@@ -225,9 +224,8 @@ function targetUser(
     id: 'target',
     githubId: 9_700_600_002n,
     githubLogin: 'synthetic-target',
-    name: '합성 학생',
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
+    selectedRole: 'STUDENT',
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,

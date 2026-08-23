@@ -1,10 +1,4 @@
-import {
-  MilestoneSubmissionType,
-  ReviewDecision,
-  Role,
-  SubmissionFileLifecycle,
-  SubmissionStatus,
-} from '@prisma/client';
+import { MemberKind, MilestoneSubmissionType, ReviewDecision, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   offsetDays,
@@ -91,7 +85,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           id: OUTSIDER_USER_ID,
           githubId: seedGithubId(OUTSIDER_USER_ID),
           nickname: OUTSIDER_USER_ID,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
       skipDuplicates: true,

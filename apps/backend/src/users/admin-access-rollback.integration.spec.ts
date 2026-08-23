@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -36,7 +36,7 @@ afterAll(async () => {
 
 it('rolls back the user CAS when the pending-request CAS fails second', async () => {
   // Given
-  const actor = await createUser(Role.ADMIN, 'actor');
+  const actor = await createUser('ADMIN', 'actor');
   const target = await createUser(null, 'target');
   const profile = {
     name: '합성 롤백 대상',
@@ -60,7 +60,7 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   await expect(
     service.patchAccess(actor.githubId, target.id, {
       expectedRole: null,
-      desiredRole: Role.STAFF,
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: {
@@ -91,7 +91,7 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   ).resolves.toBe(0);
 });
 
-async function createUser(role: Role | null, label: string) {
+async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
   sequence += 1;
   return prisma.user.create({
     data: {

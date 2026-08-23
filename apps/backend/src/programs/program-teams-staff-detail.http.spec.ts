@@ -1,6 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { DomainException } from '../common/error-code';
 import { AuthConfig } from '../auth/auth.config';
@@ -98,7 +98,7 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
   // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
   getForStaff.mockResolvedValue({
@@ -129,9 +129,9 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
 });
 
 it.each([
-  ['STUDENT', Role.STUDENT, AccountStatus.ACTIVE],
+  ['STUDENT', 'STUDENT', AccountStatus.ACTIVE],
   ['역할 미지정', null, AccountStatus.ACTIVE],
-  ['비활성 STAFF', Role.STAFF, AccountStatus.DEACTIVATED],
+  ['비활성 STAFF', 'STAFF', AccountStatus.DEACTIVATED],
 ])(
   '%s 계정은 403 TEAM_003 으로 막히고 service 를 호출하지 않는다',
   async (_label, role, accountStatus) => {
@@ -157,7 +157,7 @@ it('없는 팀·다른 프로그램의 팀은 구분 없이 404 TEAM_010 이다'
   // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
   getForStaff.mockRejectedValue(

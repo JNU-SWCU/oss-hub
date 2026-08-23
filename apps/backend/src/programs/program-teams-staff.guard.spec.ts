@@ -1,5 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { TeamsErrorCode } from './teams-error-code.enum';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 
@@ -10,7 +10,7 @@ describe('ProgramTeamsStaffGuard', () => {
 
   beforeEach(() => findUnique.mockReset());
 
-  it.each([Role.STAFF, Role.ADMIN])(
+  it.each(['STAFF', 'ADMIN'])(
     'ACTIVE %s 역할을 허용하고 actor id 를 요청에 붙인다',
     async (role) => {
       // Given
@@ -35,7 +35,7 @@ describe('ProgramTeamsStaffGuard', () => {
     },
   );
 
-  it.each([Role.STUDENT, null])(
+  it.each(['STUDENT', null])(
     '%s 역할은 TEAM_003 403 으로 거부한다',
     async (role) => {
       // Given
@@ -58,7 +58,7 @@ describe('ProgramTeamsStaffGuard', () => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-staff',
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 3003n }]);

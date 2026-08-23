@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -37,8 +37,8 @@ afterAll(async () => {
 
 it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행은 그대로 남는다', async () => {
   // Given
-  const actor = await createUser('approved-actor', Role.ADMIN);
-  const target = await createUser('approved-target', Role.STAFF);
+  const actor = await createUser('approved-actor', 'ADMIN');
+  const target = await createUser('approved-target', 'STAFF');
   const approved = await prisma.staffAccessRequest.create({
     data: {
       userId: target.id,
@@ -50,7 +50,7 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
 
   // When
   const result = await service.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STAFF,
+    expectedRole: 'STAFF',
     desiredRole: null,
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
@@ -92,15 +92,15 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
 it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴다', async () => {
   // Given — APPROVED 행이 하나도 없는 사람이다. 삽입을 "APPROVED가 있을 때만"으로
   // 좁히면 이 사람만 회수 흔적 없이 역할을 잃고, 그러면 다음 로그인에 시드가 되살린다.
-  const actor = await createUser('direct-actor', Role.ADMIN);
-  const target = await createUser('direct-target', Role.STAFF);
+  const actor = await createUser('direct-actor', 'ADMIN');
+  const target = await createUser('direct-target', 'STAFF');
   await expect(
     prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
 
   // When
   const result = await service.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STAFF,
+    expectedRole: 'STAFF',
     desiredRole: null,
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
@@ -126,12 +126,12 @@ it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴�
 
 it('회수는 새 REVOKED 행을 대상으로 하는 감사 기록을 남긴다', async () => {
   // Given
-  const actor = await createUser('audit-actor', Role.ADMIN);
-  const target = await createUser('audit-target', Role.STAFF);
+  const actor = await createUser('audit-actor', 'ADMIN');
+  const target = await createUser('audit-target', 'STAFF');
 
   // When
   const result = await service.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STAFF,
+    expectedRole: 'STAFF',
     desiredRole: null,
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
@@ -150,7 +150,7 @@ it('회수는 새 REVOKED 행을 대상으로 하는 감사 기록을 남긴다'
     metadata: {
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REVOKED,
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
@@ -164,11 +164,11 @@ it('회수는 새 REVOKED 행을 대상으로 하는 감사 기록을 남긴다'
 });
 
 it.each([
-  ['ADMIN', Role.ADMIN],
-  ['STUDENT', Role.STUDENT],
+  ['ADMIN', 'ADMIN'],
+  ['STUDENT', 'STUDENT'],
 ])('%s는 여전히 역할을 비울 수 없다', async (label, role) => {
   // Given — ADMIN 회수는 마지막 관리자 가드와 무관하게 전이 자체가 막혀야 한다.
-  const actor = await createUser(`not-allowed-actor-${label}`, Role.ADMIN);
+  const actor = await createUser(`not-allowed-actor-${label}`, 'ADMIN');
   const target = await createUser(`not-allowed-target-${label}`, role);
 
   // When / Then
@@ -196,11 +196,11 @@ it.each([
 
 it('두 관리자가 동시에 회수하면 한쪽만 성공하고 REVOKED 행도 하나만 남는다', async () => {
   // Given
-  const firstActor = await createUser('race-actor-a', Role.ADMIN);
-  const secondActor = await createUser('race-actor-b', Role.ADMIN);
-  const target = await createUser('race-target', Role.STAFF);
+  const firstActor = await createUser('race-actor-a', 'ADMIN');
+  const secondActor = await createUser('race-actor-b', 'ADMIN');
+  const target = await createUser('race-target', 'STAFF');
   const command = {
-    expectedRole: Role.STAFF,
+    expectedRole: 'STAFF',
     desiredRole: null,
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
@@ -233,8 +233,8 @@ it('두 관리자가 동시에 회수하면 한쪽만 성공하고 REVOKED 행�
 it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간다', async () => {
   // Given — 두 쓰기가 한 트랜잭션이라는 주장의 반대편이다. 삽입까지 끝난 뒤 터뜨려
   // "역할은 비었는데 회수 이력은 없는" 상태가 커밋되지 않는지 본다.
-  const actor = await createUser('rollback-insert-actor', Role.ADMIN);
-  const target = await createUser('rollback-insert-target', Role.STAFF);
+  const actor = await createUser('rollback-insert-actor', 'ADMIN');
+  const target = await createUser('rollback-insert-target', 'STAFF');
   const failingService = new AdminAccessService(
     new PausingRevocationAdminAccessRepository(repository, () =>
       Promise.reject(new Error('synthetic-revocation-failure')),
@@ -245,7 +245,7 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
   // When / Then
   await expect(
     failingService.patchAccess(actor.githubId, target.id, {
-      expectedRole: Role.STAFF,
+      expectedRole: 'STAFF',
       desiredRole: null,
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
@@ -255,7 +255,7 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
@@ -266,8 +266,8 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
 it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아간다', async () => {
   // Given — 감사는 같은 트랜잭션의 writer로 쓴다. 그 규약이 깨지면 "회수됐는데 기록은
   // 없는" 행이 남고, AuditLog는 append-only라 나중에 채워 넣을 수도 없다.
-  const actor = await createUser('rollback-audit-actor', Role.ADMIN);
-  const target = await createUser('rollback-audit-target', Role.STAFF);
+  const actor = await createUser('rollback-audit-actor', 'ADMIN');
+  const target = await createUser('rollback-audit-target', 'STAFF');
   const failingAudit = {
     record: () => Promise.reject(new Error('synthetic-audit-failure')),
   } as unknown as AuditLogService;
@@ -276,7 +276,7 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
   // When / Then
   await expect(
     failingService.patchAccess(actor.githubId, target.id, {
-      expectedRole: Role.STAFF,
+      expectedRole: 'STAFF',
       desiredRole: null,
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
@@ -286,7 +286,7 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
@@ -297,8 +297,8 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
 it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권한을 되살리지 못한다', async () => {
   // Given — PR0(#675)이 남긴 알려진 한계를 닫는 자리다. 회수 트랜잭션이 두 쓰기를 마치고
   // 커밋하기 전에 `AUTH_INITIAL_ROLES=STAFF` 로그인이 같은 User 행을 만지러 온다.
-  const actor = await createUser('login-race-actor', Role.ADMIN);
-  const target = await createUser('login-race-target', Role.STAFF);
+  const actor = await createUser('login-race-actor', 'ADMIN');
+  const target = await createUser('login-race-target', 'STAFF');
   const approved = await prisma.staffAccessRequest.create({
     data: {
       userId: target.id,
@@ -313,7 +313,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
   const loginBackend = backendPid();
   const authRepository = new AuthRepository(
     pidCapturingPrisma(loginBackend.capture),
-    { resolveInitialRole: () => Role.STAFF } as unknown as AuthConfig,
+    { resolveInitialRole: () => 'STAFF' } as unknown as AuthConfig,
   );
   const reachedCommitBoundary = deferred();
   const releaseRevocation = deferred();
@@ -330,7 +330,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
 
   // When
   const revocation = pausedService.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STAFF,
+    expectedRole: 'STAFF',
     desiredRole: null,
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
@@ -377,7 +377,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
   expect(requests[0]?.decidedById).toBe(actor.id);
 });
 
-function createUser(label: string, role: Role | null) {
+function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
     data: {

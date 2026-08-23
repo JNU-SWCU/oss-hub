@@ -1,13 +1,4 @@
-import {
-  ApplicationStatus,
-  ProgramCategory,
-  RepositoryConnectionMode,
-  RepositoryInvitationStatus,
-  RepositoryProvisionJobStatus,
-  RepositorySource,
-  RepositoryVisibility,
-  Role,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryInvitationStatus, RepositoryProvisionJobStatus, RepositorySource, RepositoryVisibility } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { RepositoriesRepository } from './repository/repositories.repository';
@@ -57,13 +48,13 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           id: CURRENT_USER_ID,
           githubId: 8_300_000_000_001n,
           nickname: `${PREFIX}-Current`,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: OTHER_USER_ID,
           githubId: 8_300_000_000_002n,
           nickname: `${PREFIX}-other`,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
     });

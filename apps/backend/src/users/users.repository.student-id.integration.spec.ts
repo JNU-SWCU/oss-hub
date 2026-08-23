@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersRepository } from './users.repository';
@@ -36,7 +36,7 @@ beforeEach(async () => {
       githubId,
       nickname: 'synthetic-profile-user',
       name: 'GitHub 합성 이름',
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });
@@ -64,12 +64,13 @@ describe('학번 최초 저장의 유일성', () => {
   ): Promise<void> {
     await prisma.user.upsert({
       where: { id },
-      update: { role: Role.STAFF, ...staffProfile, studentId: null },
+      update: { role: 'STAFF', ...staffProfile, studentId: null },
       create: {
         id,
         githubId: github,
         nickname,
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
         ...staffProfile,
       },
     });

@@ -1,7 +1,6 @@
 import {
   AffiliationKind,
   MemberKind,
-  Role,
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -44,8 +43,8 @@ it('student completion writes canonical profile, authority defaults, and rollbac
 
   // Then
   await expect(storedMember(user.id)).resolves.toMatchObject({
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
+    role: 'STUDENT',
+    selectedRole: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -79,7 +78,7 @@ it('staff completion writes program-office affiliation, null student ID, default
   ]);
   expect(stored).toMatchObject({
     role: null,
-    selectedRole: Role.STAFF,
+    selectedRole: 'STAFF',
     selectedMemberKind: MemberKind.STAFF,
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -106,7 +105,7 @@ it('approval grants staff access without changing staff member kind or admin acc
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
     expectedRole: null,
-    desiredRole: Role.STAFF,
+    desiredRole: 'STAFF',
     expectedPendingRequest: {
       id: request.id,
       status: StaffAccessRequestStatus.PENDING,
@@ -116,7 +115,7 @@ it('approval grants staff access without changing staff member kind or admin acc
 
   // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: Role.STAFF,
+    role: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
     profile: { memberKind: MemberKind.STAFF },
@@ -161,7 +160,7 @@ it('revocation removes staff access without erasing staff member kind or grantin
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
     expectedRole: null,
-    desiredRole: Role.STAFF,
+    desiredRole: 'STAFF',
     expectedPendingRequest: {
       id: request.id,
       status: StaffAccessRequestStatus.PENDING,
@@ -172,7 +171,7 @@ it('revocation removes staff access without erasing staff member kind or grantin
   // When
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
-    expectedRole: Role.STAFF,
+    expectedRole: 'STAFF',
     desiredRole: null,
     expectedPendingRequest: null,
   });
@@ -207,14 +206,14 @@ it('admin grant stays independent from student membership and staff access', asy
   // When
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
-    expectedRole: Role.STUDENT,
-    desiredRole: Role.ADMIN,
+    expectedRole: 'STUDENT',
+    desiredRole: 'ADMIN',
     expectedPendingRequest: null,
   });
 
   // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: Role.ADMIN,
+    role: 'ADMIN',
     hasStaffAccess: false,
     hasAdminAccess: true,
     profile: { memberKind: MemberKind.STUDENT },
@@ -243,7 +242,7 @@ it('concurrent completion allows exactly one atomic winner', async () => {
   );
   expect(results.filter(({ status }) => status === 'rejected')).toHaveLength(1);
   await expect(storedMember(target.id)).resolves.toMatchObject({
-    role: Role.STUDENT,
+    role: 'STUDENT',
     profile: { memberKind: MemberKind.STUDENT, studentId: '801011' },
   });
 });

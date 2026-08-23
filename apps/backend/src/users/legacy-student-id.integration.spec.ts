@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
@@ -79,9 +79,8 @@ beforeEach(async () => {
       githubId,
       nickname: 'synthetic-legacy-student',
       name,
-      studentId: LEGACY_STUDENT_ID,
       department,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       profile: { create: { name, studentId: LEGACY_STUDENT_ID, department } },
     },
   });

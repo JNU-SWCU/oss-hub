@@ -1,10 +1,4 @@
-import {
-  AccountStatus,
-  ProgramCategory,
-  RepositoryConnectionMode,
-  Role,
-  TeamInvitationStatus,
-} from '@prisma/client';
+import { AccountStatus, MemberKind, ProgramCategory, RepositoryConnectionMode, TeamInvitationStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsRepository } from '../applications/applications.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,14 +33,14 @@ async function seedFixture(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_301_000_001n,
         nickname: 'acceptance-race-leader',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_301_000_002n,
         nickname: 'acceptance-race-invitee',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],
@@ -115,7 +109,7 @@ describe('Team invitation acceptance transaction races', () => {
   });
 
   it.each([
-    ['역할 변경 트랜잭션', { role: Role.STAFF }],
+    ['역할 변경 트랜잭션', { role: 'STAFF' }],
     ['계정 비활성화 트랜잭션', { accountStatus: AccountStatus.DEACTIVATED }],
   ] as const)(
     '%s이 먼저 잠그면 수락은 대기 후 최신 자격을 본다',

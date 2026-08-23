@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { completeUserProfileViewIfUnchanged } from '../profiles/profile-compatibility.repository';
@@ -55,7 +55,7 @@ beforeEach(async () => {
       githubId,
       nickname: 'synthetic-profile-user',
       name: 'GitHub 합성 이름',
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });

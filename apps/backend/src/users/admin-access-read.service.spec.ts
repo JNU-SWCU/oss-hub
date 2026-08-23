@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { ADMIN_ACCESS_PENDING_FILTERS } from './domain/admin-access';
@@ -21,7 +21,7 @@ describe('AdminAccessService reads', () => {
     repository.target = accessUser({
       id: 'admin',
       githubId: ADMIN_GITHUB_ID,
-      role: Role.ADMIN,
+      hasAdminAccess: true,
     });
     const service = new AdminAccessService(
       repository,
@@ -76,7 +76,7 @@ describe('AdminAccessService reads', () => {
     ],
     [
       'staff',
-      adminActor({ role: Role.STAFF, hasAdminAccess: false }),
+      adminActor({ role: 'STAFF', hasAdminAccess: false }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],

@@ -1,4 +1,4 @@
-import { AccountStatus, Prisma, ProgramLifecycle, Role } from '@prisma/client';
+import { AccountStatus, Prisma, ProgramLifecycle } from '@prisma/client';
 import {
   PROGRAM_DELETION_AUDIT_ACTIONS,
   PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
@@ -22,7 +22,7 @@ function createService(
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
     overrides.user ?? {
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
     },
   );
@@ -116,7 +116,7 @@ describe('ProgramLifecycleService', () => {
 
   it('STAFF/ADMIN이 아니거나 비활성 계정이면 거부하고 조회조차 하지 않는다', async () => {
     const { service, programFindUnique } = createService({
-      user: { role: Role.STUDENT, accountStatus: AccountStatus.ACTIVE },
+      user: { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
     });
 
     await expect(
@@ -148,7 +148,7 @@ function createDeleteService(
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
     overrides.user ?? {
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
     },
   );
@@ -323,7 +323,7 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
 
   it('STAFF는 프로그램을 생성했더라도 403을 받는다', async () => {
     const { service, programFindUnique } = createDeleteService({
-      user: { role: Role.STAFF, accountStatus: AccountStatus.ACTIVE },
+      user: { role: 'STAFF', accountStatus: AccountStatus.ACTIVE },
     });
 
     await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
@@ -334,7 +334,7 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
 
   it('STUDENT는 403을 받는다', async () => {
     const { service, programFindUnique } = createDeleteService({
-      user: { role: Role.STUDENT, accountStatus: AccountStatus.ACTIVE },
+      user: { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
     });
 
     await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
@@ -518,7 +518,7 @@ function createPurgeService(
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
     overrides.user ?? {
-      role: Role.ADMIN,
+      role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
     },
   );
@@ -944,7 +944,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
 
   it('STAFF는 purge 시도 시 403 PRG_011을 받고 프로그램을 조회하지 않는다', async () => {
     const { service, programFindUnique } = createPurgeService({
-      user: { role: Role.STAFF, accountStatus: AccountStatus.ACTIVE },
+      user: { role: 'STAFF', accountStatus: AccountStatus.ACTIVE },
     });
 
     await expect(
@@ -957,7 +957,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
 
   it('STUDENT는 purge 시도 시 403 PRG_011을 받는다', async () => {
     const { service } = createPurgeService({
-      user: { role: Role.STUDENT, accountStatus: AccountStatus.ACTIVE },
+      user: { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
     });
 
     await expect(

@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -16,7 +16,7 @@ describe('AccountDeactivationService', () => {
     githubId: 42n,
     githubLogin: 'student',
     displayName: '학생',
-    role: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
     accountStatus: AccountStatus.ACTIVE,
     requestStatus: null,
   } as const;
@@ -60,12 +60,12 @@ describe('AccountDeactivationService', () => {
         actor: { displayName: '학생', githubLogin: 'student' },
         target: { displayName: '학생', githubLogin: 'student' },
         before: {
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
           requestStatus: null,
         },
         after: {
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.DEACTIVATED,
           requestStatus: null,
         },
@@ -113,7 +113,7 @@ describe('AccountDeactivationService', () => {
             auditLogWriter: {} as AuditLogTransactionWriter,
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
-              role: Role.ADMIN,
+              role: 'ADMIN',
             }),
             lockActiveAdmins: jest.fn().mockResolvedValue(1),
             deactivate,

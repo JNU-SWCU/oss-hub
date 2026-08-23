@@ -1,4 +1,3 @@
-import { Role } from '@prisma/client';
 import { Readable } from 'node:stream';
 import {
   MilestoneDocumentFileRetentionUnavailableError,
@@ -29,7 +28,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const mocks = {
     findActiveUser: jest
       .fn()
-      .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
     findDocumentContext: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -144,7 +143,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
+        .mockResolvedValue({ id: 'staff-1', role: 'STAFF' }),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
@@ -420,7 +419,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const { mocks, repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
+        .mockResolvedValue({ id: 'staff-1', role: 'STAFF' }),
       findStudentApplication: jest.fn(),
     });
     const service = new MilestoneDocumentFilesService(

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -46,7 +46,7 @@ function requestWithCookie(cookie?: string): OptionalSessionRequest {
 }
 
 function authenticatedRequest(
-  role: Role | null = syntheticUser.role,
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null = syntheticUser.role,
 ): OptionalSessionRequest {
   const request = { headers: {} } as Request;
   return Object.assign(request, {
@@ -157,7 +157,7 @@ describe('AuthController getSession', () => {
     expect(findMe).not.toHaveBeenCalled();
   });
 
-  it.each([Role.ADMIN, Role.STAFF, Role.STUDENT, null])(
+  it.each(['ADMIN', 'STAFF', 'STUDENT', null])(
     'authenticated session role is the DB role: %s',
     (dbRole) => {
       const result = createController(jest.fn()).getSession(
@@ -205,7 +205,7 @@ describe('AuthController getSession', () => {
     const result = createController(
       jest.fn().mockResolvedValue({
         ...syntheticUser,
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.DEACTIVATED,
       }),
     ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);

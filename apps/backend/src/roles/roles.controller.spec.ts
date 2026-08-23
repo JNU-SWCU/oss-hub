@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { plainToInstance } from 'class-transformer';
-import { Role, StaffAccessRequestStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { SessionGuard } from '../auth/session.guard';
@@ -70,12 +70,12 @@ describe('OnboardingController', () => {
   it('역할 선택 결과를 응답 계약으로 반환한다', async () => {
     // Given
     const selectRole = jest.fn().mockResolvedValue({
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
     const controller = createOnboardingController(selectRole);
     const body = plainToInstance(SelectStaffAccessRequestDto, {
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
     });
 
     // When
@@ -84,31 +84,31 @@ describe('OnboardingController', () => {
     // Then — 확정 결과(role·requestStatus)는 계약에 없다. 이 화면이 아무것도
     // 확정하지 않기 때문이다(#569).
     expect(result).toEqual({
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
-    expect(selectRole).toHaveBeenCalledWith(424242n, Role.STUDENT);
+    expect(selectRole).toHaveBeenCalledWith(424242n, 'STUDENT');
   });
 
   it('지금 고른 역할을 응답 계약으로 반환한다', async () => {
     // Given
     const getMySelection = jest
       .fn()
-      .mockResolvedValue({ selectedRole: Role.STAFF });
+      .mockResolvedValue({ selectedRole: 'STAFF' });
     const controller = createOnboardingController(jest.fn(), getMySelection);
 
     // When
     const result = await controller.getMySelection(REQUEST);
 
     // Then
-    expect(result).toEqual({ selectedRole: Role.STAFF });
+    expect(result).toEqual({ selectedRole: 'STAFF' });
     expect(getMySelection).toHaveBeenCalledWith(424242n);
   });
 
   it('STUDENT와 STAFF가 아닌 역할 선택은 ROL_001로 거부한다', () => {
     // Given
     const body = plainToInstance(SelectStaffAccessRequestDto, {
-      selectedRole: Role.ADMIN,
+      selectedRole: 'ADMIN',
     });
 
     // When
@@ -166,7 +166,7 @@ describe('StaffAccessRequestsController', () => {
 
     // Then
     expect(result).toEqual({
-      requestedRole: Role.STAFF,
+      requestedRole: 'STAFF',
       status: StaffAccessRequestStatus.REJECTED,
       requestedAt: REQUESTED_AT.toISOString(),
       decidedAt: DECIDED_AT.toISOString(),
@@ -192,7 +192,7 @@ describe('StaffAccessRequestsController', () => {
 
     // Then
     expect(result).toEqual({
-      requestedRole: Role.STAFF,
+      requestedRole: 'STAFF',
       status: StaffAccessRequestStatus.PENDING,
       requestedAt: REQUESTED_AT.toISOString(),
       decidedAt: null,

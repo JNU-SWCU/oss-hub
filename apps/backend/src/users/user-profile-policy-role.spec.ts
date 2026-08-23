@@ -1,4 +1,3 @@
-import type { Role } from '@prisma/client';
 import {
   effectiveProfileRole,
   isCompleteUserProfile,

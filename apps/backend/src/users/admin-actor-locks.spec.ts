@@ -1,4 +1,4 @@
-import { AccountStatus, Prisma, Role } from '@prisma/client';
+import { AccountStatus, MemberKind, Prisma } from '@prisma/client';
 import { lockActiveAdminRows, toAdminActor } from './admin-actor-locks';
 
 type ActorRow = Parameters<typeof toAdminActor>[0];
@@ -8,9 +8,8 @@ function actorRow(overrides: Partial<ActorRow> = {}): ActorRow {
     id: 'actor',
     githubId: 9_140_000_001n,
     nickname: 'synthetic-actor',
-    name: '합성 액터',
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
+    selectedRole: 'STUDENT',
     selectedMemberKind: null,
     hasStaffAccess: null,
     hasAdminAccess: null,
@@ -31,7 +30,7 @@ describe('toAdminActor', () => {
   it('takes canonical access columns as the source of truth over the legacy role', () => {
     // Given: role은 STAFF지만 canonical로는 관리자인 행
     const row = actorRow({
-      role: Role.STAFF,
+      role: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,
     });
@@ -47,7 +46,7 @@ describe('toAdminActor', () => {
   it('reports no access when the canonical columns deny it despite an ADMIN role', () => {
     // Given
     const row = actorRow({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       hasStaffAccess: false,
       hasAdminAccess: false,
     });
@@ -61,9 +60,9 @@ describe('toAdminActor', () => {
   });
 
   it.each([
-    [Role.ADMIN, true, true],
-    [Role.STAFF, true, false],
-    [Role.STUDENT, false, false],
+    ['ADMIN', true, true],
+    ['STAFF', true, false],
+    ['STUDENT', false, false],
     [null, false, false],
   ] as const)(
     'falls back to the legacy role %s for rows the backfill has not reached',
@@ -119,7 +118,7 @@ describe('lockActiveAdminRows', () => {
     expect(sql).toContain('WHERE role =');
     expect(sql).not.toContain('hasAdminAccess');
     expect(sql).toContain('FOR UPDATE');
-    expect(query.values).toContain(Role.ADMIN);
+    expect(query.values).toContain('ADMIN');
     expect(query.values).toContain(AccountStatus.ACTIVE);
   });
 });

@@ -1,10 +1,4 @@
-import {
-  AccountStatus,
-  MilestoneSubmissionType,
-  Role,
-  SubmissionFileLifecycle,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, MemberKind, MilestoneSubmissionType, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -51,25 +45,26 @@ const USER_RECORDS = [
   {
     id: UNRELATED_STUDENT_USER_ID,
     githubId: UNRELATED_STUDENT_GITHUB_ID,
-    role: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: STAFF_USER_ID,
     githubId: STAFF_GITHUB_ID,
-    role: Role.STAFF,
+    selectedMemberKind: MemberKind.STAFF,
+    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: ADMIN_USER_ID,
     githubId: ADMIN_GITHUB_ID,
-    role: Role.ADMIN,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: INACTIVE_USER_ID,
     githubId: INACTIVE_GITHUB_ID,
-    role: Role.ADMIN,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.DEACTIVATED,
   },
 ] satisfies readonly {

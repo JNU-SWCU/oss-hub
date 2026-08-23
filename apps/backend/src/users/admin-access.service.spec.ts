@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -30,8 +30,8 @@ describe('AdminAccessService mutation', () => {
     // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-        expectedRole: Role.ADMIN,
-        desiredRole: Role.STAFF,
+        expectedRole: 'ADMIN',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -41,7 +41,7 @@ describe('AdminAccessService mutation', () => {
       extensions: {
         currentAccess: {
           id: 'target',
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
           pendingRequest: null,
         },
@@ -67,7 +67,7 @@ describe('AdminAccessService mutation', () => {
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
         expectedRole: null,
-        desiredRole: Role.STAFF,
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: {
@@ -96,7 +96,7 @@ describe('AdminAccessService mutation', () => {
     // When
     const result = await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
       expectedRole: null,
-      desiredRole: Role.STAFF,
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: {
@@ -111,7 +111,7 @@ describe('AdminAccessService mutation', () => {
     // Then
     expect(result).toMatchObject({
       id: 'target',
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: {
@@ -151,7 +151,7 @@ describe('AdminAccessService mutation', () => {
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            role: Role.STAFF,
+            role: 'STAFF',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.APPROVED,
           },
@@ -170,8 +170,8 @@ describe('AdminAccessService mutation', () => {
 
     // When
     await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-      expectedRole: Role.STUDENT,
-      desiredRole: Role.STUDENT,
+      expectedRole: 'STUDENT',
+      desiredRole: 'STUDENT',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: {
@@ -203,12 +203,12 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            role: Role.STUDENT,
+            role: 'STUDENT',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            role: Role.STUDENT,
+            role: 'STUDENT',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.REJECTED,
           },
@@ -223,13 +223,13 @@ describe('AdminAccessService mutation', () => {
     // Given — 신청 없이 관리자가 직접 올린 STAFF다. APPROVED 행이 아예 없으므로
     // 삽입을 "APPROVED가 있을 때만"으로 좁히면 이 사람은 회수 흔적이 남지 않는다.
     const repository = new InMemoryAdminAccessRepository();
-    repository.target = accessUser({ role: Role.STAFF, pendingRequest: null });
+    repository.target = accessUser({ role: 'STAFF', pendingRequest: null });
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 
     // When
     const result = await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-      expectedRole: Role.STAFF,
+      expectedRole: 'STAFF',
       desiredRole: null,
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
@@ -250,7 +250,7 @@ describe('AdminAccessService mutation', () => {
     expect(repository.userUpdates).toEqual([
       {
         userId: 'target',
-        expectedRole: Role.STAFF,
+        expectedRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredRole: null,
         desiredAccountStatus: AccountStatus.ACTIVE,
@@ -269,13 +269,13 @@ describe('AdminAccessService mutation', () => {
   it('records the revocation as ROLE_REQUEST_REVOKED against the new request row', async () => {
     // Given
     const repository = new InMemoryAdminAccessRepository();
-    repository.target = accessUser({ role: Role.STAFF, pendingRequest: null });
+    repository.target = accessUser({ role: 'STAFF', pendingRequest: null });
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 
     // When
     await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-      expectedRole: Role.STAFF,
+      expectedRole: 'STAFF',
       desiredRole: null,
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
@@ -303,7 +303,7 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            role: Role.STAFF,
+            role: 'STAFF',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: null,
           },
@@ -319,8 +319,8 @@ describe('AdminAccessService mutation', () => {
   });
 
   it.each([
-    ['ADMIN', Role.ADMIN],
-    ['STUDENT', Role.STUDENT],
+    ['ADMIN', 'ADMIN'],
+    ['STUDENT', 'STUDENT'],
   ])('refuses to clear a confirmed %s role', async (_label, role) => {
     // Given
     const repository = new InMemoryAdminAccessRepository();
@@ -352,7 +352,7 @@ describe('AdminAccessService mutation', () => {
     // Given — 여기서 통과시키면 역할만 비고 REVOKED 행이 없는 계정이 생긴다.
     const repository = new InMemoryAdminAccessRepository();
     repository.target = accessUser({
-      role: Role.STAFF,
+      role: 'STAFF',
       pendingRequest: PENDING_REQUEST,
     });
     const audit = auditLogHarness();
@@ -361,7 +361,7 @@ describe('AdminAccessService mutation', () => {
     // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-        expectedRole: Role.STAFF,
+        expectedRole: 'STAFF',
         desiredRole: null,
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
@@ -390,8 +390,8 @@ describe('AdminAccessService mutation', () => {
     // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-        expectedRole: Role.STUDENT,
-        desiredRole: Role.ADMIN,
+        expectedRole: 'STUDENT',
+        desiredRole: 'ADMIN',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -401,7 +401,7 @@ describe('AdminAccessService mutation', () => {
       extensions: {
         currentAccess: {
           id: 'target',
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
           pendingRequest: null,
         },
@@ -420,8 +420,8 @@ describe('AdminAccessService mutation', () => {
 
     // When
     await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-      expectedRole: Role.STUDENT,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STUDENT',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
@@ -442,7 +442,7 @@ describe('AdminAccessService mutation', () => {
     // Given — lockActiveAdmins()가 도는 순간 강등이 커밋된 경쟁을 흉내 낸다.
     const repository = new InMemoryAdminAccessRepository();
     repository.actorAfterLock = adminActor({
-      role: Role.STAFF,
+      role: 'STAFF',
       hasAdminAccess: false,
     });
     const audit = auditLogHarness();
@@ -451,8 +451,8 @@ describe('AdminAccessService mutation', () => {
     // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-        expectedRole: Role.STUDENT,
-        desiredRole: Role.STAFF,
+        expectedRole: 'STUDENT',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -479,8 +479,8 @@ describe('AdminAccessService mutation', () => {
     // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
-        expectedRole: Role.STUDENT,
-        desiredRole: Role.STAFF,
+        expectedRole: 'STUDENT',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -507,7 +507,7 @@ describe('AdminAccessService mutation', () => {
 
     const result = await service.patchAccess(STAFF_GITHUB_ID, 'target', {
       expectedRole: null,
-      desiredRole: Role.STAFF,
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: {
@@ -547,7 +547,7 @@ describe('AdminAccessService mutation', () => {
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            role: Role.STAFF,
+            role: 'STAFF',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.APPROVED,
           },
@@ -565,8 +565,8 @@ describe('AdminAccessService mutation', () => {
 
     await expect(
       service.patchAccess(STAFF_GITHUB_ID, 'target', {
-        expectedRole: Role.STUDENT,
-        desiredRole: Role.STAFF,
+        expectedRole: 'STUDENT',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,

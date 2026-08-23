@@ -1,9 +1,4 @@
-import {
-  AccountStatus,
-  ProgramCategory,
-  Role,
-  TeamInvitationStatus,
-} from '@prisma/client';
+import { AccountStatus, MemberKind, ProgramCategory, TeamInvitationStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -49,42 +44,43 @@ async function seedEligibilityFixture(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_300_000_001n,
         nickname: 'eligibility-leader',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_300_000_002n,
         nickname: 'eligibility-invitee',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: ACTIVE_STUDENT_ID,
         githubId: 9_300_000_003n,
         nickname: `${CANDIDATE_QUERY}-student`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: STAFF_ID,
         githubId: 9_300_000_004n,
         nickname: `${CANDIDATE_QUERY}-staff`,
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: ADMIN_ID,
         githubId: 9_300_000_005n,
         nickname: `${CANDIDATE_QUERY}-admin`,
-        role: Role.ADMIN,
+        hasAdminAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: DEACTIVATED_STUDENT_ID,
         githubId: 9_300_000_006n,
         nickname: `${CANDIDATE_QUERY}-deactivated`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.DEACTIVATED,
       },
       {
@@ -172,7 +168,7 @@ describe('TeamInvitationsRepository eligibility integration', () => {
   });
 
   it.each([
-    ['교직원으로 역할 변경', { role: Role.STAFF }],
+    ['교직원으로 역할 변경', { role: 'STAFF' }],
     ['계정 비활성화', { accountStatus: AccountStatus.DEACTIVATED }],
   ] as const)('%s 후에는 기존 초대를 수락할 수 없다', async (_, update) => {
     // Given: ACTIVE STUDENT일 때 받은 대기 중 초대가 있고 이후 자격이 바뀐다.

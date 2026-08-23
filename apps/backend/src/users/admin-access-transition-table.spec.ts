@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
@@ -22,7 +22,7 @@ type OracleCase = {
   readonly expected: AdminAccessTransitionOutcome;
 };
 
-const ORACLE_ROLES = [null, Role.STUDENT, Role.STAFF, Role.ADMIN] as const;
+const ORACLE_ROLES = [null, 'STUDENT', 'STAFF', 'ADMIN'] as const;
 const ORACLE_ACCOUNT_STATUSES = [
   AccountStatus.ACTIVE,
   AccountStatus.DEACTIVATED,
@@ -78,7 +78,7 @@ function expectedTransitionOutcome(
   // 회수(#184)만 확정된 역할을 다시 비운다. 오라클도 같은 규칙을 독립적으로 적는다 —
   // 확정된 STAFF이고 대기 중 요청이 없을 때만 통과하고, 그 전이는 REVOKED 행을 남긴다.
   const revokesStaff =
-    current.role === Role.STAFF &&
+    current.role === 'STAFF' &&
     current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE &&
     desired.role === null;
   if (current.role !== null && desired.role === null && !revokesStaff) {
@@ -107,12 +107,12 @@ function expectedTransitionOutcome(
         ? denied(RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED, 409)
         : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
     case ADMIN_ACCESS_DECISION_KINDS.APPROVE:
-      return desired.role === Role.STAFF &&
+      return desired.role === 'STAFF' &&
         desired.accountStatus === AccountStatus.ACTIVE
         ? allowed(current, desired, 'APPROVED')
         : denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
     case ADMIN_ACCESS_DECISION_KINDS.REJECT:
-      return current.role !== Role.STAFF && desired.role === Role.STAFF
+      return current.role !== 'STAFF' && desired.role === 'STAFF'
         ? denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400)
         : allowed(current, desired, 'REJECTED');
     default: {
@@ -139,9 +139,9 @@ function allowed(
       current.accountStatus === AccountStatus.ACTIVE &&
       desired.accountStatus === AccountStatus.DEACTIVATED,
     requiresLastActiveAdminGuard:
-      current.role === Role.ADMIN &&
+      current.role === 'ADMIN' &&
       current.accountStatus === AccountStatus.ACTIVE &&
-      (desired.role !== Role.ADMIN ||
+      (desired.role !== 'ADMIN' ||
         desired.accountStatus !== AccountStatus.ACTIVE),
   };
 }

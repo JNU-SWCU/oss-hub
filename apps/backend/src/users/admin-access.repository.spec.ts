@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -13,7 +13,7 @@ describe('AdminAccessRepository', () => {
     const findMany = jest.fn().mockResolvedValue([
       userRow({
         id: 'student',
-        role: Role.STUDENT,
+        role: 'STUDENT',
         profile: {
           name: '가나다 학생',
           studentId: '123456',
@@ -81,7 +81,7 @@ describe('AdminAccessRepository', () => {
         values: [
           '%synthetic%',
           '%synthetic%',
-          Role.STUDENT,
+          'STUDENT',
           AccountStatus.ACTIVE,
           StaffAccessRequestStatus.PENDING,
           1,
@@ -95,7 +95,7 @@ describe('AdminAccessRepository', () => {
           AND: [
             {
               OR: syntheticSearchConditions(),
-              role: Role.STUDENT,
+              role: 'STUDENT',
               accountStatus: AccountStatus.ACTIVE,
               staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
             },
@@ -116,7 +116,7 @@ describe('AdminAccessRepository', () => {
     expect(count).toHaveBeenNthCalledWith(6, {
       where: {
         OR: syntheticSearchConditions(),
-        role: Role.STUDENT,
+        role: 'STUDENT',
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
@@ -124,7 +124,7 @@ describe('AdminAccessRepository', () => {
     expect(count).toHaveBeenNthCalledWith(8, {
       where: {
         OR: syntheticSearchConditions(),
-        role: Role.STUDENT,
+        role: 'STUDENT',
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { none: { status: StaffAccessRequestStatus.PENDING } },
       },
@@ -133,7 +133,7 @@ describe('AdminAccessRepository', () => {
 
   it('maps detail and stable role-request/login histories', async () => {
     // Given
-    const detail = userRow({ id: 'target', role: Role.STAFF });
+    const detail = userRow({ id: 'target', role: 'STAFF' });
     const staffAccessRequestFindMany = jest.fn().mockResolvedValue([
       {
         id: 'request-2',
@@ -229,7 +229,7 @@ function syntheticSearchConditions() {
 
 type UserRowOptions = {
   readonly id: string;
-  readonly role?: Role | null;
+  readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly accountStatus?: AccountStatus;
   readonly nickname?: string;
   readonly profile?: {
@@ -254,7 +254,7 @@ function userRow(options: UserRowOptions) {
     studentId: null,
     department: null,
     profile: options.profile ?? null,
-    role: options.role === undefined ? Role.STUDENT : options.role,
+    role: options.role === undefined ? 'STUDENT' : options.role,
     accountStatus: options.accountStatus ?? AccountStatus.ACTIVE,
     staffAccessRequests: options.pendingRequest ? [options.pendingRequest] : [],
     loginHistories: options.lastLoginAt

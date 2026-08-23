@@ -1,7 +1,6 @@
 import {
   AccountStatus,
   ProgramLifecycle,
-  Role,
   StaffAccessRequestStatus,
   type Prisma,
 } from '@prisma/client';
@@ -157,12 +156,12 @@ describe('AuditLogRepository', () => {
         githubLogin: 'event-time-admin',
       },
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
       after: {
-        role: Role.ADMIN,
+        role: 'ADMIN',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
@@ -207,12 +206,12 @@ describe('AuditLogRepository', () => {
         githubLogin: 'event-time-target',
       },
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
       after: {
-        role: Role.ADMIN,
+        role: 'ADMIN',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },

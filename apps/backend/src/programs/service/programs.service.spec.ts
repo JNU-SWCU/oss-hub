@@ -1,9 +1,4 @@
-import {
-  ApplicationStatus,
-  ProgramCategory,
-  Role,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, ProgramCategory, SubmissionStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { hasProgramDeadlinePassed, programDeadline } from '../program-deadline';
 import type { ProgramViewer } from './program-viewer.service';
@@ -108,7 +103,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     };
     const detail = await service.detail('program-1', viewer);
 
@@ -128,7 +123,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'leader-1',
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     };
 
     // When
@@ -175,7 +170,8 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      role: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     };
     const detail = await service.detail('program-1', viewer);
 
@@ -198,7 +194,8 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      role: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     };
 
     // When
@@ -238,7 +235,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     };
 
     // When
@@ -263,7 +260,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     };
 
     // When
@@ -290,7 +287,8 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      role: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     };
 
     // When

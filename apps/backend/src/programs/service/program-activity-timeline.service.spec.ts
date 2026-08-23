@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { SessionGuard } from '../../auth/session.guard';
 import type {
@@ -15,7 +15,7 @@ import { StudentDashboardController } from '../controller/programs.controller';
 const student: ProgramViewer = {
   githubId: 11n,
   userId: 'student-1',
-  role: Role.STUDENT,
+  selectedMemberKind: MemberKind.STUDENT,
 };
 
 const application = {
@@ -195,7 +195,7 @@ describe('ProgramActivityService canonical activity', () => {
     expect(result.series.points).toEqual([]);
   });
 
-  it.each([Role.STAFF, Role.ADMIN, null])(
+  it.each(['STAFF', 'ADMIN', null])(
     'rejects non-student role %s before reading activity',
     async (role) => {
       const findStudentActivityApplications = jest.fn();

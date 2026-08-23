@@ -1,6 +1,6 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -126,13 +126,13 @@ describe('independent authority HTTP contracts', () => {
   afterAll(async () => application.close());
 
   it.each([
-    ['staff-access', STAFF_ACCESS_COMMANDS.REVOKE, false, true, Role.ADMIN],
-    ['admin-access', ADMIN_ACCESS_COMMANDS.REVOKE, true, false, Role.STAFF],
+    ['staff-access', STAFF_ACCESS_COMMANDS.REVOKE, false, true, 'ADMIN'],
+    ['admin-access', ADMIN_ACCESS_COMMANDS.REVOKE, true, false, 'STAFF'],
   ] as const)(
     'preserves the other authority through PATCH /users/:id/%s',
     async (path, command, hasStaffAccess, hasAdminAccess, role) => {
       store.target = targetUser({
-        role: Role.ADMIN,
+        role: 'ADMIN',
         hasStaffAccess: true,
         hasAdminAccess: true,
       });
@@ -151,7 +151,7 @@ describe('independent authority HTTP contracts', () => {
   );
 
   it('treats a same-state command as an idempotent HTTP success', async () => {
-    store.target = targetUser({ role: Role.ADMIN, hasAdminAccess: true });
+    store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
 
     const response = await request(
       'admin-access',
@@ -167,7 +167,7 @@ describe('independent authority HTTP contracts', () => {
   it('denies a non-admin actor', async () => {
     store.actor = {
       ...adminActor(),
-      role: Role.STAFF,
+      role: 'STAFF',
       hasAdminAccess: false,
     };
     const response = await request(
@@ -183,7 +183,7 @@ describe('independent authority HTTP contracts', () => {
 
   it('denies revoking the final active admin', async () => {
     store.activeAdminCount = 1;
-    store.target = targetUser({ role: Role.ADMIN, hasAdminAccess: true });
+    store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
     const response = await request(
       'admin-access',
       ADMIN_ACCESS_COMMANDS.REVOKE,
@@ -248,7 +248,7 @@ function adminActor(): AdminAccessActor {
     githubId,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: Role.ADMIN,
+    role: 'ADMIN',
     hasStaffAccess: true,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -262,9 +262,8 @@ function targetUser(
     id: 'target',
     githubId: 9_700_400_002n,
     githubLogin: 'synthetic-target',
-    name: '합성 학생',
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
+    selectedRole: 'STUDENT',
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,

@@ -1,4 +1,4 @@
-import { MemberKind, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -29,7 +29,7 @@ beforeEach(async () => {
       githubId,
       nickname: 'synthetic-profile-user',
       name: 'GitHub 합성 이름',
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });
@@ -59,7 +59,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         // 학과가 비어 있어 교직원 기준으로도 미완료다.
         department: null,
         role: null,
-        selectedRole: Role.STAFF,
+        selectedRole: 'STAFF',
         selectedMemberKind: MemberKind.STAFF,
       },
     });
@@ -85,7 +85,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
       throw new Error('합성 회수 사용자가 존재해야 합니다.');
     }
     expect(current.role).toBeNull();
-    expect(current.selectedRole).toBe(Role.STAFF);
+    expect(current.selectedRole).toBe('STAFF');
 
     // When: 미완료 → 완료 저장. 이것이 `가입 마치기`다.
     const completed = await repository.completeProfileIfUnchanged(
@@ -122,7 +122,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     await prisma.user.update({
       where: { id: revokedUserId },
       data: {
-        selectedRole: Role.STUDENT,
+        selectedRole: 'STUDENT',
         selectedMemberKind: MemberKind.STUDENT,
       },
     });
@@ -148,7 +148,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         where: { userId: revokedUserId, status: StaffAccessRequestStatus.PENDING },
       }),
     ]);
-    expect(stored.role).toBe(Role.STUDENT);
+    expect(stored.role).toBe('STUDENT');
     expect(pendingCount).toBe(0);
   });
 });

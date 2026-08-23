@@ -1,5 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   ApplicationsStaffGuard,
   ApplicationsStaffListGuard,
@@ -44,7 +44,7 @@ describe('ApplicationsStaffGuard', () => {
     },
   );
 
-  it.each([Role.STAFF, Role.ADMIN])(
+  it.each(['STAFF', 'ADMIN'])(
     'canonical 컬럼이 비어 있으면 legacy %s 역할로 허용한다',
     async (role) => {
       // Given
@@ -75,7 +75,7 @@ describe('ApplicationsStaffGuard', () => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
-      role: Role.STAFF,
+      role: 'STAFF',
       hasStaffAccess: false,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
@@ -92,7 +92,7 @@ describe('ApplicationsStaffGuard', () => {
     });
   });
 
-  it.each([Role.STUDENT, null])('%s 역할은 403으로 거부한다', async (role) => {
+  it.each(['STUDENT', null])('%s 역할은 403으로 거부한다', async (role) => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
@@ -126,7 +126,7 @@ describe('ApplicationsStaffGuard', () => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
-      role: Role.STAFF,
+      role: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
@@ -170,7 +170,7 @@ describe('ApplicationsStaffListGuard', () => {
   it('학생은 generic 조회 403 으로 거부한다 (판정 문구 없음)', async () => {
     findUnique.mockResolvedValue({
       id: 'synthetic-student',
-      role: Role.STUDENT,
+      role: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,

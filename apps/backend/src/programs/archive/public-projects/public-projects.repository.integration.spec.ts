@@ -1,11 +1,4 @@
-import {
-  ApplicationStatus,
-  PrismaClient,
-  ProgramCategory,
-  RepositorySource,
-  RepositoryVisibility,
-  Role,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, PrismaClient, ProgramCategory, RepositorySource, RepositoryVisibility } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { PublicProjectsRepository } from './public-projects.repository';
@@ -49,7 +42,7 @@ describe('PublicProjectsRepository integration', () => {
         id,
         githubId: 8_600_000_000_000n + BigInt(index),
         nickname: `${PREFIX}-applicant-${index}`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
       })),
     });
     const applicationIds = applicantIds.map(
@@ -112,13 +105,13 @@ describe('PublicProjectsRepository integration', () => {
           id: privateApplicantId,
           githubId: 8_600_000_099_001n,
           nickname: `${PREFIX}-private-applicant`,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: unpublishedApplicantId,
           githubId: 8_600_000_099_002n,
           nickname: `${PREFIX}-unpublished-applicant`,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
     });
@@ -308,7 +301,7 @@ describe('PublicProjectsRepository integration', () => {
           id: contractApplicantId,
           githubId: 8_600_000_099_101n,
           nickname: `${PREFIX}-contract-applicant`,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       });
       const contractTeamId = `${PREFIX}-contract-team`;

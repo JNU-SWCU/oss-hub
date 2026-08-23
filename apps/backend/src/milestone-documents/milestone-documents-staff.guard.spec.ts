@@ -1,5 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 import type { MilestoneDocumentsStaffRequest } from './milestone-documents-staff.guard';
@@ -10,7 +10,7 @@ describe('MilestoneDocumentsStaffGuard', () => {
 
   beforeEach(() => findUnique.mockReset());
 
-  it.each([Role.STAFF, Role.ADMIN])(
+  it.each(['STAFF', 'ADMIN'])(
     '%s 역할을 허용하고 request에 milestoneDocumentActorId를 붙인다',
     async (role) => {
       // Given: 활성 승인 교직원 또는 관리자다.
@@ -35,9 +35,9 @@ describe('MilestoneDocumentsStaffGuard', () => {
   );
 
   it.each([
-    [Role.STUDENT, AccountStatus.ACTIVE],
+    ['STUDENT', AccountStatus.ACTIVE],
     [null, AccountStatus.ACTIVE],
-    [Role.STAFF, AccountStatus.DEACTIVATED],
+    ['STAFF', AccountStatus.DEACTIVATED],
     [undefined, AccountStatus.ACTIVE],
   ] as const)(
     '%s/%s 계정은 STAFF_ONLY(403)로 거부한다',

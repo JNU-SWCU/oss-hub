@@ -1,6 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -94,7 +94,7 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
   // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
   listForStaff.mockResolvedValue([
@@ -162,7 +162,7 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
 it('ACTIVE ADMIN 도 통과한다', async () => {
   findUnique.mockResolvedValue({
     id: 'synthetic-admin',
-    role: Role.ADMIN,
+    role: 'ADMIN',
     accountStatus: AccountStatus.ACTIVE,
   });
   listForStaff.mockResolvedValue([]);
@@ -174,9 +174,9 @@ it('ACTIVE ADMIN 도 통과한다', async () => {
 });
 
 it.each([
-  ['STUDENT', Role.STUDENT, AccountStatus.ACTIVE],
+  ['STUDENT', 'STUDENT', AccountStatus.ACTIVE],
   ['역할 미지정', null, AccountStatus.ACTIVE],
-  ['비활성 STAFF', Role.STAFF, AccountStatus.DEACTIVATED],
+  ['비활성 STAFF', 'STAFF', AccountStatus.DEACTIVATED],
 ])(
   '%s 계정은 403 TEAM_003 로 막히고 service 를 호출하지 않는다',
   async (_label, role, accountStatus) => {

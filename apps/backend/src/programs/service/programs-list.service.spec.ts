@@ -2,7 +2,6 @@ import {
   ApplicationStatus,
   Prisma,
   ProgramLifecycle,
-  Role,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PROGRAM_LIST_QUERY_STATUSES } from '../program-list-query';
@@ -551,7 +550,7 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 1n, userId: 'student-1', role: Role.STUDENT };
+    const viewer = { githubId: 1n, userId: 'student-1', role: 'STUDENT' };
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
@@ -590,7 +589,7 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 1n, userId: 'student-1', role: Role.STUDENT };
+    const viewer = { githubId: 1n, userId: 'student-1', role: 'STUDENT' };
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
@@ -625,7 +624,7 @@ describe('ProgramsService list', () => {
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
-      { githubId: 1n, userId: 'student-1', role: Role.STUDENT },
+      { githubId: 1n, userId: 'student-1', role: 'STUDENT' },
     );
 
     expect(page.items[0]?.note).toEqual({
@@ -650,7 +649,7 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 2n, userId: 'staff-1', role: Role.STAFF };
+    const viewer = { githubId: 2n, userId: 'staff-1', role: 'STAFF' };
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
@@ -686,7 +685,7 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 3n, userId: 'admin-1', role: Role.ADMIN };
+    const viewer = { githubId: 3n, userId: 'admin-1', role: 'ADMIN' };
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },

@@ -1,7 +1,7 @@
+import { MemberKind } from '@prisma/client';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -82,7 +82,7 @@ describe('authenticated milestone document list filename contract', () => {
         id: userId,
         githubId,
         nickname: 'synthetic-list-user',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
       },
     });
     await prisma.program.create({

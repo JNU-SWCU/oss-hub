@@ -1,7 +1,6 @@
 import {
   AccountStatus,
   LoginHistoryEvent,
-  Role,
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -33,24 +32,24 @@ let studentPlain: { readonly id: string; readonly githubId: bigint };
 
 beforeAll(async () => {
   await prisma.$connect();
-  actor = await createUser('actor', 1n, Role.ADMIN, AccountStatus.ACTIVE);
+  actor = await createUser('actor', 1n, 'ADMIN', AccountStatus.ACTIVE);
   studentPending = await createUser(
     'student-pending',
     2n,
-    Role.STUDENT,
+    'STUDENT',
     AccountStatus.ACTIVE,
   );
-  await createUser('staff-pending', 3n, Role.STAFF, AccountStatus.ACTIVE);
+  await createUser('staff-pending', 3n, 'STAFF', AccountStatus.ACTIVE);
   await createUser(
     'student-deactivated-pending',
     4n,
-    Role.STUDENT,
+    'STUDENT',
     AccountStatus.DEACTIVATED,
   );
   studentPlain = await createUser(
     'student-plain',
     5n,
-    Role.STUDENT,
+    'STUDENT',
     AccountStatus.ACTIVE,
   );
   await prisma.staffAccessRequest.createMany({

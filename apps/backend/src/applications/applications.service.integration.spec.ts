@@ -1,10 +1,4 @@
-import {
-  ApplicationStatus,
-  ProgramCategory,
-  RepositoryConnectionMode,
-  RepositoryProvisionJobStatus,
-  Role,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
@@ -109,13 +103,14 @@ describe('ApplicationsService integration', () => {
           id: ACTOR_ID,
           githubId: 8_000_000_000_001n,
           nickname: 'Synthetic-Staff',
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
         {
           id: APPLICANT_ID,
           githubId: APPLICANT_GITHUB_ID,
           nickname: 'Synthetic-Applicant',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
     });

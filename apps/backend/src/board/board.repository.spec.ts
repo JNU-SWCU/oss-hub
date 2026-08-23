@@ -1,4 +1,4 @@
-import { BoardPostCategory, Role } from '@prisma/client';
+import { BoardPostCategory, MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BoardRepository } from './board.repository';
 
@@ -156,8 +156,8 @@ describe('BoardRepository authorName', () => {
           postId: syntheticPostId,
           authorId: 'cuid-synthetic-staff',
           author: {
-            role: Role.STAFF,
-            name: '합성 교직원',
+            selectedMemberKind: MemberKind.STAFF,
+            hasStaffAccess: true,
             nickname: 'synthetic-staff',
           },
           body: '합성 답변',
@@ -265,8 +265,8 @@ describe('BoardRepository.findDetailById', () => {
           body: '교직원 답변',
           createdAt: commentAt,
           author: {
-            role: Role.STAFF,
-            name: '합성 교직원',
+            selectedMemberKind: MemberKind.STAFF,
+            hasStaffAccess: true,
             nickname: 'synthetic-staff',
           },
         },
@@ -277,8 +277,7 @@ describe('BoardRepository.findDetailById', () => {
           body: '학생 의견',
           createdAt: commentAt,
           author: {
-            role: Role.STUDENT,
-            name: null,
+            selectedMemberKind: MemberKind.STUDENT,
             nickname: 'synthetic-student',
           },
         },
@@ -289,8 +288,7 @@ describe('BoardRepository.findDetailById', () => {
           body: '관리자 답변',
           createdAt: commentAt,
           author: {
-            role: Role.ADMIN,
-            name: '합성 관리자',
+            hasAdminAccess: true,
             nickname: 'synthetic-admin',
           },
         },
@@ -310,7 +308,7 @@ describe('BoardRepository.findDetailById', () => {
         id: syntheticCommentId,
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-staff',
-        authorRole: Role.STAFF,
+        authorRole: 'STAFF',
         authorName: '합성 교직원',
         body: '교직원 답변',
         createdAt: commentAt,
@@ -319,7 +317,7 @@ describe('BoardRepository.findDetailById', () => {
         id: 'cuid-synthetic-comment-student',
         postId: syntheticPostId,
         authorId: syntheticAuthorId,
-        authorRole: Role.STUDENT,
+        authorRole: 'STUDENT',
         authorName: 'synthetic-student',
         body: '학생 의견',
         createdAt: commentAt,
@@ -328,7 +326,7 @@ describe('BoardRepository.findDetailById', () => {
         id: 'cuid-synthetic-comment-admin',
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-admin',
-        authorRole: Role.ADMIN,
+        authorRole: 'ADMIN',
         authorName: '합성 관리자',
         body: '관리자 답변',
         createdAt: commentAt,
@@ -384,7 +382,7 @@ describe('BoardRepository.findDetailById', () => {
       syntheticPostId,
     );
 
-    expect(detail?.comments[0]?.authorRole).toBe(Role.STUDENT);
+    expect(detail?.comments[0]?.authorRole).toBe('STUDENT');
   });
 });
 
@@ -398,8 +396,7 @@ describe('BoardRepository.createComment', () => {
       body: '새 댓글',
       createdAt,
       author: {
-        role: Role.STUDENT,
-        name: null,
+        selectedMemberKind: MemberKind.STUDENT,
         nickname: 'synthetic-author',
       },
     });
@@ -417,7 +414,7 @@ describe('BoardRepository.createComment', () => {
       id: syntheticCommentId,
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
-      authorRole: Role.STUDENT,
+      authorRole: 'STUDENT',
       authorName: 'synthetic-author',
       body: '새 댓글',
       createdAt,

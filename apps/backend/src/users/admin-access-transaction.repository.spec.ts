@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 
@@ -25,11 +25,18 @@ describe('AdminAccessRepository transaction store', () => {
           id: 'target',
           githubId: 9_131_000_002n,
           nickname: 'synthetic-target',
-          name: '합성 사용자',
-          studentId: '123456',
-          department: '소프트웨어공학과',
           profile: null,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: '합성 사용자',
+              studentId: '123456',
+              department: '소프트웨어공학과',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: '소프트웨어공학과',
+            },
+          },
           accountStatus: AccountStatus.ACTIVE,
           staffAccessRequests: [],
           loginHistories: [],
@@ -55,9 +62,9 @@ describe('AdminAccessRepository transaction store', () => {
       target: await store.findUserForUpdate('target'),
       userUpdated: await store.compareAndSwapAccess({
         userId: 'target',
-        expectedRole: Role.STUDENT,
+        expectedRole: 'STUDENT',
         expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredRole: Role.STAFF,
+        desiredRole: 'STAFF',
         desiredAccountStatus: AccountStatus.ACTIVE,
         desiredHasStaffAccess: true,
         desiredHasAdminAccess: false,
@@ -94,11 +101,11 @@ describe('AdminAccessRepository transaction store', () => {
     expect(updateUser).toHaveBeenCalledWith({
       where: {
         id: 'target',
-        role: Role.STUDENT,
+        role: 'STUDENT',
         accountStatus: AccountStatus.ACTIVE,
       },
       data: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         hasStaffAccess: true,
         hasAdminAccess: false,

@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { AuthErrorCode } from './auth-error-code.enum';
@@ -171,7 +171,7 @@ describe('AuthService', () => {
 
   it('getMe는 DB의 현재 active 계정·권한을 principal로 반환한다', async () => {
     // Given: DB 조회가 현재 STAFF 권한의 active 계정을 반환한다.
-    const staffUser: AuthUser = { ...syntheticUser, role: Role.STAFF };
+    const staffUser: AuthUser = { ...syntheticUser, role: 'STAFF' };
     findByGithubId.mockResolvedValueOnce(staffUser);
 
     // When: HTTP 인증 경계가 principal을 요청한다.
@@ -190,7 +190,7 @@ describe('AuthService', () => {
   it('비활성 계정은 기존 세션 조회와 새 세션 발급을 모두 AUT_003으로 거부한다', async () => {
     const deactivatedUser: AuthUser = {
       ...syntheticUser,
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
     };
     findByGithubId.mockResolvedValueOnce(deactivatedUser);

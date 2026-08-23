@@ -1,4 +1,4 @@
-import { AccountStatus, LoginHistoryEvent, Role } from '@prisma/client';
+import { AccountStatus, LoginHistoryEvent, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -70,7 +70,7 @@ beforeAll(async () => {
         id: `${prefix}actor`,
         githubId: 8_004_000_001_001n,
         nickname: 'synthetic-pr04a-admin',
-        role: Role.ADMIN,
+        hasAdminAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
       select: { githubId: true },
@@ -205,9 +205,8 @@ function createSortingUser(input: SortingUserInput) {
       id: input.id,
       githubId: input.githubId,
       nickname: `${queryFragment}-${input.id.at(-1)}`,
-      name: input.legacyName,
       createdAt: input.createdAt,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
       ...(input.profileName === null
         ? {}

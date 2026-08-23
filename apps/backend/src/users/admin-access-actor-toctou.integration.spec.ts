@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -31,8 +31,8 @@ afterAll(async () => {
 it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등을 보고 뮤테이션이 실패한다', async () => {
   // Given — 잠금 이전의 unlocked 읽기와 lockActiveAdmins() 사이의 창을 재현한다: 이
   // 시점엔 actor 행에 아무 잠금도 없으므로 강등은 자유롭게 커밋된다.
-  const actor = await createUser('actor-a', Role.ADMIN);
-  const target = await createUser('target-a', Role.STUDENT);
+  const actor = await createUser('actor-a', 'ADMIN');
+  const target = await createUser('target-a', 'STUDENT');
   const reachedPauseBeforeLock = deferred();
   const releasePauseBeforeLock = deferred();
   const pausedService = new AdminAccessService(
@@ -47,8 +47,8 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
 
   // When
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STUDENT,
-    desiredRole: Role.STAFF,
+    expectedRole: 'STUDENT',
+    desiredRole: 'STAFF',
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
     expectedPendingRequest: null,
@@ -58,7 +58,7 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
   // 없이 곧장 커밋된다.
   await prisma.user.update({
     where: { id: actor.id },
-    data: { role: Role.STAFF },
+    data: { role: 'STAFF' },
   });
   releasePauseBeforeLock.resolve();
 
@@ -69,13 +69,13 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: Role.STUDENT,
+    role: 'STUDENT',
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
   ).resolves.toMatchObject({
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
 });
@@ -83,8 +83,8 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
 it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테이션이 커밋된 뒤에야 풀린다', async () => {
   // Given — lockActiveAdmins()가 actor 행을 FOR UPDATE로 잠근 뒤에 강등을 시도하면
   // pg_blocking_pids로 확인 가능한 진짜 DB 잠금 대기가 걸려야 한다.
-  const actor = await createUser('actor-b', Role.ADMIN);
-  const target = await createUser('target-b', Role.STUDENT);
+  const actor = await createUser('actor-b', 'ADMIN');
+  const target = await createUser('target-b', 'STUDENT');
   const mutationBackend = backendPid();
   const demotionBackend = backendPid();
   const reachedPauseAfterLock = deferred();
@@ -104,8 +104,8 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
 
   // When
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STUDENT,
-    desiredRole: Role.STAFF,
+    expectedRole: 'STUDENT',
+    desiredRole: 'STAFF',
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
     expectedPendingRequest: null,
@@ -115,7 +115,7 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
     (transaction) =>
       transaction.user.update({
         where: { id: actor.id },
-        data: { role: Role.STAFF },
+        data: { role: 'STAFF' },
       }),
   );
   // 강등이 **뮤테이션의 잠금에** 막혀 있음을 지목해 확인한 뒤에만 놓아 준다.
@@ -128,22 +128,22 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
 
   // Then — 재조회 시점엔 강등이 아직 커밋되지 않았으니 유효하게 먼저 직렬화되어
   // 뮤테이션은 성공하고, 강등은 그 뒤에야 풀려 반영된다.
-  expect(result.role).toBe(Role.STAFF);
+  expect(result.role).toBe('STAFF');
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
   ).resolves.toMatchObject({
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
   });
 });
 
-function createUser(label: string, role: Role | null) {
+function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
     data: {

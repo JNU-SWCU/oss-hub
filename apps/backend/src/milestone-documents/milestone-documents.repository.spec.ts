@@ -4,7 +4,6 @@ import {
   MilestoneSubmissionType,
   Prisma,
   ReviewDecision,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -83,7 +82,7 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
     // Given
     const findFirst = jest
       .fn()
-      .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT });
+      .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' });
     const prisma = { user: { findFirst } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 

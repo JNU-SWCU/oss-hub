@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../src/auth/auth-error-code.enum';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
@@ -114,7 +114,7 @@ describe('accountStatus migration regression', () => {
     });
 
     expect(migratedStaff).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(authService.getMe(STAFF_GITHUB_ID)).rejects.toMatchObject({
@@ -129,8 +129,8 @@ describe('accountStatus migration regression', () => {
       ADMIN_GITHUB_ID,
       STAFF_ID,
       {
-        expectedRole: Role.STAFF,
-        desiredRole: Role.STAFF,
+        expectedRole: 'STAFF',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.DEACTIVATED,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -145,11 +145,11 @@ describe('accountStatus migration regression', () => {
       }),
     ]);
     expect(reactivatedStaff).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
     });
     expect(reactivated).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decidedRequest: null,
     });

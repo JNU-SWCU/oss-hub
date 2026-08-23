@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -15,17 +15,17 @@ describe('팀 초대 대상 자격', () => {
     ['없는 계정', null, 'not-found'],
     [
       '활성 학생',
-      { role: Role.STUDENT, accountStatus: AccountStatus.ACTIVE },
+      { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
       'eligible',
     ],
     [
       '교직원',
-      { role: Role.STAFF, accountStatus: AccountStatus.ACTIVE },
+      { role: 'STAFF', accountStatus: AccountStatus.ACTIVE },
       'not-eligible',
     ],
     [
       '비활성 학생',
-      { role: Role.STUDENT, accountStatus: AccountStatus.DEACTIVATED },
+      { role: 'STUDENT', accountStatus: AccountStatus.DEACTIVATED },
       'not-eligible',
     ],
   ] as const)('%s의 초대 자격을 판정한다', async (_, user, expected) => {
@@ -55,7 +55,7 @@ describe('팀 초대 대상 자격', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
         }) as unknown,
       }),

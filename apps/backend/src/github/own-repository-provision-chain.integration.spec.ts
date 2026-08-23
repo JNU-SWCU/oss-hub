@@ -1,11 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import {
-  ProgramCategory,
-  RepositoryConnectionMode,
-  RepositoryProvisionJobStatus,
-  RepositoryVisibility,
-  Role,
-} from '@prisma/client';
+import { MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus, RepositoryVisibility } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsErrorCode } from '../applications/applications-error-code.enum';
 import { ApplicationsStaffGuard } from '../applications/applications-staff.guard';
@@ -138,19 +132,20 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           id: STAFF_ACTOR_ID,
           githubId: STAFF_GITHUB_ID,
           nickname: 'synthetic-own-chain-staff',
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
         {
           id: STUDENT_ACTOR_ID,
           githubId: STUDENT_ACTOR_GITHUB_ID,
           nickname: 'synthetic-own-chain-student-actor',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: APPLICANT_ID,
           githubId: APPLICANT_GITHUB_ID,
           nickname: 'synthetic-own-chain-applicant',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: NO_CONSENT_APPLICANT_ID,
@@ -159,19 +154,19 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           // outbox payload의 collaboratorGithubLogins가 이 nickname으로 채워지고
           // RepositoryOutboxConsumer가 그 계약을 검증한다.
           nickname: 'synthetic-own-chain-no-consent',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: ORG_OWN_APPLICANT_ID,
           githubId: ORG_OWN_APPLICANT_GITHUB_ID,
           nickname: 'synthetic-own-chain-org-applicant',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: PRECHECK_APPLICANT_ID,
           githubId: PRECHECK_APPLICANT_GITHUB_ID,
           nickname: 'synthetic-own-chain-precheck-applicant',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: ORG_OWNER_EXTERNAL_APPLICANT_ID,
@@ -180,7 +175,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           // 다르다는 것이 이 시나리오의 핵심이다 — repo owner는 신청자가 아니라
           // 팀/대회 조직이다.
           nickname: 'synthetic-own-chain-org-owner-external',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
     });

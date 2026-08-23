@@ -1,4 +1,4 @@
-import { Role, StaffAccessRequestStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -66,8 +66,8 @@ describe('RolesRepository integration', () => {
 
     // When
     const results = await Promise.all([
-      service.selectRole(STAFF_GITHUB_ID, Role.STAFF),
-      service.selectRole(STAFF_GITHUB_ID, Role.STAFF),
+      service.selectRole(STAFF_GITHUB_ID, 'STAFF'),
+      service.selectRole(STAFF_GITHUB_ID, 'STAFF'),
     ]);
 
     // Then
@@ -75,7 +75,7 @@ describe('RolesRepository integration', () => {
       where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
     });
     expect(results).toHaveLength(2);
-    expect(results.every((result) => result.selectedRole === Role.STAFF)).toBe(
+    expect(results.every((result) => result.selectedRole === 'STAFF')).toBe(
       true,
     );
     expect(pendingCount).toBe(1);
@@ -94,8 +94,8 @@ describe('RolesRepository integration', () => {
 
     // When
     const results = await Promise.allSettled([
-      service.selectRole(MIXED_GITHUB_ID, Role.STUDENT),
-      service.selectRole(MIXED_GITHUB_ID, Role.STAFF),
+      service.selectRole(MIXED_GITHUB_ID, 'STUDENT'),
+      service.selectRole(MIXED_GITHUB_ID, 'STAFF'),
     ]);
 
     // Then
@@ -108,7 +108,7 @@ describe('RolesRepository integration', () => {
     expect(
       results.filter((result) => result.status === 'fulfilled'),
     ).toHaveLength(1);
-    expect(Number(storedUser.role === Role.STUDENT) + pendingCount).toBe(1);
+    expect(Number(storedUser.role === 'STUDENT') + pendingCount).toBe(1);
   });
 
   /**
@@ -119,7 +119,7 @@ describe('RolesRepository integration', () => {
    * 신청이 관리자 대기줄에 올라가고, 학생은 이름 없이 학생 권한을 갖는다. 고른 사실만
    * `selectedRole`에 남고 `role`·`StaffAccessRequest`는 그대로여야 한다.
    */
-  it.each([Role.STUDENT, Role.STAFF])(
+  it.each(['STUDENT', 'STAFF'])(
     '프로필이 비어 있으면 %s 선택은 기록만 남기고 아무것도 확정하지 않는다',
     async (selectedRole) => {
       // Given
@@ -127,7 +127,7 @@ describe('RolesRepository integration', () => {
         data: {
           id: `${TEST_PREFIX}incomplete-${selectedRole.toLowerCase()}`,
           githubId:
-            INCOMPLETE_GITHUB_ID + (selectedRole === Role.STUDENT ? 0n : 1n),
+            INCOMPLETE_GITHUB_ID + (selectedRole === 'STUDENT' ? 0n : 1n),
           nickname: `synthetic-169-incomplete-${selectedRole.toLowerCase()}`,
         },
       });
@@ -188,7 +188,7 @@ describe('RolesRepository integration', () => {
     async function createRevokedStaff(
       key: string,
       githubId: bigint,
-      role: Role | null = null,
+      role: 'STUDENT' | 'STAFF' | 'ADMIN' | null = null,
     ) {
       const user = await prisma.user.create({
         data: {
@@ -196,7 +196,7 @@ describe('RolesRepository integration', () => {
           githubId,
           nickname: `synthetic-184-${key}`,
           role,
-          selectedRole: Role.STAFF,
+          selectedRole: 'STAFF',
           ...STAFF_ONLY_PROFILE,
         },
       });
@@ -224,16 +224,16 @@ describe('RolesRepository integration', () => {
       const user = await createRevokedStaff('revoked-student', 9_184_000_001n);
 
       // When
-      const result = await service.selectRole(user.githubId, Role.STUDENT);
+      const result = await service.selectRole(user.githubId, 'STUDENT');
 
       // Then: 고른 사실만 남고 권한은 돌아오지 않는다.
       const [stored, requestCount] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
-      expect(result.selectedRole).toBe(Role.STUDENT);
+      expect(result.selectedRole).toBe('STUDENT');
       expect(result.redirectTo).toBe('/onboarding/profile');
-      expect(stored.selectedRole).toBe(Role.STUDENT);
+      expect(stored.selectedRole).toBe('STUDENT');
       expect(stored.role).toBeNull();
       expect(requestCount).toBe(2);
     });
@@ -256,7 +256,7 @@ describe('RolesRepository integration', () => {
       const user = await createRevokedStaff('revoked-staff', 9_184_000_002n);
 
       // When
-      const result = await service.selectRole(user.githubId, Role.STAFF);
+      const result = await service.selectRole(user.githubId, 'STAFF');
 
       // Then
       const [stored, pendingCount, requestCount] = await Promise.all([
@@ -266,7 +266,7 @@ describe('RolesRepository integration', () => {
         }),
         prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
-      expect(result.selectedRole).toBe(Role.STAFF);
+      expect(result.selectedRole).toBe('STAFF');
       expect(stored.role).toBeNull();
       expect(pendingCount).toBe(1);
       expect(requestCount).toBe(3);
@@ -278,8 +278,8 @@ describe('RolesRepository integration', () => {
       const user = await createRevokedStaff('revoked-twice', 9_184_000_006n);
 
       // When
-      await service.selectRole(user.githubId, Role.STAFF);
-      await service.selectRole(user.githubId, Role.STAFF);
+      await service.selectRole(user.githubId, 'STAFF');
+      await service.selectRole(user.githubId, 'STAFF');
 
       // Then
       const pendingCount = await prisma.staffAccessRequest.count({
@@ -312,7 +312,7 @@ describe('RolesRepository integration', () => {
       expect(requests[2]?.status).toBe(StaffAccessRequestStatus.PENDING);
       // 승인은 여전히 관리자 손에 있다 — 재요청이 권한을 되돌리지 않는다.
       expect(stored.role).toBeNull();
-      expect(stored.selectedRole).toBe(Role.STAFF);
+      expect(stored.selectedRole).toBe('STAFF');
     });
 
     it('동시 재요청 2건은 한 PENDING으로 수렴한다', async () => {
@@ -341,11 +341,11 @@ describe('RolesRepository integration', () => {
       const user = await createRevokedStaff(
         'reapproved-staff',
         9_184_000_005n,
-        Role.STAFF,
+        'STAFF',
       );
 
       // When
-      const promise = service.selectRole(user.githubId, Role.STUDENT);
+      const promise = service.selectRole(user.githubId, 'STUDENT');
 
       // Then: 확정된 사람은 못 바꾼다는 불변식은 #184 이후에도 그대로다.
       await expect(promise).rejects.toMatchObject({
@@ -354,8 +354,8 @@ describe('RolesRepository integration', () => {
       const stored = await prisma.user.findUniqueOrThrow({
         where: { id: user.id },
       });
-      expect(stored.role).toBe(Role.STAFF);
-      expect(stored.selectedRole).toBe(Role.STAFF);
+      expect(stored.role).toBe('STAFF');
+      expect(stored.selectedRole).toBe('STAFF');
     });
   });
 });

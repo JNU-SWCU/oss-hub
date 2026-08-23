@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthModule } from './auth.module';
 import { OptionalSession, Public } from './auth-route-metadata';
@@ -29,10 +29,9 @@ const activeUser: AuthUser = {
   id: 'synthetic-default-deny-user',
   githubId,
   nickname: 'synthetic-user',
-  name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: Role.STUDENT,
+  selectedMemberKind: MemberKind.STUDENT,
   memberKind: MemberKind.STUDENT,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -42,7 +41,7 @@ const activeUser: AuthUser = {
 type PrincipalShape = Readonly<{
   id: string;
   githubId: bigint;
-  role: Role | null;
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
 }>;
 
 type PrincipalRequest = Request & Readonly<{ principal: PrincipalShape }>;
@@ -52,7 +51,7 @@ class PrincipalProbeService {
   read(principal: PrincipalShape): Readonly<{
     userId: string;
     githubId: string;
-    role: Role | null;
+    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   }> {
     return {
       userId: principal.id,
@@ -66,7 +65,7 @@ class PrincipalProbeService {
 class StaffFixtureGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<PrincipalRequest>();
-    if (request.principal.role !== Role.STAFF) {
+    if (request.principal.role !== 'STAFF') {
       throw new ForbiddenException();
     }
     return true;
@@ -188,7 +187,7 @@ describe('global default-deny authentication boundary', () => {
 
   it('passes a database-backed active principal to a representative service', async () => {
     // Given: a valid identity token and current mutable authority from the DB seam.
-    currentUser = { ...activeUser, role: Role.STAFF };
+    currentUser = { ...activeUser, role: 'STAFF' };
 
     // When: the unannotated route is requested with the same identity token.
     const response = await fetch(
@@ -201,7 +200,8 @@ describe('global default-deny authentication boundary', () => {
     await expect(response.json()).resolves.toEqual({
       userId: activeUser.id,
       githubId: githubId.toString(10),
-      role: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     });
   });
 

@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import {
   INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
   InvalidAuditLogMetadataError,
@@ -15,25 +15,25 @@ it.each([
     INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.GRANT_STAFF_ACCESS,
     true,
     false,
-    Role.STAFF,
+    'STAFF',
   ],
   [
     INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.REVOKE_STAFF_ACCESS,
     false,
     false,
-    Role.STUDENT,
+    'STUDENT',
   ],
   [
     INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.GRANT_ADMIN_ACCESS,
     false,
     true,
-    Role.ADMIN,
+    'ADMIN',
   ],
   [
     INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.REVOKE_ADMIN_ACCESS,
     false,
     false,
-    Role.STUDENT,
+    'STUDENT',
   ],
 ] as const)(
   'round-trips canonical command %s through storage parser and view',
@@ -63,7 +63,7 @@ it.each([
           memberKind: MemberKind.STUDENT,
           hasStaffAccess: false,
           hasAdminAccess: false,
-          role: Role.STUDENT,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
         },
         after: {
@@ -125,8 +125,8 @@ it.each([
     INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.GRANT_STAFF_ACCESS,
     {
       hasStaffAccess: true,
-      role: Role.STAFF,
-      selectedRole: Role.STAFF,
+      role: 'STAFF',
+      selectedRole: 'STAFF',
     },
   );
 
@@ -148,8 +148,7 @@ function createStoredMetadata(
       id: 'actor',
       githubId: actorGithubId,
       githubLogin: 'synthetic-admin',
-      name: '합성 관리자',
-      role: Role.ADMIN,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
       hasStaffAccess: true,
       hasAdminAccess: true,
@@ -169,9 +168,8 @@ function targetUser(): IndependentAuthorityUserRecord {
     id: 'target',
     githubId: 9_700_700_002n,
     githubLogin: 'synthetic-target',
-    name: '합성 학생',
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
+    selectedRole: 'STUDENT',
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,

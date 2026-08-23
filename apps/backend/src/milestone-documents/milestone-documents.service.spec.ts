@@ -2,7 +2,6 @@ import {
   MilestoneSubmissionType,
   Prisma,
   ReviewDecision,
-  Role,
   SubmissionStatus,
 } from '@prisma/client';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
@@ -200,7 +199,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
+        .mockResolvedValue({ id: 'staff-1', role: 'STAFF' }),
       countApprovedApplications: jest.fn().mockResolvedValue(8),
       countSubmissionsByDocument: jest
         .fn()
@@ -227,7 +226,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -268,7 +267,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -309,7 +308,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -1047,7 +1046,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
+        .mockResolvedValue({ id: 'staff-1', role: 'STAFF' }),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -1070,7 +1069,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -1093,7 +1092,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1125,7 +1124,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1163,7 +1162,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { mocks, repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1216,7 +1215,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { mocks, repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1281,7 +1280,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1321,7 +1320,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1366,7 +1365,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     return buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+        .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,

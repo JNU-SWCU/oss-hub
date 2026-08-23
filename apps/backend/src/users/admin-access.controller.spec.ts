@@ -5,7 +5,7 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { SessionGuard } from '../auth/session.guard';
@@ -150,8 +150,8 @@ describe('AdminAccessController delegation', () => {
     const profileService = profileServiceHarness();
     const controller = new AdminAccessController(service, profileService);
     const command = {
-      expectedRole: Role.STUDENT,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STUDENT',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,

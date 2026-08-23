@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import {
   canonicalCompletion,
   profileRecord,
@@ -7,7 +7,7 @@ import { usersRepositoryHarness as harness } from './users.repository.spec-suppo
 
 const student = profileRecord('user-finishing-student');
 const staff = profileRecord('user-finishing-staff', {
-  selectedRole: Role.STAFF,
+  selectedRole: 'STAFF',
   selectedMemberKind: MemberKind.STAFF,
 });
 const studentCompletion = canonicalCompletion({
@@ -39,7 +39,7 @@ describe('UsersRepository 가입 마치기 확정', () => {
     expect(outcome).toBe('completed');
     expect(userUpdateMany).toHaveBeenCalledWith({
       where: { id: student.id, role: null },
-      data: { role: Role.STUDENT },
+      data: { role: 'STUDENT' },
     });
     expect(staffAccessRequestCreate).not.toHaveBeenCalled();
   });
@@ -112,15 +112,15 @@ describe('UsersRepository 가입 마치기 확정', () => {
     // Then
     expect(userUpdateMany).toHaveBeenCalledWith({
       where: { id: missingLegacySelection.id, role: null },
-      data: { role: Role.STUDENT },
+      data: { role: 'STUDENT' },
     });
   });
 
   it('이미 확정된 rollback 역할은 다시 계산하지 않는다', async () => {
     // Given
     const confirmed = profileRecord('user-confirmed-staff', {
-      role: Role.STAFF,
-      selectedRole: Role.STAFF,
+      role: 'STAFF',
+      selectedRole: 'STAFF',
       selectedMemberKind: MemberKind.STAFF,
       hasStaffAccess: true,
     });

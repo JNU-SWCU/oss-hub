@@ -2,7 +2,6 @@ import {
   AccountStatus,
   AffiliationKind,
   MemberKind,
-  Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -39,50 +38,45 @@ const MEMBERS: readonly SyntheticMember[] = [
   {
     key: 'student',
     githubId: 8_961_000_000_001n,
-    role: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     commitCount: 7,
-    studentId: '961001',
   },
   {
     key: 'student-admin',
     githubId: 8_961_000_000_002n,
-    role: Role.ADMIN,
+    hasAdminAccess: true,
     memberKind: MemberKind.STUDENT,
     commitCount: 5,
-    studentId: '961002',
   },
   {
     key: 'staff',
     githubId: 8_961_000_000_003n,
-    role: Role.STAFF,
+    selectedMemberKind: MemberKind.STAFF,
+    hasStaffAccess: true,
     memberKind: MemberKind.STAFF,
     commitCount: 90,
-    studentId: null,
   },
   {
     key: 'staff-admin',
     githubId: 8_961_000_000_004n,
-    role: Role.ADMIN,
+    hasAdminAccess: true,
     memberKind: MemberKind.STAFF,
     commitCount: 80,
-    studentId: null,
   },
   {
     key: 'unassigned',
     githubId: 8_961_000_000_005n,
-    role: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
     memberKind: null,
     commitCount: 70,
-    studentId: '961005',
   },
   {
     key: 'missing-profile',
     githubId: 8_961_000_000_006n,
-    role: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
     memberKind: 'no-profile',
     commitCount: 60,
-    studentId: '961006',
   },
 ];
 

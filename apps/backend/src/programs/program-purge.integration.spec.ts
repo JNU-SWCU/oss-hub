@@ -1,25 +1,6 @@
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  BoardPostCategory,
-  CollectionStreamType,
-  MilestoneSubmissionType,
-  ProgramAuthoringUploadLifecycle,
-  ProgramCategory,
-  ProgramPurgeFileTombstoneLifecycle,
-  Prisma,
-  RepositoryInvitationStatus,
-  RepositoryProvisionJobStatus,
-  RepositorySource,
-  RepositoryVisibility,
-  ReviewDecision,
-  Role,
-  SubmissionFileLifecycle,
-  SubmissionStatus,
-  TeamInvitationStatus,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, BoardPostCategory, CollectionStreamType, MemberKind, MilestoneSubmissionType, Prisma, ProgramAuthoringUploadLifecycle, ProgramCategory, ProgramPurgeFileTombstoneLifecycle, RepositoryInvitationStatus, RepositoryProvisionJobStatus, RepositorySource, RepositoryVisibility, ReviewDecision, SubmissionFileLifecycle, SubmissionStatus, TeamInvitationStatus } from '@prisma/client';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
@@ -270,7 +251,7 @@ async function ensureGlobalActors(): Promise<void> {
       id: `${PREFIX}global:admin`,
       githubId: ADMIN_GITHUB_ID,
       nickname: 'synthetic-purge7-admin',
-      role: Role.ADMIN,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     },
   });
@@ -281,7 +262,8 @@ async function ensureGlobalActors(): Promise<void> {
       id: `${PREFIX}global:staff-forbidden`,
       githubId: STAFF_GITHUB_ID,
       nickname: 'synthetic-purge7-staff-forbidden',
-      role: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     },
   });
@@ -319,28 +301,29 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
         id: applicantId,
         githubId: 9_875_100_000n + ordinal,
         nickname: `synthetic-purge7-applicant-${label}`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: leaderId,
         githubId: 9_875_200_000n + ordinal,
         nickname: `synthetic-purge7-leader-${label}`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: publishedApplicantId,
         githubId: 9_875_900_000n + ordinal,
         nickname: `synthetic-purge7-published-applicant-${label}`,
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: staffId,
         githubId: 9_875_300_000n + ordinal,
         nickname: `synthetic-purge7-staff-${label}`,
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],

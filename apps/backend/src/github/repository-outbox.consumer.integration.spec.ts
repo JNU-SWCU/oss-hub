@@ -1,10 +1,4 @@
-import {
-  ApplicationStatus,
-  OutboxEventStatus,
-  ProgramCategory,
-  RepositoryProvisionJobStatus,
-  Role,
-} from '@prisma/client';
+import { ApplicationStatus, MemberKind, OutboxEventStatus, ProgramCategory, RepositoryProvisionJobStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { RepositoriesRepository } from './repository/repositories.repository';
@@ -120,7 +114,7 @@ describe('RepositoryOutboxConsumer integration', () => {
         id: APPLICANT_ID,
         githubId: 8_100_000_000_001n,
         nickname: 'synthetic-applicant',
-        role: Role.STUDENT,
+        selectedMemberKind: MemberKind.STUDENT,
       },
     });
   });

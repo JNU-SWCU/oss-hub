@@ -1,4 +1,3 @@
-import { Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -20,7 +19,7 @@ describe('AuditLog append-only database enforcement', () => {
         id: `${TEST_PREFIX}actor`,
         githubId: 9_402_000_001n,
         nickname: 'synthetic-audit-actor',
-        role: Role.ADMIN,
+        hasAdminAccess: true,
       },
     });
     await prisma.auditLog.createMany({

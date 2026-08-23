@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { Logger } from '@nestjs/common';
 import {
   buildAuthConfig,
@@ -24,24 +24,24 @@ describe('AuthRepository.upsertUser', () => {
       AUTH_INITIAL_ROLES: '424242:STAFF',
     });
 
-    expect(config.resolveInitialRole(424_242n)).toBe(Role.STAFF);
+    expect(config.resolveInitialRole(424_242n)).toBe('STAFF');
   });
 
   it('기존 role 보유자는 초기 역할 설정과 무관하게 유지한다', async () => {
     const { repository, updateMany } = buildRepository(
-      buildRow({ role: Role.STUDENT }),
-      Role.ADMIN,
+      buildRow({ role: 'STUDENT' }),
+      'ADMIN',
     );
 
     const result = await upsertUser(repository, buildProfile());
 
-    expect(result.user.role).toBe(Role.STUDENT);
+    expect(result.user.role).toBe('STUDENT');
     expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('활성 role=null 계정만 조건부 갱신으로 초기 역할을 적용한다', async () => {
-    const promoted = buildRow({ role: Role.ADMIN });
-    const { repository, updateMany } = buildRepository(buildRow(), Role.ADMIN);
+    const promoted = buildRow({ role: 'ADMIN' });
+    const { repository, updateMany } = buildRepository(buildRow(), 'ADMIN');
     const transactionResult = repository.withTransaction(async (store) => {
       const result = await store.upsertUser(buildProfile());
       return result;
@@ -56,19 +56,19 @@ describe('AuthRepository.upsertUser', () => {
         staffAccessRequests: { none: { status: StaffAccessRequestStatus.REVOKED } },
       },
       data: {
-        role: Role.ADMIN,
+        role: 'ADMIN',
         hasStaffAccess: false,
         hasAdminAccess: true,
       },
     });
-    expect(promoted.role).toBe(Role.ADMIN);
+    expect(promoted.role).toBe('ADMIN');
   });
 
   it('회수 이력이 있는 계정은 조건부 갱신에서 제외한다', async () => {
     // 회수는 role을 비우므로 회수된 사람도 `role: null` 조건을 만족한다.
     // 시드가 그를 다시 승격하지 못하게 막는 것은 이 관계 조건뿐이라,
     // 조건이 조용히 빠지면 회수가 로그인 한 번으로 되돌아간다.
-    const { repository, updateMany } = buildRepository(buildRow(), Role.STAFF);
+    const { repository, updateMany } = buildRepository(buildRow(), 'STAFF');
 
     await upsertUser(repository, buildProfile());
 
@@ -88,7 +88,7 @@ describe('AuthRepository.upsertUser', () => {
     const debug = jest
       .spyOn(Logger.prototype, 'debug')
       .mockImplementation(() => undefined);
-    const { repository } = buildRepository(buildRow(), Role.STAFF, {
+    const { repository } = buildRepository(buildRow(), 'STAFF', {
       casCount: 0,
       revokedRequest: { id: 'revoked-request' },
     });
@@ -108,7 +108,7 @@ describe('AuthRepository.upsertUser', () => {
     const debug = jest
       .spyOn(Logger.prototype, 'debug')
       .mockImplementation(() => undefined);
-    const { repository } = buildRepository(buildRow(), Role.STAFF, {
+    const { repository } = buildRepository(buildRow(), 'STAFF', {
       casCount: 0,
     });
 

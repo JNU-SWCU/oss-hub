@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -44,7 +44,7 @@ afterAll(async () => {
 describe('Admin access atomic request decisions', () => {
   it('approves the request, grants STAFF, and appends one immutable audit row', async () => {
     // Given
-    const actor = await createUser(Role.ADMIN, 'approve-actor');
+    const actor = await createUser('ADMIN', 'approve-actor');
     const target = await createUser(null, 'approve-target');
     const profile = {
       name: '합성 승인 대상',
@@ -62,7 +62,7 @@ describe('Admin access atomic request decisions', () => {
     // When
     const result = await service.patchAccess(actor.githubId, target.id, {
       expectedRole: null,
-      desiredRole: Role.STAFF,
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: {
@@ -76,7 +76,7 @@ describe('Admin access atomic request decisions', () => {
 
     // Then
     expect(result).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: { id: request.id, status: StaffAccessRequestStatus.APPROVED },
@@ -84,7 +84,7 @@ describe('Admin access atomic request decisions', () => {
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
@@ -115,7 +115,7 @@ describe('Admin access atomic request decisions', () => {
 
   it('rejects a pending request and deactivates the account while preserving role', async () => {
     // Given
-    const actor = await createUser(Role.ADMIN, 'reject-actor');
+    const actor = await createUser('ADMIN', 'reject-actor');
     const target = await createUser(null, 'reject-target');
     const request = await prisma.staffAccessRequest.create({
       data: { id: `${target.id}:request`, userId: target.id },
@@ -157,7 +157,7 @@ describe('Admin access atomic request decisions', () => {
   });
 });
 
-async function createUser(role: Role | null, label: string) {
+async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
   sequence += 1;
   return prisma.user.create({
     data: {

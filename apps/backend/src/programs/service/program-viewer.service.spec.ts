@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from '../repository/programs.repository';
@@ -10,7 +10,7 @@ describe('ProgramViewerService', () => {
     // Given
     const findUnique = jest.fn().mockResolvedValue({
       id: 'staff-1',
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
       staffAccessRequests: [],
     });

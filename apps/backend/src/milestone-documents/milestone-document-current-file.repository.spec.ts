@@ -1,10 +1,4 @@
-import {
-  AccountStatus,
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  Role,
-  SubmissionFileLifecycle,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, MemberKind, MilestoneSubmissionType, SubmissionFileLifecycle } from '@prisma/client';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 
 const NOW = new Date('2026-09-20T00:00:00.000Z');
@@ -45,7 +39,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     const activeStudent = {
       githubId: 34_290_000n,
       accountStatus: AccountStatus.ACTIVE,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     };
     expect(findFirst).toHaveBeenCalledWith({
       where: {

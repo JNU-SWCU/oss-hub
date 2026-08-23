@@ -1,10 +1,4 @@
-import {
-  AccountStatus,
-  ApplicationStatus,
-  Role,
-  StaffAccessRequestStatus,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, MemberKind, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -92,19 +86,20 @@ describe('SubmissionMatrixService integration', () => {
           id: STAFF_VIEWER_ID,
           githubId: seedGithubId(STAFF_VIEWER_ID),
           nickname: STAFF_VIEWER_ID,
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
         {
           id: ADMIN_VIEWER_ID,
           githubId: seedGithubId(ADMIN_VIEWER_ID),
           nickname: ADMIN_VIEWER_ID,
-          role: Role.ADMIN,
+          hasAdminAccess: true,
         },
         {
           id: STUDENT_VIEWER_ID,
           githubId: seedGithubId(STUDENT_VIEWER_ID),
           nickname: STUDENT_VIEWER_ID,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: PENDING_STAFF_ID,
@@ -116,15 +111,15 @@ describe('SubmissionMatrixService integration', () => {
           id: DEACTIVATED_STAFF_ID,
           githubId: seedGithubId(DEACTIVATED_STAFF_ID),
           nickname: DEACTIVATED_STAFF_ID,
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
           accountStatus: AccountStatus.DEACTIVATED,
         },
         {
           id: ROWHOLDER_ID,
           githubId: seedGithubId(ROWHOLDER_ID),
           nickname: ROWHOLDER_ID,
-          name: 'Synthetic Nameholder',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
       skipDuplicates: true,

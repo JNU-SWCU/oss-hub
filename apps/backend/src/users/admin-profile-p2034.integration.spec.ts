@@ -1,4 +1,4 @@
-import { Prisma, Role } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -72,7 +72,7 @@ async function createAdminActor(
       id: `${TEST_PREFIX}actor-${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + 100_000n + BigInt(sequence),
       nickname: `synthetic-qa58-actor-${label}-${sequence}`,
-      role: Role.ADMIN,
+      hasAdminAccess: true,
       name,
     },
     select: { githubId: true },

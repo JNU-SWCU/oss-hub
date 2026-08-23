@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import {
   ROLES_ERROR_CODES,
@@ -19,7 +19,7 @@ describe('AdminProfileService.patchProfile', () => {
     // Given
     const profileRepository = new InMemoryAdminProfileRepository();
     profileRepository.actor = adminActor({
-      role: Role.STUDENT,
+      role: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
@@ -41,7 +41,7 @@ describe('AdminProfileService.patchProfile', () => {
   it.each([
     [
       'STAFF로 강등된',
-      adminActor({ role: Role.STAFF, hasAdminAccess: false }),
+      adminActor({ role: 'STAFF', hasAdminAccess: false }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],

@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
@@ -61,7 +61,7 @@ describe('admin access read profile completeness', () => {
     const prisma = prismaReturning(
       userRow({
         id: 'student',
-        role: Role.STUDENT,
+        role: 'STUDENT',
         name: '가나다 학생',
         studentId: null,
         department: '소프트웨어공학과',
@@ -119,7 +119,7 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'revoked-staff',
         role: null,
-        selectedRole: Role.STAFF,
+        selectedRole: 'STAFF',
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
@@ -149,7 +149,7 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'selected-student',
         role: null,
-        selectedRole: Role.STUDENT,
+        selectedRole: 'STUDENT',
         name: '가나다 학생',
         studentId: null,
         department: '소프트웨어공학과',
@@ -181,7 +181,7 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'revoked-staff-projection',
         role: null,
-        selectedRole: Role.STAFF,
+        selectedRole: 'STAFF',
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
@@ -234,7 +234,7 @@ describe('admin access read profile completeness', () => {
    * 기준을 받고 있었으므로, 고른 역할이 무엇이든 판정이 달라질 수 없다 — 이 검사가
    * 없으면 "게이트가 느슨해지지 않았다"는 주장이 코드 어디에도 적혀 있지 않다.
    */
-  it.each([null, Role.STAFF, Role.STUDENT])(
+  it.each([null, 'STAFF', 'STUDENT'])(
     'keeps the approval gate identical when the selected role is %s',
     (selectedRole) => {
       // Given: 학과가 빠진 승인 대기 교직원 — 게이트가 막아야 하는 사람이다.
@@ -309,7 +309,7 @@ function approveStaffTransition() {
       pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
     },
     {
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.APPROVE,
     },
@@ -323,7 +323,7 @@ function approveStaffTransition() {
 function approveStaffCommand(): AdminAccessMutationCommand {
   return {
     expectedRole: null,
-    desiredRole: Role.STAFF,
+    desiredRole: 'STAFF',
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
     expectedPendingRequest: {
@@ -339,8 +339,7 @@ function actor(): AdminAccessActor {
     id: 'synthetic-admin',
     githubId: 910_000_001n,
     githubLogin: 'synthetic-admin',
-    name: '가나다 관리자',
-    role: Role.ADMIN,
+    hasAdminAccess: true,
     hasStaffAccess: true,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -357,12 +356,12 @@ function pendingRequest() {
 
 type UserRowOptions = {
   readonly id: string;
-  readonly role: Role | null;
+  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
   readonly pendingRequest: ReturnType<typeof pendingRequest> | null;
-  readonly selectedRole?: Role | null;
+  readonly selectedRole?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
 };
 
 /**

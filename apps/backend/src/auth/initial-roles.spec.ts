@@ -1,13 +1,12 @@
-import { Role } from '@prisma/client';
 import { parseInitialRoles } from './initial-roles';
 
 describe('parseInitialRoles', () => {
   it('유효한 githubId와 역할을 파싱한다', () => {
     expect(parseInitialRoles('101:ADMIN,202:STAFF,303:STUDENT')).toEqual(
       new Map([
-        [101n, Role.ADMIN],
-        [202n, Role.STAFF],
-        [303n, Role.STUDENT],
+        [101n, 'ADMIN'],
+        [202n, 'STAFF'],
+        [303n, 'STUDENT'],
       ]),
     );
   });
@@ -15,8 +14,8 @@ describe('parseInitialRoles', () => {
   it('항목 경계의 공백은 허용한다', () => {
     expect(parseInitialRoles(' 101:STAFF , 202:STUDENT ')).toEqual(
       new Map([
-        [101n, Role.STAFF],
-        [202n, Role.STUDENT],
+        [101n, 'STAFF'],
+        [202n, 'STUDENT'],
       ]),
     );
   });

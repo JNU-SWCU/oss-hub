@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AuthRepository } from './auth.repository';
 import {
   buildAuthConfig,
@@ -10,13 +10,13 @@ describe('AuthRepository.findByGithubId', () => {
   it('DB role·accountStatus를 그대로 도메인 객체에 실어 반환한다', async () => {
     const findUnique = jest
       .fn()
-      .mockResolvedValue(buildRow({ role: Role.STAFF }));
+      .mockResolvedValue(buildRow({ role: 'STAFF' }));
     const prisma = prismaServiceWith({ user: { findUnique } });
     const config = buildAuthConfig();
     const repository = new AuthRepository(prisma, config);
 
     expect(await repository.findByGithubId(424_242n)).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
     });
   });
@@ -25,11 +25,11 @@ describe('AuthRepository.findByGithubId', () => {
     // Given
     const findUnique = jest.fn().mockResolvedValue({
       ...buildRow({
-        role: Role.ADMIN,
+        role: 'ADMIN',
         hasStaffAccess: false,
         hasAdminAccess: true,
       }),
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       selectedMemberKind: 'STUDENT',
       profile: {
         name: '합성 학생 관리자',
@@ -50,7 +50,7 @@ describe('AuthRepository.findByGithubId', () => {
 
     // Then
     expect(principal).toMatchObject({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       memberKind: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: true,

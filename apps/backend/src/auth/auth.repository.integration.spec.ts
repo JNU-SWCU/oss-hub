@@ -1,4 +1,4 @@
-import { AccountStatus, Role, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthConfig } from './auth.config';
@@ -25,7 +25,7 @@ const githubIds = [
 ];
 const prisma = new PrismaService();
 
-function repositoryWithInitialRole(initialRole: Role | null): AuthRepository {
+function repositoryWithInitialRole(initialRole: 'STUDENT' | 'STAFF' | 'ADMIN' | null): AuthRepository {
   const config = {
     resolveInitialRole: jest.fn().mockReturnValue(initialRole),
   } as unknown as AuthConfig;
@@ -119,7 +119,7 @@ it('동시 최초 로그인은 GitHub 이름을 저장하지 않고 이후 로�
 });
 
 it('STAFF 초기 역할 시드는 APPROVED 역할 요청을 함께 만든다', async () => {
-  const repository = repositoryWithInitialRole(Role.STAFF);
+  const repository = repositoryWithInitialRole('STAFF');
   await upsertUser(repository, {
     githubId: staffGithubId,
     login: 'synthetic-staff-user',
@@ -134,7 +134,7 @@ it('STAFF 초기 역할 시드는 APPROVED 역할 요청을 함께 만든다', a
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
-  expect(user.role).toBe(Role.STAFF);
+  expect(user.role).toBe('STAFF');
   expect(requests).toHaveLength(1);
   const [approvedRequest] = requests;
   expect(approvedRequest).toMatchObject({
@@ -158,7 +158,7 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
   const revoked = await prisma.staffAccessRequest.create({
     data: { userId: user.id, status: StaffAccessRequestStatus.REVOKED },
   });
-  const repository = repositoryWithInitialRole(Role.STAFF);
+  const repository = repositoryWithInitialRole('STAFF');
 
   const result = await upsertUser(repository, {
     githubId: revokedStaffGithubId,
@@ -198,7 +198,7 @@ it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는�
   await prisma.staffAccessRequest.create({
     data: { userId: user.id, status: StaffAccessRequestStatus.REJECTED },
   });
-  const repository = repositoryWithInitialRole(Role.STAFF);
+  const repository = repositoryWithInitialRole('STAFF');
 
   const result = await upsertUser(repository, {
     githubId: rejectedStaffGithubId,
@@ -208,7 +208,7 @@ it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는�
     email: null,
   });
 
-  expect(result.user.role).toBe(Role.STAFF);
+  expect(result.user.role).toBe('STAFF');
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
     orderBy: { status: 'asc' },
@@ -227,7 +227,8 @@ it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 역할과 �
       githubId: reapprovedStaffGithubId,
       nickname: 'synthetic-reapproved-staff-user',
       accountStatus: AccountStatus.ACTIVE,
-      role: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     },
   });
   await prisma.staffAccessRequest.create({
@@ -236,7 +237,7 @@ it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 역할과 �
   await prisma.staffAccessRequest.create({
     data: { userId: user.id, status: StaffAccessRequestStatus.APPROVED },
   });
-  const repository = repositoryWithInitialRole(Role.STAFF);
+  const repository = repositoryWithInitialRole('STAFF');
 
   const result = await upsertUser(repository, {
     githubId: reapprovedStaffGithubId,
@@ -246,7 +247,7 @@ it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 역할과 �
     email: null,
   });
 
-  expect(result.user.role).toBe(Role.STAFF);
+  expect(result.user.role).toBe('STAFF');
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
@@ -264,7 +265,7 @@ it('기존 PENDING 역할 요청은 STAFF 초기 역할 시드에서 새로 만�
   const pending = await prisma.staffAccessRequest.create({
     data: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
   });
-  const repository = repositoryWithInitialRole(Role.STAFF);
+  const repository = repositoryWithInitialRole('STAFF');
 
   await upsertUser(repository, {
     githubId: pendingStaffGithubId,

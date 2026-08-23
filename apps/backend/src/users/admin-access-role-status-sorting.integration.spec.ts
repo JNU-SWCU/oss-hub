@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -44,8 +44,7 @@ beforeAll(async () => {
         id: `${prefix}actor`,
         githubId: 8_014_000_001_001n,
         nickname: 'synthetic-role-status-admin',
-        name: `Actor ${queryFragment}`,
-        role: Role.ADMIN,
+        hasAdminAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
       select: { githubId: true },
@@ -61,46 +60,47 @@ beforeAll(async () => {
     createListedUser({
       id: ids.student,
       githubId: 8_014_000_001_003n,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
     }),
     createListedUser({
       id: ids.staff,
       githubId: 8_014_000_001_004n,
-      role: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     }),
     createListedUser({
       id: ids.admin,
       githubId: 8_014_000_001_005n,
-      role: Role.ADMIN,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     }),
     createListedUser({
       id: ids.activeA,
       githubId: 8_014_000_001_006n,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
       nameSuffix: 'active-a',
     }),
     createListedUser({
       id: ids.activeB,
       githubId: 8_014_000_001_007n,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
       nameSuffix: 'active-b',
     }),
     createListedUser({
       id: ids.deactivatedA,
       githubId: 8_014_000_001_008n,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.DEACTIVATED,
       nameSuffix: 'deactivated-a',
     }),
     createListedUser({
       id: ids.deactivatedB,
       githubId: 8_014_000_001_009n,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.DEACTIVATED,
       nameSuffix: 'deactivated-b',
     }),
@@ -151,7 +151,7 @@ it.each([
 function createListedUser(input: {
   readonly id: string;
   readonly githubId: bigint;
-  readonly role: Role | null;
+  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly accountStatus: AccountStatus;
   readonly nameSuffix?: string;
 }) {
