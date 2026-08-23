@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ${1:-} != 'expand' || $# -ne 1 ]]; then
-  printf 'Usage: scripts/rehearse-member-authority-migrations.sh expand\n' >&2
+scenario=${1:-}
+if [[ $# -ne 1 ]] ||
+  [[ $scenario != 'expand' && $scenario != 'contract' && $scenario != 'contract-negative' ]]; then
+  printf 'Usage: scripts/rehearse-member-authority-migrations.sh expand|contract|contract-negative\n' >&2
   exit 2
 fi
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
-node "$repo_root/scripts/member-authority-expand-contract.mjs" \
-  "$repo_root/apps/backend/prisma/schema.prisma" "$migration"
+schema="$repo_root/apps/backend/prisma/schema.prisma"
+expand_migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
+contract_migration="$repo_root/apps/backend/prisma/migrations/20260823000000_contract_member_authority/migration.sql"
+
+if [[ $scenario == 'contract' || $scenario == 'contract-negative' ]]; then
+  node "$repo_root/scripts/member-authority-contract-contract.mjs" \
+    "$schema" "$contract_migration"
+  exec bash "$repo_root/scripts/rehearse-member-authority-contract.sh" "$scenario"
+fi
+
+migration="$expand_migration"
+node "$repo_root/scripts/member-authority-expand-contract.mjs" "$schema" "$migration"
 
 legacy_sha=08419aec35492abd3a416795f091997dfbe1f712
 project_name="oss-hub-member-expand-$(date +%s)-$$-$RANDOM"
