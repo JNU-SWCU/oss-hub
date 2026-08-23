@@ -33,6 +33,29 @@ export type CanonicalProfileCompatibilitySource =
     } | null;
   };
 
+/**
+ * 접근 권한만 보는 좁은 면. 이름·학과를 끌고 오지 않는다 — 인가 가드가
+ * 실명을 읽을 이유가 없다(AGENTS.md §4 redact-later 금지).
+ */
+export type MemberAccessSource = {
+  readonly role: Role | null;
+  readonly hasStaffAccess?: boolean | null;
+  readonly hasAdminAccess?: boolean | null;
+};
+
+export type MemberAccess = {
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+/** 정본은 canonical 컬럼. expand 단계의 null 행만 legacy `role`로 떨어진다. */
+export function resolveMemberAccess(source: MemberAccessSource): MemberAccess {
+  return {
+    hasStaffAccess: source.hasStaffAccess ?? legacyHasStaffAccess(source.role),
+    hasAdminAccess: source.hasAdminAccess ?? source.role === Role.ADMIN,
+  };
+}
+
 export type MemberAuthorityProjection = {
   readonly role: Role | null;
   readonly selectedMemberKind: MemberKind | null;
@@ -49,9 +72,7 @@ export function resolveMemberAuthorityCompatibility(
 ): MemberAuthorityProjection {
   const memberKind =
     source.profile?.memberKind ?? legacyMemberKind(source.role);
-  const hasStaffAccess =
-    source.hasStaffAccess ?? legacyHasStaffAccess(source.role);
-  const hasAdminAccess = source.hasAdminAccess ?? source.role === Role.ADMIN;
+  const { hasStaffAccess, hasAdminAccess } = resolveMemberAccess(source);
   const affiliationName =
     source.profile?.affiliationName ??
     source.profile?.department ??

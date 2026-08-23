@@ -1,26 +1,34 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, Prisma, Role } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { DomainException, type ErrorCode } from '../common/error-code';
+import { resolveMemberAccess } from '../profiles/member-authority-compatibility';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.enum';
 
+/** 권한 판단은 canonical 컬럼이 정본이다. `role`은 backfill 전 행의 fallback으로만 읽는다. */
+const APPLICATIONS_STAFF_SELECT = {
+  id: true,
+  role: true,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  accountStatus: true,
+} as const satisfies Prisma.UserSelect;
+
 interface ApplicationsStaffStore {
   readonly user: {
     findUnique(input: {
       readonly where: { readonly githubId: bigint };
-      readonly select: {
-        readonly id: true;
-        readonly role: true;
-        readonly accountStatus: true;
-      };
+      readonly select: typeof APPLICATIONS_STAFF_SELECT;
     }): Promise<{
       readonly id: string;
       readonly role: Role | null;
+      readonly hasStaffAccess: boolean | null;
+      readonly hasAdminAccess: boolean | null;
       readonly accountStatus: AccountStatus;
     } | null>;
   };
@@ -46,23 +54,20 @@ export class ApplicationsStaffGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = await this.prisma.user.findUnique({
       where: { githubId: request.sessionGithubId },
-      select: { id: true, role: true, accountStatus: true },
+      select: APPLICATIONS_STAFF_SELECT,
     });
 
     if (user?.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(this.staffForbiddenError());
     }
 
-    switch (user.role) {
-      case Role.STAFF:
-      case Role.ADMIN:
-        Object.assign(request, { applicationActorId: user.id });
-        return true;
-      case Role.STUDENT:
-      case null:
-      case undefined:
-        throw new DomainException(this.staffForbiddenError());
+    const access = resolveMemberAccess(user);
+    if (!access.hasStaffAccess && !access.hasAdminAccess) {
+      throw new DomainException(this.staffForbiddenError());
     }
+
+    Object.assign(request, { applicationActorId: user.id });
+    return true;
   }
 }
 

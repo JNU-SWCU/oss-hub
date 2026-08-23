@@ -30,9 +30,11 @@ describe('CollectionAdminGuard', () => {
     await testingModule.close();
   });
 
-  it('ADMIN 사용자만 허용한다', async () => {
+  it('canonical hasAdminAccess 사용자를 허용한다', async () => {
     findUnique.mockResolvedValue({
-      role: Role.ADMIN,
+      role: null,
+      hasStaffAccess: false,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
@@ -41,7 +43,40 @@ describe('CollectionAdminGuard', () => {
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 424242n },
-      select: { role: true, accountStatus: true },
+      select: {
+        role: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
+    });
+  });
+
+  it('canonical 컬럼이 비어 있으면 legacy ADMIN 역할로 허용한다', async () => {
+    findUnique.mockResolvedValue({
+      role: Role.ADMIN,
+      hasStaffAccess: null,
+      hasAdminAccess: null,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
+    context.setType('http');
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('legacy 역할이 ADMIN이어도 canonical hasAdminAccess=false면 거부한다', async () => {
+    findUnique.mockResolvedValue({
+      role: Role.ADMIN,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
+    context.setType('http');
+
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      errorCode: { code: CollectionErrorCode.ADMIN_REQUIRED, status: 403 },
     });
   });
 
@@ -50,6 +85,8 @@ describe('CollectionAdminGuard', () => {
     async (role) => {
       findUnique.mockResolvedValue({
         role,
+        hasStaffAccess: null,
+        hasAdminAccess: null,
         accountStatus: AccountStatus.ACTIVE,
       });
       const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
@@ -67,6 +104,8 @@ describe('CollectionAdminGuard', () => {
   it('비활성 ADMIN도 COL_004 403으로 거부한다', async () => {
     findUnique.mockResolvedValue({
       role: Role.ADMIN,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);

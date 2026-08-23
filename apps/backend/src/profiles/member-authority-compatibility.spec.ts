@@ -1,5 +1,8 @@
 import { AffiliationKind, MemberKind, Role } from '@prisma/client';
-import { resolveMemberAuthorityCompatibility } from './member-authority-compatibility';
+import {
+  resolveMemberAccess,
+  resolveMemberAuthorityCompatibility,
+} from './member-authority-compatibility';
 
 const EMPTY_SELECTION = {
   selectedRole: null,
@@ -130,5 +133,42 @@ describe('member authority compatibility projection', () => {
     // Then
     expect(projection.hasAdminAccess).toBe(true);
     expect(projection.hasStaffAccess).toBe(false);
+  });
+});
+
+describe('resolveMemberAccess', () => {
+  it.each([
+    {
+      label: 'canonical access wins over legacy role',
+      source: { role: Role.ADMIN, hasStaffAccess: false, hasAdminAccess: false },
+      expected: { hasStaffAccess: false, hasAdminAccess: false },
+    },
+    {
+      label: 'canonical staff access without a legacy role',
+      source: { role: null, hasStaffAccess: true, hasAdminAccess: false },
+      expected: { hasStaffAccess: true, hasAdminAccess: false },
+    },
+    {
+      label: 'legacy STAFF fallback while canonical columns are unset',
+      source: { role: Role.STAFF, hasStaffAccess: null, hasAdminAccess: null },
+      expected: { hasStaffAccess: true, hasAdminAccess: false },
+    },
+    {
+      label: 'legacy ADMIN fallback while canonical columns are unset',
+      source: { role: Role.ADMIN, hasStaffAccess: null, hasAdminAccess: null },
+      expected: { hasStaffAccess: true, hasAdminAccess: true },
+    },
+    {
+      label: 'legacy STUDENT fallback',
+      source: { role: Role.STUDENT, hasStaffAccess: null, hasAdminAccess: null },
+      expected: { hasStaffAccess: false, hasAdminAccess: false },
+    },
+    {
+      label: 'roleless row without canonical columns',
+      source: { role: null, hasStaffAccess: null, hasAdminAccess: null },
+      expected: { hasStaffAccess: false, hasAdminAccess: false },
+    },
+  ] as const)('resolves $label', ({ source, expected }) => {
+    expect(resolveMemberAccess(source)).toEqual(expected);
   });
 });
