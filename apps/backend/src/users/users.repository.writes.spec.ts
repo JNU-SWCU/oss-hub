@@ -48,7 +48,6 @@ describe('UsersRepository profile completion writes', () => {
         memberKind: MemberKind.STUDENT,
         affiliationKind: AffiliationKind.DEPARTMENT,
         affiliationName: completion.department,
-        selectedRole: 'STUDENT',
         selectedMemberKind: MemberKind.STUDENT,
         hasStaffAccess: false,
         hasAdminAccess: false,

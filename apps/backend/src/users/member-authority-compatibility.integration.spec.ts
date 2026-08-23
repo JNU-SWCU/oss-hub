@@ -44,7 +44,6 @@ it('student completion writes canonical profile, authority defaults, and rollbac
   // Then
   await expect(storedMember(user.id)).resolves.toMatchObject({
     role: 'STUDENT',
-    selectedRole: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -78,7 +77,6 @@ it('staff completion writes program-office affiliation, null student ID, default
   ]);
   expect(stored).toMatchObject({
     role: null,
-    selectedRole: 'STAFF',
     selectedMemberKind: MemberKind.STAFF,
     hasStaffAccess: false,
     hasAdminAccess: false,

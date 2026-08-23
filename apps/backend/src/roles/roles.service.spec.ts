@@ -250,7 +250,6 @@ describe('RolesService', () => {
 
     // Then
     expect(result).toEqual({
-      selectedRole: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
     expect(store.currentRole()).toBeNull();
@@ -270,7 +269,6 @@ describe('RolesService', () => {
 
     // Then
     expect(result).toEqual({
-      selectedRole: 'STAFF',
       redirectTo: '/onboarding/profile',
     });
     expect(store.requestCount()).toBe(0);

@@ -28,7 +28,6 @@ describe('AuthRepository.findByGithubId', () => {
         hasAdminAccess: true,
         hasStaffAccess: false,
       }),
-      selectedRole: 'STUDENT',
       selectedMemberKind: 'STUDENT',
       profile: {
         name: '합성 학생 관리자',

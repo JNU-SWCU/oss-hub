@@ -75,7 +75,6 @@ describe('OnboardingController', () => {
     });
     const controller = createOnboardingController(selectMemberKind);
     const body = plainToInstance(SelectStaffAccessRequestDto, {
-      selectedRole: 'STUDENT',
     });
 
     // When
@@ -84,7 +83,6 @@ describe('OnboardingController', () => {
     // Then — 확정 결과(role·requestStatus)는 계약에 없다. 이 화면이 아무것도
     // 확정하지 않기 때문이다(#569).
     expect(result).toEqual({
-      selectedRole: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
     expect(selectMemberKind).toHaveBeenCalledWith(424242n, 'STUDENT');
@@ -108,7 +106,6 @@ describe('OnboardingController', () => {
   it('STUDENT와 STAFF가 아닌 역할 선택은 ROL_001로 거부한다', () => {
     // Given
     const body = plainToInstance(SelectStaffAccessRequestDto, {
-      selectedRole: 'ADMIN',
     });
 
     // When

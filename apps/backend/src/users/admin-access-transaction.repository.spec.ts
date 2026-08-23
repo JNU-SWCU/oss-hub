@@ -25,7 +25,6 @@ describe('AdminAccessRepository transaction store', () => {
           id: 'target',
           githubId: 9_131_000_002n,
           nickname: 'synthetic-target',
-          profile: null,
           selectedMemberKind: MemberKind.STUDENT,
           profile: {
             create: {

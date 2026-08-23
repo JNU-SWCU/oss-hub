@@ -123,7 +123,6 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'revoked-staff',
         role: null,
-        selectedRole: 'STAFF',
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
@@ -153,7 +152,6 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'selected-student',
         role: null,
-        selectedRole: 'STUDENT',
         name: '가나다 학생',
         studentId: null,
         department: '소프트웨어공학과',
@@ -185,7 +183,6 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'revoked-staff-projection',
         role: null,
-        selectedRole: 'STAFF',
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',

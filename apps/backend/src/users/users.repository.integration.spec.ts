@@ -71,7 +71,6 @@ it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
     role: 'STUDENT',
-    selectedRole: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     affiliationKind: 'DEPARTMENT',

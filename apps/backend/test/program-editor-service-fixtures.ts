@@ -2,7 +2,6 @@ import {
   AccountStatus,
   MilestoneSubmissionType,
   ProgramCategory,
-  Role,
 } from '@prisma/client';
 import type { UpdateProgramRequestDto } from '../src/programs/dto/update-program-request.dto';
 import type { UpsertMilestoneRequestDto } from '../src/programs/dto/upsert-milestone-request.dto';
@@ -98,10 +97,7 @@ export function createProgramEditorServiceHarness(): {
     },
   };
   store.findUserAuthorityByGithubId.mockResolvedValue({
-    role: Role.STAFF,
-    hasStaffAccess: false,
-    hasAdminAccess: false,
-    hasStaffAccess: false,
+    hasStaffAccess: true,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     staffAccessRequests: [],

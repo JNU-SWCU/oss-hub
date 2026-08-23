@@ -7,7 +7,6 @@ describe('UsersRepository profile compatibility reads', () => {
     findUnique.mockResolvedValue({
       id: 'user-profile-first',
       role: 'STUDENT',
-      selectedRole: 'STUDENT',
       staffAccessRequests: [],
       name: 'Legacy Name',
       studentId: '111111',
@@ -26,7 +25,6 @@ describe('UsersRepository profile compatibility reads', () => {
     expect(result).toEqual({
       id: 'user-profile-first',
       role: 'STUDENT',
-      selectedRole: 'STUDENT',
       selectedMemberKind: 'STUDENT',
       memberKind: 'STUDENT',
       affiliationKind: 'DEPARTMENT',
@@ -46,7 +44,6 @@ describe('UsersRepository profile compatibility reads', () => {
     findUnique.mockResolvedValue({
       id: 'user-profile-null-canonical-keys',
       role: 'STUDENT',
-      selectedRole: 'STUDENT',
       selectedMemberKind: null,
       hasStaffAccess: null,
       hasAdminAccess: null,
@@ -71,7 +68,6 @@ describe('UsersRepository profile compatibility reads', () => {
     expect(result).toEqual({
       id: 'user-profile-null-canonical-keys',
       role: 'STUDENT',
-      selectedRole: 'STUDENT',
       selectedMemberKind: 'STUDENT',
       memberKind: 'STUDENT',
       affiliationKind: 'DEPARTMENT',
@@ -91,7 +87,6 @@ describe('UsersRepository profile compatibility reads', () => {
     findUnique.mockResolvedValue({
       id: 'user-legacy-fallback',
       role: null,
-      selectedRole: null,
       staffAccessRequests: [],
       name: 'Legacy Name',
       studentId: null,
@@ -106,7 +101,6 @@ describe('UsersRepository profile compatibility reads', () => {
     expect(result).toEqual({
       id: 'user-legacy-fallback',
       role: null,
-      selectedRole: null,
       selectedMemberKind: null,
       memberKind: null,
       affiliationKind: null,
@@ -126,7 +120,6 @@ describe('UsersRepository profile compatibility reads', () => {
     findUnique.mockResolvedValue({
       id: 'user-role-selected',
       role: 'STAFF',
-      selectedRole: 'STAFF',
       staffAccessRequests: [{ id: 'synthetic-pending-request' }],
       name: 'Legacy Name',
       studentId: null,
