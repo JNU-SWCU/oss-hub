@@ -38,25 +38,23 @@ const activeUser: AuthUser = {
   isProfileComplete: true,
 };
 
-type PrincipalShape = Readonly<{
-  id: string;
-  githubId: bigint;
-  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
-}>;
-
-type PrincipalRequest = Request & Readonly<{ principal: PrincipalShape }>;
+type PrincipalRequest = Request & Readonly<{ principal: AuthUser }>;
 
 @Injectable()
 class PrincipalProbeService {
-  read(principal: PrincipalShape): Readonly<{
+  read(principal: AuthUser): Readonly<{
     userId: string;
     githubId: string;
-    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
+    memberKind: MemberKind | null;
+    hasStaffAccess: boolean;
+    hasAdminAccess: boolean;
   }> {
     return {
       userId: principal.id,
       githubId: principal.githubId.toString(10),
-      role: principal.role,
+      memberKind: principal.memberKind,
+      hasStaffAccess: principal.hasStaffAccess,
+      hasAdminAccess: principal.hasAdminAccess,
     };
   }
 }
@@ -65,7 +63,7 @@ class PrincipalProbeService {
 class StaffFixtureGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<PrincipalRequest>();
-    if (request.principal.role !== 'STAFF') {
+    if (!request.principal.hasStaffAccess) {
       throw new ForbiddenException();
     }
     return true;
@@ -187,7 +185,11 @@ describe('global default-deny authentication boundary', () => {
 
   it('passes a database-backed active principal to a representative service', async () => {
     // Given: a valid identity token and current mutable authority from the DB seam.
-    currentUser = { ...activeUser, memberKind: 'STAFF', hasStaffAccess: true };
+    currentUser = {
+      ...activeUser,
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
+    };
 
     // When: the unannotated route is requested with the same identity token.
     const response = await fetch(
@@ -195,13 +197,14 @@ describe('global default-deny authentication boundary', () => {
       { headers: { cookie: sessionCookie } },
     );
 
-    // Then: the service receives the current account principal, including DB role.
+    // Then: the service receives the current account principal, including access facts.
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       userId: activeUser.id,
       githubId: githubId.toString(10),
-      selectedMemberKind: MemberKind.STAFF,
+      memberKind: MemberKind.STAFF,
       hasStaffAccess: true,
+      hasAdminAccess: false,
     });
   });
 

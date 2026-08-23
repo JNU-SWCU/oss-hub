@@ -128,7 +128,7 @@ describe('canonical auth session HTTP contract', () => {
     expect(body).not.toHaveProperty('user');
   });
 
-  it('GET /api/v1/auth/session returns the authenticated discriminant with legacy role', async () => {
+  it('GET /api/v1/auth/session returns the authenticated discriminant with canonical access facts', async () => {
     const response = await request('/api/v1/auth/session', sessionCookie);
 
     expect(response.status).toBe(200);
@@ -136,11 +136,11 @@ describe('canonical auth session HTTP contract', () => {
       isAuthenticated: true,
       user: {
         nickname: activeUser.nickname,
+        name: null,
         avatarUrl: null,
         accountStatus: AccountStatus.ACTIVE,
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
         memberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
         hasAdminAccess: false,
         isProfileComplete: true,
       },
