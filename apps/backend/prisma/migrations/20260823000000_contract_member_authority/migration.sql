@@ -44,9 +44,15 @@ DECLARE violations BIGINT;
 BEGIN
   SELECT count(*) INTO violations
   FROM "UserProfile"
-  WHERE btrim("name") = '' OR length("name") < 1 OR length("name") > 100
-     OR btrim("department") = '' OR length("department") < 1 OR length("department") > 100
-     OR btrim("affiliationName") = '' OR length("affiliationName") < 1 OR length("affiliationName") > 100;
+  WHERE btrim("name") <> "name"
+     OR btrim("name") = ''
+     OR length("name") < 1 OR length("name") > 100
+     OR btrim("department") <> "department"
+     OR btrim("department") = ''
+     OR length("department") < 1 OR length("department") > 100
+     OR btrim("affiliationName") <> "affiliationName"
+     OR btrim("affiliationName") = ''
+     OR length("affiliationName") < 1 OR length("affiliationName") > 100;
   IF violations <> 0 THEN
     RAISE EXCEPTION 'contract preflight: 이름·학과·소속명 길이/공백 위반 % 건', violations;
   END IF;

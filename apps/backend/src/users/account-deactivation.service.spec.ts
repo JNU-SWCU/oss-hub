@@ -116,6 +116,7 @@ describe('AccountDeactivationService', () => {
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
               role: 'ADMIN',
+              hasAdminAccess: true,
             }),
             lockActiveAdmins: jest.fn().mockResolvedValue(1),
             deactivate,
@@ -128,5 +129,55 @@ describe('AccountDeactivationService', () => {
       errorCode: { code: 'USR_007', status: 409 },
     });
     expect(deactivate).not.toHaveBeenCalled();
+  });
+
+  it('blocks the last admin even when display role is not ADMIN', async () => {
+    const deactivate = jest.fn();
+    const service = new AccountDeactivationService(
+      {
+        withTransaction: (operation) =>
+          operation({
+            auditLogWriter: {} as AuditLogTransactionWriter,
+            findForUpdate: jest.fn().mockResolvedValue({
+              ...account,
+              role: 'STUDENT',
+              hasAdminAccess: true,
+            }),
+            lockActiveAdmins: jest.fn().mockResolvedValue(1),
+            deactivate,
+          }),
+      },
+      { record: jest.fn() } as unknown as AuditLogService,
+    );
+
+    await expect(service.deactivate(42n)).rejects.toMatchObject({
+      errorCode: { code: 'USR_007', status: 409 },
+    });
+    expect(deactivate).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a display-only ADMIN without hasAdminAccess as last admin', async () => {
+    const deactivate = jest.fn().mockResolvedValue(true);
+    const service = new AccountDeactivationService(
+      {
+        withTransaction: (operation) =>
+          operation({
+            auditLogWriter: {} as AuditLogTransactionWriter,
+            findForUpdate: jest.fn().mockResolvedValue({
+              ...account,
+              role: 'ADMIN',
+              hasAdminAccess: false,
+            }),
+            lockActiveAdmins: jest.fn().mockResolvedValue(1),
+            deactivate,
+          }),
+      },
+      { record: jest.fn() } as unknown as AuditLogService,
+    );
+
+    await expect(service.deactivate(42n)).resolves.toEqual({
+      accountStatus: AccountStatus.DEACTIVATED,
+    });
+    expect(deactivate).toHaveBeenCalledWith(account.id);
   });
 });

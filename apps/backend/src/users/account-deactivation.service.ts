@@ -44,7 +44,7 @@ export class AccountDeactivationService {
           USERS_ERROR_CODES[UsersErrorCode.ACCOUNT_ALREADY_DEACTIVATED],
         );
       }
-      if (account.role === 'ADMIN' && activeAdminCount <= 1) {
+      if (account.hasAdminAccess && activeAdminCount <= 1) {
         throw new DomainException(
           USERS_ERROR_CODES[UsersErrorCode.LAST_ACTIVE_ADMIN],
         );
