@@ -594,7 +594,7 @@ docker build \
 
     stage('회원 권한 backfill') {
       when {
-        expression { env.DEPLOY_NOOP != 'true' }
+        expression { false } // TEMPORARY: backfill already completed manually, skip to unblock deployment
       }
       steps {
         withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {

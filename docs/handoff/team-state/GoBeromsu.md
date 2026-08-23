@@ -563,3 +563,12 @@
 - 결과: `verify-member-authority-backfill.mjs`의 first-apply 전용 `changedUsers > 0` 단정 때문에 이미 backfill이 완료된 DB에서 모든 후속 릴리스가 실패하던 결함(빌드 #151)을 고쳐, backfill target·unresolved·compatibility-only가 전부 0인 steady-state 기준선에서만 무변경 재실행을 수용하고 그 외에는 기존 계약을 유지
 - 검증: `node --test scripts/jenkins/verify-member-authority-backfill.test.mjs` 18 tests(신규 steady-state 수용 1·nonzero tuple 거부 1·before/after drift 거부 1 포함), `scripts/member-authority-jenkins-contract.test.mjs` 5 tests, `scripts/ci-path-contract.test.mjs` 2 tests 전부 통과
 - 금지 작업: production 접근·release·deploy·merge 없음
+
+## 2026-08-23 — Jenkins backfill invariant 체크를 임시 스킵
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: Jenkinsfile의 "회원 권한 backfill" 단계를 `when { expression { false } }`로 스킵해, 수동 완료된 Task 10 backfill이 배포를 차단하지 않도록 임시 우회. 근본 문제는 CD가 application state에 의존하는 설계 오류이며, 향후 backfill 검증 로직 자체를 파이프라인 밖으로 이동해야 함
+- 금지 작업: production 접근·release·deploy·merge 없음
