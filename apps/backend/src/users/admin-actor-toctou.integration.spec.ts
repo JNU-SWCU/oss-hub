@@ -1,3 +1,4 @@
+import { authorityFactsFor } from './canonical-user-fixture';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -255,14 +256,14 @@ it(
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
 
-function createUser(label: string, role: Role) {
+function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
     data: {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-687-${label}-${sequence}`,
-      role,
+      ...authorityFactsFor(role),
       accountStatus: AccountStatus.ACTIVE,
     },
     select: { id: true, githubId: true },

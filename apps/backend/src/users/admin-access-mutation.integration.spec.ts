@@ -1,3 +1,4 @@
+import { authorityFactsFor } from './canonical-user-fixture';
 import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -167,7 +168,7 @@ async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: str
       id: `test:pr03:admin-access-mutation:${label}:${sequence}`,
       githubId: 9_003_600_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      role,
+      ...authorityFactsFor(role),
     },
     select: { id: true, githubId: true },
   });

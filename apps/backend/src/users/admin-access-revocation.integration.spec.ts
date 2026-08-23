@@ -1,3 +1,4 @@
+import { authorityFactsFor } from './canonical-user-fixture';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -384,7 +385,7 @@ function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-184-${label}-${sequence}`,
-      role,
+      ...authorityFactsFor(role),
       accountStatus: AccountStatus.ACTIVE,
     },
     select: { id: true, githubId: true },

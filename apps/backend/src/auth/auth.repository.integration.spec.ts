@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthConfig } from './auth.config';
@@ -82,21 +82,18 @@ it('동시 최초 로그인은 GitHub 이름을 저장하지 않고 이후 로�
     where: { githubId },
     include: { profile: true },
   });
-  expect(newUser.name).toBeNull();
   expect(newUser.profile).toBeNull();
 
   await prisma.$transaction([
-    prisma.user.update({
-      where: { githubId },
-      data: {
-      },
-    }),
     prisma.userProfile.create({
       data: {
         userId: newUser.id,
         name: '사용자 입력 이름',
         studentId: '1'.repeat(6),
         department: '인공지능학부',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '인공지능학부',
       },
     }),
   ]);
@@ -131,7 +128,7 @@ it('STAFF 초기 역할 시드는 APPROVED 역할 요청을 함께 만든다', a
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
-  expect(user.role).toBe('STAFF');
+  expect(user.hasStaffAccess).toBe(true);
   expect(requests).toHaveLength(1);
   const [approvedRequest] = requests;
   expect(approvedRequest).toMatchObject({

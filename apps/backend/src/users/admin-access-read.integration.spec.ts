@@ -1,3 +1,4 @@
+import { authorityFactsFor } from './canonical-user-fixture';
 import {
   AccountStatus,
   LoginHistoryEvent,
@@ -239,7 +240,7 @@ function queryPlanText(plan: readonly QueryPlanRow[]): string {
 function createUser(
   label: string,
   suffix: bigint,
-  role: Role,
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
   accountStatus: AccountStatus,
 ) {
   return prisma.user.create({
@@ -247,7 +248,7 @@ function createUser(
       id: `${prefix}${label}`,
       githubId: 9_003_800_000n + suffix,
       nickname: `${queryFragment}-${label}`,
-      role,
+      ...authorityFactsFor(role),
       accountStatus,
     },
     select: { id: true, githubId: true },

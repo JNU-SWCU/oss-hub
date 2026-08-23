@@ -1,3 +1,4 @@
+import { authorityFactsFor } from './canonical-user-fixture';
 import {
   AccountStatus,
   LoginHistoryEvent,
@@ -104,7 +105,7 @@ async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: str
       id: `${label}:user`,
       githubId: 9_004_800_000n + BigInt(sequence),
       nickname: `synthetic-pr04h-${sequence}`,
-      role,
+      ...authorityFactsFor(role),
     },
     select: { id: true, githubId: true },
   });

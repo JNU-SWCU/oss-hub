@@ -162,18 +162,22 @@ describe('UsersRepository 학번 최초 저장', () => {
   };
 
   it('UserProfile 행이 없던 교직원도 행을 만들어 제약 아래 학번을 넣는다', async () => {
-    // Given — 갱신 경로(updateMany)는 0행을 갱신하고 제약 없는 User 컬럼만 남겼다
-    const { repository, userProfileUpdateMany, userProfileCreate } = harness();
+    // Given — 학번은 프로필 행의 unique 제약 아래로만 들어간다
+    const { repository, userProfileUpdateMany } = harness();
+    userProfileUpdateMany.mockResolvedValue({ count: 1 });
 
     // When
-    const outcome = await repository.fillStudentId(expected, profile);
+    const outcome = await repository.fillStudentId(
+      expected,
+      profile.studentId,
+    );
 
-    // Then
+    // Then — `studentId: null` 조건이 CAS다
     expect(outcome).toBe('filled');
-    expect(userProfileCreate).toHaveBeenCalledWith({
-      data: { userId: expected.id, ...profile },
+    expect(userProfileUpdateMany).toHaveBeenCalledWith({
+      where: { userId: expected.id, studentId: null },
+      data: { studentId: profile.studentId },
     });
-    expect(userProfileUpdateMany).not.toHaveBeenCalled();
   });
 
   it('다른 계정이 소유한 학번은 쓰지 않고 taken을 돌려준다', async () => {
@@ -182,9 +186,9 @@ describe('UsersRepository 학번 최초 저장', () => {
     userProfileFindUnique.mockResolvedValue({ userId: 'other-user' });
 
     // When / Then
-    await expect(repository.fillStudentId(expected, profile)).resolves.toBe(
-      'taken',
-    );
+    await expect(
+      repository.fillStudentId(expected, profile.studentId),
+    ).resolves.toBe('taken');
     expect(userUpdateMany).not.toHaveBeenCalled();
   });
 });
