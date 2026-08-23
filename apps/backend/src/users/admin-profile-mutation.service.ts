@@ -64,6 +64,17 @@ export async function mutateAdminUserProfile(
       });
     }
 
+    if (
+      input.command.studentId !== undefined &&
+      before.memberKind === 'STAFF'
+    ) {
+      throw new DomainException({
+        code: SystemErrorCode.VALIDATION_FAILED,
+        status: 400,
+        message: '교직원 프로필에는 학번을 저장할 수 없습니다.',
+      });
+    }
+
     const nextName = input.command.name ?? before.name;
     const nextStudentId = input.command.studentId ?? before.studentId;
     const nextDepartment = input.command.department ?? before.department;

@@ -178,7 +178,12 @@ function toAdminProfileTargetRecord(
   user: PrismaAdminProfileTarget,
 ): AdminProfileTargetRecord {
   const profile = resolveUserProfile(user);
-  return { id: user.id, githubLogin: user.nickname, ...profile };
+  return {
+    id: user.id,
+    githubLogin: user.nickname,
+    ...profile,
+    memberKind: user.profile?.memberKind ?? null,
+  };
 }
 
 /**
