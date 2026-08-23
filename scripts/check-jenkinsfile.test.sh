@@ -79,6 +79,22 @@ append_fixture() {
 # Root Jenkinsfile — 단일 parameterless Release 배포 계약
 # ---------------------------------------------------------------------------
 cp "$v2_source" "$fixture_dir/v2-valid"
+
+# Object backup contract: greenfield may create an empty receipt, while an
+# existing release without MinIO remains fail-closed; the MinIO mirror stays wired.
+expect_pass 'v2: greenfield object backup branch is present' v2 "$fixture_dir/v2-valid"
+if grep -Fq 'if [ -z "$minio_container_id" ]; then' "$v2_source" && \
+   grep -Fq 'if [ -z "${PREV_TAG:-}" ]; then' "$v2_source" && \
+   grep -Fq "echo 'greenfield object backup: no running MinIO; using an empty backup.'" "$v2_source" && \
+   grep -Fq "echo 'object backup requires a running MinIO container for an existing release.' >&2" "$v2_source" && \
+   grep -Fq 'mc mirror local/oss-hub-submission-files "$1"' "$v2_source"; then
+  printf 'ok - v2: object backup greenfield/existing-release/MinIO paths\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - v2: object backup paths are incomplete\n' >&2
+  failed=$((failed + 1))
+fi
+
 make_fixture "$v2_source" v2-missing-concurrency 'disableConcurrentBuilds()' '/* removed */'
 make_fixture "$v2_source" v2-missing-production-label "label 'oss-hub-production'" "label 'any'"
 make_fixture "$v2_source" v2-missing-latest-release '/releases/latest' '/releases/removed'
