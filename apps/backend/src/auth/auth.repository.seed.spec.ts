@@ -1,3 +1,4 @@
+import { initialAccountSeed } from './initial-roles';
 import { StaffAccessRequestSeedConflictError } from './auth.repository';
 import {
   buildProfile,
@@ -9,7 +10,7 @@ import {
 describe('AuthRepository.upsertUser seed requests', () => {
   it('CAS 경쟁에서 갱신하지 못하면 역할 요청 부수효과도 만들지 않는다', async () => {
     const { repository, staffAccessRequestCreate, staffAccessRequestUpdate } =
-      buildRepository(buildRow(), 'STAFF', { casCount: 0 });
+      buildRepository(buildRow(), initialAccountSeed('STAFF'), { casCount: 0 });
 
     await upsertUser(repository, buildProfile());
 
@@ -19,7 +20,7 @@ describe('AuthRepository.upsertUser seed requests', () => {
 
   it('STAFF 시드는 PENDING 역할 요청을 status CAS로 APPROVED에 전이한다', async () => {
     const { repository, staffAccessRequestCreate, staffAccessRequestUpdateMany } =
-      buildRepository(buildRow(), 'STAFF', {
+      buildRepository(buildRow(), initialAccountSeed('STAFF'), {
         pendingRequest: { id: 'pending-request' },
       });
 
@@ -38,7 +39,7 @@ describe('AuthRepository.upsertUser seed requests', () => {
   it('전이 직전 관리자가 같은 신청을 결정했으면 시드 트랜잭션이 실패한다', async () => {
     const { repository, staffAccessRequestCreate } = buildRepository(
       buildRow(),
-      'STAFF',
+      initialAccountSeed('STAFF'),
       { pendingRequest: { id: 'pending-request' }, pendingTransitionCount: 0 },
     );
 
@@ -51,7 +52,7 @@ describe('AuthRepository.upsertUser seed requests', () => {
   it('STAFF 시드는 PENDING 요청이 없을 때만 APPROVED 요청을 만든다', async () => {
     const { repository, staffAccessRequestCreate } = buildRepository(
       buildRow(),
-      'STAFF',
+      initialAccountSeed('STAFF'),
     );
 
     await upsertUser(repository, buildProfile());
@@ -66,17 +67,11 @@ describe('AuthRepository.upsertUser seed requests', () => {
   });
 
   it('기존 사용자의 온보딩 이름은 GitHub 재로그인으로 덮어쓰지 않는다', async () => {
-    const { repository, update } = buildRepository(
-      buildRow({ name: '사용자 입력 이름' }),
-      null,
-    );
+    // 이름의 정본은 `UserProfile` 행이다 — GitHub 재로그인은 그 행을 건드리지 않는다.
+    const { repository, update } = buildRepository(buildRow(), null);
 
-    const result = await upsertUser(
-      repository,
-      buildProfile({ name: 'GitHub 표시 이름' }),
-    );
+    await upsertUser(repository, buildProfile({ name: 'GitHub 표시 이름' }));
 
-    expect(result.user.name).toBe('사용자 입력 이름');
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { githubId: 424_242n },

@@ -79,3 +79,15 @@ export function parseInitialRoles(
   }
   return map;
 }
+
+/**
+ * 설정 어휘 한 단어를 canonical 사실로 펼친다 — `parseInitialRoles`가 쓰는 것과 같은 표.
+ *
+ * 테스트와 다른 호출부가 "ADMIN 시드"를 한 단어로 말하면서도 저장은 canonical 칸으로만
+ * 하도록 이 통로를 export한다.
+ */
+export function initialAccountSeed(
+  setting: 'ADMIN' | 'STAFF' | 'STUDENT',
+): InitialAccountSeed {
+  return SEED_BY_SETTING[setting];
+}
