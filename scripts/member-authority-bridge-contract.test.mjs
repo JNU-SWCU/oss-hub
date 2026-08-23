@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { validateBridgeContract } from './member-authority-bridge-contract.mjs';
+import {
+  EXCLUDE_PATTERNS,
+  isScannedSource,
+} from './member-authority-bridge-sources.mjs';
 
 const migrationPath = new URL(
   '../apps/backend/prisma/migrations/20260823000000_bridge_member_authority/migration.sql',
@@ -302,4 +306,87 @@ test('bridge rehearsal boots both images against one schema', () => {
   // 인증 가드가 fail-closed인지 확인하는 단계가 있어야 한다.
   assert.match(rehearsal, /expected 401/);
   assert.doesNotMatch(rehearsal, /\bpsql\b/);
+});
+
+/**
+ * 실제 소스 스캔 정책.
+ *
+ * 검사기가 아무리 정확해도 훑는 면이 좁으면 회귀가 그대로 통과한다. 그래서 포함·제외
+ * 정책 자체를 잠근다 — 특히 제외가 조용히 넓어지는 것을 막는다.
+ */
+test('source policy includes production code and excludes only justified files', () => {
+  // Given / When / Then — 생산 코드는 반드시 들어온다.
+  for (const included of [
+    'apps/backend/src/auth/auth.repository.ts',
+    'apps/backend/src/users/admin-access-read-ordering.ts',
+    'apps/backend/prisma/seeds/oss-hub.ts',
+  ]) {
+    assert.equal(
+      isScannedSource(included),
+      true,
+      `${included} must be scanned`,
+    );
+  }
+
+  // 테스트만 빠진다.
+  for (const excluded of [
+    'apps/backend/src/users/admin-access-read.repository.spec.ts',
+    'apps/backend/src/users/admin-access-read.integration.spec.ts',
+    'scripts/member-authority-bridge-contract.test.ts',
+  ]) {
+    assert.equal(
+      isScannedSource(excluded),
+      false,
+      `${excluded} must be excluded`,
+    );
+  }
+
+  // 저장소 밖·다른 확장자는 애초에 대상이 아니다.
+  assert.equal(isScannedSource('apps/frontend/src/lib/api-client.ts'), false);
+  assert.equal(isScannedSource('apps/backend/src/main.js'), false);
+});
+
+test('source policy does not silently broaden the exclusion', () => {
+  // Given — 픽스처·지원 모듈이라는 이유만으로 빠지면 검사 면적이 조용히 줄어든다.
+  // 지금 그 파일들은 legacy 모양을 담고 있지 않으므로 제외할 근거가 없다.
+  for (const stillScanned of [
+    'apps/backend/src/auth/auth-route-inventory.fixture.ts',
+    'apps/backend/src/users/canonical-user-fixture.ts',
+    'apps/backend/src/users/admin-access.http.integration-support.ts',
+    // 직전 프런트엔드 계약을 옮겨 둔 픽스처조차 제외하지 않는다 — 그 파일의
+    // legacy 철자는 HTTP 필드 이름이라 Prisma 접근 패턴에 걸리지 않는다.
+    'apps/backend/src/users/previous-frontend-contract.fixture.ts',
+  ]) {
+    assert.equal(
+      isScannedSource(stillScanned),
+      true,
+      `${stillScanned} must stay in the scan set`,
+    );
+  }
+
+  // 제외 규칙은 정확히 둘(spec·test)이다. 늘어나면 이 단언이 먼저 깨진다.
+  assert.equal(EXCLUDE_PATTERNS.length, 2);
+});
+
+test('the vendored previous-frontend fixture stays scannable', () => {
+  // Given — 이 픽스처는 직전 번들의 코드를 그대로 옮겨 와 `roleRequestPage` 같은
+  // legacy 철자를 담는다. 그러나 그것은 **HTTP 필드 이름**이지 Prisma 접근이 아니다.
+  const fixture = readFileSync(
+    new URL(
+      '../apps/backend/src/users/previous-frontend-contract.fixture.ts',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const path = 'apps/backend/src/users/previous-frontend-contract.fixture.ts';
+
+  // When
+  const failures = validateBridgeContract(readSchema(), readMigration(), [
+    { path, contents: fixture },
+  ]);
+
+  // Then — 걸리지 않으므로 제외할 이유가 없다. 제외 목록에 올려 두면 이 파일이
+  // 나중에 진짜 위반을 담게 되어도 아무도 모른다.
+  assert.deepEqual(failures, []);
+  assert.equal(isScannedSource(path), true);
 });
