@@ -100,8 +100,6 @@ printf '%s' "$release_sha"
           }
           env.RELEASE_SHA = releaseSha
 
-          // REMOVED: validate-ci-status.sh
-          // CD should not depend on CI state. Release creation already implies CI passed.
         }
       }
     }
@@ -605,15 +603,6 @@ docker build \
               npx prisma migrate deploy
           '''
         }
-      }
-    }
-
-    stage('회원 권한 backfill') {
-      when {
-        expression { return false } // TEMPORARY: backfill already completed manually, skip to unblock deployment
-      }
-      steps {
-        echo 'Backfill stage skipped: already completed manually'
       }
     }
 

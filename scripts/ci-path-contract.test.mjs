@@ -16,11 +16,9 @@ const paths = [
   'scripts/member-authority-production-report.mjs',
   'scripts/member-authority-jenkins-contract.test.mjs',
   'scripts/ci-path-contract.test.mjs',
-  'scripts/jenkins/verify-member-authority-backfill*',
 ];
 const tests = [
   'scripts/check-member-authority-production.test.mjs',
-  'scripts/jenkins/verify-member-authority-backfill.test.mjs',
   'scripts/member-authority-jenkins-contract.test.mjs',
 ];
 

@@ -68,7 +68,6 @@ jobs:
               - 'scripts/member-authority-production-report.mjs'
               - 'scripts/member-authority-jenkins-contract.test.mjs'
               - 'scripts/ci-path-contract.test.mjs'
-              - 'scripts/jenkins/verify-member-authority-backfill*'
               - '.github/workflows/**'
             nginx:
               - 'deploy/nginx/**'
@@ -101,7 +100,6 @@ jobs:
               - 'scripts/member-authority-production-report.mjs'
               - 'scripts/member-authority-jenkins-contract.test.mjs'
               - 'scripts/ci-path-contract.test.mjs'
-              - 'scripts/jenkins/verify-member-authority-backfill*'
               - 'scripts/check-auth-production-readonly*'
               - 'scripts/auth-production-readonly-report.mjs'
               - 'scripts/prune-deploy-backups.sh'
@@ -202,7 +200,7 @@ jobs:
         if: ${{ steps.scope.outputs.jenkins == 'true' }}
         run: |
           node --test scripts/jenkins/validate-github-app-credentials.test.mjs
-          node --test scripts/check-member-authority-production.test.mjs scripts/jenkins/verify-member-authority-backfill.test.mjs scripts/member-authority-jenkins-contract.test.mjs
+          node --test scripts/check-member-authority-production.test.mjs scripts/member-authority-jenkins-contract.test.mjs
           node --test scripts/check-auth-production-readonly.test.mjs
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
