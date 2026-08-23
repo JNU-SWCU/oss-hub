@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -148,21 +148,54 @@ it.each([
   },
 );
 
+/**
+ * 목록 정렬 픽스처. 표시 역할은 세 canonical 사실에서 파생되므로
+ * (`users/domain/authority-label.ts`) 여기서도 그 세 값을 각각 받는다.
+ *
+ * `memberKind`가 있으면 프로필 행까지 만든다 — 목록이 이름으로 정렬·검색하려면
+ * 그 행이 있어야 한다.
+ */
 function createListedUser(input: {
   readonly id: string;
   readonly githubId: bigint;
-  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
+  readonly memberKind?: MemberKind;
+  readonly hasStaffAccess?: boolean;
+  readonly hasAdminAccess?: boolean;
+  readonly role?: null;
   readonly accountStatus: AccountStatus;
   readonly nameSuffix?: string;
 }) {
   const nameSuffix = input.nameSuffix ?? input.id.slice(prefix.length);
+  const department = 'Synthetic department';
   return prisma.user.create({
     data: {
       id: input.id,
       githubId: input.githubId,
       nickname: `${queryFragment}-${nameSuffix}`,
-      role: input.role,
       accountStatus: input.accountStatus,
+      selectedMemberKind: input.memberKind ?? null,
+      hasStaffAccess: input.hasStaffAccess ?? false,
+      hasAdminAccess: input.hasAdminAccess ?? false,
+      ...(input.memberKind === undefined
+        ? {}
+        : {
+            profile: {
+              create: {
+                name: `${queryFragment}-${nameSuffix}`,
+                studentId:
+                  input.memberKind === MemberKind.STUDENT
+                    ? `${input.githubId % 1000000n}`.padStart(6, '0')
+                    : null,
+                department,
+                memberKind: input.memberKind,
+                affiliationKind:
+                  input.memberKind === MemberKind.STUDENT
+                    ? AffiliationKind.DEPARTMENT
+                    : AffiliationKind.PROGRAM_OFFICE,
+                affiliationName: department,
+              },
+            },
+          }),
     },
   });
 }

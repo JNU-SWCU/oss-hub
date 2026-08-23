@@ -27,7 +27,8 @@ const OBSERVED_AT = new Date('2116-03-04T00:00:00.000Z');
 interface SyntheticMember {
   readonly key: string;
   readonly githubId: bigint;
-  readonly role: Role;
+  /** 관리자 권한 — 회원 유형과 독립이라 별도 축이다(학생 관리자·교직원 관리자). */
+  readonly hasAdminAccess?: boolean;
   readonly memberKind: MemberKind | null | 'no-profile';
   readonly commitCount: number;
   /** 학생만 갖는 6자리 학번. 교직원·미지정은 null 이다. */
@@ -38,44 +39,46 @@ const MEMBERS: readonly SyntheticMember[] = [
   {
     key: 'student',
     githubId: 8_961_000_000_001n,
-    role: 'STUDENT',
     memberKind: MemberKind.STUDENT,
     commitCount: 7,
+    studentId: '260101',
   },
   {
     key: 'student-admin',
     githubId: 8_961_000_000_002n,
-    role: 'ADMIN',
+    hasAdminAccess: true,
     memberKind: MemberKind.STUDENT,
     commitCount: 5,
+    studentId: '260102',
   },
   {
     key: 'staff',
     githubId: 8_961_000_000_003n,
-    role: 'STAFF',
     memberKind: MemberKind.STAFF,
     commitCount: 90,
+    studentId: null,
   },
   {
     key: 'staff-admin',
     githubId: 8_961_000_000_004n,
-    role: 'ADMIN',
+    hasAdminAccess: true,
     memberKind: MemberKind.STAFF,
     commitCount: 80,
+    studentId: null,
   },
   {
     key: 'unassigned',
     githubId: 8_961_000_000_005n,
-    role: 'STUDENT',
     memberKind: null,
     commitCount: 70,
+    studentId: null,
   },
   {
     key: 'missing-profile',
     githubId: 8_961_000_000_006n,
-    role: 'STUDENT',
     memberKind: 'no-profile',
     commitCount: 60,
+    studentId: null,
   },
 ];
 
@@ -85,12 +88,7 @@ function login(member: SyntheticMember): string {
   return `${PREFIX}-${member.key}`;
 }
 
-/**
- * canonical 프로필은 legacy 칸과 바이트 단위로 같게 심는다.
- *
- * 공유 PostgreSQL 을 쓰는 통합 실행에서는 형제 스펙이 backfill 불변식을 전체 행에 돌리므로
- * (`prisma/user-profile-backfill.ts`), 불일치하는 합성 행 하나가 남의 스펙을 쓰러뜨린다.
- */
+/** canonical 프로필 하나만 심는다 — legacy mirror 칸은 계약 단계에서 사라졌다. */
 async function seed(member: SyntheticMember): Promise<void> {
   const userId = `${PREFIX}-${member.key}`;
   const name = `합성 ${member.key}`;
@@ -100,12 +98,14 @@ async function seed(member: SyntheticMember): Promise<void> {
       id: userId,
       githubId: member.githubId,
       nickname: login(member),
-      name,
-      studentId: member.studentId,
-      department,
       accountStatus: AccountStatus.ACTIVE,
-      role: member.role,
-      ...(member.memberKind === 'no-profile'
+      selectedMemberKind:
+        member.memberKind === 'no-profile' ? null : member.memberKind,
+      hasStaffAccess: member.memberKind === MemberKind.STAFF,
+      hasAdminAccess: member.hasAdminAccess ?? false,
+      // `no-profile`은 프로필 행 자체가 없고, `null`은 유형을 아직 고르지 않아
+      // 계약 스키마에서 프로필 행을 만들 수 없다 — 둘 다 순위에서 자연히 빠진다.
+      ...(member.memberKind === 'no-profile' || member.memberKind === null
         ? {}
         : {
             profile: {
