@@ -6,11 +6,15 @@ import { ONBOARDING_ENTRY_PATH, signupEntryDecision } from './signup-entry';
 
 describe('signupEntryDecision', () => {
   it('비로그인 방문자에게는 가입·로그인 안내를 보여 준다', () => {
-    expect(signupEntryDecision('anonymous', EMPTY_MEMBER_ACCESS)).toEqual({ kind: 'invite' });
+    expect(signupEntryDecision('anonymous', EMPTY_MEMBER_ACCESS)).toEqual({
+      kind: 'invite',
+    });
   });
 
   it('세션을 아직 모르는 동안에는 안내도 이동도 하지 않는다', () => {
-    expect(signupEntryDecision('loading', EMPTY_MEMBER_ACCESS)).toEqual({ kind: 'checking' });
+    expect(signupEntryDecision('loading', EMPTY_MEMBER_ACCESS)).toEqual({
+      kind: 'checking',
+    });
   });
 
   // 온보딩을 끝내지 못한 사용자가 가입을 마칠 길은 이 화면뿐이다 — 랜딩에서는
@@ -47,7 +51,9 @@ describe('signupEntryDecision', () => {
   // 세션 조회가 실패했다고 오류 화면을 띄우면, GitHub 계정이 없는 방문자가 다시
   // 갈 곳이 없어진다 — 이 화면이 막으려던 구멍을 이 화면이 다시 내는 셈이다.
   it('세션 조회에 실패해도 안내는 계속 보여 준다', () => {
-    expect(signupEntryDecision('error', EMPTY_MEMBER_ACCESS)).toEqual({ kind: 'invite' });
+    expect(signupEntryDecision('error', EMPTY_MEMBER_ACCESS)).toEqual({
+      kind: 'invite',
+    });
   });
 });
 

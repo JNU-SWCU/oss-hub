@@ -72,7 +72,8 @@ export type AdminAccessPendingDecisionUpdate = {
   readonly requestId: string;
   readonly actorId: string;
   readonly nextStatus:
-    typeof StaffAccessRequestStatus.APPROVED | typeof StaffAccessRequestStatus.REJECTED;
+    | typeof StaffAccessRequestStatus.APPROVED
+    | typeof StaffAccessRequestStatus.REJECTED;
   readonly rejectionReason: string | null;
   readonly decidedAt: Date;
 };

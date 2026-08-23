@@ -1,4 +1,11 @@
-import { AffiliationKind, MemberKind, MilestoneSubmissionType, ReviewDecision, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
+import {
+  AffiliationKind,
+  MemberKind,
+  MilestoneSubmissionType,
+  ReviewDecision,
+  SubmissionFileLifecycle,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   offsetDays,

@@ -131,7 +131,11 @@ export class SystemStatusRepository {
   findActor(githubId: bigint): Promise<SystemStatusActor | null> {
     return this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
   }
 

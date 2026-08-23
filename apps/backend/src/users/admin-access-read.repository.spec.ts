@@ -1,5 +1,10 @@
 import { authorityFactsFor } from './canonical-user-fixture';
-import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type { PrismaService } from '../prisma/prisma.service';
 import {

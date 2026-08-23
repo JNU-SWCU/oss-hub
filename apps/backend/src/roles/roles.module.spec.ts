@@ -19,6 +19,9 @@ describe('RolesModule wiring (PR04H)', () => {
     // `POST /role-requests`)만 남는다. 관리자 결정용
     // StaffAccessRequestsController(`GET /role-requests` 목록, `PATCH
     // /role-requests/:id`)는 통합 접근(/admin/access)으로 전환되며 삭제됐다.
-    expect(controllers).toEqual([OnboardingController, StaffAccessRequestsController]);
+    expect(controllers).toEqual([
+      OnboardingController,
+      StaffAccessRequestsController,
+    ]);
   });
 });

@@ -202,10 +202,7 @@ async function installAuditFailureTrigger(): Promise<void> {
   `);
 }
 
-async function createUser(
-  role: 'STUDENT' | 'STAFF' | 'ADMIN',
-  label: string,
-) {
+async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN', label: string) {
   sequence += 1;
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {

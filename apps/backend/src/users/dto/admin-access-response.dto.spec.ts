@@ -133,7 +133,9 @@ describe('admin access response DTO allowlists', () => {
     );
     expect(history.loginHistory.items[0]?.loginAt).toBe(LOGIN_AT.toISOString());
     expect(AdminAccessFacetsResponseDto.from(facets())).toEqual(facets());
-    expect(mutation.decidedRequest?.status).toBe(StaffAccessRequestStatus.APPROVED);
+    expect(mutation.decidedRequest?.status).toBe(
+      StaffAccessRequestStatus.APPROVED,
+    );
   });
 });
 

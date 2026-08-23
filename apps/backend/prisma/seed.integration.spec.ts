@@ -1,5 +1,17 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { AccountStatus, AffiliationKind, ApplicationStatus, MemberKind, MilestoneSubmissionType, ProgramCategory, RepositoryProvisionJobStatus, RepositoryVisibility, ReviewDecision, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  ApplicationStatus,
+  MemberKind,
+  MilestoneSubmissionType,
+  ProgramCategory,
+  RepositoryProvisionJobStatus,
+  RepositoryVisibility,
+  ReviewDecision,
+  StaffAccessRequestStatus,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile, runTeardown } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
 import {
@@ -130,7 +142,10 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   ],
   [
     'StaffAccessRequest',
-    () => prisma.staffAccessRequest.count({ where: { id: { startsWith: 'seed:' } } }),
+    () =>
+      prisma.staffAccessRequest.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
   ],
   [
     'Consent',
@@ -533,12 +548,14 @@ describe('seed profile=oss-hub contract (integration)', () => {
       expect(syntheticStudent.selectedMemberKind).toBe(MemberKind.STUDENT);
       expect(configuredUsers).toHaveLength(4);
       expect(
-        configuredUsers.map(({ id, nickname, hasAdminAccess, accountStatus }) => ({
-          id,
-          nickname,
-          hasAdminAccess,
-          accountStatus,
-        })),
+        configuredUsers.map(
+          ({ id, nickname, hasAdminAccess, accountStatus }) => ({
+            id,
+            nickname,
+            hasAdminAccess,
+            accountStatus,
+          }),
+        ),
       ).toEqual([
         {
           id: seedId('oss-hub', 'user', '9800000000000001'),

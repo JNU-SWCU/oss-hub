@@ -338,7 +338,9 @@ export function RoleSelectionForm({
             두면 이미 고르고 나서야 사유를 만난다. 폼 안에 두는 이유는 무대 본문의
             간격(`gap-8`)이 아니라 폼의 간격(`gap-3`)을 따라야 카드에 붙어 보이기
             때문이다 — 무대 간격을 쓰면 안내가 화면 위쪽에 홀로 떨어진다. */}
-        {rejection ? <ClosedStaffAccessRequestAlert notice={rejection} /> : null}
+        {rejection ? (
+          <ClosedStaffAccessRequestAlert notice={rejection} />
+        ) : null}
 
         {/* 두 카드는 좁은 화면에서도 나란히 둔다. 세로로 쌓으면 카드 하나 높이(약
             190px)가 통째로 더해져 375×812에서 주 버튼이 접히는 선 아래로 내려갔다 —

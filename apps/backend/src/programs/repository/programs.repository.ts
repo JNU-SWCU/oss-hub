@@ -266,9 +266,7 @@ export class ProgramsRepository {
           applicant: {
             githubId: repository.application!.applicant.githubId,
             nickname: repository.application!.applicant.nickname,
-            name: resolveUserProfileName(
-              repository.application!.applicant,
-            ),
+            name: resolveUserProfileName(repository.application!.applicant),
           },
           team: repository.application!.team,
         },
@@ -321,7 +319,11 @@ export class ProgramsRepository {
   findCreatorRole(githubId: bigint) {
     return this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
   }
 

@@ -1,4 +1,10 @@
-import { ApplicationStatus, MemberKind, OutboxEventStatus, ProgramCategory, RepositoryProvisionJobStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  MemberKind,
+  OutboxEventStatus,
+  ProgramCategory,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { RepositoriesRepository } from './repository/repositories.repository';

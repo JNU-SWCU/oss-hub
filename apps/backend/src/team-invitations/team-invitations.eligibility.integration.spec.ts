@@ -1,4 +1,10 @@
-import { AccountStatus, AffiliationKind, MemberKind, ProgramCategory, TeamInvitationStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  ProgramCategory,
+  TeamInvitationStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -86,14 +92,64 @@ async function seedEligibilityFixture(): Promise<void> {
       },
     ],
   });
-  await prisma.userProfile.createMany({ data: [
-      { userId: LEADER_ID, name: 'Synthetic user', studentId: '303001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: INVITEE_ID, name: 'Synthetic user', studentId: '303002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: ACTIVE_STUDENT_ID, name: 'Synthetic user', studentId: '303003', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: STAFF_ID, name: 'Synthetic user', studentId: null, department: 'Synthetic program office', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.PROGRAM_OFFICE, affiliationName: 'Synthetic program office' },
-      { userId: ADMIN_ID, name: 'Synthetic user', studentId: null, department: 'Synthetic program office', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.PROGRAM_OFFICE, affiliationName: 'Synthetic program office' },
-      { userId: DEACTIVATED_STUDENT_ID, name: 'Synthetic user', studentId: '303006', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-  ] });
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: LEADER_ID,
+        name: 'Synthetic user',
+        studentId: '303001',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: INVITEE_ID,
+        name: 'Synthetic user',
+        studentId: '303002',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: ACTIVE_STUDENT_ID,
+        name: 'Synthetic user',
+        studentId: '303003',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: STAFF_ID,
+        name: 'Synthetic user',
+        studentId: null,
+        department: 'Synthetic program office',
+        memberKind: MemberKind.STAFF,
+        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+        affiliationName: 'Synthetic program office',
+      },
+      {
+        userId: ADMIN_ID,
+        name: 'Synthetic user',
+        studentId: null,
+        department: 'Synthetic program office',
+        memberKind: MemberKind.STAFF,
+        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+        affiliationName: 'Synthetic program office',
+      },
+      {
+        userId: DEACTIVATED_STUDENT_ID,
+        name: 'Synthetic user',
+        studentId: '303006',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+    ],
+  });
   await prisma.program.create({
     data: {
       id: PROGRAM_ID,

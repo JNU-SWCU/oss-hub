@@ -172,25 +172,22 @@ describe('AuthController getSession', () => {
     'STAFF',
     'STUDENT',
     null,
-  ])(
-    'authenticated session carries the DB canonical facts: %s',
-    (dbRole) => {
-      const result = createController(jest.fn()).getSession(
-        authenticatedRequest(dbRole),
-        createResponse(),
-      );
+  ])('authenticated session carries the DB canonical facts: %s', (dbRole) => {
+    const result = createController(jest.fn()).getSession(
+      authenticatedRequest(dbRole),
+      createResponse(),
+    );
 
-      expect(result).toMatchObject({
-        isAuthenticated: true,
-        user: {
-          nickname: syntheticUser.nickname,
-          ...accessFor(dbRole),
-          accountStatus: AccountStatus.ACTIVE,
-        },
-      });
-      expect(result).not.toHaveProperty('login');
-    },
-  );
+    expect(result).toMatchObject({
+      isAuthenticated: true,
+      user: {
+        nickname: syntheticUser.nickname,
+        ...accessFor(dbRole),
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    });
+    expect(result).not.toHaveProperty('login');
+  });
 
   it('유효한 토큰의 사용자가 없으면 익명 상태로 수렴하고 쿠키를 삭제한다', async () => {
     const token = await issueSessionToken(

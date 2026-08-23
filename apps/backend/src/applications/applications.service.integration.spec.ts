@@ -1,4 +1,11 @@
-import { AffiliationKind, ApplicationStatus, MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus } from '@prisma/client';
+import {
+  AffiliationKind,
+  ApplicationStatus,
+  MemberKind,
+  ProgramCategory,
+  RepositoryConnectionMode,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';

@@ -1,4 +1,11 @@
-import { AccountStatus, AffiliationKind, ApplicationStatus, MemberKind, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  ApplicationStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -198,7 +205,9 @@ describe('SubmissionMatrixService integration', () => {
     await prisma.team.deleteMany({
       where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },
     });
-    await prisma.staffAccessRequest.deleteMany({ where: { id: PENDING_REQUEST_ID } });
+    await prisma.staffAccessRequest.deleteMany({
+      where: { id: PENDING_REQUEST_ID },
+    });
     await prisma.user.deleteMany({
       where: {
         id: {

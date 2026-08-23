@@ -22,9 +22,7 @@ describe('학번 최초 저장', () => {
     const findUnique = jest.fn().mockResolvedValue(options.owner ?? null);
     const updateMany = options.updateError
       ? jest.fn().mockRejectedValue(options.updateError)
-      : jest
-          .fn()
-          .mockResolvedValue({ count: options.updatedCount ?? 1 });
+      : jest.fn().mockResolvedValue({ count: options.updatedCount ?? 1 });
     return {
       findUnique,
       updateMany,

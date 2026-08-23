@@ -80,13 +80,18 @@ describe('AuthRepository.upsertUser', () => {
     // 회수는 `hasStaffAccess`를 끄므로 회수된 사람도 위 조건을 만족할 수 있다.
     // 시드가 그를 다시 승격하지 못하게 막는 것은 이 관계 조건뿐이라,
     // 조건이 조용히 빠지면 회수가 로그인 한 번으로 되돌아간다.
-    const { repository, updateMany } = buildRepository(buildRow(), initialAccountSeed('STAFF'));
+    const { repository, updateMany } = buildRepository(
+      buildRow(),
+      initialAccountSeed('STAFF'),
+    );
 
     await upsertUser(repository, buildProfile());
 
     const promoteArgs = updateMany.mock.calls[0]?.[0];
     expect(promoteArgs?.where).toMatchObject({
-      staffAccessRequests: { none: { status: StaffAccessRequestStatus.REVOKED } },
+      staffAccessRequests: {
+        none: { status: StaffAccessRequestStatus.REVOKED },
+      },
     });
   });
 
@@ -100,10 +105,14 @@ describe('AuthRepository.upsertUser', () => {
     const debug = jest
       .spyOn(Logger.prototype, 'debug')
       .mockImplementation(() => undefined);
-    const { repository } = buildRepository(buildRow(), initialAccountSeed('STAFF'), {
-      casCount: 0,
-      revokedRequest: { id: 'revoked-request' },
-    });
+    const { repository } = buildRepository(
+      buildRow(),
+      initialAccountSeed('STAFF'),
+      {
+        casCount: 0,
+        revokedRequest: { id: 'revoked-request' },
+      },
+    );
 
     await upsertUser(repository, buildProfile());
 
@@ -120,9 +129,13 @@ describe('AuthRepository.upsertUser', () => {
     const debug = jest
       .spyOn(Logger.prototype, 'debug')
       .mockImplementation(() => undefined);
-    const { repository } = buildRepository(buildRow(), initialAccountSeed('STAFF'), {
-      casCount: 0,
-    });
+    const { repository } = buildRepository(
+      buildRow(),
+      initialAccountSeed('STAFF'),
+      {
+        casCount: 0,
+      },
+    );
 
     await upsertUser(repository, buildProfile());
 

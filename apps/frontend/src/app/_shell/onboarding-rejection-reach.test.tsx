@@ -4,7 +4,10 @@ import { Component, act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StaffAccessRequest, StaffAccessRequestStatus } from '@/features/roles/types';
+import type {
+  StaffAccessRequest,
+  StaffAccessRequestStatus,
+} from '@/features/roles/types';
 import { onboardingPathFor, type ProfileCheckStatus } from './onboarding-route';
 
 /**
@@ -179,7 +182,9 @@ function rejectedDestination(): string {
   return path;
 }
 
-function staffAccessRequest(overrides: Partial<StaffAccessRequest> = {}): StaffAccessRequest {
+function staffAccessRequest(
+  overrides: Partial<StaffAccessRequest> = {},
+): StaffAccessRequest {
   return {
     requestedRole: 'STAFF',
     status: 'PENDING',
@@ -253,7 +258,8 @@ describe('반려 사유 도달 가능성', () => {
           ...mocks.replace.mock.calls.map(([target]) => String(target)),
           ...mocks.redirect.mock.calls.map(([target]) => String(target)),
         ],
-        staffAccessRequestFetches: mocks.fetchMyStaffAccessRequest.mock.calls.length,
+        staffAccessRequestFetches:
+          mocks.fetchMyStaffAccessRequest.mock.calls.length,
       });
       await act(async () => root.render(<></>));
     }

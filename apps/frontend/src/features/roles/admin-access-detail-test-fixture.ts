@@ -53,7 +53,8 @@ export function adminHistory(
   overrides: Partial<AdminAccessHistory> = {},
 ): AdminAccessHistory {
   return {
-    staffAccessRequests: historyPage<AdminAccessStaffAccessRequestHistoryItem>(),
+    staffAccessRequests:
+      historyPage<AdminAccessStaffAccessRequestHistoryItem>(),
     loginHistory: historyPage<AdminAccessLoginHistoryItem>(),
     ...overrides,
   };

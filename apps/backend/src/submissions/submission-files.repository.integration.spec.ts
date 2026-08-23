@@ -1,4 +1,11 @@
-import { AccountStatus, AffiliationKind, MemberKind, MilestoneSubmissionType, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  MilestoneSubmissionType,
+  SubmissionFileLifecycle,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,

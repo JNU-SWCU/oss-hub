@@ -1,9 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  type Prisma,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   DeadlineProgramSource,
@@ -132,7 +128,11 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findActiveStaffOrAdmin(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     return (
       user?.accountStatus === AccountStatus.ACTIVE &&
@@ -222,10 +222,15 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findActiveAdmin(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     return (
-      user?.hasAdminAccess === true && user.accountStatus === AccountStatus.ACTIVE
+      user?.hasAdminAccess === true &&
+      user.accountStatus === AccountStatus.ACTIVE
     );
   }
 }

@@ -198,7 +198,10 @@ export function serializeAdminAccessHistoryQuery(
     search.set('staffAccessRequestPage', String(params.staffAccessRequestPage));
   }
   if (params.staffAccessRequestLimit !== undefined) {
-    search.set('staffAccessRequestLimit', String(params.staffAccessRequestLimit));
+    search.set(
+      'staffAccessRequestLimit',
+      String(params.staffAccessRequestLimit),
+    );
   }
   if (params.loginPage !== undefined) {
     search.set('loginPage', String(params.loginPage));
@@ -368,7 +371,9 @@ export function parseAdminAccessHistory(value: unknown): AdminAccessHistory {
     !isRecord(value) ||
     !isRecord(value.staffAccessRequests) ||
     !Array.isArray(value.staffAccessRequests.items) ||
-    !value.staffAccessRequests.items.every(isAdminAccessStaffAccessRequestHistoryItem) ||
+    !value.staffAccessRequests.items.every(
+      isAdminAccessStaffAccessRequestHistoryItem,
+    ) ||
     typeof value.staffAccessRequests.page !== 'number' ||
     typeof value.staffAccessRequests.limit !== 'number' ||
     typeof value.staffAccessRequests.total !== 'number' ||

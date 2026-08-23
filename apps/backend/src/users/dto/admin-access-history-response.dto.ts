@@ -1,4 +1,7 @@
-import type { LoginHistoryEvent, StaffAccessRequestStatus } from '@prisma/client';
+import type {
+  LoginHistoryEvent,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import type { AdminAccessUserHistory } from '../domain/admin-access';
 
 type StaffAccessRequestHistoryItemResponseDto = {

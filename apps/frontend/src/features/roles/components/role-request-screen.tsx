@@ -85,7 +85,10 @@ export function staffAccessRequestRetryFailureMessage(error: unknown): string {
  */
 export const PENDING_PROFILE_EDIT_PATH = '/settings';
 
-type StaffAccessRequestView = Pick<StaffAccessRequest, 'status' | 'rejectionReason'>;
+type StaffAccessRequestView = Pick<
+  StaffAccessRequest,
+  'status' | 'rejectionReason'
+>;
 
 interface StaffAccessRequestStatusViewProps {
   readonly request: StaffAccessRequestView;
@@ -102,7 +105,9 @@ interface StatusPresentation {
   readonly badge: ReactNode;
 }
 
-function statusPresentation(request: StaffAccessRequestView): StatusPresentation {
+function statusPresentation(
+  request: StaffAccessRequestView,
+): StatusPresentation {
   switch (request.status) {
     case 'PENDING':
       return {
@@ -258,7 +263,10 @@ export function StaffAccessRequestScreen({
 }) {
   const router = useRouter();
   const [state, setState] = useState<RequestViewState>(() => {
-    if (staffAccessRequestStatus === 'PENDING' || staffAccessRequestStatus === 'REJECTED') {
+    if (
+      staffAccessRequestStatus === 'PENDING' ||
+      staffAccessRequestStatus === 'REJECTED'
+    ) {
       return {
         kind: 'ready',
         request: {

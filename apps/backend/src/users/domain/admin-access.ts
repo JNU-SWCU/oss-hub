@@ -204,7 +204,10 @@ export type AdminAccessLoginHistoryPage = {
 };
 
 export type AdminAccessHistoryQuery = {
-  readonly staffAccessRequests: { readonly page: number; readonly limit: number };
+  readonly staffAccessRequests: {
+    readonly page: number;
+    readonly limit: number;
+  };
   readonly loginHistory: { readonly page: number; readonly limit: number };
 };
 

@@ -4,7 +4,10 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StaffAccessRequest, StaffAccessRequestStatus } from '@/features/roles/types';
+import type {
+  StaffAccessRequest,
+  StaffAccessRequestStatus,
+} from '@/features/roles/types';
 
 /**
  * 스냅샷이 지키는 불변식.
@@ -57,7 +60,9 @@ const UNASSIGNED_SESSION = {
   retry: () => {},
 };
 
-function staffAccessRequest(overrides: Partial<StaffAccessRequest> = {}): StaffAccessRequest {
+function staffAccessRequest(
+  overrides: Partial<StaffAccessRequest> = {},
+): StaffAccessRequest {
   return {
     requestedRole: 'STAFF',
     status: 'PENDING',
@@ -195,9 +200,9 @@ describe('useSessionRole — 반려 사유 불변식', () => {
 
     await act(async () => root.render(<Probe />));
 
-    expect(received.map((state) => state.staffAccessRequestStatus)).not.toContain(
-      'PENDING',
-    );
+    expect(
+      received.map((state) => state.staffAccessRequestStatus),
+    ).not.toContain('PENDING');
     expect(received.at(-1)?.staffAccessRequestStatus).toBe('REJECTED');
   });
 });

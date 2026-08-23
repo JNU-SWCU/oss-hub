@@ -1,4 +1,9 @@
-import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -192,7 +197,10 @@ describe('AdminAccessRepository', () => {
     // When
     const [user, staffAccessRequests, logins] = await Promise.all([
       repository.findById('target'),
-      repository.listStaffAccessRequestHistory('target', { page: 2, limit: 10 }),
+      repository.listStaffAccessRequestHistory('target', {
+        page: 2,
+        limit: 10,
+      }),
       repository.listLoginHistory('target', { page: 2, limit: 10 }),
     ]);
 

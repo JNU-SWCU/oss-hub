@@ -1,4 +1,10 @@
-import { AccountStatus, AffiliationKind, BoardPostCategory, MemberKind, ProgramCategory } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  BoardPostCategory,
+  MemberKind,
+  ProgramCategory,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../applications/staff-insights.repository';
 import { PrismaService } from '../prisma/prisma.service';

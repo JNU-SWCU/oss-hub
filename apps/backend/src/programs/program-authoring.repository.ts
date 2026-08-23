@@ -3,7 +3,7 @@ import {
   AccountStatus,
   Prisma,
   ProgramAuthoringUploadLifecycle,
-  } from '@prisma/client';
+} from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { e2eProgramAuthoringControlEnabled } from '../e2e-program-authoring/e2e-program-authoring.config';

@@ -106,7 +106,9 @@ export function canonicalUserCreateFromLabel(
   });
 }
 
-export function authorityFactsFor(label: 'STUDENT' | 'STAFF' | 'ADMIN' | null): {
+export function authorityFactsFor(
+  label: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+): {
   readonly selectedMemberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;

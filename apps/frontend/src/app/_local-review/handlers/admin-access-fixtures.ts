@@ -243,7 +243,10 @@ export function adminAccessFixtureHistory(
     readonly loginLimit: number;
   },
 ): AdminAccessHistory {
-  const source = HISTORIES[userId] ?? { staffAccessRequests: [], loginHistory: [] };
+  const source = HISTORIES[userId] ?? {
+    staffAccessRequests: [],
+    loginHistory: [],
+  };
   return {
     staffAccessRequests: {
       items: paginate(

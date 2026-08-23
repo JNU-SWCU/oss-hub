@@ -1,6 +1,16 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus, RepositoryVisibility, StaffAccessRequestStatus } from '@prisma/client';
-import { canonicalUserCreate, canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
+import {
+  MemberKind,
+  ProgramCategory,
+  RepositoryConnectionMode,
+  RepositoryProvisionJobStatus,
+  RepositoryVisibility,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
+import {
+  canonicalUserCreate,
+  canonicalUserCreateFromLabel,
+} from '../users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsErrorCode } from '../applications/applications-error-code.enum';
 import { ApplicationsStaffGuard } from '../applications/applications-staff.guard';
@@ -149,14 +159,22 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await Promise.all(
       (
         [
-          [STUDENT_ACTOR_ID, STUDENT_ACTOR_GITHUB_ID, 'synthetic-own-chain-student-actor'],
+          [
+            STUDENT_ACTOR_ID,
+            STUDENT_ACTOR_GITHUB_ID,
+            'synthetic-own-chain-student-actor',
+          ],
           [APPLICANT_ID, APPLICANT_GITHUB_ID, 'synthetic-own-chain-applicant'],
           [
             NO_CONSENT_APPLICANT_ID,
             NO_CONSENT_APPLICANT_GITHUB_ID,
             'synthetic-own-chain-no-consent',
           ],
-          [ORG_OWN_APPLICANT_ID, ORG_OWN_APPLICANT_GITHUB_ID, 'synthetic-own-chain-org-applicant'],
+          [
+            ORG_OWN_APPLICANT_ID,
+            ORG_OWN_APPLICANT_GITHUB_ID,
+            'synthetic-own-chain-org-applicant',
+          ],
           [
             PRECHECK_APPLICANT_ID,
             PRECHECK_APPLICANT_GITHUB_ID,

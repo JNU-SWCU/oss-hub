@@ -18,7 +18,10 @@ describe('loginLandingUrl', () => {
    */
   const SETTLED_IDENTITIES = [
     ['STUDENT', { ...UNSETTLED, memberKind: MemberKind.STUDENT }],
-    ['STAFF', { ...UNSETTLED, memberKind: MemberKind.STAFF, hasStaffAccess: true }],
+    [
+      'STAFF',
+      { ...UNSETTLED, memberKind: MemberKind.STAFF, hasStaffAccess: true },
+    ],
     ['ADMIN', { ...UNSETTLED, hasAdminAccess: true }],
     [
       'STUDENT-ADMIN',

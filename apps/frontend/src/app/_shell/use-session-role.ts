@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '@/features/auth/use-session';
-import { fetchMyStaffAccessRequest, fetchMyRoleSelection } from '@/features/roles/api';
-import type { StaffAccessRequestStatus, RoleSelection } from '@/features/roles/types';
+import {
+  fetchMyStaffAccessRequest,
+  fetchMyRoleSelection,
+} from '@/features/roles/api';
+import type {
+  StaffAccessRequestStatus,
+  RoleSelection,
+} from '@/features/roles/types';
 import { EMPTY_MEMBER_ACCESS, type MemberAccess } from './member-access';
 import { useOptionalSharedSessionRole } from './session-role-context';
 
@@ -22,9 +28,7 @@ export type SessionStatus =
  * 백엔드 `loginLandingUrl`이 같은 규칙으로 착륙 지점을 정한다.
  */
 function hasSettledIdentity(user: MemberAccess): boolean {
-  return (
-    user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess
-  );
+  return user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess;
 }
 
 /**

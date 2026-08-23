@@ -41,7 +41,10 @@ export async function main(): Promise<void> {
       where: { id: operatorId },
       select: { githubId: true, hasAdminAccess: true, accountStatus: true },
     });
-    if (operator?.hasAdminAccess !== true || operator.accountStatus !== 'ACTIVE') {
+    if (
+      operator?.hasAdminAccess !== true ||
+      operator.accountStatus !== 'ACTIVE'
+    ) {
       throw new Error('Operator is not authorized for cleanup maintenance');
     }
 

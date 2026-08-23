@@ -155,7 +155,8 @@ export type AdminAccessRequestWrite =
       readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.DECIDE_PENDING;
       readonly requestId: string;
       readonly nextStatus:
-        typeof StaffAccessRequestStatus.APPROVED | typeof StaffAccessRequestStatus.REJECTED;
+        | typeof StaffAccessRequestStatus.APPROVED
+        | typeof StaffAccessRequestStatus.REJECTED;
     }
   | { readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
 

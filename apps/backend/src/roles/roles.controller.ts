@@ -81,7 +81,9 @@ export class StaffAccessRequestsController {
     const staffAccessRequest = await this.rolesService.getMyRequest(
       request.sessionGithubId,
     );
-    return staffAccessRequest ? StaffAccessRequestResponseDto.from(staffAccessRequest) : null;
+    return staffAccessRequest
+      ? StaffAccessRequestResponseDto.from(staffAccessRequest)
+      : null;
   }
 
   @Post()

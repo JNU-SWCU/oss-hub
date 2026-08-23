@@ -1,5 +1,10 @@
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -96,7 +101,10 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   ).resolves.toBe(0);
 });
 
-async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
+async function createUser(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+  label: string,
+) {
   sequence += 1;
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {

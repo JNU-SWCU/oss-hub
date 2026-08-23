@@ -42,7 +42,9 @@ export function loginLandingUrl(
   },
 ): string {
   const needsOnboarding =
-    login.isNew || !hasSettledIdentity(login.user) || !login.user.isProfileComplete;
+    login.isNew ||
+    !hasSettledIdentity(login.user) ||
+    !login.user.isProfileComplete;
   return needsOnboarding
     ? `${frontendUrl}${ONBOARDING_ENTRY_PATH}`
     : frontendUrl;
@@ -58,7 +60,5 @@ export function loginLandingUrl(
 function hasSettledIdentity(
   user: Pick<AuthUser, 'memberKind' | 'hasStaffAccess' | 'hasAdminAccess'>,
 ): boolean {
-  return (
-    user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess
-  );
+  return user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess;
 }

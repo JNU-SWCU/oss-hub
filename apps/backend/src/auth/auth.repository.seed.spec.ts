@@ -19,10 +19,13 @@ describe('AuthRepository.upsertUser seed requests', () => {
   });
 
   it('STAFF 시드는 PENDING 역할 요청을 status CAS로 APPROVED에 전이한다', async () => {
-    const { repository, staffAccessRequestCreate, staffAccessRequestUpdateMany } =
-      buildRepository(buildRow(), initialAccountSeed('STAFF'), {
-        pendingRequest: { id: 'pending-request' },
-      });
+    const {
+      repository,
+      staffAccessRequestCreate,
+      staffAccessRequestUpdateMany,
+    } = buildRepository(buildRow(), initialAccountSeed('STAFF'), {
+      pendingRequest: { id: 'pending-request' },
+    });
 
     await upsertUser(repository, buildProfile());
 

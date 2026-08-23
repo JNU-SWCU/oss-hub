@@ -161,8 +161,13 @@ export function SignupEntryView({
  */
 export function SignupEntryScreen() {
   const router = useRouter();
-  const { status, memberKind, hasStaffAccess, hasAdminAccess, isProfileComplete } =
-    useSessionRole();
+  const {
+    status,
+    memberKind,
+    hasStaffAccess,
+    hasAdminAccess,
+    isProfileComplete,
+  } = useSessionRole();
   const decision = signupEntryDecision(
     status,
     { memberKind, hasStaffAccess, hasAdminAccess },

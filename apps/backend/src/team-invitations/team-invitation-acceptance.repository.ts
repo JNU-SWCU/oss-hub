@@ -102,10 +102,10 @@ export async function acceptTeamInvitationTransaction(
       const invitee = await tx.user.findUnique({
         where: { id: inviteeId },
         select: {
-        id: true,
-        accountStatus: true,
-        profile: { select: { memberKind: true } },
-      },
+          id: true,
+          accountStatus: true,
+          profile: { select: { memberKind: true } },
+        },
       });
       if (
         !invitee ||

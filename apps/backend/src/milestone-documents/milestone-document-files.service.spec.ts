@@ -26,9 +26,11 @@ const pdfFile: MilestoneDocumentFileUpload = {
 
 function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const mocks = {
-    findActiveUser: jest
-      .fn()
-      .mockResolvedValue({ id: syntheticUserId, hasStaffAccess: false, hasAdminAccess: false }),
+    findActiveUser: jest.fn().mockResolvedValue({
+      id: syntheticUserId,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+    }),
     findDocumentContext: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -141,9 +143,11 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('학생이 아니면 STUDENT_ONLY로 거부한다', async () => {
     // Given
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: 'staff-1', hasStaffAccess: true, hasAdminAccess: false }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: 'staff-1',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      }),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
@@ -417,9 +421,11 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
   it('교직원은 이 프로그램 신청 여부와 무관하게 다운로드할 수 있다', async () => {
     // Given
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: 'staff-1', hasStaffAccess: true, hasAdminAccess: false }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: 'staff-1',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      }),
       findStudentApplication: jest.fn(),
     });
     const service = new MilestoneDocumentFilesService(

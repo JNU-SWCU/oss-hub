@@ -53,7 +53,11 @@ export class RankingRepository {
     }
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     if (
       actor !== null &&

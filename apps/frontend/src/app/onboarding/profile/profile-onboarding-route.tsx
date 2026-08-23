@@ -162,7 +162,8 @@ export function profileOnboardingView(
         nextPath: signupDestination(state),
         // 확정된 것이 하나도 없을 때만 되돌아갈 수 있다.
         canChangeRole:
-          state.status === 'unassigned' && state.staffAccessRequestStatus === null,
+          state.status === 'unassigned' &&
+          state.staffAccessRequestStatus === null,
       };
     default: {
       const exhaustive: never = state.status;

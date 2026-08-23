@@ -200,7 +200,11 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
             kind: 'ready',
             detail: adminDetail(),
             history: adminHistory({
-              staffAccessRequests: historyPage({ page: 1, limit: 20, total: 40 }),
+              staffAccessRequests: historyPage({
+                page: 1,
+                limit: 20,
+                total: 40,
+              }),
               loginHistory: historyPage({ page: 1, limit: 20, total: 40 }),
             }),
           }}

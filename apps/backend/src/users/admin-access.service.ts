@@ -97,7 +97,10 @@ export class AdminAccessService {
     );
     await this.requireVisibleTarget(actor, userId);
     const [staffAccessRequests, loginHistory] = await Promise.all([
-      this.repository.listStaffAccessRequestHistory(userId, query.staffAccessRequests),
+      this.repository.listStaffAccessRequestHistory(
+        userId,
+        query.staffAccessRequests,
+      ),
       this.repository.listLoginHistory(userId, query.loginHistory),
     ]);
     return { staffAccessRequests, loginHistory };

@@ -1,4 +1,9 @@
-import { ApplicationStatus, MemberKind, MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import {
+  ApplicationStatus,
+  MemberKind,
+  MilestoneSubmissionType,
+  ProgramCategory,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../common/error-code';
 import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';

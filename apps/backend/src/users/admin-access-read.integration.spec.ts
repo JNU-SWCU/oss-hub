@@ -183,7 +183,11 @@ it('returns separately bounded stable history pages using matching deployed inde
   );
 
   // Then
-  expect(history.staffAccessRequests).toMatchObject({ page: 2, limit: 1, total: 3 });
+  expect(history.staffAccessRequests).toMatchObject({
+    page: 2,
+    limit: 1,
+    total: 3,
+  });
   expect(history.staffAccessRequests.items).toHaveLength(1);
   expect(history.loginHistory).toMatchObject({ page: 1, limit: 2, total: 3 });
   expect(history.loginHistory.items).toHaveLength(2);
@@ -255,7 +259,11 @@ function createUser(
 }
 
 function pendingRequest(userId: string) {
-  return { id: `${userId}:pending`, userId, status: StaffAccessRequestStatus.PENDING };
+  return {
+    id: `${userId}:pending`,
+    userId,
+    status: StaffAccessRequestStatus.PENDING,
+  };
 }
 
 function login(

@@ -41,7 +41,11 @@ export class ProgramLifecycleService {
   ) {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||
@@ -101,7 +105,11 @@ export class ProgramLifecycleService {
   ): Promise<{ readonly id: string; readonly deleted: true }> {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||
@@ -220,7 +228,11 @@ export class ProgramLifecycleService {
   ): Promise<ProgramPurgeResult> {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||

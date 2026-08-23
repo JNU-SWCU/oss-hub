@@ -233,9 +233,8 @@ describe('profileOnboardingView', () => {
     '회원 유형이 배정된 %s 사용자는 되돌리지 않는다',
     (role) => {
       expect(
-        profileOnboardingView(
-          state({ status: 'assigned', memberKind: role }),
-        ).kind,
+        profileOnboardingView(state({ status: 'assigned', memberKind: role }))
+          .kind,
       ).toBe('form');
     },
   );
@@ -263,7 +262,10 @@ describe('ProfileOnboardingRoute', () => {
   // 승인 전 교직원은 세션 `role`이 비어 있을 뿐 역할을 고른 사람이다. 여기서 되돌리면
   // 교직원 가입이 통째로 막힌다.
   it('승인 대기 중인 교직원은 되돌리지 않고 프로필 화면을 연다', () => {
-    const html = render({ status: 'unassigned', staffAccessRequestStatus: 'PENDING' });
+    const html = render({
+      status: 'unassigned',
+      staffAccessRequestStatus: 'PENDING',
+    });
 
     expect(html).toContain(PROFILE_SCREEN_MARK);
     expect(html).not.toContain('확인 중…');
@@ -275,7 +277,10 @@ describe('ProfileOnboardingRoute', () => {
     '살아 있는 신청이 없는 %s 사용자는 폼을 그리기 전에 역할 선택으로 이동한다',
     (staffAccessRequestStatus) => {
       expect(
-        renderRedirectDigest({ status: 'unassigned', staffAccessRequestStatus }),
+        renderRedirectDigest({
+          status: 'unassigned',
+          staffAccessRequestStatus,
+        }),
       ).toBe(ROLE_REDIRECT_DIGEST);
     },
   );

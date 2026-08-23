@@ -163,10 +163,7 @@ describe('UsersRepository 학번 최초 저장', () => {
     userProfileUpdateMany.mockResolvedValue({ count: 1 });
 
     // When
-    const outcome = await repository.fillStudentId(
-      expected,
-      profile.studentId,
-    );
+    const outcome = await repository.fillStudentId(expected, profile.studentId);
 
     // Then — `studentId: null` 조건이 CAS다
     expect(outcome).toBe('filled');

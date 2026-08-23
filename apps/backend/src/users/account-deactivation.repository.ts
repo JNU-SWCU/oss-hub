@@ -1,14 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Prisma, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  Prisma,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
-import {
-  resolveUserProfileName,
-} from '../profiles/user-profile-read';
+import { resolveUserProfileName } from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  authorityLabel,
-  type AuthorityLabel,
-} from '../common/authority-label';
+import { authorityLabel, type AuthorityLabel } from '../common/authority-label';
 import { lockActiveAdminRows } from './admin-actor-locks';
 
 export interface AccountDeactivationTarget {

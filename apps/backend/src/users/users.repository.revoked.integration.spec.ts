@@ -1,4 +1,8 @@
-import { AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -54,7 +58,9 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
   const REVOKED_AT = new Date('2026-02-02T00:00:00.000Z');
 
   beforeEach(async () => {
-    await prisma.staffAccessRequest.deleteMany({ where: { userId: revokedUserId } });
+    await prisma.staffAccessRequest.deleteMany({
+      where: { userId: revokedUserId },
+    });
     await prisma.user.deleteMany({ where: { id: revokedUserId } });
     await prisma.user.create({
       data: {
@@ -78,7 +84,9 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
   });
 
   afterAll(async () => {
-    await prisma.staffAccessRequest.deleteMany({ where: { userId: revokedUserId } });
+    await prisma.staffAccessRequest.deleteMany({
+      where: { userId: revokedUserId },
+    });
     await prisma.user.deleteMany({ where: { id: revokedUserId } });
   });
 
@@ -110,7 +118,9 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     // Then
     const [stored, profile, requests] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
-      prisma.userProfile.findUniqueOrThrow({ where: { userId: revokedUserId } }),
+      prisma.userProfile.findUniqueOrThrow({
+        where: { userId: revokedUserId },
+      }),
       prisma.staffAccessRequest.findMany({
         where: { userId: revokedUserId },
         orderBy: [{ createdAt: 'asc' }],
@@ -161,9 +171,14 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     // Then: 고른 유형이 학생이면 확정도 학생이다 — 신청이 생기지 않는다.
     const [stored, profile, pendingCount] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
-      prisma.userProfile.findUniqueOrThrow({ where: { userId: revokedUserId } }),
+      prisma.userProfile.findUniqueOrThrow({
+        where: { userId: revokedUserId },
+      }),
       prisma.staffAccessRequest.count({
-        where: { userId: revokedUserId, status: StaffAccessRequestStatus.PENDING },
+        where: {
+          userId: revokedUserId,
+          status: StaffAccessRequestStatus.PENDING,
+        },
       }),
     ]);
     expect(stored.hasStaffAccess).toBe(false);

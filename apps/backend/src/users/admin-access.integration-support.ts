@@ -451,7 +451,9 @@ class BarrierIndependentAuthorityStore implements IndependentAuthorityTransactio
 export class BarrierIndependentAuthorityRepository implements IndependentAuthorityRepositoryPort {
   private readonly barrier = new TwoPartyBarrier();
 
-  constructor(private readonly repository: IndependentAuthorityRepositoryPort) {}
+  constructor(
+    private readonly repository: IndependentAuthorityRepositoryPort,
+  ) {}
 
   withTransaction<T>(
     operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,

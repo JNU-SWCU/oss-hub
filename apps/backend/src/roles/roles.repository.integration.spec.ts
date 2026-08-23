@@ -1,4 +1,8 @@
-import { AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -81,9 +85,9 @@ describe('RolesRepository integration', () => {
       where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
     });
     expect(results).toHaveLength(2);
-    expect(results.every((result) => result.selectedMemberKind === 'STAFF')).toBe(
-      true,
-    );
+    expect(
+      results.every((result) => result.selectedMemberKind === 'STAFF'),
+    ).toBe(true);
     expect(pendingCount).toBe(1);
   });
 

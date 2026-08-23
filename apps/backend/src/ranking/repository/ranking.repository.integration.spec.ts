@@ -1,8 +1,4 @@
-import {
-  AccountStatus,
-  AffiliationKind,
-  MemberKind,
-} from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RankingService } from '../service/ranking.service';

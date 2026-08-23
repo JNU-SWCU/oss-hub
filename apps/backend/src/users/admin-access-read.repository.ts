@@ -116,13 +116,17 @@ export async function listAdminAccessFacets(
     prisma.user.count({
       where: {
         ...pendingRequestBase,
-        staffAccessRequests: { none: { status: StaffAccessRequestStatus.PENDING } },
+        staffAccessRequests: {
+          none: { status: StaffAccessRequestStatus.PENDING },
+        },
       },
     }),
     prisma.user.count({
       where: {
         ...pendingRequestBase,
-        staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
+        staffAccessRequests: {
+          some: { status: StaffAccessRequestStatus.PENDING },
+        },
       },
     }),
   ]);

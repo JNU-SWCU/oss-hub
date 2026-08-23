@@ -1,8 +1,4 @@
-import {
-  ApplicationStatus,
-  Prisma,
-  ProgramCategory,
-  } from '@prisma/client';
+import { ApplicationStatus, Prisma, ProgramCategory } from '@prisma/client';
 import {
   offsetDays,
   prisma,

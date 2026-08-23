@@ -55,7 +55,9 @@ describe('isSignupComplete', () => {
   // GitHub 로그인만 한 사람 / 약관까지만 동의한 사람. 세션 모양이 같다 —
   // 역할 요청이 없다.
   it('로그인·약관 동의만 한 사람은 회원이 아니다', () => {
-    expect(isSignupComplete(state({ staffAccessRequestStatus: null }))).toBe(false);
+    expect(isSignupComplete(state({ staffAccessRequestStatus: null }))).toBe(
+      false,
+    );
   });
 
   // 반려·회수는 살아 있는 요청이 아니다. 그 사람은 역할을 다시 고르러 간다.

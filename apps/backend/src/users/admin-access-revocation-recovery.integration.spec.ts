@@ -100,7 +100,10 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
   });
 });
 
-async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
+async function createUser(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+  label: string,
+) {
   sequence += 1;
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {

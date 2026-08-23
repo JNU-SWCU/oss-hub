@@ -1,5 +1,10 @@
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -86,7 +91,10 @@ describe('Admin access atomic request decisions', () => {
       role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
-      decidedRequest: { id: request.id, status: StaffAccessRequestStatus.APPROVED },
+      decidedRequest: {
+        id: request.id,
+        status: StaffAccessRequestStatus.APPROVED,
+      },
     });
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
@@ -96,7 +104,9 @@ describe('Admin access atomic request decisions', () => {
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
-      prisma.staffAccessRequest.findUniqueOrThrow({ where: { id: request.id } }),
+      prisma.staffAccessRequest.findUniqueOrThrow({
+        where: { id: request.id },
+      }),
     ).resolves.toMatchObject({
       status: StaffAccessRequestStatus.APPROVED,
       decidedById: actor.id,
@@ -154,7 +164,9 @@ describe('Admin access atomic request decisions', () => {
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(
-      prisma.staffAccessRequest.findUniqueOrThrow({ where: { id: request.id } }),
+      prisma.staffAccessRequest.findUniqueOrThrow({
+        where: { id: request.id },
+      }),
     ).resolves.toMatchObject({
       status: StaffAccessRequestStatus.REJECTED,
       rejectionReason: '합성 반려 사유',
@@ -166,7 +178,10 @@ describe('Admin access atomic request decisions', () => {
   });
 });
 
-async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
+async function createUser(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+  label: string,
+) {
   sequence += 1;
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {

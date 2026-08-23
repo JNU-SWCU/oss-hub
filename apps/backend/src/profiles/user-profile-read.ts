@@ -61,9 +61,7 @@ export type UserProfileDepartmentSource = {
   readonly profile: { readonly department: string } | null;
 };
 
-export function resolveUserProfile(
-  source: UserProfileSource,
-): UserProfileView {
+export function resolveUserProfile(source: UserProfileSource): UserProfileView {
   const profile = source.profile;
   return {
     name: profile?.name ?? null,

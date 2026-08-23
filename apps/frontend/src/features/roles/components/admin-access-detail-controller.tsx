@@ -72,7 +72,9 @@ export function AdminAccessDetailView({
     try {
       const history = await fetchAdminAccessHistory(userId, {
         staffAccessRequestPage:
-          kind === 'staffAccessRequest' ? nextPage : state.history.staffAccessRequests.page,
+          kind === 'staffAccessRequest'
+            ? nextPage
+            : state.history.staffAccessRequests.page,
         staffAccessRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
         loginPage:
           kind === 'login' ? nextPage : state.history.loginHistory.page,

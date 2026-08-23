@@ -1,6 +1,7 @@
 export type RoleSelection = 'STUDENT' | 'STAFF';
 
-export type StaffAccessRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
+export type StaffAccessRequestStatus =
+  'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
 
 export interface RoleSelectionResult {
   readonly selectedRole: RoleSelection;

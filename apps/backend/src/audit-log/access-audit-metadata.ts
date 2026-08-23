@@ -163,7 +163,9 @@ function isRole(value: unknown): value is AuthorityLabel | null {
 function isAccountStatus(value: unknown): value is AccountStatus {
   return value === AccountStatus.ACTIVE || value === AccountStatus.DEACTIVATED;
 }
-function isRequestStatus(value: unknown): value is StaffAccessRequestStatus | null {
+function isRequestStatus(
+  value: unknown,
+): value is StaffAccessRequestStatus | null {
   return (
     value === null ||
     Object.values(StaffAccessRequestStatus).some((status) => status === value)

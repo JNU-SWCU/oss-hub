@@ -143,7 +143,10 @@ it.each<MemberKind>(['STUDENT', 'STAFF'])(
       selectedMemberKind: selectedRole,
       redirectTo: '/onboarding/profile',
     });
-    expect(updateSelectedMemberKind).toHaveBeenCalledWith(USER.id, selectedRole);
+    expect(updateSelectedMemberKind).toHaveBeenCalledWith(
+      USER.id,
+      selectedRole,
+    );
   },
 );
 

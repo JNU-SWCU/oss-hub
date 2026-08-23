@@ -6,7 +6,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  } from '@prisma/client';
+} from '@prisma/client';
 import {
   offsetDays,
   prisma,

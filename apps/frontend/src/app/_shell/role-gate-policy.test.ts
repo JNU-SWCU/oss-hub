@@ -71,7 +71,12 @@ describe('roleGateRedirectPath', () => {
   it('역할은 있지만 프로필이 비어 있으면 프로필 단계로 되돌린다', () => {
     expect(
       roleGateRedirectPath(
-        state({ status: 'assigned', memberKind: 'STAFF', hasStaffAccess: true, isProfileComplete: false }),
+        state({
+          status: 'assigned',
+          memberKind: 'STAFF',
+          hasStaffAccess: true,
+          isProfileComplete: false,
+        }),
       ),
     ).toBe('/onboarding/profile');
   });

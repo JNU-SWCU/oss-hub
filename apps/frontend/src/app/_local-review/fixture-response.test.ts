@@ -168,7 +168,11 @@ describe('local review fixture responses', () => {
         user: { role: null },
       },
     });
-    expect(staffAccessRequest).toEqual({ kind: 'json', status: 200, body: null });
+    expect(staffAccessRequest).toEqual({
+      kind: 'json',
+      status: 200,
+      body: null,
+    });
   });
 
   it('loading and error fixtures remain distinguishable at the session boundary', () => {

@@ -14,30 +14,27 @@ describe('SubmissionReviewsStaffGuard', () => {
   it.each([
     ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
     ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
-  ])(
-    '%s 역할을 허용하고 reviewer id를 붙인다',
-    async (_label, access) => {
-      // Given: 활성 승인 교직원 또는 관리자다.
-      findUnique.mockResolvedValue({
-        id: 'reviewer-1',
-        ...access,
-        accountStatus: AccountStatus.ACTIVE,
-      });
-      const request: {
-        sessionGithubId: bigint;
-        submissionReviewerId?: string;
-      } = { sessionGithubId: 1001n };
-      const context = new ExecutionContextHost([request]);
-      context.setType('http');
+  ])('%s 역할을 허용하고 reviewer id를 붙인다', async (_label, access) => {
+    // Given: 활성 승인 교직원 또는 관리자다.
+    findUnique.mockResolvedValue({
+      id: 'reviewer-1',
+      ...access,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    const request: {
+      sessionGithubId: bigint;
+      submissionReviewerId?: string;
+    } = { sessionGithubId: 1001n };
+    const context = new ExecutionContextHost([request]);
+    context.setType('http');
 
-      // When: 검토 API 접근을 확인한다.
-      const allowed = await guard.canActivate(context);
+    // When: 검토 API 접근을 확인한다.
+    const allowed = await guard.canActivate(context);
 
-      // Then: 접근을 허용하고 내부 reviewer id를 전달한다.
-      expect(allowed).toBe(true);
-      expect(request.submissionReviewerId).toBe('reviewer-1');
-    },
-  );
+    // Then: 접근을 허용하고 내부 reviewer id를 전달한다.
+    expect(allowed).toBe(true);
+    expect(request.submissionReviewerId).toBe('reviewer-1');
+  });
 
   it.each([
     ['STUDENT', AccountStatus.ACTIVE],

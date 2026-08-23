@@ -41,7 +41,9 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
           { nickname: { contains: 'octo', mode: 'insensitive' } },
           // 이름의 정본은 프로필 행뿐이라 legacy fallback 갈래가 사라졌다.
           {
-            profile: { is: { name: { contains: 'octo', mode: 'insensitive' } } },
+            profile: {
+              is: { name: { contains: 'octo', mode: 'insensitive' } },
+            },
           },
         ],
         teamMemberships: { none: { programId: syntheticProgramId } },

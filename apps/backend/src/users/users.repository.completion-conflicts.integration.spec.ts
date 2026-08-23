@@ -181,9 +181,7 @@ it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 �
   const results = await Promise.all([complete(), complete()]);
 
   // Then — 행 잠금이 둘을 직렬화하고, 진 쪽은 조용히 덮어쓰지 않는다
-  expect(
-    results.filter((outcome) => outcome === 'completed'),
-  ).toHaveLength(1);
+  expect(results.filter((outcome) => outcome === 'completed')).toHaveLength(1);
   expect(results.filter((outcome) => outcome === 'conflict')).toHaveLength(1);
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
     name: firstProfile.name,

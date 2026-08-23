@@ -30,11 +30,15 @@ function renderRoleForm(
   );
 }
 
-function rejectionNotice(reason: string | null): ClosedStaffAccessRequestNotice {
+function rejectionNotice(
+  reason: string | null,
+): ClosedStaffAccessRequestNotice {
   return { status: 'REJECTED', reason };
 }
 
-function staffAccessRequest(overrides: Partial<StaffAccessRequest> = {}): StaffAccessRequest {
+function staffAccessRequest(
+  overrides: Partial<StaffAccessRequest> = {},
+): StaffAccessRequest {
   return {
     requestedRole: 'STAFF',
     status: 'PENDING',

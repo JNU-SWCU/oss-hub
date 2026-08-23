@@ -163,7 +163,10 @@ describe('loadAdminAccessDetail — 상세·이력 병렬 조회와 404 판별',
         path ===
         `users/target/access/history?staffAccessRequestPage=1&staffAccessRequestLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}&loginPage=1&loginLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}`
       ) {
-        return { staffAccessRequests: historyPage(), loginHistory: historyPage() };
+        return {
+          staffAccessRequests: historyPage(),
+          loginHistory: historyPage(),
+        };
       }
       throw new Error(`unexpected path: ${path}`);
     });

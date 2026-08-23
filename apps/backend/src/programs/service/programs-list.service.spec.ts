@@ -1,9 +1,5 @@
 import type { ProgramViewer } from './program-viewer.service';
-import {
-  ApplicationStatus,
-  Prisma,
-  ProgramLifecycle,
-} from '@prisma/client';
+import { ApplicationStatus, Prisma, ProgramLifecycle } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PROGRAM_LIST_QUERY_STATUSES } from '../program-list-query';
 import {
@@ -551,7 +547,11 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 1n, userId: 'student-1', role: 'STUDENT' } satisfies ProgramViewer;
+    const viewer = {
+      githubId: 1n,
+      userId: 'student-1',
+      role: 'STUDENT',
+    } satisfies ProgramViewer;
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
@@ -590,7 +590,11 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 1n, userId: 'student-1', role: 'STUDENT' } satisfies ProgramViewer;
+    const viewer = {
+      githubId: 1n,
+      userId: 'student-1',
+      role: 'STUDENT',
+    } satisfies ProgramViewer;
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
@@ -625,7 +629,11 @@ describe('ProgramsService list', () => {
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
-      { githubId: 1n, userId: 'student-1', role: 'STUDENT' } satisfies ProgramViewer,
+      {
+        githubId: 1n,
+        userId: 'student-1',
+        role: 'STUDENT',
+      } satisfies ProgramViewer,
     );
 
     expect(page.items[0]?.note).toEqual({
@@ -650,7 +658,11 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 2n, userId: 'staff-1', role: 'STAFF' } satisfies ProgramViewer;
+    const viewer = {
+      githubId: 2n,
+      userId: 'staff-1',
+      role: 'STAFF',
+    } satisfies ProgramViewer;
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },
@@ -686,7 +698,11 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 3n, userId: 'admin-1', role: 'ADMIN' } satisfies ProgramViewer;
+    const viewer = {
+      githubId: 3n,
+      userId: 'admin-1',
+      role: 'ADMIN',
+    } satisfies ProgramViewer;
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },

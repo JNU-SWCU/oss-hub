@@ -26,10 +26,7 @@ export class CollectionAdminGuard implements CanActivate {
       where: { githubId: request.sessionGithubId },
       select: COLLECTION_ADMIN_SELECT,
     });
-    if (
-      user?.accountStatus !== AccountStatus.ACTIVE ||
-      !user.hasAdminAccess
-    ) {
+    if (user?.accountStatus !== AccountStatus.ACTIVE || !user.hasAdminAccess) {
       throw new DomainException(
         COLLECTION_ERROR_CODES[CollectionErrorCode.ADMIN_REQUIRED],
       );

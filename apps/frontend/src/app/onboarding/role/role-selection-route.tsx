@@ -22,8 +22,11 @@ import { useSharedSessionRole } from '../../_shell/session-role-context';
  * 조건 하나와 `ClosedStaffAccessRequestNotice`의 상태 표에 항목 하나만 늘면 된다.
  */
 export function RoleSelectionRoute() {
-  const { staffAccessRequestStatus, staffAccessRequestRejectionReason, selectedRole } =
-    useSharedSessionRole();
+  const {
+    staffAccessRequestStatus,
+    staffAccessRequestRejectionReason,
+    selectedRole,
+  } = useSharedSessionRole();
 
   return (
     <RoleSelectionScreen

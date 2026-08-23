@@ -4,7 +4,7 @@ import type {
   ProgramCategory,
   ProgramLifecycle,
   StaffAccessRequestStatus,
-  } from '@prisma/client';
+} from '@prisma/client';
 import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 
 export type { ProgramDeletionScopeCounts } from './program-deletion-scope';
@@ -13,7 +13,9 @@ export type ProgramAuthority = {
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
-  readonly staffAccessRequests: readonly { readonly status: StaffAccessRequestStatus }[];
+  readonly staffAccessRequests: readonly {
+    readonly status: StaffAccessRequestStatus;
+  }[];
 };
 
 export type ProgramMilestoneView = {

@@ -33,7 +33,9 @@ export class MemberKindSelectionStateResponseDto {
     this.selectedRole = state.selectedMemberKind;
   }
 
-  static from(state: MemberKindSelectionState): MemberKindSelectionStateResponseDto {
+  static from(
+    state: MemberKindSelectionState,
+  ): MemberKindSelectionStateResponseDto {
     return new MemberKindSelectionStateResponseDto(state);
   }
 }

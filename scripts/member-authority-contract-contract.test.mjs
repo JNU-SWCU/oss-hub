@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { validateContractContract } from './member-authority-contract-contract.mjs';
 
-const schemaPath = new URL('../apps/backend/prisma/schema.prisma', import.meta.url);
+const schemaPath = new URL(
+  '../apps/backend/prisma/schema.prisma',
+  import.meta.url,
+);
 const migrationPath = new URL(
   '../apps/backend/prisma/migrations/20260823000000_contract_member_authority/migration.sql',
   import.meta.url,

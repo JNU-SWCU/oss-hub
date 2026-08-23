@@ -27,24 +27,26 @@ export type InitialAccountSeedMap = ReadonlyMap<bigint, InitialAccountSeed>;
 
 const ENTRY_RE = /^([1-9][0-9]*):(ADMIN|STAFF|STUDENT)$/;
 
-const SEED_BY_SETTING: Record<'ADMIN' | 'STAFF' | 'STUDENT', InitialAccountSeed> =
-  {
-    STUDENT: {
-      memberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    },
-    STAFF: {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-    },
-    ADMIN: {
-      memberKind: null,
-      hasStaffAccess: false,
-      hasAdminAccess: true,
-    },
-  };
+const SEED_BY_SETTING: Record<
+  'ADMIN' | 'STAFF' | 'STUDENT',
+  InitialAccountSeed
+> = {
+  STUDENT: {
+    memberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+  },
+  STAFF: {
+    memberKind: MemberKind.STAFF,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+  },
+  ADMIN: {
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+  },
+};
 
 /**
  * "githubId:ROLE[,githubId:ROLE...]" 형식의 초기 시드 설정을 파싱한다.

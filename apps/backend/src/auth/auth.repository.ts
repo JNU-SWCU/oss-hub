@@ -142,24 +142,29 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
       });
       if (promoted.count === 1) {
         if (initialRole.hasStaffAccess) {
-          const pendingRequest = await this.transaction.staffAccessRequest.findFirst({
-            where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
-          });
+          const pendingRequest =
+            await this.transaction.staffAccessRequest.findFirst({
+              where: {
+                userId: user.id,
+                status: StaffAccessRequestStatus.PENDING,
+              },
+            });
           if (pendingRequest) {
             // 조회 이후 관리자가 같은 신청을 결정했을 수 있다. status를 CAS guard로 걸어
             // 진 쪽이 관리자의 결정을 decidedById=null로 덮어쓰지 못하게 한다.
-            const transitioned = await this.transaction.staffAccessRequest.updateMany({
-              where: {
-                id: pendingRequest.id,
-                status: StaffAccessRequestStatus.PENDING,
-              },
-              data: {
-                status: StaffAccessRequestStatus.APPROVED,
-                decidedById: null,
-                decidedAt: new Date(),
-                rejectionReason: null,
-              },
-            });
+            const transitioned =
+              await this.transaction.staffAccessRequest.updateMany({
+                where: {
+                  id: pendingRequest.id,
+                  status: StaffAccessRequestStatus.PENDING,
+                },
+                data: {
+                  status: StaffAccessRequestStatus.APPROVED,
+                  decidedById: null,
+                  decidedAt: new Date(),
+                  rejectionReason: null,
+                },
+              });
             if (transitioned.count !== 1) {
               // 트랜잭션 전체를 되돌려 시드가 매긴 User.role까지 함께 취소한다.
               throw new StaffAccessRequestSeedConflictError();
@@ -192,10 +197,14 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
         // 들어온다 — 설계대로 막히는 정상 상태다. 그것을 warn으로 남기면 로그가
         // 그 한 사람으로 채워져 정작 드물어야 하는 CAS 경합 신호가 묻힌다.
         // 그래서 여기서만(드물게 도는 경로다) 이유를 실제로 확인해 레벨을 가른다.
-        const revokedRequest = await this.transaction.staffAccessRequest.findFirst({
-          where: { userId: user.id, status: StaffAccessRequestStatus.REVOKED },
-          select: { id: true },
-        });
+        const revokedRequest =
+          await this.transaction.staffAccessRequest.findFirst({
+            where: {
+              userId: user.id,
+              status: StaffAccessRequestStatus.REVOKED,
+            },
+            select: { id: true },
+          });
         if (revokedRequest) {
           this.logger.debug(
             `초기 시드 미적용: ${describeSeed(initialRole)} — 회수된 계정이다.`,
@@ -271,9 +280,7 @@ function toDomain(user: AuthUserRow): AuthUser {
  * 둘 중 하나라도 있으면 환경 변수가 그 결정을 덮어써서는 안 된다.
  */
 function hasSeededAuthority(user: AuthUserRow): boolean {
-  return (
-    user.profile !== null || user.hasStaffAccess || user.hasAdminAccess
-  );
+  return user.profile !== null || user.hasStaffAccess || user.hasAdminAccess;
 }
 
 function describeSeed(seed: InitialAccountSeed): string {

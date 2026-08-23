@@ -101,10 +101,15 @@ export class SubmissionFilesRepository {
   async findActiveAdminByGithubId(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { hasStaffAccess: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     return (
-      user?.hasAdminAccess === true && user.accountStatus === AccountStatus.ACTIVE
+      user?.hasAdminAccess === true &&
+      user.accountStatus === AccountStatus.ACTIVE
     );
   }
 

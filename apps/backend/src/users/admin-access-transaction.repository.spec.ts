@@ -1,4 +1,9 @@
-import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 
@@ -111,7 +116,10 @@ describe('AdminAccessRepository transaction store', () => {
       },
     });
     expect(updateRequest).toHaveBeenCalledWith({
-      where: { id: 'request-pending', status: StaffAccessRequestStatus.PENDING },
+      where: {
+        id: 'request-pending',
+        status: StaffAccessRequestStatus.PENDING,
+      },
       data: {
         status: StaffAccessRequestStatus.APPROVED,
         rejectionReason: null,

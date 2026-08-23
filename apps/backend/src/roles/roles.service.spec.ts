@@ -11,7 +11,10 @@ import {
 } from '../consents/consent-error-code.enum';
 import type { ConsentsService } from '../consents/consents.service';
 import type { UserProfileView } from '../profiles/user-profile-read';
-import type { StaffAccessRequestRecord, MemberUser } from './domain/member-onboarding';
+import type {
+  StaffAccessRequestRecord,
+  MemberUser,
+} from './domain/member-onboarding';
 import { requestStaffAccess } from './staff-access-request';
 import type {
   StaffAccessRequestOutcome,
@@ -80,7 +83,6 @@ class InMemoryRolesStore implements RolesTransactionStore {
   findUserByGithubId(): Promise<MemberUser | null> {
     return Promise.resolve(this.user);
   }
-
 
   updateSelectedMemberKind(
     _userId: string,
@@ -215,7 +217,8 @@ function staffAccessRequest(
     userId: 'synthetic-user',
     status,
     rejectionReason,
-    decidedAt: status === StaffAccessRequestStatus.PENDING ? null : REQUESTED_AT,
+    decidedAt:
+      status === StaffAccessRequestStatus.PENDING ? null : REQUESTED_AT,
     createdAt: REQUESTED_AT,
   };
 }
@@ -544,7 +547,10 @@ describe('RolesService', () => {
 
   it('가장 최근 역할 요청을 반환한다', async () => {
     // Given
-    const rejected = staffAccessRequest(StaffAccessRequestStatus.REJECTED, '합성 사유');
+    const rejected = staffAccessRequest(
+      StaffAccessRequestStatus.REJECTED,
+      '합성 사유',
+    );
     const { service } = createService(null, [rejected]);
 
     // When
@@ -567,7 +573,10 @@ describe('RolesService', () => {
 
   it('거절 이력이 있으면 새 PENDING 요청을 만들고 이력을 보존한다', async () => {
     // Given
-    const rejected = staffAccessRequest(StaffAccessRequestStatus.REJECTED, '합성 사유');
+    const rejected = staffAccessRequest(
+      StaffAccessRequestStatus.REJECTED,
+      '합성 사유',
+    );
     const { service, store } = createService(null, [rejected]);
 
     // When
@@ -639,7 +648,10 @@ describe('RolesService', () => {
 
   it('현행 정책 미동의 사용자의 교직원 재요청을 거부한다', async () => {
     // Given: 과거 요청 이력은 있지만 현행 정책에는 동의하지 않았다.
-    const rejected = staffAccessRequest(StaffAccessRequestStatus.REJECTED, '합성 사유');
+    const rejected = staffAccessRequest(
+      StaffAccessRequestStatus.REJECTED,
+      '합성 사유',
+    );
     const { service, store } = createService(null, [rejected], false);
 
     // When

@@ -15,7 +15,9 @@ export class StaffAccessRequestResponseDto {
     this.rejectionReason = request.rejectionReason;
   }
 
-  static from(request: StaffAccessRequestRecord): StaffAccessRequestResponseDto {
+  static from(
+    request: StaffAccessRequestRecord,
+  ): StaffAccessRequestResponseDto {
     return new StaffAccessRequestResponseDto(request);
   }
 }

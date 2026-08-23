@@ -1,9 +1,6 @@
 import { ROLE_HOME_LABEL } from '../_shell/role-home-link';
 import { roleHomePath } from '../_shell/role';
-import {
-  memberSurfaces,
-  type MemberAccess,
-} from '../_shell/member-access';
+import { memberSurfaces, type MemberAccess } from '../_shell/member-access';
 import type { SessionStatus } from '../_shell/use-session-role';
 
 /**

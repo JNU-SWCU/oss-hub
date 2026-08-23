@@ -195,7 +195,10 @@ describe('RoleGate 렌더', () => {
   ] as readonly (readonly [StaffAccessRequestStatus | null, string])[])(
     '규칙을 주지 않은 화면은 %s 미배정 사용자를 %s 로 종전대로 되돌린다',
     async (staffAccessRequestStatus, path) => {
-      const text = await render({ status: 'unassigned', staffAccessRequestStatus });
+      const text = await render({
+        status: 'unassigned',
+        staffAccessRequestStatus,
+      });
 
       expect(mocks.replace).toHaveBeenCalledWith(path);
       expect(text).not.toContain(CHILD);
@@ -220,7 +223,12 @@ describe('RoleGate 렌더', () => {
 
   it('역할은 있지만 프로필이 비어 있으면 규칙과 무관하게 프로필 단계로 되돌린다', async () => {
     const text = await render(
-      { status: 'assigned', memberKind: 'STAFF', hasStaffAccess: true, isProfileComplete: false },
+      {
+        status: 'assigned',
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        isProfileComplete: false,
+      },
       { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
     );
 

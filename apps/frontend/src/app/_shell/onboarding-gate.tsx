@@ -34,7 +34,10 @@ export function OnboardingGate({
   const { status, staffAccessRequestStatus, retry } = session;
   const [profileStatus, setProfileStatus] =
     useState<ProfileCheckStatus>('checking');
-  const expectedPath = onboardingPathFor(staffAccessRequestStatus, profileStatus);
+  const expectedPath = onboardingPathFor(
+    staffAccessRequestStatus,
+    profileStatus,
+  );
 
   useEffect(() => {
     if (status !== 'unassigned') {
