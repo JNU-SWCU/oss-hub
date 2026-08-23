@@ -55,7 +55,7 @@ beforeAll(async () => {
           fromGithubId: jest.fn().mockResolvedValue({
             githubId: 11n,
             userId: 'student-1',
-            selectedMemberKind: MemberKind.STUDENT,
+            role: 'STUDENT',
           }),
         },
       },

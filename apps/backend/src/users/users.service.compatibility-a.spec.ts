@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import type { PatchUserProfileInput } from './domain/user-profile';
@@ -22,7 +22,6 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
-  readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
@@ -46,7 +45,6 @@ function buildService(
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
-          role: null,
           selectedMemberKind: MemberKind.STUDENT,
           memberKind: null,
           hasAdminAccess: false,
@@ -92,7 +90,9 @@ async function captureDomainException(
 
 describe('기존 데이터 호환', () => {
   it('세 항목을 모두 채운 기존 사용자는 어떤 역할에서도 완료다', async () => {
-    for (const role of ['STUDENT', 'STAFF', 'ADMIN', null] as const) {
+    // 관리자는 회원 유형을 갖지 않으므로 이 표에 없다 — 그쪽은 유형을 직접 고른 뒤에야
+    // 프로필이 완료된다(fail-closed).
+    for (const role of ['STUDENT', 'STAFF'] as const) {
       // Given
       const { service } = buildService({
         user: {
@@ -100,7 +100,7 @@ describe('기존 데이터 호환', () => {
           name: input.name,
           studentId,
           department: input.department ?? null,
-          role,
+          memberKind: role,
         },
       });
 
@@ -121,7 +121,7 @@ describe('기존 데이터 호환', () => {
           name: input.name,
           studentId: null,
           department: input.department ?? null,
-          role: 'STAFF',
+          memberKind: MemberKind.STAFF,
         },
       });
 
@@ -141,6 +141,9 @@ describe('기존 데이터 호환', () => {
     expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
       name: '수정된 이름',
       department: '소프트웨어공학과',
+      // 소속명은 학과의 사본이다 — 두 칸이 어긋나면 계약 CHECK가 거부한다.
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '소프트웨어공학과',
     });
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
@@ -152,7 +155,8 @@ describe('기존 데이터 호환', () => {
         name: input.name,
         studentId: null,
         department: input.department ?? null,
-        role: 'ADMIN',
+        memberKind: MemberKind.STAFF,
+        hasAdminAccess: true,
       },
     });
 
@@ -165,6 +169,8 @@ describe('기존 데이터 호환', () => {
     expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
       name: '수정된 이름',
       department: input.department,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: input.department,
     });
   });
 
@@ -177,7 +183,7 @@ describe('기존 데이터 호환', () => {
       name: input.name,
       studentId: null,
       department: input.department ?? null,
-      role: 'STAFF',
+      memberKind: MemberKind.STAFF,
     } as const;
     const { service, updateProfileFields, fillStudentId } = buildService({
       user: stored,

@@ -140,7 +140,7 @@ it.each<MemberKind>(['STUDENT', 'STAFF'])(
     // 화면에서 갈리는 것이 없어졌기 때문이다. 프로필을 마친 뒤 학생을 역할 홈으로,
     // 교직원을 승인 대기로 잇는 일은 그대로 화면의 게이트가 한다.
     expect(result).toEqual({
-      selectedRole,
+      selectedMemberKind: selectedRole,
       redirectTo: '/onboarding/profile',
     });
     expect(updateSelectedMemberKind).toHaveBeenCalledWith(USER.id, selectedRole);
