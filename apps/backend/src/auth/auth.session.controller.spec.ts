@@ -159,9 +159,6 @@ describe('AuthController getSession', () => {
         hasStaffAccess: false,
         hasAdminAccess: false,
         memberKind: null,
-        // bridge 전용 표시 투영. 권한도 회원 유형도 없는 계정은 null이다 —
-        // `authorityLabel`이 canonical 세 사실에서만 접은 값이다.
-        role: null,
         // 화면 게이트가 "역할은 있는데 프로필이 비어 있는" 사용자를 프로필 단계로
         // 되돌리려면 세션이 이 사실을 함께 실어야 한다.
         isProfileComplete: false,
