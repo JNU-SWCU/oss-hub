@@ -154,12 +154,12 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
       where: { id: userId },
     });
     if (fulfilled.length === 2) {
-      expect(persisted.name).toBe('이름 A');
-      expect(persisted.department).toBe('학과 B');
+      expect(persisted.profile?.name).toBe('이름 A');
+      expect(persisted.profile?.department).toBe('학과 B');
     } else {
       // 한쪽만 성공했다면 실패한 쪽의 필드는 원래 값(null)에 머물러야 한다.
       const succeededField =
-        persisted.name === '이름 A' ? 'name' : 'department';
+        persisted.profile?.name === '이름 A' ? 'name' : 'department';
       expect(['name', 'department']).toContain(succeededField);
     }
   });

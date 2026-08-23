@@ -43,11 +43,11 @@ function readGuards(target: object, propertyKey: string): readonly unknown[] {
 }
 
 function createOnboardingController(
-  selectRole: RolesService['selectMemberKind'],
+  selectMemberKind: RolesService['selectMemberKind'],
   getMySelection: RolesService['getMySelection'] = () =>
-    Promise.resolve({ selectedRole: null }),
+    Promise.resolve({ selectedMemberKind: null }),
 ): OnboardingController {
-  return new OnboardingController({ selectRole, getMySelection });
+  return new OnboardingController({ selectMemberKind, getMySelection });
 }
 
 function createStaffAccessRequestsController(
@@ -69,17 +69,17 @@ const rejectedRequest: StaffAccessRequestRecord = {
 describe('OnboardingController', () => {
   it('역할 선택 결과를 응답 계약으로 반환한다', async () => {
     // Given
-    const selectRole = jest.fn().mockResolvedValue({
-      selectedRole: 'STUDENT',
+    const selectMemberKind = jest.fn().mockResolvedValue({
+      selectedMemberKind: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
-    const controller = createOnboardingController(selectRole);
+    const controller = createOnboardingController(selectMemberKind);
     const body = plainToInstance(SelectStaffAccessRequestDto, {
       selectedRole: 'STUDENT',
     });
 
     // When
-    const result = await controller.selectMemberKind(REQUEST, body);
+    const result = await controller.selectRole(REQUEST, body);
 
     // Then — 확정 결과(role·requestStatus)는 계약에 없다. 이 화면이 아무것도
     // 확정하지 않기 때문이다(#569).
@@ -87,7 +87,7 @@ describe('OnboardingController', () => {
       selectedRole: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
-    expect(selectRole).toHaveBeenCalledWith(424242n, 'STUDENT');
+    expect(selectMemberKind).toHaveBeenCalledWith(424242n, 'STUDENT');
   });
 
   it('지금 고른 역할을 응답 계약으로 반환한다', async () => {
