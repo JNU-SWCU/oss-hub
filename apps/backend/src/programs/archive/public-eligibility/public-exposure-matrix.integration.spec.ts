@@ -1,6 +1,8 @@
 import {
+  AffiliationKind,
   ApplicationStatus,
   CollectionRepositoryPresence,
+  MemberKind,
   ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositorySource,
@@ -142,6 +144,49 @@ function nextGithubRepositoryId(): bigint {
   return REPOSITORY_ID_BASE + repositoryIdSequence;
 }
 
+let studentIdSequence = 910_000;
+
+/**
+ * 순위에 오를 학생 fixture 한 명분 — legacy 칸과 canonical 행을 동시에 반환한다.
+ *
+ * 둘을 묶어 둔 이유는 둘이 갈라지면 backfill 불변식이 이 파일뿐 아니라 같은 PostgreSQL 을
+ * 쓰는 다른 스펙까지 멈췄 버리기 때문이다.
+ */
+function canonicalStudentFields(name: string, department: string) {
+  studentIdSequence += 1;
+  const studentId = String(studentIdSequence);
+  return {
+    name,
+    studentId,
+    department,
+    profile: {
+      create: {
+        name,
+        studentId,
+        department,
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: department,
+      },
+    },
+  };
+}
+
+function applicantProfileFields(key: string) {
+  return canonicalStudentFields(
+    `synthetic-${key}-applicant-name`,
+    `synthetic-${key}-applicant-department`,
+  );
+}
+
+function contributorProfileFields(githubId: bigint) {
+  const suffix = githubId.toString();
+  return canonicalStudentFields(
+    `synthetic-contributor-${suffix}-name`,
+    `synthetic-contributor-${suffix}-department`,
+  );
+}
+
 /**
  * 시나리오 하나(applicant/application/repository)를 만든다. 기본은 platform-private, 미발행.
  *
@@ -176,6 +221,10 @@ async function createScenario(params: {
       githubId: nextGithubId(),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
       role: Role.STUDENT,
+      // 순위 자격은 canonical `UserProfile.memberKind`가 정한다 — 학생 지원자 fixture는
+      // 그 유형을 실제로 갖고 있어야 랭킹 단언이 공허해지지 않는다. legacy 칸과 같은 값으로
+      // 둔다 — 형제 스펙이 돌리는 backfill 불변식은 두 면이 갈라지면 전체를 멈췄다.
+      ...applicantProfileFields(params.key),
     },
   });
 
@@ -306,6 +355,7 @@ async function seedContributors(
         githubId,
         nickname,
         role: Role.STUDENT,
+        ...contributorProfileFields(githubId),
       },
     });
   }
@@ -629,7 +679,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
 
-      // PM 확정 정책 — 닉네임을 가진 가입자는 전원 ranking에 행을 갖는다
+      // PM 확정 정책 — 닉네임을 가진 canonical 학생 가입자는 전원 ranking에 행을 갖는다
       // (`ranking.service.ts`의 `buildEntries`, `total > 0` 필터 없음). ranking은 이제
       // 사람 축(`GithubUserActivityHistory`)만 읽으므로 저장소 축 기여(`Contribution`)는
       // 어느 저장소에 있든 랭킹 수치에 들어오지 않는다 — 이 fixture는 사람 축 관측을
@@ -723,7 +773,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       expect(profile.projects[0]?.hasCollectedData).toBe(false);
 
       // ranking은 저장소 관측 상태를 아예 보지 않는다(사람 축 전환). PM 확정 정책상
-      // 가입자는 전원 ranking에 행을 갖고, 사람 축 관측이 없으니 5종 전부 0이다.
+      // canonical 학생 가입자는 전원 ranking에 행을 갖고, 사람 축 관측이 없으니 5종 전부 0이다.
       const rankingEntries = await collectRankingEntries();
       const outcome3Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
@@ -966,11 +1016,19 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         githubId: nextGithubId(),
         nickname: `${PREFIX}-outcome-9-bystander-login`,
         role: Role.STUDENT,
+        // 금지 키 누출 검사용 fixture — 순위에 행이 나오려면 canonical 학생이어야 하고,
+        // backfill 불변식을 건드리지 않으려면 legacy 칸과 바이트 단위로 같아야 한다.
+        name: 'synthetic-forbidden-real-name',
+        studentId: '990009',
+        department: 'synthetic-forbidden-department',
         profile: {
           create: {
             name: 'synthetic-forbidden-real-name',
-            studentId: `${PREFIX}-forbidden-student-id`,
+            studentId: '990009',
             department: 'synthetic-forbidden-department',
+            memberKind: MemberKind.STUDENT,
+            affiliationKind: AffiliationKind.DEPARTMENT,
+            affiliationName: 'synthetic-forbidden-department',
           },
         },
       },

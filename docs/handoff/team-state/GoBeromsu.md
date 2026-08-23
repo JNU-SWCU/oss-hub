@@ -572,3 +572,15 @@
 - blocker: 없음
 - 결과: Jenkinsfile의 "회원 권한 backfill" 단계를 `when { expression { false } }`로 스킵해, 수동 완료된 Task 10 backfill이 배포를 차단하지 않도록 임시 우회. 근본 문제는 CD가 application state에 의존하는 설계 오류이며, 향후 backfill 검증 로직 자체를 파이프라인 밖으로 이동해야 함
 - 금지 작업: production 접근·release·deploy·merge 없음
+
+## 2026-08-23 — Task 15 순위를 canonical 학생 계정으로 제한
+
+- 상태: review
+- Issue: #969
+- PR: #1005
+- blocker: 없음
+- 결과: 랭킹 read model의 사용자 조회에 canonical `UserProfile.memberKind = STUDENT` 술어 하나만 더해 학생·학생 관리자만 남기고 교직원·교직원 관리자·미지정·프로필 없음을 집계 이전 단계에서 제외했으며, 계정 상태·활동·점수·정렬·연도·페이지네이션·캐시·DTO 계약과 열람 계층 판정은 그대로 두고 클라이언트 필터링은 넣지 않았다
+- 검증: red 격리 PostgreSQL 6 failures 재현 후 focused 1 suite/7 tests green, 격리 PostgreSQL 전체 92 suites/487 tests 연속 2회 green, backend lint·typecheck·303 suites/3376 tests·build, frontend lint·typecheck·301 files/2991 tests·build, LSP 30파일 0건, Prettier, public-safe 통과, 랭킹 production code legacy role filter 0건·member-kind 술어 정확히 1건·frontend member-kind 필터 0건 스캔
+- QA: 실제 컨테이너 PostgreSQL + 실제 백엔드 + 실제 프런트엔드로 합성 6종을 심고 `/ranking?year=2026`을 Chrome으로 확인 — 응답 total 2·학생 2명만, 제외 4종은 더 높은 수치를 심었는데도 API·화면 양쪽에서 부재, 공개 열람자 실명 노출 0건
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-15/` (synthetic fixture only; production 접근 증거 아님)
+- 금지 작업: production 접근·release·deploy·merge 없음

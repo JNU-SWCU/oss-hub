@@ -2,6 +2,7 @@ import {
   AccountStatus,
   ApplicationStatus,
   CollectionRepositoryPresence,
+  MemberKind,
   ProgramCategory,
   Role,
   RepositoryProvisionJobStatus,
@@ -61,8 +62,9 @@ type RankingWireBody = {
 /**
  * `GET /ranking` 응답 전 페이지를 실제 HTTP 로 모은다.
  *
- * 랭킹은 "가입자 전원이 행을 갖는다"가 제품 정책이라(`ranking.service.ts`), Postgres 를
- * 공유하는 CI 에서는 형제 스펙이 심은 가입자도 같은 목록에 정당하게 들어온다. 기본
+ * 랭킹은 "canonical 학생 가입자는 전원이 행을 갖는다"가 제품 정책이라
+ * (`ranking.repository.ts`), Postgres 를 공유하는 CI 에서는 형제 스펙이 심은 학생도
+ * 같은 목록에 정당하게 들어온다. 기본
  * pageSize 는 20 이므로 첫 페이지만 보면 이 파일의 persona 가 0점 동률 뒤로 밀려
  * 보이지 않을 수 있다 — 실행 순서에 따라 초록/빨강이 갈리는 defect 다. 전 페이지를
  * 모으면 "이 persona 가 어떻게 보이는가"를 페이지 경계와 무관하게 못 박을 수 있고,
@@ -97,6 +99,8 @@ async function fetchRankingPages(
 }
 
 let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
+/** legacy `User.name` 이 비어 있는 두 번째 학생 — canonical 실명만 가진 행을 본다. */
+let canonicalOnlyStudentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let adminPersona: Awaited<ReturnType<typeof harness.createUser>>;
 
@@ -215,9 +219,33 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       },
     });
 
-    studentPersona = await harness.createUser('student', Role.STUDENT);
-    staffPersona = await harness.createUser('staff', Role.STAFF);
-    adminPersona = await harness.createUser('admin', Role.ADMIN);
+    // 순위 노출은 권한이 아니라 canonical 회원 유형이 가른다 — 학생 persona만 STUDENT 유형을
+    // 달고, 교직원·관리자 persona는 STAFF 유형이라 같은 공개 라우트를 200으로 열면서도
+    // 순위 목록에는 실리지 않는다.
+    studentPersona = await harness.createUser(
+      'student',
+      Role.STUDENT,
+      undefined,
+      MemberKind.STUDENT,
+    );
+    canonicalOnlyStudentPersona = await harness.createUser(
+      'canonical-only-student',
+      Role.STUDENT,
+      undefined,
+      MemberKind.STUDENT,
+    );
+    staffPersona = await harness.createUser(
+      'staff',
+      Role.STAFF,
+      undefined,
+      MemberKind.STAFF,
+    );
+    adminPersona = await harness.createUser(
+      'admin',
+      Role.ADMIN,
+      undefined,
+      MemberKind.STAFF,
+    );
 
     // 공개 라우트 4종(list/detail/profile/ranking)이 4-페르소나 모두에게 동일하게 열려
     // 있음을 증명할 happy-path 공개 프로젝트.
@@ -261,6 +289,15 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       data: {
         name: NAMED_PERSONA_REAL_NAME,
         department: NAMED_PERSONA_DEPARTMENT,
+        // canonical 프로필이 있으면 공개 응답은 legacy 칸이 아니라 이쪽을 읽는다
+        // (`profile-compatibility.ts`) — 실명 비노출 단언이 공허해지지 않게 둘 다 채운다.
+        profile: {
+          update: {
+            name: NAMED_PERSONA_REAL_NAME,
+            department: NAMED_PERSONA_DEPARTMENT,
+            affiliationName: NAMED_PERSONA_DEPARTMENT,
+          },
+        },
       },
     });
     await harness.prisma.githubUserActivityHistory.createMany({
@@ -426,13 +463,19 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       });
       // 이 파일이 심은 persona 가 랭킹 목록에 실제로 있는지를 고정한다 — "뭔가 하나라도
       // 있다"가 아니라 시드 코호트가 있다는 게 이 라우트가 열려 있다는 증거다.
-      expect(ranking.items.map((item) => item.githubLogin as string)).toEqual(
+      // 순위에 오를 자격은 canonical 학생뿐이라, 같은 200 응답이더라도 교직·관리자
+      // persona 는 목록 안에 없어야 한다 — 라우트 개방과 행 자격은 다른 문제다.
+      const rankedLogins = ranking.items.map(
+        (item) => item.githubLogin as string,
+      );
+      expect(rankedLogins).toEqual(
         expect.arrayContaining([
           studentPersona.nickname,
-          staffPersona.nickname,
-          adminPersona.nickname,
+          canonicalOnlyStudentPersona.nickname,
         ]),
       );
+      expect(rankedLogins).not.toContain(staffPersona.nickname);
+      expect(rankedLogins).not.toContain(adminPersona.nickname);
     }
 
     // Public items omit `name`. Staff items add `name` and keep displayName as login.
@@ -576,14 +619,23 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     // ADMIN 응답은 STAFF 응답과 같다.
     expect(JSON.stringify(admin.items)).toBe(JSON.stringify(staff.items));
 
-    // (e) 실명이 비어 있는 persona 는 교직원 응답에서도 githubLogin 이다.
-    const namelessEntry = staff.items.find(
-      (item) => item.githubLogin === staffPersona.nickname,
-    );
-    expect(namelessEntry).toMatchObject({
-      displayName: staffPersona.nickname,
-      name: null,
+    // (e) legacy `User.name` 이 비어 있어도 표기는 githubLogin 이고 실명 칸은 canonical
+    // 프로필을 그대로 실는다 — 순위에 오르는 행은 이제 전부 canonical 프로필을 갖는다.
+    const canonicalOnlyProfile = await harness.prisma.userProfile.findUnique({
+      where: { userId: canonicalOnlyStudentPersona.id },
+      select: { name: true },
     });
+    const canonicalOnlyEntry = staff.items.find(
+      (item) => item.githubLogin === canonicalOnlyStudentPersona.nickname,
+    );
+    expect(canonicalOnlyEntry).toMatchObject({
+      displayName: canonicalOnlyStudentPersona.nickname,
+      name: canonicalOnlyProfile?.name,
+    });
+    // 교직원 persona 는 교직원 열람자 응답에서도 목록에 없다.
+    expect(
+      staff.items.some((item) => item.githubLogin === staffPersona.nickname),
+    ).toBe(false);
 
     // (f) 등수 순서는 네 계층이 완전히 같다 — 실명이 순서를 바트지 않는다.
     const order = (items: Record<string, unknown>[]) =>
