@@ -60,6 +60,12 @@ export type AdminAccessMutationCommand = {
   readonly desiredAccountStatus: AccountStatus;
   readonly expectedPendingRequest: AdminAccessExpectedPendingRequest | null;
   readonly requestDecision?: AdminAccessRequestDecision;
+  /**
+   * CAS 기준값. 표시 역할은 admin-only와 staff+admin을 같은 `ADMIN`으로 접으므로
+   * 이 두 칸이 있을 때만 신선도를 정본으로 비교한다.
+   */
+  readonly expectedHasStaffAccess?: boolean;
+  readonly expectedHasAdminAccess?: boolean;
 };
 
 export type AdminAccessPendingRequest = {

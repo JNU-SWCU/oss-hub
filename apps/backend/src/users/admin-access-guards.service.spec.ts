@@ -15,20 +15,25 @@ import {
 
 describe('AdminAccessService mutation guards', () => {
   it('locks active admins before the target and preserves the final admin', async () => {
-    // Given
+    // Given — 레거시 표시 강등은 400으로 거절되므로, 마지막 관리자 가드는
+    // 실제로 활성 관리자를 없앨 수 있는 비활성화 경로에서 증명한다.
     const repository = new InMemoryAdminAccessRepository();
     repository.activeAdminCount = 1;
-    repository.target = accessUser({ role: 'ADMIN' });
+    repository.target = accessUser({
+      id: 'other-admin',
+      role: 'ADMIN',
+      hasAdminAccess: true,
+    });
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 
     // When / Then
     await expect(
-      service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+      service.patchAccess(ADMIN_GITHUB_ID, 'other-admin', {
         expectedRole: 'ADMIN',
-        desiredRole: 'STAFF',
+        desiredRole: 'ADMIN',
         expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.DEACTIVATED,
         expectedPendingRequest: null,
       }),
     ).rejects.toMatchObject({

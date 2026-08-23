@@ -92,7 +92,8 @@ export type AdminAccessDeniedTransition = {
     | RolesErrorCode.ACCESS_CHANGE_REQUIRED
     | RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED
     | RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED
-    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION;
+    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION
+    | RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED;
 };
 
 export type AdminAccessTransitionOutcome =
@@ -212,11 +213,16 @@ function classifyTransition(
   const changesAccessState = changesRole || changesAccountStatus;
 
   if (current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE) {
-    return desired.decision === ADMIN_ACCESS_DECISION_KINDS.NONE
-      ? changesAccessState
-        ? allowed(current, desired, directRequestEffect(current, desired))
-        : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400)
-      : denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
+    if (desired.decision !== ADMIN_ACCESS_DECISION_KINDS.NONE) {
+      return denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
+    }
+    if (!changesAccessState) {
+      return denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
+    }
+    if (isLegacyDisplayRoleLowering(current.role, desired.role)) {
+      return denied(RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED, 400);
+    }
+    return allowed(current, desired, directRequestEffect(current, desired));
   }
 
   switch (desired.decision) {
@@ -250,6 +256,23 @@ function classifyTransition(
  * `staffAccessRequests: { none: { status: REVOKED } }`)가 회수로 알아보지 못해 다음 로그인에
  * 권한이 되살아난다. 그래서 대기 중 요청은 먼저 결정하게 하고 회수는 그다음이다.
  */
+/**
+ * 접힌 표시 역할을 낮추는 레거시 명령인가.
+ *
+ * STAFF→null 회수는 정본 교직원 칸을 실제로 비우므로 여기 넣지 않는다.
+ * STAFF→STUDENT·ADMIN→STAFF/STUDENT는 정본을 바꾸지 못한 채 200을 주던
+ * 거짓 강등이라 독립 권한 API로 보낸다. ADMIN에서 교직원을 추론하지 않는다.
+ */
+function isLegacyDisplayRoleLowering(
+  currentRole: AuthorityLabel | null,
+  desiredRole: AuthorityLabel | null,
+): boolean {
+  if (currentRole === 'ADMIN') {
+    return desiredRole === 'STAFF' || desiredRole === 'STUDENT';
+  }
+  return currentRole === 'STAFF' && desiredRole === 'STUDENT';
+}
+
 function isRevocable(current: AdminAccessTableCurrentState): boolean {
   return (
     isStaffOnlyAccess(current.role) &&

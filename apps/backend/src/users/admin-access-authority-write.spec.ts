@@ -41,6 +41,8 @@ describe('canonical authority writes behind legacy transitions', () => {
   });
 
   it('legacy role changes cannot clear independent canonical authority', () => {
+    // 서비스는 이 전이를 400으로 거절한다. 헬퍼가 호출되더라도 정본 칸을
+    // 접힌 표시 역할로 비우지 않는 안전망을 고정한다.
     const before = accessUser({
       role: 'ADMIN',
       hasStaffAccess: true,

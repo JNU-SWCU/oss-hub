@@ -326,6 +326,107 @@ describe('AdminAccessService mutation', () => {
     );
   });
 
+  it.each([
+    [
+      'STAFF',
+      'STUDENT',
+      { role: 'STAFF' as const, hasStaffAccess: true, hasAdminAccess: false },
+    ],
+    [
+      'ADMIN',
+      'STUDENT',
+      { role: 'ADMIN' as const, hasStaffAccess: false, hasAdminAccess: true },
+    ],
+    [
+      'ADMIN',
+      'STAFF',
+      { role: 'ADMIN' as const, hasStaffAccess: false, hasAdminAccess: true },
+    ],
+  ] as const)(
+    'rejects legacy %s→%s lowering without writing or auditing',
+    async (expectedRole, desiredRole, target) => {
+      const repository = new InMemoryAdminAccessRepository();
+      repository.target = accessUser(target);
+      const audit = auditLogHarness();
+      const service = new AdminAccessService(repository, audit.service);
+
+      await expect(
+        service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+          expectedRole,
+          desiredRole,
+          expectedAccountStatus: AccountStatus.ACTIVE,
+          desiredAccountStatus: AccountStatus.ACTIVE,
+          expectedPendingRequest: null,
+        }),
+      ).rejects.toMatchObject({
+        errorCode: {
+          code: RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
+          status: 400,
+        },
+      });
+      expect(repository.userUpdates).toEqual([]);
+      expect(repository.revokedInserts).toEqual([]);
+      expect(audit.record).not.toHaveBeenCalled();
+    },
+  );
+
+  it('compare-and-swap uses caller canonical expectations, not the folded role', async () => {
+    const repository = new InMemoryAdminAccessRepository();
+    repository.target = accessUser({
+      role: 'ADMIN',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
+    });
+    const audit = auditLogHarness();
+    const service = new AdminAccessService(repository, audit.service);
+
+    await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+      expectedRole: 'ADMIN',
+      desiredRole: 'ADMIN',
+      expectedHasStaffAccess: false,
+      expectedHasAdminAccess: true,
+      expectedAccountStatus: AccountStatus.ACTIVE,
+      desiredAccountStatus: AccountStatus.DEACTIVATED,
+      expectedPendingRequest: null,
+    });
+
+    expect(repository.userUpdates).toEqual([
+      expect.objectContaining({
+        expectedHasStaffAccess: false,
+        expectedHasAdminAccess: true,
+        desiredAccountStatus: AccountStatus.DEACTIVATED,
+      }),
+    ]);
+    expect(audit.record).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a stale canonical authority snapshot even when folded roles match', async () => {
+    const repository = new InMemoryAdminAccessRepository();
+    repository.target = accessUser({
+      role: 'ADMIN',
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+    });
+    const audit = auditLogHarness();
+    const service = new AdminAccessService(repository, audit.service);
+
+    await expect(
+      service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+        expectedRole: 'ADMIN',
+        desiredRole: 'ADMIN',
+        expectedHasStaffAccess: false,
+        expectedHasAdminAccess: true,
+        expectedAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.DEACTIVATED,
+        expectedPendingRequest: null,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ACCESS_STATE_MISMATCH, status: 409 },
+    });
+    expect(repository.userUpdates).toEqual([]);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
   it.each<[string, 'ADMIN' | 'STUDENT']>([
     ['ADMIN', 'ADMIN'],
     ['STUDENT', 'STUDENT'],

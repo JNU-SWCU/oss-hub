@@ -111,8 +111,10 @@ export async function mutateAdminAccess(
       );
       const userUpdated = await store.compareAndSwapAccess({
         userId: input.userId,
-        expectedHasStaffAccess: before.hasStaffAccess,
-        expectedHasAdminAccess: before.hasAdminAccess,
+        expectedHasStaffAccess:
+          input.command.expectedHasStaffAccess ?? before.hasStaffAccess,
+        expectedHasAdminAccess:
+          input.command.expectedHasAdminAccess ?? before.hasAdminAccess,
         expectedAccountStatus: input.command.expectedAccountStatus,
         desiredAccountStatus: input.command.desiredAccountStatus,
         desiredHasStaffAccess: authority.hasStaffAccess,

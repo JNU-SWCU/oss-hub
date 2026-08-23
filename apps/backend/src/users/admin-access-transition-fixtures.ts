@@ -250,7 +250,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
     },
   },
   {
-    name: 'admin demotion enables the final-admin guard',
+    name: 'legacy ADMIN display lowering is rejected toward independent authority',
     current: {
       role: 'ADMIN',
       accountStatus: AccountStatus.ACTIVE,
@@ -262,13 +262,45 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
     },
     expected: {
-      allowed: true,
-      status: 200,
-      code: null,
-      requestEffect: ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
-      requiresCompleteProfile: false,
-      requiresSelfDeactivationGuard: false,
-      requiresLastActiveAdminGuard: true,
+      allowed: false,
+      status: 400,
+      code: RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
+    },
+  },
+  {
+    name: 'legacy STAFF to STUDENT lowering is rejected toward independent authority',
+    current: {
+      role: 'STAFF',
+      accountStatus: AccountStatus.ACTIVE,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
+    },
+    desired: {
+      role: 'STUDENT',
+      accountStatus: AccountStatus.ACTIVE,
+      decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: false,
+      status: 400,
+      code: RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
+    },
+  },
+  {
+    name: 'legacy ADMIN to STUDENT lowering is rejected toward independent authority',
+    current: {
+      role: 'ADMIN',
+      accountStatus: AccountStatus.ACTIVE,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
+    },
+    desired: {
+      role: 'STUDENT',
+      accountStatus: AccountStatus.ACTIVE,
+      decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: false,
+      status: 400,
+      code: RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
     },
   },
   {

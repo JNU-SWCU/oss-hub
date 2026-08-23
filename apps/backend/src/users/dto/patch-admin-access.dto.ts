@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDefined,
   IsObject,
   IsOptional,
@@ -84,6 +85,14 @@ export class PatchAdminAccessRequestDto {
   @IsString()
   declare readonly desiredAccountStatus: string;
 
+  @IsOptional()
+  @IsBoolean()
+  declare readonly expectedHasStaffAccess?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  declare readonly expectedHasAdminAccess?: boolean;
+
   @IsDefined()
   @ValidateIf((_object, value: unknown) => value !== null)
   @IsObject()
@@ -105,11 +114,33 @@ export class PatchAdminAccessRequestDto {
       desiredAccountStatus: parseAccountStatus(this.desiredAccountStatus),
       expectedPendingRequest:
         this.expectedPendingRequest?.toExpectation() ?? null,
+      ...parseExpectedCanonicalAuthority(this),
       ...(this.requestDecision
         ? { requestDecision: this.requestDecision.toDecision() }
         : {}),
     };
   }
+}
+
+function parseExpectedCanonicalAuthority(body: {
+  readonly expectedHasStaffAccess?: boolean;
+  readonly expectedHasAdminAccess?: boolean;
+}): Pick<
+  AdminAccessMutationCommand,
+  'expectedHasStaffAccess' | 'expectedHasAdminAccess'
+> {
+  const hasStaff = body.expectedHasStaffAccess;
+  const hasAdmin = body.expectedHasAdminAccess;
+  if (hasStaff === undefined && hasAdmin === undefined) {
+    return {};
+  }
+  if (typeof hasStaff !== 'boolean' || typeof hasAdmin !== 'boolean') {
+    throw invalidDecision();
+  }
+  return {
+    expectedHasStaffAccess: hasStaff,
+    expectedHasAdminAccess: hasAdmin,
+  };
 }
 
 function parseRole(value: string | null): AuthorityLabel | null {

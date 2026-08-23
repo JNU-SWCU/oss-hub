@@ -23,17 +23,31 @@ export function matchesExpectedAccessState(
   current: AdminAccessUserRecord,
   command: AdminAccessMutationCommand,
 ): boolean {
-  if (
-    current.role !== command.expectedRole ||
-    current.accountStatus !== command.expectedAccountStatus
-  ) {
+  if (current.accountStatus !== command.expectedAccountStatus) {
     return false;
   }
   const expectedRequest = command.expectedPendingRequest;
   const currentRequest = current.pendingRequest;
-  return expectedRequest === null
-    ? currentRequest === null
-    : currentRequest?.id === expectedRequest.id;
+  const pendingMatches =
+    expectedRequest === null
+      ? currentRequest === null
+      : currentRequest?.id === expectedRequest.id;
+  if (!pendingMatches) {
+    return false;
+  }
+  const expectedStaff = command.expectedHasStaffAccess;
+  const expectedAdmin = command.expectedHasAdminAccess;
+  if (expectedStaff !== undefined || expectedAdmin !== undefined) {
+    return (
+      expectedStaff !== undefined &&
+      expectedAdmin !== undefined &&
+      current.hasStaffAccess === expectedStaff &&
+      current.hasAdminAccess === expectedAdmin
+    );
+  }
+  // 표시 역할은 admin-only와 staff+admin을 구분하지 못한다. 정본 칸이 없으면
+  // 레거시 호환으로만 접힌 값을 보고, CAS WHERE는 정본 boolean을 쓴다.
+  return current.role === command.expectedRole;
 }
 
 export function removesExpectedActiveAdmin(

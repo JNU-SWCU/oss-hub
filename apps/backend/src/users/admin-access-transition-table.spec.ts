@@ -96,9 +96,17 @@ function expectedTransitionOutcome(
     if (desired.decision !== ADMIN_ACCESS_DECISION_KINDS.NONE) {
       return denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
     }
-    return changesAccessState
-      ? allowed(current, desired, revokesStaff ? 'REVOKED' : 'UNCHANGED')
-      : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
+    if (!changesAccessState) {
+      return denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
+    }
+    if (
+      (current.role === 'ADMIN' &&
+        (desired.role === 'STAFF' || desired.role === 'STUDENT')) ||
+      (current.role === 'STAFF' && desired.role === 'STUDENT')
+    ) {
+      return denied(RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED, 400);
+    }
+    return allowed(current, desired, revokesStaff ? 'REVOKED' : 'UNCHANGED');
   }
 
   switch (desired.decision) {
@@ -151,7 +159,8 @@ function denied(
     | RolesErrorCode.ACCESS_CHANGE_REQUIRED
     | RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED
     | RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED
-    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION,
+    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION
+    | RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
   status: 400 | 409,
 ): AdminAccessTransitionOutcome {
   return { allowed: false, status, code };
