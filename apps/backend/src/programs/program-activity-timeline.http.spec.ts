@@ -1,4 +1,3 @@
-import { MemberKind } from '@prisma/client';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';

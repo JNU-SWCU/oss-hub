@@ -41,7 +41,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const REASON = '합성 반려 사유';
 
-/** 승인 전 교직원 — 세션에 역할이 없어야 온보딩 조회가 돈다. */
+/** 승인 전 교직원 — 확정된 사실이 하나도 없어야 온보딩 조회가 돈다. */
 const UNASSIGNED_SESSION = {
   status: 'authenticated' as const,
   user: {
@@ -49,7 +49,9 @@ const UNASSIGNED_SESSION = {
     name: '합성 교직원 사용자',
     email: null,
     avatarUrl: null,
-    role: null,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     isProfileComplete: true,
   },
   retry: () => {},

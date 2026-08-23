@@ -1,4 +1,4 @@
-import { AccountStatus, ApplicationStatus, MemberKind, MilestoneSubmissionType, SubmissionFileLifecycle } from '@prisma/client';
+import { AccountStatus, ApplicationStatus, MilestoneSubmissionType, SubmissionFileLifecycle } from '@prisma/client';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 
 const NOW = new Date('2026-09-20T00:00:00.000Z');
