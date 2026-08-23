@@ -83,9 +83,8 @@ function kstMidnight(isoDate: string): Date {
  * accountStatus=ACTIVE, Consent 완료, (제공된 경우) name까지 채워 로그인 시 온보딩/동의
  * 화면으로 되돌아가지 않게 한다(`auth.repository.ts`의 `isProfileComplete` 계약과 동일).
  *
- * name은 `account.displayName`이 있을 때만 쓴다 — 없으면 생성 시 비워 두고, 갱신 시에도
- * 기존 값을 지우지 않는다(재로그인이 온보딩에서 확정한 이름을 덮어쓰지 않는다는
- * `auth.repository.ts`의 원칙과 같은 이유).
+ * displayName은 canonical UserProfile.name에만 쓴다. User의 dropped mirror 컬럼은
+ * 시드에서 갱신하지 않는다.
  */
 async function upsertConfiguredUser(
   stats: SeedStats,
@@ -113,6 +112,23 @@ async function upsertConfiguredUser(
         },
       }),
   );
+  if (account.displayName !== undefined) {
+    await upsertTracked(
+      stats,
+      'UserProfile',
+      () => prisma.userProfile.findUnique({ where: { userId: user.id } }),
+      () =>
+        prisma.userProfile.upsert({
+          where: { userId: user.id },
+          update: { name: account.displayName },
+          create: {
+            userId: user.id,
+            name: account.displayName,
+            department: '오픈소스 SW 개발 사업단',
+          },
+        }),
+    );
+  }
   await upsertConsent(stats, user.id);
   return user;
 }

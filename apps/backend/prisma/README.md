@@ -97,7 +97,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
   login·`ADMIN` 이외 역할·(있다면) 유효하지 않은 displayName을 모두 거부한다.
   오류와 실행 로그에는 변수 원문을 출력하지 않는다.
   네 계정은 실제 온보딩 완료 사용자와 같은 DB 상태로 만들어진다 — `role=ADMIN`, `accountStatus=ACTIVE`,
-  Consent 완료(`upsertConsent`). `displayName`이 있으면 `User.name`도 그 값으로 채워 로그인 시
+  Consent 완료(`upsertConsent`). `displayName`이 있으면 canonical `UserProfile.name`도 그 값으로 채워 로그인 시
   프로필 온보딩 화면으로 되돌아가지 않는다(`isCompleteProfileFields`/`isProfileComplete` 계약과 동일 —
   ADMIN도 이름은 항상 필수다). `displayName`이 없으면 이름은 비워 두며, 이 경우 그 계정은 여전히
   온보딩 미완료로 남는다(정책을 완화하지 않는다).

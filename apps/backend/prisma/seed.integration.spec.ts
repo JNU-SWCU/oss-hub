@@ -565,11 +565,17 @@ describe('seed profile=oss-hub contract (integration)', () => {
           accountStatus: AccountStatus.ACTIVE,
         },
       ]);
-      // 관리자 시드는 회원 유형을 지어내지 않는다 — 그래서 프로필 행이 없고, 이들은
-      // 로그인 뒤 자기 유형을 직접 고른다. 그 사실을 여기서 고정한다.
+      // 관리자 권한은 회원 유형과 독립적이며 이름은 canonical UserProfile에 있다.
+      expect(configuredUsers.map((user) => user.profile?.name)).toEqual([
+        '시드운영자알파',
+        '시드운영자베타',
+        '시드운영자감마',
+        '시드운영자델타',
+      ]);
       for (const configuredUser of configuredUsers) {
         expect(configuredUser.hasAdminAccess).toBe(true);
         expect(configuredUser.hasStaffAccess).toBe(false);
+        expect(configuredUser.name).toBeNull();
       }
       // Consent — 4명 모두 현행 정책 버전으로 동의 완료 상태다.
       expect(configuredUsersConsentCount).toBe(4);
