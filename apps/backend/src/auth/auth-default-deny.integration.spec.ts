@@ -26,6 +26,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
 const activeUser: AuthUser = {
+  name: null,
   id: 'synthetic-default-deny-user',
   githubId,
   nickname: 'synthetic-user',

@@ -17,6 +17,7 @@ import { LoginHistoryService } from '../login-history/login-history.service';
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
 const activeUser: AuthUser = {
+  name: null,
   id: 'synthetic-session-contract-user',
   githubId,
   nickname: 'synthetic-user',

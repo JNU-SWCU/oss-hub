@@ -99,6 +99,10 @@ export function createProgramEditorServiceHarness(): {
   };
   store.findUserAuthorityByGithubId.mockResolvedValue({
     role: Role.STAFF,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     staffAccessRequests: [],
   });
