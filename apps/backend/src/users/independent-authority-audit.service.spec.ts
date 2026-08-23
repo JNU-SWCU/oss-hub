@@ -50,6 +50,8 @@ class AuditAuthorityStore
       githubLogin: 'synthetic-admin',
       name: '합성 관리자',
       role: Role.ADMIN,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     });
   }

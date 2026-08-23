@@ -15,13 +15,17 @@ describe('ApplicationsStaffGuard', () => {
 
   beforeEach(() => findUnique.mockReset());
 
-  it.each([Role.STAFF, Role.ADMIN])(
-    '%s 역할을 허용하고 처리자 ID를 붙인다',
-    async (role) => {
+  it.each([
+    ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
+    'canonical %s 접근권을 허용하고 처리자 ID를 붙인다',
+    async (_label, access) => {
       // Given
       findUnique.mockResolvedValue({
         id: 'synthetic-actor',
-        role,
+        role: null,
+        ...access,
         accountStatus: AccountStatus.ACTIVE,
       });
       const request: {
@@ -40,11 +44,61 @@ describe('ApplicationsStaffGuard', () => {
     },
   );
 
+  it.each([Role.STAFF, Role.ADMIN])(
+    'canonical 컬럼이 비어 있으면 legacy %s 역할로 허용한다',
+    async (role) => {
+      // Given
+      findUnique.mockResolvedValue({
+        id: 'synthetic-actor',
+        role,
+        hasStaffAccess: null,
+        hasAdminAccess: null,
+        accountStatus: AccountStatus.ACTIVE,
+      });
+      const request: {
+        sessionGithubId: bigint;
+        applicationActorId?: string;
+      } = { sessionGithubId: 1001n };
+      const context = new ExecutionContextHost([request]);
+      context.setType('http');
+
+      // When
+      const allowed = await guard.canActivate(context);
+
+      // Then
+      expect(allowed).toBe(true);
+      expect(request.applicationActorId).toBe('synthetic-actor');
+    },
+  );
+
+  it('legacy 역할이 STAFF여도 canonical 접근권이 없으면 403으로 거부한다', async () => {
+    // Given
+    findUnique.mockResolvedValue({
+      id: 'synthetic-actor',
+      role: Role.STAFF,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    const context = new ExecutionContextHost([{ sessionGithubId: 1004n }]);
+    context.setType('http');
+
+    // When / Then
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.STAFF_ONLY,
+        status: 403,
+      },
+    });
+  });
+
   it.each([Role.STUDENT, null])('%s 역할은 403으로 거부한다', async (role) => {
     // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
       role,
+      hasStaffAccess: null,
+      hasAdminAccess: null,
       accountStatus: AccountStatus.ACTIVE,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 1002n }]);
@@ -73,6 +127,8 @@ describe('ApplicationsStaffGuard', () => {
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
       role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 1003n }]);
@@ -115,6 +171,8 @@ describe('ApplicationsStaffListGuard', () => {
     findUnique.mockResolvedValue({
       id: 'synthetic-student',
       role: Role.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     const context = new ExecutionContextHost([{ sessionGithubId: 2001n }]);
@@ -138,7 +196,9 @@ describe('ApplicationsStaffListGuard', () => {
   it('ACTIVE STAFF 를 허용한다', async () => {
     findUnique.mockResolvedValue({
       id: 'synthetic-staff',
-      role: Role.STAFF,
+      role: null,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     const request: {

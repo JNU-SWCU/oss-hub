@@ -28,6 +28,8 @@ class AuthorityStore
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
     role: Role.ADMIN,
+    hasStaffAccess: true,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
   target: IndependentAuthorityUserRecord | null = target();
@@ -106,6 +108,8 @@ it('rejects a non-admin actor before writing', async () => {
     githubLogin: 'synthetic-staff',
     name: '합성 교직원',
     role: Role.STAFF,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   };
   const service = new IndependentAuthorityService(store, noopAuditLog());

@@ -42,7 +42,11 @@ function expectThrownCode(run: () => void, code: string, status: number): void {
 
 describe('requireActiveStaffOrAdmin', () => {
   it('allows an active STAFF actor', () => {
-    const actor = adminActor({ id: 'staff', role: Role.STAFF });
+    const actor = adminActor({
+      id: 'staff',
+      role: Role.STAFF,
+      hasAdminAccess: false,
+    });
     expect(requireActiveStaffOrAdmin(actor)).toBe(actor);
   });
 
@@ -61,7 +65,11 @@ describe('requireActiveStaffOrAdmin', () => {
     ],
     [
       'student',
-      adminActor({ role: Role.STUDENT }),
+      adminActor({
+        role: Role.STUDENT,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],
@@ -73,7 +81,81 @@ describe('requireActiveStaffOrAdmin', () => {
 describe('requireActiveAdmin', () => {
   it('still rejects STAFF', () => {
     expectThrownCode(
-      () => requireActiveAdmin(adminActor({ role: Role.STAFF })),
+      () =>
+        requireActiveAdmin(
+          adminActor({ role: Role.STAFF, hasAdminAccess: false }),
+        ),
+      RolesErrorCode.ADMIN_ONLY,
+      403,
+    );
+  });
+});
+
+/**
+ * canonical `hasStaffAccess`·`hasAdminAccess`가 legacy `role`과 **엇갈릴 때** 어느 쪽을
+ * 따르는가 — 이 모듈이 canonical로 옮겨졌다는 주장은 오직 여기서만 증명된다.
+ * 둘이 같은 행만 쓰면 legacy 비교로 되돌려도 전부 초록으로 남아 이전이 무효화된다.
+ *
+ * 이 불일치는 상상이 아니다 — 독립 권한 부여(`independent-authority-transition.ts`)는
+ * `role`을 그대로 둔 채 canonical 칸만 바꿀 수 있고, backfill 이전 행은 그 반대다.
+ */
+describe('canonical access fields outrank legacy role', () => {
+  it('grants admin authorization on hasAdminAccess even when the role says STAFF', () => {
+    const actor = adminActor({ role: Role.STAFF, hasAdminAccess: true });
+
+    expect(requireActiveAdmin(actor)).toBe(actor);
+    expect(isAdminActor(actor)).toBe(true);
+  });
+
+  it('denies admin authorization without hasAdminAccess even when the role says ADMIN', () => {
+    const actor = adminActor({ role: Role.ADMIN, hasAdminAccess: false });
+
+    expectThrownCode(
+      () => requireActiveAdmin(actor),
+      RolesErrorCode.ADMIN_ONLY,
+      403,
+    );
+    expect(isAdminActor(actor)).toBe(false);
+  });
+
+  it('grants staff authorization on hasStaffAccess even when the role says STUDENT', () => {
+    const actor = adminActor({
+      role: Role.STUDENT,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
+
+    expect(requireActiveStaffOrAdmin(actor)).toBe(actor);
+  });
+
+  it('denies staff authorization without either access flag even when the role says ADMIN', () => {
+    expectThrownCode(
+      () =>
+        requireActiveStaffOrAdmin(
+          adminActor({
+            role: Role.ADMIN,
+            hasStaffAccess: false,
+            hasAdminAccess: false,
+          }),
+        ),
+      RolesErrorCode.ADMIN_ONLY,
+      403,
+    );
+  });
+
+  it('routes STAFF-only mutation limits by hasAdminAccess, not by the role column', () => {
+    // role은 ADMIN이지만 canonical로는 관리자가 아니므로 STAFF 제약을 받는다.
+    expectThrownCode(
+      () =>
+        assertAccessMutationAllowed(
+          adminActor({
+            id: 'demoted',
+            role: Role.ADMIN,
+            hasAdminAccess: false,
+          }),
+          'target',
+          SET_ROLE_COMMAND,
+        ),
       RolesErrorCode.ADMIN_ONLY,
       403,
     );
@@ -84,7 +166,7 @@ describe('assertAccessMutationAllowed', () => {
   it('allows STAFF to approve another user', () => {
     expect(() =>
       assertAccessMutationAllowed(
-        adminActor({ id: 'staff', role: Role.STAFF }),
+        adminActor({ id: 'staff', role: Role.STAFF, hasAdminAccess: false }),
         'target',
         APPROVE_COMMAND,
       ),
@@ -95,7 +177,7 @@ describe('assertAccessMutationAllowed', () => {
     expectThrownCode(
       () =>
         assertAccessMutationAllowed(
-          adminActor({ id: 'staff', role: Role.STAFF }),
+          adminActor({ id: 'staff', role: Role.STAFF, hasAdminAccess: false }),
           'target',
           SET_ROLE_COMMAND,
         ),
@@ -108,7 +190,7 @@ describe('assertAccessMutationAllowed', () => {
     expectThrownCode(
       () =>
         assertAccessMutationAllowed(
-          adminActor({ id: 'target', role: Role.STAFF }),
+          adminActor({ id: 'target', role: Role.STAFF, hasAdminAccess: false }),
           'target',
           APPROVE_COMMAND,
         ),
@@ -146,6 +228,8 @@ describe('assertAccessMutationAllowed', () => {
 
   it('isAdminActor is true only for ADMIN', () => {
     expect(isAdminActor(adminActor())).toBe(true);
-    expect(isAdminActor(adminActor({ role: Role.STAFF }))).toBe(false);
+    expect(
+      isAdminActor(adminActor({ role: Role.STAFF, hasAdminAccess: false })),
+    ).toBe(false);
   });
 });

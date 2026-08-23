@@ -35,9 +35,11 @@ describe('공개 메뉴 단일 원본 (상단 전담)', () => {
   });
 
   it('프로그램 섹션 좌측에는 상태 필터만 있고 아카이브·랭킹 href는 없다', () => {
-    const hrefs = sidebarGroupsFor('programs', 'STUDENT').flatMap((g) =>
-      g.items.map((i) => i.href),
-    );
+    const hrefs = sidebarGroupsFor('programs', {
+      memberKind: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+    }).flatMap((g) => g.items.map((i) => i.href));
     expect(
       hrefs.some((h) => h === '/programs' || h.startsWith('/programs?')),
     ).toBe(true);

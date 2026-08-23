@@ -17,8 +17,20 @@ vi.mock('next/link', () => ({
 }));
 
 import { AppSidebar, formatSidebarCount } from './app-sidebar';
+import type { MemberAccess } from './member-access';
 import { RankingCycleProvider } from './ranking-cycle-context';
 import { sidebarBrandTitle, sidebarGroupsFor } from './sidebar-menu';
+
+const STUDENT: MemberAccess = {
+  memberKind: 'STUDENT',
+  hasStaffAccess: false,
+  hasAdminAccess: false,
+};
+const STAFF_ADMIN: MemberAccess = {
+  memberKind: 'STAFF',
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+};
 
 function render(
   pathname: string,
@@ -26,10 +38,10 @@ function render(
   search = '',
   section: 'programs' | 'dashboard' = 'programs',
 ) {
-  const role = section === 'dashboard' ? 'STUDENT' : null;
+  const access = section === 'dashboard' ? STUDENT : null;
   return renderToStaticMarkup(
     <AppSidebar
-      groups={sidebarGroupsFor(section, role)}
+      groups={sidebarGroupsFor(section, access)}
       pathname={pathname}
       search={search}
       collapsed={collapsed}
@@ -151,8 +163,8 @@ describe('AppSidebar', () => {
     );
   });
 
-  it('ADMIN dashboard shows two group labels and keeps brand 대시보드', () => {
-    const groups = sidebarGroupsFor('dashboard', 'ADMIN');
+  it('staff+admin dashboard shows two group labels and keeps brand 대시보드', () => {
+    const groups = sidebarGroupsFor('dashboard', STAFF_ADMIN);
     const html = renderToStaticMarkup(
       <AppSidebar
         groups={groups}
@@ -213,7 +225,7 @@ describe('AppSidebar', () => {
     const dashboard = renderToStaticMarkup(
       <RankingCycleProvider initialNextCycleAt="2026-08-21T00:00:00.000Z">
         <AppSidebar
-          groups={sidebarGroupsFor('dashboard', 'STUDENT')}
+          groups={sidebarGroupsFor('dashboard', STUDENT)}
           pathname="/dashboard"
           search=""
           collapsed={false}

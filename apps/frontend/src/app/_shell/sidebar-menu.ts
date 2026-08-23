@@ -14,13 +14,9 @@ import {
   type ProgramListStatus,
 } from '@/features/programs/types';
 import { RANKING_YEAR_ALL, rankingListHref } from '@/features/ranking/types';
-import type { AppRole } from './role';
-import {
-  ADMIN_STAFF_MENU,
-  ADMIN_SYSTEM_MENU,
-  STAFF_MENU,
-  STUDENT_MENU,
-} from './role-menus';
+import type { MemberAccess, MemberSurface } from './member-access';
+import { memberSurfaces } from './member-access';
+import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import {
   facetSectionFromHrefPath,
   SECTION_FACETS,
@@ -366,14 +362,24 @@ export function rankingSidebarGroup(
 
 export const DASHBOARD_SIDEBAR_BRAND = '대시보드';
 
-const ROLE_GROUP_LABEL: Readonly<Record<'STUDENT' | 'STAFF', string>> = {
-  STUDENT: '대시보드',
-  STAFF: '교직원',
-};
-
-const ROLE_MENU: Readonly<Record<'STUDENT' | 'STAFF', readonly NavItem[]>> = {
-  STUDENT: STUDENT_MENU,
-  STAFF: STAFF_MENU,
+/**
+ * 대시보드 좌측 패널의 surface별 그룹 — 회원 종류(`memberKind`)와 권한
+ * (`hasStaffAccess`·`hasAdminAccess`)이 각각 자기 그룹 하나를 켠다.
+ *
+ * legacy `User.role`은 세 값이 배타적이라 교직원 권한을 가진 학생이나 관리자
+ * 권한만 있는 계정을 표현할 수 없었다 — 그래서 `ADMIN`이 교직원 메뉴까지
+ * 끌고 오는 식으로 권한을 함축했다. canonical 필드는 서로 독립이므로 여기서도
+ * surface마다 한 그룹씩 붙이고 합집합만 만든다. 권한 함축은 만들지 않는다.
+ */
+const SURFACE_GROUPS: Readonly<
+  Record<
+    MemberSurface,
+    { readonly label: string; readonly menu: readonly NavItem[] }
+  >
+> = {
+  student: { label: '대시보드', menu: STUDENT_MENU },
+  staff: { label: '교직원', menu: STAFF_MENU },
+  admin: { label: '관리자', menu: ADMIN_SYSTEM_MENU },
 };
 
 export function sidebarBrandTitle(
@@ -408,12 +414,13 @@ export function shellSectionFromPathname(pathname: string): ShellSection {
 
 /**
  * 현재 섹션 하나의 그룹만 반환 (컨텍스트형).
- * 비회원도 programs/archive/ranking 하위는 본다.
- * programs/archive/ranking 은 SECTION_FACETS 레지스트리; dashboard 는 역할 메뉴.
+ * 비회원도 programs/archive/ranking 하위는 본다 — 그래서 `access`는 dashboard에서만 읽는다.
+ * programs/archive/ranking 은 SECTION_FACETS 레지스트리; dashboard 는 canonical 권한으로
+ * 고른 surface 그룹의 합집합(`SURFACE_GROUPS`)이다.
  */
 export function sidebarGroupsFor(
   section: ShellSection,
-  role: AppRole | null,
+  access: MemberAccess | null,
   options?: {
     readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
     readonly archiveCounts?: Partial<ArchiveCategoryCounts>;
@@ -422,19 +429,11 @@ export function sidebarGroupsFor(
   },
 ): readonly SidebarGroup[] {
   if (section === 'dashboard') {
-    if (role === null) return [];
-    if (role === 'ADMIN') {
-      return [
-        { label: '교직원', items: withIcons(ADMIN_STAFF_MENU, 0) },
-        { label: '관리자', items: withIcons(ADMIN_SYSTEM_MENU, 0) },
-      ];
-    }
-    return [
-      {
-        label: ROLE_GROUP_LABEL[role],
-        items: withIcons(ROLE_MENU[role], 0),
-      },
-    ];
+    if (access === null) return [];
+    return memberSurfaces(access).map((surface) => ({
+      label: SURFACE_GROUPS[surface].label,
+      items: withIcons(SURFACE_GROUPS[surface].menu, 0),
+    }));
   }
   if (section === null) return [];
 

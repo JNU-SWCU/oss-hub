@@ -1,6 +1,39 @@
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 
+/**
+ * 전이표가 읽는 접근 권한 — 이 모듈의 판정은 전부 이 두 칸을 거친다.
+ *
+ * 표의 좌표는 여전히 legacy `Role`이다 — 그것은 변경 명령의 선후 상태를 싣는
+ * **외부 계약**(`AdminAccessMutationCommand`의 `expectedRole`·`desiredRole`)이라 임의로
+ * 바꿀 수 없다. 바뀌는 것은 그 좌표를 **무엇으로 읽느냐**다: 역할 enum을 직접
+ * 비교하는 대신, 그 역할이 뜻하는 canonical 접근 권한으로 환산해 판정한다. 그래야
+ * 인가 판정(`admin-access-authorization.ts`)·쓰기 파생(`admin-access-authority-write.ts`)과
+ * 같은 어휘를 쓰고, 좌표가 canonical 칸로 옮겨갈 때 본문을 다시 쓰지 않는다.
+ */
+type AccessAuthority = {
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+function accessAuthorityOfRole(role: Role | null): AccessAuthority {
+  switch (role) {
+    case Role.ADMIN:
+      return { hasStaffAccess: true, hasAdminAccess: true };
+    case Role.STAFF:
+      return { hasStaffAccess: true, hasAdminAccess: false };
+    case Role.STUDENT:
+    case null:
+      return { hasStaffAccess: false, hasAdminAccess: false };
+  }
+}
+
+/** 관리자 권한 없이 교직원 접근만 가진 상태 — 승인·회수가 다루는 바로 그 부여다. */
+function isStaffOnlyAccess(role: Role | null): boolean {
+  const authority = accessAuthorityOfRole(role);
+  return authority.hasStaffAccess && !authority.hasAdminAccess;
+}
+
 export const ADMIN_ACCESS_PENDING_STATES = {
   NONE: 'NONE',
   PENDING: 'PENDING',
@@ -191,12 +224,12 @@ function classifyTransition(
         ? denied(RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED, 409)
         : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
     case ADMIN_ACCESS_DECISION_KINDS.APPROVE:
-      return desired.role === Role.STAFF &&
+      return isStaffOnlyAccess(desired.role) &&
         desired.accountStatus === AccountStatus.ACTIVE
         ? allowed(current, desired, ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED)
         : denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
     case ADMIN_ACCESS_DECISION_KINDS.REJECT:
-      return current.role !== Role.STAFF && desired.role === Role.STAFF
+      return !isStaffOnlyAccess(current.role) && isStaffOnlyAccess(desired.role)
         ? denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400)
         : allowed(current, desired, ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED);
     default: {
@@ -218,7 +251,7 @@ function classifyTransition(
  */
 function isRevocable(current: AdminAccessTableCurrentState): boolean {
   return (
-    current.role === Role.STAFF &&
+    isStaffOnlyAccess(current.role) &&
     current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE
   );
 }
@@ -234,7 +267,7 @@ function directRequestEffect(
   current: AdminAccessTableCurrentState,
   desired: AdminAccessTableDesiredState,
 ): AdminAccessRequestEffect {
-  return current.role === Role.STAFF && desired.role === null
+  return isStaffOnlyAccess(current.role) && desired.role === null
     ? ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED
     : ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED;
 }
@@ -255,9 +288,9 @@ function allowed(
       current.accountStatus === AccountStatus.ACTIVE &&
       desired.accountStatus === AccountStatus.DEACTIVATED,
     requiresLastActiveAdminGuard:
-      current.role === Role.ADMIN &&
+      accessAuthorityOfRole(current.role).hasAdminAccess &&
       current.accountStatus === AccountStatus.ACTIVE &&
-      (desired.role !== Role.ADMIN ||
+      (!accessAuthorityOfRole(desired.role).hasAdminAccess ||
         desired.accountStatus !== AccountStatus.ACTIVE),
   };
 }

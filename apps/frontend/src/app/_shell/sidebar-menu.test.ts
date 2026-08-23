@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
+import type { MemberAccess } from './member-access';
 import { STAFF_MENU, STUDENT_MENU } from './role-menus';
 import {
   archiveSidebarGroup,
@@ -14,6 +15,28 @@ import {
   sidebarBrandTitle,
   sidebarGroupsFor,
 } from './sidebar-menu';
+
+const STUDENT: MemberAccess = {
+  memberKind: 'STUDENT',
+  hasStaffAccess: false,
+  hasAdminAccess: false,
+};
+const STAFF: MemberAccess = {
+  memberKind: 'STAFF',
+  hasStaffAccess: true,
+  hasAdminAccess: false,
+};
+const STAFF_ADMIN: MemberAccess = {
+  memberKind: 'STAFF',
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+};
+
+function dashboardHrefs(access: MemberAccess): readonly string[] {
+  return sidebarGroupsFor('dashboard', access).flatMap((group) =>
+    group.items.map((item) => item.href),
+  );
+}
 
 describe('shellSectionFromPathname', () => {
   it('maps paths to sections', () => {
@@ -31,7 +54,7 @@ describe('shellSectionFromPathname', () => {
 
 describe('sidebarGroupsFor (context)', () => {
   it('programs section only — no role menu mixed in', () => {
-    const groups = sidebarGroupsFor('programs', 'STUDENT');
+    const groups = sidebarGroupsFor('programs', STUDENT);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('프로그램 메뉴');
     expect(groups[0]?.items.map((i) => i.label)).toEqual([
@@ -62,7 +85,7 @@ describe('sidebarGroupsFor (context)', () => {
   });
 
   it('dashboard section is role menus only including activity', () => {
-    const groups = sidebarGroupsFor('dashboard', 'STUDENT');
+    const groups = sidebarGroupsFor('dashboard', STUDENT);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('대시보드');
     expect(
@@ -79,7 +102,7 @@ describe('sidebarGroupsFor (context)', () => {
       { label: '학생 활성', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
     ]);
-    const groups = sidebarGroupsFor('dashboard', 'STAFF');
+    const groups = sidebarGroupsFor('dashboard', STAFF);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('교직원');
     expect(groups[0]?.items).toHaveLength(3);
@@ -88,8 +111,8 @@ describe('sidebarGroupsFor (context)', () => {
     ).not.toContainEqual({ label: '사용자 목록', href: '/admin/access' });
   });
 
-  it('ADMIN 대시보드는 교직원·관리자 두 그룹이고 입구는 /dashboard다', () => {
-    const groups = sidebarGroupsFor('dashboard', 'ADMIN');
+  it('교직원·관리자 권한을 함께 가지면 두 그룹이고 입구는 /dashboard다', () => {
+    const groups = sidebarGroupsFor('dashboard', STAFF_ADMIN);
     expect(groups).toHaveLength(2);
     expect(groups[0]?.label).toBe('교직원');
     expect(
@@ -112,13 +135,65 @@ describe('sidebarGroupsFor (context)', () => {
     ).not.toContain('/staff/dashboard');
   });
 
-  it('dashboard without role is empty', () => {
+  it.each([
+    [
+      'student-admin',
+      { memberKind: 'STUDENT', hasStaffAccess: false, hasAdminAccess: true },
+      [
+        '/dashboard',
+        '/my-repos',
+        '/dashboard/activity',
+        '/admin/access',
+        '/admin/audit-log',
+        '/admin/system-status',
+      ],
+    ],
+    [
+      'staff-admin',
+      STAFF_ADMIN,
+      [
+        '/dashboard',
+        '/dashboard/insights',
+        '/dashboard/applicants',
+        '/admin/access',
+        '/admin/audit-log',
+        '/admin/system-status',
+      ],
+    ],
+    [
+      'admin-only',
+      { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
+      ['/admin/access', '/admin/audit-log', '/admin/system-status'],
+    ],
+  ] satisfies readonly [string, MemberAccess, readonly string[]][])(
+    '%s surface를 권한 함축 없이 합집합으로 보인다',
+    (_, access, expected) => {
+      // Given: canonical 회원·권한 쌍.
+      // When: 대시보드 그룹을 조립한다.
+      const actual = dashboardHrefs(access);
+      // Then: 정확히 그 합집합만 한 번씩 노출된다.
+      expect(actual).toEqual(expected);
+    },
+  );
+
+  it('교직원 회원이어도 교직원 권한이 없으면 운영 메뉴가 없다', () => {
+    // Given: 승인 대기·회수로 권한만 빠진 STAFF 회원.
+    const pendingStaff: MemberAccess = {
+      memberKind: 'STAFF',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+    };
+    // When / Then: 열어 줄 업무 메뉴가 없다.
+    expect(dashboardHrefs(pendingStaff)).toEqual([]);
+  });
+
+  it('dashboard without access is empty', () => {
     expect(sidebarGroupsFor('dashboard', null)).toEqual([]);
   });
 
   it('dashboard brand stays 대시보드 when group labels are role names', () => {
-    const adminGroups = sidebarGroupsFor('dashboard', 'ADMIN');
-    const staffGroups = sidebarGroupsFor('dashboard', 'STAFF');
+    const adminGroups = sidebarGroupsFor('dashboard', STAFF_ADMIN);
+    const staffGroups = sidebarGroupsFor('dashboard', STAFF);
     expect(sidebarBrandTitle('dashboard', adminGroups)).toBe('대시보드');
     expect(sidebarBrandTitle('dashboard', staffGroups)).toBe('대시보드');
     expect(
@@ -126,10 +201,8 @@ describe('sidebarGroupsFor (context)', () => {
     ).toBe('프로그램 메뉴');
   });
 
-  it('STAFF 메뉴에 관리자 경로가 없다', () => {
-    const hrefs = sidebarGroupsFor('dashboard', 'STAFF').flatMap((group) =>
-      group.items.map((item) => item.href),
-    );
+  it('교직원 메뉴에 관리자 경로가 없다', () => {
+    const hrefs = dashboardHrefs(STAFF);
     expect(hrefs.every((href) => !href.startsWith('/admin/'))).toBe(true);
   });
 
