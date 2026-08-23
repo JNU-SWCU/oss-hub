@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind, ProgramCategory, RepositoryConnectionMode, TeamInvitationStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind, ProgramCategory, RepositoryConnectionMode, TeamInvitationStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsRepository } from '../applications/applications.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,18 +33,20 @@ async function seedFixture(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_301_000_001n,
         nickname: 'acceptance-race-leader',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_301_000_002n,
         nickname: 'acceptance-race-invitee',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],
   });
+  await prisma.userProfile.createMany({ data: [
+      { userId: LEADER_ID, name: 'Synthetic user', studentId: '000001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: INVITEE_ID, name: 'Synthetic user', studentId: '000002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+  ] });
   await prisma.program.create({
     data: {
       id: PROGRAM_ID,

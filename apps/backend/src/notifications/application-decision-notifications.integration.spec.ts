@@ -47,7 +47,6 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
           id,
           githubId,
           nickname: `${id}-login`,
-          selectedMemberKind: MemberKind.STUDENT,
         };
       }),
     });

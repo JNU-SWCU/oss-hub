@@ -103,18 +103,20 @@ describe('ApplicationsService integration', () => {
           id: ACTOR_ID,
           githubId: 8_000_000_000_001n,
           nickname: 'Synthetic-Staff',
-          selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,
         },
         {
           id: APPLICANT_ID,
           githubId: APPLICANT_GITHUB_ID,
           nickname: 'Synthetic-Applicant',
-          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
     });
   });
+  await prisma.userProfile.createMany({ data: [
+      { userId: ACTOR_ID, name: 'Synthetic user', studentId: '000001', department: 'Synthetic department', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: APPLICANT_ID, name: 'Synthetic user', studentId: '000002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+  ] });
 
   afterEach(async () => {
     await prisma.notification.deleteMany({

@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind, ProgramCategory, TeamInvitationStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind, ProgramCategory, TeamInvitationStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -44,28 +44,24 @@ async function seedEligibilityFixture(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_300_000_001n,
         nickname: 'eligibility-leader',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_300_000_002n,
         nickname: 'eligibility-invitee',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: ACTIVE_STUDENT_ID,
         githubId: 9_300_000_003n,
         nickname: `${CANDIDATE_QUERY}-student`,
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: STAFF_ID,
         githubId: 9_300_000_004n,
         nickname: `${CANDIDATE_QUERY}-staff`,
-        selectedMemberKind: MemberKind.STAFF,
         hasStaffAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
@@ -80,18 +76,24 @@ async function seedEligibilityFixture(): Promise<void> {
         id: DEACTIVATED_STUDENT_ID,
         githubId: 9_300_000_006n,
         nickname: `${CANDIDATE_QUERY}-deactivated`,
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.DEACTIVATED,
       },
       {
         id: UNASSIGNED_ROLE_ID,
         githubId: 9_300_000_007n,
         nickname: `${CANDIDATE_QUERY}-unassigned`,
-        selectedMemberKind: null,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],
   });
+  await prisma.userProfile.createMany({ data: [
+      { userId: LEADER_ID, name: 'Synthetic user', studentId: '000001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: INVITEE_ID, name: 'Synthetic user', studentId: '000002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: ACTIVE_STUDENT_ID, name: 'Synthetic user', studentId: '000003', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: STAFF_ID, name: 'Synthetic user', studentId: '000004', department: 'Synthetic department', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: ADMIN_ID, name: 'Synthetic user', studentId: null, department: 'Synthetic department', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: DEACTIVATED_STUDENT_ID, name: 'Synthetic user', studentId: '000006', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+  ] });
   await prisma.program.create({
     data: {
       id: PROGRAM_ID,
