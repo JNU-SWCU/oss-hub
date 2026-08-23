@@ -77,6 +77,7 @@ const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
 const roleUnselectedUserId = AUTH_SCENARIOS['user-role-unselected'];
 const profileCompleteUserId = AUTH_SCENARIOS['profile-complete'];
 const staffPendingUserId = AUTH_SCENARIOS['staff-pending'];
+const staffPendingSecondUserId = AUTH_SCENARIOS['staff-pending-second'];
 const staffRejectedUserId = AUTH_SCENARIOS['staff-rejected'];
 const staffRevokedUserId = AUTH_SCENARIOS['staff-revoked'];
 const staffRevocableUserId = AUTH_SCENARIOS['staff-revocable'];
@@ -1658,6 +1659,7 @@ describe('issue-99 auth seed contract', () => {
         roleUnselectedRows,
         profileComplete,
         staffPending,
+        staffPendingSecond,
         staffRejected,
         staffRevoked,
       ] = await Promise.all([
@@ -1671,6 +1673,9 @@ describe('issue-99 auth seed contract', () => {
         }),
         prisma.userProfile.findUniqueOrThrow({
           where: { userId: staffPendingUserId },
+        }),
+        prisma.userProfile.findUniqueOrThrow({
+          where: { userId: staffPendingSecondUserId },
         }),
         prisma.userProfile.findUniqueOrThrow({
           where: { userId: staffRejectedUserId },
@@ -1694,12 +1699,22 @@ describe('issue-99 auth seed contract', () => {
         studentId: ['20', '2601'].join(''),
         department: '인공지능학부',
       });
+      // 승인 대기·반려는 접근 권한만 가른다 — 회원 유형은 STAFF로 남아야 한다.
+      // 학번이 채워져 있으면 시드의 studentId→memberKind 규칙이 그 둘을 STUDENT로
+      // 뒤집어, 교직원 신청자가 세션상 학생 권한을 가진다.
       expect(staffPending).toMatchObject({
-        studentId: '202602',
+        memberKind: MemberKind.STAFF,
+        studentId: null,
         department: '인공지능학부',
       });
+      expect(staffPendingSecond).toMatchObject({
+        memberKind: MemberKind.STAFF,
+        studentId: null,
+        department: '소프트웨어공학과',
+      });
       expect(staffRejected).toMatchObject({
-        studentId: '202604',
+        memberKind: MemberKind.STAFF,
+        studentId: null,
         department: '컴퓨터공학과',
       });
       expect(staffRevoked).toMatchObject({

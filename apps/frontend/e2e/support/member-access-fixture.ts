@@ -75,12 +75,17 @@ export async function installOnboardingFixture(
     const method = request.method();
 
     if (pathname.endsWith('/auth/session')) {
+      // 가입을 마치면 회원 유형과 프로필은 둘 다 확정된다 — 교직원도 예외가 아니다.
+      // 승인을 기다리는 것은 **접근 권한**(`hasStaffAccess`)뿐이라, 프로필을
+      // 미완료로 내려보내면 저장을 마친 사용자가 프로필 단계로 되돌아가
+      // 무한히 같은 화면을 다시 본다. 실제 백엔드도 저장된 프로필 행으로
+      // `isProfileComplete`를 계산한다(`auth.repository.ts`의 `toDomain`).
       const authority: SyntheticAuthority = {
         role: completed && selectedKind === 'STUDENT' ? 'STUDENT' : null,
         memberKind: completed ? selectedKind : null,
         hasStaffAccess: false,
         hasAdminAccess: false,
-        isProfileComplete: completed && selectedKind === 'STUDENT',
+        isProfileComplete: savedProfile.isComplete,
       };
       await fulfillJson(route, sessionBody(authority));
       return;
@@ -146,17 +151,24 @@ export async function installUnassignedFixture(
   setRequestStatus: (status: 'NONE' | 'REJECTED' | 'REVOKED') => void;
 }> {
   let requestStatus = initialRequestStatus;
+  // 가입을 마친 사람과 시작도 안 한 사람은 다른 사람이다.
+  // - NONE: 아직 아무것도 고르지 않았다 — 회원 유형도 프로필도 없다.
+  // - REJECTED·REVOKED: 가입을 마친 교직원이다. 반려·회수는 **접근 권한만**
+  //   거두고 회원 유형과 프로필은 그대로 남기므로(정본 계약), 프로필을 미완료로
+  //   내려보내면 이미 입력한 이름·학과를 다시 받는 화면으로 되돌아간다.
   await page.route('**/api/v1/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
+    // `setRequestStatus`로 상태가 바뀌므로 요청마다 다시 계산한다.
+    const isSettledMember = requestStatus !== 'NONE';
     if (pathname.endsWith('/auth/session')) {
       await fulfillJson(
         route,
         sessionBody({
           role: null,
-          memberKind: requestStatus === 'NONE' ? null : 'STAFF',
+          memberKind: isSettledMember ? 'STAFF' : null,
           hasStaffAccess: false,
           hasAdminAccess: false,
-          isProfileComplete: false,
+          isProfileComplete: isSettledMember,
         }),
       );
       return;
