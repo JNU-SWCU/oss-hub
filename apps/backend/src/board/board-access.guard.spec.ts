@@ -28,13 +28,16 @@ describe('BoardAccessGuard', () => {
     findFirstApplication.mockReset();
   });
 
-  it.each(['STAFF', 'ADMIN'])(
+  it.each([
+    ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
     '%s 역할은 참여 여부와 무관하게 허용하고 boardActorIsStaff=true를 붙인다',
-    async (role) => {
+    async (_label, access) => {
       // Given
       findUniqueUser.mockResolvedValue({
         id: 'synthetic-staff-user',
-        role,
+        ...access,
         accountStatus: AccountStatus.ACTIVE,
       });
       const request = {

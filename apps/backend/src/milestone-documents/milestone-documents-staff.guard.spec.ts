@@ -10,13 +10,16 @@ describe('MilestoneDocumentsStaffGuard', () => {
 
   beforeEach(() => findUnique.mockReset());
 
-  it.each(['STAFF', 'ADMIN'])(
+  it.each([
+    ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
     '%s 역할을 허용하고 request에 milestoneDocumentActorId를 붙인다',
-    async (role) => {
+    async (_label, access) => {
       // Given: 활성 승인 교직원 또는 관리자다.
       findUnique.mockResolvedValue({
         id: 'staff-1',
-        role,
+        ...access,
         accountStatus: AccountStatus.ACTIVE,
       });
       const request: Partial<MilestoneDocumentsStaffRequest> = {

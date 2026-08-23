@@ -10,13 +10,16 @@ describe('ProgramTeamsStaffGuard', () => {
 
   beforeEach(() => findUnique.mockReset());
 
-  it.each(['STAFF', 'ADMIN'])(
+  it.each([
+    ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
     'ACTIVE %s 역할을 허용하고 actor id 를 요청에 붙인다',
-    async (role) => {
+    async (_label, access) => {
       // Given
       findUnique.mockResolvedValue({
         id: 'synthetic-staff',
-        role,
+...access,
         accountStatus: AccountStatus.ACTIVE,
       });
       const request: {
@@ -35,13 +38,12 @@ describe('ProgramTeamsStaffGuard', () => {
     },
   );
 
-  it.each(['STUDENT', null])(
-    '%s 역할은 TEAM_003 403 으로 거부한다',
-    async (role) => {
+  it('두 접근권이 모두 없으면 거부한다', async () => {
       // Given
       findUnique.mockResolvedValue({
         id: 'synthetic-actor',
-        role,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.ACTIVE,
       });
       const context = new ExecutionContextHost([{ sessionGithubId: 3002n }]);
@@ -51,8 +53,7 @@ describe('ProgramTeamsStaffGuard', () => {
       await expect(guard.canActivate(context)).rejects.toMatchObject({
         errorCode: { code: TeamsErrorCode.STAFF_ONLY, status: 403 },
       });
-    },
-  );
+  });
 
   it('비활성(DEACTIVATED) STAFF 계정은 TEAM_003 403 으로 거부한다', async () => {
     // Given
