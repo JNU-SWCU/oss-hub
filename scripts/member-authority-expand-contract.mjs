@@ -12,12 +12,12 @@ const EXPECTED_SQL = [
 /**
  * 이 검사는 **expand 마이그레이션 SQL만** 잠근다.
  *
- * 예전에는 그때의 `schema.prisma` 모양까지 함께 검사했다. 그 뒤로 스키마는 계속
- * 움직이는데(bridge가 접근 권한 두 칸을 잠그고, 다음 contract PR이 legacy Role을 지운다)
- * expand 마이그레이션 **파일 자체**는 이미 적용돼 다시는 바뀌지 않는다. 그래서 지나간
- * 릴리스의 스키마 모양을 여기서 요구하면 그 단언은 영원히 거짓이 된다 — 이 검사가
- * 지켜야 하는 것은 그 파일의 내용뿐이다. 지금 릴리스의 스키마 모양은
- * `member-authority-bridge-contract.mjs`가 따로 잠근다.
+ * 예전에는 그때의 `schema.prisma` 모양(nullable canonical 칸, legacy Role)까지 함께
+ * 검사했다. 계약(contract) 단계가 그 칸들을 NOT NULL로 잠그고 legacy Role을 지우면서
+ * 그 단언은 "지나간 릴리스의 스키마"를 요구하는 것이 되어 영원히 거짓이 된다 —
+ * expand 마이그레이션 파일 자체는 이미 적용돼 바뀌지 않으므로, 이 검사가 지켜야 하는
+ * 것은 그 파일의 내용뿐이다. 계약 단계의 스키마 모양은
+ * `member-authority-contract-contract.mjs`가 따로 잠근다.
  */
 
 function normalizeStatement(statement) {
