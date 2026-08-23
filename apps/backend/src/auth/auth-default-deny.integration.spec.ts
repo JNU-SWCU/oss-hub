@@ -187,7 +187,7 @@ describe('global default-deny authentication boundary', () => {
 
   it('passes a database-backed active principal to a representative service', async () => {
     // Given: a valid identity token and current mutable authority from the DB seam.
-    currentUser = { ...activeUser, role: 'STAFF' };
+    currentUser = { ...activeUser, memberKind: 'STAFF', hasStaffAccess: true };
 
     // When: the unannotated route is requested with the same identity token.
     const response = await fetch(

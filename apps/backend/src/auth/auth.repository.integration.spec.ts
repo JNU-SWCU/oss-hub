@@ -89,8 +89,6 @@ it('동시 최초 로그인은 GitHub 이름을 저장하지 않고 이후 로�
     prisma.user.update({
       where: { githubId },
       data: {
-        studentId: '1'.repeat(6),
-        department: 'Legacy Stale Department',
       },
     }),
     prisma.userProfile.create({
