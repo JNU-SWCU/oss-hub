@@ -38,7 +38,7 @@ const ROLE_REDIRECT_DIGEST = 'NEXT_REDIRECT;replace;/onboarding/role;307;';
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
-    role: null,
+    memberKind: null,
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -284,7 +284,7 @@ describe('ProfileOnboardingRoute', () => {
   it('역할이 배정된 사용자는 되돌리지 않는다', () => {
     const html = render({
       status: 'assigned',
-      role: 'STUDENT',
+      memberKind: 'STUDENT',
       memberKind: 'STUDENT',
     });
 
@@ -314,7 +314,7 @@ describe('ProfileOnboardingRoute', () => {
   it('역할이 확정되면 프로필 화면을 연다', () => {
     const html = render({
       status: 'assigned',
-      role: 'STUDENT',
+      memberKind: 'STUDENT',
       memberKind: 'STUDENT',
     });
 

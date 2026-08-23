@@ -65,7 +65,7 @@ describe('RoleGate 렌더', () => {
   function state(overrides: Partial<SessionRoleState>): SessionRoleState {
     return {
       status: 'loading',
-      role: null,
+      memberKind: null,
       memberKind: null,
       hasStaffAccess: false,
       hasAdminAccess: false,
@@ -207,7 +207,8 @@ describe('RoleGate 렌더', () => {
     const text = await render(
       {
         status: 'assigned',
-        role: 'STAFF',
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
         memberKind: 'STAFF',
         hasStaffAccess: true,
         isProfileComplete: true,

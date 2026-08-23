@@ -55,7 +55,7 @@ function snapshot(
 ): SessionRoleResult {
   return {
     status: 'unassigned',
-    role: null,
+    memberKind: null,
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,

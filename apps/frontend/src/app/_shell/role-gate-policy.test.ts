@@ -19,7 +19,7 @@ import {
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
-    role: null,
+    memberKind: null,
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,

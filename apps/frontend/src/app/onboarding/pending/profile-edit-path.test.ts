@@ -17,7 +17,7 @@ import type { SessionRoleState } from '../../_shell/use-session-role';
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'unassigned',
-    role: null,
+    memberKind: null,
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
