@@ -58,7 +58,7 @@ beforeAll(async () => {
       id: orderingUserIds.legacyAlpha,
       githubId: 8_003_900_001_002n,
       nickname: 'legacy-alpha',
-      profileName: null,
+      profileName: `Alpha ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
@@ -72,7 +72,7 @@ beforeAll(async () => {
       id: orderingUserIds.legacyCharlie,
       githubId: 8_003_900_001_004n,
       nickname: 'legacy-charlie',
-      profileName: null,
+      profileName: `Charlie ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
@@ -154,7 +154,7 @@ type SyntheticUser = {
 };
 
 function createUser(input: SyntheticUser) {
-  const profileStudentId = `${input.id}:student`;
+  const profileStudentId = String(input.githubId % 1_000_000n).padStart(6, '0');
   const profileDepartment = 'Synthetic department';
   return prisma.user.create({
     data: {

@@ -1,4 +1,4 @@
-import { MemberKind, ProgramCategory } from '@prisma/client';
+import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -95,12 +95,20 @@ describe('StudentApplicationManagementService integration races', () => {
         id: STUDENT_ID,
         githubId: GITHUB_ID,
         nickname: 'synthetic-student',
+        selectedMemberKind: MemberKind.STUDENT,
+        profile: {
+          create: {
+            name: 'Synthetic user',
+            studentId: '304001',
+            department: 'Synthetic department',
+            memberKind: MemberKind.STUDENT,
+            affiliationKind: AffiliationKind.DEPARTMENT,
+            affiliationName: 'Synthetic department',
+          },
+        },
       },
     });
   });
-  await prisma.userProfile.createMany({ data: [
-      { userId: STUDENT_ID, name: 'Synthetic user', studentId: '000001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-  ] });
 
   beforeEach(seedApplication);
 

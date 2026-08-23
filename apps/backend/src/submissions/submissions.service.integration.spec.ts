@@ -1,4 +1,4 @@
-import { ApplicationStatus, MemberKind, MilestoneSubmissionType, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
+import { AffiliationKind, ApplicationStatus, MemberKind, MilestoneSubmissionType, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -60,6 +60,19 @@ describe('SubmissionsService integration', () => {
         },
       ],
       skipDuplicates: true,
+    });
+    await prisma.userProfile.upsert({
+      where: { userId: UNAPPROVED_USER_ID },
+      update: {},
+      create: {
+        userId: UNAPPROVED_USER_ID,
+        name: '합성 미승인 학생',
+        studentId: '261099',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
     });
     const unapprovedTeamId = `${UNAPPROVED_APPLICATION_ID}-team`;
     await prisma.team.upsert({

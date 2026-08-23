@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
   LoginHistoryEvent,
@@ -244,13 +244,12 @@ function createUser(
   accountStatus: AccountStatus,
 ) {
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${prefix}${label}`,
       githubId: 9_003_800_000n + suffix,
       nickname: `${queryFragment}-${label}`,
-      ...authorityFactsFor(role),
       accountStatus,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

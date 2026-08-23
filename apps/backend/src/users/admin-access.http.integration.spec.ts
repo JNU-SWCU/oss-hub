@@ -46,7 +46,7 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
   const [list, facets, detail, history] = await Promise.all([
     harness.request(
       'GET',
-      `/users/access?page=1&limit=1&query=${readQuery}`,
+      `/users/access?page=1&limit=1&query=${readQuery}&sort=createdAt&direction=asc`,
       actor.githubId,
     ),
     harness.request(
@@ -155,7 +155,8 @@ it('레거시 GET /users(목록)·PATCH /users/:id/role은 원자적 전환 이�
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
@@ -241,7 +242,10 @@ it.each([
     await expectProblem(response, 403, RolesErrorCode.ADMIN_ONLY);
     await expect(
       harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-    ).resolves.toMatchObject({ role: 'STUDENT', name: null });
+    ).resolves.toMatchObject({
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+    });
     await expect(
       harness.prisma.auditLog.count({ where: { targetId: target.id } }),
     ).resolves.toBe(0);
@@ -301,7 +305,10 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
   };
   await harness.prisma.user.update({
     where: { id: pending.id },
-    data: { ...pendingProfile, profile: { create: pendingProfile } },
+    data: {
+      selectedMemberKind: MemberKind.STUDENT,
+      profile: { create: pendingProfile },
+    },
   });
   const request = await harness.createPendingRequest(pending.id);
   const student = await harness.createUser(
@@ -325,7 +332,7 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     `/users/${pending.id}/access`,
     staff.githubId,
     accessBody({
-      expectedRole: null,
+      expectedRole: 'STUDENT',
       desiredRole: 'STAFF',
       expectedPendingRequest: { id: request.id, status: 'PENDING' },
       requestDecision: { decision: 'APPROVE' },
@@ -348,7 +355,10 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
   await expectProblem(setRole, 403, RolesErrorCode.ADMIN_ONLY);
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: pending.id } }),
-  ).resolves.toMatchObject({ role: 'STAFF' });
+  ).resolves.toMatchObject({
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+  });
   await expect(
     harness.prisma.auditLog.count({
       where: {

@@ -74,9 +74,9 @@ export function canonicalUserCreate(
   };
 }
 
-/** githubId에서 파생한 결정적 6자리 학번 — 픽스처끼리 충돌하지 않는다. */
+/** githubId에서 파생한 결정적 학번 — 6~10자리 보존 형식이라 픽스처끼리 잘 안 겹친다. */
 export function syntheticStudentId(githubId: bigint): string {
-  return String(githubId % 1000000n).padStart(6, '0');
+  return String(githubId % 10_000_000_000n).padStart(6, '0');
 }
 
 /**
@@ -86,6 +86,26 @@ export function syntheticStudentId(githubId: bigint): string {
  * 시나리오 이름이 읽히게 두면서도 저장은 canonical 칸으로만 하기 위한 얇은 통로다.
  * ADMIN이 회원 유형을 남기지 않는 것은 `auth/initial-roles.ts`와 같은 이유다.
  */
+/**
+ * 시나리오 라벨 하나를 `canonicalUserCreate` 입력으로 펼친다.
+ * 학생·교직원은 프로필 행까지 만들고, 관리자·미배정은 권한 칸만 채운다.
+ */
+export function canonicalUserCreateFromLabel(
+  label: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+  fixture: Omit<
+    CanonicalUserFixture,
+    'memberKind' | 'hasStaffAccess' | 'hasAdminAccess'
+  >,
+): Prisma.UserCreateInput {
+  const facts = authorityFactsFor(label);
+  return canonicalUserCreate({
+    ...fixture,
+    memberKind: facts.selectedMemberKind,
+    hasStaffAccess: facts.hasStaffAccess,
+    hasAdminAccess: facts.hasAdminAccess,
+  });
+}
+
 export function authorityFactsFor(label: 'STUDENT' | 'STAFF' | 'ADMIN' | null): {
   readonly selectedMemberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;

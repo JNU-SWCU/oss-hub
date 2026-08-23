@@ -87,12 +87,12 @@ async function seedEligibilityFixture(): Promise<void> {
     ],
   });
   await prisma.userProfile.createMany({ data: [
-      { userId: LEADER_ID, name: 'Synthetic user', studentId: '000001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: INVITEE_ID, name: 'Synthetic user', studentId: '000002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: ACTIVE_STUDENT_ID, name: 'Synthetic user', studentId: '000003', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: STAFF_ID, name: 'Synthetic user', studentId: '000004', department: 'Synthetic department', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: ADMIN_ID, name: 'Synthetic user', studentId: null, department: 'Synthetic department', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: DEACTIVATED_STUDENT_ID, name: 'Synthetic user', studentId: '000006', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: LEADER_ID, name: 'Synthetic user', studentId: '303001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: INVITEE_ID, name: 'Synthetic user', studentId: '303002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: ACTIVE_STUDENT_ID, name: 'Synthetic user', studentId: '303003', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: STAFF_ID, name: 'Synthetic user', studentId: null, department: 'Synthetic program office', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.PROGRAM_OFFICE, affiliationName: 'Synthetic program office' },
+      { userId: ADMIN_ID, name: 'Synthetic user', studentId: null, department: 'Synthetic program office', memberKind: MemberKind.STAFF, affiliationKind: AffiliationKind.PROGRAM_OFFICE, affiliationName: 'Synthetic program office' },
+      { userId: DEACTIVATED_STUDENT_ID, name: 'Synthetic user', studentId: '303006', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
   ] });
   await prisma.program.create({
     data: {
@@ -170,7 +170,22 @@ describe('TeamInvitationsRepository eligibility integration', () => {
   });
 
   it.each([
-    ['교직원으로 역할 변경', { role: 'STAFF' }],
+    [
+      '교직원으로 역할 변경',
+      {
+        hasStaffAccess: true,
+        selectedMemberKind: MemberKind.STAFF,
+        profile: {
+          update: {
+            memberKind: MemberKind.STAFF,
+            studentId: null,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            department: 'Synthetic program office',
+            affiliationName: 'Synthetic program office',
+          },
+        },
+      },
+    ],
     ['계정 비활성화', { accountStatus: AccountStatus.DEACTIVATED }],
   ] as const)('%s 후에는 기존 초대를 수락할 수 없다', async (_, update) => {
     // Given: ACTIVE STUDENT일 때 받은 대기 중 초대가 있고 이후 자격이 바뀐다.

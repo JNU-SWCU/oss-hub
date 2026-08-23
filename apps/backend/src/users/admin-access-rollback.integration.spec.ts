@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -81,7 +81,8 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
@@ -98,12 +99,11 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
 async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `test:pr03:admin-access-rollback:${label}:${sequence}`,
       githubId: 9_003_700_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      ...authorityFactsFor(role),
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

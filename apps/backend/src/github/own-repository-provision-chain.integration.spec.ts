@@ -1,5 +1,6 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { AffiliationKind, MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus, RepositoryVisibility, StaffAccessRequestStatus } from '@prisma/client';
+import { MemberKind, ProgramCategory, RepositoryConnectionMode, RepositoryProvisionJobStatus, RepositoryVisibility, StaffAccessRequestStatus } from '@prisma/client';
+import { canonicalUserCreate, canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsErrorCode } from '../applications/applications-error-code.enum';
 import { ApplicationsStaffGuard } from '../applications/applications-staff.guard';
@@ -126,75 +127,57 @@ type ProvisionGithubClient = jest.Mocked<
 describe('OWN 저장소 연결·생성 사슬 통합', () => {
   beforeAll(async () => {
     await prisma.$connect();
-    await prisma.user.createMany({
-      data: [
-        {
+    await prisma.user.create({
+      data: {
+        ...canonicalUserCreate({
           id: STAFF_ACTOR_ID,
           githubId: STAFF_GITHUB_ID,
           nickname: 'synthetic-own-chain-staff',
-          selectedMemberKind: MemberKind.STAFF,
+          memberKind: MemberKind.STAFF,
           hasStaffAccess: true,
-          profile: {
-            create: {
-              name: 'Synthetic Own Chain Staff',
-              studentId: null,
-              department: 'Synthetic Program Office',
-              memberKind: MemberKind.STAFF,
-              affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-              affiliationName: 'Synthetic Program Office',
-            },
-          },
-          staffAccessRequests: {
-            create: {
-              id: `${STAFF_ACTOR_ID}:access`,
-              status: StaffAccessRequestStatus.APPROVED,
-            },
+          name: 'Synthetic Own Chain Staff',
+          department: 'Synthetic Program Office',
+        }),
+        staffAccessRequests: {
+          create: {
+            id: `${STAFF_ACTOR_ID}:access`,
+            status: StaffAccessRequestStatus.APPROVED,
           },
         },
-        {
-          id: STUDENT_ACTOR_ID,
-          githubId: STUDENT_ACTOR_GITHUB_ID,
-          nickname: 'synthetic-own-chain-student-actor',
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-        {
-          id: APPLICANT_ID,
-          githubId: APPLICANT_GITHUB_ID,
-          nickname: 'synthetic-own-chain-applicant',
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-        {
-          id: NO_CONSENT_APPLICANT_ID,
-          githubId: NO_CONSENT_APPLICANT_GITHUB_ID,
-          // github 로그인 형식 계약(39자 이하, 영소문자/숫자/하이픈)을 지킨다 —
-          // outbox payload의 collaboratorGithubLogins가 이 nickname으로 채워지고
-          // RepositoryOutboxConsumer가 그 계약을 검증한다.
-          nickname: 'synthetic-own-chain-no-consent',
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-        {
-          id: ORG_OWN_APPLICANT_ID,
-          githubId: ORG_OWN_APPLICANT_GITHUB_ID,
-          nickname: 'synthetic-own-chain-org-applicant',
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-        {
-          id: PRECHECK_APPLICANT_ID,
-          githubId: PRECHECK_APPLICANT_GITHUB_ID,
-          nickname: 'synthetic-own-chain-precheck-applicant',
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-        {
-          id: ORG_OWNER_EXTERNAL_APPLICANT_ID,
-          githubId: ORG_OWNER_EXTERNAL_APPLICANT_GITHUB_ID,
-          // 신청자의 개인 GitHub 계정(nickname)이 외부 org(ECONOVATION_ORGANIZATION)와
-          // 다르다는 것이 이 시나리오의 핵심이다 — repo owner는 신청자가 아니라
-          // 팀/대회 조직이다.
-          nickname: 'synthetic-own-chain-org-owner-external',
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-      ],
+      },
     });
+    await Promise.all(
+      (
+        [
+          [STUDENT_ACTOR_ID, STUDENT_ACTOR_GITHUB_ID, 'synthetic-own-chain-student-actor'],
+          [APPLICANT_ID, APPLICANT_GITHUB_ID, 'synthetic-own-chain-applicant'],
+          [
+            NO_CONSENT_APPLICANT_ID,
+            NO_CONSENT_APPLICANT_GITHUB_ID,
+            'synthetic-own-chain-no-consent',
+          ],
+          [ORG_OWN_APPLICANT_ID, ORG_OWN_APPLICANT_GITHUB_ID, 'synthetic-own-chain-org-applicant'],
+          [
+            PRECHECK_APPLICANT_ID,
+            PRECHECK_APPLICANT_GITHUB_ID,
+            'synthetic-own-chain-precheck-applicant',
+          ],
+          [
+            ORG_OWNER_EXTERNAL_APPLICANT_ID,
+            ORG_OWNER_EXTERNAL_APPLICANT_GITHUB_ID,
+            'synthetic-own-chain-org-owner-external',
+          ],
+        ] as const
+      ).map(([id, githubId, nickname]) =>
+        prisma.user.create({
+          data: canonicalUserCreateFromLabel('STUDENT', {
+            id,
+            githubId,
+            nickname,
+          }),
+        }),
+      ),
+    );
     // 편입은 현재 동의를 요구한다(RepositoryOwnEnrollmentService) — 정책 버전은
     // 서비스가 알려주는 값을 쓴다. 상수를 복사하면 정책이 올라갈 때 이 스펙만
     // 조용히 옛 버전을 붙들고 통과한다.

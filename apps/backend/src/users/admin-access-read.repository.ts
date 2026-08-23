@@ -79,12 +79,16 @@ export async function listAdminAccessFacets(
     // 표시 역할 집계는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
     prisma.user.count({
       where: {
-        ...roleBase,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        OR: [
-          { profile: { is: null } },
-          { profile: { isNot: { memberKind: MemberKind.STUDENT } } },
+        AND: [
+          roleBase,
+          {
+            hasStaffAccess: false,
+            hasAdminAccess: false,
+            OR: [
+              { profile: { is: null } },
+              { profile: { isNot: { memberKind: MemberKind.STUDENT } } },
+            ],
+          },
         ],
       },
     }),
@@ -146,36 +150,43 @@ function adminAccessWhere(
   query: AdminAccessListQuery,
   omitted?: FacetDimension,
 ): Prisma.UserWhereInput {
-  return {
-    ...(query.query
-      ? {
-          OR: [
-            userProfileNameWhere(query.query),
-            {
-              nickname: {
-                contains: query.query,
-                mode: 'insensitive' as const,
-              },
-            },
-          ],
-        }
-      : {}),
-    // 표시 역할 필터는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
-    ...(omitted === 'role' || query.role === undefined
-      ? {}
-      : adminAccessRoleFilterWhere(query.role)),
-    ...(omitted === 'accountStatus' || query.accountStatus === undefined
-      ? {}
-      : { accountStatus: query.accountStatus }),
-    ...(omitted === 'pendingRequest' || query.pendingRequest === undefined
-      ? {}
-      : {
-          staffAccessRequests:
-            query.pendingRequest === ADMIN_ACCESS_PENDING_FILTERS.PENDING
-              ? { some: { status: StaffAccessRequestStatus.PENDING } }
-              : { none: { status: StaffAccessRequestStatus.PENDING } },
-        }),
-  };
+  const clauses: Prisma.UserWhereInput[] = [];
+  if (query.query) {
+    clauses.push({
+      OR: [
+        userProfileNameWhere(query.query),
+        {
+          nickname: {
+            contains: query.query,
+            mode: 'insensitive' as const,
+          },
+        },
+      ],
+    });
+  }
+  // 표시 역할 필터는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
+  // 검색어의 OR와 미배정 필터의 OR가 한 객체에서 덮어쓰지 않도록 AND로 묶는다.
+  if (omitted !== 'role' && query.role !== undefined) {
+    clauses.push(adminAccessRoleFilterWhere(query.role));
+  }
+  if (omitted !== 'accountStatus' && query.accountStatus !== undefined) {
+    clauses.push({ accountStatus: query.accountStatus });
+  }
+  if (omitted !== 'pendingRequest' && query.pendingRequest !== undefined) {
+    clauses.push({
+      staffAccessRequests:
+        query.pendingRequest === ADMIN_ACCESS_PENDING_FILTERS.PENDING
+          ? { some: { status: StaffAccessRequestStatus.PENDING } }
+          : { none: { status: StaffAccessRequestStatus.PENDING } },
+    });
+  }
+  if (clauses.length === 0) {
+    return {};
+  }
+  if (clauses.length === 1) {
+    return clauses[0] ?? {};
+  }
+  return { AND: clauses };
 }
 
 /** 표시 역할 필터를 canonical 컬럼 조건으로 되짚는다. `authorityLabel`과 같은 우선순위다. */

@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -189,7 +189,11 @@ it.each<[string, 'ADMIN' | 'STUDENT']>([
   });
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-  ).resolves.toMatchObject({ role });
+  ).resolves.toMatchObject(
+    role === 'ADMIN'
+      ? { hasAdminAccess: true, hasStaffAccess: false }
+      : { hasAdminAccess: false, hasStaffAccess: false },
+  );
   await expect(
     prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
@@ -256,7 +260,8 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
@@ -287,7 +292,8 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
@@ -359,7 +365,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
 
   // Then
   expect(revoked.role).toBeNull();
-  expect(loggedIn.user.memberKind).toBeNull();
+  expect(loggedIn.user.hasStaffAccess).toBe(false);
   const persisted = await prisma.user.findUniqueOrThrow({
     where: { id: target.id },
   });
@@ -381,13 +387,12 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
 function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-184-${label}-${sequence}`,
-      ...authorityFactsFor(role),
       accountStatus: AccountStatus.ACTIVE,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

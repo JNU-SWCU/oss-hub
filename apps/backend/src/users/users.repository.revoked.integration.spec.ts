@@ -20,6 +20,9 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  await prisma.staffAccessRequest.deleteMany({
+    where: { userId: { in: [userId, otherUserId] } },
+  });
   await prisma.user.deleteMany({
     where: { id: { in: [userId, otherUserId] } },
   });
@@ -36,6 +39,9 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await prisma.staffAccessRequest.deleteMany({
+    where: { userId: { in: [userId, otherUserId] } },
+  });
   await prisma.user.deleteMany({
     where: { id: { in: [userId, otherUserId] } },
   });

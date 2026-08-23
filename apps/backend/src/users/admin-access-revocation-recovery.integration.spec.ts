@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
   LoginHistoryEvent,
@@ -58,7 +58,8 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(countPreservedAssets(prefix, target.id)).resolves.toEqual({
@@ -85,7 +86,8 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(countPreservedAssets(prefix, target.id)).resolves.toEqual({
@@ -101,12 +103,11 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
 async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${label}:user`,
       githubId: 9_004_800_000n + BigInt(sequence),
       nickname: `synthetic-pr04h-${sequence}`,
-      ...authorityFactsFor(role),
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

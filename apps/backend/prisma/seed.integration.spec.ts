@@ -1627,7 +1627,6 @@ describe('issue-99 auth seed contract', () => {
         consentRequiredCount,
         roleUnselectedRows,
         profileComplete,
-        profileCompleteNormalized,
         staffPending,
         staffRejected,
         staffRevoked,
@@ -1637,12 +1636,15 @@ describe('issue-99 auth seed contract', () => {
           where: { userId: roleUnselectedUserId },
           orderBy: { policyVersion: 'asc' },
         }),
-        prisma.user.findUniqueOrThrow({ where: { id: profileCompleteUserId } }),
         prisma.userProfile.findUniqueOrThrow({
           where: { userId: profileCompleteUserId },
         }),
-        prisma.user.findUniqueOrThrow({ where: { id: staffPendingUserId } }),
-        prisma.user.findUniqueOrThrow({ where: { id: staffRejectedUserId } }),
+        prisma.userProfile.findUniqueOrThrow({
+          where: { userId: staffPendingUserId },
+        }),
+        prisma.userProfile.findUniqueOrThrow({
+          where: { userId: staffRejectedUserId },
+        }),
         prisma.user.findUniqueOrThrow({ where: { id: staffRevokedUserId } }),
       ]);
       expect(consentRequiredCount).toBe(0);
@@ -1658,11 +1660,6 @@ describe('issue-99 auth seed contract', () => {
         firstCurrent?.consentedAt,
       );
       expect(profileComplete).toMatchObject({
-        name: '합성 완료 사용자',
-        studentId: ['20', '2601'].join(''),
-        department: '인공지능학부',
-      });
-      expect(profileCompleteNormalized).toMatchObject({
         name: '합성 완료 사용자',
         studentId: ['20', '2601'].join(''),
         department: '인공지능학부',

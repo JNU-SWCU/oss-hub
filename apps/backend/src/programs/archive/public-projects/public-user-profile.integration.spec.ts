@@ -65,7 +65,7 @@ describe('PublicProjectsService.findProfile integration', () => {
         profile: {
           create: {
             name: 'synthetic-real-name',
-            studentId: `${PREFIX}-student-id`,
+            studentId: '880001',
             department: 'synthetic-department',
             memberKind: MemberKind.STUDENT,
             affiliationKind: AffiliationKind.DEPARTMENT,

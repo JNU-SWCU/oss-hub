@@ -171,7 +171,7 @@ function createListedUser(input: {
     data: {
       id: input.id,
       githubId: input.githubId,
-      nickname: `${queryFragment}-${nameSuffix}`,
+      nickname: `${queryFragment} ${input.nameSuffix === undefined ? 'role' : 'status'} ${nameSuffix}`,
       accountStatus: input.accountStatus,
       selectedMemberKind: input.memberKind ?? null,
       hasStaffAccess: input.hasStaffAccess ?? false,

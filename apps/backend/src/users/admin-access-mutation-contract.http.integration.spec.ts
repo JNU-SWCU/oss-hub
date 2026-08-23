@@ -231,7 +231,8 @@ it('revokes STAFF access through the real route, clearing the role and appending
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   const requests = await harness.prisma.staffAccessRequest.findMany({
@@ -302,7 +303,8 @@ it('demotes STAFF to STUDENT through the real route without touching the request
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: 'STUDENT',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   // 강등은 회수가 아니다 — 요청 이력에 아무 행도 남기지 않는다.
@@ -395,7 +397,8 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   const logs = await harness.prisma.auditLog.findMany({

@@ -4,6 +4,7 @@ import {
   ProgramCategory,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import {
   DIGEST_APPLICATION_FIXTURES,
   DIGEST_FIXTURE,
@@ -149,26 +150,27 @@ export function createDeadlineDigestIntegrationHarness() {
         },
       ],
     });
-    await prisma.user.createMany({
-      data: DIGEST_USER_FIXTURES.map(
-        ([
-          id,
-          githubId,
-          role,
+    for (const [
+      id,
+      githubId,
+      role,
+      notifyEnabled,
+      notificationEmail,
+      accountStatus,
+    ] of DIGEST_USER_FIXTURES) {
+      await prisma.user.create({
+        data: {
+          ...canonicalUserCreateFromLabel(role, {
+            id: String(id),
+            githubId,
+            nickname: `synthetic-${id}`,
+            accountStatus,
+          }),
           notifyEnabled,
           notificationEmail,
-          accountStatus,
-        ]) => ({
-          id: String(id),
-          githubId,
-          nickname: `synthetic-${id}`,
-          role,
-          accountStatus,
-          notifyEnabled,
-          notificationEmail,
-        }),
-      ),
-    });
+        },
+      });
+    }
     await prisma.team.createMany({
       data: DIGEST_APPLICATION_FIXTURES.map(([applicationId, applicantId]) => ({
         id: `${applicationId}-team`,

@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -49,7 +49,7 @@ describe('Admin access atomic request decisions', () => {
     const target = await createUser(null, 'approve-target');
     const profile = {
       name: '합성 승인 대상',
-      studentId: `${800_000 + sequence}`,
+      studentId: `${9_100_000 + sequence}`,
       department: '소프트웨어공학과',
       memberKind: MemberKind.STUDENT,
       affiliationKind: AffiliationKind.DEPARTMENT,
@@ -57,7 +57,10 @@ describe('Admin access atomic request decisions', () => {
     };
     await prisma.user.update({
       where: { id: target.id },
-      data: { profile: { create: profile } },
+      data: {
+        selectedMemberKind: MemberKind.STUDENT,
+        profile: { create: profile },
+      },
     });
     const request = await prisma.staffAccessRequest.create({
       data: { id: `${target.id}:request`, userId: target.id },
@@ -65,7 +68,7 @@ describe('Admin access atomic request decisions', () => {
 
     // When
     const result = await service.patchAccess(actor.githubId, target.id, {
-      expectedRole: null,
+      expectedRole: 'STUDENT',
       desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
@@ -88,7 +91,8 @@ describe('Admin access atomic request decisions', () => {
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
@@ -145,7 +149,8 @@ describe('Admin access atomic request decisions', () => {
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(
@@ -164,12 +169,11 @@ describe('Admin access atomic request decisions', () => {
 async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null, label: string) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `test:pr03:admin-access-mutation:${label}:${sequence}`,
       githubId: 9_003_600_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      ...authorityFactsFor(role),
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

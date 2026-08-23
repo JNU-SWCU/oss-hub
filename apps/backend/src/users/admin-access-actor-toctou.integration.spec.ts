@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -59,7 +59,11 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
   // 없이 곧장 커밋된다.
   await prisma.user.update({
     where: { id: actor.id },
-    data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF },
+    data: {
+      hasAdminAccess: false,
+      hasStaffAccess: true,
+      selectedMemberKind: MemberKind.STAFF,
+    },
   });
   releasePauseBeforeLock.resolve();
 
@@ -70,13 +74,15 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
   ).resolves.toMatchObject({
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
 });
@@ -116,7 +122,11 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
     (transaction) =>
       transaction.user.update({
         where: { id: actor.id },
-        data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF },
+        data: {
+          hasAdminAccess: false,
+          hasStaffAccess: true,
+          selectedMemberKind: MemberKind.STAFF,
+        },
       }),
   );
   // 강등이 **뮤테이션의 잠금에** 막혀 있음을 지목해 확인한 뒤에만 놓아 준다.
@@ -133,13 +143,15 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
   ).resolves.toMatchObject({
-    role: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
 });
@@ -147,13 +159,12 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
 function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-687-${label}-${sequence}`,
-      ...authorityFactsFor(role),
       accountStatus: AccountStatus.ACTIVE,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

@@ -90,20 +90,26 @@ describe('AdminAccessRepository', () => {
         ],
       }),
     );
+    const studentPendingWhere = {
+      AND: [
+        { OR: syntheticSearchConditions() },
+        {
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          profile: { is: { memberKind: MemberKind.STUDENT } },
+        },
+        { accountStatus: AccountStatus.ACTIVE },
+        {
+          staffAccessRequests: {
+            some: { status: StaffAccessRequestStatus.PENDING },
+          },
+        },
+      ],
+    };
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          AND: [
-            {
-              OR: syntheticSearchConditions(),
-              hasStaffAccess: false,
-              hasAdminAccess: false,
-              profile: { is: { memberKind: MemberKind.STUDENT } },
-              accountStatus: AccountStatus.ACTIVE,
-              staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
-            },
-            { id: { in: ['student'] } },
-          ],
+          AND: [studentPendingWhere, { id: { in: ['student'] } }],
         },
       }),
     );
@@ -111,33 +117,40 @@ describe('AdminAccessRepository', () => {
     // 1번 호출이 전체 필터를 그대로 건 total count다. facet count(2번 이후)는
     // 각자 자기 차원을 빼고 세므로 여기서 비교하지 않는다.
     expect(count).toHaveBeenNthCalledWith(1, {
-      where: {
-        OR: syntheticSearchConditions(),
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        profile: { is: { memberKind: MemberKind.STUDENT } },
-        accountStatus: AccountStatus.ACTIVE,
-        staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
-      },
+      where: studentPendingWhere,
     });
     expect(count).toHaveBeenNthCalledWith(6, {
       where: {
-        OR: syntheticSearchConditions(),
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        profile: { is: { memberKind: MemberKind.STUDENT } },
+        AND: [
+          { OR: syntheticSearchConditions() },
+          {
+            hasStaffAccess: false,
+            hasAdminAccess: false,
+            profile: { is: { memberKind: MemberKind.STUDENT } },
+          },
+          {
+            staffAccessRequests: {
+              some: { status: StaffAccessRequestStatus.PENDING },
+            },
+          },
+        ],
         accountStatus: AccountStatus.ACTIVE,
-        staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
     });
     expect(count).toHaveBeenNthCalledWith(8, {
       where: {
-        OR: syntheticSearchConditions(),
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        profile: { is: { memberKind: MemberKind.STUDENT } },
-        accountStatus: AccountStatus.ACTIVE,
-        staffAccessRequests: { none: { status: StaffAccessRequestStatus.PENDING } },
+        AND: [
+          { OR: syntheticSearchConditions() },
+          {
+            hasStaffAccess: false,
+            hasAdminAccess: false,
+            profile: { is: { memberKind: MemberKind.STUDENT } },
+          },
+          { accountStatus: AccountStatus.ACTIVE },
+        ],
+        staffAccessRequests: {
+          none: { status: StaffAccessRequestStatus.PENDING },
+        },
       },
     });
   });

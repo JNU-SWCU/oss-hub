@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import type { AccountStatus } from '@prisma/client';
@@ -87,13 +87,12 @@ export class AdminAccessHttpHarness {
   ) {
     this.sequence += 1;
     return this.prisma.user.create({
-      data: {
+      data: canonicalUserCreateFromLabel(role, {
         id: `test:pr03:admin-access-http:${this.fixtureNamespace}:${label}:${this.sequence}`,
         githubId: this.githubIdBase + BigInt(this.sequence),
         nickname: `synthetic-http-${label}-${this.sequence}`,
-        ...authorityFactsFor(role),
         accountStatus,
-      },
+      }),
       select: { id: true, githubId: true, nickname: true },
     });
   }

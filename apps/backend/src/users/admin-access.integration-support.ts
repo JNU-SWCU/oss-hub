@@ -16,6 +16,10 @@ import type {
   AdminAccessLoginHistoryPage,
   AdminAccessStaffAccessRequestHistoryPage,
 } from './domain/admin-access';
+import type {
+  IndependentAuthorityRepositoryPort,
+  IndependentAuthorityTransactionStore,
+} from './independent-authority.repository';
 
 class TwoPartyBarrier {
   private arrivals = 0;
@@ -408,5 +412,52 @@ export class FailingDecisionAdminAccessRepository implements AdminAccessReposito
     page: { readonly page: number; readonly limit: number },
   ): Promise<AdminAccessLoginHistoryPage> {
     return this.repository.listLoginHistory(userId, page);
+  }
+}
+
+class BarrierIndependentAuthorityStore implements IndependentAuthorityTransactionStore {
+  constructor(
+    private readonly store: IndependentAuthorityTransactionStore,
+    private readonly barrier: TwoPartyBarrier,
+  ) {}
+
+  get auditLogWriter() {
+    return this.store.auditLogWriter;
+  }
+
+  findActorByGithubId(githubId: bigint) {
+    return this.store.findActorByGithubId(githubId);
+  }
+
+  async lockActiveAdmins(): Promise<number> {
+    await this.barrier.wait();
+    return this.store.lockActiveAdmins();
+  }
+
+  findUserForUpdate(userId: string) {
+    return this.store.findUserForUpdate(userId);
+  }
+
+  updateAuthority(
+    userId: string,
+    transition: Parameters<
+      IndependentAuthorityTransactionStore['updateAuthority']
+    >[1],
+  ): Promise<void> {
+    return this.store.updateAuthority(userId, transition);
+  }
+}
+
+export class BarrierIndependentAuthorityRepository implements IndependentAuthorityRepositoryPort {
+  private readonly barrier = new TwoPartyBarrier();
+
+  constructor(private readonly repository: IndependentAuthorityRepositoryPort) {}
+
+  withTransaction<T>(
+    operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.repository.withTransaction((store) =>
+      operation(new BarrierIndependentAuthorityStore(store, this.barrier)),
+    );
   }
 }

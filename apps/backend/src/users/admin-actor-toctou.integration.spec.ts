@@ -1,4 +1,4 @@
-import { authorityFactsFor } from './canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -98,7 +98,8 @@ it(
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
@@ -157,7 +158,10 @@ it(
     await demotion.done;
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-    ).resolves.toMatchObject({ role: 'STAFF' });
+    ).resolves.toMatchObject({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
@@ -203,12 +207,15 @@ it(
     await expect(mutation).resolves.toMatchObject({ name: '합성 새 이름' });
     await demotion.done;
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.userProfile.findUniqueOrThrow({ where: { userId: target.id } }),
     ).resolves.toMatchObject({ name: '합성 새 이름' });
     // 강등은 막혔던 것이지 사라진 것이 아니다 — 프로필 수정이 커밋된 뒤에 이어서 반영된다.
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
-    ).resolves.toMatchObject({ role: 'STAFF' });
+    ).resolves.toMatchObject({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
@@ -247,8 +254,8 @@ it(
       errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
     });
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-    ).resolves.toMatchObject({ name: null });
+      prisma.userProfile.findUniqueOrThrow({ where: { userId: target.id } }),
+    ).resolves.not.toMatchObject({ name: '합성 거부될 이름' });
     await expect(
       prisma.auditLog.count({ where: { targetId: target.id } }),
     ).resolves.toBe(0);
@@ -259,13 +266,12 @@ it(
 function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-687-${label}-${sequence}`,
-      ...authorityFactsFor(role),
       accountStatus: AccountStatus.ACTIVE,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }
@@ -294,7 +300,11 @@ function startHeldDemotion(userId: string): {
       backend.capture(row?.pid ?? 0);
       await transaction.user.update({
         where: { id: userId },
-        data: { hasStaffAccess: true, selectedMemberKind: MemberKind.STAFF },
+        data: {
+          hasAdminAccess: false,
+          hasStaffAccess: true,
+          selectedMemberKind: MemberKind.STAFF,
+        },
       });
       applied.resolve();
       await release.promise;

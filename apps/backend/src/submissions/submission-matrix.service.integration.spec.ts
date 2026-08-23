@@ -1,4 +1,4 @@
-import { AccountStatus, ApplicationStatus, MemberKind, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, ApplicationStatus, MemberKind, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -124,6 +124,19 @@ describe('SubmissionMatrixService integration', () => {
       ],
       skipDuplicates: true,
     });
+    await prisma.userProfile.upsert({
+      where: { userId: ROWHOLDER_ID },
+      update: {},
+      create: {
+        userId: ROWHOLDER_ID,
+        name: 'Synthetic Nameholder',
+        studentId: '261097',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
+    });
     await prisma.staffAccessRequest.upsert({
       where: { id: PENDING_REQUEST_ID },
       update: { status: StaffAccessRequestStatus.PENDING },
@@ -235,10 +248,10 @@ describe('SubmissionMatrixService integration', () => {
     const team = rowFor(matrix.rows, TEAM_APPLICATION_ID);
     const unsubmitted = rowFor(matrix.rows, UNSUBMITTED_APPLICATION_ID);
 
-    // 개인 행: name이 없어 nickname으로 대체, 상태 3종 + 미제출.
+    // 개인 행: 표시 이름은 canonical UserProfile.name이다.
     expect(personal).toMatchObject({
       applicationMode: 'PERSONAL',
-      displayName: 'seed-milestones-user-applicant-personal',
+      displayName: '합성 개인 신청자',
       githubLogins: ['seed-milestones-user-applicant-personal'],
     });
     const approvedSubmissionId = seedId(

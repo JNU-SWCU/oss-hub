@@ -1,4 +1,4 @@
-import { MemberKind, ProgramCategory } from '@prisma/client';
+import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { computeJoinCodeDigest } from '../../common/join-code-digest';
@@ -65,6 +65,37 @@ async function seedTeamWithOneSlotLeft(): Promise<void> {
         nickname: 'synthetic-qa59-challenger-b',
         selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
+      },
+    ],
+  });
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: LEADER_ID,
+        name: '합성 팀장',
+        studentId: '059001',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
+      {
+        userId: CHALLENGER_A_ID,
+        name: '합성 도전자 A',
+        studentId: '059002',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
+      {
+        userId: CHALLENGER_B_ID,
+        name: '합성 도전자 B',
+        studentId: '059003',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
       },
     ],
   });

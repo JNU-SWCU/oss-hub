@@ -44,8 +44,8 @@ async function seedFixture(): Promise<void> {
     ],
   });
   await prisma.userProfile.createMany({ data: [
-      { userId: LEADER_ID, name: 'Synthetic user', studentId: '000001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
-      { userId: INVITEE_ID, name: 'Synthetic user', studentId: '000002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: LEADER_ID, name: 'Synthetic user', studentId: '301001', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
+      { userId: INVITEE_ID, name: 'Synthetic user', studentId: '301002', department: 'Synthetic department', memberKind: MemberKind.STUDENT, affiliationKind: AffiliationKind.DEPARTMENT, affiliationName: 'Synthetic department' },
   ] });
   await prisma.program.create({
     data: {
@@ -111,7 +111,22 @@ describe('Team invitation acceptance transaction races', () => {
   });
 
   it.each([
-    ['역할 변경 트랜잭션', { role: 'STAFF' }],
+    [
+      '역할 변경 트랜잭션',
+      {
+        hasStaffAccess: true,
+        selectedMemberKind: MemberKind.STAFF,
+        profile: {
+          update: {
+            memberKind: MemberKind.STAFF,
+            studentId: null,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            department: 'Synthetic program office',
+            affiliationName: 'Synthetic program office',
+          },
+        },
+      },
+    ],
     ['계정 비활성화 트랜잭션', { accountStatus: AccountStatus.DEACTIVATED }],
   ] as const)(
     '%s이 먼저 잠그면 수락은 대기 후 최신 자격을 본다',

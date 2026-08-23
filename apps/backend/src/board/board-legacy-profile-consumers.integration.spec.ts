@@ -57,16 +57,27 @@ beforeEach(async () => {
       },
     ],
   });
-  await prisma.userProfile.create({
-    data: {
-      userId: canonicalUserId,
-      name: 'canonical-person',
-      studentId: '100001',
-      department: 'canonical-department',
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: 'canonical-department',
-    },
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: canonicalUserId,
+        name: 'canonical-person',
+        studentId: '100001',
+        department: 'canonical-department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'canonical-department',
+      },
+      {
+        userId: legacyUserId,
+        name: 'legacy-only-person',
+        studentId: '100002',
+        department: 'legacy-only-department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'legacy-only-department',
+      },
+    ],
   });
   await prisma.program.create({
     data: {
