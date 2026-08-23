@@ -23,6 +23,8 @@ class AuthorityStore
 {
   readonly auditLogWriter = new PrismaService();
   actor: AdminAccessActor | null = {
+    name: null,
+    role: 'ADMIN',
     id: 'actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-admin',
@@ -101,10 +103,12 @@ it('treats a same-state grant as an idempotent success without writing', async (
 it('rejects a non-admin actor before writing', async () => {
   const store = new AuthorityStore();
   store.actor = {
+    name: null,
+    hasStaffAccess: false,
     id: 'staff-actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-staff',
-    role: 'STAFF',
+    role: 'STUDENT',
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   };
@@ -147,6 +151,8 @@ function target(
     id: 'target',
     githubId: 9_700_100_002n,
     githubLogin: 'synthetic-target',
+    name: null,
+    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,

@@ -262,6 +262,8 @@ function targetUser(
     id: 'target',
     githubId: 9_700_400_002n,
     githubLogin: 'synthetic-target',
+    name: null,
+    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
