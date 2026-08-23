@@ -3,7 +3,9 @@ import { ApiError } from '@/lib/api-client';
 import type {
   AdminAccessAccountStatus,
   AdminAccessConflictProjection,
+  AdminAccessDecidedRequest,
   AdminAccessDetail,
+  AdminAccessHistory,
   AdminAccessPatchRequest,
   AdminAccessRole,
 } from './admin-access-api';
@@ -144,6 +146,31 @@ export function applyAdminAccessConflictProjection<T extends AdminAccessDetail>(
     role: projection.role,
     accountStatus: projection.accountStatus,
     pendingRequest: projection.pendingRequest,
+  };
+}
+
+/**
+ * 결정 직후, 이미 보고 있는 요청 이력 페이지에서 백엔드가 방금 닫은 행의
+ * `status`만 갱신한다. `decidedAt`/`decidedBy`/`rejectionReason`은 서버 소유라
+ * 지어내지 않고 서버가 남긴 값을 그대로 둔다 — 다음 재조회가 가능해지는
+ * 순간(관리자 명부·새로고침) 그 값들이 채워진다. 보이는 페이지에 해당 행이
+ * 없으면 그대로 둔다. 로그인 이력은 건드리지 않는다.
+ */
+export function applyAdminAccessDecidedRequestToHistory(
+  history: AdminAccessHistory,
+  decided: AdminAccessDecidedRequest | null,
+): AdminAccessHistory {
+  if (!decided) return history;
+  const { items } = history.staffAccessRequests;
+  if (!items.some((item) => item.id === decided.id)) return history;
+  return {
+    ...history,
+    staffAccessRequests: {
+      ...history.staffAccessRequests,
+      items: items.map((item) =>
+        item.id === decided.id ? { ...item, status: decided.status } : item,
+      ),
+    },
   };
 }
 

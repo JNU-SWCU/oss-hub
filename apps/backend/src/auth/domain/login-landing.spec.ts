@@ -41,6 +41,20 @@ describe('loginLandingUrl', () => {
     },
   );
 
+  it('접근 권한이 없는 완료된 STAFF는 온보딩 입구로 돌아간다', () => {
+    expect(
+      loginLandingUrl(frontendUrl, {
+        user: {
+          memberKind: MemberKind.STAFF,
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          isProfileComplete: true,
+        },
+        isNew: false,
+      }),
+    ).toBe(onboardingEntry);
+  });
+
   // 세 canonical 사실이 모두 비어 있으면 어느 단계에서든 중단된 상태다.
   // 첫 로그인인지 재로그인인지와 무관하게 재개 지점으로 보낸다.
   it('확정된 사실이 하나도 없으면 온보딩 입구로 보낸다', () => {

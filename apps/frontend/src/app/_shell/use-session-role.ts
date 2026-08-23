@@ -10,7 +10,11 @@ import type {
   StaffAccessRequestStatus,
   RoleSelection,
 } from '@/features/roles/types';
-import { EMPTY_MEMBER_ACCESS, type MemberAccess } from './member-access';
+import {
+  EMPTY_MEMBER_ACCESS,
+  memberSurfaces,
+  type MemberAccess,
+} from './member-access';
 import { useOptionalSharedSessionRole } from './session-role-context';
 
 /**
@@ -21,14 +25,28 @@ export type SessionStatus =
   'loading' | 'error' | 'anonymous' | 'unassigned' | 'assigned';
 
 /**
- * 가입 절차가 남긴 사실이 하나라도 있는가 — 게이트의 `assigned` 판정 근거다.
+ * 이 사람이 지금 열 수 있는 화면이 하나라도 있는가 — 게이트의 `assigned` 판정 근거다.
  *
- * 예전에는 legacy `role !== null` 하나로 물었다. 회원 정체성과 접근 권한이 갈라진
- * 뒤로는 세 칸 중 하나라도 채워져 있으면 이 사람은 온보딩을 지나온 사람이다.
- * 백엔드 `loginLandingUrl`이 같은 규칙으로 착륙 지점을 정한다.
+ * **회원 정체성(`memberKind`)으로 묻지 않는다.** 예전에는 세 칸 중 하나라도 차 있으면
+ * 온보딩을 지나온 사람으로 봤는데, 정체성과 접근 권한이 갈라진 뒤로 그 규칙은
+ * **유형은 STAFF인데 권한은 없는** 사람을 배정 상태로 밀어 넣었다 — 승인을 기다리는
+ * 교직원(`PENDING`)과 반려·회수된 교직원이 그들이다. 그 사람에게 `memberSurfaces`는
+ * 빈 배열을 돌려주므로 열 수 있는 업무 화면이 하나도 없는데, 배정 상태라는 이유로
+ * 역할 요청 조회조차 나가지 않아 온보딩 상태 기계 밖에 남았다. 결과는 상단 「대시보드」
+ * → `/dashboard` → "접근 권한이 없는 페이지" → 돌아가기가 다시 `/dashboard`인 닫힌
+ * 고리였다.
+ *
+ * 그래서 묻는 것을 바꾼다: **면이 하나라도 있는가.** 사이드바·게이트가 이미 같은
+ * 근거(`memberSurfaces`)로 화면을 가르므로, 열 화면이 없는 사람은 열 화면이 생길
+ * 때까지 온보딩 쪽에 있어야 판단이 한 벌로 맞는다. 유형은 여기서 지우지 않는다 —
+ * 아래 스냅샷이 `memberKind`를 그대로 실어 내려, 미배정인 동안에도 이 사람이 무엇으로
+ * 신청한 사람인지는 남는다.
+ *
+ * 권한 자체는 조금도 넓히지 않는다. `hasStaffAccess`·`hasAdminAccess`는 백엔드가
+ * 내려 준 값 그대로 쓰이고, 이 판정은 그 값에서 파생될 뿐 새 권한을 만들지 않는다.
  */
-function hasSettledIdentity(user: MemberAccess): boolean {
-  return user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess;
+function hasUsableSurface(user: MemberAccess): boolean {
+  return memberSurfaces(user).length > 0;
 }
 
 /**
@@ -151,7 +169,7 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
     enabled &&
     session.status === 'authenticated' &&
     session.user !== null &&
-    !hasSettledIdentity(session.user)
+    !hasUsableSurface(session.user)
       ? session.user.nickname
       : null;
 
@@ -222,7 +240,7 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
       case 'authenticated': {
         const user = session.user;
         if (user === null) return LOADING;
-        if (hasSettledIdentity(user)) {
+        if (hasUsableSurface(user)) {
           return {
             status: 'assigned',
             memberKind: user.memberKind,

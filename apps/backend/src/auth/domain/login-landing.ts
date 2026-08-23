@@ -43,7 +43,7 @@ export function loginLandingUrl(
 ): string {
   const needsOnboarding =
     login.isNew ||
-    !hasSettledIdentity(login.user) ||
+    !hasAssignedAccess(login.user) ||
     !login.user.isProfileComplete;
   return needsOnboarding
     ? `${frontendUrl}${ONBOARDING_ENTRY_PATH}`
@@ -51,14 +51,15 @@ export function loginLandingUrl(
 }
 
 /**
- * 가입 절차가 남긴 사실이 하나라도 있는가.
+ * 온보딩을 마치고 사용할 수 있는 표면이 하나라도 배정됐는가.
  *
- * 예전에는 `role !== null` 하나로 물었다. 회원 정체성과 접근 권한이 갈라진 뒤로는
- * 세 칸 중 하나라도 채워져 있으면 이 사람은 온보딩을 지나온 사람이다 —
- * 학생 관리자처럼 유형과 권한이 함께 붙은 계정도 그 안에 들어온다.
+ * STUDENT 유형은 학생 표면을 제공하지만, STAFF 유형만으로는 직원 접근이
+ * 배정된 것이 아니다. 직원·관리자 표면은 각각 승인된 접근 플래그로 판단한다.
  */
-function hasSettledIdentity(
+function hasAssignedAccess(
   user: Pick<AuthUser, 'memberKind' | 'hasStaffAccess' | 'hasAdminAccess'>,
 ): boolean {
-  return user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess;
+  return (
+    user.memberKind === 'STUDENT' || user.hasStaffAccess || user.hasAdminAccess
+  );
 }

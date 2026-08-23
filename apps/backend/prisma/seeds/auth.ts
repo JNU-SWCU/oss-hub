@@ -141,11 +141,14 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   );
   await upsertConsent(stats, studentConfirmed.id);
 
+  // 가입을 마친 교직원 신청자다 — 회원 유형은 이미 STAFF고, 관리자 승인을 기다리는
+  // 것은 **접근 권한**뿐이다(`hasStaffAccess: false`). 학번을 채우면 `setProfile`이
+  // 유형을 STUDENT로 뒤집어, 교직원 승인을 기다리는 사람이 세션상 학생이 된다.
   const staffPending = await upsertUser(stats, 'staff-pending', null);
   await upsertConsent(stats, staffPending.id);
   await setProfile(staffPending.id, {
     name: '합성 대기 사용자',
-    studentId: '202602',
+    studentId: null,
     department: '인공지능학부',
   });
   await upsertStaffAccessRequest(stats, {
@@ -161,9 +164,11 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     null,
   );
   await upsertConsent(stats, staffPendingSecond.id);
+  // staff-pending과 같은 이유로 학번을 비운다 — 승인을 기다리는 교직원 신청자는
+  // 이미 STAFF고, 학번이 있으면 `setProfile`이 그를 STUDENT로 뒤집는다.
   await setProfile(staffPendingSecond.id, {
     name: '합성 두 번째 대기 사용자',
-    studentId: '202603',
+    studentId: null,
     department: '소프트웨어공학과',
   });
   await upsertStaffAccessRequest(stats, {
@@ -174,11 +179,15 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     createdAt: offsetDays(-5),
   });
 
+  // 반려는 **접근만** 거둔다 — 회원 유형은 그대로 STAFF다. 학번을 채우면
+  // `setProfile`이 학번 유무로 유형을 정하므로(위 규칙) 이 페르소나가 STUDENT로
+  // 뒤집히고, 세션의 `memberKind`가 STUDENT가 되어 학생 화면이 열린다 —
+  // 교직원 요청이 반려된 사람에게 학생 권한을 준 셈이라 반려 자체가 무의미해진다.
   const staffRejected = await upsertUser(stats, 'staff-rejected', null);
   await upsertConsent(stats, staffRejected.id);
   await setProfile(staffRejected.id, {
     name: '합성 반려 사용자',
-    studentId: '202604',
+    studentId: null,
     department: '컴퓨터공학과',
   });
   await upsertStaffAccessRequest(stats, {
