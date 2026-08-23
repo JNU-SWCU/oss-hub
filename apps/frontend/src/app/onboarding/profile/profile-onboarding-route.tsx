@@ -62,10 +62,9 @@ export function signupDestination(state: ProfileOnboardingState): string {
   if (state.hasAdminAccess) {
     return '/admin/access';
   }
-  if (state.role) return roleHomePath(state.role);
   switch (state.selectedRole) {
     case 'STUDENT':
-      return roleHomePath('STUDENT');
+      return roleHomePath();
     case 'STAFF':
       return '/onboarding/pending';
     case null:

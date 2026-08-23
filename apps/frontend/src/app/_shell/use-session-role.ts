@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '@/features/auth/use-session';
 import { fetchMyStaffAccessRequest, fetchMyRoleSelection } from '@/features/roles/api';
 import type { StaffAccessRequestStatus, RoleSelection } from '@/features/roles/types';
-import type { AppRole } from './role';
 import { EMPTY_MEMBER_ACCESS, type MemberAccess } from './member-access';
 import { useOptionalSharedSessionRole } from './session-role-context';
 
@@ -14,6 +13,19 @@ import { useOptionalSharedSessionRole } from './session-role-context';
  */
 export type SessionStatus =
   'loading' | 'error' | 'anonymous' | 'unassigned' | 'assigned';
+
+/**
+ * 가입 절차가 남긴 사실이 하나라도 있는가 — 게이트의 `assigned` 판정 근거다.
+ *
+ * 예전에는 legacy `role !== null` 하나로 물었다. 회원 정체성과 접근 권한이 갈라진
+ * 뒤로는 세 칸 중 하나라도 채워져 있으면 이 사람은 온보딩을 지나온 사람이다.
+ * 백엔드 `loginLandingUrl`이 같은 규칙으로 착륙 지점을 정한다.
+ */
+function hasSettledIdentity(user: MemberAccess): boolean {
+  return (
+    user.memberKind !== null || user.hasStaffAccess || user.hasAdminAccess
+  );
+}
 
 /**
  * 게이트가 읽고, 게이트 아래 화면이 물려받는 스냅샷.
@@ -33,8 +45,6 @@ export type SessionStatus =
  */
 export interface SessionRoleState extends MemberAccess {
   readonly status: SessionStatus;
-  /** Todo 13까지 온보딩 호환 상태에만 쓰는 legacy projection. */
-  readonly role: AppRole | null;
   readonly staffAccessRequestStatus: StaffAccessRequestStatus | null;
   /**
    * 관리자가 남긴 반려 사유. `staffAccessRequestStatus === 'REJECTED'`에서만 값이 있다.
@@ -76,7 +86,6 @@ export interface SessionRoleResult extends SessionRoleState {
 
 const LOADING: SessionRoleState = {
   status: 'loading',
-  role: null,
   ...EMPTY_MEMBER_ACCESS,
   staffAccessRequestStatus: null,
   staffAccessRequestRejectionReason: null,
@@ -85,7 +94,6 @@ const LOADING: SessionRoleState = {
 };
 const ERROR: SessionRoleState = {
   status: 'error',
-  role: null,
   ...EMPTY_MEMBER_ACCESS,
   staffAccessRequestStatus: null,
   staffAccessRequestRejectionReason: null,
@@ -94,7 +102,6 @@ const ERROR: SessionRoleState = {
 };
 const ANONYMOUS: SessionRoleState = {
   status: 'anonymous',
-  role: null,
   ...EMPTY_MEMBER_ACCESS,
   staffAccessRequestStatus: null,
   staffAccessRequestRejectionReason: null,
@@ -140,7 +147,7 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
     enabled &&
     session.status === 'authenticated' &&
     session.user !== null &&
-    session.user.role === null
+    !hasSettledIdentity(session.user)
       ? session.user.nickname
       : null;
 
@@ -211,10 +218,9 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
       case 'authenticated': {
         const user = session.user;
         if (user === null) return LOADING;
-        if (user.role !== null) {
+        if (hasSettledIdentity(user)) {
           return {
             status: 'assigned',
-            role: user.role,
             memberKind: user.memberKind,
             hasStaffAccess: user.hasStaffAccess,
             hasAdminAccess: user.hasAdminAccess,
@@ -238,7 +244,6 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
             }
             return {
               status: 'unassigned',
-              role: null,
               memberKind: user.memberKind,
               hasStaffAccess: user.hasStaffAccess,
               hasAdminAccess: user.hasAdminAccess,

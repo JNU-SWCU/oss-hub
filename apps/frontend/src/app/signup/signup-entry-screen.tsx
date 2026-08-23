@@ -161,8 +161,13 @@ export function SignupEntryView({
  */
 export function SignupEntryScreen() {
   const router = useRouter();
-  const { status, role, isProfileComplete } = useSessionRole();
-  const decision = signupEntryDecision(status, role, isProfileComplete);
+  const { status, memberKind, hasStaffAccess, hasAdminAccess, isProfileComplete } =
+    useSessionRole();
+  const decision = signupEntryDecision(
+    status,
+    { memberKind, hasStaffAccess, hasAdminAccess },
+    isProfileComplete,
+  );
   const resumeHref = decision.kind === 'resume' ? decision.href : null;
 
   useEffect(() => {
