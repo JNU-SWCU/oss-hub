@@ -52,8 +52,12 @@ import {
 let container: HTMLDivElement;
 let root: Root;
 
+// `clearAllMocks`는 호출 기록만 지우고 `mockResolvedValueOnce`로 쌓인 큐는 남긴다.
+// 앞 테스트가 쓰지 않고 남긴 Once 값이 다음 테스트의 기본 구현(`mockRejectedValue` 등)을
+// 가로채 엉뚱한 화면을 그리므로, 구현까지 되돌리는 `resetAllMocks`로 격리한다.
+// 되돌린 뒤에는 기본 구현이 없으므로 각 테스트가 필요한 응답을 직접 세운다.
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
