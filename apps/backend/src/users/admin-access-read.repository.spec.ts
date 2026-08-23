@@ -52,9 +52,6 @@ describe('admin access read profile completeness', () => {
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
-        memberKind: MemberKind.STAFF,
-        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-        affiliationName: '소프트웨어공학과',
         isComplete: true,
       },
     });
@@ -123,6 +120,9 @@ describe('admin access read profile completeness', () => {
       userRow({
         id: 'revoked-staff',
         role: null,
+        // 회수는 고른 유형을 비우지 않는다(#184) — 그 기록이 남아 있어야
+        // 한 글자도 바뀌지 않은 프로필이 갑자기 미완료로 읽히지 않는다.
+        selectedRole: 'STAFF',
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
@@ -373,8 +373,15 @@ type UserRowOptions = {
 function userRow(options: UserRowOptions) {
   const facts = authorityFactsFor(options.role);
   const hasProfile = options.name !== null && options.department !== null;
+  // 회원 유형은 시나리오가 정한다 — 확정 역할, 고른 역할, 살아 있는 요청 순이다.
+  // 학번 유무로 되짚으면 "학번 없는 학생"(미완료여야 하는 상태)이 교직원으로
+  // 오분류돼 검사가 헛돈다.
   const memberKind =
-    options.studentId === null ? MemberKind.STAFF : MemberKind.STUDENT;
+    options.role === 'STAFF' ||
+    options.selectedRole === 'STAFF' ||
+    (options.role === null && options.pendingRequest !== null)
+      ? MemberKind.STAFF
+      : MemberKind.STUDENT;
   return {
     id: options.id,
     githubId: BigInt(`92${options.id.length}000001`),

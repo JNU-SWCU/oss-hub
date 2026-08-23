@@ -146,14 +146,11 @@ function adminAccessWhere(
   query: AdminAccessListQuery,
   omitted?: FacetDimension,
 ): Prisma.UserWhereInput {
-  const profileConditions = query.query
-    ? (userProfileNameWhere(query.query).OR ?? [])
-    : [];
   return {
     ...(query.query
       ? {
           OR: [
-            ...profileConditions,
+            userProfileNameWhere(query.query),
             {
               nickname: {
                 contains: query.query,
@@ -163,14 +160,10 @@ function adminAccessWhere(
           ],
         }
       : {}),
+    // 표시 역할 필터는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
     ...(omitted === 'role' || query.role === undefined
       ? {}
-      : {
-          role:
-            query.role === ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED
-              ? null
-              : query.role,
-        }),
+      : adminAccessRoleFilterWhere(query.role)),
     ...(omitted === 'accountStatus' || query.accountStatus === undefined
       ? {}
       : { accountStatus: query.accountStatus }),
@@ -183,4 +176,31 @@ function adminAccessWhere(
               : { none: { status: StaffAccessRequestStatus.PENDING } },
         }),
   };
+}
+
+/** 표시 역할 필터를 canonical 컬럼 조건으로 되짚는다. `authorityLabel`과 같은 우선순위다. */
+function adminAccessRoleFilterWhere(
+  filter: NonNullable<AdminAccessListQuery['role']>,
+): Prisma.UserWhereInput {
+  switch (filter) {
+    case ADMIN_ACCESS_ROLE_FILTERS.ADMIN:
+      return { hasAdminAccess: true };
+    case ADMIN_ACCESS_ROLE_FILTERS.STAFF:
+      return { hasStaffAccess: true, hasAdminAccess: false };
+    case ADMIN_ACCESS_ROLE_FILTERS.STUDENT:
+      return {
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        profile: { is: { memberKind: MemberKind.STUDENT } },
+      };
+    case ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED:
+      return {
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        OR: [
+          { profile: { is: null } },
+          { profile: { isNot: { memberKind: MemberKind.STUDENT } } },
+        ],
+      };
+  }
 }

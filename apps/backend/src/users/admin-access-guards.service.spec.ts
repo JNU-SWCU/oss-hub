@@ -56,6 +56,7 @@ describe('AdminAccessService mutation guards', () => {
     repository.target = accessUser({
       id: 'admin',
       githubId: ADMIN_GITHUB_ID,
+      role: 'ADMIN',
       hasAdminAccess: true,
     });
     const service = new AdminAccessService(

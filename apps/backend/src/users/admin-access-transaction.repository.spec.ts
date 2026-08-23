@@ -15,7 +15,7 @@ describe('AdminAccessRepository transaction store', () => {
       $queryRaw: <T>(query: unknown): Promise<T> => {
         const sql = sqlText(query);
         operations.push(sql);
-        const rows = sql.includes('role =')
+        const rows = sql.includes('"hasAdminAccess" = TRUE')
           ? [{ id: 'admin-a' }, { id: 'admin-b' }]
           : [{ id: 'target' }];
         return Promise.resolve(rows as T);

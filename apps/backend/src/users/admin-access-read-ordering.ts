@@ -48,7 +48,7 @@ function adminAccessOrderBy(query: AdminAccessListQuery): Prisma.Sql {
   const directionSql = ORDER_DIRECTIONS[direction];
   const orderings = {
     [ADMIN_ACCESS_SORT_FIELDS.NAME]: Prisma.sql`
-      COALESCE(p."name", u."name") ${directionSql} NULLS LAST,
+      p."name" ${directionSql} NULLS LAST,
       u."login" ${directionSql},
       u."id" ${directionSql}
     `,

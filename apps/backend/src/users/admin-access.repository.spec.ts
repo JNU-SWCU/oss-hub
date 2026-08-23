@@ -1,4 +1,4 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -78,10 +78,11 @@ describe('AdminAccessRepository', () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(queryRaw).toHaveBeenCalledWith(
       expect.objectContaining({
+        // 표시 역할 필터는 canonical 컬럼 조건으로 되짚으므로 바인딩 값이 아니라
+        // SQL 리터럴이 된다 — 그래서 'STUDENT'가 values에서 빠진다.
         values: [
           '%synthetic%',
           '%synthetic%',
-          'STUDENT',
           AccountStatus.ACTIVE,
           StaffAccessRequestStatus.PENDING,
           1,
@@ -97,6 +98,7 @@ describe('AdminAccessRepository', () => {
               OR: syntheticSearchConditions(),
               hasStaffAccess: false,
               hasAdminAccess: false,
+              profile: { is: { memberKind: MemberKind.STUDENT } },
               accountStatus: AccountStatus.ACTIVE,
               staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
             },
@@ -106,11 +108,14 @@ describe('AdminAccessRepository', () => {
       }),
     );
     expect(count).toHaveBeenCalledTimes(9);
-    expect(count).toHaveBeenNthCalledWith(2, {
+    // 1번 호출이 전체 필터를 그대로 건 total count다. facet count(2번 이후)는
+    // 각자 자기 차원을 빼고 세므로 여기서 비교하지 않는다.
+    expect(count).toHaveBeenNthCalledWith(1, {
       where: {
         OR: syntheticSearchConditions(),
         hasStaffAccess: false,
         hasAdminAccess: false,
+        profile: { is: { memberKind: MemberKind.STUDENT } },
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
@@ -120,6 +125,7 @@ describe('AdminAccessRepository', () => {
         OR: syntheticSearchConditions(),
         hasStaffAccess: false,
         hasAdminAccess: false,
+        profile: { is: { memberKind: MemberKind.STUDENT } },
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { some: { status: StaffAccessRequestStatus.PENDING } },
       },
@@ -129,6 +135,7 @@ describe('AdminAccessRepository', () => {
         OR: syntheticSearchConditions(),
         hasStaffAccess: false,
         hasAdminAccess: false,
+        profile: { is: { memberKind: MemberKind.STUDENT } },
         accountStatus: AccountStatus.ACTIVE,
         staffAccessRequests: { none: { status: StaffAccessRequestStatus.PENDING } },
       },
@@ -180,8 +187,9 @@ describe('AdminAccessRepository', () => {
     expect(user).toEqual(
       expect.objectContaining({
         id: 'target',
+        // 프로필 행이 없으면 세 칸이 모두 비어 있다 — legacy mirror가 사라졌다.
         profile: {
-          name: 'Legacy Name',
+          name: null,
           studentId: null,
           department: null,
           isComplete: false,
@@ -224,11 +232,8 @@ describe('AdminAccessRepository', () => {
 
 function syntheticSearchConditions() {
   const contains = { contains: 'synthetic', mode: 'insensitive' as const };
-  return [
-    { profile: { is: { name: contains } } },
-    { profile: { is: null }, name: contains },
-    { nickname: contains },
-  ];
+  // 이름의 정본은 프로필 행뿐이라 legacy fallback 갈래가 사라졌다.
+  return [{ profile: { is: { name: contains } } }, { nickname: contains }];
 }
 
 type UserRowOptions = {
@@ -238,8 +243,11 @@ type UserRowOptions = {
   readonly nickname?: string;
   readonly profile?: {
     readonly name: string;
-    readonly studentId: string;
+    readonly studentId: string | null;
     readonly department: string;
+    readonly memberKind?: MemberKind;
+    readonly affiliationKind?: AffiliationKind;
+    readonly affiliationName?: string;
   } | null;
   readonly pendingRequest?: {
     readonly id: string;
@@ -254,11 +262,18 @@ function userRow(options: UserRowOptions) {
     id: options.id,
     githubId: BigInt(`91${options.id.length}000001`),
     nickname: options.nickname ?? `synthetic-${options.id}`,
-    name: 'Legacy Name',
-    studentId: null,
-    department: null,
-    profile: options.profile ?? null,
-    role: options.role === undefined ? 'STUDENT' : options.role,
+    profile: options.profile
+      ? {
+          memberKind: MemberKind.STUDENT,
+          affiliationKind: AffiliationKind.DEPARTMENT,
+          affiliationName: options.profile.department,
+          ...options.profile,
+        }
+      : null,
+    selectedMemberKind:
+      options.role === 'ADMIN' ? null : (options.role ?? MemberKind.STUDENT),
+    hasStaffAccess: options.role === 'STAFF',
+    hasAdminAccess: options.role === 'ADMIN',
     accountStatus: options.accountStatus ?? AccountStatus.ACTIVE,
     staffAccessRequests: options.pendingRequest ? [options.pendingRequest] : [],
     loginHistories: options.lastLoginAt
