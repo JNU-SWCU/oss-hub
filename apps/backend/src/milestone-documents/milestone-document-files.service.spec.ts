@@ -28,7 +28,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const mocks = {
     findActiveUser: jest
       .fn()
-      .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' }),
+      .mockResolvedValue({ id: syntheticUserId, hasStaffAccess: false, hasAdminAccess: false }),
     findDocumentContext: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -143,7 +143,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: 'staff-1', role: 'STAFF' }),
+        .mockResolvedValue({ id: 'staff-1', hasStaffAccess: true, hasAdminAccess: false }),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
@@ -419,7 +419,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const { mocks, repository } = buildRepository({
       findActiveUser: jest
         .fn()
-        .mockResolvedValue({ id: 'staff-1', role: 'STAFF' }),
+        .mockResolvedValue({ id: 'staff-1', hasStaffAccess: true, hasAdminAccess: false }),
       findStudentApplication: jest.fn(),
     });
     const service = new MilestoneDocumentFilesService(

@@ -39,7 +39,8 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     const activeStudent = {
       githubId: 34_290_000n,
       accountStatus: AccountStatus.ACTIVE,
-      selectedMemberKind: MemberKind.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
     };
     expect(findFirst).toHaveBeenCalledWith({
       where: {

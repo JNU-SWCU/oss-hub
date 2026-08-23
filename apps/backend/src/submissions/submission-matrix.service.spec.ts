@@ -324,12 +324,7 @@ describe('submissionMatrixApplicationWhere', () => {
       status: ApplicationStatus.APPROVED,
       OR: [
         {
-          applicant: {
-            OR: [
-              { profile: { is: { name: contains } } },
-              { profile: { is: null }, name: contains },
-            ],
-          },
+          applicant: { profile: { is: { name: contains } } },
         },
         { applicant: { nickname: contains } },
         { team: { name: contains } },

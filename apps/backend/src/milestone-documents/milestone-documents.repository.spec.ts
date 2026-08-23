@@ -92,7 +92,7 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
     // Then
     expect(findFirst).toHaveBeenCalledWith({
       where: { githubId: 9001n, accountStatus: AccountStatus.ACTIVE },
-      select: { id: true, role: true },
+      select: { id: true, hasStaffAccess: true, hasAdminAccess: true },
     });
   });
 });
@@ -1154,7 +1154,7 @@ describe('MilestoneDocumentsRepository.findApprovedApplicationsForCollection', (
     const findMany = jest.fn().mockResolvedValue([
       {
         id: syntheticApplicationId,
-        applicant: { name: '합성 신청자', profile: null },
+        applicant: { profile: { name: '합성 신청자' } },
         team: {
           name: '가나다팀',
           members: [

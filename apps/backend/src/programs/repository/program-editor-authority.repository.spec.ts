@@ -29,7 +29,8 @@ describe('ProgramEditorRepository authority', () => {
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 101n },
       select: {
-        role: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
         accountStatus: true,
         staffAccessRequests: {
           where: { status: StaffAccessRequestStatus.PENDING },
