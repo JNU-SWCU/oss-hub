@@ -7,6 +7,7 @@
 // - same-tag/different-SHA, partial, stopped-only, missing/invalid label·SemVer는 fail-closed.
 // - 중지·모호 상태는 deploy 권한 없음. no-op은 완전 증명된 running metadata만.
 // - 성공 후에만 이미지/BuildKit 캐시/백업 정리. 실행 중+직전 이미지 보존. BuildKit 캐시 최대 5GB, 백업 최근 N=120.
+// - 이미지 빌드 직후·마이그레이션 전에 후보 이미지 권한 매트릭스를 합성 스택에서 검증한다.
 pipeline {
   agent {
     label 'oss-hub-production'
@@ -570,6 +571,15 @@ docker build \
   --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
   .
 '''
+      }
+    }
+
+    stage('후보 이미지 권한 매트릭스 검증') {
+      when {
+        expression { env.DEPLOY_NOOP != 'true' }
+      }
+      steps {
+        sh 'bash scripts/check-auth-release-image.sh "$RELEASE_TAG" "$RELEASE_SHA"'
       }
     }
 

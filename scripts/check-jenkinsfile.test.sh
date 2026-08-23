@@ -94,6 +94,9 @@ make_fixture "$v2_source" v2-missing-image-tag-release 'env.IMAGE_TAG = tag' 'en
 make_fixture "$v2_source" v2-missing-release-sha-binding 'env.RELEASE_SHA = releaseSha' 'env.RELEASE_SHA = env.IMAGE_TAG'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
+make_fixture "$v2_source" v2-missing-auth-release-image \
+  'bash scripts/check-auth-release-image.sh "$RELEASE_TAG" "$RELEASE_SHA"' \
+  'echo skip-auth-release-image'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
 make_fixture "$v2_source" v2-missing-primary-upload-401-smoke \
   'require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
@@ -1275,6 +1278,7 @@ expect_fail 'v2: IMAGE_TAG=RELEASE_TAG 계약 파손' v2 "$fixture_dir/v2-missin
 expect_fail 'v2: RELEASE_SHA 바인딩 파손' v2 "$fixture_dir/v2-missing-release-sha-binding"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"
 expect_fail 'v2: Prisma migration 누락' v2 "$fixture_dir/v2-missing-migration"
+expect_fail 'v2: 이미지 빌드 후 권한 매트릭스 검증 누락' v2 "$fixture_dir/v2-missing-auth-release-image"
 expect_fail 'v2: Compose 교체의 --no-build 누락' v2 "$fixture_dir/v2-missing-no-build"
 expect_fail 'v2: primary 제출 파일 401 smoke 누락' v2 "$fixture_dir/v2-missing-primary-upload-401-smoke"
 expect_fail 'v2: rollback 제출 파일 401 smoke 누락' v2 "$fixture_dir/v2-missing-rollback-upload-401-smoke"
