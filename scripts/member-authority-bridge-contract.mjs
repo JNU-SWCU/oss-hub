@@ -50,29 +50,87 @@ const REQUIRED_MIGRATION_PATTERNS = [
   /ALTER COLUMN "hasStaffAccess" SET NOT NULL/,
   /ALTER COLUMN "hasAdminAccess" SET NOT NULL/,
   // 정본 프로필 세 칸을 기존 행에 채우는 backfill. 이게 없으면 다음 contract
-  // 마이그레이션의 preflight가 비어 있는 `memberKind` 행에서 배포를 멈운다.
+  // 마이그레이션의 preflight가 비어 있는 `memberKind` 행에서 배포를 멈춰 세운다.
   /UPDATE "UserProfile" AS p\s*\n\s*SET "memberKind"/,
-  /UPDATE "UserProfile"\s*\n\s*SET "affiliationName" = "department"/,
-  /UPDATE "UserProfile"\s*\n\s*SET "affiliationKind"/,
+  // 소속명·소속 유형은 **회원 유형이 해소된 행에만** 채운다. 원본은 그 투영을
+  // `requireMemberProfile` 안에서만 하므로, 미해소 행은 세 칸이 함께 null로 남는다.
+  /SET "affiliationName" = "department"\s*\n\s*WHERE "affiliationName" IS NULL AND "memberKind" IS NOT NULL/,
+  // 소속 유형의 기본값은 회원 유형과 무관하게 DEPARTMENT다.
+  /SET "affiliationKind" = 'DEPARTMENT'::"AffiliationKind"\s*\n\s*WHERE "affiliationKind" IS NULL AND "memberKind" IS NOT NULL/,
 ];
 
 /**
- * backfill이 legacy 역할에서 직접 유도하면 **안 되는** 것.
- *
- * 관리자라는 사실에서 회원 유형을 지어내면 안 된다 — 권한과 정체성은 독립이라
- * 「관리자니까 교직원」은 추정이지 사실이 아니다. 삭제된 원본 backfill의
- * `projectUnresolvedAdmin`도 관리자의 세 칸을 null로 남겼다.
+ * 교직원을 PROGRAM_OFFICE로 짐작하는 것은 원본에 없던 추정이다 — 원본은
+ * `profile?.affiliationKind ?? DEPARTMENT` 하나뿐이고 회원 유형으로 갈라지지 않는다.
  */
 const FORBIDDEN_MIGRATION_INFERENCE_PATTERNS = [
   [
-    /SET "memberKind"[^;]*WHEN 'ADMIN' THEN 'STAFF'/s,
-    'an ADMIN=>STAFF member kind inference',
-  ],
-  [
-    /SET "memberKind"[^;]*WHEN 'ADMIN' THEN 'STUDENT'/s,
-    'an ADMIN=>STUDENT member kind inference',
+    /SET "affiliationKind"[^;]*'PROGRAM_OFFICE'/s,
+    'a STAFF=>PROGRAM_OFFICE affiliation inference',
   ],
 ];
+
+/**
+ * 정철자 비교를 위해 SQL 조각을 정규화한다.
+ *
+ * 이 검사가 잡아야 하는 것은 **의미**이지 표기가 아니다. 같은 추정을
+ * `CASE u."role" WHEN 'ADMIN' THEN ...`으로도, `CASE WHEN u."role" = 'ADMIN' THEN ...`
+ * 으로도, `"User"."role"`처럼 다른 자격자로도, `::"MemberKind"` 캡스트를 붙이거나
+ * 빼고도 쓸 수 있다. 한 모양에만 말뜿을 박으면 나머지가 그대로 통과한다.
+ *
+ * 그래서 공백·자격자 접두·캡스트를 모두 걷어낸 뒤에 비교한다.
+ */
+function normalizeSql(sql) {
+  return (
+    stripComments(sql)
+      // `"User"."role"` · `u."role"` · `p."memberKind"` → `"role"` · `"memberKind"`
+      .replace(/(?:"[A-Za-z_][\w$]*"|\b[A-Za-z_][\w$]*)\s*\.\s*(")/g, '$1')
+      // `'STAFF'::"MemberKind"` → `'STAFF'`
+      .replace(/::\s*"?[A-Za-z_][\w$]*"?/g, '')
+      .replace(/\s+/g, ' ')
+  );
+}
+
+/** 이 마이그레이션이 정체성으로 쓰는 칸들. 권한 칸(`has*Access`)은 대상이 아니다. */
+const IDENTITY_COLUMNS = ['memberKind', 'affiliationKind', 'affiliationName'];
+
+/**
+ * legacy `Role.ADMIN`에서 **정체성을 지어내는** 분기를 문법 모양과 무관하게 잡는다.
+ *
+ * 정규화한 문장에서 `SET "<정체성 칸>" = ...` 구만 떼어내고, 그 안의 모든
+ * `WHEN ... THEN ...` 쌍을 훑는다. 조건에 `'ADMIN'`이 들어 있고 그 결과가
+ * NULL이 아니면 위반이다 — simple CASE(`CASE "role" WHEN 'ADMIN' THEN x`)든
+ * searched CASE(`CASE WHEN "role" = 'ADMIN' THEN x`)든 같은 사실을 뜻하므로
+ * 둘 다 이 방식으로 걸린다.
+ *
+ * 결과가 `selectedMemberKind`·`selectedRole` 같은 「고른 값」으로 가는 것도 막는다.
+ * 그것은 기록일 뿐 확정된 정체성이 아니므로 배정된 ADMIN이 읽어서는 안 된다.
+ */
+function findAdminIdentityInferences(migrationSql) {
+  const normalized = normalizeSql(migrationSql);
+  const failures = [];
+
+  for (const column of IDENTITY_COLUMNS) {
+    const assignment = new RegExp(`SET "${column}" =([^;]*)`, 'g');
+    for (const [, expression] of normalized.matchAll(assignment)) {
+      const branch =
+        /WHEN\b(.*?)\bTHEN\b\s*(.*?)(?=\s*\bWHEN\b|\s*\bELSE\b|\s*\bEND\b)/gs;
+      for (const [, condition, rawResult] of expression.matchAll(branch)) {
+        if (!/'ADMIN'/.test(condition)) {
+          continue;
+        }
+        const result = rawResult.trim().replace(/\s+/g, ' ');
+        if (/^NULL$/i.test(result)) {
+          continue;
+        }
+        failures.push(
+          `bridge migration derives ${column} from legacy Role.ADMIN (\`${result}\`) — identity must stay unresolved`,
+        );
+      }
+    }
+  }
+  return failures;
+}
 
 /** bridge 이후 schema.prisma가 반드시 만족해야 하는 모양. */
 const REQUIRED_SCHEMA_PATTERNS = [
@@ -164,6 +222,10 @@ export function validateBridgeContract(schema, migrationSql, sourceFiles = []) {
       failures.push(`bridge migration contains ${label}`);
     }
   }
+
+  // 문법 모양과 무관하게 ADMIN→정체성 유도를 잡는다. 위의 정규식 목록과 달리
+  // simple CASE·searched CASE·자격자 접두·캡스트를 모두 흡수한다.
+  failures.push(...findAdminIdentityInferences(migrationSql));
 
   // 순서는 **접근 권한 두 칸**에서만 따진다. 다른 칸의 `SET NOT NULL`이 문서
   // 뒤쪽에 오는 것은 상관없으므로 전체에서 처음 만나는 토큰을 재지 않는다.

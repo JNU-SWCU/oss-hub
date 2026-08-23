@@ -143,28 +143,124 @@ test('bridge contract rejects an access-flag backfill without COALESCE', () => {
   );
 });
 
-test('bridge contract rejects an ADMIN-derived member kind', () => {
-  // Given — 권한과 정체성은 독립이다. 삭제된 원본 backfill의
-  // `projectUnresolvedAdmin`도 관리자의 세 칸을 null로 남겼다.
-  const inferences = [
-    ["WHEN 'ADMIN' THEN 'STAFF'", 'an ADMIN=>STAFF member kind inference'],
-    ["WHEN 'ADMIN' THEN 'STUDENT'", 'an ADMIN=>STUDENT member kind inference'],
+/**
+ * ADMIN → 정체성 유도는 **문법 모양과 무관하게** 막혀야 한다.
+ *
+ * 같은 추정을 simple CASE(`CASE "role" WHEN 'ADMIN' THEN x`)로도, searched CASE
+ * (`CASE WHEN "role" = 'ADMIN' THEN x`)로도, 자격자 접두·캐스트·줄바꿈을 섞어서도
+ * 쓸 수 있다. 정규식 하나에 말뚝을 박으면 나머지가 그대로 통과한다 — 실제로 이전
+ * 구현은 searched CASE를 놓쳤고, `THEN NULL`을 남겨 둔 채 ADMIN 분기를 하나 더
+ * 얹는 변형은 **위반 0건으로 통과**했다.
+ */
+const IDENTITY_CASE_BLOCK =
+  /UPDATE "UserProfile" AS p\nSET "memberKind" = CASE[\s\S]*?END\nFROM "User" AS u\nWHERE[^;]*;/;
+
+function adminFailures(migration) {
+  return validateBridgeContract(readSchema(), migration).filter((failure) =>
+    /Role\.ADMIN/.test(failure),
+  );
+}
+
+test('bridge contract rejects ADMIN identity inference in every syntax form', () => {
+  // Given — 같은 뜻을 담은 여러 표기. 전부 거절돼야 한다.
+  const migration = readMigration();
+  const adminNull = `WHEN u."role" = 'ADMIN' THEN NULL`;
+  const mutations = [
+    [
+      'searched CASE ADMIN=>STAFF',
+      migration.replace(
+        adminNull,
+        `WHEN u."role" = 'ADMIN' THEN 'STAFF'::"MemberKind"`,
+      ),
+    ],
+    [
+      'searched CASE ADMIN=>STUDENT',
+      migration.replace(
+        adminNull,
+        `WHEN u."role" = 'ADMIN' THEN 'STUDENT'::"MemberKind"`,
+      ),
+    ],
+    [
+      'searched CASE without a cast',
+      migration.replace(adminNull, `WHEN u."role" = 'ADMIN' THEN 'STAFF'`),
+    ],
+    [
+      'fully qualified identifier',
+      migration.replace(
+        adminNull,
+        `WHEN "User"."role" = 'ADMIN' THEN 'STAFF'::"MemberKind"`,
+      ),
+    ],
+    [
+      'ADMIN falling through to the selected member kind',
+      migration.replace(
+        adminNull,
+        `WHEN u."role" = 'ADMIN' THEN u."selectedMemberKind"`,
+      ),
+    ],
+    [
+      'whitespace and newline noise',
+      migration.replace(
+        adminNull,
+        `WHEN   u."role"   =   'ADMIN'\n      THEN\n        'STAFF' :: "MemberKind"`,
+      ),
+    ],
+    [
+      // `THEN NULL`을 남겨 둔 채 ADMIN 분기를 하나 더 얹는 변형 — 이전 구현이
+      // 정확히 이것을 놓쳤다.
+      'an extra ADMIN branch that keeps THEN NULL',
+      migration.replace(
+        `WHEN u."role" = 'STUDENT' THEN 'STUDENT'::"MemberKind"`,
+        `WHEN u."role" = 'ADMIN' AND u."selectedRole" = 'STAFF' THEN 'STAFF'::"MemberKind"\n    WHEN u."role" = 'STUDENT' THEN 'STUDENT'::"MemberKind"`,
+      ),
+    ],
   ];
 
-  for (const [clause, label] of inferences) {
+  for (const [label, mutated] of mutations) {
     // When
-    const migration = readMigration().replace(
-      `SET "memberKind" = CASE u."role"`,
-      `SET "memberKind" = CASE u."role"\n    ${clause}`,
-    );
-    const failures = validateBridgeContract(readSchema(), migration);
+    assert.notEqual(mutated, migration, `${label}: mutation did not apply`);
 
     // Then
     assert.ok(
-      failures.includes(`bridge migration contains ${label}`),
+      adminFailures(mutated).length > 0,
       `expected the checker to reject ${label}`,
     );
   }
+});
+
+test('bridge contract rejects ADMIN identity inference written as a simple CASE', () => {
+  // Given — searched CASE만 막으면 simple CASE로 같은 추정을 다시 쓸 수 있다.
+  const migration = readMigration();
+  const block = migration.match(IDENTITY_CASE_BLOCK);
+  assert.ok(block, 'identity CASE block must be locatable');
+
+  for (const kind of ['STAFF', 'STUDENT']) {
+    // When
+    const simpleCase = [
+      'UPDATE "UserProfile" AS p',
+      'SET "memberKind" = CASE u."role"',
+      `    WHEN 'ADMIN' THEN '${kind}'::"MemberKind"`,
+      `    WHEN 'STUDENT' THEN 'STUDENT'::"MemberKind"`,
+      '    ELSE NULL',
+      '  END',
+      'FROM "User" AS u',
+      'WHERE p."userId" = u."id" AND p."memberKind" IS NULL;',
+    ].join('\n');
+    const mutated = migration.replace(block[0], simpleCase);
+
+    // Then
+    assert.notEqual(mutated, migration);
+    assert.ok(
+      adminFailures(mutated).length > 0,
+      `expected the checker to reject a simple CASE ADMIN=>${kind}`,
+    );
+  }
+});
+
+test('bridge contract accepts the committed migration', () => {
+  // Given / When / Then — 위 거절들이 과잉이 아니라는 반대편 증거.
+  assert.deepEqual(adminFailures(readMigration()), []);
+  assert.deepEqual(validateBridgeContract(readSchema(), readMigration()), []);
 });
 
 test('bridge contract requires the canonical profile backfill', () => {
@@ -285,6 +381,114 @@ test('bridge upgrade rehearsal seeds rows before the migration runs', () => {
   // negative 레인이 COALESCE를 걷어내고 실패를 요구하는지.
   assert.match(upgrade, /unexpectedly succeeded on NULL role rows/);
   assert.doesNotMatch(upgrade, /\.skip\(|TODO/);
+});
+
+/**
+ * 업그레이드 리허설의 **기대 집계가 실제 씨앗과 어긋나지 않는지** 본다.
+ *
+ * 픽스처에 행을 하나 더 넣고 기대값을 고치는 것을 잊으면, 그 행은 아무도 확인하지
+ * 않는 채 지나간다. 그래서 씨앗 ID 목록을 뽑아 세 집계 전부에 그대로 나타나는지를
+ * 기계로 대조한다.
+ */
+test('upgrade rehearsal expectations cover every seeded row', () => {
+  // Given
+  const upgrade = readFileSync(upgradeRehearsalPath, 'utf8');
+  const seededIds = [
+    ...upgrade.matchAll(/^\s*\('(u-[a-z-]+)',\s*99100000\d+,/gm),
+  ].map((match) => match[1]);
+  const profileIds = [
+    ...upgrade.matchAll(/^\s*\('(u-[a-z-]+)',\s*'합성/gm),
+  ].map((match) => match[1]);
+
+  // Then — 씨앗이 실제로 여러 모양을 담고 있어야 의미가 있다.
+  assert.ok(
+    seededIds.length >= 7,
+    `expected 7+ seeded users, got ${seededIds.length}`,
+  );
+  // ADMIN + selectedRole 두 모양이 반드시 있어야 한다(유도 금지의 증인).
+  for (const required of ['u-admin-sel-staff', 'u-admin-sel-student']) {
+    assert.ok(seededIds.includes(required), `${required} must be seeded`);
+  }
+
+  const flags = upgrade.match(/^expected_flags='([^']*)'/m);
+  const kinds = upgrade.match(/^expected_kinds='([^']*)'/m);
+  const idempotent = upgrade.match(/kinds_again" == '([^']*)'/);
+  assert.ok(
+    flags && kinds && idempotent,
+    'all three aggregates must be present',
+  );
+
+  // 모든 사용자 씨앗은 접근 권한 집계에 나타난다.
+  for (const id of seededIds) {
+    assert.ok(
+      new RegExp(`(^|,)${id}=`).test(flags[1]),
+      `${id} missing from expected_flags`,
+    );
+  }
+  // 프로필이 있는 씨앗은 회원 유형 집계와 멱등 집계 양쪽에 나타난다.
+  for (const id of profileIds) {
+    assert.ok(
+      new RegExp(`(^|,)${id}=`).test(kinds[1]),
+      `${id} missing from expected_kinds`,
+    );
+    assert.ok(
+      new RegExp(`(^|,)${id}=`).test(idempotent[1]),
+      `${id} missing from the idempotence aggregate`,
+    );
+  }
+
+  // 집계에 씨앗에 없는 유령 ID가 섞여 있으면 그것도 어긋남이다.
+  for (const [label, aggregate, allowed] of [
+    ['expected_flags', flags[1], seededIds],
+    ['expected_kinds', kinds[1], profileIds],
+  ]) {
+    for (const [, , id] of aggregate.matchAll(/(^|,)(u-[a-z-]+)=/g)) {
+      assert.ok(allowed.includes(id), `${label} references unseeded ${id}`);
+    }
+  }
+});
+
+test('upgrade rehearsal keeps ADMIN identity unresolved in its expectations', () => {
+  // Given — 기대값 자체가 ADMIN 유도를 허용하면 리허설은 통과해도 계약이 깨진다.
+  const upgrade = readFileSync(upgradeRehearsalPath, 'utf8');
+  const kinds = upgrade.match(/^expected_kinds='([^']*)'/m)[1];
+
+  // Then — 배정된 관리자 세 행은 세 칸이 모두 null이다.
+  for (const adminId of [
+    'u-admin',
+    'u-admin-sel-staff',
+    'u-admin-sel-student',
+  ]) {
+    assert.match(
+      kinds,
+      new RegExp(`(^|,)${adminId}=null/null/null(,|$)`),
+      `${adminId} must stay fully unresolved`,
+    );
+  }
+  // 교직원의 소속 유형 기본값은 DEPARTMENT다(PROGRAM_OFFICE 추정 금지).
+  assert.match(kinds, /(^|,)u-staff=STAFF\/DEPARTMENT\//);
+  assert.doesNotMatch(kinds, /PROGRAM_OFFICE/);
+});
+
+test('upgrade rehearsal removes every disposable resource on success and failure', () => {
+  // Given
+  const upgrade = readFileSync(upgradeRehearsalPath, 'utf8');
+
+  // Then — 익명 볼륨까지 지운다.
+  assert.match(upgrade, /docker rm -f -v "\$container"/);
+  // 두 임시 트리 모두 trap보다 **먼저** 선언돼야 중간에 죽어도 정리 대상에 든다.
+  const staged = upgrade.indexOf("staged=''");
+  const negative = upgrade.indexOf("negative=''");
+  const trap = upgrade.indexOf('trap cleanup');
+  assert.ok(staged >= 0 && negative >= 0 && trap >= 0);
+  assert.ok(staged < trap, 'staged must be declared before the trap');
+  assert.ok(negative < trap, 'negative must be declared before the trap');
+  // trap이 두 트리를 모두 지운다.
+  assert.match(upgrade, /for temporary in "\$\{staged:-\}" "\$\{negative:-\}"/);
+  // 인터럽트 경로도 덮는다.
+  assert.match(upgrade, /trap cleanup EXIT INT TERM/);
+  // 지역 rm이 남아 있으면 정리 책임이 두 곳으로 갈라진다.
+  assert.doesNotMatch(upgrade, /rm -rf -- "\$negative"/);
 });
 
 test('bridge rehearsal boots both images against one schema', () => {

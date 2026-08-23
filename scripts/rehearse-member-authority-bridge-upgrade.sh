@@ -27,18 +27,27 @@ bridge_dir=20260823000000_bridge_member_authority
 
 container="oss-hub-bridge-upgrade-$(date +%s)-$$-$RANDOM"
 password='synthetic-upgrade-password'
+# 두 임시 트리 모두 **trap보다 먼저** 선언한다. 늦게 선언하면 그 사이에 죽었을 때
+# 정리 대상에 들어 있지 않아 그대로 남는다 — negative 레인 디렉터리가 실제로 그렇게
+# 새고 있었다.
 staged=''
+negative=''
 
 cleanup() {
   local status=$?
   trap - EXIT
-  docker rm -f "$container" >/dev/null 2>&1 || true
-  if [[ -n ${staged:-} ]]; then
-    rm -rf -- "$staged"
-  fi
+  # `-v`가 있어야 익명 볼륨까지 지운다. 없으면 컨테이너만 사라지고 PostgreSQL
+  # 데이터 볼륨이 dangling으로 남아 리허설을 돌릴 때마다 쌓인다.
+  docker rm -f -v "$container" >/dev/null 2>&1 || true
+  for temporary in "${staged:-}" "${negative:-}"; do
+    if [[ -n $temporary ]]; then
+      rm -rf -- "$temporary"
+    fi
+  done
   exit "$status"
 }
-trap cleanup EXIT
+# EXIT만으로는 Ctrl-C·SIGTERM 경로가 덮이지 않는다.
+trap cleanup EXIT INT TERM
 
 docker run -d --name "$container" \
   -e POSTGRES_USER=migration \
@@ -83,6 +92,11 @@ VALUES
   ('u-staff',   9910000002, 'upgrade-staff',   'ACTIVE', 'STAFF',   'STAFF',   '합성교직원', NULL, '사업단', NULL, NULL, now(), now()),
   -- 관리자. 권한은 있으나 회원 유형은 확정된 바 없다.
   ('u-admin',   9910000003, 'upgrade-admin',   'ACTIVE', 'ADMIN',   NULL,      '합성관리자', NULL, '사업단', NULL, NULL, now(), now()),
+  -- ***이 두 행이 ADMIN 유도를 잡는다.*** 관리자가 가입 절차에서 역할을
+  -- 골라 둔 모양이다. `selectedRole`은 기록일 뿐 확정된 정체성이 아니므로
+  -- 배정된 ADMIN은 그쪽으로 내려가지 않고 미해소로 남아야 한다.
+  ('u-admin-sel-staff',   9910000006, 'upgrade-admin-sel-staff',   'ACTIVE', 'ADMIN', 'STAFF',   '합성관리자교직', NULL, '사업단', NULL, NULL, now(), now()),
+  ('u-admin-sel-student', 9910000007, 'upgrade-admin-sel-student', 'ACTIVE', 'ADMIN', 'STUDENT', '합성관리자학생', NULL, '인공지능학부', NULL, NULL, now(), now()),
   -- ***이 행이 결함을 잡는다*** — role NULL(미배정/회수 계정), 두 플래그 NULL.
   -- `NULL IN (...)`는 NULL이라 COALESCE 없이는 SET NOT NULL이 여기서 터진다.
   ('u-unassigned', 9910000004, 'upgrade-unassigned', 'ACTIVE', NULL, NULL, NULL, NULL, NULL, NULL, NULL, now(), now()),
@@ -95,6 +109,8 @@ VALUES
   ('u-student',   '합성학생',   '260201', '인공지능학부', NULL, NULL, NULL, now(), now()),
   ('u-staff',     '합성교직원', NULL,     '사업단',       NULL, NULL, NULL, now(), now()),
   ('u-admin',     '합성관리자', NULL,     '사업단',       NULL, NULL, NULL, now(), now()),
+  ('u-admin-sel-staff',   '합성관리자교직', NULL, '사업단',       NULL, NULL, NULL, now(), now()),
+  ('u-admin-sel-student', '합성관리자학생', NULL, '인공지능학부', NULL, NULL, NULL, now(), now()),
   ('u-selected',  '합성진행중', '260202', '인공지능학부', NULL, NULL, NULL, now(), now());
 SQL
 }
@@ -105,6 +121,7 @@ before_profiles=$(psql_exec -tA -c 'SELECT count(*) FROM "UserProfile"')
 
 # [3/5] negative 레인 — backfill을 걷어낸 마이그레이션은 이 데이터에서 실패해야 한다.
 #       실패하지 않으면 backfill이 아무것도 붙잡고 있지 않다는 뜻이다.
+# trap이 지운다 — 아래 어느 지점에서 죽어도 남지 않는다.
 negative=$(mktemp -d "${TMPDIR:-/tmp}/bridge-upgrade-neg.XXXXXX")
 cp -R "$backend/prisma/migrations" "$negative/migrations"
 cp "$backend/prisma/schema.prisma" "$negative/schema.prisma"
@@ -121,10 +138,8 @@ fi
 if (cd "$backend" && DATABASE_URL="$database_url" \
   pnpm exec prisma migrate deploy --schema "$negative/schema.prisma" >/dev/null 2>&1); then
   printf 'bridge upgrade: migration without COALESCE unexpectedly succeeded on NULL role rows\n' >&2
-  rm -rf -- "$negative"
   exit 1
 fi
-rm -rf -- "$negative"
 printf 'bridge upgrade: negative lane rejected the non-COALESCE backfill as expected\n'
 
 # negative 레인이 실패한 뒤 스키마가 그대로인지 확인한다 — 실패한 마이그레이션이
@@ -153,7 +168,7 @@ SELECT string_agg(id || '=' || "hasStaffAccess"::text || '/' || "hasAdminAccess"
 FROM "User";
 SQL
 )
-expected_flags='u-admin=true/true,u-selected=false/false,u-staff=true/false,u-student=false/false,u-unassigned=false/false'
+expected_flags='u-admin=true/true,u-admin-sel-staff=true/true,u-admin-sel-student=true/true,u-selected=false/false,u-staff=true/false,u-student=false/false,u-unassigned=false/false'
 [[ "$flags" == "$expected_flags" ]] || {
   printf 'bridge upgrade: access flags mismatch\n  expected=%s\n  actual  =%s\n' \
     "$expected_flags" "$flags" >&2
@@ -168,17 +183,23 @@ SELECT string_agg("userId" || '=' || COALESCE("memberKind"::text, 'null')
 FROM "UserProfile";
 SQL
 )
-expected_kinds='u-admin=null/null/사업단,u-selected=STUDENT/DEPARTMENT/인공지능학부,u-staff=STAFF/PROGRAM_OFFICE/사업단,u-student=STUDENT/DEPARTMENT/인공지능학부'
+# 배정된 관리자 세 행은 `selectedRole`이 무엇이든 세 칸이 모두 null로 남는다.
+# 교직원의 소속 유형은 PROGRAM_OFFICE가 아니라 DEPARTMENT다 — 원본은
+# `profile?.affiliationKind ?? DEPARTMENT` 하나뿐이고 회원 유형으로 갈라지지 않는다.
+expected_kinds='u-admin=null/null/null,u-admin-sel-staff=null/null/null,u-admin-sel-student=null/null/null,u-selected=STUDENT/DEPARTMENT/인공지능학부,u-staff=STAFF/DEPARTMENT/사업단,u-student=STUDENT/DEPARTMENT/인공지능학부'
 [[ "$kinds" == "$expected_kinds" ]] || {
   printf 'bridge upgrade: canonical membership mismatch\n  expected=%s\n  actual  =%s\n' \
     "$expected_kinds" "$kinds" >&2
   exit 1
 }
 
-# [5/5] 다음 contract 마이그레이션의 preflight가 보게 될 것을 지금 확인한다.
-#       가입을 마친(프로필 행이 있는) 계정 중 회원 유형이 빈 행은 ADMIN 하나뿐이어야
-#       하고, 그 행은 contract 단계가 별도로 해소한다. 그 밖의 canonical 공백은 0이어야
-#       한다 — 여기서 0이 아니면 contract PR이 배포 시점에 멈춘다.
+# [5/5] bridge 준비 상태를 확인한다.
+#
+#       bridge가 보장하는 것은 「관리자가 아닌 미해소 0건」과 「접근 권한 NULL 0건」
+#       둘이다. 배정된 관리자는 **의도적으로** 미해소로 남긴다 — 그에게 회원 유형을
+#       지어내지 않는 것이 이 단계의 사양이고, 그 분류는 운영에서 명시적으로 한다.
+#       최종 contract preflight는 여전히 전체 0건을 요구하므로, 그 사이에 관리자
+#       분류를 끝내는 절차가 따로 서야 한다.
 unresolved=$(psql_exec -tA <<'SQL'
 SELECT count(*) FROM "UserProfile" p
 JOIN "User" u ON u.id = p."userId"
@@ -189,9 +210,23 @@ SQL
   printf 'bridge upgrade: %s non-admin profiles still have a null memberKind\n' "$unresolved" >&2
   exit 1
 }
-null_affiliation=$(psql_exec -tA -c 'SELECT count(*) FROM "UserProfile" WHERE "affiliationName" IS NULL')
+# 미해소로 남은 행은 세 칸이 **함께** 비어 있어야 한다 — 정체성이 없는데 소속만
+# 채워져 있으면 그것도 지어낸 값이다.
+admin_partial=$(psql_exec -tA <<'SQL'
+SELECT count(*) FROM "UserProfile"
+WHERE "memberKind" IS NULL
+  AND ("affiliationKind" IS NOT NULL OR "affiliationName" IS NOT NULL);
+SQL
+)
+[[ "$admin_partial" == '0' ]] || {
+  printf 'bridge upgrade: %s unresolved profiles have a fabricated affiliation\n' "$admin_partial" >&2
+  exit 1
+}
+
+# 해소된 행은 소속명이 비어 있으면 안 된다.
+null_affiliation=$(psql_exec -tA -c 'SELECT count(*) FROM "UserProfile" WHERE "memberKind" IS NOT NULL AND "affiliationName" IS NULL')
 [[ "$null_affiliation" == '0' ]] || {
-  printf 'bridge upgrade: %s profiles still have a null affiliationName\n' "$null_affiliation" >&2
+  printf 'bridge upgrade: %s resolved profiles still have a null affiliationName\n' "$null_affiliation" >&2
   exit 1
 }
 null_flags=$(psql_exec -tA -c 'SELECT count(*) FROM "User" WHERE "hasStaffAccess" IS NULL OR "hasAdminAccess" IS NULL')
@@ -202,17 +237,20 @@ null_flags=$(psql_exec -tA -c 'SELECT count(*) FROM "User" WHERE "hasStaffAccess
 
 # 재적용 안전성 — 같은 마이그레이션을 다시 돌려도 값이 흔들리지 않는다(멱등).
 psql_exec >/dev/null <<'SQL'
-UPDATE "UserProfile" SET "affiliationName" = "department" WHERE "affiliationName" IS NULL;
+UPDATE "UserProfile" SET "affiliationName" = "department" WHERE "affiliationName" IS NULL AND "memberKind" IS NOT NULL;
 SQL
 kinds_again=$(psql_exec -tA <<'SQL'
 SELECT string_agg("userId" || '=' || COALESCE("memberKind"::text, 'null'), ',' ORDER BY "userId")
 FROM "UserProfile";
 SQL
 )
-[[ "$kinds_again" == 'u-admin=null,u-selected=STUDENT,u-staff=STAFF,u-student=STUDENT' ]] || {
+[[ "$kinds_again" == 'u-admin=null,u-admin-sel-staff=null,u-admin-sel-student=null,u-selected=STUDENT,u-staff=STAFF,u-student=STUDENT' ]] || {
   printf 'bridge upgrade: backfill is not idempotent (%s)\n' "$kinds_again" >&2
   exit 1
 }
 
-printf '{"status":"ok","scenario":"bridge-upgrade","users":%s,"profiles":%s,"unresolvedNonAdmin":0,"nullAccessFlags":0}\n' \
-  "$after_users" "$after_profiles"
+# 미해소로 남은 행 수를 함께 내보낸다 — 이것은 결함이 아니라 **운영이 분류해야 할
+# 일감**이다. 최종 contract preflight는 이 수가 0이 된 뒤에야 통과한다.
+unresolved_admin=$(psql_exec -tA -c 'SELECT count(*) FROM "UserProfile" WHERE "memberKind" IS NULL')
+printf '{"status":"ok","scenario":"bridge-upgrade","users":%s,"profiles":%s,"unresolvedNonAdmin":0,"unresolvedAdminPreserved":%s,"nullAccessFlags":0}\n' \
+  "$after_users" "$after_profiles" "$unresolved_admin"
