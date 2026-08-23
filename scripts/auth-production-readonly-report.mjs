@@ -4,7 +4,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 const MODES = new Set(['start', 'finish', 'postdeploy']);
-const BACKFILL_VERSION = '20260822-member-authority-v2';
+const AGGREGATE_VERSION = '20260823-auth-production-readonly-v1';
 
 async function main() {
   const [
@@ -46,8 +46,8 @@ async function main() {
 
   const routes = parseRoutes(healthStatus, sessionStatus, protectedStatus);
   const parsed = JSON.parse(await readFile(aggregatePath, 'utf8'));
-  if (parsed?.version !== BACKFILL_VERSION) {
-    throw new TypeError('Unexpected member authority aggregate version');
+  if (parsed?.version !== AGGREGATE_VERSION) {
+    throw new TypeError('Unexpected auth production aggregate version');
   }
   const aggregate = parseAggregate(parsed.aggregate);
   const images = {
@@ -155,20 +155,31 @@ function parseRoutes(healthStatus, sessionStatus, protectedStatus) {
  * 아직 canonical 상태가 아니므로 실패한다.
  */
 function parseAggregate(aggregate) {
-  const users = requireCount(aggregate?.users);
-  const unresolved = requireCount(aggregate?.memberKinds?.UNRESOLVED_ASSIGNED);
-  const compatibilityOnlyAdminAuthorities = requireCount(
-    aggregate?.compatibilityOnlyAdminAuthorities,
-  );
-  if (unresolved !== 0 || compatibilityOnlyAdminAuthorities !== 0) {
-    throw new TypeError('Unresolved member authority state remains');
+  const totalUsers = requireCount(aggregate?.totalUsers);
+  const totalProfiles = requireCount(aggregate?.totalProfiles);
+  const memberKinds = {
+    STUDENT: requireCount(aggregate?.memberKinds?.STUDENT),
+    STAFF: requireCount(aggregate?.memberKinds?.STAFF),
+    NULL: requireCount(aggregate?.memberKinds?.NULL),
+  };
+  const staffAccessRequests = {
+    PENDING: requireCount(aggregate?.staffAccessRequests?.PENDING),
+    APPROVED: requireCount(aggregate?.staffAccessRequests?.APPROVED),
+    REJECTED: requireCount(aggregate?.staffAccessRequests?.REJECTED),
+    REVOKED: requireCount(aggregate?.staffAccessRequests?.REVOKED),
+  };
+  const blankNames = requireCount(aggregate?.blankNames);
+  if (memberKinds.NULL !== 0 || blankNames !== 0) {
+    throw new TypeError('Invalid canonical profile aggregate');
   }
   return {
-    users,
-    staffAccess: requireCount(aggregate?.staffAccess),
-    adminAccess: requireCount(aggregate?.adminAccess),
-    unresolvedMemberKinds: unresolved,
-    compatibilityOnlyAdminAuthorities,
+    totalUsers,
+    totalProfiles,
+    memberKinds,
+    usersWithStaffAccess: requireCount(aggregate?.usersWithStaffAccess),
+    usersWithAdminAccess: requireCount(aggregate?.usersWithAdminAccess),
+    staffAccessRequests,
+    blankNames,
   };
 }
 

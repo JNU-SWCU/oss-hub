@@ -128,15 +128,34 @@ require_status() {
 # route-manifest 3분류를 익명 관측으로 확인한다.
 #   PUBLIC           health      200
 #   OPTIONAL_SESSION auth/session 200 (익명도 표현을 받는다)
-#   PROTECTED        users/me    401 (기본 거부가 살아 있다)
+#   PROTECTED        users/me/profile  401 (기본 거부가 살아 있다)
 health_status=$(require_status '/api/v1/health' 200)
 session_status=$(require_status '/api/v1/auth/session' 200)
-protected_status=$(require_status '/api/v1/users/me' 401)
+protected_status=$(require_status '/api/v1/users/me/profile' 401)
 
 # 집계는 서버 로컬 신뢰 경로로만 읽는다. 행 값은 출력되지 않는다.
-"${compose[@]}" exec -T backend \
-  node dist/prisma/member-authority-backfill.js --status-production --evidence - \
-  >"$aggregate_path"
+"${compose[@]}" exec -T postgres psql -Atq -c '
+SELECT json_build_object(
+  '\''version'\'', '\''20260823-auth-production-readonly-v1'\'',
+  '\''aggregate'\'', json_build_object(
+    '\''totalUsers'\'', (SELECT count(*) FROM "User"),
+    '\''totalProfiles'\'', (SELECT count(*) FROM "UserProfile"),
+    '\''memberKinds'\'', json_build_object(
+      '\''STUDENT'\'', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" = '\''STUDENT'\''),
+      '\''STAFF'\'', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" = '\''STAFF'\''),
+      '\''NULL'\'', (SELECT count(*) FROM "UserProfile" WHERE "memberKind" IS NULL)
+    ),
+    '\''usersWithStaffAccess'\'', (SELECT count(*) FROM "User" WHERE "hasStaffAccess"),
+    '\''usersWithAdminAccess'\'', (SELECT count(*) FROM "User" WHERE "hasAdminAccess"),
+    '\''staffAccessRequests'\'', json_build_object(
+      '\''PENDING'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''PENDING'\''),
+      '\''APPROVED'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''APPROVED'\''),
+      '\''REJECTED'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''REJECTED'\''),
+      '\''REVOKED'\'', (SELECT count(*) FROM "StaffAccessRequest" WHERE status = '\''REVOKED'\'')
+    ),
+    '\''blankNames'\'', (SELECT count(*) FROM "UserProfile" WHERE btrim("name") = '\''''\'')
+  )
+);' >"$aggregate_path"
 
 observed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 

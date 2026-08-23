@@ -38,7 +38,7 @@ target="\${*: -1}"
 case "$target" in
   */api/v1/health) printf '%s' "\$HEALTH_STATUS" ;;
   */api/v1/auth/session) printf '%s' "\$SESSION_STATUS" ;;
-  */api/v1/users/me) printf '%s' "\$PROTECTED_STATUS" ;;
+  */api/v1/users/me/profile) printf '%s' "\$PROTECTED_STATUS" ;;
   *) printf 'unexpected curl target\\n' >&2; exit 1 ;;
 esac
 `,
@@ -54,7 +54,7 @@ if [[ "$1" == compose ]]; then
   case "$*" in
     "ps -q frontend") printf 'frontend-container\\n' ;;
     "ps -q backend") printf 'backend-container\\n' ;;
-    exec*member-authority-backfill*) printf '%s\\n' "\$AGGREGATE_JSON" ;;
+    exec*postgres*psql*) printf '%s\\n' "\$AGGREGATE_JSON" ;;
     *) printf 'unexpected compose command\\n' >&2; exit 1 ;;
   esac
   exit 0
@@ -85,7 +85,11 @@ test('start captures an aggregate-only observation baseline', () => {
     optionalSession: 200,
     anonymousProtected: 401,
   });
-  assert.equal(report.aggregate.unresolvedMemberKinds, 0);
+  assert.equal(report.aggregate.totalUsers, 62);
+  assert.equal(report.aggregate.totalProfiles, 62);
+  assert.equal(report.aggregate.memberKinds.NULL, 0);
+  assert.equal(report.aggregate.blankNames, 0);
+  assert.equal(report.aggregate.staffAccessRequests.PENDING, 0);
   assert.equal(report.observation.elapsedSeconds, 0);
   // 행 값이 담기는 필드는 애초에 report 로 넘어오지 않는다.
   assert.equal('rows' in report, false);
@@ -183,17 +187,17 @@ test('route status drift fails closed', () => {
 });
 
 test('aggregate drift and unresolved authority fail closed', () => {
-  const unresolved = runChecker(
-    ['postdeploy', tag, sha, url, outputPath('unresolved')],
-    { aggregateJson: JSON.stringify(aggregate({ unresolved: 1 })) },
+  const nullMemberKinds = runChecker(
+    ['postdeploy', tag, sha, url, outputPath('null-member-kind')],
+    { aggregateJson: JSON.stringify(aggregate({ nullMemberKinds: 1 })) },
   );
-  assert.equal(unresolved.status, 1);
+  assert.equal(nullMemberKinds.status, 1);
 
-  const compatibilityOnly = runChecker(
-    ['postdeploy', tag, sha, url, outputPath('compat')],
-    { aggregateJson: JSON.stringify(aggregate({ compatibilityOnly: 2 })) },
+  const blankNames = runChecker(
+    ['postdeploy', tag, sha, url, outputPath('blank-names')],
+    { aggregateJson: JSON.stringify(aggregate({ blankNames: 2 })) },
   );
-  assert.equal(compatibilityOnly.status, 1);
+  assert.equal(blankNames.status, 1);
 
   const wrongVersion = runChecker(
     ['postdeploy', tag, sha, url, outputPath('version')],
@@ -327,20 +331,17 @@ function runChecker(
   });
 }
 
-function aggregate({ unresolved = 0, compatibilityOnly = 0 } = {}) {
+function aggregate({ nullMemberKinds = 0, blankNames = 0 } = {}) {
   return {
-    version: '20260822-member-authority-v2',
+    version: '20260823-auth-production-readonly-v1',
     aggregate: {
-      users: 62,
-      profiles: 62,
-      memberKinds: {
-        STUDENT: 54,
-        STAFF: 8,
-        UNRESOLVED_ASSIGNED: unresolved,
-      },
-      staffAccess: 8,
-      adminAccess: 5,
-      compatibilityOnlyAdminAuthorities: compatibilityOnly,
+      totalUsers: 62,
+      totalProfiles: 62,
+      memberKinds: { STUDENT: 54, STAFF: 8, NULL: nullMemberKinds },
+      usersWithStaffAccess: 8,
+      usersWithAdminAccess: 5,
+      staffAccessRequests: { PENDING: 0, APPROVED: 8, REJECTED: 1, REVOKED: 0 },
+      blankNames,
     },
   };
 }
