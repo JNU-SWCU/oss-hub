@@ -43,6 +43,16 @@ smoke는 rollout과 rollback의 Compose ingress에서 `/` 200과 `/api/v1/health
 `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 DB에 닿지 못하면 503을 반환한다 — 상수 응답은 nginx와 Node 프로세스가 살아 있다는 것만 증명하므로 배포 판정 근거가 되지 못한다.
 이미지는 release tag로 태깅하므로 별도 영속 배포 상태 파일을 두지 않으며, 배포 상태의 원본은 실행 중인 컨테이너 자신이다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. 배포 전에는 운영 환경 파일의 `FRONTEND_URL`이 `https://`인지 확인한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않으며 PostgreSQL 데이터는 named volume `pgdata`에, 제출 파일 object data는 named volume `minio_data`에 보존한다.
 
+### Anti-pattern: 애플리케이션 권한 검증을 CD에 두기
+
+CD는 애플리케이션 persona나 authorization matrix를 이해하지 않는다.
+CD는 synthetic user를 만들거나 일회용 domain state를 seed하지 않는다.
+CD는 CI acceptance test를 복제하지 않는다.
+이 검증은 CI 또는 pre-release verification의 책임이다.
+CD는 immutable release/image identity, backup, migration, rollout, infrastructure health/smoke, rollback을 담당한다.
+Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fixture가 없으면 production deployment가 막히는 failure mode를 보였다.
+이 결합은 CD를 CI와 application state에 종속시키므로 auth matrix gate를 CD에서 제거한다.
+
 배포가 성공한 **뒤에만** 이미지와 backup을 정리한다. 실행 중인 이미지와 직전 성공 배포 이미지는 rollback 대상이므로 절대 삭제하지 않고, 그보다 이전 이미지만 제거한다. 개수가 아니라 이 보존 규칙이 판단 기준이다. PostgreSQL과 object backup은 같은 `BACKUP_DIR`에 저장하고 같은 `BACKUP_RETENTION_N` 보존 규율을 적용한다. 보존 값은 실측한 backup 크기·증가율·가용 예산·최대 배포 빈도·복구 보존 기간으로 산정해 승인 기록에 남긴다. 값이 확정되기 전에는 정리를 수행하지 않는다(fail-closed).
 
 ## Alternatives considered
