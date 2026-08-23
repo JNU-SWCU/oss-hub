@@ -6,18 +6,19 @@ import {
   profileFieldRequirement,
 } from './user-profile-policy';
 
+// 관리자는 이 표에 없다 — `hasAdminAccess`는 회원 정체성과 독립이라 학생 관리자는
+// 학생 기준으로, 교직원 관리자는 교직원 기준으로 프로필을 채운다.
 it.each([
   ['STUDENT', { studentId: true, department: true }],
   ['STAFF', { studentId: false, department: true }],
-  ['ADMIN', { studentId: false, department: false }],
-] as const)('%s 역할의 필수 항목 표', (role: Role, expected) => {
-  expect(profileFieldRequirement(role)).toEqual(expected);
+] as const)('%s 회원 유형의 필수 항목 표', (memberKind, expected) => {
+  expect(profileFieldRequirement(memberKind)).toEqual(expected);
 });
 
 it.each([[null], [undefined]] as const)(
-  '역할이 %s이면 학생 기준으로 판정한다',
-  (role) => {
-    expect(profileFieldRequirement(role)).toEqual(
+  '회원 유형이 %s이면 학생 기준으로 판정한다',
+  (memberKind) => {
+    expect(profileFieldRequirement(memberKind)).toEqual(
       profileFieldRequirement('STUDENT'),
     );
   },
@@ -26,36 +27,35 @@ it.each([[null], [undefined]] as const)(
 it.each([
   ['STUDENT', false],
   ['STAFF', true],
-  ['ADMIN', true],
 ] as const)(
-  '%s 역할에서 학번 없는 프로필의 완료 여부는 %s',
-  (role, expected) => {
+  '%s 회원 유형에서 학번 없는 프로필의 완료 여부는 %s',
+  (memberKind, expected) => {
     expect(
       isCompleteUserProfile({
         id: 'synthetic-no-student-id',
         name: '합성 사용자',
         studentId: null,
         department: '인공지능학부',
-        role,
+        memberKind,
       }),
     ).toBe(expected);
   },
 );
 
+// 소속은 두 유형 모두에게 필수다 — 계약 스키마의 `affiliationName`이 NOT NULL이다.
 it.each([
   ['STUDENT', false],
   ['STAFF', false],
-  ['ADMIN', true],
 ] as const)(
-  '%s 역할에서 학과 없는 프로필의 완료 여부는 %s',
-  (role, expected) => {
+  '%s 회원 유형에서 소속 없는 프로필의 완료 여부는 %s',
+  (memberKind, expected) => {
     expect(
       isCompleteUserProfile({
         id: 'synthetic-no-department',
         name: '합성 사용자',
         studentId: '153403',
         department: null,
-        role,
+        memberKind,
       }),
     ).toBe(expected);
   },
@@ -76,15 +76,15 @@ it('필수가 아니어도 실려 있는 값의 형식은 검사한다', () => {
   ).toBe(false);
 });
 
-it('이름이 없으면 어떤 역할에서도 미완료다', () => {
-  for (const role of ['STUDENT', 'STAFF', 'ADMIN', null] as const) {
+it('이름이 없으면 어떤 회원 유형에서도 미완료다', () => {
+  for (const memberKind of ['STUDENT', 'STAFF', null] as const) {
     expect(
       isCompleteUserProfile({
         id: 'synthetic-no-name',
         name: null,
         studentId: '153404',
         department: '인공지능학부',
-        role,
+        memberKind,
       }),
     ).toBe(false);
   }
@@ -141,7 +141,10 @@ it('승인 대기 교직원은 학번이 없어도 완료다', () => {
 it('승인 대기 교직원의 학번은 필수가 아니다', () => {
   expect(
     profileFieldRequirement(
-      effectiveProfileMemberKind({ role: null, hasPendingStaffRequest: true }),
+      effectiveProfileMemberKind({
+        memberKind: null,
+        hasPendingStaffRequest: true,
+      }),
     ),
   ).toEqual({ studentId: false, department: true });
 });
@@ -163,43 +166,43 @@ it.each([
   ['STUDENT', { studentId: true, department: true }],
   ['STAFF', { studentId: false, department: true }],
 ] as const)(
-  '확정 전에는 고른 역할(%s)이 필수 항목을 정한다',
-  (selectedRole, expected) => {
-    // Given — 프로필을 입력하는 동안에는 role도 승인 요청도 없다(#569).
+  '확정 전에는 고른 회원 유형(%s)이 필수 항목을 정한다',
+  (selectedMemberKind, expected) => {
+    // Given — 프로필을 입력하는 동안에는 프로필 행도 승인 요청도 없다(#569).
     expect(
       profileFieldRequirement(
         effectiveProfileMemberKind({
           memberKind: null,
           hasPendingStaffRequest: false,
-          selectedRole,
+          selectedMemberKind,
         }),
       ),
     ).toEqual(expected);
   },
 );
 
-it('배정된 역할이 고른 역할을 이긴다', () => {
-  // Given — 관리자로 시드된 계정이 예전에 학생을 골라 뒀더라도 관리자다.
+it('확정된 회원 유형이 고른 유형을 이긴다', () => {
+  // Given — 프로필 행이 만들어진 뒤에는 그 행이 정본이다.
   expect(
     effectiveProfileMemberKind({
-      hasAdminAccess: true,
+      memberKind: MemberKind.STAFF,
       hasPendingStaffRequest: false,
-      selectedRole: 'STUDENT',
+      selectedMemberKind: MemberKind.STUDENT,
     }),
-  ).toBe('ADMIN');
+  ).toBe('STAFF');
 });
 
 /**
  * 회수된 교직원의 프로필은 **그대로 완료다** (#184).
  *
- * 회수는 `User.role`과 요청 상태만 바꾸고 `selectedRole`은 건드리지 않는다. 그래서
- * 확정 역할이 비어도 판정 근거가 남아 있고, 그가 채워 둔 이름·학과는 회수 전과 똑같이
+ * 회수는 `hasStaffAccess`와 요청 상태만 바꾸고 `selectedMemberKind`는 건드리지 않는다.
+ * 그래서 프로필 행이 아직 없어도 판정 근거가 남아 있고, 그가 채워 둔 이름·학과는 회수 전과 똑같이
  * 완료로 읽힌다. 회수가 없앤 것은 권한이지 그 사람이 입력해 둔 값이 아니다.
  *
  * 이 한 줄이 두 가지를 동시에 지탱한다.
  *
  * 1. **두 화면이 같은 답을 낸다** — 여기가 거짓이 되면 한 글자도 바뀌지 않은 프로필이
- *    회수된 순간 "미완료"로 뜬다. 회수 시 `selectedRole`까지 비우자는 안을 받지 않은
+ *    회수된 순간 "미완료"로 뜬다. 회수 시 `selectedMemberKind`까지 비우자는 안을 받지 않은
  *    이유다. 관리자 화면은 별도 projection이라 같은 근거를 따로 넘겨 줘야 하고, 그쪽은
  *    `admin-access-read.repository.ts`가 맡는다.
  * 2. **프로필 저장이 교직원 신청을 만들지 않는다 — 단, 이미 완료인 사람만 그렇다.**
@@ -213,24 +216,24 @@ it('배정된 역할이 고른 역할을 이긴다', () => {
  * `가입을 마치지 못한 채 회수된 사용자…` 검사가 근거와 함께 들고 있다.
  */
 it('회수된 교직원의 프로필은 회수 뒤에도 완료로 읽힌다', () => {
-  // Given: 회수 직후의 상태 — 확정 역할은 비었고 고른 역할만 남아 있다. 학번은 교직원
-  // 필수가 아니라 애초에 없다.
+  // Given: 회수 직후의 상태 — 아직 프로필 행이 없고 고른 유형만 남아 있다.
+  // 학번은 교직원 필수가 아니라 애초에 없다.
   const revokedStaff = {
     id: 'synthetic-user',
     name: '합성 교직원',
     studentId: null,
     department: '인공지능학부',
-    role: null,
+    memberKind: null,
     hasPendingStaffRequest: false,
-    selectedRole: 'STAFF' as Role,
+    selectedMemberKind: MemberKind.STAFF,
   };
 
   // Then
   expect(effectiveProfileMemberKind(revokedStaff)).toBe('STAFF');
   expect(isCompleteUserProfile(revokedStaff)).toBe(true);
   // 근거가 사라지면 가장 엄격한 학생 기준으로 되돌아가 같은 프로필이 미완료가 된다 —
-  // 회수가 `selectedRole`을 비우면 벌어지는 일이다.
-  expect(isCompleteUserProfile({ ...revokedStaff, selectedRole: null })).toBe(
-    false,
-  );
+  // 회수가 `selectedMemberKind`를 비우면 벌어지는 일이다.
+  expect(
+    isCompleteUserProfile({ ...revokedStaff, selectedMemberKind: null }),
+  ).toBe(false);
 });
