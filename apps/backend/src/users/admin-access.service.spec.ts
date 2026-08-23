@@ -41,8 +41,7 @@ describe('AdminAccessService mutation', () => {
       extensions: {
         currentAccess: {
           id: 'target',
-          hasStaffAccess: false,
-          hasAdminAccess: false,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
           pendingRequest: null,
         },
@@ -112,8 +111,7 @@ describe('AdminAccessService mutation', () => {
     // Then
     expect(result).toMatchObject({
       id: 'target',
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: {
@@ -148,14 +146,12 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            hasStaffAccess: false,
-            hasAdminAccess: false,
+            role: null,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            hasStaffAccess: true,
-            hasAdminAccess: false,
+            role: 'STAFF',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.APPROVED,
           },
@@ -207,14 +203,12 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            hasStaffAccess: false,
-            hasAdminAccess: false,
+            role: 'STUDENT',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            hasStaffAccess: false,
-            hasAdminAccess: false,
+            role: 'STUDENT',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.REJECTED,
           },
@@ -229,7 +223,11 @@ describe('AdminAccessService mutation', () => {
     // Given — 신청 없이 관리자가 직접 올린 STAFF다. APPROVED 행이 아예 없으므로
     // 삽입을 "APPROVED가 있을 때만"으로 좁히면 이 사람은 회수 흔적이 남지 않는다.
     const repository = new InMemoryAdminAccessRepository();
-    repository.target = accessUser({ role: 'STAFF', pendingRequest: null });
+    repository.target = accessUser({
+      role: 'STAFF',
+      hasStaffAccess: true,
+      pendingRequest: null,
+    });
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 
@@ -245,8 +243,7 @@ describe('AdminAccessService mutation', () => {
     // Then
     expect(result).toEqual({
       id: 'target',
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      role: null,
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: {
@@ -257,9 +254,9 @@ describe('AdminAccessService mutation', () => {
     expect(repository.userUpdates).toEqual([
       {
         userId: 'target',
-        expectedRole: 'STAFF',
+        expectedHasStaffAccess: true,
+        expectedHasAdminAccess: false,
         expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredRole: null,
         desiredAccountStatus: AccountStatus.ACTIVE,
       },
     ]);
@@ -276,7 +273,11 @@ describe('AdminAccessService mutation', () => {
   it('records the revocation as ROLE_REQUEST_REVOKED against the new request row', async () => {
     // Given
     const repository = new InMemoryAdminAccessRepository();
-    repository.target = accessUser({ role: 'STAFF', pendingRequest: null });
+    repository.target = accessUser({
+      role: 'STAFF',
+      hasStaffAccess: true,
+      pendingRequest: null,
+    });
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 
@@ -310,14 +311,12 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            hasStaffAccess: true,
-            hasAdminAccess: false,
+            role: 'STAFF',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: null,
           },
           after: {
-            hasStaffAccess: false,
-            hasAdminAccess: false,
+            role: null,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.REVOKED,
           },
@@ -410,8 +409,7 @@ describe('AdminAccessService mutation', () => {
       extensions: {
         currentAccess: {
           id: 'target',
-          hasStaffAccess: false,
-          hasAdminAccess: false,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
           pendingRequest: null,
         },
@@ -544,7 +542,7 @@ describe('AdminAccessService mutation', () => {
           schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION,
           eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
           actor: {
-            displayName: '합성 교직원',
+            displayName: '합성 관리자',
             githubLogin: 'synthetic-staff',
           },
           target: {
@@ -552,14 +550,12 @@ describe('AdminAccessService mutation', () => {
             githubLogin: 'synthetic-target',
           },
           before: {
-            hasStaffAccess: false,
-            hasAdminAccess: false,
+            role: null,
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
-            hasStaffAccess: true,
-            hasAdminAccess: false,
+            role: 'STAFF',
             accountStatus: AccountStatus.ACTIVE,
             requestStatus: StaffAccessRequestStatus.APPROVED,
           },
