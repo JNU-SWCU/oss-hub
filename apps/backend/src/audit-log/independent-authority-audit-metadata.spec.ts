@@ -151,6 +151,8 @@ function createStoredMetadata(
       name: '합성 관리자',
       role: Role.ADMIN,
       accountStatus: AccountStatus.ACTIVE,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
     },
     before,
     after: { ...before, ...after },
