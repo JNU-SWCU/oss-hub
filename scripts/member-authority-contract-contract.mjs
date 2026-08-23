@@ -23,9 +23,12 @@ const REQUIRED_MIGRATION_PATTERNS = [
   // 저장 불변식
   /CONSTRAINT "UserProfile_department_affiliationName_check"/,
   /CONSTRAINT "UserProfile_studentId_memberKind_check"/,
-  // legacy 제거
+  // legacy 제거 — 역할과 User 프로필 mirror를 함께 지운다.
   /DROP COLUMN "role"/,
   /DROP COLUMN "selectedRole"/,
+  /DROP COLUMN "name"/,
+  /DROP COLUMN "studentId"/,
+  /DROP COLUMN "department"/,
   /DROP TYPE "Role"/,
 ];
 

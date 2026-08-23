@@ -50,33 +50,26 @@ psql_exec() {
 }
 
 # [1/4] 계약 마이그레이션 **직전**까지 적용한다 — 그 상태가 오늘의 생산 스키마다.
+# Prisma는 schema 파일 위치에서 migrations 경로를 파생하므로, 계약 디렉터리를 뺀
+# 스테이징 트리에 schema를 함께 두고 그 경로만 쓴다. 프로세스 치환 fallback은
+# 항상 실패하고 stderr를 삼켜 진짜 오류를 숨기므로 두지 않는다.
 contract_dir=$(basename "$(dirname "$backend/prisma/migrations/20260823000000_contract_member_authority/migration.sql")")
 staged=$(mktemp -d "${TMPDIR:-/tmp}/contract-staged.XXXXXX")
 cp -R "$backend/prisma/migrations" "$staged/migrations"
 rm -rf "$staged/migrations/$contract_dir"
-(
-  cd "$backend"
-  DATABASE_URL="$database_url" PRISMA_MIGRATIONS_PATH="$staged/migrations" \
-    pnpm exec prisma migrate deploy --schema <(
-      sed "s#migrations#migrations#" "$backend/prisma/schema.prisma"
-    ) >/dev/null 2>&1
-) || {
-  # Prisma는 migrations 경로를 schema 파일 위치에서 파생한다 — 스테이징 디렉터리로
-  # 통째로 옮겨 적용한다.
-  cp "$backend/prisma/schema.prisma" "$staged/schema.prisma"
-  (cd "$backend" && DATABASE_URL="$database_url" \
-    pnpm exec prisma migrate deploy --schema "$staged/schema.prisma" >/dev/null)
-}
+cp "$backend/prisma/schema.prisma" "$staged/schema.prisma"
+(cd "$backend" && DATABASE_URL="$database_url" \
+  pnpm exec prisma migrate deploy --schema "$staged/schema.prisma" >/dev/null)
 
 # [2/4] 생산 모양 합성 데이터를 심는다. 값은 전부 합성이다.
 seed_valid() {
   psql_exec >/dev/null <<'SQL'
-INSERT INTO "User" (id, "githubId", login, "accountStatus", "selectedMemberKind", "hasStaffAccess", "hasAdminAccess", "createdAt", "updatedAt")
+INSERT INTO "User" (id, "githubId", login, "accountStatus", role, "selectedMemberKind", "hasStaffAccess", "hasAdminAccess", "createdAt", "updatedAt")
 VALUES
-  ('c-student', 9900000001, 'contract-student', 'ACTIVE', 'STUDENT', FALSE, FALSE, now(), now()),
-  ('c-staff',   9900000002, 'contract-staff',   'ACTIVE', 'STAFF',   TRUE,  FALSE, now(), now()),
-  ('c-admin',   9900000003, 'contract-admin',   'ACTIVE', 'STUDENT', FALSE, TRUE,  now(), now()),
-  ('c-legacy',  9900000004, 'contract-legacy',  'ACTIVE', 'STUDENT', FALSE, FALSE, now(), now());
+  ('c-student', 9900000001, 'contract-student', 'ACTIVE', 'STUDENT', 'STUDENT', FALSE, FALSE, now(), now()),
+  ('c-staff',   9900000002, 'contract-staff',   'ACTIVE', 'STAFF',   'STAFF',   TRUE,  FALSE, now(), now()),
+  ('c-admin',   9900000003, 'contract-admin',   'ACTIVE', 'ADMIN',   'STUDENT', FALSE, TRUE,  now(), now()),
+  ('c-legacy',  9900000004, 'contract-legacy',  'ACTIVE', 'STUDENT', 'STUDENT', FALSE, FALSE, now(), now());
 
 INSERT INTO "UserProfile" ("userId", name, "studentId", department, "memberKind", "affiliationKind", "affiliationName", "createdAt", "updatedAt")
 VALUES
@@ -157,27 +150,39 @@ SQL
 fi
 
 # contract-negative — 어긋난 데이터가 파괴적 DDL 이전에 거부되는지 증명한다.
+assert_preflight_aborted() {
+  local reason=$1
+  if apply_contract 2>/dev/null; then
+    printf 'contract-negative: migration accepted %s\n' "$reason" >&2
+    exit 1
+  fi
+  # 거부된 뒤에도 legacy 칸과 테이블이 **그대로 남아 있어야** 롤백이 가능하다.
+  local survived legacy_table
+  survived=$(psql_exec -tA -c "SELECT count(*) FROM information_schema.columns WHERE table_name='User' AND column_name='role'")
+  [[ "$survived" == '1' ]] || {
+    printf 'contract-negative: User.role was dropped despite the failed preflight (%s)\n' "$reason" >&2
+    exit 1
+  }
+  legacy_table=$(psql_exec -tA -c "SELECT count(*) FROM information_schema.tables WHERE table_name='RoleRequest'")
+  [[ "$legacy_table" == '1' ]] || {
+    printf 'contract-negative: RoleRequest was renamed despite the failed preflight (%s)\n' "$reason" >&2
+    exit 1
+  }
+}
+
 seed_valid
 psql_exec >/dev/null <<'SQL'
 -- 소속 사본이 어긋난 행 하나. preflight [3/7]이 잡아야 한다.
 UPDATE "UserProfile" SET "affiliationName" = '어긋난 소속' WHERE "userId" = 'c-student';
 SQL
+assert_preflight_aborted 'mismatched affiliation data'
 
-if apply_contract 2>/dev/null; then
-  printf 'contract-negative: migration accepted mismatched affiliation data\n' >&2
-  exit 1
-fi
-
-# 거부된 뒤에도 legacy 칸과 테이블이 **그대로 남아 있어야** 롤백이 가능하다.
-survived=$(psql_exec -tA -c "SELECT count(*) FROM information_schema.columns WHERE table_name='User' AND column_name='role'")
-[[ "$survived" == '1' ]] || {
-  printf 'contract-negative: User.role was dropped despite the failed preflight\n' >&2
-  exit 1
-}
-legacy_table=$(psql_exec -tA -c "SELECT count(*) FROM information_schema.tables WHERE table_name='RoleRequest'")
-[[ "$legacy_table" == '1' ]] || {
-  printf 'contract-negative: RoleRequest was renamed despite the failed preflight\n' >&2
-  exit 1
-}
+# preflight 3을 거둔 뒤, canonical 사실과 어긋난 legacy role로 [6/7]을 따로 친다.
+# 3이 먼저 실패하면 6은 실행되지 않으므로 두 게이트를 한 트랜잭션에 섞지 않는다.
+psql_exec >/dev/null <<'SQL'
+UPDATE "UserProfile" SET "affiliationName" = '인공지능학부' WHERE "userId" = 'c-student';
+UPDATE "User" SET role = 'STAFF' WHERE id = 'c-student';
+SQL
+assert_preflight_aborted 'legacy role/canonical mismatch'
 
 printf '{"status":"ok","scenario":"contract-negative"}\n'

@@ -21,3 +21,26 @@ test('contract rehearsal cleanup removes the staged migrations directory', () =>
     /if \[\[ -n \$\{staged:-\} \]\]; then\s+rm -rf -- "\$staged"/s,
   );
 });
+
+test('contract rehearsal deploys the staged pre-contract schema without a process-substitution fallback', () => {
+  assert.doesNotMatch(rehearsal, /PRISMA_MIGRATIONS_PATH/);
+  assert.doesNotMatch(rehearsal, /<\(/);
+  assert.match(
+    rehearsal,
+    /pnpm exec prisma migrate deploy --schema "\$staged\/schema\.prisma"/,
+  );
+});
+
+test('contract rehearsal seeds matching legacy User.role values', () => {
+  assert.match(
+    rehearsal,
+    /INSERT INTO "User" \(id, "githubId", login, "accountStatus", role,/,
+  );
+  assert.match(rehearsal, /'c-admin'.*'ADMIN'/);
+});
+
+test('contract-negative exercises affiliation and legacy-role mismatch gates', () => {
+  assert.match(rehearsal, /assert_preflight_aborted 'mismatched affiliation data'/);
+  assert.match(rehearsal, /UPDATE "User" SET role = 'STAFF' WHERE id = 'c-student'/);
+  assert.match(rehearsal, /assert_preflight_aborted 'legacy role\/canonical mismatch'/);
+});
