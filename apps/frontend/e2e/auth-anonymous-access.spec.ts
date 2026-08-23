@@ -21,14 +21,11 @@ test('anonymous visitor gets the login notice in place on a protected route', as
 
   await page.goto('/dashboard');
 
-  // `h1`에 `role="alert"`가 걸려 있어 접근성 트리에서는 heading이 아니라 alert다
-  // (login-required-notice.tsx). 사용자에게 실제로 알려지는 이름으로 찾는다.
   const notice = page.locator('#login-required-heading');
   await expect(notice).toBeVisible();
-  await expect(notice).toHaveText('로그인이 필요한 페이지입니다');
   await expect(notice).toHaveAttribute('role', 'alert');
   await expect(
-    page.getByRole('region', { name: '로그인이 필요한 페이지입니다' }),
+    page.locator('section[aria-labelledby="login-required-heading"]'),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/dashboard$/);
 

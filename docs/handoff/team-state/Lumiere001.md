@@ -26,7 +26,7 @@
 - Issue: #969
 - PR: (이 PR)
 - blocker: 없음
-- 내용: PR #1018 이후 6개 atomic 커밋으로 브랜치를 최종 통합했다. F3가 찾은 근본 결함은 다섯 가지다. canonical STAFF-no-access를 실제로 쓸 수 있는 화면이 아니라 정체성으로 분류했고, 백엔드 로그인 랜딩이 같은 오분류를 그대로 따라갔다. E2E 시드는 staff를 학생으로 잘못 표기했고, 큐의 STAFF는 요청을 처리한 뒤 볼 수 없는 상세를 다시 불러왔으며, 낡은 lifecycle E2E는 이미 삭제된 역할 컨트롤을 조작했다. 고친 방향은 사용 가능한 화면 기준 분류, 온보딩 랜딩 정정, canonical 시드·fixture 정리, 백엔드의 엄격한 가시성은 유지한 채 큐에서 PATCH 응답을 로컬 권위로 투영하는 처리, 그리고 canonical 독립 권한 컨트롤이다. 브라우저 시나리오 7개를 새로 넣었다.
+- 내용: PR #1018 이후 atomic 커밋들로 브랜치를 최종 통합했다. F3가 찾은 근본 결함은 다섯 가지다. canonical STAFF-no-access를 실제로 쓸 수 있는 화면이 아니라 정체성으로 분류했고, 백엔드 로그인 랜딩이 같은 오분류를 그대로 따라갔다. E2E 시드는 staff를 학생으로 잘못 표기했고, 큐의 STAFF는 요청을 처리한 뒤 볼 수 없는 상세를 다시 불러왔으며, 낡은 lifecycle E2E는 이미 삭제된 역할 컨트롤을 조작했다. 고친 방향은 사용 가능한 화면 기준 분류, 온보딩 랜딩 정정, canonical 시드·fixture 정리, 백엔드의 엄격한 가시성은 유지한 채 큐에서 PATCH 응답을 로컬 권위로 투영하는 처리, 그리고 canonical 독립 권한 컨트롤이다. 브라우저 시나리오 7개를 새로 넣었다.
 - 검증: 통합 브라우저 14/14, 관리자 lifecycle 6/6, 백엔드 297 suites·3337 tests, 프런트엔드 303 files·3018 tests, typecheck·lint·build 통과. `local:verify`는 마이그레이션 53개와 PostgreSQL·HTTP·MinIO 점검을 끝냈고, 스크린샷 22장에 대한 시각 QA를 2회 돌렸다. blocker는 0이다. 운영 아티팩트는 `.omo/evidence/jwt-auth-signup-refactor/final/f3-summary.json`이다.
 - 배포: 현재 production read-only 점검은 정상이지만 이번 수정은 아직 배포 전이며 다음 PR·릴리스에서 나간다. 스키마·마이그레이션 변경이 없어 DB 작업 없이 v0.6.112 애플리케이션 이미지로 롤백할 수 있다.
 - 공개 안전성: 비밀값, 행 데이터, 실명, IP, 로컬 경로, 증적 절대 경로 없음.
