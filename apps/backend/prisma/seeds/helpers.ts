@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   AccountStatus,
   AffiliationKind,
@@ -39,7 +40,6 @@ export const SEED_ROLE_FACTS: Record<
     hasAdminAccess: true,
   },
 };
-import { createHash } from 'node:crypto';
 import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
 import { isValidUserName } from '../../src/users/user-profile-policy';
 

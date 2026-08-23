@@ -16,7 +16,7 @@ export interface AccountDeactivationTarget {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly displayName: string | null;
-  /** 감사 이력에 남길 표시 값 — 판정에는 쓰지 않는다(`domain/authority-label.ts`). */
+  /** 감사 이력에 남길 표시 값 — 판정에는 쓰지 않는다(`../common/authority-label.ts`). */
   readonly role: AuthorityLabel | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;

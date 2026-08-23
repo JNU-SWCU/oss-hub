@@ -24,7 +24,7 @@ import {
  * `ProgramScopeMilestoneDocsSummary`와 필드명이 같다(milestoneId/title/completed/total).
  */
 export interface ProgramOverviewViewerStats {
-  /** 표시 역할 — 화면이 한 단어로 뷰어를 부를 때 쓴다(`users/domain/authority-label.ts`). */
+  /** 표시 역할 — 화면이 한 단어로 뷰어를 부를 때 쓴다(`common/authority-label.ts`). */
   role: AuthorityLabel | null;
   myDocumentsCompleted: number | null;
   myDocumentsTotal: number | null;

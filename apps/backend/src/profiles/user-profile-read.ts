@@ -92,11 +92,10 @@ export function userProfileNameWhere(query: string): Prisma.UserWhereInput {
 }
 
 /**
- * "평범한 학생인가" — 회원 유형이 STUDENT이고 승격된 접근 권한이 없다.
+ * 학생 회원인가 — 회원 유형이 STUDENT이면 관리자 권한과 독립적으로 포함한다.
  *
- * 학생 관리자는 여기 걸리지 않는다. 이 술어를 쓰는 자리는 신청·팀 참여처럼 **학생으로서**
- * 하는 행동이라, 관리자 권한을 가진 학생도 학생 자격으로 통과해야 한다면 호출부가
- * `hasStaffAccess`/`hasAdminAccess` 조건을 빼고 `memberKind`만 걸어야 한다.
+ * 이 술어를 쓰는 자리는 신청·팀 참여처럼 **학생으로서** 하는 행동이므로 학생 관리자도
+ * 학생 자격으로 통과한다.
  */
 export const STUDENT_MEMBER_WHERE = {
   profile: { is: { memberKind: 'STUDENT' } },
