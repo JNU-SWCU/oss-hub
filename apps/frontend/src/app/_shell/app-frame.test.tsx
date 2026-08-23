@@ -209,7 +209,7 @@ describe('AppFrame', () => {
     );
   });
 
-  it('legacy ADMIN with unresolved member kind is forced into reclassification', () => {
+  it('미해결 호환 세션도 정상 인증 셸과 본문을 렌더한다', () => {
     // Given
     const session = {
       status: 'assigned' as const,
@@ -224,8 +224,10 @@ describe('AppFrame', () => {
     const html = render('/dashboard', session);
 
     // Then
-    expect(html).toContain('data-slot="legacy-member-reclassification"');
-    expect(html).not.toContain('<p>본문</p>');
+    expect(html).toContain('data-slot="nav-bar"');
+    expect(html).toContain('>대시보드<');
+    expect(html).toContain('data-slot="app-sidebar"');
+    expect(html).toContain('<p>본문</p>');
   });
 
   it('회원 셸은 뷰포트를 고정하고 본문만 스크롤한다', () => {

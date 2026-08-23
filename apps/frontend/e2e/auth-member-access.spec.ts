@@ -125,6 +125,12 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
   }
 
   const adminOnlyAudit = installBrowserAudit(page);
+  const adminOnlyPostRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST') {
+      adminOnlyPostRequests.push(new URL(request.url()).pathname);
+    }
+  });
   await installSyntheticAuthority(page, {
     role: 'ADMIN',
     memberKind: null,
@@ -133,7 +139,9 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
   });
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/admin\/access$/);
+  await expect(page.locator('[data-slot="nav-bar"]')).toBeVisible();
   await captureResponsiveMenu(page, testInfo, 'menu-admin-only');
+  expect(adminOnlyPostRequests).toEqual([]);
   adminOnlyAudit.assertClean();
 
   const adminAudit = installBrowserAudit(adminPage);

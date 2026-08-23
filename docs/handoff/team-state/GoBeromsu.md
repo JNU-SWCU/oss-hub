@@ -541,3 +541,15 @@
 - 결과: terminal의 `selectedRole`을 null 또는 canonical member kind와 matching하는 legacy role로 제한해 수용하고, 반대 role selection과 기존 pristine/v1/v2/terminal one-field hybrid는 계속 fail-closed
 - 검증: retained STUDENT/STAFF pure red 2 failures와 5-row PostgreSQL status/apply red 재현 후 pure 3 suites/40 tests, 격리 PostgreSQL 4 suites/14 tests, aggregate ADMIN 5·STAFF 2·STUDENT 3·unresolved 0·compatibility-only 0, fixture 독립 2회 동일 SHA-256, backend lint·typecheck·build·LSP·Prettier·LOC·placeholder scan 통과
 - 금지 작업: production 접근/write·direct SQL·row allowlist·release·deploy·Jenkins trigger·merge 없음
+
+## 2026-08-23 — Task 10 기존 관리자 재분류 프런트엔드를 종료
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 미해결 호환 세션의 강제 재분류 분기·폼·클라이언트·전용 테스트를 제거하고 정상 인증 셸 탐색을 복구했으며, Todo 13까지 필요한 backend endpoint와 session 호환 필드는 유지
+- 검증: red AppFrame 회귀, frontend lint·typecheck·301 files/2991 tests·build, exact ADMIN/null/staff+admin Chrome 데스크톱·태블릿·모바일 QA와 POST 0건, Codex 시각 oracle 2건 PASS, LSP·LOC·TODO/skip/only·frontend legacy reference·public-safe 검사 통과
+- simplifier: 공식 code-simplifier 1.0.0 prompt SHA-256 `2a51e8d210580d9f66ac2ed1226c41f9374565fc275da30d7bb95f65c2cc87bb`를 변경 hand-written 6파일 allowlist에 Codex 단일 실행해 추가 편집 없이 PASS; allowlist 밖 변경 0건
+- 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-form-retirement/` (synthetic browser session; production 접근 증거 아님)
+- 금지 작업: production 접근·release·deploy·merge 없음

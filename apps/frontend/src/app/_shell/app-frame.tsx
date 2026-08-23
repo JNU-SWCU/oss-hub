@@ -3,8 +3,6 @@
 import { usePathname } from 'next/navigation';
 import { useMemo, type ReactNode } from 'react';
 import type { NavItem } from '@/components';
-import { LegacyMemberReclassificationScreen } from '@/features/profile/components/legacy-member-reclassification-screen';
-import { requiresLegacyMemberReclassification } from '@/features/profile/legacy-member-reclassification';
 import { PUBLIC_MENU } from './public-menus';
 import { ProductShell, SidebarDrawerProvider } from './product-shell';
 import { ShellNav } from './shell-nav';
@@ -56,14 +54,6 @@ export function AppFrame({
     }
     return base;
   }, [items, status, isProfileComplete]);
-
-  if (requiresLegacyMemberReclassification(session)) {
-    return (
-      <SessionRoleProvider value={session}>
-        <LegacyMemberReclassificationScreen onComplete={session.retry} />
-      </SessionRoleProvider>
-    );
-  }
 
   if (preMember) {
     return (
