@@ -15,7 +15,10 @@ import type { Page, TestInfo } from '@playwright/test';
  */
 const F3_EVIDENCE_DIRECTORY = path.resolve(
   process.env.E2E_F3_EVIDENCE_DIR ??
-    path.join(process.cwd(), '../../.omo/evidence/jwt-auth-signup-refactor/final'),
+    path.join(
+      process.cwd(),
+      '../../.omo/evidence/jwt-auth-signup-refactor/final',
+    ),
 );
 
 /**

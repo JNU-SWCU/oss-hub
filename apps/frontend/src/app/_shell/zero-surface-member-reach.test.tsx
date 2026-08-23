@@ -87,9 +87,10 @@ vi.mock('@/features/profile/api', async (importOriginal) => {
 vi.mock(
   '@/features/profile/settings/notification-channel-api',
   async (importOriginal) => {
-    const actual = await importOriginal<
-      typeof import('@/features/profile/settings/notification-channel-api')
-    >();
+    const actual =
+      await importOriginal<
+        typeof import('@/features/profile/settings/notification-channel-api')
+      >();
     return {
       ...actual,
       getMyNotificationChannel: mocks.getMyNotificationChannel,
