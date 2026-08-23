@@ -6,7 +6,7 @@ import {
 
 const student = {
   memberKind: MemberKind.STUDENT,
-  selectedRole: 'STUDENT',
+  selectedMemberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
 } as const;
@@ -83,7 +83,7 @@ it('supports admin-only compatibility without inventing membership', () => {
     ),
   ).toEqual({
     memberKind: null,
-    selectedRole: null,
+    selectedMemberKind: null,
     role: 'ADMIN',
     hasStaffAccess: false,
     hasAdminAccess: true,
