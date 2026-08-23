@@ -26,14 +26,14 @@ export class RoleSelectionResponseDto {
 }
 
 /** 지금 고른 회원 유형. 아직 고르지 않았으면 `null`이다. */
-export class RoleSelectionStateResponseDto {
+export class MemberKindSelectionStateResponseDto {
   readonly selectedRole: SelectableMemberKind | null;
 
   private constructor(state: MemberKindSelectionState) {
     this.selectedRole = state.selectedMemberKind;
   }
 
-  static from(state: MemberKindSelectionState): RoleSelectionStateResponseDto {
-    return new RoleSelectionStateResponseDto(state);
+  static from(state: MemberKindSelectionState): MemberKindSelectionStateResponseDto {
+    return new MemberKindSelectionStateResponseDto(state);
   }
 }

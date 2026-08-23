@@ -178,7 +178,7 @@ describe('학번 최초 저장의 유일성', () => {
  *
  * ## 그래서 무슨 일이 생기나 — 그리고 왜 그대로 두는가
  *
- * 그가 학과를 채워 저장하면 `completeProfileIfUnchanged` 안의 `confirmSelectedRole`이
+ * 그가 학과를 채워 저장하면 `completeProfileIfUnchanged` 안의 `requestStaffAccess`이
  * 새 `PENDING` 요청을 만든다. 막지 않는다.
  *
  * - **그것이 `가입 마치기`의 정의다.** 미완료 → 완료 저장은 고른 역할을 확정하는

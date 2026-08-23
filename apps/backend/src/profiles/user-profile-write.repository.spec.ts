@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
 import {
   completeUserProfileViewIfUnchanged,
-  fillCompatibleStudentIdIfUnchanged,
-} from './profile-compatibility.repository';
+  fillStudentIdIfEmpty,
+} from './user-profile-write.repository';
 
 function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
@@ -112,7 +112,7 @@ describe('학번 최초 저장', () => {
     const { transaction, updateMany, create } = harness();
 
     // When
-    const outcome = await fillCompatibleStudentIdIfUnchanged(
+    const outcome = await fillStudentIdIfEmpty(
       transaction,
       expected,
       profile,
@@ -141,7 +141,7 @@ describe('학번 최초 저장', () => {
     });
 
     // When
-    const outcome = await fillCompatibleStudentIdIfUnchanged(
+    const outcome = await fillStudentIdIfEmpty(
       transaction,
       expected,
       profile,
@@ -158,7 +158,7 @@ describe('학번 최초 저장', () => {
 
     // When / Then
     await expect(
-      fillCompatibleStudentIdIfUnchanged(transaction, expected, profile),
+      fillStudentIdIfEmpty(transaction, expected, profile),
     ).resolves.toBe('conflict');
   });
 
@@ -168,7 +168,7 @@ describe('학번 최초 저장', () => {
 
     // When / Then
     await expect(
-      fillCompatibleStudentIdIfUnchanged(transaction, expected, profile),
+      fillStudentIdIfEmpty(transaction, expected, profile),
     ).resolves.toBe('conflict');
     expect(create).not.toHaveBeenCalled();
   });
@@ -179,7 +179,7 @@ describe('학번 최초 저장', () => {
 
     // When / Then
     await expect(
-      fillCompatibleStudentIdIfUnchanged(transaction, expected, profile),
+      fillStudentIdIfEmpty(transaction, expected, profile),
     ).resolves.toBe('taken');
   });
 
@@ -190,7 +190,7 @@ describe('학번 최초 저장', () => {
 
     // When / Then
     await expect(
-      fillCompatibleStudentIdIfUnchanged(transaction, expected, profile),
+      fillStudentIdIfEmpty(transaction, expected, profile),
     ).rejects.toBe(failure);
   });
 });

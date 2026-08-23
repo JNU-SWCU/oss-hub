@@ -7,12 +7,12 @@ import {
 } from '../consents/consent-error-code.enum';
 import type { ConsentsService } from '../consents/consents.service';
 import type { UserProfileView } from '../profiles/user-profile-read';
-import type { StaffAccessRequestRecord, RoleUser } from './domain/member-onboarding';
-import { confirmSelectedRole } from './role-confirmation';
+import type { StaffAccessRequestRecord, MemberUser } from './domain/member-onboarding';
+import { requestStaffAccess } from './staff-access-request';
 import type {
-  RoleConfirmation,
-  RoleConfirmationTarget,
-} from './role-confirmation';
+  StaffAccessRequestOutcome,
+  StaffAccessRequestTarget,
+} from './staff-access-request';
 import type {
   RolesRepositoryPort,
   RolesTransactionStore,
@@ -49,7 +49,7 @@ const STAFF_ONLY_PROFILE: UserProfileView = {
 };
 
 class InMemoryRolesStore implements RolesTransactionStore {
-  private user: RoleUser | null;
+  private user: MemberUser | null;
   private readonly requests: StaffAccessRequestRecord[];
 
   constructor(
@@ -69,11 +69,11 @@ class InMemoryRolesStore implements RolesTransactionStore {
     this.requests = [...requests];
   }
 
-  findUserByGithubId(): Promise<RoleUser | null> {
+  findUserByGithubId(): Promise<MemberUser | null> {
     return Promise.resolve(this.user);
   }
 
-  updateSelectedRole(_userId: string, role: Role): Promise<RoleUser> {
+  updateSelectedMemberKind(_userId: string, role: Role): Promise<MemberUser> {
     if (!this.user) {
       throw new Error('합성 사용자가 존재해야 합니다.');
     }
@@ -85,10 +85,10 @@ class InMemoryRolesStore implements RolesTransactionStore {
    * 확정 규칙은 실물(`role-confirmation.ts`)을 그대로 태운다 — 여기서 규칙을 다시
    * 적으면 검사는 통과하는데 제품만 틀린 상태가 만들어진다.
    */
-  confirmSelectedRole(
-    target: RoleConfirmationTarget,
-  ): Promise<RoleConfirmation> {
-    return confirmSelectedRole(
+  requestStaffAccess(
+    target: StaffAccessRequestTarget,
+  ): Promise<StaffAccessRequestOutcome> {
+    return requestStaffAccess(
       {
         user: {
           updateMany: (({ data }: { data: { role: Role } }) => {
@@ -155,7 +155,7 @@ class InMemoryRolesRepository implements RolesRepositoryPort {
     return operation(this.store);
   }
 
-  findUserByGithubId(): Promise<RoleUser | null> {
+  findUserByGithubId(): Promise<MemberUser | null> {
     return this.store.findUserByGithubId();
   }
 
@@ -219,7 +219,7 @@ describe('RolesService', () => {
     const { service, store } = createService(null, [], false);
 
     // When
-    const promise = service.selectRole(424242n, 'STUDENT');
+    const promise = service.selectMemberKind(424242n, 'STUDENT');
 
     // Then
     await expect(promise).rejects.toMatchObject({
@@ -239,7 +239,7 @@ describe('RolesService', () => {
     const { service, store } = createService(null);
 
     // When
-    const result = await service.selectRole(424242n, 'STUDENT');
+    const result = await service.selectMemberKind(424242n, 'STUDENT');
 
     // Then
     expect(result).toEqual({
@@ -259,7 +259,7 @@ describe('RolesService', () => {
     const { service, store } = createService(null);
 
     // When
-    const result = await service.selectRole(424242n, 'STAFF');
+    const result = await service.selectMemberKind(424242n, 'STAFF');
 
     // Then
     expect(result).toEqual({
@@ -282,7 +282,7 @@ describe('RolesService', () => {
     );
 
     // When
-    await service.selectRole(424242n, 'STUDENT');
+    await service.selectMemberKind(424242n, 'STUDENT');
 
     // Then: 취소할 요청도 되돌릴 역할도 없다.
     expect(store.currentSelectedRole()).toBe('STUDENT');
@@ -325,7 +325,7 @@ describe('RolesService', () => {
     );
 
     // When
-    await service.selectRole(424242n, 'STUDENT');
+    await service.selectMemberKind(424242n, 'STUDENT');
 
     // Then
     expect(store.currentRole()).toBe('STUDENT');
@@ -348,7 +348,7 @@ describe('RolesService', () => {
       const { service } = createService(null);
 
       // When
-      const result = await service.selectRole(424242n, selectedRole);
+      const result = await service.selectMemberKind(424242n, selectedRole);
 
       // Then
       expect(result.redirectTo).toBe('/onboarding/profile');
@@ -361,7 +361,7 @@ describe('RolesService', () => {
     const { service, store } = createService(null, [pending]);
 
     // When
-    const promise = service.selectRole(424242n, 'STUDENT');
+    const promise = service.selectMemberKind(424242n, 'STUDENT');
 
     // Then
     await expect(promise).rejects.toMatchObject({
@@ -384,7 +384,7 @@ describe('RolesService', () => {
     );
 
     // When
-    const result = await service.selectRole(424242n, 'STAFF');
+    const result = await service.selectMemberKind(424242n, 'STAFF');
 
     // Then
     expect(result.selectedRole).toBe('STAFF');
@@ -407,7 +407,7 @@ describe('RolesService', () => {
     const { service, store } = createService(null, [revoked]);
 
     // When
-    const result = await service.selectRole(424242n, 'STAFF');
+    const result = await service.selectMemberKind(424242n, 'STAFF');
 
     // Then
     expect(result.selectedRole).toBe('STAFF');
@@ -440,7 +440,7 @@ describe('RolesService', () => {
     );
 
     // When
-    await service.selectRole(424242n, 'STAFF');
+    await service.selectMemberKind(424242n, 'STAFF');
 
     // Then
     expect(store.requestCount()).toBe(2);
@@ -467,7 +467,7 @@ describe('RolesService', () => {
     );
 
     // When
-    const result = await service.selectRole(424242n, 'STUDENT');
+    const result = await service.selectMemberKind(424242n, 'STUDENT');
 
     // Then
     expect(result.redirectTo).toBe('/onboarding/profile');
@@ -491,7 +491,7 @@ describe('RolesService', () => {
       const { service, store } = createService(confirmedRole, [revoked]);
 
       // When
-      const promise = service.selectRole(424242n, 'STAFF');
+      const promise = service.selectMemberKind(424242n, 'STAFF');
 
       // Then
       await expect(promise).rejects.toMatchObject({
@@ -509,7 +509,7 @@ describe('RolesService', () => {
       const { service } = createService(role);
 
       // When
-      const promise = service.selectRole(424242n, 'STUDENT');
+      const promise = service.selectMemberKind(424242n, 'STUDENT');
 
       // Then
       await expect(promise).rejects.toMatchObject({

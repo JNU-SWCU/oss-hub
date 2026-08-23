@@ -28,7 +28,6 @@ class AuthorityStore
     githubLogin: 'synthetic-admin',
     hasAdminAccess: true,
     hasStaffAccess: true,
-    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
   target: IndependentAuthorityUserRecord | null = target();
@@ -106,7 +105,6 @@ it('rejects a non-admin actor before writing', async () => {
     githubId: actorGithubId,
     githubLogin: 'synthetic-staff',
     selectedMemberKind: MemberKind.STAFF,
-    hasStaffAccess: true,
     hasStaffAccess: true,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,

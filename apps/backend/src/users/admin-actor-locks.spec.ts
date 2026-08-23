@@ -10,7 +10,6 @@ function actorRow(overrides: Partial<ActorRow> = {}): ActorRow {
     nickname: 'synthetic-actor',
     selectedMemberKind: MemberKind.STUDENT,
     selectedRole: 'STUDENT',
-    selectedMemberKind: null,
     hasStaffAccess: null,
     hasAdminAccess: null,
     accountStatus: AccountStatus.ACTIVE,

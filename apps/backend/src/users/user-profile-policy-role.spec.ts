@@ -1,5 +1,5 @@
 import {
-  effectiveProfileRole,
+  effectiveProfileMemberKind,
   isCompleteUserProfile,
   isValidCompleteUserProfileFields,
   profileFieldRequirement,
@@ -139,7 +139,7 @@ it('승인 대기 교직원은 학번이 없어도 완료다', () => {
 it('승인 대기 교직원의 학번은 필수가 아니다', () => {
   expect(
     profileFieldRequirement(
-      effectiveProfileRole({ role: null, hasPendingStaffRequest: true }),
+      effectiveProfileMemberKind({ role: null, hasPendingStaffRequest: true }),
     ),
   ).toEqual({ studentId: false, department: true });
 });
@@ -150,7 +150,7 @@ it('승인 대기 교직원의 학번은 필수가 아니다', () => {
  */
 it('고른 역할이 비어 있어도 살아 있는 요청이 교직원 기준을 지킨다', () => {
   expect(
-    effectiveProfileRole({
+    effectiveProfileMemberKind({
       role: null,
       hasPendingStaffRequest: true,
       selectedRole: null,
@@ -167,7 +167,7 @@ it.each([
     // Given — 프로필을 입력하는 동안에는 role도 승인 요청도 없다(#569).
     expect(
       profileFieldRequirement(
-        effectiveProfileRole({
+        effectiveProfileMemberKind({
           role: null,
           hasPendingStaffRequest: false,
           selectedRole,
@@ -180,7 +180,7 @@ it.each([
 it('배정된 역할이 고른 역할을 이긴다', () => {
   // Given — 관리자로 시드된 계정이 예전에 학생을 골라 뒀더라도 관리자다.
   expect(
-    effectiveProfileRole({
+    effectiveProfileMemberKind({
       role: 'ADMIN',
       hasPendingStaffRequest: false,
       selectedRole: 'STUDENT',
@@ -203,7 +203,7 @@ it('배정된 역할이 고른 역할을 이긴다', () => {
  *    `admin-access-read.repository.ts`가 맡는다.
  * 2. **프로필 저장이 교직원 신청을 만들지 않는다 — 단, 이미 완료인 사람만 그렇다.**
  *    `patchMyProfile`은 프로필이 **미완료일 때만** `completeProfileIfUnchanged`
- *    (그 안에서 `confirmSelectedRole`이 신청을 만든다)로 내려간다. 아래 프로필처럼
+ *    (그 안에서 `requestStaffAccess`이 신청을 만든다)로 내려간다. 아래 프로필처럼
  *    교직원 기준으로 이미 완료면 그 갈래에 들어가지 않는다.
  *
  * ⚠ 2번을 "재신청 경로는 둘뿐"으로 넓혀 읽으면 안 된다. **미완료인 채로 회수된 사용자**
@@ -225,7 +225,7 @@ it('회수된 교직원의 프로필은 회수 뒤에도 완료로 읽힌다', (
   };
 
   // Then
-  expect(effectiveProfileRole(revokedStaff)).toBe('STAFF');
+  expect(effectiveProfileMemberKind(revokedStaff)).toBe('STAFF');
   expect(isCompleteUserProfile(revokedStaff)).toBe(true);
   // 근거가 사라지면 가장 엄격한 학생 기준으로 되돌아가 같은 프로필이 미완료가 된다 —
   // 회수가 `selectedRole`을 비우면 벌어지는 일이다.

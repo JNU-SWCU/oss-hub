@@ -25,7 +25,6 @@ const activeUser: AuthUser = {
   selectedMemberKind: MemberKind.STAFF,
   hasStaffAccess: true,
   memberKind: MemberKind.STAFF,
-  hasStaffAccess: true,
   hasAdminAccess: false,
   isProfileComplete: true,
 };
@@ -142,7 +141,6 @@ describe('canonical auth session HTTP contract', () => {
         selectedMemberKind: MemberKind.STAFF,
         hasStaffAccess: true,
         memberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
         hasAdminAccess: false,
         isProfileComplete: true,
       },

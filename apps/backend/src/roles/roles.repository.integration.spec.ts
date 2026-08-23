@@ -66,8 +66,8 @@ describe('RolesRepository integration', () => {
 
     // When
     const results = await Promise.all([
-      service.selectRole(STAFF_GITHUB_ID, 'STAFF'),
-      service.selectRole(STAFF_GITHUB_ID, 'STAFF'),
+      service.selectMemberKind(STAFF_GITHUB_ID, 'STAFF'),
+      service.selectMemberKind(STAFF_GITHUB_ID, 'STAFF'),
     ]);
 
     // Then
@@ -94,8 +94,8 @@ describe('RolesRepository integration', () => {
 
     // When
     const results = await Promise.allSettled([
-      service.selectRole(MIXED_GITHUB_ID, 'STUDENT'),
-      service.selectRole(MIXED_GITHUB_ID, 'STAFF'),
+      service.selectMemberKind(MIXED_GITHUB_ID, 'STUDENT'),
+      service.selectMemberKind(MIXED_GITHUB_ID, 'STAFF'),
     ]);
 
     // Then
@@ -133,7 +133,7 @@ describe('RolesRepository integration', () => {
       });
 
       // When
-      const result = await service.selectRole(user.githubId, selectedRole);
+      const result = await service.selectMemberKind(user.githubId, selectedRole);
 
       // Then
       expect(result).toEqual({
@@ -224,7 +224,7 @@ describe('RolesRepository integration', () => {
       const user = await createRevokedStaff('revoked-student', 9_184_000_001n);
 
       // When
-      const result = await service.selectRole(user.githubId, 'STUDENT');
+      const result = await service.selectMemberKind(user.githubId, 'STUDENT');
 
       // Then: 고른 사실만 남고 권한은 돌아오지 않는다.
       const [stored, requestCount] = await Promise.all([
@@ -256,7 +256,7 @@ describe('RolesRepository integration', () => {
       const user = await createRevokedStaff('revoked-staff', 9_184_000_002n);
 
       // When
-      const result = await service.selectRole(user.githubId, 'STAFF');
+      const result = await service.selectMemberKind(user.githubId, 'STAFF');
 
       // Then
       const [stored, pendingCount, requestCount] = await Promise.all([
@@ -278,8 +278,8 @@ describe('RolesRepository integration', () => {
       const user = await createRevokedStaff('revoked-twice', 9_184_000_006n);
 
       // When
-      await service.selectRole(user.githubId, 'STAFF');
-      await service.selectRole(user.githubId, 'STAFF');
+      await service.selectMemberKind(user.githubId, 'STAFF');
+      await service.selectMemberKind(user.githubId, 'STAFF');
 
       // Then
       const pendingCount = await prisma.staffAccessRequest.count({
@@ -345,7 +345,7 @@ describe('RolesRepository integration', () => {
       );
 
       // When
-      const promise = service.selectRole(user.githubId, 'STUDENT');
+      const promise = service.selectMemberKind(user.githubId, 'STUDENT');
 
       // Then: 확정된 사람은 못 바꾼다는 불변식은 #184 이후에도 그대로다.
       await expect(promise).rejects.toMatchObject({

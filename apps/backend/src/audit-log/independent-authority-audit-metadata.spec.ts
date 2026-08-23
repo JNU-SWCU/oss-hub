@@ -151,7 +151,6 @@ function createStoredMetadata(
       hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
       hasStaffAccess: true,
-      hasAdminAccess: true,
     },
     before,
     after: { ...before, ...after },

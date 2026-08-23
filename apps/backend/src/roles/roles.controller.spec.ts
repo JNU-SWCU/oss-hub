@@ -43,7 +43,7 @@ function readGuards(target: object, propertyKey: string): readonly unknown[] {
 }
 
 function createOnboardingController(
-  selectRole: RolesService['selectRole'],
+  selectRole: RolesService['selectMemberKind'],
   getMySelection: RolesService['getMySelection'] = () =>
     Promise.resolve({ selectedRole: null }),
 ): OnboardingController {
@@ -79,7 +79,7 @@ describe('OnboardingController', () => {
     });
 
     // When
-    const result = await controller.selectRole(REQUEST, body);
+    const result = await controller.selectMemberKind(REQUEST, body);
 
     // Then — 확정 결과(role·requestStatus)는 계약에 없다. 이 화면이 아무것도
     // 확정하지 않기 때문이다(#569).
@@ -114,7 +114,7 @@ describe('OnboardingController', () => {
     // When
     let caught: unknown;
     try {
-      body.toRole();
+      body.toMemberKind();
     } catch (error: unknown) {
       caught = error;
     }
@@ -132,7 +132,7 @@ describe('OnboardingController', () => {
     const target = OnboardingController.prototype;
 
     // When
-    const guards = readGuards(target, 'selectRole');
+    const guards = readGuards(target, 'selectMemberKind');
 
     // Then
     expect(guards).toEqual([SessionGuard, OriginGuard]);

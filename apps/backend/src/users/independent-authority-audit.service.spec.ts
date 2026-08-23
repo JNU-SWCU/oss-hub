@@ -50,7 +50,6 @@ class AuditAuthorityStore
       githubLogin: 'synthetic-admin',
       hasAdminAccess: true,
       hasStaffAccess: true,
-      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     });
   }

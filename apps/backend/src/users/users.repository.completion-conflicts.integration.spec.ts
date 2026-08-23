@@ -1,7 +1,7 @@
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { completeUserProfileViewIfUnchanged } from '../profiles/profile-compatibility.repository';
+import { completeUserProfileViewIfUnchanged } from '../profiles/user-profile-write.repository';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
 import type { ProfileCompletionOutcome } from './users.repository';

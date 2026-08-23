@@ -13,7 +13,7 @@ import { AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { StaffAccessRequestResponseDto } from './dto/role-request-response.dto';
 import {
   RoleSelectionResponseDto,
-  RoleSelectionStateResponseDto,
+  MemberKindSelectionStateResponseDto,
 } from './dto/role-selection-response.dto';
 import { SelectStaffAccessRequestDto } from './dto/select-role-request.dto';
 import { RolesService } from './roles.service';
@@ -43,8 +43,8 @@ export class OnboardingController {
   @UseGuards(SessionGuard)
   async getMySelection(
     @Req() request: SessionIdentity,
-  ): Promise<RoleSelectionStateResponseDto> {
-    return RoleSelectionStateResponseDto.from(
+  ): Promise<MemberKindSelectionStateResponseDto> {
+    return MemberKindSelectionStateResponseDto.from(
       await this.rolesService.getMySelection(request.sessionGithubId),
     );
   }
