@@ -11,3 +11,12 @@
 export function roleHomePath(): string {
   return '/dashboard';
 }
+
+/**
+ * 화면이 한 사람을 한 단어로 부를 때 쓰는 표시 값 — 백엔드 `AuthorityLabel`과 같은 집합.
+ *
+ * **surface 판정에 쓰지 않는다.** 사이드바·게이트는 `member-access.ts`의 세 사실을
+ * 각각 본다 — 한 칸으로 접으면 학생 관리자가 "관리자"로만 보이고 학생이라는 사실이
+ * 사라진다. 이 타입은 재개 버튼 라벨처럼 하나만 골라야 하는 자리에만 쓴다.
+ */
+export type AppRole = 'STUDENT' | 'STAFF' | 'ADMIN';

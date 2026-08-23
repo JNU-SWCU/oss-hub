@@ -56,7 +56,6 @@ function snapshot(
   return {
     status: 'unassigned',
     memberKind: null,
-    memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     staffAccessRequestStatus: null,

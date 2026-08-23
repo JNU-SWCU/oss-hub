@@ -10,7 +10,6 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
     memberKind: null,
-    memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     staffAccessRequestStatus: null,

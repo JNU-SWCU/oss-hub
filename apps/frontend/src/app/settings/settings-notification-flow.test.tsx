@@ -48,8 +48,6 @@ function assignedStaffSession(): SessionRoleState {
     status: 'assigned',
     memberKind: 'STAFF',
     hasStaffAccess: true,
-    memberKind: 'STAFF',
-    hasStaffAccess: true,
     hasAdminAccess: false,
     staffAccessRequestStatus: null,
     staffAccessRequestRejectionReason: null,

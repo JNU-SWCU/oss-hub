@@ -13,7 +13,6 @@ const authenticated: AuthSessionState = {
     email: null,
     avatarUrl: null,
     memberKind: 'STUDENT',
-    memberKind: 'STUDENT',
     hasStaffAccess: false,
     hasAdminAccess: false,
     isProfileComplete: true,

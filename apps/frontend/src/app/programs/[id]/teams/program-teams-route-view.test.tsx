@@ -24,7 +24,6 @@ vi.mock('@/features/programs/program-staff-teams-page', () => ({
 function sessionFor(role: AppRole): SessionRoleResult {
   return {
     status: 'assigned',
-    role,
     memberKind: role === 'ADMIN' ? null : role,
     hasStaffAccess: role === 'STAFF',
     hasAdminAccess: role === 'ADMIN',

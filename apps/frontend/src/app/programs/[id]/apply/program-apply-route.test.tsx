@@ -142,7 +142,6 @@ describe('ProgramApplyRoute 세션 조립', () => {
         email: null,
         avatarUrl: null,
         memberKind: 'STUDENT',
-        memberKind: 'STUDENT',
         hasStaffAccess: false,
         hasAdminAccess: false,
         isProfileComplete: true,

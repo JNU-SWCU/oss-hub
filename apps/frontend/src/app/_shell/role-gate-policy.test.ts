@@ -20,7 +20,6 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
     memberKind: null,
-    memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     staffAccessRequestStatus: null,
@@ -59,7 +58,11 @@ describe('roleGateRedirectPath', () => {
     (role) => {
       expect(
         roleGateRedirectPath(
-          state({ status: 'assigned', role, isProfileComplete: true }),
+          state({
+            status: 'assigned',
+            ...accessFor(role),
+            isProfileComplete: true,
+          }),
         ),
       ).toBeNull();
     },
@@ -68,7 +71,7 @@ describe('roleGateRedirectPath', () => {
   it('역할은 있지만 프로필이 비어 있으면 프로필 단계로 되돌린다', () => {
     expect(
       roleGateRedirectPath(
-        state({ status: 'assigned', role: 'STAFF', isProfileComplete: false }),
+        state({ status: 'assigned', memberKind: 'STAFF', hasStaffAccess: true, isProfileComplete: false }),
       ),
     ).toBe('/onboarding/profile');
   });
@@ -151,3 +154,12 @@ describe('shouldOpenForUnassigned', () => {
     expect(seen).toEqual([given]);
   });
 });
+
+/** 표시 역할 한 단어를 canonical 세 사실로 펼친다. 관리자는 회원 유형을 남기지 않는다. */
+function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN') {
+  return {
+    memberKind: role === 'ADMIN' ? null : role,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
+  } as const;
+}

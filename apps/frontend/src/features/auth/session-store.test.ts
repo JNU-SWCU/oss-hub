@@ -24,7 +24,6 @@ const syntheticUser: Me = {
   email: null,
   avatarUrl: null,
   memberKind: 'STUDENT',
-  memberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
   isProfileComplete: true,
@@ -101,7 +100,7 @@ describe('공유 인증 세션 저장소', () => {
   });
 
   it('unassigned session은 역할 없는 인증 사용자를 그대로 게시한다', async () => {
-    const unassignedUser: Me = { ...syntheticUser, role: null };
+    const unassignedUser: Me = { ...syntheticUser, memberKind: null };
     fetchSession.mockResolvedValue({
       isAuthenticated: true,
       user: unassignedUser,
@@ -158,7 +157,7 @@ describe('공유 인증 세션 저장소', () => {
       const authenticated = nextSnapshot('authenticated');
       ensureSessionLoaded();
       await authenticated;
-      expect(getSessionSnapshot().user?.role).toBe('STUDENT');
+      expect(getSessionSnapshot().user?.memberKind).toBe('STUDENT');
 
       const shellGate = vi.fn();
       subscribeSession(shellGate);

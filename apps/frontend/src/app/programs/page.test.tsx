@@ -35,7 +35,6 @@ function assigned(
 ): SessionRoleResult {
   return {
     status: 'assigned',
-    role: hasAdminAccess ? 'ADMIN' : hasStaffAccess ? 'STAFF' : 'STUDENT',
     memberKind,
     hasStaffAccess,
     hasAdminAccess,

@@ -39,7 +39,6 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
     memberKind: null,
-    memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     staffAccessRequestStatus: null,
@@ -114,10 +113,10 @@ describe('profileOnboardingView', () => {
     });
   });
 
-  it('역할이 배정된 사용자는 자기 역할 홈으로 보낸다', () => {
+  it('회원 유형이 배정된 사용자는 자기 홈으로 보낸다', () => {
     expect(
       profileOnboardingView(
-        state({ status: 'assigned', role: 'STUDENT', memberKind: 'STUDENT' }),
+        state({ status: 'assigned', memberKind: 'STUDENT' }),
       ),
     ).toEqual({
       kind: 'form',
@@ -235,7 +234,7 @@ describe('profileOnboardingView', () => {
     (role) => {
       expect(
         profileOnboardingView(
-          state({ status: 'assigned', role, memberKind: role }),
+          state({ status: 'assigned', memberKind: role }),
         ).kind,
       ).toBe('form');
     },
@@ -285,7 +284,6 @@ describe('ProfileOnboardingRoute', () => {
     const html = render({
       status: 'assigned',
       memberKind: 'STUDENT',
-      memberKind: 'STUDENT',
     });
 
     expect(html).toContain(PROFILE_SCREEN_MARK);
@@ -314,7 +312,6 @@ describe('ProfileOnboardingRoute', () => {
   it('역할이 확정되면 프로필 화면을 연다', () => {
     const html = render({
       status: 'assigned',
-      memberKind: 'STUDENT',
       memberKind: 'STUDENT',
     });
 

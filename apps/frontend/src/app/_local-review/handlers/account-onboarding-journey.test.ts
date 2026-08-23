@@ -57,8 +57,12 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
       };
     };
     return profileOnboardingView({
-      status: session.user.role ? 'assigned' : 'unassigned',
-      role: session.user.role,
+      status:
+        session.user.memberKind !== null ||
+        session.user.hasStaffAccess ||
+        session.user.hasAdminAccess
+          ? 'assigned'
+          : 'unassigned',
       memberKind: session.user.memberKind,
       hasStaffAccess: session.user.hasStaffAccess,
       hasAdminAccess: session.user.hasAdminAccess,

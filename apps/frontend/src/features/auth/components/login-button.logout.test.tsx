@@ -61,7 +61,6 @@ describe('LoginButton 로그아웃 착지', () => {
       email: null,
       avatarUrl: null,
       memberKind: 'STUDENT',
-      memberKind: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
       isProfileComplete: true,

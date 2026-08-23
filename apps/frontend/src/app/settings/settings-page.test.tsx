@@ -109,13 +109,11 @@ describe('설정 화면', () => {
   });
 
   async function render(overrides: Partial<SessionRoleState>): Promise<void> {
-    const role = overrides.role ?? null;
     mocks.useSessionRole.mockReturnValue({
       status: 'loading',
-      role,
-      memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
-      hasStaffAccess: role === 'STAFF',
-      hasAdminAccess: role === 'ADMIN',
+      memberKind: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       staffAccessRequestStatus: null,
       staffAccessRequestRejectionReason: null,
       selectedRole: null,
@@ -213,7 +211,11 @@ describe('설정 화면', () => {
   it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
     '역할이 배정된 %s는 안내 없이 설정을 그대로 연다',
     async (role) => {
-      await render({ status: 'assigned', role, isProfileComplete: true });
+      await render({
+        status: 'assigned',
+        ...accessFor(role),
+        isProfileComplete: true,
+      });
 
       expect(mocks.replace).not.toHaveBeenCalled();
       expect(container.textContent).not.toContain(
@@ -292,3 +294,12 @@ describe('설정 화면', () => {
     expect(container.querySelector('#settings-name')).toBeNull();
   });
 });
+
+/** 표시 역할 한 단어를 canonical 세 사실로 펼친다. 관리자는 회원 유형을 남기지 않는다. */
+function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN') {
+  return {
+    memberKind: role === 'ADMIN' ? null : role,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
+  } as const;
+}

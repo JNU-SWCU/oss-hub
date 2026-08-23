@@ -18,7 +18,6 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'unassigned',
     memberKind: null,
-    memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     staffAccessRequestStatus: null,

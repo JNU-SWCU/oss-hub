@@ -18,7 +18,6 @@ const authenticatedSession = {
     email: null,
     avatarUrl: 'https://avatars.example/u/1',
     memberKind: 'STUDENT',
-    memberKind: 'STUDENT',
     hasStaffAccess: false,
     hasAdminAccess: false,
     isProfileComplete: true,
