@@ -30,10 +30,19 @@
 -- `UserProfile.memberKind` · `affiliationKind` · `affiliationName`은 **nullable로 남긴다**.
 -- v0.6.110이 새 프로필 행을 만들 때 이 세 칸을 쓰지 않기 때문이다(그 이미지의
 -- `profile-compatibility.repository.ts`는 name·studentId·department만 create한다).
--- 여기에 NOT NULL을 걸면 직전 이미지의 가입 완료가 전부 실패한다. 그 NULL을 정본
--- 사실로 접는 일은 애플리케이션의 단일 경계(`profiles/user-profile-read.ts`)가 한다.
+-- 여기에 NOT NULL을 걸면 직전 이미지의 가입 완료가 전부 실패한다. 다만 **지금 있는
+-- 행은 아래 [3/3]이 채운다** — 칸을 비워 둔 채 두면 다음 contract 마이그레이션의
+-- preflight가 배포 시점에 멈췄 세운다. 그 뒤에 새로 비는 것은 직전 이미지가 만드는
+-- 행뿐이고, 애플리케이션은 그 공백을 전용 헬퍼로 접지 않고 질의·투영 양쪽에서
+-- 양성 비교로만 다뤄 저절로 fail-closed된다(`profiles/user-profile-read.ts` 주석).
 --
--- 되돌리기: 이 bridge 커밋 하나를 revert하면 최종 contract diff가 그대로 복원된다.
+-- 되돌리기 — **소스와 배포된 DB를 구분해야 한다.**
+--   소스: bridge 커밋들을 revert하면 최종 contract diff가 복원된다.
+--   배포된 DB: **복원되지 않는다.** 이 마이그레이션이 한 번 적용되면
+--   `_prisma_migrations`에 이 이름으로 행이 남고, 소스에서 파일을 지우는 것으로는
+--   그 행이 사라지지 않는다. 그래서 파괴적 단계는 이 파일을 갈아끼우는 게 아니라
+--   **더 늦은 별도 마이그레이션**(`20260824000000_contract_member_authority`)으로
+--   올라와야 한다. `scripts/prisma-migration-ledger.test.mjs`가 그것을 잠그고 있다.
 
 -- ---------------------------------------------------------------------------
 -- [1/2] legacy 역할에서 접근 권한 두 칸을 backfill한다.

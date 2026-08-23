@@ -98,22 +98,47 @@ model UserProfile {
   userId String @id
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /// 비어 있지 않고 1~100 코드 포인트. NFC 정규화는 쓰기 경계 불변식이다
-  /// — stock PostgreSQL에 정규화 제약이 없어 DB는 길이·공백만 막는다(마이그레이션 CHECK).
+  /// 비어 있지 않고 1~100 코드 포인트, 바깥 공백 없음, NFC 정규화.
+  ///
+  /// bridge 단계의 DB는 이 중 **아무것도 막지 않는다** — 길이·공백 CHECK는 아직
+  /// 걸려 있지 않고, 최종 contract 마이그레이션이 `UserProfile_name_check`로 함께
+  /// 건다. 그때까지 이 칸을 지키는 것은 쓰기 경계뿐이다
+  /// (`users/user-profile-policy.ts`의 `isValidUserName`·`normalizeProfileText`).
+  ///
+  /// NFC는 contract 이후에도 DB로 내려가지 않는다 — stock PostgreSQL에 정규화
+  /// 함수가 없어서다. 그것은 영원히 쓰기 경계 불변식으로 남는다.
   name String
-  /// STUDENT는 필수·전역 유일, STAFF는 null이다. 정확히 6자리 규칙은 새 쓰기 경계가
-  /// 지킨다 — 6~10자리 legacy 값이 남아 있어 DB는 그 보존 형식까지 받는다(마이그레이션 CHECK).
+  /// STUDENT는 필수·전역 유일, STAFF는 null이다.
+  ///
+  /// 이 셋 중 지금 DB가 지키는 것은 **전역 유일뿐이다**(`@unique`). 회원 유형과의
+  /// 대응(STUDENT면 있고 STAFF면 null)은 bridge 단계 DB에 CHECK가 없어 쓰기 경계가
+  /// 지킨다 — 최종 contract 마이그레이션의
+  /// `UserProfile_studentId_memberKind_check`가 그것을 DB 경계로 내린다.
+  ///
+  /// "정확히 6자리"는 그때도 DB에 두지 않는다: 6~10자리 legacy 값이 남아 있어 DB는
+  /// 보존 형식까지 받아야 하고, 보존 값과 신규 값을 구분할 근거가 없다. 새 값의
+  /// 6자리 규칙은 쓰기 경계(`isValidStudentId`)가 영원히 소유한다.
   studentId String? @unique
-  /// `affiliationName`의 legacy 사본. 두 값은 언제나 같다(마이그레이션 CHECK).
+  /// `affiliationName`의 legacy 사본. 두 값은 언제나 같아야 한다.
+  ///
+  /// bridge 단계 DB에는 그것을 막는 CHECK가 없다 — 쓰기 경계가 두 칸을 언제나 함께
+  /// 쓴다(`profiles/user-profile-write.repository.ts`의 `UserProfilePatch`는 한쪽만
+  /// 바꾸는 입력을 만들 수 없게 해 둔다). 최종 contract 마이그레이션의
+  /// `UserProfile_department_affiliationName_check`가 그것을 DB 경계로 내린다.
   department String
 
   /// bridge 단계에서 **물리적으로 nullable**이다. 직전 이미지 v0.6.110이 새 프로필
   /// 행을 만들 때 이 세 칸을 쓰지 않기 때문에(name·studentId·department만 create한다)
   /// NOT NULL을 걸면 그 이미지의 가입 완료가 전부 실패한다.
   ///
-  /// 그 NULL을 정본 사실로 접는 일은 애플리케이션의 **단일 경계**가 한다 —
-  /// `profiles/user-profile-read.ts`의 `resolveCanonicalMembership`. 그 밖의 어느
-  /// 자리에서도 이 세 칸의 fallback을 다시 쓰지 않는다.
+  /// 단, **지금 있는 행은 bridge 마이그레이션이 채운다** — 그래야 다음 contract
+  /// 마이그레이션의 preflight가 통과한다. 그 뒤에 새로 비는 것은 직전 이미지가
+  /// 만드는 행뿐이다.
+  ///
+  /// 이 공백을 접는 전용 헬퍼는 두지 않는다. 읽는 모양이 둘 다 NULL에서 저절로
+  /// fail-closed이기 때문이다 — 질의는 양성 조건(`memberKind = 'STUDENT'`)으로
+  /// 걸러내고, 투영은 `?? null`로 읽어 양성 비교로만 판정한다. 자세한 근거는
+  /// `profiles/user-profile-read.ts`의 `UserProfileSource` 주석에 있다.
   memberKind      MemberKind?
   affiliationKind AffiliationKind?
   affiliationName String?
