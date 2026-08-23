@@ -742,6 +742,17 @@ check_v2() {
   require_regex_at_least '존재/부분/중지 분류는 ps --all -q frontend여야 함' 'ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+frontend' 1
   require_regex_at_least '존재/부분/중지 분류는 ps --all -q backend여야 함' 'ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+backend' 1
   require_exact 'greenfield는 양쪽 서비스 부재일 때만이어야 함' 'state=greenfield' 1
+  require_shell_stage_depth_exact 'greenfield host 잔존 흔적 검사는 probe에서 한 번이어야 함' \
+    '실행 중 이미지 기준 no-op 및 이전 태그 캡처' 1 \
+    'bash scripts/jenkins/assert-greenfield-host-clean.sh'
+  require_absent 'greenfield ACK를 소스에 고정하면 안 됨' 'GREENFIELD_DEPLOY_ACK=1'
+  host_guard_line=$(line_of 'bash scripts/jenkins/assert-greenfield-host-clean.sh')
+  greenfield_state_line=$(line_of 'state=greenfield')
+  if [[ -z "$host_guard_line" || -z "$greenfield_state_line" ]] ||
+     ! ((host_guard_line < greenfield_state_line)); then
+    printf '%s: greenfield host 검사는 state=greenfield 보다 앞서야 함\n' "$label" >&2
+    exit 1
+  fi
   require_exact '완전 증명된 running 상태만 진행해야 함' 'state=running' 1
   require_absent 'stopped_proceed 성공 경로는 없어야 함' 'stopped_proceed'
   require_absent 'running_deploy 성공 경로는 없어야 함' 'running_deploy'

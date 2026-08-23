@@ -21,6 +21,8 @@ pipeline {
   environment {
     COMPOSE_PROJECT_NAME = 'oss-hub'
     BACKUP_DIR = '/var/lib/oss-hub/backups'
+    // GREENFIELD_DEPLOY_ACK=1 만 호스트에 이전 배포 흔적이 있을 때
+    // 최초 배포(재프로비저닝)를 허용한다. 기본은 차단(fail-closed).
     // C4 승인 상수. 성공 배포 뒤에만 적용하고 최신 N개를 보존한다.
     BACKUP_RETENTION_N = '120'
     // 성공 배포 뒤 BuildKit 캐시는 LRU 기준 최대 5GB까지만 보존한다.
@@ -203,7 +205,11 @@ if { [ -n "$fe_all" ] && [ -z "$be_all" ]; } || { [ -z "$fe_all" ] && [ -n "$be_
 fi
 
 # greenfield: 어느 쪽도 존재하지 않음.
+# 컨테이너 부재만으로 확정하지 않는다. 호스트 SQL/객체 백업이나 compose
+# named volume 이 남아 있으면 fail-closed. 재프로비저닝만
+# GREENFIELD_DEPLOY_ACK=1 로 우회한다.
 if [ -z "$fe_all" ] && [ -z "$be_all" ]; then
+  bash scripts/jenkins/assert-greenfield-host-clean.sh
   printf 'state=greenfield\n'
   exit 0
 fi
