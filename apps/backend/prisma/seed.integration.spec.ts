@@ -21,11 +21,6 @@ import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3SubmissionFileStorage } from '../src/submissions/s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from '../src/submissions/submission-file-storage.config';
 import { KNOWN_STORAGE_PREFIXES } from '../src/submissions/storage-orphan-reconciliation';
-import {
-  USER_PROFILE_BACKFILL_ERROR_KIND,
-  backfillUserProfiles,
-} from './user-profile-backfill';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -539,18 +534,17 @@ describe('seed profile=oss-hub contract (integration)', () => {
       ]);
 
       expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
-      expect([
-        syntheticAdmin.role,
-        syntheticStaff.role,
-        syntheticStudent.role,
-      ]).toEqual(['ADMIN', 'STAFF', 'STUDENT']);
+      // 배타적 역할이 사라진 뒤에는 세 사실을 각각 본다 — 관리자 권한은 회원
+      // 정체성과 독립이라 한 칸으로 접어 확인할 수 없다.
+      expect(syntheticAdmin.hasAdminAccess).toBe(true);
+      expect(syntheticStaff.hasStaffAccess).toBe(true);
+      expect(syntheticStudent.selectedMemberKind).toBe(MemberKind.STUDENT);
       expect(configuredUsers).toHaveLength(4);
       expect(
-        configuredUsers.map(({ id, nickname, role, name, accountStatus }) => ({
+        configuredUsers.map(({ id, nickname, hasAdminAccess, accountStatus }) => ({
           id,
           nickname,
-          role,
-          name,
+          hasAdminAccess,
           accountStatus,
         })),
       ).toEqual([
@@ -579,20 +573,12 @@ describe('seed profile=oss-hub contract (integration)', () => {
           accountStatus: AccountStatus.ACTIVE,
         },
       ]);
-      // 네 계정 모두 실제 로그인 게이트(`auth.repository.ts`의 isProfileComplete)와 동일한
-      // 정책 함수로 온보딩 완료가 판정된다 — 규칙을 여기서 다시 인코딩하지 않는다.
+      // 관리자 시드는 회원 유형을 지어내지 않는다 — 그래서 프로필 행이 없고, 이들은
+      // 로그인 뒤 자기 유형을 직접 고른다. 그 사실을 여기서 고정한다.
       for (const configuredUser of configuredUsers) {
-        expect(
-          isCompleteUserProfile({
-            id: configuredUser.id,
-            ...resolveUserProfile(configuredUser),
-            role: configuredUser.role,
-          }),
-        ).toBe(true);
+        expect(configuredUser.hasAdminAccess).toBe(true);
+        expect(configuredUser.hasStaffAccess).toBe(false);
       }
-      expect(configuredUsers.map(({ name }) => name)).toEqual(
-        OSS_HUB_TEAM_ACCOUNT_DISPLAY_NAMES,
-      );
       // Consent — 4명 모두 현행 정책 버전으로 동의 완료 상태다.
       expect(configuredUsersConsentCount).toBe(4);
       expect([ossHubProgramCount, ossHubTeamCount, ossHubMemberCount]).toEqual([
@@ -1015,13 +1001,18 @@ describe('seed profile=demo 계약 (integration)', () => {
       // And: 이름은 합성 한국식 학생이고 실명이 아니며, 이메일은 .invalid만 쓴다.
       const demoUsers = await prisma.user.findMany({
         where: { id: { startsWith: seedDemoPrefix } },
-        select: { name: true, notificationEmail: true },
+        select: {
+          notificationEmail: true,
+          profile: { select: { name: true } },
+        },
       });
       expect(demoUsers.length).toBeGreaterThan(0);
       for (const user of demoUsers) {
         expect(user.notificationEmail).toMatch(/@demo\.invalid$/);
       }
-      expect(demoUsers.some((user) => user.name === '김도윤')).toBe(true);
+      expect(demoUsers.some((user) => user.profile?.name === '김도윤')).toBe(
+        true,
+      );
 
       // And: 프로그램은 사업단 톤의 합성 이름을 쓴다(실제 공지 문구 미복사).
       const demoPrograms = await prisma.program.findMany({
@@ -1547,180 +1538,6 @@ describe('seed profile=demo 계약 (integration)', () => {
  * legacy 프로필 불일치(PROFILE_MISMATCH)가 demo 시드 실행을 실패시키거나 그 사용자의
  * 프로필을 쓰지 않아야 한다(실제 production 장애 재현).
  */
-describe('seed profile=demo production 백필 스코프 (integration)', () => {
-  const seedDemoPrefix = 'seed:demo:';
-  const nonDemoUserId = 'test:profile-backfill-scope:non-demo-oauth-user';
-  const originalNodeEnv = process.env.NODE_ENV;
-
-  async function deleteDemoSeeded(): Promise<void> {
-    const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
-    // 이 describe도 runProfile('demo', ...)로 실제 storage 객체를 만든다(#910/#913
-    // 파인딩 4) — DB row를 지우기 전에 storageKey를 읽어 같이 정리해야 같은 Jest 프로세스
-    // 내 다른 integration spec(reconciliation 등)으로 새어나가지 않는다.
-    const demoFileStorageKeys = (
-      await prisma.submissionFile.findMany({
-        where: seedIdFilter,
-        select: { storageKey: true },
-      })
-    ).map((file) => file.storageKey);
-    await prisma.review.deleteMany({ where: seedIdFilter });
-    await prisma.submissionFile.deleteMany({ where: seedIdFilter });
-    await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
-    await prisma.submission.deleteMany({ where: seedIdFilter });
-    await prisma.boardComment.deleteMany({ where: seedIdFilter });
-    await prisma.boardPost.deleteMany({ where: seedIdFilter });
-    await prisma.teamMember.deleteMany({ where: seedIdFilter });
-    await prisma.milestone.deleteMany({ where: seedIdFilter });
-    await prisma.application.deleteMany({ where: seedIdFilter });
-    await prisma.team.deleteMany({ where: seedIdFilter });
-    await prisma.program.deleteMany({ where: seedIdFilter });
-    await prisma.consent.deleteMany({
-      where: { userId: { startsWith: seedDemoPrefix } },
-    });
-    await prisma.userProfile.deleteMany({
-      where: { userId: { startsWith: seedDemoPrefix } },
-    });
-    await prisma.user.deleteMany({ where: seedIdFilter });
-    for (const storageKey of demoFileStorageKeys) {
-      await demoStorage.delete(storageKey);
-    }
-  }
-
-  beforeAll(async () => {
-    await prisma.$connect();
-  }, DATABASE_CONNECTION_TIMEOUT_MS);
-
-  afterEach(async () => {
-    process.env.NODE_ENV = originalNodeEnv;
-    delete process.env.SEED_DEMO_ALLOW_PRODUCTION;
-    await deleteDemoSeeded();
-    await prisma.userProfile.deleteMany({ where: { userId: nonDemoUserId } });
-    await prisma.user.deleteMany({ where: { id: nonDemoUserId } });
-  });
-
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
-
-  it(
-    'production demo 시드는 이미 존재하는 비-demo PROFILE_MISMATCH 사용자를 건드리지 않고, 그것 때문에 실패하지도 않는다',
-    async () => {
-      // Given: 이미 production에 존재하는 비-demo 사용자(수동 교정된 OAuth 계정)가
-      // legacy User 컴럼이 완료 프로필 모양이면서 UserProfile과 값이 어긋나는
-      // PROFILE_MISMATCH 상태를 직접 심는다 — 실제 production에서 이 오류로 시드 CLI가
-      // 비정상 종료했던 사례를 재현한다.
-      const completeStudentId = ['96', '5501'].join('');
-      await prisma.user.create({
-        data: {
-          id: nonDemoUserId,
-          githubId: seedGithubId(nonDemoUserId),
-          nickname: 'profile-backfill-scope-non-demo',
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: '비-demo 생산 사용자(fixture)',
-              studentId: completeStudentId,
-              department: '비-demo 학과(fixture)',
-              memberKind: MemberKind.STUDENT,
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: '비-demo 학과(fixture)',
-            },
-          },
-        },
-      });
-      await prisma.userProfile.create({
-        data: {
-          userId: nonDemoUserId,
-          name: '불일치하는 이름(fixture)',
-          studentId: completeStudentId,
-          department: '불일치하는 학과(fixture)',
-        },
-      });
-      const nonDemoUserBefore = await prisma.user.findUniqueOrThrow({
-        where: { id: nonDemoUserId },
-      });
-      const nonDemoProfileBefore = await prisma.userProfile.findUniqueOrThrow({
-        where: { userId: nonDemoUserId },
-      });
-
-      // 사전 조건: 이 불일치가 실제로 전체 backfill을 실패시킨다는 것을 먼저 확인한다
-      // (스코프 없는 기존 동작 그대로).
-      await expect(backfillUserProfiles(prisma)).rejects.toMatchObject({
-        kind: USER_PROFILE_BACKFILL_ERROR_KIND.PROFILE_MISMATCH,
-        userIds: [nonDemoUserId],
-      });
-
-      // When: production + SEED_DEMO_ALLOW_PRODUCTION=1로 demo profile을 실행한다 —
-      // 실제 seed.ts의 production 예외 경로를 그대로 타고(assertSeedAllowed 통과 후
-      // runProfile이 seedDemo + 스코프된 backfillUserProfiles를 호출).
-      process.env.NODE_ENV = 'production';
-      process.env.SEED_DEMO_ALLOW_PRODUCTION = '1';
-      const { assertSeedAllowed } =
-        jest.requireActual<typeof import('./seeds/helpers')>('./seeds/helpers');
-      assertSeedAllowed(process.env.NODE_ENV, 'demo');
-      await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
-
-      // Then: 비-demo 사용자의 User/UserProfile은 전혀 쓰이지 않았다 — 이미
-      // 존재하는 불일치를 그대로 보존한다.
-      const nonDemoUserAfter = await prisma.user.findUniqueOrThrow({
-        where: { id: nonDemoUserId },
-      });
-      const nonDemoProfileAfter = await prisma.userProfile.findUniqueOrThrow({
-        where: { userId: nonDemoUserId },
-      });
-      expect(nonDemoUserAfter).toEqual(nonDemoUserBefore);
-      expect(nonDemoProfileAfter).toEqual(nonDemoProfileBefore);
-
-      // And: demo 자체는 정상적으로 시드되었다(실패하지 않았고, 그 사용자들은 실제로
-      // 프로필이 백필되었다).
-      const demoUserCount = await prisma.user.count({
-        where: { id: { startsWith: seedDemoPrefix } },
-      });
-      expect(demoUserCount).toBeGreaterThan(0);
-    },
-    SEED_RUN_TIMEOUT_MS,
-  );
-
-  it(
-    '비-production demo 시드는 기존과 동일하게 전체 User를 대상으로 backfill한다(스코프 없음)',
-    async () => {
-      // Given: 비-demo 사용자의 불완전 legacy 프로필(EXPECTED_INCOMPLETE, profile 미생성)를
-      // 심는다 — production이 아니면 이 사용자도 전체 backfill 대상이어야 한다.
-      await prisma.user.create({
-        data: {
-          id: nonDemoUserId,
-          githubId: seedGithubId(nonDemoUserId),
-          nickname: 'profile-backfill-scope-non-demo-dev',
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: '비-demo 개발 사용자(fixture)',
-              studentId: null,
-              department: '비-demo 학과(fixture)',
-              memberKind: MemberKind.STUDENT,
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: '비-demo 학과(fixture)',
-            },
-          },
-          studentId: ['96', '5502'].join(''),
-        },
-      });
-
-      // When: NODE_ENV가 production이 아닌 채 demo profile을 실행한다(기본 경로).
-      expect(process.env.NODE_ENV).not.toBe('production');
-      await runProfile('demo', new SeedStats());
-
-      // Then: 비-demo 사용자도 전체 backfill 대상에 들어 UserProfile이 생성된다 —
-      // production 외에서는 기존 거동(전체 backfill)이 그대로 유지된다.
-      const nonDemoProfile = await prisma.userProfile.findUnique({
-        where: { userId: nonDemoUserId },
-      });
-      expect(nonDemoProfile).not.toBeNull();
-    },
-    SEED_RUN_TIMEOUT_MS,
-  );
-});
-
 describe('seed profile=all 멱등성 (integration)', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -1914,30 +1731,32 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       ]);
 
       expect(admin?.id).toBe(adminConfirmedUserId);
-      expect(admin?.role).toBe('ADMIN');
+      expect(admin?.hasAdminAccess).toBe(true);
       expect(admin?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(admin?.isProfileComplete).toBe(true);
 
       expect(adminSecond?.id).toBe(adminSecondUserId);
-      expect(adminSecond?.role).toBe('ADMIN');
+      expect(adminSecond?.hasAdminAccess).toBe(true);
       expect(adminSecond?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(adminSecond?.isProfileComplete).toBe(true);
 
       // 결정 이력의 `decidedBy`가 두 사람을 구분하려면 이름이 서로 달라야 한다.
       const [adminRow, adminSecondRow] = await Promise.all([
-        prisma.user.findUniqueOrThrow({ where: { id: adminConfirmedUserId } }),
-        prisma.user.findUniqueOrThrow({ where: { id: adminSecondUserId } }),
+        prisma.userProfile.findUniqueOrThrow({
+          where: { userId: adminConfirmedUserId },
+        }),
+        prisma.userProfile.findUniqueOrThrow({
+          where: { userId: adminSecondUserId },
+        }),
       ]);
       expect(adminRow.name).toBe('합성 관리자');
       expect(adminSecondRow.name).toBe('합성 두 번째 관리자');
 
-      // ADMIN은 학번·학과를 요구하지 않는다 — 학과만 채우면 backfill이 거부한다.
+      // 관리자 권한은 회원 정체성과 독립이다 — 이 두 사람은 교직원으로 가입한
+      // 관리자라 학번이 없고 사업단 소속이다(계약 CHECK가 그 대응을 강제한다).
       expect(adminRow.studentId).toBeNull();
-      expect(adminRow.department).toBeNull();
-      const adminProfileRowCount = await prisma.userProfile.count({
-        where: { userId: { in: [adminConfirmedUserId, adminSecondUserId] } },
-      });
-      expect(adminProfileRowCount).toBe(0);
+      expect(adminRow.memberKind).toBe(MemberKind.STAFF);
+      expect(adminRow.affiliationKind).toBe(AffiliationKind.PROGRAM_OFFICE);
     },
     SEED_RUN_TIMEOUT_MS,
   );
@@ -1953,7 +1772,7 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
         seedGithubId(staffRevocableUserId),
       );
       expect(revocable?.id).toBe(staffRevocableUserId);
-      expect(revocable?.role).toBe('STAFF');
+      expect(revocable?.hasStaffAccess).toBe(true);
       expect(revocable?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(revocable?.isProfileComplete).toBe(true);
 
@@ -1972,7 +1791,7 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
         where: { id: staffRevokedUserId },
       });
       expect(revoked.accountStatus).toBe(AccountStatus.DEACTIVATED);
-      expect(revoked.role).toBe('STAFF');
+      expect(revoked.hasStaffAccess).toBe(true);
     },
     SEED_RUN_TIMEOUT_MS,
   );
