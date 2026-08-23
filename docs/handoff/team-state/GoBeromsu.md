@@ -519,3 +519,14 @@
 - 이관: reviewer remediation 중 #1000이 외부에서 merge되어 merged PR head 갱신이 불가능해졌고, 동일 corrective branch에 origin/main history를 product delta 없이 병합해 #1001 diff를 exact-state correction으로 정리
 - 결과·검증·증거: 바로 앞 exact-state classifier와 baseline-bound verifier 항목을 계승
 - 금지 작업: PR merge·production 접근/write·release·deploy·Jenkins trigger 없음
+
+## 2026-08-23 — Task 10 terminal 상태 판정을 교정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: production 검증·실행은 승인된 release 절차로 이관
+- 원인: exact-state classifier가 pristine·v1·v2 projection만 비교해 endpoint 완료 뒤에도 `role=ADMIN`을 유지하는 canonical STUDENT/STAFF 상태를 `UNKNOWN_SELECTION_COMBINATION`으로 거부
+- 결과: `selectedRole=null`인 exact terminal projection만 byte-equivalent no-op으로 수용하고 role·독립 권한·profile/root mirror·소속·학번 계약이 한 필드라도 다른 hybrid는 계속 fail-closed
+- 검증: red pure 4 failures와 PostgreSQL exact-state failure 재현 후 pure 3 suites/37 tests, 격리 PostgreSQL 4 suites/14 tests, endpoint-equivalent status/apply 6 tests, fixture 독립 2회 동일 SHA-256, backend lint·typecheck·build·LSP·Prettier·LOC·placeholder scan 통과
+- 금지 작업: production 접근/write·direct SQL·release·deploy·Jenkins trigger·merge 없음
