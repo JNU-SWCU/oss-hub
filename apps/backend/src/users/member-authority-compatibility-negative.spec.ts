@@ -9,7 +9,8 @@ import { UsersService } from './users.service';
 
 const student = profileRecord('negative-student');
 const staff = profileRecord('negative-staff', {
-  selectedRole: 'STAFF',
+  memberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
   selectedMemberKind: MemberKind.STAFF,
 });
 const validStudentInput = {

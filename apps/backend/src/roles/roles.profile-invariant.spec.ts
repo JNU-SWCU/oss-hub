@@ -29,8 +29,7 @@ import { RolesService } from './roles.service';
 const GITHUB_ID = 424242n;
 const USER: MemberUser = {
   id: 'synthetic-user',
-  role: null,
-  selectedRole: null,
+  memberKind: null,
   accountStatus: AccountStatus.ACTIVE,
   // 한 글자도 채워지지 않은 프로필. 이 파일이 고정하려는 상태가 바로 이것이다.
   profile: { name: null, studentId: null, department: null },

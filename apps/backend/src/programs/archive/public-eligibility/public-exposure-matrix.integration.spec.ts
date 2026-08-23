@@ -353,7 +353,7 @@ async function seedContributors(
         id: `${PREFIX}-contributor-${githubId.toString()}`,
         githubId,
         nickname,
-        role: 'STUDENT',
+        selectedMemberKind: MemberKind.STUDENT,
         ...contributorProfileFields(githubId),
       },
     });
@@ -1017,9 +1017,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         selectedMemberKind: MemberKind.STUDENT,
         // 금지 키 누출 검사용 fixture — 순위에 행이 나오려면 canonical 학생이어야 하고,
         // backfill 불변식을 건드리지 않으려면 legacy 칸과 바이트 단위로 같아야 한다.
-        name: 'synthetic-forbidden-real-name',
-        studentId: '990009',
-        department: 'synthetic-forbidden-department',
         profile: {
           create: {
             name: 'synthetic-forbidden-real-name',

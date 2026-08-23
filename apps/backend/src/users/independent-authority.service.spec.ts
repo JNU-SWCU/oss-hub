@@ -104,8 +104,7 @@ it('rejects a non-admin actor before writing', async () => {
     id: 'staff-actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-staff',
-    selectedMemberKind: MemberKind.STAFF,
-    hasStaffAccess: true,
+    role: 'STAFF',
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   };
@@ -149,7 +148,6 @@ function target(
     githubId: 9_700_100_002n,
     githubLogin: 'synthetic-target',
     selectedMemberKind: MemberKind.STUDENT,
-    selectedRole: 'STUDENT',
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,

@@ -7,7 +7,8 @@ import { usersRepositoryHarness as harness } from './users.repository.spec-suppo
 
 const student = profileRecord('user-finishing-student');
 const staff = profileRecord('user-finishing-staff', {
-  selectedRole: 'STAFF',
+  memberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
   selectedMemberKind: MemberKind.STAFF,
 });
 const studentCompletion = canonicalCompletion({
@@ -98,7 +99,7 @@ describe('UsersRepository 가입 마치기 확정', () => {
   it('canonical 선택은 비어 있는 legacy 선택을 복구한다', async () => {
     // Given
     const missingLegacySelection = profileRecord('user-canonical-selection', {
-      selectedRole: null,
+      memberKind: null,
       selectedMemberKind: MemberKind.STUDENT,
     });
     const { repository, userUpdateMany } = harness(missingLegacySelection);
@@ -119,10 +120,9 @@ describe('UsersRepository 가입 마치기 확정', () => {
   it('이미 확정된 rollback 역할은 다시 계산하지 않는다', async () => {
     // Given
     const confirmed = profileRecord('user-confirmed-staff', {
-      role: 'STAFF',
-      selectedRole: 'STAFF',
-      selectedMemberKind: MemberKind.STAFF,
+      memberKind: MemberKind.STAFF,
       hasStaffAccess: true,
+      selectedMemberKind: MemberKind.STAFF,
     });
     const { repository, userUpdateMany, staffAccessRequestCreate } =
       harness(confirmed);

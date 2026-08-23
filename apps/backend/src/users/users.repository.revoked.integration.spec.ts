@@ -28,8 +28,6 @@ beforeEach(async () => {
       id: userId,
       githubId,
       nickname: 'synthetic-profile-user',
-      name: 'GitHub 합성 이름',
-      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });
@@ -55,12 +53,9 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         id: revokedUserId,
         githubId: revokedGithubId,
         nickname: 'synthetic-184-revoked-incomplete',
-        name: '합성 교직원',
         // 학과가 비어 있어 교직원 기준으로도 미완료다.
-        department: null,
-        role: null,
-        selectedRole: 'STAFF',
-        selectedMemberKind: MemberKind.STAFF,
+        selectedMemberKind: null,
+        hasStaffAccess: true,
       },
     });
     await prisma.staffAccessRequest.create({
@@ -122,7 +117,6 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     await prisma.user.update({
       where: { id: revokedUserId },
       data: {
-        selectedRole: 'STUDENT',
         selectedMemberKind: MemberKind.STUDENT,
       },
     });

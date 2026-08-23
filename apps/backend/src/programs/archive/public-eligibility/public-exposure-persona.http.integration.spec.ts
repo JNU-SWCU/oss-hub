@@ -286,8 +286,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.user.update({
       where: { id: studentPersona.id },
       data: {
-        name: NAMED_PERSONA_REAL_NAME,
-        department: NAMED_PERSONA_DEPARTMENT,
         // canonical 프로필이 있으면 공개 응답은 legacy 칸이 아니라 이쪽을 읽는다
         // (`profile-compatibility.ts`) — 실명 비노출 단언이 공허해지지 않게 둘 다 채운다.
         profile: {
@@ -789,7 +787,8 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         nickname: `${FOREIGN_SUITE_ACTOR_ID}-login`,
         // 이 행의 actor 역할은 검사와 무관하다. append-only 원장이라 이 User는 FK 때문에
         // 정리되지 않고 남으므로, 전역 ADMIN 수를 세는 다른 스펙과 얽히지 않게 STAFF로 둔다.
-        role: 'STAFF',
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
       },
     });
     await harness.prisma.auditLog.create({

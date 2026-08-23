@@ -29,7 +29,7 @@ describe('toAdminActor', () => {
   it('takes canonical access columns as the source of truth over the legacy role', () => {
     // Given: role은 STAFF지만 canonical로는 관리자인 행
     const row = actorRow({
-      role: 'STAFF',
+      memberKind: MemberKind.STAFF,
       hasStaffAccess: true,
       hasAdminAccess: true,
     });
@@ -45,9 +45,8 @@ describe('toAdminActor', () => {
   it('reports no access when the canonical columns deny it despite an ADMIN role', () => {
     // Given
     const row = actorRow({
-      role: 'ADMIN',
+      hasAdminAccess: true,
       hasStaffAccess: false,
-      hasAdminAccess: false,
     });
 
     // When

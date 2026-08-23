@@ -103,7 +103,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     };
     const detail = await service.detail('program-1', viewer);
 
@@ -123,7 +123,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'leader-1',
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     };
 
     // When
@@ -170,8 +170,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
+      role: 'STAFF',
     };
     const detail = await service.detail('program-1', viewer);
 
@@ -194,8 +193,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
+      role: 'STAFF',
     };
 
     // When
@@ -235,7 +233,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     };
 
     // When
@@ -260,7 +258,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     };
 
     // When
@@ -287,8 +285,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
+      role: 'STAFF',
     };
 
     // When

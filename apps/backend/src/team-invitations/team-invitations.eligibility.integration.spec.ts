@@ -87,7 +87,7 @@ async function seedEligibilityFixture(): Promise<void> {
         id: UNASSIGNED_ROLE_ID,
         githubId: 9_300_000_007n,
         nickname: `${CANDIDATE_QUERY}-unassigned`,
-        role: null,
+        selectedMemberKind: null,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],

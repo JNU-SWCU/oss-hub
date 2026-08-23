@@ -22,9 +22,8 @@ const activeUser: AuthUser = {
   nickname: 'synthetic-user',
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  selectedMemberKind: MemberKind.STAFF,
-  hasStaffAccess: true,
   memberKind: MemberKind.STAFF,
+  hasStaffAccess: true,
   hasAdminAccess: false,
   isProfileComplete: true,
 };

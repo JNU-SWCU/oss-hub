@@ -50,7 +50,6 @@ async function createTargetUser(): Promise<string> {
       id,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-qa58-target-${sequence}`,
-      name: '기존 이름',
       // studentId/department는 비워 UserProfile 행 없이 구버전 컬럼만 갱신하는
       // 경로(applyLegacyFields)를 타게 한다 — 두 관리자가 서로 다른 legacy
       // 컬럼(name/department)을 같은 User 행에서 동시에 고치는 상황을 만든다.

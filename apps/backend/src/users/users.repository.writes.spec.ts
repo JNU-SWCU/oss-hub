@@ -57,7 +57,8 @@ describe('UsersRepository profile completion writes', () => {
   it('교직원 완료도 null 학번 canonical UserProfile을 만든다', async () => {
     // Given
     const staff = profileRecord('user-complete-staff', {
-      selectedRole: 'STAFF',
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
       selectedMemberKind: MemberKind.STAFF,
     });
     const { repository, userProfileUpsert } = harness(staff);

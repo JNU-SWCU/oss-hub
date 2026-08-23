@@ -50,7 +50,7 @@ beforeAll(async () => {
       githubId: 8_003_900_001_001n,
       nickname: 'synthetic-admin',
       profileName: null,
-      hasAdminAccess: true,
+      role: 'ADMIN',
     })
   ).githubId;
   await Promise.all([
@@ -59,56 +59,56 @@ beforeAll(async () => {
       githubId: 8_003_900_001_002n,
       nickname: 'legacy-alpha',
       profileName: null,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileBravo,
       githubId: 8_003_900_001_003n,
       nickname: 'profile-bravo',
       profileName: `Bravo ${queryFragment}`,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.legacyCharlie,
       githubId: 8_003_900_001_004n,
       nickname: 'legacy-charlie',
       profileName: null,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileDelta,
       githubId: 8_003_900_001_005n,
       nickname: 'profile-delta',
       profileName: `Delta ${queryFragment}`,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoLogin,
       githubId: 8_003_900_001_006n,
       nickname: 'a-login',
       profileName: `Echo ${queryFragment}`,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoIdA,
       githubId: 8_003_900_001_007n,
       nickname: 'same-login',
       profileName: `Echo ${queryFragment}`,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoIdB,
       githubId: 8_003_900_001_008n,
       nickname: 'same-login',
       profileName: `Echo ${queryFragment}`,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileZulu,
       githubId: 8_003_900_001_009n,
       nickname: 'profile-zulu',
       profileName: `Zulu ${queryFragment}`,
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     }),
   ]);
 });
@@ -158,7 +158,6 @@ function createUser(input: SyntheticUser) {
       id: input.id,
       githubId: input.githubId,
       nickname: input.nickname,
-      name: input.name,
       role: input.role,
       accountStatus: AccountStatus.ACTIVE,
       ...(input.profileName === null

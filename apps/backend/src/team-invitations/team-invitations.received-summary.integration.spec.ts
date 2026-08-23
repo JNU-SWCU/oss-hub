@@ -92,13 +92,11 @@ async function seed(): Promise<void> {
         id: NAMED_LEADER_ID,
         githubId: 9_200_000_001n,
         nickname: 'summary-named-leader',
-        name: NAMED_LEADER_FALLBACK_NAME,
       },
       {
         id: LEGACY_LEADER_ID,
         githubId: 9_200_000_005n,
         nickname: 'summary-legacy-leader',
-        name: LEGACY_LEADER_NAME,
       },
       {
         id: HANDLE_ONLY_LEADER_ID,

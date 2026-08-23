@@ -1,4 +1,4 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,

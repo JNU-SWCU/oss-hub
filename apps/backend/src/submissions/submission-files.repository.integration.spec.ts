@@ -45,13 +45,13 @@ const USER_RECORDS = [
   {
     id: UNRELATED_STUDENT_USER_ID,
     githubId: UNRELATED_STUDENT_GITHUB_ID,
-    selectedMemberKind: MemberKind.STUDENT,
+    memberKind: MemberKind.STUDENT,
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: STAFF_USER_ID,
     githubId: STAFF_GITHUB_ID,
-    selectedMemberKind: MemberKind.STAFF,
+    memberKind: MemberKind.STAFF,
     hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   },

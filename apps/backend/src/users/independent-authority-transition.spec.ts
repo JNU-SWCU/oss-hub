@@ -74,7 +74,7 @@ it('supports admin-only compatibility without inventing membership', () => {
     resolveIndependentAuthorityTransition(
       {
         memberKind: null,
-        selectedRole: null,
+        selectedMemberKind: null,
         hasStaffAccess: false,
         hasAdminAccess: false,
       },

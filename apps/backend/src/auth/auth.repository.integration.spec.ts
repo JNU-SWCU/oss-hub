@@ -89,7 +89,6 @@ it('동시 최초 로그인은 GitHub 이름을 저장하지 않고 이후 로�
     prisma.user.update({
       where: { githubId },
       data: {
-        name: 'Legacy Stale Name',
         studentId: '1'.repeat(6),
         department: 'Legacy Stale Department',
       },
@@ -152,7 +151,7 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
       githubId: revokedStaffGithubId,
       nickname: 'synthetic-revoked-staff-user',
       accountStatus: AccountStatus.ACTIVE,
-      role: null,
+      selectedMemberKind: null,
     },
   });
   const revoked = await prisma.staffAccessRequest.create({
@@ -192,7 +191,7 @@ it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는�
       githubId: rejectedStaffGithubId,
       nickname: 'synthetic-rejected-staff-user',
       accountStatus: AccountStatus.ACTIVE,
-      role: null,
+      selectedMemberKind: null,
     },
   });
   await prisma.staffAccessRequest.create({

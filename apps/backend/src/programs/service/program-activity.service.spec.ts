@@ -12,8 +12,7 @@ import type { ProgramViewer } from './program-viewer.service';
 const staff: ProgramViewer = {
   githubId: 1n,
   userId: 'staff-1',
-  selectedMemberKind: MemberKind.STAFF,
-  hasStaffAccess: true,
+  role: 'STAFF',
 };
 
 function repositoryActivity(updatedAt: string): ProgramRepositoryActivity {
@@ -142,7 +141,7 @@ describe('ProgramActivityService', () => {
     const leader: ProgramViewer = {
       githubId: 11n,
       userId: 'leader-1',
-      selectedMemberKind: MemberKind.STUDENT,
+      role: 'STUDENT',
     };
 
     await new ProgramActivityService(

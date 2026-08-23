@@ -53,8 +53,6 @@ beforeEach(async () => {
       id: userId,
       githubId,
       nickname: 'synthetic-profile-user',
-      name: 'GitHub 합성 이름',
-      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });
@@ -90,9 +88,8 @@ it('학번 없는 교직원 프로필은 UserProfile 행 없이 legacy 컬럼에
   await prisma.user.update({
     where: { id: userId },
     data: {
-      role: 'STAFF',
-      selectedRole: 'STAFF',
       selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     },
   });
   const current = await repository.findByGithubId(githubId);

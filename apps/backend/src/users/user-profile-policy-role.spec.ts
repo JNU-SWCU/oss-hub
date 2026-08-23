@@ -1,3 +1,4 @@
+import { MemberKind } from '@prisma/client';
 import {
   effectiveProfileMemberKind,
   isCompleteUserProfile,
@@ -69,7 +70,8 @@ it('필수가 아니어도 실려 있는 값의 형식은 검사한다', () => {
       name: '합성 사용자',
       studentId: '12A456',
       department: '인공지능학부',
-      role: 'STAFF',
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     }),
   ).toBe(false);
 });
@@ -130,7 +132,7 @@ it('승인 대기 교직원은 학번이 없어도 완료다', () => {
       name: '합성 교직원',
       studentId: null,
       department: '인공지능학부',
-      role: null,
+      memberKind: null,
       hasPendingStaffRequest: true,
     }),
   ).toBe(true);
@@ -151,9 +153,8 @@ it('승인 대기 교직원의 학번은 필수가 아니다', () => {
 it('고른 역할이 비어 있어도 살아 있는 요청이 교직원 기준을 지킨다', () => {
   expect(
     effectiveProfileMemberKind({
-      role: null,
+      memberKind: null,
       hasPendingStaffRequest: true,
-      selectedRole: null,
     }),
   ).toBe('STAFF');
 });
@@ -168,7 +169,7 @@ it.each([
     expect(
       profileFieldRequirement(
         effectiveProfileMemberKind({
-          role: null,
+          memberKind: null,
           hasPendingStaffRequest: false,
           selectedRole,
         }),
@@ -181,7 +182,7 @@ it('배정된 역할이 고른 역할을 이긴다', () => {
   // Given — 관리자로 시드된 계정이 예전에 학생을 골라 뒀더라도 관리자다.
   expect(
     effectiveProfileMemberKind({
-      role: 'ADMIN',
+      hasAdminAccess: true,
       hasPendingStaffRequest: false,
       selectedRole: 'STUDENT',
     }),

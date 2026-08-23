@@ -54,8 +54,6 @@ beforeEach(async () => {
       id: userId,
       githubId,
       nickname: 'synthetic-profile-user',
-      name: 'GitHub 합성 이름',
-      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });
@@ -93,9 +91,6 @@ it('이름만 비어 있는 미완료 프로필도 다시 저장할 수 있다',
   await prisma.user.update({
     where: { id: userId },
     data: {
-      name: null,
-      studentId: firstProfile.studentId,
-      department: firstProfile.department,
     },
   });
 
@@ -111,9 +106,6 @@ it('비어 있거나 형식이 잘못된 기존 프로필도 유효한 값으로
   await prisma.user.update({
     where: { id: userId },
     data: {
-      name: '   ',
-      studentId: '12A456',
-      department: '',
     },
   });
 

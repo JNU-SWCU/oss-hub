@@ -105,7 +105,7 @@ describe('SubmissionMatrixService integration', () => {
           id: PENDING_STAFF_ID,
           githubId: seedGithubId(PENDING_STAFF_ID),
           nickname: PENDING_STAFF_ID,
-          role: null,
+          selectedMemberKind: null,
         },
         {
           id: DEACTIVATED_STAFF_ID,

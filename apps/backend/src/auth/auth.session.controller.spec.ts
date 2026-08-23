@@ -17,7 +17,6 @@ const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: null,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,

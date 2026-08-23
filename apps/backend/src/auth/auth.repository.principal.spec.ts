@@ -25,9 +25,8 @@ describe('AuthRepository.findByGithubId', () => {
     // Given
     const findUnique = jest.fn().mockResolvedValue({
       ...buildRow({
-        role: 'ADMIN',
-        hasStaffAccess: false,
         hasAdminAccess: true,
+        hasStaffAccess: false,
       }),
       selectedRole: 'STUDENT',
       selectedMemberKind: 'STUDENT',

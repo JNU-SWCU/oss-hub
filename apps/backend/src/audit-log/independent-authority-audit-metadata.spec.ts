@@ -126,7 +126,7 @@ it.each([
     {
       hasStaffAccess: true,
       role: 'STAFF',
-      selectedRole: 'STAFF',
+      memberKind: MemberKind.STAFF,
     },
   );
 
@@ -168,7 +168,6 @@ function targetUser(): IndependentAuthorityUserRecord {
     githubId: 9_700_700_002n,
     githubLogin: 'synthetic-target',
     selectedMemberKind: MemberKind.STUDENT,
-    selectedRole: 'STUDENT',
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,

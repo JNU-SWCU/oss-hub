@@ -1,4 +1,4 @@
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { AuthErrorCode } from './auth-error-code.enum';
@@ -16,7 +16,6 @@ const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: null,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -190,7 +189,8 @@ describe('AuthService', () => {
   it('비활성 계정은 기존 세션 조회와 새 세션 발급을 모두 AUT_003으로 거부한다', async () => {
     const deactivatedUser: AuthUser = {
       ...syntheticUser,
-      role: 'STAFF',
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,
     };
     findByGithubId.mockResolvedValueOnce(deactivatedUser);

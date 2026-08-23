@@ -178,7 +178,6 @@ describe('legacy 컬럼만 비어 있는 계정', () => {
     await prisma.user.update({
       where: { id: userId },
       data: {
-        studentId: null,
         profile: { update: { studentId: DESYNCED_STUDENT_ID } },
       },
     });

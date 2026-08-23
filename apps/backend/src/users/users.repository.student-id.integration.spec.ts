@@ -35,8 +35,6 @@ beforeEach(async () => {
       id: userId,
       githubId,
       nickname: 'synthetic-profile-user',
-      name: 'GitHub 합성 이름',
-      selectedRole: 'STUDENT',
       selectedMemberKind: MemberKind.STUDENT,
     },
   });

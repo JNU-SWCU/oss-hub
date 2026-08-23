@@ -13,7 +13,7 @@
  * 이 상태를 만들 수 없다. `role: null` + `selectedRole: STAFF` + 최신 REVOKED 행을
  * 직접 세우면 이 계약이 회수 구현과 독립적으로 성립한다.
  */
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -46,10 +46,8 @@ beforeAll(async () => {
       id: REVOKED_STAFF_ID,
       githubId: 9_184_100_001n,
       nickname: 'synthetic-184-revoked-staff',
-      name: '합성 교직원',
-      department: '인공지능학부',
-      role: null,
-      selectedRole: 'STAFF',
+      selectedMemberKind: null,
+      hasStaffAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     },
   });
@@ -75,10 +73,7 @@ beforeAll(async () => {
       id: UNCHOSEN_ID,
       githubId: 9_184_100_002n,
       nickname: 'synthetic-184-unchosen',
-      name: '합성 미배정',
-      department: '인공지능학부',
-      role: null,
-      selectedRole: null,
+      selectedMemberKind: null,
       accountStatus: AccountStatus.ACTIVE,
     },
   });
