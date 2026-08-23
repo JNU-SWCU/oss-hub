@@ -95,6 +95,120 @@ else
   failed=$((failed + 1))
 fi
 
+# Greenfield host-clean: empty daemon + leftover host artifacts must fail closed.
+# Synthetic fixtures only — docker is stubbed, no production paths, no sleeps.
+greenfield_guard="$repo_root/scripts/jenkins/assert-greenfield-host-clean.sh"
+greenfield_stub_dir="$fixture_dir/greenfield-docker-bin"
+mkdir -p "$greenfield_stub_dir"
+cat >"$greenfield_stub_dir/docker" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == volume && "${2:-}" == ls ]]; then
+  if [[ -n "${DOCKER_VOLUME_LS_OUTPUT:-}" ]]; then
+    printf '%s\n' "$DOCKER_VOLUME_LS_OUTPUT"
+  fi
+  exit 0
+fi
+printf 'unexpected docker invocation\n' >&2
+exit 64
+STUB
+chmod +x "$greenfield_stub_dir/docker"
+
+run_greenfield_guard() {
+  local backup_dir=$1
+  shift
+  env -u GREENFIELD_DEPLOY_ACK \
+    BACKUP_DIR="$backup_dir" \
+    COMPOSE_PROJECT_NAME=oss-hub \
+    PATH="$greenfield_stub_dir:$PATH" \
+    "$@" \
+    bash "$greenfield_guard"
+}
+
+if [[ -f "$greenfield_guard" ]]; then
+  printf 'ok - greenfield host-clean helper exists\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - greenfield host-clean helper exists\n' >&2
+  failed=$((failed + 1))
+fi
+
+if grep -Fq 'bash scripts/jenkins/assert-greenfield-host-clean.sh' "$v2_source"; then
+  printf 'ok - v2: greenfield host-clean guard is wired\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - v2: greenfield host-clean guard is wired\n' >&2
+  failed=$((failed + 1))
+fi
+
+greenfield_sql_dir="$fixture_dir/greenfield-sql"
+mkdir -p "$greenfield_sql_dir"
+: >"$greenfield_sql_dir/v1.2.3-161.sql"
+greenfield_sql_rc=0
+greenfield_sql_err=$(run_greenfield_guard "$greenfield_sql_dir" 2>&1 >/dev/null) || greenfield_sql_rc=$?
+if ((greenfield_sql_rc != 0)) &&
+   [[ "$greenfield_sql_err" == *FAIL_CLOSED*greenfield_host* ]] &&
+   [[ "$greenfield_sql_err" == *v1.2.3-161.sql* ]] &&
+   [[ "$greenfield_sql_err" == *GREENFIELD_DEPLOY_ACK=1* ]]; then
+  printf 'ok - greenfield host-clean: prior sql backup fails closed\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - greenfield host-clean: prior sql backup fails closed (rc=%s)\n' "$greenfield_sql_rc" >&2
+  failed=$((failed + 1))
+fi
+
+greenfield_objects_dir="$fixture_dir/greenfield-objects"
+mkdir -p "$greenfield_objects_dir/objects/v1.2.3-162"
+greenfield_objects_rc=0
+greenfield_objects_err=$(run_greenfield_guard "$greenfield_objects_dir" 2>&1 >/dev/null) || greenfield_objects_rc=$?
+if ((greenfield_objects_rc != 0)) &&
+   [[ "$greenfield_objects_err" == *FAIL_CLOSED*greenfield_host* ]] &&
+   [[ "$greenfield_objects_err" == *objects/v1.2.3-162* ]] &&
+   [[ "$greenfield_objects_err" == *GREENFIELD_DEPLOY_ACK=1* ]]; then
+  printf 'ok - greenfield host-clean: prior objects entry fails closed\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - greenfield host-clean: prior objects entry fails closed (rc=%s)\n' "$greenfield_objects_rc" >&2
+  failed=$((failed + 1))
+fi
+
+greenfield_volume_dir="$fixture_dir/greenfield-volume"
+mkdir -p "$greenfield_volume_dir"
+greenfield_volume_rc=0
+greenfield_volume_err=$(run_greenfield_guard "$greenfield_volume_dir" \
+  DOCKER_VOLUME_LS_OUTPUT='oss-hub_pgdata' 2>&1 >/dev/null) || greenfield_volume_rc=$?
+if ((greenfield_volume_rc != 0)) &&
+   [[ "$greenfield_volume_err" == *FAIL_CLOSED*greenfield_host* ]] &&
+   [[ "$greenfield_volume_err" == *oss-hub_pgdata* ]] &&
+   [[ "$greenfield_volume_err" == *GREENFIELD_DEPLOY_ACK=1* ]]; then
+  printf 'ok - greenfield host-clean: named volume fails closed\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - greenfield host-clean: named volume fails closed (rc=%s)\n' "$greenfield_volume_rc" >&2
+  failed=$((failed + 1))
+fi
+
+greenfield_ack_dir="$fixture_dir/greenfield-ack"
+mkdir -p "$greenfield_ack_dir"
+: >"$greenfield_ack_dir/v1.2.3-163.sql"
+if run_greenfield_guard "$greenfield_ack_dir" GREENFIELD_DEPLOY_ACK=1 >/dev/null 2>&1; then
+  printf 'ok - greenfield host-clean: ACK=1 allows re-provision\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - greenfield host-clean: ACK=1 allows re-provision\n' >&2
+  failed=$((failed + 1))
+fi
+
+greenfield_true_dir="$fixture_dir/greenfield-true"
+mkdir -p "$greenfield_true_dir/objects"
+if run_greenfield_guard "$greenfield_true_dir" >/dev/null 2>&1; then
+  printf 'ok - greenfield host-clean: true greenfield continues\n'
+  passed=$((passed + 1))
+else
+  printf 'not ok - greenfield host-clean: true greenfield continues\n' >&2
+  failed=$((failed + 1))
+fi
+
 make_fixture "$v2_source" v2-missing-concurrency 'disableConcurrentBuilds()' '/* removed */'
 make_fixture "$v2_source" v2-missing-production-label "label 'oss-hub-production'" "label 'any'"
 make_fixture "$v2_source" v2-missing-latest-release '/releases/latest' '/releases/removed'
@@ -124,6 +238,10 @@ make_fixture "$v2_source" v2-upload-401-curl-fail \
   'curl -o /dev/null -w' \
   'curl --fail -o /dev/null -w'
 make_fixture "$v2_source" v2-missing-rollback-guard 'if (!env.PREV_TAG?.trim())' 'if (false)'
+make_fixture "$v2_source" v2-missing-greenfield-host-guard \
+  'bash scripts/jenkins/assert-greenfield-host-clean.sh' \
+  'true'
+append_fixture "$v2_source" v2-hardcoded-greenfield-ack 'GREENFIELD_DEPLOY_ACK=1'
 make_fixture "$v2_source" v2-missing-production-credential "credentialsId: 'oss-hub-production-env'" "credentialsId: 'removed'"
 make_fixture "$v2_source" v2-missing-running-ps-q 'ps -q frontend' 'ps --status frontend'
 make_fixture "$v2_source" v2-missing-all-ps 'ps --all -q frontend' 'ps -q frontend-all'
@@ -1298,6 +1416,8 @@ expect_fail 'v2: rollback 제출 파일 401 smoke 누락' v2 "$fixture_dir/v2-mi
 expect_fail 'v2: 제출 파일 smoke의 exact 401 단언 약화' v2 "$fixture_dir/v2-weakened-upload-401-status"
 expect_fail 'v2: 제출 파일 401 smoke에 curl --fail 사용' v2 "$fixture_dir/v2-upload-401-curl-fail"
 expect_fail 'v2: greenfield rollback skip guard 누락' v2 "$fixture_dir/v2-missing-rollback-guard"
+expect_fail 'v2: greenfield host-clean guard 누락' v2 "$fixture_dir/v2-missing-greenfield-host-guard"
+expect_fail 'v2: greenfield ACK 소스 고정' v2 "$fixture_dir/v2-hardcoded-greenfield-ack"
 expect_fail 'v2: 운영 환경 credential 주입 누락' v2 "$fixture_dir/v2-missing-production-credential"
 expect_fail 'v2: 실행 중 ps -q 권위 누락' v2 "$fixture_dir/v2-missing-running-ps-q"
 expect_fail 'v2: 존재 분류 ps --all 누락' v2 "$fixture_dir/v2-missing-all-ps"

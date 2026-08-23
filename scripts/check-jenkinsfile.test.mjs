@@ -57,3 +57,18 @@ test('Jenkins contract rejects missing production migrate deploy', () => {
   // Then
   assert.equal(result.status, 1);
 });
+
+test('Jenkins contract rejects missing greenfield host-clean guard', () => {
+  // Given
+  const fixture = source.replace(
+    'bash scripts/jenkins/assert-greenfield-host-clean.sh',
+    'true',
+  );
+  assert.notEqual(fixture, source);
+
+  // When
+  const result = checkFixture('missing-greenfield-host-clean', fixture);
+
+  // Then
+  assert.equal(result.status, 1);
+});
