@@ -97,6 +97,10 @@ jobs:
               - 'scripts/member-authority-jenkins-contract.test.mjs'
               - 'scripts/ci-path-contract.test.mjs'
               - 'scripts/jenkins/verify-member-authority-backfill*'
+              - 'scripts/check-auth-production-readonly*'
+              - 'scripts/auth-production-readonly-report.mjs'
+              - 'scripts/check-auth-release-image*'
+              - 'scripts/auth-release-image-report.mjs'
               - 'scripts/prune-deploy-backups.sh'
               - 'scripts/prune-deploy-backups.test.sh'
               - '.github/workflows/**'
@@ -196,6 +200,7 @@ jobs:
         run: |
           node --test scripts/jenkins/validate-github-app-credentials.test.mjs
           node --test scripts/check-member-authority-production.test.mjs scripts/jenkins/verify-member-authority-backfill.test.mjs scripts/member-authority-jenkins-contract.test.mjs
+          node --test scripts/check-auth-release-image.test.mjs scripts/check-auth-production-readonly.test.mjs
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh
