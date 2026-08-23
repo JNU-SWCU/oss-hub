@@ -2,6 +2,7 @@ import type { InitialAccountSeed } from './initial-roles';
 import {
   AccountStatus,
   StaffAccessRequestStatus,
+  MemberKind,
   User as PrismaUser,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -41,7 +42,16 @@ export function buildProfile(
   };
 }
 
-export function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
+type AuthUserRow = PrismaUser & {
+  readonly profile: {
+    readonly name: string;
+    readonly studentId: string | null;
+    readonly department: string;
+    readonly memberKind: MemberKind;
+  } | null;
+};
+
+export function buildRow(overrides: Partial<AuthUserRow> = {}): AuthUserRow {
   return {
     id: 'cuid-synthetic',
     githubId: 424_242n,
@@ -53,6 +63,9 @@ export function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
     hasAdminAccess: false,
     notificationEmail: null,
     notifyEnabled: true,
+    // 프로필 행이 없다는 것이 곧 "아직 가입을 마치지 않았다"는 뜻이다 —
+    // 초기 시드는 그 상태에서만 적용된다(`hasSeededAuthority`).
+    profile: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
@@ -60,7 +73,7 @@ export function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
 }
 
 export function buildRepository(
-  row: PrismaUser,
+  row: AuthUserRow,
   initialRole: InitialAccountSeed | null,
   options: {
     isNew?: boolean;

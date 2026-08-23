@@ -25,7 +25,11 @@ describe('AuthRepository.upsertUser', () => {
       AUTH_INITIAL_ROLES: '424242:STAFF',
     });
 
-    expect(config.resolveInitialRole(424_242n)).toBe('STAFF');
+    expect(config.resolveInitialRole(424_242n)).toEqual({
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
   });
 
   it('이미 확정된 사실이 있는 계정은 초기 시드와 무관하게 유지한다', async () => {
