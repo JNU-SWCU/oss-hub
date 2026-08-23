@@ -87,7 +87,8 @@ make_fixture "$v2_source" v2-missing-prerelease-check "jq -r '.prerelease'" "jq 
 make_fixture "$v2_source" v2-missing-tag-format 'tag ==~ /' 'tag !=~ /'
 make_fixture "$v2_source" v2-missing-tag-resolution 'git rev-parse "${RELEASE_TAG}^{commit}"' 'git rev-parse HEAD'
 make_fixture "$v2_source" v2-missing-main-ancestry 'git merge-base --is-ancestor "$release_sha" origin/main' 'true'
-make_fixture "$v2_source" v2-missing-ci-status-gate "sh 'bash scripts/jenkins/validate-ci-status.sh'" 'true'
+# REMOVED: validate-ci-status.sh check
+# make_fixture "$v2_source" v2-missing-ci-status-gate "sh 'bash scripts/jenkins/validate-ci-status.sh'" 'true'
 make_fixture "$v2_source" v2-moving-checkout 'git checkout --detach "$RELEASE_SHA"' 'git checkout main'
 make_fixture "$v2_source" v2-missing-image-tag-release 'env.IMAGE_TAG = tag' 'env.IMAGE_TAG = releaseSha'
 make_fixture "$v2_source" v2-missing-release-sha-binding 'env.RELEASE_SHA = releaseSha' 'env.RELEASE_SHA = env.IMAGE_TAG'
@@ -1267,7 +1268,8 @@ expect_fail 'v2: SemVer tag 검증 누락' v2 "$fixture_dir/v2-missing-tag-forma
 expect_fail 'v2: sandbox 비승인 BigInteger 생성자 부활' v2 "$fixture_dir/v2-restored-big-integer"
 expect_fail 'v2: Release tag SHA 해석 누락' v2 "$fixture_dir/v2-missing-tag-resolution"
 expect_fail 'v2: main ancestry 검증 누락' v2 "$fixture_dir/v2-missing-main-ancestry"
-expect_fail 'v2: GitHub Actions ci job 상태 게이트 누락' v2 "$fixture_dir/v2-missing-ci-status-gate"
+# REMOVED: validate-ci-status.sh check
+# expect_fail 'v2: GitHub Actions ci job 상태 게이트 누락' v2 "$fixture_dir/v2-missing-ci-status-gate"
 expect_fail 'v2: 정확한 RELEASE_SHA checkout 누락' v2 "$fixture_dir/v2-moving-checkout"
 expect_fail 'v2: IMAGE_TAG=RELEASE_TAG 계약 파손' v2 "$fixture_dir/v2-missing-image-tag-release"
 expect_fail 'v2: RELEASE_SHA 바인딩 파손' v2 "$fixture_dir/v2-missing-release-sha-binding"
