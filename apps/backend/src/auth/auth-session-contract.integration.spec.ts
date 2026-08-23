@@ -142,6 +142,9 @@ describe('canonical auth session HTTP contract', () => {
         memberKind: MemberKind.STAFF,
         hasStaffAccess: true,
         hasAdminAccess: false,
+        // bridge 전용 표시 투영 — 직전 프런트엔드 번들이 이 칸으로 온보딩 분기를
+        // 가른다. 값은 canonical 세 사실에서 접은 것이고 인가에는 쓰지 않는다.
+        role: 'STAFF',
         isProfileComplete: true,
       },
     });
