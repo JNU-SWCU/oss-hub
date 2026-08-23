@@ -30,3 +30,14 @@
 - 검증: 통합 브라우저 14/14, 관리자 lifecycle 6/6, 백엔드 297 suites·3337 tests, 프런트엔드 303 files·3018 tests, typecheck·lint·build 통과. `local:verify`는 마이그레이션 53개와 PostgreSQL·HTTP·MinIO 점검을 끝냈고, 스크린샷 22장에 대한 시각 QA를 2회 돌렸다. blocker는 0이다. 운영 아티팩트는 `.omo/evidence/jwt-auth-signup-refactor/final/f3-summary.json`이다.
 - 배포: 현재 production read-only 점검은 정상이지만 이번 수정은 아직 배포 전이며 다음 PR·릴리스에서 나간다. 스키마·마이그레이션 변경이 없어 DB 작업 없이 v0.6.112 애플리케이션 이미지로 롤백할 수 있다.
 - 공개 안전성: 비밀값, 행 데이터, 실명, IP, 로컬 경로, 증적 절대 경로 없음.
+
+## 2026-08-24 — F4 감사 하드닝 마무리와 append-only 복구
+
+- 상태: done
+- Issue: #969
+- PR: #1021
+- blocker: 없음
+- 내용: #1019로 F3 인증·세션 수정을, #1020으로 F4 테스트·감사 하드닝을 내보냈다. #1020 병합 뒤 감사에서 #1020이 앞선 F3 저널 항목의 문구를 붙이지 않고 고쳐 쓴 사실을 확인했다. 그 문구는 다시 건드리지 않는다. append-only 원칙은 이 항목부터 복구되며, 앞으로의 상태 전이는 새 항목을 붙이기만 한다. 현재 남아 있는 앞선 문구는 개수에 의존하지 않는 서술이라 사실과 어긋나지 않고, 따라서 남은 의미 교정은 없다.
+- 검증: #1019와 #1020은 CI green을 요구했다. 최종 scope·security 감사는 수정 뒤 blocker·high·medium·low 0으로 PASS다. 프런트엔드 304 files·3032 tests, 실패 경로 Playwright 3/3, browser-audit 14 tests, 순수 LOC 177이다. typecheck·lint·format 모두 PASS다.
+- 배포: #1021은 문서 전용이다. 제품 코드·스키마·마이그레이션·lockfile 변경이 없고 DB 작업이나 롤백 절차도 바뀌지 않는다. 제품 릴리스는 이 PR 뒤에 이어진다.
+- 공개 안전성: 비밀값, 행 데이터, 실명, IP, 로컬 경로 없음.
