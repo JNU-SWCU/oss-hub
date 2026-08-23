@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import {
   canonicalCompletion,
   profileRecord,
@@ -45,6 +45,9 @@ describe('UsersRepository profile completion writes', () => {
         name: completion.name,
         studentId: completion.studentId,
         department: completion.department,
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: completion.department,
         selectedRole: 'STUDENT',
         selectedMemberKind: MemberKind.STUDENT,
         hasStaffAccess: false,
@@ -146,11 +149,17 @@ describe('UsersRepository 학번 최초 저장', () => {
     name: '합성 교직원',
     studentId: null,
     department: '인공지능학부',
+    memberKind: MemberKind.STAFF,
+    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+    affiliationName: '인공지능학부',
   };
   const profile = {
     name: '합성 교직원',
     studentId: '153406',
     department: '인공지능학부',
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: '인공지능학부',
   };
 
   it('UserProfile 행이 없던 교직원도 행을 만들어 제약 아래 학번을 넣는다', async () => {

@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -160,6 +160,9 @@ it('UserProfile 행이 없는 프로필도 이름·학과를 갱신할 수 있�
       name: '합성 수정 교직원',
       studentId: null,
       department: '소프트웨어공학과',
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '소프트웨어공학과',
     },
   ]);
 });

@@ -1,4 +1,5 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { authorityFactsFor } from './canonical-user-fixture';
+import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
@@ -51,6 +52,9 @@ describe('admin access read profile completeness', () => {
         name: '가나다 교직원',
         studentId: null,
         department: '소프트웨어공학과',
+        memberKind: MemberKind.STAFF,
+        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+        affiliationName: '소프트웨어공학과',
         isComplete: true,
       },
     });
@@ -234,7 +238,7 @@ describe('admin access read profile completeness', () => {
    * 기준을 받고 있었으므로, 고른 역할이 무엇이든 판정이 달라질 수 없다 — 이 검사가
    * 없으면 "게이트가 느슨해지지 않았다"는 주장이 코드 어디에도 적혀 있지 않다.
    */
-  it.each([null, 'STAFF', 'STUDENT'])(
+  it.each<'STAFF' | 'STUDENT' | null>([null, 'STAFF', 'STUDENT'])(
     'keeps the approval gate identical when the selected role is %s',
     (selectedRole) => {
       // Given: 학과가 빠진 승인 대기 교직원 — 게이트가 막아야 하는 사람이다.
@@ -339,6 +343,8 @@ function actor(): AdminAccessActor {
     id: 'synthetic-admin',
     githubId: 910_000_001n,
     githubLogin: 'synthetic-admin',
+    name: null,
+    role: 'ADMIN',
     hasAdminAccess: true,
     hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -364,20 +370,37 @@ type UserRowOptions = {
 };
 
 /**
- * 학번 없는 교직원은 UserProfile 행을 만들 수 없어(studentId NOT NULL) 구버전 User
- * 컬럼에만 남는다 — `resolveUserProfile`이 그때 User 컬럼으로 떨어진다.
+ * 프로필 행은 이름·소속이 모두 있을 때만 만든다 — 계약 스키마에서 세 canonical 칸이
+ * NOT NULL이라 "행은 있는데 이름만 비어 있는" 상태가 존재하지 않는다.
  */
 function userRow(options: UserRowOptions) {
+  const facts = authorityFactsFor(options.role);
+  const hasProfile = options.name !== null && options.department !== null;
+  const memberKind =
+    options.studentId === null ? MemberKind.STAFF : MemberKind.STUDENT;
   return {
     id: options.id,
     githubId: BigInt(`92${options.id.length}000001`),
     nickname: `synthetic-${options.id}`,
-    name: options.name,
-    studentId: options.studentId,
-    department: options.department,
-    profile: null,
-    role: options.role,
-    selectedRole: options.selectedRole ?? null,
+    profile: hasProfile
+      ? {
+          name: options.name,
+          studentId: options.studentId,
+          department: options.department,
+          memberKind,
+          affiliationKind:
+            memberKind === MemberKind.STUDENT
+              ? AffiliationKind.DEPARTMENT
+              : AffiliationKind.PROGRAM_OFFICE,
+          affiliationName: options.department,
+        }
+      : null,
+    selectedMemberKind:
+      options.selectedRole === 'ADMIN'
+        ? null
+        : (options.selectedRole ?? facts.selectedMemberKind),
+    hasStaffAccess: facts.hasStaffAccess,
+    hasAdminAccess: facts.hasAdminAccess,
     accountStatus: AccountStatus.ACTIVE,
     staffAccessRequests: options.pendingRequest ? [options.pendingRequest] : [],
     loginHistories: [],

@@ -1,4 +1,4 @@
-import { MemberKind, StaffAccessRequestStatus } from '@prisma/client';
+import { AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';

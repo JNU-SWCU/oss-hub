@@ -1,4 +1,4 @@
-import { AccountStatus, BoardPostCategory, MemberKind, ProgramCategory } from '@prisma/client';
+import { AccountStatus, AffiliationKind, BoardPostCategory, MemberKind, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../applications/staff-insights.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -63,6 +63,9 @@ beforeEach(async () => {
       name: 'canonical-person',
       studentId: '100001',
       department: 'canonical-department',
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: 'canonical-department',
     },
   });
   await prisma.program.create({

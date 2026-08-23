@@ -1,4 +1,4 @@
-import { AccountStatus, LoginHistoryEvent } from '@prisma/client';
+import { AccountStatus, AffiliationKind, LoginHistoryEvent, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
@@ -295,6 +295,9 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     name: '합성 승인 대상',
     studentId: '813017',
     department: '소프트웨어공학과',
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: '소프트웨어공학과',
   };
   await harness.prisma.user.update({
     where: { id: pending.id },

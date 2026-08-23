@@ -1,4 +1,4 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -42,6 +42,9 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
     name: '합성 롤백 대상',
     studentId: `${810_000 + sequence}`,
     department: '소프트웨어공학과',
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: '소프트웨어공학과',
   };
   await prisma.user.update({
     where: { id: target.id },

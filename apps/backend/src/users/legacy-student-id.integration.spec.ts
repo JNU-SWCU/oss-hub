@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
@@ -123,6 +123,9 @@ it('학번을 싣지 않은 저장은 예전 형식 학번을 건드리지 않�
     name: '합성 재학생2',
     studentId: LEGACY_STUDENT_ID,
     department: '소프트웨어공학과',
+    memberKind: MemberKind.STUDENT,
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: '소프트웨어공학과',
   };
   await expect(readLegacyColumns()).resolves.toEqual([stored]);
   await expect(readProfileRow()).resolves.toEqual([stored]);

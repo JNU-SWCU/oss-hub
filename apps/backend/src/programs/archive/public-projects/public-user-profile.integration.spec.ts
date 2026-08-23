@@ -1,4 +1,4 @@
-import { ApplicationStatus, CollectionRepositoryPresence, MemberKind, ProgramCategory, RepositorySource, RepositoryVisibility } from '@prisma/client';
+import { AffiliationKind, ApplicationStatus, CollectionRepositoryPresence, MemberKind, ProgramCategory, RepositorySource, RepositoryVisibility } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
@@ -67,6 +67,9 @@ describe('PublicProjectsService.findProfile integration', () => {
             name: 'synthetic-real-name',
             studentId: `${PREFIX}-student-id`,
             department: 'synthetic-department',
+            memberKind: MemberKind.STUDENT,
+            affiliationKind: AffiliationKind.DEPARTMENT,
+            affiliationName: 'synthetic-department',
           },
         },
       },

@@ -1,4 +1,4 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -50,6 +50,9 @@ describe('Admin access atomic request decisions', () => {
       name: '합성 승인 대상',
       studentId: `${800_000 + sequence}`,
       department: '소프트웨어공학과',
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '소프트웨어공학과',
     };
     await prisma.user.update({
       where: { id: target.id },
