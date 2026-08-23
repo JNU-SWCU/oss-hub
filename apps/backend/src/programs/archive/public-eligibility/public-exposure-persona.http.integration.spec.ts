@@ -286,8 +286,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.user.update({
       where: { id: studentPersona.id },
       data: {
-        // canonical 프로필이 있으면 공개 응답은 legacy 칸이 아니라 이쪽을 읽는다
-        // (`profile-compatibility.ts`) — 실명 비노출 단언이 공허해지지 않게 둘 다 채운다.
+        // 공개 응답의 실명과 소속은 canonical UserProfile에서 읽는다.
         profile: {
           update: {
             name: NAMED_PERSONA_REAL_NAME,

@@ -146,10 +146,7 @@ function nextGithubRepositoryId(): bigint {
 let studentIdSequence = 910_000;
 
 /**
- * 순위에 오를 학생 fixture 한 명분 — legacy 칸과 canonical 행을 동시에 반환한다.
- *
- * 둘을 묶어 둔 이유는 둘이 갈라지면 backfill 불변식이 이 파일뿐 아니라 같은 PostgreSQL 을
- * 쓰는 다른 스펙까지 멈췄 버리기 때문이다.
+ * 순위에 오를 학생 fixture 한 명분 — canonical UserProfile을 반환한다.
  */
 function canonicalStudentFields(name: string, department: string) {
   studentIdSequence += 1;
@@ -217,9 +214,7 @@ async function createScenario(params: {
       githubId: nextGithubId(),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
       selectedMemberKind: MemberKind.STUDENT,
-      // 순위 자격은 canonical `UserProfile.memberKind`가 정한다 — 학생 지원자 fixture는
-      // 그 유형을 실제로 갖고 있어야 랭킹 단언이 공허해지지 않는다. legacy 칸과 같은 값으로
-      // 둔다 — 형제 스펙이 돌리는 backfill 불변식은 두 면이 갈라지면 전체를 멈췄다.
+      // 순위 자격은 canonical `UserProfile.memberKind`가 정한다.
       ...applicantProfileFields(params.key),
     },
   });
@@ -1012,8 +1007,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         githubId: nextGithubId(),
         nickname: `${PREFIX}-outcome-9-bystander-login`,
         selectedMemberKind: MemberKind.STUDENT,
-        // 금지 키 누출 검사용 fixture — 순위에 행이 나오려면 canonical 학생이어야 하고,
-        // backfill 불변식을 건드리지 않으려면 legacy 칸과 바이트 단위로 같아야 한다.
+        // 금지 키 누출 검사용 canonical 학생 fixture.
         profile: {
           create: {
             name: 'synthetic-forbidden-real-name',
