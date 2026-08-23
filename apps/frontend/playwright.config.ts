@@ -4,6 +4,9 @@ import { e2eEnvironment } from './e2e/environment';
 
 export default defineConfig({
   testDir: './e2e',
+  // `e2e/support/**`는 스펙이 아니라 헬퍼와 그 자체 테스트다. Playwright의 기본 testMatch는
+  // `*.test.ts`도 스펙으로 잡아 스택을 통째 띄우므로 여기서 끝난다 — 그쪽은 vitest가 돌린다.
+  testIgnore: 'support/**',
   outputDir:
     process.env.E2E_OUTPUT_DIR ??
     process.env.E2E_ARTIFACT_DIR ??

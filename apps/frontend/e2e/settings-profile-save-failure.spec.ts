@@ -54,5 +54,10 @@ test('failed profile save keeps the edited value on the settings page', async ({
   // 이미 잠그므로 불변식으로만 남긴다.
   await failureAlert.scrollIntoViewIfNeeded();
   await captureF3Evidence(page, testInfo, 'settings-profile-save-failure');
-  audit.assertClean([500]);
+  // 이 시나리오가 고장 낸 것은 프로필 **쓰기(PATCH)** 하나다. 같은 경로의 조회(GET)는
+  // 성공해야 하므로 메서드까지 못 박아 조회 실패를 덮지 않게 한다 — 상태 코드만 적으면
+  // 그 실행의 모든 500이 함께 통과한다.
+  audit.assertClean([
+    { status: 500, path: '/api/v1/users/me/profile', method: 'PATCH' },
+  ]);
 });

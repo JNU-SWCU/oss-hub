@@ -49,7 +49,9 @@ test('logout success lands on the logout complete screen with a return path', as
  * 사용자가 떠난다. 그래서 실패 경로의 계약은 세 가지가 함께 성립하는 것이다:
  * 오류를 말하고(alert), 있던 자리에 남고(URL), 계정 메뉴가 그대로 있다.
  *
- * 의도한 500은 허용 목록에 넣는다 — 그 밖의 콘솔·페이지·네트워크 오류는 그대로 실패다.
+ * 의도한 500은 허용 목록에 넣는다 — 단, 이 시나리오가 고장 낸 **로그아웃 POST 하나**만이다.
+ * 상태 코드만 적으면 그 실행의 모든 500이 같이 통과해, 관계없는 화면의 서버 오류까지
+ * 조용히 들어온다. 그 밖의 콘솔·페이지·네트워크 오류는 그대로 실패다.
  */
 test('logout failure keeps the authenticated view and reports the error', async ({
   page,
@@ -74,5 +76,7 @@ test('logout failure keeps the authenticated view and reports the error', async 
   expect(fixture.logoutRequests()).toBe(1);
 
   await captureF3Evidence(page, testInfo, 'logout-failure');
-  audit.assertClean([500]);
+  audit.assertClean([
+    { status: 500, path: '/api/v1/auth/logout', method: 'POST' },
+  ]);
 });
