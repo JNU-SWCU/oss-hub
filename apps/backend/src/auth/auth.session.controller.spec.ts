@@ -44,6 +44,18 @@ function requestWithCookie(cookie?: string): OptionalSessionRequest {
   });
 }
 
+/**
+ * 표시 역할 한 단어를 canonical 세 사실로 펼친다.
+ * ADMIN은 회원 유형을 남기지 않는다 — 관리자 권한은 정체성과 독립이다.
+ */
+function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
+  return {
+    memberKind: role === 'ADMIN' ? null : role,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
+  };
+}
+
 function authenticatedRequest(
   role: 'STUDENT' | 'STAFF' | 'ADMIN' | null = syntheticUser.memberKind,
 ): OptionalSessionRequest {
@@ -54,7 +66,7 @@ function authenticatedRequest(
       hasSessionCookie: true as const,
       principal: {
         ...syntheticUser,
-        role,
+        ...accessFor(role),
         accountStatus: AccountStatus.ACTIVE,
       },
     },
@@ -161,7 +173,7 @@ describe('AuthController getSession', () => {
     'STUDENT',
     null,
   ])(
-    'authenticated session role is the DB role: %s',
+    'authenticated session carries the DB canonical facts: %s',
     (dbRole) => {
       const result = createController(jest.fn()).getSession(
         authenticatedRequest(dbRole),
@@ -172,7 +184,7 @@ describe('AuthController getSession', () => {
         isAuthenticated: true,
         user: {
           nickname: syntheticUser.nickname,
-          role: dbRole,
+          ...accessFor(dbRole),
           accountStatus: AccountStatus.ACTIVE,
         },
       });

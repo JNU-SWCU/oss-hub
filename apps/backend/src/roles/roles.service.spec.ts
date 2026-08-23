@@ -250,6 +250,7 @@ describe('RolesService', () => {
 
     // Then
     expect(result).toEqual({
+      selectedMemberKind: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
     expect(store.currentRole()).toBeNull();
@@ -269,6 +270,7 @@ describe('RolesService', () => {
 
     // Then
     expect(result).toEqual({
+      selectedMemberKind: 'STAFF',
       redirectTo: '/onboarding/profile',
     });
     expect(store.requestCount()).toBe(0);
@@ -310,7 +312,7 @@ describe('RolesService', () => {
     const result = await service.getMySelection(424242n);
 
     // Then
-    expect(result).toEqual({ selectedRole: 'STAFF' });
+    expect(result).toEqual({ selectedMemberKind: 'STAFF' });
   });
 
   /**
@@ -318,8 +320,8 @@ describe('RolesService', () => {
    * 화면이 "이미 완료"라며 그를 곧바로 내보내 확정이 영원히 오지 않는다. 회수된 뒤
    * 역할을 다시 고르는 사용자가 실제로 그 상태다.
    */
-  it('프로필을 이미 마친 사용자는 고르는 그 자리에서 확정된다', async () => {
-    // Given
+  it('프로필을 이미 마친 교직원은 고르는 그 자리에서 요청이 열린다', async () => {
+    // Given: 회수된 뒤 프로필은 그대로 남아 있는 사용자
     const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(
       null,
@@ -330,10 +332,10 @@ describe('RolesService', () => {
     );
 
     // When
-    await service.selectMemberKind(424242n, 'STUDENT');
+    await service.selectMemberKind(424242n, 'STAFF');
 
-    // Then
-    expect(store.currentRole()).toBe('STUDENT');
+    // Then — 학생에게는 열 요청이 없으므로 이 검사는 교직원 갈래를 고정한다.
+    expect(store.requestCount()).toBe(2);
   });
 
   /**
@@ -483,45 +485,62 @@ describe('RolesService', () => {
   /**
    * #184로 회수 이력의 문을 연 것이 **확정된 사람의 문까지 열지는 않았다**는 못.
    *
-   * 회수 이력이 있다는 사실만으로 통과시키면 재승인으로 다시 STAFF가 된 사람도 이력은
-   * 그대로 REVOKED를 품고 있으므로 함께 열린다. 열리면 안 된다 — 확정된 역할을 바꾸는
-   * 일은 가입 절차가 아니라 회수·해제(`users/`)의 몫이다. 실제 방어선은 `role`이 붙어
-   * 있는지 하나뿐이라는 것을 이 검사가 고정한다.
+   * 회수 이력이 있다는 사실만으로 통과시키면 확정된 회원 유형까지 바꿀 수 있게 된다.
+   * 열리면 안 된다 — 확정된 유형을 바꾸는 일은 가입 절차가 아니라 회수·해제(`users/`)의
+   * 몫이다. 실제 방어선은 프로필 행의 `memberKind` 하나뿐이라는 것을 이 검사가 고정한다.
    */
-  it.each<'STAFF' | 'STUDENT'>(['STAFF', 'STUDENT'])(
-    '회수 이력이 있어도 %s 역할이 확정된 사용자는 선택을 바꿀 수 없다',
-    async (confirmedRole) => {
-      // Given
-      const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
-      const { service, store } = createService(confirmedRole, [revoked]);
+  it('회수 이력이 있어도 확정된 회원 유형은 바꿀 수 없다', async () => {
+    // Given: 학생으로 확정된 사용자
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
+    const { service, store } = createService('STUDENT', [revoked]);
 
-      // When
-      const promise = service.selectMemberKind(424242n, 'STAFF');
+    // When
+    const promise = service.selectMemberKind(424242n, 'STAFF');
 
-      // Then
-      await expect(promise).rejects.toMatchObject({
-        errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
-      });
-      expect(store.currentRole()).toBe(confirmedRole);
-      expect(store.currentSelectedRole()).toBeNull();
-    },
-  );
+    // Then
+    await expect(promise).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
+    });
+    expect(store.currentSelectedRole()).toBeNull();
+  });
 
-  it.each<'STAFF' | 'ADMIN'>(['STAFF', 'ADMIN'])(
-    '%s 역할이 확정된 사용자의 선택 변경을 거부한다',
-    async (role) => {
-      // Given
-      const { service } = createService(role);
+  // 같은 유형을 다시 고르는 것은 아무것도 바꾸지 않는 조작이라 409로 막지 않는다.
+  it('확정된 유형과 같은 값을 다시 골라도 거부하지 않는다', async () => {
+    // Given
+    const { service } = createService('STAFF');
 
-      // When
-      const promise = service.selectMemberKind(424242n, 'STUDENT');
+    // When / Then
+    await expect(
+      service.selectMemberKind(424242n, 'STAFF'),
+    ).resolves.toMatchObject({ selectedMemberKind: 'STAFF' });
+  });
 
-      // Then
-      await expect(promise).rejects.toMatchObject({
-        errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
-      });
-    },
-  );
+  /**
+   * 관리자는 회원 유형을 갖지 않는다(`auth/initial-roles.ts`) — 시드가 학생인지
+   * 교직원인지 정하지 않기 때문이다. 그래서 관리자는 로그인 뒤 **직접 고를 수 있어야**
+   * 한다. 여기서 막으면 그가 프로필을 영영 만들지 못한다.
+   */
+  it('회원 유형이 없는 관리자는 직접 고를 수 있다', async () => {
+    // Given
+    const { service } = createService('ADMIN');
+
+    // When / Then
+    await expect(
+      service.selectMemberKind(424242n, 'STUDENT'),
+    ).resolves.toMatchObject({ selectedMemberKind: 'STUDENT' });
+  });
+
+  it('확정된 교직원은 학생으로 바꿀 수 없다', async () => {
+    // Given
+    const { service } = createService('STAFF');
+
+    // When / Then
+    await expect(
+      service.selectMemberKind(424242n, 'STUDENT'),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
+    });
+  });
 
   it('가장 최근 역할 요청을 반환한다', async () => {
     // Given
