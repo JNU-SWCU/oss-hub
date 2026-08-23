@@ -8,6 +8,11 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  STAFF_ACCESS_REQUEST_TABLE,
+  STAFF_ACCESS_REQUEST_USER_CREATED_INDEX,
+  STAFF_ACCESS_REQUEST_USER_STATUS_CREATED_INDEX,
+} from '../roles/staff-access-request-physical-names';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import {
@@ -172,8 +177,8 @@ it('returns separately bounded stable history pages using matching deployed inde
     FROM pg_indexes
     WHERE schemaname = 'public'
       AND indexname IN (
-        'StaffAccessRequest_userId_createdAt_id_idx',
-        'StaffAccessRequest_userId_status_createdAt_id_idx',
+        ${STAFF_ACCESS_REQUEST_USER_CREATED_INDEX},
+        ${STAFF_ACCESS_REQUEST_USER_STATUS_CREATED_INDEX},
         'LoginHistory_userId_provider_loginAt_id_idx',
         'LoginHistory_userId_provider_event_success_loginAt_id_idx'
       )
@@ -191,14 +196,16 @@ it('returns separately bounded stable history pages using matching deployed inde
   expect(history.staffAccessRequests.items).toHaveLength(1);
   expect(history.loginHistory).toMatchObject({ page: 1, limit: 2, total: 3 });
   expect(history.loginHistory.items).toHaveLength(2);
-  expect(indexes.map((index) => index.indexname).sort()).toEqual([
-    'LoginHistory_userId_provider_event_success_loginAt_id_idx',
-    'LoginHistory_userId_provider_loginAt_id_idx',
-    'StaffAccessRequest_userId_createdAt_id_idx',
-    'StaffAccessRequest_userId_status_createdAt_id_idx',
-  ]);
+  expect(indexes.map((index) => index.indexname).sort()).toEqual(
+    [
+      'LoginHistory_userId_provider_event_success_loginAt_id_idx',
+      'LoginHistory_userId_provider_loginAt_id_idx',
+      STAFF_ACCESS_REQUEST_USER_CREATED_INDEX,
+      STAFF_ACCESS_REQUEST_USER_STATUS_CREATED_INDEX,
+    ].sort(),
+  );
   expect(queryPlanText(staffAccessRequestPlan)).toContain(
-    'StaffAccessRequest_userId_createdAt_id_idx',
+    STAFF_ACCESS_REQUEST_USER_CREATED_INDEX,
   );
   expect(queryPlanText(loginHistoryPlan)).toContain(
     'LoginHistory_userId_provider_loginAt_id_idx',
@@ -217,7 +224,7 @@ async function historyQueryPlans(
     >`
       EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
       SELECT id
-      FROM "StaffAccessRequest"
+      FROM ${STAFF_ACCESS_REQUEST_TABLE}
       WHERE "userId" = ${userId}
       ORDER BY "createdAt" DESC, id DESC
       LIMIT 2

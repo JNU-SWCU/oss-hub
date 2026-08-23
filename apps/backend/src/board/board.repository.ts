@@ -280,7 +280,11 @@ interface CommentRow {
     nickname: string;
     hasStaffAccess: boolean;
     hasAdminAccess: boolean;
-    profile: { readonly name: string; readonly memberKind: MemberKind } | null;
+    // 회원 유형은 bridge 단계에서 아직 비어 있을 수 있다(`user-profile-read.ts` 경계 주석).
+    profile: {
+      readonly name: string;
+      readonly memberKind: MemberKind | null;
+    } | null;
   };
 }
 

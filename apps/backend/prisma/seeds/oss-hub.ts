@@ -1,6 +1,8 @@
 import {
   AccountStatus,
+  AffiliationKind,
   ApplicationStatus,
+  MemberKind,
   MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
@@ -112,7 +114,11 @@ async function upsertConfiguredUser(
         },
       }),
   );
-  if (account.displayName !== undefined) {
+  // 좁힌 값을 지역 const로 받는다 — `account.displayName`을 클로저 안에서 다시 읽으면
+  // 위의 `!== undefined` 좁힘이 풀려 `string | undefined`가 된다.
+  const displayName = account.displayName;
+  if (displayName !== undefined) {
+    const affiliationName = '오픈소스 SW 개발 사업단';
     await upsertTracked(
       stats,
       'UserProfile',
@@ -120,11 +126,16 @@ async function upsertConfiguredUser(
       () =>
         prisma.userProfile.upsert({
           where: { userId: user.id },
-          update: { name: account.displayName },
+          update: { name: displayName },
           create: {
             userId: user.id,
-            name: account.displayName,
-            department: '오픈소스 SW 개발 사업단',
+            name: displayName,
+            department: affiliationName,
+            // 시드가 만드는 행은 canonical 사실을 처음부터 채운다 — 운영 계정은
+            // 사업단 소속 교직원이다. 소속명은 학과의 사본이다.
+            memberKind: MemberKind.STAFF,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            affiliationName,
           },
         }),
     );

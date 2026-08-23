@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// 사용자 역할. **bridge 단계 전용 잔존물이다 — 새 코드가 읽지 않는다.**
+///
+/// 직전 이미지(v0.6.110)가 이 타입과 `User.role`·`selectedRole`을 그대로 읽으므로
+/// 롤백 가능성을 위해 물리 스키마에 남긴다. 다음 contract PR이 지운다.
+enum Role {
+  STUDENT
+  STAFF
+  ADMIN
+}
+
 /// 회원 유형. 권한과 독립적으로 학생·교직원 정체성을 표현한다.
 enum MemberKind {
   STUDENT
@@ -29,6 +39,18 @@ model User {
   id                 String        @id @default(cuid())
   githubId           BigInt        @unique
   nickname           String        @map("login")
+  /// bridge 잔존 컬럼 5종(`role`·`selectedRole`·`name`·`studentId`·`department`).
+  ///
+  /// **정본 코드는 이 다섯 칸을 절대 읽지 않는다.** 회원 정체성의 유일한 정본은
+  /// `UserProfile` 행이고, 권한의 정본은 `hasStaffAccess`·`hasAdminAccess`다.
+  /// 여기 남아 있는 이유는 오직 하나 — 직전 이미지 v0.6.110이 이 칸들을
+  /// `AUTH_USER_SELECT`로 직접 읽기 때문에, 지우는 순간 롤백이 불가능해진다.
+  /// 다음 contract PR이 이 다섯 칸과 `Role` enum을 함께 지운다.
+  role               Role?
+  selectedRole       Role?
+  name               String?
+  studentId          String?
+  department         String?
   avatarUrl          String?
   accountStatus      AccountStatus @default(ACTIVE)
   /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(opt-in 기본 off).
@@ -85,9 +107,16 @@ model UserProfile {
   /// `affiliationName`의 legacy 사본. 두 값은 언제나 같다(마이그레이션 CHECK).
   department String
 
-  memberKind      MemberKind
-  affiliationKind AffiliationKind
-  affiliationName String
+  /// bridge 단계에서 **물리적으로 nullable**이다. 직전 이미지 v0.6.110이 새 프로필
+  /// 행을 만들 때 이 세 칸을 쓰지 않기 때문에(name·studentId·department만 create한다)
+  /// NOT NULL을 걸면 그 이미지의 가입 완료가 전부 실패한다.
+  ///
+  /// 그 NULL을 정본 사실로 접는 일은 애플리케이션의 **단일 경계**가 한다 —
+  /// `profiles/user-profile-read.ts`의 `resolveCanonicalMembership`. 그 밖의 어느
+  /// 자리에서도 이 세 칸의 fallback을 다시 쓰지 않는다.
+  memberKind      MemberKind?
+  affiliationKind AffiliationKind?
+  affiliationName String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -115,11 +144,15 @@ model LoginHistory {
 }
 
 /// PENDING → APPROVED/REJECTED. REVOKED는 회수(REVOKE) 이력을 표현한다(#109 계약 잠금 이행 — #113에서 additive로 추가).
+/// 정본 이름으로 말하되 물리 타입은 옛 `RoleRequestStatus` 그대로다 — bridge 단계에서는
+/// 직전 이미지가 같은 타입을 읽어야 하므로 개명하지 않는다. 다음 contract PR이 개명한다.
 enum StaffAccessRequestStatus {
   PENDING
   APPROVED
   REJECTED
   REVOKED
+
+  @@map("RoleRequestStatus")
 }
 
 /// 교직원 접근 권한 요청 이력. 회수(REVOKE)도 상태를 지우지 않고 이력으로 남긴다(#108이 소비).
@@ -143,6 +176,8 @@ model StaffAccessRequest {
   @@index([status])
   @@index([userId, status, createdAt, id])
   @@index([userId, createdAt, id])
+  /// 정본 이름으로 말하되 물리 테이블은 옛 `RoleRequest` 그대로다(위 enum과 같은 이유).
+  @@map("RoleRequest")
 }
 
 /// 전역 개인정보·활동 동의. MVP는 정책 버전별 1회 동의만 저장한다(#109 계약 잠금) — programId를 두지 않는다.

@@ -58,7 +58,9 @@ jobs:
               - 'scripts/test-prisma-migration-concurrency*'
               - 'scripts/prisma-migration-ledger.mjs'
               - 'scripts/member-authority-expand-contract.mjs'
+              - 'scripts/member-authority-bridge-contract*'
               - 'scripts/rehearse-member-authority-migrations*'
+              - 'scripts/rehearse-member-authority-bridge.sh'
               - 'scripts/check-member-authority-production*'
               - 'scripts/member-authority-production-report.mjs'
               - 'scripts/member-authority-jenkins-contract.test.mjs'
@@ -247,7 +249,7 @@ jobs:
 
       - name: Prisma migration contract unit tests
         if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/check-jenkinsfile.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
+        run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/member-authority-bridge-contract.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/check-jenkinsfile.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
 
       - name: backend lint
         if: ${{ steps.scope.outputs.backend == 'true' }}

@@ -47,7 +47,7 @@ type AuthUserRow = PrismaUser & {
     readonly name: string;
     readonly studentId: string | null;
     readonly department: string;
-    readonly memberKind: MemberKind;
+    readonly memberKind: MemberKind | null;
   } | null;
 };
 
@@ -58,6 +58,13 @@ export function buildRow(overrides: Partial<AuthUserRow> = {}): AuthUserRow {
     nickname: 'synthetic-login',
     avatarUrl: null,
     accountStatus: AccountStatus.ACTIVE,
+    // bridge 잔존 컬럼 — 정본 코드는 이 다섯 칸을 읽지 않지만 `PrismaUser` 모양에는
+    // 아직 남아 있어 픽스처가 채워야 한다. 모두 비운 값이다.
+    role: null,
+    selectedRole: null,
+    name: null,
+    studentId: null,
+    department: null,
     selectedMemberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,

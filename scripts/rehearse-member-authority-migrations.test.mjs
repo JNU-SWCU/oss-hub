@@ -32,10 +32,9 @@ test('expand schema and migration encode only nullable authority and affiliation
     .filter((line) => !line.trimStart().startsWith('--'))
     .join('\n');
 
-  // Then — 이 검사는 **expand 마이그레이션 파일**만 잠근다. 그때의 스키마 모양
-  // (nullable canonical 칸, legacy Role)은 계약 단계가 이미 지웠으므로 여기서
-  // 요구하면 영원히 거짓이 된다. 계약 단계의 스키마는
-  // `member-authority-contract-contract.mjs`가 따로 잠근다.
+  // Then — 이 검사는 **expand 마이그레이션 파일**만 잠근다. 그때의 스키마 모양은
+  // 이후 릴리스가 계속 바꾸므로 여기서 요구하면 영원히 거짓이 된다. 지금 릴리스의
+  // 스키마는 `member-authority-bridge-contract.mjs`가 따로 잠근다.
   assert.match(schema, /enum MemberKind \{\s+STUDENT\s+STAFF\s+\}/);
   assert.match(
     schema,

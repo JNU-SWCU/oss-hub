@@ -2,24 +2,14 @@
 set -euo pipefail
 
 scenario=${1:-}
-if [[ $# -ne 1 ]] ||
-  [[ $scenario != 'expand' && $scenario != 'contract' && $scenario != 'contract-negative' ]]; then
-  printf 'Usage: scripts/rehearse-member-authority-migrations.sh expand|contract|contract-negative\n' >&2
+if [[ $# -ne 1 ]] || [[ $scenario != 'expand' ]]; then
+  printf 'Usage: scripts/rehearse-member-authority-migrations.sh expand\n' >&2
   exit 2
 fi
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 schema="$repo_root/apps/backend/prisma/schema.prisma"
-expand_migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
-contract_migration="$repo_root/apps/backend/prisma/migrations/20260823000000_contract_member_authority/migration.sql"
-
-if [[ $scenario == 'contract' || $scenario == 'contract-negative' ]]; then
-  node "$repo_root/scripts/member-authority-contract-contract.mjs" \
-    "$schema" "$contract_migration"
-  exec bash "$repo_root/scripts/rehearse-member-authority-contract.sh" "$scenario"
-fi
-
-migration="$expand_migration"
+migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
 node "$repo_root/scripts/member-authority-expand-contract.mjs" "$schema" "$migration"
 
 legacy_sha=08419aec35492abd3a416795f091997dfbe1f712
@@ -158,8 +148,10 @@ Promise.all([
   prisma.user.count(),
   prisma.userProfile.count(),
 ]).then(([user, userCount, profileCount]) => {
+  // bridge 마이그레이션이 접근 권한 두 칸을 legacy role에서 backfill한 뒤 NOT NULL로 잠근다.
+  // STUDENT는 교직원·관리자 접근이 모두 없으므로 두 값이 false다.
   const expected = { name: "legacy-name", studentId: "123456", department: "legacy-department", role: "STUDENT", selectedRole: "STUDENT",
-    selectedMemberKind: null, hasStaffAccess: null, hasAdminAccess: null,
+    selectedMemberKind: null, hasStaffAccess: false, hasAdminAccess: false,
     profile: { name: "profile-name", studentId: "123456", department: "profile-department", memberKind: null, affiliationKind: null, affiliationName: null } };
   if (userCount !== 1 || profileCount !== 1 || JSON.stringify(user) !== JSON.stringify(expected)) process.exitCode = 1;
 }).finally(() => prisma.$disconnect());
