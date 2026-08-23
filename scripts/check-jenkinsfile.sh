@@ -615,8 +615,10 @@ require_common_smoke_and_build_guards() {
   require_noop_nginx_drift_contract
   require_exact 'DB backup은 한 번이어야 함' 'pg_dump' 1
   require_exact 'migration은 한 번이어야 함' 'npx prisma migrate deploy' 1
-  require_exact '후보 이미지 권한 매트릭스는 한 번이어야 함' \
-    "sh 'bash scripts/check-auth-release-image.sh \"\$RELEASE_TAG\" \"\$RELEASE_SHA\"'" 1
+  if grep -Eiq 'check-auth-release-image|auth-release-image-report|AUTH_SYNTHETIC_MATRIX|후보 이미지 권한 매트릭스 검증' "$jenkinsfile"; then
+    printf '%s: CD는 후보 이미지 권한 매트릭스를 검증할 수 없음\n' "$label" >&2
+    exit 1
+  fi
   require_exact 'primary·rollback은 기존 이미지만 사용해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 2
   require_at_least '운영 환경은 Jenkins file credential로 주입해야 함' "credentialsId: 'oss-hub-production-env'" 1
 
@@ -985,7 +987,7 @@ check_v2() {
 
   local environment_line stages_line build_cache_line checkout_line buildx_preflight_line https_line
   local rollback_stage_line rollback_input_line rollback_call_line first_production_mutation_line
-  local backup_line frontend_build_line backend_build_line auth_check_line migration_line rollout_line noop_stage_line retention_line
+  local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
   local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
   local release_sha_binding_line # ci_status_call_line removed
   environment_line=$(line_of 'environment {')
@@ -1005,7 +1007,6 @@ check_v2() {
   backup_line=$(line_of 'pg_dump')
   frontend_build_line=$(line_of_regex 'apps/frontend/Dockerfile')
   backend_build_line=$(line_of_regex 'apps/backend/Dockerfile')
-  auth_check_line=$(line_of "sh 'bash scripts/check-auth-release-image.sh \"\$RELEASE_TAG\" \"\$RELEASE_SHA\"'")
   migration_line=$(line_of 'npx prisma migrate deploy')
   rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
   noop_stage_line=$(line_of "stage('no-op 실행 중 nginx 드리프트 검증')")
@@ -1025,7 +1026,7 @@ check_v2() {
     checkout_line buildx_preflight_line https_line rollback_stage_line
     rollback_input_line rollback_call_line backup_line
     first_production_mutation_line
-    frontend_build_line backend_build_line auth_check_line migration_line
+    frontend_build_line backend_build_line migration_line
     rollout_line noop_stage_line retention_line retention_stage_line
     image_rm_line buildx_prune_line backup_prune_line
   )
@@ -1057,8 +1058,7 @@ check_v2() {
     'first_production_mutation_line:<:backup_line'
     'backup_line:<:frontend_build_line'
     'frontend_build_line:<:backend_build_line'
-    'backend_build_line:<:auth_check_line'
-    'auth_check_line:<:migration_line'
+    'backend_build_line:<:migration_line'
     'migration_line:<:rollout_line'
     'rollout_line:<:noop_stage_line'
     'noop_stage_line:<:retention_stage_line'
@@ -1075,7 +1075,7 @@ check_v2() {
       order_check_ok=$(( ${!order_check_lhs} < ${!order_check_rhs} ))
     fi
     if (( ! order_check_ok )); then
-      printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> auth matrix -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
+      printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
       exit 1
     fi
   done
