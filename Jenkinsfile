@@ -536,8 +536,18 @@ esac
             # 못하게 하고(build 40·41 이 빈 자격증명으로 Access Denied), 경로만 위치 인자로 넘긴다.
             # 로그인 셸(-l)도 쓰지 않는다 — 최소 이미지에서 환경이 초기화될 수 있다.
             minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
-            test -n "$minio_container_id"
-            trap 'rm -rf "$object_backup_tmp"; docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""' EXIT
+            if [ -z "$minio_container_id" ]; then
+              if [ -z "${PREV_TAG:-}" ]; then
+                echo 'greenfield object backup: no running MinIO; using an empty backup.'
+                mv "$object_backup_tmp" "$object_backup_target"
+                object_backup_tmp=
+                trap - EXIT
+              else
+                echo 'object backup requires a running MinIO container for an existing release.' >&2
+                exit 1
+              fi
+            else
+              trap 'rm -rf "$object_backup_tmp"; docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""' EXIT
             docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mkdir -p "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
             docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
             test -d "$object_backup_tmp"
@@ -545,6 +555,7 @@ esac
             mv "$object_backup_tmp" "$object_backup_target"
             object_backup_tmp=
             trap - EXIT
+            fi
           '''
         }
       }

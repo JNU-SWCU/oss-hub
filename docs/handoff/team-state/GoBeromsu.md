@@ -357,6 +357,12 @@
 - 검증: production raw bounds, Chrome 6건, frontend lint·typecheck·build, public-safe·commitlint
 - 저널 이력: 기존 #984 항목은 유지하고 journal-only #993 뒤 현재 항목을 EOF에 append
 
+## 2026-08-23 — Jenkins 최초 배포의 빈 객체 백업 허용
+
+- Jenkins build #162에서 최초 배포(greenfield)는 실행 중 MinIO가 없을 수 있다는 전제를 확인
+- 기존 릴리스에 실행 중 MinIO가 없으면 기존처럼 fail-closed하고, greenfield에서만 빈 객체 백업 영수증을 생성
+- 공개-safe 검증: Jenkins 계약 fixture 및 정적 파이프라인 검사를 통과
+
 ## 2026-08-21 — 회원·소속·권한 호환 투영을 단일화
 
 - 상태: review
