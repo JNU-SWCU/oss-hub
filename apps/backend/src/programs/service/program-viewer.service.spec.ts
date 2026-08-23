@@ -28,7 +28,9 @@ describe('ProgramViewerService', () => {
       select: {
         id: true,
         accountStatus: true,
-        role: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        profile: { select: { memberKind: true } },
         staffAccessRequests: {
           where: { status: 'PENDING' },
           select: { id: true },

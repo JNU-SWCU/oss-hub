@@ -58,7 +58,7 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
   expect(update).toHaveBeenCalledWith({
     where: { id: 'target' },
     data: {
-      role: 'STAFF',
+      selectedMemberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: false,
     },

@@ -53,19 +53,16 @@ it.each([
         actor: {
           displayName: '합성 관리자',
           githubLogin: 'synthetic-admin',
-          name: null,
-          role: 'STUDENT',
         },
         target: {
           displayName: '합성 학생',
           githubLogin: 'synthetic-target',
-          name: null,
-          role: 'STUDENT',
         },
         before: {
           memberKind: MemberKind.STUDENT,
           hasStaffAccess: false,
           hasAdminAccess: false,
+          role: 'STUDENT',
           accountStatus: AccountStatus.ACTIVE,
         },
         after: {
@@ -147,7 +144,7 @@ function createStoredMetadata(
   const audit = createIndependentAuthorityAudit({
     actorGithubId,
     actor: {
-      name: null,
+      name: '합성 관리자',
       role: 'ADMIN',
       id: 'actor',
       githubId: actorGithubId,
@@ -171,7 +168,7 @@ function targetUser(): IndependentAuthorityUserRecord {
     id: 'target',
     githubId: 9_700_700_002n,
     githubLogin: 'synthetic-target',
-    name: null,
+    name: '합성 학생',
     role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
