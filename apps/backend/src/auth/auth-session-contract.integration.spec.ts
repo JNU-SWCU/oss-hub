@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -17,13 +17,12 @@ import { LoginHistoryService } from '../login-history/login-history.service';
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
 const activeUser: AuthUser = {
+  name: null,
   id: 'synthetic-session-contract-user',
   githubId,
   nickname: 'synthetic-user',
-  name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: Role.STAFF,
   memberKind: MemberKind.STAFF,
   hasStaffAccess: true,
   hasAdminAccess: false,
@@ -129,7 +128,7 @@ describe('canonical auth session HTTP contract', () => {
     expect(body).not.toHaveProperty('user');
   });
 
-  it('GET /api/v1/auth/session returns the authenticated discriminant with legacy role', async () => {
+  it('GET /api/v1/auth/session returns the authenticated discriminant with canonical access facts', async () => {
     const response = await request('/api/v1/auth/session', sessionCookie);
 
     expect(response.status).toBe(200);
@@ -140,10 +139,12 @@ describe('canonical auth session HTTP contract', () => {
         name: null,
         avatarUrl: null,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STAFF,
         memberKind: MemberKind.STAFF,
         hasStaffAccess: true,
         hasAdminAccess: false,
+        // bridge 전용 표시 투영 — 직전 프런트엔드 번들이 이 칸으로 온보딩 분기를
+        // 가른다. 값은 canonical 세 사실에서 접은 것이고 인가에는 쓰지 않는다.
+        role: 'STAFF',
         isProfileComplete: true,
       },
     });

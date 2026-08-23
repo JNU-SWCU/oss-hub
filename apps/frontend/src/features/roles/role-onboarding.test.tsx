@@ -4,19 +4,19 @@ import { describe, expect, it } from 'vitest';
 import { REJECTION_REASON_MAX_LENGTH } from '@/lib/display-text';
 import {
   RoleSelectionForm,
-  type ClosedRoleRequestNotice,
+  type ClosedStaffAccessRequestNotice,
 } from './components/role-selection-screen';
 import {
   ROLE_REQUEST_RETRY_FAILURE_MESSAGE,
-  RoleRequestStatusView,
+  StaffAccessRequestStatusView,
 } from './components/role-request-screen';
-import type { RoleRequest } from './types';
+import type { StaffAccessRequest } from './types';
 
 const noOp = () => undefined;
 
 function renderRoleForm(
   selectedRole: 'STUDENT' | 'STAFF' | null,
-  rejection: ClosedRoleRequestNotice | null = null,
+  rejection: ClosedStaffAccessRequestNotice | null = null,
 ): string {
   return renderToStaticMarkup(
     <RoleSelectionForm
@@ -30,11 +30,15 @@ function renderRoleForm(
   );
 }
 
-function rejectionNotice(reason: string | null): ClosedRoleRequestNotice {
+function rejectionNotice(
+  reason: string | null,
+): ClosedStaffAccessRequestNotice {
   return { status: 'REJECTED', reason };
 }
 
-function roleRequest(overrides: Partial<RoleRequest> = {}): RoleRequest {
+function staffAccessRequest(
+  overrides: Partial<StaffAccessRequest> = {},
+): StaffAccessRequest {
   return {
     requestedRole: 'STAFF',
     status: 'PENDING',
@@ -131,7 +135,7 @@ describe('role onboarding views', () => {
    * 반려 안내 표시 규칙(#673).
    *
    * 이 검사들만으로는 부족하다는 것을 먼저 적어 둔다 — 바로 아래
-   * `RoleRequestStatusView` 검사가 통과하는 동안에도 사용자는 사유를 볼 수 없었다.
+   * `StaffAccessRequestStatusView` 검사가 통과하는 동안에도 사용자는 사유를 볼 수 없었다.
    * 컴포넌트를 직접 렌더하면 게이트를 지나치기 때문이다. **도달 가능성은
    * `app/_shell/onboarding-rejection-reach.test.tsx`가 지킨다.** 여기서는 도달한
    * 화면이 무엇을 어떻게 그리는지만 본다.
@@ -225,7 +229,7 @@ describe('role onboarding views', () => {
    * 카드 가로 배치는 안내와 **무관하게** 살아 있어야 한다.
    *
    * 반려 안내는 375×812에서 `선택 완료`를 접히는 선 아래로 밀어낸다 — 알고 허용한
-   * 대가다(`ClosedRoleRequestAlert` 주석의 실측). 그 예외가 "이 화면은 어차피
+   * 대가다(`ClosedStaffAccessRequestAlert` 주석의 실측). 그 예외가 "이 화면은 어차피
    * 스크롤한다"로 번져 카드까지 세로로 쌓이면, **안내가 없는 첫 가입자까지** 함께
    * 스크롤하게 된다. 그쪽은 지금 스크롤이 아예 없는 화면이다(버튼 하단 732px).
    * 두 상태 모두에서 가로 배치를 못박아 그 번짐을 막는다.
@@ -233,7 +237,7 @@ describe('role onboarding views', () => {
   it.each([
     ['안내 없음', null],
     ['안내 있음', rejectionNotice('학과 소속이 확인되지 않았습니다.')],
-  ] as readonly (readonly [string, ClosedRoleRequestNotice | null])[])(
+  ] as readonly (readonly [string, ClosedStaffAccessRequestNotice | null])[])(
     '%s 상태 모두에서 두 역할 카드는 가로로 나란히 선다',
     (_label, rejection) => {
       // Given / When
@@ -249,7 +253,7 @@ describe('role onboarding views', () => {
 
   it('반려된 요청은 반려 사유와 재요청 동작을 표시한다', () => {
     // Given
-    const rejected = roleRequest({
+    const rejected = staffAccessRequest({
       status: 'REJECTED',
       decidedAt: '2026-07-21T01:00:00.000Z',
       rejectionReason: '합성 반려 사유',
@@ -257,7 +261,7 @@ describe('role onboarding views', () => {
 
     // When
     const html = renderToStaticMarkup(
-      <RoleRequestStatusView
+      <StaffAccessRequestStatusView
         request={rejected}
         isRetrying={false}
         errorMessage={null}
@@ -274,14 +278,14 @@ describe('role onboarding views', () => {
 
   it('승인된 요청은 교직원 화면 이동 경로를 제공한다', () => {
     // Given
-    const approved = roleRequest({
+    const approved = staffAccessRequest({
       status: 'APPROVED',
       decidedAt: '2026-07-21T01:00:00.000Z',
     });
 
     // When
     const html = renderToStaticMarkup(
-      <RoleRequestStatusView
+      <StaffAccessRequestStatusView
         request={approved}
         isRetrying={false}
         errorMessage={null}
@@ -303,11 +307,11 @@ describe('role onboarding views', () => {
    */
   it('승인 대기 요청은 이름·학과를 고치러 갈 길을 함께 낸다', () => {
     // Given
-    const pending = roleRequest();
+    const pending = staffAccessRequest();
 
     // When
     const html = renderToStaticMarkup(
-      <RoleRequestStatusView
+      <StaffAccessRequestStatusView
         request={pending}
         isRetrying={false}
         errorMessage={null}
@@ -330,11 +334,11 @@ describe('role onboarding views', () => {
    */
   it('승인 대기 요청에 역할을 다시 고르는 길은 내지 않는다', () => {
     // Given
-    const pending = roleRequest();
+    const pending = staffAccessRequest();
 
     // When
     const html = renderToStaticMarkup(
-      <RoleRequestStatusView
+      <StaffAccessRequestStatusView
         request={pending}
         isRetrying={false}
         errorMessage={null}
@@ -356,14 +360,14 @@ describe('role onboarding views', () => {
     '%s 요청에는 설정으로 가는 길을 내지 않는다',
     (status) => {
       // Given
-      const request = roleRequest({
+      const request = staffAccessRequest({
         status,
         decidedAt: '2026-07-21T01:00:00.000Z',
       });
 
       // When
       const html = renderToStaticMarkup(
-        <RoleRequestStatusView
+        <StaffAccessRequestStatusView
           request={request}
           isRetrying={false}
           errorMessage={null}
@@ -379,14 +383,14 @@ describe('role onboarding views', () => {
 
   it('회수된 요청 응답도 안전하게 역할 재선택 경로를 표시한다', () => {
     // Given
-    const revoked = roleRequest({
+    const revoked = staffAccessRequest({
       status: 'REVOKED',
       decidedAt: '2026-07-21T01:00:00.000Z',
     });
 
     // When
     const html = renderToStaticMarkup(
-      <RoleRequestStatusView
+      <StaffAccessRequestStatusView
         request={revoked}
         isRetrying={false}
         errorMessage={null}
@@ -406,7 +410,7 @@ describe('role onboarding views', () => {
    */
   it('재요청 실패 안내는 남은 상태와 다음에 누를 버튼을 함께 알린다', () => {
     // Given
-    const rejected = roleRequest({
+    const rejected = staffAccessRequest({
       status: 'REJECTED',
       decidedAt: '2026-07-21T01:00:00.000Z',
       rejectionReason: '합성 반려 사유',
@@ -414,7 +418,7 @@ describe('role onboarding views', () => {
 
     // When
     const html = renderToStaticMarkup(
-      <RoleRequestStatusView
+      <StaffAccessRequestStatusView
         request={rejected}
         isRetrying={false}
         errorMessage={ROLE_REQUEST_RETRY_FAILURE_MESSAGE}

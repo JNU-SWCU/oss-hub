@@ -3,9 +3,9 @@ import type { Prisma } from '@prisma/client';
 import { requiredMilestonesApproved } from '../common/milestone-completion';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 import { safeSubmissionFileContentType } from '../submissions/submission-file-content-type';
 import {
   APPLICATION_MODES,
@@ -28,7 +28,7 @@ export const REVIEW_CONTEXT_SELECT = {
       applicant: {
         select: {
           nickname: true,
-          ...COMPATIBLE_PROFILE_NAME_SELECT,
+          ...USER_PROFILE_NAME_SELECT,
         },
       },
       team: { select: { name: true } },
@@ -131,7 +131,7 @@ export function toReviewContext(
           : APPLICATION_MODES.TEAM,
       displayName:
         row.application.team?.name ??
-        resolveCompatibleProfileName(row.application.applicant) ??
+        resolveUserProfileName(row.application.applicant) ??
         row.application.applicant.nickname,
     },
     milestone: row.milestone,

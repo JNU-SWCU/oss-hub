@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { MemberKind, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 
@@ -39,7 +39,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: syntheticInviteeId,
-          role: 'STUDENT',
+          profile: { memberKind: MemberKind.STUDENT },
           accountStatus: 'ACTIVE',
         }),
       },

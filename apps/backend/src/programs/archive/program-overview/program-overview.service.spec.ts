@@ -1,4 +1,3 @@
-import { Role } from '@prisma/client';
 import { ProgramOverviewErrorCode } from './program-overview-error-code.enum';
 import {
   CurrentSubmissionMilestone,
@@ -78,7 +77,7 @@ describe('ProgramOverviewService', () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: Role.STUDENT });
+        .mockResolvedValue({ userId: syntheticUserId, role: 'STUDENT' });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -116,7 +115,7 @@ describe('ProgramOverviewService', () => {
         ['doc-1', 'doc-2', 'doc-3', 'doc-4', 'doc-5', 'doc-6'],
       );
       expect(result.viewer).toEqual({
-        role: Role.STUDENT,
+        role: 'STUDENT',
         myDocumentsCompleted: 3,
         myDocumentsTotal: 6,
         fullySubmittedParticipantCount: null,
@@ -145,7 +144,7 @@ describe('ProgramOverviewService', () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: Role.STUDENT });
+        .mockResolvedValue({ userId: syntheticUserId, role: 'STUDENT' });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -175,7 +174,7 @@ describe('ProgramOverviewService', () => {
       // Then
       expect(findSubmittedDocumentIds).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
-        role: Role.STUDENT,
+        role: 'STUDENT',
         myDocumentsCompleted: 0,
         myDocumentsTotal: 6,
         fullySubmittedParticipantCount: null,
@@ -201,7 +200,7 @@ describe('ProgramOverviewService', () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: Role.STUDENT });
+        .mockResolvedValue({ userId: syntheticUserId, role: 'STUDENT' });
       const findCurrentSubmissionMilestone = jest.fn().mockResolvedValue(null);
       const findViewerApplicationId = jest.fn();
       const findMilestoneDocumentCatalog = jest.fn();
@@ -226,7 +225,7 @@ describe('ProgramOverviewService', () => {
       expect(findViewerApplicationId).not.toHaveBeenCalled();
       expect(findMilestoneDocumentCatalog).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
-        role: Role.STUDENT,
+        role: 'STUDENT',
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: null,
@@ -239,7 +238,7 @@ describe('ProgramOverviewService', () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: Role.STAFF });
+        .mockResolvedValue({ userId: syntheticUserId, role: 'STAFF' });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -282,7 +281,7 @@ describe('ProgramOverviewService', () => {
         [milestoneDocumentCatalog[1], milestoneDocumentCatalog[2]],
       );
       expect(result.viewer).toEqual({
-        role: Role.STAFF,
+        role: 'STAFF',
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: 128,
@@ -308,7 +307,7 @@ describe('ProgramOverviewService', () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: Role.ADMIN });
+        .mockResolvedValue({ userId: syntheticUserId, role: 'ADMIN' });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -338,7 +337,7 @@ describe('ProgramOverviewService', () => {
       );
 
       // Then
-      expect(result.viewer.role).toBe(Role.ADMIN);
+      expect(result.viewer.role).toBe('ADMIN');
       expect(result.viewer.fullySubmittedParticipantCount).toBe(10);
       expect(result.viewer.milestoneDocuments).toEqual([
         {

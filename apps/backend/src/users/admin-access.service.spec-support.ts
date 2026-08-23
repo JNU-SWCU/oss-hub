@@ -1,8 +1,7 @@
 import {
   AccountStatus,
   MemberKind,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type { AuditLogService } from '../audit-log/audit-log.service';
@@ -21,7 +20,7 @@ import type {
 import type {
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,
-  AdminAccessRoleRequestHistoryPage,
+  AdminAccessStaffAccessRequestHistoryPage,
 } from './domain/admin-access';
 
 export const ADMIN_GITHUB_ID = 9_131_300_001n;
@@ -35,8 +34,7 @@ export function staffActor(
     id: 'staff',
     githubId: STAFF_GITHUB_ID,
     githubLogin: 'synthetic-staff',
-    name: '합성 교직원',
-    role: Role.STAFF,
+    role: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
     ...overrides,
@@ -51,9 +49,9 @@ export function adminActor(
     githubId: ADMIN_GITHUB_ID,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: Role.ADMIN,
-    hasStaffAccess: true,
+    role: 'ADMIN',
     hasAdminAccess: true,
+    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
     ...overrides,
   };
@@ -67,7 +65,7 @@ export function accessUser(
     githubId: TARGET_GITHUB_ID,
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
-    role: Role.STUDENT,
+    role: 'STUDENT',
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -165,10 +163,10 @@ export class InMemoryAdminAccessRepository
     );
   }
 
-  listRoleRequestHistory(
+  listStaffAccessRequestHistory(
     _userId: string,
     page: { readonly page: number; readonly limit: number },
-  ): Promise<AdminAccessRoleRequestHistoryPage> {
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
     return Promise.resolve({ items: [], ...page, total: 0 });
   }
 
@@ -200,7 +198,6 @@ export class InMemoryAdminAccessRepository
     if (this.userCasSucceeds && this.target) {
       this.target = {
         ...this.target,
-        role: input.desiredRole,
         accountStatus: input.desiredAccountStatus,
         hasStaffAccess: desiredHasStaffAccess,
         hasAdminAccess: desiredHasAdminAccess,
@@ -233,6 +230,6 @@ export const INSERTED_REVOKED_REQUEST_ID = 'request-revoked';
 
 export const PENDING_REQUEST = {
   id: 'request-pending',
-  status: RoleRequestStatus.PENDING,
+  status: StaffAccessRequestStatus.PENDING,
   createdAt: new Date('2026-07-23T00:00:00.000Z'),
 } as const;

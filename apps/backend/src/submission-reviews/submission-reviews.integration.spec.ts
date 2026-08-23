@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
   ApplicationStatus,
-  Role,
+  MemberKind,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
@@ -93,7 +93,7 @@ async function createFreshPrivateRepository(): Promise<{
       id: applicantId,
       githubId: seedGithubId(applicantId),
       nickname: applicantId.replace(/:/g, '-'),
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
     },
   });

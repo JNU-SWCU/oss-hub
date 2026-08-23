@@ -1,8 +1,9 @@
 import {
   AccountStatus,
+  AffiliationKind,
   ApplicationStatus,
-  Role,
-  RoleRequestStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
@@ -92,50 +93,64 @@ describe('SubmissionMatrixService integration', () => {
           id: STAFF_VIEWER_ID,
           githubId: seedGithubId(STAFF_VIEWER_ID),
           nickname: STAFF_VIEWER_ID,
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
         {
           id: ADMIN_VIEWER_ID,
           githubId: seedGithubId(ADMIN_VIEWER_ID),
           nickname: ADMIN_VIEWER_ID,
-          role: Role.ADMIN,
+          hasAdminAccess: true,
         },
         {
           id: STUDENT_VIEWER_ID,
           githubId: seedGithubId(STUDENT_VIEWER_ID),
           nickname: STUDENT_VIEWER_ID,
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
         {
           id: PENDING_STAFF_ID,
           githubId: seedGithubId(PENDING_STAFF_ID),
           nickname: PENDING_STAFF_ID,
-          role: null,
+          selectedMemberKind: null,
         },
         {
           id: DEACTIVATED_STAFF_ID,
           githubId: seedGithubId(DEACTIVATED_STAFF_ID),
           nickname: DEACTIVATED_STAFF_ID,
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
           accountStatus: AccountStatus.DEACTIVATED,
         },
         {
           id: ROWHOLDER_ID,
           githubId: seedGithubId(ROWHOLDER_ID),
           nickname: ROWHOLDER_ID,
-          name: 'Synthetic Nameholder',
-          role: Role.STUDENT,
+          selectedMemberKind: MemberKind.STUDENT,
         },
       ],
       skipDuplicates: true,
     });
-    await prisma.roleRequest.upsert({
+    await prisma.userProfile.upsert({
+      where: { userId: ROWHOLDER_ID },
+      update: {},
+      create: {
+        userId: ROWHOLDER_ID,
+        name: 'Synthetic Nameholder',
+        studentId: '261097',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
+    });
+    await prisma.staffAccessRequest.upsert({
       where: { id: PENDING_REQUEST_ID },
-      update: { status: RoleRequestStatus.PENDING },
+      update: { status: StaffAccessRequestStatus.PENDING },
       create: {
         id: PENDING_REQUEST_ID,
         userId: PENDING_STAFF_ID,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
     });
     const unsubmittedTeamId = `${UNSUBMITTED_APPLICATION_ID}-team`;
@@ -190,7 +205,9 @@ describe('SubmissionMatrixService integration', () => {
     await prisma.team.deleteMany({
       where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },
     });
-    await prisma.roleRequest.deleteMany({ where: { id: PENDING_REQUEST_ID } });
+    await prisma.staffAccessRequest.deleteMany({
+      where: { id: PENDING_REQUEST_ID },
+    });
     await prisma.user.deleteMany({
       where: {
         id: {
@@ -240,10 +257,10 @@ describe('SubmissionMatrixService integration', () => {
     const team = rowFor(matrix.rows, TEAM_APPLICATION_ID);
     const unsubmitted = rowFor(matrix.rows, UNSUBMITTED_APPLICATION_ID);
 
-    // 개인 행: name이 없어 nickname으로 대체, 상태 3종 + 미제출.
+    // 개인 행: 표시 이름은 canonical UserProfile.name이다.
     expect(personal).toMatchObject({
       applicationMode: 'PERSONAL',
-      displayName: 'seed-milestones-user-applicant-personal',
+      displayName: '합성 개인 신청자',
       githubLogins: ['seed-milestones-user-applicant-personal'],
     });
     const approvedSubmissionId = seedId(

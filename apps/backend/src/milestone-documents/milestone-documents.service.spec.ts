@@ -2,7 +2,6 @@ import {
   MilestoneSubmissionType,
   Prisma,
   ReviewDecision,
-  Role,
   SubmissionStatus,
 } from '@prisma/client';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
@@ -198,9 +197,11 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   it('교직원 viewer는 서류별 팀 제출 집계(teamSubmissionCount)를 채운다', async () => {
     // Given: 승인된 신청 8건 중 이 서류를 6건이 제출했다.
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: 'staff-1',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      }),
       countApprovedApplications: jest.fn().mockResolvedValue(8),
       countSubmissionsByDocument: jest
         .fn()
@@ -225,9 +226,11 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     // Given: 학생이 이 프로그램에 신청했고 서류를 이미 냈다.
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -266,9 +269,11 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -307,9 +312,11 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   it('학생 viewer가 아직 신청하지 않았으면 미제출(submitted:false)로 채운다', async () => {
     // Given: 학생 계정이지만 이 프로그램에 신청한 이력이 없다.
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -1045,9 +1052,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   it('학생이 아니면 STUDENT_ONLY로 거부한다', async () => {
     // Given
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: 'staff-1',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      }),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -1068,9 +1077,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   it('서류 제출 유형과 내용 유형이 다르면 CONTENT_TYPE_MISMATCH로 거부한다', async () => {
     // Given: 서류 항목은 FILE 유형인데 TEXT로 제출했다.
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -1091,9 +1102,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   it('이 프로그램 신청이 없으면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
     // Given
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1123,9 +1136,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   it('신청이 아직 승인 전이면 APPLICATION_APPROVAL_REQUIRED로 거부한다', async () => {
     // Given
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1161,9 +1176,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   it('TEXT 제출은 content를 JSON으로 저장하고 응답 DTO로 감싼다', async () => {
     // Given
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1214,9 +1231,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   it('FILE 제출은 attachFile을 채우고 content는 Prisma.JsonNull이다', async () => {
     // Given
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1279,9 +1298,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   it('pending 파일이 만료·소유자 불일치로 붙지 않으면 PENDING_FILE_NOT_FOUND로 변환한다', async () => {
     // Given
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1319,9 +1340,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     // Given: 트랜잭션 밖 검증은 FILE로 통과했지만, 잠금 아래에서 다시 읽으니 이미 TEXT였다.
     // 이 제출이 그대로 커밋되면 「TEXT인데 FILE 제출이 들어 있는」 상태가 남는다.
     const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1364,9 +1387,11 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     latestReview: { id: string; decision: ReviewDecision } | null,
   ) {
     return buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,

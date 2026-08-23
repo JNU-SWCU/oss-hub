@@ -1,8 +1,9 @@
 import {
   AccountStatus,
+  AffiliationKind,
+  MemberKind,
   ProgramCategory,
   RepositoryConnectionMode,
-  Role,
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -39,15 +40,35 @@ async function seedFixture(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_301_000_001n,
         nickname: 'acceptance-race-leader',
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_301_000_002n,
         nickname: 'acceptance-race-invitee',
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+      },
+    ],
+  });
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: LEADER_ID,
+        name: 'Synthetic user',
+        studentId: '301001',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: INVITEE_ID,
+        name: 'Synthetic user',
+        studentId: '301002',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
       },
     ],
   });
@@ -115,7 +136,22 @@ describe('Team invitation acceptance transaction races', () => {
   });
 
   it.each([
-    ['역할 변경 트랜잭션', { role: Role.STAFF }],
+    [
+      '역할 변경 트랜잭션',
+      {
+        hasStaffAccess: true,
+        selectedMemberKind: MemberKind.STAFF,
+        profile: {
+          update: {
+            memberKind: MemberKind.STAFF,
+            studentId: null,
+            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+            department: 'Synthetic program office',
+            affiliationName: 'Synthetic program office',
+          },
+        },
+      },
+    ],
     ['계정 비활성화 트랜잭션', { accountStatus: AccountStatus.DEACTIVATED }],
   ] as const)(
     '%s이 먼저 잠그면 수락은 대기 후 최신 자격을 본다',

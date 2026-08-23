@@ -1,3 +1,4 @@
+import { MemberKind } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { ExecutionContext } from '@nestjs/common';
 import { SignJWT } from 'jose';
@@ -101,7 +102,8 @@ describe('SessionGuard', () => {
     const getMe = jest.fn().mockResolvedValue({
       id: 'synthetic-user',
       githubId: syntheticGithubId,
-      role: 'STAFF',
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
     });
     const authService = {
       getMe,
@@ -118,7 +120,8 @@ describe('SessionGuard', () => {
       principal: {
         id: 'synthetic-user',
         githubId: syntheticGithubId,
-        role: 'STAFF',
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
       },
       sessionGithubId: syntheticGithubId,
     });

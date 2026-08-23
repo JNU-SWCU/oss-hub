@@ -1,4 +1,3 @@
-import { Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -20,7 +19,7 @@ describe('AuditLog append-only database enforcement', () => {
         id: `${TEST_PREFIX}actor`,
         githubId: 9_402_000_001n,
         nickname: 'synthetic-audit-actor',
-        role: Role.ADMIN,
+        hasAdminAccess: true,
       },
     });
     await prisma.auditLog.createMany({
@@ -65,5 +64,5 @@ describe('AuditLog append-only database enforcement', () => {
   // admin-access.integration.spec.ts의
   // 'rolls back the user CAS when PostgreSQL rejects the audit insert'가
   // 통합 접근(AdminAccess) 경로로 이미 검증한다(PR04H, 레거시
-  // StaffRoleRequests 경로 제거로 대체).
+  // StaffAccessRequests 경로 제거로 대체).
 });

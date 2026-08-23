@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
-  resolveCompatibleProfileDepartment,
-} from '../profiles/profile-compatibility';
+  STUDENT_MEMBER_WHERE,
+  USER_PROFILE_DEPARTMENT_SELECT,
+  resolveUserProfileDepartment,
+} from '../profiles/user-profile-read';
 
 export interface StaffInsightsStudentRecord {
   readonly id: string;
@@ -36,17 +37,17 @@ export class StaffInsightsRepository {
 
   async listStudents(): Promise<readonly StaffInsightsStudentRecord[]> {
     const rows = await this.prisma.user.findMany({
-      where: { role: 'STUDENT', accountStatus: 'ACTIVE' },
+      where: { ...STUDENT_MEMBER_WHERE, accountStatus: 'ACTIVE' },
       select: {
         id: true,
         githubId: true,
-        ...COMPATIBLE_PROFILE_DEPARTMENT_SELECT,
+        ...USER_PROFILE_DEPARTMENT_SELECT,
       },
     });
     return rows.map((row) => ({
       id: row.id,
       githubId: row.githubId,
-      department: resolveCompatibleProfileDepartment(row),
+      department: resolveUserProfileDepartment(row),
     }));
   }
 

@@ -162,19 +162,19 @@ describe('관리자 접근 통합 API 클라이언트', () => {
 
     it('이력 조회는 인코딩된 ID와 4개 페이지네이션 파라미터를 붙인다', async () => {
       vi.mocked(apiClient).mockResolvedValue({
-        roleRequests: { items: [], page: 1, limit: 20, total: 0 },
+        staffAccessRequests: { items: [], page: 1, limit: 20, total: 0 },
         loginHistory: { items: [], page: 1, limit: 20, total: 0 },
       });
 
       await fetchAdminAccessHistory('synthetic:user', {
-        roleRequestPage: 2,
-        roleRequestLimit: 5,
+        staffAccessRequestPage: 2,
+        staffAccessRequestLimit: 5,
         loginPage: 3,
         loginLimit: 7,
       });
 
       expect(apiClient).toHaveBeenCalledWith(
-        'users/synthetic%3Auser/access/history?roleRequestPage=2&roleRequestLimit=5&loginPage=3&loginLimit=7',
+        'users/synthetic%3Auser/access/history?staffAccessRequestPage=2&staffAccessRequestLimit=5&loginPage=3&loginLimit=7',
         undefined,
       );
     });
@@ -272,7 +272,7 @@ describe('관리자 접근 통합 API 클라이언트', () => {
 
     it('이력', () => {
       const history = parseAdminAccessHistory({
-        roleRequests: {
+        staffAccessRequests: {
           items: [
             {
               id: 'req-1',
@@ -302,7 +302,7 @@ describe('관리자 접근 통합 API 클라이언트', () => {
           total: 1,
         },
       });
-      expect(history.roleRequests.items[0].status).toBe('APPROVED');
+      expect(history.staffAccessRequests.items[0].status).toBe('APPROVED');
       expect(history.loginHistory.items[0].event).toBe('LOGIN');
     });
 
@@ -351,7 +351,7 @@ describe('관리자 접근 통합 API 클라이언트', () => {
     it('이력 응답의 로그인 이벤트가 허용값이 아니면 던진다', () => {
       expect(() =>
         parseAdminAccessHistory({
-          roleRequests: { items: [], page: 1, limit: 20, total: 0 },
+          staffAccessRequests: { items: [], page: 1, limit: 20, total: 0 },
           loginHistory: {
             items: [
               {

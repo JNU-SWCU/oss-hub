@@ -1,6 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -102,7 +102,8 @@ it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청�
   // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: Role.STAFF,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   getForStaff.mockResolvedValue({
@@ -153,7 +154,8 @@ it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청�
 it('신청이 없어도(application: null) 금지 필드가 없다', async () => {
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
-    role: Role.STAFF,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   getForStaff.mockResolvedValue({

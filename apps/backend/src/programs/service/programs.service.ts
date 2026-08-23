@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus, Role, SubmissionStatus } from '@prisma/client';
+import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_NOT_SUBMITTED,
@@ -151,7 +151,7 @@ export class ProgramsService {
   ): Promise<readonly PersonalizedProgramListItem[]> {
     if (items.length === 0 || !viewer.userId) return items;
 
-    if (viewer.role === Role.STUDENT) {
+    if (viewer.role === 'STUDENT') {
       const programIds = items.map((item) => item.id);
       const statuses = await this.repository.findViewerApplicationStatuses(
         programIds,
@@ -168,7 +168,7 @@ export class ProgramsService {
       });
     }
 
-    if (viewer.role === Role.STAFF || viewer.role === Role.ADMIN) {
+    if (viewer.role === 'STAFF' || viewer.role === 'ADMIN') {
       const programIds = items.map((item) => item.id);
       const counts =
         await this.repository.countApplicationsByProgram(programIds);
@@ -206,14 +206,14 @@ export class ProgramsService {
       // 신청·편집 등 쓰기는 각 쓰기 경로에서 lifecycle 로 거부한다.
 
       const studentApplication =
-        viewer.role === Role.STUDENT && viewer.userId
+        viewer.role === 'STUDENT' && viewer.userId
           ? await this.repository.findStudentApplication(
               programId,
               viewer.userId,
             )
           : null;
       const staffApplications =
-        viewer.role === Role.STAFF || viewer.role === Role.ADMIN
+        viewer.role === 'STAFF' || viewer.role === 'ADMIN'
           ? await this.repository.findApprovedApplications(programId)
           : null;
 

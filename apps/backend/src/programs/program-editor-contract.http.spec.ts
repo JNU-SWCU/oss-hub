@@ -1,6 +1,6 @@
 import { ExecutionContext, ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
@@ -86,9 +86,10 @@ beforeAll(async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   store.findUserAuthorityByGithubId.mockResolvedValue({
-    role: Role.STAFF,
+    hasAdminAccess: false,
+    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
-    roleRequests: [],
+    staffAccessRequests: [],
   });
   store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
 });

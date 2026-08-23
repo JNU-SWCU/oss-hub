@@ -35,7 +35,7 @@ export function roleGateRedirectPath(state: SessionRoleState): string | null {
     case 'anonymous':
       return null;
     case 'unassigned':
-      return onboardingPathFor(state.roleRequestStatus);
+      return onboardingPathFor(state.staffAccessRequestStatus);
     // 권한 불일치는 더 이상 리다이렉트하지 않는다. 조용히 되돌리면 사용자는
     // 왜 다른 화면이 떠 있는지 알 수 없어 같은 시도를 반복한다. 안내 화면을
     // 띄우고 돌아갈 곳을 직접 고르게 한다(roleGateDeniedHomePath).

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   Prisma,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
@@ -39,10 +39,11 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return this.transaction.user.findUnique({
       where: { githubId },
       select: {
-        role: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
         accountStatus: true,
-        roleRequests: {
-          where: { status: RoleRequestStatus.PENDING },
+        staffAccessRequests: {
+          where: { status: StaffAccessRequestStatus.PENDING },
           select: { status: true },
           take: 1,
         },

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MilestoneSubmissionType, Prisma, Role } from '@prisma/client';
+import { MilestoneSubmissionType, Prisma } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
@@ -56,7 +56,7 @@ export class MilestoneDocumentsService {
     const documentIds = documents.map((document) => document.id);
     const viewer = await this.repository.findActiveUser(sessionGithubId);
 
-    if (viewer?.role === Role.STAFF || viewer?.role === Role.ADMIN) {
+    if (viewer?.hasStaffAccess === true || viewer?.hasAdminAccess === true) {
       const [total, submittedByDocument] = await Promise.all([
         this.repository.countApprovedApplications(milestone.programId),
         this.repository.countSubmissionsByDocument(documentIds),
@@ -71,7 +71,7 @@ export class MilestoneDocumentsService {
       );
     }
 
-    if (viewer?.role === Role.STUDENT) {
+    if (viewer !== null && !viewer.hasStaffAccess && !viewer.hasAdminAccess) {
       const application = await this.repository.findStudentApplication(
         viewer.id,
         milestone.programId,
@@ -318,7 +318,7 @@ export class MilestoneDocumentsService {
     now: Date = new Date(),
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
     const viewer = await this.repository.findActiveUser(sessionGithubId);
-    if (viewer === null || viewer.role !== Role.STUDENT) {
+    if (viewer === null || viewer.hasStaffAccess || viewer.hasAdminAccess) {
       throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
     }
 

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   AUDIT_LOG_ERROR_CODES,
@@ -33,7 +33,7 @@ export class AuditLogService {
   ): Promise<AuditLogPage> {
     const actor = await this.repository.findActorByGithubId(actorGithubId);
     if (
-      actor?.role !== Role.ADMIN ||
+      actor?.hasAdminAccess !== true ||
       actor.accountStatus !== AccountStatus.ACTIVE
     ) {
       throw new DomainException(

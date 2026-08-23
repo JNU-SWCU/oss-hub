@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../src/auth/auth-error-code.enum';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
@@ -14,6 +12,7 @@ import { RolesRepository } from '../src/roles/roles.repository';
 import { RolesService } from '../src/roles/roles.service';
 import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
+import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
 assertIsolatedIntegrationDatabase({
@@ -28,17 +27,6 @@ const APPROVED_REQUEST_ID = 'test:188:migration:approved';
 const REVOKED_REQUEST_ID = 'test:188:migration:revoked';
 const ADMIN_GITHUB_ID = 9_188_100_001n;
 const STAFF_GITHUB_ID = 9_188_100_002n;
-const migrationSql = readFileSync(
-  resolve(
-    __dirname,
-    'migrations/20260721190000_add_user_account_status/migration.sql',
-  ),
-  'utf8',
-);
-const migrationStatements = migrationSql
-  .split(';')
-  .map((statement) => statement.trim())
-  .filter((statement) => statement.length > 0);
 
 describe('accountStatus migration regression', () => {
   const prisma = new PrismaService();
@@ -77,31 +65,49 @@ describe('accountStatus migration regression', () => {
 
   beforeAll(async () => {
     await prisma.$connect();
-    await prisma.$executeRaw`ALTER TABLE "User" DROP COLUMN "accountStatus"`;
-    await prisma.$executeRaw`DROP TYPE "AccountStatus"`;
-    await prisma.$executeRaw`
-      INSERT INTO "User" ("id", "githubId", "login", "role", "updatedAt")
-      VALUES
-        (${ADMIN_ID}, ${ADMIN_GITHUB_ID}, 'synthetic-migration-admin', 'ADMIN'::"Role", CURRENT_TIMESTAMP),
-        (${STAFF_ID}, ${STAFF_GITHUB_ID}, 'synthetic-migration-staff', NULL, CURRENT_TIMESTAMP)
-    `;
-    await prisma.$executeRaw`
-      INSERT INTO "RoleRequest" (
-        "id", "userId", "status", "decidedById", "decidedAt", "createdAt", "updatedAt"
-      )
-      VALUES
-        (
-          ${APPROVED_REQUEST_ID}, ${STAFF_ID}, 'APPROVED'::"RoleRequestStatus", ${ADMIN_ID},
-          '2026-07-20T09:00:00.000Z', '2026-07-20T09:00:00.000Z', '2026-07-20T09:00:00.000Z'
-        ),
-        (
-          ${REVOKED_REQUEST_ID}, ${STAFF_ID}, 'REVOKED'::"RoleRequestStatus", ${ADMIN_ID},
-          '2026-07-21T09:00:00.000Z', '2026-07-21T09:00:00.000Z', '2026-07-21T09:00:00.000Z'
-        )
-    `;
-    for (const statement of migrationStatements) {
-      await prisma.$executeRawUnsafe(statement);
-    }
+    await prisma.user.deleteMany({
+      where: { id: { in: [ADMIN_ID, STAFF_ID] } },
+    });
+    await prisma.user.create({
+      data: canonicalUserCreateFromLabel('ADMIN', {
+        id: ADMIN_ID,
+        githubId: ADMIN_GITHUB_ID,
+        nickname: 'synthetic-migration-admin',
+      }),
+    });
+    // 계약 이후 스키마에서는 회수된 교직원이 `hasStaffAccess` + DEACTIVATED +
+    // APPROVED/REVOKED 이력으로 남는다. 공유 통합 DB의 컬럼을 지우고 옛 DDL을
+    // 다시 돌리지 않는다 — 그 경로가 형제 스펙의 `accountStatus`를 무너뜨린다.
+    await prisma.user.create({
+      data: canonicalUserCreateFromLabel('STAFF', {
+        id: STAFF_ID,
+        githubId: STAFF_GITHUB_ID,
+        nickname: 'synthetic-migration-staff',
+        accountStatus: AccountStatus.DEACTIVATED,
+      }),
+    });
+    await prisma.staffAccessRequest.createMany({
+      data: [
+        {
+          id: APPROVED_REQUEST_ID,
+          userId: STAFF_ID,
+          status: StaffAccessRequestStatus.APPROVED,
+          decidedById: ADMIN_ID,
+          decidedAt: new Date('2026-07-20T09:00:00.000Z'),
+          createdAt: new Date('2026-07-20T09:00:00.000Z'),
+          updatedAt: new Date('2026-07-20T09:00:00.000Z'),
+        },
+        {
+          id: REVOKED_REQUEST_ID,
+          userId: STAFF_ID,
+          status: StaffAccessRequestStatus.REVOKED,
+          decidedById: ADMIN_ID,
+          decidedAt: new Date('2026-07-21T09:00:00.000Z'),
+          createdAt: new Date('2026-07-21T09:00:00.000Z'),
+          updatedAt: new Date('2026-07-21T09:00:00.000Z'),
+        },
+      ],
+    });
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -114,7 +120,8 @@ describe('accountStatus migration regression', () => {
     });
 
     expect(migratedStaff).toMatchObject({
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(authService.getMe(STAFF_GITHUB_ID)).rejects.toMatchObject({
@@ -129,8 +136,8 @@ describe('accountStatus migration regression', () => {
       ADMIN_GITHUB_ID,
       STAFF_ID,
       {
-        expectedRole: Role.STAFF,
-        desiredRole: Role.STAFF,
+        expectedRole: 'STAFF',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.DEACTIVATED,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -139,33 +146,34 @@ describe('accountStatus migration regression', () => {
 
     const [reactivatedStaff, requests] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: STAFF_ID } }),
-      prisma.roleRequest.findMany({
+      prisma.staffAccessRequest.findMany({
         where: { userId: STAFF_ID },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       }),
     ]);
     expect(reactivatedStaff).toMatchObject({
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     expect(reactivated).toMatchObject({
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decidedRequest: null,
     });
     // 통합 접근(AdminAccess) 경로는 대기 중 요청이 없는 계정 상태 전환에
-    // 새 RoleRequest 이력 행을 만들지 않는다 — 마이그레이션이 이관한 두 행만
+    // 새 StaffAccessRequest 이력 행을 만들지 않는다 — 마이그레이션이 이관한 두 행만
     // (APPROVED, REVOKED) 그대로 남아야 한다.
     expect(requests).toHaveLength(2);
     expect(requests).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: APPROVED_REQUEST_ID,
-          status: RoleRequestStatus.APPROVED,
+          status: StaffAccessRequestStatus.APPROVED,
         }),
         expect.objectContaining({
           id: REVOKED_REQUEST_ID,
-          status: RoleRequestStatus.REVOKED,
+          status: StaffAccessRequestStatus.REVOKED,
         }),
       ]),
     );

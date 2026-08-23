@@ -50,7 +50,7 @@ function mockSession(
   mocks.useSessionRole.mockReturnValue({
     status: overrides.status ?? 'assigned',
     role: overrides.role ?? 'STUDENT',
-    roleRequestStatus: null,
+    staffAccessRequestStatus: null,
     selectedRole: null,
     memberKind:
       overrides.memberKind ??

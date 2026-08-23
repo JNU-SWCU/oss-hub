@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
 import { type RuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { parseInitialRoles } from './initial-roles';
-import type { InitialRoleMap } from './initial-roles';
+import type {
+  InitialAccountSeed,
+  InitialAccountSeedMap,
+} from './initial-roles';
 
 export interface OauthSettings {
   clientId: string;
@@ -30,7 +32,7 @@ export class AuthConfig {
   readonly allowedOrigin: string;
   readonly useSecureCookies: boolean;
 
-  private readonly initialRoleMap: InitialRoleMap;
+  private readonly initialRoleMap: InitialAccountSeedMap;
 
   constructor(@Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig) {
     this.runtimeConfig = runtimeConfig;
@@ -45,8 +47,8 @@ export class AuthConfig {
     );
   }
 
-  /** 초기 역할 시드 대상이 아니면 null을 반환한다. */
-  resolveInitialRole(githubId: bigint): Role | null {
+  /** 초기 시드 대상이 아니면 null을 반환한다. */
+  resolveInitialRole(githubId: bigint): InitialAccountSeed | null {
     return this.initialRoleMap.get(githubId) ?? null;
   }
 

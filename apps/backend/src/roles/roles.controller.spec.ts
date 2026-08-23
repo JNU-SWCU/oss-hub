@@ -1,15 +1,15 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { plainToInstance } from 'class-transformer';
-import { Role, RoleRequestStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
-import type { RoleRequestRecord } from './domain/role-onboarding';
-import { SelectRoleRequestDto } from './dto/select-role-request.dto';
+import type { StaffAccessRequestRecord } from './domain/member-onboarding';
+import { SelectStaffAccessRequestDto } from './dto/select-role-request.dto';
 import {
   OnboardingController,
-  RoleRequestsController,
+  StaffAccessRequestsController,
 } from './roles.controller';
 import { RolesErrorCode } from './roles-error-code.enum';
 import type { RolesService } from './roles.service';
@@ -43,24 +43,24 @@ function readGuards(target: object, propertyKey: string): readonly unknown[] {
 }
 
 function createOnboardingController(
-  selectRole: RolesService['selectRole'],
+  selectMemberKind: RolesService['selectMemberKind'],
   getMySelection: RolesService['getMySelection'] = () =>
-    Promise.resolve({ selectedRole: null }),
+    Promise.resolve({ selectedMemberKind: null }),
 ): OnboardingController {
-  return new OnboardingController({ selectRole, getMySelection });
+  return new OnboardingController({ selectMemberKind, getMySelection });
 }
 
-function createRoleRequestsController(
+function createStaffAccessRequestsController(
   getMyRequest: RolesService['getMyRequest'],
   retryStaffRequest: RolesService['retryStaffRequest'],
-): RoleRequestsController {
-  return new RoleRequestsController({ getMyRequest, retryStaffRequest });
+): StaffAccessRequestsController {
+  return new StaffAccessRequestsController({ getMyRequest, retryStaffRequest });
 }
 
-const rejectedRequest: RoleRequestRecord = {
+const rejectedRequest: StaffAccessRequestRecord = {
   id: 'synthetic-request',
   userId: 'synthetic-user',
-  status: RoleRequestStatus.REJECTED,
+  status: StaffAccessRequestStatus.REJECTED,
   rejectionReason: '합성 사유',
   decidedAt: DECIDED_AT,
   createdAt: REQUESTED_AT,
@@ -69,13 +69,13 @@ const rejectedRequest: RoleRequestRecord = {
 describe('OnboardingController', () => {
   it('역할 선택 결과를 응답 계약으로 반환한다', async () => {
     // Given
-    const selectRole = jest.fn().mockResolvedValue({
-      selectedRole: Role.STUDENT,
+    const selectMemberKind = jest.fn().mockResolvedValue({
+      selectedMemberKind: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
-    const controller = createOnboardingController(selectRole);
-    const body = plainToInstance(SelectRoleRequestDto, {
-      selectedRole: Role.STUDENT,
+    const controller = createOnboardingController(selectMemberKind);
+    const body = plainToInstance(SelectStaffAccessRequestDto, {
+      selectedRole: 'STUDENT',
     });
 
     // When
@@ -84,37 +84,37 @@ describe('OnboardingController', () => {
     // Then — 확정 결과(role·requestStatus)는 계약에 없다. 이 화면이 아무것도
     // 확정하지 않기 때문이다(#569).
     expect(result).toEqual({
-      selectedRole: Role.STUDENT,
+      selectedRole: 'STUDENT',
       redirectTo: '/onboarding/profile',
     });
-    expect(selectRole).toHaveBeenCalledWith(424242n, Role.STUDENT);
+    expect(selectMemberKind).toHaveBeenCalledWith(424242n, 'STUDENT');
   });
 
   it('지금 고른 역할을 응답 계약으로 반환한다', async () => {
     // Given
     const getMySelection = jest
       .fn()
-      .mockResolvedValue({ selectedRole: Role.STAFF });
+      .mockResolvedValue({ selectedMemberKind: 'STAFF' });
     const controller = createOnboardingController(jest.fn(), getMySelection);
 
     // When
     const result = await controller.getMySelection(REQUEST);
 
     // Then
-    expect(result).toEqual({ selectedRole: Role.STAFF });
+    expect(result).toEqual({ selectedRole: 'STAFF' });
     expect(getMySelection).toHaveBeenCalledWith(424242n);
   });
 
   it('STUDENT와 STAFF가 아닌 역할 선택은 ROL_001로 거부한다', () => {
     // Given
-    const body = plainToInstance(SelectRoleRequestDto, {
-      selectedRole: Role.ADMIN,
+    const body = plainToInstance(SelectStaffAccessRequestDto, {
+      selectedRole: 'ADMIN',
     });
 
     // When
     let caught: unknown;
     try {
-      body.toRole();
+      body.toMemberKind();
     } catch (error: unknown) {
       caught = error;
     }
@@ -139,10 +139,10 @@ describe('OnboardingController', () => {
   });
 });
 
-describe('RoleRequestsController', () => {
+describe('StaffAccessRequestsController', () => {
   it('요청이 없으면 GET /me에서 200 본문 null 계약을 반환한다', async () => {
     // Given
-    const controller = createRoleRequestsController(
+    const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(null),
       jest.fn(),
     );
@@ -156,7 +156,7 @@ describe('RoleRequestsController', () => {
 
   it('최근 요청을 ISO 날짜 응답 계약으로 반환한다', async () => {
     // Given
-    const controller = createRoleRequestsController(
+    const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(rejectedRequest),
       jest.fn(),
     );
@@ -166,23 +166,23 @@ describe('RoleRequestsController', () => {
 
     // Then
     expect(result).toEqual({
-      requestedRole: Role.STAFF,
-      status: RoleRequestStatus.REJECTED,
+      requestedRole: 'STAFF',
+      status: StaffAccessRequestStatus.REJECTED,
       requestedAt: REQUESTED_AT.toISOString(),
       decidedAt: DECIDED_AT.toISOString(),
       rejectionReason: '합성 사유',
     });
   });
 
-  it('재요청 결과도 같은 RoleRequest 응답 계약으로 반환한다', async () => {
+  it('재요청 결과도 같은 StaffAccessRequest 응답 계약으로 반환한다', async () => {
     // Given
     const pendingRequest = {
       ...rejectedRequest,
-      status: RoleRequestStatus.PENDING,
+      status: StaffAccessRequestStatus.PENDING,
       rejectionReason: null,
       decidedAt: null,
     };
-    const controller = createRoleRequestsController(
+    const controller = createStaffAccessRequestsController(
       jest.fn(),
       jest.fn().mockResolvedValue(pendingRequest),
     );
@@ -192,8 +192,8 @@ describe('RoleRequestsController', () => {
 
     // Then
     expect(result).toEqual({
-      requestedRole: Role.STAFF,
-      status: RoleRequestStatus.PENDING,
+      requestedRole: 'STAFF',
+      status: StaffAccessRequestStatus.PENDING,
       requestedAt: REQUESTED_AT.toISOString(),
       decidedAt: null,
       rejectionReason: null,
@@ -202,7 +202,7 @@ describe('RoleRequestsController', () => {
 
   it('조회는 세션 guard, 재요청은 세션과 Origin guard를 적용한다', () => {
     // Given
-    const target = RoleRequestsController.prototype;
+    const target = StaffAccessRequestsController.prototype;
 
     // When
     const getGuards = readGuards(target, 'getMe');

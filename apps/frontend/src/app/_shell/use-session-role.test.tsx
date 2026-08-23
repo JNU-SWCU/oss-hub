@@ -4,25 +4,28 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequest, RoleRequestStatus } from '@/features/roles/types';
+import type {
+  StaffAccessRequest,
+  StaffAccessRequestStatus,
+} from '@/features/roles/types';
 
 /**
  * 스냅샷이 지키는 불변식.
  *
- * `roleRequestRejectionReason`은 **`REJECTED`에서만 값이 있다**고 타입 주석이 말한다.
+ * `staffAccessRequestRejectionReason`은 **`REJECTED`에서만 값이 있다**고 타입 주석이 말한다.
  * 그 말이 참인지 여기서 못박는다 — 주석으로만 적어 두면 어긋난 응답이 왔을 때 조용히
  * 통과하고, 다음 사람은 상태를 확인하지 않고 이 값을 읽어도 된다고 읽는다. 지금은
  * 표시 쪽이 상태를 함께 보므로 새어 나가지 않지만, 그 방어가 하나뿐이면 언젠가 샌다.
  */
 
 const mocks = vi.hoisted(() => ({
-  fetchMyRoleRequest: vi.fn(),
+  fetchMyStaffAccessRequest: vi.fn(),
   fetchMyRoleSelection: vi.fn(),
   useSession: vi.fn(),
 }));
 
 vi.mock('@/features/roles/api', () => ({
-  fetchMyRoleRequest: mocks.fetchMyRoleRequest,
+  fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: vi.fn(),
   requestStaffRole: vi.fn(),
@@ -41,7 +44,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const REASON = '합성 반려 사유';
 
-/** 승인 전 교직원 — 세션에 역할이 없어야 온보딩 조회가 돈다. */
+/** 승인 전 교직원 — 확정된 사실이 하나도 없어야 온보딩 조회가 돈다. */
 const UNASSIGNED_SESSION = {
   status: 'authenticated' as const,
   user: {
@@ -49,13 +52,17 @@ const UNASSIGNED_SESSION = {
     name: '합성 교직원 사용자',
     email: null,
     avatarUrl: null,
-    role: null,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     isProfileComplete: true,
   },
   retry: () => {},
 };
 
-function roleRequest(overrides: Partial<RoleRequest> = {}): RoleRequest {
+function staffAccessRequest(
+  overrides: Partial<StaffAccessRequest> = {},
+): StaffAccessRequest {
   return {
     requestedRole: 'STAFF',
     status: 'PENDING',
@@ -86,9 +93,9 @@ describe('useSessionRole — 반려 사유 불변식', () => {
 
   /** 훅을 실제로 돌려 스냅샷을 꺼낸다 — 판단 로직을 여기서 다시 적지 않는다. */
   async function snapshot(
-    request: RoleRequest | null,
+    request: StaffAccessRequest | null,
   ): Promise<SessionRoleResult> {
-    mocks.fetchMyRoleRequest.mockResolvedValue(request);
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue(request);
     let received: SessionRoleResult | null = null;
 
     function Probe() {
@@ -106,7 +113,7 @@ describe('useSessionRole — 반려 사유 불변식', () => {
   it('반려면 사유를 그대로 싣는다', async () => {
     // Given / When
     const state = await snapshot(
-      roleRequest({
+      staffAccessRequest({
         status: 'REJECTED',
         decidedAt: '2026-07-31T05:00:00.000Z',
         rejectionReason: REASON,
@@ -114,14 +121,14 @@ describe('useSessionRole — 반려 사유 불변식', () => {
     );
 
     // Then
-    expect(state.roleRequestStatus).toBe('REJECTED');
-    expect(state.roleRequestRejectionReason).toBe(REASON);
+    expect(state.staffAccessRequestStatus).toBe('REJECTED');
+    expect(state.staffAccessRequestRejectionReason).toBe(REASON);
   });
 
   it('반려인데 사유가 비어 있으면 null이다', async () => {
     // Given / When
     const state = await snapshot(
-      roleRequest({
+      staffAccessRequest({
         status: 'REJECTED',
         decidedAt: '2026-07-31T05:00:00.000Z',
         rejectionReason: null,
@@ -129,7 +136,7 @@ describe('useSessionRole — 반려 사유 불변식', () => {
     );
 
     // Then
-    expect(state.roleRequestRejectionReason).toBe(null);
+    expect(state.staffAccessRequestRejectionReason).toBe(null);
   });
 
   /**
@@ -140,17 +147,17 @@ describe('useSessionRole — 반려 사유 불변식', () => {
     ['승인 대기', 'PENDING'],
     ['승인', 'APPROVED'],
     ['회수', 'REVOKED'],
-  ] as readonly (readonly [string, RoleRequestStatus])[])(
+  ] as readonly (readonly [string, StaffAccessRequestStatus])[])(
     '%s 응답에 사유가 실려 와도 스냅샷은 그것을 버린다',
     async (_label, status) => {
       // Given / When: 백엔드가 실수로 사유를 실어 보낸 상황.
       const state = await snapshot(
-        roleRequest({ status, rejectionReason: REASON }),
+        staffAccessRequest({ status, rejectionReason: REASON }),
       );
 
       // Then
-      expect(state.roleRequestStatus).toBe(status);
-      expect(state.roleRequestRejectionReason).toBe(null);
+      expect(state.staffAccessRequestStatus).toBe(status);
+      expect(state.staffAccessRequestRejectionReason).toBe(null);
     },
   );
 
@@ -159,12 +166,12 @@ describe('useSessionRole — 반려 사유 불변식', () => {
     const state = await snapshot(null);
 
     // Then
-    expect(state.roleRequestStatus).toBe(null);
-    expect(state.roleRequestRejectionReason).toBe(null);
+    expect(state.staffAccessRequestStatus).toBe(null);
+    expect(state.staffAccessRequestRejectionReason).toBe(null);
   });
 
   it('같은 탭에서 인증 주체가 바뀌면 이전 사용자의 역할 요청을 한 프레임도 재사용하지 않는다', async () => {
-    mocks.fetchMyRoleRequest.mockResolvedValue(roleRequest());
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue(staffAccessRequest());
     const received: SessionRoleResult[] = [];
 
     function Probe() {
@@ -173,7 +180,7 @@ describe('useSessionRole — 반려 사유 불변식', () => {
     }
 
     await act(async () => root.render(<Probe />));
-    expect(received.at(-1)?.roleRequestStatus).toBe('PENDING');
+    expect(received.at(-1)?.staffAccessRequestStatus).toBe('PENDING');
 
     received.length = 0;
     mocks.useSession.mockReturnValue({
@@ -183,8 +190,8 @@ describe('useSessionRole — 반려 사유 불변식', () => {
         nickname: 'second-synthetic-staff-applicant',
       },
     });
-    mocks.fetchMyRoleRequest.mockResolvedValue(
-      roleRequest({
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+      staffAccessRequest({
         status: 'REJECTED',
         decidedAt: '2026-08-08T12:00:00.000Z',
         rejectionReason: '두 번째 사용자 반려 사유',
@@ -193,9 +200,9 @@ describe('useSessionRole — 반려 사유 불변식', () => {
 
     await act(async () => root.render(<Probe />));
 
-    expect(received.map((state) => state.roleRequestStatus)).not.toContain(
-      'PENDING',
-    );
-    expect(received.at(-1)?.roleRequestStatus).toBe('REJECTED');
+    expect(
+      received.map((state) => state.staffAccessRequestStatus),
+    ).not.toContain('PENDING');
+    expect(received.at(-1)?.staffAccessRequestStatus).toBe('REJECTED');
   });
 });

@@ -1,3 +1,4 @@
+import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramErrorCode } from './program-error-code.enum';
 import {
@@ -32,14 +33,15 @@ describe('ProgramEditorService integration concurrency', () => {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
           nickname: 'issue101-staff',
-          role: 'STAFF',
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
           accountStatus: 'ACTIVE',
         },
         {
           id: `${TEST_PREFIX}applicant`,
           githubId: 9_101_000_002n,
           nickname: 'issue101-applicant',
-          role: 'STUDENT',
+          selectedMemberKind: MemberKind.STUDENT,
           accountStatus: 'ACTIVE',
         },
       ],

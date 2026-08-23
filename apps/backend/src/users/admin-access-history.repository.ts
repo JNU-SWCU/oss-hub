@@ -1,19 +1,19 @@
 import type { PrismaService } from '../prisma/prisma.service';
 import type {
   AdminAccessLoginHistoryPage,
-  AdminAccessRoleRequestHistoryPage,
+  AdminAccessStaffAccessRequestHistoryPage,
 } from './domain/admin-access';
 
 type HistoryPage = { readonly page: number; readonly limit: number };
 
-export async function listAdminAccessRoleRequestHistory(
-  prisma: Pick<PrismaService, 'roleRequest'>,
+export async function listAdminAccessStaffAccessRequestHistory(
+  prisma: Pick<PrismaService, 'staffAccessRequest'>,
   userId: string,
   page: HistoryPage,
-): Promise<AdminAccessRoleRequestHistoryPage> {
+): Promise<AdminAccessStaffAccessRequestHistoryPage> {
   const where = { userId };
   const [requests, total] = await Promise.all([
-    prisma.roleRequest.findMany({
+    prisma.staffAccessRequest.findMany({
       where,
       select: {
         id: true,
@@ -27,7 +27,7 @@ export async function listAdminAccessRoleRequestHistory(
       skip: (page.page - 1) * page.limit,
       take: page.limit,
     }),
-    prisma.roleRequest.count({ where }),
+    prisma.staffAccessRequest.count({ where }),
   ]);
   return {
     items: requests.map((request) => ({

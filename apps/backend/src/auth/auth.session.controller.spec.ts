@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -17,7 +17,6 @@ const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
-  role: null,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -45,8 +44,20 @@ function requestWithCookie(cookie?: string): OptionalSessionRequest {
   });
 }
 
+/**
+ * 표시 역할 한 단어를 canonical 세 사실로 펼친다.
+ * ADMIN은 회원 유형을 남기지 않는다 — 관리자 권한은 정체성과 독립이다.
+ */
+function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
+  return {
+    memberKind: role === 'ADMIN' ? null : role,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
+  };
+}
+
 function authenticatedRequest(
-  role: Role | null = syntheticUser.role,
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null = syntheticUser.memberKind,
 ): OptionalSessionRequest {
   const request = { headers: {} } as Request;
   return Object.assign(request, {
@@ -55,7 +66,7 @@ function authenticatedRequest(
       hasSessionCookie: true as const,
       principal: {
         ...syntheticUser,
-        role,
+        ...accessFor(role),
         accountStatus: AccountStatus.ACTIVE,
       },
     },
@@ -145,10 +156,12 @@ describe('AuthController getSession', () => {
         name: null,
         avatarUrl: null,
         accountStatus: AccountStatus.ACTIVE,
-        role: null,
-        memberKind: null,
         hasStaffAccess: false,
         hasAdminAccess: false,
+        memberKind: null,
+        // bridge 전용 표시 투영. 권한도 회원 유형도 없는 계정은 null이다 —
+        // `authorityLabel`이 canonical 세 사실에서만 접은 값이다.
+        role: null,
         // 화면 게이트가 "역할은 있는데 프로필이 비어 있는" 사용자를 프로필 단계로
         // 되돌리려면 세션이 이 사실을 함께 실어야 한다.
         isProfileComplete: false,
@@ -157,25 +170,27 @@ describe('AuthController getSession', () => {
     expect(findMe).not.toHaveBeenCalled();
   });
 
-  it.each([Role.ADMIN, Role.STAFF, Role.STUDENT, null])(
-    'authenticated session role is the DB role: %s',
-    (dbRole) => {
-      const result = createController(jest.fn()).getSession(
-        authenticatedRequest(dbRole),
-        createResponse(),
-      );
+  it.each<'ADMIN' | 'STAFF' | 'STUDENT' | null>([
+    'ADMIN',
+    'STAFF',
+    'STUDENT',
+    null,
+  ])('authenticated session carries the DB canonical facts: %s', (dbRole) => {
+    const result = createController(jest.fn()).getSession(
+      authenticatedRequest(dbRole),
+      createResponse(),
+    );
 
-      expect(result).toMatchObject({
-        isAuthenticated: true,
-        user: {
-          nickname: syntheticUser.nickname,
-          role: dbRole,
-          accountStatus: AccountStatus.ACTIVE,
-        },
-      });
-      expect(result).not.toHaveProperty('login');
-    },
-  );
+    expect(result).toMatchObject({
+      isAuthenticated: true,
+      user: {
+        nickname: syntheticUser.nickname,
+        ...accessFor(dbRole),
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    });
+    expect(result).not.toHaveProperty('login');
+  });
 
   it('유효한 토큰의 사용자가 없으면 익명 상태로 수렴하고 쿠키를 삭제한다', async () => {
     const token = await issueSessionToken(
@@ -205,7 +220,8 @@ describe('AuthController getSession', () => {
     const result = createController(
       jest.fn().mockResolvedValue({
         ...syntheticUser,
-        role: Role.STAFF,
+        hasStaffAccess: true,
+        hasAdminAccess: false,
         accountStatus: AccountStatus.DEACTIVATED,
       }),
     ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);

@@ -1,4 +1,5 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import type { AuthorityLabel } from '../common/authority-label';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 
 /**
@@ -16,20 +17,20 @@ type AccessAuthority = {
   readonly hasAdminAccess: boolean;
 };
 
-function accessAuthorityOfRole(role: Role | null): AccessAuthority {
+function accessAuthorityOfRole(role: AuthorityLabel | null): AccessAuthority {
   switch (role) {
-    case Role.ADMIN:
+    case 'ADMIN':
       return { hasStaffAccess: true, hasAdminAccess: true };
-    case Role.STAFF:
+    case 'STAFF':
       return { hasStaffAccess: true, hasAdminAccess: false };
-    case Role.STUDENT:
+    case 'STUDENT':
     case null:
       return { hasStaffAccess: false, hasAdminAccess: false };
   }
 }
 
 /** 관리자 권한 없이 교직원 접근만 가진 상태 — 승인·회수가 다루는 바로 그 부여다. */
-function isStaffOnlyAccess(role: Role | null): boolean {
+function isStaffOnlyAccess(role: AuthorityLabel | null): boolean {
   const authority = accessAuthorityOfRole(role);
   return authority.hasStaffAccess && !authority.hasAdminAccess;
 }
@@ -47,12 +48,12 @@ export const ADMIN_ACCESS_DECISION_KINDS = {
 
 export const ADMIN_ACCESS_REQUEST_EFFECTS = {
   UNCHANGED: 'UNCHANGED',
-  APPROVED: RoleRequestStatus.APPROVED,
-  REJECTED: RoleRequestStatus.REJECTED,
+  APPROVED: StaffAccessRequestStatus.APPROVED,
+  REJECTED: StaffAccessRequestStatus.REJECTED,
   // 회수는 대기 중 요청을 결정하는 것이 아니라 **새 REVOKED 행을 남긴다**. 그래서
   // APPROVED·REJECTED와 달리 기존 행 id가 없고, 쓰기 방식도 CAS가 아니라 INSERT다
   // (`admin-access-mutation-policy.ts`의 요청 쓰기 계획이 그 차이를 담는다).
-  REVOKED: RoleRequestStatus.REVOKED,
+  REVOKED: StaffAccessRequestStatus.REVOKED,
 } as const;
 
 export type AdminAccessPendingState =
@@ -63,13 +64,13 @@ export type AdminAccessRequestEffect =
   (typeof ADMIN_ACCESS_REQUEST_EFFECTS)[keyof typeof ADMIN_ACCESS_REQUEST_EFFECTS];
 
 export type AdminAccessTableCurrentState = {
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly pendingState: AdminAccessPendingState;
 };
 
 export type AdminAccessTableDesiredState = {
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly decision: AdminAccessDecisionKind;
 };
@@ -91,7 +92,8 @@ export type AdminAccessDeniedTransition = {
     | RolesErrorCode.ACCESS_CHANGE_REQUIRED
     | RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED
     | RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED
-    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION;
+    | RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION
+    | RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED;
 };
 
 export type AdminAccessTransitionOutcome =
@@ -104,7 +106,7 @@ export type AdminAccessTransitionTableEntry = {
   readonly outcome: AdminAccessTransitionOutcome;
 };
 
-const ROLES = [null, Role.STUDENT, Role.STAFF, Role.ADMIN] as const;
+const ROLES = [null, 'STUDENT', 'STAFF', 'ADMIN'] as const;
 const ACCOUNT_STATUSES = [
   AccountStatus.ACTIVE,
   AccountStatus.DEACTIVATED,
@@ -211,11 +213,16 @@ function classifyTransition(
   const changesAccessState = changesRole || changesAccountStatus;
 
   if (current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE) {
-    return desired.decision === ADMIN_ACCESS_DECISION_KINDS.NONE
-      ? changesAccessState
-        ? allowed(current, desired, directRequestEffect(current, desired))
-        : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400)
-      : denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
+    if (desired.decision !== ADMIN_ACCESS_DECISION_KINDS.NONE) {
+      return denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
+    }
+    if (!changesAccessState) {
+      return denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
+    }
+    if (isLegacyDisplayRoleLowering(current.role, desired.role)) {
+      return denied(RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED, 400);
+    }
+    return allowed(current, desired, directRequestEffect(current, desired));
   }
 
   switch (desired.decision) {
@@ -246,9 +253,26 @@ function classifyTransition(
  * `REVOKED` 행을 남기는 한 쌍인데, 대기 중 요청이 있으면 그 요청의 결정(APPROVED·
  * REJECTED)이 같은 트랜잭션의 요청 쓰기 자리를 이미 차지한다. 그대로 통과시키면 역할만
  * 비고 `REVOKED` 행은 없는 계정이 생기고, 그런 계정은 로그인 시드 가드(`auth.repository.ts`의
- * `roleRequests: { none: { status: REVOKED } }`)가 회수로 알아보지 못해 다음 로그인에
+ * `staffAccessRequests: { none: { status: REVOKED } }`)가 회수로 알아보지 못해 다음 로그인에
  * 권한이 되살아난다. 그래서 대기 중 요청은 먼저 결정하게 하고 회수는 그다음이다.
  */
+/**
+ * 접힌 표시 역할을 낮추는 레거시 명령인가.
+ *
+ * STAFF→null 회수는 정본 교직원 칸을 실제로 비우므로 여기 넣지 않는다.
+ * STAFF→STUDENT·ADMIN→STAFF/STUDENT는 정본을 바꾸지 못한 채 200을 주던
+ * 거짓 강등이라 독립 권한 API로 보낸다. ADMIN에서 교직원을 추론하지 않는다.
+ */
+function isLegacyDisplayRoleLowering(
+  currentRole: AuthorityLabel | null,
+  desiredRole: AuthorityLabel | null,
+): boolean {
+  if (currentRole === 'ADMIN') {
+    return desiredRole === 'STAFF' || desiredRole === 'STUDENT';
+  }
+  return currentRole === 'STAFF' && desiredRole === 'STUDENT';
+}
+
 function isRevocable(current: AdminAccessTableCurrentState): boolean {
   return (
     isStaffOnlyAccess(current.role) &&

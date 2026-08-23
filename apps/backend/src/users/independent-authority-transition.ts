@@ -1,5 +1,5 @@
-import { MemberKind, Role } from '@prisma/client';
-import { projectLegacyAuthorityRole } from '../profiles/member-authority-compatibility';
+import { MemberKind } from '@prisma/client';
+import { authorityLabel, type AuthorityLabel } from '../common/authority-label';
 
 export const AUTHORITY_TARGETS = {
   STAFF: 'STAFF',
@@ -11,13 +11,13 @@ export type AuthorityTarget =
 
 export type IndependentAuthorityState = {
   readonly memberKind: MemberKind | null;
-  readonly selectedRole: Role | null;
+  readonly selectedMemberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
 };
 
 export type IndependentAuthorityTransition = IndependentAuthorityState & {
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
 };
 
 export function resolveIndependentAuthorityTransition(
@@ -31,27 +31,13 @@ export function resolveIndependentAuthorityTransition(
     target === AUTHORITY_TARGETS.ADMIN ? enabled : before.hasAdminAccess;
   return {
     memberKind: before.memberKind,
-    selectedRole: selectedRoleForMember(before.memberKind, before.selectedRole),
+    selectedMemberKind: before.memberKind ?? before.selectedMemberKind,
     hasStaffAccess,
     hasAdminAccess,
-    role: projectLegacyAuthorityRole(
-      before.memberKind,
+    role: authorityLabel({
+      memberKind: before.memberKind,
       hasStaffAccess,
       hasAdminAccess,
-    ),
+    }),
   };
-}
-
-function selectedRoleForMember(
-  memberKind: MemberKind | null,
-  fallback: Role | null,
-): Role | null {
-  switch (memberKind) {
-    case MemberKind.STUDENT:
-      return Role.STUDENT;
-    case MemberKind.STAFF:
-      return Role.STAFF;
-    case null:
-      return fallback;
-  }
 }

@@ -4,14 +4,17 @@ import { Component, act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequest, RoleRequestStatus } from '@/features/roles/types';
+import type {
+  StaffAccessRequest,
+  StaffAccessRequestStatus,
+} from '@/features/roles/types';
 import { onboardingPathFor, type ProfileCheckStatus } from './onboarding-route';
 
 /**
  * 반려 사유가 **사용자 눈에 닿는가**를 라우팅 전체로 확인한다(#673).
  *
  * 왜 이 계층이 따로 필요한가. 사유를 그리는 화면은 이미 있었고 단위 테스트도 있었다
- * (`features/roles/role-onboarding.test.tsx`의 `RoleRequestStatusView` 검사).
+ * (`features/roles/role-onboarding.test.tsx`의 `StaffAccessRequestStatusView` 검사).
  * 그 테스트는 컴포넌트를 **직접 렌더**한다 — 페이지도 게이트도 거치지 않는다.
  * 그래서 #535가 반려 사용자의 목적지를 `/onboarding/pending`에서
  * `/onboarding/role`로 옮겼을 때, 사유를 그리는 화면이 도달 불가가 됐는데도 모든
@@ -40,7 +43,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   refresh: vi.fn(),
   redirect: vi.fn(),
-  fetchMyRoleRequest: vi.fn(),
+  fetchMyStaffAccessRequest: vi.fn(),
   fetchMyRoleSelection: vi.fn(),
   selectRole: vi.fn(),
   requestStaffRole: vi.fn(),
@@ -80,7 +83,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/features/roles/api', () => ({
-  fetchMyRoleRequest: mocks.fetchMyRoleRequest,
+  fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: mocks.selectRole,
   requestStaffRole: mocks.requestStaffRole,
@@ -135,7 +138,9 @@ const AUTHENTICATED_SESSION = {
     name: '합성 교직원 사용자',
     email: null,
     avatarUrl: null,
-    role: null,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     isProfileComplete: true,
   },
   retry: () => {},
@@ -177,7 +182,9 @@ function rejectedDestination(): string {
   return path;
 }
 
-function roleRequest(overrides: Partial<RoleRequest> = {}): RoleRequest {
+function staffAccessRequest(
+  overrides: Partial<StaffAccessRequest> = {},
+): StaffAccessRequest {
   return {
     requestedRole: 'STAFF',
     status: 'PENDING',
@@ -224,7 +231,7 @@ describe('반려 사유 도달 가능성', () => {
      * 얻은 것이면 게이트 몫 위에 하나가 더 붙고, 그 두 번째 조회가 실패하는 순간
      * 사유가 사라진다 — #673이 되살아나는 통로가 정확히 그것이었다.
      */
-    readonly roleRequestFetches: number;
+    readonly staffAccessRequestFetches: number;
   }
 
   /** 세 화면을 차례로 게이트째 마운트해, 각 화면이 그린 본문과 이동을 함께 모은다. */
@@ -237,7 +244,7 @@ describe('반려 사유 도달 가능성', () => {
       // "밀려나면서 스친 것"과 "머물러 읽은 것"을 구분하지 못한다.
       mocks.replace.mockClear();
       mocks.redirect.mockClear();
-      mocks.fetchMyRoleRequest.mockClear();
+      mocks.fetchMyStaffAccessRequest.mockClear();
       await act(async () =>
         root.render(
           <RedirectBoundary>
@@ -251,7 +258,8 @@ describe('반려 사유 도달 가능성', () => {
           ...mocks.replace.mock.calls.map(([target]) => String(target)),
           ...mocks.redirect.mock.calls.map(([target]) => String(target)),
         ],
-        roleRequestFetches: mocks.fetchMyRoleRequest.mock.calls.length,
+        staffAccessRequestFetches:
+          mocks.fetchMyStaffAccessRequest.mock.calls.length,
       });
       await act(async () => root.render(<></>));
     }
@@ -274,8 +282,8 @@ describe('반려 사유 도달 가능성', () => {
    */
   it('게이트가 보내는 목적지에서 반려 사유를 읽는다', async () => {
     // Given: 사유가 붙은 반려 요청.
-    mocks.fetchMyRoleRequest.mockResolvedValue(
-      roleRequest({
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+      staffAccessRequest({
         status: 'REJECTED',
         decidedAt: '2026-07-31T05:00:00.000Z',
         rejectionReason: REJECTION_REASON,
@@ -298,7 +306,7 @@ describe('반려 사유 도달 가능성', () => {
     // **그 사유는 게이트가 읽은 바로 그 답이다.** 화면이 따로 물어서 얻은 것이면
     // 이 목적지에서 조회가 두 번 나간다 — 그리고 그 두 번째가 실패하는 순간 사유가
     // 사라진다(#673이 되살아나는 통로). 게이트 몫 한 번이 전부여야 한다.
-    expect(arrived?.roleRequestFetches).toBe(1);
+    expect(arrived?.staffAccessRequestFetches).toBe(1);
   });
 
   /**
@@ -307,8 +315,8 @@ describe('반려 사유 도달 가능성', () => {
    */
   it('사유가 비어 있어도 반려됐다는 사실은 도달한다', async () => {
     // Given: 사유 없이 닫힌 과거 반려 건.
-    mocks.fetchMyRoleRequest.mockResolvedValue(
-      roleRequest({
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+      staffAccessRequest({
         status: 'REJECTED',
         decidedAt: '2026-07-31T05:00:00.000Z',
         rejectionReason: null,
@@ -334,12 +342,12 @@ describe('반려 사유 도달 가능성', () => {
     ['요청 없음', null],
     ['승인 대기', 'PENDING'],
     ['회수', 'REVOKED'],
-  ] as readonly (readonly [string, RoleRequestStatus | null])[])(
+  ] as readonly (readonly [string, StaffAccessRequestStatus | null])[])(
     '%s 사용자에게는 반려 안내가 어느 화면에도 없다',
     async (_label, status) => {
       // Given
-      mocks.fetchMyRoleRequest.mockResolvedValue(
-        status === null ? null : roleRequest({ status }),
+      mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+        status === null ? null : staffAccessRequest({ status }),
       );
 
       // When
@@ -359,8 +367,8 @@ describe('반려 사유 도달 가능성', () => {
    */
   it('재요청이 접수돼 승인 대기가 되면 반려 안내가 사라진다', async () => {
     // Given: 방금까지 반려였다가 재요청이 접수된 사람.
-    mocks.fetchMyRoleRequest.mockResolvedValue(
-      roleRequest({ status: 'PENDING' }),
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+      staffAccessRequest({ status: 'PENDING' }),
     );
 
     // When

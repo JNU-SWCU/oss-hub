@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ${1:-} != 'expand' || $# -ne 1 ]]; then
+scenario=${1:-}
+if [[ $# -ne 1 ]] || [[ $scenario != 'expand' ]]; then
   printf 'Usage: scripts/rehearse-member-authority-migrations.sh expand\n' >&2
   exit 2
 fi
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+schema="$repo_root/apps/backend/prisma/schema.prisma"
 migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
-node "$repo_root/scripts/member-authority-expand-contract.mjs" \
-  "$repo_root/apps/backend/prisma/schema.prisma" "$migration"
+node "$repo_root/scripts/member-authority-expand-contract.mjs" "$schema" "$migration"
 
 legacy_sha=08419aec35492abd3a416795f091997dfbe1f712
 project_name="oss-hub-member-expand-$(date +%s)-$$-$RANDOM"
@@ -147,9 +148,15 @@ Promise.all([
   prisma.user.count(),
   prisma.userProfile.count(),
 ]).then(([user, userCount, profileCount]) => {
+  // bridge 마이그레이션이 접근 권한 두 칸을 legacy role에서 backfill한 뒤 NOT NULL로 잠근다.
+  // STUDENT는 교직원·관리자 접근이 모두 없으므로 두 값이 false다.
+  //
+  // 정본 프로필 세 칸도 같은 마이그레이션이 채운다. 이 행은 legacy role이
+  // STUDENT라 회원 유형이 STUDENT로 해소되고, 소속 유형은 원본 기본값인
+  // DEPARTMENT, 소속명은 `department`의 사본이 된다.
   const expected = { name: "legacy-name", studentId: "123456", department: "legacy-department", role: "STUDENT", selectedRole: "STUDENT",
-    selectedMemberKind: null, hasStaffAccess: null, hasAdminAccess: null,
-    profile: { name: "profile-name", studentId: "123456", department: "profile-department", memberKind: null, affiliationKind: null, affiliationName: null } };
+    selectedMemberKind: null, hasStaffAccess: false, hasAdminAccess: false,
+    profile: { name: "profile-name", studentId: "123456", department: "profile-department", memberKind: "STUDENT", affiliationKind: "DEPARTMENT", affiliationName: "profile-department" } };
   if (userCount !== 1 || profileCount !== 1 || JSON.stringify(user) !== JSON.stringify(expected)) process.exitCode = 1;
 }).finally(() => prisma.$disconnect());
 '

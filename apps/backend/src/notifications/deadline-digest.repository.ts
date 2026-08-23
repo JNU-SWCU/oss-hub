@@ -1,10 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  type Prisma,
-  Role,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   DeadlineProgramSource,
@@ -133,11 +128,15 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findActiveStaffOrAdmin(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     return (
       user?.accountStatus === AccountStatus.ACTIVE &&
-      (user.role === Role.STAFF || user.role === Role.ADMIN)
+      (user.hasStaffAccess || user.hasAdminAccess)
     );
   }
 
@@ -148,7 +147,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {
     const staff = await this.prisma.user.findMany({
       where: {
-        role: { in: [Role.STAFF, Role.ADMIN] },
+        OR: [{ hasStaffAccess: true }, { hasAdminAccess: true }],
         accountStatus: AccountStatus.ACTIVE,
         notifyEnabled: true,
         notificationEmail: { not: null },
@@ -223,10 +222,15 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findActiveAdmin(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
     return (
-      user?.role === Role.ADMIN && user.accountStatus === AccountStatus.ACTIVE
+      user?.hasAdminAccess === true &&
+      user.accountStatus === AccountStatus.ACTIVE
     );
   }
 }

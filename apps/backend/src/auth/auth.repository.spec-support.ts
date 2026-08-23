@@ -1,7 +1,8 @@
+import type { InitialAccountSeed } from './initial-roles';
 import {
   AccountStatus,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
+  MemberKind,
   User as PrismaUser,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -41,23 +42,37 @@ export function buildProfile(
   };
 }
 
-export function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
+type AuthUserRow = PrismaUser & {
+  readonly profile: {
+    readonly name: string;
+    readonly studentId: string | null;
+    readonly department: string;
+    readonly memberKind: MemberKind | null;
+  } | null;
+};
+
+export function buildRow(overrides: Partial<AuthUserRow> = {}): AuthUserRow {
   return {
     id: 'cuid-synthetic',
     githubId: 424_242n,
     nickname: 'synthetic-login',
+    avatarUrl: null,
+    accountStatus: AccountStatus.ACTIVE,
+    // bridge 잔존 컬럼 — 정본 코드는 이 다섯 칸을 읽지 않지만 `PrismaUser` 모양에는
+    // 아직 남아 있어 픽스처가 채워야 한다. 모두 비운 값이다.
+    role: null,
+    selectedRole: null,
     name: null,
     studentId: null,
     department: null,
-    avatarUrl: null,
-    accountStatus: AccountStatus.ACTIVE,
-    role: null,
-    selectedRole: null,
     selectedMemberKind: null,
-    hasStaffAccess: null,
-    hasAdminAccess: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     notificationEmail: null,
     notifyEnabled: true,
+    // 프로필 행이 없다는 것이 곧 "아직 가입을 마치지 않았다"는 뜻이다 —
+    // 초기 시드는 그 상태에서만 적용된다(`hasSeededAuthority`).
+    profile: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
@@ -65,8 +80,8 @@ export function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
 }
 
 export function buildRepository(
-  row: PrismaUser,
-  initialRole: Role | null,
+  row: AuthUserRow,
+  initialRole: InitialAccountSeed | null,
   options: {
     isNew?: boolean;
     casCount?: number;
@@ -89,35 +104,35 @@ export function buildRepository(
   // 시드가 적용되지 않은 이유를 가르는 REVOKED 이력이다. status로 갈라 준다.
   const findFirst = jest.fn<
     Promise<{ id: string } | null>,
-    [{ where: { status?: RoleRequestStatus } }]
+    [{ where: { status?: StaffAccessRequestStatus } }]
   >();
   findFirst.mockImplementation((args) =>
     Promise.resolve(
-      args.where.status === RoleRequestStatus.REVOKED
+      args.where.status === StaffAccessRequestStatus.REVOKED
         ? (options.revokedRequest ?? null)
         : (options.pendingRequest ?? null),
     ),
   );
-  const roleRequestUpdate = jest.fn().mockResolvedValue({});
-  const roleRequestUpdateMany = jest.fn<
+  const staffAccessRequestUpdate = jest.fn().mockResolvedValue({});
+  const staffAccessRequestUpdateMany = jest.fn<
     Promise<{ count: number }>,
     [{ where: Record<string, unknown> }]
   >();
-  roleRequestUpdateMany.mockResolvedValue({
+  staffAccessRequestUpdateMany.mockResolvedValue({
     count: options.pendingTransitionCount ?? 1,
   });
-  const roleRequestCreate = jest.fn<
+  const staffAccessRequestCreate = jest.fn<
     Promise<unknown>,
     [{ data: Record<string, unknown> }]
   >();
-  roleRequestCreate.mockResolvedValue({});
+  staffAccessRequestCreate.mockResolvedValue({});
   const transaction = {
     user: { createMany, findUniqueOrThrow, update, updateMany },
-    roleRequest: {
+    staffAccessRequest: {
       findFirst,
-      update: roleRequestUpdate,
-      updateMany: roleRequestUpdateMany,
-      create: roleRequestCreate,
+      update: staffAccessRequestUpdate,
+      updateMany: staffAccessRequestUpdateMany,
+      create: staffAccessRequestCreate,
     },
   };
   const $transaction = jest
@@ -135,9 +150,9 @@ export function buildRepository(
     update,
     updateMany,
     findFirst,
-    roleRequestUpdate,
-    roleRequestUpdateMany,
-    roleRequestCreate,
+    staffAccessRequestUpdate,
+    staffAccessRequestUpdateMany,
+    staffAccessRequestCreate,
   };
 }
 

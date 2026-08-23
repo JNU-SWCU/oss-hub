@@ -223,15 +223,11 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
         members: [
           {
             userId: 'user-a',
-            user: {
-              nickname: 'login-a',
-              name: '레거시 이름',
-              profile: { name: '프로필 이름' },
-            },
+            user: { nickname: 'login-a', profile: { name: '프로필 이름' } },
           },
           {
             userId: 'user-b',
-            user: { nickname: 'login-b', name: '레거시만', profile: null },
+            user: { nickname: 'login-b', profile: null },
           },
           {
             userId: 'user-c',
@@ -244,7 +240,7 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
     // When
     const teams = await repository.listStaffTeams(PROGRAM_ID);
 
-    // Then: UserProfile.name 우선, 없으면 legacy User.name, 둘 다 없으면 null.
+    // Then: 실명의 정본은 UserProfile.name 하나다. 행이 없으면 null이다.
     expect(teams).toEqual([
       {
         id: 'team-1',
@@ -252,7 +248,7 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
         leaderId: 'user-a',
         members: [
           { userId: 'user-a', nickname: 'login-a', name: '프로필 이름' },
-          { userId: 'user-b', nickname: 'login-b', name: '레거시만' },
+          { userId: 'user-b', nickname: 'login-b', name: null },
           { userId: 'user-c', nickname: 'login-c', name: null },
         ],
       },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import type { SessionRoleState } from './use-session-role';
 
 // 판단 함수만 불러오지만 모듈이 `next/navigation`을 import한다 — 라우터 컨텍스트
@@ -19,12 +19,11 @@ import {
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
     status: 'loading',
-    role: null,
     memberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: false,
     ...overrides,
@@ -59,7 +58,11 @@ describe('roleGateRedirectPath', () => {
     (role) => {
       expect(
         roleGateRedirectPath(
-          state({ status: 'assigned', role, isProfileComplete: true }),
+          state({
+            status: 'assigned',
+            ...accessFor(role),
+            isProfileComplete: true,
+          }),
         ),
       ).toBeNull();
     },
@@ -68,7 +71,12 @@ describe('roleGateRedirectPath', () => {
   it('역할은 있지만 프로필이 비어 있으면 프로필 단계로 되돌린다', () => {
     expect(
       roleGateRedirectPath(
-        state({ status: 'assigned', role: 'STAFF', isProfileComplete: false }),
+        state({
+          status: 'assigned',
+          memberKind: 'STAFF',
+          hasStaffAccess: true,
+          isProfileComplete: false,
+        }),
       ),
     ).toBe('/onboarding/profile');
   });
@@ -80,12 +88,12 @@ describe('roleGateRedirectPath', () => {
     ['APPROVED', '/onboarding/pending'],
     // 반려는 살아 있는 신청이 없어 역할부터 다시 고른다(#535).
     ['REJECTED', '/onboarding/role'],
-  ] as readonly (readonly [RoleRequestStatus | null, string])[])(
+  ] as readonly (readonly [StaffAccessRequestStatus | null, string])[])(
     '%s 미배정 사용자의 온보딩 목적지는 %s 다',
-    (roleRequestStatus, path) => {
+    (staffAccessRequestStatus, path) => {
       expect(
         roleGateRedirectPath(
-          state({ status: 'unassigned', roleRequestStatus }),
+          state({ status: 'unassigned', staffAccessRequestStatus }),
         ),
       ).toBe(path);
     },
@@ -139,7 +147,7 @@ describe('shouldOpenForUnassigned', () => {
     const seen: SessionRoleState[] = [];
     const given = state({
       status: 'unassigned',
-      roleRequestStatus: 'PENDING',
+      staffAccessRequestStatus: 'PENDING',
       selectedRole: 'STAFF',
     });
 
@@ -151,3 +159,12 @@ describe('shouldOpenForUnassigned', () => {
     expect(seen).toEqual([given]);
   });
 });
+
+/** 표시 역할 한 단어를 canonical 세 사실로 펼친다. 관리자는 회원 유형을 남기지 않는다. */
+function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN') {
+  return {
+    memberKind: role === 'ADMIN' ? null : role,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
+  } as const;
+}

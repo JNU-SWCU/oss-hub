@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogErrorCode } from './audit-log-error-code.enum';
@@ -31,13 +31,14 @@ describe('Audit log integration', () => {
           id: `${TEST_PREFIX}admin`,
           githubId: ADMIN_GITHUB_ID,
           nickname: 'synthetic-132-admin',
-          role: Role.ADMIN,
+          hasAdminAccess: true,
         },
         {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
           nickname: 'synthetic-132-staff',
-          role: Role.STAFF,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
         },
       ],
     });
@@ -69,7 +70,7 @@ describe('Audit log integration', () => {
           requestStatus: null,
         },
         after: {
-          role: Role.STAFF,
+          role: 'STAFF',
           accountStatus: AccountStatus.ACTIVE,
           requestStatus: null,
         },

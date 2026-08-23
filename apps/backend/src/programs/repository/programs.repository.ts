@@ -4,13 +4,13 @@ import {
   ApplicationStatus,
   Prisma,
   ProgramCategory,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../../profiles/profile-compatibility';
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../../profiles/user-profile-read';
 import type { ProgramListQuery } from '../program-list-query';
 import {
   emptyProgramStatusCounts,
@@ -241,7 +241,7 @@ export class ProgramsRepository {
               select: {
                 githubId: true,
                 nickname: true,
-                ...COMPATIBLE_PROFILE_NAME_SELECT,
+                ...USER_PROFILE_NAME_SELECT,
               },
             },
             team: {
@@ -266,9 +266,7 @@ export class ProgramsRepository {
           applicant: {
             githubId: repository.application!.applicant.githubId,
             nickname: repository.application!.applicant.nickname,
-            name: resolveCompatibleProfileName(
-              repository.application!.applicant,
-            ),
+            name: resolveUserProfileName(repository.application!.applicant),
           },
           team: repository.application!.team,
         },
@@ -306,9 +304,11 @@ export class ProgramsRepository {
       select: {
         id: true,
         accountStatus: true,
-        role: true,
-        roleRequests: {
-          where: { status: RoleRequestStatus.PENDING },
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        profile: { select: { memberKind: true } },
+        staffAccessRequests: {
+          where: { status: StaffAccessRequestStatus.PENDING },
           select: { id: true },
           take: 1,
         },
@@ -319,7 +319,11 @@ export class ProgramsRepository {
   findCreatorRole(githubId: bigint) {
     return this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
     });
   }
 

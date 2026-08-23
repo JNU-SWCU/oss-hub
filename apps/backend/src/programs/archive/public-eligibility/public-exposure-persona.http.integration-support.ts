@@ -1,6 +1,7 @@
+import { authorityFactsFor } from '../../../users/canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AffiliationKind, MemberKind, type Role } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../../../audit-log/audit-log.controller';
 import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
@@ -157,7 +158,7 @@ export class PublicExposurePersonaHttpHarness {
    */
   async createUser(
     label: string,
-    role: Role | null,
+    role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
     githubIdOverride?: bigint,
     memberKind?: MemberKind,
   ) {
@@ -180,14 +181,11 @@ export class PublicExposurePersonaHttpHarness {
         // 문자열이면 "actor가 raw id가 아니다"라는 단언이 항상 공허하게 실패해 이 구분을
         // 증명하지 못한다.
         nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,
-        role,
+        ...authorityFactsFor(role),
         accountStatus: 'ACTIVE',
         ...(memberKind === undefined
           ? {}
           : {
-              name: canonicalName,
-              studentId: canonicalStudentId,
-              department: canonicalDepartment,
               profile: {
                 create: {
                   name: canonicalName,

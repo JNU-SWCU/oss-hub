@@ -9,19 +9,16 @@ const EXPECTED_SQL = [
   `ALTER TABLE "UserProfile" ALTER COLUMN "studentId" DROP NOT NULL, ADD COLUMN "memberKind" "MemberKind", ADD COLUMN "affiliationKind" "AffiliationKind", ADD COLUMN "affiliationName" TEXT`,
 ];
 
-const REQUIRED_SCHEMA_PATTERNS = [
-  /enum MemberKind \{\s+STUDENT\s+STAFF\s+\}/,
-  /enum AffiliationKind \{\s+DEPARTMENT\s+PROGRAM_OFFICE\s+\}/,
-  /selectedMemberKind\s+MemberKind\?/,
-  /hasStaffAccess\s+Boolean\?/,
-  /hasAdminAccess\s+Boolean\?/,
-  /memberKind\s+MemberKind\?/,
-  /affiliationKind\s+AffiliationKind\?/,
-  /affiliationName\s+String\?/,
-  /studentId\s+String\?\s+@unique/,
-  /enum Role \{\s+STUDENT\s+STAFF\s+ADMIN\s+\}/,
-  /selectedRole\s+Role\?/,
-];
+/**
+ * 이 검사는 **expand 마이그레이션 SQL만** 잠근다.
+ *
+ * 예전에는 그때의 `schema.prisma` 모양까지 함께 검사했다. 그 뒤로 스키마는 계속
+ * 움직이는데(bridge가 접근 권한 두 칸을 잠그고, 다음 contract PR이 legacy Role을 지운다)
+ * expand 마이그레이션 **파일 자체**는 이미 적용돼 다시는 바뀌지 않는다. 그래서 지나간
+ * 릴리스의 스키마 모양을 여기서 요구하면 그 단언은 영원히 거짓이 된다 — 이 검사가
+ * 지켜야 하는 것은 그 파일의 내용뿐이다. 지금 릴리스의 스키마 모양은
+ * `member-authority-bridge-contract.mjs`가 따로 잠근다.
+ */
 
 function normalizeStatement(statement) {
   return statement.replace(/\s+/g, ' ').trim();
@@ -37,14 +34,8 @@ function executableStatements(sql) {
     .filter((statement) => statement.length > 0);
 }
 
-export function validateExpandContract(schema, migrationSql) {
+export function validateExpandContract(_schema, migrationSql) {
   const issues = [];
-  for (const pattern of REQUIRED_SCHEMA_PATTERNS) {
-    if (!pattern.test(schema)) {
-      issues.push(`schema:${pattern.source}`);
-    }
-  }
-
   const statements = executableStatements(migrationSql);
   if (
     statements.length !== EXPECTED_SQL.length ||

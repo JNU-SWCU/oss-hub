@@ -1,4 +1,4 @@
-import { RoleRequestStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -106,7 +106,7 @@ export function createAdminAccessAudit(input: {
       // APPROVED를 억지로 채우면 신청 없이 직접 STAFF를 받은 사람에게는 거짓이 되고,
       // 애초에 APPROVED 행이 파괴되지 않는 것이 이 설계의 요지다.
       const decidedRequest = input.result.decidedRequest;
-      if (decidedRequest?.status !== RoleRequestStatus.REVOKED) {
+      if (decidedRequest?.status !== StaffAccessRequestStatus.REVOKED) {
         throw new InvalidAdminAccessAuditError();
       }
       return {
@@ -143,15 +143,15 @@ function createDirectAccessAudit(
     readonly before: {
       readonly role: AdminAccessUserRecord['role'];
       readonly accountStatus: AdminAccessUserRecord['accountStatus'];
-      readonly requestStatus: typeof RoleRequestStatus.PENDING | null;
+      readonly requestStatus: typeof StaffAccessRequestStatus.PENDING | null;
     };
     readonly after: {
       readonly role: AdminAccessMutationResult['role'];
       readonly accountStatus: AdminAccessMutationResult['accountStatus'];
       readonly requestStatus:
-        | typeof RoleRequestStatus.APPROVED
-        | typeof RoleRequestStatus.REJECTED
-        | typeof RoleRequestStatus.REVOKED
+        | typeof StaffAccessRequestStatus.APPROVED
+        | typeof StaffAccessRequestStatus.REJECTED
+        | typeof StaffAccessRequestStatus.REVOKED
         | null;
     };
   },

@@ -1,12 +1,12 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { accessUser } from './admin-access.service.spec-support';
 import { authorityAfterLegacyTransition } from './admin-access-authority-write';
 import { ADMIN_ACCESS_REQUEST_EFFECTS } from './admin-access-transition-table';
 import type { AdminAccessMutationCommand } from './domain/admin-access';
 
 function command(
-  expectedRole: Role | null,
-  desiredRole: Role | null,
+  expectedRole: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+  desiredRole: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
 ): AdminAccessMutationCommand {
   return {
     expectedRole,
@@ -21,7 +21,7 @@ describe('canonical authority writes behind legacy transitions', () => {
   it('admin grant does not imply staff access', () => {
     // Given
     const before = accessUser({
-      role: Role.STUDENT,
+      role: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
     });
@@ -29,7 +29,7 @@ describe('canonical authority writes behind legacy transitions', () => {
     // When
     const authority = authorityAfterLegacyTransition(
       before,
-      command(Role.STUDENT, Role.ADMIN),
+      command('STUDENT', 'ADMIN'),
       ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
     );
 
@@ -41,8 +41,10 @@ describe('canonical authority writes behind legacy transitions', () => {
   });
 
   it('legacy role changes cannot clear independent canonical authority', () => {
+    // 서비스는 이 전이를 400으로 거절한다. 헬퍼가 호출되더라도 정본 칸을
+    // 접힌 표시 역할로 비우지 않는 안전망을 고정한다.
     const before = accessUser({
-      role: Role.ADMIN,
+      role: 'ADMIN',
       hasStaffAccess: true,
       hasAdminAccess: true,
     });
@@ -50,7 +52,7 @@ describe('canonical authority writes behind legacy transitions', () => {
     expect(
       authorityAfterLegacyTransition(
         before,
-        command(Role.ADMIN, Role.STUDENT),
+        command('ADMIN', 'STUDENT'),
         ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
       ),
     ).toEqual({ hasStaffAccess: true, hasAdminAccess: true });
@@ -63,7 +65,7 @@ describe('canonical authority writes behind legacy transitions', () => {
   ] as const)('%s changes only staff access', (effect, expectedStaffAccess) => {
     // Given
     const before = accessUser({
-      role: Role.STAFF,
+      role: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,
     });
@@ -71,7 +73,7 @@ describe('canonical authority writes behind legacy transitions', () => {
     // When
     const authority = authorityAfterLegacyTransition(
       before,
-      command(Role.STAFF, effect === 'APPROVED' ? Role.STAFF : null),
+      command('STAFF', effect === 'APPROVED' ? 'STAFF' : null),
       effect,
     );
 

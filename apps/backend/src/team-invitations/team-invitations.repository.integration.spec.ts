@@ -1,7 +1,8 @@
 import {
   AccountStatus,
+  AffiliationKind,
+  MemberKind,
   ProgramCategory,
-  Role,
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -47,22 +48,50 @@ async function seedPendingInvitation(): Promise<void> {
         id: LEADER_ID,
         githubId: 9_100_000_001n,
         nickname: 'atomic-leader',
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: INVITEE_ID,
         githubId: 9_100_000_002n,
         nickname: 'atomic-invitee',
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       {
         id: FILLER_ID,
         githubId: 9_100_000_003n,
         nickname: 'atomic-filler',
-        role: Role.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+      },
+    ],
+  });
+  await prisma.userProfile.createMany({
+    data: [
+      {
+        userId: LEADER_ID,
+        name: 'Synthetic user',
+        studentId: '302001',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: INVITEE_ID,
+        name: 'Synthetic user',
+        studentId: '302002',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
+      },
+      {
+        userId: FILLER_ID,
+        name: 'Synthetic user',
+        studentId: '302003',
+        department: 'Synthetic department',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: 'Synthetic department',
       },
     ],
   });

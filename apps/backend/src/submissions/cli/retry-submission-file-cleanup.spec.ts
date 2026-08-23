@@ -1,3 +1,4 @@
+import { MemberKind } from '@prisma/client';
 import { NestFactory } from '@nestjs/core';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -27,7 +28,7 @@ function installContext(): Harness {
   const resetDeleteAttempts = jest.fn().mockResolvedValue(true);
   const findUnique = jest.fn().mockResolvedValue({
     githubId: 4242n,
-    role: 'ADMIN',
+    hasAdminAccess: true,
     accountStatus: 'ACTIVE',
   });
   const close = jest.fn().mockResolvedValue(undefined);
@@ -97,7 +98,8 @@ describe('submissions:retry-file-cleanup CLI — #547 감사 기록', () => {
     const harness = installContext();
     harness.findUnique.mockResolvedValue({
       githubId: 4242n,
-      role: 'STAFF',
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
       accountStatus: 'ACTIVE',
     });
 

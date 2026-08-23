@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from '../repository/programs.repository';
@@ -10,9 +10,10 @@ describe('ProgramViewerService', () => {
     // Given
     const findUnique = jest.fn().mockResolvedValue({
       id: 'staff-1',
-      role: Role.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
-      roleRequests: [],
+      staffAccessRequests: [],
     });
     const prisma = { user: { findUnique } } as unknown as PrismaService;
     const service = new ProgramViewerService(new ProgramsRepository(prisma));
@@ -27,8 +28,10 @@ describe('ProgramViewerService', () => {
       select: {
         id: true,
         accountStatus: true,
-        role: true,
-        roleRequests: {
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        profile: { select: { memberKind: true } },
+        staffAccessRequests: {
           where: { status: 'PENDING' },
           select: { id: true },
           take: 1,

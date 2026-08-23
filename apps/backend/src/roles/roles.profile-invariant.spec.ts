@@ -12,14 +12,18 @@
  * 이제 그 새 방향을 고정한다 — 프로필이 비어 있어도 역할을 고를 수 있어야 하고,
  * 동의는 여전히 그보다 먼저여야 한다.
  */
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from '../consents/consent-error-code.enum';
 import type { ConsentsService } from '../consents/consents.service';
-import type { RoleUser } from './domain/role-onboarding';
+import type { MemberUser } from './domain/member-onboarding';
 import type {
   RolesRepositoryPort,
   RolesTransactionStore,
@@ -27,10 +31,12 @@ import type {
 import { RolesService } from './roles.service';
 
 const GITHUB_ID = 424242n;
-const USER: RoleUser = {
+const USER: MemberUser = {
   id: 'synthetic-user',
-  role: null,
-  selectedRole: null,
+  memberKind: null,
+  selectedMemberKind: null,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
   accountStatus: AccountStatus.ACTIVE,
   // 한 글자도 채워지지 않은 프로필. 이 파일이 고정하려는 상태가 바로 이것이다.
   profile: { name: null, studentId: null, department: null },
@@ -48,7 +54,7 @@ class InMemoryProfileRolesRepository implements RolesRepositoryPort {
     return operation(this.store);
   }
 
-  findUserByGithubId(): Promise<RoleUser | null> {
+  findUserByGithubId(): Promise<MemberUser | null> {
     return Promise.resolve(USER);
   }
 
@@ -62,29 +68,29 @@ function buildService(
     readonly consentError?: DomainException;
   } = {},
 ) {
-  const updateSelectedRole = jest
+  const updateSelectedMemberKind = jest
     .fn()
-    .mockImplementation((_userId: string, role: Role) =>
-      Promise.resolve({ ...USER, selectedRole: role }),
+    .mockImplementation((_userId: string, memberKind: MemberKind) =>
+      Promise.resolve({ ...USER, selectedMemberKind: memberKind }),
     );
   const createPendingRequest = jest.fn().mockResolvedValue({
     id: 'synthetic-request',
     userId: USER.id,
-    status: RoleRequestStatus.PENDING,
+    status: StaffAccessRequestStatus.PENDING,
     rejectionReason: null,
     decidedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
   });
-  const confirmSelectedRole = jest
+  const requestStaffAccess = jest
     .fn()
     .mockResolvedValue({ role: null, requestStatus: null });
   const store: RolesTransactionStore = {
     findUserByGithubId: jest.fn().mockResolvedValue(USER),
-    updateSelectedRole,
+    updateSelectedMemberKind,
     findPendingRequest: jest.fn().mockResolvedValue(null),
     findLatestRequest: jest.fn().mockResolvedValue(null),
     createPendingRequest,
-    confirmSelectedRole,
+    requestStaffAccess,
   };
   const repository = new InMemoryProfileRolesRepository(store);
   const requireCurrent = options.consentError
@@ -99,45 +105,48 @@ function buildService(
     store,
     repository,
     requireCurrent,
-    updateSelectedRole,
+    updateSelectedMemberKind,
     createPendingRequest,
-    confirmSelectedRole,
+    requestStaffAccess,
   };
 }
 
-it.each([Role.STUDENT, Role.STAFF])(
+it.each<MemberKind>(['STUDENT', 'STAFF'])(
   '프로필이 비어 있어도 %s 선택은 통과한다',
   async (role) => {
     // Given — 프로필은 아직 한 글자도 채워지지 않았다. 역할이 먼저다.
     const { service, repository } = buildService();
 
     // When
-    const result = await service.selectRole(GITHUB_ID, role);
+    const result = await service.selectMemberKind(GITHUB_ID, role);
 
     // Then — 이 호출이 막히면 교직원은 학번을 요구받는 프로필 화면으로 되돌아가고,
     // 애초에 순서를 뒤집은 이유가 사라진다.
-    expect(result.selectedRole).toBe(role);
+    expect(result.selectedMemberKind).toBe(role);
     expect(repository.transactionCount).toBe(1);
   },
 );
 
-it.each([Role.STUDENT, Role.STAFF])(
+it.each<MemberKind>(['STUDENT', 'STAFF'])(
   '%s 선택은 고른 사실만 남기고 남은 단계인 프로필로 보낸다',
   async (selectedRole) => {
     // Given
-    const { service, updateSelectedRole } = buildService();
+    const { service, updateSelectedMemberKind } = buildService();
 
     // When
-    const result = await service.selectRole(GITHUB_ID, selectedRole);
+    const result = await service.selectMemberKind(GITHUB_ID, selectedRole);
 
     // Then — 두 역할의 답이 완전히 같다. 확정을 `가입 마치기`로 미룬 뒤로(#569) 이
     // 화면에서 갈리는 것이 없어졌기 때문이다. 프로필을 마친 뒤 학생을 역할 홈으로,
     // 교직원을 승인 대기로 잇는 일은 그대로 화면의 게이트가 한다.
     expect(result).toEqual({
-      selectedRole,
+      selectedMemberKind: selectedRole,
       redirectTo: '/onboarding/profile',
     });
-    expect(updateSelectedRole).toHaveBeenCalledWith(USER.id, selectedRole);
+    expect(updateSelectedMemberKind).toHaveBeenCalledWith(
+      USER.id,
+      selectedRole,
+    );
   },
 );
 
@@ -145,21 +154,21 @@ it.each([Role.STUDENT, Role.STAFF])(
  * #569 회귀 검사 ① — **프로필이 비어 있는 동안에는 아무것도 확정되지 않는다.**
  *
  * 확정이 여기서 일어나면 이름·학과가 빈 미완성 신청이 관리자 대기줄에 올라가고,
- * 학생은 이름 없이 학생 권한을 들고 제품 안으로 들어간다. `confirmSelectedRole`이
+ * 학생은 이름 없이 학생 권한을 들고 제품 안으로 들어간다. `requestStaffAccess`이
  * 아예 불리지 않아야 한다 — 불린 뒤 안에서 걸러지는 것으로는 부족하다.
  */
-it.each([Role.STUDENT, Role.STAFF])(
+it.each<MemberKind>(['STUDENT', 'STAFF'])(
   '프로필이 비어 있으면 %s 선택은 확정을 부르지 않는다',
   async (selectedRole) => {
     // Given
-    const { service, confirmSelectedRole, createPendingRequest } =
+    const { service, requestStaffAccess, createPendingRequest } =
       buildService();
 
     // When
-    await service.selectRole(GITHUB_ID, selectedRole);
+    await service.selectMemberKind(GITHUB_ID, selectedRole);
 
     // Then
-    expect(confirmSelectedRole).not.toHaveBeenCalled();
+    expect(requestStaffAccess).not.toHaveBeenCalled();
     expect(createPendingRequest).not.toHaveBeenCalled();
   },
 );
@@ -172,7 +181,7 @@ it('동의는 여전히 역할 선택보다 먼저다', async () => {
   const { service, repository } = buildService({ consentError });
 
   // When
-  const promise = service.selectRole(GITHUB_ID, Role.STUDENT);
+  const promise = service.selectMemberKind(GITHUB_ID, 'STUDENT');
 
   // Then
   await expect(promise).rejects.toBe(consentError);

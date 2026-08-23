@@ -16,9 +16,9 @@ import type { IndependentAuthorityTransition } from './independent-authority-tra
 export type IndependentAuthorityUserRecord = ReturnType<
   typeof toAdminAccessUserRecord
 > & {
-  readonly selectedRole: Prisma.UserGetPayload<{
+  readonly selectedMemberKind: Prisma.UserGetPayload<{
     select: typeof ADMIN_ACCESS_USER_SELECT;
-  }>['selectedRole'];
+  }>['selectedMemberKind'];
 };
 
 export interface IndependentAuthorityTransactionStore {
@@ -80,8 +80,7 @@ class PrismaIndependentAuthorityStore implements IndependentAuthorityTransaction
     await this.transaction.user.update({
       where: { id: userId },
       data: {
-        role: transition.role,
-        selectedRole: transition.selectedRole,
+        selectedMemberKind: transition.selectedMemberKind,
         hasStaffAccess: transition.hasStaffAccess,
         hasAdminAccess: transition.hasAdminAccess,
       },
@@ -94,7 +93,7 @@ function toIndependentAuthorityUserRecord(
 ): IndependentAuthorityUserRecord {
   return {
     ...toAdminAccessUserRecord(user),
-    selectedRole: user.selectedRole,
+    selectedMemberKind: user.selectedMemberKind,
   };
 }
 

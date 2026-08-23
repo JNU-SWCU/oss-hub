@@ -27,7 +27,7 @@ function mockSession(
   overrides: {
     status?: SessionStatus;
     role?: AppRole | null;
-    roleRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+    staffAccessRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
     isProfileComplete?: boolean;
   } = {},
 ): void {
@@ -38,8 +38,8 @@ function mockSession(
     memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
     hasStaffAccess: role === 'STAFF',
     hasAdminAccess: role === 'ADMIN',
-    roleRequestStatus: overrides.roleRequestStatus ?? null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: overrides.staffAccessRequestStatus ?? null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: overrides.isProfileComplete ?? false,
     retry: () => {},
@@ -121,7 +121,7 @@ describe('AccountSlot', () => {
     mockSession({
       status: 'unassigned',
       role: null,
-      roleRequestStatus: 'PENDING',
+      staffAccessRequestStatus: 'PENDING',
       isProfileComplete: false,
     });
 

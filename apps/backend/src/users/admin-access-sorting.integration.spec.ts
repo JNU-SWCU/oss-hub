@@ -1,4 +1,9 @@
-import { AccountStatus, LoginHistoryEvent, Role } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  LoginHistoryEvent,
+  MemberKind,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -70,7 +75,7 @@ beforeAll(async () => {
         id: `${prefix}actor`,
         githubId: 8_004_000_001_001n,
         nickname: 'synthetic-pr04a-admin',
-        role: Role.ADMIN,
+        hasAdminAccess: true,
         accountStatus: AccountStatus.ACTIVE,
       },
       select: { githubId: true },
@@ -81,7 +86,7 @@ beforeAll(async () => {
       id: ids.alpha,
       githubId: 8_004_000_001_002n,
       legacyName: `Alpha ${queryFragment}`,
-      profileName: null,
+      profileName: `Alpha ${queryFragment}`,
       createdAt: createdAt.first,
       lastLoginAt: loginAt.third,
       olderSuccessfulLoginAt: olderSuccessfulLoginAt.alpha,
@@ -101,7 +106,7 @@ beforeAll(async () => {
       id: ids.bravoLegacy,
       githubId: 8_004_000_001_004n,
       legacyName: `Bravo ${queryFragment}`,
-      profileName: null,
+      profileName: `Bravo ${queryFragment}`,
       createdAt: createdAt.tied,
       lastLoginAt: loginAt.tied,
       olderSuccessfulLoginAt: olderSuccessfulLoginAt.tied,
@@ -205,20 +210,20 @@ function createSortingUser(input: SortingUserInput) {
       id: input.id,
       githubId: input.githubId,
       nickname: `${queryFragment}-${input.id.at(-1)}`,
-      name: input.legacyName,
       createdAt: input.createdAt,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
       ...(input.profileName === null
         ? {}
         : {
-            studentId: input.studentId,
-            department,
             profile: {
               create: {
                 name: input.profileName,
                 studentId: input.studentId,
                 department,
+                memberKind: MemberKind.STUDENT,
+                affiliationKind: AffiliationKind.DEPARTMENT,
+                affiliationName: department,
               },
             },
           }),

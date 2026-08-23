@@ -1,4 +1,5 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -6,10 +7,13 @@ import type { AuthenticatedRequest } from '../auth/session.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { AdminAccessController } from './admin-access.controller';
-import { BarrierAdminAccessRepository } from './admin-access.integration-support';
+import { BarrierIndependentAuthorityRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { ADMIN_ACCESS_COMMANDS } from './domain/independent-authority';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { IndependentAuthorityService } from './independent-authority.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -43,22 +47,22 @@ describe('Admin access real PostgreSQL transactions', () => {
   it('serializes two final-admin demotions so exactly one commits', async () => {
     // Given
     await prisma.user.updateMany({
-      where: { role: Role.ADMIN, accountStatus: AccountStatus.ACTIVE },
-      data: { role: Role.STAFF },
+      where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
+      data: { hasAdminAccess: false, hasStaffAccess: true },
     });
-    const first = await createUser(Role.ADMIN, 'race-a');
-    const second = await createUser(Role.ADMIN, 'race-b');
-    const synchronizedService = new AdminAccessService(
-      new BarrierAdminAccessRepository(repository),
+    const first = await createUser('ADMIN', 'race-a');
+    const second = await createUser('ADMIN', 'race-b');
+    // 표시 역할 PATCH는 독립 관리자 권한을 지우지 않는다. 마지막 관리자 직렬화는
+    // 그 칸을 직접 바꾸는 독립 권한 경로에서 증명한다.
+    const synchronizedService = new IndependentAuthorityService(
+      new BarrierIndependentAuthorityRepository(
+        new IndependentAuthorityRepository(prisma),
+      ),
       auditLog,
     );
     const demote = (targetId: string) =>
-      synchronizedService.patchAccess(first.githubId, targetId, {
-        expectedRole: Role.ADMIN,
-        desiredRole: Role.STAFF,
-        expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredAccountStatus: AccountStatus.ACTIVE,
-        expectedPendingRequest: null,
+      synchronizedService.patchAdminAccess(first.githubId, targetId, {
+        command: ADMIN_ACCESS_COMMANDS.REVOKE,
       });
 
     // When
@@ -92,7 +96,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     }
     await expect(
       prisma.user.count({
-        where: { role: Role.ADMIN, accountStatus: AccountStatus.ACTIVE },
+        where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
       }),
     ).resolves.toBe(1);
     await expect(
@@ -104,15 +108,15 @@ describe('Admin access real PostgreSQL transactions', () => {
 
   it('rolls back the user CAS when PostgreSQL rejects the audit insert', async () => {
     // Given
-    const actor = await createUser(Role.ADMIN, 'audit-actor');
-    const target = await createUser(Role.STUDENT, 'audit-target');
+    const actor = await createUser('ADMIN', 'audit-actor');
+    const target = await createUser('STUDENT', 'audit-target');
     await installAuditFailureTrigger();
 
     // When / Then
     await expect(
       service.patchAccess(actor.githubId, target.id, {
-        expectedRole: Role.STUDENT,
-        desiredRole: Role.STAFF,
+        expectedRole: 'STUDENT',
+        desiredRole: 'STAFF',
         expectedAccountStatus: AccountStatus.ACTIVE,
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
@@ -121,7 +125,8 @@ describe('Admin access real PostgreSQL transactions', () => {
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
     ).resolves.toMatchObject({
-      role: Role.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
@@ -131,11 +136,11 @@ describe('Admin access real PostgreSQL transactions', () => {
 
   it('returns the authoritative locked projection for a stale real-DB CAS', async () => {
     // Given
-    const actor = await createUser(Role.ADMIN, 'stale-actor');
-    const target = await createUser(Role.STUDENT, 'stale-target');
+    const actor = await createUser('ADMIN', 'stale-actor');
+    const target = await createUser('STUDENT', 'stale-target');
     await prisma.user.update({
       where: { id: target.id },
-      data: { role: Role.STAFF },
+      data: { hasStaffAccess: true },
     });
     // 이 테스트는 patchAccess만 호출한다 — profile 서비스는 실제로 쓰이지 않으므로
     // 실행되면 실패하는 스텁만 채워 생성자 계약을 맞춘다.
@@ -149,8 +154,8 @@ describe('Admin access real PostgreSQL transactions', () => {
       sessionGithubId: actor.githubId,
     } as Pick<AuthenticatedRequest, 'sessionGithubId'>;
     const body = Object.assign(new PatchAdminAccessRequestDto(), {
-      expectedRole: Role.STUDENT,
-      desiredRole: Role.ADMIN,
+      expectedRole: 'STUDENT',
+      desiredRole: 'ADMIN',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
@@ -165,7 +170,7 @@ describe('Admin access real PostgreSQL transactions', () => {
       extensions: {
         currentAccess: {
           id: target.id,
-          role: Role.STAFF,
+          role: 'STAFF',
           accountStatus: AccountStatus.ACTIVE,
           pendingRequest: null,
         },
@@ -173,7 +178,10 @@ describe('Admin access real PostgreSQL transactions', () => {
     });
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-    ).resolves.toMatchObject({ role: Role.STAFF });
+    ).resolves.toMatchObject({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
   });
 });
 
@@ -194,15 +202,14 @@ async function installAuditFailureTrigger(): Promise<void> {
   `);
 }
 
-async function createUser(role: Role, label: string) {
+async function createUser(role: 'STUDENT' | 'STAFF' | 'ADMIN', label: string) {
   sequence += 1;
   return prisma.user.create({
-    data: {
+    data: canonicalUserCreateFromLabel(role, {
       id: `test:pr03:admin-access:${label}:${sequence}`,
       githubId: 9_003_500_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      role,
-    },
+    }),
     select: { id: true, githubId: true },
   });
 }

@@ -6,7 +6,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  Role,
 } from '@prisma/client';
 import {
   offsetDays,
@@ -63,7 +62,7 @@ async function ensureApplication(
 ): Promise<{ applicationId: string; applicantId: string }> {
   const applicant = await upsertSeedUser(stats, {
     id: seedId('repositories', scenarioId, 'applicant'),
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   // 모든 신청이 Team을 갖는다(D5). 시드도 신청자 1인 팀을 만들어 붙인다.
   const teamId = seedId('repositories', scenarioId, 'team');

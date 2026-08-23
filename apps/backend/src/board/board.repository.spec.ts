@@ -1,4 +1,4 @@
-import { BoardPostCategory, Role } from '@prisma/client';
+import { BoardPostCategory, MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BoardRepository } from './board.repository';
 
@@ -7,15 +7,14 @@ const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticPostId = 'cuid-synthetic-post';
 const syntheticCommentId = 'cuid-synthetic-comment';
 const syntheticAuthorId = 'cuid-synthetic-author';
+// 실명의 정본은 프로필 행뿐이다. 표시 역할은 canonical 세 사실에서 접는다.
 const expectedAuthorNameSelect = {
-  name: true,
-  profile: { select: { name: true } },
   nickname: true,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  profile: { select: { name: true, memberKind: true } },
 } as const;
-const expectedCommentAuthorSelect = {
-  role: true,
-  ...expectedAuthorNameSelect,
-} as const;
+const expectedCommentAuthorSelect = expectedAuthorNameSelect;
 
 describe('BoardRepository.findByProgramId', () => {
   it('page/limit을 skip/take로 변환하고 고정글·최신순으로 조회한다', async () => {
@@ -49,7 +48,12 @@ describe('BoardRepository.findByProgramId', () => {
         id: syntheticPostId,
         programId: syntheticProgramId,
         authorId: syntheticAuthorId,
-        author: { name: '합성 운영자', nickname: 'synthetic-staff' },
+        author: {
+          nickname: 'synthetic-staff',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          profile: { name: '합성 운영자', memberKind: MemberKind.STUDENT },
+        },
         category: BoardPostCategory.NOTICE,
         title: '제목',
         pinned: true,
@@ -104,13 +108,23 @@ describe('BoardRepository authorName', () => {
         ...common,
         id: syntheticPostId,
         authorId: syntheticAuthorId,
-        author: { name: '합성 학생', nickname: 'synthetic-author' },
+        author: {
+          nickname: 'synthetic-author',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          profile: { name: '합성 학생', memberKind: MemberKind.STUDENT },
+        },
       },
       {
         ...common,
         id: 'cuid-synthetic-post-fallback',
         authorId: 'cuid-synthetic-author-fallback',
-        author: { name: null, nickname: 'synthetic-fallback' },
+        author: {
+          nickname: 'synthetic-fallback',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          profile: null,
+        },
       },
     ]);
     const prisma = {
@@ -143,7 +157,12 @@ describe('BoardRepository authorName', () => {
       id: syntheticPostId,
       programId: syntheticProgramId,
       authorId: syntheticAuthorId,
-      author: { name: null, nickname: 'synthetic-author' },
+      author: {
+        nickname: 'synthetic-author',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        profile: null,
+      },
       category: BoardPostCategory.QNA,
       title: '합성 질문',
       body: '합성 본문',
@@ -156,8 +175,9 @@ describe('BoardRepository authorName', () => {
           postId: syntheticPostId,
           authorId: 'cuid-synthetic-staff',
           author: {
-            role: Role.STAFF,
-            name: '합성 교직원',
+            profile: { name: '합성 교직원', memberKind: MemberKind.STAFF },
+            hasStaffAccess: true,
+            hasAdminAccess: false,
             nickname: 'synthetic-staff',
           },
           body: '합성 답변',
@@ -250,7 +270,12 @@ describe('BoardRepository.findDetailById', () => {
       id: syntheticPostId,
       programId: syntheticProgramId,
       authorId: syntheticAuthorId,
-      author: { name: '합성 질문자', nickname: 'synthetic-author' },
+      author: {
+        nickname: 'synthetic-author',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        profile: { name: '합성 질문자', memberKind: MemberKind.STUDENT },
+      },
       category: BoardPostCategory.QNA,
       title: '제목',
       body: '본문',
@@ -265,8 +290,9 @@ describe('BoardRepository.findDetailById', () => {
           body: '교직원 답변',
           createdAt: commentAt,
           author: {
-            role: Role.STAFF,
-            name: '합성 교직원',
+            profile: { name: '합성 교직원', memberKind: MemberKind.STAFF },
+            hasStaffAccess: true,
+            hasAdminAccess: false,
             nickname: 'synthetic-staff',
           },
         },
@@ -277,8 +303,9 @@ describe('BoardRepository.findDetailById', () => {
           body: '학생 의견',
           createdAt: commentAt,
           author: {
-            role: Role.STUDENT,
-            name: null,
+            profile: { name: '합성 학생', memberKind: MemberKind.STUDENT },
+            hasStaffAccess: false,
+            hasAdminAccess: false,
             nickname: 'synthetic-student',
           },
         },
@@ -289,8 +316,9 @@ describe('BoardRepository.findDetailById', () => {
           body: '관리자 답변',
           createdAt: commentAt,
           author: {
-            role: Role.ADMIN,
-            name: '합성 관리자',
+            profile: { name: '합성 관리자', memberKind: MemberKind.STAFF },
+            hasStaffAccess: false,
+            hasAdminAccess: true,
             nickname: 'synthetic-admin',
           },
         },
@@ -310,7 +338,7 @@ describe('BoardRepository.findDetailById', () => {
         id: syntheticCommentId,
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-staff',
-        authorRole: Role.STAFF,
+        authorRole: 'STAFF',
         authorName: '합성 교직원',
         body: '교직원 답변',
         createdAt: commentAt,
@@ -319,8 +347,8 @@ describe('BoardRepository.findDetailById', () => {
         id: 'cuid-synthetic-comment-student',
         postId: syntheticPostId,
         authorId: syntheticAuthorId,
-        authorRole: Role.STUDENT,
-        authorName: 'synthetic-student',
+        authorRole: 'STUDENT',
+        authorName: '합성 학생',
         body: '학생 의견',
         createdAt: commentAt,
       },
@@ -328,7 +356,7 @@ describe('BoardRepository.findDetailById', () => {
         id: 'cuid-synthetic-comment-admin',
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-admin',
-        authorRole: Role.ADMIN,
+        authorRole: 'ADMIN',
         authorName: '합성 관리자',
         body: '관리자 답변',
         createdAt: commentAt,
@@ -353,7 +381,12 @@ describe('BoardRepository.findDetailById', () => {
       id: syntheticPostId,
       programId: syntheticProgramId,
       authorId: syntheticAuthorId,
-      author: { name: null, nickname: 'synthetic-author' },
+      author: {
+        nickname: 'synthetic-author',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        profile: null,
+      },
       category: BoardPostCategory.QNA,
       title: '제목',
       body: '본문',
@@ -384,7 +417,7 @@ describe('BoardRepository.findDetailById', () => {
       syntheticPostId,
     );
 
-    expect(detail?.comments[0]?.authorRole).toBe(Role.STUDENT);
+    expect(detail?.comments[0]?.authorRole).toBe('STUDENT');
   });
 });
 
@@ -398,8 +431,9 @@ describe('BoardRepository.createComment', () => {
       body: '새 댓글',
       createdAt,
       author: {
-        role: Role.STUDENT,
-        name: null,
+        profile: { name: '합성 질문자', memberKind: MemberKind.STUDENT },
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         nickname: 'synthetic-author',
       },
     });
@@ -417,8 +451,8 @@ describe('BoardRepository.createComment', () => {
       id: syntheticCommentId,
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
-      authorRole: Role.STUDENT,
-      authorName: 'synthetic-author',
+      authorRole: 'STUDENT',
+      authorName: '합성 질문자',
       body: '새 댓글',
       createdAt,
     });

@@ -1,19 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { AccountStatus, Prisma, Role } from '@prisma/client';
+import { AccountStatus, Prisma } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { DomainException, type ErrorCode } from '../common/error-code';
-import { resolveMemberAccess } from '../profiles/member-authority-compatibility';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.enum';
 
-/** 권한 판단은 canonical 컬럼이 정본이다. `role`은 backfill 전 행의 fallback으로만 읽는다. */
+/** 권한 판단은 canonical 컬럼만 읽는다 — 회원 정체성(이름·소속)은 끌고 오지 않는다. */
 const APPLICATIONS_STAFF_SELECT = {
   id: true,
-  role: true,
   hasStaffAccess: true,
   hasAdminAccess: true,
   accountStatus: true,
@@ -26,9 +24,8 @@ interface ApplicationsStaffStore {
       readonly select: typeof APPLICATIONS_STAFF_SELECT;
     }): Promise<{
       readonly id: string;
-      readonly role: Role | null;
-      readonly hasStaffAccess: boolean | null;
-      readonly hasAdminAccess: boolean | null;
+      readonly hasStaffAccess: boolean;
+      readonly hasAdminAccess: boolean;
       readonly accountStatus: AccountStatus;
     } | null>;
   };
@@ -61,8 +58,8 @@ export class ApplicationsStaffGuard implements CanActivate {
       throw new DomainException(this.staffForbiddenError());
     }
 
-    const access = resolveMemberAccess(user);
-    if (!access.hasStaffAccess && !access.hasAdminAccess) {
+    // 교직원 접근과 관리자 접근은 서로 독립이다 — 어느 한쪽만 있어도 이 문을 지난다.
+    if (!user.hasStaffAccess && !user.hasAdminAccess) {
       throw new DomainException(this.staffForbiddenError());
     }
 

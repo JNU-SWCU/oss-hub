@@ -5,7 +5,7 @@ import {
 } from '../user-profile-policy';
 
 export {
-  effectiveProfileRole,
+  effectiveProfileMemberKind,
   isCompleteProfileFields,
   isCompleteUserProfile,
   isValidDepartment,

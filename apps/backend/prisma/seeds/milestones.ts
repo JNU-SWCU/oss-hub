@@ -3,14 +3,15 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
-  Role,
   SubmissionStatus,
 } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import {
   offsetDays,
   prisma,
   seedId,
   SeedStats,
+  upsertSeedProfile,
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
@@ -193,20 +194,47 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
 
   const reviewer = await upsertSeedUser(stats, {
     id: REVIEWER_ID,
-    role: Role.STAFF,
+    role: 'STAFF',
   });
-  void reviewer;
+  await upsertSeedProfile({
+    userId: reviewer.id,
+    name: '합성 마일스톤 교직원',
+    studentId: null,
+    department: '합성 사업단',
+    memberKind: MemberKind.STAFF,
+  });
   const applicantPersonal = await upsertSeedUser(stats, {
     id: APPLICANT_PERSONAL_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
+  });
+  await upsertSeedProfile({
+    userId: applicantPersonal.id,
+    name: '합성 개인 신청자',
+    studentId: '261001',
+    department: '합성 학과',
+    memberKind: MemberKind.STUDENT,
   });
   const teamLeader = await upsertSeedUser(stats, {
     id: TEAM_LEADER_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
+  });
+  await upsertSeedProfile({
+    userId: teamLeader.id,
+    name: '합성 팀장',
+    studentId: '261002',
+    department: '합성 학과',
+    memberKind: MemberKind.STUDENT,
   });
   const teamMember = await upsertSeedUser(stats, {
     id: TEAM_MEMBER_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
+  });
+  await upsertSeedProfile({
+    userId: teamMember.id,
+    name: '합성 팀원',
+    studentId: '261003',
+    department: '합성 학과',
+    memberKind: MemberKind.STUDENT,
   });
 
   // 모든 신청이 Team을 갖는다(D5). 개인 시나리오도 신청자 1인 팀을 만들어 붙인다.

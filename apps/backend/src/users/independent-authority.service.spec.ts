@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import type { AdminAccessActor } from './admin-access.repository.types';
@@ -23,13 +23,13 @@ class AuthorityStore
 {
   readonly auditLogWriter = new PrismaService();
   actor: AdminAccessActor | null = {
+    name: null,
+    role: 'ADMIN',
     id: 'actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-admin',
-    name: '합성 관리자',
-    role: Role.ADMIN,
-    hasStaffAccess: true,
     hasAdminAccess: true,
+    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
   target: IndependentAuthorityUserRecord | null = target();
@@ -89,7 +89,7 @@ it.each([
 
 it('treats a same-state grant as an idempotent success without writing', async () => {
   const store = new AuthorityStore();
-  store.target = target({ hasAdminAccess: true, role: Role.ADMIN });
+  store.target = target({ hasAdminAccess: true, role: 'ADMIN' });
   const service = new IndependentAuthorityService(store, noopAuditLog());
 
   await expect(
@@ -103,12 +103,12 @@ it('treats a same-state grant as an idempotent success without writing', async (
 it('rejects a non-admin actor before writing', async () => {
   const store = new AuthorityStore();
   store.actor = {
+    name: null,
+    hasStaffAccess: false,
     id: 'staff-actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-staff',
-    name: '합성 교직원',
-    role: Role.STAFF,
-    hasStaffAccess: true,
+    role: 'STUDENT',
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   };
@@ -127,7 +127,7 @@ it('rejects a non-admin actor before writing', async () => {
 it('rejects revoking the final active admin', async () => {
   const store = new AuthorityStore();
   store.activeAdminCount = 1;
-  store.target = target({ hasAdminAccess: true, role: Role.ADMIN });
+  store.target = target({ hasAdminAccess: true, role: 'ADMIN' });
   const service = new IndependentAuthorityService(store, noopAuditLog());
 
   await expect(
@@ -151,9 +151,9 @@ function target(
     id: 'target',
     githubId: 9_700_100_002n,
     githubLogin: 'synthetic-target',
-    name: '합성 학생',
-    role: Role.STUDENT,
-    selectedRole: Role.STUDENT,
+    name: null,
+    role: 'STUDENT',
+    selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,

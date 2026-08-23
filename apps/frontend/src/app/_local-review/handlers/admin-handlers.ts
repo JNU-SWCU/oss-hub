@@ -469,12 +469,12 @@ const adminAccessHistoryHandler: LocalReviewHandler = (context) => {
   return json(
     200,
     adminAccessFixtureHistory(userId, {
-      roleRequestPage: positiveIntParam(
-        context.searchParams.get('roleRequestPage'),
+      staffAccessRequestPage: positiveIntParam(
+        context.searchParams.get('staffAccessRequestPage'),
         1,
       ),
-      roleRequestLimit: positiveIntParam(
-        context.searchParams.get('roleRequestLimit'),
+      staffAccessRequestLimit: positiveIntParam(
+        context.searchParams.get('staffAccessRequestLimit'),
         20,
       ),
       loginPage: positiveIntParam(context.searchParams.get('loginPage'), 1),

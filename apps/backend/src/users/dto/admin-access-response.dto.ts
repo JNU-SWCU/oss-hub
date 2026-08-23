@@ -1,9 +1,9 @@
 import type {
   AccountStatus,
   MemberKind,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
+import type { AuthorityLabel } from '../../common/authority-label';
 import type {
   AdminAccessFacets,
   AdminAccessMutationResult,
@@ -19,7 +19,7 @@ export { AdminAccessUserHistoryResponseDto } from './admin-access-history-respon
 
 type PendingRequestResponseDto = {
   readonly id: string;
-  readonly status: typeof RoleRequestStatus.PENDING;
+  readonly status: typeof StaffAccessRequestStatus.PENDING;
   readonly createdAt: string;
 };
 
@@ -27,7 +27,7 @@ export class AdminAccessUserResponseDto {
   readonly id: string;
   readonly githubLogin: string;
   readonly name: string | null;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
@@ -93,7 +93,7 @@ export class AdminAccessUserDetailResponseDto {
   readonly id: string;
   readonly githubLogin: string;
   readonly name: string | null;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
@@ -127,7 +127,7 @@ export class AdminAccessUserDetailResponseDto {
 
 export class AdminAccessMutationResponseDto {
   readonly id: string;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly pendingRequest: PendingRequestResponseDto | null;
   readonly decidedRequest: AdminAccessMutationResult['decidedRequest'];
@@ -149,7 +149,7 @@ export class AdminAccessMutationResponseDto {
 
 export class IndependentAuthorityMutationResponseDto {
   readonly id: string;
-  readonly role: Role | null;
+  readonly role: AuthorityLabel | null;
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;

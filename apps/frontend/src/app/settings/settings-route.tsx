@@ -32,8 +32,8 @@ export function SettingsRoute() {
   const memberKind =
     state.memberKind ??
     state.selectedRole ??
-    (state.roleRequestStatus === 'PENDING' ||
-    state.roleRequestStatus === 'APPROVED'
+    (state.staffAccessRequestStatus === 'PENDING' ||
+    state.staffAccessRequestStatus === 'APPROVED'
       ? 'STAFF'
       : null);
 

@@ -18,10 +18,11 @@ export function usersRepositoryHarness(
   const userUpdate = jest.fn().mockResolvedValue({});
   const userProfileCreate = jest.fn().mockResolvedValue({});
   const userProfileUpsert = jest.fn().mockResolvedValue({});
+  const userProfileUpdate = jest.fn().mockResolvedValue({});
   const userProfileUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
   const userProfileFindUnique = jest.fn().mockResolvedValue(null);
-  const roleRequestFindFirst = jest.fn().mockResolvedValue(null);
-  const roleRequestCreate = jest
+  const staffAccessRequestFindFirst = jest.fn().mockResolvedValue(null);
+  const staffAccessRequestCreate = jest
     .fn()
     .mockResolvedValue({ id: 'synthetic-request', status: 'PENDING' });
   const transaction = {
@@ -34,17 +35,22 @@ export function usersRepositoryHarness(
     userProfile: {
       create: userProfileCreate,
       upsert: userProfileUpsert,
+      update: userProfileUpdate,
       updateMany: userProfileUpdateMany,
       findUnique: userProfileFindUnique,
     },
-    roleRequest: {
-      findFirst: roleRequestFindFirst,
-      create: roleRequestCreate,
+    staffAccessRequest: {
+      findFirst: staffAccessRequestFindFirst,
+      create: staffAccessRequestCreate,
     },
   };
   const prisma = prismaServiceWith({
     user: { findUnique },
-    userProfile: { findUnique: userProfileFindUnique },
+    userProfile: {
+      findUnique: userProfileFindUnique,
+      update: userProfileUpdate,
+      updateMany: userProfileUpdateMany,
+    },
     $transaction: <T>(callback: TransactionCallback<T>) =>
       callback(transaction),
   });
@@ -55,10 +61,11 @@ export function usersRepositoryHarness(
     userUpdate,
     userProfileCreate,
     userProfileUpsert,
+    userProfileUpdate,
     userProfileUpdateMany,
     userProfileFindUnique,
-    roleRequestFindFirst,
-    roleRequestCreate,
+    staffAccessRequestFindFirst,
+    staffAccessRequestCreate,
     repository: new UsersRepository(prisma),
   };
 }
@@ -66,14 +73,9 @@ export function usersRepositoryHarness(
 function toRow(record: UserProfileRecord) {
   return {
     id: record.id,
-    role: record.role ?? null,
-    selectedRole: record.selectedRole ?? null,
     selectedMemberKind: record.selectedMemberKind ?? null,
-    hasStaffAccess: record.hasStaffAccess ?? null,
-    hasAdminAccess: record.hasAdminAccess ?? null,
-    name: record.name,
-    studentId: record.studentId,
-    department: record.department,
+    hasStaffAccess: record.hasStaffAccess ?? false,
+    hasAdminAccess: record.hasAdminAccess ?? false,
     profile:
       record.memberKind && record.affiliationKind && record.affiliationName
         ? {
@@ -85,7 +87,7 @@ function toRow(record: UserProfileRecord) {
             affiliationName: record.affiliationName,
           }
         : null,
-    roleRequests: record.hasPendingStaffRequest
+    staffAccessRequests: record.hasPendingStaffRequest
       ? [{ id: 'synthetic-pending-request' }]
       : [],
   };

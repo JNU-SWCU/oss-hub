@@ -2,10 +2,13 @@ import {
   AccountStatus,
   LoginHistoryEvent,
   Prisma,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
+import {
+  STAFF_ACCESS_REQUEST_STATUS_TYPE,
+  STAFF_ACCESS_REQUEST_TABLE,
+} from '../roles/staff-access-request-physical-names';
 import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_SORT,
@@ -49,7 +52,7 @@ function adminAccessOrderBy(query: AdminAccessListQuery): Prisma.Sql {
   const directionSql = ORDER_DIRECTIONS[direction];
   const orderings = {
     [ADMIN_ACCESS_SORT_FIELDS.NAME]: Prisma.sql`
-      COALESCE(p."name", u."name") ${directionSql} NULLS LAST,
+      p."name" ${directionSql} NULLS LAST,
       u."login" ${directionSql},
       u."id" ${directionSql}
     `,
@@ -71,11 +74,10 @@ function adminAccessOrderBy(query: AdminAccessListQuery): Prisma.Sql {
     `,
     [ADMIN_ACCESS_SORT_FIELDS.ROLE]: Prisma.sql`
       CASE
-        WHEN u."role" IS NULL THEN 0
-        WHEN u."role" = ${Role.STUDENT}::"Role" THEN 1
-        WHEN u."role" = ${Role.STAFF}::"Role" THEN 2
-        WHEN u."role" = ${Role.ADMIN}::"Role" THEN 3
-        ELSE 4
+        WHEN u."hasAdminAccess" THEN 3
+        WHEN u."hasStaffAccess" THEN 2
+        WHEN p."memberKind" = 'STUDENT'::"MemberKind" THEN 1
+        ELSE 0
       END ${directionSql},
       u."id" ${directionSql}
     `,
@@ -97,17 +99,15 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
     const contains = `%${query.query}%`;
     conditions.push(Prisma.sql`
       (
-        COALESCE(p."name", u."name") ILIKE ${contains}
+        p."name" ILIKE ${contains}
         OR u."login" ILIKE ${contains}
       )
     `);
   }
   if (query.role !== undefined) {
-    conditions.push(
-      query.role === ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED
-        ? Prisma.sql`u."role" IS NULL`
-        : Prisma.sql`u."role" = ${query.role}::"Role"`,
-    );
+    // 표시 역할은 canonical 세 사실의 접힌 요약이다(`domain/authority-label.ts`).
+    // 필터도 같은 우선순위(관리자 → 교직원 → 학생)로 되짚어야 목록과 어긋나지 않는다.
+    conditions.push(adminAccessRoleFilterSql(query.role));
   }
   if (query.accountStatus !== undefined) {
     conditions.push(
@@ -120,17 +120,17 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
         ? Prisma.sql`
             EXISTS (
               SELECT 1
-              FROM "RoleRequest" AS r
+              FROM ${STAFF_ACCESS_REQUEST_TABLE} AS r
               WHERE r."userId" = u."id"
-                AND r."status" = ${RoleRequestStatus.PENDING}::"RoleRequestStatus"
+                AND r."status" = ${StaffAccessRequestStatus.PENDING}::${STAFF_ACCESS_REQUEST_STATUS_TYPE}
             )
           `
         : Prisma.sql`
             NOT EXISTS (
               SELECT 1
-              FROM "RoleRequest" AS r
+              FROM ${STAFF_ACCESS_REQUEST_TABLE} AS r
               WHERE r."userId" = u."id"
-                AND r."status" = ${RoleRequestStatus.PENDING}::"RoleRequestStatus"
+                AND r."status" = ${StaffAccessRequestStatus.PENDING}::${STAFF_ACCESS_REQUEST_STATUS_TYPE}
             )
           `,
     );
@@ -138,4 +138,28 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
   return conditions.length === 0
     ? Prisma.empty
     : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
+}
+
+/** 표시 역할 필터를 canonical 컬럼 조건으로 되짚는다. `authorityLabel`과 같은 우선순위다. */
+function adminAccessRoleFilterSql(
+  filter: NonNullable<AdminAccessListQuery['role']>,
+): Prisma.Sql {
+  switch (filter) {
+    case ADMIN_ACCESS_ROLE_FILTERS.ADMIN:
+      return Prisma.sql`u."hasAdminAccess"`;
+    case ADMIN_ACCESS_ROLE_FILTERS.STAFF:
+      return Prisma.sql`(u."hasStaffAccess" AND NOT u."hasAdminAccess")`;
+    case ADMIN_ACCESS_ROLE_FILTERS.STUDENT:
+      return Prisma.sql`(
+        NOT u."hasStaffAccess"
+        AND NOT u."hasAdminAccess"
+        AND p."memberKind" = 'STUDENT'::"MemberKind"
+      )`;
+    case ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED:
+      return Prisma.sql`(
+        NOT u."hasStaffAccess"
+        AND NOT u."hasAdminAccess"
+        AND (p."memberKind" IS NULL OR p."memberKind" <> 'STUDENT'::"MemberKind")
+      )`;
+  }
 }

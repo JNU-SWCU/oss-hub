@@ -1,4 +1,4 @@
-import { MemberKind, Role } from '@prisma/client';
+import { MemberKind } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import type { PatchUserProfileInput } from './domain/user-profile';
@@ -23,7 +23,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
-  readonly role?: Role | null;
+  readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;

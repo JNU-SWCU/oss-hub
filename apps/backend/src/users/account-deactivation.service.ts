@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -44,7 +44,7 @@ export class AccountDeactivationService {
           USERS_ERROR_CODES[UsersErrorCode.ACCOUNT_ALREADY_DEACTIVATED],
         );
       }
-      if (account.role === Role.ADMIN && activeAdminCount <= 1) {
+      if (account.hasAdminAccess && activeAdminCount <= 1) {
         throw new DomainException(
           USERS_ERROR_CODES[UsersErrorCode.LAST_ACTIVE_ADMIN],
         );

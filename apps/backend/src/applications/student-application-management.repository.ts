@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ApplicationStatus, type Prisma } from '@prisma/client';
 import {
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
 import { programApplicationParticipantWhere } from '../programs/program-participant';
 
@@ -73,7 +73,7 @@ const APPLICATION_SELECT = {
   status: true,
   teamId: true,
   applicant: {
-    select: { id: true, nickname: true, ...COMPATIBLE_PROFILE_NAME_SELECT },
+    select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
   },
   answers: true,
   submittedAt: true,
@@ -93,7 +93,7 @@ function toOwnedStudentApplication(
     ...row,
     applicant: {
       id: row.applicant.id,
-      name: resolveCompatibleProfileName(row.applicant),
+      name: resolveUserProfileName(row.applicant),
       nickname: row.applicant.nickname,
     },
   };

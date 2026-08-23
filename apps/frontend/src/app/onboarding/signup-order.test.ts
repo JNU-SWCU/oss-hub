@@ -15,7 +15,7 @@ import {
   validateProfileForm,
 } from '@/features/profile/profile-state';
 import { profileFieldRequirement } from '@/features/profile/profile-requirements';
-import type { RoleRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/types';
 import type { AppRole } from '../_shell/role';
 import {
   effectiveProfileRole,
@@ -40,7 +40,7 @@ function formWithoutStudentId() {
 describe('새 교직원 가입 동선', () => {
   it('약관 다음은 역할 선택이다', () => {
     // Given — 방금 동의를 마쳤고 아직 아무 역할도 고르지 않았다
-    const requestStatus: RoleRequestStatus | null = null;
+    const requestStatus: StaffAccessRequestStatus | null = null;
 
     // When / Then — 백엔드 동의 정책의 nextUrl과 같은 곳이다
     expect(onboardingPathFor(requestStatus, 'incomplete')).toBe(
@@ -50,7 +50,7 @@ describe('새 교직원 가입 동선', () => {
 
   it('교직원을 고르면 승인 대기가 아니라 프로필 입력으로 이어진다', () => {
     // Given — 승인을 기다리는 동안 프로필을 채우는 사람이 바로 이 교직원이다
-    const requestStatus: RoleRequestStatus = 'PENDING';
+    const requestStatus: StaffAccessRequestStatus = 'PENDING';
 
     // When / Then
     expect(onboardingPathFor(requestStatus, 'incomplete')).toBe(

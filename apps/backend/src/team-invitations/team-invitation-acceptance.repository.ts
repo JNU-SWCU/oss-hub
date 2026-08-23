@@ -1,7 +1,7 @@
 import {
   AccountStatus,
+  MemberKind,
   Prisma,
-  Role,
   TeamInvitationStatus,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
@@ -101,10 +101,15 @@ export async function acceptTeamInvitationTransaction(
       );
       const invitee = await tx.user.findUnique({
         where: { id: inviteeId },
-        select: { id: true, role: true, accountStatus: true },
+        select: {
+          id: true,
+          accountStatus: true,
+          profile: { select: { memberKind: true } },
+        },
       });
       if (
-        invitee?.role !== Role.STUDENT ||
+        !invitee ||
+        invitee.profile?.memberKind !== MemberKind.STUDENT ||
         invitee.accountStatus !== AccountStatus.ACTIVE
       ) {
         return { kind: 'invitee-not-eligible' };

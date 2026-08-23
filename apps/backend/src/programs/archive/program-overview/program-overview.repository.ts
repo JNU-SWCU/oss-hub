@@ -1,5 +1,9 @@
+import {
+  authorityLabel,
+  type AuthorityLabel,
+} from '../../../common/authority-label';
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 /** 프로그램 상세 화면 상단 요약 — 팩트 바가 쓰는 공개 집계값만 담는다. */
@@ -30,7 +34,7 @@ export interface CurrentSubmissionMilestone {
 
 export interface ViewerIdentity {
   userId: string;
-  role: Role | null;
+  role: AuthorityLabel | null;
 }
 
 /** #619 공개 팀 목록 — 저장소 URL·학번·연락처·이메일은 절대 select하지 않는다. */
@@ -149,9 +153,24 @@ export class ProgramOverviewRepository {
   async findViewerIdentity(githubId: bigint): Promise<ViewerIdentity | null> {
     const user = await this.prisma.user.findFirst({
       where: { githubId, accountStatus: AccountStatus.ACTIVE },
-      select: { id: true, role: true },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        profile: { select: { memberKind: true } },
+      },
     });
-    return user ? { userId: user.id, role: user.role } : null;
+    if (user === null) {
+      return null;
+    }
+    return {
+      userId: user.id,
+      role: authorityLabel({
+        memberKind: user.profile?.memberKind ?? null,
+        hasStaffAccess: user.hasStaffAccess,
+        hasAdminAccess: user.hasAdminAccess,
+      }),
+    };
   }
 
   async findCurrentSubmissionMilestone(

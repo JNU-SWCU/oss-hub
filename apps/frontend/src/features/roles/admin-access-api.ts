@@ -15,7 +15,7 @@ export type AdminAccessPendingFilter = 'NONE' | 'PENDING';
 export type AdminAccessSortField =
   'name' | 'createdAt' | 'lastLoginAt' | 'role' | 'accountStatus';
 export type AdminAccessSortDirection = 'asc' | 'desc';
-export type AdminAccessRoleRequestStatus =
+export type AdminAccessStaffAccessRequestStatus =
   'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
 export type AdminAccessLoginEvent = 'LOGIN' | 'LOGOUT';
 
@@ -73,9 +73,9 @@ export interface AdminAccessDetail extends AdminAccessListItem {
   readonly profile: AdminAccessProfile;
 }
 
-export interface AdminAccessRoleRequestHistoryItem {
+export interface AdminAccessStaffAccessRequestHistoryItem {
   readonly id: string;
-  readonly status: AdminAccessRoleRequestStatus;
+  readonly status: AdminAccessStaffAccessRequestStatus;
   readonly rejectionReason: string | null;
   readonly decidedAt: string | null;
   readonly decidedBy: string | null;
@@ -91,8 +91,8 @@ export interface AdminAccessLoginHistoryItem {
 }
 
 export interface AdminAccessHistory {
-  readonly roleRequests: {
-    readonly items: readonly AdminAccessRoleRequestHistoryItem[];
+  readonly staffAccessRequests: {
+    readonly items: readonly AdminAccessStaffAccessRequestHistoryItem[];
     readonly page: number;
     readonly limit: number;
     readonly total: number;
@@ -117,8 +117,8 @@ export interface AdminAccessListParams {
 }
 
 export interface AdminAccessHistoryParams {
-  readonly roleRequestPage?: number;
-  readonly roleRequestLimit?: number;
+  readonly staffAccessRequestPage?: number;
+  readonly staffAccessRequestLimit?: number;
   readonly loginPage?: number;
   readonly loginLimit?: number;
 }
@@ -194,11 +194,14 @@ export function serializeAdminAccessHistoryQuery(
   params: AdminAccessHistoryParams,
 ): string {
   const search = new URLSearchParams();
-  if (params.roleRequestPage !== undefined) {
-    search.set('roleRequestPage', String(params.roleRequestPage));
+  if (params.staffAccessRequestPage !== undefined) {
+    search.set('staffAccessRequestPage', String(params.staffAccessRequestPage));
   }
-  if (params.roleRequestLimit !== undefined) {
-    search.set('roleRequestLimit', String(params.roleRequestLimit));
+  if (params.staffAccessRequestLimit !== undefined) {
+    search.set(
+      'staffAccessRequestLimit',
+      String(params.staffAccessRequestLimit),
+    );
   }
   if (params.loginPage !== undefined) {
     search.set('loginPage', String(params.loginPage));
@@ -332,9 +335,9 @@ export function parseAdminAccessDetail(value: unknown): AdminAccessDetail {
   };
 }
 
-function isAdminAccessRoleRequestHistoryItem(
+function isAdminAccessStaffAccessRequestHistoryItem(
   value: unknown,
-): value is AdminAccessRoleRequestHistoryItem {
+): value is AdminAccessStaffAccessRequestHistoryItem {
   return (
     isRecord(value) &&
     isNonEmptyString(value.id) &&
@@ -366,12 +369,14 @@ function isAdminAccessLoginHistoryItem(
 export function parseAdminAccessHistory(value: unknown): AdminAccessHistory {
   if (
     !isRecord(value) ||
-    !isRecord(value.roleRequests) ||
-    !Array.isArray(value.roleRequests.items) ||
-    !value.roleRequests.items.every(isAdminAccessRoleRequestHistoryItem) ||
-    typeof value.roleRequests.page !== 'number' ||
-    typeof value.roleRequests.limit !== 'number' ||
-    typeof value.roleRequests.total !== 'number' ||
+    !isRecord(value.staffAccessRequests) ||
+    !Array.isArray(value.staffAccessRequests.items) ||
+    !value.staffAccessRequests.items.every(
+      isAdminAccessStaffAccessRequestHistoryItem,
+    ) ||
+    typeof value.staffAccessRequests.page !== 'number' ||
+    typeof value.staffAccessRequests.limit !== 'number' ||
+    typeof value.staffAccessRequests.total !== 'number' ||
     !isRecord(value.loginHistory) ||
     !Array.isArray(value.loginHistory.items) ||
     !value.loginHistory.items.every(isAdminAccessLoginHistoryItem) ||
@@ -382,11 +387,11 @@ export function parseAdminAccessHistory(value: unknown): AdminAccessHistory {
     throw new AdminAccessResponseError();
   }
   return {
-    roleRequests: {
-      items: value.roleRequests.items.map((item) => ({ ...item })),
-      page: value.roleRequests.page,
-      limit: value.roleRequests.limit,
-      total: value.roleRequests.total,
+    staffAccessRequests: {
+      items: value.staffAccessRequests.items.map((item) => ({ ...item })),
+      page: value.staffAccessRequests.page,
+      limit: value.staffAccessRequests.limit,
+      total: value.staffAccessRequests.total,
     },
     loginHistory: {
       items: value.loginHistory.items.map((item) => ({ ...item })),

@@ -1,5 +1,45 @@
-import { AccountStatus, PrismaClient, Role, User } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  PrismaClient,
+  User,
+} from '@prisma/client';
+
+/**
+ * 시드가 쓰는 어휘 — 배타적 `Role`이 사라진 뒤에도 시나리오 이름은 그대로 남긴다.
+ *
+ * 값 하나가 세 canonical 사실로 펼쳐진다(`SEED_ROLE_FACTS`). 시드 호출부가
+ * `role: 'STAFF'`처럼 한 단어로 사람을 묘사할 수 있어야 시나리오가 읽히기 때문이다.
+ */
+export type SeedRole = 'STUDENT' | 'STAFF' | 'ADMIN';
+
+export const SEED_ROLE_FACTS: Record<
+  SeedRole,
+  {
+    readonly memberKind: MemberKind | null;
+    readonly hasStaffAccess: boolean;
+    readonly hasAdminAccess: boolean;
+  }
+> = {
+  STUDENT: {
+    memberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+  },
+  STAFF: {
+    memberKind: MemberKind.STAFF,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+  },
+  // 관리자 권한은 회원 정체성과 독립이다 — 시드가 학생인지 교직원인지 정하지 않는다.
+  ADMIN: {
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+  },
+};
 import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
 import { isValidUserName } from '../../src/users/user-profile-policy';
 
@@ -180,7 +220,7 @@ export function parseOssHubTeamAccounts(
       !/^[0-9]+$/.test(githubIdRaw) ||
       !login ||
       !GITHUB_LOGIN_PATTERN.test(login) ||
-      role !== Role.ADMIN ||
+      role !== 'ADMIN' ||
       (displayName !== undefined && !isValidUserName(displayName))
     ) {
       throw new Error(OSS_HUB_TEAM_ACCOUNTS_ERROR);
@@ -203,7 +243,7 @@ export function parseOssHubTeamAccounts(
     return {
       githubId,
       login,
-      role: Role.ADMIN,
+      role: 'ADMIN',
       ...(displayName !== undefined ? { displayName } : {}),
     };
   });
@@ -322,11 +362,15 @@ export async function upsertSeedUser(
   stats: SeedStats,
   params: {
     id: string;
-    role: Role | null;
+    role: SeedRole | null;
     accountStatus?: AccountStatus;
   },
 ): Promise<User> {
   const { id, role, accountStatus = AccountStatus.ACTIVE } = params;
+  const facts =
+    role === null
+      ? { memberKind: null, hasStaffAccess: false, hasAdminAccess: false }
+      : SEED_ROLE_FACTS[role];
   const login = id.replace(/^seed:/, 'seed-').replace(/:/g, '-');
   const githubId = seedGithubId(id);
   return upsertTracked(
@@ -336,8 +380,22 @@ export async function upsertSeedUser(
     () =>
       prisma.user.upsert({
         where: { id },
-        update: { nickname: login, role, accountStatus },
-        create: { id, githubId, nickname: login, role, accountStatus },
+        update: {
+          nickname: login,
+          accountStatus,
+          selectedMemberKind: facts.memberKind,
+          hasStaffAccess: facts.hasStaffAccess,
+          hasAdminAccess: facts.hasAdminAccess,
+        },
+        create: {
+          id,
+          githubId,
+          nickname: login,
+          accountStatus,
+          selectedMemberKind: facts.memberKind,
+          hasStaffAccess: facts.hasStaffAccess,
+          hasAdminAccess: facts.hasAdminAccess,
+        },
       }),
   );
 }
@@ -371,4 +429,39 @@ export async function upsertConsent(
         create: { userId, policyVersion: CONSENT_POLICY_VERSION },
       }),
   );
+}
+
+/**
+ * 시드가 쓰는 canonical 프로필 upsert.
+ *
+ * `department`와 `affiliationName`은 같은 사실의 두 사본이라 한 값에서 함께
+ * 파생한다(`UserProfile_department_affiliationName_check`). 학생은 학과 소속,
+ * 교직원은 사업단 소속이 기본이다.
+ */
+export async function upsertSeedProfile(params: {
+  readonly userId: string;
+  readonly name: string;
+  readonly studentId: string | null;
+  readonly department: string;
+  readonly memberKind: MemberKind;
+  readonly affiliationKind?: AffiliationKind;
+}): Promise<void> {
+  const affiliationKind =
+    params.affiliationKind ??
+    (params.memberKind === MemberKind.STUDENT
+      ? AffiliationKind.DEPARTMENT
+      : AffiliationKind.PROGRAM_OFFICE);
+  const write = {
+    name: params.name,
+    studentId: params.studentId,
+    department: params.department,
+    memberKind: params.memberKind,
+    affiliationKind,
+    affiliationName: params.department,
+  };
+  await prisma.userProfile.upsert({
+    where: { userId: params.userId },
+    update: write,
+    create: { userId: params.userId, ...write },
+  });
 }

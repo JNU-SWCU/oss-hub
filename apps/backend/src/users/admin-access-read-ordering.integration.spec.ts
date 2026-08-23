@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -49,9 +49,8 @@ beforeAll(async () => {
       id: `${prefix}actor`,
       githubId: 8_003_900_001_001n,
       nickname: 'synthetic-admin',
-      name: 'Admin',
       profileName: null,
-      role: Role.ADMIN,
+      role: 'ADMIN',
     })
   ).githubId;
   await Promise.all([
@@ -59,65 +58,57 @@ beforeAll(async () => {
       id: orderingUserIds.legacyAlpha,
       githubId: 8_003_900_001_002n,
       nickname: 'legacy-alpha',
-      name: `Alpha ${queryFragment}`,
-      profileName: null,
-      role: Role.STUDENT,
+      profileName: `Alpha ${queryFragment}`,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileBravo,
       githubId: 8_003_900_001_003n,
       nickname: 'profile-bravo',
-      name: `Bravo ${queryFragment}`,
       profileName: `Bravo ${queryFragment}`,
-      role: Role.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.legacyCharlie,
       githubId: 8_003_900_001_004n,
       nickname: 'legacy-charlie',
-      name: `Charlie ${queryFragment}`,
-      profileName: null,
-      role: Role.STUDENT,
+      profileName: `Charlie ${queryFragment}`,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileDelta,
       githubId: 8_003_900_001_005n,
       nickname: 'profile-delta',
-      name: `Delta ${queryFragment}`,
       profileName: `Delta ${queryFragment}`,
-      role: Role.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoLogin,
       githubId: 8_003_900_001_006n,
       nickname: 'a-login',
-      name: `Echo ${queryFragment}`,
       profileName: `Echo ${queryFragment}`,
-      role: Role.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoIdA,
       githubId: 8_003_900_001_007n,
       nickname: 'same-login',
-      name: `Echo ${queryFragment}`,
       profileName: `Echo ${queryFragment}`,
-      role: Role.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoIdB,
       githubId: 8_003_900_001_008n,
       nickname: 'same-login',
-      name: `Echo ${queryFragment}`,
       profileName: `Echo ${queryFragment}`,
-      role: Role.STUDENT,
+      role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileZulu,
       githubId: 8_003_900_001_009n,
       nickname: 'profile-zulu',
-      name: `Zulu ${queryFragment}`,
       profileName: `Zulu ${queryFragment}`,
-      role: Role.STUDENT,
+      role: 'STUDENT',
     }),
   ]);
 });
@@ -154,32 +145,42 @@ type SyntheticUser = {
   readonly id: string;
   readonly githubId: bigint;
   readonly nickname: string;
-  readonly name: string | null;
+  /**
+   * 프로필 이름. `null`이면 프로필 행 자체를 만들지 않는다 — 아직 가입을 마치지
+   * 않은 사람이다. 계약 스키마에서는 "행은 있는데 이름만 비어 있는" 상태가 없다.
+   */
   readonly profileName: string | null;
-  readonly role: Role;
+  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
 };
 
 function createUser(input: SyntheticUser) {
-  const profileStudentId = `${input.id}:student`;
+  const profileStudentId = String(input.githubId % 1_000_000n).padStart(6, '0');
   const profileDepartment = 'Synthetic department';
   return prisma.user.create({
     data: {
       id: input.id,
       githubId: input.githubId,
       nickname: input.nickname,
-      name: input.name,
-      role: input.role,
       accountStatus: AccountStatus.ACTIVE,
+      selectedMemberKind:
+        input.role === 'STUDENT'
+          ? MemberKind.STUDENT
+          : input.role === 'STAFF'
+            ? MemberKind.STAFF
+            : null,
+      hasStaffAccess: input.role === 'STAFF',
+      hasAdminAccess: input.role === 'ADMIN',
       ...(input.profileName === null
         ? {}
         : {
-            studentId: profileStudentId,
-            department: profileDepartment,
             profile: {
               create: {
                 name: input.profileName,
                 studentId: profileStudentId,
                 department: profileDepartment,
+                memberKind: MemberKind.STUDENT,
+                affiliationKind: AffiliationKind.DEPARTMENT,
+                affiliationName: profileDepartment,
               },
             },
           }),

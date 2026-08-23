@@ -2,13 +2,13 @@ import { StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import type {
   AdminAccessLoginHistoryItem,
-  AdminAccessRoleRequestHistoryItem,
+  AdminAccessStaffAccessRequestHistoryItem,
 } from '../admin-access-api';
 import { formatAdminAccessDateTime } from '../admin-access-detail-api';
 import type { DetailHeadingTag } from './admin-access-detail-layout';
 
 const ROLE_REQUEST_STATUS: Record<
-  AdminAccessRoleRequestHistoryItem['status'],
+  AdminAccessStaffAccessRequestHistoryItem['status'],
   {
     readonly label: string;
     readonly variant: 'pending' | 'approved' | 'rejected' | 'closed';
@@ -64,7 +64,7 @@ interface HistorySectionProps {
   readonly headingTag: DetailHeadingTag;
 }
 
-export function RoleRequestHistorySection({
+export function StaffAccessRequestHistorySection({
   items,
   page,
   totalPages,
@@ -72,7 +72,7 @@ export function RoleRequestHistorySection({
   onPageChange,
   headingTag: HeadingTag,
 }: HistorySectionProps & {
-  readonly items: readonly AdminAccessRoleRequestHistoryItem[];
+  readonly items: readonly AdminAccessStaffAccessRequestHistoryItem[];
 }) {
   return (
     <section

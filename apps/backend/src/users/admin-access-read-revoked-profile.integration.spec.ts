@@ -13,7 +13,12 @@
  * 이 상태를 만들 수 없다. `role: null` + `selectedRole: STAFF` + 최신 REVOKED 행을
  * 직접 세우면 이 계약이 회수 구현과 독립적으로 성립한다.
  */
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -46,24 +51,32 @@ beforeAll(async () => {
       id: REVOKED_STAFF_ID,
       githubId: 9_184_100_001n,
       nickname: 'synthetic-184-revoked-staff',
-      name: '합성 교직원',
-      department: '인공지능학부',
-      role: null,
-      selectedRole: Role.STAFF,
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: false,
       accountStatus: AccountStatus.ACTIVE,
+      profile: {
+        create: {
+          name: '합성 회수 교직원',
+          studentId: null,
+          department: '합성 사업단',
+          memberKind: MemberKind.STAFF,
+          affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+          affiliationName: '합성 사업단',
+        },
+      },
     },
   });
-  await prisma.roleRequest.createMany({
+  await prisma.staffAccessRequest.createMany({
     data: [
       {
         userId: REVOKED_STAFF_ID,
-        status: RoleRequestStatus.APPROVED,
+        status: StaffAccessRequestStatus.APPROVED,
         createdAt: APPROVED_AT,
         decidedAt: APPROVED_AT,
       },
       {
         userId: REVOKED_STAFF_ID,
-        status: RoleRequestStatus.REVOKED,
+        status: StaffAccessRequestStatus.REVOKED,
         createdAt: REVOKED_AT,
         decidedAt: REVOKED_AT,
       },
@@ -75,10 +88,7 @@ beforeAll(async () => {
       id: UNCHOSEN_ID,
       githubId: 9_184_100_002n,
       nickname: 'synthetic-184-unchosen',
-      name: '합성 미배정',
-      department: '인공지능학부',
-      role: null,
-      selectedRole: null,
+      selectedMemberKind: null,
       accountStatus: AccountStatus.ACTIVE,
     },
   });
@@ -98,7 +108,7 @@ it('상세 조회에서 회수된 교직원의 프로필은 완료로 읽힌다'
   expect(detail?.profile.studentId).toBeNull();
   expect(detail?.isProfileComplete).toBe(true);
   expect(detail?.profile.isComplete).toBe(true);
-  // 승인 대기가 아닌 사람에게 결정 근거가 실리면 안 된다 — `roleRequests`는 PENDING만
+  // 승인 대기가 아닌 사람에게 결정 근거가 실리면 안 된다 — `staffAccessRequests`는 PENDING만
   // 골라 오고 이 사람에게는 그 행이 없다.
   expect(detail?.pendingRequest).toBeNull();
 });
@@ -130,7 +140,7 @@ it('목록 조회도 상세와 같은 완료 판정을 돌려준다', async () =
 });
 
 async function cleanup(): Promise<void> {
-  await prisma.roleRequest.deleteMany({
+  await prisma.staffAccessRequest.deleteMany({
     where: { user: { id: { startsWith: prefix } } },
   });
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });

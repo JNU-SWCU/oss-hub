@@ -1,3 +1,4 @@
+import type { MemberKind } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type { AdminAccessActor } from './admin-access.repository.types';
 
@@ -7,6 +8,7 @@ export type AdminProfileTargetRecord = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly memberKind?: MemberKind | null;
 };
 
 /**

@@ -2,8 +2,7 @@ import {
   AccountStatus,
   AffiliationKind,
   MemberKind,
-  Role,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -28,13 +27,11 @@ let sequence = 0;
 
 export async function createOnboardingUser(label: string, kind: MemberKind) {
   sequence += 1;
-  const role = kind === MemberKind.STUDENT ? Role.STUDENT : Role.STAFF;
   return compatibilityPrisma.user.create({
     data: {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: 9_008_000_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      selectedRole: role,
       selectedMemberKind: kind,
     },
     select: { id: true, githubId: true },
@@ -58,7 +55,6 @@ export async function createAdmin(label: string) {
       id: `${TEST_PREFIX}${label}:${sequence}`,
       githubId: 9_008_000_000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      role: Role.ADMIN,
       hasStaffAccess: false,
       hasAdminAccess: true,
     },
@@ -67,8 +63,8 @@ export async function createAdmin(label: string) {
 }
 
 export function pendingRequest(userId: string) {
-  return compatibilityPrisma.roleRequest.findFirstOrThrow({
-    where: { userId, status: RoleRequestStatus.PENDING },
+  return compatibilityPrisma.staffAccessRequest.findFirstOrThrow({
+    where: { userId, status: StaffAccessRequestStatus.PENDING },
   });
 }
 

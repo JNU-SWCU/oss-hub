@@ -70,8 +70,8 @@ function render(
       session.hasAdminAccess === undefined
         ? session.role === 'ADMIN'
         : session.hasAdminAccess,
-    roleRequestStatus: null,
-    roleRequestRejectionReason: null,
+    staffAccessRequestStatus: null,
+    staffAccessRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: session.isProfileComplete,
     retry: () => {},

@@ -1,7 +1,8 @@
 import {
   AccountStatus,
+  AffiliationKind,
+  MemberKind,
   MilestoneSubmissionType,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -51,31 +52,34 @@ const USER_RECORDS = [
   {
     id: UNRELATED_STUDENT_USER_ID,
     githubId: UNRELATED_STUDENT_GITHUB_ID,
-    role: Role.STUDENT,
+    selectedMemberKind: MemberKind.STUDENT,
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: STAFF_USER_ID,
     githubId: STAFF_GITHUB_ID,
-    role: Role.STAFF,
+    selectedMemberKind: MemberKind.STAFF,
+    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: ADMIN_USER_ID,
     githubId: ADMIN_GITHUB_ID,
-    role: Role.ADMIN,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: INACTIVE_USER_ID,
     githubId: INACTIVE_GITHUB_ID,
-    role: Role.ADMIN,
+    hasAdminAccess: true,
     accountStatus: AccountStatus.DEACTIVATED,
   },
 ] satisfies readonly {
   readonly id: string;
   readonly githubId: bigint;
-  readonly role: Role;
+  readonly selectedMemberKind?: MemberKind;
+  readonly hasStaffAccess?: boolean;
+  readonly hasAdminAccess?: boolean;
   readonly accountStatus: AccountStatus;
 }[];
 const FILE_IDS: string[] = [
@@ -145,6 +149,17 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
     await deleteIssue342Rows();
     await prisma.user.createMany({
       data: USER_RECORDS.map((user) => ({ ...user, nickname: user.id })),
+    });
+    await prisma.userProfile.create({
+      data: {
+        userId: UNRELATED_STUDENT_USER_ID,
+        name: '합성 무관 학생',
+        studentId: '342002',
+        department: '합성 학과',
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성 학과',
+      },
     });
     await prisma.milestone.create({
       data: {

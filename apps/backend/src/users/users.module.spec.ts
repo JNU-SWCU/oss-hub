@@ -7,9 +7,6 @@ import { AdminAccessService } from './admin-access.service';
 import { IndependentAuthorityController } from './independent-authority.controller';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { LegacyMemberReclassificationController } from './legacy-member-reclassification.controller';
-import { LegacyMemberReclassificationRepository } from './legacy-member-reclassification.repository';
-import { LegacyMemberReclassificationService } from './legacy-member-reclassification.service';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
 
@@ -30,7 +27,6 @@ describe('UsersModule admin access wiring', () => {
       expect.arrayContaining([
         AdminAccessController,
         IndependentAuthorityController,
-        LegacyMemberReclassificationController,
       ]),
     );
     expect(providers).toEqual(
@@ -39,8 +35,6 @@ describe('UsersModule admin access wiring', () => {
         AdminAccessService,
         IndependentAuthorityRepository,
         IndependentAuthorityService,
-        LegacyMemberReclassificationRepository,
-        LegacyMemberReclassificationService,
       ]),
     );
   });
@@ -58,7 +52,6 @@ describe('UsersModule admin access wiring', () => {
     expect(controllers).toEqual([
       AccountDeactivationController,
       UsersController,
-      LegacyMemberReclassificationController,
       AdminAccessController,
       IndependentAuthorityController,
     ]);

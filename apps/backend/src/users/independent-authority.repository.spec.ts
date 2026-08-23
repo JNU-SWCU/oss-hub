@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind, Role } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { resolveIndependentAuthorityTransition } from './independent-authority-transition';
@@ -13,11 +13,6 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
         id: 'target',
         githubId: 9_700_200_001n,
         nickname: 'synthetic-target',
-        name: '합성 교직원',
-        studentId: null,
-        department: '합성 사업단',
-        role: Role.ADMIN,
-        selectedRole: Role.STAFF,
         selectedMemberKind: MemberKind.STAFF,
         hasStaffAccess: true,
         hasAdminAccess: true,
@@ -27,10 +22,10 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
           studentId: null,
           department: '합성 사업단',
           memberKind: MemberKind.STAFF,
-          affiliationKind: 'PROGRAM_OFFICE',
+          affiliationKind: AffiliationKind.PROGRAM_OFFICE,
           affiliationName: '합성 사업단',
         },
-        roleRequests: [],
+        staffAccessRequests: [],
         loginHistories: [],
       }),
       update,
@@ -63,8 +58,7 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
   expect(update).toHaveBeenCalledWith({
     where: { id: 'target' },
     data: {
-      role: Role.STAFF,
-      selectedRole: Role.STAFF,
+      selectedMemberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: false,
     },

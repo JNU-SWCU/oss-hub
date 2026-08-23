@@ -1,13 +1,14 @@
-import { ProgramCategory, RoleRequestStatus } from '@prisma/client';
+import { ProgramCategory, StaffAccessRequestStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
 describe('ProgramEditorRepository authority', () => {
   it('loads pending staff-role requests with editor authority', async () => {
     const findUnique = jest.fn().mockResolvedValue({
-      role: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: 'ACTIVE',
-      roleRequests: [{ status: RoleRequestStatus.PENDING }],
+      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });
     const transaction = { user: { findUnique } };
     const prisma = {
@@ -22,16 +23,17 @@ describe('ProgramEditorRepository authority', () => {
       store.findUserAuthorityByGithubId(101n),
     );
 
-    expect(result?.roleRequests).toEqual([
-      { status: RoleRequestStatus.PENDING },
+    expect(result?.staffAccessRequests).toEqual([
+      { status: StaffAccessRequestStatus.PENDING },
     ]);
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 101n },
       select: {
-        role: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
         accountStatus: true,
-        roleRequests: {
-          where: { status: RoleRequestStatus.PENDING },
+        staffAccessRequests: {
+          where: { status: StaffAccessRequestStatus.PENDING },
           select: { status: true },
           take: 1,
         },

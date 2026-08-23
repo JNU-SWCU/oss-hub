@@ -1,3 +1,4 @@
+import { MemberKind } from '@prisma/client';
 import {
   isCompleteUserProfile,
   isStoredStudentId,
@@ -55,7 +56,7 @@ it('예전 형식으로 저장된 학번도 완료로 판정한다', () => {
       name: '합성 사용자',
       studentId: '9'.repeat(9),
       department: '인공지능학부',
-      role: 'STUDENT',
+      memberKind: MemberKind.STUDENT,
     }),
   ).toBe(true);
 });
@@ -70,7 +71,7 @@ it.each([['12'], ['1'.repeat(11)], ['12A456'], ['']])(
         name: '합성 사용자',
         studentId,
         department: '인공지능학부',
-        role: 'STUDENT',
+        memberKind: MemberKind.STUDENT,
       }),
     ).toBe(false);
   },
@@ -119,7 +120,7 @@ it('accepts six digits for new student IDs and keeps legacy 6-10 stored IDs comp
         name: PROFILE_UNICODE_CONTRACT.hangulName,
         studentId,
         department: '인공지능학부',
-        role: 'STUDENT',
+        memberKind: MemberKind.STUDENT,
       }),
     ).toBe(true);
   }

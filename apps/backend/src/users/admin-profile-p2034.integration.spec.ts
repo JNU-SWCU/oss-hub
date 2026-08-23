@@ -1,4 +1,4 @@
-import { Prisma, Role } from '@prisma/client';
+import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -50,10 +50,16 @@ async function createTargetUser(): Promise<string> {
       id,
       githubId: GITHUB_ID_BASE + BigInt(sequence),
       nickname: `synthetic-qa58-target-${sequence}`,
-      name: '기존 이름',
-      // studentId/department는 비워 UserProfile 행 없이 구버전 컬럼만 갱신하는
-      // 경로(applyLegacyFields)를 타게 한다 — 두 관리자가 서로 다른 legacy
-      // 컬럼(name/department)을 같은 User 행에서 동시에 고치는 상황을 만든다.
+      profile: {
+        create: {
+          name: '합성 초기 이름',
+          studentId: `${920_000 + sequence}`,
+          department: '합성 학과',
+          memberKind: MemberKind.STUDENT,
+          affiliationKind: AffiliationKind.DEPARTMENT,
+          affiliationName: '합성 학과',
+        },
+      },
     },
   });
   return id;
@@ -72,8 +78,7 @@ async function createAdminActor(
       id: `${TEST_PREFIX}actor-${label}:${sequence}`,
       githubId: GITHUB_ID_BASE + 100_000n + BigInt(sequence),
       nickname: `synthetic-qa58-actor-${label}-${sequence}`,
-      role: Role.ADMIN,
-      name,
+      hasAdminAccess: true,
     },
     select: { githubId: true },
   });
@@ -153,14 +158,15 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
 
     const persisted = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
+      include: { profile: true },
     });
     if (fulfilled.length === 2) {
-      expect(persisted.name).toBe('이름 A');
-      expect(persisted.department).toBe('학과 B');
+      expect(persisted.profile?.name).toBe('이름 A');
+      expect(persisted.profile?.department).toBe('학과 B');
     } else {
       // 한쪽만 성공했다면 실패한 쪽의 필드는 원래 값(null)에 머물러야 한다.
       const succeededField =
-        persisted.name === '이름 A' ? 'name' : 'department';
+        persisted.profile?.name === '이름 A' ? 'name' : 'department';
       expect(['name', 'department']).toContain(succeededField);
     }
   });

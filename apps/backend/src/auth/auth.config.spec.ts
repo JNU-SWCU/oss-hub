@@ -250,7 +250,11 @@ describe('AuthConfig 초기 역할 시드', () => {
   it('설정되면 역할을, 미등록·미설정이면 null을 반환한다', () => {
     withEnv(requiredAuthEnv({ AUTH_INITIAL_ROLES: '101:STAFF' }), () => {
       const config = authConfig();
-      expect(config.resolveInitialRole(101n)).toBe('STAFF');
+      expect(config.resolveInitialRole(101n)).toEqual({
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      });
       expect(config.resolveInitialRole(999n)).toBeNull();
     });
     withEnv(requiredAuthEnv(), () => {

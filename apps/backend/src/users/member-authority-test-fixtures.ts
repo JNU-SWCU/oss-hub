@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind, Role } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import type { CompleteUserProfileInput } from './domain/user-profile';
 import type { UserProfileRecord } from './user-profile-policy';
 
@@ -29,8 +29,6 @@ export function profileRecord(
 ): UserProfileRecord {
   return {
     id,
-    role: null,
-    selectedRole: Role.STUDENT,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: null,
     affiliationKind: null,

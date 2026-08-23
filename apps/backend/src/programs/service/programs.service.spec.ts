@@ -1,7 +1,6 @@
 import {
   ApplicationStatus,
   ProgramCategory,
-  Role,
   SubmissionStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
@@ -108,7 +107,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      role: Role.STUDENT,
+      role: 'STUDENT',
     };
     const detail = await service.detail('program-1', viewer);
 
@@ -128,7 +127,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'leader-1',
-      role: Role.STUDENT,
+      role: 'STUDENT',
     };
 
     // When
@@ -175,7 +174,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      role: Role.STAFF,
+      role: 'STAFF',
     };
     const detail = await service.detail('program-1', viewer);
 
@@ -198,7 +197,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      role: Role.STAFF,
+      role: 'STAFF',
     };
 
     // When
@@ -238,7 +237,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      role: Role.STUDENT,
+      role: 'STUDENT',
     };
 
     // When
@@ -263,7 +262,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 1n,
       userId: 'student-1',
-      role: Role.STUDENT,
+      role: 'STUDENT',
     };
 
     // When
@@ -290,7 +289,7 @@ describe('ProgramsService detail', () => {
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
-      role: Role.STAFF,
+      role: 'STAFF',
     };
 
     // When

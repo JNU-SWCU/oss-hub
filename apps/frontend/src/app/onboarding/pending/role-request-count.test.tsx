@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     router,
-    fetchMyRoleRequest: vi.fn(),
+    fetchMyStaffAccessRequest: vi.fn(),
     fetchMyRoleSelection: vi.fn(),
     getMyProfile: vi.fn(),
     useSession: vi.fn(),
@@ -51,7 +51,7 @@ vi.mock('@/features/profile/api', () => ({
 }));
 
 vi.mock('@/features/roles/api', () => ({
-  fetchMyRoleRequest: mocks.fetchMyRoleRequest,
+  fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   requestStaffRole: vi.fn(),
   selectRole: vi.fn(),
@@ -67,10 +67,10 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 function SharedRoleRefreshProbe() {
-  const { roleRequestStatus, retry } = useSharedSessionRole();
+  const { staffAccessRequestStatus, retry } = useSharedSessionRole();
   return (
     <button type="button" onClick={retry}>
-      {roleRequestStatus ?? 'NONE'}
+      {staffAccessRequestStatus ?? 'NONE'}
     </button>
   );
 }
@@ -88,12 +88,14 @@ describe('승인 대기 화면 역할 요청 조회', () => {
         name: '승인 대기 교직원',
         email: null,
         avatarUrl: null,
-        role: null,
+        memberKind: null,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
         isProfileComplete: true,
       },
       retry: vi.fn(),
     });
-    mocks.fetchMyRoleRequest.mockResolvedValue({
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue({
       requestedRole: 'STAFF',
       status: 'PENDING',
       requestedAt: '2026-08-08T00:00:00.000Z',
@@ -123,7 +125,7 @@ describe('승인 대기 화면 역할 요청 조회', () => {
     });
 
     expect(container.textContent).toContain('교직원 승인을 기다리고 있습니다');
-    expect(mocks.fetchMyRoleRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchMyStaffAccessRequest).toHaveBeenCalledTimes(1);
     expect(mocks.fetchMyRoleSelection).toHaveBeenCalledTimes(1);
   });
 
@@ -145,13 +147,15 @@ describe('승인 대기 화면 역할 요청 조회', () => {
               name: '승인 대기 교직원',
               email: null,
               avatarUrl: null,
-              role: null,
+              memberKind: null,
+              hasStaffAccess: false,
+              hasAdminAccess: false,
               isProfileComplete: true,
             },
             retry,
           };
     });
-    mocks.fetchMyRoleRequest
+    mocks.fetchMyStaffAccessRequest
       .mockResolvedValueOnce({
         requestedRole: 'STAFF',
         status: 'PENDING',
@@ -187,7 +191,7 @@ describe('승인 대기 화면 역할 요청 조회', () => {
       expect(container.textContent).toContain('REJECTED');
     });
 
-    expect(mocks.fetchMyRoleRequest).toHaveBeenCalledTimes(2);
+    expect(mocks.fetchMyStaffAccessRequest).toHaveBeenCalledTimes(2);
     expect(mocks.fetchMyRoleSelection).toHaveBeenCalledTimes(2);
   });
 });

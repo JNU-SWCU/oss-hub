@@ -20,7 +20,7 @@ describe('LoginHistoryController', () => {
   const request = {
     principal: syntheticUser,
     sessionGithubId: syntheticUser.githubId,
-  } as AuthenticatedRequest;
+  } as unknown as AuthenticatedRequest;
 
   beforeEach(() => {
     findMine.mockReset();

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDefined,
   IsObject,
   IsOptional,
@@ -8,7 +9,8 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import type { AuthorityLabel } from '../../common/authority-label';
 import { DomainException } from '../../common/error-code';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
@@ -30,10 +32,10 @@ class ExpectedPendingRequestDto {
   declare readonly status: string;
 
   toExpectation(): AdminAccessExpectedPendingRequest {
-    if (this.status !== RoleRequestStatus.PENDING) {
+    if (this.status !== StaffAccessRequestStatus.PENDING) {
       throw invalidDecision();
     }
-    return { id: this.id, status: RoleRequestStatus.PENDING };
+    return { id: this.id, status: StaffAccessRequestStatus.PENDING };
   }
 }
 
@@ -83,6 +85,14 @@ export class PatchAdminAccessRequestDto {
   @IsString()
   declare readonly desiredAccountStatus: string;
 
+  @IsOptional()
+  @IsBoolean()
+  declare readonly expectedHasStaffAccess?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  declare readonly expectedHasAdminAccess?: boolean;
+
   @IsDefined()
   @ValidateIf((_object, value: unknown) => value !== null)
   @IsObject()
@@ -104,6 +114,7 @@ export class PatchAdminAccessRequestDto {
       desiredAccountStatus: parseAccountStatus(this.desiredAccountStatus),
       expectedPendingRequest:
         this.expectedPendingRequest?.toExpectation() ?? null,
+      ...parseExpectedCanonicalAuthority(this),
       ...(this.requestDecision
         ? { requestDecision: this.requestDecision.toDecision() }
         : {}),
@@ -111,13 +122,34 @@ export class PatchAdminAccessRequestDto {
   }
 }
 
-function parseRole(value: string | null): Role | null {
+function parseExpectedCanonicalAuthority(body: {
+  readonly expectedHasStaffAccess?: boolean;
+  readonly expectedHasAdminAccess?: boolean;
+}): Pick<
+  AdminAccessMutationCommand,
+  'expectedHasStaffAccess' | 'expectedHasAdminAccess'
+> {
+  const hasStaff = body.expectedHasStaffAccess;
+  const hasAdmin = body.expectedHasAdminAccess;
+  if (hasStaff === undefined && hasAdmin === undefined) {
+    return {};
+  }
+  if (typeof hasStaff !== 'boolean' || typeof hasAdmin !== 'boolean') {
+    throw invalidDecision();
+  }
+  return {
+    expectedHasStaffAccess: hasStaff,
+    expectedHasAdminAccess: hasAdmin,
+  };
+}
+
+function parseRole(value: string | null): AuthorityLabel | null {
   switch (value) {
     case null:
       return null;
-    case Role.STUDENT:
-    case Role.STAFF:
-    case Role.ADMIN:
+    case 'STUDENT':
+    case 'STAFF':
+    case 'ADMIN':
       return value;
     default:
       throw new DomainException(

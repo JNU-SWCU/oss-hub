@@ -1,4 +1,4 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -26,12 +26,12 @@ it('returns the complete authoritative RFC7807 projection for a stale CAS', asyn
   // Given
   const actor = await harness.createUser(
     'stale-projection-actor',
-    Role.ADMIN,
+    'ADMIN',
     AccountStatus.ACTIVE,
   );
   const target = await harness.createUser(
     'stale-projection-target',
-    Role.STAFF,
+    'STAFF',
     AccountStatus.ACTIVE,
   );
 
@@ -40,7 +40,7 @@ it('returns the complete authoritative RFC7807 projection for a stale CAS', asyn
     'PATCH',
     `/users/${target.id}/access`,
     actor.githubId,
-    accessBody({ expectedRole: Role.STUDENT, desiredRole: Role.ADMIN }),
+    accessBody({ expectedRole: 'STUDENT', desiredRole: 'ADMIN' }),
   );
 
   // Then
@@ -57,7 +57,7 @@ it('returns the complete authoritative RFC7807 projection for a stale CAS', asyn
     code: RolesErrorCode.ACCESS_STATE_MISMATCH,
     currentAccess: {
       id: target.id,
-      role: Role.STAFF,
+      role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
     },
@@ -69,10 +69,10 @@ it.each([
     'combined role/status change',
     RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED,
     409,
-    Role.STAFF,
+    'STAFF',
     accessBody({
-      expectedRole: Role.STAFF,
-      desiredRole: Role.STUDENT,
+      expectedRole: 'STAFF',
+      desiredRole: 'STUDENT',
       desiredAccountStatus: AccountStatus.DEACTIVATED,
     }),
   ],
@@ -80,7 +80,7 @@ it.each([
     'empty change',
     RolesErrorCode.ACCESS_CHANGE_REQUIRED,
     400,
-    Role.STUDENT,
+    'STUDENT',
     accessBody({}),
   ],
 ] as const)(
@@ -88,7 +88,7 @@ it.each([
   async (_, code, status, role, body) => {
     const actor = await harness.createUser(
       `${code}-actor`,
-      Role.ADMIN,
+      'ADMIN',
       AccountStatus.ACTIVE,
     );
     const target = await harness.createUser(
@@ -117,10 +117,10 @@ it('returns 409/ROL_015 when a pending request has no decision', async () => {
     actor.githubId,
     accessBody({
       expectedRole: null,
-      desiredRole: Role.STAFF,
+      desiredRole: 'STAFF',
       expectedPendingRequest: {
         id: requestId,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
     }),
   );
@@ -141,10 +141,10 @@ it('returns 400/ROL_016 for a contradictory pending-request decision', async () 
     actor.githubId,
     accessBody({
       expectedRole: null,
-      desiredRole: Role.STUDENT,
+      desiredRole: 'STUDENT',
       expectedPendingRequest: {
         id: requestId,
-        status: RoleRequestStatus.PENDING,
+        status: StaffAccessRequestStatus.PENDING,
       },
       requestDecision: { decision: 'APPROVE' },
     }),
@@ -160,17 +160,17 @@ it('returns 400/ROL_016 for a contradictory pending-request decision', async () 
 it('returns 409/ROL_017 for administrator self-deactivation', async () => {
   const actor = await harness.createUser(
     'self-deactivate',
-    Role.ADMIN,
+    'ADMIN',
     AccountStatus.ACTIVE,
   );
-  await harness.createUser('self-backup', Role.ADMIN, AccountStatus.ACTIVE);
+  await harness.createUser('self-backup', 'ADMIN', AccountStatus.ACTIVE);
   const response = await harness.request(
     'PATCH',
     `/users/${actor.id}/access`,
     actor.githubId,
     accessBody({
-      expectedRole: Role.ADMIN,
-      desiredRole: Role.ADMIN,
+      expectedRole: 'ADMIN',
+      desiredRole: 'ADMIN',
       desiredAccountStatus: AccountStatus.DEACTIVATED,
     }),
   );
@@ -182,33 +182,47 @@ it('returns 409/ROL_017 for administrator self-deactivation', async () => {
   );
 });
 
-it('returns 409/ROL_018 when demotion would remove the final active admin', async () => {
+it('returns 400/ROL_021 when a legacy command tries to lower ADMIN display role', async () => {
   await harness.demoteAllActiveAdmins();
   const actor = await harness.createUser(
     'final-admin',
-    Role.ADMIN,
+    'ADMIN',
     AccountStatus.ACTIVE,
   );
   const response = await harness.request(
     'PATCH',
     `/users/${actor.id}/access`,
     actor.githubId,
-    accessBody({ expectedRole: Role.ADMIN, desiredRole: Role.STAFF }),
+    accessBody({ expectedRole: 'ADMIN', desiredRole: 'STAFF' }),
   );
 
-  await expectProblem(response, 409, RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
+  await expectProblem(
+    response,
+    400,
+    RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
+  );
+  await expect(
+    harness.prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
+  ).resolves.toMatchObject({
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+    accountStatus: AccountStatus.ACTIVE,
+  });
+  await expect(
+    harness.prisma.auditLog.count({ where: { targetId: actor.id } }),
+  ).resolves.toBe(0);
 });
 
 it('revokes STAFF access through the real route, clearing the role and appending a REVOKED request', async () => {
   // Given — 신청 이력이 없는 직접 부여 STAFF다. 회수 행은 조건 없이 생겨야 한다.
   const actor = await harness.createUser(
     'revoke-actor',
-    Role.ADMIN,
+    'ADMIN',
     AccountStatus.ACTIVE,
   );
   const target = await harness.createUser(
     'revoke-target',
-    Role.STAFF,
+    'STAFF',
     AccountStatus.ACTIVE,
   );
 
@@ -217,7 +231,7 @@ it('revokes STAFF access through the real route, clearing the role and appending
     'PATCH',
     `/users/${target.id}/access`,
     actor.githubId,
-    accessBody({ expectedRole: Role.STAFF, desiredRole: null }),
+    accessBody({ expectedRole: 'STAFF', desiredRole: null }),
   );
 
   // Then
@@ -227,20 +241,21 @@ it('revokes STAFF access through the real route, clearing the role and appending
     readonly decidedRequest: { readonly id: string; readonly status: string };
   };
   expect(body.role).toBeNull();
-  expect(body.decidedRequest.status).toBe(RoleRequestStatus.REVOKED);
+  expect(body.decidedRequest.status).toBe(StaffAccessRequestStatus.REVOKED);
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
-  const requests = await harness.prisma.roleRequest.findMany({
+  const requests = await harness.prisma.staffAccessRequest.findMany({
     where: { userId: target.id },
   });
   expect(requests).toHaveLength(1);
   expect(requests[0]).toMatchObject({
     id: body.decidedRequest.id,
-    status: RoleRequestStatus.REVOKED,
+    status: StaffAccessRequestStatus.REVOKED,
     decidedById: actor.id,
   });
   const revocationLogs = await harness.prisma.auditLog.findMany({
@@ -253,102 +268,90 @@ it('revokes STAFF access through the real route, clearing the role and appending
     metadata: {
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REVOKED,
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
       after: {
         role: null,
         accountStatus: AccountStatus.ACTIVE,
-        requestStatus: RoleRequestStatus.REVOKED,
+        requestStatus: StaffAccessRequestStatus.REVOKED,
       },
     },
   });
 });
 
-it('demotes STAFF to STUDENT through the real route without touching the request history', async () => {
-  // Given
-  const actor = await harness.createUser(
-    'demote-actor',
-    Role.ADMIN,
-    AccountStatus.ACTIVE,
-  );
-  const target = await harness.createUser(
-    'demote-target',
-    Role.STAFF,
-    AccountStatus.ACTIVE,
-  );
+it.each([
+  ['STAFF', 'STUDENT', 'STAFF', true, false],
+  ['ADMIN', 'STUDENT', 'ADMIN', false, true],
+  ['ADMIN', 'STAFF', 'ADMIN', false, true],
+] as const)(
+  'rejects legacy %s→%s lowering without persisting or auditing',
+  async (
+    expectedRole,
+    desiredRole,
+    targetRole,
+    hasStaffAccess,
+    hasAdminAccess,
+  ) => {
+    const actor = await harness.createUser(
+      `reject-${expectedRole}-${desiredRole}-actor`,
+      'ADMIN',
+      AccountStatus.ACTIVE,
+    );
+    const target = await harness.createUser(
+      `reject-${expectedRole}-${desiredRole}-target`,
+      targetRole,
+      AccountStatus.ACTIVE,
+    );
 
-  // When
-  const response = await harness.request(
-    'PATCH',
-    `/users/${target.id}/access`,
-    actor.githubId,
-    accessBody({
-      expectedRole: Role.STAFF,
-      desiredRole: Role.STUDENT,
-    }),
-  );
+    const response = await harness.request(
+      'PATCH',
+      `/users/${target.id}/access`,
+      actor.githubId,
+      accessBody({
+        expectedRole,
+        desiredRole,
+      }),
+    );
 
-  // Then
-  expect(response.status).toBe(200);
-  await expect(response.json()).resolves.toMatchObject({
-    id: target.id,
-    role: Role.STUDENT,
-    accountStatus: AccountStatus.ACTIVE,
-    pendingRequest: null,
-    decidedRequest: null,
-  });
-  await expect(
-    harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-  ).resolves.toMatchObject({
-    role: Role.STUDENT,
-    accountStatus: AccountStatus.ACTIVE,
-  });
-  // 강등은 회수가 아니다 — 요청 이력에 아무 행도 남기지 않는다.
-  await expect(
-    harness.prisma.roleRequest.count({ where: { userId: target.id } }),
-  ).resolves.toBe(0);
-  const logs = await harness.prisma.auditLog.findMany({
-    where: { targetId: target.id },
-  });
-  expect(logs).toHaveLength(1);
-  expect(logs[0]).toMatchObject({
-    action: ACCESS_AUDIT_ACTIONS.DIRECT_ROLE_CHANGED,
-    targetType: 'USER',
-    targetId: target.id,
-    metadata: {
-      eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
-      before: {
-        role: Role.STAFF,
-        accountStatus: AccountStatus.ACTIVE,
-        requestStatus: null,
-      },
-      after: {
-        role: Role.STUDENT,
-        accountStatus: AccountStatus.ACTIVE,
-        requestStatus: null,
-      },
-    },
-  });
-  await expect(
-    harness.prisma.auditLog.update({
-      where: { id: logs[0]?.id ?? 'missing' },
-      data: { action: 'SYNTHETIC_MUTATION' },
-    }),
-  ).rejects.toThrow();
-});
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as {
+      readonly status: number;
+      readonly code: string;
+      readonly detail: string;
+    };
+    expect(body).toMatchObject({
+      status: 400,
+      code: RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED,
+    });
+    expect(body.detail).toContain('/users/:id/staff-access');
+    await expect(
+      harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    ).resolves.toMatchObject({
+      hasStaffAccess,
+      hasAdminAccess,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    await expect(
+      harness.prisma.staffAccessRequest.count({ where: { userId: target.id } }),
+    ).resolves.toBe(0);
+    await expect(
+      harness.prisma.auditLog.count({ where: { targetId: target.id } }),
+    ).resolves.toBe(0);
+  },
+);
 
 it('deactivates and reactivates through the real route while preserving STAFF role', async () => {
   // Given
   const actor = await harness.createUser(
     'status-actor',
-    Role.ADMIN,
+    'ADMIN',
     AccountStatus.ACTIVE,
   );
   const target = await harness.createUser(
     'status-target',
-    Role.STAFF,
+    'STAFF',
     AccountStatus.ACTIVE,
   );
 
@@ -358,8 +361,8 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
     `/users/${target.id}/access`,
     actor.githubId,
     accessBody({
-      expectedRole: Role.STAFF,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STAFF',
+      desiredRole: 'STAFF',
       desiredAccountStatus: AccountStatus.DEACTIVATED,
     }),
   );
@@ -368,8 +371,8 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
     `/users/${target.id}/access`,
     actor.githubId,
     accessBody({
-      expectedRole: Role.STAFF,
-      desiredRole: Role.STAFF,
+      expectedRole: 'STAFF',
+      desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.DEACTIVATED,
       desiredAccountStatus: AccountStatus.ACTIVE,
     }),
@@ -379,7 +382,7 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
   expect(deactivateResponse.status).toBe(200);
   await expect(deactivateResponse.json()).resolves.toMatchObject({
     id: target.id,
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.DEACTIVATED,
     pendingRequest: null,
     decidedRequest: null,
@@ -387,7 +390,7 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
   expect(reactivateResponse.status).toBe(200);
   await expect(reactivateResponse.json()).resolves.toMatchObject({
     id: target.id,
-    role: Role.STAFF,
+    role: 'STAFF',
     accountStatus: AccountStatus.ACTIVE,
     pendingRequest: null,
     decidedRequest: null,
@@ -395,7 +398,8 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
   await expect(
     harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: Role.STAFF,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   });
   const logs = await harness.prisma.auditLog.findMany({
@@ -410,12 +414,12 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
     metadata: {
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
       after: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.DEACTIVATED,
         requestStatus: null,
       },
@@ -428,12 +432,12 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
     metadata: {
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
       before: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.DEACTIVATED,
         requestStatus: null,
       },
       after: {
-        role: Role.STAFF,
+        role: 'STAFF',
         accountStatus: AccountStatus.ACTIVE,
         requestStatus: null,
       },
@@ -451,8 +455,8 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
 
 function accessBody(overrides: Readonly<Record<string, unknown>>) {
   return {
-    expectedRole: Role.STUDENT,
-    desiredRole: Role.STUDENT,
+    expectedRole: 'STUDENT',
+    desiredRole: 'STUDENT',
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
     expectedPendingRequest: null,
@@ -463,7 +467,7 @@ function accessBody(overrides: Readonly<Record<string, unknown>>) {
 async function pendingScenario(label: string) {
   const actor = await harness.createUser(
     `${label}-actor`,
-    Role.ADMIN,
+    'ADMIN',
     AccountStatus.ACTIVE,
   );
   const target = await harness.createUser(
@@ -472,7 +476,7 @@ async function pendingScenario(label: string) {
     AccountStatus.ACTIVE,
   );
   const requestId = `${target.id}:pending`;
-  await harness.prisma.roleRequest.create({
+  await harness.prisma.staffAccessRequest.create({
     data: { id: requestId, userId: target.id },
   });
   return { actor, target, requestId };

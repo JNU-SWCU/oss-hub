@@ -58,7 +58,7 @@ describe('ProductShell ranking fetch', () => {
     mocks.useSessionRole.mockReturnValue({
       status: 'assigned',
       role: 'STUDENT',
-      roleRequestStatus: null,
+      staffAccessRequestStatus: null,
       selectedRole: null,
       isProfileComplete: true,
       retry: () => {},

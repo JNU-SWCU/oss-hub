@@ -4,11 +4,10 @@ import {
   CollectionRepositoryPresence,
   MemberKind,
   ProgramCategory,
-  Role,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  RoleRequestStatus,
+  StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import {
@@ -129,7 +128,7 @@ async function createRepositoryFixture(params: {
       id: applicantId,
       githubId: 8_940_000_000_000n + BigInt(hashKey(params.key)),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
-      role: Role.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
     },
   });
   const applicationId = `${PREFIX}-${params.key}-application`;
@@ -224,25 +223,25 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     // 순위 목록에는 실리지 않는다.
     studentPersona = await harness.createUser(
       'student',
-      Role.STUDENT,
+      'STUDENT',
       undefined,
       MemberKind.STUDENT,
     );
     canonicalOnlyStudentPersona = await harness.createUser(
       'canonical-only-student',
-      Role.STUDENT,
+      'STUDENT',
       undefined,
       MemberKind.STUDENT,
     );
     staffPersona = await harness.createUser(
       'staff',
-      Role.STAFF,
+      'STAFF',
       undefined,
       MemberKind.STAFF,
     );
     adminPersona = await harness.createUser(
       'admin',
-      Role.ADMIN,
+      'ADMIN',
       undefined,
       MemberKind.STAFF,
     );
@@ -287,10 +286,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.user.update({
       where: { id: studentPersona.id },
       data: {
-        name: NAMED_PERSONA_REAL_NAME,
-        department: NAMED_PERSONA_DEPARTMENT,
-        // canonical 프로필이 있으면 공개 응답은 legacy 칸이 아니라 이쪽을 읽는다
-        // (`profile-compatibility.ts`) — 실명 비노출 단언이 공허해지지 않게 둘 다 채운다.
+        // 공개 응답의 실명과 소속은 canonical UserProfile에서 읽는다.
         profile: {
           update: {
             name: NAMED_PERSONA_REAL_NAME,
@@ -790,7 +786,8 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         nickname: `${FOREIGN_SUITE_ACTOR_ID}-login`,
         // 이 행의 actor 역할은 검사와 무관하다. append-only 원장이라 이 User는 FK 때문에
         // 정리되지 않고 남으므로, 전역 ADMIN 수를 세는 다른 스펙과 얽히지 않게 STAFF로 둔다.
-        role: Role.STAFF,
+        selectedMemberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
       },
     });
     await harness.prisma.auditLog.create({
@@ -813,12 +810,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           before: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.PENDING,
+            requestStatus: StaffAccessRequestStatus.PENDING,
           },
           after: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
-            requestStatus: RoleRequestStatus.REJECTED,
+            requestStatus: StaffAccessRequestStatus.REJECTED,
           },
         }),
       },

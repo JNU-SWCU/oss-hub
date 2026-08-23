@@ -8,7 +8,6 @@ import {
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   type RepositoryVisibility,
-  Role,
   ProgramLifecycle,
   type ProgramCategory,
 } from '@prisma/client';
@@ -24,10 +23,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import {
-  compatibleProfileNameWhere,
-  COMPATIBLE_PROFILE_NAME_SELECT,
-  resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+  userProfileNameWhere,
+  STUDENT_MEMBER_WHERE,
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../profiles/user-profile-read';
 import type { RuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import type { ApplicationListQuery } from './application-list-query';
@@ -610,19 +610,19 @@ export class ApplicationsRepository {
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
+        ...STUDENT_MEMBER_WHERE,
       },
       select: {
         id: true,
         nickname: true,
-        ...COMPATIBLE_PROFILE_NAME_SELECT,
+        ...USER_PROFILE_NAME_SELECT,
       },
     });
     return user
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: resolveCompatibleProfileName(user),
+          name: resolveUserProfileName(user),
         }
       : null;
   }
@@ -856,7 +856,7 @@ function buildApplicationListWhere(
     ? {
         OR: [
           {
-            applicant: compatibleProfileNameWhere(search),
+            applicant: userProfileNameWhere(search),
           },
           {
             applicant: {
@@ -922,7 +922,7 @@ const APPLICATION_LIST_SELECT = {
     select: {
       id: true,
       nickname: true,
-      ...COMPATIBLE_PROFILE_NAME_SELECT,
+      ...USER_PROFILE_NAME_SELECT,
     },
   },
   team: {
@@ -955,7 +955,6 @@ type ApplicationListRow = {
   };
   readonly applicant: {
     readonly id: string;
-    readonly name: string | null;
     readonly nickname: string;
     readonly profile: { readonly name: string } | null;
   };
@@ -1016,7 +1015,7 @@ function toApplicationListItem(
     applicant: {
       id: row.applicant.id,
       nickname: row.applicant.nickname,
-      name: resolveCompatibleProfileName(row.applicant),
+      name: resolveUserProfileName(row.applicant),
     },
     team,
     answers: parseListAnswers(row.answers),

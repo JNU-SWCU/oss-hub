@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,
   PROGRAM_CREATED_AUDIT_ACTIONS,
@@ -32,7 +32,7 @@ export class ProgramCreationService {
     const user = await this.repository.findCreatorRole(githubId);
     if (
       user?.accountStatus !== AccountStatus.ACTIVE ||
-      (user.role !== Role.STAFF && user.role !== Role.ADMIN)
+      (!user.hasStaffAccess && !user.hasAdminAccess)
     ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],

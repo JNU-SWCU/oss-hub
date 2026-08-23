@@ -92,6 +92,30 @@ describe('mutateAdminUserProfile', () => {
     expect(audit.record).not.toHaveBeenCalled();
   });
 
+  it('STAFF 프로필에 학번을 적용하지 않고 400으로 거부한다', async () => {
+    const repository = new InMemoryAdminProfileRepository();
+    repository.target = profileTarget({
+      name: '교직원 이름',
+      studentId: null,
+      department: '행정학과',
+      memberKind: 'STAFF',
+    });
+    const audit = auditLogHarness();
+
+    await expect(
+      mutateAdminUserProfile(
+        { repository, auditLog: audit.service },
+        {
+          actorGithubId: ACTOR_GITHUB_ID,
+          userId: 'target',
+          command: { studentId: '260001' },
+        },
+      ),
+    ).rejects.toMatchObject({ errorCode: { code: 'SYS_003', status: 400 } });
+    expect(repository.profileFieldsApplied).toHaveLength(0);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
   it('학과 없이 학번만 보내면 STUDENT_ID_NEEDS_DEPARTMENT로 거부한다', async () => {
     // Given — UserProfile 행이 없던 사용자(학번·학과 모두 비어 있음)
     const repository = new InMemoryAdminProfileRepository();

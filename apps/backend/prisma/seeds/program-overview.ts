@@ -3,7 +3,6 @@ import {
   BoardPostCategory,
   MilestoneSubmissionType,
   ProgramCategory,
-  Role,
   SubmissionStatus,
   TeamInvitationStatus,
 } from '@prisma/client';
@@ -310,17 +309,17 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
 
   const staff = await upsertSeedUser(stats, {
     id: STAFF_ID,
-    role: Role.STAFF,
+    role: 'STAFF',
   });
   const leader = await upsertSeedUser(stats, {
     id: LEADER_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
   const member = await upsertSeedUser(stats, {
     id: MEMBER_ID,
-    role: Role.STUDENT,
+    role: 'STUDENT',
   });
-  await upsertSeedUser(stats, { id: INVITEE_ID, role: Role.STUDENT });
+  await upsertSeedUser(stats, { id: INVITEE_ID, role: 'STUDENT' });
 
   await upsertTracked(
     stats,

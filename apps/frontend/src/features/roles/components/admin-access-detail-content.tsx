@@ -14,7 +14,7 @@ import { AdminAccessProfileSection } from './admin-access-profile-section';
 import { AdminAccessDetailHeader } from './admin-access-detail-header';
 import {
   LoginHistorySection,
-  RoleRequestHistorySection,
+  StaffAccessRequestHistorySection,
 } from './admin-access-detail-history';
 import {
   AdminAccessDetailError,
@@ -43,7 +43,7 @@ function AdminAccessDetailContent({
   layoutContext,
   workspace,
   historyLoading,
-  onRoleRequestPageChange,
+  onStaffAccessRequestPageChange,
   onLoginHistoryPageChange,
   onProfileSaved,
 }: AdminAccessDetailData & {
@@ -51,7 +51,7 @@ function AdminAccessDetailContent({
   readonly layoutContext: AdminAccessDetailLayoutContext;
   readonly workspace: AccessWorkspace;
   readonly historyLoading: boolean;
-  readonly onRoleRequestPageChange: (page: number) => void;
+  readonly onStaffAccessRequestPageChange: (page: number) => void;
   readonly onLoginHistoryPageChange: (page: number) => void;
   readonly onProfileSaved: () => void;
 }) {
@@ -103,12 +103,12 @@ function AdminAccessDetailContent({
       <p className="text-xs font-semibold tracking-wide text-muted-foreground">
         이력
       </p>
-      <RoleRequestHistorySection
-        items={history.roleRequests.items}
-        page={history.roleRequests.page}
-        totalPages={adminAccessHistoryPageCount(history.roleRequests)}
+      <StaffAccessRequestHistorySection
+        items={history.staffAccessRequests.items}
+        page={history.staffAccessRequests.page}
+        totalPages={adminAccessHistoryPageCount(history.staffAccessRequests)}
         isLoading={historyLoading}
-        onPageChange={onRoleRequestPageChange}
+        onPageChange={onStaffAccessRequestPageChange}
         headingTag={heading.section}
       />
       <LoginHistorySection
@@ -185,7 +185,7 @@ export function AdminAccessDetailContentForState({
   layoutContext = 'standalone',
   workspace = 'directory',
   historyLoading = false,
-  onRoleRequestPageChange = () => {},
+  onStaffAccessRequestPageChange = () => {},
   onLoginHistoryPageChange = () => {},
   onProfileSaved = () => {},
 }: {
@@ -195,7 +195,7 @@ export function AdminAccessDetailContentForState({
   readonly layoutContext?: AdminAccessDetailLayoutContext;
   readonly workspace?: AccessWorkspace;
   readonly historyLoading?: boolean;
-  readonly onRoleRequestPageChange?: (page: number) => void;
+  readonly onStaffAccessRequestPageChange?: (page: number) => void;
   readonly onLoginHistoryPageChange?: (page: number) => void;
   readonly onProfileSaved?: () => void;
 }) {
@@ -221,7 +221,7 @@ export function AdminAccessDetailContentForState({
       layoutContext={layoutContext}
       workspace={workspace}
       historyLoading={historyLoading}
-      onRoleRequestPageChange={onRoleRequestPageChange}
+      onStaffAccessRequestPageChange={onStaffAccessRequestPageChange}
       onLoginHistoryPageChange={onLoginHistoryPageChange}
       onProfileSaved={onProfileSaved}
     />

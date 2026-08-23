@@ -4,12 +4,10 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
-  Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
-import { upsertCompatibleProfile } from '../../src/profiles/profile-compatibility.repository';
 import type { SubmissionFileStoragePort } from '../../src/submissions/submission-file-storage.port';
 import {
   offsetDays,
@@ -17,6 +15,7 @@ import {
   seedId,
   SeedStats,
   upsertConsent,
+  upsertSeedProfile,
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
@@ -187,24 +186,15 @@ async function upsertDemoStudent(
   student: DemoStudent,
 ): Promise<{ readonly id: string }> {
   const id = seedId('demo', 'user', student.slug);
-  const user = await upsertSeedUser(stats, { id, role: Role.STUDENT });
+  const user = await upsertSeedUser(stats, { id, role: 'STUDENT' });
   await upsertConsent(stats, user.id);
-  await prisma.$transaction((transaction) =>
-    upsertCompatibleProfile(
-      transaction,
-      user.id,
-      {
-        name: student.name,
-        studentId: student.studentId,
-        department: student.department,
-      },
-      {
-        name: student.name,
-        studentId: student.studentId,
-        department: student.department,
-      },
-    ),
-  );
+  await upsertSeedProfile({
+    userId: user.id,
+    name: student.name,
+    studentId: student.studentId,
+    department: student.department,
+    memberKind: 'STUDENT',
+  });
   await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -220,13 +210,18 @@ async function upsertDemoStaff(
   slug: string,
 ): Promise<{ readonly id: string }> {
   const id = seedId('demo', 'user', slug);
-  const user = await upsertSeedUser(stats, { id, role: Role.STAFF });
+  const user = await upsertSeedUser(stats, { id, role: 'STAFF' });
   await upsertConsent(stats, user.id);
+  await upsertSeedProfile({
+    userId: user.id,
+    name: DEMO_STAFF_NAME,
+    studentId: null,
+    department: DEMO_STAFF_DEPARTMENT,
+    memberKind: 'STAFF',
+  });
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      name: DEMO_STAFF_NAME,
-      department: DEMO_STAFF_DEPARTMENT,
       notificationEmail: `sw-center.${slug}@demo.invalid`,
       notifyEnabled: true,
     },

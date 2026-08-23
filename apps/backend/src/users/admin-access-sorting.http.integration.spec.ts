@@ -1,4 +1,4 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
 
@@ -13,7 +13,7 @@ let actorGithubId: bigint;
 beforeAll(async () => {
   await harness.start();
   actorGithubId = (
-    await harness.createUser('actor', Role.ADMIN, AccountStatus.ACTIVE)
+    await harness.createUser('actor', 'ADMIN', AccountStatus.ACTIVE)
   ).githubId;
 });
 
