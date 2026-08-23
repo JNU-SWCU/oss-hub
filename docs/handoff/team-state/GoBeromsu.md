@@ -520,6 +520,28 @@
 - 결과·검증·증거: 바로 앞 exact-state classifier와 baseline-bound verifier 항목을 계승
 - 금지 작업: PR merge·production 접근/write·release·deploy·Jenkins trigger 없음
 
+## 2026-08-23 — Task 10 terminal 상태 판정을 교정
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: production 검증·실행은 승인된 release 절차로 이관
+- 원인: exact-state classifier가 pristine·v1·v2 projection만 비교해 endpoint 완료 뒤에도 `role=ADMIN`을 유지하는 canonical STUDENT/STAFF 상태를 `UNKNOWN_SELECTION_COMBINATION`으로 거부
+- 결과: `selectedRole=null`인 exact terminal projection만 byte-equivalent no-op으로 수용하고 role·독립 권한·profile/root mirror·소속·학번 계약이 한 필드라도 다른 hybrid는 계속 fail-closed
+- 검증: red pure 4 failures와 PostgreSQL exact-state failure 재현 후 pure 3 suites/37 tests, 격리 PostgreSQL 4 suites/14 tests, endpoint-equivalent status/apply 6 tests, fixture 독립 2회 동일 SHA-256, backend lint·typecheck·build·LSP·Prettier·LOC·placeholder scan 통과
+- 금지 작업: production 접근/write·direct SQL·release·deploy·Jenkins trigger·merge 없음
+
+## 2026-08-23 — Task 10 retained selection terminal을 수용
+
+- 상태: review
+- Issue: #969
+- PR: #1002
+- blocker: production status/apply와 cutover는 승인된 release 절차로 이관
+- 입력 교정: 제공된 aggregate-only committed 상태는 ADMIN 5명 중 STAFF 2명·STUDENT 3명이며 unresolved 0·compatibility-only 0; STAFF 1명은 matching `selectedRole=STAFF`를 유지
+- 결과: terminal의 `selectedRole`을 null 또는 canonical member kind와 matching하는 legacy role로 제한해 수용하고, 반대 role selection과 기존 pristine/v1/v2/terminal one-field hybrid는 계속 fail-closed
+- 검증: retained STUDENT/STAFF pure red 2 failures와 5-row PostgreSQL status/apply red 재현 후 pure 3 suites/40 tests, 격리 PostgreSQL 4 suites/14 tests, aggregate ADMIN 5·STAFF 2·STUDENT 3·unresolved 0·compatibility-only 0, fixture 독립 2회 동일 SHA-256, backend lint·typecheck·build·LSP·Prettier·LOC·placeholder scan 통과
+- 금지 작업: production 접근/write·direct SQL·row allowlist·release·deploy·Jenkins trigger·merge 없음
+
 ## 2026-08-23 — Task 10 기존 관리자 재분류 프런트엔드를 종료
 
 - 상태: review

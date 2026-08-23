@@ -10,6 +10,13 @@ type ProjectionCandidate = (
   selectedMemberKind: MemberAuthorityBackfillUser['selectedMemberKind'],
 ) => MemberAuthorityBackfillUser;
 
+type ProjectionCandidates = {
+  readonly selected: ProjectionCandidate;
+  readonly terminal: (
+    memberKind: NonNullable<MemberAuthorityBackfillUser['selectedMemberKind']>,
+  ) => MemberAuthorityBackfillUser;
+};
+
 type ProjectUsers = (
   users: readonly MemberAuthorityBackfillUser[],
 ) => readonly MemberAuthorityBackfillUser[];
@@ -30,18 +37,29 @@ export function requireIdempotentProjection(
 
 export function requireAcceptedMachineState(
   user: MemberAuthorityBackfillUser,
-  projectCandidate: ProjectionCandidate,
-): void {
+  projectCandidate: ProjectionCandidates,
+): MemberAuthorityBackfillUser | null {
   if (user.selectedRole === Role.ADMIN) {
     throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
   }
-  if (isPristineState(user)) return;
+  if (
+    user.role === Role.ADMIN &&
+    user.selectedMemberKind !== null &&
+    (user.selectedRole === null ||
+      legacySelectedMemberKind(user.selectedRole) === user.selectedMemberKind)
+  ) {
+    const exactTerminal = projectCandidate.terminal(user.selectedMemberKind);
+    if (sameState(user, exactTerminal)) return exactTerminal;
+  }
+  if (isPristineState(user)) return null;
 
-  const exactV1 = projectCandidate(legacySelectedMemberKind(user.selectedRole));
-  if (sameState(user, exactV1)) return;
+  const exactV1 = projectCandidate.selected(
+    legacySelectedMemberKind(user.selectedRole),
+  );
+  if (sameState(user, exactV1)) return null;
 
-  const exactV2 = projectCandidate(projectedSelectedMemberKind(user));
-  if (sameState(user, exactV2)) return;
+  const exactV2 = projectCandidate.selected(projectedSelectedMemberKind(user));
+  if (sameState(user, exactV2)) return null;
 
   throw backfillInvariant('UNKNOWN_SELECTION_COMBINATION');
 }

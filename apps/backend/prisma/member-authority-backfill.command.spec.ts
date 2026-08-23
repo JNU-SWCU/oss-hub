@@ -17,13 +17,13 @@ const fixturePath = resolve(
 );
 
 describe('member authority backfill command', () => {
-  it('rejects an unrelated canonical student-admin conflict', () => {
+  it('rejects an opposite retained selection on a canonical student-admin', () => {
     const user: MemberAuthorityBackfillUser = {
       id: 'synthetic-canonical-student-admin',
       githubId: '9990000001',
       nickname: 'synthetic-canonical-student-admin',
       role: Role.ADMIN,
-      selectedRole: Role.STUDENT,
+      selectedRole: Role.STAFF,
       selectedMemberKind: MemberKind.STUDENT,
       hasStaffAccess: false,
       hasAdminAccess: true,
