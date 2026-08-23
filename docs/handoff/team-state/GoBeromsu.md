@@ -553,3 +553,13 @@
 - simplifier: 공식 code-simplifier 1.0.0 prompt SHA-256 `2a51e8d210580d9f66ac2ed1226c41f9374565fc275da30d7bb95f65c2cc87bb`를 변경 hand-written 6파일 allowlist에 Codex 단일 실행해 추가 편집 없이 PASS; allowlist 밖 변경 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-10-form-retirement/` (synthetic browser session; production 접근 증거 아님)
 - 금지 작업: production 접근·release·deploy·merge 없음
+
+## 2026-08-23 — Jenkins backfill invariant가 steady-state 재배포를 수용
+
+- 상태: review
+- Issue: #969
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `verify-member-authority-backfill.mjs`의 first-apply 전용 `changedUsers > 0` 단정 때문에 이미 backfill이 완료된 DB에서 모든 후속 릴리스가 실패하던 결함(빌드 #151)을 고쳐, backfill target·unresolved·compatibility-only가 전부 0인 steady-state 기준선에서만 무변경 재실행을 수용하고 그 외에는 기존 계약을 유지
+- 검증: `node --test scripts/jenkins/verify-member-authority-backfill.test.mjs` 18 tests(신규 steady-state 수용 1·nonzero tuple 거부 1·before/after drift 거부 1 포함), `scripts/member-authority-jenkins-contract.test.mjs` 5 tests, `scripts/ci-path-contract.test.mjs` 2 tests 전부 통과
+- 금지 작업: production 접근·release·deploy·merge 없음
