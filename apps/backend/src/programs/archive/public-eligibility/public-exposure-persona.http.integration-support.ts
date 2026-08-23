@@ -1,6 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import type { Role } from '@prisma/client';
+import { AffiliationKind, MemberKind, type Role } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../../../audit-log/audit-log.controller';
 import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
@@ -148,14 +148,28 @@ export class PublicExposurePersonaHttpHarness {
     await this.prisma.$disconnect();
   }
 
+  /**
+   * `memberKind`를 주면 canonical `UserProfile`까지 같이 심는다 — 순위 노출은 권한이
+   * 아니라 이 칸이 정하므로, 회원 유형을 입어야 persona가 랭킹을 대표할 수 있다.
+   *
+   * legacy 칸과 canonical 행을 반드시 같은 값으로 둔다 — 공유 PostgreSQL 을 쓰는 통합
+   * 실행에서 형제 스펙이 돌리는 backfill 불변식이 불일치 행 하나로 전체를 멈추기 때문이다.
+   */
   async createUser(
     label: string,
     role: Role | null,
     githubIdOverride?: bigint,
+    memberKind?: MemberKind,
   ) {
     this.sequence += 1;
     const githubId =
       githubIdOverride ?? BigInt(this.sequence) + 8_998_000_000_000n;
+    const canonicalName = `synthetic-${label}-${this.sequence}-name`;
+    const canonicalDepartment = `synthetic-${label}-${this.sequence}-department`;
+    const canonicalStudentId =
+      memberKind === MemberKind.STUDENT
+        ? String(970_000 + this.sequence)
+        : null;
     return this.prisma.user.create({
       data: {
         id: `${this.fixtureNamespace}-http-${label}-${this.sequence}`,
@@ -168,6 +182,26 @@ export class PublicExposurePersonaHttpHarness {
         nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,
         role,
         accountStatus: 'ACTIVE',
+        ...(memberKind === undefined
+          ? {}
+          : {
+              name: canonicalName,
+              studentId: canonicalStudentId,
+              department: canonicalDepartment,
+              profile: {
+                create: {
+                  name: canonicalName,
+                  studentId: canonicalStudentId,
+                  department: canonicalDepartment,
+                  memberKind,
+                  affiliationKind:
+                    memberKind === MemberKind.STUDENT
+                      ? AffiliationKind.DEPARTMENT
+                      : AffiliationKind.PROGRAM_OFFICE,
+                  affiliationName: canonicalDepartment,
+                },
+              },
+            }),
       },
       select: { id: true, githubId: true, nickname: true },
     });

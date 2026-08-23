@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, MemberKind, Role, type Prisma } from '@prisma/client';
 import { nextScheduledCollectionAt } from '../../github/collection-schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -25,6 +25,17 @@ export interface RankingMetricRow {
 export interface RankingMetricsQuery {
   readonly currentYear?: number;
 }
+
+/**
+ * 순위에 오를 자격. canonical `UserProfile.memberKind`가 STUDENT인 사람만이다.
+ *
+ * 권한(`Role`)으로 가르지 않는다 — 관리자 권한은 회원 유형과 독립이라 학생 관리자는
+ * 학생으로 남고, 반대로 `role`만 보면 교직원 관리자가 학생 순위에 섞인다. 프로필이
+ * 없거나 유형이 아직 비어 있는 행은 학생임이 확정되지 않았으므로 함께 빠진다.
+ */
+const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
+  profile: { is: { memberKind: MemberKind.STUDENT } },
+};
 
 /**
  * Ranking read model. One query per screen question. Prisma stays here.
@@ -59,6 +70,7 @@ export class RankingRepository {
   ): Promise<readonly RankingMetricRow[]> {
     const [users, activityRows] = await Promise.all([
       this.prisma.user.findMany({
+        where: RANKING_ELIGIBLE_MEMBER,
         select: {
           githubId: true,
           nickname: true,
