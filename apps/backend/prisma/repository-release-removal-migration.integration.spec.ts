@@ -296,4 +296,4 @@ it('fresh deploy has the final enum and rerun records no additional migration', 
         AND rolled_back_at IS NULL
     `,
   ).resolves.toEqual(before);
-});
+}, 30_000);

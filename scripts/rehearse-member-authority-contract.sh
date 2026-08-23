@@ -15,11 +15,15 @@ backend="$repo_root/apps/backend"
 container="oss-hub-contract-$(date +%s)-$$-$RANDOM"
 password='synthetic-contract-password'
 port=''
+staged=''
 
 cleanup() {
   local status=$?
   trap - EXIT
   docker rm -f "$container" >/dev/null 2>&1 || true
+  if [[ -n ${staged:-} ]]; then
+    rm -rf -- "$staged"
+  fi
   exit "$status"
 }
 trap cleanup EXIT
