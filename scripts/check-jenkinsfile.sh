@@ -721,6 +721,7 @@ check_v2() {
   require_absent 'RELEASE_SHA를 IMAGE_TAG로 할당하면 안 됨' 'env.IMAGE_TAG = env.RELEASE_SHA'
   require_absent 'IMAGE_TAG head 승인 바인딩은 없어야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
   require_absent 'IMAGE_TAG detached checkout은 없어야 함' 'git checkout --detach "$IMAGE_TAG"'
+  require_absent '완료된 회원 권한 backfill stage는 없어야 함' "stage('회원 권한 backfill')"
 
   require_exact 'latest Release API 조회는 한 번이어야 함' '/releases/latest' 1
   require_exact 'draft 거절은 한 번이어야 함' "jq -r '.draft'" 1
@@ -731,9 +732,6 @@ check_v2() {
   require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
   require_exact 'IMAGE_TAG는 RELEASE_TAG(tag)로 한 번만 할당해야 함' 'env.IMAGE_TAG = tag' 1
   require_exact 'RELEASE_SHA 바인딩은 한 번이어야 함' 'env.RELEASE_SHA = releaseSha' 1
-  # REMOVED: validate-ci-status.sh - CD should not depend on CI state
-  # require_exact 'GitHub Actions ci job 상태 게이트는 한 번 호출해야 함' \
-  #   "sh 'bash scripts/jenkins/validate-ci-status.sh'" 1
   require_exact 'exact RELEASE_SHA checkout은 한 번이어야 함' 'git checkout --detach "$RELEASE_SHA"' 1
 
   # no-op authority: running ps -q only; --all is classification
@@ -1005,7 +1003,6 @@ check_v2() {
   stages_line=$(line_of 'stages {')
   build_cache_line=$(line_of "BUILD_CACHE_MAX_SPACE = '5GB'")
   release_sha_binding_line=$(line_of 'env.RELEASE_SHA = releaseSha')
-  # ci_status_call_line=$(line_of "sh 'bash scripts/jenkins/validate-ci-status.sh'") # REMOVED
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
