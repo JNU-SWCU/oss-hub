@@ -140,7 +140,11 @@ describe('resolveMemberAccess', () => {
   it.each([
     {
       label: 'canonical access wins over legacy role',
-      source: { role: Role.ADMIN, hasStaffAccess: false, hasAdminAccess: false },
+      source: {
+        role: Role.ADMIN,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      },
       expected: { hasStaffAccess: false, hasAdminAccess: false },
     },
     {
@@ -160,7 +164,11 @@ describe('resolveMemberAccess', () => {
     },
     {
       label: 'legacy STUDENT fallback',
-      source: { role: Role.STUDENT, hasStaffAccess: null, hasAdminAccess: null },
+      source: {
+        role: Role.STUDENT,
+        hasStaffAccess: null,
+        hasAdminAccess: null,
+      },
       expected: { hasStaffAccess: false, hasAdminAccess: false },
     },
     {

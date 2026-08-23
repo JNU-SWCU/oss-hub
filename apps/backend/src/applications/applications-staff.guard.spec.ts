@@ -18,28 +18,31 @@ describe('ApplicationsStaffGuard', () => {
   it.each([
     ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
     ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
-  ])('canonical %s 접근권을 허용하고 처리자 ID를 붙인다', async (_label, access) => {
-    // Given
-    findUnique.mockResolvedValue({
-      id: 'synthetic-actor',
-      role: null,
-      ...access,
-      accountStatus: AccountStatus.ACTIVE,
-    });
-    const request: {
-      sessionGithubId: bigint;
-      applicationActorId?: string;
-    } = { sessionGithubId: 1001n };
-    const context = new ExecutionContextHost([request]);
-    context.setType('http');
+  ])(
+    'canonical %s 접근권을 허용하고 처리자 ID를 붙인다',
+    async (_label, access) => {
+      // Given
+      findUnique.mockResolvedValue({
+        id: 'synthetic-actor',
+        role: null,
+        ...access,
+        accountStatus: AccountStatus.ACTIVE,
+      });
+      const request: {
+        sessionGithubId: bigint;
+        applicationActorId?: string;
+      } = { sessionGithubId: 1001n };
+      const context = new ExecutionContextHost([request]);
+      context.setType('http');
 
-    // When
-    const allowed = await guard.canActivate(context);
+      // When
+      const allowed = await guard.canActivate(context);
 
-    // Then
-    expect(allowed).toBe(true);
-    expect(request.applicationActorId).toBe('synthetic-actor');
-  });
+      // Then
+      expect(allowed).toBe(true);
+      expect(request.applicationActorId).toBe('synthetic-actor');
+    },
+  );
 
   it.each([Role.STAFF, Role.ADMIN])(
     'canonical 컬럼이 비어 있으면 legacy %s 역할로 허용한다',
