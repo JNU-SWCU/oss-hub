@@ -79,8 +79,8 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     if (!current) {
       throw new Error('합성 회수 사용자가 존재해야 합니다.');
     }
-    expect(current.role).toBeNull();
-    expect(current.selectedRole).toBe('STAFF');
+    expect(current.hasStaffAccess).toBe(false);
+    expect(current.selectedMemberKind).toBe('STAFF');
 
     // When: 미완료 → 완료 저장. 이것이 `가입 마치기`다.
     const completed = await repository.completeProfileIfUnchanged(
@@ -109,7 +109,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     expect(requests[0]?.status).toBe(StaffAccessRequestStatus.REVOKED);
     expect(requests[1]?.status).toBe(StaffAccessRequestStatus.PENDING);
     // 승인은 여전히 관리자 손에 있다.
-    expect(stored.role).toBeNull();
+    expect(stored.hasStaffAccess).toBe(false);
   });
 
   it('학생을 고른 뒤 프로필을 마치면 교직원 신청은 만들어지지 않는다', async () => {

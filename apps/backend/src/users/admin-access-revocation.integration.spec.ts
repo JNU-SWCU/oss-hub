@@ -64,7 +64,7 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
   const persisted = await prisma.user.findUniqueOrThrow({
     where: { id: target.id },
   });
-  expect(persisted.role).toBeNull();
+  expect(persisted.hasStaffAccess).toBe(false);
   expect(persisted.accountStatus).toBe(AccountStatus.ACTIVE);
 
   // 승인 이력은 장학금 근거라 회수가 덮어쓰지 않는다 — "누가 언제 승인했는가"가 그대로다.
@@ -362,7 +362,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
   const persisted = await prisma.user.findUniqueOrThrow({
     where: { id: target.id },
   });
-  expect(persisted.role).toBeNull();
+  expect(persisted.hasStaffAccess).toBe(false);
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: target.id },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],

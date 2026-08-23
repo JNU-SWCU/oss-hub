@@ -115,7 +115,7 @@ it.each(['STUDENT', 'STAFF'])(
 
     // Then — 이 호출이 막히면 교직원은 학번을 요구받는 프로필 화면으로 되돌아가고,
     // 애초에 순서를 뒤집은 이유가 사라진다.
-    expect(result.selectedRole).toBe(role);
+    expect(result.selectedMemberKind).toBe(role);
     expect(repository.transactionCount).toBe(1);
   },
 );

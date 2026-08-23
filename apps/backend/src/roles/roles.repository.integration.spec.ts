@@ -1,4 +1,4 @@
-import { StaffAccessRequestStatus } from '@prisma/client';
+import { AffiliationKind, MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -75,7 +75,7 @@ describe('RolesRepository integration', () => {
       where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
     });
     expect(results).toHaveLength(2);
-    expect(results.every((result) => result.selectedRole === 'STAFF')).toBe(
+    expect(results.every((result) => result.selectedMemberKind === 'STAFF')).toBe(
       true,
     );
     expect(pendingCount).toBe(1);
@@ -108,7 +108,7 @@ describe('RolesRepository integration', () => {
     expect(
       results.filter((result) => result.status === 'fulfilled'),
     ).toHaveLength(1);
-    expect(Number(storedUser.role === 'STUDENT') + pendingCount).toBe(1);
+    expect(Number((storedUser.selectedMemberKind === 'STUDENT')) + pendingCount).toBe(1);
   });
 
   /**
@@ -119,7 +119,7 @@ describe('RolesRepository integration', () => {
    * 신청이 관리자 대기줄에 올라가고, 학생은 이름 없이 학생 권한을 갖는다. 고른 사실만
    * `selectedRole`에 남고 `role`·`StaffAccessRequest`는 그대로여야 한다.
    */
-  it.each(['STUDENT', 'STAFF'])(
+  it.each<MemberKind>(['STUDENT', 'STAFF'])(
     '프로필이 비어 있으면 %s 선택은 기록만 남기고 아무것도 확정하지 않는다',
     async (selectedRole) => {
       // Given
@@ -144,8 +144,8 @@ describe('RolesRepository integration', () => {
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
-      expect(storedUser.selectedRole).toBe(selectedRole);
-      expect(storedUser.role).toBeNull();
+      expect(storedUser.selectedMemberKind).toBe(selectedRole);
+      expect(storedUser.hasStaffAccess).toBe(false);
       expect(requestCount).toBe(0);
     },
   );
@@ -180,9 +180,14 @@ describe('RolesRepository integration', () => {
      * 흐름이 가려진다.
      */
     const STAFF_ONLY_PROFILE = {
-      name: '합성 교직원',
-      studentId: null,
-      department: '인공지능학부',
+      create: {
+        name: '합성 교직원',
+        studentId: null,
+        department: '인공지능학부',
+        memberKind: MemberKind.STAFF,
+        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+        affiliationName: '인공지능학부',
+      },
     } as const;
 
     async function createRevokedStaff(
@@ -195,9 +200,10 @@ describe('RolesRepository integration', () => {
           id: `${TEST_PREFIX}${key}`,
           githubId,
           nickname: `synthetic-184-${key}`,
-          role,
-          selectedRole: 'STAFF',
-          ...STAFF_ONLY_PROFILE,
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: role === 'STAFF',
+          hasAdminAccess: role === 'ADMIN',
+          profile: STAFF_ONLY_PROFILE,
         },
       });
       await prisma.staffAccessRequest.create({
@@ -231,10 +237,10 @@ describe('RolesRepository integration', () => {
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
-      expect(result.selectedRole).toBe('STUDENT');
+      expect(result.selectedMemberKind).toBe('STUDENT');
       expect(result.redirectTo).toBe('/onboarding/profile');
-      expect(stored.selectedRole).toBe('STUDENT');
-      expect(stored.role).toBeNull();
+      expect(stored.selectedMemberKind).toBe('STUDENT');
+      expect(stored.hasStaffAccess).toBe(false);
       expect(requestCount).toBe(2);
     });
 
@@ -266,8 +272,8 @@ describe('RolesRepository integration', () => {
         }),
         prisma.staffAccessRequest.count({ where: { userId: user.id } }),
       ]);
-      expect(result.selectedRole).toBe('STAFF');
-      expect(stored.role).toBeNull();
+      expect(result.selectedMemberKind).toBe('STAFF');
+      expect(stored.hasStaffAccess).toBe(false);
       expect(pendingCount).toBe(1);
       expect(requestCount).toBe(3);
     });
@@ -311,8 +317,8 @@ describe('RolesRepository integration', () => {
       expect(requests[1]?.status).toBe(StaffAccessRequestStatus.REVOKED);
       expect(requests[2]?.status).toBe(StaffAccessRequestStatus.PENDING);
       // 승인은 여전히 관리자 손에 있다 — 재요청이 권한을 되돌리지 않는다.
-      expect(stored.role).toBeNull();
-      expect(stored.selectedRole).toBe('STAFF');
+      expect(stored.hasStaffAccess).toBe(false);
+      expect(stored.selectedMemberKind).toBe('STAFF');
     });
 
     it('동시 재요청 2건은 한 PENDING으로 수렴한다', async () => {
@@ -354,8 +360,8 @@ describe('RolesRepository integration', () => {
       const stored = await prisma.user.findUniqueOrThrow({
         where: { id: user.id },
       });
-      expect(stored.role).toBe('STAFF');
-      expect(stored.selectedRole).toBe('STAFF');
+      expect(stored.hasStaffAccess).toBe(true);
+      expect(stored.selectedMemberKind).toBe('STAFF');
     });
   });
 });

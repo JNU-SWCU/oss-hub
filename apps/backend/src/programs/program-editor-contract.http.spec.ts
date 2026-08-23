@@ -86,7 +86,8 @@ beforeAll(async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   store.findUserAuthorityByGithubId.mockResolvedValue({
-    role: 'STAFF',
+    selectedMemberKind: MemberKind.STAFF,
+    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
     staffAccessRequests: [],
   });

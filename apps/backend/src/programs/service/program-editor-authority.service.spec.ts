@@ -26,7 +26,8 @@ describe('ProgramEditorService authority', () => {
   it('rejects inactive staff before edit data is exposed', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
-      role: 'STAFF',
+      selectedMemberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,
       staffAccessRequests: [],
     });
@@ -42,7 +43,7 @@ describe('ProgramEditorService authority', () => {
   it('rejects pending staff approval with the dedicated editor error before data is exposed', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
-      role: null,
+      selectedMemberKind: null,
       accountStatus: AccountStatus.ACTIVE,
       staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });
@@ -58,7 +59,7 @@ describe('ProgramEditorService authority', () => {
   it('keeps inactive pending staff approval on the common forbidden path', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
-      role: null,
+      selectedMemberKind: null,
       accountStatus: AccountStatus.DEACTIVATED,
       staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
     });

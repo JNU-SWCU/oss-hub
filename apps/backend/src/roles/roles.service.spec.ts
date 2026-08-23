@@ -1,4 +1,8 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import {
@@ -61,8 +65,12 @@ class InMemoryRolesStore implements RolesTransactionStore {
   ) {
     this.user = {
       id: 'synthetic-user',
-      role: userRole,
-      selectedRole,
+      // 확정된 회원 유형은 프로필 행이 담는다. ADMIN은 유형을 남기지 않는다 —
+      // 관리자 권한은 정체성과 독립이다.
+      memberKind: userRole === 'ADMIN' ? null : userRole,
+      selectedMemberKind: selectedRole === 'ADMIN' ? null : selectedRole,
+      hasStaffAccess: userRole === 'STAFF',
+      hasAdminAccess: userRole === 'ADMIN',
       accountStatus,
       profile,
     };
@@ -73,16 +81,20 @@ class InMemoryRolesStore implements RolesTransactionStore {
     return Promise.resolve(this.user);
   }
 
-  updateSelectedMemberKind(_userId: string, role: Role): Promise<MemberUser> {
+
+  updateSelectedMemberKind(
+    _userId: string,
+    memberKind: MemberKind,
+  ): Promise<MemberUser> {
     if (!this.user) {
       throw new Error('합성 사용자가 존재해야 합니다.');
     }
-    this.user = { ...this.user, selectedRole: role };
+    this.user = { ...this.user, selectedMemberKind: memberKind };
     return Promise.resolve(this.user);
   }
 
   /**
-   * 확정 규칙은 실물(`role-confirmation.ts`)을 그대로 태운다 — 여기서 규칙을 다시
+   * 요청 규칙은 실물(`staff-access-request.ts`)을 그대로 태운다 — 여기서 규칙을 다시
    * 적으면 검사는 통과하는데 제품만 틀린 상태가 만들어진다.
    */
   requestStaffAccess(
@@ -90,14 +102,6 @@ class InMemoryRolesStore implements RolesTransactionStore {
   ): Promise<StaffAccessRequestOutcome> {
     return requestStaffAccess(
       {
-        user: {
-          updateMany: (({ data }: { data: { role: Role } }) => {
-            if (this.user) {
-              this.user = { ...this.user, role: data.role };
-            }
-            return Promise.resolve({ count: 1 });
-          }) as never,
-        },
         staffAccessRequest: {
           findFirst: (() => this.findPendingRequest()) as never,
           create: (({ data }: { data: { userId: string } }) =>
@@ -138,11 +142,14 @@ class InMemoryRolesStore implements RolesTransactionStore {
   }
 
   currentRole(): 'STUDENT' | 'STAFF' | 'ADMIN' | null {
-    return this.user?.role ?? null;
+    if (!this.user) return null;
+    if (this.user.hasAdminAccess) return 'ADMIN';
+    if (this.user.hasStaffAccess) return 'STAFF';
+    return this.user.memberKind;
   }
 
   currentSelectedRole(): 'STUDENT' | 'STAFF' | 'ADMIN' | null {
-    return this.user?.selectedRole ?? null;
+    return this.user?.selectedMemberKind ?? null;
   }
 }
 
@@ -341,7 +348,7 @@ describe('RolesService', () => {
    * (`users/user-profile-policy.ts`) 프로필이 남은 단계인 것이 사실이므로, 처음부터
    * 그리로 보낸다.
    */
-  it.each(['STUDENT', 'STAFF'])(
+  it.each<MemberKind>(['STUDENT', 'STAFF'])(
     '%s 선택은 남은 단계인 프로필로 보낸다',
     async (selectedRole) => {
       // Given
@@ -387,7 +394,7 @@ describe('RolesService', () => {
     const result = await service.selectMemberKind(424242n, 'STAFF');
 
     // Then
-    expect(result.selectedRole).toBe('STAFF');
+    expect(result.selectedMemberKind).toBe('STAFF');
     expect(store.requestCount()).toBe(1);
   });
 
@@ -410,7 +417,7 @@ describe('RolesService', () => {
     const result = await service.selectMemberKind(424242n, 'STAFF');
 
     // Then
-    expect(result.selectedRole).toBe('STAFF');
+    expect(result.selectedMemberKind).toBe('STAFF');
     expect(store.currentSelectedRole()).toBe('STAFF');
     expect(store.currentRole()).toBeNull();
     expect(store.requestCount()).toBe(1);
@@ -483,7 +490,7 @@ describe('RolesService', () => {
    * 일은 가입 절차가 아니라 회수·해제(`users/`)의 몫이다. 실제 방어선은 `role`이 붙어
    * 있는지 하나뿐이라는 것을 이 검사가 고정한다.
    */
-  it.each(['STAFF', 'STUDENT'])(
+  it.each<'STAFF' | 'STUDENT'>(['STAFF', 'STUDENT'])(
     '회수 이력이 있어도 %s 역할이 확정된 사용자는 선택을 바꿀 수 없다',
     async (confirmedRole) => {
       // Given
@@ -502,7 +509,7 @@ describe('RolesService', () => {
     },
   );
 
-  it.each(['STAFF', 'ADMIN'])(
+  it.each<'STAFF' | 'ADMIN'>(['STAFF', 'ADMIN'])(
     '%s 역할이 확정된 사용자의 선택 변경을 거부한다',
     async (role) => {
       // Given

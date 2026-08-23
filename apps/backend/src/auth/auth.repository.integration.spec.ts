@@ -171,7 +171,7 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
   const persisted = await prisma.user.findUniqueOrThrow({
     where: { githubId: revokedStaffGithubId },
   });
-  expect(persisted.role).toBeNull();
+  expect(persisted.hasStaffAccess).toBe(false);
   // 회수 이력 자체도 그대로여야 한다 — 새 APPROVED 신청이 붙으면 관리자 화면의
   // 결정 이력이 시드가 만든 decidedById=null 행으로 덮인다.
   const requests = await prisma.staffAccessRequest.findMany({
