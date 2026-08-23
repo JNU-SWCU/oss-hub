@@ -36,7 +36,7 @@ afterAll(async () => {
     }),
     prisma.user.updateMany({
       where: { id: { startsWith: 'test:pr03:admin-access-mutation:' } },
-      data: {   },
+      data: { hasAdminAccess: false, hasStaffAccess: false },
     }),
   ]);
   await prisma.$disconnect();
@@ -57,7 +57,7 @@ describe('Admin access atomic request decisions', () => {
     };
     await prisma.user.update({
       where: { id: target.id },
-      data: { ...profile, profile: { create: profile } },
+      data: { profile: { create: profile } },
     });
     const request = await prisma.staffAccessRequest.create({
       data: { id: `${target.id}:request`, userId: target.id },
