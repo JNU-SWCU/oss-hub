@@ -16,7 +16,7 @@ describe('AuthRepository.upsertUser', () => {
     expect(config.resolveInitialRole(424_242n)).toBeNull();
     const result = await upsertUser(repository, buildProfile());
 
-    expect(result.user.role).toBeNull();
+    expect(result.user.memberKind).toBeNull();
     expect(updateMany).not.toHaveBeenCalled();
   });
   it('환경에 설정된 초기 역할을 githubId로 조회한다', () => {
@@ -35,7 +35,7 @@ describe('AuthRepository.upsertUser', () => {
 
     const result = await upsertUser(repository, buildProfile());
 
-    expect(result.user.role).toBe('STUDENT');
+    expect(result.user.memberKind).toBe('STUDENT');
     expect(updateMany).not.toHaveBeenCalled();
   });
 

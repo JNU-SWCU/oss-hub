@@ -45,7 +45,7 @@ function requestWithCookie(cookie?: string): OptionalSessionRequest {
 }
 
 function authenticatedRequest(
-  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null = syntheticUser.role,
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null = syntheticUser.memberKind,
 ): OptionalSessionRequest {
   const request = { headers: {} } as Request;
   return Object.assign(request, {

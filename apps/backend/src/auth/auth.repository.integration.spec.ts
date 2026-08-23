@@ -167,7 +167,7 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
     email: null,
   });
 
-  expect(result.user.role).toBeNull();
+  expect(result.user.memberKind).toBeNull();
   const persisted = await prisma.user.findUniqueOrThrow({
     where: { githubId: revokedStaffGithubId },
   });
@@ -207,7 +207,7 @@ it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는�
     email: null,
   });
 
-  expect(result.user.role).toBe('STAFF');
+  expect(result.user.hasStaffAccess).toBe(true);
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
     orderBy: { status: 'asc' },
@@ -246,7 +246,7 @@ it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 역할과 �
     email: null,
   });
 
-  expect(result.user.role).toBe('STAFF');
+  expect(result.user.hasStaffAccess).toBe(true);
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });

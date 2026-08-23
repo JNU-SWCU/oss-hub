@@ -358,7 +358,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
 
   // Then
   expect(revoked.role).toBeNull();
-  expect(loggedIn.user.role).toBeNull();
+  expect(loggedIn.user.memberKind).toBeNull();
   const persisted = await prisma.user.findUniqueOrThrow({
     where: { id: target.id },
   });
