@@ -68,11 +68,15 @@ function required(environment, key) {
 }
 
 function optional(environment, key) {
-  return environment.has(key) ? environment.get(key) : undefined;
+  const value = environment.get(key);
+  return value === '' ? undefined : value;
 }
 
 function requireCanonicalInteger(environment, key, minimum, maximum) {
-  const value = required(environment, key);
+  const value = optional(environment, key);
+  if (value === undefined) {
+    return;
+  }
   if (!/^(?:0|[1-9][0-9]*)$/u.test(value)) {
     fail(key);
   }
@@ -102,8 +106,13 @@ function requireStrongSecret(environment, key) {
   }
 }
 
-function parseUrl(environment, key) {
-  const value = required(environment, key);
+function parseUrl(environment, key, isRequired = true) {
+  const value = isRequired
+    ? required(environment, key)
+    : optional(environment, key);
+  if (value === undefined) {
+    return undefined;
+  }
   try {
     return { value, url: new URL(value) };
   } catch {
@@ -132,7 +141,11 @@ function requireFrontendUrl(environment) {
 }
 
 function requireHttpsProviderUrl(environment, key) {
-  const { value, url } = parseUrl(environment, key);
+  const parsed = parseUrl(environment, key, false);
+  if (parsed === undefined) {
+    return;
+  }
+  const { value, url } = parsed;
   if (
     url.protocol !== 'https:' ||
     hasUserInfo(value) ||
@@ -145,7 +158,11 @@ function requireHttpsProviderUrl(environment, key) {
 
 function requireS3Endpoint(environment) {
   const key = 'SUBMISSION_FILE_S3_ENDPOINT';
-  const { value, url } = parseUrl(environment, key);
+  const parsed = parseUrl(environment, key, false);
+  if (parsed === undefined) {
+    return;
+  }
+  const { value, url } = parsed;
   const internalHttp = url.protocol === 'http:' && url.hostname === 'minio';
   if (
     (url.protocol !== 'https:' && !internalHttp) ||
@@ -178,7 +195,11 @@ function validCronAtom(atom, minimum, maximum) {
 
 function requireCron(environment) {
   const key = 'COLLECTION_CRON_EXPRESSION';
-  const fields = required(environment, key).split(' ');
+  const expression = optional(environment, key);
+  if (expression === undefined) {
+    return;
+  }
+  const fields = expression.split(' ');
   const ranges = [
     [0, 59],
     [0, 59],
@@ -215,7 +236,8 @@ function validate(environment) {
     'GMAIL_OAUTH_CLIENT_ID',
     'GMAIL_OAUTH_CLIENT_SECRET',
     'GMAIL_OAUTH_REFRESH_TOKEN',
-    'SUBMISSION_FILE_S3_REGION',
+    'GITHUB_COLLECTION_APP_ID',
+    'GITHUB_OPERATIONS_APP_ID',
     'SUBMISSION_FILE_S3_ACCESS_KEY_ID',
     'SUBMISSION_FILE_S3_SECRET_ACCESS_KEY',
   ]) {
@@ -230,7 +252,7 @@ function validate(environment) {
     fail('MAIL_MODE');
   }
 
-  requireBoolean(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE');
+  requireBoolean(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE', false);
   requireBoolean(
     environment,
     'SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED',
@@ -274,18 +296,19 @@ function validate(environment) {
   requireHttpsProviderUrl(environment, 'GITHUB_COLLECTION_APP_API_BASE_URL');
   requireS3Endpoint(environment);
 
-  const region = required(environment, 'SUBMISSION_FILE_S3_REGION');
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(region)) {
+  const region = optional(environment, 'SUBMISSION_FILE_S3_REGION');
+  if (region !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(region)) {
     fail('SUBMISSION_FILE_S3_REGION');
   }
 
-  const bucket = required(environment, 'SUBMISSION_FILE_S3_BUCKET');
+  const bucket = optional(environment, 'SUBMISSION_FILE_S3_BUCKET');
   if (
-    bucket.length < 3 ||
-    bucket.length > 63 ||
-    !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(bucket) ||
-    /(?:\.\.|-\.|\.-)/u.test(bucket) ||
-    /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/u.test(bucket)
+    bucket !== undefined &&
+    (bucket.length < 3 ||
+      bucket.length > 63 ||
+      !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(bucket) ||
+      /(?:\.\.|-\.|\.-)/u.test(bucket) ||
+      /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/u.test(bucket))
   ) {
     fail('SUBMISSION_FILE_S3_BUCKET');
   }
