@@ -620,3 +620,12 @@
 - blocker: 없음
 - 결과: 애플리케이션은 GitHub 조직 login의 대소문자를 허용하지만 운영 env 사전검증만 소문자로 제한해 배포를 중단하던 regex를 앱 계약과 동일한 ASCII 영숫자·하이픈 casing 보존 계약으로 맞췄다
 - 검증: 실제 운영 casing 실패를 합성 RED 1건으로 재현 후 validator 102/102, LSP 0건
+
+## 2026-08-25 — ADR을 현재 실행·ranking 계약과 정렬
+
+- 상태: review
+- Issue: #1027
+- PR: (이 PR)
+- blocker: 없음
+- 결과: ADR-002가 실행값 SSoT인 Jenkinsfile의 backup retention 30과 그 복구점·디스크 상한 목적을 기록하도록 갱신하고, ADR-003의 공개 ranking 설명을 배포된 4필드 public entry와 ACTIVE staff/admin rich entry 계약에 맞췄다. Jenkinsfile 주석과 active exec-plan의 stale N=120도 N=30으로 정렬했다
+- 검증: runtime 동작 변경 없음, Markdown format·public-safe·team-state checker 단위 14/14·diff-check 통과 (drift report의 기존 stale 항목은 별도)
