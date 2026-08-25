@@ -107,3 +107,9 @@ describe('nextConfig rewrites', () => {
     await expect(getRewrites()).resolves.toEqual([]);
   });
 });
+
+describe('nextConfig poweredByHeader', () => {
+  it('X-Powered-By 배너를 끈다', () => {
+    expect(nextConfig.poweredByHeader).toBe(false);
+  });
+});

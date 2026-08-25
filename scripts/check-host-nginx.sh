@@ -309,6 +309,188 @@ for node in allowed_nodes:
         missing = expected_directives - flat
         extra = flat - expected_directives
         fail(f'{node.args[-1]} protection directives differ (missing={dict(missing)}, extra={dict(extra)})')
+
+# Increment A public edge policy. Existing Jenkins allowlists stay fail-fast
+# above so mutated Jenkins fixtures still fail for the original reason.
+edge_errors: list[str] = []
+
+def edge(message: str) -> None:
+    edge_errors.append(message)
+
+def directive_size_bytes(value: str) -> int:
+    text = value.strip().lower()
+    unit = 1
+    if text.endswith('k'):
+        unit, text = 1024, text[:-1]
+    elif text.endswith('m'):
+        unit, text = 1024 * 1024, text[:-1]
+    elif text.endswith('g'):
+        unit, text = 1024 * 1024 * 1024, text[:-1]
+    if not text.isdigit():
+        return 0
+    return int(text) * unit
+
+token_dirs = [node for node in walk(tree) if node.name == 'server_tokens']
+if any(node.args == ('on',) for node in token_dirs):
+    edge('server_tokens on is forbidden')
+if not any(node.args == ('off',) for node in token_dirs):
+    edge('server_tokens off is required')
+
+required_zones = {
+    ('$binary_remote_addr', 'zone=api:10m', 'rate=10r/s'),
+    ('$binary_remote_addr', 'zone=oauth:10m', 'rate=10r/m'),
+    ('$binary_remote_addr', 'zone=admin_collection:10m', 'rate=2r/m'),
+}
+present_zones = {
+    node.args
+    for node in walk(tree)
+    if node.name == 'limit_req_zone' and node.children is None
+}
+for zone in sorted(required_zones):
+    if zone not in present_zones:
+        edge(f'missing limit_req_zone {" ".join(zone)}')
+
+tls_children = tls_server.children or []
+if not any(
+    child.name == 'proxy_hide_header'
+    and child.children is None
+    and child.args == ('X-Powered-By',)
+    for child in tls_children
+):
+    edge('TLS server must hide upstream X-Powered-By')
+
+def header_values(name: str) -> list[tuple[str, ...]]:
+    return [
+        child.args[1:]
+        for child in tls_children
+        if child.name == 'add_header' and child.children is None and child.args and child.args[0] == name
+    ]
+
+def require_header(name: str, value: str) -> None:
+    if not any(args == (value, 'always') for args in header_values(name)):
+        edge(f'TLS server missing add_header {name} "{value}" always')
+
+require_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+require_header('X-Content-Type-Options', 'nosniff')
+require_header('X-Frame-Options', 'DENY')
+require_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+require_header(
+    'Permissions-Policy',
+    'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
+)
+
+required_csp = {
+    'base-uri': "'self'",
+    'object-src': "'none'",
+    'frame-ancestors': "'none'",
+    'form-action': "'self'",
+}
+
+def parse_csp(value: str) -> dict[str, str] | None:
+    parsed: dict[str, str] = {}
+    for part in value.split(';'):
+        part = part.strip()
+        if not part:
+            continue
+        name, _, rest = part.partition(' ')
+        if not name or name in parsed:
+            return None
+        parsed[name] = rest.strip()
+    return parsed
+
+csp_ok = False
+for args in header_values('Content-Security-Policy'):
+    if len(args) != 2 or args[1] != 'always':
+        continue
+    if parse_csp(args[0]) == required_csp:
+        csp_ok = True
+        break
+if not csp_ok:
+    edge(
+        "TLS server missing Content-Security-Policy "
+        "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' always"
+    )
+
+def tls_location(args: tuple[str, ...]) -> Node | None:
+    matches = [
+        child for child in tls_children
+        if child.name == 'location' and child.args == args and child.children is not None
+    ]
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+def has_limit(node: Node, zone: str, burst: str) -> bool:
+    wanted = {f'zone={zone}', f'burst={burst}', 'nodelay'}
+    return any(
+        child.name == 'limit_req' and child.children is None and wanted.issubset(set(child.args))
+        for child in (node.children or [])
+    )
+
+def has_status_429(node: Node) -> bool:
+    return any(
+        child.name == 'limit_req_status' and child.children is None and child.args == ('429',)
+        for child in (node.children or [])
+    )
+
+def proxies_compose(node: Node) -> bool:
+    allowed = {'http://oss_hub_compose', 'http://127.0.0.1:8081'}
+    return any(
+        child.name == 'proxy_pass' and child.children is None and child.args and child.args[0] in allowed
+        for child in (node.children or [])
+    )
+
+def has_upload_body(node: Node) -> bool:
+    return any(
+        child.name == 'client_max_body_size'
+        and child.children is None
+        and child.args
+        and directive_size_bytes(child.args[0]) >= 5 * 1024 * 1024
+        for child in (node.children or [])
+    )
+
+limited_locations = (
+    (('/api/',), 'api', '30', True, 'general /api/'),
+    (('=', '/api/v1/auth/github'), 'oauth', '5', False, 'OAuth start'),
+    (('=', '/api/v1/auth/github/callback'), 'oauth', '5', False, 'OAuth callback'),
+    (('=', '/api/v1/admin/collection/trigger'), 'admin_collection', '1', False, 'admin collection trigger'),
+    (('=', '/api/v1/admin/collection/discover-external'), 'admin_collection', '1', False, 'admin collection discovery'),
+)
+for args, zone, burst, need_body, label in limited_locations:
+    node = tls_location(args)
+    if node is None:
+        edge(f'TLS server missing active {label} location {" ".join(args)}')
+        continue
+    if not has_limit(node, zone, burst):
+        edge(f'{label} location must apply limit_req zone={zone} burst={burst} nodelay')
+    if not has_status_429(node):
+        edge(f'{label} location must set limit_req_status 429')
+    if not proxies_compose(node):
+        edge(f'{label} location must proxy_pass the Compose upstream')
+    if need_body and not has_upload_body(node):
+        edge(f'{label} location must keep client_max_body_size >= 5MB')
+
+# The OAuth callback URL carries `code`+`state`. Because a location `add_header`
+# discards every inherited server-level header, the callback location must
+# re-declare Referrer-Policy with the stricter `no-referrer` (the server-level
+# default is `strict-origin-when-cross-origin`, which would leak the full
+# callback URL as Referer on same-origin navigations). Mirrors deploy/nginx/nginx.conf.
+def location_has_header(node: Node, name: str, value: str) -> bool:
+    return any(
+        child.name == 'add_header'
+        and child.children is None
+        and child.args == (name, value, 'always')
+        for child in (node.children or [])
+    )
+
+callback_node = tls_location(('=', '/api/v1/auth/github/callback'))
+if callback_node is None:
+    edge('TLS server missing OAuth callback location for Referrer-Policy check')
+elif not location_has_header(callback_node, 'Referrer-Policy', 'no-referrer'):
+    edge('OAuth callback location must set add_header Referrer-Policy "no-referrer" always')
+
+if edge_errors:
+    fail('public edge policy: ' + '; '.join(edge_errors))
 PY
 
 log_format=$(awk '
@@ -384,4 +566,4 @@ then
   exit 1
 fi
 
-echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger, upload body >= 5MB)'
+echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger, upload body >= 5MB, public edge policy)'
