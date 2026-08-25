@@ -12,6 +12,7 @@ import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,
 } from './submission-file-content-type';
+import { hasValidSubmissionFileSignature } from './submission-file-signature';
 import {
   SUBMISSION_FILE_STORAGE,
   type SubmissionFileStoragePort,
@@ -19,6 +20,7 @@ import {
 import {
   type CreatePendingSubmissionFileInput,
   type SubmissionFileResubmissionContext,
+  SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from './submission-files.repository';
@@ -26,31 +28,21 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.enum';
+import { isSafeSubmissionZipMetadata } from './submission-zip-admission';
+import type {
+  DownloadedSubmissionFile,
+  SubmissionFileUpload,
+  UploadedSubmissionFileResponse,
+} from './submission-files.types';
+
+export type {
+  DownloadedSubmissionFile,
+  SubmissionFileUpload,
+  UploadedSubmissionFileResponse,
+} from './submission-files.types';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
-
-export interface SubmissionFileUpload {
-  readonly buffer: Buffer;
-  readonly originalname: string;
-  readonly mimetype: string;
-  readonly size: number;
-}
-
-export interface UploadedSubmissionFileResponse {
-  readonly fileId: string;
-  readonly fileName: string;
-  readonly contentType: string;
-  readonly size: number;
-  readonly expiresAt: string;
-}
-
-export interface DownloadedSubmissionFile {
-  readonly body: Readable;
-  readonly fileName: string;
-  readonly contentType: string;
-  readonly contentLength: number;
-}
 
 @Injectable()
 export class SubmissionFilesService {
@@ -83,7 +75,13 @@ export class SubmissionFilesService {
     const normalizedFileName = normalizeMultipartFileName(file.originalname);
     if (
       !isAllowedSubmissionFileType(normalizedFileName, file.mimetype) ||
-      !hasValidFileSignature(file.buffer, normalizedFileName)
+      !hasValidSubmissionFileSignature(file.buffer, normalizedFileName)
+    ) {
+      throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
+    }
+    if (
+      normalizedFileName.toLowerCase().endsWith('.zip') &&
+      !(await isSafeSubmissionZipMetadata(file.buffer))
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
@@ -152,6 +150,9 @@ export class SubmissionFilesService {
     try {
       created = await this.repository.createPending(pendingInput);
     } catch (error) {
+      if (error instanceof SubmissionFileQuotaExceededError) {
+        throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED);
+      }
       if (error instanceof SubmissionFileRetentionUnavailableError) {
         throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
       }
@@ -260,27 +261,4 @@ export class SubmissionFilesService {
   private error(code: SubmissionsErrorCode): DomainException {
     return new DomainException(SUBMISSIONS_ERROR_CODES[code]);
   }
-}
-
-function hasValidFileSignature(buffer: Buffer, fileName: string): boolean {
-  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
-  const signatures: Readonly<Record<string, readonly Buffer[]>> = {
-    '.pdf': [Buffer.from('%PDF-')],
-    '.hwp': [Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])],
-    '.jpg': [Buffer.from([0xff, 0xd8, 0xff])],
-    '.jpeg': [Buffer.from([0xff, 0xd8, 0xff])],
-    '.png': [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
-    '.zip': [
-      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
-      Buffer.from([0x50, 0x4b, 0x05, 0x06]),
-      Buffer.from([0x50, 0x4b, 0x07, 0x08]),
-    ],
-  };
-  return (
-    signatures[extension]?.some(
-      (signature) =>
-        buffer.length >= signature.length &&
-        buffer.subarray(0, signature.length).equals(signature),
-    ) ?? false
-  );
 }

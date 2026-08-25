@@ -99,7 +99,11 @@ beforeAll(async () => {
       },
       {
         provide: AuthService,
-        useValue: { getMe: jest.fn().mockResolvedValue({ id: 'synthetic' }) },
+        useValue: {
+          getMe: jest
+            .fn()
+            .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+        },
       },
       { provide: SubmissionMatrixRepository, useValue: repository },
     ],
@@ -127,6 +131,7 @@ async function cookie(githubId: bigint): Promise<string> {
   return `${sessionCookieName(false)}=${await issueSessionToken(
     sessionSecret,
     githubId,
+    0,
   )}`;
 }
 

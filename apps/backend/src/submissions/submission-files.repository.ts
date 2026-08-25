@@ -14,6 +14,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
 
 const MAX_DELETE_ATTEMPTS = 6;
+const MAX_RETAINED_FILE_COUNT = 100;
+const MAX_RETAINED_FILE_BYTES = 500 * 1024 * 1024;
 
 export interface SubmissionFileUploadAuthorization {
   readonly uploaderId: string;
@@ -82,7 +84,12 @@ export class SubmissionFileRetentionUnavailableError extends Error {
   override readonly name = 'SubmissionFileRetentionUnavailableError';
 }
 
+export class SubmissionFileQuotaExceededError extends Error {
+  override readonly name = 'SubmissionFileQuotaExceededError';
+}
+
 @Injectable()
+// allow: SIZE_OK — one Nest provider owns transactional submission-file lifecycle persistence.
 export class SubmissionFilesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -225,6 +232,12 @@ export class SubmissionFilesRepository {
 
   createPending(input: CreatePendingSubmissionFileInput) {
     return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
+        SELECT "id"
+        FROM "User"
+        WHERE "id" = ${input.uploaderId}
+        FOR UPDATE
+      `);
       const programs = await transaction.$queryRaw<
         readonly { endAt: Date }[]
       >(Prisma.sql`
@@ -238,6 +251,22 @@ export class SubmissionFilesRepository {
       const program = programs[0];
       if (!program) {
         throw new SubmissionFileRetentionUnavailableError();
+      }
+
+      const retained = await transaction.submissionFile.aggregate({
+        where: {
+          uploaderId: input.uploaderId,
+          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+        },
+        _count: { _all: true },
+        _sum: { sizeBytes: true },
+      });
+      if (
+        retained._count._all >= MAX_RETAINED_FILE_COUNT ||
+        (retained._sum.sizeBytes ?? 0) + input.sizeBytes >
+          MAX_RETAINED_FILE_BYTES
+      ) {
+        throw new SubmissionFileQuotaExceededError();
       }
 
       return transaction.submissionFile.create({
