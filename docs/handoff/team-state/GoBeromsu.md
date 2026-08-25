@@ -590,3 +590,15 @@
 - QA: 실제 컨테이너 PostgreSQL + 실제 백엔드 + 실제 프런트엔드로 합성 6종을 심고 `/ranking?year=2026`을 Chrome으로 확인 — 응답 total 2·학생 2명만, 제외 4종은 더 높은 수치를 심었는데도 API·화면 양쪽에서 부재, 공개 열람자 실명 노출 0건
 - 증거: `.omo/evidence/jwt-auth-signup-refactor/task-15/` (synthetic fixture only; production 접근 증거 아님)
 - 금지 작업: production 접근·release·deploy·merge 없음
+
+## 2026-08-24 — 배포·인증·업로드·엣지 attack surface 축소 (보안 점검 기반)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 최신 보안 점검 도구를 격리 로컬 클론에만 붙여(운영 무접촉) 확인된 노출을 최소 계층 변경으로 축소 — 세션 버전 기반 서버측 세션 무효화(로그아웃 시 복사 JWT 폐기), OriginGuard fail-closed, 공개 순위 wire를 rank·githubLogin·commit·PR 4필드로 축소(학과·실명 비노출), 제출·마일스톤·프로그램 업로드 전부에 ZIP 반입 검사와 사용자별 저장 쿼터, 엣지 nginx 배너·보안 헤더·OAuth callback no-referrer·레이트리밋, 외부 이미지 digest 고정, 운영 환경 사전검증·백업 보존 축소. 9개 아토믹 커밋
+- 검증: backend typecheck·lint(0건)·unit 301 suites/3378 tests·integration 87 suites/458 tests green, 실제 nginx -t 성공, 독립 보안·코드품질 리뷰 2건 반영 완료, git diff --check 통과
+- QA: 격리 로컬 스택에서 복사 JWT 로그아웃 폐기 재연(v0 로그아웃 후 stored 1, 복사 v0 익명화, 신규 v1 유효)·공개 순위 실명 비노출 확인. 운영 https://54.116.116.174/ 는 passive GET·HEAD 만(무변경)
+- 증거: ulw-loop 세션 ledger + evidence (synthetic fixture only; 운영 접근 증거 아님)
+- 금지 작업: production release·deploy·merge 미실행 — owner 승인 대기
