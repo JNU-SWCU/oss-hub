@@ -42,7 +42,7 @@ NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. �
 
 `github`는 소비자 모듈을 역import하지 않는다. 소비자 Service는 `github`의 concrete repository를 import하지 않는다. 소비자 Repository는 Prisma를 직접 쓴다.
 
-`GET /ranking`은 전원에게 공개다. STUDENT 세션은 익명과 같다. `department`와 다음 수집 시각(clock)은 전원에게 내려간다. Staff/Admin ACTIVE 세션(`viewerClass` staff)만 실명과 CSV를 추가로 받는다.
+`GET /ranking`은 전원에게 공개다. STUDENT 세션은 익명과 같다. public entry는 `rank`·`githubLogin`·`commitCount`·`pullRequestCount` 네 필드만 내려간다. 페이지 metadata의 `dataAsOf`·`nextCycleAt`은 공개하지만 `displayName`·`name`·`department`와 issue·repository·star·total 집계는 내리지 않는다. Staff/Admin ACTIVE 세션(`viewerClass` staff)만 rich entry와 CSV를 받는다. 실행 wire 계약의 SSoT은 ranking response DTO와 그 회귀 테스트다.
 
 공개 endpoint의 private 데이터 strict-read는 owner-approved dedicated public query repository에서만 허용한다. 이 repository는 explicit select와 public DTO allowlist를 사용하고 service allowlist, private/nonexistent 동일 404, selector/integration review evidence를 요구한다. Controller와 일반 Service의 Prisma 직접 접근, 임의 private join, wildcard include, redact-later와 forbidden field fetch는 금지한다.
 
@@ -109,10 +109,11 @@ NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. �
 - NestJS는 `setGlobalPrefix('api/v1')`로 API 접두사를 설정한다.
 - eslint DEC-42는 이 결정에 맞게 다시 쓴다.
 - CollectionReadService 조회는 소비자 Repository로 옮긴다 — RankingRepository(`ranking/`), ProgramActivityRepository·ProgramMetricsRepository(`programs/`), SystemStatusRepository. 다음 수집 tick은 `collection-schedule.ts`가 공유한다.
-- `GET /ranking`은 전원 공개다. STUDENT는 익명과 같다. department와 clock은 전원에게 간다. staff만 실명과 CSV를 받는다.
+- `GET /ranking`은 전원 공개다. STUDENT는 익명과 같다. public entry는 rank·GitHub login·commit·PR 네 필드만 가지며 수집 시각 metadata는 공개한다. staff만 실명·학과·추가 집계와 CSV를 받는다.
 
 ## Changelog
 
+- 2026-08-25: 배포된 ranking response DTO를 wire 계약의 SSoT으로 명시하고, public/STUDENT entry를 `rank`·`githubLogin`·`commitCount`·`pullRequestCount` 네 필드로 정렬했다. 기존의 department 전원 공개 문장을 제거하고 ACTIVE staff/admin rich entry와 공개 페이지 metadata 경계를 기록했다 (#1027).
 - 2026-07-11: initial decision
 - 2026-07-31: 공개 strict-read를 dedicated allowlist repository로 한정하고 Controller→Service→Repository DTO 및 cross-module/external behavioral dependency의 Port-only 규칙을 명문화했다.
 - 2026-08-04: DEC-42(collection 모듈의 `COLLECTION_READ_PORT` 전용 소비 경계)를 개정해, collection 수집원이 `ORG_PROVISIONED`/`EXTERNAL_PUBLIC` 두 가지로 늘어나도 그 차이(자격증명·discovery)를 흡수하는 지점은 collection 서비스 계층이며 Port 경계·delegate 접근 규칙 자체는 바뀌지 않음을 명시했다. 이 문서 본문에 `DEC-42` 식별자가 명시된 것은 이번이 처음이다 — 이전까지는 `eslint.config.mjs`·테스트·`AGENTS.md`가 이 결정을 "(ADR-003 DEC-42)"로 인용해 왔으나 ADR 본문에는 그 식별자가 없어 추적이 간접적이었다.

@@ -37,7 +37,7 @@
 6. Release tag로 front와 back 이미지를 서버 로컬에서 각각 한 번만 빌드하고 exact SHA를 OCI revision label로 기록한다. 레지스트리에 push하거나 pull하지 않는다.
 7. 6에서 빌드한 backend 이미지로 `prisma migrate deploy`를 실행한다.
 8. `up -d --no-build --wait --wait-timeout <n>`로 nginx, front, back, postgres를 동일 Release tag로 기동하고 loopback Compose ingress와 공인 IP TLS에서 `/`·`/api/v1/health` smoke를 모두 수행한다. loopback Compose ingress에서는 제출 파일 업로드 경로가 403인지도 함께 단언한다 — 실행 중 nginx 설정에 fail-closed 차단이 실제로 있는지는 ingress를 호출해야만 증명된다. `/api/v1/health`는 PostgreSQL 연결을 확인하므로 DB 미가용은 503으로 드러난다.
-9. 모두 성공한 뒤에만 실행 중·직전 이미지를 보존하고 backup 최근 N=120을 정리한다.
+9. 모두 성공한 뒤에만 실행 중·직전 이미지를 보존하고 backup 최근 N=30을 정리한다.
 10. 서비스 교체 또는 smoke 실패 시 로그를 보존하고 캡처한 직전 Image ID가 유효하면 rollback을 한 번 수행한다. greenfield이거나 rollback smoke도 실패하면 자동 재귀 시도 없이 수동 복구로 전환한다.
 
 Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. PostgreSQL 데이터는 named volume `pgdata`에 보존한다.

@@ -6,7 +6,7 @@
 // - 동일 실행 중 tag+SHA만 성공 no-op. 하위 SemVer는 양쪽 실행 중이고 metadata가 일치할 때만 no-op.
 // - same-tag/different-SHA, partial, stopped-only, missing/invalid label·SemVer는 fail-closed.
 // - 중지·모호 상태는 deploy 권한 없음. no-op은 완전 증명된 running metadata만.
-// - 성공 후에만 이미지/BuildKit 캐시/백업 정리. 실행 중+직전 이미지 보존. BuildKit 캐시 최대 5GB, 백업 최근 N=120.
+// - 성공 후에만 이미지/BuildKit 캐시/백업 정리. 실행 중+직전 이미지 보존. BuildKit 캐시 최대 5GB, 백업 최근 N=30.
 // - 이미지 빌드 후 migration·rollout·health/smoke·rollback을 수행한다.
 pipeline {
   agent {
@@ -901,7 +901,7 @@ done < "$images_inventory"
 # 성공 배포 뒤에만 BuildKit 캐시를 LRU 기준 상한까지 정리한다.
 docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
-# backup retention N=120 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
+# backup retention N=30 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
 bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
 bash scripts/prune-deploy-backups.sh "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
 
