@@ -602,3 +602,12 @@
 - QA: 격리 로컬 스택에서 복사 JWT 로그아웃 폐기 재연(v0 로그아웃 후 stored 1, 복사 v0 익명화, 신규 v1 유효)·공개 순위 실명 비노출 확인. 운영 https://54.116.116.174/ 는 passive GET·HEAD 만(무변경)
 - 증거: ulw-loop 세션 ledger + evidence (synthetic fixture only; 운영 접근 증거 아님)
 - 금지 작업: production release·deploy·merge 미실행 — owner 승인 대기
+
+## 2026-08-25 — 배포 env 사전검증 기본값 계약 정렬
+
+- 상태: review
+- Issue: #1023
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 운영 env 사전검증이 compose·애플리케이션의 안전한 기본값을 가진 선택 설정까지 필수로 요구해 배포를 중단하던 계약을 수정했다. 미설정·빈 값은 runtime 기본값을 사용하고 명시된 override만 기존 형식·범위로 검증하며, 비밀값·앱 ID·초기 역할 seed의 fail-closed 계약은 유지한다
+- 검증: 합성 RED 2건 재현 후 validator 101/101, Jenkins shell 164/164, Jenkins Node 4/4, CI path 6/6, production image pin, 문법·LSP·Prettier·public-safe·diff-check 통과

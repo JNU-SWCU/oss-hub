@@ -173,6 +173,34 @@ const controls = [
     renderEnvironment({ COLLECTION_CRON_EXPRESSION: '0 */15 * * * *' }),
   ),
   control(
+    'blank compose-defaulted values are accepted',
+    renderEnvironment({
+      GITHUB_COLLECTION_APP_API_BASE_URL: '',
+      GITHUB_COLLECTION_APP_MAX_PAGES: '',
+      GITHUB_COLLECTION_APP_DEADLINE_MS: '',
+      COLLECTION_CRON_EXPRESSION: '',
+      PORT: '',
+      SUBMISSION_FILE_S3_ENDPOINT: '',
+      SUBMISSION_FILE_S3_REGION: '',
+      SUBMISSION_FILE_S3_BUCKET: '',
+      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: '',
+    }),
+  ),
+  control(
+    'missing compose-defaulted values are accepted',
+    renderEnvironment({
+      GITHUB_COLLECTION_APP_API_BASE_URL: REMOVE,
+      GITHUB_COLLECTION_APP_MAX_PAGES: REMOVE,
+      GITHUB_COLLECTION_APP_DEADLINE_MS: REMOVE,
+      COLLECTION_CRON_EXPRESSION: REMOVE,
+      PORT: REMOVE,
+      SUBMISSION_FILE_S3_ENDPOINT: REMOVE,
+      SUBMISSION_FILE_S3_REGION: REMOVE,
+      SUBMISSION_FILE_S3_BUCKET: REMOVE,
+      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: REMOVE,
+    }),
+  ),
+  control(
     'canonical hyphenated GitHub organization is accepted',
     renderEnvironment({ GITHUB_APP_ORG: 'synthetic-security-org' }),
   ),
@@ -337,10 +365,6 @@ const valueRejects = [
   removed('missing Gmail OAuth client secret', 'GMAIL_OAUTH_CLIENT_SECRET'),
   removed('missing Gmail OAuth refresh token', 'GMAIL_OAUTH_REFRESH_TOKEN'),
 
-  removed(
-    'missing S3 path-style boolean',
-    'SUBMISSION_FILE_S3_FORCE_PATH_STYLE',
-  ),
   reject(
     'numeric S3 path-style boolean',
     'SUBMISSION_FILE_S3_FORCE_PATH_STYLE',
@@ -383,7 +407,6 @@ const valueRejects = [
     ],
   ].map(([name, key, value]) => reject(name, key, value)),
 
-  reject('blank collection cron', 'COLLECTION_CRON_EXPRESSION', ''),
   reject(
     'five-field collection cron',
     'COLLECTION_CRON_EXPRESSION',
@@ -443,7 +466,6 @@ const valueRejects = [
     'https://api.github.com#prod',
   ),
 
-  removed('missing S3 endpoint', 'SUBMISSION_FILE_S3_ENDPOINT'),
   reject(
     'public HTTP S3 endpoint',
     'SUBMISSION_FILE_S3_ENDPOINT',
@@ -464,10 +486,8 @@ const valueRejects = [
     'SUBMISSION_FILE_S3_ENDPOINT',
     'ftp://minio',
   ),
-  removed('missing S3 region', 'SUBMISSION_FILE_S3_REGION'),
   reject('uppercase S3 region', 'SUBMISSION_FILE_S3_REGION', 'US-EAST-1'),
   reject('spaced S3 region', 'SUBMISSION_FILE_S3_REGION', 'us east 1'),
-  removed('missing S3 bucket', 'SUBMISSION_FILE_S3_BUCKET'),
   reject(
     'uppercase S3 bucket',
     'SUBMISSION_FILE_S3_BUCKET',
