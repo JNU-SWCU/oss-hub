@@ -4,9 +4,47 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 checker="$repo_root/scripts/check-jenkinsfile.sh"
-v2_source="$repo_root/Jenkinsfile"
+current_source="$repo_root/Jenkinsfile"
 fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/jenkinsfile-contract.XXXXXX")
 trap 'rm -rf "$fixture_dir"' EXIT
+v2_source="$fixture_dir/v2-green-source"
+
+python3 - "$current_source" "$v2_source" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+checkout = """    stage('exact SHA checkout') {
+      steps {
+        sh 'git checkout --detach "$RELEASE_SHA"'
+      }
+    }
+"""
+preflight = """
+    stage('운영 환경 사전 검증') {
+      steps {
+        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
+          sh 'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"'
+        }
+      }
+    }
+"""
+preflight_marker = "stage('운영 환경 사전 검증')"
+if source.count(preflight_marker) == 0:
+    if source.count(checkout) != 1:
+        raise SystemExit('exact SHA checkout fixture anchor must occur once')
+    source = source.replace(checkout, checkout + preflight, 1)
+elif source.count(preflight_marker) != 1:
+    raise SystemExit('production env preflight fixture marker must occur once')
+
+retention_120 = source.count("BACKUP_RETENTION_N = '120'")
+retention_30 = source.count("BACKUP_RETENTION_N = '30'")
+if retention_120 == 1 and retention_30 == 0:
+    source = source.replace("BACKUP_RETENTION_N = '120'", "BACKUP_RETENTION_N = '30'", 1)
+elif retention_120 != 0 or retention_30 != 1:
+    raise SystemExit('backup retention fixture must be exactly 120 or 30')
+Path(sys.argv[2]).write_text(source)
+PY
 
 passed=0
 failed=0
@@ -16,7 +54,7 @@ expect_pass() {
   local mode=$2
   local path=$3
 
-  if "$checker" "$mode" "$path" >/dev/null 2>&1; then
+  if bash "$checker" "$mode" "$path" >/dev/null 2>&1; then
     printf 'ok - %s\n' "$name"
     passed=$((passed + 1))
   else
@@ -30,7 +68,7 @@ expect_fail() {
   local mode=$2
   local path=$3
 
-  if "$checker" "$mode" "$path" >/dev/null 2>&1; then
+  if bash "$checker" "$mode" "$path" >/dev/null 2>&1; then
     printf 'not ok - %s (실패해야 하지만 성공)\n' "$name" >&2
     failed=$((failed + 1))
   else
@@ -45,7 +83,7 @@ expect_fail_with_code() {
   local path=$3
   local status
 
-  if "$checker" "$mode" "$path" >/dev/null 2>&1; then
+  if bash "$checker" "$mode" "$path" >/dev/null 2>&1; then
     printf 'not ok - %s (실패해야 하지만 성공)\n' "$name" >&2
     failed=$((failed + 1))
   else
@@ -219,6 +257,18 @@ make_fixture "$v2_source" v2-missing-tag-resolution 'git rev-parse "${RELEASE_TA
 make_fixture "$v2_source" v2-missing-main-ancestry 'git merge-base --is-ancestor "$release_sha" origin/main' 'true'
 make_fixture "$v2_source" v2-restored-member-authority-backfill "stage('서비스 교체 및 스모크 확인')" "stage('회원 권한 backfill')"
 make_fixture "$v2_source" v2-moving-checkout 'git checkout --detach "$RELEASE_SHA"' 'git checkout main'
+make_fixture "$v2_source" v2-missing-production-env-preflight \
+  'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"' \
+  'node scripts/jenkins/validate-production-env-removed.mjs "$OSS_HUB_ENV_FILE"'
+make_fixture "$v2_source" v2-disabled-production-env-preflight \
+  "stage('운영 환경 사전 검증') {" \
+  "stage('운영 환경 사전 검증') { when { expression { false } }"
+make_fixture "$v2_source" v2-mutation-before-production-env-preflight \
+  'sh '\''git checkout --detach "$RELEASE_SHA"'\''' \
+  'sh '\''git checkout --detach "$RELEASE_SHA"'\''; sh '\''mkdir -p "$SECRETS_DIR"'\'''
+make_fixture "$v2_source" v2-backup-retention-120 \
+  "BACKUP_RETENTION_N = '30'" \
+  "BACKUP_RETENTION_N = '120'"
 make_fixture "$v2_source" v2-missing-image-tag-release 'env.IMAGE_TAG = tag' 'env.IMAGE_TAG = releaseSha'
 make_fixture "$v2_source" v2-missing-release-sha-binding 'env.RELEASE_SHA = releaseSha' 'env.RELEASE_SHA = env.IMAGE_TAG'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
@@ -1403,6 +1453,10 @@ expect_fail 'v2: Release tag SHA 해석 누락' v2 "$fixture_dir/v2-missing-tag-
 expect_fail 'v2: main ancestry 검증 누락' v2 "$fixture_dir/v2-missing-main-ancestry"
 expect_fail 'v2: 완료된 회원 권한 backfill stage 부활' v2 "$fixture_dir/v2-restored-member-authority-backfill"
 expect_fail 'v2: 정확한 RELEASE_SHA checkout 누락' v2 "$fixture_dir/v2-moving-checkout"
+expect_fail 'v2: production env preflight 누락' v2 "$fixture_dir/v2-missing-production-env-preflight"
+expect_fail 'v2: production env preflight 조건부 비활성화' v2 "$fixture_dir/v2-disabled-production-env-preflight"
+expect_fail 'v2: production env preflight 전 mutation' v2 "$fixture_dir/v2-mutation-before-production-env-preflight"
+expect_fail 'v2: production backup retention 120 부활' v2 "$fixture_dir/v2-backup-retention-120"
 expect_fail 'v2: IMAGE_TAG=RELEASE_TAG 계약 파손' v2 "$fixture_dir/v2-missing-image-tag-release"
 expect_fail 'v2: RELEASE_SHA 바인딩 파손' v2 "$fixture_dir/v2-missing-release-sha-binding"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"

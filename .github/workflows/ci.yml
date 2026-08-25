@@ -91,11 +91,15 @@ jobs:
               - '.github/workflows/**'
             jenkins:
               - 'Jenkinsfile'
+              - 'compose.yml'
+              - 'apps/*/Dockerfile'
               - 'deploy/jenkins/**'
               - 'scripts/jenkins/**'
+              - 'scripts/jenkins/validate-production-env*'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - 'scripts/check-jenkinsfile.test.mjs'
+              - 'scripts/check-production-image-pins*.sh'
               - 'scripts/check-member-authority-production*'
               - 'scripts/member-authority-production-report.mjs'
               - 'scripts/member-authority-jenkins-contract.test.mjs'
@@ -199,9 +203,12 @@ jobs:
       - name: Jenkins 배포 계약 회귀 테스트
         if: ${{ steps.scope.outputs.jenkins == 'true' }}
         run: |
+          node --test scripts/jenkins/validate-production-env.test.mjs
           node --test scripts/jenkins/validate-github-app-credentials.test.mjs
           node --test scripts/check-member-authority-production.test.mjs scripts/member-authority-jenkins-contract.test.mjs
           node --test scripts/check-auth-production-readonly.test.mjs
+          bash scripts/check-production-image-pins.test.sh
+          bash scripts/check-production-image-pins.sh
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh

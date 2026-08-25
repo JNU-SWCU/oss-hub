@@ -4,6 +4,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 pruner="$repo_root/scripts/prune-deploy-backups.sh"
+jenkinsfile="$repo_root/Jenkinsfile"
 
 if [[ ! -x "$pruner" && -f "$pruner" ]]; then
   chmod +x "$pruner"
@@ -119,10 +120,10 @@ after_few=$(count_matching "$few_dir")
 expect_pass 'fewer-than-N retains all matching' bash -c "[[ '$before_few' -eq 3 && '$after_few' -eq 3 ]]"
 expect_pass 'fewer-than-N keeps newest names' bash -c "[[ -f '$few_dir/v1.2.3-1.sql' && -f '$few_dir/v1.2.3-2.sql' && -f '$few_dir/v1.2.3-3.sql' ]]"
 
-# --- N+1 isolation: 121 matching → retain exactly 120 (newest) ---
+# --- production N+1 isolation: 31 matching → retain exactly 30 (newest) ---
 c4_dir="$fixture_root/c4-isolated"
 mkdir -p "$c4_dir"
-seed_ordered_backups "$c4_dir" 121
+seed_ordered_backups "$c4_dir" 31
 
 # Unknown / non-contract inventory that must survive.
 printf 'keep-me\n' >"$c4_dir/notes.txt"
@@ -143,15 +144,15 @@ outside_marker_before=$(cksum <"$outside_dir/v9.9.9-1.sql")
 # Non-contract symlink inventory is ignored and never followed.
 ln -s "$outside_dir/v9.9.9-1.sql" "$c4_dir/link-other.sql"
 
-expect_pass 'C4 retain 120 runs' "$pruner" "$c4_dir" 120
+expect_pass 'production retain 30 runs' "$pruner" "$c4_dir" 30
 
 matching_after=$(count_matching "$c4_dir")
-expect_pass 'C4 retains exactly 120 matching backups' bash -c "[[ '$matching_after' -eq 120 ]]"
+expect_pass 'production retains exactly 30 matching backups' bash -c "[[ '$matching_after' -eq 30 ]]"
 
-# Newest 120 are build 2..121; oldest build 1 is stale.
-expect_pass 'C4 deleted oldest matching' bash -c "[[ ! -e '$c4_dir/v1.2.3-1.sql' ]]"
-expect_pass 'C4 kept second-oldest' bash -c "[[ -f '$c4_dir/v1.2.3-2.sql' ]]"
-expect_pass 'C4 kept newest' bash -c "[[ -f '$c4_dir/v1.2.3-121.sql' ]]"
+# Newest 30 are build 2..31; oldest build 1 is stale.
+expect_pass 'production deleted oldest matching' bash -c "[[ ! -e '$c4_dir/v1.2.3-1.sql' ]]"
+expect_pass 'production kept second-oldest' bash -c "[[ -f '$c4_dir/v1.2.3-2.sql' ]]"
+expect_pass 'production kept newest' bash -c "[[ -f '$c4_dir/v1.2.3-31.sql' ]]"
 
 expect_pass 'unknown notes.txt untouched' bash -c "[[ -f '$c4_dir/notes.txt' ]]"
 expect_pass 'unknown random.sql untouched' bash -c "[[ -f '$c4_dir/random.sql' ]]"
@@ -646,24 +647,28 @@ import sys
 
 directory = sys.argv[1]
 base_ts = 1_700_100_000
-for i in range(1, 122):
+for i in range(1, 32):
     path = os.path.join(directory, f"v1.2.3-{i}")
     os.makedirs(path)
     with open(os.path.join(path, "object"), "w", encoding="utf-8") as handle:
         handle.write(f"synthetic-object-{i}\n")
     os.utime(path, (base_ts + i, base_ts + i))
 PY
-expect_pass 'object retain 120 runs' "$pruner" "$object_dir" 120 --objects
-expect_pass 'object retain 120 deletes oldest directory' bash -c "[[ ! -e '$object_dir/v1.2.3-1' && -d '$object_dir/v1.2.3-2' && -d '$object_dir/v1.2.3-121' ]]"
+expect_pass 'object retain 30 runs' "$pruner" "$object_dir" 30 --objects
+expect_pass 'object retain 30 deletes oldest directory' bash -c "[[ ! -e '$object_dir/v1.2.3-1' && -d '$object_dir/v1.2.3-2' && -d '$object_dir/v1.2.3-31' ]]"
 empty_object_dir="$fixture_root/empty-objects"
 mkdir -p "$empty_object_dir"
 expect_pass 'empty object directory no-op' "$pruner" "$empty_object_dir" 120 --objects
 ln -s "$object_dir/v1.2.3-2" "$object_dir/v1.2.3-999"
 expect_fail 'contract-named object symlink rejected' "$pruner" "$object_dir" 120 --objects
-# --- retain 120 accepted as positive integer (empty dir) ---
-accept_dir="$fixture_root/accept120"
+# --- production Jenkins retention contract ---
+production_retention_count=$(grep -Ec "^[[:space:]]*BACKUP_RETENTION_N = '30'[[:space:]]*$" "$jenkinsfile" || true)
+expect_pass 'production backup retention is exactly 30' test "$production_retention_count" -eq 1
+
+# --- retain 30 accepted as positive integer (empty dir) ---
+accept_dir="$fixture_root/accept30"
 mkdir -p "$accept_dir"
-expect_pass 'retain 120 accepted on empty dir' "$pruner" "$accept_dir" 120
+expect_pass 'retain 30 accepted on empty dir' "$pruner" "$accept_dir" 30
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))

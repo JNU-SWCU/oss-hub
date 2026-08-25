@@ -368,10 +368,96 @@ def main() -> None:
         if blocking_returns(selected, top_level_only=False):
             fail(f'{path} selects {describe(selected)} which over-blocks an unrelated route')
 
+    # Increment A: compose nginx mirrors non-TLS headers and banner hiding.
+    # Upload-route checks above stay fail-fast so existing fixtures fail for
+    # the original reason.
+    edge_errors: list[str] = []
+
+    def edge(message: str) -> None:
+        edge_errors.append(message)
+
+    token_dirs = [node for node in walk(tree) if node.name == 'server_tokens']
+    if any(node.args == ('on',) for node in token_dirs):
+        edge('server_tokens on is forbidden')
+    if not any(node.args == ('off',) for node in token_dirs):
+        edge('server_tokens off is required')
+
+    required_headers = {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': (
+            'accelerometer=(), camera=(), geolocation=(), gyroscope=(), '
+            'magnetometer=(), microphone=(), payment=(), usb=()'
+        ),
+    }
+    required_csp = {
+        'base-uri': "'self'",
+        'object-src': "'none'",
+        'frame-ancestors': "'none'",
+        'form-action': "'self'",
+    }
+
+    def parse_csp(value: str) -> dict[str, str] | None:
+        parsed: dict[str, str] = {}
+        for part in value.split(';'):
+            part = part.strip()
+            if not part:
+                continue
+            name, _, rest = part.partition(' ')
+            if not name or name in parsed:
+                return None
+            parsed[name] = rest.strip()
+        return parsed
+
+    servers = [node for node in walk(tree) if node.name == 'server' and node.children is not None]
+    if not servers:
+        edge('missing server block')
+    for server in servers:
+        children = server.children or []
+        if not any(
+            child.name == 'proxy_hide_header'
+            and child.children is None
+            and child.args == ('X-Powered-By',)
+            for child in children
+        ):
+            edge('server must hide upstream X-Powered-By')
+
+        def header_values(name: str) -> list[tuple[str, ...]]:
+            return [
+                child.args[1:]
+                for child in children
+                if child.name == 'add_header'
+                and child.children is None
+                and child.args
+                and child.args[0] == name
+            ]
+
+        for name, value in required_headers.items():
+            if not any(args == (value, 'always') for args in header_values(name)):
+                edge(f'server missing add_header {name} "{value}" always')
+
+        csp_ok = False
+        for args in header_values('Content-Security-Policy'):
+            if len(args) != 2 or args[1] != 'always':
+                continue
+            if parse_csp(args[0]) == required_csp:
+                csp_ok = True
+                break
+        if not csp_ok:
+            edge(
+                "server missing Content-Security-Policy "
+                "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' always"
+            )
+
+    if edge_errors:
+        fail('compose edge policy: ' + '; '.join(edge_errors))
+
     print(
         f'{PREFIX}: ok '
         f'(proxied={len(MUST_PROXY)} paths incl. case variants, '
-        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, upload body >= 5MB, location-selection parse)'
+        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, upload body >= 5MB, '
+        f'location-selection parse, compose edge policy)'
     )
 
 

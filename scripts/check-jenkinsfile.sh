@@ -733,6 +733,63 @@ check_v2() {
   require_exact 'IMAGE_TAG는 RELEASE_TAG(tag)로 한 번만 할당해야 함' 'env.IMAGE_TAG = tag' 1
   require_exact 'RELEASE_SHA 바인딩은 한 번이어야 함' 'env.RELEASE_SHA = releaseSha' 1
   require_exact 'exact RELEASE_SHA checkout은 한 번이어야 함' 'git checkout --detach "$RELEASE_SHA"' 1
+  require_exact '운영 환경 preflight stage는 한 번이어야 함' "stage('운영 환경 사전 검증')" 1
+  require_exact '운영 환경 preflight는 credential file을 직접 검증해야 함' \
+    'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"' 1
+
+  if ! awk '
+    /^[[:space:]]*stage\('\''exact SHA checkout'\''\)/ {
+      after_checkout=1
+      next
+    }
+    after_checkout && /^[[:space:]]*stage\(/ {
+      immediate = ($0 ~ /^[[:space:]]*stage\('\''운영 환경 사전 검증'\''\)/)
+      exit
+    }
+    END { exit immediate ? 0 : 1 }
+  ' "$active_numbered_file"; then
+    printf '%s: 운영 환경 preflight stage는 exact SHA checkout 바로 다음이어야 합니다.\n' "$label" >&2
+    exit 1
+  fi
+
+  if ! awk '
+    /^[[:space:]]*stage\('\''운영 환경 사전 검증'\''\)/ {
+      in_preflight=1
+      if ($0 ~ /(^|[^[:alnum:]_])(when|if|return)([^[:alnum:]_]|$)/) disabled=1
+      next
+    }
+    in_preflight && /^[[:space:]]*stage\(/ {
+      in_preflight=0
+    }
+    in_preflight && /(^|[^[:alnum:]_])(when|if|return)([^[:alnum:]_]|$)/ {
+      disabled=1
+    }
+    END { exit disabled ? 1 : 0 }
+  ' "$active_numbered_file"; then
+    printf '%s: 운영 환경 preflight는 when/if/return으로 비활성화할 수 없습니다.\n' "$label" >&2
+    exit 1
+  fi
+
+  if awk '
+    index($0, "node scripts/jenkins/validate-production-env.mjs") {
+      preflight=1
+      exit
+    }
+    /mkdir[[:space:]]+-p[[:space:]]+"\$SECRETS_DIR"/ ||
+    /install[[:space:]]+-m[[:space:]]+[0-9]+/ ||
+    /ln[[:space:]]+-sfn.*SECRETS_DIR/ ||
+    /mv[[:space:]]+-T.*SECRETS_DIR/ ||
+    /docker[[:space:]]+(compose|build|run|image[[:space:]]+rm|buildx[[:space:]]+prune)/ ||
+    /pg_dump/ ||
+    /prune-deploy-backups[.]sh/ ||
+    /nginx[[:space:]]+-s[[:space:]]+reload/ {
+      mutation=1
+    }
+    END { exit (preflight && mutation) ? 0 : 1 }
+  ' "$active_numbered_file"; then
+    printf '%s: 운영 환경 preflight 전에 production mutation을 실행할 수 없습니다.\n' "$label" >&2
+    exit 1
+  fi
 
   # no-op authority: running ps -q only; --all is classification
   require_regex_at_least 'no-op 권위는 실행 중 ps -q frontend여야 함' 'ps[[:space:]]+-q[[:space:]]+frontend' 1
@@ -937,8 +994,8 @@ check_v2() {
     exit 1
   fi
 
-  # success-only retention: N=120, app repos only, keep IMAGE_TAG+PREV_TAG, under BACKUP_DIR
-  require_exact 'backup retention N=120이어야 함' "BACKUP_RETENTION_N = '120'" 1
+  # success-only retention: N=30, app repos only, keep IMAGE_TAG+PREV_TAG, under BACKUP_DIR
+  require_exact 'backup retention N=30이어야 함' "BACKUP_RETENTION_N = '30'" 1
   require_exact 'BuildKit cache 상한은 5GB여야 함' "BUILD_CACHE_MAX_SPACE = '5GB'" 1
   if ! awk '
     /^[[:space:]]*environment[[:space:]]*\{[[:space:]]*$/ {
@@ -994,7 +1051,8 @@ check_v2() {
   require_common_smoke_and_build_guards
   require_single_image_tag_assignment
 
-  local environment_line stages_line build_cache_line checkout_line buildx_preflight_line https_line
+  local environment_line stages_line build_cache_line checkout_line preflight_stage_line preflight_line
+  local github_credentials_line key_install_line noop_probe_line buildx_preflight_line https_line
   local rollback_stage_line rollback_input_line rollback_call_line first_production_mutation_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
   local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
@@ -1004,6 +1062,11 @@ check_v2() {
   build_cache_line=$(line_of "BUILD_CACHE_MAX_SPACE = '5GB'")
   release_sha_binding_line=$(line_of 'env.RELEASE_SHA = releaseSha')
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
+  preflight_stage_line=$(line_of "stage('운영 환경 사전 검증')")
+  preflight_line=$(line_of 'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"')
+  github_credentials_line=$(line_of 'node scripts/jenkins/validate-github-app-credentials.mjs')
+  key_install_line=$(line_of 'mkdir -p "$SECRETS_DIR"')
+  noop_probe_line=$(line_of_regex 'ps[[:space:]]+-q[[:space:]]+frontend')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
   https_line=$(line_of 'FRONTEND_URL')
@@ -1018,7 +1081,7 @@ check_v2() {
   migration_line=$(line_of 'npx prisma migrate deploy')
   rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
   noop_stage_line=$(line_of "stage('no-op 실행 중 nginx 드리프트 검증')")
-  retention_line=$(line_of "BACKUP_RETENTION_N = '120'")
+  retention_line=$(line_of "BACKUP_RETENTION_N = '30'")
   retention_stage_line=$(line_of "stage('성공 후 이미지·백업 보존 정리')")
   image_rm_line=$(line_of_shell_stage_exact \
     '성공 후 이미지·백업 보존 정리' 'docker image rm "${repo}:${tag}"')
@@ -1031,7 +1094,9 @@ check_v2() {
   local -a order_check_names=(
     environment_line stages_line build_cache_line
     release_sha_binding_line
-    checkout_line buildx_preflight_line https_line rollback_stage_line
+    checkout_line preflight_stage_line preflight_line
+    github_credentials_line key_install_line noop_probe_line
+    buildx_preflight_line https_line rollback_stage_line
     rollback_input_line rollback_call_line backup_line
     first_production_mutation_line
     frontend_build_line backend_build_line migration_line
@@ -1056,7 +1121,13 @@ check_v2() {
     # 'release_sha_binding_line:<:ci_status_call_line' # REMOVED
     # 'ci_status_call_line:<:checkout_line' # REMOVED
     'release_sha_binding_line:<:checkout_line'
+    'checkout_line:<:preflight_stage_line'
+    'preflight_stage_line:<:preflight_line'
+    'preflight_line:<:github_credentials_line'
+    'preflight_line:<:key_install_line'
+    'preflight_line:<:noop_probe_line'
     'checkout_line:<:buildx_preflight_line'
+    'preflight_line:<:buildx_preflight_line'
     'buildx_preflight_line:<:https_line'
     'buildx_preflight_line:<:first_production_mutation_line'
     'https_line:<:rollback_stage_line'
@@ -1083,7 +1154,7 @@ check_v2() {
       order_check_ok=$(( ${!order_check_lhs} < ${!order_check_rhs} ))
     fi
     if (( ! order_check_ok )); then
-      printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
+      printf '%s: required order is environment constants -> checkout -> production env preflight -> credential/key/probe -> Buildx/HTTPS/rollback preflight -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
       exit 1
     fi
   done

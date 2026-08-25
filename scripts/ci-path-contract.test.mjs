@@ -45,6 +45,19 @@ const contractTests = [
   'scripts/prisma-migration-ledger.test.mjs',
 ];
 
+const deploymentHardeningPaths = [
+  'compose.yml',
+  'apps/*/Dockerfile',
+  'scripts/check-production-image-pins*.sh',
+  'scripts/jenkins/validate-production-env*',
+];
+
+const deploymentHardeningCommands = [
+  'node --test scripts/jenkins/validate-production-env.test.mjs',
+  'bash scripts/check-production-image-pins.test.sh',
+  'bash scripts/check-production-image-pins.sh',
+];
+
 function validate(workflowSource, docsSource) {
   const backend = section(
     workflowSource,
@@ -96,8 +109,49 @@ function validate(workflowSource, docsSource) {
   );
 }
 
+function validateDeploymentHardening(workflowSource, docsSource) {
+  const jenkins = section(
+    workflowSource,
+    '            jenkins:',
+    '            docker_context:',
+  );
+  for (const path of deploymentHardeningPaths) {
+    assert.match(jenkins, new RegExp(escapeRegex(`'${path}'`)));
+    assert.match(docsSource, new RegExp(escapeRegex(path)));
+  }
+
+  const deploymentStep = section(
+    workflowSource,
+    '      - name: Jenkins 배포 계약 회귀 테스트',
+    '      - name: Docker build context 계약 회귀 테스트',
+  );
+  for (const command of deploymentHardeningCommands) {
+    assert.match(deploymentStep, new RegExp(escapeRegex(command)));
+  }
+}
+
 test('member-authority paths select backend and Jenkins and run every contract test', () => {
   validate(workflow, docs);
+});
+
+test('deployment hardening paths run production env and image contracts', () => {
+  validateDeploymentHardening(workflow, docs);
+});
+
+test('deployment hardening path and command drift fail closed', () => {
+  for (const path of deploymentHardeningPaths) {
+    assert.throws(() =>
+      validateDeploymentHardening(workflow.replaceAll(`'${path}'`, ''), docs),
+    );
+    assert.throws(() =>
+      validateDeploymentHardening(workflow, docs.replaceAll(path, '')),
+    );
+  }
+  for (const command of deploymentHardeningCommands) {
+    assert.throws(() =>
+      validateDeploymentHardening(workflow.replace(command, ''), docs),
+    );
+  }
 });
 
 test('path and required-test drift fail closed', () => {
