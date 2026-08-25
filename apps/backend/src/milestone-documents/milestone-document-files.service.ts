@@ -11,19 +11,23 @@ import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
 } from '../submissions/submission-file-name';
+import { hasValidSubmissionFileSignature } from '../submissions/submission-file-signature';
 import {
   SUBMISSION_FILE_STORAGE,
   type SubmissionFileStoragePort,
 } from '../submissions/submission-file-storage.port';
+import {
+  SubmissionFileQuotaExceededError,
+  SubmissionFileRetentionUnavailableError,
+  SubmissionFilesRepository,
+} from '../submissions/submission-files.repository';
+import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
 import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
-import {
-  MilestoneDocumentFileRetentionUnavailableError,
-  MilestoneDocumentsRepository,
-} from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
@@ -77,6 +81,7 @@ export class MilestoneDocumentFilesService {
     private readonly repository: MilestoneDocumentsRepository,
     @Inject(SUBMISSION_FILE_STORAGE)
     private readonly storage: SubmissionFileStoragePort,
+    private readonly submissionFiles: SubmissionFilesRepository,
   ) {}
 
   /** 학생 — 서류(FILE 유형) 제출용 파일을 pending 상태로 올린다. 실제 제출은 이후 submit()이 attach한다. */
@@ -88,7 +93,7 @@ export class MilestoneDocumentFilesService {
   ): Promise<UploadedMilestoneDocumentFileResponse> {
     const normalizedMilestoneId = this.requiredOpaqueId(milestoneId);
     const normalizedDocumentId = this.requiredOpaqueId(documentId);
-    const originalName = this.validateOriginalFileName(file);
+    const originalName = await this.validateOriginalFileName(file);
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
     const viewer = await this.repository.findActiveUser(sessionGithubId);
@@ -126,7 +131,7 @@ export class MilestoneDocumentFilesService {
 
     let created;
     try {
-      created = await this.repository.createPendingFile({
+      created = await this.submissionFiles.createPending({
         uploaderId: viewer.id,
         applicationId: application.applicationId,
         milestoneId: normalizedMilestoneId,
@@ -137,7 +142,12 @@ export class MilestoneDocumentFilesService {
         pendingExpiresAt: new Date(now.getTime() + PENDING_TTL_MS),
       });
     } catch (error) {
-      if (error instanceof MilestoneDocumentFileRetentionUnavailableError) {
+      if (error instanceof SubmissionFileQuotaExceededError) {
+        throw this.error(
+          MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+        );
+      }
+      if (error instanceof SubmissionFileRetentionUnavailableError) {
         throw this.error(
           MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
         );
@@ -172,7 +182,7 @@ export class MilestoneDocumentFilesService {
     documentId: string,
     file: MilestoneDocumentFileUpload | undefined,
   ): Promise<UploadedMilestoneDocumentTemplateResponse> {
-    const originalName = this.validateOriginalFileName(file);
+    const originalName = await this.validateOriginalFileName(file);
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
     const documentContext =
@@ -339,9 +349,14 @@ export class MilestoneDocumentFilesService {
     };
   }
 
-  private validateOriginalFileName(
+  /**
+   * 검사 순서를 submissions/submission-files.service.ts와 같게 둔다 — 확장자·MIME → 서명 →
+   * (.zip이면) 아카이브 메타데이터 입장 검사. 둘은 같은 저장 스택으로 들어가므로
+   * 한쪽만 느슨하면 그쪽이 계약을 우회하는 입구가 된다.
+   */
+  private async validateOriginalFileName(
     file: MilestoneDocumentFileUpload | undefined,
-  ): string {
+  ): Promise<string> {
     if (file === undefined || !Buffer.isBuffer(file.buffer)) {
       throw this.error(MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD);
     }
@@ -351,7 +366,13 @@ export class MilestoneDocumentFilesService {
     const normalizedFileName = normalizeMultipartFileName(file.originalname);
     if (
       !isAllowedSubmissionFileType(normalizedFileName, file.mimetype) ||
-      !hasValidFileSignature(file.buffer, normalizedFileName)
+      !hasValidSubmissionFileSignature(file.buffer, normalizedFileName)
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
+    }
+    if (
+      normalizedFileName.toLowerCase().endsWith('.zip') &&
+      !(await isSafeSubmissionZipMetadata(file.buffer))
     ) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
@@ -372,31 +393,4 @@ export class MilestoneDocumentFilesService {
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
-}
-
-/**
- * submissions/submission-files.service.ts의 동명 헬퍼와 같은 시그니처 테이블을 쓴다. 그 파일은
- * 이 함수를 export하지 않고 우리 owned path 밖이라 수정할 수 없어 그대로 복제해 둔다.
- */
-function hasValidFileSignature(buffer: Buffer, fileName: string): boolean {
-  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
-  const signatures: Readonly<Record<string, readonly Buffer[]>> = {
-    '.pdf': [Buffer.from('%PDF-')],
-    '.hwp': [Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])],
-    '.jpg': [Buffer.from([0xff, 0xd8, 0xff])],
-    '.jpeg': [Buffer.from([0xff, 0xd8, 0xff])],
-    '.png': [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
-    '.zip': [
-      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
-      Buffer.from([0x50, 0x4b, 0x05, 0x06]),
-      Buffer.from([0x50, 0x4b, 0x07, 0x08]),
-    ],
-  };
-  return (
-    signatures[extension]?.some(
-      (signature) =>
-        buffer.length >= signature.length &&
-        buffer.subarray(0, signature.length).equals(signature),
-    ) ?? false
-  );
 }

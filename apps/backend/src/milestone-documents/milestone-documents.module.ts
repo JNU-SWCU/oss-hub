@@ -7,6 +7,7 @@ import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-e
 import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
 import { SUBMISSION_FILE_STORAGE } from '../submissions/submission-file-storage.port';
+import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
@@ -44,6 +45,9 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
     MilestoneDocumentsStaffGuard,
     SubmissionFileStorageConfig,
     S3SubmissionFileStorage,
+    // 학생 서류 파일의 pending 행도 submissions/의 SubmissionFilesRepository가 만든다 —
+    // 같은 SubmissionFile 테이블을 쓰므로 보관 할당량·잠금 순서를 한 곳에서만 정한다.
+    SubmissionFilesRepository,
     {
       provide: SUBMISSION_FILE_STORAGE,
       inject: [S3SubmissionFileStorage],

@@ -44,7 +44,7 @@ export class ProgramAuthoringUploadService {
         PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_ACTOR,
       );
     }
-    const validated = validateProgramAuthoringUpload(file);
+    const validated = await validateProgramAuthoringUpload(file);
     const createdAt = this.now();
     const storageKey = `program-authoring/${randomUUID()}`;
 

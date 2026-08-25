@@ -1,10 +1,16 @@
-import { MemberKind } from '@prisma/client';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
+
+/**
+ * `AuthService`의 공개 시그니처에서 principal 타입을 파생한다 — 다른 모듈의 `domain/*`을
+ * 직접 import하면 ADR-003 module 경계 lint가 막으므로 모듈-공개인 반환 타입을 재사용한다.
+ */
+type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 import { sessionCookieName } from '../auth/cookies';
 import { issueSessionToken } from '../auth/session-token';
 import { SessionGuard } from '../auth/session.guard';
@@ -42,7 +48,7 @@ async function cleanup(): Promise<void> {
 }
 
 async function requestList(): Promise<Response> {
-  const token = await issueSessionToken(sessionSecret, githubId);
+  const token = await issueSessionToken(sessionSecret, githubId, 0);
   const url = `${await application.getUrl()}/api/v1/milestones/${milestoneId}/documents`;
   return fetch(url, {
     headers: { cookie: `${sessionCookieName(false)}=${token}` },
@@ -63,7 +69,31 @@ describe('authenticated milestone document list filename contract', () => {
         { provide: MilestoneDocumentArchiveService, useValue: {} },
         { provide: PrismaService, useValue: prisma },
         { provide: AuthConfig, useValue: { sessionSecret } },
-        { provide: AuthService, useValue: { getMe: jest.fn() } },
+        {
+          provide: AuthService,
+          useValue: {
+            // 실서비스 `getMe`는 ACTIVE principal을 돌려주거나 401을 throw하며 undefined를
+            // 반환하지 않는다. SessionGuard가 `principal.sessionVersion`을 벼므로 토큰이
+            // 검증한 githubId를 그대로 되울려주며 세션 버전은 harness 토큰과 같은 0이다.
+            getMe: jest
+              .fn<Promise<ActivePrincipal>, [bigint]>()
+              .mockImplementation((principalGithubId) =>
+                Promise.resolve({
+                  id: userId,
+                  githubId: principalGithubId,
+                  nickname: `${prefix}-login`,
+                  name: null,
+                  avatarUrl: null,
+                  accountStatus: AccountStatus.ACTIVE,
+                  sessionVersion: 0,
+                  memberKind: null,
+                  hasStaffAccess: false,
+                  hasAdminAccess: false,
+                  isProfileComplete: false,
+                }),
+              ),
+          },
+        },
       ],
     }).compile();
     application = module.createNestApplication();

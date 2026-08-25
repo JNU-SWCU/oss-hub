@@ -2,6 +2,7 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
 import { SUBMISSION_FILE_STORAGE } from '../submissions/submission-file-storage.port';
+import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
@@ -62,6 +63,9 @@ describe('MilestoneDocumentsModule', () => {
         MilestoneDocumentsStaffGuard,
         SubmissionFileStorageConfig,
         S3SubmissionFileStorage,
+        // pending 행 생성은 submissions/ repository가 맡는다 — 보관 할당량 판정이 그
+        // 트랜잭션 안에 있으므로 빠지면 학생 경로가 한도를 우회하게 된다.
+        SubmissionFilesRepository,
         expect.objectContaining({
           provide: SUBMISSION_FILE_STORAGE,
           inject: [S3SubmissionFileStorage],

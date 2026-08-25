@@ -46,7 +46,11 @@ beforeAll(async () => {
       },
       {
         provide: AuthService,
-        useValue: { getMe: jest.fn().mockResolvedValue({ id: 'viewer' }) },
+        useValue: {
+          getMe: jest
+            .fn()
+            .mockResolvedValue({ id: 'viewer', sessionVersion: 0 }),
+        },
       },
       {
         provide: MilestoneDocumentCurrentFileService,
@@ -71,7 +75,7 @@ function currentFileUrl(documentId: string): string {
 }
 
 async function authenticatedHeaders(): Promise<{ readonly cookie: string }> {
-  const token = await issueSessionToken(SESSION_SECRET, SESSION_GITHUB_ID);
+  const token = await issueSessionToken(SESSION_SECRET, SESSION_GITHUB_ID, 0);
   return { cookie: `${sessionCookieName(false)}=${token}` };
 }
 

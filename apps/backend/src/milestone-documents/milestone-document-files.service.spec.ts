@@ -1,14 +1,17 @@
 import { Readable } from 'node:stream';
-import {
-  MilestoneDocumentFileRetentionUnavailableError,
-  MilestoneDocumentsRepository,
-} from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {
   MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
 } from './milestone-document-files.service';
 import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import {
+  SubmissionFileQuotaExceededError,
+  SubmissionFileRetentionUnavailableError,
+  type SubmissionFilesRepository,
+} from '../submissions/submission-files.repository';
+import { signatureValidZip } from '../submissions/submission-zip-test-builder';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
@@ -45,13 +48,6 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       approved: true,
       programEndAt: new Date('2026-12-19T00:00:00.000Z'),
     }),
-    createPendingFile: jest.fn().mockResolvedValue({
-      id: 'cuid-synthetic-pending-file',
-      originalFileName: '계획서.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 20,
-      expiresAt: new Date('2027-12-19T00:00:00.000Z'),
-    }),
     upsertTemplateFile: jest.fn().mockResolvedValue(undefined),
     findTemplateForDownload: jest.fn().mockResolvedValue({
       storageKey: 'objects/synthetic-template',
@@ -72,6 +68,29 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
     mocks,
     repository: mocks as unknown as MilestoneDocumentsRepository,
+  };
+}
+
+/**
+ * 학생 업로드의 pending 행 생성은 submissions/의 SubmissionFilesRepository.createPending에
+ * 위임한다 — 할당량(개수·총 바이트) 판정이 그 트랜잭션 안에 있기 때문이다.
+ */
+function buildSubmissionFiles(
+  overrides: Partial<Record<string, jest.Mock>> = {},
+) {
+  const mocks = {
+    createPending: jest.fn().mockResolvedValue({
+      id: 'cuid-synthetic-pending-file',
+      originalFileName: '계획서.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 20,
+      expiresAt: new Date('2027-12-19T00:00:00.000Z'),
+    }),
+    ...overrides,
+  };
+  return {
+    mocks,
+    submissionFiles: mocks as unknown as SubmissionFilesRepository,
   };
 }
 
@@ -96,6 +115,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       buildRepository().repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -111,6 +131,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       buildRepository().repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -126,6 +147,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       buildRepository().repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
     const forged: MilestoneDocumentFileUpload = {
       ...pdfFile,
@@ -152,6 +174,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -177,6 +200,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -202,6 +226,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -220,6 +245,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -242,6 +268,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -256,16 +283,15 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('잠근 프로그램 행이 없어 보관 기한 계산이 불가하면 FILE_RETENTION_UNAVAILABLE로 변환한다', async () => {
     // Given
-    const { repository } = buildRepository({
-      createPendingFile: jest
+    const { submissionFiles } = buildSubmissionFiles({
+      createPending: jest
         .fn()
-        .mockRejectedValue(
-          new MilestoneDocumentFileRetentionUnavailableError(),
-        ),
+        .mockRejectedValue(new SubmissionFileRetentionUnavailableError()),
     });
     const service = new MilestoneDocumentFilesService(
-      repository,
+      buildRepository().repository,
       buildStorage().storage,
+      submissionFiles,
     );
 
     // When / Then
@@ -278,11 +304,102 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
   });
 
+  /**
+   * 제출물 경로(submissions/)와 같은 보관 할당량을 학생 서류 업로드에도 강제한다 —
+   * 둘은 같은 SubmissionFile 테이블에 쓰므로 여기가 비어 있으면 한도를 우회할 수 있다.
+   */
+  it('보관 한도를 넘기면 SUBMISSION_FILE_QUOTA_EXCEEDED로 변환하고 스토리지에 올리지 않는다', async () => {
+    // Given
+    const { submissionFiles } = buildSubmissionFiles({
+      createPending: jest
+        .fn()
+        .mockRejectedValue(new SubmissionFileQuotaExceededError()),
+    });
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      buildRepository().repository,
+      storage,
+      submissionFiles,
+    );
+
+    // When / Then
+    await expect(
+      service.upload(1n, syntheticMilestoneId, syntheticDocumentId, pdfFile),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+      },
+    });
+    expect(storageMocks.put).not.toHaveBeenCalled();
+  });
+
+  /**
+   * ZIP 입장 검사도 제출물 경로와 같은 계약이어야 한다 — 서명(PK\x03\x04)만 맞는
+   * 압축 폭탄·중첩 아카이브를 학생 서류 경로로 넣을 수 있으면 검사 자체가 무의미해진다.
+   */
+  it('메타데이터 검사를 통과하지 못하는 .zip은 UNSUPPORTED_FILE_TYPE으로 거부한다', async () => {
+    // Given: 서명은 진짜 집이지만 안에 또 다른 집이 들어 있다(중첩 아카이브).
+    const nestedArchive = signatureValidZip([{ name: 'nested.zip' }]);
+    const { mocks: submissionFileMocks, submissionFiles } =
+      buildSubmissionFiles();
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      buildRepository().repository,
+      storage,
+      submissionFiles,
+    );
+
+    // When / Then
+    await expect(
+      service.upload(1n, syntheticMilestoneId, syntheticDocumentId, {
+        buffer: nestedArchive,
+        originalname: '제출묶음.zip',
+        mimetype: 'application/zip',
+        size: nestedArchive.byteLength,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE },
+    });
+    expect(submissionFileMocks.createPending).not.toHaveBeenCalled();
+    expect(storageMocks.put).not.toHaveBeenCalled();
+  });
+
+  it('메타데이터 검사를 통과한 .zip은 그대로 받아들인다', async () => {
+    // Given
+    const archive = signatureValidZip([{ name: 'valid.txt' }]);
+    const { mocks: submissionFileMocks, submissionFiles } =
+      buildSubmissionFiles();
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      buildRepository().repository,
+      storage,
+      submissionFiles,
+    );
+
+    // When
+    await service.upload(1n, syntheticMilestoneId, syntheticDocumentId, {
+      buffer: archive,
+      originalname: '제출묶음.zip',
+      mimetype: 'application/zip',
+      size: archive.byteLength,
+    });
+
+    // Then
+    expect(submissionFileMocks.createPending).toHaveBeenCalledTimes(1);
+    expect(storageMocks.put).toHaveBeenCalledTimes(1);
+  });
+
   it('통과하면 pending 파일을 만들고 스토리지에 올린 뒤 업로드 응답을 돌려준다', async () => {
     // Given
-    const { mocks: repositoryMocks, repository } = buildRepository();
+    const { repository } = buildRepository();
+    const { mocks: submissionFileMocks, submissionFiles } =
+      buildSubmissionFiles();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(repository, storage);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      submissionFiles,
+    );
 
     // When
     const result = await service.upload(
@@ -293,7 +410,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     );
 
     // Then
-    expect(repositoryMocks.createPendingFile).toHaveBeenCalledWith(
+    expect(submissionFileMocks.createPending).toHaveBeenCalledWith(
       expect.objectContaining({
         uploaderId: syntheticUserId,
         applicationId: syntheticApplicationId,
@@ -315,6 +432,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const service = new MilestoneDocumentFilesService(
       buildRepository().repository,
       storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -335,6 +453,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -354,7 +473,11 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
     // Given
     const { mocks: repositoryMocks, repository } = buildRepository();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(repository, storage);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
 
     // When
     const result = await service.uploadTemplate(
@@ -379,7 +502,11 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
   it('multipart latin1 깨짐을 복구한 한글 양식 파일명을 저장한다', async () => {
     const { mocks: repositoryMocks, repository } = buildRepository();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(repository, storage);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
     const mojibake = Buffer.from('제출-양식.pdf', 'utf8').toString('latin1');
 
     const result = await service.uploadTemplate(
@@ -408,6 +535,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -431,6 +559,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When
@@ -452,6 +581,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -470,6 +600,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -484,7 +615,11 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     // Given
     const { repository } = buildRepository();
     const { mocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(repository, storage);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
 
     // When
     const result = await service.downloadTemplate(
@@ -519,6 +654,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -543,6 +679,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -567,7 +704,11 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         .mockResolvedValue('cuid-synthetic-other-program'),
     });
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(repository, storage);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
 
     // When / Then
     await expect(
@@ -594,6 +735,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -620,6 +762,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When / Then
@@ -643,6 +786,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When
@@ -667,6 +811,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When
@@ -696,6 +841,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When
@@ -714,7 +860,11 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     // Given
     const { repository } = buildRepository();
     const { mocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(repository, storage);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
 
     // When
     const result = await service.downloadSubmissionFile(
@@ -754,6 +904,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const service = new MilestoneDocumentFilesService(
       repository,
       buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
     );
 
     // When
@@ -774,7 +925,11 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const { storage } = buildStorage({
       get: jest.fn().mockRejectedValue(new Error('synthetic storage down')),
     });
-    const service = new MilestoneDocumentFilesService(repository, storage);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
 
     // When / Then
     await expect(

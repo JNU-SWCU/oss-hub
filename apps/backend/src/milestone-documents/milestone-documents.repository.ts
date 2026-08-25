@@ -8,7 +8,6 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { addOneCalendarYear } from '../common/add-one-calendar-year';
 // 공용 영속성 도구 — 잠금 문장과 전역 잠금 순서 규칙은 common이 한 벌만 갖는다
 // (programs의 마일스톤 삭제 경로가 같은 문장을 쓴다).
 import {
@@ -172,29 +171,6 @@ export interface StaffDownloadableMilestoneDocumentFile {
   readonly mimeType: string;
   readonly sizeBytes: number;
   readonly teamName: string;
-}
-
-export interface CreatePendingMilestoneDocumentFileInput {
-  readonly uploaderId: string;
-  readonly applicationId: string;
-  readonly milestoneId: string;
-  readonly storageKey: string;
-  readonly originalFileName: string;
-  readonly mimeType: string;
-  readonly sizeBytes: number;
-  readonly pendingExpiresAt: Date;
-}
-
-export interface CreatedPendingMilestoneDocumentFile {
-  readonly id: string;
-  readonly originalFileName: string;
-  readonly mimeType: string;
-  readonly sizeBytes: number;
-  readonly expiresAt: Date | null;
-}
-
-export class MilestoneDocumentFileRetentionUnavailableError extends Error {
-  override readonly name = 'MilestoneDocumentFileRetentionUnavailableError';
 }
 
 export class MilestoneDocumentPendingFileMissingError extends Error {
@@ -1081,50 +1057,6 @@ export class MilestoneDocumentsRepository {
   }
 
   // ---- 학생 제출 ----
-
-  /** submissions/submission-files.repository.ts의 createPending과 같은 프로그램 종료일 lock 패턴. */
-  createPendingFile(
-    input: CreatePendingMilestoneDocumentFileInput,
-  ): Promise<CreatedPendingMilestoneDocumentFile> {
-    return this.prisma.$transaction(async (transaction) => {
-      const programs = await transaction.$queryRaw<
-        readonly { endAt: Date }[]
-      >(Prisma.sql`
-        SELECT program."endAt"
-        FROM "Program" AS program
-        INNER JOIN "Application" AS application
-          ON application."programId" = program."id"
-        WHERE application."id" = ${input.applicationId}
-        FOR UPDATE OF program
-      `);
-      const program = programs[0];
-      if (!program) {
-        throw new MilestoneDocumentFileRetentionUnavailableError();
-      }
-
-      return transaction.submissionFile.create({
-        data: {
-          uploaderId: input.uploaderId,
-          applicationId: input.applicationId,
-          milestoneId: input.milestoneId,
-          storageKey: input.storageKey,
-          originalFileName: input.originalFileName,
-          mimeType: input.mimeType,
-          sizeBytes: input.sizeBytes,
-          lifecycle: SubmissionFileLifecycle.PENDING,
-          pendingExpiresAt: input.pendingExpiresAt,
-          expiresAt: addOneCalendarYear(program.endAt),
-        },
-        select: {
-          id: true,
-          originalFileName: true,
-          mimeType: true,
-          sizeBytes: true,
-          expiresAt: true,
-        },
-      });
-    });
-  }
 
   /**
    * 서류 제출을 upsert한다(unique([milestoneDocumentId, applicationId])). FILE 유형이면
