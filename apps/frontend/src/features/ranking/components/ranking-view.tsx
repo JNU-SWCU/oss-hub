@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Download, Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,9 @@ import {
 } from '@/components';
 import {
   RANKING_VIEWER_CLASSES,
-  type RankingItem,
   type RankingPage,
+  type PublicRankingItem,
+  type StaffRankingItem,
 } from '../types';
 
 export type RankingViewState =
@@ -32,118 +33,144 @@ interface RankingViewProps {
 /** Empty department or staff name — a blank cell looks broken. */
 const EMPTY_CELL = '-';
 
-function rankingColumns(showName: boolean): DataTableColumn<RankingItem>[] {
-  return [
-    {
-      id: 'rank',
-      header: '순위',
-      cell: (item) => item.rank,
-      headClassName: 'w-8',
-    },
-    ...(showName
-      ? [
-          {
-            id: 'name',
-            header: '이름',
-            cell: (item: RankingItem) => {
-              const name = item.name ?? null;
-              return name === null || name.trim().length === 0 ? (
-                <span
-                  className="text-muted-foreground"
-                  aria-label="이름 미입력"
-                >
-                  {EMPTY_CELL}
-                </span>
-              ) : (
-                <span className="break-keep whitespace-normal font-medium">
-                  {name}
-                </span>
-              );
-            },
-            headClassName: 'w-24',
-          } satisfies DataTableColumn<RankingItem>,
-        ]
-      : []),
-    {
-      id: 'member',
-      header: '참여자',
-      cell: (item) => (
-        <a
-          href={`https://github.com/${item.githubLogin}`}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
-          className="break-keep whitespace-normal hover:underline"
-        >
-          {item.githubLogin}
-        </a>
-      ),
-      headClassName: 'w-24',
-    },
-    {
-      id: 'department',
-      header: '학과',
-      cell: (item) => {
-        const department = item.department ?? null;
-        return department === null || department.trim().length === 0 ? (
-          <span className="text-muted-foreground" aria-label="학과 미입력">
-            {EMPTY_CELL}
-          </span>
-        ) : (
-          <span className="break-keep whitespace-normal">{department}</span>
-        );
-      },
-      headClassName: 'w-20',
-    },
-    {
-      id: 'commit',
-      header: 'Commit',
-      cell: (item) => item.commitCount,
-      cellClassName: 'text-right tabular-nums',
-      headClassName: 'w-12 text-right',
-    },
-    {
-      id: 'pr',
-      header: 'PR',
-      cell: (item) => item.pullRequestCount,
-      cellClassName: 'text-right tabular-nums',
-      headClassName: 'w-12 text-right',
-    },
-    {
-      id: 'issue',
-      header: 'Issue',
-      cell: (item) => item.issueCount,
-      cellClassName: 'text-right tabular-nums',
-      headClassName: 'w-12 text-right',
-    },
-    {
-      id: 'repository',
-      header: 'Repo',
-      cell: (item) => item.repositoryCount,
-      cellClassName: 'text-right tabular-nums',
-      headClassName: 'w-12 text-right',
-    },
-    {
-      id: 'star',
-      header: (
-        <span className="inline-flex flex-col items-end leading-tight">
-          <span>Star</span>
-          <span className="font-normal text-muted-foreground">(누적)</span>
+const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
+  {
+    id: 'rank',
+    header: '순위',
+    cell: (item) => item.rank,
+    headClassName: 'w-8',
+  },
+  {
+    id: 'member',
+    header: '참여자',
+    cell: (item) => (
+      <a
+        href={`https://github.com/${item.githubLogin}`}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
+        className="break-keep whitespace-normal hover:underline"
+      >
+        {item.githubLogin}
+      </a>
+    ),
+    headClassName: 'w-24',
+  },
+  {
+    id: 'commit',
+    header: 'Commit',
+    cell: (item) => item.commitCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'pr',
+    header: 'PR',
+    cell: (item) => item.pullRequestCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+];
+
+const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
+  {
+    id: 'rank',
+    header: '순위',
+    cell: (item) => item.rank,
+    headClassName: 'w-8',
+  },
+  {
+    id: 'name',
+    header: '이름',
+    cell: (item) =>
+      item.name === null || item.name.trim().length === 0 ? (
+        <span className="text-muted-foreground" aria-label="이름 미입력">
+          {EMPTY_CELL}
+        </span>
+      ) : (
+        <span className="break-keep whitespace-normal font-medium">
+          {item.name}
         </span>
       ),
-      cell: (item) => item.starCount,
-      cellClassName: 'text-right tabular-nums',
-      headClassName: 'w-12 text-right',
-    },
-    {
-      id: 'total',
-      header: '합계',
-      cell: (item) => item.total,
-      cellClassName: 'text-right font-semibold tabular-nums',
-      headClassName: 'w-12 text-right',
-    },
-  ];
-}
+    headClassName: 'w-24',
+  },
+  {
+    id: 'member',
+    header: '참여자',
+    cell: (item) => (
+      <a
+        href={`https://github.com/${item.githubLogin}`}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
+        className="break-keep whitespace-normal hover:underline"
+      >
+        {item.githubLogin}
+      </a>
+    ),
+    headClassName: 'w-24',
+  },
+  {
+    id: 'department',
+    header: '학과',
+    cell: (item) =>
+      item.department === null || item.department.trim().length === 0 ? (
+        <span className="text-muted-foreground" aria-label="학과 미입력">
+          {EMPTY_CELL}
+        </span>
+      ) : (
+        <span className="break-keep whitespace-normal">{item.department}</span>
+      ),
+    headClassName: 'w-20',
+  },
+  {
+    id: 'commit',
+    header: 'Commit',
+    cell: (item) => item.commitCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'pr',
+    header: 'PR',
+    cell: (item) => item.pullRequestCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'issue',
+    header: 'Issue',
+    cell: (item) => item.issueCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'repository',
+    header: 'Repo',
+    cell: (item) => item.repositoryCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'star',
+    header: (
+      <span className="inline-flex flex-col items-end leading-tight">
+        <span>Star</span>
+        <span className="font-normal text-muted-foreground">(누적)</span>
+      </span>
+    ),
+    cell: (item) => item.starCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'total',
+    header: '합계',
+    cell: (item) => item.total,
+    cellClassName: 'text-right font-semibold tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+];
 
 function formatDataAsOf(at: Date): string {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -163,10 +190,13 @@ function collectionNotice(
         '활동을 아직 한 번도 수집하지 못했습니다. 아래 수치는 집계 결과가 아니라 수집 전 기본값(0)이며, 첫 수집이 끝나면 기준 시각과 함께 채워집니다.',
     };
   }
-  if (
-    ranking.items.length > 0 &&
-    ranking.items.every((item) => item.total === 0)
-  ) {
+  const hasNoActivity =
+    ranking.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC
+      ? ranking.items.every(
+          (item) => item.commitCount + item.pullRequestCount === 0,
+        )
+      : ranking.items.every((item) => item.total === 0);
+  if (ranking.items.length > 0 && hasNoActivity) {
     return {
       title: '집계된 활동이 아직 없습니다',
       description:
@@ -202,8 +232,7 @@ export function RankingView({
   exportStatus = 'idle',
 }: RankingViewProps) {
   const ranking = state.kind === 'ready' ? state.ranking : null;
-  const showName = ranking?.viewerClass === RANKING_VIEWER_CLASSES.STAFF;
-  const columns = useMemo(() => rankingColumns(showName), [showName]);
+  const showStaffFields = ranking?.viewerClass === RANKING_VIEWER_CLASSES.STAFF;
   const totalPages = ranking
     ? Math.max(1, Math.ceil(ranking.total / ranking.pageSize))
     : 1;
@@ -213,11 +242,15 @@ export function RankingView({
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <PageHeader
         title="랭킹"
-        description="Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다."
+        description={
+          showStaffFields
+            ? 'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.'
+            : 'Commit · PR 활동을 표시합니다.'
+        }
         actions={
           ranking ? (
             <>
-              {showName ? (
+              {showStaffFields ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -274,12 +307,23 @@ export function RankingView({
               title="집계된 활동 데이터가 없습니다"
               description="참여자의 공개 GitHub 활동이 수집되면 이곳에 표시됩니다."
             />
+          ) : ranking?.viewerClass === RANKING_VIEWER_CLASSES.STAFF ? (
+            <DataTable
+              className="[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs [&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm"
+              scrollRegionLabel="활동 랭킹 표"
+              columns={STAFF_RANKING_COLUMNS}
+              data={[...ranking.items]}
+              rowKey={(item) => item.rank}
+              isLoading={false}
+              loadingSlot="랭킹을 불러오는 중입니다…"
+              emptyState="표시할 데이터가 없습니다."
+            />
           ) : (
             <DataTable
               className="[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs [&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm"
               scrollRegionLabel="활동 랭킹 표"
-              columns={columns}
-              data={ranking?.items ? [...ranking.items] : []}
+              columns={PUBLIC_RANKING_COLUMNS}
+              data={ranking === null ? [] : [...ranking.items]}
               rowKey={(item) => item.rank}
               isLoading={state.kind === 'loading'}
               loadingSlot="랭킹을 불러오는 중입니다…"

@@ -5,9 +5,11 @@ import {
   rankingCsvFilename,
   rfc4180Field,
 } from './csv';
-import { RANKING_YEAR_ALL, type RankingItem } from './types';
+import { RANKING_YEAR_ALL, type StaffRankingItem } from './types';
 
-const staffRow = (overrides: Partial<RankingItem> = {}): RankingItem => ({
+const staffRow = (
+  overrides: Partial<StaffRankingItem> = {},
+): StaffRankingItem => ({
   rank: 1,
   displayName: 'synthetic-top',
   githubLogin: 'synthetic-top',

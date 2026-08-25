@@ -1,17 +1,35 @@
 import {
+  RANKING_VIEWER_CLASSES,
   type RankingEntry,
   type RankingPage,
   type RankingViewerClass,
   type RankingYear,
 } from '../domain/ranking';
 
-class RankingEntryResponseDto {
+class PublicRankingEntryResponseDto {
+  readonly rank: number;
+  readonly githubLogin: string;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+
+  private constructor(entry: RankingEntry) {
+    this.rank = entry.rank;
+    this.githubLogin = entry.githubLogin;
+    this.commitCount = entry.commitCount;
+    this.pullRequestCount = entry.pullRequestCount;
+  }
+
+  static from(entry: RankingEntry): PublicRankingEntryResponseDto {
+    return new PublicRankingEntryResponseDto(entry);
+  }
+}
+
+class StaffRankingEntryResponseDto {
   readonly rank: number;
   readonly displayName: string;
   readonly githubLogin: string;
   readonly department: string | null;
-  /** Staff envelope only. Absent on public items — not `undefined`. */
-  declare readonly name?: string | null;
+  readonly name: string | null;
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly issueCount: number;
@@ -30,15 +48,16 @@ class RankingEntryResponseDto {
     this.repositoryCount = entry.repositoryCount;
     this.starCount = entry.starCount;
     this.total = entry.total;
-    if ('name' in entry) {
-      this.name = entry.name ?? null;
-    }
+    this.name = entry.name ?? null;
   }
 
-  static from(entry: RankingEntry): RankingEntryResponseDto {
-    return new RankingEntryResponseDto(entry);
+  static from(entry: RankingEntry): StaffRankingEntryResponseDto {
+    return new StaffRankingEntryResponseDto(entry);
   }
 }
+
+type RankingEntryResponseDto =
+  PublicRankingEntryResponseDto | StaffRankingEntryResponseDto;
 
 export class RankingPageResponseDto {
   readonly year: RankingYear;
@@ -53,7 +72,10 @@ export class RankingPageResponseDto {
 
   private constructor(page: RankingPage) {
     this.year = page.year;
-    this.items = page.items.map((entry) => RankingEntryResponseDto.from(entry));
+    this.items =
+      page.viewerClass === RANKING_VIEWER_CLASSES.STAFF
+        ? page.items.map((entry) => StaffRankingEntryResponseDto.from(entry))
+        : page.items.map((entry) => PublicRankingEntryResponseDto.from(entry));
     this.page = page.page;
     this.pageSize = page.pageSize;
     this.total = page.total;

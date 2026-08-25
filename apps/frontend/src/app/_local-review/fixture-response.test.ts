@@ -679,13 +679,29 @@ describe('local review fixture responses', () => {
     for (const [index, yearPage] of perYear.entries()) {
       expect(yearPage.year).toBe(years.years[index]);
     }
+    if (
+      page.viewerClass !== 'public' ||
+      perYear.some((yearPage) => yearPage.viewerClass !== 'public')
+    ) {
+      throw new TypeError('anonymous ranking fixtures must stay public');
+    }
     const signatures = perYear.map((yearPage) =>
-      yearPage.items.map((item) => `${item.githubLogin}:${item.total}`).join(),
+      yearPage.items
+        .map(
+          (item) =>
+            `${item.githubLogin}:${item.commitCount + item.pullRequestCount}`,
+        )
+        .join(),
     );
     expect(new Set(signatures).size).toBe(signatures.length);
 
-    // 그리고 전체(`all`)는 연도별 합이라 어느 한 해보다 총점이 크다.
-    const top = (rows: readonly { total: number }[]) => rows[0]?.total ?? 0;
+    // 그리고 전체(`all`)는 연도별 합이라 어느 한 해보다 공개 지표 합이 크다.
+    const top = (
+      rows: readonly {
+        readonly commitCount: number;
+        readonly pullRequestCount: number;
+      }[],
+    ) => (rows[0] ? rows[0].commitCount + rows[0].pullRequestCount : 0);
     expect(top(page.items)).toBeGreaterThanOrEqual(
       Math.max(...perYear.map((yearPage) => top(yearPage.items))),
     );
@@ -706,10 +722,22 @@ describe('local review fixture responses', () => {
     expect(student.viewerClass).toBe('public');
     expect(staff.viewerClass).toBe('staff');
     expect(admin.viewerClass).toBe('staff');
+    if (
+      anonymous.viewerClass !== 'public' ||
+      student.viewerClass !== 'public' ||
+      staff.viewerClass !== 'staff' ||
+      admin.viewerClass !== 'staff'
+    ) {
+      throw new TypeError('ranking fixture viewer classes are inconsistent');
+    }
 
     for (const item of [...anonymous.items, ...student.items]) {
-      expect(item.displayName).toBe(item.githubLogin);
-      expect(item).not.toHaveProperty('name');
+      expect(Object.keys(item).sort()).toEqual([
+        'commitCount',
+        'githubLogin',
+        'pullRequestCount',
+        'rank',
+      ]);
     }
     expect(student.items).toEqual(anonymous.items);
 
@@ -724,13 +752,8 @@ describe('local review fixture responses', () => {
       anonymous.items.map((item) => item.githubLogin),
     );
 
-    // 학과는 공개 정보다 — 비로그인에게도 같은 값이 간다(owner 결정 2026-08-19).
-    expect(anonymous.items.map((item) => item.department)).toEqual(
-      staff.items.map((item) => item.department),
-    );
-    expect(anonymous.items.some((item) => item.department !== null)).toBe(true);
-    // 미입력인 사람도 있다 — 화면이 대시로 채우는 자리가 실제로 보인다.
-    expect(anonymous.items.some((item) => item.department === null)).toBe(true);
+    expect(staff.items.some((item) => item.department !== null)).toBe(true);
+    expect(staff.items.some((item) => item.department === null)).toBe(true);
   });
 
   it('public archive reads parse with the archive screen parsers', () => {

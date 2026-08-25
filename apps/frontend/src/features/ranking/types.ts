@@ -26,25 +26,25 @@ export type RankingViewerClass =
   (typeof RANKING_VIEWER_CLASSES)[keyof typeof RANKING_VIEWER_CLASSES];
 
 /**
- * Person-axis ranking row — metric names match the wire.
- *
- * `starCount` is lifetime (account-wide). `displayName` is always `githubLogin`.
- * Staff envelopes may also include `name`; public items omit that key.
+ * Consent-aligned public ranking row.
+ * These are the only item keys present in a public wire response.
  */
-export interface RankingItem {
+export interface PublicRankingItem {
   readonly rank: number;
-  /** Always `githubLogin`. */
+  readonly githubLogin: string;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+}
+
+/**
+ * Staff-only richer ranking row.
+ * `starCount` is lifetime (account-wide); missing staff names render as null.
+ */
+export interface StaffRankingItem {
+  readonly rank: number;
   readonly displayName: string;
   readonly githubLogin: string;
-  /**
-   * Staff envelope only. Public items omit this key.
-   * Null when the staff row has no recorded name.
-   */
-  readonly name?: string | null;
-  /**
-   * Department is public. Missing or blank wire values become `null`;
-   * the table draws a dash instead of an empty cell.
-   */
+  readonly name: string | null;
   readonly department: string | null;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -54,9 +54,10 @@ export interface RankingItem {
   readonly total: number;
 }
 
-export interface RankingPage {
+export type RankingItem = PublicRankingItem | StaffRankingItem;
+
+interface RankingPageEnvelope {
   readonly year: RankingYear;
-  readonly items: readonly RankingItem[];
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -64,10 +65,21 @@ export interface RankingPage {
    * When these numbers were observed. Null when nothing has been collected.
    */
   readonly dataAsOf: Date | null;
-  readonly viewerClass: RankingViewerClass;
   /** ISO-8601 instant of the next collection cycle, or null when unknown. */
   readonly nextCycleAt: string | null;
 }
+
+export interface PublicRankingPage extends RankingPageEnvelope {
+  readonly viewerClass: typeof RANKING_VIEWER_CLASSES.PUBLIC;
+  readonly items: readonly PublicRankingItem[];
+}
+
+export interface StaffRankingPage extends RankingPageEnvelope {
+  readonly viewerClass: typeof RANKING_VIEWER_CLASSES.STAFF;
+  readonly items: readonly StaffRankingItem[];
+}
+
+export type RankingPage = PublicRankingPage | StaffRankingPage;
 
 export interface RankingYears {
   readonly years: readonly number[];
