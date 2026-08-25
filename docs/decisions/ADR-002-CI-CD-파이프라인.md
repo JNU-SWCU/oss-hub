@@ -53,7 +53,7 @@ CD는 immutable release/image identity, backup, migration, rollout, infrastructu
 Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fixture가 없으면 production deployment가 막히는 failure mode를 보였다.
 이 결합은 CD를 CI와 application state에 종속시키므로 auth matrix gate를 CD에서 제거한다.
 
-배포가 성공한 **뒤에만** 이미지와 backup을 정리한다. 실행 중인 이미지와 직전 성공 배포 이미지는 rollback 대상이므로 절대 삭제하지 않고, 그보다 이전 이미지만 제거한다. 개수가 아니라 이 보존 규칙이 판단 기준이다. PostgreSQL과 object backup은 같은 `BACKUP_DIR`에 저장하고 같은 `BACKUP_RETENTION_N` 보존 규율을 적용한다. 보존 값은 실측한 backup 크기·증가율·가용 예산·최대 배포 빈도·복구 보존 기간으로 산정해 승인 기록에 남긴다. 값이 확정되기 전에는 정리를 수행하지 않는다(fail-closed).
+배포가 성공한 **뒤에만** 이미지와 backup을 정리한다. 실행 중인 이미지와 직전 성공 배포 이미지는 rollback 대상이므로 절대 삭제하지 않고, 그보다 이전 이미지만 제거한다. 개수가 아니라 이 보존 규칙이 판단 기준이다. PostgreSQL과 object backup은 같은 `BACKUP_DIR`에 저장하고 같은 `BACKUP_RETENTION_N` 보존 규율을 적용한다. 실행값의 SSoT은 root `Jenkinsfile`이며 현재 승인값은 최근 성공 배포 backup 30개다. 배포마다 PostgreSQL과 object snapshot을 함께 만들므로 30은 최근 30개 복구점을 보존하면서 same-host 디스크 사용량을 제한한다. 이 backup은 직전 이미지 rollback과 별개인 수동 복구 재료이며 off-host 장기 보관을 대신하지 않는다. 값을 바꾸는 PR은 `Jenkinsfile`과 checker를 함께 바꾸고 backup 크기·증가율·가용 예산·최대 배포 빈도·필요 복구 기간을 리뷰 기록에 남긴다. 값이 없거나 형식이 틀리면 pruner가 정리를 거부한다(fail-closed). 코드와 checker가 갈라지면 그 PR이 merge 단계에서 막힌다.
 
 ## Alternatives considered
 
@@ -109,6 +109,7 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 
 ## Changelog
 
+- 2026-08-25: 실행 계약의 SSoT인 root `Jenkinsfile`의 `BACKUP_RETENTION_N=30`을 현재 승인값으로 기록했다. 최근 30개 성공 배포의 PostgreSQL·object 복구점을 함께 보존해 same-host 디스크 사용량을 제한하며, 직전 이미지 rollback과 off-host 장기 보관은 별도 계약임을 명시했다. 이후 값 변경은 코드·checker와 산정 근거를 한 PR에서 함께 리뷰한다 (#1027).
 - 2026-08-04: `event=push` `ci` job green 게이트(#596)를 root `Jenkinsfile`에 먼저 병합해 fail-closed로 활성화하고, 실제 배포로 게이트를 양방향 증명한 **뒤에** 배포 시점 재검증 stage(`빌드·테스트 검증`: `pnpm install --frozen-lockfile`·`prisma generate`·lint·typecheck·test·build)를 제거했다. 증명: (1) `ci` 미완료 상태로 병합된 사고 커밋 `8cdbe05`는 게이트가 거절, (2) `ci` green이 확인된 `32da8e3e`는 Release `v0.6.24`로 Jenkins 빌드 #58이 SUCCESS(5분 18초) 처리했고 빌드 로그에 `CI_STATUS_GATE=ok run_id=30884101311 conclusion=success`가 남았으며 배포 호스트의 실행 컨테이너(backend·frontend)가 `v0.6.24` 이미지로 확인됐다. 두 Dockerfile(`apps/backend`, `apps/frontend`)이 각자 `pnpm install --frozen-lockfile`·`prisma generate`·`pnpm build`를 이미지 build 단계 안에서 독립적으로 수행하므로 host 단계의 반복 실행은 애초에 불필요했다. 순서를 반대로 했다면(게이트보다 재검증 stage 제거가 먼저였다면) 게이트가 실증되지 않은 상태에서 그 창(window) 동안 무검증 커밋이 배포될 수 있었으므로, 게이트를 실배포로 증명하기 전까지는 이 stage 제거 변경을 준비만 하고 병합하지 않았다.
 - 2026-08-04: ADR-005의 `MERGE_READY` 코멘트 프로토콜·`merge-policy` 판정기 삭제에 맞춰 병합 검토 문장을 갱신했다 — 병합 게이트는 required check(`ci`·`public-safe`)의 실제 통과와 GitHub mergeable 상태뿐이다.
 - 2026-08-03: 제출 파일 object backup을 PostgreSQL backup과 같은 `BACKUP_DIR`·`BACKUP_RETENTION_N` 규율의 fail-closed 배포 단계로 편입했다. Compose nginx 차단 해제는 off-host object backup과 배포 런북의 restore drill 완료 뒤 별도 high-risk 변경으로 제한하고, 해제 뒤 smoke는 업로드 경로 403 대신 미인증 401과 인증 정상 동작을 구현 PR이 정한 문구로 단언하도록 계약을 갱신했다.
