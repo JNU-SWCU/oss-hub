@@ -611,3 +611,12 @@
 - blocker: 없음
 - 결과: 운영 env 사전검증이 compose·애플리케이션의 안전한 기본값을 가진 선택 설정까지 필수로 요구해 배포를 중단하던 계약을 수정했다. 미설정·빈 값은 runtime 기본값을 사용하고 명시된 override만 기존 형식·범위로 검증하며, 비밀값·앱 ID·초기 역할 seed의 fail-closed 계약은 유지한다
 - 검증: 합성 RED 2건 재현 후 validator 101/101, Jenkins shell 164/164, Jenkins Node 4/4, CI path 6/6, production image pin, 문법·LSP·Prettier·public-safe·diff-check 통과
+
+## 2026-08-25 — 배포 env GitHub 조직 casing 계약 정렬
+
+- 상태: review
+- Issue: #1025
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 애플리케이션은 GitHub 조직 login의 대소문자를 허용하지만 운영 env 사전검증만 소문자로 제한해 배포를 중단하던 regex를 앱 계약과 동일한 ASCII 영숫자·하이픈 casing 보존 계약으로 맞췄다
+- 검증: 실제 운영 casing 실패를 합성 RED 1건으로 재현 후 validator 102/102, LSP 0건

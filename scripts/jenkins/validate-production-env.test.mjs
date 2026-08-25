@@ -205,6 +205,10 @@ const controls = [
     renderEnvironment({ GITHUB_APP_ORG: 'synthetic-security-org' }),
   ),
   control(
+    'canonical mixed-case GitHub organization is accepted',
+    renderEnvironment({ GITHUB_APP_ORG: 'Synthetic-Security-Org' }),
+  ),
+  control(
     'external HTTPS S3 endpoint and dotted bucket are accepted',
     renderEnvironment({
       SUBMISSION_FILE_S3_ENDPOINT: 'https://storage.example.test',

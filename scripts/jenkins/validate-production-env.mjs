@@ -288,7 +288,7 @@ function validate(environment) {
   const organization = required(environment, 'GITHUB_APP_ORG');
   if (
     organization.length > 39 ||
-    !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u.test(organization)
+    !/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/u.test(organization)
   ) {
     fail('GITHUB_APP_ORG');
   }
