@@ -8,6 +8,27 @@ import {
 } from '../collection-discovery.client';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+  readonly reject: (reason?: unknown) => void;
+} {
+  let resolvePromise: ((value: T) => void) | undefined;
+  let rejectPromise: ((reason?: unknown) => void) | undefined;
+  const promise = new Promise<T>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+  if (resolvePromise === undefined || rejectPromise === undefined) {
+    throw new TypeError('Promise executor did not initialize');
+  }
+  return {
+    promise,
+    resolve: resolvePromise,
+    reject: rejectPromise,
+  };
+}
+
 describe('CollectionUserActivityService', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
@@ -152,6 +173,78 @@ describe('CollectionUserActivityService', () => {
       skippedPastYearCount: 0,
       failedUserCount: 1,
     });
+  });
+
+  it('동시 run 두 개는 진행 중인 provider 실행과 같은 결과 객체를 공유한다', async () => {
+    const provider = deferred<ReturnType<typeof metrics>>();
+    const providerStarted = deferred<void>();
+    findMany.mockResolvedValue([{ githubId: 4242n, nickname: 'octocat' }]);
+    fetchUserActivityMetrics.mockImplementation(() => {
+      providerStarted.resolve(undefined);
+      return provider.promise;
+    });
+    const service = buildService();
+
+    const firstRun = service.run();
+    await providerStarted.promise;
+    const secondRun = service.run();
+    provider.resolve(metrics(10));
+    const [firstResult, secondResult] = await Promise.all([
+      firstRun,
+      secondRun,
+    ]);
+
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(fetchUserActivityMetrics).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(firstResult).toBe(secondResult);
+  });
+
+  it('공유 provider 실패가 끝나면 flight를 비워 다음 run을 새로 실행한다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const provider = deferred<ReturnType<typeof metrics>>();
+    const providerStarted = deferred<void>();
+    findMany.mockResolvedValue([{ githubId: 4242n, nickname: 'octocat' }]);
+    fetchUserActivityMetrics
+      .mockImplementationOnce(() => {
+        providerStarted.resolve(undefined);
+        return provider.promise;
+      })
+      .mockResolvedValue(metrics(11));
+    const service = buildService();
+
+    try {
+      const firstRun = service.run();
+      await providerStarted.promise;
+      const secondRun = service.run();
+      provider.reject(new CollectionDiscoveryClientError('RATE_LIMITED', 30));
+      const [firstResult, secondResult] = await Promise.all([
+        firstRun,
+        secondRun,
+      ]);
+      const recoveryResult = await service.run();
+
+      expect(firstResult).toBe(secondResult);
+      expect(firstResult).toEqual({
+        observedUserCount: 1,
+        upsertedRowCount: 0,
+        skippedPastYearCount: 0,
+        failedUserCount: 1,
+      });
+      expect(recoveryResult).toEqual({
+        observedUserCount: 1,
+        upsertedRowCount: 1,
+        skippedPastYearCount: 0,
+        failedUserCount: 0,
+      });
+      expect(findMany).toHaveBeenCalledTimes(2);
+      expect(fetchUserActivityMetrics).toHaveBeenCalledTimes(2);
+      expect(upsert).toHaveBeenCalledTimes(1);
+    } finally {
+      logger.mockRestore();
+    }
   });
 
   it('실패 로그에 토큰·저장소 이름·login을 담지 않고 분류만 남긴다', async () => {
