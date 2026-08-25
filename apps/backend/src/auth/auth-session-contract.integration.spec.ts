@@ -23,6 +23,7 @@ const activeUser: AuthUser = {
   nickname: 'synthetic-user',
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 0,
   memberKind: MemberKind.STAFF,
   hasStaffAccess: true,
   hasAdminAccess: false,
@@ -77,12 +78,14 @@ describe('canonical auth session HTTP contract', () => {
     sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
     )}`;
     expiredSessionCookie = `${sessionCookieName(
       false,
     )}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
       Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60,
     )}`;
   });

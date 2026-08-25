@@ -17,6 +17,7 @@ const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 0,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -68,6 +69,7 @@ function authenticatedRequest(
         ...syntheticUser,
         ...accessFor(role),
         accountStatus: AccountStatus.ACTIVE,
+        sessionVersion: 0,
       },
     },
   });
@@ -124,6 +126,7 @@ describe('AuthController getSession', () => {
     const token = await issueSessionToken(
       new Uint8Array(randomBytes(32)),
       syntheticUser.githubId,
+      0,
     );
 
     expectInvalidSession(token);
@@ -135,6 +138,7 @@ describe('AuthController getSession', () => {
     const token = await issueSessionToken(
       sessionSecret,
       syntheticUser.githubId,
+      0,
       issuedAt,
     );
 
@@ -193,6 +197,7 @@ describe('AuthController getSession', () => {
     const token = await issueSessionToken(
       sessionSecret,
       syntheticUser.githubId,
+      0,
     );
     const res = createResponse();
 
@@ -211,6 +216,7 @@ describe('AuthController getSession', () => {
     const token = await issueSessionToken(
       sessionSecret,
       syntheticUser.githubId,
+      0,
     );
     const res = createResponse();
 

@@ -18,6 +18,7 @@ const AUTH_USER_SELECT = {
   avatarUrl: true,
   notificationEmail: true,
   accountStatus: true,
+  sessionVersion: true,
   selectedMemberKind: true,
   hasStaffAccess: true,
   hasAdminAccess: true,
@@ -246,6 +247,14 @@ export class AuthRepository {
     });
     return user ? toDomain(user) : null;
   }
+
+  async incrementSessionVersion(githubId: bigint): Promise<void> {
+    await this.prisma.user.update({
+      where: { githubId },
+      data: { sessionVersion: { increment: 1 } },
+      select: { id: true },
+    });
+  }
 }
 
 function toDomain(user: AuthUserRow): AuthUser {
@@ -258,6 +267,7 @@ function toDomain(user: AuthUserRow): AuthUser {
     name: profile?.name ?? null,
     avatarUrl: user.avatarUrl,
     accountStatus: user.accountStatus,
+    sessionVersion: user.sessionVersion,
     memberKind,
     hasStaffAccess: user.hasStaffAccess,
     hasAdminAccess: user.hasAdminAccess,

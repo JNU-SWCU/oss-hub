@@ -6,7 +6,7 @@ import { AuthConfig } from './auth.config';
 
 /**
  * 쓰기 엔드포인트용 Origin 검사 — SameSite=Lax의 보조 방어선.
- * Origin 헤더가 없는 요청(브라우저 밖 도구)은 통과시키고, 있으면 허용 origin만 받는다.
+ * exact Origin 또는 exact-origin Referer만 허용하고 증명할 수 없는 요청은 거부한다.
  */
 @Injectable()
 export class OriginGuard implements CanActivate {
@@ -15,11 +15,19 @@ export class OriginGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
     const origin = request.headers.origin;
-    if (origin !== undefined && origin !== this.config.allowedOrigin) {
-      throw new DomainException(
-        AUTH_ERROR_CODES[AuthErrorCode.ORIGIN_FORBIDDEN],
-      );
+    if (origin === this.config.allowedOrigin) {
+      return true;
     }
-    return true;
+    if (origin === undefined) {
+      const referer = request.headers.referer;
+      if (
+        typeof referer === 'string' &&
+        URL.canParse(referer) &&
+        new URL(referer).origin === this.config.allowedOrigin
+      ) {
+        return true;
+      }
+    }
+    throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.ORIGIN_FORBIDDEN]);
   }
 }

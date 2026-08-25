@@ -32,6 +32,7 @@ const activeUser: AuthUser = {
   nickname: 'synthetic-user',
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 0,
   memberKind: MemberKind.STUDENT,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -138,6 +139,7 @@ describe('global default-deny authentication boundary', () => {
     sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
     )}`;
   });
 

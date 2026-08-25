@@ -13,6 +13,7 @@ export const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 0,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,

@@ -40,7 +40,7 @@ export class AuthenticationGuard implements CanActivate {
     http
       .getResponse<Response | undefined>()
       ?.setHeader('Cache-Control', 'private, no-store');
-    const { githubId, hasSessionCookie } = await resolveSession(
+    const { githubId, sessionVersion, hasSessionCookie } = await resolveSession(
       this.config,
       request.headers.cookie,
     );
@@ -56,7 +56,7 @@ export class AuthenticationGuard implements CanActivate {
         return true;
       }
       const principal = await this.authService.findActivePrincipal(githubId);
-      if (principal === null) {
+      if (principal === null || principal.sessionVersion !== sessionVersion) {
         attachAnonymousAuth(request, hasSessionCookie);
         return true;
       }
@@ -70,6 +70,11 @@ export class AuthenticationGuard implements CanActivate {
       );
     }
     const principal = await this.authService.getMe(githubId);
+    if (principal.sessionVersion !== sessionVersion) {
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
+    }
     attachAuthenticatedPrincipal(request, principal, githubId);
     return true;
   }

@@ -1,10 +1,11 @@
-import { randomBytes } from 'node:crypto';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../../auth/auth.config';
+import {
+  HTTP_AUTH_KINDS,
+  type OptionalSessionRequest,
+} from '../../auth/http-auth';
 import { OriginGuard } from '../../auth/origin.guard';
-import { sessionCookieName } from '../../auth/cookies';
-import { issueSessionToken } from '../../auth/session-token';
 import { SessionGuard } from '../../auth/session.guard';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
@@ -13,11 +14,32 @@ import { ProgramViewerService } from '../service/program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from '../service/programs.service';
 
-const sessionSecret = new Uint8Array(randomBytes(32));
-const authConfig = { sessionSecret, useSecureCookies: true } as AuthConfig;
+const authenticatedAuth = {
+  kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+  hasSessionCookie: true,
+  principal: {
+    id: 'student-1',
+    githubId: 101n,
+    nickname: 'synthetic-student',
+    name: null,
+    avatarUrl: null,
+    accountStatus: AccountStatus.ACTIVE,
+    sessionVersion: 0,
+    memberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    isProfileComplete: true,
+  },
+} satisfies OptionalSessionRequest['auth'];
 
-function requestWithCookie(cookie?: string) {
-  return { headers: { cookie } };
+function anonymousRequest(hasSessionCookie = false) {
+  return {
+    auth: { kind: HTTP_AUTH_KINDS.ANONYMOUS, hasSessionCookie },
+  };
+}
+
+function authenticatedRequest() {
+  return { auth: authenticatedAuth };
 }
 
 const controllerMethod = (name: keyof ProgramsController): object => {
@@ -58,7 +80,6 @@ describe('ProgramsController read boundaries', () => {
         { provide: ProgramsService, useValue: programs },
         { provide: ProgramActivityService, useValue: activity },
         { provide: ProgramViewerService, useValue: viewers },
-        { provide: AuthConfig, useValue: authConfig },
         { provide: ProgramLifecycleService, useValue: lifecycle },
       ],
     })
@@ -99,7 +120,7 @@ describe('ProgramsController read boundaries', () => {
       }),
     };
 
-    await controller.list(query as never, requestWithCookie() as never);
+    await controller.list(query as never, anonymousRequest() as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
     expect(programs.list).toHaveBeenCalledWith(
@@ -119,7 +140,6 @@ describe('ProgramsController read boundaries', () => {
     programs.list.mockResolvedValue(page);
     const viewer = { githubId: 101n, userId: 'student-1', role: 'STUDENT' };
     viewers.fromGithubId.mockResolvedValue(viewer);
-    const token = await issueSessionToken(sessionSecret, 101n);
     const query = {
       toQuery: () => ({
         page: 1,
@@ -129,10 +149,7 @@ describe('ProgramsController read boundaries', () => {
       }),
     };
 
-    await controller.list(
-      query as never,
-      requestWithCookie(`${sessionCookieName(true)}=${token}`) as never,
-    );
+    await controller.list(query as never, authenticatedRequest() as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(101n);
     expect(programs.list).toHaveBeenCalledWith(
@@ -164,10 +181,7 @@ describe('ProgramsController read boundaries', () => {
       }),
     };
 
-    await controller.list(
-      query as never,
-      requestWithCookie(`${sessionCookieName(true)}=invalid-token`) as never,
-    );
+    await controller.list(query as never, anonymousRequest(true) as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
   });
@@ -197,7 +211,7 @@ describe('ProgramsController read boundaries', () => {
       }),
     };
 
-    await controller.list(query as never, requestWithCookie() as never);
+    await controller.list(query as never, anonymousRequest() as never);
 
     expect(programs.list).toHaveBeenCalledWith(
       {

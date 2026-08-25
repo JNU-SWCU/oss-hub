@@ -68,13 +68,13 @@ export const EXPECTED_PUBLIC_AUTH_ROUTES = [
   route('GET', '/api/v1/projects/category-counts', 'PUBLIC'),
   route('GET', '/api/v1/ranking/years', 'PUBLIC'),
   route('GET', '/api/v1/users/:userId/public-profile', 'PUBLIC'),
-  route('POST', '/api/v1/auth/logout', 'PUBLIC'),
 ] as const;
 
 export const EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES = [
   route('GET', '/api/v1/auth/session', 'OPTIONAL_SESSION'),
   route('GET', '/api/v1/programs', 'OPTIONAL_SESSION'),
   route('GET', '/api/v1/ranking', 'OPTIONAL_SESSION'),
+  route('POST', '/api/v1/auth/logout', 'OPTIONAL_SESSION'),
 ] as const;
 
 export const EXPECTED_INDEPENDENT_AUTHORITY_PROTECTED_ROUTES = [
@@ -175,7 +175,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED PATCH /api/v1/users/me/profile',
   'PROTECTED POST /api/v1/admin/collection/discover-external',
   'PROTECTED POST /api/v1/admin/collection/trigger',
-  'PUBLIC POST /api/v1/auth/logout',
+  'OPTIONAL_SESSION POST /api/v1/auth/logout',
   'PROTECTED POST /api/v1/consents',
   'PROTECTED POST /api/v1/milestone-document-files',
   'PROTECTED POST /api/v1/milestones/:milestoneId/documents',
