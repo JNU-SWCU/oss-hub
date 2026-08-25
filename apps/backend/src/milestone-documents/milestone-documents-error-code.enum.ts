@@ -26,6 +26,7 @@ export const MilestoneDocumentsErrorCode = {
   REVIEW_CHANGED: 'MSD_024',
   REVIEW_TARGET_CHANGED: 'MSD_025',
   ARCHIVE_TOO_LARGE: 'MSD_026',
+  SUBMISSION_FILE_QUOTA_EXCEEDED: 'MSD_027',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -173,5 +174,15 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 413,
     message:
       '한 번에 내려받기에는 제출 파일이 너무 많습니다. 담당자에게 문의해 주세요.',
+  },
+  /**
+   * 한 사람이 보관할 수 있는 제출 파일 개수·총 바이트를 넘겼다. 제출물 경로의
+   * SUB_024와 같은 판정이다 — 둘은 같은 SubmissionFile 테이블을 채우므로 모듈마다
+   * 다른 한도를 두면 쓸모 없는 경로 하나만 골라 한도를 우회할 수 있게 된다.
+   */
+  [MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED]: {
+    code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+    status: 413,
+    message: '보관 중인 제출 파일 한도를 초과했습니다.',
   },
 };

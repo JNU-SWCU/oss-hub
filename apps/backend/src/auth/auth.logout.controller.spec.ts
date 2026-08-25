@@ -1,13 +1,11 @@
-import { randomBytes } from 'node:crypto';
 import { AccountStatus } from '@prisma/client';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { LoginHistoryService } from '../login-history/login-history.service';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies';
 import type { AuthUser } from './domain/auth-user';
-import { issueSessionToken } from './session-token';
+import { HTTP_AUTH_KINDS, type OptionalSessionRequest } from './http-auth';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -16,12 +14,13 @@ const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 0,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,
   isProfileComplete: false,
 };
-const sessionSecret = new Uint8Array(randomBytes(32));
+const sessionSecret = new Uint8Array(32).fill(1);
 
 function response(): Response & { readonly setHeader: jest.Mock } {
   return { setHeader: jest.fn() } as unknown as Response & {
@@ -29,15 +28,35 @@ function response(): Response & { readonly setHeader: jest.Mock } {
   };
 }
 
-function request(cookie?: string): Request {
-  return { headers: { cookie } } as Request;
+function request(authenticated: boolean): OptionalSessionRequest {
+  if (!authenticated) {
+    return {
+      headers: {},
+      auth: {
+        kind: HTTP_AUTH_KINDS.ANONYMOUS,
+        hasSessionCookie: false,
+      },
+    } as OptionalSessionRequest;
+  }
+  return {
+    headers: {},
+    auth: {
+      kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+      hasSessionCookie: true,
+      principal: {
+        ...syntheticUser,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    },
+  } as OptionalSessionRequest;
 }
 
 describe('AuthController logout', () => {
   const findMe = jest.fn();
+  const incrementSessionVersion = jest.fn();
   const recordLogout = jest.fn();
   const controller = new AuthController(
-    { findMe } as unknown as AuthService,
+    { findMe, incrementSessionVersion } as unknown as AuthService,
     {
       sessionSecret,
       useSecureCookies: true,
@@ -47,26 +66,24 @@ describe('AuthController logout', () => {
 
   beforeEach(() => {
     findMe.mockReset();
+    incrementSessionVersion.mockReset();
+    incrementSessionVersion.mockResolvedValue(undefined);
     recordLogout.mockReset();
     recordLogout.mockResolvedValue(undefined);
   });
 
   it('유효한 세션의 로그아웃을 해당 사용자 이력으로 기록한다', async () => {
-    // Given: 기존 사용자에게 발급한 유효한 세션이 있다.
-    const token = await issueSessionToken(
-      sessionSecret,
-      syntheticUser.githubId,
-    );
+    // Given: 전역 인증 경계가 현재 세대의 principal을 붙였다.
     findMe.mockResolvedValue(syntheticUser);
 
     // When: 사용자가 로그아웃한다.
-    const result = await controller.logout(
-      request(`${sessionCookieName(true)}=${token}`),
-      response(),
-    );
+    const result = await controller.logout(request(true), response());
 
     // Then: 본인 사용자 ID로 로그아웃 이력이 추가된다.
     expect(result).toEqual({ isAuthenticated: false });
+    expect(incrementSessionVersion).toHaveBeenCalledWith(
+      syntheticUser.githubId,
+    );
     expect(findMe).toHaveBeenCalledWith(syntheticUser.githubId);
     expect(recordLogout).toHaveBeenCalledWith(syntheticUser.id);
   });
@@ -75,10 +92,11 @@ describe('AuthController logout', () => {
     // Given: 세션 쿠키가 없다.
 
     // When: 익명 사용자가 로그아웃한다.
-    const result = await controller.logout(request(), response());
+    const result = await controller.logout(request(false), response());
 
     // Then: 사용자 이력을 만들지 않고 기존 응답을 반환한다.
     expect(result).toEqual({ isAuthenticated: false });
+    expect(incrementSessionVersion).not.toHaveBeenCalled();
     expect(findMe).not.toHaveBeenCalled();
     expect(recordLogout).not.toHaveBeenCalled();
   });
@@ -87,18 +105,11 @@ describe('AuthController logout', () => {
     ['사용자 조회', findMe],
     ['로그아웃 이력 저장', recordLogout],
   ])('%s 실패에도 쿠키 삭제와 200 응답을 유지한다', async (_label, failure) => {
-    const token = await issueSessionToken(
-      sessionSecret,
-      syntheticUser.githubId,
-    );
     const res = response();
     findMe.mockResolvedValue(syntheticUser);
     failure.mockRejectedValue(new Error('synthetic history failure'));
 
-    const result = await controller.logout(
-      request(`${sessionCookieName(true)}=${token}`),
-      res,
-    );
+    const result = await controller.logout(request(true), res);
 
     expect(result).toEqual({ isAuthenticated: false });
     expect(res.setHeader).toHaveBeenCalledWith(

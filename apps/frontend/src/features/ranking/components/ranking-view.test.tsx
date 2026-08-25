@@ -2,10 +2,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test, vi } from 'vitest';
 import {
   RANKING_YEAR_ALL,
-  type RankingItem,
-  type RankingPage,
-  type RankingViewerClass,
+  type PublicRankingItem,
+  type PublicRankingPage,
+  type StaffRankingItem,
+  type StaffRankingPage,
 } from '../types';
+import { parseRankingPage } from '../api';
 import { RankingView } from './ranking-view';
 
 vi.mock('@/components', async (importOriginal) => {
@@ -13,7 +15,7 @@ vi.mock('@/components', async (importOriginal) => {
 
   return {
     ...actual,
-    DataTable: ({
+    DataTable: function MockDataTable<T>({
       columns,
       data,
       rowKey,
@@ -25,41 +27,43 @@ vi.mock('@/components', async (importOriginal) => {
         readonly id: string;
         readonly header: React.ReactNode;
         readonly headClassName?: string;
-        readonly cell: (item: RankingItem) => React.ReactNode;
+        readonly cell: (item: T) => React.ReactNode;
       }[];
-      readonly data: readonly RankingItem[];
-      readonly rowKey: (item: RankingItem) => React.Key;
+      readonly data: readonly T[];
+      readonly rowKey: (item: T) => React.Key;
       readonly className?: string;
       readonly emptyState?: React.ReactNode;
       readonly caption?: React.ReactNode;
-    }) => (
-      <div
-        className={className}
-        data-column-widths={columns
-          .map(({ id, headClassName }) => `${id}:${headClassName ?? ''}`)
-          .join(',')}
-        data-row-keys={data.map(rowKey).join(',')}
-      >
-        {caption}
-        {/* 머리글도 실제 DOM 으로 내늘다 — 열 이름은 사용자가 읽는 문구라
-            props 만 보면 "Star(누적)" 같은 표기가 사라져도 통과해 버린다. */}
-        {columns.map((column) => (
-          <div key={`head-${column.id}`} data-column-head={column.id}>
-            {column.header}
-          </div>
-        ))}
-        {data.length === 0 ? emptyState : null}
-        {data.map((item) => (
-          <div key={rowKey(item)}>
-            {columns.map((column) => (
-              <div key={column.id} data-column-id={column.id}>
-                {column.cell(item)}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    ),
+    }) {
+      return (
+        <div
+          className={className}
+          data-column-widths={columns
+            .map(({ id, headClassName }) => `${id}:${headClassName ?? ''}`)
+            .join(',')}
+          data-row-keys={data.map(rowKey).join(',')}
+        >
+          {caption}
+          {/* 머리글도 실제 DOM 으로 내늘다 — 열 이름은 사용자가 읽는 문구라
+              props 만 보면 "Star(누적)" 같은 표기가 사라져도 통과해 버린다. */}
+          {columns.map((column) => (
+            <div key={`head-${column.id}`} data-column-head={column.id}>
+              {column.header}
+            </div>
+          ))}
+          {data.length === 0 ? emptyState : null}
+          {data.map((item) => (
+            <div key={rowKey(item)}>
+              {columns.map((column) => (
+                <div key={column.id} data-column-id={column.id}>
+                  {column.cell(item)}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    },
   };
 });
 
@@ -71,9 +75,12 @@ const handlers = {
 };
 
 function rankingEnvelope(
-  overrides: Partial<RankingPage> &
-    Pick<RankingPage, 'year' | 'items' | 'page' | 'pageSize' | 'total'>,
-): RankingPage {
+  overrides: Pick<
+    PublicRankingPage,
+    'year' | 'items' | 'page' | 'pageSize' | 'total'
+  > &
+    Partial<Pick<PublicRankingPage, 'dataAsOf' | 'nextCycleAt'>>,
+): PublicRankingPage {
   return {
     dataAsOf: null,
     viewerClass: 'public',
@@ -95,15 +102,9 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
           items: [
             {
               rank: 1,
-              displayName,
               githubLogin,
-              department: null,
               commitCount: 3,
               pullRequestCount: 2,
-              issueCount: 1,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 6,
             },
           ],
           page: 1,
@@ -122,7 +123,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
   expect(html).toContain('break-keep');
   expect(html).not.toContain('table-fixed');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
   );
   expect(html).not.toContain(displayName);
   expect(html).toContain(githubLogin);
@@ -147,15 +148,9 @@ test('표 캡션을 렌더하지 않는다', () => {
           items: [
             {
               rank: 1,
-              displayName: 'mina',
               githubLogin: 'mina',
-              department: null,
               commitCount: 1,
               pullRequestCount: 0,
-              issueCount: 0,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 1,
             },
           ],
           page: 1,
@@ -232,27 +227,15 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
           items: [
             {
               rank: 1,
-              displayName: '첫 번째 참여자',
               githubLogin: 'same-login',
-              department: null,
               commitCount: 3,
               pullRequestCount: 2,
-              issueCount: 1,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 6,
             },
             {
               rank: 2,
-              displayName: '두 번째 참여자',
               githubLogin: 'same-login',
-              department: null,
               commitCount: 2,
               pullRequestCount: 1,
-              issueCount: 1,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 4,
             },
           ],
           page: 1,
@@ -275,9 +258,7 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
 // 화면 절반을 고정한다 — archive 쪽 절반(outcome-2 기여자 분리, outcome-4 stale-allow,
 // outcome-5 회수)은 `archive/archive.test.tsx`가 동일한 synthetic 식별자로 짝을 맞춘다.
 //
-// `department` 는 2026-08-19 owner 결정으로 **공개 정보**가 되어 이 목록에서 빠졌다 —
-// 학과 열은 비로그인에게도 보이는 것이 계약이다(plan todo 15·16). 나머지 칸은 여전히
-// 어느 계층에도 내려가지 않는다.
+// 활성 GitHub 활동 정책은 공개 랭킹에서 소속과 실명을 제외한다.
 const forbiddenRankingFields = [
   'studentId',
   'accountStatus',
@@ -297,15 +278,9 @@ test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭
           items: [
             {
               rank: 1,
-              displayName: 'synthetic 활성 참여자',
               githubLogin: 'synthetic-outcome2-owner-login',
-              department: null,
               commitCount: 5,
               pullRequestCount: 2,
-              issueCount: 1,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 8,
             },
           ],
           page: 1,
@@ -335,27 +310,15 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
           items: [
             {
               rank: 1,
-              displayName: 'synthetic-outcome2-owner-login',
               githubLogin: 'synthetic-outcome2-owner-login',
-              department: null,
               commitCount: 5,
               pullRequestCount: 2,
-              issueCount: 1,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 8,
             },
             {
               rank: 2,
-              displayName: 'synthetic-outcome2-other-login',
               githubLogin: 'synthetic-outcome2-other-login',
-              department: null,
               commitCount: 3,
               pullRequestCount: 1,
-              issueCount: 0,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 4,
             },
           ],
           page: 1,
@@ -391,15 +354,9 @@ test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전�
           items: [
             {
               rank: 1,
-              displayName: 'synthetic 다른 활성 참여자',
               githubLogin: 'synthetic-outcome2-other-login',
-              department: null,
               commitCount: 3,
               pullRequestCount: 1,
-              issueCount: 0,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 4,
             },
           ],
           page: 1,
@@ -429,15 +386,9 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
           items: [
             {
               rank: 1,
-              displayName: 'synthetic 회수 예정 참여자',
               githubLogin: 'synthetic-outcome5-applicant-login',
-              department: null,
               commitCount: 3,
               pullRequestCount: 1,
-              issueCount: 0,
-              repositoryCount: 1,
-              starCount: 7,
-              total: 4,
             },
           ],
           page: 1,
@@ -536,10 +487,13 @@ test('갱신 시각이 없으면 시각을 숨기지 않고 "아직 수집 전"�
 // 아래는 전부 **렌더된 DOM 문자열**을 본다 — 컬럼 정의나 props 를 들여다보면
 // 열이 화면에서 빠져도 통과한다.
 
-const personAxisItem = (overrides: Partial<RankingItem> = {}): RankingItem => ({
+const personAxisItem = (
+  overrides: Partial<StaffRankingItem> = {},
+): StaffRankingItem => ({
   rank: 1,
   displayName: 'synthetic-top',
   githubLogin: 'synthetic-top',
+  name: null,
   department: null,
   commitCount: 128,
   pullRequestCount: 24,
@@ -550,41 +504,84 @@ const personAxisItem = (overrides: Partial<RankingItem> = {}): RankingItem => ({
   ...overrides,
 });
 
+const publicPersonAxisItem = (
+  overrides: Partial<PublicRankingItem> = {},
+): PublicRankingItem => ({
+  rank: 1,
+  githubLogin: 'synthetic-top',
+  commitCount: 128,
+  pullRequestCount: 24,
+  ...overrides,
+});
+
 function personAxisMarkup(
-  items: readonly RankingItem[],
+  items: readonly PublicRankingItem[],
   options: {
     readonly dataAsOf?: Date | null;
-    readonly viewerClass?: RankingViewerClass;
+    readonly viewerClass?: 'public';
   },
 ): string {
   const dataAsOf =
     options.dataAsOf === undefined
       ? new Date('2026-08-19T02:30:00.000Z')
       : options.dataAsOf;
-  const viewerClass =
-    options.viewerClass === undefined ? 'public' : options.viewerClass;
   return renderToStaticMarkup(
     <RankingView
       page={1}
       state={{
         kind: 'ready',
-        ranking: rankingEnvelope({
+        ranking: {
           year: 2026,
           items,
           page: 1,
           pageSize: 20,
           total: items.length,
           dataAsOf,
-          viewerClass,
-        }),
+          viewerClass: 'public',
+          nextCycleAt: null,
+        },
       }}
       {...handlers}
     />,
   );
 }
 
-test('commit·PR·issue·repo·star 5종과 합계를 화면에 그린다', () => {
-  const html = personAxisMarkup([personAxisItem()], {});
+function staffAxisMarkup(
+  items: readonly StaffRankingItem[],
+  options: {
+    readonly dataAsOf?: Date | null;
+    readonly viewerClass?: 'staff';
+  },
+): string {
+  const dataAsOf =
+    options.dataAsOf === undefined
+      ? new Date('2026-08-19T02:30:00.000Z')
+      : options.dataAsOf;
+  return renderToStaticMarkup(
+    <RankingView
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          year: 2026,
+          items,
+          page: 1,
+          pageSize: 20,
+          total: items.length,
+          dataAsOf,
+          viewerClass: 'staff',
+          nextCycleAt: null,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+}
+
+test('staff 화면은 commit·PR·issue·repo·star 5종과 합계를 그린다', () => {
+  const html = staffAxisMarkup([personAxisItem()], {
+    viewerClass: 'staff',
+  });
 
   for (const header of ['Commit', 'PR', 'Issue', 'Repo', 'Star', '합계']) {
     expect(html).toContain(header);
@@ -595,7 +592,7 @@ test('commit·PR·issue·repo·star 5종과 합계를 화면에 그린다', () =
 });
 
 test('release 지표는 랭킹 화면에서 사라진다 — 저장소 축 전속이다', () => {
-  const html = personAxisMarkup([personAxisItem()], {});
+  const html = personAxisMarkup([publicPersonAxisItem()], {});
 
   expect(html).not.toContain('Release');
   expect(html).not.toContain('릴리스');
@@ -604,7 +601,9 @@ test('release 지표는 랭킹 화면에서 사라진다 — 저장소 축 전�
 test('star 는 올해가 아니라 누적임을 화면이 밝힌다', () => {
   // 이 문구가 없으면 옆 열들과 같은 규칙(해당 연도)으로 읽혀 "올해 받은 별"로
   // 오해된다. GitHub 이 올해분 star 를 싸게 주지 않아 수집기는 계정 전체를 센다.
-  const html = personAxisMarkup([personAxisItem()], {});
+  const html = staffAxisMarkup([personAxisItem()], {
+    viewerClass: 'staff',
+  });
 
   expect(html).toContain('누적');
   expect(html).toContain('계정 전체 누적');
@@ -614,18 +613,12 @@ test('star 는 올해가 아니라 누적임을 화면이 밝힌다', () => {
 test('활동이 0인 가입자도 목록에서 0으로 남는다 — 빠지지 않는다', () => {
   const html = personAxisMarkup(
     [
-      personAxisItem(),
-      personAxisItem({
+      publicPersonAxisItem(),
+      publicPersonAxisItem({
         rank: 2,
-        displayName: 'synthetic-newcomer',
         githubLogin: 'synthetic-newcomer',
-        department: null,
         commitCount: 0,
         pullRequestCount: 0,
-        issueCount: 0,
-        repositoryCount: 0,
-        starCount: 0,
-        total: 0,
       }),
     ],
     {},
@@ -637,7 +630,7 @@ test('활동이 0인 가입자도 목록에서 0으로 남는다 — 빠지지 �
 });
 
 test('갱신 시각을 사람이 읽는 문구로 함께 보여준다', () => {
-  const html = personAxisMarkup([personAxisItem()], {});
+  const html = personAxisMarkup([publicPersonAxisItem()], {});
 
   expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
   // Asia/Seoul 기준 표기 — 속성만 있고 눈에 보이는 글자가 없으면 소용없다.
@@ -650,13 +643,10 @@ test('비로그인 화면 DOM 에는 실명 같은 비공개 값이 없다', () 
   // 화면이 지울 값 자체가 없다 — 아래는 그 사실이 DOM 에서도 유지되는지 본다.
   const html = personAxisMarkup(
     [
-      personAxisItem(),
-      personAxisItem({
+      publicPersonAxisItem(),
+      publicPersonAxisItem({
         rank: 2,
-        displayName: 'synthetic-second',
         githubLogin: 'synthetic-second',
-        department: null,
-        total: 3,
       }),
     ],
     {},
@@ -675,13 +665,9 @@ test('비로그인 화면 DOM 에는 실명 같은 비공개 값이 없다', () 
 test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만 남기지 않는다', () => {
   const html = personAxisMarkup(
     [
-      personAxisItem({
+      publicPersonAxisItem({
         commitCount: 0,
         pullRequestCount: 0,
-        issueCount: 0,
-        repositoryCount: 0,
-        starCount: 0,
-        total: 0,
       }),
     ],
     { dataAsOf: null },
@@ -698,18 +684,12 @@ test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만
 test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목록에 남긴다', () => {
   // `items.length === 0` 은 사람 축에서 사실상 오지 않는다 — 가입자는 항상 행을
   // 갖는다. 그래서 빈 목록 문구에 기대면 이 상태는 영원히 설명되지 않는다.
-  const zero = (rank: number, login: string): RankingItem =>
-    personAxisItem({
+  const zero = (rank: number, login: string): PublicRankingItem =>
+    publicPersonAxisItem({
       rank,
-      displayName: login,
       githubLogin: login,
-      department: null,
       commitCount: 0,
       pullRequestCount: 0,
-      issueCount: 0,
-      repositoryCount: 0,
-      starCount: 0,
-      total: 0,
     });
   const html = personAxisMarkup(
     [
@@ -732,18 +712,12 @@ test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목
 test('한 명이라도 활동이 있으면 대기 안내를 띄우지 않는다', () => {
   const html = personAxisMarkup(
     [
-      personAxisItem(),
-      personAxisItem({
+      publicPersonAxisItem(),
+      publicPersonAxisItem({
         rank: 2,
-        displayName: 'synthetic-newcomer',
         githubLogin: 'synthetic-newcomer',
-        department: null,
         commitCount: 0,
         pullRequestCount: 0,
-        issueCount: 0,
-        repositoryCount: 0,
-        starCount: 0,
-        total: 0,
       }),
     ],
     {},
@@ -757,16 +731,14 @@ const STAFF_ROW = {
   name: 'synthetic-staff-name',
   githubLogin: 'synthetic-gildong',
   department: '소프트웨어공학과',
-} as const;
+};
 
-const publicTierRow = (): RankingItem =>
-  personAxisItem({
-    displayName: STAFF_ROW.githubLogin,
+const publicTierRow = (): PublicRankingItem =>
+  publicPersonAxisItem({
     githubLogin: STAFF_ROW.githubLogin,
-    department: STAFF_ROW.department,
   });
 
-const staffTierRow = (): RankingItem =>
+const staffTierRow = (): StaffRankingItem =>
   personAxisItem({
     displayName: STAFF_ROW.githubLogin,
     githubLogin: STAFF_ROW.githubLogin,
@@ -774,11 +746,31 @@ const staffTierRow = (): RankingItem =>
     department: STAFF_ROW.department,
   });
 
-test('공개 화면은 login 한 줄과 학과만 보이고 이름·CSV 가 없다', () => {
-  const html = personAxisMarkup([publicTierRow()], { dataAsOf: null });
+test('공개 화면은 rank·login·commit·PR 열만 렌더한다', () => {
+  const html = personAxisMarkup([publicTierRow()], {
+    dataAsOf: null,
+    viewerClass: 'public',
+  });
 
-  expect(html).toContain('학과');
-  expect(html).toContain(STAFF_ROW.department);
+  expect(html).toContain(
+    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
+  );
+  for (const column of ['rank', 'member', 'commit', 'pr']) {
+    expect(html).toContain(`data-column-head="${column}"`);
+    expect(html).toContain(`data-column-id="${column}"`);
+  }
+  for (const excludedColumn of [
+    'department',
+    'issue',
+    'repository',
+    'star',
+    'total',
+    'name',
+  ]) {
+    expect(html).not.toContain(`data-column-head="${excludedColumn}"`);
+    expect(html).not.toContain(`data-column-id="${excludedColumn}"`);
+  }
+  expect(html).not.toContain(STAFF_ROW.department);
   expect(html).toContain(STAFF_ROW.githubLogin);
   expect(html).not.toContain(`@${STAFF_ROW.githubLogin}`);
   expect(html).toContain(`href="https://github.com/${STAFF_ROW.githubLogin}"`);
@@ -804,7 +796,7 @@ test('viewerClass public 이면 세션이 학생처럼 보여도 이름·CSV 를
 });
 
 test('viewerClass staff 이면 이름 열과 CSV 버튼을 그린다', () => {
-  const html = personAxisMarkup([staffTierRow()], {
+  const html = staffAxisMarkup([staffTierRow()], {
     dataAsOf: null,
     viewerClass: 'staff',
   });
@@ -821,7 +813,7 @@ test('viewerClass staff 이면 이름 열과 CSV 버튼을 그린다', () => {
 });
 
 test('staff 행의 name 이 null 이면 이름 칸에 대시를 그린다', () => {
-  const html = personAxisMarkup(
+  const html = staffAxisMarkup(
     [
       personAxisItem({
         displayName: 'nameless-login',
@@ -838,9 +830,10 @@ test('staff 행의 name 이 null 이면 이름 칸에 대시를 그린다', () =
   expect(html).not.toContain('@nameless-login');
 });
 
-test('학과가 없으면 대시를 그린다 — 빈칸으로 두거나 깨지지 않는다', () => {
-  const html = personAxisMarkup([personAxisItem({ department: null })], {
+test('staff 학과가 없으면 대시를 그린다 — 빈칸으로 두거나 깨지지 않는다', () => {
+  const html = staffAxisMarkup([personAxisItem({ department: null })], {
     dataAsOf: null,
+    viewerClass: 'staff',
   });
 
   expect(html).toContain('>-<');
@@ -850,7 +843,20 @@ test('학과가 없으면 대시를 그린다 — 빈칸으로 두거나 깨지�
 
 test('department 칸이 아예 없는 낡은 응답도 대시로 그린다 — 크래시하지 않는다', () => {
   const { department: _omitted, ...withoutDepartment } = personAxisItem();
-  const html = personAxisMarkup([withoutDepartment as RankingItem], {
+  const parsed = parseRankingPage({
+    year: 2026,
+    items: [withoutDepartment],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    dataAsOf: null,
+    viewerClass: 'staff',
+    nextCycleAt: null,
+  });
+  if (parsed.viewerClass !== 'staff') {
+    throw new TypeError('staff fixture parsed as public');
+  }
+  const html = staffAxisMarkup(parsed.items, {
     dataAsOf: null,
     viewerClass: 'staff',
   });
@@ -860,7 +866,7 @@ test('department 칸이 아예 없는 낡은 응답도 대시로 그린다 — �
 });
 
 test('기준 시각은 PageHeader actions 의 time 요소에 있다', () => {
-  const html = personAxisMarkup([personAxisItem()], {});
+  const html = personAxisMarkup([publicPersonAxisItem()], {});
 
   expect(html).toContain('data-slot="page-header-actions"');
   expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
@@ -870,7 +876,7 @@ test('기준 시각은 PageHeader actions 의 time 요소에 있다', () => {
 });
 
 test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 그대로다', () => {
-  const staff = personAxisMarkup([staffTierRow()], {
+  const staff = staffAxisMarkup([staffTierRow()], {
     dataAsOf: null,
     viewerClass: 'staff',
   });
@@ -884,7 +890,7 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
   expect(staff).toContain('data-ranking-as-of="none"');
   expect(staff).toContain('CSV 다운로드');
 
-  const collected = personAxisMarkup(
+  const collected = staffAxisMarkup(
     [
       staffTierRow(),
       personAxisItem({
@@ -911,7 +917,7 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
   expect(collected).toContain('data-row-keys="1,2"');
   expect(collected).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
 
-  const allZero = personAxisMarkup(
+  const allZero = staffAxisMarkup(
     [
       personAxisItem({
         displayName: 'synthetic-gildong',

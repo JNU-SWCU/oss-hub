@@ -32,7 +32,6 @@ import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from './http-auth';
-import { resolveSession } from './session-resolution';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
@@ -156,16 +155,26 @@ export class AuthController {
   }
 
   @Post('logout')
-  @Public()
+  @OptionalSession()
   @UseGuards(OriginGuard)
   @HttpCode(200)
   async logout(
-    @Req() req: Request,
+    @Req() req: OptionalSessionRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LogoutResponseDto> {
     this.clearSessionCookie(res);
-    await this.recordLogoutHistory(req.headers.cookie);
-    return new LogoutResponseDto(false);
+    switch (req.auth.kind) {
+      case HTTP_AUTH_KINDS.ANONYMOUS:
+        return new LogoutResponseDto(false);
+      case HTTP_AUTH_KINDS.AUTHENTICATED:
+        await this.authService.incrementSessionVersion(
+          req.auth.principal.githubId,
+        );
+        await this.recordLogoutHistory(req.auth.principal.githubId);
+        return new LogoutResponseDto(false);
+      default:
+        return assertNeverHttpAuth(req.auth);
+    }
   }
 
   private async recordLoginHistory(userId: string): Promise<void> {
@@ -176,14 +185,8 @@ export class AuthController {
     }
   }
 
-  private async recordLogoutHistory(
-    cookieHeader: string | undefined,
-  ): Promise<void> {
+  private async recordLogoutHistory(githubId: bigint): Promise<void> {
     try {
-      const { githubId } = await resolveSession(this.config, cookieHeader);
-      if (githubId === null) {
-        return;
-      }
       const user = await this.authService.findMe(githubId);
       if (user !== null) {
         await this.loginHistoryService.recordLogout(user.id);

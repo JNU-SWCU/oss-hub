@@ -84,7 +84,11 @@ export class AuthService {
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );
     }
-    return issueSessionToken(this.config.sessionSecret, user.githubId);
+    return issueSessionToken(
+      this.config.sessionSecret,
+      user.githubId,
+      user.sessionVersion,
+    );
   }
 
   async getMe(githubId: bigint): Promise<ActiveAccountPrincipal> {
@@ -109,6 +113,10 @@ export class AuthService {
 
   async findMe(githubId: bigint): Promise<AuthUser | null> {
     return this.repository.findByGithubId(githubId);
+  }
+
+  async incrementSessionVersion(githubId: bigint): Promise<void> {
+    await this.repository.incrementSessionVersion(githubId);
   }
 
   private async exchangeCode(code: string, verifier: string): Promise<string> {

@@ -58,6 +58,7 @@ export function buildRow(overrides: Partial<AuthUserRow> = {}): AuthUserRow {
     nickname: 'synthetic-login',
     avatarUrl: null,
     accountStatus: AccountStatus.ACTIVE,
+    sessionVersion: 0,
     selectedMemberKind: null,
     hasStaffAccess: false,
     hasAdminAccess: false,

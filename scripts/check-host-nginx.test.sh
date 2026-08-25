@@ -228,7 +228,153 @@ PY
   fi
 }
 
+write_increment_a_complete() {
+  python3 - "$source_config" "$fixture_dir/complete" <<'PY'
+from pathlib import Path
+import sys
+
+src = Path(sys.argv[1]).read_text()
+dst = Path(sys.argv[2])
+if (
+    'server_tokens off;' in src
+    and 'zone=api:10m' in src
+    and 'location /api/ {' in src
+    and 'proxy_hide_header X-Powered-By;' in src
+):
+    dst.write_text(src)
+    raise SystemExit(0)
+zones = (
+    'limit_req_zone $binary_remote_addr zone=jenkins_trigger:10m rate=5r/m;\n'
+)
+added_zones = (
+    'limit_req_zone $binary_remote_addr zone=jenkins_trigger:10m rate=5r/m;\n'
+    'server_tokens off;\n'
+    'limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;\n'
+    'limit_req_zone $binary_remote_addr zone=oauth:10m rate=10r/m;\n'
+    'limit_req_zone $binary_remote_addr zone=admin_collection:10m rate=2r/m;\n'
+)
+if zones not in src:
+    raise SystemExit('complete fixture: jenkins zone anchor missing')
+src = src.replace(zones, added_zones, 1)
+
+tls_headers_anchor = (
+    '    access_log /var/log/nginx/oss-hub.access.log oss_hub_safe;\n'
+    '\n'
+    '    # 공개 Jenkins 표면은'
+)
+tls_headers = (
+    '    access_log /var/log/nginx/oss-hub.access.log oss_hub_safe;\n'
+    '\n'
+    '    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n'
+    '    add_header X-Content-Type-Options "nosniff" always;\n'
+    '    add_header X-Frame-Options "DENY" always;\n'
+    '    add_header Referrer-Policy "strict-origin-when-cross-origin" always;\n'
+    '    add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()" always;\n'
+    "    add_header Content-Security-Policy \"base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'\" always;\n"
+    '    proxy_hide_header X-Powered-By;\n'
+    '\n'
+    '    # 공개 Jenkins 표면은'
+)
+if tls_headers_anchor not in src:
+    raise SystemExit('complete fixture: TLS header anchor missing')
+src = src.replace(tls_headers_anchor, tls_headers, 1)
+
+api_locations = (
+    '    location /api/ {\n'
+    '        limit_req zone=api burst=30 nodelay;\n'
+    '        limit_req_status 429;\n'
+    '        client_max_body_size 6m;\n'
+    '        proxy_pass http://oss_hub_compose;\n'
+    '    }\n'
+    '\n'
+    '    location = /api/v1/auth/github {\n'
+    '        limit_req zone=oauth burst=5 nodelay;\n'
+    '        limit_req_status 429;\n'
+    '        proxy_pass http://oss_hub_compose;\n'
+    '    }\n'
+    '\n'
+    '    location = /api/v1/auth/github/callback {\n'
+    '        limit_req zone=oauth burst=5 nodelay;\n'
+    '        limit_req_status 429;\n'
+    '        add_header Referrer-Policy "no-referrer" always;\n'
+    '        proxy_pass http://oss_hub_compose;\n'
+    '    }\n'
+    '\n'
+    '    location = /api/v1/admin/collection/trigger {\n'
+    '        limit_req zone=admin_collection burst=1 nodelay;\n'
+    '        limit_req_status 429;\n'
+    '        proxy_pass http://oss_hub_compose;\n'
+    '    }\n'
+    '\n'
+    '    location = /api/v1/admin/collection/discover-external {\n'
+    '        limit_req zone=admin_collection burst=1 nodelay;\n'
+    '        limit_req_status 429;\n'
+    '        proxy_pass http://oss_hub_compose;\n'
+    '    }\n'
+    '\n'
+)
+tls_root = (
+    '    location / {\n'
+    '        # 제출 파일 업로드가 이 경로를 지난다'
+)
+if tls_root not in src:
+    raise SystemExit('complete fixture: TLS location / anchor missing')
+src = src.replace(tls_root, api_locations + tls_root, 1)
+dst.write_text(src)
+PY
+  if [[ ! -s "$fixture_dir/complete" ]] || ! grep -q 'server_tokens off;' "$fixture_dir/complete"; then
+    printf 'complete fixture missing increment A\n' >&2
+    exit 1
+  fi
+}
+
+make_complete_fixture() {
+  local name=$1 pattern=$2 replacement=$3
+  sed "s|$pattern|$replacement|" "$fixture_dir/complete" > "$fixture_dir/$name"
+  if cmp -s "$fixture_dir/complete" "$fixture_dir/$name"; then
+    printf 'complete fixture pattern not found: %s\n' "$pattern" >&2
+    exit 1
+  fi
+}
+
+strip_from_complete() {
+  local name=$1 pattern=$2
+  grep -v -F -- "$pattern" "$fixture_dir/complete" > "$fixture_dir/$name"
+  if cmp -s "$fixture_dir/complete" "$fixture_dir/$name"; then
+    printf 'complete strip pattern not found: %s\n' "$pattern" >&2
+    exit 1
+  fi
+}
+
+remove_location_from_complete() {
+  local name=$1
+  local marker=$2
+  awk -v marker="$marker" '
+    index($0, marker) {
+      skip=1
+      brace=0
+    }
+    skip {
+      for (i = 1; i <= length($0); i++) {
+        c = substr($0, i, 1)
+        if (c == "{") brace++
+        if (c == "}") brace--
+      }
+      if (brace == 0) {
+        skip=0
+      }
+      next
+    }
+    { print }
+  ' "$fixture_dir/complete" > "$fixture_dir/$name"
+  if cmp -s "$fixture_dir/complete" "$fixture_dir/$name"; then
+    printf 'complete fixture block not removed: %s\n' "$marker" >&2
+    exit 1
+  fi
+}
+
 cp "$source_config" "$fixture_dir/valid"
+write_increment_a_complete
 make_fixture missing-tls-cert 'ssl_certificate /etc/letsencrypt/live/54.116.116.174/fullchain.pem;' 'ssl_certificate /tmp/removed.pem;'
 make_fixture public-jenkins-wildcard "$new_location" 'location /job/ {'
 make_fixture missing-post-guard 'limit_except POST {' 'limit_except GET {'
@@ -259,7 +405,7 @@ make_fixture unresolved-include 'server_name 54.116.116.174;' 'server_name 54.11
 
 # Lexical fixtures (Architect MEDIUM).
 # Multiline double-quoted value containing '#' must remain active config, not a comment.
-cp "$source_config" "$fixture_dir/multiline-quoted-hash"
+cp "$fixture_dir/complete" "$fixture_dir/multiline-quoted-hash"
 python3 - "$fixture_dir/multiline-quoted-hash" <<'PY'
 from pathlib import Path
 import sys
@@ -280,6 +426,22 @@ PY
 # Adjacent quoted fragments are invalid nginx and must not normalize to deny all.
 edit_location_block adjacent-quoted-deny "$new_location" 'deny all;' 'deny "all""";'
 
+strip_from_complete missing-server-tokens 'server_tokens off;'
+strip_from_complete missing-powered-by-hide '    proxy_hide_header X-Powered-By;'
+strip_from_complete missing-hsts '    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;'
+strip_from_complete missing-nosniff '    add_header X-Content-Type-Options "nosniff" always;'
+strip_from_complete missing-csp "    add_header Content-Security-Policy \"base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'\" always;"
+strip_from_complete missing-callback-no-referrer '        add_header Referrer-Policy "no-referrer" always;'
+make_complete_fixture csp-with-script-src "form-action 'self'" "form-action 'self'; script-src 'self'"
+strip_from_complete missing-api-zone 'limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;'
+strip_from_complete missing-oauth-zone 'limit_req_zone $binary_remote_addr zone=oauth:10m rate=10r/m;'
+strip_from_complete missing-admin-zone 'limit_req_zone $binary_remote_addr zone=admin_collection:10m rate=2r/m;'
+remove_location_from_complete missing-api-location 'location /api/ {'
+remove_location_from_complete missing-oauth-start 'location = /api/v1/auth/github {'
+remove_location_from_complete missing-admin-trigger 'location = /api/v1/admin/collection/trigger {'
+make_complete_fixture weak-api-burst 'limit_req zone=api burst=30 nodelay;' 'limit_req zone=api burst=1 nodelay;'
+
+expect_pass 'increment A 합성 host nginx 계약' "$fixture_dir/complete"
 expect_pass '현재 host nginx 계약' "$fixture_dir/valid"
 expect_fail 'IP 인증서 경로 누락' "$fixture_dir/missing-tls-cert"
 expect_fail 'Jenkins UI wildcard 공개' "$fixture_dir/public-jenkins-wildcard"
@@ -299,6 +461,7 @@ expect_fail '신 경로 proxy 불일치' "$fixture_dir/mismatched-new-proxy"
 expect_fail '신 경로 proxy header 불일치' "$fixture_dir/mismatched-new-header"
 expect_fail '신 경로 allow all 중화' "$fixture_dir/neutralized-new-access"
 expect_fail '신 경로 동일 directive 중복' "$fixture_dir/duplicate-new-status"
+expect_fail 'OAuth callback no-referrer 누락' "$fixture_dir/missing-callback-no-referrer"
 expect_fail 'POST guard 주석 처리' "$fixture_dir/commented-post-guard"
 expect_fail '주석 marker로 신 경로 위조' "$fixture_dir/comment-only-new-path"
 expect_fail 'Jenkins trigger 가 HTTP server 로 이동' "$fixture_dir/jenkins-triggers-on-http"
@@ -307,6 +470,19 @@ expect_fail '403 응답 remap 상속' "$fixture_dir/inherited-error-page"
 expect_fail '미확장 include 주입' "$fixture_dir/unresolved-include"
 expect_pass 'multiline quoted # 보존' "$fixture_dir/multiline-quoted-hash"
 expect_fail 'adjacent quoted deny 토큰' "$fixture_dir/adjacent-quoted-deny"
+expect_fail 'server_tokens off 누락' "$fixture_dir/missing-server-tokens"
+expect_fail 'X-Powered-By hide 누락' "$fixture_dir/missing-powered-by-hide"
+expect_fail 'HSTS 누락' "$fixture_dir/missing-hsts"
+expect_fail 'nosniff 누락' "$fixture_dir/missing-nosniff"
+expect_fail 'CSP 누락' "$fixture_dir/missing-csp"
+expect_fail 'CSP script-src 확장' "$fixture_dir/csp-with-script-src"
+expect_fail '일반 API limit zone 누락' "$fixture_dir/missing-api-zone"
+expect_fail 'OAuth limit zone 누락' "$fixture_dir/missing-oauth-zone"
+expect_fail 'admin collection limit zone 누락' "$fixture_dir/missing-admin-zone"
+expect_fail '일반 /api/ location 누락' "$fixture_dir/missing-api-location"
+expect_fail 'OAuth start location 누락' "$fixture_dir/missing-oauth-start"
+expect_fail 'admin trigger location 누락' "$fixture_dir/missing-admin-trigger"
+expect_fail '일반 API burst 완화' "$fixture_dir/weak-api-burst"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))

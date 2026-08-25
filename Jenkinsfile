@@ -24,7 +24,7 @@ pipeline {
     // GREENFIELD_DEPLOY_ACK=1 만 호스트에 이전 배포 흔적이 있을 때
     // 최초 배포(재프로비저닝)를 허용한다. 기본은 차단(fail-closed).
     // C4 승인 상수. 성공 배포 뒤에만 적용하고 최신 N개를 보존한다.
-    BACKUP_RETENTION_N = '120'
+    BACKUP_RETENTION_N = '30'
     // 성공 배포 뒤 BuildKit 캐시는 LRU 기준 최대 5GB까지만 보존한다.
     BUILD_CACHE_MAX_SPACE = '5GB'
     // 개인키 SOURCE는 compose.yml이 :? 로 요구한다. compose 호출이 5곳이라 stage마다 넣으면
@@ -107,6 +107,16 @@ printf '%s' "$release_sha"
     stage('exact SHA checkout') {
       steps {
         sh 'git checkout --detach "$RELEASE_SHA"'
+      }
+    }
+
+    stage('운영 환경 사전 검증') {
+      steps {
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+        ]) {
+          sh 'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"'
+        }
       }
     }
 

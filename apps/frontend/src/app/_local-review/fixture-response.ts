@@ -19,7 +19,7 @@ import type {
 } from '@/features/programs/types';
 import { staffInsightsWireFixture } from '@/features/staff-insights/fixtures';
 import { RANKING_YEAR_ALL } from '@/features/ranking/types';
-import type { RankingItem, RankingYear } from '@/features/ranking/types';
+import type { RankingYear } from '@/features/ranking/types';
 import { apiPath } from '@/lib/api-client';
 import type { LocalReviewFixtureId } from './fixture-contract';
 import {
@@ -571,15 +571,18 @@ const RANKING_YEARS = [2026, 2025] as const;
  * backend `RankingService`는 실제로 연도로 집계를 좁힌다.
  */
 /**
- * `displayName` 은 여기 담지 않는다 — 그 칸은 **계층이 정하는 값**이라
- * (`rankingWireItem`) 픽스처가 미리 적어 두면 비로그인 응답에 실명이 섞이는
- * 모양을 만들어 낸다. 실명은 `realName` 으로 따로 들고, 학과는 공개 정보라
- * 계층과 무관하게 그대로 나간다(owner 결정 2026-08-19).
+ * 실명과 운영 지표는 `rankingWireItem`이 staff 응답에만 투영한다.
  */
-type RankingActivity = Omit<RankingItem, 'rank' | 'total' | 'displayName'> & {
-  /** 교직원·관리자 응답에서만 `displayName` 으로 나가는 실명. 없는 사람도 있다. */
+interface RankingActivity {
+  readonly githubLogin: string;
   readonly realName: string | null;
-};
+  readonly department: string | null;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+}
 
 const RANKING_ACTIVITY_BY_YEAR: Readonly<
   Record<number, readonly RankingActivity[]>
@@ -703,11 +706,19 @@ function rankingItemsFor(year: RankingYear): readonly RankedActivity[] {
  */
 function rankingWireItem(item: RankedActivity, role: AuthRole | null): unknown {
   const staff = role === 'STAFF' || role === 'ADMIN';
+  if (!staff) {
+    return {
+      rank: item.rank,
+      githubLogin: item.githubLogin,
+      commitCount: item.commitCount,
+      pullRequestCount: item.pullRequestCount,
+    };
+  }
   return {
     rank: item.rank,
     displayName: item.githubLogin,
     githubLogin: item.githubLogin,
-    ...(staff ? { name: item.realName } : {}),
+    name: item.realName,
     department: item.department,
     commitCount: item.commitCount,
     pullRequestCount: item.pullRequestCount,

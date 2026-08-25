@@ -12,15 +12,16 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
-import { AuthConfig } from '../../auth/auth.config';
 import {
   OptionalSession,
   Protected,
   Public,
 } from '../../auth/auth-route-metadata';
+import {
+  HTTP_AUTH_KINDS,
+  type OptionalSessionRequest,
+} from '../../auth/http-auth';
 import { OriginGuard } from '../../auth/origin.guard';
-import { resolveSession } from '../../auth/session-resolution';
 import {
   type AuthenticatedRequest,
   SessionGuard,
@@ -63,7 +64,6 @@ export class ProgramsController {
     private readonly programs: ProgramsService,
     private readonly activity: ProgramActivityService,
     private readonly viewers: ProgramViewerService,
-    private readonly config: AuthConfig,
     private readonly lifecycle: ProgramLifecycleService,
   ) {}
 
@@ -76,12 +76,12 @@ export class ProgramsController {
   @OptionalSession()
   async list(
     @Query() query: ProgramListQueryRequestDto,
-    @Req() request: Request,
+    @Req() request: OptionalSessionRequest,
   ): Promise<ProgramListPageResponseDto> {
-    const { githubId } = await resolveSession(
-      this.config,
-      request.headers.cookie,
-    );
+    const githubId =
+      request.auth.kind === HTTP_AUTH_KINDS.AUTHENTICATED
+        ? request.auth.principal.githubId
+        : null;
     const viewer = await this.viewers.fromGithubId(githubId);
     return ProgramListPageResponseDto.from(
       await this.programs.list(query.toQuery(), viewer),

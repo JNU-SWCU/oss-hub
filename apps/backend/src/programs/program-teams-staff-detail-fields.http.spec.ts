@@ -49,7 +49,7 @@ async function getTeamDetail(cookie: string | null): Promise<Response> {
 }
 
 async function sessionCookieFor(githubId: bigint): Promise<string> {
-  const token = await issueSessionToken(sessionSecret, githubId);
+  const token = await issueSessionToken(sessionSecret, githubId, 0);
   return `${sessionCookieName(false)}=${token}`;
 }
 
@@ -63,7 +63,11 @@ beforeAll(async () => {
       OriginGuard,
       {
         provide: AuthService,
-        useValue: { getMe: jest.fn().mockResolvedValue({ id: 'synthetic' }) },
+        useValue: {
+          getMe: jest
+            .fn()
+            .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+        },
       },
       {
         provide: AuthConfig,

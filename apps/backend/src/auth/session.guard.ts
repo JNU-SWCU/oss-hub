@@ -23,7 +23,7 @@ export class SessionGuard implements CanActivate {
     http
       .getResponse<Response | undefined>()
       ?.setHeader('Cache-Control', 'private, no-store');
-    const { githubId } = await resolveSession(
+    const { githubId, sessionVersion } = await resolveSession(
       this.config,
       request.headers.cookie,
     );
@@ -33,6 +33,11 @@ export class SessionGuard implements CanActivate {
       );
     }
     const principal = await this.authService.getMe(githubId);
+    if (principal.sessionVersion !== sessionVersion) {
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
+    }
     attachAuthenticatedPrincipal(request, principal, githubId);
     return true;
   }

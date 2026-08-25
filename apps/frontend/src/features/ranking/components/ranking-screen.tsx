@@ -75,18 +75,20 @@ export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
             getRanking(year, index + 2, RANKING_CSV_PAGE_SIZE),
           ),
         );
-        const allPages = [firstPage, ...pages];
-        if (allPages.some((page, index) => page.page !== index + 1)) {
+        if (firstPage.page !== 1) {
           throw new Error('CSV export page sequence is invalid');
         }
-        if (
-          allPages.some(
-            (page) => page.viewerClass !== RANKING_VIEWER_CLASSES.STAFF,
-          )
-        ) {
-          throw new Error('CSV export viewer class changed');
+        const staffPages = [firstPage];
+        for (const [index, rankingPage] of pages.entries()) {
+          if (rankingPage.viewerClass !== RANKING_VIEWER_CLASSES.STAFF) {
+            throw new Error('CSV export viewer class changed');
+          }
+          if (rankingPage.page !== index + 2) {
+            throw new Error('CSV export page sequence is invalid');
+          }
+          staffPages.push(rankingPage);
         }
-        const items = allPages.flatMap((page) => page.items);
+        const items = staffPages.flatMap((rankingPage) => rankingPage.items);
         if (items.length !== firstPage.total) {
           throw new Error('CSV export item count does not match total');
         }

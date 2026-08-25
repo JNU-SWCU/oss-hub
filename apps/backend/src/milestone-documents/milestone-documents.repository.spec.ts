@@ -9,7 +9,6 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  MilestoneDocumentFileRetentionUnavailableError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
@@ -302,84 +301,6 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
     });
     expect(direct.count).not.toHaveBeenCalled();
     expect(result).toBe(2);
-  });
-});
-
-describe('MilestoneDocumentsRepository.createPendingFile', () => {
-  it('잠글 프로그램 행이 없으면 MilestoneDocumentFileRetentionUnavailableError를 던진다', async () => {
-    // Given: 연결된 Program이 없어 FOR UPDATE 조회 결과가 비어 있다.
-    const queryRaw = jest.fn().mockResolvedValue([]);
-    const create = jest.fn();
-    const prisma = {
-      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback({ $queryRaw: queryRaw, submissionFile: { create } }),
-      ),
-    } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
-
-    // When / Then
-    await expect(
-      repository.createPendingFile({
-        uploaderId: syntheticUserId,
-        applicationId: syntheticApplicationId,
-        milestoneId: syntheticMilestoneId,
-        storageKey: 'objects/synthetic',
-        originalFileName: '계획서.pdf',
-        mimeType: 'application/pdf',
-        sizeBytes: 1024,
-        pendingExpiresAt: new Date('2026-09-17T14:22:00.000Z'),
-      }),
-    ).rejects.toBeInstanceOf(MilestoneDocumentFileRetentionUnavailableError);
-    expect(create).not.toHaveBeenCalled();
-  });
-
-  it('프로그램 종료일이 있으면 만료일을 종료일+1년으로 계산해 PENDING 파일을 만든다', async () => {
-    // Given
-    const programEndAt = new Date('2026-12-19T00:00:00.000Z');
-    const queryRaw = jest.fn().mockResolvedValue([{ endAt: programEndAt }]);
-    const create = jest.fn().mockResolvedValue({
-      id: 'cuid-synthetic-file',
-      originalFileName: '계획서.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 1024,
-      expiresAt: new Date('2027-12-19T00:00:00.000Z'),
-    });
-    const prisma = {
-      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback({ $queryRaw: queryRaw, submissionFile: { create } }),
-      ),
-    } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
-
-    // When
-    await repository.createPendingFile({
-      uploaderId: syntheticUserId,
-      applicationId: syntheticApplicationId,
-      milestoneId: syntheticMilestoneId,
-      storageKey: 'objects/synthetic',
-      originalFileName: '계획서.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 1024,
-      pendingExpiresAt: new Date('2026-09-17T14:22:00.000Z'),
-    });
-
-    // Then
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          uploaderId: syntheticUserId,
-          applicationId: syntheticApplicationId,
-          milestoneId: syntheticMilestoneId,
-          storageKey: 'objects/synthetic',
-          originalFileName: '계획서.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 1024,
-          lifecycle: SubmissionFileLifecycle.PENDING,
-          pendingExpiresAt: new Date('2026-09-17T14:22:00.000Z'),
-          expiresAt: new Date('2027-12-19T00:00:00.000Z'),
-        },
-      }),
-    );
   });
 });
 

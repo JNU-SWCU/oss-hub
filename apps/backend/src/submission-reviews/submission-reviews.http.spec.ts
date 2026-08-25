@@ -103,7 +103,9 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest.fn().mockResolvedValue({ id: 'synthetic-user' }),
+          getMe: jest
+            .fn()
+            .mockResolvedValue({ id: 'synthetic-user', sessionVersion: 0 }),
         },
       },
       {

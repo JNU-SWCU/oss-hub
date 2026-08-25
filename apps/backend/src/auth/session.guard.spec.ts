@@ -38,7 +38,9 @@ function contextWithCookie(cookie?: string): {
 
 async function expectUnauthenticated(cookie?: string): Promise<void> {
   const authService = {
-    getMe: jest.fn().mockResolvedValue({ id: 'synthetic-user' }),
+    getMe: jest
+      .fn()
+      .mockResolvedValue({ id: 'synthetic-user', sessionVersion: 0 }),
   } as unknown as AuthService;
   const guard = new SessionGuard(buildConfig(), authService);
   const { context, response } = contextWithCookie(cookie);
@@ -64,14 +66,19 @@ describe('SessionGuard', () => {
 
   it('서명이 일치하지 않는(변조) 토큰이면 401 AUT_003을 던진다', async () => {
     const otherSecret = new Uint8Array(randomBytes(32));
-    const token = await issueSessionToken(otherSecret, syntheticGithubId);
+    const token = await issueSessionToken(otherSecret, syntheticGithubId, 0);
     await expectUnauthenticated(`${sessionCookieName(true)}=${token}`);
   });
 
   it('expired 토큰이면 401 AUT_003을 던진다', async () => {
     const issuedAt =
       Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60;
-    const token = await issueSessionToken(secret, syntheticGithubId, issuedAt);
+    const token = await issueSessionToken(
+      secret,
+      syntheticGithubId,
+      0,
+      issuedAt,
+    );
     await expectUnauthenticated(`${sessionCookieName(true)}=${token}`);
   });
 
@@ -102,6 +109,7 @@ describe('SessionGuard', () => {
     const getMe = jest.fn().mockResolvedValue({
       id: 'synthetic-user',
       githubId: syntheticGithubId,
+      sessionVersion: 0,
       selectedMemberKind: MemberKind.STAFF,
       hasStaffAccess: true,
     });
@@ -109,7 +117,7 @@ describe('SessionGuard', () => {
       getMe,
     } as unknown as AuthService;
     const guard = new SessionGuard(buildConfig(), authService);
-    const token = await issueSessionToken(secret, syntheticGithubId);
+    const token = await issueSessionToken(secret, syntheticGithubId, 0);
     const { context, request, response } = contextWithCookie(
       `${sessionCookieName(true)}=${token}`,
     );
@@ -131,6 +139,25 @@ describe('SessionGuard', () => {
     );
   });
 
+  it('live principal 세대가 token claim과 다르면 generic 401로 차단한다', async () => {
+    const authService = {
+      getMe: jest.fn().mockResolvedValue({
+        id: 'synthetic-user',
+        githubId: syntheticGithubId,
+        sessionVersion: 5,
+      }),
+    } as unknown as AuthService;
+    const guard = new SessionGuard(buildConfig(), authService);
+    const token = await issueSessionToken(secret, syntheticGithubId, 4);
+    const { context } = contextWithCookie(
+      `${sessionCookieName(true)}=${token}`,
+    );
+
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      errorCode: { code: AuthErrorCode.UNAUTHENTICATED, status: 401 },
+    });
+  });
+
   it('deactivated 계정은 유효한 토큰이어도 generic 401로 차단한다', async () => {
     const authService = {
       getMe: jest.fn().mockRejectedValue(
@@ -142,7 +169,7 @@ describe('SessionGuard', () => {
       ),
     } as unknown as AuthService;
     const guard = new SessionGuard(buildConfig(), authService);
-    const token = await issueSessionToken(secret, syntheticGithubId);
+    const token = await issueSessionToken(secret, syntheticGithubId, 0);
     const { context, response } = contextWithCookie(
       `${sessionCookieName(true)}=${token}`,
     );

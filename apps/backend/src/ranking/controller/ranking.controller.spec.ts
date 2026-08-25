@@ -1,28 +1,20 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
-import type { Request, Response } from 'express';
-import type { AuthConfig } from '../../auth/auth.config';
-import { sessionCookieName } from '../../auth/cookies';
-import { issueSessionToken } from '../../auth/session-token';
+import type { Response } from 'express';
+import {
+  HTTP_AUTH_KINDS,
+  type OptionalSessionRequest,
+} from '../../auth/http-auth';
 import { RANKING_YEAR_ALL } from '../domain/ranking';
 import { RankingController } from './ranking.controller';
 import { RankingService } from '../service/ranking.service';
 
-const sessionSecret = new Uint8Array(32).fill(11);
-const config = {
-  sessionSecret,
-  useSecureCookies: false,
-} as unknown as AuthConfig;
-
 describe('RankingController', () => {
   const findPage = jest.fn();
   const listYears = jest.fn();
-  const controller = new RankingController(
-    {
-      findPage,
-      listYears,
-    } as unknown as RankingService,
-    config,
-  );
+  const controller = new RankingController({
+    findPage,
+    listYears,
+  } as unknown as RankingService);
 
   const emptyPage = {
     year: 2026,
@@ -35,8 +27,24 @@ describe('RankingController', () => {
     nextCycleAt: null,
   };
 
-  function requestWithCookie(cookie?: string): Request {
-    return { headers: cookie === undefined ? {} : { cookie } } as Request;
+  function requestWithAuth(
+    githubId: bigint | null,
+    cookie?: string,
+  ): OptionalSessionRequest {
+    return {
+      headers: cookie === undefined ? {} : { cookie },
+      auth:
+        githubId === null
+          ? {
+              kind: HTTP_AUTH_KINDS.ANONYMOUS,
+              hasSessionCookie: cookie !== undefined,
+            }
+          : {
+              kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+              hasSessionCookie: true,
+              principal: { githubId, sessionVersion: 0 },
+            },
+    } as unknown as OptionalSessionRequest;
   }
 
   function recordingResponse(): {
@@ -48,13 +56,6 @@ describe('RankingController', () => {
       setHeader: (name: string, value: string) => headers.set(name, value),
     } as unknown as Response;
     return { response, headers };
-  }
-
-  async function sessionCookie(githubId: bigint): Promise<string> {
-    return `${sessionCookieName(false)}=${await issueSessionToken(
-      sessionSecret,
-      githubId,
-    )}`;
   }
 
   beforeEach(() => {
@@ -86,7 +87,7 @@ describe('RankingController', () => {
     ).toBeUndefined();
   });
 
-  it('공개 API 계약 형태로 서비스 결과를 전달한다', async () => {
+  it('public 항목은 허용된 네 키만 응답한다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
       items: [
@@ -113,44 +114,46 @@ describe('RankingController', () => {
 
     const body = await controller.findPage(
       { year: '2026', page: 1, pageSize: 20 },
-      requestWithCookie(),
+      requestWithAuth(null),
       recordingResponse().response,
     );
 
-    expect(body).toEqual({
-      year: 2026,
-      items: [
-        {
-          rank: 1,
-          displayName: 'mina',
-          githubLogin: 'mina',
-          department: '소프트웨어공학과',
-          commitCount: 2,
-          pullRequestCount: 1,
-          issueCount: 3,
-          repositoryCount: 4,
-          starCount: 5,
-          total: 15,
-        },
-      ],
-      page: 1,
-      pageSize: 20,
-      total: 1,
-      dataAsOf: null,
-      viewerClass: 'public',
-      nextCycleAt: null,
+    expect(body.items[0]).toEqual({
+      rank: 1,
+      githubLogin: 'mina',
+      commitCount: 2,
+      pullRequestCount: 1,
     });
-    expect(body.items[0]).not.toHaveProperty('name');
+    expect(Object.keys(body.items[0] ?? {}).sort()).toEqual([
+      'commitCount',
+      'githubLogin',
+      'pullRequestCount',
+      'rank',
+    ]);
+    for (const excluded of [
+      'department',
+      'displayName',
+      'githubId',
+      'id',
+      'issueCount',
+      'name',
+      'repositoryCount',
+      'starCount',
+      'total',
+      'userId',
+    ]) {
+      expect(body.items[0]).not.toHaveProperty(excluded);
+    }
     expect(findPage).toHaveBeenCalledWith(2026, 1, 20, null);
   });
 
-  it('쿠키가 없으면 githubId null로 조회하고 public no-store를 내린다', async () => {
+  it('anonymous auth metadata면 githubId null로 조회하고 public no-store를 내린다', async () => {
     findPage.mockResolvedValue(emptyPage);
     const { response, headers } = recordingResponse();
 
     await controller.findPage(
       { year: '2026', page: 1, pageSize: 20 },
-      requestWithCookie(),
+      requestWithAuth(null),
       response,
     );
 
@@ -159,25 +162,25 @@ describe('RankingController', () => {
     expect(headers.has('Vary')).toBe(false);
   });
 
-  it('세션 쿠키가 유효하면 그 githubId를 findPage에 넘긴다', async () => {
+  it('guard가 붙인 principal githubId를 findPage에 넘긴다', async () => {
     findPage.mockResolvedValue(emptyPage);
 
     await controller.findPage(
       { year: '2026', page: 1, pageSize: 20 },
-      requestWithCookie(await sessionCookie(4242n)),
+      requestWithAuth(4242n),
       recordingResponse().response,
     );
 
     expect(findPage).toHaveBeenCalledWith(2026, 1, 20, 4242n);
   });
 
-  it('무효한 세션 쿠키는 401이 아니라 githubId null이다', async () => {
+  it('stale 쿠키가 있어도 anonymous auth metadata를 우회하지 못한다', async () => {
     findPage.mockResolvedValue(emptyPage);
 
     await expect(
       controller.findPage(
         { year: '2026', page: 1, pageSize: 20 },
-        requestWithCookie(`${sessionCookieName(false)}=tampered.token.value`),
+        requestWithAuth(null, 'oss_hub_session=stale.token.value'),
         recordingResponse().response,
       ),
     ).resolves.toBeDefined();
@@ -193,7 +196,7 @@ describe('RankingController', () => {
 
     await controller.findPage(
       { year: '2026', page: 1, pageSize: 20 },
-      requestWithCookie(await sessionCookie(99n)),
+      requestWithAuth(99n),
       response,
     );
 
@@ -202,7 +205,7 @@ describe('RankingController', () => {
     expect(findPage).toHaveBeenCalledWith(2026, 1, 20, 99n);
   });
 
-  it('staff 항목의 name을 응답에 실어 보낸다', async () => {
+  it('staff 항목은 실명과 전체 지표를 포함한 richer envelope을 유지한다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
       items: [
@@ -228,17 +231,27 @@ describe('RankingController', () => {
       nextCycleAt: new Date('2026-08-20T01:00:00.000Z'),
     });
 
-    await expect(
-      controller.findPage(
-        { year: '2026', page: 1, pageSize: 20 },
-        requestWithCookie(await sessionCookie(99n)),
-        recordingResponse().response,
-      ),
-    ).resolves.toMatchObject({
-      viewerClass: 'staff',
-      nextCycleAt: '2026-08-20T01:00:00.000Z',
-      items: [expect.objectContaining({ name: '미나', displayName: 'mina' })],
+    const body = await controller.findPage(
+      { year: '2026', page: 1, pageSize: 20 },
+      requestWithAuth(99n),
+      recordingResponse().response,
+    );
+
+    expect(body.items[0]).toEqual({
+      rank: 1,
+      displayName: 'mina',
+      githubLogin: 'mina',
+      department: '소프트웨어공학과',
+      name: '미나',
+      commitCount: 2,
+      pullRequestCount: 1,
+      issueCount: 3,
+      repositoryCount: 4,
+      starCount: 5,
+      total: 15,
     });
+    expect(body.viewerClass).toBe('staff');
+    expect(body.nextCycleAt).toBe('2026-08-20T01:00:00.000Z');
   });
 
   it('year 기본은 올해이고 legacy period=ALL 은 전체로 남는다', async () => {
@@ -255,7 +268,7 @@ describe('RankingController', () => {
 
     await controller.findPage(
       { page: 1, pageSize: 20 },
-      requestWithCookie(),
+      requestWithAuth(null),
       recordingResponse().response,
     );
     expect(findPage).toHaveBeenLastCalledWith(
@@ -272,7 +285,7 @@ describe('RankingController', () => {
     try {
       await controller.findPage(
         { period: 'THIS_YEAR', page: 1, pageSize: 20 },
-        requestWithCookie(),
+        requestWithAuth(null),
         recordingResponse().response,
       );
       expect(findPage).toHaveBeenLastCalledWith(2026, 1, 20, null);

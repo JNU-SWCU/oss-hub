@@ -7,6 +7,7 @@ export interface AuthUser {
   readonly name: string | null;
   readonly avatarUrl: string | null;
   readonly accountStatus: AccountStatus;
+  readonly sessionVersion: number;
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;

@@ -1,4 +1,5 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
+import { decodeJwt } from 'jose';
 import { DomainException } from '../common/error-code';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { AuthErrorCode } from './auth-error-code.enum';
@@ -16,6 +17,7 @@ const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 7,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -183,6 +185,12 @@ describe('AuthService', () => {
     // Then: 토큰이 아니라 DB의 현재 계정·권한이 보존된다.
     expect(principal).toEqual(staffUser);
     expect(principal.accountStatus).toBe(AccountStatus.ACTIVE);
+  });
+
+  it('새 세션은 persisted sessionVersion을 JWT에 싣는다', async () => {
+    const token = await service.issueSession(syntheticUser);
+
+    expect(decodeJwt(token).sessionVersion).toBe(syntheticUser.sessionVersion);
   });
 
   it('getMe: 사용자 없으면 AUT_003', async () => {

@@ -42,12 +42,10 @@ test.each([RANKING_YEAR_ALL, 2025, 2026] as const)(
       year,
       items: [
         {
+          rank: 1,
+          githubLogin: 'mina',
           commitCount: 2,
           pullRequestCount: 1,
-          issueCount: 3,
-          repositoryCount: 4,
-          starCount: 5,
-          total: 15,
         },
       ],
       total: 1,
@@ -72,15 +70,9 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
 
   expect(page.items[0]).toEqual({
     rank: 1,
-    displayName: 'mina',
     githubLogin: 'mina',
-    department: null,
     commitCount: 2,
     pullRequestCount: 1,
-    issueCount: 3,
-    repositoryCount: 4,
-    starCount: 5,
-    total: 15,
   });
   expect(page.viewerClass).toBe('public');
   expect(page.nextCycleAt).toBeNull();
@@ -96,30 +88,20 @@ test('구식 응답의 notice·period 같은 잔여 필드도 그냥 무시한�
   expect(page.items).toHaveLength(1);
 });
 
-test('지표 칸이 없으면 0으로, displayName 이 없으면 로그인으로 떨어진다', () => {
-  const page = parseRankingPage({
-    ...rankingPage(2026),
-    items: [{ rank: 1, githubLogin: 'mina', total: 7 }],
-  });
+test('public commit·PR 칸은 필수다', () => {
+  const base = rankingPage(2026);
+  const { commitCount: _commitCount, ...withoutCommit } = base.items[0];
+  const { pullRequestCount: _pullRequestCount, ...withoutPr } = base.items[0];
 
-  expect(page.items[0]).toEqual({
-    rank: 1,
-    displayName: 'mina',
-    githubLogin: 'mina',
-    // 학과 칸이 없는 응답도 페이지를 버리지 않는다 — 화면이 대시로 채운다.
-    department: null,
-    commitCount: 0,
-    pullRequestCount: 0,
-    issueCount: 0,
-    repositoryCount: 0,
-    starCount: 0,
-    total: 7,
-  });
+  expect(() => parseRankingPage({ ...base, items: [withoutCommit] })).toThrow(
+    RankingResponseError,
+  );
+  expect(() => parseRankingPage({ ...base, items: [withoutPr] })).toThrow(
+    RankingResponseError,
+  );
 });
 
-test('새 지표 칸이 없는 구식 항목도 0 으로 읽힌다 — 백엔드가 아직 안 바뀜 상태', () => {
-  // 배포 틈에는 이전 계약(commit·PR·release)이 그대로 올 수 있다. 그때 화면은
-  // 새 열을 0으로 그려야 하며 페이지 전체를 버리면 안 된다.
+test('공개 허용 목록 밖 구식 지표는 읽지 않는다', () => {
   const page = parseRankingPage({
     ...rankingPage(2026),
     items: [
@@ -137,28 +119,20 @@ test('새 지표 칸이 없는 구식 항목도 0 으로 읽힌다 — 백엔드
 
   expect(page.items[0]).toEqual({
     rank: 1,
-    displayName: 'mina',
     githubLogin: 'mina',
-    department: null,
     commitCount: 2,
     pullRequestCount: 1,
-    issueCount: 0,
-    repositoryCount: 0,
-    starCount: 0,
-    total: 4,
   });
 });
 
-test('total 은 백엔드가 준 값을 그대로 쓴다 — 지표 합으로 검산하지 않는다', () => {
-  // 지표 구성은 또 바뀔 수 있다. 화면이 합을 다시 내면 백엔드 판정을 프런트가
-  // 재현하게 되고(ADR-008), 그때마다 화면이 먼저 깨진다.
+test('public total 은 파싱 결과에 남기지 않는다', () => {
   const base = rankingPage(2026);
   const page = parseRankingPage({
     ...base,
     items: [{ ...base.items[0], total: 99 }],
   });
 
-  expect(page.items[0]?.total).toBe(99);
+  expect(page.items[0]).not.toHaveProperty('total');
 });
 
 test('필수 필드는 형이 어긋나면 계속 거부한다', () => {
@@ -175,9 +149,12 @@ test('필수 필드는 형이 어긋나면 계속 거부한다', () => {
       items: [{ ...base.items[0], githubLogin: 42 }],
     }),
   ).toThrow(RankingResponseError);
-  // total — 합계 열.
+  // pullRequestCount — 공개 화면이 쓰는 두 번째 수치.
   expect(() =>
-    parseRankingPage({ ...base, items: [{ ...base.items[0], total: '4' }] }),
+    parseRankingPage({
+      ...base,
+      items: [{ ...base.items[0], pullRequestCount: '1' }],
+    }),
   ).toThrow(RankingResponseError);
   // 있으면서 형이 틀린 지표 칸은 기본값으로 감추지 않는다.
   expect(() =>
@@ -203,15 +180,19 @@ test('봉투 필수 필드가 없거나 형이 어긋나면 거부한다', () =>
   ).toThrow(RankingResponseError);
 });
 
-// 학과 칸 (owner 결정 2026-08-19 — 공개 계층에도 내려간다).
-
-test('학과는 문자열이면 그대로 읽고, 없거나 비어 있으면 null 로 떨어뜨린다', () => {
+test('staff 학과는 문자열이면 그대로 읽고, 없거나 비어 있으면 null 로 떨어뜨린다', () => {
   const base = rankingPage(2026);
-  const read = (department: unknown) =>
-    parseRankingPage({
+  const read = (department: unknown) => {
+    const page = parseRankingPage({
       ...base,
+      viewerClass: 'staff',
       items: [{ ...base.items[0], department }],
-    }).items[0]?.department;
+    });
+    if (page.viewerClass !== 'staff') {
+      throw new TypeError('staff fixture parsed as public');
+    }
+    return page.items[0]?.department;
+  };
 
   expect(read('소프트웨어공학과')).toBe('소프트웨어공학과');
   expect(read('  인공지능학부  ')).toBe('인공지능학부');
@@ -290,6 +271,36 @@ test('viewerClass 가 public|staff 가 아니면 거부한다', () => {
   ).toThrow(RankingResponseError);
 });
 
+test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
+  const base = rankingPage(2026);
+  const publicPage = parseRankingPage(base);
+  const staffPage = parseRankingPage({
+    ...base,
+    viewerClass: 'staff',
+    items: [{ ...base.items[0], name: 'synthetic-staff-name' }],
+  });
+
+  expect(Object.keys(publicPage.items[0] ?? {}).sort()).toEqual([
+    'commitCount',
+    'githubLogin',
+    'pullRequestCount',
+    'rank',
+  ]);
+  expect(staffPage.items[0]).toEqual({
+    rank: 1,
+    displayName: 'mina',
+    githubLogin: 'mina',
+    name: 'synthetic-staff-name',
+    department: null,
+    commitCount: 2,
+    pullRequestCount: 1,
+    issueCount: 3,
+    repositoryCount: 4,
+    starCount: 5,
+    total: 15,
+  });
+});
+
 test('nextCycleAt 이 없어도 파싱되고 null 로 떨어진다', () => {
   const { nextCycleAt: _omitted, ...withoutNextCycleAt } = rankingPage(2026);
   expect(parseRankingPage(withoutNextCycleAt).nextCycleAt).toBeNull();
@@ -322,23 +333,25 @@ test('public 항목에 name 키가 있으면 거부한다', () => {
 
 test('staff 항목의 name 은 문자열 또는 null 이다', () => {
   const base = rankingPage(2026);
-  const withName = parseRankingPage({
-    ...base,
-    viewerClass: 'staff',
-    items: [{ ...base.items[0], name: 'synthetic-staff-name' }],
-  });
+  const parseStaff = (items: readonly unknown[] = base.items) => {
+    const page = parseRankingPage({
+      ...base,
+      viewerClass: 'staff',
+      items,
+    });
+    if (page.viewerClass !== 'staff') {
+      throw new TypeError('staff fixture parsed as public');
+    }
+    return page;
+  };
+  const withName = parseStaff([
+    { ...base.items[0], name: 'synthetic-staff-name' },
+  ]);
   expect(withName.items[0]?.name).toBe('synthetic-staff-name');
 
-  const withNull = parseRankingPage({
-    ...base,
-    viewerClass: 'staff',
-    items: [{ ...base.items[0], name: null }],
-  });
+  const withNull = parseStaff([{ ...base.items[0], name: null }]);
   expect(withNull.items[0]?.name).toBeNull();
 
-  const omitted = parseRankingPage({
-    ...base,
-    viewerClass: 'staff',
-  });
+  const omitted = parseStaff();
   expect(omitted.items[0]?.name).toBeNull();
 });

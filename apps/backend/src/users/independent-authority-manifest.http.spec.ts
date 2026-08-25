@@ -89,7 +89,11 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
         { provide: IndependentAuthorityService, useValue: authorityService },
         {
           provide: AuthService,
-          useValue: { getMe: jest.fn().mockResolvedValue({ id: 'actor' }) },
+          useValue: {
+            getMe: jest
+              .fn()
+              .mockResolvedValue({ id: 'actor', sessionVersion: 0 }),
+          },
         },
         {
           provide: AuthConfig,
@@ -108,6 +112,7 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
     cookie = `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
     )}`;
   });
 

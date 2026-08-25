@@ -2,11 +2,12 @@ import { apiClient } from '@/lib/api-client';
 import {
   RANKING_VIEWER_CLASSES,
   RANKING_YEAR_ALL,
-  type RankingItem,
+  type PublicRankingItem,
   type RankingPage,
   type RankingViewerClass,
   type RankingYear,
   type RankingYears,
+  type StaffRankingItem,
 } from './types';
 
 export class RankingResponseError extends Error {
@@ -86,19 +87,35 @@ function readOptionalName(value: unknown): string | null | undefined {
  * 닫아 두고 목록 밖 키가 하나만 와도 페이지 전체를 거부해서, 백엔드가 칸을
  * 하나 더 붙이는 순간 랭킹 화면이 통째로 죽었다.
  *
- * 검사하는 것은 **화면이 실제로 쓰는 값**뿐이다. `total` 은 백엔드가 정한
- * 합계를 그대로 싣는다 — 여기서 지표를 다시 더해 검산하면 프런트가 백엔드
- * 판정을 재현하게 되고(ADR-008), 지표 구성이 바뀔 때마다 화면이 먼저 깨진다.
+ * Public items retain only the consent-aligned four-key projection. Staff
+ * items keep the richer operational fields and tolerate omitted legacy
+ * optional metrics as zero.
  */
-function parseRankingItem(
-  value: unknown,
-  viewerClass: RankingViewerClass,
-): RankingItem | null {
+function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   if (!isRecord(value)) {
     return null;
   }
 
-  if (viewerClass === RANKING_VIEWER_CLASSES.PUBLIC && 'name' in value) {
+  if (
+    'name' in value ||
+    !isPositiveInteger(value.rank) ||
+    typeof value.githubLogin !== 'string' ||
+    !isNonNegativeInteger(value.commitCount) ||
+    !isNonNegativeInteger(value.pullRequestCount)
+  ) {
+    return null;
+  }
+
+  return {
+    rank: value.rank,
+    githubLogin: value.githubLogin,
+    commitCount: value.commitCount,
+    pullRequestCount: value.pullRequestCount,
+  };
+}
+
+function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
+  if (!isRecord(value)) {
     return null;
   }
 
@@ -120,7 +137,15 @@ function parseRankingItem(
     return null;
   }
 
-  const item: RankingItem = {
+  if (
+    'name' in value &&
+    value.name !== null &&
+    typeof value.name !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
     rank: value.rank,
     displayName:
       typeof value.displayName === 'string'
@@ -134,19 +159,23 @@ function parseRankingItem(
     repositoryCount,
     starCount,
     total: value.total,
+    name: readOptionalName(value.name) ?? null,
   };
+}
 
-  if (viewerClass !== RANKING_VIEWER_CLASSES.STAFF) {
-    return item;
+function parseRankingItems<T>(
+  values: readonly unknown[],
+  parseItem: (value: unknown) => T | null,
+): readonly T[] {
+  const items: T[] = [];
+  for (const rawItem of values) {
+    const item = parseItem(rawItem);
+    if (item === null) {
+      throw new RankingResponseError();
+    }
+    items.push(item);
   }
-
-  if (!('name' in value)) {
-    return { ...item, name: null };
-  }
-  if (value.name !== null && typeof value.name !== 'string') {
-    return null;
-  }
-  return { ...item, name: readOptionalName(value.name) ?? null };
+  return items;
 }
 
 export function parseRankingPage(value: unknown): RankingPage {
@@ -168,23 +197,36 @@ export function parseRankingPage(value: unknown): RankingPage {
     throw new RankingResponseError();
   }
 
-  const items = value.items.map((item) => parseRankingItem(item, viewerClass));
-  if (items.some((item) => item === null)) {
-    throw new RankingResponseError();
-  }
-
-  return {
+  const envelope = {
     year: value.year,
-    items: items as readonly RankingItem[],
     page: value.page,
     pageSize: value.pageSize,
     total: value.total,
     dataAsOf:
       typeof value.dataAsOf === 'string' ? new Date(value.dataAsOf) : null,
-    viewerClass,
     nextCycleAt:
       typeof value.nextCycleAt === 'string' ? value.nextCycleAt : null,
   };
+  switch (viewerClass) {
+    case RANKING_VIEWER_CLASSES.PUBLIC:
+      return {
+        ...envelope,
+        viewerClass,
+        items: parseRankingItems(value.items, parsePublicRankingItem),
+      };
+    case RANKING_VIEWER_CLASSES.STAFF:
+      return {
+        ...envelope,
+        viewerClass,
+        items: parseRankingItems(value.items, parseStaffRankingItem),
+      };
+    default:
+      return assertNeverViewerClass(viewerClass);
+  }
+}
+
+function assertNeverViewerClass(value: never): never {
+  throw new TypeError(`Unexpected ranking viewer class: ${String(value)}`);
 }
 
 export function parseRankingYears(value: unknown): RankingYears {

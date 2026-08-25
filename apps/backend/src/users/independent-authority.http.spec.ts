@@ -96,7 +96,11 @@ describe('independent authority HTTP contracts', () => {
         },
         {
           provide: AuthService,
-          useValue: { getMe: jest.fn().mockResolvedValue({ id: 'actor' }) },
+          useValue: {
+            getMe: jest
+              .fn()
+              .mockResolvedValue({ id: 'actor', sessionVersion: 0 }),
+          },
         },
         {
           provide: AuthConfig,
@@ -119,6 +123,7 @@ describe('independent authority HTTP contracts', () => {
     cookie = `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
     )}`;
   });
 

@@ -31,6 +31,7 @@ model User {
   nickname           String        @map("login")
   avatarUrl          String?
   accountStatus      AccountStatus @default(ACTIVE)
+  sessionVersion     Int           @default(0)
   /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(opt-in 기본 off).
   notificationEmail  String?
   notifyEnabled      Boolean       @default(false)

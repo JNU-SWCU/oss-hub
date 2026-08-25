@@ -22,6 +22,7 @@ export const SubmissionsErrorCode = {
   FILE_RETENTION_UNAVAILABLE: 'SUB_021',
   SUBMISSION_FILE_NOT_FOUND: 'SUB_022',
   SUBMISSION_REPLACEMENT_CLOSED: 'SUB_023',
+  SUBMISSION_FILE_QUOTA_EXCEEDED: 'SUB_024',
 } as const;
 
 export type SubmissionsErrorCode =
@@ -134,5 +135,10 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
     status: 422,
     message: '마감된 마일스톤의 제출물은 교체할 수 없습니다.',
+  },
+  [SubmissionsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED]: {
+    code: SubmissionsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+    status: 413,
+    message: '보관 중인 제출 파일 한도를 초과했습니다.',
   },
 };

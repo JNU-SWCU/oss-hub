@@ -10,10 +10,12 @@ import {
 import {
   type CreatePendingSubmissionFileInput,
   type DownloadableSubmissionFile,
+  SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
 } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
+import { signatureValidZip } from './submission-zip-test-builder';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
@@ -112,8 +114,24 @@ const FILE_SIGNATURES: Readonly<Record<string, Buffer>> = {
 };
 
 function file(name = 'report.pdf', type = 'application/pdf', size = 8) {
-  const buffer = Buffer.alloc(size);
   const extension = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
+  if (extension === 'zip') {
+    const entryName = 'valid.txt';
+    const metadataBytes = 30 + 46 + 22 + 2 * entryName.length;
+    const buffer = signatureValidZip([
+      {
+        name: entryName,
+        compressedSize: Math.max(1, size - metadataBytes),
+      },
+    ]);
+    return {
+      buffer,
+      originalname: name,
+      mimetype: type,
+      size: buffer.byteLength,
+    };
+  }
+  const buffer = Buffer.alloc(size);
   FILE_SIGNATURES[extension]?.copy(buffer);
   return {
     buffer,
@@ -133,7 +151,9 @@ async function expectCode(
 }
 
 describe('SubmissionFilesService', () => {
-  beforeEach(() => jest.useFakeTimers().setSystemTime(NOW));
+  beforeEach(() =>
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] }).setSystemTime(NOW),
+  );
   afterEach(() => jest.useRealTimers());
 
   it.each([
@@ -484,6 +504,19 @@ describe('SubmissionFilesService', () => {
     expect(storage.put).not.toHaveBeenCalled();
   });
 
+  it('maps a quota reservation failure to the deliberate 413 domain error', async () => {
+    const { service, repository, storage } = setup();
+    repository.createPending.mockRejectedValue(
+      new SubmissionFileQuotaExceededError(),
+    );
+
+    await expectCode(
+      service.upload(1n, 'app', 'milestone', file()),
+      SubmissionsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+    );
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
   it('does not put an object when the pending reservation fails', async () => {
     const { service, repository, storage } = setup();
     repository.createPending.mockRejectedValue(new Error('database detail'));
@@ -551,7 +584,11 @@ describe('SubmissionFilesService', () => {
       'image/png',
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     ],
-    ['archive.zip', 'application/zip', Buffer.from([0x50, 0x4b, 0x05, 0x06])],
+    [
+      'archive.zip',
+      'application/zip',
+      signatureValidZip([{ name: 'valid.txt' }]),
+    ],
   ])(
     'accepts the exact byte-signature boundary for %s',
     async (name, type, buffer) => {

@@ -115,11 +115,11 @@ describe('authentication route metadata manifest', () => {
     expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toEqual(
       EXPECTED_PUBLIC_AUTH_ROUTES,
     );
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toHaveLength(13);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toHaveLength(12);
     expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toEqual(
       EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES,
     );
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(3);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(4);
     expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(105);
     expect(manifest).toHaveLength(121);
     expect(

@@ -79,7 +79,9 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
         {
           provide: AuthService,
           useValue: {
-            getMe: jest.fn().mockResolvedValue({ id: 'synthetic-user' }),
+            getMe: jest
+              .fn()
+              .mockResolvedValue({ id: 'synthetic-user', sessionVersion: 0 }),
           },
         },
         {
@@ -108,6 +110,7 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
     sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
     )}`;
   });
 

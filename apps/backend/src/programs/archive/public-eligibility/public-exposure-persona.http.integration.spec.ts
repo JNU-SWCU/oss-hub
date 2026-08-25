@@ -393,19 +393,28 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     // Public class (anonymous · STUDENT) — 실명 금지 검사는 이쪽에만 건다.
     const publicClassRankingItemLists: Record<string, unknown>[][] = [];
     const staffClassRankingItemLists: Record<string, unknown>[][] = [];
+    // 공개(익명·STUDENT) 랭킹 wire 는 딱 이 네 칸이다 — 닉네임과 commit/PR 집계뿐이고
+    // 학과·이슈·저장소·스타·합계·표시명은 공개 표면에서 제거됐다(공격 표면 축소).
     const publicItemKeys = [
+      'commitCount',
+      'githubLogin',
+      'pullRequestCount',
+      'rank',
+    ];
+    // 교직원·관리자만 보는 rich 표 — 실명·학과·전 지표·합계를 싣는다.
+    const staffItemKeys = [
       'commitCount',
       'department',
       'displayName',
       'githubLogin',
       'issueCount',
+      'name',
       'pullRequestCount',
       'rank',
       'repositoryCount',
       'starCount',
       'total',
-    ];
-    const staffItemKeys = [...publicItemKeys, 'name'].sort();
+    ].sort();
     for (const githubId of personas) {
       const [list, detail, profile, ranking] = await Promise.all([
         harness.request('GET', '/projects', githubId),
@@ -474,20 +483,16 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(rankedLogins).not.toContain(adminPersona.nickname);
     }
 
-    // Public items omit `name`. Staff items add `name` and keep displayName as login.
+    // 공개 항목은 4칸뿐이다 — 실명·학과·표시명·이슈·저장소·스타·합계는 전부 빠진다.
+    // 교직원 항목은 `name`·`department`·전 지표를 더하고 displayName 은 여전히 githubLogin 이다.
     for (const items of publicClassRankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
         expect(Object.keys(item).sort()).toEqual(publicItemKeys);
         expect(item).not.toHaveProperty('name');
-        expect(item.displayName).toBe(item.githubLogin);
-        expect(item.total).toBe(
-          (item.commitCount as number) +
-            (item.pullRequestCount as number) +
-            (item.issueCount as number) +
-            (item.repositoryCount as number) +
-            (item.starCount as number),
-        );
+        expect(item).not.toHaveProperty('department');
+        expect(item).not.toHaveProperty('displayName');
+        expect(item).not.toHaveProperty('total');
       }
     }
     for (const items of staffClassRankingItemLists) {
@@ -535,6 +540,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     for (const forbiddenKey of [
       '"name"',
       '"studentId"',
+      '"department"',
+      '"displayName"',
+      '"issueCount"',
+      '"repositoryCount"',
+      '"starCount"',
+      '"total"',
       '"email"',
       '"role"',
       '"accountStatus"',
@@ -585,16 +596,23 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     );
     expect(admin.response.headers.get('vary')).toBe('Cookie');
 
-    // (a) 비로그인은 학과를 보고 실명은 보지 않는다.
+    // (a) 비로그인은 닉네임·commit/PR 집계만 보고 학과·실명은 보지 않는다.
     const anonymousEntry = anonymous.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
     expect(anonymousEntry).toMatchObject({
-      department: NAMED_PERSONA_DEPARTMENT,
-      displayName: studentPersona.nickname,
+      githubLogin: studentPersona.nickname,
+      commitCount: 10,
+      pullRequestCount: 4,
     });
+    expect(anonymousEntry).not.toHaveProperty('department');
+    expect(anonymousEntry).not.toHaveProperty('name');
+    expect(anonymousEntry).not.toHaveProperty('displayName');
     expect(JSON.stringify(anonymous.items)).not.toContain(
       NAMED_PERSONA_REAL_NAME,
+    );
+    expect(JSON.stringify(anonymous.items)).not.toContain(
+      NAMED_PERSONA_DEPARTMENT,
     );
 
     // (b) STUDENT 세션 응답은 비로그인과 바이트 동일하다.
@@ -650,20 +668,23 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     const entry = ranking.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
-    // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 지난해가 새면 total 이
-    // 5020 이 된다.
+    // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 공개 wire 는 commit/PR
+    // 집계만 노출하므로 올해 값이 그대로 보이고(지난해가 새면 12가 아니라 2012가 된다),
+    // 학과·이슈·저장소·스타·합계·표시명은 공개 표면에 없다.
     expect(entry).toMatchObject({
-      displayName: studentPersona.nickname,
-      department: NAMED_PERSONA_DEPARTMENT,
+      githubLogin: studentPersona.nickname,
       commitCount: 10,
       pullRequestCount: 4,
-      issueCount: 3,
-      repositoryCount: 2,
-      starCount: 1,
-      total: 20,
     });
+    expect(entry).not.toHaveProperty('department');
+    expect(entry).not.toHaveProperty('issueCount');
+    expect(entry).not.toHaveProperty('total');
+    expect(entry).not.toHaveProperty('displayName');
     expect(JSON.stringify(ranking.items)).not.toContain(
       NAMED_PERSONA_REAL_NAME,
+    );
+    expect(JSON.stringify(ranking.items)).not.toContain(
+      NAMED_PERSONA_DEPARTMENT,
     );
   });
 

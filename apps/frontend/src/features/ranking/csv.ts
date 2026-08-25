@@ -1,4 +1,8 @@
-import { RANKING_YEAR_ALL, type RankingItem, type RankingYear } from './types';
+import {
+  RANKING_YEAR_ALL,
+  type RankingYear,
+  type StaffRankingItem,
+} from './types';
 
 export const RANKING_CSV_PAGE_SIZE = 100;
 
@@ -35,7 +39,7 @@ function csvCell(value: string | number | null | undefined): string {
   return rfc4180Field(String(value));
 }
 
-export function buildRankingCsv(items: readonly RankingItem[]): string {
+export function buildRankingCsv(items: readonly StaffRankingItem[]): string {
   const header = RANKING_CSV_COLUMNS.join(',');
   const rows = items.map((item) =>
     [

@@ -39,6 +39,7 @@
     "prisma": "^6.6.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "yauzl": "3.4.0",
     "yazl": "^3.3.1"
   },
   "devDependencies": {
@@ -51,6 +52,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^8.0.1",
+    "@types/yauzl": "3.4.0",
     "@types/yazl": "^3.3.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
