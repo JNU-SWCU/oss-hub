@@ -73,7 +73,9 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest.fn().mockResolvedValue({ id: 'synthetic-user' }),
+          getMe: jest
+            .fn()
+            .mockResolvedValue({ id: 'synthetic-user', sessionVersion: 0 }),
         },
       },
       {
@@ -99,7 +101,7 @@ beforeAll(async () => {
   application.useGlobalFilters(new ProblemDetailFilter());
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
-  sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(sessionSecret, githubId)}`;
+  sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(sessionSecret, githubId, 0)}`;
 });
 
 beforeEach(() => jest.clearAllMocks());

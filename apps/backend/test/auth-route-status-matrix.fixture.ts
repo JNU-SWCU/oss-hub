@@ -38,6 +38,7 @@ const syntheticUser: AuthUser = {
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 0,
   memberKind: null,
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -199,12 +200,14 @@ export class AuthRouteStatusHarness {
     this.sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       syntheticGithubId,
+      0,
     )}`;
     this.expiredSessionCookie = `${sessionCookieName(
       false,
     )}=${await issueSessionToken(
       sessionSecret,
       syntheticGithubId,
+      0,
       Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60,
     )}`;
   }

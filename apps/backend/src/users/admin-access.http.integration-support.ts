@@ -57,7 +57,11 @@ export class AdminAccessHttpHarness {
         },
         {
           provide: AuthService,
-          useValue: { getMe: jest.fn().mockResolvedValue({ id: 'synthetic' }) },
+          useValue: {
+            getMe: jest
+              .fn()
+              .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+          },
         },
       ],
     }).compile();
@@ -140,6 +144,7 @@ export class AdminAccessHttpHarness {
     return `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
     )}`;
   }
 }

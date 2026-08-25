@@ -113,7 +113,9 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest.fn().mockResolvedValue({ id: syntheticUserId }),
+          getMe: jest
+            .fn()
+            .mockResolvedValue({ id: syntheticUserId, sessionVersion: 0 }),
         },
       },
       OriginGuard,
@@ -141,7 +143,7 @@ beforeAll(async () => {
   application.useGlobalFilters(new ProblemDetailFilter());
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
-  const token = await issueSessionToken(sessionSecret, syntheticGithubId);
+  const token = await issueSessionToken(sessionSecret, syntheticGithubId, 0);
   sessionCookie = `${sessionCookieName(false)}=${token}`;
   process.stdout.write(`issue99_http_listener=${baseUrl}\n`);
 });

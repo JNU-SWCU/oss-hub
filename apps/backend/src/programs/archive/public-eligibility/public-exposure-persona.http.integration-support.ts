@@ -1,13 +1,21 @@
 import { authorityFactsFor } from '../../../users/canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../../../audit-log/audit-log.controller';
 import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
 import { AuditLogService } from '../../../audit-log/audit-log.service';
 import { AuthConfig } from '../../../auth/auth.config';
+import { AuthenticationGuard } from '../../../auth/authentication.guard';
 import { AuthService } from '../../../auth/auth.service';
+
+/**
+ * `AuthService`의 공개 시그니처에서 principal 타입을 파생한다 — 다른 모듈의 `domain/*`을
+ * 직접 import하면 ADR-003 module 경계 lint가 막으므로(이 harness 는 auth zone 밖에 있다)
+ * 모듈-공개인 `AuthService.getMe` 반환 타입을 그대로 재사용한다.
+ */
+type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 import { sessionCookieName } from '../../../auth/cookies';
 import { OriginGuard } from '../../../auth/origin.guard';
 import { issueSessionToken } from '../../../auth/session-token';
@@ -41,6 +49,28 @@ const SYNTHETIC_SESSION_SECRET =
   Buffer.from(sessionSecret).toString('base64url');
 export const PUBLIC_EXPOSURE_PERSONA_ALLOWED_ORIGIN =
   'http://frontend-persona.test';
+
+/**
+ * 실서비스 `AuthService.getMe`/`findActivePrincipal`가 돌려주는 principal을 흉내 낸다 —
+ * 토큰이 검증한 githubId를 그대로 되울려주고 세션 버전은 harness가 발급하는 토큰과 같은
+ * 0으로 고정한다. 역할(교직원·관리자) 판정은 `RankingService`가 시드된 DB 행에서 다시
+ * 조회하므로 여기 역할 필드는 비활성이며 githubId만 진실이면 된다.
+ */
+function makePersonaPrincipal(githubId: bigint): ActivePrincipal {
+  return {
+    id: `synthetic-${githubId.toString()}`,
+    githubId,
+    nickname: `synthetic-${githubId.toString()}-login`,
+    name: null,
+    avatarUrl: null,
+    accountStatus: AccountStatus.ACTIVE,
+    sessionVersion: 0,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    isProfileComplete: false,
+  };
+}
 
 /**
  * 계획 todo 23 — HTTP 4-페르소나(익명/STUDENT/STAFF/ADMIN) 매트릭스 전용 harness.
@@ -111,6 +141,7 @@ export class PublicExposurePersonaHttpHarness {
           useValue: submissionReviewsService,
         },
         { provide: AuditLogService, useValue: auditLogService },
+        AuthenticationGuard,
         SessionGuard,
         OriginGuard,
         SubmissionReviewsStaffGuard,
@@ -125,12 +156,24 @@ export class PublicExposurePersonaHttpHarness {
         },
         {
           provide: AuthService,
-          useValue: { getMe: jest.fn().mockResolvedValue({ id: 'synthetic' }) },
+          useValue: {
+            getMe: jest
+              .fn<Promise<ActivePrincipal>, [bigint]>()
+              .mockImplementation((githubId) =>
+                Promise.resolve(makePersonaPrincipal(githubId)),
+              ),
+            findActivePrincipal: jest
+              .fn<Promise<ActivePrincipal>, [bigint]>()
+              .mockImplementation((githubId) =>
+                Promise.resolve(makePersonaPrincipal(githubId)),
+              ),
+          },
         },
       ],
     }).compile();
 
     this.application = moduleRef.createNestApplication();
+    this.application.useGlobalGuards(moduleRef.get(AuthenticationGuard));
     this.application.setGlobalPrefix('api/v1');
     this.application.useGlobalPipes(
       new ValidationPipe({
@@ -237,6 +280,7 @@ export class PublicExposurePersonaHttpHarness {
     return `${sessionCookieName(false)}=${await issueSessionToken(
       sessionSecret,
       githubId,
+      0,
     )}`;
   }
 }
