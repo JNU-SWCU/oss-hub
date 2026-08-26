@@ -24,6 +24,7 @@ The page body is the execution contract.
 Use the functional-defect body when a directly observed result contradicts expected behavior.
 Use the UX-improvement body when an existing flow works but is difficult, fragmented, unclear, or unnecessarily costly for the user.
 When the user supplies a manually edited reference ticket, its section order and sentence density are the local style baseline.
+When the user reviews UI references, keep only the approved pattern for each sub-flow and leave rejected candidates outside the final ticket.
 Do not combine both bodies mechanically.
 Keep only the reproduction detail needed to understand and verify the named problem.
 
@@ -85,8 +86,8 @@ Keep only the reproduction detail needed to understand and verify the named prob
 ## 참고 UI
 ### <제품 또는 패턴 이름>
 <전체 참고 URL>
-- 참고 포인트: <가져올 상호작용 또는 정보 구조>
-- OSS Hub 적용: <그 패턴을 이 화면에 맞게 제한해 적용하는 방법>
+- 참고 포인트: <최종 선택한 상호작용 또는 정보 구조>
+- OSS Hub 적용: <가져오지 않을 범위를 포함해 그 패턴을 이 화면에 맞게 제한하는 방법>
 
 ## 최소 요구
 - [ ] <반드시 구현할 사용자 가시 범위>
