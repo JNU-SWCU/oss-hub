@@ -646,4 +646,13 @@
 - PR: (이 PR)
 - blocker: 없음
 - 결과: `manage-qa-tickets`가 기능 결함의 재현 중심 본문은 유지하면서 UX·디자인 개선에는 참조 티켓의 밀도와 문제·UX 방향·기대 흐름·참고 UI·요구·검증·범위·현재 화면 순서를 적용하도록 개선
-- 검증: skill-format 1 package, runtime hygiene, reflow 3 files, Prettier 4 files, team-state 14/14·pre-push 6/6, public-safe 회귀 55/55와 diff scan 통과
+- 검증: skill-format 1 package, runtime hygiene, reflow 3 files, Prettier 4 files, public-safe 회귀 55/55와 diff scan 통과
+
+## 2026-08-26 — QA 티켓 스킬을 저장소 스킬 경로에 고정
+
+- 상태: review
+- Issue: -
+- PR: #1030
+- blocker: 없음
+- 결과: `manage-qa-tickets`를 `.cursor/skills`와 `.claude/skills`에서 checkout만으로 찾도록 원본 `skills/manage-qa-tickets`에 연결하고 AGENTS.md에 라우팅을 남겼다
+- 검증: `.cursor/skills/manage-qa-tickets`와 `.claude/skills/manage-qa-tickets`가 원본 SKILL·계약을 가리킴
