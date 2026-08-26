@@ -1,4 +1,4 @@
 interface:
   display_name: 'OSS Hub QA 티켓 관리'
-  short_description: 'Notion QA를 실행 가능한 단위로 생성·검증·전달합니다'
-  default_prompt: 'Use $manage-qa-tickets to create, deduplicate, verify, migrate, or publish an executable OSS Hub QA ticket.'
+  short_description: 'Notion QA를 휴먼 리더블한 실행 단위로 작성·검증합니다'
+  default_prompt: 'Use $manage-qa-tickets to create, deduplicate, rewrite, verify, migrate, or publish an executable OSS Hub QA ticket, matching a user-edited reference ticket when one is provided.'
