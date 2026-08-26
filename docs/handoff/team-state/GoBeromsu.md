@@ -638,3 +638,12 @@
 - blocker: 없음
 - 결과: Notion QA를 중복 없이 생성·검증·이관하고 공개 안전한 GitHub 실행 티켓으로 전달하는 `manage-qa-tickets` Aside 스킬과 필드·본문 계약을 추가
 - 검증: skill frontmatter, Prettier, 자체 계약, team-state 14/14, CI path 6/6, public-safe 55/55 및 exact-text 검사 통과
+
+## 2026-08-26 — QA 티켓 스킬의 UX 작성 계약 개선
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `manage-qa-tickets`가 기능 결함의 재현 중심 본문은 유지하면서 UX·디자인 개선에는 참조 티켓의 밀도와 문제·UX 방향·기대 흐름·참고 UI·요구·검증·범위·현재 화면 순서를 적용하도록 개선
+- 검증: skill-format 1 package, runtime hygiene, reflow 3 files, Prettier 4 files, team-state 14/14·pre-push 6/6, public-safe 회귀 55/55와 diff scan 통과
