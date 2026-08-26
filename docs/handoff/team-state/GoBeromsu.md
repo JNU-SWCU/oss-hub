@@ -656,3 +656,12 @@
 - blocker: 없음
 - 결과: `manage-qa-tickets`를 `.cursor/skills`와 `.claude/skills`에서 checkout만으로 찾도록 원본 `skills/manage-qa-tickets`에 연결하고 AGENTS.md에 라우팅을 남겼다
 - 검증: `.cursor/skills/manage-qa-tickets`와 `.claude/skills/manage-qa-tickets`가 원본 SKILL·계약을 가리킴
+
+## 2026-08-26 — QA 티켓 레퍼런스 승인 흐름 고도화
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `manage-qa-tickets` v1.2.0이 실제 화면이 있는 소수 후보를 비교하고 표준 패턴을 우선하며, 하위 흐름별 승인 조합을 고정한 뒤 반려 후보와 추가 탐색을 최종 티켓에서 제외하도록 개선했다
+- 검증: 레퍼런스 선택 평가 12/12, skill-format 1 package, runtime hygiene, reflow 3 files, Prettier 3 files, public-safe diff 통과
