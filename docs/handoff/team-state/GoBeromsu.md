@@ -629,3 +629,12 @@
 - blocker: 없음
 - 결과: ADR-002가 실행값 SSoT인 Jenkinsfile의 backup retention 30과 그 복구점·디스크 상한 목적을 기록하도록 갱신하고, ADR-003의 공개 ranking 설명을 배포된 4필드 public entry와 ACTIVE staff/admin rich entry 계약에 맞췄다. Jenkinsfile 주석과 active exec-plan의 stale N=120도 N=30으로 정렬했다
 - 검증: runtime 동작 변경 없음, Markdown format·public-safe·team-state checker 단위 14/14·diff-check 통과 (drift report의 기존 stale 항목은 별도)
+
+## 2026-08-26 — QA 티켓 관리 스킬 추가
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: Notion QA를 중복 없이 생성·검증·이관하고 공개 안전한 GitHub 실행 티켓으로 전달하는 `manage-qa-tickets` Aside 스킬과 필드·본문 계약을 추가
+- 검증: skill frontmatter, Prettier, 자체 계약, team-state 14/14, CI path 6/6, public-safe 55/55 및 exact-text 검사 통과
