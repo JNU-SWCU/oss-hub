@@ -1,6 +1,8 @@
 ---
 name: "manage-qa-tickets"
-description: "Create, deduplicate, migrate, verify, or publish executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, assigning a single owner, calculating a 1/3/5-business-day deadline, rewriting a safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA or fixing product code."
+description: "Creates, deduplicates, rewrites, migrates, verifies, or publishes executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, turning a UX improvement into a human-readable ticket, matching a user-edited reference ticket, assigning one owner, calculating a 1/3/5-business-day deadline, rewriting a public-safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA or fixing product code."
+metadata:
+  version: "1.1.0"
 ---
 
 # Manage QA tickets
@@ -77,18 +79,35 @@ If the impact does not support a tier, ask instead of guessing.
 For an explicitly approved legacy backfill, map recorded security or personal-data categories to 1 day, functional or infrastructure categories to 3 days, and UX or design-only categories to 5 days.
 Use the approved default of 3 days for legacy rows whose category is blank and record that assumption in the migration report.
 
-## 5. Draft the body
+## 5. Draft the body for the ticket type
 
-Use the body template from [notion-ticket-contract.md](references/notion-ticket-contract.md).
+Use the applicable body variant from [notion-ticket-contract.md](references/notion-ticket-contract.md).
+Keep the Notion properties as index and assignment metadata and the page body as the execution contract.
+When the user names a manually edited reference ticket, reopen it before drafting and match its section order, sentence density, and vocabulary without copying topic-specific content.
+
+### Functional defect or regression
+
+Use the reproduction-centered body when an observed result contradicts an expected result.
 Keep the problem and impact to two to four sentences.
 Write steps as directly observed actions and do not reconstruct steps from a suspected implementation.
-Make completion conditions observable from the named persona.
-Name the narrowest explicit non-goal under `절대 금지`.
-Keep the Notion properties as index and assignment metadata and the page body as the execution contract.
+Use `확인 필요` instead of invented reproduction details when execution evidence is incomplete.
+
+### UX or design improvement
+
+Use the human-readable UX body when the request improves an existing flow rather than reports a failing function.
+Explain the current experience, user cost, and intended outcome before implementation details.
+Then describe the UX direction, expected user flow, reference UI, minimum requirements, completion conditions, work scope, and current-screen evidence in that order.
+Write one idea per bullet in natural Korean and keep technical starting files and forbidden boundaries under `작업 범위`.
+For each reference UI, state both what pattern is useful and how OSS Hub should apply it instead of listing a bare link.
+Do not invent a `재현` section for a prospective improvement, but retain concise reproduction conditions when the problem was directly observed and those conditions matter.
+
+For both variants, make completion conditions observable from the named persona and state the narrowest explicit non-goal.
 
 ## 6. Review before writing
 
-Check that the title, work type, personas, deadline tier, reproduction, actual result, expected result, minimum requirement, completion conditions, and forbidden scope agree.
+Check that the title, work type, personas, deadline tier, applicable body facts, minimum requirements, completion conditions, and forbidden scope agree.
+For a functional defect, verify the reproduction, actual result, and expected result.
+For a UX improvement, verify the current problem, intended outcome, expected flow, and bounded use of each reference UI.
 Show the draft first when the requested write surface, assignee, deadline tier, or public-safe boundary is ambiguous.
 A request to draft is not permission to publish.
 
@@ -99,6 +118,10 @@ Set `상태` to `신규`, leave `완료 여부` unchecked, retain the automatic 
 Fill only supported property values and put narrative detail in the page body.
 Refetch the saved page after writing.
 Verify the exact title, work type, personas, due date, assignee count, unchecked completion flag, URL, evidence references, and every required body section.
+When browser editing is necessary, read the page again after every structural mutation because rendered block references can become stale.
+Replace existing placeholder text by selecting the whole rendered block, and do not append a second body beside stale template content.
+When a ticket contains an image, reopen the page, focus a rendered body block, move to the document end, and verify both the descriptive caption and the rendered image.
+An upload placeholder or an initial snapshot that omits virtualized lower blocks is not persistence evidence.
 Treat the write as incomplete until the refetched record matches the draft.
 
 ## 8. Publish a GitHub execution ticket
@@ -143,13 +166,22 @@ Require explicit approval for deleting a legacy source property after the verifi
 If any row fails validation, retain every source property and report the failed row and recovery path.
 Report the final row count, exceptions, tier counts, persona counts, and deleted properties.
 
+## Anti-patterns
+
+- Writing a UX improvement as an implementation-first checklist → explain the current experience, user impact, goal, and expected flow before files or APIs.
+- Copying reference links without interpretation → state the useful pattern and the bounded OSS Hub application for each reference.
+- Creating a replacement row when the user supplied an existing ticket URL → update the named row, report any concurrent duplicate separately, and never delete it without approval.
+- Treating an image placeholder as saved evidence → reopen the page and verify the caption and rendered image at the document end.
+
 ## Completion checklist
 
 - [ ] The live Notion schema and default template were read.
+- [ ] The functional or UX body variant was selected from evidence, and any user-edited reference ticket was reopened before drafting.
 - [ ] Duplicate QA rows were checked before creation.
 - [ ] One screen or one output location and one logical change are covered.
 - [ ] Work type, personas, one-or-zero assignee, and due date are evidence-backed.
 - [ ] Missing legacy information is `미기록`, not inferred.
 - [ ] The saved Notion page was refetched and matched.
+- [ ] Any image present in the ticket was verified as rendered with its descriptive caption after reopening the page.
 - [ ] Any GitHub Issue fills every repository template section, is independently executable, and passed the exact-text `ISSUE_TEXT` public-safe scan.
 - [ ] Any legacy property deletion followed a complete source-to-body verification and explicit approval.
