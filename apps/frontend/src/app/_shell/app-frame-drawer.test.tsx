@@ -197,7 +197,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     for (const [label, href] of [
       ['사용자 목록', '/admin/access'],
       ['감사 로그', '/admin/audit-log'],
-      ['시스템 상태', '/admin/system-status'],
+      ['시스템 상태', '/dashboard/system-status'],
     ]) {
       const link = adminGroup?.querySelector<HTMLAnchorElement>(
         `a[href="${href}"]`,
@@ -218,7 +218,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
       navItemsList?.querySelector('a[href="/admin/audit-log"]'),
     ).toBeNull();
     expect(
-      navItemsList?.querySelector('a[href="/admin/system-status"]'),
+      navItemsList?.querySelector('a[href="/dashboard/system-status"]'),
     ).toBeNull();
   });
 

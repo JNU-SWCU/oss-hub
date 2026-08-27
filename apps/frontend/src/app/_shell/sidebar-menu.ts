@@ -53,7 +53,7 @@ const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/programs/new': 'detail',
   '/admin/access': 'people',
   '/admin/audit-log': 'shield',
-  '/admin/system-status': 'pulse',
+  '/dashboard/system-status': 'pulse',
   '/programs': 'list',
   '/archive': 'archive',
   '/ranking': 'chart',

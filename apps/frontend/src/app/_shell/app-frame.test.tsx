@@ -163,7 +163,7 @@ describe('AppFrame', () => {
     for (const href of [
       '/admin/access',
       '/admin/audit-log',
-      '/admin/system-status',
+      '/dashboard/system-status',
     ]) {
       expect(navItemsList, href).not.toContain(`href="${href}"`);
     }
