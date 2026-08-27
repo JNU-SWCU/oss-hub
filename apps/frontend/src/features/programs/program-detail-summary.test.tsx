@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ProgramDetailReadyState } from './program-detail-view';
 import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
 import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail } from './types';
