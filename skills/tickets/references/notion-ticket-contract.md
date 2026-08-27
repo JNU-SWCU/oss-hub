@@ -15,6 +15,7 @@
 | `요청일` | Created time | Automatic publication timestamp |
 | `재현 URL` | URL | Complete safe URL when known |
 | `증거` | Files | Safe evidence only, with no real data or personal information |
+| `GitHub Issue` | URL | 발행된 실행 Issue의 URL, 발행 전에는 비어 있음 |
 
 Properties are the index and assignment surface.
 The page body is the execution contract.
