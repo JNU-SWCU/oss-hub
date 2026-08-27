@@ -1,4 +1,11 @@
+import { ChevronDown } from 'lucide-react';
+import { useId } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail } from './types';
 
@@ -9,18 +16,36 @@ export function ProgramSummary({
 }: {
   readonly program: ProgramDetail;
 }) {
+  const contentId = useId();
   if (!program.description) return null;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>프로그램 안내</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm leading-6 break-keep whitespace-pre-wrap">
-          {program.description}
-        </p>
-      </CardContent>
-    </Card>
+    <Collapsible key={program.id} defaultOpen={false}>
+      <Card className="gap-0 py-0">
+        <CardHeader className="gap-0 px-0">
+          <CollapsibleTrigger
+            aria-controls={contentId}
+            className="group flex h-control w-full items-center justify-between gap-3 px-(--card-spacing) text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <CardTitle>프로그램 안내</CardTitle>
+            <ChevronDown
+              aria-hidden
+              className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+            />
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent
+          id={contentId}
+          className="data-[state=closed]:hidden"
+          forceMount
+        >
+          <CardContent className="py-(--card-spacing)">
+            <p className="text-sm leading-6 break-keep whitespace-pre-wrap">
+              {program.description}
+            </p>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
 

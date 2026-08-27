@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ProgramDetailReadyState } from './program-detail-view';
-import { ProgramFactBar } from './program-detail-summary';
+import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
 import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail } from './types';
 
@@ -39,21 +39,27 @@ const overview: ProgramOverview = {
 };
 
 describe('ProgramSummary', () => {
-  it('프로그램 설명이 있으면 안내 카드에 설명을 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramDetailReadyState program={program} />,
-    );
+  it('설명이 있으면 기본으로 닫힌 안내 카드와 숨겨진 설명 영역을 렌더링한다', () => {
+    const html = renderToStaticMarkup(<ProgramSummary program={program} />);
+    const controlsMatch = html.match(/aria-controls="([^"]+)"/);
+    if (controlsMatch === null || controlsMatch[1] === undefined) {
+      throw new TypeError('안내 카드 트리거에 aria-controls가 없습니다.');
+    }
 
     expect(html).toContain('프로그램 안내');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain(`id="${controlsMatch[1]}"`);
+    expect(html).toContain('data-state="closed"');
+    expect(html).toContain('data-[state=closed]:hidden');
     expect(html).toContain('프로그램 설명');
   });
 
   it('프로그램 설명이 없으면 안내 카드를 표시하지 않는다', () => {
     const html = renderToStaticMarkup(
-      <ProgramDetailReadyState program={{ ...program, description: '' }} />,
+      <ProgramSummary program={{ ...program, description: '' }} />,
     );
 
-    expect(html).not.toContain('프로그램 안내');
+    expect(html).toBe('');
   });
 });
 
