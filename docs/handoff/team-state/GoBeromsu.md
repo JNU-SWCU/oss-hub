@@ -665,3 +665,21 @@
 - blocker: 없음
 - 결과: `manage-qa-tickets` v1.2.0이 실제 화면이 있는 소수 후보를 비교하고 표준 패턴을 우선하며, 하위 흐름별 승인 조합을 고정한 뒤 반려 후보와 추가 탐색을 최종 티켓에서 제외하도록 개선했다
 - 검증: 레퍼런스 선택 평가 12/12, skill-format 1 package, runtime hygiene, reflow 3 files, Prettier 3 files, public-safe diff 통과
+
+## 2026-08-27 — QA 티켓 영역별 증거와 selector 캡처 도입
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `manage-qa-tickets` v1.3.0이 티켓마다 frontend·backend·infra 중 하나를 선언하게 하고, frontend 캡처는 selector를 먼저 확정해 그 요소만 잘라내며 selector·DOM path·URL·확인 시각을 함께 남기고, 참고 UI는 URL과 그 요소의 캡처를 쌍으로 요구하도록 개선했다. 반복 인용되는 제품 레퍼런스의 원본으로 `references/ux-reference-catalog.md`를 추가했고 제3자 캡처는 Notion에만 둔다
+- 검증: skill-format 1 package, runtime hygiene, reflow 4 files, public-safe diff 통과, CHANGELOG append-only 0 삭제
+
+## 2026-08-27 — QA 티켓 여는 말과 증거 수집 agent 계약
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `manage-qa-tickets` v1.4.0이 티켓 본문을 따뜻한 여는 말로 시작하도록 고정하고, selector 확정부터 요소 캡처까지의 절차를 `references/evidence-pipeline.md`로 분리했다. 파이프라인을 실행할 subagent 세 개(`qa-dom-capture`, `qa-fact-checker`, `qa-code-anchor`)를 패키지 안에 넣고 `.claude/agents`에서 연결해 checkout만으로 잡히게 했다
+- 검증: skill-format 1 package, runtime hygiene, reflow 8 files, description 675자, public-safe diff 통과. 개정한 스킬로 프로그램 상세 화면 QA 티켓 2건(안내 카드 접이식, 좌측 패널 마감 표시)을 selector 기준 캡처 6장과 함께 Notion에 발행했고 사실 확인에서 재현 URL 1건과 전제 1건을 고쳤다

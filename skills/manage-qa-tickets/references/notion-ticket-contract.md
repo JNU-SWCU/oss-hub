@@ -28,13 +28,47 @@ When the user reviews UI references, keep only the approved pattern for each sub
 Do not combine both bodies mechanically.
 Keep only the reproduction detail needed to understand and verify the named problem.
 
+## 여는 말
+
+본문은 첫 heading 앞에 2~3줄의 여는 말로 시작한다.
+읽는 사람이 이 화면에서 이미 겪고 있을 불편을 먼저 짚고, 이 티켓이 그중 무엇을 바꾸는지 말하고, 증거가 어디에 있는지 가리킨다.
+어느 티켓에 붙여도 말이 되는 인사는 여는 말이 아니라 잉여다.
+아직 하지 않은 일에 대한 칭찬도 넣지 않는다.
+길이는 3줄을 넘기지 않으며, 넘칠 내용은 `문제`로 내린다.
+
+## 영역별 증거
+
+`영역`은 티켓이 어떤 증거를 갖춰야 하는지를 결정하며 하나만 고른다.
+한 티켓이 두 영역에 걸치면 증거 계약이 둘로 갈리므로 티켓을 쪼갠다.
+
+| 영역 | 최소 증거 | 캡처 |
+| --- | --- | --- |
+| `frontend` | 대상 요소의 CSS selector, DOM path, 전체 URL, 확인 시각 | 필수 — 그 요소만 잘라낸 이미지 |
+| `backend` | 요청 방법과 경로, 요청 본문 요약, 응답 상태코드, 응답 본문 요약, 관련 로그 한 줄 | 요구하지 않는다 |
+| `infra` | 설정 파일 경로, 변경 대상 값의 이름, 배포 단계, 확인 명령과 그 출력 | 요구하지 않는다 |
+
+`backend`와 `infra`의 값은 전부 합성 예시로 쓴다.
+실제 토큰, 실제 호스트 주소, 개인정보, private 저장소 경로는 어느 영역에서도 넣지 않는다.
+직접 실행해 관찰하지 않은 증거는 지어내지 않고 `확인 필요`로 남긴다.
+
+### frontend 캡처 절차
+
+캡처보다 selector가 먼저다.
+브라우저에서 대상 요소를 지목해 CSS selector와 DOM path를 확정한 뒤, 그 요소의 영역만 캡처한다.
+화면 전체를 찍고 캡션으로 위치를 설명하는 방식은 이 계약을 만족하지 않는다.
+selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 보류한 뒤 `확인 필요`로 표시한다.
+같은 규칙이 `현재 화면`과 `참고 UI`의 캡처에 모두 적용된다.
+
 ## Functional defect body
 
 ```text
+<이 티켓을 집을 사람에게 건네는 2~3줄 — 지금 이 화면에서 겪고 있을 불편, 이 티켓이 바꾸는 것, 증거가 어디에 있는지>
+
 > 한 화면 또는 한 산출물 위치·한 논리 변경만 다룹니다.
 > 실데이터·개인정보가 보이는 캡처는 첨부하지 않습니다.
 
 ## 문제
+- 영역: <frontend | backend | infra>
 - 페르소나: <교직원 | 학생 | 관리자>
 - 재현 URL: <전체 URL 또는 해당 없음>
 - 문제와 영향: <어떤 조건에서 무엇이 잘못됐고 누구에게 어떤 영향이 있는지 2~4문장>
@@ -65,7 +99,10 @@ Keep only the reproduction detail needed to understand and verify the named prob
 ## UX or design improvement body
 
 ```text
+<이 티켓을 집을 사람에게 건네는 2~3줄 — 지금 이 화면에서 겪고 있을 불편, 이 티켓이 바꾸는 것, 증거가 어디에 있는지>
+
 ## 문제
+- 영역: <frontend | backend | infra>
 - 페르소나: <교직원 | 학생 | 관리자>
 - 재현 URL: <전체 URL 또는 해당 없음>
 - <현재 흐름이나 화면에서 무엇을 이해하거나 수행하기 어려운지>
@@ -86,6 +123,8 @@ Keep only the reproduction detail needed to understand and verify the named prob
 ## 참고 UI
 ### <제품 또는 패턴 이름>
 <전체 참고 URL>
+<그 패턴이 보이는 요소만 잘라낸 이미지>
+- selector: <캡처한 요소의 CSS selector>
 - 참고 포인트: <최종 선택한 상호작용 또는 정보 구조>
 - OSS Hub 적용: <가져오지 않을 범위를 포함해 그 패턴을 이 화면에 맞게 제한하는 방법>
 
@@ -105,7 +144,10 @@ Keep only the reproduction detail needed to understand and verify the named prob
 
 ## 현재 화면
 <현재 화면이 무엇을 보여주며 왜 판단하기 어려운지 설명하는 캡션>
-<개인정보와 실데이터가 없는 이미지>
+<selector로 잘라낸, 개인정보와 실데이터가 없는 이미지>
+- selector: <캡처한 요소의 CSS selector>
+- DOM path: <body부터 그 요소까지의 전체 경로>
+- 캡처: <전체 URL> @ <확인 시각>
 ```
 
 ## Missing information
