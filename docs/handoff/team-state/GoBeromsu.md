@@ -683,3 +683,12 @@
 - blocker: 없음
 - 결과: `manage-qa-tickets` v1.4.0이 티켓 본문을 따뜻한 여는 말로 시작하도록 고정하고, selector 확정부터 요소 캡처까지의 절차를 `references/evidence-pipeline.md`로 분리했다. 파이프라인을 실행할 subagent 세 개(`qa-dom-capture`, `qa-fact-checker`, `qa-code-anchor`)를 패키지 안에 넣고 `.claude/agents`에서 연결해 checkout만으로 잡히게 했다
 - 검증: skill-format 1 package, runtime hygiene, reflow 8 files, description 675자, public-safe diff 통과. 개정한 스킬로 프로그램 상세 화면 QA 티켓 2건(안내 카드 접이식, 좌측 패널 마감 표시)을 selector 기준 캡처 6장과 함께 Notion에 발행했고 사실 확인에서 재현 URL 1건과 전제 1건을 고쳤다
+
+## 2026-08-28 — QA 티켓 스킬과 티켓 수행 스킬을 tickets 하나로 합친다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `skills/manage-qa-tickets`와 `.claude/skills/tickets`를 `skills/tickets` 하나로 합쳤다. 수행 절차는 `references/execution-workflow.md`로 옮기고, Notion 행을 공개 Issue로 발행하고 Issue URL을 행에 되돌려 쓰는 계약을 `references/github-publication.md`에 새로 넣었다. OSS Hub 자체 화면 캡처는 개인정보 검사를 통과하면 Issue에 넣을 수 있게 하고 제3자 제품 캡처는 Notion에만 둔다. 티켓 발행 제한을 두 사람에서 팀원 전체로 열되, 담당자 0~1명·작성자와 담당자만 교체·삭제·종료·`완료 여부` 수동 확인 세 가지는 그대로 뒀다.
+- 검증: 심볼릭 링크 5개 전부 해석됨, 참조 링크 깨짐 0건, `npx prettier --check` 통과, `bash scripts/check-public-safe.sh` 통과. Notion `🐞 QA 요청`의 배정된 행 7건을 Issue #1038~#1044로 발행하고 `GitHub Issue` 속성에 URL을 써넣은 뒤 재조회로 10건 연결을 확인했다.
