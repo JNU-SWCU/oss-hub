@@ -1,6 +1,6 @@
 ---
 name: "manage-qa-tickets"
-description: "Creates, deduplicates, rewrites, migrates, verifies, or publishes executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, declaring whether a ticket is frontend, backend, or infra work, capturing a frontend screen by DOM selector instead of a whole-page shot, pairing every reference UI with its own capture, opening a ticket with a short warm note to whoever picks it up, turning a UX improvement into a human-readable ticket, matching a user-edited reference ticket, assigning one owner, calculating a 1/3/5-business-day deadline, rewriting a public-safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA, designing the screen itself, or fixing product code."
+description: "Creates, deduplicates, rewrites, migrates, verifies, or publishes executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, declaring whether a ticket is frontend, backend, or infra work, capturing a frontend screen by DOM selector, pairing every reference UI with its own capture, opening a ticket with a short warm note, turning a UX improvement into a human-readable ticket, matching a user-edited reference ticket, assigning one owner, calculating a 1/3/5-business-day deadline, rewriting a public-safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA, designing the screen itself, or fixing product code."
 metadata:
   version: "1.4.0"
 ---
