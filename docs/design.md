@@ -99,8 +99,8 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 
 ## 프리미티브
 
-6종 모두 `npx shadcn@latest add`로 생성했다(`radix-nova` 스타일).
-파일은 `apps/frontend/src/components/ui/`에 있고, 생성 직후부터 소유권은 레포 코드로 귀속된다(외부 패키지 런타임 의존이 아니다).
+Button부터 Table까지 6종은 `npx shadcn@latest add`로 생성했다(`radix-nova` 스타일).
+Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고, 생성·추가 직후부터 소유권은 레포 코드로 귀속된다.
 
 ### Button
 
@@ -127,6 +127,11 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 ### Table
 
 `table.tsx`. 표 형태 데이터를 위한 프리미티브(필수 지정 항목)다. DetailPanelLayout의 목록 영역이나 관리 화면에서 쓰일 예정이다.
+
+### Collapsible
+
+`collapsible.tsx`. `radix-ui`의 Root/Trigger/Content 접근성 동작을 레포 소유의 `Collapsible`/`CollapsibleTrigger`/`CollapsibleContent`로 노출한다.
+래퍼 자체는 시각 스타일을 강제하지 않으며, 소비자가 기존 semantic 토큰과 이를 노출한 Tailwind component 유틸리티만 조합한다. 열린 상태 스타일은 각 `data-slot`과 Radix의 `data-state`를 기준으로 적용한다.
 
 ## 패턴
 
