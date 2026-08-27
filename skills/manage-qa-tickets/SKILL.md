@@ -1,8 +1,8 @@
 ---
 name: "manage-qa-tickets"
-description: "Creates, deduplicates, rewrites, migrates, verifies, or publishes executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, turning a UX improvement into a human-readable ticket, matching a user-edited reference ticket, assigning one owner, calculating a 1/3/5-business-day deadline, rewriting a public-safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA or fixing product code."
+description: "Creates, deduplicates, rewrites, migrates, verifies, or publishes executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, declaring whether a ticket is frontend, backend, or infra work, capturing a frontend screen by DOM selector instead of a whole-page shot, pairing every reference UI with its own capture, turning a UX improvement into a human-readable ticket, matching a user-edited reference ticket, assigning one owner, calculating a 1/3/5-business-day deadline, rewriting a public-safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA, designing the screen itself, or fixing product code."
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # Manage QA tickets
@@ -17,12 +17,13 @@ Make every ticket executable without hidden context while keeping private source
 3. Do not modify product code, deployment state, accounts, or test data while managing tickets.
 4. A UI ticket covers one screen and one logical change, while a screenless ticket covers one output location and one logical change.
 5. Never attach real data, personal information, credentials, private repository details, or an unredacted screenshot.
-6. Assign at most one person in `담당자`.
-7. Keep `완료 여부` manual and unchecked until a person verifies every completion condition in the deployed environment.
-8. Do not infer an unrecorded role, reproduction step, expected result, dependency, or implementation boundary.
-9. Write `미기록` in the Notion body when required legacy information is absent.
-10. Do not create or update a Notion row unless the user asked for that write.
-11. Do not create or update a GitHub Issue unless the user explicitly asked for the public handoff.
+6. Keep a third-party product capture inside Notion and let the public repository carry its URL only.
+7. Assign at most one person in `담당자`.
+8. Keep `완료 여부` manual and unchecked until a person verifies every completion condition in the deployed environment.
+9. Do not infer an unrecorded role, reproduction step, expected result, dependency, or implementation boundary.
+10. Write `미기록` in the Notion body when required legacy information is absent.
+11. Do not create or update a Notion row unless the user asked for that write.
+12. Do not create or update a GitHub Issue unless the user explicitly asked for the public handoff.
 
 ## 1. Read the current database
 
@@ -54,6 +55,10 @@ Choose exactly one work type:
 - `feat`: the requested user capability does not exist yet.
 - `refactor`: internal structure changes without user-visible behavior change.
 - `chore`: tooling, operations, documentation, or maintenance work.
+
+Declare exactly one area from `frontend`, `backend`, and `infra` as the first line of the body.
+The area decides which evidence the ticket must carry, and the per-area minimum lives in [notion-ticket-contract.md](references/notion-ticket-contract.md).
+When one request spans two areas, split it into two tickets instead of widening the evidence contract.
 
 Choose one or more personas only from `교직원`, `학생`, and `관리자`.
 Leave the property empty and write `미기록` in the body when the persona is not supported by evidence.
@@ -98,7 +103,9 @@ Use the human-readable UX body when the request improves an existing flow rather
 Explain the current experience, user cost, and intended outcome before implementation details.
 Then describe the UX direction, expected user flow, reference UI, minimum requirements, completion conditions, work scope, and current-screen evidence in that order.
 Write one idea per bullet in natural Korean and keep technical starting files and forbidden boundaries under `작업 범위`.
-For each reference UI, state both what pattern is useful and how OSS Hub should apply it instead of listing a bare link.
+For each reference UI, pair the full URL with a capture of the element that shows the pattern, and state both what is useful and how OSS Hub should apply it.
+A reference that has only a link is not admissible — capture it or drop it.
+Reuse the standing product references in [ux-reference-catalog.md](references/ux-reference-catalog.md) before searching for a new one, and point at that catalog instead of restating its URLs and boundaries in the ticket.
 Before locking the reference UI, name the problem at the user-flow level rather than the component level and inspect a small bounded set, typically two to four candidates, with a real screen or image of the relevant interaction.
 Prefer a familiar standard pattern over a niche or feature-heavy product when the underlying flow is ordinary CRUD, file handling, or date selection.
 When the system can derive order or the flow has one primary action, remove manual reordering and keep nonessential actions out of the main surface.
@@ -108,6 +115,12 @@ When the user rejects a candidate, remove it instead of carrying it into the tic
 When the request includes reference comparison or selection, reuse any explicit approval already present in the request; otherwise show the proposed `<sub-flow> = <reference pattern>` recipe and obtain approval before writing.
 After approval, freeze that recipe, stop expanding the search unless asked, and include only its patterns in `UX 방향` and `참고 UI`.
 Do not invent a `재현` section for a prospective improvement, but retain concise reproduction conditions when the problem was directly observed and those conditions matter.
+
+For a `frontend` ticket, settle the CSS selector before capturing anything.
+Point at the element in the live page, read its selector and DOM path, capture that element's area alone, and record the selector, DOM path, full URL, and observation time beside the image.
+A whole-page screenshot with a caption explaining where to look does not satisfy this contract.
+When the selector cannot be settled, hold the capture and mark it `확인 필요` rather than writing `미기록`.
+The same rule governs both the current-screen capture and every reference capture.
 
 For both variants, make completion conditions observable from the named persona and state the narrowest explicit non-goal.
 
@@ -141,6 +154,7 @@ Only `@GoBeromsu` and `@Lumiere001` may publish and assign a work ticket.
 If the authorized actor cannot be verified, produce a draft and stop before publication.
 Rewrite the contract for the public Issue instead of quoting the Notion body.
 Use GitHub handles only and replace private URLs, data, screenshots, and identifiers with safe route patterns or synthetic examples.
+Carry a reference URL into the Issue as text and leave its capture in Notion, because a third-party product screenshot does not belong in a public repository.
 Fill every work-ticket section, including the area, frontend or output location, backend or API, dependencies, minimum requirements, completion conditions, and forbidden scope.
 For screenless work, replace the frontend section with the template's `산출물 위치` form.
 Fill the Issue so it is executable without opening Notion.
@@ -182,6 +196,9 @@ Report the final row count, exceptions, tier counts, persona counts, and deleted
 - Copying reference links without interpretation → state the useful pattern and the bounded OSS Hub application for each reference.
 - Continuing reference research after approval or retaining a rejected candidate → freeze the approved aspect-scoped recipe and keep only those patterns in the ticket.
 - Creating a replacement row when the user supplied an existing ticket URL → update the named row, report any concurrent duplicate separately, and never delete it without approval.
+- Capturing the whole screen and naming the target in prose → settle the selector first and capture that element alone.
+- Listing a reference URL without its capture → the reader should judge the pattern inside the ticket, not by opening someone else's product.
+- Restating a catalogued reference's URL and boundary inside a ticket → link [ux-reference-catalog.md](references/ux-reference-catalog.md) and keep the ticket to this screen's application.
 - Treating an image placeholder as saved evidence → reopen the page and verify the caption and rendered image at the document end.
 
 ## Completion checklist
@@ -191,6 +208,9 @@ Report the final row count, exceptions, tier counts, persona counts, and deleted
 - [ ] If references were reviewed, only the approved aspect-scoped recipe remains in the final ticket.
 - [ ] Duplicate QA rows were checked before creation.
 - [ ] One screen or one output location and one logical change are covered.
+- [ ] Exactly one area is declared and the per-area minimum evidence is present.
+- [ ] Every `frontend` capture is element-scoped and carries its selector, DOM path, URL, and observation time.
+- [ ] Every reference UI carries a capture, and no third-party capture left Notion for a public surface.
 - [ ] Work type, personas, one-or-zero assignee, and due date are evidence-backed.
 - [ ] Missing legacy information is `미기록`, not inferred.
 - [ ] The saved Notion page was refetched and matched.
