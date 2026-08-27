@@ -1,6 +1,6 @@
 ---
 name: "tickets"
-description: "OSS Hub 티켓의 전 과정을 담당한다 — Notion `🐞 QA 요청`에 티켓을 쓰고, 그 행을 공개 GitHub Issue로 발행하고, Issue를 계약대로 검증된 PR로 만든다. QA 티켓 작성·중복 확인·영역 선언·selector 요소 캡처·마감 산정, Notion 행의 GitHub Issue 배포와 Issue URL 되돌려 연결, 레거시 행 이관, 그리고 `oss-hub 티켓 #123 진행해줘`처럼 티켓 번호를 받은 수행 요청에 쓴다. QA ticket intake, publishing a Notion QA row as a GitHub issue, linking an issue back to Notion, or executing a ticket into a PR. 팀원 누구나 티켓을 올릴 수 있다. 릴리스 QA 실행(run-release-qa), 화면 디자인, 티켓 계약 밖 제품 코드 수정에는 쓰지 않는다."
+description: "OSS Hub 티켓의 전 과정을 담당한다 — Notion `🐞 QA 요청`에 티켓을 쓰고, 그 행을 공개 GitHub Issue로 발행하고, Issue를 계약대로 검증된 PR로 만든다. QA 티켓 작성·중복 확인·영역 선언·selector 요소 캡처·마감 산정, Notion 행의 GitHub Issue 배포와 Issue URL 되돌려 연결, 레거시 행 이관, 그리고 `oss-hub 티켓 #123 진행해줘`처럼 티켓 번호를 받은 수행 요청에 쓴다. QA ticket intake, publishing a Notion QA row as a GitHub issue, linking an issue back to Notion, or executing a ticket into a PR. 릴리스 QA 실행(run-release-qa), 화면 디자인, 티켓 계약 밖 제품 코드 수정에는 쓰지 않는다."
 metadata:
   version: "2.0.0"
 ---
@@ -40,12 +40,14 @@ Notion 본문에 쓴 `최소 요구`·`완료 조건`·`절대 금지`가 Issue�
 ## 누가 할 수 있나
 
 **티켓 작성·발행은 팀원 누구나 한다.**
-`docs/handoff/team-state/`에 저널 파일이 있는 사람은 Notion 행을 만들고 GitHub Issue를 발행할 수 있다.
+`docs/handoff/team-state/`에 저널 파일이 있는 사람이 팀원이다.
 이전에는 두 사람만 발행할 수 있었지만, 문제를 관찰한 사람과 티켓을 쓸 수 있는 사람이 다르면 관찰은 대화 속에서 사라진다.
+이 기준은 발행 전에 통과해야 하는 인가 검사가 아니다 — 공개 표면을 지키는 것은 발행자가 누구인지가 아니라 본문마다 돌리는 public-safe 검사다.
+그래서 발행자를 확인할 수 없어도 발행을 막지 않되, 담당자는 비워 두고 누구의 요청이었는지를 보고에 남긴다.
 
 발행권을 넓히는 대신 아래 세 가지는 넓히지 않는다.
 
-- 담당자는 0명 또는 1명이며, 남을 담당자로 지정하려면 그 사람의 동의가 있어야 한다. 스스로를 지정하는 것은 언제나 가능하다.
+- 담당자는 0명 또는 1명이며, 남을 담당자로 지정하려면 그 사람이 동의했다는 사실을 사용자가 이 대화에서 알려주어야 한다. 에이전트가 대신 동의를 구하지 않고, 근거가 없으면 담당자를 비운다. 스스로를 지정하는 것은 언제나 가능하다.
 - 남이 만든 티켓의 본문 교체, 행 삭제, Issue 종료는 그 티켓의 작성자나 담당자만 한다. 다른 사람은 코멘트로 제안한다.
 - `완료 여부`는 사람이 배포 환경에서 완료 조건을 전부 확인한 뒤에만 체크한다. 에이전트는 체크하지 않는다.
 
@@ -128,9 +130,8 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 속성은 색인과 배정을 위한 것이고 페이지 본문이 실행 계약이다.
 사용자가 손으로 고친 참조 티켓을 지목하면 초안을 쓰기 전에 그 티켓을 다시 열어 섹션 순서, 문장 밀도, 어휘를 맞춘다.
 
-모든 본문은 첫 heading 앞에 2~3줄의 여는 말로 시작한다.
-이 화면에서 읽는 사람이 이미 겪고 있을 불편을 짚고, 이 티켓이 그중 무엇을 바꾸는지 말하고, 증거가 어디에 있는지 가리킨다.
-어느 티켓에 붙여도 말이 되는 인사는 여는 말이 아니라 잉여다.
+모든 본문은 첫 heading 앞에 여는 말로 시작한다 — 읽는 사람이 이 화면에서 이미 겪고 있는 불편에서 출발하지 않으면 티켓은 남의 일이 된다.
+문장 규칙은 [notion-ticket-contract.md](references/notion-ticket-contract.md)의 `여는 말`이 원본이다.
 
 **기능 결함**이면 재현 중심 본문을 쓴다.
 관찰한 동작만 절차로 쓰고 추정한 구현에서 절차를 역산하지 않는다.
@@ -146,9 +147,8 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 후보마다 빌려올 점, 가져오지 않을 점, OSS Hub 경계를 적고, 승인은 하위 흐름별로 받는다.
 승인 뒤에는 그 조합을 고정하고 탐색을 멈추며, 반려된 후보는 티켓에서 지운다.
 
-`frontend` 티켓은 캡처보다 selector가 먼저다.
-브라우저에서 대상 요소를 지목해 selector와 DOM path를 확정한 뒤 그 요소만 잘라 찍고, selector·DOM path·전체 URL·확인 시각을 이미지 옆에 남긴다.
-화면 전체를 찍고 캡션으로 위치를 설명하는 방식은 이 계약을 만족하지 않으며, selector를 확정하지 못하면 캡처를 보류하고 `확인 필요`로 표시한다.
+`frontend` 티켓은 캡처보다 selector가 먼저다 — 화면 전체를 찍고 캡션으로 위치를 설명하면 읽는 사람이 무엇을 봐야 하는지 매번 다시 찾아야 한다.
+절차는 [notion-ticket-contract.md](references/notion-ticket-contract.md)의 `frontend 캡처 절차`가 원본이다.
 
 두 변형 모두 완료 조건은 지목된 페르소나가 관찰할 수 있는 형태로 쓰고, 가장 좁은 비목표를 명시한다.
 
@@ -262,7 +262,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 수행(3단계)에 해당하는 항목:
 
-- [ ] 세 계약 섹션을 읽었고 선행 의존성을 확인했다.
+- [ ] 세 계약 섹션을 읽었고, 선행 의존성이 미충족이거나 순환이면 착수하지 않고 보고했다.
 - [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
