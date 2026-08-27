@@ -1,0 +1,1 @@
+../../skills/manage-qa-tickets/agents/qa-code-anchor.md

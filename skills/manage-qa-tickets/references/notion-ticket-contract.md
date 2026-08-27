@@ -28,6 +28,14 @@ When the user reviews UI references, keep only the approved pattern for each sub
 Do not combine both bodies mechanically.
 Keep only the reproduction detail needed to understand and verify the named problem.
 
+## 여는 말
+
+본문은 첫 heading 앞에 2~3줄의 여는 말로 시작한다.
+읽는 사람이 이 화면에서 이미 겪고 있을 불편을 먼저 짚고, 이 티켓이 그중 무엇을 바꾸는지 말하고, 증거가 어디에 있는지 가리킨다.
+어느 티켓에 붙여도 말이 되는 인사는 여는 말이 아니라 잉여다.
+아직 하지 않은 일에 대한 칭찬도 넣지 않는다.
+길이는 3줄을 넘기지 않으며, 넘칠 내용은 `문제`로 내린다.
+
 ## 영역별 증거
 
 `영역`은 티켓이 어떤 증거를 갖춰야 하는지를 결정하며 하나만 고른다.
@@ -54,6 +62,8 @@ selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 
 ## Functional defect body
 
 ```text
+<이 티켓을 집을 사람에게 건네는 2~3줄 — 지금 이 화면에서 겪고 있을 불편, 이 티켓이 바꾸는 것, 증거가 어디에 있는지>
+
 > 한 화면 또는 한 산출물 위치·한 논리 변경만 다룹니다.
 > 실데이터·개인정보가 보이는 캡처는 첨부하지 않습니다.
 
@@ -89,6 +99,8 @@ selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 
 ## UX or design improvement body
 
 ```text
+<이 티켓을 집을 사람에게 건네는 2~3줄 — 지금 이 화면에서 겪고 있을 불편, 이 티켓이 바꾸는 것, 증거가 어디에 있는지>
+
 ## 문제
 - 영역: <frontend | backend | infra>
 - 페르소나: <교직원 | 학생 | 관리자>

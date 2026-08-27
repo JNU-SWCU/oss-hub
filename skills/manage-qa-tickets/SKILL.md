@@ -1,8 +1,8 @@
 ---
 name: "manage-qa-tickets"
-description: "Creates, deduplicates, rewrites, migrates, verifies, or publishes executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, declaring whether a ticket is frontend, backend, or infra work, capturing a frontend screen by DOM selector instead of a whole-page shot, pairing every reference UI with its own capture, turning a UX improvement into a human-readable ticket, matching a user-edited reference ticket, assigning one owner, calculating a 1/3/5-business-day deadline, rewriting a public-safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA, designing the screen itself, or fixing product code."
+description: "Creates, deduplicates, rewrites, migrates, verifies, or publishes executable OSS Hub QA tickets from the Notion QA request database. Use for QA ticket intake, declaring whether a ticket is frontend, backend, or infra work, capturing a frontend screen by DOM selector instead of a whole-page shot, pairing every reference UI with its own capture, opening a ticket with a short warm note to whoever picks it up, turning a UX improvement into a human-readable ticket, matching a user-edited reference ticket, assigning one owner, calculating a 1/3/5-business-day deadline, rewriting a public-safe GitHub work ticket, or restructuring legacy QA rows. Not for running release QA, designing the screen itself, or fixing product code."
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Manage QA tickets
@@ -84,11 +84,22 @@ If the impact does not support a tier, ask instead of guessing.
 For an explicitly approved legacy backfill, map recorded security or personal-data categories to 1 day, functional or infrastructure categories to 3 days, and UX or design-only categories to 5 days.
 Use the approved default of 3 days for legacy rows whose category is blank and record that assumption in the migration report.
 
+## 4.5 Collect evidence in parallel lanes
+
+Capture, code anchors, and deduplication feed the body but never feed each other, so run them as concurrent read-only subagent lanes instead of in sequence.
+Run exactly one browser lane — a second one fights it for the same tab.
+Hand each lane a settled target rather than a judgment call, take its report as a claim, and keep only what arrives with a checkable path, `file:line`, or row id.
+The lane split, the capture procedure, the [`qa-dom-capture`](agents/qa-dom-capture.md) and [`qa-code-anchor`](agents/qa-code-anchor.md) agents, and what to do with a lane's report live in [evidence-pipeline.md](references/evidence-pipeline.md).
+
 ## 5. Draft the body for the ticket type
 
 Use the applicable body variant from [notion-ticket-contract.md](references/notion-ticket-contract.md).
 Keep the Notion properties as index and assignment metadata and the page body as the execution contract.
 When the user names a manually edited reference ticket, reopen it before drafting and match its section order, sentence density, and vocabulary without copying topic-specific content.
+
+Open every body with a two-to-three-line note to the person who will pick the ticket up, placed above the first heading.
+Name the friction they already feel on this screen, say what this ticket changes for them, and point at where the evidence sits.
+Keep it warm and specific to this screen — a greeting that would fit any ticket is filler, and so is praise the reader has not earned yet.
 
 ### Functional defect or regression
 
@@ -125,6 +136,9 @@ The same rule governs both the current-screen capture and every reference captur
 For both variants, make completion conditions observable from the named persona and state the narrowest explicit non-goal.
 
 ## 6. Review before writing
+
+Hand the finished draft to [`qa-fact-checker`](agents/qa-fact-checker.md) before writing to Notion, and never let the lane that drafted a claim be the one that clears it.
+Fix every `REFUTED` claim before publishing and carry every `UNVERIFIED` one into the body as `확인 필요`.
 
 Check that the title, work type, personas, deadline tier, applicable body facts, minimum requirements, completion conditions, and forbidden scope agree.
 For a functional defect, verify the reproduction, actual result, and expected result.
@@ -199,6 +213,9 @@ Report the final row count, exceptions, tier counts, persona counts, and deleted
 - Capturing the whole screen and naming the target in prose → settle the selector first and capture that element alone.
 - Listing a reference URL without its capture → the reader should judge the pattern inside the ticket, not by opening someone else's product.
 - Restating a catalogued reference's URL and boundary inside a ticket → link [ux-reference-catalog.md](references/ux-reference-catalog.md) and keep the ticket to this screen's application.
+- Running capture, anchor lookup, and dedup one after another → they share no input; launch them as concurrent lanes and reconcile the reports.
+- Taking a lane's summary as evidence → require the file path, `file:line`, or row id behind each claim.
+- Opening with a greeting that would fit any ticket → name this screen's friction and what changes for the reader.
 - Treating an image placeholder as saved evidence → reopen the page and verify the caption and rendered image at the document end.
 
 ## Completion checklist
@@ -207,7 +224,10 @@ Report the final row count, exceptions, tier counts, persona counts, and deleted
 - [ ] The functional or UX body variant was selected from evidence, and any user-edited reference ticket was reopened before drafting.
 - [ ] If references were reviewed, only the approved aspect-scoped recipe remains in the final ticket.
 - [ ] Duplicate QA rows were checked before creation.
+- [ ] Every lane claim carried a checkable artifact, and anything without one is `확인 필요`.
+- [ ] A separate fact-check pass cleared the draft, and no `REFUTED` claim remains.
 - [ ] One screen or one output location and one logical change are covered.
+- [ ] The body opens with a two-to-three-line note naming this screen's friction and what the ticket changes.
 - [ ] Exactly one area is declared and the per-area minimum evidence is present.
 - [ ] Every `frontend` capture is element-scoped and carries its selector, DOM path, URL, and observation time.
 - [ ] Every reference UI carries a capture, and no third-party capture left Notion for a public surface.
