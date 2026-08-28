@@ -95,7 +95,7 @@ test('종료된 프로그램 카드를 클릭하면 상세 페이지가 정상 �
           viewerDocumentsCompleted: null,
           viewerDocumentsTotal: null,
           fullySubmittedParticipantCount: 0,
-          nextMilestone: null,
+          remainingMilestones: [],
           milestoneDocuments: [],
         },
       });
