@@ -20,7 +20,7 @@
 | --- | --- |
 | `package.json` | 스크립트(dev/build/lint/typecheck/test)·의존성 원본 |
 | `next.config.ts` / `next.config.test.ts` | Next.js 빌드·테스트 설정 |
-| `vitest.config.ts` | 단위테스트 러너 설정 |
+| `vitest.config.mts` | 단위테스트 러너 설정(ESM) |
 | `eslint.config.mjs` | feature 경계·단일 API 클라이언트 lint(아래 For AI Agents) |
 | `components.json` | shadcn CLI 설정(`radix-nova` 스타일) |
 | `postcss.config.mjs` | Tailwind v4 PostCSS 파이프라인 |
