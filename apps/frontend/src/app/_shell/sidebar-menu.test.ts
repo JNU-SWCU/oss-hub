@@ -128,11 +128,21 @@ describe('sidebarGroupsFor (context)', () => {
     ).toEqual([
       { label: '사용자 목록', href: '/admin/access' },
       { label: '감사 로그', href: '/admin/audit-log' },
-      { label: '시스템 상태', href: '/admin/system-status' },
+      { label: '시스템 상태', href: '/dashboard/system-status' },
     ]);
     expect(
       groups.flatMap((group) => group.items.map((item) => item.href)),
     ).not.toContain('/staff/dashboard');
+  });
+
+  it('관리자 시스템 상태 메뉴는 pulse 아이콘을 사용한다', () => {
+    // Given: 교직원·관리자 권한을 함께 가진 회원.
+    // When: 대시보드 그룹에서 시스템 상태 메뉴를 찾는다.
+    const systemStatusItem = sidebarGroupsFor('dashboard', STAFF_ADMIN)
+      .flatMap((group) => group.items)
+      .find((item) => item.href === '/dashboard/system-status');
+    // Then: 시스템 상태를 나타내는 pulse 아이콘을 사용한다.
+    expect(systemStatusItem?.icon).toBe('pulse');
   });
 
   it.each([
@@ -145,7 +155,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/activity',
         '/admin/access',
         '/admin/audit-log',
-        '/admin/system-status',
+        '/dashboard/system-status',
       ],
     ],
     [
@@ -157,13 +167,13 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/applicants',
         '/admin/access',
         '/admin/audit-log',
-        '/admin/system-status',
+        '/dashboard/system-status',
       ],
     ],
     [
       'admin-only',
       { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
-      ['/admin/access', '/admin/audit-log', '/admin/system-status'],
+      ['/admin/access', '/admin/audit-log', '/dashboard/system-status'],
     ],
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
     '%s surface를 권한 함축 없이 합집합으로 보인다',
