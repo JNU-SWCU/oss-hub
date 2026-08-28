@@ -48,9 +48,9 @@ PR에서 실행되는 워크플로와 high-risk 후보 경로를 설정한다.
 - 실제 checkout·build·migration·smoke·rollback은 Jenkins와 `docs/deploy/` 계약이 담당한다.
 - 병합 가능 여부는 `ci`·`public-safe` required check의 실제 통과 여부로만 판정한다 — 댓글로 선언하는 별도 상태는 두지 않는다(ADR-005 2026-08-04 변경).
 - required check 이름과 신뢰 경계를 임의로 바꾸지 않는다.
-- `ISSUE_TEMPLATE/work-ticket.md`로 만든 Issue를 "oss-hub 티켓 #<번호> 진행해줘" 형태로 지시받으면 `.claude/skills/tickets/SKILL.md`를 따른다.
+- `ISSUE_TEMPLATE/work-ticket.md`로 만든 Issue를 "oss-hub 티켓 #<번호> 진행해줘" 형태로 지시받으면 `skills/tickets/SKILL.md`를 따른다.
   이 템플릿은 화면 1개 단위 기능 명세만 담고, 공통 규칙은 재서술하지 않는다.
-  발행·할당 주체 표기는 운영 관례이며 템플릿 자체가 GitHub 권한을 강제하지 않는다.
+  티켓 발행은 팀원 누구나 하고 담당자는 0명 또는 1명이며, 이 관례는 운영 규칙이지 템플릿이 강제하는 GitHub 권한이 아니다.
 
 ## Dependencies
 

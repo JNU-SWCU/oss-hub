@@ -1,0 +1,1 @@
+../../skills/tickets/agents/qa-dom-capture.md
