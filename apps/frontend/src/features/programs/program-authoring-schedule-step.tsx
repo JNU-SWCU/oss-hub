@@ -1,127 +1,98 @@
+'use client';
+
+import { CalendarPlus2 } from 'lucide-react';
+import { useState } from 'react';
 import { FormSection } from '@/components/form-section';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Button } from '@/components/ui/button';
+import { ProgramScheduleRangeEditor } from './program-schedule-range-editor';
 import {
-  messageFor,
-  ProgramAuthoringDatePair,
-  ProgramAuthoringTextField,
-} from './program-authoring-fields';
+  ProgramAuthoringMilestoneDetails,
+  ProgramAuthoringTeamSizeFields,
+} from './program-authoring-schedule-fields';
 import type {
   ProgramAuthoringAction,
   ProgramAuthoringState,
 } from './program-authoring-model';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
+import {
+  authoringScheduleRanges,
+  issueScheduleRangeId,
+} from './program-authoring-schedule-ranges';
 
 type ScheduleStepProps = {
   readonly state: ProgramAuthoringState;
   readonly issues: readonly ProgramAuthoringIssue[];
   readonly dispatch: (action: ProgramAuthoringAction) => void;
+  readonly newId: () => string;
+  readonly onMilestoneRemove: (milestoneId: string) => void;
 };
 
 export function ProgramAuthoringScheduleStep({
   state,
   issues,
   dispatch,
+  newId,
+  onMilestoneRemove,
 }: ScheduleStepProps) {
+  const [activeId, setActiveId] = useState('application');
+  const issueActiveId = issueScheduleRangeId(issues);
+  const visibleActiveId = issueActiveId ?? activeId;
+  const ranges = authoringScheduleRanges(state, issues, dispatch);
+  const activeMilestone = state.milestones.find(
+    (milestone) => milestone.id === visibleActiveId,
+  );
+
+  function addMilestone() {
+    const milestoneId = newId();
+    dispatch({ type: 'add_milestone', milestoneId });
+    setActiveId(milestoneId);
+  }
+
+  function removeMilestone(milestoneId: string) {
+    setActiveId('application');
+    onMilestoneRemove(milestoneId);
+  }
+
   return (
     <FormSection
       title="신청/운영 일정"
-      description="모든 시각은 Asia/Seoul 기준입니다. 신청 종료와 운영 시작은 같아도 됩니다."
+      description="같은 달력에서 신청, 운영, 마일스톤 기간을 비교하며 정합니다. 모든 시각은 Asia/Seoul 기준입니다."
     >
-      <ProgramAuthoringDatePair
-        legend="신청 일정"
-        first={{
-          id: 'application-start',
-          label: '신청 시작 *',
-          value: state.applicationStartAt,
-          error: messageFor(issues, 'applicationStartAt'),
-          onChange: (value) =>
-            dispatch({
-              type: 'set_program_field',
-              field: 'applicationStartAt',
-              value,
-            }),
-        }}
-        second={{
-          id: 'application-end',
-          label: '신청 종료 *',
-          value: state.applicationEndAt,
-          min: state.applicationStartAt || undefined,
-          error: messageFor(issues, 'applicationEndAt'),
-          onChange: (value) =>
-            dispatch({
-              type: 'set_program_field',
-              field: 'applicationEndAt',
-              value,
-            }),
-        }}
+      <ProgramScheduleRangeEditor
+        ranges={ranges}
+        activeId={visibleActiveId}
+        onActiveIdChange={setActiveId}
+        headerAction={
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 justify-self-end"
+            disabled={state.milestones.length >= 50}
+            onClick={addMilestone}
+          >
+            <CalendarPlus2 aria-hidden="true" />
+            마일스톤 추가
+          </Button>
+        }
+        activeExtra={
+          activeMilestone ? (
+            <ProgramAuthoringMilestoneDetails
+              milestoneId={activeMilestone.id}
+              name={activeMilestone.name}
+              index={state.milestones.indexOf(activeMilestone)}
+              issues={issues}
+              dispatch={dispatch}
+              canRemove={state.milestones.length > 1}
+              onRemove={removeMilestone}
+            />
+          ) : null
+        }
       />
-      <ProgramAuthoringDatePair
-        legend="운영 일정"
-        first={{
-          id: 'operation-start',
-          label: '운영 시작 *',
-          value: state.operationStartAt,
-          min: state.applicationEndAt || undefined,
-          error: messageFor(issues, 'operationStartAt'),
-          onChange: (value) =>
-            dispatch({
-              type: 'set_program_field',
-              field: 'operationStartAt',
-              value,
-            }),
-        }}
-        second={{
-          id: 'operation-end',
-          label: '운영 종료 *',
-          value: state.operationEndAt,
-          min: state.operationStartAt || undefined,
-          error: messageFor(issues, 'operationEndAt'),
-          onChange: (value) =>
-            dispatch({
-              type: 'set_program_field',
-              field: 'operationEndAt',
-              value,
-            }),
-        }}
+      <ProgramAuthoringTeamSizeFields
+        state={state}
+        issues={issues}
+        dispatch={dispatch}
       />
-      <Field>
-        <FieldLabel>팀 인원 *</FieldLabel>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ProgramAuthoringTextField
-            id="team-minimum"
-            label="최소"
-            type="number"
-            min="1"
-            max="100"
-            value={state.teamMinSize}
-            error={messageFor(issues, 'teamMinSize')}
-            onChange={(value) =>
-              dispatch({
-                type: 'set_program_field',
-                field: 'teamMinSize',
-                value,
-              })
-            }
-          />
-          <ProgramAuthoringTextField
-            id="team-maximum"
-            label="최대"
-            type="number"
-            min={state.teamMinSize || '1'}
-            max="100"
-            value={state.teamMaxSize}
-            error={messageFor(issues, 'teamMaxSize')}
-            onChange={(value) =>
-              dispatch({
-                type: 'set_program_field',
-                field: 'teamMaxSize',
-                value,
-              })
-            }
-          />
-        </div>
-        <FieldDescription>기본값은 1명부터 1명입니다.</FieldDescription>
-      </Field>
     </FormSection>
   );
 }

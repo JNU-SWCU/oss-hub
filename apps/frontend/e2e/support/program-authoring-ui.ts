@@ -18,6 +18,23 @@ export async function resetProgramAuthoringControl(page: Page): Promise<void> {
   );
 }
 
+export async function selectScheduleRange(
+  page: Page,
+  input: {
+    readonly rangeButtonName: RegExp;
+    readonly rangeLabel: string;
+    readonly startAt: string;
+    readonly endAt: string;
+  },
+): Promise<void> {
+  await page.getByRole('button', { name: input.rangeButtonName }).click();
+  const calendar = page.getByLabel(`${input.rangeLabel} 날짜 선택 달력`);
+  await selectCalendarDate(calendar, input.startAt.slice(0, 10));
+  await selectCalendarDate(calendar, input.endAt.slice(0, 10));
+  await page.getByLabel('시작 시각').fill(input.startAt.slice(11, 16));
+  await page.getByLabel('마감 시각').fill(input.endAt.slice(11, 16));
+}
+
 export async function fixtureProgramId(page: Page): Promise<string> {
   const response = await page.request.get(
     `${PROGRAM_AUTHORING_CONTROL_PATH}/fixture`,
@@ -139,4 +156,21 @@ function identifier(record: Record<string, unknown>, key: string): string {
     throw new Error(`E2E graph field ${key} must be a non-empty string.`);
   }
   return value;
+}
+
+async function selectCalendarDate(
+  calendar: ReturnType<Page['getByLabel']>,
+  date: string,
+): Promise<void> {
+  const target = calendar.locator(`[data-calendar-date="${date}"]`);
+  for (let month = 0; month < 24; month += 1) {
+    if ((await target.count()) > 0) {
+      await target.click();
+      return;
+    }
+    const next = calendar.getByRole('button', { name: '다음 달' });
+    await expect(next).toBeEnabled();
+    await next.click();
+  }
+  throw new Error(`Calendar did not reach ${date}.`);
 }

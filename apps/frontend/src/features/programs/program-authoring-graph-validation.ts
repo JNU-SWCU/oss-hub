@@ -2,6 +2,7 @@ import type {
   ProgramAuthoringMilestone,
   ProgramAuthoringRequirement,
   ProgramAuthoringState,
+  ProgramAuthoringStep,
 } from './program-authoring-model';
 import {
   dateValue,
@@ -16,22 +17,19 @@ const MAX_REQUIREMENTS = 100;
 
 export function validateMilestones(
   state: ProgramAuthoringState,
+  step: ProgramAuthoringStep = 'milestones',
 ): readonly ProgramAuthoringIssue[] {
   const issues: ProgramAuthoringIssue[] = [];
   if (state.milestones.length === 0)
     issues.push(
-      issue('milestones', 'milestones', '마일스톤을 1개 이상 추가해 주세요.'),
+      issue('milestones', step, '마일스톤을 1개 이상 추가해 주세요.'),
     );
   if (state.milestones.length > MAX_MILESTONES)
     issues.push(
-      issue(
-        'milestones',
-        'milestones',
-        '마일스톤은 최대 50개까지 추가할 수 있습니다.',
-      ),
+      issue('milestones', step, '마일스톤은 최대 50개까지 추가할 수 있습니다.'),
     );
   for (const milestone of state.milestones) {
-    validateMilestone(state, milestone, issues);
+    validateMilestone(state, milestone, issues, step);
   }
   return issues;
 }
@@ -40,6 +38,7 @@ function validateMilestone(
   state: ProgramAuthoringState,
   milestone: ProgramAuthoringMilestone,
   issues: ProgramAuthoringIssue[],
+  step: ProgramAuthoringStep,
 ): void {
   const prefix = `milestones.${milestone.id}`;
   required(
@@ -47,7 +46,7 @@ function validateMilestone(
     milestone.name,
     `${prefix}.name`,
     '마일스톤명을 입력해 주세요.',
-    'milestones',
+    step,
   );
   const operationStart = dateValue(state.operationStartAt);
   const operationEnd = dateValue(state.operationEndAt);
@@ -57,7 +56,7 @@ function validateMilestone(
     issues.push(
       issue(
         `${prefix}.startAt`,
-        'milestones',
+        step,
         '시작은 프로그램 운영 시작 이후여야 합니다.',
       ),
     );
@@ -69,7 +68,7 @@ function validateMilestone(
     issues.push(
       issue(
         `${prefix}.dueAt`,
-        'milestones',
+        step,
         '마감은 시작보다 늦고 운영 종료보다 빨라야 합니다.',
       ),
     );
@@ -82,12 +81,21 @@ export function validateRequirements(
   let total = 0;
   for (const milestone of state.milestones) {
     total += milestone.requirements.length;
+    if (milestone.requirements.length === 0) {
+      issues.push(
+        issue(
+          `requirements.${milestone.id}`,
+          'milestones',
+          '마일스톤에는 제출 항목이 하나 이상 필요합니다.',
+        ),
+      );
+    }
     if (milestone.requirements.length > MAX_REQUIREMENTS_PER_MILESTONE) {
       issues.push(
         issue(
           `requirements.${milestone.id}`,
           'milestones',
-          '마일스톤마다 요구서류는 최대 20개입니다.',
+          '마일스톤마다 제출 항목은 최대 20개입니다.',
         ),
       );
     }
@@ -97,7 +105,7 @@ export function validateRequirements(
   }
   if (total > MAX_REQUIREMENTS)
     issues.push(
-      issue('requirements', 'milestones', '전체 요구서류는 최대 100개입니다.'),
+      issue('requirements', 'milestones', '전체 제출 항목은 최대 100개입니다.'),
     );
   return issues;
 }
@@ -111,21 +119,9 @@ function validateRequirement(
     issues,
     requirement.name,
     `${prefix}.name`,
-    '요구서류명을 입력해 주세요.',
+    '제출 항목 이름을 입력해 주세요.',
     'milestones',
   );
-  if (
-    requirement.submissionType === 'TEXT' &&
-    requirement.templateFile !== null
-  ) {
-    issues.push(
-      issue(
-        `${prefix}.templateFile`,
-        'milestones',
-        '텍스트 제출에는 양식을 첨부할 수 없습니다.',
-      ),
-    );
-  }
   if (requirement.templateFile?.requiresReselection === true) {
     issues.push(
       issue(`${prefix}.templateFile`, 'milestones', '파일 재선택 필요'),

@@ -6,7 +6,6 @@ import {
   type ProgramMilestoneField,
 } from './program-edit-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
-import type { SubmissionType } from './types';
 
 export type ProgramEditLoadState =
   | { readonly kind: 'loading' }
@@ -55,7 +54,7 @@ export function updateMilestoneEditor(
     errors: {},
     form: {
       ...editor.form,
-      [field]: field === 'submissionType' ? toSubmissionType(value) : value,
+      [field]: value,
     },
   };
 }
@@ -125,15 +124,4 @@ function toCategory(
     (item) => item.category === value,
   );
   return match?.category ?? fallback;
-}
-
-function toSubmissionType(value: string): SubmissionType {
-  switch (value) {
-    case 'FILE':
-      return 'FILE';
-    case 'TEXT':
-      return 'TEXT';
-    default:
-      return 'TEXT';
-  }
 }

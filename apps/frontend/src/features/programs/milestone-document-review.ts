@@ -2,7 +2,10 @@ import type {
   MilestoneDocumentSubmissionStatus,
   MilestoneDocumentViewerSubmission,
 } from './milestone-document-api';
-import type { MilestoneDocumentCollectionCell } from './milestone-document-collection-api';
+import type {
+  MilestoneDocumentCollectionCell,
+  MilestoneDocumentCollectionHistory,
+} from './milestone-document-collection-api';
 import {
   MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
   type MilestoneDocumentReviewDecision,
@@ -25,11 +28,17 @@ import {
  * 「제출됨」으로 보는 교직원이 서로 다른 사실을 말하게 된다.
  */
 export type MilestoneDocumentReviewDisplay =
-  'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+  | 'NOT_SUBMITTED'
+  | 'PENDING'
+  | 'REPENDING'
+  | 'APPROVED'
+  | 'CHANGES_REQUESTED'
+  | 'REJECTED';
 
 export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS = {
   NOT_SUBMITTED: '미제출',
   PENDING: '검토 대기',
+  REPENDING: '재검토 대기',
   APPROVED: '승인',
   CHANGES_REQUESTED: '보완 요청',
   REJECTED: '반려',
@@ -46,6 +55,7 @@ export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS = {
 export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS = {
   NOT_SUBMITTED: 'closed',
   PENDING: 'recruiting',
+  REPENDING: 'recruiting',
   APPROVED: 'approved',
   CHANGES_REQUESTED: 'pending',
   REJECTED: 'rejected',
@@ -71,8 +81,14 @@ export const MILESTONE_DOCUMENT_REVIEW_DECISION_ORDER: readonly MilestoneDocumen
  */
 function submittedDisplay(
   status: MilestoneDocumentSubmissionStatus | null,
+  revision: number | null | undefined,
 ): MilestoneDocumentReviewDisplay {
-  if (status === null || status === 'SUBMITTED') return 'PENDING';
+  if (status === null) return 'PENDING';
+  if (status === 'SUBMITTED') {
+    return revision !== null && revision !== undefined && revision > 1
+      ? 'REPENDING'
+      : 'PENDING';
+  }
   return status;
 }
 
@@ -86,10 +102,12 @@ function submittedDisplay(
  * `review`는 패널에서 「지난 검토」를 보여 주는 데만 쓴다.
  */
 export function milestoneDocumentCellDisplay(
-  cell: Pick<MilestoneDocumentCollectionCell, 'isSubmitted' | 'status'>,
+  cell: Pick<MilestoneDocumentCollectionCell, 'isSubmitted' | 'status'> & {
+    readonly revision?: number | null;
+  },
 ): MilestoneDocumentReviewDisplay {
   if (!cell.isSubmitted) return 'NOT_SUBMITTED';
-  return submittedDisplay(cell.status);
+  return submittedDisplay(cell.status, cell.revision);
 }
 
 /**
@@ -102,7 +120,7 @@ export function milestoneDocumentViewerDisplay(
   if (viewerSubmission === undefined || !viewerSubmission.submitted) {
     return 'NOT_SUBMITTED';
   }
-  return submittedDisplay(viewerSubmission.status);
+  return submittedDisplay(viewerSubmission.status, viewerSubmission.revision);
 }
 
 /**
@@ -315,6 +333,10 @@ export interface MilestoneDocumentReviewFormState {
   readonly comment: string;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
+  readonly history: readonly MilestoneDocumentCollectionHistory[];
+  readonly historyNextCursor: string | null;
+  readonly isHistoryLoading: boolean;
+  readonly historyError: string | null;
 }
 
 export function createMilestoneDocumentReviewFormState(
@@ -328,6 +350,10 @@ export function createMilestoneDocumentReviewFormState(
     comment: '',
     isSubmitting: false,
     errorMessage: null,
+    history: [],
+    historyNextCursor: null,
+    isHistoryLoading: true,
+    historyError: null,
   };
 }
 

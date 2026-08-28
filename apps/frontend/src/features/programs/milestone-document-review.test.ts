@@ -86,7 +86,7 @@ describe('milestoneDocumentCellDisplay', () => {
    * 칸을 **통째로** 넘긴다 — 판정이 실제로 손에 있는데도 무시하는지를 물어야 하기
    * 때문이다. 상태만 넘겨서는 그 함수가 판정을 안 본다는 것을 확인할 수 없다.
    */
-  it('다시 낸 칸은 지난 보완 요청이 남아 있어도 검토 대기다', () => {
+  it('다시 낸 칸은 지난 보완 요청이 남아 있어도 재검토 대기다', () => {
     const resubmitted: MilestoneDocumentCollectionCell = {
       documentId: 'd1',
       isSubmitted: true,
@@ -103,7 +103,7 @@ describe('milestoneDocumentCellDisplay', () => {
       },
     };
 
-    expect(milestoneDocumentCellDisplay(resubmitted)).toBe('PENDING');
+    expect(milestoneDocumentCellDisplay(resubmitted)).toBe('REPENDING');
   });
 });
 
@@ -127,6 +127,17 @@ describe('milestoneDocumentViewerDisplay', () => {
     ).toBe('PENDING');
   });
 
+  it('두 번째 이상 제출본은 재검토 대기로 분명히 말한다', () => {
+    expect(
+      milestoneDocumentViewerDisplay(
+        viewer({ status: 'SUBMITTED', revision: 2 }),
+      ),
+    ).toBe('REPENDING');
+    expect(MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS.REPENDING).toBe(
+      '재검토 대기',
+    );
+  });
+
   it('판정 상태는 그대로 말한다', () => {
     const statuses: readonly MilestoneDocumentSubmissionStatus[] = [
       'APPROVED',
@@ -140,10 +151,11 @@ describe('milestoneDocumentViewerDisplay', () => {
 });
 
 describe('배지 표', () => {
-  it('다섯 갈래에 다섯 라벨이 붙는다', () => {
+  it('첫 검토 대기와 재검토 대기를 다른 말로 구분한다', () => {
     expect(MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS).toEqual({
       NOT_SUBMITTED: '미제출',
       PENDING: '검토 대기',
+      REPENDING: '재검토 대기',
       APPROVED: '승인',
       CHANGES_REQUESTED: '보완 요청',
       REJECTED: '반려',
@@ -501,6 +513,10 @@ describe('nextMilestoneDocumentReviewState', () => {
       comment: '',
       isSubmitting: false,
       errorMessage: null,
+      history: [],
+      historyNextCursor: null,
+      isHistoryLoading: true,
+      historyError: null,
     });
   });
 

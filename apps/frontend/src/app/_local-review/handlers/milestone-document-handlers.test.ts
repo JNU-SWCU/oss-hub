@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { MilestoneDocument } from '@/features/programs/milestone-document-api';
-import type { MilestoneDocumentCollection } from '@/features/programs/milestone-document-collection-api';
+import type {
+  MilestoneDocumentCollection,
+  MilestoneDocumentHistoryPage,
+} from '@/features/programs/milestone-document-collection-api';
 import type { LocalReviewFixtureId } from '../fixture-contract';
 import {
   isAuthenticatedFixture,
@@ -259,6 +262,27 @@ describe('GET .../documents/collection', () => {
     expect(fallback.page).toBe(1);
     expect(fallback.pageSize).toBe(20);
     expect(fallback.total).toBe(fallback.filterCounts.all);
+  });
+});
+
+describe('GET .../applications/:applicationId/history', () => {
+  const HISTORY_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/applications/synthetic-application-${MILESTONE_ID}-1/history`;
+
+  it('선택한 칸의 제출·판정 이력을 새 분리 계약으로 돌려준다', () => {
+    const body = jsonBody(
+      resolve('GET', HISTORY_PATH),
+    ) as MilestoneDocumentHistoryPage;
+
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items[0]).toMatchObject({ event: 'SUBMITTED', revision: 1 });
+    expect(body.nextCursor).toBeNull();
+  });
+
+  it('학생은 403 MSD_001로 막는다', () => {
+    const plan = resolve('GET', HISTORY_PATH, { fixture: 'student' });
+
+    expect(statusOf(plan)).toBe(403);
+    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_001' });
   });
 });
 

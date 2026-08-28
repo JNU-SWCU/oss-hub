@@ -28,6 +28,10 @@ export function createRequirementDraft(
 }
 
 export function createMilestoneDraft(id: string): ProgramAuthoringMilestone {
+  const defaultSubmission = {
+    ...createRequirementDraft(`${id}-submission`),
+    name: '제출 내용',
+  };
   return {
     id,
     name: '',
@@ -35,7 +39,7 @@ export function createMilestoneDraft(id: string): ProgramAuthoringMilestone {
     dueAt: '',
     submissionType: 'TEXT',
     instructions: '',
-    requirements: [],
+    requirements: [defaultSubmission],
   };
 }
 
@@ -119,7 +123,16 @@ export function programAuthoringReducer(
         ],
       }));
     case 'remove_requirement':
-      return mapRequirement(state, action, () => null);
+      return mapMilestone(state, action.milestoneId, (milestone) =>
+        milestone.requirements.length <= 1
+          ? milestone
+          : {
+              ...milestone,
+              requirements: milestone.requirements.filter(
+                (requirement) => requirement.id !== action.requirementId,
+              ),
+            },
+      );
     case 'set_requirement_name':
       return mapRequirement(state, action, (requirement) => ({
         ...requirement,

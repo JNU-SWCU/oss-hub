@@ -41,18 +41,17 @@ export function ProgramCreationPage() {
       milestoneId: newAuthoringId(),
     }),
   );
-  const [hydrated, setHydrated] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [issues, setIssues] = useState<readonly ProgramAuthoringIssue[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const filesRef = useRef(new Map<string, File>());
   const runtimeRef = useRef(createProgramSubmissionRuntime());
   const stepRegionRef = useRef<HTMLDivElement>(null);
 
-  const discard = () => {
-    clearProgramAuthoringState(window.sessionStorage);
+  const discardUnsavedFiles = () => {
     filesRef.current.clear();
     void Promise.allSettled(
       [...runtimeRef.current.uploads.values()].map((upload) =>
@@ -61,26 +60,39 @@ export function ProgramCreationPage() {
     );
     runtimeRef.current.uploads.clear();
   };
-  const { completeAndNavigate } = useProgramExitGuard(dirty, discard);
+  const { completeAndNavigate } = useProgramExitGuard(
+    dirty,
+    discardUnsavedFiles,
+  );
 
   useEffect(() => {
     const restored = loadProgramAuthoringState(window.sessionStorage);
     if (restored !== null) {
       dispatch({ type: 'restore_state', state: restored });
-      setDirty(true);
+      setDirty(false);
+      setSaveStatus('임시 저장한 작성본을 불러왔습니다.');
     }
-    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !dirty) return;
-    persistProgramAuthoringState(window.sessionStorage, state);
-  }, [dirty, hydrated, state]);
+    if (issues.length === 0) return;
+    const firstInvalidField =
+      stepRegionRef.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]',
+      ) ?? null;
+    if (firstInvalidField === null) {
+      stepRegionRef.current?.focus();
+      return;
+    }
+    firstInvalidField.focus({ preventScroll: true });
+    firstInvalidField.scrollIntoView?.({ block: 'center' });
+  }, [issues, state.currentStep]);
 
   const update = (action: ProgramAuthoringAction) => {
     setDirty(true);
     setIssues([]);
     setServerError(null);
+    setSaveStatus(null);
     dispatch(action);
   };
 
@@ -90,12 +102,25 @@ export function ProgramCreationPage() {
     window.requestAnimationFrame(() => stepRegionRef.current?.focus());
   };
 
-  const move = (direction: -1 | 1) => {
+  const targetStep = (direction: -1 | 1): ProgramAuthoringStep | undefined => {
     const index = PROGRAM_AUTHORING_STEPS.findIndex(
       (step) => step.id === state.currentStep,
     );
-    const target = PROGRAM_AUTHORING_STEPS[index + direction]?.id;
+    return PROGRAM_AUTHORING_STEPS[index + direction]?.id;
+  };
+
+  const move = (direction: -1 | 1) => {
+    const target = targetStep(direction);
     if (target !== undefined) navigate(target);
+  };
+
+  const saveDraft = (nextStep: ProgramAuthoringStep = state.currentStep) => {
+    const savedState = { ...state, currentStep: nextStep };
+    persistProgramAuthoringState(window.sessionStorage, savedState);
+    setDirty(false);
+    setSaveStatus(
+      '임시 저장했습니다. 이 브라우저에서 이어서 작성할 수 있습니다.',
+    );
   };
 
   const next = () => {
@@ -104,7 +129,10 @@ export function ProgramCreationPage() {
       setIssues(nextIssues);
       return;
     }
-    move(1);
+    const target = targetStep(1);
+    if (target === undefined) return;
+    saveDraft(target);
+    navigate(target);
   };
 
   const review = () => {
@@ -114,7 +142,6 @@ export function ProgramCreationPage() {
       const first = nextIssues[0];
       if (first !== undefined) {
         dispatch({ type: 'go_to_step', step: first.step });
-        window.requestAnimationFrame(() => stepRegionRef.current?.focus());
       }
       return;
     }
@@ -157,7 +184,9 @@ export function ProgramCreationPage() {
         return;
       case 'failure':
         setConfirmationOpen(false);
-        setServerError(result.message);
+        setServerError(
+          `${result.message} 입력은 그대로 유지했습니다. 내용을 확인한 뒤 다시 ‘프로그램 만들기’를 눌러 주세요.`,
+        );
         return;
       default:
         return assertNever(result);
@@ -183,8 +212,16 @@ export function ProgramCreationPage() {
         {issues.length > 0 ? (
           <Alert variant="destructive">
             <AlertTitle>입력 내용을 확인해 주세요</AlertTitle>
-            <AlertDescription>{issues[0]?.message}</AlertDescription>
+            <AlertDescription>
+              {issues[0]?.message} 표시된 입력란을 고친 뒤 ‘저장하고 계속’을
+              눌러 주세요.
+            </AlertDescription>
           </Alert>
+        ) : null}
+        {saveStatus ? (
+          <p role="status" className="text-small text-muted-foreground">
+            {saveStatus}
+          </p>
         ) : null}
         <ProgramAuthoringStepContent
           step={state.currentStep}
@@ -201,13 +238,16 @@ export function ProgramCreationPage() {
               이전
             </Button>
           ) : null}
+          <Button type="button" variant="outline" onClick={() => saveDraft()}>
+            임시 저장
+          </Button>
           {state.currentStep === 'review' ? (
             <Button type="button" onClick={review}>
               프로그램 만들기
             </Button>
           ) : (
             <Button type="button" onClick={next}>
-              다음
+              저장하고 계속
             </Button>
           )}
         </div>

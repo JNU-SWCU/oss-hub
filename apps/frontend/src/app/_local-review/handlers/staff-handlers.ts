@@ -347,11 +347,10 @@ const updateProgramHandler: LocalReviewHandler = (context) => {
   });
 };
 
-const SUBMISSION_TYPES: readonly SubmissionType[] = ['FILE', 'TEXT'];
-
 /**
  * 마일스톤 저장 응답. 화면은 이 결과를 목록에 그대로 끼워 넣으므로 입력한
- * 이름·마감·제출 형식을 되돌려 준다. 본문을 못 읽었을 때만 합성 기본값을 쓴다.
+ * 이름·마감을 되돌려 준다. 제출 형식은 새 요청에서 받지 않고
+ * 기존 행의 값만 유지한다. 본문을 못 읽었을 때만 합성 기본값을 쓴다.
  */
 function milestoneFrom(
   context: LocalReviewContext,
@@ -359,7 +358,7 @@ function milestoneFrom(
   fallback: {
     readonly name: string;
     readonly dueAt: string;
-    readonly submissionType: SubmissionType;
+    readonly submissionType: SubmissionType | null;
     readonly instructions: string | null;
   },
 ) {
@@ -369,9 +368,7 @@ function milestoneFrom(
     id,
     name: bodyString(context, 'name') ?? fallback.name,
     dueAt: bodyString(context, 'dueAt') ?? fallback.dueAt,
-    submissionType:
-      bodyEnum<SubmissionType>(context, 'submissionType', SUBMISSION_TYPES) ??
-      fallback.submissionType,
+    submissionType: fallback.submissionType,
     instructions:
       instructions === undefined ? fallback.instructions : instructions,
   };
@@ -389,7 +386,7 @@ const createMilestoneHandler: LocalReviewHandler = (context) => {
     milestoneFrom(context, `milestone-synthetic-${programId}`, {
       name: '합성 마일스톤',
       dueAt: '2026-12-24T14:59:59.000Z',
-      submissionType: 'TEXT',
+      submissionType: null,
       instructions:
         '[로컬 검토용] 방금 추가한 마일스톤 자리입니다. 입력값은 저장되지 않습니다.',
     }),
@@ -408,7 +405,7 @@ const updateMilestoneHandler: LocalReviewHandler = (context) => {
       findStaffMilestone(milestoneId) ?? {
         name: '합성 마일스톤',
         dueAt: '2026-12-24T14:59:59.000Z',
-        submissionType: 'TEXT',
+        submissionType: null,
         instructions:
           '[로컬 검토용] 합성 마일스톤입니다. 입력값은 저장되지 않습니다.',
       },

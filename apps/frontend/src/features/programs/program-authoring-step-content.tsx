@@ -37,28 +37,35 @@ export function ProgramAuthoringStepContent({
   newId,
 }: ProgramAuthoringStepContentProps) {
   const shared = { state, issues, dispatch };
+  const removeMilestone = (milestoneId: string) => {
+    const milestone = state.milestones.find(
+      (candidate) => candidate.id === milestoneId,
+    );
+    for (const requirement of milestone?.requirements ?? []) {
+      files.delete(requirement.id);
+      discardCachedUpload(runtime, requirement.id);
+    }
+    dispatch({ type: 'remove_milestone', milestoneId });
+  };
   switch (step) {
     case 'type':
       return <ProgramAuthoringTypeStep {...shared} />;
     case 'basic':
       return <ProgramAuthoringBasicStep {...shared} />;
     case 'schedule':
-      return <ProgramAuthoringScheduleStep {...shared} />;
+      return (
+        <ProgramAuthoringScheduleStep
+          {...shared}
+          newId={newId}
+          onMilestoneRemove={removeMilestone}
+        />
+      );
     case 'milestones':
       return (
         <ProgramAuthoringMilestoneStep
           {...shared}
           newId={newId}
-          onRemove={(milestoneId) => {
-            const milestone = state.milestones.find(
-              (candidate) => candidate.id === milestoneId,
-            );
-            for (const requirement of milestone?.requirements ?? []) {
-              files.delete(requirement.id);
-              discardCachedUpload(runtime, requirement.id);
-            }
-            dispatch({ type: 'remove_milestone', milestoneId });
-          }}
+          onRemove={removeMilestone}
           onRequirementFileChange={(milestoneId, requirementId, file) => {
             discardCachedUpload(runtime, requirementId);
             if (file === null) files.delete(requirementId);

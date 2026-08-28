@@ -75,6 +75,14 @@ const OUT_OF_SCOPE: ReadonlyMap<string, string> = new Map([
  */
 const KNOWN_GAPS: ReadonlyMap<string, string> = new Map();
 
+function isBackendControllerFile(name: string): boolean {
+  return (
+    name.endsWith('.controller.ts') &&
+    !name.includes('.spec.') &&
+    !name.startsWith('__lint_fixture_')
+  );
+}
+
 function collectControllerFiles(directory: string): readonly string[] {
   const found: string[] = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -83,10 +91,7 @@ function collectControllerFiles(directory: string): readonly string[] {
       found.push(...collectControllerFiles(full));
       continue;
     }
-    if (
-      entry.name.endsWith('.controller.ts') &&
-      !entry.name.includes('.spec.')
-    ) {
+    if (isBackendControllerFile(entry.name)) {
       found.push(full);
     }
   }
@@ -164,6 +169,14 @@ function probe(requestPath: string): readonly FixtureOutcome[] {
 
 describe('로컬 검토 픽스처의 GET 라우트 커버리지', () => {
   const routes = backendGetRoutes();
+
+  it('병렬 backend lint가 만든 임시 controller를 운영 라우트로 세지 않는다', () => {
+    expect(
+      isBackendControllerFile(
+        '__lint_fixture_green_controller_service.controller.ts',
+      ),
+    ).toBe(false);
+  });
 
   it('backend 컨트롤러를 실제로 읽어 낸다', () => {
     // 파싱이 조용히 0건이 되면 아래 단언이 전부 통과해 버린다 — 그 상태를 막는다.

@@ -115,15 +115,13 @@ export function ProgramAuthoringReviewStep({
               </p>
               <ul className="grid gap-2">
                 {milestone.requirements.length === 0 ? (
-                  <li>받을 항목 없음 (안내용)</li>
+                  <li>제출 없음 · 안내용</li>
                 ) : (
                   milestone.requirements.map((requirement) => (
                     <li key={requirement.id} className="flex flex-wrap gap-2">
                       <span className="font-semibold">{requirement.name}</span>
                       <span className="text-muted-foreground">
-                        {requirement.submissionType === 'FILE'
-                          ? '파일'
-                          : '텍스트'}
+                        내용이나 파일로 제출 가능
                         {requirement.required ? ' · 필수' : ' · 선택'}
                         {requirement.templateFile ? ' · 양식 있음' : ''}
                       </span>

@@ -8,12 +8,10 @@ import { ApiError } from '@/lib/api-client';
 import {
   getEditableProgram,
   purgeProgram,
+  type ProgramDeletionScopeCounts,
   type ProgramPurgeDeletedCounts,
 } from './api';
-import {
-  purgeScopeChangedCounts,
-  type ProgramDeleteBlockingCounts,
-} from './program-edit-delete-flow';
+import { purgeScopeChangedCounts } from './program-edit-delete-flow';
 import { ProgramEditPurgeConfirmation } from './program-edit-purge-confirmation';
 
 interface ProgramEditDangerZoneSectionProps {
@@ -43,6 +41,7 @@ const PURGE_COUNT_LABELS: Readonly<Record<string, string>> = {
   milestones: '마일스톤',
   milestoneDocuments: '마일스톤 서류',
   milestoneDocumentSubmissions: '서류 제출',
+  milestoneDocumentSubmissionHistories: '서류 제출 이력',
   milestoneDocumentReviewHistories: '서류 검토 이력',
   milestoneDocumentTemplateFiles: '서류 양식 파일',
   programAuthoringUploads: '프로그램 작성 업로드',
@@ -69,7 +68,7 @@ export function ProgramEditDangerZoneSection({
   const [confirmText, setConfirmText] = useState('');
   const [busy, setBusy] = useState(false);
   const [purgeCounts, setPurgeCounts] =
-    useState<ProgramDeleteBlockingCounts | null>(null);
+    useState<ProgramDeletionScopeCounts | null>(null);
   const [isPurgeScopeLoading, setIsPurgeScopeLoading] = useState(false);
   const [purgeScopeError, setPurgeScopeError] = useState<string | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
@@ -220,7 +219,10 @@ export function ProgramEditDangerZoneSection({
 
 function formatDeletedCounts(counts: ProgramPurgeDeletedCounts): string {
   const items = (Object.entries(counts) as [string, number][])
-    .filter(([, count]) => count > 0)
+    // `submissions`가 기존 제출과 서류 제출의 합계이므로 서류 제출을 다시 더해 보여 주지 않는다.
+    .filter(
+      ([key, count]) => count > 0 && key !== 'milestoneDocumentSubmissions',
+    )
     .map(([key, count]) => `${PURGE_COUNT_LABELS[key] ?? key} ${count}건`);
   return items.join(' · ') || '연결된 데이터가 없었습니다.';
 }

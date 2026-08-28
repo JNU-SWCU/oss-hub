@@ -129,4 +129,89 @@ describe('ProgramCreationPage guided authoring', () => {
 
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
   });
+
+  it('입력은 자동 저장하지 않고 사용자가 임시 저장을 눌렀을 때만 복구본을 만든다', async () => {
+    await act(async () => root.render(<ProgramCreationPage />));
+    await act(async () => buttonNamed('기본 정보').click());
+
+    const name = container.querySelector<HTMLInputElement>('#program-name');
+    if (name === null) throw new TypeError('Missing program name input.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(name, '사용자가 저장할 프로그램');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(sessionStorage.getItem(PROGRAM_AUTHORING_STORAGE_KEY)).toBeNull();
+
+    await act(async () => buttonNamed('임시 저장').click());
+
+    expect(
+      sessionStorage.getItem(PROGRAM_AUTHORING_STORAGE_KEY),
+    ).not.toBeNull();
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      '임시 저장했습니다',
+    );
+  });
+
+  it('일정 단계에서 잘못된 마일스톤 날짜를 막고 해당 입력으로 이동한다', async () => {
+    const completed = completedAuthoringState();
+    sessionStorage.setItem(
+      PROGRAM_AUTHORING_STORAGE_KEY,
+      serializeProgramAuthoringState({
+        ...completed,
+        currentStep: 'schedule',
+        milestones: [
+          {
+            ...completed.milestones[0],
+            dueAt: '2026-10-01T18:00',
+          },
+        ],
+      }),
+    );
+
+    await act(async () => {
+      root.render(<ProgramCreationPage />);
+      await Promise.resolve();
+    });
+    await act(async () => buttonNamed('저장하고 계속').click());
+
+    expect(container.textContent).toContain(
+      '마감은 시작보다 늦고 운영 종료보다 빨라야 합니다.',
+    );
+    expect(document.activeElement).toBe(
+      container.querySelector('#milestone-1-due'),
+    );
+    expect(container.textContent).toContain('신청/운영 일정');
+  });
+
+  it('최종 검토에서 날짜 오류를 발견해도 일정 화면의 문제 입력으로 돌아간다', async () => {
+    const completed = completedAuthoringState();
+    sessionStorage.setItem(
+      PROGRAM_AUTHORING_STORAGE_KEY,
+      serializeProgramAuthoringState({
+        ...completed,
+        milestones: [
+          {
+            ...completed.milestones[0],
+            dueAt: '2026-10-01T18:00',
+          },
+        ],
+      }),
+    );
+
+    await act(async () => {
+      root.render(<ProgramCreationPage />);
+      await Promise.resolve();
+    });
+    await act(async () => buttonNamed('프로그램 만들기').click());
+
+    expect(container.textContent).toContain('신청/운영 일정');
+    expect(document.activeElement).toBe(
+      container.querySelector('#milestone-1-due'),
+    );
+  });
 });

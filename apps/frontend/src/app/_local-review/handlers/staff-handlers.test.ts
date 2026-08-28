@@ -403,12 +403,11 @@ describe('staff local review handlers', () => {
     expect(updated.milestones.length).toBeGreaterThan(0);
   });
 
-  it('마일스톤 저장은 입력한 이름·마감·제출 형식을 되돌려 준다', () => {
+  it('마일스톤 저장은 입력한 이름·마감을 되돌려 주고 상위 제출 형식은 만들지 않는다', () => {
     // Given
     const input = {
       name: '합성 마일스톤 입력',
       dueAt: '2026-11-30T14:59:59.000Z',
-      submissionType: 'FILE',
       instructions: '합성 안내',
     };
 
@@ -416,7 +415,7 @@ describe('staff local review handlers', () => {
     const created = bodyOf<{
       readonly name: string;
       readonly dueAt: string;
-      readonly submissionType: string;
+      readonly submissionType: string | null;
     }>(
       resolveWithBody('POST', 'programs/program-basic-study/milestones', input),
     );
@@ -427,7 +426,7 @@ describe('staff local review handlers', () => {
     // Then
     expect(created.name).toBe('합성 마일스톤 입력');
     expect(created.dueAt).toBe('2026-11-30T14:59:59.000Z');
-    expect(created.submissionType).toBe('FILE');
+    expect(created.submissionType).toBeNull();
     expect(updated.id).toBe('milestone-basic-final');
     expect(updated.name).toBe('합성 마일스톤 입력');
   });
@@ -438,7 +437,6 @@ describe('staff local review handlers', () => {
       resolveWithBody('POST', 'programs/program-basic-study/milestones', {
         name: '합성 마일스톤',
         dueAt: '2026-11-30T14:59:59.000Z',
-        submissionType: 'TEXT',
         instructions: null,
       }),
     );

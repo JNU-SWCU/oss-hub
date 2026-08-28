@@ -124,13 +124,14 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     });
 
     await act(async () => getButton('수정').click());
-    await setInputValue('#milestone-due-at', '2026-08-20T18:30');
+    await selectRange('결과물 제출', '2026-08-16', '2026-08-20');
     await act(async () => {
       getButton('저장').click();
       await Promise.resolve();
     });
 
-    await setInputValue('#program-end-at', '2026-08-25T18:30');
+    await act(async () => getScheduleButton('운영 기간').click());
+    await selectRange('운영 기간', '2026-08-16', '2026-08-25');
     await act(async () => {
       getButton('변경사항 저장').click();
       await Promise.resolve();
@@ -157,15 +158,36 @@ function getButton(name: string): HTMLButtonElement {
   return button;
 }
 
-async function setInputValue(selector: string, value: string): Promise<void> {
-  const input = document.querySelector<HTMLInputElement>(selector);
-  if (input === null) throw new TypeError(`Input not found: ${selector}`);
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    'value',
-  )?.set;
-  await act(async () => {
-    setter?.call(input, value);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+function getScheduleButton(name: string): HTMLButtonElement {
+  const button = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'),
+  ).find((candidate) => candidate.textContent?.includes(name));
+  if (button === undefined) {
+    throw new TypeError(`Schedule button not found: ${name}`);
+  }
+  return button;
+}
+
+async function selectRange(
+  label: string,
+  start: string,
+  end: string,
+): Promise<void> {
+  const calendar = document.querySelector<HTMLElement>(
+    `[aria-label="${label} 날짜 선택 달력"]`,
+  );
+  const startButton = calendar?.querySelector<HTMLButtonElement>(
+    `[data-calendar-date="${start}"]`,
+  );
+  if (startButton === null || startButton === undefined) {
+    throw new TypeError(`Calendar range not found: ${start}–${end}`);
+  }
+  await act(async () => startButton.click());
+  const endButton = calendar?.querySelector<HTMLButtonElement>(
+    `[data-calendar-date="${end}"]`,
+  );
+  if (endButton === null || endButton === undefined) {
+    throw new TypeError(`Calendar range not found: ${start}–${end}`);
+  }
+  await act(async () => endButton.click());
 }

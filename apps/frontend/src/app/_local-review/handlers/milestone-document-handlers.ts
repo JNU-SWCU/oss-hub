@@ -27,6 +27,7 @@ import {
   isKnownMilestoneId,
   MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY,
   milestoneDocumentCollectionFor,
+  milestoneDocumentHistoryFor,
   milestoneDocumentSubmissionFor,
   milestoneDocumentsFor,
   reorderedMilestoneDocumentsFor,
@@ -42,6 +43,7 @@ import {
  * `.../documents/:documentId`(PATCH/DELETE),
  * `.../documents/:documentId/template`(GET/POST),
  * `.../documents/:documentId/applications/:applicationId/file`(GET),
+ * `.../documents/:documentId/applications/:applicationId/history`(GET),
  * `.../documents/:documentId/applications/:applicationId/reviews`(POST),
  * `.../documents/:documentId/submissions`(POST), `milestone-document-files`(POST).
  *
@@ -54,10 +56,16 @@ const MILESTONE_NOT_FOUND_CODE = 'MSD_003';
 const STAFF_ONLY_CODE = 'MSD_001';
 const TEMPLATE_NOT_FOUND_CODE = 'MSD_015';
 const SUBMISSION_FILE_NOT_FOUND_CODE = 'MSD_020';
+const SUBMISSION_NOT_FOUND_CODE = 'MSD_022';
 const INVALID_REQUEST_CODE = 'MSD_019';
 const REVIEW_COMMENT_REQUIRED_CODE = 'MSD_021';
+const CONTENT_REQUIRED_CODE = 'MSD_008';
 
 const SUBMISSION_TYPES: readonly SubmissionType[] = ['FILE', 'TEXT'];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 const COLLECTION_FILTERS: readonly MilestoneDocumentCollectionFilter[] = [
   'ALL',
@@ -281,6 +289,25 @@ const reviewSubmissionHandler: LocalReviewHandler = (context) => {
   );
 };
 
+/** 교직원 판정 패널이 필요할 때만 불러오는 제출·검토 이력. */
+const submissionHistoryHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(
+    context,
+    'milestones/:milestoneId/documents/:documentId/applications/:applicationId/history',
+  );
+  if (params === null) return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  const history = milestoneDocumentHistoryFor(
+    params.milestoneId ?? '',
+    params.documentId ?? '',
+    params.applicationId ?? '',
+  );
+  return history === null
+    ? notFound(SUBMISSION_NOT_FOUND_CODE, context.path)
+    : json(200, history);
+};
+
 /**
  * 전체 제출물 ZIP 일괄 내려받기. 실제 백엔드는 압축 스트림을 주는데 로컬 검토 응답
  * 계약(`LocalReviewResponsePlan`)은 json/delay/redirect만 표현할 수 있어 압축 파일을
@@ -447,6 +474,20 @@ const submitDocumentHandler: LocalReviewHandler = (context) => {
   if (!context.isAuthenticated || context.role === null) {
     return unauthenticated(context.path);
   }
+  const rawContent = bodyRecord(context)?.content;
+  const content = isRecord(rawContent) ? rawContent : null;
+  const hasText =
+    typeof content?.text === 'string' && content.text.trim().length > 0;
+  const hasFile =
+    typeof content?.fileId === 'string' && content.fileId.trim().length > 0;
+  if (!hasText && !hasFile) {
+    return problem(
+      400,
+      CONTENT_REQUIRED_CODE,
+      apiPath(context.path),
+      '내용이나 파일을 하나 이상 추가해 주세요.',
+    );
+  }
   return accepted(milestoneDocumentSubmissionFor(params.documentId ?? ''));
 };
 
@@ -468,6 +509,7 @@ export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   listDocumentsHandler,
   collectionHandler,
   collectionArchiveHandler,
+  submissionHistoryHandler,
   reviewSubmissionHandler,
   downloadSubmissionFileHandler,
   createDocumentHandler,

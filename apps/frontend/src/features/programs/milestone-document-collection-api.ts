@@ -28,7 +28,7 @@ export interface MilestoneDocumentCollectionMilestone {
  * 화면이 쓰는 `milestone-document-api.ts`의 `MilestoneDocument.required`는 **이미 발행된
  * 계약**이라 접두사 없이 그대로다 — 이 수합 표 응답만 발행 전이라 규칙에 맞춘다. 칸의
  * `submitted` → `isSubmitted`를 가른 것과 같은 기준이고, 이름이 비슷하다고 함께 바꾸면
- * 학생 화면과 「받을 서류」 편집이 조용히 깨진다.
+ * 학생 화면과 「제출 항목」 편집이 조용히 깨진다.
  */
 export interface MilestoneDocumentCollectionDocument {
   readonly id: string;
@@ -56,8 +56,7 @@ export interface MilestoneDocumentCollectionFile {
  * 「미제출」 기준은 여전히 `isSubmitted`이고 필터·합계는 이 값을 보지 않는다 — 반려된
  * 서류를 미제출로 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
  *
- * ⚠ 응답은 최신 한 건만 준다. 이력 전체를 주는 조회는 **없다** — 화면이 「지난 검토 목록」을
- * 그리고 싶어도 여기서 만들어 낼 수 없다.
+ * ⚠ 수합 응답은 최신 한 건만 준다. 전체 이력은 칸을 열 때 cursor endpoint로 따로 읽는다.
  */
 export interface MilestoneDocumentCollectionReview {
   /**
@@ -70,6 +69,25 @@ export interface MilestoneDocumentCollectionReview {
   readonly decision: MilestoneDocumentReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
+}
+
+export type MilestoneDocumentCollectionHistoryEvent =
+  'SUBMITTED' | 'RESUBMITTED' | MilestoneDocumentReviewDecision;
+
+export interface MilestoneDocumentCollectionHistory {
+  readonly event: MilestoneDocumentCollectionHistoryEvent;
+  /** 이전 데이터에서 정확한 대상 제출본을 증명할 수 없으면 null이다. */
+  readonly revision: number | null;
+  readonly actorNickname: string;
+  readonly comment: string | null;
+  readonly createdAt: string;
+  readonly fileName: string | null;
+  readonly content?: MilestoneDocumentCollectionContent | null;
+}
+
+export interface MilestoneDocumentHistoryPage {
+  readonly items: readonly MilestoneDocumentCollectionHistory[];
+  readonly nextCursor: string | null;
 }
 
 /**
@@ -136,6 +154,8 @@ export interface MilestoneDocumentCollectionCell {
    */
   readonly content: MilestoneDocumentCollectionContent | null;
   readonly review: MilestoneDocumentCollectionReview | null;
+  /** 시간순 제출·재제출·검토 전체. 구버전 API 응답과의 전환기에는 없을 수 있다. */
+  readonly history?: readonly MilestoneDocumentCollectionHistory[];
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */
@@ -253,6 +273,20 @@ export function milestoneDocumentSubmissionFileHref(
 ): string {
   return apiPath(
     `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/file`,
+  );
+}
+
+export function getMilestoneDocumentHistory(
+  milestoneId: string,
+  documentId: string,
+  applicationId: string,
+  cursor: string | null = null,
+): Promise<MilestoneDocumentHistoryPage> {
+  const params = new URLSearchParams();
+  params.set('limit', '20');
+  if (cursor !== null) params.set('cursor', cursor);
+  return apiClient<MilestoneDocumentHistoryPage>(
+    `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/history?${params.toString()}`,
   );
 }
 

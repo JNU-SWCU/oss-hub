@@ -265,6 +265,8 @@ describe('program edit API', () => {
       teams: 1,
       boardPosts: 0,
       submissions: 3,
+      submissionEvents: 4,
+      scopeFingerprint: '0123456789abcdef0123456789abcdef',
     };
 
     await purgeProgram('program-1', expectedScope);

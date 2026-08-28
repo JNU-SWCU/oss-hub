@@ -49,6 +49,11 @@ export function formatSeoulDate(value: string): string {
   return DATE_FORMAT.format(new Date(value));
 }
 
+export function isPastDue(value: string, now: number = Date.now()): boolean {
+  const dueAt = new Date(value).getTime();
+  return Number.isFinite(dueAt) && now > dueAt;
+}
+
 const SEOUL_PARTS_FORMAT = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Seoul',
   year: 'numeric',

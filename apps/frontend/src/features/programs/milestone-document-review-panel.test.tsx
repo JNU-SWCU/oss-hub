@@ -66,16 +66,22 @@ function textareaTag(html: string): string {
 function render(
   overrides: Partial<MilestoneDocumentReviewPanelProps> = {},
 ): string {
+  const resolvedCell = overrides.cell ?? cell();
   return renderToStaticMarkup(
     <MilestoneDocumentReviewPanel
       teamName="가팀"
       documentName="기획서"
-      cell={cell()}
+      cell={resolvedCell}
       fileHref={null}
       decision={null}
       comment=""
       isSubmitting={false}
       errorMessage={null}
+      history={overrides.history ?? resolvedCell.history ?? []}
+      isHistoryLoading={false}
+      historyError={null}
+      hasMoreHistory={false}
+      onHistoryMore={() => {}}
       onDecisionChange={() => {}}
       onCommentChange={() => {}}
       onSubmit={() => {}}
@@ -92,6 +98,16 @@ describe('판정 패널 머리', () => {
     expect(html).toContain('가팀 — 기획서');
     expect(html).toContain('검토 대기');
     expect(html).toContain('07.28 09:00 제출');
+  });
+
+  it('공백 없는 긴 한글 팀명도 좁은 검토 패널 안에서 줄바꿈한다', () => {
+    const html = render({
+      teamName: '아주긴한글팀이름이화면너비보다길어지는경우',
+    });
+
+    expect(html).toContain(
+      'class="min-w-0 break-keep [overflow-wrap:anywhere] text-body font-semibold"',
+    );
   });
 
   it('이미 판정된 칸이면 머리의 배지도 그 상태를 말한다', () => {
@@ -135,6 +151,29 @@ describe('판정 패널 머리', () => {
     expect(badgeTexts(html)).toEqual(['검토 대기', '보완 요청']);
     expect(html).toContain('지난 검토');
     expect(html).toContain('표지의 이름이 신청서와 다릅니다.');
+  });
+
+  it('이관 전 제출 원문이 복원되지 않으면 사실과 다음 행동을 명시한다', () => {
+    const html = render({
+      cell: cell({
+        revision: 4,
+        history: [
+          {
+            event: 'RESUBMITTED',
+            revision: 4,
+            actorNickname: '학생',
+            comment: null,
+            createdAt: '2026-08-02T00:00:00.000Z',
+            fileName: '계획서-v4.pdf',
+          },
+        ],
+      }),
+    });
+
+    expect(html).toContain('이관 전 1~3차 제출 원문');
+    expect(html).toContain('당시 시스템에 남지 않아');
+    expect(html).toContain('프로그램 담당자에게 기존 접수 기록을 요청');
+    expect(html).toContain('다시 제출 · 4차 제출본');
   });
 });
 
@@ -267,6 +306,59 @@ describe('보여 줄 내용이 없는 제출', () => {
  * 이미 지적한 것을 못 보고 승인한다.
  */
 describe('지난 판정', () => {
+  it('이력 조회가 실패하면 같은 패널에서 다시 불러올 행동을 제공한다', () => {
+    const html = render({
+      historyError:
+        '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    });
+
+    expect(html).toContain('제출 이력을 불러오지 못했습니다.');
+    expect(html).toContain('제출 이력 다시 불러오기');
+  });
+
+  it('첫 제출부터 재제출과 검토까지 담당자·파일·시각을 순서대로 보여 준다', () => {
+    const html = render({
+      cell: cell({
+        history: [
+          {
+            event: 'SUBMITTED',
+            revision: 1,
+            actorNickname: 'student-a',
+            comment: null,
+            createdAt: '2026-07-28T00:00:00.000Z',
+            fileName: '기획서-v1.pdf',
+          },
+          {
+            event: 'CHANGES_REQUESTED',
+            revision: 1,
+            actorNickname: 'staff-b',
+            comment: '표지 이름을 고쳐 주세요.',
+            createdAt: '2026-07-29T00:00:00.000Z',
+            fileName: null,
+          },
+          {
+            event: 'RESUBMITTED',
+            revision: 2,
+            actorNickname: 'student-c',
+            comment: null,
+            createdAt: '2026-07-30T00:00:00.000Z',
+            fileName: '기획서-v2.pdf',
+          },
+        ],
+      }),
+    });
+
+    expect(html).toContain('제출·검토 이력');
+    expect(html).toContain('첫 제출');
+    expect(html).toContain('다시 제출');
+    expect(html).toContain('student-a');
+    expect(html).toContain('staff-b');
+    expect(html).toContain('student-c');
+    expect(html).toContain('기획서-v1.pdf');
+    expect(html).toContain('기획서-v2.pdf');
+    expect(html).toContain('표지 이름을 고쳐 주세요.');
+  });
+
   it('판정과 사유를 날짜와 함께 보여 준다', () => {
     const html = render({
       cell: cell({

@@ -15,7 +15,6 @@ import {
   PROGRAM_END_AT_UNDECIDED,
 } from './program-end-at';
 import type { ProgramCategory } from './program-templates';
-import type { SubmissionType } from './types';
 
 export interface ProgramEditForm {
   readonly name: string;
@@ -73,7 +72,6 @@ export interface ProgramMilestoneForm {
   readonly dueAt: string;
   readonly originalStartAt: string | null;
   readonly originalDueAt: string | null;
-  readonly submissionType: SubmissionType;
   readonly instructions: string;
 }
 
@@ -100,7 +98,6 @@ export type ProgramMilestoneEditor =
 
 export { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 
-const DEFAULT_MILESTONE_TYPE = 'TEXT' satisfies SubmissionType;
 class ProgramEditValidationError extends Error {
   constructor(readonly errors: ProgramEditErrors) {
     super('Program edit validation failed');
@@ -147,7 +144,6 @@ export function toMilestoneForm(
     dueAt: toDateTimeLocal(milestone.dueAt),
     originalStartAt: milestone.startAt,
     originalDueAt: milestone.dueAt,
-    submissionType: milestone.submissionType,
     instructions: milestone.instructions ?? '',
   };
 }
@@ -160,7 +156,6 @@ export function emptyMilestoneForm(): ProgramMilestoneForm {
     dueAt: '',
     originalStartAt: null,
     originalDueAt: null,
-    submissionType: DEFAULT_MILESTONE_TYPE,
     instructions: '',
   };
 }
@@ -180,6 +175,10 @@ export function buildProgramEditInput(
     'applicationEndAt',
   ],
 ): UpdateProgramInput {
+  const validationErrors = validateProgramEditForm(form);
+  if (Object.values(validationErrors).some(Boolean)) {
+    throw new ProgramEditValidationError(validationErrors);
+  }
   const applicationEndAt = dirtyFields.includes('applicationEndAt')
     ? toIsoString(form.applicationEndAt)
     : form.originalApplicationEndAt;
@@ -250,6 +249,69 @@ export function buildProgramEditInput(
   };
 }
 
+export function validateProgramEditForm(
+  form: ProgramEditForm,
+): ProgramEditErrors {
+  const applicationStartAt = dateTimeValue(form.applicationStartAt);
+  const applicationEndAt = dateTimeValue(form.applicationEndAt);
+  const startAt = dateTimeValue(form.startAt);
+  const endAt = form.endAtUndecided ? null : dateTimeValue(form.endAt);
+  const errors: {
+    name?: string;
+    organizer?: string;
+    period?: string;
+    startAt?: string;
+    endAt?: string;
+    description?: string;
+  } = {};
+
+  if (form.name.trim() === '') errors.name = '프로그램 이름을 입력해 주세요.';
+  if (form.organizer.trim() === '') errors.organizer = '주최를 입력해 주세요.';
+  if (form.description.trim() === '')
+    errors.description = '프로그램 설명을 입력해 주세요.';
+
+  if (
+    applicationStartAt === null ||
+    applicationEndAt === null ||
+    applicationStartAt > applicationEndAt
+  ) {
+    errors.period =
+      '신청 시작과 마감을 모두 확인해 주세요. 시작은 마감과 같거나 이전이어야 합니다.';
+  }
+
+  if (startAt === null) {
+    errors.startAt = '운영 시작일을 입력해 주세요.';
+  } else if (applicationEndAt !== null && startAt < applicationEndAt) {
+    errors.startAt =
+      '운영 시작은 신청 마감과 같거나 이후여야 합니다. 두 날짜를 같은 화면에서 다시 확인해 주세요.';
+  } else if (
+    form.milestoneStartAts.some(
+      (milestoneStartAt) => Date.parse(milestoneStartAt) < startAt,
+    )
+  ) {
+    errors.startAt =
+      '운영 시작일은 모든 마일스톤 시작일보다 이르거나 같아야 합니다. 마일스톤 시작일을 먼저 바꿔 주세요.';
+  }
+
+  if (!form.endAtUndecided) {
+    if (endAt === null) {
+      errors.endAt = '종료일을 정하거나 「종료일 미정」을 선택해 주세요.';
+    } else if (startAt !== null && startAt >= endAt) {
+      errors.endAt = '프로그램 종료일은 운영 시작일 이후여야 합니다.';
+    } else if (
+      (applicationEndAt !== null && endAt <= applicationEndAt) ||
+      form.milestoneDueAts.some(
+        (milestoneDueAt) => endAt <= Date.parse(milestoneDueAt),
+      )
+    ) {
+      errors.endAt =
+        '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감 이후여야 합니다.';
+    }
+  }
+
+  return errors;
+}
+
 export function buildMilestoneInput(
   form: ProgramMilestoneForm,
   dirtyFields: readonly ProgramMilestoneField[] = ['dueAt'],
@@ -264,7 +326,6 @@ export function buildMilestoneInput(
       dirtyFields.includes('dueAt') || form.originalDueAt === null
         ? toIsoString(form.dueAt)
         : form.originalDueAt,
-    submissionType: form.submissionType,
     instructions: form.instructions.trim() || null,
   };
 }
@@ -411,20 +472,37 @@ function mapProblemFieldErrors(
   return errors;
 }
 
-function toDateTimeLocal(value: string): string {
+export function toDateTimeLocal(value: string): string {
   const date = new Date(value);
-  const year = String(date.getFullYear());
-  const month = twoDigits(date.getMonth() + 1);
-  const day = twoDigits(date.getDate());
-  const hour = twoDigits(date.getHours());
-  const minute = twoDigits(date.getMinutes());
-  return `${year}-${month}-${day}T${hour}:${minute}`;
+  if (!Number.isFinite(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const valueFor = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${valueFor('year')}-${valueFor('month')}-${valueFor('day')}T${valueFor('hour')}:${valueFor('minute')}`;
 }
 
 function toIsoString(value: string): string {
-  return new Date(value).toISOString();
+  const time = dateTimeValue(value);
+  if (time === null) throw new TypeError('Invalid Seoul date-time value.');
+  return new Date(time).toISOString();
 }
 
-function twoDigits(value: number): string {
-  return String(value).padStart(2, '0');
+function dateTimeValue(value: string): number | null {
+  if (value.trim() === '') return null;
+  const localDateTime =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+  const normalized =
+    localDateTime === null
+      ? value
+      : `${localDateTime[1]}-${localDateTime[2]}-${localDateTime[3]}T${localDateTime[4]}:${localDateTime[5]}:${localDateTime[6] ?? '00'}+09:00`;
+  const time = Date.parse(normalized);
+  return Number.isFinite(time) ? time : null;
 }

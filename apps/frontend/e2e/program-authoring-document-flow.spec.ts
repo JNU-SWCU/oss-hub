@@ -22,6 +22,7 @@ import {
   originHeaders,
   programIdFromDetailUrl,
   resetProgramAuthoringControl,
+  selectScheduleRange,
   submitProgramApplication,
 } from './support/program-authoring-ui';
 
@@ -40,11 +41,11 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     test.setTimeout(300_000);
     const controlPage = await authSeedPage('admin-confirmed');
     await resetProgramAuthoringControl(controlPage);
-    const authorPage = await authSeedPage('admin-confirmed');
+    const authorPage = await authSeedPage('staff-revocable');
 
     await authorPage.goto('/programs/new');
     await authorPage.getByRole('radio', { name: '기본' }).check();
-    await authorPage.getByRole('button', { name: '다음' }).click();
+    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
     await authorPage
       .getByLabel('프로그램명 *')
       .fill(PROGRAM_AUTHORING_E2E.programName);
@@ -54,70 +55,76 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await authorPage
       .getByLabel('소개/설명 *')
       .fill('e2e:program-authoring:description');
-    await authorPage.getByRole('button', { name: '다음' }).click();
-    await authorPage
-      .getByLabel('신청 시작 *')
-      .fill(seoulLocalInput(schedule, -DAY_MS));
-    await authorPage.getByLabel('신청 종료 *').fill(seoulLocalInput(schedule));
-    await authorPage.getByLabel('운영 시작 *').fill(seoulLocalInput(schedule));
-    await authorPage
-      .getByLabel('운영 종료 *')
-      .fill(seoulLocalInput(schedule, 10 * DAY_MS));
+    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
+    await selectScheduleRange(authorPage, {
+      rangeButtonName: /1\. 신청 기간/,
+      rangeLabel: '신청 기간',
+      startAt: seoulLocalInput(schedule, -DAY_MS),
+      endAt: seoulLocalInput(schedule),
+    });
+    await selectScheduleRange(authorPage, {
+      rangeButtonName: /2\. 운영 기간/,
+      rangeLabel: '운영 기간',
+      startAt: seoulLocalInput(schedule),
+      endAt: seoulLocalInput(schedule, 10 * DAY_MS),
+    });
     await authorPage.getByLabel('최소').fill('1');
     await authorPage.getByLabel('최대').fill('1');
-    await authorPage.getByRole('button', { name: '다음' }).click();
+    await authorPage.getByRole('button', { name: /3\. 마일스톤 1/ }).click();
     await authorPage
-      .getByLabel('마일스톤명 *')
+      .getByLabel('마일스톤 1 이름 *')
       .fill(PROGRAM_AUTHORING_E2E.informationalMilestoneName);
-    await authorPage
-      .getByLabel('시작 *')
-      .fill(seoulLocalInput(schedule, HOUR_MS));
-    await authorPage
-      .getByLabel('마감 *')
-      .fill(seoulLocalInput(schedule, 2 * HOUR_MS));
+    await selectScheduleRange(authorPage, {
+      rangeButtonName: /3\. e2e:program-authoring:information-milestone/,
+      rangeLabel: PROGRAM_AUTHORING_E2E.informationalMilestoneName,
+      startAt: seoulLocalInput(schedule, HOUR_MS),
+      endAt: seoulLocalInput(schedule, 2 * HOUR_MS),
+    });
     await authorPage.getByRole('button', { name: '마일스톤 추가' }).click();
     await authorPage
-      .getByLabel('마일스톤명 *')
-      .nth(1)
+      .getByLabel('마일스톤 2 이름 *')
       .fill(PROGRAM_AUTHORING_E2E.requiredMilestoneName);
-    await authorPage
-      .getByLabel('시작 *')
-      .nth(1)
-      .fill(seoulLocalInput(schedule, 2 * HOUR_MS));
-    await authorPage
-      .getByLabel('마감 *')
-      .nth(1)
-      .fill(seoulLocalInput(schedule, 9 * HOUR_MS));
-    await authorPage.getByText('파일 중심', { exact: true }).nth(1).click();
-    await expect(
-      authorPage
-        .getByLabel(
-          `${PROGRAM_AUTHORING_E2E.informationalMilestoneName} 요구서류`,
-        )
-        .getByText('안내용 마일스톤'),
-    ).toBeVisible();
-    await authorPage.getByRole('button', { name: '항목 추가' }).nth(1).click();
-    await authorPage
-      .getByLabel('요구서류명 *')
-      .fill(PROGRAM_AUTHORING_E2E.requiredDocumentName);
-    await authorPage.getByLabel('파일 제출').check();
-    await authorPage.getByLabel('필수 제출로 지정합니다').check();
-    await authorPage.getByLabel('양식 파일 (선택)').setInputFiles({
-      name: 'template.pdf',
-      mimeType: 'application/pdf',
-      buffer: Buffer.from('%PDF-1.4\ntemplate\n'),
+    await selectScheduleRange(authorPage, {
+      rangeButtonName: /4\. e2e:program-authoring:required-milestone/,
+      rangeLabel: PROGRAM_AUTHORING_E2E.requiredMilestoneName,
+      startAt: seoulLocalInput(schedule, 2 * HOUR_MS),
+      endAt: seoulLocalInput(schedule, 9 * HOUR_MS),
     });
-    await authorPage.getByRole('button', { name: '다음' }).click();
+    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
+    await authorPage.getByLabel('필수 제출로 지정합니다').first().uncheck();
+    await authorPage
+      .getByLabel('제출 항목 이름 *')
+      .nth(1)
+      .fill(PROGRAM_AUTHORING_E2E.requiredDocumentName);
+    await authorPage
+      .getByLabel('참고 자료·양식 (선택)')
+      .nth(1)
+      .setInputFiles({
+        name: 'template.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.4\ntemplate\n'),
+      });
+    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
     await authorPage.getByLabel('GitHub 저장소 발급').check();
     await authorPage.getByLabel('제출 마감 알림').check();
-    await authorPage.getByRole('button', { name: '다음' }).click();
-    await expect(authorPage.getByText('받을 항목 없음 (안내용)')).toBeVisible();
+    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
+    await expect(authorPage.getByText(/내용이나 파일로 제출 가능/)).toHaveCount(
+      2,
+    );
     await expect(
       authorPage.getByText(PROGRAM_AUTHORING_E2E.requiredDocumentName),
     ).toBeVisible();
     await expect(authorPage.getByText('GitHub 저장소 발급')).toBeVisible();
     await authorPage.getByRole('button', { name: '프로그램 만들기' }).click();
-    await authorPage.getByRole('button', { name: '생성 확정' }).click();
+    const [creationResponse] = await Promise.all([
+      authorPage.waitForResponse(
+        (response) =>
+          response.url().includes('/api/v1/program-authoring/programs') &&
+          response.request().method() === 'POST',
+      ),
+      authorPage.getByRole('button', { name: '생성 확정' }).click(),
+    ]);
+    expect(creationResponse.ok()).toBe(true);
     await expect(authorPage).toHaveURL(
       (url) => programIdFromDetailUrl(url.href) !== null,
     );
@@ -154,35 +161,49 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
 
     await studentPage.goto(`/programs/${encodeURIComponent(programId)}`);
     const template = await downloadedArtifact(studentPage, '양식');
-    // FILE 타입 서류는 파일 선택 즉시 업로드+제출이 한 번에 끝난다(별도 확인
-    // 버튼이 없다 — milestone-document-list.tsx StudentDocumentRow의 유일한
-    // 버튼은 "올리기"/"수정"이며 숨은 input을 열 뿐이다). '제출하기' 버튼을
-    // 기다리면 영원히 풀리지 않으므로, 제출 완료는 submissions POST 응답으로
-    // 확인한다(라벨은 분 단위 표시라 같은 분 내 재제출을 구분하지 못한다).
+    const requiredDocumentRow = studentPage
+      .getByTestId('milestone-document-row')
+      .filter({ hasText: PROGRAM_AUTHORING_E2E.requiredDocumentName });
+    await requiredDocumentRow.getByRole('button', { name: '올리기' }).click();
+    await requiredDocumentRow
+      .getByLabel(
+        `${PROGRAM_AUTHORING_E2E.requiredDocumentName} 제출 파일 선택`,
+      )
+      .setInputFiles({
+        name: 'current-v1.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.4\ncurrent-v1\n'),
+      });
     const [firstSubmission] = await Promise.all([
       studentPage.waitForResponse(
         (response) =>
           response.url().includes('/submissions') &&
           response.request().method() === 'POST',
       ),
-      studentPage.setInputFiles('input[type="file"]', {
-        name: 'current-v1.pdf',
-        mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4\ncurrent-v1\n'),
-      }),
+      requiredDocumentRow
+        .getByRole('button', { name: '제출', exact: true })
+        .click(),
     ]);
     expect(firstSubmission.ok()).toBe(true);
+    await requiredDocumentRow.getByRole('button', { name: '수정' }).click();
+    await requiredDocumentRow
+      .getByLabel(
+        `${PROGRAM_AUTHORING_E2E.requiredDocumentName} 제출 파일 선택`,
+      )
+      .setInputFiles({
+        name: 'current-v2.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.4\ncurrent-v2\n'),
+      });
     const [secondSubmission] = await Promise.all([
       studentPage.waitForResponse(
         (response) =>
           response.url().includes('/submissions') &&
           response.request().method() === 'POST',
       ),
-      studentPage.setInputFiles('input[type="file"]', {
-        name: 'current-v2.pdf',
-        mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4\ncurrent-v2\n'),
-      }),
+      requiredDocumentRow
+        .getByRole('button', { name: '제출', exact: true })
+        .click(),
     ]);
     expect(secondSubmission.ok()).toBe(true);
 
@@ -283,7 +304,10 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     const state = toStateCounts(await stateResponse.json());
     // 봉투 2통 — 미제출 학생 리마인드 1 + 교직원 미제출 팀 요약 1(#886).
     // 이 시나리오의 교직원은 활성·수신 동의·알림 이메일을 모두 갖춰 수신 대상이다.
-    expectCleanState(state, 2, 2, 2, 2);
+    // 상태 집계의 documents는 adopt한 필수 마일스톤의 제출 항목만 센다.
+    // 안내용 마일스톤의 기본 선택 항목까지 포함한 전체 프로그램 수는 위 최종 검토에서
+    // 2개로 확인하고, 여기서는 실제 수합 대상 1개를 검증한다.
+    expectCleanState(state, 2, 2, 2, 2, 1);
     expect(state.storageContentHashes).toContain(template.sha256);
     expect(state.storageContentHashes).toContain(individual.sha256);
     await writeArtifact('sql-counts.json', { graph, ...state });

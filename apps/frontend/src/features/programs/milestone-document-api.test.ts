@@ -119,7 +119,7 @@ describe('submitMilestoneDocument', () => {
 
     await expect(
       submitMilestoneDocument('milestone-1', 'document-1', {
-        type: 'FILE',
+        text: '설명',
         fileId: 'file-1',
       }),
     ).resolves.toEqual(submission);
@@ -129,7 +129,9 @@ describe('submitMilestoneDocument', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: { type: 'FILE', fileId: 'file-1' } }),
+        body: JSON.stringify({
+          content: { text: '설명', fileId: 'file-1' },
+        }),
       },
     );
   });

@@ -25,19 +25,19 @@ const documents = [
     id: 'document-file-current',
     name: '현재 계획서',
     submissionType: 'FILE' as const,
-    viewerSubmission: { submitted: true },
+    viewerSubmission: { submitted: true, hasCurrentFile: true },
   },
   {
     id: 'document-text-current',
     name: '현재 텍스트',
     submissionType: 'TEXT' as const,
-    viewerSubmission: { submitted: true },
+    viewerSubmission: { submitted: true, hasCurrentFile: true },
   },
   {
     id: 'document-file-missing',
     name: '미제출 파일',
     submissionType: 'FILE' as const,
-    viewerSubmission: { submitted: false },
+    viewerSubmission: { submitted: false, hasCurrentFile: false },
   },
 ];
 
@@ -77,7 +77,7 @@ describe('MilestoneDocumentCurrentFiles', () => {
     });
   }
 
-  it('현재 제출된 FILE만 이름 있는 내려받기 버튼으로 보여준다', async () => {
+  it('기존 방식과 관계없이 실제 현재 파일이 있는 항목을 보여준다', async () => {
     // When
     await render();
 
@@ -87,7 +87,7 @@ describe('MilestoneDocumentCurrentFiles', () => {
         'button[aria-label="현재 계획서 현재 제출 파일 내려받기"]',
       ),
     ).not.toBeNull();
-    expect(container.textContent).not.toContain('현재 텍스트');
+    expect(container.textContent).toContain('현재 텍스트');
     expect(container.textContent).not.toContain('미제출 파일');
   });
 

@@ -164,14 +164,15 @@ export function expectCleanState(
   // 교직원이 수신 대상이 아닌(비활성·수신 거부·이메일 없음) 시나리오 기준이고,
   // 교직원이 실제로 받는 시나리오는 호출부에서 2를 넘긴다.
   expectedMailEnvelopes = 1,
+  expectedDocuments = 1,
 ): void {
   if (
     state.programs !== 1 ||
     state.milestones !== expectedMilestones ||
-    state.documents !== 1
+    state.documents !== expectedDocuments
   ) {
     throw new Error(
-      'Expected one deterministic program and required document ' +
+      'Expected one deterministic program and the requested submission items ' +
         `(programs=${state.programs}, milestones=${state.milestones}, ` +
         `documents=${state.documents}).`,
     );

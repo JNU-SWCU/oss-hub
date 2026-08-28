@@ -54,6 +54,8 @@ const deletionScopeCounts = {
   teams: 3,
   boardPosts: 4,
   submissions: 5,
+  submissionEvents: 6,
+  scopeFingerprint: '0123456789abcdef0123456789abcdef',
 };
 
 function setInputValue(input: HTMLInputElement, value: string) {
@@ -306,6 +308,8 @@ describe('ProgramEditDangerZoneSection', () => {
       teams: 7,
       boardPosts: 8,
       submissions: 9,
+      submissionEvents: 10,
+      scopeFingerprint: 'fedcba9876543210fedcba9876543210',
     };
     purgeProgramMock.mockRejectedValueOnce(
       new ApiError({
@@ -350,7 +354,7 @@ describe('ProgramEditDangerZoneSection', () => {
       '삭제 범위가 변경되었습니다. 내용을 확인한 뒤 프로그램 이름을 다시 입력해 주세요.',
     );
     expect(document.body.textContent).toContain(
-      '삭제될 데이터: 지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건',
+      '삭제될 데이터: 지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건 · 제출·검토·파일 이력 10건',
     );
 
     // 이름을 다시 입력해 명시적으로 재확인하면, 갱신된 카운트를 expectedScope로 보내

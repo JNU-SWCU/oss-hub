@@ -121,7 +121,7 @@ describe('program authoring validation', () => {
     ]);
   });
 
-  it('requires one milestone but accepts an informational milestone with no requirements', () => {
+  it('마일스톤과 각 마일스톤의 기본 제출 항목을 필수로 한다', () => {
     // Given
     const completed = completedAuthoringState();
 
@@ -130,13 +130,47 @@ describe('program authoring validation', () => {
       ...completed,
       milestones: [],
     });
-    const informationalIssues = validateProgramAuthoringManifest(completed);
+    const noSubmissionItemIssues = validateProgramAuthoringManifest({
+      ...completed,
+      milestones: [{ ...completed.milestones[0]!, requirements: [] }],
+    });
+    const completedIssues = validateProgramAuthoringManifest(completed);
 
     // Then
     expect(noMilestoneIssues).toContainEqual(
-      expect.objectContaining({ path: 'milestones', step: 'milestones' }),
+      expect.objectContaining({ path: 'milestones', step: 'schedule' }),
     );
-    expect(informationalIssues).toEqual([]);
+    expect(noSubmissionItemIssues).toContainEqual(
+      expect.objectContaining({
+        path: 'requirements.milestone-1',
+        step: 'milestones',
+      }),
+    );
+    expect(completedIssues).toEqual([]);
+  });
+
+  it('validates milestone dates on the schedule screen where they can be fixed', () => {
+    const completed = completedAuthoringState();
+    const invalid = {
+      ...completed,
+      milestones: [
+        {
+          ...completed.milestones[0],
+          dueAt: '2026-10-01T18:00',
+        },
+      ],
+    };
+
+    const scheduleIssues = validateProgramAuthoringStep(invalid, 'schedule');
+    const milestoneIssues = validateProgramAuthoringStep(invalid, 'milestones');
+
+    expect(scheduleIssues).toContainEqual(
+      expect.objectContaining({
+        path: 'milestones.milestone-1.dueAt',
+        step: 'schedule',
+      }),
+    );
+    expect(milestoneIssues).toEqual([]);
   });
 
   it('matches the server schedule and team range rules', () => {

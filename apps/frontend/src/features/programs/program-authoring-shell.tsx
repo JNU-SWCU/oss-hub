@@ -23,7 +23,7 @@ export function ProgramAuthoringShell({
     <PageBody>
       <PageHeader
         title="프로그램 만들기"
-        description="최종 확인 전에는 프로그램이 생성되지 않습니다. 입력 내용은 이 탭에서 새로고침해도 복구됩니다."
+        description="최종 확인 전에는 프로그램이 생성되지 않습니다. 작성 중에는 ‘임시 저장’ 또는 ‘저장하고 계속’을 눌러 복구본을 남길 수 있습니다."
       />
       <div className="grid min-w-0 gap-8 lg:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]">
         <aside className="self-start lg:sticky lg:top-6">

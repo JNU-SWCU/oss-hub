@@ -69,7 +69,7 @@ describe('MilestoneDocumentSection response recovery', () => {
     });
     await vi.waitFor(() => {
       expect(container.textContent).toContain(
-        '제출 서류를 불러오지 못했습니다.',
+        '제출 항목을 불러오지 못했습니다.',
       );
     });
 
@@ -168,9 +168,11 @@ describe('제출과 판정이 부딪혔을 때', () => {
     );
   }
 
-  function submissionInput(): HTMLInputElement | null {
-    const found = container.querySelector('input[placeholder="제출 내용"]');
-    return found instanceof HTMLInputElement ? found : null;
+  function submissionInput(): HTMLTextAreaElement | null {
+    const found = container.querySelector(
+      'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+    );
+    return found instanceof HTMLTextAreaElement ? found : null;
   }
 
   /** 보완 요청을 받은 서류를 다시 낸다 — 두 번째 fetch가 그 제출이다. */
@@ -196,7 +198,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     if (input === null) throw new TypeError('제출 입력 칸을 찾지 못했습니다.');
     // React가 값 변경을 감지하도록 네이티브 setter로 넣고 input 이벤트를 올린다.
     const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
+      window.HTMLTextAreaElement.prototype,
       'value',
     )?.set;
     await act(async () => {
@@ -240,7 +242,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(submissionInput()).toBeNull();
     expect(container.textContent).toContain(
-      '승인된 서류는 다시 제출할 수 없습니다.',
+      '승인된 제출 항목은 다시 제출할 수 없습니다.',
     );
     expect(
       container.querySelector('[data-slot="status-badge"]')?.textContent,
@@ -276,7 +278,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     await vi.waitFor(() => {
       // 못 불러온 목록은 그대로 두지 않는다 — 되돌릴 길만 남는다.
       expect(container.textContent).toContain(
-        '제출 서류를 불러오지 못했습니다.',
+        '제출 항목을 불러오지 못했습니다.',
       );
     });
 
@@ -315,6 +317,47 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(submitNotice()).toBeNull();
     // 적어 둔 내용은 그대로 남는다.
     expect(submissionInput()?.value).toBe('고쳐서 다시 냅니다.');
+  });
+
+  it('제출 성공 뒤 서버에서 다시 읽은 차수와 전체 이력을 표시한다', async () => {
+    const refreshed = textDocument({
+      submitted: true,
+      submittedAt: '2026-08-03T00:00:00.000Z',
+      revision: 3,
+      status: 'SUBMITTED',
+      review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
+      history: [
+        {
+          event: 'RESUBMITTED',
+          revision: 3,
+          actorNickname: '팀원B',
+          comment: null,
+          createdAt: '2026-08-03T00:00:00.000Z',
+          fileName: null,
+        },
+      ],
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 'submission-1',
+          status: 'SUBMITTED',
+          submittedAt: '2026-08-03T00:00:00.000Z',
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([refreshed]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resubmit();
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).toContain('3차 제출본');
+      expect(container.textContent).toContain('팀원B');
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -358,6 +401,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     await act(async () => {
       root.render(
         <MilestoneDocumentSectionBody
+          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${submissionType}-${closed}`}
           state={{
             kind: 'ready',
             documents: [
@@ -430,6 +474,46 @@ describe('학생 행이 판정을 읽는 방식', () => {
       const badge = container.querySelector('[data-slot="status-badge"]');
       expect(badge?.textContent).toBe(label);
     }
+  });
+
+  it('학생도 제출본·파일·피드백 전체 이력을 오래된 순서로 확인한다', async () => {
+    await renderRow(
+      viewer({
+        revision: 2,
+        history: [
+          {
+            event: 'SUBMITTED',
+            revision: 1,
+            actorNickname: '학생A',
+            comment: null,
+            createdAt: '2026-08-01T00:00:00.000Z',
+            fileName: 'first.pdf',
+          },
+          {
+            event: 'CHANGES_REQUESTED',
+            revision: 1,
+            actorNickname: '담당자B',
+            comment: '서명 페이지를 추가해 주세요.',
+            createdAt: '2026-08-02T00:00:00.000Z',
+            fileName: null,
+          },
+          {
+            event: 'RESUBMITTED',
+            revision: 2,
+            actorNickname: '학생A',
+            comment: null,
+            createdAt: '2026-08-03T00:00:00.000Z',
+            fileName: 'second.pdf',
+          },
+        ],
+      }),
+    );
+
+    expect(container.textContent).toContain('재검토 대기');
+    expect(container.textContent).toContain('제출·검토 이력');
+    expect(container.textContent).toContain('first.pdf');
+    expect(container.textContent).toContain('서명 페이지를 추가해 주세요.');
+    expect(container.textContent).toContain('second.pdf');
   });
 
   /**
@@ -537,20 +621,21 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(buttonTexts()).not.toContain('수정');
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(container.textContent).toContain(
-      '승인된 서류는 다시 제출할 수 없습니다.',
+      '승인된 제출 항목은 다시 제출할 수 없습니다.',
     );
 
     await renderRow(viewer({ status: 'REJECTED' }));
     expect(buttonTexts()).not.toContain('수정');
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(container.textContent).toContain(
-      '반려된 서류는 다시 제출할 수 없습니다.',
+      '반려된 제출 항목은 다시 제출할 수 없습니다.',
     );
   });
 
   it('보완 요청·검토 대기·미제출에는 제출 입력을 연다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
     expect(buttonTexts()).toContain('수정');
+    await act(async () => actionButton('수정').click());
     expect(container.querySelector('input[type="file"]')).not.toBeNull();
 
     await renderRow(viewer({ status: 'SUBMITTED' }));
@@ -576,7 +661,9 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(editButton.disabled).toBe(false);
     await act(async () => editButton.click());
     expect(
-      container.querySelector('input[placeholder="제출 내용"]'),
+      container.querySelector(
+        'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+      ),
     ).not.toBeNull();
   });
 
@@ -617,13 +704,17 @@ describe('학생 행이 판정을 읽는 방식', () => {
     }
     await act(async () => editButton.click());
     expect(
-      container.querySelector('input[placeholder="제출 내용"]'),
+      container.querySelector(
+        'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+      ),
     ).not.toBeNull();
 
     await renderRow(viewer({ status: 'APPROVED' }), 'TEXT');
     expect(buttonTexts()).not.toContain('수정');
     expect(
-      container.querySelector('input[placeholder="제출 내용"]'),
+      container.querySelector(
+        'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+      ),
     ).toBeNull();
   });
 });

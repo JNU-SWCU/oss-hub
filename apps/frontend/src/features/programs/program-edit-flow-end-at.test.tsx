@@ -147,6 +147,29 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
   const undecidedBox = () =>
     required<HTMLInputElement>('#program-end-at-undecided');
 
+  async function selectOperation(): Promise<void> {
+    const button = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'),
+    ).find((candidate) => candidate.textContent?.includes('운영 기간'));
+    if (button === undefined) throw new TypeError('Missing 운영 기간.');
+    await act(async () => button.click());
+  }
+
+  async function selectOperationEnd(date: string): Promise<void> {
+    const start = required<HTMLButtonElement>(
+      '[data-calendar-date="2026-08-16"]',
+    );
+    await act(async () => start.click());
+    if (!date.startsWith('2026-08')) {
+      await act(async () =>
+        required<HTMLButtonElement>('button[aria-label="다음 달"]').click(),
+      );
+    }
+    await act(async () =>
+      required<HTMLButtonElement>(`[data-calendar-date="${date}"]`).click(),
+    );
+  }
+
   async function render(program: EditableProgram): Promise<{
     payload: () => ReturnType<typeof buildProgramEditInput>;
   }> {
@@ -163,6 +186,7 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
         />,
       );
     });
+    await selectOperation();
     return { payload: () => buildProgramEditInput(latest, latestDirty) };
   }
 
@@ -202,12 +226,13 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
     await act(async () => {
       undecidedBox().click();
     });
+    expect(dateInput().disabled).toBe(true);
+    await selectOperationEnd('2026-09-01');
     expect(dateInput().disabled).toBe(false);
-
-    await type(dateInput(), '2026-09-01T19:45');
+    await type(dateInput(), '19:45');
 
     // Then
-    expect(payload().endAt).toBe(new Date(2026, 8, 1, 19, 45).toISOString());
+    expect(payload().endAt).toBe('2026-09-01T10:45:00.000Z');
   });
 
   it('날짜가 있던 프로그램에서 미정을 켜면 날짜 칸이 비고 센티널이 나간다', async () => {
@@ -215,7 +240,7 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
     const { payload } = await render(datedProgram);
     expect(undecidedBox().checked).toBe(false);
     expect(dateInput().disabled).toBe(false);
-    expect(dateInput().value).not.toBe('');
+    expect(dateInput().value).toBe('18:30');
 
     // When
     await act(async () => {
@@ -241,7 +266,7 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
     });
 
     // Then: 비어 있는 것은 「미정」이 아니라 아직 안 고른 상태다 — 저장이 막힌다.
-    expect(dateInput().disabled).toBe(false);
+    expect(dateInput().disabled).toBe(true);
     expect(dateInput().value).toBe('');
     expect(() => payload()).toThrow();
   });

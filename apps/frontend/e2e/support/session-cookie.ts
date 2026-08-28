@@ -4,7 +4,7 @@ import { createHmac, createHash } from 'node:crypto';
  * apps/backend/src/auth/session-token.ts의 issueSessionToken과 완전히 동일한
  * HS256 JWT profile을 이 파일이 독립적으로 재구현한다. jose를 새 frontend
  * devDependency로 들이지 않고, backend 소스에도 손대지 않기 위한 선택이다.
- * 클레임 순서·이름을 backend 원본과 일치시켜야 verifySessionToken을 통과한다.
+ * 클레임 이름과 값은 backend 원본과 일치시켜야 verifySessionToken을 통과한다.
  */
 
 const ISSUER = 'oss-hub';
@@ -59,6 +59,7 @@ export function forgeSessionToken(
 ): string {
   const header = { alg: 'HS256', typ: 'JWT' };
   const payload = {
+    sessionVersion: 0,
     sub: githubId.toString(10),
     iss: ISSUER,
     aud: AUDIENCE,

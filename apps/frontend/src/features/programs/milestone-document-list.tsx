@@ -12,7 +12,6 @@ import {
 import { StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import {
   listMilestoneDocuments,
@@ -43,6 +42,8 @@ import {
   formatSeoulDate,
   formatSeoulShortDateTime,
 } from './program-detail-format';
+import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
+import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
 import type { ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
@@ -103,7 +104,7 @@ export function MilestoneDocumentSectionBody({
       <div className="grid gap-2 border-t border-border/50 pt-3 text-small text-muted-foreground">
         {/* 못 불러온 자리에서도 「방금 제출이 저장되지 않았다」는 사실은 남아야 한다. */}
         <ConflictNotice notice={conflictNotice} />
-        <p>제출 서류를 불러오지 못했습니다.</p>
+        <p>제출 항목을 불러오지 못했습니다.</p>
         <Button
           type="button"
           size="sm"
@@ -131,7 +132,7 @@ export function MilestoneDocumentSectionBody({
     <div className="grid gap-3 border-t border-border/50 pt-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-small font-bold text-muted-foreground">
-          제출 서류
+          제출 항목
         </h3>
         <span className="text-small text-muted-foreground">{headerLabel}</span>
       </div>
@@ -159,7 +160,7 @@ export function MilestoneDocumentSectionBody({
   );
 }
 
-/** 마일스톤 하나의 "제출 서류" 블록 — role null/PENDING이거나 서류가 없으면 아무것도 그리지 않는다. */
+/** 마일스톤 하나의 "제출 항목" 블록 — role null/PENDING이거나 항목이 없으면 아무것도 그리지 않는다. */
 export function MilestoneDocumentSection({
   milestoneId,
   viewerRole,
@@ -322,7 +323,11 @@ function StaffDocumentRow({
           onChange={(event) => void handleFile(event)}
         />
       </div>
-      {error ? <p className="text-small text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-small text-destructive">
+          {error} 파일을 다시 선택해 주세요.
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -392,8 +397,6 @@ function StudentDocumentRow({
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [text, setText] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const viewerSubmission = document.viewerSubmission;
   const submitted = viewerSubmission?.submitted ?? false;
@@ -421,31 +424,28 @@ function StudentDocumentRow({
   );
 
   const finish = useCallback(
-    async (content: MilestoneDocumentSubmissionContent) => {
+    async (content: MilestoneDocumentSubmissionContent): Promise<boolean> => {
       setSubmitting(true);
       setError(null);
       try {
-        const result = await submitMilestoneDocument(
+        await submitMilestoneDocument(
           document.milestoneId,
           document.id,
           content,
         );
-        onChange({
-          ...document,
-          viewerSubmission: {
-            submitted: true,
-            submittedAt: result.submittedAt,
-            /*
-             * 다시 낸 서류는 「검토 대기」로 돌아간다 — 서버도 재제출이 같은 행을 덮어쓰며
-             * 상태를 SUBMITTED로 되돌린다. 판정 이력은 되돌아가지 않으므로 `review`는
-             * 그대로 들고 있는다(다음 조회에서 서버가 같은 값을 다시 준다).
-             */
-            status: 'SUBMITTED',
-            review: document.viewerSubmission?.review ?? null,
-          },
-        });
         setEditing(false);
-        setText('');
+        try {
+          const refreshed = requireMilestoneDocumentList(
+            await listMilestoneDocuments(document.milestoneId),
+          ).find((item) => item.id === document.id);
+          if (refreshed === undefined) throw new TypeError('Missing document.');
+          onChange(refreshed);
+        } catch {
+          setError(
+            '제출은 저장되었습니다. 최신 제출 차수와 이력을 확인하려면 페이지를 새로고침해 주세요.',
+          );
+        }
+        return true;
       } catch (submitError: unknown) {
         /*
          * 내는 사이에 교직원 판정이 먼저 커밋된 경우(409 MSD_024)만 목록을 다시 부른다.
@@ -455,9 +455,10 @@ function StudentDocumentRow({
          */
         if (isMilestoneDocumentSubmitReviewChanged(submitError)) {
           onSubmitConflict(document);
-          return;
+          return false;
         }
         setError(submitErrorMessage(submitError, '제출에 실패했습니다.'));
+        return false;
       } finally {
         setSubmitting(false);
       }
@@ -465,22 +466,26 @@ function StudentDocumentRow({
     [document, onChange, onSubmitConflict],
   );
 
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  async function submitDraft(input: {
+    readonly text: string | null;
+    readonly file: File | null;
+  }): Promise<boolean> {
     setSubmitting(true);
     setError(null);
     try {
-      const uploaded = await uploadMilestoneDocumentFile(
-        document.milestoneId,
-        document.id,
-        file,
-      );
-      await finish({ type: 'FILE', fileId: uploaded.fileId });
+      const uploaded =
+        input.file === null
+          ? null
+          : await uploadMilestoneDocumentFile(
+              document.milestoneId,
+              document.id,
+              input.file,
+            );
+      return finish({ text: input.text, fileId: uploaded?.fileId ?? null });
     } catch (uploadError: unknown) {
       setError(submitErrorMessage(uploadError, '파일 업로드에 실패했습니다.'));
       setSubmitting(false);
+      return false;
     }
   }
 
@@ -522,28 +527,9 @@ function StudentDocumentRow({
         {!canSubmit ? (
           <span className="text-small text-muted-foreground break-keep">
             {display === 'APPROVED'
-              ? '승인된 서류는 다시 제출할 수 없습니다.'
-              : '반려된 서류는 다시 제출할 수 없습니다.'}
+              ? '승인된 제출 항목은 다시 제출할 수 없습니다.'
+              : '반려된 제출 항목은 다시 제출할 수 없습니다.'}
           </span>
-        ) : document.submissionType === 'FILE' ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant={submitted ? 'ghost' : 'default'}
-              disabled={deadlineLocked || submitting}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {actionIcon} {actionLabel}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="sr-only"
-              aria-label={`${document.name} 제출 파일 선택`}
-              onChange={(event) => void handleFile(event)}
-            />
-          </>
         ) : (
           <Button
             type="button"
@@ -563,28 +549,25 @@ function StudentDocumentRow({
           review={review}
         />
       )}
-      {canSubmit && editing && document.submissionType === 'TEXT' ? (
-        <form
-          className="flex flex-wrap items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const value = text.trim();
-            if (value.length === 0) return;
-            void finish({ type: 'TEXT', text: value });
-          }}
-        >
-          <Input
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder="제출 내용"
-            className="min-w-0 flex-1"
-          />
-          <Button type="submit" size="sm" disabled={submitting}>
-            제출
-          </Button>
-        </form>
+      {(viewerSubmission?.history?.length ?? 0) === 0 ? null : (
+        <MilestoneDocumentHistoryTimeline
+          history={viewerSubmission?.history ?? []}
+        />
+      )}
+      {canSubmit && editing ? (
+        <MilestoneDocumentSubmissionForm
+          documentName={document.name}
+          documentId={document.id}
+          submitting={submitting}
+          onCancel={() => setEditing(false)}
+          onSubmit={submitDraft}
+        />
       ) : null}
-      {error ? <p className="text-small text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-small text-destructive">
+          {error} 입력한 내용은 그대로 있으니 확인한 뒤 다시 시도해 주세요.
+        </p>
+      ) : null}
     </li>
   );
 }

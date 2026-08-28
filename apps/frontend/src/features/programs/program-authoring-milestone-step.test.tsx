@@ -26,12 +26,10 @@ describe('ProgramAuthoringMilestoneStep', () => {
     container.remove();
   });
 
-  it('마일스톤이 1개뿐이면 삭제 버튼을 막는다', async () => {
-    // Given
+  it('마일스톤 이름·날짜·삭제는 일정 단계에 두고 이 단계에서 중복하지 않는다', async () => {
     const state = completedAuthoringState();
     expect(state.milestones).toHaveLength(1);
 
-    // When
     await act(async () => {
       root.render(
         <ProgramAuthoringMilestoneStep
@@ -46,56 +44,15 @@ describe('ProgramAuthoringMilestoneStep', () => {
       );
     });
 
-    // Then
-    const buttons = [...container.querySelectorAll('button')].filter(
-      (button) => button.textContent === '삭제',
-    );
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0]?.disabled).toBe(true);
-  });
-
-  it('마일스톤이 2개 이상이면 삭제 버튼을 쓸 수 있고 해당 id로 제거를 요청한다', async () => {
-    // Given
-    const completed = completedAuthoringState();
-    const first = completed.milestones[0];
-    if (first === undefined) throw new TypeError('Missing milestone.');
-    const state = {
-      ...completed,
-      milestones: [
-        { ...first, id: 'milestone-a', name: '오리엔테이션' },
-        { ...first, id: 'milestone-b', name: '중간 발표' },
-      ],
-    };
-    const onRemove = vi.fn();
-
-    // When
-    await act(async () => {
-      root.render(
-        <ProgramAuthoringMilestoneStep
-          state={state}
-          issues={[]}
-          dispatch={vi.fn()}
-          newId={() => 'milestone-new'}
-          onRemove={onRemove}
-          onRequirementFileChange={vi.fn()}
-          onRequirementRemove={vi.fn()}
-        />,
-      );
-    });
-    const buttons = [...container.querySelectorAll('button')].filter(
-      (button) => button.textContent === '삭제',
-    );
-    expect(buttons).toHaveLength(2);
-    for (const button of buttons) expect(button.disabled).toBe(false);
-    await act(async () => {
-      buttons[1]?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true }),
-      );
-    });
-
-    // Then
-    expect(onRemove).toHaveBeenCalledOnce();
-    expect(onRemove).toHaveBeenCalledWith('milestone-b');
+    expect(container.textContent).toContain('날짜를 바꾸려면');
+    expect(container.textContent).toContain('신청/운영 일정');
+    expect(container.querySelector('input[type="datetime-local"]')).toBeNull();
+    expect(container.textContent).not.toContain('제출 방식');
+    expect(
+      [...container.querySelectorAll('button')].some(
+        (button) => button.textContent === '삭제' && !button.disabled,
+      ),
+    ).toBe(false);
   });
 
   it('마일스톤마다 요구서류 영역에 이름을 붙여 컨트롤을 구분한다', async () => {
@@ -128,17 +85,17 @@ describe('ProgramAuthoringMilestoneStep', () => {
 
     // Then
     expect(
-      container.querySelectorAll('[aria-label="안내용 마일스톤 요구서류"]'),
+      container.querySelectorAll('[aria-label="안내용 마일스톤 제출 항목"]'),
     ).toHaveLength(1);
     expect(
-      container.querySelectorAll('[aria-label="필수 계획서 요구서류"]'),
+      container.querySelectorAll('[aria-label="필수 계획서 제출 항목"]'),
     ).toHaveLength(1);
   });
 
   it('마일스톤 카드에서 요구서류 항목을 그 자리에서 추가·삭제한다', async () => {
     // Given
     const state = completedAuthoringState();
-    expect(state.milestones[0]?.requirements).toHaveLength(0);
+    expect(state.milestones[0]?.requirements).toHaveLength(1);
     const dispatch = vi.fn();
     const onRequirementRemove = vi.fn();
 
@@ -156,8 +113,8 @@ describe('ProgramAuthoringMilestoneStep', () => {
         />,
       );
     });
-    const addButton = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent === '항목 추가',
+    const addButton = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('제출 항목 추가'),
     );
     await act(async () => {
       addButton?.dispatchEvent(
@@ -172,13 +129,18 @@ describe('ProgramAuthoringMilestoneStep', () => {
       requirementId: 'requirement-new',
     });
 
-    // Given a state that already has one requirement
+    // Given a state that already has two requirements
+    const existingRequirement = state.milestones[0]?.requirements[0];
+    if (existingRequirement === undefined) {
+      throw new TypeError('Missing default submission item.');
+    }
     const withRequirement = {
       ...state,
       milestones: [
         {
           ...state.milestones[0]!,
           requirements: [
+            existingRequirement,
             {
               id: 'requirement-1',
               name: '결과 보고서',
@@ -206,7 +168,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
     const removeButtons = [...container.querySelectorAll('button')].filter(
       (button) => button.textContent === '삭제',
     );
-    // 두 번째 삭제 버튼이 요구서류 항목의 삭제 버튼이다 (첫 번째는 마일스톤 자체 삭제).
     await act(async () => {
       removeButtons[1]?.dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true }),

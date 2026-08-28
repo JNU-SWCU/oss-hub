@@ -101,13 +101,6 @@ function deferred<T>(): {
   return { promise, resolve, reject };
 }
 
-function submissionTypeRadioTag(html: string, type: 'file' | 'text'): string {
-  const idAt = html.indexOf(`id="milestone-milestone-1-document-${type}"`);
-  if (idAt < 0) throw new Error('제출 방식 radio를 찾지 못했습니다.');
-  const start = html.lastIndexOf('<input', idAt);
-  return html.slice(start, html.indexOf('>', idAt) + 1);
-}
-
 function renderBody(
   overrides: Partial<Parameters<typeof MilestoneDocumentEditorBody>[0]> = {},
 ): string {
@@ -130,30 +123,29 @@ function renderBody(
       onRequestDelete={noOp}
       onCancelDelete={noOp}
       onConfirmDelete={noOp}
-      onMove={noOp}
+      onReorder={async () => true}
       onTemplateFile={noOp}
       {...overrides}
     />,
   );
 }
 
-describe('받을 서류 섹션의 렌더 계약', () => {
+describe('제출 항목 섹션의 렌더 계약', () => {
   it('제목·개수·항목 추가 버튼과 각 행의 조작을 그린다', () => {
     const html = renderBody();
 
-    expect(html).toContain('받을 서류');
+    expect(html).toContain('제출 항목');
     expect(html).toContain('3개');
-    expect(html).toContain('항목 추가');
+    expect(html).toContain('제출 항목 추가');
     expect(html).toContain('계획서');
     expect(html).toContain('양식 올리기');
     expect(html).toContain('양식 교체');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
-    expect(html).toContain('위로');
-    expect(html).toContain('아래로');
+    expect(html).toContain('손잡이를 끌어');
+    expect(html).toContain('키보드는 손잡이에서 Enter');
   });
 
-  // 드래그 손잡이는 키보드·화면 읽기 도구로 쓸 수 없어 버튼 두 개로 대체했다.
   it('양식 파일명과 인증된 다운로드 링크를 함께 보여 준다', () => {
     const html = renderBody();
 
@@ -162,19 +154,22 @@ describe('받을 서류 섹션의 렌더 계약', () => {
     expect(html).toContain('title="운영 결과보고서 최종본 2026.docx"');
   });
 
-  it('순서 바꾸기는 드래그가 아니라 이름표가 붙은 버튼이다', () => {
+  it('순서 바꾸기는 마우스·터치·키보드용 손잡이 하나로 제공한다', () => {
     const html = renderBody();
 
-    expect(html).toContain('aria-label="계획서 위로"');
-    expect(html).toContain('aria-label="계획서 아래로"');
-    expect(html).not.toContain('draggable');
+    expect(html).toContain('aria-label="계획서 순서 이동"');
+    expect(html).toContain(
+      'aria-describedby="milestone-milestone-1-document-reorder-instructions"',
+    );
+    expect(html).toContain('data-sortable-document-id="a"');
+    expect(html).not.toContain('계획서 위로');
+    expect(html).not.toContain('계획서 아래로');
   });
 
-  it('제출 방식은 raw enum 대신 한국어로 보인다', () => {
+  it('항목 목록에 FILE/TEXT 제출 방식을 따로 표시하지 않는다', () => {
     const html = renderBody();
 
-    expect(html).toContain('파일');
-    expect(html).toContain('글로 작성');
+    expect(html).not.toContain('글로 작성');
     for (const rawEnum of ['>FILE<', '>TEXT<']) {
       expect(html).not.toContain(rawEnum);
     }
@@ -195,23 +190,25 @@ describe('받을 서류 섹션의 렌더 계약', () => {
   it('항목이 0개면 안내와 추가 버튼만 남는다', () => {
     const html = renderBody({ state: { kind: 'ready', documents: [] } });
 
-    expect(html).toContain('아직 등록한 서류가 없습니다.');
-    expect(html).toContain('항목 추가');
+    expect(html).toContain('아직 제출 항목이 없습니다.');
+    expect(html).toContain('학생이 제출할 수 있도록');
+    expect(html).toContain('위의 ‘제출 항목 추가’');
+    expect(html).toContain('제출 항목 추가');
     expect(html).toContain('0개');
   });
 
   it('불러오기 실패는 문구와 다시 시도 버튼을 준다', () => {
     const html = renderBody({ state: { kind: 'failed' } });
 
-    expect(html).toContain('제출 서류를 불러오지 못했습니다.');
+    expect(html).toContain('제출 항목을 불러오지 못했습니다.');
     expect(html).toContain('다시 시도');
-    expect(html).not.toContain('항목 추가');
+    expect(html).not.toContain('제출 항목 추가');
   });
 
   it('접혀 있으면 목록을 그리지 않는다', () => {
     const html = renderBody({ expanded: false });
 
-    expect(html).toContain('받을 서류');
+    expect(html).toContain('제출 항목');
     expect(html).toContain('aria-expanded="false"');
     expect(html).not.toContain('계획서');
   });
@@ -232,52 +229,44 @@ describe('받을 서류 섹션의 렌더 계약', () => {
     expect(html).toContain('순서를 바꾸지 못했습니다.');
   });
 
-  it('추가 폼은 서류명·필수 여부·제출 방식을 이름표와 함께 묻는다', () => {
+  it('추가 폼은 제출 항목명·필수 여부를 묻고 글·파일 모두를 허용한다', () => {
     const html = renderBody({
       editor: {
         mode: 'create',
         form: toMilestoneDocumentForm(planner),
         errors: { name: '서류명을 입력해 주세요.' },
-        submissionTypeLocked: false,
       },
     });
 
-    expect(html).toContain('서류 추가');
-    expect(html).toContain('서류명 *');
-    expect(html).toContain('필수 제출');
-    expect(html).toContain('제출 방식');
+    expect(html).toContain('제출 항목 추가');
+    expect(html).toContain('제출 항목 이름 *');
+    expect(html).toContain('필수 제출로 지정합니다');
+    expect(html).toContain('내용만, 파일만, 또는 둘 다');
     expect(html).toContain('for="milestone-milestone-1-document-name"');
     expect(html).toContain('서류명을 입력해 주세요.');
-    // 제출이 없는 항목은 선택이 열려 있어야 한다 — 잠금이 기본이 되면 아무도 못 고친다.
-    expect(html).not.toContain('제출 방식은 바꿀 수 없습니다');
-    expect(submissionTypeRadioTag(html, 'file')).not.toContain('disabled=""');
-    expect(submissionTypeRadioTag(html, 'text')).not.toContain('disabled=""');
+    expect(html).not.toContain('type="radio"');
+    expect(html).not.toContain('>FILE<');
+    expect(html).not.toContain('>TEXT<');
   });
 
-  // 백엔드가 409(MSD_016)로 막는 조건을 화면이 미리 알린다. 눌러 본 뒤 실패로 알게
-  // 하면 「왜 안 되는지」가 남지 않는다.
-  it('제출이 있는 항목의 수정 폼은 제출 방식 선택을 잠그고 이유를 적는다', () => {
+  it('기존 글 항목도 따로 구분하지 않고 같은 통합 안내를 보여 준다', () => {
     const html = renderBody({
       editor: {
         mode: 'edit',
-        form: toMilestoneDocumentForm(planner),
+        form: toMilestoneDocumentForm(budget),
         errors: {},
-        submissionTypeLocked: true,
       },
     });
 
-    expect(html).toContain(
-      '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
-    );
-    expect(submissionTypeRadioTag(html, 'file')).toContain('disabled=""');
-    expect(submissionTypeRadioTag(html, 'text')).toContain('disabled=""');
-    // 이름·필수 여부는 제출이 있어도 고칠 수 있다(백엔드가 그 요청은 통과시킨다).
-    expect(html).toContain('서류명 *');
-    expect(html).toContain('필수 제출');
+    expect(html).toContain('내용만, 파일만, 또는 둘 다');
+    expect(html).not.toContain('기존 글 제출 항목');
+    expect(html).not.toContain('type="radio"');
+    expect(html).toContain('제출 항목 이름 *');
+    expect(html).toContain('필수 제출로 지정합니다');
   });
 });
 
-describe('받을 서류 섹션의 동작', () => {
+describe('제출 항목 섹션의 동작', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -359,14 +348,37 @@ describe('받을 서류 섹션의 동작', () => {
     });
   }
 
+  async function press(buttonName: string, key: string) {
+    await act(async () => {
+      const target = button(buttonName);
+      target.focus();
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key }),
+      );
+    });
+    await settle();
+  }
+
+  async function reorderByKeyboard(
+    buttonName: string,
+    direction: 'ArrowUp' | 'ArrowDown',
+    distance = 1,
+  ) {
+    await press(buttonName, 'Enter');
+    for (let step = 0; step < distance; step += 1) {
+      await press(buttonName, direction);
+    }
+    await press(buttonName, 'Enter');
+  }
+
   /**
-   * 「받을 서류」 토글 — 펼쳐서 목록을 가진 동안에는 이름에 개수가 붙어(「받을 서류 2개」)
+   * 「제출 항목」 토글 — 펼쳐서 목록을 가진 동안에는 이름에 개수가 붙어(「제출 항목 2개」)
    * 이름으로는 못 찾는다. 이 화면에서 `aria-expanded`를 가진 버튼은 이것 하나다.
    */
   async function toggleDocuments() {
     const toggle = container.querySelector('button[aria-expanded]');
     if (!(toggle instanceof HTMLButtonElement)) {
-      throw new TypeError('「받을 서류」 토글을 찾지 못했습니다.');
+      throw new TypeError('「제출 항목」 토글을 찾지 못했습니다.');
     }
     await act(async () => {
       toggle.click();
@@ -404,25 +416,13 @@ describe('받을 서류 섹션의 동작', () => {
     });
   }
 
-  function submissionTypeRadios(): readonly HTMLInputElement[] {
-    const radios = Array.from(
-      container.querySelectorAll<HTMLInputElement>(
-        'input[name="milestone-milestone-1-document-submission-type"]',
-      ),
-    );
-    if (radios.length !== 2) {
-      throw new TypeError('제출 방식 radio 두 개를 찾지 못했습니다.');
-    }
-    return radios;
-  }
-
   it('접힌 카드는 목록을 불러오지 않고, 펼칠 때 한 번 불러온다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([planner]);
 
     await render(false);
     expect(listMilestoneDocumentsMock).not.toHaveBeenCalled();
 
-    await click('받을 서류');
+    await click('제출 항목');
     expect(listMilestoneDocumentsMock).toHaveBeenCalledTimes(1);
     expect(listMilestoneDocumentsMock).toHaveBeenCalledWith('milestone-1');
   });
@@ -433,7 +433,7 @@ describe('받을 서류 섹션의 동작', () => {
     await render(true);
 
     expect(listMilestoneDocumentsMock).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('아직 등록한 서류가 없습니다.');
+    expect(container.textContent).toContain('아직 제출 항목이 없습니다.');
   });
 
   it('목록은 응답 순서가 뒤섞여 있어도 sortOrder 오름차순으로 그린다', async () => {
@@ -449,7 +449,7 @@ describe('받을 서류 섹션의 동작', () => {
    * sortOrder가 같아져 그 뒤로 「위로」가 영영 먹지 않는 덫이 됐다. 이제 전체 순서를
    * 한 번에 보낸다 — 항목별 PATCH가 한 건이라도 나가면 그 회귀다.
    */
-  it('「아래로」는 전체 순서를 한 번의 요청으로 보낸다 — 항목별 PATCH를 쓰지 않는다', async () => {
+  it('드롭은 전체 순서를 한 번의 요청으로 보낸다 — 항목별 PATCH를 쓰지 않는다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([planner, budget, pledge]);
     reorderMilestoneDocumentsMock.mockResolvedValue([
       { ...budget, sortOrder: 1 },
@@ -458,7 +458,7 @@ describe('받을 서류 섹션의 동작', () => {
     ]);
 
     await render(true);
-    await click('계획서 아래로');
+    await reorderByKeyboard('계획서 순서 이동', 'ArrowDown');
 
     expect(reorderMilestoneDocumentsMock).toHaveBeenCalledTimes(1);
     expect(reorderMilestoneDocumentsMock).toHaveBeenCalledWith('milestone-1', [
@@ -483,7 +483,7 @@ describe('받을 서류 섹션의 동작', () => {
     ]);
 
     await render(true);
-    await click('계획서 아래로');
+    await reorderByKeyboard('계획서 순서 이동', 'ArrowDown');
 
     expect(rowNames()).toEqual(['예산서(서버 확정)', '계획서(서버 확정)']);
   });
@@ -503,7 +503,7 @@ describe('받을 서류 섹션의 동작', () => {
     ]);
 
     await render(true);
-    await click('계획서 아래로');
+    await reorderByKeyboard('계획서 순서 이동', 'ArrowDown');
 
     expect(reorderMilestoneDocumentsMock).toHaveBeenCalledWith('milestone-1', [
       'b',
@@ -512,7 +512,7 @@ describe('받을 서류 섹션의 동작', () => {
     expect(rowNames()).toEqual(['예산서', '계획서']);
   });
 
-  it('제출이 있는 항목을 수정하면 제출 방식 선택이 잠긴 채로 열린다', async () => {
+  it('제출이 있는 항목을 수정해도 제출 방식 선택은 나타나지 않는다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([
       documentFixture('a', 1, {
         name: '계획서',
@@ -523,13 +523,11 @@ describe('받을 서류 섹션의 동작', () => {
     await render(true);
     await click('수정');
 
-    expect(submissionTypeRadios().every((radio) => radio.disabled)).toBe(true);
-    expect(container.textContent).toContain(
-      '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
-    );
+    expect(container.querySelector('input[type="radio"]')).toBeNull();
+    expect(container.textContent).toContain('내용만, 파일만, 또는 둘 다');
   });
 
-  it('아직 아무도 안 낸 항목은 제출 방식을 바꿀 수 있다', async () => {
+  it('아직 아무도 안 낸 항목도 제출 방식 선택은 나타나지 않는다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([
       documentFixture('a', 1, {
         name: '계획서',
@@ -540,8 +538,8 @@ describe('받을 서류 섹션의 동작', () => {
     await render(true);
     await click('수정');
 
-    expect(submissionTypeRadios().every((radio) => !radio.disabled)).toBe(true);
-    expect(container.textContent).not.toContain('제출 방식은 바꿀 수 없습니다');
+    expect(container.querySelector('input[type="radio"]')).toBeNull();
+    expect(container.textContent).toContain('내용만, 파일만, 또는 둘 다');
   });
 
   /**
@@ -549,7 +547,7 @@ describe('받을 서류 섹션의 동작', () => {
    * 응답을 그대로 갈아 끼우던 시절에는 이름만 바꿔도 제출 수가 사라져, 다시 연 수정
    * 폼에서 제출 방식이 열려 있었다. 교직원이 바꿔 저장해야 그제서야 409가 떴다.
    */
-  it('이름만 바꿔 저장한 뒤 다시 열어도 제출 방식은 잠긴 채다', async () => {
+  it('이름만 바꿔 저장한 뒤 다시 열어도 방식 선택은 없다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([
       documentFixture('a', 1, {
         name: '계획서',
@@ -570,13 +568,11 @@ describe('받을 서류 섹션의 동작', () => {
 
     await click('수정');
 
-    expect(submissionTypeRadios().every((radio) => radio.disabled)).toBe(true);
-    expect(container.textContent).toContain(
-      '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
-    );
+    expect(container.querySelector('input[type="radio"]')).toBeNull();
+    expect(container.textContent).toContain('내용만, 파일만, 또는 둘 다');
   });
 
-  it('순서를 바꾼 뒤에도 제출이 있는 항목은 잠긴 채다', async () => {
+  it('순서를 바꾼 뒤에도 제출 방식 선택은 없다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([
       documentFixture('a', 1, {
         name: '계획서',
@@ -594,23 +590,41 @@ describe('받을 서류 섹션의 동작', () => {
     ]);
 
     await render(true);
-    await click('계획서 아래로');
+    await reorderByKeyboard('계획서 순서 이동', 'ArrowDown');
     expect(rowNames()).toEqual(['예산서', '계획서']);
 
     // 두 번째 행(계획서)의 「수정」 — 첫 행은 제출이 없어 잠기지 않는 항목이다.
     await clickEditAt(1);
 
-    expect(submissionTypeRadios().every((radio) => radio.disabled)).toBe(true);
+    expect(container.querySelector('input[type="radio"]')).toBeNull();
   });
 
-  it('첫 항목의 「위로」와 마지막 항목의 「아래로」는 잠겨 있다', async () => {
+  it('손잡이는 모든 항목에서 같은 44px 조작 영역을 제공한다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
 
     await render(true);
 
-    expect(button('계획서 위로').disabled).toBe(true);
-    expect(button('예산서 아래로').disabled).toBe(true);
-    expect(button('계획서 아래로').disabled).toBe(false);
+    const plannerHandle = button('계획서 순서 이동');
+    const budgetHandle = button('예산서 순서 이동');
+    expect(plannerHandle.disabled).toBe(false);
+    expect(budgetHandle.disabled).toBe(false);
+    expect(plannerHandle.className).toContain('touch-none');
+    expect(plannerHandle.getAttribute('aria-describedby')).toBe(
+      'milestone-milestone-1-document-reorder-instructions',
+    );
+  });
+
+  it('키보드로 집은 뒤 Escape를 누르면 순서를 바꾸지 않는다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+
+    await render(true);
+    await press('계획서 순서 이동', ' ');
+    await press('계획서 순서 이동', 'ArrowDown');
+    await press('계획서 순서 이동', 'Escape');
+
+    expect(reorderMilestoneDocumentsMock).not.toHaveBeenCalled();
+    expect(rowNames()).toEqual(['계획서', '예산서']);
+    expect(container.textContent).toContain('순서 이동을 취소했습니다.');
   });
 
   it('순서 바꾸기가 실패하면 그 행에 서버 문구를 보여 준다', async () => {
@@ -627,11 +641,12 @@ describe('받을 서류 섹션의 동작', () => {
     );
 
     await render(true);
-    await click('계획서 아래로');
+    await reorderByKeyboard('계획서 순서 이동', 'ArrowDown');
 
     expect(container.textContent).toContain(
       '이미 다른 사람이 순서를 바꿨습니다.',
     );
+    expect(rowNames()).toEqual(['계획서', '예산서']);
   });
 
   it('새 항목은 기존 최대 sortOrder + 1로 만든다', async () => {
@@ -641,7 +656,7 @@ describe('받을 서류 섹션의 동작', () => {
     );
 
     await render(true);
-    await click('항목 추가');
+    await click('제출 항목 추가');
 
     await type('#milestone-milestone-1-document-name', '서약서');
     await click('저장');
@@ -650,7 +665,6 @@ describe('받을 서류 섹션의 동작', () => {
       name: '서약서',
       required: true,
       sortOrder: 3,
-      submissionType: 'FILE',
     });
     expect(rowNames()).toEqual(['계획서', '예산서', '서약서']);
   });
@@ -659,7 +673,7 @@ describe('받을 서류 섹션의 동작', () => {
     listMilestoneDocumentsMock.mockResolvedValue([]);
 
     await render(true);
-    await click('항목 추가');
+    await click('제출 항목 추가');
     await click('저장');
 
     expect(createMilestoneDocumentMock).not.toHaveBeenCalled();
@@ -682,12 +696,24 @@ describe('받을 서류 섹션의 동작', () => {
     expect(rowNames()).toEqual(['예산서']);
   });
 
+  it('마지막 제출 항목은 삭제하지 못하며 다음 행동을 안내한다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([planner]);
+
+    await render(true);
+
+    expect(button('삭제').disabled).toBe(true);
+    expect(container.textContent).toContain(
+      '바꾸려면 새 항목을 먼저 추가하세요.',
+    );
+    expect(deleteMilestoneDocumentMock).not.toHaveBeenCalled();
+  });
+
   it('불러오기 실패는 다시 시도로 회복한다', async () => {
     listMilestoneDocumentsMock.mockRejectedValueOnce(new TypeError('network'));
     listMilestoneDocumentsMock.mockResolvedValueOnce([planner]);
 
     await render(true);
-    expect(container.textContent).toContain('제출 서류를 불러오지 못했습니다.');
+    expect(container.textContent).toContain('제출 항목을 불러오지 못했습니다.');
 
     await click('다시 시도');
     expect(rowNames()).toEqual(['계획서']);
@@ -743,7 +769,7 @@ describe('받을 서류 섹션의 동작', () => {
 
       expect(rowNames()).toEqual(['계획서']);
       expect(container.textContent).not.toContain(
-        '제출 서류를 불러오지 못했습니다.',
+        '제출 항목을 불러오지 못했습니다.',
       );
     });
   });
@@ -763,7 +789,7 @@ describe('받을 서류 섹션의 동작', () => {
       createMilestoneDocumentMock.mockReturnValueOnce(created.promise);
 
       await render(true);
-      await click('항목 추가');
+      await click('제출 항목 추가');
       await type('#milestone-milestone-1-document-name', '서약서');
       await click('저장');
       // 저장이 도는 사이에 접었다 편다 — 이 조회는 새 항목이 없던 목록을 읽는다.
@@ -790,7 +816,7 @@ describe('받을 서류 섹션의 동작', () => {
       reorderMilestoneDocumentsMock.mockReturnValueOnce(reordered.promise);
 
       await render(true);
-      await click('계획서 아래로');
+      await reorderByKeyboard('계획서 순서 이동', 'ArrowDown');
       await collapseAndExpand();
 
       await act(async () =>

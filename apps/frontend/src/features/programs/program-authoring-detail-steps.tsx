@@ -89,7 +89,7 @@ export function ProgramAuthoringBasicStep({
       description="프로그램 목록과 상세 화면에 표시할 정보를 입력하세요."
     >
       <ProgramAuthoringTextField
-        id="authoring-name"
+        id="program-name"
         label="프로그램명 *"
         value={state.name}
         error={messageFor(issues, 'name')}

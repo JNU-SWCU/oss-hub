@@ -8,7 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
-import { categoryLabel, formatSeoulDateOnly } from './program-detail-format';
+import {
+  categoryLabel,
+  formatSeoulDateOnly,
+  isPastDue,
+} from './program-detail-format';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
 import type { ProgramOverview } from './program-overview-api';
@@ -141,7 +145,7 @@ export function ProgramFactBar({
       key: 'submission-rate',
       k: '이번 마일스톤 완주율',
       v: `${rate}% (${numerator}/${denominator})`,
-      caption: '현재 마일스톤 필수 서류를 모두 제출한 참여자 기준',
+      caption: '현재 마일스톤 필수 항목을 모두 제출한 참여자 기준',
     });
   }
   return (
@@ -247,7 +251,7 @@ export function ProgramMilestones({
             <MilestoneDocumentSection
               milestoneId={milestone.id}
               viewerRole={program.viewer.role}
-              closed={milestone.dDay < 0}
+              closed={isPastDue(milestone.dueAt)}
             />
           </div>
         ))

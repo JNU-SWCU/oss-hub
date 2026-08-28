@@ -98,6 +98,7 @@ export interface MilestoneDocumentCurrentFileItem {
   readonly submissionType: SubmissionType;
   readonly viewerSubmission?: {
     readonly submitted: boolean;
+    readonly hasCurrentFile?: boolean;
   };
 }
 

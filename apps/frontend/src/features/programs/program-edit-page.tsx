@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditableMilestone } from './api';
 import {
   createMilestone,
@@ -19,6 +19,7 @@ import {
   mapProgramEditError,
   toMilestoneForm,
   toProgramEditForm,
+  validateProgramEditForm,
   type ProgramEditableField,
   type ProgramEditErrors,
   type ProgramEditForm,
@@ -67,8 +68,8 @@ export function ProgramEditPage({
     null,
   );
   /**
-   * 방금 만든 마일스톤. 저장하면 편집기가 닫히므로, 그 카드의 「받을 서류」를
-   * 펼친 채로 띄워 "저장 → 서류 등록"을 한 동선으로 잇는다.
+   * 방금 만든 마일스톤. 저장하면 편집기가 닫히므로, 그 카드의 「제출 항목」을
+   * 펼친 채로 띄워 "저장 → 제출 항목 등록"을 한 동선으로 잇는다.
    */
   const [createdMilestoneId, setCreatedMilestoneId] = useState<string | null>(
     null,
@@ -83,6 +84,7 @@ export function ProgramEditPage({
    * 실패 이유를 보지 못한 채 버튼만 다시 눌러 보게 된다.
    */
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const editRegionRef = useRef<HTMLDivElement>(null);
 
   const isDirty = dirtyFields.length > 0;
   const hasUnsavedMilestoneEdit =
@@ -110,6 +112,17 @@ export function ProgramEditPage({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (Object.keys(errors).length === 0) return;
+    const firstInvalidField =
+      editRegionRef.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]',
+      ) ?? null;
+    if (firstInvalidField === null) return;
+    firstInvalidField.focus({ preventScroll: true });
+    firstInvalidField.scrollIntoView?.({ block: 'center' });
+  }, [errors]);
+
   const updateField = (
     field: ProgramEditableField,
     value: string | boolean,
@@ -127,25 +140,20 @@ export function ProgramEditPage({
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (form === null || state.kind !== 'ready') return;
-    const clientFieldErrors: ProgramEditErrors = {
-      name: form.name.trim() ? undefined : '프로그램 이름을 입력해 주세요.',
-      organizer: form.organizer.trim() ? undefined : '주최를 입력해 주세요.',
-      description: form.description.trim()
-        ? undefined
-        : '프로그램 설명을 입력해 주세요.',
-      startAt: form.startAt ? undefined : '운영 시작일을 입력해 주세요.',
-      endAt:
-        form.endAt && new Date(form.endAt) < new Date(form.applicationEndAt)
-          ? '종료일은 신청 종료일 이후여야 합니다.'
-          : undefined,
+    const currentScheduleForm = {
+      ...form,
+      // 마일스톤을 방금 저장했을 때는 최초 로드 시점의 form 사본이 아니라
+      // 현재 화면의 일정으로 검증해야 한다. 아래 전송 직전에만 덞어쓰면 클라이언트
+      // 검증이 예전 마감으로 먼저 막아 요청 자체가 나가지 않는다.
+      milestoneStartAts: state.program.milestones.map(
+        (milestone) => milestone.startAt,
+      ),
+      milestoneDueAts: state.program.milestones.map(
+        (milestone) => milestone.dueAt,
+      ),
     };
-    if (
-      clientFieldErrors.name ||
-      clientFieldErrors.organizer ||
-      clientFieldErrors.description ||
-      clientFieldErrors.startAt ||
-      clientFieldErrors.endAt
-    ) {
+    const clientFieldErrors = validateProgramEditForm(currentScheduleForm);
+    if (Object.values(clientFieldErrors).some(Boolean)) {
       setErrors(clientFieldErrors);
       return;
     }
@@ -155,20 +163,7 @@ export function ProgramEditPage({
     try {
       const updated = await updateProgram(
         programId,
-        buildProgramEditInput(
-          {
-            ...form,
-            // 마일스톤 변경은 program 상태에 즉시 반영된다. 최초 로드 때 만든
-            // form의 일정 사본을 쓰면 저장 직후에도 예전 마감으로 종료일을 막는다.
-            milestoneStartAts: state.program.milestones.map(
-              (milestone) => milestone.startAt,
-            ),
-            milestoneDueAts: state.program.milestones.map(
-              (milestone) => milestone.dueAt,
-            ),
-          },
-          dirtyFields,
-        ),
+        buildProgramEditInput(currentScheduleForm, dirtyFields),
       );
       setState({ kind: 'ready', program: updated });
       setForm(toProgramEditForm(updated));
@@ -304,34 +299,36 @@ export function ProgramEditPage({
   }
 
   return (
-    <ProgramEditView
-      program={state.program}
-      form={form}
-      errors={errors}
-      toastMessage={toastMessage}
-      generalAlert={generalAlert}
-      isSaving={isSaving}
-      milestoneEditor={milestoneEditor}
-      deleteTarget={deleteTarget}
-      expandedDocumentsMilestoneId={createdMilestoneId}
-      isMilestoneBusy={isMilestoneBusy}
-      isLifecycleBusy={isLifecycleBusy}
-      isLifecycleConfirming={isLifecycleConfirming}
-      lifecycleError={lifecycleError}
-      isAdmin={isAdmin}
-      onFieldChange={updateField}
-      onSubmit={(event) => void submit(event)}
-      onRequestLifecycleToggle={requestLifecycleToggle}
-      onCancelLifecycleToggle={cancelLifecycleToggle}
-      onConfirmLifecycleToggle={() => void confirmLifecycleToggle()}
-      onAddMilestone={openAddMilestone}
-      onEditMilestone={openEditMilestone}
-      onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
-      onMilestoneFieldChange={updateMilestoneField}
-      onSaveMilestone={(event) => void saveMilestone(event)}
-      onRequestDeleteMilestone={setDeleteTarget}
-      onCancelDelete={() => setDeleteTarget(null)}
-      onConfirmDelete={() => void confirmDelete()}
-    />
+    <div ref={editRegionRef} className="contents">
+      <ProgramEditView
+        program={state.program}
+        form={form}
+        errors={errors}
+        toastMessage={toastMessage}
+        generalAlert={generalAlert}
+        isSaving={isSaving}
+        milestoneEditor={milestoneEditor}
+        deleteTarget={deleteTarget}
+        expandedDocumentsMilestoneId={createdMilestoneId}
+        isMilestoneBusy={isMilestoneBusy}
+        isLifecycleBusy={isLifecycleBusy}
+        isLifecycleConfirming={isLifecycleConfirming}
+        lifecycleError={lifecycleError}
+        isAdmin={isAdmin}
+        onFieldChange={updateField}
+        onSubmit={(event) => void submit(event)}
+        onRequestLifecycleToggle={requestLifecycleToggle}
+        onCancelLifecycleToggle={cancelLifecycleToggle}
+        onConfirmLifecycleToggle={() => void confirmLifecycleToggle()}
+        onAddMilestone={openAddMilestone}
+        onEditMilestone={openEditMilestone}
+        onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
+        onMilestoneFieldChange={updateMilestoneField}
+        onSaveMilestone={(event) => void saveMilestone(event)}
+        onRequestDeleteMilestone={setDeleteTarget}
+        onCancelDelete={() => setDeleteTarget(null)}
+        onConfirmDelete={() => void confirmDelete()}
+      />
+    </div>
   );
 }

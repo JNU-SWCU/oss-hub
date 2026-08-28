@@ -1,4 +1,5 @@
 import { apiClient, apiPath } from '@/lib/api-client';
+import type { MilestoneDocumentCollectionHistory } from './milestone-document-collection-api';
 import type { SubmissionType } from './types';
 
 /**
@@ -29,6 +30,8 @@ export interface MilestoneDocumentViewerSubmission {
    */
   readonly submitted: boolean;
   readonly submittedAt: string | null;
+  /** 현재 제출본 번호. 이전 응답과의 전환기에는 없을 수 있다. */
+  readonly revision?: number | null;
   /**
    * 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 `null`.
    *
@@ -37,8 +40,11 @@ export interface MilestoneDocumentViewerSubmission {
    * 「지난 지적이 있었는가」는 `status`가 아니라 `review`로 봐야 한다.
    */
   readonly status: MilestoneDocumentSubmissionStatus | null;
+  readonly hasCurrentFile?: boolean;
   /** 아직 아무도 판정하지 않았으면 `null`. */
   readonly review: MilestoneDocumentViewerReview | null;
+  /** 학생 본인의 제출·파일·공개 피드백 전체. 이전 응답과의 전환기에는 없을 수 있다. */
+  readonly history?: readonly MilestoneDocumentCollectionHistory[];
 }
 
 export interface MilestoneDocumentTeamSubmissionCount {
@@ -83,9 +89,10 @@ export interface MilestoneDocumentSubmission {
   readonly submittedAt: string;
 }
 
-export type MilestoneDocumentSubmissionContent =
-  | { readonly type: 'FILE'; readonly fileId: string }
-  | { readonly type: 'TEXT'; readonly text: string };
+export type MilestoneDocumentSubmissionContent = {
+  readonly text: string | null;
+  readonly fileId: string | null;
+};
 
 function documentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
@@ -102,7 +109,6 @@ export interface UpsertMilestoneDocumentInput {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly submissionType: SubmissionType;
 }
 
 function documentPath(milestoneId: string, documentId: string): string {

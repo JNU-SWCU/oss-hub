@@ -13,6 +13,8 @@ import {
   type MilestoneDocumentCollectionContent,
   type MilestoneDocumentCollectionDocument,
   type MilestoneDocumentCollectionFilter,
+  type MilestoneDocumentCollectionHistory,
+  type MilestoneDocumentHistoryPage,
   type MilestoneDocumentCollectionReview,
   type MilestoneDocumentCollectionRow,
 } from '@/features/programs/milestone-document-collection-api';
@@ -122,17 +124,50 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '최종 결과 요약',
       required: true,
       sortOrder: 1,
-      submissionType: 'TEXT',
+      submissionType: 'FILE',
       // `viewerSubmissionStatus: 'CHANGES_REQUESTED'`와 같은 값 — 학생 화면의 경고 톤
       // 사유 상자와 「다시 낼 수 있다」가 함께 보이는 자리다.
-      viewerSubmission: submittedViewer(
-        '2026-07-30T16:20:00.000Z',
-        'CHANGES_REQUESTED',
-        {
+      viewerSubmission: {
+        ...submittedViewer('2026-07-30T16:20:00.000Z', 'CHANGES_REQUESTED', {
           comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
           reviewedAt: '2026-07-31T02:40:00.000Z',
-        },
-      ),
+        }),
+        revision: 2,
+        history: [
+          {
+            event: 'SUBMITTED',
+            revision: 1,
+            actorNickname: '합성학생',
+            comment: null,
+            createdAt: '2026-07-28T08:10:00.000Z',
+            fileName: 'final-summary-v1.pdf',
+          },
+          {
+            event: 'CHANGES_REQUESTED',
+            revision: 1,
+            actorNickname: '합성담당자',
+            comment: '실행 순서가 빠져 있습니다. 재현 단계를 추가해 주세요.',
+            createdAt: '2026-07-29T01:30:00.000Z',
+            fileName: null,
+          },
+          {
+            event: 'RESUBMITTED',
+            revision: 2,
+            actorNickname: '합성학생',
+            comment: null,
+            createdAt: '2026-07-30T16:20:00.000Z',
+            fileName: 'final-summary-v2.pdf',
+          },
+          {
+            event: 'CHANGES_REQUESTED',
+            revision: 2,
+            actorNickname: '합성담당자',
+            comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
+            createdAt: '2026-07-31T02:40:00.000Z',
+            fileName: null,
+          },
+        ],
+      },
       teamSubmissionCount: { submitted: 30, total: 47 },
     },
   ],
@@ -194,7 +229,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
   // ── 교직원 편집·수합 화면용 ──
   // 위 항목들은 학생 화면(student-program-fixtures.ts)의 마일스톤 id를 쓴다. 교직원
   // 편집 화면은 staff-program-fixtures.ts의 다른 마일스톤을 보므로 시드가 없어
-  // 「받을 서류」와 수합 표가 로컬 검토에서 조회 실패로만 보였다. 여기부터가 그 공백이다.
+  // 「제출 항목」과 수합 표가 로컬 검토에서 조회 실패로만 보였다. 여기부터가 그 공백이다.
   // 한 마일스톤에 여러 장을 둬야 순서 바꾸기와 「미제출 있는 팀 / 한 장도 안 낸 팀」 필터가
   // 실제로 갈린다 — 한 장짜리 마일스톤에서는 두 필터가 늘 같은 수를 낸다.
   'milestone-basic-orientation': [
@@ -507,6 +542,67 @@ function collectionRevisionFor(state: CollectionCellStateSeed): number {
   return state.status === 'SUBMITTED' && state.decision !== null ? 2 : 1;
 }
 
+function collectionHistoryFor(
+  state: CollectionCellStateSeed,
+  submittedAt: string,
+  teamNumber: number,
+  fileName: string | null,
+): readonly MilestoneDocumentCollectionHistory[] {
+  if (state.decision === null) {
+    return [
+      {
+        event: 'SUBMITTED',
+        revision: 1,
+        actorNickname: `synthetic-${teamNumber}-1`,
+        comment: null,
+        createdAt: submittedAt,
+        fileName,
+      },
+    ];
+  }
+
+  const isResubmitted = state.status === 'SUBMITTED';
+  const review = collectionReviewFor(
+    state,
+    submittedAt,
+    `synthetic-history-review-${teamNumber}`,
+  );
+  if (review === null) return [];
+
+  const firstSubmittedAt = isResubmitted
+    ? new Date(Date.parse(review.reviewedAt) - 26 * 3_600_000).toISOString()
+    : submittedAt;
+  const history: MilestoneDocumentCollectionHistory[] = [
+    {
+      event: 'SUBMITTED',
+      revision: 1,
+      actorNickname: `synthetic-${teamNumber}-1`,
+      comment: null,
+      createdAt: firstSubmittedAt,
+      fileName,
+    },
+    {
+      event: review.decision,
+      revision: 1,
+      actorNickname: 'synthetic-staff',
+      comment: review.comment,
+      createdAt: review.reviewedAt,
+      fileName: null,
+    },
+  ];
+  if (isResubmitted) {
+    history.push({
+      event: 'RESUBMITTED',
+      revision: 2,
+      actorNickname: `synthetic-${teamNumber}-1`,
+      comment: null,
+      createdAt: submittedAt,
+      fileName,
+    });
+  }
+  return history;
+}
+
 /**
  * 학생이 낸 **본문**. 파일 제출에는 없다(`null`) — 파일은 칸의 `file`이 담당한다.
  *
@@ -636,6 +732,12 @@ function collectionRowFor(
       // FILE 유형이어도 보존 기한이 지난 첨부는 `file`이 비어 온다(백엔드 계약).
       // 첫 팀을 그 갈래로 둬 "제출됨(링크 없음)" 표시가 검토 화면에 실제로 뜨게 한다.
       const expired = index === 0;
+      const fileName =
+        seed.submissionType === 'FILE'
+          ? profileless
+            ? `합성-${seed.name}-아주-긴-파일-이름-확인용-${teamNumber}팀-최종본.pdf`
+            : `합성-${seed.name}-${teamNumber}팀.pdf`
+          : null;
       return {
         documentId: seed.id,
         isSubmitted: true,
@@ -649,13 +751,11 @@ function collectionRowFor(
         revision: collectionRevisionFor(state),
         submittedAt,
         file:
-          seed.submissionType === 'FILE' && !expired
+          fileName !== null && !expired
             ? {
                 // 두 번째 팀은 파일명이 길다 — 열 폭을 밀지 않고 잘리는지, 잘린
                 // 이름의 전체가 title로 남는지 눈으로 확인할 자리다.
-                name: profileless
-                  ? `합성-${seed.name}-아주-긴-파일-이름-확인용-${teamNumber}팀-최종본.pdf`
-                  : `합성-${seed.name}-${teamNumber}팀.pdf`,
+                name: fileName,
                 sizeBytes: 245_760 + index * 1024,
               }
             : null,
@@ -665,6 +765,7 @@ function collectionRowFor(
           submittedAt,
           `synthetic-review-${seed.id}-${teamNumber}`,
         ),
+        history: collectionHistoryFor(state, submittedAt, teamNumber, fileName),
       };
     }),
   };
@@ -777,6 +878,37 @@ export function milestoneDocumentCollectionFor(
         .length,
       total: allRows.length,
     })),
+  };
+}
+
+/**
+ * 교직원 판정 패널의 분리된 이력 조회 응답.
+ *
+ * 수합 표 픽스처는 전환기 화면도 검토할 수 있도록 칸 안에 이력을 함께 보관하지만,
+ * 실제 API는 표와 이력을 분리한다. 이 함수가 그 시드에서 선택한 한 칸만 꺼내 새
+ * `.../history` 계약으로 돌려줘 로컬 검토도 운영과 같은 요청 순서를 타게 한다.
+ */
+export function milestoneDocumentHistoryFor(
+  milestoneId: string,
+  documentId: string,
+  applicationId: string,
+): MilestoneDocumentHistoryPage | null {
+  const collection = milestoneDocumentCollectionFor(milestoneId, {
+    page: 1,
+    pageSize: 1_000,
+    filter: 'ALL',
+  });
+  if (collection === null) return null;
+  const row = collection.rows.find(
+    (candidate) => candidate.applicationId === applicationId,
+  );
+  const cell = row?.cells.find(
+    (candidate) => candidate.documentId === documentId,
+  );
+  if (cell === undefined || !cell.isSubmitted) return null;
+  return {
+    items: cell.history ?? [],
+    nextCursor: null,
   };
 }
 
