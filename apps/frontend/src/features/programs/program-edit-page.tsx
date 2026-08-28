@@ -65,6 +65,7 @@ export function ProgramEditPage({
   const [milestoneDirtyFields, setMilestoneDirtyFields] = useState<
     readonly ProgramMilestoneField[]
   >([]);
+  const milestoneEditTriggerRef = useRef<HTMLElement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EditableMilestone | null>(
     null,
   );
@@ -202,9 +203,15 @@ export function ProgramEditPage({
     setGeneralAlert(null);
   };
   const openEditMilestone = (milestone: EditableMilestone) => {
+    milestoneEditTriggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const initialForm = toMilestoneForm(milestone);
     setMilestoneEditor({
       mode: 'edit',
-      form: toMilestoneForm(milestone),
+      form: initialForm,
+      initialForm,
       errors: {},
     });
     setMilestoneDirtyFields([]);
@@ -337,6 +344,7 @@ export function ProgramEditPage({
         generalAlert={generalAlert}
         isSaving={isSaving}
         milestoneEditor={milestoneEditor}
+        milestoneEditTriggerRef={milestoneEditTriggerRef}
         deleteTarget={deleteTarget}
         expandedDocumentsMilestoneId={createdMilestoneId}
         isMilestoneBusy={isMilestoneBusy}

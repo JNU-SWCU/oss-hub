@@ -32,6 +32,7 @@ interface ProgramEditViewProps {
   readonly generalAlert: string | null;
   readonly isSaving: boolean;
   readonly milestoneEditor: ProgramMilestoneEditor;
+  readonly milestoneEditTriggerRef?: React.RefObject<HTMLElement | null>;
   readonly deleteTarget: EditableMilestone | null;
   /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「제출 항목」이 펼쳐진 채로 뜬다. */
   readonly expandedDocumentsMilestoneId: string | null;
@@ -110,6 +111,7 @@ export function ProgramEditView({
   generalAlert,
   isSaving,
   milestoneEditor,
+  milestoneEditTriggerRef,
   deleteTarget,
   expandedDocumentsMilestoneId,
   isMilestoneBusy,
@@ -191,6 +193,7 @@ export function ProgramEditView({
             <ProgramEditMilestones
               milestones={program.milestones}
               editor={milestoneEditor}
+              editTriggerRef={milestoneEditTriggerRef}
               deleteTarget={deleteTarget}
               expandedDocumentsMilestoneId={expandedDocumentsMilestoneId}
               operationStartAt={form.startAt}

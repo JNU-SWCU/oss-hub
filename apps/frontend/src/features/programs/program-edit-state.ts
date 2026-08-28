@@ -4,6 +4,7 @@ import {
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
+  type ProgramMilestoneForm,
 } from './program-edit-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 
@@ -64,6 +65,18 @@ export function addDirtyField<T extends string>(
   field: T,
 ): readonly T[] {
   return current.includes(field) ? current : [...current, field];
+}
+
+export function isMilestoneFormDirty(
+  initial: ProgramMilestoneForm,
+  current: ProgramMilestoneForm,
+): boolean {
+  return (
+    initial.name !== current.name ||
+    initial.startAt !== current.startAt ||
+    initial.dueAt !== current.dueAt ||
+    initial.instructions !== current.instructions
+  );
 }
 
 export function updateReadyProgram(

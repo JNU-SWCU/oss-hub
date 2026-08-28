@@ -9,9 +9,11 @@ import { MilestoneDocumentEditorSection } from './milestone-document-editor';
 import { formatSeoulDate } from './program-detail-format';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
+import { ProgramEditMilestoneDialog } from './program-edit-milestone-dialog';
 interface ProgramEditMilestonesProps {
   readonly milestones: readonly EditableMilestone[];
   readonly editor: ProgramMilestoneEditor;
+  readonly editTriggerRef?: React.RefObject<HTMLElement | null>;
   readonly deleteTarget: EditableMilestone | null;
   /** 방금 만든 마일스톤 — 그 카드만 「제출 항목」을 펼친 채로 시작한다. */
   readonly expandedDocumentsMilestoneId: string | null;
@@ -32,6 +34,7 @@ interface ProgramEditMilestonesProps {
 export function ProgramEditMilestones({
   milestones,
   editor,
+  editTriggerRef,
   deleteTarget,
   expandedDocumentsMilestoneId,
   operationStartAt,
@@ -69,7 +72,7 @@ export function ProgramEditMilestones({
           추가
         </Button>
       </div>
-      {editor.mode === 'closed' ? null : (
+      {editor.mode === 'create' ? (
         <ProgramEditMilestoneForm
           editor={editor}
           operationStartAt={operationStartAt}
@@ -80,7 +83,20 @@ export function ProgramEditMilestones({
           onFieldChange={onFieldChange}
           onSave={onSave}
         />
-      )}
+      ) : null}
+      {editor.mode === 'edit' ? (
+        <ProgramEditMilestoneDialog
+          editor={editor}
+          operationStartAt={operationStartAt}
+          operationEndAt={operationEndAt}
+          contextEvents={contextEvents}
+          isBusy={isBusy}
+          returnFocusRef={editTriggerRef}
+          onCancel={onCancelEdit}
+          onFieldChange={onFieldChange}
+          onSave={onSave}
+        />
+      ) : null}
       <div className="grid gap-3">
         {milestones.length === 0 ? (
           <Card>

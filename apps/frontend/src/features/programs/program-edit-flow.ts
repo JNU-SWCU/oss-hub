@@ -91,8 +91,14 @@ export interface ProgramMilestoneErrors {
 export type ProgramMilestoneEditor =
   | { readonly mode: 'closed' }
   | {
-      readonly mode: 'create' | 'edit';
+      readonly mode: 'create';
       readonly form: ProgramMilestoneForm;
+      readonly errors: ProgramMilestoneErrors;
+    }
+  | {
+      readonly mode: 'edit';
+      readonly form: ProgramMilestoneForm;
+      readonly initialForm: ProgramMilestoneForm;
       readonly errors: ProgramMilestoneErrors;
     };
 
