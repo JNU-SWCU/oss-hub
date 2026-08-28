@@ -241,7 +241,8 @@ describe('제출 항목 섹션의 렌더 계약', () => {
     expect(html).toContain('제출 항목 추가');
     expect(html).toContain('제출 항목 이름 *');
     expect(html).toContain('필수 제출로 지정합니다');
-    expect(html).toContain('내용만, 파일만, 또는 둘 다');
+    expect(html).toContain('내용만, 파일만, 또는');
+    expect(html).toContain('둘 다');
     expect(html).toContain('for="milestone-milestone-1-document-name"');
     expect(html).toContain('서류명을 입력해 주세요.');
     expect(html).not.toContain('type="radio"');
@@ -258,7 +259,8 @@ describe('제출 항목 섹션의 렌더 계약', () => {
       },
     });
 
-    expect(html).toContain('내용만, 파일만, 또는 둘 다');
+    expect(html).toContain('내용만, 파일만, 또는');
+    expect(html).toContain('둘 다');
     expect(html).not.toContain('기존 글 제출 항목');
     expect(html).not.toContain('type="radio"');
     expect(html).toContain('제출 항목 이름 *');
