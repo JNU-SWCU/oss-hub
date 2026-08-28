@@ -1,13 +1,13 @@
 ---
-name: "tickets"
-description: "OSS Hub 티켓의 전 과정을 담당한다 — Notion `🐞 QA 요청`에 티켓을 쓰고, 그 행을 공개 GitHub Issue로 발행하고, Issue를 계약대로 검증된 PR로 만든다. QA 티켓 작성·중복 확인·영역 선언·selector 요소 캡처·마감 산정, Notion 행의 GitHub Issue 배포와 Issue URL 되돌려 연결, 레거시 행 이관, 그리고 `oss-hub 티켓 #123 진행해줘`처럼 티켓 번호를 받은 수행 요청에 쓴다. QA ticket intake, publishing a Notion QA row as a GitHub issue, linking an issue back to Notion, or executing a ticket into a PR. 릴리스 QA 실행(run-release-qa), 화면 디자인, 티켓 계약 밖 제품 코드 수정에는 쓰지 않는다."
+name: "manage-qa-tickets"
+description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "3.1.0"
+  version: "4.0.0"
 ---
 
-# tickets
+# Manage QA tickets
 
-티켓 하나의 일생을 처음부터 끝까지 다루는 스킬이다.
+Notion에서 관찰을 관리하고 GitHub Issue와 PR로 전달되는 티켓 하나의 일생을 처음부터 끝까지 다룬다.
 관찰된 문제가 Notion에 기록되고, 공개 GitHub Issue로 발행되고, 계약을 벗어나지 않은 PR이 되어 닫힌다.
 
 세 단계를 한 스킬에 둔 이유는 단계마다 계약이 달라지기 때문이 아니라 **같기** 때문이다.
@@ -204,8 +204,9 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 `oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 Issue 본문이 작업 범위의 유일한 원본이다.
 성공 기준은 PR이 티켓 계약이 요구한 것과 정확히 일치하고, 완료 조건의 모든 항목이 PR을 열기 전에 실증되며, 금지 경계 밖의 파일을 0건 건드리는 것이다.
+`frontend` 티켓이면 동일한 경로·페르소나·viewport·합성 데이터 상태에서 실제 Before/After 캡처를 만들고 촬영 조건과 함께 PR 본문에 첨부한다.
 
-절차, 계약 파싱, 선행 의존성과 순환 처리, 검증과 PR 흐름, 이스케이프 해치는 [execution-workflow.md](references/execution-workflow.md)가 원본이다.
+절차, 계약 파싱, 선행 의존성과 순환 처리, 검증과 PR 흐름, Before/After 증거, 이스케이프 해치는 [execution-workflow.md](references/execution-workflow.md)가 원본이다.
 
 ## 4. 레거시 행 이관
 
@@ -216,15 +217,22 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 번호 있는 행, 중복, 빈 번호, 번호 없는 행, 원문 없음, 이미 이관됨을 센다.
 제목 없는 행이나 번호 없는 행은 별도 승인 없이 바꾸지 않는다.
 이미 이관된 행은 본문을 하나 더 붙이지 말고 건너뛴다.
+새 실행 본문은 기존 페이지 본문을 삭제하거나 교체하지 않고 뒤에 정확히 한 번 추가하며, 기존 원문 전체는 이관 검증이 끝날 때까지 그대로 보존한다.
 안전이 확인된 행은 원문 문제 서술을 `문제와 영향`에 그대로 옮기고 옛 분류는 레거시 사실로 표시해 보존한다.
+
+각 이관 행은 `GitHub Issue` URL과 `출처: QA<번호>`로 기존 공개 Issue를 역조회한다.
+같은 QA 번호 또는 같은 사용자 증상·경로·역할을 가리키는 Issue가 둘 이상이면 새 Issue를 만들지 않는다.
+이미 Notion에 연결된 Issue를 canonical로 유지하고, 연결이 없으면 가장 먼저 만들어진 완전한 public-safe Issue를 canonical로 연결한다.
+나머지는 작성자·담당자 권한이 있으면 canonical URL을 남기고 닫으며, 권한이 없으면 canonical URL을 담은 코멘트로 정리를 요청한다.
 
 승인된 backfill에서는 보안·개인정보 범주를 1일, 기능·인프라 범주를 3일, UX·디자인 범주를 5일로 매핑하고, 범주가 빈 행은 승인된 기본값 3일을 쓰며 그 가정을 보고에 남긴다.
 모든 대상 행을 다시 읽어 원문이 본문에 정확히 한 번 나타나고 계산된 마감이 맞는지 증명한다.
 레거시 속성 삭제는 검증 보고가 끝난 뒤 명시적 승인을 받아야 한다.
 한 행이라도 검증에 실패하면 모든 원본 속성을 보존하고 실패한 행과 복구 경로를 보고한다.
 
-## 안티패턴
+## Anti-patterns
 
+- 티켓 작성·발행·수행을 이름이 다른 활성 스킬로 다시 나눈다 → 한 계약의 세 표면을 `manage-qa-tickets` 하나에서 관리하고 깊은 절차만 references로 분리한다.
 - Notion 행 없이 Issue부터 만든다 → 증거가 어디에도 남지 않는다. 1단계를 먼저 한다.
 - Issue 본문을 Notion과 다르게 손본다 → 두 표면의 계약이 갈린다. 공개 안전 검사에 걸린 문장은 Notion에서 고치고 다시 미러링한다.
 - Notion 행만 쓰고 발행은 다음 요청으로 미룬다 → 그 요청은 대개 오지 않는다. 검증이 끝나면 이어서 발행한다.
@@ -272,5 +280,6 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
+- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 PR 본문에 첨부했고, 시각 변화가 없으면 `N/A`와 사유를 적었다.
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 옮겼다.
