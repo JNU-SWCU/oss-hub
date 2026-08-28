@@ -14,6 +14,7 @@ import {
   isMilestoneSubmissionConflict,
   mapProgramEditError,
   PROGRAM_EDIT_ERROR_CODES,
+  toMilestoneForm,
   toProgramEditForm,
 } from './program-edit-flow';
 
@@ -152,6 +153,30 @@ describe('program edit API', () => {
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       apiPath('milestones/milestone-1'),
     );
+  });
+
+  it('restores startAt from the submitted input when a name-only save response omits it', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        id: 'milestone-1',
+        name: '기획서 수정',
+        dueAt: '2026-05-10T00:00:00.000Z',
+        submissionType: 'TEXT',
+        instructions: null,
+      }),
+    );
+    const input = {
+      name: '기획서 수정',
+      startAt: '2026-05-01T00:00:00.000Z',
+      dueAt: '2026-05-10T00:00:00.000Z',
+      submissionType: 'TEXT' as const,
+      instructions: null,
+    };
+
+    const saved = await updateMilestone('milestone-1', input);
+
+    expect(saved.startAt).toBe(input.startAt);
+    expect(toMilestoneForm(saved).startAt).toBe('2026-05-01T09:00');
   });
 
   it('maps backend fieldErrors from the real ApiClient problem shape without clearing inputs', async () => {

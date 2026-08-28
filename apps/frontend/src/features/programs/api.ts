@@ -160,6 +160,10 @@ export interface UpsertMilestoneInput {
   readonly instructions: string | null;
 }
 
+type MilestoneMutationResponse = Omit<EditableMilestone, 'startAt'> & {
+  readonly startAt?: string;
+};
+
 export function createProgram(
   input: CreateProgramInput,
 ): Promise<CreatedProgram> {
@@ -249,28 +253,38 @@ export function createMilestone(
   programId: string,
   input: UpsertMilestoneInput,
 ): Promise<EditableMilestone> {
-  return apiClient<EditableMilestone>(
+  return apiClient<MilestoneMutationResponse>(
     `programs/${encodeURIComponent(programId)}/milestones`,
     {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(input),
     },
-  );
+  ).then((response) => normalizeMilestoneMutation(response, input));
 }
 
 export function updateMilestone(
   milestoneId: string,
   input: UpsertMilestoneInput,
 ): Promise<EditableMilestone> {
-  return apiClient<EditableMilestone>(
+  return apiClient<MilestoneMutationResponse>(
     `milestones/${encodeURIComponent(milestoneId)}`,
     {
       method: 'PATCH',
       headers: jsonHeaders,
       body: JSON.stringify(input),
     },
-  );
+  ).then((response) => normalizeMilestoneMutation(response, input));
+}
+
+function normalizeMilestoneMutation(
+  response: MilestoneMutationResponse,
+  input: UpsertMilestoneInput,
+): EditableMilestone {
+  return {
+    ...response,
+    startAt: response.startAt ?? input.startAt,
+  };
 }
 
 export function deleteMilestone(
