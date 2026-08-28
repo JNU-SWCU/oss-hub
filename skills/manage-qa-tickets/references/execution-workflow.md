@@ -22,6 +22,10 @@
 6. 절대 금지 섹션을 문자 그대로 지킨다 — 그 섹션이 이름을 언급한 파일·영역은 0건 수정한다.
 7. 완료 조건 체크리스트를 한 항목씩 실제로 구동해 증명한 뒤에만 체크한다(테스트 실행, 화면·플로우 직접 확인 등).
    검증하지 않은 체크리스트로 PR을 열지 않는다.
+   frontend의 시각 또는 상호작용을 바꿨다면 PR을 제출하기 전에 실제 실행 화면에서 Before/After 캡처를 준비한다.
+   Before와 After는 같은 URL, 페르소나, viewport, 합성 데이터 상태에서 찍고 변경한 컴포넌트를 식별할 수 있는 범위만 담는다.
+   목업이나 테스트 출력은 실제 화면을 대신하지 못하며, 두 캡처와 촬영 조건을 PR 본문에 넣는다.
+   frontend 시각 변화가 없으면 PR 본문에 `N/A`와 그 사유를 적는다.
 8. PR을 열기 전 `bash scripts/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반(실명·전화번호·개인 머신 경로 등, [docs/rules/security.md](../../../docs/rules/security.md) deny-list)을 사전 검사한다.
    이 repo는 PUBLIC이므로 PR 본문·코멘트에도 같은 기준을 적용한다.
 9. [AGENTS.md](../../../AGENTS.md)가 정한 흐름대로 PR을 연다 — 브랜치명·Conventional Commits·PR 본문 형식은 AGENTS.md §5가 원본이다.
