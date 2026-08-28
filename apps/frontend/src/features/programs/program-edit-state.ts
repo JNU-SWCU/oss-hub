@@ -79,6 +79,20 @@ export function isMilestoneFormDirty(
   );
 }
 
+export function hasUnsavedMilestoneEdit(
+  editor: ProgramMilestoneEditor,
+  dirtyFields: readonly ProgramMilestoneField[] = [],
+): boolean {
+  switch (editor.mode) {
+    case 'closed':
+      return false;
+    case 'create':
+      return dirtyFields.length > 0;
+    case 'edit':
+      return isMilestoneFormDirty(editor.initialForm, editor.form);
+  }
+}
+
 export function updateReadyProgram(
   state: ProgramEditLoadState,
   update: (program: EditableProgram) => EditableProgram,

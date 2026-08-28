@@ -48,6 +48,7 @@ export function ProgramEditMilestoneDialog({
   }, [editor.errors]);
 
   const requestClose = () => {
+    if (isBusy) return;
     if (isMilestoneFormDirty(editor.initialForm, editor.form)) {
       setDiscardOpen(true);
       return;

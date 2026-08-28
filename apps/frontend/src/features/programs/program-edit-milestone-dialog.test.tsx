@@ -90,9 +90,9 @@ describe('ProgramEditMilestoneDialog', () => {
       ),
     );
     await act(async () => {
-      document
-        .querySelector<HTMLButtonElement>('button[data-dialog-cancel]')
-        ?.click();
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
     });
     expect(onCancel).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain('변경사항을 폐기할까요?');
@@ -164,5 +164,36 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(document.activeElement).toBe(
       document.querySelector('#milestone-due-at'),
     );
+  });
+
+  it('ignores close attempts while a save is in progress', async () => {
+    const onCancel = vi.fn();
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          editor={{
+            mode: 'edit',
+            form: { ...form, name: '변경' },
+            initialForm: form,
+            errors: {},
+          }}
+          operationStartAt="2026-08-01T09:00"
+          operationEndAt="2026-08-31T18:00"
+          contextEvents={[]}
+          isBusy
+          returnFocusRef={{ current: null }}
+          onCancel={onCancel}
+          onFieldChange={vi.fn()}
+          onSave={vi.fn()}
+        />,
+      ),
+    );
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+    });
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain('변경사항을 폐기할까요?');
   });
 });

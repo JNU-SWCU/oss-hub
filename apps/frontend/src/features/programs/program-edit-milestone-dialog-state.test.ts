@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { EditableMilestone, EditableProgram } from './api';
 import { toMilestoneForm } from './program-edit-flow';
-import { isMilestoneFormDirty, upsertMilestone } from './program-edit-state';
+import {
+  hasUnsavedMilestoneEdit,
+  isMilestoneFormDirty,
+  upsertMilestone,
+} from './program-edit-state';
 
 const milestone: EditableMilestone = {
   id: 'milestone-1',
@@ -21,6 +25,14 @@ describe('milestone edit dialog state', () => {
     );
     expect(
       isMilestoneFormDirty(initial, { ...initial, name: initial.name }),
+    ).toBe(false);
+    expect(
+      hasUnsavedMilestoneEdit({
+        mode: 'edit',
+        initialForm: initial,
+        form: { ...initial, name: initial.name },
+        errors: {},
+      }),
     ).toBe(false);
   });
 

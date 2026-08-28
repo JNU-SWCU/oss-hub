@@ -29,6 +29,7 @@ import {
 } from './program-edit-flow';
 import {
   addDirtyField,
+  hasUnsavedMilestoneEdit,
   removeMilestone,
   type ProgramEditLoadState,
   updateMilestoneEditor,
@@ -89,11 +90,13 @@ export function ProgramEditPage({
   const editRegionRef = useRef<HTMLDivElement>(null);
 
   const isDirty = dirtyFields.length > 0;
-  const hasUnsavedMilestoneEdit =
-    milestoneEditor.mode !== 'closed' && milestoneDirtyFields.length > 0;
+  const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(
+    milestoneEditor,
+    milestoneDirtyFields,
+  );
   // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
   // 나가기 확인은 기본 정보뿐 아니라 마일스톤 편집기에 남은 입력도 지켜야 한다(#867).
-  useProgramExitGuard(isDirty || hasUnsavedMilestoneEdit);
+  useProgramExitGuard(isDirty || hasUnsavedMilestoneChanges);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
