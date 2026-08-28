@@ -16,6 +16,34 @@ const milestone: EditableMilestone = {
   instructions: '초안 제출',
 };
 
+const program: EditableProgram = {
+  id: 'program-1',
+  name: 'OSS',
+  organizer: 'Center',
+  category: 'OSS_CONTEST',
+  lifecycle: 'PUBLISHED',
+  applicationTemplateKey: 'oss-contest',
+  applicationTemplateVersion: 1,
+  applicationCount: 0,
+  categoryLocked: {
+    locked: false,
+    byApplications: false,
+    byTeams: false,
+    applicationCount: 0,
+    teamCount: 0,
+  },
+  applicationStartAt: '2026-08-01T09:30:59.000Z',
+  applicationEndAt: '2026-08-15T09:30:59.000Z',
+  startAt: '2026-08-16T09:30:59.000Z',
+  endAt: '2026-08-31T09:30:59.000Z',
+  repositoryProvisioningEnabled: false,
+  notifyOnDeadline: false,
+  description: 'overview',
+  teamMinSize: 2,
+  teamMaxSize: 4,
+  milestones: [],
+};
+
 describe('milestone edit dialog state', () => {
   it('treats an unchanged or reverted form as clean', () => {
     const initial = toMilestoneForm(milestone);
@@ -43,9 +71,11 @@ describe('milestone edit dialog state', () => {
 
   it('upserts only the saved milestone and leaves its neighbor unchanged', () => {
     const adjacent = { ...milestone, id: 'milestone-2', name: '발표' };
-    const program = { milestones: [milestone, adjacent] } as EditableProgram;
     const saved = { ...milestone, name: '기획서 수정' };
-    const updated = upsertMilestone(program, saved);
+    const updated = upsertMilestone(
+      { ...program, milestones: [milestone, adjacent] },
+      saved,
+    );
     expect(updated.milestones.find(({ id }) => id === adjacent.id)).toBe(
       adjacent,
     );
