@@ -15,9 +15,21 @@
 | `요청일` | Created time | Automatic publication timestamp |
 | `재현 URL` | URL | Complete safe URL when known |
 | `증거` | Files | Safe evidence only, with no real data or personal information |
+| `GitHub Issue` | URL | 발행된 실행 Issue의 URL, 발행 전에는 비어 있음 |
 
 Properties are the index and assignment surface.
 The page body is the execution contract.
+
+## 데이터베이스 조회
+
+`🐞 QA 요청`의 data source는 `collection://3b3583e4-660d-808b-aa59-000b87428b42`다.
+
+조회에서 반복해서 걸리는 것 넷을 미리 적어 둔다.
+
+- `notion-fetch`의 `id`는 문자열 하나다. 배열이나 `urls`로 넘기면 요청 자체가 거부된다.
+- `notion-query-data-sources`는 인자를 `{"data": {"data_source_urls": [...], "query": "..."}}`로 한 겹 감싼다. 평평하게 넘기면 거부된다.
+- `마감` 조건은 속성 이름만으로 걸리지 않는다. `date:마감:start`로 지정한다.
+- `QA 항목` 정렬은 문자열 정렬이다. `QA99`가 `QA100`보다 뒤에 오므로 최댓값을 `ORDER BY ... DESC LIMIT n`으로 찾으면 세 자리 번호가 창 밖으로 밀려난다. 번호 범위를 `LIKE`로 좁혀 확인한다.
 
 ## Choosing the body
 

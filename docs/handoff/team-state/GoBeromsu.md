@@ -683,3 +683,39 @@
 - blocker: 없음
 - 결과: `manage-qa-tickets` v1.4.0이 티켓 본문을 따뜻한 여는 말로 시작하도록 고정하고, selector 확정부터 요소 캡처까지의 절차를 `references/evidence-pipeline.md`로 분리했다. 파이프라인을 실행할 subagent 세 개(`qa-dom-capture`, `qa-fact-checker`, `qa-code-anchor`)를 패키지 안에 넣고 `.claude/agents`에서 연결해 checkout만으로 잡히게 했다
 - 검증: skill-format 1 package, runtime hygiene, reflow 8 files, description 675자, public-safe diff 통과. 개정한 스킬로 프로그램 상세 화면 QA 티켓 2건(안내 카드 접이식, 좌측 패널 마감 표시)을 selector 기준 캡처 6장과 함께 Notion에 발행했고 사실 확인에서 재현 URL 1건과 전제 1건을 고쳤다
+
+## 2026-08-28 — QA 티켓 스킬과 티켓 수행 스킬을 tickets 하나로 합친다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `skills/manage-qa-tickets`와 `.claude/skills/tickets`를 `skills/tickets` 하나로 합쳤다. 수행 절차는 `references/execution-workflow.md`로 옮기고, Notion 행을 공개 Issue로 발행하고 Issue URL을 행에 되돌려 쓰는 계약을 `references/github-publication.md`에 새로 넣었다. OSS Hub 자체 화면 캡처는 개인정보 검사를 통과하면 Issue에 넣을 수 있게 하고 제3자 제품 캡처는 Notion에만 둔다. 티켓 발행 제한을 두 사람에서 팀원 전체로 열되, 담당자 0~1명·작성자와 담당자만 교체·삭제·종료·`완료 여부` 수동 확인 세 가지는 그대로 뒀다.
+- 검증: 심볼릭 링크 5개 전부 해석됨, 참조 링크 깨짐 0건, `npx prettier --check` 통과, `bash scripts/check-public-safe.sh` 통과. Notion `🐞 QA 요청`의 배정된 행 7건을 Issue #1038~#1044로 발행하고 `GitHub Issue` 속성에 URL을 써넣은 뒤 재조회로 10건 연결을 확인했다.
+
+## 2026-08-28 — 티켓 발행을 Notion 본문 미러링과 자동 발행으로 바꾼다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `skills/tickets` v3.0.0. 발행 계약에서 "본문을 다시 쓴다"를 걷어내고 Issue 본문을 Notion 본문의 사본으로 고정했다 — 추가되는 것은 앞의 `## 시작` 블록과 끝의 `출처: QA<번호>` 줄뿐이고, 공개 안전 검사에 걸린 문자열은 Issue가 아니라 Notion에서 고쳐 다시 미러링한다. 제3자 제품 캡처만 미러링의 내용 예외로 남겼다. 새로 쓴 행은 1단계 재조회 검증이 끝나면 별도 요청 없이 이어서 발행하고 URL을 되돌려 쓴다. 이미 있던 행의 발행은 여전히 사용자가 지목해야 한다.
+- 검증: `npx prettier --check` 통과, 참조 링크 깨짐 0건, `bash scripts/check-public-safe.sh` 통과. Notion→Issue 연동(`GitHub Issue` 속성 되돌려 쓰기)은 v2.0.0에서 이미 구현돼 있어 그대로 뒀다.
+
+## 2026-08-28 — craft-skills marketplace를 팀 전체 자동 업데이트로 둔다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `.claude/settings.json`의 `craft-skills` marketplace 선언에 `autoUpdate: true`를 넣었다. 지금까지는 각자 자기 개인 설정에 이 플래그를 넣은 사람만 최신 스킬을 받았고, 넣지 않은 사람은 checkout 시점의 버전에 그대로 묶여 같은 스킬을 서로 다른 계약으로 실행했다. 이제 checkout만으로 갱신 대상이 된다.
+- 검증: `npx prettier --check .claude/settings.json` 통과, `python3 -m json.tool` 파싱 통과, `bash scripts/check-public-safe.sh` 통과.
+
+## 2026-08-28 — 확인된 담당자 매핑을 발행 계약에 남긴다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `skills/tickets` v3.1.0. 발행 계약의 담당자 매핑이 "표를 만들지 않는다"였던 탓에 확인된 매핑이 대화가 끝나면 사라졌고, 발행할 때마다 같은 사람을 다시 물어야 했으며 그 사이 Issue는 assignee 없이 나갔다. 표를 열되 왼쪽 칸을 실명이 아니라 Notion user ID로 두어 보안 규칙 deny-list 1번(실명↔핸들 표)에 걸리지 않게 했다 — user ID는 워크스페이스 밖에서 아무도 가리키지 않는다. 확인된 세 명을 채웠고, 표에 없는 user ID는 여전히 추측하지 않고 물어서 배정한 뒤 표에 한 줄을 더한다. 표시 이름 대신 user ID로 대조하도록 못박았고 `요청자`는 매핑 대상에서 제외했다. 반복해서 걸리던 Notion 조회 함정 넷도 티켓 계약에 적었다.
+- 검증: `bash scripts/check-public-safe.sh --text-only` 통과, `npx prettier --check` 통과, 참조 링크 깨짐 0건. 이 표로 Issue #1038~#1043·#1051~#1053 아홉 건의 assignee를 채우고 `gh issue view`로 재확인했다.

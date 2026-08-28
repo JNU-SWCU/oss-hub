@@ -57,7 +57,7 @@ const LOCAL_REVIEW_TARGET_PATHS = new Set([
   // `/admin/users` 를 열어 두던 자리를 `/admin/access` 가 대신한다.
   '/admin/access',
   '/admin/audit-log',
-  '/admin/system-status',
+  '/dashboard/system-status',
   '/settings',
   '/onboarding/role',
 ]);
