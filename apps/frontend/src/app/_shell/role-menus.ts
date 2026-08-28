@@ -30,7 +30,7 @@ export const STAFF_MENU: NavItem[] = [
 export const ADMIN_SYSTEM_MENU: NavItem[] = [
   { label: '사용자 목록', href: '/admin/access' },
   { label: '감사 로그', href: '/admin/audit-log' },
-  { label: '시스템 상태', href: '/admin/system-status' },
+  { label: '시스템 상태', href: '/dashboard/system-status' },
 ];
 
 /**

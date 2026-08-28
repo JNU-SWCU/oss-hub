@@ -1,0 +1,4 @@
+interface:
+  display_name: 'OSS Hub QA 티켓 관리'
+  short_description: 'QA 티켓을 Notion에 쓰고 GitHub Issue로 발행하고 검증된 PR로 만듭니다'
+  default_prompt: 'Use $manage-qa-tickets to write, deduplicate, verify, or migrate an OSS Hub QA ticket in Notion, publish and link its public GitHub Issue, or execute an existing ticket number into a scoped, verified PR.'
