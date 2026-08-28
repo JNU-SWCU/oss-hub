@@ -701,3 +701,12 @@
 - blocker: 없음
 - 결과: `skills/tickets` v3.0.0. 발행 계약에서 "본문을 다시 쓴다"를 걷어내고 Issue 본문을 Notion 본문의 사본으로 고정했다 — 추가되는 것은 앞의 `## 시작` 블록과 끝의 `출처: QA<번호>` 줄뿐이고, 공개 안전 검사에 걸린 문자열은 Issue가 아니라 Notion에서 고쳐 다시 미러링한다. 제3자 제품 캡처만 미러링의 내용 예외로 남겼다. 새로 쓴 행은 1단계 재조회 검증이 끝나면 별도 요청 없이 이어서 발행하고 URL을 되돌려 쓴다. 이미 있던 행의 발행은 여전히 사용자가 지목해야 한다.
 - 검증: `npx prettier --check` 통과, 참조 링크 깨짐 0건, `bash scripts/check-public-safe.sh` 통과. Notion→Issue 연동(`GitHub Issue` 속성 되돌려 쓰기)은 v2.0.0에서 이미 구현돼 있어 그대로 뒀다.
+
+## 2026-08-28 — craft-skills marketplace를 팀 전체 자동 업데이트로 둔다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `.claude/settings.json`의 `craft-skills` marketplace 선언에 `autoUpdate: true`를 넣었다. 지금까지는 각자 자기 개인 설정에 이 플래그를 넣은 사람만 최신 스킬을 받았고, 넣지 않은 사람은 checkout 시점의 버전에 그대로 묶여 같은 스킬을 서로 다른 계약으로 실행했다. 이제 checkout만으로 갱신 대상이 된다.
+- 검증: `npx prettier --check .claude/settings.json` 통과, `python3 -m json.tool` 파싱 통과, `bash scripts/check-public-safe.sh` 통과.
