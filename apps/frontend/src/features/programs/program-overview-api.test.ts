@@ -17,7 +17,7 @@ const overview: ProgramOverview = {
   viewerDocumentsCompleted: 2,
   viewerDocumentsTotal: 5,
   fullySubmittedParticipantCount: null,
-  nextMilestone: null,
+  remainingMilestones: [],
   milestoneDocuments: [],
 };
 
