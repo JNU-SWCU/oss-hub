@@ -104,8 +104,8 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
   });
 
   it('마일스톤 마감을 앞당긴 직후 새 마감 이후의 프로그램 종료일을 저장한다', async () => {
-    const savedMilestoneDueAt = new Date(2026, 7, 20, 18, 30).toISOString();
-    const savedProgramEndAt = new Date(2026, 7, 25, 18, 30).toISOString();
+    const savedMilestoneDueAt = '2026-08-20T09:30:00.000Z';
+    const savedProgramEndAt = '2026-08-25T09:30:00.000Z';
     const savedMilestone: EditableMilestone = {
       ...originalMilestone,
       dueAt: savedMilestoneDueAt,

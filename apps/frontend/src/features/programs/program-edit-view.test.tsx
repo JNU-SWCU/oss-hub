@@ -353,7 +353,7 @@ describe('ProgramEditView contract', () => {
 
     const input = buildProgramEditInput(form, ['endAt']);
 
-    expect(input.endAt).toBe(new Date(form.endAt).toISOString());
+    expect(input.endAt).toBe('2026-09-01T03:00:00.000Z');
     expect(input.applicationEndAt).toBe(legacyProgram.applicationEndAt);
     expect(input.teamMinSize).toBe(2);
     expect(input.teamMaxSize).toBe(4);
