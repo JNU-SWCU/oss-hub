@@ -92,4 +92,102 @@ describe('ProgramCountdown', () => {
     expect(html).toContain('다음 수집까지');
     expect(html).not.toContain('unused 마감까지');
   });
+
+  it('renders the hydration placeholder in program mode before the live clock mounts', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCountdown mode="program" milestones={[]} />,
+    );
+
+    expect(html).toContain('data-slot="program-countdown"');
+    expect(html).not.toContain('현재 시각');
+    expect(html).not.toContain('마감 일정이 종료되었습니다.');
+  });
+
+  it('renders program mode as the next active milestone and all future rows', () => {
+    const milestones = [
+      { label: '지난 마감', dueAt: '2026-08-04T19:35:42+09:00' },
+      { label: '정각 마감', dueAt: '2026-08-04T19:35:43+09:00' },
+      { label: '최종 발표', dueAt: '2026-08-06T10:30:00+09:00' },
+      { label: '리허설 제출 마감', dueAt: '2026-08-05T09:00:00+09:00' },
+      { label: '깨진 날짜', dueAt: 'not-a-date' },
+      { label: '리허설 제출 마감', dueAt: '2026-08-05T09:00:00+09:00' },
+    ] as const;
+    const originalOrder = milestones.map(({ label, dueAt }) => ({
+      label,
+      dueAt,
+    }));
+
+    const html = renderToStaticMarkup(
+      <ProgramCountdown
+        mode="program"
+        milestones={milestones}
+        now={new Date('2026-08-04T19:35:43+09:00')}
+      />,
+    );
+
+    expect(milestones).toEqual(originalOrder);
+    expect(html).toContain('리허설 제출 마감');
+    expect(html).toContain('2026.08.05 (수) 09:00');
+    expect(html).toContain('<ul');
+    expect(html.match(/<li/g)).toHaveLength(3);
+    expect(html.match(/<time/g)).toHaveLength(4);
+    expect(html.match(/data-countdown-cell=/g)).toHaveLength(4);
+    expect(html).toContain('>0<');
+    expect(html).toContain('>13<');
+    expect(html).toContain('>24<');
+    expect(html).toContain('>17<');
+    expect(html).toMatch(
+      /리허설 제출 마감[\s\S]*리허설 제출 마감[\s\S]*최종 발표/,
+    );
+    expect(html).not.toContain('지난 마감');
+    expect(html).not.toContain('정각 마감');
+    expect(html).not.toContain('깨진 날짜');
+    expect(html).not.toContain('1/10');
+  });
+
+  it('renders the ended copy when program mode is empty or has no active milestones', () => {
+    const inactiveHtml = renderToStaticMarkup(
+      <ProgramCountdown
+        mode="program"
+        milestones={[
+          { label: '지난 마감', dueAt: '2026-08-04T19:35:42+09:00' },
+          { label: '정각 마감', dueAt: '2026-08-04T19:35:43+09:00' },
+        ]}
+        now={new Date('2026-08-04T19:35:43+09:00')}
+      />,
+    );
+    const emptyHtml = renderToStaticMarkup(
+      <ProgramCountdown
+        mode="program"
+        milestones={[]}
+        now={new Date('2026-08-04T19:35:43+09:00')}
+      />,
+    );
+
+    for (const html of [emptyHtml, inactiveHtml]) {
+      expect(html).toContain('마감 일정이 종료되었습니다.');
+      expect(html).not.toContain('data-countdown-cell=');
+      expect(html).not.toContain('<ul');
+    }
+  });
+
+  it('keeps long Korean labels truncatable and deadline dates uncut', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCountdown
+        mode="program"
+        milestones={[
+          {
+            label:
+              '아주 긴 한국어 마일스톤 라벨이 사이드바 폭보다 길어질 때의 제출 마감',
+            dueAt: '2026-08-05T09:00:00+09:00',
+          },
+        ]}
+        now={new Date('2026-08-04T19:35:43+09:00')}
+      />,
+    );
+
+    expect(html).toContain('class="min-w-0 truncate"');
+    expect(html).toContain('shrink-0 whitespace-nowrap tabular-nums');
+    expect(html).not.toMatch(/<time[^>]*class="[^"]*truncate/);
+  });
 });

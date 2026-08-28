@@ -161,24 +161,31 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('aria-current="page"');
   });
 
-  it('renders the countdown block only when expanded and countdown is provided', () => {
+  it('renders the countdown block only when expanded and remaining milestones are loaded', () => {
     const withCountdown = render({
-      countdown: {
-        nextMilestoneLabel: '주제 선정 · 저장소 연결',
-        dueAt: '2026-09-12T18:00:00+09:00',
-      },
+      remainingMilestones: [
+        {
+          label: '주제 선정 · 저장소 연결',
+          dueAt: '2026-09-12T18:00:00+09:00',
+        },
+      ],
     });
     expect(withCountdown).toContain('data-slot="program-countdown"');
 
-    const withoutCountdown = render({ countdown: null });
+    const endedSchedule = render({ remainingMilestones: [] });
+    expect(endedSchedule).toContain('data-slot="program-countdown"');
+
+    const withoutCountdown = render({ remainingMilestones: undefined });
     expect(withoutCountdown).not.toContain('data-slot="program-countdown"');
 
     const collapsedWithCountdown = render({
       collapsed: true,
-      countdown: {
-        nextMilestoneLabel: '주제 선정 · 저장소 연결',
-        dueAt: '2026-09-12T18:00:00+09:00',
-      },
+      remainingMilestones: [
+        {
+          label: '주제 선정 · 저장소 연결',
+          dueAt: '2026-09-12T18:00:00+09:00',
+        },
+      ],
     });
     expect(collapsedWithCountdown).not.toContain(
       'data-slot="program-countdown"',

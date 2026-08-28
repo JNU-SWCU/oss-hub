@@ -6,6 +6,7 @@ import {
   ProgramCountdown,
   remainingUntil,
 } from './program-countdown';
+import type { CountdownMilestone } from './program-countdown';
 
 describe('formatClock / formatCountdownDate', () => {
   it('formats HH:MM:SS zero-padded', () => {
@@ -79,5 +80,22 @@ describe('ProgramCountdown', () => {
     expect(html).toContain('>38<');
     expect(html).toContain('>22<');
     expect(html).toContain('>24<');
+  });
+
+  it('re-exports program schedule countdown props', () => {
+    const milestones: readonly CountdownMilestone[] = [
+      { label: '리허설 제출 마감', dueAt: '2026-08-05T09:00:00+09:00' },
+    ];
+    const html = renderToStaticMarkup(
+      <ProgramCountdown
+        mode="program"
+        milestones={milestones}
+        now={new Date('2026-08-04T19:35:43+09:00')}
+      />,
+    );
+
+    expect(html).toContain('리허설 제출 마감');
+    expect(html).toContain('2026.08.05 (수) 09:00');
+    expect(html.match(/data-countdown-cell=/g)).toHaveLength(4);
   });
 });

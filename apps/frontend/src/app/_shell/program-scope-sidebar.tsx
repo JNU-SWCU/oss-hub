@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ProgramCountdown } from '@/components';
+import type { CountdownMilestone } from '@/components/program-countdown';
 import { ShellIcon } from './shell-icons';
 import type {
   ProgramScopeSidebarGroup,
@@ -30,11 +31,8 @@ export interface ProgramScopeSidebarProps {
   readonly collapsed: boolean;
   readonly onToggle: () => void;
   readonly backHref: string;
-  /** 다음 마감 마일스톤 — 없으면(전부 지났으면) 카운트다운 블록 자체를 렌더하지 않는다. */
-  readonly countdown?: {
-    readonly nextMilestoneLabel: string;
-    readonly dueAt: string;
-  } | null;
+  /** 남은 마감 목록. undefined는 개요 미도착/실패, []는 모든 마감 종료를 뜻한다. */
+  readonly remainingMilestones?: readonly CountdownMilestone[];
 }
 
 export function ProgramScopeSidebar({
@@ -44,7 +42,7 @@ export function ProgramScopeSidebar({
   collapsed,
   onToggle,
   backHref,
-  countdown = null,
+  remainingMilestones,
 }: ProgramScopeSidebarProps) {
   const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
 
@@ -106,11 +104,8 @@ export function ProgramScopeSidebar({
         ariaLabel={programName}
       />
 
-      {!collapsed && countdown ? (
-        <ProgramCountdown
-          nextMilestoneLabel={countdown.nextMilestoneLabel}
-          dueAt={countdown.dueAt}
-        />
+      {!collapsed && remainingMilestones !== undefined ? (
+        <ProgramCountdown mode="program" milestones={remainingMilestones} />
       ) : null}
 
       <p
