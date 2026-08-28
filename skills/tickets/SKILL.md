@@ -2,7 +2,7 @@
 name: "tickets"
 description: "OSS Hub 티켓의 전 과정을 담당한다 — Notion `🐞 QA 요청`에 티켓을 쓰고, 그 행을 공개 GitHub Issue로 발행하고, Issue를 계약대로 검증된 PR로 만든다. QA 티켓 작성·중복 확인·영역 선언·selector 요소 캡처·마감 산정, Notion 행의 GitHub Issue 배포와 Issue URL 되돌려 연결, 레거시 행 이관, 그리고 `oss-hub 티켓 #123 진행해줘`처럼 티켓 번호를 받은 수행 요청에 쓴다. QA ticket intake, publishing a Notion QA row as a GitHub issue, linking an issue back to Notion, or executing a ticket into a PR. 릴리스 QA 실행(run-release-qa), 화면 디자인, 티켓 계약 밖 제품 코드 수정에는 쓰지 않는다."
 metadata:
-  version: "2.0.0"
+  version: "3.0.0"
 ---
 
 # tickets
@@ -31,11 +31,12 @@ Notion 본문에 쓴 `최소 요구`·`완료 조건`·`절대 금지`가 Issue�
 | --- | --- | --- |
 | "QA 티켓 만들어줘", "이 문제 티켓으로", "티켓 다시 써줘" | 1. 작성 | [§1](#1-작성--notion에-티켓을-쓴다) |
 | "GitHub에 이슈로 올려줘", "이 행 배포해줘", "이슈랑 연결해줘" | 2. 발행 | [§2](#2-발행--notion-행을-github-issue로-내보낸다) |
+| (1단계로 방금 쓴 행) | 2. 발행 | 따로 요청하지 않아도 1단계에 이어서 [§2](#2-발행--notion-행을-github-issue로-내보낸다) |
 | "oss-hub 티켓 #123 진행해줘" | 3. 수행 | [§3](#3-수행--issue를-pr로-만든다) |
 | "릴리스 QA 돌려줘", "결함 찾아줘" | — | 이 스킬이 아니라 `run-release-qa` |
 
-한 요청이 두 단계를 걸치는 일은 흔하다 — "티켓 쓰고 이슈까지 올려줘"는 1단계 뒤 2단계다.
-그때도 단계를 건너뛰지 않는다. Notion 행 없이 Issue를 만들면 증거가 어디에도 남지 않는다.
+새로 쓴 행은 1단계가 끝나면 그대로 2단계로 이어진다 — "티켓 만들어줘"는 그 티켓을 실행 표면에 올려 달라는 요청이기도 하다.
+이어 붙일 때도 단계를 건너뛰지 않는다. Notion 행 없이 Issue를 만들면 증거가 어디에도 남지 않는다.
 
 ## 누가 할 수 있나
 
@@ -58,7 +59,7 @@ Notion 본문에 쓴 `최소 요구`·`완료 조건`·`절대 금지`가 Issue�
 3. 화면 티켓은 화면 하나와 논리 변경 하나를, 화면 없는 티켓은 산출물 위치 하나와 논리 변경 하나를 다룬다.
 4. 실데이터, 개인정보, 자격증명, private 저장소 세부를 어느 표면에도 넣지 않는다.
 5. 기록되지 않은 역할·재현 절차·기대 결과·의존성·구현 경계를 추론하지 않는다. 없으면 `미기록`, 확인하지 못했으면 `확인 필요`로 남긴다.
-6. 사용자가 요청하지 않은 Notion 행이나 GitHub Issue를 만들거나 고치지 않는다. 초안을 보여 달라는 요청은 발행 허가가 아니다.
+6. 사용자가 요청하지 않은 Notion 행이나 이미 있던 행의 GitHub Issue를 만들거나 고치지 않는다. 초안을 보여 달라는 요청은 쓰기 허가도 발행 허가도 아니다. 방금 쓴 행의 발행은 예외이며 작성 요청에 포함된 것으로 본다.
 
 ## 1. 작성 — Notion에 티켓을 쓴다
 
@@ -174,19 +175,23 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 
 다시 읽은 기록이 초안과 맞을 때까지 이 쓰기는 끝나지 않은 것으로 본다.
 
+맞은 뒤에는 멈추지 않고 [§2](#2-발행--notion-행을-github-issue로-내보낸다)로 이어간다.
+사용자가 초안만 보자고 했거나 이 행은 발행하지 말라고 한 경우, 또는 발행 조건을 만족하지 못한 경우에만 여기서 멈추고 이유를 보고한다.
+
 ## 2. 발행 — Notion 행을 GitHub Issue로 내보낸다
 
 Notion은 증거의 원본이고 GitHub Issue는 실행 표면이다.
-Issue는 Notion을 열지 않고도 실행 가능해야 하며, 동시에 공개 저장소에 들어가면 안 되는 것을 넘겨받지 않아야 한다.
+Issue 본문은 Notion 본문의 사본이며, 발행이 하는 일은 다시 쓰는 것이 아니라 그대로 옮기고 공개 표면에 들어가면 안 되는 것만 걸러내는 것이다.
 
-절차, 본문 재작성 규칙, 캡처 반입 기준, Notion `GitHub Issue` 속성 되돌려 연결, 이미 배정된 행의 일괄 backfill은 [github-publication.md](references/github-publication.md)가 원본이다.
+발행 시점, 미러링 규칙, 캡처 반입 기준, Notion `GitHub Issue` 속성 되돌려 연결, 이미 배정된 행의 일괄 backfill은 [github-publication.md](references/github-publication.md)가 원본이다.
 
 핵심만 옮기면 이렇다.
 
-- 저장소의 [work-ticket 템플릿](../../.github/ISSUE_TEMPLATE/work-ticket.md) 섹션을 전부 채우고, 세 실행 계약 섹션(`최소 요구`·`완료 조건`·`절대 금지`)을 비우지 않는다.
-- Notion 본문을 인용하지 않고 공개 표면을 위해 다시 쓴다. 사람은 GitHub @handle로만 부른다.
-- OSS Hub 자체 화면의 요소 캡처는 개인정보 검사를 통과하면 Issue에 넣는다. 제3자 제품 캡처는 Notion에만 두고 공개 표면에는 URL만 남긴다.
-- 발행 전에 초안 전문을 저장소 밖 임시 파일에 쓰고 그 텍스트 그대로 검사한다.
+- 새로 쓴 행은 1단계 검증이 끝나는 즉시 이어서 발행한다. 이미 있던 행은 사용자가 지목했을 때만 발행한다.
+- Issue 본문은 Notion 본문을 섹션 순서·문장 그대로 미러링하고, 앞에 [work-ticket 템플릿](../../.github/ISSUE_TEMPLATE/work-ticket.md)의 `## 시작` 블록을, 끝에 `출처: QA<번호>` 한 줄을 붙인다. Notion 페이지 URL은 넣지 않는다.
+- 세 실행 계약(`최소 요구`·`완료 조건`·경계)이 Notion 본문에 없으면 Issue에서 채우지 말고 행을 먼저 보강한다. 사람은 GitHub @handle로만 부른다.
+- OSS Hub 자체 화면의 요소 캡처는 개인정보 검사를 통과하면 Issue에 넣는다. 제3자 제품 캡처는 Notion에만 두고 공개 표면에는 URL만 남긴다 — 미러링의 유일한 내용 예외다.
+- 발행 전에 초안 전문을 저장소 밖 임시 파일에 쓰고 그 텍스트 그대로 검사한다. 걸린 문자열은 Notion 본문에서 고치고 다시 미러링한다.
 
 ```bash
 ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
@@ -221,7 +226,8 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 ## 안티패턴
 
 - Notion 행 없이 Issue부터 만든다 → 증거가 어디에도 남지 않는다. 1단계를 먼저 한다.
-- Notion 본문을 GitHub Issue에 그대로 붙여넣는다 → 공개 표면을 위해 다시 쓴다. 사본은 원본이 고쳐질 때 갈라진다.
+- Issue 본문을 Notion과 다르게 손본다 → 두 표면의 계약이 갈린다. 공개 안전 검사에 걸린 문장은 Notion에서 고치고 다시 미러링한다.
+- Notion 행만 쓰고 발행은 다음 요청으로 미룬다 → 그 요청은 대개 오지 않는다. 검증이 끝나면 이어서 발행한다.
 - Issue를 만들고 Notion에 URL을 안 쓴다 → 두 원본이 서로를 모르는 고아 Issue가 된다.
 - UX 개선을 구현 체크리스트로 시작한다 → 현재 경험, 사용자 영향, 목표, 기대 흐름을 파일·API보다 먼저 쓴다.
 - 참고 링크를 해석 없이 나열한다 → 레퍼런스마다 쓸모 있는 패턴과 제한된 OSS Hub 적용을 적는다.
@@ -254,8 +260,8 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 발행(2단계)에 해당하는 항목:
 
-- [ ] Issue가 템플릿의 모든 섹션을 채우고 Notion 없이 실행 가능하다.
-- [ ] 세 실행 계약 섹션이 비어 있지 않다.
+- [ ] Issue 본문이 Notion 본문과 섹션·문장이 같고, `## 시작` 블록과 `출처: QA<번호>` 줄만 더 있다.
+- [ ] 세 실행 계약이 Notion 본문에 있었고 그대로 옮겨졌다.
 - [ ] 제3자 캡처가 공개 표면으로 넘어가지 않았고, 반입한 자체 화면 캡처는 개인정보 검사를 통과했다.
 - [ ] 초안 전문으로 `ISSUE_TEXT` public-safe 검사를 통과했다.
 - [ ] Issue URL을 Notion `GitHub Issue` 속성에 썼고 다시 읽어 확인했다.
