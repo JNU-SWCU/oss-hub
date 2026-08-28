@@ -36,7 +36,12 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         startAt: '2026-08-20T01:00:00.000Z',
         dueAt: '2026-08-20T02:00:00.000Z',
         submissionType: MilestoneSubmissionType.TEXT,
-        documents: [],
+        documents: [
+          {
+            name: `${PREFIX}information-document`,
+            required: true,
+          },
+        ],
       },
       {
         name: `${PREFIX}required-milestone`,

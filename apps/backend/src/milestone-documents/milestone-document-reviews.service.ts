@@ -155,6 +155,8 @@ export class MilestoneDocumentReviewsService {
 
       const review = await store.createReview({
         milestoneDocumentSubmissionId: submission.id,
+        submissionHistoryId: submission.submissionHistoryId,
+        revision: submission.revision,
         reviewerId,
         decision: input.decision,
         comment: input.comment,

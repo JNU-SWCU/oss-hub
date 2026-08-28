@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  MilestoneSubmissionType,
   Prisma,
   StaffAccessRequestStatus,
   SubmissionFileLifecycle,
@@ -113,7 +114,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     );
   }
 
-  /** 한 SQL 문장의 snapshot으로 전체 삭제 전 사용자에게 보일 4종 범위를 읽는다 —
+  /** 한 SQL 문장의 snapshot으로 전체 삭제 전 사용자에게 보일 범위를 읽는다 —
    * purge 트랜잭션의 재확인과 같은 쿼리를 쓴다(program-deletion-scope.ts). */
   private readDeletionScopeCounts(
     programId: string,
@@ -136,7 +137,17 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     input: ProgramMilestoneCreateInput,
   ): Promise<ProgramMilestoneView> {
     const milestone = await this.transaction.milestone.create({
-      data: input,
+      data: {
+        ...input,
+        documents: {
+          create: {
+            name: '제출 항목 1',
+            required: true,
+            sortOrder: 1,
+            submissionType: MilestoneSubmissionType.FILE,
+          },
+        },
+      },
     });
     return toMilestoneView(milestone);
   }

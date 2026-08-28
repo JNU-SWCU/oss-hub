@@ -1,9 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  RepositoryConnectionMode,
-} from '@prisma/client';
+import { ApplicationStatus, RepositoryConnectionMode } from '@prisma/client';
 import { ApplicationsService } from '../applications/applications.service';
 import { MilestoneDocumentCurrentFileService } from '../milestone-documents/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
@@ -249,7 +245,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       E2E_STUDENT_GITHUB_ID,
       this.fixtures.graph().milestoneId,
       this.fixtures.graph().documentId,
-      { type: MilestoneSubmissionType.FILE, fileId: pending.fileId },
+      { text: null, fileId: pending.fileId },
       E2E_NOW,
     );
   }

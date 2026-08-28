@@ -98,6 +98,9 @@ export function buildProgramAuthoringPlan(
     );
     const dueAt = isoDate(milestone.dueAt, `${path}.dueAt`, issues);
     totalDocuments += milestone.documents.length;
+    if (milestone.documents.length === 0) {
+      issues.push({ path: `${path}.documents`, code: 'DOCUMENT_REQUIRED' });
+    }
     if (milestone.documents.length > MAX_DOCUMENTS_PER_MILESTONE) {
       issues.push({
         path: `${path}.documents`,
@@ -129,7 +132,7 @@ export function buildProgramAuthoringPlan(
         name: milestoneName,
         startAt: milestoneStartAt,
         dueAt,
-        submissionType: milestone.submissionType,
+        submissionType: null,
         instructions: optionalString(milestone.instructions),
         documents,
       });
@@ -176,12 +179,6 @@ function documentPlan(
   uploadTokenIds: string[],
 ): ProgramAuthoringDocumentPlan {
   const templateUploadId = optionalString(document.templateUploadId);
-  if (document.submissionType === 'TEXT' && templateUploadId !== null) {
-    issues.push({
-      path: `${path}.templateUploadId`,
-      code: 'TEXT_TEMPLATE_FORBIDDEN',
-    });
-  }
   if (templateUploadId !== null) {
     if (seenUploadIds.has(templateUploadId)) {
       issues.push({
@@ -197,7 +194,7 @@ function documentPlan(
     name: requiredString(document.name, `${path}.name`, issues),
     required: document.required,
     sortOrder,
-    submissionType: document.submissionType,
+    submissionType: 'FILE',
     templateUploadId,
   };
 }

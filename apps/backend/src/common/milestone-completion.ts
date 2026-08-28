@@ -6,11 +6,11 @@
  * - **코드 축** — `Submission` 한 행(`Milestone.submissionType` 이 FILE/TEXT 를 정한다).
  * - **서류 축** — `MilestoneDocument` 여러 항목과 (항목 × 신청)당 `MilestoneDocumentSubmission`.
  *
- * ⚠ 스키마에는 **「이 마일스톤이 어느 축을 쓰는가」를 알려 주는 필드가 없다.** `Milestone` 은
- * 늘 `submissionType` 을 갖고, `documents` 는 그와 별개로 0개 이상이다. 화면도 두 축을 함께
- * 그린다(`program-detail-view.tsx` 가 마일스톤마다 `MilestoneRow` 와
- * `MilestoneDocumentSection` 을 나란히 붙인다). 그래서 축은 **쓰인 흔적으로만** 추론할 수 있고,
- * 그 추론 규칙을 여기 한 곳에 둔다.
+ * 전환 기간에는 nullable `Milestone.submissionType`이 축의 **설정 여부**를 알려 준다.
+ * 다만 기존 #820 서류-only 마일스톤은 스키마가 NOT NULL이던 때 만들어져
+ * `submissionType` 은 있지만 `Submission` 행은 없다. 따라서 필수 서류가 있는 칸은
+ * 실제 `Submission` 행이 있을 때만 레거시 축을 함께 쓰고, 필수 서류가 없는 칸은
+ * nullable 설정값으로 안내용(0축)과 레거시 단일 제출을 구분한다.
  *
  * 이 모듈이 `common/` 에 있는 이유는 `milestone-document-locks.ts` 와 같다 — 세 표면
  * (저장소 공개 자격 · 교직원 대시보드 요약 · 프로그램 상세)이 **같은 판정**을 써야 하는데
@@ -18,7 +18,7 @@
  * 표면마다 「서류도 본다」를 덧붙이면 다음 변경에서 판정이 세 벌로 갈라진다 — #752 에서 공개
  * 게이트를 한 함수로 모은 것과 같은 이유다.
  */
-import { SubmissionStatus } from '@prisma/client';
+import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 
 /** 칸 하나(신청 × 마일스톤)의 상태. 제출 행이 하나도 없는 상태를 `NOT_SUBMITTED` 로 표현하는 것은 기존 DTO 관례를 따른 것이다. */
 export type MilestoneCompletionStatus = SubmissionStatus | 'NOT_SUBMITTED';
@@ -31,6 +31,13 @@ export const MILESTONE_NOT_SUBMITTED = 'NOT_SUBMITTED' as const;
  * 두 필드 모두 **호출자가 이미 이 신청으로 좁혀서** 넘긴다 — 이 함수는 신청 id 를 모른다.
  */
 export interface MilestoneCompletionInput {
+  /**
+   * 상위 단일 제출 축이 설정된 레거시 마일스톤이면 true.
+   *
+   * 옮은 호출자가 이 값을 넘기지 않아도 기존 판정을 유지하도록 true로 간주한다.
+   * 신규 마일스톤(`submissionType = null`)을 다루는 호출자는 반드시 false를 넘긴다.
+   */
+  readonly submissionAxisInUse?: boolean;
   /**
    * 이 마일스톤의 **필수**(`required: true`) 서류 항목마다 한 칸씩. 제출 행이 없으면 `null`.
    *
@@ -58,18 +65,12 @@ const STATUS_PRECEDENCE: readonly MilestoneCompletionStatus[] = [
 ];
 
 /**
- * 코드 축이 이 마일스톤에서 **쓰이고 있는가.**
- *
- * - 필수 서류가 없으면 코드 축이 유일한 축이다 → 늘 쓰인다. (기존 동작 그대로. 아무것도 안 낸
- *   코드 마일스톤이 「완료」로 새어 나가지 않는다.)
- * - 필수 서류가 있으면 코드 축은 **`Submission` 행이 실제로 있을 때만** 쓰인다. 서류만 받는
- *   마일스톤은 `Submission` 이 영영 안 생기므로 코드 축을 요구하지 않는다 — #820 이 막혀 있던
- *   지점이 정확히 여기다.
- *
- * ⚠ 이 갈래가 판정을 **넓히는 유일한 지점**이다. 넓어지는 경우는 「필수 서류가 있고 `Submission`
- * 행이 없다」 하나뿐이고, 두 축이 다 쓰인 칸에서는 **둘 다** 승인이어야 한다(넓어지지 않는다).
+ * 신규 마일스톤은 `submissionType = null`이므로 상위 단일 제출 축을 쓰지 않는다.
+ * 레거시 서류-only 마일스톤은 `submissionType` 이 남아 있어도 필수 서류가 있고
+ * `Submission` 행이 없으면 상위 축을 쓰지 않았던 것으로 본다.
  */
 function isSubmissionAxisInUse(input: MilestoneCompletionInput): boolean {
+  if (input.submissionAxisInUse === false) return false;
   return (
     input.requiredDocumentStatuses.length === 0 ||
     input.submissionStatus !== null
@@ -99,6 +100,7 @@ export function milestoneCompletionStatus(
   input: MilestoneCompletionInput,
 ): MilestoneCompletionStatus {
   const statuses = collectAxisStatuses(input);
+  if (statuses.length === 0) return MILESTONE_NOT_SUBMITTED;
   let worst: MilestoneCompletionStatus = SubmissionStatus.APPROVED;
   let worstRank = STATUS_PRECEDENCE.indexOf(worst);
   for (const status of statuses) {
@@ -125,6 +127,8 @@ export function isMilestoneComplete(input: MilestoneCompletionInput): boolean {
 export function requiredMilestonesApproved(
   milestones: readonly {
     readonly id: string;
+    /** 기존 내부 호출은 생략값을 레거시 축으로 본다. 신규 호출은 null을 명시한다. */
+    readonly submissionType?: MilestoneSubmissionType | null;
     readonly documents: readonly { readonly id: string }[];
   }[],
   submissions: readonly {
@@ -150,6 +154,7 @@ export function requiredMilestonesApproved(
   );
   return milestones.every((milestone) =>
     isMilestoneComplete({
+      submissionAxisInUse: milestone.submissionType !== null,
       requiredDocumentStatuses: milestone.documents.map(
         (document) => statusByDocument.get(document.id) ?? null,
       ),

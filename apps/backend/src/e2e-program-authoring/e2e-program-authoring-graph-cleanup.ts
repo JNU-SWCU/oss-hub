@@ -38,6 +38,9 @@ export async function removeAdoptedGraph(
     await transaction.submissionFile.deleteMany({
       where: { applicationId: { in: applicationIds } },
     });
+    await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+      where: { submission: { applicationId: { in: applicationIds } } },
+    });
     await transaction.milestoneDocumentSubmission.deleteMany({
       where: { applicationId: { in: applicationIds } },
     });

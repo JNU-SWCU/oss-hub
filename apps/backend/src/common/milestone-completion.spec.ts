@@ -37,6 +37,19 @@ describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () =
   });
 });
 
+describe('milestoneCompletionStatus — 제출 없는 안내용 마일스톤', () => {
+  it('상위 제출 방식도 필수 제출 항목도 없으면 미제출이다', () => {
+    const input = {
+      requiredDocumentStatuses: [],
+      submissionStatus: null,
+      submissionAxisInUse: false,
+    } as const;
+
+    expect(milestoneCompletionStatus(input)).toBe(MILESTONE_NOT_SUBMITTED);
+    expect(isMilestoneComplete(input)).toBe(false);
+  });
+});
+
 describe('milestoneCompletionStatus — 서류 축만 쓰는 마일스톤 (#820)', () => {
   it('필수 서류가 전부 승인이고 Submission 이 없으면 완료다', () => {
     // Given: 서류만 받는 마일스톤. 필수 서류 두 건 모두 승인, 코드 제출 행은 없다.

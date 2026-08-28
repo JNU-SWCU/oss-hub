@@ -271,7 +271,12 @@ export class ProgramEditorService {
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
       return store.updateMilestone({
         milestoneId,
-        ...this.milestoneData(input, milestone.programStartAt, milestone.endAt),
+        ...this.milestoneData(
+          input,
+          milestone.programStartAt,
+          milestone.endAt,
+          milestone.submissionType,
+        ),
       });
     });
   }
@@ -312,6 +317,7 @@ export class ProgramEditorService {
     input: UpsertMilestoneRequestDto,
     programStartAt: Date,
     endAt: Date,
+    existingSubmissionType: ProgramMilestoneInput['submissionType'] = null,
   ): ProgramMilestoneInput {
     const name = input.name.trim();
     const startAt = input.startAt ? new Date(input.startAt) : programStartAt;
@@ -362,7 +368,7 @@ export class ProgramEditorService {
       name,
       startAt,
       dueAt,
-      submissionType: input.submissionType,
+      submissionType: existingSubmissionType,
       instructions,
     };
   }

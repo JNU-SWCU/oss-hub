@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import type { ProgramAuthoringRequest } from './program-authoring.types';
 import { buildProgramAuthoringPlan } from './program-authoring-plan';
 import {
@@ -19,26 +19,22 @@ function request(): ProgramAuthoringRequest {
       {
         name: ' First ',
         dueAt: '2026-08-20T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.FILE,
         documents: [
           {
             name: ' File ',
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
             templateUploadId: ' upload-1 ',
           },
           {
             name: ' Text ',
             required: false,
-            submissionType: MilestoneSubmissionType.TEXT,
           },
         ],
       },
       {
         name: ' Second ',
         dueAt: '2026-08-25T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.TEXT,
-        documents: [],
+        documents: [{ name: ' Summary ', required: true }],
       },
     ],
   };

@@ -54,14 +54,12 @@ describe('ProgramAuthoringService integration', () => {
       templateUploadId: templateId,
     };
     const request = authoringRequest('graph', [
-      authoringMilestone('file', MilestoneSubmissionType.FILE, [
-        authoringDocument('required-file', MilestoneSubmissionType.FILE),
+      authoringMilestone('file', [
+        authoringDocument('required-file'),
         optionalTemplate,
       ]),
-      authoringMilestone('text', MilestoneSubmissionType.TEXT, [
-        authoringDocument('required-text', MilestoneSubmissionType.TEXT),
-      ]),
-      authoringMilestone('empty', MilestoneSubmissionType.TEXT, []),
+      authoringMilestone('second-file', [authoringDocument('required-file-2')]),
+      authoringMilestone('default-item', [authoringDocument('default-item')]),
     ]);
 
     // When
@@ -89,7 +87,7 @@ describe('ProgramAuthoringService integration', () => {
       },
     });
     expect(graph.milestones.map(({ documents }) => documents.length)).toEqual([
-      2, 1, 0,
+      2, 1, 1,
     ]);
     expect(graph.milestones[0]?.documents[1]).toMatchObject({
       required: false,
@@ -113,7 +111,7 @@ describe('ProgramAuthoringService integration', () => {
     // Given
     const actor = await harness.createActor('conflict');
     const initial = authoringRequest('conflict', [
-      authoringMilestone('empty', MilestoneSubmissionType.TEXT, []),
+      authoringMilestone('default-item', [authoringDocument('default-item')]),
     ]);
     await service.create(actor.githubId, 'conflict-key', initial);
 
@@ -171,9 +169,9 @@ describe('ProgramAuthoringService integration', () => {
     const initial = requestWithTemplate('replayed-first', tokenId);
     await service.create(actor.githubId, 'replayed-first-key', initial);
     const duplicate = authoringRequest('duplicate', [
-      authoringMilestone('duplicate', MilestoneSubmissionType.FILE, [
-        authoringDocument('first', MilestoneSubmissionType.FILE, tokenId),
-        authoringDocument('second', MilestoneSubmissionType.FILE, tokenId),
+      authoringMilestone('duplicate', [
+        authoringDocument('first', tokenId),
+        authoringDocument('second', tokenId),
       ]),
     ]);
 
@@ -243,12 +241,8 @@ describe('ProgramAuthoringService integration', () => {
 
 function requestWithTemplate(label: string, templateUploadId: string) {
   return authoringRequest(label, [
-    authoringMilestone('file', MilestoneSubmissionType.FILE, [
-      authoringDocument(
-        'template',
-        MilestoneSubmissionType.FILE,
-        templateUploadId,
-      ),
+    authoringMilestone('file', [
+      authoringDocument('template', templateUploadId),
     ]),
   ]);
 }

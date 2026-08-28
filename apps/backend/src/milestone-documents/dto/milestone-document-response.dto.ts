@@ -1,5 +1,6 @@
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentRecord } from '../milestone-documents.repository';
+import type { MilestoneDocumentSubmittedContent } from '../domain/milestone-document-content';
 
 /**
  * 학생 뷰 — 이 서류에 붙은 최신 판정. `decision`을 따로 싣지 않는 것은 같은 뜻이 옆의
@@ -18,10 +19,26 @@ export interface MilestoneDocumentViewerReviewResponseDto {
 export interface MilestoneDocumentViewerSubmissionResponseDto {
   readonly submitted: boolean;
   readonly submittedAt: string | null;
+  /** 현재 제출본 번호. 두 번째부터는 화면이 「재검토 대기」로 구분한다. */
+  readonly revision: number | null;
   /** 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 null. */
   readonly status: SubmissionStatus | null;
+  readonly hasCurrentFile: boolean;
   /** 아직 아무도 판정하지 않았으면 null. */
   readonly review: MilestoneDocumentViewerReviewResponseDto | null;
+  /** 학생 본인의 제출·파일·공개 피드백 전체 이력. */
+  readonly history: readonly MilestoneDocumentViewerHistoryResponseDto[];
+}
+
+export interface MilestoneDocumentViewerHistoryResponseDto {
+  readonly event:
+    'SUBMITTED' | 'RESUBMITTED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
+  readonly revision: number | null;
+  readonly actorNickname: string;
+  readonly comment: string | null;
+  readonly createdAt: string;
+  readonly fileName: string | null;
+  readonly content: MilestoneDocumentSubmittedContent | null;
 }
 
 /** 교직원 뷰 — 이 서류 항목의 팀 제출 집계("6 / 8팀 제출"). */

@@ -21,19 +21,16 @@ function request(): ProgramAuthoringRequest {
       {
         name: '  Planning  ',
         dueAt: '2026-08-20T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.FILE,
         instructions: '  Submit once  ',
         documents: [
           {
             name: '  Plan  ',
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
             templateUploadId: ' upload-plan ',
           },
           {
             name: ' Summary ',
             required: false,
-            submissionType: MilestoneSubmissionType.TEXT,
           },
         ],
       },
@@ -41,8 +38,7 @@ function request(): ProgramAuthoringRequest {
         name: ' Demo ',
         startAt: '2026-08-21T09:00:00+09:00',
         dueAt: '2026-08-30T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.TEXT,
-        documents: [],
+        documents: [{ name: ' Demo link ', required: true }],
       },
     ],
   };
@@ -168,18 +164,9 @@ describe('buildProgramAuthoringPlan', () => {
 
   it.each<readonly [string, ProgramAuthoringDocumentRequest, string]>([
     [
-      'a TEXT document with a template',
-      {
-        ...documentAt(milestoneAt(request(), 0), 1),
-        templateUploadId: 'upload-text',
-      },
-      'TEXT_TEMPLATE_FORBIDDEN',
-    ],
-    [
       'a duplicate upload token',
       {
         ...documentAt(milestoneAt(request(), 0), 1),
-        submissionType: MilestoneSubmissionType.FILE,
         templateUploadId: 'upload-plan',
       },
       'DUPLICATE_UPLOAD_TOKEN',
@@ -199,6 +186,28 @@ describe('buildProgramAuthoringPlan', () => {
 
     // When / Then: invalid document plans never reach persistence.
     expectValidationCodes(input, [code]);
+  });
+
+  it('이전 직접 호출자의 TEXT 값을 받아도 선택으로 사용하지 않고 호환 저장값으로 정규화한다', () => {
+    const firstMilestone = milestoneAt(request(), 0);
+    const input: ProgramAuthoringRequest = {
+      ...request(),
+      milestones: [
+        {
+          ...firstMilestone,
+          documents: [
+            {
+              ...documentAt(firstMilestone, 0),
+              submissionType: MilestoneSubmissionType.TEXT,
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(
+      buildProgramAuthoringPlan(input).milestones[0]?.documents[0],
+    ).toMatchObject({ submissionType: MilestoneSubmissionType.FILE });
   });
 
   it('rejects an out-of-window milestone and reversed team range together', () => {

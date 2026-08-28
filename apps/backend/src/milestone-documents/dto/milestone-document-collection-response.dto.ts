@@ -1,4 +1,8 @@
-import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import type {
+  MilestoneDocumentSubmissionHistoryEvent,
+  ReviewDecision,
+  SubmissionStatus,
+} from '@prisma/client';
 import { MilestoneSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import {
@@ -101,6 +105,17 @@ export interface MilestoneDocumentCollectionCellResponseDto {
    * 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
    */
   readonly review: MilestoneDocumentCollectionReviewResponseDto | null;
+  readonly history?: readonly MilestoneDocumentCollectionHistoryResponseDto[];
+}
+
+export interface MilestoneDocumentCollectionHistoryResponseDto {
+  readonly event: MilestoneDocumentSubmissionHistoryEvent;
+  readonly revision: number | null;
+  readonly actorNickname: string;
+  readonly comment: string | null;
+  readonly createdAt: string;
+  readonly fileName: string | null;
+  readonly content: MilestoneDocumentSubmittedContent | null;
 }
 
 /** 칸에 붙는 최신 판정 — 교직원 표는 결과(`decision`)를 함께 보여 준다. */
@@ -231,15 +246,13 @@ function toCell(
       review: null,
     };
   }
-  // file은 FILE 유형에만 붙는다 — TEXT 제출은 첨부 없이 content만 갖는다.
   const file =
-    document.submissionType === MilestoneSubmissionType.FILE &&
-    submission.file !== null
-      ? {
+    submission.file === null
+      ? null
+      : {
           name: submission.file.originalFileName,
           sizeBytes: submission.file.sizeBytes,
-        }
-      : null;
+        };
   return {
     documentId: document.id,
     isSubmitted: true,
@@ -258,5 +271,18 @@ function toCell(
             comment: submission.review.comment,
             reviewedAt: submission.review.reviewedAt.toISOString(),
           },
+    ...(submission.history === undefined
+      ? {}
+      : {
+          history: submission.history.map((item) => ({
+            event: item.event,
+            revision: item.revision,
+            actorNickname: item.actorNickname,
+            comment: item.comment,
+            createdAt: item.createdAt.toISOString(),
+            fileName: item.fileName,
+            content: readMilestoneDocumentSubmittedContent(item.content),
+          })),
+        }),
   };
 }

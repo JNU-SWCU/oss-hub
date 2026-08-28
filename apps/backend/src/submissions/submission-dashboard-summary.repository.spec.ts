@@ -1,4 +1,8 @@
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  MilestoneSubmissionType,
+  SubmissionStatus,
+} from '@prisma/client';
 import {
   type DashboardApplicationRow,
   type DashboardMilestoneRow,
@@ -38,8 +42,16 @@ describe('SubmissionDashboardSummaryRepository', () => {
       >[0],
       DashboardMilestoneRow
     >([
-      { id: 'milestone-a', programId: 'program-a' },
-      { id: 'milestone-b', programId: 'program-b' },
+      {
+        id: 'milestone-a',
+        programId: 'program-a',
+        submissionType: MilestoneSubmissionType.FILE,
+      },
+      {
+        id: 'milestone-b',
+        programId: 'program-b',
+        submissionType: MilestoneSubmissionType.FILE,
+      },
     ]);
     const submissions = new FakeFindManyDelegate<
       Parameters<
@@ -103,8 +115,16 @@ describe('SubmissionDashboardSummaryRepository', () => {
         { id: 'approved-team-application', programId: 'program-b' },
       ],
       milestones: [
-        { id: 'milestone-a', programId: 'program-a' },
-        { id: 'milestone-b', programId: 'program-b' },
+        {
+          id: 'milestone-a',
+          programId: 'program-a',
+          submissionType: MilestoneSubmissionType.FILE,
+        },
+        {
+          id: 'milestone-b',
+          programId: 'program-b',
+          submissionType: MilestoneSubmissionType.FILE,
+        },
       ],
       submissions: [
         {
@@ -145,7 +165,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     });
     expect(milestones.calls[0]).toEqual({
       where: { programId: { in: ['program-a', 'program-b'] } },
-      select: { id: true, programId: true },
+      select: { id: true, programId: true, submissionType: true },
     });
     expect(submissions.calls[0]).toEqual({
       where: {

@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { MilestoneSubmissionType } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import { normalizeMultipartFileName } from '../common/multipart-file-name';
@@ -22,6 +21,7 @@ import {
   SubmissionFilesRepository,
 } from '../submissions/submission-files.repository';
 import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
+import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
 import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -84,12 +84,13 @@ export class MilestoneDocumentFilesService {
     private readonly submissionFiles: SubmissionFilesRepository,
   ) {}
 
-  /** 학생 — 서류(FILE 유형) 제출용 파일을 pending 상태로 올린다. 실제 제출은 이후 submit()이 attach한다. */
+  /** 학생 — 제출에 선택적으로 붙일 파일을 pending 상태로 올린다. */
   async upload(
     sessionGithubId: bigint,
     milestoneId: unknown,
     documentId: unknown,
     file: MilestoneDocumentFileUpload | undefined,
+    now: Date = new Date(),
   ): Promise<UploadedMilestoneDocumentFileResponse> {
     const normalizedMilestoneId = this.requiredOpaqueId(milestoneId);
     const normalizedDocumentId = this.requiredOpaqueId(documentId);
@@ -109,10 +110,6 @@ export class MilestoneDocumentFilesService {
     ) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
-    if (documentContext.submissionType !== MilestoneSubmissionType.FILE) {
-      throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
-    }
-
     const application = await this.repository.findStudentApplication(
       viewer.id,
       documentContext.programId,
@@ -126,7 +123,26 @@ export class MilestoneDocumentFilesService {
       );
     }
 
-    const now = new Date();
+    const [currentSubmission, latestReview] = await Promise.all([
+      this.repository.findMySubmission(
+        normalizedDocumentId,
+        application.applicationId,
+      ),
+      this.repository.findLatestReview(
+        normalizedDocumentId,
+        application.applicationId,
+      ),
+    ]);
+    const blocked = milestoneDocumentSubmissionBlock({
+      dueAt: documentContext.dueAt,
+      now,
+      hasSubmission: currentSubmission !== null,
+      latestDecision: latestReview?.decision ?? null,
+    });
+    if (blocked !== null) {
+      throw this.error(MilestoneDocumentsErrorCode[blocked]);
+    }
+
     const objectKey = createSubmissionFileObjectKey();
 
     let created;

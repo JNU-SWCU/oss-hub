@@ -13,7 +13,7 @@ type E2eProgramAdoptionDocument = {
 type E2eProgramAdoptionMilestone = {
   readonly id: string;
   readonly name: string;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: MilestoneSubmissionType | null;
   readonly documents: readonly E2eProgramAdoptionDocument[];
 };
 
@@ -120,7 +120,7 @@ function requiredFileMilestone(
   return program?.milestones.find(
     (milestone) =>
       milestone.name === `${prefix}required-milestone` &&
-      milestone.submissionType === MilestoneSubmissionType.FILE &&
+      milestone.submissionType === null &&
       milestone.documents.length === 1 &&
       milestone.documents[0]?.name === `${prefix}required-document` &&
       milestone.documents[0]?.required === true &&

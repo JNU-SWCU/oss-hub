@@ -1,4 +1,5 @@
 import {
+  MilestoneSubmissionType,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   SubmissionStatus,
@@ -40,7 +41,13 @@ function eligibleRow(): ReviewContextRow {
       isRepositoryPublicationPlanned: true,
       program: {
         endAt: PROGRAM_ENDED_AT,
-        milestones: [{ id: 'milestone-1', documents: [] }],
+        milestones: [
+          {
+            id: 'milestone-1',
+            submissionType: MilestoneSubmissionType.FILE,
+            documents: [],
+          },
+        ],
       },
       submissions: [
         { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },

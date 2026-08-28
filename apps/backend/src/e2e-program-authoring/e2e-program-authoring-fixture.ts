@@ -73,6 +73,16 @@ export class E2eProgramAuthoringFixture {
       await transaction.submissionFile.deleteMany({
         where: { applicationId: { in: applicationIds } },
       });
+      await transaction.milestoneDocumentReviewHistory.deleteMany({
+        where: {
+          milestoneDocumentSubmission: {
+            applicationId: { in: applicationIds },
+          },
+        },
+      });
+      await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+        where: { submission: { applicationId: { in: applicationIds } } },
+      });
       await transaction.milestoneDocumentSubmission.deleteMany({
         where: { applicationId: { in: applicationIds } },
       });

@@ -293,6 +293,28 @@ describe('SubmissionDashboardSummaryService', () => {
     });
   });
 
+  it('제출 축이 없는 안내용 마일스톤은 제출 현황 분모에서 제외한다', async () => {
+    const repository = new FakeSubmissionDashboardSummaryRepository(
+      [{ id: 'team-1', programId: 'program-info' }],
+      [
+        {
+          id: 'milestone-info',
+          programId: 'program-info',
+          submissionType: null,
+        },
+      ],
+      [],
+    );
+    const service = new SubmissionDashboardSummaryService(repository);
+
+    await expect(service.listByProgram(['program-info'])).resolves.toEqual([
+      {
+        ...emptySummary('program-info'),
+        approvedApplications: 1,
+      },
+    ]);
+  });
+
   it('버킷 합은 언제나 total 과 같다', async () => {
     // Given: 두 축이 섞인 프로그램.
     const repository = new FakeSubmissionDashboardSummaryRepository(

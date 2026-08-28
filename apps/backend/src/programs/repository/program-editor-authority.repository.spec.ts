@@ -62,11 +62,15 @@ describe('ProgramEditorRepository edit counts', () => {
       _count: { applications: 2, teams: 1, boardPosts: 3 },
       milestones: [],
     });
-    const queryRaw = jest
-      .fn()
-      .mockResolvedValue([
-        { applications: 2n, teams: 1n, boardPosts: 3n, submissions: 4n },
-      ]);
+    const queryRaw = jest.fn().mockResolvedValue([
+      {
+        applications: 2n,
+        teams: 1n,
+        boardPosts: 3n,
+        submissions: 4n,
+        submissionEvents: 5n,
+      },
+    ]);
     const transaction = {
       program: { findUnique },
       $queryRaw: queryRaw,
@@ -91,6 +95,7 @@ describe('ProgramEditorRepository edit counts', () => {
         teams: 1,
         boardPosts: 3,
         submissions: 4,
+        submissionEvents: 5,
       },
       categoryLocked: {
         locked: true,
@@ -124,11 +129,7 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(query.strings.join('')).toContain(
       'SELECT count(*) FROM "Submission"',
     );
-    expect(query.values).toEqual([
-      'program-1',
-      'program-1',
-      'program-1',
-      'program-1',
-    ]);
+    expect(query.values).toHaveLength(43);
+    expect(query.values).toEqual(Array(43).fill('program-1'));
   });
 });

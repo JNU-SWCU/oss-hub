@@ -7,6 +7,7 @@ import {
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {
+  MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
@@ -57,6 +58,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     findSubmittedSummaries: jest.fn().mockResolvedValue([]),
     // 기본은 「아직 아무도 판정하지 않았다」 — 그러면 재제출은 지금처럼 허용된다.
     findLatestReview: jest.fn().mockResolvedValue(null),
+    findMySubmission: jest.fn().mockResolvedValue(null),
     findDocumentContext: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -82,6 +84,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     upsertSubmission: jest.fn(),
     findApprovedApplicationsForCollection: jest.fn().mockResolvedValue([]),
+    findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([]),
     findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
@@ -240,8 +243,21 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         {
           milestoneDocumentId: syntheticDocumentId,
           submittedAt,
+          revision: 2,
           status: SubmissionStatus.SUBMITTED,
+          hasCurrentFile: true,
           review: null,
+          history: [
+            {
+              event: 'RESUBMITTED',
+              revision: 2,
+              actorNickname: 'synthetic-student',
+              comment: null,
+              createdAt: submittedAt,
+              fileName: 'revised.pdf',
+              content: null,
+            },
+          ],
         },
       ]),
     });
@@ -257,8 +273,21 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         viewerSubmission: {
           submitted: true,
           submittedAt: submittedAt.toISOString(),
+          revision: 2,
           status: SubmissionStatus.SUBMITTED,
+          hasCurrentFile: true,
           review: null,
+          history: [
+            {
+              event: 'RESUBMITTED',
+              revision: 2,
+              actorNickname: 'synthetic-student',
+              comment: null,
+              createdAt: submittedAt.toISOString(),
+              fileName: 'revised.pdf',
+              content: null,
+            },
+          ],
         },
       }),
     ]);
@@ -283,12 +312,25 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         {
           milestoneDocumentId: syntheticDocumentId,
           submittedAt,
+          revision: 1,
           status: SubmissionStatus.CHANGES_REQUESTED,
+          hasCurrentFile: false,
           review: {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
           },
+          history: [
+            {
+              event: 'CHANGES_REQUESTED',
+              revision: 1,
+              actorNickname: 'private-staff-nickname',
+              comment: '2쪽 서명이 빠졌습니다.',
+              createdAt: reviewedAt,
+              fileName: null,
+              content: null,
+            },
+          ],
         },
       ]),
     });
@@ -301,11 +343,24 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     expect(result[0]?.viewerSubmission).toEqual({
       submitted: true,
       submittedAt: submittedAt.toISOString(),
+      revision: 1,
       status: SubmissionStatus.CHANGES_REQUESTED,
+      hasCurrentFile: false,
       review: {
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
       },
+      history: [
+        {
+          event: 'CHANGES_REQUESTED',
+          revision: 1,
+          actorNickname: '담당 교직원',
+          comment: '2쪽 서명이 빠졌습니다.',
+          createdAt: reviewedAt.toISOString(),
+          fileName: null,
+          content: null,
+        },
+      ],
     });
   });
 
@@ -363,7 +418,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       name: '새 서류',
       required: true,
       sortOrder: 2,
-      submissionType: MilestoneSubmissionType.TEXT,
     };
 
     // When
@@ -372,10 +426,11 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     // Then: 삽입은 부모 잠금 뒤에만 일어난다 — 순서 재부여가 재번호를 매기는 사이에
     // 새 항목이 끼어들면 그 항목만 빠져 sortOrder가 겹친다.
     expect(transactionCalls).toEqual(['lockMilestone', 'createDocument']);
-    expect(mocks.createDocument).toHaveBeenCalledWith(
-      syntheticMilestoneId,
-      input,
-    );
+    expect(mocks.createDocument).toHaveBeenCalledWith(syntheticMilestoneId, {
+      name: '새 서류',
+      required: true,
+      submissionType: MilestoneSubmissionType.FILE,
+    });
     expect(result.id).toBe('cuid-synthetic-document-new');
   });
 
@@ -392,7 +447,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         name: '새 서류',
         required: true,
         sortOrder: 2,
-        submissionType: MilestoneSubmissionType.TEXT,
       }),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
@@ -416,7 +470,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         name: '수정된 이름',
         required: false,
         sortOrder: 1,
-        submissionType: MilestoneSubmissionType.FILE,
       }),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -437,7 +490,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         name: '수정된 이름',
         required: false,
         sortOrder: 1,
-        submissionType: MilestoneSubmissionType.FILE,
       }),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -445,33 +497,38 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     expect(mocks.updateDocument).not.toHaveBeenCalled();
   });
 
-  it('updateDocument는 제출이 있는 항목의 제출 방식 변경을 DOCUMENT_HAS_SUBMISSIONS로 막는다', async () => {
-    // Given: 이미 파일 제출이 2건 있는 FILE 항목을 TEXT로 바꾸려 한다.
-    // 바꾸면 수합 표의 칸이 file을 잃어 「안 냈네」로 읽히므로 삭제와 같은 코드로 막는다.
+  it('updateDocument는 제출이 있는 기존 TEXT 항목의 방식을 그대로 유지한다', async () => {
     const { mocks, repository } = buildRepository({
+      lockDocument: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        submissionType: MilestoneSubmissionType.TEXT,
+      }),
       countSubmissionsForDocument: jest.fn().mockResolvedValue(2),
+      updateDocument: jest
+        .fn()
+        .mockResolvedValue(
+          baseDocument({ submissionType: MilestoneSubmissionType.TEXT }),
+        ),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
-    await expect(
-      service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
-        name: '개인정보 수집·이용 동의서',
-        required: true,
-        sortOrder: 1,
-        submissionType: MilestoneSubmissionType.TEXT,
-      }),
-    ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS },
+    await service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      sortOrder: 1,
     });
-    expect(mocks.updateDocument).not.toHaveBeenCalled();
+
+    expect(mocks.countSubmissionsForDocument).not.toHaveBeenCalled();
+    expect(mocks.updateDocument).toHaveBeenCalledWith(syntheticDocumentId, {
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      submissionType: MilestoneSubmissionType.TEXT,
+    });
   });
 
-  it('updateDocument는 잠금·세기·갱신을 한 트랜잭션 안에서 이 순서로 한다', async () => {
-    // Given: 세기와 갱신이 갈라져 있으면 그 사이 제출이 카운트를 피해 들어온다.
-    // 판단의 근거가 되는 읽기(잠금)와 그 판단으로 하는 쓰기가 같은 트랜잭션에 있어야 한다.
+  it('updateDocument는 잠금과 갱신을 한 트랜잭션 안에서 이 순서로 한다', async () => {
     const { transactionCalls, withTransaction, repository } = buildRepository({
-      countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
       updateDocument: jest
         .fn()
         .mockResolvedValue(
@@ -485,16 +542,11 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       name: '개인정보 수집·이용 동의서',
       required: true,
       sortOrder: 1,
-      submissionType: MilestoneSubmissionType.TEXT,
     });
 
     // Then
     expect(withTransaction).toHaveBeenCalledTimes(1);
-    expect(transactionCalls).toEqual([
-      'lockDocument',
-      'countSubmissionsForDocument',
-      'updateDocument',
-    ]);
+    expect(transactionCalls).toEqual(['lockDocument', 'updateDocument']);
   });
 
   it('updateDocument는 트랜잭션 밖에서 읽어 둔 값이 아니라 잠근 뒤 다시 읽은 제출 방식으로 판단한다', async () => {
@@ -526,7 +578,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       name: '개인정보 수집·이용 동의서',
       required: true,
       sortOrder: 1,
-      submissionType: MilestoneSubmissionType.FILE,
     });
 
     // Then: 방식이 그대로이므로 세지도 막지도 않는다.
@@ -554,7 +605,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         name: '수정된 이름',
         required: false,
         sortOrder: 3,
-        submissionType: MilestoneSubmissionType.FILE,
       },
     );
 
@@ -588,7 +638,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         name: '수정된 이름',
         required: true,
         sortOrder: 1,
-        submissionType: MilestoneSubmissionType.FILE,
       },
     );
 
@@ -607,9 +656,13 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     expect(result.sortOrder).toBe(3);
   });
 
-  it('updateDocument는 제출이 없으면 제출 방식 변경도 허용한다', async () => {
-    // Given: 아직 아무도 내지 않은 항목이다.
+  it('updateDocument는 제출이 없어도 기존 TEXT 항목을 TEXT로 유지한다', async () => {
     const { mocks, repository } = buildRepository({
+      lockDocument: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        submissionType: MilestoneSubmissionType.TEXT,
+      }),
       countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
       updateDocument: jest.fn().mockResolvedValue(
         baseDocument({
@@ -627,14 +680,11 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         name: '개인정보 수집·이용 동의서',
         required: true,
         sortOrder: 1,
-        submissionType: MilestoneSubmissionType.TEXT,
       },
     );
 
     // Then
-    expect(mocks.countSubmissionsForDocument).toHaveBeenCalledWith(
-      syntheticDocumentId,
-    );
+    expect(mocks.countSubmissionsForDocument).not.toHaveBeenCalled();
     expect(mocks.updateDocument).toHaveBeenCalledWith(syntheticDocumentId, {
       name: '개인정보 수집·이용 동의서',
       required: true,
@@ -646,6 +696,9 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   it('deleteDocument는 제출이 있으면 DOCUMENT_HAS_SUBMISSIONS로 거부한다', async () => {
     // Given
     const { mocks, repository } = buildRepository({
+      lockDocumentIdsOfMilestone: jest
+        .fn()
+        .mockResolvedValue([syntheticDocumentId, 'cuid-synthetic-document-2']),
       countSubmissionsForDocument: jest.fn().mockResolvedValue(1),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -659,10 +712,29 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     expect(mocks.deleteDocument).not.toHaveBeenCalled();
   });
 
+  it('deleteDocument는 마지막 제출 항목을 지우지 않는다', async () => {
+    const { mocks, repository } = buildRepository();
+    const service = new MilestoneDocumentsService(repository);
+
+    await expect(
+      service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED,
+      },
+    });
+    expect(mocks.countSubmissionsForDocument).not.toHaveBeenCalled();
+    expect(mocks.deleteDocument).not.toHaveBeenCalled();
+  });
+
   it('deleteDocument는 마일스톤·서류를 이 순서로 잠근 뒤 세고 지운다', async () => {
     // Given: 삭제도 추가와 같은 관문(마일스톤 행)을 먼저 지나야 순서 재부여가 잠근 집합에서
     // 행이 사라지는 일을 막는다. 잠금 순서는 Milestone → MilestoneDocument 고정이다.
+    const secondDocumentId = 'cuid-synthetic-document-2';
     const { mocks, transactionCalls, repository } = buildRepository({
+      lockDocumentIdsOfMilestone: jest
+        .fn()
+        .mockResolvedValue([syntheticDocumentId, secondDocumentId]),
       countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -673,6 +745,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     // Then
     expect(transactionCalls).toEqual([
       'lockMilestone',
+      'lockDocumentIdsOfMilestone',
       'lockDocument',
       'countSubmissionsForDocument',
       'deleteDocument',
@@ -683,6 +756,9 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   it('deleteDocument는 서류가 그 마일스톤 소속이 아니면 잠금 뒤에 DOCUMENT_NOT_FOUND로 막는다', async () => {
     // Given: 잠그고 다시 읽은 행의 milestoneId가 요청 경로와 다르다.
     const { mocks, repository } = buildRepository({
+      lockDocumentIdsOfMilestone: jest
+        .fn()
+        .mockResolvedValue([syntheticDocumentId, 'cuid-synthetic-document-2']),
       lockDocument: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: 'cuid-other-milestone',
@@ -837,7 +913,6 @@ describe('MilestoneDocumentsService.updateDocument — 제출과의 경쟁', () 
       name: '개인정보 수집·이용 동의서',
       required: true,
       sortOrder: 1,
-      submissionType: MilestoneSubmissionType.TEXT,
     });
 
     // Then: 둘 중 하나만 통과해야 한다. 방식이 TEXT로 바뀌었다면 그 제출은 남아 있으면 안 된다.
@@ -1066,7 +1141,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         1n,
         syntheticMilestoneId,
         syntheticDocumentId,
-        { type: MilestoneSubmissionType.TEXT, text: '본문' },
+        { text: '본문', fileId: null },
         now,
       ),
     ).rejects.toMatchObject({
@@ -1074,28 +1149,143 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
   });
 
-  it('서류 제출 유형과 내용 유형이 다르면 CONTENT_TYPE_MISMATCH로 거부한다', async () => {
-    // Given: 서류 항목은 FILE 유형인데 TEXT로 제출했다.
+  it('마감 후 첫 제출은 MILESTONE_CLOSED로 거부한다', async () => {
+    const { mocks, repository } = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    await expect(
+      service.submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { text: '늦은 제출', fileId: null },
+        new Date('2026-09-19T09:00:00.001Z'),
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED },
+    });
+    expect(mocks.upsertSubmission).not.toHaveBeenCalled();
+  });
+
+  it('마감 후 검토 전 교체는 SUBMISSION_REPLACEMENT_CLOSED로 거부한다', async () => {
+    const { mocks, repository } = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      findMySubmission: jest.fn().mockResolvedValue({
+        id: 'cuid-synthetic-submission',
+      }),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    await expect(
+      service.submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { text: '늦은 교체', fileId: null },
+        new Date('2026-09-19T09:00:00.001Z'),
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
+      },
+    });
+    expect(mocks.upsertSubmission).not.toHaveBeenCalled();
+  });
+
+  it('검증 뒤 마감이 앞당겨졌으면 실제 쓰기 직전에도 막는다', async () => {
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
         hasStaffAccess: false,
         hasAdminAccess: false,
       }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      upsertSubmission: jest
+        .fn()
+        .mockRejectedValue(new MilestoneDocumentDeadlineClosedError()),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.submit(
         1n,
         syntheticMilestoneId,
         syntheticDocumentId,
-        { type: MilestoneSubmissionType.TEXT, text: '본문' },
+        { text: '본문', fileId: null },
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH },
+      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED },
+    });
+  });
+
+  it('기존 FILE 항목에도 내용만 제출할 수 있다', async () => {
+    const { mocks, repository } = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      upsertSubmission: jest.fn().mockResolvedValue({
+        id: 'cuid-synthetic-submission',
+        status: SubmissionStatus.SUBMITTED,
+        content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
+        submittedAt: now,
+        files: [],
+      }),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    await service.submit(
+      1n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      { text: '본문', fileId: null },
+      now,
+    );
+
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: now,
+      deadline: {
+        milestoneId: syntheticMilestoneId,
+        allowAfterDeadline: false,
+      },
+      content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
+      attachFile: null,
+      expectedSubmissionType: MilestoneSubmissionType.FILE,
+      expectedLatestReviewId: null,
     });
   });
 
@@ -1125,7 +1315,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         1n,
         syntheticMilestoneId,
         syntheticDocumentId,
-        { type: MilestoneSubmissionType.TEXT, text: '본문' },
+        { text: '본문', fileId: null },
         now,
       ),
     ).rejects.toMatchObject({
@@ -1163,7 +1353,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         1n,
         syntheticMilestoneId,
         syntheticDocumentId,
-        { type: MilestoneSubmissionType.TEXT, text: '본문' },
+        { text: '본문', fileId: null },
         now,
       ),
     ).rejects.toMatchObject({
@@ -1209,7 +1399,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       1n,
       syntheticMilestoneId,
       syntheticDocumentId,
-      { type: MilestoneSubmissionType.TEXT, text: '본문' },
+      { text: '본문', fileId: null },
       now,
     );
 
@@ -1219,6 +1409,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       applicationId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
+      deadline: {
+        milestoneId: syntheticMilestoneId,
+        allowAfterDeadline: false,
+      },
       content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
       attachFile: null,
       expectedSubmissionType: MilestoneSubmissionType.TEXT,
@@ -1271,7 +1465,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       1n,
       syntheticMilestoneId,
       syntheticDocumentId,
-      { type: MilestoneSubmissionType.FILE, fileId: 'cuid-synthetic-file' },
+      { text: null, fileId: 'cuid-synthetic-file' },
       now,
     );
 
@@ -1281,6 +1475,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       applicationId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
+      deadline: {
+        milestoneId: syntheticMilestoneId,
+        allowAfterDeadline: false,
+      },
       content: Prisma.JsonNull,
       attachFile: {
         fileId: 'cuid-synthetic-file',
@@ -1293,6 +1491,48 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     expect(result.files).toEqual([
       expect.objectContaining({ id: 'cuid-synthetic-file' }),
     ]);
+  });
+
+  it('내용과 파일을 함께 같은 제출 이력에 저장한다', async () => {
+    const { mocks, repository } = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      upsertSubmission: jest.fn().mockResolvedValue({
+        id: 'cuid-synthetic-submission',
+        status: SubmissionStatus.SUBMITTED,
+        content: { type: MilestoneSubmissionType.TEXT, text: '설명' },
+        submittedAt: now,
+        files: [],
+      }),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    await service.submit(
+      1n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      { text: '설명', fileId: 'cuid-synthetic-file' },
+      now,
+    );
+
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: { type: MilestoneSubmissionType.TEXT, text: '설명' },
+        attachFile: {
+          fileId: 'cuid-synthetic-file',
+          uploaderId: syntheticUserId,
+          milestoneId: syntheticMilestoneId,
+        },
+      }),
+    );
   });
 
   it('pending 파일이 만료·소유자 불일치로 붙지 않으면 PENDING_FILE_NOT_FOUND로 변환한다', async () => {
@@ -1328,7 +1568,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         1n,
         syntheticMilestoneId,
         syntheticDocumentId,
-        { type: MilestoneSubmissionType.FILE, fileId: 'cuid-expired-file' },
+        { text: null, fileId: 'cuid-expired-file' },
         now,
       ),
     ).rejects.toMatchObject({
@@ -1370,7 +1610,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         1n,
         syntheticMilestoneId,
         syntheticDocumentId,
-        { type: MilestoneSubmissionType.FILE, fileId: 'cuid-synthetic-file' },
+        { text: null, fileId: 'cuid-synthetic-file' },
         now,
       ),
     ).rejects.toMatchObject({
@@ -1421,7 +1661,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       1n,
       syntheticMilestoneId,
       syntheticDocumentId,
-      { type: MilestoneSubmissionType.TEXT, text: '고친 본문' },
+      { text: '고친 본문', fileId: null },
       now,
     );
   }
@@ -1779,6 +2019,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     expect(mocks.findSubmissionsForCollection).toHaveBeenCalledWith(
       [syntheticDocumentId, secondDocumentId],
       now,
+      expect.any(Array),
     );
     expect(result.rows[0]?.cells[0]).toEqual({
       documentId: syntheticDocumentId,
@@ -1968,6 +2209,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledTimes(
       1,
     );
+    expect(mocks.findSubmissionCoordinatesForCollection).toHaveBeenCalledTimes(
+      1,
+    );
     expect(mocks.findSubmissionsForCollection).toHaveBeenCalledTimes(1);
   });
 });
@@ -2040,6 +2284,24 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
           teamName: '차카타팀',
           applicantName: null,
           memberNicknames: ['synthetic-d'],
+        },
+      ]),
+      findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([
+        {
+          applicationId: bothApplicationId,
+          milestoneDocumentId: requiredDocumentId,
+        },
+        {
+          applicationId: bothApplicationId,
+          milestoneDocumentId: optionalDocumentId,
+        },
+        {
+          applicationId: requiredOnlyApplicationId,
+          milestoneDocumentId: requiredDocumentId,
+        },
+        {
+          applicationId: optionalOnlyApplicationId,
+          milestoneDocumentId: optionalDocumentId,
         },
       ]),
       findSubmissionsForCollection: jest
@@ -2167,6 +2429,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository({
       findByMilestoneId: jest.fn().mockResolvedValue([]),
       findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
+      findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([]),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -2191,6 +2454,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         .fn()
         .mockResolvedValue([baseDocument({ required: false, sortOrder: 1 })]),
       findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
+      findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([]),
     });
     const service = new MilestoneDocumentsService(repository);
 

@@ -193,14 +193,12 @@ export function authoringRequest(
 
 export function authoringMilestone(
   label: string,
-  submissionType: MilestoneSubmissionType,
   documents: readonly ProgramAuthoringDocumentRequest[],
 ): ProgramAuthoringMilestoneRequest {
   return {
     name: `${AUTHORING_TEST_PREFIX}milestone:${label}`,
     startAt: '2026-08-06T00:00:00.000Z',
     dueAt: '2026-09-01T00:00:00.000Z',
-    submissionType,
     instructions: `Synthetic instructions ${label}`,
     documents,
   };
@@ -208,13 +206,12 @@ export function authoringMilestone(
 
 export function authoringDocument(
   label: string,
-  submissionType: MilestoneSubmissionType,
   templateUploadId?: string,
 ): ProgramAuthoringDocumentRequest {
   return {
     name: `${AUTHORING_TEST_PREFIX}document:${label}`,
     required: true,
-    submissionType,
+    submissionType: MilestoneSubmissionType.FILE,
     ...(templateUploadId === undefined ? {} : { templateUploadId }),
   };
 }

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  type MilestoneSubmissionType,
+  SubmissionStatus,
+} from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_NOT_SUBMITTED,
@@ -37,12 +41,14 @@ type DocumentSubmissionRecord = {
 function milestoneStatusFor(
   milestone: {
     readonly id: string;
+    readonly submissionType: MilestoneSubmissionType | null;
     readonly documents: readonly { readonly id: string }[];
   },
   submissions: readonly SubmissionRecord[],
   documentSubmissions: readonly DocumentSubmissionRecord[],
 ) {
   return milestoneCompletionStatus({
+    submissionAxisInUse: milestone.submissionType !== null,
     requiredDocumentStatuses: milestone.documents.map(
       (document) =>
         documentSubmissions.find(
@@ -247,16 +253,22 @@ export class ProgramsService {
             deadlineLabel: deadline.label,
             description: milestone.instructions,
             submissionType: milestone.submissionType,
-            viewerSubmissionStatus: studentApplication
-              ? milestoneStatusFor(
-                  milestone,
-                  studentApplication.submissions,
-                  studentApplication.milestoneDocumentSubmissions,
-                )
-              : null,
-            applicationSubmissionSummary: staffApplications
-              ? this.summaryForMilestone(milestone, staffApplications)
-              : null,
+            // 새 repository는 선택 항목까지 포함한 _count를 넘긴다. 예전 포트
+            // fixture는 필수 documents만 있어 전환 기간 fallback을 둔다.
+            submissionItemCount:
+              milestone._count?.documents ?? milestone.documents.length,
+            viewerSubmissionStatus:
+              milestone.submissionType !== null && studentApplication
+                ? milestoneStatusFor(
+                    milestone,
+                    studentApplication.submissions,
+                    studentApplication.milestoneDocumentSubmissions,
+                  )
+                : null,
+            applicationSubmissionSummary:
+              milestone.submissionType !== null && staffApplications
+                ? this.summaryForMilestone(milestone, staffApplications)
+                : null,
           };
         }),
       };
@@ -269,6 +281,7 @@ export class ProgramsService {
   private summaryForMilestone(
     milestone: {
       readonly id: string;
+      readonly submissionType: MilestoneSubmissionType | null;
       readonly documents: readonly { readonly id: string }[];
     },
     applications: readonly {

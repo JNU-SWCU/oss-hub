@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ProgramAuthoringRequestDto } from './program-authoring-request.dto';
@@ -23,13 +23,11 @@ function request() {
         name: 'Planning',
         startAt: '2026-08-11T00:00:00.000Z',
         dueAt: '2026-08-20T00:00:00.000Z',
-        submissionType: MilestoneSubmissionType.FILE,
         instructions: 'Submit the plan',
         documents: [
           {
             name: 'Plan',
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
             templateUploadId: 'upload-plan',
           },
         ],
@@ -86,6 +84,12 @@ describe('ProgramAuthoringRequestDto', () => {
       { milestones: Array.from({ length: 51 }, () => milestone()) },
     ],
     [
+      '0 documents in one milestone',
+      {
+        milestones: [{ ...milestone(), documents: [] }],
+      },
+    ],
+    [
       '21 documents in one milestone',
       {
         milestones: [
@@ -117,7 +121,7 @@ describe('ProgramAuthoringRequestDto', () => {
     );
   });
 
-  it('rejects submission types outside FILE and TEXT at every nested level', async () => {
+  it('rejects a milestone-level submission type and non-FILE document writes', async () => {
     const input = request();
     const milestoneFixture = milestone();
 
@@ -127,11 +131,11 @@ describe('ProgramAuthoringRequestDto', () => {
         milestones: [
           {
             ...milestoneFixture,
-            submissionType: 'REPOSITORY_RELEASE',
+            submissionType: 'FILE',
             documents: [
               {
                 ...document(),
-                submissionType: 'REPOSITORY_RELEASE',
+                submissionType: 'TEXT',
               },
             ],
           },

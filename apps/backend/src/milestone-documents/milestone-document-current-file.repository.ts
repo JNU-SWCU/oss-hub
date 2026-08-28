@@ -2,19 +2,20 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneSubmissionType,
   Prisma,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const currentFileSelect = {
+  revision: true,
   files: {
     select: {
       storageKey: true,
       originalFileName: true,
       mimeType: true,
       sizeBytes: true,
+      submissionHistory: { select: { revision: true } },
     },
   },
 } as const;
@@ -69,7 +70,6 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
         milestoneDocument: {
           is: {
             milestoneId,
-            submissionType: MilestoneSubmissionType.FILE,
           },
         },
         application: {
@@ -91,17 +91,34 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
         },
       },
       select: {
+        revision: true,
         files: {
           where: {
             lifecycle: SubmissionFileLifecycle.ATTACHED,
             expiresAt: { gt: new Date() },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: [
+            { submissionHistory: { revision: 'desc' } },
+            { createdAt: 'desc' },
+          ],
           take: 1,
           select: currentFileSelect.files.select,
         },
       },
     });
-    return submission?.files[0] ?? null;
+    const file = submission?.files[0];
+    if (
+      submission == null ||
+      file == null ||
+      file.submissionHistory?.revision !== submission.revision
+    ) {
+      return null;
+    }
+    return {
+      storageKey: file.storageKey,
+      originalFileName: file.originalFileName,
+      mimeType: file.mimeType,
+      sizeBytes: file.sizeBytes,
+    };
   }
 }

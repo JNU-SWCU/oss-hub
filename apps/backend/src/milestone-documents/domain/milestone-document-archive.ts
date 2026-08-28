@@ -134,7 +134,9 @@ export type MilestoneDocumentArchiveOmission =
    */
   | 'FILE_UNAVAILABLE'
   /** 글 제출인데 본문을 읽을 수 없다(계약상 없어야 하는 상태). */
-  | 'CONTENT_UNAVAILABLE';
+  | 'CONTENT_UNAVAILABLE'
+  /** 통합 제출에서 원래 파일·글 중 무엇이 있었는지 더는 증명할 수 없다. */
+  | 'SUBMISSION_UNAVAILABLE';
 
 /** 현황표의 한 칸 — (팀, 서류) 하나. 미제출도 칸이 비지 않는다. */
 export interface MilestoneDocumentArchiveCell {
@@ -223,30 +225,36 @@ export function buildMilestoneDocumentArchivePlan(
       }
 
       const state = submittedState(submission.status);
-      const entry = buildEntry({ team, document, submission, layout });
-      if (entry === null) {
+      const cellEntries = buildEntries({ team, document, submission, layout });
+      if (cellEntries.length === 0) {
+        const submittedContent = readMilestoneDocumentSubmittedContent(
+          submission.content,
+        );
         return {
           documentId: document.id,
           state,
           submittedAt: submission.submittedAt,
           path: null,
           omission:
-            document.submissionType === MilestoneSubmissionType.FILE
-              ? ('FILE_UNAVAILABLE' as const)
-              : ('CONTENT_UNAVAILABLE' as const),
+            submission.content !== null && submittedContent === null
+              ? ('CONTENT_UNAVAILABLE' as const)
+              : ('SUBMISSION_UNAVAILABLE' as const),
         };
       }
 
-      const path = uniquePath(entry.path, takenPaths);
-      const placed = { ...entry, path };
-      entries.push(placed);
-      if (placed.kind === 'STORED_FILE') storedBytes += placed.sizeBytes;
-      else inlineBytes += Buffer.byteLength(placed.body, 'utf8');
+      const paths = cellEntries.map((entry) => {
+        const path = uniquePath(entry.path, takenPaths);
+        const placed = { ...entry, path };
+        entries.push(placed);
+        if (placed.kind === 'STORED_FILE') storedBytes += placed.sizeBytes;
+        else inlineBytes += Buffer.byteLength(placed.body, 'utf8');
+        return path;
+      });
       return {
         documentId: document.id,
         state,
         submittedAt: submission.submittedAt,
-        path,
+        path: paths.join(' · '),
         omission: null,
       };
     }),
@@ -278,12 +286,12 @@ function submittedState(
  * `milestone-document-content.ts`에 적힌 것과 같다(둘이 어긋나는 날, 실제로 낸 것이 아닌
  * 것을 담게 된다).
  */
-function buildEntry(input: {
+function buildEntries(input: {
   readonly team: MilestoneDocumentArchiveTeam;
   readonly document: MilestoneDocumentArchiveDocument;
   readonly submission: MilestoneDocumentArchiveSubmission;
   readonly layout: MilestoneDocumentArchiveLayout;
-}): MilestoneDocumentArchiveEntry | null {
+}): readonly MilestoneDocumentArchiveEntry[] {
   const { team, document, submission, layout } = input;
   // `FLAT` 은 폴더가 없다 — 앞에 붙일 것이 없으니 빈 접두사가 된다.
   const prefix =
@@ -291,32 +299,35 @@ function buildEntry(input: {
       ? ''
       : `${archiveFolderPath(layout === 'TEAM' ? team.teamName : document.name)}/`;
 
+  const entries: MilestoneDocumentArchiveEntry[] = [];
   if (submission.file !== null) {
     const fileName = milestoneDocumentDownloadFileName({
       teamName: team.teamName,
       documentName: document.name,
       originalFileName: submission.file.originalFileName,
     });
-    return {
+    entries.push({
       kind: 'STORED_FILE',
       path: `${prefix}${fileName}`,
       modifiedAt: submission.submittedAt,
       storageKey: submission.file.storageKey,
       sizeBytes: submission.file.sizeBytes,
-    };
+    });
   }
 
   const content = readMilestoneDocumentSubmittedContent(submission.content);
-  if (content === null) return null;
-  return {
-    kind: 'INLINE_TEXT',
-    path: `${prefix}${milestoneDocumentTextEntryFileName({
-      teamName: team.teamName,
-      documentName: document.name,
-    })}`,
-    modifiedAt: submission.submittedAt,
-    body: content.text,
-  };
+  if (content !== null) {
+    entries.push({
+      kind: 'INLINE_TEXT',
+      path: `${prefix}${milestoneDocumentTextEntryFileName({
+        teamName: team.teamName,
+        documentName: document.name,
+      })}`,
+      modifiedAt: submission.submittedAt,
+      body: content.text,
+    });
+  }
+  return entries;
 }
 
 /**

@@ -19,6 +19,7 @@ import { isSerializationFailure } from '../../common/prisma-serialization-retry'
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   readProgramDeletionScopeCounts,
+  sameProgramDeletionScopeCountValues,
   sameProgramDeletionScopeCounts,
   type ProgramDeletionScopeCounts,
 } from '../program-deletion-scope';
@@ -215,7 +216,7 @@ export class ProgramLifecycleService {
    * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해
    * DELETE_PENDING으로 전환한다. phase 2 worker만 storage port를 호출한다.
    *
-   * `expectedScope`는 확인 화면(GET edit)이 보여준 4종 자식 범위의 스냅샷이다 —
+   * `expectedScope`는 확인 화면(GET edit)이 보여준 자식 범위의 스냅샷이다 —
    * 확인과 purge 사이가 별개 요청이라(#F2 TOCTOU) 확인 이후 생긴 행을 관리자가
    * 보지 못한 채 지울 수 있다. 그래서 삭제 트랜잭션 안에서 GET edit과 동일한
    * 단일 스냅샷 쿼리(`readProgramDeletionScopeCounts`)로 현재 범위를 다시 읽어 비교하고,
@@ -287,11 +288,17 @@ export class ProgramLifecycleService {
             programId,
           );
           if (
-            !sameProgramDeletionScopeCounts(currentScopeCounts, {
+            !sameProgramDeletionScopeCountValues(currentScopeCounts, {
               applications: deletedCounts.applications,
               teams: deletedCounts.teams,
               boardPosts: deletedCounts.boardPosts,
               submissions: deletedCounts.submissions,
+              submissionEvents:
+                deletedCounts.submissionRevisions +
+                deletedCounts.reviews +
+                deletedCounts.submissionFiles +
+                deletedCounts.milestoneDocumentSubmissionHistories +
+                deletedCounts.milestoneDocumentReviewHistories,
             })
           ) {
             throw new ProgramPurgeDeletedScopeMismatchError();
@@ -363,6 +370,15 @@ export class ProgramLifecycleService {
       OR: [
         { application: { is: { programId } } },
         { milestone: { is: { programId } } },
+        {
+          submissionHistory: {
+            is: {
+              submission: {
+                milestoneDocument: { milestone: { programId } },
+              },
+            },
+          },
+        },
       ],
     } satisfies Prisma.SubmissionFileWhereInput;
 
@@ -486,6 +502,7 @@ export class ProgramLifecycleService {
         milestoneId: null,
         submissionRevisionId: null,
         milestoneDocumentSubmissionId: null,
+        milestoneDocumentSubmissionHistoryId: null,
         deleteClaimedAt: null,
         deleteClaimExpiresAt: null,
         deleteClaimOwner: null,
@@ -555,6 +572,14 @@ export class ProgramLifecycleService {
           },
         },
       });
+    const milestoneDocumentSubmissionHistories =
+      await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+        where: {
+          submission: {
+            milestoneDocument: { milestone: { programId } },
+          },
+        },
+      });
     const milestoneDocumentSubmissions =
       await transaction.milestoneDocumentSubmission.deleteMany({
         where: { milestoneDocument: { milestone: { programId } } },
@@ -593,13 +618,15 @@ export class ProgramLifecycleService {
       teamInvitations: teamInvitations.count,
       boardPosts: boardPosts.count,
       boardComments: boardComments.count,
-      submissions: submissions.count,
+      submissions: submissions.count + milestoneDocumentSubmissions.count,
       submissionRevisions: submissionRevisions.count,
       reviews: reviews.count,
       submissionFiles: submissionFiles.count,
       milestones: milestones.count,
       milestoneDocuments: milestoneDocuments.count,
       milestoneDocumentSubmissions: milestoneDocumentSubmissions.count,
+      milestoneDocumentSubmissionHistories:
+        milestoneDocumentSubmissionHistories.count,
       milestoneDocumentReviewHistories: milestoneDocumentReviewHistories.count,
       milestoneDocumentTemplateFiles: milestoneDocumentTemplateFiles.count,
       programAuthoringUploads: programAuthoringUploads.count,
@@ -703,6 +730,7 @@ export type ProgramPurgeDeletedCounts = {
   readonly milestones: number;
   readonly milestoneDocuments: number;
   readonly milestoneDocumentSubmissions: number;
+  readonly milestoneDocumentSubmissionHistories: number;
   readonly milestoneDocumentReviewHistories: number;
   readonly milestoneDocumentTemplateFiles: number;
   readonly programAuthoringUploads: number;

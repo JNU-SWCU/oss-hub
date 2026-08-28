@@ -126,6 +126,35 @@ describe('buildMilestoneDocumentArchivePlan', () => {
     ]);
   });
 
+  it('글과 파일을 함께 낸 제출은 둘 다 손실 없이 담는다', () => {
+    const result = plan({
+      submissions: [
+        fileSubmission({
+          content: { type: 'TEXT', text: '보충 설명입니다.' },
+        }),
+      ],
+    });
+
+    expect(result.entries).toEqual([
+      {
+        kind: 'STORED_FILE',
+        path: '코드나무/코드나무_사업계획서.hwp',
+        modifiedAt: submittedAt,
+        storageKey: 'objects/synthetic-a',
+        sizeBytes: 2048,
+      },
+      {
+        kind: 'INLINE_TEXT',
+        path: '코드나무/코드나무_사업계획서.txt',
+        modifiedAt: submittedAt,
+        body: '보충 설명입니다.',
+      },
+    ]);
+    expect(result.manifest[0]?.cells[0]?.path).toBe(
+      '코드나무/코드나무_사업계획서.hwp · 코드나무/코드나무_사업계획서.txt',
+    );
+  });
+
   it('한 장도 안 낸 팀은 폴더를 만들지 않지만 현황표에는 미제출로 남는다', () => {
     const result = plan({
       teams: [
@@ -185,7 +214,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
       state: 'PENDING',
       submittedAt,
       path: null,
-      omission: 'FILE_UNAVAILABLE',
+      omission: 'SUBMISSION_UNAVAILABLE',
     });
   });
 
@@ -197,6 +226,18 @@ describe('buildMilestoneDocumentArchivePlan', () => {
 
     expect(result.entries).toHaveLength(0);
     expect(result.manifest[0]?.cells[0]?.omission).toBe('CONTENT_UNAVAILABLE');
+  });
+
+  it('통합 제출의 파일이 사라지면 레거시 글 유형이어도 중립 사유를 남긴다', () => {
+    const result = plan({
+      documents: [document({ submissionType: MilestoneSubmissionType.TEXT })],
+      submissions: [fileSubmission({ file: null, content: null })],
+    });
+
+    expect(result.entries).toHaveLength(0);
+    expect(result.manifest[0]?.cells[0]?.omission).toBe(
+      'SUBMISSION_UNAVAILABLE',
+    );
   });
 
   describe('이름이 겹칠 때', () => {

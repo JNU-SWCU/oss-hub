@@ -41,6 +41,7 @@ const OMISSION_LABELS: Readonly<
 > = {
   FILE_UNAVAILABLE: '(첨부를 가져올 수 없음)',
   CONTENT_UNAVAILABLE: '(내용 없음)',
+  SUBMISSION_UNAVAILABLE: '(제출 내용을 가져올 수 없음)',
 };
 
 /**

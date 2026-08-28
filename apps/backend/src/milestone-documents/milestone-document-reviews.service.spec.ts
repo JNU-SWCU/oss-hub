@@ -9,6 +9,7 @@ const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticDocumentId = 'cuid-synthetic-document-1';
 const syntheticApplicationId = 'cuid-synthetic-application';
 const syntheticSubmissionId = 'cuid-synthetic-submission';
+const syntheticSubmissionHistoryId = 'cuid-synthetic-submission-history';
 const syntheticStaffId = 'cuid-synthetic-staff';
 const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
 /** 교직원이 수합 표에서 **본** 제출 버전. 요청이 이 값을 그대로 들고 온다. */
@@ -35,6 +36,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     findSubmissionForReview: jest.fn().mockResolvedValue({
       id: syntheticSubmissionId,
       revision: seenRevision,
+      submissionHistoryId: syntheticSubmissionHistoryId,
     }),
     findLatestReviewIdForSubmission: jest
       .fn()
@@ -509,6 +511,8 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     // Then
     expect(mocks.createReview).toHaveBeenCalledWith({
       milestoneDocumentSubmissionId: syntheticSubmissionId,
+      submissionHistoryId: syntheticSubmissionHistoryId,
+      revision: seenRevision,
       reviewerId: syntheticStaffId,
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',

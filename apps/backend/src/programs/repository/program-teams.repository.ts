@@ -359,6 +359,7 @@ export class ProgramTeamsRepository {
             milestones: {
               select: {
                 id: true,
+                submissionType: true,
                 documents: {
                   where: { required: true },
                   select: { id: true },

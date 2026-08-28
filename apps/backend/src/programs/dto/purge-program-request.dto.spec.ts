@@ -4,7 +4,14 @@ import { validate } from 'class-validator';
 import { PurgeProgramRequestDto } from './purge-program-request.dto';
 
 function validScope() {
-  return { applications: 1, teams: 2, boardPosts: 3, submissions: 4 };
+  return {
+    applications: 1,
+    teams: 2,
+    boardPosts: 3,
+    submissions: 4,
+    submissionEvents: 5,
+    scopeFingerprint: '0123456789abcdef0123456789abcdef',
+  };
 }
 
 /**
@@ -20,7 +27,7 @@ async function errors(input: object) {
 }
 
 describe('PurgeProgramRequestDto', () => {
-  it('expectedScope가 온전한 4종 정수 카운트면 통과한다', async () => {
+  it('expectedScope가 온전한 정수 카운트면 통과한다', async () => {
     expect(await errors({ expectedScope: validScope() })).toHaveLength(0);
   });
 
@@ -51,7 +58,7 @@ describe('PurgeProgramRequestDto', () => {
     expect(result[0]?.property).toBe('expectedScope');
   });
 
-  it('4종 카운트 중 하나라도 정수가 아니면 400 대상 오류를 낸다', async () => {
+  it('카운트 중 하나라도 정수가 아니면 400 대상 오류를 낸다', async () => {
     const result = await errors({
       expectedScope: { ...validScope(), applications: 'two' },
     });

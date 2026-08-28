@@ -5,16 +5,11 @@ import {
   MilestoneDocumentsErrorCode,
 } from '../milestone-documents-error-code.enum';
 
-/** MilestoneDocumentSubmission.content(Json)에 저장되는 TEXT 응답 shape. */
-export type MilestoneDocumentContentInput =
-  | {
-      readonly type: typeof MilestoneSubmissionType.FILE;
-      readonly fileId: string;
-    }
-  | {
-      readonly type: typeof MilestoneSubmissionType.TEXT;
-      readonly text: string;
-    };
+/** 학생이 한 제출 화면에서 보낼 수 있는 값. 둘 중 하나 이상은 반드시 채워진다. */
+export type MilestoneDocumentContentInput = {
+  readonly text: string | null;
+  readonly fileId: string | null;
+};
 
 /**
  * 이미 저장된 제출 내용을 **읽어 낸** 모양 — 교직원 수합 표의 칸이 그대로 싣는다.
@@ -67,30 +62,15 @@ export function readMilestoneDocumentSubmittedContent(
   }
 }
 
-/** submissions/domain/submission-content.ts의 parseSubmissionContent와 같은 계약 — 이 모듈 전용 에러 코드만 다르다. */
+/** 내용·파일 중 하나 이상을 요구한다. 교직원이 제출 방식을 미리 정하지 않는다. */
 export function parseMilestoneDocumentContent(input: {
-  readonly type: string;
   readonly fileId?: string;
   readonly text?: string;
 }): MilestoneDocumentContentInput {
-  switch (input.type) {
-    case MilestoneSubmissionType.FILE: {
-      const fileId = input.fileId?.trim();
-      if (!fileId) throw contentRequired();
-      return { type: MilestoneSubmissionType.FILE, fileId };
-    }
-    case MilestoneSubmissionType.TEXT: {
-      const text = input.text?.trim();
-      if (!text) throw contentRequired();
-      return { type: MilestoneSubmissionType.TEXT, text };
-    }
-    default:
-      throw new DomainException(
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH
-        ],
-      );
-  }
+  const text = input.text?.trim() || null;
+  const fileId = input.fileId?.trim() || null;
+  if (text === null && fileId === null) throw contentRequired();
+  return { text, fileId };
 }
 
 function contentRequired(): DomainException {

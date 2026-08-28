@@ -1,7 +1,5 @@
-import { MilestoneSubmissionType } from '@prisma/client';
 import {
   IsBoolean,
-  IsEnum,
   IsInt,
   IsNotEmpty,
   IsString,
@@ -24,15 +22,11 @@ export class UpsertMilestoneDocumentRequestDto {
   @Min(0)
   declare readonly sortOrder: number;
 
-  @IsEnum(MilestoneSubmissionType)
-  declare readonly submissionType: MilestoneSubmissionType;
-
   toInput(): UpsertMilestoneDocumentInput {
     return {
       name: this.name.trim(),
       required: this.required,
       sortOrder: this.sortOrder,
-      submissionType: this.submissionType,
     };
   }
 }

@@ -31,6 +31,8 @@ import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-documen
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
 import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
+import { MilestoneDocumentHistoryQueryRequestDto } from './dto/milestone-document-history-query.dto';
+import type { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
@@ -308,6 +310,23 @@ export class MilestoneDocumentsController {
       milestoneDocumentAttachmentDisposition(file.fileName),
     );
     return new StreamableFile(file.body);
+  }
+
+  @Get(':documentId/applications/:applicationId/history')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  history(
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Param('applicationId') applicationId: string,
+    @Query() query: MilestoneDocumentHistoryQueryRequestDto,
+  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+    return this.service.historyForStaff(
+      milestoneId,
+      documentId,
+      applicationId,
+      query.toQuery(),
+    );
   }
 
   /**

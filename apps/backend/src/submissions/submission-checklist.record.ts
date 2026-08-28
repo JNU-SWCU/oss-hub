@@ -58,7 +58,8 @@ type ChecklistMilestoneRecord = Prisma.MilestoneGetPayload<{
 
 export function toChecklistMilestone(
   record: ChecklistMilestoneRecord,
-): ChecklistMilestone {
+): ChecklistMilestone | null {
+  if (record.submissionType === null) return null;
   const submission = record.submissions[0] ?? null;
   return {
     id: record.id,

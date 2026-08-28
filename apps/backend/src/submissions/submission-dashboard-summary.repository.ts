@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
+  type MilestoneSubmissionType,
   Prisma,
   type SubmissionStatus,
 } from '@prisma/client';
@@ -14,6 +15,7 @@ const dashboardApplicationSelect = {
 const dashboardMilestoneSelect = {
   id: true,
   programId: true,
+  submissionType: true,
 } as const;
 
 const dashboardSubmissionSelect = {
@@ -107,6 +109,8 @@ export interface SubmissionDashboardApplicationRecord {
 export interface SubmissionDashboardMilestoneRecord {
   readonly id: string;
   readonly programId: string;
+  /** 예전 포트 fixture의 생략값은 레거시 축(FILE/TEXT)으로 해석한다. */
+  readonly submissionType?: MilestoneSubmissionType | null;
 }
 
 export interface SubmissionDashboardSubmissionRecord {

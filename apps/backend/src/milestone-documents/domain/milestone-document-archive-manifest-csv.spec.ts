@@ -373,6 +373,28 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       // Then
       expect(fields[5]).toBe('(내용 없음)');
     });
+
+    it('통합 제출의 원래 방식을 알 수 없으면 중립적인 누락 사유를 적는다', () => {
+      const input = {
+        documents: [PLAN_DOCUMENT],
+        rows: [
+          {
+            team: team(),
+            cells: [
+              cell(PLAN_DOCUMENT.id, {
+                state: 'PENDING',
+                submittedAt: new Date('2026-08-09T05:30:00Z'),
+                omission: 'SUBMISSION_UNAVAILABLE',
+              }),
+            ],
+          },
+        ],
+      } as const;
+
+      expect(
+        plainFields(milestoneDocumentArchiveManifestCsv(input), 1)[5],
+      ).toBe('(제출 내용을 가져올 수 없음)');
+    });
   });
 
   describe('값 보호', () => {

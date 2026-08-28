@@ -17,12 +17,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import type { ValidationOptions } from 'class-validator';
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
-
-const SUBMISSION_TYPES = [
-  MilestoneSubmissionType.FILE,
-  MilestoneSubmissionType.TEXT,
-] as const;
+import { ProgramCategory } from '@prisma/client';
 
 function isUnknownArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value);
@@ -70,9 +65,6 @@ export class ProgramAuthoringDocumentRequestDto {
   @IsBoolean()
   declare readonly required: boolean;
 
-  @IsIn(SUBMISSION_TYPES)
-  declare readonly submissionType: MilestoneSubmissionType;
-
   @IsOptional()
   @IsString()
   @Matches(/\S/u)
@@ -93,15 +85,13 @@ export class ProgramAuthoringMilestoneRequestDto {
   @IsDateString({ strict: true, strictSeparator: true })
   declare readonly dueAt: string;
 
-  @IsIn(SUBMISSION_TYPES)
-  declare readonly submissionType: MilestoneSubmissionType;
-
   @IsOptional()
   @IsString()
   @MaxLength(10_000)
   declare readonly instructions?: string | null;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => ProgramAuthoringDocumentRequestDto)

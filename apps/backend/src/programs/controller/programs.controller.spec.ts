@@ -313,6 +313,8 @@ describe('ProgramsController read boundaries', () => {
       teams: 1,
       boardPosts: 0,
       submissions: 0,
+      submissionEvents: 0,
+      scopeFingerprint: '0123456789abcdef0123456789abcdef',
     };
 
     await expect(
