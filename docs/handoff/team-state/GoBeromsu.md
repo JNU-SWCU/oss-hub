@@ -710,3 +710,12 @@
 - blocker: 없음
 - 결과: `.claude/settings.json`의 `craft-skills` marketplace 선언에 `autoUpdate: true`를 넣었다. 지금까지는 각자 자기 개인 설정에 이 플래그를 넣은 사람만 최신 스킬을 받았고, 넣지 않은 사람은 checkout 시점의 버전에 그대로 묶여 같은 스킬을 서로 다른 계약으로 실행했다. 이제 checkout만으로 갱신 대상이 된다.
 - 검증: `npx prettier --check .claude/settings.json` 통과, `python3 -m json.tool` 파싱 통과, `bash scripts/check-public-safe.sh` 통과.
+
+## 2026-08-28 — 확인된 담당자 매핑을 발행 계약에 남긴다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `skills/tickets` v3.1.0. 발행 계약의 담당자 매핑이 "표를 만들지 않는다"였던 탓에 확인된 매핑이 대화가 끝나면 사라졌고, 발행할 때마다 같은 사람을 다시 물어야 했으며 그 사이 Issue는 assignee 없이 나갔다. 표를 열되 왼쪽 칸을 실명이 아니라 Notion user ID로 두어 보안 규칙 deny-list 1번(실명↔핸들 표)에 걸리지 않게 했다 — user ID는 워크스페이스 밖에서 아무도 가리키지 않는다. 확인된 세 명을 채웠고, 표에 없는 user ID는 여전히 추측하지 않고 물어서 배정한 뒤 표에 한 줄을 더한다. 표시 이름 대신 user ID로 대조하도록 못박았고 `요청자`는 매핑 대상에서 제외했다. 반복해서 걸리던 Notion 조회 함정 넷도 티켓 계약에 적었다.
+- 검증: `bash scripts/check-public-safe.sh --text-only` 통과, `npx prettier --check` 통과, 참조 링크 깨짐 0건. 이 표로 Issue #1038~#1043·#1051~#1053 아홉 건의 assignee를 채우고 `gh issue view`로 재확인했다.

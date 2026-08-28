@@ -2,7 +2,7 @@
 name: "tickets"
 description: "OSS Hub 티켓의 전 과정을 담당한다 — Notion `🐞 QA 요청`에 티켓을 쓰고, 그 행을 공개 GitHub Issue로 발행하고, Issue를 계약대로 검증된 PR로 만든다. QA 티켓 작성·중복 확인·영역 선언·selector 요소 캡처·마감 산정, Notion 행의 GitHub Issue 배포와 Issue URL 되돌려 연결, 레거시 행 이관, 그리고 `oss-hub 티켓 #123 진행해줘`처럼 티켓 번호를 받은 수행 요청에 쓴다. QA ticket intake, publishing a Notion QA row as a GitHub issue, linking an issue back to Notion, or executing a ticket into a PR. 릴리스 QA 실행(run-release-qa), 화면 디자인, 티켓 계약 밖 제품 코드 수정에는 쓰지 않는다."
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
 ---
 
 # tickets
