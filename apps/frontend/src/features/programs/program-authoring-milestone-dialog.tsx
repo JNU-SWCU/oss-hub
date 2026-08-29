@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog } from 'radix-ui';
-import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { ProgramAuthoringDialog } from './program-authoring-dialog';
 import type { ProgramAuthoringMilestone } from './program-authoring-model';
 import { ProgramAuthoringSubmissionItem } from './program-authoring-submission-item';
 import { ProgramAuthoringSortableAttachments } from './program-authoring-sortable-attachments';
@@ -75,142 +74,117 @@ export function ProgramAuthoringMilestoneDialog({
   }
 
   return (
-    <Dialog.Root open onOpenChange={(open) => !open && onCancel()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-card border border-border bg-background p-card shadow-xl outline-none">
-          <Dialog.Title className="text-lg font-semibold">
-            {isNew ? '마일스톤 추가' : '마일스톤 수정'}
-          </Dialog.Title>
-          <Dialog.Description className="mt-1 text-small text-muted-foreground">
-            운영 기간 안에서 일정과 공지, 첨부파일을 작성하세요.
-          </Dialog.Description>
-          <div className="mt-5 grid min-h-0 gap-5 overflow-y-auto pr-1">
-            <Field>
-              <FieldLabel>기간 *</FieldLabel>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  aria-label="시작일"
-                  aria-invalid={saveAttempted && Boolean(errors.period)}
-                  type="date"
-                  min={minDate}
-                  max={maxDate}
-                  value={startDate}
-                  onChange={(event) =>
-                    onFieldChange(
-                      'startAt',
-                      dateTime(event.target.value, '00:00'),
-                    )
+    <ProgramAuthoringDialog
+      size="lg"
+      title={isNew ? '마일스톤 추가' : '마일스톤 수정'}
+      description="운영 기간 안에서 일정과 공지, 첨부파일을 작성하세요."
+      onCancel={onCancel}
+      onSave={save}
+    >
+      <Field>
+        <FieldLabel>기간 *</FieldLabel>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input
+            aria-label="시작일"
+            aria-invalid={saveAttempted && Boolean(errors.period)}
+            type="date"
+            min={minDate}
+            max={maxDate}
+            value={startDate}
+            onChange={(event) =>
+              onFieldChange('startAt', dateTime(event.target.value, '00:00'))
+            }
+          />
+          <Input
+            aria-label="마감일"
+            aria-invalid={saveAttempted && Boolean(errors.period)}
+            type="date"
+            min={minDate}
+            max={maxDate}
+            value={dueDate}
+            onChange={(event) =>
+              onFieldChange('dueAt', dateTime(event.target.value, '23:59'))
+            }
+          />
+        </div>
+        <FieldError>{saveAttempted ? errors.period : null}</FieldError>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${milestone.id}-name`}>
+          마일스톤 이름 *
+        </FieldLabel>
+        <Input
+          id={`${milestone.id}-name`}
+          aria-invalid={saveAttempted && Boolean(errors.name)}
+          value={milestone.name}
+          onChange={(event) => onFieldChange('name', event.target.value)}
+        />
+        <FieldError>{saveAttempted ? errors.name : null}</FieldError>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${milestone.id}-notice`}>공지사항</FieldLabel>
+        <textarea
+          id={`${milestone.id}-notice`}
+          className="min-h-28 rounded-control border border-input bg-transparent p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={milestone.instructions}
+          onChange={(event) =>
+            onFieldChange('instructions', event.target.value)
+          }
+        />
+      </Field>
+      <Field>
+        <FieldLabel>첨부파일</FieldLabel>
+        <div className="grid gap-3">
+          <ProgramAuthoringSortableAttachments
+            milestoneId={milestone.id}
+            requirements={milestone.requirements}
+            onReorder={onAttachmentReorder}
+          >
+            {(requirement, reorderHandle) => (
+              <ProgramAuthoringSubmissionItem
+                milestoneId={milestone.id}
+                requirement={requirement}
+                reorderHandle={reorderHandle}
+                onFileChange={(_, requirementId, file) => {
+                  if (file === null) {
+                    onAttachmentFileChange(requirementId, null);
+                    return;
                   }
-                />
-                <Input
-                  aria-label="마감일"
-                  aria-invalid={saveAttempted && Boolean(errors.period)}
-                  type="date"
-                  min={minDate}
-                  max={maxDate}
-                  value={dueDate}
-                  onChange={(event) =>
-                    onFieldChange(
-                      'dueAt',
-                      dateTime(event.target.value, '23:59'),
-                    )
-                  }
-                />
-              </div>
-              <FieldError>{saveAttempted ? errors.period : null}</FieldError>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${milestone.id}-name`}>
-                마일스톤 이름 *
-              </FieldLabel>
-              <Input
-                id={`${milestone.id}-name`}
-                aria-invalid={saveAttempted && Boolean(errors.name)}
-                value={milestone.name}
-                onChange={(event) => onFieldChange('name', event.target.value)}
-              />
-              <FieldError>{saveAttempted ? errors.name : null}</FieldError>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${milestone.id}-notice`}>
-                공지사항
-              </FieldLabel>
-              <textarea
-                id={`${milestone.id}-notice`}
-                className="min-h-28 rounded-control border border-input bg-transparent p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={milestone.instructions}
-                onChange={(event) =>
-                  onFieldChange('instructions', event.target.value)
+                  acceptFile(file, (valid) =>
+                    onAttachmentFileChange(requirementId, valid),
+                  );
+                }}
+                onRemove={(_, requirementId) =>
+                  onAttachmentRemove(requirementId)
+                }
+                onRequiredChange={(_, requirementId, required) =>
+                  onAttachmentRequiredChange(requirementId, required)
+                }
+                onNameChange={(_, requirementId, name) =>
+                  onAttachmentNameChange(requirementId, name)
                 }
               />
-            </Field>
-            <Field>
-              <FieldLabel>첨부파일</FieldLabel>
-              <div className="grid gap-3">
-                <ProgramAuthoringSortableAttachments
-                  milestoneId={milestone.id}
-                  requirements={milestone.requirements}
-                  onReorder={onAttachmentReorder}
-                >
-                  {(requirement, reorderHandle) => (
-                    <ProgramAuthoringSubmissionItem
-                      milestoneId={milestone.id}
-                      requirement={requirement}
-                      reorderHandle={reorderHandle}
-                      onFileChange={(_, requirementId, file) => {
-                        if (file === null) {
-                          onAttachmentFileChange(requirementId, null);
-                          return;
-                        }
-                        acceptFile(file, (valid) =>
-                          onAttachmentFileChange(requirementId, valid),
-                        );
-                      }}
-                      onRemove={(_, requirementId) =>
-                        onAttachmentRemove(requirementId)
-                      }
-                      onRequiredChange={(_, requirementId, required) =>
-                        onAttachmentRequiredChange(requirementId, required)
-                      }
-                      onNameChange={(_, requirementId, name) =>
-                        onAttachmentNameChange(requirementId, name)
-                      }
-                    />
-                  )}
-                </ProgramAuthoringSortableAttachments>
-                <label className="ml-auto w-fit cursor-pointer text-small font-semibold text-primary underline-offset-4 hover:underline focus-within:ring-2 focus-within:ring-ring">
-                  첨부파일 추가
-                  <input
-                    className="sr-only"
-                    aria-label="첨부파일 추가"
-                    type="file"
-                    accept=".pdf,.hwp,.jpg,.jpeg,.png,.zip"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) acceptFile(file, onAddAttachment);
-                      event.target.value = '';
-                    }}
-                  />
-                </label>
-              </div>
-              <FieldError>{fileError}</FieldError>
-              <FieldError>
-                {saveAttempted ? errors.attachments : null}
-              </FieldError>
-            </Field>
-          </div>
-          <div className="mt-5 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              취소
-            </Button>
-            <Button type="button" onClick={save}>
-              저장
-            </Button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+            )}
+          </ProgramAuthoringSortableAttachments>
+          <label className="ml-auto w-fit cursor-pointer text-small font-semibold text-primary underline-offset-4 hover:underline focus-within:ring-2 focus-within:ring-ring">
+            첨부파일 추가
+            <input
+              className="sr-only"
+              aria-label="첨부파일 추가"
+              type="file"
+              accept=".pdf,.hwp,.jpg,.jpeg,.png,.zip"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) acceptFile(file, onAddAttachment);
+                event.target.value = '';
+              }}
+            />
+          </label>
+        </div>
+        <FieldError>{fileError}</FieldError>
+        <FieldError>{saveAttempted ? errors.attachments : null}</FieldError>
+      </Field>
+    </ProgramAuthoringDialog>
   );
 }
 
