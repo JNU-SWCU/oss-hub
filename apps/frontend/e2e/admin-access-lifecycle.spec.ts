@@ -154,7 +154,11 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     ).toBeVisible();
     await attachStateScreenshot(staffPage, testInfo, 'staff-pending-approved');
 
-    await adminPage.goto('/dashboard/audit-logs');
+    await adminPage.goto('/dashboard');
+    await adminPage
+      .getByRole('link', { name: '감사 로그', exact: true })
+      .click();
+    await expect(adminPage).toHaveURL(/\/dashboard\/audit-logs$/);
     await expect(
       adminPage.getByRole('heading', { name: '감사 로그' }),
     ).toBeVisible();
@@ -172,6 +176,27 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       approvedRow.getByText('@seed-auth-staff-pending'),
     ).toBeVisible();
     await attachStateScreenshot(adminPage, testInfo, 'audit-log-approver');
+  });
+
+  test('학생이 감사 로그 주소로 직접 들어가면 같은 주소에서 접근 거부를 본다', async ({
+    authSeedPage,
+  }) => {
+    // Given: 가입을 마친 학생 세션.
+    const studentPage = await authSeedPage('profile-complete');
+
+    // When: 학생이 관리자 전용 감사 로그의 역할 비노출 주소를 직접 연다.
+    await studentPage.goto('/dashboard/audit-logs');
+
+    // Then: 다른 화면으로 보내지 않고 같은 주소에서 접근 거부를 보여 준다.
+    await expect(studentPage).toHaveURL(/\/dashboard\/audit-logs$/);
+    await expect(
+      studentPage.getByText('접근 권한이 없는 페이지 입니다', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      studentPage.getByRole('heading', { name: '감사 로그' }),
+    ).toHaveCount(0);
   });
 
   test('교직원 접근을 회수하면 즉시 접근이 막히고, API 회수는 역할 재선택으로 이어진다', async ({
