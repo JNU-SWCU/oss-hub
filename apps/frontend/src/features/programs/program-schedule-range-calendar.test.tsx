@@ -70,6 +70,12 @@ describe('ProgramScheduleRangeCalendar', () => {
     expect(
       container.querySelector('span[aria-label*="2026년 9월"]'),
     ).not.toBeNull();
+    expect(container.querySelector('[role="gridcell"]')).toBeNull();
+    const scroller = container.querySelector(
+      '[data-testid="program-schedule-calendar-scroll"]',
+    );
+    expect(scroller?.getAttribute('aria-label')).toBe('일정 달력 가로 스크롤');
+    expect(scroller?.hasAttribute('aria-invalid')).toBe(false);
   });
 
   function rangeBar(label: string): HTMLDivElement | null {
@@ -92,6 +98,7 @@ describe('ProgramScheduleRangeCalendar', () => {
               : activeRange()
           }
           readOnly={readOnly}
+          selectionInvalid={readOnly}
           monthKey="2026-09"
           focusedDate="2026-09-01"
           onMonthKeyChange={vi.fn()}

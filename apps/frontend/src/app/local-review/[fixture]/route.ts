@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import {
   LOCAL_REVIEW_FIXTURE_COOKIE,
   createLocalReviewActivation,
+  isLocalReviewTarget,
   parseRequestHostname,
 } from '@/lib/local-review-runtime';
 
@@ -47,8 +48,8 @@ export async function GET(
   // localhost로 정규화된다. 그래서 127.0.0.1로 진입하면 fixture cookie는 host-only로
   // 127.0.0.1에 심기고 Location만 localhost로 바뀌어, 브라우저가 다음 요청에 cookie를
   // 보내지 않아 하네스가 조용히 꺼진 것처럼 보였다. 상대 Location은 브라우저가 요청 URL을
-  // 기준으로 해석하므로 entry host가 끝까지 남는다 — activation.target은 이미 allowlist된
-  // `/`로 시작하는 경로라 다른 origin으로 샐 여지가 없다.
+  // 기준으로 해석하므로 entry host가 끝까지 남는다. `relativeLocation()`은 URL 정규화
+  // 뒤 allowlist를 다시 검사해 점 경로가 `//host`로 바뀌는 경우도 루트로 닫는다.
   const response = new NextResponse(null, {
     status: 303,
     headers: { Location: relativeLocation(activation.target) },
@@ -69,5 +70,6 @@ export async function GET(
 
 function relativeLocation(target: string): string {
   const parsed = new URL(target, 'http://local-review.invalid');
-  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  return isLocalReviewTarget(normalized) ? normalized : '/';
 }

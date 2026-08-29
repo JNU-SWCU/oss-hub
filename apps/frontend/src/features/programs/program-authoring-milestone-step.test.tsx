@@ -230,6 +230,30 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(input('[aria-label="마감일"]').max).toBe('2026-09-30');
   });
 
+  it('clears a partial calendar range when an alternate add flow is cancelled', async () => {
+    const view = await render();
+    await act(async () =>
+      input('[data-calendar-date="2026-09-03"]', container).click(),
+    );
+    await act(async () => button('마일스톤 추가', container).click());
+    await act(async () => button('취소').click());
+
+    await act(async () =>
+      input('[data-calendar-date="2026-09-05"]', container).click(),
+    );
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(view.latest().milestones).toHaveLength(1);
+
+    await act(async () =>
+      input('[data-calendar-date="2026-09-06"]', container).click(),
+    );
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(view.latest().milestones[1]).toMatchObject({
+      startAt: '2026-09-05T00:00',
+      dueAt: '2026-09-06T23:59',
+    });
+  });
+
   it('uses exact operation boundaries for calendar and dialog date selections', async () => {
     const view = await render();
 

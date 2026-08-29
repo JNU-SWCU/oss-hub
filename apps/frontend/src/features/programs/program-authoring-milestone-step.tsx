@@ -116,12 +116,14 @@ export function ProgramAuthoringMilestoneStep({
     handledIssueKeyRef.current = issueKey;
     const invalid = milestoneForIssues(state.milestones, issues);
     if (invalid === undefined) return;
+    setAnchorDate(null);
     onMilestoneEditStart(invalid);
     setEditing({ id: invalid.id, snapshot: invalid, showValidation: true });
   }, [editing, issueKey, issues, onMilestoneEditStart, state.milestones]);
 
   function startDraft(startAt = '', dueAt = '') {
     if (!canAddMilestone) return;
+    setAnchorDate(null);
     const id = newId();
     dispatch({ type: 'add_milestone', milestoneId: id });
     if (startAt)
@@ -157,6 +159,7 @@ export function ProgramAuthoringMilestoneStep({
 
   function cancel() {
     if (!editing) return;
+    setAnchorDate(null);
     if (editing.snapshot)
       dispatch({ type: 'replace_milestone', milestone: editing.snapshot });
     onMilestoneCancel(editing.id, editing.snapshot);
@@ -245,6 +248,7 @@ export function ProgramAuthoringMilestoneStep({
                     aria-label={`${item.name} 수정`}
                     title="수정"
                     onClick={() => {
+                      setAnchorDate(null);
                       onMilestoneEditStart(item);
                       setEditing({
                         id: item.id,
@@ -261,7 +265,10 @@ export function ProgramAuthoringMilestoneStep({
                     variant="ghost"
                     aria-label={`${item.name} 삭제`}
                     title="삭제"
-                    onClick={() => onMilestoneCancel(item.id, null)}
+                    onClick={() => {
+                      setAnchorDate(null);
+                      onMilestoneCancel(item.id, null);
+                    }}
                   >
                     <Trash2 aria-hidden="true" />
                   </Button>
@@ -361,6 +368,7 @@ export function ProgramAuthoringMilestoneStep({
           }
           onCancel={cancel}
           onSave={() => {
+            setAnchorDate(null);
             onMilestoneSave(milestone.id);
             setEditing(null);
           }}

@@ -78,6 +78,17 @@ describe('local review activation route', () => {
     );
   });
 
+  it('경로 정규화 뒤 프로토콜 상대 주소가 되는 대상은 루트로 돌린다', async () => {
+    const response = await activate(
+      'staff',
+      '127.0.0.1:3000',
+      '/programs/..//evil.example',
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('/');
+  });
+
   it('flag가 꺼져 있으면 loopback host라도 404다', async () => {
     // Given
     vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', undefined);

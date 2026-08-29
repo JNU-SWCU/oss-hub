@@ -527,6 +527,77 @@ describe('ProgramScheduleRangeEditor', () => {
     expect(calendar?.getAttribute('aria-describedby')).toContain(errorId);
     expect(container.querySelector('input[type="time"]')).toBeNull();
   });
+
+  it('통합 일정 모달은 역전된 시각 오류를 모든 입력에 연결한 뒤 수정값을 저장한다', async () => {
+    const onStartAtChange = vi.fn();
+    const onEndAtChange = vi.fn();
+    const ranges = rangeFixtures().map((range) =>
+      range.id === 'application'
+        ? { ...range, onStartAtChange, onEndAtChange }
+        : range,
+    );
+    await act(async () => {
+      root.render(
+        <ProgramScheduleRangeEditor
+          ranges={ranges}
+          activeId="application"
+          layout="simple"
+          onActiveIdChange={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="신청 기간 일정 입력"]',
+        )
+        ?.click();
+    });
+    const setInput = async (label: string, value: string) => {
+      const input = document.body.querySelector<HTMLInputElement>(
+        `input[aria-label="${label}"]`,
+      );
+      if (input === null) throw new TypeError(`Missing ${label}.`);
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    };
+    await setInput('신청 기간 시작일', '2026-09-08');
+    await setInput('신청 기간 시작 시각', '18:00');
+    await setInput('신청 기간 종료일', '2026-09-08');
+    await setInput('신청 기간 종료 시각', '17:00');
+    const save = () =>
+      [...document.body.querySelectorAll<HTMLButtonElement>('button')].find(
+        (button) => button.textContent?.trim() === '저장',
+      );
+    await act(async () => save()?.click());
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    const inputs = dialog?.querySelectorAll('input') ?? [];
+    expect(
+      [...inputs].every(
+        (input) => input.getAttribute('aria-invalid') === 'true',
+      ),
+    ).toBe(true);
+    const errorId = inputs[0]?.getAttribute('aria-describedby');
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId ?? '')?.textContent).toContain(
+      '종료는 시작보다 늦어야 합니다.',
+    );
+
+    await setInput('신청 기간 종료 시각', '19:00');
+    await act(async () => save()?.click());
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(onStartAtChange).toHaveBeenCalledWith('2026-09-08T18:00');
+    expect(onEndAtChange).toHaveBeenCalledWith('2026-09-08T19:00');
+  });
 });
 
 function ValidationSelectionHarness() {
