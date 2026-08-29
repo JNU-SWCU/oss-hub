@@ -89,9 +89,9 @@ describe('ProgramEditMilestoneDialog', () => {
     const instructions = document.querySelector('#milestone-instructions');
     expect(instructions?.classList.contains('break-keep')).toBe(true);
     expect(instructions?.classList.contains('whitespace-pre-wrap')).toBe(true);
-    expect(
-      instructions?.classList.contains('[overflow-wrap:anywhere]'),
-    ).toBe(true);
+    expect(instructions?.classList.contains('[overflow-wrap:anywhere]')).toBe(
+      true,
+    );
   });
 
   it('requires discard confirmation only while the current form is dirty', async () => {

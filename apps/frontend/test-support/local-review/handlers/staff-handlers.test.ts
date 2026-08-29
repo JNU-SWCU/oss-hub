@@ -425,9 +425,7 @@ describe('staff local review handlers', () => {
       readonly id: string;
       readonly name: string;
       readonly startAt: string;
-    }>(
-      resolveWithBody('PATCH', 'milestones/milestone-basic-final', input),
-    );
+    }>(resolveWithBody('PATCH', 'milestones/milestone-basic-final', input));
 
     // Then
     expect(created.name).toBe('합성 마일스톤 입력');
