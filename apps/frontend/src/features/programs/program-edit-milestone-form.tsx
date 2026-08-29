@@ -88,7 +88,7 @@ export function ProgramEditMilestoneForm({
               onChange={(event) =>
                 onFieldChange('instructions', event.target.value)
               }
-              className="min-h-28 rounded-control border border-input bg-transparent p-4 text-body"
+              className="min-h-28 rounded-control border border-input bg-transparent p-4 text-body break-keep whitespace-pre-wrap [overflow-wrap:anywhere]"
             />
             <FieldError id="milestone-instructions-error" role="alert">
               {editor.errors.instructions}

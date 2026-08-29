@@ -57,7 +57,9 @@ describe('ProgramEditMilestoneDialog', () => {
       (document.querySelector('#milestone-name') as HTMLInputElement).value,
     ).toBe('기획서 제출');
     await act(async () => {
-      document.querySelector<HTMLButtonElement>('button[aria-controls]')?.click();
+      document
+        .querySelector<HTMLButtonElement>('button[aria-controls]')
+        ?.click();
     });
     expect(
       document.querySelector<HTMLInputElement>('#milestone-start-at')?.value,
@@ -65,6 +67,31 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(
       document.querySelector<HTMLInputElement>('#milestone-due-at')?.value,
     ).not.toBe('');
+  });
+
+  it('keeps Korean instruction words intact on narrow dialog widths', async () => {
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+          operationStartAt="2026-08-01T09:00"
+          operationEndAt="2026-08-31T18:00"
+          contextEvents={[]}
+          isBusy={false}
+          returnFocusRef={{ current: null }}
+          onCancel={vi.fn()}
+          onFieldChange={vi.fn()}
+          onSave={vi.fn()}
+        />,
+      ),
+    );
+
+    const instructions = document.querySelector('#milestone-instructions');
+    expect(instructions?.classList.contains('break-keep')).toBe(true);
+    expect(instructions?.classList.contains('whitespace-pre-wrap')).toBe(true);
+    expect(
+      instructions?.classList.contains('[overflow-wrap:anywhere]'),
+    ).toBe(true);
   });
 
   it('requires discard confirmation only while the current form is dirty', async () => {
