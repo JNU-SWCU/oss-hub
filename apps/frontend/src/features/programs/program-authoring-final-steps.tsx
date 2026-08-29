@@ -1,4 +1,7 @@
+'use client';
+
 import { CalendarDays } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { FormSection } from '@/components/form-section';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type {
@@ -8,6 +11,13 @@ import type {
 import { seoulDateTimeSummary } from './program-authoring-manifest';
 import { ProgramAuthoringRepositoryControl } from './program-authoring-repository-control';
 import { ProgramDeadlineControl } from './program-deadline-control';
+import {
+  dateKey,
+  monthKeyForEvents,
+  type ProgramScheduleCalendarEvent,
+} from './program-schedule-calendar-model';
+import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
+import type { ProgramScheduleEditableRange } from './program-schedule-range-types';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 
 export function ProgramAuthoringOperationsStep({
@@ -89,7 +99,8 @@ export function ProgramAuthoringReviewStep({
               일정
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="grid gap-4">
+            <ProgramAuthoringReviewCalendar state={state} />
             <dl className="grid gap-4 text-body">
               <ReviewFact
                 label="신청"
@@ -115,15 +126,13 @@ export function ProgramAuthoringReviewStep({
               </p>
               <ul className="grid gap-2">
                 {milestone.requirements.length === 0 ? (
-                  <li>받을 항목 없음 (안내용)</li>
+                  <li>제출 없음</li>
                 ) : (
                   milestone.requirements.map((requirement) => (
                     <li key={requirement.id} className="flex flex-wrap gap-2">
                       <span className="font-semibold">{requirement.name}</span>
                       <span className="text-muted-foreground">
-                        {requirement.submissionType === 'FILE'
-                          ? '파일'
-                          : '텍스트'}
+                        내용이나 파일로 제출 가능
                         {requirement.required ? ' · 필수' : ' · 선택'}
                         {requirement.templateFile ? ' · 양식 있음' : ''}
                       </span>
@@ -136,6 +145,84 @@ export function ProgramAuthoringReviewStep({
         ))}
       </div>
     </FormSection>
+  );
+}
+
+function ProgramAuthoringReviewCalendar({
+  state,
+}: {
+  readonly state: ProgramAuthoringState;
+}) {
+  const events = useMemo<readonly ProgramScheduleCalendarEvent[]>(
+    () => [
+      {
+        id: 'application',
+        label: '신청 기간',
+        kind: 'APPLICATION',
+        startAt: state.applicationStartAt,
+        endAt: state.applicationEndAt,
+      },
+      {
+        id: 'operation',
+        label: '운영 기간',
+        kind: 'OPERATION',
+        startAt: state.operationStartAt,
+        endAt: state.operationEndAt,
+      },
+      ...state.milestones.map((milestone) => ({
+        id: milestone.id,
+        label: milestone.name,
+        kind: 'MILESTONE' as const,
+        startAt: milestone.startAt,
+        endAt: milestone.dueAt,
+      })),
+    ],
+    [
+      state.applicationEndAt,
+      state.applicationStartAt,
+      state.milestones,
+      state.operationEndAt,
+      state.operationStartAt,
+    ],
+  );
+  const firstDate =
+    earliestDateKey([
+      dateKey(state.applicationStartAt),
+      dateKey(state.operationStartAt),
+    ]) ?? `${monthKeyForEvents(events)}-01`;
+  const lastDate =
+    latestDateKey([
+      dateKey(state.applicationEndAt),
+      dateKey(state.operationEndAt),
+      ...state.milestones.map((milestone) => dateKey(milestone.dueAt)),
+    ]) ?? firstDate;
+  const [monthKey, setMonthKey] = useState(firstDate.slice(0, 7));
+  const [focusedDate, setFocusedDate] = useState(firstDate);
+  const range: ProgramScheduleEditableRange = {
+    id: 'review-schedule',
+    label: '전체',
+    kind: 'OPERATION',
+    startAt: '',
+    endAt: '',
+    minDate: firstDate,
+    maxDate: lastDate,
+    startInputId: 'review-schedule-start',
+    endInputId: 'review-schedule-end',
+    onStartAtChange: () => undefined,
+    onEndAtChange: () => undefined,
+  };
+
+  return (
+    <ProgramScheduleRangeCalendar
+      readOnly
+      events={events}
+      activeRange={range}
+      monthKey={monthKey}
+      focusedDate={focusedDate}
+      onMonthKeyChange={setMonthKey}
+      onFocusedDateChange={setFocusedDate}
+      onDateSelect={() => undefined}
+    />
   );
 }
 
@@ -156,4 +243,17 @@ function ReviewFact({
 
 function summary(value: string): string {
   return value.length === 0 ? '미입력' : seoulDateTimeSummary(value);
+}
+
+function earliestDateKey(
+  values: readonly (string | null)[],
+): string | undefined {
+  return values.filter((value): value is string => value !== null).sort()[0];
+}
+
+function latestDateKey(values: readonly (string | null)[]): string | undefined {
+  return values
+    .filter((value): value is string => value !== null)
+    .sort()
+    .at(-1);
 }

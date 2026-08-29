@@ -4,6 +4,7 @@ import {
   AffiliationKind,
   ApplicationStatus,
   MemberKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
@@ -278,12 +279,22 @@ async function deleteAllSeeded(): Promise<void> {
   const seedPrefix = 'seed:';
   const seedIdFilter = { id: { startsWith: seedPrefix } } as const;
 
+  await prisma.milestoneDocumentReviewHistory.deleteMany({
+    where: {
+      milestoneDocumentSubmissionId: { startsWith: seedPrefix },
+    },
+  });
   // program-overview 프로필이 자신의 MilestoneDocumentSubmission에 붙여 심은
   // SubmissionFile은 이 파일 자신의 Application/Milestone도 함께 가리킨다.
   // protected*Ids 조회보다 먼저 지워야 그 조회가 이 행을 "다른 spec이 참조 중"으로
   // 오인해 자신의 Milestone/Application을 보호 대상으로 남기지 않는다.
   await prisma.submissionFile.deleteMany({
     where: { milestoneDocumentSubmissionId: { startsWith: seedPrefix } },
+  });
+  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    where: {
+      milestoneDocumentSubmissionId: { startsWith: seedPrefix },
+    },
   });
 
   const [
@@ -1593,6 +1604,41 @@ describe('seed profile=all 멱등성 (integration)', () => {
         0,
       );
       expect(totalRows).toBeGreaterThan(0);
+
+      const documentSubmissions =
+        await prisma.milestoneDocumentSubmission.findMany({
+          where: { id: { startsWith: 'seed:program-overview:' } },
+          select: {
+            revision: true,
+            histories: {
+              where: {
+                event: {
+                  in: [
+                    MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+                    MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+                  ],
+                },
+              },
+              select: { id: true, revision: true },
+            },
+            files: {
+              select: { milestoneDocumentSubmissionHistoryId: true },
+            },
+          },
+        });
+      expect(documentSubmissions.length).toBeGreaterThan(0);
+      for (const submission of documentSubmissions) {
+        const current = submission.histories.filter(
+          (history) => history.revision === submission.revision,
+        );
+        expect(current).toHaveLength(1);
+        expect(
+          submission.files.every(
+            (file) =>
+              file.milestoneDocumentSubmissionHistoryId === current[0]?.id,
+          ),
+        ).toBe(true);
+      }
 
       // 두 실행 모두 created/updated 합계가 0보다 커야 한다 — stats 리포트 자체가 비어있지 않음을 보장.
       expect(firstRunStats.report().length).toBeGreaterThan(0);

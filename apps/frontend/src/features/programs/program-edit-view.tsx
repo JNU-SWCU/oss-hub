@@ -16,6 +16,7 @@ import {
 } from './program-edit-flow';
 import { programHref } from './program-paths';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import { editScheduleEvents } from './program-schedule-overview-model';
 import { PageBody, PageHeader } from '@/components';
 
 /** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
@@ -32,7 +33,7 @@ interface ProgramEditViewProps {
   readonly isSaving: boolean;
   readonly milestoneEditor: ProgramMilestoneEditor;
   readonly deleteTarget: EditableMilestone | null;
-  /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「받을 서류」가 펼쳐진 채로 뜬다. */
+  /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「제출 항목」이 펼쳐진 채로 뜬다. */
   readonly expandedDocumentsMilestoneId: string | null;
   readonly isMilestoneBusy: boolean;
   readonly isLifecycleBusy: boolean;
@@ -86,9 +87,17 @@ export function ProgramEditLoadFailure({
         <AlertTitle>프로그램을 불러오지 못했습니다</AlertTitle>
         <AlertDescription>{message}</AlertDescription>
       </Alert>
-      <Button type="button" className="mt-6 self-start" onClick={onRetry}>
-        다시 시도
-      </Button>
+      <p className="mt-4 text-small text-muted-foreground">
+        다시 시도해도 열리지 않으면 프로그램 목록으로 돌아갈 수 있습니다.
+      </p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button type="button" onClick={onRetry}>
+          다시 시도
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/programs">프로그램 목록</Link>
+        </Button>
+      </div>
     </PageBody>
   );
 }
@@ -160,7 +169,13 @@ export function ProgramEditView({
         {generalAlert ? (
           <Alert variant="destructive">
             <AlertTitle>처리 실패</AlertTitle>
-            <AlertDescription>{generalAlert}</AlertDescription>
+            <AlertDescription className="grid gap-1">
+              <span>{generalAlert}</span>
+              <span>
+                안내에 따라 아래 입력값이나 마일스톤 설정을 고친 뒤 다시 시도해
+                주세요.
+              </span>
+            </AlertDescription>
           </Alert>
         ) : null}
         <ProgramEditBasicForm
@@ -178,6 +193,13 @@ export function ProgramEditView({
               editor={milestoneEditor}
               deleteTarget={deleteTarget}
               expandedDocumentsMilestoneId={expandedDocumentsMilestoneId}
+              operationStartAt={form.startAt}
+              operationEndAt={form.endAtUndecided ? '' : form.endAt}
+              contextEvents={editScheduleEvents(
+                form,
+                program.milestones,
+                milestoneEditor,
+              )}
               isBusy={isMilestoneBusy}
               onAdd={onAddMilestone}
               onEdit={onEditMilestone}

@@ -46,12 +46,6 @@ describe('Program editor error contract', () => {
       status: 422,
     });
     expect(
-      PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END],
-    ).toMatchObject({
-      code: 'PRG_008',
-      status: 422,
-    });
-    expect(
       PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS],
     ).toMatchObject({
       code: 'PRG_009',

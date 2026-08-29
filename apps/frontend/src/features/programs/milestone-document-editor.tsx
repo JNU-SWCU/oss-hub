@@ -1,20 +1,7 @@
 'use client';
 
-import {
-  ChevronDown,
-  ChevronRight,
-  MoreHorizontal,
-  Upload,
-} from 'lucide-react';
-import { DropdownMenu } from 'radix-ui';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-} from 'react';
-import { StatusBadge } from '@/components';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   createMilestoneDocument,
@@ -23,7 +10,6 @@ import {
   reorderMilestoneDocuments,
   updateMilestoneDocument,
   uploadMilestoneDocumentTemplate,
-  milestoneDocumentTemplateHref,
   type MilestoneDocument,
 } from './milestone-document-api';
 import {
@@ -32,12 +18,8 @@ import {
   mergeMilestoneDocumentList,
   milestoneDocumentErrorMessage,
   milestoneDocumentSaveSortOrder,
-  milestoneDocumentSubmissionTypeLocked,
-  planMilestoneDocumentOrder,
   removeMilestoneDocumentFromList,
   sortMilestoneDocuments,
-  SUBMISSION_TYPE_LOCKED_MESSAGE,
-  submissionTypeLabel,
   toMilestoneDocumentForm,
   updateMilestoneDocumentEditor,
   upsertMilestoneDocumentInList,
@@ -45,6 +27,7 @@ import {
   type MilestoneDocumentEditor,
   type MilestoneDocumentField,
 } from './milestone-document-editor-flow';
+import { MilestoneDocumentSortableList } from './milestone-document-sortable-list';
 import { ProgramRequirementEditor } from './program-requirement-editor';
 
 export type MilestoneDocumentEditorState =
@@ -55,9 +38,11 @@ export type MilestoneDocumentEditorState =
       readonly documents: readonly MilestoneDocument[];
     };
 
-const LOAD_FAILED_MESSAGE = '제출 서류를 불러오지 못했습니다.';
-const SAVE_FAILED_MESSAGE = '서류를 저장하지 못했습니다. 다시 시도해 주세요.';
-const DELETE_FAILED_MESSAGE = '서류를 삭제하지 못했습니다. 다시 시도해 주세요.';
+const LOAD_FAILED_MESSAGE = '제출 항목을 불러오지 못했습니다.';
+const SAVE_FAILED_MESSAGE =
+  '제출 항목을 저장하지 못했습니다. 다시 시도해 주세요.';
+const DELETE_FAILED_MESSAGE =
+  '제출 항목을 삭제하지 못했습니다. 다시 시도해 주세요.';
 const MOVE_FAILED_MESSAGE = '순서를 바꾸지 못했습니다. 다시 시도해 주세요.';
 const TEMPLATE_FAILED_MESSAGE = '양식을 올리지 못했습니다. 다시 시도해 주세요.';
 
@@ -85,7 +70,10 @@ interface MilestoneDocumentEditorBodyProps {
   readonly onRequestDelete: (document: MilestoneDocument) => void;
   readonly onCancelDelete: () => void;
   readonly onConfirmDelete: () => void;
-  readonly onMove: (documentId: string, direction: 'up' | 'down') => void;
+  readonly onReorder: (
+    documentIds: readonly string[],
+    activeDocumentId: string,
+  ) => Promise<boolean>;
   readonly onTemplateFile: (document: MilestoneDocument, file: File) => void;
 }
 
@@ -108,7 +96,7 @@ export function MilestoneDocumentEditorBody({
   onRequestDelete,
   onCancelDelete,
   onConfirmDelete,
-  onMove,
+  onReorder,
   onTemplateFile,
 }: MilestoneDocumentEditorBodyProps) {
   const panelId = `milestone-${milestoneId}-documents`;
@@ -131,12 +119,12 @@ export function MilestoneDocumentEditorBody({
           ) : (
             <ChevronRight aria-hidden />
           )}
-          받을 서류
+          제출 항목
           {expanded && state.kind === 'ready' ? ` ${documents.length}개` : ''}
         </Button>
         {expanded && state.kind === 'ready' ? (
           <Button type="button" size="sm" variant="outline" onClick={onAdd}>
-            항목 추가
+            제출 항목 추가
           </Button>
         ) : null}
       </div>
@@ -172,37 +160,39 @@ export function MilestoneDocumentEditorBody({
               />
             )}
             {state.kind === 'ready' && documents.length === 0 ? (
-              <p className="text-small text-muted-foreground">
-                아직 등록한 서류가 없습니다.
-              </p>
+              <div className="grid gap-1 text-small text-muted-foreground">
+                <p className="font-semibold text-foreground">
+                  아직 제출 항목이 없습니다.
+                </p>
+                <p>
+                  학생이 제출할 수 있도록 위의 ‘제출 항목 추가’를 눌러 첫 항목을
+                  만드세요.
+                </p>
+              </div>
             ) : null}
             {state.kind === 'ready' && documents.length > 0 ? (
-              <ul
-                className="grid gap-2"
-                data-testid="milestone-document-editor-rows"
-              >
-                {documents.map((document, index) => (
-                  <MilestoneDocumentRow
-                    key={document.id}
-                    document={document}
-                    isFirst={index === 0}
-                    isLast={index === documents.length - 1}
-                    isBusy={isBusy}
-                    deleteRequested={deleteTargetId === document.id}
-                    errorMessage={
-                      rowError?.documentId === document.id
-                        ? rowError.message
-                        : null
-                    }
-                    onEdit={onEdit}
-                    onRequestDelete={onRequestDelete}
-                    onCancelDelete={onCancelDelete}
-                    onConfirmDelete={onConfirmDelete}
-                    onMove={onMove}
-                    onTemplateFile={onTemplateFile}
-                  />
-                ))}
-              </ul>
+              <>
+                <div className="grid gap-1 rounded-card border border-primary/20 bg-primary/5 px-3 py-2 text-small">
+                  <p className="font-semibold">학생 화면 안내</p>
+                  <p className="text-muted-foreground break-keep">
+                    학생은 내용이나 파일 중 하나 이상을 추가해 제출합니다. 둘 다
+                    추가할 수도 있습니다.
+                  </p>
+                </div>
+                <MilestoneDocumentSortableList
+                  milestoneId={milestoneId}
+                  documents={documents}
+                  isBusy={isBusy}
+                  deleteTargetId={deleteTargetId}
+                  rowError={rowError}
+                  onReorder={onReorder}
+                  onEdit={onEdit}
+                  onRequestDelete={onRequestDelete}
+                  onCancelDelete={onCancelDelete}
+                  onConfirmDelete={onConfirmDelete}
+                  onTemplateFile={onTemplateFile}
+                />
+              </>
             ) : null}
           </>
         )}
@@ -212,7 +202,7 @@ export function MilestoneDocumentEditorBody({
 }
 
 /**
- * 마일스톤 카드 하나의 「받을 서류」 등록 블록.
+ * 마일스톤 카드 하나의 「제출 항목」 등록 블록.
  *
  * 목록은 펼칠 때 불러온다 — 마일스톤이 많은 프로그램에서 카드 수만큼 미리
  * 조회하면 편집 화면 첫 렌더가 그만큼 느려지기 때문이다.
@@ -362,13 +352,10 @@ export function MilestoneDocumentEditorSection({
     }
   };
 
-  const move = async (documentId: string, direction: 'up' | 'down') => {
-    const documentIds = planMilestoneDocumentOrder(
-      documents,
-      documentId,
-      direction,
-    );
-    if (documentIds === null) return;
+  const reorder = async (
+    documentIds: readonly string[],
+    activeDocumentId: string,
+  ): Promise<boolean> => {
     setIsBusy(true);
     setRowError(null);
     try {
@@ -380,8 +367,8 @@ export function MilestoneDocumentEditorSection({
       // 조용히 어긋난다.
       //
       // 다만 재정렬 응답에는 `teamSubmissionCount`가 실리지 않는다(목록 조회에서만
-      // 채워진다). 그대로 덮으면 모든 행의 제출 수가 사라져 제출 방식 잠금이 통째로
-      // 풀리므로, 그 값만 id로 짝지어 지킨다.
+      // 채워진다). 그대로 덮으면 모든 행의 제출 현황이 사라지므로, 그 값만 id로
+      // 짝지어 지킨다.
       applyDocuments(
         sortMilestoneDocuments(
           mergeMilestoneDocumentList(
@@ -390,11 +377,13 @@ export function MilestoneDocumentEditorSection({
           ),
         ),
       );
+      return true;
     } catch (error: unknown) {
       setRowError({
-        documentId,
+        documentId: activeDocumentId,
         message: milestoneDocumentErrorMessage(error, MOVE_FAILED_MESSAGE),
       });
+      return false;
     } finally {
       setIsBusy(false);
       settleMutation();
@@ -444,8 +433,6 @@ export function MilestoneDocumentEditorSection({
           mode: 'create',
           form: emptyMilestoneDocumentForm(),
           errors: {},
-          // 아직 없는 항목에 제출이 있을 수 없다.
-          submissionTypeLocked: false,
         });
         setDeleteTargetId(null);
       }}
@@ -454,7 +441,6 @@ export function MilestoneDocumentEditorSection({
           mode: 'edit',
           form: toMilestoneDocumentForm(document),
           errors: {},
-          submissionTypeLocked: milestoneDocumentSubmissionTypeLocked(document),
         });
         setDeleteTargetId(null);
       }}
@@ -471,202 +457,9 @@ export function MilestoneDocumentEditorSection({
       }}
       onCancelDelete={() => setDeleteTargetId(null)}
       onConfirmDelete={() => void confirmDelete()}
-      onMove={(documentId, direction) => void move(documentId, direction)}
+      onReorder={reorder}
       onTemplateFile={(document, file) => void uploadTemplate(document, file)}
     />
-  );
-}
-
-function MilestoneDocumentRow({
-  document,
-  isFirst,
-  isLast,
-  isBusy,
-  deleteRequested,
-  errorMessage,
-  onEdit,
-  onRequestDelete,
-  onCancelDelete,
-  onConfirmDelete,
-  onMove,
-  onTemplateFile,
-}: {
-  readonly document: MilestoneDocument;
-  readonly isFirst: boolean;
-  readonly isLast: boolean;
-  readonly isBusy: boolean;
-  readonly deleteRequested: boolean;
-  readonly errorMessage: string | null;
-  readonly onEdit: (document: MilestoneDocument) => void;
-  readonly onRequestDelete: (document: MilestoneDocument) => void;
-  readonly onCancelDelete: () => void;
-  readonly onConfirmDelete: () => void;
-  readonly onMove: (documentId: string, direction: 'up' | 'down') => void;
-  readonly onTemplateFile: (document: MilestoneDocument, file: File) => void;
-}) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    onTemplateFile(document, file);
-  }
-
-  return (
-    <li className="grid gap-1" data-testid="milestone-document-editor-row">
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className="min-w-0 flex-1 truncate text-small"
-          title={document.name}
-        >
-          {document.name}
-          {document.required ? (
-            <span aria-label="필수" className="ml-0.5 text-destructive">
-              *
-            </span>
-          ) : null}
-        </span>
-        {document.hasTemplateFile && document.templateFileName ? (
-          <a
-            className="min-w-0 max-w-56 truncate text-small underline underline-offset-2"
-            href={milestoneDocumentTemplateHref(
-              document.milestoneId,
-              document.id,
-            )}
-            title={document.templateFileName}
-            download={document.templateFileName}
-          >
-            {document.templateFileName}
-          </a>
-        ) : null}
-        <StatusBadge variant="recruiting">
-          {submissionTypeLabel(document.submissionType)}
-        </StatusBadge>
-        <StatusBadge variant={document.hasTemplateFile ? 'approved' : 'closed'}>
-          {document.hasTemplateFile ? '양식 있음' : '양식 없음'}
-        </StatusBadge>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isBusy}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload aria-hidden />
-          {document.hasTemplateFile ? '양식 교체' : '양식 올리기'}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="sr-only"
-          aria-label={`${document.name} 양식 파일 선택`}
-          onChange={handleFile}
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isBusy}
-          onClick={() => onEdit(document)}
-        >
-          수정
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="destructive"
-          disabled={isBusy}
-          onClick={() => onRequestDelete(document)}
-        >
-          삭제
-        </Button>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isBusy}
-              aria-label={`${document.name} 작업 메뉴`}
-            >
-              <MoreHorizontal aria-hidden /> 작업
-            </Button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              align="end"
-              className="z-50 min-w-32 rounded-control border border-border bg-background p-1 shadow-lg"
-            >
-              <DropdownMenu.Item
-                className="cursor-pointer rounded px-3 py-2 text-small outline-none focus:bg-muted"
-                onSelect={() => onEdit(document)}
-              >
-                수정
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className="cursor-pointer rounded px-3 py-2 text-small text-destructive outline-none focus:bg-muted"
-                onSelect={() => onRequestDelete(document)}
-              >
-                삭제
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-        {/*
-         * 순서 바꾸기는 드래그가 아니라 버튼 두 개다 — 드래그 손잡이는 키보드·화면 읽기
-         * 도구 사용자가 쓸 수 없어 같은 결함으로 QA를 반복해 받았다. 버튼은 그대로 동작한다.
-         */}
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={isBusy || isFirst}
-          aria-label={`${document.name} 위로`}
-          onClick={() => onMove(document.id, 'up')}
-        >
-          위로
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={isBusy || isLast}
-          aria-label={`${document.name} 아래로`}
-          onClick={() => onMove(document.id, 'down')}
-        >
-          아래로
-        </Button>
-      </div>
-      {deleteRequested ? (
-        <div className="flex flex-wrap items-center justify-end gap-2 rounded-card border border-border bg-muted/40 px-3 py-2">
-          <p className="mr-auto text-small text-muted-foreground">
-            {document.name} 서류를 삭제합니다. 되돌릴 수 없습니다.
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={isBusy}
-            onClick={onCancelDelete}
-          >
-            취소
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={isBusy}
-            onClick={onConfirmDelete}
-          >
-            삭제 확정
-          </Button>
-        </div>
-      ) : null}
-      {errorMessage ? (
-        <p className="text-small text-destructive">{errorMessage}</p>
-      ) : null}
-    </li>
   );
 }
 
@@ -697,19 +490,14 @@ function MilestoneDocumentForm({
       onSubmit={onSave}
     >
       <p className="text-small font-bold">
-        {editor.mode === 'create' ? '서류 추가' : '서류 수정'}
+        {editor.mode === 'create' ? '제출 항목 추가' : '제출 항목 수정'}
       </p>
       <ProgramRequirementEditor
         idPrefix={`milestone-${milestoneId}-document`}
         value={editor.form}
-        typeLocked={editor.submissionTypeLocked}
-        typeLockDescription={SUBMISSION_TYPE_LOCKED_MESSAGE}
         errors={{ name: editor.errors.name, general: editor.errors.general }}
         onNameChange={(name) => onFieldChange('name', name)}
         onRequiredChange={(required) => onFieldChange('required', required)}
-        onTypeChange={(submissionType) =>
-          onFieldChange('submissionType', submissionType)
-        }
       />
       <div className="flex justify-end gap-2">
         <Button

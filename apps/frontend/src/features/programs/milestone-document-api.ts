@@ -1,5 +1,5 @@
 import { apiClient, apiPath } from '@/lib/api-client';
-import type { SubmissionType } from './types';
+import type { MilestoneDocumentHistoryPage } from './milestone-document-collection-api';
 
 /**
  * 학생 뷰의 제출 상태. ⚠ `types.ts`의 `SubmissionStatus`와 **다른 집합**이다 — 그쪽에는
@@ -29,6 +29,8 @@ export interface MilestoneDocumentViewerSubmission {
    */
   readonly submitted: boolean;
   readonly submittedAt: string | null;
+  /** 현재 제출본 번호. 미제출이면 `null`. */
+  readonly revision: number | null;
   /**
    * 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 `null`.
    *
@@ -37,8 +39,17 @@ export interface MilestoneDocumentViewerSubmission {
    * 「지난 지적이 있었는가」는 `status`가 아니라 `review`로 봐야 한다.
    */
   readonly status: MilestoneDocumentSubmissionStatus | null;
+  readonly hasCurrentFile: boolean;
   /** 아직 아무도 판정하지 않았으면 `null`. */
   readonly review: MilestoneDocumentViewerReview | null;
+  /**
+   * 이력 원장은 별도 cursor endpoint에서 읽는다. 목록 응답에 이력을 넣으면 여러 서류의
+   * 오래된 제출본까지 한꺼번에 실려 학생 화면을 열기만 해도 무한히 커진다.
+   */
+  readonly history: {
+    readonly hasHistory: boolean;
+    readonly isComplete: boolean;
+  };
 }
 
 export interface MilestoneDocumentTeamSubmissionCount {
@@ -53,7 +64,6 @@ export interface MilestoneDocument {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly submissionType: SubmissionType;
   readonly hasTemplateFile: boolean;
   readonly templateFileName: string | null;
   /** 학생 뷰에서만 채워진다. */
@@ -83,9 +93,10 @@ export interface MilestoneDocumentSubmission {
   readonly submittedAt: string;
 }
 
-export type MilestoneDocumentSubmissionContent =
-  | { readonly type: 'FILE'; readonly fileId: string }
-  | { readonly type: 'TEXT'; readonly text: string };
+export type MilestoneDocumentSubmissionContent = {
+  readonly text: string | null;
+  readonly fileId: string | null;
+};
 
 function documentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
@@ -97,12 +108,25 @@ export function listMilestoneDocuments(
   return apiClient<readonly MilestoneDocument[]>(documentsPath(milestoneId));
 }
 
+/** 학생 — 본인 제출 이력의 최신 cursor 페이지. 이전 페이지는 `cursor`로 이어 읽는다. */
+export function getMilestoneDocumentParticipantHistory(
+  milestoneId: string,
+  documentId: string,
+  cursor: string | null = null,
+): Promise<MilestoneDocumentHistoryPage> {
+  const params = new URLSearchParams();
+  params.set('limit', '20');
+  if (cursor !== null) params.set('cursor', cursor);
+  return apiClient<MilestoneDocumentHistoryPage>(
+    `${documentPath(milestoneId, documentId)}/history?${params.toString()}`,
+  );
+}
+
 /** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체). */
 export interface UpsertMilestoneDocumentInput {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly submissionType: SubmissionType;
 }
 
 function documentPath(milestoneId: string, documentId: string): string {

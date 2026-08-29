@@ -27,7 +27,7 @@ export function ProgramAuthoringConfirmationDialog({
             </CardHeader>
             <CardContent className="grid gap-5">
               <AlertDialog.Description className="text-body text-muted-foreground [word-break:keep-all]">
-                마일스톤, 요구서류, 선택한 양식 파일을 포함한 전체 내용이 한
+                마일스톤, 제출 항목, 선택한 양식 파일을 포함한 전체 내용이 한
                 번에 생성됩니다.
               </AlertDialog.Description>
               <div className="flex flex-wrap justify-end gap-2">

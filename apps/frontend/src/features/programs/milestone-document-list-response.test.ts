@@ -8,7 +8,6 @@ const document: MilestoneDocument = {
   name: '기획서',
   required: true,
   sortOrder: 0,
-  submissionType: 'FILE',
   hasTemplateFile: false,
   templateFileName: null,
 };

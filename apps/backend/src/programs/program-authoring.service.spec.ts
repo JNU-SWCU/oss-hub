@@ -1,6 +1,5 @@
 import {
   AccountStatus,
-  MilestoneSubmissionType,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
@@ -38,15 +37,16 @@ function request(templateUploadId?: string): ProgramAuthoringRequest {
       {
         name: 'Milestone',
         dueAt: '2026-08-20T00:00:00.000Z',
-        submissionType: MilestoneSubmissionType.FILE,
-        documents: [
-          {
-            name: 'Template',
-            required: true,
-            submissionType: MilestoneSubmissionType.FILE,
-            ...(templateUploadId === undefined ? {} : { templateUploadId }),
-          },
-        ],
+        documents:
+          templateUploadId === undefined
+            ? []
+            : [
+                {
+                  name: 'Template',
+                  required: true,
+                  templateUploadId,
+                },
+              ],
       },
     ],
   };

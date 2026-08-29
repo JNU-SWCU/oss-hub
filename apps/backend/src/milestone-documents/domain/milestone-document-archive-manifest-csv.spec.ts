@@ -1,5 +1,4 @@
 // 합성 데이터만 사용한다 (docs/rules/security.md)
-import { MilestoneSubmissionType } from '@prisma/client';
 import type {
   MilestoneDocumentArchiveCell,
   MilestoneDocumentArchiveCellState,
@@ -16,14 +15,12 @@ const CONSENT_DOCUMENT: MilestoneDocumentArchiveDocument = {
   id: 'doc-consent',
   name: '동의서',
   required: true,
-  submissionType: MilestoneSubmissionType.FILE,
 };
 
 const PLAN_DOCUMENT: MilestoneDocumentArchiveDocument = {
   id: 'doc-plan',
   name: '계획서',
   required: false,
-  submissionType: MilestoneSubmissionType.TEXT,
 };
 
 /** 열 개수를 세기 위한 두 장짜리 구성 — 서류마다 세 칸이 붙는지 여기서 확인한다. */
@@ -372,6 +369,51 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
 
       // Then
       expect(fields[5]).toBe('(내용 없음)');
+    });
+
+    it('담긴 경로와 일부 누락 경고를 같은 ZIP 파일 칸에 함께 적는다', () => {
+      const input = {
+        documents: [PLAN_DOCUMENT],
+        rows: [
+          {
+            team: team(),
+            cells: [
+              cell(PLAN_DOCUMENT.id, {
+                state: 'APPROVED',
+                submittedAt: new Date('2026-08-09T05:30:00Z'),
+                path: '계획서/합성팀_계획서.pdf · (내용 없음)',
+                omission: 'CONTENT_UNAVAILABLE',
+              }),
+            ],
+          },
+        ],
+      };
+
+      expect(
+        plainFields(milestoneDocumentArchiveManifestCsv(input), 1)[5],
+      ).toBe('계획서/합성팀_계획서.pdf · (내용 없음)');
+    });
+
+    it('통합 제출의 원래 방식을 알 수 없으면 중립적인 누락 사유를 적는다', () => {
+      const input = {
+        documents: [PLAN_DOCUMENT],
+        rows: [
+          {
+            team: team(),
+            cells: [
+              cell(PLAN_DOCUMENT.id, {
+                state: 'PENDING',
+                submittedAt: new Date('2026-08-09T05:30:00Z'),
+                omission: 'SUBMISSION_UNAVAILABLE',
+              }),
+            ],
+          },
+        ],
+      } as const;
+
+      expect(
+        plainFields(milestoneDocumentArchiveManifestCsv(input), 1)[5],
+      ).toBe('(제출 내용을 가져올 수 없음)');
     });
   });
 

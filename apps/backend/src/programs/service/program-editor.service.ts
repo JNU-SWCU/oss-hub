@@ -54,20 +54,19 @@ const INVALID_PROGRAM_END_FIELD_ERROR = {
   field: 'endAt',
   code: 'INVALID_PROGRAM_END',
   message:
-    '프로그램 종료일은 운영 시작일과 모든 마일스톤 마감 이후여야 합니다.',
+    '프로그램 종료일은 유효한 시각이어야 하고 운영 시작일 이후이며 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.',
 } as const;
 
 const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {
   field: 'dueAt',
   code: 'INVALID_MILESTONE_PERIOD',
-  message: 'Milestone due date must be before program end.',
+  message: 'Milestone due date must be on or before program end.',
 } as const;
 
 const INVALID_PROGRAM_START_FIELD_ERROR = {
   field: 'startAt',
   code: 'INVALID_PROGRAM_START',
-  message:
-    'Program start must be after applications close and before Program end.',
+  message: 'Program start must be a valid date.',
 } as const;
 
 const MILESTONE_BEFORE_PROGRAM_START_FIELD_ERROR = {
@@ -178,12 +177,17 @@ export class ProgramEditorService {
           fieldErrors: INVALID_APPLICATION_PERIOD_FIELD_ERRORS,
         });
       }
-      if (!Number.isFinite(startAt.getTime()) || startAt < applicationEndAt) {
+      if (!Number.isFinite(startAt.getTime())) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_START_FIELD_ERROR],
         });
       }
       if (!Number.isFinite(endAt.getTime()) || startAt >= endAt) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
+        });
+      }
+      if (applicationEndAt > endAt) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
@@ -197,7 +201,7 @@ export class ProgramEditorService {
           fieldErrors: [MILESTONE_BEFORE_PROGRAM_START_FIELD_ERROR],
         });
       }
-      if (existing.milestones.some((milestone) => milestone.dueAt >= endAt)) {
+      if (existing.milestones.some((milestone) => milestone.dueAt > endAt)) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
@@ -214,14 +218,6 @@ export class ProgramEditorService {
       ) {
         this.fail(ProgramErrorCode.MILESTONE_REQUIRED);
       }
-      if (
-        existing.milestones.some(
-          (milestone) => milestone.dueAt <= applicationEndAt,
-        )
-      ) {
-        this.fail(ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END);
-      }
-
       return store.updateProgram({
         programId,
         name,
@@ -271,7 +267,12 @@ export class ProgramEditorService {
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
       return store.updateMilestone({
         milestoneId,
-        ...this.milestoneData(input, milestone.programStartAt, milestone.endAt),
+        ...this.milestoneData(
+          input,
+          milestone.programStartAt,
+          milestone.endAt,
+          milestone.submissionType,
+        ),
       });
     });
   }
@@ -312,6 +313,7 @@ export class ProgramEditorService {
     input: UpsertMilestoneRequestDto,
     programStartAt: Date,
     endAt: Date,
+    existingSubmissionType: ProgramMilestoneInput['submissionType'] = null,
   ): ProgramMilestoneInput {
     const name = input.name.trim();
     const startAt = input.startAt ? new Date(input.startAt) : programStartAt;
@@ -352,7 +354,7 @@ export class ProgramEditorService {
         fieldErrors: [INVALID_MILESTONE_START_FIELD_ERROR],
       });
     }
-    if (dueAt >= endAt) {
+    if (dueAt > endAt) {
       this.fail(ProgramErrorCode.VALIDATION_ERROR, {
         fieldErrors: [MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR],
       });
@@ -362,7 +364,7 @@ export class ProgramEditorService {
       name,
       startAt,
       dueAt,
-      submissionType: input.submissionType,
+      submissionType: existingSubmissionType,
       instructions,
     };
   }

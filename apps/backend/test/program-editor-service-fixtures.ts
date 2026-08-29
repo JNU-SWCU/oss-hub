@@ -30,7 +30,6 @@ export const milestoneInput: UpsertMilestoneRequestDto = {
   name: '  Final  ',
   startAt: '2026-08-16T00:00:00.000Z',
   dueAt: '2026-08-20T00:00:00.000Z',
-  submissionType: MilestoneSubmissionType.TEXT,
   instructions: '  tag v1.0.0  ',
 };
 

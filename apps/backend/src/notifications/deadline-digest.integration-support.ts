@@ -138,7 +138,6 @@ export function createDeadlineDigestIntegrationHarness() {
           name: `synthetic ${DIGEST_FIXTURE.notifyDocument}`,
           required: true,
           sortOrder: 1,
-          submissionType: MilestoneSubmissionType.TEXT,
         },
         {
           id: DIGEST_FIXTURE.silentDocument,
@@ -146,7 +145,6 @@ export function createDeadlineDigestIntegrationHarness() {
           name: `synthetic ${DIGEST_FIXTURE.silentDocument}`,
           required: true,
           sortOrder: 1,
-          submissionType: MilestoneSubmissionType.TEXT,
         },
       ],
     });

@@ -24,6 +24,7 @@ const milestone: ProgramMilestone = {
   deadlineLabel: 'D-5',
   description: 'PDF 기획서를 제출해 주세요.',
   submissionType: 'FILE',
+  submissionItemCount: 0,
   viewerSubmissionStatus: 'REJECTED',
   applicationSubmissionSummary: null,
 };
@@ -57,6 +58,65 @@ describe('MilestoneRow', () => {
       />,
     );
     expect(html).toContain('최종 반려');
+  });
+
+  it('신규 제출 항목 모델은 작동하지 않는 레거시 제출 버튼을 노출하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneRow
+        programId="program-1"
+        milestone={{
+          ...milestone,
+          submissionType: null,
+          submissionItemCount: 2,
+          viewerSubmissionStatus: null,
+        }}
+        viewerRole="STUDENT"
+        applicationStatus="APPROVED"
+      />,
+    );
+
+    expect(html).toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
+    expect(html).not.toContain('제출하기');
+    expect(html).not.toContain('/mydocs?milestoneId=');
+  });
+
+  it('제출 항목이 없는 신규 마일스톤은 승인이 아니라 안내용으로 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneRow
+        programId="program-1"
+        milestone={{
+          ...milestone,
+          submissionType: null,
+          submissionItemCount: 0,
+          viewerSubmissionStatus: null,
+        }}
+        viewerRole="STUDENT"
+        applicationStatus="APPROVED"
+      />,
+    );
+
+    expect(html).toContain('제출 없음 · 안내용');
+    expect(html).not.toContain('승인');
+    expect(html).not.toContain('제출하기');
+  });
+
+  it('신청 승인 전에는 실행할 수 없는 제출 안내를 노출하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneRow
+        programId="program-1"
+        milestone={{
+          ...milestone,
+          submissionType: null,
+          submissionItemCount: 2,
+          viewerSubmissionStatus: null,
+        }}
+        viewerRole="STUDENT"
+        applicationStatus="SUBMITTED"
+      />,
+    );
+
+    expect(html).toContain('신청 승인 후 제출할 수 있습니다');
+    expect(html).not.toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
   });
 
   it('마감 후 보완 요청도 #116 체크리스트에서 다시 제출할 수 있다', () => {
@@ -397,7 +457,7 @@ describe('ProgramFactBar', () => {
     );
     expect(html).toContain('이번 마일스톤 완주율');
     expect(html).toContain('30% (3/10)');
-    expect(html).toContain('현재 마일스톤 필수 서류를 모두 제출한 참여자 기준');
+    expect(html).toContain('현재 마일스톤 필수 항목을 모두 제출한 참여자 기준');
     expect(html).not.toContain('내 제출');
   });
 });
@@ -411,7 +471,6 @@ function buildDocument(
     name: '기획서',
     required: true,
     sortOrder: 0,
-    submissionType: 'FILE',
     hasTemplateFile: false,
     templateFileName: null,
 
@@ -447,7 +506,7 @@ describe('MilestoneDocumentSectionBody', () => {
         onSubmitConflict={vi.fn()}
       />,
     );
-    expect(html).toContain('제출 서류를 불러오지 못했습니다');
+    expect(html).toContain('제출 항목을 불러오지 못했습니다');
     expect(html).toContain('다시 시도');
   });
 
@@ -508,8 +567,11 @@ describe('MilestoneDocumentSectionBody', () => {
               viewerSubmission: {
                 submitted: true,
                 submittedAt: '2026-08-01T05:22:00.000Z',
+                revision: 1,
                 status: 'SUBMITTED',
+                hasCurrentFile: false,
                 review: null,
+                history: { hasHistory: true, isComplete: true },
               },
             }),
           ],

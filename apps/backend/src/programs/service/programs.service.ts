@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  type MilestoneSubmissionType,
+  SubmissionStatus,
+} from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_NOT_SUBMITTED,
@@ -37,12 +41,14 @@ type DocumentSubmissionRecord = {
 function milestoneStatusFor(
   milestone: {
     readonly id: string;
+    readonly submissionType: MilestoneSubmissionType | null;
     readonly documents: readonly { readonly id: string }[];
   },
   submissions: readonly SubmissionRecord[],
   documentSubmissions: readonly DocumentSubmissionRecord[],
 ) {
   return milestoneCompletionStatus({
+    submissionAxisInUse: milestone.submissionType !== null,
     requiredDocumentStatuses: milestone.documents.map(
       (document) =>
         documentSubmissions.find(
@@ -247,16 +253,19 @@ export class ProgramsService {
             deadlineLabel: deadline.label,
             description: milestone.instructions,
             submissionType: milestone.submissionType,
-            viewerSubmissionStatus: studentApplication
-              ? milestoneStatusFor(
-                  milestone,
-                  studentApplication.submissions,
-                  studentApplication.milestoneDocumentSubmissions,
-                )
-              : null,
-            applicationSubmissionSummary: staffApplications
-              ? this.summaryForMilestone(milestone, staffApplications)
-              : null,
+            submissionItemCount: milestone._count.documents,
+            viewerSubmissionStatus:
+              milestone.submissionType !== null && studentApplication
+                ? milestoneStatusFor(
+                    milestone,
+                    studentApplication.submissions,
+                    studentApplication.milestoneDocumentSubmissions,
+                  )
+                : null,
+            applicationSubmissionSummary:
+              milestone.submissionType !== null && staffApplications
+                ? this.summaryForMilestone(milestone, staffApplications)
+                : null,
           };
         }),
       };
@@ -269,6 +278,7 @@ export class ProgramsService {
   private summaryForMilestone(
     milestone: {
       readonly id: string;
+      readonly submissionType: MilestoneSubmissionType | null;
       readonly documents: readonly { readonly id: string }[];
     },
     applications: readonly {

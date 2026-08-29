@@ -110,10 +110,10 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       storage: {
         objectCount: 1,
         contentHashes: [contentHash(body)],
+        objectKeys: [stored.objectKey],
       },
     });
     expect(JSON.stringify(capture)).not.toContain('synthetic-recipient');
-    expect(JSON.stringify(capture)).not.toContain(stored.objectKey);
   });
 
   it('consumes each configured failure once per port call', async () => {

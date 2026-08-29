@@ -18,8 +18,8 @@ export interface ProblemDetailExtensions {
   readonly activeRunId?: string;
   readonly currentAccess?: ProblemDetailCurrentAccess;
   readonly blockingCounts?: ProblemDetailBlockingCounts;
-  /** purge 확인-재확인 사이 범위가 바뀜 때(PRG_014)의 현재(트랜잭션 스냅샷) 4종 건수. */
-  readonly currentScopeCounts?: ProblemDetailBlockingCounts;
+  /** purge 확인-재확인 사이 범위가 바뀜 때(PRG_014)의 현재 전체 삭제 범위. */
+  readonly currentScopeCounts?: ProblemDetailProgramDeletionScopeCounts;
 }
 
 /** 삭제를 막는 연결 데이터 종류별 건수. 0이면 그 종류는 차단 사유가 아니다. 이 사이즈는 purge의 확인 범위(4종)와 동일하여 재사용된다. */
@@ -28,6 +28,11 @@ export interface ProblemDetailBlockingCounts {
   readonly teams: number;
   readonly submissions: number;
   readonly boardPosts: number;
+}
+
+export interface ProblemDetailProgramDeletionScopeCounts extends ProblemDetailBlockingCounts {
+  readonly submissionEvents: number;
+  readonly scopeFingerprint?: string;
 }
 
 export interface ProblemDetailCurrentAccess {

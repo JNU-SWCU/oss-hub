@@ -14,11 +14,9 @@ import {
 
 /** submissions/dto/create-submission-request.dto.ts의 SubmissionContentRequestDto와 같은 계약. */
 export class MilestoneDocumentSubmissionContentRequestDto {
-  @IsString()
-  declare readonly type: string;
-
   @IsOptional()
   @IsString()
+  @MaxLength(128)
   declare readonly fileId?: string;
 
   @IsOptional()

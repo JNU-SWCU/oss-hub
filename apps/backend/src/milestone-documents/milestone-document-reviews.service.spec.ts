@@ -9,6 +9,7 @@ const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticDocumentId = 'cuid-synthetic-document-1';
 const syntheticApplicationId = 'cuid-synthetic-application';
 const syntheticSubmissionId = 'cuid-synthetic-submission';
+const syntheticSubmissionHistoryId = 'cuid-synthetic-submission-history';
 const syntheticStaffId = 'cuid-synthetic-staff';
 const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
 /** 교직원이 수합 표에서 **본** 제출 버전. 요청이 이 값을 그대로 들고 온다. */
@@ -24,17 +25,17 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       name: '개인정보 수집·이용 동의서',
       dueAt: new Date('2026-09-19T09:00:00.000Z'),
       required: true,
-      submissionType: 'FILE',
     }),
     findApplicationProgramId: jest.fn().mockResolvedValue(syntheticProgramId),
     lockDocument: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
-      submissionType: 'FILE',
     }),
     findSubmissionForReview: jest.fn().mockResolvedValue({
       id: syntheticSubmissionId,
       revision: seenRevision,
+      submissionHistoryId: syntheticSubmissionHistoryId,
+      latestHistoryCreatedAt: new Date('2026-09-17T09:00:00.000Z'),
     }),
     findLatestReviewIdForSubmission: jest
       .fn()
@@ -171,7 +172,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
         name: '개인정보 수집·이용 동의서',
         dueAt: new Date('2026-09-19T09:00:00.000Z'),
         required: true,
-        submissionType: 'FILE',
       }),
     });
     const service = new MilestoneDocumentReviewsService(repository);
@@ -236,7 +236,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
       lockDocument: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: 'cuid-synthetic-other-milestone',
-        submissionType: 'FILE',
       }),
     });
     const service = new MilestoneDocumentReviewsService(repository);
@@ -425,9 +424,9 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(transactionCalls).toEqual([
       'lockDocument',
-      'now',
       'findSubmissionForReview',
       'findLatestReviewIdForSubmission',
+      'now',
       'createReview',
       'updateSubmissionStatus',
     ]);
@@ -495,6 +494,27 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
       syntheticApplicationId,
     );
   });
+
+  it('직전 원장 사건과 같은 시각의 판정은 1ms 뒤로 저장한다', async () => {
+    const latest = new Date('2026-09-18T09:00:00.000Z');
+    const { mocks, repository } = buildRepository({
+      findSubmissionForReview: jest.fn().mockResolvedValue({
+        id: syntheticSubmissionId,
+        revision: seenRevision,
+        submissionHistoryId: syntheticSubmissionHistoryId,
+        latestHistoryCreatedAt: latest,
+      }),
+    });
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    await review(service, () => latest);
+
+    expect(mocks.createReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewedAt: new Date('2026-09-18T09:00:00.001Z'),
+      }),
+    );
+  });
 });
 
 describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', () => {
@@ -509,6 +529,8 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     // Then
     expect(mocks.createReview).toHaveBeenCalledWith({
       milestoneDocumentSubmissionId: syntheticSubmissionId,
+      submissionHistoryId: syntheticSubmissionHistoryId,
+      revision: seenRevision,
       reviewerId: syntheticStaffId,
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',

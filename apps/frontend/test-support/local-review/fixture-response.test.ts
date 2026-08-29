@@ -1,0 +1,923 @@
+import { describe, expect, it } from 'vitest';
+import { parseArchiveDetail, parseArchivePage } from '@/features/archive/api';
+import { parseRankingPage, parseRankingYears } from '@/features/ranking/api';
+import { dashboardFixture } from '@/features/dashboard/fixtures';
+import {
+  parseLandingArchiveDetail,
+  parseLandingArchivePage,
+  parseLandingProgramPage,
+} from '@/features/landing/landing-overview';
+import type {
+  StaffDashboardApplicationCounts,
+  StaffDashboardSubmissionSummary,
+  StaffDashboardSummary,
+} from '@/features/programs/types';
+import {
+  resetLocalReviewFixtureState,
+  resolveLocalReviewResponse,
+} from './fixture-response';
+import { STAFF_PROGRAM_FIXTURES } from './handlers/staff-program-fixtures';
+import {
+  createLocalReviewActivation,
+  type LocalReviewFixtureId,
+} from '@/lib/local-review-runtime';
+
+function auditLogsFor(query: string) {
+  return resolveLocalReviewResponse({
+    fixture: 'admin',
+    method: 'GET',
+    path: 'audit-logs',
+    searchParams: new URLSearchParams(query),
+  });
+}
+
+function auditLogBody(response: ReturnType<typeof resolveLocalReviewResponse>) {
+  if (response.kind !== 'json') {
+    throw new Error('감사 로그 fixture가 json 응답이 아닙니다.');
+  }
+  return response.body as {
+    readonly items: readonly {
+      readonly id: string;
+      readonly actor: string;
+      readonly action: string;
+    }[];
+    readonly total: number;
+  };
+}
+
+function sessionFor(fixture: LocalReviewFixtureId) {
+  return resolveLocalReviewResponse({
+    fixture,
+    method: 'GET',
+    path: 'auth/session',
+    searchParams: new URLSearchParams(),
+  });
+}
+
+function publicGet(fixture: LocalReviewFixtureId, path: string, search = '') {
+  return resolveLocalReviewResponse({
+    fixture,
+    method: 'GET',
+    path,
+    searchParams: new URLSearchParams(search),
+  });
+}
+
+function jsonBody(
+  plan: ReturnType<typeof resolveLocalReviewResponse>,
+): unknown {
+  if (plan.kind !== 'json') throw new Error('expected a json fixture plan');
+  expect(plan.status).toBe(200);
+  return plan.body;
+}
+
+/**
+ * 교직원 대시보드 카드가 적어야 할 집계를 카드가 링크하는 픽스처에서 다시 센다.
+ * 세는 방법은 backend와 같다 — 승인 대기는 제출 건수 그대로(`staff-dashboard.service.ts`),
+ * 제출 칸은 승인된 신청 × 마일스톤이고 마일스톤은 프로그램의 전부다
+ * (`submission-dashboard-summary.service.ts`).
+ */
+function staffCardCounts(programId: string): {
+  readonly applications: StaffDashboardApplicationCounts;
+  readonly submissions: StaffDashboardSubmissionSummary;
+} {
+  const fixture = STAFF_PROGRAM_FIXTURES.find(
+    (candidate) => candidate.program.id === programId,
+  );
+  if (fixture === undefined) {
+    throw new Error(`대시보드 카드가 없는 프로그램을 가리킨다: ${programId}`);
+  }
+  const applications = (status: string) =>
+    fixture.applications.filter((item) => item.status === status).length;
+  const cells = fixture.matrixRows.flatMap((row) => row.cells);
+  const cellsWith = (status: string) =>
+    cells.filter((cell) => cell.status === status).length;
+  return {
+    applications: {
+      total: fixture.applications.length,
+      submitted: applications('SUBMITTED'),
+      pendingApproval: applications('SUBMITTED'),
+      approved: applications('APPROVED'),
+      rejected: applications('REJECTED'),
+    },
+    submissions: {
+      approvedApplications: fixture.matrixRows.length,
+      milestones: fixture.program.milestones.length,
+      total: fixture.matrixRows.length * fixture.program.milestones.length,
+      notSubmitted: cellsWith('NOT_SUBMITTED'),
+      submitted: cellsWith('SUBMITTED'),
+      approved: cellsWith('APPROVED'),
+      changesRequested: cellsWith('CHANGES_REQUESTED'),
+      rejected: cellsWith('REJECTED'),
+    },
+  };
+}
+
+describe('local review fixture responses', () => {
+  it('anonymous fixture returns the public unauthenticated session', () => {
+    // Given
+    const fixture = 'anonymous';
+
+    // When
+    const response = sessionFor(fixture);
+
+    // Then
+    expect(response).toEqual({
+      kind: 'json',
+      status: 200,
+      body: { isAuthenticated: false },
+    });
+  });
+
+  it.each([
+    ['student', 'STUDENT'],
+    ['staff', 'STAFF'],
+    ['admin', 'ADMIN'],
+    ['settings', 'STUDENT'],
+    ['wrong-role', 'STUDENT'],
+  ] as const)('%s fixture exposes only its synthetic role', (fixture, role) => {
+    // Given / When
+    const response = sessionFor(fixture);
+
+    // Then
+    expect(response).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: {
+        isAuthenticated: true,
+        user: { role },
+      },
+    });
+  });
+
+  it('unassigned fixture has no role and no role request', () => {
+    // Given / When
+    const session = sessionFor('unassigned');
+    const staffAccessRequest = resolveLocalReviewResponse({
+      fixture: 'unassigned',
+      method: 'GET',
+      path: 'role-requests/me',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then
+    expect(session).toMatchObject({
+      kind: 'json',
+      body: {
+        isAuthenticated: true,
+        user: { role: null },
+      },
+    });
+    expect(staffAccessRequest).toEqual({
+      kind: 'json',
+      status: 200,
+      body: null,
+    });
+  });
+
+  it('loading and error fixtures remain distinguishable at the session boundary', () => {
+    // Given / When
+    const loading = sessionFor('loading');
+    const error = sessionFor('error');
+
+    // Then
+    expect(loading).toEqual({ kind: 'delay', milliseconds: 60_000 });
+    expect(error).toMatchObject({ kind: 'json', status: 503 });
+  });
+
+  it('error-once fixture fails the first session read and recovers on retry', () => {
+    // Given
+    resetLocalReviewFixtureState();
+
+    // When: 화면이 처음 세션을 읽고, 오류 화면의 "다시 시도"가 같은 경로를 다시 읽는다.
+    const first = sessionFor('error-once');
+    const second = sessionFor('error-once');
+    // 새로고침도 재시도와 같은 조회다 — 복구된 로그인이 유지돼야 한다.
+    const afterReload = sessionFor('error-once');
+
+    // Then
+    expect(first).toMatchObject({ kind: 'json', status: 503 });
+    expect(second).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: { isAuthenticated: true, user: { role: 'STUDENT' } },
+    });
+    expect(afterReload).toEqual(second);
+  });
+
+  it('error-once fixture fails again after another persona is reviewed in between', () => {
+    // Given: 실패를 한 번 쓰고 복구까지 확인한 상태.
+    resetLocalReviewFixtureState();
+    sessionFor('error-once');
+    sessionFor('error-once');
+
+    // When: 다른 페르소나를 보고 돌아온다 — 검토판에서 페르소나를 바꾸는 동작이다.
+    sessionFor('student');
+    const returned = sessionFor('error-once');
+
+    // Then: 예산이 다시 차지 않으면 서버를 재시작하기 전에는 오류 화면을 볼 수 없다.
+    expect(returned).toMatchObject({ kind: 'json', status: 503 });
+  });
+
+  it('error-once fixture keeps public data working while the session read fails', () => {
+    // Given: 세션만 흔들리는 상태여야 복구 대상이 무엇인지 흐려지지 않는다.
+    resetLocalReviewFixtureState();
+
+    // When
+    const programs = publicGet('error-once', 'programs');
+    const session = sessionFor('error-once');
+
+    // Then: 공개 목록은 그대로 오고, 실패는 세션 조회에서만 난다.
+    expect(programs).toMatchObject({ kind: 'json', status: 200 });
+    expect(session).toMatchObject({ kind: 'json', status: 503 });
+  });
+
+  it('error-once fixture lands on the student dashboard once recovered', () => {
+    // Given
+    resetLocalReviewFixtureState();
+    sessionFor('error-once');
+    sessionFor('error-once');
+
+    // When
+    const dashboard = resolveLocalReviewResponse({
+      fixture: 'error-once',
+      method: 'GET',
+      path: 'dashboard/student',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then
+    expect(dashboard).toEqual({
+      kind: 'json',
+      status: 200,
+      body: dashboardFixture,
+    });
+  });
+
+  it('student fixture reuses the dashboard synthetic data', () => {
+    // Given / When
+    const response = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'GET',
+      path: 'dashboard/student',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then
+    expect(response).toEqual({
+      kind: 'json',
+      status: 200,
+      body: dashboardFixture,
+    });
+  });
+
+  it('student dashboard program link resolves to matching detail and activity data', () => {
+    // Given: the first program exposed by the synthetic dashboard.
+    const programId = dashboardFixture.items[0]?.programId;
+    expect(programId).toBe('program-capstone');
+
+    // When: the linked detail screen requests its two read models.
+    const detail = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'GET',
+      path: `programs/${programId}/viewer`,
+      searchParams: new URLSearchParams(),
+    });
+    const activity = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'GET',
+      path: `programs/${programId}/activity`,
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then: the page receives an approved student view and graph data.
+    expect(detail).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: {
+        id: programId,
+        viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
+        milestones: expect.arrayContaining([
+          expect.objectContaining({ id: 'milestones-upcoming' }),
+        ]),
+      },
+    });
+    expect(activity).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: [
+        expect.objectContaining({ applicationId: 'application-personal' }),
+      ],
+    });
+  });
+
+  it('student dashboard checklist link resolves to milestone submission states', () => {
+    // Given: the first program exposed by the synthetic dashboard.
+    const programId = dashboardFixture.items[0]?.programId;
+    expect(programId).toBe('program-capstone');
+
+    // When: the linked checklist screen requests the student's read model.
+    const response = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'GET',
+      path: `programs/${programId}/submissions/me`,
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then: it can render both a pending submission and actionable states.
+    expect(response).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: {
+        applicationId: 'application-personal',
+        applicationMode: 'PERSONAL',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            milestoneId: 'milestones-upcoming',
+            submission: null,
+          }),
+          expect.objectContaining({
+            milestoneId: 'milestones-revision',
+            submission: expect.objectContaining({
+              status: 'CHANGES_REQUESTED',
+              canResubmit: true,
+            }),
+          }),
+        ]),
+      },
+    });
+  });
+
+  it.each([
+    ['program-capstone', 'milestones-upcoming', 'MILESTONE_CLOSED'],
+  ] as const)(
+    '%s checklist submit link resolves to a blocked synthetic %s form',
+    (programId, milestoneId, blockedReason) => {
+      // Given / When: the linked submit screen requests its read model.
+      const response = resolveLocalReviewResponse({
+        fixture: 'student',
+        method: 'GET',
+        path: `programs/${programId}/milestones/${milestoneId}/submission-form`,
+        searchParams: new URLSearchParams(),
+      });
+
+      // Then: review content renders without enabling a real mutation.
+      expect(response).toMatchObject({
+        kind: 'json',
+        status: 200,
+        body: {
+          milestone: { id: milestoneId },
+          canSubmit: false,
+          blockedReason,
+          existingSubmission: null,
+        },
+      });
+    },
+  );
+
+  // 파일 제출 화면을 실제로 눌러 볼 수 있는 마일스톤이 하나는 있어야 한다. 예전에는
+  // 유일한 FILE 마일스톤이 막혀 있어, 학생이 파일을 고르고 제출을 누르는 화면을 로컬
+  // 검토에서 아무도 열어 볼 수 없었다 — 그 사각지대가 「눌러도 아무 일이 없다」는
+  // 결함이 배포까지 살아남은 이유다.
+  it('파일 제출 화면을 눌러 볼 수 있는 마일스톤이 학생 픽스처에 있다', () => {
+    // Given / When
+    const form = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'GET',
+      path: 'programs/program-oss-contest/milestones/milestones-contest-final/submission-form',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then: 파일 유형이고 제출이 열려 있다.
+    expect(form).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: {
+        milestone: { id: 'milestones-contest-final', submissionType: 'FILE' },
+        canSubmit: true,
+        blockedReason: null,
+        existingSubmission: null,
+      },
+    });
+
+    // Then: 그 제출이 실제 backend로 새지 않고 합성 응답으로 끝난다.
+    for (const path of ['submission-files', 'submissions']) {
+      expect(
+        resolveLocalReviewResponse({
+          fixture: 'student',
+          method: 'POST',
+          path,
+          searchParams: new URLSearchParams(),
+        }),
+      ).toMatchObject({ kind: 'json' });
+    }
+  });
+
+  it.each(dashboardFixture.items)(
+    '$programId exposes every GET read model used by its linked screens',
+    ({ programId }) => {
+      // Given / When: both dashboard destinations load their dependent reads.
+      const paths = [
+        `programs/${programId}/viewer`,
+        `programs/${programId}/activity`,
+        `programs/${programId}/submissions/me`,
+      ];
+      const responses = paths.map((path) =>
+        resolveLocalReviewResponse({
+          fixture: 'student',
+          method: 'GET',
+          path,
+          searchParams: new URLSearchParams(),
+        }),
+      );
+
+      // Then: no linked screen falls through to the local 404 boundary.
+      expect(responses).toEqual(
+        paths.map(() => expect.objectContaining({ kind: 'json', status: 200 })),
+      );
+    },
+  );
+
+  it('staff, admin, and settings fixtures expose their minimum page data', () => {
+    // Given / When
+    const staff = resolveLocalReviewResponse({
+      fixture: 'staff',
+      method: 'GET',
+      path: 'dashboard/staff/summary',
+      searchParams: new URLSearchParams(),
+    });
+    const admin = auditLogsFor('page=1&limit=20');
+    const profile = resolveLocalReviewResponse({
+      fixture: 'settings',
+      method: 'GET',
+      path: 'users/me/profile',
+      searchParams: new URLSearchParams(),
+    });
+    const notification = resolveLocalReviewResponse({
+      fixture: 'settings',
+      method: 'GET',
+      path: 'users/me/notification-email',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then
+    expect(staff).toMatchObject({
+      kind: 'json',
+      body: { programs: expect.any(Array) },
+    });
+    expect(admin).toMatchObject({
+      kind: 'json',
+      body: { items: expect.any(Array) },
+    });
+    expect(profile).toMatchObject({
+      kind: 'json',
+      body: { isComplete: true },
+    });
+    expect(notification).toMatchObject({
+      kind: 'json',
+      body: { notifyEnabled: true },
+    });
+  });
+
+  it('교직원 대시보드 카드의 집계는 카드에서 넘어가는 화면과 같은 값이다', () => {
+    // Given: 교직원 대시보드 요약.
+    const summary = jsonBody(
+      resolveLocalReviewResponse({
+        fixture: 'staff',
+        method: 'GET',
+        path: 'dashboard/staff/summary',
+        searchParams: new URLSearchParams(),
+      }),
+    ) as StaffDashboardSummary;
+
+    // When: 카드가 링크하는 신청자 목록·제출 현황 픽스처에서 같은 값을 다시 센다.
+    const printed = summary.programs.map((program) => ({
+      id: program.id,
+      applications: program.applications,
+      submissions: program.submissions,
+    }));
+    const counted = summary.programs.map((program) => ({
+      id: program.id,
+      ...staffCardCounts(program.id),
+    }));
+
+    // Then: 카드를 누르면 바로 이 숫자들의 출처 화면으로 넘어간다 — 어긋나면
+    // 검토자가 화면의 숫자를 의심하게 되고, 그 자체가 검토 노이즈가 된다.
+    expect(printed).toEqual(counted);
+  });
+
+  it.each(['/', '/programs', '/archive'] as const)(
+    'public shell route %s is a fixture entry point that renders its session',
+    (target) => {
+      // Given: a reviewer opens the local persona entry URL for a shell route.
+      const activation = createLocalReviewActivation({
+        nodeEnv: 'development',
+        enabled: '1',
+        backendOrigin: 'http://localhost:4000',
+        requestHostname: 'localhost',
+        fixtureParam: 'student',
+        targetParam: target,
+      });
+
+      // When: the landed screen asks the fixture layer for its session.
+      const session = sessionFor('student');
+
+      // Then: the reviewer lands on the requested shell route with a role.
+      expect(activation).toEqual({
+        kind: 'redirect',
+        fixture: 'student',
+        target,
+      });
+      expect(session).toMatchObject({
+        kind: 'json',
+        status: 200,
+        body: { isAuthenticated: true, user: { role: 'STUDENT' } },
+      });
+    },
+  );
+
+  it.each(['/admin/console', '//evil.com', 'https://evil.com'])(
+    'entry URL target %j stays inside the app instead of open-redirecting',
+    (target) => {
+      // Given / When
+      const activation = createLocalReviewActivation({
+        nodeEnv: 'development',
+        enabled: '1',
+        backendOrigin: 'http://localhost:4000',
+        requestHostname: 'localhost',
+        fixtureParam: 'anonymous',
+        targetParam: target,
+      });
+
+      // Then
+      expect(activation).toEqual({
+        kind: 'redirect',
+        fixture: 'anonymous',
+        target: '/',
+      });
+    },
+  );
+
+  it('landing public reads parse into programs, archive items, and contributors', () => {
+    // Given: the three reads the landing shell issues without a session.
+    const programs = jsonBody(
+      publicGet(
+        'anonymous',
+        'programs',
+        'page=1&pageSize=3&search=&status=recruiting',
+      ),
+    );
+    const archive = jsonBody(publicGet('anonymous', 'projects', 'pageSize=3'));
+
+    // When: the landing parsers consume them.
+    const parsedPrograms = parseLandingProgramPage(programs);
+    const parsedArchive = parseLandingArchivePage(archive);
+    const parsedDetails = parsedArchive.map(({ projectId }) =>
+      parseLandingArchiveDetail(
+        jsonBody(publicGet('anonymous', `projects/${projectId}`)),
+      ),
+    );
+
+    // Then: the public aggregate counts are non-zero and obviously synthetic.
+    expect(parsedPrograms.length).toBeGreaterThan(0);
+    expect(parsedArchive.length).toBeGreaterThan(0);
+    expect(
+      parsedDetails.flatMap((detail) => detail.contributors).length,
+    ).toBeGreaterThan(0);
+    expect(
+      parsedPrograms.every((program) => program.name.startsWith('합성')),
+    ).toBe(true);
+    expect(
+      parsedDetails
+        .flatMap((detail) => detail.contributors)
+        .every((contributor) =>
+          contributor.githubLogin.startsWith('synthetic-'),
+        ),
+    ).toBe(true);
+  });
+
+  it('program list page fixture keeps the requested paging contract', () => {
+    // Given / When: the /programs screen asks for every status.
+    const body = jsonBody(
+      publicGet(
+        'anonymous',
+        'programs',
+        'page=1&pageSize=20&search=&status=all',
+      ),
+    );
+    const recruiting = parseLandingProgramPage(
+      jsonBody(
+        publicGet(
+          'anonymous',
+          'programs',
+          'page=1&pageSize=3&search=&status=recruiting',
+        ),
+      ),
+    );
+
+    // Then: paging metadata matches the query and status narrows the result.
+    expect(body).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
+      items: expect.any(Array),
+    });
+    const all = parseLandingProgramPage(body);
+    expect(all.length).toBeGreaterThanOrEqual(recruiting.length);
+  });
+
+  it('상태 뱃지와 목록 필터가 같은 판정을 쓴다', () => {
+    // Given: 사이드바 뱃지가 5키를 읽는다 — QA8 이 404 로 못 받던 그 응답이다.
+    const counts = jsonBody(
+      publicGet('anonymous', 'programs/status-counts'),
+    ) as Record<string, number>;
+
+    // Then: 5키가 모두 있고 all 이 나머지 넷의 합이다(정의상 파티션).
+    const parts = ['recruiting', 'in_progress', 'upcoming', 'ended'] as const;
+    for (const key of ['all', ...parts]) {
+      expect(typeof counts[key]).toBe('number');
+    }
+    expect(parts.reduce((sum, key) => sum + counts[key], 0)).toBe(counts.all);
+
+    // And: 뱃지 숫자와 그 상태로 거른 목록 건수가 일치한다. 어긋나면 화면은
+    // 멀쩡한데 답이 틀리는 상태가 된다 — 빈 화면보다 나쁘다.
+    // 픽스처가 `scheduled`·`closed` 라는 API 에 없는 어휘를 쓰던 동안에는
+    // `upcoming`·`in_progress`·`ended` 가 전부 0건이었다.
+    for (const status of parts) {
+      const page = jsonBody(
+        publicGet(
+          'anonymous',
+          'programs',
+          `page=1&pageSize=50&status=${status}`,
+        ),
+      ) as { totalItems: number };
+      expect(page.totalItems).toBe(counts[status]);
+    }
+  });
+
+  it('랭킹 응답이 랭킹 화면 파서를 통과한다', () => {
+    // QA9 — 픽스처 폴더 전체에 `ranking` 이 한 번도 없어 두 요청 모두 404 였다.
+    const page = parseRankingPage(
+      jsonBody(publicGet('anonymous', 'ranking', 'page=1&pageSize=20')),
+    );
+    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.total).toBe(page.items.length);
+
+    const years = parseRankingYears(
+      jsonBody(publicGet('anonymous', 'ranking/years')),
+    );
+    expect(years.years.length).toBeGreaterThan(0);
+
+    // 연도를 바꾸면 실제로 다른 결과가 나와야 한다. 모든 연도가 같은 행이면
+    // 검토자가 연도 필터가 도는지 확인할 방법이 없다 — 픽스처가 계약보다
+    // 너그러운 상태이고, 이 PR 이 없애려는 것이 바로 그것이다.
+    const perYear = years.years.map((year) =>
+      parseRankingPage(
+        jsonBody(publicGet('anonymous', 'ranking', `year=${year}`)),
+      ),
+    );
+    for (const [index, yearPage] of perYear.entries()) {
+      expect(yearPage.year).toBe(years.years[index]);
+    }
+    if (
+      page.viewerClass !== 'public' ||
+      perYear.some((yearPage) => yearPage.viewerClass !== 'public')
+    ) {
+      throw new TypeError('anonymous ranking fixtures must stay public');
+    }
+    const signatures = perYear.map((yearPage) =>
+      yearPage.items
+        .map(
+          (item) =>
+            `${item.githubLogin}:${item.commitCount + item.pullRequestCount}`,
+        )
+        .join(),
+    );
+    expect(new Set(signatures).size).toBe(signatures.length);
+
+    // 그리고 전체(`all`)는 연도별 합이라 어느 한 해보다 공개 지표 합이 크다.
+    const top = (
+      rows: readonly {
+        readonly commitCount: number;
+        readonly pullRequestCount: number;
+      }[],
+    ) => (rows[0] ? rows[0].commitCount + rows[0].pullRequestCount : 0);
+    expect(top(page.items)).toBeGreaterThanOrEqual(
+      Math.max(...perYear.map((yearPage) => top(yearPage.items))),
+    );
+  });
+
+  it('랭킹 픽스처가 계층을 지킨다 — 비로그인·학생은 같고 교직원만 실명을 받는다', () => {
+    // 픽스처가 계층을 무시하면 검토자가 권한별 화면을 눈으로 확인할 수 없고,
+    // 더 나쁘게는 비로그인 응답에 실명이 섞인 모양을 정상으로 보게 된다.
+    const read = (fixture: LocalReviewFixtureId) =>
+      parseRankingPage(jsonBody(publicGet(fixture, 'ranking', 'year=2026')));
+
+    const anonymous = read('anonymous');
+    const student = read('student');
+    const staff = read('staff');
+    const admin = read('admin');
+
+    expect(anonymous.viewerClass).toBe('public');
+    expect(student.viewerClass).toBe('public');
+    expect(staff.viewerClass).toBe('staff');
+    expect(admin.viewerClass).toBe('staff');
+    if (
+      anonymous.viewerClass !== 'public' ||
+      student.viewerClass !== 'public' ||
+      staff.viewerClass !== 'staff' ||
+      admin.viewerClass !== 'staff'
+    ) {
+      throw new TypeError('ranking fixture viewer classes are inconsistent');
+    }
+
+    for (const item of [...anonymous.items, ...student.items]) {
+      expect(Object.keys(item).sort()).toEqual([
+        'commitCount',
+        'githubLogin',
+        'pullRequestCount',
+        'rank',
+      ]);
+    }
+    expect(student.items).toEqual(anonymous.items);
+
+    expect(staff.items).toEqual(admin.items);
+    expect(
+      staff.items.every((item) => item.displayName === item.githubLogin),
+    ).toBe(true);
+    expect(staff.items.some((item) => item.name !== null)).toBe(true);
+
+    // 순서는 계층과 무관하다 — 누가 보든 같은 사람이 같은 등수다.
+    expect(staff.items.map((item) => item.githubLogin)).toEqual(
+      anonymous.items.map((item) => item.githubLogin),
+    );
+
+    expect(staff.items.some((item) => item.department !== null)).toBe(true);
+    expect(staff.items.some((item) => item.department === null)).toBe(true);
+  });
+
+  it('public archive reads parse with the archive screen parsers', () => {
+    // Given / When: the /archive list and one of its detail links.
+    const list = parseArchivePage(
+      jsonBody(publicGet('anonymous', 'projects', 'pageSize=12')),
+    );
+    const first = list.items[0];
+    const detail = parseArchiveDetail(
+      jsonBody(publicGet('anonymous', `projects/${first?.projectId}`)),
+    );
+
+    // Then: both screens render synthetic rows instead of the error card.
+    expect(list.items.length).toBeGreaterThan(0);
+    expect(first?.detailUrl).toBe(`/archive/${first?.projectId}`);
+    expect(detail.contributors.length).toBeGreaterThan(0);
+    expect(detail.repositoryName.startsWith('synthetic-')).toBe(true);
+  });
+
+  it('unknown archive ids stay a not-found instead of a synthetic row', () => {
+    // Given / When
+    const response = publicGet('anonymous', 'projects/unknown-repo');
+
+    // Then
+    expect(response).toMatchObject({
+      kind: 'json',
+      status: 404,
+      body: { code: 'SHW_001' },
+    });
+  });
+
+  it.each(['programs', 'projects', 'projects/synthetic-repo-capstone'])(
+    'error fixture still fails for %s',
+    (path) => {
+      // Given / When
+      const response = publicGet('error', path);
+
+      // Then
+      expect(response).toMatchObject({ kind: 'json', status: 503 });
+    },
+  );
+
+  it.each(['programs', 'projects', 'projects/synthetic-repo-capstone'])(
+    'loading fixture still delays for %s',
+    (path) => {
+      // Given / When
+      const response = publicGet('loading', path);
+
+      // Then
+      expect(response).toEqual({ kind: 'delay', milliseconds: 60_000 });
+    },
+  );
+
+  it.each(['student', 'staff', 'admin', 'unassigned'] as const)(
+    '%s fixture sees the same public shell data as anonymous',
+    (fixture) => {
+      // Given / When
+      const response = publicGet(fixture, 'projects', 'page=1&pageSize=3');
+
+      // Then
+      expect(response).toEqual(
+        publicGet('anonymous', 'projects', 'pageSize=3'),
+      );
+    },
+  );
+
+  it('요청 본문이 도메인 규칙까지 전달된다', () => {
+    // Given: 검토자가 신청자 목록에서 "반려"를 누른 상황.
+    const rejected = resolveLocalReviewResponse({
+      fixture: 'staff',
+      method: 'PATCH',
+      path: 'applications/application-basic-submitted',
+      searchParams: new URLSearchParams(),
+      body: { action: 'REJECT', reason: '합성 반려 사유' },
+    });
+
+    // When: 같은 경로에 승인을 보냈을 때와 비교한다.
+    const approved = resolveLocalReviewResponse({
+      fixture: 'staff',
+      method: 'PATCH',
+      path: 'applications/application-basic-submitted',
+      searchParams: new URLSearchParams(),
+      body: { action: 'APPROVE' },
+    });
+
+    // Then: 본문이 라우트에서 규칙까지 이어지지 않으면 둘이 같아진다.
+    expect(jsonBody(rejected)).toMatchObject({
+      status: 'REJECTED',
+      rejectionReason: '합성 반려 사유',
+    });
+    expect(jsonBody(approved)).toMatchObject({ status: 'APPROVED' });
+  });
+
+  it('본문 없이 온 요청도 조작 응답을 준다', () => {
+    // Given / When: GET·DELETE는 본문이 없는 게 정상이다.
+    const deleted = resolveLocalReviewResponse({
+      fixture: 'staff',
+      method: 'DELETE',
+      path: 'milestones/milestone-basic-final',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then
+    expect(deleted).toMatchObject({ kind: 'json', status: 200 });
+  });
+
+  it('admin fixture serves audit logs in the paginated backend shape', () => {
+    // Given / When
+    const response = auditLogsFor('page=1&limit=2');
+
+    // Then
+    expect(response).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: { page: 1, limit: 2 },
+    });
+    expect(auditLogBody(response).items).toHaveLength(2);
+  });
+
+  it('audit log fixture spans more than one page at the default limit', () => {
+    // Given — 기본 limit 20에서 이전·다음을 실제로 눌러 볼 수 있어야 한다.
+    const firstPage = auditLogBody(auditLogsFor('page=1&limit=20'));
+    const secondPage = auditLogBody(auditLogsFor('page=2&limit=20'));
+
+    // Then
+    expect(firstPage.total).toBeGreaterThan(20);
+    expect(firstPage.items).toHaveLength(20);
+    expect(secondPage.items.length).toBe(firstPage.total - 20);
+    expect(secondPage.items.length).toBeGreaterThan(0);
+
+    const ids = [...firstPage.items, ...secondPage.items].map(
+      (record) => record.id,
+    );
+    expect(new Set(ids).size).toBe(firstPage.total);
+  });
+
+  it('audit log fixture applies the actor and action filters it is sent', () => {
+    // Given / When
+    const all = auditLogBody(auditLogsFor('page=1&limit=100'));
+    const filtered = auditLogBody(
+      auditLogsFor(
+        'action=STAFF_ROLE_REQUEST_APPROVED&actor=SYNTHETIC-admin&page=1&limit=100',
+      ),
+    );
+
+    // Then
+    expect(filtered.total).toBeGreaterThan(0);
+    expect(filtered.total).toBeLessThan(all.total);
+    for (const record of filtered.items) {
+      expect(record.action).toBe('STAFF_ROLE_REQUEST_APPROVED');
+      expect(record.actor.toLowerCase()).toContain('synthetic-admin');
+    }
+  });
+
+  it('unsupported paths fail closed instead of reaching the backend', () => {
+    // Given / When
+    const response = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'POST',
+      path: 'unknown',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then
+    expect(response).toMatchObject({ kind: 'json', status: 404 });
+  });
+});

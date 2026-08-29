@@ -692,3 +692,84 @@
 - blocker: 없음
 - 결과: `skills/manage-qa-tickets`와 `.claude/skills/tickets`를 `skills/tickets` 하나로 합쳤다. 수행 절차는 `references/execution-workflow.md`로 옮기고, Notion 행을 공개 Issue로 발행하고 Issue URL을 행에 되돌려 쓰는 계약을 `references/github-publication.md`에 새로 넣었다. OSS Hub 자체 화면 캡처는 개인정보 검사를 통과하면 Issue에 넣을 수 있게 하고 제3자 제품 캡처는 Notion에만 둔다. 티켓 발행 제한을 두 사람에서 팀원 전체로 열되, 담당자 0~1명·작성자와 담당자만 교체·삭제·종료·`완료 여부` 수동 확인 세 가지는 그대로 뒀다.
 - 검증: 심볼릭 링크 5개 전부 해석됨, 참조 링크 깨짐 0건, `npx prettier --check` 통과, `bash scripts/check-public-safe.sh` 통과. Notion `🐞 QA 요청`의 배정된 행 7건을 Issue #1038~#1044로 발행하고 `GitHub Issue` 속성에 URL을 써넣은 뒤 재조회로 10건 연결을 확인했다.
+
+## 2026-08-28 — 티켓 발행을 Notion 본문 미러링과 자동 발행으로 바꾼다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `skills/tickets` v3.0.0. 발행 계약에서 "본문을 다시 쓴다"를 걷어내고 Issue 본문을 Notion 본문의 사본으로 고정했다 — 추가되는 것은 앞의 `## 시작` 블록과 끝의 `출처: QA<번호>` 줄뿐이고, 공개 안전 검사에 걸린 문자열은 Issue가 아니라 Notion에서 고쳐 다시 미러링한다. 제3자 제품 캡처만 미러링의 내용 예외로 남겼다. 새로 쓴 행은 1단계 재조회 검증이 끝나면 별도 요청 없이 이어서 발행하고 URL을 되돌려 쓴다. 이미 있던 행의 발행은 여전히 사용자가 지목해야 한다.
+- 검증: `npx prettier --check` 통과, 참조 링크 깨짐 0건, `bash scripts/check-public-safe.sh` 통과. Notion→Issue 연동(`GitHub Issue` 속성 되돌려 쓰기)은 v2.0.0에서 이미 구현돼 있어 그대로 뒀다.
+
+## 2026-08-28 — craft-skills marketplace를 팀 전체 자동 업데이트로 둔다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `.claude/settings.json`의 `craft-skills` marketplace 선언에 `autoUpdate: true`를 넣었다. 지금까지는 각자 자기 개인 설정에 이 플래그를 넣은 사람만 최신 스킬을 받았고, 넣지 않은 사람은 checkout 시점의 버전에 그대로 묶여 같은 스킬을 서로 다른 계약으로 실행했다. 이제 checkout만으로 갱신 대상이 된다.
+- 검증: `npx prettier --check .claude/settings.json` 통과, `python3 -m json.tool` 파싱 통과, `bash scripts/check-public-safe.sh` 통과.
+
+## 2026-08-28 — 확인된 담당자 매핑을 발행 계약에 남긴다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `skills/tickets` v3.1.0. 발행 계약의 담당자 매핑이 "표를 만들지 않는다"였던 탓에 확인된 매핑이 대화가 끝나면 사라졌고, 발행할 때마다 같은 사람을 다시 물어야 했으며 그 사이 Issue는 assignee 없이 나갔다. 표를 열되 왼쪽 칸을 실명이 아니라 Notion user ID로 두어 보안 규칙 deny-list 1번(실명↔핸들 표)에 걸리지 않게 했다 — user ID는 워크스페이스 밖에서 아무도 가리키지 않는다. 확인된 세 명을 채웠고, 표에 없는 user ID는 여전히 추측하지 않고 물어서 배정한 뒤 표에 한 줄을 더한다. 표시 이름 대신 user ID로 대조하도록 못박았고 `요청자`는 매핑 대상에서 제외했다. 반복해서 걸리던 Notion 조회 함정 넷도 티켓 계약에 적었다.
+- 검증: `bash scripts/check-public-safe.sh --text-only` 통과, `npx prettier --check` 통과, 참조 링크 깨짐 0건. 이 표로 Issue #1038~#1043·#1051~#1053 아홉 건의 assignee를 채우고 `gh issue view`로 재확인했다.
+
+## 2026-08-28 — manage QA 티켓 스킬을 단일 진입점으로 복원한다
+
+- 상태: review
+- Issue: #1055
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `tickets`의 작성·발행·연결·이관·수행 계약을 `manage-qa-tickets` v4.0.0으로 흡수해 단일 repository-local 스킬로 복원했다. frontend 시각·상호작용 변경 PR에는 동일 조건의 실제 Before/After 캡처를 요구하고, PR 템플릿과 Claude·Cursor 링크 및 루트 라우팅을 새 이름으로 맞췄다.
+- 검증: craft-skills `skillify` eval 3건과 trigger 16건, 변경 패키지 skill-format, runtime hygiene, reflow, Prettier, public-safe를 통과했다.
+
+## 2026-08-29 — PR #1047 전체 diff 검토 결과를 반영한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 199개 파일의 exact diff를 전수 검토해 수합 snapshot 일관성, 참여자 cursor 이력, 선택 제출 항목의 공개 판정, 일정 수정 복구, 통합 제출 계약, E2E 검증 범위와 로컬 검토 구현 경계를 바로잡았다.
+- 검증: format, lint, typecheck, backend unit 3429건, frontend unit 3113건, backend integration 461건과 격리 Docker smoke를 통과했다.
+
+## 2026-08-29 — PR #1047 최종 exact diff 범위를 정정한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 앞 항목의 199개 파일은 수정 전 최초 snapshot이었다. 최종 candidate는 base 대비 rename-aware manifest 254개 항목을 254/254 전수 재검토하고 발견한 blocker와 fix-now를 모두 반영했다.
+- 검증: 최종 head와 base는 GitHub PR #1047의 실제 ref에서 다시 읽었고 exact patch, name-status, stat의 해시를 별도 검토 증거로 고정했다.
+
+## 2026-08-29 — PR #1047 인증 보완 뒤 exact diff 범위를 다시 정정한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 앞 정정 뒤 seed 원장 무결성 검증이 추가되면서 최종 rename-aware manifest가 255개 항목이 됐다. 최종 candidate의 255/255 항목을 다시 전수 검토했다.
+- 검증: GitHub의 최종 head·base를 다시 읽고 exact patch, name-status, stat 해시와 required check 결과를 같은 candidate에 묶었다.
+
+## 2026-08-29 — PR #1047 교직원 프로그램 작성 흐름을 확정한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 신청·운영 일정을 한 달력과 일정 입력 모달로 통일하고 기간 중첩을 허용했다. 운영 기간 안에서 마일스톤을 두 번 클릭해 작성하며, 공지·드래그 가능한 첨부파일·필수 제출 여부를 같은 모달에서 관리한다. 최종 검토에도 전체 일정 달력을 표시하고 중복 설명과 과도한 실패 안내를 정리했다.
+- 검증: frontend unit 3165건, backend unit 3448건, backend integration 462건, 프로그램 작성부터 학생 제출·재제출과 교직원 수합까지의 E2E, format, lint, typecheck, migration concurrency, public-safe, 격리 Docker smoke를 통과했다.
+
+## 2026-08-29 — PR #1047 최종 exact diff 지적을 해소한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 일정·마일스톤 모달 골격을 재사용 모듈로 통합하고, DB 경계·업로드 토큰·스토리지 정합성·일정 오류 접근성·작성 한도·기존 임시저장 삭제를 exact diff 검토 결과에 맞게 보강했다.
+- 검증: frontend unit 3176건, backend unit 3452건, backend integration 463건, 프로그램 작성부터 학생 제출·재제출과 교직원 수합까지의 E2E, format, lint, typecheck, migration concurrency, public-safe, 격리 Docker smoke를 통과했다.

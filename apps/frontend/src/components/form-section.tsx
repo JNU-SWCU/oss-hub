@@ -28,8 +28,14 @@ function FormSection({
   return (
     <FieldSet className={cn('gap-6', className)} {...props}>
       {/* 폼 구역의 제목도 화면의 섹션 제목이다 — 크기(24)는 FieldLegend가 정한다 */}
-      <FieldLegend className="font-heading leading-tight">{title}</FieldLegend>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      <FieldLegend className="font-heading leading-tight break-keep text-pretty">
+        {title}
+      </FieldLegend>
+      {description ? (
+        <FieldDescription className="break-keep text-pretty">
+          {description}
+        </FieldDescription>
+      ) : null}
       <FieldGroup>{children}</FieldGroup>
     </FieldSet>
   );

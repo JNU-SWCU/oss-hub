@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   createAuthoringProgram,
@@ -14,14 +13,15 @@ import {
   createInitialProgramAuthoringState,
   programAuthoringReducer,
   type ProgramAuthoringAction,
+  type ProgramAuthoringState,
   type ProgramAuthoringStep,
 } from './program-authoring-model';
 import { ProgramAuthoringShell } from './program-authoring-shell';
 import { ProgramAuthoringStepContent } from './program-authoring-step-content';
 import {
-  clearProgramAuthoringState,
-  loadProgramAuthoringState,
-  persistProgramAuthoringState,
+  clearProgramAuthoringRecoveryKey,
+  loadProgramAuthoringRecoveryKey,
+  persistProgramAuthoringRecoveryKey,
 } from './program-authoring-storage';
 import {
   createProgramSubmissionRuntime,
@@ -34,14 +34,21 @@ import {
 } from './program-authoring-validation';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
-export function ProgramCreationPage() {
-  const [state, dispatch] = useReducer(programAuthoringReducer, undefined, () =>
-    createInitialProgramAuthoringState({
-      idempotencyKey: newAuthoringId(),
-      milestoneId: newAuthoringId(),
-    }),
+export function ProgramCreationPage({
+  initialState,
+}: {
+  readonly initialState?: ProgramAuthoringState;
+}) {
+  const [state, dispatch] = useReducer(
+    programAuthoringReducer,
+    undefined,
+    () =>
+      initialState ??
+      createInitialProgramAuthoringState({
+        idempotencyKey: newAuthoringId(),
+        milestoneId: newAuthoringId(),
+      }),
   );
-  const [hydrated, setHydrated] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [issues, setIssues] = useState<readonly ProgramAuthoringIssue[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -51,8 +58,8 @@ export function ProgramCreationPage() {
   const runtimeRef = useRef(createProgramSubmissionRuntime());
   const stepRegionRef = useRef<HTMLDivElement>(null);
 
-  const discard = () => {
-    clearProgramAuthoringState(window.sessionStorage);
+  const discardUnsavedFiles = () => {
+    clearProgramAuthoringRecoveryKey(window.sessionStorage);
     filesRef.current.clear();
     void Promise.allSettled(
       [...runtimeRef.current.uploads.values()].map((upload) =>
@@ -61,21 +68,33 @@ export function ProgramCreationPage() {
     );
     runtimeRef.current.uploads.clear();
   };
-  const { completeAndNavigate } = useProgramExitGuard(dirty, discard);
+  const { completeAndNavigate } = useProgramExitGuard(
+    dirty,
+    discardUnsavedFiles,
+  );
 
   useEffect(() => {
-    const restored = loadProgramAuthoringState(window.sessionStorage);
-    if (restored !== null) {
-      dispatch({ type: 'restore_state', state: restored });
-      setDirty(true);
+    const idempotencyKey = loadProgramAuthoringRecoveryKey(
+      window.sessionStorage,
+    );
+    if (idempotencyKey !== null) {
+      dispatch({ type: 'rotate_idempotency_key', key: idempotencyKey });
     }
-    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !dirty) return;
-    persistProgramAuthoringState(window.sessionStorage, state);
-  }, [dirty, hydrated, state]);
+    if (issues.length === 0) return;
+    const firstInvalidField =
+      stepRegionRef.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]:not(:disabled)',
+      ) ?? null;
+    if (firstInvalidField === null) {
+      stepRegionRef.current?.focus();
+      return;
+    }
+    firstInvalidField.focus({ preventScroll: true });
+    firstInvalidField.scrollIntoView?.({ block: 'center' });
+  }, [issues, state.currentStep]);
 
   const update = (action: ProgramAuthoringAction) => {
     setDirty(true);
@@ -90,11 +109,15 @@ export function ProgramCreationPage() {
     window.requestAnimationFrame(() => stepRegionRef.current?.focus());
   };
 
-  const move = (direction: -1 | 1) => {
+  const targetStep = (direction: -1 | 1): ProgramAuthoringStep | undefined => {
     const index = PROGRAM_AUTHORING_STEPS.findIndex(
       (step) => step.id === state.currentStep,
     );
-    const target = PROGRAM_AUTHORING_STEPS[index + direction]?.id;
+    return PROGRAM_AUTHORING_STEPS[index + direction]?.id;
+  };
+
+  const move = (direction: -1 | 1) => {
+    const target = targetStep(direction);
     if (target !== undefined) navigate(target);
   };
 
@@ -104,7 +127,9 @@ export function ProgramCreationPage() {
       setIssues(nextIssues);
       return;
     }
-    move(1);
+    const target = targetStep(1);
+    if (target === undefined) return;
+    navigate(target);
   };
 
   const review = () => {
@@ -114,7 +139,6 @@ export function ProgramCreationPage() {
       const first = nextIssues[0];
       if (first !== undefined) {
         dispatch({ type: 'go_to_step', step: first.step });
-        window.requestAnimationFrame(() => stepRegionRef.current?.focus());
       }
       return;
     }
@@ -139,7 +163,7 @@ export function ProgramCreationPage() {
       case 'ignored':
         return;
       case 'success':
-        clearProgramAuthoringState(window.sessionStorage);
+        clearProgramAuthoringRecoveryKey(window.sessionStorage);
         filesRef.current.clear();
         runtimeRef.current.uploads.clear();
         setDirty(false);
@@ -149,10 +173,17 @@ export function ProgramCreationPage() {
         );
         return;
       case 'conflict':
-        dispatch({ type: 'rotate_idempotency_key', key: newAuthoringId() });
+        {
+          const idempotencyKey = newAuthoringId();
+          dispatch({ type: 'rotate_idempotency_key', key: idempotencyKey });
+          persistProgramAuthoringRecoveryKey(
+            window.sessionStorage,
+            idempotencyKey,
+          );
+        }
         setConfirmationOpen(false);
         setServerError(
-          '이 생성 요청은 이전 내용과 충돌했습니다. 입력 내용은 유지되었습니다. 다시 확인한 뒤 생성해 주세요.',
+          '이전 생성 요청과 내용이 충돌했습니다. 다시 확인해 주세요.',
         );
         return;
       case 'failure':
@@ -174,18 +205,6 @@ export function ProgramCreationPage() {
         tabIndex={-1}
         className="grid gap-8 outline-none"
       >
-        {serverError ? (
-          <Alert variant="destructive">
-            <AlertTitle>생성 실패</AlertTitle>
-            <AlertDescription>{serverError}</AlertDescription>
-          </Alert>
-        ) : null}
-        {issues.length > 0 ? (
-          <Alert variant="destructive">
-            <AlertTitle>입력 내용을 확인해 주세요</AlertTitle>
-            <AlertDescription>{issues[0]?.message}</AlertDescription>
-          </Alert>
-        ) : null}
         <ProgramAuthoringStepContent
           step={state.currentStep}
           state={state}
@@ -196,6 +215,14 @@ export function ProgramCreationPage() {
           newId={newAuthoringId}
         />
         <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
+          {serverError ? (
+            <p
+              role="alert"
+              className="mr-auto self-center text-small text-destructive break-keep"
+            >
+              {serverError}
+            </p>
+          ) : null}
           {state.currentStep !== 'type' ? (
             <Button type="button" variant="outline" onClick={() => move(-1)}>
               이전
@@ -207,7 +234,7 @@ export function ProgramCreationPage() {
             </Button>
           ) : (
             <Button type="button" onClick={next}>
-              다음
+              계속
             </Button>
           )}
         </div>

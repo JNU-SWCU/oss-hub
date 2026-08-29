@@ -1,5 +1,4 @@
 import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import { MilestoneSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import {
   type MilestoneDocumentSubmittedContent,
@@ -39,7 +38,6 @@ export interface MilestoneDocumentCollectionDocumentResponseDto {
   readonly name: string;
   readonly isRequired: boolean;
   readonly sortOrder: number;
-  readonly submissionType: MilestoneSubmissionType;
 }
 
 export interface MilestoneDocumentCollectionFileResponseDto {
@@ -180,7 +178,6 @@ export class MilestoneDocumentCollectionResponseDto {
       name: document.name,
       isRequired: document.required,
       sortOrder: document.sortOrder,
-      submissionType: document.submissionType,
     }));
     this.documentTotals = collection.documentTotals;
     this.filterCounts = collection.filterCounts;
@@ -231,15 +228,13 @@ function toCell(
       review: null,
     };
   }
-  // file은 FILE 유형에만 붙는다 — TEXT 제출은 첨부 없이 content만 갖는다.
   const file =
-    document.submissionType === MilestoneSubmissionType.FILE &&
-    submission.file !== null
-      ? {
+    submission.file === null
+      ? null
+      : {
           name: submission.file.originalFileName,
           sizeBytes: submission.file.sizeBytes,
-        }
-      : null;
+        };
   return {
     documentId: document.id,
     isSubmitted: true,
