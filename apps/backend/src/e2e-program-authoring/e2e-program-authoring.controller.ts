@@ -74,6 +74,17 @@ export class E2eProgramAuthoringController {
     return await this.execute(() => this.service.preview());
   }
 
+  @Post('send')
+  async send(@Req() request: Request, @Body() body: unknown): Promise<void> {
+    this.requireLoopback(request);
+    await this.execute(() =>
+      this.service.send(
+        textField(body, 'previewedAt'),
+        textField(body, 'previewVersion'),
+      ),
+    );
+  }
+
   @Post('failures')
   @HttpCode(204)
   async failure(@Req() request: Request, @Body() body: unknown): Promise<void> {

@@ -173,7 +173,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       201,
     );
     const beforeSubmissionResponse = await staffPage.request.post(
-      `/api/v1/programs/${encodeURIComponent(programId)}/deadline-digest/preview`,
+      `${controlPath}/preview`,
       { headers: originHeaders() },
     );
     await expectApiStatus(beforeSubmissionResponse, 201);
@@ -275,7 +275,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await expect(studentHistoryEntries.nth(1)).toContainText('current-v2.pdf');
 
     const afterSubmissionResponse = await staffPage.request.post(
-      `/api/v1/programs/${encodeURIComponent(programId)}/deadline-digest/preview`,
+      `${controlPath}/preview`,
       { headers: originHeaders() },
     );
     await expectApiStatus(afterSubmissionResponse, 201);
@@ -289,26 +289,21 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await submitProgramApplication(foreignStudentPage, programId, 'own');
 
     const previewResponse = await staffPage.request.post(
-      `/api/v1/programs/${encodeURIComponent(programId)}/deadline-digest/preview`,
+      `${controlPath}/preview`,
       { headers: originHeaders() },
     );
     await expectApiStatus(previewResponse, 201);
     const preview = parseDeadlinePreview(await previewResponse.json());
     await expectApiStatus(
-      await staffPage.request.post(
-        `/api/v1/programs/${encodeURIComponent(programId)}/deadline-digest/send`,
-        {
-          // send DTO는 previewedAt/previewVersion만 화이트리스트한다(전역
-          // ValidationPipe가 forbidNonWhitelisted) — preview 객체 전체를
-          // 그대로 넘기면 applicationCount 등 나머지 필드가 400 SYS_003으로
-          // 걸린다.
-          data: {
-            previewedAt: preview.previewedAt,
-            previewVersion: preview.previewVersion,
-          },
-          headers: originHeaders(),
+      await staffPage.request.post(`${controlPath}/send`, {
+        // 테스트 전용 제어 포트도 운영 send DTO와 같은 두 필드만 받아서
+        // preview/send를 동일한 E2E 시각으로 검증한다.
+        data: {
+          previewedAt: preview.previewedAt,
+          previewVersion: preview.previewVersion,
         },
-      ),
+        headers: originHeaders(),
+      }),
       201,
     );
 

@@ -52,6 +52,7 @@ function adapter(): jest.Mocked<E2eProgramAuthoringPort> {
     }),
     stateFor: jest.fn().mockResolvedValue(state),
     preview: jest.fn().mockResolvedValue(preview),
+    send: jest.fn().mockResolvedValue(undefined),
     createApplication: jest.fn().mockResolvedValue(undefined),
     approveAndRun: jest.fn().mockResolvedValue(undefined),
     configureFailure: jest.fn(),
@@ -89,6 +90,22 @@ describe('E2eProgramAuthoringService', () => {
 
     await expect(service.preview()).resolves.toBe(preview);
     expect(port.preview.mock.calls).toEqual([[]]);
+  });
+
+  it('sends the accepted preview through the same frozen control adapter', async () => {
+    const port = adapter();
+    const service = new E2eProgramAuthoringService(port);
+
+    await service.send(preview.previewedAt, preview.previewVersion);
+
+    expect(port.send.mock.calls).toEqual([
+      [
+        {
+          previewedAt: preview.previewedAt,
+          previewVersion: preview.previewVersion,
+        },
+      ],
+    ]);
   });
 
   it('binds an adopted UI-created graph to the authenticated author', async () => {

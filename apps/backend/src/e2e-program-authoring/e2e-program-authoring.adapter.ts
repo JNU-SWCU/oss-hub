@@ -4,7 +4,10 @@ import { ApplicationsService } from '../applications/applications.service';
 import { MilestoneDocumentCurrentFileService } from '../milestone-documents/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
 import { MilestoneDocumentsService } from '../milestone-documents/milestone-documents.service';
-import { DeadlineDigestService } from '../notifications/deadline-digest.service';
+import {
+  DeadlineDigestService,
+  type DeadlineDigestSendRequest,
+} from '../notifications/deadline-digest.service';
 import { ProgramAuthoringService } from '../programs/program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../programs/program-authoring-upload.service';
@@ -108,6 +111,16 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       this.fixtures.graph().programId,
       E2E_NOW,
     );
+  }
+
+  async send(preview: DeadlineDigestSendRequest): Promise<void> {
+    const result = await this.deadlines.sendProgramFromPreview(
+      E2E_STAFF_GITHUB_ID,
+      this.fixtures.graph().programId,
+      preview,
+      E2E_NOW,
+    );
+    if (result.failedCount > 0) throw new E2eAdapterError(409);
   }
 
   async createApplication(mode: 'NEW' | 'OWN'): Promise<void> {
