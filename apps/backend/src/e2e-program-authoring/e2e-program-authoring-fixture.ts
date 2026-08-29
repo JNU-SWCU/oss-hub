@@ -303,6 +303,19 @@ export class E2eProgramAuthoringFixture {
       authorGithubId,
       PREFIX,
     );
+    await this.prisma.user.updateMany({
+      where: { hasStaffAccess: true },
+      data: { notifyEnabled: false },
+    });
+    const author = await this.prisma.user.updateMany({
+      where: { githubId: authorGithubId, hasStaffAccess: true },
+      data: {
+        notificationEmail: 'e2e-program-authoring-author@fixture.invalid',
+        notifyEnabled: true,
+      },
+    });
+    if (author.count !== 1)
+      throw new Error('The adopted E2E author must be one active staff user.');
     this.activeGraph = graph;
     return graph;
   }

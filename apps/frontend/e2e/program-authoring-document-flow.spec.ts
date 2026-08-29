@@ -153,6 +153,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     expect(creationResponse.ok()).toBe(true);
     await expect(authorPage).toHaveURL(
       (url) => programIdFromDetailUrl(url.href) !== null,
+      { timeout: 30_000 },
     );
     const programId = programIdFromDetailUrl(authorPage.url());
     if (programId === null) {
@@ -291,6 +292,15 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       await controlPage.request.post(`${controlPath}/approve`),
       201,
     );
+    const beforeFinalDigestResponse = await controlPage.request.get(
+      `${controlPath}/state/${encodeURIComponent(programId)}`,
+    );
+    await expectApiStatus(beforeFinalDigestResponse, 200);
+    const beforeFinalDigest = toStateCounts(
+      await beforeFinalDigestResponse.json(),
+    );
+    expect(beforeFinalDigest.dryRunEnvelopes).toBe(2);
+    expect(beforeFinalDigest.mailContentHashes).toHaveLength(2);
 
     const previewResponse = await staffPage.request.post(
       `${controlPath}/preview`,
@@ -409,14 +419,19 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     );
     await expectApiStatus(stateResponse, 200);
     const state = toStateCounts(await stateResponse.json());
-    // 봉투 4통 — approve-and-run 때 첫 학생 리마인드 1통, 외부 학생의 OWN 저장소
-    // 준비 알림 1통, 뒤의 수동 발송에서 외부 학생 리마인드 1통 + 교직원 미제출 팀
-    // 요약 1통(#886)이다.
+    // 합성 교직원 수신자를 한 명으로 고정했다. approve-and-run의 학생+교직원
+    // 2통 뒤 최종 발송에서는 외부 학생 1통만 늘어난다. 같은 E2E 시각의 교직원
+    // 요약은 idempotency key가 같아 중복 발송되지 않음을 전후 상태로 증명한다.
     // 이 시나리오의 교직원은 활성·수신 동의·알림 이메일을 모두 갖춰 수신 대상이다.
     // 상태 집계의 documents는 프로그램 전체를 센다. 안내용 마일스톤의 제출 항목이
     // 빠지면 이 값이 1이 되어 전체 작성 그래프 증명이 실패한다. graph의 한 필수
     // 마일스톤 식별자는 아래 수합·다운로드 검증에서 계속 사용한다.
-    expectCleanState(state, 2, 2, 2, 4, 2, 2);
+    expectCleanState(state, 2, 2, 2, 3, 2, 2);
+    expect(state.dryRunEnvelopes - beforeFinalDigest.dryRunEnvelopes).toBe(1);
+    expect(
+      state.mailContentHashes.length -
+        beforeFinalDigest.mailContentHashes.length,
+    ).toBe(1);
     expect(state.storageContentHashes).toContain(template.sha256);
     expect(state.storageContentHashes).toContain(individual.sha256);
     await writeArtifact('sql-counts.json', { graph, ...state });

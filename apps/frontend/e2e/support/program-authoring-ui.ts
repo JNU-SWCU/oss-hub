@@ -197,9 +197,16 @@ async function selectCalendarDate(
       await target.click();
       return;
     }
-    const next = calendar.getByRole('button', { name: '다음 달' });
-    await expect(next).toBeEnabled();
-    await next.click();
+    const heading = await calendar.locator('strong').first().textContent();
+    const match = /^(\d{4})년 (\d{1,2})월$/u.exec(heading?.trim() ?? '');
+    if (match === null)
+      throw new Error(`Calendar month heading is invalid: ${heading ?? ''}.`);
+    const currentMonth = `${match[1]}-${match[2]?.padStart(2, '0')}`;
+    const targetMonth = date.slice(0, 7);
+    const direction = currentMonth > targetMonth ? '이전 달' : '다음 달';
+    const navigation = calendar.getByRole('button', { name: direction });
+    await expect(navigation).toBeEnabled();
+    await navigation.click();
   }
   throw new Error(`Calendar did not reach ${date}.`);
 }
