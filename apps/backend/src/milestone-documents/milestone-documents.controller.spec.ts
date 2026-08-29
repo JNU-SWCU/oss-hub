@@ -37,7 +37,6 @@ const listForViewer = jest.fn().mockResolvedValue([
     name: '개인정보 수집·이용 동의서',
     required: true,
     sortOrder: 1,
-    submissionType: 'FILE',
     hasTemplateFile: true,
     viewerSubmission: {
       submitted: true,
@@ -51,7 +50,6 @@ const createDocument = jest.fn().mockResolvedValue({
   name: '새 서류',
   required: true,
   sortOrder: 2,
-  submissionType: 'TEXT',
   hasTemplateFile: false,
 });
 const updateDocument = jest.fn().mockResolvedValue({
@@ -60,7 +58,6 @@ const updateDocument = jest.fn().mockResolvedValue({
   name: '수정된 이름',
   required: false,
   sortOrder: 1,
-  submissionType: 'FILE',
   hasTemplateFile: true,
 });
 const deleteDocument = jest.fn().mockResolvedValue(undefined);
@@ -71,7 +68,6 @@ const reorderDocuments = jest.fn().mockResolvedValue([
     name: '팀 활동 보고',
     required: false,
     sortOrder: 1,
-    submissionType: 'TEXT',
     hasTemplateFile: false,
   },
   {
@@ -80,7 +76,6 @@ const reorderDocuments = jest.fn().mockResolvedValue([
     name: '개인정보 수집·이용 동의서',
     required: true,
     sortOrder: 2,
-    submissionType: 'FILE',
     hasTemplateFile: true,
   },
 ]);
@@ -97,7 +92,6 @@ const collectForStaff = jest.fn().mockResolvedValue({
       name: '개인정보 수집·이용 동의서',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
     },
   ],
   rows: [
@@ -302,7 +296,6 @@ it('교직원 서류 항목 추가는 201로 끝나고 서비스에 정규화된
     name: '  새 서류  ',
     required: true,
     sortOrder: 2,
-    submissionType: 'TEXT',
   };
 
   // When
@@ -324,12 +317,48 @@ it('교직원 서류 항목 추가는 201로 끝나고 서비스에 정규화된
     name: '새 서류',
     required: true,
     sortOrder: 2,
-    submissionType: 'TEXT',
   });
 });
 
+it('공백만 있는 서류 이름은 정규화 뒤 서비스 호출 전에 거절한다', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: '   ',
+        required: true,
+        sortOrder: 2,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(400);
+  expect(createDocument).not.toHaveBeenCalled();
+});
+
+it('새 서류 항목 요청에 알 수 없는 속성을 넣으면 400으로 거절한다', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: '새 서류',
+        required: true,
+        sortOrder: 2,
+        unexpectedField: 'unexpected',
+      }),
+    },
+  );
+
+  expect(response.status).toBe(400);
+  expect(createDocument).not.toHaveBeenCalled();
+});
+
 it('필수 필드가 빠진 서류 항목 생성 요청은 서비스 호출 전에 400으로 거절한다', async () => {
-  // Given: sortOrder/submissionType이 빠졌다.
+  // Given: sortOrder가 빠졌다.
   const body = { name: '새 서류', required: true };
 
   // When
@@ -353,7 +382,6 @@ it('교직원 서류 항목 수정은 200으로 끝난다', async () => {
     name: '수정된 이름',
     required: false,
     sortOrder: 1,
-    submissionType: 'FILE',
   };
 
   // When
@@ -453,9 +481,9 @@ it('documentIds가 문자열 배열이 아니면 서비스 호출 전에 400으�
   expect(reorderDocuments).not.toHaveBeenCalled();
 });
 
-it('학생 서류 제출은 201로 끝나고 content를 서비스에 전달한다', async () => {
+it('학생 서류 제출은 내용과 파일을 함께 서비스에 전달한다', async () => {
   // Given
-  const body = { content: { type: 'TEXT', text: '본문' } };
+  const body = { content: { text: '본문', fileId: 'synthetic-file' } };
 
   // When
   const response = await fetch(
@@ -476,11 +504,11 @@ it('학생 서류 제출은 201로 끝나고 content를 서비스에 전달한�
     SESSION_GITHUB_ID,
     'synthetic-milestone',
     'synthetic-document',
-    { type: 'TEXT', text: '본문' },
+    { text: '본문', fileId: 'synthetic-file' },
   );
 });
 
-it('content 타입이 누락된 제출은 서비스 호출 전에 400으로 거절한다', async () => {
+it('내용만 있는 제출도 서비스에 전달한다', async () => {
   // Given
   const body = { content: { text: '본문' } };
 
@@ -495,7 +523,26 @@ it('content 타입이 누락된 제출은 서비스 호출 전에 400으로 거�
   );
 
   // Then
-  expect(response.status).toBe(400);
+  expect(response.status).toBe(201);
+  expect(submit).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-milestone',
+    'synthetic-document',
+    { text: '본문', fileId: null },
+  );
+});
+
+it('내용과 파일이 모두 비어 있으면 서비스 호출 전에 422로 거절한다', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/submissions`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: { text: '  ', fileId: '  ' } }),
+    },
+  );
+
+  expect(response.status).toBe(422);
   expect(submit).not.toHaveBeenCalled();
 });
 

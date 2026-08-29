@@ -493,11 +493,14 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
 });
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
+const ZERO_SCOPE_FINGERPRINT = '00000000000000000000000000000000';
 const ZERO_SCOPE_COUNTS: ProgramDeletionScopeCounts = {
   applications: 0,
   teams: 0,
   boardPosts: 0,
   submissions: 0,
+  submissionEvents: 0,
+  scopeFingerprint: ZERO_SCOPE_FINGERPRINT,
 };
 
 function createPurgeService(
@@ -544,6 +547,8 @@ function createPurgeService(
       teams: BigInt(freshScopeCounts.teams),
       boardPosts: BigInt(freshScopeCounts.boardPosts),
       submissions: BigInt(freshScopeCounts.submissions),
+      submissionEvents: BigInt(freshScopeCounts.submissionEvents),
+      scopeFingerprint: freshScopeCounts.scopeFingerprint,
     },
   ]);
 
@@ -560,6 +565,12 @@ function createPurgeService(
         return currentScopeCounts.boardPosts;
       case 'submissions':
         return currentScopeCounts.submissions;
+      case 'submissionRevisions':
+      case 'reviews':
+      case 'submissionFiles':
+      case 'milestoneDocumentSubmissionHistories':
+      case 'milestoneDocumentReviewHistories':
+        return 0;
       default:
         return fallback;
     }
@@ -609,8 +620,12 @@ function createPurgeService(
   const milestoneDocumentReviewHistoryDeleteMany = countMany(
     'milestoneDocumentReviewHistories',
   );
+  const milestoneDocumentSubmissionHistoryDeleteMany = countMany(
+    'milestoneDocumentSubmissionHistories',
+  );
   const milestoneDocumentSubmissionDeleteMany = countMany(
     'milestoneDocumentSubmissions',
+    0,
   );
   const milestoneDocumentTemplateFileDeleteMany = countMany(
     'milestoneDocumentTemplateFiles',
@@ -660,6 +675,9 @@ function createPurgeService(
     submission: { deleteMany: submissionDeleteMany },
     milestoneDocumentReviewHistory: {
       deleteMany: milestoneDocumentReviewHistoryDeleteMany,
+    },
+    milestoneDocumentSubmissionHistory: {
+      deleteMany: milestoneDocumentSubmissionHistoryDeleteMany,
     },
     milestoneDocumentSubmission: {
       deleteMany: milestoneDocumentSubmissionDeleteMany,
@@ -713,6 +731,7 @@ function createPurgeService(
     submissionRevisionDeleteMany,
     submissionDeleteMany,
     milestoneDocumentReviewHistoryDeleteMany,
+    milestoneDocumentSubmissionHistoryDeleteMany,
     milestoneDocumentSubmissionDeleteMany,
     milestoneDocumentTemplateFileDeleteMany,
     milestoneDocumentDeleteMany,
@@ -745,6 +764,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       submissionRevisionDeleteMany,
       submissionDeleteMany,
       milestoneDocumentReviewHistoryDeleteMany,
+      milestoneDocumentSubmissionHistoryDeleteMany,
       milestoneDocumentSubmissionDeleteMany,
       milestoneDocumentTemplateFileDeleteMany,
       milestoneDocumentDeleteMany,
@@ -828,12 +848,30 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     expect(submissionFileUpdateMany).toHaveBeenCalledTimes(1);
     expect(submissionFileUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: {
+          OR: [
+            { application: { is: { programId: 'program-1' } } },
+            { milestone: { is: { programId: 'program-1' } } },
+            {
+              submissionHistory: {
+                is: {
+                  submission: {
+                    milestoneDocument: {
+                      milestone: { programId: 'program-1' },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
         data: expect.objectContaining({
           lifecycle: 'DELETE_PENDING',
           applicationId: null,
           milestoneId: null,
           submissionRevisionId: null,
           milestoneDocumentSubmissionId: null,
+          milestoneDocumentSubmissionHistoryId: null,
         }) as unknown,
       }) as unknown,
     );
@@ -870,6 +908,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       submissionRevisionDeleteMany,
       submissionDeleteMany,
       milestoneDocumentReviewHistoryDeleteMany,
+      milestoneDocumentSubmissionHistoryDeleteMany,
       milestoneDocumentSubmissionDeleteMany,
       milestoneDocumentTemplateFileDeleteMany,
       milestoneDocumentDeleteMany,
@@ -1040,6 +1079,8 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
         teams: 0,
         boardPosts: 0,
         submissions: 0,
+        submissionEvents: 0,
+        scopeFingerprint: '11111111111111111111111111111111',
       },
     });
 
@@ -1054,6 +1095,8 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
           teams: 0,
           boardPosts: 0,
           submissions: 0,
+          submissionEvents: 0,
+          scopeFingerprint: '11111111111111111111111111111111',
         },
       },
     });
@@ -1072,6 +1115,8 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
         teams: 1,
         boardPosts: 0,
         submissions: 3,
+        submissionEvents: 0,
+        scopeFingerprint: '22222222222222222222222222222222',
       },
     });
 
@@ -1080,10 +1125,37 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       teams: 1,
       boardPosts: 0,
       submissions: 3,
+      submissionEvents: 0,
+      scopeFingerprint: '22222222222222222222222222222222',
     });
 
     expect(result).toMatchObject({ id: 'program-1', deleted: true });
     expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+  });
+
+  it('삭제 결과의 제출물 수도 기존 제출과 신규 제출 항목 제출의 합계다', async () => {
+    const { service } = createPurgeService({
+      currentScopeCounts: {
+        applications: 0,
+        teams: 0,
+        boardPosts: 0,
+        submissions: 3,
+        submissionEvents: 0,
+        scopeFingerprint: '33333333333333333333333333333333',
+      },
+      counts: { submissions: 1, milestoneDocumentSubmissions: 2 },
+    });
+
+    const result = await service.purge(1001n, 'program-1', {
+      applications: 0,
+      teams: 0,
+      boardPosts: 0,
+      submissions: 3,
+      submissionEvents: 0,
+      scopeFingerprint: '33333333333333333333333333333333',
+    });
+
+    expect(result.deletedCounts.submissions).toBe(3);
   });
 
   // 단위 테스트로 "비교가 트랜잭션 밖에서 일어나지 않는다"는 것을 직접 증명하기는 어렵지만

@@ -47,6 +47,10 @@ export class E2eProgramAuthoringService {
     return this.adapter.preview();
   }
 
+  async send(previewedAt: string, previewVersion: string): Promise<void> {
+    await this.adapter.send({ previewedAt, previewVersion });
+  }
+
   async application(mode: string): Promise<void> {
     if (mode !== 'NEW' && mode !== 'OWN') throw new E2eControlError(400);
     await this.adapter.createApplication(mode);
@@ -54,6 +58,10 @@ export class E2eProgramAuthoringService {
 
   async approveAndRun(): Promise<void> {
     await this.adapter.approveAndRun();
+  }
+
+  async approve(): Promise<void> {
+    await this.adapter.approve();
   }
 
   failure(kind: string, count: unknown): void {

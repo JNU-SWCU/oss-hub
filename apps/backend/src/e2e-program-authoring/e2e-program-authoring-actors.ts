@@ -22,6 +22,8 @@ export async function ensureE2eProgramAuthoringActors(
         id: actors.staffId,
         githubId: actors.staffGithubId,
         nickname: 'e2e-program-authoring-staff',
+        notificationEmail: 'e2e-program-authoring-staff@fixture.invalid',
+        notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
         selectedMemberKind: MemberKind.STAFF,
         hasStaffAccess: true,
@@ -38,6 +40,8 @@ export async function ensureE2eProgramAuthoringActors(
       },
       update: {
         nickname: 'e2e-program-authoring-staff',
+        notificationEmail: 'e2e-program-authoring-staff@fixture.invalid',
+        notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
         selectedMemberKind: MemberKind.STAFF,
         hasStaffAccess: true,

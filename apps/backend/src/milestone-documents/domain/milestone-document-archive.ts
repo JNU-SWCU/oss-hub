@@ -10,7 +10,7 @@
  * ⚠ **수합 표와 달리 페이지를 자르지 않는다.** 이 기능의 요구 자체가 「전체를 한 번에」다 —
  * 화면의 빠른 필터·페이지는 보는 사람의 편의이고, 받아서 보관하는 쪽은 전체가 필요하다.
  */
-import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import {
   milestoneDocumentArchiveFolderName,
   milestoneDocumentDownloadFileName,
@@ -51,7 +51,6 @@ export interface MilestoneDocumentArchiveDocument {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
-  readonly submissionType: MilestoneSubmissionType;
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. 팀 이름 asc → id asc로 받는다. */
@@ -70,6 +69,11 @@ export interface MilestoneDocumentArchiveSubmission {
   readonly status: SubmissionStatus;
   /** `MilestoneDocumentSubmission.content` 원문. 해석은 이 모듈이 도메인 파서로 한다. */
   readonly content: unknown;
+  /**
+   * 현재 제출 revision에 파일이 있었는지. `file`은 실제로 ZIP에 읽어 넣을 수 있는
+   * ATTACHED·미만료 파일만 담으므로, 만료·삭제된 파일 제출도 이 증거는 `true`다.
+   */
+  readonly hasCurrentFileEvidence: boolean;
   readonly file: {
     readonly storageKey: string;
     readonly originalFileName: string;
@@ -134,14 +138,21 @@ export type MilestoneDocumentArchiveOmission =
    */
   | 'FILE_UNAVAILABLE'
   /** 글 제출인데 본문을 읽을 수 없다(계약상 없어야 하는 상태). */
-  | 'CONTENT_UNAVAILABLE';
+  | 'CONTENT_UNAVAILABLE'
+  /** 글과 현재 revision 파일의 존재 증거가 모두 있지만 어느 쪽도 담을 수 없다. */
+  | 'CONTENT_AND_FILE_UNAVAILABLE'
+  /** 통합 제출에서 원래 파일·글 중 무엇이 있었는지 더는 증명할 수 없다. */
+  | 'SUBMISSION_UNAVAILABLE';
 
 /** 현황표의 한 칸 — (팀, 서류) 하나. 미제출도 칸이 비지 않는다. */
 export interface MilestoneDocumentArchiveCell {
   readonly documentId: string;
   readonly state: MilestoneDocumentArchiveCellState;
   readonly submittedAt: Date | null;
-  /** ZIP 안 경로. 담기지 않았으면 `null`. */
+  /**
+   * ZIP 안 경로. 일부를 담을 수 없으면 경로 뒤에 공용 안전 문구를 함께 적는다.
+   * `omission`은 기계가 읽는 원인이고, 이 값은 동봉 CSV가 그대로 쓰는 표시값이다.
+   */
   readonly path: string | null;
   readonly omission: MilestoneDocumentArchiveOmission | null;
 }
@@ -223,31 +234,35 @@ export function buildMilestoneDocumentArchivePlan(
       }
 
       const state = submittedState(submission.status);
-      const entry = buildEntry({ team, document, submission, layout });
-      if (entry === null) {
+      const cellEntries = buildEntries({ team, document, submission, layout });
+      const omission = archiveOmission(submission);
+      if (cellEntries.length === 0) {
         return {
           documentId: document.id,
           state,
           submittedAt: submission.submittedAt,
           path: null,
-          omission:
-            document.submissionType === MilestoneSubmissionType.FILE
-              ? ('FILE_UNAVAILABLE' as const)
-              : ('CONTENT_UNAVAILABLE' as const),
+          omission: omission ?? ('SUBMISSION_UNAVAILABLE' as const),
         };
       }
 
-      const path = uniquePath(entry.path, takenPaths);
-      const placed = { ...entry, path };
-      entries.push(placed);
-      if (placed.kind === 'STORED_FILE') storedBytes += placed.sizeBytes;
-      else inlineBytes += Buffer.byteLength(placed.body, 'utf8');
+      const paths = cellEntries.map((entry) => {
+        const path = uniquePath(entry.path, takenPaths);
+        const placed = { ...entry, path };
+        entries.push(placed);
+        if (placed.kind === 'STORED_FILE') storedBytes += placed.sizeBytes;
+        else inlineBytes += Buffer.byteLength(placed.body, 'utf8');
+        return path;
+      });
       return {
         documentId: document.id,
         state,
         submittedAt: submission.submittedAt,
-        path,
-        omission: null,
+        path:
+          omission === null
+            ? paths.join(' · ')
+            : `${paths.join(' · ')} · ${archiveOmissionLabel(omission)}`,
+        omission,
       };
     }),
   }));
@@ -271,19 +286,58 @@ function submittedState(
 }
 
 /**
+ * 제출 행이 두 구성 요소를 함께 가질 수 있으므로, ZIP에 하나를 넣었다고 다른 하나가
+ * 온전했다는 뜻은 아니다. 파일 존재 증거는 조회가 보관하고, 글 존재 증거는 저장된 JSON이
+ * 보관한다 — 사라진 `submissionType`을 되살려 추측하지 않는다.
+ */
+function archiveOmission(
+  submission: MilestoneDocumentArchiveSubmission,
+): MilestoneDocumentArchiveOmission | null {
+  const contentUnavailable =
+    submission.content !== null &&
+    readMilestoneDocumentSubmittedContent(submission.content) === null;
+  const fileUnavailable =
+    submission.hasCurrentFileEvidence && submission.file === null;
+  if (contentUnavailable && fileUnavailable)
+    return 'CONTENT_AND_FILE_UNAVAILABLE';
+  if (contentUnavailable) return 'CONTENT_UNAVAILABLE';
+  if (fileUnavailable) return 'FILE_UNAVAILABLE';
+  return null;
+}
+
+/**
+ * `milestone-document-archive-manifest-csv.ts`의 공개 CSV 문구와 반드시 같다. CSV 생성기는
+ * `path`가 있을 때 `omission`을 별도 칸에 쓰지 않으므로, 일부 누락은 이 표시값 안에 남겨야
+ * 실제 ZIP 경로와 경고가 동시에 보인다.
+ */
+function archiveOmissionLabel(
+  omission: MilestoneDocumentArchiveOmission,
+): string {
+  switch (omission) {
+    case 'FILE_UNAVAILABLE':
+      return '(첨부를 가져올 수 없음)';
+    case 'CONTENT_UNAVAILABLE':
+      return '(내용 없음)';
+    case 'CONTENT_AND_FILE_UNAVAILABLE':
+      return '(내용 없음 · 첨부를 가져올 수 없음)';
+    case 'SUBMISSION_UNAVAILABLE':
+      return '(제출 내용을 가져올 수 없음)';
+  }
+}
+
+/**
  * 이 (팀, 서류) 칸을 ZIP에 담을 수 있는가, 담는다면 무엇으로.
  *
  * **저장된 값이 스스로 무엇인지 말하는 것을 따른다** — 파일 첨부가 살아 있으면 파일,
- * 아니면 글 본문. 서류 항목의 `submissionType`을 근거로 삼지 않는 이유는
- * `milestone-document-content.ts`에 적힌 것과 같다(둘이 어긋나는 날, 실제로 낸 것이 아닌
- * 것을 담게 된다).
+ * 글 본문을 읽을 수 있으면 글도 담는다. 서류 정의가 아니라 실제 제출 증거만 따르므로,
+ * 서로 어긋나는 날에도 실제로 낸 것이 아닌 것을 담지 않는다.
  */
-function buildEntry(input: {
+function buildEntries(input: {
   readonly team: MilestoneDocumentArchiveTeam;
   readonly document: MilestoneDocumentArchiveDocument;
   readonly submission: MilestoneDocumentArchiveSubmission;
   readonly layout: MilestoneDocumentArchiveLayout;
-}): MilestoneDocumentArchiveEntry | null {
+}): readonly MilestoneDocumentArchiveEntry[] {
   const { team, document, submission, layout } = input;
   // `FLAT` 은 폴더가 없다 — 앞에 붙일 것이 없으니 빈 접두사가 된다.
   const prefix =
@@ -291,32 +345,35 @@ function buildEntry(input: {
       ? ''
       : `${archiveFolderPath(layout === 'TEAM' ? team.teamName : document.name)}/`;
 
+  const entries: MilestoneDocumentArchiveEntry[] = [];
   if (submission.file !== null) {
     const fileName = milestoneDocumentDownloadFileName({
       teamName: team.teamName,
       documentName: document.name,
       originalFileName: submission.file.originalFileName,
     });
-    return {
+    entries.push({
       kind: 'STORED_FILE',
       path: `${prefix}${fileName}`,
       modifiedAt: submission.submittedAt,
       storageKey: submission.file.storageKey,
       sizeBytes: submission.file.sizeBytes,
-    };
+    });
   }
 
   const content = readMilestoneDocumentSubmittedContent(submission.content);
-  if (content === null) return null;
-  return {
-    kind: 'INLINE_TEXT',
-    path: `${prefix}${milestoneDocumentTextEntryFileName({
-      teamName: team.teamName,
-      documentName: document.name,
-    })}`,
-    modifiedAt: submission.submittedAt,
-    body: content.text,
-  };
+  if (content !== null) {
+    entries.push({
+      kind: 'INLINE_TEXT',
+      path: `${prefix}${milestoneDocumentTextEntryFileName({
+        teamName: team.teamName,
+        documentName: document.name,
+      })}`,
+      modifiedAt: submission.submittedAt,
+      body: content.text,
+    });
+  }
+  return entries;
 }
 
 /**

@@ -344,7 +344,8 @@ export interface ProgramMilestone {
   readonly dDay: number;
   readonly deadlineLabel: string;
   readonly description: string | null;
-  readonly submissionType: SubmissionType;
+  readonly submissionType: SubmissionType | null;
+  readonly submissionItemCount: number;
   readonly viewerSubmissionStatus: SubmissionStatus | null;
   readonly applicationSubmissionSummary: SubmissionSummary | null;
 }

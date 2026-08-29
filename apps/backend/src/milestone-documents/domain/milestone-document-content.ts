@@ -5,16 +5,11 @@ import {
   MilestoneDocumentsErrorCode,
 } from '../milestone-documents-error-code.enum';
 
-/** MilestoneDocumentSubmission.content(Json)에 저장되는 TEXT 응답 shape. */
-export type MilestoneDocumentContentInput =
-  | {
-      readonly type: typeof MilestoneSubmissionType.FILE;
-      readonly fileId: string;
-    }
-  | {
-      readonly type: typeof MilestoneSubmissionType.TEXT;
-      readonly text: string;
-    };
+/** 학생이 한 제출 화면에서 보낼 수 있는 값. 둘 중 하나 이상은 반드시 채워진다. */
+export type MilestoneDocumentContentInput = {
+  readonly text: string | null;
+  readonly fileId: string | null;
+};
 
 /**
  * 이미 저장된 제출 내용을 **읽어 낸** 모양 — 교직원 수합 표의 칸이 그대로 싣는다.
@@ -34,9 +29,8 @@ export type MilestoneDocumentSubmittedContent = {
  * **저장 모양의 원본은 `MilestoneDocumentsService.submit()`이다** — TEXT는 `{ type, text }`,
  * FILE은 `Prisma.JsonNull`을 쓴다. 여기서는 그 모양을 그대로 되꺼낼 뿐 새 규칙을 만들지 않는다.
  *
- * **판별은 서류 항목의 `submissionType`이 아니라 저장된 값의 `type`으로 한다.** 저장된 값이
- * 스스로 무엇인지 말하고 있는데 옆의 컬럼을 근거로 삼으면, 둘이 어긋나는 날 화면이 실제로 낸
- * 것과 다른 것을 보여 준다(교직원이 잘못된 근거로 승인한다).
+ * **저장된 payload 값은 `type`으로 스스로 모양을 설명한다.** 이 함수는 그 값을 그대로 읽어
+ * 화면에 전달한다.
  *
  * ⚠ **길이 상한을 두지 않는다 — 자르지 않고 그대로 싣는다.** 근거:
  * 1. 자르면 이 함수가 고치려는 결함이 그대로 돌아온다. 잘린 뒤를 읽을 방법이 지금 없기
@@ -67,30 +61,15 @@ export function readMilestoneDocumentSubmittedContent(
   }
 }
 
-/** submissions/domain/submission-content.ts의 parseSubmissionContent와 같은 계약 — 이 모듈 전용 에러 코드만 다르다. */
+/** 내용·파일 중 하나 이상을 요구한다. 교직원이 제출 방식을 미리 정하지 않는다. */
 export function parseMilestoneDocumentContent(input: {
-  readonly type: string;
   readonly fileId?: string;
   readonly text?: string;
 }): MilestoneDocumentContentInput {
-  switch (input.type) {
-    case MilestoneSubmissionType.FILE: {
-      const fileId = input.fileId?.trim();
-      if (!fileId) throw contentRequired();
-      return { type: MilestoneSubmissionType.FILE, fileId };
-    }
-    case MilestoneSubmissionType.TEXT: {
-      const text = input.text?.trim();
-      if (!text) throw contentRequired();
-      return { type: MilestoneSubmissionType.TEXT, text };
-    }
-    default:
-      throw new DomainException(
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH
-        ],
-      );
-  }
+  const text = input.text?.trim() || null;
+  const fileId = input.fileId?.trim() || null;
+  if (text === null && fileId === null) throw contentRequired();
+  return { text, fileId };
 }
 
 function contentRequired(): DomainException {

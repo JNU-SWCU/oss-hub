@@ -17,7 +17,7 @@ import { apiPath } from '@/lib/api-client';
  * 기존 화면 테스트는 `StudentDashboardView`를 통째로 가짜로 바꾸고 `onAcceptInvite`를
  * 손으로 부른다. 그래서 배너가 화면에서 빠지거나 버튼이 핸들러에 안 묶여도 초록불이다.
  * 같은 형태의 결함이 이 저장소에서 반복됐고(#673·#722·#733), 그때 세운 대응이
- * `app/_local-review/handlers/student-rejection-reach.test.tsx`다. 이 파일은 팀 초대
+ * `test-support/local-review/handlers/student-rejection-reach.test.tsx`다. 이 파일은 팀 초대
  * 갈래의 같은 자리다.
  *
  * 그래서 여기서는 가짜를 **네트워크 경계 하나에만** 세운다. 그 위(불러오기·이름 보강·

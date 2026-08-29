@@ -1,16 +1,17 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { ProgramDeleteBlockingCounts } from './program-edit-delete-flow';
+import type { ProgramDeletionScopeCounts } from './api';
 
 export function ProgramPurgeSummary({
   counts,
 }: {
-  readonly counts: ProgramDeleteBlockingCounts;
+  readonly counts: ProgramDeletionScopeCounts;
 }) {
   const items = [
     ['지원서', counts.applications, '건'],
     ['팀', counts.teams, '개'],
     ['게시글', counts.boardPosts, '건'],
     ['제출물', counts.submissions, '건'],
+    ['제출·검토·파일 이력', counts.submissionEvents, '건'],
   ] as const;
   const summary = items
     .filter(([, count]) => count > 0)

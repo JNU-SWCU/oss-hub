@@ -35,9 +35,7 @@ export function MilestoneDocumentCurrentFiles({
       setState({
         kind: 'ready',
         files: documents.filter(
-          (document) =>
-            document.submissionType === 'FILE' &&
-            document.viewerSubmission?.submitted === true,
+          (document) => document.viewerSubmission?.hasCurrentFile === true,
         ),
       });
     } catch (error: unknown) {

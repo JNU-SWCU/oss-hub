@@ -33,7 +33,9 @@ export interface ProgramMilestoneResponseDto {
   readonly dDay: number;
   readonly deadlineLabel: string;
   readonly description: string | null;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: MilestoneSubmissionType | null;
+  /** 상위 단일 제출을 대신하는 항목 수. 0이면 안내용 마일스톤이다. */
+  readonly submissionItemCount: number;
   readonly viewerSubmissionStatus: ViewerSubmissionStatusResponseDto;
   readonly applicationSubmissionSummary: ApplicationSubmissionSummaryResponseDto | null;
 }

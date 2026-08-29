@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
+  type MilestoneSubmissionType,
   Prisma,
   type SubmissionStatus,
 } from '@prisma/client';
@@ -14,6 +15,7 @@ const dashboardApplicationSelect = {
 const dashboardMilestoneSelect = {
   id: true,
   programId: true,
+  submissionType: true,
 } as const;
 
 const dashboardSubmissionSelect = {
@@ -107,6 +109,7 @@ export interface SubmissionDashboardApplicationRecord {
 export interface SubmissionDashboardMilestoneRecord {
   readonly id: string;
   readonly programId: string;
+  readonly submissionType: MilestoneSubmissionType | null;
 }
 
 export interface SubmissionDashboardSubmissionRecord {

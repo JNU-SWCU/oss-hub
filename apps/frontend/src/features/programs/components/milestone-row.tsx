@@ -7,8 +7,8 @@ import {
 } from '@/lib/program-route';
 import {
   formatSeoulDate,
+  isPastDue,
   submissionLabel,
-  submissionTypeLabel,
 } from '../program-detail-format';
 import type {
   ApplicationStatus,
@@ -39,6 +39,22 @@ function StudentState({
   milestone,
   applicationStatus,
 }: Omit<MilestoneRowProps, 'viewerRole'>) {
+  if (milestone.submissionType === null) {
+    if (milestone.submissionItemCount === 0) {
+      return (
+        <p className="text-small font-semibold text-muted-foreground">
+          제출 없음 · 안내용
+        </p>
+      );
+    }
+    return (
+      <p className="text-small font-semibold text-muted-foreground">
+        {applicationStatus === 'APPROVED'
+          ? '아래 제출 항목에서 내용이나 파일을 제출하세요'
+          : '신청 승인 후 제출할 수 있습니다'}
+      </p>
+    );
+  }
   const status = milestone.viewerSubmissionStatus;
   if (applicationStatus !== 'APPROVED' || !status) {
     return (
@@ -49,7 +65,8 @@ function StudentState({
   }
   const isResubmission = status === 'CHANGES_REQUESTED';
   const canSubmit =
-    isResubmission || (status === 'NOT_SUBMITTED' && milestone.dDay >= 0);
+    isResubmission ||
+    (status === 'NOT_SUBMITTED' && !isPastDue(milestone.dueAt));
   const submitHref = studentProgramSubmissionHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -89,8 +106,7 @@ export function MilestoneRow({
           {milestone.name}
         </p>
         <p className="text-small text-muted-foreground">
-          {formatSeoulDate(milestone.dueAt)} ·{' '}
-          {submissionTypeLabel(milestone.submissionType)}
+          {formatSeoulDate(milestone.dueAt)}
         </p>
         {milestone.description ? (
           <p className="text-small leading-normal break-keep text-muted-foreground">
@@ -99,7 +115,13 @@ export function MilestoneRow({
         ) : null}
         {viewerRole === 'STAFF' || viewerRole === 'ADMIN' ? (
           <>
-            {summary ? (
+            {milestone.submissionType === null ? (
+              <p className="text-small font-semibold text-muted-foreground">
+                {milestone.submissionItemCount === 0
+                  ? '제출 없음 · 안내용'
+                  : `제출 항목 ${milestone.submissionItemCount}개`}
+              </p>
+            ) : summary ? (
               <p className="text-small">
                 <strong>
                   {submitted}/{summary.total}
@@ -114,12 +136,14 @@ export function MilestoneRow({
               둔다. 그 표는 마일스톤 하나를 놓고 보는 화면이라, 어느 마일스톤인지
               고르는 자리가 곧 진입 지점이다.
             */}
-            <Link
-              href={programMilestoneDocumentsHref(programId, milestone.id)}
-              className="text-small w-fit font-semibold underline underline-offset-2 hover:opacity-80"
-            >
-              서류 수합
-            </Link>
+            {milestone.submissionItemCount > 0 ? (
+              <Link
+                href={programMilestoneDocumentsHref(programId, milestone.id)}
+                className="text-small w-fit font-semibold underline underline-offset-2 hover:opacity-80"
+              >
+                서류 수합
+              </Link>
+            ) : null}
           </>
         ) : null}
       </div>

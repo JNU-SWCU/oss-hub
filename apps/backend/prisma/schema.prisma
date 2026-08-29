@@ -46,15 +46,15 @@ model User {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  staffAccessRequests                    StaffAccessRequest[]             @relation("StaffAccessRequestUser")
-  decidedStaffAccessRequests             StaffAccessRequest[]             @relation("StaffAccessRequestDecidedBy")
+  staffAccessRequests                    StaffAccessRequest[]                 @relation("StaffAccessRequestUser")
+  decidedStaffAccessRequests             StaffAccessRequest[]                 @relation("StaffAccessRequestDecidedBy")
   consents                               Consent[]
-  applications                           Application[]                    @relation("ApplicationApplicant")
-  processedApplications                  Application[]                    @relation("ApplicationProcessedBy")
-  ledTeams                               Team[]                           @relation("TeamLeader")
+  applications                           Application[]                        @relation("ApplicationApplicant")
+  processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
+  ledTeams                               Team[]                               @relation("TeamLeader")
   teamMemberships                        TeamMember[]
-  sentTeamInvitations                    TeamInvitation[]                 @relation("TeamInvitationInvitedBy")
-  receivedTeamInvitations                TeamInvitation[]                 @relation("TeamInvitationInvitee")
+  sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")
+  receivedTeamInvitations                TeamInvitation[]                     @relation("TeamInvitationInvitee")
   submissionRevisions                    SubmissionRevision[]
   uploadedFiles                          SubmissionFile[]
   reviews                                Review[]
@@ -62,6 +62,7 @@ model User {
   programAuthoringUploads                ProgramAuthoringUpload[]
   programCreateRequests                  ProgramCreateRequest[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
+  milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
   milestoneDocumentReviewHistories       MilestoneDocumentReviewHistory[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
@@ -79,10 +80,10 @@ model UserProfile {
 
   /// 비어 있지 않고 1~100 코드 포인트. NFC 정규화는 쓰기 경계 불변식이다
   /// — stock PostgreSQL에 정규화 제약이 없어 DB는 길이·공백만 막는다(마이그레이션 CHECK).
-  name String
+  name       String
   /// STUDENT는 필수·전역 유일, STAFF는 null이다. 정확히 6자리 규칙은 새 쓰기 경계가
   /// 지킨다 — 6~10자리 legacy 값이 남아 있어 DB는 그 보존 형식까지 받는다(마이그레이션 CHECK).
-  studentId String? @unique
+  studentId  String? @unique
   /// `affiliationName`의 legacy 사본. 두 값은 언제나 같다(마이그레이션 CHECK).
   department String
 
@@ -229,9 +230,9 @@ model Milestone {
   program   Program @relation(fields: [programId], references: [id])
 
   name           String
-  startAt        DateTime                @default(dbgenerated("'0001-01-01 00:00:00'::timestamp without time zone"))
+  startAt        DateTime                 @default(dbgenerated("'0001-01-01 00:00:00'::timestamp without time zone"))
   dueAt          DateTime
-  submissionType MilestoneSubmissionType
+  submissionType MilestoneSubmissionType?
   instructions   String?
 
   createdAt DateTime @default(now())
@@ -612,15 +613,18 @@ model SubmissionFile {
   mimeType         String
   sizeBytes        Int
 
-  submissionRevisionId          String?
-  submissionRevision            SubmissionRevision?          @relation(fields: [submissionRevisionId], references: [id])
+  submissionRevisionId                 String?
+  submissionRevision                   SubmissionRevision?                 @relation(fields: [submissionRevisionId], references: [id])
   /// 마일스톤별 서류 항목(#619 확장) 제출에 첨부된 파일. 기존 submissionRevisionId 경로와는
   /// 독립적이다 — 한 SubmissionFile 행이 두 경로를 동시에 채우지 않는다.
-  milestoneDocumentSubmissionId String?
-  milestoneDocumentSubmission   MilestoneDocumentSubmission? @relation(fields: [milestoneDocumentSubmissionId], references: [id])
-  lifecycle                     SubmissionFileLifecycle      @default(ATTACHED)
-  pendingExpiresAt              DateTime?
-  expiresAt                     DateTime?
+  milestoneDocumentSubmissionId        String?
+  milestoneDocumentSubmission          MilestoneDocumentSubmission?        @relation(fields: [milestoneDocumentSubmissionId], references: [id])
+  /// 제출·재제출 당시 파일의 불변 소속. 현재 헤더 관계는 전환기 읽기 호환을 위해 함께 둔다.
+  milestoneDocumentSubmissionHistoryId String?
+  submissionHistory                    MilestoneDocumentSubmissionHistory? @relation(fields: [milestoneDocumentSubmissionHistoryId], references: [id], onDelete: Restrict, map: "SubmissionFile_submissionHistoryId_fkey")
+  lifecycle                            SubmissionFileLifecycle             @default(ATTACHED)
+  pendingExpiresAt                     DateTime?
+  expiresAt                            DateTime?
 
   deleteClaimedAt      DateTime?
   deleteClaimExpiresAt DateTime?
@@ -638,6 +642,7 @@ model SubmissionFile {
   @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
   @@index([submissionRevisionId])
   @@index([milestoneDocumentSubmissionId])
+  @@index([milestoneDocumentSubmissionHistoryId])
 }
 
 /// 마일스톤 하나가 요구하는 서류 항목 정의(#3 "프로젝트 계획서 제출" → 3개 항목 등).
@@ -651,8 +656,6 @@ model MilestoneDocument {
   name           String
   required       Boolean
   sortOrder      Int
-  /// 기존 Milestone.submissionType과 동일한 enum을 재사용한다.
-  submissionType MilestoneSubmissionType
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -724,10 +727,45 @@ model MilestoneDocumentSubmission {
   /// 판정 이력 — 제출 하나에 여러 건이 쌓인다(모델 주석 참고). 이름이 복수 목록인 것은
   /// 「지금의 판정」이 아니라 **이력 전체**가 여기 달리기 때문이다.
   reviewHistories MilestoneDocumentReviewHistory[]
+  histories       MilestoneDocumentSubmissionHistory[]
 
   @@unique([milestoneDocumentId, applicationId])
   @@index([applicationId])
   @@index([submittedById])
+}
+
+/// 제출 항목 한 칸의 모든 사건. 헤더는 현재 상태만 들고, 이 표는 제출·재제출·판정을 덮어쓰지 않고 쌓는다.
+enum MilestoneDocumentSubmissionHistoryEvent {
+  SUBMITTED
+  RESUBMITTED
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+model MilestoneDocumentSubmissionHistory {
+  id String @id @default(cuid())
+
+  milestoneDocumentSubmissionId String
+  submission                    MilestoneDocumentSubmission @relation(fields: [milestoneDocumentSubmissionId], references: [id], onDelete: Restrict, map: "MilestoneDocumentSubmissionHistory_submissionId_fkey")
+
+  event    MilestoneDocumentSubmissionHistoryEvent
+  /// 제출/재제출은 정확한 차수를 기록한다. 이관 전 판정은 어느 제출본을 검토했는지
+  /// 증명할 수 없어 null로 보존한다.
+  revision Int?
+  content  Json?
+  comment  String?
+
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  files           SubmissionFile[]
+  reviewHistories MilestoneDocumentReviewHistory[]
+
+  @@index([milestoneDocumentSubmissionId, createdAt])
+  @@index([actorId])
 }
 
 /// 서류 제출물에 대한 교직원 판정(승인 · 보완 요청 · 반려). 제출 하나에 판정이 **여러 건 쌓인다**.
@@ -754,6 +792,10 @@ model MilestoneDocumentReviewHistory {
   milestoneDocumentSubmissionId String
   milestoneDocumentSubmission   MilestoneDocumentSubmission @relation(fields: [milestoneDocumentSubmissionId], references: [id])
 
+  /// 검토자가 실제로 본 제출/재제출 이력. 기존 판정은 추정하지 않고 null로 보존한다.
+  submissionHistoryId String?
+  submissionHistory   MilestoneDocumentSubmissionHistory? @relation(fields: [submissionHistoryId], references: [id], onDelete: Restrict, map: "MilestoneDocumentReviewHistory_submissionHistoryId_fkey")
+
   reviewerId String
   reviewer   User   @relation(fields: [reviewerId], references: [id])
 
@@ -764,6 +806,7 @@ model MilestoneDocumentReviewHistory {
 
   @@index([milestoneDocumentSubmissionId, reviewedAt])
   @@index([reviewerId])
+  @@index([submissionHistoryId])
 }
 
 /// 판정: APPROVED/REJECTED/CHANGES_REQUESTED. 제출 판정과 저장소 공개 전환 상태를 같은 필드로 합치지 않는다(#113).

@@ -199,7 +199,7 @@ export class SubmissionFilesRepository {
       where: { id: milestoneId, programId: application.programId },
       select: { id: true, submissionType: true, dueAt: true },
     });
-    if (milestone === null) return null;
+    if (milestone === null || milestone.submissionType === null) return null;
 
     let resubmissionStatus: SubmissionStatus | null = null;
     let currentRevision: number | null = null;

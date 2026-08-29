@@ -11,11 +11,57 @@ export type E2eProgramAuthoringGraph = {
   readonly documentId: string;
 };
 
-export async function resetProgramAuthoringControl(page: Page): Promise<void> {
-  await expectApiStatus(
-    await page.request.post(`${PROGRAM_AUTHORING_CONTROL_PATH}/reset`),
-    204,
+export async function resetProgramAuthoringControl(
+  page: Page,
+): Promise<string> {
+  const response = await page.request.post(
+    `${PROGRAM_AUTHORING_CONTROL_PATH}/reset`,
   );
+  await expectApiStatus(response, 200);
+  const value: unknown = await response.json();
+  if (
+    !isRecord(value) ||
+    typeof value.now !== 'string' ||
+    !Number.isFinite(Date.parse(value.now))
+  )
+    throw new Error('E2E reset response must include a valid clock.');
+  return value.now;
+}
+
+export async function selectScheduleRange(
+  page: Page,
+  input: {
+    readonly rangeLabel: string;
+    readonly startAt: string;
+    readonly endAt: string;
+  },
+): Promise<void> {
+  await page
+    .locator('[data-schedule-range-selector]')
+    .filter({ hasText: input.rangeLabel })
+    .click();
+  const calendar = page.getByLabel(`${input.rangeLabel} 날짜 선택 달력`);
+  await selectCalendarDate(calendar, input.startAt.slice(0, 10));
+  await selectCalendarDate(calendar, input.endAt.slice(0, 10));
+  await page
+    .getByRole('button', {
+      name: `${input.rangeLabel} 일정 입력`,
+    })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await dialog
+    .getByLabel(`${input.rangeLabel} 시작일`)
+    .fill(input.startAt.slice(0, 10));
+  await dialog
+    .getByLabel(`${input.rangeLabel} 시작 시각`)
+    .fill(input.startAt.slice(11, 16));
+  await dialog
+    .getByLabel(`${input.rangeLabel} 종료일`)
+    .fill(input.endAt.slice(0, 10));
+  await dialog
+    .getByLabel(`${input.rangeLabel} 종료 시각`)
+    .fill(input.endAt.slice(11, 16));
+  await dialog.getByRole('button', { name: '저장' }).click();
 }
 
 export async function fixtureProgramId(page: Page): Promise<string> {
@@ -139,4 +185,28 @@ function identifier(record: Record<string, unknown>, key: string): string {
     throw new Error(`E2E graph field ${key} must be a non-empty string.`);
   }
   return value;
+}
+
+async function selectCalendarDate(
+  calendar: ReturnType<Page['getByLabel']>,
+  date: string,
+): Promise<void> {
+  const target = calendar.locator(`[data-calendar-date="${date}"]`);
+  for (let month = 0; month < 24; month += 1) {
+    if ((await target.count()) > 0) {
+      await target.click();
+      return;
+    }
+    const heading = await calendar.locator('strong').first().textContent();
+    const match = /^(\d{4})년 (\d{1,2})월$/u.exec(heading?.trim() ?? '');
+    if (match === null)
+      throw new Error(`Calendar month heading is invalid: ${heading ?? ''}.`);
+    const currentMonth = `${match[1]}-${match[2]?.padStart(2, '0')}`;
+    const targetMonth = date.slice(0, 7);
+    const direction = currentMonth > targetMonth ? '이전 달' : '다음 달';
+    const navigation = calendar.getByRole('button', { name: direction });
+    await expect(navigation).toBeEnabled();
+    await navigation.click();
+  }
+  throw new Error(`Calendar did not reach ${date}.`);
 }

@@ -30,6 +30,7 @@ const publicProgram = {
       instructions: '설명',
       submissionType: 'FILE',
       documents: [],
+      _count: { documents: 0 },
     },
     {
       id: 'overdue',
@@ -39,6 +40,7 @@ const publicProgram = {
       instructions: null,
       submissionType: 'TEXT',
       documents: [],
+      _count: { documents: 0 },
     },
   ],
 };
@@ -303,6 +305,40 @@ describe('ProgramsService detail', () => {
       changesRequested: 0,
       rejected: 0,
       total: 2,
+    });
+  });
+
+  it('제출 항목이 없는 신규 마일스톤은 승인 상태로 위장하지 않는다', async () => {
+    const { service, findUnique, findFirst } = createService();
+    findUnique.mockResolvedValue({
+      ...publicProgram,
+      milestones: [
+        {
+          ...publicProgram.milestones[0],
+          submissionType: null,
+          documents: [],
+          _count: { documents: 0 },
+        },
+      ],
+    });
+    findFirst.mockResolvedValue({
+      id: 'application-1',
+      status: ApplicationStatus.APPROVED,
+      submissions: [],
+      milestoneDocumentSubmissions: [],
+    });
+
+    const detail = await service.detail('program-1', {
+      githubId: 1n,
+      userId: 'student-1',
+      role: 'STUDENT',
+    });
+
+    expect(detail.milestones[0]).toMatchObject({
+      submissionType: null,
+      submissionItemCount: 0,
+      viewerSubmissionStatus: null,
+      applicationSubmissionSummary: null,
     });
   });
 });

@@ -18,7 +18,6 @@ function document(
     name: `서류 ${id}`,
     isRequired: true,
     sortOrder: 1,
-    submissionType: 'FILE',
     ...overrides,
   };
 }
@@ -137,6 +136,7 @@ function render(
       onReviewDecisionChange={() => {}}
       onReviewCommentChange={() => {}}
       onReviewSubmit={() => {}}
+      onReviewHistoryMore={() => {}}
       {...overrides}
     />,
   );
@@ -158,15 +158,18 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
   it('서류 항목이 없으면 프로그램 편집으로 보낸다', () => {
     const html = render({ data: collection([], []) });
 
-    expect(html).toContain('이 마일스톤에는 등록된 서류 항목이 없습니다');
+    expect(html).toContain('이 마일스톤에는 등록된 제출 항목이 없습니다');
     expect(html).toContain('/programs/program-capstone/edit');
   });
 
-  it('승인된 신청이 없으면 그렇게 알린다', () => {
+  it('승인된 신청이 없으면 신청 관리로 이어 준다', () => {
     const html = render({ data: collection([document('d1')], []) });
 
     expect(html).toContain('아직 승인된 신청이 없습니다');
-    expect(html).not.toContain('등록된 서류 항목이 없습니다');
+    expect(html).toContain('대기 중인 신청을 먼저 확인해 주세요');
+    expect(html).toContain('href="/programs/program-capstone/applicants"');
+    expect(html).toContain('신청 확인하기');
+    expect(html).not.toContain('등록된 제출 항목이 없습니다');
   });
 
   /**
@@ -235,7 +238,6 @@ describe('MilestoneDocumentCollectionView 표', () => {
     document('d2', {
       name: '중간 보고',
       isRequired: false,
-      submissionType: 'TEXT',
     }),
   ];
   const rows = [
@@ -482,6 +484,31 @@ describe('MilestoneDocumentCollectionView 표', () => {
     expect(html).not.toContain('aria-label="나팀 기획서 검토"');
   });
 
+  it('모바일 판정 패널은 넓은 표가 아니라 현재 화면 폭 안에 머문다', () => {
+    const html = render({
+      data: collection(documents, rows),
+      review: {
+        target: { applicationId: 'a', documentId: 'd1' },
+        version: { expectedRevision: 1, expectedLatestReviewId: null },
+        decision: null,
+        comment: '',
+        isSubmitting: false,
+        errorMessage: null,
+        history: [],
+        historyNextCursor: null,
+        historyIsComplete: true,
+        isHistoryLoading: false,
+        historyError: null,
+      },
+    });
+
+    expect(html).toContain(
+      'data-testid="milestone-document-review-panel-viewport"',
+    );
+    expect(html).toContain('sticky left-0 w-[calc(100vw-4rem)]');
+    expect(html).toContain('whitespace-normal');
+  });
+
   /**
    * 합계는 **서버가 준 `documentTotals`** 그대로다. 화면에 있는 것은 페이지 한 장뿐이라
    * 여기서 세면 「제출 2 / 전체 3」처럼 페이지 크기가 그대로 분모가 된다. 그래서 이
@@ -702,7 +729,7 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
     // 남의 마일스톤 id로 가는 경로가 남으면 그것만으로 남의 제출물을 받는 길이 된다.
     expect(wrongProgram).not.toContain('milestone-9');
     // 셋이 정말 그 빈 상태였는지도 확인한다 — 아니면 위 단언은 아무것도 묻지 않는다.
-    expect(noDocuments).toContain('등록된 서류 항목이 없습니다');
+    expect(noDocuments).toContain('등록된 제출 항목이 없습니다');
     expect(noApplications).toContain('아직 승인된 신청이 없습니다');
     expect(wrongProgram).toContain('찾을 수 없는 마일스톤입니다');
   });
@@ -749,6 +776,9 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
     const html = render({ data: collection(documents, rows) });
 
     expect(html).toContain('flex min-w-0 flex-col gap-4 sm:flex-row');
+    expect(html).toContain(
+      '<span class="whitespace-nowrap">스크롤해 확인하세요.</span>',
+    );
   });
 });
 
@@ -874,7 +904,7 @@ describe('MilestoneDocumentCollectionView 서류별 내려받기(ZIP)', () => {
     expect(noApplications).not.toContain('documentId=');
     expect(noFilterResults).not.toContain('documentId=');
     // 셋이 정말 그 빈 상태였는지도 확인한다.
-    expect(noDocuments).toContain('등록된 서류 항목이 없습니다');
+    expect(noDocuments).toContain('등록된 제출 항목이 없습니다');
     expect(noApplications).toContain('아직 승인된 신청이 없습니다');
     expect(noFilterResults).toContain('조건에 맞는 팀이 없습니다');
   });

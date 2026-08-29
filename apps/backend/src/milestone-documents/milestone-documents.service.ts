@@ -1,11 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { MilestoneSubmissionType, Prisma } from '@prisma/client';
+import {
+  MilestoneDocumentSubmissionHistoryEvent,
+  MilestoneSubmissionType,
+  Prisma,
+  ReviewDecision,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
-import type { MilestoneDocumentContentInput } from './domain/milestone-document-content';
-import { isResubmissionAllowedAfter } from './domain/milestone-document-review';
+import {
+  type MilestoneDocumentContentInput,
+  readMilestoneDocumentSubmittedContent,
+} from './domain/milestone-document-content';
+import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
+import type { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import {
@@ -13,11 +22,13 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
 import {
+  InvalidMilestoneDocumentHistoryCursorError,
+  MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   type MilestoneDocumentRecord,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
-  MilestoneDocumentSubmissionTypeChangedError,
   type UpdateMilestoneDocumentInput,
   type UpsertMilestoneDocumentInput,
   type UpsertMilestoneDocumentSubmissionInput,
@@ -47,6 +58,7 @@ export class MilestoneDocumentsService {
   async listForViewer(
     sessionGithubId: bigint,
     milestoneId: string,
+    now: Date = new Date(),
   ): Promise<MilestoneDocumentResponseDto[]> {
     const milestone = await this.repository.findMilestone(milestoneId);
     if (milestone === null) {
@@ -80,6 +92,7 @@ export class MilestoneDocumentsService {
         const summaries = await this.repository.findSubmittedSummaries(
           application.applicationId,
           documentIds,
+          now,
         );
         const summaryByDocument = new Map(
           summaries.map((summary) => [summary.milestoneDocumentId, summary]),
@@ -91,7 +104,9 @@ export class MilestoneDocumentsService {
             viewerSubmission: {
               submitted: summary !== null,
               submittedAt: summary?.submittedAt.toISOString() ?? null,
+              revision: summary?.revision ?? null,
               status: summary?.status ?? null,
+              hasCurrentFile: summary?.hasCurrentFile ?? false,
               review:
                 summary?.review == null
                   ? null
@@ -99,6 +114,10 @@ export class MilestoneDocumentsService {
                       comment: summary.review.comment,
                       reviewedAt: summary.review.reviewedAt.toISOString(),
                     },
+              history: {
+                hasHistory: summary !== null,
+                isComplete: summary?.historyComplete ?? true,
+              },
             },
           });
         });
@@ -131,33 +150,134 @@ export class MilestoneDocumentsService {
     query: MilestoneDocumentCollectionQuery,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentCollectionResponseDto> {
-    const milestone = await this.repository.findMilestone(milestoneId);
-    if (milestone === null) {
-      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+    return this.repository.withCollectionSnapshot(async (store) => {
+      const milestone = await store.findMilestone(milestoneId);
+      if (milestone === null) {
+        throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      }
+
+      const [documents, applications] = await Promise.all([
+        store.findByMilestoneId(milestoneId),
+        store.findApprovedApplicationsForCollection(milestone.programId),
+      ]);
+      const documentIds = documents.map((document) => document.id);
+      const coordinates =
+        await store.findSubmissionCoordinatesForCollection(documentIds);
+      const coordinatePage = buildMilestoneDocumentCollectionPage(
+        documents,
+        applications,
+        coordinates,
+        query,
+      );
+      const pageApplicationIds = coordinatePage.rows.map(
+        (row) => row.application.applicationId,
+      );
+      const submissions = await store.findSubmissionsForCollection(
+        documentIds,
+        now,
+        pageApplicationIds,
+      );
+      const detailByCell = new Map(
+        submissions.map((submission) => [
+          `${submission.applicationId}::${submission.milestoneDocumentId}`,
+          submission,
+        ]),
+      );
+      const collection = {
+        ...coordinatePage,
+        rows: coordinatePage.rows.map((row) => ({
+          application: row.application,
+          cells: documents.map(
+            (document) =>
+              detailByCell.get(
+                `${row.application.applicationId}::${document.id}`,
+              ) ?? null,
+          ),
+        })),
+      };
+      return MilestoneDocumentCollectionResponseDto.from(
+        milestone,
+        documents,
+        collection,
+      );
+    });
+  }
+
+  async historyForStaff(
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+    query: { readonly cursor: string | null; readonly limit: number },
+  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+    const document = await this.repository.findDocumentContext(documentId);
+    if (document === null || document.milestoneId !== milestoneId) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
+    const applicationProgramId =
+      await this.repository.findApplicationProgramId(applicationId);
+    if (applicationProgramId !== document.programId) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+    }
+    const page = await this.findHistoryPage(documentId, applicationId, query);
+    return {
+      items: page.items.map((item) => ({
+        event: item.event,
+        revision: item.revision,
+        actorNickname: item.actorNickname,
+        comment: item.comment,
+        createdAt: item.createdAt.toISOString(),
+        fileName: item.fileName,
+        content: readMilestoneDocumentSubmittedContent(item.content),
+      })),
+      nextCursor: page.nextCursor,
+      isComplete: page.isComplete,
+    };
+  }
 
-    const [documents, applications] = await Promise.all([
-      this.repository.findByMilestoneId(milestoneId),
-      this.repository.findApprovedApplicationsForCollection(
-        milestone.programId,
-      ),
-    ]);
-    const submissions = await this.repository.findSubmissionsForCollection(
-      documents.map((document) => document.id),
-      now,
+  async historyForParticipant(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+    query: { readonly cursor: string | null; readonly limit: number },
+  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+    const viewer = await this.repository.findActiveUser(sessionGithubId);
+    if (viewer === null) {
+      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+    }
+    const document = await this.repository.findDocumentContext(documentId);
+    if (document === null || document.milestoneId !== milestoneId) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+    const application = await this.repository.findStudentApplication(
+      viewer.id,
+      document.programId,
     );
-
-    const collection = buildMilestoneDocumentCollectionPage(
-      documents,
-      applications,
-      submissions,
+    if (application === null) {
+      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+    }
+    if (!application.approved) {
+      throw this.error(
+        MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+      );
+    }
+    const page = await this.findHistoryPage(
+      documentId,
+      application.applicationId,
       query,
     );
-    return MilestoneDocumentCollectionResponseDto.from(
-      milestone,
-      documents,
-      collection,
-    );
+    return {
+      items: page.items.map((item) => ({
+        event: item.event,
+        revision: item.revision,
+        actorNickname: studentHistoryActorLabel(item.event, item.actorNickname),
+        comment: item.comment,
+        createdAt: item.createdAt.toISOString(),
+        fileName: item.fileName,
+        content: readMilestoneDocumentSubmittedContent(item.content),
+      })),
+      nextCursor: page.nextCursor,
+      isComplete: page.isComplete,
+    };
   }
 
   /**
@@ -179,13 +299,16 @@ export class MilestoneDocumentsService {
       if (milestone === null) {
         throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
       }
-      return store.createDocument(milestoneId, input);
+      return store.createDocument(milestoneId, {
+        name: input.name,
+        required: input.required,
+      });
     });
     return MilestoneDocumentResponseDto.from(record);
   }
 
   /**
-   * 교직원 — 서류 항목 수정(이름/필수여부/제출유형). **`sortOrder`는 요청에 있어도 무시한다.**
+   * 교직원 — 서류 항목 수정(이름/필수여부). **`sortOrder`는 요청에 있어도 무시한다.**
    *
    * 순서의 소유자는 `PATCH .../documents/order` 하나다. 수정이 요청받은 순서를 함께 저장하면
    * 소유자가 둘이 되고, 그러면 경합이랄 것도 없이 깨진다 — 교직원 A가 편집 화면을 열어 둔 사이
@@ -197,16 +320,8 @@ export class MilestoneDocumentsService {
    * store로 넘기는 타입(`UpdateMilestoneDocumentInput`)에서 잘라낸다. 「조심해서 안 쓴다」가
    * 아니라 **쓸 수 없게** 만드는 쪽이다.
    *
-   * 제출이 하나라도 있으면 **제출 방식(submissionType) 변경만** 막는다(deleteDocument와 같은
-   * DOCUMENT_HAS_SUBMISSIONS). FILE→TEXT로 바꾸면 이미 올라온 파일이 수합 표에서 조용히
-   * 사라지기 때문이다(칸의 file은 submissionType === FILE일 때만 붙는다). 데이터가 지워지는 건
-   * 아니라 되돌리면 다시 보이지만, 교직원이 그 사이 「안 냈네」로 읽는 것이 실제 피해다.
-   * 이름·필수여부 변경은 해롭지 않으므로 제출이 있어도 계속 허용한다.
-   *
-   * 「잠근다 → 센다 → 판단한다 → 갱신한다」가 **한 트랜잭션**이어야 한다(ADR-003 — 트랜잭션
-   * 경계는 service가 소유한다). 세기와 갱신이 갈라져 있으면 그 사이에 들어온 제출이 카운트에
-   * 잡히지 않고, 가드를 통과한 갱신이 커밋되어 「TEXT인데 FILE 제출이 들어 있는」 상태 — 이
-   * 가드가 막으려던 바로 그 상태 — 가 남는다. 잠금의 상대편은 `upsertSubmission`의 `FOR SHARE`다.
+   * 「잠근다 → 판단한다 → 갱신한다」가 **한 트랜잭션**이어야 한다(ADR-003 — 트랜잭션 경계는
+   * service가 소유한다). 잠금의 상대편은 `upsertSubmission`의 `FOR SHARE`다.
    *
    * 여기서는 마일스톤 행을 잡지 않는다 — 이 경로는 서류 항목을 만들지도 지우지도 않아 **집합을
    * 바꾸지 않기** 때문이다. 이미 있는 한 행만 만지므로 그 행의 `FOR UPDATE`로 충분하고, 순서
@@ -224,15 +339,6 @@ export class MilestoneDocumentsService {
       const locked = await store.lockDocument(documentId);
       if (locked === null || locked.milestoneId !== milestoneId) {
         throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
-      }
-      if (locked.submissionType !== input.submissionType) {
-        const submissionCount =
-          await store.countSubmissionsForDocument(documentId);
-        if (submissionCount > 0) {
-          throw this.error(
-            MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS,
-          );
-        }
       }
       return store.updateDocument(documentId, toUpdateInput(input));
     });
@@ -287,6 +393,13 @@ export class MilestoneDocumentsService {
       if (milestone === null) {
         throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
       }
+      const lockedIds = await store.lockDocumentIdsOfMilestone(milestoneId);
+      if (!lockedIds.includes(documentId)) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
+      if (lockedIds.length === 1) {
+        throw this.error(MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED);
+      }
       const locked = await store.lockDocument(documentId);
       if (locked === null || locked.milestoneId !== milestoneId) {
         throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
@@ -301,9 +414,9 @@ export class MilestoneDocumentsService {
   }
 
   /**
-   * 학생 — 서류 제출/재제출("올리기"/"수정"). 제출 자체는 upsert 방식이라 기존 제출을 덮어쓴다
-   * (Submission/SubmissionRevision 계열과 달리 제출 이력은 남기지 않는다). **판정 이력은 다르다**
-   * — `MilestoneDocumentReviewHistory`에 쌓이고 재제출해도 지워지지 않는다.
+   * 학생 — 서류 제출/재제출("올리기"/"수정"). 현재 상태 헤더는 upsert하지만 매 제출은
+   * `MilestoneDocumentSubmissionHistory`에 append한다. 판정 역시 사건 원장과
+   * `MilestoneDocumentReviewHistory`에 쌓이며 재제출해도 지워지지 않는다.
    *
    * 재제출 가부는 그 최신 판정이 정한다: 승인·반려면 거부하고, 보완 요청이면 허용하고, 판정이
    * 없으면 그대로 허용한다. 규칙의 뜻은 옛 제출물 재제출
@@ -330,10 +443,6 @@ export class MilestoneDocumentsService {
     ) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
-    if (content.type !== documentContext.submissionType) {
-      throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
-    }
-
     const application = await this.repository.findStudentApplication(
       viewer.id,
       documentContext.programId,
@@ -351,26 +460,32 @@ export class MilestoneDocumentsService {
       documentId,
       application.applicationId,
     );
-    if (!isResubmissionAllowedAfter(latestReview?.decision ?? null)) {
-      throw this.error(MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED);
+    const currentSubmission = await this.repository.findMySubmission(
+      documentId,
+      application.applicationId,
+    );
+    const blocked = milestoneDocumentSubmissionBlock({
+      dueAt: documentContext.dueAt,
+      now,
+      hasSubmission: currentSubmission !== null,
+      latestDecision: latestReview?.decision ?? null,
+    });
+    if (blocked !== null) {
+      throw this.error(MilestoneDocumentsErrorCode[blocked]);
     }
 
-    let attachFile: UpsertMilestoneDocumentSubmissionInput['attachFile'] = null;
-    let submissionContent: Prisma.InputJsonValue | typeof Prisma.JsonNull =
-      Prisma.JsonNull;
-
-    switch (content.type) {
-      case MilestoneSubmissionType.FILE:
-        attachFile = {
-          fileId: content.fileId,
-          uploaderId: viewer.id,
-          milestoneId,
-        };
-        break;
-      case MilestoneSubmissionType.TEXT:
-        submissionContent = { type: content.type, text: content.text };
-        break;
-    }
+    const attachFile: UpsertMilestoneDocumentSubmissionInput['attachFile'] =
+      content.fileId === null
+        ? null
+        : {
+            fileId: content.fileId,
+            uploaderId: viewer.id,
+            milestoneId,
+          };
+    const submissionContent: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      content.text === null
+        ? Prisma.JsonNull
+        : { type: MilestoneSubmissionType.TEXT, text: content.text };
 
     try {
       const detail = await this.repository.upsertSubmission({
@@ -378,25 +493,34 @@ export class MilestoneDocumentsService {
         applicationId: application.applicationId,
         submittedById: viewer.id,
         submittedAt: now,
+        deadline: {
+          milestoneId,
+          allowAfterDeadline:
+            latestReview?.decision === ReviewDecision.CHANGES_REQUESTED,
+        },
         content: submissionContent,
         attachFile,
-        // 위의 CONTENT_TYPE_MISMATCH 검증은 트랜잭션 밖의 읽기라서, 그 사이 교직원이 제출 방식을
-        // 바꿔 버릴 수 있다. 기대값을 함께 넘겨 트랜잭션 안에서 잠금과 함께 다시 확인한다.
-        expectedSubmissionType: content.type,
         // 재제출 가부 판단도 같은 이유로 트랜잭션 밖의 읽기다 — 그 사이 교직원이 판정할 수 있다.
         // 판단의 근거였던 판정 id를 넘겨 잠금 아래에서 최신 판정이 아직 그것인지 확인한다.
         expectedLatestReviewId: latestReview?.id ?? null,
       });
       return MilestoneDocumentSubmissionResponseDto.from(detail);
     } catch (error) {
+      if (error instanceof MilestoneDocumentMissingError) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
       if (error instanceof MilestoneDocumentPendingFileMissingError) {
         throw this.error(MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND);
       }
-      if (error instanceof MilestoneDocumentSubmissionTypeChangedError) {
-        throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
-      }
       if (error instanceof MilestoneDocumentReviewChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_CHANGED);
+      }
+      if (error instanceof MilestoneDocumentDeadlineClosedError) {
+        throw this.error(
+          currentSubmission === null
+            ? MilestoneDocumentsErrorCode.MILESTONE_CLOSED
+            : MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
+        );
       }
       throw error;
     }
@@ -405,6 +529,40 @@ export class MilestoneDocumentsService {
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
+
+  private async findHistoryPage(
+    documentId: string,
+    applicationId: string,
+    query: { readonly cursor: string | null; readonly limit: number },
+  ) {
+    const page = await this.repository
+      .findSubmissionHistoryPage(
+        documentId,
+        applicationId,
+        query.cursor,
+        query.limit,
+      )
+      .catch((error: unknown) => {
+        if (error instanceof InvalidMilestoneDocumentHistoryCursorError) {
+          throw this.error(MilestoneDocumentsErrorCode.INVALID_REQUEST);
+        }
+        throw error;
+      });
+    if (page === null) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+    }
+    return page;
+  }
+}
+
+function studentHistoryActorLabel(
+  event: MilestoneDocumentSubmissionHistoryEvent,
+  actorNickname: string,
+): string {
+  return event === MilestoneDocumentSubmissionHistoryEvent.SUBMITTED ||
+    event === MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED
+    ? actorNickname
+    : '담당 교직원';
 }
 
 /**
@@ -418,7 +576,6 @@ function toUpdateInput(
   return {
     name: input.name,
     required: input.required,
-    submissionType: input.submissionType,
   };
 }
 

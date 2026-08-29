@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import {
   buildMilestoneDocumentCollectionSearchParams,
+  getMilestoneDocumentHistory,
   getMilestoneDocumentCollection,
   milestoneDocumentCollectionArchiveHref,
   milestoneDocumentCollectionDocumentArchiveHref,
@@ -57,7 +58,6 @@ describe('getMilestoneDocumentCollection', () => {
           name: '기획서',
           isRequired: true,
           sortOrder: 1,
-          submissionType: 'FILE',
         },
       ],
       rows: [],
@@ -98,6 +98,30 @@ describe('milestoneDocumentSubmissionFileHref', () => {
       milestoneDocumentSubmissionFileHref('milestone-1', 'd1', 'app-1'),
     ).toBe(
       apiPath('milestones/milestone-1/documents/d1/applications/app-1/file'),
+    );
+  });
+});
+
+describe('getMilestoneDocumentHistory', () => {
+  it('requests a bounded cursor page from the selected team and document', async () => {
+    const body = { items: [], nextCursor: 'history-20' };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      getMilestoneDocumentHistory('milestone-1', 'd1', 'app-1', 'history-40'),
+    ).resolves.toEqual(body);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath(
+        'milestones/milestone-1/documents/d1/applications/app-1/history?limit=20&cursor=history-40',
+      ),
+      undefined,
     );
   });
 });
