@@ -9,6 +9,7 @@ import type { MilestoneDocumentCollectionQuery } from './domain/milestone-docume
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {
   MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
@@ -1297,6 +1298,44 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND },
+    });
+  });
+
+  it('검증 뒤 서류가 삭제되면 FK 오류 대신 DOCUMENT_NOT_FOUND로 변환한다', async () => {
+    const { repository } = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        dueAt: now,
+        required: true,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      upsertSubmission: jest
+        .fn()
+        .mockRejectedValue(new MilestoneDocumentMissingError()),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    await expect(
+      service.submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { text: '본문', fileId: null },
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
     });
   });
 });

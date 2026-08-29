@@ -22,6 +22,10 @@ export class MilestoneDocumentDeadlineClosedError extends Error {
   override readonly name = 'MilestoneDocumentDeadlineClosedError';
 }
 
+export class MilestoneDocumentMissingError extends Error {
+  override readonly name = 'MilestoneDocumentMissingError';
+}
+
 const attachedFileSelect = {
   id: true,
   originalFileName: true,
@@ -57,12 +61,15 @@ export function upsertMilestoneDocumentSubmission(
         throw new MilestoneDocumentDeadlineClosedError();
       }
     }
-    await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
+    const documents = await transaction.$queryRaw<readonly { id: string }[]>(
+      Prisma.sql`
       SELECT "id"
       FROM "MilestoneDocument"
       WHERE "id" = ${input.milestoneDocumentId}
       FOR SHARE
-    `);
+    `,
+    );
+    if (documents.length === 0) throw new MilestoneDocumentMissingError();
 
     const latestReview =
       await transaction.milestoneDocumentReviewHistory.findFirst({

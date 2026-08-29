@@ -77,4 +77,16 @@ describe('MilestoneDocumentHistoryTimeline', () => {
 
     expect(html).toContain('이관 전 1~3차 제출 원문');
   });
+
+  it('cursor를 모두 읽어도 원장 완전성이 false면 별도 누락 안내를 한다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentHistoryTimeline
+        completeness="incomplete"
+        history={history}
+      />,
+    );
+
+    expect(html).toContain('이관 전 제출 이력 일부');
+    expect(html).toContain('기존 접수 기록을 요청');
+  });
 });

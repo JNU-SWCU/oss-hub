@@ -31,6 +31,7 @@ import {
 import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
 export {
   MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
 } from './milestone-document-submission.repository';
@@ -476,7 +477,14 @@ function unexpiredAttachedFileWhere(now: Date) {
 }
 
 const currentRevisionFileOrderBy: Prisma.SubmissionFileOrderByWithRelationInput[] =
-  [{ submissionHistory: { revision: 'desc' } }, { createdAt: 'desc' }];
+  [
+    {
+      submissionHistory: {
+        revision: { sort: 'desc', nulls: 'last' },
+      },
+    },
+    { createdAt: 'desc' },
+  ];
 
 /**
  * 트랜잭션 클라이언트로도, 트랜잭션 밖 PrismaService로도 같은 문장을 쓰기 위한 공용 구현.

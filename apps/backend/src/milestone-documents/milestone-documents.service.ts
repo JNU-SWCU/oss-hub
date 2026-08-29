@@ -24,6 +24,7 @@ import {
 import {
   InvalidMilestoneDocumentHistoryCursorError,
   MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   type MilestoneDocumentRecord,
   MilestoneDocumentReviewChangedError,
@@ -503,6 +504,9 @@ export class MilestoneDocumentsService {
       });
       return MilestoneDocumentSubmissionResponseDto.from(detail);
     } catch (error) {
+      if (error instanceof MilestoneDocumentMissingError) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
       if (error instanceof MilestoneDocumentPendingFileMissingError) {
         throw this.error(MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND);
       }

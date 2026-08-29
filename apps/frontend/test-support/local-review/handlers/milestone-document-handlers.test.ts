@@ -312,6 +312,29 @@ describe('GET .../documents/collection', () => {
     expect(fallback.pageSize).toBe(20);
     expect(fallback.total).toBe(fallback.filterCounts.all);
   });
+
+  it('collection query는 ValidationPipe와 같은 변환·allowlist·범위를 적용한다', () => {
+    expect(collection('page=01&pageSize=02&filter=ALL')).toMatchObject({
+      page: 1,
+      pageSize: 2,
+    });
+
+    for (const search of [
+      'page=0',
+      'pageSize=101',
+      'filter=UNKNOWN',
+      'unknown=1',
+      'page=1&page=2',
+    ]) {
+      const plan = resolve(
+        'GET',
+        `milestones/${MILESTONE_ID}/documents/collection`,
+        { search },
+      );
+      expect(statusOf(plan)).toBe(400);
+      expect(jsonBody(plan)).toMatchObject({ code: 'SYS_003' });
+    }
+  });
 });
 
 describe('GET .../applications/:applicationId/history', () => {
@@ -355,17 +378,28 @@ describe('GET .../applications/:applicationId/history', () => {
     });
   });
 
-  it('cursor와 limit을 서버 범위로 제한하고 범위 밖 cursor는 MSD_019로 막는다', () => {
+  it('history query는 transform-valid 숫자를 받고 pipe 실패는 SYS_003으로 막는다', () => {
+    expect(
+      statusOf(
+        resolve('GET', RESUBMISSION_HISTORY_PATH, { search: 'limit=01' }),
+      ),
+    ).toBe(200);
     for (const search of [
       'limit=0',
       'limit=51',
       'limit=one',
-      'cursor=outside',
+      'unknown=1',
+      'limit=1&limit=2',
     ]) {
       const plan = resolve('GET', RESUBMISSION_HISTORY_PATH, { search });
       expect(statusOf(plan)).toBe(400);
-      expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+      expect(jsonBody(plan)).toMatchObject({ code: 'SYS_003' });
     }
+    const missingCursor = resolve('GET', RESUBMISSION_HISTORY_PATH, {
+      search: 'cursor=outside',
+    });
+    expect(statusOf(missingCursor)).toBe(400);
+    expect(jsonBody(missingCursor)).toMatchObject({ code: 'MSD_019' });
   });
 
   it('cursor 페이지는 각각 시간순이며 nextCursor가 다음 페이지를 잇는다', () => {
@@ -431,7 +465,8 @@ describe('GET .../applications/:applicationId/history', () => {
 });
 
 describe('GET .../documents/:documentId/history', () => {
-  const HISTORY_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/history`;
+  const HISTORY_PATH =
+    'milestones/milestones-revision/documents/synthetic-document-revision/history';
 
   it('학생 자신의 이력만 bounded cursor로 돌리고 교직원 판정자를 가린다', () => {
     const first = jsonBody(
@@ -446,26 +481,56 @@ describe('GET .../documents/:documentId/history', () => {
 
     expect(first.nextCursor).not.toBeNull();
     expect(first.items.map((item) => item.event)).toEqual([
-      'CHANGES_REQUESTED',
       'RESUBMITTED',
+      'CHANGES_REQUESTED',
     ]);
-    expect(first.items[0]?.actorNickname).toBe('담당 교직원');
-    expect(first.items[1]?.actorNickname).toBe('synthetic-2-1');
+    expect(first.items[0]?.actorNickname).toBe('synthetic-student');
+    expect(first.items[1]?.actorNickname).toBe('담당 교직원');
     expect(second.items.map((item) => item.event)).toEqual(['SUBMITTED']);
     expect(second.nextCursor).toBeNull();
   });
 
-  it('staff history와 같은 cursor 범위를 적용한다', () => {
+  it('학생 목록의 overdue 판정과 같은 revision·결정을 돌린다', () => {
+    const body = jsonBody(
+      resolve(
+        'GET',
+        'milestones/milestones-overdue/documents/synthetic-document-overdue/history',
+        { fixture: 'student' },
+      ),
+    ) as MilestoneDocumentHistoryPage;
+
+    expect(body.items.map((item) => [item.event, item.revision])).toEqual([
+      ['SUBMITTED', 1],
+      ['CHANGES_REQUESTED', 1],
+    ]);
+  });
+
+  it('participant history도 transform-valid 숫자를 받고 pipe 실패는 SYS_003으로 막는다', () => {
+    expect(
+      statusOf(
+        resolve('GET', HISTORY_PATH, {
+          search: 'limit=01',
+          fixture: 'student',
+        }),
+      ),
+    ).toBe(200);
     for (const search of [
       'limit=0',
       'limit=51',
       'limit=one',
-      'cursor=outside',
+      'unknown=1',
+      'limit=1&limit=2',
     ]) {
       const plan = resolve('GET', HISTORY_PATH, { search, fixture: 'student' });
       expect(statusOf(plan)).toBe(400);
-      expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+      expect(jsonBody(plan)).toMatchObject({ code: 'SYS_003' });
     }
+    const missingCursor = resolve('GET', HISTORY_PATH, {
+      search: 'cursor=outside',
+      fixture: 'student',
+    });
+    expect(statusOf(missingCursor)).toBe(400);
+    expect(jsonBody(missingCursor)).toMatchObject({ code: 'MSD_019' });
   });
 });
 

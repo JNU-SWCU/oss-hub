@@ -398,6 +398,7 @@ function StudentDocumentRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [history, setHistory] = useState<
@@ -438,6 +439,26 @@ function StudentDocumentRow({
     viewerSubmission,
   );
   const historyMetadata = viewerSubmission?.history;
+
+  const refreshDocument = useCallback(async (): Promise<boolean> => {
+    setSyncing(true);
+    try {
+      const refreshed = requireMilestoneDocumentList(
+        await listMilestoneDocuments(document.milestoneId),
+      ).find((item) => item.id === document.id);
+      if (refreshed === undefined) throw new TypeError('Missing document.');
+      onChange(refreshed);
+      setSyncNotice(null);
+      return true;
+    } catch {
+      setSyncNotice(
+        '제출은 저장되었습니다. 최신 제출 차수와 이력은 아직 화면에 반영되지 않았습니다.',
+      );
+      return false;
+    } finally {
+      setSyncing(false);
+    }
+  }, [document.id, document.milestoneId, onChange]);
 
   const loadHistory = useCallback(
     async (cursor: string | null) => {
@@ -507,17 +528,7 @@ function StudentDocumentRow({
           content,
         );
         setEditing(false);
-        try {
-          const refreshed = requireMilestoneDocumentList(
-            await listMilestoneDocuments(document.milestoneId),
-          ).find((item) => item.id === document.id);
-          if (refreshed === undefined) throw new TypeError('Missing document.');
-          onChange(refreshed);
-        } catch {
-          setSyncNotice(
-            '제출은 저장되었습니다. 최신 제출 차수와 이력은 아직 화면에 반영되지 않았습니다.',
-          );
-        }
+        await refreshDocument();
         return true;
       } catch (submitError: unknown) {
         /*
@@ -536,7 +547,7 @@ function StudentDocumentRow({
         setSubmitting(false);
       }
     },
-    [document, onChange, onSubmitConflict],
+    [document, onSubmitConflict, refreshDocument],
   );
 
   async function submitDraft(input: {
@@ -598,7 +609,11 @@ function StudentDocumentRow({
             </a>
           </Button>
         ) : null}
-        {!canSubmit ? (
+        {syncNotice !== null ? (
+          <span className="text-small text-muted-foreground break-keep">
+            저장된 제출의 최신 상태를 확인하는 중입니다.
+          </span>
+        ) : !canSubmit ? (
           <span className="text-small text-muted-foreground break-keep">
             {display === 'APPROVED'
               ? '승인된 제출 항목은 다시 제출할 수 없습니다.'
@@ -627,9 +642,11 @@ function StudentDocumentRow({
         <MilestoneDocumentHistoryTimeline
           history={history}
           completeness={
-            historyNextCursor === null && historyMetadata?.isComplete === true
-              ? 'complete'
-              : 'has-more'
+            historyNextCursor !== null
+              ? 'has-more'
+              : historyMetadata?.isComplete === true
+                ? 'complete'
+                : 'incomplete'
           }
         />
       )}
@@ -672,7 +689,7 @@ function StudentDocumentRow({
           )}
         </div>
       )}
-      {canSubmit && editing ? (
+      {canSubmit && syncNotice === null && editing ? (
         <MilestoneDocumentSubmissionForm
           documentName={document.name}
           documentId={document.id}
@@ -683,8 +700,17 @@ function StudentDocumentRow({
       ) : null}
       {syncNotice === null ? null : (
         <Alert data-testid="milestone-document-submit-sync-notice">
-          <AlertDescription className="break-keep">
-            {syncNotice}
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <span className="break-keep">{syncNotice}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={syncing}
+              onClick={() => void refreshDocument()}
+            >
+              최신 상태 다시 불러오기
+            </Button>
           </AlertDescription>
         </Alert>
       )}

@@ -21,7 +21,8 @@ const EVENT_LABELS = {
  * 단정할 수 없다. 서버가 나중에 더 강한 완전성 메타데이터를 주더라도 이 경계에서만
  * 그 값을 이 계약으로 바꾸면 된다.
  */
-export type MilestoneDocumentHistoryCompleteness = 'complete' | 'has-more';
+export type MilestoneDocumentHistoryCompleteness =
+  'complete' | 'has-more' | 'incomplete';
 
 export function MilestoneDocumentHistoryTimeline({
   history,
@@ -58,6 +59,13 @@ export function MilestoneDocumentHistoryTimeline({
             이관 전 1~{firstKnownSubmission.revision - 1}차 제출 원문은 당시
             시스템에 남지 않아 이 화면에서 확인할 수 없습니다. 검토에 필요하면
             프로그램 담당자에게 기존 접수 기록을 요청해 주세요.
+          </p>
+        ) : null}
+        {completeness === 'incomplete' ? (
+          <p className="text-small text-muted-foreground break-keep">
+            이관 전 제출 이력 일부는 당시 시스템에 남지 않아 이 화면에서 확인할
+            수 없습니다. 검토에 필요하면 프로그램 담당자에게 기존 접수 기록을
+            요청해 주세요.
           </p>
         ) : null}
       </div>

@@ -937,6 +937,82 @@ export function milestoneDocumentHistoryFor(
     collectionFileNameFor(document, rowIndex),
     collectionContentFor(document, rowIndex + 1),
   );
+  return historyPageFor(documentId, applicationId, history, query);
+}
+
+export function milestoneDocumentParticipantHistoryFor(
+  milestoneId: string,
+  documentId: string,
+  query: { readonly cursor: string | null; readonly limit: number },
+): MilestoneDocumentHistoryFixtureResult {
+  const document = (MILESTONE_DOCUMENT_FIXTURES[milestoneId] ?? []).find(
+    (candidate) => candidate.id === documentId,
+  );
+  if (document === undefined) return { kind: 'document-not-found' };
+  const submission = document.viewerSubmission;
+  if (
+    submission === null ||
+    !submission.submitted ||
+    submission.submittedAt === null ||
+    submission.revision === null
+  ) {
+    return { kind: 'submission-not-found' };
+  }
+  const content = collectionContentFor(document, 1);
+  const fileName =
+    document.contentKind === 'FILE' ? `합성-${document.name}-현재본.pdf` : null;
+  const revision = submission.revision;
+  const submittedAt = submission.submittedAt;
+  const history: MilestoneDocumentCollectionHistory[] = Array.from(
+    { length: revision },
+    (_, index) => {
+      const itemRevision = index + 1;
+      return {
+        event: itemRevision === 1 ? 'SUBMITTED' : 'RESUBMITTED',
+        revision: itemRevision,
+        actorNickname: 'synthetic-student',
+        comment: null,
+        createdAt:
+          itemRevision === revision
+            ? submittedAt
+            : new Date(
+                Date.parse(submittedAt) -
+                  (revision - itemRevision) * 48 * 3_600_000,
+              ).toISOString(),
+        fileName,
+        content,
+      };
+    },
+  );
+  if (submission.review !== null && submission.status !== null) {
+    history.push({
+      event:
+        submission.status === 'SUBMITTED'
+          ? 'CHANGES_REQUESTED'
+          : submission.status,
+      revision:
+        submission.status === 'SUBMITTED' && revision > 1
+          ? revision - 1
+          : revision,
+      actorNickname: '담당 교직원',
+      comment: submission.review.comment,
+      createdAt: submission.review.reviewedAt,
+      fileName: null,
+      content: null,
+    });
+    history.sort(
+      (left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt),
+    );
+  }
+  return historyPageFor(documentId, 'viewer', history, query);
+}
+
+function historyPageFor(
+  documentId: string,
+  applicationId: string,
+  history: readonly MilestoneDocumentCollectionHistory[],
+  query: { readonly cursor: string | null; readonly limit: number },
+): MilestoneDocumentHistoryFixtureResult {
   const descending = history
     .map((item, index) => ({
       id: `history-${documentId.slice(-12)}-${applicationId.slice(-12)}-${index}`,

@@ -371,6 +371,42 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
+
+  it('제출 저장 뒤 목록 재조회가 실패하면 재제출을 잠그고 최신 상태 재시도만 제공한다', async () => {
+    const refreshed = documentWithViewer({
+      submitted: true,
+      submittedAt: '2026-08-03T00:00:00.000Z',
+      revision: 3,
+      status: 'SUBMITTED',
+      hasCurrentFile: false,
+      review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
+      history: { hasHistory: true, isComplete: true },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(jsonResponse({ id: 'submission-1' }))
+      .mockResolvedValueOnce(
+        problemResponse(503, 'COM_002', '잠시 후 다시 시도해 주세요.'),
+      )
+      .mockResolvedValueOnce(jsonResponse([refreshed]))
+      .mockResolvedValueOnce(jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resubmit();
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('제출은 저장되었습니다.');
+    });
+    expect(button('수정')).toBeNull();
+    expect(submissionInput()).toBeNull();
+
+    await act(async () => button('최신 상태 다시 불러오기')?.click());
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).not.toContain('제출은 저장되었습니다.');
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
 });
 
 /**
@@ -595,6 +631,35 @@ describe('학생 행이 판정을 읽는 방식', () => {
     );
     const text = container.textContent ?? '';
     expect(text.indexOf('first.pdf')).toBeLessThan(text.indexOf('latest.pdf'));
+  });
+
+  it('모든 cursor 페이지를 읽어도 이관 원장이 불완전하면 누락을 명시한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 3,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: null,
+            },
+          ],
+          nextCursor: null,
+        }),
+      ),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: false } }),
+    );
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('이관 전 제출 이력 일부');
+    });
+    expect(buttonTexts()).not.toContain('이전 이력 더 보기');
   });
 
   it('빈 원장은 그리지 않고 미제출 행에는 이력 요청을 보내지 않는다', async () => {

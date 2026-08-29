@@ -96,6 +96,11 @@ export async function resetSubmissionHistoryFixture(
       await transaction.$executeRawUnsafe(
         `INSERT INTO "SubmissionFile" VALUES ${files}`,
       );
+      if (attachedFileCount === 1) {
+        await transaction.$executeRawUnsafe(
+          `INSERT INTO "SubmissionFile" VALUES ('file-old', 'submission-file', 'DELETE_PENDING')`,
+        );
+      }
     },
   );
 }

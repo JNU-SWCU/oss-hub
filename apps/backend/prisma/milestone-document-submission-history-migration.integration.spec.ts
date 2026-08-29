@@ -72,6 +72,23 @@ it('현재 제출과 기존 판정을 이력으로 보존하고 단일 첨부를
       fileId: null,
     },
   ]);
+  const files = await inSubmissionHistoryFixtureSchema(
+    prisma,
+    SCHEMA,
+    (transaction) =>
+      transaction.$queryRaw<
+        readonly { readonly id: string; readonly historyId: string | null }[]
+      >`
+        SELECT
+          "id",
+          "milestoneDocumentSubmissionHistoryId" AS "historyId"
+        FROM "SubmissionFile"
+        ORDER BY "id"
+      `,
+  );
+  expect(files.map((file) => file.id)).toEqual(['file-1', 'file-old']);
+  expect(files[0]?.historyId).not.toBeNull();
+  expect(files[1]?.historyId).toBeNull();
   await expect(
     columnIsNullable(prisma, SCHEMA, 'Milestone', 'submissionType'),
   ).resolves.toBe(true);

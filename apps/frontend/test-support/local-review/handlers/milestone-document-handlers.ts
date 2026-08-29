@@ -14,7 +14,6 @@ import {
   matchGet,
   matchPath,
   notFound,
-  positiveIntParam,
   problem,
   unauthenticated,
   type LocalReviewContext,
@@ -27,6 +26,7 @@ import {
   MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY,
   milestoneDocumentCollectionFor,
   milestoneDocumentHistoryFor,
+  milestoneDocumentParticipantHistoryFor,
   milestoneDocumentSubmissionFor,
   milestoneDocumentsFor,
   reorderedMilestoneDocumentsFor,
@@ -157,6 +157,44 @@ function submissionEvidence(context: LocalReviewContext): {
   };
 }
 
+function hasOnlyQueryKeys(
+  context: LocalReviewContext,
+  allowed: ReadonlySet<string>,
+): boolean {
+  const keys = [...new Set(context.searchParams.keys())];
+  return keys.every(
+    (key) => allowed.has(key) && context.searchParams.getAll(key).length === 1,
+  );
+}
+
+function transformedInteger(
+  raw: string | null,
+  fallback: number,
+  max?: number,
+): number | null {
+  if (raw === null) return fallback;
+  const value = Number(raw);
+  return Number.isInteger(value) &&
+    value >= 1 &&
+    (max === undefined || value <= max)
+    ? value
+    : null;
+}
+
+const COLLECTION_QUERY_KEYS = new Set(['page', 'pageSize', 'filter']);
+const HISTORY_QUERY_KEYS = new Set(['cursor', 'limit']);
+
+function historyQuery(
+  context: LocalReviewContext,
+): { readonly cursor: string | null; readonly limit: number } | null {
+  if (!hasOnlyQueryKeys(context, HISTORY_QUERY_KEYS)) return null;
+  const limit = transformedInteger(context.searchParams.get('limit'), 20, 50);
+  const cursor = context.searchParams.get('cursor');
+  return limit === null || (cursor !== null && cursor.length > 64)
+    ? null
+    : { cursor, limit };
+}
+
 /** 시드가 가진 자리. 모르는 서류면 1 — 수정 응답은 순서를 만들어 내지 않는다. */
 function storedSortOrder(milestoneId: string, documentId: string): number {
   const documents = milestoneDocumentsFor(milestoneId, 'STAFF') ?? [];
@@ -209,18 +247,28 @@ const collectionHandler: LocalReviewHandler = (context) => {
   if (params === null) return null;
   const guard = staffGuardResponse(context);
   if (guard !== null) return guard;
-  // 모르는 filter 값은 기본값(ALL)으로 떨어뜨린다 — 실제 백엔드는 422로 거절하지만,
-  // 검토 화면이 보내는 값은 계약 안의 3종뿐이라 여기서 갈래를 늘리지 않는다.
+  const page = transformedInteger(
+    context.searchParams.get('page'),
+    MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY.page,
+  );
+  const pageSize = transformedInteger(
+    context.searchParams.get('pageSize'),
+    MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY.pageSize,
+    100,
+  );
   const filter = context.searchParams.get('filter');
+  if (
+    !hasOnlyQueryKeys(context, COLLECTION_QUERY_KEYS) ||
+    page === null ||
+    pageSize === null ||
+    (filter !== null &&
+      !COLLECTION_FILTERS.includes(filter as MilestoneDocumentCollectionFilter))
+  ) {
+    return validationProblem(context);
+  }
   const collection = milestoneDocumentCollectionFor(params.milestoneId ?? '', {
-    page: positiveIntParam(
-      context.searchParams.get('page'),
-      MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY.page,
-    ),
-    pageSize: positiveIntParam(
-      context.searchParams.get('pageSize'),
-      MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY.pageSize,
-    ),
+    page,
+    pageSize,
     filter: COLLECTION_FILTERS.includes(
       filter as MilestoneDocumentCollectionFilter,
     )
@@ -368,30 +416,13 @@ const submissionHistoryHandler: LocalReviewHandler = (context) => {
   if (params === null) return null;
   const guard = staffGuardResponse(context);
   if (guard !== null) return guard;
-  const rawLimit = context.searchParams.get('limit');
-  const limit = positiveIntParam(rawLimit, 20);
-  const cursor = context.searchParams.get('cursor');
-  // DTO의 limit 범위는 1..50이다. `positiveIntParam`은 없는 값의 기본만 맡기고,
-  // 범위 밖·숫자가 아닌 값은 실제 ValidationPipe와 같이 400으로 가른다.
-  if (
-    (rawLimit !== null &&
-      (!/^[1-9]\d*$/.test(rawLimit) ||
-        !Number.isSafeInteger(Number(rawLimit)) ||
-        Number(rawLimit) > 50)) ||
-    (cursor !== null && cursor.length > 64)
-  ) {
-    return problem(
-      400,
-      INVALID_REQUEST_CODE,
-      apiPath(context.path),
-      '요청 값을 확인해 주세요.',
-    );
-  }
+  const query = historyQuery(context);
+  if (query === null) return validationProblem(context);
   const history = milestoneDocumentHistoryFor(
     params.milestoneId ?? '',
     params.documentId ?? '',
     params.applicationId ?? '',
-    { cursor, limit },
+    query,
   );
   switch (history.kind) {
     case 'page':
@@ -428,29 +459,12 @@ const participantHistoryHandler: LocalReviewHandler = (context) => {
   if (!context.isAuthenticated || context.role === null) {
     return unauthenticated(context.path);
   }
-  const rawLimit = context.searchParams.get('limit');
-  const limit = positiveIntParam(rawLimit, 20);
-  const cursor = context.searchParams.get('cursor');
-  if (
-    (rawLimit !== null &&
-      (!/^[1-9]\d*$/.test(rawLimit) ||
-        !Number.isSafeInteger(Number(rawLimit)) ||
-        Number(rawLimit) > 50)) ||
-    (cursor !== null && cursor.length > 64)
-  ) {
-    return problem(
-      400,
-      INVALID_REQUEST_CODE,
-      apiPath(context.path),
-      '요청 값을 확인해 주세요.',
-    );
-  }
-  const milestoneId = params.milestoneId ?? '';
-  const history = milestoneDocumentHistoryFor(
-    milestoneId,
+  const query = historyQuery(context);
+  if (query === null) return validationProblem(context);
+  const history = milestoneDocumentParticipantHistoryFor(
+    params.milestoneId ?? '',
     params.documentId ?? '',
-    `synthetic-application-${milestoneId}-2`,
-    { cursor, limit },
+    query,
   );
   switch (history.kind) {
     case 'page':

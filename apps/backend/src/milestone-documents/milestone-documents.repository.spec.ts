@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import {
   MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
@@ -572,6 +573,27 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     ).toContain('"MilestoneDocument"');
   });
 
+  it('잠금 시점에 서류가 사라졌으면 FK 오류 전에 좁은 not-found 오류를 낸다', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([]);
+    const { prisma, submissionUpsert } = transactionPrisma({
+      $queryRaw: queryRaw,
+    });
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    await expect(
+      repository.upsertSubmission({
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedById: syntheticUserId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        content: { type: 'TEXT', text: '본문' },
+        attachFile: null,
+        expectedLatestReviewId: null,
+      }),
+    ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
+    expect(submissionUpsert).not.toHaveBeenCalled();
+  });
+
   it('재제출 파일은 이전 파일을 지우지 않고 새 이력에 붙인다', async () => {
     // Given
     const fileUpdateMany = jest.fn().mockResolvedValueOnce({ count: 1 });
@@ -840,7 +862,11 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
       select: { files: { orderBy: unknown; take: number } };
     }>(findUnique);
     expect(call.select.files.orderBy).toEqual([
-      { submissionHistory: { revision: 'desc' } },
+      {
+        submissionHistory: {
+          revision: { sort: 'desc', nulls: 'last' },
+        },
+      },
       { createdAt: 'desc' },
     ]);
     expect(call.select.files.take).toBe(1);
@@ -1469,7 +1495,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     });
     expect(call.select.files.take).toBe(1);
     expect(call.select.files.orderBy).toEqual([
-      { submissionHistory: { revision: 'desc' } },
+      {
+        submissionHistory: {
+          revision: { sort: 'desc', nulls: 'last' },
+        },
+      },
       { createdAt: 'desc' },
     ]);
     expect(result[0]?.file).toEqual({
@@ -1874,7 +1904,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     });
     expect(call.select.files.where).toBeUndefined();
     expect(call.select.files.orderBy).toEqual([
-      { submissionHistory: { revision: 'desc' } },
+      {
+        submissionHistory: {
+          revision: { sort: 'desc', nulls: 'last' },
+        },
+      },
       { createdAt: 'desc' },
     ]);
     expect(call.select.files.take).toBe(1);
@@ -2234,7 +2268,11 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     });
     expect(call.select.files.take).toBe(1);
     expect(call.select.files.orderBy).toEqual([
-      { submissionHistory: { revision: 'desc' } },
+      {
+        submissionHistory: {
+          revision: { sort: 'desc', nulls: 'last' },
+        },
+      },
       { createdAt: 'desc' },
     ]);
     expect(result).toEqual({
