@@ -746,3 +746,12 @@
 - blocker: 없음
 - 결과: 앞 항목의 199개 파일은 수정 전 최초 snapshot이었다. 최종 candidate는 base 대비 rename-aware manifest 254개 항목을 254/254 전수 재검토하고 발견한 blocker와 fix-now를 모두 반영했다.
 - 검증: 최종 head와 base는 GitHub PR #1047의 실제 ref에서 다시 읽었고 exact patch, name-status, stat의 해시를 별도 검토 증거로 고정했다.
+
+## 2026-08-29 — PR #1047 인증 보완 뒤 exact diff 범위를 다시 정정한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 앞 정정 뒤 seed 원장 무결성 검증이 추가되면서 최종 rename-aware manifest가 255개 항목이 됐다. 최종 candidate의 255/255 항목을 다시 전수 검토했다.
+- 검증: GitHub의 최종 head·base를 다시 읽고 exact patch, name-status, stat 해시와 required check 결과를 같은 candidate에 묶었다.
