@@ -155,11 +155,12 @@ describe('program edit API', () => {
     );
   });
 
-  it('restores startAt from the submitted input when a name-only save response omits it', async () => {
+  it('uses the backend milestone response as the authoritative saved value', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         id: 'milestone-1',
         name: '기획서 수정',
+        startAt: '2026-05-02T00:00:00.000Z',
         dueAt: '2026-05-10T00:00:00.000Z',
         submissionType: 'TEXT',
         instructions: null,
@@ -175,8 +176,8 @@ describe('program edit API', () => {
 
     const saved = await updateMilestone('milestone-1', input);
 
-    expect(saved.startAt).toBe(input.startAt);
-    expect(toMilestoneForm(saved).startAt).toBe('2026-05-01T09:00');
+    expect(saved.startAt).toBe('2026-05-02T00:00:00.000Z');
+    expect(toMilestoneForm(saved).startAt).toBe('2026-05-02T09:00');
   });
 
   it('maps backend fieldErrors from the real ApiClient problem shape without clearing inputs', async () => {

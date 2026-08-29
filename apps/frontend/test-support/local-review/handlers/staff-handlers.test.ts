@@ -403,10 +403,11 @@ describe('staff local review handlers', () => {
     expect(updated.milestones.length).toBeGreaterThan(0);
   });
 
-  it('마일스톤 저장은 입력한 이름·마감을 되돌려 주고 상위 제출 형식은 만들지 않는다', () => {
+  it('마일스톤 저장은 시작·마감 응답을 완성하고 상위 제출 형식은 만들지 않는다', () => {
     // Given
     const input = {
       name: '합성 마일스톤 입력',
+      startAt: '2026-11-01T00:00:00.000Z',
       dueAt: '2026-11-30T14:59:59.000Z',
       instructions: '합성 안내',
     };
@@ -414,21 +415,28 @@ describe('staff local review handlers', () => {
     // When
     const created = bodyOf<{
       readonly name: string;
+      readonly startAt: string;
       readonly dueAt: string;
       readonly submissionType: string | null;
     }>(
       resolveWithBody('POST', 'programs/program-basic-study/milestones', input),
     );
-    const updated = bodyOf<{ readonly id: string; readonly name: string }>(
+    const updated = bodyOf<{
+      readonly id: string;
+      readonly name: string;
+      readonly startAt: string;
+    }>(
       resolveWithBody('PATCH', 'milestones/milestone-basic-final', input),
     );
 
     // Then
     expect(created.name).toBe('합성 마일스톤 입력');
+    expect(created.startAt).toBe('2026-11-01T00:00:00.000Z');
     expect(created.dueAt).toBe('2026-11-30T14:59:59.000Z');
     expect(created.submissionType).toBeNull();
     expect(updated.id).toBe('milestone-basic-final');
     expect(updated.name).toBe('합성 마일스톤 입력');
+    expect(updated.startAt).toBe('2026-11-01T00:00:00.000Z');
   });
 
   it('마일스톤 안내를 비우면 비운 채로 돌아온다', () => {
