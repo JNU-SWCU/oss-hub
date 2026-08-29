@@ -45,22 +45,23 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
 
     await authorPage.goto('/programs/new');
     await authorPage.getByRole('radio', { name: '기본' }).check();
-    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
+    await authorPage.getByRole('button', { name: '계속' }).click();
     await authorPage
       .getByLabel('프로그램명 *')
       .fill(PROGRAM_AUTHORING_E2E.programName);
     await authorPage
       .getByLabel('주관기관/학과 *')
       .fill('e2e:program-authoring:organizer');
+    await authorPage.getByLabel('최소').fill('1');
+    await authorPage.getByLabel('최대').fill('1');
     await authorPage
       .getByLabel('소개/설명 *')
       .fill('e2e:program-authoring:description');
-    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
+    await authorPage.getByRole('button', { name: '계속' }).click();
     await selectScheduleRange(authorPage, {
-      rangeButtonName: /1\. 신청 기간/,
       rangeLabel: '신청 기간',
       startAt: seoulLocalInput(schedule, -DAY_MS),
-      endAt: seoulLocalInput(schedule),
+      endAt: seoulLocalInput(schedule, 2 * DAY_MS),
     });
     await authorPage.setViewportSize({ width: 375, height: 900 });
     const calendarScroller = authorPage.getByTestId(
@@ -87,55 +88,56 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     ).toBeLessThanOrEqual(375);
     await authorPage.setViewportSize({ width: 1280, height: 900 });
     await selectScheduleRange(authorPage, {
-      rangeButtonName: /2\. 운영 기간/,
       rangeLabel: '운영 기간',
-      startAt: seoulLocalInput(schedule),
+      startAt: seoulLocalInput(schedule, -DAY_MS),
       endAt: seoulLocalInput(schedule, 10 * DAY_MS),
     });
-    await authorPage.getByLabel('최소').fill('1');
-    await authorPage.getByLabel('최대').fill('1');
-    await authorPage.getByRole('button', { name: /3\. 마일스톤 1/ }).click();
-    await authorPage
-      .getByLabel('마일스톤 1 이름 *')
-      .fill(PROGRAM_AUTHORING_E2E.informationalMilestoneName);
-    await selectScheduleRange(authorPage, {
-      rangeButtonName: /3\. e2e:program-authoring:information-milestone/,
-      rangeLabel: PROGRAM_AUTHORING_E2E.informationalMilestoneName,
-      startAt: seoulLocalInput(schedule, HOUR_MS),
-      endAt: seoulLocalInput(schedule, 2 * HOUR_MS),
-    });
+    await authorPage.getByRole('button', { name: '계속' }).click();
+
     await authorPage.getByRole('button', { name: '마일스톤 추가' }).click();
-    await authorPage
-      .getByLabel('마일스톤 2 이름 *')
+    let milestoneDialog = authorPage.getByRole('dialog');
+    await milestoneDialog
+      .getByLabel('시작일')
+      .fill(seoulLocalInput(schedule).slice(0, 10));
+    await milestoneDialog
+      .getByLabel('마감일')
+      .fill(seoulLocalInput(schedule).slice(0, 10));
+    await milestoneDialog
+      .getByLabel('마일스톤 이름 *')
+      .fill(PROGRAM_AUTHORING_E2E.informationalMilestoneName);
+    await milestoneDialog.getByLabel('공지사항').fill('안내용 마일스톤');
+    await milestoneDialog.getByRole('button', { name: '저장' }).click();
+
+    await authorPage.getByRole('button', { name: '마일스톤 추가' }).click();
+    milestoneDialog = authorPage.getByRole('dialog');
+    await milestoneDialog
+      .getByLabel('시작일')
+      .fill(seoulLocalInput(schedule).slice(0, 10));
+    await milestoneDialog
+      .getByLabel('마감일')
+      .fill(seoulLocalInput(schedule).slice(0, 10));
+    await milestoneDialog
+      .getByLabel('마일스톤 이름 *')
       .fill(PROGRAM_AUTHORING_E2E.requiredMilestoneName);
-    await selectScheduleRange(authorPage, {
-      rangeButtonName: /4\. e2e:program-authoring:required-milestone/,
-      rangeLabel: PROGRAM_AUTHORING_E2E.requiredMilestoneName,
-      startAt: seoulLocalInput(schedule, 2 * HOUR_MS),
-      endAt: seoulLocalInput(schedule, 9 * HOUR_MS),
+    const attachmentInput = milestoneDialog
+      .getByText('첨부파일 추가')
+      .locator('input[type="file"]');
+    await attachmentInput.setInputFiles({
+      name: PROGRAM_AUTHORING_E2E.informationalDocumentName,
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4\ninformation\n'),
     });
-    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
-    await authorPage.getByLabel('필수 제출로 지정합니다').first().uncheck();
-    await authorPage
-      .getByLabel('제출 항목 이름 *')
-      .first()
-      .fill(PROGRAM_AUTHORING_E2E.informationalDocumentName);
-    await authorPage
-      .getByLabel('제출 항목 이름 *')
-      .nth(1)
-      .fill(PROGRAM_AUTHORING_E2E.requiredDocumentName);
-    await authorPage
-      .getByLabel('참고 자료·양식 (선택)')
-      .nth(1)
-      .setInputFiles({
-        name: 'template.pdf',
-        mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4\ntemplate\n'),
-      });
-    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
+    await attachmentInput.setInputFiles({
+      name: PROGRAM_AUTHORING_E2E.requiredDocumentName,
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4\nrequired\n'),
+    });
+    await milestoneDialog.getByLabel('필수 제출').first().uncheck();
+    await milestoneDialog.getByRole('button', { name: '저장' }).click();
+    await authorPage.getByRole('button', { name: '계속' }).click();
     await authorPage.getByLabel('GitHub 저장소 발급').check();
     await authorPage.getByLabel('제출 마감 알림').check();
-    await authorPage.getByRole('button', { name: '저장하고 계속' }).click();
+    await authorPage.getByRole('button', { name: '계속' }).click();
     await expect(authorPage.getByText(/내용이나 파일로 제출 가능/)).toHaveCount(
       2,
     );
@@ -191,7 +193,11 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     });
 
     await studentPage.goto(`/programs/${encodeURIComponent(programId)}`);
-    const template = await downloadedArtifact(studentPage, '양식');
+    const template = await downloadedArtifact(
+      studentPage,
+      '양식',
+      PROGRAM_AUTHORING_E2E.requiredDocumentName,
+    );
     const requiredDocumentRow = studentPage
       .getByTestId('milestone-document-row')
       .filter({ hasText: PROGRAM_AUTHORING_E2E.requiredDocumentName });

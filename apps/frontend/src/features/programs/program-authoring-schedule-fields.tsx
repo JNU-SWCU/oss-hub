@@ -1,66 +1,11 @@
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import {
   messageFor,
   ProgramAuthoringTextField,
 } from './program-authoring-fields';
-import type {
-  ProgramAuthoringAction,
-  ProgramAuthoringState,
-} from './program-authoring-model';
+import type { ProgramAuthoringAction } from './program-authoring-model';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
-
-export function ProgramAuthoringTeamSizeFields({
-  state,
-  issues,
-  dispatch,
-}: {
-  readonly state: ProgramAuthoringState;
-  readonly issues: readonly ProgramAuthoringIssue[];
-  readonly dispatch: (action: ProgramAuthoringAction) => void;
-}) {
-  return (
-    <Field>
-      <FieldLabel>팀 인원 *</FieldLabel>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ProgramAuthoringTextField
-          id="team-minimum"
-          label="최소"
-          type="number"
-          min="1"
-          max="100"
-          value={state.teamMinSize}
-          error={messageFor(issues, 'teamMinSize')}
-          onChange={(value) =>
-            dispatch({
-              type: 'set_program_field',
-              field: 'teamMinSize',
-              value,
-            })
-          }
-        />
-        <ProgramAuthoringTextField
-          id="team-maximum"
-          label="최대"
-          type="number"
-          min={state.teamMinSize || '1'}
-          max="100"
-          value={state.teamMaxSize}
-          error={messageFor(issues, 'teamMaxSize')}
-          onChange={(value) =>
-            dispatch({
-              type: 'set_program_field',
-              field: 'teamMaxSize',
-              value,
-            })
-          }
-        />
-      </div>
-      <FieldDescription>기본값은 1명부터 1명입니다.</FieldDescription>
-    </Field>
-  );
-}
 
 export function ProgramAuthoringMilestoneDetails({
   milestoneId,

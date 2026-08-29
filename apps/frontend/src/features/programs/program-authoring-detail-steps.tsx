@@ -8,7 +8,12 @@ import {
   Trophy,
 } from 'lucide-react';
 import { FormSection } from '@/components/form-section';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
 import {
   messageFor,
   ProgramAuthoringTextField,
@@ -106,6 +111,44 @@ export function ProgramAuthoringBasicStep({
           dispatch({ type: 'set_program_field', field: 'organizer', value })
         }
       />
+      <Field>
+        <FieldLabel>참여 인원 / 팀 규모 *</FieldLabel>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ProgramAuthoringTextField
+            id="team-minimum"
+            label="최소"
+            type="number"
+            min="1"
+            max="100"
+            value={state.teamMinSize}
+            error={messageFor(issues, 'teamMinSize')}
+            onChange={(value) =>
+              dispatch({
+                type: 'set_program_field',
+                field: 'teamMinSize',
+                value,
+              })
+            }
+          />
+          <ProgramAuthoringTextField
+            id="team-maximum"
+            label="최대"
+            type="number"
+            min={state.teamMinSize || '1'}
+            max="100"
+            value={state.teamMaxSize}
+            error={messageFor(issues, 'teamMaxSize')}
+            onChange={(value) =>
+              dispatch({
+                type: 'set_program_field',
+                field: 'teamMaxSize',
+                value,
+              })
+            }
+          />
+        </div>
+        <FieldDescription>기본값은 1명부터 1명입니다.</FieldDescription>
+      </Field>
       <Field>
         <FieldLabel htmlFor="authoring-description">소개/설명 *</FieldLabel>
         <textarea

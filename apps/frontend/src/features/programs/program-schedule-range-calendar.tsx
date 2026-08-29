@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import {
   calendarWeeks,
   dateKey,
+  milestoneColorVariant,
   segmentsForWeek,
   shiftDate,
   shiftMonth,
@@ -18,11 +19,18 @@ import {
 import type { ProgramScheduleEditableRange } from './program-schedule-range-types';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
-const KIND_STYLES: Record<ProgramScheduleEventKind, string> = {
+const FIXED_KIND_STYLES: Record<
+  Exclude<ProgramScheduleEventKind, 'MILESTONE'>,
+  string
+> = {
   APPLICATION: 'bg-blue-600 text-white',
   OPERATION: 'bg-emerald-700 text-white',
-  MILESTONE: 'bg-amber-500 text-amber-950',
 };
+const MILESTONE_STYLES = [
+  'bg-amber-300 text-amber-950',
+  'bg-orange-300 text-orange-950',
+  'bg-yellow-300 text-yellow-950',
+] as const;
 
 export function ProgramScheduleRangeCalendar({
   events,
@@ -30,18 +38,22 @@ export function ProgramScheduleRangeCalendar({
   monthKey,
   focusedDate,
   selectionInvalid = false,
+  errorDescribedBy,
   onMonthKeyChange,
   onFocusedDateChange,
   onDateSelect,
+  readOnly = false,
 }: {
   readonly events: readonly ProgramScheduleCalendarEvent[];
   readonly activeRange: ProgramScheduleEditableRange;
   readonly monthKey: string;
   readonly focusedDate: string;
   readonly selectionInvalid?: boolean;
+  readonly errorDescribedBy?: string;
   readonly onMonthKeyChange: (value: string) => void;
   readonly onFocusedDateChange: (value: string) => void;
   readonly onDateSelect: (value: string) => void;
+  readonly readOnly?: boolean;
 }) {
   const summaryId = useId();
   const scrollHintId = `${summaryId}-scroll-hint`;
@@ -111,16 +123,22 @@ export function ProgramScheduleRangeCalendar({
     <div
       className="overflow-hidden rounded-card border border-border bg-background"
       role="region"
-      aria-label={`${activeRange.label} 날짜 선택 달력`}
+      aria-label={
+        readOnly
+          ? `${activeRange.label} 일정 달력`
+          : `${activeRange.label} 날짜 선택 달력`
+      }
       aria-describedby={summaryId}
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0 break-keep text-pretty">
           <strong>{formatMonth(monthKey)}</strong>
           <p className="text-small text-muted-foreground">
-            {activeRange.kind === 'MILESTONE'
-              ? '마일스톤 날짜 선택 · 운영 기간 밖은 선택할 수 없음'
-              : `${activeRange.label} · 시작일과 종료일을 차례로 선택`}
+            {readOnly
+              ? '신청·운영·마일스톤 일정'
+              : activeRange.kind === 'MILESTONE'
+                ? '마일스톤 날짜 선택 · 운영 기간 밖은 선택할 수 없음'
+                : `${activeRange.label} · 시작일과 종료일을 차례로 선택`}
           </p>
         </div>
         <div
@@ -169,7 +187,11 @@ export function ProgramScheduleRangeCalendar({
         className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         role="region"
         aria-label="날짜 선택 달력 가로 스크롤"
-        aria-describedby={scrollHintId}
+        aria-describedby={
+          errorDescribedBy
+            ? `${scrollHintId} ${errorDescribedBy}`
+            : scrollHintId
+        }
         aria-invalid={selectionInvalid || undefined}
         tabIndex={0}
         data-testid="program-schedule-calendar-scroll"
@@ -192,8 +214,22 @@ export function ProgramScheduleRangeCalendar({
                     activeRange.maxDate,
                   );
                   const isEndpoint =
-                    activeRange.startAt.startsWith(day) ||
-                    activeRange.endAt.startsWith(day);
+                    !readOnly &&
+                    (activeRange.startAt.startsWith(day) ||
+                      activeRange.endAt.startsWith(day));
+                  const dayClassName = `min-h-11 min-w-11 rounded-control text-small ${isEndpoint ? 'bg-primary font-bold text-primary-foreground' : day.startsWith(monthKey) ? (readOnly ? '' : 'hover:bg-muted') : readOnly ? 'text-muted-foreground/50' : 'text-muted-foreground/50 hover:bg-muted'}`;
+                  if (readOnly) {
+                    return (
+                      <span
+                        key={day}
+                        role="gridcell"
+                        aria-label={formatKoreanDate(day)}
+                        className={`${dayClassName} flex items-center justify-center`}
+                      >
+                        {Number(day.slice(-2))}
+                      </span>
+                    );
+                  }
                   return (
                     <button
                       key={day}
@@ -203,7 +239,7 @@ export function ProgramScheduleRangeCalendar({
                       tabIndex={focusedDate === day && selectable ? 0 : -1}
                       aria-label={`${formatKoreanDate(day)}${selectable ? '' : ', 선택할 수 없음'}`}
                       aria-pressed={isEndpoint}
-                      className={`min-h-11 min-w-11 rounded-control text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-muted/50 disabled:text-muted-foreground/40 ${isEndpoint ? 'bg-primary font-bold text-primary-foreground' : day.startsWith(monthKey) ? 'hover:bg-muted' : 'text-muted-foreground/50 hover:bg-muted'}`}
+                      className={`${dayClassName} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-muted/50 disabled:text-muted-foreground/40`}
                       onClick={() => {
                         onFocusedDateChange(day);
                         onDateSelect(day);
@@ -246,7 +282,7 @@ function RangeSegment({
   return (
     <div className="grid grid-cols-7" aria-hidden="true">
       <div
-        className={`min-w-0 px-2 py-1 text-xs font-semibold leading-4 ${KIND_STYLES[segment.event.kind]} ${segment.continuesBefore ? 'rounded-l-none' : 'rounded-l-md'} ${segment.continuesAfter ? 'rounded-r-none' : 'rounded-r-md'}`}
+        className={`min-w-0 px-2 py-1 text-xs font-semibold leading-4 ${rangeStyle(segment.event)} ${segment.continuesBefore ? 'rounded-l-none' : 'rounded-l-md'} ${segment.continuesAfter ? 'rounded-r-none' : 'rounded-r-md'}`}
         style={{ gridColumn: `${segment.startColumn} / span ${segment.span}` }}
       >
         {segment.span > 1 ? (
@@ -255,6 +291,12 @@ function RangeSegment({
       </div>
     </div>
   );
+}
+
+function rangeStyle(event: ProgramScheduleCalendarEvent): string {
+  if (event.kind === 'MILESTONE')
+    return MILESTONE_STYLES[milestoneColorVariant(event.id)];
+  return FIXED_KIND_STYLES[event.kind];
 }
 
 function formatMonth(value: string): string {

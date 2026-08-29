@@ -22,6 +22,8 @@ export type ProgramScheduleWeekSegment = {
   readonly continuesAfter: boolean;
 };
 
+export type ProgramScheduleMilestoneColorVariant = 0 | 1 | 2;
+
 const DATE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})/;
 const SEOUL_DATE_KEY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Seoul',
@@ -158,6 +160,14 @@ export function eventBoundaryLabel(
   if (start === selectedDate) return `시작 · ${timePart(event.startAt)}`;
   if (end === selectedDate) return `마감 · ${timePart(event.endAt)}`;
   return '진행 중';
+}
+
+export function milestoneColorVariant(
+  eventId: string,
+): ProgramScheduleMilestoneColorVariant {
+  let total = 0;
+  for (const character of eventId) total += character.charCodeAt(0);
+  return (total % 3) as ProgramScheduleMilestoneColorVariant;
 }
 
 function daysBetween(start: string, end: string): number {

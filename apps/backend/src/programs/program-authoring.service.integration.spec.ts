@@ -44,6 +44,17 @@ describe('ProgramAuthoringService integration', () => {
       realObject: true,
       expiresAt: futureExpiry(),
     });
+    const [requiredTemplateId, secondTemplateId, defaultTemplateId] =
+      await Promise.all(
+        ['graph-required', 'graph-second', 'graph-default'].map((label) =>
+          harness.seedUpload({
+            actorId: actor.id,
+            label,
+            realObject: true,
+            expiresAt: futureExpiry(),
+          }),
+        ),
+      );
     const optionalTemplate: ProgramAuthoringDocumentRequest = {
       name: 'Optional template',
       required: false,
@@ -51,11 +62,15 @@ describe('ProgramAuthoringService integration', () => {
     };
     const request = authoringRequest('graph', [
       authoringMilestone('file', [
-        authoringDocument('required-file'),
+        authoringDocument('required-file', requiredTemplateId),
         optionalTemplate,
       ]),
-      authoringMilestone('second-file', [authoringDocument('required-file-2')]),
-      authoringMilestone('default-item', [authoringDocument('default-item')]),
+      authoringMilestone('second-file', [
+        authoringDocument('required-file-2', secondTemplateId),
+      ]),
+      authoringMilestone('default-item', [
+        authoringDocument('default-item', defaultTemplateId),
+      ]),
     ]);
 
     // When
@@ -108,7 +123,7 @@ describe('ProgramAuthoringService integration', () => {
     // Given
     const actor = await harness.createActor('conflict');
     const initial = authoringRequest('conflict', [
-      authoringMilestone('default-item', [authoringDocument('default-item')]),
+      authoringMilestone('default-item', []),
     ]);
     await service.create(actor.githubId, 'conflict-key', initial);
 

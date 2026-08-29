@@ -59,85 +59,78 @@ describe('사람 중심 프로그램 작성 계약', () => {
     );
   });
 
-  it('마일스톤 화면은 상위 FILE/TEXT와 신규 TEXT 항목 선택을 노출하지 않는다', async () => {
+  it('마일스톤 화면은 캘린더·공지·첨부만 노출한다', async () => {
     const state = completedAuthoringState();
-    const milestone = state.milestones[0];
-    if (milestone === undefined) throw new TypeError('Missing milestone.');
+    const milestone = {
+      ...state.milestones[0]!,
+      requirements: [
+        {
+          id: 'requirement-1',
+          name: '결과보고서양식.docx',
+          required: true,
+          templateFile: {
+            name: '결과보고서양식.docx',
+            size: 1024,
+            type: 'application/octet-stream',
+            requiresReselection: false,
+          },
+        },
+      ],
+    };
 
     await act(async () => {
       root.render(
         <ProgramAuthoringMilestoneStep
-          state={{
-            ...state,
-            milestones: [
-              {
-                ...milestone,
-                requirements: [
-                  {
-                    id: 'requirement-1',
-                    name: '결과 보고서',
-                    required: true,
-                    templateFile: null,
-                  },
-                ],
-              },
-            ],
-          }}
+          state={{ ...state, milestones: [milestone] }}
           issues={[]}
           dispatch={vi.fn()}
           newId={() => 'new-id'}
           onRequirementFileChange={vi.fn()}
           onRequirementRemove={vi.fn()}
+          onMilestoneCancel={vi.fn()}
+          onMilestoneEditStart={vi.fn()}
+          onMilestoneSave={vi.fn()}
         />,
       );
     });
 
-    expect(container.textContent).not.toContain('기본 제출 방식');
-    expect(container.textContent).not.toContain('텍스트 중심');
-    expect(container.textContent).not.toContain('텍스트 입력');
-    expect(container.textContent).toContain(
-      '내용만, 파일만, 또는 둘 다 제출할 수 있습니다',
-    );
-    const milestoneInstructions = container.querySelector(
-      'textarea[id$="-instructions"]',
-    );
-    const submissionHelp = [
-      ...container.querySelectorAll('[data-slot="field-description"]'),
-    ].find((node) => node.textContent?.includes('내용만, 파일만'));
-    const templateHelp = [
-      ...container.querySelectorAll('[data-slot="field-description"]'),
-    ].find((node) => node.textContent?.includes('학생이 참고할 자료'));
-
-    expect(submissionHelp?.classList).toContain('break-keep');
-    expect(submissionHelp?.classList).toContain('text-pretty');
-    expect(milestoneInstructions?.classList).toContain('break-keep');
-    expect(milestoneInstructions?.classList).toContain('text-pretty');
-    expect(templateHelp?.classList).toContain('break-keep');
-    expect(templateHelp?.classList).toContain('text-pretty');
+    expect(container.textContent).toContain('마일스톤 목록');
+    expect(container.textContent).toContain('결과보고서양식.docx · 필수');
     expect(
-      [...container.querySelectorAll('span.whitespace-nowrap')].some(
-        (node) => node.textContent === '둘 다',
-      ),
-    ).toBe(true);
+      container.querySelector('[data-slot="card-title"]')?.className,
+    ).toContain('text-lg');
     expect(
-      [...container.querySelectorAll('span.whitespace-nowrap')].some(
-        (node) => node.textContent === '올려 주세요.',
-      ),
-    ).toBe(true);
+      container.querySelector('[data-slot="card-action"]')?.className,
+    ).toContain('absolute');
+    expect(container.textContent).not.toContain('제출 항목');
+    expect(container.textContent).not.toContain('학생에게 보여줄 안내');
+    const edit = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="오리엔테이션 수정"]',
+    );
+    if (edit === null) throw new TypeError('수정 버튼이 없습니다.');
+    await act(async () => edit.click());
+    expect(document.body.textContent).toContain('공지사항');
+    expect(document.body.textContent).toContain('첨부파일');
+    expect(document.body.textContent).toContain('필수 제출');
+    expect(document.body.textContent).not.toContain('제출 항목 이름');
   });
 
-  it('최종 검토도 저장용 FILE 값을 학생 제출 방식으로 오해하게 표시하지 않는다', async () => {
+  it('첨부가 없는 공지형 마일스톤은 제출 없음으로 검토한다', async () => {
     await act(async () => {
       root.render(
         <ProgramAuthoringReviewStep state={completedAuthoringState()} />,
       );
     });
 
-    expect(container.textContent).toContain('내용이나 파일로 제출 가능');
+    expect(container.textContent).toContain('제출 없음');
+    expect(container.textContent).not.toContain('안내용');
     expect(container.textContent).not.toContain('파일 · 필수');
+    expect(
+      container.querySelector('[aria-label="전체 일정 달력"]'),
+    ).not.toBeNull();
   });
 
-  it('일정 화면에서 신청·운영·마일스톤 날짜와 한국어 선택값을 한 번에 확인한다', async () => {
+  it('일정 화면에서 신청과 운영 날짜를 달력 먼저 선택한다', async () => {
     const state = completedAuthoringState();
 
     await act(async () => {
@@ -146,19 +139,44 @@ describe('사람 중심 프로그램 작성 계약', () => {
           state={state}
           issues={[]}
           dispatch={vi.fn()}
-          newId={() => 'new-id'}
-          onMilestoneRemove={vi.fn()}
         />,
       );
     });
 
-    expect(container.textContent).toContain('신청·운영·마일스톤 일정');
+    expect(container.textContent).toContain('신청 · 운영 일정');
+    expect(container.textContent).toContain(
+      '달력에서 시작일과 종료일을 차례로 선택하세요.',
+    );
     expect(container.textContent).toContain('신청 기간');
     expect(container.textContent).toContain('운영 기간');
-    expect(container.textContent).toContain('오리엔테이션');
-    expect(container.textContent).toContain(
-      '선택한 기간의 시작 시각과 마감 시각을 입력해 주세요',
+    expect(container.textContent).not.toContain('오리엔테이션');
+    expect(container.textContent).not.toContain('마일스톤 추가');
+    expect(container.textContent).not.toContain('선택 중');
+    expect(
+      container.querySelectorAll('[data-schedule-range-selector]'),
+    ).toHaveLength(2);
+    const calendar = container.querySelector('[role="region"]');
+    const selectors = container.querySelector('[aria-label="일정 선택"]');
+    expect(
+      (calendar?.compareDocumentPosition(selectors ?? container) ?? 0) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(container.textContent).not.toContain('시각 선택');
+    expect(
+      container.querySelector('button[aria-label="신청 기간 시간 변경"]'),
+    ).toBeNull();
+    const scheduleButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="신청 기간 일정 입력"]',
     );
+    if (scheduleButton === null)
+      throw new TypeError('일정 입력 버튼을 찾지 못했습니다.');
+    await act(async () => scheduleButton.click());
+    expect(
+      document.body.querySelector('[role="dialog"]')?.textContent,
+    ).toContain('신청 기간');
+    expect(
+      document.body.querySelectorAll('[role="dialog"] input[type="time"]'),
+    ).toHaveLength(2);
     expect(container.textContent).toMatch(/2026년 9월 1일 \(.요일\)/);
     const calendarGrid = container.querySelector(
       '[aria-label="신청 기간 날짜 선택 달력"]',
@@ -176,12 +194,16 @@ describe('사람 중심 프로그램 작성 계약', () => {
           state={completedAuthoringState()}
           issues={[]}
           dispatch={vi.fn()}
-          newId={() => 'new-id'}
-          onMilestoneRemove={vi.fn()}
         />,
       );
     });
 
+    const operation = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button'),
+    ).find((button) => button.textContent?.includes('운영 기간'));
+    if (operation === undefined)
+      throw new TypeError('운영 기간 버튼이 없습니다.');
+    await act(async () => operation.click());
     const nextMonth = container.querySelector<HTMLButtonElement>(
       'button[aria-label="다음 달"]',
     );

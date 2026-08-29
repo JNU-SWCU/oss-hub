@@ -63,13 +63,13 @@ function validateMilestone(
   if (
     due === null ||
     (start !== null && start >= due) ||
-    (operationEnd !== null && due >= operationEnd)
+    (operationEnd !== null && due > operationEnd)
   )
     issues.push(
       issue(
         `${prefix}.dueAt`,
         step,
-        '마감은 시작보다 늦고 운영 종료보다 빨라야 합니다.',
+        '마감은 시작보다 늦고 운영 종료 이하여야 합니다.',
       ),
     );
 }
@@ -81,15 +81,6 @@ export function validateRequirements(
   let total = 0;
   for (const milestone of state.milestones) {
     total += milestone.requirements.length;
-    if (milestone.requirements.length === 0) {
-      issues.push(
-        issue(
-          `requirements.${milestone.id}`,
-          'milestones',
-          '마일스톤에는 제출 항목이 하나 이상 필요합니다.',
-        ),
-      );
-    }
     if (milestone.requirements.length > MAX_REQUIREMENTS_PER_MILESTONE) {
       issues.push(
         issue(
@@ -119,10 +110,13 @@ function validateRequirement(
     issues,
     requirement.name,
     `${prefix}.name`,
-    '제출 항목 이름을 입력해 주세요.',
+    '제출물 이름을 입력해 주세요.',
     'milestones',
   );
-  if (requirement.templateFile?.requiresReselection === true) {
+  if (
+    requirement.templateFile === null ||
+    requirement.templateFile.requiresReselection
+  ) {
     issues.push(
       issue(`${prefix}.templateFile`, 'milestones', '파일 재선택 필요'),
     );

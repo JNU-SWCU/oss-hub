@@ -91,7 +91,6 @@ export class ProgramAuthoringMilestoneRequestDto {
   declare readonly instructions?: string | null;
 
   @IsArray()
-  @ArrayMinSize(1)
   @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => ProgramAuthoringDocumentRequestDto)

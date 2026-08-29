@@ -41,6 +41,9 @@ export function ProgramEditScheduleEditor({
       kind: 'APPLICATION',
       startAt: form.applicationStartAt,
       endAt: form.applicationEndAt,
+      maxDate: form.endAtUndecided
+        ? undefined
+        : (dateKey(form.endAt) ?? undefined),
       startInputId: 'program-application-start-at',
       endInputId: 'program-application-end-at',
       startError: errors.period,
@@ -54,7 +57,6 @@ export function ProgramEditScheduleEditor({
       kind: 'OPERATION',
       startAt: form.startAt,
       endAt: form.endAtUndecided ? '' : form.endAt,
-      minDate: dateKey(form.applicationEndAt) ?? undefined,
       startInputId: 'program-start-at',
       endInputId: 'program-end-at',
       startError: errors.startAt,

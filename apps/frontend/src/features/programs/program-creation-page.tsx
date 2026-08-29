@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   createAuthoringProgram,
@@ -14,14 +13,15 @@ import {
   createInitialProgramAuthoringState,
   programAuthoringReducer,
   type ProgramAuthoringAction,
+  type ProgramAuthoringState,
   type ProgramAuthoringStep,
 } from './program-authoring-model';
 import { ProgramAuthoringShell } from './program-authoring-shell';
 import { ProgramAuthoringStepContent } from './program-authoring-step-content';
 import {
-  clearProgramAuthoringState,
-  loadProgramAuthoringState,
-  persistProgramAuthoringState,
+  clearProgramAuthoringRecoveryKey,
+  loadProgramAuthoringRecoveryKey,
+  persistProgramAuthoringRecoveryKey,
 } from './program-authoring-storage';
 import {
   createProgramSubmissionRuntime,
@@ -34,17 +34,24 @@ import {
 } from './program-authoring-validation';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
-export function ProgramCreationPage() {
-  const [state, dispatch] = useReducer(programAuthoringReducer, undefined, () =>
-    createInitialProgramAuthoringState({
-      idempotencyKey: newAuthoringId(),
-      milestoneId: newAuthoringId(),
-    }),
+export function ProgramCreationPage({
+  initialState,
+}: {
+  readonly initialState?: ProgramAuthoringState;
+}) {
+  const [state, dispatch] = useReducer(
+    programAuthoringReducer,
+    undefined,
+    () =>
+      initialState ??
+      createInitialProgramAuthoringState({
+        idempotencyKey: newAuthoringId(),
+        milestoneId: newAuthoringId(),
+      }),
   );
   const [dirty, setDirty] = useState(false);
   const [issues, setIssues] = useState<readonly ProgramAuthoringIssue[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const filesRef = useRef(new Map<string, File>());
@@ -66,11 +73,11 @@ export function ProgramCreationPage() {
   );
 
   useEffect(() => {
-    const restored = loadProgramAuthoringState(window.sessionStorage);
-    if (restored !== null) {
-      dispatch({ type: 'restore_state', state: restored });
-      setDirty(false);
-      setSaveStatus('임시 저장한 작성본을 불러왔습니다.');
+    const idempotencyKey = loadProgramAuthoringRecoveryKey(
+      window.sessionStorage,
+    );
+    if (idempotencyKey !== null) {
+      dispatch({ type: 'rotate_idempotency_key', key: idempotencyKey });
     }
   }, []);
 
@@ -92,7 +99,6 @@ export function ProgramCreationPage() {
     setDirty(true);
     setIssues([]);
     setServerError(null);
-    setSaveStatus(null);
     dispatch(action);
   };
 
@@ -114,15 +120,6 @@ export function ProgramCreationPage() {
     if (target !== undefined) navigate(target);
   };
 
-  const saveDraft = (nextStep: ProgramAuthoringStep = state.currentStep) => {
-    const savedState = { ...state, currentStep: nextStep };
-    persistProgramAuthoringState(window.sessionStorage, savedState);
-    setDirty(false);
-    setSaveStatus(
-      '임시 저장했습니다. 이 브라우저에서 이어서 작성할 수 있습니다.',
-    );
-  };
-
   const next = () => {
     const nextIssues = validateProgramAuthoringStep(state, state.currentStep);
     if (nextIssues.length > 0) {
@@ -131,7 +128,6 @@ export function ProgramCreationPage() {
     }
     const target = targetStep(1);
     if (target === undefined) return;
-    saveDraft(target);
     navigate(target);
   };
 
@@ -166,7 +162,7 @@ export function ProgramCreationPage() {
       case 'ignored':
         return;
       case 'success':
-        clearProgramAuthoringState(window.sessionStorage);
+        clearProgramAuthoringRecoveryKey(window.sessionStorage);
         filesRef.current.clear();
         runtimeRef.current.uploads.clear();
         setDirty(false);
@@ -179,21 +175,19 @@ export function ProgramCreationPage() {
         {
           const idempotencyKey = newAuthoringId();
           dispatch({ type: 'rotate_idempotency_key', key: idempotencyKey });
-          persistProgramAuthoringState(window.sessionStorage, {
-            ...state,
+          persistProgramAuthoringRecoveryKey(
+            window.sessionStorage,
             idempotencyKey,
-          });
+          );
         }
         setConfirmationOpen(false);
         setServerError(
-          '이 생성 요청은 이전 내용과 충돌했습니다. 입력 내용은 유지되었습니다. 다시 확인한 뒤 생성해 주세요.',
+          '이전 생성 요청과 내용이 충돌했습니다. 다시 확인해 주세요.',
         );
         return;
       case 'failure':
         setConfirmationOpen(false);
-        setServerError(
-          `${result.message} 입력은 그대로 유지했습니다. 내용을 확인한 뒤 다시 ‘프로그램 만들기’를 눌러 주세요.`,
-        );
+        setServerError(result.message);
         return;
       default:
         return assertNever(result);
@@ -210,26 +204,6 @@ export function ProgramCreationPage() {
         tabIndex={-1}
         className="grid gap-8 outline-none"
       >
-        {serverError ? (
-          <Alert variant="destructive">
-            <AlertTitle>생성 실패</AlertTitle>
-            <AlertDescription>{serverError}</AlertDescription>
-          </Alert>
-        ) : null}
-        {issues.length > 0 ? (
-          <Alert variant="destructive">
-            <AlertTitle>입력 내용을 확인해 주세요</AlertTitle>
-            <AlertDescription>
-              {issues[0]?.message} 표시된 입력란을 고친 뒤 ‘저장하고 계속’을
-              눌러 주세요.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {saveStatus ? (
-          <p role="status" className="text-small text-muted-foreground">
-            {saveStatus}
-          </p>
-        ) : null}
         <ProgramAuthoringStepContent
           step={state.currentStep}
           state={state}
@@ -240,21 +214,26 @@ export function ProgramCreationPage() {
           newId={newAuthoringId}
         />
         <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
+          {serverError ? (
+            <p
+              role="alert"
+              className="mr-auto self-center text-small text-destructive break-keep"
+            >
+              {serverError}
+            </p>
+          ) : null}
           {state.currentStep !== 'type' ? (
             <Button type="button" variant="outline" onClick={() => move(-1)}>
               이전
             </Button>
           ) : null}
-          <Button type="button" variant="outline" onClick={() => saveDraft()}>
-            임시 저장
-          </Button>
           {state.currentStep === 'review' ? (
             <Button type="button" onClick={review}>
               프로그램 만들기
             </Button>
           ) : (
             <Button type="button" onClick={next}>
-              저장하고 계속
+              계속
             </Button>
           )}
         </div>

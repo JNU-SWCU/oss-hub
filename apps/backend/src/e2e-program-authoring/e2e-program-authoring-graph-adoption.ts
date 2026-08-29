@@ -102,7 +102,10 @@ export function adoptPersistedE2eProgramGraph(
   const required = requiredFileMilestone(program, prefix);
   if (program === null || required === undefined)
     throw new E2eAdapterError(404);
-  const document = required.documents[0];
+  const document = required.documents.find(
+    ({ name, required }) =>
+      name === `${prefix}required-document.pdf` && required,
+  );
   if (document === undefined) throw new E2eAdapterError(404);
   return {
     programId: program.id,
@@ -119,8 +122,14 @@ function requiredFileMilestone(
     (milestone) =>
       milestone.name === `${prefix}required-milestone` &&
       milestone.submissionType === null &&
-      milestone.documents.length === 1 &&
-      milestone.documents[0]?.name === `${prefix}required-document` &&
-      milestone.documents[0]?.required === true,
+      milestone.documents.length === 2 &&
+      milestone.documents.some(
+        ({ name, required }) =>
+          name === `${prefix}required-document.pdf` && required,
+      ) &&
+      milestone.documents.some(
+        ({ name, required }) =>
+          name === `${prefix}information-document.pdf` && !required,
+      ),
   );
 }

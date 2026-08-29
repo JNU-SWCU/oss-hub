@@ -60,14 +60,13 @@ const INVALID_PROGRAM_END_FIELD_ERROR = {
 const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {
   field: 'dueAt',
   code: 'INVALID_MILESTONE_PERIOD',
-  message: 'Milestone due date must be before program end.',
+  message: 'Milestone due date must be on or before program end.',
 } as const;
 
 const INVALID_PROGRAM_START_FIELD_ERROR = {
   field: 'startAt',
   code: 'INVALID_PROGRAM_START',
-  message:
-    'Program start must be after applications close and before Program end.',
+  message: 'Program start must be a valid date.',
 } as const;
 
 const MILESTONE_BEFORE_PROGRAM_START_FIELD_ERROR = {
@@ -178,12 +177,17 @@ export class ProgramEditorService {
           fieldErrors: INVALID_APPLICATION_PERIOD_FIELD_ERRORS,
         });
       }
-      if (!Number.isFinite(startAt.getTime()) || startAt < applicationEndAt) {
+      if (!Number.isFinite(startAt.getTime())) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_START_FIELD_ERROR],
         });
       }
       if (!Number.isFinite(endAt.getTime()) || startAt >= endAt) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
+        });
+      }
+      if (applicationEndAt > endAt) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
@@ -197,7 +201,7 @@ export class ProgramEditorService {
           fieldErrors: [MILESTONE_BEFORE_PROGRAM_START_FIELD_ERROR],
         });
       }
-      if (existing.milestones.some((milestone) => milestone.dueAt >= endAt)) {
+      if (existing.milestones.some((milestone) => milestone.dueAt > endAt)) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
@@ -214,14 +218,6 @@ export class ProgramEditorService {
       ) {
         this.fail(ProgramErrorCode.MILESTONE_REQUIRED);
       }
-      if (
-        existing.milestones.some(
-          (milestone) => milestone.dueAt <= applicationEndAt,
-        )
-      ) {
-        this.fail(ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END);
-      }
-
       return store.updateProgram({
         programId,
         name,
@@ -358,7 +354,7 @@ export class ProgramEditorService {
         fieldErrors: [INVALID_MILESTONE_START_FIELD_ERROR],
       });
     }
-    if (dueAt >= endAt) {
+    if (dueAt > endAt) {
       this.fail(ProgramErrorCode.VALIDATION_ERROR, {
         fieldErrors: [MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR],
       });

@@ -42,7 +42,9 @@ export async function stateForE2eProgramGraph(
     }),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
     prisma.milestoneDocumentTemplateFile.count({
-      where: { milestoneDocumentId: graph.documentId },
+      where: {
+        milestoneDocument: { milestone: { programId: graph.programId } },
+      },
     }),
     prisma.submissionFile.count({
       where: {

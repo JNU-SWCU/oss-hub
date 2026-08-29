@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { stateForE2eProgramGraph } from './e2e-program-authoring-state';
 import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
+import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import { adoptE2eProgramGraph } from './e2e-program-authoring-graph-adoption';
 import { ensureE2eProgramAuthoringActors } from './e2e-program-authoring-actors';
 import type { E2eExternalCapture } from './e2e-external-port-registry';
@@ -46,7 +47,13 @@ export class E2eProgramAuthoringFixture {
       this.activeGraph !== null &&
       this.activeGraph.programId !== E2E_PROGRAM_ID
     ) {
-      await removeAdoptedGraph(this.prisma, this.activeGraph, PREFIX);
+      await removeAdoptedGraph(
+        this.prisma,
+        this.activeGraph,
+        PREFIX,
+        (storageKey) =>
+          e2eProgramAuthoringExternalPorts.storage.delete(storageKey),
+      );
       this.activeGraph = null;
     }
     await this.prisma.$transaction(async (transaction) => {

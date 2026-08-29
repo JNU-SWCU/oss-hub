@@ -187,6 +187,11 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
       );
     });
     await selectOperation();
+    const timeButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button'),
+    ).find((candidate) => candidate.textContent?.trim() === '시간 변경');
+    if (timeButton === undefined) throw new TypeError('Missing 시간 변경.');
+    await act(async () => timeButton.click());
     return { payload: () => buildProgramEditInput(latest, latestDirty) };
   }
 

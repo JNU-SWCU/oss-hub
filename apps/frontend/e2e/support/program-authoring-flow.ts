@@ -15,8 +15,8 @@ export const PROGRAM_AUTHORING_E2E = {
   seoulNow: toSeoulOffsetIso(scheduleAnchor),
   artifactRoot: '.omo/artifacts/program-authoring-and-document-flow/12-e2e',
   programName: 'e2e:program-authoring:happy-program',
-  informationalDocumentName: 'e2e:program-authoring:information-document',
-  requiredDocumentName: 'e2e:program-authoring:required-document',
+  informationalDocumentName: 'e2e:program-authoring:information-document.pdf',
+  requiredDocumentName: 'e2e:program-authoring:required-document.pdf',
   informationalMilestoneName: 'e2e:program-authoring:information-milestone',
   requiredMilestoneName: 'e2e:program-authoring:required-milestone',
   actors: {
@@ -104,9 +104,16 @@ export async function expectApiStatus(
 export async function downloadedArtifact(
   page: Page,
   label: string | RegExp,
+  withinMilestoneDocument?: string,
 ): Promise<DownloadedArtifact> {
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: label }).click();
+  const root =
+    withinMilestoneDocument === undefined
+      ? page
+      : page
+          .getByTestId('milestone-document-row')
+          .filter({ hasText: withinMilestoneDocument });
+  await root.getByRole('link', { name: label }).click();
   return artifactForDownload(await downloadPromise);
 }
 

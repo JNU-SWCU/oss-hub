@@ -128,6 +128,22 @@ describe('ProgramEditPage save payload', () => {
     expect(input.applicationStartAt).toBe('2026-08-01T10:45:00.000Z');
     expect(input.applicationEndAt).toBe(editableProgram.applicationEndAt);
   });
+
+  it('allows an operating period to begin before applications close', () => {
+    const input = buildProgramEditInput(
+      {
+        ...toProgramEditForm(editableProgram),
+        startAt: '2026-08-14T09:30',
+      },
+      ['startAt'],
+    );
+
+    expect(input).toMatchObject({
+      applicationEndAt: editableProgram.applicationEndAt,
+      startAt: '2026-08-14T00:30:00.000Z',
+    });
+  });
+
   // 종료일 없음을 뜻하는 표현이 하나로 모였다 — `null` 과 센티널은 같은 뜻이고
   // 폼은 그것을 「미정」 체크박스로 나르며, 저장은 언제나 센티널로 되돌린다.
   // 예전에는 이 자리에서 payload 가 `null` 로 나갔는데, 그 값을 받은 서버는
@@ -209,7 +225,7 @@ describe('마일스톤 저장 전 검증', () => {
         {
           ...form,
           startAt: '2026-07-31T18:00',
-          dueAt: '2026-09-01T09:00',
+          dueAt: '2026-09-01T09:01',
         },
         '2026-08-01T09:00',
         '2026-09-01T09:00',
@@ -218,6 +234,16 @@ describe('마일스톤 저장 전 검증', () => {
       startAt: expect.any(String),
       dueAt: expect.any(String),
     });
+    expect(
+      validateMilestoneForm(
+        {
+          ...form,
+          dueAt: '2026-09-01T09:00',
+        },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ).dueAt,
+    ).toBeUndefined();
   });
 });
 
@@ -450,6 +476,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
     if (sameDay === null) throw new TypeError('Missing 2026-08-15.');
     await act(async () => sameDay.click());
+    await act(async () => getButton('시간 변경').click());
     const applicationStart = container.querySelector<HTMLInputElement>(
       '#program-application-start-at',
     );

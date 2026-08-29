@@ -57,7 +57,7 @@ export type ProgramAuthoringDocumentPlan = {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly templateUploadId: string | null;
+  readonly templateUploadId: string;
 };
 
 export type ProgramAuthoringMilestonePlan = {

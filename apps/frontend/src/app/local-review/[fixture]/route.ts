@@ -51,7 +51,7 @@ export async function GET(
   // `/`로 시작하는 경로라 다른 origin으로 샐 여지가 없다.
   const response = new NextResponse(null, {
     status: 303,
-    headers: { Location: activation.target },
+    headers: { Location: relativeLocation(activation.target) },
   });
   if (activation.fixture === null) {
     response.cookies.delete(LOCAL_REVIEW_FIXTURE_COOKIE);
@@ -65,4 +65,9 @@ export async function GET(
     });
   }
   return response;
+}
+
+function relativeLocation(target: string): string {
+  const parsed = new URL(target, 'http://local-review.invalid');
+  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 }

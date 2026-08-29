@@ -47,7 +47,7 @@ describe('마일스톤 시작일 편집 계약', () => {
     });
   });
 
-  it('선택한 시작일과 마감일을 한 일정 요약에서 함께 보여 준다', () => {
+  it('선택 완료는 짧게 알리고 시각 입력은 기본으로 접는다', () => {
     const html = renderToStaticMarkup(
       createElement(ProgramEditMilestoneForm, {
         editor: {
@@ -71,9 +71,9 @@ describe('마일스톤 시작일 편집 계약', () => {
     const container = document.createElement('div');
     container.innerHTML = html;
     const summary = container.querySelector('[aria-live="polite"]');
-    expect(summary?.textContent).toContain('2026년 9월 1일');
-    expect(summary?.textContent).toContain('2026년 9월 2일');
-    expect(container.querySelector('#milestone-start-at')).not.toBeNull();
-    expect(container.querySelector('#milestone-due-at')).not.toBeNull();
+    expect(summary?.textContent).toBe('기간을 선택했습니다.');
+    expect(container.querySelector('#milestone-start-at')).toBeNull();
+    expect(container.querySelector('#milestone-due-at')).toBeNull();
+    expect(container.textContent).toContain('시간 변경');
   });
 });

@@ -28,13 +28,20 @@ function request(): ProgramAuthoringRequest {
           {
             name: ' Text ',
             required: false,
+            templateUploadId: ' upload-2 ',
           },
         ],
       },
       {
         name: ' Second ',
         dueAt: '2026-08-25T09:00:00+09:00',
-        documents: [{ name: ' Summary ', required: true }],
+        documents: [
+          {
+            name: ' Summary ',
+            required: true,
+            templateUploadId: ' upload-3 ',
+          },
+        ],
       },
     ],
   };
@@ -110,7 +117,7 @@ describe('Program authoring canonical payload hash', () => {
               ...firstMilestone,
               documents: firstMilestone.documents.map((document, index) =>
                 index === 0
-                  ? { ...document, templateUploadId: 'upload-2' }
+                  ? { ...document, templateUploadId: 'upload-4' }
                   : document,
               ),
             },

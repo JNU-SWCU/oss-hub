@@ -6,9 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { completedAuthoringState } from './program-creation-test-fixtures';
 import {
-  PROGRAM_AUTHORING_STORAGE_KEY,
-  loadProgramAuthoringState,
-  serializeProgramAuthoringState,
+  PROGRAM_AUTHORING_RECOVERY_KEY,
+  loadProgramAuthoringRecoveryKey,
 } from './program-authoring-storage';
 
 const mocks = vi.hoisted(() => ({
@@ -70,7 +69,12 @@ describe('ProgramCreationPage guided authoring', () => {
     container.remove();
   });
 
-  it('renders all six Korean steps with sidebar and compact progress without an API call', async () => {
+  it('renders all six Korean steps without draft controls or restoration copy', async () => {
+    sessionStorage.setItem(
+      'oss-hub:program-authoring',
+      JSON.stringify(completedAuthoringState()),
+    );
+
     await act(async () => root.render(<ProgramCreationPage />));
 
     for (const label of [
@@ -87,28 +91,26 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(
       container.querySelector('[aria-label="작성 진행률"]'),
     ).not.toBeNull();
+    expect(container.textContent).not.toContain('임시 저장');
+    expect(container.textContent).not.toContain('저장하고 계속');
+    expect(container.querySelector('[role="status"]')).toBeNull();
     expect(mocks.createAuthoringProgram).not.toHaveBeenCalled();
     expect(mocks.uploadAuthoringFile).not.toHaveBeenCalled();
   });
 
-  it('does not call any Program API until final confirmation', async () => {
-    // Given
-    sessionStorage.setItem(
-      PROGRAM_AUTHORING_STORAGE_KEY,
-      serializeProgramAuthoringState(completedAuthoringState()),
-    );
+  it('does not call any Program API until final confirmation and clears recovery after success', async () => {
     mocks.createAuthoringProgram.mockResolvedValue({ id: 'program-created' });
+    sessionStorage.setItem(PROGRAM_AUTHORING_RECOVERY_KEY, 'request-recovery');
 
     await act(async () => {
-      root.render(<ProgramCreationPage />);
+      root.render(
+        <ProgramCreationPage initialState={completedAuthoringState()} />,
+      );
       await Promise.resolve();
     });
 
-    // When
-    await act(async () => buttonNamed('최종 검토').click());
     await act(async () => buttonNamed('프로그램 만들기').click());
 
-    // Then
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     expect(mocks.createAuthoringProgram).not.toHaveBeenCalled();
 
@@ -118,7 +120,11 @@ describe('ProgramCreationPage guided authoring', () => {
       await Promise.resolve();
     });
     expect(mocks.createAuthoringProgram).toHaveBeenCalledTimes(1);
-    expect(sessionStorage.getItem(PROGRAM_AUTHORING_STORAGE_KEY)).toBeNull();
+    expect(mocks.createAuthoringProgram).toHaveBeenCalledWith(
+      expect.anything(),
+      'request-recovery',
+    );
+    expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBeNull();
     expect(mocks.completeAndNavigate).toHaveBeenCalledWith(
       '/programs/program-created',
     );
@@ -132,7 +138,17 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
   });
 
-  it('입력은 자동 저장하지 않고 사용자가 임시 저장을 눌렀을 때만 복구본을 만든다', async () => {
+  it('필드 오류가 있으면 입력 옆에만 표시하고 중복 요약 경고는 만들지 않는다', async () => {
+    await act(async () => root.render(<ProgramCreationPage />));
+    await act(async () => buttonNamed('기본 정보').click());
+    await act(async () => buttonNamed('계속').click());
+
+    expect(container.textContent).toContain('주관기관을 입력해 주세요.');
+    expect(container.textContent).not.toContain('입력 내용을 확인해 주세요');
+    expect(container.textContent).not.toContain('표시된 입력란을 고친 뒤');
+  });
+
+  it('navigates without persisting dirty form content', async () => {
     await act(async () => root.render(<ProgramCreationPage />));
     await act(async () => buttonNamed('기본 정보').click());
 
@@ -143,89 +159,73 @@ describe('ProgramCreationPage guided authoring', () => {
       'value',
     )?.set;
     await act(async () => {
-      setter?.call(name, '사용자가 저장할 프로그램');
+      setter?.call(name, '계속 작성할 프로그램');
       name.dispatchEvent(new Event('input', { bubbles: true }));
     });
+    await act(async () => buttonNamed('계속').click());
 
-    expect(sessionStorage.getItem(PROGRAM_AUTHORING_STORAGE_KEY)).toBeNull();
-
-    await act(async () => buttonNamed('임시 저장').click());
-
-    expect(
-      sessionStorage.getItem(PROGRAM_AUTHORING_STORAGE_KEY),
-    ).not.toBeNull();
-    expect(container.querySelector('[role="status"]')?.textContent).toContain(
-      '임시 저장했습니다',
-    );
+    expect(container.textContent).toContain('신청/운영 일정');
+    expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBeNull();
+    expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(true);
   });
 
-  it('일정 단계에서 잘못된 마일스톤 날짜를 막고 해당 입력으로 이동한다', async () => {
+  it('마일스톤 단계에서 잘못된 날짜를 막고 편집 팝업을 연다', async () => {
     const completed = completedAuthoringState();
-    sessionStorage.setItem(
-      PROGRAM_AUTHORING_STORAGE_KEY,
-      serializeProgramAuthoringState({
-        ...completed,
-        currentStep: 'schedule',
-        milestones: [
-          {
-            ...completed.milestones[0],
-            dueAt: '2026-10-01T18:00',
-          },
-        ],
-      }),
-    );
-
     await act(async () => {
-      root.render(<ProgramCreationPage />);
-      await Promise.resolve();
+      root.render(
+        <ProgramCreationPage
+          initialState={{
+            ...completed,
+            currentStep: 'milestones',
+            milestones: [
+              {
+                ...completed.milestones[0],
+                dueAt: '2026-10-01T18:00',
+              },
+            ],
+          }}
+        />,
+      );
     });
-    await act(async () => buttonNamed('저장하고 계속').click());
+    await act(async () => buttonNamed('계속').click());
 
-    expect(container.textContent).toContain(
-      '마감은 시작보다 늦고 운영 종료보다 빨라야 합니다.',
+    expect(document.body.textContent).toContain(
+      '기간은 운영 기간 안에 있어야 합니다.',
     );
-    expect(document.activeElement).toBe(
-      container.querySelector('#milestone-1-due'),
-    );
-    expect(container.textContent).toContain('신청/운영 일정');
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(container.textContent).toContain('마일스톤 일정');
   });
 
   it('마일스톤 날짜가 비었으면 비활성 시각 입력 대신 날짜 달력으로 이동한다', async () => {
     const completed = completedAuthoringState();
-    sessionStorage.setItem(
-      PROGRAM_AUTHORING_STORAGE_KEY,
-      serializeProgramAuthoringState({
-        ...completed,
-        currentStep: 'schedule',
-        milestones: [
-          {
-            ...completed.milestones[0],
-            startAt: '',
-            dueAt: '',
-          },
-        ],
-      }),
-    );
     await act(async () => {
-      root.render(<ProgramCreationPage />);
-      await Promise.resolve();
+      root.render(
+        <ProgramCreationPage
+          initialState={{
+            ...completed,
+            currentStep: 'milestones',
+            milestones: [
+              {
+                ...completed.milestones[0],
+                startAt: '',
+                dueAt: '',
+              },
+            ],
+          }}
+        />,
+      );
     });
 
-    await act(async () => buttonNamed('저장하고 계속').click());
+    await act(async () => buttonNamed('계속').click());
 
-    expect(document.activeElement).toBe(
-      container.querySelector(
-        '[data-testid="program-schedule-calendar-scroll"]',
-      ),
-    );
+    expect(document.body.textContent).toContain('기간을 입력해 주세요.');
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.contains(document.activeElement)).toBe(true);
   });
 
-  it('생성 충돌로 회전한 idempotency key를 복구본에 즉시 저장한다', async () => {
+  it('stores only a rotated recovery key after an idempotency conflict', async () => {
     const completed = completedAuthoringState();
-    sessionStorage.setItem(
-      PROGRAM_AUTHORING_STORAGE_KEY,
-      serializeProgramAuthoringState(completed),
-    );
     mocks.createAuthoringProgram.mockRejectedValue(
       new ApiError({
         type: 'about:blank',
@@ -237,10 +237,9 @@ describe('ProgramCreationPage guided authoring', () => {
       }),
     );
     await act(async () => {
-      root.render(<ProgramCreationPage />);
+      root.render(<ProgramCreationPage initialState={completed} />);
       await Promise.resolve();
     });
-    await act(async () => buttonNamed('최종 검토').click());
     await act(async () => buttonNamed('프로그램 만들기').click());
     await act(async () => {
       buttonNamed('생성 확정').click();
@@ -248,35 +247,42 @@ describe('ProgramCreationPage guided authoring', () => {
       await Promise.resolve();
     });
 
-    const restored = loadProgramAuthoringState(sessionStorage);
-    expect(restored?.idempotencyKey).not.toBe(completed.idempotencyKey);
+    const recoveryKey = loadProgramAuthoringRecoveryKey(sessionStorage);
+    expect(recoveryKey).not.toBe(completed.idempotencyKey);
+    expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBe(
+      recoveryKey,
+    );
+    expect(
+      sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY),
+    ).not.toContain('milestones');
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
   });
 
-  it('최종 검토에서 날짜 오류를 발견해도 일정 화면의 문제 입력으로 돌아간다', async () => {
+  it('최종 검토에서 날짜 오류를 발견하면 마일스톤 편집으로 돌아간다', async () => {
     const completed = completedAuthoringState();
-    sessionStorage.setItem(
-      PROGRAM_AUTHORING_STORAGE_KEY,
-      serializeProgramAuthoringState({
-        ...completed,
-        milestones: [
-          {
-            ...completed.milestones[0],
-            dueAt: '2026-10-01T18:00',
-          },
-        ],
-      }),
-    );
-
     await act(async () => {
-      root.render(<ProgramCreationPage />);
-      await Promise.resolve();
+      root.render(
+        <ProgramCreationPage
+          initialState={{
+            ...completed,
+            milestones: [
+              {
+                ...completed.milestones[0],
+                dueAt: '2026-10-01T18:00',
+              },
+            ],
+          }}
+        />,
+      );
     });
     await act(async () => buttonNamed('프로그램 만들기').click());
-
-    expect(container.textContent).toContain('신청/운영 일정');
-    expect(document.activeElement).toBe(
-      container.querySelector('#milestone-1-due'),
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(
+        '기간은 운영 기간 안에 있어야 합니다.',
+      ),
     );
+
+    expect(container.textContent).toContain('마일스톤 일정');
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   });
 });

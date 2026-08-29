@@ -37,13 +37,16 @@ function request(templateUploadId?: string): ProgramAuthoringRequest {
       {
         name: 'Milestone',
         dueAt: '2026-08-20T00:00:00.000Z',
-        documents: [
-          {
-            name: 'Template',
-            required: true,
-            ...(templateUploadId === undefined ? {} : { templateUploadId }),
-          },
-        ],
+        documents:
+          templateUploadId === undefined
+            ? []
+            : [
+                {
+                  name: 'Template',
+                  required: true,
+                  templateUploadId,
+                },
+              ],
       },
     ],
   };

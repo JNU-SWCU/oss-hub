@@ -222,12 +222,12 @@ export function buildProgramEditInput(
   }
   if (
     endAt !== null &&
-    (endAt <= applicationEndAt ||
-      form.milestoneDueAts.some((dueAt) => endAt <= dueAt))
+    (endAt < applicationEndAt ||
+      form.milestoneDueAts.some((dueAt) => endAt < dueAt))
   ) {
     throw new ProgramEditValidationError({
       endAt:
-        '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감 이후여야 합니다.',
+        '프로그램 종료일은 신청 종료일과 같거나 이후이고 모든 마일스톤 마감 이후여야 합니다.',
     });
   }
 
@@ -281,9 +281,6 @@ export function validateProgramEditForm(
 
   if (startAt === null) {
     errors.startAt = '운영 시작일을 입력해 주세요.';
-  } else if (applicationEndAt !== null && startAt < applicationEndAt) {
-    errors.startAt =
-      '운영 시작은 신청 마감과 같거나 이후여야 합니다. 두 날짜를 같은 화면에서 다시 확인해 주세요.';
   } else if (
     form.milestoneStartAts.some(
       (milestoneStartAt) => Date.parse(milestoneStartAt) < startAt,
@@ -299,13 +296,13 @@ export function validateProgramEditForm(
     } else if (startAt !== null && startAt >= endAt) {
       errors.endAt = '프로그램 종료일은 운영 시작일 이후여야 합니다.';
     } else if (
-      (applicationEndAt !== null && endAt <= applicationEndAt) ||
+      (applicationEndAt !== null && endAt < applicationEndAt) ||
       form.milestoneDueAts.some(
-        (milestoneDueAt) => endAt <= Date.parse(milestoneDueAt),
+        (milestoneDueAt) => endAt < Date.parse(milestoneDueAt),
       )
     ) {
       errors.endAt =
-        '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감 이후여야 합니다.';
+        '프로그램 종료일은 신청 종료일과 같거나 이후이고 모든 마일스톤 마감 이후여야 합니다.';
     }
   }
 
@@ -362,8 +359,8 @@ export function validateMilestoneForm(
     errors.startAt =
       '마일스톤 시작일은 운영 기간 안에서 마감일보다 앞서야 합니다.';
   }
-  if (dueAt !== null && programEndAt !== null && dueAt >= programEndAt) {
-    errors.dueAt = '마일스톤 마감은 프로그램 종료 이전이어야 합니다.';
+  if (dueAt !== null && programEndAt !== null && dueAt > programEndAt) {
+    errors.dueAt = '마일스톤 마감은 프로그램 종료 이하여야 합니다.';
   }
   return errors;
 }
@@ -406,8 +403,6 @@ export function mapMilestoneError(error: unknown): ProgramMilestoneErrors {
   if (Object.keys(fieldErrors).length > 0) return fieldErrors;
 
   switch (error.problem.code) {
-    case PROGRAM_EDIT_ERROR_CODES.MILESTONE_BEFORE_APPLICATION_END:
-      return { dueAt: '마일스톤 마감은 신청 종료 이후여야 합니다.' };
     case PROGRAM_EDIT_ERROR_CODES.MILESTONE_REQUIRED:
       return { general: MILESTONE_REQUIRED_ON_SAVE_MESSAGE };
     default:

@@ -85,6 +85,10 @@ export type ProgramAuthoringAction =
   | { readonly type: 'add_milestone'; readonly milestoneId: string }
   | { readonly type: 'remove_milestone'; readonly milestoneId: string }
   | {
+      readonly type: 'replace_milestone';
+      readonly milestone: ProgramAuthoringMilestone;
+    }
+  | {
       readonly type: 'set_milestone_field';
       readonly milestoneId: string;
       readonly field: MilestoneTextField;
@@ -99,6 +103,11 @@ export type ProgramAuthoringAction =
       readonly type: 'remove_requirement';
       readonly milestoneId: string;
       readonly requirementId: string;
+    }
+  | {
+      readonly type: 'reorder_requirements';
+      readonly milestoneId: string;
+      readonly requirementIds: readonly string[];
     }
   | {
       readonly type: 'set_requirement_name';

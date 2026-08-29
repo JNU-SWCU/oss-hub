@@ -118,7 +118,8 @@ describe('ProgramEditView contract', () => {
       '신청자가 3명, 팀이 2개 있어 유형을 변경할 수 없습니다',
     );
     expect(html).toContain('disabled=""');
-    expect(html).toContain('id="program-application-start-at"');
+    expect(html).not.toContain('id="program-application-start-at"');
+    expect(html).toContain('시간 변경');
     expect(html).toContain('신청·운영·마일스톤 일정');
     // 양식 키(`oss-contest`)는 구현 식별자다 — 사람이 읽을 양식명만 화면에 남는다.
     expect(html).not.toContain('oss-contest');
@@ -427,11 +428,7 @@ describe('ProgramEditView contract', () => {
 
   it.each([
     ['application end', '2026-08-15T09:30', '운영 시작일 이후'],
-    [
-      'milestone due',
-      '2026-08-20T12:30',
-      '신청 종료일과 모든 마일스톤 마감 이후',
-    ],
+    ['milestone due', '2026-08-20T12:30', '모든 마일스톤 마감 이후'],
   ])('rejects a program end at the %s boundary', (_label, endAt, message) => {
     const form = { ...toProgramEditForm(editableProgram), endAt };
 

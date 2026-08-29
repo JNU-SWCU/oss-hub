@@ -83,12 +83,7 @@ describe('ProgramAuthoringRequestDto', () => {
       '51 milestones',
       { milestones: Array.from({ length: 51 }, () => milestone()) },
     ],
-    [
-      '0 documents in one milestone',
-      {
-        milestones: [{ ...milestone(), documents: [] }],
-      },
-    ],
+
     [
       '21 documents in one milestone',
       {
@@ -119,6 +114,15 @@ describe('ProgramAuthoringRequestDto', () => {
     await expect(errors({ ...request(), ...override })).resolves.not.toEqual(
       [],
     );
+  });
+
+  it('accepts an announcement-only milestone without documents', async () => {
+    await expect(
+      errors({
+        ...request(),
+        milestones: [{ ...milestone(), documents: [] }],
+      }),
+    ).resolves.toEqual([]);
   });
 
   it('rejects a milestone-level submission type and non-FILE document writes', async () => {

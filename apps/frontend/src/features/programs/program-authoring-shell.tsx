@@ -23,7 +23,7 @@ export function ProgramAuthoringShell({
     <PageBody>
       <PageHeader
         title="프로그램 만들기"
-        description="최종 확인 전에는 프로그램이 생성되지 않습니다. 작성 중에는 ‘임시 저장’ 또는 ‘저장하고 계속’을 눌러 복구본을 남길 수 있습니다."
+        description="최종 확인 전에는 프로그램이 생성되지 않습니다."
       />
       <div className="grid min-w-0 gap-8 lg:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]">
         <aside className="self-start lg:sticky lg:top-6">
@@ -75,19 +75,6 @@ export function ProgramAuthoringShell({
               max={PROGRAM_AUTHORING_STEPS.length}
               value={currentIndex + 1}
             />
-          </div>
-          <div
-            className="mb-8 hidden items-center gap-4 text-small lg:flex"
-            aria-label="작성 진행률"
-          >
-            <progress
-              className="h-2 min-w-0 flex-1 accent-primary"
-              max={PROGRAM_AUTHORING_STEPS.length}
-              value={currentIndex + 1}
-            />
-            <span className="shrink-0 text-muted-foreground">
-              {currentIndex + 1} / {PROGRAM_AUTHORING_STEPS.length}
-            </span>
           </div>
           <div className="mx-auto max-w-4xl">{children}</div>
         </div>

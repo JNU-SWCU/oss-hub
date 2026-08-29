@@ -18,10 +18,6 @@ export function issueScheduleRangeId(
       return 'application';
     if (issue.path === 'operationStartAt' || issue.path === 'operationEndAt')
       return 'operation';
-    const milestoneId = /^milestones\.([^.]+)\.(?:startAt|dueAt)$/.exec(
-      issue.path,
-    )?.[1];
-    if (milestoneId !== undefined) return milestoneId;
   }
   return null;
 }
@@ -43,9 +39,10 @@ export function authoringScheduleRanges(
     kind,
     startAt: state[startField],
     endAt: state[endField],
-    minDate:
-      id === 'operation'
-        ? (dateKey(state.applicationEndAt) ?? undefined)
+    minDate: undefined,
+    maxDate:
+      id === 'application'
+        ? (dateKey(state.operationEndAt) ?? undefined)
         : undefined,
     startInputId: `${id}-start`,
     endInputId: `${id}-end`,
@@ -56,9 +53,6 @@ export function authoringScheduleRanges(
     onEndAtChange: (value) =>
       dispatch({ type: 'set_program_field', field: endField, value }),
   });
-  const operationStart = dateKey(state.operationStartAt) ?? undefined;
-  const operationEnd = dateKey(state.operationEndAt) ?? undefined;
-
   return [
     programRange(
       'application',
@@ -74,35 +68,5 @@ export function authoringScheduleRanges(
       'operationStartAt',
       'operationEndAt',
     ),
-    ...state.milestones.map((milestone, index) => {
-      const prefix = `milestones.${milestone.id}`;
-      return {
-        id: milestone.id,
-        label: milestone.name || `마일스톤 ${index + 1}`,
-        kind: 'MILESTONE' as const,
-        startAt: milestone.startAt,
-        endAt: milestone.dueAt,
-        minDate: operationStart,
-        maxDate: operationEnd,
-        startInputId: `${milestone.id}-start`,
-        endInputId: `${milestone.id}-due`,
-        startError: messageFor(issues, `${prefix}.startAt`),
-        endError: messageFor(issues, `${prefix}.dueAt`),
-        onStartAtChange: (value: string) =>
-          dispatch({
-            type: 'set_milestone_field',
-            milestoneId: milestone.id,
-            field: 'startAt',
-            value,
-          }),
-        onEndAtChange: (value: string) =>
-          dispatch({
-            type: 'set_milestone_field',
-            milestoneId: milestone.id,
-            field: 'dueAt',
-            value,
-          }),
-      };
-    }),
   ];
 }

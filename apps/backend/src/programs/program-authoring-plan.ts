@@ -54,7 +54,13 @@ export function buildProgramAuthoringPlan(
       code: 'INVALID_APPLICATION_SCHEDULE',
     });
   }
-  if (applicationEndAt > startAt || startAt >= endAt) {
+  if (applicationEndAt > endAt) {
+    issues.push({
+      path: 'applicationEndAt',
+      code: 'INVALID_APPLICATION_SCHEDULE',
+    });
+  }
+  if (startAt >= endAt) {
     issues.push({ path: 'endAt', code: 'INVALID_PROGRAM_SCHEDULE' });
   }
 
@@ -73,10 +79,7 @@ export function buildProgramAuthoringPlan(
   if (request.milestones.length > MAX_MILESTONES) {
     issues.push({ path: 'milestones', code: 'MILESTONE_LIMIT_EXCEEDED' });
   }
-  if (
-    request.repositoryProvisioningEnabled === true &&
-    request.milestones.length === 0
-  ) {
+  if (request.milestones.length === 0) {
     issues.push({ path: 'milestones', code: 'MILESTONE_REQUIRED' });
   }
 
@@ -98,9 +101,6 @@ export function buildProgramAuthoringPlan(
     );
     const dueAt = isoDate(milestone.dueAt, `${path}.dueAt`, issues);
     totalDocuments += milestone.documents.length;
-    if (milestone.documents.length === 0) {
-      issues.push({ path: `${path}.documents`, code: 'DOCUMENT_REQUIRED' });
-    }
     if (milestone.documents.length > MAX_DOCUMENTS_PER_MILESTONE) {
       issues.push({
         path: `${path}.documents`,
@@ -121,7 +121,7 @@ export function buildProgramAuthoringPlan(
       if (
         milestoneStartAt < startAt ||
         milestoneStartAt >= dueAt ||
-        dueAt >= endAt
+        dueAt > endAt
       ) {
         issues.push({
           path: `${path}.dueAt`,
@@ -178,8 +178,12 @@ function documentPlan(
   seenUploadIds: Set<string>,
   uploadTokenIds: string[],
 ): ProgramAuthoringDocumentPlan {
-  const templateUploadId = optionalString(document.templateUploadId);
-  if (templateUploadId !== null) {
+  const templateUploadId = requiredString(
+    document.templateUploadId ?? '',
+    `${path}.templateUploadId`,
+    issues,
+  );
+  if (templateUploadId.length > 0) {
     if (seenUploadIds.has(templateUploadId)) {
       issues.push({
         path: `${path}.templateUploadId`,

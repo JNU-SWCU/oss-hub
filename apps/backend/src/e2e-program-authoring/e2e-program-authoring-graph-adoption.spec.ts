@@ -35,12 +35,7 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         name: `${PREFIX}information-milestone`,
         startAt: '2026-08-20T01:00:00.000Z',
         dueAt: '2026-08-20T02:00:00.000Z',
-        documents: [
-          {
-            name: `${PREFIX}information-document`,
-            required: true,
-          },
-        ],
+        documents: [],
       },
       {
         name: `${PREFIX}required-milestone`,
@@ -48,8 +43,14 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         dueAt: '2026-08-20T09:00:00.000Z',
         documents: [
           {
-            name: `${PREFIX}required-document`,
+            name: `${PREFIX}information-document.pdf`,
+            required: false,
+            templateUploadId: 'upload-information',
+          },
+          {
+            name: `${PREFIX}required-document.pdf`,
             required: true,
+            templateUploadId: 'upload-required',
           },
         ],
       },
@@ -102,7 +103,7 @@ describe('adoptPersistedE2eProgramGraph', () => {
     ).toEqual({
       programId: PROGRAM_ID,
       milestoneId: 'milestone-1',
-      documentId: 'document-1-0',
+      documentId: 'document-1-1',
     });
   });
 

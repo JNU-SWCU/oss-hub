@@ -21,18 +21,37 @@ export async function resetProgramAuthoringControl(page: Page): Promise<void> {
 export async function selectScheduleRange(
   page: Page,
   input: {
-    readonly rangeButtonName: RegExp;
     readonly rangeLabel: string;
     readonly startAt: string;
     readonly endAt: string;
   },
 ): Promise<void> {
-  await page.getByRole('button', { name: input.rangeButtonName }).click();
+  await page
+    .locator('[data-schedule-range-selector]')
+    .filter({ hasText: input.rangeLabel })
+    .click();
   const calendar = page.getByLabel(`${input.rangeLabel} 날짜 선택 달력`);
   await selectCalendarDate(calendar, input.startAt.slice(0, 10));
   await selectCalendarDate(calendar, input.endAt.slice(0, 10));
-  await page.getByLabel('시작 시각').fill(input.startAt.slice(11, 16));
-  await page.getByLabel('마감 시각').fill(input.endAt.slice(11, 16));
+  await page
+    .getByRole('button', {
+      name: `${input.rangeLabel} 일정 입력`,
+    })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await dialog
+    .getByLabel(`${input.rangeLabel} 시작일`)
+    .fill(input.startAt.slice(0, 10));
+  await dialog
+    .getByLabel(`${input.rangeLabel} 시작 시각`)
+    .fill(input.startAt.slice(11, 16));
+  await dialog
+    .getByLabel(`${input.rangeLabel} 종료일`)
+    .fill(input.endAt.slice(0, 10));
+  await dialog
+    .getByLabel(`${input.rangeLabel} 종료 시각`)
+    .fill(input.endAt.slice(11, 16));
+  await dialog.getByRole('button', { name: '저장' }).click();
 }
 
 export async function fixtureProgramId(page: Page): Promise<string> {

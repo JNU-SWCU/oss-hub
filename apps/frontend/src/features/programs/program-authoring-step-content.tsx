@@ -9,6 +9,7 @@ import {
   ProgramAuthoringReviewStep,
 } from './program-authoring-final-steps';
 import { ProgramAuthoringMilestoneStep } from './program-authoring-milestone-step';
+import { useRef } from 'react';
 import type {
   ProgramAuthoringAction,
   ProgramAuthoringState,
@@ -36,6 +37,7 @@ export function ProgramAuthoringStepContent({
   runtime,
   newId,
 }: ProgramAuthoringStepContentProps) {
+  const milestoneFileSnapshots = useRef(new Map<string, Map<string, File>>());
   const shared = { state, issues, dispatch };
   const removeMilestone = (milestoneId: string) => {
     const milestone = state.milestones.find(
@@ -53,13 +55,7 @@ export function ProgramAuthoringStepContent({
     case 'basic':
       return <ProgramAuthoringBasicStep {...shared} />;
     case 'schedule':
-      return (
-        <ProgramAuthoringScheduleStep
-          {...shared}
-          newId={newId}
-          onMilestoneRemove={removeMilestone}
-        />
-      );
+      return <ProgramAuthoringScheduleStep {...shared} />;
     case 'milestones':
       return (
         <ProgramAuthoringMilestoneStep
@@ -87,6 +83,39 @@ export function ProgramAuthoringStepContent({
               milestoneId,
               requirementId,
             });
+          }}
+          onMilestoneEditStart={(milestone) => {
+            milestoneFileSnapshots.current.set(
+              milestone.id,
+              new Map(
+                milestone.requirements.flatMap((requirement) => {
+                  const file = files.get(requirement.id);
+                  return file ? [[requirement.id, file] as const] : [];
+                }),
+              ),
+            );
+          }}
+          onMilestoneSave={(milestoneId) => {
+            milestoneFileSnapshots.current.delete(milestoneId);
+          }}
+          onMilestoneCancel={(milestoneId, snapshot) => {
+            if (snapshot === null) {
+              removeMilestone(milestoneId);
+              return;
+            }
+            const current = state.milestones.find(
+              (candidate) => candidate.id === milestoneId,
+            );
+            for (const requirement of current?.requirements ?? []) {
+              files.delete(requirement.id);
+              discardCachedUpload(runtime, requirement.id);
+            }
+            for (const [
+              requirementId,
+              file,
+            ] of milestoneFileSnapshots.current.get(milestoneId) ?? [])
+              files.set(requirementId, file);
+            milestoneFileSnapshots.current.delete(milestoneId);
           }}
         />
       );
