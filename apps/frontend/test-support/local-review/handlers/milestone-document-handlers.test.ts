@@ -165,30 +165,33 @@ describe('PATCH .../documents/:documentId', () => {
     expect(body.sortOrder).toBe(2);
   });
 
-  it('폐기된 submissionType 필드는 400 MSD_019로 거절한다', () => {
+  it('폐기된 submissionType 필드는 400 SYS_003으로 거절한다', () => {
     const plan = resolve(
       'PATCH',
       `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[1]}`,
       { body: { name: '합성 서류', required: true, submissionType: 'TEXT' } },
     );
     expect(statusOf(plan)).toBe(400);
-    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+    expect(jsonBody(plan)).toMatchObject({ code: 'SYS_003' });
   });
 });
 
 describe('POST .../documents', () => {
-  it('폐기된 submissionType 필드는 400 MSD_019로 거절한다', () => {
-    const plan = resolve('POST', `milestones/${MILESTONE_ID}/documents`, {
-      body: {
-        name: '합성 새 서류',
-        required: false,
-        sortOrder: 5,
-        submissionType: 'TEXT',
-      },
-    });
-    expect(statusOf(plan)).toBe(400);
-    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
-  });
+  it.each(['submissionType', 'unexpected'])(
+    '허용하지 않은 %s 필드는 400 SYS_003으로 거절한다',
+    (unknownKey) => {
+      const plan = resolve('POST', `milestones/${MILESTONE_ID}/documents`, {
+        body: {
+          name: '합성 새 서류',
+          required: false,
+          sortOrder: 5,
+          [unknownKey]: 'TEXT',
+        },
+      });
+      expect(statusOf(plan)).toBe(400);
+      expect(jsonBody(plan)).toMatchObject({ code: 'SYS_003' });
+    },
+  );
 });
 
 describe('GET .../documents/collection', () => {
@@ -469,10 +472,19 @@ describe('GET .../documents/:documentId/history', () => {
 describe('POST .../submissions', () => {
   const SUBMISSION_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/submissions`;
 
-  it('missing·null·whitespace-only content는 422 MSD_008 canonical detail로 거절한다', () => {
+  it('missing·null·non-object content는 400 SYS_003으로 거절한다', () => {
+    for (const body of [{}, { content: null }, { content: 'text' }]) {
+      const plan = resolve('POST', SUBMISSION_PATH, {
+        body,
+        fixture: 'student',
+      });
+      expect(statusOf(plan)).toBe(400);
+      expect(jsonBody(plan)).toMatchObject({ code: 'SYS_003' });
+    }
+  });
+
+  it('유효한 content 객체가 비었으면 422 MSD_008로 거절한다', () => {
     for (const body of [
-      {},
-      { content: null },
       { content: {} },
       { content: { text: null, fileId: null } },
       { content: { text: '  ', fileId: '\n\t' } },

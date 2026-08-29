@@ -105,7 +105,6 @@ export function ProgramScheduleRangeEditor({
 
   const startDate = dateKey(activeRange.startAt);
   const endDate = dateKey(activeRange.endAt);
-  const hasError = Boolean(activeRange.startError || activeRange.endError);
 
   return (
     <Card className="overflow-hidden border-primary/30 bg-primary/5">
@@ -209,11 +208,6 @@ export function ProgramScheduleRangeEditor({
                 }}
               />
             </div>
-            <FieldError role="alert">
-              {hasError
-                ? (activeRange.startError ?? activeRange.endError)
-                : undefined}
-            </FieldError>
           </Field>
         </div>
       </CardContent>
@@ -236,6 +230,7 @@ function TimeField({
   readonly error?: string;
   readonly onChange: (value: string) => void;
 }) {
+  const errorId = `${id}-error`;
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -245,8 +240,12 @@ function TimeField({
         value={value}
         disabled={disabled}
         aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
         onChange={(event) => onChange(event.target.value)}
       />
+      <FieldError id={errorId} role="alert">
+        {error}
+      </FieldError>
     </Field>
   );
 }

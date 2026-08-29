@@ -162,6 +162,60 @@ describe('ProgramScheduleRangeEditor', () => {
     ).toBe(false);
   });
 
+  it('좁은 화면에서는 44px 날짜 표를 줄이지 않고 가로 스크롤로 모두 노출한다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramScheduleRangeEditor
+          ranges={rangeFixtures()}
+          activeId="milestone-1"
+          onActiveIdChange={vi.fn()}
+        />,
+      );
+    });
+
+    const scroller = container.querySelector(
+      '[data-testid="program-schedule-calendar-scroll"]',
+    );
+    const hintId = scroller?.getAttribute('aria-describedby');
+    expect(scroller?.classList.contains('overflow-x-auto')).toBe(true);
+    expect(scroller?.firstElementChild?.className).toContain('min-w-[22rem]');
+    expect(hintId).not.toBeNull();
+    expect(
+      container.querySelector(`#${CSS.escape(hintId ?? '')}`)?.textContent,
+    ).toContain('좌우로 밀어');
+  });
+
+  it('시각 오류를 해당 입력과 설명 관계로 연결한다', async () => {
+    const ranges = rangeFixtures().map((range) =>
+      range.id === 'milestone-1'
+        ? {
+            ...range,
+            startError: '시작 시각을 확인해 주세요.',
+            endError: '마감 시각을 확인해 주세요.',
+          }
+        : range,
+    );
+    await act(async () => {
+      root.render(
+        <ProgramScheduleRangeEditor
+          ranges={ranges}
+          activeId="milestone-1"
+          onActiveIdChange={vi.fn()}
+        />,
+      );
+    });
+
+    for (const inputId of ['milestone-1-start', 'milestone-1-due']) {
+      const input = container.querySelector<HTMLInputElement>(`#${inputId}`);
+      const errorId = input?.getAttribute('aria-describedby');
+      expect(input?.getAttribute('aria-invalid')).toBe('true');
+      expect(errorId).not.toBeNull();
+      expect(
+        container.querySelector(`#${CSS.escape(errorId ?? '')}`)?.textContent,
+      ).toContain('확인해 주세요');
+    }
+  });
+
   it('범위보다 여러 달 앞뒤인 저장 날짜는 가장 가까운 허용 월에 달력을 연다', async () => {
     const onStartAtChange = vi.fn();
     const onEndAtChange = vi.fn();

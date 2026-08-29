@@ -492,6 +492,7 @@ function StudentDocumentRow({
     historyMetadata?.hasHistory,
     loadHistory,
     submitted,
+    viewerSubmission?.revision,
   ]);
 
   const finish = useCallback(
@@ -657,7 +658,7 @@ function StudentDocumentRow({
               </AlertDescription>
             </Alert>
           )}
-          {historyNextCursor === null ? null : (
+          {historyNextCursor === null || historyError !== null ? null : (
             <Button
               type="button"
               size="sm"

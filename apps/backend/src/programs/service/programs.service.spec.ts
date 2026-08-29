@@ -30,6 +30,7 @@ const publicProgram = {
       instructions: '설명',
       submissionType: 'FILE',
       documents: [],
+      _count: { documents: 0 },
     },
     {
       id: 'overdue',
@@ -39,6 +40,7 @@ const publicProgram = {
       instructions: null,
       submissionType: 'TEXT',
       documents: [],
+      _count: { documents: 0 },
     },
   ],
 };

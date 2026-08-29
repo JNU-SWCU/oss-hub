@@ -9,8 +9,8 @@ export type ProgramDeletionScopeCounts = {
   readonly submissions: number;
   /** 제출 헤더가 그대로여도 늘 수 있는 리비전·검토·파일·항목 이력의 합계. */
   readonly submissionEvents: number;
-  /** 삭제·분리·tombstone 대상 전체 id 집합의 지문. API에서는 필수이며 직접 서비스 테스트만 생략한다. */
-  readonly scopeFingerprint?: string;
+  /** 삭제·분리·tombstone 대상 전체 id 집합의 지문. */
+  readonly scopeFingerprint: string;
 };
 
 type DeletionScopeCountsRow = Readonly<{
@@ -283,7 +283,7 @@ export function sameProgramDeletionScopeCounts(
 /** 삭제 결과는 id를 잃었으므로 화면 요약에 보인 다섯 수치만 현재 snapshot과 대조한다. */
 export function sameProgramDeletionScopeCountValues(
   left: ProgramDeletionScopeCounts,
-  right: ProgramDeletionScopeCounts,
+  right: Omit<ProgramDeletionScopeCounts, 'scopeFingerprint'>,
 ): boolean {
   return (
     left.applications === right.applications &&

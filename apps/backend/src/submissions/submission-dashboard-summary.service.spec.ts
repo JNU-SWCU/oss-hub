@@ -42,10 +42,10 @@ describe('SubmissionDashboardSummaryService', () => {
         { id: 'approved-other', programId: 'program-b' },
       ],
       [
-        { id: 'milestone-a-1', programId: 'program-a' },
-        { id: 'milestone-a-2', programId: 'program-a' },
-        { id: 'milestone-a-3', programId: 'program-a' },
-        { id: 'milestone-b-1', programId: 'program-b' },
+        { id: 'milestone-a-1', programId: 'program-a', submissionType: 'FILE' },
+        { id: 'milestone-a-2', programId: 'program-a', submissionType: 'FILE' },
+        { id: 'milestone-a-3', programId: 'program-a', submissionType: 'FILE' },
+        { id: 'milestone-b-1', programId: 'program-b', submissionType: 'FILE' },
       ],
       [
         {
@@ -122,7 +122,13 @@ describe('SubmissionDashboardSummaryService', () => {
     // Given
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'approved-without-milestone', programId: 'no-milestones' }],
-      [{ id: 'milestone-without-application', programId: 'no-applications' }],
+      [
+        {
+          id: 'milestone-without-application',
+          programId: 'no-applications',
+          submissionType: 'FILE',
+        },
+      ],
       [],
     );
     const service = new SubmissionDashboardSummaryService(repository);
@@ -146,7 +152,7 @@ describe('SubmissionDashboardSummaryService', () => {
     // Given
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'approved-application', programId: 'program-a' }],
-      [{ id: 'milestone-a', programId: 'program-a' }],
+      [{ id: 'milestone-a', programId: 'program-a', submissionType: 'FILE' }],
       [
         {
           applicationId: 'pending-application',
@@ -189,7 +195,7 @@ describe('SubmissionDashboardSummaryService', () => {
         { id: 'team-done', programId: 'program-doc' },
         { id: 'team-partial', programId: 'program-doc' },
       ],
-      [{ id: 'milestone-doc', programId: 'program-doc' }],
+      [{ id: 'milestone-doc', programId: 'program-doc', submissionType: null }],
       [],
       [
         {
@@ -252,7 +258,13 @@ describe('SubmissionDashboardSummaryService', () => {
     // Given: 두 축이 다 쓰인 마일스톤.
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'team-both', programId: 'program-both' }],
-      [{ id: 'milestone-both', programId: 'program-both' }],
+      [
+        {
+          id: 'milestone-both',
+          programId: 'program-both',
+          submissionType: 'FILE',
+        },
+      ],
       [
         {
           applicationId: 'team-both',
@@ -323,8 +335,8 @@ describe('SubmissionDashboardSummaryService', () => {
         { id: 'team-2', programId: 'p' },
       ],
       [
-        { id: 'm-code', programId: 'p' },
-        { id: 'm-doc', programId: 'p' },
+        { id: 'm-code', programId: 'p', submissionType: 'FILE' },
+        { id: 'm-doc', programId: 'p', submissionType: null },
       ],
       [
         {

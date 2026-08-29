@@ -89,12 +89,11 @@ export interface MilestoneDocumentHistoryPage {
 }
 
 /**
- * 학생이 낸 **본문** — 파일이 아닌 두 제출 방식이 여기 실린다. 백엔드
+ * 학생이 낸 선택적 **본문** — 파일과 함께 또는 단독으로 제출할 수 있다. 백엔드
  * `milestone-documents/domain/milestone-document-content.ts`의
  * `MilestoneDocumentSubmittedContent`와 같은 모양이다.
  *
- * ⚠ FILE 제출에는 이 값이 없다(`null`) — 파일은 옆의 `file`이 담당한다. 저장 시점에
- * `JsonNull`로 접히기 때문이라, 「파일 제출인데 본문이 있다」는 상태는 계약에 없다.
+ * 본문을 내지 않으면 `null`이고 파일은 독립된 `file` 필드가 담당한다.
  *
  * ⚠ **잘려 오지 않는다.** 글은 최대 10,000자까지 그대로 실린다 — 「일부만 보고 승인」은
  * 「못 보고 승인」과 같은 사고라서 서버가 자르지 않기로 한 것이고, 잘린 뒤를 읽을 단건
@@ -152,8 +151,6 @@ export interface MilestoneDocumentCollectionCell {
    */
   readonly content: MilestoneDocumentCollectionContent | null;
   readonly review: MilestoneDocumentCollectionReview | null;
-  /** 시간순 제출·재제출·검토 전체. 구버전 API 응답과의 전환기에는 없을 수 있다. */
-  readonly history?: readonly MilestoneDocumentCollectionHistory[];
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */

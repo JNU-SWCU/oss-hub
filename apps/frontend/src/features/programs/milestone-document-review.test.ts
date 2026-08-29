@@ -31,8 +31,11 @@ function viewer(
   return {
     submitted: true,
     submittedAt: '2026-08-01T00:00:00.000Z',
+    revision: 1,
     status: 'SUBMITTED',
+    hasCurrentFile: false,
     review: null,
+    history: { hasHistory: true, isComplete: true },
     ...overrides,
   };
 }

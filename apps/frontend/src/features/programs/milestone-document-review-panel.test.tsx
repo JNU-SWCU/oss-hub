@@ -77,7 +77,7 @@ function render(
       comment=""
       isSubmitting={false}
       errorMessage={null}
-      history={overrides.history ?? resolvedCell.history ?? []}
+      history={overrides.history ?? []}
       isHistoryLoading={false}
       historyError={null}
       hasMoreHistory={false}
@@ -155,19 +155,17 @@ describe('판정 패널 머리', () => {
 
   it('완전한 이력에서 이관 전 제출 원문이 복원되지 않으면 사실과 다음 행동을 명시한다', () => {
     const html = render({
-      cell: cell({
-        revision: 4,
-        history: [
-          {
-            event: 'RESUBMITTED',
-            revision: 4,
-            actorNickname: '학생',
-            comment: null,
-            createdAt: '2026-08-02T00:00:00.000Z',
-            fileName: '계획서-v4.pdf',
-          },
-        ],
-      }),
+      cell: cell({ revision: 4 }),
+      history: [
+        {
+          event: 'RESUBMITTED',
+          revision: 4,
+          actorNickname: '학생',
+          comment: null,
+          createdAt: '2026-08-02T00:00:00.000Z',
+          fileName: '계획서-v4.pdf',
+        },
+      ],
     });
 
     expect(html).toContain('이관 전 1~3차 제출 원문');
@@ -179,19 +177,17 @@ describe('판정 패널 머리', () => {
   it('이전 페이지가 남아 있으면 이관 전 제출 원문 유실을 말하지 않는다', () => {
     const html = render({
       hasMoreHistory: true,
-      cell: cell({
-        revision: 4,
-        history: [
-          {
-            event: 'RESUBMITTED',
-            revision: 4,
-            actorNickname: '학생',
-            comment: null,
-            createdAt: '2026-08-02T00:00:00.000Z',
-            fileName: '계획서-v4.pdf',
-          },
-        ],
-      }),
+      cell: cell({ revision: 4 }),
+      history: [
+        {
+          event: 'RESUBMITTED',
+          revision: 4,
+          actorNickname: '학생',
+          comment: null,
+          createdAt: '2026-08-02T00:00:00.000Z',
+          fileName: '계획서-v4.pdf',
+        },
+      ],
     });
 
     expect(html).toContain('이전 이력 더 보기');
@@ -340,34 +336,32 @@ describe('지난 판정', () => {
 
   it('첫 제출부터 재제출과 검토까지 담당자·파일·시각을 순서대로 보여 준다', () => {
     const html = render({
-      cell: cell({
-        history: [
-          {
-            event: 'SUBMITTED',
-            revision: 1,
-            actorNickname: 'student-a',
-            comment: null,
-            createdAt: '2026-07-28T00:00:00.000Z',
-            fileName: '기획서-v1.pdf',
-          },
-          {
-            event: 'CHANGES_REQUESTED',
-            revision: 1,
-            actorNickname: 'staff-b',
-            comment: '표지 이름을 고쳐 주세요.',
-            createdAt: '2026-07-29T00:00:00.000Z',
-            fileName: null,
-          },
-          {
-            event: 'RESUBMITTED',
-            revision: 2,
-            actorNickname: 'student-c',
-            comment: null,
-            createdAt: '2026-07-30T00:00:00.000Z',
-            fileName: '기획서-v2.pdf',
-          },
-        ],
-      }),
+      history: [
+        {
+          event: 'SUBMITTED',
+          revision: 1,
+          actorNickname: 'student-a',
+          comment: null,
+          createdAt: '2026-07-28T00:00:00.000Z',
+          fileName: '기획서-v1.pdf',
+        },
+        {
+          event: 'CHANGES_REQUESTED',
+          revision: 1,
+          actorNickname: 'staff-b',
+          comment: '표지 이름을 고쳐 주세요.',
+          createdAt: '2026-07-29T00:00:00.000Z',
+          fileName: null,
+        },
+        {
+          event: 'RESUBMITTED',
+          revision: 2,
+          actorNickname: 'student-c',
+          comment: null,
+          createdAt: '2026-07-30T00:00:00.000Z',
+          fileName: '기획서-v2.pdf',
+        },
+      ],
     });
 
     expect(html).toContain('제출·검토 이력');

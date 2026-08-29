@@ -8,7 +8,6 @@ export const MilestoneDocumentsErrorCode = {
   DOCUMENT_NOT_FOUND: 'MSD_004',
   NOT_APPLICATION_MEMBER: 'MSD_005',
   APPLICATION_APPROVAL_REQUIRED: 'MSD_006',
-  CONTENT_TYPE_MISMATCH: 'MSD_007',
   CONTENT_REQUIRED: 'MSD_008',
   INVALID_FILE_UPLOAD: 'MSD_009',
   UNSUPPORTED_FILE_TYPE: 'MSD_010',
@@ -67,11 +66,6 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
     status: 403,
     message: '승인된 신청만 제출할 수 있습니다.',
-  },
-  [MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH]: {
-    code: MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH,
-    status: 422,
-    message: '서류 항목에 지정된 제출 유형과 내용 유형이 다릅니다.',
   },
   [MilestoneDocumentsErrorCode.CONTENT_REQUIRED]: {
     code: MilestoneDocumentsErrorCode.CONTENT_REQUIRED,

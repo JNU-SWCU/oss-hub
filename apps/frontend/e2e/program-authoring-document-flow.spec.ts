@@ -62,6 +62,30 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       startAt: seoulLocalInput(schedule, -DAY_MS),
       endAt: seoulLocalInput(schedule),
     });
+    await authorPage.setViewportSize({ width: 375, height: 900 });
+    const calendarScroller = authorPage.getByTestId(
+      'program-schedule-calendar-scroll',
+    );
+    await expect(
+      authorPage.getByText('달력을 좌우로 밀어 전체 날짜를 볼 수 있습니다.'),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        calendarScroller.evaluate(
+          (element) => element.scrollWidth > element.clientWidth,
+        ),
+      )
+      .toBe(true);
+    const rightmostDate = calendarScroller
+      .locator('[data-calendar-date]')
+      .last();
+    await rightmostDate.scrollIntoViewIfNeeded();
+    const rightmostDateBox = await rightmostDate.boundingBox();
+    expect(rightmostDateBox).not.toBeNull();
+    expect(
+      (rightmostDateBox?.x ?? -1) + (rightmostDateBox?.width ?? 0),
+    ).toBeLessThanOrEqual(375);
+    await authorPage.setViewportSize({ width: 1280, height: 900 });
     await selectScheduleRange(authorPage, {
       rangeButtonName: /2\. 운영 기간/,
       rangeLabel: '운영 기간',
@@ -381,12 +405,13 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     );
     await expectApiStatus(stateResponse, 200);
     const state = toStateCounts(await stateResponse.json());
-    // 봉투 2통 — 미제출 학생 리마인드 1 + 교직원 미제출 팀 요약 1(#886).
+    // 봉투 3통 — approve-and-run 때 첫 학생 리마인드 1통, 뒤의 수동 발송에서
+    // 외부 학생 리마인드 1통 + 교직원 미제출 팀 요약 1통(#886)이다.
     // 이 시나리오의 교직원은 활성·수신 동의·알림 이메일을 모두 갖춰 수신 대상이다.
     // 상태 집계의 documents는 프로그램 전체를 센다. 안내용 마일스톤의 제출 항목이
     // 빠지면 이 값이 1이 되어 전체 작성 그래프 증명이 실패한다. graph의 한 필수
     // 마일스톤 식별자는 아래 수합·다운로드 검증에서 계속 사용한다.
-    expectCleanState(state, 2, 2, 2, 2, 2);
+    expectCleanState(state, 2, 2, 2, 3, 2);
     expect(state.storageContentHashes).toContain(template.sha256);
     expect(state.storageContentHashes).toContain(individual.sha256);
     await writeArtifact('sql-counts.json', { graph, ...state });

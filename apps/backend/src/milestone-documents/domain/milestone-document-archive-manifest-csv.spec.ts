@@ -371,6 +371,29 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       expect(fields[5]).toBe('(내용 없음)');
     });
 
+    it('담긴 경로와 일부 누락 경고를 같은 ZIP 파일 칸에 함께 적는다', () => {
+      const input = {
+        documents: [PLAN_DOCUMENT],
+        rows: [
+          {
+            team: team(),
+            cells: [
+              cell(PLAN_DOCUMENT.id, {
+                state: 'APPROVED',
+                submittedAt: new Date('2026-08-09T05:30:00Z'),
+                path: '계획서/합성팀_계획서.pdf · (내용 없음)',
+                omission: 'CONTENT_UNAVAILABLE',
+              }),
+            ],
+          },
+        ],
+      };
+
+      expect(
+        plainFields(milestoneDocumentArchiveManifestCsv(input), 1)[5],
+      ).toBe('계획서/합성팀_계획서.pdf · (내용 없음)');
+    });
+
     it('통합 제출의 원래 방식을 알 수 없으면 중립적인 누락 사유를 적는다', () => {
       const input = {
         documents: [PLAN_DOCUMENT],

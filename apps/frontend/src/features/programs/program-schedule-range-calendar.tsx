@@ -42,6 +42,7 @@ export function ProgramScheduleRangeCalendar({
   readonly onDateSelect: (value: string) => void;
 }) {
   const summaryId = useId();
+  const scrollHintId = `${summaryId}-scroll-hint`;
   const calendarRef = useRef<HTMLDivElement>(null);
   const pendingFocusRef = useRef(false);
   const weeks = useMemo(() => calendarWeeks(monthKey), [monthKey]);
@@ -156,57 +157,72 @@ export function ProgramScheduleRangeCalendar({
           <li key={event.id}>{scheduleEventSummary(event)}</li>
         ))}
       </ul>
-      <div ref={calendarRef}>
-        <div className="grid grid-cols-7 bg-muted/50 text-center text-small font-semibold text-muted-foreground">
-          {WEEKDAYS.map((day) => (
-            <span key={day} className="py-2">
-              {day}
-            </span>
+      <p
+        id={scrollHintId}
+        className="border-b border-border px-4 py-2 text-small text-muted-foreground sm:hidden"
+      >
+        달력을 좌우로 밀어 전체 날짜를 볼 수 있습니다.
+      </p>
+      <div
+        className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        role="region"
+        aria-label="날짜 선택 달력 가로 스크롤"
+        aria-describedby={scrollHintId}
+        tabIndex={0}
+        data-testid="program-schedule-calendar-scroll"
+      >
+        <div ref={calendarRef} className="min-w-[22rem]">
+          <div className="grid grid-cols-7 bg-muted/50 text-center text-small font-semibold text-muted-foreground">
+            {WEEKDAYS.map((day) => (
+              <span key={day} className="py-2">
+                {day}
+              </span>
+            ))}
+          </div>
+          {weeks.map((week) => (
+            <div key={week.id} className="border-t border-border/70 p-1.5">
+              <div className="grid grid-cols-7">
+                {week.days.map((day) => {
+                  const selectable = dateWithinBounds(
+                    day,
+                    activeRange.minDate,
+                    activeRange.maxDate,
+                  );
+                  const isEndpoint =
+                    activeRange.startAt.startsWith(day) ||
+                    activeRange.endAt.startsWith(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      disabled={!selectable}
+                      data-calendar-date={day}
+                      tabIndex={focusedDate === day && selectable ? 0 : -1}
+                      aria-label={`${formatKoreanDate(day)}${selectable ? '' : ', 선택할 수 없음'}`}
+                      aria-pressed={isEndpoint}
+                      className={`min-h-11 min-w-11 rounded-control text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-muted/50 disabled:text-muted-foreground/40 ${isEndpoint ? 'bg-primary font-bold text-primary-foreground' : day.startsWith(monthKey) ? 'hover:bg-muted' : 'text-muted-foreground/50 hover:bg-muted'}`}
+                      onClick={() => {
+                        onFocusedDateChange(day);
+                        onDateSelect(day);
+                      }}
+                      onKeyDown={(event) => handleKeyDown(event, day)}
+                    >
+                      {Number(day.slice(-2))}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-1 grid gap-1">
+                {segmentsForWeek(week, events).map((segment) => (
+                  <RangeSegment
+                    key={`${segment.event.id}-${week.id}`}
+                    segment={segment}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
-        {weeks.map((week) => (
-          <div key={week.id} className="border-t border-border/70 p-1.5">
-            <div className="grid grid-cols-7">
-              {week.days.map((day) => {
-                const selectable = dateWithinBounds(
-                  day,
-                  activeRange.minDate,
-                  activeRange.maxDate,
-                );
-                const isEndpoint =
-                  activeRange.startAt.startsWith(day) ||
-                  activeRange.endAt.startsWith(day);
-                return (
-                  <button
-                    key={day}
-                    type="button"
-                    disabled={!selectable}
-                    data-calendar-date={day}
-                    tabIndex={focusedDate === day && selectable ? 0 : -1}
-                    aria-label={`${formatKoreanDate(day)}${selectable ? '' : ', 선택할 수 없음'}`}
-                    aria-pressed={isEndpoint}
-                    className={`min-h-11 min-w-11 rounded-control text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-muted/50 disabled:text-muted-foreground/40 ${isEndpoint ? 'bg-primary font-bold text-primary-foreground' : day.startsWith(monthKey) ? 'hover:bg-muted' : 'text-muted-foreground/50 hover:bg-muted'}`}
-                    onClick={() => {
-                      onFocusedDateChange(day);
-                      onDateSelect(day);
-                    }}
-                    onKeyDown={(event) => handleKeyDown(event, day)}
-                  >
-                    {Number(day.slice(-2))}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-1 grid gap-1">
-              {segmentsForWeek(week, events).map((segment) => (
-                <RangeSegment
-                  key={`${segment.event.id}-${week.id}`}
-                  segment={segment}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

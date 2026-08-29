@@ -42,6 +42,7 @@ function fileSubmission(
     submittedAt,
     status: SubmissionStatus.SUBMITTED,
     content: null,
+    hasCurrentFileEvidence: true,
     file: {
       storageKey: 'objects/synthetic-a',
       originalFileName: '최종_진짜최종.hwp',
@@ -110,6 +111,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
         fileSubmission({
           file: null,
           content: { type: 'TEXT', text: '이번 달에 한 일' },
+          hasCurrentFileEvidence: false,
         }),
       ],
     });
@@ -151,6 +153,50 @@ describe('buildMilestoneDocumentArchivePlan', () => {
     expect(result.manifest[0]?.cells[0]?.path).toBe(
       '코드나무/코드나무_사업계획서.hwp · 코드나무/코드나무_사업계획서.txt',
     );
+  });
+
+  it('글을 읽을 수 없더라도 살아 있는 첨부와 글 누락 사유를 함께 남긴다', () => {
+    const result = plan({
+      submissions: [fileSubmission({ content: { type: 'TEXT' } })],
+    });
+
+    expect(result.entries).toEqual([
+      {
+        kind: 'STORED_FILE',
+        path: '코드나무/코드나무_사업계획서.hwp',
+        modifiedAt: submittedAt,
+        storageKey: 'objects/synthetic-a',
+        sizeBytes: 2048,
+      },
+    ]);
+    expect(result.manifest[0]?.cells[0]).toMatchObject({
+      path: '코드나무/코드나무_사업계획서.hwp · (내용 없음)',
+      omission: 'CONTENT_UNAVAILABLE',
+    });
+  });
+
+  it('첨부를 읽을 수 없더라도 살아 있는 글과 파일 누락 사유를 함께 남긴다', () => {
+    const result = plan({
+      submissions: [
+        fileSubmission({
+          file: null,
+          content: { type: 'TEXT', text: '보충 설명입니다.' },
+        }),
+      ],
+    });
+
+    expect(result.entries).toEqual([
+      {
+        kind: 'INLINE_TEXT',
+        path: '코드나무/코드나무_사업계획서.txt',
+        modifiedAt: submittedAt,
+        body: '보충 설명입니다.',
+      },
+    ]);
+    expect(result.manifest[0]?.cells[0]).toMatchObject({
+      path: '코드나무/코드나무_사업계획서.txt · (첨부를 가져올 수 없음)',
+      omission: 'FILE_UNAVAILABLE',
+    });
   });
 
   it('한 장도 안 낸 팀은 폴더를 만들지 않지만 현황표에는 미제출로 남는다', () => {
@@ -212,22 +258,30 @@ describe('buildMilestoneDocumentArchivePlan', () => {
       state: 'PENDING',
       submittedAt,
       path: null,
-      omission: 'SUBMISSION_UNAVAILABLE',
+      omission: 'FILE_UNAVAILABLE',
     });
   });
 
-  it('본문을 읽을 수 없는 글 제출도 담지 않고 이유를 남긴다', () => {
+  it('본문과 파일을 모두 가져올 수 없으면 두 이유를 남긴다', () => {
     const result = plan({
       submissions: [fileSubmission({ file: null, content: { type: 'WAT' } })],
     });
 
     expect(result.entries).toHaveLength(0);
-    expect(result.manifest[0]?.cells[0]?.omission).toBe('CONTENT_UNAVAILABLE');
+    expect(result.manifest[0]?.cells[0]?.omission).toBe(
+      'CONTENT_AND_FILE_UNAVAILABLE',
+    );
   });
 
   it('제출 증거가 모두 없으면 중립 사유를 남긴다', () => {
     const result = plan({
-      submissions: [fileSubmission({ file: null, content: null })],
+      submissions: [
+        fileSubmission({
+          file: null,
+          content: null,
+          hasCurrentFileEvidence: false,
+        }),
+      ],
     });
 
     expect(result.entries).toHaveLength(0);
@@ -402,6 +456,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
           milestoneDocumentId: 'doc-b',
           file: null,
           content: { type: 'TEXT', text: '글' },
+          hasCurrentFileEvidence: false,
         }),
       ],
     });

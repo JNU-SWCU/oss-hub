@@ -7,6 +7,7 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import type {
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionContent,
+  MilestoneDocumentCollectionHistory,
 } from './milestone-document-collection-api';
 import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
 import {
@@ -54,7 +55,7 @@ export interface MilestoneDocumentReviewPanelProps {
   readonly onCommentChange: (comment: string) => void;
   readonly onSubmit: () => void;
   readonly onClose: () => void;
-  readonly history: NonNullable<MilestoneDocumentCollectionCell['history']>;
+  readonly history: readonly MilestoneDocumentCollectionHistory[];
   readonly isHistoryLoading: boolean;
   readonly historyError: string | null;
   readonly hasMoreHistory: boolean;

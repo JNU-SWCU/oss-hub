@@ -53,8 +53,11 @@ interface MilestoneDocumentSeed {
 const NOT_SUBMITTED_VIEWER: MilestoneDocumentViewerSubmission = {
   submitted: false,
   submittedAt: null,
+  revision: null,
   status: null,
+  hasCurrentFile: false,
   review: null,
+  history: { hasHistory: false, isComplete: true },
 };
 
 /**
@@ -66,8 +69,17 @@ function submittedViewer(
   submittedAt: string,
   status: NonNullable<MilestoneDocumentViewerSubmission['status']>,
   review: MilestoneDocumentViewerSubmission['review'] = null,
+  hasCurrentFile = false,
 ): MilestoneDocumentViewerSubmission {
-  return { submitted: true, submittedAt, status, review };
+  return {
+    submitted: true,
+    submittedAt,
+    revision: 1,
+    status,
+    hasCurrentFile,
+    review,
+    history: { hasHistory: true, isComplete: true },
+  };
 }
 
 const MILESTONE_DOCUMENT_FIXTURES: Readonly<
@@ -100,6 +112,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
             '잘 받았습니다. 기획 범위가 명확해서 그대로 진행하셔도 됩니다. 다음 단계는 팀별로 안내드릴게요.',
           reviewedAt: '2026-07-15T01:10:00.000Z',
         },
+        true,
       ),
       // program-overview-fixtures.ts의 teamCount(47)를 기준으로 삼는다.
       teamSubmissionCount: { submitted: 44, total: 47 },
@@ -128,10 +141,15 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       // `viewerSubmissionStatus: 'CHANGES_REQUESTED'`와 같은 값 — 학생 화면의 경고 톤
       // 사유 상자와 「다시 낼 수 있다」가 함께 보이는 자리다.
       viewerSubmission: {
-        ...submittedViewer('2026-07-30T16:20:00.000Z', 'CHANGES_REQUESTED', {
-          comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
-          reviewedAt: '2026-07-31T02:40:00.000Z',
-        }),
+        ...submittedViewer(
+          '2026-07-30T16:20:00.000Z',
+          'CHANGES_REQUESTED',
+          {
+            comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
+            reviewedAt: '2026-07-31T02:40:00.000Z',
+          },
+          true,
+        ),
         revision: 2,
         history: { hasHistory: true, isComplete: false },
       },
@@ -225,6 +243,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
             '학습 계획서 양식이 지난 학기 것입니다. 이번 학기 양식으로는 다시 받지 않습니다.',
           reviewedAt: '2026-05-12T00:30:00.000Z',
         },
+        true,
       ),
       teamSubmissionCount: { submitted: 2, total: 3 },
     },
@@ -619,6 +638,17 @@ function collectionContentFor(
   }
 }
 
+function collectionFileNameFor(
+  seed: MilestoneDocumentSeed,
+  rowIndex: number,
+): string | null {
+  if (seed.contentKind !== 'FILE') return null;
+  const teamNumber = rowIndex + 1;
+  return rowIndex === 1
+    ? `합성-${seed.name}-아주-긴-파일-이름-확인용-${teamNumber}팀-최종본.pdf`
+    : `합성-${seed.name}-${teamNumber}팀.pdf`;
+}
+
 /**
  * 마일스톤 이름·마감은 student-program-fixtures.ts와 staff-program-fixtures.ts가 원본이다
  * — 여기서 베끼지 않는다. 두 곳을 다 보는 이유는 교직원이 수합 표에 들어오는 길이 둘이기
@@ -703,12 +733,7 @@ function collectionRowFor(
       // FILE 유형이어도 보존 기한이 지난 첨부는 `file`이 비어 온다(백엔드 계약).
       // 첫 팀을 그 갈래로 둬 "제출됨(링크 없음)" 표시가 검토 화면에 실제로 뜨게 한다.
       const expired = index === 0;
-      const fileName =
-        seed.contentKind === 'FILE'
-          ? profileless
-            ? `합성-${seed.name}-아주-긴-파일-이름-확인용-${teamNumber}팀-최종본.pdf`
-            : `합성-${seed.name}-${teamNumber}팀.pdf`
-          : null;
+      const fileName = collectionFileNameFor(seed, index);
       const content = collectionContentFor(seed, teamNumber);
       return {
         documentId: seed.id,
@@ -736,13 +761,6 @@ function collectionRowFor(
           state,
           submittedAt,
           `synthetic-review-${seed.id}-${teamNumber}`,
-        ),
-        history: collectionHistoryFor(
-          state,
-          submittedAt,
-          teamNumber,
-          fileName,
-          content,
         ),
       };
     }),
@@ -892,17 +910,34 @@ export function milestoneDocumentHistoryFor(
     filter: 'ALL',
   });
   if (collection === null) return { kind: 'document-not-found' };
-  const row = collection.rows.find(
+  const rowIndex = collection.rows.findIndex(
     (candidate) => candidate.applicationId === applicationId,
   );
-  if (row === undefined) return { kind: 'submission-not-found' };
+  if (rowIndex === -1) return { kind: 'submission-not-found' };
+  const row = collection.rows[rowIndex];
   const cell = row?.cells.find(
     (candidate) => candidate.documentId === documentId,
   );
-  if (cell === undefined || !cell.isSubmitted) {
+  if (cell === undefined || !cell.isSubmitted || cell.submittedAt === null) {
     return { kind: 'submission-not-found' };
   }
-  const descending = (cell.history ?? [])
+  const seeds = MILESTONE_DOCUMENT_FIXTURES[milestoneId] ?? [];
+  const documentIndex = seeds.findIndex(
+    (candidate) => candidate.id === documentId,
+  );
+  if (documentIndex === -1) return { kind: 'document-not-found' };
+  const state = COLLECTION_CELL_STATE_CYCLE[
+    submittedCellOrdinal(seeds, rowIndex, documentIndex) %
+      COLLECTION_CELL_STATE_CYCLE.length
+  ] as CollectionCellStateSeed;
+  const history = collectionHistoryFor(
+    state,
+    cell.submittedAt,
+    rowIndex + 1,
+    collectionFileNameFor(document, rowIndex),
+    collectionContentFor(document, rowIndex + 1),
+  );
+  const descending = history
     .map((item, index) => ({
       id: `history-${documentId.slice(-12)}-${applicationId.slice(-12)}-${index}`,
       item,

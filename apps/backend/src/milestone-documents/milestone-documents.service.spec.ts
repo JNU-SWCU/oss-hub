@@ -259,6 +259,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
           revision: 2,
           status: SubmissionStatus.SUBMITTED,
           hasCurrentFile: true,
+          historyComplete: false,
           review: null,
         },
       ]),
@@ -307,6 +308,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
           revision: 1,
           status: SubmissionStatus.CHANGES_REQUESTED,
           hasCurrentFile: false,
+          historyComplete: true,
           review: {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
@@ -331,7 +333,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
       },
-      history: { hasHistory: true, isComplete: false },
+      history: { hasHistory: true, isComplete: true },
     });
   });
 

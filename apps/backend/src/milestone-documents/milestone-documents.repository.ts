@@ -84,6 +84,7 @@ export interface MilestoneDocumentSubmissionSummary {
   readonly revision: number;
   readonly status: SubmissionStatus;
   readonly hasCurrentFile: boolean;
+  readonly historyComplete: boolean;
   /** 최신 판정 한 건. 아직 아무도 보지 않았으면 null. */
   readonly review: MilestoneDocumentReviewRecord | null;
 }
@@ -133,8 +134,6 @@ export interface MilestoneDocumentCollectionSubmission {
    * 필터·집계는 이 값을 보지 않는다(domain/milestone-document-collection-page.ts가 소유한다).
    */
   readonly review: MilestoneDocumentReviewRecord | null;
-  /** 제출·재제출·판정 전체. 이전 판정의 대상 revision은 추정하지 않아 null일 수 있다. */
-  readonly history?: readonly MilestoneDocumentCollectionHistoryRecord[];
 }
 
 /** 수합 필터·페이지 계산에 필요한 최소 좌표. 본문·파일·이력은 현재 페이지를 고른 뒤 읽는다. */
@@ -171,6 +170,7 @@ export interface MilestoneDocumentArchiveSubmissionRecord {
   readonly submittedAt: Date;
   readonly status: SubmissionStatus;
   readonly content: Prisma.JsonValue | null;
+  readonly hasCurrentFileEvidence: boolean;
   readonly file: {
     readonly storageKey: string;
     readonly originalFileName: string;
@@ -985,6 +985,20 @@ export class MilestoneDocumentsRepository {
         submittedAt: true,
         revision: true,
         status: true,
+        _count: {
+          select: {
+            histories: {
+              where: {
+                event: {
+                  in: [
+                    MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+                    MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+                  ],
+                },
+              },
+            },
+          },
+        },
         files: {
           where: unexpiredAttachedFileWhere(now),
           orderBy: currentRevisionFileOrderBy,
@@ -1007,6 +1021,7 @@ export class MilestoneDocumentsRepository {
         hasCurrentFile:
           submission.files?.[0]?.submissionHistory?.revision ===
           submission.revision,
+        historyComplete: submission._count.histories === submission.revision,
         review:
           review === null
             ? null
@@ -1279,13 +1294,14 @@ export class MilestoneDocumentsRepository {
         status: true,
         content: true,
         files: {
-          where: unexpiredAttachedFileWhere(now),
           orderBy: currentRevisionFileOrderBy,
           take: 1,
           select: {
             storageKey: true,
             originalFileName: true,
             sizeBytes: true,
+            lifecycle: true,
+            expiresAt: true,
             submissionHistory: { select: { revision: true } },
           },
         },
@@ -1293,10 +1309,15 @@ export class MilestoneDocumentsRepository {
     });
     return submissions.map((submission) => {
       const selectedFile = submission.files[0];
+      const hasCurrentFileEvidence =
+        selectedFile !== undefined &&
+        selectedFile.submissionHistory?.revision === submission.revision;
       const file =
         selectedFile !== undefined &&
-        selectedFile.submissionHistory !== null &&
-        selectedFile.submissionHistory.revision === submission.revision
+        hasCurrentFileEvidence &&
+        selectedFile.lifecycle === SubmissionFileLifecycle.ATTACHED &&
+        selectedFile.expiresAt !== null &&
+        selectedFile.expiresAt > now
           ? {
               storageKey: selectedFile.storageKey,
               originalFileName: selectedFile.originalFileName,
@@ -1309,6 +1330,7 @@ export class MilestoneDocumentsRepository {
         submittedAt: submission.submittedAt,
         status: submission.status,
         content: submission.content,
+        hasCurrentFileEvidence,
         file,
       };
     });

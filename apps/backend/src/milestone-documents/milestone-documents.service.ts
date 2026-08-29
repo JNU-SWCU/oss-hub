@@ -115,7 +115,7 @@ export class MilestoneDocumentsService {
                     },
               history: {
                 hasHistory: summary !== null,
-                isComplete: summary === null,
+                isComplete: summary?.historyComplete ?? true,
               },
             },
           });

@@ -253,10 +253,7 @@ export class ProgramsService {
             deadlineLabel: deadline.label,
             description: milestone.instructions,
             submissionType: milestone.submissionType,
-            // 새 repository는 선택 항목까지 포함한 _count를 넘긴다. 예전 포트
-            // fixture는 필수 documents만 있어 전환 기간 fallback을 둔다.
-            submissionItemCount:
-              milestone._count?.documents ?? milestone.documents.length,
+            submissionItemCount: milestone._count.documents,
             viewerSubmissionStatus:
               milestone.submissionType !== null && studentApplication
                 ? milestoneStatusFor(

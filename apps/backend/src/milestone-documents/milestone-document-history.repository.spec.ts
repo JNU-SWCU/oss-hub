@@ -49,7 +49,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         take: 3,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ createdAt: 'desc' }, { event: 'desc' }, { id: 'desc' }],
       }),
     );
     expect(page?.items.map((item) => item.id)).toEqual([
@@ -104,5 +104,79 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
     ).rejects.toBeInstanceOf(InvalidMilestoneDocumentHistoryCursorError);
     expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('keeps equal-time submissions before decisions and continues after the boundary cursor', async () => {
+    const tied = new Date('2026-09-03T00:00:00.000Z');
+    const older = new Date('2026-09-02T00:00:00.000Z');
+    const row = (
+      id: string,
+      event: MilestoneDocumentSubmissionHistoryEvent,
+      createdAt: Date,
+    ) => ({
+      id,
+      event,
+      revision: 1,
+      comment: null,
+      content: Prisma.JsonNull,
+      createdAt,
+      actor: { nickname: 'synthetic-user' },
+      files: [],
+    });
+    const submission = row(
+      'history-submission',
+      MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+      tied,
+    );
+    const decision = row(
+      'history-decision',
+      MilestoneDocumentSubmissionHistoryEvent.APPROVED,
+      tied,
+    );
+    const olderSubmission = row(
+      'history-older',
+      MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      older,
+    );
+    const findMany = jest
+      .fn()
+      .mockResolvedValueOnce([decision, submission, olderSubmission])
+      .mockResolvedValueOnce([olderSubmission]);
+    const repository = new MilestoneDocumentsRepository({
+      milestoneDocumentSubmission: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'submission-1' }),
+      },
+      milestoneDocumentSubmissionHistory: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'history-submission' }),
+        findMany,
+      },
+    } as unknown as PrismaService);
+
+    const firstPage = await repository.findSubmissionHistoryPage(
+      'document-1',
+      'application-1',
+      null,
+      2,
+    );
+    const secondPage = await repository.findSubmissionHistoryPage(
+      'document-1',
+      'application-1',
+      firstPage?.nextCursor ?? null,
+      2,
+    );
+
+    expect(firstPage?.items.map((item) => item.id)).toEqual([
+      'history-submission',
+      'history-decision',
+    ]);
+    expect(firstPage?.nextCursor).toBe('history-submission');
+    expect(findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        cursor: { id: 'history-submission' },
+        skip: 1,
+      }),
+    );
+    expect(secondPage?.items.map((item) => item.id)).toEqual(['history-older']);
+    expect(secondPage?.nextCursor).toBeNull();
   });
 });

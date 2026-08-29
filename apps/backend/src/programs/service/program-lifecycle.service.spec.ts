@@ -493,12 +493,14 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
 });
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
+const ZERO_SCOPE_FINGERPRINT = '00000000000000000000000000000000';
 const ZERO_SCOPE_COUNTS: ProgramDeletionScopeCounts = {
   applications: 0,
   teams: 0,
   boardPosts: 0,
   submissions: 0,
   submissionEvents: 0,
+  scopeFingerprint: ZERO_SCOPE_FINGERPRINT,
 };
 
 function createPurgeService(
@@ -546,6 +548,7 @@ function createPurgeService(
       boardPosts: BigInt(freshScopeCounts.boardPosts),
       submissions: BigInt(freshScopeCounts.submissions),
       submissionEvents: BigInt(freshScopeCounts.submissionEvents),
+      scopeFingerprint: freshScopeCounts.scopeFingerprint,
     },
   ]);
 
@@ -1077,6 +1080,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
         boardPosts: 0,
         submissions: 0,
         submissionEvents: 0,
+        scopeFingerprint: '11111111111111111111111111111111',
       },
     });
 
@@ -1092,6 +1096,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
           boardPosts: 0,
           submissions: 0,
           submissionEvents: 0,
+          scopeFingerprint: '11111111111111111111111111111111',
         },
       },
     });
@@ -1111,6 +1116,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
         boardPosts: 0,
         submissions: 3,
         submissionEvents: 0,
+        scopeFingerprint: '22222222222222222222222222222222',
       },
     });
 
@@ -1120,6 +1126,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       boardPosts: 0,
       submissions: 3,
       submissionEvents: 0,
+      scopeFingerprint: '22222222222222222222222222222222',
     });
 
     expect(result).toMatchObject({ id: 'program-1', deleted: true });
@@ -1134,6 +1141,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
         boardPosts: 0,
         submissions: 3,
         submissionEvents: 0,
+        scopeFingerprint: '33333333333333333333333333333333',
       },
       counts: { submissions: 1, milestoneDocumentSubmissions: 2 },
     });
@@ -1144,6 +1152,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       boardPosts: 0,
       submissions: 3,
       submissionEvents: 0,
+      scopeFingerprint: '33333333333333333333333333333333',
     });
 
     expect(result.deletedCounts.submissions).toBe(3);

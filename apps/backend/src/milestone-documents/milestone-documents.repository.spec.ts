@@ -1685,62 +1685,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
     });
-    expect(result[0]?.history).toBeUndefined();
-  });
-
-  it('수합 표의 현재 셀에는 제출 이력을 포함하지 않는다', async () => {
-    const revisionTwoStartedEarlier = new Date('2026-09-16T14:21:59.000Z');
-    const revisionOneStartedLater = new Date('2026-09-16T14:22:00.000Z');
-    const revisionOneReviewedAt = new Date('2026-09-16T14:23:00.000Z');
-    const findMany = jest.fn().mockResolvedValue([
-      {
-        milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
-        submittedAt: revisionTwoStartedEarlier,
-        revision: 2,
-        status: SubmissionStatus.SUBMITTED,
-        content: null,
-        files: [],
-        histories: [
-          {
-            event: MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-            revision: 2,
-            comment: null,
-            createdAt: revisionTwoStartedEarlier,
-            actor: { nickname: 'student-2' },
-            files: [{ originalFileName: 'plan-v2.pdf' }],
-          },
-          {
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-            revision: 1,
-            comment: null,
-            createdAt: revisionOneStartedLater,
-            actor: { nickname: 'student-1' },
-            files: [{ originalFileName: 'plan-v1.pdf' }],
-          },
-        ],
-        reviewHistories: [
-          {
-            id: 'review-revision-1',
-            decision: ReviewDecision.CHANGES_REQUESTED,
-            comment: '수정해 주세요.',
-            reviewedAt: revisionOneReviewedAt,
-            reviewer: { nickname: 'staff-1' },
-            submissionHistory: { revision: 1 },
-          },
-        ],
-      },
-    ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findMany },
-    } as unknown as PrismaService);
-
-    const result = await repository.findSubmissionsForCollection(
-      [syntheticDocumentId],
-      now,
-    );
-
-    expect(result[0]?.history).toBeUndefined();
   });
 
   it('글 제출의 본문을 칸 재료에 함께 싣는다', async () => {
@@ -1837,6 +1781,8 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
             storageKey: 'synthetic/milestone-documents/synthetic-object',
             originalFileName: '최종_진짜최종.hwp',
             sizeBytes: 2048,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            expiresAt: new Date('2026-10-01T00:00:00.000Z'),
             submissionHistory: { revision: 2 },
           },
         ],
@@ -1861,6 +1807,8 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       storageKey: true,
       originalFileName: true,
       sizeBytes: true,
+      lifecycle: true,
+      expiresAt: true,
       submissionHistory: { select: { revision: true } },
     });
     expect(result[0]?.file).toEqual({
@@ -1868,6 +1816,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       originalFileName: '최종_진짜최종.hwp',
       sizeBytes: 2048,
     });
+    expect(result[0]?.hasCurrentFileEvidence).toBe(true);
   });
 
   it('현재 revision과 다른 이력의 파일은 ZIP에 넣지 않는다', async () => {
@@ -1884,6 +1833,8 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
             storageKey: 'objects/revision-1',
             originalFileName: 'revision-1.pdf',
             sizeBytes: 1024,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            expiresAt: new Date('2026-10-01T00:00:00.000Z'),
             submissionHistory: { revision: 1 },
           },
         ],
@@ -1899,9 +1850,10 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     );
 
     expect(result[0]?.file).toBeNull();
+    expect(result[0]?.hasCurrentFileEvidence).toBe(false);
   });
 
-  it('ATTACHED이고 아직 만료되지 않은 첨부만, createdAt 내림차순으로 1건만 붙인다', async () => {
+  it('현재 revision 증거를 판정하도록 최신 첨부 1건을 읽는다', async () => {
     // Given
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
@@ -1915,20 +1867,53 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     // Then: 조건이 빠지면 이미 지워졌거나 아직 붙지 않은 파일을 열러 가 압축이 통째로 끊긴다.
     const call = firstCallArgument<{
       where: unknown;
-      select: { files: { where: unknown; orderBy: unknown; take: number } };
+      select: { files: { where?: unknown; orderBy: unknown; take: number } };
     }>(findMany);
     expect(call.where).toEqual({
       milestoneDocumentId: { in: [syntheticDocumentId] },
     });
-    expect(call.select.files.where).toEqual({
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
-      expiresAt: { gt: now },
-    });
+    expect(call.select.files.where).toBeUndefined();
     expect(call.select.files.orderBy).toEqual([
       { submissionHistory: { revision: 'desc' } },
       { createdAt: 'desc' },
     ]);
     expect(call.select.files.take).toBe(1);
+  });
+
+  it('현재 revision 파일이 만료됐으면 증거는 남기고 ZIP 파일만 제외한다', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        revision: 2,
+        status: SubmissionStatus.SUBMITTED,
+        content: { type: 'TEXT', text: '보존된 본문' },
+        files: [
+          {
+            storageKey: 'objects/expired',
+            originalFileName: 'expired.pdf',
+            sizeBytes: 1024,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            expiresAt: new Date('2026-09-19T00:00:00.000Z'),
+            submissionHistory: { revision: 2 },
+          },
+        ],
+      },
+    ]);
+    const repository = new MilestoneDocumentsRepository({
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService);
+
+    const [result] = await repository.findSubmissionsForArchive(
+      [syntheticDocumentId],
+      now,
+    );
+
+    expect(result).toMatchObject({
+      hasCurrentFileEvidence: true,
+      file: null,
+    });
   });
 
   it('붙은 첨부가 없으면 file은 null이다 — 글 제출은 본문으로 담는다', async () => {
@@ -1956,6 +1941,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
 
     // Then
     expect(result[0]?.file).toBeNull();
+    expect(result[0]?.hasCurrentFileEvidence).toBe(false);
     expect(result[0]?.content).toEqual({
       type: 'TEXT',
       text: '3주차까지 인터뷰 8건을 마쳤습니다.',
@@ -2000,6 +1986,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         submittedAt,
         revision: 2,
         status: SubmissionStatus.CHANGES_REQUESTED,
+        _count: { histories: 2 },
         files: [{ submissionHistory: { revision: 2 } }],
         reviewHistories: [
           {
@@ -2032,6 +2019,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       revision: 2,
       status: SubmissionStatus.CHANGES_REQUESTED,
       hasCurrentFile: true,
+      historyComplete: true,
       review: {
         id: 'cuid-synthetic-review',
         decision: ReviewDecision.CHANGES_REQUESTED,
@@ -2049,6 +2037,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 1,
         status: SubmissionStatus.SUBMITTED,
+        _count: { histories: 1 },
         files: [],
         reviewHistories: [],
       },
@@ -2066,6 +2055,30 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
 
     // Then
     expect(result[0]?.review).toBeNull();
+    expect(result[0]?.historyComplete).toBe(true);
+  });
+
+  it('이전 revision 원장이 빠진 마이그레이션 제출은 불완전하다고 표시한다', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        revision: 3,
+        status: SubmissionStatus.SUBMITTED,
+        _count: { histories: 1 },
+        files: [],
+        reviewHistories: [],
+      },
+    ]);
+    const repository = new MilestoneDocumentsRepository({
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService);
+
+    await expect(
+      repository.findSubmittedSummaries(syntheticApplicationId, [
+        syntheticDocumentId,
+      ]),
+    ).resolves.toEqual([expect.objectContaining({ historyComplete: false })]);
   });
 
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {

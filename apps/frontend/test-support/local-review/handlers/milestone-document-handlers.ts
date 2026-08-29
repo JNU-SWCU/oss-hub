@@ -61,6 +61,7 @@ const SUBMISSION_NOT_FOUND_CODE = 'MSD_022';
 const INVALID_REQUEST_CODE = 'MSD_019';
 const REVIEW_COMMENT_REQUIRED_CODE = 'MSD_021';
 const CONTENT_REQUIRED_CODE = 'MSD_008';
+const VALIDATION_ERROR_CODE = 'SYS_003';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -86,9 +87,74 @@ function bodyNumber(context: LocalReviewContext, key: string): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-function hasObsoleteSubmissionType(context: LocalReviewContext): boolean {
+function validationProblem(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan {
+  return problem(
+    400,
+    VALIDATION_ERROR_CODE,
+    apiPath(context.path),
+    '요청 값이 올바르지 않습니다.',
+  );
+}
+
+function hasOnlyKeys(
+  value: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+): boolean {
+  return Object.keys(value).every((key) => allowed.has(key));
+}
+
+const DOCUMENT_MUTATION_KEYS = new Set(['name', 'required', 'sortOrder']);
+const SUBMISSION_BODY_KEYS = new Set(['content']);
+const SUBMISSION_CONTENT_KEYS = new Set(['text', 'fileId']);
+
+function isValidDocumentMutation(context: LocalReviewContext): boolean {
   const body = bodyRecord(context);
-  return body !== null && Object.hasOwn(body, 'submissionType');
+  return (
+    body !== null &&
+    hasOnlyKeys(body, DOCUMENT_MUTATION_KEYS) &&
+    typeof body.name === 'string' &&
+    body.name.trim().length > 0 &&
+    body.name.length <= 200 &&
+    typeof body.required === 'boolean' &&
+    typeof body.sortOrder === 'number' &&
+    Number.isInteger(body.sortOrder) &&
+    body.sortOrder >= 0
+  );
+}
+
+function submissionEvidence(context: LocalReviewContext): {
+  readonly validShape: boolean;
+  readonly hasEvidence: boolean;
+} {
+  const body = bodyRecord(context);
+  if (
+    body === null ||
+    !hasOnlyKeys(body, SUBMISSION_BODY_KEYS) ||
+    !isRecord(body.content) ||
+    !hasOnlyKeys(body.content, SUBMISSION_CONTENT_KEYS)
+  ) {
+    return { validShape: false, hasEvidence: false };
+  }
+  const { text, fileId } = body.content;
+  const validText =
+    text === undefined ||
+    text === null ||
+    (typeof text === 'string' && text.length <= 10_000);
+  const validFileId =
+    fileId === undefined ||
+    fileId === null ||
+    (typeof fileId === 'string' && fileId.length <= 128);
+  if (!validText || !validFileId) {
+    return { validShape: false, hasEvidence: false };
+  }
+  return {
+    validShape: true,
+    hasEvidence:
+      (typeof text === 'string' && text.trim().length > 0) ||
+      (typeof fileId === 'string' && fileId.trim().length > 0),
+  };
 }
 
 /** 시드가 가진 자리. 모르는 서류면 1 — 수정 응답은 순서를 만들어 내지 않는다. */
@@ -470,16 +536,9 @@ const createDocumentHandler: LocalReviewHandler = (context) => {
   if (params === null) return null;
   const guard = staffGuardResponse(context);
   if (guard !== null) return guard;
+  if (!isValidDocumentMutation(context)) return validationProblem(context);
   if (!isKnownMilestoneId(params.milestoneId ?? '')) {
     return notFound(MILESTONE_NOT_FOUND_CODE, context.path);
-  }
-  if (hasObsoleteSubmissionType(context)) {
-    return problem(
-      400,
-      INVALID_REQUEST_CODE,
-      apiPath(context.path),
-      '요청 값을 확인해 주세요.',
-    );
   }
   return accepted({
     id: `synthetic-document-${params.milestoneId}-new`,
@@ -507,14 +566,7 @@ const updateDocumentHandler: LocalReviewHandler = (context) => {
   if (params === null) return null;
   const guard = staffGuardResponse(context);
   if (guard !== null) return guard;
-  if (hasObsoleteSubmissionType(context)) {
-    return problem(
-      400,
-      INVALID_REQUEST_CODE,
-      apiPath(context.path),
-      '요청 값을 확인해 주세요.',
-    );
-  }
+  if (!isValidDocumentMutation(context)) return validationProblem(context);
   return accepted({
     id: params.documentId,
     milestoneId: params.milestoneId,
@@ -592,13 +644,9 @@ const submitDocumentHandler: LocalReviewHandler = (context) => {
   if (!context.isAuthenticated || context.role === null) {
     return unauthenticated(context.path);
   }
-  const rawContent = bodyRecord(context)?.content;
-  const content = isRecord(rawContent) ? rawContent : null;
-  const hasText =
-    typeof content?.text === 'string' && content.text.trim().length > 0;
-  const hasFile =
-    typeof content?.fileId === 'string' && content.fileId.trim().length > 0;
-  if (!hasText && !hasFile) {
+  const evidence = submissionEvidence(context);
+  if (!evidence.validShape) return validationProblem(context);
+  if (!evidence.hasEvidence) {
     return problem(
       422,
       CONTENT_REQUIRED_CODE,

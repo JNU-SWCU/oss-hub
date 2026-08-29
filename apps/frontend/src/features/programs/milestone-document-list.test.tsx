@@ -137,7 +137,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
   const CHANGES_REQUESTED = documentWithViewer({
     submitted: true,
     submittedAt: '2026-08-01T05:22:00.000Z',
+    revision: 1,
     status: 'CHANGES_REQUESTED',
+    hasCurrentFile: false,
     history: { hasHistory: false, isComplete: true },
     review: {
       comment: '표지를 고쳐 주세요.',
@@ -147,7 +149,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
   const APPROVED = documentWithViewer({
     submitted: true,
     submittedAt: '2026-08-01T05:22:00.000Z',
+    revision: 1,
     status: 'APPROVED',
+    hasCurrentFile: false,
     history: { hasHistory: false, isComplete: true },
     review: {
       comment: '잘 받았습니다.',
@@ -326,6 +330,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
       submittedAt: '2026-08-03T00:00:00.000Z',
       revision: 3,
       status: 'SUBMITTED',
+      hasCurrentFile: false,
       review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
       history: { hasHistory: true, isComplete: true },
     });
@@ -395,7 +400,9 @@ describe('학생 행이 판정을 읽는 방식', () => {
     return {
       submitted: true,
       submittedAt: '2026-08-01T05:22:00.000Z',
+      revision: 1,
       status: 'SUBMITTED',
+      hasCurrentFile: false,
       review: null,
       history: { hasHistory: false, isComplete: true },
       ...overrides,

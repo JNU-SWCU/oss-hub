@@ -29,8 +29,8 @@ export interface MilestoneDocumentViewerSubmission {
    */
   readonly submitted: boolean;
   readonly submittedAt: string | null;
-  /** 현재 제출본 번호. 이전 응답과의 전환기에는 없을 수 있다. */
-  readonly revision?: number | null;
+  /** 현재 제출본 번호. 미제출이면 `null`. */
+  readonly revision: number | null;
   /**
    * 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 `null`.
    *
@@ -39,14 +39,14 @@ export interface MilestoneDocumentViewerSubmission {
    * 「지난 지적이 있었는가」는 `status`가 아니라 `review`로 봐야 한다.
    */
   readonly status: MilestoneDocumentSubmissionStatus | null;
-  readonly hasCurrentFile?: boolean;
+  readonly hasCurrentFile: boolean;
   /** 아직 아무도 판정하지 않았으면 `null`. */
   readonly review: MilestoneDocumentViewerReview | null;
   /**
    * 이력 원장은 별도 cursor endpoint에서 읽는다. 목록 응답에 이력을 넣으면 여러 서류의
    * 오래된 제출본까지 한꺼번에 실려 학생 화면을 열기만 해도 무한히 커진다.
    */
-  readonly history?: {
+  readonly history: {
     readonly hasHistory: boolean;
     readonly isComplete: boolean;
   };

@@ -3,11 +3,15 @@ import {
   Prisma,
   type ReviewDecision,
 } from '@prisma/client';
-import type { MilestoneDocumentCollectionHistoryRecord } from './milestone-documents.repository';
 
-/** 최신 페이지부터 읽되 응답 안에서는 다시 시간순으로 뒤집는다. 동시 생성도 id로 안정화한다. */
+/**
+ * 최신 페이지부터 읽되 응답 안에서는 다시 시간순으로 뒤집는다.
+ * 같은 시각에는 판정을 뒤에 놓아 응답을 뒤집은 뒤 제출·재제출이 먼저 보이게 하고,
+ * id로 최종 순서를 고정한다.
+ */
 export const milestoneDocumentHistoryDescendingOrderBy = [
   { createdAt: 'desc' },
+  { event: 'desc' },
   { id: 'desc' },
 ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
 
@@ -36,63 +40,4 @@ export function reviewDecisionToHistoryEvent(
     case 'REJECTED':
       return MilestoneDocumentSubmissionHistoryEvent.REJECTED;
   }
-}
-
-export function collectionHistory(
-  submissions: readonly {
-    readonly event: MilestoneDocumentSubmissionHistoryEvent;
-    readonly revision: number | null;
-    readonly comment: string | null;
-    readonly content: Prisma.JsonValue | null;
-    readonly createdAt: Date;
-    readonly actor: { readonly nickname: string };
-    readonly files: readonly { readonly originalFileName: string }[];
-  }[],
-  reviews: readonly {
-    readonly decision: ReviewDecision;
-    readonly comment: string | null;
-    readonly reviewedAt: Date;
-    readonly reviewer: { readonly nickname: string };
-    readonly submissionHistory: { readonly revision: number | null } | null;
-  }[],
-): readonly MilestoneDocumentCollectionHistoryRecord[] {
-  const submissionEvents = submissions.map((item) => ({
-    event: item.event,
-    revision: item.revision,
-    actorNickname: item.actor.nickname,
-    comment: item.comment,
-    createdAt: item.createdAt,
-    fileName: item.files[0]?.originalFileName ?? null,
-    content: item.content ?? null,
-  }));
-  const reviewEvents = reviews.map((item) => ({
-    event: reviewDecisionToHistoryEvent(item.decision),
-    revision: item.submissionHistory?.revision ?? null,
-    actorNickname: item.reviewer.nickname,
-    comment: item.comment,
-    createdAt: item.reviewedAt,
-    fileName: null,
-    content: null,
-  }));
-  return [...submissionEvents, ...reviewEvents].sort((left, right) => {
-    if (left.revision !== null && right.revision !== null) {
-      const revisionOrder = left.revision - right.revision;
-      if (revisionOrder !== 0) return revisionOrder;
-      const leftIsSubmission = isSubmissionEvent(left.event);
-      const rightIsSubmission = isSubmissionEvent(right.event);
-      if (leftIsSubmission !== rightIsSubmission) {
-        return leftIsSubmission ? -1 : 1;
-      }
-    }
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-}
-
-function isSubmissionEvent(
-  event: MilestoneDocumentSubmissionHistoryEvent,
-): boolean {
-  return (
-    event === MilestoneDocumentSubmissionHistoryEvent.SUBMITTED ||
-    event === MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED
-  );
 }

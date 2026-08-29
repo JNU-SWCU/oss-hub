@@ -567,8 +567,11 @@ describe('MilestoneDocumentSectionBody', () => {
               viewerSubmission: {
                 submitted: true,
                 submittedAt: '2026-08-01T05:22:00.000Z',
+                revision: 1,
                 status: 'SUBMITTED',
+                hasCurrentFile: false,
                 review: null,
+                history: { hasHistory: true, isComplete: true },
               },
             }),
           ],

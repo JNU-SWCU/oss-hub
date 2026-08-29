@@ -22,21 +22,18 @@ vi.mock('./api', () => ({
 
 const documents = [
   {
-    id: 'document-file-current',
+    id: 'document-file',
     name: '현재 계획서',
-    submissionType: 'FILE' as const,
     viewerSubmission: { submitted: true, hasCurrentFile: true },
   },
   {
-    id: 'document-text-current',
+    id: 'document-text',
     name: '현재 텍스트',
-    submissionType: 'TEXT' as const,
     viewerSubmission: { submitted: true, hasCurrentFile: true },
   },
   {
-    id: 'document-file-missing',
+    id: 'document-missing',
     name: '미제출 파일',
-    submissionType: 'FILE' as const,
     viewerSubmission: { submitted: false, hasCurrentFile: false },
   },
 ];

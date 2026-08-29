@@ -165,7 +165,7 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
     fullPage: true,
   });
 
-  const chooser = page.getByLabel('운영 결과보고서 양식 파일 선택');
+  const chooser = page.getByLabel('기획서 양식 파일 선택');
   await chooser.setInputFiles({
     name: firstFile,
     mimeType:
@@ -224,17 +224,20 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
   ).toBeVisible();
 
   await expect(
-    section.getByRole('button', { name: '운영 결과보고서 순서 이동' }),
+    section.getByRole('button', { name: '기획서 순서 이동' }),
   ).toBeDisabled();
   await expect(
     section.getByRole('button', { name: '수정', exact: true }),
   ).toBeVisible();
-  await expect(
-    section.getByRole('button', { name: '삭제', exact: true }),
-  ).toBeVisible();
-  await section.getByRole('button', { name: '삭제', exact: true }).click();
-  await expect(section.getByText('되돌릴 수 없습니다.')).toBeVisible();
-  await section.getByRole('button', { name: '취소' }).click();
+  const deleteButton = section.getByRole('button', {
+    name: '삭제',
+    exact: true,
+  });
+  await expect(deleteButton).toBeDisabled();
+  await expect(deleteButton).toHaveAttribute(
+    'title',
+    '마일스톤에는 제출 항목이 하나 이상 필요합니다.',
+  );
   await expect(
     section.getByText(replacementFile, { exact: true }),
   ).toBeVisible();
@@ -244,7 +247,7 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
     JSON.stringify(requests, null, 2),
   );
   await page.screenshot({
-    path: `${evidenceDir}/03-reload-menu-cancel-reorder.png`,
+    path: `${evidenceDir}/03-reload-menu-constraints.png`,
     fullPage: true,
   });
   expect(requests.some((request) => request.includes('storage'))).toBe(false);

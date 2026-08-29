@@ -69,6 +69,11 @@ export interface MilestoneDocumentArchiveSubmission {
   readonly status: SubmissionStatus;
   /** `MilestoneDocumentSubmission.content` 원문. 해석은 이 모듈이 도메인 파서로 한다. */
   readonly content: unknown;
+  /**
+   * 현재 제출 revision에 파일이 있었는지. `file`은 실제로 ZIP에 읽어 넣을 수 있는
+   * ATTACHED·미만료 파일만 담으므로, 만료·삭제된 파일 제출도 이 증거는 `true`다.
+   */
+  readonly hasCurrentFileEvidence: boolean;
   readonly file: {
     readonly storageKey: string;
     readonly originalFileName: string;
@@ -134,6 +139,8 @@ export type MilestoneDocumentArchiveOmission =
   | 'FILE_UNAVAILABLE'
   /** 글 제출인데 본문을 읽을 수 없다(계약상 없어야 하는 상태). */
   | 'CONTENT_UNAVAILABLE'
+  /** 글과 현재 revision 파일의 존재 증거가 모두 있지만 어느 쪽도 담을 수 없다. */
+  | 'CONTENT_AND_FILE_UNAVAILABLE'
   /** 통합 제출에서 원래 파일·글 중 무엇이 있었는지 더는 증명할 수 없다. */
   | 'SUBMISSION_UNAVAILABLE';
 
@@ -142,7 +149,10 @@ export interface MilestoneDocumentArchiveCell {
   readonly documentId: string;
   readonly state: MilestoneDocumentArchiveCellState;
   readonly submittedAt: Date | null;
-  /** ZIP 안 경로. 담기지 않았으면 `null`. */
+  /**
+   * ZIP 안 경로. 일부를 담을 수 없으면 경로 뒤에 공용 안전 문구를 함께 적는다.
+   * `omission`은 기계가 읽는 원인이고, 이 값은 동봉 CSV가 그대로 쓰는 표시값이다.
+   */
   readonly path: string | null;
   readonly omission: MilestoneDocumentArchiveOmission | null;
 }
@@ -225,19 +235,14 @@ export function buildMilestoneDocumentArchivePlan(
 
       const state = submittedState(submission.status);
       const cellEntries = buildEntries({ team, document, submission, layout });
+      const omission = archiveOmission(submission);
       if (cellEntries.length === 0) {
-        const submittedContent = readMilestoneDocumentSubmittedContent(
-          submission.content,
-        );
         return {
           documentId: document.id,
           state,
           submittedAt: submission.submittedAt,
           path: null,
-          omission:
-            submission.content !== null && submittedContent === null
-              ? ('CONTENT_UNAVAILABLE' as const)
-              : ('SUBMISSION_UNAVAILABLE' as const),
+          omission: omission ?? ('SUBMISSION_UNAVAILABLE' as const),
         };
       }
 
@@ -253,8 +258,11 @@ export function buildMilestoneDocumentArchivePlan(
         documentId: document.id,
         state,
         submittedAt: submission.submittedAt,
-        path: paths.join(' · '),
-        omission: null,
+        path:
+          omission === null
+            ? paths.join(' · ')
+            : `${paths.join(' · ')} · ${archiveOmissionLabel(omission)}`,
+        omission,
       };
     }),
   }));
@@ -275,6 +283,46 @@ function submittedState(
   status: SubmissionStatus,
 ): MilestoneDocumentArchiveCellState {
   return status === SubmissionStatus.SUBMITTED ? 'PENDING' : status;
+}
+
+/**
+ * 제출 행이 두 구성 요소를 함께 가질 수 있으므로, ZIP에 하나를 넣었다고 다른 하나가
+ * 온전했다는 뜻은 아니다. 파일 존재 증거는 조회가 보관하고, 글 존재 증거는 저장된 JSON이
+ * 보관한다 — 사라진 `submissionType`을 되살려 추측하지 않는다.
+ */
+function archiveOmission(
+  submission: MilestoneDocumentArchiveSubmission,
+): MilestoneDocumentArchiveOmission | null {
+  const contentUnavailable =
+    submission.content !== null &&
+    readMilestoneDocumentSubmittedContent(submission.content) === null;
+  const fileUnavailable =
+    submission.hasCurrentFileEvidence && submission.file === null;
+  if (contentUnavailable && fileUnavailable)
+    return 'CONTENT_AND_FILE_UNAVAILABLE';
+  if (contentUnavailable) return 'CONTENT_UNAVAILABLE';
+  if (fileUnavailable) return 'FILE_UNAVAILABLE';
+  return null;
+}
+
+/**
+ * `milestone-document-archive-manifest-csv.ts`의 공개 CSV 문구와 반드시 같다. CSV 생성기는
+ * `path`가 있을 때 `omission`을 별도 칸에 쓰지 않으므로, 일부 누락은 이 표시값 안에 남겨야
+ * 실제 ZIP 경로와 경고가 동시에 보인다.
+ */
+function archiveOmissionLabel(
+  omission: MilestoneDocumentArchiveOmission,
+): string {
+  switch (omission) {
+    case 'FILE_UNAVAILABLE':
+      return '(첨부를 가져올 수 없음)';
+    case 'CONTENT_UNAVAILABLE':
+      return '(내용 없음)';
+    case 'CONTENT_AND_FILE_UNAVAILABLE':
+      return '(내용 없음 · 첨부를 가져올 수 없음)';
+    case 'SUBMISSION_UNAVAILABLE':
+      return '(제출 내용을 가져올 수 없음)';
+  }
 }
 
 /**
