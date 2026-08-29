@@ -99,7 +99,7 @@ export interface EditableMilestone {
   readonly name: string;
   readonly startAt: string;
   readonly dueAt: string;
-  readonly submissionType: SubmissionType;
+  readonly submissionType: SubmissionType | null;
   readonly instructions: string | null;
 }
 
@@ -108,6 +108,8 @@ export interface ProgramDeletionScopeCounts {
   readonly teams: number;
   readonly boardPosts: number;
   readonly submissions: number;
+  readonly submissionEvents: number;
+  readonly scopeFingerprint: string;
 }
 
 export interface EditableProgram {
@@ -155,7 +157,6 @@ export interface UpsertMilestoneInput {
   readonly name: string;
   readonly startAt: string;
   readonly dueAt: string;
-  readonly submissionType: SubmissionType;
   readonly instructions: string | null;
 }
 
@@ -521,6 +522,7 @@ export interface ProgramPurgeDeletedCounts {
   readonly milestones: number;
   readonly milestoneDocuments: number;
   readonly milestoneDocumentSubmissions: number;
+  readonly milestoneDocumentSubmissionHistories: number;
   readonly milestoneDocumentReviewHistories: number;
   readonly milestoneDocumentTemplateFiles: number;
   readonly programAuthoringUploads: number;
@@ -540,7 +542,7 @@ export interface ProgramPurgeResult {
 }
 
 /**
- * `expectedScope`는 ADMIN이 확인 다이얼로그에서 마지막으로 본 4종 범위이며 REQUIRED다(#F2) —
+ * `expectedScope`는 ADMIN이 확인 다이얼로그에서 마지막으로 본 삭제 범위이며 REQUIRED다(#F2) —
  * 백엔드가 같은 값을 purge 트랜잭션 안에서 다시 읽은 현재 범위와 비교해, 확인 이후 생긴 행이
  * 있으면 409(PRG_014)로 거부한다.
  */

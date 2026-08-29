@@ -55,12 +55,6 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
     }
     for (const milestone of records.milestones) {
       milestoneProgramById.set(milestone.id, milestone.programId);
-      const summary = summaryByProgram.get(milestone.programId);
-      if (summary) summary.milestones += 1;
-    }
-    for (const summary of summaries) {
-      summary.total = summary.approvedApplications * summary.milestones;
-      summary.notSubmitted = summary.total;
     }
 
     // 코드 축: (신청 × 마일스톤) 칸 → Submission 상태.
@@ -116,7 +110,30 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
       );
     }
 
-    const milestoneIdsByProgram = groupIdsByProgram(records.milestones);
+    // 제출 축이 0개인 안내용 마일스톤은 제출 현황의 분모에 넣지 않는다.
+    // 신규 서류 항목 마일스톤은 submissionType=null이어도 필수 항목이 있으면
+    // 계속 집계한다.
+    const activeMilestones = records.milestones.filter(
+      (milestone) =>
+        milestone.submissionType !== null ||
+        (requiredDocumentsByMilestone.get(milestone.id)?.length ?? 0) > 0,
+    );
+    for (const milestone of activeMilestones) {
+      const summary = summaryByProgram.get(milestone.programId);
+      if (summary) summary.milestones += 1;
+    }
+    for (const summary of summaries) {
+      summary.total = summary.approvedApplications * summary.milestones;
+      summary.notSubmitted = summary.total;
+    }
+
+    const milestoneIdsByProgram = groupIdsByProgram(activeMilestones);
+    const submissionAxisByMilestone = new Map(
+      records.milestones.map((milestone) => [
+        milestone.id,
+        milestone.submissionType !== null,
+      ]),
+    );
     const applicationIdsByProgram = groupIdsByProgram(records.applications);
 
     /**
@@ -138,6 +155,8 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
           addCellCount(
             summary,
             milestoneCompletionStatus({
+              submissionAxisInUse:
+                submissionAxisByMilestone.get(milestoneId) ?? true,
               requiredDocumentStatuses: documentIds.map(
                 (documentId) =>
                   documentStatusByCell.get(

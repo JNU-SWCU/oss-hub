@@ -1,12 +1,8 @@
-import {
-  CalendarClock,
-  FilePlus2,
-  FileUp,
-  Info,
-  TextCursorInput,
-} from 'lucide-react';
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { FormSection } from '@/components/form-section';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,31 +11,42 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { FieldError } from '@/components/ui/field';
+import type { ProgramAuthoringMilestone } from './program-authoring-model';
 import type {
   ProgramAuthoringAction,
   ProgramAuthoringState,
 } from './program-authoring-model';
-import { ProgramRequirementEditor } from './program-requirement-editor';
+import {
+  MAX_MILESTONES,
+  MAX_REQUIREMENTS,
+  MAX_REQUIREMENTS_PER_MILESTONE,
+} from './program-authoring-graph-validation';
+import { ProgramAuthoringMilestoneDialog } from './program-authoring-milestone-dialog';
+import {
+  dateKey,
+  monthKeyForEvents,
+  type ProgramScheduleCalendarEvent,
+} from './program-schedule-calendar-model';
+import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
+import { formatKoreanDate } from './program-schedule-range-selection';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
-import { validateTemplateFile } from './program-authoring-validation';
-import { messageFor } from './program-authoring-detail-steps';
 
 export function ProgramAuthoringMilestoneStep({
   state,
   issues,
   dispatch,
   newId,
-  onRemove,
   onRequirementFileChange,
   onRequirementRemove,
+  onMilestoneCancel,
+  onMilestoneEditStart,
+  onMilestoneSave,
 }: {
   readonly state: ProgramAuthoringState;
   readonly issues: readonly ProgramAuthoringIssue[];
   readonly dispatch: (action: ProgramAuthoringAction) => void;
   readonly newId: () => string;
-  readonly onRemove: (milestoneId: string) => void;
   readonly onRequirementFileChange: (
     milestoneId: string,
     requirementId: string,
@@ -49,331 +56,379 @@ export function ProgramAuthoringMilestoneStep({
     milestoneId: string,
     requirementId: string,
   ) => void;
+  readonly onMilestoneCancel: (
+    milestoneId: string,
+    snapshot: ProgramAuthoringMilestone | null,
+  ) => void;
+  readonly onMilestoneEditStart: (milestone: ProgramAuthoringMilestone) => void;
+  readonly onMilestoneSave: (milestoneId: string) => void;
 }) {
+  const [anchorDate, setAnchorDate] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{
+    id: string;
+    snapshot: ProgramAuthoringMilestone | null;
+    showValidation: boolean;
+  } | null>(null);
+  const handledIssueKeyRef = useRef('');
+  const operationStart = dateKey(state.operationStartAt);
+  const operationEnd = dateKey(state.operationEndAt);
+  const canAddMilestone = state.milestones.length < MAX_MILESTONES;
+  const hiddenDraftId = editing?.snapshot === null ? editing.id : null;
+  const visibleMilestones = useMemo(
+    () => state.milestones.filter(({ id }) => id !== hiddenDraftId),
+    [hiddenDraftId, state.milestones],
+  );
+  const events = useMemo<readonly ProgramScheduleCalendarEvent[]>(() => {
+    const candidates: ProgramScheduleCalendarEvent[] = [
+      {
+        id: 'operation',
+        label: '운영 기간',
+        kind: 'OPERATION',
+        startAt: state.operationStartAt,
+        endAt: state.operationEndAt,
+      },
+      ...state.milestones.map((milestone) => ({
+        id: milestone.id,
+        label: milestone.name || '새 마일스톤',
+        kind: 'MILESTONE' as const,
+        startAt: milestone.startAt,
+        endAt: milestone.dueAt,
+      })),
+    ];
+    return candidates.filter((event) => event.startAt && event.endAt);
+  }, [state.milestones, state.operationEndAt, state.operationStartAt]);
+  const calendarStart = operationStart ?? `${monthKeyForEvents(events)}-01`;
+  const [monthKey, setMonthKey] = useState(calendarStart.slice(0, 7));
+  const [focusedDate, setFocusedDate] = useState(calendarStart);
+  const milestone = editing
+    ? state.milestones.find((candidate) => candidate.id === editing.id)
+    : undefined;
+  const issueKey = issues
+    .map(({ path, message }) => `${path}:${message}`)
+    .join('|');
+
+  useEffect(() => {
+    if (issueKey === '') {
+      handledIssueKeyRef.current = '';
+      return;
+    }
+    if (handledIssueKeyRef.current === issueKey || editing !== null) return;
+    handledIssueKeyRef.current = issueKey;
+    const invalid = milestoneForIssues(state.milestones, issues);
+    if (invalid === undefined) return;
+    setAnchorDate(null);
+    onMilestoneEditStart(invalid);
+    setEditing({ id: invalid.id, snapshot: invalid, showValidation: true });
+  }, [editing, issueKey, issues, onMilestoneEditStart, state.milestones]);
+
+  function startDraft(startAt = '', dueAt = '') {
+    if (!canAddMilestone) return;
+    setAnchorDate(null);
+    const id = newId();
+    dispatch({ type: 'add_milestone', milestoneId: id });
+    if (startAt)
+      dispatch({
+        type: 'set_milestone_field',
+        milestoneId: id,
+        field: 'startAt',
+        value: startAt,
+      });
+    if (dueAt)
+      dispatch({
+        type: 'set_milestone_field',
+        milestoneId: id,
+        field: 'dueAt',
+        value: dueAt,
+      });
+    setEditing({ id, snapshot: null, showValidation: false });
+  }
+
+  function selectDate(value: string) {
+    if (!canAddMilestone) return;
+    if (anchorDate === null) {
+      setAnchorDate(value);
+      return;
+    }
+    const [start, due] = [anchorDate, value].sort();
+    setAnchorDate(null);
+    startDraft(
+      boundaryDateTime(start, state.operationStartAt, '00:00'),
+      boundaryDateTime(due, state.operationEndAt, '23:59'),
+    );
+  }
+
+  function cancel() {
+    if (!editing) return;
+    setAnchorDate(null);
+    if (editing.snapshot)
+      dispatch({ type: 'replace_milestone', milestone: editing.snapshot });
+    onMilestoneCancel(editing.id, editing.snapshot);
+    setEditing(null);
+  }
+
+  const activeRange = {
+    id: 'new-milestone',
+    label: '마일스톤',
+    kind: 'MILESTONE' as const,
+    startAt: anchorDate ? `${anchorDate}T00:00` : '',
+    endAt: anchorDate ? `${anchorDate}T23:59` : '',
+    minDate: operationStart ?? undefined,
+    maxDate: operationEnd ?? undefined,
+    startInputId: 'milestone-start',
+    endInputId: 'milestone-due',
+    onStartAtChange: () => undefined,
+    onEndAtChange: () => undefined,
+  };
+
   return (
     <FormSection
-      title="마일스톤"
-      description="운영 기간 안에서 하나 이상 등록하세요. 기간이 서로 겹쳐도 됩니다."
+      title="마일스톤 일정"
+      description="운영 기간에서 시작일과 종료일을 선택하세요."
     >
-      <FieldError>{messageFor(issues, 'milestones')}</FieldError>
-      <div className="grid gap-4">
-        {state.milestones.map((milestone, index) => {
-          const prefix = `milestones.${milestone.id}`;
-          const isOnlyMilestone = state.milestones.length <= 1;
-          return (
-            <Card key={milestone.id}>
-              <CardHeader>
-                <CardTitle>마일스톤 {index + 1}</CardTitle>
-                <CardAction>
+      {operationStart && operationEnd && canAddMilestone ? (
+        <ProgramScheduleRangeCalendar
+          events={events}
+          activeRange={activeRange}
+          monthKey={monthKey}
+          focusedDate={focusedDate}
+          onMonthKeyChange={setMonthKey}
+          onFocusedDateChange={setFocusedDate}
+          onDateSelect={selectDate}
+        />
+      ) : operationStart && operationEnd ? (
+        <p
+          className="rounded-card border border-dashed border-border p-card text-small text-muted-foreground"
+          role="status"
+        >
+          마일스톤은 최대 {MAX_MILESTONES}개까지 추가할 수 있습니다.
+        </p>
+      ) : (
+        <p className="rounded-card border border-dashed border-border p-card text-small text-muted-foreground">
+          운영 기간을 먼저 입력해 주세요.
+        </p>
+      )}
+      <section className="mt-6 grid gap-4" aria-label="마일스톤 목록">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="font-semibold">마일스톤 목록</h2>
+          <Button
+            type="button"
+            disabled={!operationStart || !operationEnd || !canAddMilestone}
+            onClick={() => startDraft()}
+          >
+            마일스톤 추가
+          </Button>
+        </div>
+        <FieldError>
+          {issues.find((issue) => issue.path === 'milestones')?.message}
+        </FieldError>
+        {visibleMilestones.length === 0 ? (
+          <p className="text-small text-muted-foreground">
+            추가된 마일스톤이 없습니다.
+          </p>
+        ) : (
+          visibleMilestones.map((item) => (
+            <Card key={item.id}>
+              <CardHeader className="relative gap-2">
+                <div className="pr-20">
+                  <CardTitle className="text-lg">
+                    {item.name || '이름 없는 마일스톤'}
+                  </CardTitle>
+                  <p className="mt-1 text-small text-muted-foreground">
+                    {rangeLabel(item)}
+                  </p>
+                </div>
+                <CardAction
+                  className="absolute top-0 flex gap-1"
+                  style={{ right: 'var(--card-spacing)' }}
+                >
                   <Button
                     type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={isOnlyMilestone}
-                    title={
-                      isOnlyMilestone
-                        ? '마일스톤은 최소 1개가 필요합니다.'
-                        : undefined
-                    }
-                    onClick={() => onRemove(milestone.id)}
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`${item.name} 수정`}
+                    title="수정"
+                    onClick={() => {
+                      setAnchorDate(null);
+                      onMilestoneEditStart(item);
+                      setEditing({
+                        id: item.id,
+                        snapshot: item,
+                        showValidation: false,
+                      });
+                    }}
                   >
-                    삭제
+                    <Pencil aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`${item.name} 삭제`}
+                    title="삭제"
+                    onClick={() => {
+                      setAnchorDate(null);
+                      onMilestoneCancel(item.id, null);
+                    }}
+                  >
+                    <Trash2 aria-hidden="true" />
                   </Button>
                 </CardAction>
               </CardHeader>
-              <CardContent className="grid gap-5">
-                <Field>
-                  <FieldLabel htmlFor={`${milestone.id}-name`}>
-                    마일스톤명 *
-                  </FieldLabel>
-                  <Input
-                    id={`${milestone.id}-name`}
-                    value={milestone.name}
-                    aria-invalid={Boolean(messageFor(issues, `${prefix}.name`))}
-                    onChange={(event) =>
-                      dispatch({
-                        type: 'set_milestone_field',
-                        milestoneId: milestone.id,
-                        field: 'name',
-                        value: event.target.value,
-                      })
-                    }
-                  />
-                  <FieldError>
-                    {messageFor(issues, `${prefix}.name`)}
-                  </FieldError>
-                </Field>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor={`${milestone.id}-start`}>
-                      시작 *
-                    </FieldLabel>
-                    <Input
-                      id={`${milestone.id}-start`}
-                      type="datetime-local"
-                      min={state.operationStartAt || undefined}
-                      value={milestone.startAt}
-                      aria-invalid={Boolean(
-                        messageFor(issues, `${prefix}.startAt`),
-                      )}
-                      onChange={(event) =>
-                        dispatch({
-                          type: 'set_milestone_field',
-                          milestoneId: milestone.id,
-                          field: 'startAt',
-                          value: event.target.value,
-                        })
-                      }
-                    />
-                    <FieldError>
-                      {messageFor(issues, `${prefix}.startAt`)}
-                    </FieldError>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`${milestone.id}-due`}>
-                      마감 *
-                    </FieldLabel>
-                    <Input
-                      id={`${milestone.id}-due`}
-                      type="datetime-local"
-                      min={
-                        milestone.startAt || state.operationStartAt || undefined
-                      }
-                      max={state.operationEndAt || undefined}
-                      value={milestone.dueAt}
-                      aria-invalid={Boolean(
-                        messageFor(issues, `${prefix}.dueAt`),
-                      )}
-                      onChange={(event) =>
-                        dispatch({
-                          type: 'set_milestone_field',
-                          milestoneId: milestone.id,
-                          field: 'dueAt',
-                          value: event.target.value,
-                        })
-                      }
-                    />
-                    <FieldError>
-                      {messageFor(issues, `${prefix}.dueAt`)}
-                    </FieldError>
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel>기본 제출 방식</FieldLabel>
-                  <div className="grid gap-3 sm:grid-cols-2" role="radiogroup">
-                    <TypeChoice
-                      checked={milestone.submissionType === 'FILE'}
-                      icon={<FileUp aria-hidden="true" />}
-                      label="파일 중심"
-                      name={`${milestone.id}-type`}
-                      onChange={() =>
-                        dispatch({
-                          type: 'set_milestone_type',
-                          milestoneId: milestone.id,
-                          submissionType: 'FILE',
-                        })
-                      }
-                    />
-                    <TypeChoice
-                      checked={milestone.submissionType === 'TEXT'}
-                      icon={<TextCursorInput aria-hidden="true" />}
-                      label="텍스트 중심"
-                      name={`${milestone.id}-type`}
-                      onChange={() =>
-                        dispatch({
-                          type: 'set_milestone_type',
-                          milestoneId: milestone.id,
-                          submissionType: 'TEXT',
-                        })
-                      }
-                    />
+              <CardContent className="grid gap-3">
+                {item.instructions ? (
+                  <div className="grid gap-1">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      공지사항
+                    </p>
+                    <p className="whitespace-pre-wrap text-small">
+                      {item.instructions}
+                    </p>
                   </div>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`${milestone.id}-instructions`}>
-                    제출 안내
-                  </FieldLabel>
-                  <textarea
-                    id={`${milestone.id}-instructions`}
-                    className="min-h-28 rounded-control border border-input bg-transparent p-4 text-body outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                    value={milestone.instructions}
-                    onChange={(event) =>
-                      dispatch({
-                        type: 'set_milestone_field',
-                        milestoneId: milestone.id,
-                        field: 'instructions',
-                        value: event.target.value,
-                      })
-                    }
-                  />
-                </Field>
-                <section
-                  className="grid gap-4 border-t border-border pt-5"
-                  aria-label={`${milestone.name || '이름 없는 마일스톤'} 요구서류`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="grid gap-1">
-                      <h3 className="font-semibold">요구서류/양식</h3>
-                      <p className="text-small text-muted-foreground">
-                        요구서류 {milestone.requirements.length}개
+                ) : null}
+                {item.requirements.length > 0 ? (
+                  <div className="grid gap-1">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      첨부파일
+                    </p>
+                    {item.requirements.map((requirement) => (
+                      <p
+                        key={requirement.id}
+                        className="text-small text-muted-foreground"
+                      >
+                        {requirement.name} ·{' '}
+                        {requirement.required ? '필수' : '선택'}
                       </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={milestone.requirements.length >= 20}
-                      onClick={() =>
-                        dispatch({
-                          type: 'add_requirement',
-                          milestoneId: milestone.id,
-                          requirementId: newId(),
-                        })
-                      }
-                    >
-                      <FilePlus2 aria-hidden="true" />
-                      항목 추가
-                    </Button>
+                    ))}
                   </div>
-                  {milestone.requirements.length === 0 ? (
-                    <Alert>
-                      <Info aria-hidden="true" />
-                      <AlertTitle>안내용 마일스톤</AlertTitle>
-                      <AlertDescription>
-                        받을 항목이 없어도 생성할 수 있습니다.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                  {milestone.requirements.map(
-                    (requirement, requirementIndex) => {
-                      const requirementPrefix = `requirements.${requirement.id}`;
-                      return (
-                        <div
-                          key={requirement.id}
-                          className="grid gap-4 rounded-card border border-border p-card"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <h4 className="font-semibold">
-                              요구서류 {requirementIndex + 1}
-                            </h4>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="destructive"
-                              onClick={() =>
-                                onRequirementRemove(
-                                  milestone.id,
-                                  requirement.id,
-                                )
-                              }
-                            >
-                              삭제
-                            </Button>
-                          </div>
-                          <ProgramRequirementEditor
-                            idPrefix={`authoring-${requirement.id}`}
-                            value={requirement}
-                            templateFile={requirement.templateFile}
-                            errors={{
-                              name: messageFor(
-                                issues,
-                                `${requirementPrefix}.name`,
-                              ),
-                              templateFile: messageFor(
-                                issues,
-                                `${requirementPrefix}.templateFile`,
-                              ),
-                            }}
-                            onNameChange={(name) =>
-                              dispatch({
-                                type: 'set_requirement_name',
-                                milestoneId: milestone.id,
-                                requirementId: requirement.id,
-                                name,
-                              })
-                            }
-                            onRequiredChange={(required) =>
-                              dispatch({
-                                type: 'set_requirement_required',
-                                milestoneId: milestone.id,
-                                requirementId: requirement.id,
-                                required,
-                              })
-                            }
-                            onTypeChange={(submissionType) => {
-                              if (submissionType === 'TEXT') {
-                                onRequirementFileChange(
-                                  milestone.id,
-                                  requirement.id,
-                                  null,
-                                );
-                              }
-                              dispatch({
-                                type: 'set_requirement_type',
-                                milestoneId: milestone.id,
-                                requirementId: requirement.id,
-                                submissionType,
-                              });
-                            }}
-                            onTemplateFile={(file) => {
-                              onRequirementFileChange(
-                                milestone.id,
-                                requirement.id,
-                                file,
-                              );
-                            }}
-                            validateFile={validateTemplateFile}
-                          />
-                        </div>
-                      );
-                    },
-                  )}
-                </section>
+                ) : null}
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="justify-self-start"
-        disabled={state.milestones.length >= 50}
-        onClick={() =>
-          dispatch({ type: 'add_milestone', milestoneId: newId() })
-        }
-      >
-        <CalendarClock aria-hidden="true" />
-        마일스톤 추가
-      </Button>
+          ))
+        )}
+      </section>
+      {milestone && editing ? (
+        <ProgramAuthoringMilestoneDialog
+          milestone={milestone}
+          operationStartAt={state.operationStartAt}
+          operationEndAt={state.operationEndAt}
+          isNew={editing.snapshot === null}
+          initialValidationVisible={editing.showValidation}
+          attachmentLimitMessage={attachmentLimitMessage(state, milestone)}
+          attachmentValidationMessage={
+            issues.find(
+              (issue) => issue.path === `requirements.${milestone.id}`,
+            )?.message ?? null
+          }
+          onFieldChange={(field, value) =>
+            dispatch({
+              type: 'set_milestone_field',
+              milestoneId: milestone.id,
+              field,
+              value,
+            })
+          }
+          onAddAttachment={(file) => {
+            if (attachmentLimitMessage(state, milestone) !== null) return;
+            const requirementId = newId();
+            dispatch({
+              type: 'add_requirement',
+              milestoneId: milestone.id,
+              requirementId,
+            });
+            onRequirementFileChange(milestone.id, requirementId, file);
+          }}
+          onAttachmentFileChange={(requirementId, file) =>
+            onRequirementFileChange(milestone.id, requirementId, file)
+          }
+          onAttachmentRemove={(requirementId) =>
+            onRequirementRemove(milestone.id, requirementId)
+          }
+          onAttachmentRequiredChange={(requirementId, required) =>
+            dispatch({
+              type: 'set_requirement_required',
+              milestoneId: milestone.id,
+              requirementId,
+              required,
+            })
+          }
+          onAttachmentReorder={(requirementIds) =>
+            dispatch({
+              type: 'reorder_requirements',
+              milestoneId: milestone.id,
+              requirementIds,
+            })
+          }
+          onAttachmentNameChange={(requirementId, name) =>
+            dispatch({
+              type: 'set_requirement_name',
+              milestoneId: milestone.id,
+              requirementId,
+              name,
+            })
+          }
+          onCancel={cancel}
+          onSave={() => {
+            setAnchorDate(null);
+            onMilestoneSave(milestone.id);
+            setEditing(null);
+          }}
+        />
+      ) : null}
     </FormSection>
   );
 }
 
-function TypeChoice({
-  checked,
-  icon,
-  label,
-  name,
-  onChange,
-}: {
-  readonly checked: boolean;
-  readonly icon: React.ReactNode;
-  readonly label: string;
-  readonly name: string;
-  readonly onChange: () => void;
-}) {
-  return (
-    <label className="flex min-h-control cursor-pointer items-center gap-3 rounded-card border border-border p-4 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
-      <input
-        className="sr-only"
-        type="radio"
-        name={name}
-        checked={checked}
-        onChange={onChange}
-      />
-      <span className="text-primary">{icon}</span>
-      <span className="font-semibold">{label}</span>
-    </label>
+function rangeLabel(milestone: ProgramAuthoringMilestone): string {
+  const start = dateKey(milestone.startAt);
+  const due = dateKey(milestone.dueAt);
+  return start && due
+    ? `${formatKoreanDate(start)} ~ ${formatKoreanDate(due)}`
+    : '기간 미정';
+}
+
+function boundaryDateTime(
+  date: string,
+  boundary: string,
+  interiorTime: string,
+): string {
+  if (!date) return '';
+  return dateKey(boundary) === date ? boundary : `${date}T${interiorTime}`;
+}
+
+function attachmentLimitMessage(
+  state: ProgramAuthoringState,
+  milestone: ProgramAuthoringMilestone,
+): string | null {
+  if (milestone.requirements.length >= MAX_REQUIREMENTS_PER_MILESTONE)
+    return `마일스톤마다 첨부파일은 최대 ${MAX_REQUIREMENTS_PER_MILESTONE}개입니다.`;
+  const total = state.milestones.reduce(
+    (count, item) => count + item.requirements.length,
+    0,
   );
+  if (total >= MAX_REQUIREMENTS)
+    return `전체 첨부파일은 최대 ${MAX_REQUIREMENTS}개입니다.`;
+  return null;
+}
+
+function milestoneForIssues(
+  milestones: readonly ProgramAuthoringMilestone[],
+  issues: readonly ProgramAuthoringIssue[],
+): ProgramAuthoringMilestone | undefined {
+  for (const issue of issues) {
+    const milestoneId = /^milestones\.([^.]+)\./.exec(issue.path)?.[1];
+    if (milestoneId !== undefined) {
+      const milestone = milestones.find(({ id }) => id === milestoneId);
+      if (milestone !== undefined) return milestone;
+    }
+    const requirementId = /^requirements\.([^.]+)/.exec(issue.path)?.[1];
+    if (requirementId !== undefined) {
+      const ownMilestone = milestones.find(({ id }) => id === requirementId);
+      if (ownMilestone !== undefined) return ownMilestone;
+      const milestone = milestones.find(({ requirements }) =>
+        requirements.some(({ id }) => id === requirementId),
+      );
+      if (milestone !== undefined) return milestone;
+    }
+  }
+  return undefined;
 }

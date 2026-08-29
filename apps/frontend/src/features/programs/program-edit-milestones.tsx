@@ -8,12 +8,16 @@ import {
 import { MilestoneDocumentEditorSection } from './milestone-document-editor';
 import { formatSeoulDate } from './program-detail-format';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
+import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
 interface ProgramEditMilestonesProps {
   readonly milestones: readonly EditableMilestone[];
   readonly editor: ProgramMilestoneEditor;
   readonly deleteTarget: EditableMilestone | null;
-  /** 방금 만든 마일스톤 — 그 카드만 「받을 서류」를 펼친 채로 시작한다. */
+  /** 방금 만든 마일스톤 — 그 카드만 「제출 항목」을 펼친 채로 시작한다. */
   readonly expandedDocumentsMilestoneId: string | null;
+  readonly operationStartAt: string;
+  readonly operationEndAt: string;
+  readonly contextEvents: readonly ProgramScheduleCalendarEvent[];
   readonly isBusy: boolean;
   readonly onAdd: () => void;
   readonly onEdit: (milestone: EditableMilestone) => void;
@@ -30,6 +34,9 @@ export function ProgramEditMilestones({
   editor,
   deleteTarget,
   expandedDocumentsMilestoneId,
+  operationStartAt,
+  operationEndAt,
+  contextEvents,
   isBusy,
   onAdd,
   onEdit,
@@ -65,6 +72,9 @@ export function ProgramEditMilestones({
       {editor.mode === 'closed' ? null : (
         <ProgramEditMilestoneForm
           editor={editor}
+          operationStartAt={operationStartAt}
+          operationEndAt={operationEndAt}
+          contextEvents={contextEvents}
           isBusy={isBusy}
           onCancel={onCancelEdit}
           onFieldChange={onFieldChange}
@@ -74,8 +84,15 @@ export function ProgramEditMilestones({
       <div className="grid gap-3">
         {milestones.length === 0 ? (
           <Card>
-            <CardContent className="py-8 text-small text-muted-foreground">
-              아직 등록된 마일스톤이 없습니다.
+            <CardContent className="grid gap-1 py-8 text-small text-muted-foreground">
+              <p className="font-semibold text-foreground">
+                아직 등록된 마일스톤이 없습니다.
+              </p>
+              <p>
+                위의 ‘추가’를 눌러 첫 마일스톤을 만드세요. 기본 제출 항목도
+                자동으로 함께 만들어지며, 필요하면 이름을 바꾸거나 항목을 더할
+                수 있습니다.
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -84,9 +101,9 @@ export function ProgramEditMilestones({
               <CardHeader className="gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="grid gap-1">
                   <CardTitle>{milestone.name}</CardTitle>
-                  <p className="text-small text-muted-foreground">
-                    ID {milestone.id} · {formatSeoulDate(milestone.dueAt)} ·{' '}
-                    <code>{milestone.submissionType}</code>
+                  <p className="text-small text-muted-foreground break-keep">
+                    {formatSeoulDate(milestone.dueAt)} · 학생이 낼 내용과 참고
+                    자료는 아래 제출 항목에서 관리합니다.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -107,7 +124,7 @@ export function ProgramEditMilestones({
                 </div>
               </CardHeader>
               <CardContent className="grid gap-3">
-                <p className="text-small whitespace-pre-wrap text-muted-foreground">
+                <p className="text-small whitespace-pre-wrap text-muted-foreground break-keep">
                   {milestone.instructions ?? '제출 안내가 없습니다.'}
                 </p>
                 <MilestoneDocumentEditorSection

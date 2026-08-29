@@ -23,7 +23,7 @@ export type ProgramMilestoneView = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: MilestoneSubmissionType | null;
   readonly instructions: string | null;
 };
 
@@ -111,7 +111,7 @@ export type ProgramMilestoneInput = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType?: MilestoneSubmissionType | null;
   readonly instructions: string | null;
 };
 

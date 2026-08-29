@@ -31,7 +31,6 @@ import { SubmissionFilesRepository } from '../submissions/submission-files.repos
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './archive/public-projects/public-projects.repository';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope';
-import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 import { ProgramErrorCode } from './program-error-code.enum';
 import { ProgramPurgeFileCleanupRepository } from './repository/program-purge-file-cleanup.repository';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
@@ -652,7 +651,6 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       name: '합성 서류 항목',
       required: true,
       sortOrder: 1,
-      submissionType: MilestoneSubmissionType.FILE,
     },
   });
   await storage.put({
@@ -1423,7 +1421,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toBeNull();
   });
 
-  // TOCTOU(#F2): 확인 화면(GET edit)이 4종 범위를 읽은 이후, purge가 불리기 전에 생긴
+  // TOCTOU(#F2): 확인 화면(GET edit)이 전체 삭제 범위를 읽은 이후, purge가 불리기 전에 생긴
   // 행이 관리자가 보지 못한 채 지워져서는 안 된다. 이 테스트는 두 요청이 분리된
   // 실제 UI 흐름(getEditableProgram → confirm → purge)을 그대로 재현한다.
   it('race: 확인 후·purge 전에 생긴 자식 행이 있으면 409 PRG_014로 거부하고 아무것도 지우지 않는다', async () => {
@@ -1431,12 +1429,14 @@ describe('Program purge integration — full child graph, worker file deletion, 
 
     // ADMIN이 확인 다이얼로그를 열어 GET edit이 보여준 범위를 쪽집한 순간(=이 snapshot).
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
-    expect(expectedScope).toEqual({
+    expect(expectedScope).toMatchObject({
       applications: 2,
       teams: 2,
       boardPosts: 1,
-      submissions: 1,
+      submissions: 2,
+      submissionEvents: 4,
     });
+    expect(expectedScope.scopeFingerprint).toMatch(/^[0-9a-f]{32}$/);
 
     // 확인 이후, purge 호출 이전에 학생이 게시글을 남긴다 — 관리자는 이 행을 확인 다이얼로그에서
     // 본 적이 없다.
@@ -1467,7 +1467,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
           applications: 2,
           teams: 2,
           boardPosts: 2,
-          submissions: 1,
+          submissions: 2,
         },
       },
     });
@@ -1489,6 +1489,42 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after.submissions).toBe(1);
   });
 
+  it('race: 확인 뒤 추가된 댓글은 요약 건수가 같아도 지문 변경으로 삭제를 중단한다', async () => {
+    const fixture = await seedFullChildGraph('toctou-comment-race');
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+    const post = await prisma.boardPost.findFirstOrThrow({
+      where: { programId: fixture.programId },
+      select: { id: true, authorId: true },
+    });
+    const commentId = `${fixture.programId}-race-comment`;
+    await prisma.boardComment.create({
+      data: {
+        id: commentId,
+        postId: post.id,
+        authorId: post.authorId,
+        body: '확인 화면 이후에 추가된 댓글',
+      },
+    });
+
+    await expect(
+      lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
+    ).rejects.toMatchObject({
+      errorCode: { code: ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED },
+      extensions: {
+        currentScopeCounts: {
+          applications: expectedScope.applications,
+          teams: expectedScope.teams,
+          boardPosts: expectedScope.boardPosts,
+          submissions: expectedScope.submissions,
+          submissionEvents: expectedScope.submissionEvents,
+        },
+      },
+    });
+    await expect(
+      prisma.boardComment.findUnique({ where: { id: commentId } }),
+    ).resolves.not.toBeNull();
+  });
+
   // race: 확인-purge 사이 in-transaction scope read 뒤에 커밋되는 4종 자식 각각이
   // 독립된 FK 경로를 갖는다(Application_programId_fkey/Team_programId_fkey/
   // Milestone_programId_fkey를 거치는 Submission/BoardPost_programId_fkey) — 하나만
@@ -1496,7 +1532,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
   // 표로 4가지 모두를 구동한다. 각 케이스는 실제 PostgreSQL 위에서 커밋되는 합성
   // 의존 행(신청자/리더/팀/신청/마일스톤)까지 함께 만든다.
   const IN_TRANSACTION_RACE_CASES: readonly {
-    readonly scopeField: keyof ProgramDeletionScopeCounts;
+    readonly scopeField:
+      'applications' | 'teams' | 'boardPosts' | 'submissions';
     readonly insertRacingChildRow: (
       fixture: Fixture,
       raceId: string,
@@ -1647,12 +1684,18 @@ describe('Program purge integration — full child graph, worker file deletion, 
       const expectedCurrentScopeCounts =
         scopeField === 'applications'
           ? {
-              ...expectedScope,
               applications: expectedScope.applications + 1,
               teams: expectedScope.teams + 1,
+              boardPosts: expectedScope.boardPosts,
+              submissions: expectedScope.submissions,
+              submissionEvents: expectedScope.submissionEvents,
             }
           : {
-              ...expectedScope,
+              applications: expectedScope.applications,
+              teams: expectedScope.teams,
+              boardPosts: expectedScope.boardPosts,
+              submissions: expectedScope.submissions,
+              submissionEvents: expectedScope.submissionEvents,
               [scopeField]: expectedScope[scopeField] + 1,
             };
       await expect(purge).rejects.toMatchObject({

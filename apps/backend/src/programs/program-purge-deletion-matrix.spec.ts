@@ -117,6 +117,9 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
       position('submissions'),
     );
     expect(position('milestone-document-review-histories')).toBeLessThan(
+      position('milestone-document-submission-histories'),
+    );
+    expect(position('milestone-document-submission-histories')).toBeLessThan(
       position('milestone-document-submissions'),
     );
     expect(position('milestone-document-submissions')).toBeLessThan(

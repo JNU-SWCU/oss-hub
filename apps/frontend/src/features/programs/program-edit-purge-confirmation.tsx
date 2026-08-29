@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import type { ProgramDeleteBlockingCounts } from './program-edit-delete-flow';
+import type { ProgramDeletionScopeCounts } from './api';
 import { ProgramPurgeSummary } from './program-edit-purge-summary';
 
 interface ProgramEditPurgeConfirmationProps {
   readonly programName: string;
   readonly confirmText: string;
   readonly busy: boolean;
-  readonly purgeCounts: ProgramDeleteBlockingCounts | null;
+  readonly purgeCounts: ProgramDeletionScopeCounts | null;
   readonly isPurgeScopeLoading: boolean;
   readonly purgeScopeError: string | null;
   readonly purgeError: string | null;

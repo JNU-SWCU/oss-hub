@@ -153,6 +153,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
                 milestones: {
                   select: {
                     id: true,
+                    submissionType: true,
                     // ⚠ 필수 서류만 — 집합은 REVIEW_CONTEXT_SELECT 와 같아야 한다.
                     documents: {
                       where: { required: true },

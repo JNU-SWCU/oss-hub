@@ -126,7 +126,6 @@ async function installLiveFixture(): Promise<void> {
       name: '합성 서류',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
     },
   });
   await prisma.submissionFile.create({

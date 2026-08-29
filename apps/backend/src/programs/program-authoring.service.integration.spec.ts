@@ -1,7 +1,4 @@
-import {
-  MilestoneSubmissionType,
-  ProgramAuthoringUploadLifecycle,
-} from '@prisma/client';
+import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
@@ -47,21 +44,33 @@ describe('ProgramAuthoringService integration', () => {
       realObject: true,
       expiresAt: futureExpiry(),
     });
+    const [requiredTemplateId, secondTemplateId, defaultTemplateId] =
+      await Promise.all(
+        ['graph-required', 'graph-second', 'graph-default'].map((label) =>
+          harness.seedUpload({
+            actorId: actor.id,
+            label,
+            realObject: true,
+            expiresAt: futureExpiry(),
+          }),
+        ),
+      );
     const optionalTemplate: ProgramAuthoringDocumentRequest = {
       name: 'Optional template',
       required: false,
-      submissionType: MilestoneSubmissionType.FILE,
       templateUploadId: templateId,
     };
     const request = authoringRequest('graph', [
-      authoringMilestone('file', MilestoneSubmissionType.FILE, [
-        authoringDocument('required-file', MilestoneSubmissionType.FILE),
+      authoringMilestone('file', [
+        authoringDocument('required-file', requiredTemplateId),
         optionalTemplate,
       ]),
-      authoringMilestone('text', MilestoneSubmissionType.TEXT, [
-        authoringDocument('required-text', MilestoneSubmissionType.TEXT),
+      authoringMilestone('second-file', [
+        authoringDocument('required-file-2', secondTemplateId),
       ]),
-      authoringMilestone('empty', MilestoneSubmissionType.TEXT, []),
+      authoringMilestone('default-item', [
+        authoringDocument('default-item', defaultTemplateId),
+      ]),
     ]);
 
     // When
@@ -79,8 +88,8 @@ describe('ProgramAuthoringService integration', () => {
             documents: {
               orderBy: { sortOrder: 'asc' },
               select: {
+                name: true,
                 required: true,
-                submissionType: true,
                 templateFile: true,
               },
             },
@@ -89,9 +98,10 @@ describe('ProgramAuthoringService integration', () => {
       },
     });
     expect(graph.milestones.map(({ documents }) => documents.length)).toEqual([
-      2, 1, 0,
+      2, 1, 1,
     ]);
     expect(graph.milestones[0]?.documents[1]).toMatchObject({
+      name: 'Optional template',
       required: false,
       templateFile: { originalFileName: 'graph-template.pdf' },
     });
@@ -109,11 +119,33 @@ describe('ProgramAuthoringService integration', () => {
     expect(typeof upload.createRequestId).toBe('string');
   });
 
+  it('persists a milestone ending exactly with its program', async () => {
+    const actor = await harness.createActor('inclusive-end');
+    const input = authoringRequest('inclusive-end', [
+      authoringMilestone('boundary', []),
+    ]);
+    const boundaryMilestone = input.milestones[0];
+    if (boundaryMilestone === undefined)
+      throw new TypeError('Missing boundary milestone fixture.');
+
+    const program = await service.create(actor.githubId, 'inclusive-end-key', {
+      ...input,
+      milestones: [{ ...boundaryMilestone, dueAt: input.endAt }],
+    });
+
+    await expect(
+      harness.prisma.milestone.findFirstOrThrow({
+        where: { programId: program.id },
+        select: { dueAt: true },
+      }),
+    ).resolves.toEqual({ dueAt: new Date(input.endAt) });
+  });
+
   it('rejects a changed payload under the same actor idempotency key', async () => {
     // Given
     const actor = await harness.createActor('conflict');
     const initial = authoringRequest('conflict', [
-      authoringMilestone('empty', MilestoneSubmissionType.TEXT, []),
+      authoringMilestone('default-item', []),
     ]);
     await service.create(actor.githubId, 'conflict-key', initial);
 
@@ -171,9 +203,9 @@ describe('ProgramAuthoringService integration', () => {
     const initial = requestWithTemplate('replayed-first', tokenId);
     await service.create(actor.githubId, 'replayed-first-key', initial);
     const duplicate = authoringRequest('duplicate', [
-      authoringMilestone('duplicate', MilestoneSubmissionType.FILE, [
-        authoringDocument('first', MilestoneSubmissionType.FILE, tokenId),
-        authoringDocument('second', MilestoneSubmissionType.FILE, tokenId),
+      authoringMilestone('duplicate', [
+        authoringDocument('first', tokenId),
+        authoringDocument('second', tokenId),
       ]),
     ]);
 
@@ -243,12 +275,8 @@ describe('ProgramAuthoringService integration', () => {
 
 function requestWithTemplate(label: string, templateUploadId: string) {
   return authoringRequest(label, [
-    authoringMilestone('file', MilestoneSubmissionType.FILE, [
-      authoringDocument(
-        'template',
-        MilestoneSubmissionType.FILE,
-        templateUploadId,
-      ),
+    authoringMilestone('file', [
+      authoringDocument('template', templateUploadId),
     ]),
   ]);
 }

@@ -3,12 +3,14 @@ import {
   IsDefined,
   IsInt,
   IsNotEmptyObject,
+  IsString,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
 
 /**
- * ADMIN이 화면에서 확인한(그리고 재확인 다이얼로그에서 다시 읽은) 4종 삭제 범위 스냅샷.
+ * ADMIN이 화면에서 확인한(그리고 재확인 다이얼로그에서 다시 읽은) 삭제 범위 스냅샷.
  * `program-deletion-scope.ts`의 `ProgramDeletionScopeCounts`와 필드가 정확히 같아야
  * purge 트랜잭션 내부 비교가 뜻대로 동작한다.
  */
@@ -28,6 +30,14 @@ export class PurgeProgramExpectedScopeRequestDto {
   @IsInt()
   @Min(0)
   readonly submissions!: number;
+
+  @IsInt()
+  @Min(0)
+  readonly submissionEvents!: number;
+
+  @IsString()
+  @Matches(/^[0-9a-f]{32}$/)
+  readonly scopeFingerprint!: string;
 }
 
 /**

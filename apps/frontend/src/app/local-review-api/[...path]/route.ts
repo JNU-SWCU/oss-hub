@@ -7,9 +7,8 @@ import {
   isLoopbackHostname,
   parseLocalReviewFixture,
   parseRequestHostname,
-} from '../../_local-review/fixture-contract';
-import { resolveLocalReviewResponse } from '../../_local-review/fixture-response';
-import { canonicalLocalReviewSessionBody } from '../../_local-review/session-contract';
+} from '@/lib/local-review-runtime';
+import { canonicalLocalReviewSessionBody } from '@/lib/local-review-session';
 
 type RouteContext = {
   readonly params: Promise<{ readonly path: readonly string[] }>;
@@ -54,6 +53,8 @@ async function handle(
     return new Response(null, { status: 404 });
   }
 
+  const { resolveLocalReviewResponse } =
+    await import('../../../../test-support/local-review/fixture-response');
   const { path } = await context.params;
   const fixturePath = path.join('/');
   const plan = resolveLocalReviewResponse({

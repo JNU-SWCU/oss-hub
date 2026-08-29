@@ -102,6 +102,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
       'Application->SubmissionFile',
       'SubmissionRevision->SubmissionFile',
       'MilestoneDocumentSubmission->SubmissionFile',
+      'MilestoneDocumentSubmissionHistory->SubmissionFile',
     ],
   },
   {
@@ -132,7 +133,15 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
   {
     id: 'milestone-document-review-histories',
     operation: 'DELETE',
-    covers: ['MilestoneDocumentSubmission->MilestoneDocumentReviewHistory'],
+    covers: [
+      'MilestoneDocumentSubmission->MilestoneDocumentReviewHistory',
+      'MilestoneDocumentSubmissionHistory->MilestoneDocumentReviewHistory',
+    ],
+  },
+  {
+    id: 'milestone-document-submission-histories',
+    operation: 'DELETE',
+    covers: ['MilestoneDocumentSubmission->MilestoneDocumentSubmissionHistory'],
   },
   {
     id: 'milestone-document-submissions',

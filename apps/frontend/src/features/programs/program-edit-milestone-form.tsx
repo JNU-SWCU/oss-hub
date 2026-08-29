@@ -11,15 +11,14 @@ import {
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
 } from './program-edit-flow';
-import type { SubmissionType } from './types';
-
-const SUBMISSION_TYPES = [
-  'FILE',
-  'TEXT',
-] as const satisfies readonly SubmissionType[];
+import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
+import { ProgramEditMilestoneScheduleEditor } from './program-edit-milestone-schedule-editor';
 
 interface ProgramEditMilestoneFormProps {
   readonly editor: Exclude<ProgramMilestoneEditor, { readonly mode: 'closed' }>;
+  readonly operationStartAt: string;
+  readonly operationEndAt: string;
+  readonly contextEvents: readonly ProgramScheduleCalendarEvent[];
   readonly isBusy: boolean;
   readonly onCancel: () => void;
   readonly onFieldChange: (field: ProgramMilestoneField, value: string) => void;
@@ -28,6 +27,9 @@ interface ProgramEditMilestoneFormProps {
 
 export function ProgramEditMilestoneForm({
   editor,
+  operationStartAt,
+  operationEndAt,
+  contextEvents,
   isBusy,
   onCancel,
   onFieldChange,
@@ -48,54 +50,23 @@ export function ProgramEditMilestoneForm({
               <Input
                 id="milestone-name"
                 value={editor.form.name}
+                aria-invalid={Boolean(editor.errors.name)}
+                aria-describedby={
+                  editor.errors.name ? 'milestone-name-error' : undefined
+                }
                 onChange={(event) => onFieldChange('name', event.target.value)}
               />
-              <FieldError>{editor.errors.name}</FieldError>
+              <FieldError id="milestone-name-error" role="alert">
+                {editor.errors.name}
+              </FieldError>
             </Field>
-            <Field>
-              <FieldLabel htmlFor="milestone-start-at">시작일 *</FieldLabel>
-              <Input
-                id="milestone-start-at"
-                type="datetime-local"
-                value={editor.form.startAt}
-                onChange={(event) =>
-                  onFieldChange('startAt', event.target.value)
-                }
-              />
-              <FieldError>{editor.errors.startAt}</FieldError>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="milestone-due-at">마감일 *</FieldLabel>
-              <Input
-                id="milestone-due-at"
-                type="datetime-local"
-                value={editor.form.dueAt}
-                onChange={(event) => onFieldChange('dueAt', event.target.value)}
-              />
-              <FieldError>{editor.errors.dueAt}</FieldError>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="milestone-submission-type">
-                제출 방식
-              </FieldLabel>
-              <select
-                id="milestone-submission-type"
-                className="h-control rounded-control border border-input bg-background px-4 text-body"
-                value={editor.form.submissionType}
-                onChange={(event) =>
-                  onFieldChange(
-                    'submissionType',
-                    toSubmissionType(event.target.value),
-                  )
-                }
-              >
-                {SUBMISSION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <ProgramEditMilestoneScheduleEditor
+              editor={editor}
+              operationStartAt={operationStartAt}
+              operationEndAt={operationEndAt}
+              contextEvents={contextEvents}
+              onFieldChange={onFieldChange}
+            />
             <Field>
               <FieldLabel htmlFor="milestone-instructions">
                 제출 안내
@@ -103,14 +74,22 @@ export function ProgramEditMilestoneForm({
               <textarea
                 id="milestone-instructions"
                 value={editor.form.instructions}
+                aria-invalid={Boolean(editor.errors.instructions)}
+                aria-describedby={
+                  editor.errors.instructions
+                    ? 'milestone-instructions-error'
+                    : undefined
+                }
                 onChange={(event) =>
                   onFieldChange('instructions', event.target.value)
                 }
                 className="min-h-28 rounded-control border border-input bg-transparent p-4 text-body"
               />
-              <FieldError>{editor.errors.instructions}</FieldError>
+              <FieldError id="milestone-instructions-error" role="alert">
+                {editor.errors.instructions}
+              </FieldError>
             </Field>
-            <FieldError>{editor.errors.general}</FieldError>
+            <FieldError role="alert">{editor.errors.general}</FieldError>
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -130,16 +109,3 @@ export function ProgramEditMilestoneForm({
     </Card>
   );
 }
-
-function toSubmissionType(value: string): SubmissionType {
-  switch (value) {
-    case 'FILE':
-      return 'FILE';
-    case 'TEXT':
-      return 'TEXT';
-    default:
-      return DEFAULT_SUBMISSION_TYPE;
-  }
-}
-
-const DEFAULT_SUBMISSION_TYPE = 'TEXT' satisfies SubmissionType;

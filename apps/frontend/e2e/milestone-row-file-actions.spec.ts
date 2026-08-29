@@ -5,7 +5,8 @@ const programId = 'program-p5';
 const milestoneId = 'milestone-p5';
 const documentId = 'document-p5';
 const firstFile = '운영 결과보고서 최종본 2026.docx';
-const replacementFile = '운영 결과보고서 최종본 교체본 2026.docx';
+const replacementFile =
+  '운영 결과보고서_최종_수정본_교직원_검토완료_증빙자료_모음_2026년도_오픈소스_프로젝트_v12.docx';
 
 test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다', async ({
   page,
@@ -17,10 +18,9 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
   const document = () => ({
     id: documentId,
     milestoneId,
-    name: '운영 결과보고서',
+    name: '기획서',
     required: true,
     sortOrder: 1,
-    submissionType: 'FILE',
     hasTemplateFile: persistedFileName !== null,
     templateFileName: persistedFileName,
   });
@@ -39,7 +39,9 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
             name: 'QA',
             email: null,
             avatarUrl: null,
-            role: 'STAFF',
+            memberKind: 'STAFF',
+            hasStaffAccess: true,
+            hasAdminAccess: false,
             isProfileComplete: true,
           },
         },
@@ -152,7 +154,7 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
     `${evidenceDir}/initial-text.txt`,
     await page.locator('body').innerText(),
   );
-  const toggle = page.getByRole('button', { name: /받을 서류/ });
+  const toggle = page.getByRole('button', { name: /제출 항목/ });
   const section = toggle.locator('xpath=../..');
   await expect(toggle).toBeAttached();
   await toggle.click();
@@ -163,7 +165,7 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
     fullPage: true,
   });
 
-  const chooser = page.getByLabel('운영 결과보고서 양식 파일 선택');
+  const chooser = page.getByLabel('기획서 양식 파일 선택');
   await chooser.setInputFiles({
     name: firstFile,
     mimeType:
@@ -216,37 +218,36 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
     downloadResponse.body,
   );
   await page.reload();
-  await section.getByRole('button', { name: /받을 서류/ }).click();
+  await section.getByRole('button', { name: /제출 항목/ }).click();
   await expect(
     section.getByText(replacementFile, { exact: true }),
   ).toBeVisible();
 
-  await section
-    .getByRole('button', { name: '운영 결과보고서 작업 메뉴' })
-    .focus();
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('menuitem', { name: '수정' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: '삭제' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await section.getByRole('button', { name: '삭제', exact: true }).click();
-  await expect(section.getByText('되돌릴 수 없습니다.')).toBeVisible();
-  await section.getByRole('button', { name: '취소' }).click();
+  await expect(
+    section.getByRole('button', { name: '기획서 순서 이동' }),
+  ).toBeDisabled();
+  await expect(
+    section.getByRole('button', { name: '수정', exact: true }),
+  ).toBeVisible();
+  const deleteButton = section.getByRole('button', {
+    name: '삭제',
+    exact: true,
+  });
+  await expect(deleteButton).toBeDisabled();
+  await expect(deleteButton).toHaveAttribute(
+    'title',
+    '마일스톤에는 제출 항목이 하나 이상 필요합니다.',
+  );
   await expect(
     section.getByText(replacementFile, { exact: true }),
   ).toBeVisible();
-  await expect(
-    section.getByRole('button', { name: '운영 결과보고서 위로' }),
-  ).toBeDisabled();
-  await expect(
-    section.getByRole('button', { name: '운영 결과보고서 아래로' }),
-  ).toBeDisabled();
 
   await writeFile(
     `${evidenceDir}/requests.json`,
     JSON.stringify(requests, null, 2),
   );
   await page.screenshot({
-    path: `${evidenceDir}/03-reload-menu-cancel-reorder.png`,
+    path: `${evidenceDir}/03-reload-menu-constraints.png`,
     fullPage: true,
   });
   expect(requests.some((request) => request.includes('storage'))).toBe(false);

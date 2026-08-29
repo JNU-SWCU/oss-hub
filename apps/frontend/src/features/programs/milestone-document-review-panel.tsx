@@ -7,7 +7,9 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import type {
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionContent,
+  MilestoneDocumentCollectionHistory,
 } from './milestone-document-collection-api';
+import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
 import {
   formatSeoulDate,
   formatSeoulShortDateTime,
@@ -53,6 +55,12 @@ export interface MilestoneDocumentReviewPanelProps {
   readonly onCommentChange: (comment: string) => void;
   readonly onSubmit: () => void;
   readonly onClose: () => void;
+  readonly history: readonly MilestoneDocumentCollectionHistory[];
+  readonly isHistoryLoading: boolean;
+  readonly historyError: string | null;
+  readonly hasMoreHistory: boolean;
+  readonly historyIsComplete: boolean;
+  readonly onHistoryMore: () => void;
 }
 
 /**
@@ -137,8 +145,8 @@ function SubmittedContent({
  * 지난 검토. 검토는 덮어쓰지 않고 쌓이므로, 교직원이 바뀌어도 앞사람이 무엇을 지적했는지
  * 보이는 것이 이 기능의 요구다.
  *
- * ⚠ 응답이 주는 것은 **최신 한 건**뿐이다(`cells[].review`). 이력 전체를 주는 조회는 없다 —
- * 「지난 검토 목록」을 그리고 싶어도 여기서 지어낼 수 없으니 만들지 마라.
+ * 수합 표 응답은 최신 한 건만 주고, 전체 이력은 패널을 열었을 때 cursor 조회로 따로 읽는다.
+ * 이 컴포넌트는 이력 조회가 실패한 전환기 응답에서도 최신 판정 한 건은 숨기지 않는다.
  */
 function PreviousReview({
   review,
@@ -181,10 +189,10 @@ export function MilestoneDocumentReviewPanel(
   return (
     <div
       data-testid="milestone-document-review-panel"
-      className="grid gap-4 rounded-card border border-border p-card text-left"
+      className="grid gap-4 whitespace-normal rounded-card border border-border p-card text-left"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-body font-semibold break-keep">
+        <h3 className="min-w-0 break-keep [overflow-wrap:anywhere] text-body font-semibold">
           {props.teamName} — {props.documentName}
         </h3>
         <StatusBadge
@@ -217,7 +225,58 @@ export function MilestoneDocumentReviewPanel(
 
       <SubmittedContent cell={cell} fileHref={props.fileHref} />
 
-      {cell.review === null ? null : <PreviousReview review={cell.review} />}
+      {props.isHistoryLoading && props.history.length === 0 ? (
+        <p className="text-small text-muted-foreground">
+          이력을 불러오는 중입니다.
+        </p>
+      ) : (
+        <MilestoneDocumentHistoryTimeline
+          history={props.history ?? []}
+          completeness={
+            !props.historyIsComplete
+              ? 'incomplete'
+              : props.hasMoreHistory
+                ? 'has-more'
+                : 'complete'
+          }
+        />
+      )}
+
+      {props.historyError === null ? null : (
+        <Alert variant="destructive">
+          <AlertDescription className="break-keep [overflow-wrap:anywhere]">
+            {props.historyError}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {props.historyError !== null ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={props.isHistoryLoading}
+          onClick={props.onHistoryMore}
+        >
+          {props.isHistoryLoading
+            ? '제출 이력을 불러오는 중…'
+            : '제출 이력 다시 불러오기'}
+        </Button>
+      ) : props.hasMoreHistory ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={props.isHistoryLoading}
+          onClick={props.onHistoryMore}
+        >
+          {props.isHistoryLoading ? '이력을 불러오는 중…' : '이전 이력 더 보기'}
+        </Button>
+      ) : null}
+
+      {props.history.length > 0 || cell.review === null ? null : (
+        <PreviousReview review={cell.review} />
+      )}
 
       <div
         role="group"
@@ -268,7 +327,9 @@ export function MilestoneDocumentReviewPanel(
 
       {props.errorMessage === null ? null : (
         <Alert variant="destructive">
-          <AlertDescription>{props.errorMessage}</AlertDescription>
+          <AlertDescription className="break-keep [overflow-wrap:anywhere]">
+            {props.errorMessage}
+          </AlertDescription>
         </Alert>
       )}
 

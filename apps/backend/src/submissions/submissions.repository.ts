@@ -380,7 +380,10 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       orderBy: checklistMilestoneOrderBy,
       select: checklistMilestoneSelect(applicationId, now),
     });
-    return milestones.map(toChecklistMilestone);
+    return milestones.flatMap((milestone) => {
+      const item = toChecklistMilestone(milestone);
+      return item === null ? [] : [item];
+    });
   }
 
   async findSubmissionForParticipant(
@@ -405,6 +408,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       },
     });
     if (!submission) return null;
+    if (submission.milestone.submissionType === null) return null;
     return {
       id: submission.id,
       applicationId: submission.applicationId,
@@ -589,7 +593,8 @@ type SelectedSubmissionMilestone = Prisma.MilestoneGetPayload<{
 
 function toSubmissionMilestone(
   milestone: SelectedSubmissionMilestone,
-): SubmissionMilestone {
+): SubmissionMilestone | null {
+  if (milestone.submissionType === null) return null;
   return {
     id: milestone.id,
     programId: milestone.programId,

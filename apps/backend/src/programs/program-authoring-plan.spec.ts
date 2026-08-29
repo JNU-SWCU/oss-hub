@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,
@@ -21,19 +21,17 @@ function request(): ProgramAuthoringRequest {
       {
         name: '  Planning  ',
         dueAt: '2026-08-20T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.FILE,
         instructions: '  Submit once  ',
         documents: [
           {
-            name: '  Plan  ',
+            name: '  Plan.pdf  ',
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
             templateUploadId: ' upload-plan ',
           },
           {
-            name: ' Summary ',
+            name: ' Summary.docx ',
             required: false,
-            submissionType: MilestoneSubmissionType.TEXT,
+            templateUploadId: ' upload-summary ',
           },
         ],
       },
@@ -41,8 +39,13 @@ function request(): ProgramAuthoringRequest {
         name: ' Demo ',
         startAt: '2026-08-21T09:00:00+09:00',
         dueAt: '2026-08-30T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.TEXT,
-        documents: [],
+        documents: [
+          {
+            name: ' Demo.mov ',
+            required: true,
+            templateUploadId: ' upload-demo ',
+          },
+        ],
       },
     ],
   };
@@ -84,7 +87,7 @@ function expectValidationCodes(
 }
 
 describe('buildProgramAuthoringPlan', () => {
-  it('normalizes defaults and preserves milestone, document, and token order', () => {
+  it('normalizes attachment filenames and preserves their required values', () => {
     // Given: request strings, offsets, and optional fields are not canonical.
     const input = request();
 
@@ -114,14 +117,97 @@ describe('buildProgramAuthoringPlan', () => {
     expect(
       plan.milestones[0]?.documents.map((document) => ({
         name: document.name,
+        required: document.required,
         sortOrder: document.sortOrder,
         token: document.templateUploadId,
       })),
     ).toEqual([
-      { name: 'Plan', sortOrder: 1, token: 'upload-plan' },
-      { name: 'Summary', sortOrder: 2, token: null },
+      {
+        name: 'Plan.pdf',
+        required: true,
+        sortOrder: 1,
+        token: 'upload-plan',
+      },
+      {
+        name: 'Summary.docx',
+        required: false,
+        sortOrder: 2,
+        token: 'upload-summary',
+      },
     ]);
-    expect(plan.uploadTokenIds).toEqual(['upload-plan']);
+    expect(plan.uploadTokenIds).toEqual([
+      'upload-demo',
+      'upload-plan',
+      'upload-summary',
+    ]);
+  });
+
+  it('accepts an announcement-only milestone', () => {
+    const input: ProgramAuthoringRequest = {
+      ...request(),
+      milestones: [
+        {
+          ...milestoneAt(request(), 0),
+          documents: [],
+        },
+      ],
+    };
+
+    expect(buildProgramAuthoringPlan(input).milestones[0]?.documents).toEqual(
+      [],
+    );
+  });
+
+  it('requires at least one milestone without repository provisioning', () => {
+    expectValidationCodes(
+      {
+        ...request(),
+        milestones: [],
+      },
+      ['MILESTONE_REQUIRED'],
+    );
+  });
+
+  it('accepts an application period that partially overlaps operations', () => {
+    const input: ProgramAuthoringRequest = {
+      ...request(),
+      applicationEndAt: '2026-08-15T09:00:00+09:00',
+      startAt: '2026-08-10T09:00:00+09:00',
+    };
+
+    expect(buildProgramAuthoringPlan(input).program).toMatchObject({
+      applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+      startAt: new Date('2026-08-10T00:00:00.000Z'),
+    });
+  });
+
+  it('rejects an application period ending after operations', () => {
+    const input: ProgramAuthoringRequest = {
+      ...request(),
+      applicationEndAt: '2026-09-02T09:00:00+09:00',
+    };
+
+    expectValidationCodes(input, ['INVALID_APPLICATION_SCHEDULE']);
+  });
+
+  it.each<readonly [string, Partial<ProgramAuthoringRequest>, string]>([
+    [
+      'a reversed application period',
+      {
+        applicationStartAt: '2026-08-11T09:00:00+09:00',
+        applicationEndAt: '2026-08-10T09:00:00+09:00',
+      },
+      'INVALID_APPLICATION_SCHEDULE',
+    ],
+    [
+      'a non-increasing operation period',
+      {
+        startAt: '2026-09-01T09:00:00+09:00',
+      },
+      'INVALID_PROGRAM_SCHEDULE',
+    ],
+  ])('rejects %s', (_case, override, code) => {
+    expectValidationCodes({ ...request(), ...override }, [code]);
   });
 
   it.each<readonly [string, Partial<ProgramAuthoringRequest>, string]>([
@@ -168,18 +254,9 @@ describe('buildProgramAuthoringPlan', () => {
 
   it.each<readonly [string, ProgramAuthoringDocumentRequest, string]>([
     [
-      'a TEXT document with a template',
-      {
-        ...documentAt(milestoneAt(request(), 0), 1),
-        templateUploadId: 'upload-text',
-      },
-      'TEXT_TEMPLATE_FORBIDDEN',
-    ],
-    [
       'a duplicate upload token',
       {
         ...documentAt(milestoneAt(request(), 0), 1),
-        submissionType: MilestoneSubmissionType.FILE,
         templateUploadId: 'upload-plan',
       },
       'DUPLICATE_UPLOAD_TOKEN',
@@ -201,6 +278,26 @@ describe('buildProgramAuthoringPlan', () => {
     expectValidationCodes(input, [code]);
   });
 
+  it('rejects a declared document without an upload token', () => {
+    const firstMilestone = milestoneAt(request(), 0);
+    const input: ProgramAuthoringRequest = {
+      ...request(),
+      milestones: [
+        {
+          ...firstMilestone,
+          documents: [
+            {
+              ...documentAt(firstMilestone, 0),
+              templateUploadId: '   ',
+            },
+          ],
+        },
+      ],
+    };
+
+    expectValidationCodes(input, ['REQUIRED']);
+  });
+
   it('rejects an out-of-window milestone and reversed team range together', () => {
     // Given: all schedule and team checks can be evaluated without a transaction.
     const input: ProgramAuthoringRequest = {
@@ -210,7 +307,7 @@ describe('buildProgramAuthoringPlan', () => {
       milestones: [
         {
           ...milestoneAt(request(), 0),
-          dueAt: request().endAt,
+          dueAt: '2026-09-02T00:00:00.000Z',
         },
       ],
     };
@@ -220,5 +317,19 @@ describe('buildProgramAuthoringPlan', () => {
       'INVALID_TEAM_RANGE',
       'INVALID_MILESTONE_SCHEDULE',
     ]);
+  });
+
+  it('accepts a milestone ending exactly with the operation period', () => {
+    const input: ProgramAuthoringRequest = {
+      ...request(),
+      milestones: [
+        {
+          ...milestoneAt(request(), 0),
+          dueAt: request().endAt,
+        },
+      ],
+    };
+
+    expect(() => buildProgramAuthoringPlan(input)).not.toThrow();
   });
 });

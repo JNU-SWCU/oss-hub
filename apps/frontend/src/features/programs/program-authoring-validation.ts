@@ -46,7 +46,10 @@ export function validateProgramAuthoringStep(
     case 'schedule':
       return validateSchedule(state);
     case 'milestones':
-      return [...validateMilestones(state), ...validateRequirements(state)];
+      return [
+        ...validateMilestones(state, 'milestones'),
+        ...validateRequirements(state),
+      ];
     case 'operations':
     case 'review':
       return [];
@@ -61,7 +64,7 @@ export function validateProgramAuthoringManifest(
   return [
     ...validateBasic(state),
     ...validateSchedule(state),
-    ...validateMilestones(state),
+    ...validateMilestones(state, 'milestones'),
     ...validateRequirements(state),
   ];
 }
@@ -83,6 +86,24 @@ function validateBasic(
   const issues: ProgramAuthoringIssue[] = [];
   required(issues, state.name, 'name', '프로그램명을 입력해 주세요.');
   required(issues, state.organizer, 'organizer', '주관기관을 입력해 주세요.');
+  const minimum = Number(state.teamMinSize);
+  const maximum = Number(state.teamMaxSize);
+  if (!Number.isInteger(minimum) || minimum < 1 || minimum > 100)
+    issues.push(
+      issue(
+        'teamMinSize',
+        'basic',
+        '최소 팀 인원은 1명 이상 100명 이하여야 합니다.',
+      ),
+    );
+  if (!Number.isInteger(maximum) || maximum > 100 || maximum < minimum)
+    issues.push(
+      issue(
+        'teamMaxSize',
+        'basic',
+        '최대 팀 인원은 최소 이상 100명 이하여야 합니다.',
+      ),
+    );
   required(issues, state.description, 'description', '소개를 입력해 주세요.');
   return issues;
 }
@@ -110,16 +131,9 @@ function validateSchedule(
         '신청 종료는 신청 시작 이후여야 합니다.',
       ),
     );
-  if (
-    operationStart === null ||
-    (applicationEnd !== null && applicationEnd > operationStart)
-  )
+  if (operationStart === null)
     issues.push(
-      issue(
-        'operationStartAt',
-        'schedule',
-        '운영 시작은 신청 종료 이후여야 합니다.',
-      ),
+      issue('operationStartAt', 'schedule', '운영 시작을 입력해 주세요.'),
     );
   if (
     operationEnd === null ||
@@ -132,21 +146,19 @@ function validateSchedule(
         '운영 종료는 운영 시작보다 늦어야 합니다.',
       ),
     );
-
-  const minimum = Number(state.teamMinSize);
-  const maximum = Number(state.teamMaxSize);
-  if (!Number.isInteger(minimum) || minimum < 1)
-    issues.push(
-      issue('teamMinSize', 'schedule', '최소 팀 인원은 1명 이상이어야 합니다.'),
-    );
-  if (!Number.isInteger(maximum) || maximum > 100 || maximum < minimum)
+  if (
+    applicationEnd !== null &&
+    operationEnd !== null &&
+    applicationEnd > operationEnd
+  )
     issues.push(
       issue(
-        'teamMaxSize',
+        'applicationEndAt',
         'schedule',
-        '최대 팀 인원은 최소 이상 100명 이하여야 합니다.',
+        '신청 종료는 운영 종료 이전이어야 합니다.',
       ),
     );
+
   return issues;
 }
 

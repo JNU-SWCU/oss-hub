@@ -1,14 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  RepositoryConnectionMode,
-} from '@prisma/client';
+import { ApplicationStatus, RepositoryConnectionMode } from '@prisma/client';
 import { ApplicationsService } from '../applications/applications.service';
 import { MilestoneDocumentCurrentFileService } from '../milestone-documents/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
 import { MilestoneDocumentsService } from '../milestone-documents/milestone-documents.service';
-import { DeadlineDigestService } from '../notifications/deadline-digest.service';
+import {
+  DeadlineDigestService,
+  type DeadlineDigestSendRequest,
+} from '../notifications/deadline-digest.service';
 import { ProgramAuthoringService } from '../programs/program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../programs/program-authoring-upload.service';
@@ -29,10 +28,12 @@ import {
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
   E2E_FOREIGN_STUDENT_GITHUB_ID,
+  E2E_FOREIGN_STUDENT_ID,
   E2E_NOW,
   E2E_STAFF_GITHUB_ID,
   E2E_STAFF_ID,
   E2E_STUDENT_GITHUB_ID,
+  E2E_STUDENT_ID,
   E2eProgramAuthoringFixture,
 } from './e2e-program-authoring-fixture';
 import type {
@@ -114,6 +115,16 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     );
   }
 
+  async send(preview: DeadlineDigestSendRequest): Promise<void> {
+    const result = await this.deadlines.sendProgramFromPreview(
+      E2E_STAFF_GITHUB_ID,
+      this.fixtures.graph().programId,
+      preview,
+      E2E_NOW,
+    );
+    if (result.failedCount > 0) throw new E2eAdapterError(409);
+  }
+
   async createApplication(mode: 'NEW' | 'OWN'): Promise<void> {
     const graph = this.fixtures.graph();
     await this.applications.create(
@@ -140,8 +151,14 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     await this.sendDeadlineDigest();
   }
 
-  private async approveAndProvision(): Promise<void> {
-    const application = await this.fixtures.application();
+  async approve(): Promise<void> {
+    await this.approveAndProvision(E2E_FOREIGN_STUDENT_ID);
+  }
+
+  private async approveAndProvision(
+    applicantId = E2E_STUDENT_ID,
+  ): Promise<void> {
+    const application = await this.fixtures.application(applicantId);
     if (
       application === null ||
       application.status !== ApplicationStatus.SUBMITTED
@@ -249,7 +266,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       E2E_STUDENT_GITHUB_ID,
       this.fixtures.graph().milestoneId,
       this.fixtures.graph().documentId,
-      { type: MilestoneSubmissionType.FILE, fileId: pending.fileId },
+      { text: null, fileId: pending.fileId },
       E2E_NOW,
     );
   }

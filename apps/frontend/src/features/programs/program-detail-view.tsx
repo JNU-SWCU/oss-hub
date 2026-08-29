@@ -7,7 +7,11 @@ import { Button } from '@/components/ui/button';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
-import { categoryLabel, formatSeoulDateOnly } from './program-detail-format';
+import {
+  categoryLabel,
+  formatSeoulDateOnly,
+  isPastDue,
+} from './program-detail-format';
 import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
@@ -156,7 +160,7 @@ export function ProgramMilestones({
             <MilestoneDocumentSection
               milestoneId={milestone.id}
               viewerRole={program.viewer.role}
-              closed={milestone.dDay < 0}
+              closed={isPastDue(milestone.dueAt)}
             />
           </div>
         ))

@@ -41,13 +41,14 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       name: '개인정보 수집·이용 동의서',
       dueAt: new Date('2026-09-19T09:00:00.000Z'),
       required: true,
-      submissionType: 'FILE',
     }),
     findStudentApplication: jest.fn().mockResolvedValue({
       applicationId: syntheticApplicationId,
       approved: true,
       programEndAt: new Date('2026-12-19T00:00:00.000Z'),
     }),
+    findMySubmission: jest.fn().mockResolvedValue(null),
+    findLatestReview: jest.fn().mockResolvedValue(null),
     upsertTemplateFile: jest.fn().mockResolvedValue(undefined),
     findTemplateForDownload: jest.fn().mockResolvedValue({
       storageKey: 'objects/synthetic-template',
@@ -192,9 +193,8 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         id: syntheticDocumentId,
         milestoneId: 'cuid-other-milestone',
         programId: syntheticProgramId,
-        dueAt: new Date(),
+        dueAt: new Date('2030-01-01T00:00:00.000Z'),
         required: true,
-        submissionType: 'FILE',
       }),
     });
     const service = new MilestoneDocumentFilesService(
@@ -211,16 +211,20 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
   });
 
-  it('서류 항목의 제출 유형이 FILE이 아니면 CONTENT_TYPE_MISMATCH로 거부한다', async () => {
-    // Given
+  it('기존 본문 제출이 있어도 파일을 추가로 올릴 수 있다', async () => {
+    // Given: 제출 방식은 항목 설정이 아니라 저장된 본문·파일 증거로 결정된다.
     const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
-        dueAt: new Date(),
+        dueAt: new Date('2030-01-01T00:00:00.000Z'),
         required: true,
-        submissionType: 'TEXT',
+      }),
+      findMySubmission: jest.fn().mockResolvedValue({
+        id: 'cuid-synthetic-text-submission',
+        content: { type: 'TEXT', text: '기존 본문' },
+        file: null,
       }),
     });
     const service = new MilestoneDocumentFilesService(
@@ -229,11 +233,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       buildSubmissionFiles().submissionFiles,
     );
 
-    // When / Then
+    // When / Then: 기존 본문이 있어도 첨부 파일을 추가할 수 있다.
     await expect(
       service.upload(1n, syntheticMilestoneId, syntheticDocumentId, pdfFile),
-    ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH },
+    ).resolves.toMatchObject({
+      fileId: 'cuid-synthetic-pending-file',
+      fileName: '계획서.pdf',
     });
   });
 
@@ -279,6 +284,63 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
       },
     });
+  });
+
+  it('마감 후에는 첫 파일 업로드를 만들지 않는다', async () => {
+    const { repository } = buildRepository({
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        name: '계획서',
+        dueAt: new Date('2026-09-19T09:00:00.000Z'),
+        required: true,
+      }),
+    });
+    const { mocks, submissionFiles } = buildSubmissionFiles();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+      submissionFiles,
+    );
+
+    await expect(
+      service.upload(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        pdfFile,
+        new Date('2026-09-19T09:00:00.001Z'),
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED },
+    });
+    expect(mocks.createPending).not.toHaveBeenCalled();
+  });
+
+  it('보완 요청을 받았으면 마감 후에도 파일을 올릴 수 있다', async () => {
+    const { repository } = buildRepository({
+      findMySubmission: jest.fn().mockResolvedValue({ id: 'submission-1' }),
+      findLatestReview: jest.fn().mockResolvedValue({
+        id: 'review-1',
+        decision: 'CHANGES_REQUESTED',
+      }),
+    });
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
+    );
+
+    await expect(
+      service.upload(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        pdfFile,
+        new Date('2026-09-20T00:00:00.000Z'),
+      ),
+    ).resolves.toMatchObject({ fileId: 'cuid-synthetic-pending-file' });
   });
 
   it('잠근 프로그램 행이 없어 보관 기한 계산이 불가하면 FILE_RETENTION_UNAVAILABLE로 변환한다', async () => {
@@ -648,7 +710,6 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         name: '개인정보 수집·이용 동의서',
         dueAt: new Date('2026-09-19T09:00:00.000Z'),
         required: true,
-        submissionType: 'FILE',
       }),
     });
     const service = new MilestoneDocumentFilesService(
@@ -891,7 +952,6 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         name: '팀 구성 확인서',
         dueAt: new Date('2026-09-19T09:00:00.000Z'),
         required: true,
-        submissionType: 'FILE',
       }),
       findSubmissionFileForStaffDownload: jest.fn().mockResolvedValue({
         storageKey: 'objects/synthetic-submission',

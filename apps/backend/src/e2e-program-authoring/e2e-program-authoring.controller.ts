@@ -16,6 +16,7 @@ import {
   E2eControlError,
   E2eProgramAuthoringService,
 } from './e2e-program-authoring.service';
+import { E2E_NOW } from './e2e-program-authoring-fixture';
 
 @Controller('_e2e/program-authoring')
 @UseGuards(SessionGuard)
@@ -23,10 +24,11 @@ export class E2eProgramAuthoringController {
   constructor(private readonly service: E2eProgramAuthoringService) {}
 
   @Post('reset')
-  @HttpCode(204)
-  async reset(@Req() request: Request): Promise<void> {
+  @HttpCode(200)
+  async reset(@Req() request: Request): Promise<{ readonly now: string }> {
     this.requireLoopback(request);
     await this.service.reset();
+    return { now: E2E_NOW.toISOString() };
   }
 
   @Get('fixture')
@@ -66,10 +68,27 @@ export class E2eProgramAuthoringController {
     await this.execute(() => this.service.approveAndRun());
   }
 
+  @Post('approve')
+  async approve(@Req() request: Request): Promise<void> {
+    this.requireLoopback(request);
+    await this.execute(() => this.service.approve());
+  }
+
   @Post('preview')
   async preview(@Req() request: Request) {
     this.requireLoopback(request);
     return await this.execute(() => this.service.preview());
+  }
+
+  @Post('send')
+  async send(@Req() request: Request, @Body() body: unknown): Promise<void> {
+    this.requireLoopback(request);
+    await this.execute(() =>
+      this.service.send(
+        textField(body, 'previewedAt'),
+        textField(body, 'previewVersion'),
+      ),
+    );
   }
 
   @Post('failures')

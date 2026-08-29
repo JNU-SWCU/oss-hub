@@ -23,7 +23,6 @@ const milestoneDocument: MilestoneDocument = {
   name: '기획서',
   required: true,
   sortOrder: 0,
-  submissionType: 'FILE',
   hasTemplateFile: false,
   templateFileName: null,
 };
@@ -69,7 +68,7 @@ describe('MilestoneDocumentSection response recovery', () => {
     });
     await vi.waitFor(() => {
       expect(container.textContent).toContain(
-        '제출 서류를 불러오지 못했습니다.',
+        '제출 항목을 불러오지 못했습니다.',
       );
     });
 
@@ -129,25 +128,31 @@ describe('제출과 판정이 부딪혔을 때', () => {
     );
   }
 
-  function textDocument(
+  function documentWithViewer(
     viewerSubmission: MilestoneDocumentViewerSubmission,
   ): MilestoneDocument {
-    return { ...milestoneDocument, submissionType: 'TEXT', viewerSubmission };
+    return { ...milestoneDocument, viewerSubmission };
   }
 
-  const CHANGES_REQUESTED = textDocument({
+  const CHANGES_REQUESTED = documentWithViewer({
     submitted: true,
     submittedAt: '2026-08-01T05:22:00.000Z',
+    revision: 1,
     status: 'CHANGES_REQUESTED',
+    hasCurrentFile: false,
+    history: { hasHistory: false, isComplete: true },
     review: {
       comment: '표지를 고쳐 주세요.',
       reviewedAt: '2026-08-02T00:00:00.000Z',
     },
   });
-  const APPROVED = textDocument({
+  const APPROVED = documentWithViewer({
     submitted: true,
     submittedAt: '2026-08-01T05:22:00.000Z',
+    revision: 1,
     status: 'APPROVED',
+    hasCurrentFile: false,
+    history: { hasHistory: false, isComplete: true },
     review: {
       comment: '잘 받았습니다.',
       reviewedAt: '2026-08-03T00:00:00.000Z',
@@ -168,9 +173,11 @@ describe('제출과 판정이 부딪혔을 때', () => {
     );
   }
 
-  function submissionInput(): HTMLInputElement | null {
-    const found = container.querySelector('input[placeholder="제출 내용"]');
-    return found instanceof HTMLInputElement ? found : null;
+  function submissionInput(): HTMLTextAreaElement | null {
+    const found = container.querySelector(
+      'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+    );
+    return found instanceof HTMLTextAreaElement ? found : null;
   }
 
   /** 보완 요청을 받은 서류를 다시 낸다 — 두 번째 fetch가 그 제출이다. */
@@ -196,7 +203,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     if (input === null) throw new TypeError('제출 입력 칸을 찾지 못했습니다.');
     // React가 값 변경을 감지하도록 네이티브 setter로 넣고 input 이벤트를 올린다.
     const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
+      window.HTMLTextAreaElement.prototype,
       'value',
     )?.set;
     await act(async () => {
@@ -240,7 +247,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(submissionInput()).toBeNull();
     expect(container.textContent).toContain(
-      '승인된 서류는 다시 제출할 수 없습니다.',
+      '승인된 제출 항목은 다시 제출할 수 없습니다.',
     );
     expect(
       container.querySelector('[data-slot="status-badge"]')?.textContent,
@@ -276,7 +283,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     await vi.waitFor(() => {
       // 못 불러온 목록은 그대로 두지 않는다 — 되돌릴 길만 남는다.
       expect(container.textContent).toContain(
-        '제출 서류를 불러오지 못했습니다.',
+        '제출 항목을 불러오지 못했습니다.',
       );
     });
 
@@ -316,6 +323,222 @@ describe('제출과 판정이 부딪혔을 때', () => {
     // 적어 둔 내용은 그대로 남는다.
     expect(submissionInput()?.value).toBe('고쳐서 다시 냅니다.');
   });
+
+  it('제출 성공 뒤 목록과 이력 첫 페이지를 다시 읽어 현재 제출본을 표시한다', async () => {
+    const refreshed = documentWithViewer({
+      submitted: true,
+      submittedAt: '2026-08-03T00:00:00.000Z',
+      revision: 3,
+      status: 'SUBMITTED',
+      hasCurrentFile: false,
+      review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
+      history: { hasHistory: true, isComplete: true },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 'submission-1',
+          status: 'SUBMITTED',
+          submittedAt: '2026-08-03T00:00:00.000Z',
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([refreshed]))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 3,
+              actorNickname: '팀원B',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: null,
+            },
+          ],
+          nextCursor: null,
+          isComplete: true,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resubmit();
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).toContain('3차 제출본');
+      expect(container.textContent).toContain('팀원B');
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('제출 저장 뒤 목록 재조회가 실패하면 재제출을 잠그고 최신 상태 재시도만 제공한다', async () => {
+    const refreshed = documentWithViewer({
+      submitted: true,
+      submittedAt: '2026-08-03T00:00:00.000Z',
+      revision: 3,
+      status: 'SUBMITTED',
+      hasCurrentFile: false,
+      review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
+      history: { hasHistory: true, isComplete: true },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(jsonResponse({ id: 'submission-1' }))
+      .mockResolvedValueOnce(
+        problemResponse(503, 'COM_002', '잠시 후 다시 시도해 주세요.'),
+      )
+      .mockResolvedValueOnce(jsonResponse([refreshed]))
+      .mockResolvedValueOnce(
+        jsonResponse({ items: [], nextCursor: null, isComplete: true }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resubmit();
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('제출은 저장되었습니다.');
+    });
+    expect(button('수정')).toBeNull();
+    expect(submissionInput()).toBeNull();
+
+    await act(async () => button('최신 상태 다시 불러오기')?.click());
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).not.toContain('제출은 저장되었습니다.');
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it('두 행의 저장 재조회와 판정 충돌 재조회를 한 순서로 직렬화한다', async () => {
+    const second = {
+      ...CHANGES_REQUESTED,
+      id: 'document-2',
+      name: '결과보고서',
+    };
+    const refreshedFirst = documentWithViewer({
+      submitted: true,
+      submittedAt: '2026-08-03T00:00:00.000Z',
+      revision: 3,
+      status: 'SUBMITTED',
+      hasCurrentFile: false,
+      review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
+      history: { hasHistory: false, isComplete: true },
+    });
+    const approvedSecond = {
+      ...APPROVED,
+      id: second.id,
+      name: second.name,
+    };
+    let resolveQuiet!: (response: Response) => void;
+    let resolveConflict!: (response: Response) => void;
+    const quiet = new Promise<Response>((resolve) => {
+      resolveQuiet = resolve;
+    });
+    const conflict = new Promise<Response>((resolve) => {
+      resolveConflict = resolve;
+    });
+    let getCount = 0;
+    const fetchMock = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method =
+          input instanceof Request ? input.method : (init?.method ?? 'GET');
+        if (method === 'GET') {
+          getCount += 1;
+          if (getCount === 1)
+            return Promise.resolve(jsonResponse([CHANGES_REQUESTED, second]));
+          if (getCount === 2) return quiet;
+          if (getCount === 3) return conflict;
+        }
+        if (url.includes('/document-1/submissions')) {
+          return Promise.resolve(jsonResponse({ id: 'submission-1' }));
+        }
+        if (url.includes('/document-2/submissions')) {
+          return Promise.resolve(
+            problemResponse(409, 'MSD_024', '판정이 먼저 저장되었습니다.'),
+          );
+        }
+        throw new TypeError(`Unexpected request: ${method} ${url}`);
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSection
+          milestoneId="milestone-1"
+          viewerRole="STUDENT"
+          closed={false}
+        />,
+      );
+    });
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain(second.name),
+    );
+
+    const rows = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '[data-testid="milestone-document-row"]',
+      ),
+    );
+    const rowFor = (name: string) => {
+      const row = rows.find((candidate) =>
+        candidate.textContent?.includes(name),
+      );
+      if (row === undefined) throw new TypeError(`Missing row: ${name}`);
+      return row;
+    };
+    for (const [name, text] of [
+      ['기획서', '첫 행 수정'],
+      ['결과보고서', '둘째 행 수정'],
+    ] as const) {
+      const row = rowFor(name);
+      await act(async () => {
+        row
+          .querySelector<HTMLButtonElement>('button')
+          ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      const input = row.querySelector<HTMLTextAreaElement>('textarea');
+      if (input === null) throw new TypeError(`Missing input: ${name}`);
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        'value',
+      )?.set;
+      await act(async () => {
+        setter?.call(input, text);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+    await act(async () => {
+      for (const row of rows) {
+        row
+          .querySelector('form')
+          ?.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true }),
+          );
+      }
+    });
+
+    await vi.waitFor(() => expect(getCount).toBe(2));
+    await act(async () => {
+      resolveQuiet(jsonResponse([refreshedFirst, second]));
+    });
+    await vi.waitFor(() => expect(getCount).toBe(3));
+    await act(async () => {
+      resolveConflict(jsonResponse([refreshedFirst, approvedSecond]));
+    });
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).toContain(
+        '승인된 제출 항목은 다시 제출할 수 없습니다.',
+      );
+    });
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST'),
+    ).toHaveLength(2);
+  });
 });
 
 /**
@@ -336,6 +559,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
   });
 
   function viewer(
@@ -344,25 +568,26 @@ describe('학생 행이 판정을 읽는 방식', () => {
     return {
       submitted: true,
       submittedAt: '2026-08-01T05:22:00.000Z',
+      revision: 1,
       status: 'SUBMITTED',
+      hasCurrentFile: false,
       review: null,
+      history: { hasHistory: false, isComplete: true },
       ...overrides,
     };
   }
 
   async function renderRow(
     viewerSubmission: MilestoneDocumentViewerSubmission,
-    submissionType: MilestoneDocument['submissionType'] = 'FILE',
     closed = false,
   ) {
     await act(async () => {
       root.render(
         <MilestoneDocumentSectionBody
+          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}`}
           state={{
             kind: 'ready',
-            documents: [
-              { ...milestoneDocument, submissionType, viewerSubmission },
-            ],
+            documents: [{ ...milestoneDocument, viewerSubmission }],
           }}
           viewerRole="STUDENT"
           closed={closed}
@@ -430,6 +655,234 @@ describe('학생 행이 판정을 읽는 방식', () => {
       const badge = container.querySelector('[data-slot="status-badge"]');
       expect(badge?.textContent).toBe(label);
     }
+  });
+
+  it('이력이 있는 제출만 첫 cursor 페이지를 읽어 표시한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        items: [
+          {
+            event: 'SUBMITTED',
+            revision: 1,
+            actorNickname: '학생A',
+            comment: null,
+            createdAt: '2026-08-01T00:00:00.000Z',
+            fileName: 'first.pdf',
+          },
+          {
+            event: 'CHANGES_REQUESTED',
+            revision: 1,
+            actorNickname: '담당자B',
+            comment: '서명 페이지를 추가해 주세요.',
+            createdAt: '2026-08-02T00:00:00.000Z',
+            fileName: null,
+          },
+          {
+            event: 'RESUBMITTED',
+            revision: 2,
+            actorNickname: '학생A',
+            comment: null,
+            createdAt: '2026-08-03T00:00:00.000Z',
+            fileName: 'second.pdf',
+          },
+        ],
+        nextCursor: null,
+        isComplete: true,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({
+        revision: 2,
+        history: { hasHistory: true, isComplete: true },
+      }),
+    );
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('제출·검토 이력');
+      expect(container.textContent).toContain('first.pdf');
+      expect(container.textContent).toContain('서명 페이지를 추가해 주세요.');
+      expect(container.textContent).toContain('second.pdf');
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/milestones/milestone-1/documents/document-1/history?limit=20',
+      ),
+      undefined,
+    );
+  });
+
+  it('이전 페이지를 요청해 오래된 이력을 앞에 붙인다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 2,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: 'latest.pdf',
+            },
+          ],
+          nextCursor: 'older-page',
+          isComplete: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              event: 'SUBMITTED',
+              revision: 1,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-01T00:00:00.000Z',
+              fileName: 'first.pdf',
+            },
+          ],
+          nextCursor: null,
+          isComplete: true,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+    await vi.waitFor(() => {
+      expect(buttonTexts()).toContain('이전 이력 더 보기');
+    });
+    await act(async () => actionButton('이전 이력 더 보기').click());
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('first.pdf');
+    });
+
+    expect(fetchMock.mock.calls[1]?.[0]).toContain(
+      '/history?limit=20&cursor=older-page',
+    );
+    const text = container.textContent ?? '';
+    expect(text.indexOf('first.pdf')).toBeLessThan(text.indexOf('latest.pdf'));
+  });
+
+  it('모든 cursor 페이지를 읽어도 이관 원장이 불완전하면 누락을 명시한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 3,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: null,
+            },
+          ],
+          nextCursor: null,
+          isComplete: false,
+        }),
+      ),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: false } }),
+    );
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('이관 전 제출 이력 일부');
+    });
+    expect(buttonTexts()).not.toContain('이전 이력 더 보기');
+  });
+
+  it('이전 cursor가 남아 있어도 알려진 원장 누락과 더 보기를 함께 표시한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 3,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: null,
+            },
+          ],
+          nextCursor: 'older-page',
+          isComplete: false,
+        }),
+      ),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: false } }),
+    );
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('이관 전 제출 이력 일부');
+    });
+    expect(buttonTexts()).toContain('이전 이력 더 보기');
+  });
+
+  it('빈 원장은 그리지 않고 미제출 행에는 이력 요청을 보내지 않는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ items: [], nextCursor: null, isComplete: true }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(container.textContent).not.toContain('제출·검토 이력');
+
+    await renderRow(
+      viewer({
+        submitted: false,
+        submittedAt: null,
+        status: null,
+        history: { hasHistory: true, isComplete: true },
+      }),
+    );
+    await act(async () => {});
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(container.textContent).not.toContain('제출·검토 이력');
+  });
+
+  it('이력 조회 실패는 제출 조작을 막지 않고 같은 페이지를 다시 시도한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('unavailable', { status: 503 }))
+      .mockResolvedValueOnce(
+        jsonResponse({ items: [], nextCursor: null, isComplete: true }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('수정');
+
+    await act(async () => actionButton('다시 시도').click());
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(
+      container.querySelector(
+        '[data-testid="milestone-document-history-error"]',
+      ),
+    ).toBeNull();
   });
 
   /**
@@ -537,20 +990,21 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(buttonTexts()).not.toContain('수정');
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(container.textContent).toContain(
-      '승인된 서류는 다시 제출할 수 없습니다.',
+      '승인된 제출 항목은 다시 제출할 수 없습니다.',
     );
 
     await renderRow(viewer({ status: 'REJECTED' }));
     expect(buttonTexts()).not.toContain('수정');
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(container.textContent).toContain(
-      '반려된 서류는 다시 제출할 수 없습니다.',
+      '반려된 제출 항목은 다시 제출할 수 없습니다.',
     );
   });
 
   it('보완 요청·검토 대기·미제출에는 제출 입력을 연다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
     expect(buttonTexts()).toContain('수정');
+    await act(async () => actionButton('수정').click());
     expect(container.querySelector('input[type="file"]')).not.toBeNull();
 
     await renderRow(viewer({ status: 'SUBMITTED' }));
@@ -568,15 +1022,14 @@ describe('학생 행이 판정을 읽는 방식', () => {
    * 받아 주는데 화면만 막는 상태가 된다.
    */
   it('마감이 지나도 보완 요청은 다시 낼 수 있다', async () => {
-    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'FILE', true);
-    expect(actionButton('수정').disabled).toBe(false);
-
-    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'TEXT', true);
+    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), true);
     const editButton = actionButton('수정');
     expect(editButton.disabled).toBe(false);
     await act(async () => editButton.click());
     expect(
-      container.querySelector('input[placeholder="제출 내용"]'),
+      container.querySelector(
+        'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+      ),
     ).not.toBeNull();
   });
 
@@ -587,15 +1040,11 @@ describe('학생 행이 판정을 읽는 방식', () => {
   it('마감 뒤 미제출·검토 대기는 그대로 잠근다', async () => {
     await renderRow(
       viewer({ submitted: false, submittedAt: null, status: null }),
-      'FILE',
       true,
     );
     expect(actionButton('올리기').disabled).toBe(true);
 
-    await renderRow(viewer({ status: 'SUBMITTED' }), 'FILE', true);
-    expect(actionButton('수정').disabled).toBe(true);
-
-    await renderRow(viewer({ status: 'SUBMITTED' }), 'TEXT', true);
+    await renderRow(viewer({ status: 'SUBMITTED' }), true);
     expect(actionButton('수정').disabled).toBe(true);
   });
 
@@ -606,9 +1055,8 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(actionButton('수정').disabled).toBe(false);
   });
 
-  // TEXT 제출도 같은 규칙을 따라야 한다 — 유형마다 다르면 학생이 규칙을 못 읽는다.
-  it('텍스트 제출도 승인되면 입력 칸이 열리지 않는다', async () => {
-    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'TEXT');
+  it('통합 제출도 승인되면 입력 칸이 열리지 않는다', async () => {
+    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
     const editButton = Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === '수정',
     );
@@ -617,13 +1065,17 @@ describe('학생 행이 판정을 읽는 방식', () => {
     }
     await act(async () => editButton.click());
     expect(
-      container.querySelector('input[placeholder="제출 내용"]'),
+      container.querySelector(
+        'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+      ),
     ).not.toBeNull();
 
-    await renderRow(viewer({ status: 'APPROVED' }), 'TEXT');
+    await renderRow(viewer({ status: 'APPROVED' }));
     expect(buttonTexts()).not.toContain('수정');
     expect(
-      container.querySelector('input[placeholder="제출 내용"]'),
+      container.querySelector(
+        'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+      ),
     ).toBeNull();
   });
 });

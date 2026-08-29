@@ -22,7 +22,6 @@ export function createRequirementDraft(
     id,
     name: '',
     required: true,
-    submissionType: 'FILE',
     templateFile: null,
   };
 }
@@ -33,7 +32,6 @@ export function createMilestoneDraft(id: string): ProgramAuthoringMilestone {
     name: '',
     startAt: '',
     dueAt: '',
-    submissionType: 'TEXT',
     instructions: '',
     requirements: [],
   };
@@ -64,7 +62,7 @@ export function createInitialProgramAuthoringState(input: {
      * 알림을 안 받겠다는 선택은 화면에서 체크를 풀어 명시적으로 한다.
      */
     notifyOnDeadline: true,
-    milestones: [createMilestoneDraft(input.milestoneId)],
+    milestones: [],
   };
 }
 
@@ -100,15 +98,12 @@ export function programAuthoringReducer(
           (milestone) => milestone.id !== action.milestoneId,
         ),
       };
+    case 'replace_milestone':
+      return mapMilestone(state, action.milestone.id, () => action.milestone);
     case 'set_milestone_field':
       return mapMilestone(state, action.milestoneId, (milestone) => ({
         ...milestone,
         [action.field]: action.value,
-      }));
-    case 'set_milestone_type':
-      return mapMilestone(state, action.milestoneId, (milestone) => ({
-        ...milestone,
-        submissionType: action.submissionType,
       }));
     case 'add_requirement':
       return mapMilestone(state, action.milestoneId, (milestone) => ({
@@ -119,7 +114,14 @@ export function programAuthoringReducer(
         ],
       }));
     case 'remove_requirement':
-      return mapRequirement(state, action, () => null);
+      return mapMilestone(state, action.milestoneId, (milestone) => ({
+        ...milestone,
+        requirements: milestone.requirements.filter(
+          (requirement) => requirement.id !== action.requirementId,
+        ),
+      }));
+    case 'reorder_requirements':
+      return reorderRequirements(state, action);
     case 'set_requirement_name':
       return mapRequirement(state, action, (requirement) => ({
         ...requirement,
@@ -130,16 +132,13 @@ export function programAuthoringReducer(
         ...requirement,
         required: action.required,
       }));
-    case 'set_requirement_type':
-      return mapRequirement(state, action, (requirement) => ({
-        ...requirement,
-        submissionType: action.submissionType,
-        templateFile:
-          action.submissionType === 'TEXT' ? null : requirement.templateFile,
-      }));
     case 'set_requirement_file':
       return mapRequirement(state, action, (requirement) => ({
         ...requirement,
+        name:
+          action.file !== null && requirement.name.trim() === ''
+            ? action.file.name
+            : requirement.name,
         templateFile:
           action.file === null
             ? null
@@ -170,6 +169,11 @@ type RequirementAction = Extract<
   { readonly milestoneId: string; readonly requirementId: string }
 >;
 
+type ReorderRequirementsAction = Extract<
+  ProgramAuthoringAction,
+  { readonly type: 'reorder_requirements' }
+>;
+
 function mapRequirement(
   state: ProgramAuthoringState,
   action: RequirementAction,
@@ -184,6 +188,32 @@ function mapRequirement(
       const next = update(requirement);
       return next === null ? [] : [next];
     }),
+  }));
+}
+
+function reorderRequirements(
+  state: ProgramAuthoringState,
+  action: ReorderRequirementsAction,
+): ProgramAuthoringState {
+  const milestone = state.milestones.find(
+    (candidate) => candidate.id === action.milestoneId,
+  );
+  if (!milestone) return state;
+
+  const requirementsById = new Map(
+    milestone.requirements.map((requirement) => [requirement.id, requirement]),
+  );
+  if (
+    action.requirementIds.length !== milestone.requirements.length ||
+    new Set(action.requirementIds).size !== action.requirementIds.length ||
+    action.requirementIds.some((id) => !requirementsById.has(id))
+  ) {
+    return state;
+  }
+
+  return mapMilestone(state, action.milestoneId, (candidate) => ({
+    ...candidate,
+    requirements: action.requirementIds.map((id) => requirementsById.get(id)!),
   }));
 }
 

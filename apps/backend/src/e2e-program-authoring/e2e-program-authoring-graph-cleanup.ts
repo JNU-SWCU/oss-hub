@@ -5,7 +5,19 @@ export async function removeAdoptedGraph(
   prisma: PrismaService,
   graph: E2eProgramAuthoringGraph,
   prefix: string,
+  deleteStorageObject: (storageKey: string) => Promise<void> = () =>
+    Promise.resolve(),
 ): Promise<void> {
+  const uploads = await prisma.programAuthoringUpload.findMany({
+    where: { createRequest: { programId: graph.programId } },
+    select: { storageKey: true },
+  });
+  const templateFiles = await prisma.milestoneDocumentTemplateFile.findMany({
+    where: {
+      milestoneDocument: { milestone: { programId: graph.programId } },
+    },
+    select: { storageKey: true },
+  });
   await prisma.$transaction(async (transaction) => {
     const program = await transaction.program.findFirst({
       where: { id: graph.programId, name: { startsWith: prefix } },
@@ -37,6 +49,9 @@ export async function removeAdoptedGraph(
     });
     await transaction.submissionFile.deleteMany({
       where: { applicationId: { in: applicationIds } },
+    });
+    await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+      where: { submission: { applicationId: { in: applicationIds } } },
     });
     await transaction.milestoneDocumentSubmission.deleteMany({
       where: { applicationId: { in: applicationIds } },
@@ -80,4 +95,10 @@ export async function removeAdoptedGraph(
     });
     await transaction.program.delete({ where: { id: graph.programId } });
   });
+  const storageKeys = new Set(
+    [...uploads, ...templateFiles].map(({ storageKey }) => storageKey),
+  );
+  for (const storageKey of storageKeys) {
+    await deleteStorageObject(storageKey);
+  }
 }

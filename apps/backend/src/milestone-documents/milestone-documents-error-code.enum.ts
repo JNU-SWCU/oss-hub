@@ -8,7 +8,6 @@ export const MilestoneDocumentsErrorCode = {
   DOCUMENT_NOT_FOUND: 'MSD_004',
   NOT_APPLICATION_MEMBER: 'MSD_005',
   APPLICATION_APPROVAL_REQUIRED: 'MSD_006',
-  CONTENT_TYPE_MISMATCH: 'MSD_007',
   CONTENT_REQUIRED: 'MSD_008',
   INVALID_FILE_UPLOAD: 'MSD_009',
   UNSUPPORTED_FILE_TYPE: 'MSD_010',
@@ -27,6 +26,9 @@ export const MilestoneDocumentsErrorCode = {
   REVIEW_TARGET_CHANGED: 'MSD_025',
   ARCHIVE_TOO_LARGE: 'MSD_026',
   SUBMISSION_FILE_QUOTA_EXCEEDED: 'MSD_027',
+  MILESTONE_CLOSED: 'MSD_028',
+  SUBMISSION_REPLACEMENT_CLOSED: 'MSD_029',
+  LAST_DOCUMENT_REQUIRED: 'MSD_030',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -64,11 +66,6 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
     status: 403,
     message: '승인된 신청만 제출할 수 있습니다.',
-  },
-  [MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH]: {
-    code: MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH,
-    status: 422,
-    message: '서류 항목에 지정된 제출 유형과 내용 유형이 다릅니다.',
   },
   [MilestoneDocumentsErrorCode.CONTENT_REQUIRED]: {
     code: MilestoneDocumentsErrorCode.CONTENT_REQUIRED,
@@ -114,7 +111,7 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS,
     status: 409,
     message:
-      '제출된 서류가 있는 항목은 삭제하거나 제출 방식을 바꿀 수 없습니다.',
+      '제출 이력이 있는 항목은 삭제할 수 없습니다. 항목은 유지하고 이름이나 필수 여부를 수정해 주세요.',
   },
   [MilestoneDocumentsErrorCode.INVALID_REQUEST]: {
     code: MilestoneDocumentsErrorCode.INVALID_REQUEST,
@@ -184,5 +181,23 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
     status: 413,
     message: '보관 중인 제출 파일 한도를 초과했습니다.',
+  },
+  [MilestoneDocumentsErrorCode.MILESTONE_CLOSED]: {
+    code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED,
+    status: 422,
+    message:
+      '마감된 마일스톤입니다. 일정 변경이 필요한 경우 담당 교직원에게 문의해 주세요.',
+  },
+  [MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED]: {
+    code: MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
+    status: 422,
+    message:
+      '마감 이후에는 검토 전 제출을 바꿀 수 없습니다. 보완 요청을 받은 경우 다시 제출할 수 있습니다.',
+  },
+  [MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED]: {
+    code: MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED,
+    status: 409,
+    message:
+      '마일스톤에는 제출 항목이 하나 이상 필요합니다. 새 항목을 만든 뒤 기존 항목을 삭제해 주세요.',
   },
 };
