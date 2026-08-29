@@ -50,6 +50,7 @@ export interface E2eProgramAuthoringPort {
   preview(): Promise<DeadlineDigestPreview>;
   send(preview: DeadlineDigestSendRequest): Promise<void>;
   createApplication(mode: 'NEW' | 'OWN'): Promise<void>;
+  approve(): Promise<void>;
   approveAndRun(): Promise<void>;
   configureFailure(kind: E2eFailureKind, attempts: number): void;
   exercise(kind: E2eFailureKind): Promise<void>;

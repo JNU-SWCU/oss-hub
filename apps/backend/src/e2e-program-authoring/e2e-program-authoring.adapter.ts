@@ -28,10 +28,12 @@ import {
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
   E2E_FOREIGN_STUDENT_GITHUB_ID,
+  E2E_FOREIGN_STUDENT_ID,
   E2E_NOW,
   E2E_STAFF_GITHUB_ID,
   E2E_STAFF_ID,
   E2E_STUDENT_GITHUB_ID,
+  E2E_STUDENT_ID,
   E2eProgramAuthoringFixture,
 } from './e2e-program-authoring-fixture';
 import type {
@@ -149,8 +151,14 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     await this.sendDeadlineDigest();
   }
 
-  private async approveAndProvision(): Promise<void> {
-    const application = await this.fixtures.application();
+  async approve(): Promise<void> {
+    await this.approveAndProvision(E2E_FOREIGN_STUDENT_ID);
+  }
+
+  private async approveAndProvision(
+    applicantId = E2E_STUDENT_ID,
+  ): Promise<void> {
+    const application = await this.fixtures.application(applicantId);
     if (
       application === null ||
       application.status !== ApplicationStatus.SUBMITTED

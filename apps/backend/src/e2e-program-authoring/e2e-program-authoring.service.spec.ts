@@ -54,6 +54,7 @@ function adapter(): jest.Mocked<E2eProgramAuthoringPort> {
     preview: jest.fn().mockResolvedValue(preview),
     send: jest.fn().mockResolvedValue(undefined),
     createApplication: jest.fn().mockResolvedValue(undefined),
+    approve: jest.fn().mockResolvedValue(undefined),
     approveAndRun: jest.fn().mockResolvedValue(undefined),
     configureFailure: jest.fn(),
     exercise: jest.fn().mockResolvedValue(undefined),
@@ -82,6 +83,16 @@ describe('E2eProgramAuthoringService', () => {
     await service.application('OWN');
 
     expect(port.createApplication.mock.calls).toEqual([['OWN']]);
+  });
+
+  it('approves an application without sending a deadline digest', async () => {
+    const port = adapter();
+    const service = new E2eProgramAuthoringService(port);
+
+    await service.approve();
+
+    expect(port.approve.mock.calls).toEqual([[]]);
+    expect(port.approveAndRun.mock.calls).toEqual([]);
   });
 
   it('previews eligibility through the frozen control adapter', async () => {

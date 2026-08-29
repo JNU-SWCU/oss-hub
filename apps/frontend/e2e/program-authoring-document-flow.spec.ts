@@ -13,8 +13,8 @@ import {
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-// PROGRAM_AUTHORING_E2E.seoulNow(=신청 종료·운영 시작 시각)를 앵커로 삼아
-// 나머지 일정을 모두 상대 오프셋으로 도출한다(절대 캘린더 날짜 금지).
+// reset 응답이 돌려준 백엔드 E2E 시각을 일정 앵커로 삼아 상대 오프셋을 만들고,
+// 날짜 전용 마감도 같은 시각의 24시간 창 안에서 고른다.
 import { zipEntry, zipManifest } from './support/program-authoring-zip';
 import {
   adoptProgramGraph,
@@ -287,6 +287,10 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       recipientCount: 0,
     });
     await submitProgramApplication(foreignStudentPage, programId, 'own');
+    await expectApiStatus(
+      await controlPage.request.post(`${controlPath}/approve`),
+      201,
+    );
 
     const previewResponse = await staffPage.request.post(
       `${controlPath}/preview`,
@@ -294,6 +298,11 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     );
     await expectApiStatus(previewResponse, 201);
     const preview = parseDeadlinePreview(await previewResponse.json());
+    expect(preview).toMatchObject({
+      applicationCount: 1,
+      milestoneCount: 1,
+      recipientCount: 1,
+    });
     await expectApiStatus(
       await staffPage.request.post(`${controlPath}/send`, {
         // 테스트 전용 제어 포트도 운영 send DTO와 같은 두 필드만 받아서
@@ -318,10 +327,10 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
         .getByRole('region', { name: '팀별 서류 수합 표' })
         .getByRole('table'),
     ).toBeVisible();
-    // 이 시나리오의 유일한 팀(학생 본인)이 이미 필수 서류를 제출했으니 미제출은
-    // 0팀이다 — 제출 반영이 화면에 실제로 도달했는지를 이 수로 확인한다.
+    // 승인된 두 팀 중 학생 본인 팀은 제출을 마쳤고 외부 학생 팀은 미제출이다.
+    // 수합 화면이 두 상태를 함께 반영하는지 이 수로 확인한다.
     await expect(
-      staffPage.getByRole('button', { name: /필수 서류 미제출 0팀/ }),
+      staffPage.getByRole('button', { name: /필수 서류 미제출 1팀/ }),
     ).toBeVisible();
     await staffPage
       .getByRole('button', {
@@ -388,24 +397,26 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     expect(zipEntry(fullArchive.bytes, currentPath).bytes).toEqual(
       individual.bytes,
     );
-    // 이 시나리오의 유일한 팀은 이미 필수 서류를 제출했으므로 CSV에는 '미제출'이
-    // 아니라 그 팀의 제출 판정("검토 대기")이 담긴다.
-    expect(
-      zipEntry(fullArchive.bytes, '제출현황.csv').bytes.toString('utf8'),
-    ).toContain('검토 대기');
+    const collectionCsv = zipEntry(
+      fullArchive.bytes,
+      '제출현황.csv',
+    ).bytes.toString('utf8');
+    expect(collectionCsv).toContain('검토 대기');
+    expect(collectionCsv).toContain('미제출');
 
     const stateResponse = await controlPage.request.get(
       `${controlPath}/state/${encodeURIComponent(programId)}`,
     );
     await expectApiStatus(stateResponse, 200);
     const state = toStateCounts(await stateResponse.json());
-    // 봉투 3통 — approve-and-run 때 첫 학생 리마인드 1통, 뒤의 수동 발송에서
-    // 외부 학생 리마인드 1통 + 교직원 미제출 팀 요약 1통(#886)이다.
+    // 봉투 4통 — approve-and-run 때 첫 학생 리마인드 1통, 외부 학생의 OWN 저장소
+    // 준비 알림 1통, 뒤의 수동 발송에서 외부 학생 리마인드 1통 + 교직원 미제출 팀
+    // 요약 1통(#886)이다.
     // 이 시나리오의 교직원은 활성·수신 동의·알림 이메일을 모두 갖춰 수신 대상이다.
     // 상태 집계의 documents는 프로그램 전체를 센다. 안내용 마일스톤의 제출 항목이
     // 빠지면 이 값이 1이 되어 전체 작성 그래프 증명이 실패한다. graph의 한 필수
     // 마일스톤 식별자는 아래 수합·다운로드 검증에서 계속 사용한다.
-    expectCleanState(state, 2, 2, 2, 3, 2);
+    expectCleanState(state, 2, 2, 2, 4, 2, 2);
     expect(state.storageContentHashes).toContain(template.sha256);
     expect(state.storageContentHashes).toContain(individual.sha256);
     await writeArtifact('sql-counts.json', { graph, ...state });

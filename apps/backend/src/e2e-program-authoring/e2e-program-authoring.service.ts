@@ -60,6 +60,10 @@ export class E2eProgramAuthoringService {
     await this.adapter.approveAndRun();
   }
 
+  async approve(): Promise<void> {
+    await this.adapter.approve();
+  }
+
   failure(kind: string, count: unknown): void {
     if (
       !isFailureKind(kind) ||

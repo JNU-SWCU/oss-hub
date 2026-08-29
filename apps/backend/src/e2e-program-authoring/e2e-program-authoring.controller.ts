@@ -68,6 +68,12 @@ export class E2eProgramAuthoringController {
     await this.execute(() => this.service.approveAndRun());
   }
 
+  @Post('approve')
+  async approve(@Req() request: Request): Promise<void> {
+    this.requireLoopback(request);
+    await this.execute(() => this.service.approve());
+  }
+
   @Post('preview')
   async preview(@Req() request: Request) {
     this.requireLoopback(request);

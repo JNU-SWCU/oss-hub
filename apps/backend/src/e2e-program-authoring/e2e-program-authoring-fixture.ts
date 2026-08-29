@@ -312,13 +312,13 @@ export class E2eProgramAuthoringFixture {
     return this.activeGraph;
   }
 
-  application(): Promise<{
+  application(applicantId = E2E_STUDENT_ID): Promise<{
     readonly id: string;
     readonly status: ApplicationStatus;
   } | null> {
     const graph = this.graph();
     return this.prisma.application.findFirst({
-      where: { programId: graph.programId, applicantId: E2E_STUDENT_ID },
+      where: { programId: graph.programId, applicantId },
       select: { id: true, status: true },
     });
   }

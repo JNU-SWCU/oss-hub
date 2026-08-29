@@ -127,6 +127,8 @@ describe('ProgramEditorService update validation', () => {
         expect.objectContaining({
           field: 'endAt',
           code: 'INVALID_PROGRAM_END',
+          message:
+            '프로그램 종료일은 유효한 시각이어야 하고 운영 시작일 이후이며 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.',
         }),
       ]),
     );

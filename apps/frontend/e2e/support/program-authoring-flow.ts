@@ -186,6 +186,7 @@ export function expectCleanState(
   // required milestone retain their own one-document expectation; the full
   // authoring flow explicitly proves both milestone documents below.
   expectedDocuments = 1,
+  expectedRepositoryGraphs = 1,
 ): void {
   if (
     state.programs !== 1 ||
@@ -207,9 +208,12 @@ export function expectCleanState(
         `(applications=${state.applications}, teams=${state.teams}).`,
     );
   }
-  if (state.repositoryJobs !== 1 || state.repositories !== 1) {
+  if (
+    state.repositoryJobs !== expectedRepositoryGraphs ||
+    state.repositories !== expectedRepositoryGraphs
+  ) {
     throw new Error(
-      'Expected exactly one provisioned NEW repository ' +
+      `Expected ${expectedRepositoryGraphs} provisioned repository graph(s) ` +
         `(repositoryJobs=${state.repositoryJobs}, repositories=${state.repositories}).`,
     );
   }
