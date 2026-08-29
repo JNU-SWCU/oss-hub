@@ -17,6 +17,11 @@ import type {
   ProgramAuthoringAction,
   ProgramAuthoringState,
 } from './program-authoring-model';
+import {
+  MAX_MILESTONES,
+  MAX_REQUIREMENTS,
+  MAX_REQUIREMENTS_PER_MILESTONE,
+} from './program-authoring-graph-validation';
 import { ProgramAuthoringMilestoneDialog } from './program-authoring-milestone-dialog';
 import {
   dateKey,
@@ -67,6 +72,7 @@ export function ProgramAuthoringMilestoneStep({
   const handledIssueKeyRef = useRef('');
   const operationStart = dateKey(state.operationStartAt);
   const operationEnd = dateKey(state.operationEndAt);
+  const canAddMilestone = state.milestones.length < MAX_MILESTONES;
   const hiddenDraftId = editing?.snapshot === null ? editing.id : null;
   const visibleMilestones = useMemo(
     () => state.milestones.filter(({ id }) => id !== hiddenDraftId),
@@ -115,6 +121,7 @@ export function ProgramAuthoringMilestoneStep({
   }, [editing, issueKey, issues, onMilestoneEditStart, state.milestones]);
 
   function startDraft(startAt = '', dueAt = '') {
+    if (!canAddMilestone) return;
     const id = newId();
     dispatch({ type: 'add_milestone', milestoneId: id });
     if (startAt)
@@ -135,13 +142,17 @@ export function ProgramAuthoringMilestoneStep({
   }
 
   function selectDate(value: string) {
+    if (!canAddMilestone) return;
     if (anchorDate === null) {
       setAnchorDate(value);
       return;
     }
     const [start, due] = [anchorDate, value].sort();
     setAnchorDate(null);
-    startDraft(`${start}T00:00`, `${due}T23:59`);
+    startDraft(
+      boundaryDateTime(start, state.operationStartAt, '00:00'),
+      boundaryDateTime(due, state.operationEndAt, '23:59'),
+    );
   }
 
   function cancel() {
@@ -171,7 +182,7 @@ export function ProgramAuthoringMilestoneStep({
       title="마일스톤 일정"
       description="운영 기간에서 시작일과 종료일을 선택하세요."
     >
-      {operationStart && operationEnd ? (
+      {operationStart && operationEnd && canAddMilestone ? (
         <ProgramScheduleRangeCalendar
           events={events}
           activeRange={activeRange}
@@ -181,6 +192,13 @@ export function ProgramAuthoringMilestoneStep({
           onFocusedDateChange={setFocusedDate}
           onDateSelect={selectDate}
         />
+      ) : operationStart && operationEnd ? (
+        <p
+          className="rounded-card border border-dashed border-border p-card text-small text-muted-foreground"
+          role="status"
+        >
+          마일스톤은 최대 {MAX_MILESTONES}개까지 추가할 수 있습니다.
+        </p>
       ) : (
         <p className="rounded-card border border-dashed border-border p-card text-small text-muted-foreground">
           운영 기간을 먼저 입력해 주세요.
@@ -191,7 +209,7 @@ export function ProgramAuthoringMilestoneStep({
           <h2 className="font-semibold">마일스톤 목록</h2>
           <Button
             type="button"
-            disabled={!operationStart || !operationEnd}
+            disabled={!operationStart || !operationEnd || !canAddMilestone}
             onClick={() => startDraft()}
           >
             마일스톤 추가
@@ -288,6 +306,12 @@ export function ProgramAuthoringMilestoneStep({
           operationEndAt={state.operationEndAt}
           isNew={editing.snapshot === null}
           initialValidationVisible={editing.showValidation}
+          attachmentLimitMessage={attachmentLimitMessage(state, milestone)}
+          attachmentValidationMessage={
+            issues.find(
+              (issue) => issue.path === `requirements.${milestone.id}`,
+            )?.message ?? null
+          }
           onFieldChange={(field, value) =>
             dispatch({
               type: 'set_milestone_field',
@@ -297,6 +321,7 @@ export function ProgramAuthoringMilestoneStep({
             })
           }
           onAddAttachment={(file) => {
+            if (attachmentLimitMessage(state, milestone) !== null) return;
             const requirementId = newId();
             dispatch({
               type: 'add_requirement',
@@ -353,6 +378,30 @@ function rangeLabel(milestone: ProgramAuthoringMilestone): string {
     : '기간 미정';
 }
 
+function boundaryDateTime(
+  date: string,
+  boundary: string,
+  interiorTime: string,
+): string {
+  if (!date) return '';
+  return dateKey(boundary) === date ? boundary : `${date}T${interiorTime}`;
+}
+
+function attachmentLimitMessage(
+  state: ProgramAuthoringState,
+  milestone: ProgramAuthoringMilestone,
+): string | null {
+  if (milestone.requirements.length >= MAX_REQUIREMENTS_PER_MILESTONE)
+    return `마일스톤마다 첨부파일은 최대 ${MAX_REQUIREMENTS_PER_MILESTONE}개입니다.`;
+  const total = state.milestones.reduce(
+    (count, item) => count + item.requirements.length,
+    0,
+  );
+  if (total >= MAX_REQUIREMENTS)
+    return `전체 첨부파일은 최대 ${MAX_REQUIREMENTS}개입니다.`;
+  return null;
+}
+
 function milestoneForIssues(
   milestones: readonly ProgramAuthoringMilestone[],
   issues: readonly ProgramAuthoringIssue[],
@@ -365,6 +414,8 @@ function milestoneForIssues(
     }
     const requirementId = /^requirements\.([^.]+)/.exec(issue.path)?.[1];
     if (requirementId !== undefined) {
+      const ownMilestone = milestones.find(({ id }) => id === requirementId);
+      if (ownMilestone !== undefined) return ownMilestone;
       const milestone = milestones.find(({ requirements }) =>
         requirements.some(({ id }) => id === requirementId),
       );

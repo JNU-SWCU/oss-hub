@@ -11,11 +11,21 @@ export type E2eProgramAuthoringGraph = {
   readonly documentId: string;
 };
 
-export async function resetProgramAuthoringControl(page: Page): Promise<void> {
-  await expectApiStatus(
-    await page.request.post(`${PROGRAM_AUTHORING_CONTROL_PATH}/reset`),
-    204,
+export async function resetProgramAuthoringControl(
+  page: Page,
+): Promise<string> {
+  const response = await page.request.post(
+    `${PROGRAM_AUTHORING_CONTROL_PATH}/reset`,
   );
+  await expectApiStatus(response, 200);
+  const value: unknown = await response.json();
+  if (
+    !isRecord(value) ||
+    typeof value.now !== 'string' ||
+    !Number.isFinite(Date.parse(value.now))
+  )
+    throw new Error('E2E reset response must include a valid clock.');
+  return value.now;
 }
 
 export async function selectScheduleRange(

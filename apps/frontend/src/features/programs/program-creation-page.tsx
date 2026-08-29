@@ -59,6 +59,7 @@ export function ProgramCreationPage({
   const stepRegionRef = useRef<HTMLDivElement>(null);
 
   const discardUnsavedFiles = () => {
+    clearProgramAuthoringRecoveryKey(window.sessionStorage);
     filesRef.current.clear();
     void Promise.allSettled(
       [...runtimeRef.current.uploads.values()].map((upload) =>

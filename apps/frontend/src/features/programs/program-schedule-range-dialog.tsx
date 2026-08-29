@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ProgramAuthoringDialog } from './program-authoring-dialog';
@@ -22,9 +22,11 @@ export function ProgramScheduleRangeDialog({
   const [startTime, setStartTime] = useState(timePart(range.startAt));
   const [endTime, setEndTime] = useState(timePart(range.endAt));
   const [attempted, setAttempted] = useState(false);
+  const errorId = useId();
   const startAt = dateTime(startDate, startTime, '00:00');
   const endAt = dateTime(endDate, endTime, '23:59');
   const error = rangeError(startAt, endAt, range.minDate, range.maxDate);
+  const invalid = attempted && error !== null;
 
   function save() {
     setAttempted(true);
@@ -45,7 +47,8 @@ export function ProgramScheduleRangeDialog({
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
           <Input
             aria-label={`${range.label} 시작일`}
-            aria-invalid={attempted && Boolean(error)}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? errorId : undefined}
             type="date"
             min={range.minDate}
             max={range.maxDate}
@@ -54,6 +57,8 @@ export function ProgramScheduleRangeDialog({
           />
           <Input
             aria-label={`${range.label} 시작 시각`}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? errorId : undefined}
             type="time"
             value={startTime}
             onChange={(event) => setStartTime(event.target.value)}
@@ -65,7 +70,8 @@ export function ProgramScheduleRangeDialog({
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
           <Input
             aria-label={`${range.label} 종료일`}
-            aria-invalid={attempted && Boolean(error)}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? errorId : undefined}
             type="date"
             min={range.minDate}
             max={range.maxDate}
@@ -74,13 +80,15 @@ export function ProgramScheduleRangeDialog({
           />
           <Input
             aria-label={`${range.label} 종료 시각`}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? errorId : undefined}
             type="time"
             value={endTime}
             onChange={(event) => setEndTime(event.target.value)}
           />
         </div>
       </Field>
-      <FieldError>{attempted ? error : null}</FieldError>
+      <FieldError id={errorId}>{attempted ? error : null}</FieldError>
     </ProgramAuthoringDialog>
   );
 }

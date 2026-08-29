@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   uploadAuthoringFile: vi.fn(),
   completeAndNavigate: vi.fn(),
   useProgramExitGuard: vi.fn(),
+  discardUnsaved: undefined as (() => void) | undefined,
 }));
 
 vi.mock('./program-authoring-api', () => ({
@@ -25,8 +26,9 @@ vi.mock('./program-authoring-api', () => ({
 }));
 
 vi.mock('./use-program-exit-guard', () => ({
-  useProgramExitGuard: (dirty: boolean) => {
+  useProgramExitGuard: (dirty: boolean, discardUnsaved: () => void) => {
     mocks.useProgramExitGuard(dirty);
+    mocks.discardUnsaved = discardUnsaved;
     return {
       completeAndNavigate: mocks.completeAndNavigate,
     };
@@ -59,6 +61,7 @@ describe('ProgramCreationPage guided authoring', () => {
     mocks.uploadAuthoringFile.mockReset();
     mocks.completeAndNavigate.mockClear();
     mocks.useProgramExitGuard.mockClear();
+    mocks.discardUnsaved = undefined;
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -136,6 +139,8 @@ describe('ProgramCreationPage guided authoring', () => {
     await act(async () => buttonNamed('기본 정보').click());
 
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
+    mocks.discardUnsaved?.();
+    expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBeNull();
   });
 
   it('필드 오류가 있으면 입력 옆에만 표시하고 중복 요약 경고는 만들지 않는다', async () => {
@@ -256,6 +261,8 @@ describe('ProgramCreationPage guided authoring', () => {
       sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY),
     ).not.toContain('milestones');
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
+    mocks.discardUnsaved?.();
+    expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBeNull();
   });
 
   it('최종 검토에서 날짜 오류를 발견하면 마일스톤 편집으로 돌아간다', async () => {

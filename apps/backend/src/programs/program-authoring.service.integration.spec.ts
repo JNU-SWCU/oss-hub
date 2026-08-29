@@ -119,6 +119,28 @@ describe('ProgramAuthoringService integration', () => {
     expect(typeof upload.createRequestId).toBe('string');
   });
 
+  it('persists a milestone ending exactly with its program', async () => {
+    const actor = await harness.createActor('inclusive-end');
+    const input = authoringRequest('inclusive-end', [
+      authoringMilestone('boundary', []),
+    ]);
+    const boundaryMilestone = input.milestones[0];
+    if (boundaryMilestone === undefined)
+      throw new TypeError('Missing boundary milestone fixture.');
+
+    const program = await service.create(actor.githubId, 'inclusive-end-key', {
+      ...input,
+      milestones: [{ ...boundaryMilestone, dueAt: input.endAt }],
+    });
+
+    await expect(
+      harness.prisma.milestone.findFirstOrThrow({
+        where: { programId: program.id },
+        select: { dueAt: true },
+      }),
+    ).resolves.toEqual({ dueAt: new Date(input.endAt) });
+  });
+
   it('rejects a changed payload under the same actor idempotency key', async () => {
     // Given
     const actor = await harness.createActor('conflict');

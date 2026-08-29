@@ -65,11 +65,10 @@ export class ProgramAuthoringDocumentRequestDto {
   @IsBoolean()
   declare readonly required: boolean;
 
-  @IsOptional()
   @IsString()
   @Matches(/\S/u)
   @MaxLength(128)
-  declare readonly templateUploadId?: string;
+  declare readonly templateUploadId: string;
 }
 
 export class ProgramAuthoringMilestoneRequestDto {

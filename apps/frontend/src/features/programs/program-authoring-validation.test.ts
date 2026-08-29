@@ -26,6 +26,21 @@ describe('program authoring validation', () => {
     );
   });
 
+  it('marks both team fields when the minimum exceeds the shared maximum', () => {
+    const state = {
+      ...completedAuthoringState(),
+      teamMinSize: '101',
+      teamMaxSize: '101',
+    };
+
+    expect(validateProgramAuthoringStep(state, 'basic')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'teamMinSize' }),
+        expect.objectContaining({ path: 'teamMaxSize' }),
+      ]),
+    );
+  });
+
   it('accepts an application period that partially overlaps operations', () => {
     const state = {
       ...completedAuthoringState(),

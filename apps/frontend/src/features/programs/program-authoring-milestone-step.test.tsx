@@ -10,6 +10,7 @@ import {
   type ProgramAuthoringState,
 } from './program-authoring-model';
 import { ProgramAuthoringMilestoneStep } from './program-authoring-milestone-step';
+import type { ProgramAuthoringIssue } from './program-authoring-validation';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -18,10 +19,12 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 function MilestoneStepHarness({
   initial,
+  issues = [],
   onState,
   onFiles,
 }: {
   readonly initial: ProgramAuthoringState;
+  readonly issues?: readonly ProgramAuthoringIssue[];
   readonly onState: (state: ProgramAuthoringState) => void;
   readonly onFiles: (files: Map<string, File>) => void;
 }) {
@@ -42,7 +45,7 @@ function MilestoneStepHarness({
   return (
     <ProgramAuthoringMilestoneStep
       state={state}
-      issues={[]}
+      issues={issues}
       dispatch={dispatch}
       newId={() => `test-${++id.current}`}
       onRequirementFileChange={(milestoneId, requirementId, file) => {
@@ -97,11 +100,13 @@ function MilestoneStepHarness({
 describe('ProgramAuthoringMilestoneStep', () => {
   let container: HTMLDivElement;
   let root: Root;
+  let renderCount: number;
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    renderCount = 0;
   });
 
   afterEach(async () => {
@@ -112,13 +117,19 @@ describe('ProgramAuthoringMilestoneStep', () => {
       .forEach((portal) => portal.remove());
   });
 
-  async function render(initial = completedAuthoringState()) {
+  async function render(
+    initial = completedAuthoringState(),
+    issues: readonly ProgramAuthoringIssue[] = [],
+  ) {
+    const key = ++renderCount;
     let latest = initial;
     let files = new Map<string, File>();
     await act(async () => {
       root.render(
         <MilestoneStepHarness
+          key={key}
           initial={initial}
+          issues={issues}
           onState={(state) => {
             latest = state;
           }}
@@ -219,6 +230,37 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(input('[aria-label="마감일"]').max).toBe('2026-09-30');
   });
 
+  it('uses exact operation boundaries for calendar and dialog date selections', async () => {
+    const view = await render();
+
+    await act(async () =>
+      input('[data-calendar-date="2026-09-02"]', container).click(),
+    );
+    await act(async () =>
+      input('[data-calendar-date="2026-09-30"]', container).click(),
+    );
+
+    expect(view.latest().milestones[1]).toMatchObject({
+      startAt: '2026-09-02T09:00',
+      dueAt: '2026-09-30T18:00',
+    });
+
+    await change(input('[aria-label="시작일"]'), '2026-09-03');
+    await change(input('[aria-label="마감일"]'), '2026-09-29');
+    expect(view.latest().milestones[1]).toMatchObject({
+      startAt: '2026-09-03T00:00',
+      dueAt: '2026-09-29T23:59',
+    });
+
+    await change(input('[aria-label="시작일"]'), '2026-09-02');
+    await change(input('[aria-label="마감일"]'), '2026-09-30');
+
+    expect(view.latest().milestones[1]).toMatchObject({
+      startAt: '2026-09-02T09:00',
+      dueAt: '2026-09-30T18:00',
+    });
+  });
+
   it('opens the header add dialog with a blank draft', async () => {
     const view = await render();
     await addBlankDraft();
@@ -231,6 +273,86 @@ describe('ProgramAuthoringMilestoneStep', () => {
       instructions: '',
       requirements: [],
     });
+  });
+
+  it('disables milestone creation at the 50-milestone limit', async () => {
+    const initial = {
+      ...completedAuthoringState(),
+      milestones: Array.from({ length: 50 }, (_, index) =>
+        milestoneWithRequirements(`milestone-${index}`, 0),
+      ),
+    };
+    await render(initial);
+
+    expect(button('마일스톤 추가', container).disabled).toBe(true);
+    expect(container.textContent).toContain(
+      '마일스톤은 최대 50개까지 추가할 수 있습니다.',
+    );
+    expect(
+      container.querySelector('[aria-label="마일스톤 날짜 선택 달력"]'),
+    ).toBeNull();
+  });
+
+  it('disables attachment creation at each milestone and total limits', async () => {
+    const perMilestone = {
+      ...completedAuthoringState(),
+      milestones: [milestoneWithRequirements('milestone-1', 20)],
+    };
+    await render(perMilestone);
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="마일스톤 1 수정"]')!
+        .click(),
+    );
+
+    expect(input('[aria-label="첨부파일 추가"]').disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      '마일스톤마다 첨부파일은 최대 20개입니다.',
+    );
+
+    await act(async () => button('취소').click());
+    const totalLimit = {
+      ...completedAuthoringState(),
+      milestones: [
+        milestoneWithRequirements('milestone-1', 19),
+        ...Array.from({ length: 4 }, (_, index) =>
+          milestoneWithRequirements(`milestone-${index + 2}`, 20),
+        ),
+        milestoneWithRequirements('milestone-6', 1),
+      ],
+    };
+    await render(totalLimit);
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="마일스톤 1 수정"]')!
+        .click(),
+    );
+
+    expect(input('[aria-label="첨부파일 추가"]').disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      '전체 첨부파일은 최대 100개입니다.',
+    );
+  });
+
+  it('opens and displays a milestone attachment-count issue', async () => {
+    await render(
+      {
+        ...completedAuthoringState(),
+        milestones: [milestoneWithRequirements('milestone-1', 21)],
+      },
+      [
+        {
+          path: 'requirements.milestone-1',
+          step: 'milestones',
+          message: '마일스톤마다 제출 항목은 최대 20개입니다.',
+        },
+      ],
+    );
+
+    expect(document.body.textContent).toContain('마일스톤 수정');
+    expect(document.body.textContent).toContain(
+      '마일스톤마다 제출 항목은 최대 20개입니다.',
+    );
   });
 
   it('keeps invalid drafts open and displays local field errors', async () => {
@@ -328,6 +450,74 @@ describe('ProgramAuthoringMilestoneStep', () => {
     );
     expect(view.latest().milestones[1]?.requirements).toEqual([]);
     expect(view.files().has('test-2')).toBe(false);
+  });
+
+  it('saves the visible inline attachment name with the outer modal save', async () => {
+    const view = await render();
+    await addBlankDraft();
+    await fillDraft();
+    await selectFile(
+      input('[aria-label="첨부파일 추가"]'),
+      new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
+    );
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
+    );
+    await change(input('[aria-label="파일 제출물 이름"]'), '최종 결과물');
+    await act(async () => button('저장').click());
+
+    expect(view.latest().milestones[1]?.requirements[0]?.name).toBe(
+      '최종 결과물',
+    );
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('restores the original inline attachment name on Escape without closing the modal', async () => {
+    const view = await render();
+    await addBlankDraft();
+    await selectFile(
+      input('[aria-label="첨부파일 추가"]'),
+      new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
+    );
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
+    );
+    await change(input('[aria-label="파일 제출물 이름"]'), '임시 이름');
+    const nameInput = input('[aria-label="파일 제출물 이름"]');
+    await act(async () => nameInput.focus());
+    await act(async () =>
+      nameInput.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }),
+      ),
+    );
+
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(view.latest().milestones[1]?.requirements[0]?.name).toBe(
+      'guide.pdf',
+    );
+  });
+
+  it('shows an inline error and blocks saving an empty attachment name', async () => {
+    await render();
+    await addBlankDraft();
+    await selectFile(
+      input('[aria-label="첨부파일 추가"]'),
+      new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
+    );
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
+    );
+    await change(input('[aria-label="파일 제출물 이름"]'), '');
+
+    expect(document.body.textContent).toContain('제출물 이름을 입력해 주세요.');
+    await act(async () => button('저장').click());
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
   it('persists keyboard attachment reordering and disables the only handle', async () => {
@@ -485,5 +675,29 @@ function milestoneWithRequirement(): ProgramAuthoringMilestone {
         },
       },
     ],
+  };
+}
+
+function milestoneWithRequirements(
+  id: string,
+  attachmentCount: number,
+): ProgramAuthoringMilestone {
+  return {
+    id,
+    name: '마일스톤 1',
+    startAt: '2026-09-02T09:00',
+    dueAt: '2026-09-10T18:00',
+    instructions: '',
+    requirements: Array.from({ length: attachmentCount }, (_, index) => ({
+      id: `${id}-requirement-${index}`,
+      name: `attachment-${index}.pdf`,
+      required: true,
+      templateFile: {
+        name: `attachment-${index}.pdf`,
+        size: 1,
+        type: 'application/pdf',
+        requiresReselection: false,
+      },
+    })),
   };
 }

@@ -130,6 +130,35 @@ describe('사람 중심 프로그램 작성 계약', () => {
     ).not.toBeNull();
   });
 
+  it('최종 검토 달력은 신청보다 이른 운영 시작 월부터 표시한다', async () => {
+    const state = completedAuthoringState();
+
+    await act(async () => {
+      root.render(
+        <ProgramAuthoringReviewStep
+          state={{
+            ...state,
+            applicationStartAt: '2026-09-10T00:00',
+            applicationEndAt: '2026-09-20T23:59',
+            operationStartAt: '2026-08-25T00:00',
+            operationEndAt: '2026-10-31T23:59',
+          }}
+        />,
+      );
+    });
+
+    const calendar = container.querySelector('[aria-label="전체 일정 달력"]');
+    expect(calendar?.querySelector('strong')?.textContent).toBe('2026년 8월');
+    expect(
+      calendar?.querySelector<HTMLButtonElement>('button[aria-label="이전 달"]')
+        ?.disabled,
+    ).toBe(true);
+    expect(
+      calendar?.querySelector<HTMLButtonElement>('button[aria-label="다음 달"]')
+        ?.disabled,
+    ).toBe(false);
+  });
+
   it('일정 화면에서 신청과 운영 날짜를 달력 먼저 선택한다', async () => {
     const state = completedAuthoringState();
 

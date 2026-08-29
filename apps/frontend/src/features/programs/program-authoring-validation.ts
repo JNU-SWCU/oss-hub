@@ -88,9 +88,13 @@ function validateBasic(
   required(issues, state.organizer, 'organizer', '주관기관을 입력해 주세요.');
   const minimum = Number(state.teamMinSize);
   const maximum = Number(state.teamMaxSize);
-  if (!Number.isInteger(minimum) || minimum < 1)
+  if (!Number.isInteger(minimum) || minimum < 1 || minimum > 100)
     issues.push(
-      issue('teamMinSize', 'basic', '최소 팀 인원은 1명 이상이어야 합니다.'),
+      issue(
+        'teamMinSize',
+        'basic',
+        '최소 팀 인원은 1명 이상 100명 이하여야 합니다.',
+      ),
     );
   if (!Number.isInteger(maximum) || maximum > 100 || maximum < minimum)
     issues.push(

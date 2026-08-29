@@ -54,7 +54,7 @@ const INVALID_PROGRAM_END_FIELD_ERROR = {
   field: 'endAt',
   code: 'INVALID_PROGRAM_END',
   message:
-    '프로그램 종료일은 운영 시작일과 모든 마일스톤 마감 이후여야 합니다.',
+    '프로그램 종료일은 신청 종료일 및 모든 마일스톤 마감일과 같거나 이후여야 합니다.',
 } as const;
 
 const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {

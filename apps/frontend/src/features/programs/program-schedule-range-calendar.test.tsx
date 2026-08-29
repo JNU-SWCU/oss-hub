@@ -68,7 +68,7 @@ describe('ProgramScheduleRangeCalendar', () => {
     ).not.toBeNull();
     expect(container.querySelector('[data-calendar-date]')).toBeNull();
     expect(
-      container.querySelector('[role="gridcell"][aria-label*="2026년 9월"]'),
+      container.querySelector('span[aria-label*="2026년 9월"]'),
     ).not.toBeNull();
   });
 

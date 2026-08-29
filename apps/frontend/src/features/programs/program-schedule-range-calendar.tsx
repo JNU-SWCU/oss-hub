@@ -186,13 +186,15 @@ export function ProgramScheduleRangeCalendar({
       <div
         className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         role="region"
-        aria-label="날짜 선택 달력 가로 스크롤"
+        aria-label={
+          readOnly ? '일정 달력 가로 스크롤' : '날짜 선택 달력 가로 스크롤'
+        }
         aria-describedby={
           errorDescribedBy
             ? `${scrollHintId} ${errorDescribedBy}`
             : scrollHintId
         }
-        aria-invalid={selectionInvalid || undefined}
+        aria-invalid={!readOnly && selectionInvalid ? true : undefined}
         tabIndex={0}
         data-testid="program-schedule-calendar-scroll"
       >
@@ -222,7 +224,6 @@ export function ProgramScheduleRangeCalendar({
                     return (
                       <span
                         key={day}
-                        role="gridcell"
                         aria-label={formatKoreanDate(day)}
                         className={`${dayClassName} flex items-center justify-center`}
                       >

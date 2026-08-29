@@ -428,7 +428,7 @@ describe('ProgramEditView contract', () => {
 
   it.each([
     ['application end', '2026-08-15T09:30', '운영 시작일 이후'],
-    ['milestone due', '2026-08-20T12:30', '모든 마일스톤 마감 이후'],
+    ['milestone due', '2026-08-20T12:30', '모든 마일스톤 마감과 같거나 이후'],
   ])('rejects a program end at the %s boundary', (_label, endAt, message) => {
     const form = { ...toProgramEditForm(editableProgram), endAt };
 

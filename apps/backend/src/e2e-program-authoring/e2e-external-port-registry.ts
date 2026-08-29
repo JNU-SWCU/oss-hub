@@ -23,6 +23,7 @@ export type E2eExternalCapture = {
   };
   readonly storage: {
     readonly objectCount: number;
+    readonly objectKeys: readonly string[];
     readonly contentHashes: readonly string[];
   };
 };
@@ -88,6 +89,7 @@ export class E2eExternalPortRegistry {
       },
       storage: {
         objectCount: this.storageContentHashes.size,
+        objectKeys: [...this.storageContentHashes.keys()].sort(),
         contentHashes: [...this.storageContentHashes.values()].sort(),
       },
     };

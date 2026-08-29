@@ -484,6 +484,49 @@ describe('ProgramScheduleRangeEditor', () => {
     expect(onStartAtChange).toHaveBeenLastCalledWith('');
     expect(onEndAtChange).toHaveBeenCalledWith('');
   });
+
+  it('단순 일정 레이아웃은 파싱된 날짜의 범위 오류를 검증 대상 행과 달력에 연결한다', async () => {
+    const onActiveIdChange = vi.fn();
+    const ranges = rangeFixtures().map((range) =>
+      range.id === 'operation'
+        ? {
+            ...range,
+            startError: '운영 시작은 신청 종료 이후여야 합니다.',
+            endError: '운영 종료는 운영 시작보다 늦어야 합니다.',
+          }
+        : range,
+    );
+
+    await act(async () => {
+      root.render(
+        <ProgramScheduleRangeEditor
+          ranges={ranges}
+          activeId="application"
+          validationActiveId="operation"
+          layout="simple"
+          onActiveIdChange={onActiveIdChange}
+        />,
+      );
+    });
+
+    const selector = container.querySelector<HTMLButtonElement>(
+      '[data-schedule-range-selector][aria-pressed="true"]',
+    );
+    const errorId = selector?.getAttribute('aria-describedby');
+    expect(onActiveIdChange).toHaveBeenCalledWith('operation');
+    expect(selector?.textContent).toContain('운영 기간');
+    expect(selector?.getAttribute('aria-invalid')).toBe('true');
+    expect(errorId).toBe('operation-schedule-error');
+    expect(
+      container.querySelector(`#${CSS.escape(errorId ?? '')}`)?.textContent,
+    ).toContain('운영 시작은 신청 종료 이후여야 합니다.');
+    const calendar = container.querySelector(
+      '[data-testid="program-schedule-calendar-scroll"]',
+    );
+    expect(calendar?.getAttribute('aria-invalid')).toBe('true');
+    expect(calendar?.getAttribute('aria-describedby')).toContain(errorId);
+    expect(container.querySelector('input[type="time"]')).toBeNull();
+  });
 });
 
 function ValidationSelectionHarness() {

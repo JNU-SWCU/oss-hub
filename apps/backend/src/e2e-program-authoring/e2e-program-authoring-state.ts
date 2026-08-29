@@ -21,11 +21,11 @@ export async function stateForE2eProgramGraph(
     repositoryJobs,
     repositories,
     notifications,
-    templates,
-    attachedSubmissionFiles,
+    templateFiles,
+    attachedSubmissionFileKeys,
     pendingUploads,
     pendingSubmissionFiles,
-    attachedAuthoringUploads,
+    attachedAuthoringUploadKeys,
   ] = await Promise.all([
     prisma.program.count({ where: { id: graph.programId } }),
     prisma.milestone.count({ where: { programId: graph.programId } }),
@@ -41,16 +41,18 @@ export async function stateForE2eProgramGraph(
       where: { application: { programId: graph.programId } },
     }),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
-    prisma.milestoneDocumentTemplateFile.count({
+    prisma.milestoneDocumentTemplateFile.findMany({
       where: {
         milestoneDocument: { milestone: { programId: graph.programId } },
       },
+      select: { storageKey: true },
     }),
-    prisma.submissionFile.count({
+    prisma.submissionFile.findMany({
       where: {
         application: { programId: graph.programId },
         lifecycle: SubmissionFileLifecycle.ATTACHED,
       },
+      select: { storageKey: true },
     }),
     prisma.programAuthoringUpload.count({
       where: {
@@ -64,12 +66,27 @@ export async function stateForE2eProgramGraph(
         lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
       },
     }),
-    prisma.programAuthoringUpload.count({
-      where: { actorId: actorIds[0], lifecycle: 'ATTACHED' },
+    prisma.programAuthoringUpload.findMany({
+      where: {
+        createRequest: { programId: graph.programId },
+        lifecycle: 'ATTACHED',
+      },
+      select: { storageKey: true },
     }),
   ]);
-  const attachedFiles =
-    templates + attachedSubmissionFiles + attachedAuthoringUploads;
+  const attachedObjectKeys = new Set([
+    ...templateFiles.map(({ storageKey }) => storageKey),
+    ...attachedSubmissionFileKeys.map(({ storageKey }) => storageKey),
+    ...attachedAuthoringUploadKeys.map(({ storageKey }) => storageKey),
+  ]);
+  const capturedObjectKeys = new Set(capture.storage.objectKeys);
+  let orphanObjects = 0;
+  for (const objectKey of attachedObjectKeys) {
+    if (!capturedObjectKeys.has(objectKey)) orphanObjects += 1;
+  }
+  for (const objectKey of capturedObjectKeys) {
+    if (!attachedObjectKeys.has(objectKey)) orphanObjects += 1;
+  }
   return {
     programs,
     milestones,
@@ -80,9 +97,9 @@ export async function stateForE2eProgramGraph(
     repositories,
     notifications,
     dryRunEnvelopes: capture.mail.envelopeCount,
-    attachedFiles,
+    attachedFiles: attachedObjectKeys.size,
     orphanRows: pendingUploads + pendingSubmissionFiles,
-    orphanObjects: Math.max(capture.storage.objectCount - attachedFiles, 0),
+    orphanObjects,
     mailContentHashes: capture.mail.contentHashes,
     storageContentHashes: capture.storage.contentHashes,
   };

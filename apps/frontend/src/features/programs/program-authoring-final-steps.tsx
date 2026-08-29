@@ -186,13 +186,16 @@ function ProgramAuthoringReviewCalendar({
     ],
   );
   const firstDate =
-    dateKey(state.applicationStartAt) ??
-    dateKey(state.operationStartAt) ??
-    `${monthKeyForEvents(events)}-01`;
+    earliestDateKey([
+      dateKey(state.applicationStartAt),
+      dateKey(state.operationStartAt),
+    ]) ?? `${monthKeyForEvents(events)}-01`;
   const lastDate =
-    dateKey(state.operationEndAt) ??
-    dateKey(state.applicationEndAt) ??
-    firstDate;
+    latestDateKey([
+      dateKey(state.applicationEndAt),
+      dateKey(state.operationEndAt),
+      ...state.milestones.map((milestone) => dateKey(milestone.dueAt)),
+    ]) ?? firstDate;
   const [monthKey, setMonthKey] = useState(firstDate.slice(0, 7));
   const [focusedDate, setFocusedDate] = useState(firstDate);
   const range: ProgramScheduleEditableRange = {
@@ -240,4 +243,17 @@ function ReviewFact({
 
 function summary(value: string): string {
   return value.length === 0 ? '미입력' : seoulDateTimeSummary(value);
+}
+
+function earliestDateKey(
+  values: readonly (string | null)[],
+): string | undefined {
+  return values.filter((value): value is string => value !== null).sort()[0];
+}
+
+function latestDateKey(values: readonly (string | null)[]): string | undefined {
+  return values
+    .filter((value): value is string => value !== null)
+    .sort()
+    .at(-1);
 }

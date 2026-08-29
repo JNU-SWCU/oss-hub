@@ -11,9 +11,9 @@ import {
   type ProgramAuthoringIssue,
 } from './program-authoring-validation-helpers';
 
-const MAX_MILESTONES = 50;
-const MAX_REQUIREMENTS_PER_MILESTONE = 20;
-const MAX_REQUIREMENTS = 100;
+export const MAX_MILESTONES = 50;
+export const MAX_REQUIREMENTS_PER_MILESTONE = 20;
+export const MAX_REQUIREMENTS = 100;
 
 export function validateMilestones(
   state: ProgramAuthoringState,

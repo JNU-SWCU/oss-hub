@@ -35,13 +35,19 @@ export function ProgramAuthoringSubmissionItem({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(requirement.name);
+  const [originalName, setOriginalName] = useState<string | null>(null);
 
   function saveName() {
-    const name = nameDraft.trim();
-    if (name === '') return;
-    onNameChange(milestoneId, requirement.id, name);
+    if (requirement.name.trim() === '') return;
     setEditingName(false);
+    setOriginalName(null);
+  }
+
+  function cancelNameEdit() {
+    if (originalName !== null)
+      onNameChange(milestoneId, requirement.id, originalName);
+    setEditingName(false);
+    setOriginalName(null);
   }
 
   return (
@@ -51,23 +57,34 @@ export function ProgramAuthoringSubmissionItem({
         {editingName ? (
           <Input
             autoFocus
+            data-keep-dialog-on-escape
             aria-label="파일 제출물 이름"
-            value={nameDraft}
-            onChange={(event) => setNameDraft(event.target.value)}
+            aria-invalid={requirement.name.trim() === ''}
+            value={requirement.name}
+            onChange={(event) =>
+              onNameChange(milestoneId, requirement.id, event.target.value)
+            }
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
                 saveName();
               }
               if (event.key === 'Escape') {
-                setNameDraft(requirement.name);
-                setEditingName(false);
+                event.preventDefault();
+                event.stopPropagation();
+                event.nativeEvent.stopImmediatePropagation();
+                cancelNameEdit();
               }
             }}
           />
         ) : (
           <p className="truncate font-semibold">{requirement.name}</p>
         )}
+        {editingName && requirement.name.trim() === '' ? (
+          <p className="mt-1 text-small text-destructive" role="alert">
+            제출물 이름을 입력해 주세요.
+          </p>
+        ) : null}
         {requirement.templateFile ? (
           <p className="mt-1 truncate text-small text-muted-foreground">
             {requirement.name !== requirement.templateFile.name
@@ -101,7 +118,7 @@ export function ProgramAuthoringSubmissionItem({
               variant="ghost"
               aria-label="제출물 이름 저장"
               title="이름 저장"
-              disabled={nameDraft.trim() === ''}
+              disabled={requirement.name.trim() === ''}
               onClick={saveName}
             >
               <Check aria-hidden="true" />
@@ -112,10 +129,7 @@ export function ProgramAuthoringSubmissionItem({
               variant="ghost"
               aria-label="제출물 이름 수정 취소"
               title="수정 취소"
-              onClick={() => {
-                setNameDraft(requirement.name);
-                setEditingName(false);
-              }}
+              onClick={cancelNameEdit}
             >
               <X aria-hidden="true" />
             </Button>
@@ -129,7 +143,7 @@ export function ProgramAuthoringSubmissionItem({
               aria-label="제출물 이름 수정"
               title="제출물 이름 수정"
               onClick={() => {
-                setNameDraft(requirement.name);
+                setOriginalName(requirement.name);
                 setEditingName(true);
               }}
             >

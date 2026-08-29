@@ -98,10 +98,12 @@ export function ProgramScheduleRangeEditor({
     setFocusedDate(nextDate);
     setMonthKey(nextDate.slice(0, 7));
     setAnchorDate(null);
+    setTimeControlsOpenFor(null);
   }, [activeRange?.id]);
 
   const startDate = activeRange ? dateKey(activeRange.startAt) : null;
   const endDate = activeRange ? dateKey(activeRange.endAt) : null;
+  const simpleLayout = layout === 'simple';
   const hasEnabledTimeError =
     (Boolean(activeRange?.startError) && startDate !== null) ||
     (Boolean(activeRange?.endError) &&
@@ -112,9 +114,15 @@ export function ProgramScheduleRangeEditor({
   const startDateError =
     startDate === null ? activeRange?.startError : undefined;
   const endDateError = endDate === null ? activeRange?.endError : undefined;
+  const activeRangeError = rangeError(activeRange);
+  const activeRangeErrorId = activeRange ? rangeErrorId(activeRange) : null;
   const dateErrorDescription = [
-    startDateError ? startDateErrorId : null,
-    endDateError ? endDateErrorId : null,
+    simpleLayout && activeRangeError
+      ? activeRangeErrorId
+      : startDateError
+        ? startDateErrorId
+        : null,
+    simpleLayout ? null : endDateError ? endDateErrorId : null,
   ]
     .filter((id): id is string => id !== null)
     .join(' ');
@@ -134,7 +142,6 @@ export function ProgramScheduleRangeEditor({
   }
 
   const timeControlsId = `${activeRange.id}-time-controls`;
-  const simpleLayout = layout === 'simple';
 
   return (
     <Card className="overflow-hidden border-primary/30 bg-primary/5">
@@ -163,12 +170,7 @@ export function ProgramScheduleRangeEditor({
             monthKey={monthKey}
             focusedDate={focusedDate}
             errorDescribedBy={dateErrorDescription || undefined}
-            selectionInvalid={
-              (Boolean(activeRange.startError) &&
-                dateKey(activeRange.startAt) === null) ||
-              (Boolean(activeRange.endError) &&
-                dateKey(activeRange.endAt) === null)
-            }
+            selectionInvalid={Boolean(activeRangeError)}
             onMonthKeyChange={setMonthKey}
             onFocusedDateChange={setFocusedDate}
             onDateSelect={selectDate}
@@ -180,6 +182,7 @@ export function ProgramScheduleRangeEditor({
         >
           {ranges.map((range, index) => {
             const selected = range.id === activeRange.id;
+            const error = rangeError(range);
             if (simpleLayout) {
               return (
                 <div key={range.id} className="grid gap-2">
@@ -191,6 +194,8 @@ export function ProgramScheduleRangeEditor({
                     <button
                       type="button"
                       aria-pressed={selected}
+                      aria-invalid={Boolean(error)}
+                      aria-describedby={error ? rangeErrorId(range) : undefined}
                       data-schedule-range-selector
                       className="min-w-0 flex-1 px-4 py-3 text-left break-keep text-pretty focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => {
@@ -208,7 +213,7 @@ export function ProgramScheduleRangeEditor({
                         type="button"
                         aria-label={`${range.label} 일정 입력`}
                         title="일정 입력"
-                        className="inline-flex size-9 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="inline-flex size-11 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => {
                           onActiveIdChange(range.id);
                           setManualRangeId(range.id);
@@ -221,7 +226,7 @@ export function ProgramScheduleRangeEditor({
                         aria-label={`${range.label} 초기화`}
                         title="기간 초기화"
                         disabled={!range.startAt && !range.endAt}
-                        className="inline-flex size-9 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex size-11 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => {
                           onActiveIdChange(range.id);
                           setAnchorDate(null);
@@ -234,6 +239,9 @@ export function ProgramScheduleRangeEditor({
                       </button>
                     </div>
                   </div>
+                  <FieldError id={error ? rangeErrorId(range) : undefined}>
+                    {error}
+                  </FieldError>
                 </div>
               );
             }
@@ -288,8 +296,12 @@ export function ProgramScheduleRangeEditor({
               onDateSelect={selectDate}
             />
           )}
-          <FieldError id={startDateErrorId}>{startDateError}</FieldError>
-          <FieldError id={endDateErrorId}>{endDateError}</FieldError>
+          {simpleLayout ? null : (
+            <>
+              <FieldError id={startDateErrorId}>{startDateError}</FieldError>
+              <FieldError id={endDateErrorId}>{endDateError}</FieldError>
+            </>
+          )}
           <p className="sr-only" aria-live="polite">
             {selectionAnnouncement(activeRange, anchorDate)}
           </p>
@@ -419,6 +431,19 @@ function rangeSummary(range: ProgramScheduleEditableRange): string {
   const end = dateKey(range.endAt);
   if (start === null || end === null) return '날짜를 선택해 주세요.';
   return `${formatKoreanDate(start)} → ${formatKoreanDate(end)}`;
+}
+
+function rangeError(
+  range: ProgramScheduleEditableRange | undefined,
+): string | undefined {
+  if (range === undefined) return undefined;
+  return (
+    [range.startError, range.endError].filter(Boolean).join(' ') || undefined
+  );
+}
+
+function rangeErrorId(range: ProgramScheduleEditableRange): string {
+  return `${range.id}-schedule-error`;
 }
 
 function selectionAnnouncement(

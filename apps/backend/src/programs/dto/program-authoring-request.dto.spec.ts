@@ -125,7 +125,37 @@ describe('ProgramAuthoringRequestDto', () => {
     ).resolves.toEqual([]);
   });
 
-  it('rejects a milestone-level submission type and non-FILE document writes', async () => {
+  it.each([
+    ['omitted', undefined],
+    ['null', null],
+    ['blank', ' \t'],
+  ])(
+    'rejects a document with a %s template upload ID',
+    async (_caseName, templateUploadId) => {
+      const input = request();
+      const milestoneFixture = milestone();
+      const documentFixture: Record<string, unknown> = {
+        ...document(),
+        templateUploadId,
+      };
+      if (templateUploadId === undefined)
+        delete documentFixture.templateUploadId;
+
+      await expect(
+        errors({
+          ...input,
+          milestones: [
+            {
+              ...milestoneFixture,
+              documents: [documentFixture],
+            },
+          ],
+        }),
+      ).resolves.not.toEqual([]);
+    },
+  );
+
+  it('rejects a milestone-level submission type', async () => {
     const input = request();
     const milestoneFixture = milestone();
 
@@ -136,12 +166,24 @@ describe('ProgramAuthoringRequestDto', () => {
           {
             ...milestoneFixture,
             submissionType: 'FILE',
-            documents: [
-              {
-                ...document(),
-                submissionType: 'TEXT',
-              },
-            ],
+            documents: [document()],
+          },
+        ],
+      }),
+    ).resolves.not.toEqual([]);
+  });
+
+  it('rejects a document-level submission type', async () => {
+    const input = request();
+    const milestoneFixture = milestone();
+
+    await expect(
+      errors({
+        ...input,
+        milestones: [
+          {
+            ...milestoneFixture,
+            documents: [{ ...document(), submissionType: 'TEXT' }],
           },
         ],
       }),

@@ -16,6 +16,8 @@ export function ProgramAuthoringMilestoneDialog({
   operationEndAt,
   isNew,
   initialValidationVisible,
+  attachmentLimitMessage,
+  attachmentValidationMessage,
   onFieldChange,
   onAddAttachment,
   onAttachmentFileChange,
@@ -31,6 +33,8 @@ export function ProgramAuthoringMilestoneDialog({
   readonly operationEndAt: string;
   readonly isNew: boolean;
   readonly initialValidationVisible: boolean;
+  readonly attachmentLimitMessage: string | null;
+  readonly attachmentValidationMessage: string | null;
   readonly onFieldChange: (
     field: 'name' | 'startAt' | 'dueAt' | 'instructions',
     value: string,
@@ -69,7 +73,13 @@ export function ProgramAuthoringMilestoneDialog({
 
   function save() {
     setSaveAttempted(true);
-    if (errors.name || errors.period || errors.attachments) return;
+    if (
+      errors.name ||
+      errors.period ||
+      errors.attachments ||
+      attachmentValidationMessage
+    )
+      return;
     onSave();
   }
 
@@ -92,7 +102,10 @@ export function ProgramAuthoringMilestoneDialog({
             max={maxDate}
             value={startDate}
             onChange={(event) =>
-              onFieldChange('startAt', dateTime(event.target.value, '00:00'))
+              onFieldChange(
+                'startAt',
+                boundaryDateTime(event.target.value, operationStartAt, '00:00'),
+              )
             }
           />
           <Input
@@ -103,7 +116,10 @@ export function ProgramAuthoringMilestoneDialog({
             max={maxDate}
             value={dueDate}
             onChange={(event) =>
-              onFieldChange('dueAt', dateTime(event.target.value, '23:59'))
+              onFieldChange(
+                'dueAt',
+                boundaryDateTime(event.target.value, operationEndAt, '23:59'),
+              )
             }
           />
         </div>
@@ -166,13 +182,16 @@ export function ProgramAuthoringMilestoneDialog({
               />
             )}
           </ProgramAuthoringSortableAttachments>
-          <label className="ml-auto w-fit cursor-pointer text-small font-semibold text-primary underline-offset-4 hover:underline focus-within:ring-2 focus-within:ring-ring">
+          <label
+            className={`ml-auto w-fit text-small font-semibold underline-offset-4 focus-within:ring-2 focus-within:ring-ring ${attachmentLimitMessage === null ? 'cursor-pointer text-primary hover:underline' : 'cursor-not-allowed text-muted-foreground'}`}
+          >
             첨부파일 추가
             <input
               className="sr-only"
               aria-label="첨부파일 추가"
               type="file"
               accept=".pdf,.hwp,.jpg,.jpeg,.png,.zip"
+              disabled={attachmentLimitMessage !== null}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) acceptFile(file, onAddAttachment);
@@ -180,16 +199,27 @@ export function ProgramAuthoringMilestoneDialog({
               }}
             />
           </label>
+          {attachmentLimitMessage ? (
+            <p className="text-small text-muted-foreground" role="status">
+              {attachmentLimitMessage}
+            </p>
+          ) : null}
         </div>
         <FieldError>{fileError}</FieldError>
+        <FieldError>{attachmentValidationMessage}</FieldError>
         <FieldError>{saveAttempted ? errors.attachments : null}</FieldError>
       </Field>
     </ProgramAuthoringDialog>
   );
 }
 
-function dateTime(date: string, time: string): string {
-  return date ? `${date}T${time}` : '';
+function boundaryDateTime(
+  date: string,
+  boundary: string,
+  interiorTime: string,
+): string {
+  if (!date) return '';
+  return dateKey(boundary) === date ? boundary : `${date}T${interiorTime}`;
 }
 
 function validationErrors(

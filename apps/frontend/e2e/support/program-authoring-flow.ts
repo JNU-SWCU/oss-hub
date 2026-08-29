@@ -4,10 +4,6 @@ import { dirname, relative, resolve } from 'node:path';
 import type { APIResponse, Download, Page } from '@playwright/test';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
-// 캘린더에 고정된 날짜 대신 실행 시점 벽시계 기준 +2시간을 고정 앵커로 삼는다 —
-// 테스트 전체가 끝날 때까지 신청/운영 기간이 실행 중 닫히지 않을 만큼만 여유를 두고, 백엔드
-// 마감 알림 판정 창(deadlineWindow, `실행 시점~+24시간`)에 마일스톤 마감(앵커+9시간)이 들어오게
-// 한다. KST 자정 경계를 넘어 실행되는 잔여 위험은 인지된 트레이드오프다.
 const scheduleAnchor = new Date(Date.now() + 2 * ONE_HOUR_MS);
 
 export const PROGRAM_AUTHORING_E2E = {
@@ -69,6 +65,20 @@ export type DeadlinePreview = {
 export function seoulLocalInput(isoInstant: string, offsetMs = 0): string {
   const instant = new Date(new Date(isoInstant).getTime() + offsetMs);
   return formatSeoulDatetimeLocal(instant);
+}
+
+/**
+ * Returns the KST calendar date whose 23:59 deadline is the first one strictly
+ * after `anchor` and no more than 24 hours later.
+ */
+export function seoulDeadlineDate(anchor: Date): string {
+  const date = formatSeoulDatetimeLocal(anchor).slice(0, 10);
+  const deadline = new Date(`${date}T23:59:00+09:00`);
+  const selectedDeadline =
+    deadline > anchor
+      ? deadline
+      : new Date(deadline.getTime() + 24 * ONE_HOUR_MS);
+  return formatSeoulDatetimeLocal(selectedDeadline).slice(0, 10);
 }
 
 function toSeoulOffsetIso(date: Date): string {

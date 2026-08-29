@@ -63,7 +63,9 @@ export function ProgramEditScheduleEditor({
       endError: errors.endAt,
       endDisabled: form.endAtUndecided,
       onStartAtChange: (value) => onFieldChange('startAt', value),
-      onEndAtChange: (value) => onFieldChange('endAt', value),
+      onEndAtChange: (value) => {
+        if (!form.endAtUndecided) onFieldChange('endAt', value);
+      },
     },
   ];
 

@@ -39,14 +39,37 @@ describe('program authoring conflict recovery storage', () => {
     );
   });
 
+  it('deletes the legacy full draft while preserving a valid recovery key', () => {
+    const storage = memoryStorage();
+    storage.setItem(PROGRAM_AUTHORING_RECOVERY_KEY, 'request-recovery-2');
+    storage.setItem(
+      'oss-hub:program-authoring',
+      JSON.stringify({ description: 'sensitive legacy draft' }),
+    );
+
+    expect(loadProgramAuthoringRecoveryKey(storage)).toBe('request-recovery-2');
+    expect(storage.getItem('oss-hub:program-authoring')).toBeNull();
+    expect(storage.removeItem).toHaveBeenCalledWith(
+      'oss-hub:program-authoring',
+    );
+  });
+
   it('clears the recovery key after successful creation', () => {
     const storage = memoryStorage();
     persistProgramAuthoringRecoveryKey(storage, 'request-recovery-2');
+    storage.setItem(
+      'oss-hub:program-authoring',
+      JSON.stringify({ description: 'sensitive legacy draft' }),
+    );
 
     clearProgramAuthoringRecoveryKey(storage);
 
     expect(storage.removeItem).toHaveBeenCalledWith(
       PROGRAM_AUTHORING_RECOVERY_KEY,
+    );
+    expect(storage.getItem('oss-hub:program-authoring')).toBeNull();
+    expect(storage.removeItem).toHaveBeenCalledWith(
+      'oss-hub:program-authoring',
     );
   });
 });

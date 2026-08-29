@@ -5,6 +5,7 @@ import {
   expectCleanState,
   parseDeadlinePreview,
   PROGRAM_AUTHORING_E2E,
+  seoulDeadlineDate,
   seoulLocalInput,
   toStateCounts,
   writeArtifact,
@@ -14,7 +15,6 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 // PROGRAM_AUTHORING_E2E.seoulNow(=신청 종료·운영 시작 시각)를 앵커로 삼아
 // 나머지 일정을 모두 상대 오프셋으로 도출한다(절대 캘린더 날짜 금지).
-const schedule = PROGRAM_AUTHORING_E2E.seoulNow;
 import { zipEntry, zipManifest } from './support/program-authoring-zip';
 import {
   adoptProgramGraph,
@@ -40,7 +40,8 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     // 45s 예산으로는 원천적으로 부족하다(run 5에서 45000ms 초과로 실패 확인).
     test.setTimeout(300_000);
     const controlPage = await authSeedPage('admin-confirmed');
-    await resetProgramAuthoringControl(controlPage);
+    const schedule = await resetProgramAuthoringControl(controlPage);
+    const milestoneDeadlineDate = seoulDeadlineDate(new Date(schedule));
     const authorPage = await authSeedPage('staff-revocable');
 
     await authorPage.goto('/programs/new');
@@ -96,12 +97,8 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
 
     await authorPage.getByRole('button', { name: '마일스톤 추가' }).click();
     let milestoneDialog = authorPage.getByRole('dialog');
-    await milestoneDialog
-      .getByLabel('시작일')
-      .fill(seoulLocalInput(schedule).slice(0, 10));
-    await milestoneDialog
-      .getByLabel('마감일')
-      .fill(seoulLocalInput(schedule).slice(0, 10));
+    await milestoneDialog.getByLabel('시작일').fill(milestoneDeadlineDate);
+    await milestoneDialog.getByLabel('마감일').fill(milestoneDeadlineDate);
     await milestoneDialog
       .getByLabel('마일스톤 이름 *')
       .fill(PROGRAM_AUTHORING_E2E.informationalMilestoneName);
@@ -110,12 +107,8 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
 
     await authorPage.getByRole('button', { name: '마일스톤 추가' }).click();
     milestoneDialog = authorPage.getByRole('dialog');
-    await milestoneDialog
-      .getByLabel('시작일')
-      .fill(seoulLocalInput(schedule).slice(0, 10));
-    await milestoneDialog
-      .getByLabel('마감일')
-      .fill(seoulLocalInput(schedule).slice(0, 10));
+    await milestoneDialog.getByLabel('시작일').fill(milestoneDeadlineDate);
+    await milestoneDialog.getByLabel('마감일').fill(milestoneDeadlineDate);
     await milestoneDialog
       .getByLabel('마일스톤 이름 *')
       .fill(PROGRAM_AUTHORING_E2E.requiredMilestoneName);

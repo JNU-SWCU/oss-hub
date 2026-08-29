@@ -227,7 +227,7 @@ export function buildProgramEditInput(
   ) {
     throw new ProgramEditValidationError({
       endAt:
-        '프로그램 종료일은 신청 종료일과 같거나 이후이고 모든 마일스톤 마감 이후여야 합니다.',
+        '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.',
     });
   }
 
@@ -302,7 +302,7 @@ export function validateProgramEditForm(
       )
     ) {
       errors.endAt =
-        '프로그램 종료일은 신청 종료일과 같거나 이후이고 모든 마일스톤 마감 이후여야 합니다.';
+        '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.';
     }
   }
 
