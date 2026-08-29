@@ -174,6 +174,22 @@ describe('PATCH .../documents/:documentId', () => {
     expect(statusOf(plan)).toBe(400);
     expect(jsonBody(plan)).toMatchObject({ code: 'SYS_003' });
   });
+
+  it('이름은 검증 전에 trim하고 공백만 남으면 SYS_003으로 거절한다', () => {
+    const path = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[1]}`;
+    const accepted = jsonBody(
+      resolve('PATCH', path, {
+        body: { name: '  합성 서류  ', required: true, sortOrder: 2 },
+      }),
+    ) as MilestoneDocument;
+    expect(accepted.name).toBe('합성 서류');
+
+    const rejected = resolve('PATCH', path, {
+      body: { name: '   ', required: true, sortOrder: 2 },
+    });
+    expect(statusOf(rejected)).toBe(400);
+    expect(jsonBody(rejected)).toMatchObject({ code: 'SYS_003' });
+  });
 });
 
 describe('POST .../documents', () => {

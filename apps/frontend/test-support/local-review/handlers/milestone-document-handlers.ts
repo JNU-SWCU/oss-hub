@@ -116,7 +116,7 @@ function isValidDocumentMutation(context: LocalReviewContext): boolean {
     hasOnlyKeys(body, DOCUMENT_MUTATION_KEYS) &&
     typeof body.name === 'string' &&
     body.name.trim().length > 0 &&
-    body.name.length <= 200 &&
+    body.name.trim().length <= 200 &&
     typeof body.required === 'boolean' &&
     typeof body.sortOrder === 'number' &&
     Number.isInteger(body.sortOrder) &&
@@ -557,7 +557,7 @@ const createDocumentHandler: LocalReviewHandler = (context) => {
   return accepted({
     id: `synthetic-document-${params.milestoneId}-new`,
     milestoneId: params.milestoneId,
-    name: bodyString(context, 'name') ?? '합성 서류',
+    name: bodyString(context, 'name')?.trim() ?? '합성 서류',
     required: bodyBoolean(context, 'required') ?? true,
     sortOrder: bodyNumber(context, 'sortOrder') ?? 1,
     hasTemplateFile: false,
@@ -584,7 +584,7 @@ const updateDocumentHandler: LocalReviewHandler = (context) => {
   return accepted({
     id: params.documentId,
     milestoneId: params.milestoneId,
-    name: bodyString(context, 'name') ?? '합성 서류',
+    name: bodyString(context, 'name')?.trim() ?? '합성 서류',
     required: bodyBoolean(context, 'required') ?? true,
     sortOrder: storedSortOrder(
       params.milestoneId ?? '',

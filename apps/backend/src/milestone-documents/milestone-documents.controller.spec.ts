@@ -320,6 +320,24 @@ it('교직원 서류 항목 추가는 201로 끝나고 서비스에 정규화된
   });
 });
 
+it('공백만 있는 서류 이름은 정규화 뒤 서비스 호출 전에 거절한다', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: '   ',
+        required: true,
+        sortOrder: 2,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(400);
+  expect(createDocument).not.toHaveBeenCalled();
+});
+
 it('새 서류 항목 요청에 알 수 없는 속성을 넣으면 400으로 거절한다', async () => {
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
