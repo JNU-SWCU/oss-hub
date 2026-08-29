@@ -162,7 +162,7 @@ describe('AppFrame', () => {
       html.match(/data-slot="nav-bar-items"[\s\S]*?<\/ul>/)?.[0] ?? '';
     for (const href of [
       '/admin/access',
-      '/admin/audit-log',
+      '/dashboard/audit-logs',
       '/dashboard/system-status',
     ]) {
       expect(navItemsList, href).not.toContain(`href="${href}"`);

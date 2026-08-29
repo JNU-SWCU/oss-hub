@@ -56,7 +56,7 @@ const LOCAL_REVIEW_TARGET_PATHS = new Set([
   // 관리자 접근은 한 화면으로 합쳐졌다. 예전의 `/admin/staff-requests`·
   // `/admin/users` 를 열어 두던 자리를 `/admin/access` 가 대신한다.
   '/admin/access',
-  '/admin/audit-log',
+  '/dashboard/audit-logs',
   '/dashboard/system-status',
   '/settings',
   '/onboarding/role',

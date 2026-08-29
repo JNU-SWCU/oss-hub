@@ -154,7 +154,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     ).toBeVisible();
     await attachStateScreenshot(staffPage, testInfo, 'staff-pending-approved');
 
-    await adminPage.goto('/admin/audit-log');
+    await adminPage.goto('/dashboard/audit-logs');
     await expect(
       adminPage.getByRole('heading', { name: '감사 로그' }),
     ).toBeVisible();
