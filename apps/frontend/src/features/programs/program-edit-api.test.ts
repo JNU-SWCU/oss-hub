@@ -177,7 +177,9 @@ describe('program edit API', () => {
     const saved = await updateMilestone('milestone-1', input);
 
     expect(saved.startAt).toBe('2026-05-02T00:00:00.000Z');
-    expect(toMilestoneForm(saved).startAt).toBe('2026-05-02T09:00');
+    expect(toMilestoneForm(saved).originalStartAt).toBe(
+      '2026-05-02T00:00:00.000Z',
+    );
   });
 
   it('maps backend fieldErrors from the real ApiClient problem shape without clearing inputs', async () => {
