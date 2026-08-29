@@ -35,6 +35,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       id: syntheticSubmissionId,
       revision: seenRevision,
       submissionHistoryId: syntheticSubmissionHistoryId,
+      latestHistoryCreatedAt: new Date('2026-09-17T09:00:00.000Z'),
     }),
     findLatestReviewIdForSubmission: jest
       .fn()
@@ -423,9 +424,9 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(transactionCalls).toEqual([
       'lockDocument',
-      'now',
       'findSubmissionForReview',
       'findLatestReviewIdForSubmission',
+      'now',
       'createReview',
       'updateSubmissionStatus',
     ]);
@@ -491,6 +492,27 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     expect(mocks.findSubmissionForReview).toHaveBeenCalledWith(
       syntheticDocumentId,
       syntheticApplicationId,
+    );
+  });
+
+  it('직전 원장 사건과 같은 시각의 판정은 1ms 뒤로 저장한다', async () => {
+    const latest = new Date('2026-09-18T09:00:00.000Z');
+    const { mocks, repository } = buildRepository({
+      findSubmissionForReview: jest.fn().mockResolvedValue({
+        id: syntheticSubmissionId,
+        revision: seenRevision,
+        submissionHistoryId: syntheticSubmissionHistoryId,
+        latestHistoryCreatedAt: latest,
+      }),
+    });
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    await review(service, () => latest);
+
+    expect(mocks.createReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewedAt: new Date('2026-09-18T09:00:00.001Z'),
+      }),
     );
   });
 });

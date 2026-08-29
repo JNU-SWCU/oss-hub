@@ -19,6 +19,7 @@ import {
   mapProgramEditError,
   toMilestoneForm,
   toProgramEditForm,
+  validateMilestoneForm,
   validateProgramEditForm,
   type ProgramEditableField,
   type ProgramEditErrors,
@@ -123,6 +124,21 @@ export function ProgramEditPage({
     firstInvalidField.scrollIntoView?.({ block: 'center' });
   }, [errors]);
 
+  useEffect(() => {
+    if (
+      milestoneEditor.mode === 'closed' ||
+      Object.keys(milestoneEditor.errors).length === 0
+    ) {
+      return;
+    }
+    const firstInvalidField =
+      editRegionRef.current?.querySelector<HTMLElement>(
+        '[id^="milestone-"][aria-invalid="true"]',
+      ) ?? null;
+    firstInvalidField?.focus({ preventScroll: true });
+    firstInvalidField?.scrollIntoView?.({ block: 'center' });
+  }, [milestoneEditor]);
+
   const updateField = (
     field: ProgramEditableField,
     value: string | boolean,
@@ -207,8 +223,21 @@ export function ProgramEditPage({
   const saveMilestone = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (milestoneEditor.mode === 'closed') return;
-    setIsMilestoneBusy(true);
     setGeneralAlert(null);
+    const validationErrors = validateMilestoneForm(
+      milestoneEditor.form,
+      form?.startAt ?? '',
+      form?.endAtUndecided === true ? null : (form?.endAt ?? null),
+    );
+    if (Object.keys(validationErrors).length > 0) {
+      setMilestoneEditor((current) =>
+        current.mode === 'closed'
+          ? current
+          : { ...current, errors: validationErrors },
+      );
+      return;
+    }
+    setIsMilestoneBusy(true);
     try {
       const input = buildMilestoneInput(
         milestoneEditor.form,

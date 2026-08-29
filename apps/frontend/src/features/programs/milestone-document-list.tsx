@@ -88,6 +88,7 @@ export function MilestoneDocumentSectionBody({
   conflictNotice,
   onRetry,
   onDocumentChange,
+  onRefresh = async () => true,
   onSubmitConflict,
 }: {
   readonly state: MilestoneDocumentSectionState;
@@ -97,6 +98,7 @@ export function MilestoneDocumentSectionBody({
   readonly conflictNotice: string | null;
   readonly onRetry: () => void;
   readonly onDocumentChange: (document: MilestoneDocument) => void;
+  readonly onRefresh?: () => Promise<boolean>;
   /** 제출 도중 교직원 판정이 먼저 커밋됐다(409 MSD_024) — 목록을 다시 불러야 한다. */
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
@@ -152,7 +154,7 @@ export function MilestoneDocumentSectionBody({
               key={document.id}
               document={document}
               closed={closed}
-              onChange={onDocumentChange}
+              onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
             />
           ),
@@ -180,22 +182,31 @@ export function MilestoneDocumentSection({
    * 줄이 아니라 여기(컨테이너)가 들고 있어야 살아남는다.
    */
   const [conflictNotice, setConflictNotice] = useState<string | null>(null);
+  const reloadQueueRef = useRef<Promise<void>>(Promise.resolve());
   /** 조회 한 번. **불러왔는지**를 돌려준다 — 그 결과가 곧 학생에게 할 말을 정한다. */
-  const load = useCallback(async (): Promise<MilestoneDocumentReloadResult> => {
-    setState({ kind: 'loading' });
-    try {
-      setState({
-        kind: 'ready',
-        documents: requireMilestoneDocumentList(
-          await listMilestoneDocuments(milestoneId),
-        ),
+  const enqueueLoad = useCallback(
+    (showLoading: boolean): Promise<MilestoneDocumentReloadResult> => {
+      const current = reloadQueueRef.current.then(async () => {
+        if (showLoading) setState({ kind: 'loading' });
+        try {
+          setState({
+            kind: 'ready',
+            documents: requireMilestoneDocumentList(
+              await listMilestoneDocuments(milestoneId),
+            ),
+          });
+          return 'reloaded' as const;
+        } catch {
+          if (showLoading) setState({ kind: 'failed' });
+          return 'failed' as const;
+        }
       });
-      return 'reloaded';
-    } catch {
-      setState({ kind: 'failed' });
-      return 'failed';
-    }
-  }, [milestoneId]);
+      reloadQueueRef.current = current.then(() => undefined);
+      return current;
+    },
+    [milestoneId],
+  );
+  const load = useCallback(() => enqueueLoad(true), [enqueueLoad]);
   useEffect(() => {
     if (viewerRole === null || viewerRole === 'PENDING') return;
     void load();
@@ -228,6 +239,7 @@ export function MilestoneDocumentSection({
             : previous,
         );
       }}
+      onRefresh={async () => (await enqueueLoad(false)) === 'reloaded'}
       onSubmitConflict={(document) => {
         /*
          * 제출하는 사이에 교직원 판정이 먼저 커밋됐다(409 MSD_024). 화면이 아는 상태가
@@ -388,12 +400,12 @@ function StudentReviewNotice({
 function StudentDocumentRow({
   document,
   closed,
-  onChange,
+  onRefresh,
   onSubmitConflict,
 }: {
   readonly document: MilestoneDocument;
   readonly closed: boolean;
-  readonly onChange: (document: MilestoneDocument) => void;
+  readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -443,14 +455,10 @@ function StudentDocumentRow({
   const refreshDocument = useCallback(async (): Promise<boolean> => {
     setSyncing(true);
     try {
-      const refreshed = requireMilestoneDocumentList(
-        await listMilestoneDocuments(document.milestoneId),
-      ).find((item) => item.id === document.id);
-      if (refreshed === undefined) throw new TypeError('Missing document.');
-      onChange(refreshed);
-      setSyncNotice(null);
-      return true;
-    } catch {
+      if (await onRefresh()) {
+        setSyncNotice(null);
+        return true;
+      }
       setSyncNotice(
         '제출은 저장되었습니다. 최신 제출 차수와 이력은 아직 화면에 반영되지 않았습니다.',
       );
@@ -458,7 +466,7 @@ function StudentDocumentRow({
     } finally {
       setSyncing(false);
     }
-  }, [document.id, document.milestoneId, onChange]);
+  }, [onRefresh]);
 
   const loadHistory = useCallback(
     async (cursor: string | null) => {

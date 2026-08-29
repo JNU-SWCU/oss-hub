@@ -424,6 +424,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const historyCreate = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-history',
     });
+    const historyFindFirst = jest.fn().mockResolvedValue(null);
     const fileUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const fileFindMany = jest.fn().mockResolvedValue([]);
     const reviewFindFirst = jest.fn().mockResolvedValue(lockedLatestReview);
@@ -432,7 +433,10 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       $queryRaw: queryRaw,
       milestoneDocumentSubmission: { upsert: submissionUpsert },
       milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
-      milestoneDocumentSubmissionHistory: { create: historyCreate },
+      milestoneDocumentSubmissionHistory: {
+        create: historyCreate,
+        findFirst: historyFindFirst,
+      },
       submissionFile: { updateMany: fileUpdateMany, findMany: fileFindMany },
       ...overrides,
     };
@@ -449,6 +453,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       queryRaw,
       reviewFindFirst,
       historyCreate,
+      historyFindFirst,
     };
   }
 
@@ -530,7 +535,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     expect(queryRaw).toHaveBeenCalledTimes(2);
   });
 
-  it('서류 행 존재를 FOR SHARE로 잠근 다음에야 제출을 쓴다 — 삭제와 제출을 직렬화한다', async () => {
+  it('서류 행 존재를 FOR UPDATE로 잠근 다음에야 제출을 쓴다 — 삭제·판정·제출을 직렬화한다', async () => {
     // Given: 이 잠금이 없으면 삭제가 제출 upsert와 교차해 끊어진 관계를 만들 수 있다.
     const order: string[] = [];
     const queryRaw = jest.fn(() => {
@@ -567,7 +572,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     expect(order).toEqual(['lock', 'upsert']);
     expect(
       String(firstCallArgument<{ strings: string[] }>(queryRaw).strings),
-    ).toContain('FOR SHARE');
+    ).toContain('FOR UPDATE');
     expect(
       String(firstCallArgument<{ strings: string[] }>(queryRaw).strings),
     ).toContain('"MilestoneDocument"');
@@ -592,6 +597,36 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       }),
     ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
     expect(submissionUpsert).not.toHaveBeenCalled();
+  });
+
+  it('직전 사건과 같은 시각의 재제출은 1ms 뒤로 저장한다', async () => {
+    const latest = new Date('2026-09-16T14:22:00.000Z');
+    const { prisma, submissionUpsert, historyCreate, historyFindFirst } =
+      transactionPrisma({});
+    historyFindFirst.mockResolvedValue({ createdAt: latest });
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    await repository.upsertSubmission({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: latest,
+      content: { type: 'TEXT', text: '본문' },
+      attachFile: null,
+      expectedLatestReviewId: null,
+    });
+
+    const expected = new Date('2026-09-16T14:22:00.001Z');
+    const upsertCall = firstCallArgument<{
+      update: { submittedAt: Date };
+      create: { submittedAt: Date };
+    }>(submissionUpsert);
+    const historyCall = firstCallArgument<{ data: { createdAt: Date } }>(
+      historyCreate,
+    );
+    expect(upsertCall.update.submittedAt).toEqual(expected);
+    expect(upsertCall.create.submittedAt).toEqual(expected);
+    expect(historyCall.data.createdAt).toEqual(expected);
   });
 
   it('재제출 파일은 이전 파일을 지우지 않고 새 이력에 붙인다', async () => {
@@ -940,6 +975,9 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     const historyCreate = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-decision-history',
     });
+    const historyFindFirst = jest.fn().mockResolvedValue({
+      createdAt: new Date('2026-09-17T09:00:00.000Z'),
+    });
     const direct = { create: jest.fn(), update: jest.fn() };
     const prisma = {
       milestoneDocumentReviewHistory: { create: direct.create },
@@ -954,7 +992,10 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
             create: reviewCreate,
             findFirst: reviewFindFirst,
           },
-          milestoneDocumentSubmissionHistory: { create: historyCreate },
+          milestoneDocumentSubmissionHistory: {
+            create: historyCreate,
+            findFirst: historyFindFirst,
+          },
         }),
       ),
     } as unknown as PrismaService;
@@ -1015,6 +1056,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       id: 'cuid-synthetic-submission',
       revision: 3,
       submissionHistoryId: 'cuid-synthetic-submission-history',
+      latestHistoryCreatedAt: new Date('2026-09-17T09:00:00.000Z'),
     });
   });
 

@@ -49,7 +49,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         take: 3,
-        orderBy: [{ createdAt: 'desc' }, { event: 'desc' }, { id: 'desc' }],
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),
     );
     expect(page?.items.map((item) => item.id)).toEqual([
@@ -106,7 +106,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     expect(findMany).not.toHaveBeenCalled();
   });
 
-  it('keeps equal-time submissions before decisions and continues after the boundary cursor', async () => {
+  it('동률 이관 사건도 결정적 순서로 cursor 경계를 잇는다', async () => {
     const tied = new Date('2026-09-03T00:00:00.000Z');
     const older = new Date('2026-09-02T00:00:00.000Z');
     const row = (

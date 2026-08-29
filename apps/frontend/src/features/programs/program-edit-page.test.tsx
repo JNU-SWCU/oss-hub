@@ -12,6 +12,7 @@ import {
   mapMilestoneError,
   mapProgramEditError,
   toProgramEditForm,
+  validateMilestoneForm,
 } from './program-edit-flow';
 import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 import { ProgramEditPage } from './program-edit-page';
@@ -166,6 +167,60 @@ describe('ProgramEditPage save payload', () => {
   });
 });
 
+describe('마일스톤 저장 전 검증', () => {
+  const form = {
+    id: null,
+    name: '중간 보고',
+    startAt: '2026-08-10T09:00',
+    dueAt: '2026-08-20T18:00',
+    originalStartAt: null,
+    originalDueAt: null,
+    instructions: '',
+  };
+
+  it('빈 이름·시작·마감을 각 입력 오류로 돌린다', () => {
+    expect(
+      validateMilestoneForm(
+        { ...form, name: '', startAt: '', dueAt: '' },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ),
+    ).toMatchObject({
+      name: expect.any(String),
+      startAt: expect.any(String),
+      dueAt: expect.any(String),
+    });
+  });
+
+  it('역순과 운영 기간 밖 날짜를 시작·마감 입력에 돌린다', () => {
+    expect(
+      validateMilestoneForm(
+        {
+          ...form,
+          startAt: '2026-08-20T18:00',
+          dueAt: '2026-08-20T18:00',
+        },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ).startAt,
+    ).toContain('마감일보다 앞서야');
+    expect(
+      validateMilestoneForm(
+        {
+          ...form,
+          startAt: '2026-07-31T18:00',
+          dueAt: '2026-09-01T09:00',
+        },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ),
+    ).toMatchObject({
+      startAt: expect.any(String),
+      dueAt: expect.any(String),
+    });
+  });
+});
+
 // #355 — 마일스톤 실패 안내는 "입력이 남아 있는지"와 "다음에 무엇을 할지"를 말해야 한다.
 describe('마일스톤 실패 안내', () => {
   function apiError(code: string, status: number): ApiError {
@@ -276,6 +331,24 @@ describe('ProgramEditPage 컴포넌트', () => {
     await act(async () => root.unmount());
     container.remove();
     window.confirm = originalConfirm;
+  });
+
+  it('빈 새 마일스톤은 변환 전에 필드 오류를 보여 주고 첫 입력에 초점을 둔다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      await Promise.resolve();
+    });
+    await act(async () => getButton('추가').click());
+    await act(async () => getButton('저장').click());
+
+    expect(container.textContent).toContain('마일스톤 이름을 입력해 주세요.');
+    expect(container.textContent).toContain('유효한 시작일을 입력해 주세요.');
+    expect(container.textContent).toContain('유효한 마감일을 입력해 주세요.');
+    expect(document.activeElement).toBe(
+      container.querySelector('#milestone-name'),
+    );
   });
 
   it('저장 후에도 화면에 머무르고 상세 화면으로 이동하지 않는다', async () => {

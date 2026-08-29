@@ -9,6 +9,7 @@ import type {
   MilestoneDocumentSubmissionDetail,
   UpsertMilestoneDocumentSubmissionInput,
 } from './milestone-documents.repository';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history';
 
 export class MilestoneDocumentPendingFileMissingError extends Error {
   override readonly name = 'MilestoneDocumentPendingFileMissingError';
@@ -66,10 +67,25 @@ export function upsertMilestoneDocumentSubmission(
       SELECT "id"
       FROM "MilestoneDocument"
       WHERE "id" = ${input.milestoneDocumentId}
-      FOR SHARE
+      FOR UPDATE
     `,
     );
     if (documents.length === 0) throw new MilestoneDocumentMissingError();
+    const latestHistory =
+      await transaction.milestoneDocumentSubmissionHistory.findFirst({
+        where: {
+          submission: {
+            milestoneDocumentId: input.milestoneDocumentId,
+            applicationId: input.applicationId,
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { createdAt: true },
+      });
+    const submittedAt = nextMilestoneDocumentHistoryCreatedAt(
+      input.submittedAt,
+      latestHistory?.createdAt ?? null,
+    );
 
     const latestReview =
       await transaction.milestoneDocumentReviewHistory.findFirst({
@@ -97,7 +113,7 @@ export function upsertMilestoneDocumentSubmission(
         status: SubmissionStatus.SUBMITTED,
         content: input.content,
         submittedById: input.submittedById,
-        submittedAt: input.submittedAt,
+        submittedAt,
         revision: { increment: 1 },
       },
       create: {
@@ -106,7 +122,7 @@ export function upsertMilestoneDocumentSubmission(
         status: SubmissionStatus.SUBMITTED,
         content: input.content,
         submittedById: input.submittedById,
-        submittedAt: input.submittedAt,
+        submittedAt,
       },
       select: {
         id: true,
@@ -128,7 +144,7 @@ export function upsertMilestoneDocumentSubmission(
           revision: submission.revision,
           actorId: input.submittedById,
           content: input.content,
-          createdAt: input.submittedAt,
+          createdAt: submittedAt,
         },
         select: { id: true },
       },

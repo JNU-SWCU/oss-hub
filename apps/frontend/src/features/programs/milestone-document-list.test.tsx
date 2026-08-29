@@ -407,6 +407,135 @@ describe('제출과 판정이 부딪혔을 때', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
+
+  it('두 행의 저장 재조회와 판정 충돌 재조회를 한 순서로 직렬화한다', async () => {
+    const second = {
+      ...CHANGES_REQUESTED,
+      id: 'document-2',
+      name: '결과보고서',
+    };
+    const refreshedFirst = documentWithViewer({
+      submitted: true,
+      submittedAt: '2026-08-03T00:00:00.000Z',
+      revision: 3,
+      status: 'SUBMITTED',
+      hasCurrentFile: false,
+      review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
+      history: { hasHistory: false, isComplete: true },
+    });
+    const approvedSecond = {
+      ...APPROVED,
+      id: second.id,
+      name: second.name,
+    };
+    let resolveQuiet!: (response: Response) => void;
+    let resolveConflict!: (response: Response) => void;
+    const quiet = new Promise<Response>((resolve) => {
+      resolveQuiet = resolve;
+    });
+    const conflict = new Promise<Response>((resolve) => {
+      resolveConflict = resolve;
+    });
+    let getCount = 0;
+    const fetchMock = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method =
+          input instanceof Request ? input.method : (init?.method ?? 'GET');
+        if (method === 'GET') {
+          getCount += 1;
+          if (getCount === 1)
+            return Promise.resolve(jsonResponse([CHANGES_REQUESTED, second]));
+          if (getCount === 2) return quiet;
+          if (getCount === 3) return conflict;
+        }
+        if (url.includes('/document-1/submissions')) {
+          return Promise.resolve(jsonResponse({ id: 'submission-1' }));
+        }
+        if (url.includes('/document-2/submissions')) {
+          return Promise.resolve(
+            problemResponse(409, 'MSD_024', '판정이 먼저 저장되었습니다.'),
+          );
+        }
+        throw new TypeError(`Unexpected request: ${method} ${url}`);
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSection
+          milestoneId="milestone-1"
+          viewerRole="STUDENT"
+          closed={false}
+        />,
+      );
+    });
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain(second.name),
+    );
+
+    const rows = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '[data-testid="milestone-document-row"]',
+      ),
+    );
+    const rowFor = (name: string) => {
+      const row = rows.find((candidate) =>
+        candidate.textContent?.includes(name),
+      );
+      if (row === undefined) throw new TypeError(`Missing row: ${name}`);
+      return row;
+    };
+    for (const [name, text] of [
+      ['기획서', '첫 행 수정'],
+      ['결과보고서', '둘째 행 수정'],
+    ] as const) {
+      const row = rowFor(name);
+      await act(async () => {
+        row
+          .querySelector<HTMLButtonElement>('button')
+          ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      const input = row.querySelector<HTMLTextAreaElement>('textarea');
+      if (input === null) throw new TypeError(`Missing input: ${name}`);
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        'value',
+      )?.set;
+      await act(async () => {
+        setter?.call(input, text);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+    await act(async () => {
+      for (const row of rows) {
+        row
+          .querySelector('form')
+          ?.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true }),
+          );
+      }
+    });
+
+    await vi.waitFor(() => expect(getCount).toBe(2));
+    await act(async () => {
+      resolveQuiet(jsonResponse([refreshedFirst, second]));
+    });
+    await vi.waitFor(() => expect(getCount).toBe(3));
+    await act(async () => {
+      resolveConflict(jsonResponse([refreshedFirst, approvedSecond]));
+    });
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).toContain(
+        '승인된 제출 항목은 다시 제출할 수 없습니다.',
+      );
+    });
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST'),
+    ).toHaveLength(2);
+  });
 });
 
 /**

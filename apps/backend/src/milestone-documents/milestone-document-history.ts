@@ -6,14 +6,22 @@ import {
 
 /**
  * 최신 페이지부터 읽되 응답 안에서는 다시 시간순으로 뒤집는다.
- * 같은 시각에는 판정을 뒤에 놓아 응답을 뒤집은 뒤 제출·재제출이 먼저 보이게 하고,
- * id로 최종 순서를 고정한다.
+ * runtime writer는 같은 제출 원장의 `createdAt`을 직전 사건보다 최소 1ms 뒤로
+ * 보정한다. 이관 전 동률만 id로 결정적으로 고정하며 enum 선언 순서로 인과를 추측하지 않는다.
  */
 export const milestoneDocumentHistoryDescendingOrderBy = [
   { createdAt: 'desc' },
-  { event: 'desc' },
   { id: 'desc' },
 ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
+
+export function nextMilestoneDocumentHistoryCreatedAt(
+  requested: Date,
+  latest: Date | null,
+): Date {
+  return latest === null || requested.getTime() > latest.getTime()
+    ? requested
+    : new Date(latest.getTime() + 1);
+}
 
 /** 목록 응답 하나가 영구히 커지지 않도록 제출·판정 각각 최근 50건만 포함한다. */
 export const boundedReviewHistoryQuery = {

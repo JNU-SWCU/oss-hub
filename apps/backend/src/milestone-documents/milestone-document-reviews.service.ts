@@ -9,6 +9,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 
 /**
@@ -92,25 +93,10 @@ export class MilestoneDocumentReviewsService {
       }
 
       /*
-       * 판정 시각은 **여기서** 찍는다 — 잠금을 얻은 뒤, 같은 트랜잭션 안이다.
-       *
-       * 왜 이 순서가 「최신 판정」 조회와 맞아떨어지는가: 같은 (서류, 신청)을 판정하는 두
-       * 트랜잭션은 같은 `MilestoneDocument` 행을 `FOR UPDATE`로 잡으므로 한 줄로 선다. 뒤에
-       * 선 쪽은 앞선 쪽이 **커밋해서 잠금을 놓은 뒤에야** 이 지점에 도달하므로, 시각을 찍는
-       * 순간은 언제나 「앞 트랜잭션의 커밋 이후」다. 따라서 `reviewedAt` 오름차순 = 실제 커밋
-       * 순서이고, `reviewedAt DESC`로 뽑은 「최신 판정」이 곧 `status`를 마지막에 쓴 그 판정이다.
-       * (요청 시각을 미리 찍으면 이 대응이 깨진다 — 잠금을 기다린 쪽이 더 이른 시각을 들고
-       * 나중에 커밋한다.)
-       *
-       * 동률(같은 밀리초)만 남는다: 앞 트랜잭션이 커밋한 그 밀리초 안에 뒤 트랜잭션이 시각을
-       * 찍으면 `reviewedAt`이 같아진다. 그때는 리포지토리의 `reviewedAt DESC, id DESC`가 cuid의
-       * 시간 접두사로 한 값을 **결정적으로** 고른다 — 조회할 때마다 답이 달라지지는 않는다.
-       * 다만 밀리초 미만에서 cuid 순서가 커밋 순서와 같다는 보장은 없으므로(id는 DB가 아니라
-       * 애플리케이션이 만든다), 이 동률 구간에서만 「최신 판정」이 `status`와 갈릴 수 있다.
-       * 그 창을 완전히 닫으려면 순번을 DB가 부여해야 한다(스키마 변경).
+       * 제출·판정 writer가 같은 서류 행을 FOR UPDATE로 잡아 한 줄로 선다. 아래 재확인이
+       * 끝난 뒤 시각을 찍고, 직전 원장 사건과 같거나 이르면 1ms 뒤로 보정하므로
+       * `createdAt DESC`가 revision·commit 순서와 갈리지 않는다.
        */
-      const reviewedAt = now();
-
       // 4. 그 (서류, 신청) 제출이 있는가 — 잠금 아래에서 찾는다.
       const submission = await store.findSubmissionForReview(
         documentId,
@@ -119,7 +105,7 @@ export class MilestoneDocumentReviewsService {
       if (submission === null) {
         throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
       }
-
+      /*
       /*
        * 5. 이게 **검토자가 본 그 버전**인가 — 두 값을 잠금 아래에서 맞춰 본다.
        *
@@ -152,6 +138,10 @@ export class MilestoneDocumentReviewsService {
       if (latestReviewId !== input.expectedLatestReviewId) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
       }
+      const reviewedAt = nextMilestoneDocumentHistoryCreatedAt(
+        now(),
+        submission.latestHistoryCreatedAt,
+      );
 
       const review = await store.createReview({
         milestoneDocumentSubmissionId: submission.id,

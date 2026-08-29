@@ -371,6 +371,7 @@ export interface MilestoneDocumentWriteStore {
     readonly id: string;
     readonly revision: number;
     readonly submissionHistoryId: string;
+    readonly latestHistoryCreatedAt: Date | null;
   } | null>;
   /**
    * 이 제출의 최신 판정 id. 아직 판정이 없으면 null.
@@ -624,6 +625,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     readonly id: string;
     readonly revision: number;
     readonly submissionHistoryId: string;
+    readonly latestHistoryCreatedAt: Date | null;
   } | null> {
     return this.findSubmissionForReviewWithHistory(
       milestoneDocumentId,
@@ -638,6 +640,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     readonly id: string;
     readonly revision: number;
     readonly submissionHistoryId: string;
+    readonly latestHistoryCreatedAt: Date | null;
   } | null> {
     const submission =
       await this.transaction.milestoneDocumentSubmission.findUnique({
@@ -673,10 +676,17 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     ) {
       return null;
     }
+    const latestHistory =
+      await this.transaction.milestoneDocumentSubmissionHistory.findFirst({
+        where: { milestoneDocumentSubmissionId: submission.id },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { createdAt: true },
+      });
     return {
       id: submission.id,
       revision: submission.revision,
       submissionHistoryId: history.id,
+      latestHistoryCreatedAt: latestHistory?.createdAt ?? null,
     };
   }
 

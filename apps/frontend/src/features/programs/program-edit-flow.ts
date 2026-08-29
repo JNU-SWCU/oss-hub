@@ -330,6 +330,44 @@ export function buildMilestoneInput(
   };
 }
 
+export function validateMilestoneForm(
+  form: ProgramMilestoneForm,
+  operationStartAt: string,
+  operationEndAt: string | null,
+): ProgramMilestoneErrors {
+  const errors: {
+    name?: string;
+    startAt?: string;
+    dueAt?: string;
+  } = {};
+  if (form.name.trim() === '') {
+    errors.name = '마일스톤 이름을 입력해 주세요.';
+  }
+  const startAt = dateTimeValue(form.startAt);
+  const dueAt = dateTimeValue(form.dueAt);
+  const programStartAt = dateTimeValue(operationStartAt);
+  const programEndAt =
+    operationEndAt === null ? null : dateTimeValue(operationEndAt);
+  if (startAt === null) {
+    errors.startAt = '유효한 시작일을 입력해 주세요.';
+  }
+  if (dueAt === null) {
+    errors.dueAt = '유효한 마감일을 입력해 주세요.';
+  }
+  if (
+    startAt !== null &&
+    dueAt !== null &&
+    ((programStartAt !== null && startAt < programStartAt) || startAt >= dueAt)
+  ) {
+    errors.startAt =
+      '마일스톤 시작일은 운영 기간 안에서 마감일보다 앞서야 합니다.';
+  }
+  if (dueAt !== null && programEndAt !== null && dueAt >= programEndAt) {
+    errors.dueAt = '마일스톤 마감은 프로그램 종료 이전이어야 합니다.';
+  }
+  return errors;
+}
+
 export function mapProgramEditError(error: unknown): ProgramEditErrors {
   if (error instanceof ProgramEditValidationError) return error.errors;
   if (!(error instanceof ApiError)) {

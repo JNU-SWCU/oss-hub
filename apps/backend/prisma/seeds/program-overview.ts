@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   BoardPostCategory,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   SubmissionStatus,
@@ -182,6 +183,53 @@ async function upsertMilestoneDocumentSubmission(
         },
       }),
   );
+  const submission = await prisma.milestoneDocumentSubmission.findUniqueOrThrow(
+    {
+      where: { id: params.id },
+      select: { revision: true },
+    },
+  );
+  const currentHistory =
+    await prisma.milestoneDocumentSubmissionHistory.findFirst({
+      where: {
+        milestoneDocumentSubmissionId: params.id,
+        revision: submission.revision,
+        event: {
+          in: [
+            MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+          ],
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { id: true },
+    });
+  const historyId =
+    currentHistory?.id ??
+    seedId('program-overview', 'submission-history', params.id);
+  await prisma.milestoneDocumentSubmissionHistory.upsert({
+    where: { id: historyId },
+    update: {
+      event:
+        submission.revision === 1
+          ? MilestoneDocumentSubmissionHistoryEvent.SUBMITTED
+          : MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+      revision: submission.revision,
+      actorId: params.submittedById,
+      createdAt: submittedAt,
+    },
+    create: {
+      id: historyId,
+      milestoneDocumentSubmissionId: params.id,
+      event:
+        submission.revision === 1
+          ? MilestoneDocumentSubmissionHistoryEvent.SUBMITTED
+          : MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+      revision: submission.revision,
+      actorId: params.submittedById,
+      createdAt: submittedAt,
+    },
+  });
 
   const fileId = seedId('program-overview', 'submission-file', params.id);
   const storageKey = `program-overview/${fileId}`;
@@ -192,13 +240,17 @@ async function upsertMilestoneDocumentSubmission(
     () =>
       prisma.submissionFile.upsert({
         where: { id: fileId },
-        update: { storageKey },
+        update: {
+          storageKey,
+          milestoneDocumentSubmissionHistoryId: historyId,
+        },
         create: {
           id: fileId,
           uploaderId: params.submittedById,
           applicationId: APPLICATION_ID,
           milestoneId: params.milestoneId,
           milestoneDocumentSubmissionId: params.id,
+          milestoneDocumentSubmissionHistoryId: historyId,
           storageKey,
           originalFileName: params.originalFileName,
           mimeType: 'application/pdf',
