@@ -40,7 +40,7 @@ function StudentState({
   applicationStatus,
 }: Omit<MilestoneRowProps, 'viewerRole'>) {
   if (milestone.submissionType === null) {
-    if ((milestone.submissionItemCount ?? 0) === 0) {
+    if (milestone.submissionItemCount === 0) {
       return (
         <p className="text-small font-semibold text-muted-foreground">
           제출 없음 · 안내용
@@ -117,7 +117,7 @@ export function MilestoneRow({
           <>
             {milestone.submissionType === null ? (
               <p className="text-small font-semibold text-muted-foreground">
-                {(milestone.submissionItemCount ?? 0) === 0
+                {milestone.submissionItemCount === 0
                   ? '제출 없음 · 안내용'
                   : `제출 항목 ${milestone.submissionItemCount}개`}
               </p>

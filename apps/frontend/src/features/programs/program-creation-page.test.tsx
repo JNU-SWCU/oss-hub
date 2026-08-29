@@ -3,9 +3,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/lib/api-client';
 import { completedAuthoringState } from './program-creation-test-fixtures';
 import {
   PROGRAM_AUTHORING_STORAGE_KEY,
+  loadProgramAuthoringState,
   serializeProgramAuthoringState,
 } from './program-authoring-storage';
 
@@ -186,6 +188,69 @@ describe('ProgramCreationPage guided authoring', () => {
       container.querySelector('#milestone-1-due'),
     );
     expect(container.textContent).toContain('신청/운영 일정');
+  });
+
+  it('마일스톤 날짜가 비었으면 비활성 시각 입력 대신 날짜 달력으로 이동한다', async () => {
+    const completed = completedAuthoringState();
+    sessionStorage.setItem(
+      PROGRAM_AUTHORING_STORAGE_KEY,
+      serializeProgramAuthoringState({
+        ...completed,
+        currentStep: 'schedule',
+        milestones: [
+          {
+            ...completed.milestones[0],
+            startAt: '',
+            dueAt: '',
+          },
+        ],
+      }),
+    );
+    await act(async () => {
+      root.render(<ProgramCreationPage />);
+      await Promise.resolve();
+    });
+
+    await act(async () => buttonNamed('저장하고 계속').click());
+
+    expect(document.activeElement).toBe(
+      container.querySelector(
+        '[data-testid="program-schedule-calendar-scroll"]',
+      ),
+    );
+  });
+
+  it('생성 충돌로 회전한 idempotency key를 복구본에 즉시 저장한다', async () => {
+    const completed = completedAuthoringState();
+    sessionStorage.setItem(
+      PROGRAM_AUTHORING_STORAGE_KEY,
+      serializeProgramAuthoringState(completed),
+    );
+    mocks.createAuthoringProgram.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: '이미 사용한 요청입니다.',
+        instance: '/programs',
+        code: 'PRG_015',
+      }),
+    );
+    await act(async () => {
+      root.render(<ProgramCreationPage />);
+      await Promise.resolve();
+    });
+    await act(async () => buttonNamed('최종 검토').click());
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => {
+      buttonNamed('생성 확정').click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const restored = loadProgramAuthoringState(sessionStorage);
+    expect(restored?.idempotencyKey).not.toBe(completed.idempotencyKey);
+    expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
   });
 
   it('최종 검토에서 날짜 오류를 발견해도 일정 화면의 문제 입력으로 돌아간다', async () => {

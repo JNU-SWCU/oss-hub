@@ -59,6 +59,7 @@ export interface MilestoneDocumentReviewPanelProps {
   readonly isHistoryLoading: boolean;
   readonly historyError: string | null;
   readonly hasMoreHistory: boolean;
+  readonly historyIsComplete: boolean;
   readonly onHistoryMore: () => void;
 }
 
@@ -231,7 +232,13 @@ export function MilestoneDocumentReviewPanel(
       ) : (
         <MilestoneDocumentHistoryTimeline
           history={props.history ?? []}
-          completeness={props.hasMoreHistory ? 'has-more' : 'complete'}
+          completeness={
+            props.hasMoreHistory
+              ? 'has-more'
+              : props.historyIsComplete
+                ? 'complete'
+                : 'incomplete'
+          }
         />
       )}
 

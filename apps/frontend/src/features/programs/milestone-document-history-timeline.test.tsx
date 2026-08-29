@@ -89,4 +89,15 @@ describe('MilestoneDocumentHistoryTimeline', () => {
     expect(html).toContain('이관 전 제출 이력 일부');
     expect(html).toContain('기존 접수 기록을 요청');
   });
+
+  it('원장 행이 하나도 없는 legacy 제출도 누락 안내를 숨기지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentHistoryTimeline
+        completeness="incomplete"
+        history={[]}
+      />,
+    );
+
+    expect(html).toContain('이관 전 제출 이력 일부');
+  });
 });

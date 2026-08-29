@@ -134,6 +134,7 @@ export function MilestoneDocumentCollectionScreen({
                     ? page.items
                     : [...page.items, ...previous.history],
                 historyNextCursor: page.nextCursor,
+                historyIsComplete: page.isComplete,
                 isHistoryLoading: false,
                 historyError: null,
               }

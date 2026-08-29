@@ -2040,6 +2040,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
           },
         ],
         nextCursor: 'history-cursor',
+        isComplete: false,
       }),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -2052,6 +2053,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     );
 
     expect(result.nextCursor).toBe('history-cursor');
+    expect(result.isComplete).toBe(false);
     expect(result.items.map((item) => item.actorNickname)).toEqual([
       '합성학생',
       '담당 교직원',

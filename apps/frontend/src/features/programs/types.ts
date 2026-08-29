@@ -345,8 +345,7 @@ export interface ProgramMilestone {
   readonly deadlineLabel: string;
   readonly description: string | null;
   readonly submissionType: SubmissionType | null;
-  /** 신규 API 필드. 예전 로컬 fixture의 생략값은 0으로 해석한다. */
-  readonly submissionItemCount?: number;
+  readonly submissionItemCount: number;
   readonly viewerSubmissionStatus: SubmissionStatus | null;
   readonly applicationSubmissionSummary: SubmissionSummary | null;
 }

@@ -496,6 +496,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
         errorMessage: null,
         history: [],
         historyNextCursor: null,
+        historyIsComplete: true,
         isHistoryLoading: false,
         historyError: null,
       },

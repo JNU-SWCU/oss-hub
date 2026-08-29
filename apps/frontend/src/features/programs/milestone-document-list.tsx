@@ -419,6 +419,7 @@ function StudentDocumentRow({
   const [historyNextCursor, setHistoryNextCursor] = useState<string | null>(
     null,
   );
+  const [historyIsComplete, setHistoryIsComplete] = useState(true);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyErrorCursor, setHistoryErrorCursor] = useState<string | null>(
@@ -485,6 +486,7 @@ function StudentDocumentRow({
           cursor === null ? page.items : [...page.items, ...previous],
         );
         setHistoryNextCursor(page.nextCursor);
+        setHistoryIsComplete(page.isComplete);
         setHistoryErrorCursor(null);
       } catch {
         if (requestId !== historyRequestIdRef.current) return;
@@ -510,6 +512,7 @@ function StudentDocumentRow({
     historyRequestIdRef.current += 1;
     setHistory([]);
     setHistoryNextCursor(null);
+    setHistoryIsComplete(historyMetadata?.isComplete ?? true);
     setIsHistoryLoading(false);
     setHistoryError(null);
     setHistoryErrorCursor(null);
@@ -646,13 +649,13 @@ function StudentDocumentRow({
           review={review}
         />
       )}
-      {history.length === 0 ? null : (
+      {history.length === 0 && historyIsComplete ? null : (
         <MilestoneDocumentHistoryTimeline
           history={history}
           completeness={
             historyNextCursor !== null
               ? 'has-more'
-              : historyMetadata?.isComplete === true
+              : historyIsComplete
                 ? 'complete'
                 : 'incomplete'
           }

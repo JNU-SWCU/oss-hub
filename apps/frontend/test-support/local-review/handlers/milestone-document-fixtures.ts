@@ -937,7 +937,15 @@ export function milestoneDocumentHistoryFor(
     collectionFileNameFor(document, rowIndex),
     collectionContentFor(document, rowIndex + 1),
   );
-  return historyPageFor(documentId, applicationId, history, query);
+  return historyPageFor(
+    documentId,
+    applicationId,
+    history,
+    history.filter(
+      (item) => item.event === 'SUBMITTED' || item.event === 'RESUBMITTED',
+    ).length === collectionRevisionFor(state),
+    query,
+  );
 }
 
 export function milestoneDocumentParticipantHistoryFor(
@@ -1004,13 +1012,20 @@ export function milestoneDocumentParticipantHistoryFor(
       (left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt),
     );
   }
-  return historyPageFor(documentId, 'viewer', history, query);
+  return historyPageFor(
+    documentId,
+    'viewer',
+    history,
+    submission.history.isComplete,
+    query,
+  );
 }
 
 function historyPageFor(
   documentId: string,
   applicationId: string,
   history: readonly MilestoneDocumentCollectionHistory[],
+  isComplete: boolean,
   query: { readonly cursor: string | null; readonly limit: number },
 ): MilestoneDocumentHistoryFixtureResult {
   const descending = history
@@ -1036,6 +1051,7 @@ function historyPageFor(
     page: {
       items: pageRows.map((row) => row.item).toReversed(),
       nextCursor: hasMore ? (pageRows.at(-1)?.id ?? null) : null,
+      isComplete,
     },
   };
 }

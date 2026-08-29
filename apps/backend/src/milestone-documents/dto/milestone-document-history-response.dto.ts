@@ -14,4 +14,5 @@ export interface MilestoneDocumentHistoryItemResponseDto {
 export interface MilestoneDocumentHistoryPageResponseDto {
   readonly items: readonly MilestoneDocumentHistoryItemResponseDto[];
   readonly nextCursor: string | null;
+  readonly isComplete: boolean;
 }

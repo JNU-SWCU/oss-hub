@@ -158,6 +158,7 @@ export interface MilestoneDocumentHistoryPage {
     readonly id: string;
   })[];
   readonly nextCursor: string | null;
+  readonly isComplete: boolean;
 }
 
 /**
@@ -1088,7 +1089,24 @@ export class MilestoneDocumentsRepository {
             applicationId,
           },
         },
-        select: { id: true },
+        select: {
+          id: true,
+          revision: true,
+          _count: {
+            select: {
+              histories: {
+                where: {
+                  event: {
+                    in: [
+                      MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+                      MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     );
     if (submission === null) return null;
@@ -1140,6 +1158,7 @@ export class MilestoneDocumentsRepository {
         content: row.content,
       })),
       nextCursor,
+      isComplete: submission._count.histories === submission.revision,
     };
   }
 

@@ -98,7 +98,11 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
             expiresAt: { gt: new Date() },
           },
           orderBy: [
-            { submissionHistory: { revision: 'desc' } },
+            {
+              submissionHistory: {
+                revision: { sort: 'desc', nulls: 'last' },
+              },
+            },
             { createdAt: 'desc' },
           ],
           take: 1,

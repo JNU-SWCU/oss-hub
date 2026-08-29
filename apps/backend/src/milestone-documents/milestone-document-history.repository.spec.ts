@@ -8,9 +8,15 @@ import {
   MilestoneDocumentsRepository,
 } from './milestone-documents.repository';
 
+const submissionRecord = (revision = 2, historyCount = revision) => ({
+  id: 'submission-1',
+  revision,
+  _count: { histories: historyCount },
+});
+
 describe('MilestoneDocumentsRepository history page', () => {
   it('reads at most limit+1 rows, returns chronological items, and exposes a cursor', async () => {
-    const findUnique = jest.fn().mockResolvedValue({ id: 'submission-1' });
+    const findUnique = jest.fn().mockResolvedValue(submissionRecord(3, 2));
     const newest = new Date('2026-09-03T00:00:00.000Z');
     const middle = new Date('2026-09-02T00:00:00.000Z');
     const oldest = new Date('2026-09-01T00:00:00.000Z');
@@ -57,13 +63,14 @@ describe('MilestoneDocumentsRepository history page', () => {
       'history-3',
     ]);
     expect(page?.nextCursor).toBe('history-2');
+    expect(page?.isComplete).toBe(false);
   });
 
   it('uses the supplied cursor without returning it again', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const repository = new MilestoneDocumentsRepository({
       milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'submission-1' }),
+        findUnique: jest.fn().mockResolvedValue(submissionRecord()),
       },
       milestoneDocumentSubmissionHistory: {
         findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
@@ -87,7 +94,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     const findMany = jest.fn();
     const repository = new MilestoneDocumentsRepository({
       milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'submission-1' }),
+        findUnique: jest.fn().mockResolvedValue(submissionRecord()),
       },
       milestoneDocumentSubmissionHistory: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -144,7 +151,7 @@ describe('MilestoneDocumentsRepository history page', () => {
       .mockResolvedValueOnce([olderSubmission]);
     const repository = new MilestoneDocumentsRepository({
       milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'submission-1' }),
+        findUnique: jest.fn().mockResolvedValue(submissionRecord()),
       },
       milestoneDocumentSubmissionHistory: {
         findFirst: jest.fn().mockResolvedValue({ id: 'history-submission' }),

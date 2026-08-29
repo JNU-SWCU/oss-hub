@@ -32,7 +32,7 @@ export function MilestoneDocumentHistoryTimeline({
   readonly completeness: MilestoneDocumentHistoryCompleteness;
 }): ReactElement | null {
   const titleId = useId();
-  if (history.length === 0) return null;
+  if (history.length === 0 && completeness !== 'incomplete') return null;
   const firstKnownSubmission = history.find(
     (item) => item.event === 'SUBMITTED' || item.event === 'RESUBMITTED',
   );

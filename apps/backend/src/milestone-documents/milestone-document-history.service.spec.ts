@@ -28,6 +28,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
           },
         ],
         nextCursor: null,
+        isComplete: true,
       }),
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(repository);
@@ -48,6 +49,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         }),
       ],
       nextCursor: null,
+      isComplete: true,
     });
   });
 

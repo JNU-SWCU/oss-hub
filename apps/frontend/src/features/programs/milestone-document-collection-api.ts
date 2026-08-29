@@ -86,6 +86,7 @@ export interface MilestoneDocumentCollectionHistory {
 export interface MilestoneDocumentHistoryPage {
   readonly items: readonly MilestoneDocumentCollectionHistory[];
   readonly nextCursor: string | null;
+  readonly isComplete: boolean;
 }
 
 /**

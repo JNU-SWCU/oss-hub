@@ -335,6 +335,7 @@ export interface MilestoneDocumentReviewFormState {
   readonly errorMessage: string | null;
   readonly history: readonly MilestoneDocumentCollectionHistory[];
   readonly historyNextCursor: string | null;
+  readonly historyIsComplete: boolean;
   readonly isHistoryLoading: boolean;
   readonly historyError: string | null;
 }
@@ -352,6 +353,7 @@ export function createMilestoneDocumentReviewFormState(
     errorMessage: null,
     history: [],
     historyNextCursor: null,
+    historyIsComplete: true,
     isHistoryLoading: true,
     historyError: null,
   };

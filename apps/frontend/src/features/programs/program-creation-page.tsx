@@ -78,7 +78,7 @@ export function ProgramCreationPage() {
     if (issues.length === 0) return;
     const firstInvalidField =
       stepRegionRef.current?.querySelector<HTMLElement>(
-        '[aria-invalid="true"]',
+        '[aria-invalid="true"]:not(:disabled)',
       ) ?? null;
     if (firstInvalidField === null) {
       stepRegionRef.current?.focus();
@@ -176,7 +176,14 @@ export function ProgramCreationPage() {
         );
         return;
       case 'conflict':
-        dispatch({ type: 'rotate_idempotency_key', key: newAuthoringId() });
+        {
+          const idempotencyKey = newAuthoringId();
+          dispatch({ type: 'rotate_idempotency_key', key: idempotencyKey });
+          persistProgramAuthoringState(window.sessionStorage, {
+            ...state,
+            idempotencyKey,
+          });
+        }
         setConfirmationOpen(false);
         setServerError(
           '이 생성 요청은 이전 내용과 충돌했습니다. 입력 내용은 유지되었습니다. 다시 확인한 뒤 생성해 주세요.',

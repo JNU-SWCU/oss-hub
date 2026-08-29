@@ -157,6 +157,12 @@ export function ProgramScheduleRangeEditor({
             activeRange={activeRange}
             monthKey={monthKey}
             focusedDate={focusedDate}
+            selectionInvalid={
+              (Boolean(activeRange.startError) &&
+                dateKey(activeRange.startAt) === null) ||
+              (Boolean(activeRange.endError) &&
+                dateKey(activeRange.endAt) === null)
+            }
             onMonthKeyChange={setMonthKey}
             onFocusedDateChange={setFocusedDate}
             onDateSelect={selectDate}

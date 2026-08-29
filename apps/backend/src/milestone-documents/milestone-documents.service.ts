@@ -230,6 +230,7 @@ export class MilestoneDocumentsService {
         content: readMilestoneDocumentSubmittedContent(item.content),
       })),
       nextCursor: page.nextCursor,
+      isComplete: page.isComplete,
     };
   }
 
@@ -275,6 +276,7 @@ export class MilestoneDocumentsService {
         content: readMilestoneDocumentSubmittedContent(item.content),
       })),
       nextCursor: page.nextCursor,
+      isComplete: page.isComplete,
     };
   }
 

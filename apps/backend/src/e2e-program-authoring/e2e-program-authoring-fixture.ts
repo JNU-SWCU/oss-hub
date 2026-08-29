@@ -123,6 +123,8 @@ export class E2eProgramAuthoringFixture {
           id: E2E_STAFF_ID,
           githubId: E2E_STAFF_GITHUB_ID,
           nickname: 'e2e-program-authoring-staff',
+          notificationEmail: null,
+          notifyEnabled: false,
           accountStatus: AccountStatus.ACTIVE,
           selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,
@@ -141,6 +143,8 @@ export class E2eProgramAuthoringFixture {
         },
         update: {
           nickname: 'e2e-program-authoring-staff',
+          notificationEmail: null,
+          notifyEnabled: false,
           accountStatus: AccountStatus.ACTIVE,
           selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,

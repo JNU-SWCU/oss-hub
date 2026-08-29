@@ -132,6 +132,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     getMilestoneDocumentHistoryMock.mockResolvedValue({
       items: [],
       nextCursor: null,
+      isComplete: true,
     });
   });
 

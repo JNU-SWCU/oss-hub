@@ -358,6 +358,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
             },
           ],
           nextCursor: null,
+          isComplete: true,
         }),
       );
     vi.stubGlobal('fetch', fetchMock);
@@ -390,7 +391,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
         problemResponse(503, 'COM_002', '잠시 후 다시 시도해 주세요.'),
       )
       .mockResolvedValueOnce(jsonResponse([refreshed]))
-      .mockResolvedValueOnce(jsonResponse({ items: [], nextCursor: null }));
+      .mockResolvedValueOnce(
+        jsonResponse({ items: [], nextCursor: null, isComplete: true }),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     await resubmit();
@@ -684,6 +687,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
           },
         ],
         nextCursor: null,
+        isComplete: true,
       }),
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -725,6 +729,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
             },
           ],
           nextCursor: 'older-page',
+          isComplete: true,
         }),
       )
       .mockResolvedValueOnce(
@@ -740,6 +745,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
             },
           ],
           nextCursor: null,
+          isComplete: true,
         }),
       );
     vi.stubGlobal('fetch', fetchMock);
@@ -778,6 +784,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
             },
           ],
           nextCursor: null,
+          isComplete: false,
         }),
       ),
     );
@@ -794,7 +801,9 @@ describe('학생 행이 판정을 읽는 방식', () => {
   it('빈 원장은 그리지 않고 미제출 행에는 이력 요청을 보내지 않는다', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
+      .mockResolvedValue(
+        jsonResponse({ items: [], nextCursor: null, isComplete: true }),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     await renderRow(
@@ -820,7 +829,9 @@ describe('학생 행이 판정을 읽는 방식', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response('unavailable', { status: 503 }))
-      .mockResolvedValueOnce(jsonResponse({ items: [], nextCursor: null }));
+      .mockResolvedValueOnce(
+        jsonResponse({ items: [], nextCursor: null, isComplete: true }),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     await renderRow(

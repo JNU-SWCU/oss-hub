@@ -133,7 +133,7 @@ export function ProgramEditPage({
     }
     const firstInvalidField =
       editRegionRef.current?.querySelector<HTMLElement>(
-        '[id^="milestone-"][aria-invalid="true"]',
+        '[id^="milestone-"][aria-invalid="true"]:not(:disabled), [data-testid="program-schedule-calendar-scroll"][aria-invalid="true"]',
       ) ?? null;
     firstInvalidField?.focus({ preventScroll: true });
     firstInvalidField?.scrollIntoView?.({ block: 'center' });

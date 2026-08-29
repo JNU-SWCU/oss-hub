@@ -518,6 +518,7 @@ describe('nextMilestoneDocumentReviewState', () => {
       errorMessage: null,
       history: [],
       historyNextCursor: null,
+      historyIsComplete: true,
       isHistoryLoading: true,
       historyError: null,
     });

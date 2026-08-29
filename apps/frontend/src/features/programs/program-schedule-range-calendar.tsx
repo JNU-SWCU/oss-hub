@@ -29,6 +29,7 @@ export function ProgramScheduleRangeCalendar({
   activeRange,
   monthKey,
   focusedDate,
+  selectionInvalid = false,
   onMonthKeyChange,
   onFocusedDateChange,
   onDateSelect,
@@ -37,6 +38,7 @@ export function ProgramScheduleRangeCalendar({
   readonly activeRange: ProgramScheduleEditableRange;
   readonly monthKey: string;
   readonly focusedDate: string;
+  readonly selectionInvalid?: boolean;
   readonly onMonthKeyChange: (value: string) => void;
   readonly onFocusedDateChange: (value: string) => void;
   readonly onDateSelect: (value: string) => void;
@@ -168,6 +170,7 @@ export function ProgramScheduleRangeCalendar({
         role="region"
         aria-label="날짜 선택 달력 가로 스크롤"
         aria-describedby={scrollHintId}
+        aria-invalid={selectionInvalid || undefined}
         tabIndex={0}
         data-testid="program-schedule-calendar-scroll"
       >

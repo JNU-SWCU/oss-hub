@@ -351,6 +351,32 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
   });
 
+  it('이름만 채운 새 마일스톤은 비활성 시각 입력 대신 날짜 달력에 초점을 둔다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      await Promise.resolve();
+    });
+    await act(async () => getButton('추가').click());
+    const name = container.querySelector<HTMLInputElement>('#milestone-name');
+    if (name === null) throw new TypeError('Missing milestone name.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(name, '새 마일스톤');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => getButton('저장').click());
+
+    expect(document.activeElement).toBe(
+      container.querySelector(
+        '[data-testid="program-schedule-calendar-scroll"][aria-invalid="true"]',
+      ),
+    );
+  });
+
   it('저장 후에도 화면에 머무르고 상세 화면으로 이동하지 않는다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
     updateProgramMock.mockResolvedValue(editableProgram);

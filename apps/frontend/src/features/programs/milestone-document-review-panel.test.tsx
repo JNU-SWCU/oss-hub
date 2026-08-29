@@ -81,6 +81,7 @@ function render(
       isHistoryLoading={false}
       historyError={null}
       hasMoreHistory={false}
+      historyIsComplete={overrides.historyIsComplete ?? true}
       onHistoryMore={() => {}}
       onDecisionChange={() => {}}
       onCommentChange={() => {}}
@@ -324,6 +325,12 @@ describe('보여 줄 내용이 없는 제출', () => {
  * 이미 지적한 것을 못 보고 승인한다.
  */
 describe('지난 판정', () => {
+  it('빈 legacy 원장도 누락 안내를 숨기지 않는다', () => {
+    const html = render({ history: [], historyIsComplete: false });
+
+    expect(html).toContain('이관 전 제출 이력 일부');
+  });
+
   it('이력 조회가 실패하면 같은 패널에서 다시 불러올 행동을 제공한다', () => {
     const html = render({
       historyError:

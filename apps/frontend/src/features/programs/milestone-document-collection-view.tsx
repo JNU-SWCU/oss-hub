@@ -576,6 +576,7 @@ function ReviewPanelRow({
             isHistoryLoading={review.isHistoryLoading}
             historyError={review.historyError}
             hasMoreHistory={review.historyNextCursor !== null}
+            historyIsComplete={review.historyIsComplete}
             onHistoryMore={onReviewHistoryMore}
             onDecisionChange={onReviewDecisionChange}
             onCommentChange={onReviewCommentChange}
