@@ -798,6 +798,36 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(buttonTexts()).not.toContain('이전 이력 더 보기');
   });
 
+  it('이전 cursor가 남아 있어도 알려진 원장 누락과 더 보기를 함께 표시한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 3,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: null,
+            },
+          ],
+          nextCursor: 'older-page',
+          isComplete: false,
+        }),
+      ),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: false } }),
+    );
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('이관 전 제출 이력 일부');
+    });
+    expect(buttonTexts()).toContain('이전 이력 더 보기');
+  });
+
   it('빈 원장은 그리지 않고 미제출 행에는 이력 요청을 보내지 않는다', async () => {
     const fetchMock = vi
       .fn()

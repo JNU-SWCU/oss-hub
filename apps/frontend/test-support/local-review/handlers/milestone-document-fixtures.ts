@@ -971,10 +971,11 @@ export function milestoneDocumentParticipantHistoryFor(
     document.contentKind === 'FILE' ? `합성-${document.name}-현재본.pdf` : null;
   const revision = submission.revision;
   const submittedAt = submission.submittedAt;
+  const firstKnownRevision = submission.history.isComplete ? 1 : revision;
   const history: MilestoneDocumentCollectionHistory[] = Array.from(
-    { length: revision },
+    { length: revision - firstKnownRevision + 1 },
     (_, index) => {
-      const itemRevision = index + 1;
+      const itemRevision = firstKnownRevision + index;
       return {
         event: itemRevision === 1 ? 'SUBMITTED' : 'RESUBMITTED',
         revision: itemRevision,

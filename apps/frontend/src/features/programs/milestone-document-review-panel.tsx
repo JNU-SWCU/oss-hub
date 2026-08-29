@@ -233,11 +233,11 @@ export function MilestoneDocumentReviewPanel(
         <MilestoneDocumentHistoryTimeline
           history={props.history ?? []}
           completeness={
-            props.hasMoreHistory
-              ? 'has-more'
-              : props.historyIsComplete
-                ? 'complete'
-                : 'incomplete'
+            !props.historyIsComplete
+              ? 'incomplete'
+              : props.hasMoreHistory
+                ? 'has-more'
+                : 'complete'
           }
         />
       )}

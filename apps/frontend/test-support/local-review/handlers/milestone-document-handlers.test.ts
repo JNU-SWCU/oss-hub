@@ -488,22 +488,20 @@ describe('GET .../documents/:documentId/history', () => {
     const first = jsonBody(
       resolve('GET', HISTORY_PATH, { search: 'limit=2', fixture: 'student' }),
     ) as MilestoneDocumentHistoryPage;
-    const second = jsonBody(
-      resolve('GET', HISTORY_PATH, {
-        search: `limit=2&cursor=${first.nextCursor}`,
-        fixture: 'student',
-      }),
-    ) as MilestoneDocumentHistoryPage;
 
-    expect(first.nextCursor).not.toBeNull();
+    expect(first.nextCursor).toBeNull();
+    expect(first.isComplete).toBe(false);
     expect(first.items.map((item) => item.event)).toEqual([
       'RESUBMITTED',
       'CHANGES_REQUESTED',
     ]);
     expect(first.items[0]?.actorNickname).toBe('synthetic-student');
     expect(first.items[1]?.actorNickname).toBe('담당 교직원');
-    expect(second.items.map((item) => item.event)).toEqual(['SUBMITTED']);
-    expect(second.nextCursor).toBeNull();
+    expect(
+      first.items.filter(
+        (item) => item.event === 'SUBMITTED' || item.event === 'RESUBMITTED',
+      ),
+    ).toHaveLength(1);
   });
 
   it('학생 목록의 overdue 판정과 같은 revision·결정을 돌린다', () => {

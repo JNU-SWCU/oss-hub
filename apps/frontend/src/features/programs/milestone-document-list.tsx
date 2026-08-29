@@ -653,11 +653,11 @@ function StudentDocumentRow({
         <MilestoneDocumentHistoryTimeline
           history={history}
           completeness={
-            historyNextCursor !== null
-              ? 'has-more'
-              : historyIsComplete
-                ? 'complete'
-                : 'incomplete'
+            !historyIsComplete
+              ? 'incomplete'
+              : historyNextCursor !== null
+                ? 'has-more'
+                : 'complete'
           }
         />
       )}

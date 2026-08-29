@@ -136,7 +136,7 @@ export function MilestoneRow({
               둔다. 그 표는 마일스톤 하나를 놓고 보는 화면이라, 어느 마일스톤인지
               고르는 자리가 곧 진입 지점이다.
             */}
-            {(milestone.submissionItemCount ?? 0) > 0 ? (
+            {milestone.submissionItemCount > 0 ? (
               <Link
                 href={programMilestoneDocumentsHref(programId, milestone.id)}
                 className="text-small w-fit font-semibold underline underline-offset-2 hover:opacity-80"

@@ -194,6 +194,26 @@ describe('판정 패널 머리', () => {
     expect(html).toContain('이전 이력 더 보기');
     expect(html).not.toContain('이관 전 1~3차 제출 원문');
   });
+
+  it('이전 페이지가 남아도 원장이 불완전하면 누락 안내와 더 보기를 함께 준다', () => {
+    const html = render({
+      hasMoreHistory: true,
+      historyIsComplete: false,
+      history: [
+        {
+          event: 'RESUBMITTED',
+          revision: 4,
+          actorNickname: '학생',
+          comment: null,
+          createdAt: '2026-08-02T00:00:00.000Z',
+          fileName: '계획서-v4.pdf',
+        },
+      ],
+    });
+
+    expect(html).toContain('이관 전 제출 이력 일부');
+    expect(html).toContain('이전 이력 더 보기');
+  });
 });
 
 describe('판정 패널의 파일', () => {
