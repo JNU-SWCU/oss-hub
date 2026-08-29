@@ -9,8 +9,6 @@ import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repositor
 export type ProgramAuthoringDocumentRequest = {
   readonly name: string;
   readonly required: boolean;
-  /** 이전 직접 호출자 호환용. 신규 HTTP 요청은 제출 방식을 받지 않는다. */
-  readonly submissionType?: MilestoneSubmissionType;
   readonly templateUploadId?: string | null;
 };
 
@@ -18,8 +16,6 @@ export type ProgramAuthoringMilestoneRequest = {
   readonly name: string;
   readonly startAt?: string;
   readonly dueAt: string;
-  /** 이전 직접 호출자와의 타입 전환용. 신규 HTTP 요청은 이 필드를 받지 않는다. */
-  readonly submissionType?: MilestoneSubmissionType;
   readonly instructions?: string | null;
   readonly documents: readonly ProgramAuthoringDocumentRequest[];
 };
@@ -61,7 +57,6 @@ export type ProgramAuthoringDocumentPlan = {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly submissionType: MilestoneSubmissionType;
   readonly templateUploadId: string | null;
 };
 

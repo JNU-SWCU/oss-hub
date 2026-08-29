@@ -5,7 +5,7 @@ import type { ApplicationListPage } from '@/features/programs/types';
 import { cellForMilestone } from '@/features/submissions/matrix';
 import type { SubmissionMatrixPage } from '@/features/submissions/types';
 import type { ReviewContext } from '@/features/reviews/types';
-import type { LocalReviewFixtureId } from '../fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import {
   isAuthenticatedFixture,
   roleForFixture,

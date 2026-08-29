@@ -4,7 +4,7 @@ import {
   LOCAL_REVIEW_FIXTURE_PATTERN,
   LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
   isLocalReviewRuntime,
-} from './src/app/_local-review/fixture-contract';
+} from './src/lib/local-review-runtime';
 
 const nextConfig: NextConfig = {
   output: 'standalone',

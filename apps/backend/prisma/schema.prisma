@@ -656,8 +656,6 @@ model MilestoneDocument {
   name           String
   required       Boolean
   sortOrder      Int
-  /// 기존 Milestone.submissionType과 동일한 enum을 재사용한다.
-  submissionType MilestoneSubmissionType
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

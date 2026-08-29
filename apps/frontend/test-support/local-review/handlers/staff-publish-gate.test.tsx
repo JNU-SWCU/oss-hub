@@ -15,7 +15,7 @@ import type {
   MatrixRow,
   SubmissionMatrixPage,
 } from '@/features/submissions/types';
-import type { LocalReviewFixtureId } from '../fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import {
   isAuthenticatedFixture,
   roleForFixture,

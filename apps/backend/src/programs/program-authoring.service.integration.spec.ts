@@ -1,7 +1,4 @@
-import {
-  MilestoneSubmissionType,
-  ProgramAuthoringUploadLifecycle,
-} from '@prisma/client';
+import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
@@ -50,7 +47,6 @@ describe('ProgramAuthoringService integration', () => {
     const optionalTemplate: ProgramAuthoringDocumentRequest = {
       name: 'Optional template',
       required: false,
-      submissionType: MilestoneSubmissionType.FILE,
       templateUploadId: templateId,
     };
     const request = authoringRequest('graph', [
@@ -77,8 +73,8 @@ describe('ProgramAuthoringService integration', () => {
             documents: {
               orderBy: { sortOrder: 'asc' },
               select: {
+                name: true,
                 required: true,
-                submissionType: true,
                 templateFile: true,
               },
             },
@@ -90,6 +86,7 @@ describe('ProgramAuthoringService integration', () => {
       2, 1, 1,
     ]);
     expect(graph.milestones[0]?.documents[1]).toMatchObject({
+      name: 'Optional template',
       required: false,
       templateFile: { originalFileName: 'graph-template.pdf' },
     });

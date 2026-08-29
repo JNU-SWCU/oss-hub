@@ -272,7 +272,6 @@ export class E2eProgramAuthoringFixture {
           name: `${PREFIX}document`,
           required: true,
           sortOrder: 0,
-          submissionType: MilestoneSubmissionType.FILE,
         },
         update: {},
       });

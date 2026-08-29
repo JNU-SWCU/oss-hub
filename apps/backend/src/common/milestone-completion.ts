@@ -123,7 +123,13 @@ export function isMilestoneComplete(input: MilestoneCompletionInput): boolean {
   return milestoneCompletionStatus(input) === SubmissionStatus.APPROVED;
 }
 
-/** 프로그램의 모든 마일스톤이 한 신청에 대해 완료됐는지 같은 축 판정으로 집계한다. */
+/**
+ * 프로그램의 공개에 필요한 마일스톤이 한 신청에 대해 모두 완료됐는지 같은 축 판정으로 집계한다.
+ *
+ * 상위 제출 축도 필수 서류 축도 없는 안내용 마일스톤은 완료할 것이 없으므로 집계에서 뺀다.
+ * 다만 표시 상태는 여전히 `NOT_SUBMITTED`다. 공개 집계의 공집합 완료와 화면의 fail-closed
+ * 상태 표시는 서로 다른 계약이다.
+ */
 export function requiredMilestonesApproved(
   milestones: readonly {
     readonly id: string;
@@ -153,12 +159,14 @@ export function requiredMilestonesApproved(
     ]),
   );
   return milestones.every((milestone) =>
-    isMilestoneComplete({
-      submissionAxisInUse: milestone.submissionType !== null,
-      requiredDocumentStatuses: milestone.documents.map(
-        (document) => statusByDocument.get(document.id) ?? null,
-      ),
-      submissionStatus: statusByMilestone.get(milestone.id) ?? null,
-    }),
+    milestone.submissionType === null && milestone.documents.length === 0
+      ? true
+      : isMilestoneComplete({
+          submissionAxisInUse: milestone.submissionType !== null,
+          requiredDocumentStatuses: milestone.documents.map(
+            (document) => statusByDocument.get(document.id) ?? null,
+          ),
+          submissionStatus: statusByMilestone.get(milestone.id) ?? null,
+        }),
   );
 }

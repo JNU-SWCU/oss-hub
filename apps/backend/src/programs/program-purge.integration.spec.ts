@@ -651,7 +651,6 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       name: '합성 서류 항목',
       required: true,
       sortOrder: 1,
-      submissionType: MilestoneSubmissionType.FILE,
     },
   });
   await storage.put({

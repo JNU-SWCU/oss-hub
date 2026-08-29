@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import { buildProgramAuthoringPlan } from '../programs/program-authoring-plan';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
@@ -35,7 +35,6 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         name: `${PREFIX}information-milestone`,
         startAt: '2026-08-20T01:00:00.000Z',
         dueAt: '2026-08-20T02:00:00.000Z',
-        submissionType: MilestoneSubmissionType.TEXT,
         documents: [
           {
             name: `${PREFIX}information-document`,
@@ -47,12 +46,10 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         name: `${PREFIX}required-milestone`,
         startAt: '2026-08-20T02:00:00.000Z',
         dueAt: '2026-08-20T09:00:00.000Z',
-        submissionType: MilestoneSubmissionType.FILE,
         documents: [
           {
             name: `${PREFIX}required-document`,
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
           },
         ],
       },
@@ -72,7 +69,6 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         id: `document-${milestoneIndex}-${documentIndex}`,
         name: document.name,
         required: document.required,
-        submissionType: document.submissionType,
       })),
     })),
   };

@@ -18,10 +18,9 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
   const document = () => ({
     id: documentId,
     milestoneId,
-    name: '운영 결과보고서',
+    name: '기획서',
     required: true,
     sortOrder: 1,
-    submissionType: 'FILE',
     hasTemplateFile: persistedFileName !== null,
     templateFileName: persistedFileName,
   });

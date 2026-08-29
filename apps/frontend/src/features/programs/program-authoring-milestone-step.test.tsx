@@ -37,7 +37,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
           issues={[]}
           dispatch={vi.fn()}
           newId={() => 'milestone-new'}
-          onRemove={vi.fn()}
           onRequirementFileChange={vi.fn()}
           onRequirementRemove={vi.fn()}
         />,
@@ -76,7 +75,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
           issues={[]}
           dispatch={vi.fn()}
           newId={() => 'requirement'}
-          onRemove={vi.fn()}
           onRequirementFileChange={vi.fn()}
           onRequirementRemove={vi.fn()}
         />,
@@ -107,7 +105,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
           issues={[]}
           dispatch={dispatch}
           newId={() => 'requirement-new'}
-          onRemove={vi.fn()}
           onRequirementFileChange={vi.fn()}
           onRequirementRemove={onRequirementRemove}
         />,
@@ -145,7 +142,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
               id: 'requirement-1',
               name: '결과 보고서',
               required: true,
-              submissionType: 'FILE' as const,
               templateFile: null,
             },
           ],
@@ -159,7 +155,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
           issues={[]}
           dispatch={dispatch}
           newId={() => 'requirement-new'}
-          onRemove={vi.fn()}
           onRequirementFileChange={vi.fn()}
           onRequirementRemove={onRequirementRemove}
         />,

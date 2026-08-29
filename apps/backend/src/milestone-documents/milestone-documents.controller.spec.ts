@@ -37,7 +37,6 @@ const listForViewer = jest.fn().mockResolvedValue([
     name: '개인정보 수집·이용 동의서',
     required: true,
     sortOrder: 1,
-    submissionType: 'FILE',
     hasTemplateFile: true,
     viewerSubmission: {
       submitted: true,
@@ -51,7 +50,6 @@ const createDocument = jest.fn().mockResolvedValue({
   name: '새 서류',
   required: true,
   sortOrder: 2,
-  submissionType: 'FILE',
   hasTemplateFile: false,
 });
 const updateDocument = jest.fn().mockResolvedValue({
@@ -60,7 +58,6 @@ const updateDocument = jest.fn().mockResolvedValue({
   name: '수정된 이름',
   required: false,
   sortOrder: 1,
-  submissionType: 'FILE',
   hasTemplateFile: true,
 });
 const deleteDocument = jest.fn().mockResolvedValue(undefined);
@@ -71,7 +68,6 @@ const reorderDocuments = jest.fn().mockResolvedValue([
     name: '팀 활동 보고',
     required: false,
     sortOrder: 1,
-    submissionType: 'TEXT',
     hasTemplateFile: false,
   },
   {
@@ -80,7 +76,6 @@ const reorderDocuments = jest.fn().mockResolvedValue([
     name: '개인정보 수집·이용 동의서',
     required: true,
     sortOrder: 2,
-    submissionType: 'FILE',
     hasTemplateFile: true,
   },
 ]);
@@ -97,7 +92,6 @@ const collectForStaff = jest.fn().mockResolvedValue({
       name: '개인정보 수집·이용 동의서',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
     },
   ],
   rows: [
@@ -326,7 +320,7 @@ it('교직원 서류 항목 추가는 201로 끝나고 서비스에 정규화된
   });
 });
 
-it('새 서류 항목 요청에 상위 FILE/TEXT 선택을 넣으면 400으로 거절한다', async () => {
+it('새 서류 항목 요청에 알 수 없는 속성을 넣으면 400으로 거절한다', async () => {
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
     {
@@ -336,7 +330,7 @@ it('새 서류 항목 요청에 상위 FILE/TEXT 선택을 넣으면 400으로 �
         name: '새 서류',
         required: true,
         sortOrder: 2,
-        submissionType: 'TEXT',
+        unexpectedField: 'unexpected',
       }),
     },
   );

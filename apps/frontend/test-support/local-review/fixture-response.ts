@@ -21,7 +21,7 @@ import { staffInsightsWireFixture } from '@/features/staff-insights/fixtures';
 import { RANKING_YEAR_ALL } from '@/features/ranking/types';
 import type { RankingYear } from '@/features/ranking/types';
 import { apiPath } from '@/lib/api-client';
-import type { LocalReviewFixtureId } from './fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import {
   isAuthenticatedFixture,
   json,

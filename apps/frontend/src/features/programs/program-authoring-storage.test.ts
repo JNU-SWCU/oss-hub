@@ -34,7 +34,6 @@ describe('program authoring storage recovery', () => {
               id: 'requirement-file',
               name: '계획서',
               required: true,
-              submissionType: 'FILE' as const,
               templateFile: {
                 name: 'plan.pdf',
                 size: 1024,

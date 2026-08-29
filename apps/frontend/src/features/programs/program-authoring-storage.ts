@@ -6,10 +6,9 @@ import {
   type ProgramAuthoringStep,
 } from './program-authoring-model';
 import { PROGRAM_CATEGORIES, type ProgramCategory } from './program-templates';
-import type { SubmissionType } from './types';
 
 export const PROGRAM_AUTHORING_STORAGE_KEY = 'oss-hub:program-authoring';
-export const PROGRAM_AUTHORING_STORAGE_VERSION = 3;
+export const PROGRAM_AUTHORING_STORAGE_VERSION = 4;
 
 export interface ProgramAuthoringStorage {
   readonly getItem: (key: string) => string | null;
@@ -127,7 +126,6 @@ function isMilestone(value: unknown): value is ProgramAuthoringMilestone {
     isString(value.name) &&
     isString(value.startAt) &&
     isString(value.dueAt) &&
-    isSubmissionType(value.submissionType) &&
     isString(value.instructions) &&
     Array.isArray(value.requirements) &&
     value.requirements.every(isRequirement)
@@ -140,7 +138,6 @@ function isRequirement(value: unknown): value is ProgramAuthoringRequirement {
     isString(value.id) &&
     isString(value.name) &&
     typeof value.required === 'boolean' &&
-    isSubmissionType(value.submissionType) &&
     (value.templateFile === null || isTemplateFile(value.templateFile))
   );
 }
@@ -167,10 +164,6 @@ function isCategory(value: unknown): value is ProgramCategory {
     typeof value === 'string' &&
     PROGRAM_CATEGORIES.some((category) => category === value)
   );
-}
-
-function isSubmissionType(value: unknown): value is SubmissionType {
-  return value === 'FILE' || value === 'TEXT';
 }
 
 function isString(value: unknown): value is string {

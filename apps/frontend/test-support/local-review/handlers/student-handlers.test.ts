@@ -4,7 +4,7 @@ import { resolveApplyBlockedReason } from '@/features/programs/program-apply-flo
 import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
 import type { StudentApplication } from '@/features/programs/student-application-api';
 import type { SubmissionFormData } from '@/features/submissions/types';
-import type { LocalReviewFixtureId } from '../fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import { resolveLocalReviewResponse } from '../fixture-response';
 import { PUBLIC_PROGRAM_IDS } from './student-program-fixtures';
 

@@ -103,7 +103,7 @@ export function ProgramFactBar({
       key: 'submission-rate',
       k: '이번 마일스톤 완주율',
       v: `${rate}% (${numerator}/${denominator})`,
-      caption: '현재 마일스톤 필수 서류를 모두 제출한 참여자 기준',
+      caption: '현재 마일스톤 필수 항목을 모두 제출한 참여자 기준',
     });
   }
   return (

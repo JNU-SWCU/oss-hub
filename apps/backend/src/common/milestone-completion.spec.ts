@@ -3,6 +3,7 @@ import {
   isMilestoneComplete,
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
+  requiredMilestonesApproved,
 } from './milestone-completion';
 
 describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () => {
@@ -47,6 +48,66 @@ describe('milestoneCompletionStatus — 제출 없는 안내용 마일스톤', (
 
     expect(milestoneCompletionStatus(input)).toBe(MILESTONE_NOT_SUBMITTED);
     expect(isMilestoneComplete(input)).toBe(false);
+  });
+});
+
+describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스톤', () => {
+  it('선택 서류만 있는 마일스톤은 완료할 필수 축이 없으므로 공개를 막지 않는다', () => {
+    // 호출자는 선택 서류를 제외하고 필수 서류 축만 넘긴다.
+    expect(
+      requiredMilestonesApproved(
+        [
+          {
+            id: 'optional-only',
+            submissionType: null,
+            documents: [],
+          },
+        ],
+        [],
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it('안내용 마일스톤은 공개를 막지 않아도 표시 상태는 fail-closed로 유지한다', () => {
+    const input = {
+      requiredDocumentStatuses: [],
+      submissionStatus: null,
+      submissionAxisInUse: false,
+    } as const;
+
+    expect(isMilestoneComplete(input)).toBe(false);
+    expect(
+      requiredMilestonesApproved(
+        [{ id: 'informational', submissionType: null, documents: [] }],
+        [],
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it('필수 서류 축이 있는 마일스톤은 제출·승인 전까지 공개를 막는다', () => {
+    const milestones = [
+      {
+        id: 'required-document',
+        submissionType: null,
+        documents: [{ id: 'document-1' }],
+      },
+    ] as const;
+
+    expect(requiredMilestonesApproved(milestones, [], [])).toBe(false);
+    expect(
+      requiredMilestonesApproved(
+        milestones,
+        [],
+        [
+          {
+            milestoneDocumentId: 'document-1',
+            status: SubmissionStatus.APPROVED,
+          },
+        ],
+      ),
+    ).toBe(true);
   });
 });
 

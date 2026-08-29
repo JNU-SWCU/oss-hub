@@ -3,7 +3,6 @@ import {
   MILESTONE_DOCUMENT_REVIEW_DECISIONS,
   type MilestoneDocumentReviewDecision,
 } from '@/features/programs/milestone-document-review-api';
-import type { SubmissionType } from '@/features/programs/types';
 import { apiPath } from '@/lib/api-client';
 import {
   accepted,
@@ -44,6 +43,7 @@ import {
  * `.../documents/:documentId/template`(GET/POST),
  * `.../documents/:documentId/applications/:applicationId/file`(GET),
  * `.../documents/:documentId/applications/:applicationId/history`(GET),
+ * `.../documents/:documentId/history`(GET),
  * `.../documents/:documentId/applications/:applicationId/reviews`(POST),
  * `.../documents/:documentId/submissions`(POST), `milestone-document-files`(POST).
  *
@@ -53,6 +53,7 @@ import {
  */
 
 const MILESTONE_NOT_FOUND_CODE = 'MSD_003';
+const DOCUMENT_NOT_FOUND_CODE = 'MSD_004';
 const STAFF_ONLY_CODE = 'MSD_001';
 const TEMPLATE_NOT_FOUND_CODE = 'MSD_015';
 const SUBMISSION_FILE_NOT_FOUND_CODE = 'MSD_020';
@@ -60,8 +61,6 @@ const SUBMISSION_NOT_FOUND_CODE = 'MSD_022';
 const INVALID_REQUEST_CODE = 'MSD_019';
 const REVIEW_COMMENT_REQUIRED_CODE = 'MSD_021';
 const CONTENT_REQUIRED_CODE = 'MSD_008';
-
-const SUBMISSION_TYPES: readonly SubmissionType[] = ['FILE', 'TEXT'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -85,6 +84,11 @@ function matchMethod(
 function bodyNumber(context: LocalReviewContext, key: string): number | null {
   const value = bodyRecord(context)?.[key];
   return typeof value === 'number' ? value : null;
+}
+
+function hasObsoleteSubmissionType(context: LocalReviewContext): boolean {
+  const body = bodyRecord(context);
+  return body !== null && Object.hasOwn(body, 'submissionType');
 }
 
 /** 시드가 가진 자리. 모르는 서류면 1 — 수정 응답은 순서를 만들어 내지 않는다. */
@@ -298,14 +302,118 @@ const submissionHistoryHandler: LocalReviewHandler = (context) => {
   if (params === null) return null;
   const guard = staffGuardResponse(context);
   if (guard !== null) return guard;
+  const rawLimit = context.searchParams.get('limit');
+  const limit = positiveIntParam(rawLimit, 20);
+  const cursor = context.searchParams.get('cursor');
+  // DTO의 limit 범위는 1..50이다. `positiveIntParam`은 없는 값의 기본만 맡기고,
+  // 범위 밖·숫자가 아닌 값은 실제 ValidationPipe와 같이 400으로 가른다.
+  if (
+    (rawLimit !== null &&
+      (!/^[1-9]\d*$/.test(rawLimit) ||
+        !Number.isSafeInteger(Number(rawLimit)) ||
+        Number(rawLimit) > 50)) ||
+    (cursor !== null && cursor.length > 64)
+  ) {
+    return problem(
+      400,
+      INVALID_REQUEST_CODE,
+      apiPath(context.path),
+      '요청 값을 확인해 주세요.',
+    );
+  }
   const history = milestoneDocumentHistoryFor(
     params.milestoneId ?? '',
     params.documentId ?? '',
     params.applicationId ?? '',
+    { cursor, limit },
   );
-  return history === null
-    ? notFound(SUBMISSION_NOT_FOUND_CODE, context.path)
-    : json(200, history);
+  switch (history.kind) {
+    case 'page':
+      return json(200, history.page);
+    case 'document-not-found':
+      return notFound(DOCUMENT_NOT_FOUND_CODE, context.path);
+    case 'invalid-request':
+      return problem(
+        400,
+        INVALID_REQUEST_CODE,
+        apiPath(context.path),
+        '요청 값을 확인해 주세요.',
+      );
+    case 'submission-not-found':
+      return notFound(SUBMISSION_NOT_FOUND_CODE, context.path);
+    default: {
+      const exhaustive: never = history;
+      return exhaustive;
+    }
+  }
+};
+
+/**
+ * 학생 — 자기 팀 제출·검토 이력. 실제 endpoint에는 applicationId가 없으므로 로컬
+ * 학생 페르소나가 속한 두 번째 합성 팀으로 범위를 고정한다. 판정자는 학생에게
+ * 식별되지 않도록 운영 서비스와 같이 `담당 교직원`으로 가린다.
+ */
+const participantHistoryHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(
+    context,
+    'milestones/:milestoneId/documents/:documentId/history',
+  );
+  if (params === null) return null;
+  if (!context.isAuthenticated || context.role === null) {
+    return unauthenticated(context.path);
+  }
+  const rawLimit = context.searchParams.get('limit');
+  const limit = positiveIntParam(rawLimit, 20);
+  const cursor = context.searchParams.get('cursor');
+  if (
+    (rawLimit !== null &&
+      (!/^[1-9]\d*$/.test(rawLimit) ||
+        !Number.isSafeInteger(Number(rawLimit)) ||
+        Number(rawLimit) > 50)) ||
+    (cursor !== null && cursor.length > 64)
+  ) {
+    return problem(
+      400,
+      INVALID_REQUEST_CODE,
+      apiPath(context.path),
+      '요청 값을 확인해 주세요.',
+    );
+  }
+  const milestoneId = params.milestoneId ?? '';
+  const history = milestoneDocumentHistoryFor(
+    milestoneId,
+    params.documentId ?? '',
+    `synthetic-application-${milestoneId}-2`,
+    { cursor, limit },
+  );
+  switch (history.kind) {
+    case 'page':
+      return json(200, {
+        ...history.page,
+        items: history.page.items.map((item) => ({
+          ...item,
+          actorNickname:
+            item.event === 'SUBMITTED' || item.event === 'RESUBMITTED'
+              ? item.actorNickname
+              : '담당 교직원',
+        })),
+      });
+    case 'document-not-found':
+      return notFound(DOCUMENT_NOT_FOUND_CODE, context.path);
+    case 'invalid-request':
+      return problem(
+        400,
+        INVALID_REQUEST_CODE,
+        apiPath(context.path),
+        '요청 값을 확인해 주세요.',
+      );
+    case 'submission-not-found':
+      return notFound(SUBMISSION_NOT_FOUND_CODE, context.path);
+    default: {
+      const exhaustive: never = history;
+      return exhaustive;
+    }
+  }
 };
 
 /**
@@ -365,15 +473,20 @@ const createDocumentHandler: LocalReviewHandler = (context) => {
   if (!isKnownMilestoneId(params.milestoneId ?? '')) {
     return notFound(MILESTONE_NOT_FOUND_CODE, context.path);
   }
+  if (hasObsoleteSubmissionType(context)) {
+    return problem(
+      400,
+      INVALID_REQUEST_CODE,
+      apiPath(context.path),
+      '요청 값을 확인해 주세요.',
+    );
+  }
   return accepted({
     id: `synthetic-document-${params.milestoneId}-new`,
     milestoneId: params.milestoneId,
     name: bodyString(context, 'name') ?? '합성 서류',
     required: bodyBoolean(context, 'required') ?? true,
     sortOrder: bodyNumber(context, 'sortOrder') ?? 1,
-    submissionType:
-      bodyEnum<SubmissionType>(context, 'submissionType', SUBMISSION_TYPES) ??
-      'FILE',
     hasTemplateFile: false,
   });
 };
@@ -394,6 +507,14 @@ const updateDocumentHandler: LocalReviewHandler = (context) => {
   if (params === null) return null;
   const guard = staffGuardResponse(context);
   if (guard !== null) return guard;
+  if (hasObsoleteSubmissionType(context)) {
+    return problem(
+      400,
+      INVALID_REQUEST_CODE,
+      apiPath(context.path),
+      '요청 값을 확인해 주세요.',
+    );
+  }
   return accepted({
     id: params.documentId,
     milestoneId: params.milestoneId,
@@ -403,9 +524,6 @@ const updateDocumentHandler: LocalReviewHandler = (context) => {
       params.milestoneId ?? '',
       params.documentId ?? '',
     ),
-    submissionType:
-      bodyEnum<SubmissionType>(context, 'submissionType', SUBMISSION_TYPES) ??
-      'FILE',
     hasTemplateFile: false,
   });
 };
@@ -482,13 +600,13 @@ const submitDocumentHandler: LocalReviewHandler = (context) => {
     typeof content?.fileId === 'string' && content.fileId.trim().length > 0;
   if (!hasText && !hasFile) {
     return problem(
-      400,
+      422,
       CONTENT_REQUIRED_CODE,
       apiPath(context.path),
-      '내용이나 파일을 하나 이상 추가해 주세요.',
+      '제출 내용을 입력해 주세요.',
     );
   }
-  return accepted(milestoneDocumentSubmissionFor(params.documentId ?? ''));
+  return json(201, milestoneDocumentSubmissionFor(params.documentId ?? ''));
 };
 
 /** 제출용 파일 업로드. FormData라 본문을 읽지 못하므로 고정 합성 응답을 준다. */
@@ -510,6 +628,7 @@ export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   collectionHandler,
   collectionArchiveHandler,
   submissionHistoryHandler,
+  participantHistoryHandler,
   reviewSubmissionHandler,
   downloadSubmissionFileHandler,
   createDocumentHandler,

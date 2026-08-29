@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,
@@ -114,8 +114,16 @@ describe('buildProgramAuthoringPlan', () => {
         token: document.templateUploadId,
       })),
     ).toEqual([
-      { name: 'Plan', sortOrder: 1, token: 'upload-plan' },
-      { name: 'Summary', sortOrder: 2, token: null },
+      {
+        name: 'Plan',
+        sortOrder: 1,
+        token: 'upload-plan',
+      },
+      {
+        name: 'Summary',
+        sortOrder: 2,
+        token: null,
+      },
     ]);
     expect(plan.uploadTokenIds).toEqual(['upload-plan']);
   });
@@ -186,28 +194,6 @@ describe('buildProgramAuthoringPlan', () => {
 
     // When / Then: invalid document plans never reach persistence.
     expectValidationCodes(input, [code]);
-  });
-
-  it('이전 직접 호출자의 TEXT 값을 받아도 선택으로 사용하지 않고 호환 저장값으로 정규화한다', () => {
-    const firstMilestone = milestoneAt(request(), 0);
-    const input: ProgramAuthoringRequest = {
-      ...request(),
-      milestones: [
-        {
-          ...firstMilestone,
-          documents: [
-            {
-              ...documentAt(firstMilestone, 0),
-              submissionType: MilestoneSubmissionType.TEXT,
-            },
-          ],
-        },
-      ],
-    };
-
-    expect(
-      buildProgramAuthoringPlan(input).milestones[0]?.documents[0],
-    ).toMatchObject({ submissionType: MilestoneSubmissionType.FILE });
   });
 
   it('rejects an out-of-window milestone and reversed team range together', () => {

@@ -1,6 +1,7 @@
 import { PrismaService } from '../src/prisma/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
+  columnExists,
   columnIsNullable,
   executeSubmissionHistoryMigration,
   inSubmissionHistoryFixtureSchema,
@@ -75,6 +76,9 @@ it('현재 제출과 기존 판정을 이력으로 보존하고 단일 첨부를
     columnIsNullable(prisma, SCHEMA, 'Milestone', 'submissionType'),
   ).resolves.toBe(true);
   await expect(
+    columnExists(prisma, SCHEMA, 'MilestoneDocument', 'submissionType'),
+  ).resolves.toBe(false);
+  await expect(
     inSubmissionHistoryFixtureSchema(
       prisma,
       SCHEMA,
@@ -106,6 +110,9 @@ it('현재 첨부가 둘이면 어느 revision인지 추측하지 않고 전체�
   await expect(
     columnIsNullable(prisma, SCHEMA, 'Milestone', 'submissionType'),
   ).resolves.toBe(false);
+  await expect(
+    columnExists(prisma, SCHEMA, 'MilestoneDocument', 'submissionType'),
+  ).resolves.toBe(true);
   await expect(
     inSubmissionHistoryFixtureSchema(
       prisma,

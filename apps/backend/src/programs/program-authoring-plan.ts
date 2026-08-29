@@ -194,7 +194,6 @@ function documentPlan(
     name: requiredString(document.name, `${path}.name`, issues),
     required: document.required,
     sortOrder,
-    submissionType: 'FILE',
     templateUploadId,
   };
 }

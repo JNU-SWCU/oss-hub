@@ -68,7 +68,14 @@ export function ProgramEditScheduleEditor({
   return (
     <ProgramScheduleRangeEditor
       ranges={ranges}
-      activeId={visibleActiveId}
+      activeId={activeId}
+      validationActiveId={
+        errors.startAt || errors.endAt
+          ? 'operation'
+          : errors.period
+            ? 'application'
+            : null
+      }
       onActiveIdChange={setActiveId}
       contextEvents={editScheduleEvents(form, program.milestones, {
         mode: 'closed',

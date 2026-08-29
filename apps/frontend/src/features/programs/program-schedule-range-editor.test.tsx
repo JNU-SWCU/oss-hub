@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProgramScheduleRangeEditor } from './program-schedule-range-editor';
@@ -113,7 +113,10 @@ describe('ProgramScheduleRangeEditor', () => {
     });
 
     const calendar = container.querySelector('[role="region"]');
-    expect(calendar?.getAttribute('aria-labelledby')).toBeTruthy();
+    expect(calendar?.getAttribute('aria-label')).toBe(
+      '마일스톤 1 날짜 선택 달력',
+    );
+    expect(calendar?.getAttribute('aria-labelledby')).toBeNull();
     expect(calendar?.textContent).toContain(
       '신청 기간: 2026년 9월 1일 (화요일)부터 2026년 9월 7일 (월요일)까지',
     );
@@ -158,7 +161,140 @@ describe('ProgramScheduleRangeEditor', () => {
       ),
     ).toBe(false);
   });
+
+  it('범위보다 여러 달 앞뒤인 저장 날짜는 가장 가까운 허용 월에 달력을 연다', async () => {
+    const onStartAtChange = vi.fn();
+    const onEndAtChange = vi.fn();
+    const beforeRange = rangeFixtures().map((range) =>
+      range.id === 'milestone-1'
+        ? {
+            ...range,
+            startAt: '2026-06-01T00:00',
+            endAt: '2026-06-30T23:59',
+            onStartAtChange,
+            onEndAtChange,
+          }
+        : range,
+    );
+
+    await act(async () => {
+      root.render(
+        <ProgramScheduleRangeEditor
+          key="before"
+          ranges={beforeRange}
+          activeId="milestone-1"
+          onActiveIdChange={vi.fn()}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[role="region"] strong')?.textContent).toBe(
+      '2026년 9월',
+    );
+    expect(
+      container
+        .querySelector('[data-calendar-date="2026-09-08"]')
+        ?.getAttribute('tabindex'),
+    ).toBe('0');
+    expect(onStartAtChange).not.toHaveBeenCalled();
+    expect(onEndAtChange).not.toHaveBeenCalled();
+
+    const afterRange = rangeFixtures().map((range) =>
+      range.id === 'milestone-1'
+        ? {
+            ...range,
+            startAt: '2027-01-01T00:00',
+            endAt: '2027-01-31T23:59',
+            onStartAtChange,
+            onEndAtChange,
+          }
+        : range,
+    );
+    await act(async () => {
+      root.render(
+        <ProgramScheduleRangeEditor
+          key="after"
+          ranges={afterRange}
+          activeId="milestone-1"
+          onActiveIdChange={vi.fn()}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[role="region"] strong')?.textContent).toBe(
+      '2026년 10월',
+    );
+    expect(
+      container
+        .querySelector('[data-calendar-date="2026-10-31"]')
+        ?.getAttribute('tabindex'),
+    ).toBe('0');
+    expect(onStartAtChange).not.toHaveBeenCalled();
+    expect(onEndAtChange).not.toHaveBeenCalled();
+  });
+
+  it('검증이 선택한 범위를 첫 수정에서 유지해 두 번째 날짜 선택까지 적용한다', async () => {
+    await act(async () => {
+      root.render(<ValidationSelectionHarness />);
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('[data-calendar-date="2026-09-15"]')
+        ?.click();
+    });
+    expect(container.querySelector('[data-selection]')?.textContent).toBe(
+      'operation|2026-09-15T00:00|2026-09-15T23:59',
+    );
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('[data-calendar-date="2026-09-17"]')
+        ?.click();
+    });
+    expect(container.querySelector('[data-selection]')?.textContent).toBe(
+      'operation|2026-09-15T00:00|2026-09-17T23:59',
+    );
+  });
 });
+
+function ValidationSelectionHarness() {
+  const [activeId, setActiveId] = useState('application');
+  const [validationActiveId, setValidationActiveId] = useState<string | null>(
+    'operation',
+  );
+  const [startAt, setStartAt] = useState('2026-09-08T00:00');
+  const [endAt, setEndAt] = useState('2026-10-31T23:59');
+  const ranges = rangeFixtures().map((range) =>
+    range.id === 'operation'
+      ? {
+          ...range,
+          startAt,
+          endAt,
+          onStartAtChange: (value: string) => {
+            setValidationActiveId(null);
+            setStartAt(value);
+          },
+          onEndAtChange: (value: string) => {
+            setValidationActiveId(null);
+            setEndAt(value);
+          },
+        }
+      : range,
+  );
+
+  return (
+    <>
+      <ProgramScheduleRangeEditor
+        ranges={ranges}
+        activeId={activeId}
+        validationActiveId={validationActiveId}
+        onActiveIdChange={setActiveId}
+      />
+      <output data-selection>{`${activeId}|${startAt}|${endAt}`}</output>
+    </>
+  );
+}
 
 function rangeFixtures(): readonly ProgramScheduleEditableRange[] {
   const noOp = () => undefined;

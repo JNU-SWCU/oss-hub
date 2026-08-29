@@ -29,9 +29,8 @@ export type MilestoneDocumentSubmittedContent = {
  * **저장 모양의 원본은 `MilestoneDocumentsService.submit()`이다** — TEXT는 `{ type, text }`,
  * FILE은 `Prisma.JsonNull`을 쓴다. 여기서는 그 모양을 그대로 되꺼낼 뿐 새 규칙을 만들지 않는다.
  *
- * **판별은 서류 항목의 `submissionType`이 아니라 저장된 값의 `type`으로 한다.** 저장된 값이
- * 스스로 무엇인지 말하고 있는데 옆의 컬럼을 근거로 삼으면, 둘이 어긋나는 날 화면이 실제로 낸
- * 것과 다른 것을 보여 준다(교직원이 잘못된 근거로 승인한다).
+ * **저장된 payload 값은 `type`으로 스스로 모양을 설명한다.** 이 함수는 그 값을 그대로 읽어
+ * 화면에 전달한다.
  *
  * ⚠ **길이 상한을 두지 않는다 — 자르지 않고 그대로 싣는다.** 근거:
  * 1. 자르면 이 함수가 고치려는 결함이 그대로 돌아온다. 잘린 뒤를 읽을 방법이 지금 없기

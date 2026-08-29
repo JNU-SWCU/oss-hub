@@ -41,7 +41,6 @@ export function ProgramScheduleRangeCalendar({
   readonly onFocusedDateChange: (value: string) => void;
   readonly onDateSelect: (value: string) => void;
 }) {
-  const titleId = useId();
   const summaryId = useId();
   const calendarRef = useRef<HTMLDivElement>(null);
   const pendingFocusRef = useRef(false);
@@ -110,12 +109,11 @@ export function ProgramScheduleRangeCalendar({
       className="overflow-hidden rounded-card border border-border bg-background"
       role="region"
       aria-label={`${activeRange.label} 날짜 선택 달력`}
-      aria-labelledby={titleId}
       aria-describedby={summaryId}
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0 break-keep text-pretty">
-          <strong id={titleId}>{formatMonth(monthKey)}</strong>
+          <strong>{formatMonth(monthKey)}</strong>
           <p className="text-small text-muted-foreground">
             {activeRange.kind === 'MILESTONE'
               ? '마일스톤 날짜 선택 · 운영 기간 밖은 선택할 수 없음'

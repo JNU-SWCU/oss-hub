@@ -1,6 +1,5 @@
 import { apiClient, apiPath } from '@/lib/api-client';
-import type { MilestoneDocumentCollectionHistory } from './milestone-document-collection-api';
-import type { SubmissionType } from './types';
+import type { MilestoneDocumentHistoryPage } from './milestone-document-collection-api';
 
 /**
  * 학생 뷰의 제출 상태. ⚠ `types.ts`의 `SubmissionStatus`와 **다른 집합**이다 — 그쪽에는
@@ -43,8 +42,14 @@ export interface MilestoneDocumentViewerSubmission {
   readonly hasCurrentFile?: boolean;
   /** 아직 아무도 판정하지 않았으면 `null`. */
   readonly review: MilestoneDocumentViewerReview | null;
-  /** 학생 본인의 제출·파일·공개 피드백 전체. 이전 응답과의 전환기에는 없을 수 있다. */
-  readonly history?: readonly MilestoneDocumentCollectionHistory[];
+  /**
+   * 이력 원장은 별도 cursor endpoint에서 읽는다. 목록 응답에 이력을 넣으면 여러 서류의
+   * 오래된 제출본까지 한꺼번에 실려 학생 화면을 열기만 해도 무한히 커진다.
+   */
+  readonly history?: {
+    readonly hasHistory: boolean;
+    readonly isComplete: boolean;
+  };
 }
 
 export interface MilestoneDocumentTeamSubmissionCount {
@@ -59,7 +64,6 @@ export interface MilestoneDocument {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly submissionType: SubmissionType;
   readonly hasTemplateFile: boolean;
   readonly templateFileName: string | null;
   /** 학생 뷰에서만 채워진다. */
@@ -102,6 +106,20 @@ export function listMilestoneDocuments(
   milestoneId: string,
 ): Promise<readonly MilestoneDocument[]> {
   return apiClient<readonly MilestoneDocument[]>(documentsPath(milestoneId));
+}
+
+/** 학생 — 본인 제출 이력의 최신 cursor 페이지. 이전 페이지는 `cursor`로 이어 읽는다. */
+export function getMilestoneDocumentParticipantHistory(
+  milestoneId: string,
+  documentId: string,
+  cursor: string | null = null,
+): Promise<MilestoneDocumentHistoryPage> {
+  const params = new URLSearchParams();
+  params.set('limit', '20');
+  if (cursor !== null) params.set('cursor', cursor);
+  return apiClient<MilestoneDocumentHistoryPage>(
+    `${documentPath(milestoneId, documentId)}/history?${params.toString()}`,
+  );
 }
 
 /** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체). */

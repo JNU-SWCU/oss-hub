@@ -5,6 +5,12 @@ import {
 } from '@prisma/client';
 import type { MilestoneDocumentCollectionHistoryRecord } from './milestone-documents.repository';
 
+/** 최신 페이지부터 읽되 응답 안에서는 다시 시간순으로 뒤집는다. 동시 생성도 id로 안정화한다. */
+export const milestoneDocumentHistoryDescendingOrderBy = [
+  { createdAt: 'desc' },
+  { id: 'desc' },
+] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
+
 /** 목록 응답 하나가 영구히 커지지 않도록 제출·판정 각각 최근 50건만 포함한다. */
 export const boundedReviewHistoryQuery = {
   orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],

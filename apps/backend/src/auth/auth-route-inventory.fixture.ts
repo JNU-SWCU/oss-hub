@@ -108,6 +108,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/milestones/:milestoneId/documents',
   'PROTECTED GET /api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/file',
   'PROTECTED GET /api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/history',
+  'PROTECTED GET /api/v1/milestones/:milestoneId/documents/:documentId/history',
   'PROTECTED GET /api/v1/milestones/:milestoneId/documents/:documentId/submissions/current/file',
   'PROTECTED GET /api/v1/milestones/:milestoneId/documents/:documentId/template',
   'PROTECTED GET /api/v1/milestones/:milestoneId/documents/collection',

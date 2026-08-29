@@ -22,7 +22,6 @@ function stateWithFiles() {
             id: 'requirement-a',
             name: '계획서',
             required: true,
-            submissionType: 'FILE' as const,
             templateFile: {
               name: 'plan.pdf',
               size: 15,
@@ -34,7 +33,6 @@ function stateWithFiles() {
             id: 'requirement-b',
             name: '결과서',
             required: false,
-            submissionType: 'FILE' as const,
             templateFile: {
               name: 'result.pdf',
               size: 15,

@@ -23,7 +23,6 @@ export function ProgramAuthoringMilestoneStep({
   readonly issues: readonly ProgramAuthoringIssue[];
   readonly dispatch: (action: ProgramAuthoringAction) => void;
   readonly newId: () => string;
-  readonly onRemove: (milestoneId: string) => void;
   readonly onRequirementFileChange: (
     milestoneId: string,
     requirementId: string,

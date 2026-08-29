@@ -94,6 +94,10 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await authorPage.getByLabel('필수 제출로 지정합니다').first().uncheck();
     await authorPage
       .getByLabel('제출 항목 이름 *')
+      .first()
+      .fill(PROGRAM_AUTHORING_E2E.informationalDocumentName);
+    await authorPage
+      .getByLabel('제출 항목 이름 *')
       .nth(1)
       .fill(PROGRAM_AUTHORING_E2E.requiredDocumentName);
     await authorPage
@@ -113,6 +117,9 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     );
     await expect(
       authorPage.getByText(PROGRAM_AUTHORING_E2E.requiredDocumentName),
+    ).toBeVisible();
+    await expect(
+      authorPage.getByText(PROGRAM_AUTHORING_E2E.informationalDocumentName),
     ).toBeVisible();
     await expect(authorPage.getByText('GitHub 저장소 발급')).toBeVisible();
     await authorPage.getByRole('button', { name: '프로그램 만들기' }).click();
@@ -166,14 +173,8 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       .filter({ hasText: PROGRAM_AUTHORING_E2E.requiredDocumentName });
     await requiredDocumentRow.getByRole('button', { name: '올리기' }).click();
     await requiredDocumentRow
-      .getByLabel(
-        `${PROGRAM_AUTHORING_E2E.requiredDocumentName} 제출 파일 선택`,
-      )
-      .setInputFiles({
-        name: 'current-v1.pdf',
-        mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4\ncurrent-v1\n'),
-      });
+      .getByLabel('내용 (선택)')
+      .fill('e2e:program-authoring:revision-1-text-only');
     const [firstSubmission] = await Promise.all([
       studentPage.waitForResponse(
         (response) =>
@@ -185,7 +186,18 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
         .click(),
     ]);
     expect(firstSubmission.ok()).toBe(true);
+    await expect(
+      requiredDocumentRow.getByText(
+        'e2e:program-authoring:revision-1-text-only',
+      ),
+    ).toBeVisible();
+    await expect(
+      requiredDocumentRow.getByText('첫 제출 · 1차 제출본'),
+    ).toBeVisible();
     await requiredDocumentRow.getByRole('button', { name: '수정' }).click();
+    await requiredDocumentRow
+      .getByLabel('내용 (선택)')
+      .fill('e2e:program-authoring:revision-2-text-and-file');
     await requiredDocumentRow
       .getByLabel(
         `${PROGRAM_AUTHORING_E2E.requiredDocumentName} 제출 파일 선택`,
@@ -206,6 +218,38 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
         .click(),
     ]);
     expect(secondSubmission.ok()).toBe(true);
+    await expect(
+      requiredDocumentRow.getByText(
+        'e2e:program-authoring:revision-1-text-only',
+      ),
+    ).toBeVisible();
+    await expect(
+      requiredDocumentRow.getByText(
+        'e2e:program-authoring:revision-2-text-and-file',
+      ),
+    ).toBeVisible();
+    await expect(
+      requiredDocumentRow.getByText('첫 제출 · 1차 제출본'),
+    ).toBeVisible();
+    await expect(
+      requiredDocumentRow.getByText('다시 제출 · 2차 제출본'),
+    ).toBeVisible();
+    await expect(requiredDocumentRow.getByText('current-v2.pdf')).toBeVisible();
+    const studentHistory = requiredDocumentRow
+      .locator('section')
+      .filter({ hasText: '제출·검토 이력' });
+    const studentHistoryEntries = studentHistory.locator('ol > li');
+    await expect(studentHistoryEntries).toHaveCount(2);
+    await expect(studentHistoryEntries.nth(0)).toContainText(
+      'e2e:program-authoring:revision-1-text-only',
+    );
+    await expect(studentHistoryEntries.nth(0)).not.toContainText(
+      'current-v2.pdf',
+    );
+    await expect(studentHistoryEntries.nth(1)).toContainText(
+      'e2e:program-authoring:revision-2-text-and-file',
+    );
+    await expect(studentHistoryEntries.nth(1)).toContainText('current-v2.pdf');
 
     const afterSubmissionResponse = await staffPage.request.post(
       `/api/v1/programs/${encodeURIComponent(programId)}/deadline-digest/preview`,
@@ -261,6 +305,41 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await expect(
       staffPage.getByRole('button', { name: /필수 서류 미제출 0팀/ }),
     ).toBeVisible();
+    await staffPage
+      .getByRole('button', {
+        name: new RegExp(`${PROGRAM_AUTHORING_E2E.requiredDocumentName} 검토`),
+      })
+      .click();
+    const reviewPanel = staffPage.getByTestId(
+      'milestone-document-review-panel',
+    );
+    const staffHistory = reviewPanel
+      .locator('section')
+      .filter({ hasText: '제출·검토 이력' });
+    await expect(reviewPanel).toBeVisible();
+    await expect(
+      staffHistory.getByText('e2e:program-authoring:revision-1-text-only'),
+    ).toBeVisible();
+    await expect(
+      staffHistory.getByText('e2e:program-authoring:revision-2-text-and-file'),
+    ).toBeVisible();
+    await expect(staffHistory.getByText('첫 제출 · 1차 제출본')).toBeVisible();
+    await expect(
+      staffHistory.getByText('다시 제출 · 2차 제출본'),
+    ).toBeVisible();
+    await expect(staffHistory.getByText('current-v2.pdf')).toBeVisible();
+    const staffHistoryEntries = staffHistory.locator('ol > li');
+    await expect(staffHistoryEntries).toHaveCount(2);
+    await expect(staffHistoryEntries.nth(0)).toContainText(
+      'e2e:program-authoring:revision-1-text-only',
+    );
+    await expect(staffHistoryEntries.nth(0)).not.toContainText(
+      'current-v2.pdf',
+    );
+    await expect(staffHistoryEntries.nth(1)).toContainText(
+      'e2e:program-authoring:revision-2-text-and-file',
+    );
+    await expect(staffHistoryEntries.nth(1)).toContainText('current-v2.pdf');
     const individual = await downloadedArtifact(
       staffPage,
       /개별 파일 내려받기/,
@@ -304,10 +383,10 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     const state = toStateCounts(await stateResponse.json());
     // 봉투 2통 — 미제출 학생 리마인드 1 + 교직원 미제출 팀 요약 1(#886).
     // 이 시나리오의 교직원은 활성·수신 동의·알림 이메일을 모두 갖춰 수신 대상이다.
-    // 상태 집계의 documents는 adopt한 필수 마일스톤의 제출 항목만 센다.
-    // 안내용 마일스톤의 기본 선택 항목까지 포함한 전체 프로그램 수는 위 최종 검토에서
-    // 2개로 확인하고, 여기서는 실제 수합 대상 1개를 검증한다.
-    expectCleanState(state, 2, 2, 2, 2, 1);
+    // 상태 집계의 documents는 프로그램 전체를 센다. 안내용 마일스톤의 제출 항목이
+    // 빠지면 이 값이 1이 되어 전체 작성 그래프 증명이 실패한다. graph의 한 필수
+    // 마일스톤 식별자는 아래 수합·다운로드 검증에서 계속 사용한다.
+    expectCleanState(state, 2, 2, 2, 2, 2);
     expect(state.storageContentHashes).toContain(template.sha256);
     expect(state.storageContentHashes).toContain(individual.sha256);
     await writeArtifact('sql-counts.json', { graph, ...state });

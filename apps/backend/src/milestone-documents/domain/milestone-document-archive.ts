@@ -10,7 +10,7 @@
  * ⚠ **수합 표와 달리 페이지를 자르지 않는다.** 이 기능의 요구 자체가 「전체를 한 번에」다 —
  * 화면의 빠른 필터·페이지는 보는 사람의 편의이고, 받아서 보관하는 쪽은 전체가 필요하다.
  */
-import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import {
   milestoneDocumentArchiveFolderName,
   milestoneDocumentDownloadFileName,
@@ -51,7 +51,6 @@ export interface MilestoneDocumentArchiveDocument {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
-  readonly submissionType: MilestoneSubmissionType;
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. 팀 이름 asc → id asc로 받는다. */
@@ -282,9 +281,8 @@ function submittedState(
  * 이 (팀, 서류) 칸을 ZIP에 담을 수 있는가, 담는다면 무엇으로.
  *
  * **저장된 값이 스스로 무엇인지 말하는 것을 따른다** — 파일 첨부가 살아 있으면 파일,
- * 아니면 글 본문. 서류 항목의 `submissionType`을 근거로 삼지 않는 이유는
- * `milestone-document-content.ts`에 적힌 것과 같다(둘이 어긋나는 날, 실제로 낸 것이 아닌
- * 것을 담게 된다).
+ * 글 본문을 읽을 수 있으면 글도 담는다. 서류 정의가 아니라 실제 제출 증거만 따르므로,
+ * 서로 어긋나는 날에도 실제로 낸 것이 아닌 것을 담지 않는다.
  */
 function buildEntries(input: {
   readonly team: MilestoneDocumentArchiveTeam;

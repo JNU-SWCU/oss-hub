@@ -1,6 +1,5 @@
 import {
   MilestoneDocumentSubmissionHistoryEvent,
-  MilestoneSubmissionType,
   Prisma,
   SubmissionFileLifecycle,
   SubmissionStatus,
@@ -13,10 +12,6 @@ import type {
 
 export class MilestoneDocumentPendingFileMissingError extends Error {
   override readonly name = 'MilestoneDocumentPendingFileMissingError';
-}
-
-export class MilestoneDocumentSubmissionTypeChangedError extends Error {
-  override readonly name = 'MilestoneDocumentSubmissionTypeChangedError';
 }
 
 export class MilestoneDocumentReviewChangedError extends Error {
@@ -62,17 +57,12 @@ export function upsertMilestoneDocumentSubmission(
         throw new MilestoneDocumentDeadlineClosedError();
       }
     }
-    const locked = await transaction.$queryRaw<
-      readonly { submissionType: MilestoneSubmissionType }[]
-    >(Prisma.sql`
-      SELECT "submissionType"
+    await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
+      SELECT "id"
       FROM "MilestoneDocument"
       WHERE "id" = ${input.milestoneDocumentId}
       FOR SHARE
     `);
-    if (locked[0]?.submissionType !== input.expectedSubmissionType) {
-      throw new MilestoneDocumentSubmissionTypeChangedError();
-    }
 
     const latestReview =
       await transaction.milestoneDocumentReviewHistory.findFirst({

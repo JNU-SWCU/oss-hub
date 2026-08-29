@@ -7,7 +7,6 @@ type E2eProgramAdoptionDocument = {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
-  readonly submissionType: MilestoneSubmissionType;
 };
 
 type E2eProgramAdoptionMilestone = {
@@ -56,7 +55,6 @@ export async function adoptE2eProgramGraph(
               id: true,
               name: true,
               required: true,
-              submissionType: true,
             },
           },
         },
@@ -123,7 +121,6 @@ function requiredFileMilestone(
       milestone.submissionType === null &&
       milestone.documents.length === 1 &&
       milestone.documents[0]?.name === `${prefix}required-document` &&
-      milestone.documents[0]?.required === true &&
-      milestone.documents[0]?.submissionType === MilestoneSubmissionType.FILE,
+      milestone.documents[0]?.required === true,
   );
 }

@@ -83,7 +83,6 @@ function collection(
         name: '기획서',
         isRequired: true,
         sortOrder: 1,
-        submissionType: 'FILE',
       },
     ],
     rows,

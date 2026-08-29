@@ -65,7 +65,6 @@ export function ProgramAuthoringStepContent({
         <ProgramAuthoringMilestoneStep
           {...shared}
           newId={newId}
-          onRemove={removeMilestone}
           onRequirementFileChange={(milestoneId, requirementId, file) => {
             discardCachedUpload(runtime, requirementId);
             if (file === null) files.delete(requirementId);

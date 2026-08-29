@@ -1,5 +1,4 @@
 import type { ProgramCategory } from './program-templates';
-import type { SubmissionType } from './types';
 
 export const PROGRAM_AUTHORING_STEPS = [
   { id: 'type', label: '유형' },
@@ -24,7 +23,6 @@ export type ProgramAuthoringRequirement = {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
-  readonly submissionType: SubmissionType;
   readonly templateFile: ProgramAuthoringTemplateFile | null;
 };
 
@@ -33,7 +31,6 @@ export type ProgramAuthoringMilestone = {
   readonly name: string;
   readonly startAt: string;
   readonly dueAt: string;
-  readonly submissionType: SubmissionType;
   readonly instructions: string;
   readonly requirements: readonly ProgramAuthoringRequirement[];
 };
@@ -94,11 +91,6 @@ export type ProgramAuthoringAction =
       readonly value: string;
     }
   | {
-      readonly type: 'set_milestone_type';
-      readonly milestoneId: string;
-      readonly submissionType: SubmissionType;
-    }
-  | {
       readonly type: 'add_requirement';
       readonly milestoneId: string;
       readonly requirementId: string;
@@ -119,12 +111,6 @@ export type ProgramAuthoringAction =
       readonly milestoneId: string;
       readonly requirementId: string;
       readonly required: boolean;
-    }
-  | {
-      readonly type: 'set_requirement_type';
-      readonly milestoneId: string;
-      readonly requirementId: string;
-      readonly submissionType: SubmissionType;
     }
   | {
       readonly type: 'set_requirement_file';

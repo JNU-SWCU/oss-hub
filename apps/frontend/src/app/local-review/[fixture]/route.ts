@@ -4,8 +4,7 @@ import {
   LOCAL_REVIEW_FIXTURE_COOKIE,
   createLocalReviewActivation,
   parseRequestHostname,
-} from '../../_local-review/fixture-contract';
-import { resetLocalReviewRoleSelection } from '../../_local-review/handlers/account-handlers';
+} from '@/lib/local-review-runtime';
 
 type RouteContext = {
   readonly params: Promise<{ readonly fixture: string }>;
@@ -31,6 +30,9 @@ export async function GET(
   if (activation.kind === 'not-found') {
     return new Response(null, { status: 404 });
   }
+
+  const { resetLocalReviewRoleSelection } =
+    await import('../../../../test-support/local-review/handlers/account-handlers');
 
   // 이 경로는 검토판의 링크를 눌러 "이 페르소나로 여기서 시작한다"고 말하는 자리다.
   // 그래서 앞선 검토가 남긴 역할 선택·프로필 입력을 여기서 지운다. 지우지 않으면 한 번

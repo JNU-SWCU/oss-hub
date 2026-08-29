@@ -59,7 +59,6 @@ function documentFixture(
     name: `서류 ${id}`,
     required: true,
     sortOrder,
-    submissionType: 'FILE',
     hasTemplateFile: false,
     templateFileName: null,
 
@@ -74,12 +73,10 @@ const planner = documentFixture('a', 1, {
 });
 const budget = documentFixture('b', 2, {
   name: '예산서',
-  submissionType: 'TEXT',
   required: false,
 });
 const pledge = documentFixture('c', 3, {
   name: '서약서',
-  submissionType: 'TEXT',
   hasTemplateFile: true,
   templateFileName: null,
 });

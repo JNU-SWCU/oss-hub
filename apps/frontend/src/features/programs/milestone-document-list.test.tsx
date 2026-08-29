@@ -23,7 +23,6 @@ const milestoneDocument: MilestoneDocument = {
   name: '기획서',
   required: true,
   sortOrder: 0,
-  submissionType: 'FILE',
   hasTemplateFile: false,
   templateFileName: null,
 };
@@ -129,25 +128,27 @@ describe('제출과 판정이 부딪혔을 때', () => {
     );
   }
 
-  function textDocument(
+  function documentWithViewer(
     viewerSubmission: MilestoneDocumentViewerSubmission,
   ): MilestoneDocument {
-    return { ...milestoneDocument, submissionType: 'TEXT', viewerSubmission };
+    return { ...milestoneDocument, viewerSubmission };
   }
 
-  const CHANGES_REQUESTED = textDocument({
+  const CHANGES_REQUESTED = documentWithViewer({
     submitted: true,
     submittedAt: '2026-08-01T05:22:00.000Z',
     status: 'CHANGES_REQUESTED',
+    history: { hasHistory: false, isComplete: true },
     review: {
       comment: '표지를 고쳐 주세요.',
       reviewedAt: '2026-08-02T00:00:00.000Z',
     },
   });
-  const APPROVED = textDocument({
+  const APPROVED = documentWithViewer({
     submitted: true,
     submittedAt: '2026-08-01T05:22:00.000Z',
     status: 'APPROVED',
+    history: { hasHistory: false, isComplete: true },
     review: {
       comment: '잘 받았습니다.',
       reviewedAt: '2026-08-03T00:00:00.000Z',
@@ -319,23 +320,14 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(submissionInput()?.value).toBe('고쳐서 다시 냅니다.');
   });
 
-  it('제출 성공 뒤 서버에서 다시 읽은 차수와 전체 이력을 표시한다', async () => {
-    const refreshed = textDocument({
+  it('제출 성공 뒤 목록과 이력 첫 페이지를 다시 읽어 현재 제출본을 표시한다', async () => {
+    const refreshed = documentWithViewer({
       submitted: true,
       submittedAt: '2026-08-03T00:00:00.000Z',
       revision: 3,
       status: 'SUBMITTED',
       review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
-      history: [
-        {
-          event: 'RESUBMITTED',
-          revision: 3,
-          actorNickname: '팀원B',
-          comment: null,
-          createdAt: '2026-08-03T00:00:00.000Z',
-          fileName: null,
-        },
-      ],
+      history: { hasHistory: true, isComplete: true },
     });
     const fetchMock = vi
       .fn()
@@ -347,7 +339,22 @@ describe('제출과 판정이 부딪혔을 때', () => {
           submittedAt: '2026-08-03T00:00:00.000Z',
         }),
       )
-      .mockResolvedValueOnce(jsonResponse([refreshed]));
+      .mockResolvedValueOnce(jsonResponse([refreshed]))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 3,
+              actorNickname: '팀원B',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: null,
+            },
+          ],
+          nextCursor: null,
+        }),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     await resubmit();
@@ -357,7 +364,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
       expect(container.textContent).toContain('팀원B');
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -379,6 +386,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
   });
 
   function viewer(
@@ -389,24 +397,22 @@ describe('학생 행이 판정을 읽는 방식', () => {
       submittedAt: '2026-08-01T05:22:00.000Z',
       status: 'SUBMITTED',
       review: null,
+      history: { hasHistory: false, isComplete: true },
       ...overrides,
     };
   }
 
   async function renderRow(
     viewerSubmission: MilestoneDocumentViewerSubmission,
-    submissionType: MilestoneDocument['submissionType'] = 'FILE',
     closed = false,
   ) {
     await act(async () => {
       root.render(
         <MilestoneDocumentSectionBody
-          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${submissionType}-${closed}`}
+          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}`}
           state={{
             kind: 'ready',
-            documents: [
-              { ...milestoneDocument, submissionType, viewerSubmission },
-            ],
+            documents: [{ ...milestoneDocument, viewerSubmission }],
           }}
           viewerRole="STUDENT"
           closed={closed}
@@ -476,11 +482,10 @@ describe('학생 행이 판정을 읽는 방식', () => {
     }
   });
 
-  it('학생도 제출본·파일·피드백 전체 이력을 오래된 순서로 확인한다', async () => {
-    await renderRow(
-      viewer({
-        revision: 2,
-        history: [
+  it('이력이 있는 제출만 첫 cursor 페이지를 읽어 표시한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        items: [
           {
             event: 'SUBMITTED',
             revision: 1,
@@ -506,14 +511,136 @@ describe('학생 행이 판정을 읽는 방식', () => {
             fileName: 'second.pdf',
           },
         ],
+        nextCursor: null,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({
+        revision: 2,
+        history: { hasHistory: true, isComplete: true },
       }),
     );
 
-    expect(container.textContent).toContain('재검토 대기');
-    expect(container.textContent).toContain('제출·검토 이력');
-    expect(container.textContent).toContain('first.pdf');
-    expect(container.textContent).toContain('서명 페이지를 추가해 주세요.');
-    expect(container.textContent).toContain('second.pdf');
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('제출·검토 이력');
+      expect(container.textContent).toContain('first.pdf');
+      expect(container.textContent).toContain('서명 페이지를 추가해 주세요.');
+      expect(container.textContent).toContain('second.pdf');
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/milestones/milestone-1/documents/document-1/history?limit=20',
+      ),
+      undefined,
+    );
+  });
+
+  it('이전 페이지를 요청해 오래된 이력을 앞에 붙인다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              event: 'RESUBMITTED',
+              revision: 2,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-03T00:00:00.000Z',
+              fileName: 'latest.pdf',
+            },
+          ],
+          nextCursor: 'older-page',
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              event: 'SUBMITTED',
+              revision: 1,
+              actorNickname: '학생A',
+              comment: null,
+              createdAt: '2026-08-01T00:00:00.000Z',
+              fileName: 'first.pdf',
+            },
+          ],
+          nextCursor: null,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+    await vi.waitFor(() => {
+      expect(buttonTexts()).toContain('이전 이력 더 보기');
+    });
+    await act(async () => actionButton('이전 이력 더 보기').click());
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('first.pdf');
+    });
+
+    expect(fetchMock.mock.calls[1]?.[0]).toContain(
+      '/history?limit=20&cursor=older-page',
+    );
+    const text = container.textContent ?? '';
+    expect(text.indexOf('first.pdf')).toBeLessThan(text.indexOf('latest.pdf'));
+  });
+
+  it('빈 원장은 그리지 않고 미제출 행에는 이력 요청을 보내지 않는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(container.textContent).not.toContain('제출·검토 이력');
+
+    await renderRow(
+      viewer({
+        submitted: false,
+        submittedAt: null,
+        status: null,
+        history: { hasHistory: true, isComplete: true },
+      }),
+    );
+    await act(async () => {});
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(container.textContent).not.toContain('제출·검토 이력');
+  });
+
+  it('이력 조회 실패는 제출 조작을 막지 않고 같은 페이지를 다시 시도한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('unavailable', { status: 503 }))
+      .mockResolvedValueOnce(jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('수정');
+
+    await act(async () => actionButton('다시 시도').click());
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(
+      container.querySelector(
+        '[data-testid="milestone-document-history-error"]',
+      ),
+    ).toBeNull();
   });
 
   /**
@@ -653,10 +780,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
    * 받아 주는데 화면만 막는 상태가 된다.
    */
   it('마감이 지나도 보완 요청은 다시 낼 수 있다', async () => {
-    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'FILE', true);
-    expect(actionButton('수정').disabled).toBe(false);
-
-    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'TEXT', true);
+    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), true);
     const editButton = actionButton('수정');
     expect(editButton.disabled).toBe(false);
     await act(async () => editButton.click());
@@ -674,15 +798,11 @@ describe('학생 행이 판정을 읽는 방식', () => {
   it('마감 뒤 미제출·검토 대기는 그대로 잠근다', async () => {
     await renderRow(
       viewer({ submitted: false, submittedAt: null, status: null }),
-      'FILE',
       true,
     );
     expect(actionButton('올리기').disabled).toBe(true);
 
-    await renderRow(viewer({ status: 'SUBMITTED' }), 'FILE', true);
-    expect(actionButton('수정').disabled).toBe(true);
-
-    await renderRow(viewer({ status: 'SUBMITTED' }), 'TEXT', true);
+    await renderRow(viewer({ status: 'SUBMITTED' }), true);
     expect(actionButton('수정').disabled).toBe(true);
   });
 
@@ -693,9 +813,8 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(actionButton('수정').disabled).toBe(false);
   });
 
-  // TEXT 제출도 같은 규칙을 따라야 한다 — 유형마다 다르면 학생이 규칙을 못 읽는다.
-  it('텍스트 제출도 승인되면 입력 칸이 열리지 않는다', async () => {
-    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'TEXT');
+  it('통합 제출도 승인되면 입력 칸이 열리지 않는다', async () => {
+    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
     const editButton = Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === '수정',
     );
@@ -709,7 +828,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
       ),
     ).not.toBeNull();
 
-    await renderRow(viewer({ status: 'APPROVED' }), 'TEXT');
+    await renderRow(viewer({ status: 'APPROVED' }));
     expect(buttonTexts()).not.toContain('수정');
     expect(
       container.querySelector(

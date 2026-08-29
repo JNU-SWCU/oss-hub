@@ -1,6 +1,5 @@
-import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentRecord } from '../milestone-documents.repository';
-import type { MilestoneDocumentSubmittedContent } from '../domain/milestone-document-content';
 
 /**
  * 학생 뷰 — 이 서류에 붙은 최신 판정. `decision`을 따로 싣지 않는 것은 같은 뜻이 옆의
@@ -26,19 +25,14 @@ export interface MilestoneDocumentViewerSubmissionResponseDto {
   readonly hasCurrentFile: boolean;
   /** 아직 아무도 판정하지 않았으면 null. */
   readonly review: MilestoneDocumentViewerReviewResponseDto | null;
-  /** 학생 본인의 제출·파일·공개 피드백 전체 이력. */
-  readonly history: readonly MilestoneDocumentViewerHistoryResponseDto[];
-}
-
-export interface MilestoneDocumentViewerHistoryResponseDto {
-  readonly event:
-    'SUBMITTED' | 'RESUBMITTED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
-  readonly revision: number | null;
-  readonly actorNickname: string;
-  readonly comment: string | null;
-  readonly createdAt: string;
-  readonly fileName: string | null;
-  readonly content: MilestoneDocumentSubmittedContent | null;
+  /**
+   * 목록에는 이력을 싣지 않는다. 이력이 있으면 전용 cursor endpoint에서 읽어야 하며,
+   * 그 endpoint의 전체 이력을 이 응답이 모두 포함하지 않았음을 명시한다.
+   */
+  readonly history: {
+    readonly hasHistory: boolean;
+    readonly isComplete: boolean;
+  };
 }
 
 /** 교직원 뷰 — 이 서류 항목의 팀 제출 집계("6 / 8팀 제출"). */
@@ -70,7 +64,6 @@ export class MilestoneDocumentResponseDto {
   name: string;
   required: boolean;
   sortOrder: number;
-  submissionType: MilestoneSubmissionType;
   hasTemplateFile: boolean;
   templateFileName: string | null;
   /** 학생 뷰에서만 채워진다. */
@@ -87,7 +80,6 @@ export class MilestoneDocumentResponseDto {
     this.name = record.name;
     this.required = record.required;
     this.sortOrder = record.sortOrder;
-    this.submissionType = record.submissionType;
     this.hasTemplateFile = record.templateFileId !== null;
     this.templateFileName = record.templateFileName;
     this.viewerSubmission = viewer.viewerSubmission;

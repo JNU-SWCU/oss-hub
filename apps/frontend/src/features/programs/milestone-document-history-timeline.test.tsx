@@ -19,8 +19,14 @@ describe('MilestoneDocumentHistoryTimeline', () => {
   it('여러 제출 항목의 제목 id와 aria-labelledby가 서로 겹치지 않는다', () => {
     const html = renderToStaticMarkup(
       <>
-        <MilestoneDocumentHistoryTimeline history={history} />
-        <MilestoneDocumentHistoryTimeline history={history} />
+        <MilestoneDocumentHistoryTimeline
+          history={history}
+          completeness="complete"
+        />
+        <MilestoneDocumentHistoryTimeline
+          history={history}
+          completeness="complete"
+        />
       </>,
     );
     const labelledBy = [...html.matchAll(/aria-labelledby="([^"]+)"/g)].map(
@@ -30,5 +36,45 @@ describe('MilestoneDocumentHistoryTimeline', () => {
     expect(labelledBy).toHaveLength(2);
     expect(new Set(labelledBy).size).toBe(2);
     for (const id of labelledBy) expect(html).toContain(`id="${id}"`);
+  });
+
+  it('남은 이전 페이지가 있으면 앞 제출본이 유실되었다고 단정하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentHistoryTimeline
+        completeness="has-more"
+        history={[
+          {
+            event: 'RESUBMITTED',
+            revision: 4,
+            actorNickname: '학생',
+            comment: null,
+            createdAt: '2026-09-16T14:22:00.000Z',
+            fileName: null,
+          },
+        ]}
+      />,
+    );
+
+    expect(html).not.toContain('이관 전 1~3차 제출 원문');
+  });
+
+  it('완전한 이력에서만 실제 이전 제출본 유실을 알린다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentHistoryTimeline
+        completeness="complete"
+        history={[
+          {
+            event: 'RESUBMITTED',
+            revision: 4,
+            actorNickname: '학생',
+            comment: null,
+            createdAt: '2026-09-16T14:22:00.000Z',
+            fileName: null,
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('이관 전 1~3차 제출 원문');
   });
 });

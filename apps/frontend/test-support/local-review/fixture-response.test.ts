@@ -20,7 +20,7 @@ import { STAFF_PROGRAM_FIXTURES } from './handlers/staff-program-fixtures';
 import {
   createLocalReviewActivation,
   type LocalReviewFixtureId,
-} from './fixture-contract';
+} from '@/lib/local-review-runtime';
 
 function auditLogsFor(query: string) {
   return resolveLocalReviewResponse({

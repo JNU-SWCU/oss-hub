@@ -3,7 +3,6 @@ import type {
   MilestoneDocument,
   UpsertMilestoneDocumentInput,
 } from './milestone-document-api';
-import type { SubmissionType } from './types';
 
 /**
  * 교직원 「제출 항목」 등록 UI의 순수 로직.
@@ -12,20 +11,14 @@ import type { SubmissionType } from './types';
  * (`features/programs/AGENTS.md` — flow 모듈의 순수 로직은 컴포넌트와 분리).
  */
 
-const DEFAULT_SUBMISSION_TYPE = 'FILE' satisfies SubmissionType;
-
 export interface MilestoneDocumentForm {
   /** 수정 중이면 대상 서류 id, 새로 추가하는 중이면 `null`. */
   readonly id: string | null;
   readonly name: string;
   readonly required: boolean;
-  readonly submissionType: SubmissionType;
 }
 
-export type MilestoneDocumentField = Exclude<
-  keyof MilestoneDocumentForm,
-  'id' | 'submissionType'
->;
+export type MilestoneDocumentField = Exclude<keyof MilestoneDocumentForm, 'id'>;
 
 export interface MilestoneDocumentFormErrors {
   readonly name?: string;
@@ -45,7 +38,6 @@ export function emptyMilestoneDocumentForm(): MilestoneDocumentForm {
     id: null,
     name: '',
     required: true,
-    submissionType: DEFAULT_SUBMISSION_TYPE,
   };
 }
 
@@ -56,7 +48,6 @@ export function toMilestoneDocumentForm(
     id: document.id,
     name: document.name,
     required: document.required,
-    submissionType: document.submissionType,
   };
 }
 

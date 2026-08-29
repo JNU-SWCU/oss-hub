@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePublicProfile } from '@/features/profile/public-profile-api';
 import { parseMyRepositoriesResponse } from '@/features/repositories/parser';
-import { createLocalReviewActivation } from '../fixture-contract';
+import { createLocalReviewActivation } from '@/lib/local-review-runtime';
 import {
   AUTHENTICATED_FIXTURES,
   CONSENT_POLICY_VERSION,

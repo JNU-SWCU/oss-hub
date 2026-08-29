@@ -18,7 +18,6 @@ function document(
     name: `서류 ${id}`,
     isRequired: true,
     sortOrder: 1,
-    submissionType: 'FILE',
     ...overrides,
   };
 }
@@ -239,7 +238,6 @@ describe('MilestoneDocumentCollectionView 표', () => {
     document('d2', {
       name: '중간 보고',
       isRequired: false,
-      submissionType: 'TEXT',
     }),
   ];
   const rows = [

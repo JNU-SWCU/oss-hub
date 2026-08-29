@@ -22,7 +22,6 @@ import type {
   CreatedMilestoneDocumentReview,
   MilestoneDocumentReviewDecision,
 } from '@/features/programs/milestone-document-review-api';
-import type { SubmissionType } from '@/features/programs/types';
 import { findStaffMilestoneContext } from './staff-program-fixtures';
 import {
   PUBLIC_PROGRAM_IDS,
@@ -44,7 +43,8 @@ interface MilestoneDocumentSeed {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly submissionType: SubmissionType;
+  /** 픽스처가 제출 증거를 합성할 때만 쓰는 판별값 — API DTO에는 절대 싣지 않는다. */
+  readonly contentKind: 'FILE' | 'TEXT';
   readonly viewerSubmission: MilestoneDocumentViewerSubmission;
   readonly teamSubmissionCount: MilestoneDocumentTeamSubmissionCount;
 }
@@ -80,7 +80,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '기획서 제출',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
+      contentKind: 'FILE',
       /*
        * student-program-fixtures.ts의 `viewerSubmissionStatus: 'APPROVED'`와 같은 값.
        *
@@ -112,7 +112,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '중간 보고',
       required: true,
       sortOrder: 1,
-      submissionType: 'TEXT',
+      contentKind: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 18, total: 47 },
     },
@@ -124,7 +124,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '최종 결과 요약',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
+      contentKind: 'FILE',
       // `viewerSubmissionStatus: 'CHANGES_REQUESTED'`와 같은 값 — 학생 화면의 경고 톤
       // 사유 상자와 「다시 낼 수 있다」가 함께 보이는 자리다.
       viewerSubmission: {
@@ -133,40 +133,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
           reviewedAt: '2026-07-31T02:40:00.000Z',
         }),
         revision: 2,
-        history: [
-          {
-            event: 'SUBMITTED',
-            revision: 1,
-            actorNickname: '합성학생',
-            comment: null,
-            createdAt: '2026-07-28T08:10:00.000Z',
-            fileName: 'final-summary-v1.pdf',
-          },
-          {
-            event: 'CHANGES_REQUESTED',
-            revision: 1,
-            actorNickname: '합성담당자',
-            comment: '실행 순서가 빠져 있습니다. 재현 단계를 추가해 주세요.',
-            createdAt: '2026-07-29T01:30:00.000Z',
-            fileName: null,
-          },
-          {
-            event: 'RESUBMITTED',
-            revision: 2,
-            actorNickname: '합성학생',
-            comment: null,
-            createdAt: '2026-07-30T16:20:00.000Z',
-            fileName: 'final-summary-v2.pdf',
-          },
-          {
-            event: 'CHANGES_REQUESTED',
-            revision: 2,
-            actorNickname: '합성담당자',
-            comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
-            createdAt: '2026-07-31T02:40:00.000Z',
-            fileName: null,
-          },
-        ],
+        history: { hasHistory: true, isComplete: false },
       },
       teamSubmissionCount: { submitted: 30, total: 47 },
     },
@@ -178,7 +145,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '예선 결과물',
       required: true,
       sortOrder: 1,
-      submissionType: 'TEXT',
+      contentKind: 'TEXT',
       viewerSubmission: submittedViewer(
         '2026-07-29T14:10:00.000Z',
         'CHANGES_REQUESTED',
@@ -197,7 +164,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '본선 발표 자료',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
+      contentKind: 'FILE',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 2, total: 8 },
     },
@@ -209,7 +176,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '학습 회고 제출',
       required: true,
       sortOrder: 1,
-      submissionType: 'TEXT',
+      contentKind: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
@@ -221,7 +188,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '최종 실습 결과',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
+      contentKind: 'FILE',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 0, total: 3 },
     },
@@ -239,7 +206,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '합성 학습 계획서',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
+      contentKind: 'FILE',
       /*
        * 반려 갈래. 이 마일스톤은 staff-program-fixtures.ts 소유라 학생 동선의
        * `viewerSubmissionStatus`와 대조할 짝이 없다 — 그래서 학생 화면의 「반려 →
@@ -267,7 +234,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '합성 참여 서약서',
       required: true,
       sortOrder: 2,
-      submissionType: 'FILE',
+      contentKind: 'FILE',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
@@ -277,7 +244,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '합성 회고 메모',
       required: false,
       sortOrder: 3,
-      submissionType: 'TEXT',
+      contentKind: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       /*
        * 두 팀이 낸 것으로 둔다. 이 표의 제출된 칸이 다섯이 되어야 아래
@@ -296,7 +263,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '합성 사전 요약',
       required: false,
       sortOrder: 4,
-      submissionType: 'TEXT',
+      contentKind: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       /*
        * 글 제출 칸을 하나 더 둬 파일과 글 본문을 각각 로컬 검토로 확인한다.
@@ -315,7 +282,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '합성 결과 보고서',
       required: true,
       sortOrder: 1,
-      submissionType: 'FILE',
+      contentKind: 'FILE',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
@@ -325,7 +292,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '합성 결과 요약',
       required: false,
       sortOrder: 2,
-      submissionType: 'TEXT',
+      contentKind: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 0, total: 3 },
     },
@@ -346,7 +313,6 @@ export function milestoneDocumentsFor(
     name: seed.name,
     required: seed.required,
     sortOrder: seed.sortOrder,
-    submissionType: seed.submissionType,
     templateFileName: null,
     // 로컬 검토 응답 계약은 바이너리를 표현할 수 없어 양식 다운로드를 흉내 낼 수
     // 없다 — 항상 false로 둬 다운로드 버튼이 뜨지 않게 한다(handlers 파일 주석 참고).
@@ -547,6 +513,7 @@ function collectionHistoryFor(
   submittedAt: string,
   teamNumber: number,
   fileName: string | null,
+  content: MilestoneDocumentCollectionContent | null,
 ): readonly MilestoneDocumentCollectionHistory[] {
   if (state.decision === null) {
     return [
@@ -557,6 +524,7 @@ function collectionHistoryFor(
         comment: null,
         createdAt: submittedAt,
         fileName,
+        content,
       },
     ];
   }
@@ -580,6 +548,7 @@ function collectionHistoryFor(
       comment: null,
       createdAt: firstSubmittedAt,
       fileName,
+      content,
     },
     {
       event: review.decision,
@@ -588,6 +557,7 @@ function collectionHistoryFor(
       comment: review.comment,
       createdAt: review.reviewedAt,
       fileName: null,
+      content: null,
     },
   ];
   if (isResubmitted) {
@@ -598,6 +568,7 @@ function collectionHistoryFor(
       comment: null,
       createdAt: submittedAt,
       fileName,
+      content,
     });
   }
   return history;
@@ -616,7 +587,7 @@ function collectionContentFor(
   seed: MilestoneDocumentSeed,
   teamNumber: number,
 ): MilestoneDocumentCollectionContent | null {
-  switch (seed.submissionType) {
+  switch (seed.contentKind) {
     case 'FILE':
       return null;
     case 'TEXT':
@@ -733,11 +704,12 @@ function collectionRowFor(
       // 첫 팀을 그 갈래로 둬 "제출됨(링크 없음)" 표시가 검토 화면에 실제로 뜨게 한다.
       const expired = index === 0;
       const fileName =
-        seed.submissionType === 'FILE'
+        seed.contentKind === 'FILE'
           ? profileless
             ? `합성-${seed.name}-아주-긴-파일-이름-확인용-${teamNumber}팀-최종본.pdf`
             : `합성-${seed.name}-${teamNumber}팀.pdf`
           : null;
+      const content = collectionContentFor(seed, teamNumber);
       return {
         documentId: seed.id,
         isSubmitted: true,
@@ -759,13 +731,19 @@ function collectionRowFor(
                 sizeBytes: 245_760 + index * 1024,
               }
             : null,
-        content: collectionContentFor(seed, teamNumber),
+        content,
         review: collectionReviewFor(
           state,
           submittedAt,
           `synthetic-review-${seed.id}-${teamNumber}`,
         ),
-        history: collectionHistoryFor(state, submittedAt, teamNumber, fileName),
+        history: collectionHistoryFor(
+          state,
+          submittedAt,
+          teamNumber,
+          fileName,
+          content,
+        ),
       };
     }),
   };
@@ -838,7 +816,6 @@ export function milestoneDocumentCollectionFor(
       // 응답은 `isRequired`다 — 한 시드에서 두 계약으로 갈라져 나가는 자리다.
       isRequired: seed.required,
       sortOrder: seed.sortOrder,
-      submissionType: seed.submissionType,
     }),
   );
   const allRows = Array.from({ length: teamCount }, (_, index) =>
@@ -888,27 +865,67 @@ export function milestoneDocumentCollectionFor(
  * 실제 API는 표와 이력을 분리한다. 이 함수가 그 시드에서 선택한 한 칸만 꺼내 새
  * `.../history` 계약으로 돌려줘 로컬 검토도 운영과 같은 요청 순서를 타게 한다.
  */
+export type MilestoneDocumentHistoryFixtureResult =
+  | {
+      readonly kind: 'page';
+      readonly page: MilestoneDocumentHistoryPage;
+    }
+  | { readonly kind: 'document-not-found' }
+  | { readonly kind: 'submission-not-found' }
+  | { readonly kind: 'invalid-request' };
+
 export function milestoneDocumentHistoryFor(
   milestoneId: string,
   documentId: string,
   applicationId: string,
-): MilestoneDocumentHistoryPage | null {
+  query: { readonly cursor: string | null; readonly limit: number },
+): MilestoneDocumentHistoryFixtureResult {
+  const document = Object.values(MILESTONE_DOCUMENT_FIXTURES)
+    .flat()
+    .find((candidate) => candidate.id === documentId);
+  if (document === undefined || document.milestoneId !== milestoneId) {
+    return { kind: 'document-not-found' };
+  }
   const collection = milestoneDocumentCollectionFor(milestoneId, {
     page: 1,
     pageSize: 1_000,
     filter: 'ALL',
   });
-  if (collection === null) return null;
+  if (collection === null) return { kind: 'document-not-found' };
   const row = collection.rows.find(
     (candidate) => candidate.applicationId === applicationId,
   );
+  if (row === undefined) return { kind: 'submission-not-found' };
   const cell = row?.cells.find(
     (candidate) => candidate.documentId === documentId,
   );
-  if (cell === undefined || !cell.isSubmitted) return null;
+  if (cell === undefined || !cell.isSubmitted) {
+    return { kind: 'submission-not-found' };
+  }
+  const descending = (cell.history ?? [])
+    .map((item, index) => ({
+      id: `history-${documentId.slice(-12)}-${applicationId.slice(-12)}-${index}`,
+      item,
+    }))
+    .toReversed();
+  const cursorIndex =
+    query.cursor === null
+      ? -1
+      : descending.findIndex((candidate) => candidate.id === query.cursor);
+  if (query.cursor !== null && cursorIndex === -1) {
+    return { kind: 'invalid-request' };
+  }
+  const pageRows = descending.slice(
+    cursorIndex + 1,
+    cursorIndex + 1 + query.limit,
+  );
+  const hasMore = cursorIndex + 1 + query.limit < descending.length;
   return {
-    items: cell.history ?? [],
-    nextCursor: null,
+    kind: 'page',
+    page: {
+      items: pageRows.map((row) => row.item).toReversed(),
+      nextCursor: hasMore ? (pageRows.at(-1)?.id ?? null) : null,
+    },
   };
 }
 

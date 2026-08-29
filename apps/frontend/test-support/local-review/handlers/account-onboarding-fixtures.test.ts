@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StaffAccessRequestStatus } from '@/features/roles/types';
-import { onboardingPathFor } from '../../_shell/onboarding-route';
+import { onboardingPathFor } from '@/app/_shell/onboarding-route';
 import { resetLocalReviewFixtureState } from '../fixture-response';
 import { call, callWithBody, jsonBody } from './account-handlers-test-support';
 

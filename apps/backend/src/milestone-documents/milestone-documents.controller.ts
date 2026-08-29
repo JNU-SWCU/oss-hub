@@ -329,6 +329,23 @@ export class MilestoneDocumentsController {
     );
   }
 
+  @Get(':documentId/history')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  participantHistory(
+    @Req() request: ViewerRequest,
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Query() query: MilestoneDocumentHistoryQueryRequestDto,
+  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+    return this.service.historyForParticipant(
+      request.sessionGithubId,
+      milestoneId,
+      documentId,
+      query.toQuery(),
+    );
+  }
+
   /**
    * 교직원 — 한 팀이 낸 서류 제출물 판정(승인 · 보완 요청 · 반려).
    *

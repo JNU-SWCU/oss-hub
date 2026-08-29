@@ -30,7 +30,6 @@ export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
         name: document.name,
         required: document.required,
         sortOrder: document.sortOrder,
-        submissionType: document.submissionType,
         templateUploadId: document.templateUploadId,
       })),
     })),

@@ -25,13 +25,11 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       name: '개인정보 수집·이용 동의서',
       dueAt: new Date('2026-09-19T09:00:00.000Z'),
       required: true,
-      submissionType: 'FILE',
     }),
     findApplicationProgramId: jest.fn().mockResolvedValue(syntheticProgramId),
     lockDocument: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
-      submissionType: 'FILE',
     }),
     findSubmissionForReview: jest.fn().mockResolvedValue({
       id: syntheticSubmissionId,
@@ -173,7 +171,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
         name: '개인정보 수집·이용 동의서',
         dueAt: new Date('2026-09-19T09:00:00.000Z'),
         required: true,
-        submissionType: 'FILE',
       }),
     });
     const service = new MilestoneDocumentReviewsService(repository);
@@ -238,7 +235,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
       lockDocument: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: 'cuid-synthetic-other-milestone',
-        submissionType: 'FILE',
       }),
     });
     const service = new MilestoneDocumentReviewsService(repository);

@@ -30,7 +30,6 @@ function document(
     name: `서류 ${id}`,
     required: true,
     sortOrder,
-    submissionType: 'FILE',
     hasTemplateFile: false,
     templateFileName: null,
 
@@ -39,10 +38,9 @@ function document(
 }
 
 const planner = document('a', 1, { name: '계획서' });
-const budget = document('b', 2, { name: '예산서', submissionType: 'TEXT' });
+const budget = document('b', 2, { name: '예산서' });
 const pledge = document('c', 3, {
   name: '서약서',
-  submissionType: 'TEXT',
   required: false,
 });
 
@@ -191,7 +189,6 @@ describe('buildMilestoneDocumentInput', () => {
           id: null,
           name: '  계획서  ',
           required: false,
-          submissionType: 'TEXT',
         },
         4,
       ),

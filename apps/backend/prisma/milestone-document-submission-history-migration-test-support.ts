@@ -48,6 +48,7 @@ export async function resetSubmissionHistoryFixture(
         `CREATE TYPE "ReviewDecision" AS ENUM ('APPROVED', 'REJECTED', 'CHANGES_REQUESTED')`,
         `CREATE TABLE "User" ("id" TEXT PRIMARY KEY)`,
         `CREATE TABLE "Milestone" ("id" TEXT PRIMARY KEY, "submissionType" "MilestoneSubmissionType" NOT NULL)`,
+        `CREATE TABLE "MilestoneDocument" ("id" TEXT PRIMARY KEY, "submissionType" "MilestoneSubmissionType" NOT NULL)`,
         `CREATE TABLE "MilestoneDocumentSubmission" (
           "id" TEXT PRIMARY KEY,
           "content" JSONB,
@@ -77,6 +78,7 @@ export async function resetSubmissionHistoryFixture(
       const fixtureStatements = [
         `INSERT INTO "User" VALUES ('actor-1')`,
         `INSERT INTO "Milestone" VALUES ('milestone-1', 'FILE')`,
+        `INSERT INTO "MilestoneDocument" VALUES ('document-1', 'FILE')`,
         `INSERT INTO "MilestoneDocumentSubmission" VALUES
           ('submission-text', '{"type":"TEXT","text":"preserved text"}', 'actor-1', '2026-08-20T00:00:00.000Z', 1),
           ('submission-file', NULL, 'actor-1', '2026-08-21T00:00:00.000Z', 2)`,
@@ -110,6 +112,22 @@ export async function columnIsNullable(
     WHERE table_schema = ${schema} AND table_name = ${table} AND column_name = ${column}
   `;
   return rows[0]?.nullable ?? false;
+}
+
+export async function columnExists(
+  prisma: PrismaService,
+  schema: string,
+  table: string,
+  column: string,
+): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ readonly exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = ${schema} AND table_name = ${table} AND column_name = ${column}
+    ) AS exists
+  `;
+  return rows[0]?.exists ?? false;
 }
 
 export async function relationExists(

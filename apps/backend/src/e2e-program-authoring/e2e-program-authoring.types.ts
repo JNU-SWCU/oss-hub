@@ -12,13 +12,16 @@ export type E2eFailureKind = (typeof E2E_FAILURE_KINDS)[number];
 
 export type E2eProgramAuthoringGraph = {
   readonly programId: string;
+  /** The required-file milestone used for submission and archive checks. */
   readonly milestoneId: string;
+  /** The required-file document used for submission and archive checks. */
   readonly documentId: string;
 };
 
 export type E2eProgramAuthoringState = {
   readonly programs: number;
   readonly milestones: number;
+  /** Every submission item persisted across all milestones in the program. */
   readonly documents: number;
   readonly applications: number;
   readonly teams: number;

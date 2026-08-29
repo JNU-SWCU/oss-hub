@@ -30,7 +30,7 @@ export async function stateForE2eProgramGraph(
     prisma.program.count({ where: { id: graph.programId } }),
     prisma.milestone.count({ where: { programId: graph.programId } }),
     prisma.milestoneDocument.count({
-      where: { milestoneId: graph.milestoneId },
+      where: { milestone: { programId: graph.programId } },
     }),
     prisma.application.count({ where: { programId: graph.programId } }),
     prisma.team.count({ where: { programId: graph.programId } }),

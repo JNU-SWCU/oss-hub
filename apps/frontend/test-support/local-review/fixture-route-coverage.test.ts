@@ -14,13 +14,15 @@
 //
 // 역할·데이터 조건은 페르소나마다 다르므로 **한 페르소나라도 아는 경로면 통과**로 본다.
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { LOCAL_REVIEW_FIXTURE_IDS } from './fixture-contract';
+import { LOCAL_REVIEW_FIXTURE_IDS } from '@/lib/local-review-runtime';
 import { resolveLocalReviewResponse } from './fixture-response';
 
-const BACKEND_SRC = path.resolve(__dirname, '../../../../backend/src');
+const BACKEND_SRC = path.resolve(__dirname, '../../../backend/src');
+const REPOSITORY_ROOT = path.resolve(BACKEND_SRC, '../../..');
 
 /** 픽스처가 "이 경로를 모른다"고 말할 때 쓰는 코드. 도메인 404 와 구분된다. */
 const UNKNOWN_ROUTE_CODE = 'LFX_404';
@@ -83,25 +85,28 @@ function isBackendControllerFile(name: string): boolean {
   );
 }
 
-function collectControllerFiles(directory: string): readonly string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      found.push(...collectControllerFiles(full));
-      continue;
-    }
-    if (isBackendControllerFile(entry.name)) {
-      found.push(full);
-    }
-  }
-  return found;
+/**
+ * 현재 작업 트리를 순회하지 않고, 이 후보 commit이 추적하는 controller만 읽는다.
+ * 병렬 lint·빌드가 만드는 파일은 working tree에는 보여도 이 목록에는 없고, 반대로
+ * 추적된 controller는 backend/src 전체 후보에서 이름으로만 거르므로 빠뜨리지 않는다.
+ */
+function trackedControllerFiles(): readonly string[] {
+  return execFileSync(
+    'git',
+    ['-C', REPOSITORY_ROOT, 'ls-files', '--', 'apps/backend/src'],
+    { encoding: 'utf-8' },
+  )
+    .split('\n')
+    .filter(Boolean)
+    .filter((candidate) => isBackendControllerFile(path.basename(candidate)))
+    .map((candidate) => path.resolve(REPOSITORY_ROOT, candidate))
+    .sort();
 }
 
 /** `@Controller('base')` 블록마다 그 안의 `@Get('sub')` 을 모아 경로를 만든다. */
 function backendGetRoutes(): readonly string[] {
   const routes = new Set<string>();
-  for (const file of collectControllerFiles(BACKEND_SRC)) {
+  for (const file of trackedControllerFiles()) {
     const source = readFileSync(file, 'utf-8');
     const controllers = [...source.matchAll(/@Controller\('([^']*)'\)/g)];
     for (const [index, controller] of controllers.entries()) {
@@ -176,6 +181,15 @@ describe('로컬 검토 픽스처의 GET 라우트 커버리지', () => {
         '__lint_fixture_green_controller_service.controller.ts',
       ),
     ).toBe(false);
+  });
+
+  it('추적된 controller 후보만 읽어 동시 작업 파일에 흔들리지 않는다', () => {
+    expect(trackedControllerFiles().length).toBeGreaterThan(20);
+    expect(
+      trackedControllerFiles().every((file) =>
+        file.startsWith(`${BACKEND_SRC}${path.sep}`),
+      ),
+    ).toBe(true);
   });
 
   it('backend 컨트롤러를 실제로 읽어 낸다', () => {

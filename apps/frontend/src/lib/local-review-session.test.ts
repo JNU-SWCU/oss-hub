@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalLocalReviewSessionBody } from './session-contract';
+import { canonicalLocalReviewSessionBody } from '@/lib/local-review-session';
 
 describe('canonicalLocalReviewSessionBody', () => {
   it.each([

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import {
+  getMilestoneDocumentParticipantHistory,
   listMilestoneDocuments,
   milestoneDocumentTemplateHref,
   reorderMilestoneDocuments,
@@ -16,7 +17,6 @@ const document: MilestoneDocument = {
   name: '기획서',
   required: true,
   sortOrder: 0,
-  submissionType: 'FILE',
   hasTemplateFile: false,
   templateFileName: null,
 };
@@ -42,6 +42,43 @@ describe('listMilestoneDocuments', () => {
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('milestones/milestone-1/documents'),
+      undefined,
+    );
+  });
+});
+
+describe('getMilestoneDocumentParticipantHistory', () => {
+  it('정확한 학생 이력 endpoint에 제한과 cursor를 붙여 요청한다', async () => {
+    const page = { items: [], nextCursor: 'older-page' };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      getMilestoneDocumentParticipantHistory(
+        'milestone / 1',
+        'document / 1',
+        'cursor / 1',
+      ),
+    ).resolves.toEqual(page);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath(
+        'milestones/milestone%20%2F%201/documents/document%20%2F%201/history?limit=20&cursor=cursor+%2F+1',
+      ),
+      undefined,
+    );
+  });
+
+  it('첫 페이지에는 cursor를 보내지 않는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getMilestoneDocumentParticipantHistory('milestone-1', 'document-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('milestones/milestone-1/documents/document-1/history?limit=20'),
       undefined,
     );
   });

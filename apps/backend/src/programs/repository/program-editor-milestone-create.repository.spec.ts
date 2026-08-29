@@ -1,4 +1,3 @@
-import { MilestoneSubmissionType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
@@ -49,7 +48,6 @@ describe('ProgramEditorRepository milestone create', () => {
             name: '제출 항목 1',
             required: true,
             sortOrder: 1,
-            submissionType: MilestoneSubmissionType.FILE,
           },
         },
       },

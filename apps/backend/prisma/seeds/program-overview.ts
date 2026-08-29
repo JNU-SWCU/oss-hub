@@ -80,7 +80,6 @@ type MilestoneDocumentSeed = {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
-  readonly submissionType: MilestoneSubmissionType;
 };
 
 async function upsertMilestoneDocument(
@@ -98,7 +97,6 @@ async function upsertMilestoneDocument(
           name: params.name,
           required: params.required,
           sortOrder: params.sortOrder,
-          submissionType: params.submissionType,
         },
         create: {
           id: params.id,
@@ -106,7 +104,6 @@ async function upsertMilestoneDocument(
           name: params.name,
           required: params.required,
           sortOrder: params.sortOrder,
-          submissionType: params.submissionType,
         },
       }),
   );
@@ -503,7 +500,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     name: '개인정보 수집·이용 동의서',
     required: true,
     sortOrder: 1,
-    submissionType: MilestoneSubmissionType.FILE,
   });
   await upsertMilestoneDocument(stats, {
     id: m3Doc2,
@@ -511,7 +507,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     name: '프로젝트 계획서',
     required: true,
     sortOrder: 2,
-    submissionType: MilestoneSubmissionType.FILE,
   });
   await upsertMilestoneDocument(stats, {
     id: m3Doc3,
@@ -519,7 +514,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     name: '팀 구성 확인서',
     required: false,
     sortOrder: 3,
-    submissionType: MilestoneSubmissionType.FILE,
   });
   await upsertMilestoneDocumentTemplateFile(stats, {
     id: seedId('program-overview', 'milestone-document-template', 'm3-d1'),
@@ -563,7 +557,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     name: '중간 산출물 보고서',
     required: true,
     sortOrder: 1,
-    submissionType: MilestoneSubmissionType.FILE,
   });
   await upsertMilestoneDocument(stats, {
     id: m4Doc2,
@@ -571,7 +564,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     name: '발표자료',
     required: true,
     sortOrder: 2,
-    submissionType: MilestoneSubmissionType.FILE,
   });
   await upsertMilestoneDocument(stats, {
     id: m4Doc3,
@@ -579,7 +571,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     name: '시연 영상 링크',
     required: false,
     sortOrder: 3,
-    submissionType: MilestoneSubmissionType.TEXT,
   });
   await upsertMilestoneDocumentTemplateFile(stats, {
     id: seedId('program-overview', 'milestone-document-template', 'm4-d1'),

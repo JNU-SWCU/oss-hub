@@ -4,7 +4,7 @@ import type {
   MilestoneDocumentCollection,
   MilestoneDocumentHistoryPage,
 } from '@/features/programs/milestone-document-collection-api';
-import type { LocalReviewFixtureId } from '../fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import {
   isAuthenticatedFixture,
   roleForFixture,
@@ -57,6 +57,25 @@ function statusOf(plan: LocalReviewResponsePlan | null): number {
   expect(plan?.kind).toBe('json');
   return (plan as { readonly status: number }).status;
 }
+
+describe('GET .../documents', () => {
+  it('clean list DTO does not leak the fixture-only content discriminator', () => {
+    const body = jsonBody(
+      resolve('GET', `milestones/${MILESTONE_ID}/documents`),
+    ) as readonly MilestoneDocument[];
+
+    expect(body).toHaveLength(4);
+    for (const document of body) {
+      expect(Object.hasOwn(document, 'submissionType')).toBe(false);
+      expect(document).toMatchObject({
+        id: expect.any(String),
+        name: expect.any(String),
+        required: expect.any(Boolean),
+        sortOrder: expect.any(Number),
+      });
+    }
+  });
+});
 
 describe('PATCH .../documents/order', () => {
   /**
@@ -136,7 +155,6 @@ describe('PATCH .../documents/:documentId', () => {
             name: '합성 참여 서약서(수정)',
             required: true,
             sortOrder: 99,
-            submissionType: 'FILE',
           },
         },
       ),
@@ -145,6 +163,31 @@ describe('PATCH .../documents/:documentId', () => {
     expect(body.name).toBe('합성 참여 서약서(수정)');
     // 시드에서 이 서류는 두 번째다(milestone-document-fixtures.ts).
     expect(body.sortOrder).toBe(2);
+  });
+
+  it('폐기된 submissionType 필드는 400 MSD_019로 거절한다', () => {
+    const plan = resolve(
+      'PATCH',
+      `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[1]}`,
+      { body: { name: '합성 서류', required: true, submissionType: 'TEXT' } },
+    );
+    expect(statusOf(plan)).toBe(400);
+    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+  });
+});
+
+describe('POST .../documents', () => {
+  it('폐기된 submissionType 필드는 400 MSD_019로 거절한다', () => {
+    const plan = resolve('POST', `milestones/${MILESTONE_ID}/documents`, {
+      body: {
+        name: '합성 새 서류',
+        required: false,
+        sortOrder: 5,
+        submissionType: 'TEXT',
+      },
+    });
+    expect(statusOf(plan)).toBe(400);
+    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
   });
 });
 
@@ -198,6 +241,9 @@ describe('GET .../documents/collection', () => {
       false,
       false,
     ]);
+    expect(
+      documents.every((item) => !Object.hasOwn(item, 'submissionType')),
+    ).toBe(true);
   });
 
   /**
@@ -267,6 +313,8 @@ describe('GET .../documents/collection', () => {
 
 describe('GET .../applications/:applicationId/history', () => {
   const HISTORY_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/applications/synthetic-application-${MILESTONE_ID}-1/history`;
+  const RESUBMISSION_HISTORY_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/applications/synthetic-application-${MILESTONE_ID}-2/history`;
+  const TEXT_HISTORY_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[2]}/applications/synthetic-application-${MILESTONE_ID}-1/history`;
 
   it('선택한 칸의 제출·판정 이력을 새 분리 계약으로 돌려준다', () => {
     const body = jsonBody(
@@ -283,6 +331,178 @@ describe('GET .../applications/:applicationId/history', () => {
 
     expect(statusOf(plan)).toBe(403);
     expect(jsonBody(plan)).toMatchObject({ code: 'MSD_001' });
+  });
+
+  it('서류가 없거나 다른 마일스톤 소속이면 MSD_004, 신청이 없으면 MSD_022이다', () => {
+    for (const path of [
+      HISTORY_PATH.replace(DOCUMENT_IDS[0], 'missing-document'),
+      HISTORY_PATH.replace(DOCUMENT_IDS[0], 'synthetic-document-approved'),
+    ]) {
+      expect(statusOf(resolve('GET', path))).toBe(404);
+      expect(jsonBody(resolve('GET', path))).toMatchObject({ code: 'MSD_004' });
+    }
+
+    const missingApplication = HISTORY_PATH.replace(
+      /synthetic-application-[^/]+/,
+      'synthetic-application-missing',
+    );
+    expect(statusOf(resolve('GET', missingApplication))).toBe(404);
+    expect(jsonBody(resolve('GET', missingApplication))).toMatchObject({
+      code: 'MSD_022',
+    });
+  });
+
+  it('cursor와 limit을 서버 범위로 제한하고 범위 밖 cursor는 MSD_019로 막는다', () => {
+    for (const search of [
+      'limit=0',
+      'limit=51',
+      'limit=one',
+      'cursor=outside',
+    ]) {
+      const plan = resolve('GET', RESUBMISSION_HISTORY_PATH, { search });
+      expect(statusOf(plan)).toBe(400);
+      expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+    }
+  });
+
+  it('cursor 페이지는 각각 시간순이며 nextCursor가 다음 페이지를 잇는다', () => {
+    const first = jsonBody(
+      resolve('GET', RESUBMISSION_HISTORY_PATH, { search: 'limit=2' }),
+    ) as MilestoneDocumentHistoryPage;
+    const second = jsonBody(
+      resolve('GET', RESUBMISSION_HISTORY_PATH, {
+        search: `limit=2&cursor=${first.nextCursor}`,
+      }),
+    ) as MilestoneDocumentHistoryPage;
+
+    expect(first.nextCursor).not.toBeNull();
+    expect(first.items.map((item) => item.event)).toEqual([
+      'CHANGES_REQUESTED',
+      'RESUBMITTED',
+    ]);
+    expect(second.items.map((item) => item.event)).toEqual(['SUBMITTED']);
+    expect(second.nextCursor).toBeNull();
+    for (const page of [first, second]) {
+      expect(page.items.map((item) => item.createdAt)).toEqual(
+        [...page.items.map((item) => item.createdAt)].sort(),
+      );
+    }
+  });
+
+  it('SUBMITTED 이력에는 본문을, 파일·검토 이력에는 명시적 null 키를 싣는다', () => {
+    const textBody = jsonBody(
+      resolve('GET', TEXT_HISTORY_PATH),
+    ) as MilestoneDocumentHistoryPage;
+    const fileBody = jsonBody(
+      resolve('GET', RESUBMISSION_HISTORY_PATH),
+    ) as MilestoneDocumentHistoryPage;
+    const submitted = textBody.items.find((item) => item.event === 'SUBMITTED');
+    const review = textBody.items.find(
+      (item) => item.event === 'CHANGES_REQUESTED',
+    );
+    const fileSubmission = fileBody.items.find(
+      (item) => item.event === 'SUBMITTED',
+    );
+
+    expect(submitted).toMatchObject({
+      content: { type: 'TEXT' },
+      fileName: null,
+    });
+    expect(review).toMatchObject({ content: null, fileName: null });
+    expect(fileSubmission).toMatchObject({
+      content: null,
+      fileName: expect.any(String),
+    });
+    for (const item of [submitted, review, fileSubmission]) {
+      expect(Object.keys(item ?? {}).sort()).toEqual([
+        'actorNickname',
+        'comment',
+        'content',
+        'createdAt',
+        'event',
+        'fileName',
+        'revision',
+      ]);
+    }
+  });
+});
+
+describe('GET .../documents/:documentId/history', () => {
+  const HISTORY_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/history`;
+
+  it('학생 자신의 이력만 bounded cursor로 돌리고 교직원 판정자를 가린다', () => {
+    const first = jsonBody(
+      resolve('GET', HISTORY_PATH, { search: 'limit=2', fixture: 'student' }),
+    ) as MilestoneDocumentHistoryPage;
+    const second = jsonBody(
+      resolve('GET', HISTORY_PATH, {
+        search: `limit=2&cursor=${first.nextCursor}`,
+        fixture: 'student',
+      }),
+    ) as MilestoneDocumentHistoryPage;
+
+    expect(first.nextCursor).not.toBeNull();
+    expect(first.items.map((item) => item.event)).toEqual([
+      'CHANGES_REQUESTED',
+      'RESUBMITTED',
+    ]);
+    expect(first.items[0]?.actorNickname).toBe('담당 교직원');
+    expect(first.items[1]?.actorNickname).toBe('synthetic-2-1');
+    expect(second.items.map((item) => item.event)).toEqual(['SUBMITTED']);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it('staff history와 같은 cursor 범위를 적용한다', () => {
+    for (const search of [
+      'limit=0',
+      'limit=51',
+      'limit=one',
+      'cursor=outside',
+    ]) {
+      const plan = resolve('GET', HISTORY_PATH, { search, fixture: 'student' });
+      expect(statusOf(plan)).toBe(400);
+      expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+    }
+  });
+});
+
+describe('POST .../submissions', () => {
+  const SUBMISSION_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/submissions`;
+
+  it('missing·null·whitespace-only content는 422 MSD_008 canonical detail로 거절한다', () => {
+    for (const body of [
+      {},
+      { content: null },
+      { content: {} },
+      { content: { text: null, fileId: null } },
+      { content: { text: '  ', fileId: '\n\t' } },
+    ]) {
+      const plan = resolve('POST', SUBMISSION_PATH, {
+        body,
+        fixture: 'student',
+      });
+      expect(statusOf(plan)).toBe(422);
+      expect(jsonBody(plan)).toMatchObject({
+        code: 'MSD_008',
+        detail: '제출 내용을 입력해 주세요.',
+      });
+    }
+  });
+
+  it('text와 file content는 각각 제출을 성공시킨다', () => {
+    for (const content of [
+      { text: '제출 본문', fileId: null },
+      { text: null, fileId: 'synthetic-file' },
+    ]) {
+      expect(
+        statusOf(
+          resolve('POST', SUBMISSION_PATH, {
+            body: { content },
+            fixture: 'student',
+          }),
+        ),
+      ).toBe(201);
+    }
   });
 });
 

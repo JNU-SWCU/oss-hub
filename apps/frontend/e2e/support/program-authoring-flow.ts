@@ -15,6 +15,7 @@ export const PROGRAM_AUTHORING_E2E = {
   seoulNow: toSeoulOffsetIso(scheduleAnchor),
   artifactRoot: '.omo/artifacts/program-authoring-and-document-flow/12-e2e',
   programName: 'e2e:program-authoring:happy-program',
+  informationalDocumentName: 'e2e:program-authoring:information-document',
   requiredDocumentName: 'e2e:program-authoring:required-document',
   informationalMilestoneName: 'e2e:program-authoring:information-milestone',
   requiredMilestoneName: 'e2e:program-authoring:required-milestone',
@@ -164,6 +165,9 @@ export function expectCleanState(
   // 교직원이 수신 대상이 아닌(비활성·수신 거부·이메일 없음) 시나리오 기준이고,
   // 교직원이 실제로 받는 시나리오는 호출부에서 2를 넘긴다.
   expectedMailEnvelopes = 1,
+  // State counts documents across the entire program. Fixtures with only the
+  // required milestone retain their own one-document expectation; the full
+  // authoring flow explicitly proves both milestone documents below.
   expectedDocuments = 1,
 ): void {
   if (

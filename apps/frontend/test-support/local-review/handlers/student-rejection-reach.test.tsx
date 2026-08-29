@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
 import { REJECTION_REASON_MAX_LINES } from '@/lib/display-text';
-import type { LocalReviewFixtureId } from '../fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import { resolveLocalReviewResponse } from '../fixture-response';
 import { MY_APPLICATION_FIXTURES } from './student-program-fixtures';
 

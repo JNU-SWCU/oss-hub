@@ -211,7 +211,6 @@ describe('program authoring validation', () => {
     const requirement = {
       ...createRequirementDraft('requirement-file'),
       name: '계획서',
-      submissionType: 'FILE' as const,
       templateFile: {
         name: 'plan.pdf',
         size: 1024,
@@ -258,7 +257,6 @@ describe('program authoring manifest', () => {
     const requirement = {
       ...createRequirementDraft('requirement-file'),
       name: '계획서',
-      submissionType: 'FILE' as const,
       templateFile: {
         name: 'plan.pdf',
         size: 1024,

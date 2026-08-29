@@ -3,7 +3,6 @@ import type {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { MilestoneSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import {
   type MilestoneDocumentSubmittedContent,
@@ -43,7 +42,6 @@ export interface MilestoneDocumentCollectionDocumentResponseDto {
   readonly name: string;
   readonly isRequired: boolean;
   readonly sortOrder: number;
-  readonly submissionType: MilestoneSubmissionType;
 }
 
 export interface MilestoneDocumentCollectionFileResponseDto {
@@ -195,7 +193,6 @@ export class MilestoneDocumentCollectionResponseDto {
       name: document.name,
       isRequired: document.required,
       sortOrder: document.sortOrder,
-      submissionType: document.submissionType,
     }));
     this.documentTotals = collection.documentTotals;
     this.filterCounts = collection.filterCounts;

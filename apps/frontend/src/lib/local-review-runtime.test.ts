@@ -7,7 +7,7 @@ import {
   createLocalReviewActivation,
   isLoopbackHostname,
   parseRequestHostname,
-} from './fixture-contract';
+} from '@/lib/local-review-runtime';
 
 const LOCAL_INPUT = {
   nodeEnv: 'development',

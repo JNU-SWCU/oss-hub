@@ -2,7 +2,7 @@ import type { AuthRole } from '@/features/auth/types';
 import type { UserProfile } from '@/features/profile/types';
 import type { RoleSelection } from '@/features/roles/types';
 import { apiPath } from '@/lib/api-client';
-import type { LocalReviewFixtureId } from './fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 
 /**
  * 로컬 검토 픽스처의 응답 규칙을 도메인별로 나눠 담기 위한 최소 계약.

@@ -1,7 +1,6 @@
 import { apiClient, apiPath } from '@/lib/api-client';
 import type { MilestoneDocumentSubmissionStatus } from './milestone-document-api';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
-import type { SubmissionType } from './types';
 
 /**
  * 교직원 서류 수합 표(`GET /milestones/:milestoneId/documents/collection`)의 응답 계약.
@@ -35,10 +34,9 @@ export interface MilestoneDocumentCollectionDocument {
   readonly name: string;
   readonly isRequired: boolean;
   readonly sortOrder: number;
-  readonly submissionType: SubmissionType;
 }
 
-/** `submissionType === 'FILE'`이고 만료되지 않은 첨부가 있을 때만 채워진다. */
+/** 현재 제출 revision에 만료되지 않은 첨부가 있을 때만 채워진다. */
 export interface MilestoneDocumentCollectionFile {
   readonly name: string;
   readonly sizeBytes: number;

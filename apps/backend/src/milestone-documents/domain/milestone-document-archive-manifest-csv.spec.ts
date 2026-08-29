@@ -1,5 +1,4 @@
 // 합성 데이터만 사용한다 (docs/rules/security.md)
-import { MilestoneSubmissionType } from '@prisma/client';
 import type {
   MilestoneDocumentArchiveCell,
   MilestoneDocumentArchiveCellState,
@@ -16,14 +15,12 @@ const CONSENT_DOCUMENT: MilestoneDocumentArchiveDocument = {
   id: 'doc-consent',
   name: '동의서',
   required: true,
-  submissionType: MilestoneSubmissionType.FILE,
 };
 
 const PLAN_DOCUMENT: MilestoneDocumentArchiveDocument = {
   id: 'doc-plan',
   name: '계획서',
   required: false,
-  submissionType: MilestoneSubmissionType.TEXT,
 };
 
 /** 열 개수를 세기 위한 두 장짜리 구성 — 서류마다 세 칸이 붙는지 여기서 확인한다. */

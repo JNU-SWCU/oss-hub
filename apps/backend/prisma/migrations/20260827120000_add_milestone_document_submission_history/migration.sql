@@ -141,4 +141,7 @@ FROM "UnambiguousAttachedFile" AS unambiguous
 WHERE file."milestoneDocumentSubmissionId" = unambiguous."milestoneDocumentSubmissionId"
   AND file."lifecycle" = 'ATTACHED';
 
+ALTER TABLE "MilestoneDocument"
+  DROP COLUMN "submissionType";
+
 COMMIT;

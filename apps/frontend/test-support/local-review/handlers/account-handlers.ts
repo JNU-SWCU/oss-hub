@@ -15,7 +15,7 @@ import type {
   RoleSelection,
   RoleSelectionResult,
 } from '@/features/roles/types';
-import type { LocalReviewFixtureId } from '../fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import {
   bodyBoolean,
   bodyEnum,

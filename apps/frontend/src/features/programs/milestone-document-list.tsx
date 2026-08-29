@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import {
+  getMilestoneDocumentParticipantHistory,
   listMilestoneDocuments,
   milestoneDocumentTemplateHref,
   submitMilestoneDocument,
@@ -22,6 +23,7 @@ import {
   type MilestoneDocument,
   type MilestoneDocumentSubmissionContent,
 } from './milestone-document-api';
+import type { MilestoneDocumentCollectionHistory } from './milestone-document-collection-api';
 import {
   isMilestoneDocumentSubmitReviewChanged,
   milestoneDocumentSubmitConflictNotice,
@@ -397,6 +399,19 @@ function StudentDocumentRow({
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [history, setHistory] = useState<
+    readonly MilestoneDocumentCollectionHistory[]
+  >([]);
+  const [historyNextCursor, setHistoryNextCursor] = useState<string | null>(
+    null,
+  );
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyErrorCursor, setHistoryErrorCursor] = useState<string | null>(
+    null,
+  );
+  const historyRequestIdRef = useRef(0);
 
   const viewerSubmission = document.viewerSubmission;
   const submitted = viewerSubmission?.submitted ?? false;
@@ -422,11 +437,68 @@ function StudentDocumentRow({
     closed,
     viewerSubmission,
   );
+  const historyMetadata = viewerSubmission?.history;
+
+  const loadHistory = useCallback(
+    async (cursor: string | null) => {
+      historyRequestIdRef.current += 1;
+      const requestId = historyRequestIdRef.current;
+      setIsHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const page = await getMilestoneDocumentParticipantHistory(
+          document.milestoneId,
+          document.id,
+          cursor,
+        );
+        if (requestId !== historyRequestIdRef.current) return;
+        setHistory((previous) =>
+          cursor === null ? page.items : [...page.items, ...previous],
+        );
+        setHistoryNextCursor(page.nextCursor);
+        setHistoryErrorCursor(null);
+      } catch {
+        if (requestId !== historyRequestIdRef.current) return;
+        setHistoryError(
+          '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        );
+        setHistoryErrorCursor(cursor);
+      } finally {
+        if (requestId === historyRequestIdRef.current) {
+          setIsHistoryLoading(false);
+        }
+      }
+    },
+    [document.id, document.milestoneId],
+  );
+
+  /*
+   * 목록은 원장 자체가 아니라 이력이 있는지와 이관 완전성만 준다. 제출하지 않은 행이나
+   * 빈 원장에는 요청조차 내보내지 않고, 새 목록(성공 저장 뒤 재조회 포함)을 받으면 최신
+   * 페이지부터 다시 시작한다.
+   */
+  useEffect(() => {
+    historyRequestIdRef.current += 1;
+    setHistory([]);
+    setHistoryNextCursor(null);
+    setIsHistoryLoading(false);
+    setHistoryError(null);
+    setHistoryErrorCursor(null);
+    if (!submitted || historyMetadata?.hasHistory !== true) return;
+    void loadHistory(null);
+  }, [
+    document.id,
+    document.milestoneId,
+    historyMetadata?.hasHistory,
+    loadHistory,
+    submitted,
+  ]);
 
   const finish = useCallback(
     async (content: MilestoneDocumentSubmissionContent): Promise<boolean> => {
       setSubmitting(true);
       setError(null);
+      setSyncNotice(null);
       try {
         await submitMilestoneDocument(
           document.milestoneId,
@@ -441,8 +513,8 @@ function StudentDocumentRow({
           if (refreshed === undefined) throw new TypeError('Missing document.');
           onChange(refreshed);
         } catch {
-          setError(
-            '제출은 저장되었습니다. 최신 제출 차수와 이력을 확인하려면 페이지를 새로고침해 주세요.',
+          setSyncNotice(
+            '제출은 저장되었습니다. 최신 제출 차수와 이력은 아직 화면에 반영되지 않았습니다.',
           );
         }
         return true;
@@ -472,6 +544,7 @@ function StudentDocumentRow({
   }): Promise<boolean> {
     setSubmitting(true);
     setError(null);
+    setSyncNotice(null);
     try {
       const uploaded =
         input.file === null
@@ -549,10 +622,54 @@ function StudentDocumentRow({
           review={review}
         />
       )}
-      {(viewerSubmission?.history?.length ?? 0) === 0 ? null : (
+      {history.length === 0 ? null : (
         <MilestoneDocumentHistoryTimeline
-          history={viewerSubmission?.history ?? []}
+          history={history}
+          completeness={
+            historyNextCursor === null && historyMetadata?.isComplete === true
+              ? 'complete'
+              : 'has-more'
+          }
         />
+      )}
+      {!submitted || historyMetadata?.hasHistory !== true ? null : (
+        <div className="grid gap-2">
+          {isHistoryLoading ? (
+            <p
+              className="text-small text-muted-foreground"
+              data-testid="milestone-document-history-loading"
+            >
+              제출 이력을 불러오는 중입니다.
+            </p>
+          ) : null}
+          {historyError === null ? null : (
+            <Alert data-testid="milestone-document-history-error">
+              <AlertDescription className="flex flex-wrap items-center gap-2">
+                <span className="break-keep">{historyError}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void loadHistory(historyErrorCursor)}
+                >
+                  다시 시도
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {historyNextCursor === null ? null : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              disabled={isHistoryLoading}
+              onClick={() => void loadHistory(historyNextCursor)}
+            >
+              이전 이력 더 보기
+            </Button>
+          )}
+        </div>
       )}
       {canSubmit && editing ? (
         <MilestoneDocumentSubmissionForm
@@ -563,6 +680,13 @@ function StudentDocumentRow({
           onSubmit={submitDraft}
         />
       ) : null}
+      {syncNotice === null ? null : (
+        <Alert data-testid="milestone-document-submit-sync-notice">
+          <AlertDescription className="break-keep">
+            {syncNotice}
+          </AlertDescription>
+        </Alert>
+      )}
       {error ? (
         <p role="alert" className="text-small text-destructive">
           {error} 입력한 내용은 그대로 있으니 확인한 뒤 다시 시도해 주세요.

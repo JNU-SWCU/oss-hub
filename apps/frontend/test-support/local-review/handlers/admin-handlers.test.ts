@@ -6,7 +6,7 @@ import {
 } from '@/features/roles/admin-access-api';
 import type { AuditLogRecord } from '@/features/audit-log/types';
 import type { SystemStatusResponse } from '@/features/system-status/types';
-import type { LocalReviewFixtureId } from '../fixture-contract';
+import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
 import {
   isAuthenticatedFixture,
   roleForFixture,

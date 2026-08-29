@@ -228,7 +228,10 @@ export function MilestoneDocumentReviewPanel(
           이력을 불러오는 중입니다.
         </p>
       ) : (
-        <MilestoneDocumentHistoryTimeline history={props.history ?? []} />
+        <MilestoneDocumentHistoryTimeline
+          history={props.history ?? []}
+          completeness={props.hasMoreHistory ? 'has-more' : 'complete'}
+        />
       )}
 
       {props.historyError === null ? null : (

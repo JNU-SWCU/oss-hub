@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { StaffAccessRequestStatus } from '@/features/roles/types';
-import { onboardingPathFor } from '../../_shell/onboarding-route';
-import type { AppRole } from '../../_shell/role';
-import { profileOnboardingView } from '../../onboarding/profile/profile-onboarding-route';
+import { onboardingPathFor } from '@/app/_shell/onboarding-route';
+import type { AppRole } from '@/app/_shell/role';
+import { profileOnboardingView } from '@/app/onboarding/profile/profile-onboarding-route';
 import { resetLocalReviewFixtureState } from '../fixture-response';
-import { canonicalLocalReviewSessionBody } from '../session-contract';
+import { canonicalLocalReviewSessionBody } from '@/lib/local-review-session';
 import { call, callWithBody, jsonBody } from './account-handlers-test-support';
 
 /**

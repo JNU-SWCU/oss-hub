@@ -21,6 +21,7 @@ import type { ProgramScheduleEditableRange } from './program-schedule-range-type
 export function ProgramScheduleRangeEditor({
   ranges,
   activeId,
+  validationActiveId,
   onActiveIdChange,
   contextEvents = [],
   headerAction,
@@ -28,13 +29,15 @@ export function ProgramScheduleRangeEditor({
 }: {
   readonly ranges: readonly ProgramScheduleEditableRange[];
   readonly activeId: string;
+  readonly validationActiveId?: string | null;
   readonly onActiveIdChange: (value: string) => void;
   readonly contextEvents?: readonly ProgramScheduleCalendarEvent[];
   readonly headerAction?: ReactNode;
   readonly activeExtra?: ReactNode;
 }) {
   const activeRange =
-    ranges.find((range) => range.id === activeId) ?? ranges[0];
+    ranges.find((range) => range.id === (validationActiveId ?? activeId)) ??
+    ranges[0];
   const events = useMemo(
     () => [
       ...contextEvents.filter(
@@ -56,18 +59,31 @@ export function ProgramScheduleRangeEditor({
     ],
     [contextEvents, ranges],
   );
-  const initialDate =
+  const initialDate = clampDateToRange(
     (activeRange && dateKey(activeRange.startAt)) ??
-    activeRange?.minDate ??
-    `${monthKeyForEvents(events)}-01`;
+      activeRange?.minDate ??
+      `${monthKeyForEvents(events)}-01`,
+    activeRange,
+  );
   const [monthKey, setMonthKey] = useState(initialDate.slice(0, 7));
   const [focusedDate, setFocusedDate] = useState(initialDate);
   const [anchorDate, setAnchorDate] = useState<string | null>(null);
 
   useEffect(() => {
+    if (
+      validationActiveId !== null &&
+      validationActiveId !== undefined &&
+      validationActiveId !== activeId
+    )
+      onActiveIdChange(validationActiveId);
+  }, [activeId, onActiveIdChange, validationActiveId]);
+
+  useEffect(() => {
     if (activeRange === undefined) return;
-    const nextDate =
-      dateKey(activeRange.startAt) ?? activeRange.minDate ?? focusedDate;
+    const nextDate = clampDateToRange(
+      dateKey(activeRange.startAt) ?? activeRange.minDate ?? focusedDate,
+      activeRange,
+    );
     setFocusedDate(nextDate);
     setMonthKey(nextDate.slice(0, 7));
     setAnchorDate(null);
@@ -253,4 +269,15 @@ function selectionDescription(
   if (start === null || end === null)
     return '달력에서 시작 날짜를 선택해 주세요.';
   return `${formatKoreanDate(start)} ${timePart(range.startAt)}부터 ${formatKoreanDate(end)} ${timePart(range.endAt)}까지입니다.`;
+}
+
+function clampDateToRange(
+  value: string,
+  range: ProgramScheduleEditableRange | undefined,
+): string {
+  if (range?.minDate !== undefined && value < range.minDate)
+    return range.minDate;
+  if (range?.maxDate !== undefined && value > range.maxDate)
+    return range.maxDate;
+  return value;
 }

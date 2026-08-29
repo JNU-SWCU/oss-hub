@@ -14,10 +14,21 @@ const EVENT_LABELS = {
   string
 >;
 
+/**
+ * 지금 가진 이력이 처음 제출까지 닿는지에 관한 화면 계약이다.
+ *
+ * cursor 페이지가 남아 있거나, 응답이 완전성을 보장하지 않으면 앞 제출본이 없다고
+ * 단정할 수 없다. 서버가 나중에 더 강한 완전성 메타데이터를 주더라도 이 경계에서만
+ * 그 값을 이 계약으로 바꾸면 된다.
+ */
+export type MilestoneDocumentHistoryCompleteness = 'complete' | 'has-more';
+
 export function MilestoneDocumentHistoryTimeline({
   history,
+  completeness,
 }: {
   readonly history: readonly MilestoneDocumentCollectionHistory[];
+  readonly completeness: MilestoneDocumentHistoryCompleteness;
 }): ReactElement | null {
   const titleId = useId();
   if (history.length === 0) return null;
@@ -25,6 +36,7 @@ export function MilestoneDocumentHistoryTimeline({
     (item) => item.event === 'SUBMITTED' || item.event === 'RESUBMITTED',
   );
   const hasLegacyRevisionGap =
+    completeness === 'complete' &&
     firstKnownSubmission?.revision !== null &&
     firstKnownSubmission?.revision !== undefined &&
     firstKnownSubmission.revision > 1;

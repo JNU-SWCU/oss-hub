@@ -22,7 +22,6 @@ export function createRequirementDraft(
     id,
     name: '',
     required: true,
-    submissionType: 'FILE',
     templateFile: null,
   };
 }
@@ -37,7 +36,6 @@ export function createMilestoneDraft(id: string): ProgramAuthoringMilestone {
     name: '',
     startAt: '',
     dueAt: '',
-    submissionType: 'TEXT',
     instructions: '',
     requirements: [defaultSubmission],
   };
@@ -109,11 +107,6 @@ export function programAuthoringReducer(
         ...milestone,
         [action.field]: action.value,
       }));
-    case 'set_milestone_type':
-      return mapMilestone(state, action.milestoneId, (milestone) => ({
-        ...milestone,
-        submissionType: action.submissionType,
-      }));
     case 'add_requirement':
       return mapMilestone(state, action.milestoneId, (milestone) => ({
         ...milestone,
@@ -142,13 +135,6 @@ export function programAuthoringReducer(
       return mapRequirement(state, action, (requirement) => ({
         ...requirement,
         required: action.required,
-      }));
-    case 'set_requirement_type':
-      return mapRequirement(state, action, (requirement) => ({
-        ...requirement,
-        submissionType: action.submissionType,
-        templateFile:
-          action.submissionType === 'TEXT' ? null : requirement.templateFile,
       }));
     case 'set_requirement_file':
       return mapRequirement(state, action, (requirement) => ({

@@ -12,7 +12,6 @@ function document(id: string): MilestoneDocument {
     name: `항목 ${id}`,
     required: true,
     sortOrder: 1,
-    submissionType: 'FILE',
     hasTemplateFile: false,
     templateFileName: null,
   };

@@ -55,6 +55,8 @@ describe('E2eProgramAuthoringFixture persistence', () => {
     expect(state).toMatchObject({
       programs: 1,
       milestones: 1,
+      // The isolated one-milestone fixture still expects only its own document;
+      // the browser happy path separately proves the two-document program graph.
       documents: 1,
       applications: 0,
       notifications: 0,

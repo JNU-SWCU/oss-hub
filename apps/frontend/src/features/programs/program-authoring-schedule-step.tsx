@@ -60,7 +60,8 @@ export function ProgramAuthoringScheduleStep({
     >
       <ProgramScheduleRangeEditor
         ranges={ranges}
-        activeId={visibleActiveId}
+        activeId={activeId}
+        validationActiveId={issueActiveId}
         onActiveIdChange={setActiveId}
         headerAction={
           <Button

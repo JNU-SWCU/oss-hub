@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import {
   buildMilestoneDocumentArchivePlan,
   type MilestoneDocumentArchiveDocument,
@@ -17,7 +17,6 @@ function document(
     id: 'cuid-synthetic-document',
     name: '사업계획서',
     required: true,
-    submissionType: MilestoneSubmissionType.FILE,
     ...overrides,
   };
 }
@@ -107,7 +106,6 @@ describe('buildMilestoneDocumentArchivePlan', () => {
 
   it('글 제출은 `.txt` 파일로 담고 본문을 그대로 싣는다', () => {
     const result = plan({
-      documents: [document({ submissionType: MilestoneSubmissionType.TEXT })],
       submissions: [
         fileSubmission({
           file: null,
@@ -220,7 +218,6 @@ describe('buildMilestoneDocumentArchivePlan', () => {
 
   it('본문을 읽을 수 없는 글 제출도 담지 않고 이유를 남긴다', () => {
     const result = plan({
-      documents: [document({ submissionType: MilestoneSubmissionType.TEXT })],
       submissions: [fileSubmission({ file: null, content: { type: 'WAT' } })],
     });
 
@@ -228,9 +225,8 @@ describe('buildMilestoneDocumentArchivePlan', () => {
     expect(result.manifest[0]?.cells[0]?.omission).toBe('CONTENT_UNAVAILABLE');
   });
 
-  it('통합 제출의 파일이 사라지면 레거시 글 유형이어도 중립 사유를 남긴다', () => {
+  it('제출 증거가 모두 없으면 중립 사유를 남긴다', () => {
     const result = plan({
-      documents: [document({ submissionType: MilestoneSubmissionType.TEXT })],
       submissions: [fileSubmission({ file: null, content: null })],
     });
 
@@ -398,7 +394,6 @@ describe('buildMilestoneDocumentArchivePlan', () => {
         document({
           id: 'doc-b',
           name: '활동요약',
-          submissionType: MilestoneSubmissionType.TEXT,
         }),
       ],
       submissions: [

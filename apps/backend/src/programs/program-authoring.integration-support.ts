@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
   AccountStatus,
-  MilestoneSubmissionType,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
 } from '@prisma/client';
@@ -211,7 +210,6 @@ export function authoringDocument(
   return {
     name: `${AUTHORING_TEST_PREFIX}document:${label}`,
     required: true,
-    submissionType: MilestoneSubmissionType.FILE,
     ...(templateUploadId === undefined ? {} : { templateUploadId }),
   };
 }

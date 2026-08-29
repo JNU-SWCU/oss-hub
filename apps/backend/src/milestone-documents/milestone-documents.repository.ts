@@ -3,7 +3,6 @@ import {
   AccountStatus,
   ApplicationStatus,
   MilestoneDocumentSubmissionHistoryEvent,
-  MilestoneSubmissionType,
   Prisma,
   type ReviewDecision,
   SubmissionFileLifecycle,
@@ -26,7 +25,7 @@ import { submissionParticipantWhere } from '../submissions/submission-applicatio
 import type { MilestoneDocumentReviewRecord } from './domain/milestone-document-review';
 import {
   boundedReviewHistoryQuery,
-  collectionHistory,
+  milestoneDocumentHistoryDescendingOrderBy,
   reviewDecisionToHistoryEvent,
 } from './milestone-document-history';
 import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
@@ -34,7 +33,6 @@ export {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
-  MilestoneDocumentSubmissionTypeChangedError,
 } from './milestone-document-submission.repository';
 
 export class InvalidMilestoneDocumentHistoryCursorError extends Error {
@@ -48,7 +46,6 @@ export interface MilestoneDocumentRecord {
   name: string;
   required: boolean;
   sortOrder: number;
-  submissionType: MilestoneSubmissionType;
   templateFileId: string | null;
   templateFileName: string | null;
 }
@@ -73,7 +70,6 @@ export interface MilestoneDocumentContext {
   readonly name: string;
   readonly dueAt: Date;
   readonly required: boolean;
-  readonly submissionType: MilestoneSubmissionType;
 }
 
 export interface StudentApplicationContext {
@@ -90,8 +86,6 @@ export interface MilestoneDocumentSubmissionSummary {
   readonly hasCurrentFile: boolean;
   /** 최신 판정 한 건. 아직 아무도 보지 않았으면 null. */
   readonly review: MilestoneDocumentReviewRecord | null;
-  /** 학생 본인에게 보여 줄 제출·재제출·판정 전체. */
-  readonly history: readonly MilestoneDocumentCollectionHistoryRecord[];
 }
 
 /** 교직원 서류 수합 표의 행 하나 — 승인된 신청(= 팀) 한 건. */
@@ -232,12 +226,6 @@ export interface UpsertMilestoneDocumentSubmissionInput {
     readonly allowAfterDeadline: boolean;
   };
   /**
-   * 서비스가 `content.type`과 맞다고 검증한 서류의 제출 방식. 트랜잭션 안에서 행을 잠그고
-   * 다시 읽어 이 값과 같은지 확인한다 — 규칙(어떤 방식이어야 하는가)은 서비스가 들고 있고,
-   * 여기서는 넘겨받은 기대값을 잠금 아래에서 재확인만 한다(attachFile 검증과 같은 모양).
-   */
-  readonly expectedSubmissionType: MilestoneSubmissionType;
-  /**
    * 서비스가 재제출 가부를 판단할 때 본 최신 판정의 id(판정이 없었으면 null). 잠금 아래에서
    * 다시 읽어 이 값과 같은지 확인한다 — 다르면 그 사이에 판정이 들어온 것이므로 쓰지 않는다.
    * 규칙(어떤 판정이면 막는가)은 서비스가 들고 있고 여기서는 기대값 재확인만 한다.
@@ -291,15 +279,10 @@ export interface UpsertMilestoneDocumentInput {
   readonly sortOrder: number;
 }
 
-/**
- * 서류 항목이 실제로 저장하는 필드. 새 요청은 제출 방식을 받지 않고,
- * 생성은 FILE을 넣고 수정은 잠긴 기존 값을 그대로 넣는다. `sortOrder`도 순서 전용
- * endpoint만 소유하므로 여기에 없다.
- */
+/** 서류 항목 수정에 실제로 저장하는 필드. `sortOrder`는 순서 전용 endpoint만 소유한다. */
 export interface UpdateMilestoneDocumentInput {
   readonly name: string;
   readonly required: boolean;
-  readonly submissionType: MilestoneSubmissionType;
 }
 
 /** `FOR UPDATE`로 잠근 마일스톤 — 서류 항목 집합을 바꾸는 경로의 공통 관문이다. */
@@ -311,15 +294,14 @@ export interface LockedMilestone {
 export interface LockedMilestoneDocument {
   readonly id: string;
   readonly milestoneId: string;
-  readonly submissionType: MilestoneSubmissionType;
 }
 
 /**
  * 교직원 서류 항목 쓰기 usecase(추가·수정·순서 재부여·삭제)의 트랜잭션 store — ADR-003의
  * 「모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 service 계층에서 소유한다」를 위한
  * seam이다. 「잠근다 → 다시 읽는다 → 판단한다 → 쓴다」가 한 트랜잭션 안에서 일어나야 하고, 그
- * 판단(제출이 있는데 방식을 바꾸려는가 · 넘어온 id 집합이 지금의 전체 집합과 같은가)은 업무
- * 규칙이라 서비스가 들고 있어야 하기 때문에, 트랜잭션 클라이언트를 이 좁은 문으로만 내놓는다.
+ * 판단(넘어온 id 집합이 지금의 전체 집합과 같은가)은 업무 규칙이라 서비스가 들고 있어야 하기
+ * 때문에, 트랜잭션 클라이언트를 이 좁은 문으로만 내놓는다.
  */
 export interface MilestoneDocumentWriteStore {
   /**
@@ -336,7 +318,7 @@ export interface MilestoneDocumentWriteStore {
    * 잠금이 실제로 하는 일: 학생 제출 경로(`upsertSubmission`)가 같은 행을 `FOR SHARE`로 먼저
    * 잡으므로 둘 중 하나는 반드시 기다린다. 그래서 「셀 때는 0이었는데 갱신 직전에 제출이
    * 끼어드는」 창이 닫힌다. 값을 다시 읽는 것도 잠금의 일부다 — 잠금을 기다리는 동안 다른
-   * 교직원이 제출 방식을 이미 바꿨을 수 있어, 트랜잭션 밖에서 읽은 값으로 판단하면 안 된다.
+   * 교직원이 항목을 이미 바꿨을 수 있어, 트랜잭션 밖에서 읽은 값으로 판단하면 안 된다.
    */
   lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
   /**
@@ -412,6 +394,25 @@ export interface MilestoneDocumentWriteStore {
   ): Promise<void>;
 }
 
+/** 교직원 수합 응답 하나가 공유하는 읽기 snapshot의 저장소 경계다. */
+export interface MilestoneDocumentCollectionReadStore {
+  findMilestone(milestoneId: string): Promise<MilestoneContext | null>;
+  findByMilestoneId(
+    milestoneId: string,
+  ): Promise<readonly MilestoneDocumentRecord[]>;
+  findApprovedApplicationsForCollection(
+    programId: string,
+  ): Promise<readonly MilestoneDocumentCollectionApplication[]>;
+  findSubmissionCoordinatesForCollection(
+    documentIds: readonly string[],
+  ): Promise<readonly MilestoneDocumentSubmissionCoordinate[]>;
+  findSubmissionsForCollection(
+    documentIds: readonly string[],
+    now: Date,
+    applicationIds: readonly string[],
+  ): Promise<readonly MilestoneDocumentCollectionSubmission[]>;
+}
+
 const attachedFileSelect = {
   id: true,
   originalFileName: true,
@@ -426,7 +427,6 @@ const documentRecordSelect = {
   name: true,
   required: true,
   sortOrder: true,
-  submissionType: true,
   templateFile: { select: { id: true, originalFileName: true } },
 } as const;
 
@@ -436,7 +436,6 @@ function toDocumentRecord(row: {
   name: string;
   required: boolean;
   sortOrder: number;
-  submissionType: MilestoneSubmissionType;
   templateFile: { id: string; originalFileName: string } | null;
 }): MilestoneDocumentRecord {
   return {
@@ -445,7 +444,6 @@ function toDocumentRecord(row: {
     name: row.name,
     required: row.required,
     sortOrder: row.sortOrder,
-    submissionType: row.submissionType,
     templateFileId: row.templateFile?.id ?? null,
     templateFileName: row.templateFile?.originalFileName ?? null,
   };
@@ -506,7 +504,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     const rows = await this.transaction.$queryRaw<
       readonly LockedMilestoneDocument[]
     >(Prisma.sql`
-      SELECT "id", "milestoneId", "submissionType"
+      SELECT "id", "milestoneId"
       FROM "MilestoneDocument"
       WHERE "id" = ${documentId}
       FOR UPDATE
@@ -546,7 +544,6 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
         name: true,
         required: true,
         sortOrder: true,
-        submissionType: true,
       },
     });
     return {
@@ -742,6 +739,124 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   }
 }
 
+class PrismaMilestoneDocumentCollectionReadStore implements MilestoneDocumentCollectionReadStore {
+  constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  async findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
+    return this.transaction.milestone.findUnique({
+      where: { id: milestoneId },
+      select: { id: true, programId: true, name: true, dueAt: true },
+    });
+  }
+
+  async findByMilestoneId(
+    milestoneId: string,
+  ): Promise<readonly MilestoneDocumentRecord[]> {
+    const documents = await this.transaction.milestoneDocument.findMany({
+      where: { milestoneId },
+      orderBy: { sortOrder: 'asc' },
+      select: documentRecordSelect,
+    });
+    return documents.map(toDocumentRecord);
+  }
+
+  async findApprovedApplicationsForCollection(
+    programId: string,
+  ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
+    const applications = await this.transaction.application.findMany({
+      where: { programId, status: ApplicationStatus.APPROVED },
+      orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+      select: collectionApplicationSelect,
+    });
+    return applications.map((application) => ({
+      applicationId: application.id,
+      teamName: application.team.name,
+      applicantName: resolveUserProfileName(application.applicant),
+      memberNicknames: application.team.members.map(
+        (member) => member.user.nickname,
+      ),
+    }));
+  }
+
+  async findSubmissionCoordinatesForCollection(
+    documentIds: readonly string[],
+  ): Promise<readonly MilestoneDocumentSubmissionCoordinate[]> {
+    if (documentIds.length === 0) return [];
+    return this.transaction.milestoneDocumentSubmission.findMany({
+      where: { milestoneDocumentId: { in: [...documentIds] } },
+      select: { milestoneDocumentId: true, applicationId: true },
+    });
+  }
+
+  async findSubmissionsForCollection(
+    documentIds: readonly string[],
+    now: Date,
+    applicationIds: readonly string[],
+  ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
+    if (documentIds.length === 0 || applicationIds.length === 0) return [];
+    const submissions =
+      await this.transaction.milestoneDocumentSubmission.findMany({
+        where: {
+          milestoneDocumentId: { in: [...documentIds] },
+          applicationId: { in: [...applicationIds] },
+        },
+        select: {
+          milestoneDocumentId: true,
+          applicationId: true,
+          submittedAt: true,
+          revision: true,
+          status: true,
+          content: true,
+          files: {
+            where: unexpiredAttachedFileWhere(now),
+            orderBy: currentRevisionFileOrderBy,
+            take: 1,
+            select: {
+              originalFileName: true,
+              sizeBytes: true,
+              submissionHistory: { select: { revision: true } },
+            },
+          },
+          reviewHistories: {
+            ...boundedReviewHistoryQuery,
+            take: 1,
+          },
+        },
+      });
+    return submissions.map((submission) => {
+      const review = submission.reviewHistories[0] ?? null;
+      const selectedFile = submission.files[0];
+      const file =
+        selectedFile !== undefined &&
+        selectedFile.submissionHistory !== null &&
+        selectedFile.submissionHistory.revision === submission.revision
+          ? {
+              originalFileName: selectedFile.originalFileName,
+              sizeBytes: selectedFile.sizeBytes,
+            }
+          : null;
+      return {
+        milestoneDocumentId: submission.milestoneDocumentId,
+        applicationId: submission.applicationId,
+        submittedAt: submission.submittedAt,
+        revision: submission.revision,
+        status: submission.status,
+        content: submission.content,
+        file,
+        review:
+          review === null
+            ? null
+            : {
+                id: review.id,
+                decision: review.decision,
+                comment: review.comment,
+                reviewedAt: review.reviewedAt,
+              },
+      };
+    });
+  }
+}
+
 @Injectable()
 export class MilestoneDocumentsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -756,6 +871,21 @@ export class MilestoneDocumentsRepository {
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
       operation(new PrismaMilestoneDocumentWriteStore(transaction)),
+    );
+  }
+
+  /**
+   * 수합 화면의 좌표·페이지·상세 셀은 한 snapshot을 공유해야 한다. 좌표에서 센 제출이 상세
+   * 조회 직전에 바뀌면 count와 cell이 서로 다른 시점을 가리키므로, 짧은 읽기 트랜잭션을
+   * 서비스가 소유하고 이 store만 건넨다.
+   */
+  withCollectionSnapshot<T>(
+    operation: (store: MilestoneDocumentCollectionReadStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(
+      (transaction) =>
+        operation(new PrismaMilestoneDocumentCollectionReadStore(transaction)),
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
 
@@ -798,7 +928,6 @@ export class MilestoneDocumentsRepository {
         milestoneId: true,
         name: true,
         required: true,
-        submissionType: true,
         milestone: { select: { programId: true, dueAt: true } },
       },
     });
@@ -810,7 +939,6 @@ export class MilestoneDocumentsRepository {
       name: document.name,
       dueAt: document.milestone.dueAt,
       required: document.required,
-      submissionType: document.submissionType,
     };
   }
 
@@ -863,35 +991,9 @@ export class MilestoneDocumentsRepository {
           take: 1,
           select: { submissionHistory: { select: { revision: true } } },
         },
-        reviewHistories: boundedReviewHistoryQuery,
-        histories: {
-          where: {
-            event: {
-              in: [
-                MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-              ],
-            },
-          },
-          orderBy: [
-            { revision: 'desc' },
-            { createdAt: 'desc' },
-            { id: 'desc' },
-          ],
-          take: 50,
-          select: {
-            event: true,
-            revision: true,
-            comment: true,
-            content: true,
-            createdAt: true,
-            actor: { select: { nickname: true } },
-            files: {
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-              select: { originalFileName: true },
-            },
-          },
+        reviewHistories: {
+          ...boundedReviewHistoryQuery,
+          take: 1,
         },
       },
     });
@@ -914,10 +1016,6 @@ export class MilestoneDocumentsRepository {
                 comment: review.comment,
                 reviewedAt: review.reviewedAt,
               },
-        history: collectionHistory(
-          submission.histories ?? [],
-          submission.reviewHistories,
-        ),
       };
     });
   }
@@ -976,7 +1074,7 @@ export class MilestoneDocumentsRepository {
     }
     const rows = await this.prisma.milestoneDocumentSubmissionHistory.findMany({
       where: { milestoneDocumentSubmissionId: submission.id },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      orderBy: milestoneDocumentHistoryDescendingOrderBy,
       take: limit + 1,
       ...(cursor === null ? {} : { cursor: { id: cursor }, skip: 1 }),
       select: {
@@ -1332,10 +1430,9 @@ export class MilestoneDocumentsRepository {
    * pending 파일을 새 제출 이력에 붙인다. 이전 ATTACHED 파일은 자기 이력에 연결된 채 보존해
    * 제출본별 파일 이력을 잃지 않고, 현재 파일은 최신 revision 연결로 구분한다.
    *
-   * 별도 submission repository 함수에 트랜잭션을 둔 이유: 서비스가 이미 정한
-   * 기대값(`expectedSubmissionType`)과 pending 파일 조건을 잠금 아래에서 확인만 하고, 어긋나면
-   * 타입 있는 오류로 되던져 서비스가 오류 코드로 옮긴다. 반대로 `updateDocument`는 트랜잭션 안에서
-   * 「막을지 말지」를 판단하므로 경계를 서비스가 소유한다(`withTransaction`).
+   * 별도 submission repository 함수에 트랜잭션을 둔 이유: pending 파일 조건과 최신 판정이
+   * 제출 행 잠금 아래에서 일관되게 확인되어야 하기 때문이다. 반대로 `updateDocument`는
+   * 트랜잭션 안에서 「막을지 말지」를 판단하므로 경계를 서비스가 소유한다(`withTransaction`).
    */
   async upsertSubmission(
     input: UpsertMilestoneDocumentSubmissionInput,

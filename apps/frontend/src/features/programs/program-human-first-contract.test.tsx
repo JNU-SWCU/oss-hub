@@ -44,7 +44,6 @@ describe('사람 중심 프로그램 작성 계약', () => {
                 id: 'requirement-1',
                 name: '결과 보고서',
                 required: true,
-                submissionType: 'TEXT',
                 templateFile: null,
               },
             ],
@@ -78,7 +77,6 @@ describe('사람 중심 프로그램 작성 계약', () => {
                     id: 'requirement-1',
                     name: '결과 보고서',
                     required: true,
-                    submissionType: 'FILE',
                     templateFile: null,
                   },
                 ],
@@ -88,7 +86,6 @@ describe('사람 중심 프로그램 작성 계약', () => {
           issues={[]}
           dispatch={vi.fn()}
           newId={() => 'new-id'}
-          onRemove={vi.fn()}
           onRequirementFileChange={vi.fn()}
           onRequirementRemove={vi.fn()}
         />,

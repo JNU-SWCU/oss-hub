@@ -28,7 +28,6 @@ import {
   type MilestoneDocumentRecord,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
-  MilestoneDocumentSubmissionTypeChangedError,
   type UpdateMilestoneDocumentInput,
   type UpsertMilestoneDocumentInput,
   type UpsertMilestoneDocumentSubmissionInput,
@@ -114,19 +113,10 @@ export class MilestoneDocumentsService {
                       comment: summary.review.comment,
                       reviewedAt: summary.review.reviewedAt.toISOString(),
                     },
-              history:
-                summary?.history.map((item) => ({
-                  event: item.event,
-                  revision: item.revision,
-                  actorNickname: studentHistoryActorLabel(
-                    item.event,
-                    item.actorNickname,
-                  ),
-                  comment: item.comment,
-                  createdAt: item.createdAt.toISOString(),
-                  fileName: item.fileName,
-                  content: readMilestoneDocumentSubmittedContent(item.content),
-                })) ?? [],
+              history: {
+                hasHistory: summary !== null,
+                isComplete: summary === null,
+              },
             },
           });
         });
@@ -159,57 +149,57 @@ export class MilestoneDocumentsService {
     query: MilestoneDocumentCollectionQuery,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentCollectionResponseDto> {
-    const milestone = await this.repository.findMilestone(milestoneId);
-    if (milestone === null) {
-      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
-    }
+    return this.repository.withCollectionSnapshot(async (store) => {
+      const milestone = await store.findMilestone(milestoneId);
+      if (milestone === null) {
+        throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      }
 
-    const [documents, applications] = await Promise.all([
-      this.repository.findByMilestoneId(milestoneId),
-      this.repository.findApprovedApplicationsForCollection(
-        milestone.programId,
-      ),
-    ]);
-    const documentIds = documents.map((document) => document.id);
-    const coordinates =
-      await this.repository.findSubmissionCoordinatesForCollection(documentIds);
-    const coordinatePage = buildMilestoneDocumentCollectionPage(
-      documents,
-      applications,
-      coordinates,
-      query,
-    );
-    const pageApplicationIds = coordinatePage.rows.map(
-      (row) => row.application.applicationId,
-    );
-    const submissions = await this.repository.findSubmissionsForCollection(
-      documentIds,
-      now,
-      pageApplicationIds,
-    );
-    const detailByCell = new Map(
-      submissions.map((submission) => [
-        `${submission.applicationId}::${submission.milestoneDocumentId}`,
-        submission,
-      ]),
-    );
-    const collection = {
-      ...coordinatePage,
-      rows: coordinatePage.rows.map((row) => ({
-        application: row.application,
-        cells: documents.map(
-          (document) =>
-            detailByCell.get(
-              `${row.application.applicationId}::${document.id}`,
-            ) ?? null,
-        ),
-      })),
-    };
-    return MilestoneDocumentCollectionResponseDto.from(
-      milestone,
-      documents,
-      collection,
-    );
+      const [documents, applications] = await Promise.all([
+        store.findByMilestoneId(milestoneId),
+        store.findApprovedApplicationsForCollection(milestone.programId),
+      ]);
+      const documentIds = documents.map((document) => document.id);
+      const coordinates =
+        await store.findSubmissionCoordinatesForCollection(documentIds);
+      const coordinatePage = buildMilestoneDocumentCollectionPage(
+        documents,
+        applications,
+        coordinates,
+        query,
+      );
+      const pageApplicationIds = coordinatePage.rows.map(
+        (row) => row.application.applicationId,
+      );
+      const submissions = await store.findSubmissionsForCollection(
+        documentIds,
+        now,
+        pageApplicationIds,
+      );
+      const detailByCell = new Map(
+        submissions.map((submission) => [
+          `${submission.applicationId}::${submission.milestoneDocumentId}`,
+          submission,
+        ]),
+      );
+      const collection = {
+        ...coordinatePage,
+        rows: coordinatePage.rows.map((row) => ({
+          application: row.application,
+          cells: documents.map(
+            (document) =>
+              detailByCell.get(
+                `${row.application.applicationId}::${document.id}`,
+              ) ?? null,
+          ),
+        })),
+      };
+      return MilestoneDocumentCollectionResponseDto.from(
+        milestone,
+        documents,
+        collection,
+      );
+    });
   }
 
   async historyForStaff(
@@ -227,27 +217,57 @@ export class MilestoneDocumentsService {
     if (applicationProgramId !== document.programId) {
       throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
     }
-    const page = await this.repository
-      .findSubmissionHistoryPage(
-        documentId,
-        applicationId,
-        query.cursor,
-        query.limit,
-      )
-      .catch((error: unknown) => {
-        if (error instanceof InvalidMilestoneDocumentHistoryCursorError) {
-          throw this.error(MilestoneDocumentsErrorCode.INVALID_REQUEST);
-        }
-        throw error;
-      });
-    if (page === null) {
-      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
-    }
+    const page = await this.findHistoryPage(documentId, applicationId, query);
     return {
       items: page.items.map((item) => ({
         event: item.event,
         revision: item.revision,
         actorNickname: item.actorNickname,
+        comment: item.comment,
+        createdAt: item.createdAt.toISOString(),
+        fileName: item.fileName,
+        content: readMilestoneDocumentSubmittedContent(item.content),
+      })),
+      nextCursor: page.nextCursor,
+    };
+  }
+
+  async historyForParticipant(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+    query: { readonly cursor: string | null; readonly limit: number },
+  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+    const viewer = await this.repository.findActiveUser(sessionGithubId);
+    if (viewer === null) {
+      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+    }
+    const document = await this.repository.findDocumentContext(documentId);
+    if (document === null || document.milestoneId !== milestoneId) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+    const application = await this.repository.findStudentApplication(
+      viewer.id,
+      document.programId,
+    );
+    if (application === null) {
+      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+    }
+    if (!application.approved) {
+      throw this.error(
+        MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+      );
+    }
+    const page = await this.findHistoryPage(
+      documentId,
+      application.applicationId,
+      query,
+    );
+    return {
+      items: page.items.map((item) => ({
+        event: item.event,
+        revision: item.revision,
+        actorNickname: studentHistoryActorLabel(item.event, item.actorNickname),
         comment: item.comment,
         createdAt: item.createdAt.toISOString(),
         fileName: item.fileName,
@@ -279,7 +299,6 @@ export class MilestoneDocumentsService {
       return store.createDocument(milestoneId, {
         name: input.name,
         required: input.required,
-        submissionType: MilestoneSubmissionType.FILE,
       });
     });
     return MilestoneDocumentResponseDto.from(record);
@@ -298,14 +317,8 @@ export class MilestoneDocumentsService {
    * store로 넘기는 타입(`UpdateMilestoneDocumentInput`)에서 잘라낸다. 「조심해서 안 쓴다」가
    * 아니라 **쓸 수 없게** 만드는 쪽이다.
    *
-   * 제출 방식은 요청 계약에서 제거되었다. 새 항목은 FILE로만 만들고, 기존
-   * TEXT 항목을 수정할 때는 잠긴 행의 값을 유지한다. 그러므로 제출물을 표에서
-   * 사라지게 만들던 FILE↔TEXT 변경 경로 자체가 없다.
-   *
-   * 「잠근다 → 센다 → 판단한다 → 갱신한다」가 **한 트랜잭션**이어야 한다(ADR-003 — 트랜잭션
-   * 경계는 service가 소유한다). 세기와 갱신이 갈라져 있으면 그 사이에 들어온 제출이 카운트에
-   * 잡히지 않고, 가드를 통과한 갱신이 커밋되어 「TEXT인데 FILE 제출이 들어 있는」 상태 — 이
-   * 가드가 막으려던 바로 그 상태 — 가 남는다. 잠금의 상대편은 `upsertSubmission`의 `FOR SHARE`다.
+   * 「잠근다 → 판단한다 → 갱신한다」가 **한 트랜잭션**이어야 한다(ADR-003 — 트랜잭션 경계는
+   * service가 소유한다). 잠금의 상대편은 `upsertSubmission`의 `FOR SHARE`다.
    *
    * 여기서는 마일스톤 행을 잡지 않는다 — 이 경로는 서류 항목을 만들지도 지우지도 않아 **집합을
    * 바꾸지 않기** 때문이다. 이미 있는 한 행만 만지므로 그 행의 `FOR UPDATE`로 충분하고, 순서
@@ -324,7 +337,7 @@ export class MilestoneDocumentsService {
       if (locked === null || locked.milestoneId !== milestoneId) {
         throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
       }
-      return store.updateDocument(documentId, toUpdateInput(input, locked));
+      return store.updateDocument(documentId, toUpdateInput(input));
     });
     return MilestoneDocumentResponseDto.from(record);
   }
@@ -484,9 +497,6 @@ export class MilestoneDocumentsService {
         },
         content: submissionContent,
         attachFile,
-        // 제출 방식은 더 이상 학생 입력을 제한하지 않는다. 이 값은 항목이 검증 뒤 삭제되거나
-        // 교체되지 않았는지만 잠금 아래에서 재확인하기 위한 전환기 호환 값이다.
-        expectedSubmissionType: documentContext.submissionType,
         // 재제출 가부 판단도 같은 이유로 트랜잭션 밖의 읽기다 — 그 사이 교직원이 판정할 수 있다.
         // 판단의 근거였던 판정 id를 넘겨 잠금 아래에서 최신 판정이 아직 그것인지 확인한다.
         expectedLatestReviewId: latestReview?.id ?? null,
@@ -495,9 +505,6 @@ export class MilestoneDocumentsService {
     } catch (error) {
       if (error instanceof MilestoneDocumentPendingFileMissingError) {
         throw this.error(MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND);
-      }
-      if (error instanceof MilestoneDocumentSubmissionTypeChangedError) {
-        throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
       }
       if (error instanceof MilestoneDocumentReviewChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_CHANGED);
@@ -515,6 +522,30 @@ export class MilestoneDocumentsService {
 
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
+  }
+
+  private async findHistoryPage(
+    documentId: string,
+    applicationId: string,
+    query: { readonly cursor: string | null; readonly limit: number },
+  ) {
+    const page = await this.repository
+      .findSubmissionHistoryPage(
+        documentId,
+        applicationId,
+        query.cursor,
+        query.limit,
+      )
+      .catch((error: unknown) => {
+        if (error instanceof InvalidMilestoneDocumentHistoryCursorError) {
+          throw this.error(MilestoneDocumentsErrorCode.INVALID_REQUEST);
+        }
+        throw error;
+      });
+    if (page === null) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+    }
+    return page;
   }
 }
 
@@ -535,12 +566,10 @@ function studentHistoryActorLabel(
  */
 function toUpdateInput(
   input: UpsertMilestoneDocumentInput,
-  locked: { readonly submissionType: MilestoneSubmissionType },
 ): UpdateMilestoneDocumentInput {
   return {
     name: input.name,
     required: input.required,
-    submissionType: locked.submissionType,
   };
 }
 
