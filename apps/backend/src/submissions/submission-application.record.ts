@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { MilestoneDocumentKind, Prisma } from '@prisma/client';
 import type { SubmissionApplication } from './submissions.repository';
 
 export function submissionParticipantWhere(
@@ -22,10 +22,15 @@ export const submissionApplicationSelect = (milestoneId: string) =>
     // 개인 참여는 멤버가 1명뿐인 팀이다(D5·D6). 표시용 구분에 인원이 필요하다.
     team: { select: { _count: { select: { members: true } } } },
     status: true,
-    submissions: {
-      where: { milestoneId },
+    milestoneDocumentSubmissions: {
+      where: {
+        milestoneDocument: {
+          milestoneId,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
       take: 1,
-      select: { id: true, status: true },
+      select: { id: true, legacySubmissionId: true, status: true },
     },
   }) as const;
 
@@ -42,6 +47,13 @@ export function toSubmissionApplication(
     teamId: application.teamId,
     teamMemberCount: application.team?._count.members ?? 0,
     status: application.status,
-    existingSubmission: application.submissions[0] ?? null,
+    existingSubmission: application.milestoneDocumentSubmissions[0]
+      ? {
+          id:
+            application.milestoneDocumentSubmissions[0].legacySubmissionId ??
+            application.milestoneDocumentSubmissions[0].id,
+          status: application.milestoneDocumentSubmissions[0].status,
+        }
+      : null,
   };
 }

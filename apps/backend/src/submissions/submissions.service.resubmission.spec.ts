@@ -27,6 +27,7 @@ function target(
 ): ResubmissionTarget {
   return {
     id: submissionId,
+    targetId: 'target-submission-1',
     applicationId: 'application-1',
     milestoneId: 'milestone-1',
     programId: 'program-1',
@@ -167,7 +168,7 @@ it('CHANGES_REQUESTED + 일치하는 baseRevision이면 새 revision을 만들�
   });
   expect(createSubmissionRevision).toHaveBeenCalledWith(
     expect.objectContaining({
-      submissionId,
+      submissionId: 'target-submission-1',
       applicationId: 'application-1',
       milestoneId: 'milestone-1',
       baseRevision: 1,
@@ -321,7 +322,7 @@ it('FILE 유형 재제출은 replacement fileId로 새 revision을 만든다', a
   });
   expect(createSubmissionRevision).toHaveBeenCalledWith(
     expect.objectContaining({
-      submissionId,
+      submissionId: 'target-submission-1',
       applicationId: 'application-1',
       milestoneId: 'milestone-1',
       baseRevision: 1,
