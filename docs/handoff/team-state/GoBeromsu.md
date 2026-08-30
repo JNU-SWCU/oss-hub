@@ -839,3 +839,12 @@
 - blocker: 없음
 - 결과: 사용되지 않는 dormant target adapter·transition type·legacy 별칭·dead exception을 제거하고, 공개 제출 ID의 dual-key predicate·collision guard·projection을 한 helper로 통합했다. 유일한 review mapper를 canonical 이름으로 바꾸고 completion axis projection을 공유하며, 프로그램 편집의 항상 0이던 legacy count와 target/projected compatibility branch를 제거했다. checklist는 현재 history/file/review만 읽고 dashboard는 target row를 한 번만 partition한다.
 - 검증: backend unit 309 suites·3448 tests, backend typecheck·build·lint, repository format을 통과했다. architecture review CLEAR, public-ID/review/file QA red-team CLEAR였고, completion red-team이 찾은 legacy document-only 공개 차단을 회귀 테스트와 함께 수정한 뒤 re-review CLEAR를 받았다.
+
+## 2026-08-30 — 완료된 제출 이관 전용 도구를 제거한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: contract 배포와 최종 단순화가 끝나 더는 실행할 단계가 없는 제출 이관 전용 report·runtime inventory·rehearsal/restore-mode script와 테스트 5개를 삭제하고 required CI·경로 계약·규칙 문서에서 연결을 제거했다. 영구 데이터 계약인 Prisma migration 이력·`legacySubmissionId`·internal kind·target-only CHECK와 전체 release를 보호하는 Jenkins backup/rollback은 유지한다.
+- 검증: 삭제된 도구 참조 0건, CI path contract와 남은 migration/Jenkins contract 41건, repository format·public-safe를 통과했다.
