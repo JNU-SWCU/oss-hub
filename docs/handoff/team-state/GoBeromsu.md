@@ -785,3 +785,12 @@
 - 검증: Node 계약 32건, backend unit 3454건, backend typecheck·build·lint, repository format, CI path contract, shell syntax, public-safe를 통과했다. 로컬 Docker daemon이 꺼져 있어 실제 Docker rehearsal은 CI가 수행한다.
 - 결과: 실제 날짜가 고정 마감일을 지나면 파일 업로드 integration test가 실패하던 time bomb을 제거하고, 테스트 목적에 맞게 실행 시점 기준 미래 마감·프로그램 종료일을 사용한다.
 - 검증: backend typecheck와 변경 파일 format을 통과했다. 로컬 Docker daemon이 꺼져 있어 focused integration은 실행하지 못했고, 원격 CI에서 확인한다.
+
+## 2026-08-30 — 레거시 제출 이관 expand 경계를 배포한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 내부 legacy 제출 슬롯 kind·공개 ID provenance·SubmissionFile 공존 CHECK를 additive migration으로 열고, 일반 서류 UI·집계에서 내부 슬롯을 구조적으로 제외했다. 프런트 계약을 유지하는 target ID·복수 파일 이력 adapter는 dormant 상태로 준비했으며 runtime 정본은 계속 레거시다.
+- 검증: Prisma validate, migration contract 20건, backend unit 311 suites·3465 tests, touched contract 100 tests, backend typecheck·build·lint, repository format, public-safe를 통과했다. 실제 migrate deploy·integration은 required CI의 격리 PostgreSQL에서 확인한다.
