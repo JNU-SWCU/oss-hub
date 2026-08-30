@@ -473,11 +473,18 @@ describe('SubmissionsService integration', () => {
   });
 
   it('PENDING 파일에 업로드 만료와 보존 만료를 함께 저장한다', async () => {
-    const programEndAt = new Date('2027-01-01T00:00:00.000Z');
-    await prisma.program.update({
-      where: { id: MILESTONES_PROGRAM_ID },
-      data: { endAt: programEndAt },
-    });
+    const milestoneDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const programEndAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    await Promise.all([
+      prisma.program.update({
+        where: { id: MILESTONES_PROGRAM_ID },
+        data: { endAt: programEndAt },
+      }),
+      prisma.milestone.update({
+        where: { id: FILE_MILESTONE_ID },
+        data: { dueAt: milestoneDueAt },
+      }),
+    ]);
     const storage: SubmissionFileStoragePort = {
       put: jest.fn().mockResolvedValue({
         objectKey: 'private/synthetic-upload.pdf',
@@ -516,7 +523,7 @@ describe('SubmissionsService integration', () => {
       });
       expect(row.lifecycle).toBe(SubmissionFileLifecycle.PENDING);
       expect(row.pendingExpiresAt).not.toBeNull();
-      expect(row.expiresAt).toEqual(new Date('2028-01-01T00:00:00.000Z'));
+      expect(row.expiresAt).toEqual(addOneCalendarYear(programEndAt));
     } finally {
       await prisma.submissionFile.deleteMany({
         where: {
@@ -525,10 +532,16 @@ describe('SubmissionsService integration', () => {
           lifecycle: SubmissionFileLifecycle.PENDING,
         },
       });
-      await prisma.program.update({
-        where: { id: MILESTONES_PROGRAM_ID },
-        data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
-      });
+      await Promise.all([
+        prisma.program.update({
+          where: { id: MILESTONES_PROGRAM_ID },
+          data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
+        }),
+        prisma.milestone.update({
+          where: { id: FILE_MILESTONE_ID },
+          data: { dueAt: new Date('2026-08-30T00:00:00.000Z') },
+        }),
+      ]);
     }
   });
 
