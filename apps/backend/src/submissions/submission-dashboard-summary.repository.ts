@@ -205,41 +205,44 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
         }),
       ]);
 
+    const submissions: SubmissionDashboardSubmissionRecord[] = [];
+    const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
+      [];
+    for (const submission of targetSubmissions) {
+      const { milestoneDocument } = submission;
+      if (
+        milestoneDocument.kind ===
+        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION
+      ) {
+        submissions.push({
+          applicationId: submission.applicationId,
+          applicationProgramId: submission.application.programId,
+          milestoneId: milestoneDocument.milestoneId,
+          milestoneProgramId: milestoneDocument.milestone.programId,
+          status: submission.status,
+        });
+      } else if (milestoneDocument.kind === MilestoneDocumentKind.DOCUMENT) {
+        documentSubmissions.push({
+          applicationId: submission.applicationId,
+          applicationProgramId: submission.application.programId,
+          milestoneDocumentId: submission.milestoneDocumentId,
+          milestoneId: milestoneDocument.milestoneId,
+          milestoneProgramId: milestoneDocument.milestone.programId,
+          status: submission.status,
+        });
+      }
+    }
+
     return {
       applications,
       milestones,
-      submissions: targetSubmissions
-        .filter(
-          (submission) =>
-            submission.milestoneDocument.kind ===
-            MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-        )
-        .map((submission) => ({
-          applicationId: submission.applicationId,
-          applicationProgramId: submission.application.programId,
-          milestoneId: submission.milestoneDocument.milestoneId,
-          milestoneProgramId: submission.milestoneDocument.milestone.programId,
-          status: submission.status,
-        })),
+      submissions,
       milestoneDocuments: milestoneDocuments.map((document) => ({
         id: document.id,
         milestoneId: document.milestoneId,
         milestoneProgramId: document.milestone.programId,
       })),
-      documentSubmissions: targetSubmissions
-        .filter(
-          (submission) =>
-            submission.milestoneDocument.kind ===
-            MilestoneDocumentKind.DOCUMENT,
-        )
-        .map((submission) => ({
-          applicationId: submission.applicationId,
-          applicationProgramId: submission.application.programId,
-          milestoneDocumentId: submission.milestoneDocumentId,
-          milestoneId: submission.milestoneDocument.milestoneId,
-          milestoneProgramId: submission.milestoneDocument.milestone.programId,
-          status: submission.status,
-        })),
+      documentSubmissions,
     };
   }
 }

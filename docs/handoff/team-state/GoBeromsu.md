@@ -839,3 +839,11 @@
 - blocker: 없음
 - 결과: craft `init` Phase 0을 이 저장소와 대조해 결손인 `docs/research/`만 만들고 기존 앵커는 손대지 않았으며, Development Flow managed block은 ADR 중심 canonical store(AGENTS.md §2)와 충돌해 이식하지 않고 그 판정을 `docs/rules/agent-skill-routing.md`에 남겼다. 작업 표면별 스킬 라우팅 원본을 그 한 파일로 두고 AGENTS.md는 링크만 한다. 티켓 3단계의 Before/After 캡처는 "첨부한다"에서 실제 렌더되는 경로로 좁혔다 — 촬영 조건 고정 → 수동 개인정보 게이트 → 병합하지 않는 orphan `evidence/ticket-<n>` 브랜치의 SHA 고정 raw URL이며, `gh` 첨부 명령 부재·공개 Release가 production 배포 트리거인 사실·`/artifacts/` gitignore를 금지 경로로 적었다. Codex는 `.codex/skills/manage-qa-tickets` 상대 심볼릭 링크로 같은 원본을 읽는다.
 - 검증: `bash scripts/check-agent-skill-links.test.sh` 합성 fixture 10건(사본·절대 경로·끊어진 링크·다른 스킬 대상·원본 부재를 fail-closed, 실패 메시지의 경로 누출 부재 포함)과 실제 checkout 계약을 통과했고, `node --test scripts/ci-path-contract.test.mjs` 6건, `bash scripts/check-public-safe.sh`, `pnpm format:check`, 라우팅 문서가 링크한 11개 경로 실재 확인을 통과했다. frontend 시각 변화 없음.
+## 2026-08-30 — 이관 완료 후 제출 원장 코드를 단순화한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 사용되지 않는 dormant target adapter·transition type·legacy 별칭·dead exception을 제거하고, 공개 제출 ID의 dual-key predicate·collision guard·projection을 한 helper로 통합했다. 유일한 review mapper를 canonical 이름으로 바꾸고 completion axis projection을 공유하며, 프로그램 편집의 항상 0이던 legacy count와 target/projected compatibility branch를 제거했다. checklist는 현재 history/file/review만 읽고 dashboard는 target row를 한 번만 partition한다.
+- 검증: backend unit 309 suites·3448 tests, backend typecheck·build·lint, repository format을 통과했다. architecture review CLEAR, public-ID/review/file QA red-team CLEAR였고, completion red-team이 찾은 legacy document-only 공개 차단을 회귀 테스트와 함께 수정한 뒤 re-review CLEAR를 받았다.

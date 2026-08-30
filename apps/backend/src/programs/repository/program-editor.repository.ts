@@ -225,7 +225,6 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return {
       id: milestone.id,
       programId: milestone.programId,
-      submissionCount: 0,
       documentSubmissionCount,
       programMilestoneCount: milestone.program._count.milestones,
       programRepositoryProvisioningEnabled:

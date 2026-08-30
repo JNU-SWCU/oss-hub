@@ -14,7 +14,7 @@
     "apps/backend/src/submissions/submission-matrix.service.ts",
     "apps/backend/src/submissions/submission-files.repository.ts",
     "apps/backend/src/submissions/submission-files.service.ts",
-    "apps/backend/src/submission-reviews/target-submission-review-context.mapper.ts",
+    "apps/backend/src/submission-reviews/submission-review-context.mapper.ts",
     "apps/backend/src/submission-reviews/submission-reviews.repository.ts",
     "apps/backend/src/submission-reviews/submission-reviews.service.ts",
     "apps/backend/src/submission-reviews/submission-reviews.controller.ts",

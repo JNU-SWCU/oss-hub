@@ -12,6 +12,11 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../../profiles/user-profile-read';
+import {
+  projectSubmissionCompletionTargets,
+  submissionCompletionTargetSelect,
+  type SubmissionCompletionTargetRow,
+} from '../../submissions/submission-completion-projection';
 import type { ProgramListQuery } from '../program-list-query';
 import {
   emptyProgramStatusCounts,
@@ -163,12 +168,7 @@ export class ProgramsRepository {
         id: true,
         status: true,
         milestoneDocumentSubmissions: {
-          select: {
-            status: true,
-            milestoneDocument: {
-              select: { id: true, milestoneId: true, kind: true },
-            },
-          },
+          select: submissionCompletionTargetSelect,
         },
       },
     });
@@ -180,12 +180,7 @@ export class ProgramsRepository {
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
         milestoneDocumentSubmissions: {
-          select: {
-            status: true,
-            milestoneDocument: {
-              select: { id: true, milestoneId: true, kind: true },
-            },
-          },
+          select: submissionCompletionTargetSelect,
         },
       },
     });
@@ -380,72 +375,18 @@ export class ProgramsRepository {
   }
 }
 
-type TargetAxisApplication = {
-  readonly submissions?: readonly {
-    readonly milestoneId: string;
-    readonly status: import('@prisma/client').SubmissionStatus;
-  }[];
-  readonly milestoneDocumentSubmissions: readonly (
-    | {
-        readonly status: import('@prisma/client').SubmissionStatus;
-        readonly milestoneDocument: {
-          readonly id: string;
-          readonly milestoneId: string;
-          readonly kind: MilestoneDocumentKind;
-        };
-      }
-    | {
-        readonly milestoneDocumentId: string;
-        readonly status: import('@prisma/client').SubmissionStatus;
-      }
-  )[];
-};
-
-function toTargetSubmissionAxes<T extends TargetAxisApplication>(
-  application: T,
-) {
-  const targetRows = application.milestoneDocumentSubmissions.filter(
-    (
-      submission,
-    ): submission is Extract<
-      TargetAxisApplication['milestoneDocumentSubmissions'][number],
-      { readonly milestoneDocument: object }
-    > => 'milestoneDocument' in submission,
-  );
-  const projectedRows = application.milestoneDocumentSubmissions.filter(
-    (
-      submission,
-    ): submission is Extract<
-      TargetAxisApplication['milestoneDocumentSubmissions'][number],
-      { readonly milestoneDocumentId: string }
-    > => 'milestoneDocumentId' in submission,
-  );
+function toTargetSubmissionAxes<
+  T extends {
+    readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+  },
+>(application: T) {
+  const { submissions, documentSubmissions } =
+    projectSubmissionCompletionTargets(
+      application.milestoneDocumentSubmissions,
+    );
   return {
     ...application,
-    submissions:
-      application.submissions ??
-      targetRows
-        .filter(
-          (submission) =>
-            submission.milestoneDocument.kind ===
-            MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-        )
-        .map((submission) => ({
-          milestoneId: submission.milestoneDocument.milestoneId,
-          status: submission.status,
-        })),
-    milestoneDocumentSubmissions: [
-      ...projectedRows,
-      ...targetRows
-        .filter(
-          (submission) =>
-            submission.milestoneDocument.kind ===
-            MilestoneDocumentKind.DOCUMENT,
-        )
-        .map((submission) => ({
-          milestoneDocumentId: submission.milestoneDocument.id,
-          status: submission.status,
-        })),
-    ],
+    submissions,
+    milestoneDocumentSubmissions: documentSubmissions,
   };
 }

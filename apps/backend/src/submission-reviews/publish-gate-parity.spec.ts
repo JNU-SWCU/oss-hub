@@ -19,16 +19,15 @@ import {
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import {
-  toTargetReviewContext,
-  type TargetReviewContextRow,
-} from './target-submission-review-context.mapper';
+  toReviewContext,
+  type ReviewContextRow,
+} from './submission-review-context.mapper';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
 const PROGRAM_ENDS_LATER = new Date('2026-08-01T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
 
-type ReviewContextRow = TargetReviewContextRow;
 type ReviewApplication = ReviewContextRow['application'];
 type ReviewRepository = NonNullable<ReviewApplication['repository']>;
 
@@ -209,7 +208,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     const { service, repositories } = serviceFor(eligibleEligibility());
 
     // When: 화면이 판정하고 서버가 공개를 실행한다.
-    const context = toTargetReviewContext(row, NOW);
+    const context = toReviewContext(row, NOW);
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
 
     // Then: 화면은 차단 사유가 없고 서버는 GitHub 공개를 호출한다.
@@ -230,7 +229,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     });
 
     // When: 화면이 판정하고 서버가 공개를 실행한다.
-    const context = toTargetReviewContext(row, NOW);
+    const context = toReviewContext(row, NOW);
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
 
     // Then: 양쪽 모두 통과시킨다.
@@ -248,7 +247,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       );
 
       // When: 화면이 판정하고 교직원이 공개 버튼을 누른다.
-      const context = toTargetReviewContext(row, NOW);
+      const context = toReviewContext(row, NOW);
       const publish = service.publishRepository(
         'repository-1',
         ACTOR_GITHUB_ID,
@@ -274,7 +273,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     });
 
     // When: 검토 화면 컨텍스트로 변환한다.
-    const context = toTargetReviewContext(row, NOW);
+    const context = toReviewContext(row, NOW);
 
     // Then: 도메인이 선언한 사유 집합과 화면이 낸 사유 집합이 같다.
     expect(new Set(context.repository?.blockedReasons)).toEqual(
@@ -299,7 +298,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     });
 
     // When: 화면이 판정하고 교직원이 공개 버튼을 누른다.
-    const context = toTargetReviewContext(row, NOW);
+    const context = toReviewContext(row, NOW);
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
@@ -420,7 +419,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     });
 
     // When: 검토 화면 컨텍스트로 변환한다.
-    const context = toTargetReviewContext(row, NOW);
+    const context = toReviewContext(row, NOW);
 
     // Then: 차단 사유 없이 공개 상태로 본다.
     expect(context.repository).toMatchObject({

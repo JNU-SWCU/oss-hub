@@ -5,8 +5,8 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { safeSubmissionFileContentType } from './submission-file-content-type';
+import { publicSubmissionId } from './submission-public-id';
 import type {
-  ChecklistLatestReview,
   ChecklistMilestone,
   SubmissionFileMetadata,
 } from './submissions.repository';
@@ -56,6 +56,7 @@ export const checklistMilestoneSelect = (applicationId: string, now: Date) =>
                 },
               },
               orderBy: { revision: 'desc' as const },
+              take: 1,
               select: {
                 revision: true,
                 files: {
@@ -64,6 +65,7 @@ export const checklistMilestoneSelect = (applicationId: string, now: Date) =>
                     expiresAt: { gt: now },
                   },
                   orderBy: { id: 'asc' as const },
+                  take: 1,
                   select: {
                     id: true,
                     originalFileName: true,
@@ -100,28 +102,21 @@ export function toChecklistMilestone(
     submissionType: record.submissionType,
     submission: submission
       ? {
-          id: submission.legacySubmissionId ?? submission.id,
+          id: publicSubmissionId(submission),
           status: submission.status,
           currentRevision: submission.revision,
-          latestReview: latestReview(submission),
+          latestReview: submission.reviewHistories[0] ?? null,
           file: currentRevisionFile(submission),
         }
       : null,
   };
 }
 
-function latestReview(
-  submission: ChecklistTargetSubmission,
-): ChecklistLatestReview | null {
-  return submission.reviewHistories[0] ?? null;
-}
-
 function currentRevisionFile(
   submission: ChecklistTargetSubmission,
 ): SubmissionFileMetadata | null {
-  const currentHistory = submission.histories.find(
-    (history) => history.revision === submission.revision,
-  );
+  const currentHistory = submission.histories[0] ?? null;
+  if (currentHistory?.revision !== submission.revision) return null;
   const file = currentHistory?.files[0] ?? null;
   if (file === null || file.expiresAt === null) return null;
   return {
