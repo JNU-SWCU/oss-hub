@@ -20,7 +20,7 @@ import {
 } from './target-submission-review-context.mapper';
 
 export interface CreateReviewRecordInput {
-  readonly submissionRevisionId: string;
+  readonly submissionHistoryId: string;
   readonly milestoneDocumentSubmissionId: string;
   readonly revision: number;
   readonly reviewerId: string;
@@ -134,7 +134,7 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
       {
         data: {
           milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-          submissionHistoryId: input.submissionRevisionId,
+          submissionHistoryId: input.submissionHistoryId,
           reviewerId: input.reviewerId,
           decision: input.decision,
           comment: input.comment,
