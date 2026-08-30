@@ -794,3 +794,12 @@
 - blocker: 없음
 - 결과: 내부 legacy 제출 슬롯 kind·공개 ID provenance·SubmissionFile 공존 CHECK를 additive migration으로 열고, 일반 서류 UI·집계에서 내부 슬롯을 구조적으로 제외했다. 프런트 계약을 유지하는 target ID·복수 파일 이력 adapter는 dormant 상태로 준비했으며 runtime 정본은 계속 레거시다.
 - 검증: Prisma validate, migration contract 20건, backend unit 311 suites·3465 tests, touched contract 100 tests, backend typecheck·build·lint, repository format, public-safe를 통과했다. 실제 migrate deploy·integration은 required CI의 격리 PostgreSQL에서 확인한다.
+
+## 2026-08-30 — 레거시 제출 이력을 복사하고 backend를 신규 원장으로 전환한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: non-seed 레거시 제출·회차·판정·복수 파일을 deterministic internal slot/history로 복사하는 단일 transaction bridge와 source/file provenance fence를 추가했다. 기존 프런트 ID·DTO를 유지한 채 제출·재제출·수합·판정·파일 권한·프로그램 집계를 target 원장으로 원자 전환하며, migrated 프로그램 purge는 contract 전 409로 차단한다.
+- 검증: bridge migration contract 21건, backend unit 311 suites·3465 tests, backend typecheck·build·lint, Prisma validate, repository format, public-safe를 통과했다. 실제 source→target copy·integration·migrate deploy는 required CI와 Jenkins CD에서 검증한다.
