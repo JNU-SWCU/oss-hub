@@ -4,7 +4,7 @@
 본문은 라우팅·프로토콜·표만 담고 상세 규칙은 링크된 문서가 원본이며 이 문서는 250줄을 넘기지 않는다.
 문서는 한 문장을 한 줄에 쓴다 — 열 폭 하드랩은 렌더링 공백과 diff 노이즈를 만들므로 쓰지 않는다.
 티켓 워크플로의 원본은 `skills/manage-qa-tickets/SKILL.md` 하나다 — QA 티켓 작성, GitHub Issue 발행, 티켓 수행을 모두 담으며 Codex 등 다른 에이전트도 티켓 요청을 받으면 이 파일을 따른다.
-`.claude/skills/manage-qa-tickets`·`.cursor/skills/manage-qa-tickets`·`.codex/skills/manage-qa-tickets`는 이 원본을 가리키는 상대 심볼릭 링크이므로 checkout만으로 Claude·Cursor·Codex가 스킬을 찾으며 `scripts/check-agent-skill-links.sh`가 세 링크가 원본 하나를 가리키는지 검사한다.
+`.claude/skills/manage-qa-tickets`·`.cursor/skills/manage-qa-tickets`·`.codex/skills/manage-qa-tickets`는 이 원본을 가리키는 상대 심볼릭 링크이므로 checkout만으로 Claude·Cursor·Codex가 스킬을 찾는다.
 어떤 작업 표면에 어떤 스킬을 쓰는지는 [docs/rules/agent-skill-routing.md](docs/rules/agent-skill-routing.md)가 원본이며 스킬 지시가 이 문서와 어긋나면 이 문서를 따른다.
 저장소 검사·운영 보조 스크립트는 [scripts/AGENTS.md](scripts/AGENTS.md), claude.ai/design 번들 도구는 [.design-sync/AGENTS.md](.design-sync/AGENTS.md)가 원본이며 `deploy/**`와 `scripts/check-jenkinsfile*.sh`는 ADR-005의 배포 계약 경로다.
 

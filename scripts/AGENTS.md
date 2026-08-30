@@ -18,8 +18,7 @@ CI와 Git 훅, 로컬 검증, 배포 보조에 필요한 실행 파일을 둔다
 | `prune-deploy-backups*.sh` | 보존 범위 밖 백업을 실제 삭제하는 Jenkins 성공 경로 전용 스크립트(대응 `.test.sh`만 합성 임시 디렉터리 사용) |
 | `check-docker-context.sh` | Docker daemon 없이 tracked build-context 계약을 정적으로 검사한다 |
 | `diagnose-collection*.sh` | 수집 갱신 정지 진단 — read-only SELECT 4층(O0~O3)으로 후보 C1~C10을 1차 판정한다. 서버 안에서만 실행하고 저장소 이름·학생 식별자·자격증명을 출력하지 않는다 |
-| `setup-hooks.sh`, `tidy-branches.sh` | 저장소 훅 활성화와 merge 후 변경 정리 |
-| `check-agent-skill-links*.sh` | Claude·Cursor·Codex 스킬 진입 경로가 상대 심볼릭 링크로 원본 하나를 가리키는지 정적으로 검사한다(대상 로집은 [docs/rules/agent-skill-routing.md](../docs/rules/agent-skill-routing.md)가 원본) |
+| `setup-hooks.sh`, `tidy-branches.sh` | 저장소 훅 활성화와 merge 후 브랜치 정리 |
 | `dev.sh` | 호스트 hot reload 개발 실행기(`pnpm dev`) — 실제 인프라(Docker)를 기동한다 |
 
 ## For AI Agents

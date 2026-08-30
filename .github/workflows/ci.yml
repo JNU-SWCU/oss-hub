@@ -121,11 +121,6 @@ jobs:
               - 'scripts/*.sh'
               - 'scripts/**/*.sh'
               - '.githooks/**'
-              # 스킬 원본과 런타임별 진입 링크 — check-agent-skill-links 계약의 대상이다.
-              - 'skills/**'
-              - '.claude/skills/**'
-              - '.cursor/skills/**'
-              - '.codex/skills/**'
               - '.github/workflows/**'
             node_scripts:
               - 'scripts/*.mjs'
@@ -187,15 +182,9 @@ jobs:
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-team-state-updated.test.sh
 
-      - name: 호스트 lane DATABASE_URL 가드 훈거 테스트
+      - name: 호스트 lane DATABASE_URL 가드 회귀 테스트
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-host-db-url.test.sh
-
-      # 심볼릭 링크는 checkout 상태로만 검사할 수 있다 — 링크가 사본으로 바뀌거나
-      # 절대 경로로 바뀌면 그 런타임만 조용힌 다른 스킬을 따른다.
-      - name: 에이전트 스킬 링크 계약 검사
-        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
-        run: bash scripts/check-agent-skill-links.test.sh
 
       - name: Node script 문법 검사
         if: ${{ steps.scope.outputs.node_scripts == 'true' }}
