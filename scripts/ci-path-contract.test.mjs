@@ -36,15 +36,11 @@ const backendOnlyPaths = [
   'scripts/member-authority-contract-seed.mjs',
   'scripts/check-member-authority-contract.sh',
   'scripts/rehearse-member-authority-contract*',
-  'scripts/legacy-submission-*',
-  'scripts/rehearse-legacy-submission-*',
 ];
 
 /** 계약 정적 계약은 Prisma migration contract 단계가 required CI에서 돌린다. */
 const contractTests = [
   'scripts/member-authority-contract-contract.test.mjs',
-  'scripts/legacy-submission-production-report.test.mjs',
-  'scripts/rehearse-legacy-submission-migrations.test.mjs',
   // 배포된 마이그레이션을 같은 타임스탬프로 갈아끼우는 것을 거절하는 원장 계약.
   'scripts/prisma-migration-ledger.test.mjs',
 ];
