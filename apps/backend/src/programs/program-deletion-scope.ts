@@ -7,7 +7,7 @@ export type ProgramDeletionScopeCounts = {
   readonly teams: number;
   readonly boardPosts: number;
   readonly submissions: number;
-  /** 제출 헤더가 그대로여도 늘 수 있는 리비전·검토·파일·항목 이력의 합계. */
+  /** 제출 헤더가 그대로여도 늘 수 있는 파일·제출 이력·검토 이력의 합계. */
   readonly submissionEvents: number;
   /** 삭제·분리·tombstone 대상 전체 id 집합의 지문. */
   readonly scopeFingerprint: string;
@@ -40,34 +40,13 @@ export async function readProgramDeletionScopeCounts(
         (SELECT count(*) FROM "Application" WHERE "programId" = ${programId}) AS applications,
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
         (SELECT count(*) FROM "BoardPost" WHERE "programId" = ${programId}) AS "boardPosts",
-        (
-          (SELECT count(*) FROM "Submission" WHERE "milestoneId" IN (
-            SELECT id FROM "Milestone" WHERE "programId" = ${programId}
-          ))
-          +
-          (SELECT count(*) FROM "MilestoneDocumentSubmission" WHERE "milestoneDocumentId" IN (
+        (SELECT count(*) FROM "MilestoneDocumentSubmission" WHERE "milestoneDocumentId" IN (
             SELECT document.id
             FROM "MilestoneDocument" AS document
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
-          ))
-        ) AS submissions,
+          )) AS submissions,
         (
-          (SELECT count(*) FROM "SubmissionRevision" WHERE "submissionId" IN (
-            SELECT submission.id
-            FROM "Submission" AS submission
-            INNER JOIN "Milestone" AS milestone ON milestone.id = submission."milestoneId"
-            WHERE milestone."programId" = ${programId}
-          ))
-          +
-          (SELECT count(*) FROM "Review" WHERE "submissionRevisionId" IN (
-            SELECT revision.id
-            FROM "SubmissionRevision" AS revision
-            INNER JOIN "Submission" AS submission ON submission.id = revision."submissionId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = submission."milestoneId"
-            WHERE milestone."programId" = ${programId}
-          ))
-          +
           (SELECT count(*) FROM "SubmissionFile" WHERE
             "applicationId" IN (SELECT id FROM "Application" WHERE "programId" = ${programId})
             OR "milestoneId" IN (SELECT id FROM "Milestone" WHERE "programId" = ${programId})
@@ -130,24 +109,6 @@ export async function readProgramDeletionScopeCounts(
             FROM "MilestoneDocumentTemplateFile" AS file
             INNER JOIN "MilestoneDocument" AS document ON document.id = file."milestoneDocumentId"
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
-            WHERE milestone."programId" = ${programId}
-            UNION ALL
-            SELECT CONCAT('Submission:', submission.id)
-            FROM "Submission" AS submission
-            INNER JOIN "Milestone" AS milestone ON milestone.id = submission."milestoneId"
-            WHERE milestone."programId" = ${programId}
-            UNION ALL
-            SELECT CONCAT('SubmissionRevision:', revision.id)
-            FROM "SubmissionRevision" AS revision
-            INNER JOIN "Submission" AS submission ON submission.id = revision."submissionId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = submission."milestoneId"
-            WHERE milestone."programId" = ${programId}
-            UNION ALL
-            SELECT CONCAT('Review:', review.id)
-            FROM "Review" AS review
-            INNER JOIN "SubmissionRevision" AS revision ON revision.id = review."submissionRevisionId"
-            INNER JOIN "Submission" AS submission ON submission.id = revision."submissionId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = submission."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
             SELECT CONCAT('MilestoneDocumentSubmission:', document_submission.id)
