@@ -4,6 +4,7 @@ import {
   AffiliationKind,
   ApplicationStatus,
   MemberKind,
+  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
@@ -171,19 +172,32 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
     () => prisma.teamMember.count({ where: { id: { startsWith: 'seed:' } } }),
   ],
   [
-    'Submission',
-    () => prisma.submission.count({ where: { id: { startsWith: 'seed:' } } }),
-  ],
-  [
-    'SubmissionRevision',
+    'MilestoneDocumentSubmission',
     () =>
-      prisma.submissionRevision.count({
+      prisma.milestoneDocumentSubmission.count({
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
   [
-    'Review',
-    () => prisma.review.count({ where: { id: { startsWith: 'seed:' } } }),
+    'MilestoneDocumentSubmissionHistory',
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
+    'MilestoneDocumentReviewHistory',
+    () =>
+      prisma.milestoneDocumentReviewHistory.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
+    'SubmissionFile',
+    () =>
+      prisma.submissionFile.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
   ],
   [
     'Repository',
@@ -258,7 +272,8 @@ async function countAllSeeded(): Promise<Record<string, number>> {
  * 여기서 정리한다. 정리하지 않으면 이 파일이 남긴 PUBLIC Repository 등 fixture가 다른
  * integration spec(예: public-exposure-persona)의 assertion과 섞여 실행 순서에 따라
  * 간헐 실패한다. FK 자식→부모 순서로 지운다:
- *   (자신이 참조하는) SubmissionFile → Review → SubmissionRevision → Submission
+ *   SubmissionFile → MilestoneDocumentReviewHistory
+ *   → MilestoneDocumentSubmissionHistory → MilestoneDocumentSubmission
  *   → RepositoryProvisionJob → RepositoryInvitation → OutboxEvent → Repository
  *   → MilestoneDocumentSubmission → MilestoneDocumentTemplateFile → MilestoneDocument
  *   → BoardComment → BoardPost → TeamInvitation
@@ -267,8 +282,8 @@ async function countAllSeeded(): Promise<Record<string, number>> {
  *
  * program-overview 프로필은 서류 제출 예시를 위해 자신의 MilestoneDocumentSubmission을
  * 참조하는 SubmissionFile을 함께 심는다. 이 행은 milestoneDocumentSubmissionId FK가
- * ON DELETE SET NULL이라, 미리 지우지 않으면 부모 삭제 시 두 참조(submissionRevisionId·
- * milestoneDocumentSubmissionId)가 모두 NULL이 되어 lifecycle CHECK 제약을 위반한다.
+ * ON DELETE SET NULL이라, 미리 지우지 않으면 부모 삭제 시 제출 헤더 참조가 NULL이 되어
+ * lifecycle CHECK 제약을 위반한다.
  * 그 외 이 파일이 만들지 않는 AuditLog(append-only)·Notification·LoginHistory·
  * SubmissionFile은 다른 spec이 이 파일과 같은 `seed:` User/Application/Milestone을
  * actor·uploader·부모로 참조할 수 있고, 그 FK는 RESTRICT다. 그런 행을 참조당하는
@@ -357,9 +372,6 @@ async function deleteAllSeeded(): Promise<void> {
   const excluding = (protectedIds: Set<string>) =>
     protectedIds.size > 0 ? { NOT: { id: { in: [...protectedIds] } } } : {};
 
-  await prisma.review.deleteMany({ where: seedIdFilter });
-  await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
-  await prisma.submission.deleteMany({ where: seedIdFilter });
   await prisma.repositoryProvisionJob.deleteMany({ where: seedIdFilter });
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
@@ -455,9 +467,9 @@ describe('seed profile=oss-hub contract (integration)', () => {
         ossHubMemberCount,
         ossHubMilestoneCount,
         ossHubApplicationCount,
-        ossHubSubmissionCount,
-        ossHubSubmissionRevisionCount,
-        ossHubReviewCount,
+        ossHubDocumentSubmissionCount,
+        ossHubSubmissionHistoryCount,
+        ossHubReviewHistoryCount,
         ossHubRepositoryCount,
         ossHubRepositoryProvisionJobCount,
       ] = await Promise.all([
@@ -486,13 +498,31 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.application.findUniqueOrThrow({
           where: { id: OSS_HUB_APPLICATION_ID },
         }),
-        prisma.submission.findUniqueOrThrow({
-          where: { id: seedId('oss-hub', 'submission', 'aws-staging') },
-          include: { revisions: { include: { review: true } } },
+        prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+          where: {
+            id: seedId(
+              'oss-hub',
+              'milestone-document-submission',
+              'aws-staging',
+            ),
+          },
+          include: {
+            histories: true,
+            reviewHistories: true,
+          },
         }),
-        prisma.submission.findUniqueOrThrow({
-          where: { id: seedId('oss-hub', 'submission', 'intake-freeze') },
-          include: { revisions: { include: { review: true } } },
+        prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+          where: {
+            id: seedId(
+              'oss-hub',
+              'milestone-document-submission',
+              'intake-freeze',
+            ),
+          },
+          include: {
+            histories: true,
+            reviewHistories: true,
+          },
         }),
         prisma.githubRepository.findUniqueOrThrow({
           where: { id: OSS_HUB_REPOSITORY_ID },
@@ -535,13 +565,13 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.application.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.submission.count({
+        prisma.milestoneDocumentSubmission.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.submissionRevision.count({
+        prisma.milestoneDocumentSubmissionHistory.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.review.count({
+        prisma.milestoneDocumentReviewHistory.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
         prisma.githubRepository.count({
@@ -660,7 +690,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         })),
       );
 
-      // 팀의 프로그램 신청 — Submission·Repository·RepositoryProvisionJob이 매달리는 backbone.
+      // 팀의 프로그램 신청 — 제출 원장·Repository·RepositoryProvisionJob이 매달리는 backbone.
       expect(ossHubApplicationCount).toBe(1);
       expect(application).toMatchObject({
         teamId: OSS_HUB_TEAM_ID,
@@ -668,27 +698,28 @@ describe('seed profile=oss-hub contract (integration)', () => {
         status: ApplicationStatus.APPROVED,
       });
 
-      // aws-staging: 승인 리뷰까지 완료된 제출.
-      expect(ossHubSubmissionCount).toBe(2);
-      expect(ossHubSubmissionRevisionCount).toBe(2);
-      expect(ossHubReviewCount).toBe(1);
+      // aws-staging: 승인 판정 이력까지 완료된 제출.
+      expect(ossHubDocumentSubmissionCount).toBe(2);
+      expect(ossHubSubmissionHistoryCount).toBe(3);
+      expect(ossHubReviewHistoryCount).toBe(1);
       expect(awsStagingSubmission).toMatchObject({
         status: SubmissionStatus.APPROVED,
-        currentRevision: 1,
+        revision: 1,
       });
-      expect(awsStagingSubmission.revisions).toHaveLength(1);
-      expect(awsStagingSubmission.revisions[0]?.review).toMatchObject({
+      expect(awsStagingSubmission.histories).toHaveLength(2);
+      expect(awsStagingSubmission.reviewHistories).toHaveLength(1);
+      expect(awsStagingSubmission.reviewHistories[0]).toMatchObject({
         decision: ReviewDecision.APPROVED,
         reviewerId: AUTH_SCENARIOS['staff-approved'],
       });
 
-      // intake-freeze: 제출은 있지만 아직 리뷰 대기 중(review 없음).
+      // intake-freeze: 제출은 있지만 아직 판정 대기 중(판정 이력 없음).
       expect(intakeFreezeSubmission).toMatchObject({
         status: SubmissionStatus.SUBMITTED,
-        currentRevision: 1,
+        revision: 1,
       });
-      expect(intakeFreezeSubmission.revisions).toHaveLength(1);
-      expect(intakeFreezeSubmission.revisions[0]?.review).toBeNull();
+      expect(intakeFreezeSubmission.histories).toHaveLength(1);
+      expect(intakeFreezeSubmission.reviewHistories).toHaveLength(0);
 
       // 저장소 — 실제 공개 저장소를 연결·공개 완료 상태로 추적한다.
       expect(ossHubRepositoryCount).toBe(1);
@@ -754,14 +785,13 @@ describe('seed profile=oss-hub contract (integration)', () => {
   );
 
   it(
-    '이전 마일스톤 구성이 남긴 제출·리뷰가 있어도 FK 오류 없이 정리하고 새 7개로 수렴한다',
+    '이전 마일스톤 구성이 남긴 제출 원장·판정 이력이 있어도 FK 오류 없이 정리하고 새 7개로 수렴한다',
     async () => {
       // Given: profile을 한 번 실행해 프로그램을 만든 뒤, 실제 배포 DB에 남아있을 법한
-      // "구버전 마일스톤 + 제출 + 리비전 + 리뷰"를 수동으로 심는다. Milestone.submissions,
-      // Submission.revisions, SubmissionRevision.review는 모두 onDelete 미지정(RESTRICT)이라
+      // "구버전 마일스톤 + 서류 항목 + 제출 원장 + 이력 + 판정 이력"을 수동으로 심는다.
       // 이 자식들이 남아 있는 채로 마일스톤을 지우면 FK 위반이 나야 정상이다.
       await runProfile('oss-hub', new SeedStats());
-      const staleMilestoneId = seedId('oss-hub', 'milestone', 'legacy-plan');
+      const staleMilestoneId = seedId('oss-hub', 'milestone', 'obsolete-plan');
       await prisma.milestone.create({
         data: {
           id: staleMilestoneId,
@@ -769,80 +799,111 @@ describe('seed profile=oss-hub contract (integration)', () => {
           name: '구버전 계획서 제출',
           dueAt: new Date('2026-01-01T00:00:00+09:00'),
           submissionType: MilestoneSubmissionType.TEXT,
-          instructions: '마이그레이션 테스트용 구버전 마일스톤(legacy-plan).',
+          instructions: '정리 테스트용 구버전 마일스톤(obsolete-plan).',
         },
       });
-      const staleSubmissionId = seedId('oss-hub', 'submission', 'legacy-plan');
-      await prisma.submission.create({
+      const staleDocumentId = seedId(
+        'oss-hub',
+        'milestone-document',
+        'obsolete-plan',
+      );
+      await prisma.milestoneDocument.create({
+        data: {
+          id: staleDocumentId,
+          milestoneId: staleMilestoneId,
+          name: '구버전 계획서',
+          required: true,
+          sortOrder: 0,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
+      });
+      const staleSubmissionId = seedId(
+        'oss-hub',
+        'milestone-document-submission',
+        'obsolete-plan',
+      );
+      await prisma.milestoneDocumentSubmission.create({
         data: {
           id: staleSubmissionId,
-          milestoneId: staleMilestoneId,
+          milestoneDocumentId: staleDocumentId,
           applicationId: OSS_HUB_APPLICATION_ID,
           status: SubmissionStatus.SUBMITTED,
-          currentRevision: 1,
-        },
-      });
-      const staleRevisionId = seedId(
-        'oss-hub',
-        'submission',
-        'legacy-plan',
-        'revision-1',
-      );
-      await prisma.submissionRevision.create({
-        data: {
-          id: staleRevisionId,
-          submissionId: staleSubmissionId,
           revision: 1,
-          submissionType: MilestoneSubmissionType.TEXT,
           content: {
             type: MilestoneSubmissionType.TEXT,
-            text: '구버전 제출 (migration test).',
+            text: '구버전 제출 (stale cleanup test).',
           },
           submittedById: AUTH_SCENARIOS['staff-approved'],
         },
       });
+      const staleHistoryId = seedId(
+        'oss-hub',
+        'milestone-document-submission-history',
+        'obsolete-plan',
+        'submitted',
+      );
+      await prisma.milestoneDocumentSubmissionHistory.create({
+        data: {
+          id: staleHistoryId,
+          milestoneDocumentSubmissionId: staleSubmissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          content: {
+            type: MilestoneSubmissionType.TEXT,
+            text: '구버전 제출 (stale cleanup test).',
+          },
+          actorId: AUTH_SCENARIOS['staff-approved'],
+        },
+      });
       const staleReviewId = seedId(
         'oss-hub',
-        'submission',
-        'legacy-plan',
-        'review',
+        'milestone-document-review-history',
+        'obsolete-plan',
       );
-      await prisma.review.create({
+      await prisma.milestoneDocumentReviewHistory.create({
         data: {
           id: staleReviewId,
-          submissionRevisionId: staleRevisionId,
+          milestoneDocumentSubmissionId: staleSubmissionId,
+          submissionHistoryId: staleHistoryId,
           reviewerId: AUTH_SCENARIOS['staff-approved'],
           decision: ReviewDecision.APPROVED,
-          comment: '구버전 리뷰 (migration test).',
+          comment: '구버전 판정 (stale cleanup test).',
         },
       });
 
       // When: oss-hub profile을 다시 실행한다 — 새 7개 마일스톤을 upsert하기 전에 stale
-      // 마일스톤과 그 자식(Review → SubmissionRevision → Submission)을 먼저 지워야 한다.
+      // 마일스톤과 그 자식(판정 이력 → 제출 이력 → 제출 원장 → 서류 항목)을 먼저 지워야 한다.
       await expect(
         runProfile('oss-hub', new SeedStats()),
       ).resolves.not.toThrow();
 
-      // Then: 구버전 마일스톤/제출/리비전/리뷰가 모두 사라지고, 이 프로그램의 마일스톤은
-      // 새 7개만 남는다 — orphan도, FK 위반도 없다.
+      // Then: 구버전 마일스톤/서류 항목/제출 원장/이력/판정 이력이 모두 사라지고,
+      // 이 프로그램의 마일스톤은 새 7개만 남는다 — orphan도, FK 위반도 없다.
       const [
         staleMilestone,
+        staleDocument,
         staleSubmission,
-        staleRevision,
+        staleHistory,
         staleReview,
         milestoneCount,
       ] = await Promise.all([
         prisma.milestone.findUnique({ where: { id: staleMilestoneId } }),
-        prisma.submission.findUnique({ where: { id: staleSubmissionId } }),
-        prisma.submissionRevision.findUnique({
-          where: { id: staleRevisionId },
+        prisma.milestoneDocument.findUnique({ where: { id: staleDocumentId } }),
+        prisma.milestoneDocumentSubmission.findUnique({
+          where: { id: staleSubmissionId },
         }),
-        prisma.review.findUnique({ where: { id: staleReviewId } }),
+        prisma.milestoneDocumentSubmissionHistory.findUnique({
+          where: { id: staleHistoryId },
+        }),
+        prisma.milestoneDocumentReviewHistory.findUnique({
+          where: { id: staleReviewId },
+        }),
         prisma.milestone.count({ where: { programId: OSS_HUB_PROGRAM_ID } }),
       ]);
       expect(staleMilestone).toBeNull();
+      expect(staleDocument).toBeNull();
       expect(staleSubmission).toBeNull();
-      expect(staleRevision).toBeNull();
+      expect(staleHistory).toBeNull();
       expect(staleReview).toBeNull();
       expect(milestoneCount).toBe(7);
     },
@@ -868,10 +929,11 @@ describe('seed profile=demo 계약 (integration)', () => {
       teamMembers,
       applications,
       milestones,
-      submissions,
-      submissionRevisions,
+      milestoneDocuments,
+      documentSubmissions,
+      submissionHistories,
       submissionFiles,
-      reviews,
+      reviewHistories,
       boardPosts,
       boardComments,
       githubRepositories,
@@ -889,16 +951,19 @@ describe('seed profile=demo 계약 (integration)', () => {
       prisma.milestone.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.submission.count({
+      prisma.milestoneDocument.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.submissionRevision.count({
+      prisma.milestoneDocumentSubmission.count({
+        where: { id: { startsWith: seedDemoPrefix } },
+      }),
+      prisma.milestoneDocumentSubmissionHistory.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
       prisma.submissionFile.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.review.count({
+      prisma.milestoneDocumentReviewHistory.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
       prisma.boardPost.count({
@@ -932,10 +997,11 @@ describe('seed profile=demo 계약 (integration)', () => {
       TeamMember: teamMembers,
       Application: applications,
       Milestone: milestones,
-      Submission: submissions,
-      SubmissionRevision: submissionRevisions,
+      MilestoneDocument: milestoneDocuments,
+      MilestoneDocumentSubmission: documentSubmissions,
+      MilestoneDocumentSubmissionHistory: submissionHistories,
       SubmissionFile: submissionFiles,
-      Review: reviews,
+      MilestoneDocumentReviewHistory: reviewHistories,
       BoardPost: boardPosts,
       BoardComment: boardComments,
       GithubRepository: githubRepositories,
@@ -955,13 +1021,19 @@ describe('seed profile=demo 계약 (integration)', () => {
         select: { storageKey: true },
       })
     ).map((file) => file.storageKey);
-    // SubmissionFile.submissionRevisionId는 onDelete 미지정(RESTRICT)이라
-    // SubmissionRevision보다 먼저 지워야 한다(FILE 타입 마일스톤 제출이 만드는 행).
-    // Review는 SubmissionRevision을 참조하므로 그보다 먼저 지운다.
-    await prisma.review.deleteMany({ where: seedIdFilter });
+    // 파일은 제출 이력을 RESTRICT로 참조하므로 제출 이력보다 먼저 지운다.
+    // 판정 이력은 제출 이력을 참조할 수 있어 그보다 먼저 지운다.
+    await prisma.milestoneDocumentReviewHistory.deleteMany({
+      where: seedIdFilter,
+    });
     await prisma.submissionFile.deleteMany({ where: seedIdFilter });
-    await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
-    await prisma.submission.deleteMany({ where: seedIdFilter });
+    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: seedIdFilter,
+    });
+    await prisma.milestoneDocumentSubmission.deleteMany({
+      where: seedIdFilter,
+    });
+    await prisma.milestoneDocument.deleteMany({ where: seedIdFilter });
     await prisma.boardComment.deleteMany({ where: seedIdFilter });
     await prisma.boardPost.deleteMany({ where: seedIdFilter });
     await prisma.teamMember.deleteMany({ where: seedIdFilter });
@@ -1019,10 +1091,14 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(countsAfterFirstRun.Application).toBeGreaterThanOrEqual(6);
       expect(countsAfterFirstRun.Milestone).toBeGreaterThan(0);
       // 대회 프로그램은 팀당 데모데이 제출 1건 + 일부 팀은 최종 발표 제출까지 갖는다.
-      expect(countsAfterFirstRun.Submission).toBeGreaterThanOrEqual(9);
+      expect(
+        countsAfterFirstRun.MilestoneDocumentSubmission,
+      ).toBeGreaterThanOrEqual(9);
       expect(countsAfterFirstRun.SubmissionFile).toBeGreaterThan(0);
-      // 승인/보완필요 리뷰가 생기는 제출이 있어 Review도 0건이 아니다(사업단 톤이 실제 검토하는 모습).
-      expect(countsAfterFirstRun.Review).toBeGreaterThan(0);
+      // 승인/보완필요 판정 이력이 생기는 제출이 있어 이력도 0건이 아니다(사업단 톤이 실제 검토하는 모습).
+      expect(
+        countsAfterFirstRun.MilestoneDocumentReviewHistory,
+      ).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardPost).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardComment).toBeGreaterThan(0);
 
@@ -1061,43 +1137,58 @@ describe('seed profile=demo 계약 (integration)', () => {
         expect(program.repositoryProvisioningEnabled).toBe(false);
       }
 
-      // And: 모든 시드 SubmissionRevision은 자신이 속한 마일스톤의 submissionType과
+      // And: 모든 시드 제출 원장은 자신이 속한 마일스톤의 submissionType과
       // 동일한 content.type을 쓴다 — submissions.service.ts가
       // content.type !== milestone.submissionType을 CONTENT_TYPE_MISMATCH로 거부하는
       // 도메인 규칙을 시드가 우회하지 않았음을 직접 단언한다.
-      const demoRevisions = await prisma.submissionRevision.findMany({
-        where: { id: { startsWith: seedDemoPrefix } },
-        select: {
-          id: true,
-          submissionType: true,
-          content: true,
-          submission: {
-            select: { milestone: { select: { submissionType: true } } },
+      const demoSubmissions = await prisma.milestoneDocumentSubmission.findMany(
+        {
+          where: { id: { startsWith: seedDemoPrefix } },
+          select: {
+            id: true,
+            content: true,
+            milestoneDocument: {
+              select: { milestone: { select: { submissionType: true } } },
+            },
           },
         },
-      });
-      expect(demoRevisions.length).toBeGreaterThan(0);
-      for (const revision of demoRevisions) {
+      );
+      expect(demoSubmissions.length).toBeGreaterThan(0);
+      for (const submission of demoSubmissions) {
         const milestoneSubmissionType =
-          revision.submission.milestone.submissionType;
-        expect(revision.submissionType).toBe(milestoneSubmissionType);
-        expect((revision.content as { readonly type: string }).type).toBe(
+          submission.milestoneDocument.milestone.submissionType;
+        expect((submission.content as { readonly type: string }).type).toBe(
           milestoneSubmissionType,
         );
       }
       // And: FILE 타입 마일스톤(오픈소스 대회 데모데이)은 실제로 FILE content +
       // ATTACHED SubmissionFile이 함께 있는지도 확인한다(시드가 문자열만 맞춰놓고 실제
       // 파일 생명주기는 비워두지 않았는지 검증).
-      const fileTypeRevisions = demoRevisions.filter(
-        (revision) => revision.submissionType === 'FILE',
+      const fileTypeSubmissions = demoSubmissions.filter(
+        (submission) =>
+          submission.milestoneDocument.milestone.submissionType === 'FILE',
       );
-      expect(fileTypeRevisions.length).toBeGreaterThan(0);
-      for (const revision of fileTypeRevisions) {
-        const fileId = (revision.content as { readonly fileId: string }).fileId;
+      expect(fileTypeSubmissions.length).toBeGreaterThan(0);
+      for (const submission of fileTypeSubmissions) {
+        const fileId = (submission.content as { readonly fileId: string })
+          .fileId;
         const submissionFile = await prisma.submissionFile.findUniqueOrThrow({
           where: { id: fileId },
         });
-        expect(submissionFile.submissionRevisionId).toBe(revision.id);
+        expect(submissionFile.milestoneDocumentSubmissionId).toBe(
+          submission.id,
+        );
+        expect(
+          submissionFile.milestoneDocumentSubmissionHistoryId,
+        ).not.toBeNull();
+        const fileHistory =
+          await prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
+            where: {
+              id: submissionFile.milestoneDocumentSubmissionHistoryId!,
+            },
+            select: { milestoneDocumentSubmissionId: true },
+          });
+        expect(fileHistory.milestoneDocumentSubmissionId).toBe(submission.id);
         expect(submissionFile.lifecycle).toBe('ATTACHED');
       }
 
@@ -1121,12 +1212,15 @@ describe('seed profile=demo 계약 (integration)', () => {
       for (const application of contestApplications) {
         expect(application.status).toBe(ApplicationStatus.APPROVED);
       }
-      const contestSubmissionStatuses = await prisma.submission.findMany({
-        where: {
-          milestone: { programId: contestProgramId },
-        },
-        select: { status: true },
-      });
+      const contestSubmissionStatuses =
+        await prisma.milestoneDocumentSubmission.findMany({
+          where: {
+            milestoneDocument: {
+              milestone: { programId: contestProgramId },
+            },
+          },
+          select: { status: true },
+        });
       const contestStatusSet = new Set(
         contestSubmissionStatuses.map((submission) => submission.status),
       );
@@ -1160,11 +1254,11 @@ describe('seed profile=demo 계약 (integration)', () => {
   );
 
   it(
-    '한빛 팀 데모데이 제출은 TODO 11(이미 병합된 구버전) 시점의 보존 id를 유지해 재시드해도 고유 제약을 깨드리지 않는다',
+    '한빛 팀 데모데이 제출 원장은 보존 id를 유지해 재시드해도 항목별 고유 제약을 깨드리지 않는다',
     async () => {
       // Given: TODO 11(이미 병합된 기존 demo profile) 시점의 데이터 모양을 직접 심는다 —
       // 그 시점은 한빛 팀이 유일한 참가팀이었고, 데모데이 제출(FILE)은 팀 접두사 없는
-      // `seed:demo:submission:oss-contest-demo-day` id로 만들어졌다(리뷰 없음, SUBMITTED).
+      // target 원장 id로 만들어졌다(판정 이력 없음, SUBMITTED).
       // Program·Milestone·Team·Application·User 부모는 현재 코드와 동일한 id를 쓰므로
       // 정상 profile 실행으로 먼저 만들고, 그 다음 해당 제출만 지우고 예전 shape로 직접
       // 재생성해 '이미 그 id로 시드된 DB'를 재현한다.
@@ -1182,14 +1276,14 @@ describe('seed profile=demo 계약 (integration)', () => {
       );
       const preservedSubmissionId = seedId(
         'demo',
-        'submission',
+        'milestone-document-submission',
         'oss-contest-demo-day',
       );
-      const preservedRevisionId = seedId(
+      const preservedHistoryId = seedId(
         'demo',
-        'submission',
+        'milestone-document-submission',
         'oss-contest-demo-day',
-        'revision-1',
+        'history-1',
       );
       const preservedFileId = seedId(
         'demo',
@@ -1197,41 +1291,51 @@ describe('seed profile=demo 계약 (integration)', () => {
         'oss-contest-demo-day',
       );
       const parkHaeunUserId = seedId('demo', 'user', 'park-haeun');
+      const contestDocumentId = seedId(
+        'demo',
+        'milestone-document',
+        contestMilestoneId,
+      );
 
-      // 현재 코드는 한빛 팀 데모데이 제출을 APPROVED + Review로 만드므로, 예전(TODO 11)
-      // 모양(SUBMITTED, 리뷰 없음)으로 재구성하기 전에 그 Review부터 지우어야 FK 위반이 없다.
-      await prisma.review.deleteMany({
-        where: { submissionRevisionId: preservedRevisionId },
+      // 현재 코드는 한빛 팀 데모데이 제출을 APPROVED + 판정 이력으로 만드므로, 예전
+      // 모양(SUBMITTED, 판정 이력 없음)으로 재구성하기 전에 판정 이력부터 지워야 FK 위반이 없다.
+      await prisma.milestoneDocumentReviewHistory.deleteMany({
+        where: { milestoneDocumentSubmissionId: preservedSubmissionId },
       });
       await prisma.submissionFile.deleteMany({
         where: { id: preservedFileId },
       });
-      await prisma.submissionRevision.deleteMany({
-        where: { id: preservedRevisionId },
+      await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+        where: { id: preservedHistoryId },
       });
-      await prisma.submission.deleteMany({
+      await prisma.milestoneDocumentSubmission.deleteMany({
         where: { id: preservedSubmissionId },
       });
-      await prisma.submission.create({
+      await prisma.milestoneDocumentSubmission.create({
         data: {
           id: preservedSubmissionId,
-          milestoneId: contestMilestoneId,
+          milestoneDocumentId: contestDocumentId,
           applicationId: contestApplicationId,
           status: SubmissionStatus.SUBMITTED,
-          currentRevision: 1,
-        },
-      });
-      await prisma.submissionRevision.create({
-        data: {
-          id: preservedRevisionId,
-          submissionId: preservedSubmissionId,
           revision: 1,
-          submissionType: MilestoneSubmissionType.FILE,
           content: {
             type: MilestoneSubmissionType.FILE,
             fileId: preservedFileId,
           },
           submittedById: parkHaeunUserId,
+        },
+      });
+      await prisma.milestoneDocumentSubmissionHistory.create({
+        data: {
+          id: preservedHistoryId,
+          milestoneDocumentSubmissionId: preservedSubmissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          content: {
+            type: MilestoneSubmissionType.FILE,
+            fileId: preservedFileId,
+          },
+          actorId: parkHaeunUserId,
         },
       });
       await prisma.submissionFile.create({
@@ -1240,7 +1344,8 @@ describe('seed profile=demo 계약 (integration)', () => {
           uploaderId: parkHaeunUserId,
           applicationId: contestApplicationId,
           milestoneId: contestMilestoneId,
-          submissionRevisionId: preservedRevisionId,
+          milestoneDocumentSubmissionId: preservedSubmissionId,
+          milestoneDocumentSubmissionHistoryId: preservedHistoryId,
           storageKey: `demo/${preservedFileId}`,
           originalFileName: 'oss-contest-demo-day-draft.pdf',
           mimeType: 'application/pdf',
@@ -1251,37 +1356,42 @@ describe('seed profile=demo 계약 (integration)', () => {
 
       // When: 현재 코드의 demo profile을 다시 실행한다 — 한빛 팀의 데모데이 제출을
       // 팀 접두사가 붙은 새 id(`oss-contest-hanbit-demo-day`)로 만들려하면, 위에서 심은
-      // 예전 id 행과 같은 (applicationId, milestoneId) 쌍을 가지므로
-      // `Submission_applicationId_milestoneId_key` 고유 제약 위반으로 예외가 던져야 한다.
+      // 보존 id 행과 같은 (milestoneDocumentId, applicationId) 쌍을 가지므로
+      // target 원장 고유 제약 위반으로 예외가 던져야 한다.
       await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
 
-      // Then: (applicationId, milestoneId) 쌍에 제출이 정확히 1건이고, 그 id는 여전히
+      // Then: (milestoneDocumentId, applicationId) 쌍에 제출 원장이 정확히 1건이고, 그 id는 여전히
       // 보존 id다(현재 코드가 이 id를 재사용해 upsert했다는 증거 — 새 id로 중복 행을
       // 만들지 않았다).
-      const submissionsForPair = await prisma.submission.findMany({
-        where: {
-          applicationId: contestApplicationId,
-          milestoneId: contestMilestoneId,
-        },
-      });
+      const submissionsForPair =
+        await prisma.milestoneDocumentSubmission.findMany({
+          where: {
+            applicationId: contestApplicationId,
+            milestoneDocumentId: contestDocumentId,
+          },
+        });
       expect(submissionsForPair).toHaveLength(1);
       expect(submissionsForPair[0]?.id).toBe(preservedSubmissionId);
 
-      // And: 보존 id의 SubmissionRevision·SubmissionFile도 그대로 재사용된다(새 id로
+      // And: 보존 id의 제출 이력·SubmissionFile도 그대로 재사용된다(새 id로
       // 따로 만들어지지 않음).
-      const [preservedRevision, preservedFile, teamSuffixedSubmission] =
+      const [preservedHistory, preservedFile, teamSuffixedSubmission] =
         await Promise.all([
-          prisma.submissionRevision.findUnique({
-            where: { id: preservedRevisionId },
+          prisma.milestoneDocumentSubmissionHistory.findUnique({
+            where: { id: preservedHistoryId },
           }),
           prisma.submissionFile.findUnique({ where: { id: preservedFileId } }),
-          prisma.submission.findUnique({
+          prisma.milestoneDocumentSubmission.findUnique({
             where: {
-              id: seedId('demo', 'submission', 'oss-contest-hanbit-demo-day'),
+              id: seedId(
+                'demo',
+                'milestone-document-submission',
+                'oss-contest-hanbit-demo-day',
+              ),
             },
           }),
         ]);
-      expect(preservedRevision).not.toBeNull();
+      expect(preservedHistory).not.toBeNull();
       expect(preservedFile).not.toBeNull();
       expect(teamSuffixedSubmission).toBeNull();
     },
@@ -1297,8 +1407,12 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(countsBeforeTeardown.User).toBeGreaterThan(0);
       expect(countsBeforeTeardown.Program).toBeGreaterThan(0);
       expect(countsBeforeTeardown.Team).toBeGreaterThan(0);
-      expect(countsBeforeTeardown.Submission).toBeGreaterThan(0);
-      expect(countsBeforeTeardown.Review).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.MilestoneDocumentSubmission).toBeGreaterThan(
+        0,
+      );
+      expect(
+        countsBeforeTeardown.MilestoneDocumentReviewHistory,
+      ).toBeGreaterThan(0);
 
       // When: teardown을 실행한다(이 테스트 자체가 afterEach의 deleteDemoSeeded와
       // 별개로 teardownDemo 구현을 직접 검증한다 — afterEach는 이후에도 안전하게 no-op).

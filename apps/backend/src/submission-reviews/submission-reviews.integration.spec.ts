@@ -24,10 +24,7 @@ import {
   seedRepositoryId,
   SeedStats,
 } from '../../prisma/seeds/helpers';
-import {
-  MILESTONE_SCENARIOS,
-  seedMilestones,
-} from '../../prisma/seeds/milestones';
+import { seedMilestones } from '../../prisma/seeds/milestones';
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -70,7 +67,12 @@ const REVIEWER_GITHUB_ID = seedGithubId(REVIEWER_ID);
 const EXISTING_SUBMISSION_ID = seedId(
   'milestones',
   'submission-existing',
-  'submission',
+  'target-submission',
+);
+const CHANGES_REQUESTED_SUBMISSION_ID = seedId(
+  'milestones',
+  'submission-changes-requested',
+  'target-submission',
 );
 
 /**
@@ -185,25 +187,12 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.milestoneDocumentSubmission.deleteMany({
       where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
     });
-    await prisma.review.deleteMany({
-      where: {
-        submissionRevision: {
-          submission: { milestone: { programId: PROGRAM_ID } },
-        },
-      },
-    });
     await prisma.submissionFile.deleteMany({
       where: {
-        submissionRevision: {
-          submission: { milestone: { programId: PROGRAM_ID } },
+        milestoneDocumentSubmission: {
+          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
         },
       },
-    });
-    await prisma.submissionRevision.deleteMany({
-      where: { submission: { milestone: { programId: PROGRAM_ID } } },
-    });
-    await prisma.submission.deleteMany({
-      where: { milestone: { programId: PROGRAM_ID } },
     });
     await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -269,7 +258,7 @@ describe('SubmissionReviewsService integration', () => {
 
     await expect(
       prisma.milestoneDocumentSubmission.findUniqueOrThrow({
-        where: { legacySubmissionId: EXISTING_SUBMISSION_ID },
+        where: { id: EXISTING_SUBMISSION_ID },
         select: {
           status: true,
           reviewHistories: { select: { decision: true } },
@@ -291,13 +280,7 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('seed 보완요청의 판정 코멘트를 검토 문맥에 보존한다', async () => {
-    const [milestoneId] = MILESTONE_SCENARIOS['submission-changes-requested'];
-    const submission = await prisma.submission.findFirstOrThrow({
-      where: { milestoneId },
-      select: { id: true },
-    });
-
-    const context = await service.context(submission.id);
+    const context = await service.context(CHANGES_REQUESTED_SUBMISSION_ID);
 
     expect(context.currentRevision.review).toMatchObject({
       decision: ReviewDecision.CHANGES_REQUESTED,

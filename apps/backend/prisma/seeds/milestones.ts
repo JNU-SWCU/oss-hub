@@ -112,8 +112,8 @@ async function upsertMilestone(
 }
 
 /**
- * submission-* 시나리오가 공유하는 helper — 개인형·팀형 어느 applicationId를 넘겨도
- * 동일하게 Submission + revision 1 + (선택) Review를 만든다.
+ * submission-* 시나리오가 공유하는 target 원장 helper.
+ * 개인형·팀형 어느 applicationId를 넘겨도 동일하게 header + history 1 + 선택 review를 만든다.
  */
 async function createSubmissionScenario(
   stats: SeedStats,
@@ -126,67 +126,6 @@ async function createSubmissionScenario(
     review?: { decision: ReviewDecision; comment?: string };
   },
 ): Promise<void> {
-  const submissionId = seedId('milestones', params.scenarioId, 'submission');
-  await upsertTracked(
-    stats,
-    'Submission',
-    () => prisma.submission.findUnique({ where: { id: submissionId } }),
-    () =>
-      prisma.submission.upsert({
-        where: { id: submissionId },
-        update: { status: params.status, currentRevision: 1 },
-        create: {
-          id: submissionId,
-          milestoneId: params.milestoneId,
-          applicationId: params.applicationId,
-          status: params.status,
-          currentRevision: 1,
-        },
-      }),
-  );
-
-  const revisionId = seedId('milestones', params.scenarioId, 'revision-1');
-  await upsertTracked(
-    stats,
-    'SubmissionRevision',
-    () => prisma.submissionRevision.findUnique({ where: { id: revisionId } }),
-    () =>
-      prisma.submissionRevision.upsert({
-        where: { id: revisionId },
-        update: {},
-        create: {
-          id: revisionId,
-          submissionId,
-          revision: 1,
-          submissionType: MilestoneSubmissionType.TEXT,
-          content: { seedPlaceholder: true, scenarioId: params.scenarioId },
-          submittedById: params.submittedById,
-        },
-      }),
-  );
-
-  if (params.review) {
-    const review = params.review;
-    const reviewId = seedId('milestones', params.scenarioId, 'review');
-    await upsertTracked(
-      stats,
-      'Review',
-      () => prisma.review.findUnique({ where: { id: reviewId } }),
-      () =>
-        prisma.review.upsert({
-          where: { id: reviewId },
-          update: { decision: review.decision, comment: review.comment },
-          create: {
-            id: reviewId,
-            submissionRevisionId: revisionId,
-            reviewerId: REVIEWER_ID,
-            decision: review.decision,
-            comment: review.comment,
-          },
-        }),
-    );
-  }
-
   const documentId = seedId(
     'milestones',
     params.milestoneId,
@@ -228,7 +167,7 @@ async function createSubmissionScenario(
         update: { status: params.status, revision: 1 },
         create: {
           id: targetSubmissionId,
-          legacySubmissionId: submissionId,
+          legacySubmissionId: null,
           milestoneDocumentId: documentId,
           applicationId: params.applicationId,
           status: params.status,
@@ -291,6 +230,36 @@ async function createSubmissionScenario(
             reviewerId: REVIEWER_ID,
             decision: params.review!.decision,
             comment: params.review?.comment,
+          },
+        }),
+    );
+    const targetReviewEventId = seedId(
+      'milestones',
+      params.scenarioId,
+      'target-review-event',
+    );
+    await upsertTracked(
+      stats,
+      'MilestoneDocumentSubmissionHistory',
+      () =>
+        prisma.milestoneDocumentSubmissionHistory.findUnique({
+          where: { id: targetReviewEventId },
+        }),
+      () =>
+        prisma.milestoneDocumentSubmissionHistory.upsert({
+          where: { id: targetReviewEventId },
+          update: {
+            event: params.review!.decision,
+            comment: params.review?.comment,
+            actorId: REVIEWER_ID,
+          },
+          create: {
+            id: targetReviewEventId,
+            milestoneDocumentSubmissionId: targetSubmissionId,
+            event: params.review!.decision,
+            revision: 1,
+            comment: params.review?.comment,
+            actorId: REVIEWER_ID,
           },
         }),
     );

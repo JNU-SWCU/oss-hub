@@ -81,9 +81,4 @@ describe('MilestoneDocumentReviewHistory — 판정은 덮어쓰지 않고 쌓�
       /CREATE TABLE "MilestoneDocumentReviewHistory"/,
     );
   });
-
-  it('옛 Review는 제출 revision당 한 건이라는 계약을 그대로 둔다', () => {
-    // Given / When / Then: 두 모델이 서로 다른 모양인 것이 의도다 — 함께 바꾸면 안 된다.
-    expect(SCHEMA).toMatch(/submissionRevisionId String\s+@unique/);
-  });
 });

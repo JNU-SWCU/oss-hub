@@ -1,6 +1,8 @@
 import {
   ApplicationStatus,
   BoardPostCategory,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
@@ -375,14 +377,14 @@ async function upsertDemoMilestone(
   );
 }
 
-type InProgressSubmissionContent =
+type DemoSubmissionContent =
   | {
       readonly kind: typeof MilestoneSubmissionType.TEXT;
       readonly text: string;
     }
   | {
       readonly kind: typeof MilestoneSubmissionType.FILE;
-      /** 제출 상황을 설명하는 보조 코멘트(SubmissionRevision.comment) — FILE은 content가 파일만 가리키므로 진행 상황 서술은 여기에 담는다. */
+      /** FILE 제출의 진행 상황을 설명하는 보조 코멘트. */
       readonly comment: string;
       readonly originalFileName: string;
       readonly mimeType: string;
@@ -406,7 +408,7 @@ type DemoReview = {
  * `submissions.service.ts`가 `content.type !== milestone.submissionType`을
  * CONTENT_TYPE_MISMATCH로 거부하는 도메인 규칙을 시드가 우회해서는 안 된다.
  * FILE 타입은 실제 서비스 생성물과 동일한 최종 상태(SubmissionFile.lifecycle=ATTACHED,
- * submissionRevisionId 연결)로 만든다.
+ * 제출 헤더·이력 연결)로 만든다.
  */
 async function upsertDemoSubmission(
   stats: SeedStats,
@@ -418,55 +420,106 @@ async function upsertDemoSubmission(
     readonly submittedById: string;
     readonly submittedAt: Date;
     readonly status: SubmissionStatus;
-    readonly content: InProgressSubmissionContent;
+    readonly content: DemoSubmissionContent;
     readonly review?: DemoReview;
     readonly reviewerId?: string;
   },
 ): Promise<void> {
-  const submissionId = seedId('demo', 'submission', params.slug);
+  const documentId = seedId('demo', 'milestone-document', params.milestoneId);
   await upsertTracked(
     stats,
-    'Submission',
-    () => prisma.submission.findUnique({ where: { id: submissionId } }),
+    'MilestoneDocument',
+    () => prisma.milestoneDocument.findUnique({ where: { id: documentId } }),
     () =>
-      prisma.submission.upsert({
-        where: { id: submissionId },
-        update: { status: params.status, currentRevision: 1 },
+      prisma.milestoneDocument.upsert({
+        where: { id: documentId },
+        update: {},
         create: {
-          id: submissionId,
+          id: documentId,
           milestoneId: params.milestoneId,
-          applicationId: params.applicationId,
-          status: params.status,
-          currentRevision: 1,
+          name: '내부 제출 자료',
+          required: true,
+          sortOrder: -1,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       }),
   );
-  const revisionId = seedId('demo', 'submission', params.slug, 'revision-1');
+  const submissionId = seedId(
+    'demo',
+    'milestone-document-submission',
+    params.slug,
+  );
   const fileId = seedId('demo', 'submission-file', params.slug);
-  const revisionContent =
+  const content =
     params.content.kind === MilestoneSubmissionType.TEXT
       ? { type: MilestoneSubmissionType.TEXT, text: params.content.text }
       : { type: MilestoneSubmissionType.FILE, fileId };
   await upsertTracked(
     stats,
-    'SubmissionRevision',
-    () => prisma.submissionRevision.findUnique({ where: { id: revisionId } }),
+    'MilestoneDocumentSubmission',
     () =>
-      prisma.submissionRevision.upsert({
-        where: { id: revisionId },
-        update: {},
-        create: {
-          id: revisionId,
-          submissionId,
+      prisma.milestoneDocumentSubmission.findUnique({
+        where: { id: submissionId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmission.upsert({
+        where: { id: submissionId },
+        update: {
+          status: params.status,
+          content,
           revision: 1,
-          submissionType: params.content.kind,
-          content: revisionContent,
+          submittedById: params.submittedById,
+          submittedAt: params.submittedAt,
+        },
+        create: {
+          id: submissionId,
+          milestoneDocumentId: documentId,
+          applicationId: params.applicationId,
+          status: params.status,
+          revision: 1,
+          content,
+          submittedById: params.submittedById,
+          submittedAt: params.submittedAt,
+        },
+      }),
+  );
+  const submissionHistoryId = seedId(
+    'demo',
+    'milestone-document-submission',
+    params.slug,
+    'history-1',
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmissionHistory',
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.findUnique({
+        where: { id: submissionHistoryId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.upsert({
+        where: { id: submissionHistoryId },
+        update: {
+          content,
           comment:
             params.content.kind === MilestoneSubmissionType.FILE
               ? params.content.comment
               : null,
-          submittedById: params.submittedById,
-          submittedAt: params.submittedAt,
+          actorId: params.submittedById,
+          createdAt: params.submittedAt,
+        },
+        create: {
+          id: submissionHistoryId,
+          milestoneDocumentSubmissionId: submissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          content,
+          comment:
+            params.content.kind === MilestoneSubmissionType.FILE
+              ? params.content.comment
+              : null,
+          actorId: params.submittedById,
+          createdAt: params.submittedAt,
         },
       }),
   );
@@ -494,14 +547,16 @@ async function upsertDemoSubmission(
             storageKey,
             sizeBytes: storedFile.contentLength,
             lifecycle: SubmissionFileLifecycle.ATTACHED,
-            submissionRevisionId: revisionId,
+            milestoneDocumentSubmissionId: submissionId,
+            milestoneDocumentSubmissionHistoryId: submissionHistoryId,
           },
           create: {
             id: fileId,
             uploaderId: params.submittedById,
             applicationId: params.applicationId,
             milestoneId: params.milestoneId,
-            submissionRevisionId: revisionId,
+            milestoneDocumentSubmissionId: submissionId,
+            milestoneDocumentSubmissionHistoryId: submissionHistoryId,
             storageKey,
             originalFileName: fileContent.originalFileName,
             mimeType: fileContent.mimeType,
@@ -515,18 +570,68 @@ async function upsertDemoSubmission(
 
   if (params.review && params.reviewerId) {
     const review = params.review;
-    const reviewId = seedId('demo', 'submission', params.slug, 'review');
+    const reviewHistoryEventId = seedId(
+      'demo',
+      'milestone-document-submission',
+      params.slug,
+      'review-event',
+    );
+    const reviewEvent =
+      review.decision === ReviewDecision.APPROVED
+        ? MilestoneDocumentSubmissionHistoryEvent.APPROVED
+        : MilestoneDocumentSubmissionHistoryEvent.CHANGES_REQUESTED;
     await upsertTracked(
       stats,
-      'Review',
-      () => prisma.review.findUnique({ where: { id: reviewId } }),
+      'MilestoneDocumentSubmissionHistory',
       () =>
-        prisma.review.upsert({
+        prisma.milestoneDocumentSubmissionHistory.findUnique({
+          where: { id: reviewHistoryEventId },
+        }),
+      () =>
+        prisma.milestoneDocumentSubmissionHistory.upsert({
+          where: { id: reviewHistoryEventId },
+          update: {
+            event: reviewEvent,
+            comment: review.comment,
+            actorId: params.reviewerId!,
+            createdAt: review.reviewedAt,
+          },
+          create: {
+            id: reviewHistoryEventId,
+            milestoneDocumentSubmissionId: submissionId,
+            event: reviewEvent,
+            revision: 1,
+            comment: review.comment,
+            actorId: params.reviewerId!,
+            createdAt: review.reviewedAt,
+          },
+        }),
+    );
+    const reviewId = seedId(
+      'demo',
+      'milestone-document-submission',
+      params.slug,
+      'review',
+    );
+    await upsertTracked(
+      stats,
+      'MilestoneDocumentReviewHistory',
+      () =>
+        prisma.milestoneDocumentReviewHistory.findUnique({
           where: { id: reviewId },
-          update: { decision: review.decision, comment: review.comment },
+        }),
+      () =>
+        prisma.milestoneDocumentReviewHistory.upsert({
+          where: { id: reviewId },
+          update: {
+            decision: review.decision,
+            comment: review.comment,
+            reviewedAt: review.reviewedAt,
+          },
           create: {
             id: reviewId,
-            submissionRevisionId: revisionId,
+            milestoneDocumentSubmissionId: submissionId,
+            submissionHistoryId,
             reviewerId: params.reviewerId!,
             decision: review.decision,
             comment: review.comment,
@@ -833,14 +938,7 @@ export async function seedDemo(
     readonly summary: string;
     readonly submittedAt: Date;
     readonly processedAt: Date;
-    /**
-     * 데모데이 제출(Submission/SubmissionRevision/SubmissionFile) id에 쓰는 slug.
-     * 기본값은 `${teamSlug}-demo-day`이지만, TODO 11(병합된 기존 demo profile)이
-     * '한빛 팀'의 데모데이 제출을 팀 접두사 없는 `oss-contest-demo-day`로 이미 만들어
-     * 둥다 — 그 팀만 이 필드로 원래 id를 명시 유지해야 이미 시드된 DB에서 재실행해도
-     * 같은 (applicationId, milestoneId)에 새 id로 생성하려다 고유 제약(Submission
-     * `@@unique([applicationId, milestoneId])`)을 깨트리지 않는다(TODO 15 QA 지적).
-     */
+    /** 데모데이 원장의 결정적 id에 쓰는 slug. */
     readonly demoDaySubmissionSlug?: string;
     /** 원래 id와 함께 보존해야 하는 파일명(기본값 `${teamSlug}-demo-day-draft.pdf`). */
     readonly demoDayOriginalFileName?: string;
@@ -1328,9 +1426,10 @@ export async function seedDemo(
  * `SEED_DEMO_ALLOW_PRODUCTION=1` 게이트를 통과해야 `seed.ts`가 이 함수를 호출한다.
  *
  * 삭제 순서(자식 → 부모, 전부 RESTRICT/기본 FK — cascade 없음):
- *   SubmissionFile → SubmissionRevision → Submission → Review(Revision 삭제 전에는
- *   존재해도 CASCADE 대상이 아니므로 Revision보다 먼저 지운다) → BoardComment →
- *   BoardPost → TeamMember → Milestone → Application → Team → Program →
+ *   MilestoneDocumentReviewHistory → SubmissionFile →
+ *   MilestoneDocumentSubmissionHistory → MilestoneDocumentSubmission →
+ *   MilestoneDocument → BoardComment → BoardPost → TeamMember → Milestone →
+ *   Application → Team → Program →
  *   Consent → UserProfile → User.
  */
 export async function teardownDemo(
@@ -1350,12 +1449,11 @@ export async function teardownDemo(
     }
   };
 
-  // Review는 submissionRevisionId로 연결되며 그 id는 seed:demo: 접두사이므로
-  // 접두사 필터를 revision id 기준으로 건다 — Review.id 자체도 seed:demo:이지만
-  // 이중 안전을 위해 revision 관계로도 범위를 좁힌다.
-  await countAndDelete('Review', () =>
-    prisma.review.deleteMany({
-      where: { submissionRevisionId: { startsWith: seedDemoPrefix } },
+  await countAndDelete('MilestoneDocumentReviewHistory', () =>
+    prisma.milestoneDocumentReviewHistory.deleteMany({
+      where: {
+        milestoneDocumentSubmissionId: { startsWith: seedDemoPrefix },
+      },
     }),
   );
   // DB row를 지우기 전에 이 profile이 만든 storage 객체 key를 먼저 읽어둔다 —
@@ -1371,11 +1469,18 @@ export async function teardownDemo(
   for (const file of demoSubmissionFiles) {
     await storage.delete(file.storageKey);
   }
-  await countAndDelete('SubmissionRevision', () =>
-    prisma.submissionRevision.deleteMany({ where: seedIdFilter }),
+  await countAndDelete('MilestoneDocumentSubmissionHistory', () =>
+    prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: {
+        milestoneDocumentSubmissionId: { startsWith: seedDemoPrefix },
+      },
+    }),
   );
-  await countAndDelete('Submission', () =>
-    prisma.submission.deleteMany({ where: seedIdFilter }),
+  await countAndDelete('MilestoneDocumentSubmission', () =>
+    prisma.milestoneDocumentSubmission.deleteMany({ where: seedIdFilter }),
+  );
+  await countAndDelete('MilestoneDocument', () =>
+    prisma.milestoneDocument.deleteMany({ where: seedIdFilter }),
   );
   await countAndDelete('BoardComment', () =>
     prisma.boardComment.deleteMany({ where: seedIdFilter }),

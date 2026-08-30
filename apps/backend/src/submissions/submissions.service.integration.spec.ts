@@ -174,12 +174,6 @@ describe('SubmissionsService integration', () => {
     await prisma.milestoneDocumentSubmission.deleteMany({
       where: { milestoneDocument: { milestoneId: { in: milestoneIds } } },
     });
-    await prisma.submissionRevision.deleteMany({
-      where: { submission: { milestoneId: { in: milestoneIds } } },
-    });
-    await prisma.submission.deleteMany({
-      where: { milestoneId: { in: milestoneIds } },
-    });
     await prisma.milestone.updateMany({
       where: { id: FILE_MILESTONE_ID },
       data: { submissionType: MilestoneSubmissionType.FILE },
@@ -605,7 +599,7 @@ describe('SubmissionsService integration', () => {
       status: SubmissionStatus.SUBMITTED,
     });
     const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
-      where: { legacySubmissionId: fixture.submissionId },
+      where: { id: fixture.submissionId },
       include: {
         histories: { orderBy: { revision: 'asc' }, include: { files: true } },
       },
@@ -652,7 +646,7 @@ describe('SubmissionsService integration', () => {
       errorCode: { code: SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE },
     });
     const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
-      where: { legacySubmissionId: fixture.submissionId },
+      where: { id: fixture.submissionId },
       include: { histories: { include: { files: true } } },
     });
     expect(stored).toMatchObject({
@@ -671,7 +665,6 @@ describe('SubmissionsService integration', () => {
       }),
     ).resolves.toMatchObject({
       lifecycle: SubmissionFileLifecycle.PENDING,
-      submissionRevisionId: null,
     });
   });
 
@@ -729,7 +722,7 @@ describe('SubmissionsService integration', () => {
     });
     await expect(
       prisma.milestoneDocumentSubmission.findUniqueOrThrow({
-        where: { legacySubmissionId: fixture.submissionId },
+        where: { id: fixture.submissionId },
         select: { status: true, revision: true },
       }),
     ).resolves.toEqual({
@@ -766,31 +759,6 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
   const submissionId = `${FILE_RESUBMISSION_PREFIX}-${suffix}`;
   const initialFileId = `${FILE_RESUBMISSION_PREFIX}-${suffix}-initial`;
   const replacementFileId = `${FILE_RESUBMISSION_PREFIX}-${suffix}-replacement`;
-  const revision = await prisma.submission.create({
-    data: {
-      id: submissionId,
-      applicationId: PERSONAL_APPLICATION_ID,
-      milestoneId: FILE_MILESTONE_ID,
-      status: SubmissionStatus.CHANGES_REQUESTED,
-      currentRevision: 1,
-      revisions: {
-        create: {
-          revision: 1,
-          submissionType: MilestoneSubmissionType.FILE,
-          content: {
-            type: MilestoneSubmissionType.FILE,
-            fileId: initialFileId,
-          },
-          submittedById: PERSONAL_USER_ID,
-        },
-      },
-    },
-    select: { revisions: { select: { id: true }, take: 1 } },
-  });
-  const initialRevision = revision.revisions[0];
-  if (initialRevision === undefined) {
-    throw new Error('Expected initial file revision.');
-  }
   const documentId = `${FILE_RESUBMISSION_PREFIX}-document`;
   await prisma.milestoneDocument.upsert({
     where: { id: documentId },
@@ -804,11 +772,10 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
       kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
     },
   });
-  const targetSubmissionId = `${submissionId}-target`;
+  const targetSubmissionId = submissionId;
   await prisma.milestoneDocumentSubmission.create({
     data: {
       id: targetSubmissionId,
-      legacySubmissionId: submissionId,
       milestoneDocumentId: documentId,
       applicationId: PERSONAL_APPLICATION_ID,
       status: SubmissionStatus.CHANGES_REQUESTED,
@@ -842,7 +809,6 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
         lifecycle: SubmissionFileLifecycle.ATTACHED,
         pendingExpiresAt: null,
         expiresAt: addOneCalendarYear(FILE_RETENTION_START),
-        submissionRevisionId: initialRevision.id,
         milestoneDocumentSubmissionId: targetSubmissionId,
         milestoneDocumentSubmissionHistoryId: targetHistoryId,
       },
@@ -858,7 +824,6 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
         lifecycle: SubmissionFileLifecycle.PENDING,
         pendingExpiresAt: new Date('2099-01-01T00:00:00.000Z'),
         expiresAt: addOneCalendarYear(FILE_RETENTION_START),
-        submissionRevisionId: null,
       },
     ],
   });
