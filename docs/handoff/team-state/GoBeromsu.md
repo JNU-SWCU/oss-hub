@@ -830,3 +830,12 @@
 - blocker: 없음
 - 결과: 최종 transaction 안에서 non-seed 제출·회차·판정·review event·복수 파일 provenance·공개 ID 충돌·internal slot kind·header timestamp를 다시 대조한 뒤 SubmissionFile을 target-only 계약으로 좁히고 Review → SubmissionRevision → Submission 순서로 제거한다. source-only seed 파일은 비동기 정리 대상으로 넘기고 target에 연결된 seed 파일은 객체를 보존하며, 임시 trigger·purge guard·legacy mapper·dual-write seed와 fixture를 함께 제거했다.
 - 검증: production v0.6.121 backup을 격리 PostgreSQL에 복원한 upgrade rehearsal에서 source table·column·trigger 0, target 22 headers·39 histories·7 reviews 보존, target file CHECK validated를 확인했다. internal slot kind를 훼손한 negative rehearsal은 exit 3으로 실패하고 source table 3·column 1·trigger 4를 모두 보존했다. backend unit 310 suites·3456 tests, migration/report/CI contract 35건, Prisma validate, backend typecheck·build·lint, repository format·public-safe를 통과했고 architecture re-review는 CLEAR였다.
+
+## 2026-08-30 — 에이전트 스킬 라우팅을 세우고 티켓 캡처를 PR에 실제로 올린다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: craft `init` Phase 0을 이 저장소와 대조해 결손인 `docs/research/`만 만들고 기존 앵커는 손대지 않았으며, Development Flow managed block은 ADR 중심 canonical store(AGENTS.md §2)와 충돌해 이식하지 않고 그 판정을 `docs/rules/agent-skill-routing.md`에 남겼다. 작업 표면별 스킬 라우팅 원본을 그 한 파일로 두고 AGENTS.md는 링크만 한다. 티켓 3단계의 Before/After 캡처는 "첨부한다"에서 실제 렌더되는 경로로 좁혔다 — 촬영 조건 고정 → 수동 개인정보 게이트 → 병합하지 않는 orphan `evidence/ticket-<n>` 브랜치의 SHA 고정 raw URL이며, `gh` 첨부 명령 부재·공개 Release가 production 배포 트리거인 사실·`/artifacts/` gitignore를 금지 경로로 적었다. Codex는 `.codex/skills/manage-qa-tickets` 상대 심볼릭 링크로 같은 원본을 읽는다.
+- 검증: `bash scripts/check-agent-skill-links.test.sh` 합성 fixture 10건(사본·절대 경로·끊어진 링크·다른 스킬 대상·원본 부재를 fail-closed, 실패 메시지의 경로 누출 부재 포함)과 실제 checkout 계약을 통과했고, `node --test scripts/ci-path-contract.test.mjs` 6건, `bash scripts/check-public-safe.sh`, `pnpm format:check`, 라우팅 문서가 링크한 11개 경로 실재 확인을 통과했다. frontend 시각 변화 없음.
