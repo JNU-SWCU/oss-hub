@@ -437,10 +437,7 @@ function downloadableFileWhere(
   return {
     id: fileId,
     lifecycle: SubmissionFileLifecycle.ATTACHED,
-    OR: [
-      { milestoneDocumentSubmissionHistoryId: { not: null } },
-      { submissionRevisionId: { not: null } },
-    ],
+    milestoneDocumentSubmissionHistoryId: { not: null },
     expiresAt: { gt: now },
   };
 }
