@@ -865,3 +865,21 @@
 - blocker: 없음
 - 결과: 라우팅 표를 8행에서 15행으로 넓혔다. 이 저장소에 실제 표면과 원본 문서가 있는 스킬만 넣었다 — `db`(스키마·쿼리, data-modeling.md), `api`(공개 HTTP 계약, ADR-004·ADR-008), `cicd`(파이프라인, ADR-002), `browser`(실행 화면 증거, qa-dom-capture), `programming`(TypeScript 공통 규율), `refactor`(동작 불변 정리), `debug`(진단, diagnose-collection.sh)다. 스킬에 위임하지 않는 표면은 셋에서 넷으로 늘렸다 — `.githooks/`와 `commitlint.config.cjs`가 이미 강제 장치이므로 craft `guardrails`로 별도 강제 계층을 얹지 않는다. 계약 차이 표에는 craft `research`의 산출물과 ADR canonical store가 공존하는 방식(조사는 `docs/research/`, 결정은 ADR, 서로 링크)을 더했다. 표에 없는 12개 스킬은 "표면이 없다"가 아니라 "아직 필요하지 않았다"로 낮춰 적었다 — 쓸 수 없다는 뜻이 아니고, 필요해지면 그 스킬의 SKILL.md를 읽고 한 행을 추가한다.
 - 검증: 초안에서 `programming`을 표면 없음 목록에 넣은 것이 틀렸음을 잡아 고쳤다 — 이 저장소는 TypeScript이고 그 스킬이 TS를 다룬다(앞선 `design` 오판과 같은 종류라 스킬 이름을 전수 실물 대조했다). 문서가 언급한 craft 스킬 17개 전부가 설치된 0.13.0에 실재하는지 `SKILL.md` 존재로 확인했고, 문서가 링크한 20개 저장소 경로 실재, AGENTS.md 계층 26개 주장 일치, `init` 0.13.0의 "Do not scaffold documentation" 문장 실물, `bash scripts/check-public-safe.sh origin/main`, `pnpm format:check`를 통과했다. 플러그인 캐시는 릴리스 태그 v0.12.4보다 2커밋 앞선 main(5fd90a53) 기준 0.13.0이며 `gjc plugin upgrade`가 더 올릴 것이 없다고 답한다. frontend 시각 변화 없음.
+
+## 2026-08-31 — craft 스킬을 런타임 native project plugin으로 등록한다
+
+- 상태: review
+- Issue: #1072
+- PR: (이 PR)
+- blocker: 없음
+- 결과: craft-skills를 복사·vendoring·setup script로 고정하지 않고 Claude Code의 project settings, Codex의 team marketplace, GJC의 native project-scope registry로 등록했다. Claude marketplace는 자동 갱신하고 Codex는 기본 설치 정책을 쓰며, GJC는 세션 부트스트랩에서 marketplace 갱신 뒤 project plugin을 재설치한다. 최신 craft init 4.0.0으로 AGENTS 지도 26개를 다시 점검해 placement를 유지하고 `CLAUDE.md`를 exact adapter로 정규화했다.
+- 검증: GJC project plugin 0.13.0이 user plugin을 shadow하는 실제 목록, Claude·Codex project JSON 계약, CLAUDE adapter 바이트, AGENTS 지도 26개, focused Prettier, diff check, public-safe를 통과했다.
+
+## 2026-08-31 — root AGENTS를 현재 저장소 가이드로 다시 생성한다
+
+- 상태: review
+- Issue: #1072
+- PR: #1073
+- blocker: 없음
+- 결과: canonical architect 4개를 병렬로 실행해 core source, tests/QA, config/build/deploy, scripts/docs를 독립 조사하고 root `AGENTS.md`를 `Repository Guidelines`로 전면 재구성했다. placeholder owner 표, 폐기된 review state 설명, 중복 bootstrap·branch cleanup 서술을 제거하고 현재 architecture/data flow, key directories, 실제 pnpm 명령, frontend/backend 패턴, 중요 파일, Node 24·pnpm 11 runtime, Vitest/Jest/Playwright 경계를 149줄로 정리했다.
+- 검증: 네 architect 결과의 path evidence를 반영했고 required heading 8개, root 149줄, Prettier, CI path contract 6건, public-safe를 통과했다. TEAM-STATE checker는 이 변경과 무관한 기존 stale 17건·unknown 12건을 보고해 advisory baseline 실패로 남겼다.
