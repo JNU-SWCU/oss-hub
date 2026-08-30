@@ -204,7 +204,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 `oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 Issue 본문이 작업 범위의 유일한 원본이다.
 성공 기준은 PR이 티켓 계약이 요구한 것과 정확히 일치하고, 완료 조건의 모든 항목이 PR을 열기 전에 실증되며, 금지 경계 밖의 파일을 0건 건드리는 것이다.
-`frontend` 티켓이면 동일한 경로·페르소나·viewport·합성 데이터 상태에서 실제 Before/After 캡처를 만들고, 증거 전용 브랜치에 올린 SHA 고정 raw URL로 PR 본문에 실제 렌더되게 넣는다.
+`frontend` 티켓이면 동일한 경로·페르소나·viewport·합성 데이터 상태에서 실제 Before/After 캡처를 만들고, GitHub PR 본문에 직접 첨부해 실제로 렌더되는 것을 확인한다.
 로컬 파일 경로를 적으면 아무 이미지도 렌더되지 않으므로 캡처를 올렸다고 보지 않는다.
 
 절차, 계약 파싱, 선행 의존성과 순환 처리, 검증과 PR 흐름, Before/After 증거, 이스케이프 해치는 [execution-workflow.md](references/execution-workflow.md)가 원본이다.
@@ -281,6 +281,6 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
-- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 사람이 개인정보 게이트를 통과시키고, 증거 전용 브랜치의 SHA 고정 raw URL로 PR 본문에 렌더된 것을 다시 열어 확인했고, 시각 변화가 없으면 `N/A`와 사유를 적었다.
+- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 사람이 공개 안전·메타데이터를 확인하고, PR 본문에 첨부해 렌더된 것을 다시 열어 확인했고, 시각 변화가 없으면 `N/A`와 사유를 적었다.
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 옮겼다.

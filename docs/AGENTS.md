@@ -22,7 +22,8 @@
 | `decisions/` | ADR(Architecture Decision Record) — 되돌리기 어려운 횡단 결정의 원본 | [decisions/README.md](decisions/README.md)(ADR 인덱스·라이프사이클) |
 | `exec-plan/active/`, `exec-plan/archive/` | 기능별 실행 계획 — owner 전속 산출물, @GoBeromsu와 @Lumiere001 free-role 예외 있음(루트 AGENTS.md §3, 원본 ADR-005) | — |
 | `handoff/` | 팀 상태 저널·drift 검사 | `TEAM-STATE.md`(멤버 저널 인덱스), `team-state/<핸들>.md`(작성자 저널), `TEAM-STATE.archive.md`(동결 스냅샷), `team-state-drift-check.md` |
-| `rules/` | 세부 규칙 원본(보안·frontend·PR 범위·로컬 실행·CI 경로별 검증) | 각 파일이 자기 주제의 원본 |
+| `rules/` | 세부 규칙 원본(보안·frontend·PR 범위·로컬 실행·CI 경로별 검증·에이전트 스킬 라우팅) | 각 파일이 자기 주제의 원본 |
+| `research/` | 결정을 위한 조사 산출물 — 한 조사당 `research/<slug>.md` 하나이며 결정 자체는 `decisions/` ADR이 원본이다 | — 이 문서가 다룸 |
 | `deploy/` | 배포 서버와 배포 전 검증 런북 | — 이 문서가 다룸 |
 
 ## For AI Agents

@@ -43,47 +43,39 @@ Before는 변경 전 코드, After는 변경 후 코드에서 찍고 나머지 �
 요소 단위 캡처 방법과 상태별 촬영은 [`qa-dom-capture`](../agents/qa-dom-capture.md)가 원본이다.
 목업, Figma 시안, 테스트 출력, 코드 diff는 실제 실행 화면을 대신하지 못한다.
 
-### 2. 올리기 전에 사람이 직접 개인정보 게이트를 통과시킨다
+### 2. 올리기 전에 사람이 직접 공개 안전을 확인한다
 
-저장된 두 이미지를 열어 실명, 실제 이메일, 실제 팀명, 실제 저장소 이름이 보이는지 눈으로 확인한다.
+저장된 두 이미지를 열어 [보안 규칙](../../../docs/rules/security.md)의 공개 금지 범위에 걸리는 것이 화면에 보이는지 눈으로 확인한다.
+그 deny-list를 여기 옮겨 적지 않는다 — 사본은 원본이 바뀔 때 조용히 갈라진다.
 하나라도 보이면 올리지 않고 합성 fixture 상태에서 다시 찍는다.
-`scripts/check-public-safe.sh`는 이 이미지를 검사해 주지 않는다 — 스캐너는 PR diff의 텍스트를 보고, 증거 이미지는 아래 절차대로 제품 브랜치 밖에 두기 때문이다.
-이 게이트는 자동화가 없는 수동 확인 지점이다.
+이미지 파일의 메타데이터(EXIF의 기기·경로·위치)도 화면에 안 보이지만 파일에는 남으므로, 올리기 전에 제거하거나 메타데이터를 남기지 않는 방식으로 다시 저장한다.
+`scripts/check-public-safe.sh`는 이 이미지를 검사해 주지 않는다 — 스캐너는 저장소 텍스트를 보고 증거 이미지는 저장소 밖에 있다.
+그래서 이 게이트는 자동화가 없는 수동 확인 지점이다.
 
-### 3. 증거 전용 브랜치에 올려 SHA로 고정한 raw URL을 쓴다
+### 3. GitHub PR 본문에 직접 첨부한다
 
-증거 이미지는 제품 브랜치에 커밋하지 않는다 — 리뷰 대상 diff에 바이너리가 섞이고([pr-scope.md](../../../docs/rules/pr-scope.md) §1), 병합되면 저장소 이력에 영구히 남는다.
-대신 병합하지 않는 증거 전용 브랜치에 올린다.
+두 이미지를 PR 본문의 Before/After 표 칸에 끌어다 놓는다.
+GitHub가 업로드해 `![...](https://github.com/user-attachments/...)` 형태로 바꿔 주고, 그 주소는 PR과 함께 남는다.
+업로드는 브라우저 세션 전용 endpoint라 `gh`에 대응 명령이 없다 — 이 한 단계는 사람이 한다.
+에이전트는 캡처와 촬영 조건까지 준비해 두고, 첨부가 필요하다는 사실과 파일 위치를 보고한다.
 
-```bash
-# <n>은 티켓 Issue 번호. 브랜치는 열지도, 병합하지도 않는다.
-git switch --orphan evidence/ticket-<n>
-mkdir -p evidence && cp <before.png> <after.png> evidence/
-git add evidence && git commit -m "chore(evidence): 티켓 #<n> Before/After 캡처"
-git push -u origin evidence/ticket-<n>
-git rev-parse HEAD   # 이 SHA를 URL에 박는다
-```
+첨부한 뒤 PR 본문을 다시 열어 두 이미지가 실제로 렌더되는지 확인한다.
+파일 경로만 적힌 상태는 캡처를 올린 것이 아니다.
 
-PR 본문에는 그 SHA로 고정한 raw URL을 쓴다.
+촬영 조건은 표 아래에 함께 적는다.
 
 ```markdown
-| Before | After |
-| --- | --- |
-| ![before](https://raw.githubusercontent.com/JNU-SWCU/oss-hub/<SHA>/evidence/before.png) | ![after](https://raw.githubusercontent.com/JNU-SWCU/oss-hub/<SHA>/evidence/after.png) |
-
 촬영 조건: `<URL>` · `<페르소나>` · viewport `<가로>x<세로>` · 합성 seed 데이터
 ```
 
-브랜치 이름이 아니라 SHA로 고정하는 이유는, 브랜치를 나중에 덮어쓰면 PR 본문의 이미지가 조용히 다른 화면으로 바뀌기 때문이다.
-`evidence/**` 브랜치는 orphan이라 제품 이력과 공통 조상이 없고, `ci.yml`은 `pull_request`와 `main` push에서만 돌기 때문에 이 push는 CI를 돌리지 않는다.
-증거 브랜치는 PR이 병합된 뒤에도 남긴다 — 지우면 병합된 PR 본문의 이미지가 깨진다.
-
 ### 하지 않는 것
 
-- `gh`로 PR 본문에 이미지를 첨부하려 하지 않는다 — `gh`에는 그 명령이 없고, 첨부 업로드는 브라우저 세션 전용 endpoint다. 없는 플래그를 추측해 만들지 않는다.
-- `gh release create`·`gh release upload`로 이미지를 호스팅하지 않는다 — 이 저장소는 공개 Release 발행(published)을 production 배포 트리거로 쓴다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md), `.github/workflows/deploy.yml`). 캡처를 올리려다 배포가 나간다.
-- `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다(ADR-010 §5). 커밋되지 않으므로 URL도 생기지 않는다.
-- 증거 브랜치로 PR을 열지 않는다. 리뷰 대상이 아니다.
+- 로컬 파일 경로(`/tmp/before.png`)를 본문에 적고 첨부했다고 하지 않는다 — 아무 이미지도 렌더되지 않는다.
+- 증거 이미지를 제품 브랜치에 커밋하지 않는다 — 리뷰 대상 diff에 바이너리가 섞인다([pr-scope.md](../../../docs/rules/pr-scope.md) §1).
+- 증거 전용 브랜치를 만들지 않는다 — 그 브랜치를 영구히 보존해야 PR 본문이 깨지지 않고, orphan 브랜치에는 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 실패해 push 자체가 막힌다.
+- `gh release create`·`gh release upload`로 호스팅하지 않는다 — 이 저장소는 공개 Release 발행(published)을 production 배포 트리거로 쓴다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md), `.github/workflows/deploy.yml`). 캡처를 올리려다 배포가 나간다.
+- `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다(ADR-010 §5). 커밋되지 않으므로 주소도 생기지 않는다.
+- 목업·Figma 시안·테스트 출력·코드 diff로 실제 실행 화면을 대신하지 않는다.
 
 ## 이스케이프 해치
 
