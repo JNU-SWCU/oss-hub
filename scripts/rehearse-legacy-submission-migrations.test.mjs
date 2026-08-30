@@ -32,6 +32,13 @@ const bridgeMigrationDirectory = fileURLToPath(
   ),
 );
 const bridgeMigrationPath = join(bridgeMigrationDirectory, 'migration.sql');
+const contractMigrationDirectory = fileURLToPath(
+  new URL(
+    '../apps/backend/prisma/migrations/20260830180000_contract_legacy_submissions/',
+    import.meta.url,
+  ),
+);
+const contractMigrationPath = join(contractMigrationDirectory, 'migration.sql');
 const MODES = [
   'fresh',
   'upgrade',
@@ -349,6 +356,86 @@ test('bridge migration copies exact history and installs fail-closed fences', ()
     migration,
     /DELETE\s+FROM\s+"(?:Submission|SubmissionRevision|Review)"/i,
   );
+});
+
+test('contract migration reconciles before removing source schema in fixed order', () => {
+  const migration = readFileSync(contractMigrationPath, 'utf8');
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'legacy-contract-contract-'));
+  try {
+    const result = runRehearsal(['--mode', 'contract-success'], {
+      LEGACY_SUBMISSION_REHEARSAL_DRY_RUN: '1',
+      LEGACY_SUBMISSION_EXPAND_MIGRATION: expandMigrationDirectory,
+      LEGACY_SUBMISSION_BRIDGE_MIGRATION: bridgeMigrationDirectory,
+      LEGACY_SUBMISSION_CONTRACT_MIGRATION: contractMigrationDirectory,
+      TMPDIR: fixtureRoot,
+    });
+    assertResult(result, 0, 'PASS', 'mode_validated');
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+
+  assert.match(migration, /^BEGIN;/m);
+  assert.match(migration, /COMMIT;\s*$/);
+  assert.match(
+    migration,
+    /LOCK TABLE[\s\S]*"Submission"[\s\S]*IN ACCESS EXCLUSIVE MODE/,
+  );
+  assert.match(
+    migration,
+    /legacy submission header mapping requires reconciliation/,
+  );
+  assert.match(
+    migration,
+    /legacy submission revision mapping requires reconciliation/,
+  );
+  assert.match(migration, /legacy review mapping requires reconciliation/);
+  assert.match(
+    migration,
+    /legacy submission file provenance requires reconciliation/,
+  );
+  assert.match(
+    migration,
+    /legacy submission public id collision requires reconciliation/,
+  );
+  assert.match(
+    migration,
+    /legacy seed file target provenance requires reconciliation/,
+  );
+  assert.match(migration, /document\."kind" = 'LEGACY_MILESTONE_SUBMISSION'/);
+  assert.match(migration, /target\."createdAt" = submission\."createdAt"/);
+  assert.match(migration, /target\."updatedAt" = submission\."updatedAt"/);
+  assert.match(
+    migration,
+    /file\."milestoneDocumentSubmissionId" IS NOT NULL[\s\S]*SET "submissionRevisionId" = NULL/,
+  );
+  assert.match(
+    migration,
+    /"lifecycle" = 'ATTACHED'[\s\S]*"milestoneDocumentSubmissionHistoryId" IS NOT NULL/,
+  );
+  assert.match(migration, /DROP TRIGGER "Submission_bridge_write_fence"/);
+  assert.match(
+    migration,
+    /DROP TRIGGER "SubmissionFile_bridge_provenance_fence"/,
+  );
+  assert.doesNotMatch(migration, /\bCASCADE\b/i);
+
+  const preflightEnd = migration.indexOf('$preflight$;');
+  const firstDestructiveStatement = migration.search(
+    /DROP (?:TRIGGER|FUNCTION|INDEX|TABLE)|DROP COLUMN/,
+  );
+  assert.ok(preflightEnd > 0);
+  assert.ok(firstDestructiveStatement > preflightEnd);
+
+  const dropSourceColumn = migration.indexOf(
+    'DROP COLUMN "submissionRevisionId"',
+  );
+  const dropReview = migration.indexOf('DROP TABLE "Review"');
+  const dropRevision = migration.indexOf('DROP TABLE "SubmissionRevision"');
+  const dropSubmission = migration.indexOf('DROP TABLE "Submission"');
+  assert.ok(dropSourceColumn > preflightEnd);
+  assert.ok(dropSourceColumn < dropReview);
+  assert.ok(dropReview < dropRevision);
+  assert.ok(dropRevision < dropSubmission);
 });
 
 test('script statically locks shell safety, cleanup, modes, and public-safe boundaries', () => {

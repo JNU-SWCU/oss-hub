@@ -108,13 +108,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
 
     expect(position('board-comments')).toBeLessThan(position('board-posts'));
     expect(position('submission-files')).toBeLessThan(
-      position('submission-revisions'),
-    );
-    expect(position('submission-reviews')).toBeLessThan(
-      position('submission-revisions'),
-    );
-    expect(position('submission-revisions')).toBeLessThan(
-      position('submissions'),
+      position('milestone-document-submission-histories'),
     );
     expect(position('milestone-document-review-histories')).toBeLessThan(
       position('milestone-document-submission-histories'),

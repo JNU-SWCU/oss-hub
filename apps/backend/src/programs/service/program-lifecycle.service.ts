@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
-  MilestoneDocumentKind,
   Prisma,
   ProgramAuthoringUploadLifecycle,
   ProgramLifecycle,
@@ -257,23 +256,6 @@ export class ProgramLifecycleService {
           if (program.deletionProtected) {
             throw new DomainException(
               PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
-            );
-          }
-          const migratedSubmissionCount =
-            await transaction.milestoneDocumentSubmission.count({
-              where: {
-                legacySubmissionId: { not: null },
-                milestoneDocument: {
-                  kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-                  milestone: { programId },
-                },
-              },
-            });
-          if (migratedSubmissionCount > 0) {
-            throw new DomainException(
-              PROGRAM_ERROR_CODES[
-                ProgramErrorCode.PROGRAM_PURGE_LEGACY_MIGRATION_IN_PROGRESS
-              ],
             );
           }
 
