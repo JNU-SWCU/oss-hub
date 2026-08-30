@@ -812,3 +812,12 @@
 - blocker: 없음
 - 결과: 이관된 제출(provenance header)이 남은 프로그램의 완전 삭제를 409로 막고 범위 재확인·삭제·감사 기록까지 전혀 시작하지 않는 것을 회귀 테스트로 고정했다. 운영에서 직접 purge를 호출하면 guard 결함 시 실제 프로그램이 삭제되기 때문에 격리 테스트로 증명한다.
 - 검증: program lifecycle unit 38건, backend typecheck·lint, repository format을 통과했다. 운영에서는 read-only 집계로 provenance 보유 프로그램 4개·보유 없는 프로그램 5개를 확인해 guard 분기가 단일 값이 아니었음을 같이 남긴다.
+
+## 2026-08-30 — 제출 runtime의 레거시 접근을 제거한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 프로그램 삭제 범위·fingerprint·완전 삭제, 제출 파일 다운로드 provenance, 판정 이력 식별자에서 남아 있던 레거시 제출 원장 접근과 별칭을 제거했다. 완전 삭제 결과 계약은 유지하고 신규 제출·이력·판정 원장만 집계하며, provenance가 있는 이관 프로그램의 409 차단은 contract 전까지 유지한다.
+- 검증: checked runtime inventory 26개 경로에서 legacy delegate·SQL table·source file provenance 접근 0건, backend unit 311 suites·3466 tests, report contract 13건, backend typecheck·build·lint, repository format을 통과했다. target-only purge와 파일 권한 integration은 required CI의 격리 PostgreSQL·MinIO에서 확인한다.
