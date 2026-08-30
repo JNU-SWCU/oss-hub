@@ -120,7 +120,6 @@ describe('ProgramEditorRepository milestone deletion', () => {
     );
 
     // Then: 서비스가 이 값으로 MILESTONE_HAS_SUBMISSIONS 거부를 판단한다.
-    expect(target?.submissionCount).toBe(0);
     expect(target?.documentSubmissionCount).toBe(3);
     expect(transaction.milestone.findUnique).toHaveBeenLastCalledWith({
       where: { id: syntheticMilestoneId },

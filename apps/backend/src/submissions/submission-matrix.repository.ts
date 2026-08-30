@@ -13,6 +13,7 @@ import {
   resolveUserProfileName,
 } from '../profiles/user-profile-read';
 import type { SubmissionMatrixFilter } from './domain/submission-matrix';
+import { publicSubmissionId } from './submission-public-id';
 
 export interface SubmissionMatrixViewer {
   readonly id: string;
@@ -213,7 +214,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       },
     });
     return submissions.map((submission) => ({
-      id: submission.legacySubmissionId ?? submission.id,
+      id: publicSubmissionId(submission),
       applicationId: submission.applicationId,
       milestoneId: submission.milestoneDocument.milestoneId,
       status: submission.status,

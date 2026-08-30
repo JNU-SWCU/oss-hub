@@ -13,6 +13,10 @@ import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
+import {
+  exactSubmissionByPublicId,
+  submissionPublicIdWhere,
+} from './submission-public-id';
 
 const MAX_DELETE_ATTEMPTS = 6;
 const MAX_RETAINED_FILE_COUNT = 100;
@@ -207,10 +211,7 @@ export class SubmissionFilesRepository {
       const submissions =
         await this.prisma.milestoneDocumentSubmission.findMany({
           where: {
-            OR: [
-              { id: resubmissionContext.submissionId },
-              { legacySubmissionId: resubmissionContext.submissionId },
-            ],
+            ...submissionPublicIdWhere(resubmissionContext.submissionId),
             applicationId: application.id,
             milestoneDocument: {
               milestoneId: milestone.id,
@@ -220,8 +221,8 @@ export class SubmissionFilesRepository {
           take: 2,
           select: { status: true, revision: true },
         });
-      const submission = submissions[0];
-      if (submissions.length !== 1 || submission === undefined) return null;
+      const submission = exactSubmissionByPublicId(submissions);
+      if (submission === null) return null;
       resubmissionStatus = submission.status;
       currentRevision = submission.revision;
     }

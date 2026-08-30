@@ -830,3 +830,12 @@
 - blocker: 없음
 - 결과: 최종 transaction 안에서 non-seed 제출·회차·판정·review event·복수 파일 provenance·공개 ID 충돌·internal slot kind·header timestamp를 다시 대조한 뒤 SubmissionFile을 target-only 계약으로 좁히고 Review → SubmissionRevision → Submission 순서로 제거한다. source-only seed 파일은 비동기 정리 대상으로 넘기고 target에 연결된 seed 파일은 객체를 보존하며, 임시 trigger·purge guard·legacy mapper·dual-write seed와 fixture를 함께 제거했다.
 - 검증: production v0.6.121 backup을 격리 PostgreSQL에 복원한 upgrade rehearsal에서 source table·column·trigger 0, target 22 headers·39 histories·7 reviews 보존, target file CHECK validated를 확인했다. internal slot kind를 훼손한 negative rehearsal은 exit 3으로 실패하고 source table 3·column 1·trigger 4를 모두 보존했다. backend unit 310 suites·3456 tests, migration/report/CI contract 35건, Prisma validate, backend typecheck·build·lint, repository format·public-safe를 통과했고 architecture re-review는 CLEAR였다.
+
+## 2026-08-30 — 이관 완료 후 제출 원장 코드를 단순화한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 사용되지 않는 dormant target adapter·transition type·legacy 별칭·dead exception을 제거하고, 공개 제출 ID의 dual-key predicate·collision guard·projection을 한 helper로 통합했다. 유일한 review mapper를 canonical 이름으로 바꾸고 completion axis projection을 공유하며, 프로그램 편집의 항상 0이던 legacy count와 target/projected compatibility branch를 제거했다. checklist는 현재 history/file/review만 읽고 dashboard는 target row를 한 번만 partition한다.
+- 검증: backend unit 309 suites·3448 tests, backend typecheck·build·lint, repository format을 통과했다. architecture review CLEAR, public-ID/review/file QA red-team CLEAR였고, completion red-team이 찾은 legacy document-only 공개 차단을 회귀 테스트와 함께 수정한 뒤 re-review CLEAR를 받았다.

@@ -13,11 +13,14 @@ import type {
   SubmissionReviewContext,
   SubmissionReviewTarget,
 } from './domain/submission-review';
-import { LegacySubmissionPublicIdCollisionError } from '../submissions/legacy-submission-target';
 import {
-  TARGET_REVIEW_CONTEXT_SELECT,
-  toTargetReviewContext,
-} from './target-submission-review-context.mapper';
+  exactSubmissionByPublicId,
+  submissionPublicIdWhere,
+} from '../submissions/submission-public-id';
+import {
+  REVIEW_CONTEXT_SELECT,
+  toReviewContext,
+} from './submission-review-context.mapper';
 
 export interface CreateReviewRecordInput {
   readonly submissionHistoryId: string;
@@ -57,10 +60,6 @@ export interface SubmissionReviewsRepositoryPort {
   ): Promise<RepositoryPublishEligibility | null>;
 }
 
-export class ReviewAlreadyExistsError extends Error {
-  override readonly name = 'ReviewAlreadyExistsError';
-}
-
 class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransactionStore {
   constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
 
@@ -70,7 +69,7 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
     const submissions =
       await this.transaction.milestoneDocumentSubmission.findMany({
         where: {
-          OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+          ...submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
@@ -78,8 +77,8 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
         take: 2,
         select: { id: true },
       });
-    const resolved = submissions[0];
-    if (submissions.length !== 1 || resolved === undefined) return null;
+    const resolved = exactSubmissionByPublicId(submissions);
+    if (resolved === null) return null;
     const targetId = resolved.id;
     await this.transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
       SELECT "id"
@@ -189,20 +188,16 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
   ): Promise<SubmissionReviewContext | null> {
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
-        OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+        ...submissionPublicIdWhere(submissionId),
         milestoneDocument: {
           kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       },
       take: 2,
-      select: TARGET_REVIEW_CONTEXT_SELECT,
+      select: REVIEW_CONTEXT_SELECT,
     });
-    if (submissions.length > 1) {
-      throw new LegacySubmissionPublicIdCollisionError(
-        'Ambiguous legacy submission public id',
-      );
-    }
-    return submissions[0] ? toTargetReviewContext(submissions[0]) : null;
+    const submission = exactSubmissionByPublicId(submissions);
+    return submission ? toReviewContext(submission) : null;
   }
 
   async findPublishEligibility(
