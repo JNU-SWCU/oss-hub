@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
   type MilestoneSubmissionType,
   Prisma,
   type SubmissionStatus,
@@ -206,6 +207,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
       this.prisma.milestoneDocument.findMany({
         where: {
           required: true,
+          kind: MilestoneDocumentKind.DOCUMENT,
           milestone: { is: { programId: programFilter } },
         },
         select: dashboardMilestoneDocumentSelect,

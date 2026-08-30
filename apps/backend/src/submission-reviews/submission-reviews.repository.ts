@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, SubmissionStatus } from '@prisma/client';
+import {
+  MilestoneDocumentKind,
+  Prisma,
+  SubmissionStatus,
+} from '@prisma/client';
 import type { Prisma as PrismaTypes, ReviewDecision } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { requiredMilestonesApproved } from '../common/milestone-completion';
@@ -156,7 +160,10 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
                     submissionType: true,
                     // ⚠ 필수 서류만 — 집합은 REVIEW_CONTEXT_SELECT 와 같아야 한다.
                     documents: {
-                      where: { required: true },
+                      where: {
+                        required: true,
+                        kind: MilestoneDocumentKind.DOCUMENT,
+                      },
                       select: { id: true },
                     },
                   },

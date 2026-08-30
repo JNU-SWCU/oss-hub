@@ -1,5 +1,6 @@
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
   MilestoneSubmissionType,
   SubmissionStatus,
 } from '@prisma/client';
@@ -193,6 +194,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     expect(milestoneDocuments.calls[0]).toEqual({
       where: {
         required: true,
+        kind: MilestoneDocumentKind.DOCUMENT,
         milestone: { is: { programId: { in: ['program-a', 'program-b'] } } },
       },
       select: {

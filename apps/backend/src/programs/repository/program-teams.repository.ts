@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneDocumentKind,
   OutboxEventStatus,
   Prisma,
   RepositoryProvisionJobStatus,
@@ -361,7 +362,10 @@ export class ProgramTeamsRepository {
                 id: true,
                 submissionType: true,
                 documents: {
-                  where: { required: true },
+                  where: {
+                    required: true,
+                    kind: MilestoneDocumentKind.DOCUMENT,
+                  },
                   select: { id: true },
                 },
               },

@@ -1,4 +1,4 @@
-import { SubmissionFileLifecycle } from '@prisma/client';
+import { MilestoneDocumentKind, SubmissionFileLifecycle } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { requiredMilestonesApproved } from '../common/milestone-completion';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
@@ -43,7 +43,13 @@ export const REVIEW_CONTEXT_SELECT = {
               id: true,
               submissionType: true,
               // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 공개를 영원히 막는다.
-              documents: { where: { required: true }, select: { id: true } },
+              documents: {
+                where: {
+                  required: true,
+                  kind: MilestoneDocumentKind.DOCUMENT,
+                },
+                select: { id: true },
+              },
             },
           },
         },
