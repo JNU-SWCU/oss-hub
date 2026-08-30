@@ -21,12 +21,16 @@ import {
   submissionParticipantWhere,
   toSubmissionApplication,
 } from './submission-application.record';
-import { LegacySubmissionPublicIdCollisionError } from './legacy-submission-target';
 import {
   checklistMilestoneOrderBy,
   checklistMilestoneSelect,
   toChecklistMilestone,
 } from './submission-checklist.record';
+import {
+  exactSubmissionByPublicId,
+  publicSubmissionId,
+  submissionPublicIdWhere,
+} from './submission-public-id';
 
 type SubmissionsDatabase = Pick<
   Prisma.TransactionClient,
@@ -114,7 +118,7 @@ export interface ResubmissionTarget {
   /** 기존 프런트가 계속 쓰는 공개 id. */
   readonly id: string;
   /** 신규 원장 header primary id. */
-  readonly targetId: string;
+  readonly submissionRecordId: string;
   readonly applicationId: string;
   readonly milestoneId: string;
   readonly programId: string;
@@ -411,7 +415,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     const submissions =
       await this.database.milestoneDocumentSubmission.findMany({
         where: {
-          OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+          ...submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
@@ -439,19 +443,14 @@ class PrismaSubmissionsStore implements SubmissionsStore {
           application: { select: { status: true } },
         },
       });
-    if (submissions.length > 1) {
-      throw new LegacySubmissionPublicIdCollisionError(
-        'Ambiguous legacy submission public id',
-      );
-    }
-    const submission = submissions[0];
-    if (!submission) return null;
+    const submission = exactSubmissionByPublicId(submissions);
+    if (submission === null) return null;
     if (submission.milestoneDocument.milestone.submissionType === null) {
       return null;
     }
     return {
-      id: submission.legacySubmissionId ?? submission.id,
-      targetId: submission.id,
+      id: publicSubmissionId(submission),
+      submissionRecordId: submission.id,
       applicationId: submission.applicationId,
       milestoneId: submission.milestoneDocument.milestoneId,
       programId: submission.milestoneDocument.milestone.programId,
@@ -467,7 +466,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     const submission =
       await this.database.milestoneDocumentSubmission.findFirst({
         where: {
-          OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+          ...submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },

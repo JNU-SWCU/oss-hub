@@ -11,6 +11,7 @@ import {
   resolveUserProfileName,
 } from '../profiles/user-profile-read';
 import { safeSubmissionFileContentType } from '../submissions/submission-file-content-type';
+import { publicSubmissionId } from '../submissions/submission-public-id';
 import {
   APPLICATION_MODES,
   publishBlockedReasons,
@@ -20,7 +21,7 @@ import {
   type SubmissionRevisionRecord,
 } from './domain/submission-review';
 
-export const TARGET_REVIEW_CONTEXT_SELECT = {
+export const REVIEW_CONTEXT_SELECT = {
   id: true,
   legacySubmissionId: true,
   revision: true,
@@ -113,31 +114,33 @@ export const TARGET_REVIEW_CONTEXT_SELECT = {
   },
 } satisfies Prisma.MilestoneDocumentSubmissionSelect;
 
-export type TargetReviewContextRow =
-  Prisma.MilestoneDocumentSubmissionGetPayload<{
-    select: typeof TARGET_REVIEW_CONTEXT_SELECT;
-  }>;
+export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
+  select: typeof REVIEW_CONTEXT_SELECT;
+}>;
 
-export class TargetSubmissionRevisionInvariantError extends Error {
-  override readonly name = 'TargetSubmissionRevisionInvariantError';
+export class SubmissionRevisionInvariantError extends Error {
+  override readonly name = 'SubmissionRevisionInvariantError';
 }
 
-export function toTargetReviewContext(
-  row: TargetReviewContextRow,
+export function toReviewContext(
+  row: ReviewContextRow,
   now: Date = new Date(),
 ): SubmissionReviewContext {
   const current = row.histories.find(
     (history) => history.revision === row.revision,
   );
   if (current === undefined) {
-    throw new TargetSubmissionRevisionInvariantError();
+    throw new SubmissionRevisionInvariantError();
   }
   const repository = row.application.repository;
   const blockedReasons = repository
-    ? publishBlockedReasons(toPublishEligibility(row, repository), now)
+    ? publishBlockedReasons(
+        toPublishEligibility(row.application, repository),
+        now,
+      )
     : [];
   return {
-    submissionId: row.legacySubmissionId ?? row.id,
+    submissionId: publicSubmissionId(row),
     application: {
       id: row.application.id,
       applicationMode:
@@ -167,10 +170,10 @@ export function toTargetReviewContext(
 }
 
 function toPublishEligibility(
-  row: TargetReviewContextRow,
-  repository: NonNullable<TargetReviewContextRow['application']['repository']>,
+  application: ReviewContextRow['application'],
+  repository: NonNullable<ReviewContextRow['application']['repository']>,
 ): Omit<RepositoryPublishEligibility, 'repositoryId'> {
-  const targetSubmissions = row.application.milestoneDocumentSubmissions;
+  const targetSubmissions = application.milestoneDocumentSubmissions;
   const legacySubmissions = targetSubmissions
     .filter(
       (submission) =>
@@ -195,22 +198,21 @@ function toPublishEligibility(
     visibility: repository.visibility,
     provisionStatus: job?.repositoryId === repository.id ? job.status : null,
     requiredMilestonesApproved: requiredMilestonesApproved(
-      row.application.program.milestones,
+      application.program.milestones,
       legacySubmissions,
       documentSubmissions,
     ),
-    isRepositoryPublicationPlanned:
-      row.application.isRepositoryPublicationPlanned,
-    programEndAt: row.application.program.endAt,
+    isRepositoryPublicationPlanned: application.isRepositoryPublicationPlanned,
+    programEndAt: application.program.endAt,
   };
 }
 
 function toRevisionRecord(
-  history: TargetReviewContextRow['histories'][number],
+  history: ReviewContextRow['histories'][number],
   now: Date,
 ): SubmissionRevisionRecord {
   if (history.revision === null) {
-    throw new TargetSubmissionRevisionInvariantError();
+    throw new SubmissionRevisionInvariantError();
   }
   return {
     number: history.revision,
@@ -223,7 +225,7 @@ function toRevisionRecord(
 }
 
 function toFileRecord(
-  file: TargetReviewContextRow['histories'][number]['files'][number],
+  file: ReviewContextRow['histories'][number]['files'][number],
   now: Date,
 ): readonly SubmissionReviewFileRecord[] {
   if (

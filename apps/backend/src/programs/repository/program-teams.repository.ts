@@ -14,6 +14,10 @@ import { requiredMilestonesApproved } from '../../common/milestone-completion';
 import { publishBlockedReasons } from '../../common/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
 import {
+  projectSubmissionCompletionTargets,
+  submissionCompletionTargetSelect,
+} from '../../submissions/submission-completion-projection';
+import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
@@ -373,12 +377,7 @@ export class ProgramTeamsRepository {
           },
         },
         milestoneDocumentSubmissions: {
-          select: {
-            status: true,
-            milestoneDocument: {
-              select: { id: true, milestoneId: true, kind: true },
-            },
-          },
+          select: submissionCompletionTargetSelect,
         },
       },
     });
@@ -401,6 +400,9 @@ export class ProgramTeamsRepository {
         }),
       ]);
       const repository = application.repository;
+      const completionTargets = projectSubmissionCompletionTargets(
+        application.milestoneDocumentSubmissions,
+      );
       const blockedReasons = repository
         ? publishBlockedReasons(
             {
@@ -409,26 +411,8 @@ export class ProgramTeamsRepository {
                 job?.repositoryId === repository.id ? job.status : null,
               requiredMilestonesApproved: requiredMilestonesApproved(
                 application.program.milestones,
-                application.milestoneDocumentSubmissions
-                  .filter(
-                    (submission) =>
-                      submission.milestoneDocument.kind ===
-                      MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-                  )
-                  .map((submission) => ({
-                    milestoneId: submission.milestoneDocument.milestoneId,
-                    status: submission.status,
-                  })),
-                application.milestoneDocumentSubmissions
-                  .filter(
-                    (submission) =>
-                      submission.milestoneDocument.kind ===
-                      MilestoneDocumentKind.DOCUMENT,
-                  )
-                  .map((submission) => ({
-                    milestoneDocumentId: submission.milestoneDocument.id,
-                    status: submission.status,
-                  })),
+                completionTargets.submissions,
+                completionTargets.documentSubmissions,
               ),
               isRepositoryPublicationPlanned:
                 application.isRepositoryPublicationPlanned,

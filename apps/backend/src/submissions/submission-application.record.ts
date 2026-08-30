@@ -1,4 +1,5 @@
 import { MilestoneDocumentKind, Prisma } from '@prisma/client';
+import { publicSubmissionId } from './submission-public-id';
 import type { SubmissionApplication } from './submissions.repository';
 
 export function submissionParticipantWhere(
@@ -45,13 +46,11 @@ export function toSubmissionApplication(
     id: application.id,
     programId: application.programId,
     teamId: application.teamId,
-    teamMemberCount: application.team?._count.members ?? 0,
+    teamMemberCount: application.team._count.members,
     status: application.status,
     existingSubmission: application.milestoneDocumentSubmissions[0]
       ? {
-          id:
-            application.milestoneDocumentSubmissions[0].legacySubmissionId ??
-            application.milestoneDocumentSubmissions[0].id,
+          id: publicSubmissionId(application.milestoneDocumentSubmissions[0]),
           status: application.milestoneDocumentSubmissions[0].status,
         }
       : null,

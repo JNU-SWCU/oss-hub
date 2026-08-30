@@ -27,7 +27,7 @@ function target(
 ): ResubmissionTarget {
   return {
     id: submissionId,
-    targetId: 'target-submission-1',
+    submissionRecordId: 'target-submission-1',
     applicationId: 'application-1',
     milestoneId: 'milestone-1',
     programId: 'program-1',

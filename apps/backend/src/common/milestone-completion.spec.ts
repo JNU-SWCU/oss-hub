@@ -1,4 +1,4 @@
-import { SubmissionStatus } from '@prisma/client';
+import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import {
   isMilestoneComplete,
   MILESTONE_NOT_SUBMITTED,
@@ -99,6 +99,27 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
     expect(
       requiredMilestonesApproved(
         milestones,
+        [],
+        [
+          {
+            milestoneDocumentId: 'document-1',
+            status: SubmissionStatus.APPROVED,
+          },
+        ],
+      ),
+    ).toBe(true);
+  });
+
+  it('레거시 서류-only 마일스톤은 남아 있는 submissionType 때문에 내부 제출을 요구하지 않는다', () => {
+    expect(
+      requiredMilestonesApproved(
+        [
+          {
+            id: 'legacy-document-only',
+            submissionType: MilestoneSubmissionType.TEXT,
+            documents: [{ id: 'document-1' }],
+          },
+        ],
         [],
         [
           {

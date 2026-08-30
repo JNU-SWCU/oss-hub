@@ -115,39 +115,18 @@ describe('ProgramEditorService milestones', () => {
     expect(store.createMilestone.mock.calls).toHaveLength(1);
   });
 
-  it('rejects milestone deletion when submissions exist', async () => {
-    const { service, store } = createProgramEditorServiceHarness();
-    store.findMilestoneForDelete.mockResolvedValue({
-      id: 'milestone-1',
-      programId: 'program-1',
-      submissionCount: 1,
-      documentSubmissionCount: 0,
-      programMilestoneCount: 2,
-      programRepositoryProvisioningEnabled: false,
-    });
-
-    await expect(
-      service.deleteMilestone(101n, 'milestone-1'),
-    ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS],
-    });
-    expect(store.deleteMilestone.mock.calls).toHaveLength(0);
-  });
-
   it('서류 항목에 제출물이 있으면 마일스톤을 지우지 않고 MILESTONE_HAS_SUBMISSIONS로 거부한다', async () => {
-    // Given: 옛 Submission은 없지만 서류 항목(MilestoneDocument)에 제출이 하나 있다.
+    // Given: 서류 항목(MilestoneDocument)에 제출이 하나 있다.
     const { service, store } = createProgramEditorServiceHarness();
     store.findMilestoneForDelete.mockResolvedValue({
       id: 'cuid-synthetic-milestone',
       programId: 'cuid-synthetic-program',
-      submissionCount: 0,
       documentSubmissionCount: 1,
       programMilestoneCount: 2,
       programRepositoryProvisioningEnabled: false,
     });
 
-    // When / Then: 두 제출 경로는 「제출물이 있다」는 뜻이 같아 같은 코드로 거부한다.
+    // When / Then
     await expect(
       service.deleteMilestone(101n, 'cuid-synthetic-milestone'),
     ).rejects.toMatchObject<Partial<DomainException>>({
@@ -163,7 +142,6 @@ describe('ProgramEditorService milestones', () => {
     store.findMilestoneForDelete.mockResolvedValue({
       id: 'cuid-synthetic-milestone',
       programId: 'cuid-synthetic-program',
-      submissionCount: 0,
       documentSubmissionCount: 0,
       programMilestoneCount: 2,
       programRepositoryProvisioningEnabled: false,

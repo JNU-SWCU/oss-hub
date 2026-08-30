@@ -217,7 +217,7 @@ export class SubmissionsService {
         this.assertResubmittable(target, input, now);
 
         const created = await store.createSubmissionRevision({
-          submissionId: target.targetId,
+          submissionId: target.submissionRecordId,
           applicationId: target.applicationId,
           milestoneId: target.milestoneId,
           baseRevision: input.baseRevision,
