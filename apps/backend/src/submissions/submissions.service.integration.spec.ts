@@ -388,14 +388,15 @@ describe('SubmissionsService integration', () => {
     const results = await Promise.all([submit(), submit()]);
 
     // Then
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findFirstOrThrow({
       where: {
-        applicationId_milestoneId: {
-          applicationId: PERSONAL_APPLICATION_ID,
+        applicationId: PERSONAL_APPLICATION_ID,
+        milestoneDocument: {
           milestoneId,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       },
-      include: { revisions: true },
+      include: { histories: true },
     });
     const fulfilled = results.find((result) => result.kind === 'fulfilled');
     const rejected = results.find((result) => result.kind === 'rejected');
@@ -411,10 +412,10 @@ describe('SubmissionsService integration', () => {
     expect(rejected.errorCode).toBe(
       SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS,
     );
-    expect(stored.revisions).toHaveLength(1);
-    expect(stored.revisions[0]).toMatchObject({
+    expect(stored.histories).toHaveLength(1);
+    expect(stored.histories[0]).toMatchObject({
       revision: 1,
-      submittedById: PERSONAL_USER_ID,
+      actorId: PERSONAL_USER_ID,
       content: {
         type: MilestoneSubmissionType.TEXT,
         text: '합성 최종 보고',
@@ -450,13 +451,13 @@ describe('SubmissionsService integration', () => {
       status: SubmissionStatus.SUBMITTED,
     });
 
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: { id: created.submissionId },
-      include: { revisions: { orderBy: { revision: 'asc' } } },
+      include: { histories: { orderBy: { revision: 'asc' } } },
     });
-    expect(stored.currentRevision).toBe(2);
-    expect(stored.revisions).toHaveLength(2);
-    expect(stored.revisions.map((revision) => revision.content)).toEqual([
+    expect(stored.revision).toBe(2);
+    expect(stored.histories).toHaveLength(2);
+    expect(stored.histories.map((history) => history.content)).toEqual([
       { type: MilestoneSubmissionType.TEXT, text: '초기 본문' },
       { type: MilestoneSubmissionType.TEXT, text: '교체 본문' },
     ]);
@@ -603,24 +604,24 @@ describe('SubmissionsService integration', () => {
       revision: 2,
       status: SubmissionStatus.SUBMITTED,
     });
-    const stored = await prisma.submission.findUniqueOrThrow({
-      where: { id: fixture.submissionId },
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+      where: { legacySubmissionId: fixture.submissionId },
       include: {
-        revisions: { orderBy: { revision: 'asc' }, include: { files: true } },
+        histories: { orderBy: { revision: 'asc' }, include: { files: true } },
       },
     });
     expect(stored).toMatchObject({
       status: SubmissionStatus.SUBMITTED,
-      currentRevision: 2,
+      revision: 2,
     });
-    expect(stored.revisions).toHaveLength(2);
-    expect(stored.revisions[0]?.files).toHaveLength(1);
-    expect(stored.revisions[0]?.files[0]).toMatchObject({
+    expect(stored.histories).toHaveLength(2);
+    expect(stored.histories[0]?.files).toHaveLength(1);
+    expect(stored.histories[0]?.files[0]).toMatchObject({
       id: fixture.initialFileId,
       lifecycle: SubmissionFileLifecycle.ATTACHED,
     });
-    expect(stored.revisions[1]?.files).toHaveLength(1);
-    expect(stored.revisions[1]?.files[0]).toMatchObject({
+    expect(stored.histories[1]?.files).toHaveLength(1);
+    expect(stored.histories[1]?.files[0]).toMatchObject({
       id: fixture.replacementFileId,
       lifecycle: SubmissionFileLifecycle.ATTACHED,
       pendingExpiresAt: null,
@@ -650,17 +651,17 @@ describe('SubmissionsService integration', () => {
     await expect(resubmission).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE },
     });
-    const stored = await prisma.submission.findUniqueOrThrow({
-      where: { id: fixture.submissionId },
-      include: { revisions: { include: { files: true } } },
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+      where: { legacySubmissionId: fixture.submissionId },
+      include: { histories: { include: { files: true } } },
     });
     expect(stored).toMatchObject({
       status: SubmissionStatus.CHANGES_REQUESTED,
-      currentRevision: 1,
+      revision: 1,
     });
-    expect(stored.revisions).toHaveLength(1);
-    expect(stored.revisions[0]?.files).toHaveLength(1);
-    expect(stored.revisions[0]?.files[0]).toMatchObject({
+    expect(stored.histories).toHaveLength(1);
+    expect(stored.histories[0]?.files).toHaveLength(1);
+    expect(stored.histories[0]?.files[0]).toMatchObject({
       id: fixture.initialFileId,
       lifecycle: SubmissionFileLifecycle.ATTACHED,
     });
@@ -727,13 +728,13 @@ describe('SubmissionsService integration', () => {
       errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
     });
     await expect(
-      prisma.submission.findUniqueOrThrow({
-        where: { id: fixture.submissionId },
-        select: { status: true, currentRevision: true },
+      prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+        where: { legacySubmissionId: fixture.submissionId },
+        select: { status: true, revision: true },
       }),
     ).resolves.toEqual({
       status: SubmissionStatus.CHANGES_REQUESTED,
-      currentRevision: 1,
+      revision: 1,
     });
   });
 });
