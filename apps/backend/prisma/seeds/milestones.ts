@@ -152,7 +152,7 @@ async function createSubmissionScenario(
   const targetSubmissionId = seedId(
     'milestones',
     params.scenarioId,
-    'target-submission',
+    'submission',
   );
   await upsertTracked(
     stats,

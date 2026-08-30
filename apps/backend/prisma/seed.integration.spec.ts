@@ -1306,7 +1306,7 @@ describe('seed profile=demo 계약 (integration)', () => {
         where: { id: preservedFileId },
       });
       await prisma.milestoneDocumentSubmissionHistory.deleteMany({
-        where: { id: preservedHistoryId },
+        where: { milestoneDocumentSubmissionId: preservedSubmissionId },
       });
       await prisma.milestoneDocumentSubmission.deleteMany({
         where: { id: preservedSubmissionId },

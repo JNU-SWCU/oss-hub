@@ -101,7 +101,7 @@ async function createSubmissionHistory(
       name: `synthetic file ${suffix}`,
       required: true,
       sortOrder: -1,
-      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      kind: MilestoneDocumentKind.DOCUMENT,
     },
   });
   await prisma.milestoneDocumentSubmission.create({
