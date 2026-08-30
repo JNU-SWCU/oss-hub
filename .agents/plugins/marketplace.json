@@ -1,0 +1,20 @@
+{
+  "name": "oss-hub",
+  "interface": {
+    "displayName": "OSS Hub project plugins"
+  },
+  "plugins": [
+    {
+      "name": "craft-skills",
+      "source": {
+        "source": "github",
+        "repo": "GoBeromsu/craft-skills"
+      },
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT",
+        "authentication": "ON_USE"
+      },
+      "category": "Engineering"
+    }
+  ]
+}

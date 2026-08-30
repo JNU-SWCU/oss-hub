@@ -23,8 +23,10 @@
 | 조사·기술 선택 근거 | craft `research` | 외부 플러그인 | 산출물은 `docs/research/<slug>.md` 하나다 |
 | AGENTS.md 지도 갱신·stale 점검 | craft `init` | 외부 플러그인 | 이 저장소의 AGENTS.md 계층과 작성권은 AGENTS.md §3이 원본이다 |
 
-craft-skills는 저장소에 vendoring하지 않은 외부 플러그인이므로 에이전트 런타임마다 설치 여부와 버전이 다르다.
-스킬 계약은 버전마다 바뀐다 — 스킬을 쓰기 전에 설치된 버전의 `SKILL.md`를 직접 읽고, 이 문서가 낡았으면 이 문서를 고친다.
+craft-skills는 vendoring·복사·setup script 없이 런타임의 native plugin marketplace로 로드한다.
+Claude Code는 `.claude/settings.json`에서 marketplace `autoUpdate`와 plugin enable을 선언하고, Codex는 `.agents/plugins/marketplace.json`에서 project plugin을 `INSTALLED_BY_DEFAULT`로 선언한다.
+GJC는 세션 부트스트랩의 native marketplace add/update와 project install이 project registry를 최신 marketplace 버전으로 갱신한다.
+스킬 계약은 버전마다 바뀐다 — 스킬을 쓰기 전에 runtime이 로드한 버전의 `SKILL.md`를 직접 읽고, 이 문서가 낡았으면 이 문서를 고친다.
 설치된 craft 스킬 중 이 표에 없는 것(`ml`·`gpu`·`vmware`·`tailscale`·`obsidian`·`distil`·`defuddle`·`ast-grep`·`skillify`·`agents`·`write-prd`·`write-report`)은 아직 이 저장소 작업에서 필요하지 않아 라우팅하지 않았다 — 쓸 수 없다는 뜻이 아니다.
 필요한 작업이 실제로 생기면 그 스킬의 `SKILL.md`를 읽고 이 표에 한 행을 추가한다. 쓰지 않는 라우팅을 미리 채우면 검증되지 않은 지시가 문서에 앉는다.
 
@@ -51,11 +53,11 @@ craft-skills는 저장소에 vendoring하지 않은 외부 플러그인이므로
 
 ## craft `init` 적용 결과
 
-`init` 0.13.0은 문서 골격을 만들지 않는다 — 자기 설명에 "Do not scaffold documentation, author document content"라고 적혀 있고 문서 작업은 `document`로 넘긴다.
+`init` 4.0.0(craft-skills 0.13.0)은 문서 골격을 만들지 않는다 — 자기 설명에 "Do not scaffold documentation, author document content"라고 적혀 있고 문서 작업은 `document`로 넘긴다.
 그래서 이 저장소에 적용할 것은 문서 스캐폴딩이 아니라 AGENTS.md 지도뿐이며, 그 계층은 이미 손으로 관리되고 있다(현재 26개).
 
-`docs/research/`만 새로 만들었다. 그 디렉터리의 주인은 `init`이 아니라 craft `research`이며, 그 스킬은 조사마다 `docs/research/<slug>.md` 하나를 남긴다.
-기존 앵커(`docs/decisions/README.md`·`docs/architecture.md`·`docs/exec-plan/**`·`docs/rules/`)는 이미 있어 손대지 않았다.
+최신 `init`으로 다시 inventory한 결과 root 1개와 child 25개가 기존 코드 entry/config 경계를 이미 덮고 있어 새 AGENTS placement는 만들지 않았다.
+기존 AGENTS 본문은 사람 관리 영역이라 managed region으로 재포장하지 않았고, `CLAUDE.md`만 init의 정확한 adapter 계약인 `@AGENTS.md` + LF로 정규화했다.
 
 ---
 

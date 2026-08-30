@@ -17,8 +17,9 @@
 3. 자기 기능의 exec-plan — `docs/exec-plan/active/<기능>.md`
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
 5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 저널 이후 열린 PR을 확인한다.
-6. `bash scripts/setup-hooks.sh` 1회 — 저장소 Git 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
-7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`를 따른다 — 호스트 hot reload(`pnpm dev`)와 컨테이너 통합 검증(`pnpm local:up`)의 선택 기준이 거기 있다.
+6. GJC는 `(gjc plugin marketplace add GoBeromsu/craft-skills || gjc plugin marketplace update craft-skills) && gjc plugin install craft-skills@craft-skills --scope project --force` 1회 — marketplace를 등록·갱신하고 project scope plugin을 최신 버전으로 설치한다. Claude Code는 `.claude/settings.json`, Codex는 `.agents/plugins/marketplace.json`의 project 설정을 시작 시 읽는다.
+7. `bash scripts/setup-hooks.sh` 1회 — 저장소 Git 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
+8. 로컬 실행이 필요하면 `docs/rules/local-dev.md`를 따른다 — 호스트 hot reload(`pnpm dev`)와 컨테이너 통합 검증(`pnpm local:up`)의 선택 기준이 거기 있다.
 
 ## 2. Canonical Store — 정보 종류별 원본 위치
 
