@@ -821,3 +821,12 @@
 - blocker: 없음
 - 결과: 프로그램 삭제 범위·fingerprint·완전 삭제, 제출 파일 다운로드 provenance, 판정 이력 식별자에서 남아 있던 레거시 제출 원장 접근과 별칭을 제거했다. 완전 삭제 결과 계약은 유지하고 신규 제출·이력·판정 원장만 집계하며, provenance가 있는 이관 프로그램의 409 차단은 contract 전까지 유지한다.
 - 검증: checked runtime inventory 26개 경로에서 legacy delegate·SQL table·source file provenance 접근 0건, backend unit 311 suites·3466 tests, report contract 13건, backend typecheck·build·lint, repository format을 통과했다. target-only purge와 파일 권한 integration은 required CI의 격리 PostgreSQL·MinIO에서 확인한다.
+
+## 2026-08-30 — 레거시 제출 원장 contract를 적용한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 최종 transaction 안에서 non-seed 제출·회차·판정·review event·복수 파일 provenance·공개 ID 충돌·internal slot kind·header timestamp를 다시 대조한 뒤 SubmissionFile을 target-only 계약으로 좁히고 Review → SubmissionRevision → Submission 순서로 제거한다. source-only seed 파일은 비동기 정리 대상으로 넘기고 target에 연결된 seed 파일은 객체를 보존하며, 임시 trigger·purge guard·legacy mapper·dual-write seed와 fixture를 함께 제거했다.
+- 검증: production v0.6.121 backup을 격리 PostgreSQL에 복원한 upgrade rehearsal에서 source table·column·trigger 0, target 22 headers·39 histories·7 reviews 보존, target file CHECK validated를 확인했다. internal slot kind를 훼손한 negative rehearsal은 exit 3으로 실패하고 source table 3·column 1·trigger 4를 모두 보존했다. backend unit 310 suites·3456 tests, migration/report/CI contract 35건, Prisma validate, backend typecheck·build·lint, repository format·public-safe를 통과했고 architecture re-review는 CLEAR였다.
