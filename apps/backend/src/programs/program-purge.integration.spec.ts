@@ -1617,7 +1617,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
             name: 'Committed target document during purge',
             required: true,
             sortOrder: 2,
-            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+            kind: MilestoneDocumentKind.DOCUMENT,
           },
         });
         await concurrentPrisma.milestoneDocumentSubmission.create({
