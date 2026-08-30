@@ -153,8 +153,8 @@ export class ProgramsRepository {
     });
   }
 
-  findStudentApplication(programId: string, userId: string) {
-    return this.prisma.application.findFirst({
+  async findStudentApplication(programId: string, userId: string) {
+    const application = await this.prisma.application.findFirst({
       where: {
         programId,
         ...programApplicationParticipantWhere(userId),
@@ -162,24 +162,34 @@ export class ProgramsRepository {
       select: {
         id: true,
         status: true,
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: {
+            status: true,
+            milestoneDocument: {
+              select: { id: true, milestoneId: true, kind: true },
+            },
+          },
         },
       },
     });
+    return application ? toTargetSubmissionAxes(application) : null;
   }
 
-  findApprovedApplications(programId: string) {
-    return this.prisma.application.findMany({
+  async findApprovedApplications(programId: string) {
+    const applications = await this.prisma.application.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: {
+            status: true,
+            milestoneDocument: {
+              select: { id: true, milestoneId: true, kind: true },
+            },
+          },
         },
       },
     });
+    return applications.map(toTargetSubmissionAxes);
   }
 
   /**
@@ -368,4 +378,74 @@ export class ProgramsRepository {
   ) {
     return writer.program.create({ data });
   }
+}
+
+type TargetAxisApplication = {
+  readonly submissions?: readonly {
+    readonly milestoneId: string;
+    readonly status: import('@prisma/client').SubmissionStatus;
+  }[];
+  readonly milestoneDocumentSubmissions: readonly (
+    | {
+        readonly status: import('@prisma/client').SubmissionStatus;
+        readonly milestoneDocument: {
+          readonly id: string;
+          readonly milestoneId: string;
+          readonly kind: MilestoneDocumentKind;
+        };
+      }
+    | {
+        readonly milestoneDocumentId: string;
+        readonly status: import('@prisma/client').SubmissionStatus;
+      }
+  )[];
+};
+
+function toTargetSubmissionAxes<T extends TargetAxisApplication>(
+  application: T,
+) {
+  const targetRows = application.milestoneDocumentSubmissions.filter(
+    (
+      submission,
+    ): submission is Extract<
+      TargetAxisApplication['milestoneDocumentSubmissions'][number],
+      { readonly milestoneDocument: object }
+    > => 'milestoneDocument' in submission,
+  );
+  const projectedRows = application.milestoneDocumentSubmissions.filter(
+    (
+      submission,
+    ): submission is Extract<
+      TargetAxisApplication['milestoneDocumentSubmissions'][number],
+      { readonly milestoneDocumentId: string }
+    > => 'milestoneDocumentId' in submission,
+  );
+  return {
+    ...application,
+    submissions:
+      application.submissions ??
+      targetRows
+        .filter(
+          (submission) =>
+            submission.milestoneDocument.kind ===
+            MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        )
+        .map((submission) => ({
+          milestoneId: submission.milestoneDocument.milestoneId,
+          status: submission.status,
+        })),
+    milestoneDocumentSubmissions: [
+      ...projectedRows,
+      ...targetRows
+        .filter(
+          (submission) =>
+            submission.milestoneDocument.kind ===
+            MilestoneDocumentKind.DOCUMENT,
+        )
+        .map((submission) => ({
+          milestoneDocumentId: submission.milestoneDocument.id,
+          status: submission.status,
+        })),
+    ],
+  };
 }

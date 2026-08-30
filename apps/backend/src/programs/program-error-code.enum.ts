@@ -14,6 +14,7 @@ export enum ProgramErrorCode {
   PROGRAM_DELETE_BLOCKED = 'PRG_012',
   PROGRAM_DELETE_PROTECTED = 'PRG_013',
   PROGRAM_PURGE_SCOPE_CHANGED = 'PRG_014',
+  PROGRAM_PURGE_LEGACY_MIGRATION_IN_PROGRESS = 'PRG_015',
 }
 
 export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
@@ -82,5 +83,10 @@ export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
     status: 409,
     message:
       '확인한 뒤 삭제 범위가 변경되었습니다. 최신 범위를 확인하고 다시 확인해 주세요.',
+  },
+  [ProgramErrorCode.PROGRAM_PURGE_LEGACY_MIGRATION_IN_PROGRESS]: {
+    code: ProgramErrorCode.PROGRAM_PURGE_LEGACY_MIGRATION_IN_PROGRESS,
+    status: 409,
+    message: '제출 이관이 완료될 때까지 이 프로그램을 완전 삭제할 수 없습니다.',
   },
 };

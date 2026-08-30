@@ -148,9 +148,13 @@ describe('ProgramsService detail', () => {
       select: {
         id: true,
         status: true,
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: {
+            status: true,
+            milestoneDocument: {
+              select: { id: true, milestoneId: true, kind: true },
+            },
+          },
         },
       },
     });
@@ -212,9 +216,13 @@ describe('ProgramsService detail', () => {
         status: ApplicationStatus.APPROVED,
       },
       select: {
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: {
+            status: true,
+            milestoneDocument: {
+              select: { id: true, milestoneId: true, kind: true },
+            },
+          },
         },
       },
     });

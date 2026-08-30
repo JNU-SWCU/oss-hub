@@ -680,6 +680,7 @@ function createPurgeService(
       deleteMany: milestoneDocumentSubmissionHistoryDeleteMany,
     },
     milestoneDocumentSubmission: {
+      count: jest.fn().mockResolvedValue(0),
       deleteMany: milestoneDocumentSubmissionDeleteMany,
     },
     milestoneDocument: { deleteMany: milestoneDocumentDeleteMany },
