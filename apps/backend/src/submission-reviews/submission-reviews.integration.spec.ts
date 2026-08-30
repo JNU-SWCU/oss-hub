@@ -67,12 +67,12 @@ const REVIEWER_GITHUB_ID = seedGithubId(REVIEWER_ID);
 const EXISTING_SUBMISSION_ID = seedId(
   'milestones',
   'submission-existing',
-  'target-submission',
+  'submission',
 );
 const CHANGES_REQUESTED_SUBMISSION_ID = seedId(
   'milestones',
   'submission-changes-requested',
-  'target-submission',
+  'submission',
 );
 
 /**
