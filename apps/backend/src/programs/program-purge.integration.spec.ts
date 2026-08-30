@@ -657,6 +657,8 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
     data: {
       id: p('submission-file'),
       uploaderId: applicantId,
+      applicationId,
+      milestoneId,
       storageKey: submissionFileStorageKey,
       originalFileName: 'submission-file.pdf',
       mimeType: 'application/pdf',
