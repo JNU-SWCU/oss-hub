@@ -3,7 +3,7 @@ import {
   type AuthorityLabel,
 } from '../../../common/authority-label';
 import { Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, MilestoneDocumentKind } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 /** 프로그램 상세 화면 상단 요약 — 팩트 바가 쓰는 공개 집계값만 담는다. */
@@ -73,6 +73,7 @@ export interface MilestoneDocumentCatalogEntry {
 const CURRENT_MILESTONE_SELECT = {
   id: true,
   documents: {
+    where: { kind: MilestoneDocumentKind.DOCUMENT },
     select: { id: true, required: true },
     orderBy: { sortOrder: 'asc' as const },
   },
@@ -178,14 +179,21 @@ export class ProgramOverviewRepository {
     now: Date,
   ): Promise<CurrentSubmissionMilestone | null> {
     const upcoming = await this.prisma.milestone.findFirst({
-      where: { programId, dueAt: { gte: now }, documents: { some: {} } },
+      where: {
+        programId,
+        dueAt: { gte: now },
+        documents: { some: { kind: MilestoneDocumentKind.DOCUMENT } },
+      },
       orderBy: { dueAt: 'asc' },
       select: CURRENT_MILESTONE_SELECT,
     });
     const milestone =
       upcoming ??
       (await this.prisma.milestone.findFirst({
-        where: { programId, documents: { some: {} } },
+        where: {
+          programId,
+          documents: { some: { kind: MilestoneDocumentKind.DOCUMENT } },
+        },
         orderBy: { dueAt: 'desc' },
         select: CURRENT_MILESTONE_SELECT,
       }));
@@ -219,6 +227,7 @@ export class ProgramOverviewRepository {
         id: true,
         name: true,
         documents: {
+          where: { kind: MilestoneDocumentKind.DOCUMENT },
           select: { id: true, required: true },
           orderBy: { sortOrder: 'asc' },
         },
