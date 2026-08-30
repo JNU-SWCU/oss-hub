@@ -2,7 +2,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope';
 
 describe('readProgramDeletionScopeCounts', () => {
-  it('기존 제출과 신규 제출 항목 제출을 한 스냅샷에서 함께 센다', async () => {
+  it('target 제출 원장만 한 스냅샷에서 센다', async () => {
     const queryRaw: jest.MockedFunction<
       (query: unknown) => Promise<
         readonly {
@@ -19,7 +19,7 @@ describe('readProgramDeletionScopeCounts', () => {
         applications: 1n,
         teams: 1n,
         boardPosts: 0n,
-        submissions: 3n,
+        submissions: 2n,
         submissionEvents: 7n,
         scopeFingerprint: '0123456789abcdef0123456789abcdef',
       },
@@ -34,7 +34,7 @@ describe('readProgramDeletionScopeCounts', () => {
       applications: 1,
       teams: 1,
       boardPosts: 0,
-      submissions: 3,
+      submissions: 2,
       submissionEvents: 7,
       scopeFingerprint: '0123456789abcdef0123456789abcdef',
     });
@@ -42,7 +42,6 @@ describe('readProgramDeletionScopeCounts', () => {
     const query = queryRaw.mock.calls[0]?.[0] as
       { readonly strings?: readonly string[] } | undefined;
     const sql = query?.strings?.join('?') ?? '';
-    expect(sql).toContain('FROM "Submission"');
     expect(sql).toContain('FROM "MilestoneDocumentSubmission"');
     expect(sql).toContain('FROM "MilestoneDocumentSubmissionHistory"');
     expect(sql).toContain('FROM "MilestoneDocumentReviewHistory"');
@@ -54,6 +53,8 @@ describe('readProgramDeletionScopeCounts', () => {
     expect(sql).toContain('FROM "TeamInvitation"');
     expect(sql).toContain('FROM "ProgramAuthoringUpload"');
     expect(sql).toContain('AS "scopeFingerprint"');
-    expect(sql).toMatch(/\)\s*\+\s*\(SELECT count\(\*\).*\)\s*AS submissions/s);
+    expect(sql).not.toContain('FROM "Submission"');
+    expect(sql).not.toContain('FROM "SubmissionRevision"');
+    expect(sql).not.toContain('FROM "Review"');
   });
 });

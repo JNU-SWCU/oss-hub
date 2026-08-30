@@ -98,7 +98,7 @@ export class SubmissionReviewsService {
 
         const nextStatus = decisionStatus(input.decision);
         const review = await store.createReview({
-          submissionRevisionId: target.revision.id,
+          submissionHistoryId: target.revision.id,
           milestoneDocumentSubmissionId: target.id,
           revision: input.revision,
           reviewerId,

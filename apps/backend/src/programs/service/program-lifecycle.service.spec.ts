@@ -144,7 +144,6 @@ function createDeleteService(
     readonly milestones?: readonly { readonly id: string }[];
     readonly milestoneDocuments?: readonly { readonly id: string }[];
     readonly orphanRepositoryCount?: number;
-    readonly orphanMilestoneDocumentSubmissionCount?: number;
   } = {},
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
@@ -173,7 +172,9 @@ function createDeleteService(
   const applicationCount = jest.fn().mockResolvedValue(counts.applications);
   const teamCount = jest.fn().mockResolvedValue(counts.teams);
   const boardPostCount = jest.fn().mockResolvedValue(counts.boardPosts);
-  const submissionCount = jest.fn().mockResolvedValue(counts.submissions);
+  const milestoneDocumentSubmissionCount = jest
+    .fn()
+    .mockResolvedValue(counts.submissions);
   const programCreateRequestFindUnique = jest
     .fn()
     .mockResolvedValue(
@@ -199,9 +200,6 @@ function createDeleteService(
   const repositoryCount = jest
     .fn()
     .mockResolvedValue(overrides.orphanRepositoryCount ?? 0);
-  const milestoneDocumentSubmissionCount = jest
-    .fn()
-    .mockResolvedValue(overrides.orphanMilestoneDocumentSubmissionCount ?? 0);
   const record = jest
     .fn<Promise<void>, [AuditLogRecordInput]>()
     .mockResolvedValue(undefined);
@@ -210,7 +208,6 @@ function createDeleteService(
     application: { count: applicationCount },
     team: { count: teamCount },
     boardPost: { count: boardPostCount },
-    submission: { count: submissionCount },
     githubRepository: { count: repositoryCount },
     milestoneDocumentSubmission: { count: milestoneDocumentSubmissionCount },
     programCreateRequest: {
@@ -243,7 +240,6 @@ function createDeleteService(
     applicationCount,
     teamCount,
     boardPostCount,
-    submissionCount,
     programCreateRequestFindUnique,
     programAuthoringUploadDeleteMany,
     programCreateRequestDelete,
@@ -471,9 +467,9 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
     expect(record).not.toHaveBeenCalled();
   });
 
-  it('applications==0인데 고아 MilestoneDocumentSubmission이 남아 있으면 불변조건 위반으로 보고 기존 409 차단으로 흡수한다', async () => {
+  it('target MilestoneDocumentSubmission이 남아 있으면 409 차단 카운트로 보고한다', async () => {
     const { service, programDelete, record } = createDeleteService({
-      orphanMilestoneDocumentSubmissionCount: 1,
+      blockingCounts: { submissions: 1 },
     });
 
     await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
@@ -482,7 +478,7 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
         blockingCounts: {
           applications: 0,
           teams: 0,
-          submissions: 0,
+          submissions: 1,
           boardPosts: 0,
         },
       },
@@ -570,8 +566,6 @@ function createPurgeService(
         return currentScopeCounts.boardPosts;
       case 'submissions':
         return currentScopeCounts.submissions;
-      case 'submissionRevisions':
-      case 'reviews':
       case 'submissionFiles':
       case 'milestoneDocumentSubmissionHistories':
       case 'milestoneDocumentReviewHistories':
@@ -619,9 +613,6 @@ function createPurgeService(
   const programPurgeFileTombstoneCreateMany = jest
     .fn()
     .mockResolvedValue({ count: templateFiles.length });
-  const reviewDeleteMany = countMany('reviews');
-  const submissionRevisionDeleteMany = countMany('submissionRevisions');
-  const submissionDeleteMany = countMany('submissions');
   const milestoneDocumentReviewHistoryDeleteMany = countMany(
     'milestoneDocumentReviewHistories',
   );
@@ -679,9 +670,6 @@ function createPurgeService(
     programPurgeFileTombstone: {
       createMany: programPurgeFileTombstoneCreateMany,
     },
-    review: { deleteMany: reviewDeleteMany },
-    submissionRevision: { deleteMany: submissionRevisionDeleteMany },
-    submission: { deleteMany: submissionDeleteMany },
     milestoneDocumentReviewHistory: {
       deleteMany: milestoneDocumentReviewHistoryDeleteMany,
     },
@@ -737,9 +725,6 @@ function createPurgeService(
     programAuthoringUploadUpdateMany,
     milestoneDocumentTemplateFileFindMany,
     programPurgeFileTombstoneCreateMany,
-    reviewDeleteMany,
-    submissionRevisionDeleteMany,
-    submissionDeleteMany,
     milestoneDocumentReviewHistoryDeleteMany,
     milestoneDocumentSubmissionHistoryDeleteMany,
     milestoneDocumentSubmissionDeleteMany,
@@ -770,9 +755,6 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       submissionFileUpdateMany,
       programAuthoringUploadUpdateMany,
       programPurgeFileTombstoneCreateMany,
-      reviewDeleteMany,
-      submissionRevisionDeleteMany,
-      submissionDeleteMany,
       milestoneDocumentReviewHistoryDeleteMany,
       milestoneDocumentSubmissionHistoryDeleteMany,
       milestoneDocumentSubmissionDeleteMany,
@@ -879,7 +861,6 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
           lifecycle: 'DELETE_PENDING',
           applicationId: null,
           milestoneId: null,
-          submissionRevisionId: null,
           milestoneDocumentSubmissionId: null,
           milestoneDocumentSubmissionHistoryId: null,
         }) as unknown,
@@ -914,9 +895,6 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       boardCommentDeleteMany,
       boardPostDeleteMany,
       repositoryProvisionJobDeleteMany,
-      reviewDeleteMany,
-      submissionRevisionDeleteMany,
-      submissionDeleteMany,
       milestoneDocumentReviewHistoryDeleteMany,
       milestoneDocumentSubmissionHistoryDeleteMany,
       milestoneDocumentSubmissionDeleteMany,
@@ -1149,6 +1127,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
 
   it('expectedScope가 현재 범위와 같으면 정상적으로 purge를 진행한다', async () => {
     const { service, programDelete } = createPurgeService({
+      counts: { milestoneDocumentSubmissions: 3 },
       currentScopeCounts: {
         applications: 2,
         teams: 1,
@@ -1172,7 +1151,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
   });
 
-  it('삭제 결과의 제출물 수도 기존 제출과 신규 제출 항목 제출의 합계다', async () => {
+  it('삭제 결과의 제출물 수는 target 제출 헤더 수다', async () => {
     const { service } = createPurgeService({
       currentScopeCounts: {
         applications: 0,
@@ -1182,7 +1161,7 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
         submissionEvents: 0,
         scopeFingerprint: '33333333333333333333333333333333',
       },
-      counts: { submissions: 1, milestoneDocumentSubmissions: 2 },
+      counts: { milestoneDocumentSubmissions: 3 },
     });
 
     const result = await service.purge(1001n, 'program-1', {
@@ -1194,7 +1173,12 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
       scopeFingerprint: '33333333333333333333333333333333',
     });
 
-    expect(result.deletedCounts.submissions).toBe(3);
+    expect(result.deletedCounts).toMatchObject({
+      submissions: 3,
+      milestoneDocumentSubmissions: 3,
+      submissionRevisions: 0,
+      reviews: 0,
+    });
   });
 
   // 단위 테스트로 "비교가 트랜잭션 밖에서 일어나지 않는다"는 것을 직접 증명하기는 어렵지만
