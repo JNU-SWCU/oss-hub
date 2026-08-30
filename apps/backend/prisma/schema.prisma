@@ -645,6 +645,11 @@ model SubmissionFile {
   @@index([milestoneDocumentSubmissionHistoryId])
 }
 
+enum MilestoneDocumentKind {
+  DOCUMENT
+  LEGACY_MILESTONE_SUBMISSION
+}
+
 /// 마일스톤 하나가 요구하는 서류 항목 정의(#3 "프로젝트 계획서 제출" → 3개 항목 등).
 /// 기존 Milestone.submissionType(마일스톤당 단일 제출 유형)과 Submission/SubmissionRevision은
 /// 그대로 두고 이 모델이 항목 단위 확장을 더한다 — 서류가 없는 마일스톤은 documents가 비어 있다.
@@ -653,9 +658,11 @@ model MilestoneDocument {
   milestoneId String
   milestone   Milestone @relation(fields: [milestoneId], references: [id])
 
-  name           String
-  required       Boolean
-  sortOrder      Int
+  name      String
+  required  Boolean
+  sortOrder Int
+  /// 옛 마일스톤 단일 제출을 보존하는 내부 슬롯은 일반 서류 항목 UI·집계에서 제외한다.
+  kind      MilestoneDocumentKind @default(DOCUMENT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -691,6 +698,10 @@ model MilestoneDocumentTemplateFile {
 /// 응답을 담는다.
 model MilestoneDocumentSubmission {
   id String @id @default(cuid())
+
+  /// 이관된 옛 Submission의 공개 id. 기존 URL을 신규 원장에서 해석하는 provenance이며,
+  /// 전환 뒤 새로 만든 제출은 null을 유지하고 자기 id를 공개 id로 쓴다.
+  legacySubmissionId String? @unique
 
   milestoneDocumentId String
   milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])

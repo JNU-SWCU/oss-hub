@@ -15,6 +15,16 @@ import { test } from 'node:test';
 const rehearsalPath = fileURLToPath(
   new URL('./rehearse-legacy-submission-migrations.sh', import.meta.url),
 );
+const schemaPath = fileURLToPath(
+  new URL('../apps/backend/prisma/schema.prisma', import.meta.url),
+);
+const expandMigrationDirectory = fileURLToPath(
+  new URL(
+    '../apps/backend/prisma/migrations/20260830050000_expand_legacy_submission_bridge/',
+    import.meta.url,
+  ),
+);
+const expandMigrationPath = join(expandMigrationDirectory, 'migration.sql');
 const MODES = [
   'fresh',
   'upgrade',
@@ -218,6 +228,72 @@ test('future real modes fail closed when migration paths exist but fixture contr
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });
   }
+});
+
+test('expand schema and migration add only rollback-safe bridge prerequisites', () => {
+  const schema = readFileSync(schemaPath, 'utf8');
+  const migration = readFileSync(expandMigrationPath, 'utf8');
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'legacy-expand-contract-'));
+
+  try {
+    const bridge = join(fixtureRoot, 'bridge');
+    mkdirSync(bridge);
+    writeFileSync(join(bridge, 'migration.sql'), 'SELECT 1;\n');
+    const result = runRehearsal(['--mode', 'bridge-success'], {
+      LEGACY_SUBMISSION_REHEARSAL_DRY_RUN: '1',
+      LEGACY_SUBMISSION_EXPAND_MIGRATION: expandMigrationDirectory,
+      LEGACY_SUBMISSION_BRIDGE_MIGRATION: bridge,
+      TMPDIR: fixtureRoot,
+    });
+
+    assertResult(result, 0, 'PASS', 'mode_validated');
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+
+  assert.match(
+    schema,
+    /enum MilestoneDocumentKind \{\s+DOCUMENT\s+LEGACY_MILESTONE_SUBMISSION\s+\}/,
+  );
+  assert.match(schema, /kind\s+MilestoneDocumentKind\s+@default\(DOCUMENT\)/);
+  assert.match(schema, /legacySubmissionId\s+String\?\s+@unique/);
+
+  assert.match(migration, /^BEGIN;/m);
+  assert.match(migration, /COMMIT;\s*$/);
+  assert.match(migration, /CREATE TYPE "MilestoneDocumentKind" AS ENUM/);
+  assert.match(
+    migration,
+    /ADD COLUMN "kind" "MilestoneDocumentKind" NOT NULL DEFAULT 'DOCUMENT'/,
+  );
+  assert.match(migration, /ADD COLUMN "legacySubmissionId" TEXT/);
+  assert.match(
+    migration,
+    /CREATE UNIQUE INDEX "MilestoneDocument_one_legacy_submission_slot_key"[\s\S]*WHERE "kind" = 'LEGACY_MILESTONE_SUBMISSION'/,
+  );
+  const dropIndex = migration.indexOf(
+    'DROP CONSTRAINT "SubmissionFile_lifecycle_attachment_check"',
+  );
+  const addIndex = migration.indexOf(
+    'ADD CONSTRAINT "SubmissionFile_lifecycle_attachment_check"',
+  );
+  assert.ok(dropIndex >= 0 && addIndex > dropIndex);
+
+  assert.match(
+    migration,
+    /"submissionRevisionId" IS NOT NULL\s+AND "milestoneDocumentSubmissionId" IS NULL\s+AND "milestoneDocumentSubmissionHistoryId" IS NULL/,
+  );
+  assert.match(
+    migration,
+    /"submissionRevisionId" IS NOT NULL\s+AND "milestoneDocumentSubmissionId" IS NOT NULL\s+AND "milestoneDocumentSubmissionHistoryId" IS NOT NULL/,
+  );
+  assert.match(
+    migration,
+    /"submissionRevisionId" IS NULL\s+AND "milestoneDocumentSubmissionId" IS NOT NULL\s+AND "milestoneDocumentSubmissionHistoryId" IS NOT NULL/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /\b(?:INSERT\s+INTO|UPDATE\s+"|DELETE\s+FROM|TRUNCATE|DROP\s+TABLE|DROP\s+COLUMN)\b/i,
+  );
 });
 
 test('script statically locks shell safety, cleanup, modes, and public-safe boundaries', () => {
