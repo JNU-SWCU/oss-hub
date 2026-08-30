@@ -775,6 +775,7 @@
 - 검증: frontend unit 3176건, backend unit 3452건, backend integration 463건, 프로그램 작성부터 학생 제출·재제출과 교직원 수합까지의 E2E, format, lint, typecheck, migration concurrency, public-safe, 격리 Docker smoke를 통과했다.
 
 ## 2026-08-30 — 레거시 제출 이관 검증 도구를 준비한다
+## 2026-08-30 — 제출 파일 integration fixture의 고정 마감일을 제거한다
 
 - 상태: review
 - Issue: #1034
@@ -782,3 +783,5 @@
 - blocker: 없음
 - 결과: 레거시 제출 source·target count와 provenance를 공개 안전하게 대조하는 report, runtime callsite inventory, 11개 migration rehearsal mode와 synthetic fixture 계약을 추가하고 backend CI 경로에 연결했다. 운영 DB 쓰기·migration 실행은 포함하지 않는다.
 - 검증: Node 계약 32건, backend unit 3454건, backend typecheck·build·lint, repository format, CI path contract, shell syntax, public-safe를 통과했다. 로컬 Docker daemon이 꺼져 있어 실제 Docker rehearsal은 CI가 수행한다.
+- 결과: 실제 날짜가 고정 마감일을 지나면 파일 업로드 integration test가 실패하던 time bomb을 제거하고, 테스트 목적에 맞게 실행 시점 기준 미래 마감·프로그램 종료일을 사용한다.
+- 검증: backend typecheck와 변경 파일 format을 통과했다. 로컬 Docker daemon이 꺼져 있어 focused integration은 실행하지 못했고, 원격 CI에서 확인한다.
