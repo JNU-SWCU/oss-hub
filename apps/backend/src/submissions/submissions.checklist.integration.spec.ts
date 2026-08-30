@@ -83,19 +83,27 @@ async function seedChangesRequestedSubmission(params: {
     },
   });
 
-  const documentId = `${params.milestoneId}-legacy-document`;
-  await prisma.milestoneDocument.upsert({
-    where: { id: documentId },
-    update: {},
-    create: {
-      id: documentId,
+  const existingDocument = await prisma.milestoneDocument.findFirst({
+    where: {
       milestoneId: params.milestoneId,
-      name: '합성 기존 제출',
-      required: true,
-      sortOrder: -1,
       kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
     },
+    select: { id: true },
   });
+  const documentId =
+    existingDocument?.id ?? `${params.milestoneId}-legacy-document`;
+  if (existingDocument === null) {
+    await prisma.milestoneDocument.create({
+      data: {
+        id: documentId,
+        milestoneId: params.milestoneId,
+        name: '합성 기존 제출',
+        required: true,
+        sortOrder: -1,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+    });
+  }
   const targetId = `${params.id}-target`;
   await prisma.milestoneDocumentSubmission.create({
     data: {
