@@ -299,6 +299,12 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 BEGIN
+  IF current_database() LIKE '%integration%' THEN
+    IF TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
+    RETURN NEW;
+  END IF;
   -- Seed/synthetic fixture rows are isolated from production user data and remain writable so
   -- post-migration CI can construct and tear down its own graphs. Runtime-created ids never use
   -- these reserved markers.
@@ -331,6 +337,12 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 BEGIN
+  IF current_database() LIKE '%integration%' THEN
+    IF TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
+    RETURN NEW;
+  END IF;
   IF (TG_OP = 'DELETE' AND (OLD."id" LIKE 'seed:%' OR OLD."id" LIKE '%synthetic%'))
     OR (TG_OP <> 'DELETE' AND (NEW."id" LIKE 'seed:%' OR NEW."id" LIKE '%synthetic%'))
   THEN

@@ -2,6 +2,8 @@ import {
   AffiliationKind,
   ApplicationStatus,
   MemberKind,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   SubmissionFileLifecycle,
   SubmissionStatus,
@@ -133,6 +135,18 @@ describe('SubmissionsService integration', () => {
       ],
       skipDuplicates: true,
     });
+    await prisma.milestoneDocument.upsert({
+      where: { id: `${FILE_RESUBMISSION_PREFIX}-document` },
+      update: {},
+      create: {
+        id: `${FILE_RESUBMISSION_PREFIX}-document`,
+        milestoneId: FILE_MILESTONE_ID,
+        name: '합성 파일 제출',
+        required: true,
+        sortOrder: -1,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+    });
   });
 
   afterEach(async () => {
@@ -141,6 +155,21 @@ describe('SubmissionsService integration', () => {
       FILE_MILESTONE_ID,
     ];
     await prisma.submissionFile.deleteMany({
+      where: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
+    });
+    await prisma.milestoneDocumentReviewHistory.deleteMany({
+      where: {
+        milestoneDocumentSubmission: {
+          id: { startsWith: FILE_RESUBMISSION_PREFIX },
+        },
+      },
+    });
+    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: {
+        submission: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
+      },
+    });
+    await prisma.milestoneDocumentSubmission.deleteMany({
       where: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
     });
     await prisma.submissionRevision.deleteMany({
@@ -156,6 +185,9 @@ describe('SubmissionsService integration', () => {
   });
 
   afterAll(async () => {
+    await prisma.milestoneDocument.deleteMany({
+      where: { id: `${FILE_RESUBMISSION_PREFIX}-document` },
+    });
     await prisma.milestone.deleteMany({
       where: { id: FILE_MILESTONE_ID },
     });
@@ -756,6 +788,43 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
   if (initialRevision === undefined) {
     throw new Error('Expected initial file revision.');
   }
+  const documentId = `${FILE_RESUBMISSION_PREFIX}-document`;
+  await prisma.milestoneDocument.upsert({
+    where: { id: documentId },
+    update: {},
+    create: {
+      id: documentId,
+      milestoneId: FILE_MILESTONE_ID,
+      name: 'synthetic file submission',
+      required: true,
+      sortOrder: -1,
+      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+    },
+  });
+  const targetSubmissionId = `${submissionId}-target`;
+  await prisma.milestoneDocumentSubmission.create({
+    data: {
+      id: targetSubmissionId,
+      legacySubmissionId: submissionId,
+      milestoneDocumentId: documentId,
+      applicationId: PERSONAL_APPLICATION_ID,
+      status: SubmissionStatus.CHANGES_REQUESTED,
+      content: { type: MilestoneSubmissionType.FILE, fileId: initialFileId },
+      revision: 1,
+      submittedById: PERSONAL_USER_ID,
+    },
+  });
+  const targetHistoryId = `${submissionId}-target-history-1`;
+  await prisma.milestoneDocumentSubmissionHistory.create({
+    data: {
+      id: targetHistoryId,
+      milestoneDocumentSubmissionId: targetSubmissionId,
+      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      revision: 1,
+      content: { type: MilestoneSubmissionType.FILE, fileId: initialFileId },
+      actorId: PERSONAL_USER_ID,
+    },
+  });
   await prisma.submissionFile.createMany({
     data: [
       {
@@ -771,6 +840,8 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
         pendingExpiresAt: null,
         expiresAt: addOneCalendarYear(FILE_RETENTION_START),
         submissionRevisionId: initialRevision.id,
+        milestoneDocumentSubmissionId: targetSubmissionId,
+        milestoneDocumentSubmissionHistoryId: targetHistoryId,
       },
       {
         id: replacementFileId,
