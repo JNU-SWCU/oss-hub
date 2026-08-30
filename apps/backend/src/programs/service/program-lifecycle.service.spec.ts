@@ -514,6 +514,11 @@ function createPurgeService(
     readonly applicationDecisionNotifications?: readonly {
       readonly id: string;
     }[];
+    /**
+     * 이관된 제출(provenance가 달린 internal slot header) 수 — 0이 아니면 contract 전이라
+     * purge가 409로 막힌다. 기본값 0은 이관 대상이 없는 프로그램이다.
+     */
+    readonly migratedSubmissionCount?: number;
     /** purge 트랜잭션 안에서 재확인하는 현재 범위 스냅샷 — 기본값은 전부 0이다. */
     readonly currentScopeCounts?: ProgramDeletionScopeCounts;
     /** 첫 purge transaction이 충돌하면 뒤의 fresh read가 보는 범위다. */
@@ -638,6 +643,10 @@ function createPurgeService(
   const programCreateRequestDeleteMany = countMany('programCreateRequests');
   const milestoneDeleteMany = countMany('milestones');
 
+  const migratedSubmissionCount = jest
+    .fn()
+    .mockResolvedValue(overrides.migratedSubmissionCount ?? 0);
+
   const record = jest
     .fn<Promise<void>, [AuditLogRecordInput]>()
     .mockResolvedValue(undefined);
@@ -680,7 +689,7 @@ function createPurgeService(
       deleteMany: milestoneDocumentSubmissionHistoryDeleteMany,
     },
     milestoneDocumentSubmission: {
-      count: jest.fn().mockResolvedValue(0),
+      count: migratedSubmissionCount,
       deleteMany: milestoneDocumentSubmissionDeleteMany,
     },
     milestoneDocument: { deleteMany: milestoneDocumentDeleteMany },
@@ -1042,6 +1051,35 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     ).rejects.toMatchObject({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
     });
+    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('이관된 제출이 남아 있으면 purge를 409로 막고 아무것도 지우지 않는다', async () => {
+    // Given: bridge가 복사한 provenance header가 살아 있다 — source row도 아직 남아 있어
+    // 지금 지우면 이관 이력을 잃는다. contract가 source를 제거할 때까지만의 임시 관문이다.
+    const {
+      service,
+      programDelete,
+      applicationFindMany,
+      publicShowcaseRepositoryDeleteMany,
+      queryRaw,
+      record,
+    } = createPurgeService({ migratedSubmissionCount: 3 });
+
+    // When / Then
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode:
+        PROGRAM_ERROR_CODES[
+          ProgramErrorCode.PROGRAM_PURGE_LEGACY_MIGRATION_IN_PROGRESS
+        ],
+    });
+    // 범위 재확인조차 하지 않는다 — 관문이 그보다 앞이다.
+    expect(queryRaw).not.toHaveBeenCalled();
     expect(applicationFindMany).not.toHaveBeenCalled();
     expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
     expect(programDelete).not.toHaveBeenCalled();
