@@ -299,7 +299,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 BEGIN
-  IF current_database() LIKE '%integration%' THEN
+  IF current_database() = 'oss_hub_test' THEN
     IF TG_OP = 'DELETE' THEN
       RETURN OLD;
     END IF;
@@ -337,7 +337,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 BEGIN
-  IF current_database() LIKE '%integration%' THEN
+  IF current_database() = 'oss_hub_test' THEN
     IF TG_OP = 'DELETE' THEN
       RETURN OLD;
     END IF;

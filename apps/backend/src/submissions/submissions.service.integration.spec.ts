@@ -160,17 +160,19 @@ describe('SubmissionsService integration', () => {
     await prisma.milestoneDocumentReviewHistory.deleteMany({
       where: {
         milestoneDocumentSubmission: {
-          id: { startsWith: FILE_RESUBMISSION_PREFIX },
+          milestoneDocument: { milestoneId: { in: milestoneIds } },
         },
       },
     });
     await prisma.milestoneDocumentSubmissionHistory.deleteMany({
       where: {
-        submission: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
+        submission: {
+          milestoneDocument: { milestoneId: { in: milestoneIds } },
+        },
       },
     });
     await prisma.milestoneDocumentSubmission.deleteMany({
-      where: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
+      where: { milestoneDocument: { milestoneId: { in: milestoneIds } } },
     });
     await prisma.submissionRevision.deleteMany({
       where: { submission: { milestoneId: { in: milestoneIds } } },
