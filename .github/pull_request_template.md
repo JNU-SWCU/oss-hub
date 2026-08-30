@@ -42,8 +42,10 @@
 ## 4. Frontend Before / After
 
 <!-- 시각 UI나 상호작용이 바뀐 frontend PR은 실제 실행 화면을 첨부한다.
-     Before와 After는 동일한 URL·페르소나·viewport·합성 데이터 상태에서 촬영하고, 변경된 컴포넌트가 식별되는 범위로 자른다.
-     목업·테스트 출력은 실제 화면을 대신하지 못하며, 개인정보·실데이터·내부 URL을 포함하지 않는다.
+     촬영 조건·공개 안전 확인·첨부 방법의 원본은 skills/manage-qa-tickets/references/execution-workflow.md의
+     "frontend Before/After 캡처를 PR에 올린다"다 — 규칙을 여기 옮겨 적지 않는다.
+     이미지는 이 표 칸에 직접 끌어다 놓아 첨부하고, 저장한 뒤 본문을 다시 열어 실제로 렌더되는지 확인한다.
+     로컬 파일 경로만 적은 상태는 첨부가 아니다.
      frontend 시각 변화가 없으면 이미지를 생략하고 `N/A — <사유>`를 적는다. -->
 
 | Before | After |

@@ -831,6 +831,14 @@
 - 결과: 최종 transaction 안에서 non-seed 제출·회차·판정·review event·복수 파일 provenance·공개 ID 충돌·internal slot kind·header timestamp를 다시 대조한 뒤 SubmissionFile을 target-only 계약으로 좁히고 Review → SubmissionRevision → Submission 순서로 제거한다. source-only seed 파일은 비동기 정리 대상으로 넘기고 target에 연결된 seed 파일은 객체를 보존하며, 임시 trigger·purge guard·legacy mapper·dual-write seed와 fixture를 함께 제거했다.
 - 검증: production v0.6.121 backup을 격리 PostgreSQL에 복원한 upgrade rehearsal에서 source table·column·trigger 0, target 22 headers·39 histories·7 reviews 보존, target file CHECK validated를 확인했다. internal slot kind를 훼손한 negative rehearsal은 exit 3으로 실패하고 source table 3·column 1·trigger 4를 모두 보존했다. backend unit 310 suites·3456 tests, migration/report/CI contract 35건, Prisma validate, backend typecheck·build·lint, repository format·public-safe를 통과했고 architecture re-review는 CLEAR였다.
 
+## 2026-08-30 — 에이전트 스킬 라우팅을 세우고 티켓 캡처를 PR에 실제로 올린다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 작업 표면별 스킬 라우팅 원본을 `docs/rules/agent-skill-routing.md` 한 파일로 두고 AGENTS.md는 링크만 한다. craft-skills 0.13.0 기준으로 표를 세웠다 — frontend·backend·testing·design·research·init이 craft 소속이고 티켓과 릴리스 QA는 이 저장소 스킬이다. 스킬 계약이 이 저장소 규칙과 갈리는 두 지점(craft `design`의 `DESIGN.md` 요구 대 `docs/design.md`, craft `init`의 AGENTS.md 자동 갱신 대 §3 작성권)은 이 저장소를 따르기로 표에 적었다. `init` 0.13.0은 문서 골격을 만들지 않으므로(자기 설명에 "Do not scaffold documentation") 적용 대상은 AGENTS.md 지도뿐이고 그 계층은 이미 손으로 관리된다. `docs/research/`만 새로 만들었고 그 주인은 craft `research`다. 티켓 3단계의 Before/After 캡처는 "첨부한다"에서 실제 렌더되는 경로로 좁혔다 — 촬영 조건 고정 → 사람이 공개 안전과 이미지 메타데이터를 직접 확인 → GitHub PR 본문 직접 첨부 → 렌더 재확인이며, 안 되는 길(로컬 경로 기재, 제품 브랜치 커밋, 증거 전용 브랜치, `gh release upload`, `/artifacts/`)을 이유와 함께 적었다. PR 템플릿 §4는 규칙을 복제하지 않고 그 절차를 링크한다. Codex는 `.codex/skills/manage-qa-tickets` 상대 심볼릭 링크로 같은 원본을 읽는다.
+- 검증: 합동 리뷰(architect·QA red-team)가 blocking 11건을 잡아 전부 해소했다. 증거 전용 브랜치 절차는 실증으로 폐기했다 — 별도 worktree에서 orphan 브랜치를 만들어 push하니 그 작업트리에 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 `ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND`로 죽고 push가 실패했다. 링크 존재 여부를 검사하는 스크립트도 넣지 않았다(운영자 판단) — checkout하면 드러나는 사실이라 기계로 지킬 값이 아니며, 그 검사에 붙었던 CI 배선과 계약 단정도 함께 걷어내 `ci.yml`·`ci-path-contract.test.mjs`·`scripts/AGENTS.md`·`ci-path-verification.md`를 origin/main 상태로 되돌렸다. 리뷰 뒤 운영자가 craft-skills에 `design` 스킬이 있다고 지적해 확인한 결과 로컬 플러그인 캐시가 0.5.5로 낡아 있었다 — 0.13.0으로 올려 `design` 실재와 `init`의 문서 스캐폴딩 철회(PR #104)를 확인하고 라우팅 문서의 사실 주장을 고쳤다. `node --test scripts/ci-path-contract.test.mjs` 6건, `bash scripts/check-public-safe.sh origin/main`, `pnpm format:check`, 라우팅 문서가 링크한 11개 경로 실재 확인을 통과했다. frontend 시각 변화 없음.
 ## 2026-08-30 — 이관 완료 후 제출 원장 코드를 단순화한다
 
 - 상태: review
