@@ -1,5 +1,7 @@
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
@@ -84,6 +86,29 @@ async function upsertMilestone(
         },
       }),
   );
+  const documentId = seedId(
+    'milestones',
+    params.id,
+    'legacy-submission-document',
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocument',
+    () => prisma.milestoneDocument.findUnique({ where: { id: documentId } }),
+    () =>
+      prisma.milestoneDocument.upsert({
+        where: { id: documentId },
+        update: { name: params.name },
+        create: {
+          id: documentId,
+          milestoneId: params.id,
+          name: params.name,
+          required: true,
+          sortOrder: -1,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      }),
+  );
 }
 
 /**
@@ -157,6 +182,115 @@ async function createSubmissionScenario(
             reviewerId: REVIEWER_ID,
             decision: review.decision,
             comment: review.comment,
+          },
+        }),
+    );
+  }
+
+  const documentId = seedId(
+    'milestones',
+    params.milestoneId,
+    'legacy-submission-document',
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocument',
+    () => prisma.milestoneDocument.findUnique({ where: { id: documentId } }),
+    () =>
+      prisma.milestoneDocument.upsert({
+        where: { id: documentId },
+        update: {},
+        create: {
+          id: documentId,
+          milestoneId: params.milestoneId,
+          name: '기존 제출 자료',
+          required: true,
+          sortOrder: -1,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      }),
+  );
+  const targetSubmissionId = seedId(
+    'milestones',
+    params.scenarioId,
+    'target-submission',
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmission',
+    () =>
+      prisma.milestoneDocumentSubmission.findUnique({
+        where: { id: targetSubmissionId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmission.upsert({
+        where: { id: targetSubmissionId },
+        update: { status: params.status, revision: 1 },
+        create: {
+          id: targetSubmissionId,
+          legacySubmissionId: submissionId,
+          milestoneDocumentId: documentId,
+          applicationId: params.applicationId,
+          status: params.status,
+          content: { seedPlaceholder: true, scenarioId: params.scenarioId },
+          revision: 1,
+          submittedById: params.submittedById,
+        },
+      }),
+  );
+  const targetHistoryId = seedId(
+    'milestones',
+    params.scenarioId,
+    'target-history-1',
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmissionHistory',
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.findUnique({
+        where: { id: targetHistoryId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.upsert({
+        where: { id: targetHistoryId },
+        update: {},
+        create: {
+          id: targetHistoryId,
+          milestoneDocumentSubmissionId: targetSubmissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          content: { seedPlaceholder: true, scenarioId: params.scenarioId },
+          actorId: params.submittedById,
+        },
+      }),
+  );
+  if (params.review) {
+    const targetReviewId = seedId(
+      'milestones',
+      params.scenarioId,
+      'target-review',
+    );
+    await upsertTracked(
+      stats,
+      'MilestoneDocumentReviewHistory',
+      () =>
+        prisma.milestoneDocumentReviewHistory.findUnique({
+          where: { id: targetReviewId },
+        }),
+      () =>
+        prisma.milestoneDocumentReviewHistory.upsert({
+          where: { id: targetReviewId },
+          update: {
+            decision: params.review?.decision,
+            comment: params.review?.comment,
+          },
+          create: {
+            id: targetReviewId,
+            milestoneDocumentSubmissionId: targetSubmissionId,
+            submissionHistoryId: targetHistoryId,
+            reviewerId: REVIEWER_ID,
+            decision: params.review!.decision,
+            comment: params.review?.comment,
           },
         }),
     );

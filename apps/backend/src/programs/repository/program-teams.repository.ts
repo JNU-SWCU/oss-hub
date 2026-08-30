@@ -372,9 +372,13 @@ export class ProgramTeamsRepository {
             },
           },
         },
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: {
+            status: true,
+            milestoneDocument: {
+              select: { id: true, milestoneId: true, kind: true },
+            },
+          },
         },
       },
     });
@@ -405,8 +409,26 @@ export class ProgramTeamsRepository {
                 job?.repositoryId === repository.id ? job.status : null,
               requiredMilestonesApproved: requiredMilestonesApproved(
                 application.program.milestones,
-                application.submissions,
-                application.milestoneDocumentSubmissions,
+                application.milestoneDocumentSubmissions
+                  .filter(
+                    (submission) =>
+                      submission.milestoneDocument.kind ===
+                      MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+                  )
+                  .map((submission) => ({
+                    milestoneId: submission.milestoneDocument.milestoneId,
+                    status: submission.status,
+                  })),
+                application.milestoneDocumentSubmissions
+                  .filter(
+                    (submission) =>
+                      submission.milestoneDocument.kind ===
+                      MilestoneDocumentKind.DOCUMENT,
+                  )
+                  .map((submission) => ({
+                    milestoneDocumentId: submission.milestoneDocument.id,
+                    status: submission.status,
+                  })),
               ),
               isRepositoryPublicationPlanned:
                 application.isRepositoryPublicationPlanned,

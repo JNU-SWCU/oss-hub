@@ -168,6 +168,23 @@ describe('SubmissionReviewsService integration', () => {
   beforeEach(() => github.publishRepository.mockReset());
 
   afterAll(async () => {
+    await prisma.milestoneDocumentReviewHistory.deleteMany({
+      where: {
+        milestoneDocumentSubmission: {
+          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
+        },
+      },
+    });
+    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: {
+        submission: {
+          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
+        },
+      },
+    });
+    await prisma.milestoneDocumentSubmission.deleteMany({
+      where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
+    });
     await prisma.review.deleteMany({
       where: {
         submissionRevision: {
@@ -191,6 +208,9 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.milestoneDocument.deleteMany({
+      where: { milestone: { programId: PROGRAM_ID } },
+    });
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
     // AuditLog는 DB 레벨에서 append-only로 강제된다(DELETE 자체가 거부됨) — 이 테스트가
@@ -248,16 +268,16 @@ describe('SubmissionReviewsService integration', () => {
     });
 
     await expect(
-      prisma.submission.findUniqueOrThrow({
-        where: { id: EXISTING_SUBMISSION_ID },
+      prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+        where: { legacySubmissionId: EXISTING_SUBMISSION_ID },
         select: {
           status: true,
-          revisions: { select: { review: { select: { decision: true } } } },
+          reviewHistories: { select: { decision: true } },
         },
       }),
     ).resolves.toMatchObject({
       status: SubmissionStatus.APPROVED,
-      revisions: [{ review: { decision: ReviewDecision.APPROVED } }],
+      reviewHistories: [{ decision: ReviewDecision.APPROVED }],
     });
     await expect(
       service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {

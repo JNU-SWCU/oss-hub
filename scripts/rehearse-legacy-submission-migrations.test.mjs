@@ -25,6 +25,13 @@ const expandMigrationDirectory = fileURLToPath(
   ),
 );
 const expandMigrationPath = join(expandMigrationDirectory, 'migration.sql');
+const bridgeMigrationDirectory = fileURLToPath(
+  new URL(
+    '../apps/backend/prisma/migrations/20260830100000_bridge_legacy_submissions/',
+    import.meta.url,
+  ),
+);
+const bridgeMigrationPath = join(bridgeMigrationDirectory, 'migration.sql');
 const MODES = [
   'fresh',
   'upgrade',
@@ -293,6 +300,54 @@ test('expand schema and migration add only rollback-safe bridge prerequisites', 
   assert.doesNotMatch(
     migration,
     /\b(?:INSERT\s+INTO|UPDATE\s+"|DELETE\s+FROM|TRUNCATE|DROP\s+TABLE|DROP\s+COLUMN)\b/i,
+  );
+});
+
+test('bridge migration copies exact history and installs fail-closed fences', () => {
+  const migration = readFileSync(bridgeMigrationPath, 'utf8');
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'legacy-bridge-contract-'));
+  try {
+    const result = runRehearsal(['--mode', 'bridge-success'], {
+      LEGACY_SUBMISSION_REHEARSAL_DRY_RUN: '1',
+      LEGACY_SUBMISSION_EXPAND_MIGRATION: expandMigrationDirectory,
+      LEGACY_SUBMISSION_BRIDGE_MIGRATION: bridgeMigrationDirectory,
+      TMPDIR: fixtureRoot,
+    });
+    assertResult(result, 0, 'PASS', 'mode_validated');
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+
+  assert.match(migration, /^BEGIN;/m);
+  assert.match(migration, /COMMIT;\s*$/);
+  assert.match(
+    migration,
+    /LOCK TABLE "Submission", "SubmissionRevision", "Review", "SubmissionFile"/,
+  );
+  assert.match(migration, /legacy_document_/);
+  assert.match(migration, /legacy_submission_revision_/);
+  assert.match(migration, /legacy_review_event_/);
+  assert.match(migration, /"submissionRevisionId" = revision\."id"/);
+  assert.match(
+    migration,
+    /legacy submission bridge count reconciliation failed/,
+  );
+  assert.match(
+    migration,
+    /legacy submission bridge field reconciliation failed/,
+  );
+  assert.match(migration, /CREATE TRIGGER "Submission_bridge_write_fence"/);
+  assert.match(
+    migration,
+    /CREATE TRIGGER "SubmissionFile_bridge_provenance_fence"/,
+  );
+  assert.match(migration, /TG_OP = 'INSERT'/);
+  assert.match(migration, /TG_OP = 'DELETE'/);
+  assert.match(migration, /IS DISTINCT FROM OLD\."submissionRevisionId"/);
+  assert.doesNotMatch(migration, /DROP\s+(?:TABLE|COLUMN)/i);
+  assert.doesNotMatch(
+    migration,
+    /DELETE\s+FROM\s+"(?:Submission|SubmissionRevision|Review)"/i,
   );
 });
 

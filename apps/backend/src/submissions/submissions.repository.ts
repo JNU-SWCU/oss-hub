@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import {
   AccountStatus,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   SubmissionFileLifecycle,
   SubmissionStatus,
@@ -19,6 +21,7 @@ import {
   submissionParticipantWhere,
   toSubmissionApplication,
 } from './submission-application.record';
+import { LegacySubmissionPublicIdCollisionError } from './legacy-submission-target';
 import {
   checklistMilestoneOrderBy,
   checklistMilestoneSelect,
@@ -30,9 +33,10 @@ type SubmissionsDatabase = Pick<
   | 'application'
   | '$queryRaw'
   | 'milestone'
-  | 'submission'
+  | 'milestoneDocument'
+  | 'milestoneDocumentSubmission'
+  | 'milestoneDocumentSubmissionHistory'
   | 'submissionFile'
-  | 'submissionRevision'
   | 'user'
 >;
 
@@ -107,7 +111,10 @@ export interface ChecklistMilestone {
 }
 
 export interface ResubmissionTarget {
+  /** 기존 프런트가 계속 쓰는 공개 id. */
   readonly id: string;
+  /** 신규 원장 header primary id. */
+  readonly targetId: string;
   readonly applicationId: string;
   readonly milestoneId: string;
   readonly programId: string;
@@ -187,8 +194,8 @@ export class StaleSubmissionRevisionError extends Error {
   override readonly name = 'StaleSubmissionRevisionError';
 }
 
-class CreatedSubmissionRevisionMissingError extends Error {
-  override readonly name = 'CreatedSubmissionRevisionMissingError';
+class LegacySubmissionSlotMissingError extends Error {
+  override readonly name = 'LegacySubmissionSlotMissingError';
 }
 
 const MILESTONE_SELECT = {
@@ -280,31 +287,44 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     fileExpiresAt: Date | null,
   ): Promise<CreatedSubmission> {
     try {
-      const submission = await this.database.submission.create({
-        data: {
+      const document = await this.database.milestoneDocument.findFirst({
+        where: {
           milestoneId: input.milestoneId,
-          applicationId: input.applicationId,
-          revisions: {
-            create: {
-              revision: 1,
-              submissionType: input.content.type,
-              content: input.content,
-              comment: input.comment,
-              submittedById,
-            },
-          },
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
-        select: {
-          id: true,
-          status: true,
-          revisions: {
-            select: { id: true, submittedAt: true },
-            take: 1,
-          },
-        },
+        select: { id: true },
       });
-      const revision = submission.revisions[0];
-      if (!revision) throw new CreatedSubmissionRevisionMissingError();
+      if (document === null) throw new LegacySubmissionSlotMissingError();
+
+      const submission = await this.database.milestoneDocumentSubmission.create(
+        {
+          data: {
+            milestoneDocumentId: document.id,
+            applicationId: input.applicationId,
+            status: SubmissionStatus.SUBMITTED,
+            content: submissionContentJson(input.content),
+            revision: 1,
+            submittedById,
+            submittedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+          select: { id: true, status: true, submittedAt: true },
+        },
+      );
+      const history =
+        await this.database.milestoneDocumentSubmissionHistory.create({
+          data: {
+            milestoneDocumentSubmissionId: submission.id,
+            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            revision: 1,
+            content: submissionContentJson(input.content),
+            comment: input.comment,
+            actorId: submittedById,
+            createdAt: now,
+          },
+          select: { id: true },
+        });
 
       if (input.content.type === 'FILE') {
         if (fileExpiresAt === null) throw new SubmissionFileUnavailableError();
@@ -316,10 +336,13 @@ class PrismaSubmissionsStore implements SubmissionsStore {
             milestoneId: input.milestoneId,
             lifecycle: SubmissionFileLifecycle.PENDING,
             submissionRevisionId: null,
+            milestoneDocumentSubmissionId: null,
+            milestoneDocumentSubmissionHistoryId: null,
             pendingExpiresAt: { gt: now },
           },
           data: {
-            submissionRevisionId: revision.id,
+            milestoneDocumentSubmissionId: submission.id,
+            milestoneDocumentSubmissionHistoryId: history.id,
             lifecycle: SubmissionFileLifecycle.ATTACHED,
             pendingExpiresAt: null,
             expiresAt: fileExpiresAt,
@@ -328,11 +351,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
         if (attached.count !== 1) throw new SubmissionFileUnavailableError();
       }
 
-      return {
-        id: submission.id,
-        status: submission.status,
-        submittedAt: revision.submittedAt,
-      };
+      return submission;
     } catch (error: unknown) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -390,43 +409,72 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     submissionId: string,
     userId: string,
   ): Promise<ResubmissionTarget | null> {
-    const submission = await this.database.submission.findFirst({
-      where: {
-        id: submissionId,
-        application: submissionParticipantWhere(userId),
-      },
-      select: {
-        id: true,
-        applicationId: true,
-        milestoneId: true,
-        status: true,
-        currentRevision: true,
-        milestone: {
-          select: { programId: true, submissionType: true, dueAt: true },
+    const submissions =
+      await this.database.milestoneDocumentSubmission.findMany({
+        where: {
+          OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+          milestoneDocument: {
+            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          },
+          application: submissionParticipantWhere(userId),
         },
-        application: { select: { status: true } },
-      },
-    });
+        take: 2,
+        select: {
+          id: true,
+          legacySubmissionId: true,
+          applicationId: true,
+          status: true,
+          revision: true,
+          milestoneDocument: {
+            select: {
+              milestoneId: true,
+              milestone: {
+                select: {
+                  programId: true,
+                  submissionType: true,
+                  dueAt: true,
+                },
+              },
+            },
+          },
+          application: { select: { status: true } },
+        },
+      });
+    if (submissions.length > 1) {
+      throw new LegacySubmissionPublicIdCollisionError(
+        'Ambiguous legacy submission public id',
+      );
+    }
+    const submission = submissions[0];
     if (!submission) return null;
-    if (submission.milestone.submissionType === null) return null;
+    if (submission.milestoneDocument.milestone.submissionType === null) {
+      return null;
+    }
     return {
-      id: submission.id,
+      id: submission.legacySubmissionId ?? submission.id,
+      targetId: submission.id,
       applicationId: submission.applicationId,
-      milestoneId: submission.milestoneId,
-      programId: submission.milestone.programId,
+      milestoneId: submission.milestoneDocument.milestoneId,
+      programId: submission.milestoneDocument.milestone.programId,
       status: submission.status,
-      currentRevision: submission.currentRevision,
-      submissionType: submission.milestone.submissionType,
+      currentRevision: submission.revision,
+      submissionType: submission.milestoneDocument.milestone.submissionType,
       applicationStatus: submission.application.status,
-      dueAt: submission.milestone.dueAt,
+      dueAt: submission.milestoneDocument.milestone.dueAt,
     };
   }
 
   async submissionExists(submissionId: string): Promise<boolean> {
-    const submission = await this.database.submission.findUnique({
-      where: { id: submissionId },
-      select: { id: true },
-    });
+    const submission =
+      await this.database.milestoneDocumentSubmission.findFirst({
+        where: {
+          OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+          milestoneDocument: {
+            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          },
+        },
+        select: { id: true },
+      });
     return submission !== null;
   }
 
@@ -434,65 +482,64 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     input: CreateSubmissionRevisionInput,
   ): Promise<{ readonly revision: number }> {
     const nextRevision = input.baseRevision + 1;
-    // 상태·baseRevision을 조건으로 건 optimistic update —
-    // 교직원 판정과 경합하거나 동시 교체가 끼어들면 count 0이 되어 stale로 끝난다.
-    const updated = await this.database.submission.updateMany({
+    const updated = await this.database.milestoneDocumentSubmission.updateMany({
       where: {
         id: input.submissionId,
         status: input.baseStatus,
-        currentRevision: input.baseRevision,
+        revision: input.baseRevision,
       },
       data: {
         status: SubmissionStatus.SUBMITTED,
-        currentRevision: nextRevision,
+        revision: nextRevision,
+        content: submissionContentJson(input.content),
+        submittedById: input.submittedById,
+        submittedAt: input.now,
+        updatedAt: input.now,
       },
     });
     if (updated.count === 0) throw new StaleSubmissionRevisionError();
-    try {
-      const revision = await this.database.submissionRevision.create({
+
+    const history =
+      await this.database.milestoneDocumentSubmissionHistory.create({
         data: {
-          submissionId: input.submissionId,
+          milestoneDocumentSubmissionId: input.submissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
           revision: nextRevision,
-          submissionType: input.content.type,
-          content: input.content,
+          content: submissionContentJson(input.content),
           comment: input.comment,
-          submittedById: input.submittedById,
+          actorId: input.submittedById,
+          createdAt: input.now,
         },
         select: { id: true, revision: true },
       });
-      if (input.content.type === 'FILE') {
-        if (input.fileExpiresAt === null) {
-          throw new SubmissionFileUnavailableError();
-        }
-        const attached = await this.database.submissionFile.updateMany({
-          where: {
-            id: input.content.fileId,
-            uploaderId: input.submittedById,
-            applicationId: input.applicationId,
-            milestoneId: input.milestoneId,
-            lifecycle: SubmissionFileLifecycle.PENDING,
-            submissionRevisionId: null,
-            pendingExpiresAt: { gt: input.now },
-          },
-          data: {
-            submissionRevisionId: revision.id,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
-            pendingExpiresAt: null,
-            expiresAt: input.fileExpiresAt,
-          },
-        });
-        if (attached.count !== 1) throw new SubmissionFileUnavailableError();
+
+    if (input.content.type === 'FILE') {
+      if (input.fileExpiresAt === null) {
+        throw new SubmissionFileUnavailableError();
       }
-      return revision;
-    } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new StaleSubmissionRevisionError();
-      }
-      throw error;
+      const attached = await this.database.submissionFile.updateMany({
+        where: {
+          id: input.content.fileId,
+          uploaderId: input.submittedById,
+          applicationId: input.applicationId,
+          milestoneId: input.milestoneId,
+          lifecycle: SubmissionFileLifecycle.PENDING,
+          submissionRevisionId: null,
+          milestoneDocumentSubmissionId: null,
+          milestoneDocumentSubmissionHistoryId: null,
+          pendingExpiresAt: { gt: input.now },
+        },
+        data: {
+          milestoneDocumentSubmissionId: input.submissionId,
+          milestoneDocumentSubmissionHistoryId: history.id,
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          pendingExpiresAt: null,
+          expiresAt: input.fileExpiresAt,
+        },
+      });
+      if (attached.count !== 1) throw new SubmissionFileUnavailableError();
     }
+    return { revision: nextRevision };
   }
 }
 
@@ -590,6 +637,10 @@ export class SubmissionsRepository implements SubmissionsStore {
 type SelectedSubmissionMilestone = Prisma.MilestoneGetPayload<{
   select: typeof MILESTONE_SELECT;
 }>;
+
+function submissionContentJson(input: SubmissionContentInput) {
+  return input.type === 'FILE' ? Prisma.JsonNull : input;
+}
 
 function toSubmissionMilestone(
   milestone: SelectedSubmissionMilestone,

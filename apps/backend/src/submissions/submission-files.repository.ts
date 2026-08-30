@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneDocumentKind,
   MilestoneSubmissionType,
   Prisma,
   SubmissionFileLifecycle,
@@ -168,7 +169,6 @@ export class SubmissionFilesRepository {
       ...downloadableFileWhere(fileId, now),
       OR: [
         { uploaderId: user.id },
-        { submissionRevision: { submittedById: user.id } },
         { application: { is: submissionParticipantWhere(user.id) } },
       ],
     });
@@ -204,17 +204,26 @@ export class SubmissionFilesRepository {
     let resubmissionStatus: SubmissionStatus | null = null;
     let currentRevision: number | null = null;
     if (resubmissionContext !== null) {
-      const submission = await this.prisma.submission.findFirst({
-        where: {
-          id: resubmissionContext.submissionId,
-          applicationId: application.id,
-          milestoneId: milestone.id,
-        },
-        select: { status: true, currentRevision: true },
-      });
-      if (submission === null) return null;
+      const submissions =
+        await this.prisma.milestoneDocumentSubmission.findMany({
+          where: {
+            OR: [
+              { id: resubmissionContext.submissionId },
+              { legacySubmissionId: resubmissionContext.submissionId },
+            ],
+            applicationId: application.id,
+            milestoneDocument: {
+              milestoneId: milestone.id,
+              kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+            },
+          },
+          take: 2,
+          select: { status: true, revision: true },
+        });
+      const submission = submissions[0];
+      if (submissions.length !== 1 || submission === undefined) return null;
       resubmissionStatus = submission.status;
-      currentRevision = submission.currentRevision;
+      currentRevision = submission.revision;
     }
 
     return {
@@ -428,7 +437,10 @@ function downloadableFileWhere(
   return {
     id: fileId,
     lifecycle: SubmissionFileLifecycle.ATTACHED,
-    submissionRevisionId: { not: null },
+    OR: [
+      { milestoneDocumentSubmissionHistoryId: { not: null } },
+      { submissionRevisionId: { not: null } },
+    ],
     expiresAt: { gt: now },
   };
 }

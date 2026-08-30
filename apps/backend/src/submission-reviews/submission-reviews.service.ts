@@ -99,13 +99,15 @@ export class SubmissionReviewsService {
         const nextStatus = decisionStatus(input.decision);
         const review = await store.createReview({
           submissionRevisionId: target.revision.id,
+          milestoneDocumentSubmissionId: target.id,
+          revision: input.revision,
           reviewerId,
           decision: input.decision,
           comment: input.comment,
           reviewedAt,
         });
         const transitioned = await store.transitionSubmission({
-          submissionId,
+          submissionId: target.id,
           expectedRevision: input.revision,
           nextStatus,
         });

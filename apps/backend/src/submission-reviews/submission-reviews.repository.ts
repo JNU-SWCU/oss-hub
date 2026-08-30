@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   SubmissionStatus,
 } from '@prisma/client';
@@ -12,13 +13,16 @@ import type {
   SubmissionReviewContext,
   SubmissionReviewTarget,
 } from './domain/submission-review';
+import { LegacySubmissionPublicIdCollisionError } from '../submissions/legacy-submission-target';
 import {
-  REVIEW_CONTEXT_SELECT,
-  toReviewContext,
-} from './submission-review-context.mapper';
+  TARGET_REVIEW_CONTEXT_SELECT,
+  toTargetReviewContext,
+} from './target-submission-review-context.mapper';
 
 export interface CreateReviewRecordInput {
   readonly submissionRevisionId: string;
+  readonly milestoneDocumentSubmissionId: string;
+  readonly revision: number;
   readonly reviewerId: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
@@ -63,56 +67,107 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
   async findReviewTarget(
     submissionId: string,
   ): Promise<SubmissionReviewTarget | null> {
-    const submission = await this.transaction.submission.findUnique({
-      where: { id: submissionId },
-      select: { id: true, currentRevision: true, status: true },
-    });
-    if (submission === null) return null;
-    const revision = await this.transaction.submissionRevision.findUnique({
-      where: {
-        submissionId_revision: {
-          submissionId,
-          revision: submission.currentRevision,
+    const submissions =
+      await this.transaction.milestoneDocumentSubmission.findMany({
+        where: {
+          OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+          milestoneDocument: {
+            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          },
         },
-      },
-      select: { id: true, review: { select: { id: true } } },
-    });
-    if (revision === null) return null;
+        take: 2,
+        select: { id: true },
+      });
+    const resolved = submissions[0];
+    if (submissions.length !== 1 || resolved === undefined) return null;
+    const targetId = resolved.id;
+    await this.transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
+      SELECT "id"
+      FROM "MilestoneDocumentSubmission"
+      WHERE "id" = ${targetId}
+      FOR UPDATE
+    `);
+    const submission =
+      await this.transaction.milestoneDocumentSubmission.findUnique({
+        where: { id: targetId },
+        select: { id: true, revision: true, status: true },
+      });
+    if (submission === null) return null;
+    const history =
+      await this.transaction.milestoneDocumentSubmissionHistory.findFirst({
+        where: {
+          milestoneDocumentSubmissionId: targetId,
+          revision: submission.revision,
+          event: {
+            in: [
+              MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+              MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+            ],
+          },
+        },
+        orderBy: { id: 'desc' },
+        select: {
+          id: true,
+          reviewHistories: {
+            where: { milestoneDocumentSubmissionId: targetId },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      });
+    if (history === null) return null;
     return {
-      ...submission,
-      revision: { id: revision.id, reviewId: revision.review?.id ?? null },
+      id: submission.id,
+      currentRevision: submission.revision,
+      status: submission.status,
+      revision: {
+        id: history.id,
+        reviewId: history.reviewHistories[0]?.id ?? null,
+      },
     };
   }
 
   async createReview(
     input: CreateReviewRecordInput,
   ): Promise<{ readonly id: string }> {
-    try {
-      return await this.transaction.review.create({
-        data: input,
+    const review = await this.transaction.milestoneDocumentReviewHistory.create(
+      {
+        data: {
+          milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
+          submissionHistoryId: input.submissionRevisionId,
+          reviewerId: input.reviewerId,
+          decision: input.decision,
+          comment: input.comment,
+          reviewedAt: input.reviewedAt,
+        },
         select: { id: true },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ReviewAlreadyExistsError();
-      }
-      throw error;
-    }
+      },
+    );
+    await this.transaction.milestoneDocumentSubmissionHistory.create({
+      data: {
+        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
+        event: input.decision,
+        revision: input.revision,
+        comment: input.comment,
+        actorId: input.reviewerId,
+        createdAt: input.reviewedAt,
+      },
+      select: { id: true },
+    });
+    return review;
   }
 
   async transitionSubmission(
     input: TransitionSubmissionInput,
   ): Promise<boolean> {
-    const result = await this.transaction.submission.updateMany({
-      where: {
-        id: input.submissionId,
-        currentRevision: input.expectedRevision,
-      },
-      data: { status: input.nextStatus },
-    });
+    const result =
+      await this.transaction.milestoneDocumentSubmission.updateMany({
+        where: {
+          id: input.submissionId,
+          revision: input.expectedRevision,
+        },
+        data: { status: input.nextStatus },
+      });
     return result.count === 1;
   }
 }
@@ -132,11 +187,22 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
   async findReviewContext(
     submissionId: string,
   ): Promise<SubmissionReviewContext | null> {
-    const submission = await this.prisma.submission.findUnique({
-      where: { id: submissionId },
-      select: REVIEW_CONTEXT_SELECT,
+    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+      where: {
+        OR: [{ id: submissionId }, { legacySubmissionId: submissionId }],
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
+      take: 2,
+      select: TARGET_REVIEW_CONTEXT_SELECT,
     });
-    return submission ? toReviewContext(submission) : null;
+    if (submissions.length > 1) {
+      throw new LegacySubmissionPublicIdCollisionError(
+        'Ambiguous legacy submission public id',
+      );
+    }
+    return submissions[0] ? toTargetReviewContext(submissions[0]) : null;
   }
 
   async findPublishEligibility(
@@ -170,9 +236,13 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
                 },
               },
             },
-            submissions: { select: { milestoneId: true, status: true } },
             milestoneDocumentSubmissions: {
-              select: { milestoneDocumentId: true, status: true },
+              select: {
+                status: true,
+                milestoneDocument: {
+                  select: { id: true, milestoneId: true, kind: true },
+                },
+              },
             },
           },
         },
@@ -189,8 +259,26 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       provisionStatus: job?.repositoryId === repository.id ? job.status : null,
       requiredMilestonesApproved: requiredMilestonesApproved(
         repository.application.program.milestones,
-        repository.application.submissions,
-        repository.application.milestoneDocumentSubmissions,
+        repository.application.milestoneDocumentSubmissions
+          .filter(
+            (submission) =>
+              submission.milestoneDocument.kind ===
+              MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          )
+          .map((submission) => ({
+            milestoneId: submission.milestoneDocument.milestoneId,
+            status: submission.status,
+          })),
+        repository.application.milestoneDocumentSubmissions
+          .filter(
+            (submission) =>
+              submission.milestoneDocument.kind ===
+              MilestoneDocumentKind.DOCUMENT,
+          )
+          .map((submission) => ({
+            milestoneDocumentId: submission.milestoneDocument.id,
+            status: submission.status,
+          })),
       ),
       isRepositoryPublicationPlanned:
         repository.application.isRepositoryPublicationPlanned,
