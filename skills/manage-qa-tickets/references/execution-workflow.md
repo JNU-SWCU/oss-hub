@@ -72,7 +72,7 @@ GitHub가 업로드해 `![...](https://github.com/user-attachments/...)` 형태�
 
 - 로컬 파일 경로(`/tmp/before.png`)를 본문에 적고 첨부했다고 하지 않는다 — 아무 이미지도 렌더되지 않는다.
 - 증거 이미지를 제품 브랜치에 커밋하지 않는다 — 리뷰 대상 diff에 바이너리가 섞인다([pr-scope.md](../../../docs/rules/pr-scope.md) §1).
-- 증거 전용 브랜치를 만들지 않는다 — 그 브랜치를 영구히 보존해야 PR 본문이 깨지지 않고, orphan 브랜치에는 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 실패해 push 자체가 막힌다.
+- 증거 전용 브랜치를 만들지 않는다 — 그 브랜치를 영구히 보존해야 병합된 PR 본문의 이미지가 깨지지 않는다. 별도 worktree에서 orphan 브랜치를 만들면 그 작업트리에 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 실패해 push까지 막힌다.
 - `gh release create`·`gh release upload`로 호스팅하지 않는다 — 이 저장소는 공개 Release 발행(published)을 production 배포 트리거로 쓴다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md), `.github/workflows/deploy.yml`). 캡처를 올리려다 배포가 나간다.
 - `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다(ADR-010 §5). 커밋되지 않으므로 주소도 생기지 않는다.
 - 목업·Figma 시안·테스트 출력·코드 diff로 실제 실행 화면을 대신하지 않는다.
