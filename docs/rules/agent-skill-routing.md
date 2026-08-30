@@ -9,14 +9,15 @@
 | --- | --- | --- | --- |
 | QA 티켓 작성·발행·수행 | `manage-qa-tickets` | repo `skills/manage-qa-tickets` | 그 스킬이 자기 절차의 원본이다 |
 | 릴리스 후보 QA | `run-release-qa` | repo `.claude/skills/run-release-qa` | 출시 판정은 그 스킬이 원본이다 |
-| frontend 코드 구현 | craft `frontend` | 외부 플러그인 | [frontend.md](frontend.md)·[docs/design.md](../design.md)가 폴더 경계·API 클라이언트·토큰 소유권의 원본 |
+| frontend 코드 구현 | craft `frontend` | 외부 플러그인 | [frontend.md](frontend.md)가 feature 폴더 경계·단일 API 클라이언트의 원본 |
 | backend 코드 구현 | craft `backend` | 외부 플러그인 | [ADR-003](../decisions/ADR-003-backend-architecture.md)과 `apps/backend/src/AGENTS.md`가 계층 경계의 원본 |
 | 테스트 스위트 구조 | craft `testing` | 외부 플러그인 | [ci-path-verification.md](ci-path-verification.md)가 경로별 검증 명령의 원본 |
-| 화면 디자인·브랜드·토큰 시안 | `design` | 사용자 스코프 | [docs/design.md](../design.md)가 색·타이포·토큰 3-tier·컴포넌트 소유권의 원본 |
-| 조사·기술 선택 근거 | craft `research` | 외부 플러그인 | 산출물은 `docs/research/<slug>.md`에 남긴다 |
+| 화면 디자인 판단·토큰 | craft `design` | 외부 플러그인 | [docs/design.md](../design.md)가 색·타이포·토큰 3-tier·컴포넌트 소유권의 원본 |
+| 조사·기술 선택 근거 | craft `research` | 외부 플러그인 | 산출물은 `docs/research/<slug>.md` 하나다 |
+| AGENTS.md 지도 갱신·stale 점검 | craft `init` | 외부 플러그인 | 이 저장소의 AGENTS.md 계층과 작성권은 AGENTS.md §3이 원본이다 |
 
-`design`은 craft-skills에 없다 — 사용자 스코프에 설치된 별개 스킬이다.
-craft-skills는 저장소에 vendoring하지 않은 외부 플러그인이므로 에이전트 런타임마다 설치 여부가 다르다.
+craft-skills는 저장소에 vendoring하지 않은 외부 플러그인이므로 에이전트 런타임마다 설치 여부와 버전이 다르다.
+스킬 계약은 버전마다 바뀐다 — 스킬을 쓰기 전에 설치된 버전의 `SKILL.md`를 직접 읽고, 이 문서가 낡았으면 이 문서를 고친다.
 
 ## 스킬과 repo 규칙이 갈리면 repo가 이긴다
 
@@ -30,21 +31,20 @@ craft-skills는 저장소에 vendoring하지 않은 외부 플러그인이므로
 - 문서 위치 판정 — [docs/AGENTS.md](../AGENTS.md)의 canonical store 표가 원본이며 다른 문서 온톨로지를 겹쳐 쓰지 않는다.
 - 공개 안전 판정 — [security.md](security.md)의 deny-list와 `scripts/check-public-safe.sh`가 원본이다.
 
+## 알려진 계약 차이
+
+| 스킬이 요구하는 것 | 이 저장소가 정한 것 | 따르는 쪽 |
+| --- | --- | --- |
+| craft `design`은 ownership root에 `DESIGN.md` 하나를 두고 자기 템플릿의 제목 구조를 유지한다 | 디자인 계약의 원본은 [docs/design.md](../design.md)이며 프리미티브 컴포넌트 소유권까지 그 문서가 정한다 | 이 저장소 — 새 `DESIGN.md`를 만들지 않고 `docs/design.md`를 갱신한다 |
+| craft `init`은 AGENTS.md 계층을 스스로 생성·갱신한다 | AGENTS.md와 중첩 AGENTS.md는 작성권이 있는 사람이 고치며 owner 전속 경로가 있다(AGENTS.md §3) | 이 저장소 — init의 산출물은 제안으로 보고 작성권을 넘기지 않는다 |
+
 ## craft `init` 적용 결과
 
-craft `init`의 Phase 0 문서 골격을 이 저장소 상태와 대조한 결과다.
-Phase 0은 없는 것만 만들고 있는 파일은 덮어쓰지 않는다.
+`init` 0.13.0은 문서 골격을 만들지 않는다 — 자기 설명에 "Do not scaffold documentation, author document content"라고 적혀 있고 문서 작업은 `document`로 넘긴다.
+그래서 이 저장소에 적용할 것은 문서 스캐폴딩이 아니라 AGENTS.md 지도뿐이며, 그 계층은 이미 손으로 관리되고 있다(현재 26개).
 
-| 항목 | 판정 |
-| --- | --- |
-| `docs/exec-plan/active`·`docs/exec-plan/archive`·`docs/decisions`·`docs/rules` | 이미 있음 — 손대지 않았다 |
-| `docs/decisions/README.md`·`docs/architecture.md` | 이미 있음 — 손대지 않았다 |
-| `docs/research/` | 없어서 만들었다 — craft `research`의 산출물 위치다 |
-
-init의 `Development Flow` managed block은 이식하지 않았다.
-그 블록은 "사용자가 명시적으로 요청하지 않으면 ADR을 만들거나 요구하지 말라"를 규약으로 담는데, 이 저장소는 AGENTS.md §2에서 기술·운영 결정의 canonical store를 `docs/decisions/` ADR로 이미 고정했다.
-블록의 브랜치·PR·리뷰 조항도 AGENTS.md §3·§5와 [pr-scope.md](pr-scope.md)가 이미 더 구체적으로 정하고 있어, 이식하면 같은 규칙의 사본이 둘 생긴다.
-`git wt` 같은 블록 안의 명령 별칭도 이 저장소에 없다.
+`docs/research/`만 새로 만들었다. 그 디렉터리의 주인은 `init`이 아니라 craft `research`이며, 그 스킬은 조사마다 `docs/research/<slug>.md` 하나를 남긴다.
+기존 앵커(`docs/decisions/README.md`·`docs/architecture.md`·`docs/exec-plan/**`·`docs/rules/`)는 이미 있어 손대지 않았다.
 
 ---
 
