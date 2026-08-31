@@ -6,7 +6,8 @@
 // - 동일 실행 중 tag+SHA만 성공 no-op. 하위 SemVer는 양쪽 실행 중이고 metadata가 일치할 때만 no-op.
 // - same-tag/different-SHA, partial, stopped-only, missing/invalid label·SemVer는 fail-closed.
 // - 중지·모호 상태는 deploy 권한 없음. no-op은 완전 증명된 running metadata만.
-// - 성공 후에만 이미지/BuildKit 캐시/백업 정리. 실행 중+직전 이미지 보존. BuildKit 캐시 최대 5GB, 백업 최근 N=30.
+// - BuildKit 캐시는 이미지 빌드·배포 전과 성공 뒤에 5GB 상한으로 정리한다. 이미지·백업 보존 정리는 성공 뒤에만 한다.
+//   실행 중+직전 이미지를 보존하고, 백업은 최근 N=30을 보존한다.
 // - 이미지 빌드 후 migration·rollout·health/smoke·rollback을 수행한다.
 pipeline {
   agent {
@@ -25,7 +26,7 @@ pipeline {
     // 최초 배포(재프로비저닝)를 허용한다. 기본은 차단(fail-closed).
     // C4 승인 상수. 성공 배포 뒤에만 적용하고 최신 N개를 보존한다.
     BACKUP_RETENTION_N = '30'
-    // 성공 배포 뒤 BuildKit 캐시는 LRU 기준 최대 5GB까지만 보존한다.
+    // BuildKit shared/internal 캐시는 이미지 빌드·배포 전과 성공 뒤 LRU 기준 최대 5GB까지만 보존한다.
     BUILD_CACHE_MAX_SPACE = '5GB'
     // 개인키 SOURCE는 compose.yml이 :? 로 요구한다. compose 호출이 5곳이라 stage마다 넣으면
     // 하나만 빠뜨려도 배포가 멈추므로 pipeline 수준에 한 번만 둔다. rollback의 withEnv도
@@ -409,6 +410,17 @@ mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
             echo 'FAIL_CLOSED buildx_preflight: docker buildx prune가 --max-used-space를 지원하지 않습니다. Buildx를 업그레이드하십시오.' >&2
             exit 1
           fi
+        '''
+      }
+    }
+
+    stage('Buildx 캐시 상한 사전 정리') {
+      when {
+        expression { env.DEPLOY_NOOP != 'true' }
+      }
+      steps {
+        sh '''
+          docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
         '''
       }
     }
@@ -898,8 +910,8 @@ while IFS="$(printf '\t')" read -r repo tag image_id; do
   docker image rm "${repo}:${tag}"
 done < "$images_inventory"
 
-# 성공 배포 뒤에만 BuildKit 캐시를 LRU 기준 상한까지 정리한다.
-docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
+# 성공 배포 뒤에만 shared/internal BuildKit 캐시를 LRU 기준 상한까지 정리한다.
+docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
 # backup retention N=30 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
 bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"

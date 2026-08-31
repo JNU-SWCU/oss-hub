@@ -1208,38 +1208,70 @@ write_fixture(
     source[:case_start] + case_wrapped + source[case_end:],
 )
 
-prune_command = 'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
+prune_command = 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
 prune_line = prune_command + "\n"
-backup_prune_line = 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"\n'
-image_loop_line = 'while IFS="$(printf \'\\t\')" read -r repo tag image_id; do\n'
 
-replace_once("v2-hardening-prune-deleted", prune_command, "echo 'BuildKit cache prune removed'")
+replace_once("v2-hardening-prebuild-prune-deleted", prune_command, "echo 'BuildKit cache prune removed'")
 replace_once(
-    "v2-hardening-prune-if-false",
+    "v2-hardening-prebuild-prune-if-false",
     prune_line,
     f"if false; then\n  {prune_command}\nfi\n",
 )
 replace_once(
-    "v2-hardening-prune-function-body",
+    "v2-hardening-prebuild-prune-function-body",
     prune_line,
     f"dead_prune() {{\n  {prune_command}\n}}\n",
 )
 replace_once(
-    "v2-hardening-prune-duplicated",
+    "v2-hardening-prebuild-prune-injected",
     prune_line,
     prune_line + prune_line,
 )
-
-without_prune = source.replace(prune_line, "", 1)
-if without_prune == source:
-    raise SystemExit("prune move source line missing")
+replace_once(
+    "v2-hardening-prebuild-prune-all-deleted",
+    "--all --force --max-used-space",
+    "--force --max-used-space",
+)
+retention_prune_start = source.rfind(prune_command)
+if retention_prune_start < 0:
+    raise SystemExit("success retention prune source line missing")
 write_fixture(
-    "v2-hardening-prune-before-image-loop",
-    without_prune.replace(image_loop_line, prune_line + image_loop_line, 1),
+    "v2-hardening-success-retention-prune-reverted",
+    source[:retention_prune_start]
+    + source[retention_prune_start:].replace(
+        prune_command,
+        'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"',
+        1,
+    ),
+)
+prebuild_stage_start = source.index("    stage('Buildx 캐시 상한 사전 정리') {")
+prebuild_stage_end = source.index("    stage('FRONTEND_URL HTTPS 사전 검증') {", prebuild_stage_start)
+prebuild_stage = source[prebuild_stage_start:prebuild_stage_end]
+without_prebuild_stage = source[:prebuild_stage_start] + source[prebuild_stage_end:]
+write_fixture("v2-hardening-prebuild-prune-stage-deleted", without_prebuild_stage)
+write_fixture(
+    "v2-hardening-prebuild-prune-noop-condition-deleted",
+    source.replace(
+        "    stage('Buildx 캐시 상한 사전 정리') {\n      when {\n        expression { env.DEPLOY_NOOP != 'true' }\n      }\n",
+        "    stage('Buildx 캐시 상한 사전 정리') {\n",
+        1,
+    ),
 )
 write_fixture(
-    "v2-hardening-prune-after-backup",
-    without_prune.replace(backup_prune_line, backup_prune_line + prune_line, 1),
+    "v2-hardening-prebuild-prune-noop-condition-inverted",
+    source.replace(
+        "    stage('Buildx 캐시 상한 사전 정리') {\n      when {\n        expression { env.DEPLOY_NOOP != 'true' }\n      }\n",
+        "    stage('Buildx 캐시 상한 사전 정리') {\n      when {\n        expression { env.DEPLOY_NOOP == 'true' }\n      }\n",
+        1,
+    ),
+)
+build_stage_start = without_prebuild_stage.index("    stage('버전 이미지 빌드') {")
+build_stage_end = without_prebuild_stage.index("    stage('Prisma 마이그레이션') {", build_stage_start)
+write_fixture(
+    "v2-hardening-prebuild-prune-after-image-build",
+    without_prebuild_stage[:build_stage_end]
+    + prebuild_stage
+    + without_prebuild_stage[build_stage_end:],
 )
 
 replace_once(
@@ -1321,6 +1353,30 @@ build_stage_start = without_preflight.index("    stage('버전 이미지 빌드'
 write_fixture(
     "v2-hardening-buildx-preflight-after-mutation",
     without_preflight[:build_stage_start] + preflight_block + without_preflight[build_stage_start:],
+)
+noop_probe_stage_start = source.index("    stage('실행 중 이미지 기준 no-op 및 이전 태그 캡처') {")
+buildx_preflight_stage_start = source.index("    stage('Buildx 캐시 상한 사전 검증') {")
+preflight_before_probe = (
+    source[:noop_probe_stage_start]
+    + source[buildx_preflight_stage_start:frontend_preflight_start]
+    + source[noop_probe_stage_start:buildx_preflight_stage_start]
+    + source[frontend_preflight_start:]
+)
+write_fixture(
+    "v2-hardening-buildx-preflight-before-noop-probe",
+    preflight_before_probe,
+)
+prebuild_stage_start = source.index("    stage('Buildx 캐시 상한 사전 정리') {")
+prebuild_stage_end = source.index("    stage('FRONTEND_URL HTTPS 사전 검증') {", prebuild_stage_start)
+prebuild_before_probe = (
+    source[:noop_probe_stage_start]
+    + source[prebuild_stage_start:prebuild_stage_end]
+    + source[noop_probe_stage_start:prebuild_stage_start]
+    + source[prebuild_stage_end:]
+)
+write_fixture(
+    "v2-hardening-prebuild-prune-before-noop-probe",
+    prebuild_before_probe,
 )
 replace_once(
     "v2-hardening-buildx-preflight-capability-deleted",
@@ -1549,12 +1605,16 @@ expect_fail_with_code 'v2 hardening: rollout smoke를 test 거짓 guard로 비�
 expect_fail_with_code 'v2 hardening: rollout smoke를 미호출 함수 본문에 배치' v2 "$fixture_dir/v2-hardening-smoke-function-body"
 expect_fail_with_code 'v2 hardening: rollout smoke를 heredoc으로 주석화' v2 "$fixture_dir/v2-hardening-smoke-heredoc"
 expect_fail_with_code 'v2 hardening: rollback smoke를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-rollback-smoke-if-false"
-expect_fail_with_code 'v2 hardening: BuildKit prune 삭제' v2 "$fixture_dir/v2-hardening-prune-deleted"
-expect_fail_with_code 'v2 hardening: BuildKit prune를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-prune-if-false"
-expect_fail_with_code 'v2 hardening: BuildKit prune를 미호출 함수 본문에 배치' v2 "$fixture_dir/v2-hardening-prune-function-body"
-expect_fail_with_code 'v2 hardening: BuildKit prune 중복' v2 "$fixture_dir/v2-hardening-prune-duplicated"
-expect_fail_with_code 'v2 hardening: BuildKit prune를 이미지 loop 앞으로 이동' v2 "$fixture_dir/v2-hardening-prune-before-image-loop"
-expect_fail_with_code 'v2 hardening: BuildKit prune를 backup prune 뒤로 이동' v2 "$fixture_dir/v2-hardening-prune-after-backup"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune 삭제' v2 "$fixture_dir/v2-hardening-prebuild-prune-deleted"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune stage 삭제' v2 "$fixture_dir/v2-hardening-prebuild-prune-stage-deleted"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune no-op 조건 삭제' v2 "$fixture_dir/v2-hardening-prebuild-prune-noop-condition-deleted"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune no-op 조건 반전' v2 "$fixture_dir/v2-hardening-prebuild-prune-noop-condition-inverted"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-prebuild-prune-if-false"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune를 미호출 함수 본문에 배치' v2 "$fixture_dir/v2-hardening-prebuild-prune-function-body"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune 주입' v2 "$fixture_dir/v2-hardening-prebuild-prune-injected"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune의 --all 삭제' v2 "$fixture_dir/v2-hardening-prebuild-prune-all-deleted"
+expect_fail_with_code 'v2 hardening: 성공 retention BuildKit prune 되돌림' v2 "$fixture_dir/v2-hardening-success-retention-prune-reverted"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune를 이미지 빌드 뒤로 이동' v2 "$fixture_dir/v2-hardening-prebuild-prune-after-image-build"
 expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 5GB에서 변경' v2 "$fixture_dir/v2-hardening-cache-cap-changed"
 expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 environment 밖으로 이동' v2 "$fixture_dir/v2-hardening-cache-cap-outside-environment"
 expect_fail_with_code 'v2 hardening: exact 200 대신 curl --fail 복원' v2 "$fixture_dir/v2-hardening-exact-200-restored-curl-fail"
@@ -1570,6 +1630,8 @@ expect_fail_with_code 'v2 hardening: rollback TLS mixed-case 401 삭제' v2 "$fi
 expect_fail_with_code 'v2 hardening: rollback TLS POST 401 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-post-deleted"
 expect_fail_with_code 'v2 hardening: Buildx capability preflight 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-deleted"
 expect_fail_with_code 'v2 hardening: Buildx capability preflight를 production mutation 뒤로 이동' v2 "$fixture_dir/v2-hardening-buildx-preflight-after-mutation"
+expect_fail_with_code 'v2 hardening: Buildx capability preflight를 no-op probe 앞으로 이동' v2 "$fixture_dir/v2-hardening-buildx-preflight-before-noop-probe"
+expect_fail_with_code 'v2 hardening: BuildKit 사전 prune를 no-op probe 앞으로 이동' v2 "$fixture_dir/v2-hardening-prebuild-prune-before-noop-probe"
 expect_fail_with_code 'v2 hardening: Buildx capability token 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-capability-deleted"
 expect_fail_with_code 'v2 hardening: Buildx preflight에서 destructive prune 실행' v2 "$fixture_dir/v2-hardening-buildx-preflight-destructive"
 expect_fail_with_code 'v2 nginx: rollout nginx -t 삭제' v2 "$fixture_dir/v2-nginx-rollout-test-deleted"

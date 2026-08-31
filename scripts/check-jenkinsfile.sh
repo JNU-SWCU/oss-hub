@@ -387,6 +387,40 @@ line_of_shell_stage_depth_exact() { _shell_scan 2 "$1" "$2" "$3" exact line_firs
 line_of_shell_stage_exact() { _shell_scan 2 "$1" "" "$2" exact line_first; }
 line_of_shell_block_depth_exact() { _shell_scan 1 "$1" "$2" "$3" exact line_first; }
 
+require_stage_when_expression() {
+  local description=$1
+  local stage_marker=$2
+  local expression=$3
+
+  if ! awk -v stage_marker="$stage_marker" -v expression="$expression" '
+    index($0, stage_marker) {
+      stage_count++
+      in_stage=1
+      next
+    }
+    in_stage && /^[[:space:]]*steps[[:space:]]*\{[[:space:]]*$/ {
+      steps_count++
+      if (when_count != 1 || expression_count != 1 || invalid_expression) invalid=1
+      in_stage=0
+      next
+    }
+    in_stage && /^[[:space:]]*when[[:space:]]*\{[[:space:]]*$/ {
+      when_count++
+      next
+    }
+    in_stage && index($0, "expression {") {
+      expression_count++
+      line=$0
+      sub(/^[[:space:]]+/, "", line)
+      if (line != expression) invalid_expression=1
+    }
+    END { exit (stage_count == 1 && steps_count == 1 && when_count == 1 && expression_count == 1 && !invalid) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: %s\n' "$label" "$description" >&2
+    exit 1
+  fi
+}
+
 require_status_smoke_contract() {
   local stage='서비스 교체 및 스모크 확인'
   local rollout_retry='--retry 5 --retry-connrefused'
@@ -893,7 +927,9 @@ check_v2() {
 
   local buildx_preflight_stage='Buildx 캐시 상한 사전 검증'
   local buildx_preflight_command="if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then"
-  local buildx_preflight_block
+  local buildx_prebuild_stage='Buildx 캐시 상한 사전 정리'
+  local buildx_prune_command='docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
+  local buildx_preflight_block buildx_prebuild_block
   require_exact 'Buildx 캐시 상한 사전 검증 stage는 한 번이어야 함' \
     "stage('Buildx 캐시 상한 사전 검증')" 1
   require_exact 'Buildx preflight 실패는 업그레이드 방법을 안내해야 함' \
@@ -907,6 +943,25 @@ check_v2() {
     '$2 == stage && index($5, "docker buildx prune --force") { found=1 } END { exit found ? 0 : 1 }' \
     "$shell_contract_file"; then
     printf '%s: Buildx preflight에서는 destructive prune를 실행할 수 없습니다.\n' "$label" >&2
+    exit 1
+  fi
+  require_exact 'Buildx 캐시 상한 사전 정리 stage는 한 번이어야 함' \
+    "stage('Buildx 캐시 상한 사전 정리')" 1
+  require_stage_when_expression 'Buildx 캐시 상한 사전 정리는 DEPLOY_NOOP!=true 조건에 구조적으로 묶여야 함' \
+    "stage('Buildx 캐시 상한 사전 정리')" "expression { env.DEPLOY_NOOP != 'true' }"
+  require_exact 'Buildx shared/internal cache prune는 배포 전·성공 후에 정확히 두 번이어야 함' \
+    "$buildx_prune_command" 2
+  require_shell_stage_depth_exact 'Buildx shared/internal cache prune는 사전 정리 stage depth 0에 정확히 한 번 있어야 함' \
+    "$buildx_prebuild_stage" 0 "$buildx_prune_command"
+  buildx_prebuild_block=$(shell_block_of_stage_depth_exact "$buildx_prebuild_stage" 0 "$buildx_prune_command")
+  if ! awk -F '\t' -v block="$buildx_prebuild_block" -v command="$buildx_prune_command" '
+    $1 == block {
+      commands++
+      if ($4 != 0 || $5 != command) invalid=1
+    }
+    END { exit (commands == 1 && !invalid) ? 0 : 1 }
+  ' "$shell_contract_file"; then
+    printf '%s: Buildx 사전 정리 stage는 shared/internal cache prune 한 명령만 실행해야 합니다.\n' "$label" >&2
     exit 1
   fi
 
@@ -1022,8 +1077,8 @@ check_v2() {
   require_exact 'backup cleanup은 같은 production pruner를 호출해야 함' \
     'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 1
   require_regex_at_least 'success-only image 삭제가 있어야 함' 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' 1
-  require_shell_stage_depth_exact 'BuildKit cache prune는 retention stage depth 0에 정확히 한 번 있어야 함' \
-    '성공 후 이미지·백업 보존 정리' 0 'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
+  require_shell_stage_depth_exact 'BuildKit shared/internal cache prune는 retention stage depth 0에 정확히 한 번 있어야 함' \
+    '성공 후 이미지·백업 보존 정리' 0 "$buildx_prune_command"
   require_shell_stage_depth_exact 'backup prune는 retention stage depth 0에 있어야 함' \
     '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
 
@@ -1052,7 +1107,7 @@ check_v2() {
   require_single_image_tag_assignment
 
   local environment_line stages_line build_cache_line checkout_line preflight_stage_line preflight_line
-  local github_credentials_line key_install_line noop_probe_line buildx_preflight_line https_line
+  local github_credentials_line key_install_line noop_probe_line buildx_preflight_line buildx_prebuild_line https_line
   local rollback_stage_line rollback_input_line rollback_call_line first_production_mutation_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
   local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
@@ -1069,6 +1124,8 @@ check_v2() {
   noop_probe_line=$(line_of_regex 'ps[[:space:]]+-q[[:space:]]+frontend')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
+  buildx_prebuild_line=$(line_of_shell_stage_depth_exact \
+    'Buildx 캐시 상한 사전 정리' 0 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
   https_line=$(line_of 'FRONTEND_URL')
   rollback_stage_line=$(line_of "stage('롤백 이미지 사전 검증')")
   rollback_input_line=$(line_of "PREV_BE_IMAGE_ID=\${env.PREV_BE_IMAGE_ID ?: ''}")
@@ -1086,7 +1143,7 @@ check_v2() {
   image_rm_line=$(line_of_shell_stage_exact \
     '성공 후 이미지·백업 보존 정리' 'docker image rm "${repo}:${tag}"')
   buildx_prune_line=$(line_of_shell_stage_depth_exact \
-    '성공 후 이미지·백업 보존 정리' 0 'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
+    '성공 후 이미지·백업 보존 정리' 0 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
   backup_prune_line=$(line_of_shell_stage_depth_exact \
     '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
@@ -1096,7 +1153,7 @@ check_v2() {
     release_sha_binding_line
     checkout_line preflight_stage_line preflight_line
     github_credentials_line key_install_line noop_probe_line
-    buildx_preflight_line https_line rollback_stage_line
+    buildx_preflight_line buildx_prebuild_line https_line rollback_stage_line
     rollback_input_line rollback_call_line backup_line
     first_production_mutation_line
     frontend_build_line backend_build_line migration_line
@@ -1128,6 +1185,10 @@ check_v2() {
     'preflight_line:<:noop_probe_line'
     'checkout_line:<:buildx_preflight_line'
     'preflight_line:<:buildx_preflight_line'
+    'noop_probe_line:<:buildx_preflight_line'
+    'buildx_preflight_line:<:buildx_prebuild_line'
+    'buildx_prebuild_line:<:first_production_mutation_line'
+    'buildx_prebuild_line:<:frontend_build_line'
     'buildx_preflight_line:<:https_line'
     'buildx_preflight_line:<:first_production_mutation_line'
     'https_line:<:rollback_stage_line'
