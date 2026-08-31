@@ -31,7 +31,7 @@ export function ManyItems() {
       items={[
         { label: '교직원 승인', href: '/admin/staff-requests' },
         { label: '관리 콘솔', href: '/admin/users' },
-        { label: '감사 로그', href: '/admin/audit-log' },
+        { label: '감사 로그', href: '/dashboard/audit-logs' },
         { label: '시스템 상태', href: '/dashboard/system-status' },
       ]}
       actions={<StatusBadge variant="approved">관리자</StatusBadge>}

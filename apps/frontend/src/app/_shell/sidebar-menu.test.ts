@@ -127,7 +127,7 @@ describe('sidebarGroupsFor (context)', () => {
       groups[1]?.items.map(({ label, href }) => ({ label, href })),
     ).toEqual([
       { label: '사용자 목록', href: '/admin/access' },
-      { label: '감사 로그', href: '/admin/audit-log' },
+      { label: '감사 로그', href: '/dashboard/audit-logs' },
       { label: '시스템 상태', href: '/dashboard/system-status' },
     ]);
     expect(
@@ -154,7 +154,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/my-repos',
         '/dashboard/activity',
         '/admin/access',
-        '/admin/audit-log',
+        '/dashboard/audit-logs',
         '/dashboard/system-status',
       ],
     ],
@@ -166,14 +166,14 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/insights',
         '/dashboard/applicants',
         '/admin/access',
-        '/admin/audit-log',
+        '/dashboard/audit-logs',
         '/dashboard/system-status',
       ],
     ],
     [
       'admin-only',
       { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
-      ['/admin/access', '/admin/audit-log', '/dashboard/system-status'],
+      ['/admin/access', '/dashboard/audit-logs', '/dashboard/system-status'],
     ],
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
     '%s surface를 권한 함축 없이 합집합으로 보인다',
