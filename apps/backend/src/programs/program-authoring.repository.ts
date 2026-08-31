@@ -169,7 +169,6 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
         name: plan.name,
         required: plan.required,
         sortOrder: plan.sortOrder,
-        submissionType: plan.submissionType,
       },
     });
     return document.id;

@@ -8,13 +8,10 @@ import {
   mergeMilestoneDocumentList,
   milestoneDocumentErrorMessage,
   milestoneDocumentSaveSortOrder,
-  milestoneDocumentSubmissionTypeLocked,
   nextMilestoneDocumentSortOrder,
   planMilestoneDocumentOrder,
   removeMilestoneDocumentFromList,
   sortMilestoneDocuments,
-  SUBMISSION_TYPE_CHOICES,
-  submissionTypeLabel,
   toMilestoneDocumentForm,
   updateMilestoneDocumentEditor,
   upsertMilestoneDocumentInList,
@@ -33,7 +30,6 @@ function document(
     name: `서류 ${id}`,
     required: true,
     sortOrder,
-    submissionType: 'FILE',
     hasTemplateFile: false,
     templateFileName: null,
 
@@ -42,10 +38,9 @@ function document(
 }
 
 const planner = document('a', 1, { name: '계획서' });
-const budget = document('b', 2, { name: '예산서', submissionType: 'TEXT' });
+const budget = document('b', 2, { name: '예산서' });
 const pledge = document('c', 3, {
   name: '서약서',
-  submissionType: 'TEXT',
   required: false,
 });
 
@@ -103,24 +98,24 @@ describe('milestoneDocumentSaveSortOrder', () => {
   });
 });
 
-// 계약 변경(2026-08): 순서 바꾸기는 두 항목을 각각 PATCH하는 대신 전체 순서를 한 번에
-// 보낸다. 그래서 이 함수가 돌려주는 것도 「PATCH 본문 두 개」가 아니라 **마일스톤 서류
-// 전체를 바뀐 순서로 나열한 id 배열**이다. 아래 테스트는 그 계약으로 갱신했다.
+// 계약 변경(2026-08): 드래그로 순서를 바꾼 뒤 두 항목을 각각 PATCH하는 대신 전체 순서를
+// 한 번에 보낸다. 그래서 이 함수가 돌려주는 것도 「PATCH 본문 두 개」가 아니라
+// **마일스톤 제출 항목 전체를 드롭 결과대로 나열한 id 배열**이다.
 describe('planMilestoneDocumentOrder', () => {
   const documents = [planner, budget, pledge];
 
-  it('아래로는 이웃과 자리를 맞바꾼 전체 순서를 만든다', () => {
-    expect(planMilestoneDocumentOrder(documents, 'a', 'down')).toEqual([
+  it('드롭한 위치까지 항목을 옮긴 전체 순서를 만든다', () => {
+    expect(planMilestoneDocumentOrder(documents, 'a', 'c')).toEqual([
       'b',
-      'a',
       'c',
+      'a',
     ]);
   });
 
-  it('위로도 같은 방식이다', () => {
-    expect(planMilestoneDocumentOrder(documents, 'c', 'up')).toEqual([
-      'a',
+  it('위쪽으로 드롭해도 같은 방식이다', () => {
+    expect(planMilestoneDocumentOrder(documents, 'c', 'a')).toEqual([
       'c',
+      'a',
       'b',
     ]);
   });
@@ -128,19 +123,19 @@ describe('planMilestoneDocumentOrder', () => {
   // 부분 목록을 보내면 서버가 400(MSD_019)으로 거절한다 — 움직인 두 항목만 담아
   // 보내는 옛 방식으로 되돌아가지 않도록 길이를 못 박는다.
   it('움직인 두 항목만이 아니라 마일스톤 서류 전체를 담는다', () => {
-    const documentIds = planMilestoneDocumentOrder(documents, 'a', 'down');
+    const documentIds = planMilestoneDocumentOrder(documents, 'a', 'c');
 
     expect(documentIds).toHaveLength(documents.length);
     expect([...(documentIds ?? [])].sort()).toEqual(['a', 'b', 'c']);
   });
 
-  it('맨 위에서 위로, 맨 아래에서 아래로는 보낼 요청이 없다', () => {
-    expect(planMilestoneDocumentOrder(documents, 'a', 'up')).toBeNull();
-    expect(planMilestoneDocumentOrder(documents, 'c', 'down')).toBeNull();
+  it('같은 자리에 놓으면 보낼 요청이 없다', () => {
+    expect(planMilestoneDocumentOrder(documents, 'a', 'a')).toBeNull();
   });
 
-  it('모르는 id는 계획을 만들지 않는다', () => {
-    expect(planMilestoneDocumentOrder(documents, 'gone', 'up')).toBeNull();
+  it('집은 항목이나 놓을 항목을 찾을 수 없으면 계획을 만들지 않는다', () => {
+    expect(planMilestoneDocumentOrder(documents, 'gone', 'a')).toBeNull();
+    expect(planMilestoneDocumentOrder(documents, 'a', 'gone')).toBeNull();
   });
 
   /**
@@ -154,39 +149,15 @@ describe('planMilestoneDocumentOrder', () => {
       planMilestoneDocumentOrder(
         [document('a', 7), document('b', 7)],
         'a',
-        'down',
+        'b',
       ),
     ).toEqual(['b', 'a']);
   });
 
-  it('정렬되지 않은 입력에서도 화면에 보이는 이웃과 맞바꾼다', () => {
+  it('정렬되지 않은 입력에서도 화면에 보이는 위치로 옮긴다', () => {
     expect(
-      planMilestoneDocumentOrder([pledge, planner, budget], 'c', 'up'),
-    ).toEqual(['a', 'c', 'b']);
-  });
-});
-
-describe('milestoneDocumentSubmissionTypeLocked', () => {
-  it('제출이 한 건이라도 있으면 제출 방식을 잠근다', () => {
-    expect(
-      milestoneDocumentSubmissionTypeLocked(
-        document('a', 1, { teamSubmissionCount: { submitted: 1, total: 8 } }),
-      ),
-    ).toBe(true);
-  });
-
-  it('아직 아무도 안 냈으면 잠그지 않는다', () => {
-    expect(
-      milestoneDocumentSubmissionTypeLocked(
-        document('a', 1, { teamSubmissionCount: { submitted: 0, total: 8 } }),
-      ),
-    ).toBe(false);
-  });
-
-  // 학생 응답에는 이 필드가 아예 없다. 없음은 「제출 0」이 아니라 「모른다」이고,
-  // 모를 때 화면이 먼저 막으면 멀쩡한 항목까지 고칠 수 없게 된다. 서버가 막는다.
-  it('집계가 없으면 잠그지 않는다', () => {
-    expect(milestoneDocumentSubmissionTypeLocked(document('a', 1))).toBe(false);
+      planMilestoneDocumentOrder([pledge, planner, budget], 'c', 'a'),
+    ).toEqual(['c', 'a', 'b']);
   });
 });
 
@@ -218,7 +189,6 @@ describe('buildMilestoneDocumentInput', () => {
           id: null,
           name: '  계획서  ',
           required: false,
-          submissionType: 'TEXT',
         },
         4,
       ),
@@ -226,26 +196,7 @@ describe('buildMilestoneDocumentInput', () => {
       name: '계획서',
       required: false,
       sortOrder: 4,
-      submissionType: 'TEXT',
     });
-  });
-});
-
-describe('제출 방식 표기', () => {
-  it('교직원 화면은 raw enum 대신 한국어 이름을 쓴다', () => {
-    expect(submissionTypeLabel('FILE')).toBe('파일');
-    expect(submissionTypeLabel('TEXT')).toBe('글로 작성');
-  });
-
-  it('선택지는 FILE과 TEXT만 담고 라벨에 enum을 남기지 않는다', () => {
-    expect(SUBMISSION_TYPE_CHOICES.map((choice) => choice.value)).toEqual([
-      'FILE',
-      'TEXT',
-    ]);
-    for (const choice of SUBMISSION_TYPE_CHOICES) {
-      expect(choice.label).not.toContain('_');
-      expect(choice.label).not.toBe(choice.value);
-    }
   });
 });
 
@@ -254,7 +205,6 @@ describe('updateMilestoneDocumentEditor', () => {
     mode: 'edit',
     form: toMilestoneDocumentForm(planner),
     errors: { name: '서류명을 입력해 주세요.' },
-    submissionTypeLocked: false,
   };
 
   it('입력이 바뀌면 이전 오류를 지운다', () => {
@@ -270,14 +220,6 @@ describe('updateMilestoneDocumentEditor', () => {
     expect(next.mode === 'closed' ? null : next.form.required).toBe(false);
   });
 
-  it('모르는 제출 방식 문자열은 기본값으로 떨어진다', () => {
-    const next = updateMilestoneDocumentEditor(open, 'submissionType', 'PDF');
-
-    expect(next.mode === 'closed' ? null : next.form.submissionType).toBe(
-      'FILE',
-    );
-  });
-
   it('닫힌 편집기는 그대로 둔다', () => {
     const closed: MilestoneDocumentEditor = { mode: 'closed' };
 
@@ -286,24 +228,14 @@ describe('updateMilestoneDocumentEditor', () => {
     );
   });
 
-  describe('제출이 있는 항목의 제출 방식 잠금', () => {
+  describe('제출이 있는 항목의 편집', () => {
     const locked: MilestoneDocumentEditor = {
       mode: 'edit',
       form: toMilestoneDocumentForm(planner),
       errors: {},
-      submissionTypeLocked: true,
     };
 
-    // `disabled`는 화면의 안내일 뿐이라 값이 프로그램적으로 들어오면 그대로 통과해
-    // 409(MSD_016)를 부르는 요청이 만들어진다. 폼 상태에서도 막는다.
-    it('잠긴 항목의 제출 방식은 폼 상태에서도 바뀌지 않는다', () => {
-      expect(
-        updateMilestoneDocumentEditor(locked, 'submissionType', 'TEXT'),
-      ).toBe(locked);
-    });
-
-    // 백엔드는 name·required만 바꾸는 요청은 제출이 있어도 통과시킨다.
-    it('이름과 필수 여부는 잠긴 항목에서도 고칠 수 있다', () => {
+    it('제출 이력이 있어도 이름과 필수 여부는 고칠 수 있다', () => {
       const renamed = updateMilestoneDocumentEditor(locked, 'name', '수정본');
 
       expect(renamed.mode === 'closed' ? null : renamed.form.name).toBe(
@@ -338,8 +270,7 @@ describe('목록 갱신', () => {
 
   /**
    * 수정(PATCH)·재정렬 응답에는 `teamSubmissionCount`가 없다 — 그 값은 목록 조회에서만
-   * 채워진다. 응답으로 통째로 갈아 끼우면 제출 수가 사라지고, 그러면 화면은 「제출이
-   * 있는지 모른다」를 「제출이 없다」로 읽어 제출 방식 잠금을 풀어 버린다.
+   * 채워진다. 응답으로 통째로 갈아 끼우면 화면에 보이던 제출 수가 사라진다.
    */
   it('수정 응답이 제출 수를 안 실어 와도 손에 있던 값을 지킨다', () => {
     const withCount = document('a', 1, {
@@ -353,7 +284,6 @@ describe('목록 갱신', () => {
 
     expect(merged.name).toBe('이름만 바꾼 계획서');
     expect(merged.teamSubmissionCount).toEqual({ submitted: 3, total: 8 });
-    expect(milestoneDocumentSubmissionTypeLocked(merged)).toBe(true);
   });
 
   it('응답이 제출 수를 실어 오면 서버 값이 이긴다', () => {

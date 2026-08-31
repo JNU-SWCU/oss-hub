@@ -55,9 +55,39 @@ describe('E2eProgramAuthoringFixture persistence', () => {
     expect(state).toMatchObject({
       programs: 1,
       milestones: 1,
+      // The isolated one-milestone fixture still expects only its own document;
+      // the browser happy path separately proves the two-document program graph.
       documents: 1,
       applications: 0,
       notifications: 0,
+    });
+    await expect(
+      prisma.user.findUnique({ where: { id: E2E_STAFF_ID } }),
+    ).resolves.toMatchObject({
+      notificationEmail: null,
+      notifyEnabled: false,
+    });
+  });
+
+  it('adopt 경로의 교직원 알림 opt-in이 남아도 reset 뒤 기본 fixture는 비수신 상태를 복원한다', async () => {
+    await fixture.reset();
+    await fixture.ensure();
+    await prisma.user.update({
+      where: { id: E2E_STAFF_ID },
+      data: {
+        notificationEmail: 'e2e-program-authoring-staff@fixture.invalid',
+        notifyEnabled: true,
+      },
+    });
+
+    await fixture.reset();
+    await fixture.ensure();
+
+    await expect(
+      prisma.user.findUnique({ where: { id: E2E_STAFF_ID } }),
+    ).resolves.toMatchObject({
+      notificationEmail: null,
+      notifyEnabled: false,
     });
   });
 

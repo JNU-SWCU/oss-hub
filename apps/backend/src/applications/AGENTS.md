@@ -1,41 +1,29 @@
-<!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-30 · Updated: 2026-07-31 (provision 이벤트 중복 처리 정정) -->
+<!-- init:managed id=craft-init-4-applications sha256=520760ebb5893cb47098d31ee283510c5d42d20abc4419620f8a5cc954b0ed86 -->
+# applications — 신청과 판정
 
-# apps/backend/src/applications — 프로그램 신청·판정
+## 범위와 흐름
 
-## Purpose
+- `applications.module.ts` 조립 아래 프로그램 신청 생성, 학생 본인 관리, 교직원 목록/대시보드, 판정을 소유한다.
+- `program-applications.controller.ts`가 프로그램별 GET/POST를, `applications.controller.ts`가 상세·판정을, `student-applications.controller.ts`가 본인 신청 관리를 받는다.
+- 생성 트랜잭션은 기간·중복·양식·팀 조건을 검증한다.
+  기존 team membership이 있으면 그 팀을 잠그고 재사용하며, 없을 때만 1인 기본 팀과 join code를 만든다.
+- 생성은 Application과 필요한 Team을 함께 커밋하고 `TEAM_CREATED`·`APPLICATION_SUBMITTED` audit을 같은 트랜잭션에 기록한다.
+- 판정은 상태 전이, typed audit, 승인 outbox를 원자적으로 남긴다; outbox가 GitHub 프로비저닝의 비동기 입력이며 service가 GitHub를 직접 호출하지 않는다.
+- 재승인은 미완료 outbox/job을 정리한 뒤 stable idempotency key로 새 provision event를 발행한다.
+  과거 eventId 재사용은 orphan job을 영구 실패로 굳힐 수 있으므로 복원하지 않는다.
 
-학생 프로그램 신청 생성, 교직원 목록 조회·요약, 신청 판정 트랜잭션을 담는다.
-승인 시 설정에 따라 outbox 이벤트를 발행하고 GitHub 작업은 `repositories/` worker에 맡긴다.
+## 접근과 경계
 
-## Key Files
+- 판정은 `ApplicationsStaffGuard`, 교직원 목록은 `ApplicationsStaffListGuard`를 쓴다; 외부 오류 계약이 달라 guard를 합치지 않는다.
+- 학생 경로는 session 사용자 소유 Application만 읽고 변경한다.
+- 본인 관리와 교직원 통계는 각각 `student-application-management.service.ts`, `staff-insights.service.ts`의 별도 흐름이다.
+- `APP_*` 오류는 `applications-error-code.enum.ts`와 `DomainException` 계약을 유지한다.
+- audit에는 committed 신청/판정 사실을 기록하고 outbox consumer·worker의 retry 상태를 업무 audit으로 합성하지 않는다.
 
-| 파일 | 역할 |
-| --- | --- |
-| `applications.service.ts` | `create`(팀/개인 중복·기간·양식버전 검증) · `decide`(승인/반려 트랜잭션, idempotency key로 provision 이벤트 재생성 방지, 같은 트랜잭션에서 `APPLICATION_APPROVED`/`APPLICATION_REJECTED` typed audit 기록 — #547) · `listForProgram`/`staffSummary` |
-| `applications.repository.ts` | `withCreateTransaction`/`withTransaction` — `ApplicationDuplicateError`·`RepositoryEventAlreadyExistsError` 등 트랜잭션 충돌을 타입 에러로 던짐. `ApplicationsTransactionStore.auditLogWriter`가 판정 전이와 감사 기록을 한 트랜잭션에 묶는다 |
-| `applications-staff.guard.ts` | `ApplicationsStaffGuard`(판정용, `STAFF_ONLY` 문구) vs `ApplicationsStaffListGuard`(조회용, `STAFF_LIST_ONLY` 문구) — 목적별로 노출 문구를 분리해둔 것이 의도적 설계다 |
-| `applications.controller.ts` | `GET /applications/:id`(상세 조회, #722) · `PATCH /applications/:id`(판정) |
-| `program-applications.controller.ts` | `GET`/`POST /programs/:programId/applications` — 목록·생성 thin sibling |
-| `staff-dashboard.controller.ts` | 교직원 대시보드 Application 집계 |
-| `applications-error-code.enum.ts` | `APP_*` 코드 레지스트리 |
+## 진입점과 검증
 
-## Subdirectories
-
-| 경로 | 내용 |
-| --- | --- |
-| `domain/` | `application-decision.ts`(판정 액션·결과 타입) · `create-application.ts`(생성 입력 타입) |
-| `dto/` | 요청/응답 DTO — `patch-application-decision-request.dto.ts`의 `toAction()`이 판정 액션으로 정규화 |
-
-## For AI Agents
-
-- 두 guard는 같은 STAFF/ADMIN 권한을 검사하지만 실패 시 노출 문구가 다르다(`APP_004` vs `APP_018`) — 새 엔드포인트를 추가할 때 판정 성격이면 `ApplicationsStaffGuard`, 조회 성격이면 `ApplicationsStaffListGuard`를 쓴다.
-- `decide`의 승인은 멱등이다 — 같은 idempotency key의 provision 이벤트가 이미 있으면 충돌로 던지지 않고 기존 `eventId`를 재사용한다.
-- 되돌리기(`REVERT`) 후 재승인이 가능해야 하므로 이 재사용이 필요하다. 같은 키로 새 이벤트를 만들지 않으니 저장소가 두 번 만들어지지 않는다.
-- 신청 생성은 항상 같은 트랜잭션에서 1인 팀(leader=신청자)을 만든다. 선택적 `teamName`이 없으면 신청자 표시명 기본값을 쓴다. `joinCodeDigest`는 `common/join-code-digest` + `program-teams`와 동일 발급 규칙을 applications 계층에서 재현한다(그 함수는 비export).
-
-## Dependencies
-
-- [apps/backend/src/AGENTS.md](../AGENTS.md) — 모듈 경계·에러 코드 규약.
-- `auth/`(`SessionGuard`·`OriginGuard`), `common/`(`DomainException`).
-- `repositories/`(outbox consumer가 이 모듈이 만든 이벤트를 소비 — 직접 import 없이 `OutboxEvent` 테이블로만 연결).
+- 구현: `applications.service.ts`, `applications.repository.ts`, `applications.controller.ts`, `program-applications.controller.ts`, `student-application-management.service.ts`.
+- 생성/판정: `applications.create.service.spec.ts`, `applications.decision-audit.service.spec.ts`.
+- 상세/목록/본인 관리: `applications.detail.service.spec.ts`, `applications.list.service.spec.ts`, `student-application-management.service.spec.ts`.
+- HTTP/통합: `program-applications-create-body.http.spec.ts`, `applications-publication-planned.http.spec.ts`, `applications.service.integration.spec.ts`, `student-application-management.service.integration.spec.ts`.
+<!-- /init:managed id=craft-init-4-applications -->

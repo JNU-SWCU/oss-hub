@@ -1,7 +1,6 @@
-import { MilestoneSubmissionType } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsEnum,
   IsInt,
   IsNotEmpty,
   IsString,
@@ -12,6 +11,10 @@ import type { UpsertMilestoneDocumentInput } from '../milestone-documents.reposi
 
 /** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체 방식). */
 export class UpsertMilestoneDocumentRequestDto {
+  @Transform(({ value }) => {
+    const input: unknown = value;
+    return typeof input === 'string' ? input.trim() : input;
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
@@ -24,15 +27,11 @@ export class UpsertMilestoneDocumentRequestDto {
   @Min(0)
   declare readonly sortOrder: number;
 
-  @IsEnum(MilestoneSubmissionType)
-  declare readonly submissionType: MilestoneSubmissionType;
-
   toInput(): UpsertMilestoneDocumentInput {
     return {
-      name: this.name.trim(),
+      name: this.name,
       required: this.required,
       sortOrder: this.sortOrder,
-      submissionType: this.submissionType,
     };
   }
 }

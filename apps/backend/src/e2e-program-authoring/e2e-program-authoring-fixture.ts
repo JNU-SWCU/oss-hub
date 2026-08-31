@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { stateForE2eProgramGraph } from './e2e-program-authoring-state';
 import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
+import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import { adoptE2eProgramGraph } from './e2e-program-authoring-graph-adoption';
 import { ensureE2eProgramAuthoringActors } from './e2e-program-authoring-actors';
 import type { E2eExternalCapture } from './e2e-external-port-registry';
@@ -46,7 +47,13 @@ export class E2eProgramAuthoringFixture {
       this.activeGraph !== null &&
       this.activeGraph.programId !== E2E_PROGRAM_ID
     ) {
-      await removeAdoptedGraph(this.prisma, this.activeGraph, PREFIX);
+      await removeAdoptedGraph(
+        this.prisma,
+        this.activeGraph,
+        PREFIX,
+        (storageKey) =>
+          e2eProgramAuthoringExternalPorts.storage.delete(storageKey),
+      );
       this.activeGraph = null;
     }
     await this.prisma.$transaction(async (transaction) => {
@@ -72,6 +79,16 @@ export class E2eProgramAuthoringFixture {
       });
       await transaction.submissionFile.deleteMany({
         where: { applicationId: { in: applicationIds } },
+      });
+      await transaction.milestoneDocumentReviewHistory.deleteMany({
+        where: {
+          milestoneDocumentSubmission: {
+            applicationId: { in: applicationIds },
+          },
+        },
+      });
+      await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+        where: { submission: { applicationId: { in: applicationIds } } },
       });
       await transaction.milestoneDocumentSubmission.deleteMany({
         where: { applicationId: { in: applicationIds } },
@@ -113,6 +130,8 @@ export class E2eProgramAuthoringFixture {
           id: E2E_STAFF_ID,
           githubId: E2E_STAFF_GITHUB_ID,
           nickname: 'e2e-program-authoring-staff',
+          notificationEmail: null,
+          notifyEnabled: false,
           accountStatus: AccountStatus.ACTIVE,
           selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,
@@ -131,6 +150,8 @@ export class E2eProgramAuthoringFixture {
         },
         update: {
           nickname: 'e2e-program-authoring-staff',
+          notificationEmail: null,
+          notifyEnabled: false,
           accountStatus: AccountStatus.ACTIVE,
           selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,
@@ -262,7 +283,6 @@ export class E2eProgramAuthoringFixture {
           name: `${PREFIX}document`,
           required: true,
           sortOrder: 0,
-          submissionType: MilestoneSubmissionType.FILE,
         },
         update: {},
       });
@@ -283,6 +303,19 @@ export class E2eProgramAuthoringFixture {
       authorGithubId,
       PREFIX,
     );
+    await this.prisma.user.updateMany({
+      where: { hasStaffAccess: true },
+      data: { notifyEnabled: false },
+    });
+    const author = await this.prisma.user.updateMany({
+      where: { githubId: authorGithubId, hasStaffAccess: true },
+      data: {
+        notificationEmail: 'e2e-program-authoring-author@fixture.invalid',
+        notifyEnabled: true,
+      },
+    });
+    if (author.count !== 1)
+      throw new Error('The adopted E2E author must be one active staff user.');
     this.activeGraph = graph;
     return graph;
   }
@@ -292,13 +325,13 @@ export class E2eProgramAuthoringFixture {
     return this.activeGraph;
   }
 
-  application(): Promise<{
+  application(applicantId = E2E_STUDENT_ID): Promise<{
     readonly id: string;
     readonly status: ApplicationStatus;
   } | null> {
     const graph = this.graph();
     return this.prisma.application.findFirst({
-      where: { programId: graph.programId, applicantId: E2E_STUDENT_ID },
+      where: { programId: graph.programId, applicantId },
       select: { id: true, status: true },
     });
   }

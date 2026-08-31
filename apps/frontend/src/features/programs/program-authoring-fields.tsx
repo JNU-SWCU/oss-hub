@@ -1,5 +1,10 @@
 import type { HTMLInputTypeAttribute } from 'react';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
 
@@ -11,6 +16,7 @@ export type ProgramAuthoringTextFieldProps = {
   readonly max?: string;
   readonly value: string;
   readonly error?: string;
+  readonly description?: string;
   readonly onChange: (value: string) => void;
 };
 
@@ -22,8 +28,18 @@ export function ProgramAuthoringTextField({
   max,
   value,
   error,
+  description,
   onChange,
 }: ProgramAuthoringTextFieldProps) {
+  const descriptionId = `${id}-description`;
+  const errorId = `${id}-error`;
+  const describedBy = [
+    description ? descriptionId : null,
+    error ? errorId : null,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(' ');
+
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -34,9 +50,15 @@ export function ProgramAuthoringTextField({
         max={max}
         value={value}
         aria-invalid={Boolean(error)}
+        aria-describedby={describedBy || undefined}
         onChange={(event) => onChange(event.target.value)}
       />
-      <FieldError>{error}</FieldError>
+      {description ? (
+        <FieldDescription id={descriptionId}>{description}</FieldDescription>
+      ) : null}
+      <FieldError id={errorId} role="alert">
+        {error}
+      </FieldError>
     </Field>
   );
 }

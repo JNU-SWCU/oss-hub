@@ -728,3 +728,176 @@
 - blocker: 없음
 - 결과: `tickets`의 작성·발행·연결·이관·수행 계약을 `manage-qa-tickets` v4.0.0으로 흡수해 단일 repository-local 스킬로 복원했다. frontend 시각·상호작용 변경 PR에는 동일 조건의 실제 Before/After 캡처를 요구하고, PR 템플릿과 Claude·Cursor 링크 및 루트 라우팅을 새 이름으로 맞췄다.
 - 검증: craft-skills `skillify` eval 3건과 trigger 16건, 변경 패키지 skill-format, runtime hygiene, reflow, Prettier, public-safe를 통과했다.
+
+## 2026-08-29 — PR #1047 전체 diff 검토 결과를 반영한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 199개 파일의 exact diff를 전수 검토해 수합 snapshot 일관성, 참여자 cursor 이력, 선택 제출 항목의 공개 판정, 일정 수정 복구, 통합 제출 계약, E2E 검증 범위와 로컬 검토 구현 경계를 바로잡았다.
+- 검증: format, lint, typecheck, backend unit 3429건, frontend unit 3113건, backend integration 461건과 격리 Docker smoke를 통과했다.
+
+## 2026-08-29 — PR #1047 최종 exact diff 범위를 정정한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 앞 항목의 199개 파일은 수정 전 최초 snapshot이었다. 최종 candidate는 base 대비 rename-aware manifest 254개 항목을 254/254 전수 재검토하고 발견한 blocker와 fix-now를 모두 반영했다.
+- 검증: 최종 head와 base는 GitHub PR #1047의 실제 ref에서 다시 읽었고 exact patch, name-status, stat의 해시를 별도 검토 증거로 고정했다.
+
+## 2026-08-29 — PR #1047 인증 보완 뒤 exact diff 범위를 다시 정정한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 앞 정정 뒤 seed 원장 무결성 검증이 추가되면서 최종 rename-aware manifest가 255개 항목이 됐다. 최종 candidate의 255/255 항목을 다시 전수 검토했다.
+- 검증: GitHub의 최종 head·base를 다시 읽고 exact patch, name-status, stat 해시와 required check 결과를 같은 candidate에 묶었다.
+
+## 2026-08-29 — PR #1047 교직원 프로그램 작성 흐름을 확정한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 신청·운영 일정을 한 달력과 일정 입력 모달로 통일하고 기간 중첩을 허용했다. 운영 기간 안에서 마일스톤을 두 번 클릭해 작성하며, 공지·드래그 가능한 첨부파일·필수 제출 여부를 같은 모달에서 관리한다. 최종 검토에도 전체 일정 달력을 표시하고 중복 설명과 과도한 실패 안내를 정리했다.
+- 검증: frontend unit 3165건, backend unit 3448건, backend integration 462건, 프로그램 작성부터 학생 제출·재제출과 교직원 수합까지의 E2E, format, lint, typecheck, migration concurrency, public-safe, 격리 Docker smoke를 통과했다.
+
+## 2026-08-29 — PR #1047 최종 exact diff 지적을 해소한다
+
+- 상태: review
+- Issue: #1033
+- PR: #1047
+- blocker: 없음
+- 결과: 일정·마일스톤 모달 골격을 재사용 모듈로 통합하고, DB 경계·업로드 토큰·스토리지 정합성·일정 오류 접근성·작성 한도·기존 임시저장 삭제를 exact diff 검토 결과에 맞게 보강했다.
+- 검증: frontend unit 3176건, backend unit 3452건, backend integration 463건, 프로그램 작성부터 학생 제출·재제출과 교직원 수합까지의 E2E, format, lint, typecheck, migration concurrency, public-safe, 격리 Docker smoke를 통과했다.
+
+## 2026-08-30 — 레거시 제출 이관 검증 도구를 준비한다
+## 2026-08-30 — 제출 파일 integration fixture의 고정 마감일을 제거한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 레거시 제출 source·target count와 provenance를 공개 안전하게 대조하는 report, runtime callsite inventory, 11개 migration rehearsal mode와 synthetic fixture 계약을 추가하고 backend CI 경로에 연결했다. 운영 DB 쓰기·migration 실행은 포함하지 않는다.
+- 검증: Node 계약 32건, backend unit 3454건, backend typecheck·build·lint, repository format, CI path contract, shell syntax, public-safe를 통과했다. 로컬 Docker daemon이 꺼져 있어 실제 Docker rehearsal은 CI가 수행한다.
+- 결과: 실제 날짜가 고정 마감일을 지나면 파일 업로드 integration test가 실패하던 time bomb을 제거하고, 테스트 목적에 맞게 실행 시점 기준 미래 마감·프로그램 종료일을 사용한다.
+- 검증: backend typecheck와 변경 파일 format을 통과했다. 로컬 Docker daemon이 꺼져 있어 focused integration은 실행하지 못했고, 원격 CI에서 확인한다.
+
+## 2026-08-30 — 레거시 제출 이관 expand 경계를 배포한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 내부 legacy 제출 슬롯 kind·공개 ID provenance·SubmissionFile 공존 CHECK를 additive migration으로 열고, 일반 서류 UI·집계에서 내부 슬롯을 구조적으로 제외했다. 프런트 계약을 유지하는 target ID·복수 파일 이력 adapter는 dormant 상태로 준비했으며 runtime 정본은 계속 레거시다.
+- 검증: Prisma validate, migration contract 20건, backend unit 311 suites·3465 tests, touched contract 100 tests, backend typecheck·build·lint, repository format, public-safe를 통과했다. 실제 migrate deploy·integration은 required CI의 격리 PostgreSQL에서 확인한다.
+
+## 2026-08-30 — 레거시 제출 이력을 복사하고 backend를 신규 원장으로 전환한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: non-seed 레거시 제출·회차·판정·복수 파일을 deterministic internal slot/history로 복사하는 단일 transaction bridge와 source/file provenance fence를 추가했다. 기존 프런트 ID·DTO를 유지한 채 제출·재제출·수합·판정·파일 권한·프로그램 집계를 target 원장으로 원자 전환하며, migrated 프로그램 purge는 contract 전 409로 차단한다.
+- 검증: bridge migration contract 21건, backend unit 311 suites·3465 tests, backend typecheck·build·lint, Prisma validate, repository format, public-safe를 통과했다. 실제 source→target copy·integration·migrate deploy는 required CI와 Jenkins CD에서 검증한다.
+
+## 2026-08-30 — 이관 진행 중 purge 차단을 회귀 테스트로 고정한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 이관된 제출(provenance header)이 남은 프로그램의 완전 삭제를 409로 막고 범위 재확인·삭제·감사 기록까지 전혀 시작하지 않는 것을 회귀 테스트로 고정했다. 운영에서 직접 purge를 호출하면 guard 결함 시 실제 프로그램이 삭제되기 때문에 격리 테스트로 증명한다.
+- 검증: program lifecycle unit 38건, backend typecheck·lint, repository format을 통과했다. 운영에서는 read-only 집계로 provenance 보유 프로그램 4개·보유 없는 프로그램 5개를 확인해 guard 분기가 단일 값이 아니었음을 같이 남긴다.
+
+## 2026-08-30 — 제출 runtime의 레거시 접근을 제거한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 프로그램 삭제 범위·fingerprint·완전 삭제, 제출 파일 다운로드 provenance, 판정 이력 식별자에서 남아 있던 레거시 제출 원장 접근과 별칭을 제거했다. 완전 삭제 결과 계약은 유지하고 신규 제출·이력·판정 원장만 집계하며, provenance가 있는 이관 프로그램의 409 차단은 contract 전까지 유지한다.
+- 검증: checked runtime inventory 26개 경로에서 legacy delegate·SQL table·source file provenance 접근 0건, backend unit 311 suites·3466 tests, report contract 13건, backend typecheck·build·lint, repository format을 통과했다. target-only purge와 파일 권한 integration은 required CI의 격리 PostgreSQL·MinIO에서 확인한다.
+
+## 2026-08-30 — 레거시 제출 원장 contract를 적용한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 최종 transaction 안에서 non-seed 제출·회차·판정·review event·복수 파일 provenance·공개 ID 충돌·internal slot kind·header timestamp를 다시 대조한 뒤 SubmissionFile을 target-only 계약으로 좁히고 Review → SubmissionRevision → Submission 순서로 제거한다. source-only seed 파일은 비동기 정리 대상으로 넘기고 target에 연결된 seed 파일은 객체를 보존하며, 임시 trigger·purge guard·legacy mapper·dual-write seed와 fixture를 함께 제거했다.
+- 검증: production v0.6.121 backup을 격리 PostgreSQL에 복원한 upgrade rehearsal에서 source table·column·trigger 0, target 22 headers·39 histories·7 reviews 보존, target file CHECK validated를 확인했다. internal slot kind를 훼손한 negative rehearsal은 exit 3으로 실패하고 source table 3·column 1·trigger 4를 모두 보존했다. backend unit 310 suites·3456 tests, migration/report/CI contract 35건, Prisma validate, backend typecheck·build·lint, repository format·public-safe를 통과했고 architecture re-review는 CLEAR였다.
+
+## 2026-08-30 — 에이전트 스킬 라우팅을 세우고 티켓 캡처를 PR에 실제로 올린다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 작업 표면별 스킬 라우팅 원본을 `docs/rules/agent-skill-routing.md` 한 파일로 두고 AGENTS.md는 링크만 한다. craft-skills 0.13.0 기준으로 표를 세웠다 — frontend·backend·testing·design·research·init이 craft 소속이고 티켓과 릴리스 QA는 이 저장소 스킬이다. 스킬 계약이 이 저장소 규칙과 갈리는 두 지점(craft `design`의 `DESIGN.md` 요구 대 `docs/design.md`, craft `init`의 AGENTS.md 자동 갱신 대 §3 작성권)은 이 저장소를 따르기로 표에 적었다. `init` 0.13.0은 문서 골격을 만들지 않으므로(자기 설명에 "Do not scaffold documentation") 적용 대상은 AGENTS.md 지도뿐이고 그 계층은 이미 손으로 관리된다. `docs/research/`만 새로 만들었고 그 주인은 craft `research`다. 티켓 3단계의 Before/After 캡처는 "첨부한다"에서 실제 렌더되는 경로로 좁혔다 — 촬영 조건 고정 → 사람이 공개 안전과 이미지 메타데이터를 직접 확인 → GitHub PR 본문 직접 첨부 → 렌더 재확인이며, 안 되는 길(로컬 경로 기재, 제품 브랜치 커밋, 증거 전용 브랜치, `gh release upload`, `/artifacts/`)을 이유와 함께 적었다. PR 템플릿 §4는 규칙을 복제하지 않고 그 절차를 링크한다. Codex는 `.codex/skills/manage-qa-tickets` 상대 심볼릭 링크로 같은 원본을 읽는다.
+- 검증: 합동 리뷰(architect·QA red-team)가 blocking 11건을 잡아 전부 해소했다. 증거 전용 브랜치 절차는 실증으로 폐기했다 — 별도 worktree에서 orphan 브랜치를 만들어 push하니 그 작업트리에 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 `ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND`로 죽고 push가 실패했다. 링크 존재 여부를 검사하는 스크립트도 넣지 않았다(운영자 판단) — checkout하면 드러나는 사실이라 기계로 지킬 값이 아니며, 그 검사에 붙었던 CI 배선과 계약 단정도 함께 걷어내 `ci.yml`·`ci-path-contract.test.mjs`·`scripts/AGENTS.md`·`ci-path-verification.md`를 origin/main 상태로 되돌렸다. 리뷰 뒤 운영자가 craft-skills에 `design` 스킬이 있다고 지적해 확인한 결과 로컬 플러그인 캐시가 0.5.5로 낡아 있었다 — 0.13.0으로 올려 `design` 실재와 `init`의 문서 스캐폴딩 철회(PR #104)를 확인하고 라우팅 문서의 사실 주장을 고쳤다. `node --test scripts/ci-path-contract.test.mjs` 6건, `bash scripts/check-public-safe.sh origin/main`, `pnpm format:check`, 라우팅 문서가 링크한 11개 경로 실재 확인을 통과했다. frontend 시각 변화 없음.
+## 2026-08-30 — 이관 완료 후 제출 원장 코드를 단순화한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 사용되지 않는 dormant target adapter·transition type·legacy 별칭·dead exception을 제거하고, 공개 제출 ID의 dual-key predicate·collision guard·projection을 한 helper로 통합했다. 유일한 review mapper를 canonical 이름으로 바꾸고 completion axis projection을 공유하며, 프로그램 편집의 항상 0이던 legacy count와 target/projected compatibility branch를 제거했다. checklist는 현재 history/file/review만 읽고 dashboard는 target row를 한 번만 partition한다.
+- 검증: backend unit 309 suites·3448 tests, backend typecheck·build·lint, repository format을 통과했다. architecture review CLEAR, public-ID/review/file QA red-team CLEAR였고, completion red-team이 찾은 legacy document-only 공개 차단을 회귀 테스트와 함께 수정한 뒤 re-review CLEAR를 받았다.
+
+## 2026-08-30 — 완료된 제출 이관 전용 도구를 제거한다
+
+- 상태: review
+- Issue: #1034
+- PR: (이 PR)
+- blocker: 없음
+- 결과: contract 배포와 최종 단순화가 끝나 더는 실행할 단계가 없는 제출 이관 전용 report·runtime inventory·rehearsal/restore-mode script와 테스트 5개를 삭제하고 required CI·경로 계약·규칙 문서에서 연결을 제거했다. 영구 데이터 계약인 Prisma migration 이력·`legacySubmissionId`·internal kind·target-only CHECK와 전체 release를 보호하는 Jenkins backup/rollback은 유지한다.
+- 검증: 삭제된 도구 참조 0건, CI path contract와 남은 migration/Jenkins contract 41건, repository format·public-safe를 통과했다.
+
+## 2026-08-30 — 스킬 라우팅을 설치된 craft 스킬 전수와 맞춘다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 라우팅 표를 8행에서 15행으로 넓혔다. 이 저장소에 실제 표면과 원본 문서가 있는 스킬만 넣었다 — `db`(스키마·쿼리, data-modeling.md), `api`(공개 HTTP 계약, ADR-004·ADR-008), `cicd`(파이프라인, ADR-002), `browser`(실행 화면 증거, qa-dom-capture), `programming`(TypeScript 공통 규율), `refactor`(동작 불변 정리), `debug`(진단, diagnose-collection.sh)다. 스킬에 위임하지 않는 표면은 셋에서 넷으로 늘렸다 — `.githooks/`와 `commitlint.config.cjs`가 이미 강제 장치이므로 craft `guardrails`로 별도 강제 계층을 얹지 않는다. 계약 차이 표에는 craft `research`의 산출물과 ADR canonical store가 공존하는 방식(조사는 `docs/research/`, 결정은 ADR, 서로 링크)을 더했다. 표에 없는 12개 스킬은 "표면이 없다"가 아니라 "아직 필요하지 않았다"로 낮춰 적었다 — 쓸 수 없다는 뜻이 아니고, 필요해지면 그 스킬의 SKILL.md를 읽고 한 행을 추가한다.
+- 검증: 초안에서 `programming`을 표면 없음 목록에 넣은 것이 틀렸음을 잡아 고쳤다 — 이 저장소는 TypeScript이고 그 스킬이 TS를 다룬다(앞선 `design` 오판과 같은 종류라 스킬 이름을 전수 실물 대조했다). 문서가 언급한 craft 스킬 17개 전부가 설치된 0.13.0에 실재하는지 `SKILL.md` 존재로 확인했고, 문서가 링크한 20개 저장소 경로 실재, AGENTS.md 계층 26개 주장 일치, `init` 0.13.0의 "Do not scaffold documentation" 문장 실물, `bash scripts/check-public-safe.sh origin/main`, `pnpm format:check`를 통과했다. 플러그인 캐시는 릴리스 태그 v0.12.4보다 2커밋 앞선 main(5fd90a53) 기준 0.13.0이며 `gjc plugin upgrade`가 더 올릴 것이 없다고 답한다. frontend 시각 변화 없음.
+
+## 2026-08-31 — craft 스킬을 런타임 native project plugin으로 등록한다
+
+- 상태: review
+- Issue: #1072
+- PR: (이 PR)
+- blocker: 없음
+- 결과: craft-skills를 복사·vendoring·setup script로 고정하지 않고 Claude Code의 project settings, Codex의 team marketplace, GJC의 native project-scope registry로 등록했다. Claude marketplace는 자동 갱신하고 Codex는 기본 설치 정책을 쓰며, GJC는 세션 부트스트랩에서 marketplace 갱신 뒤 project plugin을 재설치한다. 최신 craft init 4.0.0으로 AGENTS 지도 26개를 다시 점검해 placement를 유지하고 `CLAUDE.md`를 exact adapter로 정규화했다.
+- 검증: GJC project plugin 0.13.0이 user plugin을 shadow하는 실제 목록, Claude·Codex project JSON 계약, CLAUDE adapter 바이트, AGENTS 지도 26개, focused Prettier, diff check, public-safe를 통과했다.
+
+## 2026-08-31 — root AGENTS를 현재 저장소 가이드로 다시 생성한다
+
+- 상태: review
+- Issue: #1072
+- PR: #1073
+- blocker: 없음
+- 결과: canonical architect 4개를 병렬로 실행해 core source, tests/QA, config/build/deploy, scripts/docs를 독립 조사하고 root `AGENTS.md`를 `Repository Guidelines`로 전면 재구성했다. placeholder owner 표, 폐기된 review state 설명, 중복 bootstrap·branch cleanup 서술을 제거하고 현재 architecture/data flow, key directories, 실제 pnpm 명령, frontend/backend 패턴, 중요 파일, Node 24·pnpm 11 runtime, Vitest/Jest/Playwright 경계를 149줄로 정리했다.
+- 검증: 네 architect 결과의 path evidence를 반영했고 required heading 8개, root 149줄, Prettier, CI path contract 6건, public-safe를 통과했다. TEAM-STATE checker는 이 변경과 무관한 기존 stale 17건·unknown 12건을 보고해 advisory baseline 실패로 남겼다.
+
+## 2026-08-31 — nested AGENTS 전수를 craft init managed region으로 갱신한다
+
+- 상태: review
+- Issue: #1074
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 기존 child AGENTS 25개를 6개 독립 cluster로 나눠 canonical executor가 current source/config를 inventory하고, 각 파일을 하나의 hash-checked craft init 4.0.0 managed region으로 통합했다. 이어 canonical architect 5개가 frontend entry/features, backend entry/domains, shared ops를 독립 검토해 잘못 압축된 ESLint 보장, migration·seed authority, route 등록 순서, 신청 재승인 event, GitHub credential/quota, notification producer, program 생성 표면, 제출 dashboard port 등 34건을 찾아 모두 현재 구현에 맞게 교정하고 CLEAR 재검토를 남겼다. frontend/backend `CLAUDE.md`도 exact `@AGENTS.md` adapter로 정규화했다.
+- 검증: 25개 managed ID uniqueness·payload SHA-256·25–80줄 범위, adapter 3개 exact bytes, craft init Python unit 19건, CI path contract 6건, repository Prettier, public-safe, diff check, stale marker·존재하지 않는 script path scan을 통과했다.
+
+## 2026-08-31 — 개발 세션마다 최신 craft 스킬을 적용한다
+
+- 상태: review
+- Issue: #1074
+- PR: #1075
+- blocker: 없음
+- 결과: root `AGENTS.md`에 로컬 날짜 기준 첫 개발 세션의 native craft marketplace 최신본 확인·갱신을 명시하고, frontend·backend·API·DB·test·refactor·debug·browser 구현 전에 라우팅 표의 craft `SKILL.md`를 읽어 적용하도록 고정했다. Claude Code는 project autoUpdate, Codex는 project default-install, GJC는 native marketplace add/update와 project force-install을 사용한다.
+- 검증: root 150줄, Prettier, diff check를 통과했다.

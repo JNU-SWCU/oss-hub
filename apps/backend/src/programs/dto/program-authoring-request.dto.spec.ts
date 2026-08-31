@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ProgramAuthoringRequestDto } from './program-authoring-request.dto';
@@ -23,13 +23,11 @@ function request() {
         name: 'Planning',
         startAt: '2026-08-11T00:00:00.000Z',
         dueAt: '2026-08-20T00:00:00.000Z',
-        submissionType: MilestoneSubmissionType.FILE,
         instructions: 'Submit the plan',
         documents: [
           {
             name: 'Plan',
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
             templateUploadId: 'upload-plan',
           },
         ],
@@ -85,6 +83,7 @@ describe('ProgramAuthoringRequestDto', () => {
       '51 milestones',
       { milestones: Array.from({ length: 51 }, () => milestone()) },
     ],
+
     [
       '21 documents in one milestone',
       {
@@ -117,7 +116,46 @@ describe('ProgramAuthoringRequestDto', () => {
     );
   });
 
-  it('rejects submission types outside FILE and TEXT at every nested level', async () => {
+  it('accepts an announcement-only milestone without documents', async () => {
+    await expect(
+      errors({
+        ...request(),
+        milestones: [{ ...milestone(), documents: [] }],
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['omitted', undefined],
+    ['null', null],
+    ['blank', ' \t'],
+  ])(
+    'rejects a document with a %s template upload ID',
+    async (_caseName, templateUploadId) => {
+      const input = request();
+      const milestoneFixture = milestone();
+      const documentFixture: Record<string, unknown> = {
+        ...document(),
+        templateUploadId,
+      };
+      if (templateUploadId === undefined)
+        delete documentFixture.templateUploadId;
+
+      await expect(
+        errors({
+          ...input,
+          milestones: [
+            {
+              ...milestoneFixture,
+              documents: [documentFixture],
+            },
+          ],
+        }),
+      ).resolves.not.toEqual([]);
+    },
+  );
+
+  it('rejects a milestone-level submission type', async () => {
     const input = request();
     const milestoneFixture = milestone();
 
@@ -127,13 +165,25 @@ describe('ProgramAuthoringRequestDto', () => {
         milestones: [
           {
             ...milestoneFixture,
-            submissionType: 'REPOSITORY_RELEASE',
-            documents: [
-              {
-                ...document(),
-                submissionType: 'REPOSITORY_RELEASE',
-              },
-            ],
+            submissionType: 'FILE',
+            documents: [document()],
+          },
+        ],
+      }),
+    ).resolves.not.toEqual([]);
+  });
+
+  it('rejects a document-level submission type', async () => {
+    const input = request();
+    const milestoneFixture = milestone();
+
+    await expect(
+      errors({
+        ...input,
+        milestones: [
+          {
+            ...milestoneFixture,
+            documents: [{ ...document(), submissionType: 'TEXT' }],
           },
         ],
       }),

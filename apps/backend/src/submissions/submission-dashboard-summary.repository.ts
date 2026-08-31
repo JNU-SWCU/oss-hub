@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
+  type MilestoneSubmissionType,
   Prisma,
   type SubmissionStatus,
 } from '@prisma/client';
@@ -14,15 +16,8 @@ const dashboardApplicationSelect = {
 const dashboardMilestoneSelect = {
   id: true,
   programId: true,
+  submissionType: true,
 } as const;
-
-const dashboardSubmissionSelect = {
-  applicationId: true,
-  milestoneId: true,
-  status: true,
-  application: { select: { programId: true } },
-  milestone: { select: { programId: true } },
-} as const satisfies Prisma.SubmissionSelect;
 
 /**
  * 서류 축의 **명부** — 이 프로그램들의 필수 서류 항목이 어느 마일스톤에 몇 개 달렸는가.
@@ -41,7 +36,11 @@ const dashboardDocumentSubmissionSelect = {
   status: true,
   application: { select: { programId: true } },
   milestoneDocument: {
-    select: { milestoneId: true, milestone: { select: { programId: true } } },
+    select: {
+      kind: true,
+      milestoneId: true,
+      milestone: { select: { programId: true } },
+    },
   },
 } as const satisfies Prisma.MilestoneDocumentSubmissionSelect;
 
@@ -51,10 +50,6 @@ export type DashboardApplicationRow = Prisma.ApplicationGetPayload<{
 
 export type DashboardMilestoneRow = Prisma.MilestoneGetPayload<{
   select: typeof dashboardMilestoneSelect;
-}>;
-
-export type DashboardSubmissionRow = Prisma.SubmissionGetPayload<{
-  select: typeof dashboardSubmissionSelect;
 }>;
 
 export type DashboardMilestoneDocumentRow = Prisma.MilestoneDocumentGetPayload<{
@@ -79,12 +74,6 @@ export interface SubmissionDashboardSummaryDataSource {
       readonly select: typeof dashboardMilestoneSelect;
     }): Promise<readonly DashboardMilestoneRow[]>;
   };
-  readonly submission: {
-    findMany(args: {
-      readonly where: Prisma.SubmissionWhereInput;
-      readonly select: typeof dashboardSubmissionSelect;
-    }): Promise<readonly DashboardSubmissionRow[]>;
-  };
   readonly milestoneDocument: {
     findMany(args: {
       readonly where: Prisma.MilestoneDocumentWhereInput;
@@ -107,6 +96,7 @@ export interface SubmissionDashboardApplicationRecord {
 export interface SubmissionDashboardMilestoneRecord {
   readonly id: string;
   readonly programId: string;
+  readonly submissionType: MilestoneSubmissionType | null;
 }
 
 export interface SubmissionDashboardSubmissionRecord {
@@ -168,87 +158,91 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     }
 
     const programFilter = { in: [...programIds] };
-    const [
-      applications,
-      milestones,
-      submissions,
-      milestoneDocuments,
-      documentSubmissions,
-    ] = await Promise.all([
-      this.prisma.application.findMany({
-        where: { programId: programFilter, status: ApplicationStatus.APPROVED },
-        select: dashboardApplicationSelect,
-      }),
-      this.prisma.milestone.findMany({
-        where: { programId: programFilter },
-        select: dashboardMilestoneSelect,
-      }),
-      this.prisma.submission.findMany({
-        where: {
-          application: {
-            is: {
-              programId: programFilter,
-              status: ApplicationStatus.APPROVED,
+    const [applications, milestones, milestoneDocuments, targetSubmissions] =
+      await Promise.all([
+        this.prisma.application.findMany({
+          where: {
+            programId: programFilter,
+            status: ApplicationStatus.APPROVED,
+          },
+          select: dashboardApplicationSelect,
+        }),
+        this.prisma.milestone.findMany({
+          where: { programId: programFilter },
+          select: dashboardMilestoneSelect,
+        }),
+        // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 칸을 미제출로 잡아 둔다.
+        this.prisma.milestoneDocument.findMany({
+          where: {
+            required: true,
+            kind: MilestoneDocumentKind.DOCUMENT,
+            milestone: { is: { programId: programFilter } },
+          },
+          select: dashboardMilestoneDocumentSelect,
+        }),
+        this.prisma.milestoneDocumentSubmission.findMany({
+          where: {
+            application: {
+              is: {
+                programId: programFilter,
+                status: ApplicationStatus.APPROVED,
+              },
+            },
+            milestoneDocument: {
+              is: {
+                milestone: { is: { programId: programFilter } },
+                OR: [
+                  {
+                    kind: MilestoneDocumentKind.DOCUMENT,
+                    required: true,
+                  },
+                  { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
+                ],
+              },
             },
           },
-          milestone: {
-            is: {
-              programId: programFilter,
-            },
-          },
-        },
-        select: dashboardSubmissionSelect,
-      }),
-      // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 칸을 미제출로 잡아 둔다.
-      this.prisma.milestoneDocument.findMany({
-        where: {
-          required: true,
-          milestone: { is: { programId: programFilter } },
-        },
-        select: dashboardMilestoneDocumentSelect,
-      }),
-      this.prisma.milestoneDocumentSubmission.findMany({
-        where: {
-          application: {
-            is: {
-              programId: programFilter,
-              status: ApplicationStatus.APPROVED,
-            },
-          },
-          milestoneDocument: {
-            is: {
-              required: true,
-              milestone: { is: { programId: programFilter } },
-            },
-          },
-        },
-        select: dashboardDocumentSubmissionSelect,
-      }),
-    ]);
+          select: dashboardDocumentSubmissionSelect,
+        }),
+      ]);
+
+    const submissions: SubmissionDashboardSubmissionRecord[] = [];
+    const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
+      [];
+    for (const submission of targetSubmissions) {
+      const { milestoneDocument } = submission;
+      if (
+        milestoneDocument.kind ===
+        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION
+      ) {
+        submissions.push({
+          applicationId: submission.applicationId,
+          applicationProgramId: submission.application.programId,
+          milestoneId: milestoneDocument.milestoneId,
+          milestoneProgramId: milestoneDocument.milestone.programId,
+          status: submission.status,
+        });
+      } else if (milestoneDocument.kind === MilestoneDocumentKind.DOCUMENT) {
+        documentSubmissions.push({
+          applicationId: submission.applicationId,
+          applicationProgramId: submission.application.programId,
+          milestoneDocumentId: submission.milestoneDocumentId,
+          milestoneId: milestoneDocument.milestoneId,
+          milestoneProgramId: milestoneDocument.milestone.programId,
+          status: submission.status,
+        });
+      }
+    }
 
     return {
       applications,
       milestones,
-      submissions: submissions.map((submission) => ({
-        applicationId: submission.applicationId,
-        applicationProgramId: submission.application.programId,
-        milestoneId: submission.milestoneId,
-        milestoneProgramId: submission.milestone.programId,
-        status: submission.status,
-      })),
+      submissions,
       milestoneDocuments: milestoneDocuments.map((document) => ({
         id: document.id,
         milestoneId: document.milestoneId,
         milestoneProgramId: document.milestone.programId,
       })),
-      documentSubmissions: documentSubmissions.map((submission) => ({
-        applicationId: submission.applicationId,
-        applicationProgramId: submission.application.programId,
-        milestoneDocumentId: submission.milestoneDocumentId,
-        milestoneId: submission.milestoneDocument.milestoneId,
-        milestoneProgramId: submission.milestoneDocument.milestone.programId,
-        status: submission.status,
-      })),
+      documentSubmissions,
     };
   }
 }

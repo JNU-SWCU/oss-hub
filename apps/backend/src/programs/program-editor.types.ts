@@ -23,7 +23,7 @@ export type ProgramMilestoneView = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: MilestoneSubmissionType | null;
   readonly instructions: string | null;
 };
 
@@ -77,12 +77,7 @@ export type ProgramMilestoneTarget = ProgramMilestoneView & {
 export type ProgramMilestoneDeleteTarget = {
   readonly id: string;
   readonly programId: string;
-  readonly submissionCount: number;
-  /**
-   * 이 마일스톤의 서류 항목(MilestoneDocument)들에 달린 제출 수. 기존 submissionCount와
-   * 따로 세는 이유는 두 제출 경로가 다른 테이블이기 때문이다 — 거부 여부는 같은 뜻이라
-   * 서비스 계층이 둘 다 MILESTONE_HAS_SUBMISSIONS로 묶는다.
-   */
+  /** 이 마일스톤의 내부 제출 슬롯과 일반 서류 항목에 달린 target 제출 수. */
   readonly documentSubmissionCount: number;
   readonly programMilestoneCount: number;
   readonly programRepositoryProvisioningEnabled: boolean;
@@ -111,7 +106,7 @@ export type ProgramMilestoneInput = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType?: MilestoneSubmissionType | null;
   readonly instructions: string | null;
 };
 

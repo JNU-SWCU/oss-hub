@@ -8,7 +8,6 @@ export enum ProgramErrorCode {
   MILESTONE_NOT_FOUND = 'PRG_005',
   CATEGORY_LOCKED_BY_APPLICATIONS = 'PRG_006',
   INVALID_APPLICATION_PERIOD = 'PRG_007',
-  MILESTONE_BEFORE_APPLICATION_END = 'PRG_008',
   MILESTONE_HAS_SUBMISSIONS = 'PRG_009',
   MILESTONE_REQUIRED = 'PRG_010',
   PROGRAM_DELETE_FORBIDDEN = 'PRG_011',
@@ -52,11 +51,6 @@ export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
     code: ProgramErrorCode.INVALID_APPLICATION_PERIOD,
     status: 422,
     message: '신청 기간이 올바르지 않습니다.',
-  },
-  [ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END]: {
-    code: ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END,
-    status: 422,
-    message: '마일스톤 마감일은 신청 종료 이후여야 합니다.',
   },
   [ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS]: {
     code: ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS,

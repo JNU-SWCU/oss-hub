@@ -1,5 +1,6 @@
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
   ProgramCategory,
   SubmissionStatus,
 } from '@prisma/client';
@@ -30,6 +31,7 @@ const publicProgram = {
       instructions: '설명',
       submissionType: 'FILE',
       documents: [],
+      _count: { documents: 0 },
     },
     {
       id: 'overdue',
@@ -39,6 +41,7 @@ const publicProgram = {
       instructions: null,
       submissionType: 'TEXT',
       documents: [],
+      _count: { documents: 0 },
     },
   ],
 };
@@ -99,10 +102,16 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: 'APPROVED',
-      submissions: [
-        { milestoneId: 'today', status: SubmissionStatus.REJECTED },
+      milestoneDocumentSubmissions: [
+        {
+          status: SubmissionStatus.REJECTED,
+          milestoneDocument: {
+            id: 'today-internal-submission',
+            milestoneId: 'today',
+            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          },
+        },
       ],
-      milestoneDocumentSubmissions: [],
     });
     const viewer: ProgramViewer = {
       githubId: 1n,
@@ -121,7 +130,6 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
-      submissions: [],
       milestoneDocumentSubmissions: [],
     });
     const viewer: ProgramViewer = {
@@ -146,9 +154,13 @@ describe('ProgramsService detail', () => {
       select: {
         id: true,
         status: true,
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: {
+            status: true,
+            milestoneDocument: {
+              select: { id: true, milestoneId: true, kind: true },
+            },
+          },
         },
       },
     });
@@ -158,18 +170,30 @@ describe('ProgramsService detail', () => {
     const { service, findMany } = createService();
     findMany.mockResolvedValue([
       {
-        submissions: [
-          { milestoneId: 'today', status: SubmissionStatus.SUBMITTED },
+        milestoneDocumentSubmissions: [
+          {
+            status: SubmissionStatus.SUBMITTED,
+            milestoneDocument: {
+              id: 'today-internal-submission-1',
+              milestoneId: 'today',
+              kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+            },
+          },
         ],
-        milestoneDocumentSubmissions: [],
       },
       {
-        submissions: [
-          { milestoneId: 'today', status: SubmissionStatus.CHANGES_REQUESTED },
+        milestoneDocumentSubmissions: [
+          {
+            status: SubmissionStatus.CHANGES_REQUESTED,
+            milestoneDocument: {
+              id: 'today-internal-submission-2',
+              milestoneId: 'today',
+              kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+            },
+          },
         ],
-        milestoneDocumentSubmissions: [],
       },
-      { submissions: [], milestoneDocumentSubmissions: [] },
+      { milestoneDocumentSubmissions: [] },
     ]);
     const viewer: ProgramViewer = {
       githubId: 2n,
@@ -190,9 +214,7 @@ describe('ProgramsService detail', () => {
   it('교직원 제출 요약은 승인된 신청만 분모에 포함한다', async () => {
     // Given
     const { service, findMany } = createService();
-    findMany.mockResolvedValue([
-      { submissions: [], milestoneDocumentSubmissions: [] },
-    ]);
+    findMany.mockResolvedValue([{ milestoneDocumentSubmissions: [] }]);
 
     const viewer: ProgramViewer = {
       githubId: 2n,
@@ -210,9 +232,13 @@ describe('ProgramsService detail', () => {
         status: ApplicationStatus.APPROVED,
       },
       select: {
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: {
+            status: true,
+            milestoneDocument: {
+              select: { id: true, milestoneId: true, kind: true },
+            },
+          },
         },
       },
     });
@@ -228,10 +254,23 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
-      submissions: [],
       milestoneDocumentSubmissions: [
-        { milestoneDocumentId: 'doc-1', status: SubmissionStatus.APPROVED },
-        { milestoneDocumentId: 'doc-2', status: SubmissionStatus.APPROVED },
+        {
+          status: SubmissionStatus.APPROVED,
+          milestoneDocument: {
+            id: 'doc-1',
+            milestoneId: 'today',
+            kind: MilestoneDocumentKind.DOCUMENT,
+          },
+        },
+        {
+          status: SubmissionStatus.APPROVED,
+          milestoneDocument: {
+            id: 'doc-2',
+            milestoneId: 'today',
+            kind: MilestoneDocumentKind.DOCUMENT,
+          },
+        },
       ],
     });
     const viewer: ProgramViewer = {
@@ -254,9 +293,15 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
-      submissions: [],
       milestoneDocumentSubmissions: [
-        { milestoneDocumentId: 'doc-1', status: SubmissionStatus.APPROVED },
+        {
+          status: SubmissionStatus.APPROVED,
+          milestoneDocument: {
+            id: 'doc-1',
+            milestoneId: 'today',
+            kind: MilestoneDocumentKind.DOCUMENT,
+          },
+        },
       ],
     });
     const viewer: ProgramViewer = {
@@ -278,13 +323,26 @@ describe('ProgramsService detail', () => {
     findUnique.mockResolvedValue(programWithRequiredDocuments());
     findMany.mockResolvedValue([
       {
-        submissions: [],
         milestoneDocumentSubmissions: [
-          { milestoneDocumentId: 'doc-1', status: SubmissionStatus.APPROVED },
-          { milestoneDocumentId: 'doc-2', status: SubmissionStatus.APPROVED },
+          {
+            status: SubmissionStatus.APPROVED,
+            milestoneDocument: {
+              id: 'doc-1',
+              milestoneId: 'today',
+              kind: MilestoneDocumentKind.DOCUMENT,
+            },
+          },
+          {
+            status: SubmissionStatus.APPROVED,
+            milestoneDocument: {
+              id: 'doc-2',
+              milestoneId: 'today',
+              kind: MilestoneDocumentKind.DOCUMENT,
+            },
+          },
         ],
       },
-      { submissions: [], milestoneDocumentSubmissions: [] },
+      { milestoneDocumentSubmissions: [] },
     ]);
     const viewer: ProgramViewer = {
       githubId: 2n,
@@ -303,6 +361,39 @@ describe('ProgramsService detail', () => {
       changesRequested: 0,
       rejected: 0,
       total: 2,
+    });
+  });
+
+  it('제출 항목이 없는 신규 마일스톤은 승인 상태로 위장하지 않는다', async () => {
+    const { service, findUnique, findFirst } = createService();
+    findUnique.mockResolvedValue({
+      ...publicProgram,
+      milestones: [
+        {
+          ...publicProgram.milestones[0],
+          submissionType: null,
+          documents: [],
+          _count: { documents: 0 },
+        },
+      ],
+    });
+    findFirst.mockResolvedValue({
+      id: 'application-1',
+      status: ApplicationStatus.APPROVED,
+      milestoneDocumentSubmissions: [],
+    });
+
+    const detail = await service.detail('program-1', {
+      githubId: 1n,
+      userId: 'student-1',
+      role: 'STUDENT',
+    });
+
+    expect(detail.milestones[0]).toMatchObject({
+      submissionType: null,
+      submissionItemCount: 0,
+      viewerSubmissionStatus: null,
+      applicationSubmissionSummary: null,
     });
   });
 });

@@ -134,6 +134,8 @@ describe('purgeScopeChangedCounts', () => {
       teams: 7,
       boardPosts: 8,
       submissions: 9,
+      submissionEvents: 10,
+      scopeFingerprint: '0123456789abcdef0123456789abcdef',
     };
     expect(
       purgeScopeChangedCounts(

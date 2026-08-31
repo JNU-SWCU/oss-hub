@@ -4,6 +4,8 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   SubmissionFileLifecycle,
   SubmissionStatus,
@@ -86,27 +88,43 @@ async function createPending(options: {
     },
   });
 }
-async function createRevision(suffix: string): Promise<{ id: string }> {
-  const submission = await prisma.submission.create({
+async function createSubmissionHistory(
+  suffix: string,
+): Promise<{ submissionId: string; historyId: string }> {
+  const documentId = `${SUBMISSION_PREFIX}-document-${suffix}`;
+  const submissionId = `${SUBMISSION_PREFIX}-${suffix}`;
+  const historyId = `${SUBMISSION_PREFIX}-history-${suffix}`;
+  await prisma.milestoneDocument.create({
     data: {
-      id: `${SUBMISSION_PREFIX}-${suffix}`,
-      applicationId: APPLICATION_ID,
       milestoneId: MILESTONE_ID,
-      status: SubmissionStatus.SUBMITTED,
-      currentRevision: 1,
+      id: documentId,
+      name: `synthetic file ${suffix}`,
+      required: true,
+      sortOrder: -1,
+      kind: MilestoneDocumentKind.DOCUMENT,
     },
   });
-  return prisma.submissionRevision.create({
+  await prisma.milestoneDocumentSubmission.create({
     data: {
-      id: `${SUBMISSION_PREFIX}-revision-${suffix}`,
-      submissionId: submission.id,
+      id: submissionId,
+      milestoneDocumentId: documentId,
+      applicationId: APPLICATION_ID,
+      status: SubmissionStatus.SUBMITTED,
       revision: 1,
-      submissionType: MilestoneSubmissionType.FILE,
-      content: {},
       submittedById: USER_ID,
     },
-    select: { id: true },
   });
+  await prisma.milestoneDocumentSubmissionHistory.create({
+    data: {
+      id: historyId,
+      milestoneDocumentSubmissionId: submissionId,
+      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      revision: 1,
+      content: { type: MilestoneSubmissionType.FILE },
+      actorId: USER_ID,
+    },
+  });
+  return { submissionId, historyId };
 }
 
 describeIntegration(
@@ -128,11 +146,14 @@ describeIntegration(
       await prisma.submissionFile.deleteMany({
         where: { storageKey: { startsWith: PREFIX } },
       });
-      await prisma.submissionRevision.deleteMany({
+      await prisma.milestoneDocumentSubmissionHistory.deleteMany({
         where: { submission: { id: { startsWith: SUBMISSION_PREFIX } } },
       });
-      await prisma.submission.deleteMany({
+      await prisma.milestoneDocumentSubmission.deleteMany({
         where: { id: { startsWith: SUBMISSION_PREFIX } },
+      });
+      await prisma.milestoneDocument.deleteMany({
+        where: { id: { startsWith: `${SUBMISSION_PREFIX}-document-` } },
       });
     });
 
@@ -175,7 +196,7 @@ describeIntegration(
         suffix: 'full-lifecycle',
         expiresAt: new Date(BASE.getTime() - HOUR),
       });
-      const revision = await createRevision('full-lifecycle');
+      const submission = await createSubmissionHistory('full-lifecycle');
       await storage.put({
         body: Buffer.from('%PDF-synthetic'),
         contentType: 'application/pdf',
@@ -187,7 +208,8 @@ describeIntegration(
         data: {
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           pendingExpiresAt: null,
-          submissionRevisionId: revision.id,
+          milestoneDocumentSubmissionId: submission.submissionId,
+          milestoneDocumentSubmissionHistoryId: submission.historyId,
         },
       });
 
@@ -225,13 +247,16 @@ describeIntegration(
         suffix: 'referenced-attached-retained',
         expiresAt: new Date(BASE.getTime() + HOUR),
       });
-      const revision = await createRevision('referenced-attached-retained');
+      const submission = await createSubmissionHistory(
+        'referenced-attached-retained',
+      );
       await prisma.submissionFile.update({
         where: { id: row.id },
         data: {
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           pendingExpiresAt: null,
-          submissionRevisionId: revision.id,
+          milestoneDocumentSubmissionId: submission.submissionId,
+          milestoneDocumentSubmissionHistoryId: submission.historyId,
         },
       });
 
@@ -377,7 +402,7 @@ describeIntegration(
         pendingExpiresAt: BASE,
         expiresAt: addOneCalendarYear(BASE),
       });
-      const revision = await createRevision('attach-expiry-race');
+      const submission = await createSubmissionHistory('attach-expiry-race');
 
       const [attached, claimed] = await Promise.all([
         prisma.submissionFile.updateMany({
@@ -389,7 +414,8 @@ describeIntegration(
           data: {
             lifecycle: SubmissionFileLifecycle.ATTACHED,
             pendingExpiresAt: null,
-            submissionRevisionId: revision.id,
+            milestoneDocumentSubmissionId: submission.submissionId,
+            milestoneDocumentSubmissionHistoryId: submission.historyId,
           },
         }),
         files.claimNextForDeletion({

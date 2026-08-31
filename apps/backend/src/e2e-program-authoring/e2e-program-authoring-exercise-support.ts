@@ -99,12 +99,10 @@ function prismaAggregateRequest(uploadId: string): ProgramAuthoringRequest {
       {
         name: `${E2E_PROGRAM_ID}:aggregate-milestone`,
         dueAt: '2026-08-20T09:00:00.000Z',
-        submissionType: 'FILE',
         documents: [
           {
             name: `${E2E_PROGRAM_ID}:aggregate-document`,
             required: true,
-            submissionType: 'FILE',
             templateUploadId: uploadId,
           },
         ],

@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import { buildProgramAuthoringPlan } from '../programs/program-authoring-plan';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
@@ -35,19 +35,22 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         name: `${PREFIX}information-milestone`,
         startAt: '2026-08-20T01:00:00.000Z',
         dueAt: '2026-08-20T02:00:00.000Z',
-        submissionType: MilestoneSubmissionType.TEXT,
         documents: [],
       },
       {
         name: `${PREFIX}required-milestone`,
         startAt: '2026-08-20T02:00:00.000Z',
         dueAt: '2026-08-20T09:00:00.000Z',
-        submissionType: MilestoneSubmissionType.FILE,
         documents: [
           {
-            name: `${PREFIX}required-document`,
+            name: `${PREFIX}information-document.pdf`,
+            required: false,
+            templateUploadId: 'upload-information',
+          },
+          {
+            name: `${PREFIX}required-document.pdf`,
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
+            templateUploadId: 'upload-required',
           },
         ],
       },
@@ -67,7 +70,6 @@ function authoredCandidate(): PersistedAuthoredCandidate {
         id: `document-${milestoneIndex}-${documentIndex}`,
         name: document.name,
         required: document.required,
-        submissionType: document.submissionType,
       })),
     })),
   };
@@ -101,7 +103,7 @@ describe('adoptPersistedE2eProgramGraph', () => {
     ).toEqual({
       programId: PROGRAM_ID,
       milestoneId: 'milestone-1',
-      documentId: 'document-1-0',
+      documentId: 'document-1-1',
     });
   });
 

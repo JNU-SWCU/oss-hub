@@ -12,9 +12,9 @@ import {
 import { StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import {
+  getMilestoneDocumentParticipantHistory,
   listMilestoneDocuments,
   milestoneDocumentTemplateHref,
   submitMilestoneDocument,
@@ -23,6 +23,7 @@ import {
   type MilestoneDocument,
   type MilestoneDocumentSubmissionContent,
 } from './milestone-document-api';
+import type { MilestoneDocumentCollectionHistory } from './milestone-document-collection-api';
 import {
   isMilestoneDocumentSubmitReviewChanged,
   milestoneDocumentSubmitConflictNotice,
@@ -43,6 +44,8 @@ import {
   formatSeoulDate,
   formatSeoulShortDateTime,
 } from './program-detail-format';
+import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
+import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
 import type { ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
@@ -85,6 +88,7 @@ export function MilestoneDocumentSectionBody({
   conflictNotice,
   onRetry,
   onDocumentChange,
+  onRefresh = async () => true,
   onSubmitConflict,
 }: {
   readonly state: MilestoneDocumentSectionState;
@@ -94,6 +98,7 @@ export function MilestoneDocumentSectionBody({
   readonly conflictNotice: string | null;
   readonly onRetry: () => void;
   readonly onDocumentChange: (document: MilestoneDocument) => void;
+  readonly onRefresh?: () => Promise<boolean>;
   /** 제출 도중 교직원 판정이 먼저 커밋됐다(409 MSD_024) — 목록을 다시 불러야 한다. */
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
@@ -103,7 +108,7 @@ export function MilestoneDocumentSectionBody({
       <div className="grid gap-2 border-t border-border/50 pt-3 text-small text-muted-foreground">
         {/* 못 불러온 자리에서도 「방금 제출이 저장되지 않았다」는 사실은 남아야 한다. */}
         <ConflictNotice notice={conflictNotice} />
-        <p>제출 서류를 불러오지 못했습니다.</p>
+        <p>제출 항목을 불러오지 못했습니다.</p>
         <Button
           type="button"
           size="sm"
@@ -131,7 +136,7 @@ export function MilestoneDocumentSectionBody({
     <div className="grid gap-3 border-t border-border/50 pt-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-small font-bold text-muted-foreground">
-          제출 서류
+          제출 항목
         </h3>
         <span className="text-small text-muted-foreground">{headerLabel}</span>
       </div>
@@ -149,7 +154,7 @@ export function MilestoneDocumentSectionBody({
               key={document.id}
               document={document}
               closed={closed}
-              onChange={onDocumentChange}
+              onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
             />
           ),
@@ -159,7 +164,7 @@ export function MilestoneDocumentSectionBody({
   );
 }
 
-/** 마일스톤 하나의 "제출 서류" 블록 — role null/PENDING이거나 서류가 없으면 아무것도 그리지 않는다. */
+/** 마일스톤 하나의 "제출 항목" 블록 — role null/PENDING이거나 항목이 없으면 아무것도 그리지 않는다. */
 export function MilestoneDocumentSection({
   milestoneId,
   viewerRole,
@@ -177,22 +182,31 @@ export function MilestoneDocumentSection({
    * 줄이 아니라 여기(컨테이너)가 들고 있어야 살아남는다.
    */
   const [conflictNotice, setConflictNotice] = useState<string | null>(null);
+  const reloadQueueRef = useRef<Promise<void>>(Promise.resolve());
   /** 조회 한 번. **불러왔는지**를 돌려준다 — 그 결과가 곧 학생에게 할 말을 정한다. */
-  const load = useCallback(async (): Promise<MilestoneDocumentReloadResult> => {
-    setState({ kind: 'loading' });
-    try {
-      setState({
-        kind: 'ready',
-        documents: requireMilestoneDocumentList(
-          await listMilestoneDocuments(milestoneId),
-        ),
+  const enqueueLoad = useCallback(
+    (showLoading: boolean): Promise<MilestoneDocumentReloadResult> => {
+      const current = reloadQueueRef.current.then(async () => {
+        if (showLoading) setState({ kind: 'loading' });
+        try {
+          setState({
+            kind: 'ready',
+            documents: requireMilestoneDocumentList(
+              await listMilestoneDocuments(milestoneId),
+            ),
+          });
+          return 'reloaded' as const;
+        } catch {
+          if (showLoading) setState({ kind: 'failed' });
+          return 'failed' as const;
+        }
       });
-      return 'reloaded';
-    } catch {
-      setState({ kind: 'failed' });
-      return 'failed';
-    }
-  }, [milestoneId]);
+      reloadQueueRef.current = current.then(() => undefined);
+      return current;
+    },
+    [milestoneId],
+  );
+  const load = useCallback(() => enqueueLoad(true), [enqueueLoad]);
   useEffect(() => {
     if (viewerRole === null || viewerRole === 'PENDING') return;
     void load();
@@ -225,6 +239,7 @@ export function MilestoneDocumentSection({
             : previous,
         );
       }}
+      onRefresh={async () => (await enqueueLoad(false)) === 'reloaded'}
       onSubmitConflict={(document) => {
         /*
          * 제출하는 사이에 교직원 판정이 먼저 커밋됐다(409 MSD_024). 화면이 아는 상태가
@@ -322,7 +337,11 @@ function StaffDocumentRow({
           onChange={(event) => void handleFile(event)}
         />
       </div>
-      {error ? <p className="text-small text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-small text-destructive">
+          {error} 파일을 다시 선택해 주세요.
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -381,19 +400,32 @@ function StudentReviewNotice({
 function StudentDocumentRow({
   document,
   closed,
-  onChange,
+  onRefresh,
   onSubmitConflict,
 }: {
   readonly document: MilestoneDocument;
   readonly closed: boolean;
-  readonly onChange: (document: MilestoneDocument) => void;
+  readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [text, setText] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [history, setHistory] = useState<
+    readonly MilestoneDocumentCollectionHistory[]
+  >([]);
+  const [historyNextCursor, setHistoryNextCursor] = useState<string | null>(
+    null,
+  );
+  const [historyIsComplete, setHistoryIsComplete] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyErrorCursor, setHistoryErrorCursor] = useState<string | null>(
+    null,
+  );
+  const historyRequestIdRef = useRef(0);
 
   const viewerSubmission = document.viewerSubmission;
   const submitted = viewerSubmission?.submitted ?? false;
@@ -419,33 +451,96 @@ function StudentDocumentRow({
     closed,
     viewerSubmission,
   );
+  const historyMetadata = viewerSubmission?.history;
+
+  const refreshDocument = useCallback(async (): Promise<boolean> => {
+    setSyncing(true);
+    try {
+      if (await onRefresh()) {
+        setSyncNotice(null);
+        return true;
+      }
+      setSyncNotice(
+        '제출은 저장되었습니다. 최신 제출 차수와 이력은 아직 화면에 반영되지 않았습니다.',
+      );
+      return false;
+    } finally {
+      setSyncing(false);
+    }
+  }, [onRefresh]);
+
+  const loadHistory = useCallback(
+    async (cursor: string | null) => {
+      historyRequestIdRef.current += 1;
+      const requestId = historyRequestIdRef.current;
+      setIsHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const page = await getMilestoneDocumentParticipantHistory(
+          document.milestoneId,
+          document.id,
+          cursor,
+        );
+        if (requestId !== historyRequestIdRef.current) return;
+        setHistory((previous) =>
+          cursor === null ? page.items : [...page.items, ...previous],
+        );
+        setHistoryNextCursor(page.nextCursor);
+        setHistoryIsComplete(page.isComplete);
+        setHistoryErrorCursor(null);
+      } catch {
+        if (requestId !== historyRequestIdRef.current) return;
+        setHistoryError(
+          '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        );
+        setHistoryErrorCursor(cursor);
+      } finally {
+        if (requestId === historyRequestIdRef.current) {
+          setIsHistoryLoading(false);
+        }
+      }
+    },
+    [document.id, document.milestoneId],
+  );
+
+  /*
+   * 목록은 원장 자체가 아니라 이력이 있는지와 이관 완전성만 준다. 제출하지 않은 행이나
+   * 빈 원장에는 요청조차 내보내지 않고, 새 목록(성공 저장 뒤 재조회 포함)을 받으면 최신
+   * 페이지부터 다시 시작한다.
+   */
+  useEffect(() => {
+    historyRequestIdRef.current += 1;
+    setHistory([]);
+    setHistoryNextCursor(null);
+    setHistoryIsComplete(historyMetadata?.isComplete ?? true);
+    setIsHistoryLoading(false);
+    setHistoryError(null);
+    setHistoryErrorCursor(null);
+    if (!submitted || historyMetadata?.hasHistory !== true) return;
+    void loadHistory(null);
+  }, [
+    document.id,
+    document.milestoneId,
+    historyMetadata?.hasHistory,
+    loadHistory,
+    submitted,
+    viewerSubmission?.revision,
+  ]);
 
   const finish = useCallback(
-    async (content: MilestoneDocumentSubmissionContent) => {
+    async (content: MilestoneDocumentSubmissionContent): Promise<boolean> => {
       setSubmitting(true);
       setError(null);
+      setSyncNotice(null);
       try {
-        const result = await submitMilestoneDocument(
+        await submitMilestoneDocument(
           document.milestoneId,
           document.id,
           content,
         );
-        onChange({
-          ...document,
-          viewerSubmission: {
-            submitted: true,
-            submittedAt: result.submittedAt,
-            /*
-             * 다시 낸 서류는 「검토 대기」로 돌아간다 — 서버도 재제출이 같은 행을 덮어쓰며
-             * 상태를 SUBMITTED로 되돌린다. 판정 이력은 되돌아가지 않으므로 `review`는
-             * 그대로 들고 있는다(다음 조회에서 서버가 같은 값을 다시 준다).
-             */
-            status: 'SUBMITTED',
-            review: document.viewerSubmission?.review ?? null,
-          },
-        });
         setEditing(false);
-        setText('');
+        await refreshDocument();
+        return true;
       } catch (submitError: unknown) {
         /*
          * 내는 사이에 교직원 판정이 먼저 커밋된 경우(409 MSD_024)만 목록을 다시 부른다.
@@ -455,32 +550,38 @@ function StudentDocumentRow({
          */
         if (isMilestoneDocumentSubmitReviewChanged(submitError)) {
           onSubmitConflict(document);
-          return;
+          return false;
         }
         setError(submitErrorMessage(submitError, '제출에 실패했습니다.'));
+        return false;
       } finally {
         setSubmitting(false);
       }
     },
-    [document, onChange, onSubmitConflict],
+    [document, onSubmitConflict, refreshDocument],
   );
 
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  async function submitDraft(input: {
+    readonly text: string | null;
+    readonly file: File | null;
+  }): Promise<boolean> {
     setSubmitting(true);
     setError(null);
+    setSyncNotice(null);
     try {
-      const uploaded = await uploadMilestoneDocumentFile(
-        document.milestoneId,
-        document.id,
-        file,
-      );
-      await finish({ type: 'FILE', fileId: uploaded.fileId });
+      const uploaded =
+        input.file === null
+          ? null
+          : await uploadMilestoneDocumentFile(
+              document.milestoneId,
+              document.id,
+              input.file,
+            );
+      return finish({ text: input.text, fileId: uploaded?.fileId ?? null });
     } catch (uploadError: unknown) {
       setError(submitErrorMessage(uploadError, '파일 업로드에 실패했습니다.'));
       setSubmitting(false);
+      return false;
     }
   }
 
@@ -519,31 +620,16 @@ function StudentDocumentRow({
             </a>
           </Button>
         ) : null}
-        {!canSubmit ? (
+        {syncNotice !== null ? (
+          <span className="text-small text-muted-foreground break-keep">
+            저장된 제출의 최신 상태를 확인하는 중입니다.
+          </span>
+        ) : !canSubmit ? (
           <span className="text-small text-muted-foreground break-keep">
             {display === 'APPROVED'
-              ? '승인된 서류는 다시 제출할 수 없습니다.'
-              : '반려된 서류는 다시 제출할 수 없습니다.'}
+              ? '승인된 제출 항목은 다시 제출할 수 없습니다.'
+              : '반려된 제출 항목은 다시 제출할 수 없습니다.'}
           </span>
-        ) : document.submissionType === 'FILE' ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant={submitted ? 'ghost' : 'default'}
-              disabled={deadlineLocked || submitting}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {actionIcon} {actionLabel}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="sr-only"
-              aria-label={`${document.name} 제출 파일 선택`}
-              onChange={(event) => void handleFile(event)}
-            />
-          </>
         ) : (
           <Button
             type="button"
@@ -563,28 +649,87 @@ function StudentDocumentRow({
           review={review}
         />
       )}
-      {canSubmit && editing && document.submissionType === 'TEXT' ? (
-        <form
-          className="flex flex-wrap items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const value = text.trim();
-            if (value.length === 0) return;
-            void finish({ type: 'TEXT', text: value });
-          }}
-        >
-          <Input
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder="제출 내용"
-            className="min-w-0 flex-1"
-          />
-          <Button type="submit" size="sm" disabled={submitting}>
-            제출
-          </Button>
-        </form>
+      {history.length === 0 && historyIsComplete ? null : (
+        <MilestoneDocumentHistoryTimeline
+          history={history}
+          completeness={
+            !historyIsComplete
+              ? 'incomplete'
+              : historyNextCursor !== null
+                ? 'has-more'
+                : 'complete'
+          }
+        />
+      )}
+      {!submitted || historyMetadata?.hasHistory !== true ? null : (
+        <div className="grid gap-2">
+          {isHistoryLoading ? (
+            <p
+              className="text-small text-muted-foreground"
+              data-testid="milestone-document-history-loading"
+            >
+              제출 이력을 불러오는 중입니다.
+            </p>
+          ) : null}
+          {historyError === null ? null : (
+            <Alert data-testid="milestone-document-history-error">
+              <AlertDescription className="flex flex-wrap items-center gap-2">
+                <span className="break-keep">{historyError}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void loadHistory(historyErrorCursor)}
+                >
+                  다시 시도
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {historyNextCursor === null || historyError !== null ? null : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              disabled={isHistoryLoading}
+              onClick={() => void loadHistory(historyNextCursor)}
+            >
+              이전 이력 더 보기
+            </Button>
+          )}
+        </div>
+      )}
+      {canSubmit && syncNotice === null && editing ? (
+        <MilestoneDocumentSubmissionForm
+          documentName={document.name}
+          documentId={document.id}
+          submitting={submitting}
+          onCancel={() => setEditing(false)}
+          onSubmit={submitDraft}
+        />
       ) : null}
-      {error ? <p className="text-small text-destructive">{error}</p> : null}
+      {syncNotice === null ? null : (
+        <Alert data-testid="milestone-document-submit-sync-notice">
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <span className="break-keep">{syncNotice}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={syncing}
+              onClick={() => void refreshDocument()}
+            >
+              최신 상태 다시 불러오기
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {error ? (
+        <p role="alert" className="text-small text-destructive">
+          {error} 입력한 내용은 그대로 있으니 확인한 뒤 다시 시도해 주세요.
+        </p>
+      ) : null}
     </li>
   );
 }

@@ -24,10 +24,7 @@ import {
   seedRepositoryId,
   SeedStats,
 } from '../../prisma/seeds/helpers';
-import {
-  MILESTONE_SCENARIOS,
-  seedMilestones,
-} from '../../prisma/seeds/milestones';
+import { seedMilestones } from '../../prisma/seeds/milestones';
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -70,6 +67,11 @@ const REVIEWER_GITHUB_ID = seedGithubId(REVIEWER_ID);
 const EXISTING_SUBMISSION_ID = seedId(
   'milestones',
   'submission-existing',
+  'submission',
+);
+const CHANGES_REQUESTED_SUBMISSION_ID = seedId(
+  'milestones',
+  'submission-changes-requested',
   'submission',
 );
 
@@ -168,29 +170,36 @@ describe('SubmissionReviewsService integration', () => {
   beforeEach(() => github.publishRepository.mockReset());
 
   afterAll(async () => {
-    await prisma.review.deleteMany({
+    await prisma.milestoneDocumentReviewHistory.deleteMany({
       where: {
-        submissionRevision: {
-          submission: { milestone: { programId: PROGRAM_ID } },
+        milestoneDocumentSubmission: {
+          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
         },
       },
+    });
+    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: {
+        submission: {
+          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
+        },
+      },
+    });
+    await prisma.milestoneDocumentSubmission.deleteMany({
+      where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
     });
     await prisma.submissionFile.deleteMany({
       where: {
-        submissionRevision: {
-          submission: { milestone: { programId: PROGRAM_ID } },
+        milestoneDocumentSubmission: {
+          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
         },
       },
-    });
-    await prisma.submissionRevision.deleteMany({
-      where: { submission: { milestone: { programId: PROGRAM_ID } } },
-    });
-    await prisma.submission.deleteMany({
-      where: { milestone: { programId: PROGRAM_ID } },
     });
     await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.milestoneDocument.deleteMany({
+      where: { milestone: { programId: PROGRAM_ID } },
+    });
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
     // AuditLog는 DB 레벨에서 append-only로 강제된다(DELETE 자체가 거부됨) — 이 테스트가
@@ -248,16 +257,16 @@ describe('SubmissionReviewsService integration', () => {
     });
 
     await expect(
-      prisma.submission.findUniqueOrThrow({
+      prisma.milestoneDocumentSubmission.findUniqueOrThrow({
         where: { id: EXISTING_SUBMISSION_ID },
         select: {
           status: true,
-          revisions: { select: { review: { select: { decision: true } } } },
+          reviewHistories: { select: { decision: true } },
         },
       }),
     ).resolves.toMatchObject({
       status: SubmissionStatus.APPROVED,
-      revisions: [{ review: { decision: ReviewDecision.APPROVED } }],
+      reviewHistories: [{ decision: ReviewDecision.APPROVED }],
     });
     await expect(
       service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
@@ -271,13 +280,7 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('seed 보완요청의 판정 코멘트를 검토 문맥에 보존한다', async () => {
-    const [milestoneId] = MILESTONE_SCENARIOS['submission-changes-requested'];
-    const submission = await prisma.submission.findFirstOrThrow({
-      where: { milestoneId },
-      select: { id: true },
-    });
-
-    const context = await service.context(submission.id);
+    const context = await service.context(CHANGES_REQUESTED_SUBMISSION_ID);
 
     expect(context.currentRevision.review).toMatchObject({
       decision: ReviewDecision.CHANGES_REQUESTED,

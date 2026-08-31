@@ -1,7 +1,6 @@
 import { apiClient, apiPath } from '@/lib/api-client';
 import type { MilestoneDocumentSubmissionStatus } from './milestone-document-api';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
-import type { SubmissionType } from './types';
 
 /**
  * 교직원 서류 수합 표(`GET /milestones/:milestoneId/documents/collection`)의 응답 계약.
@@ -28,17 +27,16 @@ export interface MilestoneDocumentCollectionMilestone {
  * 화면이 쓰는 `milestone-document-api.ts`의 `MilestoneDocument.required`는 **이미 발행된
  * 계약**이라 접두사 없이 그대로다 — 이 수합 표 응답만 발행 전이라 규칙에 맞춘다. 칸의
  * `submitted` → `isSubmitted`를 가른 것과 같은 기준이고, 이름이 비슷하다고 함께 바꾸면
- * 학생 화면과 「받을 서류」 편집이 조용히 깨진다.
+ * 학생 화면과 「제출 항목」 편집이 조용히 깨진다.
  */
 export interface MilestoneDocumentCollectionDocument {
   readonly id: string;
   readonly name: string;
   readonly isRequired: boolean;
   readonly sortOrder: number;
-  readonly submissionType: SubmissionType;
 }
 
-/** `submissionType === 'FILE'`이고 만료되지 않은 첨부가 있을 때만 채워진다. */
+/** 현재 제출 revision에 만료되지 않은 첨부가 있을 때만 채워진다. */
 export interface MilestoneDocumentCollectionFile {
   readonly name: string;
   readonly sizeBytes: number;
@@ -56,8 +54,7 @@ export interface MilestoneDocumentCollectionFile {
  * 「미제출」 기준은 여전히 `isSubmitted`이고 필터·합계는 이 값을 보지 않는다 — 반려된
  * 서류를 미제출로 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
  *
- * ⚠ 응답은 최신 한 건만 준다. 이력 전체를 주는 조회는 **없다** — 화면이 「지난 검토 목록」을
- * 그리고 싶어도 여기서 만들어 낼 수 없다.
+ * ⚠ 수합 응답은 최신 한 건만 준다. 전체 이력은 칸을 열 때 cursor endpoint로 따로 읽는다.
  */
 export interface MilestoneDocumentCollectionReview {
   /**
@@ -72,13 +69,32 @@ export interface MilestoneDocumentCollectionReview {
   readonly reviewedAt: string;
 }
 
+export type MilestoneDocumentCollectionHistoryEvent =
+  'SUBMITTED' | 'RESUBMITTED' | MilestoneDocumentReviewDecision;
+
+export interface MilestoneDocumentCollectionHistory {
+  readonly event: MilestoneDocumentCollectionHistoryEvent;
+  /** 이전 데이터에서 정확한 대상 제출본을 증명할 수 없으면 null이다. */
+  readonly revision: number | null;
+  readonly actorNickname: string;
+  readonly comment: string | null;
+  readonly createdAt: string;
+  readonly fileName: string | null;
+  readonly content?: MilestoneDocumentCollectionContent | null;
+}
+
+export interface MilestoneDocumentHistoryPage {
+  readonly items: readonly MilestoneDocumentCollectionHistory[];
+  readonly nextCursor: string | null;
+  readonly isComplete: boolean;
+}
+
 /**
- * 학생이 낸 **본문** — 파일이 아닌 두 제출 방식이 여기 실린다. 백엔드
+ * 학생이 낸 선택적 **본문** — 파일과 함께 또는 단독으로 제출할 수 있다. 백엔드
  * `milestone-documents/domain/milestone-document-content.ts`의
  * `MilestoneDocumentSubmittedContent`와 같은 모양이다.
  *
- * ⚠ FILE 제출에는 이 값이 없다(`null`) — 파일은 옆의 `file`이 담당한다. 저장 시점에
- * `JsonNull`로 접히기 때문이라, 「파일 제출인데 본문이 있다」는 상태는 계약에 없다.
+ * 본문을 내지 않으면 `null`이고 파일은 독립된 `file` 필드가 담당한다.
  *
  * ⚠ **잘려 오지 않는다.** 글은 최대 10,000자까지 그대로 실린다 — 「일부만 보고 승인」은
  * 「못 보고 승인」과 같은 사고라서 서버가 자르지 않기로 한 것이고, 잘린 뒤를 읽을 단건
@@ -253,6 +269,20 @@ export function milestoneDocumentSubmissionFileHref(
 ): string {
   return apiPath(
     `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/file`,
+  );
+}
+
+export function getMilestoneDocumentHistory(
+  milestoneId: string,
+  documentId: string,
+  applicationId: string,
+  cursor: string | null = null,
+): Promise<MilestoneDocumentHistoryPage> {
+  const params = new URLSearchParams();
+  params.set('limit', '20');
+  if (cursor !== null) params.set('cursor', cursor);
+  return apiClient<MilestoneDocumentHistoryPage>(
+    `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/history?${params.toString()}`,
   );
 }
 

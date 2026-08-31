@@ -12,6 +12,7 @@ import {
   mapMilestoneError,
   mapProgramEditError,
   toProgramEditForm,
+  validateMilestoneForm,
 } from './program-edit-flow';
 import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 import { ProgramEditPage } from './program-edit-page';
@@ -124,11 +125,25 @@ describe('ProgramEditPage save payload', () => {
     const input = buildProgramEditInput(form, ['applicationStartAt']);
 
     // Then
-    expect(input.applicationStartAt).toBe(
-      new Date(2026, 7, 1, 19, 45).toISOString(),
-    );
+    expect(input.applicationStartAt).toBe('2026-08-01T10:45:00.000Z');
     expect(input.applicationEndAt).toBe(editableProgram.applicationEndAt);
   });
+
+  it('allows an operating period to begin before applications close', () => {
+    const input = buildProgramEditInput(
+      {
+        ...toProgramEditForm(editableProgram),
+        startAt: '2026-08-14T09:30',
+      },
+      ['startAt'],
+    );
+
+    expect(input).toMatchObject({
+      applicationEndAt: editableProgram.applicationEndAt,
+      startAt: '2026-08-14T00:30:00.000Z',
+    });
+  });
+
   // 종료일 없음을 뜻하는 표현이 하나로 모였다 — `null` 과 센티널은 같은 뜻이고
   // 폼은 그것을 「미정」 체크박스로 나르며, 저장은 언제나 센티널로 되돌린다.
   // 예전에는 이 자리에서 payload 가 `null` 로 나갔는데, 그 값을 받은 서버는
@@ -149,7 +164,86 @@ describe('ProgramEditPage save payload', () => {
       ['endAt'],
     );
 
-    expect(input.endAt).toBe(new Date(2026, 8, 1, 19, 45).toISOString());
+    expect(input.endAt).toBe('2026-09-01T10:45:00.000Z');
+  });
+
+  it('browser timezone과 무관하게 서버 시각을 서울 시각으로 표시하고 저장한다', () => {
+    const form = toProgramEditForm({
+      ...editableProgram,
+      applicationStartAt: '2026-08-01T00:00:00.000Z',
+    });
+
+    expect(form.applicationStartAt).toBe('2026-08-01T09:00');
+    expect(
+      buildProgramEditInput(
+        { ...form, applicationStartAt: '2026-08-01T10:00' },
+        ['applicationStartAt'],
+      ).applicationStartAt,
+    ).toBe('2026-08-01T01:00:00.000Z');
+  });
+});
+
+describe('마일스톤 저장 전 검증', () => {
+  const form = {
+    id: null,
+    name: '중간 보고',
+    startAt: '2026-08-10T09:00',
+    dueAt: '2026-08-20T18:00',
+    originalStartAt: null,
+    originalDueAt: null,
+    instructions: '',
+  };
+
+  it('빈 이름·시작·마감을 각 입력 오류로 돌린다', () => {
+    expect(
+      validateMilestoneForm(
+        { ...form, name: '', startAt: '', dueAt: '' },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ),
+    ).toMatchObject({
+      name: expect.any(String),
+      startAt: expect.any(String),
+      dueAt: expect.any(String),
+    });
+  });
+
+  it('역순과 운영 기간 밖 날짜를 시작·마감 입력에 돌린다', () => {
+    expect(
+      validateMilestoneForm(
+        {
+          ...form,
+          startAt: '2026-08-20T18:00',
+          dueAt: '2026-08-20T18:00',
+        },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ).startAt,
+    ).toContain('마감일보다 앞서야');
+    expect(
+      validateMilestoneForm(
+        {
+          ...form,
+          startAt: '2026-07-31T18:00',
+          dueAt: '2026-09-01T09:01',
+        },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ),
+    ).toMatchObject({
+      startAt: expect.any(String),
+      dueAt: expect.any(String),
+    });
+    expect(
+      validateMilestoneForm(
+        {
+          ...form,
+          dueAt: '2026-09-01T09:00',
+        },
+        '2026-08-01T09:00',
+        '2026-09-01T09:00',
+      ).dueAt,
+    ).toBeUndefined();
   });
 });
 
@@ -232,6 +326,16 @@ describe('ProgramEditPage 컴포넌트', () => {
     ) as HTMLButtonElement | undefined;
   }
 
+  function getScheduleButton(name: string): HTMLButtonElement {
+    const button = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'),
+    ).find((candidate) => candidate.textContent?.includes(name));
+    if (button === undefined) {
+      throw new TypeError(`Schedule button not found: ${name}`);
+    }
+    return button;
+  }
+
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
@@ -253,6 +357,50 @@ describe('ProgramEditPage 컴포넌트', () => {
     await act(async () => root.unmount());
     container.remove();
     window.confirm = originalConfirm;
+  });
+
+  it('빈 새 마일스톤은 변환 전에 필드 오류를 보여 주고 첫 입력에 초점을 둔다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      await Promise.resolve();
+    });
+    await act(async () => getButton('추가').click());
+    await act(async () => getButton('저장').click());
+
+    expect(container.textContent).toContain('마일스톤 이름을 입력해 주세요.');
+    expect(container.textContent).toContain('유효한 시작일을 입력해 주세요.');
+    expect(container.textContent).toContain('유효한 마감일을 입력해 주세요.');
+    expect(document.activeElement).toBe(
+      container.querySelector('#milestone-name'),
+    );
+  });
+
+  it('이름만 채운 새 마일스톤은 비활성 시각 입력 대신 날짜 달력에 초점을 둔다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      await Promise.resolve();
+    });
+    await act(async () => getButton('추가').click());
+    const name = container.querySelector<HTMLInputElement>('#milestone-name');
+    if (name === null) throw new TypeError('Missing milestone name.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(name, '새 마일스톤');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => getButton('저장').click());
+
+    expect(document.activeElement).toBe(
+      container.querySelector(
+        '[data-testid="program-schedule-calendar-scroll"][aria-invalid="true"]',
+      ),
+    );
   });
 
   it('저장 후에도 화면에 머무르고 상세 화면으로 이동하지 않는다', async () => {
@@ -283,7 +431,7 @@ describe('ProgramEditPage 컴포넌트', () => {
   // Addition 2 — 저장 실패 경로는 여태 마운트 테스트가 없었다. submit의 catch가
   // form을 그대로 두는지(errors만 채우고 setForm/초기화를 하지 않는지)를 실제
   // DOM으로 확인한다.
-  it('잘못된 운영 시작일 입력은 해당 입력 옆에 오류를 보여준다', async () => {
+  it('운영 시작과 종료가 같으면 종료 시각 옆에 오류를 보여준다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
@@ -293,17 +441,13 @@ describe('ProgramEditPage 컴포넌트', () => {
       await Promise.resolve();
     });
 
-    const startAtInput =
-      container.querySelector<HTMLInputElement>('#program-start-at');
-    if (startAtInput === null)
-      throw new TypeError('Missing #program-start-at.');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
+    await act(async () => getScheduleButton('운영 기간').click());
+    const lastDay = container.querySelector<HTMLButtonElement>(
+      '[data-calendar-date="2026-08-31"]',
+    );
+    if (lastDay === null) throw new TypeError('Missing 2026-08-31.');
     await act(async () => {
-      setter?.call(startAtInput, 'invalid-date');
-      startAtInput.dispatchEvent(new Event('input', { bubbles: true }));
+      lastDay.click();
     });
 
     await act(async () => {
@@ -311,7 +455,51 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     expect(updateProgramMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('운영 시작일을 입력해 주세요.');
+    expect(container.textContent).toContain(
+      '프로그램 종료일은 운영 시작일 이후여야 합니다.',
+    );
+    expect(document.activeElement).toBe(
+      container.querySelector('#program-end-at'),
+    );
+  });
+
+  it('신청 날짜 순서가 잘못되면 두 날짜의 관계와 수정 위치를 함께 안내한다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      await Promise.resolve();
+    });
+
+    const sameDay = container.querySelector<HTMLButtonElement>(
+      '[data-calendar-date="2026-08-15"]',
+    );
+    if (sameDay === null) throw new TypeError('Missing 2026-08-15.');
+    await act(async () => sameDay.click());
+    await act(async () => getButton('시간 변경').click());
+    const applicationStart = container.querySelector<HTMLInputElement>(
+      '#program-application-start-at',
+    );
+    if (applicationStart === null)
+      throw new TypeError('Missing #program-application-start-at.');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(applicationStart, '18:31');
+      applicationStart.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => getButton('변경사항 저장').click());
+
+    expect(updateProgramMock).not.toHaveBeenCalled();
+    expect(container.textContent).toContain(
+      '신청 시작과 마감을 모두 확인해 주세요. 시작은 마감과 같거나 이전이어야 합니다.',
+    );
+    expect(document.activeElement).toBe(
+      container.querySelector('#program-application-start-at'),
+    );
   });
 
   it('기본 정보 저장이 실패하면 입력값과 dirty 상태를 유지하고 폼 옆에 에러를 보여준다', async () => {

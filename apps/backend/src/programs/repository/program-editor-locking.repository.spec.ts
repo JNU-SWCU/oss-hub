@@ -112,7 +112,6 @@ describe('ProgramEditorRepository locking', () => {
           .mockResolvedValueOnce({
             id: 'milestone-1',
             programId: 'program-1',
-            _count: { submissions: 0, submissionFiles: 0 },
             program: {
               repositoryProvisioningEnabled: false,
               _count: { milestones: 2 },

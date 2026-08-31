@@ -155,7 +155,6 @@ describe('authenticated milestone document list filename contract', () => {
           name: '운영 결과',
           required: true,
           sortOrder: 1,
-          submissionType: 'FILE',
         },
         {
           id: `${prefix}-without-file`,
@@ -163,7 +162,6 @@ describe('authenticated milestone document list filename contract', () => {
           name: '첨부 없음',
           required: false,
           sortOrder: 2,
-          submissionType: 'FILE',
         },
       ],
     });

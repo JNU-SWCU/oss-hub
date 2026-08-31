@@ -88,11 +88,51 @@ export async function createMilestone(
 }
 
 export async function cleanup(): Promise<void> {
-  await prisma.submissionRevision.deleteMany({
-    where: { id: { startsWith: `${TEST_PREFIX}submission-revision:` } },
+  const documentSubmissions = await prisma.milestoneDocumentSubmission.findMany(
+    {
+      where: {
+        applicationId: { startsWith: `${TEST_PREFIX}application:` },
+      },
+      select: { id: true },
+    },
+  );
+  const documentSubmissionIds = documentSubmissions.map(
+    (submission) => submission.id,
+  );
+  const documentSubmissionHistories =
+    await prisma.milestoneDocumentSubmissionHistory.findMany({
+      where: {
+        milestoneDocumentSubmissionId: { in: documentSubmissionIds },
+      },
+      select: { id: true },
+    });
+  const documentSubmissionHistoryIds = documentSubmissionHistories.map(
+    (history) => history.id,
+  );
+  await prisma.milestoneDocumentReviewHistory.deleteMany({
+    where: {
+      milestoneDocumentSubmissionId: { in: documentSubmissionIds },
+    },
   });
-  await prisma.submission.deleteMany({
-    where: { id: { startsWith: `${TEST_PREFIX}submission:` } },
+  await prisma.submissionFile.deleteMany({
+    where: {
+      OR: [
+        { applicationId: { startsWith: `${TEST_PREFIX}application:` } },
+        { milestoneId: { startsWith: `${TEST_PREFIX}milestone:` } },
+        { milestoneDocumentSubmissionId: { in: documentSubmissionIds } },
+        {
+          milestoneDocumentSubmissionHistoryId: {
+            in: documentSubmissionHistoryIds,
+          },
+        },
+      ],
+    },
+  });
+  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    where: { id: { in: documentSubmissionHistoryIds } },
+  });
+  await prisma.milestoneDocumentSubmission.deleteMany({
+    where: { id: { in: documentSubmissionIds } },
   });
   await prisma.application.deleteMany({
     where: { id: { startsWith: `${TEST_PREFIX}application:` } },

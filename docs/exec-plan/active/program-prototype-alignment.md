@@ -55,7 +55,7 @@
 - `pnpm --filter backend typecheck`, `pnpm --filter frontend typecheck` — 신규 모델·DTO·타입 정합 확인.
 - backend unit·integration 테스트 — 신규 모듈 리포지토리·서비스 계층, 기존 `Submission`/`TeamMember` 계열과의 병존(상호배타 CHECK·unique 제약) 회귀.
 - frontend unit 테스트 — 카드 개인화 필드 통과, 상태 라벨 변경 회귀.
-- `apps/frontend/src/app/_local-review` 픽스처 기반 브라우저 QA — 실 백엔드 없이 역할별(학생/교직원) 화면 흐름을 확인한다.
+- `apps/frontend/test-support/local-review` 픽스처와 `src/app/local-review*`의 얇은 어댑터 기반 브라우저 QA — 실 백엔드 없이 역할별(학생/교직원) 화면 흐름을 확인한다.
 - `pnpm --filter backend exec prisma validate`·`prisma migrate status`로 스키마·마이그레이션 정합 확인.
 
 ## 열린 질문

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Program } from '@prisma/client';
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
   Prisma,
   ProgramCategory,
   StaffAccessRequestStatus,
@@ -11,6 +12,11 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../../profiles/user-profile-read';
+import {
+  projectSubmissionCompletionTargets,
+  submissionCompletionTargetSelect,
+  type SubmissionCompletionTargetRow,
+} from '../../submissions/submission-completion-projection';
 import type { ProgramListQuery } from '../program-list-query';
 import {
   emptyProgramStatusCounts,
@@ -131,16 +137,29 @@ export class ProgramsRepository {
             dueAt: true,
             instructions: true,
             submissionType: true,
+            _count: {
+              select: {
+                documents: {
+                  where: { kind: MilestoneDocumentKind.DOCUMENT },
+                },
+              },
+            },
             // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 진행을 0으로 잡아 둔다.
-            documents: { where: { required: true }, select: { id: true } },
+            documents: {
+              where: {
+                required: true,
+                kind: MilestoneDocumentKind.DOCUMENT,
+              },
+              select: { id: true },
+            },
           },
         },
       },
     });
   }
 
-  findStudentApplication(programId: string, userId: string) {
-    return this.prisma.application.findFirst({
+  async findStudentApplication(programId: string, userId: string) {
+    const application = await this.prisma.application.findFirst({
       where: {
         programId,
         ...programApplicationParticipantWhere(userId),
@@ -148,24 +167,24 @@ export class ProgramsRepository {
       select: {
         id: true,
         status: true,
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: submissionCompletionTargetSelect,
         },
       },
     });
+    return application ? toTargetSubmissionAxes(application) : null;
   }
 
-  findApprovedApplications(programId: string) {
-    return this.prisma.application.findMany({
+  async findApprovedApplications(programId: string) {
+    const applications = await this.prisma.application.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: submissionCompletionTargetSelect,
         },
       },
     });
+    return applications.map(toTargetSubmissionAxes);
   }
 
   /**
@@ -354,4 +373,20 @@ export class ProgramsRepository {
   ) {
     return writer.program.create({ data });
   }
+}
+
+function toTargetSubmissionAxes<
+  T extends {
+    readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+  },
+>(application: T) {
+  const { submissions, documentSubmissions } =
+    projectSubmissionCompletionTargets(
+      application.milestoneDocumentSubmissions,
+    );
+  return {
+    ...application,
+    submissions,
+    milestoneDocumentSubmissions: documentSubmissions,
+  };
 }

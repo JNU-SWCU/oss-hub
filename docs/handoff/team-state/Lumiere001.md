@@ -41,3 +41,14 @@
 - 검증: #1019와 #1020은 CI green을 요구했다. 최종 scope·security 감사는 수정 뒤 blocker·high·medium·low 0으로 PASS다. 프런트엔드 304 files·3032 tests, 실패 경로 Playwright 3/3, browser-audit 14 tests, 순수 LOC 177이다. typecheck·lint·format 모두 PASS다.
 - 배포: #1021은 문서 전용이다. 제품 코드·스키마·마이그레이션·lockfile 변경이 없고 DB 작업이나 롤백 절차도 바뀌지 않는다. 제품 릴리스는 이 PR 뒤에 이어진다.
 - 공개 안전성: 비밀값, 행 데이터, 실명, IP, 로컬 경로 없음.
+
+## 2026-08-28 — Vitest ESM 설정 경계 정렬
+
+- 상태: review
+- Issue: -
+## 2026-08-28 — 사람 중심 마일스톤 작성·제출 흐름
+
+- 상태: review
+- Issue: #1033, #1035
+- PR: (이 PR)
+- blocker: 없음
