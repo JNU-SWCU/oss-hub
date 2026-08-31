@@ -883,3 +883,12 @@
 - blocker: 없음
 - 결과: canonical architect 4개를 병렬로 실행해 core source, tests/QA, config/build/deploy, scripts/docs를 독립 조사하고 root `AGENTS.md`를 `Repository Guidelines`로 전면 재구성했다. placeholder owner 표, 폐기된 review state 설명, 중복 bootstrap·branch cleanup 서술을 제거하고 현재 architecture/data flow, key directories, 실제 pnpm 명령, frontend/backend 패턴, 중요 파일, Node 24·pnpm 11 runtime, Vitest/Jest/Playwright 경계를 149줄로 정리했다.
 - 검증: 네 architect 결과의 path evidence를 반영했고 required heading 8개, root 149줄, Prettier, CI path contract 6건, public-safe를 통과했다. TEAM-STATE checker는 이 변경과 무관한 기존 stale 17건·unknown 12건을 보고해 advisory baseline 실패로 남겼다.
+
+## 2026-08-31 — nested AGENTS 전수를 craft init managed region으로 갱신한다
+
+- 상태: review
+- Issue: #1074
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 기존 child AGENTS 25개를 6개 독립 cluster로 나눠 canonical executor가 current source/config를 inventory하고, 각 파일을 하나의 hash-checked craft init 4.0.0 managed region으로 통합했다. 이어 canonical architect 5개가 frontend entry/features, backend entry/domains, shared ops를 독립 검토해 잘못 압축된 ESLint 보장, migration·seed authority, route 등록 순서, 신청 재승인 event, GitHub credential/quota, notification producer, program 생성 표면, 제출 dashboard port 등 34건을 찾아 모두 현재 구현에 맞게 교정하고 CLEAR 재검토를 남겼다. frontend/backend `CLAUDE.md`도 exact `@AGENTS.md` adapter로 정규화했다.
+- 검증: 25개 managed ID uniqueness·payload SHA-256·25–80줄 범위, adapter 3개 exact bytes, craft init Python unit 19건, CI path contract 6건, repository Prettier, public-safe, diff check, stale marker·존재하지 않는 script path scan을 통과했다.

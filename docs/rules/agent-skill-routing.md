@@ -54,10 +54,12 @@ GJC는 세션 부트스트랩의 native marketplace add/update와 project instal
 ## craft `init` 적용 결과
 
 `init` 4.0.0(craft-skills 0.13.0)은 문서 골격을 만들지 않는다 — 자기 설명에 "Do not scaffold documentation, author document content"라고 적혀 있고 문서 작업은 `document`로 넘긴다.
-그래서 이 저장소에 적용할 것은 문서 스캐폴딩이 아니라 AGENTS.md 지도뿐이며, 그 계층은 이미 손으로 관리되고 있다(현재 26개).
+그래서 이 저장소에는 문서 스캐폴딩이 아니라 AGENTS.md 지도 lifecycle만 적용한다.
 
 최신 `init`으로 다시 inventory한 결과 root 1개와 child 25개가 기존 코드 entry/config 경계를 이미 덮고 있어 새 AGENTS placement는 만들지 않았다.
-기존 AGENTS 본문은 사람 관리 영역이라 managed region으로 재포장하지 않았고, `CLAUDE.md`만 init의 정확한 adapter 계약인 `@AGENTS.md` + LF로 정규화했다.
+root는 요청된 `Repository Guidelines` 구조의 사람 관리 canonical guide로 두고, child 25개는 사용자의 전수 init 승인에 따라 각각 하나의 hash-checked managed region으로 통합했다.
+core source, tests/QA, configs/build/deploy, scripts/docs를 canonical architect가 병렬 조사하고, frontend/backend/domain/shared-op cluster별 independent review와 correction pass를 거쳤다.
+root·frontend·backend의 `CLAUDE.md` 세 파일은 init의 exact adapter 계약인 `@AGENTS.md` + LF다.
 
 ---
 

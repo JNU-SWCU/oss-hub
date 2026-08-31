@@ -1,39 +1,29 @@
-<!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 -->
+<!-- init:managed id=craft-init-4.0.0-frontend-components sha256=a9367f65f0686f7030a748bbc7a496e2d97c0caa722979793cdc49f20e46a0cf -->
+# Shared component scope
 
-# apps/frontend/src/components — 공유 UI
+## Ownership
 
-## Purpose
+- Own reusable visual compositions in `apps/frontend/src/components/` and shadcn-derived primitives in `apps/frontend/src/components/ui/`.
+- Keep program-specific composition in `apps/frontend/src/features/programs/`; promote it here only after more than one feature or route needs the same stable interface.
+- `app-shell.tsx`, `nav-bar.tsx`, and `detail-panel-layout.tsx` define shell and panel contracts; preserve their slot and navigation prop shapes for route consumers.
 
-여러 feature 또는 라우트가 공유하는 조합 컴포넌트. `ui/`는 shadcn CLI로 생성한 프리미티브(소유권은 이 repo 내부)이고, 최상위 파일들은 그 위에 만든 조합 컴포넌트(AppShell·CardGrid·DataTable 등)다.
+## Entry points and exports
 
-## Key Files
+- `index.ts` is the primary barrel for shared compositions; preserve established consumer-facing deep type imports until they are deliberately promoted.
+- Preserve the existing append-only export arrangement in `index.ts`; add the owned export without reordering unrelated exports.
+- Import local UI primitives from `@/components/ui/*` and the class merger from `@/lib/utils`; do not copy a primitive into a composition.
+- `data-table.tsx` owns opt-in client pagination when `pageSize` is supplied; callers retain sorting, server pagination, and domain data. `pagination-nav.tsx`, `card-grid.tsx`, and `list-panel.tsx` remain reusable collection interfaces.
 
-| 파일 | 컴포넌트 | 비고 |
-| --- | --- | --- |
-| `index.ts` | — | 공개 배럴. **append-only** — 자기 몫의 export만 추가하고 기존 줄은 리팩터링하지 않는다 |
-| `app-shell.tsx` | `AppShell` | 전역 셸 레이아웃 |
-| `nav-bar.tsx` | `NavBar`, `NavItem` 타입 | 상단 네비게이션 — `NavItem`은 `_shell/role-menus.ts`가 재사용 |
-| `data-table.tsx` | `DataTable`, `DataTableColumn`/`DataTableProps` 타입 | |
-| `detail-panel-layout.tsx` | `DetailPanelLayout` | 좁은 패널 + 넓은 본문 레이아웃 — `_shell/role-panel-shell.tsx`가 재사용 |
-| `card-grid.tsx`, `program-card.tsx` | `CardGrid`, `ProgramCard` | |
-| `form-section.tsx`, `page-header.tsx`, `row-actions.tsx`, `status-badge.tsx`, `status-message-page.tsx`, `empty-state.tsx` | 각 동명 컴포넌트 | |
+## State and interface patterns
 
-## Subdirectories
+- Make shared components props-driven: `DataTableColumn`, `NavItem`, and the exported `*Props` types are the interface boundary.
+- Keep route loading, API calls, and feature decisions out of this directory; render supplied loading, empty, error, or action content through the component interface.
+- Reuse `status-badge.tsx`, `empty-state.tsx`, `status-message-page.tsx`, `form-section.tsx`, and `page-header.tsx` for their named presentation concerns rather than creating parallel variants.
+- `program-countdown.tsx` owns countdown presentation and time helpers; callers supply the domain deadline rather than duplicating countdown calculation.
 
-| 경로 | 내용 |
-| --- | --- |
-| `ui/` | shadcn CLI 생성 프리미티브(`button`·`card`·`input`·`field`·`label`·`separator`·`table`·`alert`) — `components.json`의 `radix-nova` 스타일, radix-ui 기반 |
+## Constraints
 
-## For AI Agents
-
-- 새 공유 컴포넌트를 추가하면 `index.ts`에 export를 **추가만** 한다 — 기존 줄 순서를 바꾸거나 묶어 정리하지 않는다(파일 상단 주석 규약).
-- 이 디렉터리는 `docs/design.md`의 토큰 계약(3-tier: primitive → semantic → component) 소비자다. 색상·타이포그래피를 하드코딩하지 않고 `globals.css`에 정의된 토큰(및 `ui/` 프리미티브)을 통해 쓴다.
-- `ui/` 밖의 파일들은 `ui/` 프리미티브를 조합한 상위 컴포넌트다 — `ui/` 프리미티브를 직접 복제하지 않고 여기서 조합한다.
-- 테스트는 컴포넌트 곁에 `*.test.tsx`(Vitest)로 둔다 — `cards.test.tsx`, `data-table.test.tsx`, `detail-panel-layout.test.tsx`, `form-section.test.tsx`, `layout.test.tsx`, `row-actions.test.tsx`, `ui/primitives.test.tsx`.
-
-## Dependencies
-
-- [apps/frontend/src/AGENTS.md](../AGENTS.md)
-- [Frontend Design](../../../../docs/design.md) — 토큰·프리미티브 계약 원본.
-- `radix-ui`, `class-variance-authority`, `lucide-react`, `tailwind-merge`(`lib/utils.ts`의 `cn`).
+- Follow the token and primitive contract in `docs/design.md`; use existing semantic classes and `ui/` primitives instead of introducing component-local visual foundations.
+- Keep accessibility behavior attached to its shared control: keyboard navigation belongs in `nav-bar.tsx`, table semantics in `data-table.tsx`, and dialog behavior in the relevant `ui/` primitive.
+- Place behavior tests beside their component (`*.test.tsx`); geometry helper contracts remain with `card-grid.geometry*.mjs`.
+<!-- /init:managed id=craft-init-4.0.0-frontend-components -->

@@ -1,41 +1,34 @@
-<!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-30 -->
+<!-- init:managed id=craft-init-4.0.0-design-sync sha256=5fae1ebcfffa584e270fd58c51d318c02463d45ebdb9e79dac390f75e5b1a1d8 -->
+# .design-sync
 
-# .design-sync/ — claude.ai/design 번들 빌드 도구
+## Ownership
 
-## Purpose
+- `.design-sync/` owns the design-package converter configuration, generated-contract inputs, CSS entry point, and hand-authored component previews for `apps/frontend`.
+- `config.json` is the converter configuration source; keep its frontend package, source directory, CSS entry, guideline paths, declaration overrides, and component overrides coherent.
+- `conventions.md` owns design-agent class vocabulary and composition conventions; `NOTES.md` owns the build and re-sync procedure.
 
-`apps/frontend`를 디자인 시스템 라이브러리처럼 claude.ai/design에 올리기 위한 변환 도구와 프리뷰 소스를 둔다.
-대상 프로젝트 설정은 `config.json`이 소유한다.
-빌드·re-sync 절차는 `NOTES.md`, 디자인 클래스 어휘는 `conventions.md`가 원본이다.
-이 파일은 커밋 대상과 생성 산출물의 경계만 안내한다.
+## Source and generated boundaries
 
-## Key Files
+- Commit `config.json`, `emit-types.mjs`, `compile-css.mjs`, `css/ds-entry.css`, `previews/*.tsx`, `conventions.md`, `NOTES.md`, and `tsconfig.dts.json`.
+- Do not directly edit or commit `apps/frontend/ds-types/**`, `apps/frontend/index.d.ts`, `apps/frontend/.ds-css/**`, `apps/frontend/node_modules/frontend`, or `ds-bundle/`; regenerate them through the documented process.
+- `emit-types.mjs` produces component prop declarations before packaging; keep `config.json` `dtsPropsFor` aligned with any deliberate extraction exception.
+- `compile-css.mjs` produces the design CSS before packaging; retain `source(none)` in `css/ds-entry.css` so Tailwind scans only the explicit frontend source boundary.
+- Preview source is human-authored input, not disposable build output; preserve its component import and class constraints from `conventions.md`.
 
-| 경로 | 역할 |
-| --- | --- |
-| `config.json` | converter 설정 — `srcDir`, guidelinesGlob, `dtsPropsFor`, `overrides` |
-| `emit-types.mjs` | 빌드 전 컴포넌트 prop 계약(`.d.ts`) 생성 |
-| `compile-css.mjs` | 빌드 전 필수 — Tailwind v4 정적 컴파일 |
-| `css/ds-entry.css` | Tailwind 컴파일 진입점(커밋 대상, `source(none)` 경계 포함) |
-| `previews/*.tsx` | 사람이 쓴 프리뷰 소스(커밋 대상, 산출물 아님) |
-| `conventions.md` | 디자인 에이전트용 클래스 어휘·조합 관례 원본 |
-| `NOTES.md` | 빌드 순서·환경·re-sync 위험·실패 사례 원본 |
-| `tsconfig.dts.json` | `.d.ts` emit 전용 tsconfig |
+## High-risk constraints
 
-## For AI Agents
+- Do not change `config.json` `projectId`, package identity, or source scope incidentally; those select the remote design project and converter surface.
+- Preserve the documented build order in `NOTES.md`: self-link, declaration emission, CSS compilation, then package conversion.
+- Format previews before rebuild/capture because preview source bytes participate in synchronization hashes.
+- Public-safety rules apply to previews and any uploaded bundle input: use only clearly fictional placeholders and never add credentials, host paths, real personal data, or production content.
+- Keep frontend design policy in `../docs/design.md` and frontend structural policy in `../docs/rules/frontend.md`; do not duplicate either here.
 
-- `config.json`·도구 스크립트·`css/ds-entry.css`·`previews/*.tsx`·두 원본 문서는 커밋 대상이다.
-- `apps/frontend/node_modules/frontend` self-link, `apps/frontend/ds-types/**`, `apps/frontend/index.d.ts`, `apps/frontend/.ds-css/**`, `ds-bundle/`는 gitignore 대상 생성물이다.
-- 생성물을 직접 편집하거나 커밋하지 않고 `NOTES.md`의 순서로 다시 만든다.
-- `previews/*.tsx`는 사람이 편집하는 소스이며 포맷·채점 계약은 `NOTES.md`를 따른다.
-- 프리뷰에 이름을 쓸 때는 루트 `AGENTS.md` §6 public-safe 경계를 그대로 적용한다 — 가공 인물임이 자명한 플레이스홀더(`홍길동`)만 쓰고 실명형 이름은 쓰지 않는다.
-- 프리뷰 클래스와 금지 import는 `conventions.md`와 `NOTES.md`의 현재 계약을 따른다.
+## Important paths
 
-## Dependencies
-
-- [루트 AGENTS.md](../AGENTS.md) — public-safe 경계(§6), 작성권(§3)
-- [NOTES.md](NOTES.md) — 빌드 순서·환경·re-sync 위험의 원본.
-- [conventions.md](conventions.md) — 클래스 어휘·조합 패턴 원본.
-- [docs/design.md](../docs/design.md) — 색상·타이포그래피·토큰 계층 계약(`config.json`의 guidelinesGlob)
-- [docs/rules/frontend.md](../docs/rules/frontend.md) — frontend 구조 계약(`config.json`의 guidelinesGlob)
+- `config.json` — converter package and guideline configuration.
+- `emit-types.mjs` — `.d.ts` generation entry point.
+- `compile-css.mjs` and `css/ds-entry.css` — Tailwind compilation contract.
+- `previews/` — committed component preview sources.
+- `NOTES.md` — exact re-sync sequence and failure boundaries.
+- `conventions.md` — allowed design classes and preview composition rules.
+<!-- /init:managed id=craft-init-4.0.0-design-sync -->
