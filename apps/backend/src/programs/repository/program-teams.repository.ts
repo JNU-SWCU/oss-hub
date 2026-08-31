@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneDocumentKind,
   OutboxEventStatus,
   Prisma,
   RepositoryProvisionJobStatus,
@@ -12,6 +13,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { requiredMilestonesApproved } from '../../common/milestone-completion';
 import { publishBlockedReasons } from '../../common/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
+import {
+  projectSubmissionCompletionTargets,
+  submissionCompletionTargetSelect,
+} from '../../submissions/submission-completion-projection';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
@@ -361,16 +366,18 @@ export class ProgramTeamsRepository {
                 id: true,
                 submissionType: true,
                 documents: {
-                  where: { required: true },
+                  where: {
+                    required: true,
+                    kind: MilestoneDocumentKind.DOCUMENT,
+                  },
                   select: { id: true },
                 },
               },
             },
           },
         },
-        submissions: { select: { milestoneId: true, status: true } },
         milestoneDocumentSubmissions: {
-          select: { milestoneDocumentId: true, status: true },
+          select: submissionCompletionTargetSelect,
         },
       },
     });
@@ -393,6 +400,9 @@ export class ProgramTeamsRepository {
         }),
       ]);
       const repository = application.repository;
+      const completionTargets = projectSubmissionCompletionTargets(
+        application.milestoneDocumentSubmissions,
+      );
       const blockedReasons = repository
         ? publishBlockedReasons(
             {
@@ -401,8 +411,8 @@ export class ProgramTeamsRepository {
                 job?.repositoryId === repository.id ? job.status : null,
               requiredMilestonesApproved: requiredMilestonesApproved(
                 application.program.milestones,
-                application.submissions,
-                application.milestoneDocumentSubmissions,
+                completionTargets.submissions,
+                completionTargets.documentSubmissions,
               ),
               isRepositoryPublicationPlanned:
                 application.isRepositoryPublicationPlanned,

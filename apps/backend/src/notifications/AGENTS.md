@@ -1,49 +1,33 @@
-<!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-30 · Updated: 2026-08-12 (마감 다이제스트 수신자 서술 정정) -->
+<!-- init:managed id=craft-init-4-notifications sha256=5855ae84ca76fd612021772789b966e84726d1ad7e40805f97e4109d3d99eb6d -->
+# notifications — 설정과 마감·판정 알림
 
-# apps/backend/src/notifications — 알림 설정·마감 다이제스트 메일
+## 범위와 스케줄
 
-## Purpose
+- 본인 알림 설정, 마감 다이제스트 발송, durable failure 조회, 신청 판정 알림의 읽기/ack를 소유한다.
+- `notifications.module.ts`는 `DeadlineDigestService`만 export하고 `ScheduleModule`을 중복 등록하지 않는다; schedule root는 collection module이다.
+- `notification-settings.controller.ts` → service → repository 흐름은 로그인 사용자 자신의 email/notifyEnabled만 읽고 갱신한다.
+- `deadline-digest.scheduler.ts`는 Asia/Seoul 매일 09:00에 `DeadlineDigestService.sendDeadlineDigests`를 호출한다.
+- 자동 다이제스트는 D-1 이내 필수 미제출 학생만 보내고, `sendProgramFromPreview` 수동 흐름만 교직원 미제출 요약을 더한다.
+- `deadline-digest-eligibility.ts`가 preview 대상/version을 정한다; 학생 후보 변경만 preview staleness에 반영한다.
+- 학생과 교직원 idempotency key의 `deadline-digest:`/`deadline-digest-staff:` prefix를 유지한다.
 
-사용자 본인 알림 이메일 설정과 마감 다이제스트를 담는다.
-마감 다이제스트의 실제 수신자는 두 갈래다.
+## Failure와 producer 경계
 
-- **학생 리마인더** — 승인된 신청의 신청자·팀원 학생. 자동(09시 cron)·수동 발송 양쪽에서 나간다.
-- **교직원 요약** — 미제출 팀 목록. **수동 발송(`sendProgramFromPreview`) 경로에만** 있다.
+- `deadline-digest-failures.service.ts`와 controller는 durable 실패 조회만 제공한다.
+  현재 retry endpoint/service/worker는 없으므로 문서만 보고 재시도 흐름을 가정하거나 scheduler loop를 추가하지 않는다.
+- 원본 `APPLICATION_DECISION` notification 행은 applications 판정 트랜잭션이 생성한다.
+  notifications는 unread 조회와 acknowledgement 생성 consumer 경계를 소유한다.
 
-메일 발송은 `MailSender` 포트 뒤에 두어 나머지 코드가 Gmail SDK를 알지 못한다.
+## 메일·개인정보
 
-## Key Files
+- sender 호출은 `MAIL_SENDER` port를 통하고 adapter는 `adapters/gmail-mail-sender.ts` 또는 `adapters/log-mail-sender.ts`다.
+- `MAIL_MODE=dry-run`만 log sender를 사용한다; `send` 설정 불완전은 fail-closed하고 자동 fallback하지 않는다.
+- `DIGEST_FORCE_TO`는 합성 격리 실증 전용이며 운영 credential·실제 수신자와 함께 쓰지 않는다.
+- 수신자는 ACTIVE, notifyEnabled, notificationEmail 조건을 지키고 log/preview에 credential이나 불필요한 개인정보를 넣지 않는다.
 
-| 파일 | 역할 |
-| --- | --- |
-| `notification-settings.service.ts` | `getMyNotificationSettings`/`updateMyNotificationEmail` — 로그인 사용자 본인의 알림 이메일·수신 여부 |
-| `deadline-digest.service.ts` | `sendDeadlineDigests` — D-1(`DEADLINE_LEAD_TIME_MS`) 이내 마감 마일스톤의 필수 서류 미제출 **학생**(신청자·팀원)에게만 발송, 대상 없으면 생략 · `sendProgramFromPreview` — 같은 학생 발송에 더해 **교직원 요약**을 함께 발송 |
-| `deadline-digest.scheduler.ts` | `@Cron(EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })` |
-| `mail-sender.port.ts` | `MailSender` 인터페이스·`MAIL_SENDER` DI 토큰 |
-| `mail-sender.provider.ts` | 런타임 설정으로 `GmailMailSender` vs `LogMailSender`(dry-run) 중 선택하는 factory |
+## 진입점과 검증
 
-## Subdirectories
-
-| 경로 | 내용 |
-| --- | --- |
-| `adapters/` | `gmail-mail-sender.ts`(OAuth 리프레시 토큰 기반 발송) · `log-mail-sender.ts`(명시적 dry-run에서만 발송 없이 로그 기록) |
-| `dto/` | 알림 설정 요청/응답 DTO |
-| `cli/` | `send-deadline-digest.ts` — 로컬/실증용 1회 실행, `MAIL_MODE=send\|dry-run` 필수 |
-
-## For AI Agents
-
-- `MAIL_MODE`가 발송 방식을 결정한다.
-- `dry-run`만 `LogMailSender`를 선택하고 `send`에서 Gmail 설정이 불완전하면 시작 단계에서 실패한다.
-- 자동 fallback을 추가해 운영 오설정을 숨기지 않는다.
-- `DIGEST_FORCE_TO`는 합성 수신자를 쓰는 격리된 로컬 실증에서만 사용한다.
-- 운영 자격증명이나 실제 수신자 데이터와 함께 사용하지 않는다.
-- `sendDeadlineDigests`의 리드타임(`DEADLINE_LEAD_TIME_MS`, 기본 24시간)은 코드 상수라 배포 없이 바꿀 수 없다 — 런타임 설정으로 옮기지 않은 것은 의도된 선택이다.
-- 교직원 요약 수신자는 `findNotifiableStaff`(전역 STAFF/ADMIN 중 ACTIVE·`notifyEnabled`·`notificationEmail` 있음)다. `Program`에 담당 교직원 관계가 없어 전역이다. `findActiveStaffOrAdmin`은 호출자 권한 판정용 boolean이니 수신자 조회에 재사용하지 않는다.
-- 멱등 키 접두어는 학생 `deadline-digest:`와 교직원 `deadline-digest-staff:`로 반드시 분리한다 — STAFF 계정이 그 프로그램의 팀원을 겸할 때 한쪽이 DUPLICATE로 삼켜진다.
-- `previewVersion`은 학생 후보만 잠근다. 교직원 명단 변화는 미리보기를 stale로 만들지 않는다(근거는 `deadline-digest-eligibility.ts`의 canonical 주석).
-
-## Dependencies
-
-- [apps/backend/src/AGENTS.md](../AGENTS.md) — 모듈 경계·에러 코드 규약.
-- `auth/`(`AuthModule`), `runtime-config/`(Gmail·발송 모드 설정).
+- 구현: `deadline-digest.service.ts`, `deadline-digest.repository.ts`, `deadline-digest.scheduler.ts`, `mail-sender.provider.ts`, `application-decision-notifications.service.ts`.
+- unit: `deadline-digest.service.spec.ts`, `deadline-digest-eligibility.spec.ts`, `deadline-digest-failures.service.spec.ts`, `mail-sender.provider.spec.ts`, `application-decision-notifications.service.spec.ts`.
+- integration: `deadline-digest-delivery.integration.spec.ts`, `deadline-digest-eligibility.integration.spec.ts`, `application-decision-notifications.integration.spec.ts`.
+<!-- /init:managed id=craft-init-4-notifications -->

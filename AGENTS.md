@@ -1,103 +1,150 @@
-# AGENTS.md — 에이전트·작업자 공용 규칙
+# Repository Guidelines
 
-이 문서는 oss-hub에서 작업하는 모든 AI 에이전트(Claude Code·Codex 등)와 사람의 공용 진입점이다.
-본문은 라우팅·프로토콜·표만 담고 상세 규칙은 링크된 문서가 원본이며 이 문서는 250줄을 넘기지 않는다.
-문서는 한 문장을 한 줄에 쓴다 — 열 폭 하드랩은 렌더링 공백과 diff 노이즈를 만들므로 쓰지 않는다.
-티켓 워크플로의 원본은 `skills/manage-qa-tickets/SKILL.md` 하나다 — QA 티켓 작성, GitHub Issue 발행, 티켓 수행을 모두 담으며 Codex 등 다른 에이전트도 티켓 요청을 받으면 이 파일을 따른다.
-`.claude/skills/manage-qa-tickets`와 `.cursor/skills/manage-qa-tickets`는 이 원본을 가리키는 심볼릭 링크이므로 checkout만으로 Claude·Cursor가 스킬을 찾는다.
-저장소 검사·운영 보조 스크립트는 [scripts/AGENTS.md](scripts/AGENTS.md), claude.ai/design 번들 도구는 [.design-sync/AGENTS.md](.design-sync/AGENTS.md)가 원본이며 `deploy/**`와 `scripts/check-jenkinsfile*.sh`는 ADR-005의 배포 계약 경로다.
+## Project Overview
 
-## 1. 세션 부트스트랩 — 읽기 순서 고정
+OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기반 운영, GitHub 저장소·활동 수집을 제공하는 한국어 웹 서비스다.
+이 저장소는 PUBLIC monorepo이며 Next.js frontend, NestJS backend, PostgreSQL, MinIO, nginx와 배포 계약을 함께 관리한다.
+작업 전 루트부터 대상 경로까지의 `AGENTS.md`를 순서대로 읽고 가장 가까운 규칙을 우선한다.
+상세 규칙은 이 문서에 복제하지 않고 `docs/rules/`, `docs/decisions/`, 해당 경로의 `AGENTS.md`를 따른다.
 
-새 세션은 아래 순서로만 읽고 작업을 시작하며 그 밖의 문서는 링크를 따라갈 때만 연다.
+## Architecture & Data Flow
 
-1. 이 파일 (AGENTS.md)
-2. `docs/handoff/TEAM-STATE.md` — 멤버 저널 인덱스다. 진행 기록은 `docs/handoff/team-state/<핸들>.md`의 마지막 항목을 보고, 상태의 원본은 GitHub Issue·PR이다.
-3. 자기 기능의 exec-plan — `docs/exec-plan/active/<기능>.md`
-4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
-5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 저널 이후 열린 PR을 확인한다.
-6. `bash scripts/setup-hooks.sh` 1회 — 저장소 Git 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
-7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`를 따른다 — 호스트 hot reload(`pnpm dev`)와 컨테이너 통합 검증(`pnpm local:up`)의 선택 기준이 거기 있다.
+- 요청 흐름은 브라우저 → nginx → frontend 또는 `/api/v1` backend → PostgreSQL/MinIO다.
+- `apps/frontend`는 Next.js App Router UI를 소유한다.
+  쿠키 기반 shell 초기화는 server layout에 두고 `window`·브라우저 상태는 client component effect에서 다룬다.
+- frontend HTTP 호출의 유일한 경계는 `apps/frontend/src/lib/api-client.ts`다.
+  `apiPath`, `apiClient`, `apiFileClient`를 사용하고 `/api/v1`, `fetch`, 다운로드 파일명 파싱을 callsite에서 재구현하지 않는다.
+- `apps/backend/src/main.ts`는 `api/v1` prefix, transform + whitelist validation, global ProblemDetail filter를 설치한다.
+- backend 기능은 `AppModule`에 Nest module로 조립하고 runtime 설정은 `RUNTIME_CONFIG` DI token으로 받는다.
+  주석으로 정한 module import 순서와 E2E 전용 feature gate를 보존한다.
+- 업무 계층은 Controller → Service → Repository → Prisma다.
+  PostgreSQL 직접 접근은 backend repository만 하며 controller와 일반 service의 Prisma 접근을 금지한다.
+- 공개 endpoint가 private table을 읽을 때는 owner-approved public query repository에서 명시적 `select`, public DTO allowlist, private/nonexistent 동일 404를 적용한다.
+  wildcard `include`, private join, fetch-then-redact는 금지한다.
+- API 실패는 backend ProblemDetail과 frontend `ApiError` 계약을 유지한다.
+  임의 fallback이나 오류 삼키기보다 명시적으로 실패한다.
+- 전체 시스템 지도는 `docs/architecture.md`, 장기 결정은 `docs/decisions/README.md`와 관련 ADR이 원본이다.
 
-## 2. Canonical Store — 정보 종류별 원본 위치
+## Key Directories
 
-한 사실은 한 원본에만 기록하며 repo에는 원본을 가리키는 링크·ID만 남기고 본문을 복사·인용하지 않는다.
+| Path | Purpose |
+| --- | --- |
+| `apps/frontend` | Next.js UI, route composition, feature state, shared UI, browser E2E |
+| `apps/backend` | NestJS REST API, domain modules, workers, persistence adapters |
+| `apps/backend/prisma` | Prisma schema와 직렬화된 migration history |
+| `scripts` | CI contract, local integration, diagnostics, deploy helpers; `scripts/AGENTS.md` 적용 |
+| `docs/decisions` | 기술·운영 결정의 canonical ADR |
+| `docs/rules` | security, frontend, local-dev, data-modeling, CI path 규칙 |
+| `docs/exec-plan` | owner 전속 기능 실행 계획; active와 archive 분리 |
+| `docs/handoff/team-state` | GitHub handle별 append-only 작업 저널 |
+| `skills` | repo-owned QA·운영 skill 원본 |
+| `.github/workflows` | required CI와 public-safe 실행 경계 |
+| `deploy`, `compose*.yml`, `Jenkinsfile` | nginx, local/production container, release deploy 계약 |
 
-| 정보 종류 | 원본(canonical) | repo에 남기는 것 |
-| --- | --- | --- |
-| 제품·기획 결정 | Notion Decision Log | Decision ID + 링크 |
-| 기술·운영 결정 | `docs/decisions/` ADR | ADR 번호 |
-| 구현 진행 상태 | GitHub Issue·PR | Issue/PR 번호 |
-| 시크릿(키·토큰) | secret store(배포 환경 변수) | 변수 이름만(`.env.example`) |
-| 개인정보·실데이터 | 제한 저장소(repo 밖) | 없음 — 합성 fixture만 반입 |
-실값은 **운영 credentials vault**가 원본이며 배포 설정 변경 시의 갱신 요건은 `docs/rules/security.md`가 원본이다.
+## Development Commands
 
-## 3. 작성권 — 산출물마다 작성자 1인
+Node.js 24 이상과 pnpm 11.0.0을 사용하고 `corepack enable`로 pnpm을 활성화한다.
+패키지 workspace는 `apps/*`이며 설치 시 backend Prisma client가 생성된다.
 
-기능 코드와 exec-plan은 owner 전속 경로이며 owner가 아닌 사람·에이전트는 직접 수정하지 않고 Issue·PR 코멘트로 제안한다.
-@GoBeromsu와 @Lumiere001은 owner 표와 무관하게 저장소 전체 경로를 사전 허락 없이 수정하는 free-role 예외를 가진다(원본: ADR-005).
-PR 본문에 대상 기능과 owner를 명시해 owner를 리뷰어로 지정하고, 착수 전 Issue로 선점을 선언하며, owner의 사후 확인 코멘트는 병합 조건이 아니다.
-PR은 항상 Ready로 연다 — 유일한 예외는 스택의 하위 PR이고, base가 아직 병합되지 않은 상위 PR의 브랜치인 동안만 Draft로 두며 상위가 병합되면 즉시 Ready로 전환한다(스택을 쓸 조건은 `docs/rules/pr-scope.md` §4).
-Draft는 GitHub에서 병합이 원천 차단되고(`--admin`으로도 우회되지 않는다) required check가 전부 green이어도 아무 신호가 없어 완성된 변경이 조용히 방치되는 주차장으로 쓰였으므로, 진행 중 공유가 필요하면 Draft가 아니라 Issue 코멘트나 PR 본문 갱신으로 알린다.
-그래서 base가 `main`인 Draft PR은 예외 밖이며 위반으로 본다 — 상위가 병합되면 GitHub이 하위 PR의 base를 자동으로 `main`으로 옮기므로, 전환 의무를 사람의 기억이 아니라 PR의 base와 draft 상태만으로 판정할 수 있다.
-PR을 제출하기 전 자기 저널(`docs/handoff/team-state/<GitHub핸들>.md`) 끝에 항목을 추가한다 — 옛 항목·남 파일·인덱스·archive는 고치지 않는다. 항목 형식은 인덱스가 원본이다. pre-push 훅이 저널 파일 변경을 검사하며, 우회는 `TEAM_STATE_SKIP=1` + PR 본문에 사유 명시다(`docs/handoff/team-state-drift-check.md`). 없는 핸들은 저널 파일을 새로 만든다. 같은 기능의 상태 전이는 행을 고치지 않고 새 항목을 붙이며, 현재 상태는 같은 Issue·PR(없으면 제목)의 마지막 항목이다.
+| Goal | Command |
+| --- | --- |
+| Install | `pnpm install` |
+| Host hot reload | `pnpm dev` |
+| Development DB only | `pnpm db:up` |
+| Production-like local stack | `pnpm local:up` |
+| Verify / stop local stack | `pnpm local:verify` / `pnpm local:down` |
+| Create development migration | `pnpm db:migrate:dev` |
+| Focused package check | `pnpm --filter frontend <script>` or `pnpm --filter backend <script>` |
+| Whole workspace | `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test` |
+| Formatting | `pnpm format:check` (`pnpm format` only when formatting is intended) |
 
-| 기능 | owner | exec-plan 경로 | 코드 경로 |
-| --- | --- | --- | --- |
-| (기능 1 — 지정 예정) | @GoBeromsu | `docs/exec-plan/active/<기능1>.md` | (지정 예정) |
-| GitHub OAuth 로그인 | @Lumiere001 | `docs/exec-plan/archive/github-oauth-login.md`(완료, archive) | `apps/backend/src/auth`, `apps/frontend/src/features/auth` |
-| GitHub 활동 수집기 | @Lumiere001 | `docs/exec-plan/archive/github-collector.md`(완료, archive) — 현재 아키텍처는 [ADR-006](docs/decisions/ADR-006-github-app-integration.md)이 원본 | `apps/backend/src/github` |
-| (기능 3 — 지정 예정) | @<designer-1> | `docs/exec-plan/active/<기능3>.md` | (지정 예정) |
-| (기능 4 — 지정 예정) | @<designer-2> | `docs/exec-plan/active/<기능4>.md` | (지정 예정) |
+`pnpm dev`는 `.envrc`와 host `localhost` 경계를, `pnpm local:*`은 `.env`와 Compose service DNS 경계를 사용한다.
+두 환경의 DB/MinIO 주소를 복사하지 말고 상세 선택 기준은 `docs/rules/local-dev.md`를 따른다.
+`compose.yml`은 prebuilt release image와 production secret을 요구하므로 local development entry point로 사용하지 않는다.
 
-공용 경로(공유 lib·설정·CI)는 독립 소형 PR로만 수정하고 착수 전 Issue로 선점을 선언하며 PR 범위·분해 기준은 `docs/rules/pr-scope.md`가 원본이다.
-DB 마이그레이션은 직렬로만 진행하며 동시 마이그레이션 PR을 만들지 않는다.
-테이블 추가·모델 명명·projection 설계 기준은 `docs/rules/data-modeling.md`가 원본이다.
+## Code Conventions & Common Patterns
 
-### 리뷰 결과 운용 — ADR-005 waypoint
+- TypeScript 타입 경계를 유지하고 기존 feature/module 구조를 재사용한다.
+  병렬 convention, speculative abstraction, silent compatibility fallback을 만들지 않는다.
+- frontend는 화면/업무별 `features/`에 상태·타입·API를 가깝게 두고 여러 feature가 공유할 때만 `components/`나 `lib/`로 올린다.
+- browser-only 값은 hydration-safe effect에서 읽고 recoverable session failure는 명시적 retry UI로 보인다.
+- backend는 Nest DI와 module ownership을 사용하고 DTO validation, repository projection, ProblemDetail을 우회하지 않는다.
+- shell script는 `set -euo pipefail`과 fail-closed 처리를 우선하고 contract test는 합성 fixture만 사용한다.
+- `pnpm-lock.yaml` 충돌을 손으로 병합하지 않는다.
+  merge 뒤 pnpm으로 재생성한다.
+- 커밋은 atomic Conventional Commit이며 type은 `feat`, `fix`, `docs`, `refactor`, `style`, `test`, `chore`, `ci`만 쓴다.
+  summary는 한국어 한 줄이고 `그리고`·`및`이 필요하면 분리한다.
+- 문서는 한 문장을 한 줄에 쓰며 정책 본문을 여러 파일에 복제하지 않는다.
 
-권한 경계와 병합 조건은 [ADR-005](docs/decisions/ADR-005-agent-driven-review-cycle.md)가 원본이다.
-전남의 독립 리뷰는 적용되는 `AGENTS.md`·팀 컨벤션 준수, 중복 구현, 기존 기능의 불필요한 재구현, correctness·security·명시적 계약 위반을 검증한다.
-리뷰 결과는 `blocker`, `fix-now`, `follow-up`, `reject`로 분류하며 정확한 의미는 ADR-005를 따른다.
-병합 게이트는 required check(`ci`·`public-safe`)의 실제 통과와 GitHub mergeable 상태뿐이다 — 코멘트로 선언하는 별도 병합 상태는 두지 않는다.
-전남의 exact head·base 코드·계약 리뷰, Ponytail, 실제 UI/API QA는 PR 리뷰 코멘트로 남기는 권장 관행이며 병합의 필요조건은 아니다.
-high risk의 전체 분류표와 예외는 ADR-005만을 원본으로 사용한다.
-accept 코멘트(`PM_ACCEPT`·`TECH_LEAD_ACCEPT`·`RISK_ACCEPT`)와 `MERGE_READY` 병합 게이트는 모두 폐지됐다 — 댓글로 선언하는 상태는 실제 CI 결과와 어긋날 수 있는 second source of truth이기 때문이며(ADR-005 2026-08-04 변경), high risk PR과 배포 계약 경로 변경 PR도 required check 통과만으로 병합 절차를 진행하고 실제 병합 권한 제한은 GitHub 저장소 설정(branch protection 등)이 원본이다.
-production release 배포의 인가·트리거·실행 검증과 실패·복구 동작은 ADR-002가 원본이며, 별도의 release accept 절차는 두지 않는다.
+Ownership과 협업 규칙:
 
-## 4. 에이전트 금지 목록과 공개 strict-read 경계
+- feature code와 exec-plan은 owner 전속이다.
+  owner는 nearest `AGENTS.md`, active exec-plan, GitHub Issue에서 확인하고 non-owner는 Issue/PR comment로 제안한다.
+- @GoBeromsu와 @Lumiere001은 ADR-005의 repository-wide free-role 예외다.
+- shared lib·설정·CI는 착수 전 Issue로 선점하고 독립 소형 PR로 다룬다.
+  DB migration PR은 동시에 진행하지 않는다.
+- PR은 Ready로 열며 stack 하위 PR만 base가 미병합 상위 branch인 동안 Draft를 허용한다.
+- PR 전 자기 `docs/handoff/team-state/<handle>.md` 끝에 새 항목을 추가한다.
+  과거 항목, 다른 사람 저널, `TEAM-STATE.archive.md`를 수정하지 않는다.
+- commit/push/PR 절차는 `docs/rules/pr-scope.md`와 ADR-005를 따른다.
+  병합 판단의 원본은 required `ci`·`public-safe` 결과와 GitHub mergeable 상태다.
 
-에이전트는 아래 작업을 지시받아도 수행하지 않고 owner 또는 @Lumiere001에게 되돌린다.
+PUBLIC safety:
 
-- 공개 endpoint가 private 테이블을 읽는 것은 owner-approved dedicated public query repository 안에서만 허용한다.
-- 해당 repository는 명시적 `select`와 public DTO allowlist만 사용하고, service allowlist와 동일한 private/nonexistent 404를 적용하며 selector/integration review evidence를 남긴다.
-- controller와 일반 service의 Prisma 직접 접근, 임의 private join, wildcard `include`, redact-later 설계와 forbidden field fetch는 계속 금지한다.
-- 학생(사용자) 토큰으로 쓰기 API 호출
-- lockfile(`pnpm-lock.yaml`) 수동 병합 — 충돌 시 merge 후 재생성만 허용
-- 시크릿·실명·개인 머신 경로(`/Users/` 등)를 코드·문서·커밋 메시지·PR 본문에 포함
-- 개인정보 원본·실데이터(마스킹본 포함)를 repo 또는 외부 LLM에 반입
+- code, Issue/PR 본문, CI log, screenshot, fixture가 모두 공개된다고 가정한다.
+- 시크릿, 실명, 개인정보·실데이터(마스킹본 포함), 개인 hostname·머신 경로를 저장소나 외부 LLM에 반입하지 않는다.
+  사람은 GitHub `@handle`로만 표기한다.
+- 학생 token으로 write API를 호출하지 않는다.
+- 전체 deny-list와 credential 갱신 계약은 `docs/rules/security.md`가 원본이다.
 
-## 5. 커밋 규칙 — 아토믹 + Conventional Commits
+## Important Files
 
-형식은 [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)을 따르며 아래는 이 repo의 로컬 규칙이다.
+| File | Why it matters |
+| --- | --- |
+| `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml` | Node/pnpm contract, workspace scripts, install permissions |
+| `apps/frontend/src/app/layout.tsx` | server root layout와 global shell |
+| `apps/frontend/src/lib/api-client.ts` | browser API path, JSON/file response, ProblemDetail boundary |
+| `apps/backend/src/main.ts` | HTTP bootstrap와 global validation/error policy |
+| `apps/backend/src/app.module.ts` | backend module/DI composition root |
+| `apps/backend/prisma/schema.prisma` | current persistence model; migrations remain historical source |
+| `.env.example` | environment variable names only; no values |
+| `compose.dev.yml`, `compose.local.yml`, `compose.yml` | development DB, local integration, production runtime contracts |
+| `.github/workflows/ci.yml` | always-created required checks와 inner path-selective lanes |
+| `Jenkinsfile` | stable GitHub Release → exact main SHA production deployment |
+| `docs/rules/ci-path-verification.md` | changed path별 required verification matrix |
+| `docs/handoff/TEAM-STATE.md` | journal index and append format; status source is GitHub Issue/PR |
 
-- 아토믹: 한 커밋 = 하나의 논리적 변경이며 요약에 "및·그리고"가 들어가면 쪼개라는 신호이고 중간 상태로 빌드가 깨지는 커밋을 만들지 않는다.
-- 요약은 한국어 한 줄이며 type은 `feat`(기능) `fix`(버그) `docs`(문서) `refactor`(동작 불변 정리) `style`(공백·줄바꿈 등 표기만) `test` `chore`(설정·잡무) `ci`만 쓴다. `style`과 `refactor`는 갈린다 — 코드가 하는 일도 구조도 그대로고 표기만 바뀌면 `style`, 하는 일은 같은데 구조를 손봤으면 `refactor`다.
-- 이 목록은 `commitlint.config.cjs`의 `type-enum`과 **한 벌이다.** 한쪽만 고치면 문서와 검사가 갈라진다.
-- `.githooks/commit-msg`가 커밋하는 순간 이 규칙을 검사한다 — CI에서만 걸리면 이미 이력에 박힌 뒤라 고치려면 역사를 다시 써야 하고, 그 커밋을 다른 브랜치가 가리키면 강제 푸시가 남의 작업을 무너뜨린다. 훅을 켜려면 §7과 같은 `git config core.hooksPath .githooks` 하나면 된다.
-- 본문은 요약으로 "왜"가 부족할 때만 1~3줄로 쓰며 PR 본문과 중복 서술하지 않는다.
-- 에이전트가 만든 커밋도 동일 규칙이다 — 여러 파일을 한 번에 고쳤어도 논리 단위로 나눠 커밋한다.
+제품·기획 결정은 Notion Decision Log, 기술·운영 결정은 ADR, 구현 상태는 GitHub Issue/PR, secret 값은 운영 vault만 원본으로 삼는다.
+로컬 작업 시작 시 관련 open PR을 한 번 확인하고 `bash scripts/setup-hooks.sh`로 repository hooks를 활성화한다.
+로컬 날짜 기준 첫 개발 세션은 runtime-native marketplace에서 craft-skills 최신본을 확인·갱신한다.
+Claude Code는 project marketplace `autoUpdate`, Codex는 project `INSTALLED_BY_DEFAULT` 정책을 사용하고, GJC는 `docs/rules/agent-skill-routing.md`의 native update/install 명령을 실행한다.
+구현 전에 작업 표면에 대응하는 craft skill을 선택해 현재 설치본의 `SKILL.md`를 읽고 그 절차를 적용한다.
+frontend/backend/API/DB/test/refactor/debug/browser 작업을 일반 추론만으로 진행하지 않으며 정확한 매핑은 `docs/rules/agent-skill-routing.md`가 원본이다.
 
-## 6. Public-safe 경계
+## Runtime/Tooling Preferences
 
-이 repo는 PUBLIC이며 코드뿐 아니라 Issue·PR 본문·CI 로그·스크린샷 전부가 공개 범위다.
-사람 표기는 GitHub @handle만 사용하며 공개 가능 여부의 판단 기준과 deny-list는 `docs/rules/security.md`가 원본이다.
+- Required: Node.js `>=24`, pnpm `11.0.0`, Docker/Compose; host dev는 direnv를 사용한다.
+- Bun을 package/runtime 명령으로 사용하지 않는다.
+  root `package.json`의 pnpm scripts가 실행 계약이다.
+- Prisma client는 install/build artifact이며 schema 변경은 migration과 함께 검증한다.
+- frontend browser E2E는 bundled Chromium이 아니라 installed Chrome channel을 사용한다.
+- GitHub Actions는 PR에서 lane 내부만 path-selective이고 workflow-level `paths` filter를 두지 않는다.
+  `main` push는 모든 lane을 실행한다.
+- Production은 branch head나 mutable `latest`가 아니라 stable SemVer GitHub Release의 exact main SHA를 Jenkins가 배포한다.
 
-## 7. 브랜치 뒷정리
+## Testing & QA
 
-목적: 에이전트가 main 동기화 직후, merge 완료된 로컬 브랜치를 자동 정리한다.
-원격 브랜치는 repo 설정 `delete_branch_on_merge`가 merge 시점에 자동 삭제한다.
-
-- 활성화: `bash scripts/setup-hooks.sh` (§1 부트스트랩 6번, 멱등) — `pnpm install`은 Git 설정을 건드리지 않는다.
-- 동작: `.githooks/post-merge`가 main에서 merge 기반 pull로 실제 FF/merge가 완료될 때 `scripts/tidy-branches.sh`를 실행하고 origin/main 이력에 포함된 gone 브랜치만 `git branch -d`로 삭제하며 그 외에는 보류 안내만 하고 rebase 기반 pull·변경 없는 pull에서는 발화하지 않는다.
-- 다른 `core.hooksPath`를 쓰고 있으면 그 설정을 보존하고 이 훅은 비활성으로 두며 이 경우 `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행하고 기존 설정은 `git config --show-origin --get core.hooksPath`로 확인한다.
+- 변경 파일에서 가장 싼 증명부터 실행하고 최종 명령 선택은 `docs/rules/ci-path-verification.md`를 따른다.
+- frontend unit/helper test는 Vitest의 기본 Node environment다.
+  DOM이 필요한 파일만 명시적으로 happy-dom을 사용한다.
+- browser spec은 `apps/frontend/e2e/**/*.spec.ts`의 Playwright 소유이고 `e2e/support/**/*.test.ts`는 Vitest 소유다.
+- Playwright는 fresh local stack, Chrome, `workers: 1`, `retries: 0`을 사용한다.
+  UI·browser behavior 변경은 `pnpm --filter frontend e2e`를 local manual gate로 실행하며 GitHub Actions가 대신하지 않는다.
+- backend default `test`는 Jest unit suite이고 `*.integration.spec.ts`를 제외한다.
+  integration은 반드시 `pnpm --filter backend test:integration`의 isolated runner로 실행하며 임의 PostgreSQL에 직접 붙이지 않는다.
+- 빠른 시작은 `pnpm --filter frontend test` 또는 `pnpm --filter backend test:unit`이다.
+  focused script가 integration/E2E wrapper를 부르면 cheap test로 간주하지 않는다.
+- observable behavior, edge values, branch conditions, error handling을 검증하고 default/tautology test를 추가하지 않는다.
+- production-like validation은 `pnpm local:verify`를 사용한다.
+  backup pruning과 Jenkins deploy helper는 승인된 Jenkins 경로 밖에서 수동 실행하지 않는다.
+- PR에는 실제 실행한 검증만 기록하며 warning이나 test를 숨겨 통과시키지 않는다.

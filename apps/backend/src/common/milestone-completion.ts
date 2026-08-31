@@ -162,7 +162,9 @@ export function requiredMilestonesApproved(
     milestone.submissionType === null && milestone.documents.length === 0
       ? true
       : isMilestoneComplete({
-          submissionAxisInUse: milestone.submissionType !== null,
+          ...(milestone.submissionType === null
+            ? { submissionAxisInUse: false }
+            : {}),
           requiredDocumentStatuses: milestone.documents.map(
             (document) => statusByDocument.get(document.id) ?? null,
           ),

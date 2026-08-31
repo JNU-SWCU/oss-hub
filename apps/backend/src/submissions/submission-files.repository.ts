@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneDocumentKind,
   MilestoneSubmissionType,
   Prisma,
   SubmissionFileLifecycle,
@@ -12,6 +13,10 @@ import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
+import {
+  exactSubmissionByPublicId,
+  submissionPublicIdWhere,
+} from './submission-public-id';
 
 const MAX_DELETE_ATTEMPTS = 6;
 const MAX_RETAINED_FILE_COUNT = 100;
@@ -168,7 +173,6 @@ export class SubmissionFilesRepository {
       ...downloadableFileWhere(fileId, now),
       OR: [
         { uploaderId: user.id },
-        { submissionRevision: { submittedById: user.id } },
         { application: { is: submissionParticipantWhere(user.id) } },
       ],
     });
@@ -204,17 +208,23 @@ export class SubmissionFilesRepository {
     let resubmissionStatus: SubmissionStatus | null = null;
     let currentRevision: number | null = null;
     if (resubmissionContext !== null) {
-      const submission = await this.prisma.submission.findFirst({
-        where: {
-          id: resubmissionContext.submissionId,
-          applicationId: application.id,
-          milestoneId: milestone.id,
-        },
-        select: { status: true, currentRevision: true },
-      });
+      const submissions =
+        await this.prisma.milestoneDocumentSubmission.findMany({
+          where: {
+            ...submissionPublicIdWhere(resubmissionContext.submissionId),
+            applicationId: application.id,
+            milestoneDocument: {
+              milestoneId: milestone.id,
+              kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+            },
+          },
+          take: 2,
+          select: { status: true, revision: true },
+        });
+      const submission = exactSubmissionByPublicId(submissions);
       if (submission === null) return null;
       resubmissionStatus = submission.status;
-      currentRevision = submission.currentRevision;
+      currentRevision = submission.revision;
     }
 
     return {
@@ -428,7 +438,7 @@ function downloadableFileWhere(
   return {
     id: fileId,
     lifecycle: SubmissionFileLifecycle.ATTACHED,
-    submissionRevisionId: { not: null },
+    milestoneDocumentSubmissionHistoryId: { not: null },
     expiresAt: { gt: now },
   };
 }

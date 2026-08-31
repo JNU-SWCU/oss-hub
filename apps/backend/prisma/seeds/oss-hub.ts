@@ -3,6 +3,8 @@ import {
   AffiliationKind,
   ApplicationStatus,
   MemberKind,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
@@ -238,8 +240,8 @@ export async function seedOssHub(
       }),
   );
 
-  // 팀의 프로그램 신청 — Submission·Repository·RepositoryProvisionJob이 모두 이
-  // 하나의 Application에 매달린다(신청당 최대 한 건인 Repository/ProvisionJob 계약, #113).
+  // 팀의 프로그램 신청 — Repository·RepositoryProvisionJob이 이 Application에 매달린다
+  // (신청당 최대 한 건인 Repository/ProvisionJob 계약, #113).
   await upsertTracked(
     stats,
     'Application',
@@ -336,11 +338,10 @@ export async function seedOssHub(
     },
   ] as const;
   // 과거 profile 실행이 남긴 다른 마일스톤 구성(예: 이전 4개 arc인 계획서 제출/중간 점검/
-  // 기능 시연/최종 발표, 또는 kickoff 같은 실험용 이름)을 정리한다. 그 마일스톤에 Submission이
-  // 남아 있으면 Milestone.submissions FK가 RESTRICT라 먼저 Review → SubmissionRevision →
-  // Submission 순으로 지워야 삭제가 성공한다. SubmissionFile.milestoneId도 RESTRICT라 실사용
-  // 업로드가 남아 있으면 이 삭제는 의도적으로 실패한다 — 그 경우 시드가 아니라 운영자가 직접
-  // 처리해야 한다는 신호로 취급한다.
+  // 기능 시연/최종 발표, 또는 kickoff 같은 실험용 이름)을 정리한다. 연결된 파일은 RESTRICT라
+  // 먼저 판정 이력 → 제출 이력 → 제출 헤더 → 서류 정의 순으로 지운다. SubmissionFile이 남아
+  // 있으면 이 삭제는 의도적으로 실패한다 — 그 경우 시드가 아니라 운영자가 직접 처리해야 한다는
+  // 신호로 취급한다.
   const newMilestoneIds = milestones.map((milestone) => milestone.id);
   const staleMilestones = await prisma.milestone.findMany({
     where: { programId: PROGRAM_ID, id: { notIn: newMilestoneIds } },
@@ -348,17 +349,26 @@ export async function seedOssHub(
   });
   const staleMilestoneIds = staleMilestones.map((milestone) => milestone.id);
   if (staleMilestoneIds.length > 0) {
-    await prisma.review.deleteMany({
+    await prisma.milestoneDocumentReviewHistory.deleteMany({
       where: {
-        submissionRevision: {
-          submission: { milestoneId: { in: staleMilestoneIds } },
+        milestoneDocumentSubmission: {
+          milestoneDocument: { milestoneId: { in: staleMilestoneIds } },
         },
       },
     });
-    await prisma.submissionRevision.deleteMany({
-      where: { submission: { milestoneId: { in: staleMilestoneIds } } },
+    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: {
+        submission: {
+          milestoneDocument: { milestoneId: { in: staleMilestoneIds } },
+        },
+      },
     });
-    await prisma.submission.deleteMany({
+    await prisma.milestoneDocumentSubmission.deleteMany({
+      where: {
+        milestoneDocument: { milestoneId: { in: staleMilestoneIds } },
+      },
+    });
+    await prisma.milestoneDocument.deleteMany({
       where: { milestoneId: { in: staleMilestoneIds } },
     });
     await prisma.milestone.deleteMany({
@@ -424,138 +434,248 @@ export async function seedOssHub(
     );
   }
 
-  // aws-staging: 팀장이 staging 배포 결과를 제출하고 STAFF가 승인 리뷰를 남긴 상태.
-  const awsStagingSubmissionId = seedId('oss-hub', 'submission', 'aws-staging');
-  await upsertTracked(
-    stats,
-    'Submission',
-    () =>
-      prisma.submission.findUnique({ where: { id: awsStagingSubmissionId } }),
-    () =>
-      prisma.submission.upsert({
-        where: { id: awsStagingSubmissionId },
-        update: { status: SubmissionStatus.APPROVED, currentRevision: 1 },
-        create: {
-          id: awsStagingSubmissionId,
-          milestoneId: awsStagingMilestone!.id,
-          applicationId: APPLICATION_ID,
-          status: SubmissionStatus.APPROVED,
-          currentRevision: 1,
-        },
-      }),
-  );
-  const awsStagingRevisionId = seedId(
+  const awsStagingContent = {
+    type: MilestoneSubmissionType.TEXT,
+    text: 'staging 배포와 HTTPS·헬스체크·롤백 절차 검증을 완료했습니다 (seed fixture).',
+  };
+  const intakeFreezeContent = {
+    type: MilestoneSubmissionType.TEXT,
+    text: '프로그램 조회·신청·팀 구성·저장소 흐름의 happy/failure 경로 테스트를 마치고 기능을 동결했습니다 (seed fixture).',
+  };
+
+  // aws-staging: 팀장이 staging 배포 결과를 제출하고 STAFF가 승인 판정을 남긴 상태.
+  const awsStagingDocumentId = seedId(
     'oss-hub',
-    'submission',
+    'milestone-document',
+    'aws-staging',
+  );
+  const awsStagingSubmissionId = seedId(
+    'oss-hub',
+    'milestone-document-submission',
+    'aws-staging',
+  );
+  const awsStagingHistoryId = seedId(
+    'oss-hub',
+    'milestone-document-submission-history',
     'aws-staging',
     'revision-1',
   );
+  const awsStagingApprovedHistoryId = seedId(
+    'oss-hub',
+    'milestone-document-submission-history',
+    'aws-staging',
+    'approved',
+  );
+  const awsStagingReviewId = seedId(
+    'oss-hub',
+    'milestone-document-review-history',
+    'aws-staging',
+  );
   await upsertTracked(
     stats,
-    'SubmissionRevision',
+    'MilestoneDocument',
     () =>
-      prisma.submissionRevision.findUnique({
-        where: { id: awsStagingRevisionId },
+      prisma.milestoneDocument.findUnique({
+        where: { id: awsStagingDocumentId },
       }),
     () =>
-      prisma.submissionRevision.upsert({
-        where: { id: awsStagingRevisionId },
-        update: {},
+      prisma.milestoneDocument.upsert({
+        where: { id: awsStagingDocumentId },
+        update: { name: 'AWS Staging 결과', required: true, sortOrder: 0 },
         create: {
-          id: awsStagingRevisionId,
-          submissionId: awsStagingSubmissionId,
+          id: awsStagingDocumentId,
+          milestoneId: awsStagingMilestone!.id,
+          name: 'AWS Staging 결과',
+          required: true,
+          sortOrder: 0,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
+      }),
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmission',
+    () =>
+      prisma.milestoneDocumentSubmission.findUnique({
+        where: { id: awsStagingSubmissionId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmission.upsert({
+        where: { id: awsStagingSubmissionId },
+        update: {
+          status: SubmissionStatus.APPROVED,
+          content: awsStagingContent,
           revision: 1,
-          submissionType: MilestoneSubmissionType.TEXT,
-          content: {
-            type: MilestoneSubmissionType.TEXT,
-            text: 'staging 배포와 HTTPS·헬스체크·롤백 절차 검증을 완료했습니다 (seed fixture).',
-          },
+          submittedById: users[0]!.id,
+        },
+        create: {
+          id: awsStagingSubmissionId,
+          milestoneDocumentId: awsStagingDocumentId,
+          applicationId: APPLICATION_ID,
+          status: SubmissionStatus.APPROVED,
+          content: awsStagingContent,
+          revision: 1,
           submittedById: users[0]!.id,
         },
       }),
   );
-  const awsStagingReviewId = seedId(
-    'oss-hub',
-    'submission',
-    'aws-staging',
-    'review',
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmissionHistory',
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.findUnique({
+        where: { id: awsStagingHistoryId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.upsert({
+        where: { id: awsStagingHistoryId },
+        update: { content: awsStagingContent },
+        create: {
+          id: awsStagingHistoryId,
+          milestoneDocumentSubmissionId: awsStagingSubmissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          content: awsStagingContent,
+          actorId: users[0]!.id,
+        },
+      }),
+  );
+  const awsStagingReviewComment =
+    'staging 배포와 헬스체크·롤백 절차까지 확인했습니다. 통과 처리합니다 (seed fixture).';
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmissionHistory',
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.findUnique({
+        where: { id: awsStagingApprovedHistoryId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.upsert({
+        where: { id: awsStagingApprovedHistoryId },
+        update: { comment: awsStagingReviewComment },
+        create: {
+          id: awsStagingApprovedHistoryId,
+          milestoneDocumentSubmissionId: awsStagingSubmissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.APPROVED,
+          revision: 1,
+          comment: awsStagingReviewComment,
+          actorId: AUTH_SCENARIOS['staff-approved'],
+        },
+      }),
   );
   await upsertTracked(
     stats,
-    'Review',
-    () => prisma.review.findUnique({ where: { id: awsStagingReviewId } }),
+    'MilestoneDocumentReviewHistory',
     () =>
-      prisma.review.upsert({
+      prisma.milestoneDocumentReviewHistory.findUnique({
+        where: { id: awsStagingReviewId },
+      }),
+    () =>
+      prisma.milestoneDocumentReviewHistory.upsert({
         where: { id: awsStagingReviewId },
         update: {
           decision: ReviewDecision.APPROVED,
-          comment:
-            'staging 배포와 헬스체크·롤백 절차까지 확인했습니다. 통과 처리합니다 (seed fixture).',
+          comment: awsStagingReviewComment,
+          submissionHistoryId: awsStagingHistoryId,
         },
         create: {
           id: awsStagingReviewId,
-          submissionRevisionId: awsStagingRevisionId,
+          milestoneDocumentSubmissionId: awsStagingSubmissionId,
+          submissionHistoryId: awsStagingHistoryId,
           reviewerId: AUTH_SCENARIOS['staff-approved'],
           decision: ReviewDecision.APPROVED,
-          comment:
-            'staging 배포와 헬스체크·롤백 절차까지 확인했습니다. 통과 처리합니다 (seed fixture).',
+          comment: awsStagingReviewComment,
         },
       }),
   );
 
-  // intake-freeze: 다른 팀원이 기능 동결 요약을 제출했고 아직 리뷰 대기 중.
-  const intakeFreezeSubmissionId = seedId(
+  // intake-freeze: 다른 팀원이 기능 동결 요약을 제출했고 아직 판정 대기 중.
+  const intakeFreezeDocumentId = seedId(
     'oss-hub',
-    'submission',
+    'milestone-document',
     'intake-freeze',
   );
-  await upsertTracked(
-    stats,
-    'Submission',
-    () =>
-      prisma.submission.findUnique({
-        where: { id: intakeFreezeSubmissionId },
-      }),
-    () =>
-      prisma.submission.upsert({
-        where: { id: intakeFreezeSubmissionId },
-        update: { status: SubmissionStatus.SUBMITTED, currentRevision: 1 },
-        create: {
-          id: intakeFreezeSubmissionId,
-          milestoneId: intakeFreezeMilestone!.id,
-          applicationId: APPLICATION_ID,
-          status: SubmissionStatus.SUBMITTED,
-          currentRevision: 1,
-        },
-      }),
-  );
-  const intakeFreezeRevisionId = seedId(
+  const intakeFreezeSubmissionId = seedId(
     'oss-hub',
-    'submission',
+    'milestone-document-submission',
+    'intake-freeze',
+  );
+  const intakeFreezeHistoryId = seedId(
+    'oss-hub',
+    'milestone-document-submission-history',
     'intake-freeze',
     'revision-1',
   );
+  const intakeFreezeSubmitterId = (users[2] ?? users[0])!.id;
   await upsertTracked(
     stats,
-    'SubmissionRevision',
+    'MilestoneDocument',
     () =>
-      prisma.submissionRevision.findUnique({
-        where: { id: intakeFreezeRevisionId },
+      prisma.milestoneDocument.findUnique({
+        where: { id: intakeFreezeDocumentId },
       }),
     () =>
-      prisma.submissionRevision.upsert({
-        where: { id: intakeFreezeRevisionId },
-        update: {},
+      prisma.milestoneDocument.upsert({
+        where: { id: intakeFreezeDocumentId },
+        update: { name: 'Intake 기능 동결 요약', required: true, sortOrder: 0 },
         create: {
-          id: intakeFreezeRevisionId,
-          submissionId: intakeFreezeSubmissionId,
+          id: intakeFreezeDocumentId,
+          milestoneId: intakeFreezeMilestone!.id,
+          name: 'Intake 기능 동결 요약',
+          required: true,
+          sortOrder: 0,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
+      }),
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmission',
+    () =>
+      prisma.milestoneDocumentSubmission.findUnique({
+        where: { id: intakeFreezeSubmissionId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmission.upsert({
+        where: { id: intakeFreezeSubmissionId },
+        update: {
+          status: SubmissionStatus.SUBMITTED,
+          content: intakeFreezeContent,
           revision: 1,
-          submissionType: MilestoneSubmissionType.TEXT,
-          content: {
-            type: MilestoneSubmissionType.TEXT,
-            text: '프로그램 조회·신청·팀 구성·저장소 흐름의 happy/failure 경로 테스트를 마치고 기능을 동결했습니다 (seed fixture).',
-          },
-          submittedById: (users[2] ?? users[0])!.id,
+          submittedById: intakeFreezeSubmitterId,
+        },
+        create: {
+          id: intakeFreezeSubmissionId,
+          milestoneDocumentId: intakeFreezeDocumentId,
+          applicationId: APPLICATION_ID,
+          status: SubmissionStatus.SUBMITTED,
+          content: intakeFreezeContent,
+          revision: 1,
+          submittedById: intakeFreezeSubmitterId,
+        },
+      }),
+  );
+  await upsertTracked(
+    stats,
+    'MilestoneDocumentSubmissionHistory',
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.findUnique({
+        where: { id: intakeFreezeHistoryId },
+      }),
+    () =>
+      prisma.milestoneDocumentSubmissionHistory.upsert({
+        where: { id: intakeFreezeHistoryId },
+        update: {
+          content: intakeFreezeContent,
+          actorId: intakeFreezeSubmitterId,
+        },
+        create: {
+          id: intakeFreezeHistoryId,
+          milestoneDocumentSubmissionId: intakeFreezeSubmissionId,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          content: intakeFreezeContent,
+          actorId: intakeFreezeSubmitterId,
         },
       }),
   );

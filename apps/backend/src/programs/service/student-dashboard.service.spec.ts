@@ -14,6 +14,10 @@ import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
 
+function targetSubmission(milestoneId: string, status: SubmissionStatus) {
+  return { status, milestoneDocument: { milestoneId } };
+}
+
 function application(overrides: Record<string, unknown> = {}) {
   return {
     id: 'application-1',
@@ -32,7 +36,7 @@ function application(overrides: Record<string, unknown> = {}) {
         { id: 'milestone-1', name: 'First milestone', dueAt: DUE_AT },
       ],
     },
-    submissions: [],
+    milestoneDocumentSubmissions: [],
     ...overrides,
   };
 }
@@ -172,18 +176,15 @@ describe('StudentDashboardService', () => {
             },
           ],
         },
-        submissions: [
-          { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
-          {
-            milestoneId: 'milestone-2',
-            status: SubmissionStatus.CHANGES_REQUESTED,
-          },
+        milestoneDocumentSubmissions: [
+          targetSubmission('milestone-1', SubmissionStatus.APPROVED),
+          targetSubmission('milestone-2', SubmissionStatus.CHANGES_REQUESTED),
         ],
       }),
       application({
         id: 'application-2',
-        submissions: [
-          { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
+        milestoneDocumentSubmissions: [
+          targetSubmission('milestone-1', SubmissionStatus.APPROVED),
         ],
       }),
     ]);

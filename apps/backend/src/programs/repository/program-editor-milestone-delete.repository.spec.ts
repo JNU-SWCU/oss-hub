@@ -18,7 +18,6 @@ describe('ProgramEditorRepository milestone deletion', () => {
           Promise.resolve({
             id: syntheticMilestoneId,
             programId: syntheticProgramId,
-            _count: { submissions: 0, submissionFiles: 0 },
             program: {
               repositoryProvisioningEnabled: false,
               _count: { milestones: 2 },
@@ -122,6 +121,14 @@ describe('ProgramEditorRepository milestone deletion', () => {
 
     // Then: 서비스가 이 값으로 MILESTONE_HAS_SUBMISSIONS 거부를 판단한다.
     expect(target?.documentSubmissionCount).toBe(3);
+    expect(transaction.milestone.findUnique).toHaveBeenLastCalledWith({
+      where: { id: syntheticMilestoneId },
+      include: {
+        program: {
+          include: { _count: { select: { milestones: true } } },
+        },
+      },
+    });
     expect(transaction.milestoneDocumentSubmission.count).toHaveBeenCalledWith({
       where: { milestoneDocument: { milestoneId: syntheticMilestoneId } },
     });

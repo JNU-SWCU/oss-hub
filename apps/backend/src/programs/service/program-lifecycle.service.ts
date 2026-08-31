@@ -162,24 +162,16 @@ export class ProgramLifecycleService {
       // (student-application-management.repository.ts의 validateMutation) — 즉 이
       // 지점에서 applications===0이면 GithubRepository(programId — provisioning된 행만
       // 채워진다, #617 단계 D 이후 applicationId 자체는 nullable이지만 provisioning된
-      // 행은 항상 applicationId·programId를 함께 갖는다)와 MilestoneDocumentSubmission
-      // (applicationId 필수 FK)도 이 programId로는 항상 0이어야 한다.
-      // 스키마상 그 두 관계에 onDelete: Cascade가 없어, 이 불변조건이 깨진 채로
+      // 행은 항상 applicationId·programId를 함께 갖는다)도 이 programId로는 항상
+      // 0이어야 한다. 스키마상 관계에 onDelete: Cascade가 없어, 이 불변조건이 깨진 채로
       // Program을 지우면 FK 위반 500이 터진다. 도달 불가능해야 하는 경로지만
       // 500을 막기 위해 방어적으로 확인하고, 깨졌다면 새 UI 카테고리를 만드는 대신
       // 이미 있는 409(PRG_012) 차단으로 흡수한다 — blockingCounts는 여전히 전부
       // 0이라 프론트는 이를 일반 차단 안내 문구로 보여준다.
-      const [orphanRepositoryCount, orphanMilestoneDocumentSubmissionCount] =
-        await Promise.all([
-          transaction.githubRepository.count({ where: { programId } }),
-          transaction.milestoneDocumentSubmission.count({
-            where: { milestoneDocument: { milestone: { programId } } },
-          }),
-        ]);
-      if (
-        orphanRepositoryCount > 0 ||
-        orphanMilestoneDocumentSubmissionCount > 0
-      ) {
+      const orphanRepositoryCount = await transaction.githubRepository.count({
+        where: { programId },
+      });
+      if (orphanRepositoryCount > 0) {
         throw new DomainException(
           PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_BLOCKED],
           { blockingCounts },
@@ -294,8 +286,6 @@ export class ProgramLifecycleService {
               boardPosts: deletedCounts.boardPosts,
               submissions: deletedCounts.submissions,
               submissionEvents:
-                deletedCounts.submissionRevisions +
-                deletedCounts.reviews +
                 deletedCounts.submissionFiles +
                 deletedCounts.milestoneDocumentSubmissionHistories +
                 deletedCounts.milestoneDocumentReviewHistories,
@@ -500,7 +490,6 @@ export class ProgramLifecycleService {
         lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
         applicationId: null,
         milestoneId: null,
-        submissionRevisionId: null,
         milestoneDocumentSubmissionId: null,
         milestoneDocumentSubmissionHistoryId: null,
         deleteClaimedAt: null,
@@ -549,20 +538,6 @@ export class ProgramLifecycleService {
         skipDuplicates: true,
       });
     }
-
-    const reviews = await transaction.review.deleteMany({
-      where: {
-        submissionRevision: { submission: { milestone: { programId } } },
-      },
-    });
-    const submissionRevisions = await transaction.submissionRevision.deleteMany(
-      {
-        where: { submission: { milestone: { programId } } },
-      },
-    );
-    const submissions = await transaction.submission.deleteMany({
-      where: { milestone: { programId } },
-    });
 
     const milestoneDocumentReviewHistories =
       await transaction.milestoneDocumentReviewHistory.deleteMany({
@@ -618,9 +593,9 @@ export class ProgramLifecycleService {
       teamInvitations: teamInvitations.count,
       boardPosts: boardPosts.count,
       boardComments: boardComments.count,
-      submissions: submissions.count + milestoneDocumentSubmissions.count,
-      submissionRevisions: submissionRevisions.count,
-      reviews: reviews.count,
+      submissions: milestoneDocumentSubmissions.count,
+      submissionRevisions: 0,
+      reviews: 0,
       submissionFiles: submissionFiles.count,
       milestones: milestones.count,
       milestoneDocuments: milestoneDocuments.count,
@@ -648,7 +623,9 @@ export class ProgramLifecycleService {
       transaction.application.count({ where: { programId } }),
       transaction.team.count({ where: { programId } }),
       transaction.boardPost.count({ where: { programId } }),
-      transaction.submission.count({ where: { milestone: { programId } } }),
+      transaction.milestoneDocumentSubmission.count({
+        where: { milestoneDocument: { milestone: { programId } } },
+      }),
     ]);
     return { applications, teams, boardPosts, submissions };
   }

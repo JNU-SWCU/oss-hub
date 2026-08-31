@@ -299,8 +299,8 @@ export class MilestoneDocumentFilesService {
    * 교직원 — 한 팀이 낸 서류 제출 파일을 내려받는다
    * (`GET /milestones/:milestoneId/documents/:documentId/applications/:applicationId/file`).
    *
-   * 기존 `GET /submission-files/:fileId`는 `submissionRevisionId: { not: null }`을 요구해
-   * 마일스톤 서류 파일을 구조적으로 거부하므로 이 모듈에 별도 endpoint를 둔다.
+   * 일반 `GET /submission-files/:fileId`와 달리, 이 endpoint는 교직원 수합 화면의
+   * (마일스톤, 서류 항목, 신청) 경로 자체를 검증하고 그 경로의 현재 첨부를 찾는다.
    *
    * 인가는 순서대로 전부 검사한다.
    * 1. ACTIVE + STAFF/ADMIN — MilestoneDocumentsStaffGuard가 endpoint 앞단에서 본다.

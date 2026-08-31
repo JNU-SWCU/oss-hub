@@ -55,9 +55,7 @@ model User {
   teamMemberships                        TeamMember[]
   sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")
   receivedTeamInvitations                TeamInvitation[]                     @relation("TeamInvitationInvitee")
-  submissionRevisions                    SubmissionRevision[]
   uploadedFiles                          SubmissionFile[]
-  reviews                                Review[]
   uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
   programAuthoringUploads                ProgramAuthoringUpload[]
   programCreateRequests                  ProgramCreateRequest[]
@@ -238,7 +236,6 @@ model Milestone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions     Submission[]
   submissionFiles SubmissionFile[]
   /// 마일스톤 하나에 서류 항목 여러 개(예: #3 "개인정보 동의서"/"프로젝트 계획서"/"팀 구성 확인서").
   /// 기존 submissionType(마일스톤당 단일 제출 유형)은 하위호환을 위해 그대로 둔다 — 서류 항목이
@@ -391,7 +388,6 @@ model Application {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions                  Submission[]
   repository                   GithubRepository?
   provisionJob                 RepositoryProvisionJob?
   submissionFiles              SubmissionFile[]              @relation("SubmissionFileApplication")
@@ -542,52 +538,6 @@ enum SubmissionStatus {
   REJECTED
 }
 
-/// application×milestone당 제출 헤더. 재제출은 SubmissionRevision을 새로 추가하고 currentRevision만 갱신한다(#113).
-model Submission {
-  id String @id @default(cuid())
-
-  milestoneId String
-  milestone   Milestone @relation(fields: [milestoneId], references: [id])
-
-  applicationId String
-  application   Application @relation(fields: [applicationId], references: [id])
-
-  status          SubmissionStatus @default(SUBMITTED)
-  currentRevision Int              @default(1)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  revisions SubmissionRevision[]
-
-  @@unique([applicationId, milestoneId])
-  @@index([milestoneId])
-}
-
-/// 제출 이력. 재제출 시 이전 revision을 갱신·삭제하지 않고 새 행을 추가한다(#113).
-model SubmissionRevision {
-  id String @id @default(cuid())
-
-  submissionId String
-  submission   Submission @relation(fields: [submissionId], references: [id])
-
-  revision Int
-
-  submissionType MilestoneSubmissionType
-  content        Json
-  comment        String?
-
-  submittedById String
-  submittedBy   User     @relation(fields: [submittedById], references: [id])
-  submittedAt   DateTime @default(now())
-
-  files  SubmissionFile[]
-  review Review?
-
-  @@unique([submissionId, revision])
-  @@index([submittedById])
-}
-
 enum SubmissionFileLifecycle {
   PENDING
   ATTACHED
@@ -613,13 +563,10 @@ model SubmissionFile {
   mimeType         String
   sizeBytes        Int
 
-  submissionRevisionId                 String?
-  submissionRevision                   SubmissionRevision?                 @relation(fields: [submissionRevisionId], references: [id])
-  /// 마일스톤별 서류 항목(#619 확장) 제출에 첨부된 파일. 기존 submissionRevisionId 경로와는
-  /// 독립적이다 — 한 SubmissionFile 행이 두 경로를 동시에 채우지 않는다.
+  /// 마일스톤별 서류 항목 제출에 첨부된 현재 제출 헤더와 불변 제출 이력.
   milestoneDocumentSubmissionId        String?
   milestoneDocumentSubmission          MilestoneDocumentSubmission?        @relation(fields: [milestoneDocumentSubmissionId], references: [id])
-  /// 제출·재제출 당시 파일의 불변 소속. 현재 헤더 관계는 전환기 읽기 호환을 위해 함께 둔다.
+  /// 제출·재제출 당시 파일의 불변 소속.
   milestoneDocumentSubmissionHistoryId String?
   submissionHistory                    MilestoneDocumentSubmissionHistory? @relation(fields: [milestoneDocumentSubmissionHistoryId], references: [id], onDelete: Restrict, map: "SubmissionFile_submissionHistoryId_fkey")
   lifecycle                            SubmissionFileLifecycle             @default(ATTACHED)
@@ -640,22 +587,28 @@ model SubmissionFile {
   @@index([applicationId, milestoneId, lifecycle])
   @@index([lifecycle, pendingExpiresAt])
   @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
-  @@index([submissionRevisionId])
   @@index([milestoneDocumentSubmissionId])
   @@index([milestoneDocumentSubmissionHistoryId])
 }
 
+enum MilestoneDocumentKind {
+  DOCUMENT
+  LEGACY_MILESTONE_SUBMISSION
+}
+
 /// 마일스톤 하나가 요구하는 서류 항목 정의(#3 "프로젝트 계획서 제출" → 3개 항목 등).
-/// 기존 Milestone.submissionType(마일스톤당 단일 제출 유형)과 Submission/SubmissionRevision은
-/// 그대로 두고 이 모델이 항목 단위 확장을 더한다 — 서류가 없는 마일스톤은 documents가 비어 있다.
+/// 기존 Milestone.submissionType(마일스톤당 단일 제출 유형)과 독립적으로 항목 단위 확장을
+/// 제공한다 — 서류가 없는 마일스톤은 documents가 비어 있다.
 model MilestoneDocument {
   id          String    @id @default(cuid())
   milestoneId String
   milestone   Milestone @relation(fields: [milestoneId], references: [id])
 
-  name           String
-  required       Boolean
-  sortOrder      Int
+  name      String
+  required  Boolean
+  sortOrder Int
+  /// 옛 마일스톤 단일 제출을 보존하는 내부 슬롯은 일반 서류 항목 UI·집계에서 제외한다.
+  kind      MilestoneDocumentKind @default(DOCUMENT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -691,6 +644,10 @@ model MilestoneDocumentTemplateFile {
 /// 응답을 담는다.
 model MilestoneDocumentSubmission {
   id String @id @default(cuid())
+
+  /// 이관된 옛 Submission의 공개 id. 기존 URL을 신규 원장에서 해석하는 provenance이며,
+  /// 전환 뒤 새로 만든 제출은 null을 유지하고 자기 id를 공개 id로 쓴다.
+  legacySubmissionId String? @unique
 
   milestoneDocumentId String
   milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])
@@ -750,8 +707,8 @@ model MilestoneDocumentSubmissionHistory {
   submission                    MilestoneDocumentSubmission @relation(fields: [milestoneDocumentSubmissionId], references: [id], onDelete: Restrict, map: "MilestoneDocumentSubmissionHistory_submissionId_fkey")
 
   event    MilestoneDocumentSubmissionHistoryEvent
-  /// 제출/재제출은 정확한 차수를 기록한다. 이관 전 판정은 어느 제출본을 검토했는지
-  /// 증명할 수 없어 null로 보존한다.
+  /// 제출/재제출과 레거시 이관 판정은 정확한 차수를 기록한다. 이력 도입 전에 만들어진
+  /// 일반 서류 판정 사건만 복원할 근거가 없어 null일 수 있다.
   revision Int?
   content  Json?
   comment  String?
@@ -775,9 +732,8 @@ model MilestoneDocumentSubmissionHistory {
 /// `MilestoneDocumentTemplateFile`이 `History`를 **쓰지 않는** 것과 짝을 이룬다: 그쪽은 항목당
 /// 한 행을 덮어쓰는 upsert 모양이다.
 ///
-/// ⚠ 옛 `Review`는 `submissionRevisionId @unique`라 제출 revision 하나에 판정이 하나뿐이다
-/// (재제출하면 revision이 새로 생겨 그쪽에 새 판정이 붙는다). 이 모델은 그 unique를 **일부러
-/// 걸지 않는다** — 서류 제출은 revision을 쌓지 않고 `MilestoneDocumentSubmission` 한 행을
+/// 이 모델은 판정마다 새 행을 쌓으므로 unique를 **일부러 걸지 않는다** — 서류 제출은
+/// `MilestoneDocumentSubmission` 한 행을
 /// 덮어쓰는 upsert 모양이라, 판정에 unique를 걸면 재판정이 지난 판정을 **덮어쓴다**.
 /// 그러면 「보완 요청 때 무엇을 지적받았는가」가 사라진다. 담당 교직원이 바뀌어도 지난 지적이
 /// 남아 있어야 한다는 것이 이 기능의 요구라서, 판정은 갱신하지 않고 매번 새 행으로 append한다.
@@ -792,7 +748,8 @@ model MilestoneDocumentReviewHistory {
   milestoneDocumentSubmissionId String
   milestoneDocumentSubmission   MilestoneDocumentSubmission @relation(fields: [milestoneDocumentSubmissionId], references: [id])
 
-  /// 검토자가 실제로 본 제출/재제출 이력. 기존 판정은 추정하지 않고 null로 보존한다.
+  /// 검토자가 실제로 본 제출/재제출 이력. 레거시 제출 판정은 bridge가 정확한 이력에
+  /// 연결했고, 이력 도입 전 일반 서류 판정만 근거가 없으면 null로 남는다.
   submissionHistoryId String?
   submissionHistory   MilestoneDocumentSubmissionHistory? @relation(fields: [submissionHistoryId], references: [id], onDelete: Restrict, map: "MilestoneDocumentReviewHistory_submissionHistoryId_fkey")
 
@@ -814,22 +771,6 @@ enum ReviewDecision {
   APPROVED
   REJECTED
   CHANGES_REQUESTED
-}
-
-model Review {
-  id String @id @default(cuid())
-
-  submissionRevisionId String             @unique
-  submissionRevision   SubmissionRevision @relation(fields: [submissionRevisionId], references: [id])
-
-  reviewerId String
-  reviewer   User   @relation(fields: [reviewerId], references: [id])
-
-  decision   ReviewDecision
-  comment    String?
-  reviewedAt DateTime       @default(now())
-
-  @@index([reviewerId])
 }
 
 /// 공개 범위(#113 상태 enum 계약).

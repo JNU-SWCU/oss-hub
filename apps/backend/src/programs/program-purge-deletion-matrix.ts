@@ -100,7 +100,6 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     covers: [
       'Milestone->SubmissionFile',
       'Application->SubmissionFile',
-      'SubmissionRevision->SubmissionFile',
       'MilestoneDocumentSubmission->SubmissionFile',
       'MilestoneDocumentSubmissionHistory->SubmissionFile',
     ],
@@ -114,21 +113,6 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     id: 'milestone-document-template-file-tombstones',
     operation: 'TOMBSTONE',
     covers: ['MilestoneDocument->MilestoneDocumentTemplateFile'],
-  },
-  {
-    id: 'submission-reviews',
-    operation: 'DELETE',
-    covers: ['SubmissionRevision->Review'],
-  },
-  {
-    id: 'submission-revisions',
-    operation: 'DELETE',
-    covers: ['Submission->SubmissionRevision'],
-  },
-  {
-    id: 'submissions',
-    operation: 'DELETE',
-    covers: ['Milestone->Submission', 'Application->Submission'],
   },
   {
     id: 'milestone-document-review-histories',

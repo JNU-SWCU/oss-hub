@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType } from '@prisma/client';
+import { MilestoneDocumentKind, MilestoneSubmissionType } from '@prisma/client';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
@@ -51,6 +51,7 @@ export async function adoptE2eProgramGraph(
           name: true,
           submissionType: true,
           documents: {
+            where: { kind: MilestoneDocumentKind.DOCUMENT },
             select: {
               id: true,
               name: true,

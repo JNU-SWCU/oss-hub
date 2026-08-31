@@ -2,6 +2,8 @@ import {
   AffiliationKind,
   ApplicationStatus,
   MemberKind,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   SubmissionFileLifecycle,
   SubmissionStatus,
@@ -133,6 +135,18 @@ describe('SubmissionsService integration', () => {
       ],
       skipDuplicates: true,
     });
+    await prisma.milestoneDocument.upsert({
+      where: { id: `${FILE_RESUBMISSION_PREFIX}-document` },
+      update: {},
+      create: {
+        id: `${FILE_RESUBMISSION_PREFIX}-document`,
+        milestoneId: FILE_MILESTONE_ID,
+        name: '합성 파일 제출',
+        required: true,
+        sortOrder: -1,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+    });
   });
 
   afterEach(async () => {
@@ -143,11 +157,22 @@ describe('SubmissionsService integration', () => {
     await prisma.submissionFile.deleteMany({
       where: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
     });
-    await prisma.submissionRevision.deleteMany({
-      where: { submission: { milestoneId: { in: milestoneIds } } },
+    await prisma.milestoneDocumentReviewHistory.deleteMany({
+      where: {
+        milestoneDocumentSubmission: {
+          milestoneDocument: { milestoneId: { in: milestoneIds } },
+        },
+      },
     });
-    await prisma.submission.deleteMany({
-      where: { milestoneId: { in: milestoneIds } },
+    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: {
+        submission: {
+          milestoneDocument: { milestoneId: { in: milestoneIds } },
+        },
+      },
+    });
+    await prisma.milestoneDocumentSubmission.deleteMany({
+      where: { milestoneDocument: { milestoneId: { in: milestoneIds } } },
     });
     await prisma.milestone.updateMany({
       where: { id: FILE_MILESTONE_ID },
@@ -156,6 +181,9 @@ describe('SubmissionsService integration', () => {
   });
 
   afterAll(async () => {
+    await prisma.milestoneDocument.deleteMany({
+      where: { id: `${FILE_RESUBMISSION_PREFIX}-document` },
+    });
     await prisma.milestone.deleteMany({
       where: { id: FILE_MILESTONE_ID },
     });
@@ -354,14 +382,15 @@ describe('SubmissionsService integration', () => {
     const results = await Promise.all([submit(), submit()]);
 
     // Then
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findFirstOrThrow({
       where: {
-        applicationId_milestoneId: {
-          applicationId: PERSONAL_APPLICATION_ID,
+        applicationId: PERSONAL_APPLICATION_ID,
+        milestoneDocument: {
           milestoneId,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       },
-      include: { revisions: true },
+      include: { histories: true },
     });
     const fulfilled = results.find((result) => result.kind === 'fulfilled');
     const rejected = results.find((result) => result.kind === 'rejected');
@@ -377,10 +406,10 @@ describe('SubmissionsService integration', () => {
     expect(rejected.errorCode).toBe(
       SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS,
     );
-    expect(stored.revisions).toHaveLength(1);
-    expect(stored.revisions[0]).toMatchObject({
+    expect(stored.histories).toHaveLength(1);
+    expect(stored.histories[0]).toMatchObject({
       revision: 1,
-      submittedById: PERSONAL_USER_ID,
+      actorId: PERSONAL_USER_ID,
       content: {
         type: MilestoneSubmissionType.TEXT,
         text: '합성 최종 보고',
@@ -416,13 +445,13 @@ describe('SubmissionsService integration', () => {
       status: SubmissionStatus.SUBMITTED,
     });
 
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: { id: created.submissionId },
-      include: { revisions: { orderBy: { revision: 'asc' } } },
+      include: { histories: { orderBy: { revision: 'asc' } } },
     });
-    expect(stored.currentRevision).toBe(2);
-    expect(stored.revisions).toHaveLength(2);
-    expect(stored.revisions.map((revision) => revision.content)).toEqual([
+    expect(stored.revision).toBe(2);
+    expect(stored.histories).toHaveLength(2);
+    expect(stored.histories.map((history) => history.content)).toEqual([
       { type: MilestoneSubmissionType.TEXT, text: '초기 본문' },
       { type: MilestoneSubmissionType.TEXT, text: '교체 본문' },
     ]);
@@ -473,11 +502,18 @@ describe('SubmissionsService integration', () => {
   });
 
   it('PENDING 파일에 업로드 만료와 보존 만료를 함께 저장한다', async () => {
-    const programEndAt = new Date('2027-01-01T00:00:00.000Z');
-    await prisma.program.update({
-      where: { id: MILESTONES_PROGRAM_ID },
-      data: { endAt: programEndAt },
-    });
+    const milestoneDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const programEndAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    await Promise.all([
+      prisma.program.update({
+        where: { id: MILESTONES_PROGRAM_ID },
+        data: { endAt: programEndAt },
+      }),
+      prisma.milestone.update({
+        where: { id: FILE_MILESTONE_ID },
+        data: { dueAt: milestoneDueAt },
+      }),
+    ]);
     const storage: SubmissionFileStoragePort = {
       put: jest.fn().mockResolvedValue({
         objectKey: 'private/synthetic-upload.pdf',
@@ -516,7 +552,7 @@ describe('SubmissionsService integration', () => {
       });
       expect(row.lifecycle).toBe(SubmissionFileLifecycle.PENDING);
       expect(row.pendingExpiresAt).not.toBeNull();
-      expect(row.expiresAt).toEqual(new Date('2028-01-01T00:00:00.000Z'));
+      expect(row.expiresAt).toEqual(addOneCalendarYear(programEndAt));
     } finally {
       await prisma.submissionFile.deleteMany({
         where: {
@@ -525,10 +561,16 @@ describe('SubmissionsService integration', () => {
           lifecycle: SubmissionFileLifecycle.PENDING,
         },
       });
-      await prisma.program.update({
-        where: { id: MILESTONES_PROGRAM_ID },
-        data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
-      });
+      await Promise.all([
+        prisma.program.update({
+          where: { id: MILESTONES_PROGRAM_ID },
+          data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
+        }),
+        prisma.milestone.update({
+          where: { id: FILE_MILESTONE_ID },
+          data: { dueAt: new Date('2026-08-30T00:00:00.000Z') },
+        }),
+      ]);
     }
   });
 
@@ -556,24 +598,24 @@ describe('SubmissionsService integration', () => {
       revision: 2,
       status: SubmissionStatus.SUBMITTED,
     });
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: { id: fixture.submissionId },
       include: {
-        revisions: { orderBy: { revision: 'asc' }, include: { files: true } },
+        histories: { orderBy: { revision: 'asc' }, include: { files: true } },
       },
     });
     expect(stored).toMatchObject({
       status: SubmissionStatus.SUBMITTED,
-      currentRevision: 2,
+      revision: 2,
     });
-    expect(stored.revisions).toHaveLength(2);
-    expect(stored.revisions[0]?.files).toHaveLength(1);
-    expect(stored.revisions[0]?.files[0]).toMatchObject({
+    expect(stored.histories).toHaveLength(2);
+    expect(stored.histories[0]?.files).toHaveLength(1);
+    expect(stored.histories[0]?.files[0]).toMatchObject({
       id: fixture.initialFileId,
       lifecycle: SubmissionFileLifecycle.ATTACHED,
     });
-    expect(stored.revisions[1]?.files).toHaveLength(1);
-    expect(stored.revisions[1]?.files[0]).toMatchObject({
+    expect(stored.histories[1]?.files).toHaveLength(1);
+    expect(stored.histories[1]?.files[0]).toMatchObject({
       id: fixture.replacementFileId,
       lifecycle: SubmissionFileLifecycle.ATTACHED,
       pendingExpiresAt: null,
@@ -603,17 +645,17 @@ describe('SubmissionsService integration', () => {
     await expect(resubmission).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE },
     });
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: { id: fixture.submissionId },
-      include: { revisions: { include: { files: true } } },
+      include: { histories: { include: { files: true } } },
     });
     expect(stored).toMatchObject({
       status: SubmissionStatus.CHANGES_REQUESTED,
-      currentRevision: 1,
+      revision: 1,
     });
-    expect(stored.revisions).toHaveLength(1);
-    expect(stored.revisions[0]?.files).toHaveLength(1);
-    expect(stored.revisions[0]?.files[0]).toMatchObject({
+    expect(stored.histories).toHaveLength(1);
+    expect(stored.histories[0]?.files).toHaveLength(1);
+    expect(stored.histories[0]?.files[0]).toMatchObject({
       id: fixture.initialFileId,
       lifecycle: SubmissionFileLifecycle.ATTACHED,
     });
@@ -623,7 +665,6 @@ describe('SubmissionsService integration', () => {
       }),
     ).resolves.toMatchObject({
       lifecycle: SubmissionFileLifecycle.PENDING,
-      submissionRevisionId: null,
     });
   });
 
@@ -680,13 +721,13 @@ describe('SubmissionsService integration', () => {
       errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
     });
     await expect(
-      prisma.submission.findUniqueOrThrow({
+      prisma.milestoneDocumentSubmission.findUniqueOrThrow({
         where: { id: fixture.submissionId },
-        select: { status: true, currentRevision: true },
+        select: { status: true, revision: true },
       }),
     ).resolves.toEqual({
       status: SubmissionStatus.CHANGES_REQUESTED,
-      currentRevision: 1,
+      revision: 1,
     });
   });
 });
@@ -718,31 +759,42 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
   const submissionId = `${FILE_RESUBMISSION_PREFIX}-${suffix}`;
   const initialFileId = `${FILE_RESUBMISSION_PREFIX}-${suffix}-initial`;
   const replacementFileId = `${FILE_RESUBMISSION_PREFIX}-${suffix}-replacement`;
-  const revision = await prisma.submission.create({
-    data: {
-      id: submissionId,
-      applicationId: PERSONAL_APPLICATION_ID,
+  const documentId = `${FILE_RESUBMISSION_PREFIX}-document`;
+  await prisma.milestoneDocument.upsert({
+    where: { id: documentId },
+    update: {},
+    create: {
+      id: documentId,
       milestoneId: FILE_MILESTONE_ID,
-      status: SubmissionStatus.CHANGES_REQUESTED,
-      currentRevision: 1,
-      revisions: {
-        create: {
-          revision: 1,
-          submissionType: MilestoneSubmissionType.FILE,
-          content: {
-            type: MilestoneSubmissionType.FILE,
-            fileId: initialFileId,
-          },
-          submittedById: PERSONAL_USER_ID,
-        },
-      },
+      name: 'synthetic file submission',
+      required: true,
+      sortOrder: -1,
+      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
     },
-    select: { revisions: { select: { id: true }, take: 1 } },
   });
-  const initialRevision = revision.revisions[0];
-  if (initialRevision === undefined) {
-    throw new Error('Expected initial file revision.');
-  }
+  const targetSubmissionId = submissionId;
+  await prisma.milestoneDocumentSubmission.create({
+    data: {
+      id: targetSubmissionId,
+      milestoneDocumentId: documentId,
+      applicationId: PERSONAL_APPLICATION_ID,
+      status: SubmissionStatus.CHANGES_REQUESTED,
+      content: { type: MilestoneSubmissionType.FILE, fileId: initialFileId },
+      revision: 1,
+      submittedById: PERSONAL_USER_ID,
+    },
+  });
+  const targetHistoryId = `${submissionId}-target-history-1`;
+  await prisma.milestoneDocumentSubmissionHistory.create({
+    data: {
+      id: targetHistoryId,
+      milestoneDocumentSubmissionId: targetSubmissionId,
+      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      revision: 1,
+      content: { type: MilestoneSubmissionType.FILE, fileId: initialFileId },
+      actorId: PERSONAL_USER_ID,
+    },
+  });
   await prisma.submissionFile.createMany({
     data: [
       {
@@ -757,7 +809,8 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
         lifecycle: SubmissionFileLifecycle.ATTACHED,
         pendingExpiresAt: null,
         expiresAt: addOneCalendarYear(FILE_RETENTION_START),
-        submissionRevisionId: initialRevision.id,
+        milestoneDocumentSubmissionId: targetSubmissionId,
+        milestoneDocumentSubmissionHistoryId: targetHistoryId,
       },
       {
         id: replacementFileId,
@@ -771,7 +824,6 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
         lifecycle: SubmissionFileLifecycle.PENDING,
         pendingExpiresAt: new Date('2099-01-01T00:00:00.000Z'),
         expiresAt: addOneCalendarYear(FILE_RETENTION_START),
-        submissionRevisionId: null,
       },
     ],
   });

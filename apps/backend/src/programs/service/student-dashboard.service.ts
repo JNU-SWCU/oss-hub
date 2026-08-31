@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
@@ -131,7 +132,17 @@ export class StudentDashboardService {
               },
             },
           },
-          submissions: { select: { milestoneId: true, status: true } },
+          milestoneDocumentSubmissions: {
+            where: {
+              milestoneDocument: {
+                kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+              },
+            },
+            select: {
+              status: true,
+              milestoneDocument: { select: { milestoneId: true } },
+            },
+          },
         },
       }),
       this.repositories.getMyRepositories(sessionGithubId),
@@ -164,8 +175,8 @@ export class StudentDashboardService {
       }
 
       const submissionStatuses = new Map(
-        application.submissions.map((submission) => [
-          submission.milestoneId,
+        application.milestoneDocumentSubmissions.map((submission) => [
+          submission.milestoneDocument.milestoneId,
           submission.status,
         ]),
       );

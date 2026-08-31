@@ -212,22 +212,6 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     const milestone = await this.transaction.milestone.findUnique({
       where: { id: milestoneId },
       include: {
-        _count: {
-          select: {
-            submissions: true,
-            submissionFiles: {
-              where: {
-                lifecycle: {
-                  in: [
-                    SubmissionFileLifecycle.PENDING,
-                    SubmissionFileLifecycle.ATTACHED,
-                  ],
-                },
-                deletedAt: null,
-              },
-            },
-          },
-        },
         program: { include: { _count: { select: { milestones: true } } } },
       },
     });
@@ -241,8 +225,6 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return {
       id: milestone.id,
       programId: milestone.programId,
-      submissionCount:
-        milestone._count.submissions + milestone._count.submissionFiles,
       documentSubmissionCount,
       programMilestoneCount: milestone.program._count.milestones,
       programRepositoryProvisioningEnabled:

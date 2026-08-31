@@ -30,6 +30,24 @@ export async function removeAdoptedGraph(
     });
     const applicationIds = applications.map((application) => application.id);
     const teamIds = applications.map((application) => application.teamId);
+    const documentSubmissions =
+      await transaction.milestoneDocumentSubmission.findMany({
+        where: { applicationId: { in: applicationIds } },
+        select: { id: true },
+      });
+    const documentSubmissionIds = documentSubmissions.map(
+      (submission) => submission.id,
+    );
+    const documentSubmissionHistories =
+      await transaction.milestoneDocumentSubmissionHistory.findMany({
+        where: {
+          milestoneDocumentSubmissionId: { in: documentSubmissionIds },
+        },
+        select: { id: true },
+      });
+    const documentSubmissionHistoryIds = documentSubmissionHistories.map(
+      (history) => history.id,
+    );
     await transaction.outboxEvent.deleteMany({
       where: { aggregateId: { in: applicationIds } },
     });
@@ -44,30 +62,29 @@ export async function removeAdoptedGraph(
     });
     await transaction.milestoneDocumentReviewHistory.deleteMany({
       where: {
-        milestoneDocumentSubmission: { applicationId: { in: applicationIds } },
+        milestoneDocumentSubmissionId: { in: documentSubmissionIds },
       },
     });
     await transaction.submissionFile.deleteMany({
-      where: { applicationId: { in: applicationIds } },
-    });
-    await transaction.milestoneDocumentSubmissionHistory.deleteMany({
-      where: { submission: { applicationId: { in: applicationIds } } },
-    });
-    await transaction.milestoneDocumentSubmission.deleteMany({
-      where: { applicationId: { in: applicationIds } },
-    });
-    await transaction.review.deleteMany({
       where: {
-        submissionRevision: {
-          submission: { applicationId: { in: applicationIds } },
-        },
+        OR: [
+          { applicationId: { in: applicationIds } },
+          {
+            milestoneDocumentSubmissionId: { in: documentSubmissionIds },
+          },
+          {
+            milestoneDocumentSubmissionHistoryId: {
+              in: documentSubmissionHistoryIds,
+            },
+          },
+        ],
       },
     });
-    await transaction.submissionRevision.deleteMany({
-      where: { submission: { applicationId: { in: applicationIds } } },
+    await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+      where: { id: { in: documentSubmissionHistoryIds } },
     });
-    await transaction.submission.deleteMany({
-      where: { applicationId: { in: applicationIds } },
+    await transaction.milestoneDocumentSubmission.deleteMany({
+      where: { id: { in: documentSubmissionIds } },
     });
     await transaction.application.deleteMany({
       where: { id: { in: applicationIds } },

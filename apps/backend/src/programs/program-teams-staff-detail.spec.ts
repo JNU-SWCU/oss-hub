@@ -313,9 +313,15 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
             { id: 'milestone-1', documents: [{ id: 'document-1' }] },
           ],
         },
-        submissions: [],
         milestoneDocumentSubmissions: [
-          { milestoneDocumentId: 'document-1', status: 'APPROVED' },
+          {
+            status: 'APPROVED',
+            milestoneDocument: {
+              id: 'document-1',
+              milestoneId: 'milestone-1',
+              kind: 'DOCUMENT',
+            },
+          },
         ],
       },
       job: {
