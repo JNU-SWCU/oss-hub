@@ -892,3 +892,12 @@
 - blocker: 없음
 - 결과: 기존 child AGENTS 25개를 6개 독립 cluster로 나눠 canonical executor가 current source/config를 inventory하고, 각 파일을 하나의 hash-checked craft init 4.0.0 managed region으로 통합했다. 이어 canonical architect 5개가 frontend entry/features, backend entry/domains, shared ops를 독립 검토해 잘못 압축된 ESLint 보장, migration·seed authority, route 등록 순서, 신청 재승인 event, GitHub credential/quota, notification producer, program 생성 표면, 제출 dashboard port 등 34건을 찾아 모두 현재 구현에 맞게 교정하고 CLEAR 재검토를 남겼다. frontend/backend `CLAUDE.md`도 exact `@AGENTS.md` adapter로 정규화했다.
 - 검증: 25개 managed ID uniqueness·payload SHA-256·25–80줄 범위, adapter 3개 exact bytes, craft init Python unit 19건, CI path contract 6건, repository Prettier, public-safe, diff check, stale marker·존재하지 않는 script path scan을 통과했다.
+
+## 2026-08-31 — 개발 세션마다 최신 craft 스킬을 적용한다
+
+- 상태: review
+- Issue: #1074
+- PR: #1075
+- blocker: 없음
+- 결과: root `AGENTS.md`에 로컬 날짜 기준 첫 개발 세션의 native craft marketplace 최신본 확인·갱신을 명시하고, frontend·backend·API·DB·test·refactor·debug·browser 구현 전에 라우팅 표의 craft `SKILL.md`를 읽어 적용하도록 고정했다. Claude Code는 project autoUpdate, Codex는 project default-install, GJC는 native marketplace add/update와 project force-install을 사용한다.
+- 검증: root 150줄, Prettier, diff check를 통과했다.

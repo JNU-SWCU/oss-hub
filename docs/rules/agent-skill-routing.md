@@ -24,9 +24,11 @@
 | AGENTS.md 지도 갱신·stale 점검 | craft `init` | 외부 플러그인 | 이 저장소의 AGENTS.md 계층과 작성권은 AGENTS.md §3이 원본이다 |
 
 craft-skills는 vendoring·복사·setup script 없이 런타임의 native plugin marketplace로 로드한다.
-Claude Code는 `.claude/settings.json`에서 marketplace `autoUpdate`와 plugin enable을 선언하고, Codex는 `.agents/plugins/marketplace.json`에서 project plugin을 `INSTALLED_BY_DEFAULT`로 선언한다.
-GJC는 세션 부트스트랩의 native marketplace add/update와 project install이 project registry를 최신 marketplace 버전으로 갱신한다.
-스킬 계약은 버전마다 바뀐다 — 스킬을 쓰기 전에 runtime이 로드한 버전의 `SKILL.md`를 직접 읽고, 이 문서가 낡았으면 이 문서를 고친다.
+로컬 날짜 기준 첫 개발 세션마다 최신본을 확인한다.
+Claude Code는 `.claude/settings.json`의 marketplace `autoUpdate`와 plugin enable을, Codex는 `.agents/plugins/marketplace.json`의 `INSTALLED_BY_DEFAULT` project policy를 시작 시 적용한다.
+GJC는 `(gjc plugin marketplace add GoBeromsu/craft-skills || gjc plugin marketplace update craft-skills) && gjc plugin install craft-skills@craft-skills --scope project --force`로 marketplace와 project registry를 갱신한다.
+구현 전에 위 표에서 작업 표면을 찾아 대응 craft skill의 현재 `SKILL.md`를 읽고 그 절차를 적용한다.
+스킬 계약은 버전마다 바뀐다 — runtime이 로드한 skill과 이 표가 어긋나면 같은 변경에서 이 문서를 고친다.
 설치된 craft 스킬 중 이 표에 없는 것(`ml`·`gpu`·`vmware`·`tailscale`·`obsidian`·`distil`·`defuddle`·`ast-grep`·`skillify`·`agents`·`write-prd`·`write-report`)은 아직 이 저장소 작업에서 필요하지 않아 라우팅하지 않았다 — 쓸 수 없다는 뜻이 아니다.
 필요한 작업이 실제로 생기면 그 스킬의 `SKILL.md`를 읽고 이 표에 한 행을 추가한다. 쓰지 않는 라우팅을 미리 채우면 검증되지 않은 지시가 문서에 앉는다.
 

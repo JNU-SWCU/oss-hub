@@ -116,7 +116,10 @@ PUBLIC safety:
 
 제품·기획 결정은 Notion Decision Log, 기술·운영 결정은 ADR, 구현 상태는 GitHub Issue/PR, secret 값은 운영 vault만 원본으로 삼는다.
 로컬 작업 시작 시 관련 open PR을 한 번 확인하고 `bash scripts/setup-hooks.sh`로 repository hooks를 활성화한다.
-agent skill routing은 `docs/rules/agent-skill-routing.md`가 원본이며 runtime마다 설치된 `SKILL.md`를 직접 읽는다.
+로컬 날짜 기준 첫 개발 세션은 runtime-native marketplace에서 craft-skills 최신본을 확인·갱신한다.
+Claude Code는 project marketplace `autoUpdate`, Codex는 project `INSTALLED_BY_DEFAULT` 정책을 사용하고, GJC는 `docs/rules/agent-skill-routing.md`의 native update/install 명령을 실행한다.
+구현 전에 작업 표면에 대응하는 craft skill을 선택해 현재 설치본의 `SKILL.md`를 읽고 그 절차를 적용한다.
+frontend/backend/API/DB/test/refactor/debug/browser 작업을 일반 추론만으로 진행하지 않으며 정확한 매핑은 `docs/rules/agent-skill-routing.md`가 원본이다.
 
 ## Runtime/Tooling Preferences
 
@@ -128,8 +131,6 @@ agent skill routing은 `docs/rules/agent-skill-routing.md`가 원본이며 runti
 - GitHub Actions는 PR에서 lane 내부만 path-selective이고 workflow-level `paths` filter를 두지 않는다.
   `main` push는 모든 lane을 실행한다.
 - Production은 branch head나 mutable `latest`가 아니라 stable SemVer GitHub Release의 exact main SHA를 Jenkins가 배포한다.
-- Claude Code와 Codex는 project plugin declarations를 시작 시 읽는다.
-  GJC project registration을 포함한 agent skill 절차는 `docs/rules/agent-skill-routing.md`를 따른다.
 
 ## Testing & QA
 
