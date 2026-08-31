@@ -901,3 +901,12 @@
 - blocker: 없음
 - 결과: root `AGENTS.md`에 로컬 날짜 기준 첫 개발 세션의 native craft marketplace 최신본 확인·갱신을 명시하고, frontend·backend·API·DB·test·refactor·debug·browser 구현 전에 라우팅 표의 craft `SKILL.md`를 읽어 적용하도록 고정했다. Claude Code는 project autoUpdate, Codex는 project default-install, GJC는 native marketplace add/update와 project force-install을 사용한다.
 - 검증: root 150줄, Prettier, diff check를 통과했다.
+
+## 2026-08-31 — BuildKit shared cache를 배포 전에 정리한다
+
+- 상태: review
+- Issue: #1078
+- PR: (이 PR)
+- blocker: 없음
+- 결과: v0.6.124 build #181의 disk-full 원인이 된 87.57GB BuildKit shared/internal cache가 기존 non-`--all` success-only prune에서 남는 계약을 수정했다. non-no-op 배포는 이미지 build와 backup 전에, 성공 뒤 retention에서 다시 `docker buildx prune --all --force --max-used-space 5GB`를 실행한다. running image, named volume, backup은 정리 대상에 포함하지 않는다. checker는 no-op 판정 이후 위치·non-no-op when·두 prune의 exact command를 결박한다.
+- 검증: Jenkins shell mutation 170건, Node Jenkins/CI path contract 10건, repository Prettier, diff check를 통과했고 production recovery에서 같은 `--all` cache prune가 87.57GB를 회수해 root 여유를 141MB에서 82GB로 복구했다.
