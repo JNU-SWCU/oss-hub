@@ -4,6 +4,7 @@ import {
   ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
+import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import {
@@ -15,15 +16,16 @@ import {
   type SubmissionFileS3Client,
 } from './s3-submission-file.storage';
 
+jest.mock('node:crypto', () => ({
+  ...jest.requireActual<typeof import('node:crypto')>('node:crypto'),
+  randomUUID: jest.fn(),
+}));
+
 describe('S3SubmissionFileStorage', () => {
   const settings = {
-    endpoint: 'http://minio.test:9000',
-    region: 'synthetic-region',
-    bucket: 'private-submissions',
-    accessKeyId: 'synthetic-access-key',
-    secretAccessKey: 'synthetic-secret-key',
-    forcePathStyle: true,
+    bucket: 'managed-submissions',
   };
+  const syntheticLeakedCredential = 'synthetic-provider-credential';
 
   function createStorage(
     send = jest
@@ -44,9 +46,13 @@ describe('S3SubmissionFileStorage', () => {
     };
   }
 
-  it('랜덤 객체 키로 private 파일과 정확한 콘텐츠 메타데이터를 저장한다', async () => {
+  it('opaque UUID 객체 키로 private 파일과 정확한 콘텐츠 메타데이터를 저장한다', async () => {
     const { storage, send } = createStorage();
     const body = Buffer.from('synthetic-content');
+    jest
+      .mocked(randomUUID)
+      .mockReturnValueOnce('3b7985fb-59fc-4330-8299-ea8dadb975d1')
+      .mockReturnValueOnce('0d52cb2d-fd90-4ae9-b7ca-0b5bc42f234a');
 
     const first = await storage.put({
       body,
@@ -59,10 +65,12 @@ describe('S3SubmissionFileStorage', () => {
       originalName: '../unsafe/report.pdf',
     });
 
-    expect(first.objectKey).toMatch(
-      /^submission-files\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    expect(first.objectKey).toBe(
+      'submission-files/3b7985fb-59fc-4330-8299-ea8dadb975d1',
     );
-    expect(second.objectKey).not.toBe(first.objectKey);
+    expect(second.objectKey).toBe(
+      'submission-files/0d52cb2d-fd90-4ae9-b7ca-0b5bc42f234a',
+    );
     expect(first.objectKey).not.toContain('report');
     expect(first.originalName).toBe('report.pdf');
     expect(first).toMatchObject({
@@ -263,7 +271,7 @@ describe('S3SubmissionFileStorage', () => {
         >()
         .mockRejectedValue({
           message: leaked,
-          headers: { authorization: settings.secretAccessKey },
+          headers: { authorization: syntheticLeakedCredential },
           $metadata: { httpStatusCode: 503 },
         });
       const { storage } = createStorage(send);
@@ -285,7 +293,7 @@ describe('S3SubmissionFileStorage', () => {
         new SubmissionFileStorageError(code),
       );
       await expect(action).rejects.not.toThrow(leaked);
-      await expect(action).rejects.not.toThrow(settings.secretAccessKey);
+      await expect(action).rejects.not.toThrow(syntheticLeakedCredential);
     },
   );
 });
