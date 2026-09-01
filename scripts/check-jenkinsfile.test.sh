@@ -122,7 +122,7 @@ cp "$v2_source" "$fixture_dir/v2-valid"
 expect_pass 'v2: mode-aware object backup contract is present' v2 "$fixture_dir/v2-valid"
 if grep -Fq "credentialsId: 'oss-hub-r2-s3-credentials'" "$v2_source" && \
    grep -Fq 'storage_mode="$(awk -F=' "$v2_source" && \
-   grep -Fq '"remote/$SUBMISSION_FILE_S3_BUCKET"' "$v2_source" && \
+   grep -Fq 'Bucket: process.env.SUBMISSION_FILE_S3_BUCKET' "$v2_source" && \
    grep -Fq 'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' "$v2_source" && \
    ! grep -Fq 'oss-hub-submission-files' "$v2_source"; then
   printf 'ok - v2: managed backup credential/mode/receipt paths\n'
@@ -304,6 +304,12 @@ make_fixture "$v2_source" v2-missing-managed-mode-guard \
 make_fixture "$v2_source" v2-missing-managed-mode-agreement \
   'active backend storage tuple disagrees with validated configuration.' \
   'active backend tuple check removed.'
+make_fixture "$v2_source" v2-missing-managed-backup-entrypoint \
+  '--entrypoint node \\' \
+  '--entrypoint mc \\'
+make_fixture "$v2_source" v2-missing-managed-backup-size-verify \
+  'statSync(destination).size !== Number(object.Size)' \
+  'false'
 make_fixture "$v2_source" v2-missing-object-backup-parity \
   'mc diff --json' \
   'true # object backup parity removed'
@@ -330,6 +336,25 @@ make_fixture "$v2_source" v2-missing-retention-protection-validator \
 make_fixture "$v2_source" v2-missing-cutover-hold-guard \
   'if \[ "$protection_active" = true \]; then' \
   'if false; then'
+make_fixture "$v2_source" v2-missing-frontend-backend-origin \
+  '--build-arg BACKEND_ORIGIN="$frontend_url"' \
+  '--label fixture-removed-backend-origin'
+make_fixture "$v2_source" v2-widened-storage-bootstrap \
+  'values\[0\] === "" \&\& process.argv\[2\] === "minio" \&\& tail === process.argv\[3\]' \
+  'true'
+make_fixture "$v2_source" v2-groovy-unsafe-retention-tag-regex \
+  'v\[0-9\]+\[.\]\[0-9\]+\[.\]\[0-9\]+' \
+  'v[0-9]+\\.[0-9]+\\.[0-9]+'
+python3 - "$v2_source" "$fixture_dir/v2-xml-unsafe-storage-tuple-nul" <<'PYFIXTURE'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+unsafe = source.replace("\\\\0", "\\0", 1)
+if unsafe == source:
+    raise SystemExit("storage tuple NUL escape not replaced")
+Path(sys.argv[2]).write_text(unsafe)
+PYFIXTURE
 append_fixture "$v2_source" v2-hardcoded-stale-minio-bucket \
   'sh '\''echo oss-hub-submission-files'\'''
 append_fixture "$v2_source" v2-destructive-object-operation \
@@ -1576,6 +1601,8 @@ expect_fail 'v2: managed R2 direct backend-contract credential binding' v2 "$fix
 expect_fail 'v2: inherited storage credential clear 누락' v2 "$fixture_dir/v2-missing-inherited-storage-credential-clear"
 expect_fail 'v2: managed object backup mode branch 누락' v2 "$fixture_dir/v2-missing-managed-mode-guard"
 expect_fail 'v2: active managed mode agreement fail-closed 누락' v2 "$fixture_dir/v2-missing-managed-mode-agreement"
+expect_fail 'v2: managed backup SDK entrypoint 누락' v2 "$fixture_dir/v2-missing-managed-backup-entrypoint"
+expect_fail 'v2: managed backup size 대조 누락' v2 "$fixture_dir/v2-missing-managed-backup-size-verify"
 expect_fail 'v2: configured endpoint object backup parity 누락' v2 "$fixture_dir/v2-missing-object-backup-parity"
 expect_fail 'v2: active storage tuple hash 누락' v2 "$fixture_dir/v2-missing-storage-tuple-hash"
 expect_fail 'v2: running no-op storage tuple guard 누락' v2 "$fixture_dir/v2-missing-running-storage-tuple-guard"
@@ -1585,6 +1612,10 @@ expect_fail 'v2: object backup manifest 검증 누락' v2 "$fixture_dir/v2-missi
 expect_fail 'v2: empty object backup manifest 검증 누락' v2 "$fixture_dir/v2-missing-empty-object-manifest-verify"
 expect_fail 'v2: retention protection validator 호출 누락' v2 "$fixture_dir/v2-missing-retention-protection-validator"
 expect_fail 'v2: cutover hold retention guard 누락' v2 "$fixture_dir/v2-missing-cutover-hold-guard"
+expect_fail 'v2: frontend BACKEND_ORIGIN build-arg 누락' v2 "$fixture_dir/v2-missing-frontend-backend-origin"
+expect_fail 'v2: storage bootstrap 확장 사용' v2 "$fixture_dir/v2-widened-storage-bootstrap"
+expect_fail 'v2: Groovy-unsafe retention tag regex 사용' v2 "$fixture_dir/v2-groovy-unsafe-retention-tag-regex"
+expect_fail 'v2: XML-unsafe storage tuple NUL escape 사용' v2 "$fixture_dir/v2-xml-unsafe-storage-tuple-nul"
 expect_fail 'v2: stale hard-coded MinIO bucket 추가' v2 "$fixture_dir/v2-hardcoded-stale-minio-bucket"
 expect_fail 'v2: destructive object operation 추가' v2 "$fixture_dir/v2-destructive-object-operation"
 expect_fail 'v2: Bash-only body without interpreter 추가' v2 "$fixture_dir/v2-bash-only-without-interpreter"
