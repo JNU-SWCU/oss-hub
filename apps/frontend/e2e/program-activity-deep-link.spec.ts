@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { authenticatedSessionBody } from './support/session-mock';
+
 const programId = 'activity-deep-link';
 
 test('모바일에서 비동기 프로그램 상세의 활동 영역으로 이동한다', async ({
@@ -13,18 +15,7 @@ test('모바일에서 비동기 프로그램 상세의 활동 영역으로 이�
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/v1/auth/session') {
-      await route.fulfill({
-        json: {
-          isAuthenticated: true,
-          user: {
-            nickname: 'qa-staff',
-            name: 'QA 교직원',
-            email: null,
-            avatarUrl: null,
-            role: 'STAFF',
-          },
-        },
-      });
+      await route.fulfill({ json: authenticatedSessionBody('staff') });
       return;
     }
     if (path === `/api/v1/programs/${programId}/viewer`) {
