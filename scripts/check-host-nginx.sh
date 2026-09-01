@@ -507,8 +507,9 @@ if grep -Eq '\$request([^_a-zA-Z0-9]|$)|\$request_uri([^_a-zA-Z0-9]|$)|\$args([^
   exit 1
 fi
 
-# 제출 파일 업로드가 지나는 앱 경로(location /)의 본문 한도. nginx 기본값 1m 이면
+# 제출 파일 업로드가 지나는 앱 경로(location /api/)의 본문 한도. nginx 기본값 1m 이면
 # backend 가 허용하는 5MB 제출이 Compose nginx 에 닿기도 전에 413 으로 죽는다.
+# checkpoint B 뒤 public catch-all(location /)은 proxy 없이 canonical origin 으로만 보낸다.
 if ! python3 - "$active_config" <<'PYEOF'
 import re, sys
 
@@ -528,23 +529,27 @@ def to_bytes(value: str) -> int:
     return int(v) * unit if v.isdigit() else 0
 
 
-# proxy_pass 로 Compose 로 넘기는 location / 블록만 본다(HTTP 리다이렉트 전용 블록 제외).
-best = None
-for m in re.finditer(r'location\s+/\s*\{', text):
-    depth, i = 1, m.end()
+def block_of(match) -> str:
+    depth, i = 1, match.end()
     while i < len(text) and depth:
         if text[i] == '{':
             depth += 1
         elif text[i] == '}':
             depth -= 1
         i += 1
-    block = text[m.end():i]
+    return text[match.end():i]
+
+
+# 업로드가 실제로 지나는 proxy 경로는 /api/ 다.
+best = None
+for m in re.finditer(r'location\s+/api/\s*\{', text):
+    block = block_of(m)
     if 'proxy_pass' not in block:
         continue
     found = re.search(r'client_max_body_size\s+([0-9]+[kKmMgG]?)\s*;', block)
     if not found:
         print(
-            'host nginx contract: location / has no client_max_body_size; '
+            'host nginx contract: location /api/ has no client_max_body_size; '
             'nginx defaults to 1m and rejects submissions larger than 1MB with 413',
             file=sys.stderr,
         )
@@ -552,12 +557,34 @@ for m in re.finditer(r'location\s+/\s*\{', text):
     best = found.group(1)
 
 if best is None:
-    print('host nginx contract: no proxying location / found', file=sys.stderr)
+    print('host nginx contract: no proxying location /api/ found', file=sys.stderr)
     raise SystemExit(1)
 if to_bytes(best) < MIN_BYTES:
     print(
-        f'host nginx contract: location / client_max_body_size {best} '
+        f'host nginx contract: location /api/ client_max_body_size {best} '
         'is below the backend 5MB file limit',
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+# checkpoint B: TLS server 의 public catch-all 은 proxy 를 가질 수 없고
+# canonical origin 308(GET/HEAD) + 404 로만 닫혀야 한다.
+catch_all_ok = False
+for m in re.finditer(r'location\s+/\s*\{', text):
+    block = block_of(m)
+    if 'proxy_pass' in block:
+        print(
+            'host nginx contract: public catch-all still proxies; '
+            'checkpoint B requires an API-only public ingress',
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    if 'return 308 https://jnu-oss-hub.com$request_uri' in block and 'return 404' in block:
+        catch_all_ok = True
+
+if not catch_all_ok:
+    print(
+        'host nginx contract: fail-closed canonical catch-all is missing',
         file=sys.stderr,
     )
     raise SystemExit(1)
@@ -566,4 +593,4 @@ then
   exit 1
 fi
 
-echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger, upload body >= 5MB, public edge policy)'
+echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger, upload body >= 5MB, API-only public edge)'
