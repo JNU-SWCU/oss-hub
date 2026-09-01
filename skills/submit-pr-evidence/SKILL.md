@@ -2,7 +2,7 @@
 name: submit-pr-evidence
 description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, runs the public-safety check, and blocks the PR until required evidence is present, since frontend changes need Before/After captures attached in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램".
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Submit PR Evidence
@@ -15,10 +15,10 @@ metadata:
 ## 절차
 
 1. 티켓을 가져온다 — `gh issue view <번호>` (이 repo 안에서 실행하면 `--repo` 지정은 불필요하다).
-2. 계약을 파싱한다. 아래 세 섹션이 작업 범위의 유일한 원본이다.
-   - `최소 요구 (기능)` — 구현해야 할 최소 범위. 그 이상도 이하도 만들지 않는다.
-   - `완료 조건 (기능 검증)` — PR을 열기 전 실제로 증명해야 하는 체크리스트.
-   - `절대 금지 (이 티켓의 경계)` — 이 티켓이 건드리면 안 되는 파일·동작.
+2. 계약을 파싱한다. 아래 세 섹션이 작업 범위의 유일한 원본이다. 섹션 이름은 2026-09-02 이후 발행된 티켓 기준이며, 그 전에 발행된 티켓은 괄호 안의 옛 이름을 그대로 쓴다.
+   - `할 일`(구 `최소 요구 (기능)`) — 구현해야 할 최소 범위. 그 이상도 이하도 만들지 않는다.
+   - `완료 조건`(구 `완료 조건 (기능 검증)`) — PR을 열기 전 실제로 증명해야 하는 체크리스트.
+   - `하지 않을 것 (이 티켓의 경계)`(구 `절대 금지 (이 티켓의 경계)`) — 이 티켓이 건드리면 안 되는 파일·동작.
 3. 선행 의존성을 확인한다.
    `선행 의존성` 섹션이 미충족 의존성을 명시하면 부분 작업을 시작하지 않고 그 사실을 그대로 보고한다.
    의존성 그래프는 비순환이어야 한다 — 티켓들이 직접으로든 다른 티켓을 거쳐서든 서로를 선행 조건으로 요구하면(예: #A→#B→#A) 어느 쪽도 착수할 수 없다.
@@ -26,9 +26,9 @@ metadata:
 4. 코드를 쓰기 전에 [루트 AGENTS.md](../../AGENTS.md)와 관련 경로의 중첩 AGENTS.md(예: `apps/AGENTS.md`, `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`)를 읽는다.
    이 문서는 브랜치·커밋·PR 흐름이나 보안 규칙을 복제하지 않는다 — 원본과 사본이 어긋나는 drift를 막기 위해서다.
    실제 규칙은 항상 AGENTS.md와 그 링크 문서([docs/rules/security.md](../../docs/rules/security.md), [docs/rules/pr-scope.md](../../docs/rules/pr-scope.md))에서 확인한다.
-5. 최소 요구 섹션이 요구하는 것만 구현한다.
+5. `할 일` 섹션이 요구하는 것만 구현한다.
    지금 같이 고치면 편해 보이는 인접 기능이나 스키마 변경도 그 자체의 티켓 몫으로 남긴다.
-6. 절대 금지 섹션을 문자 그대로 지킨다 — 그 섹션이 이름을 언급한 파일·영역은 0건 수정한다.
+6. `하지 않을 것` 섹션을 문자 그대로 지킨다 — 그 섹션이 이름을 언급한 파일·영역은 0건 수정한다.
 7. 완료 조건 체크리스트를 한 항목씩 실제로 구동해 증명한 뒤에만 체크한다(테스트 실행, 화면·플로우 직접 확인 등).
    검증하지 않은 체크리스트로 PR을 열지 않는다.
 
@@ -103,7 +103,7 @@ metadata:
 - 증거를 만들 수 없음(로컬에서 그 화면을 띄울 수 없거나, 합성 데이터로 그 상태를 만들 수 없거나, 흐름이 다이어그램으로 표현하기 어려움) → 추측 이미지나 목업, 대략적인 다이어그램으로 대신하지 않고, 무엇을 못 만들었는지와 왜인지를 PR 본문에 적고 그 사실을 보고한다.
 - 계약이 구현에 필요한 지점에서 침묵하거나 모호함 → 무관한 문서·코드 주석·비슷한 과거 티켓의 기억으로 추론하지 않고 사용자에게 묻는다.
   티켓 본문은 그 자체로 완결된 설계로 간주한다.
-- 세 실행 계약 섹션 중 하나가 비어 있음 → 구현을 시작하지 않고 발행자에게 채워 달라고 요청한다. 빈 `절대 금지`는 "경계 없음"이 아니라 "미기록"이다.
+- 세 실행 계약 섹션 중 하나가 비어 있음 → 구현을 시작하지 않고 발행자에게 채워 달라고 요청한다. 빈 `하지 않을 것`은 "경계 없음"이 아니라 "미기록"이다.
 
 ## 하지 않는 것
 
