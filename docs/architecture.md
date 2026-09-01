@@ -43,7 +43,7 @@ flowchart LR
 
 checkpoint B는 private managed R2 live store에서 storage smoke와 stable-origin smoke가 모두 통과한 뒤에만 완료한다. 그 뒤 Vercel이 유일한 frontend origin이 되고 AWS는 backend, PostgreSQL, API ingress를 유지한다. AWS frontend 제거는 checkpoint B에 포함된 비파괴 작업이며, rollback 보존 기간에는 MinIO 데이터와 rollback 경로를 삭제하지 않는다.
 
-MinIO는 영구 fallback이나 이중화 저장소가 아니다. 단일 hold timestamp에서 계산한 72시간과 최종 복구 검증이 끝나면 별도 cleanup 변경으로 MinIO service, volume, credential, Jenkins 분기를 제거하며 R2만 application object storage로 남긴다.
+MinIO는 영구 fallback이나 이중화 저장소가 아니다. Managed activation 전 start-free pre-hold receipt가 rollback backup·image를 보호하고, G8 뒤 observation과 canonical pre-hold completion gate가 모두 green일 때 한 번 기록하는 `ROLLBACK_HOLD_START`에서 계산한 72시간이 지나고 final recovery verification과 별도 reviewed cleanup approval가 끝나면 MinIO service, volume, credential, Jenkins 분기를 제거하며 R2만 application object storage로 남긴다.
 
 ```mermaid
 flowchart LR

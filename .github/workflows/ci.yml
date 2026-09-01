@@ -97,6 +97,7 @@ jobs:
               - 'scripts/jenkins/**'
               - 'scripts/jenkins/validate-production-env*'
               - 'scripts/jenkins/object-storage-migration*'
+              - 'scripts/jenkins/r2-retention-protection*'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - 'scripts/check-jenkinsfile.test.mjs'
@@ -210,6 +211,7 @@ jobs:
           node --test scripts/check-auth-production-readonly.test.mjs
           bash scripts/check-production-image-pins.test.sh
           bash scripts/check-production-image-pins.sh
+          bash scripts/jenkins/r2-retention-protection.test.sh
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh
