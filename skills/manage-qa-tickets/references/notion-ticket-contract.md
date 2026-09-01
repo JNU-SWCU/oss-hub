@@ -56,7 +56,7 @@ Keep only the reproduction detail needed to understand and verify the named prob
 | 영역 | 최소 증거 | 캡처 |
 | --- | --- | --- |
 | `frontend` | 대상 요소의 CSS selector, DOM path, 전체 URL, 확인 시각 | 필수 — 그 요소만 잘라낸 이미지 |
-| `backend` | 요청 방법과 경로, 요청 본문 요약, 응답 상태코드, 응답 본문 요약, 관련 로그 한 줄 | 요구하지 않는다 |
+| `backend` | 요청 방법과 경로, 요청 본문 요약, 응답 상태코드, 응답 본문 요약, 관련 로그 한 줄 | 로직 변경이면 필수 — [흐름 다이어그램](../../submit-pr-evidence/references/backend-diagram.md) |
 | `infra` | 설정 파일 경로, 변경 대상 값의 이름, 배포 단계, 확인 명령과 그 출력 | 요구하지 않는다 |
 
 `backend`와 `infra`의 값은 전부 합성 예시로 쓴다.

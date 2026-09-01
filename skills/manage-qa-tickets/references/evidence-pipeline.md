@@ -21,6 +21,7 @@ lane은 전부 읽기 전용이며, Notion 쓰기와 본문 작성은 orchestrat
 
 `backend`나 `infra` 영역이면 캡처 lane을 띄우지 않는다.
 그 영역의 최소 증거는 [notion-ticket-contract.md](notion-ticket-contract.md)의 영역별 증거 표가 정한다.
+`backend` 로직 변경은 화면 캡처 대신 PR 제출 시 흐름 다이어그램을 요구하며, 그 기준은 [submit-pr-evidence/references/backend-diagram.md](../../submit-pr-evidence/references/backend-diagram.md)가 원본이다.
 
 ## lane에 넘길 것
 

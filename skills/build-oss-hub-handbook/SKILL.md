@@ -1,6 +1,8 @@
 ---
 name: build-oss-hub-handbook
 description: Create or refresh evidence-based OSS Hub user handbooks in Notion for students, staff, or administrators. Use when asked to write, update, verify, restructure, or add current screenshots to OSS Hub manuals, guides, onboarding docs, or demo instructions. This skill documents observed behavior and reports product gaps; it never modifies OSS Hub product code or silently changes product policy.
+metadata:
+  version: "1.0.0"
 ---
 
 # Build OSS Hub Handbook

@@ -1,9 +1,9 @@
-<!-- init:managed id=craft-init-4.0.0-docs sha256=32e84084e7a823bf63071d1f201f9ac1ac8753e41d8df18a520a6dd71d0d4493 -->
+<!-- init:managed id=craft-init-4.0.0-docs sha256=dfc66a7836be97aab29e4ac04a90d9209423429137afcb0c69212fdd280f07e3 -->
 # docs
 
 ## Ownership
 
-- `docs/` is the canonical home for repository rules, decisions, runbooks, handoff records, and execution plans; link to a source instead of duplicating its policy.
+- `docs/` is the canonical home for repository rules, decisions, runbooks, and handoff records; link to a source instead of duplicating its policy.
 - `architecture.md` maps components, `design.md` owns frontend visual-system rules, and `onboarding.md` owns newcomer guidance.
 - Keep one fact in its owning document; implementation state belongs in GitHub Issue/PR rather than a parallel status narrative.
 
@@ -12,7 +12,6 @@
 - `decisions/README.md` indexes ADRs; the affected ADR is the canonical record for an architectural or operational decision.
 - `rules/security.md`, `rules/frontend.md`, `rules/local-dev.md`, `rules/pr-scope.md`, and `rules/ci-path-verification.md` each own their named contracts.
 - `deploy/server-runbook.md`, `deploy/pre-deploy-verify.md`, and `deploy/demo-runbook.md` own deployment procedure; do not restate commands or approval flows elsewhere.
-- `exec-plan/active/` contains owner-scoped live plans and `exec-plan/archive/` retains completed ones; preserve their separation.
 - `handoff/TEAM-STATE.md` is only the journal index; append work updates only to `handoff/team-state/<handle>.md`.
 - `handoff/TEAM-STATE.archive.md` is frozen and must not be edited.
 - `research/<slug>.md` records evidence for a decision; promote a decision into its ADR rather than treating research as authority.

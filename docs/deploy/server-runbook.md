@@ -2,7 +2,7 @@
 
 이 문서는 배포 서버에서 ADR-002 Jenkins Release 배포 파이프라인을 **처음 실동작**시키는 수동 절차의 단일 소유 런북이다.
 파이프라인 정의는 저장소 루트 `Jenkinsfile`이 원본이며 이 런북은 명령을 복제하지 않고 스텝·검증 기준으로 서술한다.
-승인 단위·트리거·롤백 계약의 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md), 운영 경계·완료 증거의 원본은 [init-operations](../exec-plan/active/init-operations.md)다.
+승인 단위·트리거·롤백 계약의 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)다.
 
 ## 0. 절대 경계 (먼저 읽는다)
 
@@ -19,7 +19,7 @@
 
 - 각 스텝은 **명령 → 예상 출력 → 검증**의 세 요소로 적는다. 배포판·버전 차이는 스텝 의도를 유지한 채 조정한다.
 - 접속 방식은 두 가지 중 하나다: AWS SSM Session Manager 또는 Tailscale SSH. 공인 SSH(22)는 열지 않는다.
-- Compose ingress smoke는 `http://127.0.0.1:8081`이다. 공인 TLS smoke는 host nginx 계약([init-operations](../exec-plan/active/init-operations.md) M4, `Jenkinsfile`)을 따른다.
+- Compose ingress smoke는 `http://127.0.0.1:8081`이다. 공인 TLS smoke는 host nginx 계약(`Jenkinsfile`)을 따른다.
 
 ## M1. 서버 접속 (배포 EC2 전용)
 
@@ -208,7 +208,7 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 - `/api/v1/health` 200은 PostgreSQL 연결까지 확인한 결과다. DB에 닿지 못하면 503이므로 이 스텝이 DB 가용성 확인을 겸한다.
 
 - **no-op 재확인**: 파라미터 없이 job을 다시 실행하면 실행 중 tag·revision과 latest Release가 같음을 증명하고 성공 no-op 처리되는지 확인한다.
-- 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. [init-operations](../exec-plan/active/init-operations.md) 복구 절차대로 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
+- 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
 
 ## M8. Managed R2 backup·restore 및 rollback gate
 
@@ -230,7 +230,7 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 2. writer를 중지하고 `copy-check`로 MinIO에서 managed R2로 비파괴 copy한 뒤 양쪽의 object count, total size, key별 content SHA-256을 대조한다.
 3. source를 managed R2, target을 rollback MinIO로 뒤집고 `rollback-drill <drill-id> <evidence-dir>`을 실행한다.
 4. 도구가 격리된 `.migration-drill/<drill-id>/` prefix를 다시 읽어 R2 원본과 key, size, content SHA-256이 같은지 확인한다.
-5. drill prefix와 mode `0700` evidence directory를 72시간 hold가 끝날 때까지 보존한다. drill 단계에서 cleanup이나 generic delete를 실행하지 않는다.
+5. drill prefix와 mode `0700` evidence directory를 pre-hold observation 전체와 `ROLLBACK_HOLD_START + 72h`까지 보존한다. drill 단계에서 cleanup이나 generic delete를 실행하지 않는다.
 
 어느 단계든 실패하거나 evidence가 불완전하면 activation을 승인하지 않는다. R2의 내구성은 backup이 아니며 이 drill을 건너뛸 근거가 되지 않는다.
 
@@ -243,13 +243,18 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 3. backend writer를 중지하고 실행 중 backend가 더 이상 제출 파일 write를 처리하지 않음을 독립적으로 확인한다. acknowledgement 문자열만으로 정지를 대신하지 않는다.
 4. `copy-check`로 MinIO에서 R2로 copy하고 count, bytes, key별 content SHA-256 parity를 확인한다.
 5. M8-B의 R2→격리 MinIO rollback drill과 configured-endpoint backup 검증을 완료한다.
-6. 승인된 managed tuple을 production env에 적용하고 R2 credential을 Jenkins binding으로 주입한 뒤 backend만 재생성한다.
-7. 실행 중 backend의 mode, endpoint, region, bucket, path-style hash가 승인된 managed tuple과 같은지 확인한 뒤 writer를 재개한다.
-8. R2 application storage smoke와 Vercel stable-origin의 SSR, OAuth, session, query, file, authorization smoke를 모두 통과시킨다.
-9. 이 시점에만 checkpoint B를 완료하고 AWS frontend를 비파괴적으로 제거한다. AWS backend, PostgreSQL, API ingress는 유지한다.
-10. 같은 시점의 `R2_CUTOVER_HOLD_STARTED_AT`에서 정확히 72시간 뒤 epoch와 pre-cutover object backup 디렉터리 이름을 mode `0600`의 `${BACKUP_DIR}/r2-cutover-hold`에 각각 `protected-until-epoch=...`, `object-backup-name=...` 두 줄로 원자 기록한다. Jenkins retention은 유효한 receipt와 protected backup을 확인하는 동안 전체 backup prune을 건너뛴다.
+6. Managed activation 전에 pre-cutover object backup 디렉터리 이름과 rollback image tag를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-pre-hold`에 각각 `object-backup-name=...`, `rollback-image-tag=...` 두 줄로 원자 기록한다. Jenkins는 모든 retention cleanup 전에 이 start-free receipt를 검증하고 exact backup pruning을 건너뛰며 rollback image tag를 keep set에 넣는다. 검증 뒤 bounded cache와 unrelated image cleanup은 계속 허용한다.
+7. 승인된 managed tuple을 production env에 적용하고 R2 credential을 Jenkins binding으로 주입한 뒤 backend만 재생성한다.
+8. 실행 중 backend의 mode, endpoint, region, bucket, path-style hash가 승인된 managed tuple과 같은지 확인한 뒤 writer를 재개한다.
+9. R2 application storage smoke와 Vercel stable-origin의 SSR, OAuth, session, query, file, authorization smoke를 모두 통과시킨다.
+10. 이 시점에만 checkpoint B를 완료하고 AWS frontend를 비파괴적으로 제거한다. AWS backend, PostgreSQL, API ingress는 유지한다.
+11. Generic Release를 금지하고 checkpoint B 뒤 최소 30분 동안 Vercel, AWS API/backend/PostgreSQL, R2와 backup error·latency를 관찰한다. 이 구간에는 pre-cutover backup, MinIO, slot A와 evidence를 삭제하거나 prune하지 않는다.
+12. G0–G8, 30분 observation과 [`cloudflare-r2-readiness.md`](../handoff/cloudflare-r2-readiness.md)의 **Pre-hold completion conditions**가 모두 green일 때 complete opaque production receipt를 발행한다.
+13. Complete receipt 발행과 모든 gate가 동시에 green인 UTC instant 하나를 execution owner가 `ROLLBACK_HOLD_START`로 기록하고 rollback approver가 countersign한다. R2 start, B promotion, Release publication과 observation start를 대신 사용하지 않는다.
+14. `ROLLBACK_HOLD_START` epoch, 정확히 그 값에 72시간을 더한 expiry, pre-cutover object backup 디렉터리 이름과 rollback image tag를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-hold`에 각각 `rollback-hold-start-epoch=...`, `protected-until-epoch=...`, `object-backup-name=...`, `rollback-image-tag=...` 네 줄로 원자 기록한다. Jenkins가 pre-hold와 hold identity 일치, start, exact expiry, protected backup·image를 검증한 뒤에만 pre-hold receipt를 제거한다.
+15. Expiry는 cleanup을 허가하지 않는다. Expiry 뒤 final recovery verification과 별도 reviewed cleanup approval이 끝났을 때만 같은 `ROLLBACK_HOLD_START`와 현재 `approved-at-epoch`를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-cleanup-approved`에 두 줄로 원자 기록한다. Jenkins는 approval start가 hold start와 같고 approval 시각이 expiry 이상·현재 이하일 때만 protected image·backup retention을 해제한다.
 
-managed activation 전 실패는 MinIO endpoint를 유지하고 writer를 재개하지 않은 채 원인을 복구한다. managed activation 뒤 실패는 endpoint만 되돌리지 않고 writer를 중지한 상태에서 M8-D를 수행한다. hold 동안에는 MinIO service, volume, rollback backup, AWS frontend rollback material을 삭제하지 않는다.
+managed activation 전 실패는 MinIO endpoint를 유지하고 writer를 재개하지 않은 채 원인을 복구한다. Pre-hold receipt는 unchanged MinIO 복구와 rollback material 검증이 끝난 뒤 reviewed operator action으로만 제거한다. Managed activation 뒤 실패는 endpoint만 되돌리지 않고 writer를 중지한 상태에서 M8-D를 수행한다. Pre-hold observation과 hold 동안에는 MinIO service, volume, rollback backup, slot A rollback material을 삭제하지 않는다.
 
 ### M8-D. R2 activation 뒤 rollback
 
@@ -261,7 +266,25 @@ R2 activation 후 rollback은 반드시 다음 순서다.
 4. MinIO를 재활성화한다.
 5. stable-origin smoke와 제출 파일 smoke를 실행한다.
 
-R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. 72시간 hold가 끝난 뒤에도 cleanup은 별도 승인으로 실행하며, 먼저 backup과 rollback material의 복구 가능성을 확인하는 비파괴 작업만 수행한다. 검증이 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
+R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. `ROLLBACK_HOLD_START + 72h`는 cleanup eligibility일 뿐 authorization이 아니다. 별도 reviewed approval 전에 backup·rollback image pruning, MinIO service·volume·credential 삭제와 migration branch 제거를 실행하지 않는다. Final recovery verification과 approval receipt가 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
+
+### M8-E. checkpoint B public ingress 전환
+
+checkpoint B에서는 host nginx의 public catch-all이 Compose frontend를 proxy하지 않는다. GET과 HEAD는 canonical Vercel origin으로 308 redirect하고, 그 밖의 method는 빈 body의 404로 끝낸다. `/api/`, OAuth, deploy trigger와 loopback health/smoke 경로는 변경하지 않는다.
+
+sudo 권한이 있는 운영자가 이전 설정 백업을 보존한 상태에서 설정을 교체한 뒤, 참석 하에 아래 순서로 적용한다. `nginx -t`가 성공한 경우에만 reload한다.
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+문제가 있으면 직전 `oss-hub.conf` 백업을 복원하고 같은 문법 검사와 reload를 수행한다.
+
+```bash
+sudo cp /etc/nginx/conf.d/oss-hub.conf.bak-<timestamp> /etc/nginx/conf.d/oss-hub.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ## M9. 호스트 nginx 설정 반영
 
 호스트 nginx는 Compose가 아니라 시스템 서비스이고 Jenkins 계정에는 sudo가 없다.
@@ -356,4 +379,4 @@ M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트
 
 - **자동 트리거 live 연결 검증** (GitHub Actions `deploy.yml` → Jenkins parameterless `/build` e2e) — 수동 M7과 별도 확인.
 - **`Jenkinsfile` GitHub API 인증(PAT)** 적용(코드 변경) — follow-up.
-- **host nginx TLS/IP 인증서 live 운영 점검** — 계약 원본은 [init-operations](../exec-plan/active/init-operations.md) M4.
+- **host nginx TLS/IP 인증서 live 운영 점검**.

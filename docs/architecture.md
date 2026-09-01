@@ -14,7 +14,7 @@ compose.yaml                  # 운영 런타임 Compose 정의
 compose.dev.yaml              # 개발 PostgreSQL Compose 정의
 docs/
 ├── decisions/                # Architecture Decision Records
-├── exec-plan/                # 수동 운영 절차와 실행 기록
+├── deploy/                   # 배포 runbook과 수동 운영 절차
 └── rules/                    # 구현 규칙
 ```
 
@@ -24,11 +24,11 @@ docs/
 - `apps/backend`는 `/api/v1` REST API, DTO 검증, 업무 규칙, 영속성 접근을 소유한다.
 - PostgreSQL은 backend만 직접 접근한다.
 - `deploy/`와 Compose 파일은 런타임 네트워크, proxy, 배포 자동화를 소유한다.
-- `docs/decisions`는 장기 결정, `docs/exec-plan`은 반복 가능한 수동 운영 절차를 소유한다.
+- `docs/decisions`는 장기 결정, `docs/deploy`는 배포 runbook과 반복 가능한 수동 운영 절차를 소유한다.
 
 ## 현재 전환 상태
 
-프로덕션 제출 파일 저장소는 아직 MinIO이며 R2 cutover는 실행되지 않았다. checkpoint A의 exact-SHA Vercel deployment는 준비됐지만 backend `FRONTEND_URL`·GitHub OAuth callback 전환과 stable-origin smoke가 남아 있어 checkpoint A는 완료되지 않았다. AWS는 backend, PostgreSQL, API ingress를 계속 제공한다. 기존 AWS frontend는 checkpoint B 전까지 보존한다.
+checkpoint A는 완료됐다. 구매한 canonical HTTPS custom domain이 production frontend origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin으로 전환됐고 stable-origin SSR·OAuth·session·query·authz smoke가 통과했다. 프로덕션 제출 파일 저장소는 아직 MinIO이며 R2 cutover는 실행되지 않았다. AWS는 backend, PostgreSQL, API ingress를 계속 제공하고 기존 AWS frontend와 rollback 경로는 checkpoint B 전까지 보존한다. production frontend 빌드는 `apps/frontend/backend-origin.allowlist`의 SHA-256 digest allowlist에 있는 rewrite 대상만 허용한다.
 
 ```mermaid
 flowchart LR
@@ -43,7 +43,7 @@ flowchart LR
 
 checkpoint B는 private managed R2 live store에서 storage smoke와 stable-origin smoke가 모두 통과한 뒤에만 완료한다. 그 뒤 Vercel이 유일한 frontend origin이 되고 AWS는 backend, PostgreSQL, API ingress를 유지한다. AWS frontend 제거는 checkpoint B에 포함된 비파괴 작업이며, rollback 보존 기간에는 MinIO 데이터와 rollback 경로를 삭제하지 않는다.
 
-MinIO는 영구 fallback이나 이중화 저장소가 아니다. 단일 hold timestamp에서 계산한 72시간과 최종 복구 검증이 끝나면 별도 cleanup 변경으로 MinIO service, volume, credential, Jenkins 분기를 제거하며 R2만 application object storage로 남긴다.
+MinIO는 영구 fallback이나 이중화 저장소가 아니다. Managed activation 전 start-free pre-hold receipt가 rollback backup·image를 보호하고, G8 뒤 observation과 canonical pre-hold completion gate가 모두 green일 때 한 번 기록하는 `ROLLBACK_HOLD_START`에서 계산한 72시간이 지나고 final recovery verification과 별도 reviewed cleanup approval가 끝나면 MinIO service, volume, credential, Jenkins 분기를 제거하며 R2만 application object storage로 남긴다.
 
 ```mermaid
 flowchart LR

@@ -936,3 +936,109 @@
 - blocker: provider cutover는 실행하지 않았다. checkpoint A의 Jenkins `FRONTEND_URL`·GitHub OAuth callback 변경과 stable-origin smoke가 먼저 필요하다.
 - 결과: application storage를 exact `minio|managed` mode로 분리하고 Cloudflare R2 endpoint·region·path-style을 fail-closed로 고정했다. R2 credential은 Jenkins masked binding만 사용하고 임시 rollback MinIO credential과 분리했다. 일반 Release는 실행 중 storage tuple과 candidate tuple이 다르면 no-op·backup·재생성 전에 중단한다. configured-endpoint backup parity·상대경로 SHA-256 receipt·72시간 protected-backup hold를 Jenkins에 결박하고, exact-key preflight와 stopped-writer copy/parity, R2→격리 MinIO drill, reverse-copy-check를 수행하는 bounded AWS SDK operator를 추가했다. MinIO는 hold 종료 뒤 service·volume·credential·migration branch와 함께 제거하며 최종 object storage는 R2 하나다.
 - 검증: backend storage/runtime 90건, production env 111건, Jenkins mutation 188건, local Compose 15건, migration SDK 10건과 wrapper contract, CI path 6건, env coverage 31건, backend typecheck·lint, shellcheck, Prettier, diff check를 통과했다. storage·Jenkins·migration·docs architect가 모두 `CLEAR+APPROVE`, executor red-team QA가 `passed`를 반환했다.
+
+## 2026-09-01 — R2 canonical gate와 hold epoch를 결박한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: checkpoint A의 production credential·OAuth callback 변경, live G3–G9 execution과 rollback approver 확인은 owner 참석이 필요하다.
+- 결과: 로컬 인수인계로만 남아 있던 R2 readiness 문서를 공개-safe canonical G0–G9 checklist로 추적하고 현재 완료·미완료 상태를 명시했다. Managed activation 전 start-free pre-hold receipt가 rollback backup·image를 결박한다. Jenkins는 모든 retention cleanup 전에 state를 검증하고 exact backup pruning을 건너뛰며 rollback image tag를 keep set으로 보호하되 bounded cache·unrelated image cleanup은 허용한다. Complete receipt, G0–G8, G8 뒤 30분 observation과 circular하지 않은 pre-hold completion list가 동시에 green인 단일 UTC instant만 `ROLLBACK_HOLD_START`가 되며 expiry는 정확히 start + 72시간이다. Expiry 뒤에도 final recovery verification과 같은 hold start에 결박된 별도 approval 전에는 protected retention을 해제하지 않는다.
+- 검증: Jenkins contract와 mutation fixture 187건, pre-hold·hold·cleanup approval state machine synthetic test, CI path contract 6건, repository Prettier, shellcheck, public-safe, diff check를 통과했고 canonical retention architect가 `CLEAR+APPROVE`를 반환했다.
+
+## 2026-09-01 — checkpoint A Release compilation을 복구한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 stable-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.125`가 retention shell regex의 Groovy-invalid escape 때문에 pipeline compilation에서 fail-closed된 원인을 확인했다. Literal dot을 bracket expression으로 바꾸고 mutation checker가 unsafe escape 회귀를 거부하게 했다. Custom production domain, DNS·TLS, Jenkins `FRONTEND_URL`과 GitHub OAuth callback 설정은 authenticated browser agent로 일치 검증했으며 storage는 MinIO 그대로다.
+- 검증: Jenkins contract와 mutation fixture 190건, diff check를 통과했다.
+
+## 2026-09-01 — frontend 이미지 빌드에 rewrite origin을 주입한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.130`은 env preflight와 running tuple을 통과했지만 frontend production 빌드가 필수 `BACKEND_ORIGIN` 없이 실행돼 image_build에서 fail-closed됐다. Dockerfile builder에 `BACKEND_ORIGIN` build-arg를 추가하고 Jenkins 빌드 stage가 운영 env의 유일 HTTPS `FRONTEND_URL`을 검증해 주입하게 했다(값 미로깅). Checker가 build-arg 누락 회귀를 거부한다.
+- 검증: next.config 테스트 13건, frontend production build, docker-context contract, Jenkins contract와 mutation fixture 191건, diff check를 통과했다.
+
+## 2026-09-01 — Jenkins storage tuple 직렬화를 복구한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.126`은 pipeline compilation을 통과했지만 Groovy가 storage tuple delimiter의 single escape를 XML-invalid NUL byte로 직렬화해 `Start of Pipeline`에서 fail-closed됐다. Groovy source에서는 double escape를 사용하고 shell·Node runtime에서는 기존 NUL delimiter를 유지하도록 고쳤으며 checker가 unsafe serialization 회귀를 거부한다. Deployment와 object operation은 시작되지 않았고 storage는 MinIO 그대로다.
+- 검증: Jenkins contract와 mutation fixture 189건, diff check를 통과했다.
+
+## 2026-09-01 — storage tuple bootstrap을 허용한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.128`은 env preflight를 통과했지만 실행 중 backend가 storage 계약 이전 revision이라 `running_storage_tuple` drift guard에 fail-closed됐다. 실행 중 mode가 비어 있고 candidate mode가 정확히 `minio`이며 나머지 네 키의 tail hash가 candidate와 일치할 때만 허용하는 일회성 bootstrap을 추가했다(`v0.6.129`는 완전무 조건만 허용해 여전히 차단됨을 확인). 부분 drift·managed 후보·값 변경은 여전히 fail-closed이며 checker가 bootstrap 확장 회귀를 거부한다.
+- 검증: Jenkins contract와 mutation fixture 190건, diff check를 통과했다.
+## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
+
+- 상태: review
+- Issue: #1119
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 팀 스킬을 `skills/` canonical 4개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`)로 정리하고 `.codex`·`.claude`·`.cursor`·`.gjc` runtime 디렉터리는 symlink만 둔다. `submit-pr-evidence`는 frontend 변경에 Before/After 캡처, backend 로직 변경에 mermaid/DOT 다이어그램을 PR 본문 게이트로 요구하고 PR·Issue 템플릿에 §4·§4b 섹션을 추가했다. `AGENTS.md`와 `docs/rules/agent-skill-routing.md`가 스킬 사용을 게이트로 강제하며 더 이상 쓰지 않는 `docs/exec-plan/`은 제거하고 남은 참조를 ADR-010·스킬 references로 옮겼다.
+- 검증: `quick_validate.py` 4개 `Skill is valid!`, 깨진 symlink 0개, `check-public-safe.sh`, `pnpm format:check`, `node --test scripts/team-state-check.test.mjs` 11/11을 통과했다.
+
+## 2026-09-01 — checkpoint A 완료와 rewrite 대상 allowlist를 기록한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: post-cutover ingress 강화(G004/G005 gate)는 위협모델 분류대로 cutover 뒤에만 실행한다.
+- 결과: Release `v0.6.132`가 전체 파이프라인을 green으로 통과하고 authenticated stable-origin smoke(SSR·OAuth·session·query·role·sign-out)가 성공해 checkpoint A를 완료했다. `docs/architecture.md`의 전환 상태를 현재 상태로 고치고, G006 위협모델의 safe-now 항목으로 production `BACKEND_ORIGIN`을 SHA-256 digest allowlist(공개-safe 파일) 또는 보호된 빌드 환경 `BACKEND_ORIGIN_APPROVED_SHA256`으로만 허용하게 했다. 구문만 유효한 임의 HTTPS origin은 production 빌드에서 거부된다. Vercel production에는 보호 digest 변수를 미리 등록했다.
+- 검증: next.config 테스트 16건, 승인 origin production build 통과, 비승인 origin build 거부, frontend typecheck·lint, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — managed backup mc entrypoint를 고정한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음 — 병합 뒤 Release로 managed backup 경로가 처음 실행된다.
+- 결과: attended R2 cutover 중 동일 패턴을 실제 실행해 `minio/mc` 이미지의 entrypoint가 `mc`여서 `sh -eu -c ...` 인자가 오해석되는 잠재 결함을 확인했다. Jenkins managed object backup의 docker run에 `--entrypoint sh`를 명시하고 checker가 entrypoint 누락 회귀를 거부한다. 한편 cutover는 완료됐다: env는 managed R2 tuple, stopped-writer SDK copy-check(SHA-256 parity), backend v0.6.132 healthy, 그리고 8월 MinIO wipe로 잃어버렸던 ATTACHED 12개를 배포 백업에서 복구해 ATTACHED 53/53이 R2에 존재한다. 새 도메인은 apex·www·OAuth·API 전 경로 연결 완료다.
+- 검증: Jenkins contract와 mutation fixture 192건, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — checkpoint B: public ingress를 API 전용으로 좁힌다
+## 2026-09-02 — 결손 객체 조회를 404로 구분한다
+## 2026-09-02 — checklist 테스트의 wall-clock 의존을 제거한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 병합 뒤 host nginx에 attended 적용(`nginx -t` + reload)해야 다음 Release drift preflight가 통과한다.
+- 결과: canonical origin이 frontend를 서빙하므로 host nginx public catch-all이 legacy frontend로 proxy하던 것을 GET/HEAD 308 → canonical origin, 그 외 메서드 404로 바꿨다. /api/, OAuth 정확 경로, deploy trigger, rate-limit zone, loopback smoke block은 바이트 동일하다. runbook에 적용·롤백 절차를 추가했다.
+- 검증: diff가 catch-all block과 runbook 절에만 닿음을 확인했다.
+- blocker: 없음
+- 결과: 저장소 객체가 없는 제출 파일 GET이 500(SYS_001)으로 떨어지던 것을 provider not-found를 별도 storage 오류 코드로 구분해 표준 404 problem-detail로 반환하게 했다. 8월 MinIO wipe로 생겼던 결손은 백업에서 복구를 마쳤고(ATTACHED 53/53), 앞으로 남는 orphan은 사용자 재업로드 UI로 해소된다. 그 외 실패는 기존 500 경로 그대로다.
+- 검증: storage·service 집중 Jest 69건, backend typecheck·lint를 통과했다.
+- blocker: 없음 — 이 결함이 main의 required ci를 자정부터 깨뜨려 모든 PR을 막고 있었다.
+- 결과: `submissions.service.checklist.spec.ts`의 checklist 호출 7곳이 실제 시계를 사용해 dueAt 픽스처(2026-09-01T14:59:59Z)가 지나자 canResubmit 기대가 뒤집혔다. 모든 호출에 픽스처 유효 범위 내 고정 시각을 명시했다(G001과 동일 계열 수정).
+- 검증: 해당 spec 11/11 통과.
+
+## 2026-09-02 — 외부 root smoke를 checkpoint B 계약으로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음 — 병합 뒤 Release가 checkpoint B receipt다.
+- 결과: `v0.6.135`(build 194)는 배포·컨테이너 health·nginx reload까지 성공했지만 외부 smoke가 legacy 기대(`GET / == 200`)라 새 API-only edge의 308에 fail-closed됐다. 배포·롤백·drift smoke 세 곳의 root 기대를 308로 바꾸고 checker 캐논도 정렬했다. /api/ 계열 기대(200/401/404)는 그대로다.
+- 검증: Jenkins contract ok, mutation fixture 193건 통과.
+
+## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 병합 뒤 새 Release로 managed backup 경로의 첫 green 수렴이 필요하다.
+- 결과: `v0.6.133`(build 192)에서 R2가 `ListObjectsV2` metadata 파라미터를 미구현이라 `mc mirror --preserve`/`mc diff`가 managed backup에서 항상 실패함을 실증했다. Managed backup을 이전 backend 이미지의 AWS SDK 전수 다운로드로 교체했다: pagination token 방어, zip-slip 키 검증, 객체별 listed-size 대조, `wx`/0600 기록, PREV 이미지 부재 시 fail-closed. 기존 manifest/receipt 파이프라인과 MinIO 분기는 그대로다.
+- 검증: Jenkins contract와 mutation fixture 193건, public-safe, diff check를 통과했다.
