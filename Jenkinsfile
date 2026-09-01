@@ -1113,7 +1113,7 @@ case "$protection_state" in
   protected:v*)
     protection_active=true
     protected_rollback_image_tag=${protection_state#protected:}
-    [[ "$protected_rollback_image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    [[ "$protected_rollback_image_tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]] || {
       echo 'FAIL_CLOSED retention: invalid protected rollback image tag.' >&2
       exit 1
     }
