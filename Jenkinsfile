@@ -26,9 +26,16 @@ pipeline {
     // 최초 배포(재프로비저닝)를 허용한다. 기본은 차단(fail-closed).
     // C4 승인 상수. 성공 배포 뒤에만 적용하고 최신 N개를 보존한다.
     BACKUP_RETENTION_N = '30'
-    // Dedicated cutover workflow creates this 0600 receipt only after managed activation.
+    // Dedicated cutover workflow creates this 0600 receipt only after G0-G8, the
+    // post-G8 observation, canonical completion list, and public receipt are green.
     // Generic releases never create or modify it; retention validates and honors it.
     R2_CUTOVER_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-hold'
+    // Attended cutover writes this start-free 0600 protection before G7 and removes
+    // it only after the authoritative hold receipt exists with matching identities.
+    R2_CUTOVER_PRE_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-pre-hold'
+    // A separately reviewed cleanup writes this 0600 receipt only after hold expiry
+    // and final recovery verification; generic releases never create or modify it.
+    R2_CUTOVER_CLEANUP_APPROVAL_FILE = '/var/lib/oss-hub/backups/r2-cutover-cleanup-approved'
     // BuildKit shared/internal 캐시는 이미지 빌드·배포 전과 성공 뒤 LRU 기준 최대 5GB까지만 보존한다.
     BUILD_CACHE_MAX_SPACE = '5GB'
     // 개인키 SOURCE는 compose.yml이 :? 로 요구한다. compose 호출이 5곳이라 stage마다 넣으면
@@ -456,9 +463,19 @@ mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
         expression { env.DEPLOY_NOOP != 'true' }
       }
       steps {
-        sh '''
-          docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
-        '''
+        sh '''#!/usr/bin/env bash
+set -euo pipefail
+protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)
+case "$protection_state" in
+  protected:v*) ;;
+  cleanup-allowed) ;;
+  *)
+    echo 'FAIL_CLOSED prebuild retention: invalid protection state.' >&2
+    exit 1
+    ;;
+esac
+docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
+'''
       }
     }
 
@@ -1091,6 +1108,23 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
         sh '''#!/usr/bin/env bash
 set -euo pipefail
 
+protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)
+case "$protection_state" in
+  protected:v*)
+    protection_active=true
+    protected_rollback_image_tag=${protection_state#protected:}
+    [[ "$protected_rollback_image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+      echo 'FAIL_CLOSED retention: invalid protected rollback image tag.' >&2
+      exit 1
+    }
+    ;;
+  cleanup-allowed)
+    protection_active=false
+    ;;
+  *) echo 'FAIL_CLOSED retention: invalid protection state.' >&2; exit 1 ;;
+esac
+protection_validation_complete=true
+
 # success-only retention. 실패 경로에서는 이 stage에 들어오지 않는다.
 # 실행 중(방금 배포한 IMAGE_TAG)과 직전 PREV_TAG는 절대 삭제하지 않는다.
 # oss-hub-frontend / oss-hub-backend 앱 이미지만 대상으로 하며 무관 이미지는 건드리지 않는다.
@@ -1099,6 +1133,9 @@ retention_keep_tags=()
 retention_keep_tags+=("${IMAGE_TAG}")
 if [ -n "${PREV_TAG:-}" ] && [ "$PREV_TAG" != "$IMAGE_TAG" ]; then
   retention_keep_tags+=("${PREV_TAG}")
+fi
+if [ "$protection_active" = true ]; then
+  retention_keep_tags+=("${protected_rollback_image_tag}")
 fi
 
 is_kept_tag() {
@@ -1121,6 +1158,11 @@ docker images --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}' > "$images_raw"
 awk -F '\t' '$1=="oss-hub-frontend" || $1=="oss-hub-backend"' "$images_raw" > "$images_inventory"
 rm -f "$images_raw"
 
+[ "$protection_validation_complete" = true ] || {
+  echo 'FAIL_CLOSED retention: protection validation did not complete.' >&2
+  exit 1
+}
+
 while IFS="$(printf '\t')" read -r repo tag image_id; do
   [ -n "$repo" ] || continue
   [ -n "$tag" ] || continue
@@ -1137,56 +1179,11 @@ while IFS="$(printf '\t')" read -r repo tag image_id; do
 done < "$images_inventory"
 
 # 성공 배포 뒤에만 shared/internal BuildKit 캐시를 LRU 기준 상한까지 정리한다.
+# Protection/cleanup receipts are validated before this destructive operation.
 docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
-hold_active=false
-if [ -e "$R2_CUTOVER_HOLD_FILE" ]; then
-  hold_mode=$(stat -c '%a' "$R2_CUTOVER_HOLD_FILE")
-  [ "$hold_mode" = 600 ] || {
-    echo 'FAIL_CLOSED retention: invalid R2 cutover hold receipt mode.' >&2
-    exit 1
-  }
-  mapfile -t hold_lines < "$R2_CUTOVER_HOLD_FILE"
-  [ "${#hold_lines[@]}" -eq 2 ] || {
-    echo 'FAIL_CLOSED retention: invalid R2 cutover hold receipt shape.' >&2
-    exit 1
-  }
-  case "${hold_lines[0]}" in
-    protected-until-epoch=*) protected_until_epoch=${hold_lines[0]#protected-until-epoch=} ;;
-    *) echo 'FAIL_CLOSED retention: invalid R2 cutover hold expiry.' >&2; exit 1 ;;
-  esac
-  case "${hold_lines[1]}" in
-    object-backup-name=*) protected_object_backup=${hold_lines[1]#object-backup-name=} ;;
-    *) echo 'FAIL_CLOSED retention: invalid R2 cutover backup identity.' >&2; exit 1 ;;
-  esac
-  [[ "$protected_until_epoch" =~ ^[0-9]{10}$ ]] || {
-    echo 'FAIL_CLOSED retention: invalid R2 cutover hold expiry.' >&2
-    exit 1
-  }
-  [[ "$protected_object_backup" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]] || {
-    echo 'FAIL_CLOSED retention: invalid R2 cutover backup identity.' >&2
-    exit 1
-  }
-  [ -d "$BACKUP_DIR/objects/$protected_object_backup" ] || {
-    echo 'FAIL_CLOSED retention: protected R2 cutover backup is missing.' >&2
-    exit 1
-  }
-  current_epoch=$(date +%s)
-  [[ "$current_epoch" =~ ^[0-9]{10}$ ]] || {
-    echo 'FAIL_CLOSED retention: invalid current epoch.' >&2
-    exit 1
-  }
-  if (( protected_until_epoch > current_epoch + 259200 )); then
-    echo 'FAIL_CLOSED retention: R2 cutover hold exceeds 72 hours.' >&2
-    exit 1
-  fi
-  if (( current_epoch < protected_until_epoch )); then
-    hold_active=true
-  fi
-fi
-
-if [ "$hold_active" = true ]; then
-  echo 'retention: active R2 cutover hold; backup pruning skipped.'
+if [ "$protection_active" = true ]; then
+  echo 'retention: exact R2 rollback backup and image are protected; backup pruning skipped.'
 else
   # backup retention N=30 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
   bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"

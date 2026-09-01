@@ -51,12 +51,14 @@ const deploymentHardeningPaths = [
   'scripts/check-production-image-pins*.sh',
   'scripts/jenkins/validate-production-env*',
   'scripts/jenkins/object-storage-migration*',
+  'scripts/jenkins/r2-retention-protection*',
 ];
 
 const deploymentHardeningCommands = [
   'node --test scripts/jenkins/validate-production-env.test.mjs',
   'bash scripts/check-production-image-pins.test.sh',
   'bash scripts/check-production-image-pins.sh',
+  'bash scripts/jenkins/r2-retention-protection.test.sh',
 ];
 const postInstallDeploymentHardeningCommands = [
   'bash scripts/jenkins/object-storage-migration.test.sh',

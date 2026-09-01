@@ -230,7 +230,7 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 2. writer를 중지하고 `copy-check`로 MinIO에서 managed R2로 비파괴 copy한 뒤 양쪽의 object count, total size, key별 content SHA-256을 대조한다.
 3. source를 managed R2, target을 rollback MinIO로 뒤집고 `rollback-drill <drill-id> <evidence-dir>`을 실행한다.
 4. 도구가 격리된 `.migration-drill/<drill-id>/` prefix를 다시 읽어 R2 원본과 key, size, content SHA-256이 같은지 확인한다.
-5. drill prefix와 mode `0700` evidence directory를 72시간 hold가 끝날 때까지 보존한다. drill 단계에서 cleanup이나 generic delete를 실행하지 않는다.
+5. drill prefix와 mode `0700` evidence directory를 pre-hold observation 전체와 `ROLLBACK_HOLD_START + 72h`까지 보존한다. drill 단계에서 cleanup이나 generic delete를 실행하지 않는다.
 
 어느 단계든 실패하거나 evidence가 불완전하면 activation을 승인하지 않는다. R2의 내구성은 backup이 아니며 이 drill을 건너뛸 근거가 되지 않는다.
 
@@ -243,13 +243,18 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 3. backend writer를 중지하고 실행 중 backend가 더 이상 제출 파일 write를 처리하지 않음을 독립적으로 확인한다. acknowledgement 문자열만으로 정지를 대신하지 않는다.
 4. `copy-check`로 MinIO에서 R2로 copy하고 count, bytes, key별 content SHA-256 parity를 확인한다.
 5. M8-B의 R2→격리 MinIO rollback drill과 configured-endpoint backup 검증을 완료한다.
-6. 승인된 managed tuple을 production env에 적용하고 R2 credential을 Jenkins binding으로 주입한 뒤 backend만 재생성한다.
-7. 실행 중 backend의 mode, endpoint, region, bucket, path-style hash가 승인된 managed tuple과 같은지 확인한 뒤 writer를 재개한다.
-8. R2 application storage smoke와 Vercel stable-origin의 SSR, OAuth, session, query, file, authorization smoke를 모두 통과시킨다.
-9. 이 시점에만 checkpoint B를 완료하고 AWS frontend를 비파괴적으로 제거한다. AWS backend, PostgreSQL, API ingress는 유지한다.
-10. 같은 시점의 `R2_CUTOVER_HOLD_STARTED_AT`에서 정확히 72시간 뒤 epoch와 pre-cutover object backup 디렉터리 이름을 mode `0600`의 `${BACKUP_DIR}/r2-cutover-hold`에 각각 `protected-until-epoch=...`, `object-backup-name=...` 두 줄로 원자 기록한다. Jenkins retention은 유효한 receipt와 protected backup을 확인하는 동안 전체 backup prune을 건너뛴다.
+6. Managed activation 전에 pre-cutover object backup 디렉터리 이름과 rollback image tag를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-pre-hold`에 각각 `object-backup-name=...`, `rollback-image-tag=...` 두 줄로 원자 기록한다. Jenkins는 모든 retention cleanup 전에 이 start-free receipt를 검증하고 exact backup pruning을 건너뛰며 rollback image tag를 keep set에 넣는다. 검증 뒤 bounded cache와 unrelated image cleanup은 계속 허용한다.
+7. 승인된 managed tuple을 production env에 적용하고 R2 credential을 Jenkins binding으로 주입한 뒤 backend만 재생성한다.
+8. 실행 중 backend의 mode, endpoint, region, bucket, path-style hash가 승인된 managed tuple과 같은지 확인한 뒤 writer를 재개한다.
+9. R2 application storage smoke와 Vercel stable-origin의 SSR, OAuth, session, query, file, authorization smoke를 모두 통과시킨다.
+10. 이 시점에만 checkpoint B를 완료하고 AWS frontend를 비파괴적으로 제거한다. AWS backend, PostgreSQL, API ingress는 유지한다.
+11. Generic Release를 금지하고 checkpoint B 뒤 최소 30분 동안 Vercel, AWS API/backend/PostgreSQL, R2와 backup error·latency를 관찰한다. 이 구간에는 pre-cutover backup, MinIO, slot A와 evidence를 삭제하거나 prune하지 않는다.
+12. G0–G8, 30분 observation과 [`cloudflare-r2-readiness.md`](../handoff/cloudflare-r2-readiness.md)의 **Pre-hold completion conditions**가 모두 green일 때 complete opaque production receipt를 발행한다.
+13. Complete receipt 발행과 모든 gate가 동시에 green인 UTC instant 하나를 execution owner가 `ROLLBACK_HOLD_START`로 기록하고 rollback approver가 countersign한다. R2 start, B promotion, Release publication과 observation start를 대신 사용하지 않는다.
+14. `ROLLBACK_HOLD_START` epoch, 정확히 그 값에 72시간을 더한 expiry, pre-cutover object backup 디렉터리 이름과 rollback image tag를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-hold`에 각각 `rollback-hold-start-epoch=...`, `protected-until-epoch=...`, `object-backup-name=...`, `rollback-image-tag=...` 네 줄로 원자 기록한다. Jenkins가 pre-hold와 hold identity 일치, start, exact expiry, protected backup·image를 검증한 뒤에만 pre-hold receipt를 제거한다.
+15. Expiry는 cleanup을 허가하지 않는다. Expiry 뒤 final recovery verification과 별도 reviewed cleanup approval이 끝났을 때만 같은 `ROLLBACK_HOLD_START`와 현재 `approved-at-epoch`를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-cleanup-approved`에 두 줄로 원자 기록한다. Jenkins는 approval start가 hold start와 같고 approval 시각이 expiry 이상·현재 이하일 때만 protected image·backup retention을 해제한다.
 
-managed activation 전 실패는 MinIO endpoint를 유지하고 writer를 재개하지 않은 채 원인을 복구한다. managed activation 뒤 실패는 endpoint만 되돌리지 않고 writer를 중지한 상태에서 M8-D를 수행한다. hold 동안에는 MinIO service, volume, rollback backup, AWS frontend rollback material을 삭제하지 않는다.
+managed activation 전 실패는 MinIO endpoint를 유지하고 writer를 재개하지 않은 채 원인을 복구한다. Pre-hold receipt는 unchanged MinIO 복구와 rollback material 검증이 끝난 뒤 reviewed operator action으로만 제거한다. Managed activation 뒤 실패는 endpoint만 되돌리지 않고 writer를 중지한 상태에서 M8-D를 수행한다. Pre-hold observation과 hold 동안에는 MinIO service, volume, rollback backup, slot A rollback material을 삭제하지 않는다.
 
 ### M8-D. R2 activation 뒤 rollback
 
@@ -261,7 +266,7 @@ R2 activation 후 rollback은 반드시 다음 순서다.
 4. MinIO를 재활성화한다.
 5. stable-origin smoke와 제출 파일 smoke를 실행한다.
 
-R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. 72시간 hold가 끝난 뒤에도 cleanup은 별도 승인으로 실행하며, 먼저 backup과 rollback material의 복구 가능성을 확인하는 비파괴 작업만 수행한다. 검증이 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
+R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. `ROLLBACK_HOLD_START + 72h`는 cleanup eligibility일 뿐 authorization이 아니다. 별도 reviewed approval 전에 backup·rollback image pruning, MinIO service·volume·credential 삭제와 migration branch 제거를 실행하지 않는다. Final recovery verification과 approval receipt가 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
 ## M9. 호스트 nginx 설정 반영
 
 호스트 nginx는 Compose가 아니라 시스템 서비스이고 Jenkins 계정에는 sudo가 없다.

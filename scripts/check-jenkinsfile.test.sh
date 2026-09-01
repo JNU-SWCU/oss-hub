@@ -324,21 +324,18 @@ make_fixture "$v2_source" v2-missing-object-manifest-verify \
 make_fixture "$v2_source" v2-missing-empty-object-manifest-verify \
   'test ! -s .manifest.sha256' \
   'true # empty object manifest verification removed'
+make_fixture "$v2_source" v2-missing-retention-protection-validator \
+  'protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)' \
+  'protection_state=cleanup-allowed'
 make_fixture "$v2_source" v2-missing-cutover-hold-guard \
-  'if \[ "$hold_active" = true \]; then' \
+  'if \[ "$protection_active" = true \]; then' \
   'if false; then'
-make_fixture "$v2_source" v2-missing-protected-object-backup \
-  'protected R2 cutover backup is missing.' \
-  'protected backup check removed.'
-make_fixture "$v2_source" v2-missing-cutover-hold-upper-bound \
-  'R2 cutover hold exceeds 72 hours.' \
-  'cutover hold upper bound removed.'
 append_fixture "$v2_source" v2-hardcoded-stale-minio-bucket \
   'sh '\''echo oss-hub-submission-files'\'''
 append_fixture "$v2_source" v2-destructive-object-operation \
   'sh '\''mc rm remote/synthetic'\'''
 append_fixture "$v2_source" v2-bash-only-without-interpreter \
-  'mapfile -t hold_lines < /tmp/synthetic'
+  'managed_s3_env=()'
 make_fixture "$v2_source" v2-missing-running-ps-q 'ps -q frontend' 'ps --status frontend'
 make_fixture "$v2_source" v2-missing-all-ps 'ps --all -q frontend' 'ps -q frontend-all'
 make_fixture "$v2_source" v2-missing-oci-version-label '--label "org.opencontainers.image.version=${RELEASE_TAG}"' '--label "org.opencontainers.image.title=${RELEASE_TAG}"'
@@ -663,7 +660,7 @@ import re
 import sys
 src = Path(sys.argv[1]).read_text()
 pat = re.compile(
-    r"# docker images 포맷:.*?\ndone < \"\$images_inventory\"\n",
+    r"# docker images 포맷:.*?\n[ ]*done < \"\$images_inventory\"\n",
     re.S,
 )
 repl = (
@@ -1586,9 +1583,8 @@ expect_fail 'v2: isolated restore-prefix receipt 누락' v2 "$fixture_dir/v2-mis
 expect_fail 'v2: MinIO rollback bucket contract 누락' v2 "$fixture_dir/v2-missing-rollback-minio-bucket"
 expect_fail 'v2: object backup manifest 검증 누락' v2 "$fixture_dir/v2-missing-object-manifest-verify"
 expect_fail 'v2: empty object backup manifest 검증 누락' v2 "$fixture_dir/v2-missing-empty-object-manifest-verify"
+expect_fail 'v2: retention protection validator 호출 누락' v2 "$fixture_dir/v2-missing-retention-protection-validator"
 expect_fail 'v2: cutover hold retention guard 누락' v2 "$fixture_dir/v2-missing-cutover-hold-guard"
-expect_fail 'v2: protected object backup 존재 검사 누락' v2 "$fixture_dir/v2-missing-protected-object-backup"
-expect_fail 'v2: cutover hold 72-hour upper bound 누락' v2 "$fixture_dir/v2-missing-cutover-hold-upper-bound"
 expect_fail 'v2: stale hard-coded MinIO bucket 추가' v2 "$fixture_dir/v2-hardcoded-stale-minio-bucket"
 expect_fail 'v2: destructive object operation 추가' v2 "$fixture_dir/v2-destructive-object-operation"
 expect_fail 'v2: Bash-only body without interpreter 추가' v2 "$fixture_dir/v2-bash-only-without-interpreter"

@@ -810,12 +810,18 @@ check_v2() {
     'test ! -s .manifest.sha256' 1
   require_exact 'cutover hold receipt path must be a pipeline constant' \
     "R2_CUTOVER_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-hold'" 1
-  require_at_least 'active cutover hold must skip backup pruning' \
-    "if [ \"\$hold_active\" = true ]; then" 1
-  require_at_least 'cutover hold must require the protected object backup' \
-    'protected R2 cutover backup is missing.' 1
-  require_at_least 'cutover hold must reject epochs beyond exact 72-hour window' \
-    'R2 cutover hold exceeds 72 hours.' 1
+  require_exact 'pre-hold protection path must be a distinct pipeline constant' \
+    "R2_CUTOVER_PRE_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-pre-hold'" 1
+  require_exact 'cutover cleanup approval path must be a separate pipeline constant' \
+    "R2_CUTOVER_CLEANUP_APPROVAL_FILE = '/var/lib/oss-hub/backups/r2-cutover-cleanup-approved'" 1
+  require_exact 'prebuild and success retention must call the canonical protection validator' \
+    'protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)' 2
+  require_exact 'both retention stages must accept only a validated protected tag or cleanup-allowed state' \
+    'protected:v*)' 2
+  require_exact 'success retention must keep the exact protected rollback image tag' \
+    'retention_keep_tags+=("${protected_rollback_image_tag}")' 1
+  require_exact 'success retention must keep the rollback image and skip protected backup pruning' \
+    'if [ "$protection_active" = true ]; then' 2
   require_absent 'Jenkinsfile must not hard-code the former submission bucket' \
     'oss-hub-submission-files'
   if grep -Eq 'mc[[:space:]]+(rm|rb)|mc[[:space:]]+mirror[^[:cntrl:]]*--remove|rclone[[:space:]]+(delete|purge)' "$active_jenkinsfile"; then
@@ -833,12 +839,12 @@ check_v2() {
       next
     }
     in_bash && /set -euo pipefail/ { strict=1 }
-    /managed_s3_env=\(\)|read -r -d|mapfile -t hold_lines/ {
+    /managed_s3_env=\(\)|read -r -d/ {
       targets++
       if (!in_bash || !strict) unsafe=1
     }
     in_bash && /^[[:space:]]*'\'''\'''\''[[:space:]]*$/ { in_bash=0; strict=0 }
-    END { exit (targets == 3 && !unsafe) ? 0 : 1 }
+    END { exit (targets == 2 && !unsafe) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
     printf '%s: Bash-only array/read/mapfile bodies require a Bash shebang and strict mode\n' "$label" >&2
     exit 1
@@ -1002,7 +1008,7 @@ check_v2() {
   local buildx_preflight_command="if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then"
   local buildx_prebuild_stage='Buildx 캐시 상한 사전 정리'
   local buildx_prune_command='docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
-  local buildx_preflight_block buildx_prebuild_block
+  local buildx_preflight_block
   require_exact 'Buildx 캐시 상한 사전 검증 stage는 한 번이어야 함' \
     "stage('Buildx 캐시 상한 사전 검증')" 1
   require_exact 'Buildx preflight 실패는 업그레이드 방법을 안내해야 함' \
@@ -1024,20 +1030,8 @@ check_v2() {
     "stage('Buildx 캐시 상한 사전 정리')" "expression { env.DEPLOY_NOOP != 'true' }"
   require_exact 'Buildx shared/internal cache prune는 배포 전·성공 후에 정확히 두 번이어야 함' \
     "$buildx_prune_command" 2
-  require_shell_stage_depth_exact 'Buildx shared/internal cache prune는 사전 정리 stage depth 0에 정확히 한 번 있어야 함' \
+  require_shell_stage_depth_exact 'Buildx shared/internal cache prune는 validated protection state 뒤 depth 0에 정확히 한 번 있어야 함' \
     "$buildx_prebuild_stage" 0 "$buildx_prune_command"
-  buildx_prebuild_block=$(shell_block_of_stage_depth_exact "$buildx_prebuild_stage" 0 "$buildx_prune_command")
-  if ! awk -F '\t' -v block="$buildx_prebuild_block" -v command="$buildx_prune_command" '
-    $1 == block {
-      commands++
-      if ($4 != 0 || $5 != command) invalid=1
-    }
-    END { exit (commands == 1 && !invalid) ? 0 : 1 }
-  ' "$shell_contract_file"; then
-    printf '%s: Buildx 사전 정리 stage는 shared/internal cache prune 한 명령만 실행해야 합니다.\n' "$label" >&2
-    exit 1
-  fi
-
   # HTTPS FRONTEND_URL preflight: scheme + exactly-one assignment rejection (order-independent)
   require_at_least 'FRONTEND_URL 사전 검증이 있어야 함' 'FRONTEND_URL' 1
   require_regex_at_least 'FRONTEND_URL은 https:// scheme만 허용해야 함' 'https://\*' 1
@@ -1150,9 +1144,9 @@ check_v2() {
   require_exact 'backup cleanup은 같은 production pruner를 호출해야 함' \
     'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 1
   require_regex_at_least 'success-only image 삭제가 있어야 함' 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' 1
-  require_shell_stage_depth_exact 'BuildKit shared/internal cache prune는 retention stage depth 0에 정확히 한 번 있어야 함' \
+  require_shell_stage_depth_exact 'BuildKit shared/internal cache prune는 protection validation 뒤 depth 0에 정확히 한 번 있어야 함' \
     '성공 후 이미지·백업 보존 정리' 0 "$buildx_prune_command"
-  require_shell_stage_depth_exact 'backup prune는 cutover hold else branch depth 1에 있어야 함' \
+  require_shell_stage_depth_exact 'backup prune는 unprotected else depth 1에 있어야 함' \
     '성공 후 이미지·백업 보존 정리' 1 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
 
   # Docker image inventory must be status-checked into a file before iteration.
@@ -1180,10 +1174,10 @@ check_v2() {
   require_single_image_tag_assignment
 
   local environment_line stages_line build_cache_line checkout_line preflight_stage_line preflight_line
-  local github_credentials_line key_install_line noop_probe_line buildx_preflight_line buildx_prebuild_line https_line
+  local github_credentials_line key_install_line noop_probe_line buildx_preflight_line prebuild_protection_line buildx_prebuild_line https_line
   local rollback_stage_line rollback_input_line rollback_call_line first_production_mutation_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
-  local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
+  local hold_validation_line image_rm_line buildx_prune_line backup_prune_line retention_stage_line
   local release_sha_binding_line # ci_status_call_line removed
   environment_line=$(line_of 'environment {')
   stages_line=$(line_of 'stages {')
@@ -1197,6 +1191,8 @@ check_v2() {
   noop_probe_line=$(line_of_regex 'ps[[:space:]]+-q[[:space:]]+frontend')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
+  prebuild_protection_line=$(line_of_shell_stage_depth_exact \
+    'Buildx 캐시 상한 사전 정리' 0 'protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)')
   buildx_prebuild_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 정리' 0 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
   https_line=$(line_of 'FRONTEND_URL')
@@ -1213,6 +1209,8 @@ check_v2() {
   noop_stage_line=$(line_of "stage('no-op 실행 중 nginx 드리프트 검증')")
   retention_line=$(line_of "BACKUP_RETENTION_N = '30'")
   retention_stage_line=$(line_of "stage('성공 후 이미지·백업 보존 정리')")
+  hold_validation_line=$(line_of_shell_stage_depth_exact \
+    '성공 후 이미지·백업 보존 정리' 0 'protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)')
   image_rm_line=$(line_of_shell_stage_exact \
     '성공 후 이미지·백업 보존 정리' 'docker image rm "${repo}:${tag}"')
   buildx_prune_line=$(line_of_shell_stage_depth_exact \
@@ -1226,12 +1224,12 @@ check_v2() {
     release_sha_binding_line
     checkout_line preflight_stage_line preflight_line
     github_credentials_line key_install_line noop_probe_line
-    buildx_preflight_line buildx_prebuild_line https_line rollback_stage_line
+    buildx_preflight_line prebuild_protection_line buildx_prebuild_line https_line rollback_stage_line
     rollback_input_line rollback_call_line backup_line
     first_production_mutation_line
     frontend_build_line backend_build_line migration_line
     rollout_line noop_stage_line retention_line retention_stage_line
-    image_rm_line buildx_prune_line backup_prune_line
+    hold_validation_line image_rm_line buildx_prune_line backup_prune_line
   )
   local order_check_name
   for order_check_name in "${order_check_names[@]}"; do
@@ -1242,7 +1240,7 @@ check_v2() {
   done
 
   # 순서쌍은 선형 체인이 아닌 DAG다 (예: buildx_preflight_line이 두 갈래로 분기,
-  # rollback_stage_line<=rollback_input_line은 등호 포함) — 원본 24개 && 절과 1:1 대응.
+  # rollback_stage_line<=rollback_input_line은 등호 포함).
   local -a order_check_pairs=(
     'environment_line:<:retention_line'
     'environment_line:<:build_cache_line'
@@ -1259,7 +1257,8 @@ check_v2() {
     'checkout_line:<:buildx_preflight_line'
     'preflight_line:<:buildx_preflight_line'
     'noop_probe_line:<:buildx_preflight_line'
-    'buildx_preflight_line:<:buildx_prebuild_line'
+    'buildx_preflight_line:<:prebuild_protection_line'
+    'prebuild_protection_line:<:buildx_prebuild_line'
     'buildx_prebuild_line:<:first_production_mutation_line'
     'buildx_prebuild_line:<:frontend_build_line'
     'buildx_preflight_line:<:https_line'
@@ -1275,7 +1274,8 @@ check_v2() {
     'migration_line:<:rollout_line'
     'rollout_line:<:noop_stage_line'
     'noop_stage_line:<:retention_stage_line'
-    'retention_stage_line:<:image_rm_line'
+    'retention_stage_line:<:hold_validation_line'
+    'hold_validation_line:<:image_rm_line'
     'image_rm_line:<:buildx_prune_line'
     'buildx_prune_line:<:backup_prune_line'
   )
