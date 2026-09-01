@@ -88,6 +88,14 @@ require_stage_absent() {
 
 # Release identity and backend-only running authority.
 require 'pipeline serialization must remain' 'disableConcurrentBuilds()'
+require_count 'Jenkins must converge outbound on the exact ten-minute cron' "cron('H/10 * * * *')" 1
+for forbidden_trigger in 'githubPush()' 'GenericTrigger(' 'triggerRemote(' 'remoteTrigger(' 'remoteBuild(' 'BuildAuthorizationToken'; do
+  require_absent 'remote/public Jenkins trigger must remain absent' "$forbidden_trigger"
+done
+require_absent 'pipeline must remain parameterless' 'parameters {'
+require 'latest GitHub Release must be queried outbound' 'https://api.github.com/repos/JNU-SWCU/oss-hub/releases/latest'
+require 'draft latest Release must be rejected' 'test "$(jq -r '"'"'.draft'"'"' "$release_file")" = '"'"'false'"'"''
+require 'prerelease latest Release must be rejected' 'test "$(jq -r '"'"'.prerelease'"'"' "$release_file")" = '"'"'false'"'"''
 require 'RELEASE_TAG must remain the image tag' 'env.IMAGE_TAG = tag'
 require 'exact Release SHA resolution must remain' 'git rev-parse "${RELEASE_TAG}^{commit}"'
 require 'Release commit must remain on main' 'git merge-base --is-ancestor "$release_sha" origin/main'
@@ -100,6 +108,8 @@ require 'backend stopped-state probe must remain' 'ps --all -q backend'
 require 'backend OCI version label must remain' 'org.opencontainers.image.version'
 require 'backend OCI revision label must remain' 'org.opencontainers.image.revision=${RELEASE_SHA}'
 require 'same-tag/different-SHA must fail closed' 'FAIL_CLOSED same_tag_different_sha'
+require 'equal Release must no-op against running identity' 'prevTag == env.RELEASE_TAG && prevSha == env.RELEASE_SHA'
+require 'lower Release must no-op against running SemVer' 'if (cmp < 0) {'
 require 'backend immutable rollback identity must remain' 'PREV_BE_IMAGE_ID'
 require 'backend-only rollback helper input must remain' 'PREV_BE_IMAGE_ID=${env.PREV_BE_IMAGE_ID'
 require_absent 'legacy frontend image must be absent' 'oss-hub-frontend'
@@ -150,11 +160,14 @@ done
 # Production nginx now serves no local frontend, but public TLS preserves Vercel canonical redirect.
 require_regex_count 'loopback root must assert 404 for rollout, rollback, and no-op drift' 'require_status 404 GET http://127[.]0[.]0[.]1:8081/([[:space:]]|$)' 3
 require_regex_absent 'loopback root 200 smoke must be absent' 'require_status 200 GET http://127[.]0[.]0[.]1:8081/([[:space:]]|$)'
-require_regex_count 'public TLS root must retain canonical 308' 'require_status 308 GET https://54[.]116[.]116[.]174/([[:space:]]|$)' 3
-require 'loopback API health smoke must remain' 'require_status 200 GET http://127.0.0.1:8081/api/v1/health'
-require 'public API health smoke must remain' 'require_status 200 GET https://54.116.116.174/api/v1/health'
-require 'submission authentication smoke must remain' 'require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files'
-require 'OAuth/session authentication ingress smoke must remain' 'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1'
+require_regex_count 'canonical public root smoke must remain' 'require_status 200 GET https://jnu-oss-hub[.]com/([[:space:]]|$)' 3
+require 'loopback API health smoke must carry trusted ingress headers' "require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'"
+require 'canonical public API health smoke must remain' 'require_status 200 GET https://jnu-oss-hub.com/api/v1/health'
+require 'canonical upload probe must exceed the 4 MiB middleware limit' 'UPLOAD_BODY_PROBE_BYTES=4718592 bash scripts/check-upload-body-runtime.sh'
+require_absent 'legacy public IP smoke must remain absent' '54.116.116.174'
+require_absent 'loopback TLS resolve bypass must remain absent' '--resolve'
+require 'submission authentication smoke must carry trusted ingress headers' "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'"
+require 'OAuth/session ingress smoke must carry trusted ingress headers' "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'"
 
 # Successful deployment retains only backend images and bounded backups/cache.
 require 'backend-only retention inventory must remain' "\$1==\"oss-hub-backend\""

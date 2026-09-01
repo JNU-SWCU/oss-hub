@@ -66,6 +66,11 @@ cp "$source_file" "$fixture_dir/valid"
 expect_pass 'backend-only deployment contract' "$fixture_dir/valid"
 
 # One mutation per current failure mode. Fixtures are synthetic Jenkinsfiles only.
+mutate_once missing-convergence-cron "cron('H/10 * * * *')" "cron('H/15 * * * *')"
+expect_failure 'Jenkins ten-minute convergence cron is required' \
+  "$fixture_dir/missing-convergence-cron" \
+  'Jenkins must converge outbound on the exact ten-minute cron'
+
 mutate_once missing-backend-state 'ps --all -q backend' 'docker compose state probe removed'
 expect_failure 'backend state is required' "$fixture_dir/missing-backend-state" 'backend stopped-state probe must remain'
 
@@ -84,8 +89,8 @@ expect_failure 'exact Release SHA checkout is required' "$fixture_dir/missing-re
 mutate_all wrong-loopback-root 'require_status 404 GET http://127.0.0.1:8081/' 'require_status 200 GET http://127.0.0.1:8081/'
 expect_failure 'loopback frontend root must remain absent' "$fixture_dir/wrong-loopback-root" 'loopback root must assert 404'
 
-mutate_all missing-public-redirect 'require_status 308 GET https://54.116.116.174/' 'require_status 301 GET https://54.116.116.174/'
-expect_failure 'public TLS canonical redirect is required' "$fixture_dir/missing-public-redirect" 'public TLS root must retain canonical 308'
+mutate_all missing-public-root 'require_status 200 GET https://jnu-oss-hub.com/' 'require_status 404 GET https://jnu-oss-hub.com/'
+expect_failure 'canonical public root smoke is required' "$fixture_dir/missing-public-root" 'canonical public root smoke must remain'
 
 mutate_once missing-pruning 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 'true # SQL backup pruning removed'
 expect_failure 'backup pruning is required' "$fixture_dir/missing-pruning" 'SQL backup pruning must remain'
