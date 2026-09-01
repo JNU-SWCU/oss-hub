@@ -18,6 +18,8 @@ export interface SubmissionFileStorageSettings {
   forcePathStyle: boolean;
 }
 
+type SubmissionFileStorageMode = 'minio' | 'managed';
+
 @Injectable()
 export class SubmissionFileStorageConfig {
   constructor(
@@ -28,6 +30,9 @@ export class SubmissionFileStorageConfig {
   ) {}
 
   requireSettings(): SubmissionFileStorageSettings {
+    const mode = storageModeValue(
+      this.runtimeConfig.SUBMISSION_FILE_STORAGE_MODE,
+    );
     const endpoint = configValue(
       this.runtimeConfig.SUBMISSION_FILE_S3_ENDPOINT,
     );
@@ -50,7 +55,9 @@ export class SubmissionFileStorageConfig {
       accessKeyId === null ||
       secretAccessKey === null ||
       forcePathStyle === null ||
-      !isAllowedEndpoint(endpoint)
+      mode === null ||
+      !isAllowedEndpointForMode(endpoint, mode) ||
+      (mode === 'managed' && (region !== 'auto' || forcePathStyle !== true))
     ) {
       throw new SubmissionFileStorageError(
         SUBMISSION_FILE_STORAGE_ERROR_CODES.CONFIGURATION,
@@ -68,6 +75,13 @@ export class SubmissionFileStorageConfig {
   }
 }
 
+function storageModeValue(
+  raw: string | undefined,
+): SubmissionFileStorageMode | null {
+  if (raw === 'minio' || raw === 'managed') return raw;
+  return null;
+}
+
 function configValue(raw: string | undefined): string | null {
   const value = raw?.trim();
   return value && value.length > 0 ? value : null;
@@ -80,12 +94,15 @@ function booleanConfigValue(raw: string | undefined): boolean | null {
   return null;
 }
 
-// Endpoint 허용은 노출 면으로 판정한다.
+// Endpoint 허용은 mode와 노출 면으로 판정한다.
 // - credentials/query/fragment는 protocol 수락 전에 항상 거부
 //   (WHATWG getters는 present-empty `?`/`#`/`@` 형태를 빈 문자열로 정규화하므로 raw 입력도 본다)
-// - https는 외부 호스트 허용
-// - http는 loopback·사설/링크로컬 주소와 Compose 내부 서비스명 `minio`만 허용
-function isAllowedEndpoint(endpoint: string): boolean {
+// - minio는 loopback·사설/링크로컬 주소와 Compose 내부 서비스명 `minio`의 http만 허용
+// - managed는 account label만 가변인 Cloudflare R2 HTTPS endpoint만 허용
+function isAllowedEndpointForMode(
+  endpoint: string,
+  mode: SubmissionFileStorageMode,
+): boolean {
   if (!/^https?:\/\//i.test(endpoint)) {
     return false;
   }
@@ -96,13 +113,19 @@ function isAllowedEndpoint(endpoint: string): boolean {
       url.password ||
       url.search ||
       url.hash ||
+      url.pathname !== '/' ||
       hasRawCredentialsQueryOrFragment(endpoint)
     ) {
       return false;
     }
-    if (url.protocol === 'https:') return true;
-    if (url.protocol === 'http:') return isAllowedHttpHost(url.hostname);
-    return false;
+    if (mode === 'minio') {
+      return url.protocol === 'http:' && isAllowedHttpHost(url.hostname);
+    }
+    return (
+      url.protocol === 'https:' &&
+      url.port === '' &&
+      isExternalManagedHost(url.hostname)
+    );
   } catch {
     return false;
   }
@@ -127,6 +150,10 @@ function hasRawCredentialsQueryOrFragment(raw: string): boolean {
   const afterAuthority =
     authorityEnd === -1 ? '' : hierarchical.slice(authorityEnd);
   return afterAuthority.includes('?') || afterAuthority.includes('#');
+}
+
+function isExternalManagedHost(hostname: string): boolean {
+  return /^[a-f0-9]{32}\.r2\.cloudflarestorage\.com$/i.test(hostname);
 }
 
 function isAllowedHttpHost(hostname: string): boolean {
