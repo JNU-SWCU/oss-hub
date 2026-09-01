@@ -267,6 +267,24 @@ R2 activation 후 rollback은 반드시 다음 순서다.
 5. stable-origin smoke와 제출 파일 smoke를 실행한다.
 
 R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. `ROLLBACK_HOLD_START + 72h`는 cleanup eligibility일 뿐 authorization이 아니다. 별도 reviewed approval 전에 backup·rollback image pruning, MinIO service·volume·credential 삭제와 migration branch 제거를 실행하지 않는다. Final recovery verification과 approval receipt가 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
+
+### M8-E. checkpoint B public ingress 전환
+
+checkpoint B에서는 host nginx의 public catch-all이 Compose frontend를 proxy하지 않는다. GET과 HEAD는 canonical Vercel origin으로 308 redirect하고, 그 밖의 method는 빈 body의 404로 끝낸다. `/api/`, OAuth, deploy trigger와 loopback health/smoke 경로는 변경하지 않는다.
+
+sudo 권한이 있는 운영자가 이전 설정 백업을 보존한 상태에서 설정을 교체한 뒤, 참석 하에 아래 순서로 적용한다. `nginx -t`가 성공한 경우에만 reload한다.
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+문제가 있으면 직전 `oss-hub.conf` 백업을 복원하고 같은 문법 검사와 reload를 수행한다.
+
+```bash
+sudo cp /etc/nginx/conf.d/oss-hub.conf.bak-<timestamp> /etc/nginx/conf.d/oss-hub.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ## M9. 호스트 nginx 설정 반영
 
 호스트 nginx는 Compose가 아니라 시스템 서비스이고 Jenkins 계정에는 sudo가 없다.

@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { NextConfig } from 'next';
 import {
   LOCAL_REVIEW_FIXTURE_COOKIE,
@@ -5,6 +8,26 @@ import {
   LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
   isLocalReviewRuntime,
 } from './src/lib/local-review-runtime';
+
+// 승인된 rewrite 대상 origin의 SHA-256 digest allowlist. 구문만 유효한 임의 HTTPS
+// origin으로는 production 빌드가 성공하지 않는다 — 승인 변경은 이 파일의 reviewable diff다.
+function approvedBackendOriginDigests(): Set<string> {
+  const source = readFileSync(
+    join(__dirname, 'backend-origin.allowlist'),
+    'utf8',
+  );
+  const digests = source
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !line.startsWith('#'));
+  if (
+    digests.length === 0 ||
+    digests.some((digest) => !/^[0-9a-f]{64}$/.test(digest))
+  ) {
+    throw new Error('backend-origin.allowlist가 손상됐습니다.');
+  }
+  return new Set(digests);
+}
 
 function requireProductionBackendOrigin(): string {
   const raw = process.env.BACKEND_ORIGIN?.trim();
@@ -30,6 +53,23 @@ function requireProductionBackendOrigin(): string {
     url.pathname !== '/'
   ) {
     throw new Error('BACKEND_ORIGIN은 HTTPS origin이어야 합니다.');
+  }
+
+  // 승인 경로는 둘이다: 공개-safe digest allowlist 파일, 또는 보호된 빌드 환경의
+  // 단일 digest(BACKEND_ORIGIN_APPROVED_SHA256). 후자는 공개 저장소에 네트워크
+  // 식별자(역산 가능한 digest 포함)를 남길 수 없는 ingress origin을 위한 경로다.
+  const digest = createHash('sha256').update(url.origin).digest('hex');
+  const protectedDigest = process.env.BACKEND_ORIGIN_APPROVED_SHA256?.trim();
+  const protectedDigestValid =
+    protectedDigest !== undefined && /^[0-9a-f]{64}$/.test(protectedDigest);
+  if (protectedDigest !== undefined && !protectedDigestValid) {
+    throw new Error('BACKEND_ORIGIN_APPROVED_SHA256가 손상됐습니다.');
+  }
+  if (
+    !approvedBackendOriginDigests().has(digest) &&
+    !(protectedDigestValid && digest === protectedDigest)
+  ) {
+    throw new Error('BACKEND_ORIGIN이 승인된 rewrite 대상이 아닙니다.');
   }
 
   return url.origin;

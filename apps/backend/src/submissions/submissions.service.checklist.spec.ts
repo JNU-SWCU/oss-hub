@@ -107,7 +107,11 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
   });
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(
+    githubId,
+    'program-1',
+    new Date('2026-07-31T00:00:00.000Z'),
+  );
 
   // Then
   expect(checklist.applicationMode).toBe('TEAM');
@@ -137,7 +141,11 @@ it.each([
   });
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(
+    githubId,
+    'program-1',
+    new Date('2026-07-31T00:00:00.000Z'),
+  );
 
   // Then
   expect(checklist.items[0]?.submission).toMatchObject({ canResubmit });
@@ -180,7 +188,11 @@ it.each([
       ],
     });
 
-    const checklist = await service.checklist(githubId, 'program-1');
+    const checklist = await service.checklist(
+      githubId,
+      'program-1',
+      new Date('2026-07-31T00:00:00.000Z'),
+    );
 
     expect(checklist.items[0]?.submission).toMatchObject({
       decision,
@@ -219,7 +231,11 @@ it('현재 revision의 첨부 파일은 storageKey 없이 다운로드 URL과 �
   });
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(
+    githubId,
+    'program-1',
+    new Date('2026-07-31T00:00:00.000Z'),
+  );
 
   // Then
   const serialized = JSON.stringify(checklist);
@@ -251,17 +267,29 @@ it('비학생·비멤버·미승인 신청은 각각의 403으로 끝난다', as
 
   // When & Then
   await expect(
-    nonStudent.service.checklist(githubId, 'program-1'),
+    nonStudent.service.checklist(
+      githubId,
+      'program-1',
+      new Date('2026-07-31T00:00:00.000Z'),
+    ),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
   });
   await expect(
-    nonMember.service.checklist(githubId, 'program-1'),
+    nonMember.service.checklist(
+      githubId,
+      'program-1',
+      new Date('2026-07-31T00:00:00.000Z'),
+    ),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
   });
   await expect(
-    unapproved.service.checklist(githubId, 'program-1'),
+    unapproved.service.checklist(
+      githubId,
+      'program-1',
+      new Date('2026-07-31T00:00:00.000Z'),
+    ),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED },
   });
