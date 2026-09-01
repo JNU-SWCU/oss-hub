@@ -928,6 +928,15 @@
 - 결과: production Next.js build가 `BACKEND_ORIGIN`의 canonical HTTPS origin을 필수로 검증하고 `/api/v1/:path*`를 같은 prefix의 AWS backend로 rewrite한다. credentials·path·query·fragment·HTTP 입력은 fail-closed로 거부하고 개발·local-review fixture 경로는 유지한다. CI build에는 합성 HTTPS origin만 주입한다.
 - 검증: `next.config.test.ts` 13/13, frontend production build·typecheck·lint(기존 warning 5건), 변경 파일 Prettier를 통과했다.
 
+## 2026-09-01 — Cloudflare R2 migration 계약을 준비한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: provider cutover는 실행하지 않았다. checkpoint A의 Jenkins `FRONTEND_URL`·GitHub OAuth callback 변경과 stable-origin smoke가 먼저 필요하다.
+- 결과: application storage를 exact `minio|managed` mode로 분리하고 Cloudflare R2 endpoint·region·path-style을 fail-closed로 고정했다. R2 credential은 Jenkins masked binding만 사용하고 임시 rollback MinIO credential과 분리했다. 일반 Release는 실행 중 storage tuple과 candidate tuple이 다르면 no-op·backup·재생성 전에 중단한다. configured-endpoint backup parity·상대경로 SHA-256 receipt·72시간 protected-backup hold를 Jenkins에 결박하고, exact-key preflight와 stopped-writer copy/parity, R2→격리 MinIO drill, reverse-copy-check를 수행하는 bounded AWS SDK operator를 추가했다. MinIO는 hold 종료 뒤 service·volume·credential·migration branch와 함께 제거하며 최종 object storage는 R2 하나다.
+- 검증: backend storage/runtime 90건, production env 111건, Jenkins mutation 188건, local Compose 15건, migration SDK 10건과 wrapper contract, CI path 6건, env coverage 31건, backend typecheck·lint, shellcheck, Prettier, diff check를 통과했다. storage·Jenkins·migration·docs architect가 모두 `CLEAR+APPROVE`, executor red-team QA가 `passed`를 반환했다.
+
 ## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
 
 - 상태: review

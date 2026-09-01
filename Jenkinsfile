@@ -26,6 +26,9 @@ pipeline {
     // 최초 배포(재프로비저닝)를 허용한다. 기본은 차단(fail-closed).
     // C4 승인 상수. 성공 배포 뒤에만 적용하고 최신 N개를 보존한다.
     BACKUP_RETENTION_N = '30'
+    // Dedicated cutover workflow creates this 0600 receipt only after managed activation.
+    // Generic releases never create or modify it; retention validates and honors it.
+    R2_CUTOVER_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-hold'
     // BuildKit shared/internal 캐시는 이미지 빌드·배포 전과 성공 뒤 LRU 기준 최대 5GB까지만 보존한다.
     BUILD_CACHE_MAX_SPACE = '5GB'
     // 개인키 SOURCE는 compose.yml이 :? 로 요구한다. compose 호출이 5곳이라 stage마다 넣으면
@@ -193,12 +196,28 @@ printf 'changed=true\nprevious=%s\n' "$previous"
 
     stage('실행 중 이미지 기준 no-op 및 이전 태그 캡처') {
       steps {
-        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+          usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
+        ]) {
           script {
             // no-op 권위는 실행 중 컨테이너만. 존재/부분 배포 판정은 --all.
             def probe = sh(
               script: '''#!/usr/bin/env bash
 set -euo pipefail
+
+storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+case "$storage_mode" in
+  minio) ;;
+  managed)
+    : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+    : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+    export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+    export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+    ;;
+  *) echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1 ;;
+esac
 
 compose=(docker compose --env-file "$OSS_HUB_ENV_FILE")
 
@@ -245,6 +264,24 @@ if [ -z "$fe_running" ] && [ -z "$be_running" ]; then
   echo 'FAIL_CLOSED stopped_container: 중지된 frontend/backend는 no-op/배포 기준이 될 수 없습니다.' >&2
   exit 2
 fi
+
+# 실행 중 backend와 candidate의 non-secret storage tuple은 모든 no-op·재생성 판정보다 먼저 같아야 한다.
+read_storage_value() {
+  awk -F= -v key="$1" '$1 == key { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE"
+}
+candidate_storage_hash="$(
+  printf '%s\0%s\0%s\0%s\0%s' \
+    "$storage_mode" \
+    "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
+    sha256sum | awk '{print $1}'
+)"
+docker exec "$be_running" \
+  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
+  "$candidate_storage_hash" ||
+  { echo 'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' >&2; exit 2; }
 
 # 여기까지 오면 양쪽 모두 실행 중 — no-op 권위는 완전 증명된 metadata에만 부여.
 fe_meta="$(read_meta "$fe_running")"
@@ -536,8 +573,25 @@ esac
         expression { env.DEPLOY_NOOP != 'true' }
       }
       steps {
-        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
-          sh '''
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+          usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
+        ]) {
+          sh '''#!/usr/bin/env bash
+            set -euo pipefail
+            set +x
+            storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+            case "$storage_mode" in
+              minio) ;;
+              managed)
+                : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+                : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+                export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+                export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+                ;;
+              *) echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1 ;;
+            esac
             docker compose --env-file "$OSS_HUB_ENV_FILE" up -d postgres --wait --wait-timeout 90
             docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
             umask 077
@@ -553,35 +607,112 @@ esac
             object_backup_parent="${BACKUP_DIR}/objects"
             object_backup_target="${object_backup_parent}/${RELEASE_TAG}-${BUILD_NUMBER}"
             object_backup_tmp=
-            minio_backup_tmp="/tmp/oss-hub-object-backup-${BUILD_NUMBER}"
+            object_list=
+            object_manifest_tmp=
+            receipt_tmp=
             mkdir -p "$object_backup_parent"
             test ! -e "$object_backup_target"
             object_backup_tmp="$(mktemp -d "${object_backup_target}.XXXXXX")"
-            # 자격증명은 실행 중인 minio 컨테이너 자신의 환경에서만 읽는다.
-            # 내부 스크립트를 홑따옴표로 굳혀 바깥 셸이 MINIO_ROOT_USER 를 먼저 확장하지
-            # 못하게 하고(build 40·41 이 빈 자격증명으로 Access Denied), 경로만 위치 인자로 넘긴다.
-            # 로그인 셸(-l)도 쓰지 않는다 — 최소 이미지에서 환경이 초기화될 수 있다.
-            minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
-            if [ -z "$minio_container_id" ]; then
-              if [ -z "${PREV_TAG:-}" ]; then
-                echo 'greenfield object backup: no running MinIO; using an empty backup.'
-                mv "$object_backup_tmp" "$object_backup_target"
-                object_backup_tmp=
-                trap - EXIT
+            object_list="$(mktemp "${object_backup_target}.objects.XXXXXX")"
+            object_manifest_tmp="$(mktemp "${object_backup_target}.manifest.XXXXXX")"
+            receipt_tmp="$(mktemp "${object_backup_target}.receipt.XXXXXX")"
+            trap 'rm -rf "$object_backup_tmp"; rm -f "$object_list" "$object_manifest_tmp" "$receipt_tmp"' EXIT
+
+            read_storage_value() {
+              awk -F= -v key="$1" '$1 == key { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE"
+            }
+            if [ -n "${PREV_TAG:-}" ]; then
+              candidate_storage_hash="$(
+                printf '%s\0%s\0%s\0%s\0%s' \
+                  "$storage_mode" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
+                  sha256sum | awk '{print $1}'
+              )"
+              docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
+                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
+                "$candidate_storage_hash" ||
+                { echo 'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' >&2; exit 1; }
+            fi
+            if [ "$storage_mode" = 'minio' ]; then
+              # The retained MinIO path reads its credentials only inside the running container.
+              minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
+              if [ -z "$minio_container_id" ]; then
+                if [ -n "${PREV_TAG:-}" ]; then
+                  echo 'FAIL_CLOSED object_backup: existing MinIO deployment has no running MinIO container.' >&2
+                  exit 1
+                fi
               else
-                echo 'object backup requires a running MinIO container for an existing release.' >&2
-                exit 1
+                minio_backup_tmp="/tmp/oss-hub-object-backup-${BUILD_NUMBER}"
+                current_minio_bucket="$(read_storage_value SUBMISSION_FILE_S3_BUCKET)"
+                rollback_minio_bucket="$(read_storage_value ROLLBACK_MINIO_BUCKET)"
+                if [ "$rollback_minio_bucket" != "$current_minio_bucket" ]; then
+                  echo 'FAIL_CLOSED object_backup: rollback MinIO bucket does not match active MinIO application bucket.' >&2
+                  exit 1
+                fi
+                docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mkdir -p "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror "local/$2" "$1"; mc diff --json "local/$2" "$1" > /tmp/oss-hub-object-backup.diff; test ! -s /tmp/oss-hub-object-backup.diff; rm -f /tmp/oss-hub-object-backup.diff' _ "$minio_backup_tmp" "$rollback_minio_bucket"
+                docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
+                docker exec -i "$minio_container_id" sh -c 'rm -rf "$1"' _ "$minio_backup_tmp"
               fi
+            elif [ "$storage_mode" = 'managed' ]; then
+              # Validation requires configured HTTPS endpoint, region, bucket, and path-style;
+              # credentials are Jenkins-only environment variables, never read from the env file.
+              export SUBMISSION_FILE_S3_ENDPOINT="$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)"
+              export SUBMISSION_FILE_S3_REGION="$(read_storage_value SUBMISSION_FILE_S3_REGION)"
+              export SUBMISSION_FILE_S3_BUCKET="$(read_storage_value SUBMISSION_FILE_S3_BUCKET)"
+              export SUBMISSION_FILE_S3_FORCE_PATH_STYLE="$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)"
+              case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in
+                true|false) ;;
+                *) echo 'FAIL_CLOSED object_backup: invalid validated path-style setting.' >&2; exit 1 ;;
+              esac
+              docker run --rm \
+                --env SUBMISSION_FILE_S3_ACCESS_KEY_ID \
+                --env SUBMISSION_FILE_S3_SECRET_ACCESS_KEY \
+                --env SUBMISSION_FILE_S3_ENDPOINT \
+                --env SUBMISSION_FILE_S3_REGION \
+                --env SUBMISSION_FILE_S3_BUCKET \
+                --env SUBMISSION_FILE_S3_FORCE_PATH_STYLE \
+                --volume "${object_backup_tmp}:/backup" \
+                minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc \
+                sh -eu -c 'case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in true) path=on ;; false) path=off ;; *) exit 1 ;; esac; mc alias set --path "$path" remote "$SUBMISSION_FILE_S3_ENDPOINT" "$SUBMISSION_FILE_S3_ACCESS_KEY_ID" "$SUBMISSION_FILE_S3_SECRET_ACCESS_KEY" >/dev/null; mc mirror --preserve "remote/$SUBMISSION_FILE_S3_BUCKET" /backup; mc diff --json "remote/$SUBMISSION_FILE_S3_BUCKET" /backup > /tmp/oss-hub-object-backup.diff; test ! -s /tmp/oss-hub-object-backup.diff; rm -f /tmp/oss-hub-object-backup.diff'
             else
-              trap 'rm -rf "$object_backup_tmp"; docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""' EXIT
-            docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mkdir -p "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
-            docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
+              echo 'FAIL_CLOSED object_backup: validated storage mode is not usable.' >&2
+              exit 1
+            fi
             test -d "$object_backup_tmp"
-            docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""
+            planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"
+            object_count=0
+            object_bytes=0
+            find "$object_backup_tmp" -type f -print0 > "$object_list"
+            while IFS= read -r -d '' object_file; do
+              object_relative_path=${object_file#"$object_backup_tmp"/}
+              object_hash=$(sha256sum "$object_file" | awk '{print $1}')
+              printf '%s  %s\n' "$object_hash" "$object_relative_path" >> "$object_manifest_tmp"
+              object_count=$((object_count + 1))
+              object_bytes=$((object_bytes + $(wc -c < "$object_file")))
+            done < "$object_list"
+            printf 'object-count=%s\nobject-bytes=%s\n' "$object_count" "$object_bytes" > "$receipt_tmp"
+            printf 'planned-restore-drill-prefix=%s\n' "$planned_restore_drill_prefix" >> "$receipt_tmp"
+            mv "$object_manifest_tmp" "${object_backup_tmp}/.manifest.sha256"
+            object_manifest_tmp=
+            mv "$receipt_tmp" "${object_backup_tmp}/.receipt"
+            receipt_tmp=
+            test -f "${object_backup_tmp}/.receipt"
             mv "$object_backup_tmp" "$object_backup_target"
             object_backup_tmp=
+            (
+              cd "$object_backup_target"
+              if [ "$object_count" -eq 0 ]; then
+                test ! -s .manifest.sha256
+              else
+                sha256sum -c .manifest.sha256 >/dev/null
+              fi
+            )
+            rm -f "$object_list"
+            object_list=
             trap - EXIT
-            fi
           '''
         }
       }
@@ -616,11 +747,31 @@ docker build \
         expression { env.DEPLOY_NOOP != 'true' }
       }
       steps {
-        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
-          sh '''
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+          usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
+        ]) {
+          sh '''#!/usr/bin/env bash
+            set -euo pipefail
+            set +x
+            storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+            managed_s3_env=()
+            case "$storage_mode" in
+              minio) ;;
+              managed)
+                : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+                : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+                export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+                export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+                managed_s3_env=(--env SUBMISSION_FILE_S3_ACCESS_KEY_ID --env SUBMISSION_FILE_S3_SECRET_ACCESS_KEY)
+                ;;
+              *) echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1 ;;
+            esac
             docker run --rm \
               --network "${COMPOSE_PROJECT_NAME}_default" \
               --env-file "$OSS_HUB_ENV_FILE" \
+              "${managed_s3_env[@]}" \
               "oss-hub-backend:${IMAGE_TAG}" \
               npx prisma migrate deploy
           '''
@@ -633,10 +784,27 @@ docker build \
         expression { env.DEPLOY_NOOP != 'true' }
       }
       steps {
-        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+          usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
+        ]) {
           script {
             try {
-              sh '''
+              sh '''#!/usr/bin/env bash
+                set -euo pipefail
+                set +x
+                storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+                case "$storage_mode" in
+                  minio) ;;
+                  managed)
+                    : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+                    : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+                    export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+                    export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+                    ;;
+                  *) echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1 ;;
+                esac
                 require_status() {
                   expected=$1
                   method=$2
@@ -700,7 +868,20 @@ docker build \
                   --resolve '54.116.116.174:443:127.0.0.1'
               '''
             } catch (deploymentFailure) {
-              sh '''
+              sh '''#!/usr/bin/env bash
+                set -euo pipefail
+                set +x
+                storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+                if [ "$storage_mode" = managed ]; then
+                  : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+                  : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+                  export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+                  export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+                elif [ "$storage_mode" != minio ]; then
+                  echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2
+                  exit 1
+                fi
                 docker compose --env-file "$OSS_HUB_ENV_FILE" ps || true
                 docker compose --env-file "$OSS_HUB_ENV_FILE" logs --no-color || true
               '''
@@ -716,7 +897,21 @@ mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
               if (env.PREV_TAG?.trim()) {
                 echo "서비스 교체 또는 스모크 실패: ${env.PREV_TAG} 이미지로 한 번 복구합니다."
                 withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
-                  sh '''
+                  sh '''#!/usr/bin/env bash
+                    set -euo pipefail
+                    set +x
+                    storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+                    case "$storage_mode" in
+                      minio) ;;
+                      managed)
+                        : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+                        : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+                        export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+                        export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+                        ;;
+                      *) echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1 ;;
+                    esac
                     require_status() {
                       expected=$1
                       method=$2
@@ -772,11 +967,28 @@ mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
         expression { env.DEPLOY_NOOP == 'true' && env.PRIVATE_KEYS_CHANGED == 'true' }
       }
       steps {
-        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+          usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
+        ]) {
           script {
             try {
               sh '''#!/usr/bin/env bash
 set -euo pipefail
+set +x
+
+storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+case "$storage_mode" in
+  minio) ;;
+  managed)
+    : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+    : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+    export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+    export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+    ;;
+  *) echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1 ;;
+esac
 
 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
   --force-recreate --no-deps --wait --wait-timeout 180 backend
@@ -800,6 +1012,20 @@ curl --fail --silent --show-error --retry 5 --retry-connrefused \
               if (env.PREV_PRIVATE_KEY_GENERATION?.trim()) {
                 sh '''#!/usr/bin/env bash
 set -euo pipefail
+set +x
+
+storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
+unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+case "$storage_mode" in
+  minio) ;;
+  managed)
+    : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
+    : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
+    export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
+    export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
+    ;;
+  *) echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1 ;;
+esac
 ln -sfn "$PREV_PRIVATE_KEY_GENERATION" "${SECRETS_DIR}/.current-next"
 mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
@@ -913,9 +1139,59 @@ done < "$images_inventory"
 # 성공 배포 뒤에만 shared/internal BuildKit 캐시를 LRU 기준 상한까지 정리한다.
 docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
-# backup retention N=30 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
-bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
-bash scripts/prune-deploy-backups.sh "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
+hold_active=false
+if [ -e "$R2_CUTOVER_HOLD_FILE" ]; then
+  hold_mode=$(stat -c '%a' "$R2_CUTOVER_HOLD_FILE")
+  [ "$hold_mode" = 600 ] || {
+    echo 'FAIL_CLOSED retention: invalid R2 cutover hold receipt mode.' >&2
+    exit 1
+  }
+  mapfile -t hold_lines < "$R2_CUTOVER_HOLD_FILE"
+  [ "${#hold_lines[@]}" -eq 2 ] || {
+    echo 'FAIL_CLOSED retention: invalid R2 cutover hold receipt shape.' >&2
+    exit 1
+  }
+  case "${hold_lines[0]}" in
+    protected-until-epoch=*) protected_until_epoch=${hold_lines[0]#protected-until-epoch=} ;;
+    *) echo 'FAIL_CLOSED retention: invalid R2 cutover hold expiry.' >&2; exit 1 ;;
+  esac
+  case "${hold_lines[1]}" in
+    object-backup-name=*) protected_object_backup=${hold_lines[1]#object-backup-name=} ;;
+    *) echo 'FAIL_CLOSED retention: invalid R2 cutover backup identity.' >&2; exit 1 ;;
+  esac
+  [[ "$protected_until_epoch" =~ ^[0-9]{10}$ ]] || {
+    echo 'FAIL_CLOSED retention: invalid R2 cutover hold expiry.' >&2
+    exit 1
+  }
+  [[ "$protected_object_backup" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]] || {
+    echo 'FAIL_CLOSED retention: invalid R2 cutover backup identity.' >&2
+    exit 1
+  }
+  [ -d "$BACKUP_DIR/objects/$protected_object_backup" ] || {
+    echo 'FAIL_CLOSED retention: protected R2 cutover backup is missing.' >&2
+    exit 1
+  }
+  current_epoch=$(date +%s)
+  [[ "$current_epoch" =~ ^[0-9]{10}$ ]] || {
+    echo 'FAIL_CLOSED retention: invalid current epoch.' >&2
+    exit 1
+  }
+  if (( protected_until_epoch > current_epoch + 259200 )); then
+    echo 'FAIL_CLOSED retention: R2 cutover hold exceeds 72 hours.' >&2
+    exit 1
+  fi
+  if (( current_epoch < protected_until_epoch )); then
+    hold_active=true
+  fi
+fi
+
+if [ "$hold_active" = true ]; then
+  echo 'retention: active R2 cutover hold; backup pruning skipped.'
+else
+  # backup retention N=30 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
+  bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
+  bash scripts/prune-deploy-backups.sh "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
+fi
 
 echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n=${BACKUP_RETENTION_N}; build cache cap=${BUILD_CACHE_MAX_SPACE}"
 '''
