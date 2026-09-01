@@ -160,11 +160,8 @@ function requireS3Endpoint(environment) {
   const key = 'SUBMISSION_FILE_S3_ENDPOINT';
   const parsed = parseUrl(environment, key);
   const { value, url } = parsed;
-  const mode = required(environment, 'SUBMISSION_FILE_STORAGE_MODE');
-  const internalHttp =
-    mode === 'minio' && url.protocol === 'http:' && url.hostname === 'minio';
   if (
-    (url.protocol !== 'https:' && !internalHttp) ||
+    url.protocol !== 'https:' ||
     hasUserInfo(value) ||
     value.includes('?') ||
     value.includes('#')
@@ -250,7 +247,7 @@ function validate(environment) {
   }
 
   const storageMode = required(environment, 'SUBMISSION_FILE_STORAGE_MODE');
-  if (storageMode !== 'minio' && storageMode !== 'managed') {
+  if (storageMode !== 'managed') {
     fail('SUBMISSION_FILE_STORAGE_MODE');
   }
   requireBoolean(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE');
@@ -313,41 +310,20 @@ function validate(environment) {
     fail('SUBMISSION_FILE_S3_BUCKET');
   }
 
-  required(environment, 'ROLLBACK_MINIO_ACCESS_KEY_ID');
-  required(environment, 'ROLLBACK_MINIO_SECRET_ACCESS_KEY');
-  required(environment, 'ROLLBACK_MINIO_BUCKET');
-
-  if (storageMode === 'minio') {
-    if (
-      required(environment, 'SUBMISSION_FILE_S3_ENDPOINT') !==
-        'http://minio:9000' ||
-      region !== 'us-east-1' ||
-      bucket !== 'oss-hub-submission-files' ||
-      required(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE') !== 'true'
-    ) {
-      fail('SUBMISSION_FILE_STORAGE_MODE');
-    }
-    required(environment, 'SUBMISSION_FILE_S3_ACCESS_KEY_ID');
-    required(environment, 'SUBMISSION_FILE_S3_SECRET_ACCESS_KEY');
-    if (required(environment, 'ROLLBACK_MINIO_BUCKET') !== bucket) {
-      fail('ROLLBACK_MINIO_BUCKET');
-    }
-  } else {
-    const managedEndpoint = new URL(
-      required(environment, 'SUBMISSION_FILE_S3_ENDPOINT'),
-    );
-    if (
-      !/^[a-f0-9]{32}\.r2\.cloudflarestorage\.com$/iu.test(
-        managedEndpoint.hostname,
-      ) ||
-      managedEndpoint.pathname !== '/' ||
-      region !== 'auto' ||
-      required(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE') !== 'true' ||
-      environment.has('SUBMISSION_FILE_S3_ACCESS_KEY_ID') ||
-      environment.has('SUBMISSION_FILE_S3_SECRET_ACCESS_KEY')
-    ) {
-      fail('SUBMISSION_FILE_STORAGE_MODE');
-    }
+  const managedEndpoint = new URL(
+    required(environment, 'SUBMISSION_FILE_S3_ENDPOINT'),
+  );
+  if (
+    !/^[a-f0-9]{32}\.r2\.cloudflarestorage\.com$/iu.test(
+      managedEndpoint.hostname,
+    ) ||
+    managedEndpoint.pathname !== '/' ||
+    region !== 'auto' ||
+    required(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE') !== 'true' ||
+    environment.has('SUBMISSION_FILE_S3_ACCESS_KEY_ID') ||
+    environment.has('SUBMISSION_FILE_S3_SECRET_ACCESS_KEY')
+  ) {
+    fail('SUBMISSION_FILE_STORAGE_MODE');
   }
 
   if (

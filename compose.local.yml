@@ -64,12 +64,23 @@ services:
         condition: service_healthy
 
   frontend:
-    image: !reset null
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
+    restart: unless-stopped
+    expose:
+      - '3000'
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', '--silent', 'http://localhost:3000/']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   nginx:
+    depends_on:
+      frontend:
+        condition: service_healthy
     # 로컬 브라우저 대면 주소를 dev GitHub OAuth App에 이미 등록된 콜백 origin과 맞춘다.
     # 운영은 host nginx가 공인 443을 받아 내부 127.0.0.1:8081로 넘기므로 콜백에 8081이 등장하지 않는다.
     # 로컬에는 host nginx가 없어 Compose ingress가 곧 브라우저 대면 주소가 되므로 3000으로 노출한다.
@@ -77,6 +88,8 @@ services:
     # 그 경우 OAuth 콜백 origin이 어긋나 로그인은 성립하지 않는다.
     ports: !override
       - '127.0.0.1:${LOCAL_INGRESS_PORT:-3000}:80'
+    volumes: !override
+      - ./deploy/nginx-local:/etc/nginx/conf.d:ro
 
 volumes:
   minio_data:

@@ -104,7 +104,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 
 | 키 | 용도 |
 | --- | --- |
-| `IMAGE_TAG` | backend·frontend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 latest full Release의 SemVer tag로 주입한다(`Jenkinsfile`). 수동으로 compose를 돌릴 때만 셸에서 지정한다 |
+| `IMAGE_TAG` | backend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 latest full Release의 SemVer tag로 주입한다(`Jenkinsfile`). 수동으로 production compose를 돌릴 때만 셸에서 지정한다 |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | postgres 서비스 자격증명 |
 | `DATABASE_URL` | postgres 서비스 DNS를 가리키는 연결 문자열 |
 | `SESSION_SECRET` | 세션 서명 시크릿 |
@@ -115,13 +115,12 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
 | `GITHUB_OPERATIONS_APP_ID` | 저장소 생성·설정 변경용 GitHub App 식별자 |
 | `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
-| `SUBMISSION_FILE_STORAGE_MODE` | exact `minio` 또는 `managed`; 현재 production은 `managed`(R2) |
+| `SUBMISSION_FILE_STORAGE_MODE` | production은 exact `managed`만 허용 |
 | `SUBMISSION_FILE_S3_*` | backend storage configuration. managed credential pair는 env file이 아니라 Jenkins username/password binding에서만 주입한다 |
-| `ROLLBACK_MINIO_*` | managed R2 activation 뒤 rollback MinIO 전용 credential. `SUBMISSION_FILE_S3_*` credential과 분리한다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | `MAIL_MODE=send`일 때 필수인 마감 알림 발신 자격증명. `dry-run`에서는 빈 값 허용 |
 
-`SUBMISSION_FILE_S3_*`와 `ROLLBACK_MINIO_*`의 실제 값은 이 저장소에 두지 않는다. managed credential pair는 production env file에도 두지 않는다.
+`SUBMISSION_FILE_S3_*`의 실제 값은 이 저장소에 두지 않는다. Managed credential pair는 production env file에도 두지 않고 Jenkins masked binding으로만 주입한다.
 `compose.yml`에 env 키를 추가하거나 지우면 이 표도 같은 PR에서 갱신한다.
 
 `GITHUB_PUBLIC_READ_TOKEN` — 외부 public 저장소 수집 전용 GitHub fine-grained PAT(REST + GraphQL 겸용)이며 위 표에는 없다. 위 `GITHUB_COLLECTION_APP_*`(Collection GitHub App installation token)는 조직 설치 범위 밖 저장소를 읽지 못하고, GitHub GraphQL v4는 OAuth App client_id:client_secret Basic Auth를 받지 않아 이 경로는 PAT 하나로 둔다. `compose.yml`이 이 키를 `${VAR:?...}`로 요구하지 않는다 — 조직 collection이 이 값 없이도 그대로 기동·동작해야 하기 때문이다. 값이 비어 있으면 외부 수집을 실제로 시도하는 시점에만 fail-closed로 실패하며, 조용히 0건으로 넘어가지 않는다. 이 PAT은 반드시 사업단 서비스 계정으로 발급한다 — 개인 계정으로 발급하면 그 사람이 조직을 떠날 때 외부 수집이 끊기고 public 저장소 조회 이력이 개인 실명에 결부되는 위험이 있다. 만료일을 설정하고 갱신 책임자를 지정해 둔다. 값은 다른 GitHub App 자격증명과 동일하게 배포 secret store에만 둔다.
@@ -151,9 +150,9 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 
 ### 제출 파일 storage configuration
 
-storage mode는 `SUBMISSION_FILE_STORAGE_MODE=minio|managed`로 명시한다. backend는 `SUBMISSION_FILE_S3_ENDPOINT`, `SUBMISSION_FILE_S3_REGION`, `SUBMISSION_FILE_S3_BUCKET`, `SUBMISSION_FILE_S3_ACCESS_KEY_ID`, `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`, `SUBMISSION_FILE_S3_FORCE_PATH_STYLE`를 사용한다.
+Production storage mode는 `SUBMISSION_FILE_STORAGE_MODE=managed`로 명시한다. Backend는 `SUBMISSION_FILE_S3_ENDPOINT`, `SUBMISSION_FILE_S3_REGION`, `SUBMISSION_FILE_S3_BUCKET`, `SUBMISSION_FILE_S3_ACCESS_KEY_ID`, `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`, `SUBMISSION_FILE_S3_FORCE_PATH_STYLE`를 사용한다.
 
-managed mode에서는 Jenkins username/password binding이 access-key pair를 제공하고, endpoint·region·bucket·path-style은 승인된 runtime configuration에서 제공한다. 운영자는 backend에 적용된 key 이름과 configured endpoint/bucket 일치를 secret value를 출력하지 않고 확인한다. 누락·기본값 fallback·대상 불일치는 fail-closed다. rollback MinIO는 `ROLLBACK_MINIO_*`만 사용한다.
+Managed mode에서는 Jenkins username/password binding이 access-key pair를 제공하고, endpoint·region·bucket·path-style은 승인된 runtime configuration에서 제공한다. 운영자는 backend에 적용된 key 이름과 configured endpoint/bucket 일치를 secret value를 출력하지 않고 확인한다. 누락·기본값 fallback·대상 불일치는 fail-closed다.
 
 - 검증:
 
@@ -194,7 +193,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 2. M4 job을 파라미터 없이 수동 트리거한다.
 3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
 
-- 예상 출력: loopback·TLS `/`·`/api/v1/health`가 HTTP 200, 제출 파일 업로드 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
+- 예상 출력: loopback `/`는 404, loopback·TLS `/api/v1/health`는 200, public TLS `/`는 canonical 308이며 제출 파일 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같다. Backend image의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
@@ -210,63 +209,19 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 - **no-op 재확인**: 파라미터 없이 job을 다시 실행하면 실행 중 tag·revision과 latest Release가 같음을 증명하고 성공 no-op 처리되는지 확인한다.
 - 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
 
-## M8. Managed R2 backup·restore 및 rollback gate
+## M8. Managed R2 production contract
 
-현재 production 제출 파일 저장소는 private managed R2다(2026-09-02 cutover 완료, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). MinIO는 72시간 hold 동안 rollback material로만 보존한다.
+현재 production 제출 파일 저장소는 private managed R2다(2026-09-02 cutover·cleanup 완료, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). MinIO service·volume·credential, migration/hold branch와 AWS frontend runtime은 제거됐다.
 
-### M8-A. credential과 mode gate
+1. `SUBMISSION_FILE_STORAGE_MODE`는 exact `managed`여야 한다.
+2. Endpoint는 승인된 Cloudflare R2 HTTPS endpoint, region은 `auto`, path-style은 `true`여야 한다.
+3. Access-key pair는 Jenkins masked binding으로만 주입하며 production env file, console, workspace 또는 명령 인자에 기록하지 않는다.
+4. Candidate와 실행 중 backend의 non-secret storage tuple이 다르면 backup·build·rollout 전에 fail-closed한다.
+5. Release는 configured endpoint/bucket을 사용하는 SDK object backup과 manifest SHA-256, PostgreSQL backup을 만든 뒤 backend image를 교체한다.
+6. Rollback은 captured previous backend image ID·version·revision이 exact match할 때만 허용한다. Object storage mode를 되돌리는 rollback은 없다.
+7. Production Compose root와 비API path는 404이고 `/api/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 MinIO substitute는 `compose.local.yml`에서만 존재한다.
 
-1. 운영자는 `SUBMISSION_FILE_STORAGE_MODE`가 exact `minio` 또는 `managed`인지 확인한다. 그 밖의 값 또는 누락은 중단한다.
-2. backend storage 설정은 `SUBMISSION_FILE_S3_*`로만 제공한다. managed mode는 account label만 가변인 Cloudflare R2 HTTPS endpoint, region `auto`, path-style `true`를 요구한다. managed mode의 `SUBMISSION_FILE_S3_ACCESS_KEY_ID`와 `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`는 Jenkins username/password binding에서만 주입한다. production env file, console, workspace, command line에 기록하거나 출력하지 않는다.
-3. rollback MinIO는 `ROLLBACK_MINIO_*`만 사용한다. managed R2 credential, MinIO credential, rollback MinIO credential은 서로 재사용하지 않는다.
-4. Jenkins는 backup과 restore 시작 전에 configured endpoint와 configured bucket을 읽고, 작업 대상이 그 값과 일치함을 확인한다. 어느 값이 누락·불일치하거나 확인할 수 없으면 fail-closed로 중단한다.
-5. live four-operation preflight와 copy parity는 `scripts/jenkins/object-storage-migration.sh`만 사용한다. 이 도구에는 현재 backend image tag와 `SOURCE_S3_*`·`TARGET_S3_*`의 mode, endpoint, region, bucket, path-style, credential을 Jenkins masked environment로 전달한다. 값은 명령 인자·console·workspace에 쓰지 않는다.
-
-### M8-B. activation 전 격리 restore/rollback drill
-
-다음 순서는 운영 live store를 변경하지 않는 격리된 rollback 대상에서 완료한다.
-
-1. configured endpoint와 bucket을 재확인하고 `preflight`로 R2의 한 probe key에 대한 Put/Get/List/Delete와 삭제 후 부재를 증명한다.
-2. writer를 중지하고 `copy-check`로 MinIO에서 managed R2로 비파괴 copy한 뒤 양쪽의 object count, total size, key별 content SHA-256을 대조한다.
-3. source를 managed R2, target을 rollback MinIO로 뒤집고 `rollback-drill <drill-id> <evidence-dir>`을 실행한다.
-4. 도구가 격리된 `.migration-drill/<drill-id>/` prefix를 다시 읽어 R2 원본과 key, size, content SHA-256이 같은지 확인한다.
-5. drill prefix와 mode `0700` evidence directory를 pre-hold observation 전체와 `ROLLBACK_HOLD_START + 72h`까지 보존한다. drill 단계에서 cleanup이나 generic delete를 실행하지 않는다.
-
-어느 단계든 실패하거나 evidence가 불완전하면 activation을 승인하지 않는다. R2의 내구성은 backup이 아니며 이 drill을 건너뛸 근거가 되지 않는다.
-
-### M8-C. checkpoint gate와 hold
-
-일반 Release pipeline은 실행 중 storage tuple과 candidate tuple이 다르면 backup 전에 중단하며 storage를 전환하지 않는다. 아래 순서는 별도 attended cutover 절차에서만 실행한다.
-
-1. backend `FRONTEND_URL`·GitHub OAuth callback 전환과 stable-origin smoke를 끝내 checkpoint A를 완료한다. 이때 frontend origin은 Vercel이고 storage는 MinIO다.
-2. `preflight`로 R2 Put/Get/List/Delete를 증명한다.
-3. backend writer를 중지하고 실행 중 backend가 더 이상 제출 파일 write를 처리하지 않음을 독립적으로 확인한다. acknowledgement 문자열만으로 정지를 대신하지 않는다.
-4. `copy-check`로 MinIO에서 R2로 copy하고 count, bytes, key별 content SHA-256 parity를 확인한다.
-5. M8-B의 R2→격리 MinIO rollback drill과 configured-endpoint backup 검증을 완료한다.
-6. Managed activation 전에 pre-cutover object backup 디렉터리 이름과 rollback image tag를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-pre-hold`에 각각 `object-backup-name=...`, `rollback-image-tag=...` 두 줄로 원자 기록한다. Jenkins는 모든 retention cleanup 전에 이 start-free receipt를 검증하고 exact backup pruning을 건너뛰며 rollback image tag를 keep set에 넣는다. 검증 뒤 bounded cache와 unrelated image cleanup은 계속 허용한다.
-7. 승인된 managed tuple을 production env에 적용하고 R2 credential을 Jenkins binding으로 주입한 뒤 backend만 재생성한다.
-8. 실행 중 backend의 mode, endpoint, region, bucket, path-style hash가 승인된 managed tuple과 같은지 확인한 뒤 writer를 재개한다.
-9. R2 application storage smoke와 Vercel stable-origin의 SSR, OAuth, session, query, file, authorization smoke를 모두 통과시킨다.
-10. 이 시점에만 checkpoint B를 완료하고 AWS frontend를 비파괴적으로 제거한다. AWS backend, PostgreSQL, API ingress는 유지한다.
-11. Generic Release를 금지하고 checkpoint B 뒤 최소 30분 동안 Vercel, AWS API/backend/PostgreSQL, R2와 backup error·latency를 관찰한다. 이 구간에는 pre-cutover backup, MinIO, slot A와 evidence를 삭제하거나 prune하지 않는다.
-12. G0–G8, 30분 observation과 [`cloudflare-r2-readiness.md`](../handoff/cloudflare-r2-readiness.md)의 **Pre-hold completion conditions**가 모두 green일 때 complete opaque production receipt를 발행한다.
-13. Complete receipt 발행과 모든 gate가 동시에 green인 UTC instant 하나를 execution owner가 `ROLLBACK_HOLD_START`로 기록하고 rollback approver가 countersign한다. R2 start, B promotion, Release publication과 observation start를 대신 사용하지 않는다.
-14. `ROLLBACK_HOLD_START` epoch, 정확히 그 값에 72시간을 더한 expiry, pre-cutover object backup 디렉터리 이름과 rollback image tag를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-hold`에 각각 `rollback-hold-start-epoch=...`, `protected-until-epoch=...`, `object-backup-name=...`, `rollback-image-tag=...` 네 줄로 원자 기록한다. Jenkins가 pre-hold와 hold identity 일치, start, exact expiry, protected backup·image를 검증한 뒤에만 pre-hold receipt를 제거한다.
-15. Expiry는 cleanup을 허가하지 않는다. Expiry 뒤 final recovery verification과 별도 reviewed cleanup approval이 끝났을 때만 같은 `ROLLBACK_HOLD_START`와 현재 `approved-at-epoch`를 mode `0600`의 `${BACKUP_DIR}/r2-cutover-cleanup-approved`에 두 줄로 원자 기록한다. Jenkins는 approval start가 hold start와 같고 approval 시각이 expiry 이상·현재 이하일 때만 protected image·backup retention을 해제한다.
-
-managed activation 전 실패는 MinIO endpoint를 유지하고 writer를 재개하지 않은 채 원인을 복구한다. Pre-hold receipt는 unchanged MinIO 복구와 rollback material 검증이 끝난 뒤 reviewed operator action으로만 제거한다. Managed activation 뒤 실패는 endpoint만 되돌리지 않고 writer를 중지한 상태에서 M8-D를 수행한다. Pre-hold observation과 hold 동안에는 MinIO service, volume, rollback backup, slot A rollback material을 삭제하지 않는다.
-
-### M8-D. R2 activation 뒤 rollback
-
-R2 activation 후 rollback은 반드시 다음 순서다.
-
-1. 쓰기를 중지한다.
-2. source를 managed R2, target을 rollback MinIO로 설정하고 `reverse-copy-check <evidence-dir>`를 실행한다.
-3. 도구가 R2에서 MinIO로 비파괴 reverse-copy한 뒤 object count, total size, key별 content SHA-256이 같은지 확인한다.
-4. MinIO를 재활성화한다.
-5. stable-origin smoke와 제출 파일 smoke를 실행한다.
-
-R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. `ROLLBACK_HOLD_START + 72h`는 cleanup eligibility일 뿐 authorization이 아니다. 별도 reviewed approval 전에 backup·rollback image pruning, MinIO service·volume·credential 삭제와 migration branch 제거를 실행하지 않는다. Final recovery verification과 approval receipt가 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
+과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 
 ### M8-E. checkpoint B public ingress 전환
 
