@@ -96,6 +96,7 @@ jobs:
               - 'deploy/jenkins/**'
               - 'scripts/jenkins/**'
               - 'scripts/jenkins/validate-production-env*'
+              - 'scripts/jenkins/object-storage-migration*'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - 'scripts/check-jenkinsfile.test.mjs'
@@ -157,11 +158,11 @@ jobs:
       # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
       # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
       - name: pnpm 설정
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: pnpm 캐시 설정
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -220,8 +221,14 @@ jobs:
           bash scripts/check-docker-context.sh
 
       - name: 의존성 설치
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         run: pnpm install --frozen-lockfile
+
+      - name: object storage migration 계약 회귀 테스트
+        if: ${{ steps.scope.outputs.jenkins == 'true' }}
+        run: |
+          pnpm exec prettier --check scripts/jenkins/object-storage-migration.mjs scripts/jenkins/object-storage-migration.test.mjs
+          bash scripts/jenkins/object-storage-migration.test.sh
 
       - name: env 계약 양방향 검사
         if: ${{ steps.scope.outputs.production_compose == 'true' }}

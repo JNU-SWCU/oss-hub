@@ -158,12 +158,11 @@ function requireHttpsProviderUrl(environment, key) {
 
 function requireS3Endpoint(environment) {
   const key = 'SUBMISSION_FILE_S3_ENDPOINT';
-  const parsed = parseUrl(environment, key, false);
-  if (parsed === undefined) {
-    return;
-  }
+  const parsed = parseUrl(environment, key);
   const { value, url } = parsed;
-  const internalHttp = url.protocol === 'http:' && url.hostname === 'minio';
+  const mode = required(environment, 'SUBMISSION_FILE_STORAGE_MODE');
+  const internalHttp =
+    mode === 'minio' && url.protocol === 'http:' && url.hostname === 'minio';
   if (
     (url.protocol !== 'https:' && !internalHttp) ||
     hasUserInfo(value) ||
@@ -238,8 +237,6 @@ function validate(environment) {
     'GMAIL_OAUTH_REFRESH_TOKEN',
     'GITHUB_COLLECTION_APP_ID',
     'GITHUB_OPERATIONS_APP_ID',
-    'SUBMISSION_FILE_S3_ACCESS_KEY_ID',
-    'SUBMISSION_FILE_S3_SECRET_ACCESS_KEY',
   ]) {
     required(environment, key);
   }
@@ -252,7 +249,11 @@ function validate(environment) {
     fail('MAIL_MODE');
   }
 
-  requireBoolean(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE', false);
+  const storageMode = required(environment, 'SUBMISSION_FILE_STORAGE_MODE');
+  if (storageMode !== 'minio' && storageMode !== 'managed') {
+    fail('SUBMISSION_FILE_STORAGE_MODE');
+  }
+  requireBoolean(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE');
   requireBoolean(
     environment,
     'SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED',
@@ -296,21 +297,57 @@ function validate(environment) {
   requireHttpsProviderUrl(environment, 'GITHUB_COLLECTION_APP_API_BASE_URL');
   requireS3Endpoint(environment);
 
-  const region = optional(environment, 'SUBMISSION_FILE_S3_REGION');
-  if (region !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(region)) {
+  const region = required(environment, 'SUBMISSION_FILE_S3_REGION');
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(region)) {
     fail('SUBMISSION_FILE_S3_REGION');
   }
 
-  const bucket = optional(environment, 'SUBMISSION_FILE_S3_BUCKET');
+  const bucket = required(environment, 'SUBMISSION_FILE_S3_BUCKET');
   if (
-    bucket !== undefined &&
-    (bucket.length < 3 ||
-      bucket.length > 63 ||
-      !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(bucket) ||
-      /(?:\.\.|-\.|\.-)/u.test(bucket) ||
-      /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/u.test(bucket))
+    bucket.length < 3 ||
+    bucket.length > 63 ||
+    !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(bucket) ||
+    /(?:\.\.|-\.|\.-)/u.test(bucket) ||
+    /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/u.test(bucket)
   ) {
     fail('SUBMISSION_FILE_S3_BUCKET');
+  }
+
+  required(environment, 'ROLLBACK_MINIO_ACCESS_KEY_ID');
+  required(environment, 'ROLLBACK_MINIO_SECRET_ACCESS_KEY');
+  required(environment, 'ROLLBACK_MINIO_BUCKET');
+
+  if (storageMode === 'minio') {
+    if (
+      required(environment, 'SUBMISSION_FILE_S3_ENDPOINT') !==
+        'http://minio:9000' ||
+      region !== 'us-east-1' ||
+      bucket !== 'oss-hub-submission-files' ||
+      required(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE') !== 'true'
+    ) {
+      fail('SUBMISSION_FILE_STORAGE_MODE');
+    }
+    required(environment, 'SUBMISSION_FILE_S3_ACCESS_KEY_ID');
+    required(environment, 'SUBMISSION_FILE_S3_SECRET_ACCESS_KEY');
+    if (required(environment, 'ROLLBACK_MINIO_BUCKET') !== bucket) {
+      fail('ROLLBACK_MINIO_BUCKET');
+    }
+  } else {
+    const managedEndpoint = new URL(
+      required(environment, 'SUBMISSION_FILE_S3_ENDPOINT'),
+    );
+    if (
+      !/^[a-f0-9]{32}\.r2\.cloudflarestorage\.com$/iu.test(
+        managedEndpoint.hostname,
+      ) ||
+      managedEndpoint.pathname !== '/' ||
+      region !== 'auto' ||
+      required(environment, 'SUBMISSION_FILE_S3_FORCE_PATH_STYLE') !== 'true' ||
+      environment.has('SUBMISSION_FILE_S3_ACCESS_KEY_ID') ||
+      environment.has('SUBMISSION_FILE_S3_SECRET_ACCESS_KEY')
+    ) {
+      fail('SUBMISSION_FILE_STORAGE_MODE');
+    }
   }
 
   if (
