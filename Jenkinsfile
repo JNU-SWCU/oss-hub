@@ -2,9 +2,9 @@
 //
 // 계약 요약:
 // - RELEASE_TAG = 이미지 태그(IMAGE_TAG). RELEASE_SHA = checkout 불변 신원. 둘 다 OCI label.
-// - 영속 배포 상태 파일 없음. no-op 권위는 실행 중(frontend+backend) 컨테이너 두 개뿐.
-// - 동일 실행 중 tag+SHA만 성공 no-op. 하위 SemVer는 양쪽 실행 중이고 metadata가 일치할 때만 no-op.
-// - same-tag/different-SHA, partial, stopped-only, missing/invalid label·SemVer는 fail-closed.
+// - 영속 배포 상태 파일 없음. no-op 권위는 실행 중 backend 컨테이너뿐.
+// - 동일 실행 중 tag+SHA만 성공 no-op. 하위 SemVer는 실행 중 metadata가 일치할 때만 no-op.
+// - same-tag/different-SHA, stopped-only, missing/invalid label·SemVer는 fail-closed.
 // - 중지·모호 상태는 deploy 권한 없음. no-op은 완전 증명된 running metadata만.
 // - BuildKit 캐시는 이미지 빌드·배포 전과 성공 뒤에 5GB 상한으로 정리한다. 이미지·백업 보존 정리는 성공 뒤에만 한다.
 //   실행 중+직전 이미지를 보존하고, 백업은 최근 N=30을 보존한다.
@@ -50,7 +50,6 @@ pipeline {
         script {
           env.DEPLOY_NOOP = 'false'
           env.PREV_TAG = ''
-          env.PREV_FE_IMAGE_ID = ''
           env.PREV_BE_IMAGE_ID = ''
           env.PREV_SHA = ''
           env.PRIVATE_KEYS_CHANGED = 'false'
@@ -214,31 +213,17 @@ export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
 
 compose=(docker compose --env-file "$OSS_HUB_ENV_FILE")
 
-fe_running="$("${compose[@]}" ps -q frontend)"
 be_running="$("${compose[@]}" ps -q backend)"
-fe_all="$("${compose[@]}" ps --all -q frontend)"
 be_all="$("${compose[@]}" ps --all -q backend)"
 
-# partial deployment: 한쪽만 컨테이너가 있으면 치명.
-if { [ -n "$fe_all" ] && [ -z "$be_all" ]; } || { [ -z "$fe_all" ] && [ -n "$be_all" ]; }; then
-  echo 'FAIL_CLOSED partial_deployment: frontend/backend 컨테이너 존재 상태가 일치하지 않습니다.' >&2
-  exit 2
-fi
-
-# greenfield: 어느 쪽도 존재하지 않음.
+# greenfield: backend 컨테이너가 존재하지 않음.
 # 컨테이너 부재만으로 확정하지 않는다. 호스트 SQL/객체 백업이나 compose
 # named volume 이 남아 있으면 fail-closed. 재프로비저닝만
 # GREENFIELD_DEPLOY_ACK=1 로 우회한다.
-if [ -z "$fe_all" ] && [ -z "$be_all" ]; then
+if [ -z "$be_all" ]; then
   bash scripts/jenkins/assert-greenfield-host-clean.sh
   printf 'state=greenfield\n'
   exit 0
-fi
-
-# 한 쪽만 실행 중이면 partial/stopped 혼합 — fail-closed.
-if { [ -n "$fe_running" ] && [ -z "$be_running" ]; } || { [ -z "$fe_running" ] && [ -n "$be_running" ]; }; then
-  echo 'FAIL_CLOSED partial_running: 한쪽만 실행 중이라 no-op/배포 기준을 확정할 수 없습니다.' >&2
-  exit 2
 fi
 
 read_meta() {
@@ -252,9 +237,9 @@ read_meta() {
   printf '%s\t%s\t%s\t%s\n' "$image" "$version" "$revision" "$image_id"
 }
 
-# stopped-only: 존재하지만 둘 다 비실행. no-op·deploy 모두 금지 (fail-closed).
-if [ -z "$fe_running" ] && [ -z "$be_running" ]; then
-  echo 'FAIL_CLOSED stopped_container: 중지된 frontend/backend는 no-op/배포 기준이 될 수 없습니다.' >&2
+# stopped-only: 존재하지만 비실행. no-op·deploy 모두 금지 (fail-closed).
+if [ -z "$be_running" ]; then
+  echo 'FAIL_CLOSED stopped_container: 중지된 backend는 no-op/배포 기준이 될 수 없습니다.' >&2
   exit 2
 fi
 
@@ -276,62 +261,47 @@ docker exec "$be_running" \
   "$candidate_storage_hash" ||
   { echo 'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' >&2; exit 2; }
 
-# 여기까지 오면 양쪽 모두 실행 중 — no-op 권위는 완전 증명된 metadata에만 부여.
-fe_meta="$(read_meta "$fe_running")"
+# 여기까지 오면 backend가 실행 중 — no-op 권위는 완전 증명된 metadata에만 부여.
 be_meta="$(read_meta "$be_running")"
-fe_image="$(printf '%s' "$fe_meta" | cut -f1)"
 be_image="$(printf '%s' "$be_meta" | cut -f1)"
-fe_version="$(printf '%s' "$fe_meta" | cut -f2)"
 be_version="$(printf '%s' "$be_meta" | cut -f2)"
-fe_revision="$(printf '%s' "$fe_meta" | cut -f3)"
 be_revision="$(printf '%s' "$be_meta" | cut -f3)"
-fe_image_id="$(printf '%s' "$fe_meta" | cut -f4)"
 be_image_id="$(printf '%s' "$be_meta" | cut -f4)"
 
-if [[ "$fe_image" != oss-hub-frontend:* ]] || [[ "$be_image" != oss-hub-backend:* ]]; then
-  echo 'FAIL_CLOSED running_metadata: 실행 중 이미지 참조가 oss-hub app 형식이 아닙니다.' >&2
+if [[ "$be_image" != oss-hub-backend:* ]]; then
+  echo 'FAIL_CLOSED running_metadata: 실행 중 이미지 참조가 oss-hub-backend 형식이 아닙니다.' >&2
   exit 2
 fi
 
-fe_tag="${fe_image#oss-hub-frontend:}"
 be_tag="${be_image#oss-hub-backend:}"
-if [ "$fe_tag" != "$be_tag" ]; then
-  echo 'FAIL_CLOSED running_metadata: 실행 중 frontend/backend 태그가 서로 다릅니다.' >&2
-  exit 2
-fi
 
-if [ -z "$fe_image_id" ] || [ -z "$be_image_id" ]; then
+if [ -z "$be_image_id" ]; then
   echo 'FAIL_CLOSED running_metadata: 실행 중 컨테이너 immutable Image ID를 읽지 못했습니다.' >&2
   exit 2
 fi
 
 # 완전 증명된 running metadata만 진행. 누락·불일치·비SemVer는 deploy 권한 없음.
-if [ -z "$fe_version" ] || [ -z "$be_version" ] || [ -z "$fe_revision" ] || [ -z "$be_revision" ]; then
+if [ -z "$be_version" ] || [ -z "$be_revision" ]; then
   echo 'FAIL_CLOSED running_metadata: OCI label 누락 — no-op/배포 기준을 확정할 수 없습니다.' >&2
   exit 2
 fi
 
-if [ "$fe_version" != "$be_version" ] || [ "$fe_revision" != "$be_revision" ]; then
-  echo 'FAIL_CLOSED running_metadata: 실행 중 frontend/backend OCI label이 서로 다릅니다.' >&2
-  exit 2
-fi
-if [ "$fe_version" != "$fe_tag" ]; then
+if [ "$be_version" != "$be_tag" ]; then
   echo 'FAIL_CLOSED running_metadata: image tag와 org.opencontainers.image.version 불일치.' >&2
   exit 2
 fi
-if [[ ! "$fe_revision" =~ ^[0-9a-f]{40}$ ]]; then
+if [[ ! "$be_revision" =~ ^[0-9a-f]{40}$ ]]; then
   echo 'FAIL_CLOSED running_metadata: org.opencontainers.image.revision이 40-hex SHA가 아닙니다.' >&2
   exit 2
 fi
-if [[ ! "$fe_tag" =~ ^v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]; then
+if [[ ! "$be_tag" =~ ^v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]; then
   echo 'FAIL_CLOSED running_metadata: 실행 중 태그가 full SemVer가 아닙니다.' >&2
   exit 2
 fi
 
 printf 'state=running\n'
-printf 'prev_tag=%s\n' "$fe_tag"
-printf 'prev_sha=%s\n' "$fe_revision"
-printf 'prev_fe_image_id=%s\n' "$fe_image_id"
+printf 'prev_tag=%s\n' "$be_tag"
+printf 'prev_sha=%s\n' "$be_revision"
 printf 'prev_be_image_id=%s\n' "$be_image_id"
 ''',
               returnStdout: true,
@@ -349,7 +319,6 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
             if (state == 'greenfield') {
               env.PREV_TAG = ''
               env.PREV_SHA = ''
-              env.PREV_FE_IMAGE_ID = ''
               env.PREV_BE_IMAGE_ID = ''
               env.DEPLOY_NOOP = 'false'
               echo 'greenfield: 실행/존재 컨테이너 없음. 최초 배포를 계속합니다.'
@@ -362,14 +331,12 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
 
             def prevTag = fields.get('prev_tag', '')
             def prevSha = fields.get('prev_sha', '')
-            def prevFeImageId = fields.get('prev_fe_image_id', '')
             def prevBeImageId = fields.get('prev_be_image_id', '')
-            if (!prevTag?.trim() || !prevSha?.trim() || !prevFeImageId?.trim() || !prevBeImageId?.trim()) {
+            if (!prevTag?.trim() || !prevSha?.trim() || !prevBeImageId?.trim()) {
               error('FAIL_CLOSED running_metadata: running probe가 tag/SHA/Image ID를 모두 반환하지 않았습니다.')
             }
             env.PREV_TAG = prevTag
             env.PREV_SHA = prevSha
-            env.PREV_FE_IMAGE_ID = prevFeImageId
             env.PREV_BE_IMAGE_ID = prevBeImageId
 
             // same-tag/different-SHA → fail-closed (재태깅·이동 태그 방어)
@@ -385,7 +352,7 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
               return
             }
 
-            // 하위 SemVer 타깃: 양쪽 실행 중이고 metadata 일치할 때만 성공 no-op (downgrade guard).
+            // 하위 SemVer 타깃: 실행 중 metadata가 일치할 때만 성공 no-op (downgrade guard).
             // SemVer 구성요소는 선행 0이 없는 십진 문자열이므로 길이 후 사전순으로 비교한다.
             // Jenkins sandbox 승인이 필요한 숫자 생성자를 사용하지 않는다.
             def parseFullSemVer = { String raw ->
@@ -456,80 +423,6 @@ docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
       }
     }
 
-    stage('FRONTEND_URL HTTPS 사전 검증') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
-      steps {
-        withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
-          sh '''#!/usr/bin/env bash
-set -euo pipefail
-# credential file을 source/print 하지 않는다. FRONTEND_URL 키만 추출해 유일 할당·스킴을 검사한다.
-# 값은 로그에 남기지 않는다. 주석이 아닌 할당이 정확히 하나여야 한다(중복 순서 무관).
-frontend_url="$(
-  awk '
-    BEGIN { count = 0; value = "" }
-    /^[[:space:]]*#/ { next }
-    /^[[:space:]]*$/ { next }
-    {
-      line = $0
-      sub(/\r$/, "", line)
-      eq = index(line, "=")
-      if (eq < 1) next
-      key = substr(line, 1, eq - 1)
-      val = substr(line, eq + 1)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
-      if (key != "FRONTEND_URL") next
-      count++
-      if (val ~ /^".*"$/) {
-        val = substr(val, 2, length(val) - 2)
-      }
-      if (count == 1) {
-        value = val
-      }
-    }
-    END {
-      if (count == 0) {
-        exit 2
-      }
-      if (count != 1) {
-        exit 3
-      }
-      print value
-    }
-  ' "$OSS_HUB_ENV_FILE"
-)" || {
-  awk_rc=$?
-  if [ "$awk_rc" -eq 2 ]; then
-    echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 키가 운영 env에 없습니다.' >&2
-  elif [ "$awk_rc" -eq 3 ]; then
-    echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 할당이 둘 이상입니다 (value not logged).' >&2
-  else
-    echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 파싱에 실패했습니다.' >&2
-  fi
-  exit 1
-}
-
-if [ -z "$frontend_url" ]; then
-  echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 키가 운영 env에 없습니다.' >&2
-  exit 1
-fi
-
-case "$frontend_url" in
-  https://*)
-    echo 'https_preflight: FRONTEND_URL scheme is HTTPS (value not logged).'
-    ;;
-  *)
-    echo 'FAIL_CLOSED https_preflight: FRONTEND_URL must use https:// scheme.' >&2
-    exit 1
-    ;;
-esac
-'''
-        }
-      }
-    }
-
     stage('롤백 이미지 사전 검증') {
       when {
         expression { env.DEPLOY_NOOP != 'true' }
@@ -543,7 +436,6 @@ esac
           withEnv([
             "PREV_TAG=${env.PREV_TAG}",
             "PREV_SHA=${env.PREV_SHA ?: ''}",
-            "PREV_FE_IMAGE_ID=${env.PREV_FE_IMAGE_ID ?: ''}",
             "PREV_BE_IMAGE_ID=${env.PREV_BE_IMAGE_ID ?: ''}",
           ]) {
             sh 'bash scripts/jenkins/validate-rollback-images.sh'
@@ -692,30 +584,9 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
         expression { env.DEPLOY_NOOP != 'true' }
       }
       steps {
-        withCredentials([
-          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
-        ]) {
-          sh '''#!/usr/bin/env bash
+        sh '''#!/usr/bin/env bash
 set -euo pipefail
-set +x
-# 전환기 AWS frontend도 동일한 canonical same-origin rewrite 계약으로 빌드한다.
-# 값은 로그에 남기지 않고 유일 할당·HTTPS 스킴만 검사한다.
-frontend_url="$(awk -F= '$1=="FRONTEND_URL" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")" || {
-  echo 'FAIL_CLOSED image_build: FRONTEND_URL 할당이 유일하지 않습니다.' >&2
-  exit 1
-}
-case "$frontend_url" in
-  https://*) ;;
-  *) echo 'FAIL_CLOSED image_build: FRONTEND_URL must use https:// scheme.' >&2; exit 1 ;;
-esac
-# release-tag 이름 + OCI label(RELEASE_TAG, RELEASE_SHA). 이미지는 1회만 빌드.
-docker build \
-  --file apps/frontend/Dockerfile \
-  --tag "oss-hub-frontend:${IMAGE_TAG}" \
-  --label "org.opencontainers.image.version=${RELEASE_TAG}" \
-  --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
-  --build-arg BACKEND_ORIGIN="$frontend_url" \
-  .
+# release-tag 이름 + OCI label(RELEASE_TAG, RELEASE_SHA). backend 이미지는 1회만 빌드.
 docker build \
   --file apps/backend/Dockerfile \
   --tag "oss-hub-backend:${IMAGE_TAG}" \
@@ -723,7 +594,6 @@ docker build \
   --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
   .
 '''
-        }
       }
     }
 
@@ -814,7 +684,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 # bind mount 내용은 Compose 서비스 해시에 없어 up -d가 nginx를 재생성하지 않으므로 명시적 reload 없이는 낡은 설정이 계속 서빙된다.
                 docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
                 docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
-                require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
+                require_status 404 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
                 require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
                 # 미인증 401은 nginx를 통과해 backend SessionGuard에 도달했음을 검증한다.
                 require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
@@ -897,7 +767,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                     # rollback은 이전 앱 이미지만 복구하고 nginx 설정은 현재 워크스페이스를 유지하므로 아래 스모크로 backend 인증 경로를 다시 검증한다.
                     docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
                     docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
-                    require_status 200 GET http://127.0.0.1:8081/
+                    require_status 404 GET http://127.0.0.1:8081/
                     require_status 200 GET http://127.0.0.1:8081/api/v1/health
                     require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files
                     require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files
@@ -1019,7 +889,7 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
           }
 
           # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
-          require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
+          require_status 404 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
           require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
           require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
           require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
@@ -1055,7 +925,7 @@ set -euo pipefail
 
 # success-only retention. 실패 경로에서는 이 stage에 들어오지 않는다.
 # 실행 중(방금 배포한 IMAGE_TAG)과 직전 PREV_TAG는 절대 삭제하지 않는다.
-# oss-hub-frontend / oss-hub-backend 앱 이미지만 대상으로 하며 무관 이미지는 건드리지 않는다.
+# oss-hub-backend 앱 이미지만 대상으로 하며 무관 이미지는 건드리지 않는다.
 
 retention_keep_tags=()
 retention_keep_tags+=("${IMAGE_TAG}")
@@ -1080,7 +950,7 @@ images_raw="$(mktemp)"
 images_inventory="$(mktemp)"
 trap 'rm -f "$images_raw" "$images_inventory"' EXIT
 docker images --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}' > "$images_raw"
-awk -F '\t' '$1=="oss-hub-frontend" || $1=="oss-hub-backend"' "$images_raw" > "$images_inventory"
+awk -F '\t' '$1=="oss-hub-backend"' "$images_raw" > "$images_inventory"
 rm -f "$images_raw"
 
 
@@ -1088,10 +958,7 @@ while IFS="$(printf '\t')" read -r repo tag image_id; do
   [ -n "$repo" ] || continue
   [ -n "$tag" ] || continue
   [ "$tag" = "<none>" ] && continue
-  case "$repo" in
-    oss-hub-frontend|oss-hub-backend) ;;
-    *) continue ;;
-  esac
+  [ "$repo" = 'oss-hub-backend' ] || continue
   if is_kept_tag "$tag"; then
     continue
   fi

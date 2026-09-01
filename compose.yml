@@ -83,18 +83,6 @@ services:
       retries: 12
       start_period: 10s
 
-  frontend:
-    image: oss-hub-frontend:${IMAGE_TAG:?IMAGE_TAG is required}
-    restart: unless-stopped
-    expose:
-      - '3000'
-    healthcheck:
-      test: ['CMD', 'curl', '--fail', '--silent', 'http://localhost:3000/']
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-
   nginx:
     image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: unless-stopped
@@ -102,8 +90,6 @@ services:
       postgres:
         condition: service_healthy
       backend:
-        condition: service_healthy
-      frontend:
         condition: service_healthy
     ports:
       # 공인 80/443은 host nginx가 담당하고 Compose ingress는 loopback에서만 받는다.
