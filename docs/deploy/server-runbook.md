@@ -185,20 +185,20 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 첫 Release e2e 전에 [pre-deploy-verify](./pre-deploy-verify.md)의 ① 로컬 랩탑 검증과 ② 배포 EC2 서버-로컬 드라이런을 순서대로 통과시킨다. 앞 단계가 통과해야 다음으로 넘어간다.
 
-- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` 200과 제출 파일 업로드 경로 smoke가 1회 성공. 업로드 기대값은 여기에 복사하지 않는다 — [pre-deploy-verify](./pre-deploy-verify.md) ②의 표가 원본이고 그 표의 원본은 `Jenkinsfile`의 rollout smoke다.
+- 검증: ①은 `compose.yml + compose.local.yml`의 local frontend·MinIO substitute를 검증한다. ②는 배포 서버의 현재 backend image metadata와 loopback root 404, `/api/v1/health` 200, 제출 파일 인증 경계를 읽기 전용으로 확인한다. 업로드 기대값의 원본은 `Jenkinsfile` rollout smoke다.
 
 ## M7. 첫 Release 수동 트리거 e2e
 
 1. main에 있는 exact commit으로 full GitHub Release(예: `v0.1.0`)를 발행한다(`draft=false`, `prerelease=false`, tag SHA가 main ancestry). 이 발행이 배포 인가이며 별도 승인 댓글은 남기지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
 2. M4 job을 파라미터 없이 수동 트리거한다.
-3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
+3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → production env·rollback preflight → PostgreSQL·managed object backup → backend image 서버 로컬 build → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → public TLS smoke. Lint·typecheck·test는 merge 전 required CI가 소유하고 Jenkins에서 반복하지 않는다.
 
 - 예상 출력: loopback `/`는 404, loopback·TLS `/api/v1/health`는 200, public TLS `/`는 canonical 308이며 제출 파일 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같다. Backend image의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
 docker compose --env-file "$OSS_HUB_ENV_FILE" ps
-curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
+test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/)" = 404 && echo "root closed"
 curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 # 업로드 경로 5종은 pre-deploy-verify ②의 명령을 그대로 쓴다 — 기대값을 여기 복사하면 갈라진다.
 # 공인 TLS smoke는 host nginx·인증서 계약이 준비된 뒤에 Jenkinsfile과 동일 경로로 확인한다.

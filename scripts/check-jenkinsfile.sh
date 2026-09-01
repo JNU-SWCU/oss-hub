@@ -67,6 +67,25 @@ require_order() {
   [[ -n $before_line && -n $after_line && $before_line -lt $after_line ]] || fail "$description"
 }
 
+stage_section() {
+  local marker=$1
+  awk -v marker="$marker" '
+    found && /stage[(]/ && index($0, marker) == 0 { exit }
+    index($0, marker) { found = 1 }
+    found { print }
+  ' "$active"
+}
+
+require_stage() {
+  local description=$1 stage=$2 pattern=$3
+  stage_section "$stage" | grep -Fq -- "$pattern" || fail "$description"
+}
+
+require_stage_absent() {
+  local description=$1 stage=$2 pattern=$3
+  ! stage_section "$stage" | grep -Fq -- "$pattern" || fail "$description"
+}
+
 # Release identity and backend-only running authority.
 require 'pipeline serialization must remain' 'disableConcurrentBuilds()'
 require 'RELEASE_TAG must remain the image tag' 'env.IMAGE_TAG = tag'
@@ -114,6 +133,19 @@ require 'rollout compose wait must remain' 'up -d --no-build --wait --wait-timeo
 require 'nginx config test must remain' 'exec -T nginx nginx -t'
 require 'nginx reload must remain' 'exec -T nginx nginx -s reload'
 require 'read-only no-op drift stage must remain' "stage('no-op 실행 중 nginx 드리프트 검증')"
+require_stage 'production env preflight must execute unconditionally' \
+  "stage('운영 환경 사전 검증')" \
+  'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"'
+require_stage_absent 'production env preflight must not have a when gate' \
+  "stage('운영 환경 사전 검증')" 'when {'
+require_stage 'no-op drift must run only for DEPLOY_NOOP true' \
+  "stage('no-op 실행 중 nginx 드리프트 검증')" \
+  "expression { env.DEPLOY_NOOP == 'true' }"
+for forbidden_noop_mutation in 'up -d' 'pull ' 'force-recreate' 'image rm' 'prune '; do
+  require_stage_absent 'no-op drift stage must remain read-only' \
+    "stage('no-op 실행 중 nginx 드리프트 검증')" \
+    "$forbidden_noop_mutation"
+done
 
 # Production nginx now serves no local frontend, but public TLS preserves Vercel canonical redirect.
 require_regex_count 'loopback root must assert 404 for rollout, rollback, and no-op drift' 'require_status 404 GET http://127[.]0[.]0[.]1:8081/([[:space:]]|$)' 3
