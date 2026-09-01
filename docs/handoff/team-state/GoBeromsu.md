@@ -910,3 +910,11 @@
 - blocker: 없음
 - 결과: v0.6.124 build #181의 disk-full 원인이 된 87.57GB BuildKit shared/internal cache가 기존 non-`--all` success-only prune에서 남는 계약을 수정했다. non-no-op 배포는 이미지 build와 backup 전에, 성공 뒤 retention에서 다시 `docker buildx prune --all --force --max-used-space 5GB`를 실행한다. running image, named volume, backup은 정리 대상에 포함하지 않는다. checker는 no-op 판정 이후 위치·non-no-op when·두 prune의 exact command를 결박한다.
 - 검증: Jenkins shell mutation 170건, Node Jenkins/CI path contract 10건, repository Prettier, diff check를 통과했고 production recovery에서 같은 `--all` cache prune가 87.57GB를 회수해 root 여유를 141MB에서 82GB로 복구했다.
+## 2026-09-01 — 프로그램 상세 모집 배지 테스트 시각을 고정한다
+
+- 상태: review
+- Issue: #1111
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 프로그램 상세 헤더의 모집 배지·설명 중복 방지 테스트가 실제 `Date.now()`에 기대 fixture 종료일 이후 실패하던 문제를 제거했다. 테스트 의도인 모집중 배지 위치를 유지하면서 `ProgramDetailPage states` 범위의 시각을 모집 기간 안으로 고정하고 각 테스트 뒤 실제 타이머로 복구한다. PR #1110의 접근 경로 변경과 섞지 않은 독립 변경이다.
+- 검증: `program-detail.test.tsx` 28/28, frontend typecheck·lint·build, 변경 파일 Prettier 검사를 통과했다.
