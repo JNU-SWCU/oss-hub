@@ -66,11 +66,12 @@ export async function stateForE2eProgramGraph(
         lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
       },
     }),
+    // 스토리지 기록(capture)은 프로세스 전역이라 DB 쪽도 같은 범위여야 한다 — 작성 업로드는
+    // 프로그램이 아니라 actor가 소유하므로, prisma 장애 케이스처럼 재시도가 새 프로그램을 만들고
+    // 거기에 업로드를 첨부하면 createRequest 범위로는 잡히지 않아 가짜 고아가 된다. actor 범위는
+    // fixture reset이 이 표를 비우는 범위이자 바로 위 미첨부 업로드 집계의 범위와 같다.
     prisma.programAuthoringUpload.findMany({
-      where: {
-        createRequest: { programId: graph.programId },
-        lifecycle: 'ATTACHED',
-      },
+      where: { actorId: actorIds[0], lifecycle: 'ATTACHED' },
       select: { storageKey: true },
     }),
   ]);
