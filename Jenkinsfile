@@ -277,7 +277,7 @@ read_storage_value() {
   awk -F= -v key="$1" '$1 == key { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE"
 }
 candidate_storage_hash="$(
-  printf '%s\0%s\0%s\0%s\0%s' \
+  printf '%s\\0%s\\0%s\\0%s\\0%s' \
     "$storage_mode" \
     "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
     "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
@@ -285,9 +285,17 @@ candidate_storage_hash="$(
     "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
     sha256sum | awk '{print $1}'
 )"
+candidate_storage_tail_hash="$(
+  printf '%s\\0%s\\0%s\\0%s' \
+    "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
+    sha256sum | awk '{print $1}'
+)"
 docker exec "$be_running" \
-  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
-  "$candidate_storage_hash" ||
+  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); if (digest === process.argv[1]) process.exit(0); const tail = createHash("sha256").update(values.slice(1).join("\\0")).digest("hex"); process.exit(values[0] === "" && process.argv[2] === "minio" && tail === process.argv[3] ? 0 : 1)' \
+  "$candidate_storage_hash" "$storage_mode" "$candidate_storage_tail_hash" ||
   { echo 'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' >&2; exit 2; }
 
 # 여기까지 오면 양쪽 모두 실행 중 — no-op 권위는 완전 증명된 metadata에만 부여.
@@ -640,7 +648,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
             }
             if [ -n "${PREV_TAG:-}" ]; then
               candidate_storage_hash="$(
-                printf '%s\0%s\0%s\0%s\0%s' \
+                printf '%s\\0%s\\0%s\\0%s\\0%s' \
                   "$storage_mode" \
                   "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
                   "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
@@ -648,9 +656,17 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                   "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
                   sha256sum | awk '{print $1}'
               )"
+              candidate_storage_tail_hash="$(
+                printf '%s\\0%s\\0%s\\0%s' \
+                  "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
+                  sha256sum | awk '{print $1}'
+              )"
               docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
-                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
-                "$candidate_storage_hash" ||
+                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); if (digest === process.argv[1]) process.exit(0); const tail = createHash("sha256").update(values.slice(1).join("\\0")).digest("hex"); process.exit(values[0] === "" && process.argv[2] === "minio" && tail === process.argv[3] ? 0 : 1)' \
+                "$candidate_storage_hash" "$storage_mode" "$candidate_storage_tail_hash" ||
                 { echo 'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' >&2; exit 1; }
             fi
             if [ "$storage_mode" = 'minio' ]; then
@@ -684,6 +700,9 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 true|false) ;;
                 *) echo 'FAIL_CLOSED object_backup: invalid validated path-style setting.' >&2; exit 1 ;;
               esac
+              # mc는 R2의 ListObjectsV2 metadata 미구현으로 mirror --preserve/diff가 실패한다(v0.6.133 build 192 실증).
+              # 이전 backend 이미지의 AWS SDK로 전수 다운로드하고 객체별 listed-size와 기록 바이트를 fail-closed로 대조한다.
+              [ -n "${PREV_TAG:-}" ] || { echo 'FAIL_CLOSED object_backup: managed backup requires a previous backend image.' >&2; exit 1; }
               docker run --rm \
                 --env SUBMISSION_FILE_S3_ACCESS_KEY_ID \
                 --env SUBMISSION_FILE_S3_SECRET_ACCESS_KEY \
@@ -692,8 +711,10 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 --env SUBMISSION_FILE_S3_BUCKET \
                 --env SUBMISSION_FILE_S3_FORCE_PATH_STYLE \
                 --volume "${object_backup_tmp}:/backup" \
-                minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc \
-                sh -eu -c 'case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in true) path=on ;; false) path=off ;; *) exit 1 ;; esac; mc alias set --path "$path" remote "$SUBMISSION_FILE_S3_ENDPOINT" "$SUBMISSION_FILE_S3_ACCESS_KEY_ID" "$SUBMISSION_FILE_S3_SECRET_ACCESS_KEY" >/dev/null; mc mirror --preserve "remote/$SUBMISSION_FILE_S3_BUCKET" /backup; mc diff --json "remote/$SUBMISSION_FILE_S3_BUCKET" /backup > /tmp/oss-hub-object-backup.diff; test ! -s /tmp/oss-hub-object-backup.diff; rm -f /tmp/oss-hub-object-backup.diff'
+                --user "$(id -u):$(id -g)" \
+                --entrypoint node \
+                "oss-hub-backend:${PREV_TAG}" \
+                -e 'const { S3Client, ListObjectsV2Command, GetObjectCommand } = require("@aws-sdk/client-s3"); const { createWriteStream, mkdirSync, statSync } = require("node:fs"); const { dirname, join } = require("node:path"); const { pipeline } = require("node:stream/promises"); const client = new S3Client({ endpoint: process.env.SUBMISSION_FILE_S3_ENDPOINT, region: process.env.SUBMISSION_FILE_S3_REGION, forcePathStyle: process.env.SUBMISSION_FILE_S3_FORCE_PATH_STYLE === "true", credentials: { accessKeyId: process.env.SUBMISSION_FILE_S3_ACCESS_KEY_ID, secretAccessKey: process.env.SUBMISSION_FILE_S3_SECRET_ACCESS_KEY } }); (async () => { let token; let count = 0; const tokens = new Set(); do { if (token !== undefined) { if (tokens.has(token)) throw new Error("repeated list token"); tokens.add(token); } const page = await client.send(new ListObjectsV2Command({ Bucket: process.env.SUBMISSION_FILE_S3_BUCKET, ContinuationToken: token })); for (const object of page.Contents ?? []) { const key = object.Key; if (typeof key !== "string" || key === "" || key.startsWith("/") || key.split("/").includes("..")) throw new Error("unsafe object key"); const destination = join("/backup", key); mkdirSync(dirname(destination), { recursive: true }); const got = await client.send(new GetObjectCommand({ Bucket: process.env.SUBMISSION_FILE_S3_BUCKET, Key: key })); await pipeline(got.Body, createWriteStream(destination, { flags: "wx", mode: 0o600 })); if (statSync(destination).size !== Number(object.Size)) throw new Error("downloaded size mismatch"); count += 1; } token = page.IsTruncated ? page.NextContinuationToken : undefined; } while (token !== undefined); console.log("object-backup-downloaded=" + count); })().catch(() => { console.error("FAIL_CLOSED object_backup: managed download failed."); process.exit(1); });'
             else
               echo 'FAIL_CLOSED object_backup: validated storage mode is not usable.' >&2
               exit 1
@@ -740,14 +761,29 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
         expression { env.DEPLOY_NOOP != 'true' }
       }
       steps {
-        sh '''#!/usr/bin/env bash
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+        ]) {
+          sh '''#!/usr/bin/env bash
 set -euo pipefail
+set +x
+# 전환기 AWS frontend도 동일한 canonical same-origin rewrite 계약으로 빌드한다.
+# 값은 로그에 남기지 않고 유일 할당·HTTPS 스킴만 검사한다.
+frontend_url="$(awk -F= '$1=="FRONTEND_URL" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")" || {
+  echo 'FAIL_CLOSED image_build: FRONTEND_URL 할당이 유일하지 않습니다.' >&2
+  exit 1
+}
+case "$frontend_url" in
+  https://*) ;;
+  *) echo 'FAIL_CLOSED image_build: FRONTEND_URL must use https:// scheme.' >&2; exit 1 ;;
+esac
 # release-tag 이름 + OCI label(RELEASE_TAG, RELEASE_SHA). 이미지는 1회만 빌드.
 docker build \
   --file apps/frontend/Dockerfile \
   --tag "oss-hub-frontend:${IMAGE_TAG}" \
   --label "org.opencontainers.image.version=${RELEASE_TAG}" \
   --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
+  --build-arg BACKEND_ORIGIN="$frontend_url" \
   .
 docker build \
   --file apps/backend/Dockerfile \
@@ -756,6 +792,7 @@ docker build \
   --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
   .
 '''
+        }
       }
     }
 
@@ -869,7 +906,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 bash scripts/check-upload-body-runtime.sh \
                   https://54.116.116.174/api/v1/submission-files \
                   --retry 5 --retry-connrefused --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+                require_status 308 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
@@ -952,7 +989,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                     require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files
                     require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files
                     require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1
-                    require_status 200 GET https://54.116.116.174/ \
+                    require_status 308 GET https://54.116.116.174/ \
                       --resolve '54.116.116.174:443:127.0.0.1'
                     require_status 200 GET https://54.116.116.174/api/v1/health \
                       --resolve '54.116.116.174:443:127.0.0.1'
@@ -1082,7 +1119,7 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
           require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
           require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
           require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
-          require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+          require_status 308 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
           require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
@@ -1113,7 +1150,7 @@ case "$protection_state" in
   protected:v*)
     protection_active=true
     protected_rollback_image_tag=${protection_state#protected:}
-    [[ "$protected_rollback_image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    [[ "$protected_rollback_image_tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]] || {
       echo 'FAIL_CLOSED retention: invalid protected rollback image tag.' >&2
       exit 1
     }
