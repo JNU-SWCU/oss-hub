@@ -701,6 +701,20 @@ describe('SubmissionFilesService', () => {
     expect((error as Error).message).not.toContain('SUBMISSION_FILE_STORAGE');
   });
 
+  it('maps missing download storage objects to the established not-found error', async () => {
+    const { service, storage } = setup();
+    storage.get.mockRejectedValue(
+      new SubmissionFileStorageError(
+        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_NOT_FOUND,
+      ),
+    );
+
+    await expectCode(
+      service.download(123n, 'file-opaque'),
+      SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+    );
+  });
+
   it('falls back to octet-stream for unsafe stored content types', async () => {
     const { service, repository } = setup();
     repository.findDownloadableFile.mockResolvedValue({
