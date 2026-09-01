@@ -11,7 +11,7 @@ interface AdminAccessMutationRejectDialogProps {
   readonly onConfirm: () => void;
 }
 
-/** Reject is the only `/admin/access` action needing an extra reason field. */
+/** Reject is the only `/dashboard/users` action needing an extra reason field. */
 export function AdminAccessMutationRejectDialog({
   githubLogin,
   reason,

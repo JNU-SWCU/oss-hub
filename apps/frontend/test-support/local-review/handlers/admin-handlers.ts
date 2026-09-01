@@ -26,7 +26,7 @@ import {
  *
  * 사용자 목록(`users`)·역할 변경(`users/{id}/role`)·교직원 요청 판정
  * (`role-requests/{id}`) 응답도 여기 있었지만, 그 화면들이 관리자 접근
- * (`/admin/access`) 한 곳으로 합쳐지면서 경로 자체가 사라졌다. 새 화면이 읽는
+ * (`/dashboard/users`) 한 곳으로 합쳐지면서 경로 자체가 사라졌다. 새 화면이 읽는
  * `users/access` 계열은 한동안 비어 있었고, 그동안 로컬 검토에서는 목록도
  * 상세도 열리지 않았다 — 픽스처는 `admin-access-fixtures.ts`에 있다.
  *

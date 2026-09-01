@@ -9,7 +9,7 @@ import type {
 
 /**
  * Pure list-query state → `fetchAdminAccessList` params mapping for the
- * `/admin/access` read-only screen (PR04C). Extracted so filter/sort/page
+ * `/dashboard/users` read-only screen (PR04C). Extracted so filter/sort/page
  * transitions are testable without a DOM (this repo's Vitest environment is
  * `node`; see `admin-access-list.test.tsx`). PR04D promotes this same state
  * shape into URL query params — this module intentionally stays free of
@@ -53,15 +53,20 @@ export const APPLICANT_QUEUE_DEFAULT_FILTER_STATE: AdminAccessListFilterState =
 
 export type AccessWorkspace = 'directory' | 'queue';
 
+const ACCESS_DETAIL_BASE_PATHS = {
+  directory: '/dashboard/users',
+  queue: '/dashboard/applicants/users',
+} as const satisfies Record<AccessWorkspace, string>;
+
 export function accessListPath(workspace: AccessWorkspace): string {
-  return workspace === 'queue' ? '/dashboard/applicants' : '/admin/access';
+  return workspace === 'queue' ? '/dashboard/applicants' : '/dashboard/users';
 }
 
 export function accessDetailPath(
   workspace: AccessWorkspace,
   userId: string,
 ): string {
-  return `${accessListPath(workspace)}/users/${encodeURIComponent(userId)}`;
+  return `${ACCESS_DETAIL_BASE_PATHS[workspace]}/${encodeURIComponent(userId)}`;
 }
 
 export function buildAdminAccessListParams(

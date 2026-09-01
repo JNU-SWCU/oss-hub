@@ -72,7 +72,7 @@ function bodyOf<T>(plan: LocalReviewResponsePlan | null, status = 200): T {
 
 describe('admin local review handlers', () => {
   // 사용자 목록·역할 변경·교직원 요청 판정 테스트가 여기 있었지만, 그 화면들이
-  // 관리자 접근(`/admin/access`) 한 곳으로 합쳐지면서 경로와 타입이 함께
+  // 관리자 접근(`/dashboard/users`) 한 곳으로 합쳐지면서 경로와 타입이 함께
   // 사라졌다. 남은 두 경로만 검증한다.
   it('감사 로그는 배열로 오고 액션·기간 필터를 반영한다', () => {
     // Given / When
@@ -138,7 +138,7 @@ describe('admin local review handlers', () => {
 });
 
 /**
- * 관리자 접근(`/admin/access`) 픽스처 — QA7 회귀.
+ * 관리자 접근(`/dashboard/users`) 픽스처 — QA7 회귀.
  *
  * 이 경로들이 비어 있던 동안 로컬 검토에서는 상세를 직접 열면 항상 "관리자
  * 접근 상세를 불러오지 못했습니다"가 떴다. 기본 404(`LFX_404`)가 상세 화면의

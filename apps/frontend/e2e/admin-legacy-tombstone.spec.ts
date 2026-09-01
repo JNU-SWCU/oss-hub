@@ -1,7 +1,7 @@
 import { expect, test } from './admin-session.fixture';
 import { e2eEnvironment } from './environment';
 
-// PR04H — 관리자 접근 화면을 /admin/access 단일 작업공간으로 원자적으로 전환한
+// PR04H — 관리자 접근 화면을 /dashboard/users 단일 작업공간으로 원자적으로 전환한
 // 뒤, 레거시 화면·API가 리다이렉트 없이 순수 404로 사라졌는지 증명하는
 // tombstone E2E다. 이전에는 이 파일이 레거시 경로가 "여전히 동작함"을
 // 증명했지만(admin-legacy-compat.spec.ts), 전환 이후에는 그 반대 —
@@ -10,6 +10,22 @@ import { e2eEnvironment } from './environment';
 // 권한 문제(403)와 부재(404)를 구분하기 위해서다.
 
 test.describe('레거시 관리자 화면·API는 전환 이후 tombstone 상태다(PR04H)', () => {
+  test('구 /admin/access 화면은 리다이렉트 없이 404를 반환한다', async ({
+    adminPage,
+    expectAdminResourceStatusError,
+  }) => {
+    // Given: 충분한 권한이 있어도 역할이 드러나는 구 화면 주소는 사라졌다.
+    const requestedUrl = `${e2eEnvironment.baseUrl}/admin/access`;
+    expectAdminResourceStatusError(404);
+
+    // When: 관리자가 제거된 주소를 직접 연다.
+    const pageResponse = await adminPage.goto('/admin/access');
+
+    // Then: 새 주소로 보내지 않고 요청한 주소에서 404를 반환한다.
+    expect(pageResponse?.status()).toBe(404);
+    expect(adminPage.url()).toBe(requestedUrl);
+  });
+
   test('레거시 /admin/users 화면과 목록 API는 리다이렉트 없이 404를 반환한다', async ({
     adminPage,
     expectAdminResourceStatusError,

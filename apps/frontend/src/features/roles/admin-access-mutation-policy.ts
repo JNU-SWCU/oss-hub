@@ -11,7 +11,7 @@ import type {
 } from './admin-access-api';
 
 /**
- * Frontend policy for the `/admin/access` write surface. 이전에는 GRANT/REVOKE
+ * Frontend policy for the `/dashboard/users` write surface. 이전에는 GRANT/REVOKE
  * Authority changes use Task 8's independent staff/admin commands. The legacy
  * CAS resource remains only for request decisions and account status. Every
  * write is still validated by the backend.

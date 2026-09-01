@@ -52,3 +52,13 @@
 - Issue: #1033, #1035
 - PR: (이 PR)
 - blocker: 없음
+
+## 2026-09-01 — 접근 관리 화면 역할 비노출 경로 이전
+
+- 상태: review
+- Issue: #1038
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 접근 관리 화면과 상세 intercept 경로를 `/admin/access`에서 `/dashboard/users`로 옮기고, 메뉴·대시보드·local-review·브라우저 검증 경로를 같은 주소로 정렬했다. 구 역할 노출 주소에는 redirect를 남기지 않았다.
+- 검증: 프런트엔드 317개 파일·3177개 테스트와 별도 런타임 geometry 4개 테스트, 목록 클릭→상세 오버레이→새로고침 표준 상세 Playwright 1개, typecheck·lint·format·production build를 통과했다. lint 경고 5건은 기존 sidebar drawer 테스트의 경고이며 새 오류는 없다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

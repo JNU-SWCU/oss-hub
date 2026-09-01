@@ -37,7 +37,7 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Directory (`/admin/access`) and applicant queue (`/dashboard/applicants`)
+ * Directory (`/dashboard/users`) and applicant queue (`/dashboard/applicants`)
  * list screen. Filter/sort/page state lives in the URL's `searchParams` so
  * a refresh or a Back/Forward navigation reproduces the same screen — see
  * `admin-access-url-state.ts` for the parse/serialize contract. Sort is

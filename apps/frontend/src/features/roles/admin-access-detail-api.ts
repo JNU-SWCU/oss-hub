@@ -8,7 +8,7 @@ import {
 } from './independent-authority-api';
 
 /**
- * `/admin/access/users/[userId]` 직접 진입 상세(PR04E)의 fetch/파생 로직.
+ * `/dashboard/users/[userId]` 직접 진입 상세(PR04E)의 fetch/파생 로직.
  * `admin-access-api.ts`(PR04B)의 `fetchAdminAccessDetail`·`fetchAdminAccessHistory`를
  * 그대로 쓰고, 이 파일은 두 호출의 조합·404 판별·화면 전용 파생값(가드·
  * 페이지 수)만 더한다. `public-profile-api.ts`의 `loadPublicProfile` 404 판별

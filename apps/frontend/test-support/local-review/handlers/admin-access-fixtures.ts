@@ -6,7 +6,7 @@ import type {
 } from '@/features/roles/admin-access-api';
 
 /**
- * 관리자 접근(`/admin/access`) 화면의 로컬 검토 픽스처.
+ * 관리자 접근(`/dashboard/users`) 화면의 로컬 검토 픽스처.
  *
  * 이 화면은 예전의 사용자 목록·역할 변경·교직원 요청 판정이 하나로 합쳐진
  * 자리다(PR04C~04H). 합쳐지면서 API도 `users/access`·`users/{id}/access`·
@@ -25,7 +25,7 @@ import type {
 const SELF_ID = 'synthetic-admin-self';
 
 /**
- * 상세 화면의 대표 대상. `/admin/access/users/synthetic-admin-target` 주소를
+ * 상세 화면의 대표 대상. `/dashboard/users/synthetic-admin-target` 주소를
  * 직접 열어도 열려야 하는 사용자다 — 대기 중인 요청·반려 이력·로그인 이력을
  * 모두 갖고 있어 상세의 모든 구획이 비지 않는다.
  */

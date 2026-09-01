@@ -41,7 +41,7 @@ beforeEach(() => {
   document.body.append(container);
 
   triggerRow = document.createElement('a');
-  triggerRow.href = `/admin/access/users/${USER_ID}`;
+  triggerRow.href = `/dashboard/users/${USER_ID}`;
   triggerRow.textContent = '합성 교직원 후보';
   document.body.append(triggerRow);
   triggerRow.focus();
