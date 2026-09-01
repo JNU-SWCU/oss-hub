@@ -443,7 +443,7 @@ require_status_smoke_contract() {
     "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
-    "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
+    "require_status 308 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
     "require_status 404 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
@@ -459,7 +459,7 @@ require_status_smoke_contract() {
     'require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files'
     'require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files'
     'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1'
-    "require_status 200 GET https://54.116.116.174/ $tls_resolve"
+    "require_status 308 GET https://54.116.116.174/ $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $tls_resolve"
     "require_status 404 GET https://54.116.116.174/api/v1/submission-files $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $tls_resolve"
@@ -567,7 +567,7 @@ require_noop_nginx_drift_contract() {
     "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
-    "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
+    "require_status 308 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
     "require_status 404 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
@@ -790,12 +790,28 @@ check_v2() {
     'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' 1
   require_exact 'running probe and backup must bind active storage tuple to an opaque candidate hash' \
     'candidate_storage_hash="$(' 2
+  require_exact 'storage tuple printf delimiters must survive Groovy XML serialization' \
+    '%s\\0%s\\0%s\\0%s\\0%s' 2
+  require_exact 'storage tuple Node delimiters must survive Groovy XML serialization' \
+    '.join("\\0")' 2
+  require_exact 'pre-contract storage bootstrap must require empty running mode, minio candidate, and tail-hash parity' \
+    'process.exit(values[0] === "" && process.argv[2] === "minio" && tail === process.argv[3] ? 0 : 1)' 2
+  require_exact 'storage bootstrap must bind a candidate tail hash' \
+    'candidate_storage_tail_hash="$(' 2
+  require_exact 'frontend image build must inject the validated canonical rewrite origin' \
+    '--build-arg BACKEND_ORIGIN="$frontend_url" \' 1
   require_at_least 'running probe must reject tuple drift before no-op or recreation' \
     'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' 1
   require_at_least 'managed backup must use the configured S3 bucket' \
-    '"remote/$SUBMISSION_FILE_S3_BUCKET"' 1
-  require_exact 'configured endpoint backups must prove mirror parity without printing keys' \
-    'mc diff --json' 2
+    'Bucket: process.env.SUBMISSION_FILE_S3_BUCKET' 1
+  require_exact 'MinIO backups must prove mirror parity without printing keys' \
+    'mc diff --json' 1
+  require_exact 'managed backup must download through the previous backend image SDK' \
+    '--entrypoint node \' 1
+  require_exact 'managed backup must verify each downloaded object against its listed size' \
+    'statSync(destination).size !== Number(object.Size)' 1
+  require_exact 'managed backup must fail closed without a previous backend image' \
+    'FAIL_CLOSED object_backup: managed backup requires a previous backend image.' 1
   require_at_least 'managed backup must record only a planned restore drill prefix' \
     'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' 1
   require_at_least 'MinIO backup must use the disjoint rollback bucket' \
@@ -822,6 +838,8 @@ check_v2() {
     'retention_keep_tags+=("${protected_rollback_image_tag}")' 1
   require_exact 'success retention must keep the rollback image and skip protected backup pruning' \
     'if [ "$protection_active" = true ]; then' 2
+  require_exact 'protected rollback tag regex must avoid Groovy-invalid shell escapes' \
+    '[[ "$protected_rollback_image_tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]] || {' 1
   require_absent 'Jenkinsfile must not hard-code the former submission bucket' \
     'oss-hub-submission-files'
   if grep -Eq 'mc[[:space:]]+(rm|rb)|mc[[:space:]]+mirror[^[:cntrl:]]*--remove|rclone[[:space:]]+(delete|purge)' "$active_jenkinsfile"; then
