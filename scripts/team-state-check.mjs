@@ -9,7 +9,6 @@ import {
 } from './team-state-check-lib.mjs';
 
 const JOURNAL_DIRECTORY = 'docs/handoff/team-state';
-const ACTIVE_PLAN_DIRECTORY = 'docs/exec-plan/active';
 const COMMAND_TIMEOUT_MS = 30_000;
 
 function run(command, args) {
@@ -34,7 +33,6 @@ function repositoryName() {
 }
 
 function githubClient(repository) {
-  const [owner] = repository.split('/');
   const request = (endpoint) => JSON.parse(run('gh', ['api', endpoint]));
   return {
     async getIssue(number) {
@@ -49,18 +47,6 @@ function githubClient(repository) {
         mergedAt: pull.merged_at,
         base: pull.base.ref,
       };
-    },
-    async findPullsByHead(branch) {
-      const head = encodeURIComponent(`${owner}:${branch}`);
-      const pulls = request(
-        `repos/${repository}/pulls?state=all&head=${head}&sort=created&direction=desc&per_page=100`,
-      );
-      return pulls.map((pull) => ({
-        number: pull.number,
-        state: pull.state,
-        mergedAt: pull.merged_at,
-        base: pull.base.ref,
-      }));
     },
   };
 }
@@ -81,7 +67,6 @@ function loadMarkdownFiles(directory, sortNames) {
 async function main() {
   const result = await checkTeamStateDrift({
     journals: loadMarkdownFiles(JOURNAL_DIRECTORY, true),
-    activePlans: loadMarkdownFiles(ACTIVE_PLAN_DIRECTORY, false),
     github: githubClient(repositoryName()),
   });
   const report = formatReport(result);
