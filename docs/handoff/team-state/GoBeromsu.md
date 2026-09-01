@@ -1106,6 +1106,15 @@
 - 결과: final architect가 production green을 확인한 뒤 지적한 세 gap을 수정했다. Jenkins required CI에 surviving Node invariant test와 backend rollback helper test를 연결하고, 작은 checker에 serialization·main ancestry·env preflight·greenfield·managed backup integrity·no-op drift 등 unique fail-closed invariant를 복구했다. `deploy/nginx-local/**` 변경이 nginx syntax와 two-file local Compose 검증을 모두 선택하도록 path contract를 추가했다. Architecture·ADR·server/pre-deploy runbook에서 frontend build/root 200/MinIO rollback 현재형 지시를 backend-only·root 404·managed-only 계약으로 교체했다.
 - 검증: Jenkins Node 4/4·shell 9/9, rollback 14/14, CI path 8/8, pinned local nginx `nginx -t`, format·diff check 통과. Public HTTP 308은 curl network response로 재확인해 Chromium HSTS internal 307과 구분했다.
 
+## 2026-09-02 — G005 stage-scoped final gate를 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 재검토가 남긴 두 gap을 닫았다. Compact Jenkins checker가 stage section을 직접 잘라 production env preflight의 `when` 부재, no-op drift의 exact true gate, no-op stage mutation 부재를 검사하도록 했고 각 실패 모드에 counterfactual 하나씩만 추가했다. Server runbook M6/M7의 마지막 frontend build·root 200·deploy-time test 지시를 backend-only build·root 404·required CI 소유권으로 교체했다.
+- 검증: Jenkins shell 12/12·Node 4/4, CI path 8/8, diff check 통과.
+
 ## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
 
 - 상태: review

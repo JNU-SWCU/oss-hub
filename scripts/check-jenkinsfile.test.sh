@@ -90,6 +90,27 @@ expect_failure 'public TLS canonical redirect is required' "$fixture_dir/missing
 mutate_once missing-pruning 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 'true # SQL backup pruning removed'
 expect_failure 'backup pruning is required' "$fixture_dir/missing-pruning" 'SQL backup pruning must remain'
 
+mutate_once conditional-env-preflight \
+  "stage('운영 환경 사전 검증') {" \
+  "stage('운영 환경 사전 검증') { when { expression { false } }"
+expect_failure 'production env preflight is unconditional' \
+  "$fixture_dir/conditional-env-preflight" \
+  'production env preflight must not have a when gate'
+
+mutate_once inverted-noop-drift \
+  "expression { env.DEPLOY_NOOP == 'true' }" \
+  "expression { env.DEPLOY_NOOP != 'true' }"
+expect_failure 'no-op drift gate is exact' \
+  "$fixture_dir/inverted-noop-drift" \
+  'no-op drift must run only for DEPLOY_NOOP true'
+
+mutate_once mutating-noop-drift \
+  "stage('no-op 실행 중 nginx 드리프트 검증') {" \
+  "stage('no-op 실행 중 nginx 드리프트 검증') { sh 'docker compose up -d'"
+expect_failure 'no-op drift remains read-only' \
+  "$fixture_dir/mutating-noop-drift" \
+  'no-op drift stage must remain read-only'
+
 printf '1..%s\n' "$((passed + failed))"
 printf '# passed=%s failed=%s\n' "$passed" "$failed"
 ((failed == 0))
