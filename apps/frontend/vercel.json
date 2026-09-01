@@ -1,0 +1,27 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "routes": [
+    {
+      "src": "/api/v1/(.*)",
+      "continue": true,
+      "transforms": [
+        {
+          "type": "request.headers",
+          "op": "delete",
+          "target": {
+            "key": "authorization"
+          }
+        },
+        {
+          "type": "request.headers",
+          "op": "set",
+          "target": {
+            "key": "authorization"
+          },
+          "args": "$ORIGIN_BASIC_AUTH",
+          "env": ["ORIGIN_BASIC_AUTH"]
+        }
+      ]
+    }
+  ]
+}
