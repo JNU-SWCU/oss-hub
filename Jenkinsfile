@@ -277,7 +277,7 @@ read_storage_value() {
   awk -F= -v key="$1" '$1 == key { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE"
 }
 candidate_storage_hash="$(
-  printf '%s\0%s\0%s\0%s\0%s' \
+  printf '%s\\0%s\\0%s\\0%s\\0%s' \
     "$storage_mode" \
     "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
     "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
@@ -286,7 +286,7 @@ candidate_storage_hash="$(
     sha256sum | awk '{print $1}'
 )"
 docker exec "$be_running" \
-  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
+  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
   "$candidate_storage_hash" ||
   { echo 'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' >&2; exit 2; }
 
@@ -640,7 +640,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
             }
             if [ -n "${PREV_TAG:-}" ]; then
               candidate_storage_hash="$(
-                printf '%s\0%s\0%s\0%s\0%s' \
+                printf '%s\\0%s\\0%s\\0%s\\0%s' \
                   "$storage_mode" \
                   "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
                   "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
@@ -649,7 +649,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                   sha256sum | awk '{print $1}'
               )"
               docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
-                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
+                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const digest = createHash("sha256").update(keys.map((key) => process.env[key] ?? "").join("\\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
                 "$candidate_storage_hash" ||
                 { echo 'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' >&2; exit 1; }
             fi

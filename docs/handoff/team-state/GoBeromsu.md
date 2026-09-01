@@ -954,6 +954,15 @@
 - blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 stable-origin smoke를 다시 실행해야 한다.
 - 결과: Release `v0.6.125`가 retention shell regex의 Groovy-invalid escape 때문에 pipeline compilation에서 fail-closed된 원인을 확인했다. Literal dot을 bracket expression으로 바꾸고 mutation checker가 unsafe escape 회귀를 거부하게 했다. Custom production domain, DNS·TLS, Jenkins `FRONTEND_URL`과 GitHub OAuth callback 설정은 authenticated browser agent로 일치 검증했으며 storage는 MinIO 그대로다.
 - 검증: Jenkins contract와 mutation fixture 188건, diff check를 통과했다.
+
+## 2026-09-01 — Jenkins storage tuple 직렬화를 복구한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.126`은 pipeline compilation을 통과했지만 Groovy가 storage tuple delimiter의 single escape를 XML-invalid NUL byte로 직렬화해 `Start of Pipeline`에서 fail-closed됐다. Groovy source에서는 double escape를 사용하고 shell·Node runtime에서는 기존 NUL delimiter를 유지하도록 고쳤으며 checker가 unsafe serialization 회귀를 거부한다. Deployment와 object operation은 시작되지 않았고 storage는 MinIO 그대로다.
+- 검증: Jenkins contract와 mutation fixture 189건, diff check를 통과했다.
 ## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
 
 - 상태: review

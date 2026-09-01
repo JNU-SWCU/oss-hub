@@ -333,6 +333,16 @@ make_fixture "$v2_source" v2-missing-cutover-hold-guard \
 make_fixture "$v2_source" v2-groovy-unsafe-retention-tag-regex \
   'v\[0-9\]+\[.\]\[0-9\]+\[.\]\[0-9\]+' \
   'v[0-9]+\\.[0-9]+\\.[0-9]+'
+python3 - "$v2_source" "$fixture_dir/v2-xml-unsafe-storage-tuple-nul" <<'PYFIXTURE'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+unsafe = source.replace("\\\\0", "\\0", 1)
+if unsafe == source:
+    raise SystemExit("storage tuple NUL escape not replaced")
+Path(sys.argv[2]).write_text(unsafe)
+PYFIXTURE
 append_fixture "$v2_source" v2-hardcoded-stale-minio-bucket \
   'sh '\''echo oss-hub-submission-files'\'''
 append_fixture "$v2_source" v2-destructive-object-operation \
@@ -1589,6 +1599,7 @@ expect_fail 'v2: empty object backup manifest 검증 누락' v2 "$fixture_dir/v2
 expect_fail 'v2: retention protection validator 호출 누락' v2 "$fixture_dir/v2-missing-retention-protection-validator"
 expect_fail 'v2: cutover hold retention guard 누락' v2 "$fixture_dir/v2-missing-cutover-hold-guard"
 expect_fail 'v2: Groovy-unsafe retention tag regex 사용' v2 "$fixture_dir/v2-groovy-unsafe-retention-tag-regex"
+expect_fail 'v2: XML-unsafe storage tuple NUL escape 사용' v2 "$fixture_dir/v2-xml-unsafe-storage-tuple-nul"
 expect_fail 'v2: stale hard-coded MinIO bucket 추가' v2 "$fixture_dir/v2-hardcoded-stale-minio-bucket"
 expect_fail 'v2: destructive object operation 추가' v2 "$fixture_dir/v2-destructive-object-operation"
 expect_fail 'v2: Bash-only body without interpreter 추가' v2 "$fixture_dir/v2-bash-only-without-interpreter"
