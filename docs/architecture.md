@@ -28,7 +28,7 @@ docs/
 
 ## 현재 전환 상태
 
-checkpoint A는 완료됐다. 구매한 canonical HTTPS custom domain이 production frontend origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin으로 전환됐고 stable-origin SSR·OAuth·session·query·authz smoke가 통과했다. 프로덕션 제출 파일 저장소는 아직 MinIO이며 R2 cutover는 실행되지 않았다. AWS는 backend, PostgreSQL, API ingress를 계속 제공하고 기존 AWS frontend와 rollback 경로는 checkpoint B 전까지 보존한다. production frontend 빌드는 `apps/frontend/backend-origin.allowlist`의 SHA-256 digest allowlist에 있는 rewrite 대상만 허용한다.
+checkpoint A는 완료됐다. 구매한 canonical HTTPS custom domain이 production frontend origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin으로 전환됐고 stable-origin SSR·OAuth·session·query·authz smoke가 통과했다. 프로덕션 제출 파일 저장소는 private managed R2다(2026-09-02 stopped-writer cutover, SHA-256 parity). checkpoint B가 완료돼 공개 ingress는 API 전용이며 비API 경로는 canonical origin으로 308 redirect한다. AWS는 backend, PostgreSQL, API ingress를 계속 제공하고 MinIO service·volume과 legacy frontend 컨테이너는 72시간 hold 동안 rollback material로만 보존한다. production frontend 빌드는 `apps/frontend/backend-origin.allowlist`의 SHA-256 digest allowlist에 있는 rewrite 대상만 허용한다.
 
 ```mermaid
 flowchart LR
