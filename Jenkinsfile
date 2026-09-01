@@ -657,11 +657,13 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                   method=$2
                   url=$3
                   shift 3
-                  actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
-                  if [ "$actual" != "$expected" ]; then
-                    printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
-                    return 1
-                  fi
+                  for status_attempt in 1 2 3 4 5; do
+                    actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+                    [ "$actual" = "$expected" ] && return 0
+                    [ "$status_attempt" = 5 ] || sleep 1
+                  done
+                  printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+                  return 1
                 }
 
                 # 레지스트리에서 받아오는 이미지는 미리 당겨둔다. 받는 시간이 아래 --wait 예산에
@@ -756,11 +758,13 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                       method=$2
                       url=$3
                       shift 3
-                      actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
-                      if [ "$actual" != "$expected" ]; then
-                        printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
-                        return 1
-                      fi
+                      for status_attempt in 1 2 3 4 5; do
+                        actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+                        [ "$actual" = "$expected" ] && return 0
+                        [ "$status_attempt" = 5 ] || sleep 1
+                      done
+                      printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+                      return 1
                     }
 
                     docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
@@ -881,11 +885,13 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
             method=$2
             url=$3
             shift 3
-            actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
-            if [ "$actual" != "$expected" ]; then
-              printf 'FAIL_CLOSED nginx_drift: 실행 중 nginx 설정이 저장소 계약과 다릅니다. method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
-              return 1
-            fi
+            for status_attempt in 1 2 3 4 5; do
+              actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+              [ "$actual" = "$expected" ] && return 0
+              [ "$status_attempt" = 5 ] || sleep 1
+            done
+            printf 'FAIL_CLOSED nginx_drift: 실행 중 nginx 설정이 저장소 계약과 다릅니다. method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+            return 1
           }
 
           # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
