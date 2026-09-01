@@ -1088,6 +1088,15 @@
 - 결과: production Compose를 backend·PostgreSQL·API-only nginx로 줄이고 AWS frontend image/build/runtime/rollback identity를 제거했다. Local frontend·MinIO는 `compose.local.yml`과 별도 nginx config에 격리했다. Production env validator는 exact managed R2만 허용하고 rollback MinIO credential을 제거했으며, 완료된 migration·hold script와 CI wiring을 삭제했다. Jenkins checker는 1,400줄대·188 mutation fixture에서 약 120줄·9개 current-risk counterfactual로 줄였다. Backend test에서는 실제 UUID randomness와 tautological storageKey oracle을 제거하고 deadline·authorization 행을 독립화했다.
 - 검증: lint·typecheck·unit test 전수(backend 309 suites/3475 tests, frontend 319 files/3191 tests), approved synthetic origin build, Jenkins 9/9, production env 105/105, rollback 14/14, local Compose 15/15, CI path 6/6, host nginx 42/42, format/public-safe/diff check를 통과했다. Craft smell detector와 dead-path search를 실행해 production legacy token이 checker의 명시적 금지 목록 밖에 남지 않음을 확인했다.
 
+## 2026-09-02 — nginx reload 직후 smoke를 상태 수렴으로 판정한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `v0.6.138` build 197은 새 nginx config가 live file에 반영됐지만 reload 직후 old worker가 한 번 `/` 200을 반환해 exact 404 smoke가 실패했다. 현재 live root는 404·health는 200이다. Rollout·rollback·drift의 status assertion을 최대 5회, 1초 간격의 상태 기반 수렴으로 바꿨다. 연결 실패뿐 아니라 reload worker 전환 중 status mismatch도 bounded하게 재확인하고 끝까지 불일치하면 기존 진단으로 fail-closed한다.
+- 검증: Jenkins contract와 current-risk mutation 9/9, diff check 통과.
+
 ## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
 
 - 상태: review
