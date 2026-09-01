@@ -62,3 +62,15 @@
 - 내용: 접근 관리 화면과 상세 intercept 경로를 `/admin/access`에서 `/dashboard/users`로 옮기고, 메뉴·대시보드·local-review·브라우저 검증 경로를 같은 주소로 정렬했다. 구 역할 노출 주소에는 redirect를 남기지 않았다.
 - 검증: 프런트엔드 317개 파일·3177개 테스트와 별도 런타임 geometry 4개 테스트, 목록 클릭→상세 오버레이→새로고침 표준 상세 Playwright 1개, typecheck·lint·format·production build를 통과했다. lint 경고 5건은 기존 sidebar drawer 테스트의 경고이며 새 오류는 없다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-02 — 남은 시한폭탄 2건 제거
+
+- 상태: review
+- Issue: #1144
+- PR: (이 PR)
+- blocker: 없음
+- 내용: #1150 이 체크리스트 스펙을 고친 뒤에도 같은 유형이 두 파일에 남아 있었다. `milestone-document-files.service.spec.ts` 는 `service.upload` 를, `submissions.service.resubmission.spec.ts` 는 `service.resubmit` 를 각각 `now` 없이 불러 실시간으로 마감을 판정했다. 두 파일에 고정 시각 상수를 두고 호출부에 넘긴다. 마감 경계 자체를 보는 테스트(정확히 마감 시각, 마감 1ms 뒤, 마감 다음 날)는 자기 시각을 그대로 유지했다.
+- ⚠ 급했던 이유: upload 쪽 기본 `dueAt` 이 `2026-09-19T09:00:00Z` 라 **17일 뒤에 터질 예정이었다.** 2027년이 아니라 이번 달이다.
+- 검증: lint·typecheck 통과. backend 309 스위트·3472 테스트가 **현재 시각·2027-06-15·2031-03-09 세 시점 모두** 통과한다. 수정 전에는 2027 시점에서 6건이 실패했다.
+- 조사 방법: `Date` 를 감싸 오프셋을 주는 setup 파일 하나를 `jest --setupFiles` 로 넣으면 전수 조사가 된다. 날짜 목록을 하드코딩하지 않아 다음에도 그대로 쓸 수 있다. 방법은 #1144 에 적어 두었다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
