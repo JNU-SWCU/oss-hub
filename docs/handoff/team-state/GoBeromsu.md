@@ -1069,3 +1069,12 @@
 - blocker: 없음
 - 결과: PM이 PR #1058 본문을 "읽기 힘들다"고 지적했으나 스킬에는 증거 게이트만 있고 본문을 어떻게 쓰는지는 없었다. `## 증거 게이트`와 `## PR을 연다` 사이에 `## PR 본문 작성 원칙` 절을 추가했다: 요약은 구현 언어가 아닌 페르소나 언어로 쓰고, 검증 수치는 그것이 보장하는 사용자 행동과 함께 적고, 로컬 환경 잡음은 본문에서 빼되 실행 못 한 검증은 예외로 반드시 남기고, 중첩 불릿·클릭 가능한 파일 링크·정합된 섹션 번호를 쓰고, 미첨부 placeholder 주석을 금지한다. 완료 체크리스트에 두 항목을 추가하고 버전을 1.0.0 → 1.1.0으로 올렸다.
 - 검증: `npx prettier --check`(대상 두 파일), `pnpm format:check`, `bash scripts/check-public-safe.sh`(기준 `origin/main...HEAD`) 통과. docs-only 변경이라 Before/After 캡처·backend 다이어그램 게이트는 해당 없음.
+
+## 2026-09-02 — managed-only 배포에서 MinIO·cutover hold 경로를 제거한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: owner의 hold waiver 뒤 production storage 계약을 exact `managed` 하나로 줄였다. Compose의 MinIO service·bucket bootstrap·volume과 backend dependency, Jenkins의 MinIO mode/backup/bootstrap 분기, cutover hold retention state machine을 제거했다. Managed R2 SDK backup·pagination/size/manifest 검증, PostgreSQL, generic rollback, Vercel canonical origin, API/nginx smoke와 success-only pruning은 유지했다.
+- 검증: Jenkins contract 통과, synthetic mutation fixture 188건 통과, public-safe와 diff check 통과.
