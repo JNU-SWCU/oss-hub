@@ -310,6 +310,9 @@ make_fixture "$v2_source" v2-missing-managed-backup-entrypoint \
 make_fixture "$v2_source" v2-missing-managed-backup-size-verify \
   'statSync(destination).size !== Number(object.Size)' \
   'false'
+make_fixture "$v2_source" v2-missing-managed-backup-pagination-guard \
+  'throw new Error("missing continuation token")' \
+  'token = undefined'
 make_fixture "$v2_source" v2-missing-object-backup-parity \
   'mc diff --json' \
   'true # object backup parity removed'
@@ -1603,6 +1606,7 @@ expect_fail 'v2: managed object backup mode branch 누락' v2 "$fixture_dir/v2-m
 expect_fail 'v2: active managed mode agreement fail-closed 누락' v2 "$fixture_dir/v2-missing-managed-mode-agreement"
 expect_fail 'v2: managed backup SDK entrypoint 누락' v2 "$fixture_dir/v2-missing-managed-backup-entrypoint"
 expect_fail 'v2: managed backup size 대조 누락' v2 "$fixture_dir/v2-missing-managed-backup-size-verify"
+expect_fail 'v2: managed backup pagination guard 누락' v2 "$fixture_dir/v2-missing-managed-backup-pagination-guard"
 expect_fail 'v2: configured endpoint object backup parity 누락' v2 "$fixture_dir/v2-missing-object-backup-parity"
 expect_fail 'v2: active storage tuple hash 누락' v2 "$fixture_dir/v2-missing-storage-tuple-hash"
 expect_fail 'v2: running no-op storage tuple guard 누락' v2 "$fixture_dir/v2-missing-running-storage-tuple-guard"

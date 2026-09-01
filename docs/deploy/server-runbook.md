@@ -115,7 +115,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
 | `GITHUB_OPERATIONS_APP_ID` | 저장소 생성·설정 변경용 GitHub App 식별자 |
 | `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
-| `SUBMISSION_FILE_STORAGE_MODE` | exact `minio` 또는 `managed`; 현재 production은 `minio` |
+| `SUBMISSION_FILE_STORAGE_MODE` | exact `minio` 또는 `managed`; 현재 production은 `managed`(R2) |
 | `SUBMISSION_FILE_S3_*` | backend storage configuration. managed credential pair는 env file이 아니라 Jenkins username/password binding에서만 주입한다 |
 | `ROLLBACK_MINIO_*` | managed R2 activation 뒤 rollback MinIO 전용 credential. `SUBMISSION_FILE_S3_*` credential과 분리한다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
@@ -212,7 +212,7 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 
 ## M8. Managed R2 backup·restore 및 rollback gate
 
-현재 production 제출 파일 저장소는 MinIO이며 R2 cutover는 실행되지 않았다. 구현 진행 상태의 원본은 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이다. 이 절은 cutover 승인이나 완료 영수증이 아니다.
+현재 production 제출 파일 저장소는 private managed R2다(2026-09-02 cutover 완료, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). MinIO는 72시간 hold 동안 rollback material로만 보존한다.
 
 ### M8-A. credential과 mode gate
 

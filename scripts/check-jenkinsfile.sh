@@ -810,6 +810,8 @@ check_v2() {
     '--entrypoint node \' 1
   require_exact 'managed backup must verify each downloaded object against its listed size' \
     'statSync(destination).size !== Number(object.Size)' 1
+  require_exact 'managed backup must reject truncated listings without a continuation token' \
+    'throw new Error("missing continuation token")' 1
   require_exact 'managed backup must fail closed without a previous backend image' \
     'FAIL_CLOSED object_backup: managed backup requires a previous backend image.' 1
   require_at_least 'managed backup must record only a planned restore drill prefix' \

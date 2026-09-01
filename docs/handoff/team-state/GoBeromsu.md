@@ -1034,6 +1034,15 @@
 - 결과: `v0.6.135`(build 194)는 배포·컨테이너 health·nginx reload까지 성공했지만 외부 smoke가 legacy 기대(`GET / == 200`)라 새 API-only edge의 308에 fail-closed됐다. 배포·롤백·drift smoke 세 곳의 root 기대를 308로 바꾸고 checker 캐논도 정렬했다. /api/ 계열 기대(200/401/404)는 그대로다.
 - 검증: Jenkins contract ok, mutation fixture 193건 통과.
 
+## 2026-09-02 — VB001 aggregate blocker 두 건을 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: aggregate architect가 지적한 HIGH 두 건을 수정했다. (1) managed backup의 pagination이 truncated인데 continuation token이 없으면 성공 종료하던 fail-open을 migration tool과 같은 fail-closed로 바꾸고 checker·fixture를 결박했다. (2) canonical R2 readiness checklist를 실행 결과와 수용된 beta deviation으로 정합하고 architecture·ADR-002·runbook의 현재 상태 문구를 managed R2·API-only edge·활성 hold로 갱신했다.
+- 검증: Jenkins contract ok, mutation fixture 194건, public-safe, diff check 통과.
+
 ## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
 
 - 상태: review
