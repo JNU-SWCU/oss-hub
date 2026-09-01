@@ -1060,3 +1060,12 @@
 - blocker: 병합 뒤 새 Release로 managed backup 경로의 첫 green 수렴이 필요하다.
 - 결과: `v0.6.133`(build 192)에서 R2가 `ListObjectsV2` metadata 파라미터를 미구현이라 `mc mirror --preserve`/`mc diff`가 managed backup에서 항상 실패함을 실증했다. Managed backup을 이전 backend 이미지의 AWS SDK 전수 다운로드로 교체했다: pagination token 방어, zip-slip 키 검증, 객체별 listed-size 대조, `wx`/0600 기록, PREV 이미지 부재 시 fail-closed. 기존 manifest/receipt 파이프라인과 MinIO 분기는 그대로다.
 - 검증: Jenkins contract와 mutation fixture 193건, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — submit-pr-evidence에 PR 본문 작성 원칙을 추가한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: PM이 PR #1058 본문을 "읽기 힘들다"고 지적했으나 스킬에는 증거 게이트만 있고 본문을 어떻게 쓰는지는 없었다. `## 증거 게이트`와 `## PR을 연다` 사이에 `## PR 본문 작성 원칙` 절을 추가했다: 요약은 구현 언어가 아닌 페르소나 언어로 쓰고, 검증 수치는 그것이 보장하는 사용자 행동과 함께 적고, 로컬 환경 잡음은 본문에서 빼되 실행 못 한 검증은 예외로 반드시 남기고, 중첩 불릿·클릭 가능한 파일 링크·정합된 섹션 번호를 쓰고, 미첨부 placeholder 주석을 금지한다. 완료 체크리스트에 두 항목을 추가하고 버전을 1.0.0 → 1.1.0으로 올렸다.
+- 검증: `npx prettier --check`(대상 두 파일), `pnpm format:check`, `bash scripts/check-public-safe.sh`(기준 `origin/main...HEAD`) 통과. docs-only 변경이라 Before/After 캡처·backend 다이어그램 게이트는 해당 없음.
