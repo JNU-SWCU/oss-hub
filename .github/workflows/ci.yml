@@ -251,6 +251,8 @@ jobs:
 
       - name: frontend build
         if: ${{ steps.scope.outputs.frontend == 'true' }}
+        env:
+          BACKEND_ORIGIN: https://backend.example.test
         run: pnpm --filter frontend build
 
       - name: Prisma migration contract unit tests

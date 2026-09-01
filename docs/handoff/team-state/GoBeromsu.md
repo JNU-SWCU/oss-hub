@@ -918,3 +918,12 @@
 - blocker: 없음
 - 결과: 프로그램 상세 헤더의 모집 배지·설명 중복 방지 테스트가 실제 `Date.now()`에 기대 fixture 종료일 이후 실패하던 문제를 제거했다. 테스트 의도인 모집중 배지 위치를 유지하면서 `ProgramDetailPage states` 범위의 시각을 모집 기간 안으로 고정하고 각 테스트 뒤 실제 타이머로 복구한다. PR #1110의 접근 경로 변경과 섞지 않은 독립 변경이다.
 - 검증: `program-detail.test.tsx` 28/28, frontend typecheck·lint·build, 변경 파일 Prettier 검사를 통과했다.
+
+## 2026-09-01 — Vercel production API rewrite를 준비한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: Vercel checkpoint A의 provider-side 배포·OAuth/session smoke는 이 PR 병합 뒤 별도 실행한다.
+- 결과: production Next.js build가 `BACKEND_ORIGIN`의 canonical HTTPS origin을 필수로 검증하고 `/api/v1/:path*`를 같은 prefix의 AWS backend로 rewrite한다. credentials·path·query·fragment·HTTP 입력은 fail-closed로 거부하고 개발·local-review fixture 경로는 유지한다. CI build에는 합성 HTTPS origin만 주입한다.
+- 검증: `next.config.test.ts` 13/13, frontend production build·typecheck·lint(기존 warning 5건), 변경 파일 Prettier를 통과했다.
