@@ -443,7 +443,7 @@ require_status_smoke_contract() {
     "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
-    "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
+    "require_status 308 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
     "require_status 404 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
@@ -459,7 +459,7 @@ require_status_smoke_contract() {
     'require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files'
     'require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files'
     'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1'
-    "require_status 200 GET https://54.116.116.174/ $tls_resolve"
+    "require_status 308 GET https://54.116.116.174/ $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $tls_resolve"
     "require_status 404 GET https://54.116.116.174/api/v1/submission-files $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $tls_resolve"
@@ -567,7 +567,7 @@ require_noop_nginx_drift_contract() {
     "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
-    "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
+    "require_status 308 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
     "require_status 404 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
@@ -782,10 +782,8 @@ check_v2() {
     'export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"' 1
   require_exact 'every storage scope must clear inherited backend credential overrides before mode selection' \
     'unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY' 8
-  require_at_least 'object backup must branch on the validated storage mode' \
-    'storage_mode="$(awk -F=' 1
-  require_exact 'managed object backup must have an explicit mode branch' \
-    "elif [ \"\$storage_mode\" = 'managed' ]; then" 1
+  require_exact 'every storage scope must fail closed unless the validated mode is exactly managed' \
+    "[ \"\$storage_mode\" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }" 8
   require_at_least 'managed backup must fail closed on full active storage tuple disagreement' \
     'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' 1
   require_exact 'running probe and backup must bind active storage tuple to an opaque candidate hash' \
@@ -794,48 +792,37 @@ check_v2() {
     '%s\\0%s\\0%s\\0%s\\0%s' 2
   require_exact 'storage tuple Node delimiters must survive Groovy XML serialization' \
     '.join("\\0")' 2
-  require_exact 'pre-contract storage bootstrap must require empty running mode, minio candidate, and tail-hash parity' \
-    'process.exit(values[0] === "" && process.argv[2] === "minio" && tail === process.argv[3] ? 0 : 1)' 2
-  require_exact 'storage bootstrap must bind a candidate tail hash' \
-    'candidate_storage_tail_hash="$(' 2
+  require_exact 'running probe and backup must reject any active storage tuple mismatch' \
+    'process.exit(digest === process.argv[1] ? 0 : 1)' 2
   require_exact 'frontend image build must inject the validated canonical rewrite origin' \
     '--build-arg BACKEND_ORIGIN="$frontend_url" \' 1
   require_at_least 'running probe must reject tuple drift before no-op or recreation' \
     'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' 1
   require_at_least 'managed backup must use the configured S3 bucket' \
-    '"remote/$SUBMISSION_FILE_S3_BUCKET"' 1
-  require_exact 'configured endpoint backups must prove mirror parity without printing keys' \
-    'mc diff --json' 2
-  require_exact 'managed backup mc container must override the mc image entrypoint with a shell' \
-    '--entrypoint sh \' 1
+    'Bucket: process.env.SUBMISSION_FILE_S3_BUCKET' 1
+  require_exact 'managed backup must download through the previous backend image SDK' \
+    '--entrypoint node \' 1
+  require_exact 'managed backup must verify each downloaded object against its listed size' \
+    'statSync(destination).size !== Number(object.Size)' 1
+  require_exact 'managed backup must reject truncated listings without a continuation token' \
+    'throw new Error("missing continuation token")' 1
+  require_exact 'managed backup must fail closed without a previous backend image' \
+    'FAIL_CLOSED object_backup: managed backup requires a previous backend image.' 1
   require_at_least 'managed backup must record only a planned restore drill prefix' \
     'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' 1
-  require_at_least 'MinIO backup must use the disjoint rollback bucket' \
-    'rollback_minio_bucket="$(read_storage_value ROLLBACK_MINIO_BUCKET)"' 1
-  require_at_least 'MinIO rollback bucket must agree with the active application bucket' \
-    'FAIL_CLOSED object_backup: rollback MinIO bucket does not match active MinIO application bucket.' 1
   require_at_least 'object backup receipt must use a relative SHA-256 manifest' \
     'mv "$object_manifest_tmp" "${object_backup_tmp}/.manifest.sha256"' 1
   require_at_least 'final object backup must verify its manifest after placement' \
     'sha256sum -c .manifest.sha256 >/dev/null' 1
   require_at_least 'empty object backups must verify an explicit empty manifest' \
     'test ! -s .manifest.sha256' 1
-  require_exact 'cutover hold receipt path must be a pipeline constant' \
-    "R2_CUTOVER_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-hold'" 1
-  require_exact 'pre-hold protection path must be a distinct pipeline constant' \
-    "R2_CUTOVER_PRE_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-pre-hold'" 1
-  require_exact 'cutover cleanup approval path must be a separate pipeline constant' \
-    "R2_CUTOVER_CLEANUP_APPROVAL_FILE = '/var/lib/oss-hub/backups/r2-cutover-cleanup-approved'" 1
-  require_exact 'prebuild and success retention must call the canonical protection validator' \
-    'protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)' 2
-  require_exact 'both retention stages must accept only a validated protected tag or cleanup-allowed state' \
-    'protected:v*)' 2
-  require_exact 'success retention must keep the exact protected rollback image tag' \
-    'retention_keep_tags+=("${protected_rollback_image_tag}")' 1
-  require_exact 'success retention must keep the rollback image and skip protected backup pruning' \
-    'if [ "$protection_active" = true ]; then' 2
-  require_exact 'protected rollback tag regex must avoid Groovy-invalid shell escapes' \
-    '[[ "$protected_rollback_image_tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]] || {' 1
+  require_absent 'Jenkinsfile must not retain legacy object-storage deployment paths' 'minio'
+  require_absent 'Jenkinsfile must not retain legacy object-storage symbols' 'MinIO'
+  require_absent 'Jenkinsfile must not retain legacy rollback storage bindings' 'ROLLBACK_MINIO'
+  require_absent 'Jenkinsfile must not retain retired cutover retention paths' 'R2_CUTOVER'
+  require_absent 'Jenkinsfile must not retain candidate tuple bootstrap fallbacks' 'candidate_storage_tail_hash'
+  require_absent 'Jenkinsfile must not retain retired retention protection state' 'protection_state'
+  require_absent 'Jenkinsfile must not retain retired protected rollback state' 'protected_rollback'
   require_absent 'Jenkinsfile must not hard-code the former submission bucket' \
     'oss-hub-submission-files'
   if grep -Eq 'mc[[:space:]]+(rm|rb)|mc[[:space:]]+mirror[^[:cntrl:]]*--remove|rclone[[:space:]]+(delete|purge)' "$active_jenkinsfile"; then
@@ -1044,7 +1031,7 @@ check_v2() {
     "stage('Buildx 캐시 상한 사전 정리')" "expression { env.DEPLOY_NOOP != 'true' }"
   require_exact 'Buildx shared/internal cache prune는 배포 전·성공 후에 정확히 두 번이어야 함' \
     "$buildx_prune_command" 2
-  require_shell_stage_depth_exact 'Buildx shared/internal cache prune는 validated protection state 뒤 depth 0에 정확히 한 번 있어야 함' \
+  require_shell_stage_depth_exact 'Buildx shared/internal cache prune는 production mutation 전 depth 0에 정확히 한 번 있어야 함' \
     "$buildx_prebuild_stage" 0 "$buildx_prune_command"
   # HTTPS FRONTEND_URL preflight: scheme + exactly-one assignment rejection (order-independent)
   require_at_least 'FRONTEND_URL 사전 검증이 있어야 함' 'FRONTEND_URL' 1
@@ -1158,10 +1145,10 @@ check_v2() {
   require_exact 'backup cleanup은 같은 production pruner를 호출해야 함' \
     'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 1
   require_regex_at_least 'success-only image 삭제가 있어야 함' 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' 1
-  require_shell_stage_depth_exact 'BuildKit shared/internal cache prune는 protection validation 뒤 depth 0에 정확히 한 번 있어야 함' \
+  require_shell_stage_depth_exact 'BuildKit shared/internal cache prune는 success stage depth 0에 정확히 한 번 있어야 함' \
     '성공 후 이미지·백업 보존 정리' 0 "$buildx_prune_command"
-  require_shell_stage_depth_exact 'backup prune는 unprotected else depth 1에 있어야 함' \
-    '성공 후 이미지·백업 보존 정리' 1 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
+  require_shell_stage_depth_exact 'backup prune는 retired protection branch 밖의 depth 0에 있어야 함' \
+    '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
 
   # Docker image inventory must be status-checked into a file before iteration.
   # Reject unchecked process substitution / swallowed producer failure (empty → successful no-op).
@@ -1188,10 +1175,10 @@ check_v2() {
   require_single_image_tag_assignment
 
   local environment_line stages_line build_cache_line checkout_line preflight_stage_line preflight_line
-  local github_credentials_line key_install_line noop_probe_line buildx_preflight_line prebuild_protection_line buildx_prebuild_line https_line
+  local github_credentials_line key_install_line noop_probe_line buildx_preflight_line buildx_prebuild_line https_line
   local rollback_stage_line rollback_input_line rollback_call_line first_production_mutation_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
-  local hold_validation_line image_rm_line buildx_prune_line backup_prune_line retention_stage_line
+  local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
   local release_sha_binding_line # ci_status_call_line removed
   environment_line=$(line_of 'environment {')
   stages_line=$(line_of 'stages {')
@@ -1205,8 +1192,6 @@ check_v2() {
   noop_probe_line=$(line_of_regex 'ps[[:space:]]+-q[[:space:]]+frontend')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
-  prebuild_protection_line=$(line_of_shell_stage_depth_exact \
-    'Buildx 캐시 상한 사전 정리' 0 'protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)')
   buildx_prebuild_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 정리' 0 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
   https_line=$(line_of 'FRONTEND_URL')
@@ -1223,14 +1208,12 @@ check_v2() {
   noop_stage_line=$(line_of "stage('no-op 실행 중 nginx 드리프트 검증')")
   retention_line=$(line_of "BACKUP_RETENTION_N = '30'")
   retention_stage_line=$(line_of "stage('성공 후 이미지·백업 보존 정리')")
-  hold_validation_line=$(line_of_shell_stage_depth_exact \
-    '성공 후 이미지·백업 보존 정리' 0 'protection_state=$(bash scripts/jenkins/r2-retention-protection.sh)')
   image_rm_line=$(line_of_shell_stage_exact \
     '성공 후 이미지·백업 보존 정리' 'docker image rm "${repo}:${tag}"')
   buildx_prune_line=$(line_of_shell_stage_depth_exact \
     '성공 후 이미지·백업 보존 정리' 0 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
   backup_prune_line=$(line_of_shell_stage_depth_exact \
-    '성공 후 이미지·백업 보존 정리' 1 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
+    '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
   # bash 3.2 호환: declare -A 대신 변수명 배열 + ${!name} 간접 참조로 순회한다.
   local -a order_check_names=(
@@ -1238,12 +1221,12 @@ check_v2() {
     release_sha_binding_line
     checkout_line preflight_stage_line preflight_line
     github_credentials_line key_install_line noop_probe_line
-    buildx_preflight_line prebuild_protection_line buildx_prebuild_line https_line rollback_stage_line
+    buildx_preflight_line buildx_prebuild_line https_line rollback_stage_line
     rollback_input_line rollback_call_line backup_line
     first_production_mutation_line
     frontend_build_line backend_build_line migration_line
     rollout_line noop_stage_line retention_line retention_stage_line
-    hold_validation_line image_rm_line buildx_prune_line backup_prune_line
+    image_rm_line buildx_prune_line backup_prune_line
   )
   local order_check_name
   for order_check_name in "${order_check_names[@]}"; do
@@ -1271,8 +1254,7 @@ check_v2() {
     'checkout_line:<:buildx_preflight_line'
     'preflight_line:<:buildx_preflight_line'
     'noop_probe_line:<:buildx_preflight_line'
-    'buildx_preflight_line:<:prebuild_protection_line'
-    'prebuild_protection_line:<:buildx_prebuild_line'
+    'buildx_preflight_line:<:buildx_prebuild_line'
     'buildx_prebuild_line:<:first_production_mutation_line'
     'buildx_prebuild_line:<:frontend_build_line'
     'buildx_preflight_line:<:https_line'
@@ -1288,8 +1270,7 @@ check_v2() {
     'migration_line:<:rollout_line'
     'rollout_line:<:noop_stage_line'
     'noop_stage_line:<:retention_stage_line'
-    'retention_stage_line:<:hold_validation_line'
-    'hold_validation_line:<:image_rm_line'
+    'retention_stage_line:<:image_rm_line'
     'image_rm_line:<:buildx_prune_line'
     'buildx_prune_line:<:backup_prune_line'
   )

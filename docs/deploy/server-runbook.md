@@ -115,7 +115,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
 | `GITHUB_OPERATIONS_APP_ID` | 저장소 생성·설정 변경용 GitHub App 식별자 |
 | `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
-| `SUBMISSION_FILE_STORAGE_MODE` | exact `minio` 또는 `managed`; 현재 production은 `minio` |
+| `SUBMISSION_FILE_STORAGE_MODE` | exact `minio` 또는 `managed`; 현재 production은 `managed`(R2) |
 | `SUBMISSION_FILE_S3_*` | backend storage configuration. managed credential pair는 env file이 아니라 Jenkins username/password binding에서만 주입한다 |
 | `ROLLBACK_MINIO_*` | managed R2 activation 뒤 rollback MinIO 전용 credential. `SUBMISSION_FILE_S3_*` credential과 분리한다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
@@ -212,7 +212,7 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 
 ## M8. Managed R2 backup·restore 및 rollback gate
 
-현재 production 제출 파일 저장소는 MinIO이며 R2 cutover는 실행되지 않았다. 구현 진행 상태의 원본은 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이다. 이 절은 cutover 승인이나 완료 영수증이 아니다.
+현재 production 제출 파일 저장소는 private managed R2다(2026-09-02 cutover 완료, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). MinIO는 72시간 hold 동안 rollback material로만 보존한다.
 
 ### M8-A. credential과 mode gate
 
@@ -267,6 +267,24 @@ R2 activation 후 rollback은 반드시 다음 순서다.
 5. stable-origin smoke와 제출 파일 smoke를 실행한다.
 
 R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. `ROLLBACK_HOLD_START + 72h`는 cleanup eligibility일 뿐 authorization이 아니다. 별도 reviewed approval 전에 backup·rollback image pruning, MinIO service·volume·credential 삭제와 migration branch 제거를 실행하지 않는다. Final recovery verification과 approval receipt가 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
+
+### M8-E. checkpoint B public ingress 전환
+
+checkpoint B에서는 host nginx의 public catch-all이 Compose frontend를 proxy하지 않는다. GET과 HEAD는 canonical Vercel origin으로 308 redirect하고, 그 밖의 method는 빈 body의 404로 끝낸다. `/api/`, OAuth, deploy trigger와 loopback health/smoke 경로는 변경하지 않는다.
+
+sudo 권한이 있는 운영자가 이전 설정 백업을 보존한 상태에서 설정을 교체한 뒤, 참석 하에 아래 순서로 적용한다. `nginx -t`가 성공한 경우에만 reload한다.
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+문제가 있으면 직전 `oss-hub.conf` 백업을 복원하고 같은 문법 검사와 reload를 수행한다.
+
+```bash
+sudo cp /etc/nginx/conf.d/oss-hub.conf.bak-<timestamp> /etc/nginx/conf.d/oss-hub.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ## M9. 호스트 nginx 설정 반영
 
 호스트 nginx는 Compose가 아니라 시스템 서비스이고 Jenkins 계정에는 sudo가 없다.

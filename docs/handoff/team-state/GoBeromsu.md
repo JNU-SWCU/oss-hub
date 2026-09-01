@@ -1007,3 +1007,83 @@
 - blocker: 없음 — 병합 뒤 Release로 managed backup 경로가 처음 실행된다.
 - 결과: attended R2 cutover 중 동일 패턴을 실제 실행해 `minio/mc` 이미지의 entrypoint가 `mc`여서 `sh -eu -c ...` 인자가 오해석되는 잠재 결함을 확인했다. Jenkins managed object backup의 docker run에 `--entrypoint sh`를 명시하고 checker가 entrypoint 누락 회귀를 거부한다. 한편 cutover는 완료됐다: env는 managed R2 tuple, stopped-writer SDK copy-check(SHA-256 parity), backend v0.6.132 healthy, 그리고 8월 MinIO wipe로 잃어버렸던 ATTACHED 12개를 배포 백업에서 복구해 ATTACHED 53/53이 R2에 존재한다. 새 도메인은 apex·www·OAuth·API 전 경로 연결 완료다.
 - 검증: Jenkins contract와 mutation fixture 192건, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — checkpoint B: public ingress를 API 전용으로 좁힌다
+## 2026-09-02 — 결손 객체 조회를 404로 구분한다
+## 2026-09-02 — checklist 테스트의 wall-clock 의존을 제거한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 병합 뒤 host nginx에 attended 적용(`nginx -t` + reload)해야 다음 Release drift preflight가 통과한다.
+- 결과: canonical origin이 frontend를 서빙하므로 host nginx public catch-all이 legacy frontend로 proxy하던 것을 GET/HEAD 308 → canonical origin, 그 외 메서드 404로 바꿨다. /api/, OAuth 정확 경로, deploy trigger, rate-limit zone, loopback smoke block은 바이트 동일하다. runbook에 적용·롤백 절차를 추가했다.
+- 검증: diff가 catch-all block과 runbook 절에만 닿음을 확인했다.
+- blocker: 없음
+- 결과: 저장소 객체가 없는 제출 파일 GET이 500(SYS_001)으로 떨어지던 것을 provider not-found를 별도 storage 오류 코드로 구분해 표준 404 problem-detail로 반환하게 했다. 8월 MinIO wipe로 생겼던 결손은 백업에서 복구를 마쳤고(ATTACHED 53/53), 앞으로 남는 orphan은 사용자 재업로드 UI로 해소된다. 그 외 실패는 기존 500 경로 그대로다.
+- 검증: storage·service 집중 Jest 69건, backend typecheck·lint를 통과했다.
+- blocker: 없음 — 이 결함이 main의 required ci를 자정부터 깨뜨려 모든 PR을 막고 있었다.
+- 결과: `submissions.service.checklist.spec.ts`의 checklist 호출 7곳이 실제 시계를 사용해 dueAt 픽스처(2026-09-01T14:59:59Z)가 지나자 canResubmit 기대가 뒤집혔다. 모든 호출에 픽스처 유효 범위 내 고정 시각을 명시했다(G001과 동일 계열 수정).
+- 검증: 해당 spec 11/11 통과.
+
+## 2026-09-02 — 외부 root smoke를 checkpoint B 계약으로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음 — 병합 뒤 Release가 checkpoint B receipt다.
+- 결과: `v0.6.135`(build 194)는 배포·컨테이너 health·nginx reload까지 성공했지만 외부 smoke가 legacy 기대(`GET / == 200`)라 새 API-only edge의 308에 fail-closed됐다. 배포·롤백·drift smoke 세 곳의 root 기대를 308로 바꾸고 checker 캐논도 정렬했다. /api/ 계열 기대(200/401/404)는 그대로다.
+- 검증: Jenkins contract ok, mutation fixture 193건 통과.
+
+## 2026-09-02 — canonical 현재 상태 모순을 마저 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 재검토가 지적한 잔여 모순을 정리했다. readiness 배너·현재 확인 상태를 managed R2 현재형으로 다시 썼고, ADR-002의 "cutover 미실행" 문구를 완료 상태로, architecture 현재 상태 다이어그램의 storage 경로를 R2(+MinIO는 72h rollback material 표기)로 바꿨다.
+- 검증: Prettier, public-safe, diff check 통과.
+
+## 2026-09-02 — VB001 aggregate blocker 두 건을 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: aggregate architect가 지적한 HIGH 두 건을 수정했다. (1) managed backup의 pagination이 truncated인데 continuation token이 없으면 성공 종료하던 fail-open을 migration tool과 같은 fail-closed로 바꾸고 checker·fixture를 결박했다. (2) canonical R2 readiness checklist를 실행 결과와 수용된 beta deviation으로 정합하고 architecture·ADR-002·runbook의 현재 상태 문구를 managed R2·API-only edge·활성 hold로 갱신했다.
+- 검증: Jenkins contract ok, mutation fixture 194건, public-safe, diff check 통과.
+
+## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 병합 뒤 새 Release로 managed backup 경로의 첫 green 수렴이 필요하다.
+- 결과: `v0.6.133`(build 192)에서 R2가 `ListObjectsV2` metadata 파라미터를 미구현이라 `mc mirror --preserve`/`mc diff`가 managed backup에서 항상 실패함을 실증했다. Managed backup을 이전 backend 이미지의 AWS SDK 전수 다운로드로 교체했다: pagination token 방어, zip-slip 키 검증, 객체별 listed-size 대조, `wx`/0600 기록, PREV 이미지 부재 시 fail-closed. 기존 manifest/receipt 파이프라인과 MinIO 분기는 그대로다.
+- 검증: Jenkins contract와 mutation fixture 193건, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — submit-pr-evidence에 PR 본문 작성 원칙을 추가한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: PM이 PR #1058 본문을 "읽기 힘들다"고 지적했으나 스킬에는 증거 게이트만 있고 본문을 어떻게 쓰는지는 없었다. `## 증거 게이트`와 `## PR을 연다` 사이에 `## PR 본문 작성 원칙` 절을 추가했다: 요약은 구현 언어가 아닌 페르소나 언어로 쓰고, 검증 수치는 그것이 보장하는 사용자 행동과 함께 적고, 로컬 환경 잡음은 본문에서 빼되 실행 못 한 검증은 예외로 반드시 남기고, 중첩 불릿·클릭 가능한 파일 링크·정합된 섹션 번호를 쓰고, 미첨부 placeholder 주석을 금지한다. 완료 체크리스트에 두 항목을 추가하고 버전을 1.0.0 → 1.1.0으로 올렸다.
+- 검증: `npx prettier --check`(대상 두 파일), `pnpm format:check`, `bash scripts/check-public-safe.sh`(기준 `origin/main...HEAD`) 통과. docs-only 변경이라 Before/After 캡처·backend 다이어그램 게이트는 해당 없음.
+
+## 2026-09-02 — managed-only 배포에서 MinIO·cutover hold 경로를 제거한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: owner의 hold waiver 뒤 production storage 계약을 exact `managed` 하나로 줄였다. Compose의 MinIO service·bucket bootstrap·volume과 backend dependency, Jenkins의 MinIO mode/backup/bootstrap 분기, cutover hold retention state machine을 제거했다. Managed R2 SDK backup·pagination/size/manifest 검증, PostgreSQL, generic rollback, Vercel canonical origin, API/nginx smoke와 success-only pruning은 유지했다.
+- 검증: Jenkins contract 통과, synthetic mutation fixture 188건 통과, public-safe와 diff check 통과.
+
+## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: PM이 발행된 QA 티켓을 읽고 가독성 문제를 지적했다 — 제목이 지시가 아니라 증상 서술이었고, 파일 경로가 클릭할 수 없는 plain text였고, 근거·영향이 flat 불릿에 뭉쳐 있었고, 담당자가 아니라 티켓 작성자를 향한 프로세스 메타 문장이 본문에 남아 있었다. `notion-ticket-contract.md`에 지시문 제목 규칙(`## 제목`), 클릭 가능한 GitHub 링크 규칙, 한 불릿-한 사실 규칙, 본문에 넣지 않는 것 목록을 추가하고, 기능 결함 본문 템플릿의 `#### 최소 요구 (기능)`·`#### 완료 조건 (기능 검증)`·`#### 절대 금지 (이 티켓의 경계)`를 `#### 할 일`·`#### 하지 않을 것 (이 티켓의 경계)`·`#### 완료 조건` 순서로 바꾸고 템플릿의 인용 블록 보일러플레이트 2줄을 지웠다(UX 본문 템플릿은 같은 이름의 헤더가 없어 그대로 뒀다). `manage-qa-tickets`를 4.2.0 → 4.3.0으로, 새 이름을 파싱해야 하는 `submit-pr-evidence`를 옛 이름과 함께 받아들이도록 고치고 1.1.0 → 1.2.0으로 올렸다. PR #1156(같은 저널 파일을 먼저 고친 PR 본문 원칙 작업) 스택으로 열려던 브랜치였으나 fetch 시점에 #1156이 이미 main에 병합돼 있어 base를 `main`으로, PR을 Ready로 열었다.
+- 검증: `bash scripts/check-public-safe.sh`(기준 `origin/main...HEAD`), `pnpm format:check` 통과. docs-only 변경이라 Before/After 캡처·backend 다이어그램 게이트는 해당 없음.
