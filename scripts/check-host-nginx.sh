@@ -136,5 +136,174 @@ for marker, (methods, zone) in compose_paths.items():
 
 if compose.count('server {') != 2 or 'location /api/ {' in compose:
     fail('Compose must have exactly default/canonical servers and only /api/v1 ingress')
+
+# Text checks above keep diagnostics concise. This directive tree is the
+# authority: comments and multiline quoted values cannot impersonate active
+# security directives or their ancestry.
+class Node:
+    def __init__(self, name, args, children):
+        self.name = name
+        self.args = tuple(args)
+        self.children = children
+
+def tokenize(text):
+    tokens = []
+    current = []
+    quote = None
+    escaped = False
+    expect_delimiter = False
+
+    def flush():
+        nonlocal current
+        if current:
+            tokens.append(''.join(current))
+            current = []
+
+    for character in text:
+        if escaped:
+            current.append(character)
+            escaped = False
+            continue
+        if expect_delimiter:
+            if character.isspace() or character in '{};()':
+                expect_delimiter = False
+            else:
+                raise ValueError('adjacent quoted tokens without delimiter')
+        if quote is not None:
+            if character == '\\':
+                current.append(character)
+                escaped = True
+            elif character == quote:
+                tokens.append(''.join(current))
+                current = []
+                quote = None
+                expect_delimiter = True
+            else:
+                current.append(character)
+            continue
+        if character in ('"', "'"):
+            if current:
+                raise ValueError('quote adjacent to bare token')
+            quote = character
+        elif character in '{};':
+            flush()
+            tokens.append(character)
+        elif character.isspace():
+            flush()
+        else:
+            current.append(character)
+    if quote is not None or escaped:
+        raise ValueError('unterminated quote or escape')
+    flush()
+    return tokens
+
+def parse(tokens, index=0, nested=False):
+    nodes = []
+    words = []
+    while index < len(tokens):
+        token = tokens[index]
+        index += 1
+        if token == ';':
+            if not words:
+                raise ValueError('empty directive')
+            nodes.append(Node(words[0], words[1:], None))
+            words = []
+        elif token == '{':
+            if not words:
+                raise ValueError('anonymous block')
+            children, index = parse(tokens, index, True)
+            nodes.append(Node(words[0], words[1:], children))
+            words = []
+        elif token == '}':
+            if words or not nested:
+                raise ValueError('unexpected or unterminated closing brace')
+            return nodes, index
+        else:
+            words.append(token)
+    if nested or words:
+        raise ValueError('unclosed block or directive')
+    return nodes, index
+
+def tree(text):
+    try:
+        tokens = tokenize(text)
+        nodes, consumed = parse(tokens)
+    except ValueError as error:
+        fail(f'malformed nginx syntax: {error}')
+    if consumed != len(tokens):
+        fail('unconsumed nginx syntax')
+    return nodes
+
+def direct(nodes, name, args=None):
+    return [
+        node for node in nodes
+        if node.name == name and (args is None or node.args == tuple(args))
+    ]
+
+def one(nodes, name, args, label):
+    matches = direct(nodes, name, args)
+    if len(matches) != 1:
+        fail(f'effective directive mismatch for {label}')
+    return matches[0]
+
+def server_with_name(nodes, names, listen_args=None):
+    matches = []
+    for server in direct(nodes, 'server'):
+        children = server.children or []
+        if direct(children, 'server_name', names) and (
+            listen_args is None or direct(children, 'listen', listen_args)
+        ):
+            matches.append(server)
+    if len(matches) != 1:
+        fail(f'effective server mismatch for {" ".join(names)}')
+    return matches[0]
+
+host_tree = tree(host)
+compose_tree = tree(compose)
+origin_server = server_with_name(
+    host_tree,
+    ('origin.jnu-oss-hub.com',),
+    ('443', 'ssl'),
+)
+origin_children = origin_server.children or []
+one(origin_children, 'auth_basic_user_file', ('/etc/nginx/oss-hub-origin.htpasswd',), 'origin auth file')
+one(origin_children, 'listen', ('443', 'ssl'), 'origin TLS listener')
+
+host_effective = {
+    ('=', '/api/v1/auth/github'): ('GET',),
+    ('=', '/api/v1/auth/github/callback'): ('GET',),
+    ('=', '/api/v1/admin/collection/trigger'): ('POST',),
+    ('=', '/api/v1/admin/collection/discover-external'): ('POST',),
+    ('/api/v1/',): ('GET', 'HEAD', 'POST', 'PATCH', 'DELETE'),
+}
+for location_args, methods in host_effective.items():
+    location = one(origin_children, 'location', location_args, f'host location {location_args}')
+    children = location.children or []
+    guard = one(children, 'limit_except', methods, f'host methods {location_args}')
+    one(guard.children or [], 'deny', ('all',), f'host deny {location_args}')
+    one(children, 'proxy_set_header', ('Authorization', ''), f'host credential strip {location_args}')
+    one(children, 'proxy_set_header', ('X-Vercel-Forwarded-For', '$http_x_vercel_forwarded_for'), f'host client identity {location_args}')
+
+compose_server = server_with_name(
+    compose_tree,
+    ('jnu-oss-hub.com', 'localhost', '127.0.0.1', '[::1]'),
+)
+compose_children = compose_server.children or []
+compose_effective = {
+    ('=', '/api/v1/auth/github'): (('GET',), 'oauth'),
+    ('=', '/api/v1/auth/github/callback'): (('GET',), 'oauth'),
+    ('=', '/api/v1/admin/collection/trigger'): (('POST',), 'admin_collection'),
+    ('=', '/api/v1/admin/collection/discover-external'): (('POST',), 'admin_collection'),
+    ('/api/v1/',): (('GET', 'HEAD', 'POST', 'PATCH', 'DELETE'), 'api'),
+}
+for location_args, (methods, zone) in compose_effective.items():
+    location = one(compose_children, 'location', location_args, f'Compose location {location_args}')
+    children = location.children or []
+    guard = one(children, 'limit_except', methods, f'Compose methods {location_args}')
+    one(guard.children or [], 'deny', ('all',), f'Compose deny {location_args}')
+    one(children, 'limit_req', (f'zone={zone}', 'burst=5' if zone == 'oauth' else 'burst=1' if zone == 'admin_collection' else 'burst=30', 'nodelay'), f'Compose rate {location_args}')
+    one(children, 'proxy_set_header', ('Authorization', ''), f'Compose credential strip {location_args}')
+    one(children, 'proxy_set_header', ('X-Vercel-Forwarded-For', ''), f'Compose client strip {location_args}')
+
 print('host nginx contract: ok')
 PY

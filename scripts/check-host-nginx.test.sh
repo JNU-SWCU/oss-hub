@@ -40,6 +40,11 @@ expect_fail 'requires host forwarding Vercel identity to Compose' "$fixture_dir/
 mutate "$host_source" "$fixture_dir/commented-auth" 'auth_basic_user_file /etc/nginx/oss-hub-origin.htpasswd;' '# auth_basic_user_file /etc/nginx/oss-hub-origin.htpasswd;'
 expect_fail 'commented origin auth does not satisfy contract' "$fixture_dir/commented-auth" "$compose_source"
 
+mutate "$host_source" "$fixture_dir/quoted-fake-auth" 'auth_basic_user_file /etc/nginx/oss-hub-origin.htpasswd;' 'add_header X-Fake "first-line
+auth_basic_user_file /etc/nginx/oss-hub-origin.htpasswd;
+last-line" always;'
+expect_fail 'quoted fake auth does not satisfy contract' "$fixture_dir/quoted-fake-auth" "$compose_source"
+
 mutate "$host_source" "$fixture_dir/oauth-post" 'limit_except GET { deny all; }' 'limit_except GET POST { deny all; }'
 expect_fail 'rejects OAuth POST at host' "$fixture_dir/oauth-post" "$compose_source"
 
