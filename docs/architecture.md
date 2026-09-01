@@ -36,7 +36,8 @@ flowchart LR
   Vercel -- same-origin /api/v1 rewrite --> Ingress[AWS API ingress]
   Ingress --> Back[backend]
   Back --> Postgres[(postgres / pgdata)]
-  Back --> Minio[(minio / minio_data)]
+  Back --> R2[(managed R2)]
+  Minio[(minio / minio_data — 72h rollback material)]
 ```
 
 ## 목표 상태

@@ -14,7 +14,7 @@ refines: []
 
 Accepted
 
-> 운영 job은 main의 root `Jenkinsfile` 하나를 읽고, 파라미터 없이 latest full Release를 배포한다. storage cutover는 별도 운영 변경이며, 현재 production 제출 파일 저장소는 MinIO이고 R2 cutover는 실행되지 않았다.
+> 운영 job은 main의 root `Jenkinsfile` 하나를 읽고, 파라미터 없이 latest full Release를 배포한다. storage cutover는 별도 운영 변경으로 2026-09-02 완료됐다. 현재 production 제출 파일 저장소는 private managed R2이고 MinIO는 72시간 hold 동안 rollback material로만 남는다.
 
 ## Date
 
