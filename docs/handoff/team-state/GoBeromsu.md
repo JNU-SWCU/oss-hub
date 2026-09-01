@@ -1025,6 +1025,15 @@
 - 결과: `submissions.service.checklist.spec.ts`의 checklist 호출 7곳이 실제 시계를 사용해 dueAt 픽스처(2026-09-01T14:59:59Z)가 지나자 canResubmit 기대가 뒤집혔다. 모든 호출에 픽스처 유효 범위 내 고정 시각을 명시했다(G001과 동일 계열 수정).
 - 검증: 해당 spec 11/11 통과.
 
+## 2026-09-02 — 외부 root smoke를 checkpoint B 계약으로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음 — 병합 뒤 Release가 checkpoint B receipt다.
+- 결과: `v0.6.135`(build 194)는 배포·컨테이너 health·nginx reload까지 성공했지만 외부 smoke가 legacy 기대(`GET / == 200`)라 새 API-only edge의 308에 fail-closed됐다. 배포·롤백·drift smoke 세 곳의 root 기대를 308로 바꾸고 checker 캐논도 정렬했다. /api/ 계열 기대(200/401/404)는 그대로다.
+- 검증: Jenkins contract ok, mutation fixture 193건 통과.
+
 ## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
 
 - 상태: review

@@ -906,7 +906,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 bash scripts/check-upload-body-runtime.sh \
                   https://54.116.116.174/api/v1/submission-files \
                   --retry 5 --retry-connrefused --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+                require_status 308 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
@@ -989,7 +989,7 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                     require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files
                     require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files
                     require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1
-                    require_status 200 GET https://54.116.116.174/ \
+                    require_status 308 GET https://54.116.116.174/ \
                       --resolve '54.116.116.174:443:127.0.0.1'
                     require_status 200 GET https://54.116.116.174/api/v1/health \
                       --resolve '54.116.116.174:443:127.0.0.1'
@@ -1119,7 +1119,7 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
           require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
           require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
           require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
-          require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+          require_status 308 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
           require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
