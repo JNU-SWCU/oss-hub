@@ -331,7 +331,7 @@ make_fixture "$v2_source" v2-missing-cutover-hold-guard \
   'if \[ "$protection_active" = true \]; then' \
   'if false; then'
 make_fixture "$v2_source" v2-widened-storage-bootstrap \
-  'values.every((value) => value === "") \&\& process.argv\[2\] === "minio"' \
+  'values\[0\] === "" \&\& process.argv\[2\] === "minio" \&\& tail === process.argv\[3\]' \
   'true'
 make_fixture "$v2_source" v2-groovy-unsafe-retention-tag-regex \
   'v\[0-9\]+\[.\]\[0-9\]+\[.\]\[0-9\]+' \

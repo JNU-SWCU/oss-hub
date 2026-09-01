@@ -970,7 +970,7 @@
 - Issue: #1113
 - PR: (이 PR)
 - blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
-- 결과: Release `v0.6.128`은 env preflight를 통과했지만 실행 중 backend가 storage 계약 이전 revision이라 다섯 키가 모두 unset이어서 `running_storage_tuple` drift guard에 fail-closed됐다. 실행 중 tuple이 완전무(five-key unset)이고 candidate mode가 정확히 `minio`일 때만 허용하는 일회성 bootstrap을 추가했다. 부분 설정·managed 후보·기존 값 drift는 여전히 fail-closed이며 checker가 bootstrap 확장 회귀를 거부한다.
+- 결과: Release `v0.6.128`은 env preflight를 통과했지만 실행 중 backend가 storage 계약 이전 revision이라 `running_storage_tuple` drift guard에 fail-closed됐다. 실행 중 mode가 비어 있고 candidate mode가 정확히 `minio`이며 나머지 네 키의 tail hash가 candidate와 일치할 때만 허용하는 일회성 bootstrap을 추가했다(`v0.6.129`는 완전무 조건만 허용해 여전히 차단됨을 확인). 부분 drift·managed 후보·값 변경은 여전히 fail-closed이며 checker가 bootstrap 확장 회귀를 거부한다.
 - 검증: Jenkins contract와 mutation fixture 190건, diff check를 통과했다.
 ## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
 

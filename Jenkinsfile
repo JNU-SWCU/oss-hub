@@ -285,9 +285,17 @@ candidate_storage_hash="$(
     "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
     sha256sum | awk '{print $1}'
 )"
+candidate_storage_tail_hash="$(
+  printf '%s\\0%s\\0%s\\0%s' \
+    "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
+    "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
+    sha256sum | awk '{print $1}'
+)"
 docker exec "$be_running" \
-  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); if (values.every((value) => value === "") && process.argv[2] === "minio") process.exit(0); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
-  "$candidate_storage_hash" "$storage_mode" ||
+  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); if (digest === process.argv[1]) process.exit(0); const tail = createHash("sha256").update(values.slice(1).join("\\0")).digest("hex"); process.exit(values[0] === "" && process.argv[2] === "minio" && tail === process.argv[3] ? 0 : 1)' \
+  "$candidate_storage_hash" "$storage_mode" "$candidate_storage_tail_hash" ||
   { echo 'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' >&2; exit 2; }
 
 # 여기까지 오면 양쪽 모두 실행 중 — no-op 권위는 완전 증명된 metadata에만 부여.
@@ -648,9 +656,17 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                   "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
                   sha256sum | awk '{print $1}'
               )"
+              candidate_storage_tail_hash="$(
+                printf '%s\\0%s\\0%s\\0%s' \
+                  "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
+                  "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
+                  sha256sum | awk '{print $1}'
+              )"
               docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
-                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); if (values.every((value) => value === "") && process.argv[2] === "minio") process.exit(0); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
-                "$candidate_storage_hash" "$storage_mode" ||
+                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); if (digest === process.argv[1]) process.exit(0); const tail = createHash("sha256").update(values.slice(1).join("\\0")).digest("hex"); process.exit(values[0] === "" && process.argv[2] === "minio" && tail === process.argv[3] ? 0 : 1)' \
+                "$candidate_storage_hash" "$storage_mode" "$candidate_storage_tail_hash" ||
                 { echo 'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' >&2; exit 1; }
             fi
             if [ "$storage_mode" = 'minio' ]; then
