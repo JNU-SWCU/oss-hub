@@ -756,14 +756,29 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
         expression { env.DEPLOY_NOOP != 'true' }
       }
       steps {
-        sh '''#!/usr/bin/env bash
+        withCredentials([
+          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+        ]) {
+          sh '''#!/usr/bin/env bash
 set -euo pipefail
+set +x
+# 전환기 AWS frontend도 동일한 canonical same-origin rewrite 계약으로 빌드한다.
+# 값은 로그에 남기지 않고 유일 할당·HTTPS 스킴만 검사한다.
+frontend_url="$(awk -F= '$1=="FRONTEND_URL" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")" || {
+  echo 'FAIL_CLOSED image_build: FRONTEND_URL 할당이 유일하지 않습니다.' >&2
+  exit 1
+}
+case "$frontend_url" in
+  https://*) ;;
+  *) echo 'FAIL_CLOSED image_build: FRONTEND_URL must use https:// scheme.' >&2; exit 1 ;;
+esac
 # release-tag 이름 + OCI label(RELEASE_TAG, RELEASE_SHA). 이미지는 1회만 빌드.
 docker build \
   --file apps/frontend/Dockerfile \
   --tag "oss-hub-frontend:${IMAGE_TAG}" \
   --label "org.opencontainers.image.version=${RELEASE_TAG}" \
   --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
+  --build-arg BACKEND_ORIGIN="$frontend_url" \
   .
 docker build \
   --file apps/backend/Dockerfile \
@@ -772,6 +787,7 @@ docker build \
   --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
   .
 '''
+        }
       }
     }
 

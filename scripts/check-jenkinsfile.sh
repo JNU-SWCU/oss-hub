@@ -798,6 +798,8 @@ check_v2() {
     'process.exit(values[0] === "" && process.argv[2] === "minio" && tail === process.argv[3] ? 0 : 1)' 2
   require_exact 'storage bootstrap must bind a candidate tail hash' \
     'candidate_storage_tail_hash="$(' 2
+  require_exact 'frontend image build must inject the validated canonical rewrite origin' \
+    '--build-arg BACKEND_ORIGIN="$frontend_url" \' 1
   require_at_least 'running probe must reject tuple drift before no-op or recreation' \
     'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' 1
   require_at_least 'managed backup must use the configured S3 bucket' \
