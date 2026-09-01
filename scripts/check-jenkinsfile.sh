@@ -803,11 +803,15 @@ check_v2() {
   require_at_least 'running probe must reject tuple drift before no-op or recreation' \
     'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' 1
   require_at_least 'managed backup must use the configured S3 bucket' \
-    '"remote/$SUBMISSION_FILE_S3_BUCKET"' 1
-  require_exact 'configured endpoint backups must prove mirror parity without printing keys' \
-    'mc diff --json' 2
-  require_exact 'managed backup mc container must override the mc image entrypoint with a shell' \
-    '--entrypoint sh \' 1
+    'Bucket: process.env.SUBMISSION_FILE_S3_BUCKET' 1
+  require_exact 'MinIO backups must prove mirror parity without printing keys' \
+    'mc diff --json' 1
+  require_exact 'managed backup must download through the previous backend image SDK' \
+    '--entrypoint node \' 1
+  require_exact 'managed backup must verify each downloaded object against its listed size' \
+    'statSync(destination).size !== Number(object.Size)' 1
+  require_exact 'managed backup must fail closed without a previous backend image' \
+    'FAIL_CLOSED object_backup: managed backup requires a previous backend image.' 1
   require_at_least 'managed backup must record only a planned restore drill prefix' \
     'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' 1
   require_at_least 'MinIO backup must use the disjoint rollback bucket' \

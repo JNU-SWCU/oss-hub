@@ -122,7 +122,7 @@ cp "$v2_source" "$fixture_dir/v2-valid"
 expect_pass 'v2: mode-aware object backup contract is present' v2 "$fixture_dir/v2-valid"
 if grep -Fq "credentialsId: 'oss-hub-r2-s3-credentials'" "$v2_source" && \
    grep -Fq 'storage_mode="$(awk -F=' "$v2_source" && \
-   grep -Fq '"remote/$SUBMISSION_FILE_S3_BUCKET"' "$v2_source" && \
+   grep -Fq 'Bucket: process.env.SUBMISSION_FILE_S3_BUCKET' "$v2_source" && \
    grep -Fq 'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' "$v2_source" && \
    ! grep -Fq 'oss-hub-submission-files' "$v2_source"; then
   printf 'ok - v2: managed backup credential/mode/receipt paths\n'
@@ -305,8 +305,11 @@ make_fixture "$v2_source" v2-missing-managed-mode-agreement \
   'active backend storage tuple disagrees with validated configuration.' \
   'active backend tuple check removed.'
 make_fixture "$v2_source" v2-missing-managed-backup-entrypoint \
-  '--entrypoint sh \\' \
+  '--entrypoint node \\' \
   '--entrypoint mc \\'
+make_fixture "$v2_source" v2-missing-managed-backup-size-verify \
+  'statSync(destination).size !== Number(object.Size)' \
+  'false'
 make_fixture "$v2_source" v2-missing-object-backup-parity \
   'mc diff --json' \
   'true # object backup parity removed'
@@ -1598,7 +1601,8 @@ expect_fail 'v2: managed R2 direct backend-contract credential binding' v2 "$fix
 expect_fail 'v2: inherited storage credential clear 누락' v2 "$fixture_dir/v2-missing-inherited-storage-credential-clear"
 expect_fail 'v2: managed object backup mode branch 누락' v2 "$fixture_dir/v2-missing-managed-mode-guard"
 expect_fail 'v2: active managed mode agreement fail-closed 누락' v2 "$fixture_dir/v2-missing-managed-mode-agreement"
-expect_fail 'v2: managed backup mc entrypoint 누락' v2 "$fixture_dir/v2-missing-managed-backup-entrypoint"
+expect_fail 'v2: managed backup SDK entrypoint 누락' v2 "$fixture_dir/v2-missing-managed-backup-entrypoint"
+expect_fail 'v2: managed backup size 대조 누락' v2 "$fixture_dir/v2-missing-managed-backup-size-verify"
 expect_fail 'v2: configured endpoint object backup parity 누락' v2 "$fixture_dir/v2-missing-object-backup-parity"
 expect_fail 'v2: active storage tuple hash 누락' v2 "$fixture_dir/v2-missing-storage-tuple-hash"
 expect_fail 'v2: running no-op storage tuple guard 누락' v2 "$fixture_dir/v2-missing-running-storage-tuple-guard"

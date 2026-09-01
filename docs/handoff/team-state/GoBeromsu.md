@@ -1007,3 +1007,12 @@
 - blocker: 없음 — 병합 뒤 Release로 managed backup 경로가 처음 실행된다.
 - 결과: attended R2 cutover 중 동일 패턴을 실제 실행해 `minio/mc` 이미지의 entrypoint가 `mc`여서 `sh -eu -c ...` 인자가 오해석되는 잠재 결함을 확인했다. Jenkins managed object backup의 docker run에 `--entrypoint sh`를 명시하고 checker가 entrypoint 누락 회귀를 거부한다. 한편 cutover는 완료됐다: env는 managed R2 tuple, stopped-writer SDK copy-check(SHA-256 parity), backend v0.6.132 healthy, 그리고 8월 MinIO wipe로 잃어버렸던 ATTACHED 12개를 배포 백업에서 복구해 ATTACHED 53/53이 R2에 존재한다. 새 도메인은 apex·www·OAuth·API 전 경로 연결 완료다.
 - 검증: Jenkins contract와 mutation fixture 192건, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 병합 뒤 새 Release로 managed backup 경로의 첫 green 수렴이 필요하다.
+- 결과: `v0.6.133`(build 192)에서 R2가 `ListObjectsV2` metadata 파라미터를 미구현이라 `mc mirror --preserve`/`mc diff`가 managed backup에서 항상 실패함을 실증했다. Managed backup을 이전 backend 이미지의 AWS SDK 전수 다운로드로 교체했다: pagination token 방어, zip-slip 키 검증, 객체별 listed-size 대조, `wx`/0600 기록, PREV 이미지 부재 시 fail-closed. 기존 manifest/receipt 파이프라인과 MinIO 분기는 그대로다.
+- 검증: Jenkins contract와 mutation fixture 193건, public-safe, diff check를 통과했다.
