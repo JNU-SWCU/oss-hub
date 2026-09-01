@@ -16,6 +16,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 FROM dependencies AS builder
 
+# production next.config가 검증하는 HTTPS same-origin rewrite 대상. 값 자체는 비밀이 아니지만 빌드 호출자가 명시적으로 주입해야 한다.
+ARG BACKEND_ORIGIN
+ENV BACKEND_ORIGIN=$BACKEND_ORIGIN
+
 COPY apps/frontend apps/frontend
 
 RUN pnpm --filter frontend build

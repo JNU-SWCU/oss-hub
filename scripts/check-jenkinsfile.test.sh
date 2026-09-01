@@ -330,6 +330,9 @@ make_fixture "$v2_source" v2-missing-retention-protection-validator \
 make_fixture "$v2_source" v2-missing-cutover-hold-guard \
   'if \[ "$protection_active" = true \]; then' \
   'if false; then'
+make_fixture "$v2_source" v2-missing-frontend-backend-origin \
+  '--build-arg BACKEND_ORIGIN="$frontend_url"' \
+  '--label fixture-removed-backend-origin'
 make_fixture "$v2_source" v2-widened-storage-bootstrap \
   'values\[0\] === "" \&\& process.argv\[2\] === "minio" \&\& tail === process.argv\[3\]' \
   'true'
@@ -1601,6 +1604,7 @@ expect_fail 'v2: object backup manifest 검증 누락' v2 "$fixture_dir/v2-missi
 expect_fail 'v2: empty object backup manifest 검증 누락' v2 "$fixture_dir/v2-missing-empty-object-manifest-verify"
 expect_fail 'v2: retention protection validator 호출 누락' v2 "$fixture_dir/v2-missing-retention-protection-validator"
 expect_fail 'v2: cutover hold retention guard 누락' v2 "$fixture_dir/v2-missing-cutover-hold-guard"
+expect_fail 'v2: frontend BACKEND_ORIGIN build-arg 누락' v2 "$fixture_dir/v2-missing-frontend-backend-origin"
 expect_fail 'v2: storage bootstrap 확장 사용' v2 "$fixture_dir/v2-widened-storage-bootstrap"
 expect_fail 'v2: Groovy-unsafe retention tag regex 사용' v2 "$fixture_dir/v2-groovy-unsafe-retention-tag-regex"
 expect_fail 'v2: XML-unsafe storage tuple NUL escape 사용' v2 "$fixture_dir/v2-xml-unsafe-storage-tuple-nul"

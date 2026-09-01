@@ -953,7 +953,16 @@
 - PR: (이 PR)
 - blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 stable-origin smoke를 다시 실행해야 한다.
 - 결과: Release `v0.6.125`가 retention shell regex의 Groovy-invalid escape 때문에 pipeline compilation에서 fail-closed된 원인을 확인했다. Literal dot을 bracket expression으로 바꾸고 mutation checker가 unsafe escape 회귀를 거부하게 했다. Custom production domain, DNS·TLS, Jenkins `FRONTEND_URL`과 GitHub OAuth callback 설정은 authenticated browser agent로 일치 검증했으며 storage는 MinIO 그대로다.
-- 검증: Jenkins contract와 mutation fixture 188건, diff check를 통과했다.
+- 검증: Jenkins contract와 mutation fixture 190건, diff check를 통과했다.
+
+## 2026-09-01 — frontend 이미지 빌드에 rewrite origin을 주입한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.130`은 env preflight와 running tuple을 통과했지만 frontend production 빌드가 필수 `BACKEND_ORIGIN` 없이 실행돼 image_build에서 fail-closed됐다. Dockerfile builder에 `BACKEND_ORIGIN` build-arg를 추가하고 Jenkins 빌드 stage가 운영 env의 유일 HTTPS `FRONTEND_URL`을 검증해 주입하게 했다(값 미로깅). Checker가 build-arg 누락 회귀를 거부한다.
+- 검증: next.config 테스트 13건, frontend production build, docker-context contract, Jenkins contract와 mutation fixture 191건, diff check를 통과했다.
 
 ## 2026-09-01 — Jenkins storage tuple 직렬화를 복구한다
 
