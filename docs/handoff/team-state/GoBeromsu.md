@@ -989,3 +989,12 @@
 - blocker: 없음
 - 결과: 팀 스킬을 `skills/` canonical 4개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`)로 정리하고 `.codex`·`.claude`·`.cursor`·`.gjc` runtime 디렉터리는 symlink만 둔다. `submit-pr-evidence`는 frontend 변경에 Before/After 캡처, backend 로직 변경에 mermaid/DOT 다이어그램을 PR 본문 게이트로 요구하고 PR·Issue 템플릿에 §4·§4b 섹션을 추가했다. `AGENTS.md`와 `docs/rules/agent-skill-routing.md`가 스킬 사용을 게이트로 강제하며 더 이상 쓰지 않는 `docs/exec-plan/`은 제거하고 남은 참조를 ADR-010·스킬 references로 옮겼다.
 - 검증: `quick_validate.py` 4개 `Skill is valid!`, 깨진 symlink 0개, `check-public-safe.sh`, `pnpm format:check`, `node --test scripts/team-state-check.test.mjs` 11/11을 통과했다.
+
+## 2026-09-01 — checkpoint A 완료와 rewrite 대상 allowlist를 기록한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: post-cutover ingress 강화(G004/G005 gate)는 위협모델 분류대로 cutover 뒤에만 실행한다.
+- 결과: Release `v0.6.132`가 전체 파이프라인을 green으로 통과하고 authenticated stable-origin smoke(SSR·OAuth·session·query·role·sign-out)가 성공해 checkpoint A를 완료했다. `docs/architecture.md`의 전환 상태를 현재 상태로 고치고, G006 위협모델의 safe-now 항목으로 production `BACKEND_ORIGIN`을 SHA-256 digest allowlist(공개-safe 파일) 또는 보호된 빌드 환경 `BACKEND_ORIGIN_APPROVED_SHA256`으로만 허용하게 했다. 구문만 유효한 임의 HTTPS origin은 production 빌드에서 거부된다. Vercel production에는 보호 digest 변수를 미리 등록했다.
+- 검증: next.config 테스트 16건, 승인 origin production build 통과, 비승인 origin build 거부, frontend typecheck·lint, public-safe, diff check를 통과했다.
