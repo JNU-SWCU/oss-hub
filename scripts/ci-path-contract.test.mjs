@@ -50,18 +50,19 @@ const deploymentHardeningPaths = [
   'apps/*/Dockerfile',
   'scripts/check-production-image-pins*.sh',
   'scripts/jenkins/validate-production-env*',
-  'scripts/jenkins/object-storage-migration*',
-  'scripts/jenkins/r2-retention-protection*',
+  'Jenkinsfile',
+  'scripts/check-jenkinsfile.sh',
+  'scripts/check-jenkinsfile.test.sh',
+  'scripts/prune-deploy-backups*.sh',
 ];
 
 const deploymentHardeningCommands = [
   'node --test scripts/jenkins/validate-production-env.test.mjs',
   'bash scripts/check-production-image-pins.test.sh',
   'bash scripts/check-production-image-pins.sh',
-  'bash scripts/jenkins/r2-retention-protection.test.sh',
-];
-const postInstallDeploymentHardeningCommands = [
-  'bash scripts/jenkins/object-storage-migration.test.sh',
+  'bash scripts/check-jenkinsfile.test.sh',
+  'bash scripts/check-jenkinsfile.sh Jenkinsfile',
+  'bash scripts/prune-deploy-backups.test.sh',
 ];
 
 function validate(workflowSource, docsSource) {
@@ -134,32 +135,6 @@ function validateDeploymentHardening(workflowSource, docsSource) {
   for (const command of deploymentHardeningCommands) {
     assert.match(deploymentStep, new RegExp(escapeRegex(command)));
   }
-  const postInstallStep = section(
-    workflowSource,
-    '      - name: object storage migration 계약 회귀 테스트',
-    '      - name: env 계약 양방향 검사',
-  );
-  assert.ok(
-    workflowSource.indexOf('      - name: 의존성 설치') <
-      workflowSource.indexOf(
-        '      - name: object storage migration 계약 회귀 테스트',
-      ),
-  );
-  assert.match(
-    workflowSource,
-    /name: 의존성 설치\s+if: [^\n]*steps\.scope\.outputs\.jenkins == 'true'/,
-  );
-  assert.match(
-    workflowSource,
-    /name: pnpm 설정\s+if: [^\n]*steps\.scope\.outputs\.jenkins == 'true'/,
-  );
-  assert.match(
-    workflowSource,
-    /name: pnpm 캐시 설정\s+if: [^\n]*steps\.scope\.outputs\.jenkins == 'true'/,
-  );
-  for (const command of postInstallDeploymentHardeningCommands) {
-    assert.match(postInstallStep, new RegExp(escapeRegex(command)));
-  }
 }
 
 test('member-authority paths select backend and Jenkins and run every contract test', () => {
@@ -180,11 +155,6 @@ test('deployment hardening path and command drift fail closed', () => {
     );
   }
   for (const command of deploymentHardeningCommands) {
-    assert.throws(() =>
-      validateDeploymentHardening(workflow.replace(command, ''), docs),
-    );
-  }
-  for (const command of postInstallDeploymentHardeningCommands) {
     assert.throws(() =>
       validateDeploymentHardening(workflow.replace(command, ''), docs),
     );

@@ -96,8 +96,6 @@ jobs:
               - 'deploy/jenkins/**'
               - 'scripts/jenkins/**'
               - 'scripts/jenkins/validate-production-env*'
-              - 'scripts/jenkins/object-storage-migration*'
-              - 'scripts/jenkins/r2-retention-protection*'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - 'scripts/check-jenkinsfile.test.mjs'
@@ -108,8 +106,7 @@ jobs:
               - 'scripts/ci-path-contract.test.mjs'
               - 'scripts/check-auth-production-readonly*'
               - 'scripts/auth-production-readonly-report.mjs'
-              - 'scripts/prune-deploy-backups.sh'
-              - 'scripts/prune-deploy-backups.test.sh'
+              - 'scripts/prune-deploy-backups*.sh'
               - '.github/workflows/**'
             docker_context:
               - 'apps/*/Dockerfile'
@@ -211,7 +208,6 @@ jobs:
           node --test scripts/check-auth-production-readonly.test.mjs
           bash scripts/check-production-image-pins.test.sh
           bash scripts/check-production-image-pins.sh
-          bash scripts/jenkins/r2-retention-protection.test.sh
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh
@@ -225,12 +221,6 @@ jobs:
       - name: 의존성 설치
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         run: pnpm install --frozen-lockfile
-
-      - name: object storage migration 계약 회귀 테스트
-        if: ${{ steps.scope.outputs.jenkins == 'true' }}
-        run: |
-          pnpm exec prettier --check scripts/jenkins/object-storage-migration.mjs scripts/jenkins/object-storage-migration.test.mjs
-          bash scripts/jenkins/object-storage-migration.test.sh
 
       - name: env 계약 양방향 검사
         if: ${{ steps.scope.outputs.production_compose == 'true' }}
