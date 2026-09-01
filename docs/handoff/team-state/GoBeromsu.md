@@ -936,3 +936,12 @@
 - blocker: provider cutover는 실행하지 않았다. checkpoint A의 Jenkins `FRONTEND_URL`·GitHub OAuth callback 변경과 stable-origin smoke가 먼저 필요하다.
 - 결과: application storage를 exact `minio|managed` mode로 분리하고 Cloudflare R2 endpoint·region·path-style을 fail-closed로 고정했다. R2 credential은 Jenkins masked binding만 사용하고 임시 rollback MinIO credential과 분리했다. 일반 Release는 실행 중 storage tuple과 candidate tuple이 다르면 no-op·backup·재생성 전에 중단한다. configured-endpoint backup parity·상대경로 SHA-256 receipt·72시간 protected-backup hold를 Jenkins에 결박하고, exact-key preflight와 stopped-writer copy/parity, R2→격리 MinIO drill, reverse-copy-check를 수행하는 bounded AWS SDK operator를 추가했다. MinIO는 hold 종료 뒤 service·volume·credential·migration branch와 함께 제거하며 최종 object storage는 R2 하나다.
 - 검증: backend storage/runtime 90건, production env 111건, Jenkins mutation 188건, local Compose 15건, migration SDK 10건과 wrapper contract, CI path 6건, env coverage 31건, backend typecheck·lint, shellcheck, Prettier, diff check를 통과했다. storage·Jenkins·migration·docs architect가 모두 `CLEAR+APPROVE`, executor red-team QA가 `passed`를 반환했다.
+
+## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
+
+- 상태: review
+- Issue: #1119
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 팀 스킬을 `skills/` canonical 4개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`)로 정리하고 `.codex`·`.claude`·`.cursor`·`.gjc` runtime 디렉터리는 symlink만 둔다. `submit-pr-evidence`는 frontend 변경에 Before/After 캡처, backend 로직 변경에 mermaid/DOT 다이어그램을 PR 본문 게이트로 요구하고 PR·Issue 템플릿에 §4·§4b 섹션을 추가했다. `AGENTS.md`와 `docs/rules/agent-skill-routing.md`가 스킬 사용을 게이트로 강제하며 더 이상 쓰지 않는 `docs/exec-plan/`은 제거하고 남은 참조를 ADR-010·스킬 references로 옮겼다.
+- 검증: `quick_validate.py` 4개 `Skill is valid!`, 깨진 symlink 0개, `check-public-safe.sh`, `pnpm format:check`, `node --test scripts/team-state-check.test.mjs` 11/11을 통과했다.

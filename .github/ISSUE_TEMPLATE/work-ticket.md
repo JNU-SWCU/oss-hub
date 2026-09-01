@@ -22,6 +22,7 @@ labels: [ticket]
 ## 백엔드 (API)
 - `METHOD /api/v1/...` — `apps/backend/src/<모듈>/...`
 <!-- 이 화면이 읽는/새로 만드는 엔드포인트 전부. 기존 재사용은 "기존" 표기 -->
+<!-- 로직 변경(분기·상태 전이·인가·비동기 처리·호출 순서·계층 경계)이면 PR에 mermaid/DOT 다이어그램이 필요하다 — 원본 skills/submit-pr-evidence/references/backend-diagram.md -->
 
 ## 선행 의존성
 - [ ] #<선행 티켓> Done 후 시작 <!-- 없으면 "없음" -->

@@ -6,7 +6,7 @@
 
 ## 1. 연결
 
-<!-- 이 PR이 속한 Issue 번호와 exec-plan 경로를 적는다. 둘 다 없으면 "없음" + 사유 1줄.
+<!-- 이 PR이 속한 Issue 번호를 적는다. 없으면 "없음" + 사유 1줄.
 - 작업 Issue는 `Closes #N` — merge 시 GitHub이 자동으로 닫는다.
 - 논의·proposal Issue는 `Refs #N` — 참조만 하고 닫지 않는다.
 - 여러 개면 키워드를 반복한다: `Closes #1, closes #2`.
@@ -18,8 +18,8 @@
   5. required checks·review·mergeability 통과 후 merge -->
 
 - Closes #
-- exec-plan: `docs/exec-plan/active/<기능>.md`
 - free-role 수정(AGENTS.md §3): 대상 기능 / owner `@handle` — 해당 없으면 `N/A`. owner를 리뷰어로 지정했고, 착수 전 Issue로 선점을 선언했다.
+- [ ] `submit-pr-evidence` 절차를 수행했다.
 
 ## 2. push 완결 선언
 
@@ -42,8 +42,7 @@
 ## 4. Frontend Before / After
 
 <!-- 시각 UI나 상호작용이 바뀐 frontend PR은 실제 실행 화면을 첨부한다.
-     촬영 조건·공개 안전 확인·첨부 방법의 원본은 skills/manage-qa-tickets/references/execution-workflow.md의
-     "frontend Before/After 캡처를 PR에 올린다"다 — 규칙을 여기 옮겨 적지 않는다.
+     촬영 조건·공개 안전 확인·첨부 방법의 원본은 skills/submit-pr-evidence/references/frontend-capture.md다 — 규칙을 여기 옮겨 적지 않는다.
      이미지는 이 표 칸에 직접 끌어다 놓아 첨부하고, 저장한 뒤 본문을 다시 열어 실제로 렌더되는지 확인한다.
      로컬 파일 경로만 적은 상태는 첨부가 아니다.
      frontend 시각 변화가 없으면 이미지를 생략하고 `N/A — <사유>`를 적는다. -->
@@ -51,6 +50,16 @@
 | Before | After |
 | --- | --- |
 | <!-- 이미지 또는 N/A — 사유 --> | <!-- 이미지 또는 N/A — 사유 --> |
+
+## 4b. Backend 흐름 다이어그램
+
+<!-- backend 로직 변경(분기·상태 전이·인가 경로·비동기 retry/실패 처리·호출 순서·계층 경계)이면 mermaid 또는 DOT 다이어그램을 여기에 넣는다.
+     기준과 형식의 원본은 skills/submit-pr-evidence/references/backend-diagram.md다 — 규칙을 여기 옮겨 적지 않는다.
+     해당 없으면 `해당 없음` 한 줄. -->
+
+```mermaid
+%% flowchart LR 또는 stateDiagram-v2
+```
 
 ## 5. 상태 변화 · 후속 Issue · blocker
 
