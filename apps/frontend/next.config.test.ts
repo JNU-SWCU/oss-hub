@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import nextConfig from './next.config';
 
@@ -36,6 +37,40 @@ describe('nextConfig rewrites', () => {
         destination: 'https://backend.example.test/api/v1/:path*',
       },
     ]);
+  });
+
+  it('production에서 승인되지 않은 HTTPS origin을 거부한다', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://unapproved.example.test');
+
+    await expect(getRewrites()).rejects.toThrow('승인된 rewrite 대상');
+  });
+
+  it('보호된 환경 digest가 일치하면 allowlist 밖 origin을 허용한다', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://ingress.example.test');
+    vi.stubEnv(
+      'BACKEND_ORIGIN_APPROVED_SHA256',
+      createHash('sha256').update('https://ingress.example.test').digest('hex'),
+    );
+
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'https://ingress.example.test/api/v1/:path*',
+      },
+    ]);
+  });
+
+  it('보호된 환경 digest가 다르면 거부한다', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://ingress.example.test');
+    vi.stubEnv(
+      'BACKEND_ORIGIN_APPROVED_SHA256',
+      createHash('sha256').update('https://other.example.test').digest('hex'),
+    );
+
+    await expect(getRewrites()).rejects.toThrow('승인된 rewrite 대상');
   });
 
   it('production에서 BACKEND_ORIGIN 누락을 거부한다', async () => {
