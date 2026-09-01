@@ -28,7 +28,7 @@ docs/
 
 ## 현재 전환 상태
 
-checkpoint A는 완료됐다. 구매한 canonical HTTPS custom domain이 production frontend origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin으로 전환됐고 stable-origin SSR·OAuth·session·query·authz smoke가 통과했다. 프로덕션 제출 파일 저장소는 private managed R2다(2026-09-02 stopped-writer cutover, SHA-256 parity). checkpoint B가 완료돼 공개 ingress는 API 전용이며 비API 경로는 canonical origin으로 308 redirect한다. AWS는 backend, PostgreSQL, API ingress를 계속 제공하고 MinIO service·volume과 legacy frontend 컨테이너는 72시간 hold 동안 rollback material로만 보존한다. production frontend 빌드는 `apps/frontend/backend-origin.allowlist`의 SHA-256 digest allowlist에 있는 rewrite 대상만 허용한다.
+checkpoint A는 완료됐다. 구매한 canonical HTTPS custom domain이 production frontend origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin으로 전환됐고 stable-origin SSR·OAuth·session·query·authz smoke가 통과했다. 프로덕션 제출 파일 저장소는 private managed R2다(2026-09-02 stopped-writer cutover, SHA-256 parity). checkpoint B가 완료돼 공개 ingress는 API 전용이며 비API 경로는 canonical origin으로 308 redirect한다. AWS는 backend, PostgreSQL, API-only Compose ingress만 제공한다. Production MinIO service·volume·credential과 legacy frontend 컨테이너는 owner waiver 뒤 제거됐다. production frontend 빌드는 `apps/frontend/backend-origin.allowlist`의 SHA-256 digest allowlist에 있는 rewrite 대상만 허용한다.
 
 ```mermaid
 flowchart LR
@@ -37,14 +37,11 @@ flowchart LR
   Ingress --> Back[backend]
   Back --> Postgres[(postgres / pgdata)]
   Back --> R2[(managed R2)]
-  Minio[(minio / minio_data — 72h rollback material)]
 ```
 
 ## 목표 상태
 
-checkpoint B는 private managed R2 live store에서 storage smoke와 stable-origin smoke가 모두 통과한 뒤에만 완료한다. 그 뒤 Vercel이 유일한 frontend origin이 되고 AWS는 backend, PostgreSQL, API ingress를 유지한다. AWS frontend 제거는 checkpoint B에 포함된 비파괴 작업이며, rollback 보존 기간에는 MinIO 데이터와 rollback 경로를 삭제하지 않는다.
-
-MinIO는 영구 fallback이나 이중화 저장소가 아니다. Managed activation 전 start-free pre-hold receipt가 rollback backup·image를 보호하고, G8 뒤 observation과 canonical pre-hold completion gate가 모두 green일 때 한 번 기록하는 `ROLLBACK_HOLD_START`에서 계산한 72시간이 지나고 final recovery verification과 별도 reviewed cleanup approval가 끝나면 MinIO service, volume, credential, Jenkins 분기를 제거하며 R2만 application object storage로 남긴다.
+checkpoint B와 cleanup이 완료됐다. Vercel이 유일한 frontend origin이고 AWS는 backend, PostgreSQL, API-only ingress를 유지한다. Production Compose와 Jenkins는 managed R2만 허용하며 MinIO와 AWS frontend rollback path는 없다.
 
 ```mermaid
 flowchart LR
@@ -55,7 +52,7 @@ flowchart LR
   Back --> R2[(private managed R2)]
 ```
 
-backend storage는 `SUBMISSION_FILE_STORAGE_MODE=minio|managed`로 선택한다. 두 모드 모두 `SUBMISSION_FILE_S3_*` 설정을 사용한다. managed 모드의 live-store credential과 rollback MinIO credential은 분리하며, rollback MinIO는 `ROLLBACK_MINIO_*`만 사용한다.
+production backend storage mode는 exact `managed` 하나다. `SUBMISSION_FILE_S3_*` 설정을 사용하고 credential pair는 Jenkins masked binding으로만 주입한다. 로컬 개발의 MinIO substitute는 `compose.local.yml`이 별도로 소유하며 production 계약에 포함되지 않는다.
 
 ## 핵심 흐름
 

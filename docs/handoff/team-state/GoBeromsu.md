@@ -1079,6 +1079,15 @@
 - 결과: owner의 hold waiver 뒤 production storage 계약을 exact `managed` 하나로 줄였다. Compose의 MinIO service·bucket bootstrap·volume과 backend dependency, Jenkins의 MinIO mode/backup/bootstrap 분기, cutover hold retention state machine을 제거했다. Managed R2 SDK backup·pagination/size/manifest 검증, PostgreSQL, generic rollback, Vercel canonical origin, API/nginx smoke와 success-only pruning은 유지했다.
 - 검증: Jenkins contract 통과, synthetic mutation fixture 188건 통과, public-safe와 diff check 통과.
 
+## 2026-09-02 — AWS frontend와 migration-only 경로를 제거한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: production Compose를 backend·PostgreSQL·API-only nginx로 줄이고 AWS frontend image/build/runtime/rollback identity를 제거했다. Local frontend·MinIO는 `compose.local.yml`과 별도 nginx config에 격리했다. Production env validator는 exact managed R2만 허용하고 rollback MinIO credential을 제거했으며, 완료된 migration·hold script와 CI wiring을 삭제했다. Jenkins checker는 1,400줄대·188 mutation fixture에서 약 120줄·9개 current-risk counterfactual로 줄였다. Backend test에서는 실제 UUID randomness와 tautological storageKey oracle을 제거하고 deadline·authorization 행을 독립화했다.
+- 검증: lint·typecheck·unit test 전수(backend 309 suites/3475 tests, frontend 319 files/3191 tests), approved synthetic origin build, Jenkins 9/9, production env 105/105, rollback 14/14, local Compose 15/15, CI path 6/6, host nginx 42/42, format/public-safe/diff check를 통과했다. Craft smell detector와 dead-path search를 실행해 production legacy token이 checker의 명시적 금지 목록 밖에 남지 않음을 확인했다.
+
 ## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
 
 - 상태: review
