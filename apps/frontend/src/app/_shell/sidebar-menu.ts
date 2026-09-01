@@ -404,8 +404,7 @@ export function shellSectionFromPathname(pathname: string): ShellSection {
     pathname === '/dashboard' ||
     pathname.startsWith('/dashboard/') ||
     pathname === '/my-repos' ||
-    pathname.startsWith('/my-repos/') ||
-    pathname.startsWith('/admin/')
+    pathname.startsWith('/my-repos/')
   ) {
     return 'dashboard';
   }
