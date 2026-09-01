@@ -26,11 +26,41 @@ describe('nextConfig rewrites', () => {
     ]);
   });
 
-  it('production에서는 nginx가 라우팅하므로 rewrite하지 않는다', async () => {
+  it('production에서는 HTTPS backend origin으로 API 요청을 rewrite한다', async () => {
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://backend.example.test/');
 
-    await expect(getRewrites()).resolves.toEqual([]);
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'https://backend.example.test/api/v1/:path*',
+      },
+    ]);
   });
+
+  it('production에서 BACKEND_ORIGIN 누락을 거부한다', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', undefined);
+
+    await expect(getRewrites()).rejects.toThrow('BACKEND_ORIGIN');
+  });
+
+  it.each([
+    'http://backend.example.test',
+    'https://backend.example.test/path',
+    'https://backend.example.test?',
+    'https://backend.example.test#',
+    'https://user@backend.example.test',
+    'not-an-origin',
+  ])(
+    'production에서 canonical HTTPS origin이 아닌 값을 거부한다: %s',
+    async (origin) => {
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('BACKEND_ORIGIN', origin);
+
+      await expect(getRewrites()).rejects.toThrow('BACKEND_ORIGIN');
+    },
+  );
 
   it('개발 환경에서 BACKEND_ORIGIN을 사용한다', async () => {
     vi.stubEnv('NODE_ENV', 'development');
@@ -100,11 +130,17 @@ describe('nextConfig rewrites', () => {
     ).toBe(false);
   });
 
-  it('production에서는 fixture flag가 있어도 adapter rewrite를 만들지 않는다', async () => {
+  it('production에서는 fixture flag가 있어도 external backend rewrite만 만든다', async () => {
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://backend.example.test');
     vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');
 
-    await expect(getRewrites()).resolves.toEqual([]);
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'https://backend.example.test/api/v1/:path*',
+      },
+    ]);
   });
 });
 

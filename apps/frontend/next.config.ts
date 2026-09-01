@@ -6,6 +6,35 @@ import {
   isLocalReviewRuntime,
 } from './src/lib/local-review-runtime';
 
+function requireProductionBackendOrigin(): string {
+  const raw = process.env.BACKEND_ORIGIN?.trim();
+  if (!raw) {
+    throw new Error('production build에는 BACKEND_ORIGIN이 필요합니다.');
+  }
+
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('BACKEND_ORIGIN은 HTTPS origin이어야 합니다.');
+  }
+
+  const authority = raw.slice(raw.indexOf('://') + 3).split('/', 1)[0] ?? '';
+  if (
+    url.protocol !== 'https:' ||
+    url.username !== '' ||
+    url.password !== '' ||
+    authority.includes('@') ||
+    raw.includes('?') ||
+    raw.includes('#') ||
+    url.pathname !== '/'
+  ) {
+    throw new Error('BACKEND_ORIGIN은 HTTPS origin이어야 합니다.');
+  }
+
+  return url.origin;
+}
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
@@ -14,13 +43,13 @@ const nextConfig: NextConfig = {
   // 배포본에는 없는 개발 도구이며, 빌드 오류 표시라 끄지는 않는다.
   devIndicators: { position: 'bottom-right' },
   async rewrites() {
-    if (process.env.NODE_ENV !== 'development') {
-      return [];
-    }
-
-    const backendOrigin = (
-      process.env.BACKEND_ORIGIN ?? 'http://localhost:4000'
-    ).replace(/\/$/, '');
+    const development = process.env.NODE_ENV === 'development';
+    const backendOrigin = development
+      ? (process.env.BACKEND_ORIGIN ?? 'http://localhost:4000').replace(
+          /\/$/,
+          '',
+        )
+      : requireProductionBackendOrigin();
 
     const backendRewrite = {
       source: '/api/v1/:path*',
@@ -28,6 +57,7 @@ const nextConfig: NextConfig = {
     };
 
     if (
+      !development ||
       !isLocalReviewRuntime({
         nodeEnv: process.env.NODE_ENV,
         enabled: process.env.OSS_HUB_LOCAL_REVIEW_FIXTURES,
