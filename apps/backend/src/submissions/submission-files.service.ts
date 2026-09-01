@@ -41,7 +41,7 @@ export type {
   UploadedSubmissionFileResponse,
 } from './submission-files.types';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()

@@ -114,7 +114,9 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
   [SubmissionsErrorCode.FILE_TOO_LARGE]: {
     code: SubmissionsErrorCode.FILE_TOO_LARGE,
     status: 413,
-    message: '파일 크기는 50 MiB를 초과할 수 없습니다.',
+    // 숫자는 `submission-files.service.ts`의 `MAX_FILE_BYTES`가 실제로 막는 값이다.
+    // 둘이 갈라지면 같은 파일의 화면 안내와 413 응답이 다른 숫자를 말하게 된다(#1106).
+    message: '파일은 5MiB 이하여야 합니다.',
   },
   [SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE]: {
     code: SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE,

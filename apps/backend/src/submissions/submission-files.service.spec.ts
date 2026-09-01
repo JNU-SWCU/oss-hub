@@ -14,9 +14,15 @@ import {
   SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
 } from './submission-files.repository';
-import { SubmissionFilesService } from './submission-files.service';
+import {
+  MAX_FILE_BYTES,
+  SubmissionFilesService,
+} from './submission-files.service';
 import { signatureValidZip } from './submission-zip-test-builder';
-import { SubmissionsErrorCode } from './submissions-error-code.enum';
+import {
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions-error-code.enum';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
@@ -228,7 +234,7 @@ describe('SubmissionFilesService', () => {
     expect(storage.put).not.toHaveBeenCalled();
   });
 
-  it('accepts exactly 50 MiB and rejects one byte more', async () => {
+  it('accepts exactly 5 MiB and rejects one byte more', async () => {
     const exact = 5 * 1024 * 1024;
     const accepted = setup();
     await expect(
@@ -251,6 +257,15 @@ describe('SubmissionFilesService', () => {
       SubmissionsErrorCode.FILE_TOO_LARGE,
     );
     expect(rejected.storage.put).not.toHaveBeenCalled();
+  });
+
+  // #1106 — 상한을 50 MiB에서 5 MiB로 내렸을 때 SUB_019 문구만 옛 숫자로 남아,
+  // 413으로 거절된 학생이 파일을 얼마나 줄여야 하는지 알 수 없었다.
+  // 문구의 숫자는 실제로 막는 상한에서 온다.
+  it('states the enforced limit in the SUB_019 message', () => {
+    expect(
+      SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.FILE_TOO_LARGE].message,
+    ).toBe(`파일은 ${MAX_FILE_BYTES / 1024 / 1024}MiB 이하여야 합니다.`);
   });
 
   it('preserves opaque application and milestone IDs through authorization and persistence', async () => {
