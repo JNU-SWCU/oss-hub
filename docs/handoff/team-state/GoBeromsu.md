@@ -927,3 +927,12 @@
 - blocker: Vercel checkpoint A의 provider-side 배포·OAuth/session smoke는 이 PR 병합 뒤 별도 실행한다.
 - 결과: production Next.js build가 `BACKEND_ORIGIN`의 canonical HTTPS origin을 필수로 검증하고 `/api/v1/:path*`를 같은 prefix의 AWS backend로 rewrite한다. credentials·path·query·fragment·HTTP 입력은 fail-closed로 거부하고 개발·local-review fixture 경로는 유지한다. CI build에는 합성 HTTPS origin만 주입한다.
 - 검증: `next.config.test.ts` 13/13, frontend production build·typecheck·lint(기존 warning 5건), 변경 파일 Prettier를 통과했다.
+
+## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
+
+- 상태: review
+- Issue: #1119
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 팀 스킬을 `skills/` canonical 4개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`)로 정리하고 `.codex`·`.claude`·`.cursor`·`.gjc` runtime 디렉터리는 symlink만 둔다. `submit-pr-evidence`는 frontend 변경에 Before/After 캡처, backend 로직 변경에 mermaid/DOT 다이어그램을 PR 본문 게이트로 요구하고 PR·Issue 템플릿에 §4·§4b 섹션을 추가했다. `AGENTS.md`와 `docs/rules/agent-skill-routing.md`가 스킬 사용을 게이트로 강제하며 더 이상 쓰지 않는 `docs/exec-plan/`은 제거하고 남은 참조를 ADR-010·스킬 references로 옮겼다.
+- 검증: `quick_validate.py` 4개 `Skill is valid!`, 깨진 symlink 0개, `check-public-safe.sh`, `pnpm format:check`, `node --test scripts/team-state-check.test.mjs` 11/11을 통과했다.
