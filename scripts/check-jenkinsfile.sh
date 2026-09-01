@@ -790,6 +790,10 @@ check_v2() {
     'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' 1
   require_exact 'running probe and backup must bind active storage tuple to an opaque candidate hash' \
     'candidate_storage_hash="$(' 2
+  require_exact 'storage tuple printf delimiters must survive Groovy XML serialization' \
+    '%s\\0%s\\0%s\\0%s\\0%s' 2
+  require_exact 'storage tuple Node delimiters must survive Groovy XML serialization' \
+    '.join("\\0")' 2
   require_at_least 'running probe must reject tuple drift before no-op or recreation' \
     'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' 1
   require_at_least 'managed backup must use the configured S3 bucket' \
