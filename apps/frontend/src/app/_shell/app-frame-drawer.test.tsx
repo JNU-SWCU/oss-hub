@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
+  getProgramNavigationMilestones: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -45,6 +46,9 @@ vi.mock('next/link', () => ({
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 vi.mock('@/features/programs/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
+}));
+vi.mock('@/features/programs/program-navigation-api', () => ({
+  getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
 
 import { AppFrame } from './app-frame';
@@ -99,6 +103,9 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   let root: Root;
 
   beforeEach(() => {
+    mocks.getProgramNavigationMilestones
+      .mockReset()
+      .mockReturnValue(new Promise(() => {}));
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -123,8 +130,9 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     return container.querySelector('[role="dialog"]');
   }
 
-  async function renderFrame(pathname: string): Promise<void> {
+  async function renderFrame(pathname: string, search = ''): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams(search));
     await act(async () => {
       root.render(
         <AppFrame brand="OSS Hub" items={ITEMS}>
@@ -264,6 +272,21 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(dialog()).not.toBeNull();
 
     await renderFrame('/programs');
+
+    expect(dialog()).toBeNull();
+  });
+
+  it('같은 서류 경로에서 선택 마일스톤 쿼리만 바뀌어도 드로어가 닫힌다', async () => {
+    mockSession(STUDENT_SESSION);
+    mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
+    await renderFrame('/programs/prog-1/documents');
+    await openDrawer();
+    expect(dialog()).not.toBeNull();
+
+    await renderFrame(
+      '/programs/prog-1/documents',
+      'milestoneId=milestone-mid',
+    );
 
     expect(dialog()).toBeNull();
   });

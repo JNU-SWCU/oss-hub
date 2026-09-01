@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { ListRow, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import {
+  programDocumentsHref,
   programMilestoneDocumentsHref,
-  studentProgramSubmissionHref,
 } from '@/lib/program-route';
 import {
   formatSeoulDate,
@@ -67,7 +67,7 @@ function StudentState({
   const canSubmit =
     isResubmission ||
     (status === 'NOT_SUBMITTED' && !isPastDue(milestone.dueAt));
-  const submitHref = studentProgramSubmissionHref(programId, milestone.id);
+  const submitHref = programDocumentsHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-3">
       <StatusBadge variant={STATUS_VARIANTS[status]}>
