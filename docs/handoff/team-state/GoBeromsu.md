@@ -1034,6 +1034,15 @@
 - 결과: `v0.6.135`(build 194)는 배포·컨테이너 health·nginx reload까지 성공했지만 외부 smoke가 legacy 기대(`GET / == 200`)라 새 API-only edge의 308에 fail-closed됐다. 배포·롤백·drift smoke 세 곳의 root 기대를 308로 바꾸고 checker 캐논도 정렬했다. /api/ 계열 기대(200/401/404)는 그대로다.
 - 검증: Jenkins contract ok, mutation fixture 193건 통과.
 
+## 2026-09-02 — canonical 현재 상태 모순을 마저 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 재검토가 지적한 잔여 모순을 정리했다. readiness 배너·현재 확인 상태를 managed R2 현재형으로 다시 썼고, ADR-002의 "cutover 미실행" 문구를 완료 상태로, architecture 현재 상태 다이어그램의 storage 경로를 R2(+MinIO는 72h rollback material 표기)로 바꿨다.
+- 검증: Prettier, public-safe, diff check 통과.
+
 ## 2026-09-02 — VB001 aggregate blocker 두 건을 닫는다
 
 - 상태: review

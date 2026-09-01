@@ -1,12 +1,12 @@
 # Cloudflare R2 운영 준비 인수인계
 
-> 기준 시각: 2026-09-01 KST
+> 기준 시각: 2026-09-02 KST
 >
 > 이 문서는 private Cloudflare R2 전환의 canonical G0–G9 gate와 완료 조건을 소유한다.
 >
-> 현재 프로덕션 frontend origin과 application object storage는 아직 checkpoint A 전 상태이며 object storage는 MinIO다.
+> 현재 production frontend origin은 canonical custom domain이고 application object storage는 private managed R2다.
 >
-> 이 문서는 배포 인가나 R2 전환 완료 영수증이 아니다.
+> 완료 영수증은 Issue #1113의 opaque receipt이며, 이 문서는 그 실행을 gate별로 기록한다.
 
 ## 실행 기록 (2026-09-02)
 
@@ -20,14 +20,14 @@ GitHub Issue, PR, Jenkins console, shell history와 이 문서는 opaque slot `A
 
 부분 identifier, truncated identifier와 hashed-prefix identifier도 공개 기록에 남기지 않는다.
 
-## 현재 확인 상태
+## 현재 확인 상태 (2026-09-02)
 
-- Private R2 bucket과 bucket-scoped read/write credential은 제한된 provider store에 준비돼 있다.
-- Dedicated Jenkins username/password credential은 Credentials Store에 준비돼 있고 실제 username도 secret으로 취급한다.
-- Bucket public access는 provisioning 확인 시점에 비활성화돼 있었다.
-- Production environment, backend storage endpoint, MinIO service와 `minio_data` volume은 전환하지 않았다.
-- R2 live `Put`, `Get`, `List`, `Delete`, migration copy, rollback drill과 application smoke는 실행하지 않았다.
-- Issue [#1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이 전환 진행의 원본이다.
+- Application object storage는 private managed R2이며 backend는 managed tuple로 실행 중이다.
+- Dedicated Jenkins username/password credential이 managed 배포·백업에 사용되고 실제 username도 secret으로 취급한다.
+- Bucket public access는 계속 비활성화다.
+- MinIO service·`minio_data` volume·legacy frontend 컨테이너는 72시간 hold 동안 rollback material로만 보존된다.
+- Live `Put`·`Get`·`List`, stopped-writer copy와 SHA-256 parity, 결손 12건 restore, checkpoint B smoke가 실행·통과됐다(수용 deviation은 실행 기록 절 참조).
+- Issue [#1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이 전환 기록의 원본이다.
 - PR [#1115](https://github.com/JNU-SWCU/oss-hub/pull/1115)가 non-live R2 deployment contract를 구현했고 required `ci`와 `public-safe`를 통과해 병합됐다.
 
 ## 현재 구현 계약
