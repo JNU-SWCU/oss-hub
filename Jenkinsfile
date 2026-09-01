@@ -700,6 +700,9 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 true|false) ;;
                 *) echo 'FAIL_CLOSED object_backup: invalid validated path-style setting.' >&2; exit 1 ;;
               esac
+              # mc는 R2의 ListObjectsV2 metadata 미구현으로 mirror --preserve/diff가 실패한다(v0.6.133 build 192 실증).
+              # 이전 backend 이미지의 AWS SDK로 전수 다운로드하고 객체별 listed-size와 기록 바이트를 fail-closed로 대조한다.
+              [ -n "${PREV_TAG:-}" ] || { echo 'FAIL_CLOSED object_backup: managed backup requires a previous backend image.' >&2; exit 1; }
               docker run --rm \
                 --env SUBMISSION_FILE_S3_ACCESS_KEY_ID \
                 --env SUBMISSION_FILE_S3_SECRET_ACCESS_KEY \
@@ -708,9 +711,10 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 --env SUBMISSION_FILE_S3_BUCKET \
                 --env SUBMISSION_FILE_S3_FORCE_PATH_STYLE \
                 --volume "${object_backup_tmp}:/backup" \
-                --entrypoint sh \
-                minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc \
-                -eu -c 'case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in true) path=on ;; false) path=off ;; *) exit 1 ;; esac; mc alias set --path "$path" remote "$SUBMISSION_FILE_S3_ENDPOINT" "$SUBMISSION_FILE_S3_ACCESS_KEY_ID" "$SUBMISSION_FILE_S3_SECRET_ACCESS_KEY" >/dev/null; mc mirror --preserve "remote/$SUBMISSION_FILE_S3_BUCKET" /backup; mc diff --json "remote/$SUBMISSION_FILE_S3_BUCKET" /backup > /tmp/oss-hub-object-backup.diff; test ! -s /tmp/oss-hub-object-backup.diff; rm -f /tmp/oss-hub-object-backup.diff'
+                --user "$(id -u):$(id -g)" \
+                --entrypoint node \
+                "oss-hub-backend:${PREV_TAG}" \
+                -e 'const { S3Client, ListObjectsV2Command, GetObjectCommand } = require("@aws-sdk/client-s3"); const { createWriteStream, mkdirSync, statSync } = require("node:fs"); const { dirname, join } = require("node:path"); const { pipeline } = require("node:stream/promises"); const client = new S3Client({ endpoint: process.env.SUBMISSION_FILE_S3_ENDPOINT, region: process.env.SUBMISSION_FILE_S3_REGION, forcePathStyle: process.env.SUBMISSION_FILE_S3_FORCE_PATH_STYLE === "true", credentials: { accessKeyId: process.env.SUBMISSION_FILE_S3_ACCESS_KEY_ID, secretAccessKey: process.env.SUBMISSION_FILE_S3_SECRET_ACCESS_KEY } }); (async () => { let token; let count = 0; const tokens = new Set(); do { if (token !== undefined) { if (tokens.has(token)) throw new Error("repeated list token"); tokens.add(token); } const page = await client.send(new ListObjectsV2Command({ Bucket: process.env.SUBMISSION_FILE_S3_BUCKET, ContinuationToken: token })); for (const object of page.Contents ?? []) { const key = object.Key; if (typeof key !== "string" || key === "" || key.startsWith("/") || key.split("/").includes("..")) throw new Error("unsafe object key"); const destination = join("/backup", key); mkdirSync(dirname(destination), { recursive: true }); const got = await client.send(new GetObjectCommand({ Bucket: process.env.SUBMISSION_FILE_S3_BUCKET, Key: key })); await pipeline(got.Body, createWriteStream(destination, { flags: "wx", mode: 0o600 })); if (statSync(destination).size !== Number(object.Size)) throw new Error("downloaded size mismatch"); count += 1; } token = page.IsTruncated ? page.NextContinuationToken : undefined; } while (token !== undefined); console.log("object-backup-downloaded=" + count); })().catch(() => { console.error("FAIL_CLOSED object_backup: managed download failed."); process.exit(1); });'
             else
               echo 'FAIL_CLOSED object_backup: validated storage mode is not usable.' >&2
               exit 1
