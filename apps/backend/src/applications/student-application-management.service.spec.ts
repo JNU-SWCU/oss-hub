@@ -17,11 +17,14 @@ const STUDENT = {
   name: '합성 학생',
   nickname: 'synthetic-student',
 } as const;
+// 기본 행위자(STUDENT)는 신청자가 아니라 **팀장**이다 — 팀장도 수정·취소할 수 있다는
+// 넓은 쪽을 기본으로 두고, 좁은 쪽(일반 팀원)은 아래 테스트가 따로 고정한다(#1083).
 const APPLICATION = {
   id: 'application-1',
   programId: 'program-1',
   status: ApplicationStatus.SUBMITTED,
-  teamId: null,
+  teamId: 'team-1',
+  teamLeaderId: STUDENT.id,
   applicant: {
     id: 'applicant-1',
     name: '합성 신청자',
@@ -125,6 +128,7 @@ describe('StudentApplicationManagementService', () => {
       isRepositoryPublicationPlanned:
         APPLICATION.isRepositoryPublicationPlanned,
       rejectionReason: null,
+      isManager: true,
       canManage: true,
     });
   });
@@ -221,7 +225,7 @@ describe('StudentApplicationManagementService', () => {
     expect(result.answers.title).toBe('수정 제목');
   });
 
-  it('팀원이 조회하고 수정해도 원 신청자 이름을 유지한다', async () => {
+  it('팀장이 조회하고 수정해도 원 신청자 이름을 유지한다', async () => {
     // Given
     const { repository, applicationsRepository, updatePendingApplication } =
       createRepository();
@@ -250,6 +254,104 @@ describe('StudentApplicationManagementService', () => {
       summary: '팀원 수정 요약',
     });
     expect(afterUpdate.answers.applicantName).toBe('합성 신청자');
+  });
+
+  /**
+   * 팀 신청서의 수정·취소는 신청자와 팀장만 한다(#1083). 그 전에는 읽기 범위를
+   * 그대로 써서 팀원 아무나 팀 전체의 신청을 하드 삭제할 수 있었다.
+   * 거절 코드는 repository가 돌려주는 실패와 같은 APP_001로 맞춘다.
+   */
+  it.each(['update', 'cancel'] as const)(
+    '신청자도 팀장도 아닌 팀원의 %s 요청을 거절한다',
+    async (operation) => {
+      // Given
+      const {
+        repository,
+        applicationsRepository,
+        findOwnedApplication,
+        updatePendingApplication,
+        deletePendingApplication,
+      } = createRepository();
+      findOwnedApplication.mockResolvedValue({
+        ...APPLICATION,
+        teamLeaderId: 'team-leader-1',
+      });
+      const service = new StudentApplicationManagementService(
+        repository,
+        applicationsRepository,
+      );
+
+      // When / Then
+      await expectDomainCode(
+        operation === 'update'
+          ? service.updateMine(
+              4242n,
+              'program-1',
+              {
+                answers: { title: '팀원 수정 제목', summary: '팀원 수정 요약' },
+                applicationTemplateVersion: 1,
+              },
+              NOW,
+            )
+          : service.cancelMine(4242n, 'program-1', NOW),
+        ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+      );
+      expect(updatePendingApplication.mock.calls).toHaveLength(0);
+      expect(deletePendingApplication.mock.calls).toHaveLength(0);
+    },
+  );
+
+  /**
+   * 읽기는 좁히지 않는다 — 판정 사유·답변은 팀원 전원이 읽는다(#570). 화면이
+   * 「신청 취소」·「수정 내용 저장」을 감출 근거는 `canManage`뿐이라 여기서 내려간다.
+   */
+  it('팀원의 조회는 열어 두되 canManage를 내린다', async () => {
+    // Given
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      teamLeaderId: 'team-leader-1',
+      rejectionReason: null,
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    // When
+    const result = await service.getMine(4242n, 'program-1', NOW);
+
+    // Then
+    expect(result.answers.title).toBe('기존 제목');
+    expect(result.isManager).toBe(false);
+    expect(result.canManage).toBe(false);
+  });
+
+  it('팀장이 아닌 신청자 본인은 취소할 수 있다', async () => {
+    // Given
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      deletePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      teamLeaderId: 'team-leader-1',
+      applicant: { ...APPLICATION.applicant, id: STUDENT.id },
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    // When
+    const result = await service.cancelMine(4242n, 'program-1', NOW);
+
+    // Then
+    expect(result).toEqual({ cancelled: true });
+    expect(deletePendingApplication.mock.calls).toHaveLength(1);
   });
 
   it('승인된 신청은 수정하지 않는다', async () => {

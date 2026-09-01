@@ -5,7 +5,10 @@ import {
   resolveUserProfileName,
 } from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
-import { programApplicationParticipantWhere } from '../programs/program-participant';
+import {
+  programApplicationManagerWhere,
+  programApplicationParticipantWhere,
+} from '../programs/program-participant';
 
 export interface StudentApplicationPolicy {
   readonly applicationStartAt: Date;
@@ -18,6 +21,11 @@ export interface OwnedStudentApplication {
   readonly programId: string;
   readonly status: ApplicationStatus;
   readonly teamId: string | null;
+  /**
+   * 팀장의 사용자 id. 개인 신청도 1인 팀의 팀장이 있어(D5) 항상 값이 있다.
+   * 신청자와 함께 「이 신청서를 수정·취소할 수 있는 사람」을 정한다(#1083).
+   */
+  readonly teamLeaderId: string;
   readonly applicant: {
     readonly id: string;
     readonly name: string | null;
@@ -35,6 +43,8 @@ export interface OwnedStudentApplication {
    * 팀원 전원이 이 사유를 읽는다. 의도된 범위다 — 판정 알림도 같은 집합에게
    * 나가고(#570), 같은 경로의 `answers`도 원래 팀원에게 열려 있다. 「본인만」으로
    * 좁히려면 알림 수신자와 함께 바꿔야 한다.
+   * 쓰기(수정·취소)는 이 범위를 쓰지 않는다 — `programApplicationManagerWhere`로
+   * 신청자와 팀장까지만 좁혀 둔다(#1083).
    * 감사 로그·알림·메일에는 담지 않는다(`audit-log/audit-log-metadata.ts`의
    * `APPLICATION_DECISION_AUDIT_*` 주석이 그 결정의 원본).
    */
@@ -72,6 +82,7 @@ const APPLICATION_SELECT = {
   programId: true,
   status: true,
   teamId: true,
+  team: { select: { leaderId: true } },
   applicant: {
     select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
   },
@@ -89,8 +100,10 @@ type ApplicationRow = Prisma.ApplicationGetPayload<{
 function toOwnedStudentApplication(
   row: ApplicationRow,
 ): OwnedStudentApplication {
+  const { team, ...application } = row;
   return {
-    ...row,
+    ...application,
+    teamLeaderId: team.leaderId,
     applicant: {
       id: row.applicant.id,
       name: resolveUserProfileName(row.applicant),
@@ -134,7 +147,7 @@ export class StudentApplicationManagementRepository {
     return this.prisma.$transaction(async (transaction) => {
       const policy = await this.lockProgram(transaction, input.programId);
       if (!policy) return { kind: 'program-not-found' };
-      const application = await this.lockOwnedApplication(
+      const application = await this.lockManagedApplication(
         transaction,
         input.programId,
         input.studentId,
@@ -165,7 +178,7 @@ export class StudentApplicationManagementRepository {
     return this.prisma.$transaction(async (transaction) => {
       const policy = await this.lockProgram(transaction, input.programId);
       if (!policy) return { kind: 'program-not-found' };
-      const application = await this.lockOwnedApplication(
+      const application = await this.lockManagedApplication(
         transaction,
         input.programId,
         input.studentId,
@@ -196,7 +209,12 @@ export class StudentApplicationManagementRepository {
     });
   }
 
-  private async lockOwnedApplication(
+  /**
+   * 쓰기 대상은 `programApplicationManagerWhere`로 좁힌다 — 읽기 범위를 그대로 쓰면
+   * 팀원 아무나 팀 전체의 신청서를 고치거나 하드 삭제할 수 있다(#1083).
+   * 권한 밖이면 없는 것과 똑같이 `null`이고, 호출부는 `application-not-found`로 거절한다.
+   */
+  private async lockManagedApplication(
     transaction: Prisma.TransactionClient,
     programId: string,
     studentId: string,
@@ -204,7 +222,7 @@ export class StudentApplicationManagementRepository {
     const candidate = await transaction.application.findFirst({
       where: {
         programId,
-        ...programApplicationParticipantWhere(studentId),
+        ...programApplicationManagerWhere(studentId),
       },
       select: { id: true },
     });
@@ -217,7 +235,7 @@ export class StudentApplicationManagementRepository {
       where: {
         id: candidate.id,
         programId,
-        ...programApplicationParticipantWhere(studentId),
+        ...programApplicationManagerWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });

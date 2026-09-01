@@ -12,7 +12,8 @@ const APPLICATION = {
   id: 'application-1',
   programId: 'program-1',
   status: ApplicationStatus.SUBMITTED,
-  teamId: null,
+  teamId: 'team-1',
+  team: { leaderId: 'student-1' },
   applicant: {
     id: 'applicant-1',
     name: 'Applicant',
@@ -107,6 +108,56 @@ describe('StudentApplicationManagementRepository', () => {
       ]),
     );
   });
+
+  /**
+   * ⚠ 쓰기는 읽기보다 좁다 — 위 읽기 범위 주석은 **읽기만** 정당화한다(#1083).
+   * 같은 조건을 재사용하면 팀원 아무나 팀 전체의 신청을 고치거나 되돌릴 수 없게
+   * 지운다(하드 삭제라 복구 경로가 없다).
+   */
+  it.each(['update', 'delete'] as const)(
+    'scopes the %s path to the applicant and the team leader only',
+    async (operation) => {
+      const findFirst = jest
+        .fn()
+        .mockResolvedValueOnce({ id: APPLICATION.id })
+        .mockResolvedValueOnce(APPLICATION);
+      const transaction = createTransaction({
+        application: {
+          findFirst,
+          update: jest.fn().mockResolvedValue(APPLICATION),
+        },
+      });
+      const repository = new StudentApplicationManagementRepository(
+        createPrisma({ transaction }),
+        () => NOW,
+      );
+
+      if (operation === 'update') {
+        await repository.updatePendingApplication({
+          programId: 'program-1',
+          studentId: 'student-1',
+          answers: { title: 'Updated', summary: 'Updated' },
+          applicationTemplateVersion: 1,
+        });
+      } else {
+        await repository.deletePendingApplication({
+          programId: 'program-1',
+          studentId: 'student-1',
+        });
+      }
+
+      const calls = findFirst.mock.calls as unknown as readonly (readonly {
+        readonly where: { readonly OR: readonly unknown[] };
+      }[])[];
+      expect(calls).not.toHaveLength(0);
+      for (const call of calls) {
+        expect(call[0]?.where.OR).toEqual([
+          { applicantId: 'student-1' },
+          { team: { leaderId: 'student-1' } },
+        ]);
+      }
+    },
+  );
 
   it('carries a stored rejection reason out of the owner read path', async () => {
     const findFirst = jest
