@@ -1008,6 +1008,15 @@
 - 결과: attended R2 cutover 중 동일 패턴을 실제 실행해 `minio/mc` 이미지의 entrypoint가 `mc`여서 `sh -eu -c ...` 인자가 오해석되는 잠재 결함을 확인했다. Jenkins managed object backup의 docker run에 `--entrypoint sh`를 명시하고 checker가 entrypoint 누락 회귀를 거부한다. 한편 cutover는 완료됐다: env는 managed R2 tuple, stopped-writer SDK copy-check(SHA-256 parity), backend v0.6.132 healthy, 그리고 8월 MinIO wipe로 잃어버렸던 ATTACHED 12개를 배포 백업에서 복구해 ATTACHED 53/53이 R2에 존재한다. 새 도메인은 apex·www·OAuth·API 전 경로 연결 완료다.
 - 검증: Jenkins contract와 mutation fixture 192건, public-safe, diff check를 통과했다.
 
+## 2026-09-02 — checkpoint B: public ingress를 API 전용으로 좁힌다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 병합 뒤 host nginx에 attended 적용(`nginx -t` + reload)해야 다음 Release drift preflight가 통과한다.
+- 결과: canonical origin이 frontend를 서빙하므로 host nginx public catch-all이 legacy frontend로 proxy하던 것을 GET/HEAD 308 → canonical origin, 그 외 메서드 404로 바꿨다. /api/, OAuth 정확 경로, deploy trigger, rate-limit zone, loopback smoke block은 바이트 동일하다. runbook에 적용·롤백 절차를 추가했다.
+- 검증: diff가 catch-all block과 runbook 절에만 닿음을 확인했다.
+
 ## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
 
 - 상태: review
