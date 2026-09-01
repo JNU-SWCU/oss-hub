@@ -20,7 +20,11 @@ private_directory() {
   esac
   [ ! -L "$directory" ] || fail 'evidence directory must not be a symlink'
   [ -d "$directory" ] || fail 'evidence directory must already exist'
-  mode=$(stat -f '%Lp' "$directory" 2>/dev/null || stat -c '%a' "$directory") || fail 'cannot inspect evidence directory'
+  case "$(uname -s)" in
+    Darwin) mode=$(stat -f '%Lp' "$directory") ;;
+    Linux) mode=$(stat -c '%a' "$directory") ;;
+    *) fail 'unsupported host for evidence directory mode check' ;;
+  esac
   [ "$mode" = 700 ] || fail 'evidence directory must have mode 0700'
   canonical=$(CDPATH='' cd -- "$directory" && pwd -P) || fail 'cannot canonicalize evidence directory'
   [ "$canonical" = "$directory" ] || fail 'evidence directory must be canonical'
