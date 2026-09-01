@@ -75,7 +75,7 @@ describe('상태별 기본 렌더링', () => {
       />,
     );
     expect(html).toContain('사용자를 찾을 수 없습니다');
-    expect(html).toContain('href="/admin/access"');
+    expect(html).toContain('href="/dashboard/users"');
   });
 
   it('가입 신청 찾을 수 없음은 가입 신청 목록으로 돌아간다', () => {
@@ -89,7 +89,7 @@ describe('상태별 기본 렌더링', () => {
     );
     expect(html).toContain('href="/dashboard/applicants"');
     expect(html).toContain('가입 신청으로');
-    expect(html).not.toContain('href="/admin/access"');
+    expect(html).not.toContain('href="/dashboard/users"');
   });
 });
 

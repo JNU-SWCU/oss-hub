@@ -127,7 +127,7 @@ milestones[]{id, name, dueAt, dDay, deadlineLabel, description,
 
 ### 관찰
 
-보호 라우트(`/dashboard` · `/my-repos` · `/settings` · `/admin/access`)도 서버가 200 HTML을 반환한다.
+보호 라우트(`/dashboard` · `/my-repos` · `/settings` · `/dashboard/users`)도 서버가 200 HTML을 반환한다.
 데이터는 새지 않는다 — 최종 보안선이 API 계층이고 리다이렉트는 클라이언트 `RoleGate`가 한다. 후속은 [#555](https://github.com/JNU-SWCU/oss-hub/issues/555).
 
 ## AS군 — 비동기·알림·감사 (10종)

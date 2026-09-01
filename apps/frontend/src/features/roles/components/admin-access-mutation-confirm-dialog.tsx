@@ -16,7 +16,7 @@ interface AdminAccessMutationConfirmDialogProps {
 }
 
 /**
- * Shared confirm-only dialog for the five `/admin/access` write actions
+ * Shared confirm-only dialog for the five `/dashboard/users` write actions
  * that need no extra input (approve/direct grant/revoke/deactivate/
  * reactivate) — `REJECT` alone needs a reason field and gets its own
  * `AdminAccessMutationRejectDialog`. Matches the plain fixed-overlay

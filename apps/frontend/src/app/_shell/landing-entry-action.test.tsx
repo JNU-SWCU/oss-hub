@@ -87,7 +87,7 @@ describe('LandingEntryActionView', () => {
     );
 
     expect(html).toContain('사용자 목록');
-    expect(html).toContain('href="/admin/access"');
+    expect(html).toContain('href="/dashboard/users"');
   });
 
   // 학생은 역할을 고르는 즉시 배정되므로, 프로필 단계에서 창을 닫은 사람은 역할만

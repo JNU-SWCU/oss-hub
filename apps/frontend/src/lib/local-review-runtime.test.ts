@@ -176,7 +176,7 @@ describe('local review activation contract', () => {
     // 관리자 접근 상세는 사용자 id가 열려 있는 유일한 관리자 화면이라 완전 일치
     // 목록으로 적을 수 없다(QA7). 이 줄이 빠지면 상세로 가는 검토 링크가 조용히
     // `/`로 떨어져, 검토자는 상세 화면 자체를 열어 보지 못한다.
-    '/admin/access/users/synthetic-admin-target',
+    '/dashboard/users/synthetic-admin-target',
   ])('reaches the in-app detail destination %j through a prefix', (target) => {
     // Given / When: 상세 화면은 id가 열려 있어 완전 일치 목록으로 적을 수 없다.
     const activation = createLocalReviewActivation({

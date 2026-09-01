@@ -161,7 +161,7 @@ describe('AppFrame', () => {
     const navItemsList =
       html.match(/data-slot="nav-bar-items"[\s\S]*?<\/ul>/)?.[0] ?? '';
     for (const href of [
-      '/admin/access',
+      '/dashboard/users',
       '/dashboard/audit-logs',
       '/dashboard/system-status',
     ]) {

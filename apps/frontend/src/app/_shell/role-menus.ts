@@ -28,7 +28,7 @@ export const STAFF_MENU: NavItem[] = [
  * 갈라질 자리만 남긴다.
  */
 export const ADMIN_SYSTEM_MENU: NavItem[] = [
-  { label: '사용자 목록', href: '/admin/access' },
+  { label: '사용자 목록', href: '/dashboard/users' },
   { label: '감사 로그', href: '/dashboard/audit-logs' },
   { label: '시스템 상태', href: '/dashboard/system-status' },
 ];

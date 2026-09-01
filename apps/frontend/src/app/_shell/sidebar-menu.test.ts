@@ -108,7 +108,7 @@ describe('sidebarGroupsFor (context)', () => {
     expect(groups[0]?.items).toHaveLength(3);
     expect(
       groups[0]?.items.map(({ label, href }) => ({ label, href })),
-    ).not.toContainEqual({ label: '사용자 목록', href: '/admin/access' });
+    ).not.toContainEqual({ label: '사용자 목록', href: '/dashboard/users' });
   });
 
   it('교직원·관리자 권한을 함께 가지면 두 그룹이고 입구는 /dashboard다', () => {
@@ -126,7 +126,7 @@ describe('sidebarGroupsFor (context)', () => {
     expect(
       groups[1]?.items.map(({ label, href }) => ({ label, href })),
     ).toEqual([
-      { label: '사용자 목록', href: '/admin/access' },
+      { label: '사용자 목록', href: '/dashboard/users' },
       { label: '감사 로그', href: '/dashboard/audit-logs' },
       { label: '시스템 상태', href: '/dashboard/system-status' },
     ]);
@@ -153,7 +153,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/my-repos',
         '/dashboard/activity',
-        '/admin/access',
+        '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
       ],
@@ -165,7 +165,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/dashboard/insights',
         '/dashboard/applicants',
-        '/admin/access',
+        '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
       ],
@@ -173,7 +173,7 @@ describe('sidebarGroupsFor (context)', () => {
     [
       'admin-only',
       { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
-      ['/admin/access', '/dashboard/audit-logs', '/dashboard/system-status'],
+      ['/dashboard/users', '/dashboard/audit-logs', '/dashboard/system-status'],
     ],
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
     '%s surface를 권한 함축 없이 합집합으로 보인다',
@@ -361,13 +361,15 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/staff/dashboard', '/dashboard', '')).toBe(
       false,
     );
-    expect(isCurrentSidebarItem('/admin/access', '/dashboard', '')).toBe(false);
-    expect(
-      isCurrentSidebarItem('/admin/access/users/u1', '/dashboard', ''),
-    ).toBe(false);
-    expect(isCurrentSidebarItem('/admin/access', '/admin/access', '')).toBe(
-      true,
+    expect(isCurrentSidebarItem('/dashboard/users', '/dashboard', '')).toBe(
+      false,
     );
+    expect(isCurrentSidebarItem('/dashboard/users/u1', '/dashboard', '')).toBe(
+      false,
+    );
+    expect(
+      isCurrentSidebarItem('/dashboard/users', '/dashboard/users', ''),
+    ).toBe(true);
     // 별 사이드 항목 — 홈의 자식으로 취급하지 않는다
     expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard', '')).toBe(
       false,

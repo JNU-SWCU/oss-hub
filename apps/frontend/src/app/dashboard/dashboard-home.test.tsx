@@ -63,6 +63,6 @@ describe('DashboardHome', () => {
   it('admin-only compatibility는 교직원 본문 대신 관리자 화면으로 보낸다', () => {
     mocks.useSharedSessionRole.mockReturnValue(session(null, false, true));
     renderToStaticMarkup(<DashboardHome />);
-    expect(mocks.redirect).toHaveBeenCalledWith('/admin/access');
+    expect(mocks.redirect).toHaveBeenCalledWith('/dashboard/users');
   });
 });
