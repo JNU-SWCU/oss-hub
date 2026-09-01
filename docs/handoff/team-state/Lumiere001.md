@@ -62,3 +62,14 @@
 - 내용: 접근 관리 화면과 상세 intercept 경로를 `/admin/access`에서 `/dashboard/users`로 옮기고, 메뉴·대시보드·local-review·브라우저 검증 경로를 같은 주소로 정렬했다. 구 역할 노출 주소에는 redirect를 남기지 않았다.
 - 검증: 프런트엔드 317개 파일·3177개 테스트와 별도 런타임 geometry 4개 테스트, 목록 클릭→상세 오버레이→새로고침 표준 상세 Playwright 1개, typecheck·lint·format·production build를 통과했다. lint 경고 5건은 기존 sidebar drawer 테스트의 경고이며 새 오류는 없다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-01 — E2E 세션 목을 현재 인증 계약으로
+
+- 상태: review
+- Issue: #1086
+- PR: (이 PR)
+- blocker: 없음
+- 내용: member-authority 이관으로 세션 응답에서 `role`이 사라지고 권한 필드(`memberKind`·`hasStaffAccess`·`hasAdminAccess`)로 갈렸는데, 두 스펙의 손으로 적은 목은 옛 모양 그대로였다. 화면이 그 목을 권한 없는 사용자로 읽어 편집 화면 요청을 랜딩으로 돌려보냈고, 실패는 「제목을 못 찾음」으로만 보여 원인을 가렸다. 목을 `e2e/support/session-mock.ts` 한 곳으로 모으고 `Me` 타입을 참조하게 해, 다음 계약 변경은 브라우저 실행이 아니라 typecheck가 먼저 잡는다.
+- 검증: lint·typecheck 통과, frontend 319 파일·3188 테스트 통과. `program-edit-purge-network.spec.ts` 는 수정 전 4건 전부 `openEdit` 에서 죽었고 수정 후 3건 통과·1건은 화면에 도달한 뒤 다른 단언에서 실패한다.
+- 남은 것: 그 1건(`scope drift reports precise error without retry`)은 세션과 무관한 별개 문제다. 게이트가 막혀 있는 동안 한 번도 실행되지 않았던 자리이며, 제품 결함인지 스펙의 낡은 기대인지 아직 가리지 못했다. 별도 티켓으로 올린다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
