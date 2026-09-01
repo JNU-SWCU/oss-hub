@@ -1,4 +1,4 @@
-<!-- init:managed id=init-frontend-src-app sha256=78b6938f66d58bc3c47590a9933e9c4e719e57627ab8e477ec762ab7ee61602a -->
+<!-- init:managed id=init-frontend-src-app sha256=709ea7e9f3010ecef8da24d906fc3871db9e529765a2e7d6dfe8b40fa85dafe6 -->
 # `apps/frontend/src/app/` scope
 
 ## App Router entry points
@@ -12,7 +12,7 @@
 
 - Keep `page.tsx` files thin: compose the route's feature component and shell guard rather than implementing feature state here.
 - Route-level code uses `features/` for feature ownership, `components/` for shared UI, and `lib/` for shared utilities.
-- `dashboard/`, `programs/`, `settings/`, `signup/`, `onboarding/`, `admin/`, `archive/`, `ranking/`, `profile/`, and `my-repos/` are route roots under this directory.
+- `dashboard/`, `programs/`, `settings/`, `signup/`, `onboarding/`, `archive/`, `ranking/`, `profile/`, and `my-repos/` are route roots under this directory.
 - Dynamic program routes are nested below `programs/[id]/`; dynamic public profiles are below `profile/[userId]/`.
 
 ## Shell and session boundaries
