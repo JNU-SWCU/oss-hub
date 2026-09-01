@@ -1124,6 +1124,15 @@
 - 결과: Jenkins의 latest full Release·exact main SHA·no-op 수렴 계약을 10분 schedule로 실행하고, GitHub Actions의 public build POST workflow를 제거했다. 수동 복구는 tailnet의 parameterless build만 사용한다. Canonical Vercel full-channel smoke와 4MiB 초과 upload-body probe를 Jenkins에 연결하고 legacy public-IP/`--resolve` smoke를 제거했다.
 - 검증: Jenkins checker 13/13, canonical public health·auth boundary 현재 실측 green. 병합 뒤 tailnet 수동 실행으로 schedule을 load하고 timer no-op을 확인한 뒤 public nginx trigger와 GitHub secrets를 제거한다.
 
+## 2026-09-02 — custom-domain origin을 authenticated API boundary로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: DNS provider에서 `origin` record를 current backend ingress로 추가하는 사람 작업
+- 결과: Vercel CDN route가 browser Authorization을 지우고 production sensitive Basic credential을 주입해 exact origin domain으로만 rewrite한다. Host nginx는 exact DNS TLS/SNI·Basic auth·method allowlist를 적용하고 unknown Host·비API·direct origin을 닫으며 credential을 Compose 전에 제거한다. Post-auth Compose nginx가 Vercel client header로 API/OAuth/admin rate limit을 분리하고 backend 전에 internal headers를 제거한다. Legacy IP certificate·public Jenkins route·broad `/api/` 계약을 제거했다.
+- 검증: Vercel config/Next test 23건, actual `vercel build --prod`, host/Compose nginx syntax, host nginx adversarial 11건, upload route 15건, Jenkins 13건, CI path 8건 통과. Live cutover는 DNS·certificate·htpasswd·Vercel origin env를 적용한 뒤 canonical SSR/OAuth/session/query/authz/file/4MiB+ upload와 negative Host/path/method probe로 닫는다.
+
 ## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
 
 - 상태: review

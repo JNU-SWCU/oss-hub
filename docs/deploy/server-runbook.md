@@ -170,7 +170,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 - Pipeline job은 main SCM의 root `Jenkinsfile` 하나만 읽는다.
 - Jenkins parameter definitions는 두지 않는다.
 - Docker 권한을 가진 executor에 `oss-hub-production` label을 부여하고, 이 job과 승인된 운영자 외 작업을 배치하지 않는다. `disableConcurrentBuilds()`는 `Jenkinsfile`이 강제한다.
-- 자동·수동 재실행 모두 exact `POST /job/oss-hub-release-cd/build`을 사용한다. 계약 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)다.
+- 자동 실행은 `cron('H/10 * * * *')` outbound convergence가 소유한다. 수동 복구는 tailnet Jenkins에서 parameterless build를 실행한다. Public build endpoint는 없다.
 - 검증: job 설정의 script path가 `Jenkinsfile`, branch가 `main`, parameter definition 수가 0인지 확인한다.
 
 ## M5. GitHub API 호출 준비
@@ -199,7 +199,10 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 ```sh
 docker compose --env-file "$OSS_HUB_ENV_FILE" ps
 test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/)" = 404 && echo "root closed"
-curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
+curl -fsS \
+  -H 'Host: jnu-oss-hub.com' \
+  -H 'X-Vercel-Forwarded-For: 192.0.2.1' \
+  http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 # 업로드 경로 5종은 pre-deploy-verify ②의 명령을 그대로 쓴다 — 기대값을 여기 복사하면 갈라진다.
 # 공인 TLS smoke는 host nginx·인증서 계약이 준비된 뒤에 Jenkinsfile과 동일 경로로 확인한다.
 ```
@@ -223,9 +226,15 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 
 과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 
-### M8-E. checkpoint B public ingress 전환
+### M8-E. authenticated custom-origin 전환
 
-checkpoint B에서는 host nginx의 public catch-all이 Compose frontend를 proxy하지 않는다. GET과 HEAD는 canonical Vercel origin으로 308 redirect하고, 그 밖의 method는 빈 body의 404로 끝낸다. `/api/`, OAuth, deploy trigger와 loopback health/smoke 경로는 변경하지 않는다.
+1. DNS provider에서 exact origin subdomain을 current backend ingress로 연결하고 TTL을 낮춘다. 이 domain은 browser origin·OAuth callback·cookie domain으로 사용하지 않는다.
+2. Certbot webroot로 exact origin DNS certificate를 발급하고 자동 renewal+nginx reload를 확인한다.
+3. 운영 credentials vault의 origin password로 host-only htpasswd를 만들고 root 소유·nginx read-only 권한으로 설치한다. 값과 verifier를 저장소·명령 로그에 남기지 않는다.
+4. Vercel Production에 sensitive `ORIGIN_BASIC_AUTH`를 설정하고 `BACKEND_ORIGIN`과 보호된 승인 digest를 exact origin domain으로 바꾼다. Preview에는 production credential을 주입하지 않는다.
+5. `deploy/host-nginx/oss-hub.conf`를 설치하고 `nginx -t` 뒤 reload한다. Unknown Host/SNI·비API·unauthenticated direct request가 닫히고 Vercel same-origin API만 통과하는지 확인한다.
+6. SSR, OAuth callback, host-only session cookie, public query, 미인증 authz, 4MiB 초과 upload body, file flow와 health를 canonical browser origin에서 검증한다.
+7. Jenkins schedule이 한 번 no-op 또는 deploy로 실행된 뒤 public build endpoint와 GitHub deploy secret이 없음을 확인한다. Legacy IP certificate와 fallback vhost는 이 검증 뒤 제거한다.
 
 sudo 권한이 있는 운영자가 이전 설정 백업을 보존한 상태에서 설정을 교체한 뒤, 참석 하에 아래 순서로 적용한다. `nginx -t`가 성공한 경우에만 reload한다.
 
@@ -328,10 +337,8 @@ M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트
 - [ ] `oss-hub-production-env` secret file의 항목 목록(값 제외)
 - [ ] GitHub read-only PAT의 소재·권한 범위(값 제외)
 - [ ] 백업 디렉터리 경로와 소유·권한 정책
-- [ ] host nginx·공인 TLS·Jenkins 원격 트리거 경로 설정 소재(값 제외)
+- [ ] exact origin DNS/TLS·host-only verifier·Vercel sensitive credential 소재(값 제외)
 
 ## 9. 오늘 범위 밖 (follow-up / 별도 PR)
 
-- **자동 트리거 live 연결 검증** (GitHub Actions `deploy.yml` → Jenkins parameterless `/build` e2e) — 수동 M7과 별도 확인.
 - **`Jenkinsfile` GitHub API 인증(PAT)** 적용(코드 변경) — follow-up.
-- **host nginx TLS/IP 인증서 live 운영 점검**.

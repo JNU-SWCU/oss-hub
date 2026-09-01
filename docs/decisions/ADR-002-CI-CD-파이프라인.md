@@ -30,9 +30,9 @@ GitHub Actions는 모든 PR에서 실행되는 경량 CI로 구성하고 require
 
 main 병합은 GitHub Actions `ci`가 검증하며 Jenkins는 production 배포만 담당한다.
 production 배포 후보 단위는 공개 GitHub Release다.
-main 이력의 exact commit을 가리키는 tag로 draft·prerelease가 아닌 Release를 발행하면 `release.published` 이벤트가 `deploy.yml`을 직접 실행한다.
-`deploy.yml`은 그 published 이벤트에서 별도 feature flag 없이 Jenkins 내장 원격 빌드 트리거(전용 서비스 사용자 API token Basic 인증)로 **파라미터 없는 POST**를 보내며, 트리거 실패는 같은 GitHub Actions run을 재실행해 복구한다.
-별도 `release.yml`·`workflow_call`·수동 deploy dispatch 표면은 두지 않는다. 트리거 URL은 HTTPS만 허용한다. 배포 서버의 host nginx가 공인 IP TLS를 종료하고 해당 경로의 POST만 localhost Jenkins로 리버스 프록시하며 Jenkins UI는 공개하지 않는다. `/api/`와 exact OAuth callback만 loopback `127.0.0.1:8081`의 Compose nginx로 전달하고, 비API GET·HEAD는 canonical Vercel origin으로 308 redirect하며 그 밖의 method는 404로 닫는다. GitHub Actions는 얇은 트리거 POST만 담당하고 검증·배포·실패 알림은 Jenkins가 수행한다. Jenkins는 트리거로부터 버전을 전달받지 않고 **자체적으로 현재 latest full Release를 조회**해 `draft=false`·`prerelease=false`와 full SemVer tag를 확인한다.
+main 이력의 exact commit을 가리키는 tag로 draft·prerelease가 아닌 Release를 발행하면 Jenkins의 outbound 10분 convergence schedule이 latest full Release를 발견한다.
+Jenkins는 외부 입력 없이 **자체적으로 현재 latest full Release를 조회**해 `draft=false`·`prerelease=false`와 full SemVer tag를 확인한다. 같은 버전·SHA 또는 하위 버전이면 성공 no-op이고, tailnet의 parameterless 수동 실행은 schedule 지연이나 복구 때만 사용한다.
+별도 `deploy.yml`·public Jenkins build endpoint·GitHub deploy token·수동 GitHub dispatch 표면은 두지 않는다. Jenkins UI와 administration은 tailnet에만 남긴다. Browser API는 Vercel routing layer가 production sensitive credential을 주입해 exact origin domain으로 전달하며, host nginx는 authenticated API request만 loopback `127.0.0.1:8081`의 Compose nginx로 전달한다.
 tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해당 SHA를 checkout한다.
 **배포 인가는 draft·prerelease가 아닌 GitHub Release의 발행 자체다** — 누가 배포를 시작할 수 있는지는 GitHub의 Release 발행 권한이 통제하고, Jenkins는 인가 주체를 따로 판별하지 않는다.
 공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
@@ -98,20 +98,22 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 - GitHub Actions required job 이름은 반드시 `ci`이고 모든 PR에서 보고되어야 한다.
 - 경로별 검증 대상과 synthetic-only 경계는 [CI 경로별 검증 계약](../rules/ci-path-verification.md)을 따른다.
 - Jenkins는 production 배포만 담당하고 main 검증은 GitHub Actions `ci`가 단독으로 수행한다. Jenkins는 현재 latest full GitHub Release만 처리한다.
-- production 배포 트리거는 GitHub Actions `deploy.yml`이 draft·prerelease가 아닌 published 이벤트에서 HTTPS Jenkins 내장 원격 트리거(전용 서비스 사용자 API token)로 파라미터 없이 보낸다. 트리거 경로에는 사람·환경변수 게이트를 두지 않는다. 공개 표면은 `POST /job/oss-hub-release-cd/build` 정확일치 경로 하나뿐이며 host nginx가 그 경로의 POST만 프록시한다. 배포 대상 판별은 트리거 입력이 아니라 Jenkins의 latest Release 조회가 담당하며, draft·prerelease·full SemVer가 아닌 tag는 그 조회 결과를 근거로 Jenkins가 거절한다. 트리거 엔드포인트·API token 값은 GitHub repo secret에만 두고 저장소·로그에 남기지 않는다.
+- Production 배포 trigger는 `cron('H/10 * * * *')`의 outbound convergence다. Public Jenkins endpoint와 GitHub deploy secret은 없고, tailnet의 parameterless 수동 실행만 recovery path다. 배포 대상 판별은 Jenkins의 latest Release 조회가 담당한다.
 - 배포 실패 알림은 Jenkins email-ext 플러그인으로 보내며 수신자·SMTP는 Jenkins UI 설정(Manage Jenkins → System → Extended E-mail Notification의 Default Recipients + SMTP)에만 두고 저장소에 이메일 주소를 남기지 않는다.
 - 배포 인가는 draft·prerelease가 아닌 GitHub Release 발행이며 Jenkins는 별도 승인 marker를 요구하지 않는다. 인가 주체 통제는 GitHub의 Release 발행 권한이 담당하므로 그 권한 목록이 배포 권한 목록이다.
 - tag commit은 main ancestry를 통과한 exact SHA여야 한다. 태그 조작 방어는 세 가지 fail-closed 검사의 합이다: Jenkins가 자체 조회한 latest full Release만 대상으로 삼고, tag는 full `vMAJOR.MINOR.PATCH`여야 하며, 그 tag가 가리키는 exact SHA가 main 이력에 포함되어야 한다. 실행 중 SemVer가 같거나 더 높으면 no-op이라 임의 tag 재작성으로 하위 버전을 밀어 넣을 수 없다. 영속 배포 상태 파일은 두지 않으며 판정 근거는 실행 중인 컨테이너 label이다.
 - Jenkins는 Docker 권한을 가진 `oss-hub-production` 전용 executor에서만 실행하고 동시 실행을 금지한다. 운영 환경 파일은 Credentials Store의 file credential로 실행 시점에만 주입한다. GitHub App 개인키도 같은 방식의 file credential로 주입하되 env 값이 아니라 파일로 전달한다 — env 값은 `docker compose config`·`docker inspect`·프로세스 env 덤프에 평문으로 드러난다. 파이프라인은 주입받은 키를 `SECRETS_DIR` 아래 build별 generation 디렉터리에 `0640`으로 설치하고 `current` symlink를 원자 교체하며, compose는 그 경로를 secret source로 읽는다. 설치는 compose를 처음 호출하는 stage보다 앞에 있어야 한다.
 - Compose는 `COMPOSE_PROJECT_NAME`을 고정하며 `pgdata`와 기존 데이터를 삭제하는 `down -v`를 사용하지 않는다.
-- Production Compose는 backend, PostgreSQL과 `127.0.0.1:8081`의 API-only nginx로 구성되며 object storage는 managed R2다. Root와 비API path는 404, `/api/`와 exact OAuth callback만 backend로 전달한다. Frontend와 MinIO substitute는 `compose.local.yml`에서만 사용한다.
+- Production Compose는 backend, PostgreSQL과 `127.0.0.1:8081`의 API-only nginx로 구성되며 object storage는 managed R2다. Canonical·loopback Host만 받고 root와 비API path는 404, `/api/`와 exact OAuth callback만 backend로 전달한다. Frontend와 MinIO substitute는 `compose.local.yml`에서만 사용한다.
+- Public API origin은 exact DNS Host와 domain certificate를 사용한다. Unknown Host/TLS SNI, 비API path, direct unauthenticated request와 unintended method는 거절한다. Vercel route가 browser `Authorization`을 덮어쓴 뒤 host-only Basic verifier와 짝을 이루는 sensitive credential을 주입하고, host nginx는 origin credential과 Vercel identity header를 backend 전달 전에 제거한다. Rate limit은 authenticated Vercel client header를 key로 사용한다.
 - Compose nginx의 설정은 **디렉터리 마운트**(`./deploy/nginx:/etc/nginx/conf.d:ro`)로 주입한다. 단일 파일 bind mount는 컨테이너 생성 시점의 inode를 고정하는데 Jenkins는 배포마다 git checkout으로 그 파일을 교체하므로, 수명이 긴 nginx 컨테이너가 저장소와 무관한 옛 설정을 계속 서빙한다. 디렉터리를 마운트하면 컨테이너가 매번 현재 파일을 읽는다.
 - 저장소 파일만 읽는 검사는 실행 중 설정이 저장소와 같다는 증거가 되지 못한다. 실행 중 설정에 대한 계약은 Compose ingress를 실제로 호출하는 배포 smoke가 증명한다.
 - 배포 smoke는 rollout과 rollback의 Compose ingress에서 `/` 404와 `/api/v1/health` 200을 단언하며, 제출 파일 미인증 접근 401과 API ingress의 정상 동작을 단언한다. 제출 파일 접근의 구체적인 단언 문구는 구현 PR이 정하며, `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 닿지 못하면 503을 반환한다 — 상수 200은 배포 판정 근거가 아니다.
-- Certbot 5.4 이상의 `shortlived` IP 인증서를 webroot로 자동 갱신하고 성공한 갱신 뒤 host nginx를 reload한다. 인증서 갱신 실패는 만료 전 운영 경보 대상이다.
+- Certbot은 exact origin DNS certificate를 webroot로 자동 갱신하고 성공한 갱신 뒤 host nginx를 reload한다. 인증서 갱신 실패는 만료 전 운영 경보 대상이다.
 
 ## Changelog
 
+- 2026-09-02: custom-domain threat model을 동결했다. Vercel request transform+origin Basic auth, exact origin Host/domain TLS, trusted client-key rate limit, unknown Host/method rejection, backend header stripping, outbound Jenkins convergence를 채택하고 public Jenkins trigger·IP certificate·direct-origin browser surface를 제거했다.
 - 2026-09-02: owner waiver 뒤 production MinIO service·volume·credential·hold branch와 AWS frontend image/runtime을 제거했다. Production은 managed R2, backend, PostgreSQL과 API-only ingress만 유지하며 local substitutes는 `compose.local.yml`로 격리했다.
 - 2026-09-01: private managed R2 전환 계약을 추가했다. 현재 production MinIO 상태와 checkpoint A를 명시하고, checkpoint B의 sole Vercel frontend·AWS frontend 제거 조건, explicit storage mode, credential 분리, configured-endpoint fail-closed backup/restore, activation 전 격리 rollback drill, R2 write 후 reverse-copy/check rollback, G8 뒤 observation과 전체 canonical gate가 green일 때 한 번만 기록하는 `ROLLBACK_HOLD_START`, 72-hour 보존 및 비파괴 cleanup을 확정했다. 구현 진행 상태는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)을 원본으로 참조하며 이 개정은 cutover 완료를 뜻하지 않는다.
 - 2026-08-25: 실행 계약의 SSoT인 root `Jenkinsfile`의 `BACKUP_RETENTION_N=30`을 현재 승인값으로 기록했다. 최근 30개 성공 배포의 PostgreSQL·object 복구점을 함께 보존해 same-host 디스크 사용량을 제한하며, 직전 이미지 rollback과 off-host 장기 보관은 별도 계약임을 명시했다. 이후 값 변경은 코드·checker와 산정 근거를 한 PR에서 함께 리뷰한다 (#1027).
