@@ -1009,6 +1009,7 @@
 - 검증: Jenkins contract와 mutation fixture 192건, public-safe, diff check를 통과했다.
 
 ## 2026-09-02 — checkpoint B: public ingress를 API 전용으로 좁힌다
+## 2026-09-02 — checklist 테스트의 wall-clock 의존을 제거한다
 
 - 상태: review
 - Issue: #1113
@@ -1016,6 +1017,9 @@
 - blocker: 병합 뒤 host nginx에 attended 적용(`nginx -t` + reload)해야 다음 Release drift preflight가 통과한다.
 - 결과: canonical origin이 frontend를 서빙하므로 host nginx public catch-all이 legacy frontend로 proxy하던 것을 GET/HEAD 308 → canonical origin, 그 외 메서드 404로 바꿨다. /api/, OAuth 정확 경로, deploy trigger, rate-limit zone, loopback smoke block은 바이트 동일하다. runbook에 적용·롤백 절차를 추가했다.
 - 검증: diff가 catch-all block과 runbook 절에만 닿음을 확인했다.
+- blocker: 없음 — 이 결함이 main의 required ci를 자정부터 깨뜨려 모든 PR을 막고 있었다.
+- 결과: `submissions.service.checklist.spec.ts`의 checklist 호출 7곳이 실제 시계를 사용해 dueAt 픽스처(2026-09-01T14:59:59Z)가 지나자 canResubmit 기대가 뒤집혔다. 모든 호출에 픽스처 유효 범위 내 고정 시각을 명시했다(G001과 동일 계열 수정).
+- 검증: 해당 spec 11/11 통과.
 
 ## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
 
