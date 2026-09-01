@@ -32,14 +32,14 @@ main 병합은 GitHub Actions `ci`가 검증하며 Jenkins는 production 배포�
 production 배포 후보 단위는 공개 GitHub Release다.
 main 이력의 exact commit을 가리키는 tag로 draft·prerelease가 아닌 Release를 발행하면 `release.published` 이벤트가 `deploy.yml`을 직접 실행한다.
 `deploy.yml`은 그 published 이벤트에서 별도 feature flag 없이 Jenkins 내장 원격 빌드 트리거(전용 서비스 사용자 API token Basic 인증)로 **파라미터 없는 POST**를 보내며, 트리거 실패는 같은 GitHub Actions run을 재실행해 복구한다.
-별도 `release.yml`·`workflow_call`·수동 deploy dispatch 표면은 두지 않는다. 트리거 URL은 HTTPS만 허용한다. 배포 서버의 host nginx가 공인 IP TLS를 종료하고 해당 경로의 POST만 localhost Jenkins로 리버스 프록시하며 Jenkins UI는 공개하지 않는다. 나머지 요청은 loopback `127.0.0.1:8081`의 Compose nginx로 전달한다. GitHub Actions는 얇은 트리거 POST만 담당하고 검증·배포·실패 알림은 Jenkins가 수행한다. Jenkins는 트리거로부터 버전을 전달받지 않고 **자체적으로 현재 latest full Release를 조회**해 `draft=false`·`prerelease=false`와 full SemVer tag를 확인한다.
+별도 `release.yml`·`workflow_call`·수동 deploy dispatch 표면은 두지 않는다. 트리거 URL은 HTTPS만 허용한다. 배포 서버의 host nginx가 공인 IP TLS를 종료하고 해당 경로의 POST만 localhost Jenkins로 리버스 프록시하며 Jenkins UI는 공개하지 않는다. `/api/`와 exact OAuth callback만 loopback `127.0.0.1:8081`의 Compose nginx로 전달하고, 비API GET·HEAD는 canonical Vercel origin으로 308 redirect하며 그 밖의 method는 404로 닫는다. GitHub Actions는 얇은 트리거 POST만 담당하고 검증·배포·실패 알림은 Jenkins가 수행한다. Jenkins는 트리거로부터 버전을 전달받지 않고 **자체적으로 현재 latest full Release를 조회**해 `draft=false`·`prerelease=false`와 full SemVer tag를 확인한다.
 tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해당 SHA를 checkout한다.
 **배포 인가는 draft·prerelease가 아닌 GitHub Release의 발행 자체다** — 누가 배포를 시작할 수 있는지는 GitHub의 Release 발행 권한이 통제하고, Jenkins는 인가 주체를 따로 판별하지 않는다.
 공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
 별도 staging 서버는 두지 않는다.
 
-Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. CD는 CI 상태를 읽지 않는다(자세한 내용은 PR #1012에서 추가한 Anti-pattern 절 참조). **배포 시점 재검증(lint·typecheck·test·앱 build)은 폐지했다** — 품질 검증 책임은 CI 레이어(merge 전 `ci` required check)에 있다. 새 Release는 PostgreSQL backup → object backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다. 이미지 build는 각 Dockerfile 내부에서 자체적으로 `pnpm install --frozen-lockfile`·`prisma generate`·`pnpm build`를 수행하므로 별도 host 단계에서 이를 반복할 필요가 없다.
-smoke는 rollout과 rollback의 Compose ingress에서 `/` 200과 `/api/v1/health` 200을 단언하며, 제출 파일 차단 해제 뒤에는 미인증 접근 401과 인증 접근의 정상 동작을 단언한다. 제출 파일 접근의 구체적인 단언 문구는 구현 PR이 정한다.
+Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 backend 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. CD는 CI 상태를 읽지 않는다(자세한 내용은 PR #1012에서 추가한 Anti-pattern 절 참조). **배포 시점 재검증(lint·typecheck·test·앱 build)은 폐지했다** — 품질 검증 책임은 CI 레이어(merge 전 `ci` required check)에 있다. 새 Release는 PostgreSQL backup → object backup → 서버 로컬 backend image 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다. Backend Dockerfile이 `pnpm install --frozen-lockfile`·`prisma generate`·`pnpm build`를 수행하므로 별도 host 단계에서 이를 반복할 필요가 없다.
+Smoke는 rollout과 rollback의 Compose ingress에서 `/` 404와 `/api/v1/health` 200을 단언하며, 제출 파일 미인증 접근 401과 public ingress의 canonical root 308을 확인한다.
 `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 DB에 닿지 못하면 503을 반환한다 — 상수 응답은 nginx와 Node 프로세스가 살아 있다는 것만 증명하므로 배포 판정 근거가 되지 못한다.
 이미지는 release tag로 태깅하므로 별도 영속 배포 상태 파일을 두지 않으며, 배포 상태의 원본은 실행 중인 컨테이너 자신이다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. 배포 전에는 운영 환경 파일의 `FRONTEND_URL`이 `https://`인지 확인한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않는다.
 

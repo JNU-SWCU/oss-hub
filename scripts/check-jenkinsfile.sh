@@ -68,9 +68,14 @@ require_order() {
 }
 
 # Release identity and backend-only running authority.
+require 'pipeline serialization must remain' 'disableConcurrentBuilds()'
 require 'RELEASE_TAG must remain the image tag' 'env.IMAGE_TAG = tag'
 require 'exact Release SHA resolution must remain' 'git rev-parse "${RELEASE_TAG}^{commit}"'
+require 'Release commit must remain on main' 'git merge-base --is-ancestor "$release_sha" origin/main'
 require 'exact SHA checkout must remain' 'git checkout --detach "$RELEASE_SHA"'
+require 'production env preflight must remain' 'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"'
+require 'greenfield host-clean guard must remain' 'bash scripts/jenkins/assert-greenfield-host-clean.sh'
+require_absent 'production volume destruction must remain absent' 'down -v'
 require 'backend running probe must remain' 'ps -q backend'
 require 'backend stopped-state probe must remain' 'ps --all -q backend'
 require 'backend OCI version label must remain' 'org.opencontainers.image.version'
@@ -90,6 +95,11 @@ require_absent 'paired running authority must be absent' 'partial_running'
 require 'managed storage mode must be validated' "[ \"\$storage_mode\" = 'managed' ]"
 require 'managed backup must retain the R2 credential boundary' "credentialsId: 'oss-hub-r2-s3-credentials'"
 require 'managed object backup must use the previous backend image' '"oss-hub-backend:${PREV_TAG}"'
+require 'managed backup pagination must remain' 'ListObjectsV2Command'
+require 'managed backup object download must remain' 'GetObjectCommand'
+require 'managed backup missing-token guard must remain' 'missing continuation token'
+require 'managed backup listed-size check must remain' 'statSync(destination).size !== Number(object.Size)'
+require 'managed backup manifest verification must remain' 'sha256sum -c .manifest.sha256'
 require 'fresh SQL backup target must remain' 'backup_target="${BACKUP_DIR}/${RELEASE_TAG}-${BUILD_NUMBER}.sql"'
 require 'fresh object backup target must remain' 'object_backup_target="${object_backup_parent}/${RELEASE_TAG}-${BUILD_NUMBER}"'
 require_order 'backup must precede backend build' "stage('PostgreSQL 기동 및 배포 전 백업')" "stage('버전 이미지 빌드')"
@@ -97,11 +107,13 @@ require_order 'backup must precede backend build' "stage('PostgreSQL 기동 및 
 # Backend image, migration, rollout and rollback remain explicit.
 require_count 'backend image must be built exactly once' '--file apps/backend/Dockerfile' 1
 require 'Prisma deploy must use the versioned backend image' '"oss-hub-backend:${IMAGE_TAG}"'
+require 'production Prisma migration must remain' 'npx prisma migrate deploy'
 require 'rollback image validation must remain' 'bash scripts/jenkins/validate-rollback-images.sh'
 require 'rollback must set the previous backend tag' 'withEnv(["IMAGE_TAG=${env.PREV_TAG}"])'
 require 'rollout compose wait must remain' 'up -d --no-build --wait --wait-timeout 180'
 require 'nginx config test must remain' 'exec -T nginx nginx -t'
 require 'nginx reload must remain' 'exec -T nginx nginx -s reload'
+require 'read-only no-op drift stage must remain' "stage('no-op 실행 중 nginx 드리프트 검증')"
 
 # Production nginx now serves no local frontend, but public TLS preserves Vercel canonical redirect.
 require_regex_count 'loopback root must assert 404 for rollout, rollback, and no-op drift' 'require_status 404 GET http://127[.]0[.]0[.]1:8081/([[:space:]]|$)' 3
@@ -118,3 +130,10 @@ require_absent 'frontend retention must be absent' 'oss-hub-frontend'
 require 'BuildKit pruning must remain' 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
 require 'SQL backup pruning must remain' 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
 require 'object backup pruning must remain' 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects'
+
+require_order 'production env preflight must precede mutation stages' \
+  'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"' \
+  "stage('PostgreSQL 기동 및 배포 전 백업')"
+require_order 'greenfield host-clean guard must precede backup' \
+  'bash scripts/jenkins/assert-greenfield-host-clean.sh' \
+  "stage('PostgreSQL 기동 및 배포 전 백업')"
