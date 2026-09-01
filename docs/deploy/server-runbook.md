@@ -115,11 +115,13 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
 | `GITHUB_OPERATIONS_APP_ID` | 저장소 생성·설정 변경용 GitHub App 식별자 |
 | `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
-| `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
+| `SUBMISSION_FILE_STORAGE_MODE` | exact `minio` 또는 `managed`; 현재 production은 `minio` |
+| `SUBMISSION_FILE_S3_*` | backend storage configuration. managed credential pair는 env file이 아니라 Jenkins username/password binding에서만 주입한다 |
+| `ROLLBACK_MINIO_*` | managed R2 activation 뒤 rollback MinIO 전용 credential. `SUBMISSION_FILE_S3_*` credential과 분리한다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | `MAIL_MODE=send`일 때 필수인 마감 알림 발신 자격증명. `dry-run`에서는 빈 값 허용 |
 
-`SUBMISSION_FILE_S3_ACCESS_KEY_ID`·`SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`의 실제 값은 이 저장소에 두지 않는다.
+`SUBMISSION_FILE_S3_*`와 `ROLLBACK_MINIO_*`의 실제 값은 이 저장소에 두지 않는다. managed credential pair는 production env file에도 두지 않는다.
 `compose.yml`에 env 키를 추가하거나 지우면 이 표도 같은 PR에서 갱신한다.
 
 `GITHUB_PUBLIC_READ_TOKEN` — 외부 public 저장소 수집 전용 GitHub fine-grained PAT(REST + GraphQL 겸용)이며 위 표에는 없다. 위 `GITHUB_COLLECTION_APP_*`(Collection GitHub App installation token)는 조직 설치 범위 밖 저장소를 읽지 못하고, GitHub GraphQL v4는 OAuth App client_id:client_secret Basic Auth를 받지 않아 이 경로는 PAT 하나로 둔다. `compose.yml`이 이 키를 `${VAR:?...}`로 요구하지 않는다 — 조직 collection이 이 값 없이도 그대로 기동·동작해야 하기 때문이다. 값이 비어 있으면 외부 수집을 실제로 시도하는 시점에만 fail-closed로 실패하며, 조용히 0건으로 넘어가지 않는다. 이 PAT은 반드시 사업단 서비스 계정으로 발급한다 — 개인 계정으로 발급하면 그 사람이 조직을 떠날 때 외부 수집이 끊기고 public 저장소 조회 이력이 개인 실명에 결부되는 위험이 있다. 만료일을 설정하고 갱신 책임자를 지정해 둔다. 값은 다른 GitHub App 자격증명과 동일하게 배포 secret store에만 둔다.
@@ -147,25 +149,11 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 - Jenkins는 symlink 교체 결과를 확인한 뒤 backend를 `--force-recreate`하고, 컨테이너에 마운트된 두 파일이 활성 generation과 같은지 검증한다.
 - 값 기반 fallback은 없으며 키 회전 실패 시 이전 generation symlink와 backend를 함께 복구한다.
 
-### 기본값이 있는 저장소 키
+### 제출 파일 storage configuration
 
-아래 4개는 이 스택의 MinIO 토폴로지가 결정하는 값이라 `compose.yml`이 기본값을 갖는다.
-**평소에는 `oss-hub-production-env`에 넣지 않는다** — 넣으면 기본값과 어긋날 여지만 생긴다.
+storage mode는 `SUBMISSION_FILE_STORAGE_MODE=minio|managed`로 명시한다. backend는 `SUBMISSION_FILE_S3_ENDPOINT`, `SUBMISSION_FILE_S3_REGION`, `SUBMISSION_FILE_S3_BUCKET`, `SUBMISSION_FILE_S3_ACCESS_KEY_ID`, `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`, `SUBMISSION_FILE_S3_FORCE_PATH_STYLE`를 사용한다.
 
-| 키 | 기본값 | 비고 |
-| --- | --- | --- |
-| `SUBMISSION_FILE_S3_ENDPOINT` | `http://minio:9000` | compose 내부 DNS. MinIO는 외부 노출하지 않는다 |
-| `SUBMISSION_FILE_S3_REGION` | `us-east-1` | MinIO는 무시하지만 SDK가 빈 값이 아니길 요구한다 |
-| `SUBMISSION_FILE_S3_BUCKET` | `oss-hub-submission-files` | `minio-bucket` 서비스가 기동 시 자동 생성한다. `backend`와 `minio-bucket` 양쪽 기본값이 같아야 한다 |
-| `SUBMISSION_FILE_S3_FORCE_PATH_STYLE` | `true` | MinIO는 path-style만 받는다 |
-
-관리형 S3로 옮길 때는 이 4개를 env에 지정한다. 애플리케이션 코드는 바꾸지 않는다.
-**전환 후에는 백엔드 컨테이너에 실제로 반영된 엔드포인트를 확인한다** — 키 이름을 틀리면 오류 없이
-기본값이 먹어 업로드가 조용히 로컬 MinIO로 계속 간다.
-
-```bash
-docker compose --env-file "$OSS_HUB_ENV_FILE" exec backend printenv SUBMISSION_FILE_S3_ENDPOINT
-```
+managed mode에서는 Jenkins username/password binding이 access-key pair를 제공하고, endpoint·region·bucket·path-style은 승인된 runtime configuration에서 제공한다. 운영자는 backend에 적용된 key 이름과 configured endpoint/bucket 일치를 secret value를 출력하지 않고 확인한다. 누락·기본값 fallback·대상 불일치는 fail-closed다. rollback MinIO는 `ROLLBACK_MINIO_*`만 사용한다.
 
 - 검증:
 
@@ -222,46 +210,58 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 - **no-op 재확인**: 파라미터 없이 job을 다시 실행하면 실행 중 tag·revision과 latest Release가 같음을 증명하고 성공 no-op 처리되는지 확인한다.
 - 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. [init-operations](../exec-plan/active/init-operations.md) 복구 절차대로 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
 
-## M8. 제출 파일 object backup 복구 드릴
+## M8. Managed R2 backup·restore 및 rollback gate
 
-Jenkins는 성공한 배포마다 `${BACKUP_DIR}/objects/${RELEASE_TAG}-${BUILD_NUMBER}/`에 MinIO 버킷 내용을 보존하고, 성공 뒤 최신 `${BACKUP_RETENTION_N}`개만 남긴다.
-복구 전에는 운영 버킷을 건드리지 않고 반드시 scratch 버킷에서 아래 절차를 완료한다.
+현재 production 제출 파일 저장소는 MinIO이며 R2 cutover는 실행되지 않았다. 구현 진행 상태의 원본은 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이다. 이 절은 cutover 승인이나 완료 영수증이 아니다.
 
-```sh
-backup_dir="/var/lib/oss-hub/backups/objects/<release-tag>-<build-number>"
-scratch_bucket="oss-hub-submission-files-restore-drill"
-minio_id="$(sudo docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
-test -d "$backup_dir" && test -n "$minio_id"
+### M8-A. credential과 mode gate
 
-# 백업을 컨테이너 임시 경로로 복사한 뒤 scratch 버킷에 복원한다.
-sudo docker cp "$backup_dir/." "${minio_id}:/tmp/restore-drill"
-sudo docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc '
-  set -eu
-  mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-  mc rb --force "local/'"$scratch_bucket"'" || true
-  mc mb "local/'"$scratch_bucket"'"
-  mc mirror /tmp/restore-drill "local/'"$scratch_bucket"'"
-'
+1. 운영자는 `SUBMISSION_FILE_STORAGE_MODE`가 exact `minio` 또는 `managed`인지 확인한다. 그 밖의 값 또는 누락은 중단한다.
+2. backend storage 설정은 `SUBMISSION_FILE_S3_*`로만 제공한다. managed mode는 account label만 가변인 Cloudflare R2 HTTPS endpoint, region `auto`, path-style `true`를 요구한다. managed mode의 `SUBMISSION_FILE_S3_ACCESS_KEY_ID`와 `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`는 Jenkins username/password binding에서만 주입한다. production env file, console, workspace, command line에 기록하거나 출력하지 않는다.
+3. rollback MinIO는 `ROLLBACK_MINIO_*`만 사용한다. managed R2 credential, MinIO credential, rollback MinIO credential은 서로 재사용하지 않는다.
+4. Jenkins는 backup과 restore 시작 전에 configured endpoint와 configured bucket을 읽고, 작업 대상이 그 값과 일치함을 확인한다. 어느 값이 누락·불일치하거나 확인할 수 없으면 fail-closed로 중단한다.
+5. live four-operation preflight와 copy parity는 `scripts/jenkins/object-storage-migration.sh`만 사용한다. 이 도구에는 현재 backend image tag와 `SOURCE_S3_*`·`TARGET_S3_*`의 mode, endpoint, region, bucket, path-style, credential을 Jenkins masked environment로 전달한다. 값은 명령 인자·console·workspace에 쓰지 않는다.
 
-# object 수와 checksum manifest가 원본 버킷과 scratch 버킷에서 일치해야 한다.
-sudo docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc '
-  set -eu
-  mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-  mc mirror local/oss-hub-submission-files /tmp/restore-source
-  mc mirror "local/'"$scratch_bucket"'" /tmp/restore-scratch
-  find /tmp/restore-source -type f -exec sha256sum {} \; | sed "s#/tmp/restore-source/##" | sort > /tmp/source.sha256
-  find /tmp/restore-scratch -type f -exec sha256sum {} \; | sed "s#/tmp/restore-scratch/##" | sort > /tmp/restore.sha256
-  diff -u /tmp/source.sha256 /tmp/restore.sha256
-  wc -l /tmp/source.sha256 /tmp/restore.sha256
-  mc rb --force "local/'"$scratch_bucket"'"
-  rm -rf /tmp/restore-drill /tmp/restore-source /tmp/restore-scratch /tmp/source.sha256 /tmp/restore.sha256
-'
-```
+### M8-B. activation 전 격리 restore/rollback drill
 
-빈 버킷은 두 manifest가 모두 0행인 정상 결과다.
-복원 결과가 불일치하거나 scratch 정리가 실패하면 운영 버킷 교체를 판단하지 않고 실패로 처리한다.
-일치할 때도 운영 버킷 교체는 별도 incident 승인·정지 창·현재 버킷 보존 계획을 갖춘 high-risk 변경으로만 결정한다.
-이 드릴 완료만으로 Compose nginx의 제출 파일 403 차단을 해제하지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md) §97).
+다음 순서는 운영 live store를 변경하지 않는 격리된 rollback 대상에서 완료한다.
+
+1. configured endpoint와 bucket을 재확인하고 `preflight`로 R2의 한 probe key에 대한 Put/Get/List/Delete와 삭제 후 부재를 증명한다.
+2. writer를 중지하고 `copy-check`로 MinIO에서 managed R2로 비파괴 copy한 뒤 양쪽의 object count, total size, key별 content SHA-256을 대조한다.
+3. source를 managed R2, target을 rollback MinIO로 뒤집고 `rollback-drill <drill-id> <evidence-dir>`을 실행한다.
+4. 도구가 격리된 `.migration-drill/<drill-id>/` prefix를 다시 읽어 R2 원본과 key, size, content SHA-256이 같은지 확인한다.
+5. drill prefix와 mode `0700` evidence directory를 72시간 hold가 끝날 때까지 보존한다. drill 단계에서 cleanup이나 generic delete를 실행하지 않는다.
+
+어느 단계든 실패하거나 evidence가 불완전하면 activation을 승인하지 않는다. R2의 내구성은 backup이 아니며 이 drill을 건너뛸 근거가 되지 않는다.
+
+### M8-C. checkpoint gate와 hold
+
+일반 Release pipeline은 실행 중 storage tuple과 candidate tuple이 다르면 backup 전에 중단하며 storage를 전환하지 않는다. 아래 순서는 별도 attended cutover 절차에서만 실행한다.
+
+1. backend `FRONTEND_URL`·GitHub OAuth callback 전환과 stable-origin smoke를 끝내 checkpoint A를 완료한다. 이때 frontend origin은 Vercel이고 storage는 MinIO다.
+2. `preflight`로 R2 Put/Get/List/Delete를 증명한다.
+3. backend writer를 중지하고 실행 중 backend가 더 이상 제출 파일 write를 처리하지 않음을 독립적으로 확인한다. acknowledgement 문자열만으로 정지를 대신하지 않는다.
+4. `copy-check`로 MinIO에서 R2로 copy하고 count, bytes, key별 content SHA-256 parity를 확인한다.
+5. M8-B의 R2→격리 MinIO rollback drill과 configured-endpoint backup 검증을 완료한다.
+6. 승인된 managed tuple을 production env에 적용하고 R2 credential을 Jenkins binding으로 주입한 뒤 backend만 재생성한다.
+7. 실행 중 backend의 mode, endpoint, region, bucket, path-style hash가 승인된 managed tuple과 같은지 확인한 뒤 writer를 재개한다.
+8. R2 application storage smoke와 Vercel stable-origin의 SSR, OAuth, session, query, file, authorization smoke를 모두 통과시킨다.
+9. 이 시점에만 checkpoint B를 완료하고 AWS frontend를 비파괴적으로 제거한다. AWS backend, PostgreSQL, API ingress는 유지한다.
+10. 같은 시점의 `R2_CUTOVER_HOLD_STARTED_AT`에서 정확히 72시간 뒤 epoch와 pre-cutover object backup 디렉터리 이름을 mode `0600`의 `${BACKUP_DIR}/r2-cutover-hold`에 각각 `protected-until-epoch=...`, `object-backup-name=...` 두 줄로 원자 기록한다. Jenkins retention은 유효한 receipt와 protected backup을 확인하는 동안 전체 backup prune을 건너뛴다.
+
+managed activation 전 실패는 MinIO endpoint를 유지하고 writer를 재개하지 않은 채 원인을 복구한다. managed activation 뒤 실패는 endpoint만 되돌리지 않고 writer를 중지한 상태에서 M8-D를 수행한다. hold 동안에는 MinIO service, volume, rollback backup, AWS frontend rollback material을 삭제하지 않는다.
+
+### M8-D. R2 activation 뒤 rollback
+
+R2 activation 후 rollback은 반드시 다음 순서다.
+
+1. 쓰기를 중지한다.
+2. source를 managed R2, target을 rollback MinIO로 설정하고 `reverse-copy-check <evidence-dir>`를 실행한다.
+3. 도구가 R2에서 MinIO로 비파괴 reverse-copy한 뒤 object count, total size, key별 content SHA-256이 같은지 확인한다.
+4. MinIO를 재활성화한다.
+5. stable-origin smoke와 제출 파일 smoke를 실행한다.
+
+R2 write가 하나라도 발생했으면 reverse-copy와 check를 생략하거나 endpoint만 MinIO로 되돌릴 수 없다. 어느 검증도 통과하지 못하면 MinIO를 재활성화하지 않고 incident 절차로 전환한다. 72시간 hold가 끝난 뒤에도 cleanup은 별도 승인으로 실행하며, 먼저 backup과 rollback material의 복구 가능성을 확인하는 비파괴 작업만 수행한다. 검증이 끝나면 MinIO service·volume·credential과 migration 전용 Jenkins 분기를 제거하여 R2를 유일한 application object storage로 남긴다.
 ## M9. 호스트 nginx 설정 반영
 
 호스트 nginx는 Compose가 아니라 시스템 서비스이고 Jenkins 계정에는 sudo가 없다.

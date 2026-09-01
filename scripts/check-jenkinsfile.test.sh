@@ -118,18 +118,17 @@ append_fixture() {
 # ---------------------------------------------------------------------------
 cp "$v2_source" "$fixture_dir/v2-valid"
 
-# Object backup contract: greenfield may create an empty receipt, while an
-# existing release without MinIO remains fail-closed; the MinIO mirror stays wired.
-expect_pass 'v2: greenfield object backup branch is present' v2 "$fixture_dir/v2-valid"
-if grep -Fq 'if [ -z "$minio_container_id" ]; then' "$v2_source" && \
-   grep -Fq 'if [ -z "${PREV_TAG:-}" ]; then' "$v2_source" && \
-   grep -Fq "echo 'greenfield object backup: no running MinIO; using an empty backup.'" "$v2_source" && \
-   grep -Fq "echo 'object backup requires a running MinIO container for an existing release.' >&2" "$v2_source" && \
-   grep -Fq 'mc mirror local/oss-hub-submission-files "$1"' "$v2_source"; then
-  printf 'ok - v2: object backup greenfield/existing-release/MinIO paths\n'
+# Object backup must preserve MinIO while making managed S3 backup configuration-driven.
+expect_pass 'v2: mode-aware object backup contract is present' v2 "$fixture_dir/v2-valid"
+if grep -Fq "credentialsId: 'oss-hub-r2-s3-credentials'" "$v2_source" && \
+   grep -Fq 'storage_mode="$(awk -F=' "$v2_source" && \
+   grep -Fq '"remote/$SUBMISSION_FILE_S3_BUCKET"' "$v2_source" && \
+   grep -Fq 'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' "$v2_source" && \
+   ! grep -Fq 'oss-hub-submission-files' "$v2_source"; then
+  printf 'ok - v2: managed backup credential/mode/receipt paths\n'
   passed=$((passed + 1))
 else
-  printf 'not ok - v2: object backup paths are incomplete\n' >&2
+  printf 'not ok - v2: mode-aware object backup paths are incomplete\n' >&2
   failed=$((failed + 1))
 fi
 
@@ -292,6 +291,54 @@ make_fixture "$v2_source" v2-missing-greenfield-host-guard \
   'true'
 append_fixture "$v2_source" v2-hardcoded-greenfield-ack 'GREENFIELD_DEPLOY_ACK=1'
 make_fixture "$v2_source" v2-missing-production-credential "credentialsId: 'oss-hub-production-env'" "credentialsId: 'removed'"
+make_fixture "$v2_source" v2-missing-r2-credential \
+  "credentialsId: 'oss-hub-r2-s3-credentials'" "credentialsId: 'removed-r2'"
+make_fixture "$v2_source" v2-direct-r2-contract-binding \
+  "usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID'" \
+  "usernameVariable: 'SUBMISSION_FILE_S3_ACCESS_KEY_ID'"
+make_fixture "$v2_source" v2-missing-inherited-storage-credential-clear \
+  'unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY' \
+  'true # inherited storage credential clear removed'
+make_fixture "$v2_source" v2-missing-managed-mode-guard \
+  "elif \\[ \"\$storage_mode\" = 'managed' \\]; then" "elif false; then"
+make_fixture "$v2_source" v2-missing-managed-mode-agreement \
+  'active backend storage tuple disagrees with validated configuration.' \
+  'active backend tuple check removed.'
+make_fixture "$v2_source" v2-missing-object-backup-parity \
+  'mc diff --json' \
+  'true # object backup parity removed'
+make_fixture "$v2_source" v2-missing-storage-tuple-hash \
+  'candidate_storage_hash="$(' \
+  'candidate_storage_hash="removed"'
+make_fixture "$v2_source" v2-missing-running-storage-tuple-guard \
+  'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' \
+  'running storage tuple guard removed.'
+make_fixture "$v2_source" v2-missing-restore-prefix \
+  'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' \
+  'planned_restore_drill_prefix=""'
+make_fixture "$v2_source" v2-missing-rollback-minio-bucket \
+  'ROLLBACK_MINIO_BUCKET' 'REMOVED_MINIO_BUCKET'
+make_fixture "$v2_source" v2-missing-object-manifest-verify \
+  'sha256sum -c .manifest.sha256 >/dev/null' \
+  'true # object manifest verification removed'
+make_fixture "$v2_source" v2-missing-empty-object-manifest-verify \
+  'test ! -s .manifest.sha256' \
+  'true # empty object manifest verification removed'
+make_fixture "$v2_source" v2-missing-cutover-hold-guard \
+  'if \[ "$hold_active" = true \]; then' \
+  'if false; then'
+make_fixture "$v2_source" v2-missing-protected-object-backup \
+  'protected R2 cutover backup is missing.' \
+  'protected backup check removed.'
+make_fixture "$v2_source" v2-missing-cutover-hold-upper-bound \
+  'R2 cutover hold exceeds 72 hours.' \
+  'cutover hold upper bound removed.'
+append_fixture "$v2_source" v2-hardcoded-stale-minio-bucket \
+  'sh '\''echo oss-hub-submission-files'\'''
+append_fixture "$v2_source" v2-destructive-object-operation \
+  'sh '\''mc rm remote/synthetic'\'''
+append_fixture "$v2_source" v2-bash-only-without-interpreter \
+  'mapfile -t hold_lines < /tmp/synthetic'
 make_fixture "$v2_source" v2-missing-running-ps-q 'ps -q frontend' 'ps --status frontend'
 make_fixture "$v2_source" v2-missing-all-ps 'ps --all -q frontend' 'ps -q frontend-all'
 make_fixture "$v2_source" v2-missing-oci-version-label '--label "org.opencontainers.image.version=${RELEASE_TAG}"' '--label "org.opencontainers.image.title=${RELEASE_TAG}"'
@@ -1527,6 +1574,24 @@ expect_fail 'v2: greenfield rollback skip guard 누락' v2 "$fixture_dir/v2-miss
 expect_fail 'v2: greenfield host-clean guard 누락' v2 "$fixture_dir/v2-missing-greenfield-host-guard"
 expect_fail 'v2: greenfield ACK 소스 고정' v2 "$fixture_dir/v2-hardcoded-greenfield-ack"
 expect_fail 'v2: 운영 환경 credential 주입 누락' v2 "$fixture_dir/v2-missing-production-credential"
+expect_fail 'v2: managed R2 credential binding 누락' v2 "$fixture_dir/v2-missing-r2-credential"
+expect_fail 'v2: managed R2 direct backend-contract credential binding' v2 "$fixture_dir/v2-direct-r2-contract-binding"
+expect_fail 'v2: inherited storage credential clear 누락' v2 "$fixture_dir/v2-missing-inherited-storage-credential-clear"
+expect_fail 'v2: managed object backup mode branch 누락' v2 "$fixture_dir/v2-missing-managed-mode-guard"
+expect_fail 'v2: active managed mode agreement fail-closed 누락' v2 "$fixture_dir/v2-missing-managed-mode-agreement"
+expect_fail 'v2: configured endpoint object backup parity 누락' v2 "$fixture_dir/v2-missing-object-backup-parity"
+expect_fail 'v2: active storage tuple hash 누락' v2 "$fixture_dir/v2-missing-storage-tuple-hash"
+expect_fail 'v2: running no-op storage tuple guard 누락' v2 "$fixture_dir/v2-missing-running-storage-tuple-guard"
+expect_fail 'v2: isolated restore-prefix receipt 누락' v2 "$fixture_dir/v2-missing-restore-prefix"
+expect_fail 'v2: MinIO rollback bucket contract 누락' v2 "$fixture_dir/v2-missing-rollback-minio-bucket"
+expect_fail 'v2: object backup manifest 검증 누락' v2 "$fixture_dir/v2-missing-object-manifest-verify"
+expect_fail 'v2: empty object backup manifest 검증 누락' v2 "$fixture_dir/v2-missing-empty-object-manifest-verify"
+expect_fail 'v2: cutover hold retention guard 누락' v2 "$fixture_dir/v2-missing-cutover-hold-guard"
+expect_fail 'v2: protected object backup 존재 검사 누락' v2 "$fixture_dir/v2-missing-protected-object-backup"
+expect_fail 'v2: cutover hold 72-hour upper bound 누락' v2 "$fixture_dir/v2-missing-cutover-hold-upper-bound"
+expect_fail 'v2: stale hard-coded MinIO bucket 추가' v2 "$fixture_dir/v2-hardcoded-stale-minio-bucket"
+expect_fail 'v2: destructive object operation 추가' v2 "$fixture_dir/v2-destructive-object-operation"
+expect_fail 'v2: Bash-only body without interpreter 추가' v2 "$fixture_dir/v2-bash-only-without-interpreter"
 expect_fail 'v2: 실행 중 ps -q 권위 누락' v2 "$fixture_dir/v2-missing-running-ps-q"
 expect_fail 'v2: 존재 분류 ps --all 누락' v2 "$fixture_dir/v2-missing-all-ps"
 expect_fail 'v2: OCI version label 누락' v2 "$fixture_dir/v2-missing-oci-version-label"

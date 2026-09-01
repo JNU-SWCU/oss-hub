@@ -770,6 +770,79 @@ check_v2() {
   require_exact '운영 환경 preflight stage는 한 번이어야 함' "stage('운영 환경 사전 검증')" 1
   require_exact '운영 환경 preflight는 credential file을 직접 검증해야 함' \
     'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"' 1
+  require_exact 'managed storage credentials are bound in every deployment/backup/compose scope' \
+    "credentialsId: 'oss-hub-r2-s3-credentials'" 5
+  require_at_least 'managed storage access key is injected under the backend contract name' \
+    "usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID'" 1
+  require_at_least 'managed storage secret is injected under the backend contract name' \
+    "passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'" 1
+  require_at_least 'managed mode must export the backend access-key contract only after mode selection' \
+    'export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"' 1
+  require_at_least 'managed mode must export the backend secret-key contract only after mode selection' \
+    'export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"' 1
+  require_exact 'every storage scope must clear inherited backend credential overrides before mode selection' \
+    'unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY' 8
+  require_at_least 'object backup must branch on the validated storage mode' \
+    'storage_mode="$(awk -F=' 1
+  require_exact 'managed object backup must have an explicit mode branch' \
+    "elif [ \"\$storage_mode\" = 'managed' ]; then" 1
+  require_at_least 'managed backup must fail closed on full active storage tuple disagreement' \
+    'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' 1
+  require_exact 'running probe and backup must bind active storage tuple to an opaque candidate hash' \
+    'candidate_storage_hash="$(' 2
+  require_at_least 'running probe must reject tuple drift before no-op or recreation' \
+    'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' 1
+  require_at_least 'managed backup must use the configured S3 bucket' \
+    '"remote/$SUBMISSION_FILE_S3_BUCKET"' 1
+  require_exact 'configured endpoint backups must prove mirror parity without printing keys' \
+    'mc diff --json' 2
+  require_at_least 'managed backup must record only a planned restore drill prefix' \
+    'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' 1
+  require_at_least 'MinIO backup must use the disjoint rollback bucket' \
+    'rollback_minio_bucket="$(read_storage_value ROLLBACK_MINIO_BUCKET)"' 1
+  require_at_least 'MinIO rollback bucket must agree with the active application bucket' \
+    'FAIL_CLOSED object_backup: rollback MinIO bucket does not match active MinIO application bucket.' 1
+  require_at_least 'object backup receipt must use a relative SHA-256 manifest' \
+    'mv "$object_manifest_tmp" "${object_backup_tmp}/.manifest.sha256"' 1
+  require_at_least 'final object backup must verify its manifest after placement' \
+    'sha256sum -c .manifest.sha256 >/dev/null' 1
+  require_at_least 'empty object backups must verify an explicit empty manifest' \
+    'test ! -s .manifest.sha256' 1
+  require_exact 'cutover hold receipt path must be a pipeline constant' \
+    "R2_CUTOVER_HOLD_FILE = '/var/lib/oss-hub/backups/r2-cutover-hold'" 1
+  require_at_least 'active cutover hold must skip backup pruning' \
+    "if [ \"\$hold_active\" = true ]; then" 1
+  require_at_least 'cutover hold must require the protected object backup' \
+    'protected R2 cutover backup is missing.' 1
+  require_at_least 'cutover hold must reject epochs beyond exact 72-hour window' \
+    'R2 cutover hold exceeds 72 hours.' 1
+  require_absent 'Jenkinsfile must not hard-code the former submission bucket' \
+    'oss-hub-submission-files'
+  if grep -Eq 'mc[[:space:]]+(rm|rb)|mc[[:space:]]+mirror[^[:cntrl:]]*--remove|rclone[[:space:]]+(delete|purge)' "$active_jenkinsfile"; then
+    printf '%s: object backup/restore contract must not contain destructive operations\n' "$label" >&2
+    exit 1
+  fi
+  if grep -Eq "usernameVariable: 'SUBMISSION_FILE_S3_|passwordVariable: 'SUBMISSION_FILE_S3_" "$active_jenkinsfile"; then
+    printf '%s: Jenkins credential binding must use disjoint R2-only variable names\n' "$label" >&2
+    exit 1
+  fi
+  if ! awk '
+    /sh '\'''\'''\''#!\/usr\/bin\/env bash/ {
+      in_bash=1
+      strict=0
+      next
+    }
+    in_bash && /set -euo pipefail/ { strict=1 }
+    /managed_s3_env=\(\)|read -r -d|mapfile -t hold_lines/ {
+      targets++
+      if (!in_bash || !strict) unsafe=1
+    }
+    in_bash && /^[[:space:]]*'\'''\'''\''[[:space:]]*$/ { in_bash=0; strict=0 }
+    END { exit (targets == 3 && !unsafe) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: Bash-only array/read/mapfile bodies require a Bash shebang and strict mode\n' "$label" >&2
+    exit 1
+  fi
 
   if ! awk '
     /^[[:space:]]*stage\('\''exact SHA checkout'\''\)/ {
@@ -1079,8 +1152,8 @@ check_v2() {
   require_regex_at_least 'success-only image 삭제가 있어야 함' 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' 1
   require_shell_stage_depth_exact 'BuildKit shared/internal cache prune는 retention stage depth 0에 정확히 한 번 있어야 함' \
     '성공 후 이미지·백업 보존 정리' 0 "$buildx_prune_command"
-  require_shell_stage_depth_exact 'backup prune는 retention stage depth 0에 있어야 함' \
-    '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
+  require_shell_stage_depth_exact 'backup prune는 cutover hold else branch depth 1에 있어야 함' \
+    '성공 후 이미지·백업 보존 정리' 1 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
 
   # Docker image inventory must be status-checked into a file before iteration.
   # Reject unchecked process substitution / swallowed producer failure (empty → successful no-op).
@@ -1145,7 +1218,7 @@ check_v2() {
   buildx_prune_line=$(line_of_shell_stage_depth_exact \
     '성공 후 이미지·백업 보존 정리' 0 'docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
   backup_prune_line=$(line_of_shell_stage_depth_exact \
-    '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
+    '성공 후 이미지·백업 보존 정리' 1 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
   # bash 3.2 호환: declare -A 대신 변수명 배열 + ${!name} 간접 참조로 순회한다.
   local -a order_check_names=(
