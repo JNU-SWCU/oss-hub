@@ -1097,6 +1097,15 @@
 - 결과: `v0.6.138` build 197은 새 nginx config가 live file에 반영됐지만 reload 직후 old worker가 한 번 `/` 200을 반환해 exact 404 smoke가 실패했다. 현재 live root는 404·health는 200이다. Rollout·rollback·drift의 status assertion을 최대 5회, 1초 간격의 상태 기반 수렴으로 바꿨다. 연결 실패뿐 아니라 reload worker 전환 중 status mismatch도 bounded하게 재확인하고 끝까지 불일치하면 기존 진단으로 fail-closed한다.
 - 검증: Jenkins contract와 current-risk mutation 9/9, diff check 통과.
 
+## 2026-09-02 — G005 final review의 safety oracle·runbook blocker를 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: final architect가 production green을 확인한 뒤 지적한 세 gap을 수정했다. Jenkins required CI에 surviving Node invariant test와 backend rollback helper test를 연결하고, 작은 checker에 serialization·main ancestry·env preflight·greenfield·managed backup integrity·no-op drift 등 unique fail-closed invariant를 복구했다. `deploy/nginx-local/**` 변경이 nginx syntax와 two-file local Compose 검증을 모두 선택하도록 path contract를 추가했다. Architecture·ADR·server/pre-deploy runbook에서 frontend build/root 200/MinIO rollback 현재형 지시를 backend-only·root 404·managed-only 계약으로 교체했다.
+- 검증: Jenkins Node 4/4·shell 9/9, rollback 14/14, CI path 8/8, pinned local nginx `nginx -t`, format·diff check 통과. Public HTTP 308은 curl network response로 재확인해 Chromium HSTS internal 307과 구분했다.
+
 ## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
 
 - 상태: review

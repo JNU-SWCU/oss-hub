@@ -61,7 +61,7 @@ production backend storage mode는 exact `managed` 하나다. `SUBMISSION_FILE_S
 1. 브라우저 UI 요청은 Vercel frontend origin에 도착한다.
 2. 브라우저의 `/api/v1` 요청은 Vercel same-origin rewrite를 거쳐 AWS API ingress와 backend로 전달된다. 브라우저가 AWS API origin을 직접 호출하지 않는다.
 3. backend는 `/api/v1` API 계약에 따라 요청을 처리하고 PostgreSQL에 접근한다.
-4. 제출 파일은 선택된 storage mode의 object store에 저장된다.
+4. 제출 파일은 private managed R2에 저장된다.
 5. 응답은 AWS API ingress와 Vercel rewrite를 거쳐 같은 browser origin으로 반환된다.
 
 ### 배포 경로
@@ -70,5 +70,5 @@ production backend storage mode는 exact `managed` 하나다. `SUBMISSION_FILE_S
 2. Jenkins는 draft·prerelease가 아닌 GitHub Release가 발행될 때만 실행되고 그 발행 자체가 배포 인가다.
 3. Jenkins는 latest full Release와 tag의 main ancestry를 검증하고 exact commit SHA를 checkout한다.
 4. 동일·하위 Release는 no-op으로 종료한다. 새 Release는 database backup → configured-endpoint object backup → build → migration → rollout 순서로 배포한다.
-5. configured endpoint와 bucket을 읽어 검증하지 못하는 object backup 또는 restore drill은 fail-closed다. R2의 내구성은 backup이 아니다.
-6. checkpoint B 뒤 MinIO rollback은 쓰기 중지 → R2 reverse-copy → object count·size·integrity check → MinIO activation → stable-origin smoke 순서를 따른다. R2 write가 있으면 reverse-copy와 check 없이 MinIO를 재활성화하지 않는다.
+5. Configured endpoint와 bucket을 읽어 검증하지 못하는 SDK object backup은 fail-closed다. R2의 내구성은 backup을 대체하지 않는다.
+6. 애플리케이션 rollback은 captured previous backend image ID·version·revision이 exact match할 때만 수행한다. Production storage mode를 되돌리는 경로는 없다.

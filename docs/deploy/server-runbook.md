@@ -104,7 +104,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 
 | 키 | 용도 |
 | --- | --- |
-| `IMAGE_TAG` | backend·frontend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 latest full Release의 SemVer tag로 주입한다(`Jenkinsfile`). 수동으로 compose를 돌릴 때만 셸에서 지정한다 |
+| `IMAGE_TAG` | backend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 latest full Release의 SemVer tag로 주입한다(`Jenkinsfile`). 수동으로 production compose를 돌릴 때만 셸에서 지정한다 |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | postgres 서비스 자격증명 |
 | `DATABASE_URL` | postgres 서비스 DNS를 가리키는 연결 문자열 |
 | `SESSION_SECRET` | 세션 서명 시크릿 |
@@ -150,7 +150,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 
 ### 제출 파일 storage configuration
 
-storage mode는 `SUBMISSION_FILE_STORAGE_MODE=minio|managed`로 명시한다. backend는 `SUBMISSION_FILE_S3_ENDPOINT`, `SUBMISSION_FILE_S3_REGION`, `SUBMISSION_FILE_S3_BUCKET`, `SUBMISSION_FILE_S3_ACCESS_KEY_ID`, `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`, `SUBMISSION_FILE_S3_FORCE_PATH_STYLE`를 사용한다.
+Production storage mode는 `SUBMISSION_FILE_STORAGE_MODE=managed`로 명시한다. Backend는 `SUBMISSION_FILE_S3_ENDPOINT`, `SUBMISSION_FILE_S3_REGION`, `SUBMISSION_FILE_S3_BUCKET`, `SUBMISSION_FILE_S3_ACCESS_KEY_ID`, `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`, `SUBMISSION_FILE_S3_FORCE_PATH_STYLE`를 사용한다.
 
 Managed mode에서는 Jenkins username/password binding이 access-key pair를 제공하고, endpoint·region·bucket·path-style은 승인된 runtime configuration에서 제공한다. 운영자는 backend에 적용된 key 이름과 configured endpoint/bucket 일치를 secret value를 출력하지 않고 확인한다. 누락·기본값 fallback·대상 불일치는 fail-closed다.
 
@@ -193,7 +193,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 2. M4 job을 파라미터 없이 수동 트리거한다.
 3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
 
-- 예상 출력: loopback·TLS `/`·`/api/v1/health`가 HTTP 200, 제출 파일 업로드 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
+- 예상 출력: loopback `/`는 404, loopback·TLS `/api/v1/health`는 200, public TLS `/`는 canonical 308이며 제출 파일 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같다. Backend image의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
