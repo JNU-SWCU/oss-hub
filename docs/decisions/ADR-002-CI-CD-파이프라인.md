@@ -39,7 +39,7 @@ tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해�
 별도 staging 서버는 두지 않는다.
 
 Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 backend 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. CD는 CI 상태를 읽지 않는다(자세한 내용은 PR #1012에서 추가한 Anti-pattern 절 참조). **배포 시점 재검증(lint·typecheck·test·앱 build)은 폐지했다** — 품질 검증 책임은 CI 레이어(merge 전 `ci` required check)에 있다. 새 Release는 PostgreSQL backup → object backup → 서버 로컬 backend image 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다. Backend Dockerfile이 `pnpm install --frozen-lockfile`·`prisma generate`·`pnpm build`를 수행하므로 별도 host 단계에서 이를 반복할 필요가 없다.
-Smoke는 rollout과 rollback의 Compose ingress에서 `/` 404와 `/api/v1/health` 200을 단언하며, 제출 파일 미인증 접근 401과 public ingress의 canonical root 308을 확인한다.
+Smoke는 rollout과 rollback의 Compose ingress에서 `/` 404와 `/api/v1/health` 200을 단언하며, 제출 파일 미인증 접근 401과 canonical Vercel root 200을 확인한다.
 `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 DB에 닿지 못하면 503을 반환한다 — 상수 응답은 nginx와 Node 프로세스가 살아 있다는 것만 증명하므로 배포 판정 근거가 되지 못한다.
 이미지는 release tag로 태깅하므로 별도 영속 배포 상태 파일을 두지 않으며, 배포 상태의 원본은 실행 중인 컨테이너 자신이다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. 배포 전에는 운영 환경 파일의 `FRONTEND_URL`이 `https://`인지 확인한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않는다.
 
@@ -104,7 +104,7 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 - tag commit은 main ancestry를 통과한 exact SHA여야 한다. 태그 조작 방어는 세 가지 fail-closed 검사의 합이다: Jenkins가 자체 조회한 latest full Release만 대상으로 삼고, tag는 full `vMAJOR.MINOR.PATCH`여야 하며, 그 tag가 가리키는 exact SHA가 main 이력에 포함되어야 한다. 실행 중 SemVer가 같거나 더 높으면 no-op이라 임의 tag 재작성으로 하위 버전을 밀어 넣을 수 없다. 영속 배포 상태 파일은 두지 않으며 판정 근거는 실행 중인 컨테이너 label이다.
 - Jenkins는 Docker 권한을 가진 `oss-hub-production` 전용 executor에서만 실행하고 동시 실행을 금지한다. 운영 환경 파일은 Credentials Store의 file credential로 실행 시점에만 주입한다. GitHub App 개인키도 같은 방식의 file credential로 주입하되 env 값이 아니라 파일로 전달한다 — env 값은 `docker compose config`·`docker inspect`·프로세스 env 덤프에 평문으로 드러난다. 파이프라인은 주입받은 키를 `SECRETS_DIR` 아래 build별 generation 디렉터리에 `0640`으로 설치하고 `current` symlink를 원자 교체하며, compose는 그 경로를 secret source로 읽는다. 설치는 compose를 처음 호출하는 stage보다 앞에 있어야 한다.
 - Compose는 `COMPOSE_PROJECT_NAME`을 고정하며 `pgdata`와 기존 데이터를 삭제하는 `down -v`를 사용하지 않는다.
-- Production Compose는 backend, PostgreSQL과 `127.0.0.1:8081`의 API-only nginx로 구성되며 object storage는 managed R2다. Canonical·loopback Host만 받고 root와 비API path는 404, `/api/`와 exact OAuth callback만 backend로 전달한다. Frontend와 MinIO substitute는 `compose.local.yml`에서만 사용한다.
+- Production Compose는 backend, PostgreSQL과 `127.0.0.1:8081`의 API-only nginx로 구성되며 object storage는 managed R2다. Canonical·loopback Host만 받고 root와 비API path는 404, `/api/v1/`와 exact OAuth callback만 backend로 전달한다. Frontend와 MinIO substitute는 `compose.local.yml`에서만 사용한다.
 - Public API origin은 exact DNS Host와 domain certificate를 사용한다. Unknown Host/TLS SNI, 비API path, direct unauthenticated request와 unintended method는 거절한다. Vercel route가 browser `Authorization`을 덮어쓴 뒤 host-only Basic verifier와 짝을 이루는 sensitive credential을 주입하고, host nginx는 origin credential과 Vercel identity header를 backend 전달 전에 제거한다. Rate limit은 authenticated Vercel client header를 key로 사용한다.
 - Compose nginx의 설정은 **디렉터리 마운트**(`./deploy/nginx:/etc/nginx/conf.d:ro`)로 주입한다. 단일 파일 bind mount는 컨테이너 생성 시점의 inode를 고정하는데 Jenkins는 배포마다 git checkout으로 그 파일을 교체하므로, 수명이 긴 nginx 컨테이너가 저장소와 무관한 옛 설정을 계속 서빙한다. 디렉터리를 마운트하면 컨테이너가 매번 현재 파일을 읽는다.
 - 저장소 파일만 읽는 검사는 실행 중 설정이 저장소와 같다는 증거가 되지 못한다. 실행 중 설정에 대한 계약은 Compose ingress를 실제로 호출하는 배포 smoke가 증명한다.

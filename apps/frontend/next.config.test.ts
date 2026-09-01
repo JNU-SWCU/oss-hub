@@ -224,7 +224,7 @@ describe('Vercel API origin-auth route', () => {
       $schema: 'https://openapi.vercel.sh/vercel.json',
       routes: [
         {
-          src: '/api/v1/(.*)',
+          src: '/api/v1(?:/(.*))?',
           continue: true,
           transforms: [
             {

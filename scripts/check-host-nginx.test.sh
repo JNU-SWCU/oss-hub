@@ -37,8 +37,14 @@ expect_fail 'rejects host-side rate limit' "$fixture_dir/host-rate" "$compose_so
 mutate "$host_source" "$fixture_dir/drop-vercel" 'proxy_set_header X-Vercel-Forwarded-For $http_x_vercel_forwarded_for;' 'proxy_set_header X-Vercel-Forwarded-For "";'
 expect_fail 'requires host forwarding Vercel identity to Compose' "$fixture_dir/drop-vercel" "$compose_source"
 
+mutate "$host_source" "$fixture_dir/commented-auth" 'auth_basic_user_file /etc/nginx/oss-hub-origin.htpasswd;' '# auth_basic_user_file /etc/nginx/oss-hub-origin.htpasswd;'
+expect_fail 'commented origin auth does not satisfy contract' "$fixture_dir/commented-auth" "$compose_source"
+
 mutate "$host_source" "$fixture_dir/oauth-post" 'limit_except GET { deny all; }' 'limit_except GET POST { deny all; }'
 expect_fail 'rejects OAuth POST at host' "$fixture_dir/oauth-post" "$compose_source"
+
+mutate "$host_source" "$fixture_dir/generic-put" 'limit_except GET HEAD POST PATCH DELETE { deny all; }' 'limit_except GET HEAD POST PUT PATCH DELETE { deny all; }'
+expect_fail 'rejects generic PUT at host' "$fixture_dir/generic-put" "$compose_source"
 
 mutate "$host_source" "$fixture_dir/public-jenkins" 'location / {' 'location = /job/oss-hub-release-cd/build {'
 expect_fail 'rejects public Jenkins route' "$fixture_dir/public-jenkins" "$compose_source"
@@ -54,6 +60,9 @@ expect_fail 'Compose strips identity before backend' "$host_source" "$fixture_di
 
 mutate "$compose_source" "$fixture_dir/generic-api" 'location /api/v1/ {' 'location /api/ {'
 expect_fail 'Compose generic ingress is only API v1' "$host_source" "$fixture_dir/generic-api"
+
+mutate "$compose_source" "$fixture_dir/generic-options" 'limit_except GET HEAD POST PATCH DELETE { deny all; }' 'limit_except GET HEAD POST PATCH DELETE OPTIONS { deny all; }'
+expect_fail 'rejects generic OPTIONS at Compose' "$host_source" "$fixture_dir/generic-options"
 
 mutate "$compose_source" "$fixture_dir/wildcard-host" 'server_name jnu-oss-hub.com localhost 127.0.0.1 [::1];' 'server_name _;'
 expect_fail 'rejects Compose wildcard host' "$host_source" "$fixture_dir/wildcard-host"

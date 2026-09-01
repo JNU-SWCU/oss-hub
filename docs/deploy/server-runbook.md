@@ -222,19 +222,22 @@ curl -fsS \
 4. Candidate와 실행 중 backend의 non-secret storage tuple이 다르면 backup·build·rollout 전에 fail-closed한다.
 5. Release는 configured endpoint/bucket을 사용하는 SDK object backup과 manifest SHA-256, PostgreSQL backup을 만든 뒤 backend image를 교체한다.
 6. Rollback은 captured previous backend image ID·version·revision이 exact match할 때만 허용한다. Object storage mode를 되돌리는 rollback은 없다.
-7. Production Compose root와 비API path는 404이고 `/api/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 MinIO substitute는 `compose.local.yml`에서만 존재한다.
+7. Production Compose root와 비API path는 404이고 `/api/v1/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 MinIO substitute는 `compose.local.yml`에서만 존재한다.
 
 과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 
 ### M8-E. authenticated custom-origin 전환
 
 1. DNS provider에서 exact origin subdomain을 current backend ingress로 연결하고 TTL을 낮춘다. 이 domain은 browser origin·OAuth callback·cookie domain으로 사용하지 않는다.
-2. Certbot webroot로 exact origin DNS certificate를 발급하고 자동 renewal+nginx reload를 확인한다.
-3. 운영 credentials vault의 origin password로 host-only htpasswd를 만들고 root 소유·nginx read-only 권한으로 설치한다. 값과 verifier를 저장소·명령 로그에 남기지 않는다.
-4. Vercel Production에 sensitive `ORIGIN_BASIC_AUTH`를 설정하고 `BACKEND_ORIGIN`과 보호된 승인 digest를 exact origin domain으로 바꾼다. Preview에는 production credential을 주입하지 않는다.
-5. `deploy/host-nginx/oss-hub.conf`를 설치하고 `nginx -t` 뒤 reload한다. Unknown Host/SNI·비API·unauthenticated direct request가 닫히고 Vercel same-origin API만 통과하는지 확인한다.
+2. 기존 vhost의 ACME webroot가 살아 있는 동안 exact origin DNS certificate를 발급하고 renewal+nginx reload를 확인한다.
+3. 운영 credentials vault의 high-entropy password와 exact username `vercel`로 host-only htpasswd를 만들고 root 소유·nginx read-only 권한으로 설치한다. 값과 verifier를 저장소·명령 로그에 남기지 않는다.
+4. 기존 vhost를 유지한 채 새 origin server만 더한 **temporary additive config**를 live host에 설치한다. `nginx -t` 뒤 reload하고 exact DNS/SNI·Basic auth·method/path rejection을 direct probe로 확인한다. 이 temporary config는 저장소의 final config가 아니며 receipt 뒤 삭제한다.
+5. Vercel Production에 sensitive `ORIGIN_BASIC_AUTH`를 설정하고 `BACKEND_ORIGIN`을 allowlist의 exact origin domain으로 바꾼 뒤 새 production deployment를 명시적으로 promote한다. Preview에는 production credential을 주입하지 않는다.
 6. SSR, OAuth callback, host-only session cookie, public query, 미인증 authz, 4MiB 초과 upload body, file flow와 health를 canonical browser origin에서 검증한다.
-7. Jenkins schedule이 한 번 no-op 또는 deploy로 실행된 뒤 public build endpoint와 GitHub deploy secret이 없음을 확인한다. Legacy IP certificate와 fallback vhost는 이 검증 뒤 제거한다.
+7. 위 canonical gate가 모두 통과한 뒤에만 `deploy/host-nginx/oss-hub.conf` final config를 설치해 legacy vhost와 IP certificate renewal을 제거한다. Unknown Host/SNI·비API·unauthenticated direct request·PUT·OPTIONS가 계속 닫히는지 다시 확인한다.
+8. Jenkins timer no-op 성공, public build endpoint 404, GitHub deploy secret 부재와 public port scan을 receipt에 기록하고 normal DNS TTL로 복구한다.
+
+Canonical gate 전에 문제가 생기면 Vercel production은 건드리지 않고 temporary origin server만 제거한다. Promotion 뒤 문제가 생기면 **legacy vhost와 certificate를 먼저 복원해 `nginx -t`·reload를 통과시킨 뒤** 이전 Vercel deployment를 promote한다. 순서를 바꾸면 이전 deployment가 이미 제거된 TLS origin을 가리켜 복구 중 outage가 난다.
 
 sudo 권한이 있는 운영자가 이전 설정 백업을 보존한 상태에서 설정을 교체한 뒤, 참석 하에 아래 순서로 적용한다. `nginx -t`가 성공한 경우에만 reload한다.
 

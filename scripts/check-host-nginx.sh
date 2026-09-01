@@ -10,23 +10,65 @@ done
 
 python3 - "$host_config" "$compose_config" <<'PY'
 from pathlib import Path
+import re
 import sys
-
-host = Path(sys.argv[1]).read_text()
-compose = Path(sys.argv[2]).read_text()
 
 def fail(message):
     raise SystemExit(f'host nginx contract: {message}')
 
+def active_config(source):
+    output = []
+    quote = None
+    escaped = False
+    comment = False
+    for character in source:
+        if comment:
+            if character == '\n':
+                comment = False
+                output.append(character)
+            continue
+        if escaped:
+            output.append(character)
+            escaped = False
+            continue
+        if quote is not None:
+            output.append(character)
+            if character == '\\':
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in ('"', "'"):
+            quote = character
+            output.append(character)
+        elif character == '#':
+            comment = True
+        else:
+            output.append(character)
+    return ''.join(output)
+
+host = active_config(Path(sys.argv[1]).read_text())
+compose = active_config(Path(sys.argv[2]).read_text())
+
+def directive_pattern(value):
+    return re.compile(r'^[ \t]*' + re.escape(value) + r'[ \t]*$', re.MULTILINE)
+
 def require(text, value, count=1):
-    actual = text.count(value)
+    actual = len(directive_pattern(value).findall(text))
     if actual != count:
         fail(f'expected {count} occurrence(s) of {value!r}, found {actual}')
 
+def has(text, value):
+    return directive_pattern(value).search(text) is not None
+
+def has_prefix(text, value):
+    return re.search(r'^[ \t]*' + re.escape(value) + r'(?:[ \t;]|$)', text, re.MULTILINE) is not None
+
 def section(text, marker):
-    start = text.find(marker)
-    if start < 0 or text.find(marker, start + len(marker)) >= 0:
+    matches = list(directive_pattern(marker).finditer(text))
+    if len(matches) != 1:
         fail(f'missing or duplicate location: {marker}')
+    start = matches[0].start()
     opening = text.find('{', start)
     depth = 0
     for index in range(opening, len(text)):
@@ -54,21 +96,21 @@ host_paths = {
     'location = /api/v1/auth/github/callback {': 'GET',
     'location = /api/v1/admin/collection/trigger {': 'POST',
     'location = /api/v1/admin/collection/discover-external {': 'POST',
-    'location /api/v1/ {': 'GET HEAD POST PUT PATCH DELETE OPTIONS',
+    'location /api/v1/ {': 'GET HEAD POST PATCH DELETE',
 }
 for marker, methods in host_paths.items():
     item = section(host, marker)
-    if f'limit_except {methods} {{ deny all; }}' not in item:
+    if not has(item, f'limit_except {methods} {{ deny all; }}'):
         fail(f'host method guard missing for {marker}')
     for directive in ('proxy_set_header Host jnu-oss-hub.com;', 'proxy_set_header Authorization "";', 'proxy_set_header X-Vercel-Forwarded-For $http_x_vercel_forwarded_for;', 'proxy_set_header X-Origin-Rate-Key "";', 'proxy_set_header X-RateLimit-Limit "";', 'proxy_set_header X-RateLimit-Remaining "";', 'proxy_set_header X-RateLimit-Reset "";', 'proxy_set_header X-Real-IP "";', 'proxy_set_header X-Forwarded-For "";'):
-        if directive not in item:
+        if not has(item, directive):
             fail(f'host proxy boundary missing {directive}')
 
 host_tls_start = host.find('server {\n    listen 443 ssl;\n    listen [::]:443 ssl;\n    http2 on;\n    server_name origin.jnu-oss-hub.com;')
 if host_tls_start < 0:
     fail('missing origin TLS server')
 non_api = section(host[host_tls_start:], 'location / {')
-if 'auth_basic off;' not in non_api or 'return 404;' not in non_api:
+if not has(non_api, 'auth_basic off;') or not has(non_api, 'return 404;'):
     fail('host non-API route must be unauthenticated 404')
 
 require(compose, 'listen 80 default_server;')
@@ -83,12 +125,13 @@ compose_paths = {
     'location = /api/v1/auth/github/callback {': ('GET', 'oauth'),
     'location = /api/v1/admin/collection/trigger {': ('POST', 'admin_collection'),
     'location = /api/v1/admin/collection/discover-external {': ('POST', 'admin_collection'),
-    'location /api/v1/ {': ('GET HEAD POST PUT PATCH DELETE OPTIONS', 'api'),
+    'location /api/v1/ {': ('GET HEAD POST PATCH DELETE', 'api'),
 }
 for marker, (methods, zone) in compose_paths.items():
     item = section(compose, marker)
     for directive in (f'if ($vercel_client_key = "") {{ return 403; }}', f'limit_except {methods} {{ deny all; }}', f'limit_req zone={zone}', 'limit_req_status 429;', 'proxy_set_header X-Vercel-Forwarded-For "";', 'proxy_set_header X-Origin-Rate-Key "";', 'proxy_set_header X-RateLimit-Limit "";', 'proxy_set_header X-RateLimit-Remaining "";', 'proxy_set_header X-RateLimit-Reset "";', 'proxy_set_header X-Real-IP "";', 'proxy_set_header X-Forwarded-For "";'):
-        if directive not in item:
+        present = has_prefix(item, directive) if directive.startswith('limit_req zone=') else has(item, directive)
+        if not present:
             fail(f'Compose route {marker} missing {directive}')
 
 if compose.count('server {') != 2 or 'location /api/ {' in compose:
