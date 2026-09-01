@@ -28,7 +28,7 @@ docs/
 
 ## 현재 전환 상태
 
-프로덕션 제출 파일 저장소는 아직 MinIO이며 R2 cutover는 실행되지 않았다. checkpoint A의 exact-SHA Vercel deployment는 준비됐지만 backend `FRONTEND_URL`·GitHub OAuth callback 전환과 stable-origin smoke가 남아 있어 checkpoint A는 완료되지 않았다. AWS는 backend, PostgreSQL, API ingress를 계속 제공한다. 기존 AWS frontend는 checkpoint B 전까지 보존한다.
+checkpoint A는 완료됐다. 구매한 canonical HTTPS custom domain이 production frontend origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin으로 전환됐고 stable-origin SSR·OAuth·session·query·authz smoke가 통과했다. 프로덕션 제출 파일 저장소는 아직 MinIO이며 R2 cutover는 실행되지 않았다. AWS는 backend, PostgreSQL, API ingress를 계속 제공하고 기존 AWS frontend와 rollback 경로는 checkpoint B 전까지 보존한다. production frontend 빌드는 `apps/frontend/backend-origin.allowlist`의 SHA-256 digest allowlist에 있는 rewrite 대상만 허용한다.
 
 ```mermaid
 flowchart LR
