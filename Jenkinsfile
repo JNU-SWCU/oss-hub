@@ -19,6 +19,10 @@ pipeline {
     skipDefaultCheckout(true)
   }
 
+  triggers {
+    cron('H/10 * * * *')
+  }
+
   environment {
     COMPOSE_PROJECT_NAME = 'oss-hub'
     BACKUP_DIR = '/var/lib/oss-hub/backups'
@@ -687,34 +691,28 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
                 docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
                 require_status 404 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
-                require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
+                require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
                 # 미인증 401은 nginx를 통과해 backend SessionGuard에 도달했음을 검증한다.
-                require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-                require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-                require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-                require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-                require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+                require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
                 # 실행 중 ingress 가 업로드 본문을 실제로 통과시키는지 확인한다.
                 # 저장소 설정 검사만으로는 실행 중 설정 드리프트를 증명하지 못한다(ADR-002).
                 bash scripts/check-upload-body-runtime.sh \
-                  http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-                bash scripts/check-upload-body-runtime.sh \
-                  https://54.116.116.174/api/v1/submission-files \
-                  --retry 5 --retry-connrefused --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 308 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 404 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 401 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1'
+                  http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused \
+                  -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                UPLOAD_BODY_PROBE_BYTES=4718592 bash scripts/check-upload-body-runtime.sh \
+                  https://jnu-oss-hub.com/api/v1/submission-files \
+                  --retry 5 --retry-connrefused
+                require_status 200 GET https://jnu-oss-hub.com/ --retry 5 --retry-connrefused
+                require_status 200 GET https://jnu-oss-hub.com/api/v1/health --retry 5 --retry-connrefused
+                require_status 404 GET https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 401 POST https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 404 GET https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 401 POST https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 401 GET https://jnu-oss-hub.com/api/v1/submission-files/1 --retry 5 --retry-connrefused
               '''
             } catch (deploymentFailure) {
               sh '''#!/usr/bin/env bash
@@ -772,26 +770,19 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                     docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
                     docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
                     require_status 404 GET http://127.0.0.1:8081/
-                    require_status 200 GET http://127.0.0.1:8081/api/v1/health
-                    require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files
-                    require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files
-                    require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files
-                    require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files
-                    require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1
-                    require_status 308 GET https://54.116.116.174/ \
-                      --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 200 GET https://54.116.116.174/api/v1/health \
-                      --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 404 GET https://54.116.116.174/api/v1/submission-files \
-                      --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 401 POST https://54.116.116.174/api/v1/submission-files \
-                      --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 404 GET https://54.116.116.174/api/v1/Submission-Files \
-                      --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 401 POST https://54.116.116.174/api/v1/Submission-Files \
-                      --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 \
-                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 200 GET http://127.0.0.1:8081/api/v1/health -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                    require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                    require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                    require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                    require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                    require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+                    require_status 200 GET https://jnu-oss-hub.com/
+                    require_status 200 GET https://jnu-oss-hub.com/api/v1/health
+                    require_status 404 GET https://jnu-oss-hub.com/api/v1/submission-files
+                    require_status 401 POST https://jnu-oss-hub.com/api/v1/submission-files
+                    require_status 404 GET https://jnu-oss-hub.com/api/v1/Submission-Files
+                    require_status 401 POST https://jnu-oss-hub.com/api/v1/Submission-Files
+                    require_status 401 GET https://jnu-oss-hub.com/api/v1/submission-files/1
                   '''
                 }
               } else {
@@ -845,6 +836,7 @@ for pem in collection operations; do
   fi
 done
 curl --fail --silent --show-error --retry 5 --retry-connrefused \
+  -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1' \
   http://127.0.0.1:8081/api/v1/health >/dev/null
 '''
             } catch (keyReloadFailure) {
@@ -896,26 +888,19 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
 
           # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
           require_status 404 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
-          require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
-          require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-          require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-          require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-          require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-          require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
-          require_status 308 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
-            --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
-            --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 404 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
-            --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
-            --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
-            --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 401 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
-            --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
-            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+          require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+          require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+          require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+          require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+          require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
+          require_status 200 GET https://jnu-oss-hub.com/ --retry 5 --retry-connrefused
+          require_status 200 GET https://jnu-oss-hub.com/api/v1/health --retry 5 --retry-connrefused
+          require_status 404 GET https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 401 POST https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 404 GET https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 401 POST https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 401 GET https://jnu-oss-hub.com/api/v1/submission-files/1 --retry 5 --retry-connrefused
         '''
       }
     }

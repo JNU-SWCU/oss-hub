@@ -1115,6 +1115,15 @@
 - 결과: 재검토가 남긴 두 gap을 닫았다. Compact Jenkins checker가 stage section을 직접 잘라 production env preflight의 `when` 부재, no-op drift의 exact true gate, no-op stage mutation 부재를 검사하도록 했고 각 실패 모드에 counterfactual 하나씩만 추가했다. Server runbook M6/M7의 마지막 frontend build·root 200·deploy-time test 지시를 backend-only build·root 404·required CI 소유권으로 교체했다.
 - 검증: Jenkins shell 12/12·Node 4/4, CI path 8/8, diff check 통과.
 
+## 2026-09-02 — public Jenkins push를 outbound convergence로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: Jenkins의 latest full Release·exact main SHA·no-op 수렴 계약을 10분 schedule로 실행하고, GitHub Actions의 public build POST workflow를 제거했다. 수동 복구는 tailnet의 parameterless build만 사용한다. Canonical Vercel full-channel smoke와 4MiB 초과 upload-body probe를 Jenkins에 연결하고 legacy public-IP/`--resolve` smoke를 제거했다.
+- 검증: Jenkins checker 13/13, canonical public health·auth boundary 현재 실측 green. 병합 뒤 tailnet 수동 실행으로 schedule을 load하고 timer no-op을 확인한 뒤 public nginx trigger와 GitHub secrets를 제거한다.
+
 ## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
 
 - 상태: review
