@@ -1087,3 +1087,12 @@
 - blocker: 없음
 - 결과: PM이 발행된 QA 티켓을 읽고 가독성 문제를 지적했다 — 제목이 지시가 아니라 증상 서술이었고, 파일 경로가 클릭할 수 없는 plain text였고, 근거·영향이 flat 불릿에 뭉쳐 있었고, 담당자가 아니라 티켓 작성자를 향한 프로세스 메타 문장이 본문에 남아 있었다. `notion-ticket-contract.md`에 지시문 제목 규칙(`## 제목`), 클릭 가능한 GitHub 링크 규칙, 한 불릿-한 사실 규칙, 본문에 넣지 않는 것 목록을 추가하고, 기능 결함 본문 템플릿의 `#### 최소 요구 (기능)`·`#### 완료 조건 (기능 검증)`·`#### 절대 금지 (이 티켓의 경계)`를 `#### 할 일`·`#### 하지 않을 것 (이 티켓의 경계)`·`#### 완료 조건` 순서로 바꾸고 템플릿의 인용 블록 보일러플레이트 2줄을 지웠다(UX 본문 템플릿은 같은 이름의 헤더가 없어 그대로 뒀다). `manage-qa-tickets`를 4.2.0 → 4.3.0으로, 새 이름을 파싱해야 하는 `submit-pr-evidence`를 옛 이름과 함께 받아들이도록 고치고 1.1.0 → 1.2.0으로 올렸다. PR #1156(같은 저널 파일을 먼저 고친 PR 본문 원칙 작업) 스택으로 열려던 브랜치였으나 fetch 시점에 #1156이 이미 main에 병합돼 있어 base를 `main`으로, PR을 Ready로 열었다.
 - 검증: `bash scripts/check-public-safe.sh`(기준 `origin/main...HEAD`), `pnpm format:check` 통과. docs-only 변경이라 Before/After 캡처·backend 다이어그램 게이트는 해당 없음.
+
+## 2026-09-02 — 가독성 규칙 저널 항목의 발행 경로를 정정한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 바로 앞 항목("manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다")이 "PR을 Ready로 열었다"고 적었으나 사실이 아니다. 같은 작업 트리를 다른 세션이 동시에 쓰고 있었고, 커밋이 `docs/qa-ticket-readability`가 아니라 `refactor/1113-remove-minio-hold`에 얹혀 PR #1157로 병합됐다. 스킬 파일 5개(`skills/manage-qa-tickets/{SKILL.md,CHANGELOG.md,references/notion-ticket-contract.md}`, `skills/submit-pr-evidence/{SKILL.md,CHANGELOG.md}`)의 내용 자체는 `main`에서 의도대로 확인된다 — `manage-qa-tickets` 4.3.0, `submit-pr-evidence` 1.2.0. 과거 항목은 수정하지 않는 append-only 규칙에 따라 원문을 그대로 두고 이 항목으로 경로만 정정한다. 재발 방지: 여러 에이전트가 한 작업 트리를 공유할 때는 `git worktree`로 분리한 뒤 커밋한다.
+- 검증: `git log origin/main`에서 cb6b71f5(#1157)가 스킬 파일 5개를 포함함을 `gh pr view 1157 --json files`로 확인, `git show origin/main:` 로 두 스킬의 버전 문자열 확인, `bash scripts/check-public-safe.sh` 통과. docs-only 변경이라 캡처·다이어그램 게이트는 해당 없음.
