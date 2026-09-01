@@ -207,6 +207,26 @@ describe('S3SubmissionFileStorage', () => {
     });
   });
 
+  it.each([{ name: 'NoSuchKey' }, { $metadata: { httpStatusCode: 404 } }])(
+    'get에서 provider not-found를 구분된 typed error로 치환한다',
+    async (providerError) => {
+      const { storage } = createStorage(
+        jest
+          .fn<
+            ReturnType<SubmissionFileS3Client['send']>,
+            Parameters<SubmissionFileS3Client['send']>
+          >()
+          .mockRejectedValue(providerError),
+      );
+
+      await expect(storage.get('submission-files/missing')).rejects.toEqual(
+        new SubmissionFileStorageError(
+          SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_NOT_FOUND,
+        ),
+      );
+    },
+  );
+
   it.each([
     { name: 'NoSuchKey' },
     { name: 'NotFound' },

@@ -1008,6 +1008,15 @@
 - 결과: attended R2 cutover 중 동일 패턴을 실제 실행해 `minio/mc` 이미지의 entrypoint가 `mc`여서 `sh -eu -c ...` 인자가 오해석되는 잠재 결함을 확인했다. Jenkins managed object backup의 docker run에 `--entrypoint sh`를 명시하고 checker가 entrypoint 누락 회귀를 거부한다. 한편 cutover는 완료됐다: env는 managed R2 tuple, stopped-writer SDK copy-check(SHA-256 parity), backend v0.6.132 healthy, 그리고 8월 MinIO wipe로 잃어버렸던 ATTACHED 12개를 배포 백업에서 복구해 ATTACHED 53/53이 R2에 존재한다. 새 도메인은 apex·www·OAuth·API 전 경로 연결 완료다.
 - 검증: Jenkins contract와 mutation fixture 192건, public-safe, diff check를 통과했다.
 
+## 2026-09-02 — 결손 객체 조회를 404로 구분한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 저장소 객체가 없는 제출 파일 GET이 500(SYS_001)으로 떨어지던 것을 provider not-found를 별도 storage 오류 코드로 구분해 표준 404 problem-detail로 반환하게 했다. 8월 MinIO wipe로 생겼던 결손은 백업에서 복구를 마쳤고(ATTACHED 53/53), 앞으로 남는 orphan은 사용자 재업로드 UI로 해소된다. 그 외 실패는 기존 500 경로 그대로다.
+- 검증: storage·service 집중 Jest 69건, backend typecheck·lint를 통과했다.
+
 ## 2026-09-02 — managed backup을 SDK 다운로드로 교체한다
 
 - 상태: review
