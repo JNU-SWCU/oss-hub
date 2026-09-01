@@ -963,6 +963,15 @@
 - blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
 - 결과: Release `v0.6.126`은 pipeline compilation을 통과했지만 Groovy가 storage tuple delimiter의 single escape를 XML-invalid NUL byte로 직렬화해 `Start of Pipeline`에서 fail-closed됐다. Groovy source에서는 double escape를 사용하고 shell·Node runtime에서는 기존 NUL delimiter를 유지하도록 고쳤으며 checker가 unsafe serialization 회귀를 거부한다. Deployment와 object operation은 시작되지 않았고 storage는 MinIO 그대로다.
 - 검증: Jenkins contract와 mutation fixture 189건, diff check를 통과했다.
+
+## 2026-09-01 — storage tuple bootstrap을 허용한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 custom-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.128`은 env preflight를 통과했지만 실행 중 backend가 storage 계약 이전 revision이라 다섯 키가 모두 unset이어서 `running_storage_tuple` drift guard에 fail-closed됐다. 실행 중 tuple이 완전무(five-key unset)이고 candidate mode가 정확히 `minio`일 때만 허용하는 일회성 bootstrap을 추가했다. 부분 설정·managed 후보·기존 값 drift는 여전히 fail-closed이며 checker가 bootstrap 확장 회귀를 거부한다.
+- 검증: Jenkins contract와 mutation fixture 190건, diff check를 통과했다.
 ## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
 
 - 상태: review
