@@ -708,8 +708,9 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
                 --env SUBMISSION_FILE_S3_BUCKET \
                 --env SUBMISSION_FILE_S3_FORCE_PATH_STYLE \
                 --volume "${object_backup_tmp}:/backup" \
+                --entrypoint sh \
                 minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc \
-                sh -eu -c 'case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in true) path=on ;; false) path=off ;; *) exit 1 ;; esac; mc alias set --path "$path" remote "$SUBMISSION_FILE_S3_ENDPOINT" "$SUBMISSION_FILE_S3_ACCESS_KEY_ID" "$SUBMISSION_FILE_S3_SECRET_ACCESS_KEY" >/dev/null; mc mirror --preserve "remote/$SUBMISSION_FILE_S3_BUCKET" /backup; mc diff --json "remote/$SUBMISSION_FILE_S3_BUCKET" /backup > /tmp/oss-hub-object-backup.diff; test ! -s /tmp/oss-hub-object-backup.diff; rm -f /tmp/oss-hub-object-backup.diff'
+                -eu -c 'case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in true) path=on ;; false) path=off ;; *) exit 1 ;; esac; mc alias set --path "$path" remote "$SUBMISSION_FILE_S3_ENDPOINT" "$SUBMISSION_FILE_S3_ACCESS_KEY_ID" "$SUBMISSION_FILE_S3_SECRET_ACCESS_KEY" >/dev/null; mc mirror --preserve "remote/$SUBMISSION_FILE_S3_BUCKET" /backup; mc diff --json "remote/$SUBMISSION_FILE_S3_BUCKET" /backup > /tmp/oss-hub-object-backup.diff; test ! -s /tmp/oss-hub-object-backup.diff; rm -f /tmp/oss-hub-object-backup.diff'
             else
               echo 'FAIL_CLOSED object_backup: validated storage mode is not usable.' >&2
               exit 1

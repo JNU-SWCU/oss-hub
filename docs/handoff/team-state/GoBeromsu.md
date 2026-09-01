@@ -998,3 +998,12 @@
 - blocker: post-cutover ingress 강화(G004/G005 gate)는 위협모델 분류대로 cutover 뒤에만 실행한다.
 - 결과: Release `v0.6.132`가 전체 파이프라인을 green으로 통과하고 authenticated stable-origin smoke(SSR·OAuth·session·query·role·sign-out)가 성공해 checkpoint A를 완료했다. `docs/architecture.md`의 전환 상태를 현재 상태로 고치고, G006 위협모델의 safe-now 항목으로 production `BACKEND_ORIGIN`을 SHA-256 digest allowlist(공개-safe 파일) 또는 보호된 빌드 환경 `BACKEND_ORIGIN_APPROVED_SHA256`으로만 허용하게 했다. 구문만 유효한 임의 HTTPS origin은 production 빌드에서 거부된다. Vercel production에는 보호 digest 변수를 미리 등록했다.
 - 검증: next.config 테스트 16건, 승인 origin production build 통과, 비승인 origin build 거부, frontend typecheck·lint, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — managed backup mc entrypoint를 고정한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음 — 병합 뒤 Release로 managed backup 경로가 처음 실행된다.
+- 결과: attended R2 cutover 중 동일 패턴을 실제 실행해 `minio/mc` 이미지의 entrypoint가 `mc`여서 `sh -eu -c ...` 인자가 오해석되는 잠재 결함을 확인했다. Jenkins managed object backup의 docker run에 `--entrypoint sh`를 명시하고 checker가 entrypoint 누락 회귀를 거부한다. 한편 cutover는 완료됐다: env는 managed R2 tuple, stopped-writer SDK copy-check(SHA-256 parity), backend v0.6.132 healthy, 그리고 8월 MinIO wipe로 잃어버렸던 ATTACHED 12개를 배포 백업에서 복구해 ATTACHED 53/53이 R2에 존재한다. 새 도메인은 apex·www·OAuth·API 전 경로 연결 완료다.
+- 검증: Jenkins contract와 mutation fixture 192건, public-safe, diff check를 통과했다.

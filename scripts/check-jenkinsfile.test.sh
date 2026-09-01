@@ -304,6 +304,9 @@ make_fixture "$v2_source" v2-missing-managed-mode-guard \
 make_fixture "$v2_source" v2-missing-managed-mode-agreement \
   'active backend storage tuple disagrees with validated configuration.' \
   'active backend tuple check removed.'
+make_fixture "$v2_source" v2-missing-managed-backup-entrypoint \
+  '--entrypoint sh \\' \
+  '--entrypoint mc \\'
 make_fixture "$v2_source" v2-missing-object-backup-parity \
   'mc diff --json' \
   'true # object backup parity removed'
@@ -1595,6 +1598,7 @@ expect_fail 'v2: managed R2 direct backend-contract credential binding' v2 "$fix
 expect_fail 'v2: inherited storage credential clear 누락' v2 "$fixture_dir/v2-missing-inherited-storage-credential-clear"
 expect_fail 'v2: managed object backup mode branch 누락' v2 "$fixture_dir/v2-missing-managed-mode-guard"
 expect_fail 'v2: active managed mode agreement fail-closed 누락' v2 "$fixture_dir/v2-missing-managed-mode-agreement"
+expect_fail 'v2: managed backup mc entrypoint 누락' v2 "$fixture_dir/v2-missing-managed-backup-entrypoint"
 expect_fail 'v2: configured endpoint object backup parity 누락' v2 "$fixture_dir/v2-missing-object-backup-parity"
 expect_fail 'v2: active storage tuple hash 누락' v2 "$fixture_dir/v2-missing-storage-tuple-hash"
 expect_fail 'v2: running no-op storage tuple guard 누락' v2 "$fixture_dir/v2-missing-running-storage-tuple-guard"

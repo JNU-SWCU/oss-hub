@@ -806,6 +806,8 @@ check_v2() {
     '"remote/$SUBMISSION_FILE_S3_BUCKET"' 1
   require_exact 'configured endpoint backups must prove mirror parity without printing keys' \
     'mc diff --json' 2
+  require_exact 'managed backup mc container must override the mc image entrypoint with a shell' \
+    '--entrypoint sh \' 1
   require_at_least 'managed backup must record only a planned restore drill prefix' \
     'planned_restore_drill_prefix=".restore-drill/${RELEASE_TAG}-${BUILD_NUMBER}"' 1
   require_at_least 'MinIO backup must use the disjoint rollback bucket' \
