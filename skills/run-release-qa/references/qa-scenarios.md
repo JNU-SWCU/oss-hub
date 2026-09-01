@@ -165,8 +165,8 @@ QA에서 반드시 눌러봐야 하는 지점이다.
 
 ## 관련 문서
 
-- 배포 계약·백업·롤백: [ADR-002](../../decisions/ADR-002-CI-CD-파이프라인.md)
-- 리뷰·병합 게이트: [ADR-005](../../decisions/ADR-005-agent-driven-review-cycle.md)
-- GitHub App 통합·수집: [ADR-006](../../decisions/ADR-006-github-app-integration.md)
-- public-safe deny-list·공개 strict-read: [security.md](../../rules/security.md)
-- 서버 접속·복구 절차: [server-runbook.md](../../deploy/server-runbook.md)
+- 배포 계약·백업·롤백: [ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md)
+- 리뷰·병합 게이트: [ADR-005](../../../docs/decisions/ADR-005-agent-driven-review-cycle.md)
+- GitHub App 통합·수집: [ADR-006](../../../docs/decisions/ADR-006-github-app-integration.md)
+- public-safe deny-list·공개 strict-read: [security.md](../../../docs/rules/security.md)
+- 서버 접속·복구 절차: [server-runbook.md](../../../docs/deploy/server-runbook.md)

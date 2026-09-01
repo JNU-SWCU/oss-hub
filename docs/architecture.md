@@ -14,7 +14,7 @@ compose.yaml                  # 운영 런타임 Compose 정의
 compose.dev.yaml              # 개발 PostgreSQL Compose 정의
 docs/
 ├── decisions/                # Architecture Decision Records
-├── exec-plan/                # 수동 운영 절차와 실행 기록
+├── deploy/                   # 배포 runbook과 수동 운영 절차
 └── rules/                    # 구현 규칙
 ```
 
@@ -24,7 +24,7 @@ docs/
 - `apps/backend`는 `/api/v1` REST API, DTO 검증, 업무 규칙, 영속성 접근을 소유한다.
 - PostgreSQL은 backend만 직접 접근한다.
 - `deploy/`와 Compose 파일은 런타임 네트워크, proxy, 배포 자동화를 소유한다.
-- `docs/decisions`는 장기 결정, `docs/exec-plan`은 반복 가능한 수동 운영 절차를 소유한다.
+- `docs/decisions`는 장기 결정, `docs/deploy`는 배포 runbook과 반복 가능한 수동 운영 절차를 소유한다.
 
 ## 현재 전환 상태
 

@@ -2,7 +2,7 @@
 name: "manage-qa-tickets"
 description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "4.1.0"
+  version: "4.2.0"
 ---
 
 # Manage QA tickets
@@ -202,12 +202,8 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 ## 3. 수행 — Issue를 PR로 만든다
 
-`oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 Issue 본문이 작업 범위의 유일한 원본이다.
-성공 기준은 PR이 티켓 계약이 요구한 것과 정확히 일치하고, 완료 조건의 모든 항목이 PR을 열기 전에 실증되며, 금지 경계 밖의 파일을 0건 건드리는 것이다.
-`frontend` 티켓이면 동일한 경로·페르소나·viewport·합성 데이터 상태에서 실제 Before/After 캡처를 만들고, GitHub PR 본문에 직접 첨부해 실제로 렌더되는 것을 확인한다.
-로컬 파일 경로를 적으면 아무 이미지도 렌더되지 않으므로 캡처를 올렸다고 보지 않는다.
-
-절차, 계약 파싱, 선행 의존성과 순환 처리, 검증과 PR 흐름, Before/After 증거, 이스케이프 해치는 [execution-workflow.md](references/execution-workflow.md)가 원본이다.
+`oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 Issue 번호를 [submit-pr-evidence](../submit-pr-evidence/SKILL.md)에 넘긴다.
+계약 파싱, 구현 범위, 완료 조건 실증, 영역별 증거 게이트, PR 제출 절차는 그 스킬이 원본이다.
 
 ## 4. 레거시 행 이관
 
@@ -281,6 +277,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
-- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 사람이 공개 안전·메타데이터를 확인하고, PR 본문에 첨부해 렌더된 것을 다시 열어 확인했고, 시각 변화가 없으면 `N/A`와 사유를 적었다.
+- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 사람이 공개 안전·메타데이터를 확인하고, PR 본문에 첨부해 렌더된 것을 다시 열어 확인했고, 시각 변화가 없으면 `N/A`와 사유를 적었다([submit-pr-evidence/references/frontend-capture.md](../submit-pr-evidence/references/frontend-capture.md)가 원본).
+- [ ] `backend` 로직 변경이면 mermaid 또는 DOT 흐름 다이어그램을 PR 본문 `## 4b. Backend 흐름 다이어그램`에 넣었다([submit-pr-evidence/references/backend-diagram.md](../submit-pr-evidence/references/backend-diagram.md)가 원본).
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 옮겼다.

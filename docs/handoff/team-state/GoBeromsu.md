@@ -945,3 +945,11 @@
 - blocker: checkpoint A의 production credential·OAuth callback 변경, live G3–G9 execution과 rollback approver 확인은 owner 참석이 필요하다.
 - 결과: 로컬 인수인계로만 남아 있던 R2 readiness 문서를 공개-safe canonical G0–G9 checklist로 추적하고 현재 완료·미완료 상태를 명시했다. Managed activation 전 start-free pre-hold receipt가 rollback backup·image를 결박한다. Jenkins는 모든 retention cleanup 전에 state를 검증하고 exact backup pruning을 건너뛰며 rollback image tag를 keep set으로 보호하되 bounded cache·unrelated image cleanup은 허용한다. Complete receipt, G0–G8, G8 뒤 30분 observation과 circular하지 않은 pre-hold completion list가 동시에 green인 단일 UTC instant만 `ROLLBACK_HOLD_START`가 되며 expiry는 정확히 start + 72시간이다. Expiry 뒤에도 final recovery verification과 같은 hold start에 결박된 별도 approval 전에는 protected retention을 해제하지 않는다.
 - 검증: Jenkins contract와 mutation fixture 187건, pre-hold·hold·cleanup approval state machine synthetic test, CI path contract 6건, repository Prettier, shellcheck, public-safe, diff check를 통과했고 canonical retention architect가 `CLEAR+APPROVE`를 반환했다.
+## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
+
+- 상태: review
+- Issue: #1119
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 팀 스킬을 `skills/` canonical 4개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`)로 정리하고 `.codex`·`.claude`·`.cursor`·`.gjc` runtime 디렉터리는 symlink만 둔다. `submit-pr-evidence`는 frontend 변경에 Before/After 캡처, backend 로직 변경에 mermaid/DOT 다이어그램을 PR 본문 게이트로 요구하고 PR·Issue 템플릿에 §4·§4b 섹션을 추가했다. `AGENTS.md`와 `docs/rules/agent-skill-routing.md`가 스킬 사용을 게이트로 강제하며 더 이상 쓰지 않는 `docs/exec-plan/`은 제거하고 남은 참조를 ADR-010·스킬 references로 옮겼다.
+- 검증: `quick_validate.py` 4개 `Skill is valid!`, 깨진 symlink 0개, `check-public-safe.sh`, `pnpm format:check`, `node --test scripts/team-state-check.test.mjs` 11/11을 통과했다.

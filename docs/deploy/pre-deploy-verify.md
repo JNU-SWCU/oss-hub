@@ -5,7 +5,7 @@
 서버 접속·설치·job 절차는 [server-runbook](./server-runbook.md)이 원본이며, 이 문서는 검증 절차만 다룬다.
 
 프로덕션 스택 정의는 저장소 루트 `compose.yml`(nginx / frontend / backend / postgres)이 원본이다.
-Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host nginx 계약([init-operations](../exec-plan/active/init-operations.md) M4)이다.
+Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host nginx 계약이다.
 
 ## 표기 규약
 
@@ -196,4 +196,4 @@ ps -eo lstart,cmd | grep '[n]ode dist/src/main.js'
 ## ③ 다음 단계
 
 ①②가 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 parameterless Release 배포 또는 no-op 재실행으로 넘어간다.
-자동 트리거 계약은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)와 [init-operations](../exec-plan/active/init-operations.md) M2가 원본이다.
+자동 트리거 계약은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)가 원본이다.
