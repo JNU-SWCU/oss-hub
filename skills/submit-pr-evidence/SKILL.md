@@ -2,7 +2,7 @@
 name: submit-pr-evidence
 description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, runs the public-safety check, and blocks the PR until required evidence is present, since frontend changes need Before/After captures attached in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램".
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Submit PR Evidence
@@ -53,6 +53,39 @@ metadata:
 
 해당 없음 — 위 두 게이트를 적용하지 않는다.
 
+## PR 본문 작성 원칙
+
+증거를 갖췄어도 본문이 읽기 힘들면 리뷰어가 변경을 이해하지 못한다.
+아래 다섯 가지를 PR 본문 작성 전에 확인한다.
+
+### 요약은 페르소나 언어로 쓴다
+
+- `## 요약`의 각 불릿은 "무엇을 고쳤다"가 아니라 "누가 무엇을 할 수 있게 됐다"로 쓴다.
+  - 나쁨: `마일스톤 수정을 독립 Radix Dialog로 분리했습니다.`
+  - 좋음: `교직원이 프로그램 편집에서 마일스톤을 고칠 때, 페이지 스크롤과 분리된 레이어에서 편집하고 저장 후 원래 자리로 돌아옵니다.`
+- 컴포넌트 이름·라이브러리 이름은 요약이 아니라 상세 절에 쓴다.
+
+### 검증은 사람이 확인한 행동으로 적는다
+
+- `Vitest 7개 파일 70개 테스트 통과` 같은 수치만으로는 무엇이 보장되는지 알 수 없다.
+- 수치는 남기되, 그 옆에 그 수치가 어떤 사용자 행동을 보장하는지 페르소나 문장으로 함께 적는다.
+
+### 리뷰어에게 의미 없는 로컬 환경 잡음을 본문에 넣지 않는다
+
+- `node_modules` 누락, Windows EPERM, 무관한 기존 경고 같은 항목은 본문이 아니라 필요하면 PR 코멘트로 남긴다.
+- 검증을 실제로 실행하지 못한 경우는 예외다 — 못 돌린 검증은 숨기지 않고 반드시 본문에 남긴다.
+
+### 가독성 형식을 지킨다
+
+- 한 불릿 = 한 사실이다. 두 문장 이상 이어지면 하위 불릿으로 쪼갠다(중첩 불릿을 쓴다).
+- 파일 경로는 클릭 가능한 링크로 쓴다: `` [`apps/frontend/src/foo.tsx:12-20`](https://github.com/JNU-SWCU/oss-hub/blob/main/apps/frontend/src/foo.tsx#L12-L20) ``.
+- 섹션 번호는 실제 구조와 맞춘다. `## 4.`만 있고 1·2·3이 없으면 번호를 지운다.
+
+### 미첨부 placeholder를 남긴 채 열지 않는다
+
+- `<!-- 첨부 대기: … -->` 같은 주석이 본문에 남아 있으면 증거 게이트 미통과다.
+- 캡처를 못 만들었으면 주석이 아니라 본문에 사유를 적는다(위 이스케이프 해치와 동일 규칙).
+
 ## PR을 연다
 
 8. PR을 열기 전 `bash scripts/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반(실명·전화번호·개인 머신 경로 등, [docs/rules/security.md](../../docs/rules/security.md) deny-list)을 사전 검사한다.
@@ -98,3 +131,5 @@ metadata:
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 In Review로 옮겼다.
 - [ ] Notion에서 발행된 티켓이면 Issue에 PR URL을 코멘트로 남겼다.
+- [ ] `## 요약`의 각 불릿을 페르소나 언어("누가 무엇을 할 수 있게 됐다")로 썼다.
+- [ ] 본문에 `<!-- 첨부 대기: … -->` 같은 미첨부 placeholder 주석이 0건이다.
