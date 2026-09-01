@@ -62,3 +62,14 @@
 - 내용: 접근 관리 화면과 상세 intercept 경로를 `/admin/access`에서 `/dashboard/users`로 옮기고, 메뉴·대시보드·local-review·브라우저 검증 경로를 같은 주소로 정렬했다. 구 역할 노출 주소에는 redirect를 남기지 않았다.
 - 검증: 프런트엔드 317개 파일·3177개 테스트와 별도 런타임 geometry 4개 테스트, 목록 클릭→상세 오버레이→새로고침 표준 상세 Playwright 1개, typecheck·lint·format·production build를 통과했다. lint 경고 5건은 기존 sidebar drawer 테스트의 경고이며 새 오류는 없다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-02 — 체크리스트 스펙의 시한폭탄 제거
+
+- 상태: review
+- Issue: #1144
+- PR: (이 PR)
+- blocker: 없음
+- 내용: `submissions.service.checklist.spec.ts` 가 `service.checklist` 를 `now` 없이 불러 실시간으로 마감을 판정했다. 마일스톤 `dueAt` 은 `2026-09-01T14:59:59Z` 로 고정돼 있어, 그 시각이 지난 2026-09-02 부터 코드를 아무도 건드리지 않았는데 `main` 단위 테스트가 실패하기 시작했다. 파일 상단에 고정 시각 `NOW` 를 두고 `checklist` 호출 8곳 전부에 넘긴다.
+- 검증: lint·typecheck 통과, backend 309 스위트·3469 테스트 통과(수정 전 1건 실패). 시스템 시각을 2027-06-15 로 가정해 돌려도 이 스펙 11건이 그대로 통과하는 것을 확인했다.
+- 조사 결과: 같은 방식(고정 미래 날짜 + 실시간 기본값)으로 **미래에 터질 스펙이 2개 더 있다** — `milestone-document-files.service.spec.ts` 5건, `submissions.service.resubmission.spec.ts` 1건. 둘 다 현재 시각에서는 통과하므로 이 PR 범위에 넣지 않고 #1144 에 증거와 함께 남겼다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

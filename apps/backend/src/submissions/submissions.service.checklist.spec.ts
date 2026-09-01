@@ -14,6 +14,17 @@ import { SubmissionsService } from './submissions.service';
 
 const githubId = 4242n;
 
+/**
+ * 이 스펙이 서는 고정 시각. `milestone()`의 `dueAt`(2026-09-01T14:59:59Z)보다 앞이라
+ * 마감 전 상태를 뜻한다.
+ *
+ * ⚠ `service.checklist`의 `now`는 기본값이 `new Date()`다. 넘기지 않으면 실제 시각으로
+ * 마감을 판정하므로, 고정 `dueAt`을 지나는 순간 코드를 아무도 건드리지 않았는데
+ * 테스트가 뒤집힌다 — 2026-09-01 23:59:59 KST에 실제로 그렇게 됐다(#1144).
+ * 이 파일에서 `checklist`를 부를 때는 항상 이 값을 넘긴다.
+ */
+const NOW = new Date('2026-07-31T00:00:00.000Z');
+
 function milestone(
   overrides: Partial<ChecklistMilestone> = {},
 ): ChecklistMilestone {
@@ -69,16 +80,15 @@ it('미제출 마일스톤은 submission=null로, 필드는 계약 형태로 직
   const { service, listChecklistMilestones } = buildService({
     milestones: [milestone()],
   });
-  const now = new Date('2026-07-31T00:00:00.000Z');
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1', now);
+  const checklist = await service.checklist(githubId, 'program-1', NOW);
 
   // Then
   expect(listChecklistMilestones).toHaveBeenCalledWith(
     'program-1',
     'application-1',
-    now,
+    NOW,
   );
   expect(checklist).toEqual({
     applicationId: 'application-1',
@@ -107,7 +117,7 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
   });
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(githubId, 'program-1', NOW);
 
   // Then
   expect(checklist.applicationMode).toBe('TEAM');
@@ -137,7 +147,7 @@ it.each([
   });
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(githubId, 'program-1', NOW);
 
   // Then
   expect(checklist.items[0]?.submission).toMatchObject({ canResubmit });
@@ -180,7 +190,7 @@ it.each([
       ],
     });
 
-    const checklist = await service.checklist(githubId, 'program-1');
+    const checklist = await service.checklist(githubId, 'program-1', NOW);
 
     expect(checklist.items[0]?.submission).toMatchObject({
       decision,
@@ -219,7 +229,7 @@ it('현재 revision의 첨부 파일은 storageKey 없이 다운로드 URL과 �
   });
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(githubId, 'program-1', NOW);
 
   // Then
   const serialized = JSON.stringify(checklist);
@@ -251,17 +261,17 @@ it('비학생·비멤버·미승인 신청은 각각의 403으로 끝난다', as
 
   // When & Then
   await expect(
-    nonStudent.service.checklist(githubId, 'program-1'),
+    nonStudent.service.checklist(githubId, 'program-1', NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
   });
   await expect(
-    nonMember.service.checklist(githubId, 'program-1'),
+    nonMember.service.checklist(githubId, 'program-1', NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
   });
   await expect(
-    unapproved.service.checklist(githubId, 'program-1'),
+    unapproved.service.checklist(githubId, 'program-1', NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED },
   });
