@@ -945,6 +945,15 @@
 - blocker: checkpoint A의 production credential·OAuth callback 변경, live G3–G9 execution과 rollback approver 확인은 owner 참석이 필요하다.
 - 결과: 로컬 인수인계로만 남아 있던 R2 readiness 문서를 공개-safe canonical G0–G9 checklist로 추적하고 현재 완료·미완료 상태를 명시했다. Managed activation 전 start-free pre-hold receipt가 rollback backup·image를 결박한다. Jenkins는 모든 retention cleanup 전에 state를 검증하고 exact backup pruning을 건너뛰며 rollback image tag를 keep set으로 보호하되 bounded cache·unrelated image cleanup은 허용한다. Complete receipt, G0–G8, G8 뒤 30분 observation과 circular하지 않은 pre-hold completion list가 동시에 green인 단일 UTC instant만 `ROLLBACK_HOLD_START`가 되며 expiry는 정확히 start + 72시간이다. Expiry 뒤에도 final recovery verification과 같은 hold start에 결박된 별도 approval 전에는 protected retention을 해제하지 않는다.
 - 검증: Jenkins contract와 mutation fixture 187건, pre-hold·hold·cleanup approval state machine synthetic test, CI path contract 6건, repository Prettier, shellcheck, public-safe, diff check를 통과했고 canonical retention architect가 `CLEAR+APPROVE`를 반환했다.
+
+## 2026-09-01 — checkpoint A Release compilation을 복구한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: fix 병합 뒤 새 Release로 checkpoint A backend activation과 stable-origin smoke를 다시 실행해야 한다.
+- 결과: Release `v0.6.125`가 retention shell regex의 Groovy-invalid escape 때문에 pipeline compilation에서 fail-closed된 원인을 확인했다. Literal dot을 bracket expression으로 바꾸고 mutation checker가 unsafe escape 회귀를 거부하게 했다. Custom production domain, DNS·TLS, Jenkins `FRONTEND_URL`과 GitHub OAuth callback 설정은 authenticated browser agent로 일치 검증했으며 storage는 MinIO 그대로다.
+- 검증: Jenkins contract와 mutation fixture 188건, diff check를 통과했다.
 ## 2026-09-01 — repo 스킬을 세 runtime 공용으로 패키징한다
 
 - 상태: review

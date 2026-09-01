@@ -330,6 +330,9 @@ make_fixture "$v2_source" v2-missing-retention-protection-validator \
 make_fixture "$v2_source" v2-missing-cutover-hold-guard \
   'if \[ "$protection_active" = true \]; then' \
   'if false; then'
+make_fixture "$v2_source" v2-groovy-unsafe-retention-tag-regex \
+  'v\[0-9\]+\[.\]\[0-9\]+\[.\]\[0-9\]+' \
+  'v[0-9]+\\.[0-9]+\\.[0-9]+'
 append_fixture "$v2_source" v2-hardcoded-stale-minio-bucket \
   'sh '\''echo oss-hub-submission-files'\'''
 append_fixture "$v2_source" v2-destructive-object-operation \
@@ -1585,6 +1588,7 @@ expect_fail 'v2: object backup manifest 검증 누락' v2 "$fixture_dir/v2-missi
 expect_fail 'v2: empty object backup manifest 검증 누락' v2 "$fixture_dir/v2-missing-empty-object-manifest-verify"
 expect_fail 'v2: retention protection validator 호출 누락' v2 "$fixture_dir/v2-missing-retention-protection-validator"
 expect_fail 'v2: cutover hold retention guard 누락' v2 "$fixture_dir/v2-missing-cutover-hold-guard"
+expect_fail 'v2: Groovy-unsafe retention tag regex 사용' v2 "$fixture_dir/v2-groovy-unsafe-retention-tag-regex"
 expect_fail 'v2: stale hard-coded MinIO bucket 추가' v2 "$fixture_dir/v2-hardcoded-stale-minio-bucket"
 expect_fail 'v2: destructive object operation 추가' v2 "$fixture_dir/v2-destructive-object-operation"
 expect_fail 'v2: Bash-only body without interpreter 추가' v2 "$fixture_dir/v2-bash-only-without-interpreter"

@@ -822,6 +822,8 @@ check_v2() {
     'retention_keep_tags+=("${protected_rollback_image_tag}")' 1
   require_exact 'success retention must keep the rollback image and skip protected backup pruning' \
     'if [ "$protection_active" = true ]; then' 2
+  require_exact 'protected rollback tag regex must avoid Groovy-invalid shell escapes' \
+    '[[ "$protected_rollback_image_tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]] || {' 1
   require_absent 'Jenkinsfile must not hard-code the former submission bucket' \
     'oss-hub-submission-files'
   if grep -Eq 'mc[[:space:]]+(rm|rb)|mc[[:space:]]+mirror[^[:cntrl:]]*--remove|rclone[[:space:]]+(delete|purge)' "$active_jenkinsfile"; then
