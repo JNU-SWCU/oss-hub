@@ -1159,3 +1159,12 @@
 - blocker: 없음
 - 결과: origin DNS record·DNS certificate·host-only htpasswd·Vercel production sensitive env를 적용하고 additive vhost로 direct probe를 검증한 뒤 prebuilt Vercel production deployment를 promote했다. Canonical gate가 전부 green이어서 final tracked host config를 설치해 legacy IP vhost·IP certificate renewal을 제거했다. 중간에 Compose config를 선반영해 canonical API가 404로 깨진 사고는 즉시 rollback으로 복구했고, 이후 Release `v0.6.140` build 240이 새 Compose 계약을 정상 배포해 host drift와 missing-client guard를 닫았다. Public Jenkins nginx route와 GitHub deploy secrets도 제거했다.
 - 검증: canonical SSR/programs/ranking/health 200·OAuth 302·미인증 POST 401·unknown API 404, 4.5MiB upload body가 backend 401 도달, origin direct unauth 401·missing client 403·auth 200·PUT/OPTIONS 403·unknown Host/SNI 거절, legacy IP HTTPS handshake 거절, public 8080/8443/22 closed, timer build 241 no-op SUCCESS, host drift diff 없음, origin certificate renewal dry-run 통과.
+
+## 2026-09-02 — G006 이후 stale 계약 문서를 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 독립 비평이 지적한 문서-코드 불일치를 닫았다. `.github/AGENTS.md`·CODEOWNERS·ADR-005의 삭제된 `deploy.yml` 계약을 outbound convergence로 교체하고, demo runbook D1의 깨진 `gh run list --workflow deploy.yml` 검증을 Jenkins schedule/tailnet 수동 실행 검증으로 바꿨다. CI path rule의 nginx lane 서술을 현재 exact-Host·Basic auth·client-key·directive-tree 계약으로 재기술했다. Root AGENTS의 런타임 서술을 Vercel/managed R2 현재형으로 고쳐고, workflow가 Jenkins를 다시 트리거하지 못하도록 required CI에 부재 단언을 추가했다. 공개 DNS hostname의 공개-safe 경계를 security rule에 수용 deviation으로 기록했다.
+- 검증: CI path 8/8, Jenkins shell 13/13, workflow 부재 단언 red-green, format·public-safe·diff check 통과.
