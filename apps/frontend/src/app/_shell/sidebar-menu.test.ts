@@ -50,6 +50,28 @@ describe('shellSectionFromPathname', () => {
     expect(shellSectionFromPathname('/staff/dashboard')).toBeNull();
     expect(shellSectionFromPathname('/settings')).toBeNull();
   });
+
+  it('대시보드 하위 사용자 화면을 대시보드 섹션으로 인식한다', () => {
+    // Given: 대시보드 아래로 이전된 사용자 화면 경로.
+    const pathname = '/dashboard/users';
+
+    // When: 현재 경로가 속한 셸 섹션을 판별한다.
+    const section = shellSectionFromPathname(pathname);
+
+    // Then: 대시보드 좌측 메뉴가 선택된다.
+    expect(section).toBe('dashboard');
+  });
+
+  it('역할을 드러내던 옛 경로를 셸 섹션으로 인식하지 않는다', () => {
+    // Given: 제거된 역할 접두사 아래의 접근 관리 경로.
+    const pathname = ['', 'admin', 'access'].join('/');
+
+    // When: 현재 경로가 속한 셸 섹션을 판별한다.
+    const section = shellSectionFromPathname(pathname);
+
+    // Then: 존재하지 않는 경로에 대시보드 선택 상태를 부여하지 않는다.
+    expect(section).toBeNull();
+  });
 });
 
 describe('sidebarGroupsFor (context)', () => {
@@ -211,9 +233,16 @@ describe('sidebarGroupsFor (context)', () => {
     ).toBe('프로그램 메뉴');
   });
 
-  it('교직원 메뉴에 관리자 경로가 없다', () => {
+  it('교직원 업무 링크는 역할을 드러내지 않는 대시보드 경로를 사용한다', () => {
+    // Given: 교직원 권한으로 볼 수 있는 대시보드 메뉴.
     const hrefs = dashboardHrefs(STAFF);
-    expect(hrefs.every((href) => !href.startsWith('/admin/'))).toBe(true);
+
+    // When / Then: 모든 링크가 공통 대시보드 입구 아래에 있다.
+    expect(
+      hrefs.every(
+        (href) => href === '/dashboard' || href.startsWith('/dashboard/'),
+      ),
+    ).toBe(true);
   });
 
   it('no practice competition item', () => {

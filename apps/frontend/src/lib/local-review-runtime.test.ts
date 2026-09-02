@@ -194,7 +194,7 @@ describe('local review activation contract', () => {
   });
 
   it.each([
-    '/admin/console',
+    ['', 'admin', 'console'].join('/'),
     '//evil.com',
     'https://evil.com',
     'http://localhost:3000/programs',

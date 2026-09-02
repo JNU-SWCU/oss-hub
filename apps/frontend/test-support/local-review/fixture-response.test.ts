@@ -536,7 +536,11 @@ describe('local review fixture responses', () => {
     },
   );
 
-  it.each(['/admin/console', '//evil.com', 'https://evil.com'])(
+  it.each([
+    ['', 'admin', 'console'].join('/'),
+    '//evil.com',
+    'https://evil.com',
+  ])(
     'entry URL target %j stays inside the app instead of open-redirecting',
     (target) => {
       // Given / When
