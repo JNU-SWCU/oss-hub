@@ -5,9 +5,9 @@ import { AdminAccessScreen } from '@/features/roles/components/admin-access-scre
 
 // 사용자 목록(URL: /dashboard/users) — 접근: ADMIN만. 역할·계정 상태·마지막
 // 로그인을 조회하고 변경한다. 가입 신청 큐는 `/dashboard/applicants`
-// (STAFF·ADMIN). 기존 `/admin/users`·`/admin/staff-requests`는 리다이렉트
-// 없이 404. 필터·정렬·페이지 상태는 URL searchParams라 `useSearchParams()`를
-// Suspense로 감싼다.
+// (STAFF·ADMIN). 역할을 드러내던 옛 주소는 리다이렉트 없이 404다.
+// 필터·정렬·페이지 상태는 URL searchParams라 `useSearchParams()`를 Suspense로
+// 감싼다.
 export default function AdminAccessPage() {
   return (
     <RolePanelShell allow={['admin']}>

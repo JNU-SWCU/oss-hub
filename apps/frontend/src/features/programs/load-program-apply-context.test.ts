@@ -69,6 +69,7 @@ const application = {
   updatedAt: '2026-07-16T00:00:00.000Z',
   isRepositoryPublicationPlanned: false,
   rejectionReason: null,
+  isManager: true,
   canManage: true,
   canEdit: true,
   canCancel: true,
@@ -92,6 +93,32 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getProgramDetail).mockResolvedValue(program);
     vi.mocked(listApplicationTemplates).mockResolvedValue([template]);
     vi.mocked(getMyApplication).mockResolvedValue(application);
+  });
+
+  /**
+   * 팀원은 신청서를 읽지만 고치거나 취소하지 못한다(#1083). 기간이 남아 있는데
+   * 「신청 기간이 아닙니다」라고 하면 기다리면 열릴 줄 알고, 팀장에게 말할 생각을
+   * 못 한다. 막는 이유를 서버가 실어 보낸 `isManager`로 가른다.
+   */
+  it('blocks a team member who cannot manage the application', async () => {
+    // Given
+    const memberApplication = {
+      ...application,
+      isManager: false,
+      canManage: false,
+    };
+    vi.mocked(getMyApplication).mockResolvedValue(memberApplication);
+
+    // When
+    const result = await loadDefaultContext();
+
+    // Then
+    expect(result).toEqual({
+      kind: 'blocked',
+      reason: 'manage-not-allowed',
+      program,
+      application: memberApplication,
+    });
   });
 
   it('blocks a submitted application as period-closed when it cannot be edited', async () => {

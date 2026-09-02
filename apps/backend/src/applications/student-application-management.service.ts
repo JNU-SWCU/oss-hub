@@ -7,6 +7,7 @@ import {
   normalizeAndValidateApplicationAnswers,
   type ApplicationAnswers,
 } from '../programs/application-answers.validator';
+import { isProgramApplicationManager } from '../programs/program-participant';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
@@ -37,6 +38,13 @@ export interface StudentApplicationView {
    * 사유가 아직 안 온 것인지 애초에 없는 것인지 구분할 수 없다.
    */
   readonly rejectionReason: string | null;
+  /**
+   * 이 신청서를 수정·취소할 수 있는 사람인지 — 신청자 본인이거나 팀장이다(#1083).
+   * 기간·상태와 무관한 **권한**만 말한다. 지금 실제로 누를 수 있는지는 `canManage`다.
+   * 둘을 갈라 두는 이유는 화면이 「기간이 지났다」와 「당신 권한이 아니다」를
+   * 다르게 말해야 하기 때문이다 — 팀원에게 기간 안내를 하면 기다리면 열릴 줄 안다.
+   */
+  readonly isManager: boolean;
   readonly canManage: boolean;
 }
 
@@ -44,6 +52,7 @@ interface StudentApplicationContext {
   readonly studentId: string;
   readonly application: OwnedStudentApplication;
   readonly policy: ApplyProgramRecord;
+  readonly isManager: boolean;
 }
 
 @Injectable()
@@ -60,7 +69,7 @@ export class StudentApplicationManagementService {
   ): Promise<StudentApplicationView> {
     const context = await this.requireContext(githubId, programId);
     const editable = this.isEditable(context.application, context.policy, now);
-    return this.toView(context.application, editable);
+    return this.toView(context.application, context.isManager, editable);
   }
 
   async updateMine(
@@ -70,6 +79,7 @@ export class StudentApplicationManagementService {
     now: Date = new Date(),
   ): Promise<StudentApplicationView> {
     const context = await this.requireContext(githubId, programId);
+    this.requireManager(context);
     this.requireEditable(context.application, context.policy, now);
     const versionCheck = checkApplicationTemplateVersion(
       input.applicationTemplateVersion,
@@ -105,7 +115,7 @@ export class StudentApplicationManagementService {
       applicationTemplateVersion: input.applicationTemplateVersion,
     });
     if (result.kind !== 'updated') this.throwMutationFailure(result);
-    return this.toView(result.application, true);
+    return this.toView(result.application, true, true);
   }
 
   async cancelMine(
@@ -114,6 +124,7 @@ export class StudentApplicationManagementService {
     now: Date = new Date(),
   ): Promise<{ readonly cancelled: true }> {
     const context = await this.requireContext(githubId, programId);
+    this.requireManager(context);
     this.requireEditable(context.application, context.policy, now);
     const result = await this.repository.deletePendingApplication({
       programId,
@@ -138,7 +149,29 @@ export class StudentApplicationManagementService {
     if (!application) {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
     }
-    return { studentId: student.id, application, policy };
+    return {
+      studentId: student.id,
+      application,
+      policy,
+      isManager: isProgramApplicationManager(student.id, {
+        applicantId: application.applicant.id,
+        teamLeaderId: application.teamLeaderId,
+      }),
+    };
+  }
+
+  /**
+   * 조회는 팀원 전원에게 열려 있지만 수정·취소는 신청자와 팀장만 할 수 있다(#1083).
+   *
+   * repository가 같은 판정을 트랜잭션 잠금 안에서 한 번 더 하므로 여기는 앞선 거절이다
+   * (`requireEditable`가 `validateMutation`보다 앞서는 것과 같은 짜임) — 될 수 없는
+   * 요청 때문에 Program 행을 `FOR UPDATE`로 잠그지 않는다.
+   * 오류는 repository가 돌려주는 실패와 같은 `APPLICATION_NOT_FOUND`로 맞춘다.
+   */
+  private requireManager(context: StudentApplicationContext): void {
+    if (!context.isManager) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+    }
   }
 
   private throwMutationFailure(
@@ -185,6 +218,7 @@ export class StudentApplicationManagementService {
 
   private toView(
     application: OwnedStudentApplication,
+    isManager: boolean,
     editable: boolean,
   ): StudentApplicationView {
     // ⚠ 읽기라 길이를 재지 않는다 — 재면 상한이 생기기 전에 저장된 긴 신청서를
@@ -208,7 +242,8 @@ export class StudentApplicationManagementService {
       isRepositoryPublicationPlanned:
         application.isRepositoryPublicationPlanned,
       rejectionReason: application.rejectionReason,
-      canManage: editable,
+      isManager,
+      canManage: isManager && editable,
     };
   }
 

@@ -44,14 +44,14 @@ describe('readSearchParam', () => {
 
   // 뒤에 붙인 값이 이기면 검사받은 앞의 값을 덮어쓰는 우회가 열린다.
   it('같은 키가 반복되면 세 입력 형태 모두 첫 값을 준다', () => {
-    const query = 'returnTo=%2Franking&returnTo=%2Fadmin';
+    const query = 'returnTo=%2Franking&returnTo=%2Fsettings';
 
     expect(readSearchParam(query, 'returnTo')).toBe('/ranking');
     expect(readSearchParam(new URLSearchParams(query), 'returnTo')).toBe(
       '/ranking',
     );
     expect(
-      readSearchParam({ returnTo: ['/ranking', '/admin'] }, 'returnTo'),
+      readSearchParam({ returnTo: ['/ranking', '/settings'] }, 'returnTo'),
     ).toBe('/ranking');
   });
 

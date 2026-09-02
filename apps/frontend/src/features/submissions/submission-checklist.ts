@@ -110,7 +110,7 @@ export interface ChecklistSubmittedCount {
 }
 
 /**
- * "낼 서류 N건 중 M건 제출" 요약(#619 mydocs 스펙) — 좌측 사이드바 배지와
+ * "낼 서류 N건 중 M건 제출" 요약(#619 학생 제출물 스펙) — 좌측 사이드바 배지와
  * 같은 규칙: submission이 있으면(리뷰 상태와 무관) 제출로 센다.
  */
 export function checklistSubmittedCount(

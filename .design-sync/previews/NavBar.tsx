@@ -29,8 +29,10 @@ export function ManyItems() {
     <NavBar
       brand="OSS Hub 관리 콘솔"
       items={[
-        { label: '교직원 승인', href: '/admin/staff-requests' },
-        { label: '관리 콘솔', href: '/admin/users' },
+        { label: '운영 대시보드', href: '/dashboard' },
+        { label: '학생 활성', href: '/dashboard/insights' },
+        { label: '가입 신청', href: '/dashboard/applicants' },
+        { label: '사용자 목록', href: '/dashboard/users' },
         { label: '감사 로그', href: '/dashboard/audit-logs' },
         { label: '시스템 상태', href: '/dashboard/system-status' },
       ]}

@@ -226,6 +226,98 @@ describe('assertAccessMutationAllowed', () => {
     ).not.toThrow();
   });
 
+  describe('STAFF가 결정에 다른 조작을 얹어 보내는 경우 (#1082)', () => {
+    const staff = () =>
+      adminActor({ id: 'staff', role: 'STAFF', hasAdminAccess: false });
+
+    it('반려에 ADMIN 역할 부여를 얹으면 거절한다', () => {
+      expectThrownCode(
+        () =>
+          assertAccessMutationAllowed(staff(), 'target', {
+            expectedRole: null,
+            desiredRole: 'ADMIN',
+            expectedAccountStatus: AccountStatus.ACTIVE,
+            desiredAccountStatus: AccountStatus.ACTIVE,
+            expectedPendingRequest: {
+              id: 'request-pending',
+              status: 'PENDING',
+            },
+            requestDecision: {
+              decision: ADMIN_ACCESS_REQUEST_DECISIONS.REJECT,
+              reason: '사유',
+            },
+          }),
+        RolesErrorCode.ADMIN_ONLY,
+        403,
+      );
+    });
+
+    it('승인에 ADMIN 역할 부여를 얹으면 거절한다', () => {
+      expectThrownCode(
+        () =>
+          assertAccessMutationAllowed(staff(), 'target', {
+            ...APPROVE_COMMAND,
+            desiredRole: 'ADMIN',
+          }),
+        RolesErrorCode.ADMIN_ONLY,
+        403,
+      );
+    });
+
+    it('반려에 계정 상태 변경을 얹으면 거절한다', () => {
+      expectThrownCode(
+        () =>
+          assertAccessMutationAllowed(staff(), 'target', {
+            expectedRole: null,
+            desiredRole: null,
+            expectedAccountStatus: AccountStatus.ACTIVE,
+            desiredAccountStatus: AccountStatus.DEACTIVATED,
+            expectedPendingRequest: {
+              id: 'request-pending',
+              status: 'PENDING',
+            },
+            requestDecision: {
+              decision: ADMIN_ACCESS_REQUEST_DECISIONS.REJECT,
+              reason: '사유',
+            },
+          }),
+        RolesErrorCode.ADMIN_ONLY,
+        403,
+      );
+    });
+
+    it('순수한 승인은 그대로 통과한다', () => {
+      expect(() =>
+        assertAccessMutationAllowed(staff(), 'target', APPROVE_COMMAND),
+      ).not.toThrow();
+    });
+
+    it('순수한 반려는 그대로 통과한다', () => {
+      expect(() =>
+        assertAccessMutationAllowed(staff(), 'target', {
+          expectedRole: null,
+          desiredRole: null,
+          expectedAccountStatus: AccountStatus.ACTIVE,
+          desiredAccountStatus: AccountStatus.ACTIVE,
+          expectedPendingRequest: { id: 'request-pending', status: 'PENDING' },
+          requestDecision: {
+            decision: ADMIN_ACCESS_REQUEST_DECISIONS.REJECT,
+            reason: '사유',
+          },
+        }),
+      ).not.toThrow();
+    });
+
+    it('관리자는 결정과 역할 변경을 함께 보낼 수 있다', () => {
+      expect(() =>
+        assertAccessMutationAllowed(adminActor(), 'target', {
+          ...APPROVE_COMMAND,
+          desiredRole: 'ADMIN',
+        }),
+      ).not.toThrow();
+    });
+  });
+
   it('isAdminActor is true only for ADMIN', () => {
     expect(isAdminActor(adminActor())).toBe(true);
     expect(
