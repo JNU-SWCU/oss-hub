@@ -126,9 +126,8 @@ export function ProgramApplicantsPage({
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   /**
-   * 갱신 중임은 `loadState`가 아니라 여기에 담는다. 폴링 effect가 `loadState`를
-   * 의존성으로 보고 정리 함수에서 `requestEpoch`를 무효화하므로, 조회를 시작하면서
-   * `loadState`까지 건드리면 지금 막 띄운 요청이 스스로 늦은 응답 취급을 받는다.
+   * 갱신 중임은 `loadState`가 아니라 여기에 담는다. 다시 조회하는 동안에도 이미
+   * 그린 표와 검색창을 유지해야 사용자가 입력 위치와 현재 결과를 잃지 않는다.
    */
   const [isRefreshing, setIsRefreshing] = useState(false);
   /** 사용자가 치고 있는 값. 조회 조건이 되는 것은 아래 `query.search`다. */
@@ -263,7 +262,10 @@ export function ProgramApplicantsPage({
     schedule();
     return () => {
       cancelled = true;
-      requestEpoch.current.invalidate();
+      // 이 effect가 정리될 때는 새 프로그램·검색 조회가 이미 시작됐을 수 있다.
+      // 그 foreground epoch까지 무효화하면 새 응답을 버리고 스켈레톤에 남는다.
+      // 새 foreground의 begin()과 컴포넌트 load effect의 cleanup이 이전 poll을
+      // 무효화하므로, 여기서는 이 effect가 소유한 timer만 정리한다.
       if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [reloadApplications, shouldPoll, loadState]);

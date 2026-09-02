@@ -557,9 +557,8 @@ describe('program applicants search input', () => {
   });
 
   it('저장소 발급을 기다리는 행이 있어도 검색 결과가 표에 닿는다', async () => {
-    // 폴링이 도는 화면이다. 폴링 effect 는 `loadState`를 의존성으로 보고 정리 함수에서
-    // `requestEpoch`를 무효화하므로, 조회를 시작하며 `loadState`까지 건드리면 방금 띄운
-    // 요청이 스스로 늦은 응답이 되어 결과가 영영 표에 닿지 못한다.
+    // 폴링이 도는 화면에서도 검색을 시작하며 기존 표를 스켈레톤으로 갈아치우지 않고,
+    // 사용자가 요청한 결과를 같은 표에 반영한다.
     listProgramApplicationsMock.mockResolvedValueOnce(
       applicationPage([personal]),
     );
@@ -637,5 +636,50 @@ describe('program applicants search input', () => {
 
     expect(busyRegion()?.getAttribute('aria-busy')).toBe('false');
     expect(container.textContent).toContain('반려 학생');
+  });
+
+  it('자동 새로고침 대상 프로그램에서 다른 프로그램으로 이동해도 새 목록을 보여 준다', async () => {
+    const nextProgram: ProgramDetail = {
+      ...program,
+      id: 'program-2',
+      name: '두 번째 프로그램',
+    };
+    const nextApplication: ApplicationListItem = {
+      ...team,
+      id: 'app-program-2',
+      programId: nextProgram.id,
+      applicant: {
+        id: 'student-program-2',
+        name: '두 번째 학생',
+        nickname: 'second-student',
+      },
+      answers: {
+        applicantName: '두 번째 학생',
+        title: '두 번째 신청',
+        summary: '두 번째 요약',
+      },
+    };
+    const nextApplications = deferred<ApplicationListPage>();
+    getProgramDetailMock
+      .mockResolvedValueOnce(program)
+      .mockResolvedValueOnce(nextProgram);
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal]))
+      .mockReturnValueOnce(nextApplications.promise);
+    await renderReady();
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId={nextProgram.id} />);
+    });
+    await flush();
+    expect(document.querySelector(SKELETON_SELECTOR)).not.toBeNull();
+
+    nextApplications.resolve(applicationPage([nextApplication]));
+    await flush();
+
+    expect(document.querySelector(SKELETON_SELECTOR)).toBeNull();
+    expect(container.textContent).toContain('두 번째 프로그램 신청자');
+    expect(container.textContent).toContain('두 번째 학생');
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('false');
   });
 });
