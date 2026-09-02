@@ -88,19 +88,19 @@ describe('milestone timeline loader and view', () => {
       /<button[^>]*disabled[^>]*>파일 제출 준비 중<\/button>/,
     );
     expect(readyHtml).toContain(
-      'href="/programs/program-1/mydocs?milestoneId=text-missing"',
+      'href="/programs/program-1/documents?milestoneId=text-missing"',
     );
     expect(readyHtml).toContain(
-      'href="/programs/program-1/mydocs?milestoneId=text"',
+      'href="/programs/program-1/documents?milestoneId=text"',
     );
     expect(readyHtml).not.toContain(
-      'href="/programs/program-1/mydocs?milestoneId=missing"',
+      'href="/programs/program-1/documents?milestoneId=missing"',
     );
     expect(readyHtml).not.toContain(
-      'href="/programs/program-1/mydocs?milestoneId=file"',
+      'href="/programs/program-1/documents?milestoneId=file"',
     );
     expect(readyHtml).not.toContain(
-      'href="/programs/program-1/mydocs?milestoneId=overdue"',
+      'href="/programs/program-1/documents?milestoneId=overdue"',
     );
     expect(loadingHtml).toContain('마일스톤 타임라인을 불러오는 중');
     expect(emptyHtml).toContain('등록된 마일스톤이 없습니다');

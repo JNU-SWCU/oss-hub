@@ -30,7 +30,7 @@ function accessAuthorityOfRole(role: AuthorityLabel | null): AccessAuthority {
 }
 
 /** 관리자 권한 없이 교직원 접근만 가진 상태 — 승인·회수가 다루는 바로 그 부여다. */
-function isStaffOnlyAccess(role: AuthorityLabel | null): boolean {
+export function isStaffOnlyAccess(role: AuthorityLabel | null): boolean {
   const authority = accessAuthorityOfRole(role);
   return authority.hasStaffAccess && !authority.hasAdminAccess;
 }
