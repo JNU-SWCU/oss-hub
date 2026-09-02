@@ -63,6 +63,15 @@
 - 검증: 프런트엔드 317개 파일·3177개 테스트와 별도 런타임 geometry 4개 테스트, 목록 클릭→상세 오버레이→새로고침 표준 상세 Playwright 1개, typecheck·lint·format·production build를 통과했다. lint 경고 5건은 기존 sidebar drawer 테스트의 경고이며 새 오류는 없다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
 
+## 2026-09-01 — E2E 스택 기동 복구 (마감 다이제스트 시드)
+
+- 상태: review
+- Issue: #1084
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 2026-08-30 이관이 `Submission` 테이블을 지웠는데 스택 기동 시드가 계속 `prisma.submission.deleteMany` 를 불러, 테스트가 시작되기 전 webServer 단계에서 죽었다. `.mjs` 라 typecheck 가 보지 못하고 Playwright 는 CI 에서 돌지 않기로 한 결정(2026-08-11) 때문에 어느 게이트에도 걸리지 않았다. 정리 단계를 새 원장(`milestoneDocumentSubmission`)으로 옮기고 FK 순서를 맞췄다. 더해서 같은 이관으로 다이제스트 대상 판정이 「마일스톤」에서 「필수 서류 항목」으로 바뀌었는데 시드가 서류 항목을 만들지 않아, 크래시만 고치면 시드는 성공해도 알림이 0건이 되는 상태였다 — 필수 `MilestoneDocument` 한 건을 만들도록 했고 격리 DB 실측(없으면 0건, 있으면 1건)으로 정당화했다.
+- 검증: lint·typecheck 통과. `E2E_STACK_PROFILE=deadline-digest` 로 스택 기동 후 `deadline-digest.spec.ts` 1건 통과, 기본 `full` 프로파일로 `auth-logout`·`static-assets` 3건 통과 — 수정 전에는 두 프로파일 모두 기동 자체가 실패했다.
+- 회귀 그물: e2e/support 의 `.mjs` 가 부르는 Prisma 델리게이트를 생성된 datamodel 과 대조하는 vitest 계약을 추가했다. 이름을 하드코딩하지 않아 다음 이관에도 같은 방식으로 걸린다.
 ## 2026-09-01 — E2E 세션 목을 현재 인증 계약으로
 
 - 상태: review
