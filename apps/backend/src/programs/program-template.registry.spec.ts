@@ -16,7 +16,6 @@ describe('program-template.registry', () => {
       expect(template.fields).toEqual(V1_APPLICATION_FIELDS);
       expect(template.fields.map((field) => field.key)).toEqual([
         'applicantName',
-        'title',
         'summary',
       ]);
       expect(template.teamSize).toEqual({

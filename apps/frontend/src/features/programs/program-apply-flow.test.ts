@@ -68,7 +68,7 @@ describe('program-apply-flow', () => {
     ).toBe(false);
   });
 
-  it('기간 마감·중복·팀 필수 blocked 사유를 고른다', () => {
+  it('기간 마감·중복·팀 미선택 신청을 판정한다', () => {
     expect(
       resolveApplyBlockedReason(
         baseProgram,
@@ -97,7 +97,7 @@ describe('program-apply-flow', () => {
         null,
         Date.parse('2026-07-15T00:00:00.000Z'),
       ),
-    ).toBe('team-required');
+    ).toBe(null);
 
     expect(
       resolveApplyBlockedReason(
@@ -120,7 +120,6 @@ describe('program-apply-flow', () => {
 
   it('필수 입력 검증 오류를 반환한다', () => {
     expect(validateApplyForm(baseValues)).toEqual({
-      title: '제목을 입력해 주세요.',
       summary: '요약을 입력해 주세요.',
       personalDataConsent: '개인정보 수집·이용에 동의해야 지원할 수 있습니다.',
     });

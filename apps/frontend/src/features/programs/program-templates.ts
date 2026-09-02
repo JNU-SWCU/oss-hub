@@ -25,12 +25,6 @@ export const V1_APPLICATION_FIELDS: readonly ApplicationFormField[] = [
     required: true,
   },
   {
-    key: 'title',
-    type: 'text',
-    label: '제목',
-    required: true,
-  },
-  {
     key: 'summary',
     type: 'textarea',
     label: '요약',
@@ -49,7 +43,6 @@ function definition(
   label: string,
   key: string,
   name: string,
-  participation: ApplicationFormTemplate['participation'],
 ): ProgramTemplateDefinition {
   return {
     category,
@@ -58,7 +51,7 @@ function definition(
       key,
       version: 1,
       name,
-      participation,
+      participation: 'team',
       fields: V1_APPLICATION_FIELDS,
     },
   };
@@ -66,42 +59,32 @@ function definition(
 
 export const PROGRAM_TEMPLATE_DEFINITIONS: readonly ProgramTemplateDefinition[] =
   [
-    definition('BASIC', '기본', 'basic', '기본 신청서', 'individual'),
+    definition('BASIC', '기본', 'basic', '기본 신청서'),
     definition(
       'SW_VALUE_SPREAD',
       'SW가치확산',
       'sw-value-spread',
       'SW가치확산 신청서',
-      'individual',
     ),
     definition(
       'OSS_CONTEST',
       'OSS경진대회',
       'oss-contest',
       'OSS경진대회 신청서',
-      'team',
     ),
-    definition('CAPSTONE', '캡스톤', 'capstone', '캡스톤 신청서', 'team'),
-    definition(
-      'SW_CONVERGENCE',
-      'SW융합',
-      'sw-convergence',
-      'SW융합 신청서',
-      'team',
-    ),
+    definition('CAPSTONE', '캡스톤', 'capstone', '캡스톤 신청서'),
+    definition('SW_CONVERGENCE', 'SW융합', 'sw-convergence', 'SW융합 신청서'),
     definition(
       'GLOBAL_MAKERTHON',
       '글로벌메이커톤',
       'global-makerthon',
       '글로벌메이커톤 신청서',
-      'team',
     ),
     definition(
       'CORPORATE_INTERNSHIP',
       '기업인턴십',
       'corporate-internship',
       '기업인턴십 신청서',
-      'individual',
     ),
   ];
 

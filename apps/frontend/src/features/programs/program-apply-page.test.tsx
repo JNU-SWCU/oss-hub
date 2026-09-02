@@ -353,7 +353,7 @@ describe('ProgramApply views', () => {
     expect(html).toContain('이미 승인되거나 반려된 신청입니다.');
   });
 
-  it('team-required blocked state keeps detail CTA and shows team setup CTA', () => {
+  it('legacy team-required blocked state keeps the detail CTA', () => {
     const html = renderToStaticMarkup(
       <BlockedView
         reason="team-required"
@@ -363,8 +363,7 @@ describe('ProgramApply views', () => {
     );
 
     expect(html).toContain('/programs/program-1');
-    expect(html).toContain('/programs/program-1/teams');
-    expect(html).toContain('팀 구성');
+    expect(html).not.toContain('/programs/program-1/teams');
   });
 
   /**

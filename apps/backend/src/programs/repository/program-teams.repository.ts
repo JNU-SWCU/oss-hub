@@ -130,6 +130,8 @@ export class JoinCodeDigestConflictError extends Error {
   override readonly name = 'JoinCodeDigestConflictError';
 }
 
+export type TeamLeaveResult = 'removed' | 'not-found' | 'locked';
+
 export interface ProgramTeamsCreateStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findMembershipByProgramUser(
@@ -461,6 +463,47 @@ export class ProgramTeamsRepository {
     return this.prisma.$transaction((tx) =>
       operation(new PrismaProgramTeamsJoinStore(tx)),
     );
+  }
+
+  async leave(programId: string, userId: string): Promise<TeamLeaveResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const membership = await tx.teamMember.findUnique({
+        where: { programId_userId: { programId, userId } },
+        select: {
+          teamId: true,
+          team: {
+            select: {
+              leaderId: true,
+              applications: { select: { id: true }, take: 1 },
+              members: {
+                select: { userId: true },
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+          },
+        },
+      });
+      if (!membership) return 'not-found';
+      if (membership.team.applications.length > 0) return 'locked';
+
+      await tx.teamMember.delete({
+        where: { teamId_userId: { teamId: membership.teamId, userId } },
+      });
+      if (membership.team.leaderId === userId) {
+        const nextLeader = membership.team.members.find(
+          (member) => member.userId !== userId,
+        );
+        if (nextLeader) {
+          await tx.team.update({
+            where: { id: membership.teamId },
+            data: { leaderId: nextLeader.userId },
+          });
+        } else {
+          await tx.team.delete({ where: { id: membership.teamId } });
+        }
+      }
+      return 'removed';
+    });
   }
 }
 

@@ -44,7 +44,7 @@ type ReadyContext = Extract<ProgramApplyContext, { readonly kind: 'ready' }>;
 
 function readyContext(
   programId: string,
-  initialTitle: string,
+  initialSummary: string,
   teamId: string | null = null,
 ): ReadyContext {
   return {
@@ -83,8 +83,7 @@ function readyContext(
     applicationId: null,
     canManage: false,
     initialValues: {
-      title: initialTitle,
-      summary: '',
+      summary: initialSummary,
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: 'new',
       repositoryUrl: '',
@@ -139,10 +138,10 @@ describe('ProgramApplyPage 비동기 초기화', () => {
     });
   }
 
-  function titleInput(): HTMLInputElement {
-    const input = container.querySelector('input[name="title"]');
-    if (!(input instanceof HTMLInputElement)) {
-      throw new TypeError('Title input not found');
+  function summaryInput(): HTMLTextAreaElement {
+    const input = container.querySelector('textarea[name="summary"]');
+    if (!(input instanceof HTMLTextAreaElement)) {
+      throw new TypeError('Summary input not found');
     }
     return input;
   }
@@ -157,9 +156,17 @@ describe('ProgramApplyPage 비동기 초기화', () => {
     });
   }
 
-  async function enterTitle(value: string): Promise<void> {
+  async function enterSummary(value: string): Promise<void> {
     await act(async () => {
-      const input = titleInput();
+      let input = container.querySelector('textarea[name="summary"]');
+      if (!(input instanceof HTMLTextAreaElement)) {
+        const continueButton = [...container.querySelectorAll('button')].find(
+          (button) => button.textContent?.includes('1인 팀으로 계속'),
+        );
+        continueButton?.click();
+        await Promise.resolve();
+        input = summaryInput();
+      }
       input.value = value;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
@@ -178,14 +185,14 @@ describe('ProgramApplyPage 비동기 초기화', () => {
       current,
       readyContext('program-current', '현재 기본값', 'team-current'),
     );
-    await enterTitle('사용자가 작성한 제목');
+    await enterSummary('사용자가 작성한 요약');
 
     await resolve(stale, readyContext('program-stale', '늦은 기본값'));
 
     expect(container.querySelector('h1')?.textContent).toBe(
       'program-current 프로그램 신청',
     );
-    expect(titleInput().value).toBe('사용자가 작성한 제목');
+    expect(summaryInput().value).toBe('사용자가 작성한 요약');
   });
 
   it('program과 team identity가 바뀌면 이전 입력 여부와 무관하게 새 context 기본값으로 초기화한다', async () => {
@@ -197,7 +204,7 @@ describe('ProgramApplyPage 비동기 초기화', () => {
 
     await renderPage('program-previous');
     await resolve(previous, readyContext('program-previous', '이전 기본값'));
-    await enterTitle('이전 화면에서 작성한 제목');
+    await enterSummary('이전 화면에서 작성한 요약');
 
     await renderPage('program-current', 'team-current');
     await resolve(
@@ -210,6 +217,13 @@ describe('ProgramApplyPage 비동기 초기화', () => {
       'team-current',
       sessionUser,
     );
-    expect(titleInput().value).toBe('새 기본값');
+    await act(async () => {
+      const continueButton = [...container.querySelectorAll('button')].find(
+        (button) => button.textContent?.includes('1인 팀으로 계속'),
+      );
+      continueButton?.click();
+      await Promise.resolve();
+    });
+    expect(summaryInput().value).toBe('새 기본값');
   });
 });
