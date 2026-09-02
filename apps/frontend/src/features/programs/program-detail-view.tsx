@@ -26,13 +26,6 @@ const ACTIVITY_SECTION_ID = 'activity';
 const ACTIVITY_HASH = `#${ACTIVITY_SECTION_ID}`;
 
 /**
- * 앵커를 다시 맞춰 주는 창(50ms × 40 ≈ 2초). `admin-access-overlay`의 셸 스크롤
- * 복원과 같은 방식 — 늦게 도착하는 데이터가 레이아웃을 다 밀고 나서 앉을 시간을 번다.
- */
-const ACTIVITY_ALIGN_INTERVAL_MS = 50;
-const ACTIVITY_ALIGN_TICKS = 40;
-
-/**
  * 스크롤 주도권이 사용자에게 넘어갔다고 볼 입력. `scroll`은 우리가 만든 이동도
  * 똑같이 내보내므로 구분 근거가 되지 못한다.
  */
@@ -49,33 +42,30 @@ const SCROLL_HANDOVER_EVENTS = [
  * 상세는 비동기로 열리고 그 안의 활동 그래프·서류 목록도 각자 늦게 채워진다.
  * 그래서 마운트 직후 한 번만 `scrollIntoView`를 부르면, 셸의 스크롤 칸
  * (`#main-content`)이 아직 내용보다 크지 않아 그 호출이 조용히 아무 일도 하지
- * 못한 채 끝나고, 뒤늦게 자란 레이아웃은 그대로 남는다(#1088). 레이아웃이 앉을
- * 때까지 짧게 다시 맞추되, 사용자가 스스로 스크롤하면 그 자리에서 손을 뗀다.
+ * 못한 채 끝나고, 뒤늦게 자란 레이아웃은 그대로 남는다(#1088). 프로그램 본문의
+ * 크기 변화를 따라 다시 맞추되, 사용자가 스스로 스크롤하면 그 자리에서 손을 뗀다.
  */
 function useActivityHashScroll(): void {
   useEffect(() => {
     if (window.location.hash !== ACTIVITY_HASH) return;
 
-    let ticks = 0;
-    let intervalId = 0;
+    const target = document.getElementById(ACTIVITY_SECTION_ID);
+    if (target === null) return;
+
+    const layoutRoot = target.closest('main') ?? target;
+    const align = (): void => {
+      target.scrollIntoView({ block: 'start', inline: 'nearest' });
+    };
+    const observer = new ResizeObserver(align);
 
     const release = (): void => {
-      window.clearInterval(intervalId);
+      observer.disconnect();
       for (const event of SCROLL_HANDOVER_EVENTS) {
         window.removeEventListener(event, release);
       }
     };
 
-    const align = (): void => {
-      // 상세가 늦게 열리면 대상도 늦게 생긴다 — 없으면 다음 tick 에 다시 본다.
-      document
-        .getElementById(ACTIVITY_SECTION_ID)
-        ?.scrollIntoView({ block: 'start', inline: 'nearest' });
-      ticks += 1;
-      if (ticks >= ACTIVITY_ALIGN_TICKS) release();
-    };
-
-    intervalId = window.setInterval(align, ACTIVITY_ALIGN_INTERVAL_MS);
+    observer.observe(layoutRoot);
     for (const event of SCROLL_HANDOVER_EVENTS) {
       window.addEventListener(event, release, { passive: true });
     }
