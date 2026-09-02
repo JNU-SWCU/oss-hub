@@ -6,6 +6,7 @@ import {
   RolesErrorCode,
 } from '../roles/roles-error-code.enum';
 import type { AdminAccessActor } from './admin-access.repository';
+import { isStaffOnlyAccess } from './admin-access-transition-table';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessMutationCommand,
@@ -72,6 +73,38 @@ export function assertAccessMutationAllowed(
     decision !== ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE &&
     decision !== ADMIN_ACCESS_REQUEST_DECISIONS.REJECT
   ) {
+    throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
+  }
+  assertDecisionOnlyCommand(decision, command);
+}
+
+/**
+ * 결정 말고는 아무것도 바꾸지 않는 명령인지 확인한다.
+ *
+ * 결정이 실려 있다는 것만 보고 통과시키면, 같은 요청에 얹힌 역할·계정 상태 변경이
+ * 함께 적용된다. 그 자리를 통해 교직원이 남의 계정에 관리자 접근을 부여할 수 있었다(#1082).
+ *
+ * 승인은 그 자체가 교직원 접근을 부여하는 동작이므로 `desiredRole`이 교직원 부여인 것까지는
+ * 결정의 결과다. 그보다 넓은 권한이나 계정 상태 변경은 결정의 결과가 아니다.
+ *
+ * 어느 역할이 교직원 부여인지는 `admin-access-transition-table`의 `isStaffOnlyAccess`가
+ * 원본이다. 여기서 역할 이름을 다시 나열하면 역할이 늘 때 이 검사만 조용히 뒤처진다 —
+ * 전이표가 그 판정을 canonical 접근 권한으로 환산해 두었으므로 같은 어휘를 그대로 쓴다.
+ */
+function assertDecisionOnlyCommand(
+  decision:
+    | typeof ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE
+    | typeof ADMIN_ACCESS_REQUEST_DECISIONS.REJECT,
+  command: AdminAccessMutationCommand,
+): void {
+  if (command.desiredAccountStatus !== command.expectedAccountStatus) {
+    throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
+  }
+  const allowedDesiredRole =
+    decision === ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE
+      ? isStaffOnlyAccess(command.desiredRole)
+      : command.desiredRole === command.expectedRole;
+  if (!allowedDesiredRole) {
     throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
   }
 }
