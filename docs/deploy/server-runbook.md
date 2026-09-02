@@ -170,7 +170,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 - Pipeline job은 main SCM의 root `Jenkinsfile` 하나만 읽는다.
 - Jenkins parameter definitions는 두지 않는다.
 - Docker 권한을 가진 executor에 `oss-hub-production` label을 부여하고, 이 job과 승인된 운영자 외 작업을 배치하지 않는다. `disableConcurrentBuilds()`는 `Jenkinsfile`이 강제한다.
-- 자동·수동 재실행 모두 exact `POST /job/oss-hub-release-cd/build`을 사용한다. 계약 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)다.
+- 자동 실행은 `cron('H/10 * * * *')` outbound convergence가 소유한다. 수동 복구는 tailnet Jenkins에서 parameterless build를 실행한다. Public build endpoint는 없다.
 - 검증: job 설정의 script path가 `Jenkinsfile`, branch가 `main`, parameter definition 수가 0인지 확인한다.
 
 ## M5. GitHub API 호출 준비
@@ -185,21 +185,24 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 첫 Release e2e 전에 [pre-deploy-verify](./pre-deploy-verify.md)의 ① 로컬 랩탑 검증과 ② 배포 EC2 서버-로컬 드라이런을 순서대로 통과시킨다. 앞 단계가 통과해야 다음으로 넘어간다.
 
-- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` 200과 제출 파일 업로드 경로 smoke가 1회 성공. 업로드 기대값은 여기에 복사하지 않는다 — [pre-deploy-verify](./pre-deploy-verify.md) ②의 표가 원본이고 그 표의 원본은 `Jenkinsfile`의 rollout smoke다.
+- 검증: ①은 `compose.yml + compose.local.yml`의 local frontend·MinIO substitute를 검증한다. ②는 배포 서버의 현재 backend image metadata와 loopback root 404, `/api/v1/health` 200, 제출 파일 인증 경계를 읽기 전용으로 확인한다. 업로드 기대값의 원본은 `Jenkinsfile` rollout smoke다.
 
 ## M7. 첫 Release 수동 트리거 e2e
 
 1. main에 있는 exact commit으로 full GitHub Release(예: `v0.1.0`)를 발행한다(`draft=false`, `prerelease=false`, tag SHA가 main ancestry). 이 발행이 배포 인가이며 별도 승인 댓글은 남기지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
 2. M4 job을 파라미터 없이 수동 트리거한다.
-3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
+3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → production env·rollback preflight → PostgreSQL·managed object backup → backend image 서버 로컬 build → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → public TLS smoke. Lint·typecheck·test는 merge 전 required CI가 소유하고 Jenkins에서 반복하지 않는다.
 
 - 예상 출력: loopback `/`는 404, loopback·TLS `/api/v1/health`는 200, public TLS `/`는 canonical 308이며 제출 파일 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같다. Backend image의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
 docker compose --env-file "$OSS_HUB_ENV_FILE" ps
-curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
-curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
+test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/)" = 404 && echo "root closed"
+curl -fsS \
+  -H 'Host: jnu-oss-hub.com' \
+  -H 'X-Vercel-Forwarded-For: 192.0.2.1' \
+  http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 # 업로드 경로 5종은 pre-deploy-verify ②의 명령을 그대로 쓴다 — 기대값을 여기 복사하면 갈라진다.
 # 공인 TLS smoke는 host nginx·인증서 계약이 준비된 뒤에 Jenkinsfile과 동일 경로로 확인한다.
 ```
@@ -219,13 +222,24 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 4. Candidate와 실행 중 backend의 non-secret storage tuple이 다르면 backup·build·rollout 전에 fail-closed한다.
 5. Release는 configured endpoint/bucket을 사용하는 SDK object backup과 manifest SHA-256, PostgreSQL backup을 만든 뒤 backend image를 교체한다.
 6. Rollback은 captured previous backend image ID·version·revision이 exact match할 때만 허용한다. Object storage mode를 되돌리는 rollback은 없다.
-7. Production Compose root와 비API path는 404이고 `/api/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 MinIO substitute는 `compose.local.yml`에서만 존재한다.
+7. Production Compose root와 비API path는 404이고 `/api/v1/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 MinIO substitute는 `compose.local.yml`에서만 존재한다.
 
 과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 
-### M8-E. checkpoint B public ingress 전환
+### M8-E. authenticated custom-origin 전환 (2026-09-02 완료)
 
-checkpoint B에서는 host nginx의 public catch-all이 Compose frontend를 proxy하지 않는다. GET과 HEAD는 canonical Vercel origin으로 308 redirect하고, 그 밖의 method는 빈 body의 404로 끝낸다. `/api/`, OAuth, deploy trigger와 loopback health/smoke 경로는 변경하지 않는다.
+아래 절차는 2026-09-02에 실행 완료됐다(Release `v0.6.140` build 240, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). 재실행하지 않으며 credential rotation·재해 복구 때 같은 순서를 따른다.
+
+1. DNS provider에서 exact origin subdomain을 current backend ingress로 연결하고 TTL을 낮춘다. 이 domain은 browser origin·OAuth callback·cookie domain으로 사용하지 않는다.
+2. 기존 vhost의 ACME webroot가 살아 있는 동안 exact origin DNS certificate를 발급하고 renewal+nginx reload를 확인한다.
+3. 운영 credentials vault의 high-entropy password와 exact username `vercel`로 host-only htpasswd를 만들고 root 소유·nginx read-only 권한으로 설치한다. 값과 verifier를 저장소·명령 로그에 남기지 않는다.
+4. 기존 vhost를 유지한 채 새 origin server만 더한 **temporary additive config**를 live host에 설치한다. `nginx -t` 뒤 reload하고 exact DNS/SNI·Basic auth·method/path rejection을 direct probe로 확인한다. 이 temporary config는 저장소의 final config가 아니며 receipt 뒤 삭제한다.
+5. Vercel Production에 sensitive `ORIGIN_BASIC_AUTH`를 설정하고 `BACKEND_ORIGIN`을 allowlist의 exact origin domain으로 바꾼 뒤 새 production deployment를 명시적으로 promote한다. Preview에는 production credential을 주입하지 않는다.
+6. SSR, OAuth callback, host-only session cookie, public query, 미인증 authz, 4MiB 초과 upload body, file flow와 health를 canonical browser origin에서 검증한다.
+7. 위 canonical gate가 모두 통과한 뒤에만 `deploy/host-nginx/oss-hub.conf` final config를 설치해 legacy vhost와 IP certificate renewal을 제거한다. Unknown Host/SNI·비API·unauthenticated direct request·PUT·OPTIONS가 계속 닫히는지 다시 확인한다.
+8. Jenkins timer no-op 성공, public build endpoint 404, GitHub deploy secret 부재와 public port scan을 receipt에 기록하고 normal DNS TTL로 복구한다.
+
+Canonical gate 전에 문제가 생기면 Vercel production은 건드리지 않고 temporary origin server만 제거한다. Promotion 뒤 문제가 생기면 **legacy vhost와 certificate를 먼저 복원해 `nginx -t`·reload를 통과시킨 뒤** 이전 Vercel deployment를 promote한다. 순서를 바꾸면 이전 deployment가 이미 제거된 TLS origin을 가리켜 복구 중 outage가 난다.
 
 sudo 권한이 있는 운영자가 이전 설정 백업을 보존한 상태에서 설정을 교체한 뒤, 참석 하에 아래 순서로 적용한다. `nginx -t`가 성공한 경우에만 reload한다.
 
@@ -328,10 +342,8 @@ M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트
 - [ ] `oss-hub-production-env` secret file의 항목 목록(값 제외)
 - [ ] GitHub read-only PAT의 소재·권한 범위(값 제외)
 - [ ] 백업 디렉터리 경로와 소유·권한 정책
-- [ ] host nginx·공인 TLS·Jenkins 원격 트리거 경로 설정 소재(값 제외)
+- [ ] exact origin DNS/TLS·host-only verifier·Vercel sensitive credential 소재(값 제외)
 
 ## 9. 오늘 범위 밖 (follow-up / 별도 PR)
 
-- **자동 트리거 live 연결 검증** (GitHub Actions `deploy.yml` → Jenkins parameterless `/build` e2e) — 수동 M7과 별도 확인.
 - **`Jenkinsfile` GitHub API 인증(PAT)** 적용(코드 변경) — follow-up.
-- **host nginx TLS/IP 인증서 live 운영 점검**.

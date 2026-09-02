@@ -67,8 +67,35 @@ require_order() {
   [[ -n $before_line && -n $after_line && $before_line -lt $after_line ]] || fail "$description"
 }
 
+stage_section() {
+  local marker=$1
+  awk -v marker="$marker" '
+    found && /stage[(]/ && index($0, marker) == 0 { exit }
+    index($0, marker) { found = 1 }
+    found { print }
+  ' "$active"
+}
+
+require_stage() {
+  local description=$1 stage=$2 pattern=$3
+  stage_section "$stage" | grep -Fq -- "$pattern" || fail "$description"
+}
+
+require_stage_absent() {
+  local description=$1 stage=$2 pattern=$3
+  ! stage_section "$stage" | grep -Fq -- "$pattern" || fail "$description"
+}
+
 # Release identity and backend-only running authority.
 require 'pipeline serialization must remain' 'disableConcurrentBuilds()'
+require_count 'Jenkins must converge outbound on the exact ten-minute cron' "cron('H/10 * * * *')" 1
+for forbidden_trigger in 'githubPush()' 'GenericTrigger(' 'triggerRemote(' 'remoteTrigger(' 'remoteBuild(' 'BuildAuthorizationToken'; do
+  require_absent 'remote/public Jenkins trigger must remain absent' "$forbidden_trigger"
+done
+require_absent 'pipeline must remain parameterless' 'parameters {'
+require 'latest GitHub Release must be queried outbound' 'https://api.github.com/repos/JNU-SWCU/oss-hub/releases/latest'
+require 'draft latest Release must be rejected' 'test "$(jq -r '"'"'.draft'"'"' "$release_file")" = '"'"'false'"'"''
+require 'prerelease latest Release must be rejected' 'test "$(jq -r '"'"'.prerelease'"'"' "$release_file")" = '"'"'false'"'"''
 require 'RELEASE_TAG must remain the image tag' 'env.IMAGE_TAG = tag'
 require 'exact Release SHA resolution must remain' 'git rev-parse "${RELEASE_TAG}^{commit}"'
 require 'Release commit must remain on main' 'git merge-base --is-ancestor "$release_sha" origin/main'
@@ -81,6 +108,8 @@ require 'backend stopped-state probe must remain' 'ps --all -q backend'
 require 'backend OCI version label must remain' 'org.opencontainers.image.version'
 require 'backend OCI revision label must remain' 'org.opencontainers.image.revision=${RELEASE_SHA}'
 require 'same-tag/different-SHA must fail closed' 'FAIL_CLOSED same_tag_different_sha'
+require 'equal Release must no-op against running identity' 'prevTag == env.RELEASE_TAG && prevSha == env.RELEASE_SHA'
+require 'lower Release must no-op against running SemVer' 'if (cmp < 0) {'
 require 'backend immutable rollback identity must remain' 'PREV_BE_IMAGE_ID'
 require 'backend-only rollback helper input must remain' 'PREV_BE_IMAGE_ID=${env.PREV_BE_IMAGE_ID'
 require_absent 'legacy frontend image must be absent' 'oss-hub-frontend'
@@ -114,15 +143,31 @@ require 'rollout compose wait must remain' 'up -d --no-build --wait --wait-timeo
 require 'nginx config test must remain' 'exec -T nginx nginx -t'
 require 'nginx reload must remain' 'exec -T nginx nginx -s reload'
 require 'read-only no-op drift stage must remain' "stage('no-op 실행 중 nginx 드리프트 검증')"
+require_stage 'production env preflight must execute unconditionally' \
+  "stage('운영 환경 사전 검증')" \
+  'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"'
+require_stage_absent 'production env preflight must not have a when gate' \
+  "stage('운영 환경 사전 검증')" 'when {'
+require_stage 'no-op drift must run only for DEPLOY_NOOP true' \
+  "stage('no-op 실행 중 nginx 드리프트 검증')" \
+  "expression { env.DEPLOY_NOOP == 'true' }"
+for forbidden_noop_mutation in 'up -d' 'pull ' 'force-recreate' 'image rm' 'prune '; do
+  require_stage_absent 'no-op drift stage must remain read-only' \
+    "stage('no-op 실행 중 nginx 드리프트 검증')" \
+    "$forbidden_noop_mutation"
+done
 
 # Production nginx now serves no local frontend, but public TLS preserves Vercel canonical redirect.
 require_regex_count 'loopback root must assert 404 for rollout, rollback, and no-op drift' 'require_status 404 GET http://127[.]0[.]0[.]1:8081/([[:space:]]|$)' 3
 require_regex_absent 'loopback root 200 smoke must be absent' 'require_status 200 GET http://127[.]0[.]0[.]1:8081/([[:space:]]|$)'
-require_regex_count 'public TLS root must retain canonical 308' 'require_status 308 GET https://54[.]116[.]116[.]174/([[:space:]]|$)' 3
-require 'loopback API health smoke must remain' 'require_status 200 GET http://127.0.0.1:8081/api/v1/health'
-require 'public API health smoke must remain' 'require_status 200 GET https://54.116.116.174/api/v1/health'
-require 'submission authentication smoke must remain' 'require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files'
-require 'OAuth/session authentication ingress smoke must remain' 'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1'
+require_regex_count 'canonical public root smoke must remain' 'require_status 200 GET https://jnu-oss-hub[.]com/([[:space:]]|$)' 3
+require 'loopback API health smoke must carry trusted ingress headers' "require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'"
+require 'canonical public API health smoke must remain' 'require_status 200 GET https://jnu-oss-hub.com/api/v1/health'
+require 'canonical upload probe must exceed the 4 MiB middleware limit' 'UPLOAD_BODY_PROBE_BYTES=4718592 bash scripts/check-upload-body-runtime.sh'
+require_absent 'legacy public IP smoke must remain absent' '54.116.116.174'
+require_absent 'loopback TLS resolve bypass must remain absent' '--resolve'
+require 'submission authentication smoke must carry trusted ingress headers' "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'"
+require 'OAuth/session ingress smoke must carry trusted ingress headers' "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'"
 
 # Successful deployment retains only backend images and bounded backups/cache.
 require 'backend-only retention inventory must remain' "\$1==\"oss-hub-backend\""

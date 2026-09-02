@@ -219,6 +219,8 @@ jobs:
           node --test scripts/check-jenkinsfile.test.mjs
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
+          # 어떤 workflow도 Jenkins를 트리거하지 않는다 — 배포는 outbound convergence만 사용한다(ADR-002).
+          ! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows
           bash scripts/jenkins/validate-rollback-images.test.sh
           bash scripts/prune-deploy-backups.test.sh
 

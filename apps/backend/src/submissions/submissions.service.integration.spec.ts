@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   AffiliationKind,
   ApplicationStatus,
@@ -416,6 +417,83 @@ describe('SubmissionsService integration', () => {
       },
     });
   });
+  it('이관이 슬롯을 만들지 않은 옛 마일스톤도 첫 제출을 저장한다 (#1089)', async () => {
+    // Given — 2026-08-30 이관은 제출 기록이 있던 마일스톤에만 슬롯을 만들었다.
+    // 그때까지 아무도 내지 않은 마일스톤의 상태를 그대로 재현한다.
+    // ⚠ 시드 마일스톤은 다른 통합 스펙과 같은 데이터베이스를 공유하므로,
+    //   지운 슬롯은 이 테스트가 끝날 때 원래 id 그대로 되돌린다.
+    const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
+    const original = await prisma.milestoneDocument.findFirstOrThrow({
+      where: {
+        milestoneId,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+    });
+
+    try {
+      await prisma.milestoneDocument.delete({ where: { id: original.id } });
+
+      // When
+      const created = await service.create(
+        seedGithubId(PERSONAL_USER_ID),
+        {
+          applicationId: PERSONAL_APPLICATION_ID,
+          milestoneId,
+          content: {
+            type: MilestoneSubmissionType.TEXT,
+            text: '슬롯 없는 마일스톤의 첫 제출',
+          },
+          comment: null,
+        },
+        NOW,
+      );
+
+      // Then — 제출이 저장되고, 슬롯은 이관이 만든 것과 같은 모양으로 생긴다.
+      expect(created).toMatchObject({ status: 'SUBMITTED' });
+      const slot = await prisma.milestoneDocument.findFirstOrThrow({
+        where: {
+          milestoneId,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      });
+      expect(slot.id).toBe(
+        `legacy_document_${createHash('md5').update(milestoneId).digest('hex')}`,
+      );
+      expect(slot).toMatchObject({ required: true, sortOrder: -1 });
+      const stored = await prisma.milestoneDocumentSubmission.findFirstOrThrow({
+        where: { id: created.submissionId },
+        include: { histories: true },
+      });
+      expect(stored.milestoneDocumentId).toBe(slot.id);
+      expect(stored.histories).toHaveLength(1);
+    } finally {
+      // 공유 시드를 원래대로 되돌린다 — 제출·이력이 새 슬롯을 참조하므로 먼저 지운다.
+      const slotWhere = {
+        milestoneId,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      } as const;
+      await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+        where: { submission: { milestoneDocument: slotWhere } },
+      });
+      await prisma.milestoneDocumentSubmission.deleteMany({
+        where: { milestoneDocument: slotWhere },
+      });
+      await prisma.milestoneDocument.deleteMany({ where: slotWhere });
+      await prisma.milestoneDocument.create({
+        data: {
+          id: original.id,
+          milestoneId: original.milestoneId,
+          name: original.name,
+          required: original.required,
+          sortOrder: original.sortOrder,
+          kind: original.kind,
+          createdAt: original.createdAt,
+          updatedAt: original.updatedAt,
+        },
+      });
+    }
+  });
+
   it('마감 전 교체는 이전 revision을 보존하고 currentRevision만 전진시킨다', async () => {
     const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
     const created = await service.create(
