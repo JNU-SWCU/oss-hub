@@ -28,18 +28,18 @@ docs/
 
 ## 현재 전환 상태
 
-Checkpoint A·B와 cleanup이 완료됐다. 구매한 canonical HTTPS custom domain이 유일한 browser origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin을 사용한다. Production storage는 private managed R2이고 AWS는 backend, PostgreSQL, API-only Compose ingress만 제공한다. MinIO와 legacy frontend runtime은 없다. G006 authenticated origin code는 ready지만 DNS·certificate·Vercel promotion과 live receipt 전이므로 현재 ingress는 아직 이전 origin 계약을 사용한다.
+Checkpoint A·B, cleanup과 G006 custom-domain hardening이 완료됐다. 구매한 canonical HTTPS custom domain이 유일한 browser origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin을 사용한다. Vercel은 `/api/v1` request에서 browser `Authorization`을 제거하고 production sensitive credential을 주입해 exact origin domain으로 rewrite하며, origin nginx는 인증된 API 요청만 받는다. Production storage는 private managed R2이고 AWS는 backend, PostgreSQL, API-only Compose ingress만 제공한다. MinIO·legacy frontend runtime·public IP certificate·public Jenkins trigger는 없다. Live cutover receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이 원본이다.
 
 ```mermaid
 flowchart LR
   Browser[Browser] --> Vercel[Vercel frontend origin]
-  Vercel -- same-origin /api/v1 rewrite --> Ingress[Current API ingress]
+  Vercel -- authenticated same-origin /api/v1 rewrite --> Ingress[Exact origin-domain API ingress]
   Ingress --> Back[backend]
   Back --> Postgres[(postgres / pgdata)]
   Back --> R2[(managed R2)]
 ```
 
-## G006 목표 보안 경계 (live cutover pending)
+## 보안 경계
 
 - Browser는 canonical custom domain만 사용한다. Origin domain과 infrastructure address는 browser origin·OAuth callback·cookie domain이 아니다.
 - Vercel routing layer만 production origin credential을 소유한다. Preview와 browser가 보낸 `Authorization`은 origin 인증에 사용할 수 없다.

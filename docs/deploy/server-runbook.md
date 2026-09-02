@@ -226,7 +226,9 @@ curl -fsS \
 
 과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 
-### M8-E. authenticated custom-origin 전환
+### M8-E. authenticated custom-origin 전환 (2026-09-02 완료)
+
+아래 절차는 2026-09-02에 실행 완료됐다(Release `v0.6.140` build 240, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). 재실행하지 않으며 credential rotation·재해 복구 때 같은 순서를 따른다.
 
 1. DNS provider에서 exact origin subdomain을 current backend ingress로 연결하고 TTL을 낮춘다. 이 domain은 browser origin·OAuth callback·cookie domain으로 사용하지 않는다.
 2. 기존 vhost의 ACME webroot가 살아 있는 동안 exact origin DNS certificate를 발급하고 renewal+nginx reload를 확인한다.

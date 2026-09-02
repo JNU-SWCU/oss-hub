@@ -1150,3 +1150,12 @@
 - blocker: DNS provider에서 `origin` record를 current backend ingress로 추가하는 사람 작업
 - 결과: Vercel CDN route가 browser Authorization을 지우고 production sensitive Basic credential을 주입해 exact origin domain으로만 rewrite한다. Host nginx는 exact DNS TLS/SNI·Basic auth·method allowlist를 적용하고 unknown Host·비API·direct origin을 닫으며 credential을 Compose 전에 제거한다. Post-auth Compose nginx가 Vercel client header로 API/OAuth/admin rate limit을 분리하고 backend 전에 internal headers를 제거한다. Legacy IP certificate·public Jenkins route·broad `/api/` 계약을 제거했다.
 - 검증: Vercel config/Next test 23건, actual `vercel build --prod`, host/Compose nginx syntax, host nginx adversarial 15건, upload route 15건, Jenkins 13건, CI path 8건 통과. Live cutover는 DNS·certificate·htpasswd·Vercel origin env를 적용한 뒤 canonical SSR/OAuth/session/query/authz/file/4MiB+ upload와 negative Host/path/method probe로 닫는다.
+
+## 2026-09-02 — G006 authenticated origin live cutover를 완료한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: origin DNS record·DNS certificate·host-only htpasswd·Vercel production sensitive env를 적용하고 additive vhost로 direct probe를 검증한 뒤 prebuilt Vercel production deployment를 promote했다. Canonical gate가 전부 green이어서 final tracked host config를 설치해 legacy IP vhost·IP certificate renewal을 제거했다. 중간에 Compose config를 선반영해 canonical API가 404로 깨진 사고는 즉시 rollback으로 복구했고, 이후 Release `v0.6.140` build 240이 새 Compose 계약을 정상 배포해 host drift와 missing-client guard를 닫았다. Public Jenkins nginx route와 GitHub deploy secrets도 제거했다.
+- 검증: canonical SSR/programs/ranking/health 200·OAuth 302·미인증 POST 401·unknown API 404, 4.5MiB upload body가 backend 401 도달, origin direct unauth 401·missing client 403·auth 200·PUT/OPTIONS 403·unknown Host/SNI 거절, legacy IP HTTPS handshake 거절, public 8080/8443/22 closed, timer build 241 no-op SUCCESS, host drift diff 없음, origin certificate renewal dry-run 통과.
