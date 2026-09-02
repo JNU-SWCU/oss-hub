@@ -1177,3 +1177,12 @@
 - blocker: 없음
 - 결과: required jenkins lane의 Jenkins-trigger workflow 부재 단언을 `scripts/ci-path-contract.test.mjs`의 필수 명령 집합에 추가해, 단언을 지우는 변경이 fail-closed로 거절되게 했다.
 - 검증: CI path 8/8(단언 삭제 mutation이 기존 drift 테스트로 red), format·diff check 통과.
+
+## 2026-09-02 — SSR function region을 Seoul로 고정한다
+
+- 상태: review
+- Issue: #1169
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 생성 흐름 체감 지연의 지배 요인을 실측으로 확정했다 — canonical SSR 응답의 `x-vercel-id`가 `icn1::iad1`로, edge는 Seoul이지만 SSR function은 기본값 iad1(US East)에서 실행돼 페이지 렌더마다 태평양 왕복이 발생했다. `vercel.json`에 `regions: ["icn1"]`을 추가해 function을 사용자·backend와 같은 Seoul로 고정했다. 참고 실측: EC2→R2 왕복 ~72–136ms(R2는 한국 로컬 아님), Vercel edge 경유 업로드 오버헤드는 4.5MiB 기준 ~0.2s.
+- 검증: Next/Vercel config test 23건 통과. 배포 후 `x-vercel-id`가 `icn1::icn1`로 바뀜을 재실측하고 SSR latency 전후 비교를 Issue #1169에 기록한다.
