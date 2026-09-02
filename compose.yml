@@ -15,59 +15,6 @@ services:
       retries: 12
       start_period: 10s
 
-  minio:
-    image: minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:d249d1fb6966de4d8ad26c04754b545205ff15a62e4fd19ebd0f26fa5baacbc0
-    restart: unless-stopped
-    command: server /data
-    environment:
-      # rollback 전용 MinIO 자격증명은 backend 관리형 저장소 자격증명과 분리한다.
-      MINIO_ROOT_USER: ${ROLLBACK_MINIO_ACCESS_KEY_ID:?ROLLBACK_MINIO_ACCESS_KEY_ID is required}
-      MINIO_ROOT_PASSWORD: ${ROLLBACK_MINIO_SECRET_ACCESS_KEY:?ROLLBACK_MINIO_SECRET_ACCESS_KEY is required}
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'curl',
-          '--fail',
-          '--silent',
-          'http://localhost:9000/minio/health/ready',
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-
-  minio-bucket:
-    image: minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc
-    restart: unless-stopped
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${ROLLBACK_MINIO_ACCESS_KEY_ID:?ROLLBACK_MINIO_ACCESS_KEY_ID is required}
-      MINIO_ROOT_PASSWORD: ${ROLLBACK_MINIO_SECRET_ACCESS_KEY:?ROLLBACK_MINIO_SECRET_ACCESS_KEY is required}
-      ROLLBACK_MINIO_BUCKET: ${ROLLBACK_MINIO_BUCKET:?ROLLBACK_MINIO_BUCKET is required}
-    # 마커는 컨테이너 재시작 시 유지되지만 --force-recreate 시 사라지므로 entrypoint에서 다시 만든다.
-    entrypoint:
-      - /bin/sh
-      - -eu
-      - -c
-      - >-
-        rm -f /tmp/bucket-ready &&
-        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null &&
-        mc mb --ignore-existing "local/$${ROLLBACK_MINIO_BUCKET}" >/dev/null &&
-        mc anonymous set none "local/$${ROLLBACK_MINIO_BUCKET}" >/dev/null &&
-        touch /tmp/bucket-ready &&
-        exec sleep infinity
-    healthcheck:
-      test: ['CMD-SHELL', 'test -f /tmp/bucket-ready']
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-
   backend:
     image: oss-hub-backend:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
@@ -97,7 +44,7 @@ services:
       COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}
       PORT: ${PORT:-4000}
       SUBMISSION_FILE_STORAGE_MODE: ${SUBMISSION_FILE_STORAGE_MODE:?SUBMISSION_FILE_STORAGE_MODE is required}
-      # application storage credentials are independent from retained rollback MinIO.
+      # Application storage credentials are managed S3 credentials.
       SUBMISSION_FILE_S3_ENDPOINT: ${SUBMISSION_FILE_S3_ENDPOINT:?SUBMISSION_FILE_S3_ENDPOINT is required}
       SUBMISSION_FILE_S3_REGION: ${SUBMISSION_FILE_S3_REGION:?SUBMISSION_FILE_S3_REGION is required}
       SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:?SUBMISSION_FILE_S3_BUCKET is required}
@@ -120,9 +67,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      # Temporary migration-hold edge. Remove it with MinIO after the 72-hour hold.
-      minio-bucket:
-        condition: service_healthy
     expose:
       - '4000'
     healthcheck:
@@ -139,18 +83,6 @@ services:
       retries: 12
       start_period: 10s
 
-  frontend:
-    image: oss-hub-frontend:${IMAGE_TAG:?IMAGE_TAG is required}
-    restart: unless-stopped
-    expose:
-      - '3000'
-    healthcheck:
-      test: ['CMD', 'curl', '--fail', '--silent', 'http://localhost:3000/']
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-
   nginx:
     image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: unless-stopped
@@ -158,8 +90,6 @@ services:
       postgres:
         condition: service_healthy
       backend:
-        condition: service_healthy
-      frontend:
         condition: service_healthy
     ports:
       # 공인 80/443은 host nginx가 담당하고 Compose ingress는 loopback에서만 받는다.
@@ -170,7 +100,6 @@ services:
 
 volumes:
   pgdata:
-  minio_data:
 
 # uid/gid/mode를 일부러 지정하지 않는다 — 호스트 파일의 소유·모드가 그대로 컨테이너에
 # 전달되므로(Compose v5.3.1 실측) 지정하면 설치 측이 보장하는 0640 + gid 1000과 어긋난다.

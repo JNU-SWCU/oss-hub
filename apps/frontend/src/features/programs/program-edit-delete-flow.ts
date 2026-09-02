@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-client';
+import { programDocumentsHref } from '@/lib/program-route';
 import type { ProgramDeletionScopeCounts } from './api';
 import { programHref } from './program-paths';
 
@@ -135,7 +136,7 @@ function blockingItems(
       label: '제출물',
       count: counts.submissions,
       unit: '건',
-      href: programHref(programId, '/status'),
+      href: programDocumentsHref(programId),
     },
   ] as const;
   return candidates.filter((item) => item.count > 0);

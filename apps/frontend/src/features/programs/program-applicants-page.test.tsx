@@ -388,3 +388,298 @@ describe('program applicants review flow', () => {
     expect(container.textContent).toContain('@login1');
   });
 });
+
+describe('program applicants search input', () => {
+  // [#1094] 검색어를 치는 동안 표와 검색창이 자리를 지켜야 한다. 한 글자마다 화면을
+  // 스켈레톤으로 갈아치우면 검색창이 새로 그려져 초점이 사라지고, 그 사이 누른 글자는
+  // 어디에도 들어가지 않는다. 이 describe 는 그 계약을 검증한다.
+  /** 화면의 debounce 보다 넉넉히 잡는다 — 검색어가 조회 조건에 반영될 시간을 준다. */
+  const SEARCH_SETTLE_MS = 1_000;
+  const SKELETON_SELECTOR = '[aria-label="신청자 목록 불러오는 중"]';
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  )?.set;
+
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+    getProgramDetailMock.mockReset();
+    listProgramApplicationsMock.mockReset();
+    pushMock.mockReset();
+    getProgramDetailMock.mockResolvedValue(program);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.useRealTimers();
+  });
+
+  function searchBox(): HTMLInputElement | null {
+    return container.querySelector<HTMLInputElement>(
+      'input[aria-label="신청자 검색"]',
+    );
+  }
+
+  async function flush(): Promise<void> {
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
+  async function typeInto(
+    input: HTMLInputElement,
+    character: string,
+  ): Promise<void> {
+    await act(async () => {
+      nativeInputValueSetter?.call(input, `${input.value}${character}`);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  /**
+   * 사람은 **화면에 있는, 초점이 있는 곳**에 친다. 검색창이 걷혀 나갔으면 그 글자는
+   * 어디에도 들어가지 않는다 — 이 티켓이 말하는 「조용히 사라지는 글자」다.
+   */
+  async function typeWhereFocused(character: string): Promise<void> {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLInputElement) || !container.contains(active))
+      return;
+    await typeInto(active, character);
+  }
+
+  async function settle(): Promise<void> {
+    await act(async () => {
+      vi.advanceTimersByTime(SEARCH_SETTLE_MS);
+    });
+    await flush();
+  }
+
+  async function renderReady(): Promise<void> {
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await flush();
+  }
+
+  function busyRegion(): Element | null {
+    return container.querySelector('[aria-busy]');
+  }
+
+  async function submitSearch(): Promise<void> {
+    const form = container.querySelector('form');
+    if (form === null) throw new TypeError('검색 폼을 찾지 못했습니다.');
+    await act(async () => {
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      );
+    });
+    await flush();
+  }
+
+  it('세 글자를 이어서 치면 중간에 검색창을 다시 클릭하지 않아도 모두 들어간다', async () => {
+    // 저장소 발급이 끝난 행만 둔다 — 폴링 타이머가 조회 횟수에 끼어들지 않게 한다.
+    listProgramApplicationsMock.mockResolvedValueOnce(applicationPage([team]));
+    await renderReady();
+
+    // 첫 글자 뒤에 나갈 조회는 응답을 붙들어 둔다. 사람은 응답을 기다렸다가 다음
+    // 글자를 치지 않는다 — 세 글자는 조회가 매달려 있는 동안 연달아 들어온다.
+    listProgramApplicationsMock.mockReturnValue(
+      deferred<ApplicationListPage>().promise,
+    );
+
+    const input = searchBox();
+    if (input === null) throw new TypeError('검색창을 찾지 못했습니다.');
+    input.focus();
+
+    for (const character of ['김', '민', '수']) {
+      await typeWhereFocused(character);
+    }
+
+    expect(searchBox()?.value).toBe('김민수');
+    expect(document.activeElement).toBe(searchBox());
+  });
+
+  it('세 글자를 치는 동안 목록 조회가 글자마다 나가지 않고 프로그램 상세는 다시 부르지 않는다', async () => {
+    listProgramApplicationsMock.mockResolvedValue(applicationPage([team]));
+    await renderReady();
+
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(1);
+    expect(getProgramDetailMock).toHaveBeenCalledTimes(1);
+
+    for (const character of ['김', '민', '수']) {
+      // 화면이 걷혔다 다시 그려지는 경우까지 봐준다 — 검색창을 다시 클릭하는 셈이다.
+      await flush();
+      const input = searchBox();
+      if (input === null)
+        throw new TypeError('검색창이 화면에서 사라졌습니다.');
+      await typeInto(input, character);
+    }
+    await settle();
+
+    expect(searchBox()?.value).toBe('김민수');
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(2);
+    expect(getProgramDetailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('조회가 끝나기 전에도 스켈레톤이 화면을 덮지 않고 검색창이 초점을 지킨다', async () => {
+    listProgramApplicationsMock.mockResolvedValueOnce(applicationPage([team]));
+    await renderReady();
+
+    const pending = deferred<ApplicationListPage>();
+    listProgramApplicationsMock.mockReturnValueOnce(pending.promise);
+
+    const input = searchBox();
+    if (input === null) throw new TypeError('검색창을 찾지 못했습니다.');
+    input.focus();
+    await typeInto(input, '김');
+    await act(async () => {
+      vi.advanceTimersByTime(SEARCH_SETTLE_MS);
+    });
+
+    expect(document.querySelector(SKELETON_SELECTOR)).toBeNull();
+    expect(searchBox()).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('김');
+    // 응답을 기다리는 동안에도 이미 그려진 표는 자리를 지킨다.
+    expect(container.querySelector('tbody tr')).not.toBeNull();
+
+    pending.resolve(applicationPage([team]));
+    await flush();
+  });
+
+  it('저장소 발급을 기다리는 행이 있어도 검색 결과가 표에 닿는다', async () => {
+    // 폴링이 도는 화면에서도 검색을 시작하며 기존 표를 스켈레톤으로 갈아치우지 않고,
+    // 사용자가 요청한 결과를 같은 표에 반영한다.
+    listProgramApplicationsMock.mockResolvedValueOnce(
+      applicationPage([personal]),
+    );
+    await renderReady();
+    expect(container.textContent).toContain('합성 학생');
+
+    listProgramApplicationsMock.mockResolvedValue(applicationPage([rejected]));
+    const input = searchBox();
+    if (input === null) throw new TypeError('검색창을 찾지 못했습니다.');
+    await typeInto(input, '반');
+    await settle();
+
+    expect(document.querySelector(SKELETON_SELECTOR)).toBeNull();
+    expect(container.textContent).toContain('반려 학생');
+  });
+
+  it('검색 조회 중에는 폴링 시각이 지나도 검색 결과의 순서를 빼앗지 않는다', async () => {
+    listProgramApplicationsMock.mockResolvedValueOnce(
+      applicationPage([personal]),
+    );
+    await renderReady();
+
+    const foreground = deferred<ApplicationListPage>();
+    listProgramApplicationsMock
+      .mockReturnValueOnce(foreground.promise)
+      .mockRejectedValueOnce(new TypeError('합성 폴링 실패'));
+
+    const input = searchBox();
+    if (input === null) throw new TypeError('검색창을 찾지 못했습니다.');
+    await typeInto(input, '반');
+    await settle();
+
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('true');
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2_000);
+    });
+    await flush();
+
+    foreground.resolve(applicationPage([rejected]));
+    await flush();
+
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('반려 학생');
+  });
+
+  it('이전 검색 응답이 끝나도 최신 검색 중인 표는 계속 바쁨으로 알린다', async () => {
+    listProgramApplicationsMock.mockResolvedValueOnce(applicationPage([team]));
+    await renderReady();
+
+    const firstSearch = deferred<ApplicationListPage>();
+    const latestSearch = deferred<ApplicationListPage>();
+    listProgramApplicationsMock
+      .mockReturnValueOnce(firstSearch.promise)
+      .mockReturnValueOnce(latestSearch.promise);
+
+    const input = searchBox();
+    if (input === null) throw new TypeError('검색창을 찾지 못했습니다.');
+    await typeInto(input, '김');
+    await submitSearch();
+    await typeInto(input, '민');
+    await submitSearch();
+
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(3);
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('true');
+
+    firstSearch.resolve(applicationPage([personal]));
+    await flush();
+
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('true');
+
+    latestSearch.resolve(applicationPage([rejected]));
+    await flush();
+
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('false');
+    expect(container.textContent).toContain('반려 학생');
+  });
+
+  it('자동 새로고침 대상 프로그램에서 다른 프로그램으로 이동해도 새 목록을 보여 준다', async () => {
+    const nextProgram: ProgramDetail = {
+      ...program,
+      id: 'program-2',
+      name: '두 번째 프로그램',
+    };
+    const nextApplication: ApplicationListItem = {
+      ...team,
+      id: 'app-program-2',
+      programId: nextProgram.id,
+      applicant: {
+        id: 'student-program-2',
+        name: '두 번째 학생',
+        nickname: 'second-student',
+      },
+      answers: {
+        applicantName: '두 번째 학생',
+        title: '두 번째 신청',
+        summary: '두 번째 요약',
+      },
+    };
+    const nextApplications = deferred<ApplicationListPage>();
+    getProgramDetailMock
+      .mockResolvedValueOnce(program)
+      .mockResolvedValueOnce(nextProgram);
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal]))
+      .mockReturnValueOnce(nextApplications.promise);
+    await renderReady();
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId={nextProgram.id} />);
+    });
+    await flush();
+    expect(document.querySelector(SKELETON_SELECTOR)).not.toBeNull();
+
+    nextApplications.resolve(applicationPage([nextApplication]));
+    await flush();
+
+    expect(document.querySelector(SKELETON_SELECTOR)).toBeNull();
+    expect(container.textContent).toContain('두 번째 프로그램 신청자');
+    expect(container.textContent).toContain('두 번째 학생');
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('false');
+  });
+});

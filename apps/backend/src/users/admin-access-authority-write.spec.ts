@@ -58,9 +58,31 @@ describe('canonical authority writes behind legacy transitions', () => {
     ).toEqual({ hasStaffAccess: true, hasAdminAccess: true });
   });
 
+  it('preserves independently granted staff access when rejecting a pending request', () => {
+    // Given — 가입 요청과 canonical 권한 부여는 서로 다른 사실이다. 관리자가
+    // 별도 권한 API로 먼저 승인해도 이전 PENDING 요청은 남아 있을 수 있다.
+    const before = accessUser({
+      role: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
+
+    // When
+    const authority = authorityAfterLegacyTransition(
+      before,
+      command('STAFF', 'STAFF'),
+      ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED,
+    );
+
+    // Then — 요청만 반려하며 관리자가 별도로 부여한 권한은 회수하지 않는다.
+    expect(authority).toEqual({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
+  });
+
   it.each([
     [ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED, true],
-    [ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED, false],
     [ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED, false],
   ] as const)('%s changes only staff access', (effect, expectedStaffAccess) => {
     // Given

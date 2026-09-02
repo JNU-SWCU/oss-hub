@@ -219,7 +219,7 @@ production_missing_image_tag_fails_closed() {
   ! printf '%s' "$config_json" | grep -Fq '__IMAGE_TAG_REQUIRED__' || return 1
 }
 
-production_provided_image_tag_selects_images() {
+production_provided_image_tag_selects_backend_image() {
   local env_file="$fixture_dir/compose.env"
   local config_json
   write_compose_env "$env_file"
@@ -230,7 +230,7 @@ production_provided_image_tag_selects_images() {
       config --format json
   )" || return 1
   printf '%s' "$config_json" | grep -Fq 'oss-hub-backend:release-sha-abc123' || return 1
-  printf '%s' "$config_json" | grep -Fq 'oss-hub-frontend:release-sha-abc123' || return 1
+  ! printf '%s' "$config_json" | grep -Fq 'oss-hub-frontend:' || return 1
 }
 
 failed_persistent_up_preserves_volumes() {
@@ -247,7 +247,7 @@ expect_true 'IMAGE_TAG·Gmail 자격 없이 local compose config 평가·build �
 expect_true 'up·verify 모두 현재 source image를 --build' startup_forces_build
 expect_true 'up·verify 모두 성공 반환 전 migration 적용' both_modes_run_migration
 expect_true 'production 무 IMAGE_TAG는 fail-closed로 실패' production_missing_image_tag_fails_closed
-expect_true 'production 제공 IMAGE_TAG는 backend·frontend 이미지를 선택' production_provided_image_tag_selects_images
+expect_true 'production 제공 IMAGE_TAG는 backend 이미지만 선택' production_provided_image_tag_selects_backend_image
 expect_true '실패한 persistent up은 down -v로 volume을 지우지 않는다' failed_persistent_up_preserves_volumes
 expect_true '--wait와 --wait-timeout이 별도 토큰' wait_tokens_are_separate
 expect_true '공백 포함 env 경로가 배열에서 보존됨' path_was_not_split
