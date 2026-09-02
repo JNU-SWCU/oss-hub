@@ -1196,3 +1196,13 @@
 - 결과: 현행 토폴로지를 먼저 조사해 frontend 배포에 주체가 없다는 것을 확인했다 — Vercel 프로젝트 `oss-hub`(Root Directory `apps/frontend`)의 production 배포 5건이 전부 `source=cli`, 즉 개인 머신의 수동 실행이었고 어떤 커밋이 배포됐는지 파이프라인이 증명하지 못했다. 배포 인가를 GitHub Release 발행으로 통일해, `release: published`에서만 도는 required가 아닌 `frontend-release-deploy` job을 단일 `ci.yml` 안에 넣었다. tag의 full SemVer 형식과 main 이력 포함을 확인한 뒤 exact SHA를 배포하고, 직전 full SemVer 릴리스 태그와의 diff가 frontend 산출물에 닿지 않으면 배포를 건너뛰며 그 no-op을 로그로 남긴다. 판정은 `scripts/select-release-deploy-scope-lib.mjs`의 순수 함수로 분리했다. required check 이름(`ci`·`public-safe`)과 Jenkins backend 수렴 동작은 건드리지 않았다 — production Compose에 frontend runtime이 없으므로 backend 배포는 이미 backend 전용이다.
 - 검증: 배포 스코프 판정 단위테스트 9건 통과(디렉터리 경계 오탐, 빈 diff, 스코프 경로 소실 퇴화 포함), CI path 계약 테스트 통과, `actionlint`가 새 job에 대해 신규 지적 0건(기존 SC2251 info 1건은 main과 동일). Vercel CLI 배포 경로는 저장소 루트에서 `vercel pull`이 `rootDirectory: apps/frontend`로 해석되는 것을 실측해 확인했고, 확인 후 내려받은 운영 env 캐시는 즉시 삭제했다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 자격증명은 이름만 기록했다.
+
+## 2026-09-03 — 에이전트의 일상 개발 실행 경로를 호스트로 고정한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 루트 `AGENTS.md`에 일상 개발은 반드시 `pnpm dev`를 사용하고 frontend·backend 앱은 호스트 hot reload로 실행하도록 명시했다. Docker는 PostgreSQL·MinIO 개발 인프라와 배포 전 production-like 통합 검증에만 사용하며, production frontend는 Vercel이고 backend는 Jenkins·Docker Compose임을 구분했다.
+- 검증: `pnpm exec prettier --check AGENTS.md docs/handoff/team-state/GoBeromsu.md`, `git diff --check` 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
