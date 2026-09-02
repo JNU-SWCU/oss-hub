@@ -38,3 +38,13 @@
 - 검증: 집중 테스트 17/17, Linux 전체 테스트 306파일·3042건, typecheck·lint, Linux Docker builder, 익명 Chrome 포인터·키보드 2/2, public-safe를 통과했다.
 - 환경 참고: Windows 전체 테스트의 확장자 없는 `pnpm` 실행·음수 프로세스 그룹 신호 제약과 native build의 standalone symlink `EPERM`은 환경 잔여로 원문 증거에 남겼고, 대응 Linux 검증은 통과했다.
 - 공개 안전성: 익명·합성 상태만 사용했으며 병합·배포는 수행하지 않는다. 배포 환경 재확인은 병합·배포 후 남은 운영 확인이다.
+
+## 2026-09-03 — QA116 최신 main 반영과 리뷰 후속 조치
+
+- 상태: review
+- Issue: [#1051](https://github.com/JNU-SWCU/oss-hub/issues/1051)
+- PR: [#1057](https://github.com/JNU-SWCU/oss-hub/pull/1057)
+- blocker: PR 본문에 실제 Before/After 캡처를 GitHub 웹 편집기로 첨부해야 한다.
+- 결과: 최신 `main`을 병합하고 잘못된 마감 시각 오류를 좌측 마감 블록 안에 격리했다. 마감 정보를 현재 시각보다 먼저 배치했으며 동일 시각 마감은 `id` 보조 정렬로 순서를 고정했다.
+- 검증: 프런트 집중 47개와 백엔드 집중 19개, 양쪽 typecheck·lint, 백엔드 build, 변경 범위 Prettier·public-safe를 통과했다. 합성 STAFF·STUDENT fixture로 다중 마감·종료 상태·랭킹 제어군·900px·899px·390px을 실제 Chrome에서 확인했고 시각 QA 두 경로와 코드·보안 리뷰가 통과했다.
+- 공개 안전성: 합성 fixture만 사용했고 시크릿·개인정보·제3자 캡처를 브랜치에 포함하지 않았다. 병합과 배포는 수행하지 않는다.
