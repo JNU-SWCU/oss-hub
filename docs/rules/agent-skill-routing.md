@@ -7,8 +7,10 @@
 
 | 작업 표면 | 쓰는 스킬 | 스킬 위치 | 이 repo에서 함께 지키는 것 |
 | --- | --- | --- | --- |
-| QA 티켓 작성·발행·수행 | `manage-qa-tickets` | repo `skills/manage-qa-tickets` | 그 스킬이 자기 절차의 원본이다 |
-| 릴리스 후보 QA | `run-release-qa` | repo `.claude/skills/run-release-qa` | 출시 판정은 그 스킬이 원본이다 |
+| QA 티켓 작성·발행·이관 | `manage-qa-tickets` | repo `skills/manage-qa-tickets` | 그 스킬이 자기 절차의 원본이다 |
+| 티켓 수행·PR 제출 전 증거 | `submit-pr-evidence` | repo `skills/submit-pr-evidence` | frontend Before/After 캡처는 [frontend-capture.md](../../skills/submit-pr-evidence/references/frontend-capture.md), backend 로직 다이어그램은 [backend-diagram.md](../../skills/submit-pr-evidence/references/backend-diagram.md)가 원본이다 |
+| 역할별 사용 핸드북 작성·갱신 | `build-oss-hub-handbook` | repo `skills/build-oss-hub-handbook` | 핸드북 품질 기준은 그 스킬의 `references/quality-checklist.md`가 원본이다 |
+| 릴리스 후보 QA | `run-release-qa` | repo `skills/run-release-qa` | 출시 판정은 그 스킬이 원본이고 시나리오 목록은 [qa-scenarios.md](../../skills/run-release-qa/references/qa-scenarios.md)가 원본이다 |
 | frontend 코드 구현 | craft `frontend` | 외부 플러그인 | [frontend.md](frontend.md)가 feature 폴더 경계·단일 API 클라이언트의 원본 |
 | backend 코드 구현 | craft `backend` | 외부 플러그인 | [ADR-003](../decisions/ADR-003-backend-architecture.md)과 `apps/backend/src/AGENTS.md`가 계층 경계의 원본 |
 | 화면 디자인 판단·토큰 | craft `design` | 외부 플러그인 | [docs/design.md](../design.md)가 색·타이포·토큰 3-tier·컴포넌트 소유권의 원본 |
@@ -27,16 +29,44 @@ craft-skills는 vendoring·복사·setup script 없이 런타임의 native plugi
 로컬 날짜 기준 첫 개발 세션마다 최신본을 확인한다.
 Claude Code는 `.claude/settings.json`의 marketplace `autoUpdate`와 plugin enable을, Codex는 `.agents/plugins/marketplace.json`의 `INSTALLED_BY_DEFAULT` project policy를 시작 시 적용한다.
 GJC는 `(gjc plugin marketplace add GoBeromsu/craft-skills || gjc plugin marketplace update craft-skills) && gjc plugin install craft-skills@craft-skills --scope project --force`로 marketplace와 project registry를 갱신한다.
-구현 전에 위 표에서 작업 표면을 찾아 대응 craft skill의 현재 `SKILL.md`를 읽고 그 절차를 적용한다.
+구현 전에 위 표에서 작업 표면을 찾아 대응 스킬의 현재 `SKILL.md`를 읽고 그 절차를 적용한다.
 스킬 계약은 버전마다 바뀐다 — runtime이 로드한 skill과 이 표가 어긋나면 같은 변경에서 이 문서를 고친다.
 설치된 craft 스킬 중 이 표에 없는 것(`ml`·`gpu`·`vmware`·`tailscale`·`obsidian`·`distil`·`defuddle`·`ast-grep`·`skillify`·`agents`·`write-prd`·`write-report`)은 아직 이 저장소 작업에서 필요하지 않아 라우팅하지 않았다 — 쓸 수 없다는 뜻이 아니다.
 필요한 작업이 실제로 생기면 그 스킬의 `SKILL.md`를 읽고 이 표에 한 행을 추가한다. 쓰지 않는 라우팅을 미리 채우면 검증되지 않은 지시가 문서에 앉는다.
+
+## 스킬 이름 규칙
+
+repo 스킬 이름은 `<동사>-<대상>` kebab-case다.
+소문자 알파벳·숫자·hyphen만 쓰고 64자를 넘지 않는다.
+스킬 이름은 정확히 한 곳(`skills/<name>/`)에서 정하고 디렉터리 이름, `SKILL.md`의 frontmatter `name`, 모든 runtime symlink 이름, `agents/openai.yaml`이 항상 같은 문자열을 쓴다.
+`metadata.version`은 SemVer이고 동작이 바뀔 때마다 `CHANGELOG.md`에 한 줄을 추가한다.
+이름 변경은 major bump이며 위 네 표면을 같은 커밋에서 함께 고친다.
+runtime 디렉터리(`.codex/skills`, `.claude/skills`, `.cursor/skills`)는 symlink만 두고 실제 스킬 파일을 두지 않는다.
+
+| 스킬 | 역할 | 버전 원본 |
+| --- | --- | --- |
+| `run-release-qa` | 릴리스 후보 QA | `skills/run-release-qa/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
+| `manage-qa-tickets` | QA 티켓 작성·발행·이관 | `skills/manage-qa-tickets/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
+| `submit-pr-evidence` | PR 제출 전 필수 증거 게이트 | `skills/submit-pr-evidence/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
+| `build-oss-hub-handbook` | 역할별 사용 핸드북 | `skills/build-oss-hub-handbook/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
+
+## repo 스킬 로드
+
+Claude Code는 `.claude/skills/<name>` symlink로 로드하며 `manage-qa-tickets`의 QA 레인은 `.claude/agents/qa-*.md` symlink를 추가로 둔다.
+Codex는 `.codex/skills/<name>` symlink와 `agents/openai.yaml`로 로드한다.
+Cursor는 `.cursor/skills/<name>` symlink로 로드한다.
+GJC는 `.gjc/skills/<name>` symlink를 loose project skill로 로드하며, `gjc skills discover --source project`로 네 스킬이 candidates에 보이는지 확인한다.
+GJC plugin bundle(`plugin.yaml`, `gajae-plugin.json`)은 새 top-level 스킬을 등록할 수 없으므로 사용하지 않는다.
+`.gjc/`는 `.gjc/skills/`만 예외로 커밋하고 나머지는 gitignore 대상이다.
+symlink만 존재하는지는 `git ls-files -s .codex .claude .cursor .gjc | grep 120000`로, dangling link가 없는지는 `find -L .claude .codex .cursor .gjc -type l`(출력 없어야 함)로 확인한다.
+새 스킬을 추가할 때는 `skills/` 아래 새 디렉터리, 네 runtime symlink(`.codex`, `.claude`, `.cursor`, `.gjc`)를 같은 커밋에서 함께 추가한다.
 
 ## 스킬과 repo 규칙이 갈리면 repo가 이긴다
 
 스킬은 이 저장소를 모른다.
 스킬의 지시가 AGENTS.md나 `docs/rules/`·`docs/decisions/`와 어긋나면 repo 문서를 따르고, 어긋난 지점을 PR 본문에 적는다.
-스킬이 설치돼 있지 않아도 작업은 막히지 않는다 — 그 표면의 repo 규칙 문서를 직접 읽고 진행한다.
+repo 스킬 네 개는 이 저장소에 symlink로 항상 존재하므로 설치 여부를 이유로 건너뛸 수 없고, 해당 표면 작업은 그 스킬을 거치지 않으면 완료가 아니다.
+craft 스킬은 설치돼 있지 않으면 그 표면의 repo 규칙 문서를 직접 읽고 진행하되 PR 본문에 스킬 없이 진행했음을 적는다.
 
 아래 네 표면은 스킬에 위임하지 않는다.
 

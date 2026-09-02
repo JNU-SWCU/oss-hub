@@ -195,20 +195,6 @@ function latestEntries(entries) {
   return [...byKey.values()];
 }
 
-function parseActivePlan(text) {
-  const issue = text.match(/Issue:\s*#(\d+)/);
-  const branch = text.match(/브랜치:\s*`([^`]+)`/);
-  const state = text.match(/^- 상태:\s*(.+)$/m);
-  return {
-    issue: issue ? Number(issue[1]) : null,
-    issueReferenceMalformed: /Issue\s*:/.test(text) && !issue,
-    branch: branch?.[1] ?? null,
-    branchReferenceMalformed: /브랜치\s*:/.test(text) && !branch,
-    state: state?.[1]?.trim() ?? '미기록',
-    incompleteSteps: [...text.matchAll(/^\d+\. \[ \]/gm)].length,
-  };
-}
-
 function finding(status, code, source, subject, evidence, action) {
   return { status, code, source, subject, evidence, action };
 }
@@ -366,106 +352,14 @@ async function findingsForLatestEntry(row, getIssue, getPull) {
   return findings;
 }
 
-async function findingsForActivePlan(plan, getIssue, findPullsByHead) {
-  const findings = [];
-  const parsed = parseActivePlan(plan.text);
-
-  if (parsed.issueReferenceMalformed) {
-    findings.push(
-      finding(
-        'unknown',
-        'EXEC_PLAN_ISSUE_REFERENCE_UNKNOWN',
-        plan.path,
-        'Issue reference',
-        'Issue marker는 있지만 유효한 `#<number>` 참조를 읽지 못했습니다.',
-        'active exec-plan의 Issue 참조 형식을 확인해 주세요.',
-      ),
-    );
-  }
-  if (parsed.branchReferenceMalformed) {
-    findings.push(
-      finding(
-        'unknown',
-        'EXEC_PLAN_BRANCH_REFERENCE_UNKNOWN',
-        plan.path,
-        'branch reference',
-        '브랜치 marker는 있지만 backtick으로 감싼 branch 이름을 읽지 못했습니다.',
-        'active exec-plan의 브랜치 참조 형식을 확인해 주세요.',
-      ),
-    );
-  }
-  if (parsed.issue !== null) {
-    try {
-      const issue = await getIssue(parsed.issue);
-      if (issue.state === 'closed') {
-        findings.push(
-          finding(
-            'stale',
-            'EXEC_PLAN_ISSUE_CLOSED',
-            plan.path,
-            `Issue #${parsed.issue}`,
-            `active exec-plan의 parent Issue가 closed이며 문서 상태는 ${parsed.state}입니다.`,
-            'exec-plan의 상태와 미완료 항목을 수동 재검토해 주세요.',
-          ),
-        );
-      }
-    } catch {
-      findings.push(
-        finding(
-          'unknown',
-          'GITHUB_ISSUE_UNKNOWN',
-          plan.path,
-          `Issue #${parsed.issue}`,
-          'active exec-plan의 parent Issue를 조회하지 못했습니다.',
-          'GitHub 조회 환경을 확인한 뒤 다시 실행해 주세요.',
-        ),
-      );
-    }
-  }
-  if (parsed.branch) {
-    try {
-      const pulls = await findPullsByHead(parsed.branch);
-      const latestPull = pulls[0];
-      if (latestPull?.mergedAt && latestPull.base === 'main') {
-        findings.push(
-          finding(
-            'stale',
-            'EXEC_PLAN_PR_MERGED',
-            plan.path,
-            `PR #${latestPull.number}`,
-            `관련 branch의 구현 PR이 main에 merged됐지만 active exec-plan에 미완료 ${parsed.incompleteSteps}건이 남아 있습니다.`,
-            'exec-plan의 완료 증거와 checklist를 수동 재검토해 주세요.',
-          ),
-        );
-      }
-    } catch {
-      findings.push(
-        finding(
-          'unknown',
-          'GITHUB_BRANCH_PRS_UNKNOWN',
-          plan.path,
-          parsed.branch,
-          '관련 branch의 PR 상태를 조회하지 못했습니다.',
-          'GitHub 조회 환경을 확인한 뒤 다시 실행해 주세요.',
-        ),
-      );
-    }
-  }
-
-  return findings;
-}
-
-export async function checkTeamStateDrift({ journals, activePlans, github }) {
+export async function checkTeamStateDrift({ journals, github }) {
   const findings = [];
   const issueCache = new Map();
   const pullCache = new Map();
-  const branchCache = new Map();
   const getIssue = (number) =>
     cachedLoad(issueCache, number, () => github.getIssue(number));
   const getPull = (number) =>
     cachedLoad(pullCache, number, () => github.getPull(number));
-  const findPullsByHead = (branch) =>
-    cachedLoad(branchCache, branch, () => github.findPullsByHead(branch));
 
   if (journals.length === 0) {
     findings.push(
@@ -500,11 +394,6 @@ export async function checkTeamStateDrift({ journals, activePlans, github }) {
 
   for (const row of latestEntries(parsedEntries)) {
     findings.push(...(await findingsForLatestEntry(row, getIssue, getPull)));
-  }
-  for (const plan of activePlans) {
-    findings.push(
-      ...(await findingsForActivePlan(plan, getIssue, findPullsByHead)),
-    );
   }
 
   return { findings };
@@ -542,7 +431,7 @@ export function formatReport(result) {
   lines.push(
     '',
     `summary: stale=${stale}, unknown=${unknown}`,
-    '이 검사는 owner·우선순위·정책·문서 변경과 exec-plan archive를 자동 수행하지 않음.',
+    '이 검사는 owner·우선순위·정책·문서 변경을 자동 수행하지 않음.',
   );
   return `${lines.join('\n')}\n`;
 }

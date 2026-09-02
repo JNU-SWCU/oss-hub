@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import nextConfig from './next.config';
 
@@ -36,6 +38,13 @@ describe('nextConfig rewrites', () => {
         destination: 'https://backend.example.test/api/v1/:path*',
       },
     ]);
+  });
+
+  it('production에서 승인되지 않은 HTTPS origin을 거부한다', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://unapproved.example.test');
+
+    await expect(getRewrites()).rejects.toThrow('승인된 rewrite 대상');
   });
 
   it('production에서 BACKEND_ORIGIN 누락을 거부한다', async () => {
@@ -147,5 +156,95 @@ describe('nextConfig rewrites', () => {
 describe('nextConfig poweredByHeader', () => {
   it('X-Powered-By 배너를 끈다', () => {
     expect(nextConfig.poweredByHeader).toBe(false);
+  });
+});
+
+describe('production Vercel origin authentication', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const stubProductionVercelBuild = () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://backend.example.test');
+  };
+
+  it('32-byte 이상의 vercel Basic credential을 요구한다', async () => {
+    stubProductionVercelBuild();
+    vi.stubEnv(
+      'ORIGIN_BASIC_AUTH',
+      `Basic ${Buffer.from(`vercel:${'x'.repeat(32)}`).toString('base64')}`,
+    );
+
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'https://backend.example.test/api/v1/:path*',
+      },
+    ]);
+  });
+
+  it.each([
+    undefined,
+    'Basic not-base64',
+    `Basic ${Buffer.from('other-user:credential-with-at-least-32-bytes').toString('base64')}`,
+    `Basic ${Buffer.from('vercel:too-short').toString('base64')}`,
+    `Basic ${Buffer.from(`vercel:${'x'.repeat(31)}\0`).toString('base64')}`,
+    `Bearer ${Buffer.from(`vercel:${'x'.repeat(32)}`).toString('base64')}`,
+  ])('누락되거나 malformed된 credential을 거부한다: %s', async (credential) => {
+    stubProductionVercelBuild();
+    vi.stubEnv('ORIGIN_BASIC_AUTH', credential);
+
+    await expect(getRewrites()).rejects.toThrow('ORIGIN_BASIC_AUTH');
+  });
+
+  it('preview Vercel deployment는 origin credential 없이 설정을 생성한다', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    vi.stubEnv('BACKEND_ORIGIN', 'https://backend.example.test');
+    vi.stubEnv('ORIGIN_BASIC_AUTH', undefined);
+
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'https://backend.example.test/api/v1/:path*',
+      },
+    ]);
+  });
+});
+
+describe('Vercel API origin-auth route', () => {
+  it('browser authorization을 제거한 뒤 허용된 runtime secret으로 대체한다', () => {
+    const vercelConfig = JSON.parse(
+      readFileSync(join(__dirname, 'vercel.json'), 'utf8'),
+    );
+
+    expect(vercelConfig).toEqual({
+      $schema: 'https://openapi.vercel.sh/vercel.json',
+      // SSR function은 사용자·backend와 같은 Seoul(icn1)에서 실행한다 — 기본값 iad1은
+      // 매 SSR 렌더마다 태평양 왕복을 만든다(#1169 실측 icn1::iad1).
+      regions: ['icn1'],
+      routes: [
+        {
+          src: '/api/v1(?:/(.*))?',
+          continue: true,
+          transforms: [
+            {
+              type: 'request.headers',
+              op: 'delete',
+              target: { key: 'authorization' },
+            },
+            {
+              type: 'request.headers',
+              op: 'set',
+              target: { key: 'authorization' },
+              args: '$ORIGIN_BASIC_AUTH',
+              env: ['ORIGIN_BASIC_AUTH'],
+            },
+          ],
+        },
+      ],
+    });
   });
 });

@@ -1,6 +1,8 @@
 ---
 name: run-release-qa
 description: 'oss-hub의 최신 main 또는 지정한 릴리스 후보를 정확한 커밋으로 고정해 전체 코드·API·화면·역할별 흐름을 점검하고, 재현 가능한 증거와 출시 판정을 남긴다. "최신 main 기준 전수 QA", "릴리스 전에 전체 QA", "코드와 화면을 함께 점검해줘"처럼 구현이 끝난 후보의 회귀·출시 QA를 요청받았을 때 사용한다. 버그 수정이나 배포를 대신하는 스킬이 아니며, 발견 사항을 먼저 보고한 뒤 수정은 별도 승인으로 진행한다.'
+metadata:
+  version: "1.0.0"
 ---
 
 # Run release QA
@@ -11,7 +13,7 @@ oss-hub의 릴리스 후보를 움직이지 않는 기준점으로 고정하고,
 ## 시작 전 경계
 
 1. 루트 `AGENTS.md`와 점검 대상 경로의 중첩 `AGENTS.md`를 먼저 읽는다.
-2. `docs/exec-plan/active/qa-scenarios.md`를 시나리오 원본으로 사용한다.
+2. `references/qa-scenarios.md`를 시나리오 원본으로 사용한다.
 3. 로컬 실행 방식은 `docs/rules/local-dev.md`, 공개 가능 범위는 `docs/rules/security.md`를 따른다.
 4. 사용자 승인 없이 제품 코드, 데이터, Issue, PR, Notion 상태를 수정하지 않는다.
 5. QA 중에는 결함을 고치지 않는다. 후보를 그대로 관찰한 뒤 수정 범위는 사용자와 따로 정한다.
@@ -48,7 +50,7 @@ oss-hub의 릴리스 후보를 움직이지 않는 기준점으로 고정하고,
 
 ## 3. 시나리오 선택
 
-`docs/exec-plan/active/qa-scenarios.md`의 W·ST·PM·AS군에서 후보에 해당하는 항목을 고른다.
+`references/qa-scenarios.md`의 W·ST·PM·AS군에서 후보에 해당하는 항목을 고른다.
 모든 조합을 무작정 곱하지 말고 아래 축으로 출시 핵심 경로와 위험 경계를 우선한다.
 
 - 역할: 비로그인, 역할 미선택, 학생, 팀장·팀원, 교직원, 관리자, 비활성 계정

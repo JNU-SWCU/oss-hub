@@ -203,7 +203,7 @@ function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
  * External-repository discovery client (GraphQL, discovery only). Returns
  * a list of repository identities a GitHub user contributed to over a
  * date window — this is the only official API shape that can answer that
- * question (see module docs / exec-plan for why REST cannot: `/search/
+ * question (see module docs / ADR-010 for why REST cannot: `/search/
  * commits` only searches a repo's default branch and is capped at 30 req/
  * min, `/users/{u}/events/public` is retained 30 days, and `/user/repos`
  * returns only the caller's own repos).

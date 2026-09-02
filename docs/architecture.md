@@ -14,7 +14,7 @@ compose.yaml                  # 운영 런타임 Compose 정의
 compose.dev.yaml              # 개발 PostgreSQL Compose 정의
 docs/
 ├── decisions/                # Architecture Decision Records
-├── exec-plan/                # 수동 운영 절차와 실행 기록
+├── deploy/                   # 배포 runbook과 수동 운영 절차
 └── rules/                    # 구현 규칙
 ```
 
@@ -24,37 +24,40 @@ docs/
 - `apps/backend`는 `/api/v1` REST API, DTO 검증, 업무 규칙, 영속성 접근을 소유한다.
 - PostgreSQL은 backend만 직접 접근한다.
 - `deploy/`와 Compose 파일은 런타임 네트워크, proxy, 배포 자동화를 소유한다.
-- `docs/decisions`는 장기 결정, `docs/exec-plan`은 반복 가능한 수동 운영 절차를 소유한다.
+- `docs/decisions`는 장기 결정, `docs/deploy`는 배포 runbook과 반복 가능한 수동 운영 절차를 소유한다.
 
 ## 현재 전환 상태
 
-프로덕션 제출 파일 저장소는 아직 MinIO이며 R2 cutover는 실행되지 않았다. checkpoint A의 exact-SHA Vercel deployment는 준비됐지만 backend `FRONTEND_URL`·GitHub OAuth callback 전환과 stable-origin smoke가 남아 있어 checkpoint A는 완료되지 않았다. AWS는 backend, PostgreSQL, API ingress를 계속 제공한다. 기존 AWS frontend는 checkpoint B 전까지 보존한다.
+Checkpoint A·B, cleanup과 G006 custom-domain hardening이 완료됐다. 구매한 canonical HTTPS custom domain이 유일한 browser origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin을 사용한다. Vercel은 `/api/v1` request에서 browser `Authorization`을 제거하고 production sensitive credential을 주입해 exact origin domain으로 rewrite하며, origin nginx는 인증된 API 요청만 받는다. Production storage는 private managed R2이고 AWS는 backend, PostgreSQL, API-only Compose ingress만 제공한다. MinIO·legacy frontend runtime·public IP certificate·public Jenkins trigger는 없다. Live cutover receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이 원본이다.
 
 ```mermaid
 flowchart LR
   Browser[Browser] --> Vercel[Vercel frontend origin]
-  Vercel -- same-origin /api/v1 rewrite --> Ingress[AWS API ingress]
+  Vercel -- authenticated same-origin /api/v1 rewrite --> Ingress[Exact origin-domain API ingress]
   Ingress --> Back[backend]
   Back --> Postgres[(postgres / pgdata)]
-  Back --> Minio[(minio / minio_data)]
+  Back --> R2[(managed R2)]
 ```
 
-## 목표 상태
+## 보안 경계
 
-checkpoint B는 private managed R2 live store에서 storage smoke와 stable-origin smoke가 모두 통과한 뒤에만 완료한다. 그 뒤 Vercel이 유일한 frontend origin이 되고 AWS는 backend, PostgreSQL, API ingress를 유지한다. AWS frontend 제거는 checkpoint B에 포함된 비파괴 작업이며, rollback 보존 기간에는 MinIO 데이터와 rollback 경로를 삭제하지 않는다.
-
-MinIO는 영구 fallback이나 이중화 저장소가 아니다. 단일 hold timestamp에서 계산한 72시간과 최종 복구 검증이 끝나면 별도 cleanup 변경으로 MinIO service, volume, credential, Jenkins 분기를 제거하며 R2만 application object storage로 남긴다.
+- Browser는 canonical custom domain만 사용한다. Origin domain과 infrastructure address는 browser origin·OAuth callback·cookie domain이 아니다.
+- Vercel routing layer만 production origin credential을 소유한다. Preview와 browser가 보낸 `Authorization`은 origin 인증에 사용할 수 없다.
+- Origin nginx는 Vercel이 덮어쓰는 client header를 rate-limit key로 사용하고 backend로 전달하기 전에 origin credential·provider header를 제거한다.
+- Host nginx의 default HTTP/HTTPS server는 unknown Host를 거절하고 exact origin domain의 `/api/v1/`만 연다. Compose nginx도 canonical·loopback Host 외에는 404다.
+- Jenkins는 outbound 10분 convergence schedule과 tailnet 수동 실행만 사용한다. Public build trigger와 GitHub deploy token은 없다.
+- 위 경계는 proxy-peer 단일 rate bucket, Host spoofing, direct-origin browser access, public Jenkins trigger, legacy IP certificate를 제거한다.
 
 ```mermaid
 flowchart LR
   Browser[Browser] --> Vercel[Vercel frontend origin]
-  Vercel -- same-origin /api/v1 rewrite --> Ingress[AWS API ingress]
+  Vercel -- authenticated same-origin /api/v1 rewrite --> Ingress[Exact origin-domain API ingress]
   Ingress --> Back[backend]
   Back --> Postgres[(postgres)]
   Back --> R2[(private managed R2)]
 ```
 
-backend storage는 `SUBMISSION_FILE_STORAGE_MODE=minio|managed`로 선택한다. 두 모드 모두 `SUBMISSION_FILE_S3_*` 설정을 사용한다. managed 모드의 live-store credential과 rollback MinIO credential은 분리하며, rollback MinIO는 `ROLLBACK_MINIO_*`만 사용한다.
+production backend storage mode는 exact `managed` 하나다. `SUBMISSION_FILE_S3_*` 설정을 사용하고 credential pair는 Jenkins masked binding으로만 주입한다. 로컬 개발의 MinIO substitute는 `compose.local.yml`이 별도로 소유하며 production 계약에 포함되지 않는다.
 
 ## 핵심 흐름
 
@@ -63,7 +66,7 @@ backend storage는 `SUBMISSION_FILE_STORAGE_MODE=minio|managed`로 선택한다.
 1. 브라우저 UI 요청은 Vercel frontend origin에 도착한다.
 2. 브라우저의 `/api/v1` 요청은 Vercel same-origin rewrite를 거쳐 AWS API ingress와 backend로 전달된다. 브라우저가 AWS API origin을 직접 호출하지 않는다.
 3. backend는 `/api/v1` API 계약에 따라 요청을 처리하고 PostgreSQL에 접근한다.
-4. 제출 파일은 선택된 storage mode의 object store에 저장된다.
+4. 제출 파일은 private managed R2에 저장된다.
 5. 응답은 AWS API ingress와 Vercel rewrite를 거쳐 같은 browser origin으로 반환된다.
 
 ### 배포 경로
@@ -72,5 +75,5 @@ backend storage는 `SUBMISSION_FILE_STORAGE_MODE=minio|managed`로 선택한다.
 2. Jenkins는 draft·prerelease가 아닌 GitHub Release가 발행될 때만 실행되고 그 발행 자체가 배포 인가다.
 3. Jenkins는 latest full Release와 tag의 main ancestry를 검증하고 exact commit SHA를 checkout한다.
 4. 동일·하위 Release는 no-op으로 종료한다. 새 Release는 database backup → configured-endpoint object backup → build → migration → rollout 순서로 배포한다.
-5. configured endpoint와 bucket을 읽어 검증하지 못하는 object backup 또는 restore drill은 fail-closed다. R2의 내구성은 backup이 아니다.
-6. checkpoint B 뒤 MinIO rollback은 쓰기 중지 → R2 reverse-copy → object count·size·integrity check → MinIO activation → stable-origin smoke 순서를 따른다. R2 write가 있으면 reverse-copy와 check 없이 MinIO를 재활성화하지 않는다.
+5. Configured endpoint와 bucket을 읽어 검증하지 못하는 SDK object backup은 fail-closed다. R2의 내구성은 backup을 대체하지 않는다.
+6. 애플리케이션 rollback은 captured previous backend image ID·version·revision이 exact match할 때만 수행한다. Production storage mode를 되돌리는 경로는 없다.
