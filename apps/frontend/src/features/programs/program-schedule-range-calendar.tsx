@@ -133,12 +133,17 @@ export function ProgramScheduleRangeCalendar({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0 break-keep text-pretty">
           <strong>{formatMonth(monthKey)}</strong>
-          <p className="text-small text-muted-foreground">
-            {readOnly
-              ? '신청·운영·마일스톤 일정'
-              : activeRange.kind === 'MILESTONE'
-                ? '마일스톤 날짜 선택 · 운영 기간 밖은 선택할 수 없음'
-                : `${activeRange.label} · 시작일과 종료일을 차례로 선택`}
+          <p className="break-keep text-small text-muted-foreground">
+            {readOnly ? (
+              '신청·운영·마일스톤 일정'
+            ) : activeRange.kind === 'MILESTONE' ? (
+              <>
+                마일스톤 날짜 선택 · 운영 기간 밖은{' '}
+                <span className="whitespace-nowrap">선택할 수 없음</span>
+              </>
+            ) : (
+              `${activeRange.label} · 시작일과 종료일을 차례로 선택`
+            )}
           </p>
         </div>
         <div
@@ -179,9 +184,10 @@ export function ProgramScheduleRangeCalendar({
       </ul>
       <p
         id={scrollHintId}
-        className="border-b border-border px-4 py-2 text-small text-muted-foreground sm:hidden"
+        className="break-keep border-b border-border px-4 py-2 text-small text-muted-foreground sm:hidden"
       >
-        달력을 좌우로 밀어 전체 날짜를 볼 수 있습니다.
+        달력을 좌우로 밀어 전체 날짜를{' '}
+        <span className="whitespace-nowrap">볼 수 있습니다.</span>
       </p>
       <div
         className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"

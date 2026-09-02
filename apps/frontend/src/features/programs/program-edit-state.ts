@@ -1,5 +1,6 @@
 ﻿import type { EditableMilestone, EditableProgram } from './api';
 import {
+  changedMilestoneFields,
   type ProgramEditableField,
   type ProgramEditForm,
   type ProgramMilestoneEditor,
@@ -71,23 +72,16 @@ export function isMilestoneFormDirty(
   initial: ProgramMilestoneForm,
   current: ProgramMilestoneForm,
 ): boolean {
-  return (
-    initial.name !== current.name ||
-    initial.startAt !== current.startAt ||
-    initial.dueAt !== current.dueAt ||
-    initial.instructions !== current.instructions
-  );
+  return changedMilestoneFields(initial, current).length > 0;
 }
 
 export function hasUnsavedMilestoneEdit(
   editor: ProgramMilestoneEditor,
-  dirtyFields: readonly ProgramMilestoneField[] = [],
 ): boolean {
   switch (editor.mode) {
     case 'closed':
       return false;
     case 'create':
-      return dirtyFields.length > 0;
     case 'edit':
       return isMilestoneFormDirty(editor.initialForm, editor.form);
   }

@@ -207,6 +207,27 @@ describe('staff local review handlers', () => {
     ).toBe(true);
   });
 
+  it('캡스톤 편집 픽스처의 운영 기간은 모든 마일스톤을 포함한다', () => {
+    // Given / When
+    const program = bodyOf<EditableProgram>(
+      resolve('GET', 'programs/program-capstone/edit'),
+    );
+
+    // Then
+    const operationStartAt = program.startAt;
+    const operationEndAt = program.endAt;
+    expect(operationStartAt).toBeDefined();
+    if (operationStartAt === undefined || operationEndAt === null) return;
+    expect(program.applicationEndAt < operationStartAt).toBe(true);
+    expect(
+      program.milestones.every(
+        (milestone) =>
+          operationStartAt <= milestone.startAt &&
+          milestone.dueAt <= operationEndAt,
+      ),
+    ).toBe(true);
+  });
+
   it('매트릭스 행의 신청 id는 같은 프로그램 신청자 목록에 실제로 있다', () => {
     // Given
     const matrix = bodyOf<SubmissionMatrixPage>(

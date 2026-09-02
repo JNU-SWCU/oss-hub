@@ -13,6 +13,7 @@ import {
 import {
   buildMilestoneInput,
   buildProgramEditInput,
+  changedMilestoneFields,
   emptyMilestoneForm,
   mapMilestoneDeleteError,
   mapMilestoneError,
@@ -63,9 +64,6 @@ export function ProgramEditPage({
   const [isSaving, setIsSaving] = useState(false);
   const [milestoneEditor, setMilestoneEditor] =
     useState<ProgramMilestoneEditor>({ mode: 'closed' });
-  const [milestoneDirtyFields, setMilestoneDirtyFields] = useState<
-    readonly ProgramMilestoneField[]
-  >([]);
   const milestoneEditTriggerRef = useRef<HTMLElement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EditableMilestone | null>(
     null,
@@ -90,10 +88,7 @@ export function ProgramEditPage({
   const editRegionRef = useRef<HTMLDivElement>(null);
 
   const isDirty = dirtyFields.length > 0;
-  const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(
-    milestoneEditor,
-    milestoneDirtyFields,
-  );
+  const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(milestoneEditor);
   // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
   // 나가기 확인은 기본 정보뿐 아니라 마일스톤 편집기에 남은 입력도 지켜야 한다(#867).
   useProgramExitGuard(isDirty || hasUnsavedMilestoneChanges);
@@ -197,12 +192,13 @@ export function ProgramEditPage({
   };
 
   const openAddMilestone = () => {
+    const initialForm = emptyMilestoneForm();
     setMilestoneEditor({
       mode: 'create',
-      form: emptyMilestoneForm(),
+      form: initialForm,
+      initialForm,
       errors: {},
     });
-    setMilestoneDirtyFields([]);
     setGeneralAlert(null);
   };
   const openEditMilestone = (milestone: EditableMilestone) => {
@@ -217,7 +213,6 @@ export function ProgramEditPage({
       initialForm,
       errors: {},
     });
-    setMilestoneDirtyFields([]);
     setGeneralAlert(null);
   };
   const updateMilestoneField = (
@@ -227,7 +222,6 @@ export function ProgramEditPage({
     setMilestoneEditor((current) =>
       updateMilestoneEditor(current, field, value),
     );
-    setMilestoneDirtyFields((current) => addDirtyField(current, field));
   };
 
   const saveMilestone = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -251,7 +245,10 @@ export function ProgramEditPage({
     try {
       const input = buildMilestoneInput(
         milestoneEditor.form,
-        milestoneDirtyFields,
+        changedMilestoneFields(
+          milestoneEditor.initialForm,
+          milestoneEditor.form,
+        ),
       );
       const isCreate = milestoneEditor.form.id === null;
       const saved = milestoneEditor.form.id
@@ -264,7 +261,6 @@ export function ProgramEditPage({
       );
       if (isCreate) setCreatedMilestoneId(saved.id);
       setMilestoneEditor({ mode: 'closed' });
-      setMilestoneDirtyFields([]);
     } catch (error: unknown) {
       setMilestoneEditor((current) =>
         current.mode === 'closed'

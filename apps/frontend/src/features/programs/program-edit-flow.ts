@@ -80,6 +80,13 @@ export type ProgramMilestoneField = Exclude<
   'id' | 'originalStartAt' | 'originalDueAt'
 >;
 
+const PROGRAM_MILESTONE_FIELDS = [
+  'name',
+  'startAt',
+  'dueAt',
+  'instructions',
+] as const satisfies readonly ProgramMilestoneField[];
+
 export interface ProgramMilestoneErrors {
   readonly name?: string;
   readonly startAt?: string;
@@ -93,6 +100,7 @@ export type ProgramMilestoneEditor =
   | {
       readonly mode: 'create';
       readonly form: ProgramMilestoneForm;
+      readonly initialForm: ProgramMilestoneForm;
       readonly errors: ProgramMilestoneErrors;
     }
   | {
@@ -164,6 +172,15 @@ export function emptyMilestoneForm(): ProgramMilestoneForm {
     originalDueAt: null,
     instructions: '',
   };
+}
+
+export function changedMilestoneFields(
+  initial: ProgramMilestoneForm,
+  current: ProgramMilestoneForm,
+): readonly ProgramMilestoneField[] {
+  return PROGRAM_MILESTONE_FIELDS.filter(
+    (field) => initial[field] !== current[field],
+  );
 }
 
 /**
