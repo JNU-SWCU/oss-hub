@@ -16,22 +16,22 @@ vi.mock('../../../_shell/role-panel-shell', () => ({
   ),
 }));
 
-vi.mock('./mydocs-route', () => ({
-  MyDocsRoute: ({ programId }: { readonly programId: string }) => (
-    <div data-mydocs-program-id={programId}>my docs</div>
+vi.mock('./documents-route', () => ({
+  DocumentsRoute: ({ programId }: { readonly programId: string }) => (
+    <div data-documents-program-id={programId}>documents</div>
   ),
 }));
 
-import ProgramMyDocsPage from './page';
+import ProgramDocumentsPage from './page';
 
-describe('ProgramMyDocsPage access contract', () => {
-  it('STUDENT만 내 제출물 화면에 허용한다', async () => {
-    const page = await ProgramMyDocsPage({
+describe('ProgramDocumentsPage access contract', () => {
+  it('학생과 교직원이 같은 서류 화면에 들어가도록 허용한다', async () => {
+    const page = await ProgramDocumentsPage({
       params: Promise.resolve({ id: 'program%3Abasic' }),
     });
     const html = renderToStaticMarkup(page);
 
-    expect(html).toContain('data-allow="student"');
-    expect(html).toContain('data-mydocs-program-id="program:basic"');
+    expect(html).toContain('data-allow="student,staff"');
+    expect(html).toContain('data-documents-program-id="program:basic"');
   });
 });

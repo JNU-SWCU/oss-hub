@@ -4,7 +4,7 @@ import { StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatFileSize } from '@/lib/format-file-size';
-import { studentProgramSubmissionHref } from '@/lib/program-route';
+import { programDocumentsHref } from '@/lib/program-route';
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_VARIANTS,
@@ -46,13 +46,10 @@ export function ChecklistRow({
   // 마감(dueAt)이 지났으면 업로드 자리를 막는다 — "시작 전" 판정은 마일스톤에
   // 시작 시각 데이터가 없어 여기서는 낼 수 없다(스펙 Open Question #4 참고).
   const uploadDisabled = canUpload && deadline.dDay < 0;
-  const submissionHref = studentProgramSubmissionHref(
-    programId,
-    item.milestoneId,
-  );
+  const submissionHref = programDocumentsHref(programId, item.milestoneId);
   return (
-    <li>
-      <Card className="gap-3" data-testid="checklist-row">
+    <li className="min-w-0">
+      <Card className="min-w-0 gap-3" data-testid="checklist-row">
         <CardHeader className="gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
           <div className="grid gap-1">
             <CardTitle>{item.name}</CardTitle>
@@ -64,7 +61,7 @@ export function ChecklistRow({
             {deadline.label}
           </StatusBadge>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center justify-between gap-2">
+        <CardContent className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <StatusBadge variant={CHECKLIST_STATUS_VARIANTS[status]}>
               {CHECKLIST_STATUS_LABELS[status]}

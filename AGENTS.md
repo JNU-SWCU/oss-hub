@@ -3,13 +3,13 @@
 ## Project Overview
 
 OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기반 운영, GitHub 저장소·활동 수집을 제공하는 한국어 웹 서비스다.
-이 저장소는 PUBLIC monorepo이며 Next.js frontend, NestJS backend, PostgreSQL, MinIO, nginx와 배포 계약을 함께 관리한다.
+이 저장소는 PUBLIC monorepo이며 Next.js frontend(Vercel), NestJS backend, PostgreSQL, private managed R2, nginx와 배포 계약을 함께 관리한다(MinIO는 `compose.local.yml`의 local substitute만).
 작업 전 루트부터 대상 경로까지의 `AGENTS.md`를 순서대로 읽고 가장 가까운 규칙을 우선한다.
 상세 규칙은 이 문서에 복제하지 않고 `docs/rules/`, `docs/decisions/`, 해당 경로의 `AGENTS.md`를 따른다.
 
 ## Architecture & Data Flow
 
-- 요청 흐름은 브라우저 → nginx → frontend 또는 `/api/v1` backend → PostgreSQL/MinIO다.
+- 요청 흐름은 브라우저 → canonical Vercel frontend → authenticated origin nginx → `/api/v1` backend → PostgreSQL/managed R2다.
 - `apps/frontend`는 Next.js App Router UI를 소유한다.
   쿠키 기반 shell 초기화는 server layout에 두고 `window`·브라우저 상태는 client component effect에서 다룬다.
 - frontend HTTP 호출의 유일한 경계는 `apps/frontend/src/lib/api-client.ts`다.

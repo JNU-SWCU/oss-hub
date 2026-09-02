@@ -8,7 +8,7 @@ import type {
   TimelineStatus,
 } from './types';
 import { isSafePathSegment } from './path-segment';
-import { studentProgramSubmissionHref } from '@/lib/program-route';
+import { programDocumentsHref } from '@/lib/program-route';
 
 const INVALID_RESPONSE_MESSAGE =
   '마일스톤 타임라인 응답 형식이 올바르지 않습니다';
@@ -199,14 +199,14 @@ function submitAction({
   }
   if (status === 'CHANGES_REQUESTED' && submission?.canResubmit) {
     return {
-      submitHref: studentProgramSubmissionHref(programId, milestoneId),
+      submitHref: programDocumentsHref(programId, milestoneId),
       submitLabel: '다시 제출',
       submitDisabledLabel: null,
     };
   }
   if (status === 'NOT_SUBMITTED' && dueDay >= 0) {
     return {
-      submitHref: studentProgramSubmissionHref(programId, milestoneId),
+      submitHref: programDocumentsHref(programId, milestoneId),
       submitLabel: '제출하기',
       submitDisabledLabel: null,
     };

@@ -2,7 +2,7 @@
 name: "manage-qa-tickets"
 description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "4.2.0"
+  version: "4.3.0"
 ---
 
 # Manage QA tickets
@@ -129,6 +129,7 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 
 본문 변형은 [notion-ticket-contract.md](references/notion-ticket-contract.md)에서 고른다.
 속성은 색인과 배정을 위한 것이고 페이지 본문이 실행 계약이다.
+제목을 지시문으로 쓰는 규칙, 파일 경로를 클릭 가능한 링크로 쓰는 규칙, 중첩 불릿 규칙, 본문에 넣지 않는 프로세스 메타 문장의 목록은 모두 [notion-ticket-contract.md](references/notion-ticket-contract.md)가 원본이다.
 사용자가 손으로 고친 참조 티켓을 지목하면 초안을 쓰기 전에 그 티켓을 다시 열어 섹션 순서, 문장 밀도, 어휘를 맞춘다.
 
 모든 본문은 첫 heading 앞에 여는 말로 시작한다 — 읽는 사람이 이 화면에서 이미 겪고 있는 불편에서 출발하지 않으면 티켓은 남의 일이 된다.
