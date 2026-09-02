@@ -1,16 +1,16 @@
 # Cloudflare R2 운영 준비 인수인계
 
-> 기준 시각: 2026-09-01 KST
+> 기준 시각: 2026-09-02 KST
 >
 > 이 문서는 private Cloudflare R2 전환의 canonical G0–G9 gate와 완료 조건을 소유한다.
 >
-> 현재 프로덕션 frontend origin과 application object storage는 아직 checkpoint A 전 상태이며 object storage는 MinIO다.
+> 현재 production frontend origin은 canonical custom domain이고 application object storage는 private managed R2다.
 >
-> 이 문서는 배포 인가나 R2 전환 완료 영수증이 아니다.
+> 완료 영수증은 Issue #1113의 opaque receipt이며, 이 문서는 그 실행을 gate별로 기록한다.
 
 ## 실행 기록 (2026-09-02)
 
-R2 cutover는 2026-09-02(KST)에 owner의 명시적 beta-speed go 아래 완료됐다. Storage는 private managed R2, 공개 ingress는 API 전용(비API 308 → canonical), receipt는 Issue #1113, 72시간 hold는 Jenkins receipt로 활성이다. 아래 checklist의 `deviation` 표기는 owner license로 수용된 절차 대체를 뜻하며, hold 만료 후 recovery 검증과 same-start cleanup approval 전에는 rollback material을 삭제하지 않는다.
+R2 cutover는 2026-09-02(KST)에 owner의 명시적 beta-speed go 아래 완료됐다. Storage는 private managed R2, 공개 ingress는 API 전용(비API 308 → canonical), receipt는 Issue #1113, owner waiver 뒤 cleanup까지 완료됐다. 아래 checklist의 `deviation` 표기는 owner license로 수용된 절차 대체를 뜻한다.
 
 ## 공개 저장소 보안 경계
 
@@ -20,35 +20,27 @@ GitHub Issue, PR, Jenkins console, shell history와 이 문서는 opaque slot `A
 
 부분 identifier, truncated identifier와 hashed-prefix identifier도 공개 기록에 남기지 않는다.
 
-## 현재 확인 상태
+## 현재 확인 상태 (2026-09-02)
 
-- Private R2 bucket과 bucket-scoped read/write credential은 제한된 provider store에 준비돼 있다.
-- Dedicated Jenkins username/password credential은 Credentials Store에 준비돼 있고 실제 username도 secret으로 취급한다.
-- Bucket public access는 provisioning 확인 시점에 비활성화돼 있었다.
-- Production environment, backend storage endpoint, MinIO service와 `minio_data` volume은 전환하지 않았다.
-- R2 live `Put`, `Get`, `List`, `Delete`, migration copy, rollback drill과 application smoke는 실행하지 않았다.
-- Issue [#1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이 전환 진행의 원본이다.
+- Application object storage는 private managed R2이며 backend는 managed tuple로 실행 중이다.
+- Dedicated Jenkins username/password credential이 managed 배포·백업에 사용되고 실제 username도 secret으로 취급한다.
+- Bucket public access는 계속 비활성화다.
+- Production MinIO service·volume·credential, hold branch와 legacy frontend 컨테이너는 owner waiver 뒤 제거됐다.
+- Live `Put`·`Get`·`List`, stopped-writer copy와 SHA-256 parity, 결손 12건 restore, checkpoint B smoke가 실행·통과됐다(수용 deviation은 실행 기록 절 참조).
+- Issue [#1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이 전환 기록의 원본이다.
 - PR [#1115](https://github.com/JNU-SWCU/oss-hub/pull/1115)가 non-live R2 deployment contract를 구현했고 required `ci`와 `public-safe`를 통과해 병합됐다.
 
 ## 현재 구현 계약
 
-Backend application storage mode는 exact `minio` 또는 `managed`다.
-
-두 mode 모두 `SUBMISSION_FILE_S3_*` tuple을 사용하지만 managed credential 값은 production env file이 아니라 Jenkins masked binding으로만 주입한다.
-
-Managed mode는 account label만 가변인 Cloudflare R2 HTTPS origin, region `auto`, path-style `true`와 private bucket을 요구한다.
-
-Rollback MinIO credential은 `ROLLBACK_MINIO_*`로 분리하며 managed application credential을 재사용하지 않는다.
+Production backend application storage mode는 exact `managed`다.
 
 일반 Release pipeline은 실행 중 backend와 candidate의 non-secret storage tuple hash가 다르면 no-op, backup, build와 backend 재생성 전에 fail-closed로 중단한다.
 
-Configured-endpoint object backup은 mirror parity, 상대경로 SHA-256 manifest, empty-set 검증과 final-path 검증을 통과해야 한다.
+Managed credential은 production env file이 아니라 Jenkins masked binding으로만 주입한다. Endpoint는 account label만 가변인 Cloudflare R2 HTTPS origin, region은 `auto`, path-style은 `true`이며 bucket은 private다.
 
-`scripts/jenkins/object-storage-migration.sh`는 backend image의 pinned AWS SDK client를 사용하며 `preflight`, `inventory`, `copy-check`, `rollback-drill`, `reverse-copy-check`만 제공한다.
+Configured-endpoint object backup은 pinned backend image의 AWS SDK client로 실행하고 상대경로 SHA-256 manifest, empty-set 검증과 final-path 검증을 통과해야 한다.
 
-Migration operator는 exact synthetic probe만 삭제할 수 있고 application object overwrite, generic delete, purge와 destructive sync를 제공하지 않는다.
-
-R2 activation 뒤 storage rollback은 항상 writer stop·drain, additive immutable R2→MinIO reverse copy, count·bytes·content SHA-256 parity, MinIO activation, stable-origin smoke 순서다.
+Rollback은 captured previous backend image ID·version·revision이 exact match할 때만 허용한다. Production storage mode를 MinIO로 되돌리는 경로는 없다.
 
 ## Gate 상태
 
@@ -166,25 +158,9 @@ G8 전에는 AWS frontend를 제거하지 않는다.
 
 R2 start, B promotion, Release publication과 observation 시작 시각은 `ROLLBACK_HOLD_START`가 아니다.
 
-## 72시간 hold와 cleanup
+## Hold waiver와 cleanup 완료
 
-`ROLLBACK_HOLD_START` 전에는 attended cutover가 generic Release를 금지하고 pre-cutover backup, MinIO와 slot `A`를 삭제하지 않는다.
-
-G7 전 start-free pre-hold receipt는 protected backup과 rollback image identity만 기록하며 alternate hold epoch가 아니다.
-
-Jenkins는 모든 retention cleanup 전에 pre-hold receipt를 검증하고 exact backup pruning을 건너뛰며 rollback image tag를 keep set에 넣는다. 검증 뒤 bounded cache와 unrelated image cleanup은 허용하고 hold receipt 전환 시 두 receipt의 identity가 같은지 fail-closed로 확인한다.
-
-Hold expiry 전에는 slot `A`, Vercel-origin + MinIO rollback environment, isolated MinIO services·data·config, held server backup과 digest, inventories와 previous backend image를 유지한다.
-
-R2 write 뒤 MinIO rollback은 zero-delta여도 `reverse-copy-check`를 실행한 검증 결과로만 no-op을 증명한다.
-
-Hold expiry는 cleanup eligibility일 뿐 authorization이 아니다.
-
-Expiry 뒤 final recovery verification과 별도 reviewed cleanup approval가 같은 `ROLLBACK_HOLD_START`를 참조할 때까지 Jenkins는 protected backup과 rollback image retention을 해제하지 않는다.
-
-Approval 뒤 cleanup은 별도 reviewable change로 MinIO service, volume, credential, AWS frontend compatibility와 migration-only Jenkins branches를 제거한다.
-
-Cleanup 뒤 managed R2만 application object storage로 남는다.
+Owner는 2026-09-02 KST에 남은 hold 대기를 명시적으로 면제했다. Fresh managed object backup과 generic Release success를 확인한 뒤 production MinIO containers·volume·pre-cutover backup, hold state machine, rollback credentials와 AWS frontend runtime을 제거했다. Production에는 managed R2, backend, PostgreSQL과 API-only ingress만 남는다. Local development substitutes는 production 계약과 분리된다.
 
 ## 완료 조건
 

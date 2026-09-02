@@ -1034,6 +1034,15 @@
 - 결과: `v0.6.135`(build 194)는 배포·컨테이너 health·nginx reload까지 성공했지만 외부 smoke가 legacy 기대(`GET / == 200`)라 새 API-only edge의 308에 fail-closed됐다. 배포·롤백·drift smoke 세 곳의 root 기대를 308로 바꾸고 checker 캐논도 정렬했다. /api/ 계열 기대(200/401/404)는 그대로다.
 - 검증: Jenkins contract ok, mutation fixture 193건 통과.
 
+## 2026-09-02 — canonical 현재 상태 모순을 마저 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 재검토가 지적한 잔여 모순을 정리했다. readiness 배너·현재 확인 상태를 managed R2 현재형으로 다시 썼고, ADR-002의 "cutover 미실행" 문구를 완료 상태로, architecture 현재 상태 다이어그램의 storage 경로를 R2(+MinIO는 72h rollback material 표기)로 바꿨다.
+- 검증: Prettier, public-safe, diff check 통과.
+
 ## 2026-09-02 — VB001 aggregate blocker 두 건을 닫는다
 
 - 상태: review
@@ -1051,3 +1060,84 @@
 - blocker: 병합 뒤 새 Release로 managed backup 경로의 첫 green 수렴이 필요하다.
 - 결과: `v0.6.133`(build 192)에서 R2가 `ListObjectsV2` metadata 파라미터를 미구현이라 `mc mirror --preserve`/`mc diff`가 managed backup에서 항상 실패함을 실증했다. Managed backup을 이전 backend 이미지의 AWS SDK 전수 다운로드로 교체했다: pagination token 방어, zip-slip 키 검증, 객체별 listed-size 대조, `wx`/0600 기록, PREV 이미지 부재 시 fail-closed. 기존 manifest/receipt 파이프라인과 MinIO 분기는 그대로다.
 - 검증: Jenkins contract와 mutation fixture 193건, public-safe, diff check를 통과했다.
+
+## 2026-09-02 — submit-pr-evidence에 PR 본문 작성 원칙을 추가한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: PM이 PR #1058 본문을 "읽기 힘들다"고 지적했으나 스킬에는 증거 게이트만 있고 본문을 어떻게 쓰는지는 없었다. `## 증거 게이트`와 `## PR을 연다` 사이에 `## PR 본문 작성 원칙` 절을 추가했다: 요약은 구현 언어가 아닌 페르소나 언어로 쓰고, 검증 수치는 그것이 보장하는 사용자 행동과 함께 적고, 로컬 환경 잡음은 본문에서 빼되 실행 못 한 검증은 예외로 반드시 남기고, 중첩 불릿·클릭 가능한 파일 링크·정합된 섹션 번호를 쓰고, 미첨부 placeholder 주석을 금지한다. 완료 체크리스트에 두 항목을 추가하고 버전을 1.0.0 → 1.1.0으로 올렸다.
+- 검증: `npx prettier --check`(대상 두 파일), `pnpm format:check`, `bash scripts/check-public-safe.sh`(기준 `origin/main...HEAD`) 통과. docs-only 변경이라 Before/After 캡처·backend 다이어그램 게이트는 해당 없음.
+
+## 2026-09-02 — managed-only 배포에서 MinIO·cutover hold 경로를 제거한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: owner의 hold waiver 뒤 production storage 계약을 exact `managed` 하나로 줄였다. Compose의 MinIO service·bucket bootstrap·volume과 backend dependency, Jenkins의 MinIO mode/backup/bootstrap 분기, cutover hold retention state machine을 제거했다. Managed R2 SDK backup·pagination/size/manifest 검증, PostgreSQL, generic rollback, Vercel canonical origin, API/nginx smoke와 success-only pruning은 유지했다.
+- 검증: Jenkins contract 통과, synthetic mutation fixture 188건 통과, public-safe와 diff check 통과.
+
+## 2026-09-02 — AWS frontend와 migration-only 경로를 제거한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: production Compose를 backend·PostgreSQL·API-only nginx로 줄이고 AWS frontend image/build/runtime/rollback identity를 제거했다. Local frontend·MinIO는 `compose.local.yml`과 별도 nginx config에 격리했다. Production env validator는 exact managed R2만 허용하고 rollback MinIO credential을 제거했으며, 완료된 migration·hold script와 CI wiring을 삭제했다. Jenkins checker는 1,400줄대·188 mutation fixture에서 약 120줄·9개 current-risk counterfactual로 줄였다. Backend test에서는 실제 UUID randomness와 tautological storageKey oracle을 제거하고 deadline·authorization 행을 독립화했다.
+- 검증: lint·typecheck·unit test 전수(backend 309 suites/3475 tests, frontend 319 files/3191 tests), approved synthetic origin build, Jenkins 9/9, production env 105/105, rollback 14/14, local Compose 15/15, CI path 6/6, host nginx 42/42, format/public-safe/diff check를 통과했다. Craft smell detector와 dead-path search를 실행해 production legacy token이 checker의 명시적 금지 목록 밖에 남지 않음을 확인했다.
+
+## 2026-09-02 — nginx reload 직후 smoke를 상태 수렴으로 판정한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `v0.6.138` build 197은 새 nginx config가 live file에 반영됐지만 reload 직후 old worker가 한 번 `/` 200을 반환해 exact 404 smoke가 실패했다. 현재 live root는 404·health는 200이다. Rollout·rollback·drift의 status assertion을 최대 5회, 1초 간격의 상태 기반 수렴으로 바꿨다. 연결 실패뿐 아니라 reload worker 전환 중 status mismatch도 bounded하게 재확인하고 끝까지 불일치하면 기존 진단으로 fail-closed한다.
+- 검증: Jenkins contract와 current-risk mutation 9/9, diff check 통과.
+
+## 2026-09-02 — G005 final review의 safety oracle·runbook blocker를 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: final architect가 production green을 확인한 뒤 지적한 세 gap을 수정했다. Jenkins required CI에 surviving Node invariant test와 backend rollback helper test를 연결하고, 작은 checker에 serialization·main ancestry·env preflight·greenfield·managed backup integrity·no-op drift 등 unique fail-closed invariant를 복구했다. `deploy/nginx-local/**` 변경이 nginx syntax와 two-file local Compose 검증을 모두 선택하도록 path contract를 추가했다. Architecture·ADR·server/pre-deploy runbook에서 frontend build/root 200/MinIO rollback 현재형 지시를 backend-only·root 404·managed-only 계약으로 교체했다.
+- 검증: Jenkins Node 4/4·shell 9/9, rollback 14/14, CI path 8/8, pinned local nginx `nginx -t`, format·diff check 통과. Public HTTP 308은 curl network response로 재확인해 Chromium HSTS internal 307과 구분했다.
+
+## 2026-09-02 — G005 stage-scoped final gate를 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 재검토가 남긴 두 gap을 닫았다. Compact Jenkins checker가 stage section을 직접 잘라 production env preflight의 `when` 부재, no-op drift의 exact true gate, no-op stage mutation 부재를 검사하도록 했고 각 실패 모드에 counterfactual 하나씩만 추가했다. Server runbook M6/M7의 마지막 frontend build·root 200·deploy-time test 지시를 backend-only build·root 404·required CI 소유권으로 교체했다.
+- 검증: Jenkins shell 12/12·Node 4/4, CI path 8/8, diff check 통과.
+
+## 2026-09-02 — public Jenkins push를 outbound convergence로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: Jenkins의 latest full Release·exact main SHA·no-op 수렴 계약을 10분 schedule로 실행하고, GitHub Actions의 public build POST workflow를 제거했다. 수동 복구는 tailnet의 parameterless build만 사용한다. Canonical Vercel full-channel smoke와 4MiB 초과 upload-body probe를 Jenkins에 연결하고 legacy public-IP/`--resolve` smoke를 제거했다.
+- 검증: Jenkins checker 13/13, canonical public health·auth boundary 현재 실측 green. 병합 뒤 tailnet 수동 실행으로 schedule을 load하고 timer no-op을 확인한 뒤 public nginx trigger와 GitHub secrets를 제거한다.
+
+## 2026-09-02 — manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: PM이 발행된 QA 티켓을 읽고 가독성 문제를 지적했다 — 제목이 지시가 아니라 증상 서술이었고, 파일 경로가 클릭할 수 없는 plain text였고, 근거·영향이 flat 불릿에 뭉쳐 있었고, 담당자가 아니라 티켓 작성자를 향한 프로세스 메타 문장이 본문에 남아 있었다. `notion-ticket-contract.md`에 지시문 제목 규칙(`## 제목`), 클릭 가능한 GitHub 링크 규칙, 한 불릿-한 사실 규칙, 본문에 넣지 않는 것 목록을 추가하고, 기능 결함 본문 템플릿의 `#### 최소 요구 (기능)`·`#### 완료 조건 (기능 검증)`·`#### 절대 금지 (이 티켓의 경계)`를 `#### 할 일`·`#### 하지 않을 것 (이 티켓의 경계)`·`#### 완료 조건` 순서로 바꾸고 템플릿의 인용 블록 보일러플레이트 2줄을 지웠다(UX 본문 템플릿은 같은 이름의 헤더가 없어 그대로 뒀다). `manage-qa-tickets`를 4.2.0 → 4.3.0으로, 새 이름을 파싱해야 하는 `submit-pr-evidence`를 옛 이름과 함께 받아들이도록 고치고 1.1.0 → 1.2.0으로 올렸다. PR #1156(같은 저널 파일을 먼저 고친 PR 본문 원칙 작업) 스택으로 열려던 브랜치였으나 fetch 시점에 #1156이 이미 main에 병합돼 있어 base를 `main`으로, PR을 Ready로 열었다.
+- 검증: `bash scripts/check-public-safe.sh`(기준 `origin/main...HEAD`), `pnpm format:check` 통과. docs-only 변경이라 Before/After 캡처·backend 다이어그램 게이트는 해당 없음.
+
+## 2026-09-02 — 가독성 규칙 저널 항목의 발행 경로를 정정한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 바로 앞 항목("manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다")이 "PR을 Ready로 열었다"고 적었으나 사실이 아니다. 같은 작업 트리를 다른 세션이 동시에 쓰고 있었고, 커밋이 `docs/qa-ticket-readability`가 아니라 `refactor/1113-remove-minio-hold`에 얹혀 PR #1157로 병합됐다. 스킬 파일 5개(`skills/manage-qa-tickets/{SKILL.md,CHANGELOG.md,references/notion-ticket-contract.md}`, `skills/submit-pr-evidence/{SKILL.md,CHANGELOG.md}`)의 내용 자체는 `main`에서 의도대로 확인된다 — `manage-qa-tickets` 4.3.0, `submit-pr-evidence` 1.2.0. 과거 항목은 수정하지 않는 append-only 규칙에 따라 원문을 그대로 두고 이 항목으로 경로만 정정한다. 재발 방지: 여러 에이전트가 한 작업 트리를 공유할 때는 `git worktree`로 분리한 뒤 커밋한다.
+- 검증: `git log origin/main`에서 cb6b71f5(#1157)가 스킬 파일 5개를 포함함을 `gh pr view 1157 --json files`로 확인, `git show origin/main:` 로 두 스킬의 버전 문자열 확인, `bash scripts/check-public-safe.sh` 통과. docs-only 변경이라 캡처·다이어그램 게이트는 해당 없음.
