@@ -77,7 +77,7 @@ describe('MilestoneRow', () => {
 
     expect(html).toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
     expect(html).not.toContain('제출하기');
-    expect(html).not.toContain('/mydocs?milestoneId=');
+    expect(html).not.toContain('/documents?milestoneId=');
   });
 
   it('제출 항목이 없는 신규 마일스톤은 승인이 아니라 안내용으로 표시한다', () => {
@@ -135,7 +135,7 @@ describe('MilestoneRow', () => {
     );
     expect(html).toContain('다시 제출');
     expect(html).toContain(
-      '/programs/program-1/mydocs?milestoneId=milestone-1',
+      '/programs/program-1/documents?milestoneId=milestone-1',
     );
     expect(html).not.toContain('/milestones/milestone-1/submit');
   });

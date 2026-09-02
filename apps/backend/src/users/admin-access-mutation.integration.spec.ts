@@ -131,6 +131,49 @@ describe('Admin access atomic request decisions', () => {
     ).rejects.toThrow();
   });
 
+  it('rejects a pending request without revoking independently granted staff access', async () => {
+    // Given — 두 STAFF 권한은 canonical로 같지만, 대상 권한은 이 대기 요청과
+    // 독립적으로 관리자가 이미 부여한 사실이다.
+    const actor = await createUser('STAFF', 'staff-reject-actor');
+    const target = await createUser('STAFF', 'staff-reject-target');
+    const request = await prisma.staffAccessRequest.create({
+      data: { id: `${target.id}:request`, userId: target.id },
+    });
+
+    // When
+    const result = await service.patchAccess(actor.githubId, target.id, {
+      expectedRole: 'STAFF',
+      desiredRole: 'STAFF',
+      expectedHasStaffAccess: true,
+      expectedHasAdminAccess: false,
+      expectedAccountStatus: AccountStatus.ACTIVE,
+      desiredAccountStatus: AccountStatus.ACTIVE,
+      expectedPendingRequest: {
+        id: request.id,
+        status: StaffAccessRequestStatus.PENDING,
+      },
+      requestDecision: {
+        decision: ADMIN_ACCESS_REQUEST_DECISIONS.REJECT,
+        reason: '합성 반려 사유',
+      },
+    });
+
+    // Then
+    expect(result).toMatchObject({
+      role: 'STAFF',
+      decidedRequest: {
+        id: request.id,
+        status: StaffAccessRequestStatus.REJECTED,
+      },
+    });
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    ).resolves.toMatchObject({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    });
+  });
+
   it('rejects a pending request and deactivates the account while preserving role', async () => {
     // Given
     const actor = await createUser('ADMIN', 'reject-actor');

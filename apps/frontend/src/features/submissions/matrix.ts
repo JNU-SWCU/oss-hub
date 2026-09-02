@@ -5,8 +5,13 @@ import type {
   MatrixMilestone,
   MatrixRow,
 } from './types';
-
-const SEOUL_TIME_ZONE = 'Asia/Seoul';
+export {
+  formatMatrixDueDate,
+  formatMatrixDueDateTime,
+  formatSubmittedAt,
+  notSubmittedDeadline,
+  type NotSubmittedDeadline,
+} from './matrix-format';
 
 export const MATRIX_PAGE_SIZE = 20;
 
@@ -135,73 +140,6 @@ export function matrixEmptyKind(input: {
   if (input.milestoneCount === 0) return 'no-milestones';
   if (input.rowCount > 0) return null;
   return input.filterActive ? 'no-results' : 'no-applications';
-}
-
-const DUE_DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: SEOUL_TIME_ZONE,
-  month: 'long',
-  day: 'numeric',
-});
-
-/** 열 머리글용 마감일 — Asia/Seoul 달력 기준 "M월 D일". */
-export function formatMatrixDueDate(dueAt: string): string {
-  return DUE_DATE_FORMAT.format(new Date(dueAt));
-}
-
-function seoulCalendarDayNumber(value: Date): number {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: SEOUL_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(value);
-  const year = Number(parts.find((part) => part.type === 'year')?.value);
-  const month = Number(parts.find((part) => part.type === 'month')?.value);
-  const day = Number(parts.find((part) => part.type === 'day')?.value);
-  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
-}
-
-export interface NotSubmittedDeadline {
-  readonly overdue: boolean;
-  readonly label: string;
-}
-
-/**
- * NOT_SUBMITTED 셀의 보조 표시 — "마감 초과"는 저장 enum이 아니라 dueAt
- * 파생(#124). overdue 여부는 시각 비교(now > dueAt), D+n은 Asia/Seoul
- * 달력일 차이로 backend(programs/program-deadline.ts)와 같은 규칙을 쓴다.
- * 달력일 차이가 0(같은 날 마감 시각만 지난 경우)이면 D+n 없이 "마감 초과"만 보여준다.
- */
-export function notSubmittedDeadline(
-  dueAt: string,
-  now: Date,
-): NotSubmittedDeadline {
-  const due = new Date(dueAt);
-  const dDay = seoulCalendarDayNumber(due) - seoulCalendarDayNumber(now);
-  if (now.getTime() > due.getTime()) {
-    return {
-      overdue: true,
-      label: dDay < 0 ? `마감 초과 D+${-dDay}` : '마감 초과',
-    };
-  }
-  return { overdue: false, label: dDay === 0 ? '오늘 마감' : `D-${dDay}` };
-}
-
-const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: SEOUL_TIME_ZONE,
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
-
-/** 제출 시각 표시 — 프로토타입 표기("09.16 14:22")와 같은 "MM.DD HH:MM" 포맷. */
-export function formatSubmittedAt(submittedAt: string): string {
-  const parts = SUBMITTED_AT_FORMAT.formatToParts(new Date(submittedAt));
-  const get = (type: string) =>
-    parts.find((part) => part.type === type)?.value ?? '';
-  return `${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
 }
 
 /** 제출됨 셀이 해당 마일스톤 마감(dueAt) 이후에 들어왔는지 — "지각" 판정(#619 스펙). */

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   getRanking: vi.fn(),
   getRankingYears: vi.fn(),
   getProgramOverview: vi.fn(),
+  getProgramNavigationMilestones: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -39,6 +40,9 @@ vi.mock('next/link', () => ({
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 vi.mock('@/features/programs/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
+}));
+vi.mock('@/features/programs/program-navigation-api', () => ({
+  getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
 vi.mock('@/features/ranking/api', () => ({
   getRanking: mocks.getRanking,
@@ -66,6 +70,9 @@ describe('ProductShell ranking fetch', () => {
     mocks.getRanking.mockReset();
     mocks.getRankingYears.mockReset().mockResolvedValue([2026]);
     mocks.getProgramOverview.mockReset().mockReturnValue(new Promise(() => {}));
+    mocks.getProgramNavigationMilestones
+      .mockReset()
+      .mockReturnValue(new Promise(() => {}));
   });
 
   afterEach(async () => {

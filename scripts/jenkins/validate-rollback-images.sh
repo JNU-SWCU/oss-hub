@@ -2,7 +2,7 @@
 set -euo pipefail
 
 input_error() {
-  printf 'rollback_input: PREV_TAG, PREV_SHA, PREV_FE_IMAGE_ID, and PREV_BE_IMAGE_ID must be non-empty\n' >&2
+  printf 'rollback_input: PREV_TAG, PREV_SHA, and PREV_BE_IMAGE_ID must be non-empty\n' >&2
   exit 2
 }
 
@@ -11,11 +11,10 @@ if (($# != 0)); then
   exit 2
 fi
 
-if [[ -z "${PREV_TAG:-}" || -z "${PREV_SHA:-}" || -z "${PREV_FE_IMAGE_ID:-}" || -z "${PREV_BE_IMAGE_ID:-}" ]]; then
+if [[ -z "${PREV_TAG:-}" || -z "${PREV_SHA:-}" || -z "${PREV_BE_IMAGE_ID:-}" ]]; then
   input_error
 fi
 
-frontend_image="oss-hub-frontend:${PREV_TAG}"
 backend_image="oss-hub-backend:${PREV_TAG}"
 
 require_image() {
@@ -40,37 +39,28 @@ read_image_metadata() {
   printf '%s' "$value"
 }
 
-require_image "$frontend_image"
 require_image "$backend_image"
 
-fe_ver="$(read_image_metadata '{{index .Config.Labels "org.opencontainers.image.version"}}' "$frontend_image")"
 be_ver="$(read_image_metadata '{{index .Config.Labels "org.opencontainers.image.version"}}' "$backend_image")"
-fe_rev="$(read_image_metadata '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$frontend_image")"
 be_rev="$(read_image_metadata '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$backend_image")"
-fe_id="$(read_image_metadata '{{.Id}}' "$frontend_image")"
 be_id="$(read_image_metadata '{{.Id}}' "$backend_image")"
 
-if [[ -z "$fe_id" || -z "$be_id" ]]; then
+if [[ -z "$be_id" ]]; then
   printf 'rollback_id: rollback image ID is missing\n' >&2
   exit 1
 fi
 
-if [[ "$fe_id" != "$PREV_FE_IMAGE_ID" || "$be_id" != "$PREV_BE_IMAGE_ID" ]]; then
+if [[ "$be_id" != "$PREV_BE_IMAGE_ID" ]]; then
   printf 'rollback_id: rollback image ID does not match the captured running container\n' >&2
   exit 1
 fi
 
-if [[ -z "$fe_ver" || -z "$be_ver" || -z "$fe_rev" || -z "$be_rev" ]]; then
+if [[ -z "$be_ver" || -z "$be_rev" ]]; then
   printf 'rollback_label: rollback OCI labels are incomplete\n' >&2
   exit 1
 fi
 
-if [[ "$fe_ver" != "$be_ver" || "$fe_rev" != "$be_rev" ]]; then
-  printf 'rollback_label: frontend and backend OCI labels differ\n' >&2
-  exit 1
-fi
-
-if [[ "$fe_ver" != "$PREV_TAG" || "$fe_rev" != "$PREV_SHA" ]]; then
+if [[ "$be_ver" != "$PREV_TAG" || "$be_rev" != "$PREV_SHA" ]]; then
   printf 'rollback_label: rollback OCI labels do not match the previous deployment identity\n' >&2
   exit 1
 fi
