@@ -38,7 +38,7 @@ const OVERVIEW: ProgramOverview = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: 0,
-  nextMilestone: null,
+  remainingMilestones: [],
   milestoneDocuments: [],
 };
 

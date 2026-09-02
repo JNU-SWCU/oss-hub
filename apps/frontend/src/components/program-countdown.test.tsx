@@ -143,20 +143,19 @@ describe('ProgramCountdown', () => {
     expect(html).not.toContain('1/10');
   });
 
-  it('fails explicitly when a program milestone has an invalid dueAt', () => {
-    const renderInvalidMilestone = () =>
-      renderToStaticMarkup(
-        <ProgramCountdown
-          mode="program"
-          milestones={[{ label: '깨진 날짜', dueAt: 'not-a-date' }]}
-          now={new Date('2026-08-04T19:35:43+09:00')}
-        />,
-      );
-
-    expect(renderInvalidMilestone).toThrowError(RangeError);
-    expect(renderInvalidMilestone).toThrowError(
-      '프로그램 마감 "깨진 날짜"의 dueAt이 유효하지 않습니다: not-a-date',
+  it('isolates an invalid program milestone date inside the deadline block', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCountdown
+        mode="program"
+        milestones={[{ label: '깨진 날짜', dueAt: 'not-a-date' }]}
+        now={new Date('2026-08-04T19:35:43+09:00')}
+      />,
     );
+
+    expect(html).toContain('data-slot="program-countdown"');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('마감 일정을 표시할 수 없습니다.');
+    expect(html).not.toContain('not-a-date');
   });
 
   it('renders the ended copy when program mode is empty or has no active milestones', () => {

@@ -53,7 +53,15 @@ function activeMilestones(
 }
 
 export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
-  const active = activeMilestones(milestones, clock);
+  let active: readonly ParsedCountdownMilestone[];
+  try {
+    active = activeMilestones(milestones, clock);
+  } catch (error) {
+    if (error instanceof InvalidCountdownMilestoneDateError) {
+      return <InvalidProgramSchedule />;
+    }
+    throw error;
+  }
   const nearest = active[0];
 
   return (
@@ -79,6 +87,19 @@ export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
           clock={clock}
         />
       )}
+    </div>
+  );
+}
+
+function InvalidProgramSchedule() {
+  return (
+    <div
+      data-slot="program-countdown"
+      className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
+    >
+      <p role="alert" className="text-sm text-muted-foreground">
+        마감 일정을 표시할 수 없습니다.
+      </p>
     </div>
   );
 }

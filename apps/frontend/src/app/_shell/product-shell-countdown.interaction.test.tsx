@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
+  getProgramNavigationMilestones: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -40,6 +41,9 @@ vi.mock('next/link', () => ({
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 vi.mock('@/features/programs/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
+}));
+vi.mock('@/features/programs/program-navigation-api', () => ({
+  getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
 
 import { ProductShell } from './product-shell';
@@ -120,6 +124,8 @@ describe('ProductShell program deadline countdown', () => {
     mocks.useSearchParams.mockReturnValue(new URLSearchParams());
     mockSession();
     mocks.getProgramOverview.mockReset();
+    mocks.getProgramNavigationMilestones.mockReset();
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
   });
 
   afterEach(async () => {
@@ -167,6 +173,17 @@ describe('ProductShell program deadline countdown', () => {
 
     expect(container.innerHTML).toContain('data-slot="program-countdown"');
     expect(container.textContent).toContain('마감 일정이 종료되었습니다.');
+  });
+
+  it('keeps the product shell available when a deadline date is invalid', async () => {
+    mocks.getProgramOverview.mockResolvedValue(
+      overview([{ label: '잘못된 마감', dueAt: 'invalid-date' }]),
+    );
+
+    await renderShell(root);
+
+    expect(container.textContent).toContain('본문');
+    expect(container.textContent).toContain('마감 일정을 표시할 수 없습니다.');
   });
 
   it('does not mount the deadline block while the program sidebar is collapsed', async () => {
