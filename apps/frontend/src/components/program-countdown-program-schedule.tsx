@@ -58,7 +58,7 @@ export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
     active = activeMilestones(milestones, clock);
   } catch (error) {
     if (error instanceof InvalidCountdownMilestoneDateError) {
-      return <InvalidProgramSchedule />;
+      return <InvalidProgramSchedule clock={clock} />;
     }
     throw error;
   }
@@ -69,15 +69,8 @@ export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
       data-slot="program-countdown"
       className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
     >
-      <p className="text-xs text-muted-foreground">현재 시각</p>
-      <p className="text-sm font-semibold text-sidebar-foreground tabular-nums">
-        {formatClock(clock)}
-      </p>
-      <p className="text-xs text-muted-foreground tabular-nums">
-        {formatCountdownDate(clock)}
-      </p>
       {nearest === undefined ? (
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           마감 일정이 종료되었습니다.
         </p>
       ) : (
@@ -87,11 +80,12 @@ export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
           clock={clock}
         />
       )}
+      <CurrentClock clock={clock} />
     </div>
   );
 }
 
-function InvalidProgramSchedule() {
+function InvalidProgramSchedule({ clock }: { readonly clock: Date }) {
   return (
     <div
       data-slot="program-countdown"
@@ -99,6 +93,21 @@ function InvalidProgramSchedule() {
     >
       <p role="alert" className="text-sm text-muted-foreground">
         마감 일정을 표시할 수 없습니다.
+      </p>
+      <CurrentClock clock={clock} />
+    </div>
+  );
+}
+
+function CurrentClock({ clock }: { readonly clock: Date }) {
+  return (
+    <div className="mt-3 border-t border-sidebar-border pt-3">
+      <p className="text-xs text-muted-foreground">현재 시각</p>
+      <p className="text-sm font-semibold text-sidebar-foreground tabular-nums">
+        {formatClock(clock)}
+      </p>
+      <p className="text-xs text-muted-foreground tabular-nums">
+        {formatCountdownDate(clock)}
       </p>
     </div>
   );
@@ -119,7 +128,7 @@ function ActiveProgramSchedule({
 
   return (
     <>
-      <p className="mt-3 min-w-0 truncate text-sm font-semibold text-sidebar-foreground">
+      <p className="min-w-0 truncate text-sm font-semibold text-sidebar-foreground">
         {nearest.label}
       </p>
       <div className="mt-2 grid grid-cols-4 gap-1">

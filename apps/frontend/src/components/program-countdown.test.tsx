@@ -135,6 +135,9 @@ describe('ProgramCountdown', () => {
     expect(html).toContain('>13<');
     expect(html).toContain('>24<');
     expect(html).toContain('>17<');
+    expect(html.indexOf('리허설 제출 마감')).toBeLessThan(
+      html.indexOf('현재 시각'),
+    );
     expect(html).toMatch(
       /리허설 제출 마감[\s\S]*리허설 제출 마감[\s\S]*최종 발표/,
     );
@@ -179,6 +182,9 @@ describe('ProgramCountdown', () => {
 
     for (const html of [emptyHtml, inactiveHtml]) {
       expect(html).toContain('마감 일정이 종료되었습니다.');
+      expect(html.indexOf('마감 일정이 종료되었습니다.')).toBeLessThan(
+        html.indexOf('현재 시각'),
+      );
       expect(html).not.toContain('data-countdown-cell=');
       expect(html).not.toContain('<ul');
     }
