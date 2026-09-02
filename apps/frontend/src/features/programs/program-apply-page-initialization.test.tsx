@@ -167,8 +167,10 @@ describe('ProgramApplyPage 비동기 초기화', () => {
         await Promise.resolve();
         input = summaryInput();
       }
-      input.value = value;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+      const textarea =
+        input instanceof HTMLTextAreaElement ? input : summaryInput();
+      textarea.value = value;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
   }
 
