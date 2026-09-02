@@ -57,6 +57,12 @@ Node.js 24 이상과 pnpm 11.0.0을 사용하고 `corepack enable`로 pnpm을 �
 | Whole workspace | `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test` |
 | Formatting | `pnpm format:check` (`pnpm format` only when formatting is intended) |
 
+**일상 개발의 기본 진입점은 반드시 `pnpm dev`다.**
+frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하고, Docker는 PostgreSQL·MinIO 같은 개발 인프라에만 사용한다.
+에이전트는 일반 구현·디버깅·UI 확인을 위해 앱 컨테이너를 빌드하거나 `pnpm local:up`을 실행하지 않는다.
+앱까지 Docker로 실행하는 `pnpm local:up`·`pnpm local:verify`는 배포 전 production-like 통합 검증, 컨테이너·nginx·Compose 계약 변경, 또는 사용자가 명시적으로 요청한 경우에만 사용한다.
+실제 production은 frontend는 Vercel, backend는 Docker Compose/Jenkins이므로 “배포는 전부 Docker”로 표현하지 않는다.
+
 `pnpm dev`는 `.envrc`와 host `localhost` 경계를, `pnpm local:*`은 `.env`와 Compose service DNS 경계를 사용한다.
 두 환경의 DB/MinIO 주소를 복사하지 말고 상세 선택 기준은 `docs/rules/local-dev.md`를 따른다.
 `compose.yml`은 prebuilt release image와 production secret을 요구하므로 local development entry point로 사용하지 않는다.
