@@ -20,6 +20,7 @@
 | `apps/*/Dockerfile`, `.dockerignore` | `check-docker-context.test.sh`와 실제 context의 deny 규칙·COPY 경계 검사 | Docker daemon·이미지 빌드 없음 |
 | `scripts/check-public-safe*.sh` | shell 문법 검사 + `public-safe` job의 regex 회귀 테스트 | PR-controlled 코드에 secret 미주입 |
 | `scripts/team-state-check*.mjs` | Node 문법 검사 + TEAM-STATE 합성 fixture 단위테스트 | GitHub 조회 실패를 성공으로 추정하지 않음 |
+| `scripts/select-release-deploy-scope*.mjs` | Node 문법 검사 + `node --test scripts/select-release-deploy-scope.test.mjs` 판정 회귀. 두 릴리스 태그 사이 diff가 frontend·backend 배포 산출물에 닿는지를 순수 함수로 고정하고, 스코프 경로가 조용히 비어 모든 릴리스가 no-op이 되는 퇴화를 fail-closed로 막는다. 이 단위테스트는 경로와 무관하게 required `ci`에서 항상 실행한다 — 배포 인가 경로의 게이트이기 때문이다 | Vercel·Jenkins·GitHub Release 실제 호출 없음. 입력은 합성 경로 목록뿐 |
 | `scripts/check-host-db-url*.sh` | shell 문법 검사 + `bash scripts/check-host-db-url.test.sh` 회귀. 호스트 lane `DATABASE_URL`이 로컬을 가리키는지, `POSTGRES_PORT`·`POSTGRES_DB` override와 일치하는지, 실패 경로에서 자격증명을 출력하지 않는지 검증한다 | 실제 DB 연결·마이그레이션 실행 없음. 가드는 파괴적 명령(`prisma migrate reset --force`)의 대상만 검증하고 prisma를 호출하지 않는다 |
 | `scripts/diagnose-collection*.sh` | shell 문법 검사 + `bash scripts/diagnose-collection.test.sh` 계약 회귀. 진단이 read-only인지(`BEGIN TRANSACTION READ ONLY`·쓰기 구문 부재·`ON_ERROR_STOP`), 자격증명 부재 시 fail-closed인지, 저장소 이름·학생 식별자·`DATABASE_URL` 값을 출력하지 않는지, 4층(O0~O3)과 후보 판정(C1~C10)이 남아 있는지 검사한다 | 실제 DB 연결·운영 자격증명·외부 서비스 사용 없음. 스크립트 본문은 서버 안에서만 실행하며 CI는 계약만 본다 |
 | 그 밖의 `scripts/*.sh`, `scripts/*.mjs` | 각 런타임의 문법 검사 | 외부 서비스·실데이터 사용 없음 |

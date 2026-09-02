@@ -1186,3 +1186,13 @@
 - blocker: 없음
 - 결과: 생성 흐름 체감 지연의 지배 요인을 실측으로 확정했다 — canonical SSR 응답의 `x-vercel-id`가 `icn1::iad1`로, edge는 Seoul이지만 SSR function은 기본값 iad1(US East)에서 실행돼 페이지 렌더마다 태평양 왕복이 발생했다. `vercel.json`에 `regions: ["icn1"]`을 추가해 function을 사용자·backend와 같은 Seoul로 고정했다. 참고 실측: EC2→R2 왕복 ~72–136ms(R2는 한국 로컬 아님), Vercel edge 경유 업로드 오버헤드는 4.5MiB 기준 ~0.2s.
 - 검증: Next/Vercel config test 23건 통과. 배포 후 `x-vercel-id`가 `icn1::icn1`로 바뀜을 재실측하고 SSR latency 전후 비교를 Issue #1169에 기록한다.
+
+## 2026-09-03 — 릴리스 배포를 변경 경로로 좁히고 frontend 배포를 CI가 소유하게 한다
+
+- 상태: review
+- Issue: #1172
+- PR: (이 PR)
+- blocker: `VERCEL_TOKEN`·`VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` repository secret 등록이 선행돼야 실제 배포 경로가 동작한다. 등록 전에는 frontend 변경 릴리스에서 이 job이 fail-closed로 멈춘다.
+- 결과: 현행 토폴로지를 먼저 조사해 frontend 배포에 주체가 없다는 것을 확인했다 — Vercel 프로젝트 `oss-hub`(Root Directory `apps/frontend`)의 production 배포 5건이 전부 `source=cli`, 즉 개인 머신의 수동 실행이었고 어떤 커밋이 배포됐는지 파이프라인이 증명하지 못했다. 배포 인가를 GitHub Release 발행으로 통일해, `release: published`에서만 도는 required가 아닌 `frontend-release-deploy` job을 단일 `ci.yml` 안에 넣었다. tag의 full SemVer 형식과 main 이력 포함을 확인한 뒤 exact SHA를 배포하고, 직전 full SemVer 릴리스 태그와의 diff가 frontend 산출물에 닿지 않으면 배포를 건너뛰며 그 no-op을 로그로 남긴다. 판정은 `scripts/select-release-deploy-scope-lib.mjs`의 순수 함수로 분리했다. required check 이름(`ci`·`public-safe`)과 Jenkins backend 수렴 동작은 건드리지 않았다 — production Compose에 frontend runtime이 없으므로 backend 배포는 이미 backend 전용이다.
+- 검증: 배포 스코프 판정 단위테스트 9건 통과(디렉터리 경계 오탐, 빈 diff, 스코프 경로 소실 퇴화 포함), CI path 계약 테스트 통과, `actionlint`가 새 job에 대해 신규 지적 0건(기존 SC2251 info 1건은 main과 동일). Vercel CLI 배포 경로는 저장소 루트에서 `vercel pull`이 `rootDirectory: apps/frontend`로 해석되는 것을 실측해 확인했고, 확인 후 내려받은 운영 env 캐시는 즉시 삭제했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 자격증명은 이름만 기록했다.

@@ -5,10 +5,14 @@ name: ci
 # (PR title/body만 검사하던 사각지대 — #56 실증, docs/rules/security.md).
 # push(main)는 required check 우회 병합 등으로 main 자체가 red가 돼도
 # 병합 시점까지 아무 신호가 없던 사각지대를 잡는다 (PR #586 postmortem, ci job만 재실행).
+# release(published)는 배포 인가 이벤트다 — frontend 배포 주체를 CI 안으로 들인다
+# (ADR-002, Issue #1172). ci·public-safe job은 이 이벤트에서 돌지 않는다.
 on:
   pull_request:
   push:
     branches: [main]
+  release:
+    types: [published]
   issues:
     types: [opened, edited]
   issue_comment:
@@ -155,6 +159,11 @@ jobs:
 
       - name: CI path 계약 검사
         run: node --test scripts/ci-path-contract.test.mjs
+
+      # 릴리스 배포 대상 판정은 배포 인가 경로의 게이트이므로 모든 PR에서 고정한다.
+      # 이 판정이 조용히 비면 모든 릴리스가 no-op이 되어 배포가 멈춘다.
+      - name: 릴리스 배포 스코프 판정 단위테스트
+        run: node --test scripts/select-release-deploy-scope.test.mjs
 
       # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
       # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
@@ -415,3 +424,94 @@ jobs:
             ${{ github.event.issue.body }}
             ${{ github.event.comment.body }}
         run: bash scripts/check-public-safe.sh --text-only
+
+  # 배포 인가는 GitHub Release의 발행 자체다(ADR-002). backend는 Jenkins가 tailnet에서
+  # outbound로 최신 Release에 수렴하고, 이 job은 주체가 없던 frontend(Vercel) 배포를
+  # 같은 인가 이벤트 위로 올린다. production Compose에는 frontend runtime이 없으므로
+  # backend 배포는 이미 backend 전용이고 이 job은 Jenkins 동작을 바꾸지 않는다.
+  #
+  # required check이 아니다. required check에 path filter를 걸면 그 경로를 건드리지 않은
+  # PR에서 체크가 영영 보고되지 않아 병합이 막힌다 — 선택 실행은 required가 아닌 이 job만 한다.
+  frontend-release-deploy:
+    name: frontend-release-deploy
+    if: ${{ github.event_name == 'release' && !github.event.release.draft && !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # 배포 대상은 branch head가 아니라 tag가 가리키는 정확한 SHA다.
+      # 직전 릴리스와의 diff를 계산해야 하므로 전체 이력을 받는다.
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name }}
+
+      # 잘못된 릴리스 입력은 배포를 시작하기 전에 멈춘다.
+      - name: 릴리스 입력 검증
+        id: release
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "full SemVer tag가 아니다: $TAG" >&2
+            exit 1
+          fi
+          sha="$(git rev-list -n 1 "refs/tags/$TAG")"
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "release SHA가 main 이력에 없다: $sha" >&2
+            exit 1
+          fi
+          echo "RELEASE_INPUT tag=$TAG sha=$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # 직전 full SemVer 릴리스 태그도 불변 참조다. 두 태그 사이 diff만으로 판정하므로
+      # 배포 플랫폼 상태를 읽지 않고 저장소만으로 재현된다.
+      # 직전 릴리스가 없으면(최초 릴리스) 비교 기준이 없으므로 배포한다.
+      - name: 배포 대상 판정
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" \
+            --exclude-drafts --exclude-pre-releases --limit 100 \
+            --json tagName --jq '.[].tagName' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | grep -vFx "$TAG" | head -n 1 || true)"
+          if [ -z "$previous" ]; then
+            echo "RELEASE_SCOPE previous=none frontend=true backend=true (최초 릴리스)"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --quiet origin "refs/tags/$previous:refs/tags/$previous" || true
+          git diff --name-only "refs/tags/$previous" "refs/tags/$TAG" \
+            | node scripts/select-release-deploy-scope.mjs > /tmp/release-scope
+          echo "RELEASE_SCOPE previous=$previous $(tr '\n' ' ' < /tmp/release-scope)"
+          cat /tmp/release-scope >> "$GITHUB_OUTPUT"
+
+      # 건너뛴 사실이 로그에 남아야 「배포가 안 됐다」와 「배포할 게 없었다」가 구분된다.
+      - name: frontend 무변경 no-op
+        if: ${{ steps.scope.outputs.frontend != 'true' }}
+        run: echo "frontend 배포 산출물에 변경이 없어 Vercel 배포를 건너뛴다."
+
+      - name: Vercel production 배포
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "$name 시크릿이 없어 배포를 진행할 수 없다" >&2
+              exit 1
+            fi
+          done
+          npx --yes vercel@58 deploy --prod --yes --token "$VERCEL_TOKEN"
+          echo "RELEASE_DEPLOY target=vercel sha=$SHA"

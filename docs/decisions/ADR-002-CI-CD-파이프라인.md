@@ -35,6 +35,9 @@ Jenkins는 외부 입력 없이 **자체적으로 현재 latest full Release를 
 별도 `deploy.yml`·public Jenkins build endpoint·GitHub deploy token·수동 GitHub dispatch 표면은 두지 않는다. Jenkins UI와 administration은 tailnet에만 남긴다. Browser API는 Vercel routing layer가 production sensitive credential을 주입해 exact origin domain으로 전달하며, host nginx는 authenticated API request만 loopback `127.0.0.1:8081`의 Compose nginx로 전달한다.
 tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해당 SHA를 checkout한다.
 **배포 인가는 draft·prerelease가 아닌 GitHub Release의 발행 자체다** — 누가 배포를 시작할 수 있는지는 GitHub의 Release 발행 권한이 통제하고, Jenkins는 인가 주체를 따로 판별하지 않는다.
+Frontend 배포도 같은 인가 이벤트를 따른다. `release: published`에서만 도는 required가 아닌 `frontend-release-deploy` job이 tag의 full SemVer 형식과 main 이력 포함을 확인한 뒤 그 exact SHA를 Vercel production으로 배포한다.
+배포 대상은 직전 full SemVer 릴리스 태그와의 diff로 좁힌다 — frontend 산출물이 바뀌지 않은 릴리스는 배포하지 않고 그 no-op을 로그로 남긴다. production Compose에는 frontend runtime이 없으므로 backend 배포는 이미 backend 전용이고 Jenkins의 수렴 동작은 이 계약으로 바뀌지 않는다.
+판정은 두 불변 tag 사이의 diff만 사용하므로 저장소만으로 재현되며 배포 플랫폼 상태를 읽지 않는다. 이 job은 required check이 아니다 — required check에 path filter를 걸면 해당 경로를 건드리지 않은 PR에서 체크가 보고되지 않아 병합이 영구히 막힌다.
 공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
 별도 staging 서버는 두지 않는다.
 
@@ -113,6 +116,7 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 
 ## Changelog
 
+- 2026-09-03: frontend 배포 주체를 개인 머신의 수동 `vercel --prod`에서 required가 아닌 `frontend-release-deploy` job으로 옮겼다. 조사 시점 Vercel production 배포 5건이 모두 `source=cli`였고 어떤 커밋이 배포됐는지 파이프라인이 증명하지 못했다. 배포 인가는 GitHub Release 발행으로 통일하고, 직전 full SemVer 릴리스 태그와의 diff로 배포 대상을 좁혀 frontend 무변경 릴리스는 no-op으로 남긴다. 워크플로 파일은 늘리지 않고 단일 `ci.yml` 안의 별도 job으로 넣었으며 required check 이름(`ci`·`public-safe`)과 Jenkins backend 수렴 동작은 그대로다 ([#1172](https://github.com/JNU-SWCU/oss-hub/issues/1172)).
 - 2026-09-02: custom-domain threat model을 동결했다. Vercel request transform+origin Basic auth, exact origin Host/domain TLS, trusted client-key rate limit, unknown Host/method rejection, backend header stripping, outbound Jenkins convergence를 채택하고 public Jenkins trigger·IP certificate·direct-origin browser surface를 제거했다.
 - 2026-09-02: owner waiver 뒤 production MinIO service·volume·credential·hold branch와 AWS frontend image/runtime을 제거했다. Production은 managed R2, backend, PostgreSQL과 API-only ingress만 유지하며 local substitutes는 `compose.local.yml`로 격리했다.
 - 2026-09-01: private managed R2 전환 계약을 추가했다. 현재 production MinIO 상태와 checkpoint A를 명시하고, checkpoint B의 sole Vercel frontend·AWS frontend 제거 조건, explicit storage mode, credential 분리, configured-endpoint fail-closed backup/restore, activation 전 격리 rollback drill, R2 write 후 reverse-copy/check rollback, G8 뒤 observation과 전체 canonical gate가 green일 때 한 번만 기록하는 `ROLLBACK_HOLD_START`, 72-hour 보존 및 비파괴 cleanup을 확정했다. 구현 진행 상태는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)을 원본으로 참조하며 이 개정은 cutover 완료를 뜻하지 않는다.
