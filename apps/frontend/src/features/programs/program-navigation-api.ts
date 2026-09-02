@@ -12,6 +12,7 @@ interface PublicProgramNavigationResponse {
 export interface ProgramNavigationMilestone {
   readonly milestoneId: string;
   readonly title: string;
+  /** 학생의 레거시 체크리스트에서 선택할 수 있는 단계인지 여부. */
   readonly submissionEnabled: boolean;
 }
 
@@ -29,7 +30,6 @@ export async function getProgramNavigationMilestones(
   return program.milestones.map((milestone) => ({
     milestoneId: milestone.id,
     title: milestone.name,
-    submissionEnabled:
-      milestone.submissionType !== null || milestone.submissionItemCount > 0,
+    submissionEnabled: milestone.submissionType !== null,
   }));
 }

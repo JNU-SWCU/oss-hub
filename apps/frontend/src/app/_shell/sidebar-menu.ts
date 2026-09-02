@@ -230,9 +230,9 @@ export function programScopeSidebarGroups(
       title: milestone.title,
       submissionEnabled: true,
     }));
-  const navigationMilestones = (milestones ?? fallbackMilestones).filter(
-    (milestone) => isStaffView || milestone.submissionEnabled,
-  );
+  const navigationMilestones = (
+    milestones ?? (isStaffView ? fallbackMilestones : [])
+  ).filter((milestone) => isStaffView || milestone.submissionEnabled);
   const documentSummaryByMilestone = new Map(
     milestoneDocuments.map((milestone) => [milestone.milestoneId, milestone]),
   );

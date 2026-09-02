@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe('getProgramNavigationMilestones', () => {
-  it('공개 상세에서 모든 단계의 탐색 정보만 추린다', async () => {
+  it('제출 항목 중심 단계는 레거시 체크리스트 제출 대상으로 분류하지 않는다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -49,7 +49,7 @@ describe('getProgramNavigationMilestones', () => {
       {
         milestoneId: 'documents',
         title: '요구 서류',
-        submissionEnabled: true,
+        submissionEnabled: false,
       },
       {
         milestoneId: 'notice',

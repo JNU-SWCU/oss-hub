@@ -39,6 +39,13 @@ const studentGroups = programScopeSidebarGroups({
       total: 3,
     },
   ],
+  milestones: [
+    {
+      milestoneId: 'm3',
+      title: '프로젝트 계획서 제출',
+      submissionEnabled: true,
+    },
+  ],
 });
 
 const staffGroups = programScopeSidebarGroups({

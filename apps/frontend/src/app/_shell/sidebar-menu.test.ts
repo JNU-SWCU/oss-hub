@@ -453,7 +453,7 @@ describe('programScopeSidebarGroups', () => {
     boardPostCount: 3,
   } as const;
 
-  it('STUDENT view: 내 제출물 parent with completed/total, no 서류 현황', () => {
+  it('STUDENT view: 단계 탐색을 불러오기 전에는 제출 항목 요약을 레거시 체크리스트 링크로 쓰지 않는다', () => {
     const groups = programScopeSidebarGroups({
       ...base,
       viewerRole: 'STUDENT',
@@ -482,12 +482,8 @@ describe('programScopeSidebarGroups', () => {
       count: '2/6',
       depth: 0,
     });
-    expect(documents?.items[1]).toMatchObject({
-      label: '프로젝트 계획서 제출',
-      href: '/programs/prog-1/documents?milestoneId=m3',
-      count: '2/3',
-      depth: 1,
-    });
+    expect(documents?.items).toHaveLength(1);
+    expect(documents?.items[0]?.href).not.toContain('milestoneId=');
     expect(documents?.items.some((i) => i.label === '서류 현황')).toBe(false);
     expect(board?.items[0]).toMatchObject({ label: '게시판', count: '3' });
   });
