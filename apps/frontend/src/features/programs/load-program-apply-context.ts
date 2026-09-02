@@ -59,13 +59,16 @@ export type ProgramApplyContext =
 
 async function resolveTeam(
   programId: string,
-  _template: ApplicationFormTemplate,
-  _requestedTeamId: string | null,
+  template: ApplicationFormTemplate,
+  requestedTeamId: string | null,
 ): Promise<{
   readonly teamId: string | null;
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
+  if (template.participation === 'individual') {
+    return { teamId: requestedTeamId, minimum: null, team: null };
+  }
   try {
     const team = await getMyTeam(programId);
     return { teamId: team.id, minimum: resolveTeamMinimum(team), team };

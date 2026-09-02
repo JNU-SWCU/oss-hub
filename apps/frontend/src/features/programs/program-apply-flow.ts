@@ -224,7 +224,7 @@ export function mapCreateApplicationError(
     case 'APP_024':
       // 칸별 안내는 `mapApplyProblemFieldErrors` 가 그 칸으로 옮긴다.
       // 여기 문구는 칸을 하나도 못 옮겼을 때의 마지막 안전망이다.
-      return '신청 항목이 너무 깁니다. 제목과 요약 길이를 줄여 주세요.';
+      return '신청 항목이 너무 깁니다. 요약 길이를 줄여 주세요.';
     case 'APP_016':
       return '신청 양식이 갱신되었습니다. 페이지를 새로고침해 주세요.';
     case 'APP_008':
