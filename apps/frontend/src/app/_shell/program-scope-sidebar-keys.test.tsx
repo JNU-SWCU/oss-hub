@@ -30,11 +30,9 @@ vi.mock('next/link', () => ({
 /**
  * 프로그램 스코프 사이드바가 중복 key 로 렌더되지 않는지 검사한다.
  *
- * 학생 뷰의 「내 제출물」은 부모와 마일스톤 자식들이 **전부 같은 `/mydocs`** 를 가리킨다
- * (교직원 뷰만 `?milestoneId=` 로 갈린다). 그런데 렌더가 `key={item.href}` 를 쓰고 있어
- * React 가 "Encountered two children with the same key" 를 냈다 — 항목이 빠지거나
- * 중복될 수 있다는 경고다(QA21). 프로그램 상세·지원·게시판·내 문서 등 이 사이드바가
- * 붙는 화면 전부에서 났다.
+ * 과거에는 여러 마일스톤 자식이 같은 제출 화면을 가리켜 `key={item.href}`에서 중복
+ * 경고가 났다(QA21). 이제 자식 href에 milestoneId가 있지만, 제목 중복과 향후 URL
+ * 변경에도 안정적인 현재 key 계약을 클라이언트 렌더로 계속 검증한다.
  *
  * ⚠ 이 검사는 **클라이언트 렌더**여야 한다. `renderToStaticMarkup` 은 key 검증을 하지
  * 않아 SSR 문자열 테스트로는 이 경고가 절대 안 잡힌다 — 이 결함이 살아남은 이유이기도
@@ -67,7 +65,6 @@ describe('ProgramScopeSidebar key', () => {
       teamCount: 3,
       boardPostCount: 2,
       viewerDocuments: { completed: 1, total: 9 },
-      // 마일스톤 자식 셋 — 학생 뷰에서는 셋 다 부모와 같은 `/mydocs` 를 가리킨다.
       milestoneDocuments: [
         { milestoneId: 'm1', title: '계획서', completed: 1, total: 3 },
         { milestoneId: 'm2', title: '중간 보고', completed: 0, total: 3 },
@@ -80,7 +77,8 @@ describe('ProgramScopeSidebar key', () => {
         <ProgramScopeSidebar
           groups={groups}
           programName="합성 프로그램"
-          pathname="/programs/program-1/mydocs"
+          pathname="/programs/program-1/documents"
+          search=""
           collapsed={false}
           onToggle={() => undefined}
           backHref="/programs"

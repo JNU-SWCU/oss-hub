@@ -55,8 +55,8 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
   const count = checklistSubmittedCount(items);
   const content = (
     <>
-      <header className="grid gap-1">
-        <div className="flex items-center justify-between gap-3">
+      <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <h2 className="font-heading text-xl font-semibold">내 제출물</h2>
           <span className="text-sm font-semibold text-muted-foreground">
             {count.submitted}/{count.total}
@@ -67,7 +67,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
           {count.revisionNeeded > 0
             ? ` · 보완 필요 ${count.revisionNeeded}건`
             : ''}{' '}
-          — 마일스톤별로 모아 보고 이 자리에서 바로 냅니다.
+          — 단계별 제출물을 확인하고 여기에서 바로 냅니다.
         </p>
       </header>
       {props.toastMessage ? (
@@ -109,7 +109,10 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
           description="프로그램에 마일스톤이 아직 등록되지 않았습니다."
         />
       ) : (
-        <ul className="grid list-none gap-3 p-0" data-testid="checklist">
+        <ul
+          className="grid min-w-0 list-none grid-cols-[minmax(0,1fr)] gap-3 p-0"
+          data-testid="checklist"
+        >
           {items.map((item) => (
             <ChecklistRow
               key={item.milestoneId}
@@ -159,7 +162,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
   return (
     <section
       id="milestones"
-      className="grid scroll-mt-24 gap-4"
+      className="grid min-w-0 scroll-mt-24 grid-cols-[minmax(0,1fr)] gap-4"
       aria-label="마일스톤 및 제출"
     >
       {content}

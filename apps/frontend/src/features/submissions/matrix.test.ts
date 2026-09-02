@@ -3,6 +3,7 @@ import {
   applyMatrixQuickFilter,
   buildMatrixSearchParams,
   cellForMilestone,
+  formatMatrixDueDateTime,
   formatSubmittedAt,
   isLateSubmission,
   isMatrixFilterActive,
@@ -170,6 +171,14 @@ describe('formatSubmittedAt', () => {
     expect(formatSubmittedAt('2026-08-19T10:00:00+09:00')).toBe('08.19 10:00');
     // UTC로 저장된 시각도 Seoul 기준으로 변환한다(UTC 1:00 → Seoul 10:00).
     expect(formatSubmittedAt('2026-08-19T01:00:00Z')).toBe('08.19 10:00');
+  });
+});
+
+describe('formatMatrixDueDateTime', () => {
+  it('Asia/Seoul 기준 한국어 날짜와 시각을 명시적으로 표시한다', () => {
+    expect(formatMatrixDueDateTime('2026-09-12T23:59:59+09:00')).toBe(
+      '2026년 9월 12일 (토) 오후 11:59',
+    );
   });
 });
 

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
+  getProgramNavigationMilestones: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -33,6 +34,9 @@ vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 // 그래도 모듈 로드 시점에 네트워크 계층에 닿지 않도록 대역으로 막아 둔다.
 vi.mock('@/features/programs/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
+}));
+vi.mock('@/features/programs/program-navigation-api', () => ({
+  getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
 
 import { ProductShell, shouldLoadProgramOverview } from './product-shell';
@@ -69,6 +73,7 @@ function mockSession(
 function render(pathname: string) {
   mocks.usePathname.mockReturnValue(pathname);
   mocks.getProgramOverview.mockReturnValue(new Promise(() => {})); // 절대 안 풀림 — 로딩 상태 고정
+  mocks.getProgramNavigationMilestones.mockReturnValue(new Promise(() => {}));
   return renderToStaticMarkup(
     <ProductShell>
       <p>본문</p>

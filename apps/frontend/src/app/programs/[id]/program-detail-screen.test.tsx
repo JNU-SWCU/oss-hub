@@ -90,22 +90,22 @@ describe('ProgramDetailScreen submission navigation', () => {
     container.remove();
   });
 
-  it('redirects a legacy submission deep link to the canonical mydocs screen', async () => {
+  it('redirects a legacy submission deep link to the canonical documents screen', async () => {
     setSearchParams('submission=milestone-1&tab=overview');
     await renderScreen(root);
 
     expect(navigation.router.replace).toHaveBeenCalledWith(
-      '/programs/program%3Abasic/mydocs?milestoneId=milestone-1',
+      '/programs/program%3Abasic/documents?milestoneId=milestone-1',
     );
     expect(checklistProps().milestoneId).toBeNull();
   });
 
-  it('opens a checklist item on the canonical mydocs screen', async () => {
+  it('opens a checklist item on the canonical documents screen', async () => {
     await renderScreen(root);
     checklistProps().onSelectMilestone?.('milestone-1');
 
     expect(navigation.router.push).toHaveBeenCalledWith(
-      '/programs/program%3Abasic/mydocs?milestoneId=milestone-1',
+      '/programs/program%3Abasic/documents?milestoneId=milestone-1',
       { scroll: false },
     );
     expect(navigation.router.replace).not.toHaveBeenCalled();

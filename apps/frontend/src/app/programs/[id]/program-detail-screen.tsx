@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProgramDetailPage } from '@/features/programs/program-detail-page';
 import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
-import { studentProgramSubmissionHref } from '@/lib/program-route';
+import { programDocumentsHref } from '@/lib/program-route';
 
 export function ProgramDetailScreen({
   programId,
@@ -17,7 +17,7 @@ export function ProgramDetailScreen({
 
   useEffect(() => {
     if (legacyMilestoneId === null) return;
-    router.replace(studentProgramSubmissionHref(programId, legacyMilestoneId));
+    router.replace(programDocumentsHref(programId, legacyMilestoneId));
   }, [legacyMilestoneId, programId, router]);
 
   return (
@@ -27,7 +27,7 @@ export function ProgramDetailScreen({
         <SubmissionChecklistPage
           milestoneId={null}
           onSelectMilestone={(milestoneId) => {
-            router.push(studentProgramSubmissionHref(programId, milestoneId), {
+            router.push(programDocumentsHref(programId, milestoneId), {
               scroll: false,
             });
           }}
