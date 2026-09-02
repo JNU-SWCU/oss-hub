@@ -24,6 +24,9 @@ const service = new StudentApplicationManagementService(
 );
 const STUDENT_ID = 'student-application-race-student';
 const GITHUB_ID = 8_000_000_000_101n;
+/** 신청자도 팀장도 아닌 일반 팀원 — #1083 재현의 행위자. */
+const MEMBER_ID = 'student-application-race-member';
+const MEMBER_GITHUB_ID = 8_000_000_000_102n;
 const PROGRAM_ID = 'student-application-race-program';
 const APPLICATION_ID = 'student-application-race-application';
 const NOW = new Date('2026-07-15T00:00:00.000Z');
@@ -51,12 +54,12 @@ async function seedApplication(): Promise<void> {
       leaderId: STUDENT_ID,
     },
   });
-  await prisma.teamMember.create({
-    data: {
+  await prisma.teamMember.createMany({
+    data: [STUDENT_ID, MEMBER_ID].map((userId) => ({
       teamId: `${APPLICATION_ID}-team`,
       programId: PROGRAM_ID,
-      userId: STUDENT_ID,
-    },
+      userId,
+    })),
   });
   await prisma.application.create({
     data: {
@@ -90,24 +93,39 @@ async function expectDomainCode(
 describe('StudentApplicationManagementService integration races', () => {
   beforeAll(async () => {
     await prisma.$connect();
-    await prisma.user.create({
-      data: {
+    for (const student of [
+      {
         id: STUDENT_ID,
         githubId: GITHUB_ID,
         nickname: 'synthetic-student',
-        selectedMemberKind: MemberKind.STUDENT,
-        profile: {
-          create: {
-            name: 'Synthetic user',
-            studentId: '304001',
-            department: 'Synthetic department',
-            memberKind: MemberKind.STUDENT,
-            affiliationKind: AffiliationKind.DEPARTMENT,
-            affiliationName: 'Synthetic department',
+        studentId: '304001',
+      },
+      {
+        id: MEMBER_ID,
+        githubId: MEMBER_GITHUB_ID,
+        nickname: 'synthetic-member',
+        studentId: '304002',
+      },
+    ]) {
+      await prisma.user.create({
+        data: {
+          id: student.id,
+          githubId: student.githubId,
+          nickname: student.nickname,
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: 'Synthetic user',
+              studentId: student.studentId,
+              department: 'Synthetic department',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: 'Synthetic department',
+            },
           },
         },
-      },
-    });
+      });
+    }
   });
 
   beforeEach(seedApplication);
@@ -121,8 +139,69 @@ describe('StudentApplicationManagementService integration races', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { id: STUDENT_ID } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [STUDENT_ID, MEMBER_ID] } },
+    });
     await prisma.$disconnect();
+  });
+
+  /**
+   * #1083 재현 — 팀장이 낸 신청서를 일반 팀원이 취소하면 팀 전체의 신청서가
+   * **하드 삭제**됐다. 쓰기가 읽기와 같은 참가자 범위를 재사용한 탓이다.
+   * 행이 남아 있는지까지 본다 — 거절 코드만 보면 지운 뒤 던지는 회귀를 놓친다.
+   */
+  it('일반 팀원의 취소를 거절하고 신청서 행을 남긴다', async () => {
+    await expectDomainCode(
+      service.cancelMine(MEMBER_GITHUB_ID, PROGRAM_ID, NOW),
+      ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+    );
+
+    await expect(
+      prisma.application.count({ where: { id: APPLICATION_ID } }),
+    ).resolves.toBe(1);
+  });
+
+  it('일반 팀원의 수정을 거절하고 답변을 그대로 둔다', async () => {
+    await expectDomainCode(
+      service.updateMine(
+        MEMBER_GITHUB_ID,
+        PROGRAM_ID,
+        {
+          answers: { title: 'Hijacked title', summary: 'Hijacked summary' },
+          applicationTemplateVersion: 1,
+        },
+        NOW,
+      ),
+      ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+    );
+
+    const stored = await prisma.application.findUnique({
+      where: { id: APPLICATION_ID },
+      select: { answers: true },
+    });
+    expect(stored?.answers).toMatchObject({ title: 'Original title' });
+  });
+
+  /**
+   * 읽기는 좁히지 않는다 — 판정 사유·답변을 팀원 전원이 읽는 것은 의도된
+   * 범위이고 판정 알림 수신자와 같은 집합이다(#570). 쓰기만 좁힌 것을 고정한다.
+   */
+  it('일반 팀원의 조회는 그대로 열어 두되 관리 권한은 내린다', async () => {
+    const view = await service.getMine(MEMBER_GITHUB_ID, PROGRAM_ID, NOW);
+
+    expect(view.id).toBe(APPLICATION_ID);
+    expect(view.answers.title).toBe('Original title');
+    expect(view.canManage).toBe(false);
+  });
+
+  it('신청자 겸 팀장의 취소는 그대로 성공한다', async () => {
+    await expect(
+      service.cancelMine(GITHUB_ID, PROGRAM_ID, NOW),
+    ).resolves.toEqual({ cancelled: true });
+
+    await expect(
+      prisma.application.count({ where: { id: APPLICATION_ID } }),
+    ).resolves.toBe(0);
   });
 
   it.each(['update', 'cancel'] as const)(

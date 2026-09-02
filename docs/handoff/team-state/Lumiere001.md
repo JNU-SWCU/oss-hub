@@ -63,6 +63,16 @@
 - 검증: 프런트엔드 317개 파일·3177개 테스트와 별도 런타임 geometry 4개 테스트, 목록 클릭→상세 오버레이→새로고침 표준 상세 Playwright 1개, typecheck·lint·format·production build를 통과했다. lint 경고 5건은 기존 sidebar drawer 테스트의 경고이며 새 오류는 없다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
 
+## 2026-09-02 — 팀 신청서 취소·수정 권한 범위 축소
+
+- 상태: review
+- Issue: #1083
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 신청서 취소·수정이 대상을 찾을 때 읽기와 같은 `programApplicationParticipantWhere`(신청자 | 팀장 | 팀원 전원)를 써서, 일반 팀원 한 명이 팀 전체의 신청서를 하드 삭제할 수 있었고 내용도 바꿀 수 있었다. 저장소 주석은 그 범위가 **읽기에서** 의도된 것이라고만 적고 있는데 쓰기가 조건을 재사용했다. `programApplicationManagerWhere`(신청자 | 팀장)를 새로 두고 쓰기 경로만 좁혔다 — 권한 밖은 없는 것과 똑같이 `APP_001`(기존 계약)로 거절한다.
+- 검증: lint·typecheck 통과, backend 단위 3475·frontend 3190·통합 467 통과. 대조 실험으로 제품 코드만 수정 전으로 되돌리면 통합 3건이 실패한다 — 팀원 취소 거절, 팀원 수정 거절, 그리고 **읽기는 그대로 열려 있고 관리 권한만 내려간다**.
+- ⚠ 무관한 기존 실패: `submissions.service.checklist.spec.ts` 1건은 시한폭탄이며 #1144·PR #1149 가 다룬다.
+- 계약 변화: 응답에 `isManager` 필드가 늘고 `canManage`(및 파생 `canEdit`/`canCancel`)의 의미가 좁아졌다. 티켓이 요구한 축소지만 공개 API 변화라 PR 본문에 명시했다.
 ## 2026-09-01 — 학생 대시보드 「다음 마일스톤」이 서류 축을 세게 한다
 
 - 상태: review
