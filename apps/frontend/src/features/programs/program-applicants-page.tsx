@@ -136,6 +136,7 @@ export function ProgramApplicantsPage({
   const [query, setQuery] = useState<ApplicationListParams>(INITIAL_QUERY);
   const [notice, setNotice] = useState<Notice>(null);
   const requestEpoch = useRef(new ApplicationListRequestEpoch());
+  const foregroundRequestEpoch = useRef<number | null>(null);
   /**
    * 이미 받아 둔 프로그램 정보. 어느 프로그램의 것인지 함께 들고 있는다 — 라우트
    * 파라미터만 바뀌어 이 컴포넌트가 그대로 재사용될 때 옛 이름이 남지 않게 한다.
@@ -148,6 +149,8 @@ export function ProgramApplicantsPage({
   const router = useRouter();
 
   const reloadApplications = useCallback(async (): Promise<void> => {
+    // 검색·상태·페이지 조회가 진행 중이면 폴링은 그 조회를 앞지르지 않는다.
+    if (foregroundRequestEpoch.current !== null) return;
     const epoch = requestEpoch.current.begin();
     const applicationPage = await listProgramApplications(programId, query);
     if (!requestEpoch.current.isCurrent(epoch)) return;
@@ -158,6 +161,7 @@ export function ProgramApplicantsPage({
 
   const load = useCallback(async (): Promise<void> => {
     const epoch = requestEpoch.current.begin();
+    foregroundRequestEpoch.current = epoch;
     const cached =
       cachedProgram.current?.programId === programId
         ? cachedProgram.current.program
@@ -197,8 +201,9 @@ export function ProgramApplicantsPage({
           message: '신청자 목록을 불러오지 못했습니다.',
         });
     } finally {
-      // 늦은 응답으로 밀려났더라도 이 표시만은 내린다 — 그 사이 폴링이 epoch 를
-      // 가져갔다면 깃발을 내려 줄 사람이 아무도 남지 않는다.
+      // 이전 조회가 늦게 끝나도 더 최신 조회가 알리는 바쁨 상태는 그대로 둔다.
+      if (!requestEpoch.current.isCurrent(epoch)) return;
+      foregroundRequestEpoch.current = null;
       setIsRefreshing(false);
     }
   }, [programId, query]);

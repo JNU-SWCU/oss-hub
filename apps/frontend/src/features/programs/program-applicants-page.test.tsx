@@ -470,6 +470,21 @@ describe('program applicants search input', () => {
     await flush();
   }
 
+  function busyRegion(): Element | null {
+    return container.querySelector('[aria-busy]');
+  }
+
+  async function submitSearch(): Promise<void> {
+    const form = container.querySelector('form');
+    if (form === null) throw new TypeError('검색 폼을 찾지 못했습니다.');
+    await act(async () => {
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      );
+    });
+    await flush();
+  }
+
   it('세 글자를 이어서 치면 중간에 검색창을 다시 클릭하지 않아도 모두 들어간다', async () => {
     // 저장소 발급이 끝난 행만 둔다 — 폴링 타이머가 조회 횟수에 끼어들지 않게 한다.
     listProgramApplicationsMock.mockResolvedValueOnce(applicationPage([team]));
@@ -558,6 +573,69 @@ describe('program applicants search input', () => {
     await settle();
 
     expect(document.querySelector(SKELETON_SELECTOR)).toBeNull();
+    expect(container.textContent).toContain('반려 학생');
+  });
+
+  it('검색 조회 중에는 폴링 시각이 지나도 검색 결과의 순서를 빼앗지 않는다', async () => {
+    listProgramApplicationsMock.mockResolvedValueOnce(
+      applicationPage([personal]),
+    );
+    await renderReady();
+
+    const foreground = deferred<ApplicationListPage>();
+    listProgramApplicationsMock
+      .mockReturnValueOnce(foreground.promise)
+      .mockRejectedValueOnce(new TypeError('합성 폴링 실패'));
+
+    const input = searchBox();
+    if (input === null) throw new TypeError('검색창을 찾지 못했습니다.');
+    await typeInto(input, '반');
+    await settle();
+
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('true');
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2_000);
+    });
+    await flush();
+
+    foreground.resolve(applicationPage([rejected]));
+    await flush();
+
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('반려 학생');
+  });
+
+  it('이전 검색 응답이 끝나도 최신 검색 중인 표는 계속 바쁨으로 알린다', async () => {
+    listProgramApplicationsMock.mockResolvedValueOnce(applicationPage([team]));
+    await renderReady();
+
+    const firstSearch = deferred<ApplicationListPage>();
+    const latestSearch = deferred<ApplicationListPage>();
+    listProgramApplicationsMock
+      .mockReturnValueOnce(firstSearch.promise)
+      .mockReturnValueOnce(latestSearch.promise);
+
+    const input = searchBox();
+    if (input === null) throw new TypeError('검색창을 찾지 못했습니다.');
+    await typeInto(input, '김');
+    await submitSearch();
+    await typeInto(input, '민');
+    await submitSearch();
+
+    expect(listProgramApplicationsMock).toHaveBeenCalledTimes(3);
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('true');
+
+    firstSearch.resolve(applicationPage([personal]));
+    await flush();
+
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('true');
+
+    latestSearch.resolve(applicationPage([rejected]));
+    await flush();
+
+    expect(busyRegion()?.getAttribute('aria-busy')).toBe('false');
     expect(container.textContent).toContain('반려 학생');
   });
 });
