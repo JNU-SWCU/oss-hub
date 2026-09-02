@@ -44,6 +44,7 @@ function staffAccessAfterLegacyTransition(
     case ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED:
       return true;
     case ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED:
+      return before.hasStaffAccess;
     case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED:
       return false;
     case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:

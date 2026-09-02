@@ -107,7 +107,7 @@ def tokenize(text: str) -> list[str]:
             continue
 
         if expect_delimiter:
-            if ch.isspace() or ch in '{};#':
+            if ch.isspace() or ch in '{};#()':
                 expect_delimiter = False
             else:
                 raise ValueError('adjacent quoted tokens without delimiter')
@@ -239,11 +239,23 @@ def blocking_returns(node: Node, *, top_level_only: bool) -> list[str]:
     statuses: list[str] = []
     if node.children is None:
         return statuses
-    scope = node.children if top_level_only else walk(node.children)
-    for child in scope:
-        status = return_status(child)
-        if status is not None and status[0] in '45':
-            statuses.append(status)
+
+    def collect(children: list[Node]) -> None:
+        for child in children:
+            # The production Compose boundary rejects a missing trusted Vercel
+            # client key before proxying. This conditional guard is not an
+            # upload-path block; check-host-nginx owns its exact contract.
+            if child.name == 'if' and any(
+                '$vercel_client_key' in argument for argument in child.args
+            ):
+                continue
+            status = return_status(child)
+            if status is not None and status[0] in '45':
+                statuses.append(status)
+            if not top_level_only and child.children is not None:
+                collect(child.children)
+
+    collect(node.children)
     return statuses
 
 
@@ -313,28 +325,28 @@ def main() -> None:
     locations = location_nodes(tree)
     require_unique_locations(locations)
 
-    api_args = ('/api/',)
+    api_args = ('/api/v1/',)
     api = [node for node in locations if match_location(node, api_args)]
 
     if len(api) == 0:
-        fail('missing effective location /api/ block')
+        fail('missing effective location /api/v1/ block')
     if len(api) > 1:
-        fail('duplicate location /api/ block')
+        fail('duplicate location /api/v1/ block')
 
     api_node = api[0]
     if not top_level_proxy_backend(api_node):
-        fail('location /api/ must keep backend proxy_pass')
+        fail('location /api/v1/ must keep backend proxy_pass')
 
     blocked = blocking_returns(api_node, top_level_only=False)
     if blocked:
-        fail('location /api/ over-blocks unrelated routes')
+        fail('location /api/v1/ over-blocks unrelated routes')
 
     for path in MUST_PROXY:
         selected = select_location(locations, path)
         if selected is None:
             fail(f'{path} matches no location; backend proxy is unavailable')
         if selected is not api_node:
-            fail(f'{path} selects {describe(selected)} instead of location /api/')
+            fail(f'{path} selects {describe(selected)} instead of location /api/v1/')
         if blocking_returns(selected, top_level_only=False):
             fail(f'{path} selects {describe(selected)} which blocks backend access')
 
@@ -352,12 +364,12 @@ def main() -> None:
     )
     if not body_size:
         fail(
-            'location /api/ has no client_max_body_size; '
+            'location /api/v1/ has no client_max_body_size; '
             'nginx defaults to 1m and rejects submissions larger than 1MB with 413'
         )
     if not _at_least_bytes(body_size, MIN_UPLOAD_BODY_BYTES):
         fail(
-            f'location /api/ client_max_body_size {body_size} is below the backend '
+            f'location /api/v1/ client_max_body_size {body_size} is below the backend '
             f'file limit; must allow at least {MIN_UPLOAD_BODY_BYTES} bytes'
         )
 
@@ -410,7 +422,13 @@ def main() -> None:
             parsed[name] = rest.strip()
         return parsed
 
-    servers = [node for node in walk(tree) if node.name == 'server' and node.children is not None]
+    servers = [
+        node
+        for node in walk(tree)
+        if node.name == 'server'
+        and node.children is not None
+        and api_node in walk(node.children)
+    ]
     if not servers:
         edge('missing server block')
     for server in servers:
@@ -456,7 +474,7 @@ def main() -> None:
     print(
         f'{PREFIX}: ok '
         f'(proxied={len(MUST_PROXY)} paths incl. case variants, '
-        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, upload body >= 5MB, '
+        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/v1/ intact, upload body >= 5MB, '
         f'location-selection parse, compose edge policy)'
     )
 
