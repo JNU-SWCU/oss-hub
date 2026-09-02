@@ -6,6 +6,7 @@
 - Package scripts are declared in `package.json`: `dev`, `build`, `lint`, `typecheck`, `test`, `e2e`, and `e2e:program-authoring`.
 - Run package scripts from the workspace with `pnpm --filter frontend <script>`.
 - `next.config.ts` is the production/development Next configuration; it rewrites development `/api/v1/:path*` requests to `BACKEND_ORIGIN` (default `http://localhost:4000`).
+- `vercel.json` owns the production-only request-header transform that replaces browser `Authorization` with Vercel sensitive `ORIGIN_BASIC_AUTH` before the existing external rewrite; never move this path into Middleware or a Function because uploads exceed those body limits.
 - Local-review fixture rewrites are enabled only by the guarded configuration in `next.config.ts`; do not broaden that rewrite boundary.
 - `playwright.config.ts` and `e2e/` define browser coverage; `vitest.config.mts` defines unit-test coverage.
 - `Dockerfile` is this package's container build entry point.

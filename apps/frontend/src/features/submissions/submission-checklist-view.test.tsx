@@ -170,7 +170,8 @@ function findLinkElement(
   node: ReactNode,
 ): ReactElement<LinkElementProps> | null {
   if (!isValidElement<LinkElementProps>(node)) return null;
-  if (node.props.href?.includes('/mydocs?milestoneId=') === true) return node;
+  if (node.props.href?.includes('/documents?milestoneId=') === true)
+    return node;
   for (const child of Children.toArray(node.props.children)) {
     const link = findLinkElement(child);
     if (link !== null) return link;
@@ -182,6 +183,12 @@ describe('SubmissionChecklistView 체크리스트', () => {
   it('프로그램 상세의 레거시 체크리스트 앵커를 유지한다', () => {
     const html = render();
     expect(html).toContain('id="milestones"');
+  });
+
+  it('모바일에서 긴 안내와 파일명이 목록 폭을 넓히지 않는다', () => {
+    const html = render();
+
+    expect(html.match(/grid-cols-\[minmax\(0,1fr\)\]/g)).toHaveLength(3);
   });
 
   it('상태 5종을 programs 화면과 같은 라벨로, 보완 필요 행에는 재제출 진입 동작을 렌더한다', () => {
@@ -196,14 +203,14 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('최종 반려');
     // 행동 버튼: 미제출 → 올리기, 재제출 가능 → 다시 제출, 나머지(읽기전용) → 보기.
     expect(html).toContain(
-      '/programs/program-1/mydocs?milestoneId=milestone-final',
+      '/programs/program-1/documents?milestoneId=milestone-final',
     );
     expect(html).toContain('id="submission-trigger-milestone-final"');
     expect(html).toContain('올리기');
     expect(html).toContain('다시 제출');
     expect(html).toContain('보기');
     expect(html).toContain(
-      '/programs/program-1/mydocs?milestoneId=milestone-interim',
+      '/programs/program-1/documents?milestoneId=milestone-interim',
     );
   });
 
@@ -215,6 +222,7 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('내 제출물');
     expect(html).toContain('4/5');
     expect(html).toContain('낼 서류 5건 중 4건 제출 · 보완 필요 1건');
+    expect(html).toContain('단계별 제출물을 확인하고 여기에서 바로 냅니다.');
   });
 
   it('D-day는 Asia/Seoul 기준 표시 상태로 계산한다', () => {
@@ -320,7 +328,9 @@ describe('ChecklistRow 업로드 가능 여부', () => {
     // Then
     expect(html).toContain('올리기');
     expect(html).toContain('disabled=""');
-    expect(html).not.toContain('href="/programs/program-1/mydocs?milestoneId=');
+    expect(html).not.toContain(
+      'href="/programs/program-1/documents?milestoneId=',
+    );
   });
 
   it('보완 요청 상태면 canResubmit이 false여도 다시 제출 동작을 렌더한다', () => {
@@ -359,7 +369,7 @@ describe('ChecklistRow 업로드 가능 여부', () => {
     const html = render({ selectedMilestoneId: null });
     expect(html).toContain('올리기');
     expect(html).toContain(
-      'href="/programs/program-1/mydocs?milestoneId=milestone-final"',
+      'href="/programs/program-1/documents?milestoneId=milestone-final"',
     );
   });
 });
@@ -453,7 +463,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
     const html = render({ selectedMilestoneId: 'milestone-final' });
     expect(html).toContain('아직 제출 전입니다');
     expect(html).toContain(
-      '/programs/program-1/mydocs?milestoneId=milestone-final',
+      '/programs/program-1/documents?milestoneId=milestone-final',
     );
   });
 

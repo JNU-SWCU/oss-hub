@@ -38,11 +38,12 @@ git rev-parse origin/main   # <release-sha>로 기록
 # 2) 그 SHA로 full Release 발행 — 발행이 곧 배포 인가다(ADR-002)
 gh release create <release-tag> --target <release-sha> --title "<release-tag>" --notes "데모 서버 정비 배포"
 
-# 3) GitHub Actions deploy 워크플로가 Jenkins를 트리거했는지 확인 (.github/workflows/deploy.yml)
-gh run list --workflow deploy.yml --limit 1
+# 3) Jenkins outbound convergence가 새 Release를 집어갔는지 확인
+#    배포 트리거 워크플로는 없다 — Jenkins가 `H/10` schedule로 latest full Release를 자체 조회한다(ADR-002).
+#    최대 10분 안에 새 build가 시작되지 않으면 tailnet Jenkins에서 parameterless build를 수동 실행한다.
 ```
 
-- 예상 출력: deploy 워크플로 run이 `completed / success`.
+- 예상 출력: Jenkins `oss-hub-release-cd`의 새 build가 `<release-tag>` 배포로 `SUCCESS`.
 - 검증: Jenkins `oss-hub-release-cd` 빌드가 rollout smoke까지 성공했는지 콘솔 로그로 확인한다([server-runbook](./server-runbook.md) M7).
 - 검증: 운영 컨테이너의 OCI version이 `<release-tag>`, revision이 `<release-sha>`와 일치하는지 [pre-deploy-verify](./pre-deploy-verify.md) ②의 `docker inspect` 라벨 대조로 확인한다.
 - 중단: 스모크 실패 또는 SHA 불일치면 이후 단계로 넘어가지 않는다 — 롤백·재배포는 ADR-002 계약을 따른다.
