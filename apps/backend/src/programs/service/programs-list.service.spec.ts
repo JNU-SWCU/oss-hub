@@ -606,7 +606,7 @@ describe('ProgramsService list', () => {
     });
   });
 
-  it('BASIC 개인 참여는 1..1 범위여도 팀 아이콘을 붙이지 않는다', async () => {
+  it('BASIC 1인 팀 참여도 팀 아이콘을 붙인다', async () => {
     const items = [
       listRecord({
         id: 'individual-program',
@@ -638,6 +638,7 @@ describe('ProgramsService list', () => {
 
     expect(page.items[0]?.note).toEqual({
       text: '축하합니다, 참가가 확정되었습니다',
+      icon: 'team',
     });
   });
 

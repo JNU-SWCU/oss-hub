@@ -92,6 +92,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED DELETE /api/v1/programs/:programId/applications/me',
   'PROTECTED DELETE /api/v1/programs/:programId/board/posts/:postId',
   'PROTECTED DELETE /api/v1/programs/:programId/board/posts/:postId/comments/:commentId',
+  'PROTECTED DELETE /api/v1/programs/:programId/teams/me',
   'PROTECTED GET /api/v1/admin/collection/invariants',
   'PROTECTED GET /api/v1/admin/collection/runs',
   'PROTECTED GET /api/v1/applications/:id',
