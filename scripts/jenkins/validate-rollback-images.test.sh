@@ -32,7 +32,6 @@ else
 fi
 
 case "$scenario:$image" in
-  missing_front:oss-hub-frontend:*) exit 1 ;;
   missing_back:oss-hub-backend:*) exit 1 ;;
   inspect_nonzero:*) exit 1 ;;
 esac
@@ -69,8 +68,6 @@ case "$format" in
       value=''
     elif [[ "$scenario" == 'image_id_mismatch' && "$image" == oss-hub-backend:* ]]; then
       value='sha256:backend-other'
-    elif [[ "$image" == oss-hub-frontend:* ]]; then
-      value='sha256:frontend'
     else
       value='sha256:backend'
     fi
@@ -89,8 +86,7 @@ expect_result() {
   local expected_marker=$4
   local prev_tag=${5-v9.9.9}
   local prev_sha=${6-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
-  local prev_fe_id=${7-sha256:frontend}
-  local prev_be_id=${8-sha256:backend}
+  local prev_be_id=${7-sha256:backend}
   local case_number=$((passed + failed + 1))
   local stdout_file="$fixture_dir/case-${case_number}.stdout"
   local stderr_file="$fixture_dir/case-${case_number}.stderr"
@@ -101,7 +97,6 @@ expect_result() {
     DOCKER_SCENARIO="$scenario" \
     PREV_TAG="$prev_tag" \
     PREV_SHA="$prev_sha" \
-    PREV_FE_IMAGE_ID="$prev_fe_id" \
     PREV_BE_IMAGE_ID="$prev_be_id" \
     bash "$validator" >"$stdout_file" 2>"$stderr_file"; then
     actual_status=0
@@ -135,22 +130,18 @@ expect_result() {
 }
 
 expect_result '정상 rollback 이미지' normal 0 rollback_input
-expect_result 'frontend rollback 이미지 부재' missing_front 1 rollback_image
 expect_result 'backend rollback 이미지 부재' missing_back 1 rollback_image
 expect_result 'rollback image inspect nonzero' inspect_nonzero 1 rollback_image
 expect_result 'rollback metadata inspect nonzero' metadata_inspect_nonzero 1 rollback_image
-expect_result 'frontend/backend version 불일치' version_mismatch 1 rollback_label
-expect_result 'frontend/backend revision 불일치' revision_mismatch 1 rollback_label
+expect_result 'version label 불일치' version_mismatch 1 rollback_label
+expect_result 'revision label 불일치' revision_mismatch 1 rollback_label
 expect_result 'rollback image ID 한쪽 불일치' image_id_mismatch 1 rollback_id
-expect_result '실행 frontend ID 불일치' normal 1 rollback_id v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:other sha256:backend
-expect_result '실행 backend ID 불일치' normal 1 rollback_id v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:frontend sha256:other
+expect_result '실행 backend ID 불일치' normal 1 rollback_id v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:other
 expect_result '빈 inspect metadata output' empty_output 1 rollback_id
 expect_result 'OCI label 누락' missing_label 1 rollback_label
-expect_result 'PREV_TAG 누락' normal 2 rollback_input '' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:frontend sha256:backend
-expect_result 'PREV_SHA 누락' normal 2 rollback_input v9.9.9 '' sha256:frontend sha256:backend
-expect_result 'PREV_FE_IMAGE_ID 누락' normal 2 rollback_input v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa '' sha256:backend
-expect_result 'PREV_BE_IMAGE_ID 누락' normal 2 rollback_input v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:frontend ''
-expect_result 'frontend/backend ID 교환 구현 방지' normal 1 rollback_id v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:backend sha256:frontend
+expect_result 'PREV_TAG 누락' normal 2 rollback_input '' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:backend
+expect_result 'PREV_SHA 누락' normal 2 rollback_input v9.9.9 '' sha256:backend
+expect_result 'PREV_BE_IMAGE_ID 누락' normal 2 rollback_input v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ''
 
 argument_stdout="$fixture_dir/argument.stdout"
 argument_stderr="$fixture_dir/argument.stderr"
@@ -158,7 +149,6 @@ if PATH="$stub_dir:$PATH" \
   DOCKER_SCENARIO=normal \
   PREV_TAG=v9.9.9 \
   PREV_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-  PREV_FE_IMAGE_ID=sha256:frontend \
   PREV_BE_IMAGE_ID=sha256:backend \
   bash "$validator" unexpected >"$argument_stdout" 2>"$argument_stderr"; then
   argument_status=0

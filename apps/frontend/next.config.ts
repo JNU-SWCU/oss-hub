@@ -55,24 +55,38 @@ function requireProductionBackendOrigin(): string {
     throw new Error('BACKEND_ORIGIN은 HTTPS origin이어야 합니다.');
   }
 
-  // 승인 경로는 둘이다: 공개-safe digest allowlist 파일, 또는 보호된 빌드 환경의
-  // 단일 digest(BACKEND_ORIGIN_APPROVED_SHA256). 후자는 공개 저장소에 네트워크
-  // 식별자(역산 가능한 digest 포함)를 남길 수 없는 ingress origin을 위한 경로다.
   const digest = createHash('sha256').update(url.origin).digest('hex');
-  const protectedDigest = process.env.BACKEND_ORIGIN_APPROVED_SHA256?.trim();
-  const protectedDigestValid =
-    protectedDigest !== undefined && /^[0-9a-f]{64}$/.test(protectedDigest);
-  if (protectedDigest !== undefined && !protectedDigestValid) {
-    throw new Error('BACKEND_ORIGIN_APPROVED_SHA256가 손상됐습니다.');
-  }
-  if (
-    !approvedBackendOriginDigests().has(digest) &&
-    !(protectedDigestValid && digest === protectedDigest)
-  ) {
+  if (!approvedBackendOriginDigests().has(digest)) {
     throw new Error('BACKEND_ORIGIN이 승인된 rewrite 대상이 아닙니다.');
   }
 
   return url.origin;
+}
+
+function requireProductionVercelOriginBasicAuth(): void {
+  if (process.env.VERCEL_ENV !== 'production') {
+    return;
+  }
+
+  const credential = process.env.ORIGIN_BASIC_AUTH;
+  const match = /^Basic ([A-Za-z0-9+/]+={0,2})$/.exec(credential ?? '');
+  if (match === null || match[1].length % 4 !== 0) {
+    throw new Error(
+      'production Vercel에는 유효한 ORIGIN_BASIC_AUTH가 필요합니다.',
+    );
+  }
+
+  const encoded = match[1];
+  const decoded = Buffer.from(encoded, 'base64');
+  const decodedCredential = decoded.toString('utf8');
+  if (
+    decoded.toString('base64') !== encoded ||
+    !/^vercel:[A-Za-z0-9+/_-]{32,}={0,2}$/.test(decodedCredential)
+  ) {
+    throw new Error(
+      'production Vercel에는 유효한 ORIGIN_BASIC_AUTH가 필요합니다.',
+    );
+  }
 }
 
 const nextConfig: NextConfig = {
@@ -83,6 +97,8 @@ const nextConfig: NextConfig = {
   // 배포본에는 없는 개발 도구이며, 빌드 오류 표시라 끄지는 않는다.
   devIndicators: { position: 'bottom-right' },
   async rewrites() {
+    requireProductionVercelOriginBasicAuth();
+
     const development = process.env.NODE_ENV === 'development';
     const backendOrigin = development
       ? (process.env.BACKEND_ORIGIN ?? 'http://localhost:4000').replace(
