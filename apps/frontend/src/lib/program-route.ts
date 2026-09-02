@@ -1,26 +1,8 @@
-export function studentProgramSubmissionHref(
-  programId: string,
-  milestoneId: string,
-): string {
-  return programMyDocsHref(programId, milestoneId);
-}
-
-export function programStatusHref(
+export function programDocumentsHref(
   programId: string,
   milestoneId?: string,
 ): string {
-  const base = `/programs/${encodeURIComponent(programId)}/status`;
-  if (milestoneId === undefined) {
-    return base;
-  }
-  return `${base}?milestoneId=${encodeURIComponent(milestoneId)}`;
-}
-
-export function programMyDocsHref(
-  programId: string,
-  milestoneId?: string,
-): string {
-  const base = `/programs/${encodeURIComponent(programId)}/mydocs`;
+  const base = `/programs/${encodeURIComponent(programId)}/documents`;
   if (milestoneId === undefined) {
     return base;
   }

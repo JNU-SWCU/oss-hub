@@ -68,7 +68,7 @@ CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high ris
 나열된 경계를 생성·확장·축소·우회하거나 검사를 약화하는 변경은 경로와 무관하게 high risk이며, 분류가 모호하면 high risk로 처리한다.
 검사 수단을 위 우선순위의 상위로 옮기면서 같은 불변식을 유지하는 등가 이전은 약화로 보지 않는다 — 단 fail-closed 예외 경로는 그대로 high risk다.
 동작 효과가 없는 기계적 문서·테스트·리팩터링은 경로가 일치해도 일반 변경일 수 있지만, 정책 문서의 실제 계약을 바꾸면 high risk다.
-다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`, `scripts/jenkins/**`.
+다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`, `scripts/jenkins/**`.
 `scripts/jenkins/**`는 Jenkinsfile의 절차 로직을 외부 script로 추출할 때 그 보호 수준이 함께 옮겨가도록 미리 포함한다 — 추출이 검토 부담을 낮추는 우회 경로가 되지 않게 한다.
 수동 파일럿에서 CODEOWNERS 후보 또는 분류가 모호한 변경은 기본적으로 `HIGH_RISK`다.
 

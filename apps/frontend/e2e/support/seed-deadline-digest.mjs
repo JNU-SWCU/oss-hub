@@ -7,6 +7,7 @@ const backendRoot = join(here, '..', '..', '..', 'backend');
 const require = createRequire(join(backendRoot, 'package.json'));
 const {
   ApplicationStatus,
+  MilestoneDocumentKind,
   MilestoneSubmissionType,
   PrismaClient,
   ProgramCategory,
@@ -15,6 +16,7 @@ const {
 const prefix = 'seed:e2e:deadline-digest';
 const programId = `${prefix}:program`;
 const milestoneId = `${prefix}:milestone`;
+const documentId = `${prefix}:document`;
 const teamId = `${prefix}:team`;
 const applicationId = `${prefix}:application`;
 const memberId = `${prefix}:member`;
@@ -26,10 +28,15 @@ async function main() {
   await prisma.notification.deleteMany({
     where: { userId: { in: [staffId, studentId] }, type: 'DEADLINE_DIGEST' },
   });
-  await prisma.submission.deleteMany({ where: { applicationId } });
+  // 제출 원장은 Submission에서 MilestoneDocumentSubmission으로 이관됐다
+  // (20260830180000_contract_legacy_submissions가 옛 테이블을 지웠다).
+  await prisma.milestoneDocumentSubmission.deleteMany({
+    where: { applicationId },
+  });
   await prisma.application.deleteMany({ where: { id: applicationId } });
   await prisma.teamMember.deleteMany({ where: { id: memberId } });
   await prisma.team.deleteMany({ where: { id: teamId } });
+  await prisma.milestoneDocument.deleteMany({ where: { id: documentId } });
   await prisma.milestone.deleteMany({ where: { id: milestoneId } });
   await prisma.program.deleteMany({ where: { id: programId } });
 
@@ -55,6 +62,20 @@ async function main() {
       name: 'E2E 최종 제출',
       dueAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
       submissionType: MilestoneSubmissionType.TEXT,
+    },
+  });
+  // 다이제스트 대상은 마일스톤이 아니라 **필수 서류 항목**이다. 이 행이 없으면
+  // findAutomaticProgramIds가 프로그램을 아예 고르지 않고 buildDeadlineEligibility도
+  // requiredDocumentIds가 비어 마일스톤을 버린다 — 시드는 성공하는데 알림이 0건이 된다.
+  // kind는 DOCUMENT여야 한다. LEGACY_MILESTONE_SUBMISSION 슬롯은 두 조회 모두 제외한다.
+  await prisma.milestoneDocument.create({
+    data: {
+      id: documentId,
+      milestoneId,
+      name: 'E2E 최종 보고서',
+      required: true,
+      sortOrder: 0,
+      kind: MilestoneDocumentKind.DOCUMENT,
     },
   });
 

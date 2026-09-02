@@ -3,6 +3,11 @@ import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
 
+import {
+  authenticatedSessionBody,
+  type SessionActor,
+} from './support/session-mock';
+
 const PROGRAM_ID = 'synthetic-program-purge';
 const PROGRAM_NAME = '합성 P4 프로그램';
 const COUNTS = { applications: 4, teams: 4, boardPosts: 2, submissions: 3 };
@@ -13,11 +18,10 @@ const ZERO_COUNTS = {
   submissions: 0,
 };
 
-type Role = 'ADMIN' | 'STAFF';
 type Counts = typeof COUNTS;
 
 interface Scenario {
-  readonly role: Role;
+  readonly actor: SessionActor;
   readonly counts: Counts;
   readonly purgeStatus?: number;
   readonly purgeBody?: unknown;
@@ -106,17 +110,7 @@ async function openEdit(
       return;
     }
     if (path.endsWith('/auth/session')) {
-      await json(route, {
-        isAuthenticated: true,
-        user: {
-          nickname: 'synthetic-admin',
-          name: '합성 사용자',
-          email: null,
-          avatarUrl: null,
-          role: scenario.role,
-          isProfileComplete: true,
-        },
-      });
+      await json(route, authenticatedSessionBody(scenario.actor));
       return;
     }
     if (path.endsWith('/onboarding/role')) {
@@ -164,7 +158,7 @@ test.describe('program edit purge network contract', () => {
     page,
   }) => {
     const { purgeRequests, normalDeletes } = await openEdit(page, {
-      role: 'ADMIN',
+      actor: 'admin',
       counts: COUNTS,
     });
     await expect(
@@ -213,17 +207,7 @@ test.describe('program edit purge network contract', () => {
           deletedCounts: ZERO_COUNTS,
         });
       } else if (path.endsWith('/auth/session'))
-        await json(route, {
-          isAuthenticated: true,
-          user: {
-            nickname: 'zero',
-            name: 'zero',
-            email: null,
-            avatarUrl: null,
-            role: 'ADMIN',
-            isProfileComplete: true,
-          },
-        });
+        await json(route, authenticatedSessionBody('admin'));
       else if (path.endsWith('/onboarding/role'))
         await json(route, { selectedRole: null });
       else if (path.endsWith('/role-requests/me')) await json(route, null);
@@ -257,7 +241,7 @@ test.describe('program edit purge network contract', () => {
   test('protected programs and STAFF never expose delete', async ({ page }) => {
     const protectedScenario = await openEdit(
       page,
-      { role: 'ADMIN', counts: COUNTS },
+      { actor: 'admin', counts: COUNTS },
       true,
     );
     await expect(
@@ -267,7 +251,7 @@ test.describe('program edit purge network contract', () => {
     expect(protectedScenario.normalDeletes).toEqual([]);
 
     await page.unrouteAll();
-    await openEdit(page, { role: 'STAFF', counts: COUNTS });
+    await openEdit(page, { actor: 'staff', counts: COUNTS });
     await expect(
       page.getByRole('button', { name: '프로그램 영구 삭제', exact: true }),
     ).toHaveCount(0);
@@ -278,7 +262,7 @@ test.describe('program edit purge network contract', () => {
 
   test('scope drift reports precise error without retry', async ({ page }) => {
     const { purgeRequests } = await openEdit(page, {
-      role: 'ADMIN',
+      actor: 'admin',
       counts: COUNTS,
       purgeStatus: 409,
       purgeBody: {

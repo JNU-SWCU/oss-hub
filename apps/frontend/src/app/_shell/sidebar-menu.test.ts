@@ -453,7 +453,7 @@ describe('programScopeSidebarGroups', () => {
     boardPostCount: 3,
   } as const;
 
-  it('STUDENT view: 내 제출물 parent with completed/total, no 서류 현황', () => {
+  it('STUDENT view: 단계 탐색을 불러오기 전에는 제출 항목 요약을 레거시 체크리스트 링크로 쓰지 않는다', () => {
     const groups = programScopeSidebarGroups({
       ...base,
       viewerRole: 'STUDENT',
@@ -478,14 +478,12 @@ describe('programScopeSidebarGroups', () => {
     expect(overview?.items.some((i) => i.label === '신청자')).toBe(false);
     expect(documents?.items[0]).toMatchObject({
       label: '내 제출물',
+      href: '/programs/prog-1/documents',
       count: '2/6',
       depth: 0,
     });
-    expect(documents?.items[1]).toMatchObject({
-      label: '프로젝트 계획서 제출',
-      count: '2/3',
-      depth: 1,
-    });
+    expect(documents?.items).toHaveLength(1);
+    expect(documents?.items[0]?.href).not.toContain('milestoneId=');
     expect(documents?.items.some((i) => i.label === '서류 현황')).toBe(false);
     expect(board?.items[0]).toMatchObject({ label: '게시판', count: '3' });
   });
@@ -521,17 +519,94 @@ describe('programScopeSidebarGroups', () => {
       href: '/programs/prog-1/applicants',
     });
     const documents = groups[1];
-    expect(documents?.items[0]?.label).toBe('서류 현황');
+    expect(documents?.items[0]).toMatchObject({
+      label: '서류 현황',
+      href: '/programs/prog-1/documents',
+    });
     expect(documents?.items[0]?.count).toBeUndefined();
     expect(documents?.items[1]).toMatchObject({
-      label: '프로젝트 계획서 제출',
-      count: '2/47팀',
+      label: '모든 단계',
+      href: '/programs/prog-1/documents',
+      count: '47팀',
     });
     expect(documents?.items[2]).toMatchObject({
+      label: '프로젝트 계획서 제출',
+      href: '/programs/prog-1/documents?milestoneId=m3',
+      count: '2/47팀',
+    });
+    expect(documents?.items[3]).toMatchObject({
       label: '1차 중간 산출물 제출',
+      href: '/programs/prog-1/documents?milestoneId=m4',
       count: '0/47팀',
     });
     expect(documents?.items.some((i) => i.label === '내 제출물')).toBe(false);
+  });
+
+  it('STAFF view: 서류 항목이 없는 단계도 전체 단계 탐색에는 남긴다', () => {
+    const groups = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+      milestones: [
+        {
+          milestoneId: 'm1',
+          title: '1차 계획서',
+          submissionEnabled: true,
+        },
+        {
+          milestoneId: 'm2',
+          title: '중간 보고서',
+          submissionEnabled: true,
+        },
+      ],
+      milestoneDocuments: [
+        {
+          milestoneId: 'm1',
+          title: '1차 계획서',
+          completed: 2,
+          total: 3,
+        },
+      ],
+    });
+
+    expect(groups[1]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: '1차 계획서',
+          href: '/programs/prog-1/documents?milestoneId=m1',
+          count: '2/47팀',
+        }),
+        expect.objectContaining({
+          label: '중간 보고서',
+          href: '/programs/prog-1/documents?milestoneId=m2',
+          count: undefined,
+        }),
+      ]),
+    );
+  });
+
+  it('STUDENT view: 제출을 받지 않는 안내 단계는 내 제출물 탐색에서 뺀다', () => {
+    const groups = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STUDENT',
+      milestones: [
+        {
+          milestoneId: 'm1',
+          title: '1차 계획서',
+          submissionEnabled: true,
+        },
+        {
+          milestoneId: 'notice',
+          title: '오리엔테이션',
+          submissionEnabled: false,
+        },
+      ],
+      milestoneDocuments: [],
+    });
+
+    expect(groups[1]?.items.map((item) => item.label)).toEqual([
+      '내 제출물',
+      '1차 계획서',
+    ]);
   });
 
   it('ADMIN viewer is treated as staff view', () => {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import {
@@ -202,6 +203,18 @@ class LegacySubmissionSlotMissingError extends Error {
   override readonly name = 'LegacySubmissionSlotMissingError';
 }
 
+/** 내부 슬롯은 서류 목록의 맨 앞에 두어 일반 서류(0부터)와 섞이지 않게 한다. */
+const LEGACY_SUBMISSION_SLOT_SORT_ORDER = -1;
+
+/**
+ * 이관이 쓴 것과 같은 결정적 id — `20260830100000_bridge_legacy_submissions` 의
+ * `CONCAT('legacy_document_', MD5(milestone."id"))` 와 바이트 단위로 같아야 한다.
+ * 해시는 신원 파생에만 쓰고 보안 용도가 아니다.
+ */
+function legacySubmissionSlotIdFor(milestoneId: string): string {
+  return `legacy_document_${createHash('md5').update(milestoneId).digest('hex')}`;
+}
+
 const MILESTONE_SELECT = {
   id: true,
   programId: true,
@@ -284,6 +297,68 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     `);
     return programs[0]?.endAt ?? null;
   }
+
+  /**
+   * 옛 방식 마일스톤의 내부 제출 슬롯 id — 없으면 그 자리에서 만든다.
+   *
+   * 2026-08-30 이관은 **제출 기록이 이미 있던** 마일스톤에만 슬롯을 만들었다
+   * (`20260830100000_bridge_legacy_submissions`의 `FROM "Submission"`). 그래서 그때까지
+   * 아무도 내지 않은 옛 마일스톤은 슬롯이 없고, 첫 제출이 저장할 자리를 찾지 못했다(#1089).
+   *
+   * 슬롯은 이 흐름의 내부 저장 구조일 뿐 사용자가 만드는 것이 아니므로, 없으면 첫 제출이
+   * 만든다. id·이름·정렬값을 이관과 같은 모양으로 두어 이관된 슬롯과 구분되지 않게 한다 —
+   * 갈라 두면 나중에 슬롯을 세는 쪽이 두 모양을 모두 알아야 한다.
+   *
+   * `ON CONFLICT DO NOTHING` 은 같은 마일스톤에 첫 제출이 동시에 들어올 때를 위한 것이다.
+   * 부분 유일 인덱스(`MilestoneDocument_one_legacy_submission_slot_key`)가 한 개만 남기고,
+   * 진 쪽은 오류 없이 이긴 행을 다시 읽는다. 트랜잭션 안이라 예외가 나면 그 자리에서 끊긴다.
+   */
+  private async legacySubmissionSlotId(milestoneId: string): Promise<string> {
+    const existing = await this.findLegacySubmissionSlot(milestoneId);
+    if (existing !== null) return existing;
+
+    const milestone = await this.database.milestone.findFirst({
+      where: { id: milestoneId },
+      select: { name: true, createdAt: true, updatedAt: true },
+    });
+    if (milestone === null) throw new LegacySubmissionSlotMissingError();
+
+    await this.database.$queryRaw(Prisma.sql`
+      INSERT INTO "MilestoneDocument" (
+        "id", "milestoneId", "name", "required", "sortOrder", "kind",
+        "createdAt", "updatedAt"
+      )
+      VALUES (
+        ${legacySubmissionSlotIdFor(milestoneId)},
+        ${milestoneId},
+        ${milestone.name},
+        TRUE,
+        ${LEGACY_SUBMISSION_SLOT_SORT_ORDER},
+        ${MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION}::"MilestoneDocumentKind",
+        ${milestone.createdAt},
+        ${milestone.updatedAt}
+      )
+      ON CONFLICT DO NOTHING
+    `);
+
+    const created = await this.findLegacySubmissionSlot(milestoneId);
+    if (created === null) throw new LegacySubmissionSlotMissingError();
+    return created;
+  }
+
+  private async findLegacySubmissionSlot(
+    milestoneId: string,
+  ): Promise<string | null> {
+    const document = await this.database.milestoneDocument.findFirst({
+      where: {
+        milestoneId,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+      select: { id: true },
+    });
+    return document?.id ?? null;
+  }
+
   async createSubmission(
     input: CreateSubmissionInput,
     submittedById: string,
@@ -291,19 +366,12 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     fileExpiresAt: Date | null,
   ): Promise<CreatedSubmission> {
     try {
-      const document = await this.database.milestoneDocument.findFirst({
-        where: {
-          milestoneId: input.milestoneId,
-          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-        },
-        select: { id: true },
-      });
-      if (document === null) throw new LegacySubmissionSlotMissingError();
+      const documentId = await this.legacySubmissionSlotId(input.milestoneId);
 
       const submission = await this.database.milestoneDocumentSubmission.create(
         {
           data: {
-            milestoneDocumentId: document.id,
+            milestoneDocumentId: documentId,
             applicationId: input.applicationId,
             status: SubmissionStatus.SUBMITTED,
             content: submissionContentJson(input.content),

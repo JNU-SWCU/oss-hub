@@ -1,49 +1,18 @@
-import Link from 'next/link';
-import type { FormEvent, ReactElement, ReactNode } from 'react';
-import {
-  DataTable,
-  EmptyState,
-  PageBody,
-  PageHeader,
-  StatusBadge,
-  type DataTableColumn,
-} from '@/components';
+import { Search } from 'lucide-react';
+import type { FormEvent } from 'react';
+import { PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { MatrixQuickFilter } from '../matrix';
+import type { SubmissionMatrixPage } from '../types';
+import { MatrixBody } from './submission-matrix-body';
 import {
-  applyMatrixQuickFilter,
-  cellForMilestone,
-  formatMatrixDueDate,
-  formatSubmittedAt,
-  MATRIX_MODE_LABELS,
-  MATRIX_CELL_DISPLAY_LABELS,
-  MATRIX_CELL_DISPLAY_VARIANTS,
-  matrixCellDisplay,
-  matrixEmptyKind,
-  matrixPageStats,
-  matrixRowHasEmptyCell,
-  matrixRowIsZeroSubmission,
-  matrixRowTitle,
-  matrixTotalPages,
-  notSubmittedDeadline,
-  type MatrixQuickFilter,
-} from '../matrix';
-import { programEditHref } from '@/lib/program-route';
-import type {
-  MatrixCell,
-  MatrixMilestone,
-  MatrixRow,
-  SubmissionMatrixPage,
-} from '../types';
+  MatrixFocusSummary,
+  MatrixStageNavigation,
+} from './submission-matrix-stage-navigation';
 
 const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
-const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
-/**
- * 필터 줄 — 시안은 필터를 카드에 넣지 않는다. 표(카드)와 제목 사이의 조작 줄이다.
- * grid item은 검색 필드 + 버튼 그룹, 2개뿐이다. sm 이상에서는 검색 필드가 남는
- * 폭을 모두 갖고(1fr) 버튼 그룹은 내용만큼만(auto) 차지해 우측에 정렬된다(#865).
- */
 const FILTER_ROW =
   'grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end';
 
@@ -52,370 +21,18 @@ export interface SubmissionMatrixViewProps {
   readonly data: SubmissionMatrixPage | null;
   readonly search: string;
   readonly filterActive: boolean;
-  /** #619 스펙 3버튼 빠른 필터 — 서버 재조회 없이 로드된 페이지 행만 거른다. */
   readonly quickFilter: MatrixQuickFilter;
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly now: Date;
+  readonly selectedMilestoneId: string | null;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
   readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
   readonly onResetFilters: () => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
-}
-
-/**
- * 매트릭스 셀(#124) — 제출이 있는 셀만 백엔드가 준 reviewUrl(#125 검토 화면)로
- * 링크한다. NOT_SUBMITTED는 링크 없이 상태 + dueAt 파생 보조 표시(OVERDUE/D-n)만.
- */
-function MatrixCellContent({
-  cell,
-  milestone,
-  now,
-}: {
-  readonly cell: MatrixCell;
-  readonly milestone: MatrixMilestone;
-  readonly now: Date;
-}): ReactElement {
-  // 최신 판정 상태를 그대로 보여 준다(QA49) — 검토 전 셀만 마감 초과 여부로
-  // 지각 제출을 가른다. 승인·보완 요청·반려는 이미 검토를 거친 결과다.
-  const display = matrixCellDisplay(cell, milestone);
-  const badge = (
-    <StatusBadge variant={MATRIX_CELL_DISPLAY_VARIANTS[display]}>
-      {MATRIX_CELL_DISPLAY_LABELS[display]}
-    </StatusBadge>
-  );
-  if (cell.status === 'NOT_SUBMITTED') {
-    const deadline = notSubmittedDeadline(milestone.dueAt, now);
-    return (
-      <span className="flex flex-col items-start gap-1">
-        {badge}
-        <span
-          className={
-            deadline.overdue
-              ? 'text-small font-semibold text-destructive'
-              : 'text-small text-muted-foreground'
-          }
-        >
-          {deadline.label}
-        </span>
-      </span>
-    );
-  }
-  // 제출 시각 + revision을 한 줄에, 최신 판정 배지는 그 위(#865, QA49 판정 상태 반영).
-  const submittedAtLabel =
-    cell.submittedAt !== null ? formatSubmittedAt(cell.submittedAt) : null;
-  const revisionLabel = cell.revision !== null ? `v${cell.revision}` : null;
-  const secondaryLine = [submittedAtLabel, revisionLabel]
-    .filter((part): part is string => part !== null)
-    .join(' · ');
-  const meta = (
-    <span className="flex flex-col items-start gap-1">
-      <span className="flex flex-wrap items-center gap-1">{badge}</span>
-      {secondaryLine !== '' ? (
-        <span className="text-small text-muted-foreground">
-          {secondaryLine}
-        </span>
-      ) : null}
-    </span>
-  );
-  if (cell.reviewUrl === null) return meta;
-  return (
-    <Link
-      href={cell.reviewUrl}
-      aria-label={`${milestone.name} 제출물 검토`}
-      className="inline-flex flex-col items-start gap-1 hover:opacity-80"
-    >
-      {meta}
-    </Link>
-  );
-}
-
-function MatrixPagination({
-  page,
-  totalPages,
-  onPageChange,
-}: {
-  readonly page: number;
-  readonly totalPages: number;
-  readonly onPageChange: (page: number) => void;
-}): ReactElement | null {
-  if (totalPages <= 1) return null;
-  return (
-    <nav
-      aria-label="제출 현황 페이지"
-      className="flex items-center justify-center gap-3"
-    >
-      <Button
-        disabled={page <= 1}
-        onClick={() => onPageChange(page - 1)}
-        variant="outline"
-      >
-        이전
-      </Button>
-      <span className="text-small text-muted-foreground">
-        {page} / {totalPages}
-      </span>
-      <Button
-        disabled={page >= totalPages}
-        onClick={() => onPageChange(page + 1)}
-        variant="outline"
-      >
-        다음
-      </Button>
-    </nav>
-  );
-}
-
-function MatrixSkeleton(): ReactElement {
-  return (
-    <div
-      aria-busy="true"
-      aria-label="제출 현황을 불러오는 중"
-      className="flex flex-col gap-3 rounded-card border border-border p-card"
-    >
-      <span className="bg-muted h-4 w-1/3 animate-pulse rounded" />
-      {[0, 1, 2, 3].map((row) => (
-        <span key={row} className="bg-muted h-3 w-full animate-pulse rounded" />
-      ))}
-    </div>
-  );
-}
-
-/**
- * 통계 요약 — #619 스펙의 4종 통계를 현재 페이지에 로드된 행 기준으로 낸다.
- * "전체 47팀" 같은 전수 집계는 페이지네이션 때문에 이 화면만으로 낼 수 없어
- * "이 페이지" 표기를 붙인다(matrix.ts matrixPageStats 주석 참고).
- */
-function MatrixStatsStrip({
-  rows,
-  milestones,
-}: {
-  readonly rows: readonly MatrixRow[];
-  readonly milestones: readonly MatrixMilestone[];
-}): ReactElement {
-  const stats = matrixPageStats(rows, milestones);
-  const facts: { readonly label: string; readonly value: string }[] = [
-    { label: '제출', value: `${stats.filledCells}/${stats.totalCells}` },
-    { label: '미제출', value: `${stats.emptyCells}건` },
-    { label: '전체 미제출', value: `${stats.zeroSubmissionRows}팀` },
-    { label: '지각', value: `${stats.lateCells}건` },
-  ];
-  return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-card border border-border p-card sm:grid-cols-4">
-      {facts.map((fact) => (
-        <div key={fact.label} className="flex flex-col gap-1">
-          <dt className="text-small text-muted-foreground">{fact.label}</dt>
-          <dd className="text-lg font-semibold">{fact.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-const QUICK_FILTER_BUTTON_BASE =
-  'h-control px-4 text-small font-semibold transition-colors';
-
-/**
- * 3버튼 빠른 필터(#619 스펙) — "전체 N팀"/"미제출 포함 N팀"/"전체 미제출 N팀".
- * 흩어진 pill이 아니라 한 컨테이너 안에 구분선으로 나뉜 세그먼트 컨트롤(#865).
- * 선택됨: secondary 배경 + foreground 텍스트 / 미선택: card 배경 + muted 텍스트.
- */
-function MatrixQuickFilterButtons({
-  rows,
-  milestones,
-  quickFilter,
-  onQuickFilterChange,
-}: {
-  readonly rows: readonly MatrixRow[];
-  readonly milestones: readonly MatrixMilestone[];
-  readonly quickFilter: MatrixQuickFilter;
-  readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
-}): ReactElement {
-  const hasEmptyCount = rows.filter((row) =>
-    matrixRowHasEmptyCell(row, milestones),
-  ).length;
-  const zeroSubmissionCount = rows.filter((row) =>
-    matrixRowIsZeroSubmission(row, milestones),
-  ).length;
-  const options: {
-    readonly value: MatrixQuickFilter;
-    readonly label: string;
-  }[] = [
-    { value: 'ALL', label: `전체 ${rows.length}팀` },
-    { value: 'HAS_EMPTY', label: `미제출 포함 ${hasEmptyCount}팀` },
-    {
-      value: 'ZERO_SUBMISSION',
-      label: `전체 미제출 ${zeroSubmissionCount}팀`,
-    },
-  ];
-  return (
-    <div
-      role="group"
-      aria-label="빠른 필터"
-      className="inline-flex w-fit divide-x divide-border overflow-hidden rounded-control border border-border"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={quickFilter === option.value}
-          className={
-            quickFilter === option.value
-              ? `${QUICK_FILTER_BUTTON_BASE} bg-secondary text-foreground`
-              : `${QUICK_FILTER_BUTTON_BASE} bg-card text-muted-foreground`
-          }
-          onClick={() => onQuickFilterChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
-  if (props.isLoading) return <MatrixSkeleton />;
-  if (props.data === null) return null;
-
-  const { milestones, rows, page, pageSize, total } = props.data;
-  const empty = matrixEmptyKind({
-    milestoneCount: milestones.length,
-    rowCount: rows.length,
-    filterActive: props.filterActive,
-  });
-
-  if (empty === 'no-milestones') {
-    return (
-      <EmptyState
-        title="마일스톤이 없습니다"
-        description="프로그램에 마일스톤을 추가하면 제출 현황을 조회할 수 있습니다."
-        action={
-          <Button asChild variant="outline">
-            <Link href={programEditHref(props.programId)}>마일스톤 추가</Link>
-          </Button>
-        }
-      />
-    );
-  }
-  if (empty === 'no-applications') {
-    return (
-      <EmptyState
-        title="참여 중인 신청이 없습니다"
-        description="승인된 신청이 생기면 여기에 표시됩니다."
-      />
-    );
-  }
-  if (empty === 'no-results') {
-    return (
-      <EmptyState
-        title="검색 결과가 없습니다"
-        description="다른 검색어를 사용해 보세요."
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={props.onResetFilters}
-          >
-            필터 초기화
-          </Button>
-        }
-      />
-    );
-  }
-
-  const columns: DataTableColumn<MatrixRow>[] = [
-    {
-      id: 'application',
-      header: '신청',
-      headClassName: 'sticky left-0 z-10 min-w-48 bg-background',
-      cellClassName: 'sticky left-0 z-10 min-w-48 bg-background',
-      cell: (row) => (
-        <span className="flex flex-col gap-0.5">
-          <span className="font-medium">
-            {matrixRowTitle(row)} · {MATRIX_MODE_LABELS[row.applicationMode]}
-          </span>
-          {row.githubLogins.length > 0 ? (
-            <span className="text-small text-muted-foreground">
-              {row.githubLogins.map((login) => `@${login}`).join(' ')}
-            </span>
-          ) : null}
-        </span>
-      ),
-    },
-    ...milestones.map((milestone): DataTableColumn<MatrixRow> => ({
-      id: milestone.id,
-      header: (
-        <span className="flex flex-col gap-0.5">
-          <span>{milestone.name}</span>
-          <span className="text-small font-normal text-muted-foreground">
-            {formatMatrixDueDate(milestone.dueAt)} 마감
-          </span>
-        </span>
-      ),
-      headClassName: 'min-w-32',
-      cellClassName: 'min-w-32',
-      cell: (row) => (
-        <MatrixCellContent
-          cell={cellForMilestone(row, milestone.id)}
-          milestone={milestone}
-          now={props.now}
-        />
-      ),
-    })),
-  ];
-
-  const quickFiltered = applyMatrixQuickFilter(
-    rows,
-    milestones,
-    props.quickFilter,
-  );
-
-  return (
-    <>
-      <MatrixStatsStrip rows={rows} milestones={milestones} />
-      <MatrixQuickFilterButtons
-        rows={rows}
-        milestones={milestones}
-        quickFilter={props.quickFilter}
-        onQuickFilterChange={props.onQuickFilterChange}
-      />
-      <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
-        이 페이지 {rows.length}건(전체 {total}건) 중 {quickFiltered.length}건
-        표시 · 표를 좌우로 스크롤할 수 있습니다.
-      </p>
-      {quickFiltered.length === 0 ? (
-        <EmptyState
-          title="조건에 맞는 팀이 없습니다"
-          description="빠른 필터를 바꿔 다시 확인해 보세요."
-          action={
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => props.onQuickFilterChange('ALL')}
-            >
-              전체 보기
-            </Button>
-          }
-        />
-      ) : (
-        <DataTable
-          className={TABLE_CARD}
-          aria-describedby="matrix-scroll-hint"
-          scrollRegionLabel="마일스톤 제출 현황 표"
-          columns={columns}
-          data={[...quickFiltered]}
-          rowKey={(row) => row.applicationId}
-        />
-      )}
-      <MatrixPagination
-        page={page}
-        totalPages={matrixTotalPages(total, pageSize)}
-        onPageChange={props.onPageChange}
-      />
-    </>
-  );
+  readonly onSelectMilestone: (milestoneId: string | null) => void;
 }
 
 export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
@@ -423,10 +40,12 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
     event.preventDefault();
     props.onSearch();
   };
-  // 초기화는 검색어나 빠른 필터 중 하나라도 걸려 있을 때만 보인다(#865) —
-  // 아무 필터도 없으면 누를 게 없는 버튼이라 항상 두지 않는다.
   const hasActiveFilter =
     props.search.trim() !== '' || props.quickFilter !== 'ALL';
+  const selectedMilestone =
+    props.data?.milestones.find(
+      (milestone) => milestone.id === props.selectedMilestoneId,
+    ) ?? null;
 
   return (
     <PageBody>
@@ -434,14 +53,31 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
         title="서류 현황"
         description={
           <span className="break-keep">
-            팀·개인별 마일스톤 제출 여부와 제출 시각을 확인합니다.
+            팀·개인별 제출 여부와 제출 시간을 확인합니다.
           </span>
         }
       />
       <div className={SECTION_BODY}>
+        {props.data && props.data.milestones.length > 0 ? (
+          <MatrixStageNavigation
+            milestones={props.data.milestones}
+            selectedMilestoneId={selectedMilestone?.id ?? null}
+            onSelectMilestone={props.onSelectMilestone}
+          />
+        ) : null}
+        {selectedMilestone ? (
+          <MatrixFocusSummary milestone={selectedMilestone} />
+        ) : null}
         <form className={FILTER_ROW} onSubmit={submit}>
           <div className="flex w-full min-w-0 flex-col gap-2">
-            <label htmlFor="matrix-search" className="text-small font-semibold">
+            <label
+              htmlFor="matrix-search"
+              className="inline-flex items-center gap-2 text-small font-semibold"
+            >
+              <Search
+                aria-hidden="true"
+                className="size-4 text-muted-foreground"
+              />
               검색
             </label>
             <Input
@@ -453,8 +89,6 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
             />
           </div>
           <div className="flex w-full min-w-0 gap-2">
-            {/* 조회는 항상 있는 주 행동, 초기화는 필터가 걸려 있을 때만 보인다(#865).
-                버튼은 글자만큼만 넓힌다. 좁은 화면에서만 한 줄을 반씩 나눠 갖는다. */}
             <Button type="submit" className="h-control flex-1 sm:flex-none">
               조회
             </Button>

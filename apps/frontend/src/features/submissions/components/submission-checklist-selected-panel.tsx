@@ -3,7 +3,7 @@ import { StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
-import { studentProgramSubmissionHref } from '@/lib/program-route';
+import { programDocumentsHref } from '@/lib/program-route';
 import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-files';
 import {
   CHECKLIST_STATUS_LABELS,
@@ -44,12 +44,7 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
           아직 제출 전입니다. 제출 화면에서 최초 제출을 진행해 주세요.
         </p>
         <Button asChild className="w-fit">
-          <Link
-            href={studentProgramSubmissionHref(
-              props.programId,
-              item.milestoneId,
-            )}
-          >
+          <Link href={programDocumentsHref(props.programId, item.milestoneId)}>
             제출하기
           </Link>
         </Button>
