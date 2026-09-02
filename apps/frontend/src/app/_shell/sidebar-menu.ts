@@ -1,4 +1,5 @@
 import type { NavItem } from '@/components';
+import { programDocumentsHref } from '@/lib/program-route';
 import {
   ARCHIVE_CATEGORIES,
   ARCHIVE_LIST_FILTER_LABELS,
@@ -156,6 +157,13 @@ export interface ProgramScopeMilestoneDocsSummary {
   readonly total: number;
 }
 
+export interface ProgramScopeMilestoneNavigation {
+  readonly milestoneId: string;
+  readonly title: string;
+  /** 학생의 내 제출물에는 실제 제출을 받는 단계만 노출한다. */
+  readonly submissionEnabled: boolean;
+}
+
 export interface ProgramScopeSidebarInput {
   readonly programId: string;
   readonly viewerRole: ProgramScopeViewerRole;
@@ -167,6 +175,8 @@ export interface ProgramScopeSidebarInput {
     readonly completed: number;
     readonly total: number;
   };
+  /** 화면 크기와 무관하게 쓰는 전체 단계 탐색 목록. */
+  readonly milestones?: readonly ProgramScopeMilestoneNavigation[];
   /** 서류가 있는 마일스톤만, 순서대로. 없으면 부모 항목만(자식 없이) 렌더. */
   readonly milestoneDocuments?: readonly ProgramScopeMilestoneDocsSummary[];
 }
@@ -176,7 +186,8 @@ export interface ProgramScopeSidebarInput {
  * docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널 그대로 — g2 부모 라벨·자식 유무는 역할로 갈린다.
  * 교직원·관리자 개요 그룹에는 **신청자**(`/applicants`)를 붙인다 — 승인·반려 창구다.
  * 참여 팀만 두면 사이드바만 따라온 교직원이 판정 화면에 도달하지 못한다.
- * hrefs는 `programHref` 접미사(`/teams`, `/applicants`, `/status`, `/mydocs`, `/board`)로 만든다 —
+ * hrefs는 `programHref` 접미사(`/teams`, `/applicants`, `/board`)와 역할 공통
+ * `programDocumentsHref`로 만든다 —
  * 해당 라우트가 아직 없다면 이 함수 하나만 고치면 된다(docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널).
  *
  * `GUEST`는 예외다 — 참여 팀·신청자·서류 현황·게시판 전부 회원 전용 데이터라 근거 없이 보여줄
@@ -192,6 +203,7 @@ export function programScopeSidebarGroups(
     teamCount,
     boardPostCount,
     viewerDocuments,
+    milestones,
     milestoneDocuments = [],
   } = input;
 
@@ -212,6 +224,18 @@ export function programScopeSidebarGroups(
   }
 
   const isStaffView = viewerRole !== 'STUDENT';
+  const fallbackMilestones: readonly ProgramScopeMilestoneNavigation[] =
+    milestoneDocuments.map((milestone) => ({
+      milestoneId: milestone.milestoneId,
+      title: milestone.title,
+      submissionEnabled: true,
+    }));
+  const navigationMilestones = (
+    milestones ?? (isStaffView ? fallbackMilestones : [])
+  ).filter((milestone) => isStaffView || milestone.submissionEnabled);
+  const documentSummaryByMilestone = new Map(
+    milestoneDocuments.map((milestone) => [milestone.milestoneId, milestone]),
+  );
 
   const overviewItems: ProgramScopeSidebarItem[] = [
     {
@@ -246,13 +270,13 @@ export function programScopeSidebarGroups(
   const documentsParent: ProgramScopeSidebarItem = isStaffView
     ? {
         label: '서류 현황',
-        href: programHref(programId, '/status'),
+        href: programDocumentsHref(programId),
         icon: 'inbox',
         depth: 0,
       }
     : {
         label: '내 제출물',
-        href: programHref(programId, '/mydocs'),
+        href: programDocumentsHref(programId),
         icon: 'inbox',
         depth: 0,
         count: viewerDocuments
@@ -260,18 +284,34 @@ export function programScopeSidebarGroups(
           : undefined,
       };
 
-  const documentsChildren: readonly ProgramScopeSidebarItem[] =
-    milestoneDocuments.map((milestone) => ({
-      label: milestone.title,
-      href: isStaffView
-        ? `${programHref(programId, '/status')}?milestoneId=${encodeURIComponent(milestone.milestoneId)}`
-        : programHref(programId, '/mydocs'),
-      icon: 'inbox',
-      depth: 1,
-      count: isStaffView
-        ? `${milestone.completed}/${teamCount}팀`
-        : `${milestone.completed}/${milestone.total}`,
-    }));
+  const allStagesItem: readonly ProgramScopeSidebarItem[] =
+    isStaffView && navigationMilestones.length > 0
+      ? [
+          {
+            label: '모든 단계',
+            href: programDocumentsHref(programId),
+            icon: 'inbox',
+            depth: 1,
+            count: `${teamCount}팀`,
+          },
+        ]
+      : [];
+  const milestoneItems: readonly ProgramScopeSidebarItem[] =
+    navigationMilestones.map((milestone) => {
+      const summary = documentSummaryByMilestone.get(milestone.milestoneId);
+      return {
+        label: milestone.title,
+        href: programDocumentsHref(programId, milestone.milestoneId),
+        icon: 'inbox',
+        depth: 1,
+        count: summary
+          ? isStaffView
+            ? `${summary.completed}/${teamCount}팀`
+            : `${summary.completed}/${summary.total}`
+          : undefined,
+      };
+    });
+  const documentsChildren = [...allStagesItem, ...milestoneItems];
 
   const documentsGroup: ProgramScopeSidebarGroup = {
     label: documentsParent.label,
