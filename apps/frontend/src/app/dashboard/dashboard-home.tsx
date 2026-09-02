@@ -13,7 +13,7 @@ import { useSharedSessionRole } from '../_shell/session-role-context';
  * 그대로 쓴다. 게이트를 다시 호출하지 않는다.
  *
  * ADMIN은 교직원 업무까지 수행하므로 STAFF와 같은 운영 대시보드를 본다.
- * 관리 도구는 `/admin/*` 라우트만 담당한다.
+ * 관리 도구도 역할을 드러내지 않는 `/dashboard/*` 경로를 사용한다.
  *
  * 이 컴포넌트는 `allow={STUDENT|STAFF|ADMIN}` 게이트 안에서만 마운트된다.
  * 비회원·미완료 가입자는 여기까지 오지 않으므로 AccessDenied를 그리지 않는다.
@@ -23,6 +23,6 @@ export function DashboardHome() {
 
   if (hasStaffAccess) return <StaffDashboardPage />;
   if (memberKind === 'STUDENT') return <StudentDashboardScreen />;
-  if (hasAdminAccess) redirect('/admin/access');
+  if (hasAdminAccess) redirect('/dashboard/users');
   return null;
 }

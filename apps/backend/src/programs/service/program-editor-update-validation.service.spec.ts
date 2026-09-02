@@ -127,6 +127,8 @@ describe('ProgramEditorService update validation', () => {
         expect.objectContaining({
           field: 'endAt',
           code: 'INVALID_PROGRAM_END',
+          message:
+            '프로그램 종료일은 유효한 시각이어야 하고 운영 시작일 이후이며 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.',
         }),
       ]),
     );
@@ -137,13 +139,13 @@ describe('ProgramEditorService update validation', () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue({
       ...editableProgram,
-      endAt: '2026-08-16T00:00:00.000Z',
+      endAt: '2026-08-18T00:00:00.000Z',
     });
 
     await expect(
       service.updateProgram(101n, 'program-1', {
         ...updateInput,
-        applicationEndAt: '2026-08-17T00:00:00.000Z',
+        applicationEndAt: '2026-08-19T00:00:00.000Z',
         endAt: undefined,
       }),
     ).rejects.toMatchObject<Partial<DomainException>>({
@@ -152,16 +154,37 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
-  it('allows an equal application boundary before the operating period', async () => {
+  it('allows saving an existing overlap between application and operating periods', async () => {
     const { service, store } = createProgramEditorServiceHarness();
-    store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      applicationEndAt: new Date('2026-08-18T00:00:00.000Z'),
+    });
     store.updateProgram.mockResolvedValue(editableProgram);
 
     await expect(
       service.updateProgram(101n, 'program-1', {
         ...updateInput,
-        applicationStartAt: '2026-08-01T00:00:00.000Z',
-        applicationEndAt: '2026-08-01T00:00:00.000Z',
+        applicationEndAt: '2026-08-18T00:00:00.000Z',
+      }),
+    ).resolves.toBeDefined();
+    expect(store.updateProgram.mock.calls).toHaveLength(1);
+  });
+
+  it('allows application end to equal program end without milestones', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      milestones: [],
+    });
+    store.updateProgram.mockResolvedValue(editableProgram);
+
+    await expect(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        applicationEndAt: '2026-08-18T00:00:00.000Z',
+        endAt: '2026-08-18T00:00:00.000Z',
+        repositoryProvisioningEnabled: false,
       }),
     ).resolves.toBeDefined();
     expect(store.updateProgram.mock.calls).toHaveLength(1);
@@ -256,21 +279,18 @@ describe('ProgramEditorService update validation', () => {
     },
   );
 
-  it('rejects an application end date that reaches an existing milestone', async () => {
+  it('allows an application end date after a milestone inside the operation period', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+    store.updateProgram.mockResolvedValue(editableProgram);
 
     await expect(
       service.updateProgram(101n, 'program-1', {
         ...updateInput,
-        applicationEndAt: '2026-08-20T00:00:00.000Z',
+        applicationEndAt: '2026-08-21T00:00:00.000Z',
       }),
-    ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
-      extensions: {
-        fieldErrors: [expect.objectContaining({ field: 'startAt' })],
-      },
-    });
+    ).resolves.toBeDefined();
+    expect(store.updateProgram.mock.calls).toHaveLength(1);
   });
   it('기존 종료일이 있는 프로그램의 종료일 변경을 허용한다', async () => {
     const { service, store } = createProgramEditorServiceHarness();
@@ -312,11 +332,11 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
-  it('rejects a non-finite or application-boundary program end date', async () => {
+  it('rejects a non-finite program end date', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
 
-    for (const endAt of ['not-a-date', updateInput.applicationEndAt] as const) {
+    for (const endAt of ['not-a-date'] as const) {
       const exception = await expectDomainException(
         service.updateProgram(101n, 'program-1', {
           ...updateInput,
@@ -380,21 +400,23 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
-  it('rejects a program end date at an existing milestone boundary', async () => {
+  it('allows a program end date at an existing milestone boundary', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
 
-    const exception = await expectDomainException(
-      service.updateProgram(101n, 'program-1', {
-        ...updateInput,
-        endAt: editableProgram.milestones[0].dueAt.toISOString(),
-      }),
-    );
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      endAt: editableProgram.milestones[0].dueAt.toISOString(),
+    });
 
-    expect(exception.extensions.fieldErrors).toEqual([
-      expect.objectContaining({ field: 'endAt' }),
+    expect(store.updateProgram.mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          programId: 'program-1',
+          endAt: editableProgram.milestones[0].dueAt,
+        }),
+      ],
     ]);
-    expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
   it('allows moving a set program end later while preserving other update data', async () => {

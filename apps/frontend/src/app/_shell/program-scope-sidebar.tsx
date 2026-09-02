@@ -1,13 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ProgramCountdown } from '@/components';
 import type { CountdownMilestone } from '@/components/program-countdown';
 import { ShellIcon } from './shell-icons';
@@ -15,6 +11,7 @@ import type {
   ProgramScopeSidebarGroup,
   ProgramScopeSidebarItem,
 } from './sidebar-menu';
+import { ScopeSidebarLink } from './program-scope-sidebar-link';
 
 /**
  * 프로그램 상세(`/programs/:id` 하위) 전용 좌측 패널.
@@ -28,21 +25,27 @@ export interface ProgramScopeSidebarProps {
   readonly programName: string;
   readonly groups: readonly ProgramScopeSidebarGroup[];
   readonly pathname: string;
+  readonly search: string;
   readonly collapsed: boolean;
   readonly onToggle: () => void;
   readonly backHref: string;
   /** 남은 마감 목록. undefined는 개요 미도착/실패, []는 모든 마감 종료를 뜻한다. */
   readonly remainingMilestones?: readonly CountdownMilestone[];
+  readonly milestoneNavigationFailed?: boolean;
+  readonly onRetryMilestoneNavigation?: () => void;
 }
 
 export function ProgramScopeSidebar({
   programName,
   groups,
   pathname,
+  search,
   collapsed,
   onToggle,
   backHref,
   remainingMilestones,
+  milestoneNavigationFailed = false,
+  onRetryMilestoneNavigation,
 }: ProgramScopeSidebarProps) {
   const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
 
@@ -100,8 +103,11 @@ export function ProgramScopeSidebar({
       <ProgramScopeSidebarNav
         groups={groups}
         pathname={pathname}
+        search={search}
         collapsed={collapsed}
         ariaLabel={programName}
+        milestoneNavigationFailed={milestoneNavigationFailed}
+        onRetryMilestoneNavigation={onRetryMilestoneNavigation}
       />
 
       {!collapsed && remainingMilestones !== undefined ? (
@@ -126,8 +132,30 @@ export function ProgramScopeSidebar({
 export interface ProgramScopeSidebarNavProps {
   readonly groups: readonly ProgramScopeSidebarGroup[];
   readonly pathname: string;
+  readonly search: string;
   readonly collapsed: boolean;
   readonly ariaLabel: string;
+  readonly milestoneNavigationFailed?: boolean;
+  readonly onRetryMilestoneNavigation?: () => void;
+}
+
+function stageHrefWithCurrentQuery(
+  item: ProgramScopeSidebarItem,
+  pathname: string,
+  search: string,
+): string {
+  if ((item.depth ?? 0) !== 1) return item.href;
+
+  const [targetPath = item.href, targetSearch = ''] = item.href.split('?');
+  if (targetPath !== pathname) return item.href;
+
+  const nextSearch = new URLSearchParams(search);
+  const milestoneId = new URLSearchParams(targetSearch).get('milestoneId');
+  if (milestoneId === null) nextSearch.delete('milestoneId');
+  else nextSearch.set('milestoneId', milestoneId);
+
+  const query = nextSearch.toString();
+  return `${targetPath}${query ? `?${query}` : ''}`;
 }
 
 /**
@@ -137,9 +165,26 @@ export interface ProgramScopeSidebarNavProps {
 export function ProgramScopeSidebarNav({
   groups,
   pathname,
+  search,
   collapsed,
   ariaLabel,
+  milestoneNavigationFailed = false,
+  onRetryMilestoneNavigation,
 }: ProgramScopeSidebarNavProps) {
+  const milestoneId = new URLSearchParams(search).get('milestoneId');
+  const requestedHref =
+    milestoneId === null
+      ? pathname
+      : `${pathname}?milestoneId=${encodeURIComponent(milestoneId)}`;
+  const hasRequestedStage = groups.some((group) =>
+    group.items.some(
+      (item) => (item.depth ?? 0) === 1 && item.href === requestedHref,
+    ),
+  );
+  // 삭제된/잘못된 milestoneId는 본문과 같은 안전한 기본값(모든 단계)으로 보인다.
+  // URL은 조용히 바꾸지 않아 사용자가 입력한 주소와 브라우저 이력을 보존한다.
+  const focusedHref = hasRequestedStage ? requestedHref : pathname;
+
   return (
     <TooltipProvider delayDuration={200}>
       <nav
@@ -150,6 +195,26 @@ export function ProgramScopeSidebarNav({
           collapsed && 'items-center px-2',
         )}
       >
+        {milestoneNavigationFailed ? (
+          <div
+            role="alert"
+            className={cn(
+              'grid w-full gap-2 rounded-control border border-destructive/30 bg-destructive/5 p-3 text-small text-sidebar-foreground',
+              collapsed && 'hidden',
+            )}
+          >
+            <p>단계 목록을 불러오지 못했습니다.</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={onRetryMilestoneNavigation}
+            >
+              다시 불러오기
+            </Button>
+          </div>
+        ) : null}
         {groups.map((group) => (
           <div
             key={group.label}
@@ -163,106 +228,18 @@ export function ProgramScopeSidebarNav({
           >
             {group.items.map((item, itemIndex) => (
               <ScopeSidebarLink
-                // href 는 이 목록에서 유일하지 않다 — 학생 뷰의 「내 제출물」은 부모와
-                // 마일스톤 자식들이 전부 같은 `/mydocs` 를 가리킨다(교직원 뷰만
-                // `?milestoneId=` 로 갈린다). React 가 중복 key 경고를 내고, 항목이
-                // 빠지거나 중복될 수 있다고 경고한 그대로다. 라벨도 유일하지 않다 —
-                // 같은 이름의 마일스톤이 둘 있을 수 있다. 순서는 이 목록에서 안정적이다.
+                // 같은 이름의 마일스톤도 있으므로 안정적인 목록 순서와 href를 함께 쓴다.
                 key={`${itemIndex}-${item.href}`}
                 item={item}
+                href={stageHrefWithCurrentQuery(item, pathname, search)}
                 pathname={pathname}
                 collapsed={collapsed}
+                selected={(item.depth ?? 0) === 1 && item.href === focusedHref}
               />
             ))}
           </div>
         ))}
       </nav>
     </TooltipProvider>
-  );
-}
-
-function ScopeSidebarLink({
-  item,
-  pathname,
-  collapsed,
-}: {
-  readonly item: ProgramScopeSidebarItem;
-  readonly pathname: string;
-  readonly collapsed: boolean;
-}) {
-  const depth = item.depth ?? 0;
-  // 정확히 일치할 때만 강조한다(prefix 매칭 없음) — 이 메뉴의 href들은 서로
-  // 경로상 부모/자식 관계다(`/programs/:id`가 `/programs/:id/teams` 등의 리터럴
-  // 접두어), `isCurrentSidebarItem`의 범용 prefix fallback을 그대로 쓰면 "프로그램
-  // 개요"가 모든 하위 화면에서 함께 강조되는 오탐이 난다. 자식(마일스톤별 서류) 행은
-  // 여러 href가 같은 화면(status/mydocs)으로 모이므로 애초에 current 마커를 달지
-  // 않는다(프로토타입 계약 그대로 — docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널, 학생 자식: "current 마커
-  // 없이"). 쿼리 문자열은 비교에서 제외한다(pathname에 애초에 없다).
-  const current = depth === 0 && pathname === item.href;
-  const showCount = !collapsed && item.count !== undefined;
-  const ariaLabel =
-    collapsed && item.count !== undefined
-      ? `${item.label} ${item.count}`
-      : collapsed
-        ? item.label
-        : undefined;
-
-  const link = (
-    <Link
-      href={item.href}
-      aria-current={current ? 'page' : undefined}
-      aria-label={ariaLabel}
-      data-current={current ? 'true' : undefined}
-      data-depth={depth}
-      data-icon={depth === 0 || collapsed ? item.icon : undefined}
-      className={cn(
-        'group relative flex h-control shrink-0 items-center rounded-control text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
-        'hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
-        current &&
-          'bg-sidebar-current font-semibold text-sidebar-current-foreground',
-        collapsed
-          ? 'w-control justify-center px-0'
-          : depth === 1
-            ? 'gap-3 py-0 pr-3 pl-9 text-[14px]'
-            : 'gap-3 px-3',
-      )}
-    >
-      {current ? (
-        <span
-          aria-hidden
-          data-slot="program-scope-sidebar-current-marker"
-          className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-current-marker"
-        />
-      ) : null}
-      {depth === 0 || collapsed ? <ShellIcon name={item.icon} /> : null}
-      <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
-        {item.label}
-      </span>
-      {showCount ? (
-        <span
-          data-slot="program-scope-sidebar-count"
-          className={cn(
-            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground',
-            current &&
-              'bg-primary-foreground/15 text-sidebar-current-foreground',
-          )}
-        >
-          {item.count}
-        </span>
-      ) : null}
-    </Link>
-  );
-
-  if (!collapsed) {
-    return link;
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right" data-slot="program-scope-sidebar-tooltip">
-        {item.count !== undefined ? `${item.label} ${item.count}` : item.label}
-      </TooltipContent>
-    </Tooltip>
   );
 }

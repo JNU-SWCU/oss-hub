@@ -31,6 +31,7 @@ describe('program authoring reducer', () => {
     expect(navigated.teamMaxSize).toBe('1');
     expect(navigated.repositoryProvisioningEnabled).toBe(false);
     expect(navigated.notifyOnDeadline).toBe(true);
+    expect(navigated.milestones).toEqual([]);
     expect(navigated.currentStep).toBe('operations');
     expect(PROGRAM_AUTHORING_STEPS).toHaveLength(6);
   });
@@ -97,6 +98,7 @@ describe('program authoring reducer', () => {
       type: 'application/pdf',
       requiresReselection: false,
     });
+    expect(next.milestones[0]?.requirements[0]?.name).toBe('plan.pdf');
   });
 });
 
@@ -121,7 +123,7 @@ describe('program authoring validation', () => {
     ]);
   });
 
-  it('requires one milestone but accepts an informational milestone with no requirements', () => {
+  it('requires a milestone but permits milestones without attachments', () => {
     // Given
     const completed = completedAuthoringState();
 
@@ -130,16 +132,40 @@ describe('program authoring validation', () => {
       ...completed,
       milestones: [],
     });
-    const informationalIssues = validateProgramAuthoringManifest(completed);
+    const completedIssues = validateProgramAuthoringManifest(completed);
 
     // Then
     expect(noMilestoneIssues).toContainEqual(
       expect.objectContaining({ path: 'milestones', step: 'milestones' }),
     );
-    expect(informationalIssues).toEqual([]);
+    expect(completedIssues).toEqual([]);
   });
 
-  it('matches the server schedule and team range rules', () => {
+  it('validates milestone dates on the milestone screen where they can be fixed', () => {
+    const completed = completedAuthoringState();
+    const invalid = {
+      ...completed,
+      milestones: [
+        {
+          ...completed.milestones[0],
+          dueAt: '2026-10-01T18:00',
+        },
+      ],
+    };
+
+    const scheduleIssues = validateProgramAuthoringStep(invalid, 'schedule');
+    const milestoneIssues = validateProgramAuthoringStep(invalid, 'milestones');
+
+    expect(scheduleIssues).toEqual([]);
+    expect(milestoneIssues).toContainEqual(
+      expect.objectContaining({
+        path: 'milestones.milestone-1.dueAt',
+        step: 'milestones',
+      }),
+    );
+  });
+
+  it('matches the server overlap, milestone, and team range rules', () => {
     // Given
     const completed = completedAuthoringState();
 
@@ -162,7 +188,6 @@ describe('program authoring validation', () => {
     // Then
     expect(issues.map((issue) => issue.path)).toEqual(
       expect.arrayContaining([
-        'operationStartAt',
         'teamMinSize',
         'teamMaxSize',
         'milestones.milestone-1.startAt',
@@ -177,7 +202,6 @@ describe('program authoring validation', () => {
     const requirement = {
       ...createRequirementDraft('requirement-file'),
       name: '계획서',
-      submissionType: 'FILE' as const,
       templateFile: {
         name: 'plan.pdf',
         size: 1024,
@@ -193,6 +217,23 @@ describe('program authoring validation', () => {
     });
 
     // Then
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: 'requirements.requirement-file.templateFile',
+        step: 'milestones',
+      }),
+    );
+  });
+
+  it('requires a selected template file for every attachment target', () => {
+    const completed = completedAuthoringState();
+    const requirement = createRequirementDraft('requirement-file');
+
+    const issues = validateProgramAuthoringManifest({
+      ...completed,
+      milestones: [{ ...completed.milestones[0], requirements: [requirement] }],
+    });
+
     expect(issues).toContainEqual(
       expect.objectContaining({
         path: 'requirements.requirement-file.templateFile',
@@ -224,7 +265,6 @@ describe('program authoring manifest', () => {
     const requirement = {
       ...createRequirementDraft('requirement-file'),
       name: '계획서',
-      submissionType: 'FILE' as const,
       templateFile: {
         name: 'plan.pdf',
         size: 1024,

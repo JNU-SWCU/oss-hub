@@ -21,7 +21,7 @@ server {
   add_header Referrer-Policy "strict-origin-when-cross-origin" always;
   add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()" always;
   add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'" always;
-  location /api/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
+  location /api/v1/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
 }
 EOF
 write_fixture missing-server-tokens <<'EOF'
@@ -32,7 +32,7 @@ server {
   add_header Referrer-Policy "strict-origin-when-cross-origin" always;
   add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()" always;
   add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'" always;
-  location /api/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
+  location /api/v1/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
 }
 EOF
 write_fixture missing-powered-by-hide <<'EOF'
@@ -43,7 +43,7 @@ server {
   add_header Referrer-Policy "strict-origin-when-cross-origin" always;
   add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()" always;
   add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'" always;
-  location /api/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
+  location /api/v1/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
 }
 EOF
 write_fixture missing-nosniff <<'EOF'
@@ -54,35 +54,35 @@ server {
   add_header Referrer-Policy "strict-origin-when-cross-origin" always;
   add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()" always;
   add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'" always;
-  location /api/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
+  location /api/v1/ { client_max_body_size 52m; proxy_pass http://backend:4000; }
 }
 EOF
 write_fixture upload-body-missing <<'EOF'
-server { location /api/ { proxy_pass http://backend:4000; } }
+server { location /api/v1/ { proxy_pass http://backend:4000; } }
 EOF
 write_fixture upload-body-too-small <<'EOF'
-server { location /api/ { client_max_body_size 1m; proxy_pass http://backend:4000; } }
+server { location /api/v1/ { client_max_body_size 1m; proxy_pass http://backend:4000; } }
 EOF
 write_fixture upload-body-kilobytes <<'EOF'
-server { location /api/ { client_max_body_size 8k; proxy_pass http://backend:4000; } }
+server { location /api/v1/ { client_max_body_size 8k; proxy_pass http://backend:4000; } }
 EOF
 write_fixture submission-files-return-403 <<'EOF'
-server { location ~* ^/api/v1/submission-files(/|$) { return 403; } location /api/ { proxy_pass http://backend:4000; } }
+server { location ~* ^/api/v1/submission-files(/|$) { return 403; } location /api/v1/ { proxy_pass http://backend:4000; } }
 EOF
 write_fixture submission-files-return-401 <<'EOF'
-server { location ~* ^/api/v1/submission-files(/|$) { return 401; } location /api/ { proxy_pass http://backend:4000; } }
+server { location ~* ^/api/v1/submission-files(/|$) { return 401; } location /api/v1/ { proxy_pass http://backend:4000; } }
 EOF
 write_fixture case-sensitive-return <<'EOF'
-server { location = /api/v1/submission-files { return 403; } location ^~ /api/v1/submission-files/ { return 403; } location /api/ { proxy_pass http://backend:4000; } }
+server { location = /api/v1/submission-files { return 403; } location ^~ /api/v1/submission-files/ { return 403; } location /api/v1/ { proxy_pass http://backend:4000; } }
 EOF
 write_fixture api-overblock <<'EOF'
-server { location /api/ { proxy_pass http://backend:4000; return 403; } }
+server { location /api/v1/ { proxy_pass http://backend:4000; return 403; } }
 EOF
 write_fixture sibling-overblock <<'EOF'
-server { location ~* ^/api/v1/submission-files { return 403; } location /api/ { proxy_pass http://backend:4000; } }
+server { location ~* ^/api/v1/submission-files { return 403; } location /api/v1/ { proxy_pass http://backend:4000; } }
 EOF
 write_fixture fake-proxy-string <<'EOF'
-server { location /api/ { add_header X-Note "proxy_pass http://backend:4000"; } }
+server { location /api/v1/ { add_header X-Note "proxy_pass http://backend:4000"; } }
 EOF
 cp "$source_config" "$fixture_dir/repo-config"
 missing_path="$fixture_dir/does-not-exist.conf"

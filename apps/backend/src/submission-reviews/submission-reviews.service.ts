@@ -20,7 +20,6 @@ import {
   type SubmissionReviewResult,
 } from './domain/submission-review';
 import {
-  ReviewAlreadyExistsError,
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,
 } from './submission-reviews.repository';
@@ -71,63 +70,54 @@ export class SubmissionReviewsService {
     input: CreateSubmissionReviewInput,
     reviewedAt = new Date(),
   ): Promise<SubmissionReviewResult> {
-    try {
-      return await this.repository.withTransaction(async (store) => {
-        const target = await store.findReviewTarget(submissionId);
-        if (target === null) {
-          throw new DomainException(
-            SUBMISSION_REVIEWS_ERROR_CODES[
-              SubmissionReviewsErrorCode.SUBMISSION_NOT_FOUND
-            ],
-          );
-        }
-        if (target.currentRevision !== input.revision) {
-          throw new DomainException(
-            SUBMISSION_REVIEWS_ERROR_CODES[
-              SubmissionReviewsErrorCode.STALE_REVISION
-            ],
-          );
-        }
-        if (target.revision.reviewId !== null) {
-          throw new DomainException(
-            SUBMISSION_REVIEWS_ERROR_CODES[
-              SubmissionReviewsErrorCode.ALREADY_REVIEWED
-            ],
-          );
-        }
-
-        const nextStatus = decisionStatus(input.decision);
-        const review = await store.createReview({
-          submissionRevisionId: target.revision.id,
-          reviewerId,
-          decision: input.decision,
-          comment: input.comment,
-          reviewedAt,
-        });
-        const transitioned = await store.transitionSubmission({
-          submissionId,
-          expectedRevision: input.revision,
-          nextStatus,
-        });
-        if (!transitioned) {
-          throw new DomainException(
-            SUBMISSION_REVIEWS_ERROR_CODES[
-              SubmissionReviewsErrorCode.STALE_REVISION
-            ],
-          );
-        }
-        return { reviewId: review.id, submissionStatus: nextStatus };
-      });
-    } catch (error) {
-      if (error instanceof ReviewAlreadyExistsError) {
+    return this.repository.withTransaction(async (store) => {
+      const target = await store.findReviewTarget(submissionId);
+      if (target === null) {
+        throw new DomainException(
+          SUBMISSION_REVIEWS_ERROR_CODES[
+            SubmissionReviewsErrorCode.SUBMISSION_NOT_FOUND
+          ],
+        );
+      }
+      if (target.currentRevision !== input.revision) {
+        throw new DomainException(
+          SUBMISSION_REVIEWS_ERROR_CODES[
+            SubmissionReviewsErrorCode.STALE_REVISION
+          ],
+        );
+      }
+      if (target.revision.reviewId !== null) {
         throw new DomainException(
           SUBMISSION_REVIEWS_ERROR_CODES[
             SubmissionReviewsErrorCode.ALREADY_REVIEWED
           ],
         );
       }
-      throw error;
-    }
+
+      const nextStatus = decisionStatus(input.decision);
+      const review = await store.createReview({
+        submissionHistoryId: target.revision.id,
+        milestoneDocumentSubmissionId: target.id,
+        revision: input.revision,
+        reviewerId,
+        decision: input.decision,
+        comment: input.comment,
+        reviewedAt,
+      });
+      const transitioned = await store.transitionSubmission({
+        submissionId: target.id,
+        expectedRevision: input.revision,
+        nextStatus,
+      });
+      if (!transitioned) {
+        throw new DomainException(
+          SUBMISSION_REVIEWS_ERROR_CODES[
+            SubmissionReviewsErrorCode.STALE_REVISION
+          ],
+        );
+      }
+      return { reviewId: review.id, submissionStatus: nextStatus };
+    });
   }
 
   async publishRepository(

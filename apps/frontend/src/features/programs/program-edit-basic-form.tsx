@@ -16,6 +16,7 @@ import {
 } from './program-edit-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 import { ProgramDeadlineControl } from './program-deadline-control';
+import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 
 interface ProgramEditBasicFormProps {
   readonly program: EditableProgram;
@@ -49,9 +50,12 @@ export function ProgramEditBasicForm({
               id="program-name"
               value={form.name}
               aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? 'program-name-error' : undefined}
               onChange={(event) => onFieldChange('name', event.target.value)}
             />
-            <FieldError>{errors.name}</FieldError>
+            <FieldError id="program-name-error" role="alert">
+              {errors.name}
+            </FieldError>
           </Field>
           <Field>
             <FieldLabel htmlFor="program-organizer">주관기관 *</FieldLabel>
@@ -59,11 +63,16 @@ export function ProgramEditBasicForm({
               id="program-organizer"
               value={form.organizer}
               aria-invalid={Boolean(errors.organizer)}
+              aria-describedby={
+                errors.organizer ? 'program-organizer-error' : undefined
+              }
               onChange={(event) =>
                 onFieldChange('organizer', event.target.value)
               }
             />
-            <FieldError>{errors.organizer}</FieldError>
+            <FieldError id="program-organizer-error" role="alert">
+              {errors.organizer}
+            </FieldError>
           </Field>
           <Field>
             <FieldLabel htmlFor="program-category">유형</FieldLabel>
@@ -73,6 +82,14 @@ export function ProgramEditBasicForm({
               value={form.category}
               disabled={templateLockReason !== null}
               aria-invalid={Boolean(errors.category)}
+              aria-describedby={
+                [
+                  templateLockReason ? 'program-category-description' : null,
+                  errors.category ? 'program-category-error' : null,
+                ]
+                  .filter((value): value is string => value !== null)
+                  .join(' ') || undefined
+              }
               onChange={(event) =>
                 onFieldChange('category', event.target.value)
               }
@@ -84,94 +101,23 @@ export function ProgramEditBasicForm({
               ))}
             </select>
             {templateLockReason ? (
-              <p className="text-small text-muted-foreground">
+              <p
+                id="program-category-description"
+                className="text-small text-muted-foreground"
+              >
                 {templateLockReason}
               </p>
             ) : null}
-            <FieldError>{errors.category}</FieldError>
+            <FieldError id="program-category-error" role="alert">
+              {errors.category}
+            </FieldError>
           </Field>
-          <Field>
-            <FieldLabel>신청 기간 *</FieldLabel>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="space-y-2">
-                <FieldLabel
-                  className="text-small"
-                  htmlFor="program-application-start-at"
-                >
-                  시작일시
-                </FieldLabel>
-                <Input
-                  id="program-application-start-at"
-                  type="datetime-local"
-                  value={form.applicationStartAt}
-                  aria-invalid={Boolean(errors.period)}
-                  onChange={(event) =>
-                    onFieldChange('applicationStartAt', event.target.value)
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <FieldLabel
-                  className="text-small"
-                  htmlFor="program-application-end-at"
-                >
-                  마감일시
-                </FieldLabel>
-                <Input
-                  id="program-application-end-at"
-                  type="datetime-local"
-                  value={form.applicationEndAt}
-                  aria-invalid={Boolean(errors.period)}
-                  onChange={(event) =>
-                    onFieldChange('applicationEndAt', event.target.value)
-                  }
-                />
-              </div>
-            </div>
-            <FieldError>{errors.period}</FieldError>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="program-start-at">운영 시작일 *</FieldLabel>
-            <Input
-              id="program-start-at"
-              type="datetime-local"
-              value={form.startAt}
-              aria-invalid={Boolean(errors.startAt)}
-              onChange={(event) => onFieldChange('startAt', event.target.value)}
-            />
-            <FieldError>{errors.startAt}</FieldError>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="program-end-at">프로그램 종료 *</FieldLabel>
-            <Input
-              id="program-end-at"
-              type="datetime-local"
-              value={form.endAt}
-              disabled={form.endAtUndecided}
-              required={!form.endAtUndecided && form.originalEndAt !== null}
-              aria-invalid={Boolean(errors.endAt)}
-              onChange={(event) => onFieldChange('endAt', event.target.value)}
-            />
-            <Field orientation="horizontal">
-              <input
-                id="program-end-at-undecided"
-                type="checkbox"
-                checked={form.endAtUndecided}
-                onChange={(event) =>
-                  onFieldChange('endAtUndecided', event.target.checked)
-                }
-              />
-              <FieldLabel htmlFor="program-end-at-undecided">
-                종료일 미정
-              </FieldLabel>
-            </Field>
-            <FieldDescription>
-              종료일을 아직 정하지 않았으면 「종료일 미정」을 선택하세요.
-              프로그램은 끝나지 않은 것으로 다뤄집니다. 나중에 정하려면 체크를
-              풀고 날짜를 고르면 됩니다.
-            </FieldDescription>
-            <FieldError>{errors.endAt}</FieldError>
-          </Field>
+          <ProgramEditScheduleEditor
+            program={program}
+            form={form}
+            errors={errors}
+            onFieldChange={onFieldChange}
+          />
           <Field>
             <FieldLabel>팀 인원 *</FieldLabel>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -188,6 +134,7 @@ export function ProgramEditBasicForm({
                   min="1"
                   value={form.teamMinSize}
                   aria-invalid={Boolean(errors.team)}
+                  aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
                   onChange={(event) =>
                     onFieldChange('teamMinSize', event.target.value)
                   }
@@ -206,14 +153,17 @@ export function ProgramEditBasicForm({
                   min="1"
                   value={form.teamMaxSize}
                   aria-invalid={Boolean(errors.team)}
+                  aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
                   onChange={(event) =>
                     onFieldChange('teamMaxSize', event.target.value)
                   }
                 />
               </div>
             </div>
-            <FieldError>{errors.team}</FieldError>
-            <FieldDescription>
+            <FieldError id="program-team-size-error" role="alert">
+              {errors.team}
+            </FieldError>
+            <FieldDescription id="program-team-size-description">
               개인 신청도 1인 팀으로 다뤄집니다. 팀을 받지 않으려면 최소·최대를
               모두 1로 둡니다.
             </FieldDescription>
@@ -224,12 +174,17 @@ export function ProgramEditBasicForm({
               id="program-description"
               value={form.description}
               aria-invalid={Boolean(errors.description)}
+              aria-describedby={
+                errors.description ? 'program-description-error' : undefined
+              }
               onChange={(event) =>
                 onFieldChange('description', event.target.value)
               }
               className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
             />
-            <FieldError>{errors.description}</FieldError>
+            <FieldError id="program-description-error" role="alert">
+              {errors.description}
+            </FieldError>
           </Field>
           <Field orientation="horizontal">
             <input
@@ -255,7 +210,7 @@ export function ProgramEditBasicForm({
               onFieldChange('notifyOnDeadline', enabled)
             }
           />
-          <FieldError>{errors.general}</FieldError>
+          <FieldError role="alert">{errors.general}</FieldError>
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="submit" disabled={isSaving}>
               {isSaving ? '저장 중…' : '변경사항 저장'}

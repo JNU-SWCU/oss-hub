@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneDocumentKind,
   Prisma,
   type SubmissionStatus,
 } from '@prisma/client';
@@ -12,6 +13,7 @@ import {
   resolveUserProfileName,
 } from '../profiles/user-profile-read';
 import type { SubmissionMatrixFilter } from './domain/submission-matrix';
+import { publicSubmissionId } from './submission-public-id';
 
 export interface SubmissionMatrixViewer {
   readonly id: string;
@@ -194,28 +196,30 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     applicationIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]> {
     if (applicationIds.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: { applicationId: { in: [...applicationIds] } },
+    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+      where: {
+        applicationId: { in: [...applicationIds] },
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
       select: {
         id: true,
+        legacySubmissionId: true,
         applicationId: true,
-        milestoneId: true,
         status: true,
-        currentRevision: true,
-        revisions: {
-          orderBy: { revision: 'desc' },
-          take: 1,
-          select: { submittedAt: true },
-        },
+        revision: true,
+        submittedAt: true,
+        milestoneDocument: { select: { milestoneId: true } },
       },
     });
     return submissions.map((submission) => ({
-      id: submission.id,
+      id: publicSubmissionId(submission),
       applicationId: submission.applicationId,
-      milestoneId: submission.milestoneId,
+      milestoneId: submission.milestoneDocument.milestoneId,
       status: submission.status,
-      currentRevision: submission.currentRevision,
-      submittedAt: submission.revisions[0]?.submittedAt ?? null,
+      currentRevision: submission.revision,
+      submittedAt: submission.submittedAt,
     }));
   }
 }

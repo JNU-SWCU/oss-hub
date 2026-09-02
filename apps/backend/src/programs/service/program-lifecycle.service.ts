@@ -19,6 +19,7 @@ import { isSerializationFailure } from '../../common/prisma-serialization-retry'
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   readProgramDeletionScopeCounts,
+  sameProgramDeletionScopeCountValues,
   sameProgramDeletionScopeCounts,
   type ProgramDeletionScopeCounts,
 } from '../program-deletion-scope';
@@ -161,24 +162,16 @@ export class ProgramLifecycleService {
       // (student-application-management.repository.ts의 validateMutation) — 즉 이
       // 지점에서 applications===0이면 GithubRepository(programId — provisioning된 행만
       // 채워진다, #617 단계 D 이후 applicationId 자체는 nullable이지만 provisioning된
-      // 행은 항상 applicationId·programId를 함께 갖는다)와 MilestoneDocumentSubmission
-      // (applicationId 필수 FK)도 이 programId로는 항상 0이어야 한다.
-      // 스키마상 그 두 관계에 onDelete: Cascade가 없어, 이 불변조건이 깨진 채로
+      // 행은 항상 applicationId·programId를 함께 갖는다)도 이 programId로는 항상
+      // 0이어야 한다. 스키마상 관계에 onDelete: Cascade가 없어, 이 불변조건이 깨진 채로
       // Program을 지우면 FK 위반 500이 터진다. 도달 불가능해야 하는 경로지만
       // 500을 막기 위해 방어적으로 확인하고, 깨졌다면 새 UI 카테고리를 만드는 대신
       // 이미 있는 409(PRG_012) 차단으로 흡수한다 — blockingCounts는 여전히 전부
       // 0이라 프론트는 이를 일반 차단 안내 문구로 보여준다.
-      const [orphanRepositoryCount, orphanMilestoneDocumentSubmissionCount] =
-        await Promise.all([
-          transaction.githubRepository.count({ where: { programId } }),
-          transaction.milestoneDocumentSubmission.count({
-            where: { milestoneDocument: { milestone: { programId } } },
-          }),
-        ]);
-      if (
-        orphanRepositoryCount > 0 ||
-        orphanMilestoneDocumentSubmissionCount > 0
-      ) {
+      const orphanRepositoryCount = await transaction.githubRepository.count({
+        where: { programId },
+      });
+      if (orphanRepositoryCount > 0) {
         throw new DomainException(
           PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_BLOCKED],
           { blockingCounts },
@@ -215,7 +208,7 @@ export class ProgramLifecycleService {
    * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해
    * DELETE_PENDING으로 전환한다. phase 2 worker만 storage port를 호출한다.
    *
-   * `expectedScope`는 확인 화면(GET edit)이 보여준 4종 자식 범위의 스냅샷이다 —
+   * `expectedScope`는 확인 화면(GET edit)이 보여준 자식 범위의 스냅샷이다 —
    * 확인과 purge 사이가 별개 요청이라(#F2 TOCTOU) 확인 이후 생긴 행을 관리자가
    * 보지 못한 채 지울 수 있다. 그래서 삭제 트랜잭션 안에서 GET edit과 동일한
    * 단일 스냅샷 쿼리(`readProgramDeletionScopeCounts`)로 현재 범위를 다시 읽어 비교하고,
@@ -287,11 +280,15 @@ export class ProgramLifecycleService {
             programId,
           );
           if (
-            !sameProgramDeletionScopeCounts(currentScopeCounts, {
+            !sameProgramDeletionScopeCountValues(currentScopeCounts, {
               applications: deletedCounts.applications,
               teams: deletedCounts.teams,
               boardPosts: deletedCounts.boardPosts,
               submissions: deletedCounts.submissions,
+              submissionEvents:
+                deletedCounts.submissionFiles +
+                deletedCounts.milestoneDocumentSubmissionHistories +
+                deletedCounts.milestoneDocumentReviewHistories,
             })
           ) {
             throw new ProgramPurgeDeletedScopeMismatchError();
@@ -363,6 +360,15 @@ export class ProgramLifecycleService {
       OR: [
         { application: { is: { programId } } },
         { milestone: { is: { programId } } },
+        {
+          submissionHistory: {
+            is: {
+              submission: {
+                milestoneDocument: { milestone: { programId } },
+              },
+            },
+          },
+        },
       ],
     } satisfies Prisma.SubmissionFileWhereInput;
 
@@ -484,8 +490,8 @@ export class ProgramLifecycleService {
         lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
         applicationId: null,
         milestoneId: null,
-        submissionRevisionId: null,
         milestoneDocumentSubmissionId: null,
+        milestoneDocumentSubmissionHistoryId: null,
         deleteClaimedAt: null,
         deleteClaimExpiresAt: null,
         deleteClaimOwner: null,
@@ -533,24 +539,18 @@ export class ProgramLifecycleService {
       });
     }
 
-    const reviews = await transaction.review.deleteMany({
-      where: {
-        submissionRevision: { submission: { milestone: { programId } } },
-      },
-    });
-    const submissionRevisions = await transaction.submissionRevision.deleteMany(
-      {
-        where: { submission: { milestone: { programId } } },
-      },
-    );
-    const submissions = await transaction.submission.deleteMany({
-      where: { milestone: { programId } },
-    });
-
     const milestoneDocumentReviewHistories =
       await transaction.milestoneDocumentReviewHistory.deleteMany({
         where: {
           milestoneDocumentSubmission: {
+            milestoneDocument: { milestone: { programId } },
+          },
+        },
+      });
+    const milestoneDocumentSubmissionHistories =
+      await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+        where: {
+          submission: {
             milestoneDocument: { milestone: { programId } },
           },
         },
@@ -593,13 +593,15 @@ export class ProgramLifecycleService {
       teamInvitations: teamInvitations.count,
       boardPosts: boardPosts.count,
       boardComments: boardComments.count,
-      submissions: submissions.count,
-      submissionRevisions: submissionRevisions.count,
-      reviews: reviews.count,
+      submissions: milestoneDocumentSubmissions.count,
+      submissionRevisions: 0,
+      reviews: 0,
       submissionFiles: submissionFiles.count,
       milestones: milestones.count,
       milestoneDocuments: milestoneDocuments.count,
       milestoneDocumentSubmissions: milestoneDocumentSubmissions.count,
+      milestoneDocumentSubmissionHistories:
+        milestoneDocumentSubmissionHistories.count,
       milestoneDocumentReviewHistories: milestoneDocumentReviewHistories.count,
       milestoneDocumentTemplateFiles: milestoneDocumentTemplateFiles.count,
       programAuthoringUploads: programAuthoringUploads.count,
@@ -621,7 +623,9 @@ export class ProgramLifecycleService {
       transaction.application.count({ where: { programId } }),
       transaction.team.count({ where: { programId } }),
       transaction.boardPost.count({ where: { programId } }),
-      transaction.submission.count({ where: { milestone: { programId } } }),
+      transaction.milestoneDocumentSubmission.count({
+        where: { milestoneDocument: { milestone: { programId } } },
+      }),
     ]);
     return { applications, teams, boardPosts, submissions };
   }
@@ -703,6 +707,7 @@ export type ProgramPurgeDeletedCounts = {
   readonly milestones: number;
   readonly milestoneDocuments: number;
   readonly milestoneDocumentSubmissions: number;
+  readonly milestoneDocumentSubmissionHistories: number;
   readonly milestoneDocumentReviewHistories: number;
   readonly milestoneDocumentTemplateFiles: number;
   readonly programAuthoringUploads: number;

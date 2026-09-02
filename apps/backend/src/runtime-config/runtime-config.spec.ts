@@ -49,6 +49,9 @@ describe('loadRuntimeConfig', () => {
     expect(config.SUBMISSION_FILE_CLEANUP_OPERATOR_ID).toBe(
       'synthetic-submission_file_cleanup_operator_id',
     );
+    expect(config.SUBMISSION_FILE_STORAGE_MODE).toBe(
+      'synthetic-submission_file_storage_mode',
+    );
     expect(config.SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED).toBe(
       'synthetic-submission_file_cleanup_maintenance_enabled',
     );
@@ -91,7 +94,7 @@ describe('loadRuntimeConfig', () => {
 
     // Then: same members and same order as the durable G003+G004 manifest
     expect(loadedKeys).toEqual([...RUNTIME_CONFIG_KEYS]);
-    expect(RUNTIME_CONFIG_KEYS).toHaveLength(35);
+    expect(RUNTIME_CONFIG_KEYS).toHaveLength(36);
     expect(RUNTIME_CONFIG_KEYS).toContain('MAIL_MODE');
 
     const expected: RuntimeConfig = Object.freeze(

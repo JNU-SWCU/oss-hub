@@ -26,9 +26,11 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-const { getMilestoneDocumentCollectionMock } = vi.hoisted(() => ({
-  getMilestoneDocumentCollectionMock: vi.fn(),
-}));
+const { getMilestoneDocumentCollectionMock, getMilestoneDocumentHistoryMock } =
+  vi.hoisted(() => ({
+    getMilestoneDocumentCollectionMock: vi.fn(),
+    getMilestoneDocumentHistoryMock: vi.fn(),
+  }));
 
 // 조회 함수만 갈아 끼운다 — 필터 목록·경로 생성 같은 계약 상수는 화면이 실제 값을 쓴다.
 vi.mock('./milestone-document-collection-api', async (importOriginal) => ({
@@ -36,6 +38,7 @@ vi.mock('./milestone-document-collection-api', async (importOriginal) => ({
     typeof import('./milestone-document-collection-api')
   >()),
   getMilestoneDocumentCollection: getMilestoneDocumentCollectionMock,
+  getMilestoneDocumentHistory: getMilestoneDocumentHistoryMock,
 }));
 
 function row(
@@ -80,7 +83,6 @@ function collection(
         name: '기획서',
         isRequired: true,
         sortOrder: 1,
-        submissionType: 'FILE',
       },
     ],
     rows,
@@ -126,6 +128,12 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     window.document.body.append(container);
     root = createRoot(container);
     getMilestoneDocumentCollectionMock.mockReset();
+    getMilestoneDocumentHistoryMock.mockReset();
+    getMilestoneDocumentHistoryMock.mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      isComplete: true,
+    });
   });
 
   afterEach(async () => {

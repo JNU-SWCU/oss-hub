@@ -1,8 +1,9 @@
-import { SubmissionStatus } from '@prisma/client';
+import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import {
   isMilestoneComplete,
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
+  requiredMilestonesApproved,
 } from './milestone-completion';
 
 describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () => {
@@ -34,6 +35,100 @@ describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () =
     // When / Then: 두 축 다 흔적이 없어도 「완료」가 아니다.
     expect(milestoneCompletionStatus(input)).toBe(MILESTONE_NOT_SUBMITTED);
     expect(isMilestoneComplete(input)).toBe(false);
+  });
+});
+
+describe('milestoneCompletionStatus — 제출 없는 안내용 마일스톤', () => {
+  it('상위 제출 방식도 필수 제출 항목도 없으면 미제출이다', () => {
+    const input = {
+      requiredDocumentStatuses: [],
+      submissionStatus: null,
+      submissionAxisInUse: false,
+    } as const;
+
+    expect(milestoneCompletionStatus(input)).toBe(MILESTONE_NOT_SUBMITTED);
+    expect(isMilestoneComplete(input)).toBe(false);
+  });
+});
+
+describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스톤', () => {
+  it('선택 서류만 있는 마일스톤은 완료할 필수 축이 없으므로 공개를 막지 않는다', () => {
+    // 호출자는 선택 서류를 제외하고 필수 서류 축만 넘긴다.
+    expect(
+      requiredMilestonesApproved(
+        [
+          {
+            id: 'optional-only',
+            submissionType: null,
+            documents: [],
+          },
+        ],
+        [],
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it('안내용 마일스톤은 공개를 막지 않아도 표시 상태는 fail-closed로 유지한다', () => {
+    const input = {
+      requiredDocumentStatuses: [],
+      submissionStatus: null,
+      submissionAxisInUse: false,
+    } as const;
+
+    expect(isMilestoneComplete(input)).toBe(false);
+    expect(
+      requiredMilestonesApproved(
+        [{ id: 'informational', submissionType: null, documents: [] }],
+        [],
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it('필수 서류 축이 있는 마일스톤은 제출·승인 전까지 공개를 막는다', () => {
+    const milestones = [
+      {
+        id: 'required-document',
+        submissionType: null,
+        documents: [{ id: 'document-1' }],
+      },
+    ] as const;
+
+    expect(requiredMilestonesApproved(milestones, [], [])).toBe(false);
+    expect(
+      requiredMilestonesApproved(
+        milestones,
+        [],
+        [
+          {
+            milestoneDocumentId: 'document-1',
+            status: SubmissionStatus.APPROVED,
+          },
+        ],
+      ),
+    ).toBe(true);
+  });
+
+  it('레거시 서류-only 마일스톤은 남아 있는 submissionType 때문에 내부 제출을 요구하지 않는다', () => {
+    expect(
+      requiredMilestonesApproved(
+        [
+          {
+            id: 'legacy-document-only',
+            submissionType: MilestoneSubmissionType.TEXT,
+            documents: [{ id: 'document-1' }],
+          },
+        ],
+        [],
+        [
+          {
+            milestoneDocumentId: 'document-1',
+            status: SubmissionStatus.APPROVED,
+          },
+        ],
+      ),
+    ).toBe(true);
   });
 });
 

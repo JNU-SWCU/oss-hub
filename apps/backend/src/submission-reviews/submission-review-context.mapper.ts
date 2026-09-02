@@ -1,5 +1,9 @@
-import { SubmissionFileLifecycle } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import {
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
+  Prisma,
+  SubmissionFileLifecycle,
+} from '@prisma/client';
 import { requiredMilestonesApproved } from '../common/milestone-completion';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import {
@@ -7,6 +11,7 @@ import {
   resolveUserProfileName,
 } from '../profiles/user-profile-read';
 import { safeSubmissionFileContentType } from '../submissions/submission-file-content-type';
+import { publicSubmissionId } from '../submissions/submission-public-id';
 import {
   APPLICATION_MODES,
   publishBlockedReasons,
@@ -16,24 +21,18 @@ import {
   type SubmissionRevisionRecord,
 } from './domain/submission-review';
 
-export { requiredMilestonesApproved } from '../common/milestone-completion';
-
 export const REVIEW_CONTEXT_SELECT = {
   id: true,
-  currentRevision: true,
+  legacySubmissionId: true,
+  revision: true,
   application: {
     select: {
       id: true,
       teamId: true,
       applicant: {
-        select: {
-          nickname: true,
-          ...USER_PROFILE_NAME_SELECT,
-        },
+        select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
       },
       team: { select: { name: true } },
-      // 공개 게이트의 재료다 — 빠지면 화면이 서버보다 적은 조건으로 버튼을 열어 준다.
-      // 집합은 submission-reviews.repository.ts 의 findPublishEligibility 와 같아야 한다.
       isRepositoryPublicationPlanned: true,
       program: {
         select: {
@@ -41,20 +40,26 @@ export const REVIEW_CONTEXT_SELECT = {
           milestones: {
             select: {
               id: true,
-              // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 공개를 영원히 막는다.
-              documents: { where: { required: true }, select: { id: true } },
+              submissionType: true,
+              documents: {
+                where: {
+                  required: true,
+                  kind: MilestoneDocumentKind.DOCUMENT,
+                },
+                select: { id: true },
+              },
             },
           },
         },
       },
-      submissions: { select: { milestoneId: true, status: true } },
-      // 서류 축의 재료. 마일스톤 쪽이 아니라 신청 쪽에서 읽는다 — 마일스톤을 타고 내려가면
-      // 같은 프로그램 다른 팀들의 제출까지 딸려 온다.
       milestoneDocumentSubmissions: {
-        select: { milestoneDocumentId: true, status: true },
+        select: {
+          status: true,
+          milestoneDocument: {
+            select: { id: true, milestoneId: true, kind: true },
+          },
+        },
       },
-      // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner에서
-      // repository-identity.ts 헬퍼로 유도해 아래 url 필드를 채운다.
       repository: {
         select: {
           id: true,
@@ -65,14 +70,25 @@ export const REVIEW_CONTEXT_SELECT = {
       },
     },
   },
-  milestone: { select: { id: true, name: true } },
-  revisions: {
-    orderBy: { revision: 'desc' as const },
+  milestoneDocument: {
+    select: { milestone: { select: { id: true, name: true } } },
+  },
+  histories: {
+    where: {
+      event: {
+        in: [
+          MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+        ],
+      },
+    },
+    orderBy: [{ revision: 'desc' as const }, { id: 'desc' as const }],
     select: {
+      id: true,
       revision: true,
       content: true,
       comment: true,
-      submittedAt: true,
+      createdAt: true,
       files: {
         orderBy: { id: 'asc' as const },
         select: {
@@ -84,7 +100,9 @@ export const REVIEW_CONTEXT_SELECT = {
           lifecycle: true,
         },
       },
-      review: {
+      reviewHistories: {
+        orderBy: [{ reviewedAt: 'desc' as const }, { id: 'desc' as const }],
+        take: 1,
         select: {
           id: true,
           decision: true,
@@ -94,9 +112,9 @@ export const REVIEW_CONTEXT_SELECT = {
       },
     },
   },
-} satisfies Prisma.SubmissionSelect;
+} satisfies Prisma.MilestoneDocumentSubmissionSelect;
 
-type ReviewContextRow = Prisma.SubmissionGetPayload<{
+export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
   select: typeof REVIEW_CONTEXT_SELECT;
 }>;
 
@@ -108,8 +126,8 @@ export function toReviewContext(
   row: ReviewContextRow,
   now: Date = new Date(),
 ): SubmissionReviewContext {
-  const current = row.revisions.find(
-    (revision) => revision.revision === row.currentRevision,
+  const current = row.histories.find(
+    (history) => history.revision === row.revision,
   );
   if (current === undefined) {
     throw new SubmissionRevisionInvariantError();
@@ -122,7 +140,7 @@ export function toReviewContext(
       )
     : [];
   return {
-    submissionId: row.id,
+    submissionId: publicSubmissionId(row),
     application: {
       id: row.application.id,
       applicationMode:
@@ -134,11 +152,11 @@ export function toReviewContext(
         resolveUserProfileName(row.application.applicant) ??
         row.application.applicant.nickname,
     },
-    milestone: row.milestone,
+    milestone: row.milestoneDocument.milestone,
     currentRevision: toRevisionRecord(current, now),
-    history: row.revisions
-      .filter((revision) => revision.revision !== row.currentRevision)
-      .map((revision) => toRevisionRecord(revision, now)),
+    history: row.histories
+      .filter((history) => history.id !== current.id)
+      .map((history) => toRevisionRecord(history, now)),
     repository: repository
       ? {
           id: repository.id,
@@ -151,58 +169,63 @@ export function toReviewContext(
   };
 }
 
-/**
- * 검토 화면의 행을 공개 게이트가 보는 모양으로 옮긴다.
- * `findPublishEligibility`가 만드는 것과 같은 값이어야 한다 — 다르면 화면과 서버가 갈라진다.
- */
 function toPublishEligibility(
   application: ReviewContextRow['application'],
   repository: NonNullable<ReviewContextRow['application']['repository']>,
 ): Omit<RepositoryPublishEligibility, 'repositoryId'> {
+  const targetSubmissions = application.milestoneDocumentSubmissions;
+  const legacySubmissions = targetSubmissions
+    .filter(
+      (submission) =>
+        submission.milestoneDocument.kind ===
+        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+    )
+    .map((submission) => ({
+      milestoneId: submission.milestoneDocument.milestoneId,
+      status: submission.status,
+    }));
+  const documentSubmissions = targetSubmissions
+    .filter(
+      (submission) =>
+        submission.milestoneDocument.kind === MilestoneDocumentKind.DOCUMENT,
+    )
+    .map((submission) => ({
+      milestoneDocumentId: submission.milestoneDocument.id,
+      status: submission.status,
+    }));
   const job = repository.provisionJob;
   return {
     visibility: repository.visibility,
-    // ⚠ 이 경로에서는 `repositoryId` 대조가 늘 참이다(Prisma 가 저장소로 이어 준 job 이라서).
-    // 그래도 남겨 둔다 — `findPublishEligibility` 는 신청으로 도달해 이 대조가 실제로 걸러 내고,
-    // 두 조회가 같은 값을 만든다는 것이 이 함수의 존재 이유다.
     provisionStatus: job?.repositoryId === repository.id ? job.status : null,
     requiredMilestonesApproved: requiredMilestonesApproved(
       application.program.milestones,
-      application.submissions,
-      application.milestoneDocumentSubmissions,
+      legacySubmissions,
+      documentSubmissions,
     ),
     isRepositoryPublicationPlanned: application.isRepositoryPublicationPlanned,
     programEndAt: application.program.endAt,
   };
 }
 
-/**
- * 프로그램의 모든 마일스톤이 이 신청에 대해 끝났는가 — 저장소 공개 자격의 한 조건.
- *
- * 판정 규칙 자체는 여기 없다. `common/milestone-completion.ts` 의 `isMilestoneComplete` 가
- * 축(코드 `Submission` · 서류 `MilestoneDocument`)을 가려 답하고, 이 함수는 조회 결과를 그
- * 입력 모양으로 옮겨 마일스톤마다 물을 뿐이다. 교직원 대시보드 요약·프로그램 상세도 같은
- * 함수를 부른다 — 표면마다 「서류도 본다」를 덧붙이면 판정이 갈라진다(#820).
- *
- * ⚠ `milestones[].documents` 는 **필수 서류만** 담겨 와야 한다(조회에서 `required: true` 로
- * 거른다). 선택 서류가 섞이면 안 낸 선택 서류가 저장소 공개를 영원히 막는다.
- */
 function toRevisionRecord(
-  revision: ReviewContextRow['revisions'][number],
+  history: ReviewContextRow['histories'][number],
   now: Date,
 ): SubmissionRevisionRecord {
+  if (history.revision === null) {
+    throw new SubmissionRevisionInvariantError();
+  }
   return {
-    number: revision.revision,
-    content: revision.content,
-    comment: revision.comment,
-    submittedAt: revision.submittedAt,
-    files: revision.files.flatMap((file) => toFileRecord(file, now)),
-    review: revision.review,
+    number: history.revision,
+    content: history.content,
+    comment: history.comment,
+    submittedAt: history.createdAt,
+    files: history.files.flatMap((file) => toFileRecord(file, now)),
+    review: history.reviewHistories[0] ?? null,
   };
 }
 
 function toFileRecord(
-  file: ReviewContextRow['revisions'][number]['files'][number],
+  file: ReviewContextRow['histories'][number]['files'][number],
   now: Date,
 ): readonly SubmissionReviewFileRecord[] {
   if (

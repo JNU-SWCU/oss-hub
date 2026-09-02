@@ -59,7 +59,7 @@ function PageHeader({
           // 크기 계단의 맨 위 칸. 좁은 화면에서 40px은 제목 한 줄이 화면을 넘기므로
           // 한 계단 내려 섹션 크기로 쓴다(시안의 900px 미만 규칙과 같은 취지).
           className={cn(
-            'font-heading text-section leading-tight font-bold tracking-tight sm:text-page',
+            'font-heading text-section leading-tight font-bold tracking-tight break-keep text-pretty sm:text-page',
             titleClassName,
           )}
         >
@@ -69,7 +69,7 @@ function PageHeader({
           <p
             data-slot="page-header-description"
             className={cn(
-              'max-w-[60ch] text-body text-muted-foreground',
+              'max-w-[60ch] text-body text-muted-foreground break-keep text-pretty',
               descriptionClassName,
             )}
           >

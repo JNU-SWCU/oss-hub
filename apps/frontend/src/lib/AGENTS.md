@@ -1,29 +1,29 @@
-<!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 -->
+<!-- init:managed id=craft-init-4.0.0-frontend-lib sha256=a071448fb4c5f5035fd5b487391b0d29ba6ae7b2c205cc47d2168736341488a2 -->
+# Shared library scope
 
-# apps/frontend/src/lib — 공유 유틸리티
+## Ownership
 
-## Purpose
+- Own framework-independent frontend utilities and the application-wide transport boundary in `apps/frontend/src/lib/`.
+- `api-client.ts` owns `/api/v1` path construction, request execution, Problem Detail decoding, file downloads, and safe download filenames.
+- `internal-path.ts` owns untrusted internal destinations, `program-route.ts` owns named cross-feature program hrefs, and `local-review-runtime.ts` owns local-review runtime activation checks.
 
-`app → features → lib` 의존 방향의 최하위 계층. `features`에 의존할 수 없다. 이 앱의 유일한 HTTP 클라이언트(`api-client.ts`)가 여기 있다.
+## Public interfaces
 
-## Key Files
+- Import `apiPath`, `apiClient`, `apiFileClient`, `ApiError`, and `ProblemDetail` from `api-client.ts` for all frontend API transport and response failures.
+- Preserve `ApiError.problem` as the consumer-facing problem-detail boundary; feature modules map its `code` to domain behavior.
+- `utils.ts` exports `cn` for class composition. `display-text.ts`, `format-file-size.ts`, `department-cohort.ts`, `departments.ts`, and `signup-completion-notice.ts` provide focused display and input helpers.
+- `use-debounced-value.ts` is the local shared hook; retain its hook contract rather than embedding debounce timers in feature screens.
 
-| 파일 | 역할 |
-| --- | --- |
-| `api-client.ts` | `apiClient<T>(path, init?)`, `apiPath(path)`, `ApiError`(`ProblemDetail` 래핑) — `/api/v1` baseURL의 **유일한** 소유자 |
-| `internal-path.ts` | `isInternalPath(value)`, `toInternalPath(value, fallback)` — 밖에서 온 문자열을 앱 내부 주소로 쓰기 전의 open-redirect 관문. 이동·링크 목적지가 사용자 입력(URL 쿼리·API 응답)에서 오면 반드시 여기를 거친다 |
-| `utils.ts` | `cn(...)` — `clsx` + `tailwind-merge` 클래스 병합 헬퍼 |
+## State and safety patterns
 
-## For AI Agents
+- Build endpoint paths with `apiPath` and call the typed client; do not introduce a second base URL, direct transport wrapper, or caller-level Problem Detail parser.
+- Treat outside-controlled destinations as untrusted: pass navigation values through `isInternalPath` and `toInternalPath` before using them as internal targets.
+- Keep runtime activation checks in `local-review-runtime.ts`. `local-review-session.ts` only normalizes session bodies; request-persistent fixture state and handler behavior live under `test-support/local-review/`.
+- Keep helpers deterministic where possible, and put browser persistence or timing behind the existing narrow hook/runtime modules.
 
-- **모든 HTTP 요청은 `apiClient`/`apiPath`를 거친다.** 새 feature의 `api.ts`는 이 함수들만 호출하고, `fetch`를 직접 부르거나 `axios`/`ky`를 새로 도입하거나 `/api/v1` 문자열을 재정의하지 않는다 — `eslint.config.mjs`가 `lib/` 밖 전역에서 이를 lint 에러로 차단한다(`lib/`의 `api-client.ts` 자신과 그 테스트만 예외).
-- `apiClient`는 실패 응답을 `ProblemDetail` 형식으로 파싱해 `ApiError`를 던진다. 백엔드가 `application/problem+json`이 아닌 응답을 주면(`isProblemDetail` 실패) `code: 'API_000'`인 합성 `ProblemDetail`로 감싼다 — 백엔드 `apps/backend/src/common/problem-detail.filter.ts`가 내려주는 필드(`type`/`title`/`status`/`detail`/`instance`/`code`)와 짝을 이룬다.
-- baseURL(`/api/v1`)을 바꾸려면 이 파일 한 곳만 수정한다. feature별 우회 클라이언트를 만들지 않는다.
-- 테스트: `api-client.test.ts`, `api-path.test.ts` (Vitest, `pnpm --filter frontend test`).
+## Constraints
 
-## Dependencies
-
-- [apps/frontend/src/AGENTS.md](../AGENTS.md)
-- [Frontend 구현 규칙](../../../../docs/rules/frontend.md) — 단일 API 클라이언트 규칙 원본.
-- `clsx`, `tailwind-merge`.
+- Do not import feature or route modules into `lib/`; this directory remains reusable below those layers.
+- Keep tests next to the exported behavior, including malformed paths, unexpected API responses, and local-review activation edge cases.
+- Add a new module only for a shared, stable contract; retain domain-specific formatting and rules in the owning feature.
+<!-- /init:managed id=craft-init-4.0.0-frontend-lib -->

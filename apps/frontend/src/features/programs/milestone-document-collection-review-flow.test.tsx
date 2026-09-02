@@ -28,9 +28,11 @@ vi.mock('next/link', () => ({
 
 const {
   getMilestoneDocumentCollectionMock,
+  getMilestoneDocumentHistoryMock,
   createMilestoneDocumentReviewMock,
 } = vi.hoisted(() => ({
   getMilestoneDocumentCollectionMock: vi.fn(),
+  getMilestoneDocumentHistoryMock: vi.fn(),
   createMilestoneDocumentReviewMock: vi.fn(),
 }));
 
@@ -40,6 +42,7 @@ vi.mock('./milestone-document-collection-api', async (importOriginal) => ({
     typeof import('./milestone-document-collection-api')
   >()),
   getMilestoneDocumentCollection: getMilestoneDocumentCollectionMock,
+  getMilestoneDocumentHistory: getMilestoneDocumentHistoryMock,
 }));
 vi.mock('./milestone-document-review-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./milestone-document-review-api')>()),
@@ -94,14 +97,12 @@ function collection(
         name: '기획서',
         isRequired: true,
         sortOrder: 1,
-        submissionType: 'FILE',
       },
       {
         id: 'd2',
         name: '중간 보고',
         isRequired: false,
         sortOrder: 2,
-        submissionType: 'TEXT',
       },
     ],
     rows,
@@ -126,6 +127,11 @@ describe('수합 표에서 판정하기', () => {
     window.document.body.append(container);
     root = createRoot(container);
     getMilestoneDocumentCollectionMock.mockReset();
+    getMilestoneDocumentHistoryMock.mockReset();
+    getMilestoneDocumentHistoryMock.mockResolvedValue({
+      items: [],
+      nextCursor: null,
+    });
     createMilestoneDocumentReviewMock.mockReset();
   });
 
@@ -221,6 +227,52 @@ describe('수합 표에서 판정하기', () => {
     expect(opened?.closest('table')).not.toBeNull();
     // 표는 그대로 남는다 — 다른 화면으로 넘어가지 않았다.
     expect(container.textContent).toContain('합계');
+  });
+
+  it('첫 이력 조회가 실패해도 패널을 닫지 않고 다시 불러온다', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀', [cell('d1'), cell('d2')])]),
+    );
+    getMilestoneDocumentHistoryMock
+      .mockRejectedValueOnce(new Error('temporary history failure'))
+      .mockResolvedValueOnce({
+        items: [
+          {
+            event: 'SUBMITTED',
+            revision: 1,
+            actorNickname: 'student-a',
+            comment: null,
+            createdAt: '2026-07-28T00:00:00.000Z',
+            fileName: '기획서-v1.pdf',
+          },
+        ],
+        nextCursor: null,
+      });
+    await render();
+
+    await click(byLabel('가팀 기획서 검토'));
+    await settle();
+    expect(panel()?.textContent).toContain('제출 이력을 불러오지 못했습니다.');
+    expect(getMilestoneDocumentHistoryMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      'd1',
+      'a',
+      null,
+    );
+
+    await click(byText('제출 이력 다시 불러오기'));
+    await settle();
+
+    expect(getMilestoneDocumentHistoryMock).toHaveBeenCalledTimes(2);
+    expect(getMilestoneDocumentHistoryMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      'd1',
+      'a',
+      null,
+    );
+    expect(panel()).not.toBeNull();
+    expect(panel()?.textContent).toContain('첫 제출');
+    expect(panel()?.textContent).toContain('기획서-v1.pdf');
   });
 
   it('같은 칸을 다시 누르면 닫힌다', async () => {

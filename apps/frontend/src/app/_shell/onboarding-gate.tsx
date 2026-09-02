@@ -126,7 +126,7 @@ export function OnboardingGate({
   // 화면이 그리는 근거는 같은 순간의 같은 값이어야 한다.
   //
   // 중첩 걱정은 없다. `OnboardingGate`와 `RoleGate`가 함께 오는 라우트는 없고
-  // (레이아웃은 루트와 `admin/access` 둘뿐이며 어느 쪽도 이 게이트 위에 서지 않는다),
+  // (레이아웃은 루트와 `dashboard/users` 둘뿐이며 어느 쪽도 이 게이트 위에 서지 않는다),
   // 설령 겹치더라도 안쪽 provider가 이기므로 자식은 자기를 감싼 게이트의 답을 본다.
   return <SessionRoleProvider value={session}>{children}</SessionRoleProvider>;
 }

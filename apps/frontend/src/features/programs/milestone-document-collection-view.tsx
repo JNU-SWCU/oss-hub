@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { programEditHref } from '@/lib/program-route';
+import { programApplicantsHref, programEditHref } from '@/lib/program-route';
 import {
   collectionCellFor,
   collectionDocumentTotalFor,
@@ -121,6 +121,7 @@ export interface MilestoneDocumentCollectionViewProps {
   ) => void;
   readonly onReviewCommentChange: (comment: string) => void;
   readonly onReviewSubmit: () => void;
+  readonly onReviewHistoryMore: () => void;
 }
 
 /**
@@ -526,6 +527,7 @@ function ReviewPanelRow({
   onReviewDecisionChange,
   onReviewCommentChange,
   onReviewSubmit,
+  onReviewHistoryMore,
 }: {
   readonly data: MilestoneDocumentCollection;
   readonly row: MilestoneDocumentCollectionRow;
@@ -536,6 +538,7 @@ function ReviewPanelRow({
   ) => void;
   readonly onReviewCommentChange: (comment: string) => void;
   readonly onReviewSubmit: () => void;
+  readonly onReviewHistoryMore: () => void;
 }): ReactElement | null {
   const { milestone, documents } = data;
   const document = documents.find(
@@ -548,28 +551,39 @@ function ReviewPanelRow({
   return (
     <TableRow>
       <TableCell colSpan={documents.length + 1}>
-        <MilestoneDocumentReviewPanel
-          teamName={row.teamName}
-          documentName={document.name}
-          cell={cell}
-          fileHref={
-            cell.file === null
-              ? null
-              : milestoneDocumentSubmissionFileHref(
-                  milestone.id,
-                  document.id,
-                  row.applicationId,
-                )
-          }
-          decision={review.decision}
-          comment={review.comment}
-          isSubmitting={review.isSubmitting}
-          errorMessage={review.errorMessage}
-          onDecisionChange={onReviewDecisionChange}
-          onCommentChange={onReviewCommentChange}
-          onSubmit={onReviewSubmit}
-          onClose={onReviewClose}
-        />
+        <div
+          data-testid="milestone-document-review-panel-viewport"
+          className="sticky left-0 w-[calc(100vw-4rem)] sm:max-w-3xl"
+        >
+          <MilestoneDocumentReviewPanel
+            teamName={row.teamName}
+            documentName={document.name}
+            cell={cell}
+            fileHref={
+              cell.file === null
+                ? null
+                : milestoneDocumentSubmissionFileHref(
+                    milestone.id,
+                    document.id,
+                    row.applicationId,
+                  )
+            }
+            decision={review.decision}
+            comment={review.comment}
+            isSubmitting={review.isSubmitting}
+            errorMessage={review.errorMessage}
+            history={review.history}
+            isHistoryLoading={review.isHistoryLoading}
+            historyError={review.historyError}
+            hasMoreHistory={review.historyNextCursor !== null}
+            historyIsComplete={review.historyIsComplete}
+            onHistoryMore={onReviewHistoryMore}
+            onDecisionChange={onReviewDecisionChange}
+            onCommentChange={onReviewCommentChange}
+            onSubmit={onReviewSubmit}
+            onClose={onReviewClose}
+          />
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -584,6 +598,7 @@ function CollectionTable({
   onReviewDecisionChange,
   onReviewCommentChange,
   onReviewSubmit,
+  onReviewHistoryMore,
 }: {
   readonly data: MilestoneDocumentCollection;
   readonly loadPhase: MilestoneDocumentCollectionLoadPhase;
@@ -598,6 +613,7 @@ function CollectionTable({
   ) => void;
   readonly onReviewCommentChange: (comment: string) => void;
   readonly onReviewSubmit: () => void;
+  readonly onReviewHistoryMore: () => void;
 }): ReactElement {
   const { milestone, documents, rows, documentTotals } = data;
 
@@ -671,6 +687,7 @@ function CollectionTable({
                     onReviewDecisionChange={onReviewDecisionChange}
                     onReviewCommentChange={onReviewCommentChange}
                     onReviewSubmit={onReviewSubmit}
+                    onReviewHistoryMore={onReviewHistoryMore}
                   />
                 )}
               </Fragment>
@@ -764,11 +781,11 @@ function CollectionBody(
   if (empty === 'no-documents') {
     return (
       <EmptyState
-        title="이 마일스톤에는 등록된 서류 항목이 없습니다"
-        description="프로그램 편집에서 서류 항목을 추가하면 팀별 제출 현황을 모아 볼 수 있습니다."
+        title="이 마일스톤에는 등록된 제출 항목이 없습니다"
+        description="프로그램 편집에서 제출 항목을 추가하면 팀별 제출 현황을 모아 볼 수 있습니다."
         action={
           <Button asChild variant="outline">
-            <Link href={programEditHref(props.programId)}>서류 항목 추가</Link>
+            <Link href={programEditHref(props.programId)}>제출 항목 추가</Link>
           </Button>
         }
       />
@@ -778,7 +795,14 @@ function CollectionBody(
     return (
       <EmptyState
         title="아직 승인된 신청이 없습니다"
-        description="신청이 승인되면 팀이 이 표에 나타납니다."
+        description="대기 중인 신청을 먼저 확인해 주세요. 신청을 승인하면 팀이 이 표에 나타납니다."
+        action={
+          <Button asChild variant="outline">
+            <Link href={programApplicantsHref(props.programId)}>
+              신청 확인하기
+            </Link>
+          </Button>
+        }
       />
     );
   }
@@ -870,9 +894,12 @@ function CollectionBody(
        * 「이 페이지 N팀(조건에 맞는 전체 M팀)」 — 표에 보이는 것이 전부가 아님을
        * 먼저 말한다(제출 현황 표의 같은 자리와 같은 문장 틀).
        */}
-      <p id={SCROLL_HINT_ID} className="text-small text-muted-foreground">
-        이 페이지 {rows.length}팀(조건에 맞는 전체 {total}팀) · 표를 좌우로
-        스크롤할 수 있습니다.
+      <p
+        id={SCROLL_HINT_ID}
+        className="break-keep text-small text-muted-foreground"
+      >
+        이 페이지 {rows.length}팀(조건에 맞는 전체 {total}팀) · 표는 좌우로{' '}
+        <span className="whitespace-nowrap">스크롤해 확인하세요.</span>
       </p>
       <CollectionTable
         data={props.data}
@@ -883,6 +910,7 @@ function CollectionBody(
         onReviewDecisionChange={props.onReviewDecisionChange}
         onReviewCommentChange={props.onReviewCommentChange}
         onReviewSubmit={props.onReviewSubmit}
+        onReviewHistoryMore={props.onReviewHistoryMore}
       />
       <CollectionPagination
         page={page}

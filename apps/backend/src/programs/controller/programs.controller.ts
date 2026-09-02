@@ -140,7 +140,7 @@ export class ProgramsController {
 
   /**
    * ADMIN 전용 전체 삭제 — 연결 자식 행은 명시 순서로 정리하고 파일은 worker에 위임한다.
-   * `expectedScope`는 클라이언트가 확인 화면에서 마지막으로 본 4종 범위이며 REQUIRED다
+   * `expectedScope`는 클라이언트가 확인 화면에서 마지막으로 본 삭제 범위이며 REQUIRED다
    * (#F2) — purge 트랜잭션이 같은 스냅샷 쿼리로 재확인해 어긋나면 409 PRG_014로 막는다.
    */
   @Delete(':id/purge')

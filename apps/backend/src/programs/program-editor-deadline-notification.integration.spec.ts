@@ -154,7 +154,6 @@ async function seed(): Promise<void> {
         name: '중간 보고서',
         required: true,
         sortOrder: 1,
-        submissionType: MilestoneSubmissionType.FILE,
       },
       {
         id: DOCUMENT_OPTIONAL_ID,
@@ -162,7 +161,6 @@ async function seed(): Promise<void> {
         name: '참고 자료',
         required: false,
         sortOrder: 2,
-        submissionType: MilestoneSubmissionType.FILE,
       },
     ],
   });

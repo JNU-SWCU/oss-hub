@@ -8,6 +8,7 @@ import {
   type LoadedMilestoneDocumentCollection,
 } from './milestone-document-collection';
 import {
+  getMilestoneDocumentHistory,
   getMilestoneDocumentCollection,
   MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
   type MilestoneDocumentCollectionArchiveGrouping,
@@ -23,6 +24,7 @@ import {
   type MilestoneDocumentReviewConflict,
 } from './milestone-document-conflict';
 import {
+  isSameMilestoneDocumentReviewTarget,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
   milestoneDocumentReviewVersionError,
@@ -102,6 +104,59 @@ export function MilestoneDocumentCollectionScreen({
    * 문구가 지금 열어 둔 다른 칸에 가서 앉으면 남의 칸이 실패한 것처럼 보인다.
    */
   const reviewRequestIdRef = useRef(0);
+  const historyRequestIdRef = useRef(0);
+
+  const loadReviewHistory = useCallback(
+    async (target: MilestoneDocumentReviewTarget, cursor: string | null) => {
+      historyRequestIdRef.current += 1;
+      const requestId = historyRequestIdRef.current;
+      setReview((previous) =>
+        previous !== null &&
+        isSameMilestoneDocumentReviewTarget(previous.target, target)
+          ? { ...previous, isHistoryLoading: true, historyError: null }
+          : previous,
+      );
+      try {
+        const page = await getMilestoneDocumentHistory(
+          milestoneId,
+          target.documentId,
+          target.applicationId,
+          cursor,
+        );
+        if (requestId !== historyRequestIdRef.current) return;
+        setReview((previous) =>
+          previous !== null &&
+          isSameMilestoneDocumentReviewTarget(previous.target, target)
+            ? {
+                ...previous,
+                history:
+                  cursor === null
+                    ? page.items
+                    : [...page.items, ...previous.history],
+                historyNextCursor: page.nextCursor,
+                historyIsComplete: page.isComplete,
+                isHistoryLoading: false,
+                historyError: null,
+              }
+            : previous,
+        );
+      } catch {
+        if (requestId !== historyRequestIdRef.current) return;
+        setReview((previous) =>
+          previous !== null &&
+          isSameMilestoneDocumentReviewTarget(previous.target, target)
+            ? {
+                ...previous,
+                isHistoryLoading: false,
+                historyError:
+                  '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+              }
+            : previous,
+        );
+      }
+    },
+    [milestoneId],
+  );
   /**
    * 진행 중인 판정 전송을 **버린다**(응답이 와도 아무것도 하지 않는다).
    *
@@ -352,12 +407,21 @@ export function MilestoneDocumentCollectionScreen({
         discardPendingReview();
         // 새 칸을 열었으면 앞 판정에 대한 안내는 할 일을 마쳤다.
         setReviewNotice(null);
+        const closing =
+          review !== null &&
+          isSameMilestoneDocumentReviewTarget(review.target, target);
         setReview((previous) =>
           nextMilestoneDocumentReviewState(previous, target, version),
         );
+        if (closing) {
+          historyRequestIdRef.current += 1;
+        } else {
+          void loadReviewHistory(target, null);
+        }
       }}
       onReviewClose={() => {
         discardPendingReview();
+        historyRequestIdRef.current += 1;
         setReview(null);
       }}
       onReviewDecisionChange={(decision: MilestoneDocumentReviewDecision) =>
@@ -373,6 +437,15 @@ export function MilestoneDocumentCollectionScreen({
         )
       }
       onReviewSubmit={() => void submitReview()}
+      onReviewHistoryMore={() => {
+        if (review === null) return;
+        if (review.historyError !== null && review.history.length === 0) {
+          void loadReviewHistory(review.target, null);
+          return;
+        }
+        if (review.historyNextCursor === null) return;
+        void loadReviewHistory(review.target, review.historyNextCursor);
+      }}
     />
   );
 }

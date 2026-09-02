@@ -60,7 +60,7 @@ export function signupDestination(state: ProfileOnboardingState): string {
     return '/dashboard';
   }
   if (state.hasAdminAccess) {
-    return '/admin/access';
+    return '/dashboard/users';
   }
   switch (state.selectedRole) {
     case 'STUDENT':

@@ -5,6 +5,7 @@ import {
 } from './submission-file-storage.port';
 
 const ENV_KEYS = [
+  'SUBMISSION_FILE_STORAGE_MODE',
   'SUBMISSION_FILE_S3_ENDPOINT',
   'SUBMISSION_FILE_S3_REGION',
   'SUBMISSION_FILE_S3_BUCKET',
@@ -14,6 +15,8 @@ const ENV_KEYS = [
   'NODE_ENV',
 ] as const;
 type EnvKey = (typeof ENV_KEYS)[number];
+const R2_ENDPOINT =
+  'https://00000000000000000000000000000000.r2.cloudflarestorage.com';
 
 describe('SubmissionFileStorageConfig', () => {
   const original: Partial<Record<EnvKey, string>> = {};
@@ -37,7 +40,8 @@ describe('SubmissionFileStorageConfig', () => {
   function setValidEnvironment(
     overrides: Partial<Record<EnvKey, string | undefined>> = {},
   ) {
-    process.env.SUBMISSION_FILE_S3_ENDPOINT = 'https://s3.example.com';
+    process.env.SUBMISSION_FILE_STORAGE_MODE = 'minio';
+    process.env.SUBMISSION_FILE_S3_ENDPOINT = 'http://minio:9000';
     process.env.SUBMISSION_FILE_S3_REGION = 'synthetic-region';
     process.env.SUBMISSION_FILE_S3_BUCKET = 'synthetic-bucket';
     process.env.SUBMISSION_FILE_S3_ACCESS_KEY_ID = 'synthetic-access-key';
@@ -63,17 +67,35 @@ describe('SubmissionFileStorageConfig', () => {
     );
   }
 
-  it('6개 값이 모두 있고 endpoint가 https://s3.example.com이면 설정을 반환한다', () => {
+  it('minio mode에서 6개 application storage 값과 private HTTP endpoint를 반환한다', () => {
     setValidEnvironment();
 
     const settings = new SubmissionFileStorageConfig().requireSettings();
 
     expect(settings).toEqual({
-      endpoint: 'https://s3.example.com',
+      endpoint: 'http://minio:9000',
       region: 'synthetic-region',
       bucket: 'synthetic-bucket',
       accessKeyId: 'synthetic-access-key',
       secretAccessKey: 'synthetic-secret-key',
+      forcePathStyle: true,
+    });
+  });
+
+  it('managed mode에서 R2 호환 HTTPS endpoint, auto region, 명시 path-style을 반환한다', () => {
+    setValidEnvironment({
+      SUBMISSION_FILE_STORAGE_MODE: 'managed',
+      SUBMISSION_FILE_S3_ENDPOINT: R2_ENDPOINT,
+      SUBMISSION_FILE_S3_REGION: 'auto',
+      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: 'true',
+    });
+
+    const settings = new SubmissionFileStorageConfig().requireSettings();
+
+    expect(settings).toMatchObject({
+      endpoint: R2_ENDPOINT,
+      region: 'auto',
+      bucket: 'synthetic-bucket',
       forcePathStyle: true,
     });
   });
@@ -96,6 +118,7 @@ describe('SubmissionFileStorageConfig', () => {
   });
 
   it.each([
+    'SUBMISSION_FILE_STORAGE_MODE',
     'SUBMISSION_FILE_S3_ENDPOINT',
     'SUBMISSION_FILE_S3_REGION',
     'SUBMISSION_FILE_S3_BUCKET',
@@ -109,6 +132,7 @@ describe('SubmissionFileStorageConfig', () => {
   });
 
   it.each([
+    'SUBMISSION_FILE_STORAGE_MODE',
     'SUBMISSION_FILE_S3_ENDPOINT',
     'SUBMISSION_FILE_S3_REGION',
     'SUBMISSION_FILE_S3_BUCKET',
@@ -123,34 +147,42 @@ describe('SubmissionFileStorageConfig', () => {
 
   it.each([
     // Compose 내부 서비스 호스트명(정확 일치)과 loopback/사설 http.
-    'http://minio:9000',
-    'http://127.0.0.1:9000',
-    'http://localhost:9000',
-    'http://10.1.2.3:9000',
-    'http://192.168.0.5:9000',
-    'http://[::1]:9000',
+    ['minio', 'http://minio:9000'],
+    ['minio', 'http://127.0.0.1:9000'],
+    ['minio', 'http://localhost:9000'],
+    ['minio', 'http://10.1.2.3:9000'],
+    ['minio', 'http://192.168.0.5:9000'],
+    ['minio', 'http://[::1]:9000'],
     // RFC1918 172.16/12 경계 양끝.
-    'http://172.16.0.1:9000',
-    'http://172.31.255.254:9000',
+    ['minio', 'http://172.16.0.1:9000'],
+    ['minio', 'http://172.31.255.254:9000'],
     // IPv6 ULA·link-local.
-    'http://[fd00::1]:9000',
-    'http://[fe80::1]:9000',
+    ['minio', 'http://[fd00::1]:9000'],
+    ['minio', 'http://[fe80::1]:9000'],
     // URL 파서가 127.0.0.1로 정규화하는 십진 표기.
-    'http://2130706433:9000',
-    // 관리형 S3로 옮겨도 https 공개 엔드포인트는 그대로 통과해야 한다.
-    'https://s3.ap-northeast-2.amazonaws.com',
-    'https://s3.example.com',
-  ])('%s는 허용된 endpoint라서 설정을 반환한다', (endpoint) => {
-    setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: endpoint });
+    ['minio', 'http://2130706433:9000'],
+    ['managed', R2_ENDPOINT],
+  ] as const)(
+    '%s mode의 %s는 허용된 endpoint라서 설정을 반환한다',
+    (mode, endpoint) => {
+      setValidEnvironment({
+        SUBMISSION_FILE_STORAGE_MODE: mode,
+        SUBMISSION_FILE_S3_ENDPOINT: endpoint,
+        SUBMISSION_FILE_S3_REGION:
+          mode === 'managed' ? 'auto' : 'synthetic-region',
+      });
 
-    const settings = new SubmissionFileStorageConfig().requireSettings();
+      const settings = new SubmissionFileStorageConfig().requireSettings();
 
-    expect(settings.endpoint).toBe(endpoint);
-  });
+      expect(settings.endpoint).toBe(endpoint);
+    },
+  );
 
   it.each([
     // 공개 http·비허용 scheme·비URL.
     'http://s3.example.com',
+    // minio mode는 외부 HTTPS endpoint도 허용하지 않는다.
+    'https://s3.example.com',
     'http://8.8.8.8:9000',
     'ftp://minio:9000',
     'not-a-url',
@@ -191,41 +223,93 @@ describe('SubmissionFileStorageConfig', () => {
     // 공개 IPv6, 그리고 IPv4-mapped 형태로 우회 시도.
     'http://[2001:db8::1]:9000',
     'http://[::ffff:8.8.8.8]:9000',
-  ])('%s는 CONFIGURATION 에러를 던진다', (endpoint) => {
+  ])('%s는 minio mode에서 CONFIGURATION 에러를 던진다', (endpoint) => {
     setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: endpoint });
 
     expectConfigurationError();
   });
 
   it.each([
-    // percent-encoded path octets are not query/fragment delimiters.
-    'https://s3.example.com/%3Fnot-query',
-    'https://s3.example.com/%23not-hash',
-    'https://s3.example.com/path%3Fstill-path',
-    'https://s3.example.com/path%23still-path',
-    'http://minio:9000/%3Fnot-query',
-  ])(
-    '%s는 percent-encoded 경로라서 허용된 endpoint로 설정을 반환한다',
-    (endpoint) => {
-      setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: endpoint });
+    'http://s3.example.com',
+    'https://minio:9000',
+    'https://postgres:9000',
+    'https://redis:9000',
+    'https://127.0.0.1:9000',
+    'https://localhost:9000',
+    'https://10.1.2.3:9000',
+    'https://[::1]:9000',
+    'https://s3.example.com',
+    'https://metadata.google.internal',
+    'https://00000000000000000000000000000000.r2.cloudflarestorage.com.evil.test',
+    'https://00000000000000000000000000000000.r2.cloudflarestorage.com:8443',
+  ])('managed mode의 %s는 CONFIGURATION 에러를 던진다', (endpoint) => {
+    setValidEnvironment({
+      SUBMISSION_FILE_STORAGE_MODE: 'managed',
+      SUBMISSION_FILE_S3_ENDPOINT: endpoint,
+      SUBMISSION_FILE_S3_REGION: 'auto',
+    });
 
-      const settings = new SubmissionFileStorageConfig().requireSettings();
+    expectConfigurationError();
+  });
 
-      expect(settings.endpoint).toBe(endpoint);
+  it.each(['', 'unknown', 'MINIO', 'managed '])(
+    '알 수 없거나 누락된 storage mode %j는 CONFIGURATION 에러를 던진다',
+    (mode) => {
+      setValidEnvironment({
+        SUBMISSION_FILE_STORAGE_MODE: mode || undefined,
+      });
+
+      expectConfigurationError();
     },
   );
 
+  it.each([
+    `${R2_ENDPOINT}/%3Fnot-query`,
+    `${R2_ENDPOINT}/%23not-hash`,
+    `${R2_ENDPOINT}/path%3Fstill-path`,
+    `${R2_ENDPOINT}/path%23still-path`,
+    'http://minio:9000/%3Fnot-query',
+  ])('%s는 origin-only endpoint가 아니므로 거부한다', (endpoint) => {
+    setValidEnvironment({
+      SUBMISSION_FILE_STORAGE_MODE: endpoint.startsWith('https:')
+        ? 'managed'
+        : 'minio',
+      SUBMISSION_FILE_S3_ENDPOINT: endpoint,
+      SUBMISSION_FILE_S3_REGION: endpoint.startsWith('https:')
+        ? 'auto'
+        : 'synthetic-region',
+    });
+
+    expectConfigurationError();
+  });
+
   it('endpoint 앞뒤 공백은 trim한 값으로 반환한다', () => {
     setValidEnvironment({
-      SUBMISSION_FILE_S3_ENDPOINT: '  https://s3.example.com  ',
+      SUBMISSION_FILE_S3_ENDPOINT: `  ${R2_ENDPOINT}  `,
+      SUBMISSION_FILE_STORAGE_MODE: 'managed',
+      SUBMISSION_FILE_S3_REGION: 'auto',
     });
 
     const settings = new SubmissionFileStorageConfig().requireSettings();
 
-    expect(settings.endpoint).toBe('https://s3.example.com');
+    expect(settings.endpoint).toBe(R2_ENDPOINT);
   });
 
-  it('NODE_ENV=production에서도 http://minio:9000을 허용한다', () => {
+  it.each([
+    ['SUBMISSION_FILE_S3_REGION', 'us-east-1'],
+    ['SUBMISSION_FILE_S3_FORCE_PATH_STYLE', 'false'],
+  ] as const)('managed mode에서 %s의 R2 계약 위반을 거부한다', (key, value) => {
+    setValidEnvironment({
+      SUBMISSION_FILE_STORAGE_MODE: 'managed',
+      SUBMISSION_FILE_S3_ENDPOINT: R2_ENDPOINT,
+      SUBMISSION_FILE_S3_REGION: 'auto',
+      [key]: value,
+    });
+
+    expectConfigurationError();
+  });
+
+  it('NODE_ENV=production에서도 minio mode의 http://minio:9000을 허용한다', () => {
     setValidEnvironment({
       SUBMISSION_FILE_S3_ENDPOINT: 'http://minio:9000',
       NODE_ENV: 'production',

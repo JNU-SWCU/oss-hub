@@ -1,7 +1,5 @@
-import { MilestoneSubmissionType } from '@prisma/client';
 import {
   IsDateString,
-  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -18,9 +16,6 @@ export class UpsertMilestoneRequestDto {
 
   @IsString()
   declare dueAt: string;
-
-  @IsEnum(MilestoneSubmissionType)
-  declare submissionType: MilestoneSubmissionType;
 
   @IsOptional()
   @IsString()

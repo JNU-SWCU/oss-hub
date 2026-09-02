@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import type { ProgramAuthoringRequest } from './program-authoring.types';
 import { buildProgramAuthoringPlan } from './program-authoring-plan';
 import {
@@ -19,26 +19,29 @@ function request(): ProgramAuthoringRequest {
       {
         name: ' First ',
         dueAt: '2026-08-20T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.FILE,
         documents: [
           {
             name: ' File ',
             required: true,
-            submissionType: MilestoneSubmissionType.FILE,
             templateUploadId: ' upload-1 ',
           },
           {
             name: ' Text ',
             required: false,
-            submissionType: MilestoneSubmissionType.TEXT,
+            templateUploadId: ' upload-2 ',
           },
         ],
       },
       {
         name: ' Second ',
         dueAt: '2026-08-25T09:00:00+09:00',
-        submissionType: MilestoneSubmissionType.TEXT,
-        documents: [],
+        documents: [
+          {
+            name: ' Summary ',
+            required: true,
+            templateUploadId: ' upload-3 ',
+          },
+        ],
       },
     ],
   };
@@ -114,7 +117,7 @@ describe('Program authoring canonical payload hash', () => {
               ...firstMilestone,
               documents: firstMilestone.documents.map((document, index) =>
                 index === 0
-                  ? { ...document, templateUploadId: 'upload-2' }
+                  ? { ...document, templateUploadId: 'upload-4' }
                   : document,
               ),
             },

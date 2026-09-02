@@ -15,6 +15,8 @@ import {
 import { hasValidSubmissionFileSignature } from './submission-file-signature';
 import {
   SUBMISSION_FILE_STORAGE,
+  SUBMISSION_FILE_STORAGE_ERROR_CODES,
+  SubmissionFileStorageError,
   type SubmissionFileStoragePort,
 } from './submission-file-storage.port';
 import {
@@ -41,7 +43,7 @@ export type {
   UploadedSubmissionFileResponse,
 } from './submission-files.types';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -199,7 +201,13 @@ export class SubmissionFilesService {
     let body: Readable;
     try {
       body = await this.storage.get(file.storageKey);
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof SubmissionFileStorageError &&
+        error.code === SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_NOT_FOUND
+      ) {
+        throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+      }
       throw this.error(SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 

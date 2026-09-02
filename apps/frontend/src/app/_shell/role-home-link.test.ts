@@ -37,7 +37,7 @@ describe('resolveSessionEntry', () => {
         true,
       ),
     ).toEqual({
-      href: '/admin/access',
+      href: '/dashboard/users',
       label: '사용자 목록',
       compactLabel: '관리',
     });

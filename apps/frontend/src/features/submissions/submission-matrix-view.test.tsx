@@ -118,7 +118,9 @@ function render(overrides: Partial<SubmissionMatrixViewProps> = {}): string {
       isLoading={false}
       errorMessage={null}
       now={NOW}
+      selectedMilestoneId={null}
       {...handlers}
+      onSelectMilestone={vi.fn()}
       {...overrides}
     />,
   );
@@ -150,6 +152,51 @@ describe('SubmissionMatrixView', () => {
     expect(html).not.toContain('최종 반려');
   });
 
+  it('선택한 마일스톤은 그 단계 열만 보여 주고 단계명·마감을 명시한다', () => {
+    const html = render({ selectedMilestoneId: 'milestone-mid' });
+    const table = html.match(/<table[\s\S]*?<\/table>/)?.[0] ?? '';
+
+    expect(table).toContain('중간 보고');
+    expect(table).not.toContain('기획서');
+    expect(table).not.toContain('최종 제출');
+    expect(html).toContain('data-slot="matrix-focus-summary"');
+    expect(html).toContain('선택한 제출 단계의 현황만 한눈에 확인합니다.');
+    expect(html).toContain('2026년 9월 12일 (토) 오후 11:59');
+    expect(html).not.toContain('표를 좌우로 스크롤할 수 있습니다.');
+  });
+
+  it('모든 단계와 알 수 없는 단계는 전체 열을 보여 준다', () => {
+    const allHtml = render();
+    const unknownHtml = render({ selectedMilestoneId: 'missing' });
+
+    for (const html of [allHtml, unknownHtml]) {
+      const table = html.match(/<table[\s\S]*?<\/table>/)?.[0] ?? '';
+      expect(table).toContain('기획서');
+      expect(table).toContain('중간 보고');
+      expect(table).toContain('최종 제출');
+      expect(html).not.toContain('data-slot="matrix-focus-summary"');
+      expect(html).toContain('표를 좌우로 스크롤할 수 있습니다.');
+    }
+  });
+
+  it('태블릿 탭과 모바일 선택 메뉴에 모든 단계를 제공하고 선택을 글로 알린다', () => {
+    const html = render({ selectedMilestoneId: 'milestone-mid' });
+
+    expect(html).toContain('aria-label="볼 제출 단계"');
+    expect(html).toContain('>모든 단계<');
+    expect(html).toContain('중간 보고');
+    expect(html).toContain('선택됨');
+    expect(html).toContain('id="matrix-mobile-stage"');
+  });
+
+  it('집중 보기에서도 모든 단계 미제출 팀 수는 전체 마일스톤 기준으로 유지한다', () => {
+    const html = render({ selectedMilestoneId: 'milestone-mid' });
+
+    expect(html).toContain('전체 미제출');
+    expect(html).toContain('0팀');
+    expect(html).toContain('이 단계 미제출 1팀');
+  });
+
   it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(마감 초과/D-n)를 붙인다', () => {
     // Given / When
     const html = render();
@@ -174,6 +221,7 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain(
       '/programs/program-1/submissions/submission-changes-requested/review',
     );
+    expect(html.match(/>열어 보기</g)).toHaveLength(4);
     // Then — 최신 revision 표시.
     expect(html).toContain('v2');
   });
@@ -242,12 +290,13 @@ describe('SubmissionMatrixView', () => {
   it('3버튼 빠른 필터를 팀 수와 함께 보여주고, 선택된 세그먼트만 aria-pressed된다(#619 스펙, #865)', () => {
     // Given
     const ariaPressedFor = (html: string, label: string): string | null => {
-      const match = html.match(
-        new RegExp(
-          `<button[^>]*aria-pressed="(true|false)"[^>]*>${label}</button>`,
-        ),
-      );
-      return match?.[1] ?? null;
+      const button =
+        html
+          .match(
+            /<button[^>]*aria-pressed="(?:true|false)"[^>]*>[\s\S]*?<\/button>/g,
+          )
+          ?.find((candidate) => candidate.includes(label)) ?? null;
+      return button?.match(/aria-pressed="(true|false)"/)?.[1] ?? null;
     };
 
     // When — 픽스처: 팀 행(오픈소스팀)은 미제출 포함, 전체 미제출 행은 없음.
@@ -257,6 +306,8 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('전체 2팀');
     expect(html).toContain('미제출 포함 2팀');
     expect(html).toContain('전체 미제출 0팀');
+    expect(html).toContain('data-slot="matrix-quick-filter-selection"');
+    expect(html).toContain('선택됨');
 
     // Then — 기본값 ALL만 aria-pressed="true".
     expect(ariaPressedFor(html, '전체 2팀')).toBe('true');

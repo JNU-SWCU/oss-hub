@@ -27,9 +27,8 @@ export function completedAuthoringState(): ProgramAuthoringState {
         name: '오리엔테이션',
         startAt: '2026-09-02T09:00',
         dueAt: '2026-09-10T18:00',
-        submissionType: 'TEXT',
         instructions: '참여 내용을 확인합니다.',
-        requirements: [],
+        requirements: initial.milestones[0]?.requirements ?? [],
       },
     ],
   };

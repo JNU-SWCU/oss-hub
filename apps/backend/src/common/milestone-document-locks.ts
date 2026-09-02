@@ -13,7 +13,7 @@
  * 주석이 그 원본이다. 규칙이 두 벌로 갈라지면 그 자체가 교착의 원인이 되므로, 새 경로를 추가할
  * 때도 문장을 여기서만 읽어 쓴다.
  */
-import { Prisma } from '@prisma/client';
+import { MilestoneDocumentKind, Prisma } from '@prisma/client';
 
 /** 잠근 서류 항목 행 — 목적이 잠금이라 id만 읽는다. */
 export interface LockedMilestoneDocumentRow {
@@ -74,11 +74,22 @@ export async function lockMilestone(
 export function lockMilestoneDocumentsOfMilestone(
   client: Prisma.TransactionClient,
   milestoneId: string,
+  kind?: MilestoneDocumentKind,
 ): Promise<readonly LockedMilestoneDocumentRow[]> {
+  if (kind === undefined) {
+    return client.$queryRaw<readonly LockedMilestoneDocumentRow[]>(Prisma.sql`
+      SELECT "id"
+      FROM "MilestoneDocument"
+      WHERE "milestoneId" = ${milestoneId}
+      ORDER BY "id"
+      FOR UPDATE
+    `);
+  }
   return client.$queryRaw<readonly LockedMilestoneDocumentRow[]>(Prisma.sql`
     SELECT "id"
     FROM "MilestoneDocument"
     WHERE "milestoneId" = ${milestoneId}
+      AND "kind" = ${kind}::"MilestoneDocumentKind"
     ORDER BY "id"
     FOR UPDATE
   `);

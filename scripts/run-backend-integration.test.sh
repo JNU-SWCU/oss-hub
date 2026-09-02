@@ -57,9 +57,10 @@ EOF
 cat >"$fake_bin/pnpm" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-printf 'pnpm|%s|DATABASE_URL=%s|S3_ENDPOINT=%s|S3_BUCKET=%s|RUNNER=%s|SEED=%s|JOIN_SECRET=%s\n' \
+printf 'pnpm|%s|DATABASE_URL=%s|STORAGE_MODE=%s|S3_ENDPOINT=%s|S3_BUCKET=%s|RUNNER=%s|SEED=%s|JOIN_SECRET=%s\n' \
   "$*" \
   "${DATABASE_URL-}" \
+  "${SUBMISSION_FILE_STORAGE_MODE-}" \
   "${SUBMISSION_FILE_S3_ENDPOINT-}" \
   "${SUBMISSION_FILE_S3_BUCKET-}" \
   "${OSS_HUB_INTEGRATION_RUNNER-}" \
@@ -75,6 +76,7 @@ chmod +x "$fake_bin/docker" "$fake_bin/pnpm"
 run_fixture() {
   PATH="$fake_bin:$PATH" \
     DATABASE_URL='postgresql://inherited.invalid/real_database' \
+    SUBMISSION_FILE_STORAGE_MODE=managed \
     OSS_HUB_INTEGRATION_RUNNER='inherited-runner-marker' \
     AUTH_INITIAL_ROLES='999999:ADMIN' \
     TEAM_JOIN_CODE_SECRET='inherited-real-join-secret' \
@@ -97,6 +99,7 @@ grep -F '|DATABASE_URL=|RUNNER=' "$command_log" >/dev/null
 grep -F 'DATABASE_URL=postgresql://oss:oss-dev@127.0.0.1:49152/oss_hub_test?schema=public' "$command_log" >/dev/null
 grep -F 'S3_ENDPOINT=http://127.0.0.1:49153' "$command_log" >/dev/null
 grep -F 'S3_BUCKET=submission-files-' "$command_log" >/dev/null
+test "$(grep -Fc '|STORAGE_MODE=minio|' "$command_log")" -eq 2
 test "$(grep -Fc '|RUNNER=oss-hub-isolated-integration-v1' "$command_log")" -eq 2
 if grep -F 'inherited.invalid' "$command_log" >/dev/null; then
   echo 'integration contract: 호출자의 DATABASE_URL이 하위 프로세스에 전달됐습니다.' >&2

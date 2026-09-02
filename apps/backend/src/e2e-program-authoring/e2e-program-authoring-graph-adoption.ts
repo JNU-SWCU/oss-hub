@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType } from '@prisma/client';
+import { MilestoneDocumentKind, MilestoneSubmissionType } from '@prisma/client';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
@@ -7,13 +7,12 @@ type E2eProgramAdoptionDocument = {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
-  readonly submissionType: MilestoneSubmissionType;
 };
 
 type E2eProgramAdoptionMilestone = {
   readonly id: string;
   readonly name: string;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: MilestoneSubmissionType | null;
   readonly documents: readonly E2eProgramAdoptionDocument[];
 };
 
@@ -52,11 +51,11 @@ export async function adoptE2eProgramGraph(
           name: true,
           submissionType: true,
           documents: {
+            where: { kind: MilestoneDocumentKind.DOCUMENT },
             select: {
               id: true,
               name: true,
               required: true,
-              submissionType: true,
             },
           },
         },
@@ -104,7 +103,10 @@ export function adoptPersistedE2eProgramGraph(
   const required = requiredFileMilestone(program, prefix);
   if (program === null || required === undefined)
     throw new E2eAdapterError(404);
-  const document = required.documents[0];
+  const document = required.documents.find(
+    ({ name, required }) =>
+      name === `${prefix}required-document.pdf` && required,
+  );
   if (document === undefined) throw new E2eAdapterError(404);
   return {
     programId: program.id,
@@ -120,10 +122,15 @@ function requiredFileMilestone(
   return program?.milestones.find(
     (milestone) =>
       milestone.name === `${prefix}required-milestone` &&
-      milestone.submissionType === MilestoneSubmissionType.FILE &&
-      milestone.documents.length === 1 &&
-      milestone.documents[0]?.name === `${prefix}required-document` &&
-      milestone.documents[0]?.required === true &&
-      milestone.documents[0]?.submissionType === MilestoneSubmissionType.FILE,
+      milestone.submissionType === null &&
+      milestone.documents.length === 2 &&
+      milestone.documents.some(
+        ({ name, required }) =>
+          name === `${prefix}required-document.pdf` && required,
+      ) &&
+      milestone.documents.some(
+        ({ name, required }) =>
+          name === `${prefix}information-document.pdf` && !required,
+      ),
   );
 }

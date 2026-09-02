@@ -28,7 +28,7 @@ describe('ProgramEditorService milestones', () => {
       name: 'Final',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: MilestoneSubmissionType.FILE,
       instructions: 'tag v1.0.0',
     });
 
@@ -42,7 +42,7 @@ describe('ProgramEditorService milestones', () => {
       name: 'Same',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: MilestoneSubmissionType.FILE,
       instructions: 'tag v1.0.0',
     });
   });
@@ -78,10 +78,7 @@ describe('ProgramEditorService milestones', () => {
     },
   );
 
-  it.each([
-    ['equal to Program end', '2026-08-31T00:00:00.000Z'],
-    ['after Program end', '2026-09-01T00:00:00.000Z'],
-  ])('rejects a milestone dueAt %s without writing', async (_case, dueAt) => {
+  it('rejects a milestone dueAt after Program end without writing', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findProgramScheduleForMilestoneCreate.mockResolvedValue({
       id: 'program-1',
@@ -93,7 +90,7 @@ describe('ProgramEditorService milestones', () => {
       service.createMilestone(101n, 'program-1', {
         ...milestoneInput,
         startAt: '2026-08-20T00:00:00.000Z',
-        dueAt,
+        dueAt: '2026-09-01T00:00:00.000Z',
       }),
     ).rejects.toMatchObject<Partial<DomainException>>({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
@@ -101,39 +98,35 @@ describe('ProgramEditorService milestones', () => {
     expect(store.createMilestone.mock.calls).toHaveLength(0);
   });
 
-  it('rejects milestone deletion when submissions exist', async () => {
+  it('allows a milestone dueAt equal to Program end', async () => {
     const { service, store } = createProgramEditorServiceHarness();
-    store.findMilestoneForDelete.mockResolvedValue({
-      id: 'milestone-1',
-      programId: 'program-1',
-      submissionCount: 1,
-      documentSubmissionCount: 0,
-      programMilestoneCount: 2,
-      programRepositoryProvisioningEnabled: false,
+    store.findProgramScheduleForMilestoneCreate.mockResolvedValue({
+      id: 'program-1',
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
+      endAt: new Date('2026-08-31T00:00:00.000Z'),
     });
 
-    await expect(
-      service.deleteMilestone(101n, 'milestone-1'),
-    ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS],
+    await service.createMilestone(101n, 'program-1', {
+      ...milestoneInput,
+      startAt: '2026-08-20T00:00:00.000Z',
+      dueAt: '2026-08-31T00:00:00.000Z',
     });
-    expect(store.deleteMilestone.mock.calls).toHaveLength(0);
+
+    expect(store.createMilestone.mock.calls).toHaveLength(1);
   });
 
   it('서류 항목에 제출물이 있으면 마일스톤을 지우지 않고 MILESTONE_HAS_SUBMISSIONS로 거부한다', async () => {
-    // Given: 옛 Submission은 없지만 서류 항목(MilestoneDocument)에 제출이 하나 있다.
+    // Given: 서류 항목(MilestoneDocument)에 제출이 하나 있다.
     const { service, store } = createProgramEditorServiceHarness();
     store.findMilestoneForDelete.mockResolvedValue({
       id: 'cuid-synthetic-milestone',
       programId: 'cuid-synthetic-program',
-      submissionCount: 0,
       documentSubmissionCount: 1,
       programMilestoneCount: 2,
       programRepositoryProvisioningEnabled: false,
     });
 
-    // When / Then: 두 제출 경로는 「제출물이 있다」는 뜻이 같아 같은 코드로 거부한다.
+    // When / Then
     await expect(
       service.deleteMilestone(101n, 'cuid-synthetic-milestone'),
     ).rejects.toMatchObject<Partial<DomainException>>({
@@ -149,7 +142,6 @@ describe('ProgramEditorService milestones', () => {
     store.findMilestoneForDelete.mockResolvedValue({
       id: 'cuid-synthetic-milestone',
       programId: 'cuid-synthetic-program',
-      submissionCount: 0,
       documentSubmissionCount: 0,
       programMilestoneCount: 2,
       programRepositoryProvisioningEnabled: false,

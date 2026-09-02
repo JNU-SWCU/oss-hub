@@ -37,7 +37,7 @@ const ACCOUNT_STATUS_ORDER: readonly AdminAccessAccountStatus[] = [
 ];
 
 /**
- * `/admin/access` 상세(04E)·오버레이(04F)가 공유하는 접근 변경 패널
+ * `/dashboard/users` 상세(04E)·오버레이(04F)가 공유하는 접근 변경 패널
  * (PR04G, 직접 선택 방식으로 재설계). 드롭다운 대신 역할·계정 상태 각각을
  * 세그먼트 버튼으로 보여준다 — 현재 값은 채워진 버튼(`default`)으로만 표시되고,
  * 다른 값을 고르면 `onRequestAction`이 곧장 확인 다이얼로그를 연다(쓰기가

@@ -14,7 +14,7 @@ import {
 } from './admin-access-list-query';
 
 /**
- * URL `searchParams` <-> filter-state mapping for the `/admin/access`
+ * URL `searchParams` <-> filter-state mapping for the `/dashboard/users`
  * screen (PR04D). `admin-access-list-query.ts` intentionally stays free of
  * routing concerns; this module is the one place that knows how the 7
  * filter/sort/page fields round-trip through the URL, so a refresh or a

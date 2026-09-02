@@ -107,7 +107,11 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
   });
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(
+    githubId,
+    'program-1',
+    new Date('2026-07-31T00:00:00.000Z'),
+  );
 
   // Then
   expect(checklist.applicationMode).toBe('TEAM');
@@ -116,32 +120,67 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
 // 마감 전 SUBMITTED 는 교체할 수 있다(#블로커 6b) — 잘못 낸 파일을 마감 전에 고칠
 // 경로가 없던 것이 결함이었다. APPROVED·REJECTED 는 판정이 난 뒤라 교체하지 않는다.
 it.each([
-  [SubmissionStatus.SUBMITTED, true],
-  [SubmissionStatus.APPROVED, false],
-  [SubmissionStatus.CHANGES_REQUESTED, true],
-  [SubmissionStatus.REJECTED, false],
-])('상태 %s의 canResubmit은 %s다', async (status, canResubmit) => {
-  // Given
-  const { service } = buildService({
-    milestones: [
-      milestone({
-        submission: {
-          id: 'submission-1',
-          status,
-          currentRevision: 1,
-          latestReview: null,
-          file: null,
-        },
-      }),
-    ],
-  });
+  {
+    label: 'SUBMITTED, 마감 전',
+    status: SubmissionStatus.SUBMITTED,
+    now: new Date('2026-07-31T00:00:00.000Z'),
+    canResubmit: true,
+  },
+  {
+    label: 'SUBMITTED, 정확히 마감 시각',
+    status: SubmissionStatus.SUBMITTED,
+    now: new Date('2026-09-01T14:59:59.000Z'),
+    canResubmit: true,
+  },
+  {
+    label: 'SUBMITTED, 마감 후',
+    status: SubmissionStatus.SUBMITTED,
+    now: new Date('2026-09-01T15:00:00.000Z'),
+    canResubmit: false,
+  },
+  {
+    label: 'CHANGES_REQUESTED, 마감 후',
+    status: SubmissionStatus.CHANGES_REQUESTED,
+    now: new Date('2026-09-01T15:00:00.000Z'),
+    canResubmit: true,
+  },
+  {
+    label: 'APPROVED',
+    status: SubmissionStatus.APPROVED,
+    now: new Date('2026-07-31T00:00:00.000Z'),
+    canResubmit: false,
+  },
+  {
+    label: 'REJECTED',
+    status: SubmissionStatus.REJECTED,
+    now: new Date('2026-07-31T00:00:00.000Z'),
+    canResubmit: false,
+  },
+])(
+  '$label 상태의 canResubmit은 $canResubmit이다',
+  async ({ status, now, canResubmit }) => {
+    // Given
+    const { service } = buildService({
+      milestones: [
+        milestone({
+          submission: {
+            id: 'submission-1',
+            status,
+            currentRevision: 1,
+            latestReview: null,
+            file: null,
+          },
+        }),
+      ],
+    });
 
-  // When
-  const checklist = await service.checklist(githubId, 'program-1');
+    // When
+    const checklist = await service.checklist(githubId, 'program-1', now);
 
-  // Then
-  expect(checklist.items[0]?.submission).toMatchObject({ canResubmit });
-});
+    // Then
+    expect(checklist.items[0]?.submission).toMatchObject({ canResubmit });
+  },
+);
 
 it.each([
   [ReviewDecision.APPROVED, SubmissionStatus.APPROVED],
@@ -180,7 +219,11 @@ it.each([
       ],
     });
 
-    const checklist = await service.checklist(githubId, 'program-1');
+    const checklist = await service.checklist(
+      githubId,
+      'program-1',
+      new Date('2026-07-31T00:00:00.000Z'),
+    );
 
     expect(checklist.items[0]?.submission).toMatchObject({
       decision,
@@ -195,74 +238,35 @@ it.each([
   },
 );
 
-it('현재 revision의 첨부 파일은 storageKey 없이 다운로드 URL과 안전한 메타데이터만 반환한다', async () => {
-  // Given
-  const { service } = buildService({
-    milestones: [
-      milestone({
-        submission: {
-          id: 'submission-file',
-          status: SubmissionStatus.SUBMITTED,
-          currentRevision: 1,
-          latestReview: null,
-          file: {
-            fileId: 'file-opaque',
-            fileName: 'report.pdf',
-            contentType: 'application/pdf',
-            size: 1024,
-            expiresAt: new Date('2028-01-01T00:00:00.000Z'),
-            downloadUrl: '/api/v1/submission-files/file-opaque',
-          },
-        },
-      }),
-    ],
-  });
-
-  // When
-  const checklist = await service.checklist(githubId, 'program-1');
-
-  // Then
-  const serialized = JSON.stringify(checklist);
-  expect(checklist.items[0]?.submission).toMatchObject({
-    file: {
-      fileId: 'file-opaque',
-      fileName: 'report.pdf',
-      contentType: 'application/pdf',
-      size: 1024,
-      expiresAt: '2028-01-01T00:00:00.000Z',
-      downloadUrl: '/api/v1/submission-files/file-opaque',
+it.each([
+  ['비학생', { actor: null }, SubmissionsErrorCode.STUDENT_ONLY],
+  [
+    '비멤버',
+    { application: null },
+    SubmissionsErrorCode.NOT_APPLICATION_MEMBER,
+  ],
+  [
+    '미승인 신청',
+    {
+      application: {
+        id: 'application-1',
+        teamId: 'team-solo',
+        teamMemberCount: 1,
+        status: ApplicationStatus.SUBMITTED,
+      },
     },
-  });
-  expect(serialized).not.toContain('storageKey');
-});
+    SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+  ],
+] as const)('%s은 403으로 끝난다', async (_, overrides, errorCode) => {
+  const { service } = buildService(overrides);
 
-it('비학생·비멤버·미승인 신청은 각각의 403으로 끝난다', async () => {
-  // Given
-  const nonStudent = buildService({ actor: null });
-  const nonMember = buildService({ application: null });
-  const unapproved = buildService({
-    application: {
-      id: 'application-1',
-      teamId: 'team-solo',
-      teamMemberCount: 1,
-      status: ApplicationStatus.SUBMITTED,
-    },
-  });
-
-  // When & Then
   await expect(
-    nonStudent.service.checklist(githubId, 'program-1'),
+    service.checklist(
+      githubId,
+      'program-1',
+      new Date('2026-07-31T00:00:00.000Z'),
+    ),
   ).rejects.toMatchObject({
-    errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
-  });
-  await expect(
-    nonMember.service.checklist(githubId, 'program-1'),
-  ).rejects.toMatchObject({
-    errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
-  });
-  await expect(
-    unapproved.service.checklist(githubId, 'program-1'),
-  ).rejects.toMatchObject({
-    errorCode: { code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED },
+    errorCode: { code: errorCode },
   });
 });

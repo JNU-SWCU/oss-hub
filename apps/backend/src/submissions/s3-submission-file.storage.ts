@@ -177,9 +177,11 @@ export class S3SubmissionFileStorage implements SubmissionFileStoragePort {
       throw new SubmissionFileStorageError(
         SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
       );
-    } catch {
+    } catch (error) {
       throw new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
+        isNotFound(error)
+          ? SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_NOT_FOUND
+          : SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
       );
     }
   }

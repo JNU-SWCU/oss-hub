@@ -11,7 +11,6 @@
 /docs/decisions/ @GoBeromsu
 /.github/        @GoBeromsu
 /scripts/         @GoBeromsu
-/.github/workflows/deploy.yml @GoBeromsu
 /scripts/_compose-lib.sh                     @GoBeromsu
 /scripts/check-env-example-coverage*.mjs     @GoBeromsu
 /scripts/check-host-nginx*.sh                @GoBeromsu

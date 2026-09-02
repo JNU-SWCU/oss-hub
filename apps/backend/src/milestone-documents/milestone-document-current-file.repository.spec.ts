@@ -1,7 +1,6 @@
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneSubmissionType,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
@@ -17,15 +16,17 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     jest.useRealTimers();
   });
 
-  it('승인된 신청의 applicant 또는 현재 팀장·팀원에게 현재 FILE의 살아 있는 ATTACHED 첨부만 투영한다', async () => {
+  it('승인된 신청의 applicant 또는 현재 팀장·팀원에게 현재 리비전의 살아 있는 첨부만 투영한다', async () => {
     // Given
     const findFirst = jest.fn().mockResolvedValue({
+      revision: 2,
       files: [
         {
           storageKey: 'objects/current',
           originalFileName: 'current.pdf',
           mimeType: 'application/pdf',
           sizeBytes: 23,
+          submissionHistory: { revision: 2 },
         },
       ],
     });
@@ -53,7 +54,6 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
         milestoneDocument: {
           is: {
             milestoneId: 'milestone-current',
-            submissionType: MilestoneSubmissionType.FILE,
           },
         },
         application: {
@@ -77,18 +77,27 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
         },
       },
       select: {
+        revision: true,
         files: {
           where: {
             lifecycle: SubmissionFileLifecycle.ATTACHED,
             expiresAt: { gt: NOW },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: [
+            {
+              submissionHistory: {
+                revision: { sort: 'desc', nulls: 'last' },
+              },
+            },
+            { createdAt: 'desc' },
+          ],
           take: 1,
           select: {
             storageKey: true,
             originalFileName: true,
             mimeType: true,
             sizeBytes: true,
+            submissionHistory: { select: { revision: true } },
           },
         },
       },
@@ -99,6 +108,33 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
       mimeType: 'application/pdf',
       sizeBytes: 23,
     });
+  });
+
+  it('파일이 현재 revision과 다른 제출 이력에 연결됐으면 이전 파일을 돌려주지 않는다', async () => {
+    const repository = new MilestoneDocumentCurrentFileRepository({
+      milestoneDocumentSubmission: {
+        findFirst: jest.fn().mockResolvedValue({
+          revision: 2,
+          files: [
+            {
+              storageKey: 'objects/older-uploaded-later',
+              originalFileName: 'revision-1.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 17,
+              submissionHistory: { revision: 1 },
+            },
+          ],
+        }),
+      },
+    });
+
+    await expect(
+      repository.findForApprovedParticipant(
+        34_290_003n,
+        'milestone-current',
+        'document-current',
+      ),
+    ).resolves.toBeNull();
   });
 
   it('인가·소속·현재 제출·FILE·ATTACHED·만료 조건 중 하나라도 맞지 않으면 null만 돌려준다', async () => {

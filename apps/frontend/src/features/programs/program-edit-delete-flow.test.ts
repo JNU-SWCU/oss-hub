@@ -63,7 +63,7 @@ describe('mapProgramDeleteError', () => {
           label: '제출물',
           count: 3,
           unit: '건',
-          href: '/programs/program%3A1/status',
+          href: '/programs/program%3A1/documents',
         },
       ],
     });
@@ -134,6 +134,8 @@ describe('purgeScopeChangedCounts', () => {
       teams: 7,
       boardPosts: 8,
       submissions: 9,
+      submissionEvents: 10,
+      scopeFingerprint: '0123456789abcdef0123456789abcdef',
     };
     expect(
       purgeScopeChangedCounts(

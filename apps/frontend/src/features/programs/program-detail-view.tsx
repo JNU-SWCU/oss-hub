@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
-import { categoryLabel, formatSeoulDateOnly } from './program-detail-format';
+import {
+  categoryLabel,
+  formatSeoulDateOnly,
+  isPastDue,
+} from './program-detail-format';
 import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
@@ -17,6 +21,59 @@ import type { ProgramDetail } from './types';
 export { ProgramFactBar };
 
 const SIGNUP_ENTRY_HREF = '/signup';
+
+const ACTIVITY_SECTION_ID = 'activity';
+const ACTIVITY_HASH = `#${ACTIVITY_SECTION_ID}`;
+
+/**
+ * 스크롤 주도권이 사용자에게 넘어갔다고 볼 입력. `scroll`은 우리가 만든 이동도
+ * 똑같이 내보내므로 구분 근거가 되지 못한다.
+ */
+const SCROLL_HANDOVER_EVENTS = [
+  'wheel',
+  'touchstart',
+  'keydown',
+  'pointerdown',
+] as const;
+
+/**
+ * `/programs/{id}#activity` 로 들어온 진입을 활동 영역까지 데려다 놓는다.
+ *
+ * 상세는 비동기로 열리고 그 안의 활동 그래프·서류 목록도 각자 늦게 채워진다.
+ * 그래서 마운트 직후 한 번만 `scrollIntoView`를 부르면, 셸의 스크롤 칸
+ * (`#main-content`)이 아직 내용보다 크지 않아 그 호출이 조용히 아무 일도 하지
+ * 못한 채 끝나고, 뒤늦게 자란 레이아웃은 그대로 남는다(#1088). 프로그램 본문의
+ * 크기 변화를 따라 다시 맞추되, 사용자가 스스로 스크롤하면 그 자리에서 손을 뗀다.
+ */
+function useActivityHashScroll(): void {
+  useEffect(() => {
+    if (window.location.hash !== ACTIVITY_HASH) return;
+
+    const target = document.getElementById(ACTIVITY_SECTION_ID);
+    if (target === null) return;
+
+    const layoutRoot = target.closest('main') ?? target;
+    const align = (): void => {
+      target.scrollIntoView({ block: 'start', inline: 'nearest' });
+    };
+    const observer = new ResizeObserver(align);
+
+    const release = (): void => {
+      observer.disconnect();
+      for (const event of SCROLL_HANDOVER_EVENTS) {
+        window.removeEventListener(event, release);
+      }
+    };
+
+    observer.observe(layoutRoot);
+    for (const event of SCROLL_HANDOVER_EVENTS) {
+      window.addEventListener(event, release, { passive: true });
+    }
+    align();
+
+    return release;
+  }, []);
+}
 
 /** 신청 기간 기준 모집중 여부 — 헤더 배지·팩트 바가 함께 참조하는 단일 판정 지점. */
 function isRecruiting(period: ProgramDetail['applicationPeriod']): boolean {
@@ -156,7 +213,7 @@ export function ProgramMilestones({
             <MilestoneDocumentSection
               milestoneId={milestone.id}
               viewerRole={program.viewer.role}
-              closed={milestone.dDay < 0}
+              closed={isPastDue(milestone.dueAt)}
             />
           </div>
         ))
@@ -184,15 +241,7 @@ export function ProgramDetailReadyState({
    */
   readonly approvedStudentMilestones?: ReactNode;
 }) {
-  const didScrollActivityHash = useRef(false);
-  useEffect(() => {
-    if (didScrollActivityHash.current) return;
-    if (window.location.hash !== '#activity') return;
-    const target = document.getElementById('activity');
-    if (target === null) return;
-    target.scrollIntoView({ block: 'start', inline: 'nearest' });
-    didScrollActivityHash.current = true;
-  }, []);
+  useActivityHashScroll();
 
   const recruiting = isRecruiting(program.applicationPeriod);
 
@@ -215,7 +264,7 @@ export function ProgramDetailReadyState({
       <ProgramSummary program={program} />
       <ProgramFactBar program={program} overview={overview} />
       <ProgramMilestones program={program} />
-      <section id="activity" aria-label="활동 상세">
+      <section id={ACTIVITY_SECTION_ID} aria-label="활동 상세">
         <ActivityGraphPanel
           programId={program.id}
           viewerRole={program.viewer.role}

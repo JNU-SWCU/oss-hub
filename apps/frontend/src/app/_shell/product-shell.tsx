@@ -72,19 +72,22 @@ export function ProductShell({
   // 잡히므로 이 id 하나로 두 렌더 경로를 가른다.
   const programDetailId = programDetailIdFromPathname(pathname);
 
-  const { facetData, scopeOverview } = useProductShellData({
-    section,
-    programDetailId,
-    member,
-  });
+  const {
+    facetData,
+    scopeOverview,
+    scopeMilestones,
+    scopeMilestonesFailed,
+    retryScopeMilestones,
+  } = useProductShellData({ section, programDetailId, member });
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useSidebarDrawer();
   const closeDrawer = drawer?.close;
 
-  // 라우트가 바뀌면 드로어를 닫는다 — 셸은 유지되므로 스스로 닫히지 않는다.
+  // 경로나 쿼리가 바뀌면 드로어를 닫는다. 마일스톤 단계 이동은 같은 pathname의
+  // query만 바꾸므로 search도 봐야 작은 화면에서 선택 뒤 본문이 바로 드러난다.
   useEffect(() => {
     closeDrawer?.();
-  }, [pathname, closeDrawer]);
+  }, [pathname, search, closeDrawer]);
 
   // 쿠키 기록 — 첫 페인트는 서버가 이미 맞춰 두었고, 토글 시 동기화만 한다 (F4).
   useEffect(() => {
@@ -143,6 +146,7 @@ export function ProductShell({
         teamCount: scopeOverview?.teamCount ?? 0,
         boardPostCount: scopeOverview?.boardPostCount ?? 0,
         viewerDocuments,
+        milestones: scopeMilestones,
         // 서류가 있는 마일스톤을 depth-1 자식으로 편다. 이 값을 넘기지 않으면
         // `programScopeSidebarGroups`의 기본값 `[]` 때문에 자식이 영영 0개다.
         milestoneDocuments: scopeOverview?.milestoneDocuments,
@@ -178,10 +182,13 @@ export function ProductShell({
             programName={scopeOverview?.name ?? programDetailId}
             groups={scopeGroups}
             pathname={pathname}
+            search={search}
             collapsed={collapsed}
             onToggle={toggle}
             backHref={programScopeBackHref()}
             remainingMilestones={scopeOverview?.remainingMilestones}
+            milestoneNavigationFailed={scopeMilestonesFailed}
+            onRetryMilestoneNavigation={retryScopeMilestones}
           />
         ) : (
           <AppSidebar
@@ -209,8 +216,11 @@ export function ProductShell({
             <ProgramScopeSidebarNav
               groups={scopeGroups}
               pathname={pathname}
+              search={search}
               collapsed={false}
               ariaLabel={drawerLabel}
+              milestoneNavigationFailed={scopeMilestonesFailed}
+              onRetryMilestoneNavigation={retryScopeMilestones}
             />
           ) : (
             <AppSidebarNav

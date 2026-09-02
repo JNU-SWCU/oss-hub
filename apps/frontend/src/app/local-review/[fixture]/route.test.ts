@@ -2,7 +2,11 @@ import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
 
-function activate(fixture: string, host: string, target = '/admin/audit-log') {
+function activate(
+  fixture: string,
+  host: string,
+  target = '/dashboard/audit-logs',
+) {
   // NextRequest의 절대 URL은 dev 서버가 정규화한 주소를 흉내 낸다 — 진입 host는 Host
   // 헤더에만 남아 있고, 이 둘이 갈라지는 상황이 바로 cookie 유실을 만들던 조건이다.
   const request = new NextRequest(
@@ -37,7 +41,7 @@ describe('local review activation route', () => {
 
       // Then — 절대 URL이면 host가 바뀌어 host-only cookie가 유실된다.
       expect(response.status).toBe(303);
-      expect(response.headers.get('location')).toBe('/admin/audit-log');
+      expect(response.headers.get('location')).toBe('/dashboard/audit-logs');
       expect(fixtureCookie(response)).toContain(
         'oss_hub_local_review_fixture=admin',
       );
@@ -63,6 +67,30 @@ describe('local review activation route', () => {
     expect(response.status).toBe(303);
     expect(response.headers.get('location')).toBe('/');
     expect(fixtureCookie(response)).toContain('oss_hub_local_review_fixture=;');
+  });
+
+  it('한글이 붙은 허용 경로도 Location 헤더에 안전하게 인코딩한다', async () => {
+    const response = await activate(
+      'staff',
+      '127.0.0.1:3000',
+      '/programs/new에서',
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe(
+      '/programs/new%EC%97%90%EC%84%9C',
+    );
+  });
+
+  it('경로 정규화 뒤 프로토콜 상대 주소가 되는 대상은 루트로 돌린다', async () => {
+    const response = await activate(
+      'staff',
+      '127.0.0.1:3000',
+      '/programs/..//evil.example',
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('/');
   });
 
   it('flag가 꺼져 있으면 loopback host라도 404다', async () => {

@@ -28,3 +28,13 @@
 - 결과: 프로그램 개요 응답을 남은 마감 목록 계약으로 넓히고, 좌측 패널에 가장 가까운 마감의 4칸 카운트다운·서울 기준 절대 시각·남은 마감 목록·종료 안내를 추가했다. 랭킹 단일 카운트다운과 900px 미만 동작은 유지했다.
 - 검증: 프런트 집중 99개, 백엔드 집중 15개, 양쪽 typecheck, 변경 파일 lint·Prettier를 통과했다. 합성 STAFF·STUDENT fixture와 실제 Chromium으로 1280·1000·900·899·768·390px, 종료 안내·마감 롤오버·랭킹 제어군을 확인했다.
 - 공개 안전성: GitHub `public-safe`와 `commitlint`가 통과했고 제3자 캡처·실데이터·개인정보를 포함하지 않았다. Windows 로컬 public-safe timeout과 full pre-push 포맷 훅의 기존 repo-wide 경고는 PR에 기록했으며 GitHub `ci`를 최종 기준으로 삼는다.
+## 2026-08-29 — QA108 랜딩 푸터 개인정보 안내 공개 연결
+
+- 상태: review
+- Issue: #1052
+- PR: pending
+- blocker: 없음
+- 결과: 랜딩 푸터의 `개인정보 수집·이용` 링크를 현행 공개 정책 문서로 연결했다. 로그인 사용자의 `/consent` 동의 흐름과 정책 문구·버전은 변경하지 않았다.
+- 검증: 집중 테스트 17/17, Linux 전체 테스트 306파일·3042건, typecheck·lint, Linux Docker builder, 익명 Chrome 포인터·키보드 2/2, public-safe를 통과했다.
+- 환경 참고: Windows 전체 테스트의 확장자 없는 `pnpm` 실행·음수 프로세스 그룹 신호 제약과 native build의 standalone symlink `EPERM`은 환경 잔여로 원문 증거에 남겼고, 대응 Linux 검증은 통과했다.
+- 공개 안전성: 익명·합성 상태만 사용했으며 병합·배포는 수행하지 않는다. 배포 환경 재확인은 병합·배포 후 남은 운영 확인이다.

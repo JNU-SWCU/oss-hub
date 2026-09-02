@@ -59,25 +59,10 @@ function reviewFixture() {
   ]);
 }
 
-function activePlanFixture() {
-  return `# exec-plan: 합성 로그인
-
-- owner: @synthetic-owner / Issue: #109 / 브랜치: \`feat/synthetic-login\`
-- 상태: 구현 중
-
-## 구현 단계
-
-1. [x] 합성 설계
-2. [ ] 합성 구현
-`;
-}
-
 function singleFeatureGithub(options) {
   const issue = options.issue;
   const pull = options.pull;
-  const branchPulls = options.branchPulls;
   const failPull = options.failPull;
-  const failBranch = options.failBranch;
   return {
     async getIssue() {
       return issue;
@@ -87,12 +72,6 @@ function singleFeatureGithub(options) {
         throw new Error('synthetic pull failure');
       }
       return pull;
-    },
-    async findPullsByHead() {
-      if (failBranch) {
-        throw new Error('synthetic branch failure');
-      }
-      return branchPulls;
     },
   };
 }
@@ -126,26 +105,12 @@ function githubFixture(options) {
         pulls.get(number) ?? { state: 'open', mergedAt: null, base: 'main' }
       );
     },
-    async findPullsByHead(branch) {
-      if (branch === 'feat/synthetic-login') {
-        return [
-          {
-            number: 113,
-            state: 'closed',
-            mergedAt: '2026-07-19T02:00:00Z',
-            base: 'main',
-          },
-        ];
-      }
-      return [];
-    },
   };
 }
 
 test('종료 PR과 해소된 stacked blocker를 stale로 보고한다', async () => {
   const result = await checkTeamStateDrift({
     journals: reviewFixture(),
-    activePlans: [],
     github: githubFixture({ failIssue: null }),
   });
 
@@ -158,28 +123,9 @@ test('종료 PR과 해소된 stacked blocker를 stale로 보고한다', async ()
   assert.equal(exitCodeFor(result), 1);
 });
 
-test('active exec-plan의 종료 parent Issue와 main 병합 PR을 재검토로 보고한다', async () => {
-  const result = await checkTeamStateDrift({
-    journals: reviewFixture(),
-    activePlans: [
-      {
-        path: 'docs/exec-plan/active/synthetic-login.md',
-        text: activePlanFixture(),
-      },
-    ],
-    github: githubFixture({ failIssue: null }),
-  });
-
-  const codes = result.findings.map(({ code }) => code);
-  assert.ok(codes.includes('EXEC_PLAN_ISSUE_CLOSED'));
-  assert.ok(codes.includes('EXEC_PLAN_PR_MERGED'));
-  assert.match(formatReport(result), /archive를 자동 수행하지 않음/);
-});
-
 test('GitHub 조회 실패를 unknown과 exit code 2로 보고한다', async () => {
   const result = await checkTeamStateDrift({
     journals: reviewFixture(),
-    activePlans: [],
     github: githubFixture({ failIssue: 109 }),
   });
 
@@ -197,7 +143,6 @@ test('GitHub 조회 실패를 unknown과 exit code 2로 보고한다', async () 
 test('저널 파일이 없으면 unknown으로 보고한다', async () => {
   const result = await checkTeamStateDrift({
     journals: [],
-    activePlans: [],
     github: githubFixture({ failIssue: null }),
   });
 
@@ -215,7 +160,6 @@ test('제목만 있는 저널은 항목 0건으로 clean이다', async () => {
         text: '# @synthetic 저널\n',
       },
     ],
-    activePlans: [],
     github: githubFixture({ failIssue: null }),
   });
 
@@ -236,13 +180,10 @@ test('파싱할 수 없는 저널 항목을 unknown으로 보고한다', async (
       }),
       '## 2026-07-20 — 깨진 항목\n\n- 상태: review\n',
     ]),
-    activePlans: [],
     github: singleFeatureGithub({
       issue: { state: 'open' },
       pull: openMainPull(202),
-      branchPulls: [],
       failPull: false,
-      failBranch: false,
     }),
   });
 
@@ -269,13 +210,10 @@ test('(이 PR)은 유효하고 PR 조회를 하지 않는다', async () => {
         blocker: '없음',
       }),
     ]),
-    activePlans: [],
     github: singleFeatureGithub({
       issue: { state: 'open' },
       pull: openMainPull(202),
-      branchPulls: [],
       failPull: true,
-      failBranch: false,
     }),
   });
 
@@ -303,7 +241,6 @@ test('같은 Issue의 나중 done이 이전 review stale을 덮는다', async ()
         blocker: '없음',
       }),
     ]),
-    activePlans: [],
     github: singleFeatureGithub({
       issue: { state: 'closed' },
       pull: {
@@ -312,55 +249,12 @@ test('같은 Issue의 나중 done이 이전 review stale을 덮는다', async ()
         mergedAt: '2026-07-19T01:00:00Z',
         base: 'main',
       },
-      branchPulls: [],
       failPull: false,
-      failBranch: false,
     }),
   });
 
   assert.deepEqual(result.findings, []);
   assert.equal(exitCodeFor(result), 0);
-});
-
-test('active exec-plan의 선언됐지만 파싱할 수 없는 참조를 unknown으로 보고한다', async () => {
-  const result = await checkTeamStateDrift({
-    journals: journalsFromEntries([
-      journalEntry({
-        date: '2026-07-20',
-        title: '합성 대기',
-        state: 'planned',
-        issue: '-',
-        pull: '-',
-        blocker: '없음',
-      }),
-    ]),
-    activePlans: [
-      {
-        path: 'docs/exec-plan/active/malformed.md',
-        text: `# exec-plan: 깨진 참조
-
-- owner: @synthetic-owner / Issue: 번호 없음 / 브랜치: feat/missing-code-span
-- 상태: 구현 중
-`,
-      },
-    ],
-    github: singleFeatureGithub({
-      issue: { state: 'open' },
-      pull: openMainPull(202),
-      branchPulls: [],
-      failPull: false,
-      failBranch: false,
-    }),
-  });
-
-  const unknownKeys = result.findings
-    .filter(({ status }) => status === 'unknown')
-    .map(({ code, subject }) => `${code}:${subject}`);
-  assert.deepEqual(unknownKeys, [
-    'EXEC_PLAN_ISSUE_REFERENCE_UNKNOWN:Issue reference',
-    'EXEC_PLAN_BRANCH_REFERENCE_UNKNOWN:branch reference',
-  ]);
-  assert.equal(exitCodeFor(result), 2);
 });
 
 for (const [label, pull] of [
@@ -382,13 +276,10 @@ for (const [label, pull] of [
           blocker: '없음',
         }),
       ]),
-      activePlans: [],
       github: singleFeatureGithub({
         issue: { state: 'closed' },
         pull,
-        branchPulls: [],
         failPull: false,
-        failBranch: false,
       }),
     });
 
@@ -404,50 +295,6 @@ for (const [label, pull] of [
   });
 }
 
-test('같은 branch의 최신 open PR이 있으면 과거 merged PR로 stale을 추론하지 않는다', async () => {
-  const openPull = openMainPull(203);
-  const historicalMergedPull = {
-    number: 199,
-    state: 'closed',
-    mergedAt: '2026-07-01T01:00:00Z',
-    base: 'main',
-  };
-  const result = await checkTeamStateDrift({
-    journals: journalsFromEntries([
-      journalEntry({
-        date: '2026-07-20',
-        title: '합성 기능',
-        state: 'review',
-        issue: '#201',
-        pull: '#202',
-        blocker: '없음',
-      }),
-    ]),
-    activePlans: [
-      {
-        path: 'docs/exec-plan/active/reused-branch.md',
-        text: `# exec-plan: 재사용 branch
-
-- owner: @synthetic-owner / Issue: #201 / 브랜치: \`feat/reused-branch\`
-- 상태: 구현 중
-`,
-      },
-    ],
-    github: singleFeatureGithub({
-      issue: { state: 'open' },
-      pull: openPull,
-      branchPulls: [openPull, historicalMergedPull],
-      failPull: false,
-      failBranch: false,
-    }),
-  });
-
-  assert.ok(
-    !result.findings.some(({ code }) => code === 'EXEC_PLAN_PR_MERGED'),
-  );
-  assert.equal(exitCodeFor(result), 0);
-});
-
 test('모든 문서 참조와 GitHub 상태가 일치하면 clean과 exit code 0을 반환한다', async () => {
   const openPull = openMainPull(202);
   const result = await checkTeamStateDrift({
@@ -461,24 +308,10 @@ test('모든 문서 참조와 GitHub 상태가 일치하면 clean과 exit code 0
         blocker: '없음',
       }),
     ]),
-    activePlans: [
-      {
-        path: 'docs/exec-plan/active/clean.md',
-        text: `# exec-plan: 합성 clean
-
-- owner: @synthetic-owner / Issue: #201 / 브랜치: \`feat/clean\`
-- 상태: 구현 중
-
-1. [ ] 합성 구현
-`,
-      },
-    ],
     github: singleFeatureGithub({
       issue: { state: 'open' },
       pull: openPull,
-      branchPulls: [openPull],
       failPull: false,
-      failBranch: false,
     }),
   });
 
@@ -487,7 +320,7 @@ test('모든 문서 참조와 GitHub 상태가 일치하면 clean과 exit code 0
   assert.match(formatReport(result), /^# TEAM-STATE drift report\n\n\[clean\]/);
 });
 
-test('PR·branch 조회 실패를 unknown으로 보고한다', async () => {
+test('PR 조회 실패를 unknown으로 보고한다', async () => {
   const result = await checkTeamStateDrift({
     journals: journalsFromEntries([
       journalEntry({
@@ -499,28 +332,15 @@ test('PR·branch 조회 실패를 unknown으로 보고한다', async () => {
         blocker: '없음',
       }),
     ]),
-    activePlans: [
-      {
-        path: 'docs/exec-plan/active/api-failure.md',
-        text: `# exec-plan: 조회 실패
-
-- owner: @synthetic-owner / Issue: #201 / 브랜치: \`feat/api-failure\`
-- 상태: 구현 중
-`,
-      },
-    ],
     github: singleFeatureGithub({
       issue: { state: 'open' },
       pull: openMainPull(202),
-      branchPulls: [],
       failPull: true,
-      failBranch: true,
     }),
   });
 
   const codes = result.findings.map(({ code }) => code);
   assert.ok(codes.includes('GITHUB_PR_UNKNOWN'));
-  assert.ok(codes.includes('GITHUB_BRANCH_PRS_UNKNOWN'));
   assert.ok(result.findings.every(({ status }) => status === 'unknown'));
   assert.equal(exitCodeFor(result), 2);
 });

@@ -8,7 +8,7 @@ import {
   type ProgramEditErrors,
 } from './program-edit-flow';
 import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
-import { ProgramEditView } from './program-edit-view';
+import { ProgramEditLoadFailure, ProgramEditView } from './program-edit-view';
 
 const noOp = () => undefined;
 
@@ -71,6 +71,20 @@ const fieldErrors: ProgramEditErrors = {
 };
 
 describe('ProgramEditView contract', () => {
+  it('불러오기 실패에서도 사용자가 계속 이동할 경로를 알려 준다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditLoadFailure
+        message="잠시 연결할 수 없습니다."
+        onRetry={noOp}
+      />,
+    );
+
+    expect(html).toContain('다시 시도');
+    expect(html).toContain('프로그램 목록으로 돌아갈 수 있습니다');
+    expect(html).toContain('href="/programs"');
+    expect(html).toContain('프로그램 목록');
+  });
+
   it('renders locked category, template metadata, milestone actions, and the exit link', () => {
     // Given / When
     const html = renderToStaticMarkup(
@@ -104,20 +118,58 @@ describe('ProgramEditView contract', () => {
       '신청자가 3명, 팀이 2개 있어 유형을 변경할 수 없습니다',
     );
     expect(html).toContain('disabled=""');
-    expect(html).toContain('id="program-end-at"');
-    expect(html).toContain('프로그램 종료');
+    expect(html).not.toContain('id="program-application-start-at"');
+    expect(html).toContain('시간 변경');
+    expect(html).toContain('신청·운영·마일스톤 일정');
     // 양식 키(`oss-contest`)는 구현 식별자다 — 사람이 읽을 양식명만 화면에 남는다.
     expect(html).not.toContain('oss-contest');
     expect(html).toContain('OSS경진대회 신청서');
     expect(html).toContain('v1');
     expect(html).toContain('milestone-canonical-id');
     expect(html).toContain('기획서 제출');
-    expect(html).toContain('TEXT');
+    expect(html).toContain('신청 기간');
+    expect(html).toContain('aria-label="2026년 8월 1일 (토요일)"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('2026년 8월 1일 (토요일)');
+    expect(html).not.toContain('TEXT');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
     // 페이지를 나가는 길은 제목 위의 이 링크 하나뿐이다.
     expect(html).toContain('href="/programs/program-1"');
     expect(html).toContain('← 프로그램 개요');
+  });
+
+  it('마일스톤이 없으면 다음 행동을 문구와 버튼으로 알려 준다', () => {
+    const program = { ...editableProgram, milestones: [] };
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={program}
+        form={toProgramEditForm(program)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        expandedDocumentsMilestoneId={null}
+        isMilestoneBusy={false}
+        {...lifecycleActionProps}
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('아직 등록된 마일스톤이 없습니다');
+    expect(html).toContain('위의 ‘추가’를 눌러');
+    expect(html).toContain('첫 마일스톤을 만드세요');
   });
 
   // #355 — 교직원 화면은 내부 구현 용어를 쓰지 않는다.
@@ -302,7 +354,7 @@ describe('ProgramEditView contract', () => {
 
     const input = buildProgramEditInput(form, ['endAt']);
 
-    expect(input.endAt).toBe(new Date(form.endAt).toISOString());
+    expect(input.endAt).toBe('2026-09-01T03:00:00.000Z');
     expect(input.applicationEndAt).toBe(legacyProgram.applicationEndAt);
     expect(input.teamMinSize).toBe(2);
     expect(input.teamMaxSize).toBe(4);
@@ -376,11 +428,7 @@ describe('ProgramEditView contract', () => {
 
   it.each([
     ['application end', '2026-08-15T09:30', '운영 시작일 이후'],
-    [
-      'milestone due',
-      '2026-08-20T12:30',
-      '신청 종료일과 모든 마일스톤 마감 이후',
-    ],
+    ['milestone due', '2026-08-20T12:30', '모든 마일스톤 마감과 같거나 이후'],
   ])('rejects a program end at the %s boundary', (_label, endAt, message) => {
     const form = { ...toProgramEditForm(editableProgram), endAt };
 

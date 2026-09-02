@@ -23,6 +23,12 @@ export interface StudentApplication {
    * 이 값이 학생에게 사유가 닿는 유일한 통로다 — 알림·감사 로그·메일에는 담기지 않는다.
    */
   readonly rejectionReason: string | null;
+  /**
+   * 신청자 본인이거나 팀장이라 수정·취소 **권한**이 있는지. 기간·상태는 보지 않는다.
+   * 팀 신청서는 팀원 전원이 읽지만 고치고 취소하는 것은 이 둘뿐이다(#1083).
+   * `canManage`가 거짓일 때 「기간이 아니다」와 「권한이 아니다」를 가르는 근거다.
+   */
+  readonly isManager: boolean;
   readonly canManage: boolean;
   /** @deprecated Use canManage. */
   readonly canEdit: boolean;

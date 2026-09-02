@@ -46,9 +46,9 @@ function useAdminAccessOverlayVariant(): AdminAccessOverlayVariant {
 }
 
 /**
- * `/admin/access` 목록 행을 소프트 클릭했을 때 열리는 읽기 전용 오버레이
- * (PR04F) — intercepting route `@modal/(.)users/[userId]`에서만 마운트된다.
- * 표준 URL(`/admin/access/users/[userId]`)은 그대로 유지되고, 하드 새로고침·
+ * `/dashboard/users` 목록 행을 소프트 클릭했을 때 열리는 읽기 전용 오버레이
+ * (PR04F) — intercepting route `@modal/(.)[userId]`에서만 마운트된다.
+ * 표준 URL(`/dashboard/users/[userId]`)은 그대로 유지되고, 하드 새로고침·
  * 직접 진입은 이 컴포넌트를 절대 거치지 않는다(그 경우 표준 페이지(PR04E)가
  * 그대로 렌더된다).
  *

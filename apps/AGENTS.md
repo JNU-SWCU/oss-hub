@@ -1,28 +1,37 @@
-<!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 -->
+<!-- init:managed id=init-apps sha256=81f1f30c25029d6ae9a44c30be7754179a9e33ed62b55b36bc1e12e8c9c52f4c -->
+# `apps/` scope
 
-# apps/ — 컨테이너
+## Local shape
 
-## Purpose
+- This directory contains only the two workspace applications: `backend/` and `frontend/`.
+- It has no package manifest, source entry point, or package-local command.
+- `backend/` is the NestJS API workspace; its local guidance is `backend/AGENTS.md`.
+- `frontend/` is the Next.js workspace; its local guidance is `frontend/AGENTS.md`.
 
-`backend/`(NestJS API)와 `frontend/`(Next.js 앱) 두 워크스페이스 패키지의 컨테이너 디렉터리다. 이 디렉터리 자체에는 코드가 없다 — 각 앱의 실제 규칙은 하위 `AGENTS.md`가 원본이다.
+## Commands
 
-## Key Files
+- `apps/` declares no scripts of its own.
+- Execute backend commands from the `backend` workspace and frontend commands from the `frontend` workspace.
+- Workspace package membership is declared in `pnpm-workspace.yaml`.
 
-없음 — 이 디렉터리에는 파일이 없고 두 앱 디렉터리만 있다.
+## Boundaries
 
-## Subdirectories
+- Work inside either application belongs in that application's subtree, not in `apps/`.
+- Cross-application behavior is assembled outside this container; do not place shared runtime code here.
+- Entering `backend/` or `frontend/` activates that directory's nearer `AGENTS.md`.
 
-| 경로 | 내용 | 문서 |
-| --- | --- | --- |
-| `backend/` | NestJS 백엔드 API | [apps/backend/AGENTS.md](backend/AGENTS.md) |
-| `frontend/` | Next.js 프런트엔드 | [apps/frontend/AGENTS.md](frontend/AGENTS.md) |
+## Path evidence
 
-## For AI Agents
+- Backend package boundary: `apps/backend/package.json`.
+- Frontend package boundary: `apps/frontend/package.json`.
+- Backend source root: `apps/backend/src/`.
+- Frontend source root: `apps/frontend/src/`.
+- Workspace membership is declared at the repository root in `pnpm-workspace.yaml`.
 
-- 이 레벨에서 직접 할 작업은 없다 — `backend/` 또는 `frontend/` 하위 `AGENTS.md`로 이동해 작업한다.
-- 두 앱은 pnpm workspace로 묶여 있다. 루트에서 `pnpm -r <script>`를 실행하면 두 앱에 동시 적용된다(`package.json` 참조).
+## Directory map
 
-## Dependencies
-
-- [루트 AGENTS.md](../AGENTS.md) — 세션 부트스트랩·작성권·커밋 규칙 원본.
+| Path | Local role |
+| --- | --- |
+| `backend/` | API application workspace |
+| `frontend/` | Web application workspace |
+<!-- /init:managed id=init-apps -->

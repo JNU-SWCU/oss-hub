@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 import {
   LOCAL_REVIEW_FIXTURE_COOKIE,
   createLocalReviewActivation,
+  isLocalReviewTarget,
   parseRequestHostname,
-} from '../../_local-review/fixture-contract';
-import { resetLocalReviewRoleSelection } from '../../_local-review/handlers/account-handlers';
+} from '@/lib/local-review-runtime';
 
 type RouteContext = {
   readonly params: Promise<{ readonly fixture: string }>;
@@ -32,6 +32,9 @@ export async function GET(
     return new Response(null, { status: 404 });
   }
 
+  const { resetLocalReviewRoleSelection } =
+    await import('../../../../test-support/local-review/handlers/account-handlers');
+
   // 이 경로는 검토판의 링크를 눌러 "이 페르소나로 여기서 시작한다"고 말하는 자리다.
   // 그래서 앞선 검토가 남긴 역할 선택·프로필 입력을 여기서 지운다. 지우지 않으면 한 번
   // 걸어 본 가입 동선을 다시 볼 수 없다 — 교직원을 고른 뒤에는 `role-requests/me`가
@@ -45,11 +48,11 @@ export async function GET(
   // localhost로 정규화된다. 그래서 127.0.0.1로 진입하면 fixture cookie는 host-only로
   // 127.0.0.1에 심기고 Location만 localhost로 바뀌어, 브라우저가 다음 요청에 cookie를
   // 보내지 않아 하네스가 조용히 꺼진 것처럼 보였다. 상대 Location은 브라우저가 요청 URL을
-  // 기준으로 해석하므로 entry host가 끝까지 남는다 — activation.target은 이미 allowlist된
-  // `/`로 시작하는 경로라 다른 origin으로 샐 여지가 없다.
+  // 기준으로 해석하므로 entry host가 끝까지 남는다. `relativeLocation()`은 URL 정규화
+  // 뒤 allowlist를 다시 검사해 점 경로가 `//host`로 바뀌는 경우도 루트로 닫는다.
   const response = new NextResponse(null, {
     status: 303,
-    headers: { Location: activation.target },
+    headers: { Location: relativeLocation(activation.target) },
   });
   if (activation.fixture === null) {
     response.cookies.delete(LOCAL_REVIEW_FIXTURE_COOKIE);
@@ -63,4 +66,10 @@ export async function GET(
     });
   }
   return response;
+}
+
+function relativeLocation(target: string): string {
+  const parsed = new URL(target, 'http://local-review.invalid');
+  const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  return isLocalReviewTarget(normalized) ? normalized : '/';
 }

@@ -1,4 +1,6 @@
 import { ApiError } from '@/lib/api-client';
+import { programDocumentsHref } from '@/lib/program-route';
+import type { ProgramDeletionScopeCounts } from './api';
 import { programHref } from './program-paths';
 
 /** 백엔드 `ProblemDetailBlockingCounts` 미러 — 기존 guarded delete를 막는 4종 자식 수. */
@@ -45,13 +47,25 @@ function isProgramDeleteBlockingCounts(
   );
 }
 
+function isProgramDeletionScopeCounts(
+  value: unknown,
+): value is ProgramDeletionScopeCounts {
+  return (
+    isProgramDeleteBlockingCounts(value) &&
+    typeof (value as { readonly submissionEvents?: unknown })
+      .submissionEvents === 'number' &&
+    typeof (value as { readonly scopeFingerprint?: unknown })
+      .scopeFingerprint === 'string'
+  );
+}
+
 /**
  * 409(PRG_014)에서 현재 범위(`currentScopeCounts`)를 꾼다. 있으면 재확인을 요구하는
  * 화면이 새 카운트를 보여줌 — 자동 재시도는 하지 않는다(#F2).
  */
 export function purgeScopeChangedCounts(
   error: unknown,
-): ProgramDeleteBlockingCounts | null {
+): ProgramDeletionScopeCounts | null {
   if (!(error instanceof ApiError)) return null;
   if (
     error.problem.status !== 409 ||
@@ -61,7 +75,7 @@ export function purgeScopeChangedCounts(
   }
   const currentScopeCounts = (error.problem as { currentScopeCounts?: unknown })
     .currentScopeCounts;
-  return isProgramDeleteBlockingCounts(currentScopeCounts)
+  return isProgramDeletionScopeCounts(currentScopeCounts)
     ? currentScopeCounts
     : null;
 }
@@ -122,7 +136,7 @@ function blockingItems(
       label: '제출물',
       count: counts.submissions,
       unit: '건',
-      href: programHref(programId, '/status'),
+      href: programDocumentsHref(programId),
     },
   ] as const;
   return candidates.filter((item) => item.count > 0);

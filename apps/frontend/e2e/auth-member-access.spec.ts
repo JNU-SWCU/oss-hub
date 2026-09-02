@@ -138,7 +138,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
     hasAdminAccess: true,
   });
   await page.goto('/dashboard');
-  await expect(page).toHaveURL(/\/admin\/access$/);
+  await expect(page).toHaveURL(/\/dashboard\/users$/);
   await expect(page.locator('[data-slot="nav-bar"]')).toBeVisible();
   await captureResponsiveMenu(page, testInfo, 'menu-admin-only');
   expect(adminOnlyPostRequests).toEqual([]);
@@ -146,7 +146,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
 
   const adminAudit = installBrowserAudit(adminPage);
   await adminPage.goto(
-    `/admin/access/users/${encodeURIComponent(seedId('auth', 'admin-second'))}`,
+    `/dashboard/users/${encodeURIComponent(seedId('auth', 'admin-second'))}`,
   );
   await expect(
     adminPage.locator('#admin-staff-access-control-label'),
@@ -156,7 +156,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
   ).toHaveText('관리자 접근');
   await captureResponsivePage(adminPage, testInfo, 'admin-only-controls');
   await adminPage.goto(
-    `/admin/access/users/${encodeURIComponent(seedId('auth', 'staff-revocable'))}`,
+    `/dashboard/users/${encodeURIComponent(seedId('auth', 'staff-revocable'))}`,
   );
   await expect(
     adminPage.locator('#admin-staff-access-control-label'),
@@ -176,7 +176,7 @@ test('direct URL denial removes admin surfaces and backend denies staff', async 
 }, testInfo) => {
   const page = await authSeedPage('staff-revocable');
   const audit = installBrowserAudit(page);
-  await page.goto('/admin/access');
+  await page.goto('/dashboard/users');
   await expect(page.getByText('접근 권한이 없는 페이지 입니다')).toBeVisible();
   await expect(page.getByText('사용자 목록', { exact: true })).toHaveCount(0);
   await page.getByRole('link', { name: '내 화면으로 돌아가기' }).focus();

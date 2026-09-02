@@ -22,11 +22,22 @@ const textInput: ResubmitSubmissionInput = {
   comment: '실행 화면을 추가했습니다',
 };
 
+/**
+ * 이 스펙이 서는 고정 시각. 기본 `dueAt`(2027-01-01)보다 앞이라 마감 전 상태를 뜻한다.
+ *
+ * ⚠ `service.resubmit`의 `now`는 기본값이 `new Date()`다. 넘기지 않으면 실제 시각으로
+ * 마감을 판정하므로, 고정 `dueAt`을 지나는 순간 코드를 아무도 건드리지 않았는데
+ * 테스트가 뒤집힌다 — 같은 일이 checklist 스펙에서 실제로 일어났다(#1144).
+ * 마감 경계 자체를 보는 테스트만 자기 시각을 따로 넘긴다.
+ */
+const NOW = new Date('2026-07-31T00:00:00.000Z');
+
 function target(
   overrides: Partial<ResubmissionTarget> = {},
 ): ResubmissionTarget {
   return {
     id: submissionId,
+    submissionRecordId: 'target-submission-1',
     applicationId: 'application-1',
     milestoneId: 'milestone-1',
     programId: 'program-1',
@@ -102,7 +113,7 @@ it('FILE 재제출은 Program 잠금 뒤 authoritative target을 다시 검증�
     });
 
   // When
-  const result = service.resubmit(githubId, submissionId, fileInput);
+  const result = service.resubmit(githubId, submissionId, fileInput, NOW);
 
   // Then
   await expect(result).rejects.toMatchObject({
@@ -143,7 +154,7 @@ it.each([
   });
 
   // When
-  const result = service.resubmit(githubId, submissionId, fileInput);
+  const result = service.resubmit(githubId, submissionId, fileInput, NOW);
 
   // Then
   await expect(result).rejects.toMatchObject({
@@ -157,7 +168,7 @@ it('CHANGES_REQUESTED + 일치하는 baseRevision이면 새 revision을 만들�
   const { service, createSubmissionRevision } = buildService();
 
   // When
-  const result = await service.resubmit(githubId, submissionId, textInput);
+  const result = await service.resubmit(githubId, submissionId, textInput, NOW);
 
   // Then
   expect(result).toEqual({
@@ -167,7 +178,7 @@ it('CHANGES_REQUESTED + 일치하는 baseRevision이면 새 revision을 만들�
   });
   expect(createSubmissionRevision).toHaveBeenCalledWith(
     expect.objectContaining({
-      submissionId,
+      submissionId: 'target-submission-1',
       applicationId: 'application-1',
       milestoneId: 'milestone-1',
       baseRevision: 1,
@@ -189,7 +200,7 @@ it('마감 후 SUBMITTED 제출물 교체는 422 SUBMISSION_REPLACEMENT_CLOSED�
   });
 
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED },
   });
@@ -207,7 +218,7 @@ it.each([
   });
 
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED },
   });
@@ -219,7 +230,7 @@ it('마감 전 SUBMITTED 제출물은 새 revision으로 교체한다', async ()
     target: target({ status: SubmissionStatus.SUBMITTED }),
   });
 
-  const result = await service.resubmit(githubId, submissionId, textInput);
+  const result = await service.resubmit(githubId, submissionId, textInput, NOW);
 
   expect(result).toMatchObject({
     revision: 2,
@@ -248,7 +259,7 @@ it('REJECTED 제출물은 마감 전에도 교체할 수 없다', async () => {
   });
 
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED },
   });
@@ -263,7 +274,7 @@ it('baseRevision이 currentRevision과 다르면 409 STALE_SUBMISSION_REVISION�
 
   // When & Then
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION },
   });
@@ -278,7 +289,7 @@ it('동시 재제출로 저장 시점에 밀린 경우도 409 STALE_SUBMISSION_R
 
   // When & Then
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION },
   });
@@ -294,7 +305,7 @@ it('마일스톤 지정 유형과 content.type이 다르면 422 CONTENT_TYPE_MIS
 
   // When & Then
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
   });
@@ -311,7 +322,7 @@ it('FILE 유형 재제출은 replacement fileId로 새 revision을 만든다', a
   };
 
   // When
-  const result = await service.resubmit(githubId, submissionId, input);
+  const result = await service.resubmit(githubId, submissionId, input, NOW);
 
   // Then
   expect(result).toEqual({
@@ -321,7 +332,7 @@ it('FILE 유형 재제출은 replacement fileId로 새 revision을 만든다', a
   });
   expect(createSubmissionRevision).toHaveBeenCalledWith(
     expect.objectContaining({
-      submissionId,
+      submissionId: 'target-submission-1',
       applicationId: 'application-1',
       milestoneId: 'milestone-1',
       baseRevision: 1,
@@ -340,12 +351,12 @@ it('존재하지 않는 제출은 404, 남의 제출은 403으로 구분한다',
 
   // When & Then
   await expect(
-    missing.service.resubmit(githubId, submissionId, textInput),
+    missing.service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.SUBMISSION_NOT_FOUND },
   });
   await expect(
-    notMember.service.resubmit(githubId, submissionId, textInput),
+    notMember.service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
   });
@@ -359,7 +370,7 @@ it('신청이 더 이상 APPROVED가 아니면 403이다', async () => {
 
   // When & Then
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED },
   });
@@ -371,7 +382,7 @@ it('비학생 계정은 재제출할 수 없다', async () => {
 
   // When & Then
   await expect(
-    service.resubmit(githubId, submissionId, textInput),
+    service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
   });

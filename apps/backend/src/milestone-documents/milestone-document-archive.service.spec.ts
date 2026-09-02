@@ -1,4 +1,4 @@
-import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
@@ -78,7 +78,6 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
         name: '사업계획서',
         required: true,
         sortOrder: 1,
-        submissionType: MilestoneSubmissionType.FILE,
         templateFileId: null,
       },
       {
@@ -87,7 +86,6 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
         name: '활동요약',
         required: false,
         sortOrder: 2,
-        submissionType: MilestoneSubmissionType.TEXT,
         templateFileId: null,
       },
     ]),
@@ -200,7 +198,6 @@ function manyTeams(teams: number): Record<string, jest.Mock> {
         name: '사업계획서',
         required: true,
         sortOrder: 1,
-        submissionType: MilestoneSubmissionType.FILE,
         templateFileId: null,
       },
     ]),

@@ -163,7 +163,7 @@ describe('복귀 주소로 삼지 않는 자리', () => {
    * 있던 화면은 되찾히므로 값을 좁게 받는다. 해시는 서버에 가지도 않는다.
    */
   it.each([
-    ['쿼리', '/admin/access?userId=42'],
+    ['쿼리', '/dashboard/users?userId=42'],
     ['해시', '/programs/1#team-7'],
     ['쿼리로 위장한 자기 참조', `${LOGOUT_COMPLETE_PATH}?x=1`],
   ])('%s가 붙은 값은 싣지 않는다', (_label, input) => {
