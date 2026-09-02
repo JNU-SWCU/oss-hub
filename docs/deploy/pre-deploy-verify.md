@@ -39,7 +39,10 @@ docker inspect --format \
   "$container_id"
 
 require_status() {
-  actual="$(curl -s -o /dev/null -w '%{http_code}' --request "$2" "$3")"
+  actual="$(curl -s -o /dev/null -w '%{http_code}' \
+    -H 'Host: jnu-oss-hub.com' \
+    -H 'X-Vercel-Forwarded-For: 192.0.2.1' \
+    --request "$2" "$3")"
   test "$actual" = "$1" || { printf 'FAIL %s %s expected=%s actual=%s\n' "$2" "$3" "$1" "$actual" >&2; return 1; }
 }
 require_status 404 GET  http://127.0.0.1:8081/
@@ -52,7 +55,7 @@ require_status 401 GET  http://127.0.0.1:8081/api/v1/submission-files/1
 ```
 
 - Backend는 running·healthy, restart 0, 대상 Release version과 exact revision을 보고해야 한다.
-- Loopback root 404는 production Compose가 browser frontend를 제공하지 않는다는 계약이다. `/api/v1/health` 200은 PostgreSQL 연결까지 확인한다.
+- Loopback probe의 reserved synthetic client header는 authenticated host nginx 뒤의 Compose contract를 재현한다. Loopback root 404는 production Compose가 browser frontend를 제공하지 않는다는 계약이고 `/api/v1/health` 200은 PostgreSQL 연결까지 확인한다.
 - 미인증 POST 401은 요청이 nginx를 통과해 backend `SessionGuard`에 도달했음을 증명한다.
 - 이 검증은 컨테이너·volume·image를 변경하지 않는다. Production에서 `down -v`를 사용하지 않는다.
 - Docker 권한이 없으면 Jenkins build의 exact Release/Image ID receipt를 사용하고, process 시작 시각만으로 OCI identity를 증명했다고 기록하지 않는다.

@@ -76,6 +76,7 @@ blocker를 기록할 때는 사람이 아니라 **작업을 주어로** 쓴다.
 - 실값은 GitHub repo secrets 또는 배포 환경의 secret store에만 둔다. 메신저·Notion·코드 주석으로도 전달하지 않는다.
 - CI 로그에 secret이 echo되지 않는지 워크플로 작성 시 확인한다. 디버그 목적으로 환경 변수를 dump하는 스텝을 만들지 않는다.
 - 도입 완료(#6): gitleaks + 커스텀 regex(학번, 전화번호, 연락처 이메일, 개인 머신 경로)를 GitHub Actions의 `public-safe` job에서 모든 PR에 실행하고 required check로 강제한다. commit identity 이메일은 위 예외를 적용한다. 실명 목록은 repo에 두지 않으며, PR-controlled script에 repository secret을 전달하지 않도록 `pull_request` CI에는 주입하지 않는다. 실명 검사는 신뢰된 수동 실행의 `BLOCKED_NAMES`와 PR 리뷰로 수행한다.
+- 서비스의 공개 DNS hostname(canonical browser domain과 origin subdomain)은 공개 DNS·인증서·브라우저에 이미 노출된 값이므로 tracked config·문서에 적을 수 있다(2026-09-02 수용 deviation). 공인 IP·인스턴스 ID·접근 credential은 계속 금지다.
 - 배포 설정(env 키, compose/secret 경로, 배포 절차)이 바뀌면 같은 PR에서 (a) 코드 쪽엔 `.env.example`에 키 이름만 추가/갱신하고, (b) 실값 갱신은 **운영 credentials vault**(원본)에 반영하는 것까지가 완료 조건이다. 형식 예시가 필요하면 `githubId:login:ROLE[:displayName]` 같은 스키마 표기만 쓰고 실값으로 채운 예시는 쓰지 않는다.
 
 ## 외부 데이터 반입: 합성 fixture 5단계

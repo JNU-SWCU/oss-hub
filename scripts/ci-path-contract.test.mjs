@@ -65,6 +65,7 @@ const deploymentHardeningCommands = [
   'node --test scripts/check-jenkinsfile.test.mjs',
   'bash scripts/check-jenkinsfile.test.sh',
   'bash scripts/check-jenkinsfile.sh Jenkinsfile',
+  "! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows",
   'bash scripts/jenkins/validate-rollback-images.test.sh',
   'bash scripts/prune-deploy-backups.test.sh',
 ];

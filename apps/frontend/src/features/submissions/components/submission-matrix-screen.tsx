@@ -21,8 +21,12 @@ const INITIAL_QUERY: MatrixQueryInput = {
 /** #124 제출 현황 매트릭스 — 검색·페이지는 서버 조회 조건(#124 query 계약). */
 export function SubmissionMatrixScreen({
   programId,
+  selectedMilestoneId,
+  onSelectMilestone,
 }: {
   readonly programId: string;
+  readonly selectedMilestoneId: string | null;
+  readonly onSelectMilestone: (milestoneId: string | null) => void;
 }) {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState<MatrixQueryInput>(INITIAL_QUERY);
@@ -73,6 +77,7 @@ export function SubmissionMatrixScreen({
       isLoading={isLoading}
       errorMessage={errorMessage}
       now={new Date()}
+      selectedMilestoneId={selectedMilestoneId}
       onSearchChange={setSearch}
       onSearch={() => {
         setQuickFilter('ALL');
@@ -92,6 +97,7 @@ export function SubmissionMatrixScreen({
         requestIdRef.current += 1;
         void load(query, requestIdRef.current);
       }}
+      onSelectMilestone={onSelectMilestone}
     />
   );
 }

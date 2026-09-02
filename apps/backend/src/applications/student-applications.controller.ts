@@ -31,6 +31,11 @@ interface StudentApplicationResponse {
   readonly isRepositoryPublicationPlanned: boolean;
   /** 반려 사유. 반려가 아니면 `null`이며 키 자체는 항상 있다. */
   readonly rejectionReason: string | null;
+  /**
+   * 신청자 본인이거나 팀장이라 수정·취소 **권한**이 있는지. 기간·상태는 보지 않는다.
+   * 화면이 「기간이 아니다」와 「당신 권한이 아니다」를 갈라 말하는 데 쓴다(#1083).
+   */
+  readonly isManager: boolean;
   readonly canManage: boolean;
   /** @deprecated Use canManage. */
   readonly canEdit: boolean;

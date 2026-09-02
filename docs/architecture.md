@@ -28,25 +28,30 @@ docs/
 
 ## 현재 전환 상태
 
-checkpoint A는 완료됐다. 구매한 canonical HTTPS custom domain이 production frontend origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin으로 전환됐고 stable-origin SSR·OAuth·session·query·authz smoke가 통과했다. 프로덕션 제출 파일 저장소는 private managed R2다(2026-09-02 stopped-writer cutover, SHA-256 parity). checkpoint B가 완료돼 공개 ingress는 API 전용이며 비API 경로는 canonical origin으로 308 redirect한다. AWS는 backend, PostgreSQL, API-only Compose ingress만 제공한다. Production MinIO service·volume·credential과 legacy frontend 컨테이너는 owner waiver 뒤 제거됐다. production frontend 빌드는 `apps/frontend/backend-origin.allowlist`의 SHA-256 digest allowlist에 있는 rewrite 대상만 허용한다.
+Checkpoint A·B, cleanup과 G006 custom-domain hardening이 완료됐다. 구매한 canonical HTTPS custom domain이 유일한 browser origin이며 backend `FRONTEND_URL`·GitHub OAuth callback이 같은 origin을 사용한다. Vercel은 `/api/v1` request에서 browser `Authorization`을 제거하고 production sensitive credential을 주입해 exact origin domain으로 rewrite하며, origin nginx는 인증된 API 요청만 받는다. Production storage는 private managed R2이고 AWS는 backend, PostgreSQL, API-only Compose ingress만 제공한다. MinIO·legacy frontend runtime·public IP certificate·public Jenkins trigger는 없다. Live cutover receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)이 원본이다.
 
 ```mermaid
 flowchart LR
   Browser[Browser] --> Vercel[Vercel frontend origin]
-  Vercel -- same-origin /api/v1 rewrite --> Ingress[AWS API ingress]
+  Vercel -- authenticated same-origin /api/v1 rewrite --> Ingress[Exact origin-domain API ingress]
   Ingress --> Back[backend]
   Back --> Postgres[(postgres / pgdata)]
   Back --> R2[(managed R2)]
 ```
 
-## 목표 상태
+## 보안 경계
 
-checkpoint B와 cleanup이 완료됐다. Vercel이 유일한 frontend origin이고 AWS는 backend, PostgreSQL, API-only ingress를 유지한다. Production Compose와 Jenkins는 managed R2만 허용하며 MinIO와 AWS frontend rollback path는 없다.
+- Browser는 canonical custom domain만 사용한다. Origin domain과 infrastructure address는 browser origin·OAuth callback·cookie domain이 아니다.
+- Vercel routing layer만 production origin credential을 소유한다. Preview와 browser가 보낸 `Authorization`은 origin 인증에 사용할 수 없다.
+- Origin nginx는 Vercel이 덮어쓰는 client header를 rate-limit key로 사용하고 backend로 전달하기 전에 origin credential·provider header를 제거한다.
+- Host nginx의 default HTTP/HTTPS server는 unknown Host를 거절하고 exact origin domain의 `/api/v1/`만 연다. Compose nginx도 canonical·loopback Host 외에는 404다.
+- Jenkins는 outbound 10분 convergence schedule과 tailnet 수동 실행만 사용한다. Public build trigger와 GitHub deploy token은 없다.
+- 위 경계는 proxy-peer 단일 rate bucket, Host spoofing, direct-origin browser access, public Jenkins trigger, legacy IP certificate를 제거한다.
 
 ```mermaid
 flowchart LR
   Browser[Browser] --> Vercel[Vercel frontend origin]
-  Vercel -- same-origin /api/v1 rewrite --> Ingress[AWS API ingress]
+  Vercel -- authenticated same-origin /api/v1 rewrite --> Ingress[Exact origin-domain API ingress]
   Ingress --> Back[backend]
   Back --> Postgres[(postgres)]
   Back --> R2[(private managed R2)]

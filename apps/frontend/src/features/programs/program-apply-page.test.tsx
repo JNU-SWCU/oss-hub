@@ -88,6 +88,7 @@ function rejectedApplication(
     updatedAt: '2026-07-11T00:00:00.000Z',
     isRepositoryPublicationPlanned: false,
     rejectionReason,
+    isManager: true,
     canManage: false,
     canEdit: false,
     canCancel: false,
@@ -351,6 +352,26 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('저장 실패');
     expect(html).toContain('이미 승인되거나 반려된 신청입니다.');
+  });
+
+  /**
+   * 신청자도 팀장도 아닌 팀원(#1083). 취소를 누르면 팀 전체의 신청서가 하드 삭제되던
+   * 자리라, 버튼이 아예 없어야 한다 — 「기간이 아니다」로 둘러대지도 않는다.
+   */
+  it('관리 권한이 없는 팀원에게는 취소·저장 버튼 대신 권한 안내를 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <BlockedView
+        reason="manage-not-allowed"
+        program={program}
+        application={null}
+      />,
+    );
+
+    expect(html).toContain('신청서를 수정할 권한이 없습니다');
+    expect(html).toContain('신청서를 낸 사람과 팀장만');
+    expect(html).not.toContain('신청 취소');
+    expect(html).not.toContain('수정 내용 저장');
+    expect(html).not.toContain('신청 기간이 아닙니다');
   });
 
   it('team-required blocked state keeps detail CTA and shows team setup CTA', () => {
