@@ -1141,3 +1141,12 @@
 - blocker: 없음
 - 결과: 바로 앞 항목("manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다")이 "PR을 Ready로 열었다"고 적었으나 사실이 아니다. 같은 작업 트리를 다른 세션이 동시에 쓰고 있었고, 커밋이 `docs/qa-ticket-readability`가 아니라 `refactor/1113-remove-minio-hold`에 얹혀 PR #1157로 병합됐다. 스킬 파일 5개(`skills/manage-qa-tickets/{SKILL.md,CHANGELOG.md,references/notion-ticket-contract.md}`, `skills/submit-pr-evidence/{SKILL.md,CHANGELOG.md}`)의 내용 자체는 `main`에서 의도대로 확인된다 — `manage-qa-tickets` 4.3.0, `submit-pr-evidence` 1.2.0. 과거 항목은 수정하지 않는 append-only 규칙에 따라 원문을 그대로 두고 이 항목으로 경로만 정정한다. 재발 방지: 여러 에이전트가 한 작업 트리를 공유할 때는 `git worktree`로 분리한 뒤 커밋한다.
 - 검증: `git log origin/main`에서 cb6b71f5(#1157)가 스킬 파일 5개를 포함함을 `gh pr view 1157 --json files`로 확인, `git show origin/main:` 로 두 스킬의 버전 문자열 확인, `bash scripts/check-public-safe.sh` 통과. docs-only 변경이라 캡처·다이어그램 게이트는 해당 없음.
+
+## 2026-09-02 — custom-domain origin을 authenticated API boundary로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: DNS provider에서 `origin` record를 current backend ingress로 추가하는 사람 작업
+- 결과: Vercel CDN route가 browser Authorization을 지우고 production sensitive Basic credential을 주입해 exact origin domain으로만 rewrite한다. Host nginx는 exact DNS TLS/SNI·Basic auth·method allowlist를 적용하고 unknown Host·비API·direct origin을 닫으며 credential을 Compose 전에 제거한다. Post-auth Compose nginx가 Vercel client header로 API/OAuth/admin rate limit을 분리하고 backend 전에 internal headers를 제거한다. Legacy IP certificate·public Jenkins route·broad `/api/` 계약을 제거했다.
+- 검증: Vercel config/Next test 23건, actual `vercel build --prod`, host/Compose nginx syntax, host nginx adversarial 15건, upload route 15건, Jenkins 13건, CI path 8건 통과. Live cutover는 DNS·certificate·htpasswd·Vercel origin env를 적용한 뒤 canonical SSR/OAuth/session/query/authz/file/4MiB+ upload와 negative Host/path/method probe로 닫는다.
