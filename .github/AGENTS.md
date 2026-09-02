@@ -4,7 +4,7 @@
 ## Ownership
 
 - `.github/` owns GitHub workflow definitions, CODEOWNERS routing, and issue/PR templates.
-- `workflows/ci.yml` is the CI execution contract; `workflows/deploy.yml` is the release-to-Jenkins trigger boundary.
+- `workflows/ci.yml` is the CI execution contract. There is no deploy workflow: production deployment converges via the Jenkins outbound `H/10` schedule (ADR-002), and no workflow may trigger Jenkins.
 - `CODEOWNERS` routes high-risk review candidates but does not replace the final risk decision in `../docs/decisions/ADR-005-agent-driven-review-cycle.md`.
 
 ## CI trust boundaries
@@ -15,7 +15,7 @@
 - Keep workflow-level path filters out of `workflows/ci.yml`; inner `dorny/paths-filter` conditions select affected lanes while retaining a check for every PR.
 - `team-state-drift` is advisory; do not make it a substitute for GitHub Issue/PR state.
 - `public-safe-issue` scans Issue and comment text; preserve its public-input handling and deny-list enforcement.
-- `workflows/deploy.yml` only triggers the approved Jenkins release flow; do not add checkout, build, migration, rollback, or production mutations there.
+- Never add a workflow that reaches Jenkins or production: no deploy trigger, no Jenkins URL/token secret, and no checkout/build/migration/rollback/production mutation surface in `.github/workflows/`.
 
 ## Templates and routing
 
@@ -27,7 +27,6 @@
 ## Important paths
 
 - `workflows/ci.yml` — PR CI, commitlint, public-safe, and advisory drift jobs.
-- `workflows/deploy.yml` — release-trigger handoff to Jenkins.
 - `CODEOWNERS` — review-candidate routing patterns.
 - `pull_request_template.md` — PR body baseline.
 - `ISSUE_TEMPLATE/work-ticket.md` — scoped work-ticket input.

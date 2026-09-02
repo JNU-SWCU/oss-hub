@@ -1141,3 +1141,48 @@
 - blocker: 없음
 - 결과: 바로 앞 항목("manage-qa-tickets 티켓 본문 가독성 규칙을 추가한다")이 "PR을 Ready로 열었다"고 적었으나 사실이 아니다. 같은 작업 트리를 다른 세션이 동시에 쓰고 있었고, 커밋이 `docs/qa-ticket-readability`가 아니라 `refactor/1113-remove-minio-hold`에 얹혀 PR #1157로 병합됐다. 스킬 파일 5개(`skills/manage-qa-tickets/{SKILL.md,CHANGELOG.md,references/notion-ticket-contract.md}`, `skills/submit-pr-evidence/{SKILL.md,CHANGELOG.md}`)의 내용 자체는 `main`에서 의도대로 확인된다 — `manage-qa-tickets` 4.3.0, `submit-pr-evidence` 1.2.0. 과거 항목은 수정하지 않는 append-only 규칙에 따라 원문을 그대로 두고 이 항목으로 경로만 정정한다. 재발 방지: 여러 에이전트가 한 작업 트리를 공유할 때는 `git worktree`로 분리한 뒤 커밋한다.
 - 검증: `git log origin/main`에서 cb6b71f5(#1157)가 스킬 파일 5개를 포함함을 `gh pr view 1157 --json files`로 확인, `git show origin/main:` 로 두 스킬의 버전 문자열 확인, `bash scripts/check-public-safe.sh` 통과. docs-only 변경이라 캡처·다이어그램 게이트는 해당 없음.
+
+## 2026-09-02 — custom-domain origin을 authenticated API boundary로 바꾼다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: DNS provider에서 `origin` record를 current backend ingress로 추가하는 사람 작업
+- 결과: Vercel CDN route가 browser Authorization을 지우고 production sensitive Basic credential을 주입해 exact origin domain으로만 rewrite한다. Host nginx는 exact DNS TLS/SNI·Basic auth·method allowlist를 적용하고 unknown Host·비API·direct origin을 닫으며 credential을 Compose 전에 제거한다. Post-auth Compose nginx가 Vercel client header로 API/OAuth/admin rate limit을 분리하고 backend 전에 internal headers를 제거한다. Legacy IP certificate·public Jenkins route·broad `/api/` 계약을 제거했다.
+- 검증: Vercel config/Next test 23건, actual `vercel build --prod`, host/Compose nginx syntax, host nginx adversarial 15건, upload route 15건, Jenkins 13건, CI path 8건 통과. Live cutover는 DNS·certificate·htpasswd·Vercel origin env를 적용한 뒤 canonical SSR/OAuth/session/query/authz/file/4MiB+ upload와 negative Host/path/method probe로 닫는다.
+
+## 2026-09-02 — G006 authenticated origin live cutover를 완료한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: origin DNS record·DNS certificate·host-only htpasswd·Vercel production sensitive env를 적용하고 additive vhost로 direct probe를 검증한 뒤 prebuilt Vercel production deployment를 promote했다. Canonical gate가 전부 green이어서 final tracked host config를 설치해 legacy IP vhost·IP certificate renewal을 제거했다. 중간에 Compose config를 선반영해 canonical API가 404로 깨진 사고는 즉시 rollback으로 복구했고, 이후 Release `v0.6.140` build 240이 새 Compose 계약을 정상 배포해 host drift와 missing-client guard를 닫았다. Public Jenkins nginx route와 GitHub deploy secrets도 제거했다.
+- 검증: canonical SSR/programs/ranking/health 200·OAuth 302·미인증 POST 401·unknown API 404, 4.5MiB upload body가 backend 401 도달, origin direct unauth 401·missing client 403·auth 200·PUT/OPTIONS 403·unknown Host/SNI 거절, legacy IP HTTPS handshake 거절, public 8080/8443/22 closed, timer build 241 no-op SUCCESS, host drift diff 없음, origin certificate renewal dry-run 통과.
+
+## 2026-09-02 — G006 이후 stale 계약 문서를 닫는다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 독립 비평이 지적한 문서-코드 불일치를 닫았다. `.github/AGENTS.md`·CODEOWNERS·ADR-005의 삭제된 `deploy.yml` 계약을 outbound convergence로 교체하고, demo runbook D1의 깨진 `gh run list --workflow deploy.yml` 검증을 Jenkins schedule/tailnet 수동 실행 검증으로 바꿨다. CI path rule의 nginx lane 서술을 현재 exact-Host·Basic auth·client-key·directive-tree 계약으로 재기술했다. Root AGENTS의 런타임 서술을 Vercel/managed R2 현재형으로 고쳐고, workflow가 Jenkins를 다시 트리거하지 못하도록 required CI에 부재 단언을 추가했다. 공개 DNS hostname의 공개-safe 경계를 security rule에 수용 deviation으로 기록했다.
+- 검증: CI path 8/8, Jenkins shell 13/13, workflow 부재 단언 red-green, format·public-safe·diff check 통과.
+
+## 2026-09-02 — workflow 부재 단언을 path contract에 고정한다
+
+- 상태: review
+- Issue: #1113
+- PR: (이 PR)
+- blocker: 없음
+- 결과: required jenkins lane의 Jenkins-trigger workflow 부재 단언을 `scripts/ci-path-contract.test.mjs`의 필수 명령 집합에 추가해, 단언을 지우는 변경이 fail-closed로 거절되게 했다.
+- 검증: CI path 8/8(단언 삭제 mutation이 기존 drift 테스트로 red), format·diff check 통과.
+
+## 2026-09-02 — SSR function region을 Seoul로 고정한다
+
+- 상태: review
+- Issue: #1169
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 생성 흐름 체감 지연의 지배 요인을 실측으로 확정했다 — canonical SSR 응답의 `x-vercel-id`가 `icn1::iad1`로, edge는 Seoul이지만 SSR function은 기본값 iad1(US East)에서 실행돼 페이지 렌더마다 태평양 왕복이 발생했다. `vercel.json`에 `regions: ["icn1"]`을 추가해 function을 사용자·backend와 같은 Seoul로 고정했다. 참고 실측: EC2→R2 왕복 ~72–136ms(R2는 한국 로컬 아님), Vercel edge 경유 업로드 오버헤드는 4.5MiB 기준 ~0.2s.
+- 검증: Next/Vercel config test 23건 통과. 배포 후 `x-vercel-id`가 `icn1::icn1`로 바뀜을 재실측하고 SSR latency 전후 비교를 Issue #1169에 기록한다.

@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
 import { getProgramDetail, listProgramApplications } from './api';
 import {
   APPLICATION_STATUS_BADGE,
@@ -41,12 +42,24 @@ import {
 import type {
   ApplicationListItem,
   ApplicationListPage,
+  ApplicationListParams,
   ApplicationListStatus,
   ProgramDetail,
   RepositoryProvisioningJobStatus,
 } from './types';
 
 const PAGE_SIZE = 20;
+/**
+ * 검색어가 조회 조건이 되기까지 기다리는 시간. 팀 초대 검색(`program-teams-page`)과
+ * 같은 값이다 — 두 화면이 같은 속도로 반응하게 둔다.
+ */
+const SEARCH_DEBOUNCE_MS = 300;
+const INITIAL_QUERY: ApplicationListParams = {
+  page: 1,
+  pageSize: PAGE_SIZE,
+  search: '',
+  status: 'all',
+};
 const INITIAL_POLL_INTERVAL_MS = 2_000;
 const MAX_POLL_INTERVAL_MS = 10_000;
 const MAX_POLL_ATTEMPTS = 8;
@@ -112,40 +125,64 @@ export function ProgramApplicantsPage({
   readonly programId: string;
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<ApplicationListStatus>('all');
-  const [page, setPage] = useState(1);
+  /**
+   * 갱신 중임은 `loadState`가 아니라 여기에 담는다. 다시 조회하는 동안에도 이미
+   * 그린 표와 검색창을 유지해야 사용자가 입력 위치와 현재 결과를 잃지 않는다.
+   */
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  /** 사용자가 치고 있는 값. 조회 조건이 되는 것은 아래 `query.search`다. */
+  const [searchInput, setSearchInput] = useState('');
+  const [query, setQuery] = useState<ApplicationListParams>(INITIAL_QUERY);
   const [notice, setNotice] = useState<Notice>(null);
   const requestEpoch = useRef(new ApplicationListRequestEpoch());
+  const foregroundRequestEpoch = useRef<number | null>(null);
+  /**
+   * 이미 받아 둔 프로그램 정보. 어느 프로그램의 것인지 함께 들고 있는다 — 라우트
+   * 파라미터만 바뀌어 이 컴포넌트가 그대로 재사용될 때 옛 이름이 남지 않게 한다.
+   */
+  const cachedProgram = useRef<{
+    readonly programId: string;
+    readonly program: ProgramDetail;
+  } | null>(null);
   const pollAttempts = useRef(0);
   const router = useRouter();
 
-  const applicationParams = useCallback(
-    () => ({ page, pageSize: PAGE_SIZE, search, status }),
-    [page, search, status],
-  );
   const reloadApplications = useCallback(async (): Promise<void> => {
+    // 검색·상태·페이지 조회가 진행 중이면 폴링은 그 조회를 앞지르지 않는다.
+    if (foregroundRequestEpoch.current !== null) return;
     const epoch = requestEpoch.current.begin();
-    const applicationPage = await listProgramApplications(
-      programId,
-      applicationParams(),
-    );
+    const applicationPage = await listProgramApplications(programId, query);
     if (!requestEpoch.current.isCurrent(epoch)) return;
     setLoadState((current) =>
       current.kind === 'ready' ? { ...current, applicationPage } : current,
     );
-  }, [applicationParams, programId]);
+  }, [programId, query]);
 
   const load = useCallback(async (): Promise<void> => {
     const epoch = requestEpoch.current.begin();
-    setLoadState({ kind: 'loading' });
+    foregroundRequestEpoch.current = epoch;
+    const cached =
+      cachedProgram.current?.programId === programId
+        ? cachedProgram.current.program
+        : null;
+    setIsRefreshing(true);
+    // 그릴 화면이 이미 있으면 스켈레톤으로 갈아치우지 않는다. 갈아치우면 검색창이
+    // 함께 걷혀 나갔다 새 입력칸으로 그려져, 치고 있던 자리를 잃는다(#1094).
+    setLoadState((current) =>
+      current.kind === 'ready' && cached !== null
+        ? current
+        : { kind: 'loading' },
+    );
     try {
       const [program, applicationPage] = await Promise.all([
-        getProgramDetail(programId),
-        listProgramApplications(programId, applicationParams()),
+        // 프로그램 정보는 검색·상태·페이지와 무관하다 — 조회 조건이 바뀔 때마다
+        // 상세 조회를 함께 내보내지 않는다.
+        cached ?? getProgramDetail(programId),
+        listProgramApplications(programId, query),
       ]);
-      if (requestEpoch.current.isCurrent(epoch))
-        setLoadState({ kind: 'ready', program, applicationPage });
+      if (!requestEpoch.current.isCurrent(epoch)) return;
+      cachedProgram.current = { programId, program };
+      setLoadState({ kind: 'ready', program, applicationPage });
     } catch (error: unknown) {
       if (!requestEpoch.current.isCurrent(epoch)) return;
       if (error instanceof ApiError && error.problem.status === 404)
@@ -162,13 +199,34 @@ export function ProgramApplicantsPage({
           kind: 'error',
           message: '신청자 목록을 불러오지 못했습니다.',
         });
+    } finally {
+      // 이전 조회가 늦게 끝나도 더 최신 조회가 알리는 바쁨 상태는 그대로 둔다.
+      if (!requestEpoch.current.isCurrent(epoch)) return;
+      foregroundRequestEpoch.current = null;
+      setIsRefreshing(false);
     }
-  }, [applicationParams, programId]);
+  }, [programId, query]);
 
   useEffect(() => {
     void load();
     return () => requestEpoch.current.invalidate();
   }, [load]);
+
+  const applySearch = useCallback((value: string): void => {
+    setQuery((current) =>
+      current.search === value
+        ? current
+        : { ...current, search: value, page: 1 },
+    );
+  }, []);
+  /**
+   * 입력이 멈춘 뒤에만 검색어를 조회 조건으로 올린다. 글자마다 조회를 내보내면 그때마다
+   * 화면이 갱신되고, 그 갱신이 검색창을 다시 그려 다음 글자를 삼킨다(#1094).
+   */
+  const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+  useEffect(() => {
+    applySearch(debouncedSearch);
+  }, [applySearch, debouncedSearch]);
 
   const shouldPoll =
     loadState.kind === 'ready' &&
@@ -204,7 +262,10 @@ export function ProgramApplicantsPage({
     schedule();
     return () => {
       cancelled = true;
-      requestEpoch.current.invalidate();
+      // 이 effect가 정리될 때는 새 프로그램·검색 조회가 이미 시작됐을 수 있다.
+      // 그 foreground epoch까지 무효화하면 새 응답을 버리고 스켈레톤에 남는다.
+      // 새 foreground의 begin()과 컴포넌트 load effect의 cleanup이 이전 poll을
+      // 무효화하므로, 여기서는 이 effect가 소유한 timer만 정리한다.
       if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [reloadApplications, shouldPoll, loadState]);
@@ -320,7 +381,9 @@ export function ProgramApplicantsPage({
     );
 
   const { program, applicationPage } = loadState;
-  const hasFilters = search.trim() !== '' || status !== 'all';
+  // 「조건에 맞는 신청자가 없다」는 **표를 채운 조건**을 두고 하는 말이다 — 아직 조회에
+  // 오르지 않은 `searchInput`이 아니라 `query`를 본다.
+  const hasFilters = query.search.trim() !== '' || query.status !== 'all';
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
       <PageHeader
@@ -342,18 +405,15 @@ export function ProgramApplicantsPage({
         className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
         onSubmit={(event) => {
           event.preventDefault();
-          setPage(1);
-          void load();
+          // 엔터는 debounce 를 기다리지 않고 지금 친 값으로 바로 조회한다.
+          applySearch(searchInput);
         }}
       >
         <label className="grid min-w-[12rem] flex-1 gap-1 text-sm">
           <span className="text-muted-foreground">검색</span>
           <Input
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
             placeholder="이름·팀·GitHub·제목"
             aria-label="신청자 검색"
           />
@@ -361,11 +421,14 @@ export function ProgramApplicantsPage({
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">상태</span>
           <Select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value as ApplicationListStatus);
-              setPage(1);
-            }}
+            value={query.status}
+            onChange={(event) =>
+              setQuery((current) => ({
+                ...current,
+                status: event.target.value as ApplicationListStatus,
+                page: 1,
+              }))
+            }
             aria-label="신청 상태 필터"
           >
             <option value="all">전체 상태</option>
@@ -393,6 +456,9 @@ export function ProgramApplicantsPage({
       </p>
       <DataTable
         aria-describedby="applicants-table-scroll-hint"
+        // 갱신 중임을 `aria-busy`로만 말한다 — 표를 걷어 내면 그 자리에 있던 검색창도
+        // 함께 사라져, 이 화면에서 고치려는 일을 스스로 되돌린다(#1094).
+        aria-busy={isRefreshing}
         scrollRegionLabel="신청자 목록 표"
         columns={columns}
         data={[...applicationPage.items]}
@@ -415,7 +481,7 @@ export function ProgramApplicantsPage({
       <ProgramListPagination
         page={applicationPage.page}
         totalPages={applicationPage.totalPages}
-        onPageChange={setPage}
+        onPageChange={(page) => setQuery((current) => ({ ...current, page }))}
       />
     </main>
   );
