@@ -22,7 +22,7 @@ const lifecycleActionProps = {
   lifecycleError: null,
   // #875 「위험 영역」 노출 여부. 대부분의 기존 테스트는 STAFF 화면을 보므로
   // 기본값은 false — ADMIN 전용 동작은 별도 describe에서만 true로 덮어쓴다.
-  isAdmin: false,
+  canDeleteProgram: false,
   onRequestLifecycleToggle: noOp,
   onCancelLifecycleToggle: noOp,
   onConfirmLifecycleToggle: noOp,
@@ -585,8 +585,8 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('게시 상태');
   });
 
-  // STAFF는 「위험 영역」에서 삭제가 아닌 아카이브 안내만 본다.
-  it('isAdmin=false(STAFF)면 삭제 버튼 없이 아카이브 안내를 그린다', () => {
+  // 삭제 권한이 없는 사용자는 「위험 영역」에서 삭제가 아닌 아카이브 안내만 본다.
+  it('canDeleteProgram=false면 삭제 버튼 없이 아카이브 안내를 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         program={editableProgram}
@@ -618,7 +618,8 @@ describe('ProgramEditView contract', () => {
     expect(html).not.toContain('연결 데이터까지 모두 삭제');
   });
 
-  it('isAdmin=true(ADMIN)면 게시 상태 아래에 destructive 톤의 위험 영역 섹션을 그린다', () => {
+  // #1095 — 교직원(또는 관리자)이면 true다. 종전에는 ADMIN만 이 섹션을 봤다(#875).
+  it('canDeleteProgram=true면 게시 상태 아래에 destructive 톤의 위험 영역 섹션을 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         program={editableProgram}
@@ -632,7 +633,7 @@ describe('ProgramEditView contract', () => {
         expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
-        isAdmin
+        canDeleteProgram
         onFieldChange={noOp}
         onSubmit={vi.fn()}
         onAddMilestone={noOp}

@@ -47,11 +47,14 @@ import { useProgramExitGuard } from './use-program-exit-guard';
 
 export function ProgramEditPage({
   programId,
-  isAdmin,
+  canDeleteProgram,
 }: {
   readonly programId: string;
-  /** ADMIN만 「위험 영역」(영구 삭제) 섹션을 본다(#875) — 셸의 `ProgramEditRoute`가 판정한다. */
-  readonly isAdmin: boolean;
+  /**
+   * 삭제 권한이 있는 사용자만 「위험 영역」(영구 삭제) 섹션을 본다 — 셸의
+   * `ProgramEditRoute`가 교직원 또는 관리자로 판정한다(#1095).
+   */
+  readonly canDeleteProgram: boolean;
 }) {
   const [state, setState] = useState<ProgramEditLoadState>({ kind: 'loading' });
   const [form, setForm] = useState<ProgramEditForm | null>(null);
@@ -350,7 +353,7 @@ export function ProgramEditPage({
         isLifecycleBusy={isLifecycleBusy}
         isLifecycleConfirming={isLifecycleConfirming}
         lifecycleError={lifecycleError}
-        isAdmin={isAdmin}
+        canDeleteProgram={canDeleteProgram}
         onFieldChange={updateField}
         onSubmit={(event) => void submit(event)}
         onRequestLifecycleToggle={requestLifecycleToggle}

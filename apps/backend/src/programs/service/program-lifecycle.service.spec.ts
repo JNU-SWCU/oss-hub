@@ -256,7 +256,10 @@ function createDeleteService(
   };
 }
 
-describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)', () => {
+// 권한은 #1095로 교직원 전권이 됐다 — #875가 정한 「STAFF는 작성자여도 403」 계약이
+// 여기서 뒤집힌다. 바뀐 것은 누가 할 수 있는가 하나이고, 차단 조건·보호 표시·감사 로그는
+// 그대로임을 아래 케이스들이 계속 지킨다.
+describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 (#1095, 종전 #875)', () => {
   it('ADMIN이 차단 사유 없는 프로그램을 삭제하면 자식 스캐폴딩을 지우고 감사 로그를 남긴다', async () => {
     const {
       service,
@@ -319,9 +322,38 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
     });
   });
 
-  it('STAFF는 프로그램을 생성했더라도 403을 받는다', async () => {
+  // #1095로 뒤집힌 계약: 종전에는 여기서 403(PRG_011)을 기대했다(#875). 이제 교직원은
+  // 관리자에게 부탁하지 않고 자기가 운영하는 프로그램을 지운다. 관리자 접근은 없다.
+  it('STAFF는 관리자 접근이 없어도 삭제할 수 있고 감사 로그에 그 교직원이 남는다', async () => {
+    const { service, programDelete, record } = createDeleteService({
+      user: {
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    });
+
+    await expect(service.delete(1001n, 'program-1')).resolves.toEqual({
+      id: 'program-1',
+      deleted: true,
+    });
+    expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]?.[0]).toMatchObject({
+      actorGithubId: 1001n,
+      action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
+      targetType: 'PROGRAM',
+      targetId: 'program-1',
+    });
+  });
+
+  it('교직원·관리자 접근이 모두 없으면(학생) 403을 받고 조회조차 하지 않는다', async () => {
     const { service, programFindUnique } = createDeleteService({
-      user: { role: 'STAFF', accountStatus: AccountStatus.ACTIVE },
+      user: {
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
+      },
     });
 
     await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
@@ -330,15 +362,72 @@ describe('ProgramLifecycleService.delete — ADMIN 전용 영구 삭제 (#875)',
     expect(programFindUnique).not.toHaveBeenCalled();
   });
 
-  it('STUDENT는 403을 받는다', async () => {
+  // 권한을 넓힌 것이 「비활성 계정도 통과」로 새어 나가지 않는지 — 교직원 접근이 있어도
+  // 계정이 ACTIVE가 아니면 종전과 같이 403이다.
+  it('교직원 접근이 있어도 계정이 비활성이면 403을 받고 조회조차 하지 않는다', async () => {
     const { service, programFindUnique } = createDeleteService({
-      user: { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
+      user: {
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.DEACTIVATED,
+      },
     });
 
     await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
     });
     expect(programFindUnique).not.toHaveBeenCalled();
+  });
+
+  // 안전장치 회귀 (#1095): 일반 삭제의 409 차단 조건도 권한과 무관하다 —
+  // 교직원이라고 학생 데이터가 붙은 프로그램을 강제로 지울 수 있게 되지 않는다.
+  it('STAFF의 일반 삭제도 자식 데이터가 있으면 409 PRG_012로 막히고 감사 로그를 남기지 않는다', async () => {
+    const { service, programDelete, record } = createDeleteService({
+      user: {
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      blockingCounts: { applications: 2, teams: 1, submissions: 3 },
+    });
+
+    await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_BLOCKED],
+      extensions: {
+        blockingCounts: expect.objectContaining({
+          applications: 2,
+          teams: 1,
+          submissions: 3,
+        }) as unknown,
+      },
+    });
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  // 안전장치 회귀 (#1095): 보호 표시는 일반 삭제 경로에서도 교직원을 막는다.
+  it('STAFF의 일반 삭제도 deletionProtected가 true면 차단 사유 조회 없이 409 PRG_013으로 거부한다', async () => {
+    const { service, programDelete, applicationCount, record } =
+      createDeleteService({
+        user: {
+          hasStaffAccess: true,
+          hasAdminAccess: false,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+        program: {
+          id: 'program-1',
+          name: '합성 보호 대상 프로그램',
+          lifecycle: ProgramLifecycle.PUBLISHED,
+          deletionProtected: true,
+        },
+      });
+
+    await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
+    });
+    expect(applicationCount).not.toHaveBeenCalled();
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
   });
 
   it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던진다', async () => {
@@ -730,7 +819,7 @@ function createPurgeService(
   };
 }
 
-describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () => {
+describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전체 삭제 (#1095)', () => {
   it('ADMIN이 자식 가득한 프로그램을 purge하면 전 계층을 명시 순서로 지우고 파일은 worker에 위임한다', async () => {
     const {
       service,
@@ -962,9 +1051,38 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     });
   });
 
-  it('STAFF는 purge 시도 시 403 PRG_011을 받고 프로그램을 조회하지 않는다', async () => {
+  // #1095로 뒤집힌 계약: 종전에는 여기서 403(PRG_011)을 기대했다. purge는 학생 제출물까지
+  // 지우는 무거운 경로지만, 자식 데이터 없이 지울 수 있는 프로그램이 실제로 없어
+  // 「일반 삭제만 교직원에게」라는 절충은 아무것도 바꾸지 못한다 — 두 경로를 함께 옮긴다.
+  it('STAFF는 관리자 접근이 없어도 purge할 수 있고 감사 로그에 그 교직원이 남는다', async () => {
+    const { service, programDelete, record } = createPurgeService({
+      user: {
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    });
+
+    const result = await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
+
+    expect(result).toMatchObject({ id: 'program-1', deleted: true });
+    expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]?.[0]).toMatchObject({
+      actorGithubId: 1001n,
+      action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
+      targetType: 'PROGRAM',
+      targetId: 'program-1',
+    });
+  });
+
+  it('교직원·관리자 접근이 모두 없으면(학생) purge 시도 시 403 PRG_011을 받고 프로그램을 조회하지 않는다', async () => {
     const { service, programFindUnique } = createPurgeService({
-      user: { role: 'STAFF', accountStatus: AccountStatus.ACTIVE },
+      user: {
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
+      },
     });
 
     await expect(
@@ -975,9 +1093,13 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     expect(programFindUnique).not.toHaveBeenCalled();
   });
 
-  it('STUDENT는 purge 시도 시 403 PRG_011을 받는다', async () => {
-    const { service } = createPurgeService({
-      user: { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
+  it('교직원 접근이 있어도 계정이 비활성이면 purge는 403 PRG_011이다', async () => {
+    const { service, programFindUnique } = createPurgeService({
+      user: {
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.DEACTIVATED,
+      },
     });
 
     await expect(
@@ -985,6 +1107,82 @@ describe('ProgramLifecycleService.purge — ADMIN 의도적 전체 삭제', () =
     ).rejects.toMatchObject({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
     });
+    expect(programFindUnique).not.toHaveBeenCalled();
+  });
+
+  // 안전장치 회귀 (#1095): 권한만 넓혔지 확인 절차는 그대로다. 교직원이 눌러도
+  // 확인 화면 이후 데이터가 생기면 트랜잭션을 통째로 중단한다(409 PRG_014).
+  it('STAFF의 purge도 expectedScope가 어긋나면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {
+    const {
+      service,
+      applicationFindMany,
+      publicShowcaseRepositoryDeleteMany,
+      programDelete,
+      record,
+    } = createPurgeService({
+      user: {
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      currentScopeCounts: {
+        applications: 1,
+        teams: 0,
+        boardPosts: 0,
+        submissions: 0,
+        submissionEvents: 0,
+        scopeFingerprint: 'staff-drifted-scope-fingerprint',
+      },
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode:
+        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED],
+      extensions: {
+        currentScopeCounts: expect.objectContaining({
+          applications: 1,
+        }) as unknown,
+      },
+    });
+    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  // 안전장치 회귀 (#1095): 보호 표시는 권한과 무관하다 — 교직원도 우회하지 못한다.
+  it('STAFF의 purge도 deletionProtected가 true면 자식 삭제 전에 409 PRG_013으로 거부한다', async () => {
+    const {
+      service,
+      programDelete,
+      applicationFindMany,
+      publicShowcaseRepositoryDeleteMany,
+      record,
+    } = createPurgeService({
+      user: {
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      program: {
+        id: 'program-1',
+        name: '합성 보호 purge 대상 프로그램',
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        deletionProtected: true,
+      },
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).rejects.toMatchObject({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
+    });
+    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
+    expect(programDelete).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
   });
 
   it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던지고 자식 삭제를 시작하지 않는다', async () => {

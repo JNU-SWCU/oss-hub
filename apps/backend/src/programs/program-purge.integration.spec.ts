@@ -50,6 +50,8 @@ const OBJECT_PREFIX = 'integration/program-purge-7';
 const NOW = new Date('2026-08-12T00:00:00.000Z');
 const ADMIN_GITHUB_ID = 9_875_000_001n;
 const STAFF_GITHUB_ID = 9_875_000_002n;
+/** 권한이 없는 대조군 — #1095가 넓힌 것은 교직원까지이고 학생은 종전과 같이 403이다. */
+const STUDENT_GITHUB_ID = 9_875_000_003n;
 
 const prisma = new PrismaService();
 const concurrentPrisma = new PrismaService();
@@ -274,11 +276,22 @@ async function ensureGlobalActors(): Promise<void> {
     where: { githubId: STAFF_GITHUB_ID },
     update: {},
     create: {
-      id: `${PREFIX}global:staff-forbidden`,
+      id: `${PREFIX}global:staff`,
       githubId: STAFF_GITHUB_ID,
-      nickname: 'synthetic-purge7-staff-forbidden',
+      nickname: 'synthetic-purge7-staff',
       selectedMemberKind: MemberKind.STAFF,
       hasStaffAccess: true,
+      accountStatus: AccountStatus.ACTIVE,
+    },
+  });
+  await prisma.user.upsert({
+    where: { githubId: STUDENT_GITHUB_ID },
+    update: {},
+    create: {
+      id: `${PREFIX}global:student`,
+      githubId: STUDENT_GITHUB_ID,
+      nickname: 'synthetic-purge7-student',
+      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
     },
   });
@@ -1258,15 +1271,142 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(audit?.action).toBe('PROGRAM_DELETED');
   });
 
-  it('STAFF가 purge를 시도하면 403 PRG_011을 받고 프로그램은 그대로 남는다', async () => {
-    const fixture = await seedFullChildGraph('staff-forbidden');
+  // #1095로 뒤집힌 계약: 종전에는 이 자리에서 STAFF가 403 PRG_011을 받는 것을 확인했다.
+  // 이제 교직원이 관리자 대신 직접 지운다 — 감사 로그의 행위자도 그 교직원이어야 한다.
+  it('STAFF가 purge하면 실제로 지워지고 감사 로그의 행위자가 그 교직원이다', async () => {
+    const fixture = await seedFullChildGraph('staff-allowed');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+
+    const result = await lifecycle.purge(
+      STAFF_GITHUB_ID,
+      fixture.programId,
+      expectedScope,
+    );
+    expect(result).toMatchObject({ id: fixture.programId, deleted: true });
+
+    await expect(
+      prisma.program.findUnique({ where: { id: fixture.programId } }),
+    ).resolves.toBeNull();
+
+    const staff = await prisma.user.findUniqueOrThrow({
+      where: { githubId: STAFF_GITHUB_ID },
+      select: { id: true },
+    });
+    const audit = await prisma.auditLog.findFirst({
+      where: { targetType: 'PROGRAM', targetId: fixture.programId },
+      orderBy: { occurredAt: 'desc' },
+    });
+    expect(audit?.action).toBe('PROGRAM_DELETED');
+    expect(audit?.actorId).toBe(staff.id);
+  });
+
+  // 안전장치 회귀 (#1095): 권한만 넓혔지 확인 절차는 그대로다. 교직원이 눌러도, 확인
+  // 화면이 범위를 읽은 뒤 생긴 행이 있으면 트랜잭션 전체가 중단돼 아무것도 지워지지 않는다.
+  it('STAFF의 purge도 확인 후 자식 행이 생기면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {
+    const fixture = await seedFullChildGraph('staff-toctou-race');
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+
+    const raceBoardPostId = `${fixture.programId}-staff-race-board-post`;
+    const applicant = await prisma.application.findUniqueOrThrow({
+      where: { id: fixture.applicationId },
+      select: { applicantId: true },
+    });
+    await prisma.boardPost.create({
+      data: {
+        id: raceBoardPostId,
+        programId: fixture.programId,
+        authorId: applicant.applicantId,
+        category: BoardPostCategory.NOTICE,
+        title: 'Race-inserted notice (staff)',
+        body: 'Inserted after scope confirmation, before staff purge',
+      },
+    });
 
     await expect(
       lifecycle.purge(STAFF_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toBeInstanceOf(DomainException);
     await expect(
       lifecycle.purge(STAFF_GITHUB_ID, fixture.programId, expectedScope),
+    ).rejects.toMatchObject({
+      errorCode: { code: ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED },
+    });
+
+    await expect(
+      prisma.program.findUnique({ where: { id: fixture.programId } }),
+    ).resolves.not.toBeNull();
+    const after = await programChildRowCounts(fixture.programId, [
+      fixture.applicationId,
+    ]);
+    expect(after.milestones).toBe(1);
+    expect(after.applications).toBe(2);
+    expect(after.boardPosts).toBe(2);
+  });
+
+  // 안전장치 회귀 (#1095): 삭제 보호는 권한과 무관하다 — 교직원도 두 경로 모두에서 막힌다.
+  it('deletionProtected=true면 STAFF의 delete·purge도 409 PRG_013으로 거부하고 데이터는 그대로 남는다', async () => {
+    const fixture = await seedFullChildGraph('staff-protected');
+    await prisma.program.update({
+      where: { id: fixture.programId },
+      data: { deletionProtected: true },
+    });
+    const before = await programChildRowCounts(fixture.programId, [
+      fixture.applicationId,
+    ]);
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+
+    await expect(
+      lifecycle.delete(STAFF_GITHUB_ID, fixture.programId),
+    ).rejects.toMatchObject({
+      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
+    });
+    await expect(
+      lifecycle.purge(STAFF_GITHUB_ID, fixture.programId, expectedScope),
+    ).rejects.toMatchObject({
+      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
+    });
+
+    await expect(
+      prisma.program.findUnique({ where: { id: fixture.programId } }),
+    ).resolves.toMatchObject({ deletionProtected: true });
+    const after = await programChildRowCounts(fixture.programId, [
+      fixture.applicationId,
+    ]);
+    expect(after).toEqual(before);
+  });
+
+  // 안전장치 회귀 (#1095): 일반 삭제의 409 차단 조건도 그대로다 — 교직원이라고 학생
+  // 데이터가 붙은 프로그램을 강제로 지울 수 있게 되지 않는다.
+  it('STAFF의 일반 삭제도 자식 데이터가 있으면 409 PRG_012로 막힌다', async () => {
+    const fixture = await seedFullChildGraph('staff-blocked');
+
+    await expect(
+      lifecycle.delete(STAFF_GITHUB_ID, fixture.programId),
+    ).rejects.toMatchObject({
+      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_BLOCKED },
+      extensions: {
+        blockingCounts: expect.objectContaining({ applications: 2 }) as unknown,
+      },
+    });
+    await expect(
+      prisma.program.findUnique({ where: { id: fixture.programId } }),
+    ).resolves.not.toBeNull();
+  });
+
+  // 학생은 종전과 같이 두 경로 모두 403이다 — 넓힌 것은 교직원까지다.
+  it('학생은 delete·purge 모두 403 PRG_011을 받고 프로그램은 그대로 남는다', async () => {
+    const fixture = await seedFullChildGraph('student-forbidden');
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+
+    await expect(
+      lifecycle.delete(STUDENT_GITHUB_ID, fixture.programId),
+    ).rejects.toBeInstanceOf(DomainException);
+    await expect(
+      lifecycle.delete(STUDENT_GITHUB_ID, fixture.programId),
+    ).rejects.toMatchObject({
+      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN },
+    });
+    await expect(
+      lifecycle.purge(STUDENT_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN },
     });

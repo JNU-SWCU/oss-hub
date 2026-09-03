@@ -65,7 +65,7 @@ export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
   [ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN]: {
     code: ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN,
     status: 403,
-    message: '관리자만 프로그램을 삭제할 수 있습니다.',
+    message: '교직원 또는 관리자만 프로그램을 삭제할 수 있습니다.',
   },
   [ProgramErrorCode.PROGRAM_DELETE_BLOCKED]: {
     code: ProgramErrorCode.PROGRAM_DELETE_BLOCKED,

@@ -357,7 +357,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
       await Promise.resolve();
     });
     await act(async () => getButton('추가').click());
@@ -374,7 +374,7 @@ describe('ProgramEditPage 컴포넌트', () => {
   it('이름만 채운 새 마일스톤은 비활성 시각 입력 대신 날짜 달력에 초점을 둔다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
       await Promise.resolve();
     });
     await act(async () => getButton('추가').click());
@@ -402,7 +402,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -429,7 +429,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -461,7 +461,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
       await Promise.resolve();
     });
 
@@ -501,7 +501,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramMock.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -549,7 +549,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -635,7 +635,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -697,7 +697,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramLifecycleMock.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -746,7 +746,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -782,13 +782,14 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(routerPushMock).not.toHaveBeenCalled();
   });
 
-  // #875 — isAdmin은 셸(ProgramEditRoute)이 판정해 이 페이지로 넘기는 값이다.
+  // #1095 — canDeleteProgram은 셸(ProgramEditRoute)이 교직원 또는 관리자로 판정해 이
+  // 페이지로 넘기는 값이다(종전 #875에서는 ADMIN 전용이었다).
   // 페이지는 그 값을 그대로 ProgramEditView에 전달해 위험 영역 노출을 가른다.
-  it('isAdmin={true}면 위험 영역 섹션을 그린다', async () => {
+  it('canDeleteProgram={true}면 위험 영역 섹션을 그린다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -798,11 +799,11 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(queryButton('프로그램 영구 삭제')).toBeTruthy();
   });
 
-  it('isAdmin={false}면 삭제 버튼 없이 아카이브 안내를 그린다', async () => {
+  it('canDeleteProgram={false}면 삭제 버튼 없이 아카이브 안내를 그린다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
     });
     await act(async () => {
       await Promise.resolve();

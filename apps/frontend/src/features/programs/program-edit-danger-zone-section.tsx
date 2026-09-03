@@ -17,9 +17,13 @@ import { ProgramEditPurgeConfirmation } from './program-edit-purge-confirmation'
 interface ProgramEditDangerZoneSectionProps {
   readonly programId: string;
   readonly programName: string;
-  readonly isAdmin: boolean;
-  /** true면 이 프로그램은 서버가 삭제·전체 삭제 둘 다 거부한다(F2 finding #1) — ADMIN이어도
-   * API로 우회할 수 없으므로 버튼 자체를 비활성화한다. */
+  /**
+   * 삭제 권한이 있는 사용자(교직원 또는 관리자)만 삭제 액션을 본다(#1095). 없으면 이
+   * 섹션은 아카이브 안내만 그린다 — 백엔드도 같은 판정으로 403을 던진다.
+   */
+  readonly canDeleteProgram: boolean;
+  /** true면 이 프로그램은 서버가 삭제·전체 삭제 둘 다 거부한다(F2 finding #1) — 삭제 권한이
+   * 있어도 API로 우회할 수 없으므로 버튼 자체를 비활성화한다. */
   readonly deletionProtected?: boolean;
   /** 삭제 완료 후 목록으로 이동하면서 전달할 확인 문구. */
   readonly onDeleted?: (notice?: string) => void;
@@ -57,7 +61,7 @@ const PURGE_COUNT_LABELS: Readonly<Record<string, string>> = {
 export function ProgramEditDangerZoneSection({
   programId,
   programName,
-  isAdmin,
+  canDeleteProgram,
   deletionProtected = false,
   onDeleted = (notice) =>
     window.location.assign(
@@ -125,7 +129,7 @@ export function ProgramEditDangerZoneSection({
    * 별도 GET 재조회를 먼저 하지 않는다(그 자체가 확인-purge 사이의 또 다른 요청이라
    * TOCTOU를 재도입한다, #F2). 범위 비교는 백엔드 purge 트랜잭션 안에서만 일어난다.
    * 409(PRG_014)가 오면 자동 재시도하지 않고 응답이 실은 현재 카운트로 화면을 갱신해
-   * 관리자가 이름을 다시 입력하여 명시적으로 재확인하게 한다.
+   * 누르는 사람이 이름을 다시 입력하여 명시적으로 재확인하게 한다.
    */
   const confirmPurge = async () => {
     if (
@@ -158,7 +162,7 @@ export function ProgramEditDangerZoneSection({
     }
   };
 
-  if (!isAdmin) {
+  if (!canDeleteProgram) {
     return (
       <section className="grid gap-6">
         <SectionHeading title="위험 영역" />
