@@ -50,3 +50,13 @@
 - 결과: 병합 뒤 남은 리뷰 3건을 후속 변경으로 분리했다. 동시 팀 탈퇴를 팀 행 잠금으로 직렬화하고, frontend가 먼저 배포돼 구버전 양식을 받는 동안에는 화면에서 제목을 숨기되 호환 제목을 전송한다. 신청 wizard 안의 중첩 `main`과 중복 페이지 제목도 제거했다.
 - 검증: backend 16/16, frontend 44/44 집중 테스트와 양쪽 typecheck·lint·backend build를 통과했다. 합성 student fixture의 동일 URL·viewport에서 Before/After를 다시 촬영했고, After는 desktop·390×844 모두 `main` 1개·`h1` 1개·제목 입력 0개·가로 overflow 0을 확인했다. frontend build는 번들·타입·정적 페이지 26/26 뒤 Windows symlink `EPERM`에서만 멈췄다.
 - 공개 안전성: 캡처는 합성 fixture만 사용하고 저장소 밖 임시 경로에 두었으며, 후속 PR에는 GitHub attachment로만 첨부한다.
+
+## 2026-09-04 — Issue #1132 후속 보안·모바일 게이트 반영
+
+- 상태: review
+- Issue: #1132
+- PR: pending
+- blocker: 작성자 UX 인터뷰 답변 대기
+- 결과: 팀 탈퇴와 신청 제출이 교차해 기존 팀이 잠금 전에 사라진 경우를 `APP_017`로 처리해 원시 FK 오류를 막았다. 390×844에서 신청서 안내 문장이 의미 단위로 읽히도록 문구도 줄였다.
+- 검증: applications·program teams 집중 테스트 50/50, frontend 집중 테스트 44/44, 양쪽 typecheck와 변경 파일 lint를 통과했다. 합성 student fixture에서 모바일 안내 줄바꿈과 `main` 1개·`h1` 1개·가로 overflow 0을 다시 확인했다.
+- 공개 안전성: 추가 캡처도 합성 fixture만 사용했고 제품 브랜치에는 포함하지 않는다.
