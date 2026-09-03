@@ -1,9 +1,6 @@
 import { deleteAuthoringUpload } from './program-authoring-api';
-import {
-  ProgramAuthoringBasicStep,
-  ProgramAuthoringScheduleStep,
-  ProgramAuthoringTypeStep,
-} from './program-authoring-detail-steps';
+import { ProgramAuthoringBasicStep } from './program-authoring-detail-steps';
+import { ProgramAuthoringScheduleStep } from './program-authoring-schedule-step';
 import {
   ProgramAuthoringOperationsStep,
   ProgramAuthoringReviewStep,
@@ -50,8 +47,6 @@ export function ProgramAuthoringStepContent({
     dispatch({ type: 'remove_milestone', milestoneId });
   };
   switch (step) {
-    case 'type':
-      return <ProgramAuthoringTypeStep {...shared} />;
     case 'basic':
       return <ProgramAuthoringBasicStep {...shared} />;
     case 'schedule':

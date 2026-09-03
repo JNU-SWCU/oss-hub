@@ -1,13 +1,6 @@
 export type PublicProfileApplicationMode = 'PERSONAL' | 'TEAM';
 
-export type PublicProfileCategory =
-  | 'BASIC'
-  | 'SW_VALUE_SPREAD'
-  | 'OSS_CONTEST'
-  | 'CAPSTONE'
-  | 'SW_CONVERGENCE'
-  | 'GLOBAL_MAKERTHON'
-  | 'CORPORATE_INTERNSHIP';
+export type PublicProfileTrackType = 'CURRICULAR' | 'EXTRACURRICULAR';
 
 export type PublicProfileMetrics = {
   readonly commitCount: number;
@@ -19,7 +12,7 @@ export type PublicProfileProject = {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly category: PublicProfileCategory;
+  readonly trackType: PublicProfileTrackType | null;
   readonly applicationMode: PublicProfileApplicationMode;
   readonly displayName: string;
   readonly repositoryName: string;

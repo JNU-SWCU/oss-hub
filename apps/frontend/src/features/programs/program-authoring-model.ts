@@ -42,9 +42,9 @@ export function createInitialProgramAuthoringState(input: {
   readonly milestoneId: string;
 }): ProgramAuthoringState {
   return {
-    currentStep: 'type',
+    currentStep: 'basic',
     idempotencyKey: input.idempotencyKey,
-    category: 'BASIC',
+    trackType: '',
     name: '',
     organizer: '',
     description: '',
@@ -72,11 +72,11 @@ export function programAuthoringReducer(
 ): ProgramAuthoringState {
   switch (action.type) {
     case 'restore_state':
-      return action.state;
+      return migrateProgramAuthoringState(action.state);
     case 'go_to_step':
       return { ...state, currentStep: action.step };
-    case 'set_category':
-      return { ...state, category: action.category };
+    case 'set_track_type':
+      return { ...state, trackType: action.trackType };
     case 'set_repository_provisioning_enabled':
       return { ...state, repositoryProvisioningEnabled: action.enabled };
     case 'set_notify_on_deadline':
@@ -149,6 +149,29 @@ export function programAuthoringReducer(
     default:
       return assertNever(action);
   }
+}
+
+function migrateProgramAuthoringState(
+  state: ProgramAuthoringState,
+): ProgramAuthoringState {
+  const currentStep =
+    (state as { readonly currentStep: string }).currentStep === 'type'
+      ? 'basic'
+      : state.currentStep;
+  const legacy = state as ProgramAuthoringState & {
+    readonly category?: string;
+  };
+  const trackType =
+    state.trackType !== ''
+      ? state.trackType
+      : legacy.category === undefined
+        ? ''
+        : '';
+  return {
+    ...state,
+    currentStep,
+    trackType,
+  };
 }
 
 function mapMilestone(

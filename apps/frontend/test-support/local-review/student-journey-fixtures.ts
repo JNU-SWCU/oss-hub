@@ -14,7 +14,9 @@ const CAPSTONE_DETAIL = {
   id: 'program-capstone',
   name: '합성 캡스톤 2026',
   organizer: '합성 SW중심대학사업단',
-  category: 'CAPSTONE',
+  trackType: 'CURRICULAR',
+
+  applicationTemplateKey: 'capstone',
   description:
     '학생이 팀 프로젝트를 오픈소스 저장소로 운영하고, 마일스톤별 산출물과 활동 기록을 제출하는 합성 검토용 프로그램입니다.',
   repositoryProvisioningEnabled: true,
@@ -67,7 +69,9 @@ const CONTEST_DETAIL = {
   id: 'program-oss-contest',
   name: '합성 OSS 경진대회',
   organizer: '합성 SW중심대학사업단',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'oss-contest',
   description:
     '팀별 저장소에서 개발 과정을 기록하고 예선·본선 결과물을 제출하는 합성 검토용 경진대회입니다.',
   repositoryProvisioningEnabled: true,

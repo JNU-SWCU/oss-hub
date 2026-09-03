@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,
@@ -11,7 +11,7 @@ function request(): ProgramAuthoringRequest {
   return {
     name: '  Synthetic Program  ',
     organizer: '  Synthetic Organizer  ',
-    category: ProgramCategory.CAPSTONE,
+    trackType: ProgramTrackType.EXTRACURRICULAR,
     applicationStartAt: '2026-08-01T09:00:00+09:00',
     applicationEndAt: '2026-08-10T09:00:00+09:00',
     startAt: '2026-08-10T09:00:00+09:00',
@@ -98,6 +98,9 @@ describe('buildProgramAuthoringPlan', () => {
     expect(plan.program).toMatchObject({
       name: 'Synthetic Program',
       organizer: 'Synthetic Organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
+      applicationTemplateKey: 'basic',
+      applicationTemplateVersion: 1,
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
       applicationEndAt: new Date('2026-08-10T00:00:00.000Z'),
       startAt: new Date('2026-08-10T00:00:00.000Z'),

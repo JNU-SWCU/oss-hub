@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import type {
   ApplicationsRepository,
   StaffDashboardSummary,
@@ -16,7 +16,7 @@ describe('ApplicationsService.staffSummary', () => {
         {
           id: 'program-1',
           name: '기본 프로그램',
-          category: ProgramCategory.BASIC,
+          trackType: ProgramTrackType.EXTRACURRICULAR,
           applicationPeriod: {
             startsAt: new Date('2026-07-01T00:00:00.000Z'),
             endsAt: new Date('2026-07-31T23:59:59.000Z'),

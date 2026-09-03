@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { StaffProgramTeamResponseDto } from './dto/team-response.dto';

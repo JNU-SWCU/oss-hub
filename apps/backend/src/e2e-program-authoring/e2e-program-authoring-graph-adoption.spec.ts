@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import { buildProgramAuthoringPlan } from '../programs/program-authoring-plan';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
@@ -20,7 +20,7 @@ function authoredCandidate(): PersistedAuthoredCandidate {
   const plan = buildProgramAuthoringPlan({
     name: `${PREFIX}happy-program`,
     organizer: `${PREFIX}organizer`,
-    category: ProgramCategory.BASIC,
+    trackType: ProgramTrackType.EXTRACURRICULAR,
     applicationStartAt: '2026-08-19T00:00:00.000Z',
     applicationEndAt: '2026-08-20T00:00:00.000Z',
     startAt: '2026-08-20T00:00:00.000Z',

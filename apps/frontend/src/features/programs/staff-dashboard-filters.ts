@@ -1,5 +1,5 @@
 import { getProgramRecruitmentState } from './program-list';
-import { STAFF_CATEGORY_LABELS } from './staff-dashboard-format';
+import { staffTrackTypeLabel } from './staff-dashboard-format';
 import {
   PROGRAM_LIST_STATUSES,
   type ProgramListStatus,
@@ -25,7 +25,7 @@ export function filterStaffDashboardPrograms(
         id: program.id,
         name: program.name,
         organizer: '',
-        category: program.category,
+        trackType: program.trackType,
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,
         endAt: null,
@@ -37,7 +37,9 @@ export function filterStaffDashboardPrograms(
     if (!needle) return true;
     return (
       program.name.toLowerCase().includes(needle) ||
-      STAFF_CATEGORY_LABELS[program.category].toLowerCase().includes(needle)
+      (staffTrackTypeLabel(program.trackType) ?? '')
+        .toLowerCase()
+        .includes(needle)
     );
   });
 }

@@ -5,6 +5,7 @@ import {
   AccountStatus,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
+  ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
@@ -176,7 +177,7 @@ export function authoringRequest(
   return {
     name: `${AUTHORING_TEST_PREFIX}program:${label}`,
     organizer: 'Synthetic OSS Center',
-    category: ProgramCategory.CAPSTONE,
+    trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-05T00:00:00.000Z',
     startAt: '2026-08-06T00:00:00.000Z',

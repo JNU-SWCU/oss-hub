@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import type { ProgramAuthoringRequest } from './program-authoring.types';
 import { buildProgramAuthoringPlan } from './program-authoring-plan';
 import {
@@ -10,7 +10,7 @@ function request(): ProgramAuthoringRequest {
   return {
     name: ' Program ',
     organizer: ' Organizer ',
-    category: ProgramCategory.CAPSTONE,
+    trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T09:00:00+09:00',
     applicationEndAt: '2026-08-10T09:00:00+09:00',
     endAt: '2026-09-01T09:00:00+09:00',

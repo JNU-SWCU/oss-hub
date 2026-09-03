@@ -2,7 +2,7 @@ import { ApiError, apiClient } from '@/lib/api-client';
 import type {
   PublicProfile,
   PublicProfileApplicationMode,
-  PublicProfileCategory,
+  PublicProfileTrackType,
   PublicProfileMetrics,
   PublicProfileProject,
 } from './public-profile-types';
@@ -65,18 +65,9 @@ function applicationMode(value: unknown): PublicProfileApplicationMode {
   return invalidResponse();
 }
 
-function category(value: unknown): PublicProfileCategory {
-  if (
-    value === 'BASIC' ||
-    value === 'SW_VALUE_SPREAD' ||
-    value === 'OSS_CONTEST' ||
-    value === 'CAPSTONE' ||
-    value === 'SW_CONVERGENCE' ||
-    value === 'GLOBAL_MAKERTHON' ||
-    value === 'CORPORATE_INTERNSHIP'
-  ) {
-    return value;
-  }
+function trackType(value: unknown): PublicProfileTrackType | null {
+  if (value === null) return null;
+  if (value === 'CURRICULAR' || value === 'EXTRACURRICULAR') return value;
   return invalidResponse();
 }
 
@@ -144,6 +135,7 @@ function observed(value: unknown): boolean {
 
 function project(value: unknown): PublicProfileProject {
   if (!isRecord(value)) return invalidResponse();
+  if ('category' in value) return invalidResponse();
   const id = projectId(value.projectId);
   const mode = applicationMode(value.applicationMode);
   const publishedAt = isoDate(value.publishedAt);
@@ -172,7 +164,7 @@ function project(value: unknown): PublicProfileProject {
     projectId: id,
     programId: nonEmptyString(value.programId),
     programName: nonEmptyString(value.programName),
-    category: category(value.category),
+    trackType: trackType(value.trackType),
     applicationMode: mode,
     displayName: nonEmptyString(value.displayName),
     repositoryName,

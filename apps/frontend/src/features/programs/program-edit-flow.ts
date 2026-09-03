@@ -14,12 +14,15 @@ import {
   isProgramEndAtUndecided,
   PROGRAM_END_AT_UNDECIDED,
 } from './program-end-at';
-import type { ProgramCategory } from './program-templates';
+import {
+  PROGRAM_TRACK_TYPES,
+  type ProgramTrackType,
+} from './program-templates';
 
 export interface ProgramEditForm {
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | '';
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly startAt: string;
@@ -56,7 +59,7 @@ export type ProgramEditableField = Exclude<
 export interface ProgramEditErrors {
   readonly name?: string;
   readonly organizer?: string;
-  readonly category?: string;
+  readonly trackType?: string;
   readonly period?: string;
   readonly startAt?: string;
   readonly endAt?: string;
@@ -114,7 +117,7 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
   return {
     name: program.name,
     organizer: program.organizer,
-    category: program.category,
+    trackType: program.trackType ?? '',
     applicationStartAt: toDateTimeLocal(program.applicationStartAt),
     applicationEndAt: toDateTimeLocal(program.applicationEndAt),
     startAt: toDateTimeLocal(program.startAt ?? program.applicationEndAt),
@@ -234,7 +237,7 @@ export function buildProgramEditInput(
   return {
     name: form.name.trim(),
     organizer: form.organizer.trim(),
-    category: form.category,
+    trackType: form.trackType as ProgramTrackType,
     applicationStartAt: dirtyFields.includes('applicationStartAt')
       ? toIsoString(form.applicationStartAt)
       : form.originalApplicationStartAt,
@@ -259,6 +262,7 @@ export function validateProgramEditForm(
   const errors: {
     name?: string;
     organizer?: string;
+    trackType?: string;
     period?: string;
     startAt?: string;
     endAt?: string;
@@ -267,6 +271,9 @@ export function validateProgramEditForm(
 
   if (form.name.trim() === '') errors.name = '프로그램 이름을 입력해 주세요.';
   if (form.organizer.trim() === '') errors.organizer = '주최를 입력해 주세요.';
+  if (form.trackType !== 'CURRICULAR' && form.trackType !== 'EXTRACURRICULAR') {
+    errors.trackType = '교과/비교과를 선택해 주세요.';
+  }
   if (form.description.trim() === '')
     errors.description = '프로그램 설명을 입력해 주세요.';
 
@@ -436,10 +443,6 @@ function mapProgramProblem(problem: ProblemDetail): ProgramEditErrors {
   if (Object.keys(fieldErrors).length > 0) return fieldErrors;
 
   switch (problem.code) {
-    case PROGRAM_EDIT_ERROR_CODES.CATEGORY_LOCKED_BY_APPLICATIONS:
-      return {
-        category: '신청자가 있는 프로그램은 유형을 변경할 수 없습니다.',
-      };
     case PROGRAM_EDIT_ERROR_CODES.INVALID_APPLICATION_PERIOD:
       return { period: '신청 기간을 확인해 주세요.' };
     case PROGRAM_EDIT_ERROR_CODES.VALIDATION_ERROR:
@@ -457,7 +460,7 @@ function mapProblemFieldErrors(
   const errors: {
     name?: string;
     organizer?: string;
-    category?: string;
+    trackType?: string;
     period?: string;
     startAt?: string;
     team?: string;
@@ -474,8 +477,8 @@ function mapProblemFieldErrors(
       case 'organizer':
         errors.organizer = fieldError.message;
         break;
-      case 'category':
-        errors.category = fieldError.message;
+      case 'trackType':
+        errors.trackType = fieldError.message;
         break;
       case 'applicationStartAt':
       case 'applicationEndAt':

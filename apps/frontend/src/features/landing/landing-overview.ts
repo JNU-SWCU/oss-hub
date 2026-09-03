@@ -36,7 +36,7 @@ export interface LandingProgram {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: string;
+  readonly trackType: string | null;
   readonly applicationEndAt: string;
 }
 
@@ -111,11 +111,20 @@ export function parseLandingProgramPage(
   if (!Array.isArray(page.items)) return invalidResponse();
   return page.items.slice(0, 3).map((item) => {
     const input = record(item);
+    if ('category' in input) invalidResponse();
+    const parsedTrackType = input.trackType;
+    if (
+      parsedTrackType !== null &&
+      parsedTrackType !== 'CURRICULAR' &&
+      parsedTrackType !== 'EXTRACURRICULAR'
+    ) {
+      invalidResponse();
+    }
     return {
       id: publicId(input.id),
       name: nonEmptyString(input.name),
       organizer: nonEmptyString(input.organizer),
-      category: nonEmptyString(input.category),
+      trackType: parsedTrackType === null ? null : String(parsedTrackType),
       applicationEndAt: isoDate(input.applicationEndAt),
     };
   });

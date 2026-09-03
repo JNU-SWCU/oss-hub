@@ -33,7 +33,7 @@ describe('program authoring reducer', () => {
     expect(navigated.notifyOnDeadline).toBe(true);
     expect(navigated.milestones).toEqual([]);
     expect(navigated.currentStep).toBe('operations');
-    expect(PROGRAM_AUTHORING_STEPS).toHaveLength(6);
+    expect(PROGRAM_AUTHORING_STEPS).toHaveLength(5);
   });
 
   it('stores the GitHub repository issuance choice in authoring state', () => {
@@ -111,14 +111,13 @@ describe('program authoring validation', () => {
     });
 
     // When
-    const typeIssues = validateProgramAuthoringStep(incomplete, 'type');
     const basicIssues = validateProgramAuthoringStep(incomplete, 'basic');
 
     // Then
-    expect(typeIssues).toEqual([]);
     expect(basicIssues.map((issue) => issue.path)).toEqual([
       'name',
       'organizer',
+      'trackType',
       'description',
     ]);
   });

@@ -30,8 +30,6 @@ export function validateProgramAuthoringStep(
   step: ProgramAuthoringStep,
 ): readonly ProgramAuthoringIssue[] {
   switch (step) {
-    case 'type':
-      return [];
     case 'basic':
       return validateBasic(state);
     case 'schedule':
@@ -76,6 +74,12 @@ function validateBasic(
   const issues: ProgramAuthoringIssue[] = [];
   required(issues, state.name, 'name', '프로그램명을 입력해 주세요.');
   required(issues, state.organizer, 'organizer', '주관기관을 입력해 주세요.');
+  if (
+    state.trackType !== 'CURRICULAR' &&
+    state.trackType !== 'EXTRACURRICULAR'
+  ) {
+    issues.push(issue('trackType', 'basic', '교과/비교과를 선택해 주세요.'));
+  }
   const minimum = Number(state.teamMinSize);
   const maximum = Number(state.teamMaxSize);
   if (!Number.isInteger(minimum) || minimum < 1 || minimum > 100)

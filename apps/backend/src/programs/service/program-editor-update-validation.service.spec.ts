@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
@@ -7,7 +7,6 @@ import {
 import {
   createProgramEditorServiceHarness,
   editableProgram,
-  teamInputFor,
   updateInput,
 } from '../../../test/program-editor-service-fixtures';
 
@@ -190,94 +189,43 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(1);
   });
 
-  it('rejects category changes after applications exist before writing updates', async () => {
+  it('allows intake-only template mode without milestones', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue({
       ...editableProgram,
-      applicationCount: 1,
-      category: ProgramCategory.BASIC,
+      milestones: [],
     });
-
-    await expect(
-      service.updateProgram(101n, 'program-1', updateInput),
-    ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.CATEGORY_LOCKED_BY_APPLICATIONS],
-    });
-    expect(store.updateProgram.mock.calls).toHaveLength(0);
-  });
-
-  it('rejects category changes after teams exist even without applications before writing updates', async () => {
-    const { service, store } = createProgramEditorServiceHarness();
-    store.findEditableProgramForUpdate.mockResolvedValue({
+    store.updateProgram.mockResolvedValue({
       ...editableProgram,
-      applicationCount: 0,
-      teamCount: 1,
-      category: ProgramCategory.BASIC,
+      repositoryProvisioningEnabled: false,
+      milestones: [],
     });
 
     await expect(
-      service.updateProgram(101n, 'program-1', updateInput),
-    ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.CATEGORY_LOCKED_BY_APPLICATIONS],
-    });
-    expect(store.updateProgram.mock.calls).toHaveLength(0);
-  });
-
-  it.each(Object.values(ProgramCategory))(
-    'allows %s intake-only template mode without milestones',
-    async (category) => {
-      const { service, store } = createProgramEditorServiceHarness();
-      store.findEditableProgramForUpdate.mockResolvedValue({
-        ...editableProgram,
-        category,
-        milestones: [],
-      });
-      const teamInput = teamInputFor(category);
-      store.updateProgram.mockResolvedValue({
-        ...editableProgram,
-        ...teamInput,
-        category,
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
         repositoryProvisioningEnabled: false,
-        milestones: [],
-      });
+      }),
+    ).resolves.toMatchObject({ trackType: ProgramTrackType.CURRICULAR });
+  });
 
-      await expect(
-        service.updateProgram(101n, 'program-1', {
-          ...updateInput,
-          category,
-          repositoryProvisioningEnabled: false,
-          ...teamInput,
-        }),
-      ).resolves.toMatchObject({ category });
-    },
-  );
+  it('requires at least one milestone when repository automation is enabled', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      milestones: [],
+    });
 
-  it.each(Object.values(ProgramCategory))(
-    'requires at least one milestone for %s when repository automation is enabled',
-    async (category) => {
-      const { service, store } = createProgramEditorServiceHarness();
-      store.findEditableProgramForUpdate.mockResolvedValue({
-        ...editableProgram,
-        category,
-        milestones: [],
-      });
-      const teamInput = teamInputFor(category);
-
-      await expect(
-        service.updateProgram(101n, 'program-1', {
-          ...updateInput,
-          category,
-          repositoryProvisioningEnabled: true,
-          ...teamInput,
-        }),
-      ).rejects.toMatchObject<Partial<DomainException>>({
-        errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_REQUIRED],
-      });
-      expect(store.updateProgram.mock.calls).toHaveLength(0);
-    },
-  );
+    await expect(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        repositoryProvisioningEnabled: true,
+      }),
+    ).rejects.toMatchObject<Partial<DomainException>>({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_REQUIRED],
+    });
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  });
 
   it('allows an application end date after a milestone inside the operation period', async () => {
     const { service, store } = createProgramEditorServiceHarness();

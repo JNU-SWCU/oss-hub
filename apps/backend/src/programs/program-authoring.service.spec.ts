@@ -3,6 +3,7 @@ import {
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
+  ProgramTrackType,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -25,7 +26,7 @@ function request(templateUploadId?: string): ProgramAuthoringRequest {
   return {
     name: 'Program',
     organizer: 'OSS Center',
-    category: ProgramCategory.CAPSTONE,
+    trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-05T00:00:00.000Z',
     startAt: '2026-08-06T00:00:00.000Z',
@@ -57,7 +58,8 @@ function program(): ProgramAuthoringProgram {
     id: 'program-id',
     name: 'Program',
     organizer: 'OSS Center',
-    category: ProgramCategory.CAPSTONE,
+    category: ProgramCategory.BASIC,
+    trackType: ProgramTrackType.CURRICULAR,
     lifecycle: ProgramLifecycle.PUBLISHED,
     applicationTemplateKey: 'CAPSTONE',
     applicationTemplateVersion: 1,
