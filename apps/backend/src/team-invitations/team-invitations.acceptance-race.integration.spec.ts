@@ -264,7 +264,7 @@ function createPausedApplication(
   );
   return applications.withCreateTransaction(async (store) => {
     await store.lockProgramForApply(PROGRAM_ID);
-    await store.lockTeamForApply(TEAM_ID);
+    await store.lockTeamForApply(TEAM_ID, PROGRAM_ID, LEADER_ID);
     await store.createApplication({
       programId: PROGRAM_ID,
       applicantId: LEADER_ID,

@@ -267,6 +267,9 @@ export class ApplicationJoinCodeDigestConflictError extends Error {
   override readonly name = 'ApplicationJoinCodeDigestConflictError';
 }
 
+export type ApplicationTeamLockResult =
+  'locked' | 'team-not-found' | 'membership-not-found';
+
 export interface ApplicationCreateStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
@@ -280,7 +283,11 @@ export interface ApplicationCreateStore {
     userId: string,
   ): Promise<CreatedTeamForApplication | null>;
   /** 팀 구성 변경과 신청 생성을 직렬화한다. 잠금 순서는 Program → Team이다. */
-  lockTeamForApply(teamId: string): Promise<boolean>;
+  lockTeamForApply(
+    teamId: string,
+    programId: string,
+    userId: string,
+  ): Promise<ApplicationTeamLockResult>;
   /** 재사용할 팀의 최소 인원 검증용. */
   countTeamMembers(teamId: string): Promise<number>;
   createTeamWithLeader(
@@ -481,11 +488,21 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
     return this.database.teamMember.count({ where: { teamId } });
   }
 
-  async lockTeamForApply(teamId: string): Promise<boolean> {
+  async lockTeamForApply(
+    teamId: string,
+    programId: string,
+    userId: string,
+  ): Promise<ApplicationTeamLockResult> {
     const rows = await this.database.$queryRaw<readonly LockedTeamRow[]>(
       Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
     );
-    return rows.length > 0;
+    if (rows.length === 0) return 'team-not-found';
+
+    const membership = await this.database.teamMember.findUnique({
+      where: { programId_userId: { programId, userId } },
+      select: { teamId: true },
+    });
+    return membership?.teamId === teamId ? 'locked' : 'membership-not-found';
   }
 
   async createTeamWithLeader(
