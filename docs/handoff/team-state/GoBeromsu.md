@@ -1248,9 +1248,10 @@
 
 ## 2026-09-03 — #1137 공개 아카이브 연도·trackType(B′)
 
-- 상태: review
+- 상태: done
 - Issue: [#1137](https://github.com/JNU-SWCU/oss-hub/issues/1137)
 - PR: https://github.com/JNU-SWCU/oss-hub/pull/1186
+- Release: https://github.com/JNU-SWCU/oss-hub/releases/tag/v0.6.141
 - blocker: 없음
 - 결과: PR1 연도 아카이브(`GET /projects?year=`·`/years`, category-counts 제거, 사이드·칩 연도, 7종 표시 제거). PR2 nullable `trackType`, authoring 5스텝·교과/비교과 Select, 공개 와이어 `trackType|null`, `applicationTemplateKey` 신청 해석, ADR-012. `#1137` 본문·담당 `@GoBeromsu` 이관.
 - 검증: `pnpm --filter backend test:unit`(3481 passed), `pnpm --filter frontend test`(3238 passed), `pnpm --filter frontend typecheck`.
