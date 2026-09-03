@@ -12,6 +12,7 @@ import type {
   StaffDashboardSubmissionSummary,
   StaffDashboardSummary,
 } from '@/features/programs/types';
+import { localReviewNow } from './fixture-clock';
 import {
   resetLocalReviewFixtureState,
   resolveLocalReviewResponse,
@@ -442,6 +443,102 @@ describe('local review fixture responses', () => {
         }),
       ).toMatchObject({ kind: 'json' });
     }
+  });
+
+  /*
+   * 재제출 폼을 **눌러서 열 수 있는** 서류가 하나는 있어야 한다.
+   *
+   * 한때 학생 픽스처의 보완 요청 서류는 전부 마감이 지나 있었다. 제출물 체크리스트의
+   * 「다시 제출」은 마감이 지나면 상태와 무관하게 비활성이라(`ChecklistRow`), 그 버튼이
+   * 한 번도 눌리지 않아 재제출 폼을 로컬 검토에서 열 수 없었다 — 폼 안의 「기존 제출
+   * 파일」과 첨부가 빠진다는 경고도 그래서 아무도 눈으로 보지 못했다.
+   *
+   * 마감을 **미래의 고정 날짜로** 적어 두면 그날이 지나는 순간 같은 사각지대로 돌아온다.
+   * 그래서 픽스처는 기준 시각에서 상대로 마감을 만들고, 이 테스트는 그 성질 자체를
+   * 고정한다 — 날짜를 적지 않고 「지금보다 뒤인가」를 본다.
+   */
+  it('마감이 남은 보완 요청 서류가 있어 재제출 폼을 열 수 있다', () => {
+    // Given: 학생 체크리스트와 그 마일스톤의 서류.
+    const checklist = jsonBody(
+      resolveLocalReviewResponse({
+        fixture: 'student',
+        method: 'GET',
+        path: 'programs/program-capstone/submissions/me',
+        searchParams: new URLSearchParams(),
+      }),
+    ) as {
+      readonly items: readonly {
+        readonly milestoneId: string;
+        readonly dueAt: string;
+        readonly submission: { readonly canResubmit: boolean } | null;
+      }[];
+    };
+
+    // When: 마감이 아직 남았고 다시 낼 수 있는 줄을 찾는다.
+    const open = checklist.items.filter(
+      (item) =>
+        item.submission?.canResubmit === true &&
+        Date.parse(item.dueAt) > localReviewNow().getTime(),
+    );
+
+    // Then: 그런 줄이 하나는 있고, 그 서류에는 지금 붙어 있는 첨부가 있다.
+    expect(open.length).toBeGreaterThan(0);
+    const documents = jsonBody(
+      resolveLocalReviewResponse({
+        fixture: 'student',
+        method: 'GET',
+        path: `milestones/${open[0]?.milestoneId}/documents`,
+        searchParams: new URLSearchParams(),
+      }),
+    ) as readonly {
+      readonly viewerSubmission?: {
+        readonly status: string | null;
+        readonly hasCurrentFile: boolean;
+        readonly currentFileName: string | null;
+      };
+    }[];
+
+    expect(documents).toContainEqual(
+      expect.objectContaining({
+        viewerSubmission: expect.objectContaining({
+          status: 'CHANGES_REQUESTED',
+          hasCurrentFile: true,
+          // 이름이 비면 폼이 「기존 제출 파일」 줄을 세우지 못한다.
+          currentFileName: expect.any(String),
+        }),
+      }),
+    );
+  });
+
+  /*
+   * 위 서류와 짝이 되는 반대쪽 — 마감이 지난 보완 요청도 남아 있어야 한다. 마감 뒤에도
+   * 보완 요청만은 다시 낼 수 있다는 규칙(`isMilestoneDocumentDeadlineLocked`)을 눈으로
+   * 보는 자리가 그것뿐이라, 새 서류를 넣으면서 이쪽을 옮기거나 지우면 안 된다.
+   */
+  it('마감이 지난 보완 요청 서류도 그대로 남아 있다', () => {
+    // Given / When
+    const checklist = jsonBody(
+      resolveLocalReviewResponse({
+        fixture: 'student',
+        method: 'GET',
+        path: 'programs/program-capstone/submissions/me',
+        searchParams: new URLSearchParams(),
+      }),
+    ) as {
+      readonly items: readonly {
+        readonly dueAt: string;
+        readonly submission: { readonly canResubmit: boolean } | null;
+      }[];
+    };
+
+    // Then
+    expect(
+      checklist.items.filter(
+        (item) =>
+          item.submission?.canResubmit === true &&
+          Date.parse(item.dueAt) < localReviewNow().getTime(),
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it.each(dashboardFixture.items)(

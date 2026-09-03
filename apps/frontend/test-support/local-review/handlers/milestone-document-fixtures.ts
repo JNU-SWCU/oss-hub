@@ -26,6 +26,7 @@ import type {
 } from '@/features/programs/milestone-document-review-api';
 import { findStaffMilestoneContext } from './staff-program-fixtures';
 import {
+  OPEN_REVISION_FIXTURE,
   PUBLIC_PROGRAM_IDS,
   programDetailFor,
 } from './student-program-fixtures';
@@ -37,7 +38,7 @@ import {
  * 여기 `viewerSubmission.submitted`가 어긋나지 않아야 한다.
  *
  * 서류 개수는 program-overview-fixtures.ts의 `studentDocumentsCompleted/Total`과도
- * 맞춰 둔다(캡스톤 2/3, 경진대회 1/2, 기초 스터디 0/2).
+ * 맞춰 둔다(캡스톤 3/4, 경진대회 1/2, 기초 스터디 0/2).
  */
 /**
  * 목록 응답이 함께 싣는 업로드 규칙. backend `submission-upload-policy.ts`가 실제로
@@ -84,11 +85,23 @@ const NOT_SUBMITTED_VIEWER: MilestoneDocumentViewerSubmission = {
 };
 
 /**
+ * 지금 이 서류에 붙어 있는 첨부의 이름.
+ *
+ * 이름 규칙을 한 곳에 둔다 — 같은 파일이 화면 두 곳에 **나란히** 나오기 때문이다:
+ * 재제출 폼의 「기존 제출 파일」과 바로 아래 제출·검토 이력의 첨부 줄. 두 곳이 다른
+ * 이름을 부르면 검토자는 파일이 두 개 있는 것으로 읽는다.
+ */
+function currentSubmissionFileName(documentName: string): string {
+  return `합성-${documentName}-현재본.pdf`;
+}
+
+/**
  * 제출한 학생이 보는 값. `status`는 student-program-fixtures.ts의
  * `viewerSubmissionStatus`와 **같은 값이어야 한다** — 프로그램 상세의 마일스톤 배지와
  * 그 아래 「제출 서류」 줄이 서로 다른 말을 하면 검토자가 화면 결함으로 읽는다.
  */
 function submittedViewer(
+  documentName: string,
   submittedAt: string,
   status: NonNullable<MilestoneDocumentViewerSubmission['status']>,
   review: MilestoneDocumentViewerSubmission['review'] = null,
@@ -102,7 +115,9 @@ function submittedViewer(
     hasCurrentFile,
     // 이름은 첨부가 있을 때만 채운다 — 「붙어 있는데 이름은 없다」는 조합을 픽스처가
     // 만들면 재제출 폼의 「기존 제출 파일」 경고를 로컬 검토에서 볼 수 없다.
-    currentFileName: hasCurrentFile ? '합성_제출본.pdf' : null,
+    currentFileName: hasCurrentFile
+      ? currentSubmissionFileName(documentName)
+      : null,
     review,
     history: { hasHistory: true, isComplete: true },
   };
@@ -131,6 +146,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
        * 아래 `COLLECTION_REVIEW_COMMENTS.APPROVED`가 `null`이다.
        */
       viewerSubmission: submittedViewer(
+        '기획서 제출',
         '2026-07-14T09:00:00.000Z',
         'APPROVED',
         {
@@ -168,6 +184,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       // 사유 상자와 「다시 낼 수 있다」가 함께 보이는 자리다.
       viewerSubmission: {
         ...submittedViewer(
+          '최종 결과 요약',
           '2026-07-30T16:20:00.000Z',
           'CHANGES_REQUESTED',
           {
@@ -182,6 +199,46 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       teamSubmissionCount: { submitted: 30, total: 47 },
     },
   ],
+  /*
+   * **마감이 아직 남은 보완 요청.** 위 `milestones-revision`과 상태는 같지만 마감이
+   * 다르고, 그 차이 하나가 화면 두 곳을 가른다.
+   *
+   * - 학생 제출물 체크리스트(`/programs/:id/documents`)의 「다시 제출」은 마감이 지나면
+   *   상태와 무관하게 비활성이다. 마감 지난 보완 요청뿐이던 때에는 그 버튼이 한 번도
+   *   눌리지 않아, 재제출 폼 자체를 로컬 검토에서 열 수 없었다.
+   * - 프로그램 상세의 제출 항목에서 재제출이 열리는 것도 마감 뒤에는 「보완 요청만은
+   *   예외」라는 규칙 덕분이라(`isMilestoneDocumentDeadlineLocked`), **평범하게 마감
+   *   전이라 열리는** 재제출 폼은 어디에도 없었다.
+   *
+   * 첨부를 붙여 둔다(`hasCurrentFile`) — 재제출 폼의 「기존 제출 파일」과 「새 파일을
+   * 고르지 않으면 이 파일은 이번 제출에서 빠집니다」 경고는 **지금 붙어 있는 첨부가
+   * 있을 때만** 뜨기 때문이다.
+   *
+   * 아직 다시 내지 않았으므로 제출은 한 번뿐이다(`revision` 1, 이력 완전) — 다시 낸 뒤의
+   * 모양은 위 `milestones-revision`이 이미 덮는다.
+   */
+  [OPEN_REVISION_FIXTURE.milestoneId]: [
+    {
+      id: OPEN_REVISION_FIXTURE.documentId,
+      milestoneId: OPEN_REVISION_FIXTURE.milestoneId,
+      name: OPEN_REVISION_FIXTURE.name,
+      required: true,
+      sortOrder: 1,
+      contentKind: 'FILE',
+      viewerSubmission: submittedViewer(
+        OPEN_REVISION_FIXTURE.name,
+        OPEN_REVISION_FIXTURE.submittedAt,
+        'CHANGES_REQUESTED',
+        {
+          comment: OPEN_REVISION_FIXTURE.reviewComment,
+          reviewedAt: OPEN_REVISION_FIXTURE.reviewedAt,
+        },
+        true,
+      ),
+      // 마감이 남아 아직 내는 중이다 — 캡스톤의 다른 마일스톤들보다 제출 팀이 적다.
+      teamSubmissionCount: { submitted: 26, total: 47 },
+    },
+  ],
   'milestones-overdue': [
     {
       id: 'synthetic-document-overdue',
@@ -191,6 +248,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       sortOrder: 1,
       contentKind: 'TEXT',
       viewerSubmission: submittedViewer(
+        '예선 결과물',
         '2026-07-29T14:10:00.000Z',
         'CHANGES_REQUESTED',
         {
@@ -278,6 +336,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
        * 제출해 보면 그 자리에서 바뀐다.
        */
       viewerSubmission: submittedViewer(
+        '합성 학습 계획서',
         '2026-05-10T02:20:00.000Z',
         'REJECTED',
         {
@@ -448,7 +507,7 @@ export function createdMilestoneDocumentReviewFor(
  * 쓰고, 행(팀)은 그 시드의 `teamSubmissionCount`에서 파생한다 — 팀 수는 `total`,
  * 제출한 팀 수는 `submitted`다. 그래서 이 표의 합계는 프로그램 상세의
  * 「N/M팀 제출」과 언제나 같은 수가 되고, program-overview-fixtures.ts와 맞춰 둔
- * 서류 개수(캡스톤 2/3 · 경진대회 1/2 · 기초 스터디 0/2)도 건드리지 않는다.
+ * 서류 개수(캡스톤 3/4 · 경진대회 1/2 · 기초 스터디 0/2)도 건드리지 않는다.
  *
  * 한계: 지금 시드는 마일스톤마다 서류가 한 항목뿐이라, 이 화면에서 「미제출 있는
  * 팀」과 「한 장도 안 낸 팀」의 수가 늘 같게 나온다. 항목을 늘리면 위의 서류 개수
@@ -1039,7 +1098,9 @@ export function milestoneDocumentParticipantHistoryFor(
   }
   const content = collectionContentFor(document, 1);
   const fileName =
-    document.contentKind === 'FILE' ? `합성-${document.name}-현재본.pdf` : null;
+    document.contentKind === 'FILE'
+      ? currentSubmissionFileName(document.name)
+      : null;
   const revision = submission.revision;
   const submittedAt = submission.submittedAt;
   const firstKnownRevision = submission.history.isComplete ? 1 : revision;

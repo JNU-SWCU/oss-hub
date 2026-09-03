@@ -3,6 +3,15 @@ import type {
   SubmissionChecklist,
   SubmissionFormData,
 } from '@/features/submissions/types';
+/*
+ * 마감 전 보완 요청 서류는 두 벌로 적힌 학생 픽스처가 **같은 값**을 써야 한다 — 마감이
+ * 상대 시각이라 한쪽만 손으로 적으면 두 화면의 D-day 가 소리 없이 갈린다. 그래서
+ * 여기서 베끼지 않고 원본을 그대로 가져다 쓴다.
+ */
+import {
+  OPEN_REVISION_CHECKLIST_ITEM,
+  OPEN_REVISION_FIXTURE,
+} from './handlers/student-program-fixtures';
 
 type StudentJourneyResponseBody =
   | ProgramDetail
@@ -59,6 +68,18 @@ const CAPSTONE_DETAIL = {
       deadlineLabel: 'D-10',
       description: '최종 결과와 변경 내역을 글로 정리합니다.',
       submissionType: 'TEXT',
+      submissionItemCount: 0,
+      viewerSubmissionStatus: 'CHANGES_REQUESTED',
+      applicationSubmissionSummary: null,
+    },
+    {
+      id: OPEN_REVISION_FIXTURE.milestoneId,
+      name: OPEN_REVISION_FIXTURE.name,
+      dueAt: OPEN_REVISION_FIXTURE.deadline.dueAt,
+      dDay: OPEN_REVISION_FIXTURE.deadline.dDay,
+      deadlineLabel: OPEN_REVISION_FIXTURE.deadline.deadlineLabel,
+      description: OPEN_REVISION_FIXTURE.description,
+      submissionType: 'FILE',
       submissionItemCount: 0,
       viewerSubmissionStatus: 'CHANGES_REQUESTED',
       applicationSubmissionSummary: null,
@@ -179,6 +200,7 @@ const CAPSTONE_CHECKLIST = {
         file: null,
       },
     },
+    OPEN_REVISION_CHECKLIST_ITEM,
   ],
 } as const satisfies SubmissionChecklist;
 
