@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-09-03 — v4.4.0: 티켓이 구현 범위만 요구하고 UX 품질은 리뷰에서야 지적돼 같은 안티패턴이 화면마다 다시 나왔다 — 배포 `/programs/<id>/status`의 `전체 미제출 5팀` 중복이 그 예다 → 화면 티켓의 완료 조건에 [UX 안티패턴](../submit-pr-evidence/references/ux-antipatterns.md) 여덟 항목 점검을 필수로 넣고, 본문의 재현·확인 URL을 `https://jnu-oss-hub.com/<path>` 전체 형태로 적어 읽는 사람이 바로 누를 수 있게 했으며, 두 본문 변형의 완료 조건에 빈 상태·결과 없음·오류 구분 항목을 추가했다. Provenance: PM이 PR #1171과 배포 화면을 읽고 「안티패턴을 리뷰에서 말하지 말고 티켓을 쓸 때 적게 하라」고 요청.
+
 - 2026-08-26 — v1.0.0: OSS Hub QA intake needed one reusable contract → added Notion deduplication, migration, verification, deadlines, and public GitHub handoff.
 - 2026-08-26 — v1.1.0: UX tickets became implementation-first and ignored the operator-edited reference style → added a human-readable UX body, safe block replacement, and persisted-image verification. Provenance: 2026-08-26 operator correction during the OSS Hub UX QA ticket 2.1-2.5 rewrite conversation.
 - 2026-08-26 — v1.2.0: UX reference research kept expanding or preserved rejected examples after the useful pattern was clear → added real-screen candidate review, familiar-pattern fallback, aspect-scoped approval recipes, and a stop-after-approval check. Provenance: 2026-08-26 operator-supplied OSS Hub QA reference-review conversation.
