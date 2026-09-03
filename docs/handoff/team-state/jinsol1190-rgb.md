@@ -40,3 +40,13 @@
 - 검증: 변경 범위 backend 3/3, frontend 78/78 테스트와 lint·typecheck·prettier를 통과했다. 합성 student/staff local-review fixture로 1280×720·390×844 실제 브라우저에서 팀→신청서 전환, 신청자 목록·상세·승인 창의 제목 미노출, CJK 레이아웃을 확인했다.
 - 환경 참고: Windows 전체 frontend에서 무변경 `card-grid.geometry-runtime.test.mjs` 4건이 확장자 없는 `pnpm` 실행과 프로세스 신호 제약으로 재현됐고, production standalone 복사는 symlink `EPERM`으로 멈췄다. 제품 번들 컴파일·타입 검사·정적 페이지 생성은 그 전 단계까지 통과했다.
 - 공개 안전성: 합성 fixture만 사용했고 캡처는 브랜치에 커밋하지 않고 PR 첨부로 이전한다.
+
+## 2026-09-04 — Issue #1132 병합 후 리뷰 보완
+
+- 상태: review
+- Issue: #1132
+- PR: pending
+- blocker: 작성자 UX 인터뷰 답변 대기
+- 결과: 병합 뒤 남은 리뷰 3건을 후속 변경으로 분리했다. 동시 팀 탈퇴를 팀 행 잠금으로 직렬화하고, frontend가 먼저 배포돼 구버전 양식을 받는 동안에는 화면에서 제목을 숨기되 호환 제목을 전송한다. 신청 wizard 안의 중첩 `main`과 중복 페이지 제목도 제거했다.
+- 검증: backend 16/16, frontend 44/44 집중 테스트와 양쪽 typecheck·lint·backend build를 통과했다. 합성 student fixture의 동일 URL·viewport에서 Before/After를 다시 촬영했고, After는 desktop·390×844 모두 `main` 1개·`h1` 1개·제목 입력 0개·가로 overflow 0을 확인했다. frontend build는 번들·타입·정적 페이지 26/26 뒤 Windows symlink `EPERM`에서만 멈췄다.
+- 공개 안전성: 캡처는 합성 fixture만 사용하고 저장소 밖 임시 경로에 두었으며, 후속 PR에는 GitHub attachment로만 첨부한다.
