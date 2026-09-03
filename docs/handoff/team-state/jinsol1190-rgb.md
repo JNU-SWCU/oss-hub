@@ -70,3 +70,13 @@
 - 결과: 신청 트랜잭션이 기존 팀을 잠근 뒤 학생의 현재 프로그램 팀 멤버십을 다시 확인한다. 동시 탈퇴 뒤 팀이 남아도 오래된 팀 ID로 신청하지 않고 `APP_014`로 거절한다.
 - 검증: applications·program teams 집중 테스트 51/51, backend typecheck와 변경 파일 lint를 통과했다. 기존 team-invitation/application 잠금 통합 테스트 호출부도 새 잠금 계약에 맞췄다.
 - 공개 안전성: 공개 표면에 추가된 실데이터·개인정보·로컬 경로가 없다.
+
+## 2026-09-04 — Issue #1132 오래된 탈퇴 요청 차단
+
+- 상태: review
+- Issue: #1132
+- PR: pending
+- blocker: 작성자 UX 인터뷰 답변 대기
+- 결과: 팀 A 탈퇴 요청이 잠금을 기다리는 동안 사용자가 팀 B로 이동한 경우, 잠근 팀과 재조회된 멤버십 팀이 다르면 `not-found`로 종료해 팀 B를 변경하지 않는다.
+- 검증: applications·program teams 집중 테스트 52/52, backend typecheck와 변경 파일 lint를 통과했다.
+- 공개 안전성: 합성 팀·사용자 식별자만 테스트에 사용했다.
