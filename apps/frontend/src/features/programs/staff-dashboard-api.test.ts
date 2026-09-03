@@ -26,6 +26,8 @@ const validResponse = {
         startsAt: '2026-07-01T00:00:00.000Z',
         endsAt: '2026-07-31T23:59:59.000Z',
       },
+      endAt: '9999-12-31T23:59:59.999Z',
+      lifecycle: 'PUBLISHED',
       applications: {
         total: 1,
         submitted: 1,

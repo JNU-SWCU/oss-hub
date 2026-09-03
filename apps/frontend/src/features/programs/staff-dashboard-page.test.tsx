@@ -4,6 +4,7 @@ import {
   buildStaffDashboardPageModel,
   StaffDashboardOverview,
   StaffDashboardPageView,
+  StaffDashboardStatusSummary,
 } from './staff-dashboard-page';
 import { parseStaffDashboardSummary } from './staff-dashboard-parser';
 import {
@@ -58,6 +59,25 @@ describe('staff dashboard parser and model', () => {
             },
           },
         ],
+      }),
+    ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+  });
+
+  it('종료일과 게시 축이 빠진 응답을 형식 오류로 끊는다', () => {
+    // 두 값이 없으면 화면이 조용히 「안 내린, 안 끝난 프로그램」으로 읽어
+    // 끝난 프로그램에 「진행중」 배지를 단다(#1093).
+    const { endAt: _endAt, ...withoutEndAt } = fixtureProgram;
+    const { lifecycle: _lifecycle, ...withoutLifecycle } = fixtureProgram;
+
+    expect(() =>
+      parseStaffDashboardSummary({ programs: [withoutEndAt] }),
+    ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+    expect(() =>
+      parseStaffDashboardSummary({ programs: [withoutLifecycle] }),
+    ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+    expect(() =>
+      parseStaffDashboardSummary({
+        programs: [{ ...fixtureProgram, lifecycle: 'DRAFT' }],
       }),
     ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
   });
@@ -126,6 +146,33 @@ describe('StaffDashboardOverview', () => {
     expect(html).not.toContain('제출된 항목이 없습니다.');
     expect(html).not.toContain('등록된 마일스톤이 없습니다.');
     expect(html).not.toContain('데이터 기준');
+  });
+});
+
+describe('StaffDashboardStatusSummary', () => {
+  it('모집중 → 진행중 → 종료 순서로 세 장만 세우고 내림은 종료 카드에 붙인다', () => {
+    const html = renderToStaticMarkup(
+      <StaffDashboardStatusSummary
+        summary={{ recruiting: 2, inProgress: 1, ended: 3, archived: 1 }}
+      />,
+    );
+
+    // 넷째 카드를 만들지 않는다 — 내림은 종료의 부분집합이라 따로 세우면 합이
+    // 맞지 않는 것처럼 읽힌다.
+    expect(html.match(/data-slot="card"/g)).toHaveLength(3);
+    expect(html.indexOf('모집중')).toBeLessThan(html.indexOf('진행중'));
+    expect(html.indexOf('진행중')).toBeLessThan(html.indexOf('>종료<'));
+    expect(html).toContain('그중 내림 1개');
+  });
+
+  it('내림이 없어도 종료 카드는 0개로 말한다', () => {
+    const html = renderToStaticMarkup(
+      <StaffDashboardStatusSummary
+        summary={{ recruiting: 0, inProgress: 0, ended: 0, archived: 0 }}
+      />,
+    );
+
+    expect(html).toContain('그중 내림 0개');
   });
 });
 

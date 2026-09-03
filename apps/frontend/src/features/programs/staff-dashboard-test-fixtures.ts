@@ -1,3 +1,4 @@
+import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 import type {
   StaffDashboardProgramSummary,
   StaffDashboardSummary,
@@ -5,7 +6,8 @@ import type {
 
 export const staffDashboardNow = new Date('2026-07-20T00:00:00.000Z');
 
-function program(
+/** 기본형은 「모집중」이다 — 신청기간이 열려 있고 종료일은 미정, 내리지 않았다. */
+export function staffDashboardProgram(
   overrides: Partial<StaffDashboardProgramSummary>,
 ): StaffDashboardProgramSummary {
   const id = overrides.id ?? 'program:basic';
@@ -17,6 +19,8 @@ function program(
       startsAt: '2026-07-01T00:00:00.000Z',
       endsAt: '2026-07-31T23:59:59.000Z',
     },
+    endAt: PROGRAM_END_AT_UNDECIDED,
+    lifecycle: 'PUBLISHED',
     applications: {
       total: 3,
       submitted: 1,
@@ -49,8 +53,8 @@ function program(
 
 export const staffDashboardSummary: StaffDashboardSummary = {
   programs: [
-    program({ id: 'program:basic', name: '기본 프로그램' }),
-    program({
+    staffDashboardProgram({ id: 'program:basic', name: '기본 프로그램' }),
+    staffDashboardProgram({
       id: 'program:empty-activity',
       name: '활동 없음 프로그램',
       activity: {
@@ -79,7 +83,7 @@ export const staffDashboardSummary: StaffDashboardSummary = {
         rejected: 0,
       },
     }),
-    program({
+    staffDashboardProgram({
       id: 'program:stale',
       name: '수집 대기 프로그램',
       activity: {
@@ -101,7 +105,7 @@ export const staffDashboardSummary: StaffDashboardSummary = {
         rejected: 0,
       },
     }),
-    program({
+    staffDashboardProgram({
       id: 'program:no-milestone',
       name: '마일스톤 없음 프로그램',
       submissions: {

@@ -7,6 +7,7 @@ import { ProgramListPagination } from './program-list-pagination';
 import { StaffDashboardControls } from './staff-dashboard-controls';
 import { StaffDashboardOverview } from './staff-dashboard-overview';
 import type { StaffDashboardPageModel } from './staff-dashboard-page-model';
+import { StaffDashboardStatusSummary } from './staff-dashboard-status-summary';
 import type { ProgramListStatus } from './types';
 
 interface ReadyActions {
@@ -106,6 +107,9 @@ function StaffDashboardReadyState({
           </Button>
         }
       />
+      {model.isEmptyCatalog ? null : (
+        <StaffDashboardStatusSummary summary={model.statusSummary} />
+      )}
       <StaffDashboardControls
         search={state.search}
         status={state.status}

@@ -318,6 +318,13 @@ export interface StaffDashboardProgramSummary {
     readonly startsAt: string;
     readonly endsAt: string;
   };
+  /**
+   * 종료일. 「미정」은 센티널 시각으로 온다 — `program-end-at.ts` 참고.
+   * 공개 목록과 같은 모집 상태 판정을 내리려면 신청기간만으로는 부족하다.
+   */
+  readonly endAt: string;
+  /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
+  readonly lifecycle: 'PUBLISHED' | 'ARCHIVED';
   readonly applications: StaffDashboardApplicationCounts;
   readonly applicantsPath: string;
   readonly activity: StaffDashboardActivitySummary;

@@ -251,6 +251,10 @@ export interface StaffDashboardProgramSummary {
     readonly startsAt: Date;
     readonly endsAt: Date;
   };
+  /** 종료일. 「미정」은 DB 기본값인 센티널 시각으로 온다. */
+  readonly endAt: Date;
+  /** 게시 축. 신청기간만으로는 「내림」을 알 수 없어 함께 싣는다(#1093). */
+  readonly lifecycle: ProgramLifecycle;
   readonly applications: StaffDashboardApplicationCounts;
   readonly applicantsPath: string;
 }
@@ -773,6 +777,8 @@ export class ApplicationsRepository {
         trackType: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        endAt: true,
+        lifecycle: true,
       },
     });
 
@@ -837,6 +843,8 @@ export class ApplicationsRepository {
             startsAt: program.applicationStartAt,
             endsAt: program.applicationEndAt,
           },
+          endAt: program.endAt,
+          lifecycle: program.lifecycle,
           applications,
           applicantsPath: `/programs/${encodeURIComponent(program.id)}/applicants`,
         };

@@ -90,6 +90,10 @@ const STAFF_DASHBOARD_FIXTURE = {
         startsAt: '2026-07-01T00:00:00.000Z',
         endsAt: '2026-08-15T23:59:59.000Z',
       },
+      // 종료일·게시 축은 교직원 편집 픽스처(`staff-program-fixtures.ts`)와 같은
+      // 값이어야 한다. 어긋나면 대시보드 배지와 편집 화면이 서로 다른 말을 한다.
+      endAt: '2026-07-31T14:59:59.000Z',
+      lifecycle: 'PUBLISHED',
       applications: {
         total: 4,
         submitted: 1,
@@ -132,6 +136,8 @@ const STAFF_DASHBOARD_FIXTURE = {
         startsAt: '2026-08-16T00:00:00.000Z',
         endsAt: '2026-08-31T23:59:59.000Z',
       },
+      endAt: '2027-01-31T14:59:59.000Z',
+      lifecycle: 'PUBLISHED',
       applications: {
         total: 0,
         submitted: 0,

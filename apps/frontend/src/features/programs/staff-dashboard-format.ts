@@ -1,11 +1,9 @@
-import {
-  getProgramRecruitmentState,
-  type ProgramRecruitmentState,
-} from './program-list';
+import type { ProgramRecruitmentState } from './program-list';
 import {
   PROGRAM_TRACK_TYPE_LABELS,
   type ProgramTrackType,
 } from './program-templates';
+import { getStaffProgramRecruitmentState } from './staff-dashboard-status';
 import type { StaffDashboardProgramSummary } from './types';
 
 export function staffTrackTypeLabel(
@@ -59,18 +57,7 @@ export function getStaffRecruitmentBadge(
   program: StaffDashboardProgramSummary,
   now: Date,
 ): (typeof STAFF_RECRUITMENT_BADGES)[ProgramRecruitmentState] {
-  const state = getProgramRecruitmentState(
-    {
-      id: program.id,
-      name: program.name,
-      organizer: '',
-      trackType: program.trackType,
-      applicationStartAt: program.applicationPeriod.startsAt,
-      applicationEndAt: program.applicationPeriod.endsAt,
-      endAt: null,
-      description: '',
-    },
-    now,
-  );
-  return STAFF_RECRUITMENT_BADGES[state];
+  return STAFF_RECRUITMENT_BADGES[
+    getStaffProgramRecruitmentState(program, now)
+  ];
 }
