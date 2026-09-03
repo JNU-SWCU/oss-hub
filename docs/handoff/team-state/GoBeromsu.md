@@ -1235,4 +1235,13 @@
 - blocker: 없음
 - 결과: Codex P1 리뷰에 맞춰 브라우저 zip MIME 별칭이 수명주기 내려주기·쿼터 예약·실제 업로드 PENDING·HTTP 전달·작성 화면 file picker까지 같은 판정인지 스펙을 보강했다. 입장 게이트는 그대로 확장자 → 시그니처 → (zip이면) admission이다.
 - 검증: backend integration 3 suites / 27 tests, submissions.http.spec 11 tests, frontend Vitest 2 files / 42 tests, `pnpm --filter frontend e2e:program-authoring` 7 passed (1.2m)
+## 2026-09-03 — frontend design contract을 단일 정본으로 재구축한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `docs/design.md`를 토큰·프리미티브 보존 블록과 새 계층·composition·상태·피드백·다이얼로그·테스트 데이터·안티패턴·부채·컴포넌트 카드 절로 재구축했고, 보존 블록 13개 중 11개는 기준선 범위 diff로 byte-identical이고, TOKEN·A11Y 두 블록은 코드와 어긋나던 문장 한 줄씩(StatusBadge 미구현 서술, Field의 htmlFor 자동 연결 서술)만 고친 검토된 예외다. 그 외 보존 예외는 헤딩 레벨 5줄뿐이고 PR 본문에 목록을 남긴다. 리서치 노트는 내용을 흡수한 뒤 삭제해 저장소에는 `docs/design.md` 하나만 남긴다.
+- 후속 PR: failure surface, notification, Skeleton·Alert kind, dialog shell, composition API, ProgramCard 하향, 테스트 데이터, local-review 하네스, lint, ADR 승격을 각각 연다.
+- 검증: 보존 블록 11개 byte-identical diff와 2개 한-줄 예외 diff, line-set 잔여 13줄은 교체·삭제·예외로 선언한 줄만, 규칙·안티패턴 id 카운트, 추가 줄의 경로 존재·한 문장 한 줄 검사, `pnpm format:check`를 실행했다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
