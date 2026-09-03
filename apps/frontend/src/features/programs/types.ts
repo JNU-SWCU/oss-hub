@@ -363,9 +363,20 @@ export interface ProgramDetail {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
+  /** 게시 축. 모집 기간 파생 상태가 아니다. 없으면 PUBLISHED 로 본다. */
+  readonly lifecycle?: 'PUBLISHED' | 'ARCHIVED';
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {
+    readonly startsAt: string;
+    readonly endsAt: string;
+  };
+  /**
+   * 프로그램 운영 기간. `endsAt` 은 목록 항목의 `endAt` 과 같은 축이라 종료 판정에
+   * 그대로 쓴다. 없으면(이 축을 싣지 않던 응답) 종료일을 모르는 것이므로 목록이
+   * `endAt: null` 을 다루는 방식과 같게 「아직 안 끝남」으로 본다.
+   */
+  readonly operatingPeriod?: {
     readonly startsAt: string;
     readonly endsAt: string;
   };

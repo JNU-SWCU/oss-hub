@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
@@ -16,7 +16,12 @@ import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
 import type { ProgramOverview } from './program-overview-api';
-import type { ProgramDetail } from './types';
+import { getProgramRecruitmentState } from './program-list';
+import {
+  PROGRAM_LIST_STATUS_LABELS,
+  type ProgramDetail,
+  type ProgramListItem,
+} from './types';
 
 export { ProgramFactBar };
 
@@ -83,6 +88,90 @@ function isRecruiting(period: ProgramDetail['applicationPeriod']): boolean {
   return startsAt <= now && now <= endsAt;
 }
 
+/**
+ * 상세 응답을 목록 판정 함수가 받는 모양으로 옮긴다.
+ *
+ * 종료 여부를 상세에서 따로 계산하지 않으려는 것이다 — 목록의
+ * `getProgramRecruitmentState` 가 이 티켓의 기준값이라(#1092), 같은 프로그램이
+ * 목록에서는 「종료」인데 상세에서는 「모집중」으로 남는 일이 구조적으로 생기지
+ * 않는다. 운영 기간이 없는 응답은 종료일을 모르는 것이므로 목록의 `endAt: null`
+ * 과 같게 「아직 안 끝남」으로 본다.
+ */
+function asRecruitmentInput(program: ProgramDetail): ProgramListItem {
+  return {
+    id: program.id,
+    name: program.name,
+    organizer: program.organizer,
+    category: program.category,
+    lifecycle: program.lifecycle,
+    applicationStartAt: program.applicationPeriod.startsAt,
+    applicationEndAt: program.applicationPeriod.endsAt,
+    endAt: program.operatingPeriod?.endsAt ?? null,
+    description: program.description,
+  };
+}
+
+/**
+ * 학생이 보는 「종료」. 내린 프로그램(저장된 `ARCHIVED`)과 종료일이 지난 프로그램
+ * (날짜에서 파생)을 한 상태로 접는다 — 학생에게는 결과가 같기 때문이고, 「종료」와
+ * 「내림」을 갈라 보여 주는 것은 교직원 화면의 몫이다.
+ */
+function isEnded(program: ProgramDetail): boolean {
+  return (
+    getProgramRecruitmentState(asRecruitmentInput(program), new Date()) ===
+    'ended'
+  );
+}
+
+/**
+ * 제목 옆 배지. 종료를 신청 기간보다 먼저 본다 — 목록이 ARCHIVED 와 지난 종료일을
+ * 곧바로 `ended` 로 접는 것과 같은 우선순위이고, 그래야 한 프로그램이 목록과
+ * 상세에서 다른 상태로 보이지 않는다(#1092). 종료가 아닐 때의 두 문구는 이 티켓
+ * 이전과 같다.
+ */
+function detailStatusBadge(program: ProgramDetail): {
+  readonly variant: 'recruiting' | 'closed';
+  readonly label: string;
+} {
+  if (isEnded(program)) {
+    return { variant: 'closed', label: PROGRAM_LIST_STATUS_LABELS.ended };
+  }
+  return isRecruiting(program.applicationPeriod)
+    ? { variant: 'recruiting', label: PROGRAM_LIST_STATUS_LABELS.recruiting }
+    : { variant: 'closed', label: '모집 마감' };
+}
+
+/**
+ * 배지가 말하는 상태(「종료」)와 같은 말로 신청이 막힌 이유를 적는다. 내림과 종료일
+ * 경과를 한 문구로 묶는 것이 의도다 — 학생에게 「내림」이라는 운영 개념을 꺼내지
+ * 않는다.
+ */
+const APPLY_BLOCKED_REASON = '종료된 프로그램이라 신청을 받지 않습니다.';
+
+/**
+ * 신청을 받지 않는 프로그램의 신청 입구. 버튼을 지우지 않고 흐리게 남긴다
+ * (`disabled:opacity-50`) — 입구가 통째로 사라지면 학생은 자기가 잘못 들어온 줄
+ * 안다. 대신 왜 못 누르는지를 버튼과 같은 자리에 적는다. `disabled` 버튼은 포인터
+ * 이벤트를 받지 못해(`disabled:pointer-events-none`) 툴팁으로는 이유를 전할 수
+ * 없으므로, 문구를 화면에 그대로 두고 `aria-describedby` 로 버튼에 묶는다.
+ */
+function BlockedApplyEntry({ label }: { readonly label: string }) {
+  const reasonId = useId();
+  return (
+    <div className="grid justify-items-start gap-2 sm:justify-items-end">
+      <Button type="button" disabled aria-describedby={reasonId}>
+        {label}
+      </Button>
+      <p
+        id={reasonId}
+        className="text-small text-muted-foreground [word-break:keep-all]"
+      >
+        {APPLY_BLOCKED_REASON}
+      </p>
+    </div>
+  );
+}
+
 export function ProgramDetailSkeleton() {
   return (
     <main
@@ -103,14 +192,22 @@ export function ProgramActions({
   readonly program: ProgramDetail;
 }) {
   const role = program.viewer.role;
+  // 서버는 이미 두 갈래로 거부한다 — 내린 프로그램은 APP_020, 신청 기간이 지난
+  // 프로그램은 APP_010이다(`applications.service.ts`). 화면이 먼저 알려 줘야
+  // 학생이 신청서를 다 채운 뒤에 거절당하지 않는다(#1092).
+  const applyBlocked = isEnded(program);
   if (role === null)
-    return (
+    return applyBlocked ? (
+      <BlockedApplyEntry label="가입하고 신청하기" />
+    ) : (
       <Button asChild>
         <Link href={SIGNUP_ENTRY_HREF}>가입하고 신청하기</Link>
       </Button>
     );
   if (role === 'STUDENT' && program.viewer.applicationStatus === null) {
-    return (
+    return applyBlocked ? (
+      <BlockedApplyEntry label="신청하기" />
+    ) : (
       <Button asChild>
         <Link href={programHref(program.id, '/apply')}>신청하기</Link>
       </Button>
@@ -243,7 +340,7 @@ export function ProgramDetailReadyState({
 }) {
   useActivityHashScroll();
 
-  const recruiting = isRecruiting(program.applicationPeriod);
+  const badge = detailStatusBadge(program);
 
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
@@ -253,9 +350,7 @@ export function ProgramDetailReadyState({
             <span className="break-keep text-2xl sm:text-3xl">
               {program.name}
             </span>
-            <StatusBadge variant={recruiting ? 'recruiting' : 'closed'}>
-              {recruiting ? '모집중' : '모집 마감'}
-            </StatusBadge>
+            <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
           </span>
         }
         description={programDetailMeta(program)}

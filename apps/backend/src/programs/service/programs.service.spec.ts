@@ -99,6 +99,34 @@ describe('ProgramsService detail', () => {
     );
   });
 
+  // 조회는 이미 lifecycle 을 읽어 오지만(programs.repository.ts) 응답에서 떨어지면
+  // 상세 화면은 신청 기간만 보고 모집 여부를 정한다 — 내린 프로그램이 상세에서만
+  // 「모집중 + 신청하기」로 남는 원인이다(#1092).
+  it.each(['PUBLISHED', 'ARCHIVED'] as const)(
+    '%s 상세 응답에 게시 상태를 함께 싣는다',
+    async (lifecycle) => {
+      const { service, findUnique } = createService();
+      findUnique.mockResolvedValue({ ...publicProgram, lifecycle });
+
+      const detail = await service.detail('program-1', anonymous);
+
+      expect(detail.lifecycle).toBe(lifecycle);
+    },
+  );
+
+  // 화면의 「종료」는 두 값에서 나온다 — 게시 축(ARCHIVED)과 운영 종료일이다.
+  // 둘 중 하나만 응답에서 빠져도 상세는 다시 신청 기간만 보고 판단하게 된다(#1092).
+  it('종료 판정이 쓰는 게시 상태와 운영 종료일을 함께 싣는다', async () => {
+    const { service } = createService();
+
+    const detail = await service.detail('program-1', anonymous);
+
+    expect(detail.lifecycle).toBe('PUBLISHED');
+    expect(detail.operatingPeriod.endsAt).toBe(
+      publicProgram.endAt.toISOString(),
+    );
+  });
+
   it('승인된 학생에게 마일스톤별 현재 제출 상태를 반환한다', async () => {
     const { service, findFirst } = createService();
     findFirst.mockResolvedValue({

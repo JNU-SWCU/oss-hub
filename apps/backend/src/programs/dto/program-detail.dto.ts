@@ -3,6 +3,7 @@ import type {
   ApplicationStatus,
   MilestoneSubmissionType,
   ProgramTrackType,
+  ProgramLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 
@@ -46,6 +47,12 @@ export interface ProgramDetailResponseDto {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
+  /**
+   * 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다 — 목록 응답과 같은
+   * 값이며, 상세 화면은 이 값이 있어야 신청 기간만 보고 「모집중」을 그리는 일을
+   * 멈출 수 있다(#1092). ARCHIVED 도 상세 읽기는 허용된다(programs.service.ts).
+   */
+  readonly lifecycle: ProgramLifecycle;
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {
