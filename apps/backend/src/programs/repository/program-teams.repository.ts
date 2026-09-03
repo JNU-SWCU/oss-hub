@@ -509,6 +509,9 @@ export class ProgramTeamsRepository {
             data: { leaderId: nextLeader.userId },
           });
         } else {
+          await tx.teamInvitation.deleteMany({
+            where: { teamId: membership.teamId, programId },
+          });
           await tx.team.delete({ where: { id: membership.teamId } });
         }
       }
