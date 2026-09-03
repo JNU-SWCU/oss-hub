@@ -221,6 +221,22 @@ export class ProgramTeamsService {
     return this.toTeamView(detail, student.id);
   }
 
+  async leave(
+    githubId: bigint,
+    programId: string,
+    now: Date = new Date(),
+  ): Promise<void> {
+    const student = await this.requireStudent(githubId);
+    await this.requireOpenProgram(programId, now);
+    const result = await this.repository.leave(programId, student.id);
+    if (result === 'not-found') {
+      throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
+    }
+    if (result === 'locked') {
+      throw this.error(TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
+    }
+  }
+
   /**
    * 교직원 전용 팀 목록 — 팀원 전원의 실명을 포함한다(권한 검사는 ProgramTeamsStaffGuard).
    * 팀은 createdAt 오름차순, 멤버도 createdAt 오름차순이되 팀장만 맨 앞으로 끌어올린다.

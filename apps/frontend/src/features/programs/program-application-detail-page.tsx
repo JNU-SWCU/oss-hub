@@ -378,10 +378,6 @@ export function ProgramApplicationDetailPage({
 
       <Section title="지원 내용">
         <dl className="grid gap-4">
-          <Row
-            label="제목"
-            value={displayAnswerText(application.answers.title)}
-          />
           <div className="grid gap-1">
             <dt className="text-small text-muted-foreground">
               지원 동기 · 계획
@@ -517,7 +513,6 @@ export function ProgramApplicationDetailPage({
           currentStatus={application.status}
           applicantName={displayApplicantName(application)}
           teamName={application.team ? application.team.name : null}
-          applicationTitle={displayAnswerText(application.answers.title)}
           repositoryProvisioningEnabled={
             application.repositoryProvisioning.enabled
           }

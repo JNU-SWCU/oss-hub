@@ -386,8 +386,7 @@ describe('ProgramApply views', () => {
     );
 
     expect(html).toContain('/programs/program-1');
-    expect(html).toContain('/programs/program-1/teams');
-    expect(html).toContain('팀 구성');
+    expect(html).not.toContain('/programs/program-1/teams');
   });
 
   /**

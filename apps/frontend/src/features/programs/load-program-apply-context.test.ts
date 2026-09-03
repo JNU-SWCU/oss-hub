@@ -199,7 +199,7 @@ describe('loadProgramApplyContext', () => {
   });
 
   // 신청서를 조회하지도 않은 갈래는 `null`이다 — 없는 값을 지어내지 않는다.
-  it('신청 전 팀 미구성으로 막을 때는 신청서 자리를 null로 둔다', async () => {
+  it('신청 전 팀 미구성에서도 신청서 단계로 계속할 수 있다', async () => {
     // Given
     const teamTemplate = {
       ...template,
@@ -234,11 +234,21 @@ describe('loadProgramApplyContext', () => {
     const result = await loadDefaultContext();
 
     // Then
-    expect(result).toEqual({
-      kind: 'blocked',
-      reason: 'team-required',
+    expect(result).toMatchObject({
+      kind: 'ready',
+      mode: 'create',
       program: noApplicationProgram,
-      application: null,
+      teamId: null,
+      teamMinimum: null,
+      team: null,
+      applicationId: null,
+      initialValues: {
+        summary: '',
+        isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: 'new',
+        repositoryUrl: '',
+        personalDataConsent: false,
+      },
     });
   });
 
@@ -264,7 +274,6 @@ describe('loadProgramApplyContext', () => {
       applicationId: 'application-1',
       canManage: true,
       initialValues: {
-        title: 'Existing title',
         summary: 'Existing summary',
         isRepositoryPublicationPlanned: false,
         repositoryConnectionMode: 'new',
@@ -348,7 +357,6 @@ describe('loadProgramApplyContext', () => {
       applicationId: null,
       canManage: false,
       initialValues: {
-        title: '',
         summary: '',
         isRepositoryPublicationPlanned: true,
         repositoryConnectionMode: 'new',
