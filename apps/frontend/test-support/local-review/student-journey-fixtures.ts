@@ -17,6 +17,7 @@ const CAPSTONE_DETAIL = {
   trackType: 'CURRICULAR',
 
   applicationTemplateKey: 'capstone',
+  lifecycle: 'PUBLISHED',
   description:
     '학생이 팀 프로젝트를 오픈소스 저장소로 운영하고, 마일스톤별 산출물과 활동 기록을 제출하는 합성 검토용 프로그램입니다.',
   repositoryProvisioningEnabled: true,
@@ -72,6 +73,7 @@ const CONTEST_DETAIL = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',
+  lifecycle: 'PUBLISHED',
   description:
     '팀별 저장소에서 개발 과정을 기록하고 예선·본선 결과물을 제출하는 합성 검토용 경진대회입니다.',
   repositoryProvisioningEnabled: true,

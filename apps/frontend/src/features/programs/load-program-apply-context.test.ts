@@ -35,6 +35,7 @@ const program = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',
+  lifecycle: 'PUBLISHED',
   description: 'Description',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -211,6 +212,7 @@ describe('loadProgramApplyContext', () => {
       trackType: 'EXTRACURRICULAR',
 
       applicationTemplateKey: 'oss-contest',
+      lifecycle: 'PUBLISHED',
       applicationPeriod: {
         startsAt: '2020-01-01T00:00:00.000Z',
         endsAt: '2099-12-31T23:59:59.000Z',
@@ -317,6 +319,7 @@ describe('loadProgramApplyContext', () => {
       trackType: 'EXTRACURRICULAR',
 
       applicationTemplateKey: 'oss-contest',
+      lifecycle: 'PUBLISHED',
       // 신청 기간 판별은 실제 현재 시각(Date.now())을 쓴다 — 테스트가 언제
       // 돌아도 열려 있도록 마감을 충분히 미래로 둔다.
       applicationPeriod: {

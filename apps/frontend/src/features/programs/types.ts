@@ -365,6 +365,15 @@ export interface ProgramDetail {
   readonly applicationTemplateKey: string;
   /** 게시 축. 모집 기간 파생 상태가 아니다. 없으면 PUBLISHED 로 본다. */
   readonly lifecycle?: 'PUBLISHED' | 'ARCHIVED';
+  /**
+   * 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다 — 상세 화면은 이 값이
+   * 있어야 신청 기간만 보고 「모집중」을 그리는 일을 멈춘다(#1092).
+   *
+   * 선택 필드로 두지 않는다. 없을 때 PUBLISHED 로 보는 조용한 fallback 을 두면 내린
+   * 프로그램이 다시 「모집중 + 신청하기」로 보이는 이 티켓의 결함이 소리 없이 돌아온다.
+   * 서버가 반드시 싣는 값이므로(program-detail.dto.ts) 없으면 응답이 계약을 어긴 것이다.
+   */
+  readonly lifecycle: 'PUBLISHED' | 'ARCHIVED';
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {
