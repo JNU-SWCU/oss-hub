@@ -268,3 +268,14 @@
 - 검증: backend lint·typecheck·309 스위트 3493 테스트, frontend lint·typecheck·324 파일 3246 테스트 통과. 대조 실험으로 `staff-dashboard-filters.ts`·`staff-dashboard-page-view.tsx`·`staff-dashboard-parser.ts`를 origin/main으로 되돌리면 새 테스트 3건이 실패하는 것을 확인했다.
 - 남은 것: 작성자 인터뷰에서 「그중 내림 N개」가 불편하다는 지적을 받아 「종료 N개 / 내림 N개」로 고쳤다. 그 과정에서 `note?: string`(완성된 문장을 받던 prop)을 `subset?: {label, count}`로 바꿔 다음 호출부가 포함 관계를 말로 풀어 쓸 자리를 없앴다. 저장소 전체를 훑어 사용자 문구에 남은 「그중」류는 이 자리가 유일했음을 확인했고, 성격이 다른 「N건 중 M건」 3곳은 보고만 했다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 증거 캡처는 합성 seed 데이터에서 촬영했다.
+## 2026-09-04 — 교직원 대시보드 모집 상태에 종료·내림 축을 넣는다
+
+- 상태: review
+- Issue: #1093
+- PR: (이 PR)
+- blocker: 없음
+- 내용: `/dashboard`에서는 「종료」 판정이 나올 수 없었다. 배지와 필터가 각자 `getProgramRecruitmentState` 입력을 조립하면서 양쪽 모두 종료일 자리에 `null`을 박고 게시 축은 넘기지 않아, 판정이 조용히 「안 내린·안 끝난 프로그램」으로 떨어졌다. 같은 프로그램이 `/programs`에서는 「종료」, `/dashboard`에서는 「진행중」으로 보였고 「종료」 필터는 늘 0건이었다. 값이 비어서가 아니라 응답에 그 칸이 없었으므로 backend 요약에 `endAt`과 `lifecycle`을 실어 공개 목록과 같은 축을 갖추고, 화면 파서는 두 값이 없으면 응답 형식 오류로 끊는다 — 조용한 fallback을 두면 같은 결함이 소리 없이 돌아온다. 요약→판정 변환은 `staff-dashboard-status.ts` 한 곳으로 모았다.
+- 검증: backend lint·typecheck·3482 테스트, frontend lint·typecheck·325 파일 3247 테스트 통과. 대조 실험으로 화면 판정 파일들을 origin/main으로 되돌리면 새 테스트가 실패하는 것을 확인했다.
+- 남은 것: 작성자 인터뷰에서 「그중 내림 N개」가 불편하다는 지적을 받아 「종료 N개 / 내림 N개」로 고쳤다. 그 과정에서 완성된 문장을 받던 `note?: string` prop을 `subset?: {label, count}`로 바꿔, 다음 호출부가 포함 관계를 말로 풀어 쓸 자리를 없앴다. 저장소 전체를 훑어 사용자 문구에 남은 「그중」류는 이 자리가 유일했음을 확인했고, 성격이 다른 「N건 중 M건」 3곳은 보고만 했다.
+- 주의: main이 `category`를 `trackType`으로 개명한 것과 겹쳐 rebase 충돌이 6개 파일에서 났다. 해결하며 `getStaffRecruitmentBadge`에 옛 인라인 계산(`endAt: null`)이 남아 새 판정보다 먼저 반환하는 상태가 잠깐 생겼고, 전체 테스트가 그것을 2건 실패로 잡아냈다. 옛 계산을 제거해 해소했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 증거 캡처는 합성 seed 데이터에서 촬영했다.
