@@ -1206,3 +1206,13 @@
 - 결과: 루트 `AGENTS.md`에 일상 개발은 반드시 `pnpm dev`를 사용하고 frontend·backend 앱은 호스트 hot reload로 실행하도록 명시했다. Docker는 PostgreSQL·MinIO 개발 인프라와 배포 전 production-like 통합 검증에만 사용하며, production frontend는 Vercel이고 backend는 Jenkins·Docker Compose임을 구분했다.
 - 검증: `pnpm exec prettier --check AGENTS.md docs/handoff/team-state/GoBeromsu.md`, `git diff --check` 통과.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-03 — PR 제출 전 UX 안티패턴 점검과 작성자 인터뷰를 게이트로 만든다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: PR #1171이 Before 캡처 0장·구현 언어 요약·렌더 깨진 문자로 도착했는데 required CI는 전부 통과했고, 배포 `/programs/<id>/status`는 `전체 미제출 5팀`을 통계와 필터에 글자 그대로 두 번 그리고 있었다. 기계가 잡을 수 있는 것은 이미 다 잡고 못 잡는 것만 리뷰어에게 도착하는 구조라, Nielsen 10 usability heuristics에 앵커링한 여덟 항목을 `skills/submit-pr-evidence/references/ux-antipatterns.md`로 만들고 자동 점검 4종은 devtools 스니펫, 판단 4종은 답이 정해진 질문으로 인코딩했다. PR 직전 작성자 인터뷰 세 질문(의도·위화감·안티패턴)을 필수 절차로 두어 그 답이 본문 세 자리의 원재료가 되게 했고, 캡처 게이트의 `N/A`를 없애 화면을 건드린 모든 변경에 Before/After 표·전체 화면 2장·`jnu-oss-hub.com` 확인 링크를 요구한다. 본문 순서는 사람이 읽는 것을 위로 올리고 `고친 파일`을 맨 아래 `정리`로 내렸다. 화면 티켓의 완료 조건에도 같은 여덟 항목 점검을 필수로 넣었다.
+- 검증: `pnpm format:check`, `bash scripts/check-public-safe.sh` 통과. 스킬이 인용하는 참조 경로 전수 확인(끊어진 경로 0건), 제품 코드 결합 0건.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
