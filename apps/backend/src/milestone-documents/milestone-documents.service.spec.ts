@@ -1491,6 +1491,136 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   });
 });
 
+/**
+ * #1097 — 마감이 지난 마일스톤에서 보완 요청을 받은 학생의 재제출.
+ *
+ * 정해진 규칙은 두 가지다: **재제출은 한 번**, 그리고 **교직원이 검토하는 동안 내용은 바뀌지
+ * 않는다**. 화면(`isMilestoneDocumentDeadlineLocked`)이 이미 그렇게 그리고 있었고, 서버만
+ * 판정 하나로 이 자리를 계속 열어 두어 「버튼은 잠겼는데 서버는 받아 준다」가 됐다.
+ */
+describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제출 (#1097)', () => {
+  /**
+   * 마감 시각은 고정하고 **제출 시각을 인자로 준다**. 서비스 기본값(`now = new Date()`)에
+   * 기대면 이 `dueAt`이 지나는 날 「마감 전」 테스트가 저절로 「마감 뒤」가 된다.
+   */
+  const dueAt = new Date('2026-09-19T09:00:00.000Z');
+  const beforeDeadline = new Date('2026-09-19T08:59:59.999Z');
+  const afterDeadline = new Date('2026-09-19T09:00:00.001Z');
+  const changeRequestReviewId = 'cuid-synthetic-review-changes-requested';
+
+  /** 보완 요청을 받은 서류. 달라지는 것은 **제출 상태 하나**뿐이다. */
+  function changeRequestedRepository(submissionStatus: SubmissionStatus) {
+    return buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        dueAt,
+        required: true,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      findLatestReview: jest.fn().mockResolvedValue({
+        id: changeRequestReviewId,
+        decision: ReviewDecision.CHANGES_REQUESTED,
+      }),
+      findMySubmission: jest.fn().mockResolvedValue({
+        id: 'cuid-synthetic-submission',
+        status: submissionStatus,
+      }),
+      upsertSubmission: jest.fn().mockResolvedValue({
+        id: 'cuid-synthetic-submission',
+        status: SubmissionStatus.SUBMITTED,
+        content: { type: MilestoneSubmissionType.TEXT, text: '고친 본문' },
+        submittedAt: afterDeadline,
+        files: [],
+      }),
+    });
+  }
+
+  function submitAt(service: MilestoneDocumentsService, now: Date) {
+    return service.submit(
+      1n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      { text: '고친 본문', fileId: null },
+      now,
+    );
+  }
+
+  it('아직 응하지 않은 보완 요청은 마감 뒤에도 받는다 — 그 요청이 뜻을 가지려면 한 번은 열려야 한다', async () => {
+    // Given: 교직원이 되돌려 보낸 그대로. 상태는 아직 보완 요청이다.
+    const { mocks, repository } = changeRequestedRepository(
+      SubmissionStatus.CHANGES_REQUESTED,
+    );
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await submitAt(service, afterDeadline);
+
+    // Then: 잠금 아래 재확인도 같은 예외를 알아야 한다 — 아니면 여기서 통과한 제출이
+    // 트랜잭션 안에서 마감으로 막힌다.
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deadline: {
+          milestoneId: syntheticMilestoneId,
+          allowAfterDeadline: true,
+        },
+        expectedLatestReviewId: changeRequestReviewId,
+      }),
+    );
+  });
+
+  it('그 한 번을 이미 썼으면 마감 뒤 재제출을 RESUBMISSION_ALREADY_USED로 막는다', async () => {
+    // Given: 재제출이 상태를 SUBMITTED로 되돌려 놓았다. 판정 이력은 보완 요청 그대로다.
+    const { mocks, repository } = changeRequestedRepository(
+      SubmissionStatus.SUBMITTED,
+    );
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then: 화면이 「수정」을 잠근 것과 같은 답이어야 한다.
+    await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+      },
+    });
+    expect(mocks.upsertSubmission).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 잠그는 것은 마감이다. 마감 전 파일 교체는 지금도 되는 일이라, 여기까지 함께 조이면
+   * 기능이 하나 사라진다 — 화면도 마감 전에는 아무것도 잠그지 않는다.
+   */
+  it('마감 전이면 이미 다시 낸 뒤에도 계속 고칠 수 있다', async () => {
+    // Given
+    const { mocks, repository } = changeRequestedRepository(
+      SubmissionStatus.SUBMITTED,
+    );
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await submitAt(service, beforeDeadline);
+
+    // Then: 마감 전이므로 마감 예외를 쓸 일이 없다 — 잠금 아래 재확인도 그대로 통과한다.
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deadline: {
+          milestoneId: syntheticMilestoneId,
+          allowAfterDeadline: false,
+        },
+      }),
+    );
+  });
+});
+
 describe('MilestoneDocumentsService.collectForStaff', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
   const secondDocumentId = 'cuid-synthetic-document-2';

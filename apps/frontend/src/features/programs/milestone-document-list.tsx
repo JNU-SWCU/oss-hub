@@ -507,9 +507,10 @@ function StudentDocumentRow({
    */
   const canSubmit = isMilestoneDocumentResubmittable(viewerSubmission);
   /**
-   * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **보완 요청만 빼고**. 교직원이 마감 뒤에
-   * 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면 그 요청을 받은
-   * 학생이 낼 방법이 없어진다(서버는 받아 준다).
+   * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **아직 응하지 않은 보완 요청만 빼고**.
+   * 교직원이 마감 뒤에 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면
+   * 그 요청을 받은 학생이 낼 방법이 없어진다. 그 한 번을 쓰고 나면 다시 잠긴다 — 서버도
+   * 같은 자리에서 막는다(422 MSD_031).
    */
   const deadlineLocked = isMilestoneDocumentDeadlineLocked(
     closed,

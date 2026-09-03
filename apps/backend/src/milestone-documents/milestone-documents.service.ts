@@ -3,7 +3,6 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   Prisma,
-  ReviewDecision,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
@@ -12,7 +11,10 @@ import {
   type MilestoneDocumentContentInput,
   readMilestoneDocumentSubmittedContent,
 } from './domain/milestone-document-content';
-import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
+import {
+  isChangeRequestResubmissionOpen,
+  milestoneDocumentSubmissionBlock,
+} from './domain/milestone-document-submission-window';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import type { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
@@ -432,10 +434,13 @@ export class MilestoneDocumentsService {
    * `MilestoneDocumentSubmissionHistory`에 append한다. 판정 역시 사건 원장과
    * `MilestoneDocumentReviewHistory`에 쌓이며 재제출해도 지워지지 않는다.
    *
-   * 재제출 가부는 그 최신 판정이 정한다: 승인·반려면 거부하고, 보완 요청이면 허용하고, 판정이
-   * 없으면 그대로 허용한다. 규칙의 뜻은 옛 제출물 재제출
-   * (`submissions/submissions.service.ts`의 `assertResubmittable`)과 같다 — 왜 상태가 아니라
-   * 판정을 보는지는 `domain/milestone-document-review.ts`의 `isResubmissionAllowedAfter`에 있다.
+   * 재제출 가부는 최신 판정과 현재 제출 상태가 **함께** 정한다
+   * (`domain/milestone-document-submission-window.ts`). 승인·반려면 마감과 무관하게 거부하고,
+   * 마감 전이면 그대로 허용하며, 마감 뒤에는 **아직 응하지 않은 보완 요청 하나**만 지나간다.
+   * 판정만 보면(#1097) 그 한 번이 무제한이 된다 — 판정 이력은 재제출로 되돌아가지 않기
+   * 때문이다. 왜 상태가 아니라 판정을 축으로 삼는지는
+   * `domain/milestone-document-review.ts`의 `isResubmissionAllowedAfter`에 있고, 옛 제출물
+   * 재제출(`submissions/submissions.service.ts`의 `assertResubmittable`)과 뜻이 같다.
    */
   async submit(
     sessionGithubId: bigint,
@@ -478,11 +483,14 @@ export class MilestoneDocumentsService {
       documentId,
       application.applicationId,
     );
+    const latestDecision = latestReview?.decision ?? null;
+    const submissionStatus = currentSubmission?.status ?? null;
     const blocked = milestoneDocumentSubmissionBlock({
       dueAt: documentContext.dueAt,
       now,
       hasSubmission: currentSubmission !== null,
-      latestDecision: latestReview?.decision ?? null,
+      latestDecision,
+      submissionStatus,
     });
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);
@@ -509,8 +517,12 @@ export class MilestoneDocumentsService {
         submittedAt: now,
         deadline: {
           milestoneId,
-          allowAfterDeadline:
-            latestReview?.decision === ReviewDecision.CHANGES_REQUESTED,
+          // 잠금 아래의 마감 재확인이 **위와 같은 규칙**으로 예외를 판단하게 한다. 여기서
+          // 조건을 한 벌 더 적으면 두 판단이 갈라져, 위에서 막은 것이 아래에서 통과한다.
+          allowAfterDeadline: isChangeRequestResubmissionOpen({
+            latestDecision,
+            submissionStatus,
+          }),
         },
         content: submissionContent,
         attachFile,

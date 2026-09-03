@@ -30,6 +30,7 @@ export const MilestoneDocumentsErrorCode = {
   MILESTONE_CLOSED: 'MSD_028',
   SUBMISSION_REPLACEMENT_CLOSED: 'MSD_029',
   LAST_DOCUMENT_REQUIRED: 'MSD_030',
+  RESUBMISSION_ALREADY_USED: 'MSD_031',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -205,5 +206,23 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 409,
     message:
       '마일스톤에는 제출 항목이 하나 이상 필요합니다. 새 항목을 만든 뒤 기존 항목을 삭제해 주세요.',
+  },
+  /**
+   * 마감 뒤 보완 요청이 열어 준 재제출을 **이미 한 번 썼다** — 지금은 교직원 검토를 기다리는
+   * 자리다(#1097에서 정한 규칙: 재제출은 한 번, 검토 중에는 내용이 바뀌지 않는다).
+   *
+   * MSD_029(SUBMISSION_REPLACEMENT_CLOSED)를 재사용하지 않는 이유는 **그 문구가 여기서
+   * 거짓말이 되기** 때문이다. 029는 「보완 요청을 받은 경우 다시 제출할 수 있습니다」로 끝나는데,
+   * 여기서 막힌 학생은 이미 보완 요청을 받아 다시 낸 사람이다 — 그 문장을 그대로 보여 주면
+   * 「받았는데 왜 안 되지」가 되어 이 티켓이 없애려던 문의가 그대로 남는다.
+   *
+   * MSD_023(RESUBMISSION_NOT_ALLOWED, 409)이 아니라 마감 창 계열(422)에 두는 이유: 이 막힘을
+   * 만드는 것은 판정이 아니라 **마감**이다. 같은 상태라도 마감 전에는 그대로 낼 수 있다.
+   */
+  [MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED]: {
+    code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+    status: 422,
+    message:
+      '보완 요청에 응해 이미 다시 제출했습니다. 마감 이후에는 검토 결과가 나올 때까지 내용을 바꿀 수 없습니다.',
   },
 };

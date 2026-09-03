@@ -2,9 +2,22 @@ import { SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentRecord } from '../milestone-documents.repository';
 
 /**
- * 학생 뷰 — 이 서류에 붙은 최신 판정. `decision`을 따로 싣지 않는 것은 같은 뜻이 옆의
- * `status`에 이미 있기 때문이다(판정 → 상태 매핑은 1:1이다). 여기 있는 것은 화면이 「왜
- * 되돌아왔는가」를 말하기 위해 필요한 사유와 시각이다.
+ * 학생 뷰 — 이 서류에 붙은 최신 판정의 **사유와 시각**. 화면이 「왜 되돌아왔는가」를 말하는 데
+ * 쓴다.
+ *
+ * ⚠ `decision`을 따로 싣지 않는다. 예전 주석은 그 이유를 「판정 → 상태 매핑이 1:1이라 옆의
+ * `status`에 같은 뜻이 이미 있다」고 적었지만 **그것은 사실이 아니다**(#1097): 재제출은 상태를
+ * `SUBMITTED`로 되돌리는데 판정 이력은 되돌아가지 않아, 보완 요청에 응한 서류는 상태가
+ * `SUBMITTED`인 채 최신 판정이 `CHANGES_REQUESTED`로 남는다.
+ *
+ * 그래도 싣지 않는 것은, 화면이 잠금을 정할 때 필요한 것이 판정 값이 아니라 **「학생이 아직
+ * 응해야 하는가」**이고 그 답이 정확히 `status`이기 때문이다. `CHANGES_REQUESTED`면 아직 응하지
+ * 않은 것, `SUBMITTED`면 이미 응해 교직원 차례인 것이다 — 서버의 마감 판단
+ * (`domain/milestone-document-submission-window.ts`의 `isChangeRequestResubmissionOpen`)도 같은
+ * 두 값을 본다. 「첫 검토 대기」와 「재검토 대기」의 구분은 옆의 `revision`이 맡는다.
+ *
+ * 여기에 `decision`을 더하려면 그 값으로 **무엇을 다르게 그릴지**부터 정해야 한다. 쓰는 데
+ * 없이 실으면 화면마다 다른 근거로 같은 잠금을 계산하기 시작한다.
  */
 export interface MilestoneDocumentViewerReviewResponseDto {
   readonly comment: string | null;
@@ -20,7 +33,10 @@ export interface MilestoneDocumentViewerSubmissionResponseDto {
   readonly submittedAt: string | null;
   /** 현재 제출본 번호. 두 번째부터는 화면이 「재검토 대기」로 구분한다. */
   readonly revision: number | null;
-  /** 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 null. */
+  /**
+   * 최신 판정이 옮겨 놓은 제출 상태 — 그리고 재제출이 `SUBMITTED`로 되돌려 놓는 값. 미제출이면
+   * null. 화면의 마감 잠금(`isMilestoneDocumentDeadlineLocked`)이 이 값을 본다.
+   */
   readonly status: SubmissionStatus | null;
   readonly hasCurrentFile: boolean;
   /** 아직 아무도 판정하지 않았으면 null. */

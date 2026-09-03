@@ -1057,8 +1057,8 @@ describe('학생 행이 판정을 읽는 방식', () => {
   });
 
   /**
-   * 마감이 푸는 것은 보완 요청 하나뿐이다. 미제출·검토 대기까지 열면 마감이 아무것도
-   * 막지 않는 표시가 된다 — 마감 전 교체와 마감 뒤 재제출은 다른 일이다.
+   * 마감이 푸는 것은 **아직 응하지 않은** 보완 요청 하나뿐이다. 미제출·검토 대기까지 열면
+   * 마감이 아무것도 막지 않는 표시가 된다 — 마감 전 교체와 마감 뒤 재제출은 다른 일이다.
    */
   it('마감 뒤 미제출·검토 대기는 그대로 잠근다', async () => {
     await renderRow(
@@ -1068,6 +1068,31 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(actionButton('올리기').disabled).toBe(true);
 
     await renderRow(viewer({ status: 'SUBMITTED' }), true);
+    expect(actionButton('수정').disabled).toBe(true);
+  });
+
+  /**
+   * #1097 — 보완 요청에 응해 한 번 다시 낸 줄(재검토 대기). 배지는 「보완 요청」이 아니라
+   * 「재검토 대기」로 바뀌어 있고, 「수정」은 잠긴 채다.
+   *
+   * 잠근 채로 두는 것이 규칙이다: 재제출은 한 번이고, 교직원이 검토하는 동안 내용은 바뀌지
+   * 않는다. 서버도 같은 조합을 422(MSD_031)로 막으므로 눌러 봐야 오류만 돌아오는 버튼이
+   * 아니다 — 예전에는 서버만 열려 있어 화면과 서버가 어긋나 있었다.
+   */
+  it('마감 뒤, 보완 요청에 이미 응한 재검토 대기는 잠근 채로 둔다', async () => {
+    await renderRow(
+      viewer({
+        status: 'SUBMITTED',
+        revision: 2,
+        review: {
+          comment: '3쪽 서명이 빠졌습니다.',
+          reviewedAt: '2026-08-02T00:00:00.000Z',
+        },
+      }),
+      true,
+    );
+
+    expect(container.textContent).toContain('재검토 대기');
     expect(actionButton('수정').disabled).toBe(true);
   });
 

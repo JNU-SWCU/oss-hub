@@ -261,6 +261,81 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     }
     expect(isMilestoneDocumentDeadlineLocked(true, undefined)).toBe(true);
   });
+
+  /**
+   * #1097 — 보완 요청에 응해 **한 번 다시 낸** 서류(재검토 대기). 위 「나머지 상태」의
+   * `SUBMITTED`와 값은 같지만 사연이 다르므로 따로 못 박는다: 재제출이 상태를 되돌려
+   * 놓았을 뿐 판정 이력에는 보완 요청이 남아 있다.
+   *
+   * 여기서 잠그는 것이 규칙이다 — 재제출은 한 번이고, 교직원이 검토하는 동안 내용은 바뀌지
+   * 않는다. 서버도 이 조합을 422(MSD_031)로 막으므로 화면과 서버가 같은 답을 낸다.
+   * 예전에는 서버만 열려 있어 「버튼은 잠겼는데 요청은 통과하는」 어긋남이었다.
+   */
+  it('마감 뒤, 보완 요청에 이미 응한 재검토 대기는 잠근 채로 둔다', () => {
+    expect(
+      isMilestoneDocumentDeadlineLocked(
+        true,
+        viewer({
+          status: 'SUBMITTED',
+          revision: 2,
+          review: {
+            comment: '3쪽 서명이 빠졌습니다.',
+            reviewedAt: '2026-08-02T00:00:00.000Z',
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  /**
+   * 잠그는 것은 **마감**이다. 같은 재검토 대기라도 마감 전이면 열려 있어야 한다 — 마감 전
+   * 파일 교체는 지금도 되는 일이고, 서버도 마감 전에는 이 조합을 받는다.
+   */
+  it('마감 전이면 재검토 대기도 잠기지 않는다', () => {
+    expect(
+      isMilestoneDocumentDeadlineLocked(
+        false,
+        viewer({ status: 'SUBMITTED', revision: 2 }),
+      ),
+    ).toBe(false);
+  });
+
+  /**
+   * 화면이 실제로 조작을 여는 자리 = `isMilestoneDocumentResubmittable` ∧
+   * `!isMilestoneDocumentDeadlineLocked`. 이 표는 서버의
+   * `milestoneDocumentSubmissionBlock` 스펙에 **같은 순서로** 한 벌 더 있다
+   * (`apps/backend/src/milestone-documents/domain/milestone-document-submission-window.spec.ts`).
+   * 두 표가 갈라지면 #1097이 그대로 돌아오므로, 한쪽을 고칠 때 다른 쪽도 함께 고친다.
+   */
+  it.each([
+    // [마감 지남, 제출 상태, 리비전, 화면이 조작을 여는가]
+    [false, null, null, true],
+    [false, 'SUBMITTED', 1, true],
+    [false, 'CHANGES_REQUESTED', 1, true],
+    [false, 'SUBMITTED', 2, true],
+    [false, 'APPROVED', 1, false],
+    [false, 'REJECTED', 1, false],
+    [true, null, null, false],
+    [true, 'SUBMITTED', 1, false],
+    [true, 'CHANGES_REQUESTED', 1, true],
+    [true, 'SUBMITTED', 2, false],
+    [true, 'APPROVED', 1, false],
+    [true, 'REJECTED', 1, false],
+  ] as const)(
+    '마감 지남=%s · 상태=%s · 리비전=%s 에서 조작 가능 여부는 %s다',
+    (closed, status, revision, opens) => {
+      const viewerSubmission =
+        status === null
+          ? viewer({ submitted: false, submittedAt: null, status, revision })
+          : viewer({ status, revision });
+
+      const editable =
+        isMilestoneDocumentResubmittable(viewerSubmission) &&
+        !isMilestoneDocumentDeadlineLocked(closed, viewerSubmission);
+
+      expect(editable).toBe(opens);
+    },
+  );
 });
 
 describe('shouldHighlightMilestoneDocumentReview', () => {
