@@ -269,6 +269,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
           revision: 2,
           status: SubmissionStatus.SUBMITTED,
           hasCurrentFile: true,
+          currentFileName: '합성_제출본.pdf',
           historyComplete: false,
           review: null,
         },
@@ -289,11 +290,54 @@ describe('MilestoneDocumentsService.listForViewer', () => {
           revision: 2,
           status: SubmissionStatus.SUBMITTED,
           hasCurrentFile: true,
+          currentFileName: '합성_제출본.pdf',
           review: null,
           history: { hasHistory: true, isComplete: false },
         },
       }),
     ]);
+  });
+
+  it('학생 viewer는 지금 붙어 있는 첨부의 이름을 함께 받는다 — 재제출 폼의 경고 재료다', async () => {
+    // Given: 파일을 붙여 낸 뒤 아직 교직원이 판정하지 않은 제출.
+    const { repository } = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      findSubmittedSummaries: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          revision: 1,
+          status: SubmissionStatus.SUBMITTED,
+          hasCurrentFile: true,
+          currentFileName: '1차_계획서.pdf',
+          historyComplete: true,
+          review: null,
+        },
+      ]),
+    });
+
+    // When
+    const result = await new MilestoneDocumentsService(repository).listForViewer(
+      1n,
+      syntheticMilestoneId,
+    );
+
+    // Then: 이름이 없으면 화면은 「무엇이 빠지는지」를 말할 수 없다.
+    expect(result[0]?.viewerSubmission).toEqual(
+      expect.objectContaining({
+        hasCurrentFile: true,
+        currentFileName: '1차_계획서.pdf',
+      }),
+    );
   });
 
   it('학생 viewer는 되돌아온 이유를 알도록 최신 판정의 사유·시각을 함께 받는다', async () => {
@@ -318,6 +362,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
           revision: 1,
           status: SubmissionStatus.CHANGES_REQUESTED,
           hasCurrentFile: false,
+          currentFileName: null,
           historyComplete: true,
           review: {
             decision: ReviewDecision.CHANGES_REQUESTED,
@@ -339,6 +384,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       revision: 1,
       status: SubmissionStatus.CHANGES_REQUESTED,
       hasCurrentFile: false,
+      currentFileName: null,
       review: {
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),

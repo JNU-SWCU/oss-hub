@@ -148,6 +148,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     revision: 1,
     status: 'CHANGES_REQUESTED',
     hasCurrentFile: false,
+    currentFileName: null,
     history: { hasHistory: false, isComplete: true },
     review: {
       comment: '표지를 고쳐 주세요.',
@@ -160,6 +161,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     revision: 1,
     status: 'APPROVED',
     hasCurrentFile: false,
+    currentFileName: null,
     history: { hasHistory: false, isComplete: true },
     review: {
       comment: '잘 받았습니다.',
@@ -226,6 +228,46 @@ describe('제출과 판정이 부딪혔을 때', () => {
         );
     });
   }
+
+  /**
+   * 재제출 폼은 첨부를 옮겨 오지 않는다 — 학생이 제출을 누르기 전에 무엇이 빠지는지
+   * 알아야 한다(#1090). 목록이 폼에 현재 첨부 이름을 넘기지 않으면 여기가 깨진다.
+   */
+  it('재제출 폼을 열면 지금 붙어 있는 첨부가 빠진다고 알린다', async () => {
+    const withFile = documentWithViewer({
+      submitted: true,
+      submittedAt: '2026-08-01T05:22:00.000Z',
+      revision: 1,
+      // 교직원이 아직 아무 문제도 지적하지 않은 검토 대기 — 보완 요청과 함께 첨부가
+      // 빠지는 두 경로 중 하나다.
+      status: 'SUBMITTED',
+      hasCurrentFile: true,
+      currentFileName: '1차_계획서.pdf',
+      history: { hasHistory: false, isComplete: true },
+      review: null,
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse([withFile])));
+
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSection
+          milestoneId="milestone-1"
+          viewerRole="STUDENT"
+          closed={false}
+        />,
+      );
+    });
+    await vi.waitFor(() => {
+      expect(button('수정')).not.toBeNull();
+    });
+    const edit = button('수정');
+    if (edit === null) throw new TypeError('수정 버튼을 찾지 못했습니다.');
+    await act(async () => edit.click());
+
+    expect(container.textContent).toContain('기존 제출 파일');
+    expect(container.textContent).toContain('1차_계획서.pdf');
+    expect(container.textContent).toContain('이번 제출에서 빠집니다');
+  });
 
   /**
    * 변이 검증 대상 — MSD_024 뒤의 재조회가 사라지면 여기가 깨진다. 화면은 「보완 요청」인
@@ -345,6 +387,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
       revision: 3,
       status: 'SUBMITTED',
       hasCurrentFile: false,
+      currentFileName: null,
       review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
       history: { hasHistory: true, isComplete: true },
     });
@@ -396,6 +439,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
       revision: 3,
       status: 'SUBMITTED',
       hasCurrentFile: false,
+      currentFileName: null,
       review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
       history: { hasHistory: true, isComplete: true },
     });
@@ -441,6 +485,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
       revision: 3,
       status: 'SUBMITTED',
       hasCurrentFile: false,
+      currentFileName: null,
       review: CHANGES_REQUESTED.viewerSubmission?.review ?? null,
       history: { hasHistory: false, isComplete: true },
     });
@@ -593,6 +638,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
       revision: 1,
       status: 'SUBMITTED',
       hasCurrentFile: false,
+      currentFileName: null,
       review: null,
       history: { hasHistory: false, isComplete: true },
       ...overrides,

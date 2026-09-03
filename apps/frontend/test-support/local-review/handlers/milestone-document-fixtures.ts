@@ -78,6 +78,7 @@ const NOT_SUBMITTED_VIEWER: MilestoneDocumentViewerSubmission = {
   revision: null,
   status: null,
   hasCurrentFile: false,
+  currentFileName: null,
   review: null,
   history: { hasHistory: false, isComplete: true },
 };
@@ -99,6 +100,9 @@ function submittedViewer(
     revision: 1,
     status,
     hasCurrentFile,
+    // 이름은 첨부가 있을 때만 채운다 — 「붙어 있는데 이름은 없다」는 조합을 픽스처가
+    // 만들면 재제출 폼의 「기존 제출 파일」 경고를 로컬 검토에서 볼 수 없다.
+    currentFileName: hasCurrentFile ? '합성_제출본.pdf' : null,
     review,
     history: { hasHistory: true, isComplete: true },
   };
@@ -565,11 +569,31 @@ function collectionRevisionFor(state: CollectionCellStateSeed): number {
   return state.status === 'SUBMITTED' && state.decision !== null ? 2 : 1;
 }
 
+/**
+ * 이력 첨부의 내려받기 주소. **살아 있는 첨부에만** 준다 — 백엔드가 보관 기한이 지난
+ * 파일에는 주소를 비워 보내기 때문이고, 무조건 채우면 눌러도 404가 나는 버튼이 검토
+ * 화면에 선다.
+ *
+ * 한계: 로컬 검토는 바이너리 응답을 흉내 낼 수 없어(fixture-route-coverage.test.ts의
+ * OUT_OF_SCOPE `submission-files/:fileId`) 눌러도 파일은 오지 않는다. 링크가 붙는지·
+ * 주소 모양이 맞는지만 확인할 자리이고, 학생 화면의 「현재 제출 파일」 내려받기가 이미
+ * 같은 한계 아래 있다.
+ */
+function historyFileDownloadUrl(
+  fileName: string | null,
+  expired: boolean,
+): string | null {
+  return fileName === null || expired
+    ? null
+    : '/api/v1/submission-files/synthetic-history-file';
+}
+
 function collectionHistoryFor(
   state: CollectionCellStateSeed,
   submittedAt: string,
   teamNumber: number,
   fileName: string | null,
+  downloadUrl: string | null,
   content: MilestoneDocumentCollectionContent | null,
 ): readonly MilestoneDocumentCollectionHistory[] {
   if (state.decision === null) {
@@ -581,6 +605,7 @@ function collectionHistoryFor(
         comment: null,
         createdAt: submittedAt,
         fileName,
+        downloadUrl,
         content,
       },
     ];
@@ -605,6 +630,7 @@ function collectionHistoryFor(
       comment: null,
       createdAt: firstSubmittedAt,
       fileName,
+      downloadUrl,
       content,
     },
     {
@@ -614,6 +640,7 @@ function collectionHistoryFor(
       comment: review.comment,
       createdAt: review.reviewedAt,
       fileName: null,
+      downloadUrl: null,
       content: null,
     },
   ];
@@ -625,6 +652,7 @@ function collectionHistoryFor(
       comment: null,
       createdAt: submittedAt,
       fileName,
+      downloadUrl,
       content,
     });
   }
@@ -968,11 +996,16 @@ export function milestoneDocumentHistoryFor(
     submittedCellOrdinal(seeds, rowIndex, documentIndex) %
       COLLECTION_CELL_STATE_CYCLE.length
   ] as CollectionCellStateSeed;
+  const historyFileName = collectionFileNameFor(document, rowIndex);
   const history = collectionHistoryFor(
     state,
     cell.submittedAt,
     rowIndex + 1,
-    collectionFileNameFor(document, rowIndex),
+    historyFileName,
+    // 첫 팀은 보관 기한이 지난 갈래다(`milestoneDocumentCollectionRowFor`의 `expired`와
+    // 같은 기준) — 만료된 첨부는 이름만 남고 내려받기가 서지 않는 것을 검토 화면에서
+    // 실제로 볼 수 있어야 한다.
+    historyFileDownloadUrl(historyFileName, rowIndex === 0),
     collectionContentFor(document, rowIndex + 1),
   );
   return historyPageFor(
@@ -1027,6 +1060,7 @@ export function milestoneDocumentParticipantHistoryFor(
                   (revision - itemRevision) * 48 * 3_600_000,
               ).toISOString(),
         fileName,
+        downloadUrl: historyFileDownloadUrl(fileName, false),
         content,
       };
     },
@@ -1045,6 +1079,7 @@ export function milestoneDocumentParticipantHistoryFor(
       comment: submission.review.comment,
       createdAt: submission.review.reviewedAt,
       fileName: null,
+      downloadUrl: null,
       content: null,
     });
     history.sort(

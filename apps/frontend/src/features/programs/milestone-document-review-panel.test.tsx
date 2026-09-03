@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { apiPath } from '@/lib/api-client';
 import {
   milestoneDocumentSubmissionFileHref,
   type MilestoneDocumentCollectionCell,
@@ -8,6 +9,8 @@ import {
   MilestoneDocumentReviewPanel,
   type MilestoneDocumentReviewPanelProps,
 } from './milestone-document-review-panel';
+
+const LIVE_FILE_DOWNLOAD_URL = apiPath('submission-files/file-1');
 
 function cell(
   overrides: Partial<MilestoneDocumentCollectionCell> = {},
@@ -165,6 +168,7 @@ describe('판정 패널 머리', () => {
           comment: null,
           createdAt: '2026-08-02T00:00:00.000Z',
           fileName: '계획서-v4.pdf',
+          downloadUrl: null,
         },
       ],
     });
@@ -187,6 +191,7 @@ describe('판정 패널 머리', () => {
           comment: null,
           createdAt: '2026-08-02T00:00:00.000Z',
           fileName: '계획서-v4.pdf',
+          downloadUrl: null,
         },
       ],
     });
@@ -207,6 +212,7 @@ describe('판정 패널 머리', () => {
           comment: null,
           createdAt: '2026-08-02T00:00:00.000Z',
           fileName: '계획서-v4.pdf',
+          downloadUrl: null,
         },
       ],
     });
@@ -371,6 +377,7 @@ describe('지난 판정', () => {
           comment: null,
           createdAt: '2026-07-28T00:00:00.000Z',
           fileName: '기획서-v1.pdf',
+          downloadUrl: null,
         },
         {
           event: 'CHANGES_REQUESTED',
@@ -379,6 +386,7 @@ describe('지난 판정', () => {
           comment: '표지 이름을 고쳐 주세요.',
           createdAt: '2026-07-29T00:00:00.000Z',
           fileName: null,
+          downloadUrl: null,
         },
         {
           event: 'RESUBMITTED',
@@ -387,6 +395,7 @@ describe('지난 판정', () => {
           comment: null,
           createdAt: '2026-07-30T00:00:00.000Z',
           fileName: '기획서-v2.pdf',
+          downloadUrl: null,
         },
       ],
     });
@@ -400,6 +409,41 @@ describe('지난 판정', () => {
     expect(html).toContain('기획서-v1.pdf');
     expect(html).toContain('기획서-v2.pdf');
     expect(html).toContain('표지 이름을 고쳐 주세요.');
+  });
+
+  /**
+   * 재제출로 현재 제출본에서 떨어져 나간 첨부에 교직원이 닿는 유일한 자리다(#1090).
+   * 이력의 파일이 다시 글자로만 남으면 여기가 깨진다.
+   */
+  it('교직원 검토 패널에서도 살아 있는 첨부는 내려받기로 연다', () => {
+    const html = render({
+      history: [
+        {
+          event: 'SUBMITTED',
+          revision: 1,
+          actorNickname: 'student-a',
+          comment: null,
+          createdAt: '2026-07-28T00:00:00.000Z',
+          fileName: '기획서-v1.pdf',
+          downloadUrl: LIVE_FILE_DOWNLOAD_URL,
+        },
+        {
+          event: 'RESUBMITTED',
+          revision: 2,
+          actorNickname: 'student-a',
+          comment: null,
+          createdAt: '2026-07-30T00:00:00.000Z',
+          fileName: '만료된-기획서.pdf',
+          downloadUrl: null,
+        },
+      ],
+    });
+
+    expect(html).toContain(`href="${LIVE_FILE_DOWNLOAD_URL}"`);
+    expect(html).toContain('download="기획서-v1.pdf"');
+    // 보관 기한이 지난 첨부에는 링크가 서지 않는다 — 눌러도 404가 나는 버튼은 없다.
+    expect(html).toContain('만료된-기획서.pdf');
+    expect(html).not.toContain('download="만료된-기획서.pdf"');
   });
 
   it('판정과 사유를 날짜와 함께 보여 준다', () => {

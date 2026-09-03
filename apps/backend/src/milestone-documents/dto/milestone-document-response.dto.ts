@@ -23,6 +23,13 @@ export interface MilestoneDocumentViewerSubmissionResponseDto {
   /** 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 null. */
   readonly status: SubmissionStatus | null;
   readonly hasCurrentFile: boolean;
+  /**
+   * 지금 붙어 있는 첨부의 이름. 없으면 null이고 `hasCurrentFile`과 언제나 함께 움직인다.
+   *
+   * 재제출 폼이 「이 파일이 이번 제출에서 빠진다」고 경고하려면 무엇이 빠지는지 적어야
+   * 한다(#1090). 있음/없음만으로는 학생이 무엇을 잃는지 모른다.
+   */
+  readonly currentFileName: string | null;
   /** 아직 아무도 판정하지 않았으면 null. */
   readonly review: MilestoneDocumentViewerReviewResponseDto | null;
   /**

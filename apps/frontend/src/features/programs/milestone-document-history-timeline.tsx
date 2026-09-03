@@ -1,5 +1,6 @@
-import { FileText } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 import { useId, type ReactElement } from 'react';
+import { Button } from '@/components/ui/button';
 import type { MilestoneDocumentCollectionHistory } from './milestone-document-collection-api';
 import { formatSeoulShortDateTime } from './program-detail-format';
 
@@ -90,12 +91,7 @@ export function MilestoneDocumentHistoryTimeline({
                 </span>
               </p>
               {item.fileName === null ? null : (
-                <p className="flex min-w-0 items-center gap-2 text-small">
-                  <FileText className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="truncate" title={item.fileName}>
-                    {item.fileName}
-                  </span>
-                </p>
+                <HistoryFile fileName={item.fileName} href={item.downloadUrl} />
               )}
               {item.content == null ? null : (
                 <p className="text-small break-keep whitespace-pre-wrap">
@@ -117,6 +113,62 @@ export function MilestoneDocumentHistoryTimeline({
         ))}
       </ol>
     </section>
+  );
+}
+
+/**
+ * 이력에 남은 첨부 한 건.
+ *
+ * 주소가 있으면 내려받기 링크로, 없으면 이름만 글자로 그린다. 보관 기한이 지나 실제로
+ * 지워진 파일에는 서버가 주소를 주지 않으므로(`downloadUrl`), 이름만 보고 링크를 세우면
+ * 눌러도 404가 나는 버튼이 생긴다.
+ *
+ * ⚠ 이 자리는 학생 화면과 교직원 검토 패널이 함께 쓴다. 내려받기 API의 권한은
+ * `GET /submission-files/:fileId`가 소유한다 — 교직원·관리자는 전부, 그 밖에는 올린
+ * 본인이거나 같은 팀원이다. 화면이 역할을 다시 판정하지 않는 이유가 그것이다.
+ */
+function HistoryFile({
+  fileName,
+  href,
+}: {
+  readonly fileName: string;
+  readonly href: string | null;
+}): ReactElement {
+  if (href === null) {
+    return (
+      <p className="flex min-w-0 items-center gap-2 text-small">
+        <FileText className="size-4 shrink-0" aria-hidden="true" />
+        <span className="truncate" title={fileName}>
+          {fileName}
+        </span>
+      </p>
+    );
+  }
+  return (
+    <p className="flex min-w-0 text-small">
+      <Button
+        asChild
+        size="sm"
+        variant="ghost"
+        className="h-auto max-w-full justify-start px-2 py-1"
+      >
+        {/*
+         * `download`를 붙여도 되는 자리다 — 파일 한 건이고 이름을 이미 알고 있다
+         * (양식 다운로드와 같다). 이름을 모르는 ZIP 쪽이 이 속성을 일부러 안 쓰는
+         * 것과는 사정이 다르다.
+         */}
+        <a
+          href={href}
+          download={fileName}
+          aria-label={`${fileName} 내려받기`}
+          title={fileName}
+        >
+          <FileText className="size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 truncate">{fileName}</span>
+          <Download className="size-4 shrink-0" aria-hidden="true" />
+        </a>
+      </Button>
+    </p>
   );
 }
 

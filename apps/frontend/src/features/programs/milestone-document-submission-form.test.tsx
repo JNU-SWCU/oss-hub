@@ -33,6 +33,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
           documentName="프로젝트 계획"
           documentId="document-1"
           fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName={null}
           submitting={false}
           onCancel={vi.fn()}
           onSubmit={vi.fn().mockResolvedValue(true)}
@@ -55,6 +56,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
           documentName="프로젝트 계획"
           documentId="document-1"
           fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName={null}
           submitting={false}
           onCancel={vi.fn()}
           onSubmit={onSubmit}
@@ -89,6 +91,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
           documentName="프로젝트 계획"
           documentId="document-1"
           fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName={null}
           submitting={false}
           onCancel={vi.fn()}
           onSubmit={vi.fn().mockResolvedValue(true)}
@@ -207,5 +210,73 @@ describe('MilestoneDocumentSubmissionForm', () => {
       expect(submit).toHaveProperty('disabled', false);
       expect(onSubmit).not.toHaveBeenCalled();
     });
+  });
+
+  it('지금 붙어 있는 첨부가 있으면 그 이름과 함께 이번 제출에서 빠진다고 알린다', async () => {
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSubmissionForm
+          documentName="프로젝트 계획"
+          documentId="document-1"
+          fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName="1차_계획서.pdf"
+          submitting={false}
+          onCancel={vi.fn()}
+          onSubmit={vi.fn().mockResolvedValue(true)}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('기존 제출 파일');
+    expect(container.textContent).toContain('1차_계획서.pdf');
+    expect(container.textContent).toContain('이번 제출에서 빠집니다');
+  });
+
+  it('새 파일을 고르면 빠진다는 경고를 거둔다', async () => {
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSubmissionForm
+          documentName="프로젝트 계획"
+          documentId="document-1"
+          fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName="1차_계획서.pdf"
+          submitting={false}
+          onCancel={vi.fn()}
+          onSubmit={vi.fn().mockResolvedValue(true)}
+        />,
+      );
+    });
+    const input = container.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement))
+      throw new TypeError('Missing file input.');
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [new File(['synthetic'], '2차_계획서.pdf', { type: 'application/pdf' })],
+    });
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
+    );
+
+    expect(container.textContent).toContain('기존 제출 파일');
+    expect(container.textContent).not.toContain('이번 제출에서 빠집니다');
+  });
+
+  it('붙어 있는 첨부가 없으면 사라질 파일이 없으므로 경고하지 않는다', async () => {
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSubmissionForm
+          documentName="프로젝트 계획"
+          documentId="document-1"
+          fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName={null}
+          submitting={false}
+          onCancel={vi.fn()}
+          onSubmit={vi.fn().mockResolvedValue(true)}
+        />,
+      );
+    });
+
+    expect(container.textContent).not.toContain('기존 제출 파일');
+    expect(container.textContent).not.toContain('이번 제출에서 빠집니다');
   });
 });
