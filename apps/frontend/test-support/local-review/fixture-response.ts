@@ -1,7 +1,7 @@
 import { dashboardFixture } from '@/features/dashboard/fixtures';
 import type {
   ArchiveApplicationMode,
-  ArchiveCategory,
+  ArchiveTrackType,
 } from '@/features/archive/types';
 import type { AuthRole } from '@/features/auth/types';
 import {
@@ -85,7 +85,7 @@ const STAFF_DASHBOARD_FIXTURE = {
     {
       id: 'program-basic-study',
       name: '합성 기초 오픈소스 스터디',
-      category: 'BASIC',
+      trackType: 'EXTRACURRICULAR',
       applicationPeriod: {
         startsAt: '2026-07-01T00:00:00.000Z',
         endsAt: '2026-08-15T23:59:59.000Z',
@@ -127,7 +127,7 @@ const STAFF_DASHBOARD_FIXTURE = {
     {
       id: 'program-capstone',
       name: '합성 캡스톤 2026',
-      category: 'CAPSTONE',
+      trackType: 'CURRICULAR',
       applicationPeriod: {
         startsAt: '2026-08-16T00:00:00.000Z',
         endsAt: '2026-08-31T23:59:59.000Z',
@@ -229,7 +229,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     id: 'program-capstone',
     name: '합성 캡스톤 2026',
     organizer: '합성 SW중심대학사업단',
-    category: 'CAPSTONE',
+    trackType: 'CURRICULAR',
     applicationStartAt: '2026-06-30T15:00:00.000Z',
     applicationEndAt: '2026-12-31T14:59:59.000Z',
     endAt: null,
@@ -240,7 +240,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     id: 'program-oss-contest',
     name: '합성 OSS 경진대회',
     organizer: '합성 SW중심대학사업단',
-    category: 'OSS_CONTEST',
+    trackType: 'EXTRACURRICULAR',
     applicationStartAt: '2026-07-14T15:00:00.000Z',
     applicationEndAt: '2026-11-30T14:59:59.000Z',
     endAt: null,
@@ -251,7 +251,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     id: 'program-basic-study',
     name: '합성 기초 오픈소스 스터디',
     organizer: '합성 SW중심대학사업단',
-    category: 'BASIC',
+    trackType: 'EXTRACURRICULAR',
     // 학생 동선에서 이 프로그램이 "신청 전" 상태라, 목록에서 모집이 끝난 것으로
     // 보이면 상세와 어긋난다. 신청 화면을 검토하려면 모집이 열려 있어야 한다.
     applicationStartAt: '2026-06-30T15:00:00.000Z',
@@ -263,7 +263,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     id: 'program-sw-value',
     name: '합성 SW가치확산 프로그램',
     organizer: '합성 SW중심대학사업단',
-    category: 'SW_VALUE_SPREAD',
+    trackType: 'EXTRACURRICULAR',
     // 학생 동선에서 이 프로그램은 "반려됨" 상태다 — 판정이 끝난 뒤라 모집도 닫혀
     // 있어야 목록과 상세가 어긋나 보이지 않는다
     // (`handlers/student-program-fixtures.ts`의 `SW_VALUE_BASE`와 같은 기간).
@@ -278,7 +278,7 @@ type PublicArchiveApiItem = {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly category: ArchiveCategory;
+  readonly trackType: ArchiveTrackType | null;
   readonly applicationMode: ArchiveApplicationMode;
   readonly displayName: string;
   readonly repositoryName: string;
@@ -311,7 +311,7 @@ const PUBLIC_ARCHIVE_FIXTURES = [
       projectId: 'synthetic-repo-capstone',
       programId: 'program-capstone',
       programName: '합성 캡스톤 2026',
-      category: 'CAPSTONE',
+      trackType: 'CURRICULAR',
       applicationMode: 'TEAM',
       displayName: '합성 캡스톤 팀 저장소',
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-capstone-archive',
@@ -339,7 +339,7 @@ const PUBLIC_ARCHIVE_FIXTURES = [
       projectId: 'synthetic-repo-contest',
       programId: 'program-oss-contest',
       programName: '합성 OSS 경진대회',
-      category: 'OSS_CONTEST',
+      trackType: 'EXTRACURRICULAR',
       applicationMode: 'TEAM',
       displayName: '합성 경진대회 팀 저장소',
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-contest-archive',
@@ -361,7 +361,7 @@ const PUBLIC_ARCHIVE_FIXTURES = [
       projectId: 'synthetic-repo-basic',
       programId: 'program-basic-study',
       programName: '합성 기초 오픈소스 스터디',
-      category: 'BASIC',
+      trackType: 'EXTRACURRICULAR',
       applicationMode: 'PERSONAL',
       displayName: '합성 개인 실습 저장소',
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-basic-archive',
@@ -802,19 +802,31 @@ function programListPage(searchParams: URLSearchParams): ProgramListPage {
   };
 }
 
+function archiveYearInSeoul(iso: string): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+  });
+  return Number(formatter.format(new Date(iso)));
+}
+
 function publicArchivePage(searchParams: URLSearchParams): unknown {
   const page = positiveIntParam(searchParams.get('page'), 1);
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 12);
   const query = (searchParams.get('q') ?? '').trim().toLocaleLowerCase('ko');
   const mode = searchParams.get('applicationMode');
-  const category = searchParams.get('category');
+  const yearParam = searchParams.get('year');
+  const yearFilter =
+    yearParam === null || yearParam === '' ? null : Number(yearParam);
   const matched = PUBLIC_ARCHIVE_FIXTURES.map((fixture) => fixture.item).filter(
     (item) =>
       (query === '' ||
         item.displayName.toLocaleLowerCase('ko').includes(query) ||
         item.programName.toLocaleLowerCase('ko').includes(query)) &&
       (mode === null || item.applicationMode === mode) &&
-      (category === null || item.category === category),
+      (yearFilter === null ||
+        Number.isNaN(yearFilter) ||
+        archiveYearInSeoul(item.publishedAt) === yearFilter),
   );
   const offset = (page - 1) * pageSize;
 
@@ -827,23 +839,12 @@ function publicArchivePage(searchParams: URLSearchParams): unknown {
   };
 }
 
-function publicArchiveCategoryCounts(): unknown {
-  const empty = {
-    all: 0,
-    BASIC: 0,
-    SW_VALUE_SPREAD: 0,
-    OSS_CONTEST: 0,
-    CAPSTONE: 0,
-    SW_CONVERGENCE: 0,
-    GLOBAL_MAKERTHON: 0,
-    CORPORATE_INTERNSHIP: 0,
-  };
-  const counts = { ...empty };
+function publicArchiveYears(): unknown {
+  const years = new Set<number>();
   for (const fixture of PUBLIC_ARCHIVE_FIXTURES) {
-    counts[fixture.item.category] += 1;
-    counts.all += 1;
+    years.add(archiveYearInSeoul(fixture.item.publishedAt));
   }
-  return counts;
+  return { years: [...years].sort((a, b) => b - a) };
 }
 
 function publicArchiveDetail(projectId: string): unknown | null {
@@ -909,8 +910,8 @@ export function resolveLocalReviewResponse({
     return json(200, publicArchivePage(searchParams));
   }
 
-  if (method === 'GET' && path === 'projects/category-counts') {
-    return json(200, publicArchiveCategoryCounts());
+  if (method === 'GET' && path === 'projects/years') {
+    return json(200, publicArchiveYears());
   }
 
   const projectId = method === 'GET' ? publicProjectId(path) : null;

@@ -1206,3 +1206,53 @@
 - 결과: 루트 `AGENTS.md`에 일상 개발은 반드시 `pnpm dev`를 사용하고 frontend·backend 앱은 호스트 hot reload로 실행하도록 명시했다. Docker는 PostgreSQL·MinIO 개발 인프라와 배포 전 production-like 통합 검증에만 사용하며, production frontend는 Vercel이고 backend는 Jenkins·Docker Compose임을 구분했다.
 - 검증: `pnpm exec prettier --check AGENTS.md docs/handoff/team-state/GoBeromsu.md`, `git diff --check` 통과.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-03 — PR 제출 전 UX 안티패턴 점검과 작성자 인터뷰를 게이트로 만든다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: PR #1171이 Before 캡처 0장·구현 언어 요약·렌더 깨진 문자로 도착했는데 required CI는 전부 통과했고, 배포 `/programs/<id>/status`는 `전체 미제출 5팀`을 통계와 필터에 글자 그대로 두 번 그리고 있었다. 기계가 잡을 수 있는 것은 이미 다 잡고 못 잡는 것만 리뷰어에게 도착하는 구조라, Nielsen 10 usability heuristics에 앵커링한 여덟 항목을 `skills/submit-pr-evidence/references/ux-antipatterns.md`로 만들고 자동 점검 4종은 devtools 스니펫, 판단 4종은 답이 정해진 질문으로 인코딩했다. PR 직전 작성자 인터뷰 세 질문(의도·위화감·안티패턴)을 필수 절차로 두어 그 답이 본문 세 자리의 원재료가 되게 했고, 캡처 게이트의 `N/A`를 없애 화면을 건드린 모든 변경에 Before/After 표·전체 화면 2장·`jnu-oss-hub.com` 확인 링크를 요구한다. 본문 순서는 사람이 읽는 것을 위로 올리고 `고친 파일`을 맨 아래 `정리`로 내렸다. 화면 티켓의 완료 조건에도 같은 여덟 항목 점검을 필수로 넣었다.
+- 검증: `pnpm format:check`, `bash scripts/check-public-safe.sh` 통과. 스킬이 인용하는 참조 경로 전수 확인(끊어진 경로 0건), 제품 코드 결합 0건.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
+
+## 2026-09-03 — 업로드 입장에서 브라우저 MIME을 보지 않는다
+
+- 상태: review
+- Issue: #1182
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 학생이 Windows Chrome 등에서 zip을 고르면 브라우저가 `application/x-zip-compressed`를 붙여 화면·서버가 형식 오류로 막았다. 별칭을 늘리지 않고 입장 검사를 확장자 → 시그니처 → (zip이면) admission으로 줄였다. 내려주기 Content-Type은 클라이언트가 보낸 값이 아니라 확장자의 정규 값이다.
+- 검증: backend focused Jest 5 suites / 132 tests, frontend focused Vitest 3 files / 44 tests, backend·frontend `tsc --noEmit`, 변경 파일 eslint 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
+
+## 2026-09-03 — zip MIME 완화 경로를 통합·브라우저 스펙에 고정한다
+
+- 상태: review
+- Issue: #1182
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1184
+- blocker: 없음
+- 결과: Codex P1 리뷰에 맞춰 브라우저 zip MIME 별칭이 수명주기 내려주기·쿼터 예약·실제 업로드 PENDING·HTTP 전달·작성 화면 file picker까지 같은 판정인지 스펙을 보강했다. 입장 게이트는 그대로 확장자 → 시그니처 → (zip이면) admission이다.
+- 검증: backend integration 3 suites / 27 tests, submissions.http.spec 11 tests, frontend Vitest 2 files / 42 tests, `pnpm --filter frontend e2e:program-authoring` 7 passed (1.2m)
+## 2026-09-03 — frontend design contract을 단일 정본으로 재구축한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `docs/design.md`를 토큰·프리미티브 보존 블록과 새 계층·composition·상태·피드백·다이얼로그·테스트 데이터·안티패턴·부채·컴포넌트 카드 절로 재구축했고, 보존 블록 13개 중 11개는 기준선 범위 diff로 byte-identical이고, TOKEN·A11Y 두 블록은 코드와 어긋나던 문장 한 줄씩(StatusBadge 미구현 서술, Field의 htmlFor 자동 연결 서술)만 고친 검토된 예외다. 그 외 보존 예외는 헤딩 레벨 5줄뿐이고 PR 본문에 목록을 남긴다. 리서치 노트는 내용을 흡수한 뒤 삭제해 저장소에는 `docs/design.md` 하나만 남긴다.
+- 후속 PR: failure surface, notification, Skeleton·Alert kind, dialog shell, composition API, ProgramCard 하향, 테스트 데이터, local-review 하네스, lint, ADR 승격을 각각 연다.
+- 검증: 보존 블록 11개 byte-identical diff와 2개 한-줄 예외 diff, line-set 잔여 13줄은 교체·삭제·예외로 선언한 줄만, 규칙·안티패턴 id 카운트, 추가 줄의 경로 존재·한 문장 한 줄 검사, `pnpm format:check`를 실행했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
+
+## 2026-09-03 — #1137 공개 아카이브 연도·trackType(B′)
+
+- 상태: done
+- Issue: [#1137](https://github.com/JNU-SWCU/oss-hub/issues/1137)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1186
+- Release: https://github.com/JNU-SWCU/oss-hub/releases/tag/v0.6.141
+- blocker: 없음
+- 결과: PR1 연도 아카이브(`GET /projects?year=`·`/years`, category-counts 제거, 사이드·칩 연도, 7종 표시 제거). PR2 nullable `trackType`, authoring 5스텝·교과/비교과 Select, 공개 와이어 `trackType|null`, `applicationTemplateKey` 신청 해석, ADR-012. `#1137` 본문·담당 `@GoBeromsu` 이관.
+- 검증: `pnpm --filter backend test:unit`(3481 passed), `pnpm --filter frontend test`(3238 passed), `pnpm --filter frontend typecheck`.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

@@ -2,7 +2,7 @@
 name: "manage-qa-tickets"
 description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "4.3.0"
+  version: "4.4.0"
 ---
 
 # Manage QA tickets
@@ -154,6 +154,10 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 
 두 변형 모두 완료 조건은 지목된 페르소나가 관찰할 수 있는 형태로 쓰고, 가장 좁은 비목표를 명시한다.
 
+화면 티켓은 완료 조건에 [UX 안티패턴](../submit-pr-evidence/references/ux-antipatterns.md) 점검 항목을 반드시 넣는다.
+티켓이 그것을 요구하지 않으면 담당자는 요구된 것만 만들고, 같은 안티패턴이 다음 화면에서 다시 나온다 — 이 목록은 리뷰에서 지적하라고 있는 것이 아니라 티켓에 적으라고 있는 것이다.
+티켓 본문에는 재현·확인 URL을 `https://jnu-oss-hub.com/<path>` 전체 형태로 적어 읽는 사람이 바로 누를 수 있게 한다.
+
 ### 1.7 쓰기 전에 다른 눈으로 검증한다
 
 완성된 초안은 Notion에 쓰기 전에 [`qa-fact-checker`](agents/qa-fact-checker.md)에게 넘긴다.
@@ -279,6 +283,6 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
 - [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 사람이 공개 안전·메타데이터를 확인하고, PR 본문에 첨부해 렌더된 것을 다시 열어 확인했고, 시각 변화가 없으면 `N/A`와 사유를 적었다([submit-pr-evidence/references/frontend-capture.md](../submit-pr-evidence/references/frontend-capture.md)가 원본).
-- [ ] `backend` 로직 변경이면 mermaid 또는 DOT 흐름 다이어그램을 PR 본문 `## 4b. Backend 흐름 다이어그램`에 넣었다([submit-pr-evidence/references/backend-diagram.md](../submit-pr-evidence/references/backend-diagram.md)가 원본).
+- [ ] `backend` 로직 변경이면 mermaid 또는 DOT 흐름 다이어그램을 PR 본문 `## 흐름 다이어그램`에 넣었다([submit-pr-evidence/references/backend-diagram.md](../submit-pr-evidence/references/backend-diagram.md)가 원본).
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 옮겼다.

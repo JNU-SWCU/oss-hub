@@ -17,7 +17,6 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from '../program-error-code.enum';
-import { getProgramTemplate } from '../program-template.registry';
 
 export type {
   ProgramEditorRepositoryPort,
@@ -124,17 +123,7 @@ export class ProgramEditorService {
         endAt.getTime() !== new Date(existing.endAt).getTime()
           ? addOneCalendarYear(endAt)
           : null;
-      const categoryChanged = existing.category !== input.category;
-      const template = getProgramTemplate(input.category);
       const teamSize = resolveTeamSize(input, existing);
-      // Preserve template binding when category is unchanged so past Application.answers
-      // keep a stable validation baseline (even if the registry later bumps versions).
-      const applicationTemplateKey = categoryChanged
-        ? template.key
-        : existing.applicationTemplateKey;
-      const applicationTemplateVersion = categoryChanged
-        ? template.version
-        : existing.applicationTemplateVersion;
 
       const emptyFieldErrors: {
         field: string;
@@ -207,12 +196,6 @@ export class ProgramEditorService {
         });
       }
       if (
-        (existing.applicationCount > 0 || existing.teamCount > 0) &&
-        categoryChanged
-      ) {
-        this.fail(ProgramErrorCode.CATEGORY_LOCKED_BY_APPLICATIONS);
-      }
-      if (
         input.repositoryProvisioningEnabled &&
         existing.milestones.length === 0
       ) {
@@ -222,9 +205,9 @@ export class ProgramEditorService {
         programId,
         name,
         organizer,
-        category: input.category,
-        applicationTemplateKey,
-        applicationTemplateVersion,
+        trackType: input.trackType,
+        applicationTemplateKey: existing.applicationTemplateKey,
+        applicationTemplateVersion: existing.applicationTemplateVersion,
         applicationStartAt,
         applicationEndAt,
         startAt,

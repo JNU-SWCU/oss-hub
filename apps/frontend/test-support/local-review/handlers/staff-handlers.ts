@@ -1,7 +1,6 @@
 import {
-  PROGRAM_CATEGORIES,
-  PROGRAM_TEMPLATE_DEFINITIONS,
-  type ProgramCategory,
+  PROGRAM_TRACK_TYPES,
+  type ProgramTrackType,
 } from '@/features/programs/program-templates';
 import type {
   ApplicationListItem,
@@ -267,27 +266,12 @@ const reviewContextHandler: LocalReviewHandler = (context) => {
     : json(200, reviewContext);
 };
 
-/** 카테고리를 고르면 신청 양식 템플릿이 함께 정해진다(프로그램 유형 SSOT). */
-function templateForCategory(category: ProgramCategory): {
-  readonly key: string;
-  readonly version: number;
-} {
-  const definition = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (candidate) => candidate.category === category,
-  );
-  return {
-    key: definition?.template.key ?? 'basic',
-    version: definition?.template.version ?? 1,
-  };
-}
-
-function bodyCategory(context: LocalReviewContext): ProgramCategory | null {
-  return bodyEnum<ProgramCategory>(context, 'category', PROGRAM_CATEGORIES);
+function bodyTrackType(context: LocalReviewContext): ProgramTrackType | null {
+  return bodyEnum<ProgramTrackType>(context, 'trackType', PROGRAM_TRACK_TYPES);
 }
 
 /**
- * 프로그램 등록. 요청 본문의 유형(`category`)을 그대로 반영하고, 신청 양식
- * 템플릿도 그 유형에 맞춰 돌려준다(features/programs/api.ts `createProgram`).
+ * 프로그램 등록. 클라이언트는 trackType만 보내고 서버는 basic 템플릿을 고정한다.
  *
  * 한계: **입력한 이름은 다음 화면에 나타나지 않는다.** 픽스처는 저장소가 없어
  * 이동 후 편집 화면이 읽는 `programs/program-synthetic-new/edit`는 고정 픽스처
@@ -301,13 +285,12 @@ function bodyCategory(context: LocalReviewContext): ProgramCategory | null {
 const createProgramHandler: LocalReviewHandler = (context) => {
   if (staffRole(context) === null) return null;
   if (context.method !== 'POST' || context.path !== 'programs') return null;
-  const category = bodyCategory(context) ?? 'BASIC';
-  const template = templateForCategory(category);
+  const trackType = bodyTrackType(context) ?? 'EXTRACURRICULAR';
   return accepted({
     id: CREATED_PROGRAM_ID,
-    category,
-    applicationTemplateKey: template.key,
-    applicationTemplateVersion: template.version,
+    trackType,
+    applicationTemplateKey: 'basic',
+    applicationTemplateVersion: 1,
     detailUrl: `/programs/${CREATED_PROGRAM_ID}/edit`,
   });
 };
@@ -327,17 +310,14 @@ const updateProgramHandler: LocalReviewHandler = (context) => {
   if (fixture === null) return notFound('PRG_004', context.path);
 
   const { program } = fixture;
-  const category = bodyCategory(context) ?? program.category;
-  const template = templateForCategory(category);
+  const trackType = bodyTrackType(context) ?? program.trackType;
   // 종료일은 비울 수 있다(`endAt: null`) — 안 보낸 경우와 구분한다.
   const endAt = bodyNullableString(context, 'endAt');
   return accepted({
     ...program,
     name: bodyString(context, 'name') ?? program.name,
     organizer: bodyString(context, 'organizer') ?? program.organizer,
-    category,
-    applicationTemplateKey: template.key,
-    applicationTemplateVersion: template.version,
+    trackType,
     applicationStartAt:
       bodyString(context, 'applicationStartAt') ?? program.applicationStartAt,
     applicationEndAt:

@@ -34,7 +34,8 @@ export type ProgramListRecord = Pick<
   | 'id'
   | 'name'
   | 'organizer'
-  | 'category'
+  | 'trackType'
+  | 'applicationTemplateKey'
   | 'lifecycle'
   | 'applicationStartAt'
   | 'applicationEndAt'
@@ -70,7 +71,8 @@ export class ProgramsRepository {
           p."id",
           p."name",
           p."organizer",
-          p."category",
+          p."trackType",
+          p."applicationTemplateKey",
           p."lifecycle",
           p."applicationStartAt",
           p."applicationEndAt",
@@ -121,7 +123,8 @@ export class ProgramsRepository {
         id: true,
         name: true,
         organizer: true,
-        category: true,
+        trackType: true,
+        applicationTemplateKey: true,
         description: true,
         repositoryProvisioningEnabled: true,
         applicationStartAt: true,
@@ -359,6 +362,7 @@ export class ProgramsRepository {
       readonly name: string;
       readonly organizer: string;
       readonly category: ProgramCategory;
+      readonly trackType: Program['trackType'];
       readonly applicationTemplateKey: string;
       readonly applicationTemplateVersion: number;
       readonly applicationStartAt: Date;

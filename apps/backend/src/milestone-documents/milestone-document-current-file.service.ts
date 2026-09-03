@@ -57,7 +57,7 @@ export class MilestoneDocumentCurrentFileService {
     return {
       body,
       fileName,
-      contentType: safeSubmissionFileContentType(fileName, file.mimeType),
+      contentType: safeSubmissionFileContentType(fileName),
       contentLength: file.sizeBytes,
     };
   }

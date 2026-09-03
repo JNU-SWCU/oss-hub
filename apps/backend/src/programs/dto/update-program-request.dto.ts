@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 import {
   IsBoolean,
   IsDateString,
@@ -18,8 +18,8 @@ export class UpdateProgramRequestDto {
   @IsNotEmpty()
   declare organizer: string;
 
-  @IsEnum(ProgramCategory)
-  declare category: ProgramCategory;
+  @IsEnum(ProgramTrackType)
+  declare trackType: ProgramTrackType;
 
   @IsString()
   declare applicationStartAt: string;

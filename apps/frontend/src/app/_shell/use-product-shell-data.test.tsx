@@ -27,7 +27,7 @@ import { useProductShellData } from './use-product-shell-data';
 const OVERVIEW: ProgramOverview = {
   programId: 'program-1',
   name: '합성 프로그램',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   lifecycle: 'PUBLISHED',
   milestoneCount: 2,
   boardPostCount: 0,

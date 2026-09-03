@@ -13,7 +13,7 @@
 | 릴리스 후보 QA | `run-release-qa` | repo `skills/run-release-qa` | 출시 판정은 그 스킬이 원본이고 시나리오 목록은 [qa-scenarios.md](../../skills/run-release-qa/references/qa-scenarios.md)가 원본이다 |
 | frontend 코드 구현 | craft `frontend` | 외부 플러그인 | [frontend.md](frontend.md)가 feature 폴더 경계·단일 API 클라이언트의 원본 |
 | backend 코드 구현 | craft `backend` | 외부 플러그인 | [ADR-003](../decisions/ADR-003-backend-architecture.md)과 `apps/backend/src/AGENTS.md`가 계층 경계의 원본 |
-| 화면 디자인 판단·토큰 | craft `design` | 외부 플러그인 | [docs/design.md](../design.md)가 색·타이포·토큰 3-tier·컴포넌트 소유권의 원본 |
+| 화면 디자인 판단·토큰 | craft `design` | 외부 플러그인 | [docs/design.md](../design.md)가 색·타이포·토큰 3-tier·컴포넌트 소유권·composition/상태/피드백/다이얼로그/테스트 데이터 계약의 원본 |
 | 테스트 스위트 구조 | craft `testing` | 외부 플러그인 | [ci-path-verification.md](ci-path-verification.md)가 경로별 검증 명령의 원본 |
 | 스키마·쿼리·마이그레이션 판단 | craft `db` | 외부 플러그인 | [data-modeling.md](data-modeling.md)가 테이블 추가·명명·projection의 원본이고 마이그레이션 직렬 규칙은 AGENTS.md §3이다 |
 | 공개 HTTP API 계약 | craft `api` | 외부 플러그인 | [ADR-004](../decisions/ADR-004-REST-API-규격.md)가 REST 규격, [ADR-008](../decisions/ADR-008-api-response-field-ownership.md)이 응답 필드 소유권의 원본 |

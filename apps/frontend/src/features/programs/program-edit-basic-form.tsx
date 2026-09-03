@@ -14,7 +14,11 @@ import {
   type ProgramEditErrors,
   type ProgramEditForm,
 } from './program-edit-flow';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  PROGRAM_TRACK_TYPES,
+  type ProgramTrackType,
+} from './program-templates';
 import { ProgramDeadlineControl } from './program-deadline-control';
 import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 
@@ -38,8 +42,6 @@ export function ProgramEditBasicForm({
   onFieldChange,
   onSubmit,
 }: ProgramEditBasicFormProps) {
-  const templateLockReason = categoryLockReason(program);
-
   return (
     <FormSection title="기본 정보">
       <form className="grid gap-5" onSubmit={onSubmit}>
@@ -75,41 +77,28 @@ export function ProgramEditBasicForm({
             </FieldError>
           </Field>
           <Field>
-            <FieldLabel htmlFor="program-category">유형</FieldLabel>
+            <FieldLabel htmlFor="program-track-type">교과/비교과 *</FieldLabel>
             <select
-              id="program-category"
-              className="h-control rounded-control border border-input bg-background px-4 text-body disabled:opacity-60"
-              value={form.category}
-              disabled={templateLockReason !== null}
-              aria-invalid={Boolean(errors.category)}
+              id="program-track-type"
+              className="h-control rounded-control border border-input bg-background px-4 text-body"
+              value={form.trackType}
+              aria-invalid={Boolean(errors.trackType)}
               aria-describedby={
-                [
-                  templateLockReason ? 'program-category-description' : null,
-                  errors.category ? 'program-category-error' : null,
-                ]
-                  .filter((value): value is string => value !== null)
-                  .join(' ') || undefined
+                errors.trackType ? 'program-track-type-error' : undefined
               }
               onChange={(event) =>
-                onFieldChange('category', event.target.value)
+                onFieldChange('trackType', event.target.value)
               }
             >
-              {PROGRAM_TEMPLATE_DEFINITIONS.map((item) => (
-                <option key={item.category} value={item.category}>
-                  {item.label}
+              <option value="">선택</option>
+              {PROGRAM_TRACK_TYPES.map((trackType) => (
+                <option key={trackType} value={trackType}>
+                  {PROGRAM_TRACK_TYPE_LABELS[trackType]}
                 </option>
               ))}
             </select>
-            {templateLockReason ? (
-              <p
-                id="program-category-description"
-                className="text-small text-muted-foreground"
-              >
-                {templateLockReason}
-              </p>
-            ) : null}
-            <FieldError id="program-category-error" role="alert">
-              {errors.category}
+            <FieldError id="program-track-type-error" role="alert">
+              {errors.trackType}
             </FieldError>
           </Field>
           <ProgramEditScheduleEditor
@@ -222,23 +211,6 @@ export function ProgramEditBasicForm({
   );
 }
 
-function categoryLockReason(program: EditableProgram): string | null {
-  return program.categoryLocked.locked
-    ? categoryLockedMessage(program.categoryLocked)
-    : null;
-}
-
-function categoryLockedMessage(
-  lock: EditableProgram['categoryLocked'],
-): string {
-  if (lock.byApplications && lock.byTeams) {
-    return `신청자가 ${lock.applicationCount}명, 팀이 ${lock.teamCount}개 있어 유형을 변경할 수 없습니다.`;
-  }
-  if (lock.byTeams) {
-    return `팀이 ${lock.teamCount}개 있어 유형을 변경할 수 없습니다.`;
-  }
-  if (lock.byApplications) {
-    return `신청자가 ${lock.applicationCount}명 있어 유형을 변경할 수 없습니다.`;
-  }
-  return '신청 또는 팀이 있어 유형을 변경할 수 없습니다.';
+function isProgramTrackType(value: string): value is ProgramTrackType {
+  return value === 'CURRICULAR' || value === 'EXTRACURRICULAR';
 }

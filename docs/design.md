@@ -4,7 +4,50 @@
 색상·타이포그래피는 sojoong.kr의 톤(남색 계열 주조색, 녹색 계열 보조색, 짙은 회색 본문색)을 기준으로 삼는다.
 토큰은 primitive → semantic → component 3-tier 구조로 관리하며, 실제 정의는 `apps/frontend/src/app/globals.css`에 있다.
 프리미티브 컴포넌트는 shadcn CLI(`radix-nova` 스타일, radix-ui 기반)로 생성하고 소유권은 레포 내부(`apps/frontend/src/components/ui/`)에 둔다.
-이번 문서·PR은 토큰과 프리미티브만 다루며, AppShell/CardGrid/DataTable 같은 조합 컴포넌트(12종)는 다음 단계(B-6)에서 만든다.
+
+이 문서는 토큰·프리미티브·공용 composition·상태·피드백·다이얼로그·테스트 데이터 계약을 소유한다.
+화면 단위 결정은 마지막 「화면별 결정 기록」에 모아 둔다.
+
+## 이 문서를 읽는 방법
+
+엔지니어와 agent는 작업 인덱스와 규칙 id로 먼저 찾고 디자이너는 토큰과 화면 결정 기록을 뒤이어 읽는다.
+원칙은 세 개다 — 한 사실은 한 곳에만 쓰고, 상태와 피드백은 kind로 명시하며, 검출 신호가 없는 규칙은 두지 않는다.
+검출 결과는 `file:line - finding` 형식으로 보고한다.
+근거 표기는 외부 조사 문서를 링크하지 않고 2026-09-03 정적 감사로만 적는다.
+그 감사의 수치는 저장소 안에서 재현한다.
+로컬 toast state는 `grep -rl 'toastMessage' apps/frontend/src/features --include='*.ts*' | grep -v test`, 로컬 Skeleton은 `grep -rlE 'function [A-Za-z]*Skeleton' apps/frontend/src --include='*.tsx' | grep -v test`, radix dialog 직접 import는 `grep -rlE "from 'radix-ui'" apps/frontend/src/features | xargs grep -lE 'Dialog'`, 120자 초과 className은 `grep -rlE 'className="[^"]{121,}"' apps/frontend/src --include='*.tsx'`, fixture 파일과 LOC는 `find apps/frontend/src -type f -name '*fixture*'`와 같은 목록에 `| xargs cat | wc -l`을 붙여 세어 확인한다.
+
+### 작업 → 절
+
+| 작업 | 절 |
+| --- | --- |
+| 컴포넌트 고르기 | 계층과 소유권, 컴포넌트 카드 |
+| 상태 렌더 | 상태 시스템 |
+| 피드백 표시 | 피드백·알림 |
+| 폼·다이얼로그 | 폼, 다이얼로그 |
+| 접근성 점검 | 접근성 |
+| 테스트 데이터 | 테스트 데이터 |
+| 화면 근거 찾기 | 화면별 결정 기록 |
+
+### R-id → 소유자·강제 수단
+
+규칙마다 소유자는 한 문서다.
+모든 규칙은 리뷰로 강제하며 자동 검사는 아직 없다.
+자동 검사는 lint PR이 R-08a·R-08b에 대해 처음 도입하고 그 밖의 열은 현재 부채를 해소할 후속 PR을 가리킨다.
+
+| 규칙 | 소유자 | 현재 부채를 해소할 후속 PR |
+| --- | --- | --- |
+| R-01, R-02 | `apps/frontend/src/components/AGENTS.md` | 없음 — 리뷰로 유지 |
+| R-04 | 이 문서 | composition API PR |
+| R-06 | 이 문서 | dialog shell PR |
+| R-08a, R-08b | 이 문서 | lint PR |
+| R-09, R-10 | 이 문서 | FailureState PR |
+| R-17 | 이 문서 | Skeleton PR |
+| R-11, R-12 | 이 문서 | Alert kind PR |
+| R-13, R-14 | 이 문서 | notification PR |
+| R-18, R-19 | 이 문서 | 테스트 인라인화 → builder 승격 → 파일 삭제 PR |
+| R-20 | 이 문서 | 하네스 재설계 follow-up |
+| R-03, R-05, R-07, R-15, R-16, R-21, R-22, R-24, R-25 | 이 문서 | 없음 — 리뷰로 유지 |
 
 ## 구현 스택
 
@@ -17,6 +60,14 @@
 - `clsx` + `tailwind-merge` — `cn()` 헬퍼로 클래스 병합·충돌 해소.
 - `lucide-react` — 아이콘 세트.
 - `tw-animate-css` — 애니메이션 유틸리티 클래스.
+
+## 계층과 소유권
+
+`apps/frontend/src/components/ui/*` atoms → `apps/frontend/src/components/*` molecules·organisms → `apps/frontend/src/features/**` 도메인 결합 → `apps/frontend/src/app/**` pages 순서로 소유한다.
+R-01과 R-02는 이 문서의 색인 항목이고 규범 문장은 소유 문서에 한 번만 있으며 R-05는 이 문서가 소유한다.
+**R-01** 공용 승격 기준 — 원본은 `apps/frontend/src/components/AGENTS.md`의 Ownership 절이다.
+**R-02** 도메인 전용 컴포넌트의 feature 폴더 유지 — 원본은 같은 문서의 같은 절이다.
+**R-05** feature 코드는 `@/components` barrel을 우선 import하고 대응 composition이 없을 때만 `@/components/ui/*`를 직접 import한다.
 
 ## 토큰
 
@@ -37,7 +88,7 @@
 | 반전 표면(hero) | `--hero-*` | navy 램프(`--palette-navy-950` 포함) | 랜딩 하단 CTA 같은 어두운 표면. `.dark`에서도 반전하지 않는다. 랜딩 첫 화면(우주 여정)은 별도의 `--cosmos-*`를 쓴다 |
 | 반전 표면(hero) 오류 | `--hero-danger` | `--palette-red-100` (`#f3c6c6`) | navy-900 대비 명도비 약 10.9:1(AA 통과). `destructive` variant는 밝은 표면 전용이라 어두운 표면에는 쓰지 않는다 — 여정 첫 패널의 로그인 오류 Alert가 이 토큰을 쓴다 |
 
-`--status-*` semantic 그룹(모집중/마감/대기/승인/반려)은 이번 단계에서 토큰만 정의하고, 이를 소비하는 StatusBadge 컴포넌트는 만들지 않는다(B-6 범위).
+`--status-*` semantic 그룹(모집중/마감/대기/승인/반려)은 `apps/frontend/src/components/status-badge.tsx`의 `statusBadgeVariants`가 소비한다.
 라이트(`:root`)/다크(`.dark`) 두 변형을 모두 정의한다.
 
 #### 상태 배지 명도비 전수 확인
@@ -133,24 +184,287 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 `collapsible.tsx`. `radix-ui`의 Root/Trigger/Content 접근성 동작을 레포 소유의 `Collapsible`/`CollapsibleTrigger`/`CollapsibleContent`로 노출한다.
 래퍼 자체는 시각 스타일을 강제하지 않으며, 소비자가 기존 semantic 토큰과 이를 노출한 Tailwind component 유틸리티만 조합한다. 열린 상태 스타일은 각 `data-slot`과 Radix의 `data-state`를 기준으로 적용한다.
 
-## 패턴
+**R-24** `apps/frontend/src/components/ui/*`는 shadcn 생성물이고 소유권은 저장소에 있으며 semantic 토큰 적용·`data-slot` 추가·접근성 보강은 허용하고 공개 slot·role을 바꾸는 DOM 변경과 도메인 분기 삽입은 금지한다.
+**R-25** 새 시각 변형은 `cva` variant를 소유 프리미티브에 추가해 만들고 variant 이름은 의미(kind·size)로 지으며 소비자 쪽 `className` 오버라이드로 변형을 만들지 않는다.
 
-아래 이름은 레이아웃 뼈대(구조)를 가리키는 어휘이고, 실제 조합 컴포넌트(AppShell/CardGrid/DataTable 등)는 이번 단계에서 만들지 않는다(B-6 범위).
-이 절은 그 컴포넌트들이 앞으로 따를 뼈대만 미리 못박는다.
+## Composition 계약
 
-### 페이지 레이아웃
+**R-03** 시각·상태 차이는 소유 컴포넌트의 `cva` variant로 표현하고 DOM 의미나 필수 slot이 다를 때만 새 컴포넌트를 만들며 한 컴포넌트에 시각 분기용 boolean prop이 세 개를 넘으면 variant로 바꾼다.
+**R-04** 모든 공용 composition은 named `*Props`를 export하고 `className`을 받으며 root에 안정된 `data-slot`을 가진다.
+**R-06** feature 코드는 `radix-ui` Dialog/AlertDialog를 직접 import하지 않고 공용 dialog shell을 쓴다.
+**R-07** feature page shell은 `PageBody`, 최상위 섹션 제목은 `SectionHeading`, 표는 `DataTable`을 쓰고 필요한 slot이 없으면 컴포넌트를 확장하며 우회하지 않는다.
+**R-08a — 길이**: `apps/frontend/src/{components,features,app}/**`의 JSX/TSX class literal에서 120자를 넘는 단일 라인 `className` 문자열을 금지한다.
+**R-08b — 색**: `apps/frontend/src/{components,features,app}/**`의 모든 TS/TSX에서 색 상수 배열·데이터 객체·inline `style` 값을 포함한 hex 색상 리터럴과 `--palette-*` 직접 참조를 금지하고 semantic 토큰을 쓴다.
+예외는 토큰 소유자 `apps/frontend/src/app/globals.css`, 격리 문서 `apps/frontend/public/policies/policy-document.css`, canvas 전용 테마 상수 `apps/frontend/src/features/landing/cosmos/cosmos-theme.ts`뿐이다.
+CSS 파일 일반과 컴포넌트 CSS는 이 규칙 대상이 아니다.
+
+### 레이아웃 뼈대 어휘
+
+아래 이름은 레이아웃 뼈대(구조)를 가리키는 어휘이며 대응 컴포넌트는 `apps/frontend/src/components/`에 이미 있다.
+새 뼈대가 필요하면 기존 composition을 확장하고 우회 구현을 만들지 않는다.
 
 - **AppShell** → viewport-shell. 헤더/네비게이션이 고정되고 본문이 뷰포트를 채우는 전체 뼈대.
 - **CardGrid** → grid-repetition(card-grid). 동일한 카드가 그리드로 반복되는 목록 뼈대.
 - **DetailPanelLayout** → split-sidebar. 좌측 목록/우측 상세(또는 그 반대)로 나뉜 2분할 뼈대.
 - **StatusMessagePage** → viewport-shell/cover. 로그인 오류, 빈 상태 등 뷰포트 전체를 덮는 단일 메시지 뼈대.
 
-### 폼과 검증
+## 상태 시스템
+
+공용 Skeleton과 failure surface는 아직 없으므로 「수용된 부채」에 기록하고 로컬 정의를 새로 늘리지 않는다.
+**R-09** 컬렉션 뷰는 loading · empty · error · ready 네 상태를 상호배타로 렌더하고 네 분기를 테스트로 고정한다.
+**R-10** 재시도 가능한 fetch 실패는 공용 failure surface 하나만 쓰고 retry 액션을 노출하며 `EmptyState`와 bare destructive 텍스트는 error 상태에 금지한다.
+**R-17** loading 표면은 `aria-busy`, 접근 가능한 label, `motion-reduce` 처리를 갖는 공용 Skeleton을 쓰고 feature 로컬 Skeleton을 새로 정의하지 않는다.
+
+상태 설명만으로 끝내지 않는다.
+화면에 들어온 사용자가 원래 하려던 일을 이어갈 수 있도록 `다시 시도`, `목록으로 이동`, `일정으로 이동`, `제출 항목 추가`처럼 목적에 맞는 다음 행동을 하나 이상 제공한다.
+권한이 없으면 필요한 권한과 대신 갈 수 있는 화면을 함께 말한다.
+
+## 피드백·알림
+
+| type | 트리거·범위 | 허용 kind | 소유 프리미티브 | 배치 | role / aria-live | 포커스 동작 | 소멸·지속 | 필수 액션 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| field | 필드 단위 검증 실패 | error | FieldError | 컨트롤 바로 아래 | `role="alert"` | 첫 오류로 포커스 이동 | 사용자가 고칠 때까지 지속 | 상단 요약과 쌍(R-16) |
+| inline | 작업 중인 영역의 결과 | success·info·warning·error | Alert | 그 영역 안 | 동적 error=`role="alert"`, 그 외 동적 갱신=`role="status"`+`aria-live="polite"`, 정적 초기 렌더=live region 없음 | 포커스 이동 없음 | 화면을 떠날 때까지 | error면 다음 행동 링크(R-15) |
+| page | 화면 전체를 막는 실패·권한 | error·warning | 공용 failure surface(미구현 → §수용된 부채 R-10 행) | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
+| toast | 화면을 넘어가는 일회성 결과 | success·info | 전역 notification primitive(미구현 → §수용된 부채 R-13 행) | 뷰포트 고정 | `role="status"`+`aria-live="polite"` | 포커스 이동 없음 | 자동 소멸 허용, critical 금지(R-14) | 없음 |
+| dialog | 되돌릴 수 없는 결정 요청 | warning·error | 공용 dialog shell(미구현 → §수용된 부채 R-06 행) | 모달 | `role="alertdialog"` | focus trap + 복귀 | 사용자가 결정할 때까지 | 확인·취소 쌍 |
+
+| kind | role | aria-live | 자동 소멸 | 소유 컴포넌트 |
+| --- | --- | --- | --- | --- |
+| dynamic error | `role="alert"` | assertive | 금지 | FieldError 또는 failure surface |
+| dynamic non-error | `role="status"` | polite | toast만 허용 | Alert 또는 notification primitive |
+| static initial content | 없음 | 없음 | 해당 없음 | heading + 본문 |
+
+**R-11** 피드백은 `success`·`info`·`warning`·`error` 중 하나의 kind를 명시한다.
+**R-12** `role="alert"`는 상호작용 중 발생한 동적 error에만 쓰고 동적 non-error 갱신은 `role="status"` 또는 `aria-live="polite"`를 쓰며 정적 heading과 초기 렌더 콘텐츠에는 live region을 두지 않는다.
+**R-13** 화면을 넘어가는 일회성 메시지는 전역 notification primitive 하나로 보낸다.
+로컬 `toastMessage` 배너를 금지한다.
+현재 미구현 — §수용된 부채 R-13 행.
+**R-14** critical 메시지는 타이머로 사라지지 않는다.
+**R-15** 오류 문구는 다음 행동을 포함한다.
+필드 검증 실패는 field와 상단 요약을 함께 쓴다.
+작업 지역 결과는 inline 또는 page를 쓴다.
+화면을 넘어가는 비critical 일회성 결과는 toast를 쓴다.
+차단 결정은 dialog를 쓴다.
+error는 toast 단독으로 절대 쓰지 않는다.
+
+## 폼
 
 `Field` + `FieldLabel` + `FieldDescription` + `FieldError` 조합을 표준 패턴으로 쓴다.
 에러는 `FieldError`가 `role="alert"`로 렌더링해 스크린 리더에 즉시 통지한다.
 
-#### 사람 중심 일정·제출 폼
+**R-16** 폼 검증 실패는 필드 옆 `FieldError`와 상단 요약을 함께 보이고 첫 오류로 포커스를 옮긴다.
+제출 중에는 중복 제출을 막고 버튼의 busy 상태를 노출한다.
+버튼 정렬은 `docs/rules/frontend.md`를 따른다.
+
+## 다이얼로그
+
+공용 controlled shell은 `open`과 `onOpenChange`를 받고 busy 중에는 닫기를 금지하며 크기 variant를 제공한다.
+**R-06**을 따르며 `apps/frontend/src/features/**`의 radix 직접 import 11건은 §수용된 부채 R-06 행에서 해소한다.
+
+## 접근성
+
+프리미티브는 radix-ui 기반이라 포커스 트랩·키보드 내비게이션·ARIA role이 기본 제공된다.
+`Field`/`FieldLabel`은 `htmlFor`/`id` 연결을 자동 생성하지 않으므로 소비자가 라벨과 컨트롤의 id를 직접 연결하고 테스트로 고정한다.
+주조색(`--primary`)과 위험색(`--destructive`)은 흰 배경 대비 충분한 명도 대비를 확보하도록, sojoong.kr 원색보다 어둡거나 채도를 높인 값을 palette anchor로 선택했다.
+
+접근성 점검은 포커스 가시성, 키보드 도달성, 피드백·알림 표의 live region 원칙, 명도비 기준 절, 테스트로 고정할 항목을 포함한다.
+
+## 테스트 데이터
+
+이것은 fixture를 어떻게 관리하느냐가 아니라 테스트를 어떻게 쓰느냐의 문제다.
+**R-18** 기본값은 fixture 파일 없음이며 각 테스트는 자기 단언에 필요한 최소 데이터를 테스트 본문에서 typed builder 호출로 만들고 `apps/frontend/src/**`의 비테스트 파일에 fixture·mock·sample·seed 이름을 쓰지 않는다.
+**R-19** builder는 두 개 이상의 테스트 파일이 같은 엔티티를 만들 때만 `apps/frontend/test-support/`로 올리고 완성된 응답 리터럴을 저장하는 fixture 저장소는 두지 않으며 Playwright 확장만 `*.fixture.ts`를 쓴다.
+**R-20** runtime 모듈은 테스트 데이터를 import하지 않으며 local-review 하네스의 현 상태는 부채로 기록하고 예외를 두지 않는다.
+**R-21** wire-contract drift는 fixture로 막지 않고 DTO 타입 `satisfies`와 계약 테스트로 막는다.
+**R-22** 테스트 본문의 인라인 객체·배열은 30줄 상한이며 넘으면 builder로 쪼개거나 단언을 줄인다.
+
+## 안티패턴 (flag these)
+
+출처: 2026-09-03 정적 감사.
+
+| AP | 안티패턴 | 검출 신호 | 대체 규칙 |
+| --- | --- | --- | --- |
+| AP-01 | 실패를 빈 상태로 위장 | `state.kind === 'failed'`·`status === 'error'` 분기 안의 `<EmptyState` | R-10 (보조 R-09) |
+| AP-02 | bare 오류 텍스트 | `components/` 밖의 `<p role="alert"`·단독 `text-destructive` 문단 | R-10 (보조 R-15) |
+| AP-03 | 로컬 toast 흉내 | `toastMessage`·`setToast` state, `role="status"` 녹색 박스 | R-13 |
+| AP-04 | 긴급도 없는 `role="alert"` | 정적 heading·초기 렌더 콘텐츠의 `role="alert"`, 성공 Alert의 assertive 공지 | R-12 |
+| AP-05 | 의미 없는 두 톤 | warning에 `variant="destructive"`, 성공에 `default` | R-11 |
+| AP-06 | 로컬 Skeleton 복제 | feature 파일 내 `function *Skeleton`·`animate-pulse` 블록 | R-17 |
+| AP-07 | page shell 재구현 | `features/**`의 `<main`·`text-xl`/`text-2xl` 제목 | R-07 |
+| AP-08 | raw table | `features/**`의 `<table`·`@/components/ui/table` 직접 import | R-07 (보조 R-05) |
+| AP-09 | Radix dialog 직접 조립 | `features/**`의 `radix-ui` Dialog/AlertDialog import, `div role="dialog"` | R-06 |
+| AP-10 | 도메인 컴포넌트의 공용 승격 | `components/`에 있으나 소비 feature가 하나 | R-02 (보조 R-01) |
+| AP-11 | API 계약 누락 | composition에 named `*Props`·`className`·root `data-slot` 중 하나라도 없음 | R-04 |
+| AP-12 | 긴 class literal·hex | 120자 초과 단일 라인 `className`, `#` hex, `--palette-*` | R-08a·R-08b |
+| AP-13 | feature-local fixture 파일 | `apps/frontend/src/features/**`의 `*fixture*`·`*mock*`·`*seed*` 파일명 | R-18·R-19 |
+| AP-14 | 응답 리터럴 저장소·손 복사 DTO | 테스트 밖 모듈이 완성 응답 객체를 상수로 export, `satisfies` 없는 DTO 복사 | R-19·R-21 |
+| AP-15 | runtime 코드의 테스트 데이터 import | `apps/frontend/src/**` 런타임 모듈이 `apps/frontend/test-support/`를 import | R-20 |
+
+## 수용된 부채 (2026-09-03)
+
+이 표는 2026-09-03 정적 감사에서 확인된 위반만 담는다.
+여기 없는 위반이 허용된다는 뜻이 아니다.
+새로 발견되면 이 표에 행을 추가하고 후속 PR을 연다.
+
+| 기록일 | 위반 | 규칙 | 해소 경로 |
+| --- | --- | --- | --- |
+| 2026-09-03 | 공용 failure surface 부재 — fetch 실패 표현이 파일마다 다르고 일부는 `EmptyState`로 렌더(예: `apps/frontend/src/features/programs/components/activity-graph-panel.tsx` 31-49) | R-10 | FailureState PR |
+| 2026-09-03 | 전역 notification primitive 부재, 로컬 `toastMessage` state 6파일 | R-13 | notification PR |
+| 2026-09-03 | 공용 Skeleton 부재, 로컬 정의 15곳 | R-17 | Skeleton PR |
+| 2026-09-03 | `apps/frontend/src/components/ui/alert.tsx`가 두 variant뿐이고 항상 `role="alert"` | R-11 | Alert kind PR |
+| 2026-09-03 | 정적 heading에 `role="alert"` — `apps/frontend/src/app/_shell/access-denied.tsx` 18-24, `apps/frontend/src/app/_shell/login-required-notice.tsx` 19-25 | R-12 | Alert kind PR |
+| 2026-09-03 | 공용 dialog shell 부재, `apps/frontend/src/features/**`에 radix-ui Dialog/AlertDialog 직접 import 11건과 plain `div role="dialog"` 구현 잔존 | R-06 | dialog shell PR |
+| 2026-09-03 | CardGrid·PageBody·ListPanel/ListRow·StatusBadge named `*Props` 미export, PaginationNav·RepositoryPublishCard·ProgramCountdown root `className` 미수용 | R-04 | composition API PR |
+| 2026-09-03 | signup typography helpers에 `className`·`data-slot` 없음 | R-04 | composition API PR |
+| 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
+| 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
+| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | lint PR |
+| 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | R-18·R-19 | 테스트 인라인화 → 공용 builder 승격 → 파일 삭제 PR |
+| 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 하네스 재설계 follow-up |
+
+## 컴포넌트 카드
+
+### AppShell
+Use when: header·footer와 앱 프레임을 함께 배치할 때 쓴다.
+Don't use when: 독립 콘텐츠 카드면 대신 Card를 쓴다.
+Slots·Props: AppShellProps의 `header`, `footer`, div props를 쓴다.
+States: header·footer는 선택이다.
+Do·Don't: root className으로 여백만 조정하고 page shell을 다시 만들지 않는다.
+
+### NavBar
+Use when: 전역 또는 업무 화면 탐색을 제공할 때 쓴다.
+Don't use when: 한 화면의 보조 탭이면 대신 해당 feature navigation을 쓴다.
+Slots·Props: NavBarProps의 `items`, `brand`, `actions`, `menuResetKey`, `sidebarDrawerOpen`·`onToggleSidebarDrawer`·`sidebarDrawerId`를 쓴다.
+States: 접힌 메뉴는 `<details>`가 들고 현재 항목 표시는 호출자가 링크 쪽에서 담당한다.
+Accessibility: 드로어 토글에 `aria-expanded`·`aria-controls`를 붙이고 접힌 메뉴는 Escape로 닫힌다.
+Do·Don't: NavItem으로 목적지를 선언하고 임의 링크 묶음을 만들지 않는다.
+
+### PageHeader
+Use when: 페이지 제목과 보조 설명·액션을 표시할 때 쓴다.
+Don't use when: 섹션 내부 제목이면 대신 SectionHeading을 쓴다.
+Slots·Props: PageHeaderProps의 title·description·actions를 쓴다.
+States: 설명과 actions는 선택이다.
+Accessibility: `titleAs`로 h1·h2를 고른다.
+Do·Don't: page 제목을 feature마다 재구현하지 않는다.
+
+### PageBody
+Use when: feature page의 표준 본문 폭과 간격이 필요할 때 쓴다.
+Don't use when: 독립 modal 내용이면 대신 dialog body를 쓴다.
+Slots·Props: 미export — §수용된 부채(R-04).
+Do·Don't: R-07을 따른다.
+
+### SectionHeading
+Use when: 최상위 섹션 제목과 설명·액션을 표시할 때 쓴다.
+Don't use when: page 제목이면 대신 PageHeader를 쓴다.
+Slots·Props: SectionHeadingProps의 title·meta·action을 쓴다.
+States: meta와 action은 선택이다.
+Do·Don't: text-xl 제목을 직접 조립하지 않는다.
+
+### StatusMessagePage
+Use when: 전체 페이지 상태 메시지를 보여 줄 때 쓴다.
+Don't use when: R-10이 적용되는 상황이면 쓰지 않는다.
+Slots·Props: StatusMessagePageProps의 icon·title·description·action·header·footer를 쓴다.
+States: icon·description·action·header·footer는 선택이다.
+Accessibility: 제목과 액션을 명시한다.
+Do·Don't: R-10을 따른다.
+
+### DetailPanelLayout
+Use when: 상세 본문과 보조 패널을 나란히 배치할 때 쓴다.
+Don't use when: 단일 열 목록이면 대신 PageBody를 쓴다.
+Slots·Props: DetailPanelLayoutProps의 primary·secondary와 `stacked`를 쓴다.
+States: `stacked`로 세로 쌓임을 고른다.
+Do·Don't: grid 구조를 feature마다 복제하지 않는다.
+
+### CardGrid
+Use when: 동질 카드 목록을 반응형 grid로 표시할 때 쓴다.
+Don't use when: 행 단위 데이터면 대신 DataTable을 쓴다.
+Slots·Props: 미export — §수용된 부채(R-04).
+States: 자식 수는 소비자가 제어한다.
+Accessibility: 카드 제목과 링크를 구분한다.
+Do·Don't: 임의 grid className으로 대체하지 않는다.
+
+### EmptyState
+Use when: 정상 empty 상태의 원인과 다음 행동을 안내할 때 쓴다.
+Don't use when: R-10이 적용되는 상황이면 쓰지 않는다.
+Slots·Props: EmptyStateProps의 icon·title·description·action을 쓴다.
+States: icon·description·action은 선택이다.
+Accessibility: action에 구체적 이름을 준다.
+Do·Don't: R-10을 따른다.
+
+### FormSection
+Use when: 관련 입력을 fieldset으로 묶을 때 쓴다.
+Don't use when: 단일 control이면 대신 Field를 쓴다.
+Slots·Props: FormSectionProps의 title·description과 fieldset props를 쓴다.
+States: description은 선택이다.
+Accessibility: title이 legend로 그룹 이름을 제공한다.
+Do·Don't: form group 의미를 div로 흉내 내지 않는다.
+
+### PaginationNav
+Use when: 페이지 번호 이동을 제공할 때 쓴다.
+Don't use when: 무한 스크롤이면 대신 해당 feature의 load-more를 쓴다.
+Slots·Props: PaginationNavProps의 page·totalPages·onPageChange와 필수 `ariaLabel`을 쓴다.
+States: `totalPages <= 1`이면 아무것도 렌더하지 않고 처음·끝 페이지에서 이전·다음을 비활성화한다.
+Accessibility: `ariaLabel`이 이 페이지네이션의 접근 가능한 이름이 된다.
+Do·Don't: page state를 별도 복제하지 않는다.
+
+### ProgramCard
+Use when: 프로그램 요약과 상태·일정을 카드로 표시할 때 쓴다.
+Don't use when: 상세 편집 화면이면 대신 DetailPanelLayout을 쓴다.
+Slots·Props: ProgramCardProps의 title·status·badgeText와 선택 `category`·`period`·`note`·`noteIcon`·`href`, div props를 쓴다.
+States: `href`가 있으면 status와 무관하게 열린다.
+Accessibility: href의 목적지를 명확히 한다.
+Do·Don't: 공용 승격 부채를 해소할 때 feature로 내린다.
+
+### RepositoryPublishCard
+Use when: 저장소 발행 상태와 발행 액션을 표시할 때 쓴다.
+Don't use when: 일반 프로그램 요약이면 대신 ProgramCard를 쓴다.
+Slots·Props: RepositoryPublishCardProps의 repository·isPublishing·errorMessage·onPublish를 쓴다.
+States: 미연결(`repository` null)·공개·발행 가능·차단(`blockedReasons`)·발행 중·오류 여섯 가지다.
+Accessibility: busy와 차단·오류 원인을 텍스트로 알린다.
+Do·Don't: 발행 중 중복 액션을 허용하지 않는다.
+
+### DataTable + RowActions — 그룹
+Use when: 행 데이터와 행별 액션을 함께 표시할 때 쓴다.
+Don't use when: 카드형 요약이면 대신 CardGrid를 쓴다.
+Slots·Props: DataTableProps의 columns·data·rowKey와 RowActionsProps의 children을 쓴다.
+States: 이 컴포넌트는 loading·empty·ready를 소유하고 error는 호출자가 failure surface로 렌더한다.
+Accessibility: `caption`과 `scrollRegionLabel`을 제공한다.
+Do·Don't: R-07을 따른다.
+
+### ListPanel + ListRow — 그룹
+Use when: 선택 가능한 목록과 행을 구성할 때 쓴다.
+Don't use when: 열 정렬 데이터면 대신 DataTable을 쓴다.
+Slots·Props: 미export — §수용된 부채(R-04).
+States: 선택·비선택은 소비자가 제공한다.
+Accessibility: 행의 이름과 선택 상태를 명시한다.
+Do·Don't: 목록 grid를 feature마다 복제하지 않는다.
+
+### StatusBadge (+ statusBadgeVariants) — 그룹
+Use when: 짧은 상태 kind를 시각적으로 표시할 때 쓴다.
+Don't use when: 다음 행동이 필요한 피드백이면 대신 Alert를 쓴다.
+Slots·Props: 미export — §수용된 부채(R-04).
+States: variant는 `recruiting`·`closed`·`pending`·`approved`·`rejected` 다섯 개다.
+Accessibility: 색만으로 상태를 전달하지 않고 라벨 텍스트가 상태를 말한다.
+Do·Don't: 도메인 상태는 다섯 variant에 매핑하고 새 색 조합을 호출자가 만들지 않는다.
+
+### ProgramCountdown (+ remainingUntil · formatClock · formatCountdownDate) — 그룹
+Use when: 다음 마감까지 남은 시간과 날짜를 표시할 때 쓴다.
+Don't use when: 과거 이벤트 기록이면 대신 정적 날짜를 쓴다.
+Slots·Props: ProgramCountdownProps의 nextMilestoneLabel·dueAt와 선택 `now`·`untilLabel`을 쓴다.
+States: 마운트 전 placeholder, 진행 중, 지난 마감(zero 고정) 세 가지다.
+Do·Don't: 남은 시간을 음수로 렌더하지 않는다.
+
+### Signup typography helpers — SignupEyebrow · SignupLede · SignupTitle · signupPrimaryClassName — 그룹
+Use when: signup 화면의 정해진 제목·소개·주 action typography가 필요할 때 쓴다.
+Don't use when: 일반 page typography면 대신 PageHeader와 SectionHeading을 쓴다.
+Slots·Props: 미export — §수용된 부채(R-04).
+Accessibility: SignupTitle을 page의 단일 제목으로 쓴다.
+Do·Don't: helper class를 복사해 새 typography를 만들지 않는다.
+
+## 화면별 결정 기록
+
+### 사람 중심 일정·제출 폼
 
 - 프로그램 만들기의 신청·운영 일정은 한 달력을 먼저 보여 주고, 그 아래에 신청 기간과 운영 기간을 각각 한 줄로 둔다.
   각 줄을 고른 뒤 달력에서 시작일과 종료일을 차례로 누르며, 날짜·시간을 함께 입력할 때는 같은 줄의 일정 입력 모달 하나만 사용한다.
@@ -175,15 +489,6 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
   프로그램 만들기의 단계 이동은 서버에 저장하지 않는 `계속`이고, 최종 검토의 `프로그램 만들기`와 확인 모달을 통과할 때만 전체 내용을 생성한다.
   임시 저장·자동 저장처럼 생성 전 서버나 브라우저에 작성 내용이 남는다고 오해할 표현은 쓰지 않는다.
   기존 프로그램 편집처럼 즉시 서버에 반영하는 화면은 결과가 명확한 `저장`을 쓴다.
-
-### 로딩·빈 상태·오류 상태
-
-오류/빈 상태 메시지는 `Alert` + `AlertTitle` + `AlertDescription` 조합을 표준으로 쓴다.
-로딩 상태 전용 컴포넌트(스켈레톤 등)는 이번 단계 범위 밖이며 필요 시 B-6에서 추가한다.
-
-상태 설명만으로 끝내지 않는다.
-화면에 들어온 사용자가 원래 하려던 일을 이어갈 수 있도록 `다시 시도`, `목록으로 이동`, `일정으로 이동`, `제출 항목 추가`처럼 목적에 맞는 다음 행동을 하나 이상 제공한다.
-권한이 없으면 필요한 권한과 대신 갈 수 있는 화면을 함께 말한다.
 
 ### 랜딩 우주 스크롤 여정
 
@@ -456,7 +761,7 @@ nav는 조회 실패에서 종전대로 링크를 숨긴다(`role-home-link.tsx`
 | --- | --- |
 | 바탕 | 순백색을 유지한다 |
 | 상단 Nav | 프로그램 · 공개 아카이브 · 랭킹. 가입 완료 시 **대시보드**(`/dashboard`, 라벨 고정). 입구 URL은 역할 무관 하나이고, 본문·좌측 메뉴만 세션 `User.role`(DB, `/auth/me`)로 갈린다. 비회원에게는 항목 자체를 붙이지 않는다 |
-| 왼쪽 사이드 패널 | **컨텍스트형** — 프로그램 `?status=` · 아카이브 `?category=` · 랭킹 `?year=` · 대시보드 역할 메뉴(학생: 저장소·활동 / 교직원: 운영 대시보드·학생 활성·가입 신청 / 관리자: 교직원 그룹(운영·학생 활성·가입 신청) + 사용자 목록·감사·시스템). 입구 URL은 `/dashboard` 하나이고 ADMIN 본문도 운영 대시보드다. 필터는 flat 피어(네스트 트리 금지). 카운트 뱃지 0도 표시. 사이드 패널에는 생성 waypoint를 두지 않는다. 프로그램 섹션에서는 프로필을 마친 교직원·관리자에게 목록 `PageHeader` CTA를 제공하며, 운영 대시보드의 화면 고유 CTA는 유지한다 |
+| 왼쪽 사이드 패널 | **컨텍스트형** — 프로그램 `?status=` · 아카이브 `?year=` · 랭킹 `?year=` · 대시보드 역할 메뉴(학생: 저장소·활동 / 교직원: 운영 대시보드·학생 활성·가입 신청 / 관리자: 교직원 그룹(운영·학생 활성·가입 신청) + 사용자 목록·감사·시스템). 입구 URL은 `/dashboard` 하나이고 ADMIN 본문도 운영 대시보드다. 필터는 flat 피어(네스트 트리 금지). 카운트 뱃지 0도 표시. 사이드 패널에는 생성 waypoint를 두지 않는다. 프로그램 섹션에서는 프로필을 마친 교직원·관리자에게 목록 `PageHeader` CTA를 제공하며, 운영 대시보드의 화면 고유 CTA는 유지한다 |
 | 모바일(&lt;900px) | 좌측 패널 숨김. 본문 칩으로 동일 필터 |
 | 레이아웃 | 전체 폭 Nav 아래 `[사이드 \| 본문]`(≥900px). 랜딩·가입은 패널 없음 |
 | 표면 톤 | 상단 Nav는 전 화면 기본 흰 바. `data-surface="inverted"`는 가입 본문 무대만 |
@@ -539,9 +844,3 @@ nav는 조회 실패에서 종전대로 링크를 숨긴다(`role-home-link.tsx`
 | 공개 | 팀 구성과 인원만 공개한다 |
 | 팀장 | 팀장을 표시한다 |
 | 저장소 | 팀 저장소는 비공개다(이 화면에서 노출하지 않는다) |
-
-### 접근성
-
-프리미티브는 radix-ui 기반이라 포커스 트랩·키보드 내비게이션·ARIA role이 기본 제공된다.
-`Field`/`FieldLabel`은 `htmlFor`/`id` 연결을 구조적으로 강제해 라벨-컨트롤 연결 누락을 막는다.
-주조색(`--primary`)과 위험색(`--destructive`)은 흰 배경 대비 충분한 명도 대비를 확보하도록, sojoong.kr 원색보다 어둡거나 채도를 높인 값을 palette anchor로 선택했다.

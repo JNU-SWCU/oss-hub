@@ -91,7 +91,8 @@ const BASIC_PROGRAM = {
   id: 'program-basic-study',
   name: '합성 기초 오픈소스 스터디',
   organizer: '합성 SW중심대학사업단',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
+
   applicationTemplateKey: 'basic',
   applicationTemplateVersion: 1,
   applicationCount: 4,
@@ -107,13 +108,6 @@ const BASIC_PROGRAM = {
   teamMinSize: null,
   teamMaxSize: null,
   lifecycle: 'PUBLISHED',
-  categoryLocked: {
-    locked: true,
-    byApplications: true,
-    byTeams: false,
-    applicationCount: 4,
-    teamCount: 0,
-  },
   milestones: BASIC_MILESTONES,
 } as const satisfies EditableProgram;
 
@@ -334,7 +328,8 @@ const CAPSTONE_PROGRAM = {
   id: 'program-capstone',
   name: '합성 캡스톤 2026',
   organizer: '합성 SW중심대학사업단',
-  category: 'CAPSTONE',
+  trackType: 'CURRICULAR',
+
   applicationTemplateKey: 'capstone',
   applicationTemplateVersion: 1,
   applicationCount: 0,
@@ -348,13 +343,6 @@ const CAPSTONE_PROGRAM = {
   teamMinSize: 2,
   teamMaxSize: 5,
   lifecycle: 'PUBLISHED',
-  categoryLocked: {
-    locked: false,
-    byApplications: false,
-    byTeams: false,
-    applicationCount: 0,
-    teamCount: 0,
-  },
   milestones: CAPSTONE_MILESTONES,
 } as const satisfies EditableProgram;
 
@@ -383,7 +371,8 @@ const CONTEST_PROGRAM = {
   id: 'program-oss-contest',
   name: '합성 OSS 경진대회',
   organizer: '합성 SW중심대학사업단',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
+
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 2,
@@ -399,13 +388,6 @@ const CONTEST_PROGRAM = {
   teamMinSize: 2,
   teamMaxSize: 4,
   lifecycle: 'PUBLISHED',
-  categoryLocked: {
-    locked: true,
-    byApplications: true,
-    byTeams: true,
-    applicationCount: 2,
-    teamCount: 2,
-  },
   milestones: CONTEST_MILESTONES,
 } as const satisfies EditableProgram;
 
@@ -562,7 +544,8 @@ const CREATED_PROGRAM = {
   id: 'program-synthetic-new',
   name: '합성 신규 프로그램',
   organizer: '합성 SW중심대학사업단',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
+
   applicationTemplateKey: 'basic',
   applicationTemplateVersion: 1,
   applicationCount: 0,
@@ -576,13 +559,6 @@ const CREATED_PROGRAM = {
   teamMinSize: null,
   teamMaxSize: null,
   lifecycle: 'PUBLISHED',
-  categoryLocked: {
-    locked: false,
-    byApplications: false,
-    byTeams: false,
-    applicationCount: 0,
-    teamCount: 0,
-  },
   milestones: [],
 } as const satisfies EditableProgram;
 

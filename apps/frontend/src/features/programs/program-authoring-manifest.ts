@@ -1,10 +1,10 @@
-import type { ProgramCategory } from './program-templates';
+import type { ProgramTrackType } from './program-templates';
 import type { ProgramAuthoringState } from './program-authoring-model';
 
 export type ProgramAuthoringManifest = {
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly startAt: string;
@@ -60,7 +60,7 @@ export function buildProgramAuthoringManifest(
   return {
     name: state.name.trim(),
     organizer: state.organizer.trim(),
-    category: state.category,
+    trackType: state.trackType as ProgramTrackType,
     applicationStartAt: seoulDateTimeToIso(state.applicationStartAt),
     applicationEndAt: seoulDateTimeToIso(state.applicationEndAt),
     startAt: seoulDateTimeToIso(state.operationStartAt),

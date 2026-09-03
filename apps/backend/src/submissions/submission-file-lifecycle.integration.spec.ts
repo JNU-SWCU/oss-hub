@@ -11,7 +11,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
-import { seedId, SeedStats } from '../../prisma/seeds/helpers';
+import { seedGithubId, seedId, SeedStats } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
@@ -19,6 +19,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { S3SubmissionFileStorage } from './s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesService } from './submission-files.service';
+import { signatureValidZip } from './submission-zip-test-builder';
 
 const REQUIRED_ENV = [
   'DATABASE_URL',
@@ -71,6 +73,9 @@ async function createPending(options: {
   suffix: string;
   pendingExpiresAt?: Date;
   expiresAt?: Date;
+  originalFileName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
 }) {
   return prisma.submissionFile.create({
     data: {
@@ -78,9 +83,9 @@ async function createPending(options: {
       applicationId: APPLICATION_ID,
       milestoneId: MILESTONE_ID,
       storageKey: `${PREFIX}/${options.suffix}`,
-      originalFileName: 'synthetic.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 14,
+      originalFileName: options.originalFileName ?? 'synthetic.pdf',
+      mimeType: options.mimeType ?? 'application/pdf',
+      sizeBytes: options.sizeBytes ?? 14,
       lifecycle: SubmissionFileLifecycle.PENDING,
       pendingExpiresAt:
         options.pendingExpiresAt ?? new Date(BASE.getTime() + HOUR),
@@ -435,6 +440,45 @@ describeIntegration(
           ? SubmissionFileLifecycle.ATTACHED
           : SubmissionFileLifecycle.DELETE_PENDING,
       );
+    });
+
+    it('저장된 zip MIME이 브라우저 별칭이어도 내려주기는 확장자의 정규 타입이다', async () => {
+      const archive = signatureValidZip([{ name: 'plan.pdf' }]);
+      const row = await createPending({
+        suffix: 'windows-zip-download',
+        originalFileName: 'archive.zip',
+        mimeType: 'application/x-zip-compressed',
+        sizeBytes: archive.byteLength,
+      });
+      const submission = await createSubmissionHistory('windows-zip-download');
+      await storage.put({
+        body: archive,
+        contentType: 'application/x-zip-compressed',
+        originalName: 'archive.zip',
+        objectKey: row.storageKey,
+      });
+      await prisma.submissionFile.update({
+        where: { id: row.id },
+        data: {
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          pendingExpiresAt: null,
+          milestoneDocumentSubmissionId: submission.submissionId,
+          milestoneDocumentSubmissionHistoryId: submission.historyId,
+        },
+      });
+
+      const filesService = new SubmissionFilesService(files, storage);
+      const downloaded = await filesService.download(
+        seedGithubId(USER_ID),
+        row.id,
+        BASE,
+      );
+
+      expect(downloaded).toMatchObject({
+        fileName: 'archive.zip',
+        contentType: 'application/zip',
+        contentLength: archive.byteLength,
+      });
     });
   },
 );

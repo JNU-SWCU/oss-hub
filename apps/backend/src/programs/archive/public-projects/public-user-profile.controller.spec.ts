@@ -25,7 +25,7 @@ describe('PublicUserProfileController', () => {
       publishedAt: new Date('2026-07-20T00:00:00.000Z'),
       programId: 'synthetic-program-1',
       programName: 'synthetic-program',
-      category: 'BASIC',
+      trackType: 'EXTRACURRICULAR',
       teamName: null,
       teamMemberCount: 1,
       applicantNickname: 'synthetic-applicant',

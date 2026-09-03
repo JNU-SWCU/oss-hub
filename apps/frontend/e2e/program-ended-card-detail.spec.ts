@@ -45,7 +45,7 @@ test('종료된 프로그램 카드를 클릭하면 상세 페이지가 정상 �
               id: programId,
               name: '종료된 오픈소스 기여 프로그램',
               organizer: 'JNU SWCU',
-              category: 'BASIC',
+              trackType: 'EXTRACURRICULAR',
               lifecycle: 'PUBLISHED',
               applicationStartAt: '2026-01-01T00:00:00.000Z',
               applicationEndAt: '2026-01-31T00:00:00.000Z',
@@ -67,7 +67,7 @@ test('종료된 프로그램 카드를 클릭하면 상세 페이지가 정상 �
           id: programId,
           name: '종료된 오픈소스 기여 프로그램',
           organizer: 'JNU SWCU',
-          category: 'BASIC',
+          trackType: 'EXTRACURRICULAR',
           description: '종료된 프로그램 카드 클릭 회귀 테스트',
           applicationPeriod: {
             startsAt: '2026-01-01T00:00:00.000Z',
@@ -84,7 +84,7 @@ test('종료된 프로그램 카드를 클릭하면 상세 페이지가 정상 �
         json: {
           programId,
           name: '종료된 오픈소스 기여 프로그램',
-          category: 'BASIC',
+          trackType: 'EXTRACURRICULAR',
           lifecycle: 'PUBLISHED',
           milestoneCount: 0,
           boardPostCount: 0,

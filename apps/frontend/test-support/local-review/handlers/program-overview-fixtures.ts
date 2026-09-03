@@ -13,7 +13,7 @@ import {
  */
 interface ProgramOverviewBase {
   readonly name: string;
-  readonly category: string;
+  readonly trackType: string | null;
   readonly lifecycle: string;
   readonly milestoneCount: number;
   readonly boardPostCount: number;
@@ -43,7 +43,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
 > = {
   'program-capstone': {
     name: '합성 캡스톤 2026',
-    category: 'CAPSTONE',
+    trackType: 'CURRICULAR',
     lifecycle: 'PUBLISHED',
     milestoneCount: 3,
     boardPostCount: 3,
@@ -92,7 +92,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
   },
   'program-oss-contest': {
     name: '합성 OSS 경진대회',
-    category: 'OSS_CONTEST',
+    trackType: 'EXTRACURRICULAR',
     lifecycle: 'PUBLISHED',
     milestoneCount: 2,
     boardPostCount: 1,
@@ -119,7 +119,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
   },
   'program-basic-study': {
     name: '합성 기초 오픈소스 스터디',
-    category: 'BASIC',
+    trackType: 'EXTRACURRICULAR',
     lifecycle: 'PUBLISHED',
     milestoneCount: 2,
     boardPostCount: 0,
@@ -157,7 +157,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
   // 서류도 생기지 않는다 — 승인되지 않은 신청에는 제출 대상이 없다.
   'program-sw-value': {
     name: '합성 SW가치확산 프로그램',
-    category: 'SW_VALUE_SPREAD',
+    trackType: 'EXTRACURRICULAR',
     lifecycle: 'PUBLISHED',
     milestoneCount: 1,
     boardPostCount: 0,
@@ -181,7 +181,7 @@ export function programOverviewFor(
   return {
     programId,
     name: base.name,
-    category: base.category,
+    trackType: base.trackType,
     lifecycle: base.lifecycle,
     milestoneCount: base.milestoneCount,
     boardPostCount: base.boardPostCount,

@@ -173,6 +173,9 @@ describe('SubmissionFilesService', () => {
     ['photo.jpeg', 'image/jpeg'],
     ['image.png', 'image/png'],
     ['archive.zip', 'application/zip'],
+    ['archive.zip', 'application/x-zip-compressed'],
+    ['archive.zip', 'application/octet-stream'],
+    ['report.pdf', 'image/png'],
     ['UPPER.PDF', 'APPLICATION/PDF'],
   ])('accepts the supported %s and %s pair', async (name, type) => {
     const { service, storage } = setup();
@@ -221,11 +224,10 @@ describe('SubmissionFilesService', () => {
   });
 
   it.each([
-    ['report.pdf', 'image/png'],
     ['report.exe', 'application/pdf'],
     ['no-extension', 'application/pdf'],
     ['.pdf', 'application/pdf'],
-  ])('rejects mismatched or unsupported pair %s and %s', async (name, type) => {
+  ])('rejects unsupported name %s', async (name, type) => {
     const { service, storage } = setup();
     await expectCode(
       service.upload(1n, 'app', 'milestone', file(name, type)),

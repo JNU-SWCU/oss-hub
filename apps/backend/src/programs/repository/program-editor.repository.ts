@@ -13,7 +13,6 @@ import { readProgramDeletionScopeCounts } from '../program-deletion-scope';
 import type {
   EditableProgramView,
   ProgramDeletionScopeCounts,
-  ProgramCategoryLockState,
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
   ProgramMilestoneCreateInput,
@@ -92,7 +91,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       data: {
         name: input.name,
         organizer: input.organizer,
-        category: input.category,
+        trackType: input.trackType,
         applicationTemplateKey: input.applicationTemplateKey,
         applicationTemplateVersion: input.applicationTemplateVersion,
         applicationStartAt: input.applicationStartAt,
@@ -309,14 +308,13 @@ function toEditableProgramView(
     id: program.id,
     name: program.name,
     organizer: program.organizer,
-    category: program.category,
+    trackType: program.trackType,
     lifecycle: program.lifecycle,
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,
     applicationCount: program._count.applications,
     teamCount: program._count.teams,
     deletionScopeCounts,
-    categoryLocked: toCategoryLockState(program._count),
     applicationStartAt: program.applicationStartAt,
     applicationEndAt: program.applicationEndAt,
     startAt: program.startAt,
@@ -328,21 +326,6 @@ function toEditableProgramView(
     deletionProtected: program.deletionProtected,
     description: program.description,
     milestones: program.milestones.map(toMilestoneView),
-  };
-}
-
-function toCategoryLockState(counts: {
-  readonly applications: number;
-  readonly teams: number;
-}): ProgramCategoryLockState {
-  const byApplications = counts.applications > 0;
-  const byTeams = counts.teams > 0;
-  return {
-    locked: byApplications || byTeams,
-    byApplications,
-    byTeams,
-    applicationCount: counts.applications,
-    teamCount: counts.teams,
   };
 }
 

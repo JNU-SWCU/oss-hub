@@ -1,3 +1,4 @@
+import { ProgramCategory } from '@prisma/client';
 import { getProgramTemplate } from './program-template.registry';
 import {
   ProgramAuthoringValidationError,
@@ -64,7 +65,7 @@ export function buildProgramAuthoringPlan(
     issues.push({ path: 'endAt', code: 'INVALID_PROGRAM_SCHEDULE' });
   }
 
-  const template = getProgramTemplate(request.category);
+  const template = getProgramTemplate(ProgramCategory.BASIC);
   const teamMinSize = request.teamMinSize ?? template.teamSize.defaultMin;
   const teamMaxSize = request.teamMaxSize ?? template.teamSize.defaultMax;
   if (
@@ -147,7 +148,8 @@ export function buildProgramAuthoringPlan(
     program: {
       name,
       organizer,
-      category: request.category,
+      category: ProgramCategory.BASIC,
+      trackType: request.trackType,
       applicationTemplateKey: template.key,
       applicationTemplateVersion: template.version,
       applicationStartAt,

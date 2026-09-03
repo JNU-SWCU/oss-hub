@@ -6,7 +6,7 @@ import type { ProgramOverview } from './program-overview-api';
 const overview: ProgramOverview = {
   programId: 'program-1',
   name: 'OSS 경진대회',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   lifecycle: 'ACTIVE',
   milestoneCount: 3,
   boardPostCount: 5,

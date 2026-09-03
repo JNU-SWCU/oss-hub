@@ -17,7 +17,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import type { ValidationOptions } from 'class-validator';
-import { ProgramCategory } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 
 function isUnknownArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value);
@@ -107,8 +107,8 @@ export class ProgramAuthoringRequestDto {
   @MaxLength(200)
   declare readonly organizer: string;
 
-  @IsIn(Object.values(ProgramCategory))
-  declare readonly category: ProgramCategory;
+  @IsIn(Object.values(ProgramTrackType))
+  declare readonly trackType: ProgramTrackType;
 
   @IsDateString({ strict: true, strictSeparator: true })
   declare readonly applicationStartAt: string;

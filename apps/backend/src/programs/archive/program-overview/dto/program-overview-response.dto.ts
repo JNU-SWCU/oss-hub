@@ -49,7 +49,7 @@ export class MilestoneDocumentSummaryResponseDto {
 export class ProgramOverviewResponseDto {
   programId: string;
   name: string;
-  category: string;
+  trackType: string | null;
   lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
@@ -78,7 +78,7 @@ export class ProgramOverviewResponseDto {
   private constructor(view: ProgramOverviewView) {
     this.programId = view.programId;
     this.name = view.name;
-    this.category = view.category;
+    this.trackType = view.trackType;
     this.lifecycle = view.lifecycle;
     this.milestoneCount = view.milestoneCount;
     this.boardPostCount = view.boardPostCount;

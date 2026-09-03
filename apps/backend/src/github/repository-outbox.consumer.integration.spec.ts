@@ -4,6 +4,7 @@ import {
   OutboxEventStatus,
   ProgramCategory,
   RepositoryProvisionJobStatus,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,6 +47,7 @@ async function createApprovedApplication(applicationId: string): Promise<void> {
       id: program,
       name: `program-${applicationId}`,
       organizer: 'synthetic-organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-template',
       applicationTemplateVersion: 1,
