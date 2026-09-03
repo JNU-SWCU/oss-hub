@@ -66,8 +66,8 @@ export function ProgramApplyWizardView({
               팀을 선택하세요
             </h2>
             <p className="mt-2 text-sm text-muted-foreground [word-break:keep-all]">
-              기존 팀에 합류하거나 새 팀을 만들 수 있습니다. 팀 없이도 혼자
-              신청을 계속할 수 있습니다.
+              기존 팀에 합류하거나 새 팀을 만들 수 있습니다. 혼자 신청해도
+              됩니다.
             </p>
           </div>
           {teamError ? (
