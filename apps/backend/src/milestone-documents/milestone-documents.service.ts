@@ -240,6 +240,19 @@ export class MilestoneDocumentsService {
     };
   }
 
+  /**
+   * 학생 — 자기 신청의 제출 이력. 여는 문은 **소유**다: 활성 사용자인가, 서류가 그
+   * 마일스톤 소속인가, 이 프로그램 신청의 참여자인가. **지금 승인 상태인가는 묻지 않는다.**
+   *
+   * 승인 되돌리기는 순수한 상태 전이라 제출 행도 이력 행도 지우지 않는다(지우는 곳은
+   * 프로그램 전체 삭제 하나뿐이다). 그래서 목록의 `hasHistory`는 제출 행의 존재만 보고
+   * 참을 말하는데(`listForViewer`), 여기서 승인까지 물으면 되돌려진 학생만 「이력이 있다」는
+   * 답을 받고 그 이력을 열면 403이 나는 어긋남이 생긴다. 같은 이력을 교직원은 이미 승인
+   * 조건 없이 읽는다(`historyForStaff`) — 되돌리기가 장부를 봉인하는 것이 아니다.
+   *
+   * 쓰기(제출·업로드)의 승인 요구는 그대로다. 그쪽이 `APPLICATION_APPROVAL_REQUIRED`
+   * (「승인된 신청만 제출할 수 있습니다」)의 제자리다.
+   */
   async historyForParticipant(
     sessionGithubId: bigint,
     milestoneId: string,
@@ -260,11 +273,6 @@ export class MilestoneDocumentsService {
     );
     if (application === null) {
       throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
-    }
-    if (!application.approved) {
-      throw this.error(
-        MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
-      );
     }
     const page = await this.findHistoryPage(
       documentId,

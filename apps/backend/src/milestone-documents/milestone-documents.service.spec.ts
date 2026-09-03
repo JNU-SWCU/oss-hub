@@ -2075,7 +2075,13 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     );
   });
 
-  it('승인되지 않은 신청의 이력은 공개하지 않는다', async () => {
+  /**
+   * 옛 계약은 「승인되지 않은 신청의 이력은 공개하지 않는다」였다. 되돌리기가 이력 행을
+   * 지우지 않으므로 그 문은 되돌려진 학생만 막았고, 같은 이력을 교직원은 승인 조건 없이
+   * 읽는다. 지금 계약은 **소유만 본다**.
+   */
+  it('승인이 되돌려진 뒤에도 참여자에게 자기 이력을 그대로 준다', async () => {
+    // Given: 승인이 되돌려져 지금은 승인 상태가 아니지만, 승인 시절 남긴 이력 행은 그대로다.
     const { repository, mocks } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -2087,22 +2093,108 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         approved: false,
         programEndAt: new Date('2026-10-01T00:00:00.000Z'),
       }),
+      findSubmissionHistoryPage: jest.fn().mockResolvedValue({
+        items: [
+          {
+            id: 'history-1',
+            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            revision: 1,
+            actorNickname: '합성학생',
+            comment: null,
+            createdAt: new Date('2026-09-16T00:00:00.000Z'),
+            fileName: null,
+            content: { type: 'TEXT', text: '첫 제출' },
+          },
+        ],
+        nextCursor: null,
+        isComplete: true,
+      }),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    await expect(
-      service.historyForParticipant(
-        8_100_002n,
-        syntheticMilestoneId,
-        syntheticDocumentId,
-        query,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: {
-        code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
-      },
+    // When
+    const result = await service.historyForParticipant(
+      8_100_002n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      query,
+    );
+
+    // Then: 조회는 승인이 아니라 소유로 좁힌다 — 자기 신청 범위 그대로다.
+    expect(result.items.map((item) => item.revision)).toEqual([1]);
+    expect(result.isComplete).toBe(true);
+    expect(mocks.findSubmissionHistoryPage).toHaveBeenCalledWith(
+      syntheticDocumentId,
+      syntheticApplicationId,
+      null,
+      20,
+    );
+  });
+
+  /**
+   * 목록과 이력은 같은 사실을 두 번 말한다. 목록이 「이력이 있다」고 답한 줄을 열었을 때
+   * 이력이 거절되면 학생 화면에는 지울 수 없는 오류 상자가 남는다(#1096). 두 조회가
+   * 갈라지지 않도록 한 테스트 안에서 같은 신청을 두 경로로 읽는다.
+   */
+  it('승인이 아닌 상태에서도 목록의 hasHistory와 이력 조회가 어긋나지 않는다', async () => {
+    // Given: 되돌려진 신청 하나 — 제출 행도 이력 행도 남아 있다.
+    const submittedAt = new Date('2026-09-16T14:22:00.000Z');
+    const { repository } = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: false,
+        programEndAt: new Date('2026-10-01T00:00:00.000Z'),
+      }),
+      findSubmittedSummaries: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          submittedAt,
+          revision: 1,
+          status: SubmissionStatus.SUBMITTED,
+          hasCurrentFile: false,
+          historyComplete: true,
+          review: null,
+        },
+      ]),
+      findSubmissionHistoryPage: jest.fn().mockResolvedValue({
+        items: [
+          {
+            id: 'history-1',
+            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            revision: 1,
+            actorNickname: '합성학생',
+            comment: null,
+            createdAt: submittedAt,
+            fileName: null,
+            content: { type: 'TEXT', text: '첫 제출' },
+          },
+        ],
+        nextCursor: null,
+        isComplete: true,
+      }),
     });
-    expect(mocks.findSubmissionHistoryPage).not.toHaveBeenCalled();
+    const service = new MilestoneDocumentsService(repository);
+
+    // When: 화면이 실제로 쏘는 두 요청을 같은 순서로 부른다.
+    const list = await service.listForViewer(8_100_002n, syntheticMilestoneId);
+    const history = await service.historyForParticipant(
+      8_100_002n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      query,
+    );
+
+    // Then: 목록이 있다고 한 이력은 열린다.
+    expect(list[0]?.viewerSubmission?.history).toEqual({
+      hasHistory: true,
+      isComplete: true,
+    });
+    expect(history.items).toHaveLength(1);
   });
 
   it('다른 마일스톤의 서류 id는 존재 여부와 무관하게 찾지 못한 것으로 답한다', async () => {
