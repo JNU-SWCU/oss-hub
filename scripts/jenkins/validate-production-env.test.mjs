@@ -3,10 +3,15 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const validator = new URL('./validate-production-env.mjs', import.meta.url);
+const validator = fileURLToPath(
+  new URL('./validate-production-env.mjs', import.meta.url),
+);
 const REMOVE = Symbol('remove');
+const R2_ENDPOINT =
+  'https://00000000000000000000000000000000.r2.cloudflarestorage.com';
 const sessionSecret = Buffer.from('0123456789abcdef0123456789abcdef').toString(
   'base64url',
 );
@@ -34,11 +39,10 @@ const baseEnvironment = Object.freeze({
   GITHUB_COLLECTION_APP_DEADLINE_MS: '30000',
   COLLECTION_CRON_EXPRESSION: '0 0 * * * *',
   PORT: '4000',
-  SUBMISSION_FILE_S3_ENDPOINT: 'http://minio:9000',
-  SUBMISSION_FILE_S3_REGION: 'us-east-1',
-  SUBMISSION_FILE_S3_BUCKET: 'oss-hub-submission-files',
-  SUBMISSION_FILE_S3_ACCESS_KEY_ID: 'storage-access-synthetic',
-  SUBMISSION_FILE_S3_SECRET_ACCESS_KEY: 'storage-secret-synthetic',
+  SUBMISSION_FILE_STORAGE_MODE: 'managed',
+  SUBMISSION_FILE_S3_ENDPOINT: R2_ENDPOINT,
+  SUBMISSION_FILE_S3_REGION: 'auto',
+  SUBMISSION_FILE_S3_BUCKET: 'synthetic-r2-bucket',
   SUBMISSION_FILE_S3_FORCE_PATH_STYLE: 'true',
   AUTH_INITIAL_ROLES: '',
   MAIL_MODE: 'send',
@@ -53,7 +57,6 @@ const syntheticSecrets = Object.freeze([
   sessionSecret,
   joinCodeSecret,
   baseEnvironment.GITHUB_OAUTH_CLIENT_SECRET,
-  baseEnvironment.SUBMISSION_FILE_S3_SECRET_ACCESS_KEY,
   baseEnvironment.GMAIL_OAUTH_CLIENT_SECRET,
   baseEnvironment.GMAIL_OAUTH_REFRESH_TOKEN,
 ]);
@@ -78,7 +81,7 @@ function runValidator(contents) {
   const directory = mkdtempSync(join(tmpdir(), 'validate-production-env-'));
   const envFile = join(directory, 'production.env');
   writeFileSync(envFile, contents, { mode: 0o600 });
-  const result = spawnSync(process.execPath, [validator.pathname, envFile], {
+  const result = spawnSync(process.execPath, [validator, envFile], {
     encoding: 'utf8',
   });
   rmSync(directory, { recursive: true, force: true });
@@ -141,15 +144,14 @@ const controls = [
         "GITHUB_APP_ORG='synthetic-org'",
       ),
       'SUBMISSION_FILE_S3_REGION',
-      'SUBMISSION_FILE_S3_REGION="us-east-1"',
+      'SUBMISSION_FILE_S3_REGION="auto"',
     ),
   ),
   control('minimum port is accepted', renderEnvironment({ PORT: '1' })),
   control('maximum port is accepted', renderEnvironment({ PORT: '65535' })),
   control(
-    'false boolean forms are accepted',
+    'false cleanup maintenance boolean is accepted',
     renderEnvironment({
-      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: 'false',
       SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED: 'false',
     }),
   ),
@@ -173,17 +175,9 @@ const controls = [
     renderEnvironment({ COLLECTION_CRON_EXPRESSION: '0 */15 * * * *' }),
   ),
   control(
-    'blank compose-defaulted values are accepted',
+    'managed R2 configuration accepts a dotted bucket',
     renderEnvironment({
-      GITHUB_COLLECTION_APP_API_BASE_URL: '',
-      GITHUB_COLLECTION_APP_MAX_PAGES: '',
-      GITHUB_COLLECTION_APP_DEADLINE_MS: '',
-      COLLECTION_CRON_EXPRESSION: '',
-      PORT: '',
-      SUBMISSION_FILE_S3_ENDPOINT: '',
-      SUBMISSION_FILE_S3_REGION: '',
-      SUBMISSION_FILE_S3_BUCKET: '',
-      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: '',
+      SUBMISSION_FILE_S3_BUCKET: 'synthetic.r2.bucket',
     }),
   ),
   control(
@@ -194,10 +188,6 @@ const controls = [
       GITHUB_COLLECTION_APP_DEADLINE_MS: REMOVE,
       COLLECTION_CRON_EXPRESSION: REMOVE,
       PORT: REMOVE,
-      SUBMISSION_FILE_S3_ENDPOINT: REMOVE,
-      SUBMISSION_FILE_S3_REGION: REMOVE,
-      SUBMISSION_FILE_S3_BUCKET: REMOVE,
-      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: REMOVE,
     }),
   ),
   control(
@@ -207,14 +197,6 @@ const controls = [
   control(
     'canonical mixed-case GitHub organization is accepted',
     renderEnvironment({ GITHUB_APP_ORG: 'Synthetic-Security-Org' }),
-  ),
-  control(
-    'external HTTPS S3 endpoint and dotted bucket are accepted',
-    renderEnvironment({
-      SUBMISSION_FILE_S3_ENDPOINT: 'https://storage.example.test',
-      SUBMISSION_FILE_S3_BUCKET: 'synthetic.assets.example',
-      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: 'false',
-    }),
   ),
   control(
     'HTTPS GitHub Enterprise API path is accepted',
@@ -488,7 +470,7 @@ const valueRejects = [
   reject(
     'unsupported S3 endpoint scheme',
     'SUBMISSION_FILE_S3_ENDPOINT',
-    'ftp://minio',
+    'ftp://storage.example.test',
   ),
   reject('uppercase S3 region', 'SUBMISSION_FILE_S3_REGION', 'US-EAST-1'),
   reject('spaced S3 region', 'SUBMISSION_FILE_S3_REGION', 'us east 1'),
@@ -504,10 +486,41 @@ const valueRejects = [
   ),
   reject('too-short S3 bucket', 'SUBMISSION_FILE_S3_BUCKET', 'ab'),
   reject('IP-shaped S3 bucket', 'SUBMISSION_FILE_S3_BUCKET', '192.168.1.1'),
-  removed('missing S3 access key ID', 'SUBMISSION_FILE_S3_ACCESS_KEY_ID'),
-  removed(
-    'missing S3 secret access key',
-    'SUBMISSION_FILE_S3_SECRET_ACCESS_KEY',
+  removed('missing storage mode', 'SUBMISSION_FILE_STORAGE_MODE'),
+  reject(
+    'retired MinIO storage mode',
+    'SUBMISSION_FILE_STORAGE_MODE',
+    'minio',
+    'SUBMISSION_FILE_STORAGE_MODE',
+  ),
+  rawReject(
+    'managed mode rejects a safe-looking non-R2 endpoint',
+    renderEnvironment({
+      SUBMISSION_FILE_S3_ENDPOINT: 'https://storage.example.test',
+    }),
+    'SUBMISSION_FILE_STORAGE_MODE',
+  ),
+  rawReject(
+    'managed mode requires auto region',
+    renderEnvironment({
+      SUBMISSION_FILE_S3_REGION: 'us-east-1',
+    }),
+    'SUBMISSION_FILE_STORAGE_MODE',
+  ),
+  rawReject(
+    'managed mode requires selected path style',
+    renderEnvironment({
+      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: 'false',
+    }),
+    'SUBMISSION_FILE_STORAGE_MODE',
+  ),
+  rawReject(
+    'managed env must not store access key',
+    renderEnvironment({
+      SUBMISSION_FILE_S3_ACCESS_KEY_ID: 'storage-access-synthetic',
+    }),
+    'SUBMISSION_FILE_STORAGE_MODE',
+    ['storage-access-synthetic'],
   ),
 
   reject('non-empty initial roles seed', 'AUTH_INITIAL_ROLES', '12345:ADMIN'),

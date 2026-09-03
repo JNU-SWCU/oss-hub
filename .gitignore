@@ -37,8 +37,9 @@ Thumbs.db
 *.swp
 *.swo
 
-# Local agent state
-.gjc/
+# Local agent state (.gjc/skills holds committed symlinks to skills/)
+.gjc/*
+!.gjc/skills/
 .omo/
 .omc/
 .claude/settings.local.json

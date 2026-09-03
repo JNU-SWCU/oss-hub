@@ -1,6 +1,8 @@
 import {
   AffiliationKind,
   MemberKind,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ReviewDecision,
   SubmissionFileLifecycle,
@@ -44,7 +46,7 @@ const CLEANUP_MILESTONE_IDS = [
   FILE_METADATA_MILESTONE_ID,
 ];
 
-/** CHANGES_REQUESTED 상태를 테스트에서 직접 seed한다 — 최신 revision에 Review를 단다. */
+/** CHANGES_REQUESTED 상태를 target submission history와 review history로 직접 seed한다. */
 async function seedChangesRequestedSubmission(params: {
   readonly id: string;
   readonly milestoneId: string;
@@ -53,28 +55,58 @@ async function seedChangesRequestedSubmission(params: {
   readonly revisionCount?: number;
 }): Promise<void> {
   const revisionCount = params.revisionCount ?? 1;
-  await prisma.submission.create({
-    data: {
-      id: params.id,
+  const existingDocument = await prisma.milestoneDocument.findFirst({
+    where: {
       milestoneId: params.milestoneId,
+      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+    },
+    select: { id: true },
+  });
+  const documentId =
+    existingDocument?.id ?? `${params.milestoneId}-legacy-document`;
+  if (existingDocument === null) {
+    await prisma.milestoneDocument.create({
+      data: {
+        id: documentId,
+        milestoneId: params.milestoneId,
+        name: '합성 기존 제출',
+        required: true,
+        sortOrder: -1,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+    });
+  }
+  const targetId = params.id;
+  await prisma.milestoneDocumentSubmission.create({
+    data: {
+      id: targetId,
+      milestoneDocumentId: documentId,
       applicationId: params.applicationId,
       status: SubmissionStatus.CHANGES_REQUESTED,
-      currentRevision: revisionCount,
-      revisions: {
-        create: Array.from({ length: revisionCount }, (_, index) => ({
-          id: `${params.id}-revision-${index + 1}`,
-          revision: index + 1,
-          submissionType: MilestoneSubmissionType.TEXT,
-          content: { type: 'TEXT', text: `합성 revision ${index + 1}` },
-          submittedById: params.submittedById,
-        })),
-      },
+      content: { type: 'TEXT', text: `합성 revision ${revisionCount}` },
+      revision: revisionCount,
+      submittedById: params.submittedById,
     },
   });
-  await prisma.review.create({
+  const histories = Array.from({ length: revisionCount }, (_, index) => ({
+    id: `${params.id}-target-history-${index + 1}`,
+    milestoneDocumentSubmissionId: targetId,
+    event:
+      index === 0
+        ? MilestoneDocumentSubmissionHistoryEvent.SUBMITTED
+        : MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+    revision: index + 1,
+    content: { type: 'TEXT', text: `합성 revision ${index + 1}` },
+    actorId: params.submittedById,
+  }));
+  await prisma.milestoneDocumentSubmissionHistory.createMany({
+    data: histories,
+  });
+  await prisma.milestoneDocumentReviewHistory.create({
     data: {
-      id: `${params.id}-review`,
-      submissionRevisionId: `${params.id}-revision-${revisionCount}`,
+      id: `${params.id}-target-review`,
+      milestoneDocumentSubmissionId: targetId,
+      submissionHistoryId: `${params.id}-target-history-${revisionCount}`,
       reviewerId: REVIEWER_ID,
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '보완 후 재제출해 주세요 (합성)',
@@ -136,22 +168,35 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     await prisma.submissionFile.deleteMany({
       where: { milestoneId: { in: CLEANUP_MILESTONE_IDS } },
     });
-    await prisma.review.deleteMany({
+    await prisma.milestoneDocumentReviewHistory.deleteMany({
       where: {
-        submissionRevision: {
-          submission: { milestoneId: { in: CLEANUP_MILESTONE_IDS } },
+        milestoneDocumentSubmission: {
+          milestoneDocument: { milestoneId: { in: CLEANUP_MILESTONE_IDS } },
         },
       },
     });
-    await prisma.submissionRevision.deleteMany({
-      where: { submission: { milestoneId: { in: CLEANUP_MILESTONE_IDS } } },
+    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      where: {
+        submission: {
+          milestoneDocument: { milestoneId: { in: CLEANUP_MILESTONE_IDS } },
+        },
+      },
     });
-    await prisma.submission.deleteMany({
-      where: { milestoneId: { in: CLEANUP_MILESTONE_IDS } },
+    await prisma.milestoneDocumentSubmission.deleteMany({
+      where: {
+        milestoneDocument: { milestoneId: { in: CLEANUP_MILESTONE_IDS } },
+      },
     });
   });
 
   afterAll(async () => {
+    await prisma.milestoneDocument.deleteMany({
+      where: {
+        milestoneId: {
+          in: [OVERDUE_TEXT_MILESTONE_ID, FILE_METADATA_MILESTONE_ID],
+        },
+      },
+    });
     await prisma.milestone.deleteMany({
       where: {
         id: { in: [OVERDUE_TEXT_MILESTONE_ID, FILE_METADATA_MILESTONE_ID] },
@@ -265,21 +310,38 @@ describe('SubmissionsService checklist/resubmission integration', () => {
 
   it('체크리스트는 현재 revision의 ATTACHED·미만료 파일만 안전한 메타데이터로 노출한다', async () => {
     // Given
-    await prisma.submission.create({
-      data: {
-        id: 'synthetic-checklist-file-submission',
+    const targetDocumentId = `${FILE_METADATA_MILESTONE_ID}-legacy-document`;
+    await prisma.milestoneDocument.upsert({
+      where: { id: targetDocumentId },
+      update: {},
+      create: {
+        id: targetDocumentId,
         milestoneId: FILE_METADATA_MILESTONE_ID,
+        name: '합성 파일 메타데이터 제출',
+        required: true,
+        sortOrder: -1,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+    });
+    const targetSubmissionId = 'synthetic-checklist-file-target';
+    const targetHistoryId = 'synthetic-checklist-file-target-history';
+    await prisma.milestoneDocumentSubmission.create({
+      data: {
+        id: targetSubmissionId,
+        milestoneDocumentId: targetDocumentId,
         applicationId: PERSONAL_APPLICATION_ID,
-        currentRevision: 1,
-        revisions: {
-          create: {
-            id: 'synthetic-checklist-file-revision',
-            revision: 1,
-            submissionType: MilestoneSubmissionType.FILE,
-            content: { type: 'FILE', fileId: 'synthetic-checklist-file-ok' },
-            submittedById: PERSONAL_USER_ID,
-          },
-        },
+        revision: 1,
+        submittedById: PERSONAL_USER_ID,
+      },
+    });
+    await prisma.milestoneDocumentSubmissionHistory.create({
+      data: {
+        id: targetHistoryId,
+        milestoneDocumentSubmissionId: targetSubmissionId,
+        event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+        revision: 1,
+        content: { type: 'FILE', fileId: 'synthetic-checklist-file-ok' },
+        actorId: PERSONAL_USER_ID,
       },
     });
     await prisma.submissionFile.createMany({
@@ -293,7 +355,8 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           originalFileName: 'report.pdf',
           mimeType: 'application/pdf',
           sizeBytes: 1024,
-          submissionRevisionId: 'synthetic-checklist-file-revision',
+          milestoneDocumentSubmissionId: targetSubmissionId,
+          milestoneDocumentSubmissionHistoryId: targetHistoryId,
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           expiresAt: new Date('2028-01-01T00:00:00.000Z'),
         },
@@ -319,7 +382,8 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           originalFileName: 'expired.pdf',
           mimeType: 'application/pdf',
           sizeBytes: 4096,
-          submissionRevisionId: 'synthetic-checklist-file-revision',
+          milestoneDocumentSubmissionId: targetSubmissionId,
+          milestoneDocumentSubmissionHistoryId: targetHistoryId,
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           expiresAt: new Date('2020-01-01T00:00:00.000Z'),
         },
@@ -377,34 +441,35 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       revision: 2,
       status: SubmissionStatus.SUBMITTED,
     });
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: { id: submissionId },
       include: {
-        revisions: {
+        histories: {
+          where: { revision: { not: null } },
           orderBy: { revision: 'asc' },
-          include: { review: true },
+          include: { reviewHistories: true },
         },
       },
     });
     expect(stored).toMatchObject({
       status: SubmissionStatus.SUBMITTED,
-      currentRevision: 2,
+      revision: 2,
     });
-    expect(stored.revisions).toHaveLength(2);
-    expect(stored.revisions[0]).toMatchObject({
+    expect(stored.histories).toHaveLength(2);
+    expect(stored.histories[0]).toMatchObject({
       revision: 1,
       content: { type: 'TEXT', text: '합성 revision 1' },
     });
-    expect(stored.revisions[0]?.review).toMatchObject({
+    expect(stored.histories[0]?.reviewHistories[0]).toMatchObject({
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '보완 후 재제출해 주세요 (합성)',
     });
-    expect(stored.revisions[1]).toMatchObject({
+    expect(stored.histories[1]).toMatchObject({
       revision: 2,
-      submittedById: PERSONAL_USER_ID,
+      actorId: PERSONAL_USER_ID,
       content: { type: 'TEXT', text: '보완한 본문' },
       comment: '실행 화면을 추가했습니다',
-      review: null,
+      reviewHistories: [],
     });
   });
 
@@ -435,12 +500,12 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     await expect(resubmission).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION },
     });
-    const stored = await prisma.submission.findUniqueOrThrow({
+    const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: { id: submissionId },
-      include: { revisions: true },
+      include: { histories: { where: { revision: { not: null } } } },
     });
-    expect(stored.currentRevision).toBe(2);
-    expect(stored.revisions).toHaveLength(2);
+    expect(stored.revision).toBe(2);
+    expect(stored.histories).toHaveLength(2);
   });
 
   it('마감 후 SUBMITTED·APPROVED 교체와 REJECTED 교체를 차단한다', async () => {

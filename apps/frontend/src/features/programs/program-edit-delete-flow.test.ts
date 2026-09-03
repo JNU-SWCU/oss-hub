@@ -63,7 +63,7 @@ describe('mapProgramDeleteError', () => {
           label: '제출물',
           count: 3,
           unit: '건',
-          href: '/programs/program%3A1/status',
+          href: '/programs/program%3A1/documents',
         },
       ],
     });

@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  MilestoneDocumentKind,
+  type Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   DeadlineProgramSource,
@@ -53,7 +58,12 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         milestones: {
           some: {
             dueAt: { gte: window.from, lte: window.to },
-            documents: { some: { required: true } },
+            documents: {
+              some: {
+                required: true,
+                kind: MilestoneDocumentKind.DOCUMENT,
+              },
+            },
           },
         },
       },
@@ -78,6 +88,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
             name: true,
             dueAt: true,
             documents: {
+              where: { kind: MilestoneDocumentKind.DOCUMENT },
               select: { id: true, required: true },
               orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
             },

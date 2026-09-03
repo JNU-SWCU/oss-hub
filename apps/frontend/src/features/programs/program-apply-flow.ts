@@ -3,8 +3,12 @@ import type { ProblemDetail, ProblemDetailFieldError } from '@/lib/api-client';
 import type { ProgramTeam } from './api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
+/**
+ * `manage-not-allowed`는 신청자도 팀장도 아닌 팀원이다 — 신청서를 읽을 수는 있지만
+ * 고치거나 취소하지는 못한다(#1083). `period-closed`로 뭉뚱그리면 기다리면 열릴 줄 안다.
+ */
 export type ProgramApplyBlockedReason =
-  'period-closed' | 'already-applied' | 'team-required';
+  'period-closed' | 'already-applied' | 'team-required' | 'manage-not-allowed';
 
 export type ProgramApplyReadyState = {
   readonly kind: 'ready';

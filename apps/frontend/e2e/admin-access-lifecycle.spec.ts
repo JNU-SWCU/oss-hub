@@ -25,7 +25,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
   }, testInfo) => {
     // Given: auth seed 사용자가 있는 관리자 전용 사용자 목록. 가입 신청 탭은
     // `/dashboard/applicants`로 분리됐으므로 여기서는 검색·페이지네이션만 본다.
-    await adminPage.goto('/admin/access');
+    await adminPage.goto('/dashboard/users');
     await expect(
       adminPage.getByRole('heading', { name: '사용자 목록' }),
     ).toBeVisible();
@@ -65,6 +65,44 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
 
     await adminPage.getByRole('button', { name: '이전' }).click();
     await attachStateScreenshot(adminPage, testInfo, 'list-first-page');
+  });
+
+  test('목록에서 연 상세는 오버레이이고 새로고침하면 표준 상세가 된다', async ({
+    adminPage,
+  }) => {
+    // Given: 관리자 전용 사용자 목록에서 대상 사용자를 검색한다.
+    await adminPage.goto('/dashboard/users');
+    const search = adminPage.getByLabel('이름 또는 GitHub 닉네임 검색');
+    await search.fill('seed-auth-admin-second');
+    await adminPage.getByRole('button', { name: '검색', exact: true }).click();
+
+    // When: 목록 링크를 소프트 클릭하면 intercepting route가 상세 오버레이를
+    // 연다. 주소는 표준 상세 URL이라 공유하거나 새로고침할 수 있어야 한다.
+    await adminPage
+      .getByRole('link', { name: '합성 두 번째 관리자', exact: true })
+      .click();
+    await expect(adminPage).toHaveURL(
+      new RegExp(
+        `/dashboard/users/${encodeURIComponent(seedId('auth', 'admin-second'))}$`,
+      ),
+    );
+    await expect(adminPage.getByRole('dialog')).toBeVisible();
+    await expect(
+      adminPage.getByRole('dialog').getByRole('heading', {
+        name: '합성 두 번째 관리자',
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    // Then: 같은 URL을 새로고침하면 오버레이가 아닌 전체 상세 페이지가 열린다.
+    await adminPage.reload();
+    await expect(adminPage.getByRole('dialog')).toHaveCount(0);
+    await expect(
+      adminPage.getByRole('heading', {
+        name: '합성 두 번째 관리자',
+        exact: true,
+      }),
+    ).toBeVisible();
   });
 
   test('PENDING 요청을 반려한 뒤 사용자가 교직원으로 재신청한다', async ({
@@ -109,7 +147,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     const staffPage = await authSeedPage('staff-revocable');
 
     // When / Then: 명부 화면은 권한 안내를, 명부·역할 변경 API는 403을 반환한다.
-    await staffPage.goto('/admin/access');
+    await staffPage.goto('/dashboard/users');
     await expect(
       staffPage.getByText('접근 권한이 없는 페이지 입니다', {
         exact: true,
@@ -154,7 +192,11 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     ).toBeVisible();
     await attachStateScreenshot(staffPage, testInfo, 'staff-pending-approved');
 
-    await adminPage.goto('/admin/audit-log');
+    await adminPage.goto('/dashboard');
+    await adminPage
+      .getByRole('link', { name: '감사 로그', exact: true })
+      .click();
+    await expect(adminPage).toHaveURL(/\/dashboard\/audit-logs$/);
     await expect(
       adminPage.getByRole('heading', { name: '감사 로그' }),
     ).toBeVisible();
@@ -172,6 +214,27 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       approvedRow.getByText('@seed-auth-staff-pending'),
     ).toBeVisible();
     await attachStateScreenshot(adminPage, testInfo, 'audit-log-approver');
+  });
+
+  test('학생이 감사 로그 주소로 직접 들어가면 같은 주소에서 접근 거부를 본다', async ({
+    authSeedPage,
+  }) => {
+    // Given: 가입을 마친 학생 세션.
+    const studentPage = await authSeedPage('profile-complete');
+
+    // When: 학생이 관리자 전용 감사 로그의 역할 비노출 주소를 직접 연다.
+    await studentPage.goto('/dashboard/audit-logs');
+
+    // Then: 다른 화면으로 보내지 않고 같은 주소에서 접근 거부를 보여 준다.
+    await expect(studentPage).toHaveURL(/\/dashboard\/audit-logs$/);
+    await expect(
+      studentPage.getByText('접근 권한이 없는 페이지 입니다', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      studentPage.getByRole('heading', { name: '감사 로그' }),
+    ).toHaveCount(0);
   });
 
   test('교직원 접근을 회수하면 즉시 접근이 막히고, API 회수는 역할 재선택으로 이어진다', async ({
@@ -266,7 +329,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     // Given: 첫 관리자가 STAFF 상세의 이전 projection을 보고 있다.
     await openDetail(adminPage, STAFF_APPROVED, '이름 미등록');
     const secondAdminPage = await authSeedPage('admin-second');
-    await secondAdminPage.goto('/admin/access');
+    await secondAdminPage.goto('/dashboard/users');
 
     // When: 두 번째 관리자가 먼저 같은 STAFF를 API로 null 회수한다 — null
     // 회수는 여전히 REVOKED 이력을 남기는 실제 기능이고, 이제 API 전용

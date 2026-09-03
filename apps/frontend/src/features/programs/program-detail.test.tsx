@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActivityPanelBody } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { ApiError } from '@/lib/api-client';
@@ -77,7 +77,7 @@ describe('MilestoneRow', () => {
 
     expect(html).toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
     expect(html).not.toContain('제출하기');
-    expect(html).not.toContain('/mydocs?milestoneId=');
+    expect(html).not.toContain('/documents?milestoneId=');
   });
 
   it('제출 항목이 없는 신규 마일스톤은 승인이 아니라 안내용으로 표시한다', () => {
@@ -135,7 +135,7 @@ describe('MilestoneRow', () => {
     );
     expect(html).toContain('다시 제출');
     expect(html).toContain(
-      '/programs/program-1/mydocs?milestoneId=milestone-1',
+      '/programs/program-1/documents?milestoneId=milestone-1',
     );
     expect(html).not.toContain('/milestones/milestone-1/submit');
   });
@@ -251,6 +251,15 @@ const programWithoutMilestones: ProgramDetail = {
 };
 
 describe('ProgramDetailPage states', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-15T12:00:00+09:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   // 승인된 학생 전용 체크리스트로 마일스톤 섹션을 통째로 갈아 끼우던 이전 분기는
   // milestone documents API 기반 인라인 서류 제출로 대체됐다 — approvedStudentMilestones가
   // 넘어와도 이제는 무시하고 항상 ProgramMilestones(팩트 바 + 서류 제출 행)를 그린다.

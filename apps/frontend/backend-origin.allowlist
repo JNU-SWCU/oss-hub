@@ -1,0 +1,6 @@
+# production BACKEND_ORIGIN(sha256) allowlist. 한 줄에 hex digest 하나.
+# 구문만 유효한 임의 HTTPS origin은 production 빌드를 통과하지 못한다.
+# canonical authenticated origin domain
+704664fc8d986eb2a6852e6b62bff88b5b60291d4bc84c5ec889859c648dd802
+# CI synthetic origin (https://backend.example.test)
+c3a64d020d4178e29f2473dd8f254210266a17fe72c7d8a366c8bda4b3328ded

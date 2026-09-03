@@ -2,7 +2,7 @@
 name: "manage-qa-tickets"
 description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "4.0.0"
+  version: "4.4.0"
 ---
 
 # Manage QA tickets
@@ -129,6 +129,7 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 
 본문 변형은 [notion-ticket-contract.md](references/notion-ticket-contract.md)에서 고른다.
 속성은 색인과 배정을 위한 것이고 페이지 본문이 실행 계약이다.
+제목을 지시문으로 쓰는 규칙, 파일 경로를 클릭 가능한 링크로 쓰는 규칙, 중첩 불릿 규칙, 본문에 넣지 않는 프로세스 메타 문장의 목록은 모두 [notion-ticket-contract.md](references/notion-ticket-contract.md)가 원본이다.
 사용자가 손으로 고친 참조 티켓을 지목하면 초안을 쓰기 전에 그 티켓을 다시 열어 섹션 순서, 문장 밀도, 어휘를 맞춘다.
 
 모든 본문은 첫 heading 앞에 여는 말로 시작한다 — 읽는 사람이 이 화면에서 이미 겪고 있는 불편에서 출발하지 않으면 티켓은 남의 일이 된다.
@@ -152,6 +153,10 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 절차는 [notion-ticket-contract.md](references/notion-ticket-contract.md)의 `frontend 캡처 절차`가 원본이다.
 
 두 변형 모두 완료 조건은 지목된 페르소나가 관찰할 수 있는 형태로 쓰고, 가장 좁은 비목표를 명시한다.
+
+화면 티켓은 완료 조건에 [UX 안티패턴](../submit-pr-evidence/references/ux-antipatterns.md) 점검 항목을 반드시 넣는다.
+티켓이 그것을 요구하지 않으면 담당자는 요구된 것만 만들고, 같은 안티패턴이 다음 화면에서 다시 나온다 — 이 목록은 리뷰에서 지적하라고 있는 것이 아니라 티켓에 적으라고 있는 것이다.
+티켓 본문에는 재현·확인 URL을 `https://jnu-oss-hub.com/<path>` 전체 형태로 적어 읽는 사람이 바로 누를 수 있게 한다.
 
 ### 1.7 쓰기 전에 다른 눈으로 검증한다
 
@@ -202,11 +207,8 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 ## 3. 수행 — Issue를 PR로 만든다
 
-`oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 Issue 본문이 작업 범위의 유일한 원본이다.
-성공 기준은 PR이 티켓 계약이 요구한 것과 정확히 일치하고, 완료 조건의 모든 항목이 PR을 열기 전에 실증되며, 금지 경계 밖의 파일을 0건 건드리는 것이다.
-`frontend` 티켓이면 동일한 경로·페르소나·viewport·합성 데이터 상태에서 실제 Before/After 캡처를 만들고 촬영 조건과 함께 PR 본문에 첨부한다.
-
-절차, 계약 파싱, 선행 의존성과 순환 처리, 검증과 PR 흐름, Before/After 증거, 이스케이프 해치는 [execution-workflow.md](references/execution-workflow.md)가 원본이다.
+`oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 Issue 번호를 [submit-pr-evidence](../submit-pr-evidence/SKILL.md)에 넘긴다.
+계약 파싱, 구현 범위, 완료 조건 실증, 영역별 증거 게이트, PR 제출 절차는 그 스킬이 원본이다.
 
 ## 4. 레거시 행 이관
 
@@ -280,6 +282,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
-- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 PR 본문에 첨부했고, 시각 변화가 없으면 `N/A`와 사유를 적었다.
+- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 사람이 공개 안전·메타데이터를 확인하고, PR 본문에 첨부해 렌더된 것을 다시 열어 확인했고, 시각 변화가 없으면 `N/A`와 사유를 적었다([submit-pr-evidence/references/frontend-capture.md](../submit-pr-evidence/references/frontend-capture.md)가 원본).
+- [ ] `backend` 로직 변경이면 mermaid 또는 DOT 흐름 다이어그램을 PR 본문 `## 흐름 다이어그램`에 넣었다([submit-pr-evidence/references/backend-diagram.md](../submit-pr-evidence/references/backend-diagram.md)가 원본).
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 옮겼다.

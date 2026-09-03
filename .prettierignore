@@ -24,6 +24,7 @@ apps/frontend/components.json
 
 # agent worktrees / local evidence
 .claude/worktrees/
+.worktrees/
 .omo/
 .playwright-mcp/
 # 화면 정합 대조용 프로토타입 로컬 작업본 — 도구 산출물이고 커밋 대상이 아니다(대조가 끝나면 폴더와 함께 이 두 줄도 지운다)

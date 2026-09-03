@@ -35,6 +35,14 @@ describe('DataTable', () => {
     expect(html).toContain('대기');
   });
 
+  it('표 머리글을 보조기기에 열 제목으로 명시한다', () => {
+    const html = renderToStaticMarkup(
+      <DataTable columns={columns} data={rows} rowKey={(row) => row.id} />,
+    );
+
+    expect(html.match(/<th[^>]*scope="col"/g)).toHaveLength(columns.length);
+  });
+
   it('renders the empty state slot when data is empty', () => {
     const html = renderToStaticMarkup(
       <DataTable

@@ -1,40 +1,35 @@
-<!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-30 · Updated: 2026-07-31 (테스트 파일명 인벤토리 제거) -->
+<!-- init:managed id=backend-submissions sha256=8cbb8274066d8badbfd44bd751fe335014bd32ba4c28ab78ec4dd6d0743ed9f8 -->
+# submissions — 마일스톤 제출과 파일 수명주기
 
-# apps/backend/src/submissions — 제출물·파일 라이프사이클
+## 소유 경계
 
-## Purpose
+- 이 모듈은 승인된 학생의 마일스톤 제출·재제출, 제출 체크리스트·현황 매트릭스, 파일 업로드·다운로드·정리를 소유한다.
+- 제출 업무는 `submissions.service.ts`/`submissions.repository.ts`, 파일은 `submission-files.service.ts`/`submission-files.repository.ts`, 매트릭스는 `submission-matrix.service.ts`/repository로 분리한다.
+- `submission-dashboard-summary.port.ts`와 service/repository는 `SUBMISSION_DASHBOARD_SUMMARY_PORT`를 export하며 `applications/staff-dashboard.service.ts`가 이 cross-module read contract만 소비한다.
+- 검토 결정과 `SubmissionStatus` 전이는 `submission-reviews/` 소유다. 이 모듈은 학생 제출과 재제출만 만들며 검토 승인·반려를 구현하지 않는다.
+- 프로그램 마감 계산은 `../programs/program-deadline.ts`를 사용한다. 마감 규칙을 별도로 계산하지 않는다.
 
-학생 마일스톤 제출, 재제출, 파일 수명주기, 교직원용 제출 현황 매트릭스를 담는다.
-파일 저장은 포트와 S3 어댑터로 분리한다.
+## 제출 이력과 동시성
 
-## Key Files
+- 최초 제출은 revision 1과 `SUBMITTED` 이력을 만들고, 재제출은 기존 제출의 revision을 CAS로 증가시키며 history 행을 추가한다. 과거 revision·history를 덮어쓰거나 삭제하지 않는다.
+- 재제출의 `baseRevision`과 현재 status를 transaction에서 비교한다. 경쟁 실패는 `STALE_SUBMISSION_REVISION`으로 귀결하고 read-then-write 우회를 만들지 않는다.
+- `CHANGES_REQUESTED`는 마감 후에도 보완할 수 있다. `SUBMITTED` 교체는 마감 전만 가능하며 `APPROVED`와 `REJECTED`는 교체할 수 없다.
+- 제출 내용 타입은 milestone `submissionType`과 일치해야 한다. 파일 제출은 program 종료일이 있어야 하고 만료일은 그 날짜에서 1년 뒤다.
+- 학생 여부와 승인된 신청자·팀 구성원 검사는 서비스와 repository의 participant 조회를 통해 수행한다. submission ID 존재 여부로 타인의 제출물을 구분해 노출하지 않는다.
 
-| 파일 | 역할 |
-| --- | --- |
-| `submissions.service.ts` | `form`(제출 폼 컨텍스트) · `create`(최초 제출, `blockedReason` 사전 계산과 `assertSubmittable` 실제 검증이 분리돼 있음) · `resubmit`(보완 재제출 또는 마감 전 교체) · `checklist` |
-| `submission-file-storage.port.ts` | `SubmissionFileStoragePort` 인터페이스·`SUBMISSION_FILE_STORAGE` DI 토큰 |
-| `s3-submission-file.storage.ts` | 포트의 유일한 구현체 — lazy client 초기화 |
-| `submission-file-cleanup.service.ts` / `.scheduler.ts` | 만료된 파일 정리(매시 cron) — `SubmissionFileCleanupService.runDue()` |
-| `submission-file-cleanup-failures.controller.ts` / `.service.ts` | 재시도를 소진해 멈춘 정리 대상의 관리자 전용 조회(`GET /submission-files/cleanup/failures`, #545) |
-| `submission-matrix.service.ts` | 교직원 제출 현황 매트릭스(#124) |
-| `submissions-error-code.enum.ts` | `SUB_*` 코드 레지스트리 |
+## 파일 계약
 
-## Subdirectories
+- 저장소 경계는 `submission-file-storage.port.ts`의 `SUBMISSION_FILE_STORAGE`다. 구현체는 `s3-submission-file.storage.ts`; E2E 외부 포트 선택은 `submissions.module.ts`의 factory만 바꾼다.
+- 업로드는 5 MiB 제한, 파일명 정규화, 허용 content type·signature, ZIP metadata 검사 후 pending 행을 만들고 객체를 저장한다. 검증 또는 pending TTL을 우회하지 않는다.
+- 파일 교체도 제출 재제출과 같은 상태·마감·revision 조건을 적용한다. upload와 `SubmissionsService.assertResubmittable`의 규칙을 벌어지게 만들지 않는다.
+- 다운로드는 `SubmissionFilesRepository.findDownloadableFile` 권한·만료 결과가 없으면 동일한 not-found로 처리하고 `private, no-store` 및 안전한 attachment filename을 유지한다.
+- 만료·실패 정리는 `submission-file-cleanup.service.ts`와 scheduler가 소유한다. 수동 CLI는 `cli/`에 두고 import 시 실행되지 않게 `require.main` guard를 유지한다.
 
-| 경로 | 내용 |
-| --- | --- |
-| `domain/` | `submission-content.ts`(제출 내용 타입 3종) · `submission-matrix.ts` |
-| `dto/` | 제출·재제출·매트릭스 요청/응답 DTO |
-| `cli/` | `retry-submission-file-cleanup.ts` — 만료 파일 수동 재정리(`SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED=1` 필요), reset 성공 시 typed audit 기록. `reconcile-storage-orphans.ts` — 기본 report, 명시적 `--delete`에서만 버킷 고아 객체 정리. 실행 본체는 `main`으로 export하고 진입은 `require.main === module` 가드다 — import만으로 CLI가 돌면 테스트를 붙일 수 없다 |
+## HTTP, DTO, 검증 기준
 
-## For AI Agents
-
-- 제출 타입은 마일스톤의 `submissionType`과 정확히 일치해야 한다(`CONTENT_TYPE_MISMATCH`) — `FILE`은 프로그램 종료일이 설정돼야 한다(`FILE_RETENTION_UNAVAILABLE`, 만료일을 `programEndAt + 1년`으로 계산).
-- `CHANGES_REQUESTED` 보완 재제출은 마감 후에도 허용한다(#116). 그 외 제출물 교체는 마감 전이고 최종 반려가 아닐 때만 허용한다 — 최초 제출과 재제출의 검증 로직(`assertSubmittable` vs `assertResubmittable`)을 혼용하지 않는다.
-- `submission-reviews/` 모듈이 이 모듈을 참조하지 않고 별도 트랜잭션으로 `SubmissionStatus`를 전환한다(ADR-003) — 검토 승인/반려 로직을 이 모듈에 추가하지 않는다.
-
-## Dependencies
-
-- [apps/backend/src/AGENTS.md](../AGENTS.md) — 모듈 경계·에러 코드 규약.
-- `auth/`(`AuthModule`), `@aws-sdk/client-s3`(파일 저장 어댑터).
+- 라우트와 multipart 한도·오류 매핑은 `submissions.controller.ts`에 둔다. 생성/재제출 DTO는 `dto/create-*-request.dto.ts`, 응답은 `dto/submission-response.dto.ts`를 사용한다.
+- 파일·상태 실패는 `submissions-error-code.enum.ts`의 `SUB_*` 계약을 사용한다. controller에서 저장소 오류를 임의 HTTP 오류로 바꾸지 않는다.
+- 제출·재제출·history 변경은 `submissions.service.resubmission.spec.ts`, `submissions.service.checklist.spec.ts`, `submissions.http.spec.ts`를 갱신한다.
+- 파일 검증·권한·수명주기 변경은 `submission-files.service.spec.ts`, `submission-file-lifecycle.integration.spec.ts`, `submission-file-quota.integration.spec.ts`를 함께 다룬다.
+- 정리·고아 객체·매트릭스 변경은 `submission-file-cleanup.service.spec.ts`, `storage-orphan-reconciliation.spec.ts`, `submission-matrix.service.spec.ts`에서 고정한다.
+<!-- /init:managed id=backend-submissions -->

@@ -29,7 +29,7 @@ export async function openDetail(
   userId: string,
   name: string,
 ): Promise<void> {
-  await page.goto(`/admin/access/users/${encodeURIComponent(userId)}`);
+  await page.goto(`/dashboard/users/${encodeURIComponent(userId)}`);
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 }
 

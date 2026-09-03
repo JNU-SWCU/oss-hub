@@ -1,0 +1,4 @@
+interface:
+  display_name: 'OSS Hub PR 증거 제출'
+  short_description: 'PR을 열기 전에 계약을 확인하고 영역별 증거를 붙입니다'
+  default_prompt: 'Use $submit-pr-evidence before opening an OSS Hub PR to verify the Issue contract, run the public-safety check, and attach the required frontend capture or backend diagram evidence.'

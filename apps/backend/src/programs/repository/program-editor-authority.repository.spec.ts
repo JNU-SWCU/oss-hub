@@ -127,9 +127,9 @@ describe('ProgramEditorRepository edit counts', () => {
       'SELECT count(*) FROM "Application"',
     );
     expect(query.strings.join('')).toContain(
-      'SELECT count(*) FROM "Submission"',
+      'SELECT count(*) FROM "MilestoneDocumentSubmission"',
     );
-    expect(query.values).toHaveLength(43);
-    expect(query.values).toEqual(Array(43).fill('program-1'));
+    expect(query.values).toHaveLength(37);
+    expect(query.values).toEqual(Array(37).fill('program-1'));
   });
 });

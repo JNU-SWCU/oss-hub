@@ -50,13 +50,29 @@ const deploymentHardeningPaths = [
   'apps/*/Dockerfile',
   'scripts/check-production-image-pins*.sh',
   'scripts/jenkins/validate-production-env*',
+  'Jenkinsfile',
+  'scripts/check-jenkinsfile.sh',
+  'scripts/check-jenkinsfile.test.sh',
+  'scripts/check-jenkinsfile.test.mjs',
+  'scripts/jenkins/validate-rollback-images*',
+  'scripts/prune-deploy-backups*.sh',
 ];
 
 const deploymentHardeningCommands = [
   'node --test scripts/jenkins/validate-production-env.test.mjs',
   'bash scripts/check-production-image-pins.test.sh',
   'bash scripts/check-production-image-pins.sh',
+  'node --test scripts/check-jenkinsfile.test.mjs',
+  'bash scripts/check-jenkinsfile.test.sh',
+  'bash scripts/check-jenkinsfile.sh Jenkinsfile',
+  "! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows",
+  'bash scripts/jenkins/validate-rollback-images.test.sh',
+  'bash scripts/prune-deploy-backups.test.sh',
 ];
+
+const localNginxPath = 'deploy/nginx-local/**';
+const localNginxCommand =
+  '$PWD/deploy/nginx-local/nginx.conf:/etc/nginx/conf.d/default.conf:ro';
 
 function validate(workflowSource, docsSource) {
   const backend = section(
@@ -130,12 +146,43 @@ function validateDeploymentHardening(workflowSource, docsSource) {
   }
 }
 
+function validateLocalNginx(workflowSource, docsSource) {
+  const nginx = section(
+    workflowSource,
+    '            nginx:',
+    '            production_compose:',
+  );
+  const productionCompose = section(
+    workflowSource,
+    '            production_compose:',
+    '            jenkins:',
+  );
+  assert.match(nginx, new RegExp(escapeRegex(`'${localNginxPath}'`)));
+  assert.match(
+    productionCompose,
+    new RegExp(escapeRegex(`'${localNginxPath}'`)),
+  );
+  assert.match(docsSource, new RegExp(escapeRegex(localNginxPath)));
+
+  const nginxStep = section(
+    workflowSource,
+    '      - name: nginx ingress 계약 검사',
+    '      - name: Jenkins 배포 계약 회귀 테스트',
+  );
+  assert.match(nginxStep, new RegExp(escapeRegex(localNginxCommand)));
+  assert.match(nginxStep, /nginx -t/);
+}
+
 test('member-authority paths select backend and Jenkins and run every contract test', () => {
   validate(workflow, docs);
 });
 
 test('deployment hardening paths run production env and image contracts', () => {
   validateDeploymentHardening(workflow, docs);
+});
+
+test('local nginx path selects syntax and local-compose validation', () => {
+  validateLocalNginx(workflow, docs);
 });
 
 test('deployment hardening path and command drift fail closed', () => {
@@ -152,6 +199,18 @@ test('deployment hardening path and command drift fail closed', () => {
       validateDeploymentHardening(workflow.replace(command, ''), docs),
     );
   }
+});
+
+test('local nginx path and syntax command drift fail closed', () => {
+  assert.throws(() =>
+    validateLocalNginx(workflow.replaceAll(`'${localNginxPath}'`, ''), docs),
+  );
+  assert.throws(() =>
+    validateLocalNginx(workflow, docs.replaceAll(localNginxPath, '')),
+  );
+  assert.throws(() =>
+    validateLocalNginx(workflow.replace(localNginxCommand, ''), docs),
+  );
 });
 
 test('path and required-test drift fail closed', () => {

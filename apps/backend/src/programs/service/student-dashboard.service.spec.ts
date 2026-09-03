@@ -1,5 +1,8 @@
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
+  MilestoneSubmissionType,
+  type Prisma,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   SubmissionStatus,
@@ -10,9 +13,75 @@ import {
   REPOSITORIES_READ_PORT,
   type RepositoriesReadPort,
 } from '../../github/repositories-read.port';
+import { submissionCompletionTargetSelect } from '../../submissions/submission-completion-projection';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
+const SECOND_DUE_AT = new Date('2026-08-02T00:00:00.000Z');
+
+/** 옛 방식 단일 제출을 보존하는 내부 슬롯 행 — 마일스톤당 하나뿐이다. */
+function legacySubmission(milestoneId: string, status: SubmissionStatus) {
+  return {
+    status,
+    milestoneDocument: {
+      id: `${milestoneId}-legacy-slot`,
+      milestoneId,
+      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+    },
+  };
+}
+
+/** 서류 항목 하나의 제출 행. 항목마다 따로 쌓이므로 한 마일스톤에 여러 건이 온다. */
+function documentSubmission(
+  milestoneId: string,
+  documentId: string,
+  status: SubmissionStatus,
+) {
+  return {
+    status,
+    milestoneDocument: {
+      id: documentId,
+      milestoneId,
+      kind: MilestoneDocumentKind.DOCUMENT,
+    },
+  };
+}
+
+/** 옛 방식 마일스톤 — 단일 제출 축만 쓰고 서류 항목이 없다. */
+function legacyMilestone(id: string, name: string, dueAt: Date) {
+  return {
+    id,
+    name,
+    dueAt,
+    submissionType: MilestoneSubmissionType.FILE,
+    documents: [],
+  };
+}
+
+/**
+ * 새 방식 마일스톤 — 단일 제출 축이 없고 필수 서류 항목으로만 완료한다.
+ *
+ * `documents`에 **필수** 항목만 담는 것은 조회 조건(`required: true`)의 결과를 그대로
+ * 흉내 낸 것이다. 선택 서류는 제출 행이 있어도 이 목록에 오지 않는다.
+ */
+function documentMilestone(
+  id: string,
+  name: string,
+  dueAt: Date,
+  requiredDocumentIds: readonly string[],
+) {
+  return {
+    id,
+    name,
+    dueAt,
+    submissionType: null,
+    documents: requiredDocumentIds.map((documentId) => ({ id: documentId })),
+  };
+}
+
+function program(milestones: readonly Record<string, unknown>[]) {
+  return { id: 'program-1', name: 'Synthetic Program', milestones };
+}
 
 function application(overrides: Record<string, unknown> = {}) {
   return {
@@ -25,14 +94,10 @@ function application(overrides: Record<string, unknown> = {}) {
       nickname: 'synthetic',
     },
     team: { name: 'Synthetic Applicant', _count: { members: 1 } },
-    program: {
-      id: 'program-1',
-      name: 'Synthetic Program',
-      milestones: [
-        { id: 'milestone-1', name: 'First milestone', dueAt: DUE_AT },
-      ],
-    },
-    submissions: [],
+    program: program([
+      legacyMilestone('milestone-1', 'First milestone', DUE_AT),
+    ]),
+    milestoneDocumentSubmissions: [],
     ...overrides,
   };
 }
@@ -160,30 +225,19 @@ describe('StudentDashboardService', () => {
   it('skips approved milestones and returns null when all milestones are approved', async () => {
     findMany.mockResolvedValue([
       application({
-        program: {
-          id: 'program-1',
-          name: 'Synthetic Program',
-          milestones: [
-            { id: 'milestone-1', name: 'First', dueAt: DUE_AT },
-            {
-              id: 'milestone-2',
-              name: 'Second',
-              dueAt: new Date('2026-08-02T00:00:00.000Z'),
-            },
-          ],
-        },
-        submissions: [
-          { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
-          {
-            milestoneId: 'milestone-2',
-            status: SubmissionStatus.CHANGES_REQUESTED,
-          },
+        program: program([
+          legacyMilestone('milestone-1', 'First', DUE_AT),
+          legacyMilestone('milestone-2', 'Second', SECOND_DUE_AT),
+        ]),
+        milestoneDocumentSubmissions: [
+          legacySubmission('milestone-1', SubmissionStatus.APPROVED),
+          legacySubmission('milestone-2', SubmissionStatus.CHANGES_REQUESTED),
         ],
       }),
       application({
         id: 'application-2',
-        submissions: [
-          { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
+        milestoneDocumentSubmissions: [
+          legacySubmission('milestone-1', SubmissionStatus.APPROVED),
         ],
       }),
     ]);
@@ -195,6 +249,166 @@ describe('StudentDashboardService', () => {
       submissionStatus: 'CHANGES_REQUESTED',
     });
     expect(items[1]?.nextMilestone).toBeNull();
+  });
+
+  /**
+   * #1091 — 새 방식 마일스톤은 `submissionType` 이 없고 서류 항목으로만 완료한다.
+   *
+   * 대시보드가 옛 방식 슬롯만 골라 오던 동안 이 축의 제출은 한 건도 도착하지 않아,
+   * 학생이 다 내고 승인까지 받아도 카드가 첫 마일스톤에 머물렀다. 아래 네 건은 조회가
+   * 다시 옛 방식 슬롯만 보게 되면 전부 깨진다.
+   */
+  it('reads the whole target ledger instead of the legacy submission slot alone', async () => {
+    await service.getStudentDashboard(101n);
+
+    const [args] = findMany.mock.calls[0] as [Prisma.ApplicationFindManyArgs];
+    expect(args.select?.milestoneDocumentSubmissions).toEqual({
+      select: submissionCompletionTargetSelect,
+    });
+  });
+
+  it('holds the milestone while any required document is unapproved', async () => {
+    findMany.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'First', DUE_AT, [
+            'document-1',
+            'document-2',
+          ]),
+          documentMilestone('milestone-2', 'Second', SECOND_DUE_AT, [
+            'document-3',
+          ]),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.SUBMITTED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'document-2',
+            SubmissionStatus.APPROVED,
+          ),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    // 나쁜 쪽이 이긴다 — 승인 한 건이 미승인 한 건을 덮지 못한다.
+    expect(item?.nextMilestone).toMatchObject({
+      id: 'milestone-1',
+      submissionStatus: 'SUBMITTED',
+    });
+  });
+
+  it('advances past a milestone whose required documents are all approved', async () => {
+    findMany.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'First', DUE_AT, [
+            'document-1',
+            'document-2',
+          ]),
+          documentMilestone('milestone-2', 'Second', SECOND_DUE_AT, [
+            'document-3',
+          ]),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'document-2',
+            SubmissionStatus.APPROVED,
+          ),
+          // 선택 서류의 승인은 두 번째 마일스톤을 끝낸 것으로 만들지 않는다.
+          documentSubmission(
+            'milestone-2',
+            'optional-document',
+            SubmissionStatus.APPROVED,
+          ),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.nextMilestone).toMatchObject({
+      id: 'milestone-2',
+      submissionStatus: 'NOT_SUBMITTED',
+    });
+  });
+
+  it('empties nextMilestone once every milestone has its required documents approved', async () => {
+    findMany.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'First', DUE_AT, ['document-1']),
+          documentMilestone('milestone-2', 'Second', SECOND_DUE_AT, [
+            'document-2',
+          ]),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-2',
+            'document-2',
+            SubmissionStatus.APPROVED,
+          ),
+          // 선택 서류의 보완 요청은 마일스톤을 되돌리지 않는다.
+          documentSubmission(
+            'milestone-2',
+            'optional-document',
+            SubmissionStatus.CHANGES_REQUESTED,
+          ),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.nextMilestone).toBeNull();
+  });
+
+  /**
+   * 축이 둘 다 살아 있는 #820 마일스톤. 프로그램 상세(`milestoneStatusFor`)는 이 칸을
+   * 두 축의 나쁜 쪽으로 읽으므로, 대시보드도 같은 답을 내야 두 화면이 같은 말을 한다.
+   */
+  it('lets an unapproved required document outrank an approved legacy submission', async () => {
+    findMany.mockResolvedValue([
+      application({
+        program: program([
+          {
+            ...legacyMilestone('milestone-1', 'First milestone', DUE_AT),
+            documents: [{ id: 'document-1' }],
+          },
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.SUBMITTED,
+          ),
+          legacySubmission('milestone-1', SubmissionStatus.APPROVED),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.nextMilestone).toMatchObject({
+      id: 'milestone-1',
+      submissionStatus: 'SUBMITTED',
+    });
   });
 
   it('treats a missing submission as NOT_SUBMITTED', async () => {

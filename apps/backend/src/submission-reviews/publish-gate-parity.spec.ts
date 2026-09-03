@@ -1,4 +1,5 @@
 import {
+  MilestoneDocumentKind,
   MilestoneSubmissionType,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -17,22 +18,25 @@ import {
 } from './submission-reviews.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { toReviewContext } from './submission-review-context.mapper';
+import {
+  toReviewContext,
+  type ReviewContextRow,
+} from './submission-review-context.mapper';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
 const PROGRAM_ENDS_LATER = new Date('2026-08-01T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
 
-type ReviewContextRow = Parameters<typeof toReviewContext>[0];
 type ReviewApplication = ReviewContextRow['application'];
 type ReviewRepository = NonNullable<ReviewApplication['repository']>;
 
 /** 네 게이트를 모두 통과하는 기준 행 — 시나리오가 여기서 한 조건씩 무너뜨린다. */
 function eligibleRow(): ReviewContextRow {
   return {
-    id: 'submission-1',
-    currentRevision: 1,
+    id: 'milestone-document-submission-1',
+    legacySubmissionId: 'submission-1',
+    revision: 1,
     application: {
       id: 'application-1',
       teamId: 'team-1',
@@ -49,10 +53,16 @@ function eligibleRow(): ReviewContextRow {
           },
         ],
       },
-      submissions: [
-        { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
+      milestoneDocumentSubmissions: [
+        {
+          status: SubmissionStatus.APPROVED,
+          milestoneDocument: {
+            id: 'legacy-submission-document-1',
+            milestoneId: 'milestone-1',
+            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          },
+        },
       ],
-      milestoneDocumentSubmissions: [],
       repository: {
         id: 'repository-1',
         nameWithOwner: 'synthetic-org/synthetic-repository',
@@ -63,15 +73,18 @@ function eligibleRow(): ReviewContextRow {
         },
       },
     },
-    milestone: { id: 'milestone-1', name: 'Final submission' },
-    revisions: [
+    milestoneDocument: {
+      milestone: { id: 'milestone-1', name: 'Final submission' },
+    },
+    histories: [
       {
+        id: 'submission-history-1',
         revision: 1,
         content: { url: 'https://example.com/revision-1' },
         comment: null,
-        submittedAt: NOW,
+        createdAt: NOW,
         files: [],
-        review: null,
+        reviewHistories: [],
       },
     ],
   };
@@ -136,8 +149,15 @@ const SCENARIOS = [
     reason: PUBLISH_BLOCKED_REASONS.REQUIRED_MILESTONES_NOT_APPROVED,
     errorCode: SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED,
     breakRow: (_repository: ReviewRepository, application: ReviewApplication) =>
-      void (application.submissions = [
-        { milestoneId: 'milestone-1', status: SubmissionStatus.SUBMITTED },
+      void (application.milestoneDocumentSubmissions = [
+        {
+          status: SubmissionStatus.SUBMITTED,
+          milestoneDocument: {
+            id: 'legacy-submission-document-1',
+            milestoneId: 'milestone-1',
+            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          },
+        },
       ]),
     breakEligibility: (eligibility: RepositoryPublishEligibility) => ({
       ...eligibility,
@@ -316,10 +336,16 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
           endAt: PROGRAM_ENDED_AT,
           milestones: [{ id: 'milestone-1', documents: [] }],
         },
-        submissions: [
-          { milestoneId: 'milestone-1', status: SubmissionStatus.SUBMITTED },
+        milestoneDocumentSubmissions: [
+          {
+            status: SubmissionStatus.SUBMITTED,
+            milestoneDocument: {
+              id: 'legacy-submission-document-1',
+              milestoneId: 'milestone-1',
+              kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+            },
+          },
         ],
-        milestoneDocumentSubmissions: [],
       },
     });
     const repository = new SubmissionReviewsRepository({
@@ -352,7 +378,6 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
           repositoryId: 'repository-2',
         },
         program: { endAt: PROGRAM_ENDED_AT, milestones: [] },
-        submissions: [],
         milestoneDocumentSubmissions: [],
       },
     });

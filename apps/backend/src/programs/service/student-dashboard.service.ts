@@ -1,11 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
+  MilestoneDocumentKind,
+  type MilestoneSubmissionType,
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   SubmissionStatus,
 } from '@prisma/client';
+import {
+  MILESTONE_NOT_SUBMITTED,
+  milestoneCompletionStatus,
+  type MilestoneCompletionStatus,
+} from '../../common/milestone-completion';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
@@ -15,6 +22,11 @@ import {
   REPOSITORIES_READ_PORT,
   type RepositoriesReadPort,
 } from '../../github/repositories-read.port';
+import {
+  projectSubmissionCompletionTargets,
+  submissionCompletionTargetSelect,
+  type SubmissionCompletionTargetRow,
+} from '../../submissions/submission-completion-projection';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -85,6 +97,55 @@ function detailUrlFor(status: ApplicationStatus, programId: string): string {
   return status === ApplicationStatus.APPROVED ? program : `${program}/apply`;
 }
 
+/**
+ * 이 신청이 마일스톤마다 어디까지 왔는가. 판정은 `milestoneCompletionStatus` 가 한다.
+ *
+ * 대시보드가 이 판정을 직접 하지 않는 이유는 프로그램 상세(`programs.service.ts`)·교직원
+ * 요약(`submission-dashboard-summary.service.ts`)이 이미 같은 함수를 쓰기 때문이다. 표면마다
+ * 「서류도 본다」를 따로 적으면 판정이 갈라지고, 실제로 갈라진 동안 대시보드만 학생에게 다른
+ * 말을 했다(#1091).
+ */
+function milestoneStatusesFor(application: {
+  readonly program: {
+    readonly milestones: readonly {
+      readonly id: string;
+      readonly submissionType: MilestoneSubmissionType | null;
+      readonly documents: readonly { readonly id: string }[];
+    }[];
+  };
+  readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+}): ReadonlyMap<string, MilestoneCompletionStatus> {
+  // 원장 한 벌을 두 축(옛 방식 단일 제출 · 새 서류 항목)으로 갈라 놓는다.
+  const { submissions, documentSubmissions } =
+    projectSubmissionCompletionTargets(
+      application.milestoneDocumentSubmissions,
+    );
+  const legacyStatusByMilestone = new Map(
+    submissions.map((submission) => [
+      submission.milestoneId,
+      submission.status,
+    ]),
+  );
+  const statusByDocument = new Map(
+    documentSubmissions.map((submission) => [
+      submission.milestoneDocumentId,
+      submission.status,
+    ]),
+  );
+  return new Map(
+    application.program.milestones.map((milestone) => [
+      milestone.id,
+      milestoneCompletionStatus({
+        submissionAxisInUse: milestone.submissionType !== null,
+        requiredDocumentStatuses: milestone.documents.map(
+          (document) => statusByDocument.get(document.id) ?? null,
+        ),
+        submissionStatus: legacyStatusByMilestone.get(milestone.id) ?? null,
+      }),
+    ]),
+  );
+}
+
 @Injectable()
 export class StudentDashboardService {
   constructor(
@@ -127,11 +188,29 @@ export class StudentDashboardService {
               name: true,
               milestones: {
                 orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-                select: { id: true, name: true, dueAt: true },
+                select: {
+                  id: true,
+                  name: true,
+                  dueAt: true,
+                  submissionType: true,
+                  // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 마일스톤을 영원히
+                  // 미완료로 잡아 둔다(`programs.repository.ts` 의 상세 조회와 같은 조건).
+                  documents: {
+                    where: {
+                      required: true,
+                      kind: MilestoneDocumentKind.DOCUMENT,
+                    },
+                    select: { id: true },
+                  },
+                },
               },
             },
           },
-          submissions: { select: { milestoneId: true, status: true } },
+          // 원장을 통째로 읽는다. 옛 방식 슬롯만 골라 오면 새 서류 항목의 제출이 한 건도
+          // 도착하지 않아, 다 내고 승인까지 받은 학생이 첫 마일스톤에 갇힌다(#1091).
+          milestoneDocumentSubmissions: {
+            select: submissionCompletionTargetSelect,
+          },
         },
       }),
       this.repositories.getMyRepositories(sessionGithubId),
@@ -163,17 +242,12 @@ export class StudentDashboardService {
         continue;
       }
 
-      const submissionStatuses = new Map(
-        application.submissions.map((submission) => [
-          submission.milestoneId,
-          submission.status,
-        ]),
-      );
+      const milestoneStatuses = milestoneStatusesFor(application);
       const milestone =
         application.status === ApplicationStatus.APPROVED
           ? application.program.milestones.find(
               (candidate) =>
-                submissionStatuses.get(candidate.id) !==
+                milestoneStatuses.get(candidate.id) !==
                 SubmissionStatus.APPROVED,
             )
           : undefined;
@@ -193,7 +267,7 @@ export class StudentDashboardService {
             name: milestone.name,
             dueAt: milestone.dueAt,
             submissionStatus:
-              submissionStatuses.get(milestone.id) ?? 'NOT_SUBMITTED',
+              milestoneStatuses.get(milestone.id) ?? MILESTONE_NOT_SUBMITTED,
           }
         : null;
       let repository: StudentDashboardRepository | null = null;

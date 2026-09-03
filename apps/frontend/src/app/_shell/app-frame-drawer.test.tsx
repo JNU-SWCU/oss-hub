@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
+  getProgramNavigationMilestones: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -45,6 +46,9 @@ vi.mock('next/link', () => ({
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 vi.mock('@/features/programs/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
+}));
+vi.mock('@/features/programs/program-navigation-api', () => ({
+  getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
 
 import { AppFrame } from './app-frame';
@@ -99,6 +103,9 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   let root: Root;
 
   beforeEach(() => {
+    mocks.getProgramNavigationMilestones
+      .mockReset()
+      .mockReturnValue(new Promise(() => {}));
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -123,8 +130,9 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     return container.querySelector('[role="dialog"]');
   }
 
-  async function renderFrame(pathname: string): Promise<void> {
+  async function renderFrame(pathname: string, search = ''): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams(search));
     await act(async () => {
       root.render(
         <AppFrame brand="OSS Hub" items={ITEMS}>
@@ -195,8 +203,8 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(adminGroup).not.toBeNull();
 
     for (const [label, href] of [
-      ['사용자 목록', '/admin/access'],
-      ['감사 로그', '/admin/audit-log'],
+      ['사용자 목록', '/dashboard/users'],
+      ['감사 로그', '/dashboard/audit-logs'],
       ['시스템 상태', '/dashboard/system-status'],
     ]) {
       const link = adminGroup?.querySelector<HTMLAnchorElement>(
@@ -213,9 +221,11 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     await openDrawer();
 
     const navItemsList = container.querySelector('[data-slot="nav-bar-items"]');
-    expect(navItemsList?.querySelector('a[href="/admin/access"]')).toBeNull();
     expect(
-      navItemsList?.querySelector('a[href="/admin/audit-log"]'),
+      navItemsList?.querySelector('a[href="/dashboard/users"]'),
+    ).toBeNull();
+    expect(
+      navItemsList?.querySelector('a[href="/dashboard/audit-logs"]'),
     ).toBeNull();
     expect(
       navItemsList?.querySelector('a[href="/dashboard/system-status"]'),
@@ -262,6 +272,21 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(dialog()).not.toBeNull();
 
     await renderFrame('/programs');
+
+    expect(dialog()).toBeNull();
+  });
+
+  it('같은 서류 경로에서 선택 마일스톤 쿼리만 바뀌어도 드로어가 닫힌다', async () => {
+    mockSession(STUDENT_SESSION);
+    mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
+    await renderFrame('/programs/prog-1/documents');
+    await openDrawer();
+    expect(dialog()).not.toBeNull();
+
+    await renderFrame(
+      '/programs/prog-1/documents',
+      'milestoneId=milestone-mid',
+    );
 
     expect(dialog()).toBeNull();
   });

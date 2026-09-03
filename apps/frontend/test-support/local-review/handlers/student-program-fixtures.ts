@@ -393,6 +393,9 @@ export const MY_APPLICATION_FIXTURES: Readonly<
     isRepositoryPublicationPlanned: true,
     rejectionReason:
       '제출하신 요약이 프로그램 주제와 맞지 않습니다.\n\n보완할 점\n1. 해결하려는 문제를 한 문장으로 정리해 주세요.\n2. 기여할 오픈소스 저장소와 예상 작업 범위를 적어 주세요.\n3. 팀원 역할 분담을 적어 주세요.\n4. 일정 계획을 적어 주세요.\n\n재신청 마감은 8월 20일입니다.',
+    // 신청자 본인이라 권한 자체는 있다 — 막는 것은 권한이 아니라 이미 끝난 판정이다.
+    // 검토자가 볼 문구가 「수정할 권한이 없습니다」로 새지 않게 참으로 둔다.
+    isManager: true,
     // 판정이 끝난 신청은 수정도 취소도 할 수 없다 — 세 값이 함께 false여야 화면이
     // 수정 버튼을 그리지 않는다.
     canManage: false,

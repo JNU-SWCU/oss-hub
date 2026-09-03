@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   type ReviewDecision,
@@ -517,6 +518,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       SELECT "id", "milestoneId"
       FROM "MilestoneDocument"
       WHERE "id" = ${documentId}
+        AND "kind" = 'DOCUMENT'
       FOR UPDATE
     `);
     return rows[0] ?? null;
@@ -528,6 +530,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     const rows = await lockMilestoneDocumentsOfMilestone(
       this.transaction,
       milestoneId,
+      MilestoneDocumentKind.DOCUMENT,
     );
     return rows.map((row) => row.id);
   }
@@ -542,12 +545,17 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   ): Promise<MilestoneDocumentRecord> {
     // 마일스톤 행을 잡은 뒤라 이 집계와 create 사이에 다른 추가가 끼어들 수 없다.
     const last = await this.transaction.milestoneDocument.aggregate({
-      where: { milestoneId },
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
       _max: { sortOrder: true },
     });
     const sortOrder = (last._max.sortOrder ?? 0) + 1;
     const created = await this.transaction.milestoneDocument.create({
-      data: { milestoneId, ...input, sortOrder },
+      data: {
+        milestoneId,
+        ...input,
+        sortOrder,
+        kind: MilestoneDocumentKind.DOCUMENT,
+      },
       select: {
         id: true,
         milestoneId: true,
@@ -572,7 +580,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
     const updated = await this.transaction.milestoneDocument.update({
-      where: { id: documentId },
+      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
       data: input,
       select: documentRecordSelect,
     });
@@ -595,13 +603,17 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   ): Promise<MilestoneDocumentRecord[]> {
     for (const [index, documentId] of documentIds.entries()) {
       await this.transaction.milestoneDocument.update({
-        where: { id: documentId, milestoneId },
+        where: {
+          id: documentId,
+          milestoneId,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
         data: { sortOrder: index + 1 },
         select: { id: true },
       });
     }
     const documents = await this.transaction.milestoneDocument.findMany({
-      where: { milestoneId },
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
     });
@@ -615,7 +627,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       where: { milestoneDocumentId: documentId },
     });
     await this.transaction.milestoneDocument.delete({
-      where: { id: documentId },
+      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
     });
   }
 
@@ -772,7 +784,7 @@ class PrismaMilestoneDocumentCollectionReadStore implements MilestoneDocumentCol
     milestoneId: string,
   ): Promise<readonly MilestoneDocumentRecord[]> {
     const documents = await this.transaction.milestoneDocument.findMany({
-      where: { milestoneId },
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
     });
@@ -913,7 +925,7 @@ export class MilestoneDocumentsRepository {
     milestoneId: string,
   ): Promise<MilestoneDocumentRecord[]> {
     const documents = await this.prisma.milestoneDocument.findMany({
-      where: { milestoneId },
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
     });
@@ -940,8 +952,8 @@ export class MilestoneDocumentsRepository {
   async findDocumentContext(
     documentId: string,
   ): Promise<MilestoneDocumentContext | null> {
-    const document = await this.prisma.milestoneDocument.findUnique({
-      where: { id: documentId },
+    const document = await this.prisma.milestoneDocument.findFirst({
+      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
       select: {
         id: true,
         milestoneId: true,
@@ -1471,8 +1483,11 @@ export class MilestoneDocumentsRepository {
   async findTemplateForDownload(
     documentId: string,
   ): Promise<DownloadableMilestoneDocumentTemplate | null> {
-    return this.prisma.milestoneDocumentTemplateFile.findUnique({
-      where: { milestoneDocumentId: documentId },
+    return this.prisma.milestoneDocumentTemplateFile.findFirst({
+      where: {
+        milestoneDocumentId: documentId,
+        milestoneDocument: { kind: MilestoneDocumentKind.DOCUMENT },
+      },
       select: {
         storageKey: true,
         originalFileName: true,

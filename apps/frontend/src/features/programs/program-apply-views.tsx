@@ -16,6 +16,7 @@ import { FormRenderer } from './form-renderer';
 import {
   remainingTeamMembers,
   teamSetupHref,
+  type ProgramApplyBlockedReason,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
   type RepositoryConnectionMode,
@@ -80,12 +81,37 @@ function RejectionReasonAlert({
   );
 }
 
+const BLOCKED_CONTENT: Record<
+  ProgramApplyBlockedReason,
+  { readonly title: string; readonly description: string }
+> = {
+  'period-closed': {
+    title: '신청 기간이 아닙니다',
+    description: '모집 기간에만 신청서를 수정하거나 제출할 수 있습니다.',
+  },
+  'already-applied': {
+    title: '수정할 수 없는 신청입니다',
+    description: '승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다.',
+  },
+  'team-required': {
+    title: '팀 구성이 필요합니다',
+    description:
+      '팀을 만든 뒤 신청할 수 있습니다. 팀 구성 화면에서 팀을 만들거나 참여 코드로 합류한 다음 다시 시도해 주세요.',
+  },
+  // 기다린다고 열리지 않는 막힘이라 **누구에게 말해야 하는지**까지 적는다(#1083).
+  'manage-not-allowed': {
+    title: '신청서를 수정할 권한이 없습니다',
+    description:
+      '팀 신청서는 신청서를 낸 사람과 팀장만 수정하거나 취소할 수 있습니다. 내용을 고쳐야 하면 팀장에게 요청해 주세요.',
+  },
+};
+
 export function BlockedView({
   reason,
   program,
   application,
 }: {
-  readonly reason: 'period-closed' | 'already-applied' | 'team-required';
+  readonly reason: ProgramApplyBlockedReason;
   readonly program: ProgramDetail;
   /**
    * 막힘을 판정하는 데 쓴 내 신청서. 반려 사유는 **여기에만** 실려 온다.
@@ -96,22 +122,7 @@ export function BlockedView({
    */
   readonly application: StudentApplication | null;
 }) {
-  const content =
-    reason === 'period-closed'
-      ? {
-          title: '신청 기간이 아닙니다',
-          description: '모집 기간에만 신청서를 수정하거나 제출할 수 있습니다.',
-        }
-      : reason === 'already-applied'
-        ? {
-            title: '수정할 수 없는 신청입니다',
-            description:
-              '승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다.',
-          }
-        : {
-            title: '신청할 수 없습니다',
-            description: '현재 신청 상태를 확인한 뒤 다시 시도해 주세요.',
-          };
+  const content = BLOCKED_CONTENT[reason];
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-12">

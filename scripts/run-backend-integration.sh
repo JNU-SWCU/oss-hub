@@ -9,7 +9,7 @@ project_name="oss-hub-test-$(date +%s)-$$-$RANDOM"
 test_pattern="${BACKEND_INTEGRATION_TEST_PATTERN:-\.integration\.spec\.ts$}"
 
 unset DATABASE_URL OSS_HUB_INTEGRATION_RUNNER TEAM_JOIN_CODE_SECRET
-unset SUBMISSION_FILE_S3_ENDPOINT SUBMISSION_FILE_S3_REGION
+unset SUBMISSION_FILE_STORAGE_MODE SUBMISSION_FILE_S3_ENDPOINT SUBMISSION_FILE_S3_REGION
 unset SUBMISSION_FILE_S3_BUCKET SUBMISSION_FILE_S3_ACCESS_KEY_ID
 unset SUBMISSION_FILE_S3_SECRET_ACCESS_KEY SUBMISSION_FILE_S3_FORCE_PATH_STYLE
 # 호출자 env의 역할 시드가 통합 테스트 결과를 오염시키지 않도록 격리한다.
@@ -87,6 +87,7 @@ integration_storage_endpoint="http://127.0.0.1:${minio_port}"
   cd "$backend_directory"
   OSS_HUB_INTEGRATION_RUNNER=oss-hub-isolated-integration-v1 \
     DATABASE_URL="$integration_database_url" \
+    SUBMISSION_FILE_STORAGE_MODE=minio \
     SUBMISSION_FILE_S3_ENDPOINT="$integration_storage_endpoint" \
     SUBMISSION_FILE_S3_REGION=us-east-1 \
     SUBMISSION_FILE_S3_BUCKET="$SUBMISSION_FILE_S3_BUCKET" \
@@ -96,6 +97,7 @@ integration_storage_endpoint="http://127.0.0.1:${minio_port}"
     pnpm exec prisma migrate deploy
   OSS_HUB_INTEGRATION_RUNNER=oss-hub-isolated-integration-v1 \
     DATABASE_URL="$integration_database_url" \
+    SUBMISSION_FILE_STORAGE_MODE=minio \
     SUBMISSION_FILE_S3_ENDPOINT="$integration_storage_endpoint" \
     SUBMISSION_FILE_S3_REGION=us-east-1 \
     SUBMISSION_FILE_S3_BUCKET="$SUBMISSION_FILE_S3_BUCKET" \

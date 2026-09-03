@@ -1,1 +1,1 @@
-../../skills/tickets/agents/qa-fact-checker.md
+../../skills/manage-qa-tickets/agents/qa-fact-checker.md

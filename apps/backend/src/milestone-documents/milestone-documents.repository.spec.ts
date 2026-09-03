@@ -1,6 +1,7 @@
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   ReviewDecision,
@@ -167,7 +168,10 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
 
     // Then
     expect(findMany).toHaveBeenCalledWith({
-      where: { milestoneId: syntheticMilestoneId },
+      where: {
+        milestoneId: syntheticMilestoneId,
+        kind: MilestoneDocumentKind.DOCUMENT,
+      },
       orderBy: { sortOrder: 'asc' },
       select: {
         id: true,
@@ -323,7 +327,10 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
 
     // Then
     expect(aggregate).toHaveBeenCalledWith({
-      where: { milestoneId: syntheticMilestoneId },
+      where: {
+        milestoneId: syntheticMilestoneId,
+        kind: MilestoneDocumentKind.DOCUMENT,
+      },
       _max: { sortOrder: true },
     });
     expect(create).toHaveBeenCalledWith(
@@ -333,6 +340,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
           name: '새 서류',
           required: true,
           sortOrder: 3,
+          kind: MilestoneDocumentKind.DOCUMENT,
         },
       }),
     );
@@ -362,6 +370,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
           name: '첫 서류',
           required: false,
           sortOrder: 1,
+          kind: MilestoneDocumentKind.DOCUMENT,
         },
       }),
     );
@@ -383,7 +392,10 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       where: { milestoneDocumentId: syntheticDocumentId },
     });
     expect(documentDelete).toHaveBeenCalledWith({
-      where: { id: syntheticDocumentId },
+      where: {
+        id: syntheticDocumentId,
+        kind: MilestoneDocumentKind.DOCUMENT,
+      },
     });
     expect(direct.deleteMany).not.toHaveBeenCalled();
     expect(direct.delete).not.toHaveBeenCalled();
@@ -1378,8 +1390,12 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     );
     expect(String(sql.strings)).toContain('FROM "MilestoneDocument"');
     expect(String(sql.strings)).toContain('ORDER BY "id"');
+    expect(String(sql.strings)).toContain('"kind"');
     expect(String(sql.strings)).toContain('FOR UPDATE');
-    expect(sql.values).toEqual([syntheticMilestoneId]);
+    expect(sql.values).toEqual([
+      syntheticMilestoneId,
+      MilestoneDocumentKind.DOCUMENT,
+    ]);
     expect(ids).toEqual([
       'cuid-synthetic-document-1',
       'cuid-synthetic-document-2',
@@ -2582,17 +2598,29 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
     // Then
     expect(transactionUpdateArgs).toEqual([
       {
-        where: { id: firstId, milestoneId: syntheticMilestoneId },
+        where: {
+          id: firstId,
+          milestoneId: syntheticMilestoneId,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
         data: { sortOrder: 1 },
         select: { id: true },
       },
       {
-        where: { id: secondId, milestoneId: syntheticMilestoneId },
+        where: {
+          id: secondId,
+          milestoneId: syntheticMilestoneId,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
         data: { sortOrder: 2 },
         select: { id: true },
       },
       {
-        where: { id: thirdId, milestoneId: syntheticMilestoneId },
+        where: {
+          id: thirdId,
+          milestoneId: syntheticMilestoneId,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
         data: { sortOrder: 3 },
         select: { id: true },
       },
@@ -2623,12 +2651,15 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       `update:${secondId}`,
       `update:${firstId}`,
     ]);
-    // Then: 잠금은 요청 순서가 아니라 id 오름차순으로, 이 마일스톤의 행 전체를 한 번에 잡는다.
+    // Then: 잠금은 요청 순서가 아니라 id 오름차순으로, 이 마일스톤의 일반 서류 행 전체를 한 번에 잡는다.
     expect(lockQueries).toHaveLength(1);
     const lockSql = String(lockQueries[0]?.strings);
     expect(lockSql).toContain('FROM "MilestoneDocument"');
     expect(lockSql).toContain('ORDER BY "id"');
     expect(lockSql).toContain('FOR UPDATE');
-    expect(lockQueries[0]?.values).toEqual([syntheticMilestoneId]);
+    expect(lockQueries[0]?.values).toEqual([
+      syntheticMilestoneId,
+      MilestoneDocumentKind.DOCUMENT,
+    ]);
   });
 });

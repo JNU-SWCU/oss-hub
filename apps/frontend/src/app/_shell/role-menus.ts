@@ -19,7 +19,7 @@ export const STAFF_MENU: NavItem[] = [
 ];
 
 /**
- * 관리자 그룹 — 시스템 도구는 `/admin/*`만 쓴다.
+ * 관리자 그룹 — 감사 로그는 역할 이름을 드러내지 않는 `/dashboard/audit-logs`를 쓴다.
  *
  * 교직원 메뉴는 여기 섞지 않는다. 관리자 권한(`hasAdminAccess`)과 교직원 권한
  * (`hasStaffAccess`)은 서로 독립이라 각자 자기 그룹만 책임진다 — 예전에는 legacy
@@ -28,8 +28,8 @@ export const STAFF_MENU: NavItem[] = [
  * 갈라질 자리만 남긴다.
  */
 export const ADMIN_SYSTEM_MENU: NavItem[] = [
-  { label: '사용자 목록', href: '/admin/access' },
-  { label: '감사 로그', href: '/admin/audit-log' },
+  { label: '사용자 목록', href: '/dashboard/users' },
+  { label: '감사 로그', href: '/dashboard/audit-logs' },
   { label: '시스템 상태', href: '/dashboard/system-status' },
 ];
 

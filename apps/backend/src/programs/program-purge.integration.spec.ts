@@ -6,6 +6,8 @@ import {
   BoardPostCategory,
   CollectionStreamType,
   MemberKind,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   Prisma,
   ProgramAuthoringUploadLifecycle,
@@ -153,6 +155,15 @@ async function cleanup(): Promise<void> {
       ],
     },
   });
+  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    where: {
+      submission: {
+        milestoneDocument: {
+          milestone: { program: { id: { startsWith: PREFIX } } },
+        },
+      },
+    },
+  });
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: {
       milestoneDocument: {
@@ -168,21 +179,6 @@ async function cleanup(): Promise<void> {
     },
   });
   await prisma.milestoneDocument.deleteMany({
-    where: { milestone: { program: { id: { startsWith: PREFIX } } } },
-  });
-  await prisma.review.deleteMany({
-    where: {
-      submissionRevision: {
-        submission: { milestone: { program: { id: { startsWith: PREFIX } } } },
-      },
-    },
-  });
-  await prisma.submissionRevision.deleteMany({
-    where: {
-      submission: { milestone: { program: { id: { startsWith: PREFIX } } } },
-    },
-  });
-  await prisma.submission.deleteMany({
     where: { milestone: { program: { id: { startsWith: PREFIX } } } },
   });
   await prisma.repositoryProvisionJob.deleteMany({
@@ -298,10 +294,9 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
   const teamId = p('team');
   const applicationId = p('application');
   const publishedApplicationId = p('published-application');
-  const submissionId = p('submission');
-  const revisionId = p('revision');
   const documentId = p('document');
   const documentSubmissionId = p('document-submission');
+  const documentSubmissionHistoryId = p('document-submission-history');
   const boardPostId = p('board-post');
   const boardCommentId = p('board-comment');
   const submissionFileStorageKey = `${OBJECT_PREFIX}/${label}/submission-file.pdf`;
@@ -593,57 +588,6 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
     },
   });
 
-  await prisma.submission.create({
-    data: {
-      id: submissionId,
-      milestoneId,
-      applicationId,
-      status: SubmissionStatus.SUBMITTED,
-      currentRevision: 1,
-    },
-  });
-  await prisma.submissionRevision.create({
-    data: {
-      id: revisionId,
-      submissionId,
-      revision: 1,
-      submissionType: MilestoneSubmissionType.FILE,
-      content: {},
-      submittedById: applicantId,
-    },
-  });
-  await prisma.review.create({
-    data: {
-      id: p('review'),
-      submissionRevisionId: revisionId,
-      reviewerId: staffId,
-      decision: ReviewDecision.APPROVED,
-      comment: 'Synthetic approval',
-    },
-  });
-
-  await storage.put({
-    body: Buffer.from('%PDF-submission-file'),
-    contentType: 'application/pdf',
-    originalName: 'submission-file.pdf',
-    objectKey: submissionFileStorageKey,
-  });
-  await prisma.submissionFile.create({
-    data: {
-      id: p('submission-file'),
-      uploaderId: applicantId,
-      applicationId,
-      milestoneId,
-      storageKey: submissionFileStorageKey,
-      originalFileName: 'submission-file.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 21,
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
-      submissionRevisionId: revisionId,
-      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
-    },
-  });
-
   await prisma.milestoneDocument.create({
     data: {
       id: documentId,
@@ -651,6 +595,7 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       name: '합성 서류 항목',
       required: true,
       sortOrder: 1,
+      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
     },
   });
   await storage.put({
@@ -679,15 +624,49 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       content: {},
       revision: 1,
       submittedById: applicantId,
+      legacySubmissionId: null,
+    },
+  });
+  await prisma.milestoneDocumentSubmissionHistory.create({
+    data: {
+      id: documentSubmissionHistoryId,
+      milestoneDocumentSubmissionId: documentSubmissionId,
+      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      revision: 1,
+      content: {},
+      actorId: applicantId,
     },
   });
   await prisma.milestoneDocumentReviewHistory.create({
     data: {
       id: p('document-review-history'),
       milestoneDocumentSubmissionId: documentSubmissionId,
+      submissionHistoryId: documentSubmissionHistoryId,
       reviewerId: staffId,
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: 'Synthetic changes requested',
+    },
+  });
+  await storage.put({
+    body: Buffer.from('%PDF-submission-file'),
+    contentType: 'application/pdf',
+    originalName: 'submission-file.pdf',
+    objectKey: submissionFileStorageKey,
+  });
+  await prisma.submissionFile.create({
+    data: {
+      id: p('submission-file'),
+      uploaderId: applicantId,
+      applicationId,
+      milestoneId,
+      storageKey: submissionFileStorageKey,
+      originalFileName: 'submission-file.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 21,
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      milestoneDocumentSubmissionId: documentSubmissionId,
+      milestoneDocumentSubmissionHistoryId: documentSubmissionHistoryId,
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
     },
   });
 
@@ -882,13 +861,11 @@ async function programChildRowCounts(
     teamInvitations,
     boardPosts,
     boardComments,
-    submissions,
-    submissionRevisions,
-    reviews,
     submissionFilesAttached,
     milestoneDocuments,
     milestoneDocumentTemplateFiles,
     milestoneDocumentSubmissions,
+    milestoneDocumentSubmissionHistories,
     milestoneDocumentReviewHistories,
     repositoryProvisionJobs,
     programCreateRequests,
@@ -905,20 +882,20 @@ async function programChildRowCounts(
     prisma.teamInvitation.count({ where: { programId } }),
     prisma.boardPost.count({ where: { programId } }),
     prisma.boardComment.count({ where: { post: { programId } } }),
-    prisma.submission.count({ where: { milestone: { programId } } }),
-    prisma.submissionRevision.count({
-      where: { submission: { milestone: { programId } } },
-    }),
-    prisma.review.count({
-      where: {
-        submissionRevision: { submission: { milestone: { programId } } },
-      },
-    }),
     prisma.submissionFile.count({
       where: {
         OR: [
           { application: { is: { programId } } },
           { milestone: { is: { programId } } },
+          {
+            submissionHistory: {
+              is: {
+                submission: {
+                  milestoneDocument: { milestone: { programId } },
+                },
+              },
+            },
+          },
         ],
       },
     }),
@@ -928,6 +905,13 @@ async function programChildRowCounts(
     }),
     prisma.milestoneDocumentSubmission.count({
       where: { milestoneDocument: { milestone: { programId } } },
+    }),
+    prisma.milestoneDocumentSubmissionHistory.count({
+      where: {
+        submission: {
+          milestoneDocument: { milestone: { programId } },
+        },
+      },
     }),
     prisma.milestoneDocumentReviewHistory.count({
       where: {
@@ -978,13 +962,11 @@ async function programChildRowCounts(
     teamInvitations,
     boardPosts,
     boardComments,
-    submissions,
-    submissionRevisions,
-    reviews,
     submissionFilesAttached,
     milestoneDocuments,
     milestoneDocumentTemplateFiles,
     milestoneDocumentSubmissions,
+    milestoneDocumentSubmissionHistories,
     milestoneDocumentReviewHistories,
     repositoryProvisionJobs,
     programCreateRequests,
@@ -1003,13 +985,11 @@ const ALL_ZERO = {
   teamInvitations: 0,
   boardPosts: 0,
   boardComments: 0,
-  submissions: 0,
-  submissionRevisions: 0,
-  reviews: 0,
   submissionFilesAttached: 0,
   milestoneDocuments: 0,
   milestoneDocumentTemplateFiles: 0,
   milestoneDocumentSubmissions: 0,
+  milestoneDocumentSubmissionHistories: 0,
   milestoneDocumentReviewHistories: 0,
   repositoryProvisionJobs: 0,
   programCreateRequests: 0,
@@ -1043,7 +1023,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(before.milestones).toBe(1);
     // 원래 application의 단독 지원자 + 공개 아카이브 발행 저장소의 소유자 application 둘다.
     expect(before.applications).toBe(2);
-    expect(before.reviews).toBe(1);
+    expect(before.milestoneDocumentSubmissions).toBe(1);
+    expect(before.milestoneDocumentSubmissionHistories).toBe(1);
     expect(before.milestoneDocumentReviewHistories).toBe(1);
     expect(before.outboxEvents).toBe(2); // program-scoped 1 + application-scoped 1
     expect(before.programLinkedNotifications).toBe(2); // APPLICATION_DECISION + DEADLINE_DIGEST
@@ -1093,7 +1074,19 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.programId,
       expectedScope,
     );
-    expect(result).toMatchObject({ id: fixture.programId, deleted: true });
+    expect(result).toMatchObject({
+      id: fixture.programId,
+      deleted: true,
+      deletedCounts: {
+        submissions: 1,
+        submissionRevisions: 0,
+        reviews: 0,
+        submissionFiles: 1,
+        milestoneDocumentSubmissions: 1,
+        milestoneDocumentSubmissionHistories: 1,
+        milestoneDocumentReviewHistories: 1,
+      },
+    });
 
     // 오도된 성공 출력 방지 — 서비스 반환값이 아니라 DB를 직접 조회해 검증한다.
     const after = await programChildRowCounts(fixture.programId, [
@@ -1177,7 +1170,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
       applicationId: null,
       milestoneId: null,
-      submissionRevisionId: null,
+      milestoneDocumentSubmissionId: null,
+      milestoneDocumentSubmissionHistoryId: null,
     });
     expect(await objectExists(fixture.submissionFileStorageKey)).toBe(true);
 
@@ -1330,7 +1324,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.applicationId,
     ]);
     expect(before.milestones).toBe(1);
-    expect(before.reviews).toBe(1);
+    expect(before.milestoneDocumentReviewHistories).toBe(1);
 
     const failingAuditLog = {
       record: jest.fn().mockRejectedValue(new Error('induced audit failure')),
@@ -1433,8 +1427,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       applications: 2,
       teams: 2,
       boardPosts: 1,
-      submissions: 2,
-      submissionEvents: 4,
+      submissions: 1,
+      submissionEvents: 3,
     });
     expect(expectedScope.scopeFingerprint).toMatch(/^[0-9a-f]{32}$/);
 
@@ -1467,7 +1461,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
           applications: 2,
           teams: 2,
           boardPosts: 2,
-          submissions: 2,
+          submissions: 1,
         },
       },
     });
@@ -1486,7 +1480,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after.applications).toBe(2);
     expect(after.teams).toBe(2);
     expect(after.boardPosts).toBe(2);
-    expect(after.submissions).toBe(1);
+    expect(after.milestoneDocumentSubmissions).toBe(1);
   });
 
   it('race: 확인 뒤 추가된 댓글은 요약 건수가 같아도 지문 변경으로 삭제를 중단한다', async () => {
@@ -1610,29 +1604,36 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     },
     {
-      // 기존 applicationId와 (applicationId, milestoneId) unique를 피해야 하므로 새
-      // Milestone을 같은 program 아래 만들어 그 milestone에 제출물을 달면
-      // submissions만 순수하게 증가한다(milestones는 scope 비교 대상이 아니다).
+      // 기존 document와 (applicationId, milestoneDocumentId) unique를 피하기 위해
+      // 새 target document를 만든 뒤 target submission을 단다. 제출 수만 증가하고
+      // document 행은 요약 scope count 대상이 아니다.
       scopeField: 'submissions',
       insertRacingChildRow: async (fixture, raceId) => {
-        const raceMilestoneId = `${raceId}-milestone`;
-        await concurrentPrisma.milestone.create({
+        const raceDocumentId = `${raceId}-document`;
+        await concurrentPrisma.milestoneDocument.create({
           data: {
-            id: raceMilestoneId,
-            programId: fixture.programId,
-            name: 'Committed milestone during purge',
-            startAt: NOW,
-            dueAt: new Date('2026-09-01T00:00:00.000Z'),
-            submissionType: MilestoneSubmissionType.FILE,
+            id: raceDocumentId,
+            milestoneId: fixture.milestoneId,
+            name: 'Committed target document during purge',
+            required: true,
+            sortOrder: 2,
+            kind: MilestoneDocumentKind.DOCUMENT,
           },
         });
-        await concurrentPrisma.submission.create({
+        await concurrentPrisma.milestoneDocumentSubmission.create({
           data: {
             id: raceId,
-            milestoneId: raceMilestoneId,
+            legacySubmissionId: null,
+            milestoneDocumentId: raceDocumentId,
             applicationId: fixture.applicationId,
             status: SubmissionStatus.SUBMITTED,
-            currentRevision: 1,
+            revision: 1,
+            submittedById: (
+              await prisma.application.findUniqueOrThrow({
+                where: { id: fixture.applicationId },
+                select: { applicantId: true },
+              })
+            ).applicantId,
           },
         });
       },
@@ -1717,8 +1718,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
         expectedAfter.applications = before.applications + 1;
         expectedAfter.teams = before.teams + 1;
       } else {
-        expectedAfter.submissions = before.submissions + 1;
-        expectedAfter.milestones = before.milestones + 1;
+        expectedAfter.milestoneDocumentSubmissions =
+          before.milestoneDocumentSubmissions + 1;
+        expectedAfter.milestoneDocuments = before.milestoneDocuments + 1;
       }
       expect(after).toEqual(expectedAfter);
       await expect(

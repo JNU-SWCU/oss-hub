@@ -78,7 +78,7 @@ const NON_RETURNABLE_PREFIXES: readonly string[] = [
  *
  * **쿼리·해시가 붙은 값은 통째로 떨군다.** 복귀 주소는 주소창에 그대로 남아 복사·공유되고
  * 서버 로그에도 남는데, 이 앱의 쿼리에는 화면 상태만이 아니라 식별자가 실릴 수 있다
- * (`/admin/access/users/[userId]` 계열 화면의 목록 필터 등). 경로만으로도 "있던 화면"은
+ * (`/dashboard/users/[userId]` 계열 화면의 목록 필터 등). 경로만으로도 "있던 화면"은
  * 되찾히므로 값을 좁게 받는 편이 싸다. 해시는 애초에 서버에 가지도 않는다.
  */
 function isReturnableAfterLogout(path: string): boolean {

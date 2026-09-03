@@ -1,1 +1,1 @@
-../../skills/tickets/agents/qa-dom-capture.md
+../../skills/manage-qa-tickets/agents/qa-dom-capture.md

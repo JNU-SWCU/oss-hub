@@ -128,7 +128,12 @@ export async function loadProgramApplyContext(
       if (!application.canManage) {
         return {
           kind: 'blocked',
-          reason: 'period-closed',
+          // 여기서 `canManage`가 거짓인 까닭은 둘뿐이다 — 기간이 끝났거나, 신청자도
+          // 팀장도 아니거나(#1083). 서버가 실어 보낸 `isManager`로 가른다. 화면이
+          // 시계를 다시 재면 기간 경계에서 서버와 다른 말을 하게 된다.
+          reason: application.isManager
+            ? 'period-closed'
+            : 'manage-not-allowed',
           program,
           application,
         };

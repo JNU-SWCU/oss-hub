@@ -53,10 +53,10 @@ const LOCAL_REVIEW_TARGET_PATHS = new Set([
   '/consent',
   // 가입·로그인 진입. 하위 경로가 없는 단일 화면이라 접두사가 아니라 여기에 둔다.
   '/signup',
-  // 관리자 접근은 한 화면으로 합쳐졌다. 예전의 `/admin/staff-requests`·
-  // `/admin/users` 를 열어 두던 자리를 `/admin/access` 가 대신한다.
-  '/admin/access',
-  '/admin/audit-log',
+  // 관리자 접근은 한 화면으로 합쳐졌다. 역할을 드러내던 옛 주소를 열어 두지 않고
+  // `/dashboard/users` 하나가 접근 요청과 사용자 관리를 함께 맡는다.
+  '/dashboard/users',
+  '/dashboard/audit-logs',
   '/dashboard/system-status',
   '/settings',
   '/onboarding/role',
@@ -67,11 +67,9 @@ const LOCAL_REVIEW_TARGET_PATHS = new Set([
  * id가 열려 있어 완전 일치 목록으로 적을 수 없다 — 앱 내부 경로만 넓히고,
  * 바깥으로 나가는 값은 아래 `isSafeInternalPath`에서 먼저 잘라 낸다.
  *
- * `/admin/`은 여전히 통째로 열지 않는다 — 없는 하위 경로(`/admin/console` 등)까지
- * 통과시킬 이유가 없다. 다만 관리자 접근 상세(`/admin/access/users/{id}`)는 사용자
- * id가 열려 있어 완전 일치 목록으로 적을 수 없는 유일한 관리자 화면이라, 그 한
- * 갈래만 접두사로 연다. 이 줄이 없으면 상세로 가는 검토 링크가 조용히 `/`로
- * 떨어져, 검토자는 상세 화면 자체를 열어 보지 못한다.
+ * 역할을 드러내는 별도 접두사는 통째로 열지 않는다. 관리자 화면도 역할 중립적인
+ * `/dashboard/` 아래에 있으므로 기존 dashboard 접두사 규칙으로 상세 검토 링크까지
+ * 안전하게 연다.
  */
 const LOCAL_REVIEW_TARGET_PREFIXES = [
   '/programs/',
@@ -79,7 +77,6 @@ const LOCAL_REVIEW_TARGET_PREFIXES = [
   '/dashboard/',
   '/onboarding/',
   '/profile/',
-  '/admin/access/users/',
 ] as const;
 
 /**

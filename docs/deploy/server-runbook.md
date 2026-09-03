@@ -2,7 +2,7 @@
 
 이 문서는 배포 서버에서 ADR-002 Jenkins Release 배포 파이프라인을 **처음 실동작**시키는 수동 절차의 단일 소유 런북이다.
 파이프라인 정의는 저장소 루트 `Jenkinsfile`이 원본이며 이 런북은 명령을 복제하지 않고 스텝·검증 기준으로 서술한다.
-승인 단위·트리거·롤백 계약의 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md), 운영 경계·완료 증거의 원본은 [init-operations](../exec-plan/active/init-operations.md)다.
+승인 단위·트리거·롤백 계약의 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)다.
 
 ## 0. 절대 경계 (먼저 읽는다)
 
@@ -19,7 +19,7 @@
 
 - 각 스텝은 **명령 → 예상 출력 → 검증**의 세 요소로 적는다. 배포판·버전 차이는 스텝 의도를 유지한 채 조정한다.
 - 접속 방식은 두 가지 중 하나다: AWS SSM Session Manager 또는 Tailscale SSH. 공인 SSH(22)는 열지 않는다.
-- Compose ingress smoke는 `http://127.0.0.1:8081`이다. 공인 TLS smoke는 host nginx 계약([init-operations](../exec-plan/active/init-operations.md) M4, `Jenkinsfile`)을 따른다.
+- Compose ingress smoke는 `http://127.0.0.1:8081`이다. 공인 TLS smoke는 host nginx 계약(`Jenkinsfile`)을 따른다.
 
 ## M1. 서버 접속 (배포 EC2 전용)
 
@@ -36,9 +36,9 @@ ssh ubuntu@<EC2_TAILSCALE_HOST>
 ## M2. Docker · Jenkins · 빌드 툴체인 설치
 
 파이프라인 executor는 서버 로컬에서 Docker 이미지 빌드와 앱 build(lint/typecheck/test)를 수행하므로 Docker와 Node/pnpm/jq가 모두 필요하다.
-Buildx plugin도 필수다 — 배포 성공 뒤 캐시 정리가 `docker buildx prune --force --max-used-space`를 호출하므로 이 옵션을 지원하는 Buildx가 없으면 정리 단계에서 배포가 실패한다.
+Buildx plugin도 필수다 — 배포 전과 성공 뒤 캐시 정리가 `docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"`를 호출하므로 이 옵션을 지원하는 Buildx가 없으면 사전 검증 단계에서 배포가 실패한다. 이 명령은 BuildKit 캐시만 대상으로 하며 실행 중 이미지는 물론 named volume과 백업을 건드리지 않는다.
 운영 서버의 확인된 기준선은 Buildx `v0.35.0`이며, 이보다 낮은 버전을 쓸 때는 `--max-used-space` 지원 여부를 먼저 확인한다.
-`BUILD_CACHE_MAX_SPACE`는 `10GB`에서 `5GB`로 인하했다(2026-08-01) — 실측상 빌드 세대당 캐시 증가분이 ~2.6GB였고 직전 빌드(#31)가 이전 세대 레코드를 전혀 재사용하지 않아(last-accessed 미갱신) 오래된 세대는 히트에 기여하지 않는 죽은 용량이었다. 최신 2세대만 보존해도 충분하다는 근거로 상한을 낮췄다(`docker buildx prune --force --max-used-space 5GB` 실행 후 5.64GB로 수렴, 최신 2세대만 잔존, 이상 없음 확인). 다만 빌드 직후에는 실행 중 이미지의 in-use 레이어가 정리 대상에서 보호되므로 이 상한을 일시적으로 넘길 수 있다(v0.6.1 배포 직후 `docker buildx du` 실측 11.07GB로, 인하 전 10GB 상한도 일시 초과한 사례가 있었다) — 이는 결함이 아니라 의도된 동작이다.
+`BUILD_CACHE_MAX_SPACE`는 `10GB`에서 `5GB`로 인하했다(2026-08-01) — 실측상 빌드 세대당 캐시 증가분이 ~2.6GB였고 직전 빌드(#31)가 이전 세대 레코드를 전혀 재사용하지 않아(last-accessed 미갱신) 오래된 세대는 히트에 기여하지 않는 죽은 용량이었다. 최신 2세대만 보존해도 충분하다는 근거로 상한을 낮췄다(`docker buildx prune --all --force --max-used-space 5GB` 실행 후 5.64GB로 수렴, 최신 2세대만 잔존, 이상 없음 확인). v0.6.124에서는 기존 non-`--all` 성공 정리가 shared/internal BuildKit 레코드를 제외해 87.57GB가 남았고 production root가 100%가 되어 디스크가 가득 찼다. 따라서 이제 같은 `--all` 명령을 이미지 빌드·배포 전 백업보다 먼저, 그리고 성공 뒤에 실행해 shared/internal 레코드도 5GB 상한으로 정리한다. 다만 빌드 직후에는 실행 중 이미지의 in-use 레이어가 정리 대상에서 보호되므로 이 상한을 일시적으로 넘길 수 있다(v0.6.1 배포 직후 `docker buildx du` 실측 11.07GB로, 인하 전 10GB 상한도 일시 초과한 사례가 있었다) — 이는 결함이 아니라 의도된 동작이다.
 이전 세대가 캐시에 기여하지 못한 원인 중 하나는 세대별 용량이 아니라 근본적인 레이어 무효화였다 — 백엔드 Dockerfile의 `dependencies` 스테이지가 `apps/backend/prisma` 디렉터리 전체(스펙 파일 8개·seed 스크립트·README 등 43개 파일)를 `RUN pnpm install` 앞에 COPY해, 매 릴리즈 스펙 파일만 바뀌어도 install 레이어(~732MB)부터 전부 캐시미스가 났다(v0.6.0→v0.6.1: lockfile·package.json·Dockerfile은 byte-identical인데 prisma 스펙 파일만 변경, 빌드 #31 로그에 CACHED 4건뿐). `@prisma/client`의 postinstall(`prisma generate`)이 실제로 필요로 하는 파일은 `schema.prisma` 하나뿐이므로, COPY 대상을 그 파일로 좁혀 install 레이어가 스펙 파일 변경에 더는 반응하지 않도록 근본 원인을 고쳤다(P1). 백엔드·프런트엔드 두 Dockerfile의 `pnpm install` 스텝에는 BuildKit cache mount(`--mount=type=cache,id=pnpm-store,target=<pnpm store 경로>`)로 pnpm store를 고정해, 락파일이 실제로 바뀌어 레이어가 미스 나는 경우에도 이미 받아둔 패키지는 네트워크 재다운로드 없이 재사용하도록 보완했다(P2). 로컬 검증: 두 이미지 모두 연속 2회 빌드에서 install 레이어 CACHED 확인, `prisma` 디렉터리의 스펙 파일에 무해한 변경 후 재빌드해도 install 레이어가 CACHED로 유지됨을 확인, `schema.prisma` 자체를 바꾸면 의도대로 install 레이어가 미스 남을 확인해 invalidation이 필요할 때는 여전히 동작함을 함께 확인했다.
 
 ```sh
@@ -104,7 +104,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 
 | 키 | 용도 |
 | --- | --- |
-| `IMAGE_TAG` | backend·frontend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 latest full Release의 SemVer tag로 주입한다(`Jenkinsfile`). 수동으로 compose를 돌릴 때만 셸에서 지정한다 |
+| `IMAGE_TAG` | backend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 latest full Release의 SemVer tag로 주입한다(`Jenkinsfile`). 수동으로 production compose를 돌릴 때만 셸에서 지정한다 |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | postgres 서비스 자격증명 |
 | `DATABASE_URL` | postgres 서비스 DNS를 가리키는 연결 문자열 |
 | `SESSION_SECRET` | 세션 서명 시크릿 |
@@ -115,11 +115,12 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 | `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
 | `GITHUB_OPERATIONS_APP_ID` | 저장소 생성·설정 변경용 GitHub App 식별자 |
 | `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 유일한 호스트 입력 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
-| `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
+| `SUBMISSION_FILE_STORAGE_MODE` | production은 exact `managed`만 허용 |
+| `SUBMISSION_FILE_S3_*` | backend storage configuration. managed credential pair는 env file이 아니라 Jenkins username/password binding에서만 주입한다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | `MAIL_MODE=send`일 때 필수인 마감 알림 발신 자격증명. `dry-run`에서는 빈 값 허용 |
 
-`SUBMISSION_FILE_S3_ACCESS_KEY_ID`·`SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`의 실제 값은 이 저장소에 두지 않는다.
+`SUBMISSION_FILE_S3_*`의 실제 값은 이 저장소에 두지 않는다. Managed credential pair는 production env file에도 두지 않고 Jenkins masked binding으로만 주입한다.
 `compose.yml`에 env 키를 추가하거나 지우면 이 표도 같은 PR에서 갱신한다.
 
 `GITHUB_PUBLIC_READ_TOKEN` — 외부 public 저장소 수집 전용 GitHub fine-grained PAT(REST + GraphQL 겸용)이며 위 표에는 없다. 위 `GITHUB_COLLECTION_APP_*`(Collection GitHub App installation token)는 조직 설치 범위 밖 저장소를 읽지 못하고, GitHub GraphQL v4는 OAuth App client_id:client_secret Basic Auth를 받지 않아 이 경로는 PAT 하나로 둔다. `compose.yml`이 이 키를 `${VAR:?...}`로 요구하지 않는다 — 조직 collection이 이 값 없이도 그대로 기동·동작해야 하기 때문이다. 값이 비어 있으면 외부 수집을 실제로 시도하는 시점에만 fail-closed로 실패하며, 조용히 0건으로 넘어가지 않는다. 이 PAT은 반드시 사업단 서비스 계정으로 발급한다 — 개인 계정으로 발급하면 그 사람이 조직을 떠날 때 외부 수집이 끊기고 public 저장소 조회 이력이 개인 실명에 결부되는 위험이 있다. 만료일을 설정하고 갱신 책임자를 지정해 둔다. 값은 다른 GitHub App 자격증명과 동일하게 배포 secret store에만 둔다.
@@ -147,25 +148,11 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 - Jenkins는 symlink 교체 결과를 확인한 뒤 backend를 `--force-recreate`하고, 컨테이너에 마운트된 두 파일이 활성 generation과 같은지 검증한다.
 - 값 기반 fallback은 없으며 키 회전 실패 시 이전 generation symlink와 backend를 함께 복구한다.
 
-### 기본값이 있는 저장소 키
+### 제출 파일 storage configuration
 
-아래 4개는 이 스택의 MinIO 토폴로지가 결정하는 값이라 `compose.yml`이 기본값을 갖는다.
-**평소에는 `oss-hub-production-env`에 넣지 않는다** — 넣으면 기본값과 어긋날 여지만 생긴다.
+Production storage mode는 `SUBMISSION_FILE_STORAGE_MODE=managed`로 명시한다. Backend는 `SUBMISSION_FILE_S3_ENDPOINT`, `SUBMISSION_FILE_S3_REGION`, `SUBMISSION_FILE_S3_BUCKET`, `SUBMISSION_FILE_S3_ACCESS_KEY_ID`, `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`, `SUBMISSION_FILE_S3_FORCE_PATH_STYLE`를 사용한다.
 
-| 키 | 기본값 | 비고 |
-| --- | --- | --- |
-| `SUBMISSION_FILE_S3_ENDPOINT` | `http://minio:9000` | compose 내부 DNS. MinIO는 외부 노출하지 않는다 |
-| `SUBMISSION_FILE_S3_REGION` | `us-east-1` | MinIO는 무시하지만 SDK가 빈 값이 아니길 요구한다 |
-| `SUBMISSION_FILE_S3_BUCKET` | `oss-hub-submission-files` | `minio-bucket` 서비스가 기동 시 자동 생성한다. `backend`와 `minio-bucket` 양쪽 기본값이 같아야 한다 |
-| `SUBMISSION_FILE_S3_FORCE_PATH_STYLE` | `true` | MinIO는 path-style만 받는다 |
-
-관리형 S3로 옮길 때는 이 4개를 env에 지정한다. 애플리케이션 코드는 바꾸지 않는다.
-**전환 후에는 백엔드 컨테이너에 실제로 반영된 엔드포인트를 확인한다** — 키 이름을 틀리면 오류 없이
-기본값이 먹어 업로드가 조용히 로컬 MinIO로 계속 간다.
-
-```bash
-docker compose --env-file "$OSS_HUB_ENV_FILE" exec backend printenv SUBMISSION_FILE_S3_ENDPOINT
-```
+Managed mode에서는 Jenkins username/password binding이 access-key pair를 제공하고, endpoint·region·bucket·path-style은 승인된 runtime configuration에서 제공한다. 운영자는 backend에 적용된 key 이름과 configured endpoint/bucket 일치를 secret value를 출력하지 않고 확인한다. 누락·기본값 fallback·대상 불일치는 fail-closed다.
 
 - 검증:
 
@@ -183,7 +170,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 - Pipeline job은 main SCM의 root `Jenkinsfile` 하나만 읽는다.
 - Jenkins parameter definitions는 두지 않는다.
 - Docker 권한을 가진 executor에 `oss-hub-production` label을 부여하고, 이 job과 승인된 운영자 외 작업을 배치하지 않는다. `disableConcurrentBuilds()`는 `Jenkinsfile`이 강제한다.
-- 자동·수동 재실행 모두 exact `POST /job/oss-hub-release-cd/build`을 사용한다. 계약 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)다.
+- 자동 실행은 `cron('H/10 * * * *')` outbound convergence가 소유한다. 수동 복구는 tailnet Jenkins에서 parameterless build를 실행한다. Public build endpoint는 없다.
 - 검증: job 설정의 script path가 `Jenkinsfile`, branch가 `main`, parameter definition 수가 0인지 확인한다.
 
 ## M5. GitHub API 호출 준비
@@ -198,21 +185,24 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 첫 Release e2e 전에 [pre-deploy-verify](./pre-deploy-verify.md)의 ① 로컬 랩탑 검증과 ② 배포 EC2 서버-로컬 드라이런을 순서대로 통과시킨다. 앞 단계가 통과해야 다음으로 넘어간다.
 
-- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` 200과 제출 파일 업로드 경로 smoke가 1회 성공. 업로드 기대값은 여기에 복사하지 않는다 — [pre-deploy-verify](./pre-deploy-verify.md) ②의 표가 원본이고 그 표의 원본은 `Jenkinsfile`의 rollout smoke다.
+- 검증: ①은 `compose.yml + compose.local.yml`의 local frontend·MinIO substitute를 검증한다. ②는 배포 서버의 현재 backend image metadata와 loopback root 404, `/api/v1/health` 200, 제출 파일 인증 경계를 읽기 전용으로 확인한다. 업로드 기대값의 원본은 `Jenkinsfile` rollout smoke다.
 
 ## M7. 첫 Release 수동 트리거 e2e
 
 1. main에 있는 exact commit으로 full GitHub Release(예: `v0.1.0`)를 발행한다(`draft=false`, `prerelease=false`, tag SHA가 main ancestry). 이 발행이 배포 인가이며 별도 승인 댓글은 남기지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
 2. M4 job을 파라미터 없이 수동 트리거한다.
-3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
+3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → production env·rollback preflight → PostgreSQL·managed object backup → backend image 서버 로컬 build → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → public TLS smoke. Lint·typecheck·test는 merge 전 required CI가 소유하고 Jenkins에서 반복하지 않는다.
 
-- 예상 출력: loopback·TLS `/`·`/api/v1/health`가 HTTP 200, 제출 파일 업로드 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
+- 예상 출력: loopback `/`는 404, loopback·TLS `/api/v1/health`는 200, public TLS `/`는 canonical 308이며 제출 파일 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같다. Backend image의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
 docker compose --env-file "$OSS_HUB_ENV_FILE" ps
-curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
-curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
+test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/)" = 404 && echo "root closed"
+curl -fsS \
+  -H 'Host: jnu-oss-hub.com' \
+  -H 'X-Vercel-Forwarded-For: 192.0.2.1' \
+  http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 # 업로드 경로 5종은 pre-deploy-verify ②의 명령을 그대로 쓴다 — 기대값을 여기 복사하면 갈라진다.
 # 공인 TLS smoke는 host nginx·인증서 계약이 준비된 뒤에 Jenkinsfile과 동일 경로로 확인한다.
 ```
@@ -220,48 +210,50 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 - `/api/v1/health` 200은 PostgreSQL 연결까지 확인한 결과다. DB에 닿지 못하면 503이므로 이 스텝이 DB 가용성 확인을 겸한다.
 
 - **no-op 재확인**: 파라미터 없이 job을 다시 실행하면 실행 중 tag·revision과 latest Release가 같음을 증명하고 성공 no-op 처리되는지 확인한다.
-- 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. [init-operations](../exec-plan/active/init-operations.md) 복구 절차대로 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
+- 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
 
-## M8. 제출 파일 object backup 복구 드릴
+## M8. Managed R2 production contract
 
-Jenkins는 성공한 배포마다 `${BACKUP_DIR}/objects/${RELEASE_TAG}-${BUILD_NUMBER}/`에 MinIO 버킷 내용을 보존하고, 성공 뒤 최신 `${BACKUP_RETENTION_N}`개만 남긴다.
-복구 전에는 운영 버킷을 건드리지 않고 반드시 scratch 버킷에서 아래 절차를 완료한다.
+현재 production 제출 파일 저장소는 private managed R2다(2026-09-02 cutover·cleanup 완료, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). MinIO service·volume·credential, migration/hold branch와 AWS frontend runtime은 제거됐다.
 
-```sh
-backup_dir="/var/lib/oss-hub/backups/objects/<release-tag>-<build-number>"
-scratch_bucket="oss-hub-submission-files-restore-drill"
-minio_id="$(sudo docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
-test -d "$backup_dir" && test -n "$minio_id"
+1. `SUBMISSION_FILE_STORAGE_MODE`는 exact `managed`여야 한다.
+2. Endpoint는 승인된 Cloudflare R2 HTTPS endpoint, region은 `auto`, path-style은 `true`여야 한다.
+3. Access-key pair는 Jenkins masked binding으로만 주입하며 production env file, console, workspace 또는 명령 인자에 기록하지 않는다.
+4. Candidate와 실행 중 backend의 non-secret storage tuple이 다르면 backup·build·rollout 전에 fail-closed한다.
+5. Release는 configured endpoint/bucket을 사용하는 SDK object backup과 manifest SHA-256, PostgreSQL backup을 만든 뒤 backend image를 교체한다.
+6. Rollback은 captured previous backend image ID·version·revision이 exact match할 때만 허용한다. Object storage mode를 되돌리는 rollback은 없다.
+7. Production Compose root와 비API path는 404이고 `/api/v1/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 MinIO substitute는 `compose.local.yml`에서만 존재한다.
 
-# 백업을 컨테이너 임시 경로로 복사한 뒤 scratch 버킷에 복원한다.
-sudo docker cp "$backup_dir/." "${minio_id}:/tmp/restore-drill"
-sudo docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc '
-  set -eu
-  mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-  mc rb --force "local/'"$scratch_bucket"'" || true
-  mc mb "local/'"$scratch_bucket"'"
-  mc mirror /tmp/restore-drill "local/'"$scratch_bucket"'"
-'
+과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 
-# object 수와 checksum manifest가 원본 버킷과 scratch 버킷에서 일치해야 한다.
-sudo docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc '
-  set -eu
-  mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-  mc mirror local/oss-hub-submission-files /tmp/restore-source
-  mc mirror "local/'"$scratch_bucket"'" /tmp/restore-scratch
-  find /tmp/restore-source -type f -exec sha256sum {} \; | sed "s#/tmp/restore-source/##" | sort > /tmp/source.sha256
-  find /tmp/restore-scratch -type f -exec sha256sum {} \; | sed "s#/tmp/restore-scratch/##" | sort > /tmp/restore.sha256
-  diff -u /tmp/source.sha256 /tmp/restore.sha256
-  wc -l /tmp/source.sha256 /tmp/restore.sha256
-  mc rb --force "local/'"$scratch_bucket"'"
-  rm -rf /tmp/restore-drill /tmp/restore-source /tmp/restore-scratch /tmp/source.sha256 /tmp/restore.sha256
-'
+### M8-E. authenticated custom-origin 전환 (2026-09-02 완료)
+
+아래 절차는 2026-09-02에 실행 완료됐다(Release `v0.6.140` build 240, receipt는 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113)). 재실행하지 않으며 credential rotation·재해 복구 때 같은 순서를 따른다.
+
+1. DNS provider에서 exact origin subdomain을 current backend ingress로 연결하고 TTL을 낮춘다. 이 domain은 browser origin·OAuth callback·cookie domain으로 사용하지 않는다.
+2. 기존 vhost의 ACME webroot가 살아 있는 동안 exact origin DNS certificate를 발급하고 renewal+nginx reload를 확인한다.
+3. 운영 credentials vault의 high-entropy password와 exact username `vercel`로 host-only htpasswd를 만들고 root 소유·nginx read-only 권한으로 설치한다. 값과 verifier를 저장소·명령 로그에 남기지 않는다.
+4. 기존 vhost를 유지한 채 새 origin server만 더한 **temporary additive config**를 live host에 설치한다. `nginx -t` 뒤 reload하고 exact DNS/SNI·Basic auth·method/path rejection을 direct probe로 확인한다. 이 temporary config는 저장소의 final config가 아니며 receipt 뒤 삭제한다.
+5. Vercel Production에 sensitive `ORIGIN_BASIC_AUTH`를 설정하고 `BACKEND_ORIGIN`을 allowlist의 exact origin domain으로 바꾼 뒤 새 production deployment를 명시적으로 promote한다. Preview에는 production credential을 주입하지 않는다.
+6. SSR, OAuth callback, host-only session cookie, public query, 미인증 authz, 4MiB 초과 upload body, file flow와 health를 canonical browser origin에서 검증한다.
+7. 위 canonical gate가 모두 통과한 뒤에만 `deploy/host-nginx/oss-hub.conf` final config를 설치해 legacy vhost와 IP certificate renewal을 제거한다. Unknown Host/SNI·비API·unauthenticated direct request·PUT·OPTIONS가 계속 닫히는지 다시 확인한다.
+8. Jenkins timer no-op 성공, public build endpoint 404, GitHub deploy secret 부재와 public port scan을 receipt에 기록하고 normal DNS TTL로 복구한다.
+
+Canonical gate 전에 문제가 생기면 Vercel production은 건드리지 않고 temporary origin server만 제거한다. Promotion 뒤 문제가 생기면 **legacy vhost와 certificate를 먼저 복원해 `nginx -t`·reload를 통과시킨 뒤** 이전 Vercel deployment를 promote한다. 순서를 바꾸면 이전 deployment가 이미 제거된 TLS origin을 가리켜 복구 중 outage가 난다.
+
+sudo 권한이 있는 운영자가 이전 설정 백업을 보존한 상태에서 설정을 교체한 뒤, 참석 하에 아래 순서로 적용한다. `nginx -t`가 성공한 경우에만 reload한다.
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-빈 버킷은 두 manifest가 모두 0행인 정상 결과다.
-복원 결과가 불일치하거나 scratch 정리가 실패하면 운영 버킷 교체를 판단하지 않고 실패로 처리한다.
-일치할 때도 운영 버킷 교체는 별도 incident 승인·정지 창·현재 버킷 보존 계획을 갖춘 high-risk 변경으로만 결정한다.
-이 드릴 완료만으로 Compose nginx의 제출 파일 403 차단을 해제하지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md) §97).
+문제가 있으면 직전 `oss-hub.conf` 백업을 복원하고 같은 문법 검사와 reload를 수행한다.
+
+```bash
+sudo cp /etc/nginx/conf.d/oss-hub.conf.bak-<timestamp> /etc/nginx/conf.d/oss-hub.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ## M9. 호스트 nginx 설정 반영
 
 호스트 nginx는 Compose가 아니라 시스템 서비스이고 Jenkins 계정에는 sudo가 없다.
@@ -350,10 +342,8 @@ M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트
 - [ ] `oss-hub-production-env` secret file의 항목 목록(값 제외)
 - [ ] GitHub read-only PAT의 소재·권한 범위(값 제외)
 - [ ] 백업 디렉터리 경로와 소유·권한 정책
-- [ ] host nginx·공인 TLS·Jenkins 원격 트리거 경로 설정 소재(값 제외)
+- [ ] exact origin DNS/TLS·host-only verifier·Vercel sensitive credential 소재(값 제외)
 
 ## 9. 오늘 범위 밖 (follow-up / 별도 PR)
 
-- **자동 트리거 live 연결 검증** (GitHub Actions `deploy.yml` → Jenkins parameterless `/build` e2e) — 수동 M7과 별도 확인.
 - **`Jenkinsfile` GitHub API 인증(PAT)** 적용(코드 변경) — follow-up.
-- **host nginx TLS/IP 인증서 live 운영 점검** — 계약 원본은 [init-operations](../exec-plan/active/init-operations.md) M4.

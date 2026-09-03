@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 // 정책 링크 중 실제 라우트가 있는 것만 노출한다.
 // "GitHub 활동 수집"과 "Org 저장소 운영 약관"은 원본 디자인에는 있으나
 // 이 repo에 대응 라우트가 없어 죽은 앵커(href="#")를 만들지 않도록 생략했다.
@@ -10,7 +8,7 @@ interface FooterLink {
 }
 
 const POLICY_LINKS: FooterLink[] = [
-  { label: '개인정보 수집·이용', href: '/consent' },
+  { label: '개인정보 수집·이용', href: '/policies/privacy/2026-08-11.html' },
 ];
 
 export function LandingFooter() {
@@ -34,13 +32,13 @@ export function LandingFooter() {
 
         <div className="flex items-center gap-3">
           {POLICY_LINKS.map(({ label, href }) => (
-            <Link
+            <a
               key={href}
               href={href}
               className="inline-flex min-h-control items-center hover:text-primary"
             >
               {label}
-            </Link>
+            </a>
           ))}
         </div>
       </div>
