@@ -130,4 +130,39 @@ describe('ProgramTeamsRepository.leave', () => {
     }
     expect(invitationDeleteOrder).toBeLessThan(teamDeleteOrder);
   });
+
+  it('잠금 대기 중 다른 팀으로 이동했으면 새 팀을 변경하지 않는다', async () => {
+    const teamMemberDelete = jest.fn().mockResolvedValue({});
+    const teamUpdate = jest.fn().mockResolvedValue({});
+    const teamDelete = jest.fn().mockResolvedValue({});
+    const tx = {
+      teamMember: {
+        count: jest.fn().mockResolvedValue(1),
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({ teamId: 'team-a' })
+          .mockResolvedValueOnce({
+            teamId: 'team-b',
+            team: {
+              leaderId: 'user-synthetic',
+              applications: [],
+              members: [{ userId: 'user-synthetic' }],
+            },
+          }),
+        delete: teamMemberDelete,
+      },
+      teamInvitation: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      team: { update: teamUpdate, delete: teamDelete },
+      application: { findFirst: jest.fn().mockResolvedValue(null) },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'team-a' }]),
+    };
+    const repository = buildRepository(tx);
+
+    await expect(
+      repository.leave('program-synthetic', 'user-synthetic'),
+    ).resolves.toBe('not-found');
+    expect(teamMemberDelete).not.toHaveBeenCalled();
+    expect(teamUpdate).not.toHaveBeenCalled();
+    expect(teamDelete).not.toHaveBeenCalled();
+  });
 });

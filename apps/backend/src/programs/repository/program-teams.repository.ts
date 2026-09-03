@@ -504,7 +504,8 @@ export class ProgramTeamsRepository {
           },
         },
       });
-      if (!membership) return 'not-found';
+      if (!membership || membership.teamId !== initialMembership.teamId)
+        return 'not-found';
       if (membership.team.applications.length > 0) return 'locked';
 
       await tx.teamMember.delete({
