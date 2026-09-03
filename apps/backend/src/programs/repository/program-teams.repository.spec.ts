@@ -104,6 +104,21 @@ describe('ProgramTeamsRepository.leave', () => {
     );
 
     expect(result).toBe('removed');
+    expect(tx.teamMember.findUnique).toHaveBeenCalledTimes(2);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    const membershipReads = tx.teamMember.findUnique.mock.invocationCallOrder;
+    const lockOrder = tx.$queryRaw.mock.invocationCallOrder.at(0);
+    if (
+      membershipReads[0] === undefined ||
+      membershipReads[1] === undefined ||
+      lockOrder === undefined
+    ) {
+      throw new TypeError('Expected membership reads around the team lock');
+    }
+    expect(membershipReads[0]).toBeLessThan(lockOrder);
+    expect(lockOrder).toBeLessThan(membershipReads[1]);
+    const [lockCall] = tx.$queryRaw.mock.calls as [[Prisma.Sql]];
+    expect(lockCall[0].sql).toContain('FOR UPDATE');
     expect(teamInvitationDeleteMany).toHaveBeenCalledWith({
       where: { teamId: syntheticTeamId, programId: 'program-synthetic' },
     });

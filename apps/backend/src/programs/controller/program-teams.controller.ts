@@ -33,6 +33,7 @@ type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  * POST /api/v1/programs/:programId/teams
  * POST /api/v1/programs/:programId/teams/join
  * GET  /api/v1/programs/:programId/teams/me
+ * DELETE /api/v1/programs/:programId/teams/me
  * GET  /api/v1/programs/:programId/teams          (교직원 전용)
  * GET  /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  */
@@ -42,9 +43,8 @@ export class ProgramTeamsController {
     @Inject(ProgramTeamsService)
     private readonly service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
-    > &
-      Partial<Pick<ProgramTeamsService, 'leave'>>,
+      'create' | 'join' | 'getMe' | 'leave' | 'listForStaff' | 'getForStaff'
+    >,
   ) {}
 
   @Post()
@@ -96,7 +96,7 @@ export class ProgramTeamsController {
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
   ): Promise<void> {
-    await this.service.leave?.(request.sessionGithubId, programId);
+    await this.service.leave(request.sessionGithubId, programId);
   }
 
   /**

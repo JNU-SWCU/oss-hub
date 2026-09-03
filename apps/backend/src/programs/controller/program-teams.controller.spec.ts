@@ -9,7 +9,7 @@ import type { ProgramTeamsService } from '../service/program-teams.service';
 
 function readGuards(
   target: object,
-  methodName: 'create' | 'join' | 'me' | 'list' | 'detail',
+  methodName: 'create' | 'join' | 'me' | 'leave' | 'list' | 'detail',
 ): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     target,
@@ -35,6 +35,13 @@ describe('ProgramTeamsController', () => {
   it('me 에 SessionGuard 를 적용한다', () => {
     expect(readGuards(ProgramTeamsController.prototype, 'me')).toEqual([
       SessionGuard,
+    ]);
+  });
+
+  it('leave 에 SessionGuard·OriginGuard 를 적용한다', () => {
+    expect(readGuards(ProgramTeamsController.prototype, 'leave')).toEqual([
+      SessionGuard,
+      OriginGuard,
     ]);
   });
 
@@ -82,11 +89,12 @@ describe('ProgramTeamsController', () => {
     ]);
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      'create' | 'join' | 'getMe' | 'leave' | 'listForStaff' | 'getForStaff'
     > = {
       create: jest.fn(),
       join: jest.fn(),
       getMe: jest.fn(),
+      leave: jest.fn(),
       listForStaff,
       getForStaff: jest.fn(),
     };
@@ -121,11 +129,12 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      'create' | 'join' | 'getMe' | 'leave' | 'listForStaff' | 'getForStaff'
     > = {
       create,
       join: jest.fn(),
       getMe: jest.fn(),
+      leave: jest.fn(),
       listForStaff: jest.fn(),
       getForStaff: jest.fn(),
     };
@@ -162,11 +171,12 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      'create' | 'join' | 'getMe' | 'leave' | 'listForStaff' | 'getForStaff'
     > = {
       create: jest.fn(),
       join,
       getMe: jest.fn(),
+      leave: jest.fn(),
       listForStaff: jest.fn(),
       getForStaff: jest.fn(),
     };
@@ -203,11 +213,12 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      'create' | 'join' | 'getMe' | 'leave' | 'listForStaff' | 'getForStaff'
     > = {
       create: jest.fn(),
       join: jest.fn(),
       getMe,
+      leave: jest.fn(),
       listForStaff: jest.fn(),
       getForStaff: jest.fn(),
     };
@@ -220,6 +231,22 @@ describe('ProgramTeamsController', () => {
 
     expect(getMe).toHaveBeenCalledWith(4242n, 'program-1');
     expect(response.id).toBe('team-1');
+  });
+
+  it('leave 는 service에 세션 사용자와 프로그램을 전달한다', async () => {
+    const leave = jest.fn().mockResolvedValue(undefined);
+    const controller = new ProgramTeamsController({
+      create: jest.fn(),
+      join: jest.fn(),
+      getMe: jest.fn(),
+      leave,
+      listForStaff: jest.fn(),
+      getForStaff: jest.fn(),
+    });
+
+    await controller.leave({ sessionGithubId: 4242n }, 'program-1');
+
+    expect(leave).toHaveBeenCalledWith(4242n, 'program-1');
   });
 
   it('detail(교직원 팀 상세) 에 SessionGuard·ProgramTeamsStaffGuard 를 적용한다', () => {
@@ -267,11 +294,12 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      'create' | 'join' | 'getMe' | 'leave' | 'listForStaff' | 'getForStaff'
     > = {
       create: jest.fn(),
       join: jest.fn(),
       getMe: jest.fn(),
+      leave: jest.fn(),
       listForStaff: jest.fn(),
       getForStaff,
     };

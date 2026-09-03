@@ -477,6 +477,17 @@ export class ProgramTeamsRepository {
 
   async leave(programId: string, userId: string): Promise<TeamLeaveResult> {
     return this.prisma.$transaction(async (tx) => {
+      const initialMembership = await tx.teamMember.findUnique({
+        where: { programId_userId: { programId, userId } },
+        select: { teamId: true },
+      });
+      if (!initialMembership) return 'not-found';
+
+      const lockedTeam = await tx.$queryRaw<LockedTeamRow[]>(
+        Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${initialMembership.teamId} AND "programId" = ${programId} FOR UPDATE`,
+      );
+      if (!lockedTeam[0]) return 'not-found';
+
       const membership = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId } },
         select: {
