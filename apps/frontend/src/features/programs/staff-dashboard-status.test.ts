@@ -158,7 +158,7 @@ describe('교직원 대시보드 모집 상태', () => {
     expect(summary.recruiting + summary.inProgress + summary.ended).toBe(
       programs.length,
     );
-    // 「그중 내림」이 참이려면 부분집합이어야 한다.
+    // 「종료 N개 / 내림 M개」가 부분집합으로 읽히려면 M ≤ N이어야 한다.
     expect(summary.archived).toBeLessThanOrEqual(summary.ended);
   });
 

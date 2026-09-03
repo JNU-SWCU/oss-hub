@@ -64,7 +64,8 @@ export function summarizeStaffDashboardStatuses(
         break;
       case 'ended':
         ended += 1;
-        // 「그중 내림」이라는 문구가 참이 되도록 종료로 판정된 것 안에서만 센다.
+        // 「종료 N개 / 내림 M개」가 부분집합으로 읽히도록 종료로 판정된 것
+        // 안에서만 센다 — M은 언제나 N 이하다.
         if (program.lifecycle === 'ARCHIVED') archived += 1;
         break;
       case 'upcoming':

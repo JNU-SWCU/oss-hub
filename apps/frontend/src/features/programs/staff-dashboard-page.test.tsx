@@ -29,6 +29,15 @@ if (fixtureProgram === undefined) {
   throw new Error('Expected the staff dashboard fixture to include a program.');
 }
 
+/**
+ * 태그를 걷어내고 화면에 실제로 읽히는 글자만 남긴다. 「3개 / 내림 1개」는 활자
+ * 등급이 달라 `<span>`으로 갈라져 있으므로, 원문 HTML에는 이어진 문자열로 있지
+ * 않다. 문구 계약은 마크업이 아니라 읽히는 글자에 걸어야 한다.
+ */
+function textOf(html: string): string {
+  return html.replace(/<[^>]*>/g, '');
+}
+
 describe('staff dashboard parser and model', () => {
   it('신청, 활동, 제출 요약이 있는 응답만 허용한다', () => {
     expect(parseStaffDashboardSummary(summary)).toEqual(summary);
@@ -162,7 +171,25 @@ describe('StaffDashboardStatusSummary', () => {
     expect(html.match(/data-slot="card"/g)).toHaveLength(3);
     expect(html.indexOf('모집중')).toBeLessThan(html.indexOf('진행중'));
     expect(html.indexOf('진행중')).toBeLessThan(html.indexOf('>종료<'));
-    expect(html).toContain('그중 내림 1개');
+
+    // 곁수는 「/」로 잇는다. 포함 관계를 「그중」 같은 말로 풀어 쓰지 않는다.
+    expect(textOf(html)).toContain('3개 / 내림 1개');
+    expect(html).not.toContain('그중');
+
+    // 「/」만으로는 3 + 1 = 4로도 읽히므로, 낭독기에는 포함 관계를 말로 준다.
+    expect(html).toContain('aria-label="3개, 내림 1개 포함"');
+  });
+
+  it('내림이 없는 두 카드는 곁수 없이 수 하나만 말한다', () => {
+    const html = renderToStaticMarkup(
+      <StaffDashboardStatusSummary
+        summary={{ recruiting: 2, inProgress: 1, ended: 3, archived: 1 }}
+      />,
+    );
+
+    // 모집중·진행중은 부분집합을 갖지 않으므로 「/」도 aria-label도 붙지 않는다.
+    expect(textOf(html).match(/ \/ /g)).toHaveLength(1);
+    expect(html.match(/aria-label="/g)).toHaveLength(2); // section + 종료 카드
   });
 
   it('내림이 없어도 종료 카드는 0개로 말한다', () => {
@@ -172,7 +199,8 @@ describe('StaffDashboardStatusSummary', () => {
       />,
     );
 
-    expect(html).toContain('그중 내림 0개');
+    expect(textOf(html)).toContain('0개 / 내림 0개');
+    expect(html).toContain('aria-label="0개, 내림 0개 포함"');
   });
 });
 
