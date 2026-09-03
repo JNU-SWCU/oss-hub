@@ -336,4 +336,34 @@ describe('ProgramApplyPage 비동기 초기화', () => {
     expect(container.textContent).not.toContain('1인 팀');
     expect(button('팀 없이 계속')).toBeTruthy();
   });
+
+  it('신청서 단계는 페이지 제목과 main landmark를 중복하지 않는다', async () => {
+    loadProgramApplyContextMock.mockResolvedValue(
+      readyContext('program-landmark', '처음 값'),
+    );
+
+    await renderPage('program-landmark');
+    await act(async () => {
+      button('팀 없이 계속').click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelectorAll('main')).toHaveLength(1);
+    expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('구버전 템플릿의 제목 필드를 신청서에 다시 노출하지 않는다', async () => {
+    loadProgramApplyContextMock.mockResolvedValue(
+      readyContext('program-legacy-template', '처음 값'),
+    );
+
+    await renderPage('program-legacy-template');
+    await act(async () => {
+      button('팀 없이 계속').click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('input[name="title"]')).toBeNull();
+    expect(container.textContent).not.toContain('제목 *');
+  });
 });

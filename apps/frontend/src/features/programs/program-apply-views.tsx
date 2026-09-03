@@ -14,6 +14,7 @@ import type { ProgramTeam } from './api';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
 import {
+  applicationTemplateForDisplay,
   remainingTeamMembers,
   teamSetupHref,
   type ProgramApplyBlockedReason,
@@ -180,6 +181,7 @@ export function ProgramApplySuccessView({
 }
 
 interface ProgramApplyFormViewProps {
+  readonly embedded?: boolean;
   readonly program: ProgramDetail;
   readonly template: ApplicationFormTemplate;
   readonly applicantName: string;
@@ -294,10 +296,8 @@ function RepositoryConnectionSection({
 }
 
 /**
- * 팀 구성 섹션 — 현재 팀 요약(읽기전용)만 보여준다. 검색·초대 UI는 이 신청 폼
- * 범위 밖이다: PM 결정은 team-invitations API·team-invitation-api.ts 클라이언트
- * 재사용을 전제하지만, 둘 다 아직 만들어지지 않았다(apiContract·blockers 참고).
- * 팀 생성·팀원 관리는 기존 팀 구성 페이지(`teamSetupHref`)로 안내한다.
+ * 팀 구성 섹션 — 현재 팀 요약(읽기전용)만 보여준다.
+ * 상세한 팀원 관리는 기존 팀 구성 페이지(`teamSetupHref`)에서 제공한다.
  */
 function TeamCompositionSection({
   programId,
@@ -390,6 +390,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const {
+    embedded = false,
     program,
     template,
     applicantName,
@@ -417,17 +418,27 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     summary: values.summary,
   } as const;
   const missingTeamMembers = remainingTeamMembers(teamMinimum);
+  const displayTemplate = applicationTemplateForDisplay(template);
+  const Container = embedded ? 'div' : 'main';
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
-      <PageHeader
-        title={`${program.name} ${mode === 'create' ? '신청' : '신청서'}`}
-        description={
-          mode === 'create'
-            ? '필수 항목을 작성한 뒤 제출해 주세요.'
-            : '승인 전까지 신청서 내용을 수정할 수 있습니다.'
-        }
-      />
+    <Container
+      className={
+        embedded
+          ? 'w-full space-y-6'
+          : 'mx-auto w-full max-w-3xl space-y-6 px-4 py-8'
+      }
+    >
+      {embedded ? null : (
+        <PageHeader
+          title={`${program.name} ${mode === 'create' ? '신청' : '신청서'}`}
+          description={
+            mode === 'create'
+              ? '필수 항목을 작성한 뒤 제출해 주세요.'
+              : '승인 전까지 신청서 내용을 수정할 수 있습니다.'
+          }
+        />
+      )}
       <Alert>
         <AlertTriangle aria-hidden="true" />
         <AlertTitle>신청서 수정·취소 안내</AlertTitle>
@@ -442,7 +453,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <FormRenderer
-            template={template}
+            template={displayTemplate}
             mode="edit"
             values={fieldValues}
             onChange={(key, value) => {
@@ -556,6 +567,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           }
         />
       ) : null}
-    </main>
+    </Container>
   );
 }

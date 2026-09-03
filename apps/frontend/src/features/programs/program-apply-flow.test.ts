@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProblemDetail } from '@/lib/api-client';
 import {
+  applicationAnswersForTemplate,
   applyActionFailureMessage,
   isApplicationPeriodOpen,
   mapApplyProblemFieldErrors,
@@ -55,6 +56,39 @@ const teamTemplate: ApplicationFormTemplate = {
 };
 
 describe('program-apply-flow', () => {
+  it('구버전 제목 필드에는 숨은 호환 값을 보내고 새 템플릿에서는 생략한다', () => {
+    const values = {
+      summary: '  합성 요약  ',
+      isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: 'new' as const,
+      repositoryUrl: '',
+      personalDataConsent: true,
+    };
+
+    expect(
+      applicationAnswersForTemplate(values, individualTemplate, '합성 학생'),
+    ).toEqual({ title: '합성 학생 신청서', summary: '합성 요약' });
+    expect(
+      applicationAnswersForTemplate(
+        { ...values, title: '  기존 제목  ' },
+        individualTemplate,
+        '합성 학생',
+      ),
+    ).toEqual({ title: '기존 제목', summary: '합성 요약' });
+    expect(
+      applicationAnswersForTemplate(
+        values,
+        {
+          ...individualTemplate,
+          fields: individualTemplate.fields.filter(
+            (field) => field.key !== 'title',
+          ),
+        },
+        '합성 학생',
+      ),
+    ).toEqual({ summary: '합성 요약' });
+  });
+
   it('신청 기간 개폐를 판별한다', () => {
     expect(
       isApplicationPeriodOpen(

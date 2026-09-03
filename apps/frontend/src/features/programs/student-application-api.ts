@@ -38,7 +38,7 @@ export interface StudentApplication {
 
 export interface UpdateStudentApplicationInput {
   readonly answers: {
-    readonly title: string;
+    readonly title?: string;
     readonly summary: string;
   };
   readonly applicationTemplateVersion: number;

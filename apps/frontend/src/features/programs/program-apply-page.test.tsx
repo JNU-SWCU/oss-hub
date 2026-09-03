@@ -98,13 +98,13 @@ function rejectedApplication(
 }
 
 describe('ProgramApply views', () => {
-  it('신청 정책과 편집 가능한 제목·요약 필드를 렌더한다', () => {
+  it('신청 정책과 편집 가능한 요약 필드를 렌더한다', () => {
     const html = renderForm();
 
     expect(html).toContain('합성 프로그램 신청');
     expect(html).toContain('신청 제출');
     expect(html).toContain('신청 기간 내 ‘승인 대기’ 상태');
-    expect(html).toContain('name="title"');
+    expect(html).not.toContain('name="title"');
     expect(html).toContain('name="summary"');
     expect(html).toContain('합성 학생');
     expect(html).toContain('선정 시 저장소를 공개할 예정입니다');

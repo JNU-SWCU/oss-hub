@@ -84,6 +84,38 @@ export const EMPTY_APPLY_FORM: ProgramApplyFormValues = {
   personalDataConsent: false,
 };
 
+export function applicationAnswersForTemplate(
+  values: ProgramApplyFormValues,
+  template: ApplicationFormTemplate,
+  applicantName: string,
+): Readonly<{ summary: string; title?: string }> {
+  const summary = values.summary.trim();
+  const hasLegacyTitleField = template.fields.some(
+    (field) => field.key === 'title',
+  );
+  if (!hasLegacyTitleField) return { summary };
+
+  const existingTitle = values.title?.trim();
+  const normalizedApplicantName = applicantName.trim();
+  return {
+    title:
+      existingTitle ||
+      (normalizedApplicantName
+        ? `${normalizedApplicantName} 신청서`
+        : '신청서'),
+    summary,
+  };
+}
+
+export function applicationTemplateForDisplay(
+  template: ApplicationFormTemplate,
+): ApplicationFormTemplate {
+  const fields = template.fields.filter((field) => field.key !== 'title');
+  return fields.length === template.fields.length
+    ? template
+    : { ...template, fields };
+}
+
 export function isApplicationPeriodOpen(
   program: ProgramDetail,
   now: number = Date.now(),

@@ -15,6 +15,7 @@ import {
   type ProgramApplySessionUser,
 } from './load-program-apply-context';
 import {
+  applicationAnswersForTemplate,
   applyActionFailureMessage,
   EMPTY_APPLY_FORM,
   mapCreateApplicationError,
@@ -49,12 +50,6 @@ type ProgramApplyPageState =
       readonly applicationId: string;
       readonly mode: ApplicationFormMode;
     };
-
-function applicationAnswers(values: ProgramApplyFormValues) {
-  return {
-    summary: values.summary.trim(),
-  } as const;
-}
 
 export function ProgramApplyPage({
   programId,
@@ -171,7 +166,11 @@ export function ProgramApplyPage({
       if (confirmation === 'save') {
         if (state.applicationId === null) return;
         const updated = await updateMyApplication(programId, {
-          answers: { title: values.title ?? '', ...applicationAnswers(values) },
+          answers: applicationAnswersForTemplate(
+            values,
+            state.template,
+            state.applicantName,
+          ),
           applicationTemplateVersion: state.template.version,
         });
         setState({
@@ -184,7 +183,11 @@ export function ProgramApplyPage({
         return;
       }
       const created = await createApplication(programId, {
-        answers: applicationAnswers(values),
+        answers: applicationAnswersForTemplate(
+          values,
+          state.template,
+          state.applicantName,
+        ),
         applicationTemplateVersion: state.template.version,
         isRepositoryPublicationPlanned:
           state.program.repositoryProvisioningEnabled &&
@@ -285,6 +288,7 @@ export function ProgramApplyPage({
           onNavigate={(step) => setCurrentStep(step)}
         >
           <ProgramApplyFormView
+            embedded
             program={state.program}
             template={state.template}
             applicantName={state.applicantName}
