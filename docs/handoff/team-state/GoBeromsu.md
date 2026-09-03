@@ -1217,6 +1217,24 @@
 - 검증: `pnpm format:check`, `bash scripts/check-public-safe.sh` 통과. 스킬이 인용하는 참조 경로 전수 확인(끊어진 경로 0건), 제품 코드 결합 0건.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
 
+## 2026-09-03 — 업로드 입장에서 브라우저 MIME을 보지 않는다
+
+- 상태: review
+- Issue: #1182
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 학생이 Windows Chrome 등에서 zip을 고르면 브라우저가 `application/x-zip-compressed`를 붙여 화면·서버가 형식 오류로 막았다. 별칭을 늘리지 않고 입장 검사를 확장자 → 시그니처 → (zip이면) admission으로 줄였다. 내려주기 Content-Type은 클라이언트가 보낸 값이 아니라 확장자의 정규 값이다.
+- 검증: backend focused Jest 5 suites / 132 tests, frontend focused Vitest 3 files / 44 tests, backend·frontend `tsc --noEmit`, 변경 파일 eslint 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
+
+## 2026-09-03 — zip MIME 완화 경로를 통합·브라우저 스펙에 고정한다
+
+- 상태: review
+- Issue: #1182
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1184
+- blocker: 없음
+- 결과: Codex P1 리뷰에 맞춰 브라우저 zip MIME 별칭이 수명주기 내려주기·쿼터 예약·실제 업로드 PENDING·HTTP 전달·작성 화면 file picker까지 같은 판정인지 스펙을 보강했다. 입장 게이트는 그대로 확장자 → 시그니처 → (zip이면) admission이다.
+- 검증: backend integration 3 suites / 27 tests, submissions.http.spec 11 tests, frontend Vitest 2 files / 42 tests, `pnpm --filter frontend e2e:program-authoring` 7 passed (1.2m)
 ## 2026-09-03 — frontend design contract을 단일 정본으로 재구축한다
 
 - 상태: review

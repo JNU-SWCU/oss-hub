@@ -217,4 +217,26 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       }),
     ).resolves.toBe(100);
   });
+
+  it('브라우저 zip MIME 별칭으로 예약한 행도 쿼터에 포함된다', async () => {
+    const input: CreatePendingSubmissionFileInput = {
+      ...pendingInput('windows-zip'),
+      originalFileName: 'archive.zip',
+      mimeType: 'application/x-zip-compressed',
+    };
+
+    await expect(repository.createPending(input)).resolves.toMatchObject({
+      originalFileName: 'archive.zip',
+      mimeType: 'application/x-zip-compressed',
+    });
+    await expect(
+      prisma.submissionFile.count({
+        where: {
+          uploaderId: UPLOADER_ID,
+          storageKey: { startsWith: PREFIX },
+          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+        },
+      }),
+    ).resolves.toBe(1);
+  });
 });

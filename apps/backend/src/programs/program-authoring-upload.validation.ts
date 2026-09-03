@@ -42,9 +42,8 @@ export async function validateProgramAuthoringUpload(
   const originalFileName = sanitizeSubmissionFileOriginalName(
     normalizeMultipartFileName(file.originalname),
   );
-  const mimeType = file.mimetype.toLowerCase();
   if (
-    !isAllowedSubmissionFileType(originalFileName, mimeType) ||
+    !isAllowedSubmissionFileType(originalFileName) ||
     !hasValidSubmissionFileSignature(file.buffer, originalFileName)
   ) {
     throw new ProgramAuthoringUploadError(
@@ -64,7 +63,7 @@ export async function validateProgramAuthoringUpload(
   return {
     body: file.buffer,
     originalFileName,
-    mimeType,
+    mimeType: file.mimetype.toLowerCase(),
     sizeBytes: file.buffer.byteLength,
     sha256: createHash('sha256').update(file.buffer).digest('hex'),
   };

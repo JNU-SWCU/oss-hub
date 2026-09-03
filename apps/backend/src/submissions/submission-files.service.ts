@@ -76,7 +76,7 @@ export class SubmissionFilesService {
     }
     const normalizedFileName = normalizeMultipartFileName(file.originalname);
     if (
-      !isAllowedSubmissionFileType(normalizedFileName, file.mimetype) ||
+      !isAllowedSubmissionFileType(normalizedFileName) ||
       !hasValidSubmissionFileSignature(file.buffer, normalizedFileName)
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
@@ -214,10 +214,7 @@ export class SubmissionFilesService {
     return {
       body,
       fileName: file.originalFileName,
-      contentType: safeSubmissionFileContentType(
-        file.originalFileName,
-        file.mimeType,
-      ),
+      contentType: safeSubmissionFileContentType(file.originalFileName),
       contentLength: file.sizeBytes,
     };
   }

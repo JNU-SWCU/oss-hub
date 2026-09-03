@@ -13,6 +13,7 @@ export const PROGRAM_AUTHORING_E2E = {
   programName: 'e2e:program-authoring:happy-program',
   informationalDocumentName: 'e2e:program-authoring:information-document.pdf',
   requiredDocumentName: 'e2e:program-authoring:required-document.pdf',
+  windowsZipDocumentName: 'e2e:program-authoring:windows-zip.zip',
   informationalMilestoneName: 'e2e:program-authoring:information-milestone',
   requiredMilestoneName: 'e2e:program-authoring:required-milestone',
   actors: {
