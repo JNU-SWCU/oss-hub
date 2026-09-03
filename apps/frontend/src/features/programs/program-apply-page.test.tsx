@@ -103,7 +103,7 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('합성 프로그램 신청');
     expect(html).toContain('신청 제출');
-    expect(html).toContain('신청 기간 내 ‘승인 대기’ 상태');
+    expect(html).toContain('신청 기간 중 ‘승인 대기’라면');
     expect(html).not.toContain('name="title"');
     expect(html).toContain('name="summary"');
     expect(html).toContain('합성 학생');
