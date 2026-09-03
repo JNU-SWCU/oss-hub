@@ -7,6 +7,7 @@ import {
   loadProgramApplyContext,
   type ProgramApplyContext,
 } from './load-program-apply-context';
+import { createTeam, joinTeam } from './api';
 import { ProgramApplyPage } from './program-apply-page';
 
 vi.mock('next/link', () => ({
@@ -29,7 +30,15 @@ vi.mock('./load-program-apply-context', () => ({
   loadProgramApplyContext: vi.fn(),
 }));
 
+vi.mock('./api', () => ({
+  createApplication: vi.fn(),
+  createTeam: vi.fn(),
+  joinTeam: vi.fn(),
+}));
+
 const loadProgramApplyContextMock = vi.mocked(loadProgramApplyContext);
+const createTeamMock = vi.mocked(createTeam);
+const joinTeamMock = vi.mocked(joinTeam);
 const sessionUser = {
   name: '합성 학생',
   nickname: 'synthetic-student',
@@ -114,6 +123,9 @@ describe('ProgramApplyPage 비동기 초기화', () => {
   let root: Root;
 
   beforeEach(() => {
+    createTeamMock.mockReset();
+    joinTeamMock.mockReset();
+    loadProgramApplyContextMock.mockReset();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -161,7 +173,7 @@ describe('ProgramApplyPage 비동기 초기화', () => {
       let input = container.querySelector('textarea[name="summary"]');
       if (!(input instanceof HTMLTextAreaElement)) {
         const continueButton = [...container.querySelectorAll('button')].find(
-          (button) => button.textContent?.includes('1인 팀으로 계속'),
+          (button) => button.textContent?.includes('팀 없이 계속'),
         );
         continueButton?.click();
         await Promise.resolve();
@@ -172,6 +184,31 @@ describe('ProgramApplyPage 비동기 초기화', () => {
       textarea.value = value;
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
+  }
+
+  async function enterText(selector: string, value: string): Promise<void> {
+    const input = container.querySelector(selector);
+    if (!(input instanceof HTMLInputElement)) {
+      throw new TypeError(`Input not found: ${selector}`);
+    }
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  function button(name: string): HTMLButtonElement {
+    const target = [...container.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent?.trim() === name,
+    );
+    if (!(target instanceof HTMLButtonElement)) {
+      throw new TypeError(`Button not found: ${name}`);
+    }
+    return target;
   }
 
   it('새 신청서에 입력한 뒤 이전 identity의 context가 늦게 도착해도 현재 입력과 화면을 유지한다', async () => {
@@ -221,11 +258,80 @@ describe('ProgramApplyPage 비동기 초기화', () => {
     );
     await act(async () => {
       const continueButton = [...container.querySelectorAll('button')].find(
-        (button) => button.textContent?.includes('1인 팀으로 계속'),
+        (button) => button.textContent?.includes('팀 없이 계속'),
       );
       continueButton?.click();
       await Promise.resolve();
     });
     expect(summaryInput().value).toBe('새 기본값');
+  });
+
+  it('팀을 만든 뒤 context를 다시 읽어도 신청서 단계에 머문다', async () => {
+    loadProgramApplyContextMock
+      .mockResolvedValueOnce(readyContext('program-create', '처음 값'))
+      .mockResolvedValueOnce(
+        readyContext('program-create', '다시 읽은 값', 'team-created'),
+      );
+    createTeamMock.mockResolvedValue({
+      id: 'team-created',
+      name: '합성 팀',
+      joinCode: 'SYNTH123',
+      memberCount: 1,
+    });
+    await renderPage('program-create');
+    await enterText('#apply-team-name', '합성 팀');
+
+    await act(async () => {
+      button('팀 만들기').click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(createTeamMock).toHaveBeenCalledWith('program-create', {
+      name: '합성 팀',
+    });
+    expect(container.querySelector('textarea[name="summary"]')).not.toBeNull();
+  });
+
+  it('참여 코드로 합류한 뒤 context를 다시 읽어도 신청서 단계에 머문다', async () => {
+    loadProgramApplyContextMock
+      .mockResolvedValueOnce(readyContext('program-join', '처음 값'))
+      .mockResolvedValueOnce(
+        readyContext('program-join', '다시 읽은 값', 'team-joined'),
+      );
+    joinTeamMock.mockResolvedValue({
+      id: 'team-joined',
+      name: '합성 팀',
+      memberCount: 2,
+      minMembers: 1,
+      maxMembers: 4,
+      locked: false,
+      isLeader: false,
+      members: [],
+    });
+    await renderPage('program-join');
+    await enterText('#apply-team-code', 'SYNTH123');
+
+    await act(async () => {
+      button('합류하기').click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(joinTeamMock).toHaveBeenCalledWith('program-join', {
+      joinCode: 'SYNTH123',
+    });
+    expect(container.querySelector('textarea[name="summary"]')).not.toBeNull();
+  });
+
+  it('혼자 신청하는 선택지에 내부 저장 구조인 1인 팀 용어를 노출하지 않는다', async () => {
+    loadProgramApplyContextMock.mockResolvedValue(
+      readyContext('program-solo', '처음 값'),
+    );
+
+    await renderPage('program-solo');
+
+    expect(container.textContent).not.toContain('1인 팀');
+    expect(button('팀 없이 계속')).toBeTruthy();
   });
 });

@@ -56,7 +56,7 @@ export function ProgramApplyWizardView({
       currentStep={currentStep}
       onNavigate={(step) => onNavigate(step as ApplyStep)}
       title={`${program.name} 신청`}
-      description="팀을 확인한 뒤 신청서를 제출합니다. 신청자는 1인 팀으로도 처리됩니다."
+      description="팀을 확인한 뒤 신청서를 제출합니다."
       steps={PROGRAM_APPLY_STEPS}
     >
       {currentStep === 'team' ? (
@@ -66,8 +66,8 @@ export function ProgramApplyWizardView({
               팀을 선택하세요
             </h2>
             <p className="mt-2 text-sm text-muted-foreground [word-break:keep-all]">
-              기존 팀에 합류하거나 새 팀을 만들 수 있습니다. 팀을 만들지 않고
-              계속하면 제출 시 1인 팀이 자동으로 생성됩니다.
+              기존 팀에 합류하거나 새 팀을 만들 수 있습니다. 팀 없이도 혼자
+              신청을 계속할 수 있습니다.
             </p>
           </div>
           {teamError ? (
@@ -156,7 +156,7 @@ export function ProgramApplyWizardView({
           <div className="flex flex-wrap gap-3">
             {!team ? (
               <Button type="button" variant="outline" onClick={onContinue}>
-                1인 팀으로 계속
+                팀 없이 계속
               </Button>
             ) : null}
             <Button asChild variant="link">

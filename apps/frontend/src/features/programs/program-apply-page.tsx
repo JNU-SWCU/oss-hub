@@ -118,8 +118,8 @@ export function ProgramApplyPage({
     setTeamError(null);
     try {
       await createTeam(programId, { name: createName.trim() });
-      setCurrentStep('application');
       await load();
+      setCurrentStep('application');
     } catch (error: unknown) {
       setTeamError(mapTeamActionError(error, 'create'));
     } finally {
@@ -133,8 +133,8 @@ export function ProgramApplyPage({
     setTeamError(null);
     try {
       await joinTeam(programId, { joinCode: joinCode.trim() });
-      setCurrentStep('application');
       await load();
+      setCurrentStep('application');
     } catch (error: unknown) {
       setTeamError(mapTeamActionError(error, 'join'));
     } finally {

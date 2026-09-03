@@ -286,15 +286,6 @@ export function ProgramApplicantsPage({
       },
       { id: 'participation', header: '팀/인원', cell: participationLabel },
       {
-        id: 'title',
-        header: '제목',
-        cell: (row) => (
-          <span className="line-clamp-2 break-keep">
-            {displayAnswerText(row.answers.title)}
-          </span>
-        ),
-      },
-      {
         id: 'status',
         header: '상태',
         cell: (row) => (
@@ -414,7 +405,7 @@ export function ProgramApplicantsPage({
           <Input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="이름·팀·GitHub·제목"
+            placeholder="이름·팀·GitHub"
             aria-label="신청자 검색"
           />
         </label>
