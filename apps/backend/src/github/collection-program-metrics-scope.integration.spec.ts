@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { ProgramCategory, PrismaClient } from '@prisma/client';
 
 import { CollectionReadService } from './service/collection-read.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';

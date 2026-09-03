@@ -164,13 +164,15 @@ describe('PublicProjectsRepository', () => {
 
         await repository.listPage(null, 6, year);
 
-        expect(findMany).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: expect.objectContaining({
-              publishedAt: { gte: new Date(gte), lt: new Date(lt) },
-            }),
-          }),
-        );
+        expect(findMany).toHaveBeenCalledTimes(1);
+        const calls = findMany.mock.calls as Array<
+          [{ where: { publishedAt: { gte: Date; lt: Date } } }]
+        >;
+        const listArgs = calls[0]?.[0];
+        expect(listArgs?.where.publishedAt).toEqual({
+          gte: new Date(gte),
+          lt: new Date(lt),
+        });
       },
     );
   });

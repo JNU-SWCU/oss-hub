@@ -4,7 +4,6 @@ import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
   AccountStatus,
   ProgramAuthoringUploadLifecycle,
-  ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';

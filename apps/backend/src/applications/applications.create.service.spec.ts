@@ -3,7 +3,6 @@ import {
   ProgramCategory,
   ProgramLifecycle,
   RepositoryConnectionMode,
-  ProgramTrackType,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {

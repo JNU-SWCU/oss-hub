@@ -1,9 +1,4 @@
-import {
-  AffiliationKind,
-  MemberKind,
-  ProgramCategory,
-  ProgramTrackType,
-} from '@prisma/client';
+import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';

@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus, MemberKind, ProgramCategory } from '@prisma/client';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';

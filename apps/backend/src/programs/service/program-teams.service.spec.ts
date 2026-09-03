@@ -1,4 +1,4 @@
-import { ProgramCategory, ProgramTrackType } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import {
   TEAM_CREATED_AUDIT_ACTIONS,

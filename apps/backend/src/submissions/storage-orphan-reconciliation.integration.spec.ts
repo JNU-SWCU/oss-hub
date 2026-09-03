@@ -1,5 +1,5 @@
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { PrismaClient } from '@prisma/client';
+import { ProgramCategory, PrismaClient } from '@prisma/client';
 import { S3SubmissionFileStorage } from './s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import {

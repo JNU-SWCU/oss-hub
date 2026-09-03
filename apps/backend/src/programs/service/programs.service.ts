@@ -17,7 +17,6 @@ import { programDeadline } from '../program-deadline';
 import type { ProgramListQuery } from '../program-list-query';
 import { PROGRAM_ERROR_CODES } from '../program-error-code';
 import {
-  getProgramTemplate,
   getTemplateByKey,
   PROGRAM_PARTICIPATION,
 } from '../program-template.registry';

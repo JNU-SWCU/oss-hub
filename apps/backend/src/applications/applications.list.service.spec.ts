@@ -6,7 +6,6 @@ import {
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
-  ProgramTrackType,
 } from '@prisma/client';
 import {
   type ApplicationListPage,

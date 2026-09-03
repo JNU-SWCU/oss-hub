@@ -1,4 +1,4 @@
-import { ProgramCategory, ProgramTrackType } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,

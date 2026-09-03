@@ -1,4 +1,4 @@
-import { RepositorySource } from '@prisma/client';
+import { ProgramCategory, RepositorySource } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
