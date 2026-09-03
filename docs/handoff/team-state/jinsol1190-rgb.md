@@ -60,3 +60,13 @@
 - 결과: 팀 탈퇴와 신청 제출이 교차해 기존 팀이 잠금 전에 사라진 경우를 `APP_017`로 처리해 원시 FK 오류를 막았다. 390×844에서 신청서 안내 문장이 의미 단위로 읽히도록 문구도 줄였다.
 - 검증: applications·program teams 집중 테스트 50/50, frontend 집중 테스트 44/44, 양쪽 typecheck와 변경 파일 lint를 통과했다. 합성 student fixture에서 모바일 안내 줄바꿈과 `main` 1개·`h1` 1개·가로 overflow 0을 다시 확인했다.
 - 공개 안전성: 추가 캡처도 합성 fixture만 사용했고 제품 브랜치에는 포함하지 않는다.
+
+## 2026-09-04 — Issue #1132 멤버십 재검증 보완
+
+- 상태: review
+- Issue: #1132
+- PR: pending
+- blocker: 작성자 UX 인터뷰 답변 대기
+- 결과: 신청 트랜잭션이 기존 팀을 잠근 뒤 학생의 현재 프로그램 팀 멤버십을 다시 확인한다. 동시 탈퇴 뒤 팀이 남아도 오래된 팀 ID로 신청하지 않고 `APP_014`로 거절한다.
+- 검증: applications·program teams 집중 테스트 51/51, backend typecheck와 변경 파일 lint를 통과했다. 기존 team-invitation/application 잠금 통합 테스트 호출부도 새 잠금 계약에 맞췄다.
+- 공개 안전성: 공개 표면에 추가된 실데이터·개인정보·로컬 경로가 없다.
