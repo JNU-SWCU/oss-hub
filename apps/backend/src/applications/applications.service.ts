@@ -212,7 +212,10 @@ export class ApplicationsService {
           student.id,
         );
         if (existingTeam) {
-          await store.lockTeamForApply(existingTeam.id);
+          const teamLocked = await store.lockTeamForApply(existingTeam.id);
+          if (!teamLocked) {
+            throw this.error(ApplicationsErrorCode.TEAM_NOT_FOUND);
+          }
         }
         const teamMinSize = await store.findTeamMinSize(programId);
         const memberCount = existingTeam

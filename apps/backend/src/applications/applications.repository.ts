@@ -280,7 +280,7 @@ export interface ApplicationCreateStore {
     userId: string,
   ): Promise<CreatedTeamForApplication | null>;
   /** 팀 구성 변경과 신청 생성을 직렬화한다. 잠금 순서는 Program → Team이다. */
-  lockTeamForApply(teamId: string): Promise<void>;
+  lockTeamForApply(teamId: string): Promise<boolean>;
   /** 재사용할 팀의 최소 인원 검증용. */
   countTeamMembers(teamId: string): Promise<number>;
   createTeamWithLeader(
@@ -481,10 +481,11 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
     return this.database.teamMember.count({ where: { teamId } });
   }
 
-  async lockTeamForApply(teamId: string): Promise<void> {
-    await this.database.$queryRaw<readonly LockedTeamRow[]>(
+  async lockTeamForApply(teamId: string): Promise<boolean> {
+    const rows = await this.database.$queryRaw<readonly LockedTeamRow[]>(
       Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
     );
+    return rows.length > 0;
   }
 
   async createTeamWithLeader(

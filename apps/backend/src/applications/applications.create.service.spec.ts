@@ -120,7 +120,7 @@ function buildService(overrides: {
       .mockResolvedValue(ProgramLifecycle.PUBLISHED),
     findTeamMinSize: jest.fn().mockResolvedValue(null),
     findExistingTeamMembership: jest.fn().mockResolvedValue(null),
-    lockTeamForApply: jest.fn().mockResolvedValue(undefined),
+    lockTeamForApply: jest.fn().mockResolvedValue(true),
     countTeamMembers: jest.fn().mockResolvedValue(1),
     createTeamWithLeader,
     createApplication,
@@ -672,7 +672,7 @@ describe('ApplicationsService.create', () => {
   });
   it('이미 팀에 속해 있으면 새 팀을 만들지 않고 그 팀으로 신청한다', async () => {
     // Given — /teams 에서 팀을 먼저 만든 학생.
-    const lockTeamForApply = jest.fn().mockResolvedValue(undefined);
+    const lockTeamForApply = jest.fn().mockResolvedValue(true);
     const { service, createApplication, createTeamWithLeader } = buildService({
       store: {
         findExistingTeamMembership: jest
@@ -693,6 +693,24 @@ describe('ApplicationsService.create', () => {
     expect(createApplication).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: 'existing-team' }),
     );
+  });
+
+  it('잠금 전에 기존 팀이 삭제되면 APP_017로 거절하고 신청을 만들지 않는다', async () => {
+    const { service, createApplication } = buildService({
+      store: {
+        findExistingTeamMembership: jest
+          .fn()
+          .mockResolvedValue({ id: 'deleted-team', name: '삭제된 팀' }),
+        lockTeamForApply: jest.fn().mockResolvedValue(false),
+      },
+    });
+
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.TEAM_NOT_FOUND },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
   });
 
   it('재사용할 팀이 최소 인원에 못 미치면 실제 인원으로 거절한다', async () => {
