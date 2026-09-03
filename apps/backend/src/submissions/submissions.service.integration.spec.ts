@@ -667,13 +667,14 @@ describe('SubmissionsService integration', () => {
         data: { dueAt: milestoneDueAt },
       }),
     ]);
+    const put = jest.fn().mockResolvedValue({
+      objectKey: 'private/synthetic-upload.zip',
+      originalName: 'archive.zip',
+      contentLength: archive.byteLength,
+      contentType: 'application/x-zip-compressed',
+    });
     const storage: SubmissionFileStoragePort = {
-      put: jest.fn().mockResolvedValue({
-        objectKey: 'private/synthetic-upload.zip',
-        originalName: 'archive.zip',
-        contentLength: archive.byteLength,
-        contentType: 'application/x-zip-compressed',
-      }),
+      put,
       delete: jest.fn().mockResolvedValue(undefined),
       get: jest.fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>(),
     };
@@ -708,7 +709,7 @@ describe('SubmissionsService integration', () => {
         mimeType: 'application/x-zip-compressed',
         lifecycle: SubmissionFileLifecycle.PENDING,
       });
-      expect(storage.put).toHaveBeenCalledTimes(1);
+      expect(put).toHaveBeenCalledTimes(1);
     } finally {
       await prisma.submissionFile.deleteMany({
         where: {
