@@ -9,9 +9,15 @@ import type { EditableProgram } from './api';
 type ProgramLifecycle = EditableProgram['lifecycle'];
 
 /**
- * 게시 상태 전환은 되돌릴 수 있다 — 공개 노출과 신규 신청만 멈추고 신청·팀·제출
- * 데이터는 그대로 남는다. 그래서 destructive 톤을 쓰지 않는다. 되돌릴 수 없는
+ * 게시 상태 전환은 되돌릴 수 있다 — 신규 신청만 멈추고 신청·팀·제출 데이터는
+ * 그대로 남는다. 그래서 destructive 톤을 쓰지 않는다. 되돌릴 수 없는
  * 행동(삭제)과 같은 색·같은 자리에 두면 두 행동의 무게가 구분되지 않는다.
+ *
+ * 문구는 실제 동작만 말한다(#1181). 내린 프로그램은 공개 목록에서 사라지지
+ * 않는다 — backend `program-list-status-filter.ts` 의 공개 모수가
+ * `PUBLISHED | ARCHIVED` 라 「종료」로 계속 보이고, 상세도 열린다
+ * (`programs.service.ts` detail 은 lifecycle 로 막지 않는다).
+ * 2026-08-04 PR #589 이후의 의도된 동작이므로 문구가 동작을 따라간다.
  */
 const LIFECYCLE_COPY = {
   PUBLISHED: {
@@ -22,13 +28,13 @@ const LIFECYCLE_COPY = {
     busyAction: '내리는 중…',
     dialogTitle: '프로그램을 내릴까요?',
     dialogDescription:
-      '공개 목록에서 사라지고 신규 신청이 멈춥니다. 이미 접수된 신청과 팀·제출 데이터는 그대로 남으며 언제든 다시 게시할 수 있습니다.',
+      '신규 신청이 곧바로 멈춥니다. 다만 공개 목록에서 사라지지는 않습니다 — 「종료」로 계속 보이고 상세도 그대로 열립니다. 이미 접수된 신청과 팀·제출 데이터는 그대로 남으며 언제든 다시 게시할 수 있습니다.',
     confirm: '내리기',
   },
   ARCHIVED: {
     status: '내림',
     description:
-      '현재 프로그램이 내려가 있어 공개 목록에 보이지 않고 신규 신청을 받지 않습니다. 기존 신청과 제출 데이터는 그대로 남아 있습니다.',
+      '현재 프로그램이 내려가 있어 신규 신청을 받지 않습니다. 공개 목록에는 「종료」로 계속 보이고 상세도 열립니다. 기존 신청과 제출 데이터는 그대로 남아 있습니다.',
     action: '다시 게시하기',
     busyAction: '게시하는 중…',
     dialogTitle: '프로그램을 다시 게시할까요?',
