@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,
   PROGRAM_CREATED_AUDIT_ACTIONS,
@@ -46,7 +46,7 @@ export class ProgramCreationService {
     const applicationEndAt = new Date(input.applicationEndAt);
     const startAt = new Date(input.startAt ?? input.applicationEndAt);
     const endAt = new Date(input.endAt);
-    const template = getProgramTemplate(input.category);
+    const template = getProgramTemplate(ProgramCategory.BASIC);
     const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
     const teamMaxSize = input.teamMaxSize ?? template.teamSize.defaultMax;
     const hasValidApplicationPeriod =
@@ -92,7 +92,8 @@ export class ProgramCreationService {
         {
           name,
           organizer,
-          category: input.category,
+          category: ProgramCategory.BASIC,
+          trackType: input.trackType,
           applicationTemplateKey: template.key,
           applicationTemplateVersion: template.version,
           applicationStartAt,

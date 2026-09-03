@@ -65,7 +65,7 @@ export const EXPECTED_PUBLIC_AUTH_ROUTES = [
   route('GET', '/api/v1/programs/status-counts', 'PUBLIC'),
   route('GET', '/api/v1/projects', 'PUBLIC'),
   route('GET', '/api/v1/projects/:projectId', 'PUBLIC'),
-  route('GET', '/api/v1/projects/category-counts', 'PUBLIC'),
+  route('GET', '/api/v1/projects/years', 'PUBLIC'),
   route('GET', '/api/v1/ranking/years', 'PUBLIC'),
   route('GET', '/api/v1/users/:userId/public-profile', 'PUBLIC'),
 ] as const;
@@ -137,7 +137,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PUBLIC GET /api/v1/programs/status-counts',
   'PUBLIC GET /api/v1/projects',
   'PUBLIC GET /api/v1/projects/:projectId',
-  'PUBLIC GET /api/v1/projects/category-counts',
+  'PUBLIC GET /api/v1/projects/years',
   'OPTIONAL_SESSION GET /api/v1/ranking',
   'PUBLIC GET /api/v1/ranking/years',
   'PROTECTED GET /api/v1/repositories/me',

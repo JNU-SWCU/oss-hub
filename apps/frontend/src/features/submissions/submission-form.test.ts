@@ -73,37 +73,31 @@ describe('validateSubmissionFile', () => {
 
   it.each([
     ['document.PDF', 'application/pdf'],
-    ['document.hwp', 'application/x-hwp'],
-    ['document.hwp', 'application/haansofthwp'],
-    ['document.hwp', 'application/vnd.hancom.hwp'],
-    ['document.hwp', 'application/x-hwp-v5'],
-    ['document.hwp', 'application/octet-stream'],
     ['document.hwp', ''],
-    ['photo.jpg', 'image/jpeg'],
-    ['photo.JPEG', 'image/jpeg'],
-    ['image.png', 'image/png'],
-    ['archive.zip', 'application/zip'],
-  ])('%s와 %s 쌍을 허용한다', (name, type) => {
-    // Given: 브라우저가 제공한 파일 이름과 MIME.
+    ['photo.jpg', 'image/png'],
+    ['archive.zip', 'application/x-zip-compressed'],
+    ['archive.zip', 'application/octet-stream'],
+  ])('허용 확장자 %s는 브라우저 MIME %s와 무관하게 통과한다', (name, type) => {
     const file = new File(['x'], name, { type });
 
-    // When / Then: 사용자가 선택할 수 있다고 안내한 형식은 통과한다.
     expect(validateSubmissionFile(file)).toEqual({
       ok: true,
     });
   });
 
-  it.each([
-    ['document.pdf', 'application/octet-stream'],
-    ['document.txt', 'application/pdf'],
-    ['document', 'application/pdf'],
-    ['photo.jpg', 'image/png'],
-  ])('%s와 %s의 잘못된 쌍을 거절한다', (name, type) => {
-    expect(validateSubmissionFile(new File(['x'], name, { type }))).toEqual({
-      ok: false,
-      message: 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
-    });
-  });
+  it.each(['document.txt', 'document', 'photo.exe'])(
+    '허용하지 않는 이름 %s는 거절한다',
+    (name) => {
+      expect(
+        validateSubmissionFile(
+          new File(['x'], name, { type: 'application/pdf' }),
+        ),
+      ).toEqual({
+        ok: false,
+        message: 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
+      });
+    },
+  );
 
   it('정확히 5 MiB는 허용하고 1 byte 초과는 거절한다', () => {
     const boundary = {

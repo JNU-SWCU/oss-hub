@@ -67,7 +67,7 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
         title={archive.displayName}
-        description={`${archive.programName} · ${archive.modeLabel} · ${archive.categoryLabel}`}
+        description={`${archive.programName} · ${archive.modeLabel}`}
         actions={
           <Button asChild>
             <a href={archive.githubUrl} target="_blank" rel="noreferrer">

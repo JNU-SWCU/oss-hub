@@ -32,18 +32,11 @@ const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS 경진대회',
   organizer: 'SW중심대학사업단',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   lifecycle: 'PUBLISHED',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 3,
-  categoryLocked: {
-    locked: true,
-    byApplications: true,
-    byTeams: true,
-    applicationCount: 3,
-    teamCount: 2,
-  },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
   startAt: '2026-08-16T09:30:59.000Z',
@@ -85,8 +78,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('프로그램 목록');
   });
 
-  it('renders locked category, template metadata, milestone actions, and the exit link', () => {
-    // Given / When
+  it('renders track type, template metadata, milestone actions, and the exit link', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         program={editableProgram}
@@ -113,15 +105,10 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    // Then
-    expect(html).toContain(
-      '신청자가 3명, 팀이 2개 있어 유형을 변경할 수 없습니다',
-    );
-    expect(html).toContain('disabled=""');
+    expect(html).toContain('비교과');
     expect(html).not.toContain('id="program-application-start-at"');
     expect(html).toContain('시간 변경');
     expect(html).toContain('신청·운영·마일스톤 일정');
-    // 양식 키(`oss-contest`)는 구현 식별자다 — 사람이 읽을 양식명만 화면에 남는다.
     expect(html).not.toContain('oss-contest');
     expect(html).toContain('OSS경진대회 신청서');
     expect(html).toContain('v1');
@@ -134,7 +121,6 @@ describe('ProgramEditView contract', () => {
     expect(html).not.toContain('TEXT');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
-    // 페이지를 나가는 길은 제목 위의 이 링크 하나뿐이다.
     expect(html).toContain('href="/programs/program-1"');
     expect(html).toContain('← 프로그램 개요');
   });
@@ -296,21 +282,11 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('저장되었습니다.');
     expect(html).not.toContain('상세 화면으로 이동합니다');
   });
-  it('locks category selection when only teams exist', () => {
-    // Given
+  it('keeps track type editable regardless of team count', () => {
     const teamOnlyProgram = {
       ...editableProgram,
       applicationCount: 0,
-      categoryLocked: {
-        locked: true,
-        byApplications: false,
-        byTeams: true,
-        applicationCount: 0,
-        teamCount: 2,
-      },
     };
-
-    // When
     const html = renderToStaticMarkup(
       <ProgramEditView
         program={teamOnlyProgram}
@@ -337,9 +313,8 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    // Then
-    expect(html).toContain('팀이 2개 있어 유형을 변경할 수 없습니다');
-    expect(html).toContain('disabled=""');
+    expect(html).toContain('교과/비교과');
+    expect(html).not.toContain('유형을 변경할 수 없습니다');
   });
   // 종료일이 없던 프로그램은 「미정」으로 열린다 — 날짜를 고르려면 체크를 먼저
   // 풀어야 하고(화면에서는 그때까지 날짜 칸이 비활성이다), 그 뒤에 고른 날짜가 나간다.

@@ -63,7 +63,9 @@ function readyContext(
       id: programId,
       name: `${programId} 프로그램`,
       organizer: '합성 운영처',
-      category: 'BASIC',
+      trackType: 'EXTRACURRICULAR',
+
+      applicationTemplateKey: 'basic',
       description: '합성 설명',
       repositoryProvisioningEnabled: true,
       applicationPeriod: {

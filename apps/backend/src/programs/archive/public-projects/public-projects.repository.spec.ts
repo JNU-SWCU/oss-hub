@@ -1,4 +1,4 @@
-import type { ProgramCategory } from '@prisma/client';
+import type { ProgramTrackType } from '@prisma/client';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { PublicProjectsRepository } from './public-projects.repository';
 
@@ -44,7 +44,7 @@ const PROJECT_ROW_SELECT = {
   nameWithOwner: true,
   publishedAt: true,
   programId: true,
-  program: { select: { name: true, category: true } },
+  program: { select: { name: true, trackType: true } },
   team: { select: { name: true, _count: { select: { members: true } } } },
   application: { select: { applicant: { select: { nickname: true } } } },
 };
@@ -55,7 +55,10 @@ const RAW_ROW = {
   nameWithOwner: 'synthetic-org/synthetic-repo',
   publishedAt: new Date('2026-07-20T00:00:00.000Z'),
   programId: 'synthetic-program-1',
-  program: { name: 'synthetic-program', category: 'BASIC' as ProgramCategory },
+  program: {
+    name: 'synthetic-program',
+    trackType: 'CURRICULAR' as ProgramTrackType,
+  },
   team: null,
   application: { applicant: { nickname: 'synthetic-applicant' } },
 };
@@ -78,7 +81,7 @@ describe('PublicProjectsRepository', () => {
           nameWithOwner: true,
           publishedAt: true,
           programId: true,
-          program: { select: { name: true, category: true } },
+          program: { select: { name: true, trackType: true } },
           team: {
             select: { name: true, _count: { select: { members: true } } },
           },
@@ -97,7 +100,7 @@ describe('PublicProjectsRepository', () => {
           publishedAt: RAW_ROW.publishedAt,
           programId: 'synthetic-program-1',
           programName: 'synthetic-program',
-          category: 'BASIC',
+          trackType: 'CURRICULAR',
           teamName: null,
           teamMemberCount: 0,
           applicantNickname: 'synthetic-applicant',
@@ -130,37 +133,58 @@ describe('PublicProjectsRepository', () => {
       );
     });
 
-    it('category가 있으면 program.category 필터를 where에 덧붙인다', async () => {
+    it('year가 있으면 Asia/Seoul publishedAt 경계(gte/lt)로 where를 좁힌다', async () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const { repository } = repositoryWith({ repositoryFindMany: findMany });
 
-      await repository.listPage(null, 12, 'CAPSTONE');
+      await repository.listPage(null, 12, 2026);
 
       expect(findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             visibility: 'PUBLIC',
-            publishedAt: { not: null },
-            program: { category: 'CAPSTONE' },
+            publishedAt: {
+              gte: new Date('2025-12-31T15:00:00.000Z'),
+              lt: new Date('2026-12-31T15:00:00.000Z'),
+            },
           },
           take: 12,
         }),
       );
     });
+
+    it.each([
+      [2025, '2024-12-31T15:00:00.000Z', '2025-12-31T15:00:00.000Z'],
+      [2026, '2025-12-31T15:00:00.000Z', '2026-12-31T15:00:00.000Z'],
+    ] as const)(
+      'Seoul boundary year=%i uses gte=%s lt=%s',
+      async (year, gte, lt) => {
+        const findMany = jest.fn().mockResolvedValue([]);
+        const { repository } = repositoryWith({ repositoryFindMany: findMany });
+
+        await repository.listPage(null, 6, year);
+
+        expect(findMany).toHaveBeenCalledTimes(1);
+        const calls = findMany.mock.calls as Array<
+          [{ where: { publishedAt: { gte: Date; lt: Date } } }]
+        >;
+        const listArgs = calls[0]?.[0];
+        expect(listArgs?.where.publishedAt).toEqual({
+          gte: new Date(gte),
+          lt: new Date(lt),
+        });
+      },
+    );
   });
 
-  describe('countByCategory', () => {
-    it('GROUP BY 결과를 number count로 매핑한다', async () => {
-      const queryRaw = jest.fn().mockResolvedValue([
-        { category: 'BASIC', count: 2n },
-        { category: 'CAPSTONE', count: 1n },
-      ]);
+  describe('listYears', () => {
+    it('DISTINCT 연도를 number 배열로 매핑하고 null은 제외한다', async () => {
+      const queryRaw = jest
+        .fn()
+        .mockResolvedValue([{ year: 2026 }, { year: 2025 }, { year: null }]);
       const { repository } = repositoryWith({ queryRaw });
 
-      await expect(repository.countByCategory()).resolves.toEqual([
-        { category: 'BASIC', count: 2 },
-        { category: 'CAPSTONE', count: 1 },
-      ]);
+      await expect(repository.listYears()).resolves.toEqual([2026, 2025]);
       expect(queryRaw).toHaveBeenCalledTimes(1);
     });
   });

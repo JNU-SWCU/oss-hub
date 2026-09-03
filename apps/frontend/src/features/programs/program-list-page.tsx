@@ -31,6 +31,7 @@ import {
 } from './program-list-sort';
 import { ProgramListPagination } from './program-list-pagination';
 import { ProgramListStatusChips } from './program-list-status-nav';
+import { PROGRAM_TRACK_TYPE_LABELS } from './program-templates';
 import type {
   ProgramListDirection,
   ProgramListItem,
@@ -208,7 +209,11 @@ function ProgramListPage({
           return (
             <ProgramCard
               badgeText={badge.label}
-              category={`${program.organizer} · ${PROGRAM_CATEGORY_LABELS[program.category]}`}
+              category={
+                program.trackType === null
+                  ? program.organizer
+                  : `${program.organizer} · ${PROGRAM_TRACK_TYPE_LABELS[program.trackType]}`
+              }
               href={programHref(program.id)}
               key={program.id}
               note={program.note?.text}

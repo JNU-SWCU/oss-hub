@@ -16,6 +16,15 @@ export const PROGRAM_CATEGORIES = [
 
 export type ProgramCategory = (typeof PROGRAM_CATEGORIES)[number];
 
+export const PROGRAM_TRACK_TYPES = ['CURRICULAR', 'EXTRACURRICULAR'] as const;
+
+export type ProgramTrackType = (typeof PROGRAM_TRACK_TYPES)[number];
+
+export const PROGRAM_TRACK_TYPE_LABELS = {
+  CURRICULAR: '교과',
+  EXTRACURRICULAR: '비교과',
+} as const satisfies Record<ProgramTrackType, string>;
+
 /** 서버 V1_APPLICATION_FIELDS와 동일 계약. 목록 API 병합 전 로컬 폴백. */
 export const V1_APPLICATION_FIELDS: readonly ApplicationFormField[] = [
   {
@@ -89,16 +98,17 @@ export const PROGRAM_TEMPLATE_DEFINITIONS: readonly ProgramTemplateDefinition[] 
   ];
 
 export function resolveProgramApplicationTemplate(
-  program: ProgramDetail,
+  program: Pick<ProgramDetail, 'applicationTemplateKey'>,
   templates: readonly ApplicationFormTemplate[],
 ): ApplicationFormTemplate | null {
-  const definition = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (item) => item.category === program.category,
+  const fromApi = templates.find(
+    (item) => item.key === program.applicationTemplateKey,
   );
-  if (!definition) return null;
+  if (fromApi) return fromApi;
   return (
-    templates.find((item) => item.key === definition.template.key) ??
-    definition.template
+    PROGRAM_TEMPLATE_DEFINITIONS.find(
+      (item) => item.template.key === program.applicationTemplateKey,
+    )?.template ?? null
   );
 }
 

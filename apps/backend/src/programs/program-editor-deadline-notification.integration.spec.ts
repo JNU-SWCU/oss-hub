@@ -3,6 +3,7 @@ import {
   MemberKind,
   MilestoneSubmissionType,
   ProgramCategory,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../common/error-code';
@@ -56,6 +57,7 @@ function updateRequest(notifyOnDeadline: boolean) {
   return {
     name: '마감 알림 검증 프로그램',
     organizer: 'OSS Center',
+    trackType: ProgramTrackType.EXTRACURRICULAR,
     category: ProgramCategory.BASIC,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-15T00:00:00.000Z',
@@ -126,6 +128,7 @@ async function seed(): Promise<void> {
       id: PROGRAM_ID,
       name: '마감 알림 검증 프로그램',
       organizer: 'OSS Center',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

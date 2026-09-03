@@ -1,5 +1,10 @@
 import type { ProgramViewer } from './program-viewer.service';
-import { ApplicationStatus, Prisma, ProgramLifecycle } from '@prisma/client';
+import {
+  ApplicationStatus,
+  Prisma,
+  ProgramLifecycle,
+  ProgramTrackType,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PROGRAM_LIST_QUERY_STATUSES } from '../program-list-query';
 import {
@@ -472,7 +477,8 @@ function listRecord(
     id: 'program-1',
     name: '프로그램',
     organizer: '운영기관',
-    category: 'CAPSTONE',
+    trackType: ProgramTrackType.CURRICULAR,
+    applicationTemplateKey: 'capstone',
     lifecycle: ProgramLifecycle.PUBLISHED,
     applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
     applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -610,7 +616,8 @@ describe('ProgramsService list', () => {
     const items = [
       listRecord({
         id: 'individual-program',
-        category: 'BASIC',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+        applicationTemplateKey: 'basic',
         teamMinSize: 1,
         teamMaxSize: 1,
       }),

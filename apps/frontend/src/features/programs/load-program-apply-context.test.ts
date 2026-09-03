@@ -32,7 +32,9 @@ const program = {
   id: 'program-1',
   name: 'Team Program',
   organizer: 'Organizer',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'basic',
   description: 'Description',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -206,7 +208,9 @@ describe('loadProgramApplyContext', () => {
     } satisfies ApplicationFormTemplate;
     const noApplicationProgram = {
       ...program,
-      category: 'OSS_CONTEST',
+      trackType: 'EXTRACURRICULAR',
+
+      applicationTemplateKey: 'oss-contest',
       applicationPeriod: {
         startsAt: '2020-01-01T00:00:00.000Z',
         endsAt: '2099-12-31T23:59:59.000Z',
@@ -310,7 +314,9 @@ describe('loadProgramApplyContext', () => {
     } satisfies ApplicationFormTemplate;
     const noApplicationProgram = {
       ...program,
-      category: 'OSS_CONTEST',
+      trackType: 'EXTRACURRICULAR',
+
+      applicationTemplateKey: 'oss-contest',
       // 신청 기간 판별은 실제 현재 시각(Date.now())을 쓴다 — 테스트가 언제
       // 돌아도 열려 있도록 마감을 충분히 미래로 둔다.
       applicationPeriod: {

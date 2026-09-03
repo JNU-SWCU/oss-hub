@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
 import type { MemberAccess } from './member-access';
@@ -252,35 +251,34 @@ describe('sidebarGroupsFor (context)', () => {
     expect(labels).not.toContain('연습');
   });
 
-  it('archive section is flat with distinct category icons', () => {
-    const groups = sidebarGroupsFor('archive', null);
+  it('archive section: 전체 + years as flat peers', () => {
+    const groups = sidebarGroupsFor('archive', null, {
+      archiveYears: [2026, 2025],
+    });
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('공개 아카이브');
     const items = groups[0]?.items ?? [];
-    expect(items).toHaveLength(1 + ARCHIVE_CATEGORIES.length);
+    expect(items).toHaveLength(3);
     expect(items.every((i) => (i.depth ?? 0) === 0)).toBe(true);
+    expect(
+      items.map((i) => ({ label: i.label, href: i.href, depth: i.depth })),
+    ).toEqual([
+      { label: '전체', href: '/archive', depth: 0 },
+      { label: '2026', href: '/archive?year=2026', depth: 0 },
+      { label: '2025', href: '/archive?year=2025', depth: 0 },
+    ]);
     expect(items[0]).toMatchObject({
       label: '전체',
       href: '/archive',
       icon: 'archive',
     });
-    expect(items.some((i) => i.href === '/archive?category=CAPSTONE')).toBe(
-      true,
-    );
-    const categoryIcons = items.slice(1).map((i) => i.icon);
-    expect(new Set(categoryIcons).size).toBe(categoryIcons.length);
   });
 
-  it('archive counts inject badges', () => {
-    const group = archiveSidebarGroup({
-      all: 3,
-      BASIC: 1,
-      CAPSTONE: 2,
-    });
-    expect(group.items[0]?.count).toBe(3);
-    expect(
-      group.items.find((i) => i.href === '/archive?category=CAPSTONE')?.count,
-    ).toBe(2);
+  it('archive sidebar lists years from facet data', () => {
+    const group = archiveSidebarGroup([2026, 2025]);
+    expect(group.items).toHaveLength(3);
+    expect(group.items[1]?.href).toBe('/archive?year=2026');
+    expect(group.items[2]?.href).toBe('/archive?year=2025');
   });
 
   it('ranking section: 전체 + years as flat peers', () => {
@@ -325,21 +323,13 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/programs/x', '/programs', '')).toBe(false);
   });
 
-  it('archive category query', () => {
+  it('archive year query', () => {
     expect(isCurrentSidebarItem('/archive', '/archive', '')).toBe(true);
     expect(
-      isCurrentSidebarItem(
-        '/archive',
-        '/archive?category=CAPSTONE',
-        'category=CAPSTONE',
-      ),
+      isCurrentSidebarItem('/archive', '/archive?year=2026', 'year=2026'),
     ).toBe(true);
     expect(
-      isCurrentSidebarItem(
-        '/archive',
-        '/archive?category=CAPSTONE',
-        'category=BASIC',
-      ),
+      isCurrentSidebarItem('/archive', '/archive?year=2026', 'year=2025'),
     ).toBe(false);
   });
 
@@ -380,9 +370,9 @@ describe('isCurrentSidebarItem', () => {
 
   it('archive detail does not highlight filters', () => {
     expect(isCurrentSidebarItem('/archive/123', '/archive', '')).toBe(false);
-    expect(
-      isCurrentSidebarItem('/archive/123', '/archive?category=CAPSTONE', ''),
-    ).toBe(false);
+    expect(isCurrentSidebarItem('/archive/123', '/archive?year=2026', '')).toBe(
+      false,
+    );
   });
 
   it('회원 공통 홈 메뉴는 /dashboard에서만 강조된다', () => {
@@ -434,7 +424,7 @@ describe('SECTION_FACETS registry (U4)', () => {
 
   it('registry params match peer-filter keys', () => {
     expect(SECTION_FACETS.programs?.param).toBe('status');
-    expect(SECTION_FACETS.archive?.param).toBe('category');
+    expect(SECTION_FACETS.archive?.param).toBe('year');
     expect(SECTION_FACETS.ranking?.param).toBe('year');
     expect(SECTION_FACETS.dashboard).toBeUndefined();
   });

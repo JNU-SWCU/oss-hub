@@ -1,19 +1,5 @@
-import {
-  Blocks,
-  BriefcaseBusiness,
-  Boxes,
-  Globe2,
-  GraduationCap,
-  HeartHandshake,
-  Trophy,
-} from 'lucide-react';
 import { FormSection } from '@/components/form-section';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from '@/components/ui/field';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
   messageFor,
   ProgramAuthoringTextField,
@@ -23,65 +9,16 @@ import type {
   ProgramAuthoringState,
 } from './program-authoring-model';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
-
-const CATEGORY_ICONS = {
-  BASIC: Boxes,
-  SW_VALUE_SPREAD: HeartHandshake,
-  OSS_CONTEST: Trophy,
-  CAPSTONE: GraduationCap,
-  SW_CONVERGENCE: Blocks,
-  GLOBAL_MAKERTHON: Globe2,
-  CORPORATE_INTERNSHIP: BriefcaseBusiness,
-} as const;
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  PROGRAM_TRACK_TYPES,
+} from './program-templates';
 
 type StepProps = {
   readonly state: ProgramAuthoringState;
   readonly issues: readonly ProgramAuthoringIssue[];
   readonly dispatch: (action: ProgramAuthoringAction) => void;
 };
-
-export function ProgramAuthoringTypeStep({ state, dispatch }: StepProps) {
-  return (
-    <FormSection
-      title="프로그램 유형"
-      description="운영 목적과 가장 가까운 유형을 고르세요. 유형은 신청 양식의 기준이 됩니다."
-    >
-      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup">
-        {PROGRAM_TEMPLATE_DEFINITIONS.map((definition) => {
-          const Icon = CATEGORY_ICONS[definition.category];
-          return (
-            <label
-              key={definition.category}
-              className="grid min-h-control cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-card border border-border p-card has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50"
-            >
-              <input
-                className="sr-only"
-                type="radio"
-                name="program-category"
-                value={definition.category}
-                checked={state.category === definition.category}
-                onChange={() =>
-                  dispatch({
-                    type: 'set_category',
-                    category: definition.category,
-                  })
-                }
-              />
-              <Icon aria-hidden="true" className="text-primary" />
-              <span className="grid gap-1">
-                <span className="font-semibold">{definition.label}</span>
-                <span className="text-small text-muted-foreground">
-                  {definition.template.name}
-                </span>
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    </FormSection>
-  );
-}
 
 export function ProgramAuthoringBasicStep({
   state,
@@ -112,14 +49,43 @@ export function ProgramAuthoringBasicStep({
         }
       />
       <Field>
+        <FieldLabel htmlFor="program-track-type">교과/비교과 *</FieldLabel>
+        <select
+          id="program-track-type"
+          className="h-control rounded-control border border-input bg-background px-4 text-body"
+          value={state.trackType}
+          aria-invalid={Boolean(messageFor(issues, 'trackType'))}
+          aria-describedby={
+            messageFor(issues, 'trackType')
+              ? 'program-track-type-error'
+              : undefined
+          }
+          onChange={(event) =>
+            dispatch({
+              type: 'set_track_type',
+              trackType: event.target
+                .value as (typeof PROGRAM_TRACK_TYPES)[number],
+            })
+          }
+        >
+          <option value="">선택</option>
+          {PROGRAM_TRACK_TYPES.map((trackType) => (
+            <option key={trackType} value={trackType}>
+              {PROGRAM_TRACK_TYPE_LABELS[trackType]}
+            </option>
+          ))}
+        </select>
+        <FieldError id="program-track-type-error" role="alert">
+          {messageFor(issues, 'trackType')}
+        </FieldError>
+      </Field>
+      <Field>
         <FieldLabel>참여 인원 / 팀 규모 *</FieldLabel>
         <div className="grid gap-3 sm:grid-cols-2">
           <ProgramAuthoringTextField
             id="team-minimum"
             label="최소"
             type="number"
-            min="1"
-            max="100"
             value={state.teamMinSize}
             error={messageFor(issues, 'teamMinSize')}
             onChange={(value) =>
@@ -134,8 +100,6 @@ export function ProgramAuthoringBasicStep({
             id="team-maximum"
             label="최대"
             type="number"
-            min={state.teamMinSize || '1'}
-            max="100"
             value={state.teamMaxSize}
             error={messageFor(issues, 'teamMaxSize')}
             onChange={(value) =>
@@ -147,28 +111,16 @@ export function ProgramAuthoringBasicStep({
             }
           />
         </div>
-        <FieldDescription>기본값은 1명부터 1명입니다.</FieldDescription>
       </Field>
-      <Field>
-        <FieldLabel htmlFor="authoring-description">소개/설명 *</FieldLabel>
-        <textarea
-          id="authoring-description"
-          className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          value={state.description}
-          aria-invalid={Boolean(messageFor(issues, 'description'))}
-          onChange={(event) =>
-            dispatch({
-              type: 'set_program_field',
-              field: 'description',
-              value: event.target.value,
-            })
-          }
-        />
-        <FieldError>{messageFor(issues, 'description')}</FieldError>
-      </Field>
+      <ProgramAuthoringTextField
+        id="program-description"
+        label="소개/설명 *"
+        value={state.description}
+        error={messageFor(issues, 'description')}
+        onChange={(value) =>
+          dispatch({ type: 'set_program_field', field: 'description', value })
+        }
+      />
     </FormSection>
   );
 }
-
-export { messageFor } from './program-authoring-fields';
-export { ProgramAuthoringScheduleStep } from './program-authoring-schedule-step';

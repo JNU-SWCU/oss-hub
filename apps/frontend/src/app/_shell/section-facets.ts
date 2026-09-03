@@ -1,5 +1,4 @@
-import { loadArchiveCategoryCounts } from '@/features/archive/api';
-import type { ArchiveCategoryCounts } from '@/features/archive/types';
+import { loadArchiveYears } from '@/features/archive/api';
 import { getProgramStatusCounts } from '@/features/programs/api';
 import type { ProgramListStatus } from '@/features/programs/types';
 import { getRankingYears } from '@/features/ranking/api';
@@ -16,14 +15,14 @@ import {
  */
 export type SectionFacetData = {
   readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
-  readonly archiveCounts?: Partial<ArchiveCategoryCounts>;
+  readonly archiveYears?: readonly number[];
   readonly rankingYears?: readonly number[];
   readonly rankingCounts?: Partial<Record<'all' | number, number>>;
 };
 
 export interface SectionFacetSpec {
   readonly groupLabel: string;
-  readonly param: 'status' | 'category' | 'year';
+  readonly param: 'status' | 'year';
   /** Optional: load counts/years. Prefer AbortSignal; if feature API lacks signal, call API then check signal.aborted. */
   readonly load?: (signal: AbortSignal) => Promise<SectionFacetData>;
   readonly items: (
@@ -48,9 +47,9 @@ async function loadProgramFacets(
 async function loadArchiveFacets(
   signal: AbortSignal,
 ): Promise<SectionFacetData> {
-  const archiveCounts = await loadArchiveCategoryCounts();
+  const archiveYears = await loadArchiveYears(signal);
   abortIfSignalAborted(signal);
-  return { archiveCounts };
+  return { archiveYears };
 }
 
 async function loadRankingFacets(
@@ -75,9 +74,9 @@ export const SECTION_FACETS: Partial<
   },
   archive: {
     groupLabel: '공개 아카이브',
-    param: 'category',
+    param: 'year',
     load: loadArchiveFacets,
-    items: (data) => archiveSidebarGroup(data?.archiveCounts).items,
+    items: (data) => archiveSidebarGroup(data?.archiveYears).items,
   },
   ranking: {
     groupLabel: '랭킹',

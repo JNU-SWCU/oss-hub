@@ -72,7 +72,7 @@ describe('ProgramCreationPage guided authoring', () => {
     container.remove();
   });
 
-  it('renders all six Korean steps without draft controls or restoration copy', async () => {
+  it('renders all five Korean steps without draft controls or restoration copy', async () => {
     sessionStorage.setItem(
       'oss-hub:program-authoring',
       JSON.stringify(completedAuthoringState()),
@@ -81,7 +81,6 @@ describe('ProgramCreationPage guided authoring', () => {
     await act(async () => root.render(<ProgramCreationPage />));
 
     for (const label of [
-      '유형',
       '기본 정보',
       '신청/운영 일정',
       '마일스톤',

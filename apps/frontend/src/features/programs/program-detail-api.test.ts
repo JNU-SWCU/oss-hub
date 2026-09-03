@@ -7,7 +7,9 @@ const publicDetail: ProgramDetail = {
   id: 'program-1',
   name: '합성 프로그램',
   organizer: '합성 운영기관',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'oss-contest',
   description: '합성 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

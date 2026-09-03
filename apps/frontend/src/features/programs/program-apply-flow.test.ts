@@ -18,7 +18,9 @@ const baseProgram: ProgramDetail = {
   id: 'program-1',
   name: '합성 프로그램',
   organizer: '합성 주관',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'basic',
   description: '설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -92,7 +94,7 @@ describe('program-apply-flow', () => {
 
     expect(
       resolveApplyBlockedReason(
-        { ...baseProgram, category: 'OSS_CONTEST' },
+        { ...baseProgram, trackType: 'EXTRACURRICULAR' },
         teamTemplate,
         null,
         Date.parse('2026-07-15T00:00:00.000Z'),
@@ -101,7 +103,7 @@ describe('program-apply-flow', () => {
 
     expect(
       resolveApplyBlockedReason(
-        { ...baseProgram, category: 'OSS_CONTEST' },
+        { ...baseProgram, trackType: 'EXTRACURRICULAR' },
         teamTemplate,
         'team-1',
         Date.parse('2026-07-15T00:00:00.000Z'),

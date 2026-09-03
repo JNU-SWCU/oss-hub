@@ -1,14 +1,8 @@
 import type { ProgramDetail, SubmissionStatus, SubmissionType } from './types';
-
-const CATEGORY_LABELS = {
-  BASIC: '기본 프로그램',
-  SW_VALUE_SPREAD: 'SW 가치확산',
-  OSS_CONTEST: 'OSS 경진대회',
-  CAPSTONE: '캡스톤',
-  SW_CONVERGENCE: 'SW 융합',
-  GLOBAL_MAKERTHON: '글로벌 메이커톤',
-  CORPORATE_INTERNSHIP: '기업 인턴십',
-} as const satisfies Readonly<Record<ProgramDetail['category'], string>>;
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  type ProgramTrackType,
+} from './program-templates';
 
 const SUBMISSION_LABELS = {
   NOT_SUBMITTED: '제출 전',
@@ -33,8 +27,16 @@ const DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
-export function categoryLabel(category: ProgramDetail['category']): string {
-  return CATEGORY_LABELS[category];
+export function trackTypeLabel(trackType: ProgramTrackType): string {
+  return PROGRAM_TRACK_TYPE_LABELS[trackType];
+}
+
+export function programDetailMeta(program: ProgramDetail): string {
+  const period = `${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`;
+  if (program.trackType === null) {
+    return `${program.organizer} · ${period}`;
+  }
+  return `${program.organizer} · ${trackTypeLabel(program.trackType)} · ${period}`;
 }
 
 export function submissionLabel(status: SubmissionStatus): string {

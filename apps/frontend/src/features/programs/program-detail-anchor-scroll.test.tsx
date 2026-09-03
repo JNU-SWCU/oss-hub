@@ -24,7 +24,9 @@ const program = {
   id: 'program-anchor-review',
   name: '활동 위치 확인 프로그램',
   organizer: '운영기관',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'basic',
   description: '합성 프로그램',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

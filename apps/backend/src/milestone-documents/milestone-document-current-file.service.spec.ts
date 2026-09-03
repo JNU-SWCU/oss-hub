@@ -121,7 +121,7 @@ describe('MilestoneDocumentCurrentFileService', () => {
     expect(get).toHaveBeenNthCalledWith(2, 'objects/replacement');
   });
 
-  it('저장된 이름을 다시 위생 처리하고 허용되지 않은 MIME은 octet-stream으로 내린다', async () => {
+  it('저장된 이름을 다시 위생 처리하고 내려주기 타입은 확장자로 고른다', async () => {
     // Given
     const service = new MilestoneDocumentCurrentFileService(
       buildReader({
@@ -141,7 +141,7 @@ describe('MilestoneDocumentCurrentFileService', () => {
 
     // Then
     expect(result.fileName).toBe('current.pdf');
-    expect(result.contentType).toBe('application/octet-stream');
+    expect(result.contentType).toBe('application/pdf');
     expect(result).not.toHaveProperty('storageKey');
     expect(result).not.toHaveProperty('uploaderId');
     expect(result).not.toHaveProperty('revision');

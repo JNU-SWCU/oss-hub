@@ -11,7 +11,7 @@ export function completedAuthoringState(): ProgramAuthoringState {
   return {
     ...initial,
     currentStep: 'review',
-    category: 'OSS_CONTEST',
+    trackType: 'EXTRACURRICULAR',
     name: '합성 OSS 프로그램',
     organizer: '합성 주관기관',
     description: '합성 프로그램 설명',

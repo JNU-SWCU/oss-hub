@@ -174,9 +174,9 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
   });
 
   it('허용하지 않는 파일이면 문구를 띄우고 그 입력으로 초점을 옮긴다', async () => {
-    // Given: 확장자만 pdf이고 형식은 알 수 없는 파일.
+    // Given: 허용 목록에 없는 확장자.
     await act(async () =>
-      pickFile(new File(['x'], 'plan.pdf', { type: 'application/zip' })),
+      pickFile(new File(['x'], 'plan.txt', { type: 'text/plain' })),
     );
 
     // When
