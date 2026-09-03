@@ -35,6 +35,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{ ...milestone, viewerSubmissionStatus: null }}
         viewerRole={null}
         applicationStatus={null}
@@ -53,6 +55,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={milestone}
         viewerRole="STUDENT"
         applicationStatus="APPROVED"
@@ -65,6 +69,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           submissionType: null,
@@ -85,6 +91,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           submissionType: null,
@@ -105,6 +113,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           submissionType: null,
@@ -124,6 +134,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           dDay: -2,
@@ -144,6 +156,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           viewerSubmissionStatus: null,

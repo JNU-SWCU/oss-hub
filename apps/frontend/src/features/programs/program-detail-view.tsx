@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useId, type ReactNode } from 'react';
-import { EmptyState, PageHeader, StatusBadge } from '@/components';
+import {
+  EmptyState,
+  ListPanel,
+  PageHeader,
+  SectionHeading,
+  StatusBadge,
+} from '@/components';
 import { Button } from '@/components/ui/button';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
@@ -29,6 +35,14 @@ const SIGNUP_ENTRY_HREF = '/signup';
 
 const ACTIVITY_SECTION_ID = 'activity';
 const ACTIVITY_HASH = `#${ACTIVITY_SECTION_ID}`;
+
+/**
+ * 마일스톤 이름이 갖는 id. 묶음(`article`)이 이 id 를 `aria-labelledby` 로 가리켜,
+ * 화면에서 선으로 그은 경계를 화면 읽기 도구에서도 같은 경계로 들리게 한다.
+ */
+function milestoneNameId(milestoneId: string): string {
+  return `milestone-${milestoneId}-name`;
+}
 
 /**
  * 스크롤 주도권이 사용자에게 넘어갔다고 볼 입력. `scroll`은 우리가 만든 이동도
@@ -262,6 +276,54 @@ export function ProgramDetailFailureState({
   );
 }
 
+/**
+ * 마일스톤 하나가 차지하는 자리. 머리줄(`MilestoneRow`)과 그 마일스톤의 제출
+ * 항목을 **한 덩어리로 묶는다.**
+ *
+ * 예전에는 둘을 `grid gap-3` 로 세워 목록 전체의 `gap-4` 와 나란히 뒀다 — 안쪽
+ * 12px, 바깥쪽 16px 이라 어디까지가 한 마일스톤인지 간격만으로는 알 수 없었고,
+ * 화면에 그어진 유일한 가로선이 제출 항목 블록의 `border-t` 였다. 즉 선은
+ * **마일스톤 안**을 갈랐고 마일스톤 **사이**에는 아무 표시도 없었다. 항목이 늘수록
+ * 안쪽이 무거워져 다음 마일스톤이 앞 마일스톤의 꼬리처럼 읽혔다.
+ *
+ * 그래서 신호를 뒤집는다. 마일스톤 사이에만 선을 긋고(`[&+&]:border-t`), 안쪽
+ * 경계는 머리줄의 옅은 바탕(`milestone-row` 의 `bg-muted/60`)이 대신 진다.
+ * 이 목록에서 **가로선 하나 = 새 마일스톤**이다. 색을 새로 만들지 않고 간격·선·
+ * 묶음만 쓴다.
+ */
+function MilestoneGroup({
+  program,
+  milestone,
+  position,
+}: {
+  readonly program: ProgramDetail;
+  readonly milestone: ProgramDetail['milestones'][number];
+  readonly position: number;
+}) {
+  return (
+    <article
+      role="listitem"
+      data-testid="milestone-group"
+      aria-labelledby={milestoneNameId(milestone.id)}
+      className="[&+&]:border-t-2 [&+&]:border-border"
+    >
+      <MilestoneRow
+        programId={program.id}
+        milestone={milestone}
+        position={position}
+        nameId={milestoneNameId(milestone.id)}
+        viewerRole={program.viewer.role}
+        applicationStatus={program.viewer.applicationStatus}
+      />
+      <MilestoneDocumentSection
+        milestoneId={milestone.id}
+        viewerRole={program.viewer.role}
+        closed={isPastDue(milestone.dueAt)}
+      />
+    </article>
+  );
+}
+
 export function ProgramMilestones({
   program,
 }: {
@@ -273,17 +335,11 @@ export function ProgramMilestones({
       className="grid scroll-mt-24 gap-4"
       aria-labelledby="milestones-title"
     >
-      <div className="flex items-center justify-between gap-3">
-        <h2
-          id="milestones-title"
-          className="font-heading text-xl font-semibold"
-        >
-          마일스톤
-        </h2>
-        <span className="text-sm text-muted-foreground">
-          {program.milestones.length}개
-        </span>
-      </div>
+      <SectionHeading
+        id="milestones-title"
+        title="마일스톤"
+        meta={`${program.milestones.length}개`}
+      />
       {program.milestones.length === 0 ? (
         <EmptyState
           title="아직 등록된 마일스톤이 없습니다"
@@ -299,21 +355,22 @@ export function ProgramMilestones({
           }
         />
       ) : (
-        program.milestones.map((milestone) => (
-          <div key={milestone.id} className="grid gap-3">
-            <MilestoneRow
-              programId={program.id}
+        /*
+          목록은 카드 하나 안에 쌓는다(`ListPanel`). 마일스톤마다 카드를 두면
+          테두리가 개수만큼 생겨 목록 자체의 윤곽이 사라진다 — 같은 성격의 항목이
+          순서대로 이어지는 자리의 규약이고, 마일스톤 타임라인 화면도 같은 형태다.
+          바깥 테두리가 서면 그 안의 가로선이 비로소 「경계」로 읽힌다.
+        */
+        <ListPanel role="list">
+          {program.milestones.map((milestone, index) => (
+            <MilestoneGroup
+              key={milestone.id}
+              program={program}
               milestone={milestone}
-              viewerRole={program.viewer.role}
-              applicationStatus={program.viewer.applicationStatus}
+              position={index + 1}
             />
-            <MilestoneDocumentSection
-              milestoneId={milestone.id}
-              viewerRole={program.viewer.role}
-              closed={isPastDue(milestone.dueAt)}
-            />
-          </div>
-        ))
+          ))}
+        </ListPanel>
       )}
     </section>
   );
