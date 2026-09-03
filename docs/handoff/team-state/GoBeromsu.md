@@ -1216,3 +1216,13 @@
 - 결과: PR #1171이 Before 캡처 0장·구현 언어 요약·렌더 깨진 문자로 도착했는데 required CI는 전부 통과했고, 배포 `/programs/<id>/status`는 `전체 미제출 5팀`을 통계와 필터에 글자 그대로 두 번 그리고 있었다. 기계가 잡을 수 있는 것은 이미 다 잡고 못 잡는 것만 리뷰어에게 도착하는 구조라, Nielsen 10 usability heuristics에 앵커링한 여덟 항목을 `skills/submit-pr-evidence/references/ux-antipatterns.md`로 만들고 자동 점검 4종은 devtools 스니펫, 판단 4종은 답이 정해진 질문으로 인코딩했다. PR 직전 작성자 인터뷰 세 질문(의도·위화감·안티패턴)을 필수 절차로 두어 그 답이 본문 세 자리의 원재료가 되게 했고, 캡처 게이트의 `N/A`를 없애 화면을 건드린 모든 변경에 Before/After 표·전체 화면 2장·`jnu-oss-hub.com` 확인 링크를 요구한다. 본문 순서는 사람이 읽는 것을 위로 올리고 `고친 파일`을 맨 아래 `정리`로 내렸다. 화면 티켓의 완료 조건에도 같은 여덟 항목 점검을 필수로 넣었다.
 - 검증: `pnpm format:check`, `bash scripts/check-public-safe.sh` 통과. 스킬이 인용하는 참조 경로 전수 확인(끊어진 경로 0건), 제품 코드 결합 0건.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
+
+## 2026-09-03 — 업로드 입장에서 브라우저 MIME을 보지 않는다
+
+- 상태: review
+- Issue: #1182
+- PR: (이 PR)
+- blocker: 없음
+- 결과: 학생이 Windows Chrome 등에서 zip을 고르면 브라우저가 `application/x-zip-compressed`를 붙여 화면·서버가 형식 오류로 막았다. 별칭을 늘리지 않고 입장 검사를 확장자 → 시그니처 → (zip이면) admission으로 줄였다. 내려주기 Content-Type은 클라이언트가 보낸 값이 아니라 확장자의 정규 값이다.
+- 검증: backend focused Jest 5 suites / 132 tests, frontend focused Vitest 3 files / 44 tests, backend·frontend `tsc --noEmit`, 변경 파일 eslint 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.

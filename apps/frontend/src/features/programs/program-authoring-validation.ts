@@ -16,22 +16,13 @@ import {
 export type { ProgramAuthoringIssue } from './program-authoring-validation-helpers';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = new Map<string, readonly string[]>([
-  ['.pdf', ['application/pdf']],
-  [
-    '.hwp',
-    [
-      'application/x-hwp',
-      'application/haansofthwp',
-      'application/vnd.hancom.hwp',
-      'application/x-hwp-v5',
-      'application/octet-stream',
-    ],
-  ],
-  ['.jpg', ['image/jpeg']],
-  ['.jpeg', ['image/jpeg']],
-  ['.png', ['image/png']],
-  ['.zip', ['application/zip']],
+const ALLOWED_FILE_EXTENSIONS = new Set([
+  '.pdf',
+  '.hwp',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.zip',
 ]);
 
 export function validateProgramAuthoringStep(
@@ -73,8 +64,7 @@ export function validateTemplateFile(file: File): string | null {
   if (file.size > MAX_FILE_BYTES) return '파일은 5MiB 이하여야 합니다.';
   const dot = file.name.lastIndexOf('.');
   const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : '';
-  const mimeTypes = ALLOWED_FILE_TYPES.get(extension);
-  if (mimeTypes === undefined || !mimeTypes.includes(file.type.toLowerCase())) {
+  if (!ALLOWED_FILE_EXTENSIONS.has(extension)) {
     return 'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.';
   }
   return null;
