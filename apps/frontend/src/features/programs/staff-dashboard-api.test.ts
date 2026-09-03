@@ -21,7 +21,7 @@ const validResponse = {
     {
       id: 'program:basic',
       name: '기본 프로그램',
-      category: 'BASIC',
+      trackType: 'EXTRACURRICULAR',
       applicationPeriod: {
         startsAt: '2026-07-01T00:00:00.000Z',
         endsAt: '2026-07-31T23:59:59.000Z',

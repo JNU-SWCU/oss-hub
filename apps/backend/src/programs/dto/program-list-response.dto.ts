@@ -9,7 +9,7 @@ export class ProgramListResponseDto {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: PersonalizedProgramListItem['category'];
+  readonly trackType: PersonalizedProgramListItem['trackType'];
   /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
   readonly lifecycle: PersonalizedProgramListItem['lifecycle'];
   readonly applicationStartAt: string;
@@ -29,7 +29,7 @@ export class ProgramListResponseDto {
     this.id = program.id;
     this.name = program.name;
     this.organizer = program.organizer;
-    this.category = program.category;
+    this.trackType = program.trackType;
     this.lifecycle = program.lifecycle;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();

@@ -2,6 +2,7 @@ import {
   ApplicationStatus,
   MilestoneSubmissionType,
   ProgramCategory,
+  ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -102,6 +103,7 @@ export function createDeadlineDigestIntegrationHarness() {
         id: String(id),
         name: `synthetic ${id}`,
         organizer: 'synthetic-center',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,

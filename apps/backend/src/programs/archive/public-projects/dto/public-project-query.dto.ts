@@ -1,7 +1,5 @@
-import { ProgramCategory } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -9,6 +7,10 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+
+/** Inclusive calendar-year bounds for optional `?year=` (local copy — do not import ranking). */
+export const PUBLIC_PROJECT_YEAR_MIN = 2000;
+export const PUBLIC_PROJECT_YEAR_MAX = 2100;
 
 export class PublicProjectQueryRequestDto {
   @IsOptional()
@@ -22,8 +24,11 @@ export class PublicProjectQueryRequestDto {
   @Max(50)
   readonly pageSize: number = 20;
 
-  /** 프로그램 분류 필터. 없으면 전체. */
+  /** Asia/Seoul calendar year filter. Omit = all published projects. */
   @IsOptional()
-  @IsEnum(ProgramCategory)
-  readonly category?: ProgramCategory;
+  @Type(() => Number)
+  @IsInt()
+  @Min(PUBLIC_PROJECT_YEAR_MIN)
+  @Max(PUBLIC_PROJECT_YEAR_MAX)
+  readonly year?: number;
 }

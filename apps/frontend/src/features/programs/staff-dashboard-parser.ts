@@ -1,4 +1,8 @@
-import { PROGRAM_CATEGORIES, type ProgramCategory } from './program-templates';
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  PROGRAM_TRACK_TYPES,
+  type ProgramTrackType,
+} from './program-templates';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardApplicationCounts,
@@ -38,8 +42,11 @@ function isNullableIsoDate(value: unknown): value is string | null {
   return value === null || isIsoDate(value);
 }
 
-function isProgramCategory(value: unknown): value is ProgramCategory {
-  return PROGRAM_CATEGORIES.some((category) => category === value);
+function isProgramTrackType(value: unknown): value is ProgramTrackType | null {
+  return (
+    value === null ||
+    PROGRAM_TRACK_TYPES.some((trackType) => trackType === value)
+  );
 }
 
 function isSafeProgramId(value: unknown): value is string {
@@ -105,7 +112,7 @@ function isProgram(value: unknown): value is StaffDashboardProgramSummary {
   const expectedApplicantsPath = `/programs/${encodeURIComponent(value.id)}/applicants`;
   return (
     isNonEmptyString(value.name) &&
-    isProgramCategory(value.category) &&
+    isProgramTrackType(value.trackType) &&
     isIsoDate(value.applicationPeriod.startsAt) &&
     isIsoDate(value.applicationPeriod.endsAt) &&
     Date.parse(value.applicationPeriod.startsAt) <=

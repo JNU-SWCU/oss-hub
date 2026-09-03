@@ -8,6 +8,7 @@ import {
   RepositorySource,
   RepositoryVisibility,
   StaffAccessRequestStatus,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import {
@@ -208,6 +209,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',
         applicationTemplateVersion: 1,

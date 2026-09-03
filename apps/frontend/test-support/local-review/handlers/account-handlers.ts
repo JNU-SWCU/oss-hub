@@ -5,7 +5,7 @@ import {
 } from '@/features/profile/profile-requirements';
 import type {
   PublicProfile,
-  PublicProfileCategory,
+  PublicProfileTrackType,
   PublicProfileProject,
 } from '@/features/profile/public-profile-types';
 import type { UserProfile } from '@/features/profile/types';
@@ -54,7 +54,7 @@ type PublicProfileProjectInput = {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly category: PublicProfileCategory;
+  readonly trackType: PublicProfileTrackType | null;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly displayName: string;
   readonly repositoryName: string;
@@ -75,7 +75,7 @@ function publicProfileProject(
     projectId: input.projectId,
     programId: input.programId,
     programName: input.programName,
-    category: input.category,
+    trackType: input.trackType,
     applicationMode: input.applicationMode,
     displayName: input.displayName,
     repositoryName: input.repositoryName,
@@ -96,7 +96,7 @@ const CAPSTONE_PROFILE_PROJECT = publicProfileProject({
   projectId: 'synthetic-repo-capstone',
   programId: 'program-capstone',
   programName: '합성 캡스톤 2026',
-  category: 'CAPSTONE',
+  trackType: 'CURRICULAR',
   applicationMode: 'TEAM',
   displayName: '합성 캡스톤 팀 저장소',
   repositoryName: 'synthetic-capstone-archive',
@@ -107,7 +107,7 @@ const CONTEST_PROFILE_PROJECT = publicProfileProject({
   projectId: 'synthetic-repo-contest',
   programId: 'program-oss-contest',
   programName: '합성 OSS 경진대회',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   applicationMode: 'TEAM',
   displayName: '합성 경진대회 팀 저장소',
   repositoryName: 'synthetic-contest-archive',
@@ -118,7 +118,7 @@ const BASIC_PROFILE_PROJECT = publicProfileProject({
   projectId: 'synthetic-repo-basic',
   programId: 'program-basic-study',
   programName: '합성 기초 오픈소스 스터디',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
   applicationMode: 'PERSONAL',
   displayName: '합성 개인 실습 저장소',
   repositoryName: 'synthetic-basic-archive',

@@ -223,7 +223,7 @@ export function ProgramCreationPage({
               {serverError}
             </p>
           ) : null}
-          {state.currentStep !== 'type' ? (
+          {state.currentStep !== 'basic' ? (
             <Button type="button" variant="outline" onClick={() => move(-1)}>
               이전
             </Button>

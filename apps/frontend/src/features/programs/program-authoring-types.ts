@@ -1,7 +1,6 @@
-import type { ProgramCategory } from './program-templates';
+import type { ProgramTrackType } from './program-templates';
 
 export const PROGRAM_AUTHORING_STEPS = [
-  { id: 'type', label: '유형' },
   { id: 'basic', label: '기본 정보' },
   { id: 'schedule', label: '신청/운영 일정' },
   { id: 'milestones', label: '마일스톤' },
@@ -38,7 +37,7 @@ export type ProgramAuthoringMilestone = {
 export type ProgramAuthoringState = {
   readonly currentStep: ProgramAuthoringStep;
   readonly idempotencyKey: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | '';
   readonly name: string;
   readonly organizer: string;
   readonly description: string;
@@ -57,7 +56,7 @@ type ProgramTextField = Exclude<
   keyof ProgramAuthoringState,
   | 'currentStep'
   | 'idempotencyKey'
-  | 'category'
+  | 'trackType'
   | 'repositoryProvisioningEnabled'
   | 'notifyOnDeadline'
   | 'milestones'
@@ -71,7 +70,7 @@ export type ProgramAuthoringAction =
       readonly state: ProgramAuthoringState;
     }
   | { readonly type: 'go_to_step'; readonly step: ProgramAuthoringStep }
-  | { readonly type: 'set_category'; readonly category: ProgramCategory }
+  | { readonly type: 'set_track_type'; readonly trackType: ProgramTrackType }
   | {
       readonly type: 'set_repository_provisioning_enabled';
       readonly enabled: boolean;

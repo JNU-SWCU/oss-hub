@@ -1,6 +1,5 @@
-import { type ProgramCategory } from '@prisma/client';
+import { type ProgramTrackType } from '@prisma/client';
 import type {
-  PublicProjectCategoryCountsResult,
   PublicProjectContributor,
   PublicProjectDetailResult,
   PublicProjectMetrics,
@@ -42,7 +41,7 @@ export class PublicProjectListItemResponseDto {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly applicationMode: PublicProjectApplicationMode;
   readonly displayName: string;
   readonly repositoryName: string;
@@ -53,7 +52,7 @@ export class PublicProjectListItemResponseDto {
     this.projectId = row.projectId;
     this.programId = row.programId;
     this.programName = row.programName;
-    this.category = row.category;
+    this.trackType = row.trackType;
     this.applicationMode = applicationMode(row.teamMemberCount);
     this.displayName = displayNameOf(row);
     this.repositoryName = row.repositoryName;
@@ -84,32 +83,16 @@ export class PublicProjectPageResponseDto {
   }
 }
 
-/** `GET /projects/category-counts` — 좌측 아카이브 메뉴 뱃지용. */
-export class PublicProjectCategoryCountsResponseDto {
-  readonly all: number;
-  readonly BASIC: number;
-  readonly SW_VALUE_SPREAD: number;
-  readonly OSS_CONTEST: number;
-  readonly CAPSTONE: number;
-  readonly SW_CONVERGENCE: number;
-  readonly GLOBAL_MAKERTHON: number;
-  readonly CORPORATE_INTERNSHIP: number;
+/** `GET /projects/years` — 좌측 아카이브 연도 메뉴. */
+export class PublicProjectYearsResponseDto {
+  readonly years: readonly number[];
 
-  private constructor(counts: PublicProjectCategoryCountsResult) {
-    this.all = counts.all;
-    this.BASIC = counts.BASIC;
-    this.SW_VALUE_SPREAD = counts.SW_VALUE_SPREAD;
-    this.OSS_CONTEST = counts.OSS_CONTEST;
-    this.CAPSTONE = counts.CAPSTONE;
-    this.SW_CONVERGENCE = counts.SW_CONVERGENCE;
-    this.GLOBAL_MAKERTHON = counts.GLOBAL_MAKERTHON;
-    this.CORPORATE_INTERNSHIP = counts.CORPORATE_INTERNSHIP;
+  private constructor(years: readonly number[]) {
+    this.years = years;
   }
 
-  static from(
-    counts: PublicProjectCategoryCountsResult,
-  ): PublicProjectCategoryCountsResponseDto {
-    return new PublicProjectCategoryCountsResponseDto(counts);
+  static from(years: readonly number[]): PublicProjectYearsResponseDto {
+    return new PublicProjectYearsResponseDto(years);
   }
 }
 
@@ -153,7 +136,7 @@ export class PublicProjectDetailResponseDto {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly applicationMode: PublicProjectApplicationMode;
   readonly displayName: string;
   readonly repositoryName: string;
@@ -166,7 +149,7 @@ export class PublicProjectDetailResponseDto {
     this.projectId = detail.row.projectId;
     this.programId = detail.row.programId;
     this.programName = detail.row.programName;
-    this.category = detail.row.category;
+    this.trackType = detail.row.trackType;
     this.applicationMode = applicationMode(detail.row.teamMemberCount);
     this.displayName = displayNameOf(detail.row);
     this.repositoryName = detail.row.repositoryName;

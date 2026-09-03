@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { type ProgramCategory } from '@prisma/client';
+import { type ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  PUBLIC_PROJECT_YEAR_MAX,
+  PUBLIC_PROJECT_YEAR_MIN,
+} from './dto/public-project-query.dto';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
@@ -35,7 +39,7 @@ export interface PublicProjectRow {
   readonly publishedAt: Date;
   readonly programId: string;
   readonly programName: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly teamName: string | null;
   /** 개인 참여는 멤버 1명인 팀이다(D5·D6) — 표시명·유형 구분에 인원이 필요하다. */
   readonly teamMemberCount: number;
@@ -64,7 +68,7 @@ const PROJECT_ROW_SELECT = {
   nameWithOwner: true,
   publishedAt: true,
   programId: true,
-  program: { select: { name: true, category: true } },
+  program: { select: { name: true, trackType: true } },
   team: { select: { name: true, _count: { select: { members: true } } } },
   application: { select: { applicant: { select: { nickname: true } } } },
 } as const;
@@ -75,10 +79,22 @@ type ProjectRowSelection = {
   nameWithOwner: string;
   publishedAt: Date | null;
   programId: string | null;
-  program: { name: string; category: ProgramCategory } | null;
+  program: { name: string; trackType: ProgramTrackType | null } | null;
   team: { name: string; _count: { members: number } } | null;
   application: { applicant: { nickname: string } } | null;
 };
+
+function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
+  if (year < PUBLIC_PROJECT_YEAR_MIN || year > PUBLIC_PROJECT_YEAR_MAX) {
+    throw new RangeError(
+      `year must be between ${PUBLIC_PROJECT_YEAR_MIN} and ${PUBLIC_PROJECT_YEAR_MAX}`,
+    );
+  }
+  return [
+    new Date(Date.UTC(year, 0, 1) - 9 * 60 * 60 * 1000),
+    new Date(Date.UTC(year + 1, 0, 1) - 9 * 60 * 60 * 1000),
+  ];
+}
 
 function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
   // where절이 publishedAt: { not: null }을 강제하고, publishedAt은 provisioning이 만든
@@ -92,7 +108,7 @@ function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
     publishedAt: row.publishedAt!,
     programId: row.programId!,
     programName: row.program!.name,
-    category: row.program!.category,
+    trackType: row.program!.trackType,
     teamName: row.team?.name ?? null,
     teamMemberCount: row.team?._count?.members ?? 0,
     applicantNickname: row.application!.applicant.nickname,
@@ -108,18 +124,25 @@ export class PublicProjectsRepository {
    * 첫 페이지다. `take`는 호출자가 `pageSize + 1`을 넘겨 lookahead로 다음 페이지 존재 여부를
    * 판단할 수 있게 한다 — 페이지 경계는 이 원본 조회 하나로만 결정되고, eligibility 필터링이
    * 경계를 옮기지 않는다(`Repository_visibility_publishedAt_id_idx` 사용).
-   * `category`가 있으면 해당 프로그램 분류만 서버에서 거른다.
+   * `year`가 있으면 Asia/Seoul `publishedAt` 경계로 서버에서 거른다.
    */
   async listPage(
     cursor: PublicProjectCursor | null,
     take: number,
-    category?: ProgramCategory,
+    year?: number,
   ): Promise<PublicProjectRow[]> {
+    const publishedAtWhere =
+      year === undefined
+        ? { not: null }
+        : (() => {
+            const [yearStart, yearEnd] = seoulYearBoundsUtcForRead(year);
+            return { gte: yearStart, lt: yearEnd };
+          })();
+
     const rows = await this.prisma.githubRepository.findMany({
       where: {
         visibility: 'PUBLIC',
-        publishedAt: { not: null },
-        ...(category === undefined ? {} : { program: { category } }),
+        publishedAt: publishedAtWhere,
         ...(cursor === null
           ? {}
           : {
@@ -137,26 +160,28 @@ export class PublicProjectsRepository {
   }
 
   /**
-   * 플랫폼 공개 프로젝트의 프로그램 분류별 개수. eligibility fence는 적용하지 않는다.
-   * `Program.category`로 GROUP BY 1회. 없는 분류는 호출 측에서 0으로 채운다.
+   * 플랫폼 공개 프로젝트에 데이터가 있는 Asia/Seoul 연도(distinct, 최신순).
+   * eligibility fence는 적용하지 않는다 — `countByCategory`와 동일 베이스 필터.
    */
-  async countByCategory(): Promise<
-    readonly { readonly category: ProgramCategory; readonly count: number }[]
-  > {
+  async listYears(): Promise<readonly number[]> {
     const rows = await this.prisma.$queryRaw<
-      readonly { category: ProgramCategory; count: bigint }[]
+      readonly { year: number | null }[]
     >`
-      SELECT p.category AS category, COUNT(*)::bigint AS count
+      SELECT DISTINCT (
+        EXTRACT(
+          YEAR FROM (
+            r."publishedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul'
+          )
+        )
+      )::int AS year
       FROM "GithubRepository" r
-      INNER JOIN "Program" p ON p.id = r."programId"
       WHERE r.visibility = 'PUBLIC'::"RepositoryVisibility"
         AND r."publishedAt" IS NOT NULL
-      GROUP BY p.category
+      ORDER BY year DESC
     `;
-    return rows.map((row) => ({
-      category: row.category,
-      count: Number(row.count),
-    }));
+    return rows
+      .map((row) => row.year)
+      .filter((year): year is number => year !== null);
   }
 
   /**

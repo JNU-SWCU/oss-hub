@@ -1245,3 +1245,13 @@
 - 후속 PR: failure surface, notification, Skeleton·Alert kind, dialog shell, composition API, ProgramCard 하향, 테스트 데이터, local-review 하네스, lint, ADR 승격을 각각 연다.
 - 검증: 보존 블록 11개 byte-identical diff와 2개 한-줄 예외 diff, line-set 잔여 13줄은 교체·삭제·예외로 선언한 줄만, 규칙·안티패턴 id 카운트, 추가 줄의 경로 존재·한 문장 한 줄 검사, `pnpm format:check`를 실행했다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
+
+## 2026-09-03 — #1137 공개 아카이브 연도·trackType(B′)
+
+- 상태: review
+- Issue: [#1137](https://github.com/JNU-SWCU/oss-hub/issues/1137)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1186
+- blocker: 없음
+- 결과: PR1 연도 아카이브(`GET /projects?year=`·`/years`, category-counts 제거, 사이드·칩 연도, 7종 표시 제거). PR2 nullable `trackType`, authoring 5스텝·교과/비교과 Select, 공개 와이어 `trackType|null`, `applicationTemplateKey` 신청 해석, ADR-012. `#1137` 본문·담당 `@GoBeromsu` 이관.
+- 검증: `pnpm --filter backend test:unit`(3481 passed), `pnpm --filter frontend test`(3238 passed), `pnpm --filter frontend typecheck`.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

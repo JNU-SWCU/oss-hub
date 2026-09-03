@@ -214,7 +214,7 @@ describe('ProgramTeamsService', () => {
     const { service, createTeamWithLeader } = buildService({
       program: {
         ...TEAM_PROGRAM,
-        category: ProgramCategory.BASIC,
+        category: ProgramCategory.OSS_CONTEST,
         teamMinSize: 1,
         teamMaxSize: 1,
       },
@@ -390,7 +390,7 @@ describe('ProgramTeamsService', () => {
     const { service, addMember, findTeamByJoinCodeDigest } = buildService({
       program: {
         ...TEAM_PROGRAM,
-        category: ProgramCategory.BASIC,
+        category: ProgramCategory.OSS_CONTEST,
         teamMinSize: 1,
         teamMaxSize: 13,
       },
@@ -525,7 +525,7 @@ describe('ProgramTeamsService', () => {
     const { service } = buildService({
       program: {
         ...TEAM_PROGRAM,
-        category: ProgramCategory.BASIC,
+        category: ProgramCategory.OSS_CONTEST,
         teamMinSize: 1,
         teamMaxSize: 1,
       },

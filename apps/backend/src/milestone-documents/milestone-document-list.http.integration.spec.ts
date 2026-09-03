@@ -1,4 +1,4 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus, MemberKind, ProgramCategory } from '@prisma/client';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -120,7 +120,8 @@ describe('authenticated milestone document list filename contract', () => {
         id: programId,
         name: 'synthetic milestone list program',
         organizer: 'OSS Hub',
-        category: 'CAPSTONE',
+        trackType: 'CURRICULAR',
+        category: ProgramCategory.BASIC,
         applicationTemplateKey: 'capstone-v1',
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2025-12-01'),
