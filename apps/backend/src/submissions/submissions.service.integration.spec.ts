@@ -25,6 +25,7 @@ import { SubmissionsErrorCode } from './submissions-error-code.enum';
 import type { SubmissionFileStoragePort } from './submission-file-storage.port';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
+import { signatureValidZip } from './submission-zip-test-builder';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 
@@ -631,6 +632,83 @@ describe('SubmissionsService integration', () => {
       expect(row.lifecycle).toBe(SubmissionFileLifecycle.PENDING);
       expect(row.pendingExpiresAt).not.toBeNull();
       expect(row.expiresAt).toEqual(addOneCalendarYear(programEndAt));
+    } finally {
+      await prisma.submissionFile.deleteMany({
+        where: {
+          applicationId: PERSONAL_APPLICATION_ID,
+          milestoneId: FILE_MILESTONE_ID,
+          lifecycle: SubmissionFileLifecycle.PENDING,
+        },
+      });
+      await Promise.all([
+        prisma.program.update({
+          where: { id: MILESTONES_PROGRAM_ID },
+          data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
+        }),
+        prisma.milestone.update({
+          where: { id: FILE_MILESTONE_ID },
+          data: { dueAt: new Date('2026-08-30T00:00:00.000Z') },
+        }),
+      ]);
+    }
+  });
+
+  it('브라우저가 zip에 붙인 MIME 별칭이어도 PENDING 행을 만든다', async () => {
+    const milestoneDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const programEndAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const archive = signatureValidZip([{ name: 'plan.pdf' }]);
+    await Promise.all([
+      prisma.program.update({
+        where: { id: MILESTONES_PROGRAM_ID },
+        data: { endAt: programEndAt },
+      }),
+      prisma.milestone.update({
+        where: { id: FILE_MILESTONE_ID },
+        data: { dueAt: milestoneDueAt },
+      }),
+    ]);
+    const storage: SubmissionFileStoragePort = {
+      put: jest.fn().mockResolvedValue({
+        objectKey: 'private/synthetic-upload.zip',
+        originalName: 'archive.zip',
+        contentLength: archive.byteLength,
+        contentType: 'application/x-zip-compressed',
+      }),
+      delete: jest.fn().mockResolvedValue(undefined),
+      get: jest.fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>(),
+    };
+    const fileService = new SubmissionFilesService(
+      new SubmissionFilesRepository(prisma),
+      storage,
+    );
+
+    try {
+      const uploaded = await fileService.upload(
+        seedGithubId(PERSONAL_USER_ID),
+        PERSONAL_APPLICATION_ID,
+        FILE_MILESTONE_ID,
+        {
+          buffer: archive,
+          originalname: 'archive.zip',
+          mimetype: 'application/x-zip-compressed',
+          size: archive.byteLength,
+        },
+      );
+
+      const row = await prisma.submissionFile.findUniqueOrThrow({
+        where: { id: uploaded.fileId },
+        select: {
+          originalFileName: true,
+          mimeType: true,
+          lifecycle: true,
+        },
+      });
+      expect(row).toMatchObject({
+        originalFileName: 'archive.zip',
+        mimeType: 'application/x-zip-compressed',
+        lifecycle: SubmissionFileLifecycle.PENDING,
+      });
+      expect(storage.put).toHaveBeenCalledTimes(1);
     } finally {
       await prisma.submissionFile.deleteMany({
         where: {

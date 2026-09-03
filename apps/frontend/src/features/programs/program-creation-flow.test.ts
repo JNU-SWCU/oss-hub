@@ -242,6 +242,17 @@ describe('program authoring validation', () => {
     );
   });
 
+  it.each([
+    ['archive.zip', 'application/x-zip-compressed'],
+    ['archive.zip', 'application/octet-stream'],
+    ['archive.zip', ''],
+  ])(
+    '허용 확장자 %s는 브라우저 MIME %s와 무관하게 통과한다',
+    (name, type) => {
+      expect(validateTemplateFile(new File(['x'], name, { type }))).toBeNull();
+    },
+  );
+
   it('rejects oversized and unsupported template files before upload', () => {
     expect(
       validateTemplateFile(

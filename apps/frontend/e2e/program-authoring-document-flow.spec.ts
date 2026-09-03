@@ -125,6 +125,30 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       mimeType: 'application/pdf',
       buffer: Buffer.from('%PDF-1.4\nrequired\n'),
     });
+    await attachmentInput.setInputFiles({
+      name: PROGRAM_AUTHORING_E2E.windowsZipDocumentName,
+      mimeType: 'application/x-zip-compressed',
+      buffer: Buffer.from([
+        0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,
+      ]),
+    });
+    await expect(
+      milestoneDialog.getByText(PROGRAM_AUTHORING_E2E.windowsZipDocumentName),
+    ).toBeVisible();
+    await expect(
+      milestoneDialog.getByText(
+        'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.',
+      ),
+    ).toHaveCount(0);
+    await milestoneDialog
+      .locator('div.rounded-card')
+      .filter({ hasText: PROGRAM_AUTHORING_E2E.windowsZipDocumentName })
+      .getByRole('button', { name: '첨부파일 삭제' })
+      .click();
+    await expect(
+      milestoneDialog.getByText(PROGRAM_AUTHORING_E2E.windowsZipDocumentName),
+    ).toHaveCount(0);
     await milestoneDialog.getByLabel('필수 제출').first().uncheck();
     await milestoneDialog.getByRole('button', { name: '저장' }).click();
     await authorPage.getByRole('button', { name: '계속' }).click();
