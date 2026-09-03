@@ -170,6 +170,34 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     milestoneDocuments: [],
     fullySubmittedParticipantCount: 0,
   },
+  // 내려간 프로그램(#1092). 아무도 신청하지 못한 채 내려갔으므로 참여·팀·저장소가
+  // 모두 0이다. 서류는 마일스톤에 걸려 있으므로 정의만 남아 있고 제출은 0건이다
+  // (`milestone-document-fixtures.ts`의 `milestones-internship-report` 시드와 같은 수).
+  //
+  // 다음 마감은 비운다 — 내려간 프로그램은 더 이상 일정을 안내하지 않는다.
+  'program-archived-internship': {
+    name: '합성 기업 인턴십 프로그램',
+    category: 'CORPORATE_INTERNSHIP',
+    lifecycle: 'ARCHIVED',
+    milestoneCount: 1,
+    boardPostCount: 0,
+    participantCount: 0,
+    teamCount: 0,
+    connectedRepositoryCount: 0,
+    studentDocumentsCompleted: 0,
+    studentDocumentsTotal: 1,
+    nextMilestone: null,
+    milestoneDocuments: [
+      {
+        milestoneId: 'milestones-internship-report',
+        title: '중간 활동 보고',
+        studentCompleted: 0,
+        studentTotal: 1,
+        staffCompleted: 0,
+      },
+    ],
+    fullySubmittedParticipantCount: 0,
+  },
 };
 
 export function programOverviewFor(
@@ -280,6 +308,7 @@ const PROGRAM_TEAM_DIRECTORIES: Readonly<
   // 개인형 프로그램이라 팀이 없다.
   'program-basic-study': [],
   'program-sw-value': [],
+  'program-archived-internship': [],
 };
 
 /** `programs/:programId/teams`(교직원 전용)가 돌려주는 팀 항목 하나. */

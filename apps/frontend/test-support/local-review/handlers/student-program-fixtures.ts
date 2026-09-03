@@ -25,6 +25,7 @@ export const PUBLIC_PROGRAM_IDS = [
   'program-oss-contest',
   'program-basic-study',
   'program-sw-value',
+  'program-archived-internship',
 ] as const;
 
 export type PublicProgramId = (typeof PUBLIC_PROGRAM_IDS)[number];
@@ -117,6 +118,42 @@ const SW_VALUE_BASE = {
   applicationPeriod: {
     startsAt: '2026-01-01T00:00:00.000+09:00',
     endsAt: '2026-06-30T23:59:59.000+09:00',
+  },
+} as const satisfies ProgramBase;
+
+/**
+ * **내린 프로그램**(`lifecycle: 'ARCHIVED'`)을 검토하기 위한 프로그램이다(#1092).
+ *
+ * 이 페르소나가 없으면 「내린 프로그램의 상세」를 아무도 눈으로 볼 수 없다 — 나머지
+ * 넷은 모두 `PUBLISHED`라 상세 화면의 종료 갈래(배지 「종료」·신청 버튼 비활성)를
+ * 지나가지 않는다. 그 사각지대가 「목록은 종료인데 상세는 모집중 + 신청하기」라는
+ * 결함이 살아남은 이유이기도 하다.
+ *
+ * **신청 기간은 일부러 열어 둔다.** 기간까지 닫아 두면 날짜만 봐도 종료로 보여서,
+ * 화면이 게시 축(lifecycle)을 실제로 읽는지 아니면 예전처럼 기간만 보고 있는지
+ * 구별할 수 없다. 「기간은 남았는데 내려서 종료」가 이 티켓의 상황 그 자체다.
+ * 같은 이유로 운영 기간(`operatingPeriod`)도 싣지 않는다 — 종료일이 지나 있으면
+ * 그쪽만으로도 종료가 되어 대조가 흐려진다.
+ *
+ * 학생은 **아직 신청하지 않은 상태**(`studentApplicationStatus: null`)로 둔다.
+ * 신청 버튼이 그려지는 갈래를 봐야 그 버튼이 비활성으로 바뀌었는지 확인할 수 있다 —
+ * 이미 신청한 상태면 화면이 신청 입구 자체를 그리지 않는다.
+ *
+ * 개인형(`CORPORATE_INTERNSHIP`)으로 둔다. 팀형이면 검토자가 팀부터 만들어야 하는데
+ * 종료 화면은 팀 구성과 아무 상관이 없어 도달 경로만 길어진다(반려 프로그램과 같은 판단).
+ */
+const ARCHIVED_INTERNSHIP_BASE = {
+  id: 'program-archived-internship',
+  name: '합성 기업 인턴십 프로그램',
+  organizer: '합성 SW중심대학사업단',
+  category: 'CORPORATE_INTERNSHIP',
+  lifecycle: 'ARCHIVED',
+  description:
+    '내린 프로그램의 상세를 검토하기 위한 합성 개인형 프로그램입니다. 신청 기간은 아직 남아 있지만 운영이 취소되어 내려갔습니다.',
+  repositoryProvisioningEnabled: false,
+  applicationPeriod: {
+    startsAt: '2026-01-01T00:00:00.000+09:00',
+    endsAt: '2026-12-31T23:59:59.000+09:00',
   },
 } as const satisfies ProgramBase;
 
@@ -237,6 +274,31 @@ const SW_VALUE_MILESTONES = [
   },
 ] as const satisfies readonly ProgramMilestone[];
 
+/**
+ * 내려간 프로그램의 마일스톤. 아무도 신청하지 못한 채 내려갔으므로 제출 상태가 없다
+ * (`viewerSubmissionStatus: null`).
+ *
+ * 마감은 **지난 날짜로 둔다.** 서류 제출 여부는 이 마감으로 갈리는데(상세 화면이
+ * `dueAt`으로 `closed`를 계산한다), 마감이 남아 있으면 신청은 막혔는데 제출 버튼만
+ * 살아 있는 화면이 된다 — 이 PR이 보여 주려는 것과 어긋나는 모순을 픽스처가 스스로
+ * 만들어 검토 노이즈가 된다. 신청 기간(열림)과는 다른 축이라 이 티켓의 대조
+ * (「기간은 남았는데 내려서 종료」)는 그대로 남는다.
+ */
+const ARCHIVED_INTERNSHIP_MILESTONES = [
+  {
+    id: 'milestones-internship-report',
+    name: '중간 활동 보고',
+    dueAt: '2026-07-31T23:59:59.000+09:00',
+    dDay: -1,
+    deadlineLabel: '마감 지남',
+    description: '인턴십 중간 활동 내용과 배운 점을 정리해 제출합니다.',
+    submissionType: 'TEXT',
+    submissionItemCount: 0,
+    viewerSubmissionStatus: null,
+    applicationSubmissionSummary: null,
+  },
+] as const satisfies readonly ProgramMilestone[];
+
 /** 교직원·관리자 시야의 마일스톤 집계. 학생 제출 상태 대신 신청 단위 합계를 보여준다. */
 const STAFF_MILESTONE_SUMMARIES: Readonly<Record<string, SubmissionSummary>> = {
   'milestones-approved': {
@@ -304,6 +366,15 @@ const STAFF_MILESTONE_SUMMARIES: Readonly<Record<string, SubmissionSummary>> = {
     rejected: 0,
     total: 0,
   },
+  // 아무도 신청하지 못한 채 내려간 프로그램이라 제출 대상 자체가 생기지 않았다.
+  'milestones-internship-report': {
+    notSubmitted: 0,
+    submitted: 0,
+    approved: 0,
+    changesRequested: 0,
+    rejected: 0,
+    total: 0,
+  },
 };
 
 type ProgramFixture = {
@@ -363,6 +434,16 @@ const PROGRAM_FIXTURES: Readonly<Record<PublicProgramId, ProgramFixture>> = {
     // `APPROVED`면 사유 없는 `already-applied` 안내만 뜬다.
     studentApplicationStatus: 'REJECTED',
     // 반려라 저장소가 만들어지지 않았다.
+    activity: [],
+  },
+  'program-archived-internship': {
+    base: ARCHIVED_INTERNSHIP_BASE,
+    milestones: ARCHIVED_INTERNSHIP_MILESTONES,
+    // 신청 전 상태여야 신청 버튼이 그려지는 갈래를 지나간다 — 그 버튼이 비활성으로
+    // 바뀌었는지가 이 프로그램에서 확인할 것이다. `APPROVED`·`REJECTED`면 화면이
+    // 신청 입구 자체를 그리지 않아 확인할 대상이 사라진다.
+    studentApplicationStatus: null,
+    // 내려가기 전까지 아무도 신청하지 않아 저장소가 만들어지지 않았다.
     activity: [],
   },
 };

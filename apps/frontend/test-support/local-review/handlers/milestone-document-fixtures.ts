@@ -211,6 +211,22 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       teamSubmissionCount: { submitted: 0, total: 3 },
     },
   ],
+  // 내려간 프로그램(#1092)의 마일스톤. 시드가 없으면 상세 화면의 「제출 항목」 자리가
+  // 「불러오지 못했습니다」로 남아, 이 프로그램에서 확인해야 할 종료 배지·신청 버튼
+  // 대신 없는 결함이 눈에 먼저 들어온다. 아무도 신청하지 못한 채 내려갔으므로 제출은
+  // 0건이다(`program-overview-fixtures.ts`의 `studentDocumentsCompleted`와 같은 수).
+  'milestones-internship-report': [
+    {
+      id: 'synthetic-document-internship-report',
+      milestoneId: 'milestones-internship-report',
+      name: '중간 활동 보고',
+      required: true,
+      sortOrder: 1,
+      contentKind: 'TEXT',
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
+      teamSubmissionCount: { submitted: 0, total: 0 },
+    },
+  ],
   // ── 교직원 편집·수합 화면용 ──
   // 위 항목들은 학생 화면(student-program-fixtures.ts)의 마일스톤 id를 쓴다. 교직원
   // 편집 화면은 staff-program-fixtures.ts의 다른 마일스톤을 보므로 시드가 없어
