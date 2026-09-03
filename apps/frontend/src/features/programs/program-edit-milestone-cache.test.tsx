@@ -113,7 +113,9 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     });
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
       await Promise.resolve();
     });
 

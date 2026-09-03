@@ -357,7 +357,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
       await Promise.resolve();
     });
     await act(async () => getButton('추가').click());
@@ -374,7 +376,9 @@ describe('ProgramEditPage 컴포넌트', () => {
   it('이름만 채운 새 마일스톤은 비활성 시각 입력 대신 날짜 달력에 초점을 둔다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
       await Promise.resolve();
     });
     await act(async () => getButton('추가').click());
@@ -402,7 +406,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
@@ -429,7 +435,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
@@ -461,7 +469,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
       await Promise.resolve();
     });
 
@@ -501,7 +511,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramMock.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
@@ -549,7 +561,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
@@ -635,7 +649,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
@@ -697,7 +713,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     updateProgramLifecycleMock.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
@@ -746,7 +764,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
@@ -803,7 +823,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" canDeleteProgram={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
