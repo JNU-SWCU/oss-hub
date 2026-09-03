@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
+import { currentRankingYear } from '@/features/ranking/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
 import type { MemberAccess } from './member-access';
 import { STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -354,7 +356,9 @@ describe('isCurrentSidebarItem', () => {
    * 같은 메뉴가 어디서 왔느냐에 따라 다른 결과를 보이는 셈이다.
    */
   it('/ranking 은 전체가 아니라 올해 항목을 강조한다', () => {
-    const thisYear = String(new Date().getFullYear());
+    // 본문과 같은 함수로 기대값을 만든다. 여기서 기기 연도를 따로 세면
+    // 기계 시간대가 KST 가 아닐 때 이 스펙 자체가 갈린다.
+    const thisYear = String(currentRankingYear());
 
     expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
       false,
@@ -366,6 +370,64 @@ describe('isCurrentSidebarItem', () => {
     expect(
       isCurrentSidebarItem('/ranking', '/ranking?year=all', 'year=all'),
     ).toBe(true);
+  });
+
+  /**
+   * 기기 시계가 KST 가 아니면 「올해」가 두 값으로 갈린다. 본문은 서울 연도
+   * (`currentRankingYear`)를 쓰는데 사이드바가 `new Date().getFullYear()` 로 따로
+   * 세면 기기 연도를 쓰기 때문이다. 연말·연초의 그 구간에서는 「전체」도 연도도
+   * 강조되지 않아, 지금 어느 연도의 표를 보는지 왼쪽 메뉴로 확인할 수 없다.
+   *
+   * 개발 기계와 CI 가 KST 라 두 값이 같아서 기본 환경에서는 이 갈림이 드러나지
+   * 않는다 — `process.env.TZ` 를 바꿔야 잡힌다
+   * (`features/programs/application-presentation.test.ts` 와 같은 이유).
+   */
+  describe('`year` 부재 강조는 기기 시간대를 타지 않는다', () => {
+    const originalTz = process.env.TZ;
+
+    afterEach(() => {
+      vi.useRealTimers();
+      // 원래 미설정이었으면 `= undefined` 가 문자열 "undefined" 를 넣어 기본
+      // 시간대가 UTC 로 떨어진다. 지워야 원래대로 돌아온다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    });
+
+    function freezeAt(timeZone: string, isoUtc: string): void {
+      process.env.TZ = timeZone;
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(isoUtc));
+    }
+
+    it('UTC 기기에서 1월 1일 00:30 KST 면 서울 연도가 강조된다', () => {
+      // 2025-12-31T15:30Z = 서울 2026-01-01 00:30. UTC 기기는 아직 2025 다.
+      freezeAt('UTC', '2025-12-31T15:30:00.000Z');
+      // 시간대 고정이 실제로 먹었는지 먼저 본다 — 안 먹으면 아래가 조용히 통과한다.
+      expect(new Date().getFullYear()).toBe(2025);
+
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
+        true,
+      );
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2025', '')).toBe(
+        false,
+      );
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
+        false,
+      );
+    });
+
+    it('KST 보다 앞선 기기의 자정 직후에도 서울 연도가 강조된다', () => {
+      // 2026-12-31T10:10Z = UTC+14 기기로는 2027-01-01 00:10, 서울은 아직 2026-12-31.
+      freezeAt('Pacific/Kiritimati', '2026-12-31T10:10:00.000Z');
+      expect(new Date().getFullYear()).toBe(2027);
+
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
+        true,
+      );
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2027', '')).toBe(
+        false,
+      );
+    });
   });
 
   it('archive detail does not highlight filters', () => {
