@@ -1216,3 +1216,14 @@
 - 결과: PR #1171이 Before 캡처 0장·구현 언어 요약·렌더 깨진 문자로 도착했는데 required CI는 전부 통과했고, 배포 `/programs/<id>/status`는 `전체 미제출 5팀`을 통계와 필터에 글자 그대로 두 번 그리고 있었다. 기계가 잡을 수 있는 것은 이미 다 잡고 못 잡는 것만 리뷰어에게 도착하는 구조라, Nielsen 10 usability heuristics에 앵커링한 여덟 항목을 `skills/submit-pr-evidence/references/ux-antipatterns.md`로 만들고 자동 점검 4종은 devtools 스니펫, 판단 4종은 답이 정해진 질문으로 인코딩했다. PR 직전 작성자 인터뷰 세 질문(의도·위화감·안티패턴)을 필수 절차로 두어 그 답이 본문 세 자리의 원재료가 되게 했고, 캡처 게이트의 `N/A`를 없애 화면을 건드린 모든 변경에 Before/After 표·전체 화면 2장·`jnu-oss-hub.com` 확인 링크를 요구한다. 본문 순서는 사람이 읽는 것을 위로 올리고 `고친 파일`을 맨 아래 `정리`로 내렸다. 화면 티켓의 완료 조건에도 같은 여덟 항목 점검을 필수로 넣었다.
 - 검증: `pnpm format:check`, `bash scripts/check-public-safe.sh` 통과. 스킬이 인용하는 참조 경로 전수 확인(끊어진 경로 0건), 제품 코드 결합 0건.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
+
+## 2026-09-03 — frontend design contract을 단일 정본으로 재구축한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 결과: `docs/design.md`를 토큰·프리미티브 보존 블록과 새 계층·composition·상태·피드백·다이얼로그·테스트 데이터·안티패턴·부채·컴포넌트 카드 절로 재구축했고, 보존 블록 13개 중 11개는 기준선 범위 diff로 byte-identical이고, TOKEN·A11Y 두 블록은 코드와 어긋나던 문장 한 줄씩(StatusBadge 미구현 서술, Field의 htmlFor 자동 연결 서술)만 고친 검토된 예외다. 그 외 보존 예외는 헤딩 레벨 5줄뿐이고 PR 본문에 목록을 남긴다. 리서치 노트는 내용을 흡수한 뒤 삭제해 저장소에는 `docs/design.md` 하나만 남긴다.
+- 후속 PR: failure surface, notification, Skeleton·Alert kind, dialog shell, composition API, ProgramCard 하향, 테스트 데이터, local-review 하네스, lint, ADR 승격을 각각 연다.
+- 검증: 보존 블록 11개 byte-identical diff와 2개 한-줄 예외 diff, line-set 잔여 13줄은 교체·삭제·예외로 선언한 줄만, 규칙·안티패턴 id 카운트, 추가 줄의 경로 존재·한 문장 한 줄 검사, `pnpm format:check`를 실행했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 사람은 GitHub handle로만 표기했다.
