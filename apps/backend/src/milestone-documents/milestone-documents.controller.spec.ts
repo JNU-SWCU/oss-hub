@@ -18,7 +18,10 @@ import {
 } from './milestone-documents.controller';
 import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
 import type { MilestoneDocumentArchive } from './milestone-document-archive.service';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import {
+  MilestoneDocumentArchiveEntryError,
+  MilestoneDocumentArchiveService,
+} from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
@@ -906,6 +909,9 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       '/api/v1/milestones/synthetic-milestone/documents/collection/archive';
     const STORAGE_ERROR_MESSAGE =
       'synthetic-bucket 연결이 끊겼다 (secret-token-would-leak-here)';
+    /** 끊긴 항목을 지목하는 값. 실제 열쇠도 `submission-files/<uuid>` 꼴이다. */
+    const FAILED_STORAGE_KEY =
+      'submission-files/00000000-0000-4000-8000-000000000001';
 
     /** 컨트롤러가 실제로 손대는 express Response의 부분집합. */
     interface ArchiveResponseStub {
@@ -1006,19 +1012,22 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       };
     };
 
+    /** 서류 한 종류만 받는 요청. DTO의 필드는 `declare`라 인스턴스에 직접 얹는다. */
+    const documentScopeQuery = (): MilestoneDocumentArchiveQueryRequestDto =>
+      Object.assign(new MilestoneDocumentArchiveQueryRequestDto(), {
+        documentId: 'synthetic-document',
+      });
+
     const streamArchive = (
       probe: ArchiveResponseProbe,
+      query: MilestoneDocumentArchiveQueryRequestDto = new MilestoneDocumentArchiveQueryRequestDto(),
     ): Promise<StreamableFile> => {
       if (application === undefined) {
         throw new Error('테스트 애플리케이션이 아직 뜨지 않았다');
       }
       return application
         .get(MilestoneDocumentsController)
-        .archive(
-          'synthetic-milestone',
-          new MilestoneDocumentArchiveQueryRequestDto(),
-          probe.response,
-        );
+        .archive('synthetic-milestone', query, probe.response);
     };
 
     let loggedErrors: unknown[];
@@ -1131,6 +1140,65 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       // Then: 응답을 못 쓰는 갈래에서도 로그는 남는다.
       expect(loggedErrors).toHaveLength(1);
       expect(String(loggedErrors[0])).toContain(STORAGE_ERROR_MESSAGE);
+    });
+
+    /**
+     * 신고를 받고 원인을 좁힐 수 있으려면 **그 한 줄만으로** 사건이 지목돼야 한다.
+     *
+     * 특히 헤더가 이미 나간 뒤의 실패는 응답 본문에 아무것도 실을 수 없어(위 갈래) 로그가
+     * 유일한 근거다. 그래서 이 확인은 그 갈래에서 한다.
+     */
+    it('헤더가 나간 뒤의 실패 한 줄에 마일스톤·요청 범위·끊긴 항목이 함께 남는다', async () => {
+      // Given: 스토리지가 항목 하나를 못 읽어 압축이 끊겼다.
+      const probe = createArchiveResponseProbe({ headersSent: true });
+      const streamable = await streamArchive(probe);
+      const nest = createNestStreamableProbe();
+
+      // When
+      streamable.errorHandler(
+        new MilestoneDocumentArchiveEntryError(
+          FAILED_STORAGE_KEY,
+          new Error('SUBMISSION_FILE_STORAGE_GET_FAILED'),
+        ),
+        nest.response,
+      );
+
+      // Then
+      expect(loggedErrors).toHaveLength(1);
+      const line = String(loggedErrors[0]);
+      expect(line).toContain('milestoneId=synthetic-milestone');
+      expect(line).toContain('scope=ALL');
+      expect(line).toContain(`storageKey=${FAILED_STORAGE_KEY}`);
+      expect(line).toContain('SUBMISSION_FILE_STORAGE_GET_FAILED');
+    });
+
+    it('서류 한 종류만 받는 요청은 로그에서 전체 내려받기와 구분된다', async () => {
+      // Given
+      const probe = createArchiveResponseProbe({ headersSent: true });
+      const streamable = await streamArchive(probe, documentScopeQuery());
+      const nest = createNestStreamableProbe();
+
+      // When
+      streamable.errorHandler(
+        new MilestoneDocumentArchiveEntryError(
+          FAILED_STORAGE_KEY,
+          new Error('SUBMISSION_FILE_STORAGE_GET_FAILED'),
+        ),
+        nest.response,
+      );
+
+      // Then
+      expect(String(loggedErrors[0])).toContain('scope=DOCUMENT');
+    });
+
+    it('성공한 일괄 내려받기에서는 이 실패 로그가 남지 않는다', async () => {
+      // Given / When: 끊기지 않고 끝까지 나간 요청이다.
+      const response = await fetch(archiveUrl());
+
+      // Then
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
+      expect(loggedErrors).toEqual([]);
     });
 
     it('응답이 close를 내면 압축 스트림을 파괴한다 — 취소해도 서버가 계속 끌어오면 안 된다', async () => {
