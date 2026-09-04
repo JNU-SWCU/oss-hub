@@ -49,6 +49,12 @@ function isProgramTrackType(value: unknown): value is ProgramTrackType | null {
   );
 }
 
+function isProgramLifecycle(
+  value: unknown,
+): value is StaffDashboardProgramSummary['lifecycle'] {
+  return value === 'PUBLISHED' || value === 'ARCHIVED';
+}
+
 function isSafeProgramId(value: unknown): value is string {
   return (
     isNonEmptyString(value) &&
@@ -117,6 +123,10 @@ function isProgram(value: unknown): value is StaffDashboardProgramSummary {
     isIsoDate(value.applicationPeriod.endsAt) &&
     Date.parse(value.applicationPeriod.startsAt) <=
       Date.parse(value.applicationPeriod.endsAt) &&
+    // 종료일·게시 축이 없으면 모집 상태를 공개 목록과 같게 판정할 수 없다(#1093).
+    // 조용히 「안 내린 프로그램」으로 넘기지 않고 응답 형식 오류로 끊는다.
+    isIsoDate(value.endAt) &&
+    isProgramLifecycle(value.lifecycle) &&
     value.applicantsPath === expectedApplicantsPath &&
     isApplications(value.applications) &&
     isActivity(value.activity) &&

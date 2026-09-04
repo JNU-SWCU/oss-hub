@@ -1,5 +1,5 @@
-import { getProgramRecruitmentState } from './program-list';
 import { staffTrackTypeLabel } from './staff-dashboard-format';
+import { getStaffProgramRecruitmentState } from './staff-dashboard-status';
 import {
   PROGRAM_LIST_STATUSES,
   type ProgramListStatus,
@@ -20,19 +20,7 @@ export function filterStaffDashboardPrograms(
 ): readonly StaffDashboardProgramSummary[] {
   const needle = search.trim().toLowerCase();
   return programs.filter((program) => {
-    const recruitmentState = getProgramRecruitmentState(
-      {
-        id: program.id,
-        name: program.name,
-        organizer: '',
-        trackType: program.trackType,
-        applicationStartAt: program.applicationPeriod.startsAt,
-        applicationEndAt: program.applicationPeriod.endsAt,
-        endAt: null,
-        description: '',
-      },
-      now,
-    );
+    const recruitmentState = getStaffProgramRecruitmentState(program, now);
     if (status !== 'all' && recruitmentState !== status) return false;
     if (!needle) return true;
     return (

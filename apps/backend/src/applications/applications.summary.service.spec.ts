@@ -1,4 +1,4 @@
-import { ProgramTrackType } from '@prisma/client';
+import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
 import type {
   ApplicationsRepository,
   StaffDashboardSummary,
@@ -21,6 +21,8 @@ describe('ApplicationsService.staffSummary', () => {
             startsAt: new Date('2026-07-01T00:00:00.000Z'),
             endsAt: new Date('2026-07-31T23:59:59.000Z'),
           },
+          endAt: new Date('2026-09-30T23:59:59.000Z'),
+          lifecycle: ProgramLifecycle.PUBLISHED,
           applications: {
             total: 5,
             submitted: 2,

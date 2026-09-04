@@ -26,6 +26,7 @@ export {
   type StaffDashboardPageModel,
 } from './staff-dashboard-page-model';
 export { StaffDashboardOverview } from './staff-dashboard-overview';
+export { StaffDashboardStatusSummary } from './staff-dashboard-status-summary';
 
 type LoadState =
   | { readonly kind: 'loading' }
