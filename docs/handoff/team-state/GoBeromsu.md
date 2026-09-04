@@ -1256,3 +1256,13 @@
 - 결과: PR1 연도 아카이브(`GET /projects?year=`·`/years`, category-counts 제거, 사이드·칩 연도, 7종 표시 제거). PR2 nullable `trackType`, authoring 5스텝·교과/비교과 Select, 공개 와이어 `trackType|null`, `applicationTemplateKey` 신청 해석, ADR-012. `#1137` 본문·담당 `@GoBeromsu` 이관.
 - 검증: `pnpm --filter backend test:unit`(3481 passed), `pnpm --filter frontend test`(3238 passed), `pnpm --filter frontend typecheck`.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-04 — #1058 마일스톤 수정 레이어를 main에 맞춘다
+
+- 상태: review
+- Issue: [#1053](https://github.com/JNU-SWCU/oss-hub/issues/1053)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1058
+- blocker: 없음
+- 결과: main 병합 충돌은 `docs/design.md`의 마일스톤 수정 레이어 절만 남겼다. Codex P1에 맞춰 새 테스트 fixture의 `category`·`categoryLocked`를 `trackType`으로 바꿨다. P2 포커스 복귀는 merge blocker가 아니라 후속으로 둔다.
+- 검증: fixture를 현재 `EditableProgram` 계약에 맞춤.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
