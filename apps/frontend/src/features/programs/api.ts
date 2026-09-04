@@ -1,5 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
-import type { ProgramCategory } from './program-templates';
+import type { ProgramTrackType } from './program-templates';
 import { parseStaffDashboardSummary } from './staff-dashboard-parser';
 import type {
   ApplicationFormField,
@@ -44,7 +44,7 @@ interface ApplicationTemplateListApiResponse {
 function mapParticipation(
   value: ApplicationTemplateApiItem['participation'],
 ): ProgramParticipation {
-  if (value === 'INDIVIDUAL' || value === 'individual') return 'individual';
+  void value;
   return 'team';
 }
 
@@ -77,7 +77,7 @@ export function listApplicationTemplates(): Promise<
 export interface CreateProgramInput {
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly endAt: string;
@@ -88,7 +88,7 @@ export interface CreateProgramInput {
 
 export interface CreatedProgram {
   readonly id: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly detailUrl: string;
@@ -113,17 +113,10 @@ export interface ProgramDeletionScopeCounts {
 }
 
 export interface EditableProgram {
-  readonly categoryLocked: {
-    readonly locked: boolean;
-    readonly byApplications: boolean;
-    readonly byTeams: boolean;
-    readonly applicationCount: number;
-    readonly teamCount: number;
-  };
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly lifecycle: 'PUBLISHED' | 'ARCHIVED';
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
@@ -296,7 +289,7 @@ export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
  */
 export interface CreateApplicationInput {
   readonly answers: {
-    readonly title: string;
+    readonly title?: string;
     readonly summary: string;
   };
   readonly applicationTemplateVersion: number;
@@ -382,6 +375,12 @@ export function getMyTeam(programId: string): Promise<ProgramTeam> {
   return apiClient<ProgramTeam>(
     `programs/${encodeURIComponent(programId)}/teams/me`,
   );
+}
+
+export function leaveMyTeam(programId: string): Promise<void> {
+  return apiClient<void>(`programs/${encodeURIComponent(programId)}/teams/me`, {
+    method: 'DELETE',
+  });
 }
 
 export function createTeam(

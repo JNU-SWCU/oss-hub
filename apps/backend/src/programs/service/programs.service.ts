@@ -17,7 +17,7 @@ import { programDeadline } from '../program-deadline';
 import type { ProgramListQuery } from '../program-list-query';
 import { PROGRAM_ERROR_CODES } from '../program-error-code';
 import {
-  getProgramTemplate,
+  getTemplateByKey,
   PROGRAM_PARTICIPATION,
 } from '../program-template.registry';
 import type { ProgramViewer } from './program-viewer.service';
@@ -103,10 +103,8 @@ const STUDENT_APPLICATION_STATUS_NOTE: Readonly<
 };
 
 function isTeamProgram(item: ProgramListRecord): boolean {
-  return (
-    getProgramTemplate(item.category).participation ===
-    PROGRAM_PARTICIPATION.TEAM
-  );
+  const template = getTemplateByKey(item.applicationTemplateKey);
+  return template?.participation === PROGRAM_PARTICIPATION.TEAM;
 }
 
 function noteWithTeamIcon(
@@ -227,7 +225,8 @@ export class ProgramsService {
         id: program.id,
         name: program.name,
         organizer: program.organizer,
-        category: program.category,
+        trackType: program.trackType,
+        applicationTemplateKey: program.applicationTemplateKey,
         description: program.description,
         repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
         applicationPeriod: {

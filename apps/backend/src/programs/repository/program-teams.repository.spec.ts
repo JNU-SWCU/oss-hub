@@ -67,3 +67,52 @@ describe('ProgramTeamsRepository.withJoinTransaction / lockTeamForJoin', () => {
     expect(result).toEqual({ memberCount: 1, hasApplication: true });
   });
 });
+
+describe('ProgramTeamsRepository.leave', () => {
+  it('마지막 팀원이 나갈 때 초대 기록을 팀보다 먼저 삭제한다', async () => {
+    const teamMemberDelete = jest.fn().mockResolvedValue({});
+    const teamInvitationDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
+    const teamDelete = jest.fn().mockResolvedValue({});
+    const tx = {
+      teamMember: {
+        count: jest.fn().mockResolvedValue(1),
+        findUnique: jest.fn().mockResolvedValue({
+          teamId: syntheticTeamId,
+          team: {
+            leaderId: 'user-synthetic',
+            applications: [],
+            members: [{ userId: 'user-synthetic' }],
+          },
+        }),
+        delete: teamMemberDelete,
+      },
+      teamInvitation: { deleteMany: teamInvitationDeleteMany },
+      team: {
+        update: jest.fn().mockResolvedValue({}),
+        delete: teamDelete,
+      },
+      application: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: syntheticTeamId }]),
+    };
+    const repository = buildRepository(tx);
+
+    const result = await repository.leave(
+      'program-synthetic',
+      'user-synthetic',
+    );
+
+    expect(result).toBe('removed');
+    expect(teamInvitationDeleteMany).toHaveBeenCalledWith({
+      where: { teamId: syntheticTeamId, programId: 'program-synthetic' },
+    });
+    const invitationDeleteOrder =
+      teamInvitationDeleteMany.mock.invocationCallOrder.at(0);
+    const teamDeleteOrder = teamDelete.mock.invocationCallOrder.at(0);
+    if (invitationDeleteOrder === undefined || teamDeleteOrder === undefined) {
+      throw new TypeError('Expected both invitation and team deletion calls');
+    }
+    expect(invitationDeleteOrder).toBeLessThan(teamDeleteOrder);
+  });
+});

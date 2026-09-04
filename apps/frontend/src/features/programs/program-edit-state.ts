@@ -7,7 +7,10 @@ import {
   type ProgramMilestoneField,
   type ProgramMilestoneForm,
 } from './program-edit-flow';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import {
+  PROGRAM_TRACK_TYPES,
+  type ProgramTrackType,
+} from './program-templates';
 
 export type ProgramEditLoadState =
   | { readonly kind: 'loading' }
@@ -36,9 +39,9 @@ export function updateProgramForm(
       return typeof value === 'boolean'
         ? { ...form, endAtUndecided: value, endAt: value ? '' : form.endAt }
         : form;
-    case 'category':
+    case 'trackType':
       return typeof value === 'string'
-        ? { ...form, category: toCategory(value, form.category) }
+        ? { ...form, trackType: toTrackType(value, form.trackType) }
         : form;
     default:
       return typeof value === 'string' ? { ...form, [field]: value } : form;
@@ -137,12 +140,11 @@ export function removeMilestone(
   }));
 }
 
-function toCategory(
+function toTrackType(
   value: string,
-  fallback: ProgramEditForm['category'],
-): ProgramEditForm['category'] {
-  const match = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (item) => item.category === value,
-  );
-  return match?.category ?? fallback;
+  fallback: ProgramEditForm['trackType'],
+): ProgramEditForm['trackType'] {
+  return PROGRAM_TRACK_TYPES.some((trackType) => trackType === value)
+    ? (value as ProgramTrackType)
+    : fallback;
 }

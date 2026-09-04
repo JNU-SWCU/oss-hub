@@ -1,5 +1,10 @@
 import type { ProgramViewer } from './program-viewer.service';
-import { ApplicationStatus, Prisma, ProgramLifecycle } from '@prisma/client';
+import {
+  ApplicationStatus,
+  Prisma,
+  ProgramLifecycle,
+  ProgramTrackType,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PROGRAM_LIST_QUERY_STATUSES } from '../program-list-query';
 import {
@@ -472,7 +477,8 @@ function listRecord(
     id: 'program-1',
     name: '프로그램',
     organizer: '운영기관',
-    category: 'CAPSTONE',
+    trackType: ProgramTrackType.CURRICULAR,
+    applicationTemplateKey: 'capstone',
     lifecycle: ProgramLifecycle.PUBLISHED,
     applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
     applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -606,11 +612,12 @@ describe('ProgramsService list', () => {
     });
   });
 
-  it('BASIC 개인 참여는 1..1 범위여도 팀 아이콘을 붙이지 않는다', async () => {
+  it('BASIC 1인 팀 참여도 팀 아이콘을 붙인다', async () => {
     const items = [
       listRecord({
         id: 'individual-program',
-        category: 'BASIC',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+        applicationTemplateKey: 'basic',
         teamMinSize: 1,
         teamMaxSize: 1,
       }),
@@ -638,6 +645,7 @@ describe('ProgramsService list', () => {
 
     expect(page.items[0]?.note).toEqual({
       text: '축하합니다, 참가가 확정되었습니다',
+      icon: 'team',
     });
   });
 

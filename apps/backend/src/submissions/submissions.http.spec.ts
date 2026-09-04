@@ -332,6 +332,37 @@ it('FILE replacement multipart context를 업로드 서비스에 전달한다', 
   );
 });
 
+it('브라우저 zip MIME 별칭을 업로드 서비스에 그대로 전달한다', async () => {
+  const body = new FormData();
+  body.append('applicationId', 'synthetic-application');
+  body.append('milestoneId', 'synthetic-milestone');
+  body.append(
+    'file',
+    new Blob([Buffer.from('PK\x03\x04')], {
+      type: 'application/x-zip-compressed',
+    }),
+    'archive.zip',
+  );
+
+  const response = await fetch(`${baseUrl}/api/v1/submission-files`, {
+    method: 'POST',
+    body,
+  });
+
+  expect(response.status).toBe(201);
+  expect(upload).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-application',
+    'synthetic-milestone',
+    expect.objectContaining({
+      originalname: 'archive.zip',
+      mimetype: 'application/x-zip-compressed',
+    }),
+    undefined,
+    undefined,
+  );
+});
+
 it('정수가 아닌 baseRevision은 서비스 호출 전에 거절한다', async () => {
   // Given
   const body = {

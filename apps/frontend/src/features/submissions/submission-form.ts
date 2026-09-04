@@ -5,21 +5,14 @@ export const SUBMISSION_FILE_MAX_BYTES = 5 * 1024 * 1024;
 export const SUBMISSION_FILE_ACCEPT =
   '.pdf,.hwp,.jpg,.jpeg,.png,.zip,application/pdf,application/x-hwp,application/haansofthwp,application/vnd.hancom.hwp,application/x-hwp-v5,image/jpeg,image/png,application/zip';
 
-const SUBMISSION_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
-  '.pdf': ['application/pdf'],
-  '.hwp': [
-    'application/x-hwp',
-    'application/haansofthwp',
-    'application/vnd.hancom.hwp',
-    'application/x-hwp-v5',
-    'application/octet-stream',
-    '',
-  ],
-  '.jpg': ['image/jpeg'],
-  '.jpeg': ['image/jpeg'],
-  '.png': ['image/png'],
-  '.zip': ['application/zip'],
-};
+const SUBMISSION_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
+  '.pdf',
+  '.hwp',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.zip',
+]);
 
 export interface SubmissionFormInput {
   readonly file: File | null;
@@ -119,7 +112,7 @@ export function validateSubmissionFile(
   const extensionStart = file.name.lastIndexOf('.');
   const extension =
     extensionStart < 0 ? '' : file.name.slice(extensionStart).toLowerCase();
-  if (!SUBMISSION_FILE_TYPES[extension]?.includes(file.type.toLowerCase())) {
+  if (!SUBMISSION_FILE_EXTENSIONS.has(extension)) {
     return {
       ok: false,
       message: SUBMISSION_FILE_ERROR_MESSAGES.SUB_018,

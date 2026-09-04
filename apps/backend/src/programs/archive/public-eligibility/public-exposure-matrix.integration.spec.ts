@@ -7,6 +7,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
@@ -399,6 +400,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         id: PROGRAM_ENDED_ID,
         name: `${PREFIX}-program-ended`,
         organizer: 'synthetic-organizer',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',
         applicationTemplateVersion: 1,
@@ -414,6 +416,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         id: PROGRAM_NOT_ENDED_ID,
         name: `${PREFIX}-program-not-ended`,
         organizer: 'synthetic-organizer',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',
         applicationTemplateVersion: 1,

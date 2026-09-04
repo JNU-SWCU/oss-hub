@@ -22,6 +22,7 @@ import {
   getMyTeam,
   getProgramDetail,
   joinTeam,
+  leaveMyTeam,
   listApplicationTemplates,
   type ProgramTeam,
 } from './api';
@@ -153,11 +154,17 @@ export function ProgramTeamRosterView({
   team,
   joinCode,
   extras,
+  onLeave,
+  leaving = false,
+  leaveError = null,
 }: {
   readonly program: ProgramDetail;
   readonly team: ProgramTeam;
   readonly joinCode: string | null;
   readonly extras?: ReactNode;
+  readonly onLeave?: () => void;
+  readonly leaving?: boolean;
+  readonly leaveError?: string | null;
 }) {
   const capacity =
     team.maxMembers > 0
@@ -226,7 +233,23 @@ export function ProgramTeamRosterView({
             <Button asChild variant="link">
               <Link href={programHref(program.id)}>프로그램 개요</Link>
             </Button>
+            {onLeave && !team.locked ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={leaving}
+                onClick={onLeave}
+              >
+                {leaving ? '나가는 중…' : '팀 나가기'}
+              </Button>
+            ) : null}
           </div>
+          {leaveError ? (
+            <Alert variant="destructive">
+              <AlertTitle>팀을 나갈 수 없습니다</AlertTitle>
+              <AlertDescription>{leaveError}</AlertDescription>
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
     </PageBody>
@@ -363,6 +386,8 @@ export function ProgramTeamsPage({
   const [serverError, setServerError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   // 전체 팀 열람.
   const [directory, setDirectory] = useState<DirectoryState>({
@@ -565,6 +590,24 @@ export function ProgramTeamsPage({
       setServerError(mapTeamActionError(error, 'join'));
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (state.kind !== 'ready' || state.team.locked) return;
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      await leaveMyTeam(programId);
+      await load();
+    } catch (error: unknown) {
+      setLeaveError(
+        error instanceof ApiError
+          ? mapTeamError(error.problem)
+          : '팀을 나가지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      );
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -806,6 +849,9 @@ export function ProgramTeamsPage({
           team={state.team}
           joinCode={state.joinCode}
           extras={extrasSection}
+          onLeave={() => void handleLeave()}
+          leaving={leaving}
+          leaveError={leaveError}
         />
       );
     default: {

@@ -1,14 +1,13 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import {
-  ARCHIVE_CATEGORY_LABELS,
   type ArchiveApplicationMode,
-  type ArchiveCategory,
-  type ArchiveCategoryCounts,
+  type ArchiveTrackType,
   type ArchiveContributor,
   type ArchiveDetail,
   type ArchiveListItem,
   type ArchiveMetrics,
   type ArchivePage,
+  type ArchiveYears,
 } from './types';
 
 const INVALID_RESPONSE_MESSAGE = '공개 아카이브 응답 형식이 올바르지 않습니다';
@@ -82,14 +81,14 @@ function applicationMode(value: unknown): ArchiveApplicationMode {
   return invalidResponse();
 }
 
-function category(value: unknown): ArchiveCategory {
-  if (
-    typeof value === 'string' &&
-    Object.hasOwn(ARCHIVE_CATEGORY_LABELS, value)
-  ) {
-    return value as ArchiveCategory;
-  }
+function trackType(value: unknown): ArchiveTrackType | null {
+  if (value === null) return null;
+  if (value === 'CURRICULAR' || value === 'EXTRACURRICULAR') return value;
   return invalidResponse();
+}
+
+function rejectLeftoverCategory(record: Record<string, unknown>): void {
+  if ('category' in record) invalidResponse();
 }
 
 function isoDate(value: unknown): string {
@@ -142,7 +141,7 @@ const PROJECT_FIELD_KEYS = [
   'projectId',
   'programId',
   'programName',
-  'category',
+  'trackType',
   'applicationMode',
   'displayName',
   'repositoryName',
@@ -152,10 +151,11 @@ const PROJECT_FIELD_KEYS = [
 
 type ArchiveProjectFields = Omit<
   ArchiveListItem,
-  'detailUrl' | 'modeLabel' | 'categoryLabel' | 'publishedLabel'
+  'detailUrl' | 'modeLabel' | 'publishedLabel'
 >;
 
 function projectFields(value: Record<string, unknown>): ArchiveProjectFields {
+  rejectLeftoverCategory(value);
   const id = projectId(value.projectId);
   const mode = applicationMode(value.applicationMode);
   const repositoryName = nonEmptyString(value.repositoryName);
@@ -164,7 +164,7 @@ function projectFields(value: Record<string, unknown>): ArchiveProjectFields {
     projectId: id,
     programId: nonEmptyString(value.programId),
     programName: nonEmptyString(value.programName),
-    category: category(value.category),
+    trackType: trackType(value.trackType),
     applicationMode: mode,
     displayName: nonEmptyString(value.displayName),
     repositoryName,
@@ -179,7 +179,6 @@ function withLabels(
   return {
     ...fields,
     modeLabel: fields.applicationMode === 'PERSONAL' ? '개인' : '팀',
-    categoryLabel: ARCHIVE_CATEGORY_LABELS[fields.category],
     publishedLabel: new Intl.DateTimeFormat('ko-KR', {
       year: 'numeric',
       month: 'long',
@@ -274,11 +273,11 @@ export function parseArchiveDetail(value: unknown): ArchiveDetail {
 export async function loadArchivePage(input: {
   readonly pageId: string | null;
   readonly pageSize: number;
-  readonly category?: ArchiveCategory;
+  readonly year?: number;
 }): Promise<ArchivePage> {
   const query = new URLSearchParams({ pageSize: String(input.pageSize) });
   if (input.pageId !== null) query.set('pageId', input.pageId);
-  if (input.category !== undefined) query.set('category', input.category);
+  if (input.year !== undefined) query.set('year', String(input.year));
 
   try {
     return parseArchivePage(
@@ -289,34 +288,36 @@ export async function loadArchivePage(input: {
   }
 }
 
-const CATEGORY_COUNT_KEYS = [
-  'all',
-  ...Object.keys(ARCHIVE_CATEGORY_LABELS),
-] as const;
+const YEARS_KEYS = ['years'] as const;
 
-export function parseArchiveCategoryCounts(
-  value: unknown,
-): ArchiveCategoryCounts {
-  if (!isRecord(value) || !hasExactKeys(value, CATEGORY_COUNT_KEYS)) {
+export function parseArchiveYears(value: unknown): ArchiveYears {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, YEARS_KEYS) ||
+    !Array.isArray(value.years)
+  ) {
     return invalidResponse();
   }
-  return {
-    all: nonNegativeInteger(value.all),
-    BASIC: nonNegativeInteger(value.BASIC),
-    SW_VALUE_SPREAD: nonNegativeInteger(value.SW_VALUE_SPREAD),
-    OSS_CONTEST: nonNegativeInteger(value.OSS_CONTEST),
-    CAPSTONE: nonNegativeInteger(value.CAPSTONE),
-    SW_CONVERGENCE: nonNegativeInteger(value.SW_CONVERGENCE),
-    GLOBAL_MAKERTHON: nonNegativeInteger(value.GLOBAL_MAKERTHON),
-    CORPORATE_INTERNSHIP: nonNegativeInteger(value.CORPORATE_INTERNSHIP),
-  };
+  const years = value.years.map((entry) => {
+    if (typeof entry !== 'number' || !Number.isInteger(entry)) {
+      return invalidResponse();
+    }
+    return entry;
+  });
+  return { years };
 }
 
-export async function loadArchiveCategoryCounts(): Promise<ArchiveCategoryCounts> {
+export async function loadArchiveYears(
+  signal?: AbortSignal,
+): Promise<readonly number[]> {
   try {
-    return parseArchiveCategoryCounts(
-      await apiClient<unknown>('projects/category-counts'),
+    const parsed = parseArchiveYears(
+      await apiClient<unknown>(
+        'projects/years',
+        signal ? { signal } : undefined,
+      ),
     );
+    return parsed.years;
   } catch {
     throw new ArchiveLoadError();
   }

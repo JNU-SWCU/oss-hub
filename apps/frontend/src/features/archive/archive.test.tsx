@@ -2,10 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiClient } from '@/lib/api-client';
 import {
-  loadArchiveCategoryCounts,
+  loadArchiveYears,
   loadArchiveDetail,
   loadArchivePage,
-  parseArchiveCategoryCounts,
+  parseArchiveYears,
   parseArchiveDetail,
   parseArchivePage,
 } from './api';
@@ -28,7 +28,7 @@ const item = {
   projectId: 'repo_123',
   programId: 'program_123',
   programName: '전남대학교 OSS 프로그램',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   applicationMode: 'TEAM',
   displayName: '공개 프로젝트',
   repositoryName: 'oss-public',
@@ -64,7 +64,7 @@ describe('public archive parsers', () => {
     expect(parseArchivePage(pageResponse)).toMatchObject({
       pageSize: 12,
       nextPageId: 'cursor-2',
-      items: [{ modeLabel: '팀', categoryLabel: 'OSS 경진대회' }],
+      items: [{ modeLabel: '팀' }],
     });
     expect(parseArchiveDetail(detailResponse)).toMatchObject({
       repositoryName: 'oss-public',
@@ -81,7 +81,8 @@ describe('public archive parsers', () => {
   it.each([
     ['unsafe project id segment', { ...item, projectId: '../private' }],
     ['unknown mode', { ...item, applicationMode: 'PAIR' }],
-    ['unknown category', { ...item, category: 'UNKNOWN' }],
+    ['unknown track type', { ...item, trackType: 'UNKNOWN' }],
+    ['leftover category key', { ...item, category: 'OSS_CONTEST' }],
     ['invalid date', { ...item, publishedAt: 'today' }],
     [
       'noncanonical date',
@@ -148,11 +149,11 @@ describe('public archive parsers', () => {
 });
 
 describe('archive list filter helpers', () => {
-  it('builds category deep links and parses unknown as all', () => {
+  it('builds year deep links and parses unknown as all', () => {
     expect(archiveListHref('all')).toBe('/archive');
-    expect(archiveListHref('CAPSTONE')).toBe('/archive?category=CAPSTONE');
+    expect(archiveListHref(2026)).toBe('/archive?year=2026');
     expect(parseArchiveListFilter(null)).toBe('all');
-    expect(parseArchiveListFilter('CAPSTONE')).toBe('CAPSTONE');
+    expect(parseArchiveListFilter('2026')).toBe(2026);
     expect(parseArchiveListFilter('UNKNOWN')).toBe('all');
   });
 });
@@ -179,7 +180,7 @@ describe('public archive API boundary', () => {
     expect(apiClient).toHaveBeenCalledWith('projects?pageSize=12');
   });
 
-  it('sends category to the server list query', async () => {
+  it('sends year to the server list query', async () => {
     vi.mocked(apiClient).mockResolvedValue({
       ...pageResponse,
       nextPageId: null,
@@ -188,29 +189,18 @@ describe('public archive API boundary', () => {
     await loadArchivePage({
       pageId: null,
       pageSize: 12,
-      category: 'CAPSTONE',
+      year: 2026,
     });
-    expect(apiClient).toHaveBeenCalledWith(
-      'projects?pageSize=12&category=CAPSTONE',
-    );
+    expect(apiClient).toHaveBeenCalledWith('projects?pageSize=12&year=2026');
   });
 
-  it('loads category counts for the sidebar', async () => {
-    const counts = {
-      all: 3,
-      BASIC: 1,
-      SW_VALUE_SPREAD: 0,
-      OSS_CONTEST: 1,
-      CAPSTONE: 1,
-      SW_CONVERGENCE: 0,
-      GLOBAL_MAKERTHON: 0,
-      CORPORATE_INTERNSHIP: 0,
-    };
-    vi.mocked(apiClient).mockResolvedValue(counts);
+  it('loads years for the sidebar', async () => {
+    const years = { years: [2026, 2025] };
+    vi.mocked(apiClient).mockResolvedValue(years);
 
-    await expect(loadArchiveCategoryCounts()).resolves.toEqual(counts);
-    expect(apiClient).toHaveBeenCalledWith('projects/category-counts');
-    expect(parseArchiveCategoryCounts(counts).all).toBe(3);
+    await expect(loadArchiveYears()).resolves.toEqual([2026, 2025]);
+    expect(apiClient).toHaveBeenCalledWith('projects/years', undefined);
+    expect(parseArchiveYears(years).years).toEqual([2026, 2025]);
   });
 
   it('maps the canonical not-found problem code without exposing its detail', async () => {
@@ -245,6 +235,7 @@ describe('public archive views', () => {
       <ArchiveListContent
         state={{ kind: 'ready', page: parseArchivePage(pageResponse) }}
         filter="all"
+        years={[]}
         hasPrevious={true}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
@@ -255,7 +246,7 @@ describe('public archive views', () => {
     expect(html).toContain('공개 프로젝트');
     expect(html).toContain('GitHub PUBLIC');
     expect(html).toContain('href="/archive/repo_123"');
-    expect(html).toContain('data-slot="archive-list-category-chips"');
+    expect(html).toContain('data-slot="archive-list-year-chips"');
     expect(html).not.toContain('id="archive-category"');
   });
 
@@ -265,6 +256,7 @@ describe('public archive views', () => {
       <ArchiveListContent
         state={{ kind: 'ready', page: emptyPage }}
         filter="all"
+        years={[]}
         hasPrevious={false}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
@@ -272,11 +264,12 @@ describe('public archive views', () => {
         onRetry={callbacks.onRetry}
       />,
     );
-    // 서버가 category 로 이미 걸러 빈 페이지를 준 경우
+    // 서버가 year 로 이미 걸러 빈 페이지를 준 경우
     const filterEmptyHtml = renderToStaticMarkup(
       <ArchiveListContent
         state={{ kind: 'ready', page: emptyPage }}
-        filter="CAPSTONE"
+        filter={2026}
+        years={[2026]}
         hasPrevious={false}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
@@ -331,6 +324,7 @@ describe('public archive views', () => {
       <ArchiveListContent
         state={{ kind: 'error' }}
         filter="all"
+        years={[]}
         hasPrevious={false}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
@@ -383,6 +377,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
           }),
         }}
         filter="all"
+        years={[]}
         hasPrevious={false}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
@@ -498,6 +493,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
           }),
         }}
         filter="all"
+        years={[]}
         hasPrevious={false}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
@@ -518,6 +514,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
           }),
         }}
         filter="all"
+        years={[]}
         hasPrevious={false}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
@@ -578,6 +575,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
           }),
         }}
         filter="all"
+        years={[]}
         hasPrevious={false}
         onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}

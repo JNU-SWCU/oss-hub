@@ -1,4 +1,4 @@
-import { ProgramCategory, SubmissionFileLifecycle } from '@prisma/client';
+import { ProgramTrackType, SubmissionFileLifecycle } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
@@ -13,7 +13,7 @@ describe('ProgramEditorRepository updates', () => {
         id: 'program-1',
         name: 'OSS',
         organizer: 'Center',
-        category: ProgramCategory.OSS_CONTEST,
+        trackType: ProgramTrackType.EXTRACURRICULAR,
         applicationTemplateKey: 'oss-contest',
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -52,7 +52,7 @@ describe('ProgramEditorRepository updates', () => {
         programId: 'program-1',
         name: 'OSS',
         organizer: 'Center',
-        category: ProgramCategory.OSS_CONTEST,
+        trackType: ProgramTrackType.EXTRACURRICULAR,
         applicationTemplateKey: 'oss-contest',
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),

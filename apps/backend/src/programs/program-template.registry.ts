@@ -1,7 +1,6 @@
 import { ProgramCategory } from '@prisma/client';
 
 export const PROGRAM_PARTICIPATION = {
-  INDIVIDUAL: 'INDIVIDUAL',
   TEAM: 'TEAM',
 } as const;
 
@@ -17,7 +16,7 @@ export const APPLICATION_FIELD_TYPES = {
 export type ApplicationFieldType =
   (typeof APPLICATION_FIELD_TYPES)[keyof typeof APPLICATION_FIELD_TYPES];
 
-export type ApplicationFieldKey = 'applicantName' | 'title' | 'summary';
+export type ApplicationFieldKey = 'applicantName' | 'summary';
 
 export interface FieldDef {
   readonly key: ApplicationFieldKey;
@@ -32,12 +31,6 @@ export const V1_APPLICATION_FIELDS: readonly FieldDef[] = [
     key: 'applicantName',
     type: APPLICATION_FIELD_TYPES.AUTO,
     label: '신청자',
-    required: true,
-  },
-  {
-    key: 'title',
-    type: APPLICATION_FIELD_TYPES.TEXT,
-    label: '제목',
     required: true,
   },
   {
@@ -61,16 +54,12 @@ export interface ProgramTemplate {
   readonly fields: readonly FieldDef[];
 }
 
-function template(
-  key: string,
-  name: string,
-  participation: ProgramParticipation,
-): ProgramTemplate {
+function template(key: string, name: string): ProgramTemplate {
   return {
     key,
     version: 1,
     name,
-    participation,
+    participation: PROGRAM_PARTICIPATION.TEAM,
     teamSize: { defaultMin: 1, defaultMax: 1, editable: true },
     fields: V1_APPLICATION_FIELDS,
   };
@@ -79,40 +68,21 @@ function template(
 export const PROGRAM_TEMPLATES: Readonly<
   Record<ProgramCategory, ProgramTemplate>
 > = {
-  [ProgramCategory.BASIC]: template(
-    'basic',
-    '기본 신청서',
-    PROGRAM_PARTICIPATION.INDIVIDUAL,
-  ),
+  [ProgramCategory.BASIC]: template('basic', '기본 신청서'),
   [ProgramCategory.SW_VALUE_SPREAD]: template(
     'sw-value-spread',
     'SW가치확산 신청서',
-    PROGRAM_PARTICIPATION.INDIVIDUAL,
   ),
-  [ProgramCategory.OSS_CONTEST]: template(
-    'oss-contest',
-    'OSS경진대회 신청서',
-    PROGRAM_PARTICIPATION.TEAM,
-  ),
-  [ProgramCategory.CAPSTONE]: template(
-    'capstone',
-    '캡스톤 신청서',
-    PROGRAM_PARTICIPATION.TEAM,
-  ),
-  [ProgramCategory.SW_CONVERGENCE]: template(
-    'sw-convergence',
-    'SW융합 신청서',
-    PROGRAM_PARTICIPATION.TEAM,
-  ),
+  [ProgramCategory.OSS_CONTEST]: template('oss-contest', 'OSS경진대회 신청서'),
+  [ProgramCategory.CAPSTONE]: template('capstone', '캡스톤 신청서'),
+  [ProgramCategory.SW_CONVERGENCE]: template('sw-convergence', 'SW융합 신청서'),
   [ProgramCategory.GLOBAL_MAKERTHON]: template(
     'global-makerthon',
     '글로벌메이커톤 신청서',
-    PROGRAM_PARTICIPATION.TEAM,
   ),
   [ProgramCategory.CORPORATE_INTERNSHIP]: template(
     'corporate-internship',
     '기업인턴십 신청서',
-    PROGRAM_PARTICIPATION.INDIVIDUAL,
   ),
 };
 

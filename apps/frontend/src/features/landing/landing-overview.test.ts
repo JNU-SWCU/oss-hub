@@ -14,7 +14,7 @@ describe('landing public overview boundary', () => {
           id: 'program_public_01',
           name: '공개 OSS 기여 프로그램',
           organizer: 'JNU-SWCU',
-          category: 'OSS_CONTEST',
+          trackType: 'EXTRACURRICULAR',
           applicationStartAt: '2026-07-01T00:00:00.000Z',
           applicationEndAt: '2026-08-14T00:00:00.000Z',
           description: '공개 모집 정보',
@@ -32,11 +32,31 @@ describe('landing public overview boundary', () => {
         id: 'program_public_01',
         name: '공개 OSS 기여 프로그램',
         organizer: 'JNU-SWCU',
-        category: 'OSS_CONTEST',
+        trackType: 'EXTRACURRICULAR',
         applicationEndAt: '2026-08-14T00:00:00.000Z',
       },
     ]);
     expect(JSON.stringify(page)).not.toContain('privateMemo');
+  });
+
+  it('rejects leftover category keys in program list responses', () => {
+    expect(() =>
+      parseLandingProgramPage({
+        items: [
+          {
+            id: 'program_public_01',
+            name: '공개 OSS 기여 프로그램',
+            organizer: 'JNU-SWCU',
+            category: 'OSS_CONTEST',
+            applicationEndAt: '2026-08-14T00:00:00.000Z',
+          },
+        ],
+        page: 1,
+        pageSize: 3,
+        totalItems: 1,
+        totalPages: 1,
+      }),
+    ).toThrow('랜딩 공개 응답 형식이 올바르지 않습니다');
   });
 
   it('accepts seed-style program ids that use colons', () => {
@@ -46,7 +66,7 @@ describe('landing public overview boundary', () => {
           id: 'seed:intake:program-seven-templates:BASIC',
           name: 'seed-program-basic',
           organizer: 'seed-organizer',
-          category: 'BASIC',
+          trackType: 'EXTRACURRICULAR',
           applicationEndAt: '2026-08-24T06:25:11.317Z',
         },
       ],

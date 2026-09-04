@@ -1,7 +1,10 @@
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import {
+  MilestoneDocumentArchiveEntryError,
+  MilestoneDocumentArchiveService,
+} from './milestone-document-archive.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
 
@@ -61,6 +64,16 @@ async function collect(body: Readable): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of body) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks);
+}
+
+/** 압축이 끊긴 이유. 끊기지 않고 끝나면 그 자체가 실패다 — 오류를 기다리는 테스트들이 쓴다. */
+async function archiveFailure(body: Readable): Promise<unknown> {
+  return collect(body).then(
+    () => {
+      throw new Error('압축이 오류 없이 끝났다');
+    },
+    (reason: unknown) => reason,
+  );
 }
 
 function buildRepository(overrides: Record<string, jest.Mock> = {}) {
@@ -815,4 +828,105 @@ describe('MilestoneDocumentArchiveService', () => {
      */
     await expect(collect(archive.body)).rejects.toThrow('storage down');
   });
+
+  /**
+   * 실패가 컨트롤러까지 올라갈 때 **어느 항목이었는지**를 함께 지고 간다.
+   *
+   * 스토리지가 돌려주는 오류는 자기 코드(`SUBMISSION_FILE_STORAGE_GET_FAILED`)만 담고 객체
+   * 이름을 담지 않는다. 헤더가 이미 나간 뒤의 실패는 응답으로 아무것도 전할 수 없어 로그가
+   * 유일한 근거인데, 항목이 오류에 실려 오지 않으면 그 한 줄이 사건을 지목하지 못한다.
+   */
+  it('여는 데 실패하면 어느 항목이었는지를 오류가 지고 올라간다', async () => {
+    const { service } = buildService(
+      {},
+      { get: jest.fn().mockRejectedValue(new Error('storage down')) },
+    );
+
+    const archive = await service.archiveForStaff(
+      syntheticMilestoneId,
+      { kind: 'ALL', grouping: 'TEAM' },
+      now,
+    );
+
+    // When
+    const failure = await archiveFailure(archive.body);
+
+    // Then: 처음 여는 항목은 app-a의 사업계획서다.
+    expect(failure).toBeInstanceOf(MilestoneDocumentArchiveEntryError);
+    expect((failure as MilestoneDocumentArchiveEntryError).storageKey).toBe(
+      'objects/plan',
+    );
+    // 원래 오류의 메시지는 그대로 남는다 — 실패 원인의 유일한 단서다.
+    expect((failure as Error).message).toBe('storage down');
+  });
+
+  /**
+   * 항목을 지목하는 값으로 **ZIP 안 경로를 쓰지 않는다.** 그 경로는
+   * `코드나무/코드나무_사업계획서.pdf`처럼 팀 이름과 학생이 올린 원본 파일명에서 만들어지므로,
+   * 이 오류를 그대로 로그에 적으면 서버 로그가 팀·개인을 식별하는 기록이 된다.
+   */
+  it('항목을 지목하는 값에 팀 이름·학생이 올린 파일명을 담지 않는다', async () => {
+    const { service } = buildService(
+      {},
+      { get: jest.fn().mockRejectedValue(new Error('storage down')) },
+    );
+
+    const archive = await service.archiveForStaff(
+      syntheticMilestoneId,
+      { kind: 'ALL', grouping: 'TEAM' },
+      now,
+    );
+
+    // When
+    const failure = await archiveFailure(archive.body);
+
+    // Then: 로그에 실릴 수 있는 것은 메시지와 열쇠뿐이다.
+    const failureText = `${(failure as Error).message} ${
+      (failure as MilestoneDocumentArchiveEntryError).storageKey
+    }`;
+    expect(failureText).not.toContain('코드나무');
+    expect(failureText).not.toContain('최종_진짜최종.pdf');
+    expect(failureText).not.toContain('사업계획서');
+  });
+
+  it('열어 놓고 읽는 중에 끊겨도 어느 항목이었는지를 오류가 지고 올라간다', async () => {
+    const { service } = buildService(
+      {},
+      {
+        get: jest.fn(() => {
+          // 여는 데는 성공하고 **읽다가** 끊긴다 — 이 오류는 스토리지 어댑터를 거치지 않아
+          // 코드 문자열조차 없다. 항목을 실어 주지 않으면 남는 단서가 아무것도 없다.
+          let sent = false;
+          return Promise.resolve(
+            new Readable({
+              read() {
+                if (sent) return;
+                sent = true;
+                this.push(planFileBody.subarray(0, 3));
+                setImmediate(() =>
+                  this.destroy(new Error('storage connection reset')),
+                );
+              },
+            }),
+          );
+        }),
+      },
+    );
+
+    const archive = await service.archiveForStaff(
+      syntheticMilestoneId,
+      { kind: 'ALL', grouping: 'TEAM' },
+      now,
+    );
+
+    // When
+    const failure = await archiveFailure(archive.body);
+
+    // Then
+    expect(failure).toBeInstanceOf(MilestoneDocumentArchiveEntryError);
+    expect((failure as MilestoneDocumentArchiveEntryError).storageKey).toBe(
+      'objects/plan',
+    );
+    expect((failure as Error).message).toBe('storage connection reset');
+  }, 10_000);
 });

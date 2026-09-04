@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
+import { currentRankingYear } from '@/features/ranking/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
 import type { MemberAccess } from './member-access';
 import { STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -252,35 +252,34 @@ describe('sidebarGroupsFor (context)', () => {
     expect(labels).not.toContain('연습');
   });
 
-  it('archive section is flat with distinct category icons', () => {
-    const groups = sidebarGroupsFor('archive', null);
+  it('archive section: 전체 + years as flat peers', () => {
+    const groups = sidebarGroupsFor('archive', null, {
+      archiveYears: [2026, 2025],
+    });
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('공개 아카이브');
     const items = groups[0]?.items ?? [];
-    expect(items).toHaveLength(1 + ARCHIVE_CATEGORIES.length);
+    expect(items).toHaveLength(3);
     expect(items.every((i) => (i.depth ?? 0) === 0)).toBe(true);
+    expect(
+      items.map((i) => ({ label: i.label, href: i.href, depth: i.depth })),
+    ).toEqual([
+      { label: '전체', href: '/archive', depth: 0 },
+      { label: '2026', href: '/archive?year=2026', depth: 0 },
+      { label: '2025', href: '/archive?year=2025', depth: 0 },
+    ]);
     expect(items[0]).toMatchObject({
       label: '전체',
       href: '/archive',
       icon: 'archive',
     });
-    expect(items.some((i) => i.href === '/archive?category=CAPSTONE')).toBe(
-      true,
-    );
-    const categoryIcons = items.slice(1).map((i) => i.icon);
-    expect(new Set(categoryIcons).size).toBe(categoryIcons.length);
   });
 
-  it('archive counts inject badges', () => {
-    const group = archiveSidebarGroup({
-      all: 3,
-      BASIC: 1,
-      CAPSTONE: 2,
-    });
-    expect(group.items[0]?.count).toBe(3);
-    expect(
-      group.items.find((i) => i.href === '/archive?category=CAPSTONE')?.count,
-    ).toBe(2);
+  it('archive sidebar lists years from facet data', () => {
+    const group = archiveSidebarGroup([2026, 2025]);
+    expect(group.items).toHaveLength(3);
+    expect(group.items[1]?.href).toBe('/archive?year=2026');
+    expect(group.items[2]?.href).toBe('/archive?year=2025');
   });
 
   it('ranking section: 전체 + years as flat peers', () => {
@@ -325,21 +324,13 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/programs/x', '/programs', '')).toBe(false);
   });
 
-  it('archive category query', () => {
+  it('archive year query', () => {
     expect(isCurrentSidebarItem('/archive', '/archive', '')).toBe(true);
     expect(
-      isCurrentSidebarItem(
-        '/archive',
-        '/archive?category=CAPSTONE',
-        'category=CAPSTONE',
-      ),
+      isCurrentSidebarItem('/archive', '/archive?year=2026', 'year=2026'),
     ).toBe(true);
     expect(
-      isCurrentSidebarItem(
-        '/archive',
-        '/archive?category=CAPSTONE',
-        'category=BASIC',
-      ),
+      isCurrentSidebarItem('/archive', '/archive?year=2026', 'year=2025'),
     ).toBe(false);
   });
 
@@ -364,7 +355,9 @@ describe('isCurrentSidebarItem', () => {
    * 같은 메뉴가 어디서 왔느냐에 따라 다른 결과를 보이는 셈이다.
    */
   it('/ranking 은 전체가 아니라 올해 항목을 강조한다', () => {
-    const thisYear = String(new Date().getFullYear());
+    // 본문과 같은 함수로 기대값을 만든다. 여기서 기기 연도를 따로 세면
+    // 기계 시간대가 KST 가 아닐 때 이 스펙 자체가 갈린다.
+    const thisYear = String(currentRankingYear());
 
     expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
       false,
@@ -378,11 +371,69 @@ describe('isCurrentSidebarItem', () => {
     ).toBe(true);
   });
 
+  /**
+   * 기기 시계가 KST 가 아니면 「올해」가 두 값으로 갈린다. 본문은 서울 연도
+   * (`currentRankingYear`)를 쓰는데 사이드바가 `new Date().getFullYear()` 로 따로
+   * 세면 기기 연도를 쓰기 때문이다. 연말·연초의 그 구간에서는 「전체」도 연도도
+   * 강조되지 않아, 지금 어느 연도의 표를 보는지 왼쪽 메뉴로 확인할 수 없다.
+   *
+   * 개발 기계와 CI 가 KST 라 두 값이 같아서 기본 환경에서는 이 갈림이 드러나지
+   * 않는다 — `process.env.TZ` 를 바꿔야 잡힌다
+   * (`features/programs/application-presentation.test.ts` 와 같은 이유).
+   */
+  describe('`year` 부재 강조는 기기 시간대를 타지 않는다', () => {
+    const originalTz = process.env.TZ;
+
+    afterEach(() => {
+      vi.useRealTimers();
+      // 원래 미설정이었으면 `= undefined` 가 문자열 "undefined" 를 넣어 기본
+      // 시간대가 UTC 로 떨어진다. 지워야 원래대로 돌아온다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    });
+
+    function freezeAt(timeZone: string, isoUtc: string): void {
+      process.env.TZ = timeZone;
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(isoUtc));
+    }
+
+    it('UTC 기기에서 1월 1일 00:30 KST 면 서울 연도가 강조된다', () => {
+      // 2025-12-31T15:30Z = 서울 2026-01-01 00:30. UTC 기기는 아직 2025 다.
+      freezeAt('UTC', '2025-12-31T15:30:00.000Z');
+      // 시간대 고정이 실제로 먹었는지 먼저 본다 — 안 먹으면 아래가 조용히 통과한다.
+      expect(new Date().getFullYear()).toBe(2025);
+
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
+        true,
+      );
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2025', '')).toBe(
+        false,
+      );
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
+        false,
+      );
+    });
+
+    it('KST 보다 앞선 기기의 자정 직후에도 서울 연도가 강조된다', () => {
+      // 2026-12-31T10:10Z = UTC+14 기기로는 2027-01-01 00:10, 서울은 아직 2026-12-31.
+      freezeAt('Pacific/Kiritimati', '2026-12-31T10:10:00.000Z');
+      expect(new Date().getFullYear()).toBe(2027);
+
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
+        true,
+      );
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2027', '')).toBe(
+        false,
+      );
+    });
+  });
+
   it('archive detail does not highlight filters', () => {
     expect(isCurrentSidebarItem('/archive/123', '/archive', '')).toBe(false);
-    expect(
-      isCurrentSidebarItem('/archive/123', '/archive?category=CAPSTONE', ''),
-    ).toBe(false);
+    expect(isCurrentSidebarItem('/archive/123', '/archive?year=2026', '')).toBe(
+      false,
+    );
   });
 
   it('회원 공통 홈 메뉴는 /dashboard에서만 강조된다', () => {
@@ -434,7 +485,7 @@ describe('SECTION_FACETS registry (U4)', () => {
 
   it('registry params match peer-filter keys', () => {
     expect(SECTION_FACETS.programs?.param).toBe('status');
-    expect(SECTION_FACETS.archive?.param).toBe('category');
+    expect(SECTION_FACETS.archive?.param).toBe('year');
     expect(SECTION_FACETS.ranking?.param).toBe('year');
     expect(SECTION_FACETS.dashboard).toBeUndefined();
   });

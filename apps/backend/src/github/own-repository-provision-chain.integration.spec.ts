@@ -6,6 +6,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   StaffAccessRequestStatus,
+  ProgramTrackType,
 } from '@prisma/client';
 import {
   canonicalUserCreate,
@@ -706,6 +707,7 @@ async function createOwnApplication(
       id: programId,
       name: `program-${applicationId}`,
       organizer: 'synthetic-organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-template',
       applicationTemplateVersion: 1,
@@ -758,6 +760,7 @@ async function createOpenOwnProgram(applicationId: string): Promise<void> {
       id: programId,
       name: `program-${applicationId}`,
       organizer: 'synthetic-organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-template',
       applicationTemplateVersion: 1,

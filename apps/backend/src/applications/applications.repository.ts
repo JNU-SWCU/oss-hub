@@ -10,6 +10,7 @@ import {
   type RepositoryVisibility,
   ProgramLifecycle,
   type ProgramCategory,
+  type ProgramTrackType,
 } from '@prisma/client';
 import type {
   OutboxEvent as PrismaOutboxEvent,
@@ -245,7 +246,7 @@ export interface StaffDashboardApplicationCounts {
 export interface StaffDashboardProgramSummary {
   readonly id: string;
   readonly name: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly applicationPeriod: {
     readonly startsAt: Date;
     readonly endsAt: Date;
@@ -769,7 +770,7 @@ export class ApplicationsRepository {
       select: {
         id: true,
         name: true,
-        category: true,
+        trackType: true,
         applicationStartAt: true,
         applicationEndAt: true,
       },
@@ -831,7 +832,7 @@ export class ApplicationsRepository {
         return {
           id: program.id,
           name: program.name,
-          category: program.category,
+          trackType: program.trackType,
           applicationPeriod: {
             startsAt: program.applicationStartAt,
             endsAt: program.applicationEndAt,

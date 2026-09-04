@@ -44,7 +44,7 @@ describe('landing public API adapter', () => {
           id: 'program_public_01',
           name: '공개 OSS 기여 프로그램',
           organizer: 'JNU-SWCU',
-          category: 'OSS_CONTEST',
+          trackType: 'EXTRACURRICULAR',
           applicationEndAt: '2026-08-14T00:00:00.000Z',
         },
       ],

@@ -12,7 +12,7 @@ import { programEditHref } from '@/lib/program-route';
 import {
   formatStaffApplicationPeriod,
   getStaffRecruitmentBadge,
-  STAFF_CATEGORY_LABELS,
+  staffTrackTypeLabel,
 } from './staff-dashboard-format';
 import {
   StaffActivityInsights,
@@ -123,9 +123,11 @@ function ProgramIdentity({
           {program.name}
         </Link>
       </CardTitle>
-      <CardDescription>
-        {STAFF_CATEGORY_LABELS[program.category]}
-      </CardDescription>
+      {staffTrackTypeLabel(program.trackType) !== null ? (
+        <CardDescription>
+          {staffTrackTypeLabel(program.trackType)}
+        </CardDescription>
+      ) : null}
       <span className="text-xs text-muted-foreground">
         {formatStaffApplicationPeriod(program)}
       </span>

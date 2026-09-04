@@ -96,7 +96,7 @@ const BLOCKED_CONTENT: Record<
   'team-required': {
     title: '팀 구성이 필요합니다',
     description:
-      '팀형 프로그램은 팀을 만든 뒤 신청할 수 있습니다. 팀 구성 화면에서 팀을 만들거나 참여 코드로 합류한 다음 다시 시도해 주세요.',
+      '팀을 만든 뒤 신청할 수 있습니다. 팀 구성 화면에서 팀을 만들거나 참여 코드로 합류한 다음 다시 시도해 주세요.',
   },
   // 기다린다고 열리지 않는 막힘이라 **누구에게 말해야 하는지**까지 적는다(#1083).
   'manage-not-allowed': {
@@ -133,20 +133,9 @@ export function BlockedView({
         title={content.title}
         description={content.description}
         action={
-          reason === 'team-required' ? (
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button asChild>
-                <Link href={teamSetupHref(program.id)}>팀 구성</Link>
-              </Button>
-              <Button asChild variant="link">
-                <Link href={programHref(program.id)}>프로그램 개요</Link>
-              </Button>
-            </div>
-          ) : (
-            <Button asChild variant="link">
-              <Link href={programHref(program.id)}>프로그램 개요</Link>
-            </Button>
-          )
+          <Button asChild variant="link">
+            <Link href={programHref(program.id)}>프로그램 개요</Link>
+          </Button>
         }
       />
     </main>
@@ -196,7 +185,6 @@ interface ProgramApplyFormViewProps {
   readonly applicantName: string;
   /** 세션에 연결된 GitHub handle. "GitHub 계정 연동" 안내행에만 쓴다. */
   readonly githubHandle?: string;
-  /** 팀형 신청의 현재 팀 요약(이름·팀원). 개인형이거나 팀이 없으면 null. */
   readonly team?: ProgramTeam | null;
   readonly values: ProgramApplyFormValues;
   readonly errors: ProgramApplyFormErrors;
@@ -323,7 +311,7 @@ function TeamCompositionSection({
       <p className="font-medium text-foreground">
         팀 구성{' '}
         <span className="font-normal text-muted-foreground">
-          — 팀형 프로그램은 팀 구성 후 신청할 수 있습니다
+          — 신청 전 팀 구성을 확인합니다
         </span>
       </p>
       {team ? (
@@ -426,7 +414,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
   } = props;
   const fieldValues = {
     applicantName,
-    title: values.title,
     summary: values.summary,
   } as const;
   const missingTeamMembers = remainingTeamMembers(teamMinimum);
@@ -459,10 +446,9 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
             mode="edit"
             values={fieldValues}
             onChange={(key, value) => {
-              if (key === 'title' || key === 'summary') onChange(key, value);
+              if (key === 'summary') onChange(key, value);
             }}
           />
-          {errors.title ? <FieldError>{errors.title}</FieldError> : null}
           {errors.summary ? <FieldError>{errors.summary}</FieldError> : null}
           {mode === 'edit' || program.repositoryProvisioningEnabled ? (
             <Field orientation="horizontal">
@@ -491,9 +477,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
               onUrlChange={(url) => onChange('repositoryUrl', url)}
             />
           ) : null}
-          {template.participation === 'team' ? (
-            <TeamCompositionSection programId={program.id} team={team} />
-          ) : null}
+          <TeamCompositionSection programId={program.id} team={team} />
           {mode === 'create' ? (
             <PersonalDataConsentField
               checked={values.personalDataConsent}

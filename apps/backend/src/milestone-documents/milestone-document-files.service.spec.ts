@@ -972,7 +972,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     expect(result.fileName).not.toBe('최종_진짜최종.hwp');
   });
 
-  it('Content-Type은 DB mimeType이 아니라 허용 목록을 통과한 값을 쓴다', async () => {
+  it('Content-Type은 DB mimeType이 아니라 확장자의 정규 값을 쓴다', async () => {
     // Given: DB에 저장된 mimeType이 확장자와 맞지 않는다.
     const { repository } = buildRepository({
       findSubmissionFileForStaffDownload: jest.fn().mockResolvedValue({
@@ -998,7 +998,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     );
 
     // Then
-    expect(result.contentType).toBe('application/octet-stream');
+    expect(result.contentType).toBe('application/pdf');
   });
 
   it('통과하면 스토리지에서 body를 읽어 다운로드 응답을 돌려준다', async () => {

@@ -42,7 +42,11 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import {
+  MilestoneDocumentArchiveEntryError,
+  MilestoneDocumentArchiveService,
+  type MilestoneDocumentArchiveScope,
+} from './milestone-document-archive.service';
 import { milestoneDocumentAttachmentDisposition } from './milestone-document-attachment-disposition';
 import {
   type MilestoneDocumentFileUpload,
@@ -165,9 +169,11 @@ export class MilestoneDocumentsController {
     @Query() query: MilestoneDocumentArchiveQueryRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
+    // 실패 로그가 어느 요청이었는지 말하려면 범위도 그 자리까지 가야 한다 — 아래 errorHandler.
+    const scope = query.toScope();
     const archive = await this.archiveService.archiveForStaff(
       milestoneId,
-      query.toScope(),
+      scope,
     );
     response.setHeader('Content-Type', archive.contentType);
     if (archive.contentLength !== null) {
@@ -196,7 +202,7 @@ export class MilestoneDocumentsController {
      * 헤더를 되돌리려면 좁은 타입에 없는 `removeHeader`가 필요하기 때문이다.
      */
     return new StreamableFile(archive.body).setErrorHandler((error) =>
-      respondWithArchiveFailure(error, response),
+      respondWithArchiveFailure(error, response, { milestoneId, scope }),
     );
   }
 
@@ -412,15 +418,50 @@ export class MilestoneDocumentFilesController {
   }
 }
 
+/** 실패 로그가 「어느 내려받기였는가」를 말하기 위해 필요한 것. 응답에는 쓰지 않는다. */
+interface ArchiveFailureRequest {
+  readonly milestoneId: string;
+  readonly scope: MilestoneDocumentArchiveScope;
+}
+
+/**
+ * 끊긴 항목의 스토리지 열쇠.
+ *
+ * 항목을 지목할 수 없는 실패도 있다 — 교직원이 취소해 압축을 스스로 끊은 경우와, 항목이
+ * 아니라 압축 자체가 낸 오류(예: 기록된 크기와 실제 객체가 어긋나 yazl이 내는 오류)다.
+ * 그때는 「모른다」고 적는다. 아무 열쇠나 지어내면 조사를 엉뚱한 파일로 보낸다.
+ */
+function failedStorageKey(error: Error): string {
+  return error instanceof MilestoneDocumentArchiveEntryError
+    ? error.storageKey
+    : 'unknown';
+}
+
 /**
  * 압축을 흘려 보내다 실패했을 때의 응답.
  *
  * 이미 한 바이트라도 나갔으면 되돌릴 것이 없다. 그때는 **끊는 것이 유일하게 정직한 답**이다 —
  * 미리 실어 둔 `Content-Length`가 브라우저에게 「덜 받았다」를 말해 준다.
  */
-function respondWithArchiveFailure(error: Error, response: Response): void {
+function respondWithArchiveFailure(
+  error: Error,
+  response: Response,
+  request: ArchiveFailureRequest,
+): void {
+  /*
+   * 이 한 줄만으로 사건이 지목돼야 한다 — 헤더가 이미 나간 뒤라면 응답에는 아무것도 실을 수
+   * 없어(아래) 로그가 유일한 근거다. 그래서 어느 마일스톤의, 전체/서류별 중 어느 요청이,
+   * 어느 객체에서 끊겼는지를 함께 적는다.
+   *
+   * ⚠ 싣는 값은 **팀·개인을 식별하지 않는 것**만 고른다. 팀 이름·학생이 올린 파일명·ZIP 안
+   * 경로는 적지 않는다 — 실패한 항목은 스토리지 열쇠(`submission-files/<uuid>`)만으로 정확히
+   * 지목되고, 마일스톤 id는 사람이 아니라 교직원이 만든 항목을 가리킨다.
+   *
+   * `error.message`는 자유 문장이라 **맨 뒤**에 둔다. 앞에 두면 그 안의 공백이 뒤따르는
+   * `key=value`를 삼켜 한 줄에서 값을 집어내기 어려워진다.
+   */
   archiveLogger.error(
-    `서류 일괄 내려받기가 압축 도중 실패했다: ${error.message}`,
+    `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
   );
   if (response.destroyed) return;
   if (response.headersSent) {
