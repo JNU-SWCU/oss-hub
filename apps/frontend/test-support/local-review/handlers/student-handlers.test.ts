@@ -220,15 +220,72 @@ describe('student fixture responses', () => {
     const settings = jsonBody(
       call('settings', 'GET', 'programs/program-capstone/submissions/me'),
     ) as { readonly applicationId: string };
-    const notApplied = call(
+
+    // Then
+    expect(settings.applicationId).toBe('application-personal');
+  });
+
+  /**
+   * 프로그램 상세가 「승인된 신청이 있다」고 말하는데 내 신청서 조회는 404를 내면,
+   * 그 둘을 함께 읽는 화면이 실제 서버가 만들 수 없는 상태를 그린다 — 좌측 패널이
+   * 참여자에게서도 「내 제출물」·「게시판」을 내렸던 것이 그 사고였다(#1099).
+   */
+  it('keeps the application detail and 내 신청서 answers consistent', () => {
+    // Given / When
+    const rows = PUBLIC_PROGRAM_IDS.map((programId) => ({
+      programId,
+      detailStatus: (
+        jsonBody(call('student', 'GET', `programs/${programId}/viewer`)) as {
+          readonly viewer: { readonly applicationStatus: string | null };
+        }
+      ).viewer.applicationStatus,
+      mine: call('student', 'GET', `programs/${programId}/applications/me`),
+    }));
+
+    // Then: 상세가 신청 상태를 말하면 내 신청서도 같은 상태로 200이어야 한다.
+    for (const row of rows) {
+      if (row.detailStatus === null) {
+        expect(row.mine).toMatchObject({ kind: 'json', status: 404 });
+        continue;
+      }
+      expect(row.mine).toMatchObject({
+        kind: 'json',
+        status: 200,
+        body: { programId: row.programId, status: row.detailStatus },
+      });
+    }
+  });
+
+  /**
+   * 예전에는 이 갈래가 `404 SUB_001`이었는데 그 조합은 백엔드가 만들 수 없다 —
+   * `SUB_001`은 403 「학생 계정만 제출할 수 있습니다」다. 그래서 로컬 검토에서 본
+   * 화면과 배포에서 나는 화면이 서로 다른 갈래였고, 참여자 아님 안내(#1099)에
+   * 도달하는지 아무도 눈으로 확인할 수 없었다.
+   */
+  it('denies the checklist with the same 403 codes the backend raises', () => {
+    // Given / When: 신청 전(기초 스터디)과 반려된 신청(SW가치확산).
+    const neverApplied = call(
       'student',
       'GET',
       'programs/program-basic-study/submissions/me',
     );
+    const notApproved = call(
+      'student',
+      'GET',
+      'programs/program-sw-value/submissions/me',
+    );
 
-    // Then
-    expect(settings.applicationId).toBe('application-personal');
-    expect(notApplied).toMatchObject({ kind: 'json', status: 404 });
+    // Then: 신청 없음은 SUB_003, 승인 안 된 신청은 SUB_004다.
+    expect(neverApplied).toMatchObject({
+      kind: 'json',
+      status: 403,
+      body: { code: 'SUB_003' },
+    });
+    expect(notApproved).toMatchObject({
+      kind: 'json',
+      status: 403,
+      body: { code: 'SUB_004' },
+    });
   });
 
   it('opens an unblocked submission form that no other screen can show', () => {

@@ -71,6 +71,10 @@ export function ProductShell({
   // (docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널) — section은 여전히 'programs'로
   // 잡히므로 이 id 하나로 두 렌더 경로를 가른다.
   const programDetailId = programDetailIdFromPathname(pathname);
+  // 비회원·미배정·미완료 프로필은 회원 전용 데이터(참여 팀·서류 현황·게시판)를 보일
+  // 근거가 없다 — STAFF 골격으로 낮춰 그 항목들을 그대로 보여주던 과거 방식(QA46) 대신
+  // 공개 개요 항목만 남는 GUEST로 낮춘다.
+  const scopeViewerRole = programScopeViewerRole(member, session);
 
   const {
     facetData,
@@ -78,7 +82,13 @@ export function ProductShell({
     scopeMilestones,
     scopeMilestonesFailed,
     retryScopeMilestones,
-  } = useProductShellData({ section, programDetailId, member });
+    scopeParticipant,
+  } = useProductShellData({
+    section,
+    programDetailId,
+    member,
+    studentViewer: scopeViewerRole === 'STUDENT',
+  });
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useSidebarDrawer();
   const closeDrawer = drawer?.close;
@@ -121,11 +131,6 @@ export function ProductShell({
     );
   }
 
-  // 비회원·미배정·미완료 프로필은 회원 전용 데이터(참여 팀·서류 현황·게시판)를 보일
-  // 근거가 없다 — STAFF 골격으로 낮춰 그 항목들을 그대로 보여주던 과거 방식(QA46) 대신
-  // 공개 개요 항목만 남는 GUEST로 낮춘다.
-  const scopeViewerRole = programScopeViewerRole(member, session);
-
   let viewerDocuments:
     { readonly completed: number; readonly total: number } | undefined;
   if (
@@ -146,6 +151,11 @@ export function ProductShell({
         teamCount: scopeOverview?.teamCount ?? 0,
         boardPostCount: scopeOverview?.boardPostCount ?? 0,
         viewerDocuments,
+        // 승인된 신청이 없는 학생에게는 「내 제출물」을 그리지 않는다(#1099). 「게시판」은
+        // 관리자 접근 권한으로도 열리므로(board-access.guard.ts) 그 권한을 함께 넘겨
+        // 두 그룹이 따로 판정받게 한다.
+        viewerParticipant: scopeParticipant,
+        viewerHasAdminAccess: session.hasAdminAccess,
         milestones: scopeMilestones,
         // 서류가 있는 마일스톤을 depth-1 자식으로 편다. 이 값을 넘기지 않으면
         // `programScopeSidebarGroups`의 기본값 `[]` 때문에 자식이 영영 0개다.

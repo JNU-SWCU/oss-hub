@@ -24,6 +24,7 @@ import {
 } from './submission-form';
 import {
   ChecklistLoadFailure,
+  ChecklistParticipationRequired,
   ChecklistSkeleton,
   SubmissionChecklistView,
 } from './components/submission-checklist-view';
@@ -33,6 +34,8 @@ import type { SubmissionChecklist } from './types';
 type ChecklistPageState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'failed'; readonly message: string }
+  /** 승인된 신청이 없어 이 프로그램의 제출물이 아직 열리지 않은 상태(#1099). */
+  | { readonly kind: 'not-participant' }
   | { readonly kind: 'ready'; readonly data: SubmissionChecklist };
 
 const EMPTY_INPUT: SubmissionFormInput = {
@@ -44,6 +47,21 @@ const STALE_NOTICE =
   '다른 곳에서 제출 상태가 바뀌어 최신 상태를 다시 불러왔습니다. 내용을 확인한 후 다시 시도해 주세요.';
 
 const FILE_SUBMISSION_UNAVAILABLE_CODE = 'SUB_010';
+
+/**
+ * 「아직 참여자가 아니다」를 뜻하는 체크리스트 응답 코드(`submissions.service.ts`의
+ * `requireApprovedApplication`). 신청이 아예 없으면 `SUB_003`, 냈지만 아직 승인되지
+ * 않았으면 `SUB_004`다 — 학생이 보기에는 둘 다 「승인 후에 열린다」 하나의 상태이고,
+ * 어느 쪽도 「다시 시도」로 풀리지 않는다.
+ */
+const PARTICIPATION_REQUIRED_CODES: readonly string[] = ['SUB_003', 'SUB_004'];
+
+function isParticipationRequired(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    PARTICIPATION_REQUIRED_CODES.includes(error.problem.code)
+  );
+}
 
 export function SubmissionChecklistPage({
   programId,
@@ -102,6 +120,10 @@ export function SubmissionChecklistPage({
         data: await getSubmissionChecklist(programId),
       });
     } catch (error: unknown) {
+      if (isParticipationRequired(error)) {
+        setState({ kind: 'not-participant' });
+        return;
+      }
       setState({
         kind: 'failed',
         message:
@@ -230,6 +252,9 @@ export function SubmissionChecklistPage({
   };
 
   if (state.kind === 'loading') return <ChecklistSkeleton />;
+  if (state.kind === 'not-participant') {
+    return <ChecklistParticipationRequired programId={programId} />;
+  }
   if (state.kind === 'failed') {
     return (
       <ChecklistLoadFailure

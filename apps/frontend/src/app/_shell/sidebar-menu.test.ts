@@ -713,3 +713,183 @@ describe('programScopeSidebarGroups', () => {
     expect(groups[2]?.items[0]?.href).toBe('/programs/prog-1/board');
   });
 });
+
+describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
+  const base = {
+    programId: 'prog-1',
+    teamCount: 47,
+    boardPostCount: 3,
+  } as const;
+
+  const notParticipant = {
+    ...base,
+    viewerRole: 'STUDENT',
+    viewerParticipant: false,
+    viewerDocuments: { completed: 0, total: 2 },
+    milestones: [
+      { milestoneId: 'm1', title: '1차 계획서', submissionEnabled: true },
+    ],
+    milestoneDocuments: [
+      { milestoneId: 'm1', title: '1차 계획서', completed: 0, total: 1 },
+    ],
+  } as const;
+
+  function labels(
+    groups: ReturnType<typeof programScopeSidebarGroups>,
+  ): readonly string[] {
+    return groups.flatMap((group) => group.items.map((item) => item.label));
+  }
+
+  it('참여자가 아닌 학생에게 내 제출물·게시판을 만들지 않는다', () => {
+    const groups = programScopeSidebarGroups(notParticipant);
+
+    expect(labels(groups)).not.toContain('내 제출물');
+    expect(labels(groups)).not.toContain('게시판');
+    expect(groups.map((group) => group.label)).toEqual(['프로그램']);
+  });
+
+  it('단계 자식도 함께 사라진다 — 부모 없이 남는 항목을 두지 않는다', () => {
+    const groups = programScopeSidebarGroups(notParticipant);
+
+    expect(labels(groups)).not.toContain('1차 계획서');
+  });
+
+  it('프로그램 개요·참여 팀은 그대로 남는다 — 참여 전에도 열리는 화면이다', () => {
+    const groups = programScopeSidebarGroups(notParticipant);
+
+    expect(labels(groups)).toEqual(['프로그램 개요', '참여 팀']);
+    expect(groups[0]?.items[1]?.count).toBe('47');
+  });
+
+  it('참여자에게는 지금과 똑같이 열린다', () => {
+    const groups = programScopeSidebarGroups({
+      ...notParticipant,
+      viewerParticipant: true,
+    });
+
+    expect(groups).toHaveLength(3);
+    expect(groups[1]?.items[0]).toMatchObject({
+      label: '내 제출물',
+      count: '0/2',
+    });
+    expect(groups[1]?.items.map((item) => item.label)).toEqual([
+      '내 제출물',
+      '1차 계획서',
+    ]);
+    expect(groups[2]?.items[0]).toMatchObject({ label: '게시판', count: '3' });
+  });
+
+  it('참여 여부를 아직 모르면 내리지 않는다 — 추측으로 affordance를 지우지 않는다', () => {
+    const unknown = programScopeSidebarGroups({
+      ...notParticipant,
+      viewerParticipant: undefined,
+    });
+    const participant = programScopeSidebarGroups({
+      ...notParticipant,
+      viewerParticipant: true,
+    });
+
+    expect(unknown).toEqual(participant);
+  });
+
+  it('교직원 좌측 패널 구성은 참여 여부와 무관하게 그대로다', () => {
+    const staff = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+      milestoneDocuments: [
+        { milestoneId: 'm1', title: '1차 계획서', completed: 2, total: 3 },
+      ],
+    });
+    const staffWithFlag = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+      viewerParticipant: false,
+      milestoneDocuments: [
+        { milestoneId: 'm1', title: '1차 계획서', completed: 2, total: 3 },
+      ],
+    });
+
+    expect(staffWithFlag).toEqual(staff);
+    expect(staffWithFlag).toHaveLength(3);
+  });
+
+  /*
+    회원 유형은 STUDENT인데 관리자 접근 권한을 가진 계정 — 권한 행렬이 명시적으로
+    지원하는 조합이다. 두 참여자 전용 화면의 관문이 서로 다른 것을 묻기 때문에 이 계정에서
+    처음으로 판정이 갈린다.
+  */
+  describe('학생 관리자(미신청) — 두 그룹이 갈린다', () => {
+    const studentAdmin = {
+      ...notParticipant,
+      viewerHasAdminAccess: true,
+    } as const;
+
+    it('게시판은 남는다 — 관리자 접근만으로 열리는 화면이다', () => {
+      const groups = programScopeSidebarGroups(studentAdmin);
+
+      expect(labels(groups)).toContain('게시판');
+      expect(groups.at(-1)?.items[0]).toMatchObject({
+        label: '게시판',
+        href: '/programs/prog-1/board',
+        count: '3',
+      });
+    });
+
+    it('내 제출물은 그대로 사라진다 — 관리자 권한은 승인된 신청을 대신하지 못한다', () => {
+      const groups = programScopeSidebarGroups(studentAdmin);
+
+      expect(labels(groups)).not.toContain('내 제출물');
+      // 부모가 사라지면 단계 자식도 함께 사라진다.
+      expect(labels(groups)).not.toContain('1차 계획서');
+      expect(groups.map((group) => group.label)).toEqual([
+        '프로그램',
+        '게시판',
+      ]);
+    });
+
+    it('학생 면은 그대로다 — 신청자 메뉴가 생기거나 서류 현황으로 바뀌지 않는다', () => {
+      const groups = programScopeSidebarGroups(studentAdmin);
+
+      expect(labels(groups)).not.toContain('신청자');
+      expect(labels(groups)).not.toContain('서류 현황');
+      expect(labels(groups).slice(0, 2)).toEqual(['프로그램 개요', '참여 팀']);
+    });
+
+    it('관리자 권한이 없는 미신청 학생은 게시판까지 사라진 채 그대로다', () => {
+      const plain = programScopeSidebarGroups({
+        ...notParticipant,
+        viewerHasAdminAccess: false,
+      });
+
+      expect(plain).toEqual(programScopeSidebarGroups(notParticipant));
+      expect(plain.map((group) => group.label)).toEqual(['프로그램']);
+    });
+
+    it('승인된 신청이 있으면 관리자 권한과 무관하게 세 그룹이 그대로다', () => {
+      const approvedAdmin = programScopeSidebarGroups({
+        ...studentAdmin,
+        viewerParticipant: true,
+      });
+
+      expect(approvedAdmin).toEqual(
+        programScopeSidebarGroups({
+          ...notParticipant,
+          viewerParticipant: true,
+        }),
+      );
+      expect(approvedAdmin).toHaveLength(3);
+    });
+  });
+
+  it('비회원(GUEST) 좌측 패널 구성은 참여 여부와 무관하게 그대로다', () => {
+    const guest = programScopeSidebarGroups({ ...base, viewerRole: 'GUEST' });
+    const guestWithFlag = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'GUEST',
+      viewerParticipant: false,
+    });
+
+    expect(guestWithFlag).toEqual(guest);
+    expect(guestWithFlag).toHaveLength(1);
+  });
+});
