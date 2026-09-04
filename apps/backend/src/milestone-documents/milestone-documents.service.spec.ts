@@ -326,10 +326,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
 
     // When
-    const result = await new MilestoneDocumentsService(repository).listForViewer(
-      1n,
-      syntheticMilestoneId,
-    );
+    const result = await new MilestoneDocumentsService(
+      repository,
+    ).listForViewer(1n, syntheticMilestoneId);
 
     // Then: 이름이 없으면 화면은 「무엇이 빠지는지」를 말할 수 없다.
     expect(result[0]?.viewerSubmission).toEqual(

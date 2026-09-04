@@ -251,7 +251,9 @@ describe('MilestoneDocumentSubmissionForm', () => {
       throw new TypeError('Missing file input.');
     Object.defineProperty(input, 'files', {
       configurable: true,
-      value: [new File(['synthetic'], '2차_계획서.pdf', { type: 'application/pdf' })],
+      value: [
+        new File(['synthetic'], '2차_계획서.pdf', { type: 'application/pdf' }),
+      ],
     });
     await act(async () =>
       input.dispatchEvent(new Event('change', { bubbles: true })),
