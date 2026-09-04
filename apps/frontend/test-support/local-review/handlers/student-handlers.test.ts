@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { MilestoneDocumentList } from '@/features/programs/milestone-document-api';
 import type { ProgramActivity, ProgramDetail } from '@/features/programs/types';
 import { resolveApplyBlockedReason } from '@/features/programs/program-apply-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
@@ -485,9 +486,14 @@ describe('milestone submission item counts', () => {
 
         for (const milestone of detail.milestones) {
           // When
-          const documents = jsonBody(
+          /*
+            목록은 배열이 아니라 **봉투**다 — `{ documents, fileUpload }`(#1107).
+            배열로 받아 `.length` 를 읽으면 `undefined` 라, 어떤 값을 넣어도 맞지
+            않는 검사가 된다(이 검사가 처음 CI에서 걸린 이유다).
+          */
+          const { documents } = jsonBody(
             call(fixture, 'GET', `milestones/${milestone.id}/documents`),
-          ) as readonly unknown[];
+          ) as MilestoneDocumentList;
 
           // Then
           expect({
