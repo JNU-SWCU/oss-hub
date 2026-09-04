@@ -29,6 +29,8 @@
 | `pnpm dev` | backend·frontend는 **호스트 프로세스**(hot reload), 인프라만 Docker | `.envrc` (direnv) | 일상 개발 |
 | `pnpm local:up` · `pnpm local:verify` | 앱까지 컨테이너 — production 구조와 같은 경로 | `.env` | 배포 전 통합 검증 |
 
+Vercel 토큰·조직 ID·프로젝트 ID는 로컬 env 대상이 아니다.
+
 두 경로의 env 파일은 값이 다르다. `pnpm dev`는 앱이 호스트에 있으니 호스트명이 전부 `localhost`이고, compose 경로는 서비스 DNS(`postgres`, `minio`)를 쓴다. 값을 서로 복사하면 연결이 깨진다.
 
 `pnpm dev`를 처음 쓸 때는 `.envrc.example`을 `.envrc`로 복사하고 그 안의 "직접 채운다" 항목(세션 서명 키 2개, dev OAuth 값)을 채운 뒤 direnv를 허용한다. `.envrc`는 추적하지 않는다.

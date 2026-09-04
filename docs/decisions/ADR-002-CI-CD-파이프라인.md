@@ -36,6 +36,10 @@ Jenkins는 외부 입력 없이 **자체적으로 현재 latest full Release를 
 tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해당 SHA를 checkout한다.
 **배포 인가는 draft·prerelease가 아닌 GitHub Release의 발행 자체다** — 누가 배포를 시작할 수 있는지는 GitHub의 Release 발행 권한이 통제하고, Jenkins는 인가 주체를 따로 판별하지 않는다.
 Frontend 배포도 같은 인가 이벤트를 따른다. `release: published`에서만 도는 required가 아닌 `frontend-release-deploy` job이 tag의 full SemVer 형식과 main 이력 포함을 확인한 뒤 그 exact SHA를 Vercel production으로 배포한다.
+Git push·PR·로컬 `vercel --prod`·대시보드 Redeploy는 frontend production 경로가 아니다.
+저장소 계약은 `apps/frontend/vercel.json`의 `git.deploymentEnabled: false`다.
+`VERCEL_TOKEN`·`VERCEL_ORG_ID`·`VERCEL_PROJECT_ID`는 GitHub repository secret에만 두고 로컬 env·`.env.example`에 두지 않는다.
+Git 저장소 연결은 메타데이터용으로 남을 수 있고, 대시보드 auto-deploy·unused hook off는 병합 전 부트스트랩이지 계약 원본이 아니다.
 배포 대상은 직전 full SemVer 릴리스 태그와의 diff로 좁힌다 — frontend 산출물이 바뀌지 않은 릴리스는 배포하지 않고 그 no-op을 로그로 남긴다. production Compose에는 frontend runtime이 없으므로 backend 배포는 이미 backend 전용이고 Jenkins의 수렴 동작은 이 계약으로 바뀌지 않는다.
 판정은 두 불변 tag 사이의 diff만 사용하므로 저장소만으로 재현되며 배포 플랫폼 상태를 읽지 않는다. 이 job은 required check이 아니다 — required check에 path filter를 걸면 해당 경로를 건드리지 않은 PR에서 체크가 보고되지 않아 병합이 영구히 막힌다.
 공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
@@ -93,6 +97,8 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 - Jenkins와 배포 서버의 webhook, Docker, Compose 운영 책임이 생긴다.
 - 배포 인가 기록이 저장소 안 댓글이 아니라 GitHub Release 발행 이력과 audit log에 남는다. 누가 어떤 tag를 배포했는지 알려면 저장소가 아니라 GitHub Release·감사 로그를 본다.
 - Release 발행 권한을 가진 사람은 별도 절차 없이 production을 바꿀 수 있다. 이 권한 목록 관리가 배포 통제의 실체이므로 협업자 권한 부여가 배포 권한 부여와 같은 무게를 갖는다.
+- frontend Git 자동배포를 끄면 PR preview URL이 사라진다. Hobby 할당과 Release-only 인가를 위한 비용이다.
+- `vercel.json`과 대시보드 auto-deploy 설정은 다음 `frontend-release-deploy` CLI 적용 전까지 어긋날 수 있다. 대시보드 Redeploy와 unused가 아닌 deploy hook은 저장소가 잠그지 못한다.
 - 로컬 빌드 이미지는 서버 밖에서 재사용되지 않으며, greenfield 실패는 자동 rollback할 수 없다.
 - migration 이후의 DB restore는 자동 rollback 범위 밖이므로 backup 확인과 수동 복구 책임자가 필요하다.
 
@@ -104,6 +110,9 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 - Production 배포 trigger는 `cron('H/10 * * * *')`의 outbound convergence다. Public Jenkins endpoint와 GitHub deploy secret은 없고, tailnet의 parameterless 수동 실행만 recovery path다. 배포 대상 판별은 Jenkins의 latest Release 조회가 담당한다.
 - 배포 실패 알림은 Jenkins email-ext 플러그인으로 보내며 수신자·SMTP는 Jenkins UI 설정(Manage Jenkins → System → Extended E-mail Notification의 Default Recipients + SMTP)에만 두고 저장소에 이메일 주소를 남기지 않는다.
 - 배포 인가는 draft·prerelease가 아닌 GitHub Release 발행이며 Jenkins는 별도 승인 marker를 요구하지 않는다. 인가 주체 통제는 GitHub의 Release 발행 권한이 담당하므로 그 권한 목록이 배포 권한 목록이다.
+- frontend production CLI는 `frontend-release-deploy`의 `vercel deploy --prod`만 허용한다. Git `source=git` 자동배포는 금지이며 저장소 계약은 `apps/frontend/vercel.json`의 `git.deploymentEnabled: false`다.
+- `VERCEL_TOKEN`·`VERCEL_ORG_ID`·`VERCEL_PROJECT_ID`는 GitHub repository secret에만 둔다. 로컬 env와 `.env.example`에 넣지 않는다.
+- frontend 변경을 main에 넣기 전에 owner는 Vercel Production·Preview auto-deploy와 unused deploy hook이 꺼져 있는지, 위 세 secret이 등록돼 있는지 확인한다.
 - tag commit은 main ancestry를 통과한 exact SHA여야 한다. 태그 조작 방어는 세 가지 fail-closed 검사의 합이다: Jenkins가 자체 조회한 latest full Release만 대상으로 삼고, tag는 full `vMAJOR.MINOR.PATCH`여야 하며, 그 tag가 가리키는 exact SHA가 main 이력에 포함되어야 한다. 실행 중 SemVer가 같거나 더 높으면 no-op이라 임의 tag 재작성으로 하위 버전을 밀어 넣을 수 없다. 영속 배포 상태 파일은 두지 않으며 판정 근거는 실행 중인 컨테이너 label이다.
 - Jenkins는 Docker 권한을 가진 `oss-hub-production` 전용 executor에서만 실행하고 동시 실행을 금지한다. 운영 환경 파일은 Credentials Store의 file credential로 실행 시점에만 주입한다. GitHub App 개인키도 같은 방식의 file credential로 주입하되 env 값이 아니라 파일로 전달한다 — env 값은 `docker compose config`·`docker inspect`·프로세스 env 덤프에 평문으로 드러난다. 파이프라인은 주입받은 키를 `SECRETS_DIR` 아래 build별 generation 디렉터리에 `0640`으로 설치하고 `current` symlink를 원자 교체하며, compose는 그 경로를 secret source로 읽는다. 설치는 compose를 처음 호출하는 stage보다 앞에 있어야 한다.
 - Compose는 `COMPOSE_PROJECT_NAME`을 고정하며 `pgdata`와 기존 데이터를 삭제하는 `down -v`를 사용하지 않는다.
@@ -116,6 +125,7 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 
 ## Changelog
 
+- 2026-09-04: frontend Git 자동배포를 저장소 계약으로 금지했다. `apps/frontend/vercel.json`의 `git.deploymentEnabled: false`가 원본이고, production CLI는 Release → `frontend-release-deploy`만 허용한다. `VERCEL_*`는 GitHub secret에만 두며 로컬 env에 두지 않는다. 대시보드 auto-deploy off는 병합 전 부트스트랩이다.
 - 2026-09-03: frontend 배포 주체를 개인 머신의 수동 `vercel --prod`에서 required가 아닌 `frontend-release-deploy` job으로 옮겼다. 조사 시점 Vercel production 배포 5건이 모두 `source=cli`였고 어떤 커밋이 배포됐는지 파이프라인이 증명하지 못했다. 배포 인가는 GitHub Release 발행으로 통일하고, 직전 full SemVer 릴리스 태그와의 diff로 배포 대상을 좁혀 frontend 무변경 릴리스는 no-op으로 남긴다. 워크플로 파일은 늘리지 않고 단일 `ci.yml` 안의 별도 job으로 넣었으며 required check 이름(`ci`·`public-safe`)과 Jenkins backend 수렴 동작은 그대로다 ([#1172](https://github.com/JNU-SWCU/oss-hub/issues/1172)).
 - 2026-09-02: custom-domain threat model을 동결했다. Vercel request transform+origin Basic auth, exact origin Host/domain TLS, trusted client-key rate limit, unknown Host/method rejection, backend header stripping, outbound Jenkins convergence를 채택하고 public Jenkins trigger·IP certificate·direct-origin browser surface를 제거했다.
 - 2026-09-02: owner waiver 뒤 production MinIO service·volume·credential·hold branch와 AWS frontend image/runtime을 제거했다. Production은 managed R2, backend, PostgreSQL과 API-only ingress만 유지하며 local substitutes는 `compose.local.yml`로 격리했다.
