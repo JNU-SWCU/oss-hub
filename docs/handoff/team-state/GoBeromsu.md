@@ -1300,4 +1300,12 @@
 - blocker: 없음
 - 결과: `origin/main` 위로 rebase했다. Codex P1에 맞춰 `program-edit-purge-network.spec.ts`가 교직원에게 영구 삭제 버튼 0개를 기대하던 계약을, 관리자와 같은 purge 흐름을 타는지로 바꿨다. 삭제 보호 프로그램은 버튼을 비활성화한 채 유지한다. rebase 뒤 `program-edit-milestone-snapshot.test.tsx`가 옛 `isAdmin` prop을 써서 typecheck가 깨져 `canDeleteProgram`으로 맞췄다.
 - 검증: frontend typecheck 통과. e2e 브라우저 게이트는 로컬 Chrome이 필요해 이 환경에서 돌리지 않았다.
+## 2026-09-04 — #1093 대시보드 종료 축을 main에 맞춘다
+
+- 상태: review
+- Issue: [#1093](https://github.com/JNU-SWCU/oss-hub/issues/1093)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1189
+- blocker: 없음
+- 결과: `origin/main` 위로 rebase했다. Codex P1(구 API 호환 fallback)은 반영하지 않는다. 이 티켓의 결함이 바로 빠진 `endAt`/`lifecycle`을 조용히 기본값으로 보는 것이므로 파서는 형식 오류로 끊는다. 배포 순서는 Release 노트에서 backend 필드를 먼저 켜고 frontend가 필수로 읽게 적는다.
+- 검증: rebase만. 파서 필수 필드 계약은 그대로다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
