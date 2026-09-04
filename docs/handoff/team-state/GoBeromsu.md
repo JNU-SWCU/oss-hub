@@ -1335,3 +1335,15 @@
 - 결과: `origin/main` 위로 rebase했다. `/timeline` 제품 코드와 `features/milestone-timeline/`은 0건이다. 남은 언급은 저널·아카이브·design-sync 조사 기록뿐이다.
 - 검증: 경로 문자열 검색. 화면 없는 삭제 PR이라 Before/After 없음.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+## 2026-09-04 — 열린 PR 10건 병합·v0.6.143 릴리스·원격 브랜치 정리
+
+- 상태: done
+- Issue: [#1181](https://github.com/JNU-SWCU/oss-hub/issues/1181) [#1095](https://github.com/JNU-SWCU/oss-hub/issues/1095) [#1093](https://github.com/JNU-SWCU/oss-hub/issues/1093) [#1092](https://github.com/JNU-SWCU/oss-hub/issues/1092) [#1105](https://github.com/JNU-SWCU/oss-hub/issues/1105) [#1103](https://github.com/JNU-SWCU/oss-hub/issues/1103) [#1101](https://github.com/JNU-SWCU/oss-hub/issues/1101) [#1107](https://github.com/JNU-SWCU/oss-hub/issues/1107)
+- PR: #1187 #1188 #1189 #1190 #1191 #1193 #1194 #1195 #1196 (+ 선행 #1192)
+- blocker: 없음
+- 결과: 열린 PR 전부가 GitHub에서 `CONFLICTING/DIRTY`로 보였지만 실제 원인은 stale mergeable 캐시와 branch protection `strict: true`였다. 로컬 `git merge-tree`로 전부 clean을 확인한 뒤 한 건씩 `origin/main` 위로 rebase → required check 통과 → 병합으로 직렬 처리했다. admin bypass는 쓰지 않았다(ADR-005).
+  텍스트 병합이 잡지 못한 의미 충돌 두 건을 계약 소유 PR에서 고쳤다 — (1) #1188이 `ProgramEditPage` prop을 `isAdmin`→`canDeleteProgram`으로 개명해 #1187이 새로 넣은 호출부가 깨졌고, (2) #1196이 서류 목록 응답을 `{documents, fileUpload}` 봉투로 바꿔 #1190이 새로 넣은 `milestone-grouping.test.tsx`의 fetch stub과 상태 픽스처가 깨졌다.
+  릴리스 v0.6.143은 exact main SHA `76b90f95`를 대상으로 발행했다. 발행 직전에 같은 SHA의 `issue_comment` 트리거 `ci` 실행이 success로 먼저 끝나 있었는데 정작 `push` 트리거 `ci`는 아직 in_progress였다 — `gh run list`의 최신 한 건만 보면 v0.6.22 사고와 같은 오판을 한다. `event=push`로 좁혀 통과를 확인한 뒤 발행했다.
+  원격 브랜치는 62개에서 11개로 줄였다. 삭제 대상 45개는 전부 (a) 병합된 PR, (b) 닫힌 PR, (c) 명시적 `backup/*` 스냅샷, (d) 내용이 main에 흡수된 무PR 브랜치 중 하나임을 확인했고, 진행 중 WIP 브랜치와 열린 PR 브랜치는 건드리지 않았다. 삭제 전 모든 원격 tip을 로컬 `refs/archive/2026-09-04/*`로 보존해 복구 가능하게 두었다.
+- 검증: 병합 전 5건을 한 통합 브랜치에 모아 `pnpm typecheck`·`pnpm lint`(0 error)·`pnpm test`(frontend 3319, backend 3501)·`BACKEND_ORIGIN` 허용값으로 `pnpm build`를 돌렸다. 이 통합 실행이 위 의미 충돌 (1)을 병합 전에 잡았다. 각 PR은 required `ci`·`public-safe` 통과를 exact head SHA에서 확인했고, 릴리스 대상 SHA는 `push` 이벤트 `ci` 통과를 확인했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
