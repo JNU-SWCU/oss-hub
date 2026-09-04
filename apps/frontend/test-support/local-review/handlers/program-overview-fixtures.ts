@@ -23,11 +23,11 @@ interface ProgramOverviewBase {
   readonly studentDocumentsCompleted: number;
   readonly studentDocumentsTotal: number;
   readonly fullySubmittedParticipantCount: number;
-  /** 다음 마감 마일스톤 — 좌측 패널 카운트다운 확인용. */
-  readonly nextMilestone: {
+  /** 남은 마감 마일스톤 — 좌측 패널 카운트다운 확인용. */
+  readonly remainingMilestones: readonly {
     readonly label: string;
     readonly dueAt: string;
-  } | null;
+  }[];
   /** 서류가 있는 마일스톤 — 좌측 패널 depth-1 자식 확인용. */
   readonly milestoneDocuments: readonly {
     readonly milestoneId: string;
@@ -55,10 +55,16 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // viewerSubmissionStatus와 앞뒤가 맞아야 한다.
     studentDocumentsCompleted: 2,
     studentDocumentsTotal: 3,
-    nextMilestone: {
-      label: '최종 결과 요약',
-      dueAt: '2026-09-12T09:00:00.000Z',
-    },
+    remainingMilestones: [
+      {
+        label: '중간 보고',
+        dueAt: '2026-09-01T09:00:00.000Z',
+      },
+      {
+        label: '최종 결과 요약',
+        dueAt: '2026-09-12T09:00:00.000Z',
+      },
+    ],
     milestoneDocuments: [
       {
         milestoneId: 'milestones-approved',
@@ -97,7 +103,9 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // "제출됨" — student-program-fixtures.ts의 viewerSubmissionStatus와 맞춘다.
     studentDocumentsCompleted: 1,
     studentDocumentsTotal: 2,
-    nextMilestone: { label: '예선 제출', dueAt: '2026-09-20T09:00:00.000Z' },
+    remainingMilestones: [
+      { label: '예선 제출', dueAt: '2026-09-20T09:00:00.000Z' },
+    ],
     milestoneDocuments: [
       {
         milestoneId: 'milestones-contest-final',
@@ -126,7 +134,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // 신청 전 상태라 두 서류 모두 미제출이다(student-program-fixtures.ts BASIC_MILESTONES).
     studentDocumentsCompleted: 0,
     studentDocumentsTotal: 2,
-    nextMilestone: null,
+    remainingMilestones: [],
     milestoneDocuments: [
       {
         milestoneId: 'milestones-basic-intro',
@@ -158,7 +166,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     connectedRepositoryCount: 0,
     studentDocumentsCompleted: 0,
     studentDocumentsTotal: 0,
-    nextMilestone: null,
+    remainingMilestones: [],
     milestoneDocuments: [],
     fullySubmittedParticipantCount: 0,
   },
@@ -186,7 +194,7 @@ export function programOverviewFor(
     fullySubmittedParticipantCount: isStudent
       ? null
       : base.fullySubmittedParticipantCount,
-    nextMilestone: base.nextMilestone,
+    remainingMilestones: base.remainingMilestones,
     // 분자·분모의 의미가 역할로 갈린다 — 학생은 내 서류 수, 교직원은 완주 팀 수.
     milestoneDocuments: base.milestoneDocuments.map((entry) => ({
       milestoneId: entry.milestoneId,

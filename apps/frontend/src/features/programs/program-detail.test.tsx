@@ -414,7 +414,7 @@ const overviewBase: ProgramOverview = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
-  nextMilestone: null,
+  remainingMilestones: [],
   milestoneDocuments: [],
 };
 

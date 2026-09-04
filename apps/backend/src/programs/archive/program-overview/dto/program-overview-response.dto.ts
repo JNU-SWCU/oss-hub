@@ -1,24 +1,23 @@
 import type { AuthorityLabel } from '../../../../common/authority-label';
 import {
   ProgramOverviewMilestoneDocument,
-  ProgramOverviewNextMilestone,
+  ProgramOverviewRemainingMilestone,
   ProgramOverviewView,
 } from '../program-overview.service';
 
-/** 마감 카운트다운 — 아직 마감되지 않은 가장 이른 마일스톤. 역할과 무관하게 같은 값이다. */
-export class NextMilestoneResponseDto {
+export class RemainingMilestoneResponseDto {
   readonly label: string;
   readonly dueAt: string;
 
-  private constructor(nextMilestone: ProgramOverviewNextMilestone) {
-    this.label = nextMilestone.label;
-    this.dueAt = nextMilestone.dueAt.toISOString();
+  private constructor(milestone: ProgramOverviewRemainingMilestone) {
+    this.label = milestone.label;
+    this.dueAt = milestone.dueAt.toISOString();
   }
 
   static from(
-    nextMilestone: ProgramOverviewNextMilestone,
-  ): NextMilestoneResponseDto {
-    return new NextMilestoneResponseDto(nextMilestone);
+    milestone: ProgramOverviewRemainingMilestone,
+  ): RemainingMilestoneResponseDto {
+    return new RemainingMilestoneResponseDto(milestone);
   }
 }
 
@@ -58,8 +57,7 @@ export class ProgramOverviewResponseDto {
   participantCount: number;
   teamCount: number;
   connectedRepositoryCount: number;
-  /** 마감 카운트다운(공개, 역할 무관). 다가오는 마일스톤이 없으면 null. */
-  nextMilestone: NextMilestoneResponseDto | null;
+  remainingMilestones: RemainingMilestoneResponseDto[];
   /** 아래 viewer 필드는 요청자 전용 — 역할별로 한쪽만 채워진다. */
   viewerRole: AuthorityLabel | null;
   /**
@@ -87,9 +85,9 @@ export class ProgramOverviewResponseDto {
     this.participantCount = view.participantCount;
     this.teamCount = view.teamCount;
     this.connectedRepositoryCount = view.connectedRepositoryCount;
-    this.nextMilestone = view.nextMilestone
-      ? NextMilestoneResponseDto.from(view.nextMilestone)
-      : null;
+    this.remainingMilestones = view.remainingMilestones.map((milestone) =>
+      RemainingMilestoneResponseDto.from(milestone),
+    );
     this.viewerRole = view.viewer.role;
     this.viewerDocumentsCompleted = view.viewer.myDocumentsCompleted;
     this.viewerDocumentsTotal = view.viewer.myDocumentsTotal;

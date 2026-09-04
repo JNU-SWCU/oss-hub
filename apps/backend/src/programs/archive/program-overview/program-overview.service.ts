@@ -49,15 +49,14 @@ export interface ProgramOverviewMilestoneDocument {
   total: number;
 }
 
-export interface ProgramOverviewNextMilestone {
-  label: string;
-  dueAt: Date;
+export interface ProgramOverviewRemainingMilestone {
+  readonly label: string;
+  readonly dueAt: Date;
 }
 
 export interface ProgramOverviewView extends ProgramOverviewRecord {
   viewer: ProgramOverviewViewerStats;
-  /** 마감 카운트다운 — 아직 마감되지 않은 가장 이른 마일스톤. 없으면 null(역할 무관 공통값). */
-  nextMilestone: ProgramOverviewNextMilestone | null;
+  remainingMilestones: readonly ProgramOverviewRemainingMilestone[];
 }
 
 const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
@@ -68,21 +67,14 @@ const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
   milestoneDocuments: [],
 };
 
-/** dueAt이 아직 지나지 않은(> now) 마일스톤 중 가장 이른 것. 없으면 null. */
-function pickNextMilestone(
+function remainingMilestones(
   schedules: readonly MilestoneSchedule[],
   now: Date,
-): ProgramOverviewNextMilestone | null {
-  const upcoming = schedules.filter(
-    (schedule) => schedule.dueAt.getTime() > now.getTime(),
-  );
-  if (upcoming.length === 0) {
-    return null;
-  }
-  const earliest = upcoming.reduce((soonest, schedule) =>
-    schedule.dueAt.getTime() < soonest.dueAt.getTime() ? schedule : soonest,
-  );
-  return { label: earliest.label, dueAt: earliest.dueAt };
+): ProgramOverviewRemainingMilestone[] {
+  return schedules
+    .filter((schedule) => schedule.dueAt.getTime() > now.getTime())
+    .toSorted((left, right) => left.dueAt.getTime() - right.dueAt.getTime())
+    .map((schedule) => ({ label: schedule.label, dueAt: schedule.dueAt }));
 }
 
 /** 서류 0개 마일스톤은 breakdown에서 뺀다(#619). */
@@ -150,7 +142,7 @@ export class ProgramOverviewService {
     return {
       ...overview,
       viewer,
-      nextMilestone: pickNextMilestone(milestoneSchedules, new Date()),
+      remainingMilestones: remainingMilestones(milestoneSchedules, new Date()),
     };
   }
 

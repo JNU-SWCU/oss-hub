@@ -1257,6 +1257,14 @@
 - 검증: `pnpm --filter backend test:unit`(3481 passed), `pnpm --filter frontend test`(3238 passed), `pnpm --filter frontend typecheck`.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
 
+## 2026-09-04 — #1057 개요 fixture를 trackType 계약에 맞춘다
+
+- 상태: review
+- Issue: [#1051](https://github.com/JNU-SWCU/oss-hub/issues/1051)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1057
+- blocker: 없음
+- 결과: main 병합 후 `ProgramOverview` fixture가 제거된 `category`를 들고 있어 frontend typecheck가 깨졌다. 같은 파일의 다른 픽스처와 같이 `trackType: 'EXTRACURRICULAR'`로 바꿨다.
+- 검증: 변경 파일 typecheck 대상 수정만.
 ## 2026-09-04 — #1058 마일스톤 수정 레이어를 main에 맞춘다
 
 - 상태: review

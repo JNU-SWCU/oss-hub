@@ -4,6 +4,39 @@ import { ProgramOverviewRepository } from './program-overview.repository';
 const syntheticProgramId = 'cuid-synthetic-program';
 
 describe('ProgramOverviewRepository', () => {
+  describe('findMilestoneSchedules', () => {
+    it('동일 dueAt에서도 id 보조 정렬로 마감 목록 순서를 고정한다', async () => {
+      const milestoneFindMany = jest.fn().mockResolvedValue([
+        {
+          id: 'milestone-a',
+          name: '합성 마감 A',
+          dueAt: new Date('2026-09-12T09:00:00.000Z'),
+        },
+        {
+          id: 'milestone-b',
+          name: '합성 마감 B',
+          dueAt: new Date('2026-09-12T09:00:00.000Z'),
+        },
+      ]);
+      const repository = new ProgramOverviewRepository({
+        milestone: { findMany: milestoneFindMany },
+      } as never);
+
+      const result =
+        await repository.findMilestoneSchedules(syntheticProgramId);
+
+      expect(milestoneFindMany).toHaveBeenCalledWith({
+        where: { programId: syntheticProgramId },
+        orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+        select: { id: true, name: true, dueAt: true },
+      });
+      expect(result.map(({ milestoneId }) => milestoneId)).toEqual([
+        'milestone-a',
+        'milestone-b',
+      ]);
+    });
+  });
+
   describe('countFullySubmittedTeamsByMilestone', () => {
     it('마일스톤이 여럿이어도 제출 groupBy는 1회이고 쿼리 수는 상수다', async () => {
       // Given — 3개 마일스톤, 2팀(다인 팀 + 1인 팀)

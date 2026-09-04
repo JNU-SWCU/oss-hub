@@ -388,7 +388,7 @@ describe('ProgramOverviewService', () => {
       });
     });
 
-    describe('nextMilestone(마감 카운트다운)', () => {
+    describe('remainingMilestones(마감 카운트다운)', () => {
       const now = new Date('2026-08-04T00:00:00.000Z');
 
       beforeEach(() => {
@@ -412,7 +412,8 @@ describe('ProgramOverviewService', () => {
         } as unknown as ProgramOverviewRepository;
       }
 
-      it('마감이 지나지 않은 마일스톤 중 정렬 순서와 무관하게 가장 이른 것을 고른다', async () => {
+      it('마감이 지나지 않은 마일스톤을 입력 순서와 무관하게 dueAt 오름차순으로 모두 반환한다', async () => {
+        // Given
         const farMilestone: MilestoneSchedule = {
           milestoneId: 'm-far',
           label: '늦은 마일스톤',
@@ -427,22 +428,35 @@ describe('ProgramOverviewService', () => {
           repositoryWithSchedules([farMilestone, nearMilestone]),
         );
 
+        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        expect(result.nextMilestone).toEqual({
-          label: nearMilestone.label,
-          dueAt: nearMilestone.dueAt,
-        });
+        // Then
+        expect(result).toEqual(
+          expect.objectContaining({
+            remainingMilestones: [
+              { label: nearMilestone.label, dueAt: nearMilestone.dueAt },
+              { label: farMilestone.label, dueAt: farMilestone.dueAt },
+            ],
+          }),
+        );
+        expect(result).not.toHaveProperty('nextMilestone');
       });
 
-      it('마감이 지난 마일스톤은 제외한다', async () => {
+      it('마감이 지난 마일스톤과 지금 정확히 마감인 마일스톤은 제외한다', async () => {
+        // Given
         const pastMilestone: MilestoneSchedule = {
           milestoneId: 'm-past',
           label: '지난 마일스톤',
           dueAt: new Date('2026-08-01T00:00:00.000Z'),
+        };
+        const exactNowMilestone: MilestoneSchedule = {
+          milestoneId: 'm-now',
+          label: '지금 마감',
+          dueAt: now,
         };
         const upcomingMilestone: MilestoneSchedule = {
           milestoneId: 'm-upcoming',
@@ -450,45 +464,91 @@ describe('ProgramOverviewService', () => {
           dueAt: new Date('2026-08-20T00:00:00.000Z'),
         };
         const service = new ProgramOverviewService(
-          repositoryWithSchedules([pastMilestone, upcomingMilestone]),
+          repositoryWithSchedules([
+            pastMilestone,
+            exactNowMilestone,
+            upcomingMilestone,
+          ]),
         );
 
+        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        expect(result.nextMilestone).toEqual({
-          label: upcomingMilestone.label,
-          dueAt: upcomingMilestone.dueAt,
-        });
+        // Then
+        expect(result).toEqual(
+          expect.objectContaining({
+            remainingMilestones: [
+              {
+                label: upcomingMilestone.label,
+                dueAt: upcomingMilestone.dueAt,
+              },
+            ],
+          }),
+        );
       });
 
-      it('dueAt이 지금과 정확히 같은 마일스톤도 제외한다(dueAt > now)', async () => {
-        const schedules: MilestoneSchedule[] = [
-          { milestoneId: 'm-now', label: '지금 마감', dueAt: now },
-        ];
+      it('동일 dueAt 마일스톤의 입력 순서를 보존하고 원본 배열을 정렬하지 않는다', async () => {
+        // Given
+        const firstMilestone: MilestoneSchedule = {
+          milestoneId: 'm-first',
+          label: '동일 마감 A',
+          dueAt: new Date('2026-08-20T00:00:00.000Z'),
+        };
+        const secondMilestone: MilestoneSchedule = {
+          milestoneId: 'm-second',
+          label: '동일 마감 B',
+          dueAt: new Date('2026-08-20T00:00:00.000Z'),
+        };
+        const earlierMilestone: MilestoneSchedule = {
+          milestoneId: 'm-earlier',
+          label: '더 이른 마감',
+          dueAt: new Date('2026-08-10T00:00:00.000Z'),
+        };
+        const schedules = [firstMilestone, secondMilestone, earlierMilestone];
         const service = new ProgramOverviewService(
           repositoryWithSchedules(schedules),
         );
 
+        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        expect(result.nextMilestone).toBeNull();
+        // Then
+        expect(result).toEqual(
+          expect.objectContaining({
+            remainingMilestones: [
+              { label: earlierMilestone.label, dueAt: earlierMilestone.dueAt },
+              { label: firstMilestone.label, dueAt: firstMilestone.dueAt },
+              { label: secondMilestone.label, dueAt: secondMilestone.dueAt },
+            ],
+          }),
+        );
+        expect(schedules).toEqual([
+          firstMilestone,
+          secondMilestone,
+          earlierMilestone,
+        ]);
       });
 
-      it('다가오는 마일스톤이 없으면 null이다', async () => {
+      it('다가오는 마일스톤이 없으면 빈 배열이다', async () => {
+        // Given
         const service = new ProgramOverviewService(repositoryWithSchedules([]));
 
+        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        expect(result.nextMilestone).toBeNull();
+        // Then
+        expect(result).toEqual(
+          expect.objectContaining({ remainingMilestones: [] }),
+        );
       });
     });
   });

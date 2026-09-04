@@ -348,6 +348,32 @@ describe('local review fixture responses', () => {
     });
   });
 
+  it('program overview fixtures expose ordered remaining milestone schedules', () => {
+    // Given / When: the program scope sidebar loads active and completed overview fixtures.
+    const capstone = jsonBody(
+      publicGet('student', 'programs/program-capstone/overview'),
+    );
+    const rejectedProgram = jsonBody(
+      publicGet('student', 'programs/program-sw-value/overview'),
+    );
+
+    // Then: the active fixture carries every future deadline in API order, and the completed
+    // fixture is an explicitly loaded empty list rather than undefined or a legacy singleton.
+    expect(capstone).not.toHaveProperty('nextMilestone');
+    expect(capstone).toHaveProperty('remainingMilestones', [
+      {
+        label: '중간 보고',
+        dueAt: '2026-09-01T09:00:00.000Z',
+      },
+      {
+        label: '최종 결과 요약',
+        dueAt: '2026-09-12T09:00:00.000Z',
+      },
+    ]);
+    expect(rejectedProgram).not.toHaveProperty('nextMilestone');
+    expect(rejectedProgram).toHaveProperty('remainingMilestones', []);
+  });
+
   it.each([
     ['program-capstone', 'milestones-upcoming', 'MILESTONE_CLOSED'],
   ] as const)(

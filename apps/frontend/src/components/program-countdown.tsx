@@ -1,7 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
+import {
+  ProgramSchedule,
+  type CountdownMilestone,
+} from './program-countdown-program-schedule';
+import {
+  formatClock,
+  formatCountdownDate,
+  remainingUntil,
+} from './program-countdown-time';
+
+export { type CountdownMilestone } from './program-countdown-program-schedule';
+export {
+  formatClock,
+  formatCountdownDate,
+  remainingUntil,
+} from './program-countdown-time';
+export type { RemainingTime } from './program-countdown-time';
 
 /**
  * Sidebar countdown — next milestone (programs) or next collection (ranking).
@@ -10,7 +26,8 @@ import { cn } from '@/lib/utils';
  * Server "now" and hydration "now" always differ, so the first render is an
  * empty placeholder. The live clock starts after mount.
  */
-export interface ProgramCountdownProps {
+export interface SingleCountdownProps {
+  readonly mode?: 'single';
   readonly nextMilestoneLabel: string;
   /** ISO8601. */
   readonly dueAt: string;
@@ -23,71 +40,23 @@ export interface ProgramCountdownProps {
   readonly untilLabel?: string;
 }
 
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
-
-const SEOUL_CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Asia/Seoul',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-});
-
-const SEOUL_DATE_FORMAT = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Seoul',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
+export interface ProgramScheduleCountdownProps {
+  readonly mode: 'program';
+  readonly milestones: readonly CountdownMilestone[];
+  readonly now?: Date;
 }
 
-export function formatClock(d: Date): string {
-  return SEOUL_CLOCK_FORMAT.format(d).replace(/^24:/, '00:');
-}
+export type ProgramCountdownProps =
+  SingleCountdownProps | ProgramScheduleCountdownProps;
 
-export function formatCountdownDate(d: Date): string {
-  const [year, month, day] = SEOUL_DATE_FORMAT.format(d).split('-').map(Number);
-  const weekday =
-    WEEKDAY_LABELS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
-  return `${year}.${pad2(month)}.${pad2(day)} (${weekday})`;
-}
-
-export interface RemainingTime {
-  readonly days: number;
-  readonly hours: number;
-  readonly minutes: number;
-  readonly seconds: number;
-}
-
-/** Past deadlines floor to zero (never negative). */
-export function remainingUntil(due: Date, now: Date): RemainingTime {
-  const totalSeconds = Math.max(
-    0,
-    Math.floor((due.getTime() - now.getTime()) / 1000),
-  );
-  return {
-    days: Math.floor(totalSeconds / 86400),
-    hours: Math.floor((totalSeconds % 86400) / 3600),
-    minutes: Math.floor((totalSeconds % 3600) / 60),
-    seconds: totalSeconds % 60,
-  };
-}
-
-export function ProgramCountdown({
-  nextMilestoneLabel,
-  dueAt,
-  now: nowOverride,
-  untilLabel,
-}: ProgramCountdownProps) {
+export function ProgramCountdown(props: ProgramCountdownProps) {
+  const nowOverride = props.now;
   const [clock, setClock] = useState<Date | null>(
     nowOverride === undefined ? null : nowOverride,
   );
 
   useEffect(() => {
-    if (nowOverride) return;
+    if (nowOverride !== undefined) return;
     setClock(new Date());
     const id = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(id);
@@ -103,6 +72,19 @@ export function ProgramCountdown({
     );
   }
 
+  if (props.mode === 'program') {
+    return <ProgramSchedule milestones={props.milestones} clock={clock} />;
+  }
+
+  return <SingleCountdown {...props} clock={clock} />;
+}
+
+function SingleCountdown({
+  nextMilestoneLabel,
+  dueAt,
+  untilLabel,
+  clock,
+}: SingleCountdownProps & { readonly clock: Date }) {
   const remaining = remainingUntil(new Date(dueAt), clock);
   const untilText =
     untilLabel === undefined ? `${nextMilestoneLabel} 마감까지` : untilLabel;
@@ -130,15 +112,11 @@ export function ProgramCountdown({
   );
 }
 
-function CountdownUnit({
-  value,
-  unit,
-}: {
-  readonly value: number;
-  readonly unit: string;
-}) {
+type CountdownValueProps = Readonly<{ value: number; unit: string }>;
+
+function CountdownUnit({ value, unit }: CountdownValueProps) {
   return (
-    <span className={cn('flex items-baseline gap-0.5')}>
+    <span className="flex items-baseline gap-0.5">
       <span className="text-[22px] font-bold tracking-[-0.03em] text-primary tabular-nums">
         {value}
       </span>

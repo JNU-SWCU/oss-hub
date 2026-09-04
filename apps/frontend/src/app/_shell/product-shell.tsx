@@ -186,16 +186,9 @@ export function ProductShell({
             collapsed={collapsed}
             onToggle={toggle}
             backHref={programScopeBackHref()}
+            remainingMilestones={scopeOverview?.remainingMilestones}
             milestoneNavigationFailed={scopeMilestonesFailed}
             onRetryMilestoneNavigation={retryScopeMilestones}
-            countdown={
-              scopeOverview?.nextMilestone
-                ? {
-                    nextMilestoneLabel: scopeOverview.nextMilestone.label,
-                    dueAt: scopeOverview.nextMilestone.dueAt,
-                  }
-                : null
-            }
           />
         ) : (
           <AppSidebar

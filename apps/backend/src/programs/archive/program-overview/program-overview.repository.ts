@@ -206,7 +206,7 @@ export class ProgramOverviewRepository {
   ): Promise<MilestoneSchedule[]> {
     const milestones = await this.prisma.milestone.findMany({
       where: { programId },
-      orderBy: { dueAt: 'asc' },
+      orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
       select: { id: true, name: true, dueAt: true },
     });
     return milestones.map((milestone) => ({
