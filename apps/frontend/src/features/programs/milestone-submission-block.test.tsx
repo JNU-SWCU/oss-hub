@@ -137,11 +137,6 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
       '신청 승인을 기다리는 중입니다. 승인되면 제출할 수 있습니다.',
       '승인 후 제출할 수 있습니다',
     ],
-    [
-      'REJECTED' as const,
-      '신청이 반려되어 제출할 수 없습니다. 반려 사유를 확인해 주세요.',
-      '반려되어 제출할 수 없습니다',
-    ],
   ])(
     '%s 상태에서는 위쪽 안내와 아래쪽 버튼이 같은 말을 한다',
     async (applicationStatus, notice, buttonNote) => {
@@ -164,14 +159,51 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
     },
   );
 
-  /** 신청 전에는 다음에 할 일이 있다 — 화면이 그 자리로 데려가야 한다. */
-  it('신청 전에는 신청 화면으로 가는 경로를 함께 준다', async () => {
+  /**
+   * 「신청하기」는 **페이지 상단 헤더에 하나면 된다**(`ProgramActions`, 이 화면의 주
+   * 버튼). 마일스톤은 프로그램마다 여럿이라 줄마다 같은 버튼을 세우면 한 화면에 같은
+   * 목적지가 몇 번씩 반복된다 — 그래서 마일스톤 블록에는 두지 않는다.
+   *
+   * 변이 검증 대상 — 안내 문구 옆에 경로를 다시 붙이면 여기가 깨진다.
+   */
+  it('마일스톤 블록에는 신청 경로를 두지 않는다', async () => {
     await render(null);
 
-    const apply = [...container.querySelectorAll('a')].find(
-      (anchor) => anchor.textContent?.trim() === '신청하기',
+    const applyLinks = [...container.querySelectorAll('a')].filter(
+      (anchor) =>
+        anchor.textContent?.includes('신청') === true ||
+        anchor.getAttribute('href')?.endsWith('/apply') === true,
     );
-    expect(apply?.getAttribute('href')).toBe('/programs/program-1/apply');
+    expect(applyLinks).toEqual([]);
+  });
+
+  /**
+   * 반려는 이 티켓이 다루지 않는다 — **#1098 이전 화면 그대로**여야 한다.
+   *
+   * 앞선 구현은 반려도 신청 전·승인 대기와 함께 묶어 「올리기」를 흐리게 하고 반려 사유를
+   * 언급하는 문구를 붙였는데, 반려 학생에게 무엇을 보여줄지는 따로 정해야 할 판단이다.
+   * 답이 정해질 때까지 화면이 나빠지지 않아야 하므로, 옛 문구와 눌리는 버튼을 여기에
+   * 고정한다 — 이 상태를 다시 `blocked`로 옮기면 여기가 깨진다.
+   */
+  it('반려는 #1098 이전 화면 그대로 둔다', async () => {
+    await render('REJECTED');
+
+    // 위: 옛 문구 그대로. 신청도 안 한 사람에게 하던 말이 아니라 원래 있던 말이다.
+    expect(container.textContent).toContain('신청 승인 후 제출할 수 있습니다');
+    expect(container.textContent).not.toContain('반려');
+
+    // 아래: 버튼은 눌리고, 흐려진 버튼 옆 문구도 붙지 않는다.
+    const button = uploadButton();
+    expect(button.disabled).toBe(false);
+    expect(
+      container.querySelector(
+        '[data-testid="milestone-document-blocked-note"]',
+      ),
+    ).toBeNull();
+
+    // 제출 입력도 옛날처럼 열린다 — 저장 여부는 서버가 정한다(MSD_005).
+    await act(async () => button.click());
+    expect(submissionInput()).not.toBeNull();
   });
 
   /**

@@ -343,10 +343,7 @@ export function ProgramMilestones({
    * 값을 받아 같은 말을 하게 하려는 것이다 — 각자 읽던 때는 위쪽만 「신청 승인 후 제출」
    * 이라고 적고 아래쪽은 눌리는 「올리기」를 세워 두었다(#1098).
    */
-  const submissionAccess = milestoneSubmissionAccess(
-    program.viewer,
-    program.id,
-  );
+  const submissionAccess = milestoneSubmissionAccess(program.viewer);
   return (
     <section
       id="milestones"

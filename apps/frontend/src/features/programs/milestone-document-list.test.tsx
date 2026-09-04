@@ -22,7 +22,7 @@ function access(
   role: ViewerRole,
   applicationStatus: ApplicationStatus | null = null,
 ) {
-  return milestoneSubmissionAccess({ role, applicationStatus }, 'program-1');
+  return milestoneSubmissionAccess({ role, applicationStatus });
 }
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {

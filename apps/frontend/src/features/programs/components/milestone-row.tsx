@@ -46,8 +46,11 @@ interface MilestoneRowProps {
 }
 
 /**
- * 못 내는 이유와 지금 할 수 있는 일. 아래 제출 항목의 흐려진 버튼 옆 문구와 **같은 판정**
+ * 못 내는 이유. 아래 제출 항목의 흐려진 버튼 옆 문구와 **같은 판정**
  * (`milestoneSubmissionAccess`)에서 나오므로 위아래가 어긋날 수 없다.
+ *
+ * 「신청하기」로 데려가는 버튼은 여기 두지 않는다 — 페이지 상단 헤더(`ProgramActions`)에
+ * 이미 하나 있고, 마일스톤은 여럿이라 줄마다 세우면 같은 버튼이 한 화면에 반복된다.
  */
 function BlockedState({
   access,
@@ -55,16 +58,9 @@ function BlockedState({
   readonly access: BlockedMilestoneSubmissionAccess;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <p className="text-small break-keep text-muted-foreground">
-        {access.notice}
-      </p>
-      {access.nextStep === null ? null : (
-        <Button asChild size="sm" variant="outline">
-          <Link href={access.nextStep.href}>{access.nextStep.label}</Link>
-        </Button>
-      )}
-    </div>
+    <p className="text-small break-keep text-muted-foreground">
+      {access.notice}
+    </p>
   );
 }
 
@@ -81,16 +77,31 @@ function StudentState({
         </p>
       );
     }
-    return submissionAccess.kind === 'blocked' ? (
-      <BlockedState access={submissionAccess} />
-    ) : (
+    if (submissionAccess.kind === 'blocked') {
+      return <BlockedState access={submissionAccess} />;
+    }
+    return (
       <p className="text-small font-semibold text-muted-foreground">
-        아래 제출 항목에서 내용이나 파일을 제출하세요
+        {submissionAccess.kind === 'unchanged'
+          ? // 반려 — 이 화면이 답을 정하지 않은 상태다. #1098 이전 문구 그대로 둔다.
+            '신청 승인 후 제출할 수 있습니다'
+          : '아래 제출 항목에서 내용이나 파일을 제출하세요'}
       </p>
     );
   }
   if (submissionAccess.kind === 'blocked') {
     return <BlockedState access={submissionAccess} />;
+  }
+  if (submissionAccess.kind === 'unchanged') {
+    /*
+     * 반려 — 신청 전·승인 대기와 달리 이 화면이 아직 답을 정하지 않았다(#1098 범위 밖).
+     * 제출 상태가 와 있어도 옛 화면은 이 문구만 보여 줬으므로 그대로 둔다.
+     */
+    return (
+      <p className="text-small text-muted-foreground">
+        신청 승인 후 제출 상태를 확인할 수 있습니다.
+      </p>
+    );
   }
   const status = milestone.viewerSubmissionStatus;
   if (!status) {

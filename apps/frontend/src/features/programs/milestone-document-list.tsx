@@ -561,9 +561,12 @@ function StudentDocumentRow({
       ? null
       : milestoneDocumentReviewNoticeTone(display, review.comment);
   /**
-   * 신청 자체가 제출을 막는 자리 — 신청 전·승인 대기·반려. 서버도 403(MSD_005 · MSD_006)
+   * 신청 자체가 제출을 막는 자리 — 신청 전과 승인 대기. 서버도 403(MSD_005 · MSD_006)
    * 으로 막는다. 서류 하나의 판정(`canSubmit`)보다 **먼저** 본다: 이쪽이 더 근본적인
    * 이유이고, 낼 신청이 없는 사람에게 「승인된 제출 항목은…」이라고 말하면 틀린 말이 된다.
+   *
+   * 반려(`kind: 'unchanged'`)는 여기서 막지 않는다 — 그 화면을 아직 정하지 않았으므로
+   * #1098 이전처럼 버튼을 눌리는 채로 두고 서버 판정에 맡긴다.
    */
   const blocked = submissionAccess.kind === 'blocked' ? submissionAccess : null;
   /**
