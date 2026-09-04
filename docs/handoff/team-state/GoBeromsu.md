@@ -1298,6 +1298,6 @@
 - Issue: [#1095](https://github.com/JNU-SWCU/oss-hub/issues/1095)
 - PR: https://github.com/JNU-SWCU/oss-hub/pull/1188
 - blocker: 없음
-- 결과: `origin/main` 위로 rebase했다. Codex P1에 맞춰 `program-edit-purge-network.spec.ts`가 교직원에게 영구 삭제 버튼 0개를 기대하던 계약을, 관리자와 같은 purge 흐름을 타는지로 바꿨다. 삭제 보호 프로그램은 버튼을 비활성화한 채 유지한다.
-- 검증: e2e 스펙 계약만 고쳤다. 브라우저 게이트는 로컬 Chrome이 필요해 이 환경에서 돌리지 않았다.
+- 결과: `origin/main` 위로 rebase했다. Codex P1에 맞춰 `program-edit-purge-network.spec.ts`가 교직원에게 영구 삭제 버튼 0개를 기대하던 계약을, 관리자와 같은 purge 흐름을 타는지로 바꿨다. 삭제 보호 프로그램은 버튼을 비활성화한 채 유지한다. rebase 뒤 `program-edit-milestone-snapshot.test.tsx`가 옛 `isAdmin` prop을 써서 typecheck가 깨져 `canDeleteProgram`으로 맞췄다.
+- 검증: frontend typecheck 통과. e2e 브라우저 게이트는 로컬 Chrome이 필요해 이 환경에서 돌리지 않았다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
