@@ -161,6 +161,14 @@ const ARCHIVED_INTERNSHIP_BASE = {
 /**
  * 학생이 보는 마일스톤. `viewerSubmissionStatus`는 학생 동선 픽스처
  * (`student-journey-fixtures.ts`)와 같은 값을 유지해 두 경로가 어긋나지 않게 한다.
+ *
+ * `submissionItemCount`는 **`milestone-document-fixtures.ts`가 그 마일스톤에 대해
+ * 돌려주는 서류 개수와 같아야 한다.** 백엔드에서 이 값은 짐작이 아니라 집계다
+ * (`programs.service.ts`의 `milestone._count.documents`). 어긋나 있으면 한 화면
+ * 안에서 머리줄은 「제출 항목 없음」이라 말하고 그 아래 블록은 서류를 그리는,
+ * 서비스에서는 생길 수 없는 상태가 되고 — 그 값으로만 갈리는 갈래(교직원 「서류
+ * 수합」 입구, 상세 마일스톤의 접기)를 로컬 검토가 통째로 놓친다. 실제로 0으로
+ * 굳어 있어 두 갈래를 아무도 눈으로 보지 못했다.
  */
 const CAPSTONE_MILESTONES = [
   {
@@ -171,7 +179,7 @@ const CAPSTONE_MILESTONES = [
     deadlineLabel: '마감 지남',
     description: '프로젝트 문제 정의와 초기 실행 계획을 제출합니다.',
     submissionType: 'FILE',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: 'APPROVED',
     applicationSubmissionSummary: null,
   },
@@ -183,7 +191,7 @@ const CAPSTONE_MILESTONES = [
     deadlineLabel: '마감 지남',
     description: '현재 구현 상태와 다음 스프린트 계획을 정리합니다.',
     submissionType: 'TEXT',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: 'NOT_SUBMITTED',
     applicationSubmissionSummary: null,
   },
@@ -195,7 +203,7 @@ const CAPSTONE_MILESTONES = [
     deadlineLabel: 'D-10',
     description: '최종 결과와 변경 내역을 글로 정리합니다.',
     submissionType: 'TEXT',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: 'CHANGES_REQUESTED',
     applicationSubmissionSummary: null,
   },
@@ -210,7 +218,7 @@ const CONTEST_MILESTONES = [
     deadlineLabel: '마감 지남',
     description: '예선 심사용 구현 결과와 실행 방법을 제출합니다.',
     submissionType: 'TEXT',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: 'CHANGES_REQUESTED',
     applicationSubmissionSummary: null,
   },
@@ -222,7 +230,7 @@ const CONTEST_MILESTONES = [
     deadlineLabel: 'D-8',
     description: '시연 시나리오와 최종 발표 자료를 제출합니다.',
     submissionType: 'FILE',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: 'NOT_SUBMITTED',
     applicationSubmissionSummary: null,
   },
@@ -238,7 +246,7 @@ const BASIC_MILESTONES = [
     deadlineLabel: 'D-19',
     description: '첫 기여까지의 과정을 글로 정리해 제출합니다.',
     submissionType: 'TEXT',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: null,
     applicationSubmissionSummary: null,
   },
@@ -250,7 +258,7 @@ const BASIC_MILESTONES = [
     deadlineLabel: 'D-40',
     description: '개인 실습 저장소의 최종 결과물을 제출합니다.',
     submissionType: 'FILE',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: null,
     applicationSubmissionSummary: null,
   },
@@ -269,6 +277,8 @@ const SW_VALUE_MILESTONES = [
     deadlineLabel: '마감 지남',
     description: '오픈소스 가치 확산 활동 계획과 대상을 정리해 제출합니다.',
     submissionType: 'TEXT',
+    // 이 마일스톤만 서류가 없다(`milestone-document-fixtures.ts`에 항목이 없다).
+    // 제출 항목이 0개인 마일스톤은 상세에서 접히지 않는다 — 그 갈래를 볼 자리다.
     submissionItemCount: 0,
     viewerSubmissionStatus: null,
     applicationSubmissionSummary: null,
@@ -294,7 +304,7 @@ const ARCHIVED_INTERNSHIP_MILESTONES = [
     deadlineLabel: '마감 지남',
     description: '인턴십 중간 활동 내용과 배운 점을 정리해 제출합니다.',
     submissionType: 'TEXT',
-    submissionItemCount: 0,
+    submissionItemCount: 1,
     viewerSubmissionStatus: null,
     applicationSubmissionSummary: null,
   },
