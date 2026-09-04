@@ -26,8 +26,16 @@ UX를 배운 적이 없어도 안티패턴 이름을 몰라도 지켜지도록 �
 배포 화면을 열고 devtools 콘솔에 아래를 붙여 넣는다.
 저장소 코드에 의존하지 않으므로 어느 환경에서나 그대로 돈다.
 
+숨긴 탭에서는 `offsetParent`·`getBoundingClientRect` 가 전부 0이라 가시성 판정이 무너진다.
+그래서 레이아웃이 아니라 계산된 스타일만 본다 — 숨긴 탭에서도 성립한다.
+
 ```js
 (() => {
+  // 반응형 때문에 DOM에 두 벌 있는 내비게이션을 중복으로 세지 않는다
+  const hidden = (el) => { let n = el;
+    while (n && n.nodeType === 1) { const s = getComputedStyle(n);
+      if (s.display === 'none' || s.visibility === 'hidden') return true; n = n.parentElement; }
+    return false; };
   const vis = (el) => {
     const c = el.cloneNode(true);
     c.querySelectorAll('.sr-only,[aria-hidden="true"]').forEach((n) => n.remove());
@@ -39,6 +47,7 @@ UX를 배운 적이 없어도 안티패턴 이름을 몰라도 지켜지도록 �
   const seen = new Map();
   document.querySelectorAll('dd,dt,button,h1,h2,h3,p,span,li').forEach((el) => {
     if (el.closest('tbody') || el.querySelector('dd,button,p,li')) return;
+    if (hidden(el)) return;
     const t = vis(el);
     if (t.length < 4) return;
     seen.set(t, (seen.get(t) ?? 0) + 1);
@@ -114,6 +123,16 @@ NN/g [Command Links](https://www.nngroup.com/articles/command-links/)의 결론�
 
 `1인 팀 계속`은 되묻게 만든다 — 모든 참여가 팀이면 「1인 팀」이라는 말은 존재할 수 없고 그냥 팀이다.
 저장 구조의 개념(단일 멤버 팀 레코드, seed id, enum 이름)이 문구로 새면 사용자는 제품의 내부 사정을 배워야 화면을 읽는다.
+
+### 걸린 것을 다 「위반」으로 적지 않는다
+
+AP-1은 **요약 표면에서 같은 사실을 두 번 말한 것**을 잡으려는 것이다.
+구조적 반복은 그 대상이 아니다 — 마일스톤마다 하나씩인 섹션 제목, 기간이 여러 주에 걸쳐
+달력이 주차 행마다 그리는 라벨, 안내가 비어 있는 항목이 둘이라 같은 문장이 두 번 뜨는 것.
+이런 것을 위반으로 적으면 판정 표가 잡음이 되고, 진짜 중복이 그 속에 묻힌다.
+
+콘솔이 걸어 준 것을 **하나씩 열어 보고** 어느 쪽인지 가른 뒤, 판정 표에 무엇을 보고 그렇게
+판단했는지 한 조각을 적는다.
 
 ## 판정 표
 

@@ -2,7 +2,7 @@
 name: submit-pr-evidence
 description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, clears the eight UX anti-patterns, runs the public-safety check, and blocks the PR until required evidence is present, since every screen-touching change needs a Before/After capture and a live deployment link in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검".
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Submit PR Evidence
@@ -31,6 +31,14 @@ metadata:
 6. `하지 않을 것` 섹션을 문자 그대로 지킨다 — 그 섹션이 이름을 언급한 파일·영역은 0건 수정한다.
 7. 완료 조건 체크리스트를 한 항목씩 실제로 구동해 증명한 뒤에만 체크한다(테스트 실행, 화면·플로우 직접 확인 등).
    검증하지 않은 체크리스트로 PR을 열지 않는다.
+
+   **초록불이 「돌았다」는 뜻은 아니다.** 이 저장소에서 실제로 세 번 겪은 자리다.
+   - 워크스페이스 이름은 `backend`·`frontend` 다. `@oss-hub/backend` 같은 없는 이름으로 필터하면
+     pnpm 이 **아무것도 실행하지 않고 exit 0** 을 낸다. 배열 플래그(`--testPathIgnorePatterns`) 뒤에
+     경로를 붙여도 그 경로가 플래그 값으로 먹혀 고친 파일이 조용히 제외된다.
+     그래서 검증 보고에는 **실행된 suite·test 개수**를 적는다. 개수가 없으면 통과 주장도 없다.
+   - lint 와 typecheck 가 둘 다 통과해도 옛 코드가 새 코드보다 먼저 반환하는 상태가 성립한다.
+     rebase 충돌을 풀다 양쪽이 남으면 이렇게 된다. **전체 테스트만이 그것을 잡는다.**
 8. 화면을 건드렸으면 [references/ux-antipatterns.md](references/ux-antipatterns.md)의 여덟 항목을 통과시킨다.
    세면 끝나는 넷은 그 문서의 콘솔 스니펫을 배포 화면에 붙여 출력을 그대로 받고, 화면을 열고 읽는 넷은 그 문서의 질문을 그대로 읽는다.
    **발견한 위반은 보고 대상이 아니라 PR을 열기 전에 고칠 대상이다** — 티켓 경계 밖일 때만 별도 티켓으로 제안하고 그 사실을 본문에 적는다.
@@ -55,6 +63,7 @@ backend만 고쳤어도 그 API를 소비하는 화면을 찍는다. 응답이 �
 상태가 여럿인 화면은 빈 상태·결과 없음·오류 중 해당하는 것을 추가로 찍는다 — 이 셋이 서로 구분되지 않는 것은 자주 나오는 결함이다.
 로컬 파일 경로를 적으면 아무 이미지도 렌더되지 않으므로 캡처를 올렸다고 보지 않는다.
 절차와 촬영 조건, 하지 않는 것은 [references/frontend-capture.md](references/frontend-capture.md)가 원본이다.
+촬영 환경을 어떻게 띄우고 상태를 어떻게 만들어 내는지는 [references/evidence-harness.md](references/evidence-harness.md)에 있다 — **찍을 수 없는 상태가 나오면 그 자체가 신호다.** 아무도 눈으로 확인할 수 없는 화면은 조용히 낡는다.
 
 ### backend 로직 변경 → 흐름 다이어그램
 
@@ -65,6 +74,18 @@ backend만 고쳤어도 그 API를 소비하는 화면을 찍는다. 응답이 �
 
 스크립트·CI·문서·설정만 바꿔 사용자가 볼 화면이 아예 없으면 캡처·다이어그램·안티패턴 점검을 적용하지 않는다.
 면제를 골랐다는 사실과 그 사유를 본문에 한 줄 남긴다 — 아무 말도 없는 것과 면제된 것은 리뷰어 쪽에서 구분되지 않는다.
+
+## PR을 열기 전에 통과해야 하는 로컬 관문
+
+증거를 다 갖춰도 `git push` 가 막히면 PR 을 열 수 없다. 미리 통과시켜 두면 왕복이 줄어든다.
+
+- **`docs/handoff/team-state/<GitHub 아이디>.md` 에 이번 작업 항목이 있어야 한다.** pre-push 훅이
+  검사한다. 형식은 그 파일의 기존 항목을 따른다 — 상태·Issue·PR·blocker·내용·검증, 그리고
+  해당하면 남은 것·주의·공개 안전성. 이 항목은 PR 본문과 독자가 다르다. 본문은 리뷰어에게
+  「무엇이 좋아지는가」를 말하고, 저널은 **다음에 이 코드를 만질 사람에게 「무엇을 조심하라」**를 말한다.
+  뒤에 온 사람이 밟을 함정(개명과 겹친 충돌, 같은 함수를 쓰는 두 번째 호출자 같은 것)을 여기 적는다.
+- **`corepack pnpm exec prettier --check .` 가 통과해야 한다.** 훅이 저장소 전체를 검사하므로
+  건드린 파일만 맞춰서는 부족할 수 있다. `--write` 로 맞춘 뒤 다시 커밋한다.
 
 ## PR 직전 인터뷰 (생략 불가)
 
@@ -84,6 +105,12 @@ backend만 고쳤어도 그 API를 소비하는 화면을 찍는다. 응답이 �
 
 인터뷰가 드러낸 문제는 보고 대상이 아니라 고칠 대상이다.
 2번에서 어색함이 나오면 PR을 열기 전에 고치고, 그 사실을 `## 내가 고친 UX 문제`에 적는다.
+
+**답이 티켓의 방향을 뒤집는 경우가 있다.** 화면을 처음 실제로 눌러 보는 자리가 여기이므로,
+설계 단계에서 옳아 보였던 선택이 손에 쥐어 보면 아닌 것으로 드러난다.
+그때는 고친 뒤 **티켓 본문의 `할 일`도 새 방향으로 다시 쓴다** — 본문이 옛 방향을 말하는 채로
+반대 방향의 PR이 열리면, 다음 사람은 둘 중 무엇이 계약인지 알 수 없다.
+앞선 방향으로 만든 코드·상수·테스트도 함께 걷어낸다. 두 방식이 공존하면 다음 사람이 둘 다 지키려 한다.
 
 ## PR 본문 순서
 
