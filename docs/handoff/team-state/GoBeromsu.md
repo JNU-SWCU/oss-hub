@@ -1274,3 +1274,13 @@
 - 결과: main 병합 충돌은 `docs/design.md`의 마일스톤 수정 레이어 절만 남겼다. Codex P1에 맞춰 새 테스트 fixture의 `category`·`categoryLocked`를 `trackType`으로 바꿨다. P2 포커스 복귀는 merge blocker가 아니라 후속으로 둔다.
 - 검증: fixture를 현재 `EditableProgram` 계약에 맞춤.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-04 — #1098 신청 미승인 제출 조작을 main 위에 올린다
+
+- 상태: active
+- Issue: [#1098](https://github.com/JNU-SWCU/oss-hub/issues/1098)
+- PR: (이 PR)
+- blocker: 작성자 인터뷰 3문항 · Before/After 캡처 (submit-pr-evidence)
+- 결과: `@Lumiere001`의 `fix/1098-milestone-submission-gate`를 `origin/main` 위로 cherry-pick했다. 마일스톤 줄과 제출 항목이 `milestoneSubmissionAccess` 한 결과를 같이 본다. 이전 얇은 hide-button 초안은 버렸다.
+- 검증: 이어지는 frontend 테스트·typecheck.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
