@@ -1317,3 +1317,13 @@
 - 결과: `origin/main`(#1057 포함) 위로 rebase했다. 종료 판정은 목록의 `getProgramRecruitmentState`에 위임한 채 유지된다. 마일스톤 묶음(`ListPanel`)과 신청 차단 사유도 그대로다.
 - 검증: rebase만. 상세 종료 판정과 마일스톤 묶음 코드가 #1057 이후 파일과 공존한다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-04 — #1092 개요 fixture를 remainingMilestones 계약에 맞춘다
+
+- 상태: review
+- Issue: [#1092](https://github.com/JNU-SWCU/oss-hub/issues/1092)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1190
+- blocker: 없음
+- 결과: rebase 뒤 `program-archived-internship` 개요 fixture가 제거된 `nextMilestone`을 들고 있어 frontend typecheck가 깨졌다. 같은 파일의 다른 픽스처와 같이 `remainingMilestones: []`로 바꿨다.
+- 검증: `pnpm --filter frontend typecheck`.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

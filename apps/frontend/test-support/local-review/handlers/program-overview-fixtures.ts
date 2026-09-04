@@ -186,7 +186,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     connectedRepositoryCount: 0,
     studentDocumentsCompleted: 0,
     studentDocumentsTotal: 1,
-    nextMilestone: null,
+    remainingMilestones: [],
     milestoneDocuments: [
       {
         milestoneId: 'milestones-internship-report',
