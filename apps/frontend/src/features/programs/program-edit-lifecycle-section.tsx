@@ -20,6 +20,16 @@ type ProgramLifecycle = EditableProgram['lifecycle'];
  * 신청이 있는 학생 카드는 `getProgramListBadge` 가 지원 상태를 모집 배지보다
  * 앞에 두므로 「종료」를 약속하지 않는다.
  * 2026-08-04 PR #589 이후의 의도된 동작이므로 문구가 동작을 따라간다.
+ *
+ * 다시 게시 쪽도 같은 이유로 「다시 노출」을 약속하지 않는다(#1208). 내려가 있는
+ * 동안에도 목록·상세는 열려 있었으므로 새로 생기는 노출이 없다. 실제로 바뀌는
+ * 것은 두 가지다 — 모집 상태가 `ARCHIVED → ended` 로 고정돼 있던 것이 풀려
+ * 날짜 파생으로 돌아가고(`program-list.ts` `getProgramRecruitmentState` 와
+ * backend `deriveProgramListStatus` 의 첫 분기가 같은 우선순위다), 신규 신청이
+ * lifecycle 거절(`applications.service.ts` 의 APP_020)에서 벗어나 신청 기간
+ * 검사만 받는다. 종료일이 이미 지난 프로그램은 다시 게시해도 여전히 종료로
+ * 파생되므로 「모집중이 된다」가 아니라 「기간에 따라 다시 정해진다」고 말한다.
+ * 바뀐 뒤 카드에 어떤 배지가 뜨는지는 위와 같은 이유로 약속하지 않는다.
  */
 const LIFECYCLE_COPY = {
   PUBLISHED: {
@@ -41,7 +51,7 @@ const LIFECYCLE_COPY = {
     busyAction: '게시하는 중…',
     dialogTitle: '프로그램을 다시 게시할까요?',
     dialogDescription:
-      '공개 목록에 다시 노출되고 신청 기간 안이면 신규 신청을 받습니다.',
+      '신청 기간이 남아 있으면 신규 신청이 곧바로 다시 열립니다. 다만 공개 목록에 새로 노출되지는 않습니다 — 내려가 있는 동안에도 목록과 상세는 그대로 열려 있었습니다. 모집 상태도 내림에 고정돼 있던 것이 풀려 신청·운영 기간에 따라 다시 정해지며, 언제든 다시 내릴 수 있습니다.',
     confirm: '다시 게시',
   },
 } as const satisfies Record<ProgramLifecycle, unknown>;

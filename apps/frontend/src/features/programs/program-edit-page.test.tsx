@@ -630,6 +630,46 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(dialogText).not.toContain('공개 목록에 보이지 않');
   });
 
+  // #1208 — #1181 이 고친 상수의 반대쪽. 다시 게시 확인창은 「공개 목록에 다시
+  // 노출되고」라고 약속했는데, 내려가 있는 동안에도 목록(공개 모수 = PUBLISHED |
+  // ARCHIVED)과 상세가 열려 있었으므로 다시 노출될 것이 없다. 실제로 바뀌는 것은
+  // 모집 상태가 `ARCHIVED → ended` 고정에서 풀려 날짜 파생으로 돌아가는 것
+  // (`getProgramRecruitmentState` 첫 분기)과, 신규 신청이 lifecycle 거절(APP_020)
+  // 에서 벗어나 신청 기간 검사만 받는 것이다. 옛 약속이 어떤 표현으로도 돌아오면
+  // 이 테스트가 잡는다. 배지 이름을 약속하지 않는 것도 함께 고정한다 — 신청이 있는
+  // 학생 카드는 `getProgramListBadge` 가 지원 상태를 먼저 보여 주므로 「종료」가
+  // 뜬다고 말할 수 없다(내리기 쪽에서 같은 이유로 한 번 걷어낸 약속이다).
+  it('다시 게시 확인창은 다시 노출된다고 약속하지 않고 신청과 모집 상태가 풀린다고 알린다', async () => {
+    getEditableProgramMock.mockResolvedValue({
+      ...editableProgram,
+      lifecycle: 'ARCHIVED',
+    });
+
+    await act(async () => {
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('다시 게시하기').click();
+    });
+
+    const dialogText =
+      document.querySelector('[role="alertdialog"]')?.textContent ?? '';
+    expect(dialogText).toContain('프로그램을 다시 게시할까요?');
+    expect(dialogText).toContain(
+      '신청 기간이 남아 있으면 신규 신청이 곧바로 다시 열립니다. 다만 공개 목록에 새로 노출되지는 않습니다 — 내려가 있는 동안에도 목록과 상세는 그대로 열려 있었습니다. 모집 상태도 내림에 고정돼 있던 것이 풀려 신청·운영 기간에 따라 다시 정해지며, 언제든 다시 내릴 수 있습니다.',
+    );
+    // 지키지 못하는 약속 — 어떤 표현으로도 다시 들어오면 안 된다.
+    expect(dialogText).not.toContain('다시 노출');
+    expect(dialogText).not.toContain('목록에 다시');
+    expect(dialogText).not.toContain('「종료」');
+  });
+
   // 리뷰에서 발견된 블로커 — confirmLifecycleToggle이 성공 후 load()를 불렀다.
   // load()는 즉시 setState({kind:'loading'})·setForm(null)을 하므로 그 순간
   // 렌더 가드가 화면 전체를 스켈레톤으로 갈아치우고, 다시 불러온 서버 값으로
