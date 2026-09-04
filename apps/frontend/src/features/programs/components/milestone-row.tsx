@@ -11,11 +11,10 @@ import {
   submissionLabel,
 } from '../program-detail-format';
 import type {
-  ApplicationStatus,
-  ProgramMilestone,
-  SubmissionStatus,
-  ViewerRole,
-} from '../types';
+  BlockedMilestoneSubmissionAccess,
+  MilestoneSubmissionAccess,
+} from '../milestone-submission-access';
+import type { ProgramMilestone, SubmissionStatus, ViewerRole } from '../types';
 
 const STATUS_VARIANTS = {
   NOT_SUBMITTED: 'pending',
@@ -39,14 +38,41 @@ interface MilestoneRowProps {
   /** 묶음(`article`)이 `aria-labelledby` 로 가리킬 이름의 id. */
   readonly nameId: string;
   readonly viewerRole: ViewerRole;
-  readonly applicationStatus: ApplicationStatus | null;
+  /**
+   * 신청 상태를 읽어 낸 결과 — 이 줄과 바로 아래 「제출 항목」 블록이 **같은 값**을 받는다.
+   * 여기서 신청 상태를 다시 해석하지 않는 것이 요점이다(#1098).
+   */
+  readonly submissionAccess: MilestoneSubmissionAccess;
+}
+
+/**
+ * 못 내는 이유와 지금 할 수 있는 일. 아래 제출 항목의 흐려진 버튼 옆 문구와 **같은 판정**
+ * (`milestoneSubmissionAccess`)에서 나오므로 위아래가 어긋날 수 없다.
+ */
+function BlockedState({
+  access,
+}: {
+  readonly access: BlockedMilestoneSubmissionAccess;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <p className="text-small break-keep text-muted-foreground">
+        {access.notice}
+      </p>
+      {access.nextStep === null ? null : (
+        <Button asChild size="sm" variant="outline">
+          <Link href={access.nextStep.href}>{access.nextStep.label}</Link>
+        </Button>
+      )}
+    </div>
+  );
 }
 
 function StudentState({
   programId,
   milestone,
-  applicationStatus,
-}: Pick<MilestoneRowProps, 'programId' | 'milestone' | 'applicationStatus'>) {
+  submissionAccess,
+}: Pick<MilestoneRowProps, 'programId' | 'milestone' | 'submissionAccess'>) {
   if (milestone.submissionType === null) {
     if (milestone.submissionItemCount === 0) {
       return (
@@ -55,19 +81,27 @@ function StudentState({
         </p>
       );
     }
-    return (
+    return submissionAccess.kind === 'blocked' ? (
+      <BlockedState access={submissionAccess} />
+    ) : (
       <p className="text-small font-semibold text-muted-foreground">
-        {applicationStatus === 'APPROVED'
-          ? '아래 제출 항목에서 내용이나 파일을 제출하세요'
-          : '신청 승인 후 제출할 수 있습니다'}
+        아래 제출 항목에서 내용이나 파일을 제출하세요
       </p>
     );
   }
+  if (submissionAccess.kind === 'blocked') {
+    return <BlockedState access={submissionAccess} />;
+  }
   const status = milestone.viewerSubmissionStatus;
-  if (applicationStatus !== 'APPROVED' || !status) {
+  if (!status) {
+    /*
+     * 신청이 승인됐는데 제출 상태만 비어 온 응답. 계약상 오지 않는 값이라(백엔드는 승인
+     * 여부와 무관하게 신청이 있으면 상태를 채운다) 여기서 할 수 있는 말은 모른다는 말뿐이다.
+     * 옛 문구(「신청 승인 후…」)를 남기면 이미 승인된 학생에게 거짓말이 된다.
+     */
     return (
       <p className="text-small text-muted-foreground">
-        신청 승인 후 제출 상태를 확인할 수 있습니다.
+        제출 상태를 확인할 수 없습니다.
       </p>
     );
   }
@@ -98,7 +132,7 @@ export function MilestoneRow({
   position,
   nameId,
   viewerRole,
-  applicationStatus,
+  submissionAccess,
 }: MilestoneRowProps) {
   const summary = milestone.applicationSubmissionSummary;
   const submitted = summary
@@ -206,7 +240,7 @@ export function MilestoneRow({
           <StudentState
             programId={programId}
             milestone={milestone}
-            applicationStatus={applicationStatus}
+            submissionAccess={submissionAccess}
           />
         ) : null}
       </div>

@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
+import { milestoneSubmissionAccess } from './milestone-submission-access';
+import type { MilestoneSubmissionAccess } from './milestone-submission-access';
 import {
   programDetailMeta,
   formatSeoulDateOnly,
@@ -295,10 +297,16 @@ function MilestoneGroup({
   program,
   milestone,
   position,
+  submissionAccess,
 }: {
   readonly program: ProgramDetail;
   readonly milestone: ProgramDetail['milestones'][number];
   readonly position: number;
+  /**
+   * 머리줄과 제출 항목 블록이 **같은 값**을 받는다 — 한 묶음 안에서 위아래가
+   * 다른 말을 하지 않게 하는 것이 이 prop 의 요점이다(#1098).
+   */
+  readonly submissionAccess: MilestoneSubmissionAccess;
 }) {
   return (
     <article
@@ -313,12 +321,13 @@ function MilestoneGroup({
         position={position}
         nameId={milestoneNameId(milestone.id)}
         viewerRole={program.viewer.role}
-        applicationStatus={program.viewer.applicationStatus}
+        submissionAccess={submissionAccess}
       />
       <MilestoneDocumentSection
         milestoneId={milestone.id}
         viewerRole={program.viewer.role}
         closed={isPastDue(milestone.dueAt)}
+        submissionAccess={submissionAccess}
       />
     </article>
   );
@@ -329,6 +338,15 @@ export function ProgramMilestones({
 }: {
   readonly program: ProgramDetail;
 }) {
+  /*
+   * 신청 상태는 여기서 **한 번만** 읽는다. 마일스톤 줄과 그 아래 제출 항목 블록이 같은
+   * 값을 받아 같은 말을 하게 하려는 것이다 — 각자 읽던 때는 위쪽만 「신청 승인 후 제출」
+   * 이라고 적고 아래쪽은 눌리는 「올리기」를 세워 두었다(#1098).
+   */
+  const submissionAccess = milestoneSubmissionAccess(
+    program.viewer,
+    program.id,
+  );
   return (
     <section
       id="milestones"
@@ -368,6 +386,7 @@ export function ProgramMilestones({
               program={program}
               milestone={milestone}
               position={index + 1}
+              submissionAccess={submissionAccess}
             />
           ))}
         </ListPanel>
