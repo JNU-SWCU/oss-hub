@@ -14,6 +14,7 @@ import {
   isMilestoneSubmissionConflict,
   mapProgramEditError,
   PROGRAM_EDIT_ERROR_CODES,
+  toMilestoneForm,
   toProgramEditForm,
 } from './program-edit-flow';
 
@@ -129,6 +130,33 @@ describe('program edit API', () => {
     ).toMatchObject({ startAt: input.startAt });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       apiPath('milestones/milestone-1'),
+    );
+  });
+
+  it('uses the backend milestone response as the authoritative saved value', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        id: 'milestone-1',
+        name: '기획서 수정',
+        startAt: '2026-05-02T00:00:00.000Z',
+        dueAt: '2026-05-10T00:00:00.000Z',
+        submissionType: 'TEXT',
+        instructions: null,
+      }),
+    );
+    const input = {
+      name: '기획서 수정',
+      startAt: '2026-05-01T00:00:00.000Z',
+      dueAt: '2026-05-10T00:00:00.000Z',
+      submissionType: 'TEXT' as const,
+      instructions: null,
+    };
+
+    const saved = await updateMilestone('milestone-1', input);
+
+    expect(saved.startAt).toBe('2026-05-02T00:00:00.000Z');
+    expect(toMilestoneForm(saved).originalStartAt).toBe(
+      '2026-05-02T00:00:00.000Z',
     );
   });
 

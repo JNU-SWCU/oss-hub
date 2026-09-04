@@ -1,9 +1,11 @@
 ﻿import type { EditableMilestone, EditableProgram } from './api';
 import {
+  changedMilestoneFields,
   type ProgramEditableField,
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
+  type ProgramMilestoneForm,
 } from './program-edit-flow';
 import {
   PROGRAM_TRACK_TYPES,
@@ -67,6 +69,25 @@ export function addDirtyField<T extends string>(
   field: T,
 ): readonly T[] {
   return current.includes(field) ? current : [...current, field];
+}
+
+export function isMilestoneFormDirty(
+  initial: ProgramMilestoneForm,
+  current: ProgramMilestoneForm,
+): boolean {
+  return changedMilestoneFields(initial, current).length > 0;
+}
+
+export function hasUnsavedMilestoneEdit(
+  editor: ProgramMilestoneEditor,
+): boolean {
+  switch (editor.mode) {
+    case 'closed':
+      return false;
+    case 'create':
+    case 'edit':
+      return isMilestoneFormDirty(editor.initialForm, editor.form);
+  }
 }
 
 export function updateReadyProgram(
