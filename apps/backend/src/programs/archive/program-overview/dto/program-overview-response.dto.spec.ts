@@ -3,7 +3,7 @@ import { ProgramOverviewResponseDto } from './program-overview-response.dto';
 const overviewView = {
   programId: 'cuid-synthetic-program',
   name: 'seed-program-overview-project',
-  category: 'CAPSTONE',
+  trackType: 'CURRICULAR',
   lifecycle: 'PUBLISHED',
   milestoneCount: 2,
   boardPostCount: 3,
