@@ -6,6 +6,7 @@ import { MilestoneRow } from './components/milestone-row';
 import { ApiError } from '@/lib/api-client';
 import { MilestoneDocumentSectionBody } from './milestone-document-list';
 import type { MilestoneDocument } from './milestone-document-api';
+import { milestoneSubmissionAccess } from './milestone-submission-access';
 import {
   detailFailure,
   ProgramActions,
@@ -16,7 +17,24 @@ import {
 import { ProgramFactBar } from './program-detail-view';
 import type { ProgramOverview } from './program-overview-api';
 import { getProgramListBadge } from './program-list';
-import type { ProgramDetail, ProgramListItem, ProgramMilestone } from './types';
+import type {
+  ApplicationStatus,
+  ProgramDetail,
+  ProgramListItem,
+  ProgramMilestone,
+  ViewerRole,
+} from './types';
+
+/**
+ * 마일스톤 줄과 제출 항목 블록이 화면에서 나눠 갖는 그 판정을 테스트도 그대로 쓴다 —
+ * 여기서 값을 손으로 지어내면 위아래를 한 값으로 묶은 것이 검증되지 않는다.
+ */
+function access(
+  role: ViewerRole,
+  applicationStatus: ApplicationStatus | null = null,
+) {
+  return milestoneSubmissionAccess({ role, applicationStatus });
+}
 
 const milestone: ProgramMilestone = {
   id: 'milestone-1',
@@ -40,7 +58,7 @@ describe('MilestoneRow', () => {
         nameId="milestone-1-name"
         milestone={{ ...milestone, viewerSubmissionStatus: null }}
         viewerRole={null}
-        applicationStatus={null}
+        submissionAccess={access(null)}
       />,
     );
     expect(html).toContain('기획서 제출');
@@ -60,7 +78,7 @@ describe('MilestoneRow', () => {
         nameId="milestone-1-name"
         milestone={milestone}
         viewerRole="STUDENT"
-        applicationStatus="APPROVED"
+        submissionAccess={access('STUDENT', 'APPROVED')}
       />,
     );
     expect(html).toContain('최종 반려');
@@ -79,7 +97,7 @@ describe('MilestoneRow', () => {
           viewerSubmissionStatus: null,
         }}
         viewerRole="STUDENT"
-        applicationStatus="APPROVED"
+        submissionAccess={access('STUDENT', 'APPROVED')}
       />,
     );
 
@@ -101,7 +119,7 @@ describe('MilestoneRow', () => {
           viewerSubmissionStatus: null,
         }}
         viewerRole="STUDENT"
-        applicationStatus="APPROVED"
+        submissionAccess={access('STUDENT', 'APPROVED')}
       />,
     );
 
@@ -123,12 +141,44 @@ describe('MilestoneRow', () => {
           viewerSubmissionStatus: null,
         }}
         viewerRole="STUDENT"
-        applicationStatus="SUBMITTED"
+        submissionAccess={access('STUDENT', 'SUBMITTED')}
       />,
     );
 
-    expect(html).toContain('신청 승인 후 제출할 수 있습니다');
+    expect(html).toContain(
+      '신청 승인을 기다리는 중입니다. 승인되면 제출할 수 있습니다.',
+    );
     expect(html).not.toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
+  });
+
+  /**
+   * 반려된 신청은 이 티켓이 다루지 않는다(#1098) — **#1098 이전 화면 그대로**여야 한다.
+   * 옛 화면은 승인되지 않은 학생에게 제출 상태 대신 이 한 줄만 보여 줬고, 마감 전
+   * 미제출이어도 「제출하기」를 세우지 않았다.
+   *
+   * 변이 검증 대상 — 반려를 승인과 같은 열린 상태로 취급하면 상태 배지와 제출 버튼이
+   * 되살아나 여기가 깨진다. 반대로 신청 전·승인 대기와 묶으면 반려 문구가 새로 생긴다.
+   */
+  it('반려된 신청에는 #1098 이전 문구를 그대로 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneRow
+        programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
+        milestone={{
+          ...milestone,
+          dueAt: '2099-08-10T23:59:59+09:00',
+          viewerSubmissionStatus: 'NOT_SUBMITTED',
+        }}
+        viewerRole="STUDENT"
+        submissionAccess={access('STUDENT', 'REJECTED')}
+      />,
+    );
+
+    expect(html).toContain('신청 승인 후 제출 상태를 확인할 수 있습니다.');
+    expect(html).not.toContain('제출 전');
+    expect(html).not.toContain('제출하기');
+    expect(html).not.toContain('반려되어');
   });
 
   it('마감 후 보완 요청도 #116 체크리스트에서 다시 제출할 수 있다', () => {
@@ -144,7 +194,7 @@ describe('MilestoneRow', () => {
           viewerSubmissionStatus: 'CHANGES_REQUESTED',
         }}
         viewerRole="STUDENT"
-        applicationStatus="APPROVED"
+        submissionAccess={access('STUDENT', 'APPROVED')}
       />,
     );
     expect(html).toContain('다시 제출');
@@ -172,7 +222,7 @@ describe('MilestoneRow', () => {
           },
         }}
         viewerRole="STAFF"
-        applicationStatus={null}
+        submissionAccess={access('STAFF')}
       />,
     );
     expect(html).toContain('3/5');
@@ -673,6 +723,7 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'loading' }}
         viewerRole="STUDENT"
         closed={false}
+        submissionAccess={access('STUDENT', 'APPROVED')}
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -688,6 +739,7 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'failed' }}
         viewerRole="STUDENT"
         closed={false}
+        submissionAccess={access('STUDENT', 'APPROVED')}
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -708,6 +760,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STUDENT"
         closed={false}
+        submissionAccess={access('STUDENT', 'APPROVED')}
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -734,6 +787,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STAFF"
         closed={false}
+        submissionAccess={access('STAFF')}
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -772,6 +826,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STUDENT"
         closed={false}
+        submissionAccess={access('STUDENT', 'APPROVED')}
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -794,6 +849,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STUDENT"
         closed={false}
+        submissionAccess={access('STUDENT', 'APPROVED')}
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}

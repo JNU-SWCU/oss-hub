@@ -5,17 +5,13 @@ import {
   programDocumentsHref,
   programMilestoneDocumentsHref,
 } from '@/lib/program-route';
-import {
-  formatSeoulDate,
-  isPastDue,
-  submissionLabel,
-} from '../program-detail-format';
+import { formatSeoulDate, submissionLabel } from '../program-detail-format';
 import type {
-  ApplicationStatus,
-  ProgramMilestone,
-  SubmissionStatus,
-  ViewerRole,
-} from '../types';
+  BlockedMilestoneSubmissionAccess,
+  MilestoneSubmissionAccess,
+} from '../milestone-submission-access';
+import { milestoneRowSubmitGate } from '../milestone-submit-gate';
+import type { ProgramMilestone, SubmissionStatus, ViewerRole } from '../types';
 
 const STATUS_VARIANTS = {
   NOT_SUBMITTED: 'pending',
@@ -39,14 +35,37 @@ interface MilestoneRowProps {
   /** 묶음(`article`)이 `aria-labelledby` 로 가리킬 이름의 id. */
   readonly nameId: string;
   readonly viewerRole: ViewerRole;
-  readonly applicationStatus: ApplicationStatus | null;
+  /**
+   * 신청 상태를 읽어 낸 결과 — 이 줄과 바로 아래 「제출 항목」 블록이 **같은 값**을 받는다.
+   * 여기서 신청 상태를 다시 해석하지 않는 것이 요점이다(#1098).
+   */
+  readonly submissionAccess: MilestoneSubmissionAccess;
+}
+
+/**
+ * 못 내는 이유. 아래 제출 항목의 흐려진 버튼 옆 문구와 **같은 판정**
+ * (`milestoneSubmissionAccess`)에서 나오므로 위아래가 어긋날 수 없다.
+ *
+ * 「신청하기」로 데려가는 버튼은 여기 두지 않는다 — 페이지 상단 헤더(`ProgramActions`)에
+ * 이미 하나 있고, 마일스톤은 여럿이라 줄마다 세우면 같은 버튼이 한 화면에 반복된다.
+ */
+function BlockedState({
+  access,
+}: {
+  readonly access: BlockedMilestoneSubmissionAccess;
+}) {
+  return (
+    <p className="text-small break-keep text-muted-foreground">
+      {access.notice}
+    </p>
+  );
 }
 
 function StudentState({
   programId,
   milestone,
-  applicationStatus,
-}: Pick<MilestoneRowProps, 'programId' | 'milestone' | 'applicationStatus'>) {
+  submissionAccess,
+}: Pick<MilestoneRowProps, 'programId' | 'milestone' | 'submissionAccess'>) {
   if (milestone.submissionType === null) {
     if (milestone.submissionItemCount === 0) {
       return (
@@ -55,36 +74,60 @@ function StudentState({
         </p>
       );
     }
+    if (submissionAccess.kind === 'blocked') {
+      return <BlockedState access={submissionAccess} />;
+    }
     return (
       <p className="text-small font-semibold text-muted-foreground">
-        {applicationStatus === 'APPROVED'
-          ? '아래 제출 항목에서 내용이나 파일을 제출하세요'
-          : '신청 승인 후 제출할 수 있습니다'}
+        {submissionAccess.kind === 'unchanged'
+          ? // 반려 — 이 화면이 답을 정하지 않은 상태다. #1098 이전 문구 그대로 둔다.
+            '신청 승인 후 제출할 수 있습니다'
+          : '아래 제출 항목에서 내용이나 파일을 제출하세요'}
       </p>
     );
   }
-  const status = milestone.viewerSubmissionStatus;
-  if (applicationStatus !== 'APPROVED' || !status) {
+  /*
+   * 무엇이 막고 있는지의 **순서**는 이 줄이 정하지 않는다 — 아래 제출 항목 줄과 같은
+   * 모듈(`milestone-submit-gate`)이 정한다. 이 줄만 신청 상태를 먼저 보면, 승인이 되돌려져
+   * 이미 판정이 끝난 마일스톤에 「승인되면 제출할 수 있습니다」라고 적게 된다(#1098).
+   */
+  const gate = milestoneRowSubmitGate(milestone, submissionAccess);
+  if (gate.kind === 'unchanged') {
+    /*
+     * 반려 — 신청 전·승인 대기와 달리 이 화면이 아직 답을 정하지 않았다(#1098 범위 밖).
+     * 제출 상태가 와 있어도 옛 화면은 이 문구만 보여 줬으므로 그대로 둔다.
+     */
     return (
       <p className="text-small text-muted-foreground">
         신청 승인 후 제출 상태를 확인할 수 있습니다.
       </p>
     );
   }
-  const isResubmission = status === 'CHANGES_REQUESTED';
-  const canSubmit =
-    isResubmission ||
-    (status === 'NOT_SUBMITTED' && !isPastDue(milestone.dueAt));
+  if (gate.kind === 'blocked') {
+    return <BlockedState access={gate.access} />;
+  }
+  if (gate.kind === 'unknown') {
+    /*
+     * 신청이 승인됐는데 제출 상태만 비어 온 응답. 계약상 오지 않는 값이라(백엔드는 승인
+     * 여부와 무관하게 신청이 있으면 상태를 채운다) 여기서 할 수 있는 말은 모른다는 말뿐이다.
+     * 옛 문구(「신청 승인 후…」)를 남기면 이미 승인된 학생에게 거짓말이 된다.
+     */
+    return (
+      <p className="text-small text-muted-foreground">
+        제출 상태를 확인할 수 없습니다.
+      </p>
+    );
+  }
   const submitHref = programDocumentsHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <StatusBadge variant={STATUS_VARIANTS[status]}>
-        {submissionLabel(status)}
+      <StatusBadge variant={STATUS_VARIANTS[gate.status]}>
+        {submissionLabel(gate.status)}
       </StatusBadge>
-      {canSubmit ? (
+      {gate.kind === 'open' ? (
         <Button asChild size="sm" variant="outline">
           <Link href={submitHref}>
-            {isResubmission ? '다시 제출' : '제출하기'}
+            {gate.resubmission ? '다시 제출' : '제출하기'}
           </Link>
         </Button>
       ) : null}
@@ -98,7 +141,7 @@ export function MilestoneRow({
   position,
   nameId,
   viewerRole,
-  applicationStatus,
+  submissionAccess,
 }: MilestoneRowProps) {
   const summary = milestone.applicationSubmissionSummary;
   const submitted = summary
@@ -206,7 +249,7 @@ export function MilestoneRow({
           <StudentState
             programId={programId}
             milestone={milestone}
-            applicationStatus={applicationStatus}
+            submissionAccess={submissionAccess}
           />
         ) : null}
       </div>

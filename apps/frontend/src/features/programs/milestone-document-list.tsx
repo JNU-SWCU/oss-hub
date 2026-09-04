@@ -31,9 +31,9 @@ import {
   type MilestoneDocumentReloadResult,
 } from './milestone-document-conflict';
 import { requireMilestoneDocumentList } from './milestone-document-list-response';
+import type { MilestoneSubmissionAccess } from './milestone-submission-access';
+import { milestoneDocumentSubmitGate } from './milestone-submit-gate';
 import {
-  isMilestoneDocumentDeadlineLocked,
-  isMilestoneDocumentResubmittable,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
   milestoneDocumentReviewNoticeTone,
@@ -108,6 +108,7 @@ export function MilestoneDocumentSectionBody({
   state,
   viewerRole,
   closed,
+  submissionAccess,
   conflictNotice,
   onRetry,
   onDocumentChange,
@@ -117,6 +118,11 @@ export function MilestoneDocumentSectionBody({
   readonly state: MilestoneDocumentSectionState;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
+  /**
+   * 바로 위 마일스톤 줄이 받은 것과 **같은 값**이다(`ProgramMilestones`가 한 번 구해
+   * 둘에게 나눠 준다). 이 값을 안 받던 것이 위아래가 반대되는 말을 하던 원인이다(#1098).
+   */
+  readonly submissionAccess: MilestoneSubmissionAccess;
   /** 저장되지 않은 제출을 알리는 문구. 없으면 `null`. */
   readonly conflictNotice: string | null;
   readonly onRetry: () => void;
@@ -181,6 +187,7 @@ export function MilestoneDocumentSectionBody({
               document={document}
               fileUpload={state.fileUpload}
               closed={closed}
+              submissionAccess={submissionAccess}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
             />
@@ -196,10 +203,13 @@ export function MilestoneDocumentSection({
   milestoneId,
   viewerRole,
   closed,
+  submissionAccess,
 }: {
   readonly milestoneId: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
+  /** 위 마일스톤 줄과 나눠 갖는 신청 판정 — `ProgramMilestones`가 한 번만 구한다. */
+  readonly submissionAccess: MilestoneSubmissionAccess;
 }) {
   const [state, setState] = useState<MilestoneDocumentSectionState>({
     kind: 'loading',
@@ -246,6 +256,7 @@ export function MilestoneDocumentSection({
       state={state}
       viewerRole={viewerRole}
       closed={closed}
+      submissionAccess={submissionAccess}
       conflictNotice={conflictNotice}
       onRetry={() => {
         // 손으로 다시 부르는 것은 앞 제출과 다른 일이다 — 앞 안내를 여기 남기면 방금
@@ -458,17 +469,61 @@ function StudentReviewNotice({
   );
 }
 
+/**
+ * 낼 수 없는 사람에게 「올리기」를 **감추지 않고 흐리게** 둔다.
+ *
+ * 버튼이 통째로 사라지면 학생은 화면이 고장 났다고 읽는다 — 무엇이 있었는지 모른 채
+ * 없어진 자리보다, 눌리지 않는 버튼과 그 옆의 이유가 낫다. 이유는 이 줄이 스스로 정하지
+ * 않고 `milestoneDocumentSubmitGate`가 정해 준 것을 그대로 적는다.
+ */
+function HeldSubmitAction({
+  note,
+  label,
+  icon,
+  ghost,
+  noteId,
+}: {
+  readonly note: string;
+  readonly label: string;
+  readonly icon: ReactElement;
+  readonly ghost: boolean;
+  readonly noteId: string;
+}) {
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant={ghost ? 'ghost' : 'default'}
+        disabled
+        aria-describedby={noteId}
+      >
+        {icon} {label}
+      </Button>
+      <span
+        id={noteId}
+        className="text-small text-muted-foreground break-keep"
+        data-testid="milestone-document-blocked-note"
+      >
+        {note}
+      </span>
+    </>
+  );
+}
+
 /** 학생 행 — 상태 표시 + 양식 다운로드 + 제출/재제출. */
 function StudentDocumentRow({
   document,
   fileUpload,
   closed,
+  submissionAccess,
   onRefresh,
   onSubmitConflict,
 }: {
   readonly document: MilestoneDocument;
   readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly closed: boolean;
+  readonly submissionAccess: MilestoneSubmissionAccess;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
@@ -502,19 +557,16 @@ function StudentDocumentRow({
       ? null
       : milestoneDocumentReviewNoticeTone(display, review.comment);
   /**
-   * 승인·반려된 서류에는 제출 입력을 아예 열지 않는다. 서버도 409(MSD_023)로 막으므로
-   * 열어 두면 눌러 본 학생에게 오류만 돌아간다 — 낼 수 없는 것은 낼 수 없게 보여야 한다.
+   * 이 줄이 지금 낼 수 있는가, 못 낸다면 **무엇을 먼저 말할 것인가**. 순서를 이 줄에서
+   * 다시 짜지 않고 `milestoneDocumentSubmitGate`가 준 답을 그대로 쓴다 — 서류 판정·마감·
+   * 신청 상태가 겹칠 때 어느 것을 말할지가 곧 학생이 다음에 할 일을 정하기 때문이다.
+   * 위 마일스톤 줄도 같은 모듈의 같은 법칙을 따른다(#1098).
    */
-  const canSubmit = isMilestoneDocumentResubmittable(viewerSubmission);
-  /**
-   * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **보완 요청만 빼고**. 교직원이 마감 뒤에
-   * 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면 그 요청을 받은
-   * 학생이 낼 방법이 없어진다(서버는 받아 준다).
-   */
-  const deadlineLocked = isMilestoneDocumentDeadlineLocked(
-    closed,
+  const gate = milestoneDocumentSubmitGate({
+    submissionAccess,
     viewerSubmission,
-  );
+    closed,
+  });
   const historyMetadata = viewerSubmission?.history;
 
   const refreshDocument = useCallback(async (): Promise<boolean> => {
@@ -688,18 +740,23 @@ function StudentDocumentRow({
           <span className="text-small text-muted-foreground break-keep">
             저장된 제출의 최신 상태를 확인하는 중입니다.
           </span>
-        ) : !canSubmit ? (
+        ) : gate.kind === 'settled' ? (
           <span className="text-small text-muted-foreground break-keep">
-            {display === 'APPROVED'
-              ? '승인된 제출 항목은 다시 제출할 수 없습니다.'
-              : '반려된 제출 항목은 다시 제출할 수 없습니다.'}
+            {gate.note}
           </span>
+        ) : gate.kind === 'held' ? (
+          <HeldSubmitAction
+            note={gate.note}
+            label={actionLabel}
+            icon={actionIcon}
+            ghost={submitted}
+            noteId={`${document.id}-submission-blocked`}
+          />
         ) : (
           <Button
             type="button"
             size="sm"
             variant={submitted ? 'ghost' : 'default'}
-            disabled={deadlineLocked}
             onClick={() => setEditing((value) => !value)}
           >
             {actionIcon} {actionLabel}
@@ -764,7 +821,7 @@ function StudentDocumentRow({
           )}
         </div>
       )}
-      {canSubmit && syncNotice === null && editing ? (
+      {gate.kind === 'open' && syncNotice === null && editing ? (
         <MilestoneDocumentSubmissionForm
           documentName={document.name}
           documentId={document.id}
