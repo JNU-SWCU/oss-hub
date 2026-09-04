@@ -5,15 +5,12 @@ import {
   programDocumentsHref,
   programMilestoneDocumentsHref,
 } from '@/lib/program-route';
-import {
-  formatSeoulDate,
-  isPastDue,
-  submissionLabel,
-} from '../program-detail-format';
+import { formatSeoulDate, submissionLabel } from '../program-detail-format';
 import type {
   BlockedMilestoneSubmissionAccess,
   MilestoneSubmissionAccess,
 } from '../milestone-submission-access';
+import { milestoneRowSubmitGate } from '../milestone-submit-gate';
 import type { ProgramMilestone, SubmissionStatus, ViewerRole } from '../types';
 
 const STATUS_VARIANTS = {
@@ -89,10 +86,13 @@ function StudentState({
       </p>
     );
   }
-  if (submissionAccess.kind === 'blocked') {
-    return <BlockedState access={submissionAccess} />;
-  }
-  if (submissionAccess.kind === 'unchanged') {
+  /*
+   * 무엇이 막고 있는지의 **순서**는 이 줄이 정하지 않는다 — 아래 제출 항목 줄과 같은
+   * 모듈(`milestone-submit-gate`)이 정한다. 이 줄만 신청 상태를 먼저 보면, 승인이 되돌려져
+   * 이미 판정이 끝난 마일스톤에 「승인되면 제출할 수 있습니다」라고 적게 된다(#1098).
+   */
+  const gate = milestoneRowSubmitGate(milestone, submissionAccess);
+  if (gate.kind === 'unchanged') {
     /*
      * 반려 — 신청 전·승인 대기와 달리 이 화면이 아직 답을 정하지 않았다(#1098 범위 밖).
      * 제출 상태가 와 있어도 옛 화면은 이 문구만 보여 줬으므로 그대로 둔다.
@@ -103,8 +103,10 @@ function StudentState({
       </p>
     );
   }
-  const status = milestone.viewerSubmissionStatus;
-  if (!status) {
+  if (gate.kind === 'blocked') {
+    return <BlockedState access={gate.access} />;
+  }
+  if (gate.kind === 'unknown') {
     /*
      * 신청이 승인됐는데 제출 상태만 비어 온 응답. 계약상 오지 않는 값이라(백엔드는 승인
      * 여부와 무관하게 신청이 있으면 상태를 채운다) 여기서 할 수 있는 말은 모른다는 말뿐이다.
@@ -116,20 +118,16 @@ function StudentState({
       </p>
     );
   }
-  const isResubmission = status === 'CHANGES_REQUESTED';
-  const canSubmit =
-    isResubmission ||
-    (status === 'NOT_SUBMITTED' && !isPastDue(milestone.dueAt));
   const submitHref = programDocumentsHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <StatusBadge variant={STATUS_VARIANTS[status]}>
-        {submissionLabel(status)}
+      <StatusBadge variant={STATUS_VARIANTS[gate.status]}>
+        {submissionLabel(gate.status)}
       </StatusBadge>
-      {canSubmit ? (
+      {gate.kind === 'open' ? (
         <Button asChild size="sm" variant="outline">
           <Link href={submitHref}>
-            {isResubmission ? '다시 제출' : '제출하기'}
+            {gate.resubmission ? '다시 제출' : '제출하기'}
           </Link>
         </Button>
       ) : null}

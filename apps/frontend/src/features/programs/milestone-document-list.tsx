@@ -31,13 +31,9 @@ import {
   type MilestoneDocumentReloadResult,
 } from './milestone-document-conflict';
 import { requireMilestoneDocumentList } from './milestone-document-list-response';
-import type {
-  BlockedMilestoneSubmissionAccess,
-  MilestoneSubmissionAccess,
-} from './milestone-submission-access';
+import type { MilestoneSubmissionAccess } from './milestone-submission-access';
+import { milestoneDocumentSubmitGate } from './milestone-submit-gate';
 import {
-  isMilestoneDocumentDeadlineLocked,
-  isMilestoneDocumentResubmittable,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
   milestoneDocumentReviewNoticeTone,
@@ -478,16 +474,16 @@ function StudentReviewNotice({
  *
  * 버튼이 통째로 사라지면 학생은 화면이 고장 났다고 읽는다 — 무엇이 있었는지 모른 채
  * 없어진 자리보다, 눌리지 않는 버튼과 그 옆의 이유가 낫다. 이유는 이 줄이 스스로 정하지
- * 않고 위 마일스톤 줄과 같은 판정(`milestoneSubmissionAccess`)에서 받는다.
+ * 않고 `milestoneDocumentSubmitGate`가 정해 준 것을 그대로 적는다.
  */
-function BlockedSubmitAction({
-  access,
+function HeldSubmitAction({
+  note,
   label,
   icon,
   ghost,
   noteId,
 }: {
-  readonly access: BlockedMilestoneSubmissionAccess;
+  readonly note: string;
   readonly label: string;
   readonly icon: ReactElement;
   readonly ghost: boolean;
@@ -509,7 +505,7 @@ function BlockedSubmitAction({
         className="text-small text-muted-foreground break-keep"
         data-testid="milestone-document-blocked-note"
       >
-        {access.buttonNote}
+        {note}
       </span>
     </>
   );
@@ -561,28 +557,16 @@ function StudentDocumentRow({
       ? null
       : milestoneDocumentReviewNoticeTone(display, review.comment);
   /**
-   * 신청 자체가 제출을 막는 자리 — 신청 전과 승인 대기. 서버도 403(MSD_005 · MSD_006)
-   * 으로 막는다. 서류 하나의 판정(`canSubmit`)보다 **먼저** 본다: 이쪽이 더 근본적인
-   * 이유이고, 낼 신청이 없는 사람에게 「승인된 제출 항목은…」이라고 말하면 틀린 말이 된다.
-   *
-   * 반려(`kind: 'unchanged'`)는 여기서 막지 않는다 — 그 화면을 아직 정하지 않았으므로
-   * #1098 이전처럼 버튼을 눌리는 채로 두고 서버 판정에 맡긴다.
+   * 이 줄이 지금 낼 수 있는가, 못 낸다면 **무엇을 먼저 말할 것인가**. 순서를 이 줄에서
+   * 다시 짜지 않고 `milestoneDocumentSubmitGate`가 준 답을 그대로 쓴다 — 서류 판정·마감·
+   * 신청 상태가 겹칠 때 어느 것을 말할지가 곧 학생이 다음에 할 일을 정하기 때문이다.
+   * 위 마일스톤 줄도 같은 모듈의 같은 법칙을 따른다(#1098).
    */
-  const blocked = submissionAccess.kind === 'blocked' ? submissionAccess : null;
-  /**
-   * 승인·반려된 서류에는 제출 입력을 아예 열지 않는다. 서버도 409(MSD_023)로 막으므로
-   * 열어 두면 눌러 본 학생에게 오류만 돌아간다 — 낼 수 없는 것은 낼 수 없게 보여야 한다.
-   */
-  const canSubmit = isMilestoneDocumentResubmittable(viewerSubmission);
-  /**
-   * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **보완 요청만 빼고**. 교직원이 마감 뒤에
-   * 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면 그 요청을 받은
-   * 학생이 낼 방법이 없어진다(서버는 받아 준다).
-   */
-  const deadlineLocked = isMilestoneDocumentDeadlineLocked(
-    closed,
+  const gate = milestoneDocumentSubmitGate({
+    submissionAccess,
     viewerSubmission,
-  );
+    closed,
+  });
   const historyMetadata = viewerSubmission?.history;
 
   const refreshDocument = useCallback(async (): Promise<boolean> => {
@@ -756,26 +740,23 @@ function StudentDocumentRow({
           <span className="text-small text-muted-foreground break-keep">
             저장된 제출의 최신 상태를 확인하는 중입니다.
           </span>
-        ) : blocked !== null ? (
-          <BlockedSubmitAction
-            access={blocked}
+        ) : gate.kind === 'settled' ? (
+          <span className="text-small text-muted-foreground break-keep">
+            {gate.note}
+          </span>
+        ) : gate.kind === 'held' ? (
+          <HeldSubmitAction
+            note={gate.note}
             label={actionLabel}
             icon={actionIcon}
             ghost={submitted}
             noteId={`${document.id}-submission-blocked`}
           />
-        ) : !canSubmit ? (
-          <span className="text-small text-muted-foreground break-keep">
-            {display === 'APPROVED'
-              ? '승인된 제출 항목은 다시 제출할 수 없습니다.'
-              : '반려된 제출 항목은 다시 제출할 수 없습니다.'}
-          </span>
         ) : (
           <Button
             type="button"
             size="sm"
             variant={submitted ? 'ghost' : 'default'}
-            disabled={deadlineLocked}
             onClick={() => setEditing((value) => !value)}
           >
             {actionIcon} {actionLabel}
@@ -840,7 +821,7 @@ function StudentDocumentRow({
           )}
         </div>
       )}
-      {canSubmit && blocked === null && syncNotice === null && editing ? (
+      {gate.kind === 'open' && syncNotice === null && editing ? (
         <MilestoneDocumentSubmissionForm
           documentName={document.name}
           documentId={document.id}

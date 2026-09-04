@@ -163,6 +163,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           dueAt: '2099-08-10T23:59:59+09:00',

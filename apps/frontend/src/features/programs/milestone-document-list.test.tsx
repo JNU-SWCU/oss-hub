@@ -1151,6 +1151,7 @@ describe('교직원 양식 올리기의 사전 검사', () => {
           }}
           viewerRole="STAFF"
           closed={false}
+          submissionAccess={access('STAFF')}
           conflictNotice={null}
           onRetry={() => {}}
           onDocumentChange={() => {}}
