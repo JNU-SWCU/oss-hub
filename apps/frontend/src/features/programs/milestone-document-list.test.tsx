@@ -862,7 +862,9 @@ describe('학생 행이 판정을 읽는 방식', () => {
       viewer({ history: { hasHistory: true, isComplete: false } }),
     );
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('이관 전 제출 이력 일부');
+      expect(container.textContent).toContain(
+        '지난 제출본 가운데 일부는 남아 있지 않아',
+      );
     });
     expect(buttonTexts()).not.toContain('이전 이력 더 보기');
   });
@@ -892,7 +894,9 @@ describe('학생 행이 판정을 읽는 방식', () => {
       viewer({ history: { hasHistory: true, isComplete: false } }),
     );
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('이관 전 제출 이력 일부');
+      expect(container.textContent).toContain(
+        '지난 제출본 가운데 일부는 남아 있지 않아',
+      );
     });
     expect(buttonTexts()).toContain('이전 이력 더 보기');
   });

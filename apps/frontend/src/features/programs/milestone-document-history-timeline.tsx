@@ -57,16 +57,15 @@ export function MilestoneDocumentHistoryTimeline({
         </p>
         {hasLegacyRevisionGap ? (
           <p className="text-small text-muted-foreground break-keep">
-            이관 전 1~{firstKnownSubmission.revision - 1}차 제출 원문은 당시
-            시스템에 남지 않아 이 화면에서 확인할 수 없습니다. 검토에 필요하면
-            프로그램 담당자에게 기존 접수 기록을 요청해 주세요.
+            {missingRevisionRange(firstKnownSubmission.revision)}차 제출본은
+            남아 있지 않아 이 목록에 나오지 않습니다. 그 제출본이 필요하면
+            프로그램 담당자에게 문의해 주세요.
           </p>
         ) : null}
         {completeness === 'incomplete' ? (
           <p className="text-small text-muted-foreground break-keep">
-            이관 전 제출 이력 일부는 당시 시스템에 남지 않아 이 화면에서 확인할
-            수 없습니다. 검토에 필요하면 프로그램 담당자에게 기존 접수 기록을
-            요청해 주세요.
+            지난 제출본 가운데 일부는 남아 있지 않아 이 목록에 나오지 않습니다.
+            그 제출본이 필요하면 프로그램 담당자에게 문의해 주세요.
           </p>
         ) : null}
       </div>
@@ -114,6 +113,16 @@ export function MilestoneDocumentHistoryTimeline({
       </ol>
     </section>
   );
+}
+
+/**
+ * 남아 있지 않은 앞 제출본의 차수 표기.
+ *
+ * 한 건뿐일 때 범위로 쓰지 않는다 — 「1~1차」는 읽는 사람이 두 번 세게 만든다.
+ */
+function missingRevisionRange(firstKnownRevision: number): string {
+  const lastMissingRevision = firstKnownRevision - 1;
+  return lastMissingRevision === 1 ? '1' : `1~${lastMissingRevision}`;
 }
 
 /**

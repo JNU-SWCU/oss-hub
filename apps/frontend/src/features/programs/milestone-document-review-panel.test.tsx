@@ -157,7 +157,7 @@ describe('판정 패널 머리', () => {
     expect(html).toContain('표지의 이름이 신청서와 다릅니다.');
   });
 
-  it('완전한 이력에서 이관 전 제출 원문이 복원되지 않으면 사실과 다음 행동을 명시한다', () => {
+  it('완전한 이력에서 앞 제출본이 복원되지 않으면 사실과 다음 행동을 명시한다', () => {
     const html = render({
       cell: cell({ revision: 4 }),
       history: [
@@ -173,13 +173,13 @@ describe('판정 패널 머리', () => {
       ],
     });
 
-    expect(html).toContain('이관 전 1~3차 제출 원문');
-    expect(html).toContain('당시 시스템에 남지 않아');
-    expect(html).toContain('프로그램 담당자에게 기존 접수 기록을 요청');
+    expect(html).toContain(
+      '1~3차 제출본은 남아 있지 않아 이 목록에 나오지 않습니다. 그 제출본이 필요하면 프로그램 담당자에게 문의해 주세요.',
+    );
     expect(html).toContain('다시 제출 · 4차 제출본');
   });
 
-  it('이전 페이지가 남아 있으면 이관 전 제출 원문 유실을 말하지 않는다', () => {
+  it('이전 페이지가 남아 있으면 앞 제출본 유실을 말하지 않는다', () => {
     const html = render({
       hasMoreHistory: true,
       cell: cell({ revision: 4 }),
@@ -197,7 +197,7 @@ describe('판정 패널 머리', () => {
     });
 
     expect(html).toContain('이전 이력 더 보기');
-    expect(html).not.toContain('이관 전 1~3차 제출 원문');
+    expect(html).not.toContain('1~3차 제출본은 남아 있지 않아');
   });
 
   it('이전 페이지가 남아도 원장이 불완전하면 누락 안내와 더 보기를 함께 준다', () => {
@@ -217,7 +217,7 @@ describe('판정 패널 머리', () => {
       ],
     });
 
-    expect(html).toContain('이관 전 제출 이력 일부');
+    expect(html).toContain('지난 제출본 가운데 일부는 남아 있지 않아');
     expect(html).toContain('이전 이력 더 보기');
   });
 });
@@ -354,7 +354,7 @@ describe('지난 판정', () => {
   it('빈 legacy 원장도 누락 안내를 숨기지 않는다', () => {
     const html = render({ history: [], historyIsComplete: false });
 
-    expect(html).toContain('이관 전 제출 이력 일부');
+    expect(html).toContain('지난 제출본 가운데 일부는 남아 있지 않아');
   });
 
   it('이력 조회가 실패하면 같은 패널에서 다시 불러올 행동을 제공한다', () => {
