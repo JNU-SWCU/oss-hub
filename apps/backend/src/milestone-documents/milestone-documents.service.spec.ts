@@ -213,7 +213,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
   it('교직원 viewer는 서류별 팀 제출 집계(teamSubmissionCount)를 채운다', async () => {
     // Given: 승인된 신청 8건 중 이 서류를 6건이 제출했다.
-    const { repository } = buildRepository({
+    const { repository, mocks } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: 'staff-1',
         hasStaffAccess: true,
@@ -237,6 +237,15 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       }),
     ]);
     expect(result[0]?.viewerSubmission).toBeUndefined();
+    // 앞 수와 뒤 수는 같은 프로그램의 승인 신청 하나를 모집단으로 센다 — 두 조회가 같은
+    // programId를 받는 것이 그 계약이다(#1100).
+    expect(mocks.countApprovedApplications).toHaveBeenCalledWith(
+      syntheticProgramId,
+    );
+    expect(mocks.countSubmissionsByDocument).toHaveBeenCalledWith(
+      syntheticProgramId,
+      [syntheticDocumentId],
+    );
   });
 
   it('학생 viewer는 자기 신청의 제출 여부(viewerSubmission)를 채운다', async () => {

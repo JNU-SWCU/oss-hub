@@ -36,6 +36,7 @@ const backendOnlyPaths = [
   'scripts/member-authority-contract-seed.mjs',
   'scripts/check-member-authority-contract.sh',
   'scripts/rehearse-member-authority-contract*',
+  'scripts/rehearse-legacy-submission-migrations*',
 ];
 
 /** 계약 정적 계약은 Prisma migration contract 단계가 required CI에서 돌린다. */
@@ -43,6 +44,9 @@ const contractTests = [
   'scripts/member-authority-contract-contract.test.mjs',
   // 배포된 마이그레이션을 같은 타임스탬프로 갈아끼우는 것을 거절하는 원장 계약.
   'scripts/prisma-migration-ledger.test.mjs',
+  // 파괴적 legacy-submission 이관 리허설의 정적 계약 — 컨테이너 리허설 자체는
+  // PostgreSQL이 필요해 required CI가 아니라 릴리스 준비 단계에서 손으로 돈다.
+  'scripts/rehearse-legacy-submission-migrations.test.mjs',
 ];
 
 const deploymentHardeningPaths = [
