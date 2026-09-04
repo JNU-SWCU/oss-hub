@@ -57,12 +57,20 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     studentDocumentsCompleted: 3,
     studentDocumentsTotal: 4,
     /*
-     * 남은 마감에 **마감 전 보완 요청 마일스톤**을 함께 둔다. 이 프로그램에서 아직
-     * 마감이 남은 마일스톤이 그것이라, 빠뜨리면 좌측 패널의 카운트다운이 마일스톤
-     * 목록과 다른 말을 한다. 마감 시각은 그 마일스톤에서 그대로 가져온다 — 고정
-     * 날짜를 따로 적어 두면 그날이 지나는 순간 카운트다운만 음수로 남는다.
+     * 남은 마감 **전부**를 API 순서대로 싣는다. 여기에 새로 더한 마지막 항목이
+     * 마감 전 보완 요청 마일스톤이다 — 빠뜨리면 좌측 패널의 카운트다운이 마일스톤
+     * 목록과 다른 말을 한다. 그 마감 시각은 마일스톤에서 그대로 가져온다(상대 시간).
+     * 고정 날짜를 따로 적어 두면 그날이 지나는 순간 카운트다운만 음수로 남는다.
      */
     remainingMilestones: [
+      {
+        label: '중간 보고',
+        dueAt: '2026-09-01T09:00:00.000Z',
+      },
+      {
+        label: '최종 결과 요약',
+        dueAt: '2026-09-12T09:00:00.000Z',
+      },
       {
         label: OPEN_REVISION_FIXTURE.name,
         dueAt: OPEN_REVISION_FIXTURE.deadline.dueAt,

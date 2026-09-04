@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OPEN_REVISION_FIXTURE } from './handlers/student-program-fixtures';
 import { parseArchiveDetail, parseArchivePage } from '@/features/archive/api';
 import { parseRankingPage, parseRankingYears } from '@/features/ranking/api';
 import { dashboardFixture } from '@/features/dashboard/fixtures';
@@ -372,6 +373,13 @@ describe('local review fixture responses', () => {
       {
         label: '최종 결과 요약',
         dueAt: '2026-09-12T09:00:00.000Z',
+      },
+      {
+        // 마감 전 보완 요청 마일스톤(#1090). 마감이 상대 시간이라 값을 적지 않고
+        // 픽스처가 내보내는 것과 같은 자리에서 가져온다 — 고정 날짜를 적으면
+        // 그날이 지나는 순간 이 테스트가 시한폭탄이 된다.
+        label: OPEN_REVISION_FIXTURE.name,
+        dueAt: OPEN_REVISION_FIXTURE.deadline.dueAt,
       },
     ]);
     expect(rejectedProgram).not.toHaveProperty('nextMilestone');

@@ -159,7 +159,7 @@ const ARCHIVED_INTERNSHIP_BASE = {
     endsAt: '2026-12-31T23:59:59.000+09:00',
   },
 } as const satisfies ProgramBase;
-
+/**
  * **마감 전 보완 요청**. 학생이 파일을 붙여 한 번 냈고, 교직원이 보완을 요청했고,
  * 마감은 아직 남아 있는 서류 하나 — 그리고 그 셋이 한 서류에 모이는 유일한 자리다.
  *
