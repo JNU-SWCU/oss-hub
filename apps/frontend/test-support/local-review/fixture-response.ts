@@ -282,7 +282,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     id: 'program-archived-internship',
     name: '합성 기업 인턴십 프로그램',
     organizer: '합성 SW중심대학사업단',
-    category: 'CORPORATE_INTERNSHIP',
+    trackType: 'EXTRACURRICULAR',
     // **내린 프로그램**(#1092). 이 항목이 없으면 목록에도 상세에도 `ARCHIVED`가 한
     // 건도 없어, 내린 프로그램의 화면을 아무도 눈으로 확인할 수 없다.
     //

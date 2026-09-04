@@ -116,7 +116,7 @@ function withoutLifecycle(item: ProgramListItem): ProgramListItem {
     id: item.id,
     name: item.name,
     organizer: item.organizer,
-    category: item.category,
+    trackType: item.trackType,
     applicationStartAt: item.applicationStartAt,
     applicationEndAt: item.applicationEndAt,
     endAt: item.endAt,
@@ -184,9 +184,9 @@ describe('내린 프로그램이 학생의 목록과 상세에 도달한다', ()
         INSIDE_APPLICATION_PERIOD,
       ),
     ).toBe('recruiting');
-    expect(
-      getProgramRecruitmentState(item, INSIDE_APPLICATION_PERIOD),
-    ).toBe('ended');
+    expect(getProgramRecruitmentState(item, INSIDE_APPLICATION_PERIOD)).toBe(
+      'ended',
+    );
   });
 
   /**

@@ -442,7 +442,7 @@ describe('ProgramDetailPage states', () => {
         id: program.id,
         name: program.name,
         organizer: program.organizer,
-        category: program.category,
+        trackType: program.trackType,
         lifecycle: program.lifecycle,
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,

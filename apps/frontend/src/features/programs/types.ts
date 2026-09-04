@@ -363,8 +363,6 @@ export interface ProgramDetail {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
-  /** 게시 축. 모집 기간 파생 상태가 아니다. 없으면 PUBLISHED 로 본다. */
-  readonly lifecycle?: 'PUBLISHED' | 'ARCHIVED';
   /**
    * 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다 — 상세 화면은 이 값이
    * 있어야 신청 기간만 보고 「모집중」을 그리는 일을 멈춘다(#1092).

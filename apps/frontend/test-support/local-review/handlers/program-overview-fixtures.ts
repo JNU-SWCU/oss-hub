@@ -177,7 +177,7 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
   // 다음 마감은 비운다 — 내려간 프로그램은 더 이상 일정을 안내하지 않는다.
   'program-archived-internship': {
     name: '합성 기업 인턴십 프로그램',
-    category: 'CORPORATE_INTERNSHIP',
+    trackType: 'EXTRACURRICULAR',
     lifecycle: 'ARCHIVED',
     milestoneCount: 1,
     boardPostCount: 0,

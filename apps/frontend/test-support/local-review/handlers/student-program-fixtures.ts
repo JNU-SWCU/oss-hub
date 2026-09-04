@@ -146,7 +146,8 @@ const ARCHIVED_INTERNSHIP_BASE = {
   id: 'program-archived-internship',
   name: '합성 기업 인턴십 프로그램',
   organizer: '합성 SW중심대학사업단',
-  category: 'CORPORATE_INTERNSHIP',
+  trackType: 'EXTRACURRICULAR',
+  applicationTemplateKey: 'basic',
   lifecycle: 'ARCHIVED',
   description:
     '내린 프로그램의 상세를 검토하기 위한 합성 개인형 프로그램입니다. 신청 기간은 아직 남아 있지만 운영이 취소되어 내려갔습니다.',
