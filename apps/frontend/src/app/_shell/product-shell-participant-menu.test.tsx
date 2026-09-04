@@ -99,6 +99,24 @@ function mockSession(role: 'STUDENT' | 'STAFF') {
   });
 }
 
+/**
+ * 회원 유형은 학생인데 관리자 접근 권한을 가진 계정 — 권한 행렬이 명시적으로 지원하는
+ * 조합이다. 교직원 권한은 없으므로 좌측 패널은 여전히 학생 면으로 그려진다.
+ */
+function mockStudentAdminSession() {
+  mocks.useSessionRole.mockReturnValue({
+    status: 'assigned',
+    role: 'STUDENT',
+    staffAccessRequestStatus: null,
+    selectedRole: null,
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+    isProfileComplete: true,
+    retry: () => {},
+  });
+}
+
 /** 로그인하지 않은 방문자 — 좌측 패널은 `GUEST` 골격으로 갈린다(QA46). */
 function mockAnonymousSession() {
   mocks.useSessionRole.mockReturnValue({
@@ -223,6 +241,47 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     expect(sidebarText()).toContain('신청자');
     expect(hrefs()).toContain('/programs/prog-1/documents');
     expect(hrefs()).toContain('/programs/prog-1/board');
+  });
+
+  /*
+    학생 + 관리자 접근 + 미신청. 백엔드는 이 계정에게 게시판을 열어 주고
+    (`board/board-access.guard.ts` — `hasStaffAccess || hasAdminAccess`면 승인된 신청 없이도
+    통과), 제출물은 열어 주지 않는다(`submissions/submissions.service.ts`의
+    `requireApprovedApplication`은 관리자 권한을 보지 않는다). 좌측 패널도 그 둘을 따로
+    판정해야 열려 있는 화면으로 가는 길이 남는다.
+  */
+  describe('학생 관리자(미신청)', () => {
+    beforeEach(() => {
+      mockStudentAdminSession();
+      mocks.getMyApplication.mockRejectedValue(NOT_APPLIED);
+    });
+
+    it('게시판은 남는다 — 관리자 접근으로 실제로 열리는 화면이다', async () => {
+      await renderShell();
+
+      expect(sidebarText()).toContain('게시판');
+      expect(hrefs()).toContain('/programs/prog-1/board');
+    });
+
+    it('내 제출물은 사라진다 — 관리자 권한으로도 열리지 않는 화면이다', async () => {
+      await renderShell();
+
+      expect(sidebarText()).not.toContain('내 제출물');
+      expect(hrefs()).not.toContain('/programs/prog-1/documents');
+      expect(sidebarText()).not.toContain('스터디 계획서');
+    });
+
+    it('학생 면 그대로다 — 신청자·서류 현황으로 승격되지 않는다', async () => {
+      await renderShell();
+
+      expect(mocks.getMyApplication).toHaveBeenCalledWith('prog-1');
+      expect(sidebarText()).not.toContain('서류 현황');
+      expect(sidebarText()).not.toContain('신청자');
+      expect(hrefs()).not.toContain('/programs/prog-1/applicants');
+      // 참여 전에도 열리는 화면은 그대로 남는다.
+      expect(hrefs()).toContain('/programs/prog-1');
+      expect(hrefs()).toContain('/programs/prog-1/teams');
+    });
   });
 
   it('비회원 좌측 패널도 그대로다 — 원래 개요 하나뿐이고 참여 여부를 묻지 않는다', async () => {

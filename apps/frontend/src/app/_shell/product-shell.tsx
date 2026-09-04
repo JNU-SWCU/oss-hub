@@ -151,8 +151,11 @@ export function ProductShell({
         teamCount: scopeOverview?.teamCount ?? 0,
         boardPostCount: scopeOverview?.boardPostCount ?? 0,
         viewerDocuments,
-        // 승인된 신청이 없는 학생에게는 「내 제출물」·「게시판」을 그리지 않는다(#1099).
+        // 승인된 신청이 없는 학생에게는 「내 제출물」을 그리지 않는다(#1099). 「게시판」은
+        // 관리자 접근 권한으로도 열리므로(board-access.guard.ts) 그 권한을 함께 넘겨
+        // 두 그룹이 따로 판정받게 한다.
         viewerParticipant: scopeParticipant,
+        viewerHasAdminAccess: session.hasAdminAccess,
         milestones: scopeMilestones,
         // 서류가 있는 마일스톤을 depth-1 자식으로 편다. 이 값을 넘기지 않으면
         // `programScopeSidebarGroups`의 기본값 `[]` 때문에 자식이 영영 0개다.

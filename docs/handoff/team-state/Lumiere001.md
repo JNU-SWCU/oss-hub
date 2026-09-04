@@ -367,3 +367,16 @@
 - 검증: frontend lint(오류 0, 기존 sidebar drawer 경고 5건만)·typecheck·325 파일 3267 테스트·prettier 통과. 대조 실험으로 `sidebar-menu.ts`를 main으로 되돌리면 새 테스트 5건이, `use-product-shell-data.ts`를 되돌리면 2건이 깨지고 복구하면 다시 통과한다. 로컬 검토 하네스에서 학생(신청 전)·학생(승인)·교직원·비회원 네 페르소나의 좌측 패널 항목을 DOM으로 세어 확인했다.
 - 남은 것: 신청 전 학생이 「신청하면 무엇이 열리는지」 아는 자리는 프로그램 개요의 마일스톤 줄(「신청 승인 후 제출할 수 있습니다」)뿐이다. 게시판이 승인 후 열린다는 안내는 개요에도 신청 화면에도 없다. 이 티켓에서 새로 만들지 않았다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+## 2026-09-05 — 게시판은 관리자 접근으로도 열린다 — 두 그룹을 갈랐다
+
+- 상태: review
+- Issue: #1099
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 검토에서 「회원 유형 STUDENT + `hasAdminAccess: true` + 미신청」 조합이 지적됐다. 백엔드 가드를 직접 읽어 확인한 결과 지적이 맞았다 — `board/board-access.guard.ts`는 `hasStaffAccess || hasAdminAccess`면 승인된 신청 없이 교직원 면으로 통과시키므로 그 계정에게 게시판은 실제로 열려 있는데, 앞선 커밋이 「내 제출물」과 함께 메뉴를 지워 갈 길을 끊었다. 두 그룹을 한 조건으로 묶은 것이 원인이라 조건을 갈랐다: 「내 제출물」의 열쇠는 승인된 신청 하나뿐이고, 「게시판」은 관리자 접근이라는 열쇠가 하나 더 있다. `ProgramScopeSidebarInput.viewerHasAdminAccess`를 받아 `boardLocked`만 그 권한으로 풀고 `documentsLocked`는 그대로 둔다.
+- 왜 역할 분류(`programScopeViewerRole`)를 고치지 않았나: 그쪽을 고쳐 관리자에게 교직원 면을 주면 좌측 패널은 「서류 현황」·「신청자」로 바뀌는데, 같은 주소의 본문 `documents/documents-route.tsx`는 `hasStaffAccess`로만 교직원 표로 갈리므로 학생 관리자에게는 여전히 학생 체크리스트가 뜬다. 메뉴 라벨과 본문이 어긋나는 새 결함을 만들게 되어 택하지 않았다.
+- 「내 제출물」은 왜 그대로 내리나: 그 화면의 학생 체크리스트를 지키는 `submissions/submissions.service.ts`의 `requireApprovedApplication`은 관리자 권한을 보지 않는다. 학생 자격 판정도 회원 유형만 보므로(`profiles/user-profile-read.ts`의 `STUDENT_MEMBER_WHERE` — "학생 관리자도 학생 자격으로 통과한다") 학생 관리자는 통과한 뒤 승인된 신청이 없어 SUB_003을 받는다. 다른 미신청 학생과 같은 상태라 같이 내리는 것이 맞다. `milestone-documents.service.ts`의 `submit`은 한 발 더 나아가 `hasAdminAccess`를 명시적으로 거부한다.
+- 검증: backend lint·typecheck·311 파일 3509 테스트, frontend lint(오류 0, 기존 sidebar-drawer 경고 5건만)·typecheck·336 파일 3413 테스트·prettier 통과. 대조 실험으로 `boardLocked`에서 관리자 예외만 빼면 새 테스트 3건(게시판이 남는지 보는 것들)이 정확히 실패하고 「내 제출물이 사라진다」 쪽은 양쪽에서 통과한다 — 바뀐 절반과 안 바뀐 절반이 따로 고정됐다는 뜻이다.
+- 백엔드 계약은 이미 고정돼 있었다: `board-access.guard.spec.ts`가 `['admin', { hasStaffAccess: false, hasAdminAccess: true }]`로 참여 여부 무관 허용을 검증한다. 프런트가 새로 기대는 사실이라 새 테스트를 더하지 않고 그것을 근거로 삼았다.
+- 남은 것(범위 밖): `documents-route.tsx`가 `hasStaffAccess`만 보는 반면 백엔드 `milestone-documents.service.ts`의 `listForViewer`는 `hasStaffAccess || hasAdminAccess`로 교직원 집계를 준다. 지금은 회원 유형 STAFF + 관리자 권한만 있는 계정이 `RolePanelShell allow={['student','staff']}`에서 막혀 그 화면에 닿지 못해 드러나지 않는다. 관리자에게 서류 수합 표를 열어 줄지는 별도 결정이 필요하다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
