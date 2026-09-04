@@ -354,6 +354,16 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       teamSubmissionCount: { submitted: 0, total: 3 },
     },
   ],
+  /*
+    서류가 하나도 없는 마일스톤. **비어 있는 배열을 명시해 두는 것이 요점이다** —
+    이 키가 없으면 `milestoneDocumentsFor`가 `null`을 돌려주고 조회가 404(MSD_003)로
+    갈린다. 그런데 서비스에서 404는 「그런 마일스톤이 없다」는 뜻이지 「서류가 0개」가
+    아니다. 실제 백엔드는 존재하는 마일스톤에 서류가 없으면 200 `[]`을 준다.
+
+    키를 빼 두면 상세 화면이 「제출 항목을 불러오지 못했습니다」라는 실패 상자를
+    띄우고, 검토자는 멀쩡한 프로그램을 고장 난 것으로 읽는다.
+  */
+  'milestones-sw-value-plan': [],
 };
 
 /** `milestoneId`가 픽스처에 없으면 `null` — 호출부가 404(MSD_003)로 갈리게 한다. */

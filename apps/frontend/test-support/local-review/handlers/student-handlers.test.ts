@@ -451,3 +451,51 @@ describe('student fixture responses', () => {
     expect(jsonBody(plan, 400)).toMatchObject({ code: 'SYS_003' });
   });
 });
+
+describe('milestone submission item counts', () => {
+  /*
+    상세의 `submissionItemCount` 는 백엔드에서 짐작이 아니라 집계다 —
+    `programs.service.ts` 의 `milestone._count.documents` 그 값이다. 하네스가 이
+    불변식을 깨면 서비스에서는 생길 수 없는 화면이 나온다: 머리줄은 「제출 항목
+    없음」이라 말하는데 그 아래 블록은 서류를 그린다.
+
+    실제로 이 값이 0으로 굳어 있었고, 그 값으로만 갈리는 두 갈래 — 교직원 머리줄의
+    「서류 수합」 입구, 학생 상세의 마일스톤 접기 — 를 로컬 검토가 통째로 못 보고
+    지나갔다. 서류 픽스처와 상세 픽스처가 서로 다른 파일에 각자 적혀 있어(핸들러
+    쪽 하나, 학생 동선 쪽 하나) 손으로 맞추면 또 어긋난다.
+  */
+  /*
+    서류 조회는 역할이 정해진 사람만 할 수 있다(`unassigned`는 401). 역할이 없는
+    사람은 애초에 이 불변식을 볼 수 없으므로 대상에서 뺀다.
+  */
+  const DOCUMENT_READING_FIXTURES = [
+    ...STUDENT_FIXTURES,
+    'staff',
+    'admin',
+  ] as const satisfies readonly LocalReviewFixtureId[];
+
+  it.each(DOCUMENT_READING_FIXTURES)(
+    '%s fixture reports the number of documents each milestone actually serves',
+    (fixture) => {
+      for (const programId of PUBLIC_PROGRAM_IDS) {
+        // Given
+        const detail = jsonBody(
+          call(fixture, 'GET', `programs/${programId}/viewer`),
+        ) as ProgramDetail;
+
+        for (const milestone of detail.milestones) {
+          // When
+          const documents = jsonBody(
+            call(fixture, 'GET', `milestones/${milestone.id}/documents`),
+          ) as readonly unknown[];
+
+          // Then
+          expect({
+            milestone: milestone.id,
+            count: milestone.submissionItemCount,
+          }).toEqual({ milestone: milestone.id, count: documents.length });
+        }
+      }
+    },
+  );
+});
