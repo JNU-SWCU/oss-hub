@@ -23,6 +23,18 @@ export class MilestoneDocumentDeadlineClosedError extends Error {
   override readonly name = 'MilestoneDocumentDeadlineClosedError';
 }
 
+/**
+ * 마감 뒤 재제출 예외를 허락받은 근거(그때 본 제출 상태)가 잠금 아래에서 이미 바뀌어 있었다 —
+ * 같은 팀의 다른 사람이 **그 한 번을 먼저 썼다**.
+ *
+ * 최신 판정 id 재확인(`MilestoneDocumentReviewChangedError`)으로는 이 자리를 잡지 못한다.
+ * 재제출은 판정을 새로 만들지 않으므로 두 번째 요청에도 최신 판정은 여전히 그 보완 요청이고,
+ * 기대값 대조는 그대로 통과한다. 바뀌는 것은 **제출 상태**뿐이다(CHANGES_REQUESTED → SUBMITTED).
+ */
+export class MilestoneDocumentSubmissionChangedError extends Error {
+  override readonly name = 'MilestoneDocumentSubmissionChangedError';
+}
+
 export class MilestoneDocumentMissingError extends Error {
   override readonly name = 'MilestoneDocumentMissingError';
 }
@@ -44,6 +56,13 @@ export function upsertMilestoneDocumentSubmission(
   input: UpsertMilestoneDocumentSubmissionInput,
 ): Promise<MilestoneDocumentSubmissionDetail> {
   return prisma.$transaction(async (transaction) => {
+    /**
+     * 마감이 지난 요청인가. 마감 시각 읽기(`FOR SHARE`)는 **서류 행 잠금보다 먼저** 해야 한다 —
+     * 삭제·순서 재부여가 「Milestone → MilestoneDocument」 순으로 잠그므로, 여기서만 순서를
+     * 뒤집으면 두 트랜잭션이 서로의 잠금을 기다리는 교착이 생긴다. 그래서 잠금은 그대로 먼저
+     * 잡고, **판정만** 잠금 아래로 미룬다.
+     */
+    let afterDeadline = false;
     if (input.deadline !== undefined) {
       const milestone = await transaction.$queryRaw<readonly { dueAt: Date }[]>(
         Prisma.sql`
@@ -54,11 +73,9 @@ export function upsertMilestoneDocumentSubmission(
         `,
       );
       const dueAt = milestone[0]?.dueAt;
-      if (
-        dueAt !== undefined &&
-        !input.deadline.allowAfterDeadline &&
-        input.submittedAt.getTime() > dueAt.getTime()
-      ) {
+      afterDeadline =
+        dueAt !== undefined && input.submittedAt.getTime() > dueAt.getTime();
+      if (afterDeadline && !input.deadline.allowAfterDeadline) {
         throw new MilestoneDocumentDeadlineClosedError();
       }
     }
@@ -100,6 +117,36 @@ export function upsertMilestoneDocumentSubmission(
       });
     if ((latestReview?.id ?? null) !== input.expectedLatestReviewId) {
       throw new MilestoneDocumentReviewChangedError();
+    }
+
+    /*
+     * 마감을 지나가는 예외를 쓴 요청은 **그 예외의 근거까지** 잠금 아래에서 다시 본다.
+     *
+     * 판정 id 재확인만으로는 「재제출은 한 번」이 지켜지지 않는다. 같은 팀 두 사람이 마감 뒤
+     * 거의 동시에 내면 둘 다 트랜잭션 밖에서 `CHANGES_REQUESTED`를 읽어 예외를 미리 허락받는데,
+     * 첫 재제출은 **판정을 새로 만들지 않으므로** 두 번째 요청의 기대 판정 id도 그대로 맞는다.
+     * 그 사이 실제로 바뀌는 것은 제출 상태 하나뿐이라(`CHANGES_REQUESTED` → `SUBMITTED`),
+     * 여기서 그것을 다시 읽어야 두 번째 요청이 먼저 낸 내용을 덮어쓰지 않는다.
+     *
+     * 서류 행을 `FOR UPDATE`로 잡은 **뒤**에 읽는 것이 요점이다. 그 잠금이 같은 서류의 제출을
+     * 직렬화하므로, 여기 도착한 시점에는 앞 트랜잭션이 이미 커밋돼 있고 READ COMMITTED가 그
+     * 결과를 보여 준다. 잠금 앞에서 읽으면 둘 다 옛 상태를 보고 지나간다.
+     *
+     * 마감 전에는 보지 않는다 — 검토 전 교체는 몇 번이든 되는 일이라, 여기서 함께 막으면
+     * 팀원 둘이 마감 전에 이어서 고쳐 내는 지금 되는 흐름이 사라진다.
+     */
+    if (afterDeadline && input.deadline !== undefined) {
+      const current = await transaction.milestoneDocumentSubmission.findUnique({
+        where: {
+          milestoneDocumentId_applicationId: {
+            milestoneDocumentId: input.milestoneDocumentId,
+            applicationId: input.applicationId,
+          },
+        },
+        select: { status: true },
+      });
+      if ((current?.status ?? null) !== input.deadline.expectedSubmissionStatus)
+        throw new MilestoneDocumentSubmissionChangedError();
     }
 
     const submission = await transaction.milestoneDocumentSubmission.upsert({

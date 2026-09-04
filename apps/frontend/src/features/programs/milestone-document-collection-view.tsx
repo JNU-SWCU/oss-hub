@@ -120,6 +120,7 @@ export interface MilestoneDocumentCollectionViewProps {
     decision: MilestoneDocumentReviewDecision,
   ) => void;
   readonly onReviewCommentChange: (comment: string) => void;
+  readonly onReviewResubmissionDueAtChange: (resubmissionDueAt: string) => void;
   readonly onReviewSubmit: () => void;
   readonly onReviewHistoryMore: () => void;
 }
@@ -526,6 +527,7 @@ function ReviewPanelRow({
   onReviewClose,
   onReviewDecisionChange,
   onReviewCommentChange,
+  onReviewResubmissionDueAtChange,
   onReviewSubmit,
   onReviewHistoryMore,
 }: {
@@ -537,6 +539,7 @@ function ReviewPanelRow({
     decision: MilestoneDocumentReviewDecision,
   ) => void;
   readonly onReviewCommentChange: (comment: string) => void;
+  readonly onReviewResubmissionDueAtChange: (resubmissionDueAt: string) => void;
   readonly onReviewSubmit: () => void;
   readonly onReviewHistoryMore: () => void;
 }): ReactElement | null {
@@ -570,6 +573,7 @@ function ReviewPanelRow({
             }
             decision={review.decision}
             comment={review.comment}
+            resubmissionDueAt={review.resubmissionDueAt}
             isSubmitting={review.isSubmitting}
             errorMessage={review.errorMessage}
             history={review.history}
@@ -580,6 +584,7 @@ function ReviewPanelRow({
             onHistoryMore={onReviewHistoryMore}
             onDecisionChange={onReviewDecisionChange}
             onCommentChange={onReviewCommentChange}
+            onResubmissionDueAtChange={onReviewResubmissionDueAtChange}
             onSubmit={onReviewSubmit}
             onClose={onReviewClose}
           />
@@ -597,6 +602,7 @@ function CollectionTable({
   onReviewClose,
   onReviewDecisionChange,
   onReviewCommentChange,
+  onReviewResubmissionDueAtChange,
   onReviewSubmit,
   onReviewHistoryMore,
 }: {
@@ -612,6 +618,7 @@ function CollectionTable({
     decision: MilestoneDocumentReviewDecision,
   ) => void;
   readonly onReviewCommentChange: (comment: string) => void;
+  readonly onReviewResubmissionDueAtChange: (resubmissionDueAt: string) => void;
   readonly onReviewSubmit: () => void;
   readonly onReviewHistoryMore: () => void;
 }): ReactElement {
@@ -686,6 +693,9 @@ function CollectionTable({
                     onReviewClose={onReviewClose}
                     onReviewDecisionChange={onReviewDecisionChange}
                     onReviewCommentChange={onReviewCommentChange}
+                    onReviewResubmissionDueAtChange={
+                      onReviewResubmissionDueAtChange
+                    }
                     onReviewSubmit={onReviewSubmit}
                     onReviewHistoryMore={onReviewHistoryMore}
                   />
@@ -909,6 +919,7 @@ function CollectionBody(
         onReviewClose={props.onReviewClose}
         onReviewDecisionChange={props.onReviewDecisionChange}
         onReviewCommentChange={props.onReviewCommentChange}
+        onReviewResubmissionDueAtChange={props.onReviewResubmissionDueAtChange}
         onReviewSubmit={props.onReviewSubmit}
         onReviewHistoryMore={props.onReviewHistoryMore}
       />

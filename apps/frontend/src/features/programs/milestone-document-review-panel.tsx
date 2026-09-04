@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import type {
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionContent,
@@ -47,12 +48,15 @@ export interface MilestoneDocumentReviewPanelProps {
   readonly fileHref: string | null;
   readonly decision: MilestoneDocumentReviewDecision | null;
   readonly comment: string;
+  /** 재제출 기한 칸의 값 그대로(`datetime-local`). 보완 요청을 골랐을 때만 그린다. */
+  readonly resubmissionDueAt: string;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
   readonly onDecisionChange: (
     decision: MilestoneDocumentReviewDecision,
   ) => void;
   readonly onCommentChange: (comment: string) => void;
+  readonly onResubmissionDueAtChange: (resubmissionDueAt: string) => void;
   readonly onSubmit: () => void;
   readonly onClose: () => void;
   readonly history: readonly MilestoneDocumentCollectionHistory[];
@@ -172,6 +176,21 @@ function PreviousReview({
       <p className="text-small break-keep whitespace-pre-wrap">
         {review.comment ?? '사유 없이 저장되었습니다.'}
       </p>
+      {/*
+       * 보완 요청에만 기한이 있다. 기한 없는 보완 요청은 이 값이 생기기 전에 저장된 것이라
+       * 그 사실을 그대로 적는다 — 빈칸으로 두면 교직원은 자기가 안 정한 것으로 읽는다.
+       */}
+      {review.decision !== 'CHANGES_REQUESTED' ? null : (
+        <p
+          data-testid="milestone-document-previous-review-due-at"
+          className="text-small text-muted-foreground break-keep"
+        >
+          재제출 기한{' '}
+          {review.resubmissionDueAt === null
+            ? '없음 (이 기능이 생기기 전에 저장된 보완 요청입니다)'
+            : `${formatSeoulDate(review.resubmissionDueAt)}까지`}
+        </p>
+      )}
       <p className="text-small text-muted-foreground break-keep">
         검토는 덮어쓰지 않고 쌓입니다. 새로 저장해도 이 기록은 남습니다.
       </p>
@@ -185,6 +204,7 @@ export function MilestoneDocumentReviewPanel(
   const { cell } = props;
   const display = milestoneDocumentCellDisplay(cell);
   const commentId = 'milestone-document-review-comment';
+  const resubmissionDueAtId = 'milestone-document-review-resubmission-due-at';
 
   return (
     <div
@@ -318,11 +338,39 @@ export function MilestoneDocumentReviewPanel(
       </Field>
 
       {/*
-       * 사유가 언제 필요한지 **누르기 전에** 말한다. 이 문구가 없으면 교직원은 반려를
+       * 재제출 기한은 **보완 요청을 고른 뒤에만** 나타난다. 늘 그려 두면 승인·반려에도 날짜
+       * 칸이 보여 「승인에 기한이 있다」는 없는 개념을 만든다.
+       *
+       * 이 칸이 필수인 것이 새 정책의 절반이다 — 나머지 절반은 학생 쪽 확인 창이다.
+       * 마감이 지난 마일스톤에서 학생이 다시 낼 수 있는 창은 이 시각에 닫힌다.
+       */}
+      {props.decision === 'CHANGES_REQUESTED' ? (
+        <Field>
+          <FieldLabel htmlFor={resubmissionDueAtId}>재제출 기한</FieldLabel>
+          <Input
+            id={resubmissionDueAtId}
+            type="datetime-local"
+            value={props.resubmissionDueAt}
+            disabled={props.isSubmitting}
+            aria-describedby={`${resubmissionDueAtId}-description`}
+            onChange={(event) =>
+              props.onResubmissionDueAtChange(event.target.value)
+            }
+          />
+          <FieldDescription id={`${resubmissionDueAtId}-description`}>
+            학생은 이 시각까지 한 번 다시 낼 수 있습니다 · 마감이 지난
+            마일스톤이라도 이 기한 안에는 열립니다
+          </FieldDescription>
+        </Field>
+      ) : null}
+
+      {/*
+       * 무엇이 필요한지 **누르기 전에** 말한다. 이 문구가 없으면 교직원은 반려를
        * 고르고 저장을 눌러 본 뒤에야 막힌 이유를 알게 되고, 그 사이 적어 둔 것도 없다.
        */}
       <p className="text-small text-muted-foreground break-keep">
-        보완 요청·반려는 사유를 적어야 저장됩니다. 승인은 안 적어도 됩니다.
+        보완 요청·반려는 사유를 적어야 저장됩니다. 승인은 안 적어도 됩니다. 보완
+        요청은 재제출 기한도 함께 정해야 합니다.
       </p>
 
       {props.errorMessage === null ? null : (

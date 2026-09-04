@@ -419,9 +419,16 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     expect(mocks.createPending).not.toHaveBeenCalled();
   });
 
-  it('보완 요청을 받았으면 마감 후에도 파일을 올릴 수 있다', async () => {
+  /**
+   * 보완 요청을 받고 **아직 응하지 않은** 서류. 제출 관문이 이 자리를 열어 두므로 업로드도
+   * 열려 있어야 한다 — 아니면 「다시 내세요」라는 요청에 파일을 붙일 수 없다.
+   */
+  it('아직 응하지 않은 보완 요청이면 마감 후에도 파일을 올릴 수 있다', async () => {
     const { repository } = buildRepository({
-      findMySubmission: jest.fn().mockResolvedValue({ id: 'submission-1' }),
+      findMySubmission: jest.fn().mockResolvedValue({
+        id: 'submission-1',
+        status: 'CHANGES_REQUESTED',
+      }),
       findLatestReview: jest.fn().mockResolvedValue({
         id: 'review-1',
         decision: 'CHANGES_REQUESTED',
@@ -442,6 +449,45 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         new Date('2026-09-20T00:00:00.000Z'),
       ),
     ).resolves.toMatchObject({ fileId: 'cuid-synthetic-pending-file' });
+  });
+
+  /**
+   * #1097 — 그 한 번을 이미 썼으면 업로드도 함께 닫힌다. 두 관문이 갈라지면 학생은 파일을
+   * 올리는 데까지 성공한 뒤 제출에서 막혀, 무엇이 잘못됐는지 알 수 없는 자리에 선다.
+   */
+  it('보완 요청에 응해 이미 다시 냈으면 마감 후 파일 업로드도 막는다', async () => {
+    const { repository } = buildRepository({
+      findMySubmission: jest.fn().mockResolvedValue({
+        id: 'submission-1',
+        // 재제출이 상태를 되돌려 놓았다 — 판정은 아직 보완 요청 그대로다.
+        status: 'SUBMITTED',
+      }),
+      findLatestReview: jest.fn().mockResolvedValue({
+        id: 'review-1',
+        decision: 'CHANGES_REQUESTED',
+      }),
+    });
+    const { mocks, submissionFiles } = buildSubmissionFiles();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+      submissionFiles,
+    );
+
+    await expect(
+      service.upload(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        pdfFile,
+        new Date('2026-09-20T00:00:00.000Z'),
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+      },
+    });
+    expect(mocks.createPending).not.toHaveBeenCalled();
   });
 
   it('잠근 프로그램 행이 없어 보관 기한 계산이 불가하면 FILE_RETENTION_UNAVAILABLE로 변환한다', async () => {
