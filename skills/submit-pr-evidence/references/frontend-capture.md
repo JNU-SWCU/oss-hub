@@ -22,14 +22,31 @@ Before는 변경 전 코드, After는 변경 후 코드에서 찍고 나머지 �
 `scripts/check-public-safe.sh`는 이 이미지를 검사해 주지 않는다 — 스캐너는 저장소 텍스트를 보고 증거 이미지는 저장소 밖에 있다.
 그래서 이 게이트는 자동화가 없는 수동 확인 지점이다.
 
-## 3. GitHub PR 본문에 직접 첨부한다
+## 3. 이미 발행된 Release 에 에셋으로 올린다
 
-두 이미지를 PR 본문의 Before/After 표 칸에 끌어다 놓는다.
-GitHub가 업로드해 `![...](https://github.com/user-attachments/...)` 형태로 바꿔 주고, 그 주소는 PR과 함께 남는다.
-업로드는 브라우저 세션 전용 endpoint라 `gh`에 대응 명령이 없다 — 이 한 단계는 사람이 한다.
-에이전트는 캡처와 촬영 조건까지 준비해 두고, 첨부가 필요하다는 사실과 파일 위치를 보고한다.
+```bash
+TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+gh release upload "$TAG" 1181-before-element-archive-dialog.png ... --clobber
+```
 
-첨부한 뒤 PR 본문을 다시 열어 두 이미지가 실제로 렌더되는지 확인한다.
+주소는 `https://github.com/JNU-SWCU/oss-hub/releases/download/<태그>/<파일명>.png` 로 고정되므로
+PR 본문에 그대로 `![Before](…)` 로 넣으면 렌더된다. `gh` 로 끝나므로 사람 손이 필요 없다.
+
+**배포가 나가지 않는다.** production 배포를 트리거하는 것은 `release: types: [published]`
+(`.github/workflows/ci.yml`) 이고, **이미 published 상태인 release 에 파일만 추가하는 것은 그 이벤트를
+발생시키지 않는다.** 트리거되는 것은 새 release 를 발행할 때뿐이다.
+그래서 `gh release create` 는 여전히 쓰지 않고, `gh release upload` 만 쓴다.
+
+브라우저로 PR 본문에 끌어다 놓는 방법(`user-attachments`)도 그대로 유효하다. 그쪽은 브라우저 세션
+전용이라 `gh` 로 할 수 없으므로, 에이전트가 여는 PR 은 위의 release 에셋 경로를 쓴다.
+
+올린 뒤 주소가 실제로 200 을 주는지 한 번 확인한다 — 오타 하나로 본문 전체가 깨진 이미지가 된다.
+
+```bash
+curl -sIL -o /dev/null -w "%{http_code}\n" "https://github.com/JNU-SWCU/oss-hub/releases/download/$TAG/<파일명>.png"
+```
+
+그 뒤 PR 본문을 다시 열어 이미지가 렌더되는지 눈으로 확인한다.
 파일 경로만 적힌 상태는 캡처를 올린 것이 아니다.
 
 촬영 조건은 표 아래에 함께 적는다.
@@ -43,6 +60,6 @@ GitHub가 업로드해 `![...](https://github.com/user-attachments/...)` 형태�
 - 로컬 파일 경로(`/tmp/before.png`)를 본문에 적고 첨부했다고 하지 않는다 — 아무 이미지도 렌더되지 않는다.
 - 증거 이미지를 제품 브랜치에 커밋하지 않는다 — 리뷰 대상 diff에 바이너리가 섞인다([pr-scope.md](../../../docs/rules/pr-scope.md) §1).
 - 증거 전용 브랜치를 만들지 않는다 — 그 브랜치를 영구히 보존해야 병합된 PR 본문의 이미지가 깨지지 않는다. 별도 worktree에서 orphan 브랜치를 만들면 그 작업트리에 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 실패해 push까지 막힌다.
-- `gh release create`·`gh release upload`로 호스팅하지 않는다 — 이 저장소는 공개 Release 발행(published)을 production 배포 트리거로 쓴다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md), `.github/workflows/deploy.yml`). 캡처를 올리려다 배포가 나간다.
+- `gh release create`로 새 release를 발행하지 않는다 — 발행(published)이 production 배포 트리거다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md)). **이미 발행된 release에 `gh release upload`로 파일만 더하는 것은 그 이벤트를 쏘지 않으므로 안전하고, 3절이 쓰는 방법이다.**
 - `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다(ADR-010 §5). 커밋되지 않으므로 주소도 생기지 않는다.
 - 목업·Figma 시안·테스트 출력·코드 diff로 실제 실행 화면을 대신하지 않는다.
