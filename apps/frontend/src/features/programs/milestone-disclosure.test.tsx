@@ -15,9 +15,19 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import type { MilestoneDocument } from './milestone-document-api';
 import { ProgramMilestones } from './program-detail-view';
 import type { ProgramDetail, ProgramMilestone } from './types';
+
+/**
+ * 시계를 고정한다. 펼칠 마일스톤을 고르는 판단이 **실제 시각**을 읽으므로
+ * (`isPastDue`), 고정하지 않으면 「마감이 지났는가」가 검사를 돌린 시각에 따라 갈린다.
+ *
+ * `toFake: ['Date']` — 타이머는 진짜로 둔다. 제출 항목 조회가 프라미스로 도는데
+ * 타이머까지 가짜로 만들면 `act` 가 풀리지 않는다.
+ */
+const NOW = new Date('2026-08-05T14:00:00+09:00');
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -32,6 +42,8 @@ function milestoneOf(
   return {
     id,
     name,
+    // NOW(8/5) 기준 5일 뒤. `dueAt` 과 `dDay` 가 어긋나면 이 파일의 검사가
+    // 무엇을 고정하는지 알 수 없어진다 — 화면은 둘 다 읽는다.
     dueAt: '2026-08-10T23:59:59+09:00',
     dDay: 5,
     deadlineLabel: 'D-5',
@@ -82,15 +94,18 @@ function documentOf(milestoneId: string): MilestoneDocument {
 /** 접힌 마일스톤과 펼친 마일스톤이 섞이도록, 마감이 지난 둘 뒤에 남은 하나를 둔다. */
 const MILESTONES = [
   milestoneOf('milestone-1', '기획서 제출', {
+    dueAt: '2026-07-20T23:59:59+09:00',
     dDay: -16,
     deadlineLabel: '마감 지남',
     viewerSubmissionStatus: 'APPROVED',
   }),
   milestoneOf('milestone-2', '중간 보고', {
+    dueAt: '2026-07-31T23:59:59+09:00',
     dDay: -5,
     deadlineLabel: '마감 지남',
   }),
   milestoneOf('milestone-3', '최종 결과 요약', {
+    dueAt: '2026-08-15T23:59:59+09:00',
     dDay: 10,
     deadlineLabel: 'D-10',
     viewerSubmissionStatus: 'CHANGES_REQUESTED',
@@ -102,6 +117,7 @@ describe('마일스톤 접기', () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: NOW });
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -115,7 +131,14 @@ describe('마일스톤 접기', () => {
           url.includes(id),
         );
         return new Response(
-          JSON.stringify(milestoneId ? [documentOf(milestoneId)] : []),
+          /*
+            목록은 배열이 아니라 봉투다 — 업로드 규칙이 빠지면 화면이 목록 조회
+            자체를 실패로 읽는다(#1107, `requireMilestoneDocumentList`).
+          */
+          JSON.stringify({
+            documents: milestoneId ? [documentOf(milestoneId)] : [],
+            fileUpload: milestoneDocumentUploadPolicy(),
+          }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
       }),
@@ -126,6 +149,7 @@ describe('마일스톤 접기', () => {
     await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   async function renderMilestones(
@@ -161,6 +185,10 @@ describe('마일스톤 접기', () => {
     return panel;
   }
 
+  /** 각 묶음이 펼쳐져 있는지를 목록 순서대로. 접히지 않는 마일스톤은 `undefined`. */
+  const openStates = (groups: readonly HTMLElement[]) =>
+    groups.map((group) => triggerOf(group)?.getAttribute('aria-expanded'));
+
   it('처음에는 지금 차례인 마일스톤 하나만 펼친다', async () => {
     const groups = await renderMilestones();
 
@@ -169,10 +197,7 @@ describe('마일스톤 접기', () => {
       작성자가 지적한 상태 그대로다. 차례는 마감이 정한다 — 마감이 지나지 않은
       첫 마일스톤(D-10)이고, 그 앞의 둘은 접힌다.
     */
-    const expanded = groups.map((group) =>
-      triggerOf(group)?.getAttribute('aria-expanded'),
-    );
-    expect(expanded).toEqual(['false', 'false', 'true']);
+    expect(openStates(groups)).toEqual(['false', 'false', 'true']);
   });
 
   it('마감이 모두 지났으면 마지막 마일스톤을 펼친다', async () => {
@@ -182,15 +207,90 @@ describe('마일스톤 접기', () => {
       programWith(
         MILESTONES.map((milestone) => ({
           ...milestone,
+          dueAt: '2026-08-04T23:59:59+09:00',
           dDay: -1,
           deadlineLabel: '마감 지남',
         })),
       ),
     );
 
-    expect(
-      groups.map((group) => triggerOf(group)?.getAttribute('aria-expanded')),
-    ).toEqual(['false', 'false', 'true']);
+    expect(openStates(groups)).toEqual(['false', 'false', 'true']);
+  });
+
+  /*
+    `dDay` 는 백엔드가 서울 기준 **달력 날짜** 차로 계산한다
+    (`program-deadline.ts` 의 `calendarDayNumber`). 그래서 오늘 09시에 닫힌 마감도
+    그날이 끝날 때까지 `dDay === 0` 이다 — 「아직 안 지났다」가 아니라 「같은 날」
+    이라는 뜻일 뿐이다.
+
+    펼칠 것을 그 값으로 고르면 **이미 닫힌 마일스톤이 열리고** 정작 지금 낼 것은
+    접힌 채로 남는다. 이 화면이 여는 하나로 「지금 낼 것」을 가리키겠다는 약속과
+    정반대다. 이어지는 세 검사가 그 갈림을 시각 단위로 고정한다.
+  */
+  it('오늘 마감이 이미 지났으면 그 마일스톤 대신 다음 것을 펼친다', async () => {
+    // 지금은 8/5 14시, 첫 마일스톤은 같은 날 09시에 닫혔다 — 달력으로는 오늘
+    // (`dDay: 0`)이지만 낼 수는 없다. 열려야 할 것은 뒤에 남은 8/10 이다.
+    const groups = await renderMilestones(
+      programWith([
+        milestoneOf('milestone-1', '오늘 09시 마감', {
+          dueAt: '2026-08-05T09:00:00+09:00',
+          dDay: 0,
+          deadlineLabel: '오늘 마감',
+        }),
+        milestoneOf('milestone-2', '다음 단계', {
+          dueAt: '2026-08-10T23:59:59+09:00',
+          dDay: 5,
+          deadlineLabel: 'D-5',
+        }),
+      ]),
+    );
+
+    expect(openStates(groups)).toEqual(['false', 'true']);
+  });
+
+  it('오늘 마감이 아직 남았으면 그 마일스톤을 펼친다', async () => {
+    /*
+      위 검사를 「`dDay === 0` 이면 지난 것」으로 고쳐 버리면 **오늘 밤까지 낼 수
+      있는** 마일스톤을 접게 된다 — 같은 배지(「오늘 마감」)를 달고 정반대로
+      갈리는 자리라, 시각을 봐야만 둘이 구분된다.
+    */
+    const groups = await renderMilestones(
+      programWith([
+        milestoneOf('milestone-1', '오늘 자정 마감', {
+          dueAt: '2026-08-05T23:59:59+09:00',
+          dDay: 0,
+          deadlineLabel: '오늘 마감',
+        }),
+        milestoneOf('milestone-2', '다음 단계', {
+          dueAt: '2026-08-10T23:59:59+09:00',
+          dDay: 5,
+          deadlineLabel: 'D-5',
+        }),
+      ]),
+    );
+
+    expect(openStates(groups)).toEqual(['true', 'false']);
+  });
+
+  it('오늘 마감이 전부 지났으면 마지막 마일스톤을 펼친다', async () => {
+    // 「전부 지났으면 마지막 것」 규칙은 그대로다. 달력만 보던 때에는 이 경우가
+    // `dDay >= 0` 에 걸려 **맨 앞**이 열렸다 — 학생을 목록의 처음으로 되돌린다.
+    const groups = await renderMilestones(
+      programWith([
+        milestoneOf('milestone-1', '오전 마감', {
+          dueAt: '2026-08-05T09:00:00+09:00',
+          dDay: 0,
+          deadlineLabel: '오늘 마감',
+        }),
+        milestoneOf('milestone-2', '점심 마감', {
+          dueAt: '2026-08-05T13:00:00+09:00',
+          dDay: 0,
+          deadlineLabel: '오늘 마감',
+        }),
+      ]),
+    );
+
+    expect(openStates(groups)).toEqual(['false', 'true']);
   });
 
   it('접힌 줄에도 이름·마감·상태 배지가 남는다', async () => {

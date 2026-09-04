@@ -400,10 +400,20 @@ function hasSubmissionDetail(
  * 이 화면에 온 사람 거의 모두가 치르는 비용이다. 반대로 다 펼치면 작성자가 지적한
  * 상태 그대로다. 그래서 **지금 차례인 하나만** 연다.
  *
- * 차례는 마감으로 정한다(`dDay >= 0` 인 첫 마일스톤, 전부 지났으면 마지막 것).
+ * 차례는 마감으로 정한다(마감이 아직 지나지 않은 첫 마일스톤, 전부 지났으면 마지막 것).
  * 마감은 역할과 무관하게 모두에게 같은 축이고, 무엇보다 **화면이 이미 배지로 말하고
  * 있는 값**이다 — 「D-10 짜리가 열려 있다」는 화면만 보고 설명이 되지만, 제출
  * 상태로 골랐다면 왜 그것이 열렸는지 배지만으로는 알 수 없다.
+ *
+ * ⚠ 「지났는가」는 `dDay` 가 아니라 `dueAt` 으로 묻는다. `dDay` 는 백엔드가 서울
+ *   기준 **달력 날짜** 차로 계산하므로(`program-deadline.ts` 의 `calendarDayNumber`),
+ *   오늘 09시에 닫힌 마감도 그날이 끝날 때까지 `dDay === 0` 이다. 그 값으로 고르면
+ *   **이미 닫힌 마일스톤을 펼쳐 두고** 정작 다음에 낼 것은 접어 둔다 — 이 화면이
+ *   여는 하나로 「지금 낼 것」을 가리키겠다는 약속과 정반대다.
+ *
+ *   같은 화면이 제출 입력을 잠글 때는 이미 시각까지 보는 `isPastDue(dueAt)` 를
+ *   쓴다(위 `MilestoneGroup` 의 `closed`). 펼칠 대상도 같은 예측자로 골라야
+ *   **열려 있는 마일스톤과 지금 제출할 수 있는 마일스톤이 갈리지 않는다.**
  *
  * 고를 대상은 접히는 마일스톤뿐이다. 접히지 않는 것을 골라 봐야 열 것이 없어,
  * 결과적으로 전부 접힌 화면이 된다.
@@ -413,7 +423,7 @@ function initiallyOpenMilestoneId(program: ProgramDetail): string | null {
     hasSubmissionDetail(milestone, program.viewer.role),
   );
   if (foldable.length === 0) return null;
-  const current = foldable.find((milestone) => milestone.dDay >= 0);
+  const current = foldable.find((milestone) => !isPastDue(milestone.dueAt));
   return (current ?? foldable[foldable.length - 1]).id;
 }
 
