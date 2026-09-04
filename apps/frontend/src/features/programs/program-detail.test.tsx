@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import { ActivityPanelBody } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { ApiError } from '@/lib/api-client';
@@ -700,7 +701,11 @@ describe('MilestoneDocumentSectionBody', () => {
   it('서류가 없으면 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
-        state={{ kind: 'ready', documents: [] }}
+        state={{
+          kind: 'ready',
+          documents: [],
+          fileUpload: milestoneDocumentUploadPolicy(),
+        }}
         viewerRole="STUDENT"
         closed={false}
         conflictNotice={null}
@@ -725,6 +730,7 @@ describe('MilestoneDocumentSectionBody', () => {
               teamSubmissionCount: { submitted: 2, total: 4 },
             }),
           ],
+          fileUpload: milestoneDocumentUploadPolicy(),
         }}
         viewerRole="STAFF"
         closed={false}
@@ -762,6 +768,7 @@ describe('MilestoneDocumentSectionBody', () => {
               },
             }),
           ],
+          fileUpload: milestoneDocumentUploadPolicy(),
         }}
         viewerRole="STUDENT"
         closed={false}
@@ -780,7 +787,11 @@ describe('MilestoneDocumentSectionBody', () => {
   it('미제출 학생에게는 미제출 배지와 올리기 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
-        state={{ kind: 'ready', documents: [buildDocument()] }}
+        state={{
+          kind: 'ready',
+          documents: [buildDocument()],
+          fileUpload: milestoneDocumentUploadPolicy(),
+        }}
         viewerRole="STUDENT"
         closed={false}
         conflictNotice={null}

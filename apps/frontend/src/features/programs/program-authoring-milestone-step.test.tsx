@@ -611,7 +611,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
         type: 'application/pdf',
       }),
     );
-    expect(document.body.textContent).toContain('파일은 5MiB 이하여야 합니다.');
+    expect(document.body.textContent).toContain('파일은 5 MB 이하여야 합니다.');
   });
 
   it('cancelling a new draft removes its requirement file and milestone', async () => {

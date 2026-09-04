@@ -28,6 +28,7 @@ import {
   milestoneDocumentHistoryFor,
   milestoneDocumentParticipantHistoryFor,
   milestoneDocumentSubmissionFor,
+  milestoneDocumentListFor,
   milestoneDocumentsFor,
   reorderedMilestoneDocumentsFor,
   UPLOADED_MILESTONE_DOCUMENT_FILE_FIXTURE,
@@ -228,10 +229,12 @@ const listDocumentsHandler: LocalReviewHandler = (context) => {
     return unauthenticated(context.path);
   }
   const milestoneId = params.milestoneId ?? '';
-  const documents = milestoneDocumentsFor(milestoneId, context.role);
-  return documents === null
+  // 업로드 규칙(`fileUpload`)을 목록과 같은 응답에 싣는다 — 화면은 이 값으로만 파일
+  // 입력을 그리므로 여기서 빠지면 세 화면 모두 「불러오지 못했습니다」로 떨어진다(#1107).
+  const list = milestoneDocumentListFor(milestoneId, context.role);
+  return list === null
     ? notFound(MILESTONE_NOT_FOUND_CODE, context.path)
-    : json(200, documents);
+    : json(200, list);
 };
 
 /**

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
+import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import {
   getMilestoneDocumentParticipantHistory,
   listMilestoneDocuments,
@@ -33,13 +34,16 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe('listMilestoneDocuments', () => {
-  it('milestoneId 경로로 서류 목록을 조회한다', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([document]));
+  it('milestoneId 경로로 서류 목록과 업로드 규칙을 함께 조회한다', async () => {
+    const body = {
+      documents: [document],
+      fileUpload: milestoneDocumentUploadPolicy(),
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(listMilestoneDocuments('milestone-1')).resolves.toEqual([
-      document,
-    ]);
+    // 상한·허용 형식은 화면이 적어 두는 값이 아니라 이 응답이 실어 오는 값이다(#1107).
+    await expect(listMilestoneDocuments('milestone-1')).resolves.toEqual(body);
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('milestones/milestone-1/documents'),
       undefined,

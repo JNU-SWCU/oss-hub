@@ -23,6 +23,7 @@ import type {
 export function MilestoneDocumentSortableList({
   milestoneId,
   documents,
+  fileUpload,
   isBusy,
   deleteTargetId,
   rowError,
@@ -231,6 +232,7 @@ export function MilestoneDocumentSortableList({
             >
               <MilestoneDocumentRow
                 document={document}
+                fileUpload={fileUpload}
                 isBusy={rowBusy || drag !== null}
                 deleteRequested={deleteTargetId === document.id}
                 deleteDisabled={documents.length === 1}

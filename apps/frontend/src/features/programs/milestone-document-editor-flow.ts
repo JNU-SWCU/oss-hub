@@ -1,4 +1,4 @@
-import { ApiError } from '@/lib/api-client';
+import { ApiError, isUnexpectedApiProblem } from '@/lib/api-client';
 import type {
   MilestoneDocument,
   UpsertMilestoneDocumentInput,
@@ -227,10 +227,19 @@ export function planMilestoneDocumentOrder(
   return documentIds;
 }
 
-/** 실패 문구는 서버가 준 detail을 그대로 보여 주고, 없으면 화면 기본 문구로 떨어진다. */
+/**
+ * 실패 문구는 서버가 준 detail을 그대로 보여 주고, 없으면 화면 기본 문구로 떨어진다.
+ *
+ * ⚠ ProblemDetail이 아닌 응답(`API_000`)의 `detail`은 서버가 한 말이 아니라 api-client가
+ *   지어낸 일반 문장이다. 그것을 그대로 붙이면 교직원은 무엇을 하다 실패했는지 알 수 없다 —
+ *   이 자리에 개발자용 문장이 붙었던 것이 #1107의 발단이다.
+ */
 export function milestoneDocumentErrorMessage(
   error: unknown,
   fallback: string,
 ): string {
-  return error instanceof ApiError ? error.problem.detail : fallback;
+  if (!(error instanceof ApiError) || isUnexpectedApiProblem(error)) {
+    return fallback;
+  }
+  return error.problem.detail;
 }

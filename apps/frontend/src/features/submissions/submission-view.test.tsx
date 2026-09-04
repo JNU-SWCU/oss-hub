@@ -83,7 +83,7 @@ describe('SubmissionFormView', () => {
     expect(html).toContain('type="file"');
     expect(html).toContain('aria-required="true"');
     expect(html).not.toContain('type="file" required=""');
-    expect(html).toContain('PDF, HWP, JPG, PNG, ZIP · 최대 5MB');
+    expect(html).toContain('PDF, HWP, JPG, PNG, ZIP · 최대 5 MB');
     expect(html).toContain('1. 파일 선택');
     expect(html).toContain('2. 선택 확인');
     expect(html).toContain('3. 제출');

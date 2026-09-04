@@ -261,7 +261,7 @@ describe('program authoring validation', () => {
           type: 'application/pdf',
         }),
       ),
-    ).toBe('파일은 5MiB 이하여야 합니다.');
+    ).toBe('파일은 5 MB 이하여야 합니다.');
   });
 });
 

@@ -62,10 +62,13 @@ describe('GET .../documents', () => {
   it('clean list DTO does not leak the fixture-only content discriminator', () => {
     const body = jsonBody(
       resolve('GET', `milestones/${MILESTONE_ID}/documents`),
-    ) as readonly MilestoneDocument[];
+    ) as {
+      readonly documents: readonly MilestoneDocument[];
+      readonly fileUpload: Record<string, unknown>;
+    };
 
-    expect(body).toHaveLength(4);
-    for (const document of body) {
+    expect(body.documents).toHaveLength(4);
+    for (const document of body.documents) {
       expect(Object.hasOwn(document, 'submissionType')).toBe(false);
       expect(document).toMatchObject({
         id: expect.any(String),
@@ -74,6 +77,23 @@ describe('GET .../documents', () => {
         sortOrder: expect.any(Number),
       });
     }
+  });
+
+  /*
+   * 화면은 상한·허용 형식의 사본을 들지 않고 이 응답만 읽는다(#1107). 여기서 빠지면
+   * local-review 로 여는 세 화면이 모두 「제출 항목을 불러오지 못했습니다」로 떨어진다.
+   */
+  it('carries the upload policy the three upload screens read', () => {
+    const body = jsonBody(
+      resolve('GET', `milestones/${MILESTONE_ID}/documents`),
+    ) as { readonly fileUpload: Record<string, unknown> };
+
+    expect(body.fileUpload).toEqual({
+      maxBytes: 5 * 1024 * 1024,
+      maxLabel: '5 MB',
+      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+    });
   });
 });
 

@@ -1,7 +1,9 @@
 import type {
   MilestoneDocument,
+  MilestoneDocumentList,
   MilestoneDocumentSubmission,
   MilestoneDocumentTeamSubmissionCount,
+  MilestoneDocumentUploadPolicy,
   MilestoneDocumentViewerSubmission,
   UploadedMilestoneDocumentFile,
   UploadedMilestoneDocumentTemplate,
@@ -37,6 +39,26 @@ import {
  * 서류 개수는 program-overview-fixtures.ts의 `studentDocumentsCompleted/Total`과도
  * 맞춰 둔다(캡스톤 2/3, 경진대회 1/2, 기초 스터디 0/2).
  */
+/**
+ * 목록 응답이 함께 싣는 업로드 규칙. backend `submission-upload-policy.ts`가 실제로
+ * 내려주는 값과 같다 — 여기가 갈라지면 local-review 화면만 다른 상한을 약속한다.
+ */
+const UPLOAD_POLICY: MilestoneDocumentUploadPolicy = {
+  maxBytes: 5 * 1024 * 1024,
+  maxLabel: '5 MB',
+  accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+  formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+};
+
+/** 목록 응답 봉투 — 항목 배열과 업로드 규칙 한 벌. */
+export function milestoneDocumentListFor(
+  milestoneId: string,
+  role: 'STUDENT' | 'STAFF' | 'ADMIN',
+): MilestoneDocumentList | null {
+  const documents = milestoneDocumentsFor(milestoneId, role);
+  return documents === null ? null : { documents, fileUpload: UPLOAD_POLICY };
+}
+
 interface MilestoneDocumentSeed {
   readonly id: string;
   readonly milestoneId: string;

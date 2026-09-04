@@ -37,6 +37,7 @@ import {
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
 } from '../program-authoring-upload.types';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../../submissions/submission-upload-policy';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -51,7 +52,9 @@ export class ProgramAuthoringController {
   @Post('uploads')
   @UseGuards(SessionGuard, OriginGuard)
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+    FileInterceptor('file', {
+      limits: { fileSize: SUBMISSION_UPLOAD_MAX_BYTES },
+    }),
   )
   async upload(
     @Req() request: SessionIdentity,

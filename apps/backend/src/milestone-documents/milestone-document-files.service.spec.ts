@@ -1,6 +1,9 @@
 import { Readable } from 'node:stream';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './milestone-documents-error-code.enum';
 import {
   MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
@@ -12,6 +15,7 @@ import {
   type SubmissionFilesRepository,
 } from '../submissions/submission-files.repository';
 import { signatureValidZip } from '../submissions/submission-zip-test-builder';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 /**
@@ -142,6 +146,44 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD },
     });
+  });
+
+  /*
+   * #1107 — 5 MiB를 넘고 nginx 천장(6 MB) 이하인 파일은 여기까지 온다. 그때 학생이 읽는
+   * 문구가 「파일 크기가 너무 큽니다.」였는데, 상한 숫자가 없어 얼마나 줄여야 하는지 알 수
+   * 없었다. 화면이 파일을 고르기 전에 보여 주는 문장과 같은 문장이어야 한다.
+   */
+  it('상한을 넘으면 FILE_TOO_LARGE로 거부하고 문구에 상한을 적는다', async () => {
+    // Given: 선언 크기만 상한을 넘는다(실제 버퍼를 5 MiB로 만들지 않는다).
+    const service = new MilestoneDocumentFilesService(
+      buildRepository().repository,
+      buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
+    );
+    const tooLarge: MilestoneDocumentFileUpload = {
+      ...pdfFile,
+      size: SUBMISSION_UPLOAD_MAX_BYTES + 1,
+    };
+
+    // When / Then
+    await expect(
+      service.upload(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        tooLarge,
+        UPLOAD_NOW,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.FILE_TOO_LARGE },
+    });
+    expect(
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.FILE_TOO_LARGE
+      ].message,
+    ).toBe(
+      `파일은 ${SUBMISSION_UPLOAD_MAX_BYTES / 1024 / 1024} MB 이하여야 합니다.`,
+    );
   });
 
   it('milestoneId/documentId가 opaque id 형태가 아니면 INVALID_FILE_UPLOAD로 거부한다', async () => {

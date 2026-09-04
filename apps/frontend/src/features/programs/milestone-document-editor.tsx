@@ -11,7 +11,9 @@ import {
   updateMilestoneDocument,
   uploadMilestoneDocumentTemplate,
   type MilestoneDocument,
+  type MilestoneDocumentUploadPolicy,
 } from './milestone-document-api';
+import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import {
   buildMilestoneDocumentInput,
   emptyMilestoneDocumentForm,
@@ -36,6 +38,8 @@ export type MilestoneDocumentEditorState =
   | {
       readonly kind: 'ready';
       readonly documents: readonly MilestoneDocument[];
+      /** 상한·허용 형식. 목록과 같은 응답으로 온다 — 화면은 사본을 만들지 않는다(#1107). */
+      readonly fileUpload: MilestoneDocumentUploadPolicy;
     };
 
 const LOAD_FAILED_MESSAGE = '제출 항목을 불러오지 못했습니다.';
@@ -182,6 +186,7 @@ export function MilestoneDocumentEditorBody({
                 <MilestoneDocumentSortableList
                   milestoneId={milestoneId}
                   documents={documents}
+                  fileUpload={state.fileUpload}
                   isBusy={isBusy}
                   deleteTargetId={deleteTargetId}
                   rowError={rowError}
@@ -239,14 +244,27 @@ export function MilestoneDocumentEditorSection({
    * 올린다. 조회끼리만 막으면 변경 도중에 나간 조회가 그 변경을 덮어 버린다.
    */
   const requestIdRef = useRef(0);
+  /**
+   * 마지막으로 서버가 준 업로드 규칙. 변경 뒤 목록을 다시 그리는 자리(`applyDocuments`)는
+   * 목록만 받으므로 규칙을 여기서 다시 꺼낸다 — 화면이 자기 기본값을 지어내면 서버가
+   * 거절하는 상한과 화면이 약속하는 상한이 갈라진다(#1107).
+   */
+  const fileUploadRef = useRef<MilestoneDocumentUploadPolicy | null>(null);
 
   const load = useCallback(async () => {
     const requestId = (requestIdRef.current += 1);
     setState({ kind: 'loading' });
     try {
-      const documents = await listMilestoneDocuments(milestoneId);
+      const { documents, fileUpload } = requireMilestoneDocumentList(
+        await listMilestoneDocuments(milestoneId),
+      );
       if (requestId !== requestIdRef.current) return;
-      setState({ kind: 'ready', documents: sortMilestoneDocuments(documents) });
+      fileUploadRef.current = fileUpload;
+      setState({
+        kind: 'ready',
+        documents: sortMilestoneDocuments(documents),
+        fileUpload,
+      });
     } catch {
       // 실패도 똑같이 막는다 — 늦게 온 옛 실패가 최신 성공을 오류 화면으로 덮으면
       // 교직원은 멀쩡히 있는 서류 목록을 「불러오지 못했습니다」로 본다.
@@ -263,7 +281,10 @@ export function MilestoneDocumentEditorSection({
   const documents = state.kind === 'ready' ? state.documents : [];
 
   const applyDocuments = (next: readonly MilestoneDocument[]) => {
-    setState({ kind: 'ready', documents: next });
+    const fileUpload = fileUploadRef.current;
+    // 규칙 없이 행을 그리지 않는다. 변경은 성공한 조회 뒤에만 일어나므로 실제로는 항상 있다.
+    if (fileUpload === null) return;
+    setState({ kind: 'ready', documents: next, fileUpload });
   };
 
   /**
@@ -284,9 +305,13 @@ export function MilestoneDocumentEditorSection({
     // 방금 무효로 만든 조회가 켜 둔 「불러오는 중…」은 여기서 끈다 — 그 답을 받지 않기로
     // 했으므로 그대로 두면 패널이 영영 「불러오는 중…」에 멈춘다. 성공 경로는 이미
     // `applyDocuments`로 목록을 써 뒀으므로 이 되돌림은 실패 경로에만 걸린다.
-    setState((current) =>
-      current.kind === 'loading' ? { kind: 'ready', documents } : current,
-    );
+    setState((current) => {
+      if (current.kind !== 'loading') return current;
+      const fileUpload = fileUploadRef.current;
+      return fileUpload === null
+        ? current
+        : { kind: 'ready', documents, fileUpload };
+    });
   };
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {

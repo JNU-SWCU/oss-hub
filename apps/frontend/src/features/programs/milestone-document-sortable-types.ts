@@ -1,4 +1,7 @@
-import type { MilestoneDocument } from './milestone-document-api';
+import type {
+  MilestoneDocument,
+  MilestoneDocumentUploadPolicy,
+} from './milestone-document-api';
 import type { MilestoneDocumentDropZone } from './milestone-document-pointer';
 
 export interface MilestoneDocumentDragPosition {
@@ -11,6 +14,7 @@ export interface MilestoneDocumentDragPosition {
 export interface MilestoneDocumentSortableListProps {
   readonly milestoneId: string;
   readonly documents: readonly MilestoneDocument[];
+  readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly isBusy: boolean;
   readonly deleteTargetId: string | null;
   readonly rowError: {

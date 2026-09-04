@@ -87,6 +87,30 @@ export interface UploadedMilestoneDocumentTemplate {
   readonly uploadedAt: string;
 }
 
+/**
+ * 화면이 파일을 **고르기 전에** 읽는 업로드 규칙. 서버가 목록 응답에 함께 실어 준다.
+ *
+ * ⚠ 화면은 이 값의 사본을 만들지 않는다. 상한 숫자가 화면 여러 곳에 흩어져 있다가 표기가
+ *   갈라진 것이 이 티켓(#1107)의 원인이다 — 서버가 거절하는 상한과 화면이 약속하는 상한은
+ *   같은 값에서 나와야 한다.
+ */
+export interface MilestoneDocumentUploadPolicy {
+  /** 실제로 거절이 갈리는 경계(바이트). */
+  readonly maxBytes: number;
+  /** 사람에게 보여 줄 표기. 「5 MB」 */
+  readonly maxLabel: string;
+  /** `<input type="file" accept>`에 그대로 넣는 값. */
+  readonly accept: string;
+  /** 「PDF, HWP, JPG, PNG, ZIP」 */
+  readonly formatLabel: string;
+}
+
+/** `GET /milestones/:milestoneId/documents` 응답 — 항목 배열과 업로드 규칙 한 벌. */
+export interface MilestoneDocumentList {
+  readonly documents: readonly MilestoneDocument[];
+  readonly fileUpload: MilestoneDocumentUploadPolicy;
+}
+
 export interface MilestoneDocumentSubmission {
   readonly id: string;
   readonly status: string;
@@ -104,8 +128,8 @@ function documentsPath(milestoneId: string): string {
 
 export function listMilestoneDocuments(
   milestoneId: string,
-): Promise<readonly MilestoneDocument[]> {
-  return apiClient<readonly MilestoneDocument[]>(documentsPath(milestoneId));
+): Promise<MilestoneDocumentList> {
+  return apiClient<MilestoneDocumentList>(documentsPath(milestoneId));
 }
 
 /** 학생 — 본인 제출 이력의 최신 cursor 페이지. 이전 페이지는 `cursor`로 이어 읽는다. */

@@ -32,6 +32,7 @@ import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milest
 import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentHistoryQueryRequestDto } from './dto/milestone-document-history-query.dto';
+import { MilestoneDocumentListResponseDto } from './dto/milestone-document-list-response.dto';
 import type { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
@@ -60,6 +61,7 @@ import {
   type MilestoneDocumentsStaffRequest,
 } from './milestone-documents-staff.guard';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -71,7 +73,7 @@ const archiveLogger = new Logger('MilestoneDocumentArchive');
 
 const MilestoneDocumentFileUploadOptions = {
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
     fieldNameSize: 100,
     fieldSize: 512,
     fields: 4,
@@ -130,14 +132,21 @@ export class MilestoneDocumentsController {
     private readonly archiveService: MilestoneDocumentArchiveService,
   ) {}
 
+  /**
+   * 서류 항목 목록. 업로드 규칙(`fileUpload`)을 **같은 응답에** 함께 싣는다 — 학생 제출,
+   * 교직원 양식 올리기, 마일스톤 편집 세 화면이 모두 이 응답으로 그려지므로, 여기 실어
+   * 두면 화면이 상한·허용 형식의 사본을 들 이유가 사라진다(#1107).
+   */
   @Get()
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard)
-  list(
+  async list(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
-  ): Promise<MilestoneDocumentResponseDto[]> {
-    return this.service.listForViewer(request.sessionGithubId, milestoneId);
+  ): Promise<MilestoneDocumentListResponseDto> {
+    return MilestoneDocumentListResponseDto.from(
+      await this.service.listForViewer(request.sessionGithubId, milestoneId),
+    );
   }
 
   /** 교직원 서류 수합 표. `collection`은 고정 세그먼트라 `:documentId` 경로들과 겹치지 않는다. */
