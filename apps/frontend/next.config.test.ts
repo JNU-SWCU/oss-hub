@@ -214,8 +214,8 @@ describe('production Vercel origin authentication', () => {
   });
 });
 
-describe('Vercel API origin-auth route', () => {
-  it('browser authorization을 제거한 뒤 허용된 runtime secret으로 대체한다', () => {
+describe('Vercel production config', () => {
+  it('Git 자동배포를 끄고 browser authorization을 허용된 runtime secret으로 대체한다', () => {
     const vercelConfig = JSON.parse(
       readFileSync(join(__dirname, 'vercel.json'), 'utf8'),
     );
@@ -225,6 +225,7 @@ describe('Vercel API origin-auth route', () => {
       // SSR function은 사용자·backend와 같은 Seoul(icn1)에서 실행한다 — 기본값 iad1은
       // 매 SSR 렌더마다 태평양 왕복을 만든다(#1169 실측 icn1::iad1).
       regions: ['icn1'],
+      git: { deploymentEnabled: false },
       routes: [
         {
           src: '/api/v1(?:/(.*))?',

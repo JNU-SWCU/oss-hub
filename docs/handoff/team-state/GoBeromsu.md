@@ -1274,3 +1274,13 @@
 - 결과: main 병합 충돌은 `docs/design.md`의 마일스톤 수정 레이어 절만 남겼다. Codex P1에 맞춰 새 테스트 fixture의 `category`·`categoryLocked`를 `trackType`으로 바꿨다. P2 포커스 복귀는 merge blocker가 아니라 후속으로 둔다.
 - 검증: fixture를 현재 `EditableProgram` 계약에 맞춤.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-04 — frontend Git 자동배포를 끄고 Release만 배포한다
+
+- 상태: review
+- Issue: [#1172](https://github.com/JNU-SWCU/oss-hub/issues/1172)
+- PR: (이 PR)
+- blocker: 병합 전 owner가 Vercel Production·Preview auto-deploy와 unused deploy hook을 끄고 `VERCEL_*` repository secret 존재를 확인해야 한다. 값은 저장소에 적지 않는다.
+- 결과: `apps/frontend/vercel.json`에 `git.deploymentEnabled: false`를 추가해 Git push/PR 자동배포를 저장소 계약으로 금지했다. origin-auth `routes`와 `regions`는 유지했다. ADR-002 Decision·Costs·New constraints·Changelog와 `local-dev.md`에 로컬 `VERCEL_*` 금지를 기록했다. required check·Jenkins·`frontend-release-deploy` 본문은 건드리지 않았다.
+- 검증: `pnpm --filter frontend exec vitest run next.config.test.ts` 23 passed, 대상 4파일 `prettier --check` 통과, `bash scripts/check-public-safe.sh` 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 자격증명은 이름만 기록했다.
