@@ -583,6 +583,37 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(getButton('다시 게시하기')).toBeTruthy();
   });
 
+  // #1181 — 이 확인창은 실제로 일어나는 일만 말해야 한다. 내리기(ARCHIVED)는
+  // 공개 목록에서 프로그램을 지우지 않는다: backend `program-list-status-filter.ts`
+  // 의 공개 모수가 `PUBLISHED | ARCHIVED` 라 목록에 남고, 상세도
+  // `programs.service.ts` 가 lifecycle 로 막지 않아 그대로 열린다. 예전 문구는
+  // 「공개 목록에서 사라지고」라고 약속해 교직원이 아무도 못 본다고 믿게 했다.
+  // 문구가 다시 그 약속으로 흘러가면 이 테스트가 잡는다.
+  it('내리기 확인창은 목록에서 사라진다고 약속하지 않고 목록·상세가 열린다고 알린다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await act(async () => {
+      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('프로그램 내리기').click();
+    });
+
+    const dialogText =
+      document.querySelector('[role="alertdialog"]')?.textContent ?? '';
+    expect(dialogText).toContain(
+      '신규 신청이 곧바로 멈춥니다. 다만 공개 목록에서 사라지지는 않습니다 — 목록과 상세는 그대로 열립니다. 이미 접수된 신청과 팀·제출 데이터는 그대로 남으며 언제든 다시 게시할 수 있습니다.',
+    );
+    // 지키지 못하는 약속 — 어떤 표현으로도 다시 들어오면 안 된다.
+    expect(dialogText).not.toContain('공개 목록에서 사라지고');
+    expect(dialogText).not.toContain('목록에서 사라집니다');
+    expect(dialogText).not.toContain('공개 목록에 보이지 않');
+  });
+
   // 리뷰에서 발견된 블로커 — confirmLifecycleToggle이 성공 후 load()를 불렀다.
   // load()는 즉시 setState({kind:'loading'})·setForm(null)을 하므로 그 순간
   // 렌더 가드가 화면 전체를 스켈레톤으로 갈아치우고, 다시 불러온 서버 값으로

@@ -539,6 +539,13 @@ describe('ProgramEditView contract', () => {
 
     expect(html).toContain('다시 게시하기');
     expect(html).not.toContain('프로그램 복구하기');
+    // #1181 — 내려간 상태 설명도 실제 동작만 말한다. 내린 프로그램은 공개 목록에
+    // 남는다(backend 공개 모수 = PUBLISHED | ARCHIVED). 신청이 있는 학생은
+    // 「종료」가 아니라 지원 상태 배지를 볼 수 있어 그 말은 약속하지 않는다.
+    expect(html).toContain(
+      '현재 프로그램이 내려가 있어 신규 신청을 받지 않습니다. 공개 목록과 상세는 그대로 열립니다. 기존 신청과 제출 데이터는 그대로 남아 있습니다.',
+    );
+    expect(html).not.toContain('공개 목록에 보이지 않');
   });
 
   // isLifecycleConfirming=true일 때 크래시 없이 섹션이 그려지는지만 여기서 본다.

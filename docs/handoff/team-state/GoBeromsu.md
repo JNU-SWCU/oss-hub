@@ -1284,3 +1284,12 @@
 - 결과: `apps/frontend/vercel.json`에 `git.deploymentEnabled: false`를 추가해 Git push/PR 자동배포를 저장소 계약으로 금지했다. origin-auth `routes`와 `regions`는 유지했다. ADR-002 Decision·Costs·New constraints·Changelog와 `local-dev.md`에 로컬 `VERCEL_*` 금지를 기록했다. required check·Jenkins·`frontend-release-deploy` 본문은 건드리지 않았다.
 - 검증: `pnpm --filter frontend exec vitest run next.config.test.ts` 23 passed, 대상 4파일 `prettier --check` 통과, `bash scripts/check-public-safe.sh` 통과.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음. 자격증명은 이름만 기록했다.
+## 2026-09-04 — #1181 내리기 문구를 main에 맞추고 「종료」 약속을 뺀다
+
+- 상태: review
+- Issue: [#1181](https://github.com/JNU-SWCU/oss-hub/issues/1181)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1187
+- blocker: 없음
+- 결과: `origin/main` 위로 rebase했다. Codex P2에 맞춰 확인창·내린 뒤 설명이 「종료」 배지를 약속하지 않게 했다. 신청이 있는 학생 카드는 `getProgramListBadge`가 지원 상태를 앞에 두므로, 문구는 목록과 상세가 열린다는 사실만 말한다.
+- 검증: `program-edit-page.test.tsx` · `program-edit-view.test.tsx` 문구 고정.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
