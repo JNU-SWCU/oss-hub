@@ -44,7 +44,7 @@ interface ApplicationTemplateListApiResponse {
 function mapParticipation(
   value: ApplicationTemplateApiItem['participation'],
 ): ProgramParticipation {
-  if (value === 'INDIVIDUAL' || value === 'individual') return 'individual';
+  void value;
   return 'team';
 }
 
@@ -289,7 +289,7 @@ export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
  */
 export interface CreateApplicationInput {
   readonly answers: {
-    readonly title: string;
+    readonly title?: string;
     readonly summary: string;
   };
   readonly applicationTemplateVersion: number;
@@ -375,6 +375,12 @@ export function getMyTeam(programId: string): Promise<ProgramTeam> {
   return apiClient<ProgramTeam>(
     `programs/${encodeURIComponent(programId)}/teams/me`,
   );
+}
+
+export function leaveMyTeam(programId: string): Promise<void> {
+  return apiClient<void>(`programs/${encodeURIComponent(programId)}/teams/me`, {
+    method: 'DELETE',
+  });
 }
 
 export function createTeam(

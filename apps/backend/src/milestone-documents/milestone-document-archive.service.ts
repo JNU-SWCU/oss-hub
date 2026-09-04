@@ -53,6 +53,32 @@ export type MilestoneDocumentArchiveScope =
     }
   | { readonly kind: 'DOCUMENT'; readonly documentId: string };
 
+/**
+ * 압축 도중 항목 하나를 못 읽었다 — **어느 항목이었는지**를 함께 지고 올라가는 오류.
+ *
+ * 스토리지가 돌려주는 오류는 자기 코드(`SUBMISSION_FILE_STORAGE_GET_FAILED`)만 담고 어느
+ * 객체였는지는 담지 않는다. 그런데 헤더가 이미 나간 뒤의 실패는 응답으로 아무것도 전할 수
+ * 없어 **서버 로그 한 줄이 유일한 근거**이고, 그 줄을 남기는 곳은 스트림 저 끝의 컨트롤러다.
+ * 스트림 위에서 값을 건네는 길은 오류에 실어 보내는 것뿐이라 여기서 감싼다.
+ *
+ * ⚠ 싣는 값은 **`storageKey` 하나**다. ZIP 안 경로(`entry.path`)는 팀 이름·서류 이름·학생이
+ * 올린 원본 파일명으로 만들어져 로그에 남기면 팀과 개인을 식별하는 기록이 된다. 스토리지
+ * 열쇠는 `submission-files/<uuid>`(`createSubmissionFileObjectKey`)라 그 자체로는 누구의
+ * 것인지 말하지 않으면서 실패한 객체 하나를 정확히 지목한다.
+ *
+ * 원래 오류의 메시지는 그대로 물려받는다 — 실패 원인의 단서가 그것뿐이다.
+ */
+export class MilestoneDocumentArchiveEntryError extends Error {
+  override readonly name = 'MilestoneDocumentArchiveEntryError';
+
+  constructor(
+    readonly storageKey: string,
+    cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+  }
+}
+
 export interface MilestoneDocumentArchive {
   readonly body: Readable;
   readonly fileName: string;
@@ -235,8 +261,14 @@ export class MilestoneDocumentArchiveService {
                * (실측으로 후자를 확인했다 — 20초 넘게 아무것도 끝나지 않았다.)
                */
               body.once('error', (error: unknown) => {
+                // 끊는 방식은 그대로 두고 **어느 항목이었는지만** 실어 보낸다. 이 오류는
+                // 스토리지 어댑터를 거치지 않아 코드 문자열조차 없어서, 항목을 여기서
+                // 붙이지 않으면 컨트롤러의 실패 한 줄에 남는 단서가 아무것도 없다.
                 output.destroy(
-                  error instanceof Error ? error : new Error(String(error)),
+                  new MilestoneDocumentArchiveEntryError(
+                    entry.storageKey,
+                    error,
+                  ),
                 );
               });
               activeBody = body;
@@ -245,7 +277,13 @@ export class MilestoneDocumentArchiveService {
               });
               openStream(null, body);
             },
-            (error: unknown) => openStream(error, undefined as never),
+            // 여는 데 실패한 경우도 같다 — `SUBMISSION_FILE_STORAGE_GET_FAILED`만으로는
+            // 어느 객체를 못 읽었는지 알 수 없다.
+            (error: unknown) =>
+              openStream(
+                new MilestoneDocumentArchiveEntryError(entry.storageKey, error),
+                undefined as never,
+              ),
           );
         },
       );

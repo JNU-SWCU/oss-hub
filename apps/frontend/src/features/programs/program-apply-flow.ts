@@ -61,7 +61,7 @@ export type RepositoryConnectionMode =
   (typeof REPOSITORY_CONNECTION_MODES)[number];
 
 export type ProgramApplyFormValues = {
-  readonly title: string;
+  readonly title?: string;
   readonly summary: string;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
@@ -77,7 +77,6 @@ export type ProgramApplyFormErrors = {
 };
 
 export const EMPTY_APPLY_FORM: ProgramApplyFormValues = {
-  title: '',
   summary: '',
   isRepositoryPublicationPlanned: true,
   repositoryConnectionMode: 'new',
@@ -96,14 +95,12 @@ export function isApplicationPeriodOpen(
 
 export function resolveApplyBlockedReason(
   program: ProgramDetail,
-  template: ApplicationFormTemplate,
-  teamId: string | null,
+  _template: ApplicationFormTemplate,
+  _teamId: string | null,
   now: number = Date.now(),
 ): ProgramApplyBlockedReason | null {
   if (!isApplicationPeriodOpen(program, now)) return 'period-closed';
   if (program.viewer.applicationStatus !== null) return 'already-applied';
-  if (template.participation === 'team' && teamId === null)
-    return 'team-required';
   return null;
 }
 
@@ -118,18 +115,12 @@ export function validateApplyForm(
   repositoryProvisioningEnabled = true,
 ): ProgramApplyFormErrors {
   return {
-    ...(!values.title.trim() ? { title: '제목을 입력해 주세요.' } : {}),
     ...(!values.summary.trim() ? { summary: '요약을 입력해 주세요.' } : {}),
     /*
      * 입력칸의 `maxLength` 는 **새로 치는 글자**만 막는다 — 상한이 생기기 전에 저장된
      * 긴 신청서를 수정 화면에 불러오면 그 값은 그대로 남아, 손대지 않고 저장해도 400 이 난다.
      * 그때 무엇을 줄여야 하는지 여기서 말해 준다.
      */
-    ...(values.title.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.title
-      ? {
-          title: `제목은 ${APPLICATION_ANSWER_MAX_LENGTHS.title.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
-        }
-      : {}),
     ...(values.summary.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.summary
       ? {
           summary: `요약은 ${APPLICATION_ANSWER_MAX_LENGTHS.summary.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
@@ -183,13 +174,8 @@ export function applyActionFailureMessage(action: ProgramApplyAction): string {
 export function mapApplyProblemFieldErrors(
   fieldErrors: readonly ProblemDetailFieldError[] | undefined,
 ): ProgramApplyFormErrors {
-  const errors: {
-    title?: string;
-    summary?: string;
-    repositoryUrl?: string;
-  } = {};
+  const errors: { summary?: string; repositoryUrl?: string } = {};
   for (const fieldError of fieldErrors ?? []) {
-    if (fieldError.field === 'title') errors.title = fieldError.message;
     if (fieldError.field === 'summary') errors.summary = fieldError.message;
     if (fieldError.field === 'repositoryUrl')
       errors.repositoryUrl = fieldError.message;
@@ -242,7 +228,7 @@ export function mapCreateApplicationError(
     case 'APP_024':
       // 칸별 안내는 `mapApplyProblemFieldErrors` 가 그 칸으로 옮긴다.
       // 여기 문구는 칸을 하나도 못 옮겼을 때의 마지막 안전망이다.
-      return '신청 항목이 너무 깁니다. 제목과 요약 길이를 줄여 주세요.';
+      return '신청 항목이 너무 깁니다. 요약 길이를 줄여 주세요.';
     case 'APP_016':
       return '신청 양식이 갱신되었습니다. 페이지를 새로고침해 주세요.';
     case 'APP_008':
