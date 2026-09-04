@@ -64,11 +64,22 @@ export interface BoardDetailContentProps {
   readonly onDeleteComment: (commentId: string) => void;
 }
 
+/**
+ * 본문은 붙여넣은 저장소 주소·해시처럼 공백이 하나도 없는 문자열을 그대로 받는다.
+ * `whitespace-pre-wrap`은 작성자가 넣은 줄바꿈을 살릴 뿐 그런 문자열을 대신 접어 주지는
+ * 않아서, 넘친 부분을 카드(`card.tsx`의 `overflow-hidden`)가 잘라 냈다 — 가로 스크롤도
+ * 생기지 않으니 뒷부분을 볼 방법이 아예 없었다.
+ *
+ * 그래서 신청 상세(`program-application-detail-page.tsx`)와 같은
+ * `[overflow-wrap:anywhere]`를 건다. 그쪽이 함께 쓰는 `break-keep`은 여기서 빼 둔다 —
+ * 그건 넘치지 않는 한글의 줄바꿈 자리까지 옮기는데, 이 화면은 지금 줄바꿈 모양을 그대로
+ * 둔 채 잘림만 없애는 것이 목표다. 아카이브 상세의 `break-all`도 같은 이유로 안 쓴다.
+ */
 function PostBody({ post }: { readonly post: BoardPostDetail }) {
   return (
     <Card>
       <CardContent className="pt-6">
-        <p className="max-w-[70ch] whitespace-pre-wrap text-sm leading-7 text-foreground">
+        <p className="max-w-[70ch] whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
           {post.body}
         </p>
       </CardContent>
@@ -285,7 +296,8 @@ export function BoardDetailContent({
                     >
                       {boardCommentAuthorRoleLabel(comment.authorRole)}
                     </StatusBadge>
-                    <span className="min-w-0 flex-1 leading-6 text-foreground">
+                    {/* 본문과 같은 이유로 접는다 — `PostBody` 주석 참고. */}
+                    <span className="min-w-0 flex-1 leading-6 text-foreground [overflow-wrap:anywhere]">
                       {comment.body}
                     </span>
                     <span className="tabular-nums text-xs text-muted-foreground">
