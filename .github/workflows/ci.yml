@@ -68,6 +68,7 @@ jobs:
               - 'scripts/check-member-authority-contract.sh'
               - 'scripts/rehearse-member-authority-migrations*'
               - 'scripts/rehearse-member-authority-contract*'
+              - 'scripts/rehearse-legacy-submission-migrations*'
               - 'scripts/check-member-authority-production*'
               - 'scripts/member-authority-production-report.mjs'
               - 'scripts/member-authority-jenkins-contract.test.mjs'
@@ -277,7 +278,7 @@ jobs:
 
       - name: Prisma migration contract unit tests
         if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/member-authority-contract-contract.test.mjs scripts/prisma-migration-ledger.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/check-jenkinsfile.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
+        run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/rehearse-legacy-submission-migrations.test.mjs scripts/member-authority-contract-contract.test.mjs scripts/prisma-migration-ledger.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/check-jenkinsfile.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
 
       # 위 단계는 검사기가 합성 문자열에 대해 올바른지만 본다. 이 단계는 그 검사기를
       # **저장소의 실제 파일**(스키마·contract 마이그레이션·추적 중인 생산 TS)에 돌린다.

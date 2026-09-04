@@ -69,9 +69,15 @@ export class MilestoneDocumentsService {
     const viewer = await this.repository.findActiveUser(sessionGithubId);
 
     if (viewer?.hasStaffAccess === true || viewer?.hasAdminAccess === true) {
+      // 배지는 「이 프로그램의 승인된 신청」 하나를 모집단으로 앞뒤 수를 센다 — 앞 수는 그중
+      // 이 서류를 낸 신청 수, 뒤 수는 승인된 신청 수다. 두 조회가 같은 programId를 받는 것이
+      // 그 계약이며, 서류 수합 표 합계 행도 같은 모집단을 센다(#1100).
       const [total, submittedByDocument] = await Promise.all([
         this.repository.countApprovedApplications(milestone.programId),
-        this.repository.countSubmissionsByDocument(documentIds),
+        this.repository.countSubmissionsByDocument(
+          milestone.programId,
+          documentIds,
+        ),
       ]);
       return documents.map((document) =>
         MilestoneDocumentResponseDto.from(document, {
