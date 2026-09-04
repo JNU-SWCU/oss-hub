@@ -10,6 +10,7 @@ import {
   StatusBadge,
 } from '@/components';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
@@ -27,6 +28,8 @@ import {
   PROGRAM_LIST_STATUS_LABELS,
   type ProgramDetail,
   type ProgramListItem,
+  type ProgramMilestone,
+  type ViewerRole,
 } from './types';
 
 export { ProgramFactBar };
@@ -290,38 +293,138 @@ export function ProgramDetailFailureState({
  * 경계는 머리줄의 옅은 바탕(`milestone-row` 의 `bg-muted/60`)이 대신 진다.
  * 이 목록에서 **가로선 하나 = 새 마일스톤**이다. 색을 새로 만들지 않고 간격·선·
  * 묶음만 쓴다.
+ *
+ * 그 선을 그어 놓고 보니 작성자가 다시 말했다 — 경계는 보이는데 **세부가 한눈에
+ * 안 들어온다**. 마일스톤 하나가 제출 항목·판정 사유·제출 이력까지 달고 500px 을
+ * 넘게 차지해, 세 개짜리 목록이 화면 두 개 반이 됐다. 그래서 이 묶음은 이제
+ * **접힌다**: 머리줄만 서 있고, 누르면 그 아래로 제출 항목이 열린다. 접힌 상태
+ * 에서도 이 묶음이 곧 `article` 이라 선과 순번은 그대로 남는다.
  */
 function MilestoneGroup({
   program,
   milestone,
   position,
+  defaultOpen,
 }: {
   readonly program: ProgramDetail;
   readonly milestone: ProgramDetail['milestones'][number];
   readonly position: number;
+  /** 첫 화면에서 이 마일스톤만 펼친 채로 연다. `hasSubmissionDetail` 인 것 중 하나뿐이다. */
+  readonly defaultOpen: boolean;
 }) {
-  return (
-    <article
-      role="listitem"
-      data-testid="milestone-group"
-      aria-labelledby={milestoneNameId(milestone.id)}
-      className="[&+&]:border-t-2 [&+&]:border-border"
-    >
-      <MilestoneRow
-        programId={program.id}
-        milestone={milestone}
-        position={position}
-        nameId={milestoneNameId(milestone.id)}
-        viewerRole={program.viewer.role}
-        applicationStatus={program.viewer.applicationStatus}
-      />
-      <MilestoneDocumentSection
-        milestoneId={milestone.id}
-        viewerRole={program.viewer.role}
-        closed={isPastDue(milestone.dueAt)}
-      />
-    </article>
+  const contentId = useId();
+  const foldable = hasSubmissionDetail(milestone, program.viewer.role);
+  const row = (
+    <MilestoneRow
+      programId={program.id}
+      milestone={milestone}
+      position={position}
+      nameId={milestoneNameId(milestone.id)}
+      disclosureContentId={foldable ? contentId : undefined}
+      viewerRole={program.viewer.role}
+      applicationStatus={program.viewer.applicationStatus}
+    />
   );
+  const detail = (
+    <MilestoneDocumentSection
+      milestoneId={milestone.id}
+      viewerRole={program.viewer.role}
+      closed={isPastDue(milestone.dueAt)}
+    />
+  );
+  const groupProps = {
+    role: 'listitem',
+    'data-testid': 'milestone-group',
+    'aria-labelledby': milestoneNameId(milestone.id),
+    className: '[&+&]:border-t-2 [&+&]:border-border',
+  } as const;
+
+  if (!foldable) {
+    return (
+      <article {...groupProps}>
+        {row}
+        {detail}
+      </article>
+    );
+  }
+  return (
+    /*
+      `asChild` 로 묶음 자체를 접기 뿌리로 삼는다. 뿌리가 `article` 을 감싸는 별도
+      `div` 가 되면 묶음들이 더는 서로 형제가 아니라서 `[&+&]:border-t-2` 가 한
+      줄도 긋지 못한다 — 앞 커밋이 세운 마일스톤 사이 경계가 조용히 사라진다.
+    */
+    <Collapsible defaultOpen={defaultOpen} asChild>
+      <article {...groupProps}>
+        {row}
+        {/*
+          `forceMount` + `data-[state=closed]:hidden` 는 프로그램 안내 카드가 쓰는
+          것과 같은 조합이다. 접혔다고 내용을 걷어내면 다시 펼칠 때마다 목록을
+          새로 부르고, 무엇보다 **쓰다 만 제출 입력이 사라진다** — 접었다 편 것이
+          입력을 지우는 조작이 되면 안 된다. `hidden` 은 화면 읽기 도구와 탭
+          순서에서도 함께 빠지므로 접힌 내용이 몰래 남지 않는다.
+        */}
+        <CollapsibleContent
+          id={contentId}
+          className="data-[state=closed]:hidden"
+          forceMount
+        >
+          {detail}
+        </CollapsibleContent>
+      </article>
+    </Collapsible>
+  );
+}
+
+/**
+ * 이 마일스톤이 **열어서 볼 것을 가졌는가.** 제출 항목이 0개이거나 제출 항목을
+ * 볼 수 없는 사람(비로그인·가입 미완)에게는 접기를 걸지 않는다 — 눌러도 아무 일이
+ * 일어나지 않는 화살표는 「고장」으로 읽힌다.
+ *
+ * 접지 않기로 한 마일스톤은 예전처럼 제출 항목 블록을 그대로 펼쳐 둔다. 그래서
+ * `submissionItemCount` 가 혹시 실제 항목 수와 어긋나더라도 **내용이 감춰지는
+ * 쪽으로는 틀리지 않는다** — 최악이 「접히지 않는 마일스톤」이지 「사라진 제출
+ * 항목」이 아니다.
+ */
+function hasSubmissionDetail(
+  milestone: ProgramMilestone,
+  viewerRole: ViewerRole,
+): boolean {
+  if (viewerRole === null || viewerRole === 'PENDING') return false;
+  return milestone.submissionItemCount > 0;
+}
+
+/**
+ * 첫 화면에서 펼쳐 둘 마일스톤 하나.
+ *
+ * 전부 접으면 학생은 「지금 낼 것」을 보기까지 한 번을 더 눌러야 하고, 그 한 번은
+ * 이 화면에 온 사람 거의 모두가 치르는 비용이다. 반대로 다 펼치면 작성자가 지적한
+ * 상태 그대로다. 그래서 **지금 차례인 하나만** 연다.
+ *
+ * 차례는 마감으로 정한다(마감이 아직 지나지 않은 첫 마일스톤, 전부 지났으면 마지막 것).
+ * 마감은 역할과 무관하게 모두에게 같은 축이고, 무엇보다 **화면이 이미 배지로 말하고
+ * 있는 값**이다 — 「D-10 짜리가 열려 있다」는 화면만 보고 설명이 되지만, 제출
+ * 상태로 골랐다면 왜 그것이 열렸는지 배지만으로는 알 수 없다.
+ *
+ * ⚠ 「지났는가」는 `dDay` 가 아니라 `dueAt` 으로 묻는다. `dDay` 는 백엔드가 서울
+ *   기준 **달력 날짜** 차로 계산하므로(`program-deadline.ts` 의 `calendarDayNumber`),
+ *   오늘 09시에 닫힌 마감도 그날이 끝날 때까지 `dDay === 0` 이다. 그 값으로 고르면
+ *   **이미 닫힌 마일스톤을 펼쳐 두고** 정작 다음에 낼 것은 접어 둔다 — 이 화면이
+ *   여는 하나로 「지금 낼 것」을 가리키겠다는 약속과 정반대다.
+ *
+ *   같은 화면이 제출 입력을 잠글 때는 이미 시각까지 보는 `isPastDue(dueAt)` 를
+ *   쓴다(위 `MilestoneGroup` 의 `closed`). 펼칠 대상도 같은 예측자로 골라야
+ *   **열려 있는 마일스톤과 지금 제출할 수 있는 마일스톤이 갈리지 않는다.**
+ *
+ * 고를 대상은 접히는 마일스톤뿐이다. 접히지 않는 것을 골라 봐야 열 것이 없어,
+ * 결과적으로 전부 접힌 화면이 된다.
+ */
+function initiallyOpenMilestoneId(program: ProgramDetail): string | null {
+  const foldable = program.milestones.filter((milestone) =>
+    hasSubmissionDetail(milestone, program.viewer.role),
+  );
+  if (foldable.length === 0) return null;
+  const current = foldable.find((milestone) => !isPastDue(milestone.dueAt));
+  return (current ?? foldable[foldable.length - 1]).id;
 }
 
 export function ProgramMilestones({
@@ -329,6 +432,7 @@ export function ProgramMilestones({
 }: {
   readonly program: ProgramDetail;
 }) {
+  const openMilestoneId = initiallyOpenMilestoneId(program);
   return (
     <section
       id="milestones"
@@ -368,6 +472,7 @@ export function ProgramMilestones({
               program={program}
               milestone={milestone}
               position={index + 1}
+              defaultOpen={milestone.id === openMilestoneId}
             />
           ))}
         </ListPanel>

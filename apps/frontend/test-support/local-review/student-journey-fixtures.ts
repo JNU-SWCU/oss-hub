@@ -10,6 +10,15 @@ type StudentJourneyResponseBody =
   | SubmissionChecklist
   | SubmissionFormData;
 
+/**
+ * ⚠ 마일스톤의 `submissionItemCount`는 `handlers/milestone-document-fixtures.ts`가
+ * 그 마일스톤에 대해 돌려주는 서류 개수와 같아야 한다 — 백엔드에서 이 값은 그
+ * 집계이기 때문이다(`programs.service.ts`의 `milestone._count.documents`).
+ * 어긋나면 서비스에서는 생길 수 없는 화면(머리줄은 「제출 항목 없음」, 그 아래
+ * 블록은 서류를 그림)이 되고, 그 값으로만 갈리는 갈래를 로컬 검토가 못 본다.
+ * 같은 이유로 `handlers/student-program-fixtures.ts`의 같은 마일스톤과도 값이
+ * 맞아야 한다(두 파일이 같은 마일스톤을 각자 적어 두고 있다).
+ */
 const CAPSTONE_DETAIL = {
   id: 'program-capstone',
   name: '합성 캡스톤 2026',
@@ -35,7 +44,7 @@ const CAPSTONE_DETAIL = {
       deadlineLabel: '마감 지남',
       description: '프로젝트 문제 정의와 초기 실행 계획을 제출합니다.',
       submissionType: 'FILE',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'APPROVED',
       applicationSubmissionSummary: null,
     },
@@ -47,7 +56,7 @@ const CAPSTONE_DETAIL = {
       deadlineLabel: '마감 지남',
       description: '현재 구현 상태와 다음 스프린트 계획을 정리합니다.',
       submissionType: 'TEXT',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'NOT_SUBMITTED',
       applicationSubmissionSummary: null,
     },
@@ -59,7 +68,7 @@ const CAPSTONE_DETAIL = {
       deadlineLabel: 'D-10',
       description: '최종 결과와 변경 내역을 글로 정리합니다.',
       submissionType: 'TEXT',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'CHANGES_REQUESTED',
       applicationSubmissionSummary: null,
     },
@@ -91,7 +100,7 @@ const CONTEST_DETAIL = {
       deadlineLabel: '마감 지남',
       description: '예선 심사용 구현 결과와 실행 방법을 제출합니다.',
       submissionType: 'TEXT',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'CHANGES_REQUESTED',
       applicationSubmissionSummary: null,
     },
@@ -103,7 +112,7 @@ const CONTEST_DETAIL = {
       deadlineLabel: 'D-8',
       description: '시연 시나리오와 최종 발표 자료를 제출합니다.',
       submissionType: 'FILE',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'NOT_SUBMITTED',
       applicationSubmissionSummary: null,
     },
