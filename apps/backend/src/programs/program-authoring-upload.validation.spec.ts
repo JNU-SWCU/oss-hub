@@ -65,26 +65,33 @@ describe('validateProgramAuthoringUpload', () => {
    * .zip은 서명만으로 받지 않는다 — 중앙 디렉터리까지 읽혀 입장 검사를 통과해야 한다.
    * 그래서 상수 `PK\x03\x04` + 0으로 채운 버퍼는 더 이상 유효한 입력이 아니다.
    */
-  it('accepts a real zip whose central directory passes archive admission', async () => {
-    // Given
-    const archive = signatureValidZip([{ name: 'plan.pdf' }]);
+  it.each([
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/octet-stream',
+  ])(
+    'accepts a real zip even when the browser labels it %s',
+    async (mimetype) => {
+      // Given
+      const archive = signatureValidZip([{ name: 'plan.pdf' }]);
 
-    // When
-    const validated = await validateProgramAuthoringUpload({
-      buffer: archive,
-      originalname: 'bundle.zip',
-      mimetype: 'application/zip',
-      size: archive.byteLength,
-    });
+      // When
+      const validated = await validateProgramAuthoringUpload({
+        buffer: archive,
+        originalname: 'bundle.zip',
+        mimetype,
+        size: archive.byteLength,
+      });
 
-    // Then
-    expect(validated).toMatchObject({
-      originalFileName: 'bundle.zip',
-      mimeType: 'application/zip',
-      sizeBytes: archive.byteLength,
-      sha256: createHash('sha256').update(archive).digest('hex'),
-    });
-  });
+      // Then
+      expect(validated).toMatchObject({
+        originalFileName: 'bundle.zip',
+        mimeType: mimetype,
+        sizeBytes: archive.byteLength,
+        sha256: createHash('sha256').update(archive).digest('hex'),
+      });
+    },
+  );
 
   it('rejects a zip whose metadata fails archive admission', async () => {
     // Given: 서명은 진짜 집이지만 안에 또 다른 집이 들어 있다(중첩 아카이브).
@@ -195,10 +202,9 @@ describe('validateProgramAuthoringUpload', () => {
 
   it.each([
     ['plan.exe', 'application/pdf', Buffer.from('%PDF-')],
-    ['plan.pdf', 'text/html', Buffer.from('%PDF-')],
     ['plan.pdf', 'application/pdf', Buffer.from('not-pdf')],
   ])(
-    'rejects an unsupported extension/MIME/signature combination',
+    'rejects an unsupported extension or signature',
     async (name, mimeType, signature) => {
       // Given
       const upload = file({ name, mimeType, signature });

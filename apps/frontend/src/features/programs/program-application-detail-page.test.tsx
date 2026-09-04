@@ -151,13 +151,13 @@ describe('ProgramApplicationDetailPage', () => {
     container.remove();
   });
 
-  it('지원 내용을 그린다 — 이 화면이 없을 때 교직원이 못 보던 바로 그 값이다', async () => {
+  it('지원 내용에는 지원 동기만 그리고 제거된 신청 제목은 노출하지 않는다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 
     await mount();
 
     expect(getApplicationDetailMock).toHaveBeenCalledWith('app-1');
-    expect(container.textContent).toContain('합성 신청 제목');
+    expect(container.textContent).not.toContain('합성 신청 제목');
     expect(container.textContent).toContain('첫 줄 지원 동기');
     expect(container.textContent).toContain('둘째 문단 계획');
   });
@@ -203,7 +203,6 @@ describe('ProgramApplicationDetailPage', () => {
 
   it('학생이 넣은 Bidi·제어문자를 화면에 그대로 흘리지 않는다', async () => {
     // `U+202E` 하나면 뒤 문장이 거꾸로 표시된다 — 교직원이 학생이 제출하지 않은
-    // 문장을 읽은 채 승인·반려를 누른다(#735). 제목·지원 동기·신청서 이름 셋 다.
     getApplicationDetailMock.mockResolvedValue({
       ...submitted,
       answers: {
@@ -218,7 +217,7 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).not.toContain('\u202E');
     expect(container.textContent).not.toContain('\u0007');
     expect(container.textContent).toContain('이름뒤집기');
-    expect(container.textContent).toContain('제목뒤집기');
+    expect(container.textContent).not.toContain('제목뒤집기');
     expect(container.textContent).toContain('동기제어문자');
   });
 
@@ -432,7 +431,7 @@ describe('ProgramApplicationDetailPage', () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain('합성 신청 제목');
+    expect(container.textContent).toContain('첫 줄 지원 동기');
   });
 
   it('신청자가 낸 저장소를 잇는 신청은 새로 만든다고 말하지 않는다', async () => {
@@ -536,7 +535,7 @@ describe('ProgramApplicationDetailPage', () => {
     expect(dialog?.textContent).toContain('입력과 현재 상태를 유지했습니다');
   });
 
-  it('판정 창을 열면 신청자 이름·팀 이름·제목이 창 안에 보인다', async () => {
+  it('판정 창을 열면 신청자와 팀은 보이지만 제거된 신청 제목은 보이지 않는다', async () => {
     // 목록에서 행 단위 판정이 사라지면 이 창이 유일한 판정 지점이다 — 무엇을
     // 판정하는지가 창 안에 없으면 교직원은 목록 화면 맥락에 기대야 했다(#869).
     getApplicationDetailMock.mockResolvedValue(submitted);
@@ -547,7 +546,7 @@ describe('ProgramApplicationDetailPage', () => {
     const dialog = document.querySelector('[role="alertdialog"]');
     expect(dialog?.textContent).toContain('합성 학생');
     expect(dialog?.textContent).toContain('합성 팀');
-    expect(dialog?.textContent).toContain('합성 신청 제목');
+    expect(dialog?.textContent).not.toContain('합성 신청 제목');
   });
 
   it('개인 신청이면 판정 창에 팀 줄이 없다', async () => {
@@ -569,7 +568,6 @@ describe('ProgramApplicationDetailPage', () => {
 
   it('판정 창 어디에도 내부 id가 노출되지 않는다', async () => {
     // 신청·신청자·팀 id는 모두 사람이 알아볼 수 없는 내부 식별자다 — 화면
-    // 글자로는 이름·팀 이름·제목만 나가야 한다.
     getApplicationDetailMock.mockResolvedValue(submitted);
     await mount();
 

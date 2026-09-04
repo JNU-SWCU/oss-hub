@@ -2,18 +2,18 @@ import {
   getProgramRecruitmentState,
   type ProgramRecruitmentState,
 } from './program-list';
-import type { ProgramCategory } from './program-templates';
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  type ProgramTrackType,
+} from './program-templates';
 import type { StaffDashboardProgramSummary } from './types';
 
-export const STAFF_CATEGORY_LABELS = {
-  BASIC: '기본',
-  SW_VALUE_SPREAD: 'SW 가치확산',
-  OSS_CONTEST: 'OSS 경진대회',
-  CAPSTONE: '캡스톤',
-  SW_CONVERGENCE: 'SW 융합',
-  GLOBAL_MAKERTHON: '글로벌 메이커톤',
-  CORPORATE_INTERNSHIP: '기업 인턴십',
-} satisfies Readonly<Record<ProgramCategory, string>>;
+export function staffTrackTypeLabel(
+  trackType: ProgramTrackType | null,
+): string | null {
+  if (trackType === null) return null;
+  return PROGRAM_TRACK_TYPE_LABELS[trackType];
+}
 
 export const STAFF_RECRUITMENT_BADGES = {
   upcoming: { label: '접수대기', variant: 'pending' },
@@ -64,7 +64,7 @@ export function getStaffRecruitmentBadge(
       id: program.id,
       name: program.name,
       organizer: '',
-      category: program.category,
+      trackType: program.trackType,
       applicationStartAt: program.applicationPeriod.startsAt,
       applicationEndAt: program.applicationPeriod.endsAt,
       endAt: null,

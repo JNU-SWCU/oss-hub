@@ -1,10 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ProgramCategory } from '@prisma/client';
 import { DomainException } from '../../../common/error-code';
 import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { PublicEligibilityService } from '../../../programs/archive/public-eligibility/public-eligibility.service';
 import type {
-  PublicProjectCategoryCountsResult,
   PublicProjectDetailResult,
   PublicProjectMetrics,
   PublicProjectPageResult,
@@ -65,13 +63,13 @@ export class PublicProjectsService {
   async findPage(
     pageId: string | undefined,
     pageSize: number,
-    category?: ProgramCategory,
+    year?: number,
   ): Promise<PublicProjectPageResult> {
     const cursor =
       pageId === undefined
         ? null
         : decodePublicProjectCursor(pageId, this.cursorKey);
-    const rows = await this.repository.listPage(cursor, pageSize + 1, category);
+    const rows = await this.repository.listPage(cursor, pageSize + 1, year);
     const hasMore = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize);
 
@@ -100,30 +98,8 @@ export class PublicProjectsService {
     return { items, pageSize, nextPageId };
   }
 
-  /**
-   * 좌측 아카이브 메뉴 뱃지. 플랫폼 공개 베이스 필터만 세며, Collection fence는 제외.
-   * 모든 ProgramCategory 키 + all 을 0 포함 반환한다.
-   */
-  async categoryCounts(): Promise<PublicProjectCategoryCountsResult> {
-    const empty: PublicProjectCategoryCountsResult = {
-      all: 0,
-      BASIC: 0,
-      SW_VALUE_SPREAD: 0,
-      OSS_CONTEST: 0,
-      CAPSTONE: 0,
-      SW_CONVERGENCE: 0,
-      GLOBAL_MAKERTHON: 0,
-      CORPORATE_INTERNSHIP: 0,
-    };
-    const groups = await this.repository.countByCategory();
-    let all = 0;
-    const counts = { ...empty };
-    for (const group of groups) {
-      counts[group.category] = group.count;
-      all += group.count;
-    }
-    counts.all = all;
-    return counts;
+  async listYears(): Promise<readonly number[]> {
+    return this.repository.listYears();
   }
 
   /**

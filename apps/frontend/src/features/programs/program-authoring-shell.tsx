@@ -2,34 +2,35 @@ import { Check } from 'lucide-react';
 import { PageBody, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  PROGRAM_AUTHORING_STEPS,
-  type ProgramAuthoringStep,
-} from './program-authoring-model';
+import { PROGRAM_AUTHORING_STEPS } from './program-authoring-model';
 
-export function ProgramAuthoringShell({
+export function ProgramAuthoringShell<
+  Step extends { readonly id: string; readonly label: string } =
+    (typeof PROGRAM_AUTHORING_STEPS)[number],
+>({
   currentStep,
   children,
   onNavigate,
+  title = '프로그램 만들기',
+  description = '최종 확인 전에는 프로그램이 생성되지 않습니다.',
+  steps = PROGRAM_AUTHORING_STEPS as unknown as readonly Step[],
 }: {
-  readonly currentStep: ProgramAuthoringStep;
+  readonly currentStep: Step['id'];
   readonly children: React.ReactNode;
-  readonly onNavigate: (step: ProgramAuthoringStep) => void;
+  readonly onNavigate: (step: Step['id']) => void;
+  readonly title?: string;
+  readonly description?: string;
+  readonly steps?: readonly Step[];
 }) {
-  const currentIndex = PROGRAM_AUTHORING_STEPS.findIndex(
-    (step) => step.id === currentStep,
-  );
+  const currentIndex = steps.findIndex((step) => step.id === currentStep);
   return (
     <PageBody>
-      <PageHeader
-        title="프로그램 만들기"
-        description="최종 확인 전에는 프로그램이 생성되지 않습니다."
-      />
+      <PageHeader title={title} description={description} />
       <div className="grid min-w-0 gap-8 lg:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]">
         <aside className="self-start lg:sticky lg:top-6">
           <nav aria-label="작성 단계" className="hidden lg:block">
             <ol className="grid gap-2">
-              {PROGRAM_AUTHORING_STEPS.map((step, index) => (
+              {steps.map((step, index) => (
                 <li key={step.id}>
                   <Button
                     type="button"
@@ -65,14 +66,14 @@ export function ProgramAuthoringShell({
             aria-label="작성 진행률"
           >
             <div className="flex items-center justify-between gap-3 text-small">
-              <strong>{PROGRAM_AUTHORING_STEPS[currentIndex]?.label}</strong>
+              <strong>{steps[currentIndex]?.label}</strong>
               <span className="text-muted-foreground">
-                {currentIndex + 1} / {PROGRAM_AUTHORING_STEPS.length}
+                {currentIndex + 1} / {steps.length}
               </span>
             </div>
             <progress
               className="h-2 w-full accent-primary"
-              max={PROGRAM_AUTHORING_STEPS.length}
+              max={steps.length}
               value={currentIndex + 1}
             />
           </div>

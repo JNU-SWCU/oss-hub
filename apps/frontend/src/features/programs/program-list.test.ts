@@ -12,7 +12,7 @@ function item(
 ): ProgramListItem {
   return {
     organizer: 'SW Center',
-    category: 'OSS_CONTEST',
+    trackType: 'EXTRACURRICULAR',
     applicationStartAt: '2026-07-01T00:00:00.000Z',
     applicationEndAt: '2026-08-01T00:00:00.000Z',
     endAt: null,
@@ -32,7 +32,7 @@ const programs: readonly ProgramListItem[] = [
   item({
     id: 'in-progress',
     name: '2026 Capstone',
-    category: 'CAPSTONE',
+    trackType: 'CURRICULAR',
     applicationStartAt: '2026-01-01T00:00:00.000Z',
     applicationEndAt: '2026-02-01T00:00:00.000Z',
     endAt: '2026-12-01T00:00:00.000Z',
@@ -47,7 +47,7 @@ const programs: readonly ProgramListItem[] = [
   item({
     id: 'ended',
     name: '2025 Makerthon',
-    category: 'GLOBAL_MAKERTHON',
+    trackType: 'EXTRACURRICULAR',
     applicationStartAt: '2025-01-01T00:00:00.000Z',
     applicationEndAt: '2025-02-01T00:00:00.000Z',
     endAt: '2025-08-01T00:00:00.000Z',

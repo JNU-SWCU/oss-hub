@@ -34,7 +34,7 @@ async function installProgramRoutes(page: Page): Promise<void> {
           id: programId,
           name: '활동 이동 확인 프로그램',
           organizer: 'JNU SWCU',
-          category: 'BASIC',
+          trackType: 'EXTRACURRICULAR',
           description: '비동기 상세 로드 회귀 테스트',
           applicationPeriod: {
             startsAt: '2026-07-01T00:00:00.000Z',

@@ -18,7 +18,7 @@ const syntheticApplicationId = 'cuid-synthetic-application';
 const baseOverview: ProgramOverviewRecord = {
   programId: syntheticProgramId,
   name: 'seed-program-overview-project',
-  category: 'CAPSTONE',
+  trackType: 'CURRICULAR',
   lifecycle: 'PUBLISHED',
   milestoneCount: 7,
   boardPostCount: 3,

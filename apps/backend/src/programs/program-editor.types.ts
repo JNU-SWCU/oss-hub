@@ -1,8 +1,8 @@
 import type {
   AccountStatus,
   MilestoneSubmissionType,
-  ProgramCategory,
   ProgramLifecycle,
+  ProgramTrackType,
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
@@ -39,7 +39,7 @@ export type EditableProgramView = {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly lifecycle?: ProgramLifecycle;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
@@ -47,7 +47,6 @@ export type EditableProgramView = {
   readonly teamCount: number;
   /** 전체 삭제 확인 전 다시 읽는, 프로그램에 직접 연결된 4종 자식 수. */
   readonly deletionScopeCounts?: ProgramDeletionScopeCounts;
-  readonly categoryLocked: ProgramCategoryLockState;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly startAt: Date;
@@ -87,7 +86,7 @@ export type ProgramUpdateInput = {
   readonly programId: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly liveFileExpiresAt: Date | null;

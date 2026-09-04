@@ -1,4 +1,8 @@
-import { AccountStatus, ProgramCategory } from '@prisma/client';
+import {
+  AccountStatus,
+  ProgramCategory,
+  ProgramTrackType,
+} from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../../audit-log/audit-log-metadata';
 import { DomainException } from '../../common/error-code';
@@ -14,7 +18,7 @@ import { ProgramsRepository } from '../repository/programs.repository';
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
   organizer: '  SW Center  ',
-  category: ProgramCategory.OSS_CONTEST,
+  trackType: ProgramTrackType.EXTRACURRICULAR,
   applicationStartAt: '2026-08-01T00:00:00+09:00',
   applicationEndAt: '2026-08-15T23:59:59+09:00',
   startAt: '2026-08-16T00:00:00+09:00',
@@ -32,6 +36,7 @@ describe('ProgramsService', () => {
         readonly name: string;
         readonly teamMinSize: number;
         readonly teamMaxSize: number;
+        readonly applicationTemplateKey: string;
       };
     }) => {
       return Promise.resolve({ id: 'program', name: request.data.name });
@@ -66,6 +71,7 @@ describe('ProgramsService', () => {
           readonly name: string;
           readonly teamMinSize: number;
           readonly teamMaxSize: number;
+          readonly applicationTemplateKey: string;
         };
       }) => Promise.resolve({ id: 'program', name: request.data.name }),
     );
@@ -74,7 +80,7 @@ describe('ProgramsService', () => {
     $transaction.mockClear();
   });
 
-  it('stores the server-owned OSS contest template for an approved staff member', async () => {
+  it('stores the server-owned basic template for an approved staff member', async () => {
     findUnique.mockResolvedValue({
       hasStaffAccess: true,
       hasAdminAccess: false,
@@ -88,9 +94,10 @@ describe('ProgramsService', () => {
       data: {
         name: '2026 OSS Contest',
         organizer: 'SW Center',
-        category: ProgramCategory.OSS_CONTEST,
+        category: ProgramCategory.BASIC,
+        trackType: ProgramTrackType.EXTRACURRICULAR,
         description: 'Program overview',
-        applicationTemplateKey: 'oss-contest',
+        applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
         applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
@@ -112,7 +119,7 @@ describe('ProgramsService', () => {
 
     await service.create(101n, {
       ...input,
-      category: ProgramCategory.BASIC,
+      trackType: ProgramTrackType.CURRICULAR,
       teamMinSize: 2,
       teamMaxSize: 4,
     });
@@ -122,6 +129,7 @@ describe('ProgramsService', () => {
         name: '2026 OSS Contest',
         organizer: 'SW Center',
         category: ProgramCategory.BASIC,
+        trackType: ProgramTrackType.CURRICULAR,
         description: 'Program overview',
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,
@@ -135,31 +143,28 @@ describe('ProgramsService', () => {
     });
   });
 
-  it.each(Object.values(ProgramCategory))(
-    'defaults %s to the editable 1..1 range',
-    async (category) => {
-      findUnique.mockResolvedValue({
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.ACTIVE,
-      });
-      create.mockResolvedValue({
-        id: 'program-default-range',
-        name: '2026 OSS Contest',
-      });
+  it('defaults BASIC template to the editable 1..1 range when team size omitted', async () => {
+    findUnique.mockResolvedValue({
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    create.mockResolvedValue({
+      id: 'program-default-range',
+      name: '2026 OSS Contest',
+    });
 
-      await service.create(101n, {
-        ...input,
-        category,
-        teamMinSize: undefined,
-        teamMaxSize: undefined,
-      });
+    await service.create(101n, {
+      ...input,
+      teamMinSize: undefined,
+      teamMaxSize: undefined,
+    });
 
-      const request = create.mock.calls.at(-1)?.[0];
-      expect(request?.data.teamMinSize).toBe(1);
-      expect(request?.data.teamMaxSize).toBe(1);
-    },
-  );
+    const request = create.mock.calls.at(-1)?.[0];
+    expect(request?.data.teamMinSize).toBe(1);
+    expect(request?.data.teamMaxSize).toBe(1);
+    expect(request?.data.applicationTemplateKey).toBe('basic');
+  });
 
   it('allows applicationEndAt to equal the operating start', async () => {
     findUnique.mockResolvedValue({

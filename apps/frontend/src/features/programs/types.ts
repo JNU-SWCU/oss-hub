@@ -1,4 +1,4 @@
-import type { ProgramCategory } from './program-templates';
+import type { ProgramCategory, ProgramTrackType } from './program-templates';
 import type { PublishBlockedReason } from '@/lib/repository-publication';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
@@ -47,7 +47,7 @@ export interface ProgramListItem {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   /** 게시 축. 모집 기간 파생 상태가 아니다. 없으면 PUBLISHED 로 본다. */
   readonly lifecycle?: 'PUBLISHED' | 'ARCHIVED';
   readonly applicationStartAt: string;
@@ -313,7 +313,7 @@ export interface StaffDashboardSubmissionSummary {
 export interface StaffDashboardProgramSummary {
   readonly id: string;
   readonly name: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;
@@ -354,7 +354,8 @@ export interface ProgramDetail {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
+  readonly applicationTemplateKey: string;
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {

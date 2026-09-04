@@ -12,7 +12,9 @@ const program: ProgramDetail = {
   id: 'program-1',
   name: 'OSS 경진대회',
   organizer: '운영기관',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'oss-contest',
   description: '프로그램 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

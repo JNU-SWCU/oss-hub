@@ -1,57 +1,41 @@
 export type ArchiveApplicationMode = 'PERSONAL' | 'TEAM';
 
-export const ARCHIVE_CATEGORY_LABELS = {
-  BASIC: '기본 프로그램',
-  SW_VALUE_SPREAD: 'SW 가치확산',
-  OSS_CONTEST: 'OSS 경진대회',
-  CAPSTONE: '캡스톤',
-  SW_CONVERGENCE: 'SW 융합',
-  GLOBAL_MAKERTHON: '글로벌 메이커톤',
-  CORPORATE_INTERNSHIP: '기업 인턴십',
-} as const;
+export type ArchiveTrackType = 'CURRICULAR' | 'EXTRACURRICULAR';
 
-export type ArchiveCategory = keyof typeof ARCHIVE_CATEGORY_LABELS;
-
-export const ARCHIVE_CATEGORIES = Object.keys(
-  ARCHIVE_CATEGORY_LABELS,
-) as readonly ArchiveCategory[];
+export const ARCHIVE_TRACK_TYPE_LABELS = {
+  CURRICULAR: '교과',
+  EXTRACURRICULAR: '비교과',
+} as const satisfies Record<ArchiveTrackType, string>;
 
 /** 사이드 패널·칩 공용. `all`은 쿼리 없이 `/archive`. */
-export const ARCHIVE_LIST_FILTERS = ['all', ...ARCHIVE_CATEGORIES] as const;
-export type ArchiveListFilter = (typeof ARCHIVE_LIST_FILTERS)[number];
-
-export const ARCHIVE_LIST_FILTER_LABELS = {
-  all: '전체',
-  ...ARCHIVE_CATEGORY_LABELS,
-} as const satisfies Readonly<Record<ArchiveListFilter, string>>;
+export type ArchiveListFilter = 'all' | number;
 
 export function archiveListHref(filter: ArchiveListFilter): string {
   if (filter === 'all') return '/archive';
-  return `/archive?category=${filter}`;
+  return `/archive?year=${filter}`;
 }
 
 export function parseArchiveListFilter(
   value: string | null,
 ): ArchiveListFilter {
-  if (
-    value !== null &&
-    (ARCHIVE_LIST_FILTERS as readonly string[]).includes(value)
-  ) {
-    return value as ArchiveListFilter;
+  if (value === null || value === '') return 'all';
+  const year = Number(value);
+  if (Number.isInteger(year) && year >= 2000 && year <= 2100) {
+    return year;
   }
   return 'all';
 }
 
-/** `GET /projects/category-counts` — 0 포함 전 키. */
-export type ArchiveCategoryCounts = {
-  readonly all: number;
-} & Readonly<Record<ArchiveCategory, number>>;
+/** `GET /projects/years` — 데이터가 있는 연도(최신순). */
+export type ArchiveYears = {
+  readonly years: readonly number[];
+};
 
 export type ArchiveListItem = {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly category: ArchiveCategory;
+  readonly trackType: ArchiveTrackType | null;
   readonly applicationMode: ArchiveApplicationMode;
   readonly displayName: string;
   readonly repositoryName: string;
@@ -59,7 +43,6 @@ export type ArchiveListItem = {
   readonly publishedAt: string;
   readonly detailUrl: string;
   readonly modeLabel: '개인' | '팀';
-  readonly categoryLabel: string;
   readonly publishedLabel: string;
 };
 

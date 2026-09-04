@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ProgramAuthoringRequestDto } from './program-authoring-request.dto';
@@ -8,7 +8,7 @@ function request() {
   return {
     name: 'Synthetic Program',
     organizer: 'Synthetic Organizer',
-    category: ProgramCategory.CAPSTONE,
+    trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-10T00:00:00.000Z',
     startAt: '2026-08-10T00:00:00.000Z',
@@ -56,6 +56,12 @@ async function errors(input: object) {
 }
 
 describe('ProgramAuthoringRequestDto', () => {
+  it('rejects leftover category field', async () => {
+    await expect(
+      errors({ ...request(), category: ProgramCategory.BASIC }),
+    ).resolves.not.toEqual([]);
+  });
+
   it('accepts the complete nested aggregate request', async () => {
     await expect(errors(request())).resolves.toEqual([]);
   });

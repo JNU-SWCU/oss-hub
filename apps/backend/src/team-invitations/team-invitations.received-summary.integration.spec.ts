@@ -3,6 +3,7 @@ import {
   MemberKind,
   ProgramCategory,
   TeamInvitationStatus,
+  ProgramTrackType,
 } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -78,7 +79,8 @@ function programData(
     id,
     name,
     organizer: 'Synthetic organizer',
-    category: ProgramCategory.CAPSTONE,
+    trackType: ProgramTrackType.CURRICULAR,
+    category: ProgramCategory.BASIC,
     applicationTemplateKey: 'capstone-v1',
     applicationTemplateVersion: 1,
     applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),

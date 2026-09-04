@@ -1,12 +1,6 @@
 import type { NavItem } from '@/components';
 import { programDocumentsHref } from '@/lib/program-route';
-import {
-  ARCHIVE_CATEGORIES,
-  ARCHIVE_LIST_FILTER_LABELS,
-  archiveListHref,
-  type ArchiveCategory,
-  type ArchiveCategoryCounts,
-} from '@/features/archive/types';
+import { archiveListHref } from '@/features/archive/types';
 import { programHref } from '@/features/programs/program-paths';
 import {
   PROGRAM_LIST_STATUSES,
@@ -14,7 +8,11 @@ import {
   programListHref,
   type ProgramListStatus,
 } from '@/features/programs/types';
-import { RANKING_YEAR_ALL, rankingListHref } from '@/features/ranking/types';
+import {
+  currentRankingYear,
+  RANKING_YEAR_ALL,
+  rankingListHref,
+} from '@/features/ranking/types';
 import type { MemberAccess, MemberSurface } from './member-access';
 import { memberSurfaces } from './member-access';
 import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -334,40 +332,27 @@ export function programScopeSidebarGroups(
   return [overviewGroup, documentsGroup, boardGroup];
 }
 
-const ARCHIVE_CATEGORY_ICONS: Readonly<
-  Record<ArchiveCategory | 'all', ShellIconName>
-> = {
-  all: 'archive',
-  BASIC: 'detail',
-  SW_VALUE_SPREAD: 'people',
-  OSS_CONTEST: 'trophy',
-  CAPSTONE: 'shield',
-  SW_CONVERGENCE: 'layers',
-  GLOBAL_MAKERTHON: 'globe',
-  CORPORATE_INTERNSHIP: 'building',
-};
+const ARCHIVE_SIDEBAR_ICON: ShellIconName = 'archive';
 
 /**
- * 공개 아카이브 메뉴 — 전체·분류 피어 필터 + 분류별 아이콘.
- * URLs: `/archive`, `/archive?category=CAPSTONE`.
+ * 공개 아카이브 메뉴 — 전체 + 데이터가 있는 연도(최신 순).
+ * URLs: `/archive`, `/archive?year=YYYY`.
  */
 export function archiveSidebarGroup(
-  counts?: Partial<ArchiveCategoryCounts>,
+  years: readonly number[] = [],
 ): SidebarGroup {
   const items: SidebarItem[] = [
     {
-      label: ARCHIVE_LIST_FILTER_LABELS.all,
+      label: '전체',
       href: archiveListHref('all'),
-      icon: ARCHIVE_CATEGORY_ICONS.all,
+      icon: ARCHIVE_SIDEBAR_ICON,
       depth: 0,
-      count: counts?.all,
     },
-    ...ARCHIVE_CATEGORIES.map((category: ArchiveCategory) => ({
-      label: ARCHIVE_LIST_FILTER_LABELS[category],
-      href: archiveListHref(category),
-      icon: ARCHIVE_CATEGORY_ICONS[category],
+    ...years.map((year) => ({
+      label: String(year),
+      href: archiveListHref(year),
+      icon: ARCHIVE_SIDEBAR_ICON,
       depth: 0 as const,
-      count: counts?.[category],
     })),
   ];
   return { label: '공개 아카이브', items };
@@ -462,7 +447,7 @@ export function sidebarGroupsFor(
   access: MemberAccess | null,
   options?: {
     readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
-    readonly archiveCounts?: Partial<ArchiveCategoryCounts>;
+    readonly archiveYears?: readonly number[];
     readonly rankingYears?: readonly number[];
     readonly rankingCounts?: Partial<Record<'all' | number, number>>;
   },
@@ -481,7 +466,7 @@ export function sidebarGroupsFor(
 
   const data: SectionFacetData | undefined = {
     programCounts: options?.programCounts,
-    archiveCounts: options?.archiveCounts,
+    archiveYears: options?.archiveYears,
     rankingYears: options?.rankingYears,
     rankingCounts: options?.rankingCounts,
   };
@@ -518,13 +503,17 @@ export function isCurrentSidebarItem(
     // 랭킹은 `year` 부재를 **올해**로 읽는다(ADR-010 §1, `parseRankingYearSearchParam`).
     // 여기서만 `all` 로 읽으면 `/ranking` 에서 「전체」가 강조된 채 올해 수치가 뜬다 —
     // 같은 「전체」 링크가 어디서 왔느냐에 따라 다른 표를 보이게 된다.
+    //
+    // 그 「올해」는 본문과 **같은 함수**로만 정한다. `new Date().getFullYear()` 로 따로
+    // 세면 기기 시계의 연도가 나와, KST 가 아닌 기기에서 연도가 넘어가는 구간에는
+    // 서울 연도로 그려진 표와 값이 갈려 강조되는 항목이 하나도 없게 된다.
     const missingYearFallback =
-      facetSection === 'ranking' ? String(new Date().getFullYear()) : 'all';
+      facetSection === 'ranking' ? String(currentRankingYear()) : 'all';
     const have =
       new URLSearchParams(search).get(spec.param) ?? missingYearFallback;
-    // 아카이브 목록: category 키 부재를 all 과 동일 취급 (기존 계약)
+    // 아카이브 목록: year 키 부재를 all 과 동일 취급 (기존 계약)
     if (facetSection === 'archive') {
-      return want === have || (want === 'all' && !search.includes('category='));
+      return want === have || (want === 'all' && !search.includes('year='));
     }
     return want === have;
   }

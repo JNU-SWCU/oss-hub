@@ -110,13 +110,8 @@ export function normalizeAndValidateApplicationAnswers(
 
   const title = clientAnswers.title;
   const summary = clientAnswers.summary;
-  if (
-    !isNonEmptyString(title) ||
-    !isNonEmptyString(summary) ||
-    !isNonEmptyString(applicantName)
-  ) {
+  if (!isNonEmptyString(summary) || !isNonEmptyString(applicantName)) {
     const missingKeys: string[] = [];
-    if (!isNonEmptyString(title)) missingKeys.push('title');
     if (!isNonEmptyString(summary)) missingKeys.push('summary');
     if (!isNonEmptyString(applicantName)) missingKeys.push('applicantName');
     return { ok: false, reason: 'MISSING_REQUIRED', missingKeys };
@@ -124,7 +119,7 @@ export function normalizeAndValidateApplicationAnswers(
 
   const answers = {
     applicantName: applicantName.trim(),
-    title: title.trim(),
+    title: isNonEmptyString(title) ? title.trim() : '',
     summary: summary.trim(),
   };
 

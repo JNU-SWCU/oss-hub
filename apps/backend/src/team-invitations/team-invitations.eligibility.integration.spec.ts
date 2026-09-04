@@ -4,6 +4,7 @@ import {
   MemberKind,
   ProgramCategory,
   TeamInvitationStatus,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -155,7 +156,8 @@ async function seedEligibilityFixture(): Promise<void> {
       id: PROGRAM_ID,
       name: 'Invitation eligibility program',
       organizer: 'Synthetic organizer',
-      category: ProgramCategory.CAPSTONE,
+      trackType: ProgramTrackType.CURRICULAR,
+      category: ProgramCategory.BASIC,
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),

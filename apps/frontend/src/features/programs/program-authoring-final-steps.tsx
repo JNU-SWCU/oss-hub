@@ -18,7 +18,10 @@ import {
 } from './program-schedule-calendar-model';
 import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
 import type { ProgramScheduleEditableRange } from './program-schedule-range-types';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  type ProgramTrackType,
+} from './program-templates';
 
 export function ProgramAuthoringOperationsStep({
   state,
@@ -53,9 +56,10 @@ export function ProgramAuthoringReviewStep({
 }: {
   readonly state: ProgramAuthoringState;
 }) {
-  const category = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (definition) => definition.category === state.category,
-  );
+  const trackLabel =
+    state.trackType === ''
+      ? ''
+      : PROGRAM_TRACK_TYPE_LABELS[state.trackType as ProgramTrackType];
   return (
     <FormSection
       title="최종 검토"
@@ -68,10 +72,7 @@ export function ProgramAuthoringReviewStep({
           </CardHeader>
           <CardContent>
             <dl className="grid gap-4 text-body sm:grid-cols-2">
-              <ReviewFact
-                label="유형"
-                value={category?.label ?? state.category}
-              />
+              <ReviewFact label="교과/비교과" value={trackLabel} />
               <ReviewFact label="주관" value={state.organizer} />
               <ReviewFact
                 label="팀 인원"

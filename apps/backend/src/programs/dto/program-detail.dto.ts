@@ -2,7 +2,7 @@ import type { AuthorityLabel } from '../../common/authority-label';
 import type {
   ApplicationStatus,
   MilestoneSubmissionType,
-  ProgramCategory,
+  ProgramTrackType,
   SubmissionStatus,
 } from '@prisma/client';
 
@@ -44,7 +44,8 @@ export interface ProgramDetailResponseDto {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
+  readonly applicationTemplateKey: string;
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {

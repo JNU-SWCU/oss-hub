@@ -287,10 +287,7 @@ export class MilestoneDocumentFilesService {
     return {
       body,
       fileName: template.originalFileName,
-      contentType: safeSubmissionFileContentType(
-        template.originalFileName,
-        template.mimeType,
-      ),
+      contentType: safeSubmissionFileContentType(template.originalFileName),
       contentLength: template.sizeBytes,
     };
   }
@@ -356,17 +353,13 @@ export class MilestoneDocumentFilesService {
         documentName: documentContext.name,
         originalFileName: file.originalFileName,
       }),
-      // DB의 mimeType을 그대로 내보내지 않는다 — 허용 목록을 통과한 값만 쓴다.
-      contentType: safeSubmissionFileContentType(
-        file.originalFileName,
-        file.mimeType,
-      ),
+      contentType: safeSubmissionFileContentType(file.originalFileName),
       contentLength: file.sizeBytes,
     };
   }
 
   /**
-   * 검사 순서를 submissions/submission-files.service.ts와 같게 둔다 — 확장자·MIME → 서명 →
+   * 검사 순서를 submissions/submission-files.service.ts와 같게 둔다 — 확장자 → 서명 →
    * (.zip이면) 아카이브 메타데이터 입장 검사. 둘은 같은 저장 스택으로 들어가므로
    * 한쪽만 느슨하면 그쪽이 계약을 우회하는 입구가 된다.
    */
@@ -381,7 +374,7 @@ export class MilestoneDocumentFilesService {
     }
     const normalizedFileName = normalizeMultipartFileName(file.originalname);
     if (
-      !isAllowedSubmissionFileType(normalizedFileName, file.mimetype) ||
+      !isAllowedSubmissionFileType(normalizedFileName) ||
       !hasValidSubmissionFileSignature(file.buffer, normalizedFileName)
     ) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
