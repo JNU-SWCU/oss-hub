@@ -36,6 +36,7 @@ import type {
   SubmissionFileUpload,
   UploadedSubmissionFileResponse,
 } from './submission-files.types';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload-policy';
 
 export type {
   DownloadedSubmissionFile,
@@ -43,7 +44,7 @@ export type {
   UploadedSubmissionFileResponse,
 } from './submission-files.types';
 
-export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()

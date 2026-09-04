@@ -264,10 +264,12 @@ describe('SubmissionFilesService', () => {
   // #1106 — 상한을 50 MiB에서 5 MiB로 내렸을 때 SUB_019 문구만 옛 숫자로 남아,
   // 413으로 거절된 학생이 파일을 얼마나 줄여야 하는지 알 수 없었다.
   // 문구의 숫자는 실제로 막는 상한에서 온다.
+  // #1107 — 단위 표기는 「MB」 하나로 통일했다(값은 그대로 MiB다). 「5MiB」와 「5MB」가
+  // 섞여 있어 같은 상한이 두 숫자처럼 읽혔다.
   it('states the enforced limit in the SUB_019 message', () => {
     expect(
       SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.FILE_TOO_LARGE].message,
-    ).toBe(`파일은 ${MAX_FILE_BYTES / 1024 / 1024}MiB 이하여야 합니다.`);
+    ).toBe(`파일은 ${MAX_FILE_BYTES / 1024 / 1024} MB 이하여야 합니다.`);
   });
 
   it('preserves opaque application and milestone IDs through authorization and persistence', async () => {

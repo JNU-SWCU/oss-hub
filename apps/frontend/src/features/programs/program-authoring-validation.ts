@@ -3,6 +3,10 @@ import type {
   ProgramAuthoringStep,
 } from './program-authoring-model';
 import {
+  SUBMISSION_UPLOAD_MAX_BYTES,
+  SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
+} from '@/lib/submission-upload-policy';
+import {
   validateMilestones,
   validateRequirements,
 } from './program-authoring-graph-validation';
@@ -15,7 +19,7 @@ import {
 
 export type { ProgramAuthoringIssue } from './program-authoring-validation-helpers';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const ALLOWED_FILE_EXTENSIONS = new Set([
   '.pdf',
   '.hwp',
@@ -59,7 +63,7 @@ export function validateProgramAuthoringManifest(
 }
 
 export function validateTemplateFile(file: File): string | null {
-  if (file.size > MAX_FILE_BYTES) return '파일은 5MiB 이하여야 합니다.';
+  if (file.size > MAX_FILE_BYTES) return SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE;
   const dot = file.name.lastIndexOf('.');
   const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : '';
   if (!ALLOWED_FILE_EXTENSIONS.has(extension)) {

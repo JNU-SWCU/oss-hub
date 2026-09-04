@@ -180,11 +180,14 @@ describe('authenticated milestone document list filename contract', () => {
     });
 
     const response = await requestList();
-    const body = (await response.json()) as readonly Record<string, unknown>[];
+    const body = (await response.json()) as {
+      readonly documents: readonly Record<string, unknown>[];
+      readonly fileUpload: Record<string, unknown>;
+    };
     const serialized = JSON.stringify(body);
 
     expect(response.status).toBe(200);
-    expect(body).toEqual(
+    expect(body.documents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           templateFileName: '운영결과보고서_2026.docx',
@@ -196,6 +199,13 @@ describe('authenticated milestone document list filename contract', () => {
         }),
       ]),
     );
+    // 화면은 이 값만 보고 파일 입력을 그린다 — 응답에서 빠지면 사본이 다시 생긴다(#1107).
+    expect(body.fileUpload).toEqual({
+      maxBytes: 5 * 1024 * 1024,
+      maxLabel: '5 MB',
+      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+    });
     expect(serialized).not.toContain('storageKey');
     expect(serialized).not.toContain('private/object-key');
     expect(serialized).not.toMatch(/https?:\/\//);

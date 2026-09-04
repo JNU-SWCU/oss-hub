@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, apiClient, apiFileClient } from './api-client';
+import {
+  ApiError,
+  apiClient,
+  apiFileClient,
+  isUnexpectedApiProblem,
+} from './api-client';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -86,6 +91,43 @@ describe('apiClient', () => {
     } catch (error: unknown) {
       expect(error).toBeInstanceOf(ApiError);
       expect((error as ApiError).problem).toEqual(problem);
+      expect(isUnexpectedApiProblem(error)).toBe(false);
+    }
+  });
+
+  /*
+   * #1107 — ProblemDetail이 아닌 응답(nginx의 413 HTML 등)을 감쌀 때 `detail`에 개발자용
+   * 진단 문장을 두면 그대로 사용자 화면에 붙는다. 실제로 붙어서, 서류를 내려던 학생이 본
+   * 것은 「API 오류 응답이 ProblemDetail 형식이 아닙니다.」였다. 진단은 이 문장이 아니라
+   * `code`·`status`·`instance`로 한다.
+   */
+  it('ProblemDetail이 아닌 실패를 사람이 읽는 문장으로 감싼다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<html>413 Request Entity Too Large</html>', {
+          status: 413,
+          statusText: 'Request Entity Too Large',
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    );
+
+    try {
+      await apiClient('/milestone-document-files');
+      throw new Error('ApiError가 발생해야 합니다.');
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(ApiError);
+      const { problem } = error as ApiError;
+      expect(problem.detail).toBe(
+        '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      );
+      expect(problem.detail).not.toContain('ProblemDetail');
+      // 진단은 문장이 아니라 코드·상태·경로에 남는다.
+      expect(problem.code).toBe('API_000');
+      expect(problem.status).toBe(413);
+      expect(problem.instance).toBe('/api/v1/milestone-document-files');
+      expect(isUnexpectedApiProblem(error)).toBe(true);
     }
   });
 });

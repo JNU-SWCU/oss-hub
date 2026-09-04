@@ -284,9 +284,19 @@ it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', asy
   // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
-  await expect(response.json()).resolves.toMatchObject([
-    { id: 'synthetic-document', viewerSubmission: { submitted: true } },
-  ]);
+  // 목록과 업로드 규칙이 한 응답으로 온다 — 화면이 상한·허용 형식의 사본을 들지 않게 하는
+  // 자리다(#1107). 규칙이 빠지면 세 업로드 화면이 파일 입력을 그릴 근거를 잃는다.
+  await expect(response.json()).resolves.toMatchObject({
+    documents: [
+      { id: 'synthetic-document', viewerSubmission: { submitted: true } },
+    ],
+    fileUpload: {
+      maxBytes: 5 * 1024 * 1024,
+      maxLabel: '5 MB',
+      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+    },
+  });
   expect(listForViewer).toHaveBeenCalledWith(
     SESSION_GITHUB_ID,
     'synthetic-milestone',

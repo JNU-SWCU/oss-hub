@@ -1,4 +1,5 @@
 import type { ErrorCode } from '../common/error-code';
+import { SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from '../submissions/submission-upload-policy';
 
 /** #619 마일스톤별 서류 항목(MilestoneDocument) 모듈 전용 에러 코드 레지스트리. */
 export const MilestoneDocumentsErrorCode = {
@@ -85,7 +86,12 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   [MilestoneDocumentsErrorCode.FILE_TOO_LARGE]: {
     code: MilestoneDocumentsErrorCode.FILE_TOO_LARGE,
     status: 413,
-    message: '파일 크기가 너무 큽니다.',
+    /*
+     * 상한 숫자가 없는 「파일 크기가 너무 큽니다.」로는 학생이 무엇을 줄여야 하는지
+     * 알 수 없었다(#1107). 화면이 파일을 고르기 전에 보여 주는 문구와 **같은 문장**을
+     * 쓴다 — 미리 걸러졌든 서버가 413으로 거절했든 읽는 말이 같아야 한다.
+     */
+    message: SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
   },
   [MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE]: {
     code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE,

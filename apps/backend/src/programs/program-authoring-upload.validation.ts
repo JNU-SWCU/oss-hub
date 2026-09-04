@@ -4,13 +4,14 @@ import { isAllowedSubmissionFileType } from '../submissions/submission-file-cont
 import { sanitizeSubmissionFileOriginalName } from '../submissions/submission-file-name';
 import { hasValidSubmissionFileSignature } from '../submissions/submission-file-signature';
 import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 import {
   PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
 } from './program-authoring-upload.types';
 
-export const PROGRAM_AUTHORING_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+export const PROGRAM_AUTHORING_UPLOAD_MAX_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 
 export interface ValidatedProgramAuthoringUpload {
   readonly body: Buffer;

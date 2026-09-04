@@ -5,7 +5,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
-import type { MilestoneDocument } from './milestone-document-api';
+import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
+import type {
+  MilestoneDocument,
+  MilestoneDocumentList,
+} from './milestone-document-api';
 import {
   MilestoneDocumentEditorBody,
   MilestoneDocumentEditorSection,
@@ -47,6 +51,13 @@ vi.mock('./milestone-document-api', () => ({
   uploadMilestoneDocumentTemplate: uploadMilestoneDocumentTemplateMock,
   milestoneDocumentTemplateHref: milestoneDocumentTemplateHrefMock,
 }));
+
+/** 목록 응답 봉투 — 화면은 이 안의 `fileUpload`로 파일 입력을 그린다(#1107). */
+function documentList(
+  documents: readonly MilestoneDocument[],
+): MilestoneDocumentList {
+  return { documents, fileUpload: milestoneDocumentUploadPolicy() };
+}
 
 function documentFixture(
   id: string,
@@ -105,7 +116,11 @@ function renderBody(
     <MilestoneDocumentEditorBody
       milestoneId="milestone-1"
       expanded
-      state={{ kind: 'ready', documents: [planner, budget, pledge] }}
+      state={{
+        kind: 'ready',
+        documents: [planner, budget, pledge],
+        fileUpload: milestoneDocumentUploadPolicy(),
+      }}
       editor={{ mode: 'closed' }}
       deleteTargetId={null}
       isBusy={false}
@@ -174,10 +189,18 @@ describe('제출 항목 섹션의 렌더 계약', () => {
 
   it('필수 항목에만 * 가 붙는다', () => {
     const html = renderBody({
-      state: { kind: 'ready', documents: [planner] },
+      state: {
+        kind: 'ready',
+        documents: [planner],
+        fileUpload: milestoneDocumentUploadPolicy(),
+      },
     });
     const optionalHtml = renderBody({
-      state: { kind: 'ready', documents: [budget] },
+      state: {
+        kind: 'ready',
+        documents: [budget],
+        fileUpload: milestoneDocumentUploadPolicy(),
+      },
     });
 
     expect(html).toContain('aria-label="필수"');
@@ -185,7 +208,13 @@ describe('제출 항목 섹션의 렌더 계약', () => {
   });
 
   it('항목이 0개면 안내와 추가 버튼만 남는다', () => {
-    const html = renderBody({ state: { kind: 'ready', documents: [] } });
+    const html = renderBody({
+      state: {
+        kind: 'ready',
+        documents: [],
+        fileUpload: milestoneDocumentUploadPolicy(),
+      },
+    });
 
     expect(html).toContain('아직 제출 항목이 없습니다.');
     expect(html).toContain('학생이 제출할 수 있도록');
@@ -416,7 +445,7 @@ describe('제출 항목 섹션의 동작', () => {
   }
 
   it('접힌 카드는 목록을 불러오지 않고, 펼칠 때 한 번 불러온다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner]);
+    listMilestoneDocumentsMock.mockResolvedValue(documentList([planner]));
 
     await render(false);
     expect(listMilestoneDocumentsMock).not.toHaveBeenCalled();
@@ -427,7 +456,7 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('저장 직후 펼쳐 달라고 하면 처음부터 펼쳐진 채로 뜬다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([]);
+    listMilestoneDocumentsMock.mockResolvedValue(documentList([]));
 
     await render(true);
 
@@ -436,7 +465,9 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('목록은 응답 순서가 뒤섞여 있어도 sortOrder 오름차순으로 그린다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([pledge, planner, budget]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([pledge, planner, budget]),
+    );
 
     await render(true);
 
@@ -449,7 +480,9 @@ describe('제출 항목 섹션의 동작', () => {
    * 한 번에 보낸다 — 항목별 PATCH가 한 건이라도 나가면 그 회귀다.
    */
   it('드롭은 전체 순서를 한 번의 요청으로 보낸다 — 항목별 PATCH를 쓰지 않는다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner, budget, pledge]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([planner, budget, pledge]),
+    );
     reorderMilestoneDocumentsMock.mockResolvedValue([
       { ...budget, sortOrder: 1 },
       { ...planner, sortOrder: 2 },
@@ -475,7 +508,9 @@ describe('제출 항목 섹션의 동작', () => {
    * 그래서 응답에만 있는 값(이름 변경)을 넣어 화면이 무엇을 그렸는지로 판정한다.
    */
   it('순서 바꾼 뒤 목록은 서버 응답 그대로다 — 낙관적 갱신이 아니다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([planner, budget]),
+    );
     reorderMilestoneDocumentsMock.mockResolvedValue([
       { ...budget, name: '예산서(서버 확정)', sortOrder: 1 },
       { ...planner, name: '계획서(서버 확정)', sortOrder: 2 },
@@ -492,10 +527,12 @@ describe('제출 항목 섹션의 동작', () => {
    * 「한쪽 PATCH만 성공」이 남긴 자리라, 한 번 어긋나면 되돌릴 길이 없었다.
    */
   it('sortOrder가 겹쳐 굳은 목록도 순서를 바꿀 수 있다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([
-      documentFixture('a', 7, { name: '계획서' }),
-      documentFixture('b', 7, { name: '예산서' }),
-    ]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([
+        documentFixture('a', 7, { name: '계획서' }),
+        documentFixture('b', 7, { name: '예산서' }),
+      ]),
+    );
     reorderMilestoneDocumentsMock.mockResolvedValue([
       documentFixture('b', 1, { name: '예산서' }),
       documentFixture('a', 2, { name: '계획서' }),
@@ -512,12 +549,14 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('제출이 있는 항목을 수정해도 제출 방식 선택은 나타나지 않는다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([
-      documentFixture('a', 1, {
-        name: '계획서',
-        teamSubmissionCount: { submitted: 3, total: 8 },
-      }),
-    ]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([
+        documentFixture('a', 1, {
+          name: '계획서',
+          teamSubmissionCount: { submitted: 3, total: 8 },
+        }),
+      ]),
+    );
 
     await render(true);
     await click('수정');
@@ -527,12 +566,14 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('아직 아무도 안 낸 항목도 제출 방식 선택은 나타나지 않는다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([
-      documentFixture('a', 1, {
-        name: '계획서',
-        teamSubmissionCount: { submitted: 0, total: 8 },
-      }),
-    ]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([
+        documentFixture('a', 1, {
+          name: '계획서',
+          teamSubmissionCount: { submitted: 0, total: 8 },
+        }),
+      ]),
+    );
 
     await render(true);
     await click('수정');
@@ -547,12 +588,14 @@ describe('제출 항목 섹션의 동작', () => {
    * 폼에서 제출 방식이 열려 있었다. 교직원이 바꿔 저장해야 그제서야 409가 떴다.
    */
   it('이름만 바꿔 저장한 뒤 다시 열어도 방식 선택은 없다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([
-      documentFixture('a', 1, {
-        name: '계획서',
-        teamSubmissionCount: { submitted: 3, total: 8 },
-      }),
-    ]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([
+        documentFixture('a', 1, {
+          name: '계획서',
+          teamSubmissionCount: { submitted: 3, total: 8 },
+        }),
+      ]),
+    );
     updateMilestoneDocumentMock.mockResolvedValue(
       documentFixture('a', 1, { name: '계획서(수정)' }),
     );
@@ -572,16 +615,18 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('순서를 바꾼 뒤에도 제출 방식 선택은 없다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([
-      documentFixture('a', 1, {
-        name: '계획서',
-        teamSubmissionCount: { submitted: 3, total: 8 },
-      }),
-      documentFixture('b', 2, {
-        name: '예산서',
-        teamSubmissionCount: { submitted: 0, total: 8 },
-      }),
-    ]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([
+        documentFixture('a', 1, {
+          name: '계획서',
+          teamSubmissionCount: { submitted: 3, total: 8 },
+        }),
+        documentFixture('b', 2, {
+          name: '예산서',
+          teamSubmissionCount: { submitted: 0, total: 8 },
+        }),
+      ]),
+    );
     // 재정렬 응답도 제출 수를 싣지 않는다 — 그대로 덮으면 모든 행의 잠금이 풀린다.
     reorderMilestoneDocumentsMock.mockResolvedValue([
       documentFixture('b', 1, { name: '예산서' }),
@@ -599,7 +644,9 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('손잡이는 모든 항목에서 같은 44px 조작 영역을 제공한다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([planner, budget]),
+    );
 
     await render(true);
 
@@ -614,7 +661,9 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('키보드로 집은 뒤 Escape를 누르면 순서를 바꾸지 않는다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([planner, budget]),
+    );
 
     await render(true);
     await press('계획서 순서 이동', ' ');
@@ -627,7 +676,9 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('순서 바꾸기가 실패하면 그 행에 서버 문구를 보여 준다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([planner, budget]),
+    );
     reorderMilestoneDocumentsMock.mockRejectedValue(
       new ApiError({
         type: 'about:blank',
@@ -649,7 +700,9 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('새 항목은 기존 최대 sortOrder + 1로 만든다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([planner, budget]),
+    );
     createMilestoneDocumentMock.mockResolvedValue(
       documentFixture('d', 3, { name: '서약서' }),
     );
@@ -669,7 +722,7 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('서류명이 비면 저장하지 않고 폼에 이유를 남긴다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([]);
+    listMilestoneDocumentsMock.mockResolvedValue(documentList([]));
 
     await render(true);
     await click('제출 항목 추가');
@@ -680,7 +733,9 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('삭제는 확인을 거친 뒤에만 요청한다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+    listMilestoneDocumentsMock.mockResolvedValue(
+      documentList([planner, budget]),
+    );
     deleteMilestoneDocumentMock.mockResolvedValue(undefined);
 
     await render(true);
@@ -696,7 +751,7 @@ describe('제출 항목 섹션의 동작', () => {
   });
 
   it('마지막 제출 항목은 삭제하지 못하며 다음 행동을 안내한다', async () => {
-    listMilestoneDocumentsMock.mockResolvedValue([planner]);
+    listMilestoneDocumentsMock.mockResolvedValue(documentList([planner]));
 
     await render(true);
 
@@ -709,7 +764,7 @@ describe('제출 항목 섹션의 동작', () => {
 
   it('불러오기 실패는 다시 시도로 회복한다', async () => {
     listMilestoneDocumentsMock.mockRejectedValueOnce(new TypeError('network'));
-    listMilestoneDocumentsMock.mockResolvedValueOnce([planner]);
+    listMilestoneDocumentsMock.mockResolvedValueOnce(documentList([planner]));
 
     await render(true);
     expect(container.textContent).toContain('제출 항목을 불러오지 못했습니다.');
@@ -726,8 +781,8 @@ describe('제출 항목 섹션의 동작', () => {
    */
   describe('겹친 목록 조회', () => {
     it('늦게 온 옛 성공 응답이 최신 목록을 덮지 않는다', async () => {
-      const stale = deferred<readonly MilestoneDocument[]>();
-      const fresh = deferred<readonly MilestoneDocument[]>();
+      const stale = deferred<MilestoneDocumentList>();
+      const fresh = deferred<MilestoneDocumentList>();
       listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
       listMilestoneDocumentsMock.mockReturnValueOnce(fresh.promise);
 
@@ -736,11 +791,11 @@ describe('제출 항목 섹션의 동작', () => {
       expect(listMilestoneDocumentsMock).toHaveBeenCalledTimes(2);
 
       // 최신 요청이 먼저 답하고, 옛 요청이 그 뒤에 답한다.
-      await act(async () => fresh.resolve([budget]));
+      await act(async () => fresh.resolve(documentList([budget])));
       await settle();
       expect(rowNames()).toEqual(['예산서']);
 
-      await act(async () => stale.resolve([planner, pledge]));
+      await act(async () => stale.resolve(documentList([planner, pledge])));
       await settle();
 
       expect(rowNames()).toEqual(['예산서']);
@@ -751,15 +806,15 @@ describe('제출 항목 섹션의 동작', () => {
      * 서 있는 목록이 「불러오지 못했습니다」로 덮이고 「다시 시도」밖에 남지 않는다.
      */
     it('늦게 온 옛 실패가 최신 성공을 오류 화면으로 덮지 않는다', async () => {
-      const stale = deferred<readonly MilestoneDocument[]>();
-      const fresh = deferred<readonly MilestoneDocument[]>();
+      const stale = deferred<MilestoneDocumentList>();
+      const fresh = deferred<MilestoneDocumentList>();
       listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
       listMilestoneDocumentsMock.mockReturnValueOnce(fresh.promise);
 
       await render(true);
       await collapseAndExpand();
 
-      await act(async () => fresh.resolve([planner]));
+      await act(async () => fresh.resolve(documentList([planner])));
       await settle();
       expect(rowNames()).toEqual(['계획서']);
 
@@ -782,8 +837,8 @@ describe('제출 항목 섹션의 동작', () => {
   describe('변경과 겹친 목록 조회', () => {
     it('저장이 끝난 뒤 도착한 옛 조회가 방금 만든 항목을 지우지 않는다', async () => {
       const created = deferred<MilestoneDocument>();
-      const stale = deferred<readonly MilestoneDocument[]>();
-      listMilestoneDocumentsMock.mockResolvedValueOnce([planner]);
+      const stale = deferred<MilestoneDocumentList>();
+      listMilestoneDocumentsMock.mockResolvedValueOnce(documentList([planner]));
       listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
       createMilestoneDocumentMock.mockReturnValueOnce(created.promise);
 
@@ -801,7 +856,7 @@ describe('제출 항목 섹션의 동작', () => {
       await settle();
       expect(rowNames()).toEqual(['계획서', '서약서']);
 
-      await act(async () => stale.resolve([planner]));
+      await act(async () => stale.resolve(documentList([planner])));
       await settle();
 
       expect(rowNames()).toEqual(['계획서', '서약서']);
@@ -809,8 +864,10 @@ describe('제출 항목 섹션의 동작', () => {
 
     it('순서를 바꾼 뒤 도착한 옛 조회가 옛 순서로 되돌리지 않는다', async () => {
       const reordered = deferred<readonly MilestoneDocument[]>();
-      const stale = deferred<readonly MilestoneDocument[]>();
-      listMilestoneDocumentsMock.mockResolvedValueOnce([planner, budget]);
+      const stale = deferred<MilestoneDocumentList>();
+      listMilestoneDocumentsMock.mockResolvedValueOnce(
+        documentList([planner, budget]),
+      );
       listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
       reorderMilestoneDocumentsMock.mockReturnValueOnce(reordered.promise);
 
@@ -827,7 +884,7 @@ describe('제출 항목 섹션의 동작', () => {
       await settle();
       expect(rowNames()).toEqual(['예산서', '계획서']);
 
-      await act(async () => stale.resolve([planner, budget]));
+      await act(async () => stale.resolve(documentList([planner, budget])));
       await settle();
 
       expect(rowNames()).toEqual(['예산서', '계획서']);
@@ -841,8 +898,10 @@ describe('제출 항목 섹션의 동작', () => {
      */
     it('삭제가 실패한 뒤 도착한 옛 조회도 목록을 덮지 않는다', async () => {
       const deletion = deferred<void>();
-      const stale = deferred<readonly MilestoneDocument[]>();
-      listMilestoneDocumentsMock.mockResolvedValueOnce([planner, budget]);
+      const stale = deferred<MilestoneDocumentList>();
+      listMilestoneDocumentsMock.mockResolvedValueOnce(
+        documentList([planner, budget]),
+      );
       listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
       deleteMilestoneDocumentMock.mockReturnValueOnce(deletion.promise);
 
@@ -869,11 +928,132 @@ describe('제출 항목 섹션의 동작', () => {
         '이미 제출된 서류가 있어 삭제할 수 없습니다.',
       );
 
-      await act(async () => stale.resolve([pledge]));
+      await act(async () => stale.resolve(documentList([pledge])));
       await settle();
 
       expect(rowNames()).toEqual(['계획서', '예산서']);
       expect(container.textContent).not.toContain('서약서');
     });
+  });
+});
+
+/*
+ * #1107 — 마일스톤 편집의 「양식 올리기」도 accept도 사전 검사도 없었다. 학생 제출·교직원
+ * 양식 올리기와 같은 기준을 따라야 한다.
+ */
+describe('마일스톤 편집 양식 올리기의 사전 검사', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = window.document.createElement('div');
+    window.document.body.append(container);
+    root = createRoot(container);
+    uploadMilestoneDocumentTemplateMock.mockReset();
+    listMilestoneDocumentsMock.mockReset();
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  async function renderRow(onTemplateFile = vi.fn()) {
+    listMilestoneDocumentsMock.mockResolvedValue(documentList([planner]));
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentEditorBody
+          milestoneId="milestone-1"
+          expanded
+          state={{
+            kind: 'ready',
+            documents: [planner],
+            fileUpload: milestoneDocumentUploadPolicy(),
+          }}
+          editor={{ mode: 'closed' }}
+          deleteTargetId={null}
+          isBusy={false}
+          rowError={null}
+          onToggle={noOp}
+          onRetry={noOp}
+          onAdd={noOp}
+          onEdit={noOp}
+          onCancelEditor={noOp}
+          onFieldChange={noOp}
+          onSaveEditor={vi.fn()}
+          onRequestDelete={noOp}
+          onCancelDelete={noOp}
+          onConfirmDelete={noOp}
+          onReorder={async () => true}
+          onTemplateFile={onTemplateFile}
+        />,
+      );
+    });
+    return onTemplateFile;
+  }
+
+  function fileInput(): HTMLInputElement {
+    const element = container.querySelector('input[type="file"]');
+    if (!(element instanceof HTMLInputElement))
+      throw new TypeError('Missing file input.');
+    return element;
+  }
+
+  async function select(name: string, size: number) {
+    const input = fileInput();
+    const candidate = new File(['synthetic'], name);
+    Object.defineProperty(candidate, 'size', {
+      configurable: true,
+      value: size,
+    });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [candidate],
+    });
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
+    );
+  }
+
+  it('고르기 전에 다른 두 화면과 같은 안내를 보여 주고 형식을 제한한다', async () => {
+    await renderRow();
+
+    expect(container.textContent).toContain(
+      'PDF, HWP, JPG, PNG, ZIP · 최대 5 MB',
+    );
+    expect(fileInput().getAttribute('accept')).toBe(
+      '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+    );
+  });
+
+  it('상한을 넘은 파일은 업로드를 시작하지도 않는다', async () => {
+    const onTemplateFile = await renderRow();
+
+    await select('양식.pdf', 5 * 1024 * 1024 + 1);
+
+    expect(onTemplateFile).not.toHaveBeenCalled();
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('파일은 5 MB 이하여야 합니다.');
+    expect(alert?.textContent).not.toContain('ProblemDetail');
+  });
+
+  it('허용 형식 밖의 파일도 업로드 전에 걸러진다', async () => {
+    const onTemplateFile = await renderRow();
+
+    await select('설치.exe', 10);
+
+    expect(onTemplateFile).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.',
+    );
+  });
+
+  it('제대로 된 파일은 그대로 올린다', async () => {
+    const onTemplateFile = await renderRow();
+
+    await select('양식.pdf', 1024);
+
+    expect(onTemplateFile).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 });

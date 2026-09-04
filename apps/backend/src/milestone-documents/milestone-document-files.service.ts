@@ -21,6 +21,7 @@ import {
   SubmissionFilesRepository,
 } from '../submissions/submission-files.repository';
 import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
 import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
 import {
@@ -29,7 +30,7 @@ import {
 } from './milestone-documents-error-code.enum';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface MilestoneDocumentFileUpload {

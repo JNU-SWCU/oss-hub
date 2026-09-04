@@ -44,12 +44,13 @@ import {
 } from './submissions-error-code.enum';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsService } from './submissions.service';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload-policy';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 const MultipartFileInterceptor = FileInterceptor('file', {
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
     fieldNameSize: 100,
     fieldSize: 512,
     fields: 4,

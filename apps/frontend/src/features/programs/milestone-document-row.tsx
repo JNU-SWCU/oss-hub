@@ -1,16 +1,23 @@
 'use client';
 
 import { Upload } from 'lucide-react';
-import { useRef, type ChangeEvent, type ReactNode } from 'react';
+import { useState, useRef, type ChangeEvent, type ReactNode } from 'react';
 import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import {
   milestoneDocumentTemplateHref,
   type MilestoneDocument,
+  type MilestoneDocumentUploadPolicy,
 } from './milestone-document-api';
+import {
+  milestoneDocumentUploadHint,
+  milestoneDocumentUploadRejection,
+} from './milestone-document-upload-policy';
 
 interface MilestoneDocumentRowProps {
   readonly document: MilestoneDocument;
+  /** 상한·허용 형식. 목록과 같은 응답으로 온다 — 화면은 사본을 만들지 않는다(#1107). */
+  readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly isBusy: boolean;
   readonly deleteRequested: boolean;
   readonly deleteDisabled: boolean;
@@ -25,6 +32,7 @@ interface MilestoneDocumentRowProps {
 
 export function MilestoneDocumentRow({
   document,
+  fileUpload,
   isBusy,
   deleteRequested,
   deleteDisabled,
@@ -37,11 +45,22 @@ export function MilestoneDocumentRow({
   onTemplateFile,
 }: MilestoneDocumentRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** 보내기도 전에 화면에서 걸러진 사유. 서버가 준 오류(`errorMessage`)와 자리를 나눠 쓴다. */
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const uploadHintId = `${document.id}-template-upload-help`;
 
   function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (file) onTemplateFile(document, file);
+    if (!file) return;
+    /*
+     * 상한을 넘거나 허용 형식 밖이면 요청 자체를 내보내지 않는다 — 보내 봐야 실패하고,
+     * 그 실패가 nginx에서 나면 화면에는 개발자용 문장만 남는다(#1107).
+     */
+    const rejection = milestoneDocumentUploadRejection(file, fileUpload);
+    setSelectionError(rejection);
+    if (rejection !== null) return;
+    onTemplateFile(document, file);
   }
 
   return (
@@ -97,9 +116,15 @@ export function MilestoneDocumentRow({
           ref={fileInputRef}
           type="file"
           className="sr-only"
+          accept={fileUpload.accept}
           aria-label={`${document.name} 양식 파일 선택`}
+          aria-describedby={uploadHintId}
           onChange={handleFile}
         />
+        {/* 고르기 전에 읽어야 하는 값 — 학생 제출 폼과 같은 문장을 쓴다. */}
+        <span id={uploadHintId} className="text-small text-muted-foreground">
+          {milestoneDocumentUploadHint(fileUpload)}
+        </span>
         <Button
           type="button"
           size="sm"
@@ -149,7 +174,11 @@ export function MilestoneDocumentRow({
           </Button>
         </div>
       ) : null}
-      {errorMessage ? (
+      {selectionError !== null ? (
+        <p role="alert" className="text-small text-destructive">
+          {selectionError} 파일을 다시 선택해 주세요.
+        </p>
+      ) : errorMessage ? (
         <p role="alert" className="text-small text-destructive">
           {errorMessage} 문제를 확인한 뒤 다시 시도해 주세요.
         </p>

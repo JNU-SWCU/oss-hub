@@ -12,7 +12,7 @@ import {
 import { StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, isUnexpectedApiProblem } from '@/lib/api-client';
 import {
   getMilestoneDocumentParticipantHistory,
   listMilestoneDocuments,
@@ -22,6 +22,7 @@ import {
   uploadMilestoneDocumentTemplate,
   type MilestoneDocument,
   type MilestoneDocumentSubmissionContent,
+  type MilestoneDocumentUploadPolicy,
 } from './milestone-document-api';
 import type { MilestoneDocumentCollectionHistory } from './milestone-document-collection-api';
 import {
@@ -46,6 +47,10 @@ import {
 } from './program-detail-format';
 import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
 import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
+import {
+  milestoneDocumentUploadHint,
+  milestoneDocumentUploadRejection,
+} from './milestone-document-upload-policy';
 import type { ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
@@ -54,6 +59,8 @@ export type MilestoneDocumentSectionState =
   | {
       readonly kind: 'ready';
       readonly documents: readonly MilestoneDocument[];
+      /** 상한·허용 형식. 목록과 같은 응답으로 온다 — 화면은 사본을 만들지 않는다(#1107). */
+      readonly fileUpload: MilestoneDocumentUploadPolicy;
     };
 
 function isStaffRole(role: ViewerRole): role is 'STAFF' | 'ADMIN' {
@@ -165,12 +172,14 @@ export function MilestoneDocumentSectionBody({
             <StaffDocumentRow
               key={document.id}
               document={document}
+              fileUpload={state.fileUpload}
               onChange={onDocumentChange}
             />
           ) : (
             <StudentDocumentRow
               key={document.id}
               document={document}
+              fileUpload={state.fileUpload}
               closed={closed}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
@@ -209,7 +218,7 @@ export function MilestoneDocumentSection({
         try {
           setState({
             kind: 'ready',
-            documents: requireMilestoneDocumentList(
+            ...requireMilestoneDocumentList(
               await listMilestoneDocuments(milestoneId),
             ),
           });
@@ -249,7 +258,7 @@ export function MilestoneDocumentSection({
         setState((previous) =>
           previous.kind === 'ready'
             ? {
-                kind: 'ready',
+                ...previous,
                 documents: previous.documents.map((document) =>
                   document.id === updated.id ? updated : document,
                 ),
@@ -298,26 +307,48 @@ function DocumentName({ document }: { readonly document: MilestoneDocument }) {
   );
 }
 
+/**
+ * 서버가 한 말이 있으면 그것을, 없으면 이 화면의 문구를 보여 준다.
+ *
+ * ⚠ ProblemDetail이 아닌 응답(`API_000`)의 `detail`은 서버가 한 말이 아니라 api-client가
+ *   지어낸 일반 문장이다. 그것을 그대로 붙이면 학생은 자기가 무엇을 하다 실패했는지 알 수
+ *   없다 — 이 자리에 개발자용 문장이 붙었던 것이 이 티켓(#1107)의 발단이다.
+ */
 function submitErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError ? error.problem.detail : fallback;
+  if (!(error instanceof ApiError) || isUnexpectedApiProblem(error)) {
+    return fallback;
+  }
+  return error.problem.detail;
 }
 
 /** 교직원 행 — 팀 제출 카운트 + 양식 올리기/교체. */
 function StaffDocumentRow({
   document,
+  fileUpload,
   onChange,
 }: {
   readonly document: MilestoneDocument;
+  readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly onChange: (document: MilestoneDocument) => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadHintId = `${document.id}-template-upload-help`;
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    /*
+     * 상한을 넘거나 허용 형식 밖이면 요청 자체를 내보내지 않는다. 보내 봐야 서버가
+     * 거절하고, 그 거절이 nginx에서 나면 화면에는 개발자용 문장만 남는다(#1107).
+     */
+    const rejection = milestoneDocumentUploadRejection(file, fileUpload);
+    if (rejection !== null) {
+      setError(rejection);
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
@@ -358,9 +389,15 @@ function StaffDocumentRow({
           ref={fileInputRef}
           type="file"
           className="sr-only"
+          accept={fileUpload.accept}
           aria-label={`${document.name} 양식 파일 선택`}
+          aria-describedby={uploadHintId}
           onChange={(event) => void handleFile(event)}
         />
+        {/* 고르기 전에 읽어야 하는 값 — 학생 제출 폼과 같은 문장을 쓴다. */}
+        <span id={uploadHintId} className="text-small text-muted-foreground">
+          {milestoneDocumentUploadHint(fileUpload)}
+        </span>
       </div>
       {error ? (
         <p role="alert" className="text-small text-destructive">
@@ -424,11 +461,13 @@ function StudentReviewNotice({
 /** 학생 행 — 상태 표시 + 양식 다운로드 + 제출/재제출. */
 function StudentDocumentRow({
   document,
+  fileUpload,
   closed,
   onRefresh,
   onSubmitConflict,
 }: {
   readonly document: MilestoneDocument;
+  readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly closed: boolean;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
@@ -729,6 +768,7 @@ function StudentDocumentRow({
         <MilestoneDocumentSubmissionForm
           documentName={document.name}
           documentId={document.id}
+          fileUpload={fileUpload}
           submitting={submitting}
           onCancel={() => setEditing(false)}
           onSubmit={submitDraft}

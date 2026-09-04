@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { formatFileSize } from '@/lib/format-file-size';
+import { SUBMISSION_UPLOAD_MAX_LABEL } from '@/lib/submission-upload-policy';
 import {
   SUBMISSION_FILE_ACCEPT,
   type SubmissionFormErrors,
@@ -111,7 +112,7 @@ export function SubmissionInput({
                 {file ? '파일 바꾸기' : '파일 선택하기'}
               </span>
               <FieldDescription id="submission-file-description">
-                PDF, HWP, JPG, PNG, ZIP · 최대 5MB
+                PDF, HWP, JPG, PNG, ZIP · 최대 {SUBMISSION_UPLOAD_MAX_LABEL}
               </FieldDescription>
               <FieldError id="submission-file-error">{fileMessage}</FieldError>
             </Field>

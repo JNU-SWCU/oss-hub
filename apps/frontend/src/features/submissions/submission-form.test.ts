@@ -114,7 +114,7 @@ describe('validateSubmissionFile', () => {
     expect(validateSubmissionFile(boundary)).toEqual({ ok: true });
     expect(validateSubmissionFile(oversized)).toEqual({
       ok: false,
-      message: '파일은 5MiB 이하여야 합니다.',
+      message: '파일은 5 MB 이하여야 합니다.',
     });
   });
 });
@@ -126,7 +126,7 @@ describe('getSubmissionFileErrorMessage', () => {
       '제출 요청이 서버에 온전히 전달되지 않았습니다. 파일을 다시 선택해 제출해 보고, 그래도 안 되면 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
     ],
     ['SUB_018', 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.'],
-    ['SUB_019', '파일은 5MiB 이하여야 합니다.'],
+    ['SUB_019', '파일은 5 MB 이하여야 합니다.'],
     [
       'SUB_020',
       '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
@@ -174,9 +174,10 @@ describe('getSubmissionFileErrorMessage', () => {
 
   // #1106 — 상한을 50 MiB에서 5 MiB로 내렸을 때 문구만 옛 숫자로 남아, 학생이 절대
   // 통과할 수 없는 크기를 통과한다고 읽었다. 문구의 숫자는 실제로 막는 상한에서 온다.
+  // #1107 — 단위 표기는 「MB」 하나로 통일했다(값은 그대로 MiB다).
   it('SUB_019 문구는 실제로 막는 상한과 같은 숫자를 말한다', () => {
     expect(getSubmissionFileErrorMessage('SUB_019')).toBe(
-      `파일은 ${SUBMISSION_FILE_MAX_BYTES / 1024 / 1024}MiB 이하여야 합니다.`,
+      `파일은 ${SUBMISSION_FILE_MAX_BYTES / 1024 / 1024} MB 이하여야 합니다.`,
     );
   });
 

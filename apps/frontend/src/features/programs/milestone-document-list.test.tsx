@@ -3,6 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import {
   MilestoneDocumentSection,
   MilestoneDocumentSectionBody,
@@ -26,6 +27,11 @@ const milestoneDocument: MilestoneDocument = {
   hasTemplateFile: false,
   templateFileName: null,
 };
+
+/** 목록 응답 봉투 — 화면은 이 안의 `fileUpload`로 파일 입력을 그린다(#1107). */
+function documentListBody(documents: readonly MilestoneDocument[]): unknown {
+  return { documents, fileUpload: milestoneDocumentUploadPolicy() };
+}
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -54,7 +60,9 @@ describe('MilestoneDocumentSection response recovery', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(null))
-      .mockResolvedValueOnce(jsonResponse([milestoneDocument]));
+      .mockResolvedValueOnce(
+        jsonResponse(documentListBody([milestoneDocument])),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     await act(async () => {
@@ -226,7 +234,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
   it('409(MSD_024)를 받으면 상태를 다시 불러와 금지된 조작을 걷는다', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        jsonResponse(documentListBody([CHANGES_REQUESTED])),
+      )
       .mockResolvedValueOnce(
         problemResponse(
           409,
@@ -234,7 +244,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           '제출하는 사이에 교직원 검토 결과가 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
         ),
       )
-      .mockResolvedValueOnce(jsonResponse([APPROVED]));
+      .mockResolvedValueOnce(jsonResponse(documentListBody([APPROVED])));
     vi.stubGlobal('fetch', fetchMock);
 
     await resubmit();
@@ -266,7 +276,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
   it('다시 부르는 것도 실패하면 못 불러왔다고 말한다', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        jsonResponse(documentListBody([CHANGES_REQUESTED])),
+      )
       .mockResolvedValueOnce(
         problemResponse(
           409,
@@ -301,7 +313,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
   it('다른 오류는 문구만 보여 주고 다시 부르지 않는다', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        jsonResponse(documentListBody([CHANGES_REQUESTED])),
+      )
       .mockResolvedValueOnce(
         problemResponse(
           409,
@@ -336,7 +350,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
     });
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        jsonResponse(documentListBody([CHANGES_REQUESTED])),
+      )
       .mockResolvedValueOnce(
         jsonResponse({
           id: 'submission-1',
@@ -344,7 +360,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           submittedAt: '2026-08-03T00:00:00.000Z',
         }),
       )
-      .mockResolvedValueOnce(jsonResponse([refreshed]))
+      .mockResolvedValueOnce(jsonResponse(documentListBody([refreshed])))
       .mockResolvedValueOnce(
         jsonResponse({
           items: [
@@ -385,12 +401,14 @@ describe('제출과 판정이 부딪혔을 때', () => {
     });
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        jsonResponse(documentListBody([CHANGES_REQUESTED])),
+      )
       .mockResolvedValueOnce(jsonResponse({ id: 'submission-1' }))
       .mockResolvedValueOnce(
         problemResponse(503, 'COM_002', '잠시 후 다시 시도해 주세요.'),
       )
-      .mockResolvedValueOnce(jsonResponse([refreshed]))
+      .mockResolvedValueOnce(jsonResponse(documentListBody([refreshed])))
       .mockResolvedValueOnce(
         jsonResponse({ items: [], nextCursor: null, isComplete: true }),
       );
@@ -448,7 +466,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
         if (method === 'GET') {
           getCount += 1;
           if (getCount === 1)
-            return Promise.resolve(jsonResponse([CHANGES_REQUESTED, second]));
+            return Promise.resolve(
+              jsonResponse(documentListBody([CHANGES_REQUESTED, second])),
+            );
           if (getCount === 2) return quiet;
           if (getCount === 3) return conflict;
         }
@@ -523,11 +543,13 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await vi.waitFor(() => expect(getCount).toBe(2));
     await act(async () => {
-      resolveQuiet(jsonResponse([refreshedFirst, second]));
+      resolveQuiet(jsonResponse(documentListBody([refreshedFirst, second])));
     });
     await vi.waitFor(() => expect(getCount).toBe(3));
     await act(async () => {
-      resolveConflict(jsonResponse([refreshedFirst, approvedSecond]));
+      resolveConflict(
+        jsonResponse(documentListBody([refreshedFirst, approvedSecond])),
+      );
     });
     await vi.waitFor(() => {
       expect(container.textContent).toContain('재검토 대기');
@@ -588,6 +610,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
           state={{
             kind: 'ready',
             documents: [{ ...milestoneDocument, viewerSubmission }],
+            fileUpload: milestoneDocumentUploadPolicy(),
           }}
           viewerRole="STUDENT"
           closed={closed}
@@ -1077,5 +1100,132 @@ describe('학생 행이 판정을 읽는 방식', () => {
         'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
       ),
     ).toBeNull();
+  });
+});
+
+/*
+ * #1107 — 교직원 「양식 올리기」에도 accept도 사전 검사도 없어, 상한을 넘은 파일이 그대로
+ * 전송되고 화면에는 「API 오류 응답이 ProblemDetail 형식이 아닙니다.」가 떴다. 학생 제출과
+ * 같은 기준을 따라야 한다.
+ */
+describe('교직원 양식 올리기의 사전 검사', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  });
+
+  async function renderStaffRow() {
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSectionBody
+          state={{
+            kind: 'ready',
+            documents: [milestoneDocument],
+            fileUpload: milestoneDocumentUploadPolicy(),
+          }}
+          viewerRole="STAFF"
+          closed={false}
+          conflictNotice={null}
+          onRetry={() => {}}
+          onDocumentChange={() => {}}
+          onSubmitConflict={() => {}}
+        />,
+      );
+    });
+  }
+
+  function fileInput(): HTMLInputElement {
+    const element = container.querySelector('input[type="file"]');
+    if (!(element instanceof HTMLInputElement))
+      throw new TypeError('Missing file input.');
+    return element;
+  }
+
+  async function select(name: string, size: number) {
+    const input = fileInput();
+    const candidate = new File(['synthetic'], name);
+    Object.defineProperty(candidate, 'size', {
+      configurable: true,
+      value: size,
+    });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [candidate],
+    });
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
+    );
+  }
+
+  it('고르기 전에 학생 제출과 같은 안내를 보여 주고 형식을 제한한다', async () => {
+    await renderStaffRow();
+
+    expect(container.textContent).toContain(
+      'PDF, HWP, JPG, PNG, ZIP · 최대 5 MB',
+    );
+    expect(fileInput().getAttribute('accept')).toBe(
+      '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+    );
+  });
+
+  it('상한을 넘은 파일은 요청을 내보내지 않고 사유를 말한다', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await renderStaffRow();
+
+    await select('양식.pdf', 5 * 1024 * 1024 + 1);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('파일은 5 MB 이하여야 합니다.');
+    expect(alert?.textContent).not.toContain('ProblemDetail');
+  });
+
+  it('허용 형식 밖의 파일도 요청 전에 걸러진다', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await renderStaffRow();
+
+    await select('설치.exe', 10);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.',
+    );
+  });
+
+  /*
+   * 사전 검사를 지나온 실패도 남는다 — 그때 서버가 ProblemDetail을 주지 못하면 화면은
+   * 개발자용 문장이 아니라 이 화면의 문구를 말해야 한다.
+   */
+  it('ProblemDetail이 아닌 실패에도 개발자용 문장을 붙이지 않는다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<html>413 Request Entity Too Large</html>', {
+          status: 413,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    );
+    await renderStaffRow();
+
+    await select('양식.pdf', 1024);
+
+    await vi.waitFor(() => {
+      const alert = container.querySelector('[role="alert"]');
+      expect(alert?.textContent).toContain('양식 업로드에 실패했습니다.');
+    });
+    expect(container.textContent).not.toContain('ProblemDetail');
   });
 });
