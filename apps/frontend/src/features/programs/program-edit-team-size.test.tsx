@@ -45,7 +45,7 @@ const viewProps = {
   isLifecycleBusy: false,
   isLifecycleConfirming: false,
   lifecycleError: null,
-  isAdmin: false,
+  canDeleteProgram: false,
   onRequestLifecycleToggle: noOp,
   onCancelLifecycleToggle: noOp,
   onConfirmLifecycleToggle: noOp,

@@ -494,8 +494,9 @@ export async function getStaffDashboardSummary(): Promise<StaffDashboardSummary>
 }
 
 /**
- * ADMIN 전용 영구 삭제(#875). STAFF는 프로그램 생성자여도 백엔드가 403으로
- * 거절한다 — 화면은 위험 영역 섹션 자체를 ADMIN에게만 보여준다.
+ * 교직원·관리자의 영구 삭제(#1095가 #875의 「STAFF 403」을 뒤집었다). 자식 데이터가
+ * 하나라도 있으면 백엔드가 409(PRG_012)로 막는 것은 그대로다 — 화면은 위험 영역
+ * 섹션을 삭제 권한이 있는 사용자에게 보여준다.
  */
 export function deleteProgram(
   programId: string,
@@ -506,7 +507,7 @@ export function deleteProgram(
   );
 }
 
-/** ADMIN 전용 전체 삭제 응답 — backend `ProgramPurgeDeletedCounts` 계약 미러. */
+/** 전체 삭제 응답 — backend `ProgramPurgeDeletedCounts` 계약 미러. */
 export interface ProgramPurgeDeletedCounts {
   readonly applications: number;
   readonly teams: number;
@@ -541,7 +542,7 @@ export interface ProgramPurgeResult {
 }
 
 /**
- * `expectedScope`는 ADMIN이 확인 다이얼로그에서 마지막으로 본 삭제 범위이며 REQUIRED다(#F2) —
+ * `expectedScope`는 누르는 사람이 확인 다이얼로그에서 마지막으로 본 삭제 범위이며 REQUIRED다(#F2) —
  * 백엔드가 같은 값을 purge 트랜잭션 안에서 다시 읽은 현재 범위와 비교해, 확인 이후 생긴 행이
  * 있으면 409(PRG_014)로 거부한다.
  */

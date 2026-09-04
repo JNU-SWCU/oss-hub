@@ -95,10 +95,16 @@ export class ProgramLifecycleService {
   }
 
   /**
-   * ADMIN 전용 영구 삭제. 신청·팀·제출물·게시글 중 하나라도 남아 있으면 409로 막는다 —
+   * 교직원·관리자의 영구 삭제. 신청·팀·제출물·게시글 중 하나라도 남아 있으면 409로 막는다 —
    * 학생 데이터가 붙은 프로그램을 지우는 강제 경로는 이 기능의 목적 밖이다(#875).
    * 차단 카운트 확인과 자식 삭제·Program 삭제·감사 로그 기록을 전부 한 트랜잭션 안에서
    * 수행해 확인-삭제 사이의 race를 없앤다.
+   *
+   * 권한은 #1095에서 ADMIN 전용에서 교직원 전권으로 넓혔다 — 관리자는 시스템이 잘 도는지
+   * 보는 역할이고 행사를 운영하는 것은 교직원이라, 프로그램 삭제가 ADMIN 전용인 것 자체가
+   * 역할 정의와 어긋났다. #875가 정한 「STAFF는 작성자여도 403」 계약을 뒤집는다. 넓힌 것은
+   * **누가** 하는가 하나이며, 무엇을 지우는지·409 차단 조건·`deletionProtected`·감사 로그는
+   * 그대로다. 관리자 권한도 좁히지 않는다.
    */
   async delete(
     githubId: bigint,
@@ -114,7 +120,7 @@ export class ProgramLifecycleService {
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||
-      !actor.hasAdminAccess
+      (!actor.hasStaffAccess && !actor.hasAdminAccess)
     ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
@@ -203,13 +209,18 @@ export class ProgramLifecycleService {
   }
 
   /**
-   * ADMIN의 의도적 전체 삭제. 기존 `delete`의 409 차단 계약과 독립된 경로다.
+   * 교직원·관리자의 의도적 전체 삭제. 기존 `delete`의 409 차단 계약과 독립된 경로다.
+   *
+   * `delete`와 같은 이유로 #1095에서 교직원까지 넓혔다 — 지금 자식 데이터 없이 지울 수 있는
+   * 프로그램이 없어 「일반 삭제만 교직원에게」는 실질적으로 아무것도 바꾸지 못하기 때문에,
+   * 두 경로를 함께 옮긴다. 아래 확인 절차(범위 스냅샷 재확인·이름 재입력은 화면 몫)와
+   * `deletionProtected`·감사 로그는 조금도 약해지지 않는다.
    *
    * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해
    * DELETE_PENDING으로 전환한다. phase 2 worker만 storage port를 호출한다.
    *
    * `expectedScope`는 확인 화면(GET edit)이 보여준 자식 범위의 스냅샷이다 —
-   * 확인과 purge 사이가 별개 요청이라(#F2 TOCTOU) 확인 이후 생긴 행을 관리자가
+   * 확인과 purge 사이가 별개 요청이라(#F2 TOCTOU) 확인 이후 생긴 행을 누르는 사람이
    * 보지 못한 채 지울 수 있다. 그래서 삭제 트랜잭션 안에서 GET edit과 동일한
    * 단일 스냅샷 쿼리(`readProgramDeletionScopeCounts`)로 현재 범위를 다시 읽어 비교하고,
    * 다르면 트랜잭션 전체를 abort해 아무것도 지우지 않는다(409 PRG_014, 현재 카운트 포함).
@@ -229,7 +240,7 @@ export class ProgramLifecycleService {
     });
     if (
       actor?.accountStatus !== AccountStatus.ACTIVE ||
-      !actor.hasAdminAccess
+      (!actor.hasStaffAccess && !actor.hasAdminAccess)
     ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],

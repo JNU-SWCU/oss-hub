@@ -11,10 +11,11 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 type ProgramEditPageProps = {
   readonly programId: string;
-  readonly isAdmin: boolean;
+  readonly canDeleteProgram: boolean;
 };
 
 const session = vi.hoisted(() => ({
+  hasStaffAccess: false,
   hasAdminAccess: false,
 }));
 
@@ -24,6 +25,7 @@ const captured = vi.hoisted(() => ({
 
 vi.mock('../../../_shell/session-role-context', () => ({
   useSharedSessionRole: () => ({
+    hasStaffAccess: session.hasStaffAccess,
     hasAdminAccess: session.hasAdminAccess,
   }),
 }));
@@ -37,9 +39,10 @@ vi.mock('@/features/programs/program-edit-page', () => ({
 
 import { ProgramEditRoute } from './program-edit-route';
 
-// #875 — 셸이 물려준 세션 역할로 「위험 영역」 노출 여부(isAdmin)를 가른다. ADMIN만
-// true이고, STAFF를 포함한 나머지 역할은 모두 false다 — 백엔드도 STAFF를 403으로
-// 거절하므로 화면은 그 버튼조차 보여주지 않는다.
+// #1095 — 셸이 물려준 세션 역할로 「위험 영역」 노출 여부(canDeleteProgram)를 가른다.
+// 삭제 권한이 교직원 전권이 되면서 교직원 접근만으로도 true다(#875의 「STAFF는 false」가
+// 여기서 뒤집힌다). 관리자 접근만 있는 사용자도 종전과 같이 true다 — 넓히기만 하고
+// 좁히지 않는다. 백엔드도 같은 판정(교직원 또는 관리자)이다.
 describe('ProgramEditRoute', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -56,7 +59,8 @@ describe('ProgramEditRoute', () => {
     container.remove();
   });
 
-  it('관리자 접근이 있으면 isAdmin=true를 ProgramEditPage로 넘긴다', async () => {
+  it('관리자 접근이 있으면 canDeleteProgram=true를 ProgramEditPage로 넘긴다', async () => {
+    session.hasStaffAccess = false;
     session.hasAdminAccess = true;
 
     await act(async () => {
@@ -65,11 +69,13 @@ describe('ProgramEditRoute', () => {
 
     expect(captured.props).toEqual({
       programId: 'program-1',
-      isAdmin: true,
+      canDeleteProgram: true,
     });
   });
 
-  it('관리자 접근이 없으면 isAdmin=false를 넘긴다 — 프로그램 생성자여도 위험 영역을 보지 못한다', async () => {
+  // #1095로 뒤집힌 계약: 종전에는 여기서 canDeleteProgram=false를 기대했다.
+  it('교직원 접근만 있어도 canDeleteProgram=true를 넘긴다 — 자기 화면에서 삭제까지 한다', async () => {
+    session.hasStaffAccess = true;
     session.hasAdminAccess = false;
 
     await act(async () => {
@@ -78,12 +84,27 @@ describe('ProgramEditRoute', () => {
 
     expect(captured.props).toEqual({
       programId: 'program-1',
-      isAdmin: false,
+      canDeleteProgram: true,
+    });
+  });
+
+  it('교직원·관리자 접근이 모두 없으면 canDeleteProgram=false를 넘긴다', async () => {
+    session.hasStaffAccess = false;
+    session.hasAdminAccess = false;
+
+    await act(async () => {
+      root.render(<ProgramEditRoute programId="program-1" />);
+    });
+
+    expect(captured.props).toEqual({
+      programId: 'program-1',
+      canDeleteProgram: false,
     });
   });
 
   it('programId를 그대로 전달한다', async () => {
-    session.hasAdminAccess = true;
+    session.hasStaffAccess = true;
+    session.hasAdminAccess = false;
 
     await act(async () => {
       root.render(<ProgramEditRoute programId="program:with-colon" />);

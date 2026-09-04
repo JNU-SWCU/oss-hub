@@ -1292,4 +1292,12 @@
 - blocker: 없음
 - 결과: `origin/main` 위로 rebase했다. Codex P2에 맞춰 확인창·내린 뒤 설명이 「종료」 배지를 약속하지 않게 했다. 신청이 있는 학생 카드는 `getProgramListBadge`가 지원 상태를 앞에 두므로, 문구는 목록과 상세가 열린다는 사실만 말한다.
 - 검증: `program-edit-page.test.tsx` · `program-edit-view.test.tsx` 문구 고정.
+## 2026-09-04 — #1095 교직원 purge e2e 기대를 새 권한에 맞춘다
+
+- 상태: review
+- Issue: [#1095](https://github.com/JNU-SWCU/oss-hub/issues/1095)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1188
+- blocker: 없음
+- 결과: `origin/main` 위로 rebase했다. Codex P1에 맞춰 `program-edit-purge-network.spec.ts`가 교직원에게 영구 삭제 버튼 0개를 기대하던 계약을, 관리자와 같은 purge 흐름을 타는지로 바꿨다. 삭제 보호 프로그램은 버튼을 비활성화한 채 유지한다. rebase 뒤 `program-edit-milestone-snapshot.test.tsx`가 옛 `isAdmin` prop을 써서 typecheck가 깨져 `canDeleteProgram`으로 맞췄다.
+- 검증: frontend typecheck 통과. e2e 브라우저 게이트는 로컬 Chrome이 필요해 이 환경에서 돌리지 않았다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

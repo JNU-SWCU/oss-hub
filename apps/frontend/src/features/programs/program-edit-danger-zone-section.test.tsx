@@ -95,13 +95,13 @@ describe('ProgramEditDangerZoneSection', () => {
     container.remove();
   });
 
-  it('STAFF에게는 삭제 대신 아카이브 안내만 보여주고 두 삭제 버튼을 숨긴다', async () => {
+  it('삭제 권한이 없으면 삭제 대신 아카이브 안내만 보여주고 두 삭제 버튼을 숨긴다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin={false}
+          canDeleteProgram={false}
         />,
       );
     });
@@ -111,13 +111,13 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(Array.from(container.querySelectorAll('button'))).toHaveLength(0);
   });
 
-  it('ADMIN에게는 영구 삭제 의도 하나만 보여주고 일반 삭제 action은 렌더링하지 않는다', async () => {
+  it('삭제 권한이 있으면 영구 삭제 의도 하나만 보여주고 일반 삭제 action은 렌더링하지 않는다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -127,13 +127,13 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(container.querySelectorAll('button')).toHaveLength(1);
   });
 
-  it('ADMIN에게는 영구 삭제 버튼 하나만 활성화한다', async () => {
+  it('삭제 권한이 있으면 영구 삭제 버튼 하나만 활성화한다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -147,7 +147,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
           deletionProtected
         />,
       );
@@ -175,7 +175,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -190,7 +190,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -204,7 +204,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -231,7 +231,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -256,7 +256,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -284,7 +284,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -297,6 +297,35 @@ describe('ProgramEditDangerZoneSection', () => {
     await act(async () => setInputValue(input, '다른 프로그램'));
 
     expect(getButton('프로그램 영구 삭제', dialog).disabled).toBe(true);
+  });
+
+  // 안전장치 회귀 (#1095): 삭제 권한이 교직원까지 넓어져도 이름 재입력은 그대로 막는다 —
+  // 버튼이 비활성으로 보이는 데 그치지 않고, 눌러도 purge 요청 자체가 나가지 않는다.
+  it('이름이 정확히 일치하지 않으면 확정을 눌러도 purge 요청을 보내지 않는다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          canDeleteProgram
+        />,
+      );
+    });
+
+    const dialog = await openDialog('프로그램 영구 삭제');
+    const input = document.querySelector<HTMLInputElement>(
+      '#program-purge-confirm-name',
+    );
+    if (input === null) throw new TypeError('Missing purge input.');
+    // 뒤에 공백 하나만 붙어도 일치가 아니다.
+    await act(async () => setInputValue(input, 'OSS 프로그램 '));
+
+    await act(async () => {
+      getButton('프로그램 영구 삭제', dialog).click();
+    });
+
+    expect(purgeProgramMock).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
   });
 
   // TOCTOU(#F2): 확인 화면(getEditableProgram)이 읽은 이후 purge 전에 범위가 바뀌면
@@ -327,7 +356,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });
@@ -388,7 +417,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
           onDeleted={(nextNotice) => setNotice(nextNotice ?? '')}
         />
       );
@@ -430,7 +459,7 @@ describe('ProgramEditDangerZoneSection', () => {
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
-          isAdmin
+          canDeleteProgram
         />,
       );
     });

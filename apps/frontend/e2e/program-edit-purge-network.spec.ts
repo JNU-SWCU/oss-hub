@@ -231,7 +231,9 @@ test.describe('program edit purge network contract', () => {
     expect(requests).toEqual([{ expectedScope: ZERO_COUNTS }]);
   });
 
-  test('protected programs and STAFF never expose delete', async ({ page }) => {
+  test('protected programs keep the purge control disabled', async ({
+    page,
+  }) => {
     const protectedScenario = await openEdit(
       page,
       { actor: 'admin', counts: COUNTS },
@@ -242,15 +244,28 @@ test.describe('program edit purge network contract', () => {
     ).toBeDisabled();
     await expect(page.getByText('삭제 보호된 프로그램입니다')).toBeVisible();
     expect(protectedScenario.normalDeletes).toEqual([]);
+  });
 
-    await page.unrouteAll();
-    await openEdit(page, { actor: 'staff', counts: COUNTS });
+  // #1095 — 교직원도 위험 영역의 영구 삭제를 누른다. 종전에는 버튼 count 0 이었다.
+  test('STAFF uses the same purge action and exact scope', async ({ page }) => {
+    const { purgeRequests, normalDeletes } = await openEdit(page, {
+      actor: 'staff',
+      counts: COUNTS,
+    });
     await expect(
       page.getByRole('button', { name: '프로그램 영구 삭제', exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole('heading', { name: '게시 상태' }),
-    ).toBeVisible();
+    ).toHaveCount(1);
+    await openPurge(page);
+    const input = page.getByLabel('프로그램 이름');
+    const submit = page
+      .getByRole('button', { name: '프로그램 영구 삭제', exact: true })
+      .last();
+    await input.fill(PROGRAM_NAME);
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page).toHaveURL(/\/programs(?:\?|$)/);
+    expect(purgeRequests).toEqual([{ expectedScope: COUNTS }]);
+    expect(normalDeletes).toEqual([]);
   });
 
   test('scope drift reports precise error without retry', async ({ page }) => {

@@ -101,7 +101,9 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     confirmMock = vi.fn().mockReturnValue(false);
     window.confirm = confirmMock;
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
       await Promise.resolve();
     });
   });

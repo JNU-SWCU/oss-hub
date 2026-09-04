@@ -139,7 +139,7 @@ export class ProgramsController {
   }
 
   /**
-   * ADMIN 전용 전체 삭제 — 연결 자식 행은 명시 순서로 정리하고 파일은 worker에 위임한다.
+   * 교직원·관리자의 전체 삭제(#1095) — 연결 자식 행은 명시 순서로 정리하고 파일은 worker에 위임한다.
    * `expectedScope`는 클라이언트가 확인 화면에서 마지막으로 본 삭제 범위이며 REQUIRED다
    * (#F2) — purge 트랜잭션이 같은 스냅샷 쿼리로 재확인해 어긋나면 409 PRG_014로 막는다.
    */
@@ -157,7 +157,10 @@ export class ProgramsController {
     );
   }
 
-  /** ADMIN 전용 영구 삭제 — STAFF는 프로그램 생성자여도 403이다(#875). */
+  /**
+   * 교직원·관리자의 영구 삭제 — #875의 「STAFF 403」을 #1095가 뒤집었다. 자식 데이터가
+   * 하나라도 있으면 여전히 409로 막힌다(차단 조건은 그대로다).
+   */
   @Delete(':id')
   @UseGuards(SessionGuard, OriginGuard)
   delete(

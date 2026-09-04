@@ -40,8 +40,8 @@ interface ProgramEditViewProps {
   readonly isLifecycleBusy: boolean;
   readonly isLifecycleConfirming: boolean;
   readonly lifecycleError: string | null;
-  /** ADMIN만 「위험 영역」(영구 삭제) 섹션을 본다(#875). */
-  readonly isAdmin: boolean;
+  /** 삭제 권한(교직원 또는 관리자)이 있는 사용자만 「위험 영역」(영구 삭제)을 본다(#1095). */
+  readonly canDeleteProgram: boolean;
   readonly onFieldChange: (
     field: ProgramEditableField,
     value: string | boolean,
@@ -118,7 +118,7 @@ export function ProgramEditView({
   isLifecycleBusy,
   isLifecycleConfirming,
   lifecycleError,
-  isAdmin,
+  canDeleteProgram,
   onFieldChange,
   onSubmit,
   onRequestLifecycleToggle,
@@ -228,7 +228,7 @@ export function ProgramEditView({
           <ProgramEditDangerZoneSection
             programId={program.id}
             programName={program.name}
-            isAdmin={isAdmin}
+            canDeleteProgram={canDeleteProgram}
             deletionProtected={program.deletionProtected ?? false}
           />
         </div>
