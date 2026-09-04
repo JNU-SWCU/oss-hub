@@ -662,12 +662,16 @@ describe('ProgramEditPage 컴포넌트', () => {
       document.querySelector('[role="alertdialog"]')?.textContent ?? '';
     expect(dialogText).toContain('프로그램을 다시 게시할까요?');
     expect(dialogText).toContain(
-      '신청 기간이 남아 있으면 신규 신청이 곧바로 다시 열립니다. 다만 공개 목록에 새로 노출되지는 않습니다 — 내려가 있는 동안에도 목록과 상세는 그대로 열려 있었습니다. 모집 상태도 내림에 고정돼 있던 것이 풀려 신청·운영 기간에 따라 다시 정해지며, 언제든 다시 내릴 수 있습니다.',
+      '신청 기간 안이면 신규 신청이 곧바로 다시 열리고, 내려 둔 동안 고정돼 있던 모집 상태도 풀려 신청·운영 기간에 따라 다시 정해집니다. 다만 공개 목록에 새로 노출되지는 않습니다 — 내려가 있는 동안에도 목록과 상세는 그대로 열려 있었습니다. 언제든 다시 내릴 수 있습니다.',
     );
     // 지키지 못하는 약속 — 어떤 표현으로도 다시 들어오면 안 된다.
     expect(dialogText).not.toContain('다시 노출');
     expect(dialogText).not.toContain('목록에 다시');
     expect(dialogText).not.toContain('「종료」');
+    // 「남아 있으면」은 아직 시작하지 않은 신청 기간까지 포함해 읽힌다. 그
+    // 프로그램은 다시 게시해도 `now < applicationStartAt` 로 계속 막히므로
+    // 「곧바로 열린다」가 또 하나의 거짓 약속이 된다.
+    expect(dialogText).not.toContain('신청 기간이 남아 있');
   });
 
   // 리뷰에서 발견된 블로커 — confirmLifecycleToggle이 성공 후 load()를 불렀다.
