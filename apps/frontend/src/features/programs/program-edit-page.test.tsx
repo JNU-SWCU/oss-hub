@@ -607,7 +607,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
-      root.render(<ProgramEditPage programId="program-1" isAdmin={false} />);
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
     });
     await act(async () => {
       await Promise.resolve();
