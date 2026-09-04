@@ -382,6 +382,179 @@ describe('ProgramStaffTeamsPage', () => {
     expect(container.textContent).toContain('참여 팀을 불러오지 못했습니다');
   });
 
+  /**
+   * #1101 — 빈 화면은 세 갈래다. 「아직 없음」·「조건에 안 걸림」·「불러오지 못함」이
+   * 서로 다른 사실이고 다른 다음 행동을 부른다. 아래 묶음이 그 경계를 고정한다.
+   */
+  describe('빈 화면 갈래(#1101)', () => {
+    function chip(label: string): HTMLButtonElement {
+      const found = [...container.querySelectorAll('button')].find((button) =>
+        button.textContent?.startsWith(label),
+      );
+      if (found === undefined)
+        throw new Error(`상태 칩을 찾지 못했다: ${label}`);
+      return found as HTMLButtonElement;
+    }
+
+    function searchInput(): HTMLInputElement {
+      const input = container.querySelector<HTMLInputElement>(
+        'input[aria-label="팀 검색"]',
+      );
+      if (input === null) throw new Error('검색 입력을 찾지 못했다');
+      return input;
+    }
+
+    async function typeSearch(value: string): Promise<void> {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      const input = searchInput();
+      await act(async () => {
+        setter?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+
+    async function click(element: Element): Promise<void> {
+      await act(async () => {
+        element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+    }
+
+    function button(label: string): HTMLButtonElement | undefined {
+      return [...container.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent?.trim() === label,
+      );
+    }
+
+    /**
+     * 결함 그대로의 상태 — 아무것도 안 눌렀는데 필터를 바꾸라는 안내가 떴다.
+     * 재현 조건(검색어 빈 문자열 · `aria-pressed="true"`인 칩이 기본값 「전체」)까지
+     * 함께 고정한다. 이 둘이 어긋나면 문구만 맞고 전제가 틀린 테스트가 된다.
+     */
+    it('팀이 0팀이면 필터를 걸지 않은 사람에게 필터 이야기를 하지 않는다', async () => {
+      await render([], []);
+
+      expect(searchInput().value).toBe('');
+      expect(chip('전체').getAttribute('aria-pressed')).toBe('true');
+
+      const text = container.textContent ?? '';
+      expect(text).toContain('아직 참여 팀이 없습니다');
+      expect(text).toContain('학생이 팀을 만들면 여기에 표시됩니다.');
+      expect(text).not.toContain('검색어나 상태 필터를 바꿔 보세요.');
+      // 되돌릴 필터가 없는 화면에 되돌리는 버튼을 두지 않는다.
+      expect(button('필터 초기화')).toBeUndefined();
+    });
+
+    /**
+     * ⚠ 순서 규칙. 팀이 0팀인 프로그램에서도 칩은 눌린다 — 그때 필터 탓을 하면
+     * 원래 결함으로 되돌아간다. 「아직 없음」이 「조건에 안 걸림」보다 먼저다.
+     */
+    it('팀이 0팀이면 칩을 눌러 둔 상태여도 여전히 「아직 없음」이다', async () => {
+      await render([], []);
+      await click(chip('승인'));
+
+      const text = container.textContent ?? '';
+      expect(chip('승인').getAttribute('aria-pressed')).toBe('true');
+      expect(text).toContain('아직 참여 팀이 없습니다');
+      expect(text).not.toContain('검색어나 상태 필터를 바꿔 보세요.');
+    });
+
+    it('팀은 있는데 검색어에 아무도 안 걸리면 다른 문구로 말하고 되돌릴 수단을 준다', async () => {
+      await render(
+        [team('t1', '가팀', [member('a', '김가', true)])],
+        [application('t1', 'APPROVED')],
+      );
+      await typeSearch('없는팀이름');
+
+      const text = container.textContent ?? '';
+      expect(text).toContain('조건에 맞는 팀이 없습니다');
+      expect(text).toContain('검색어나 상태 필터를 바꿔 보세요.');
+      // 두 갈래가 서로 다른 문구여야 한다 — 이 티켓의 본체다.
+      expect(text).not.toContain('아직 참여 팀이 없습니다');
+      expect(button('필터 초기화')).toBeDefined();
+    });
+
+    /**
+     * 검색 때문에 0건이든 상태 칩 때문에 0건이든 사용자가 할 일은 같다 —
+     * 「조건을 바꾸거나 되돌린다」. 그래서 두 원인을 한 문구로 묶는다.
+     */
+    it('상태 칩 때문에 0건인 경우도 검색과 같은 문구로 묶는다', async () => {
+      await render(
+        [team('t1', '가팀', [member('a', '김가', true)])],
+        [application('t1', 'APPROVED')],
+      );
+      await click(chip('반려'));
+
+      const text = container.textContent ?? '';
+      expect(text).toContain('조건에 맞는 팀이 없습니다');
+      expect(text).toContain('검색어나 상태 필터를 바꿔 보세요.');
+      expect(text).not.toContain('아직 참여 팀이 없습니다');
+    });
+
+    /**
+     * 되돌릴 수단이 하나면 되돌리는 것도 전부여야 한다 — 칩만 풀리고 검색어가 남으면
+     * 표는 그대로 비어 있고, 사용자는 버튼이 고장 난 줄 안다.
+     */
+    it('「필터 초기화」는 검색어와 상태 칩을 함께 되돌려 표를 되살린다', async () => {
+      await render(
+        [team('t1', '가팀', [member('a', '김가', true)])],
+        [application('t1', 'APPROVED')],
+      );
+      await click(chip('반려'));
+      await typeSearch('없는팀이름');
+
+      expect(container.textContent).toContain('조건에 맞는 팀이 없습니다');
+
+      await click(button('필터 초기화')!);
+
+      expect(searchInput().value).toBe('');
+      expect(chip('전체').getAttribute('aria-pressed')).toBe('true');
+      expect(container.textContent).toContain('가팀');
+      expect(container.textContent).not.toContain('조건에 맞는 팀이 없습니다');
+    });
+
+    /**
+     * 「다시 시도해 주세요」라고 말하면서 다시 시도할 것을 주지 않던 자리다.
+     * 버튼이 있다는 것만으로는 부족하다 — **눌러서 실제로 복구되는지**까지 본다.
+     */
+    it('조회에 실패하면 같은 자리에서 다시 시도할 수 있고, 눌러 복구된다', async () => {
+      listStaffProgramTeamsMock.mockRejectedValueOnce(new Error('boom'));
+      listProgramApplicationsMock.mockResolvedValue(page([]));
+      await act(async () => {
+        root.render(<ProgramStaffTeamsPage programId="program-1" />);
+      });
+
+      expect(container.textContent).toContain('참여 팀을 불러오지 못했습니다');
+      const retry = button('다시 시도');
+      expect(retry).toBeDefined();
+
+      listStaffProgramTeamsMock.mockResolvedValue([
+        team('t1', '가팀', [member('a', '김가', true)]),
+      ]);
+      await click(retry!);
+
+      expect(container.textContent).not.toContain(
+        '참여 팀을 불러오지 못했습니다',
+      );
+      expect(container.textContent).toContain('가팀');
+    });
+
+    // 실패는 표의 빈 자리가 아니라 화면 상태다(design.md R-10).
+    it('실패 화면은 빈 표 문구를 함께 보여 주지 않는다', async () => {
+      listStaffProgramTeamsMock.mockRejectedValue(new Error('boom'));
+      listProgramApplicationsMock.mockResolvedValue(page([]));
+      await act(async () => {
+        root.render(<ProgramStaffTeamsPage programId="program-1" />);
+      });
+
+      const text = container.textContent ?? '';
+      expect(text).not.toContain('아직 참여 팀이 없습니다');
+      expect(text).not.toContain('조건에 맞는 팀이 없습니다');
+    });
+  });
+
   it('팀명은 그 팀의 팀 상세(#874)로 가는 링크다 — 신청이 없는 팀도 포함한다', async () => {
     await render(
       [
