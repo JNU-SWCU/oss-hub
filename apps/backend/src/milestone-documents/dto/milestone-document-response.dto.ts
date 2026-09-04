@@ -22,6 +22,16 @@ import { MilestoneDocumentRecord } from '../milestone-documents.repository';
 export interface MilestoneDocumentViewerReviewResponseDto {
   readonly comment: string | null;
   readonly reviewedAt: string;
+  /**
+   * 이 보완 요청에 **언제까지** 응할 수 있는가. 승인·반려면 null이고, 이 값이 생기기 전에
+   * 저장된 보완 요청도 null이다.
+   *
+   * 위에서 `decision`을 싣지 않은 근거(「그 값으로 무엇을 다르게 그릴지부터 정해야 한다」)를
+   * 이 필드는 통과한다 — 화면이 **잠금과 문구 둘 다** 이 값으로 정한다. 마감 뒤 재제출 창을
+   * 이 시각에 닫고(`isMilestoneDocumentDeadlineLocked`), 닫히기 전에는 「언제까지」를 적는다.
+   * 기한을 말하지 않고 잠그면 학생은 어제까지였다는 사실을 모른 채 버튼이 사라진 것만 본다.
+   */
+  readonly resubmissionDueAt: string | null;
 }
 
 /**

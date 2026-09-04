@@ -187,6 +187,7 @@ export interface CreatedMilestoneDocumentReview {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
+  readonly resubmissionDueAt: Date | null;
   readonly reviewerNickname: string;
 }
 
@@ -197,6 +198,8 @@ export interface CreateMilestoneDocumentReviewInput {
   readonly reviewerId: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
+  /** 보완 요청이면 학생이 언제까지 다시 낼 수 있는가. 승인·반려는 `null`이다. */
+  readonly resubmissionDueAt: Date | null;
   readonly reviewedAt: Date;
 }
 
@@ -207,6 +210,11 @@ export interface CreateMilestoneDocumentReviewInput {
 export interface LatestMilestoneDocumentReview {
   readonly id: string;
   readonly decision: ReviewDecision;
+  /**
+   * 그 판정이 정한 재제출 기한 — 마감 뒤 창을 닫는 시각이다. 이 값을 함께 읽지 않으면
+   * 제출 관문이 기한을 못 보고 「보완 요청이면 언제든」으로 되돌아간다.
+   */
+  readonly resubmissionDueAt: Date | null;
 }
 
 /** 교직원 제출 파일 다운로드 재료 — 다시 붙일 이름을 만들기 위해 팀명을 함께 싣는다. */
@@ -739,6 +747,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
           reviewerId: input.reviewerId,
           decision: input.decision,
           comment: input.comment,
+          resubmissionDueAt: input.resubmissionDueAt,
           reviewedAt: input.reviewedAt,
         },
         select: {
@@ -746,6 +755,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
           decision: true,
           comment: true,
           reviewedAt: true,
+          resubmissionDueAt: true,
           reviewer: { select: { nickname: true } },
         },
       });
@@ -754,6 +764,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       decision: created.decision,
       comment: created.comment,
       reviewedAt: created.reviewedAt,
+      resubmissionDueAt: created.resubmissionDueAt,
       reviewerNickname: created.reviewer.nickname,
     };
   }
@@ -882,6 +893,7 @@ class PrismaMilestoneDocumentCollectionReadStore implements MilestoneDocumentCol
                 decision: review.decision,
                 comment: review.comment,
                 reviewedAt: review.reviewedAt,
+                resubmissionDueAt: review.resubmissionDueAt,
               },
       };
     });
@@ -1061,6 +1073,7 @@ export class MilestoneDocumentsRepository {
                 decision: review.decision,
                 comment: review.comment,
                 reviewedAt: review.reviewedAt,
+                resubmissionDueAt: review.resubmissionDueAt,
               },
       };
     });
@@ -1081,7 +1094,7 @@ export class MilestoneDocumentsRepository {
         milestoneDocumentSubmission: { milestoneDocumentId, applicationId },
       },
       orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-      select: { id: true, decision: true },
+      select: { id: true, decision: true, resubmissionDueAt: true },
     });
     return review;
   }
@@ -1329,6 +1342,7 @@ export class MilestoneDocumentsRepository {
                 decision: review.decision,
                 comment: review.comment,
                 reviewedAt: review.reviewedAt,
+                resubmissionDueAt: review.resubmissionDueAt,
               },
       };
     });

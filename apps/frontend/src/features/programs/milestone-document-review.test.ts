@@ -7,6 +7,7 @@ import type { MilestoneDocumentCollectionCell } from './milestone-document-colle
 import {
   createMilestoneDocumentReviewFormState,
   isMilestoneDocumentDeadlineLocked,
+  isMilestoneDocumentResubmissionFinal,
   isMilestoneDocumentResubmittable,
   isMilestoneDocumentReviewCommentRequired,
   isSameMilestoneDocumentReviewTarget,
@@ -14,6 +15,9 @@ import {
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
   milestoneDocumentCellDisplay,
+  milestoneDocumentResubmissionDueAtError,
+  milestoneDocumentResubmissionDueAtPayload,
+  milestoneDocumentResubmissionDueNotice,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
   milestoneDocumentReviewNoticeTone,
@@ -103,6 +107,7 @@ describe('milestoneDocumentCellDisplay', () => {
         decision: 'CHANGES_REQUESTED',
         comment: '표지를 고쳐 주세요.',
         reviewedAt: '2026-08-01T00:00:00.000Z',
+        resubmissionDueAt: null,
       },
     };
 
@@ -281,6 +286,7 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
           review: {
             comment: '3쪽 서명이 빠졌습니다.',
             reviewedAt: '2026-08-02T00:00:00.000Z',
+            resubmissionDueAt: null,
           },
         }),
       ),
@@ -336,6 +342,243 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
       expect(editable).toBe(opens);
     },
   );
+
+  const dueAt = '2026-09-26T09:00:00.000Z';
+  const beforeDue = Date.parse('2026-09-26T08:59:59.999Z');
+  const afterDue = Date.parse('2026-09-26T09:00:00.001Z');
+  function awaitingResubmission(
+    resubmissionDueAt: string | null,
+  ): MilestoneDocumentViewerSubmission {
+    return viewer({
+      status: 'CHANGES_REQUESTED',
+      review: {
+        comment: '3쪽 서명이 빠졌습니다.',
+        reviewedAt: '2026-09-20T00:00:00.000Z',
+        resubmissionDueAt,
+      },
+    });
+  }
+
+  it('재제출 기한이 남아 있으면 마감 뒤에도 연다', () => {
+    expect(
+      isMilestoneDocumentDeadlineLocked(
+        true,
+        awaitingResubmission(dueAt),
+        beforeDue,
+      ),
+    ).toBe(false);
+  });
+
+  it('재제출 기한이 지나면 아직 응하지 않은 보완 요청도 잠근다', () => {
+    expect(
+      isMilestoneDocumentDeadlineLocked(
+        true,
+        awaitingResubmission(dueAt),
+        afterDue,
+      ),
+    ).toBe(true);
+  });
+
+  /**
+   * 기한 컬럼이 생기기 전에 저장된 보완 요청은 `null`로 온다. 「기한이 없으니 닫힌 것」으로
+   * 읽으면 배포 순간 이미 「고쳐서 다시 내세요」를 받은 학생이 낼 길을 잃는다.
+   */
+  it('기한이 없는 옛 보완 요청은 앞 규칙대로 연다', () => {
+    expect(
+      isMilestoneDocumentDeadlineLocked(
+        true,
+        awaitingResubmission(null),
+        afterDue,
+      ),
+    ).toBe(false);
+  });
+
+  /**
+   * 재제출 기한은 마감이 닫은 것을 다시 여는 창만 좁힌다. 마감 전 교체까지 닫으면 지금
+   * 되는 일 하나가 사라진다 — 서버도 마감 전에는 기한을 보지 않는다.
+   */
+  it('마감 전에는 기한이 지났어도 잠그지 않는다', () => {
+    expect(
+      isMilestoneDocumentDeadlineLocked(
+        false,
+        awaitingResubmission(dueAt),
+        afterDue,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('isMilestoneDocumentResubmissionFinal', () => {
+  /**
+   * 확인 창은 **되돌릴 수 없는 자리에서만** 뜬다. 마감 전 교체는 몇 번이든 되는 일이라 그
+   * 자리에서 「더 이상 바꿀 수 없습니다」는 거짓말이고, 거짓 경고를 매번 보는 사람은 곧
+   * 읽지 않고 누른다 — 그러면 정작 되돌릴 수 없는 자리에서도 안 읽는다.
+   */
+  it('마감 뒤 아직 응하지 않은 보완 요청에서만 참이다', () => {
+    expect(
+      isMilestoneDocumentResubmissionFinal(
+        true,
+        viewer({ status: 'CHANGES_REQUESTED' }),
+      ),
+    ).toBe(true);
+    expect(
+      isMilestoneDocumentResubmissionFinal(
+        false,
+        viewer({ status: 'CHANGES_REQUESTED' }),
+      ),
+    ).toBe(false);
+    for (const status of ['SUBMITTED', 'APPROVED', 'REJECTED'] as const) {
+      expect(
+        isMilestoneDocumentResubmissionFinal(true, viewer({ status })),
+      ).toBe(false);
+    }
+    expect(isMilestoneDocumentResubmissionFinal(true, undefined)).toBe(false);
+  });
+});
+
+describe('milestoneDocumentResubmissionDueNotice', () => {
+  const dueAt = '2026-09-26T09:00:00.000Z';
+  function withDue(
+    status: MilestoneDocumentSubmissionStatus,
+    resubmissionDueAt: string | null,
+  ): MilestoneDocumentViewerSubmission {
+    return viewer({
+      status,
+      review: {
+        comment: '3쪽 서명이 빠졌습니다.',
+        reviewedAt: '2026-09-20T00:00:00.000Z',
+        resubmissionDueAt,
+      },
+    });
+  }
+
+  it('아직 응하지 않았고 기한이 남았으면 언제까지인지 말한다', () => {
+    expect(
+      milestoneDocumentResubmissionDueNotice(
+        withDue('CHANGES_REQUESTED', dueAt),
+        Date.parse('2026-09-26T08:59:59.999Z'),
+      ),
+    ).toEqual({ kind: 'open', dueAt });
+  });
+
+  /**
+   * 이 말이 없으면 「수정」 버튼이 사라진 이유를 학생이 알 수 없고, 그 문의가 곧 교직원에게
+   * 간다 — 이 티켓이 없애려던 문의가 모양만 바꿔 남는다.
+   */
+  it('기한이 지났으면 지났다고 말한다', () => {
+    expect(
+      milestoneDocumentResubmissionDueNotice(
+        withDue('CHANGES_REQUESTED', dueAt),
+        Date.parse('2026-09-26T09:00:00.001Z'),
+      ),
+    ).toEqual({ kind: 'passed', dueAt });
+  });
+
+  /**
+   * 판정 이력은 재제출로 되돌아가지 않는다. 판정을 보고 갈래를 정하면 **이미 다시 낸**
+   * 학생에게도 「언제까지 다시 내세요」가 계속 남는다.
+   */
+  it('이미 다시 낸 서류에는 아무 말도 하지 않는다', () => {
+    expect(
+      milestoneDocumentResubmissionDueNotice(
+        withDue('SUBMITTED', dueAt),
+        Date.parse('2026-09-26T08:59:59.999Z'),
+      ),
+    ).toBeNull();
+  });
+
+  it('기한 없는 옛 보완 요청에는 없는 기한을 지어내지 않는다', () => {
+    expect(
+      milestoneDocumentResubmissionDueNotice(
+        withDue('CHANGES_REQUESTED', null),
+        Date.parse('2026-09-26T09:00:00.001Z'),
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('milestoneDocumentResubmissionDueAtError', () => {
+  const now = Date.parse('2026-09-20T00:00:00.000Z');
+
+  it('보완 요청에 기한이 없으면 저장할 수 없다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtError('CHANGES_REQUESTED', '', now),
+    ).toBe('보완 요청은 재제출 기한을 정해 주세요.');
+  });
+
+  /**
+   * 지난 시각을 그대로 저장하면 보완 요청이 만들어지는 순간 이미 닫혀 있어 **「다시
+   * 내세요」가 사실상 반려**가 된다. 서버도 같은 자리를 422(MSD_033)로 막는다.
+   */
+  it('지난 시각은 거절하고 무엇을 고칠지 말한다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtError(
+        'CHANGES_REQUESTED',
+        '2026-09-19T23:59',
+        now,
+      ),
+    ).toBe('재제출 기한은 지금보다 뒤여야 합니다.');
+  });
+
+  it('읽을 수 없는 값은 다시 고르라고 말한다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtError(
+        'CHANGES_REQUESTED',
+        '2026-02-30T25:61',
+        now,
+      ),
+    ).toBe('재제출 기한을 다시 골라 주세요.');
+  });
+
+  it('미래 시각이면 통과한다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtError(
+        'CHANGES_REQUESTED',
+        '2026-09-26T18:00',
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  /** 승인·반려에는 기한이라는 것이 없다 — 비어 있어도 막지 않는다. */
+  it('승인·반려는 기한을 보지 않는다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtError('APPROVED', '', now),
+    ).toBeNull();
+    expect(
+      milestoneDocumentResubmissionDueAtError('REJECTED', '', now),
+    ).toBeNull();
+  });
+});
+
+describe('milestoneDocumentResubmissionDueAtPayload', () => {
+  /**
+   * `datetime-local`은 표준시대 없는 문자열을 준다. 그대로 보내면 서버가 어느 시각으로
+   * 읽을지 화면이 정하지 못한다 — 여기서 ISO로 굳혀야 교직원이 고른 그 순간이 저장된다.
+   */
+  it('보완 요청의 지역 시각을 ISO로 굳혀 보낸다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtPayload(
+        'CHANGES_REQUESTED',
+        '2026-09-26T18:00',
+      ),
+    ).toBe(new Date('2026-09-26T18:00').toISOString());
+  });
+
+  it('승인·반려에는 아예 싣지 않는다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtPayload('APPROVED', '2026-09-26T18:00'),
+    ).toBeUndefined();
+    expect(
+      milestoneDocumentResubmissionDueAtPayload('REJECTED', '2026-09-26T18:00'),
+    ).toBeUndefined();
+  });
+
+  it('읽을 수 없는 값은 지어내지 않고 빼고 보낸다', () => {
+    expect(
+      milestoneDocumentResubmissionDueAtPayload('CHANGES_REQUESTED', ''),
+    ).toBeUndefined();
+  });
 });
 
 describe('shouldHighlightMilestoneDocumentReview', () => {
@@ -445,13 +688,35 @@ describe('milestoneDocumentReviewFormError', () => {
     expect(milestoneDocumentReviewFormError('APPROVED', '')).toBeNull();
   });
 
-  it('사유를 적은 보완 요청은 저장할 수 있다', () => {
+  /**
+   * 사유만으로는 부족해졌다 — 보완 요청은 재제출 기한도 함께 정해야 저장된다. 기한 칸이
+   * 비면 이 함수가 그 사실을 먼저 말한다(서버도 422 MSD_032로 막는다).
+   */
+  it('사유를 적어도 재제출 기한이 없는 보완 요청은 막는다', () => {
     expect(
       milestoneDocumentReviewFormError(
         'CHANGES_REQUESTED',
         '표지를 고쳐 주세요.',
       ),
+    ).toBe('보완 요청은 재제출 기한을 정해 주세요.');
+  });
+
+  it('사유와 재제출 기한을 함께 채운 보완 요청은 저장할 수 있다', () => {
+    expect(
+      milestoneDocumentReviewFormError(
+        'CHANGES_REQUESTED',
+        '표지를 고쳐 주세요.',
+        '2026-09-26T18:00',
+        Date.parse('2026-09-20T00:00:00.000Z'),
+      ),
     ).toBeNull();
+  });
+
+  /** 사유가 먼저다 — 둘 다 비었을 때 기한부터 말하면 교직원이 사유를 잊는다. */
+  it('사유와 기한이 둘 다 비면 사유를 먼저 말한다', () => {
+    expect(milestoneDocumentReviewFormError('CHANGES_REQUESTED', '')).toBe(
+      '보완 요청과 반려는 사유를 입력해 주세요.',
+    );
   });
 
   it('한도를 넘긴 사유는 막는다', () => {
@@ -498,6 +763,7 @@ describe('milestoneDocumentReviewVersionOf', () => {
           decision: 'CHANGES_REQUESTED',
           comment: '표지를 고쳐 주세요.',
           reviewedAt: '2026-07-29T00:00:00.000Z',
+          resubmissionDueAt: null,
         },
       }),
     ).toEqual({
@@ -589,6 +855,7 @@ describe('nextMilestoneDocumentReviewState', () => {
       version,
       decision: null,
       comment: '',
+      resubmissionDueAt: '',
       isSubmitting: false,
       errorMessage: null,
       history: [],

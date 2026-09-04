@@ -33,9 +33,11 @@ import {
 import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import {
   isMilestoneDocumentDeadlineLocked,
+  isMilestoneDocumentResubmissionFinal,
   isMilestoneDocumentResubmittable,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
+  milestoneDocumentResubmissionDueNotice,
   milestoneDocumentReviewNoticeTone,
   milestoneDocumentViewerDisplay,
   type MilestoneDocumentReviewDisplay,
@@ -46,6 +48,7 @@ import {
   formatSeoulShortDateTime,
 } from './program-detail-format';
 import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
+import { MilestoneDocumentResubmissionDialog } from './milestone-document-resubmission-dialog';
 import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
 import {
   milestoneDocumentUploadHint,
@@ -428,12 +431,21 @@ function StudentReviewNotice({
   display,
   tone,
   review,
+  dueNotice,
 }: {
   readonly display: MilestoneDocumentReviewDisplay;
   readonly tone: MilestoneDocumentReviewNoticeTone;
   readonly review: NonNullable<
     NonNullable<MilestoneDocument['viewerSubmission']>['review']
   >;
+  /**
+   * 재제출 기한을 어떻게 말할지. 적을 것이 없으면 `null`이다
+   * (`milestoneDocumentResubmissionDueNotice`가 정한다).
+   */
+  readonly dueNotice: {
+    readonly kind: 'open' | 'passed';
+    readonly dueAt: string;
+  } | null;
 }) {
   return (
     <Alert
@@ -453,6 +465,27 @@ function StudentReviewNotice({
            */}
           {review.comment ?? '사유 없이 저장되었습니다.'}
         </span>
+        {/*
+         * 기한은 사유 **바로 아래**에 둔다. 「무엇을 고쳐야 하는가」와 「언제까지인가」는 학생이
+         * 한 번에 읽어야 하는 한 쌍이라, 줄 위쪽 배지 옆으로 떼어 놓으면 사유만 읽고 닫는다.
+         * 지난 기한을 함께 말하는 것이 특히 중요하다 — 그 말이 없으면 「수정」 버튼이 왜
+         * 잠겼는지 알 길이 없다.
+         */}
+        {dueNotice === null ? null : (
+          <span
+            data-testid="milestone-document-resubmission-due"
+            className="break-keep font-semibold"
+          >
+            {/*
+             * 연·월·일·시각을 다 적는다(`formatSeoulDate`). 위 제출 시각은 방금 있었던
+             * 일이라 「07.29 23:10」로 줄여도 읽히지만, 기한은 **아직 오지 않은 날**이라
+             * 해가 빠지면 지난 날짜처럼 읽힌다 — 학생이 이미 늦은 줄 알고 포기한다.
+             */}
+            {dueNotice.kind === 'open'
+              ? `재제출 기한 ${formatSeoulDate(dueNotice.dueAt)}까지 · 한 번 다시 내면 검토가 끝날 때까지 바꿀 수 없습니다`
+              : `재제출 기한 ${formatSeoulDate(dueNotice.dueAt)}이 지났습니다 · 담당 교직원에게 문의해 주세요`}
+          </span>
+        )}
       </AlertDescription>
     </Alert>
   );
@@ -474,6 +507,15 @@ function StudentDocumentRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * 확인 창을 기다리는 제출. 보내기 **전에** 붙잡아 두는 것이 요점이다 — 먼저 보내 놓고
+   * 물으면 물어볼 것이 없고, 파일부터 올려 두면 「돌아가서 확인」을 눌러도 그 업로드는 이미
+   * 서버에 남는다.
+   */
+  const [pendingDraft, setPendingDraft] = useState<{
+    readonly text: string | null;
+    readonly file: File | null;
+  } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
@@ -509,13 +551,23 @@ function StudentDocumentRow({
   /**
    * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **아직 응하지 않은 보완 요청만 빼고**.
    * 교직원이 마감 뒤에 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면
-   * 그 요청을 받은 학생이 낼 방법이 없어진다. 그 한 번을 쓰고 나면 다시 잠긴다 — 서버도
-   * 같은 자리에서 막는다(422 MSD_031).
+   * 그 요청을 받은 학생이 낼 방법이 없어진다. 그 한 번을 쓰고 나면 다시 잠기고(422 MSD_031),
+   * 교직원이 정한 재제출 기한이 지나도 잠긴다(422 MSD_034).
    */
   const deadlineLocked = isMilestoneDocumentDeadlineLocked(
     closed,
     viewerSubmission,
   );
+  /**
+   * 지금 내면 되돌릴 수 없는가 — 그렇다면 확인 창을 한 번 지난다. 마감 전 교체는 몇 번이든
+   * 되는 일이라 그 자리에서는 묻지 않는다(거짓인 경고를 매번 보면 곧 안 읽는다).
+   */
+  const resubmissionIsFinal = isMilestoneDocumentResubmissionFinal(
+    closed,
+    viewerSubmission,
+  );
+  /** 재제출 기한을 사유 상자 안에 어떻게 적을지. 적을 것이 없으면 `null`이다. */
+  const dueNotice = milestoneDocumentResubmissionDueNotice(viewerSubmission);
   const historyMetadata = viewerSubmission?.history;
 
   const refreshDocument = useCallback(async (): Promise<boolean> => {
@@ -626,28 +678,55 @@ function StudentDocumentRow({
     [document, onSubmitConflict, refreshDocument],
   );
 
+  const send = useCallback(
+    async (input: {
+      readonly text: string | null;
+      readonly file: File | null;
+    }): Promise<boolean> => {
+      setSubmitting(true);
+      setError(null);
+      setSyncNotice(null);
+      try {
+        const uploaded =
+          input.file === null
+            ? null
+            : await uploadMilestoneDocumentFile(
+                document.milestoneId,
+                document.id,
+                input.file,
+              );
+        return finish({ text: input.text, fileId: uploaded?.fileId ?? null });
+      } catch (uploadError: unknown) {
+        setError(
+          submitErrorMessage(uploadError, '파일 업로드에 실패했습니다.'),
+        );
+        setSubmitting(false);
+        return false;
+      }
+    },
+    [document.id, document.milestoneId, finish],
+  );
+
+  /**
+   * 「제출」을 누른 순간 — 되돌릴 수 없는 자리면 확인 창을 한 번 지난다.
+   *
+   * 확인이 필요한 제출은 **보내지 않고 붙잡아 둔다**(`pendingDraft`). 먼저 보내 놓고 물으면
+   * 물어볼 것이 없어지고, 파일부터 올려 두면 학생이 「돌아가서 확인」을 눌러도 그 업로드는
+   * 이미 서버에 남는다.
+   *
+   * 이 함수가 `false`를 돌려주면 폼은 입력을 그대로 들고 있는다 — 확인 창에서 돌아온 학생이
+   * 적어 둔 내용과 고른 파일을 다시 채우지 않아도 되게 하려는 것이다. 실제 저장은 확인
+   * 뒤 `send`가 하고, 그 결과가 폼을 비운다.
+   */
   async function submitDraft(input: {
     readonly text: string | null;
     readonly file: File | null;
   }): Promise<boolean> {
-    setSubmitting(true);
-    setError(null);
-    setSyncNotice(null);
-    try {
-      const uploaded =
-        input.file === null
-          ? null
-          : await uploadMilestoneDocumentFile(
-              document.milestoneId,
-              document.id,
-              input.file,
-            );
-      return finish({ text: input.text, fileId: uploaded?.fileId ?? null });
-    } catch (uploadError: unknown) {
-      setError(submitErrorMessage(uploadError, '파일 업로드에 실패했습니다.'));
-      setSubmitting(false);
+    if (resubmissionIsFinal) {
+      setPendingDraft(input);
       return false;
     }
+    return send(input);
   }
 
   const actionLabel = submitted ? '수정' : '올리기';
@@ -712,6 +791,7 @@ function StudentDocumentRow({
           display={display}
           tone={reviewNoticeTone}
           review={review}
+          dueNotice={dueNotice}
         />
       )}
       {history.length === 0 && historyIsComplete ? null : (
@@ -775,6 +855,23 @@ function StudentDocumentRow({
           onSubmit={submitDraft}
         />
       ) : null}
+      {/*
+       * 되돌릴 수 없는 재제출을 확인받는 자리. 「돌아가서 확인」은 붙잡아 둔 입력을 놓아 줄
+       * 뿐이라 폼은 그대로 열려 있고, 적어 둔 내용도 고른 파일도 남는다.
+       */}
+      {pendingDraft === null ? null : (
+        <MilestoneDocumentResubmissionDialog
+          documentName={document.name}
+          resubmissionDueAt={review?.resubmissionDueAt ?? null}
+          submitting={submitting}
+          onCancel={() => setPendingDraft(null)}
+          onConfirm={() => {
+            const draft = pendingDraft;
+            setPendingDraft(null);
+            void send(draft);
+          }}
+        />
+      )}
       {syncNotice === null ? null : (
         <Alert data-testid="milestone-document-submit-sync-notice">
           <AlertDescription className="flex flex-wrap items-center gap-2">

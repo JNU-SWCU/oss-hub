@@ -67,6 +67,12 @@ export interface MilestoneDocumentCollectionReview {
   readonly decision: MilestoneDocumentReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
+  /**
+   * 보완 요청이면 학생이 언제까지 다시 낼 수 있는가(ISO 8601). 승인·반려는 `null`이고, 이
+   * 값이 생기기 전에 저장된 보완 요청도 `null`이다 — 패널은 그 자리에 「기한 없음」이라고
+   * 적어 교직원이 옛 보완 요청을 알아볼 수 있게 한다.
+   */
+  readonly resubmissionDueAt: string | null;
 }
 
 export type MilestoneDocumentCollectionHistoryEvent =

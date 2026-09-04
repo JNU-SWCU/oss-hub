@@ -1016,6 +1016,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt: new Date('2026-09-18T09:00:00.000Z'),
+      resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
       reviewer: { nickname: 'synthetic-staff' },
     });
     const historyCreate = jest.fn().mockResolvedValue({
@@ -1166,6 +1167,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       buildReviewStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+    const resubmissionDueAt = new Date('2026-09-25T09:00:00.000Z');
 
     // When
     const result = await repository.withTransaction((store) =>
@@ -1176,6 +1178,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         reviewerId: 'cuid-synthetic-staff',
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
+        resubmissionDueAt,
         reviewedAt,
       }),
     );
@@ -1189,6 +1192,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
           reviewerId: 'cuid-synthetic-staff',
           decision: ReviewDecision.CHANGES_REQUESTED,
           comment: '2쪽 서명이 빠졌습니다.',
+          resubmissionDueAt,
           reviewedAt,
         },
       }),
@@ -1211,6 +1215,8 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
+      // 기한도 응답에 그대로 실린다 — 방금 저장한 보완 요청이 언제까지인지 화면이 바로 안다.
+      resubmissionDueAt,
       reviewerNickname: 'synthetic-staff',
     });
   });
@@ -1758,6 +1764,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
+            resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
             reviewer: { nickname: 'synthetic-staff-2' },
             submissionHistory: { revision: 1 },
           },
@@ -1766,6 +1773,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
             decision: ReviewDecision.APPROVED,
             comment: null,
             reviewedAt: firstReviewedAt,
+            resubmissionDueAt: null,
             reviewer: { nickname: 'synthetic-staff-1' },
             submissionHistory: { revision: 1 },
           },
@@ -1798,6 +1806,8 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       decision: true,
       comment: true,
       reviewedAt: true,
+      // 기한을 함께 읽지 않으면 표는 「언제까지」를 모른 채 배지만 그린다.
+      resubmissionDueAt: true,
       reviewer: { select: { nickname: true } },
       submissionHistory: { select: { revision: true } },
     });
@@ -1806,6 +1816,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
+      resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
     });
   });
 
@@ -2228,11 +2239,12 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
 });
 
 describe('MilestoneDocumentsRepository.findLatestReview', () => {
-  it('(서류, 신청) 제출의 최신 판정을 id·decision만 뽑아 돌려준다', async () => {
+  it('(서류, 신청) 제출의 최신 판정을 id·decision·재제출 기한만 뽑아 돌려준다', async () => {
     // Given
     const findFirst = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.APPROVED,
+      resubmissionDueAt: null,
     });
     const prisma = {
       milestoneDocumentReviewHistory: { findFirst },
@@ -2254,11 +2266,16 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
         },
       },
       orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-      select: { id: true, decision: true },
+      /*
+       * 기한도 함께 읽는다. 이 값이 빠지면 제출·업로드 관문이 「보완 요청이면 언제든」으로
+       * 되돌아가 새 정책이 조용히 꺼진다 — 두 관문 모두 이 조회 하나를 근거로 삼는다.
+       */
+      select: { id: true, decision: true, resubmissionDueAt: true },
     });
     expect(result).toEqual({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.APPROVED,
+      resubmissionDueAt: null,
     });
   });
 

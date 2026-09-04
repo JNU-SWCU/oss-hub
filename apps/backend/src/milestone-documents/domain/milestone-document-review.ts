@@ -11,6 +11,16 @@ export interface CreateMilestoneDocumentReviewInput {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   /**
+   * 보완 요청이면 **학생이 언제까지 다시 낼 수 있는가**. 승인·반려면 `null`이다 — 그 둘은
+   * 「다시 내라」가 아니므로 기한이라는 것 자체가 없다.
+   *
+   * 보완 요청에서 `null`일 수 없다는 것이 요점이다. 요청 DTO(`toInput`)가 사유와 **같은
+   * 자리에서** 강제하므로 여기까지 온 보완 요청에는 언제나 기한이 있다. 「비어 있으면 무기한」
+   * 으로 두면 기한이 있는 보완 요청과 없는 보완 요청이 섞여 만들어지고, 학생 화면은 같은
+   * 「보완 요청」 배지 아래에서 어떤 것은 닫히고 어떤 것은 안 닫히는 상태가 된다.
+   */
+  readonly resubmissionDueAt: Date | null;
+  /**
    * 검토자가 **실제로 본** 제출물의 리비전 — 수합 표 칸의 `revision`을 그대로 되돌려 받는다.
    *
    * 이것이 없으면 판정은 「지금 있는 행」에 붙는다. 표가 그려진 뒤 학생이 다시 내면 제출 행은
@@ -46,6 +56,11 @@ export interface MilestoneDocumentReviewRecord {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
+  /**
+   * 이 판정이 보완 요청이면 학생이 언제까지 다시 낼 수 있는가. 승인·반려는 `null`이고,
+   * 이 컬럼이 생기기 전에 저장된 보완 요청도 `null`이다(백필할 근거가 없다).
+   */
+  readonly resubmissionDueAt: Date | null;
 }
 
 /**

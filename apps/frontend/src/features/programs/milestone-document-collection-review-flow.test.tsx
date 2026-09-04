@@ -118,6 +118,12 @@ function collection(
   };
 }
 
+/**
+ * 재제출 기한 칸에 넣는 값 — `datetime-local`이 주는 **표준시대 없는** 지역 시각이다.
+ * 화면이 ISO로 굳혀 보내므로 기대값도 같은 변환을 거쳐 만든다.
+ */
+const dueAtInput = '2027-06-30T18:00';
+
 describe('수합 표에서 판정하기', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -207,6 +213,25 @@ describe('수합 표에서 판정하기', () => {
     )?.set;
     setter?.call(textarea, value);
     textarea.dispatchEvent(new window.Event('input', { bubbles: true }));
+  }
+
+  /**
+   * 재제출 기한 칸(`datetime-local`)에 값을 넣는다. 사유와 같은 이유로 네이티브 setter를
+   * 쓴다 — React는 `value` 프로퍼티를 가로채므로 직접 대입하면 변경을 감지하지 못한다.
+   */
+  function typeResubmissionDueAt(value: string) {
+    const input = container.querySelector(
+      'input[type="datetime-local"]',
+    ) as HTMLInputElement | null;
+    if (input === null) {
+      throw new TypeError('재제출 기한 칸을 찾지 못했습니다.');
+    }
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
   }
 
   async function openPanelForGaTeam() {
@@ -344,6 +369,7 @@ describe('수합 표에서 판정하기', () => {
       decision: 'APPROVED',
       comment: null,
       reviewedAt: '2026-08-01T00:00:00.000Z',
+      resubmissionDueAt: null,
       reviewerNickname: '교직원',
     });
 
@@ -380,6 +406,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'CHANGES_REQUESTED',
               comment: '표지를 고쳐 주세요.',
               reviewedAt: '2026-07-29T00:00:00.000Z',
+              resubmissionDueAt: null,
             },
           }),
           cell('d2'),
@@ -392,6 +419,7 @@ describe('수합 표에서 판정하기', () => {
       decision: 'APPROVED',
       comment: null,
       reviewedAt: '2026-08-01T00:00:00.000Z',
+      resubmissionDueAt: null,
       reviewerNickname: '교직원',
     });
 
@@ -419,12 +447,15 @@ describe('수합 표에서 판정하기', () => {
       decision: 'CHANGES_REQUESTED',
       comment: '표지를 고쳐 주세요.',
       reviewedAt: '2026-08-01T00:00:00.000Z',
+      resubmissionDueAt: null,
       reviewerNickname: '교직원',
     });
 
     await click(byText('보완 요청'));
     await act(async () => {
       typeComment('  표지를 고쳐 주세요.  ');
+      // 보완 요청은 기한 없이 저장되지 않는다 — 이 줄을 지우면 요청 자체가 나가지 않는다.
+      typeResubmissionDueAt(dueAtInput);
     });
     await click(byText('저장'));
 
@@ -435,9 +466,31 @@ describe('수합 표에서 판정하기', () => {
       {
         decision: 'CHANGES_REQUESTED',
         comment: '표지를 고쳐 주세요.',
+        // 지역 시각 문자열이 ISO로 굳어 나간다 — 서버가 어느 시각으로 읽을지 화면이 정한다.
+        resubmissionDueAt: new Date(dueAtInput).toISOString(),
         expectedRevision: 1,
         expectedLatestReviewId: null,
       },
+    );
+  });
+
+  /**
+   * 새 정책의 화면 쪽 관문. 기한 없이 저장을 누르면 **요청 자체가 나가지 않고** 무엇을
+   * 고쳐야 하는지 말한다 — 서버도 같은 자리를 422(MSD_032)로 막지만, 화면이 먼저 막아야
+   * 교직원이 적어 둔 사유를 잃지 않는다.
+   */
+  it('재제출 기한 없는 보완 요청은 보내지 않고 무엇이 빠졌는지 말한다', async () => {
+    await openPanelForGaTeam();
+
+    await click(byText('보완 요청'));
+    await act(async () => {
+      typeComment('표지를 고쳐 주세요.');
+    });
+    await click(byText('저장'));
+
+    expect(createMilestoneDocumentReviewMock).not.toHaveBeenCalled();
+    expect(container.textContent).toContain(
+      '보완 요청은 재제출 기한을 정해 주세요.',
     );
   });
 
@@ -452,6 +505,7 @@ describe('수합 표에서 판정하기', () => {
       decision: 'APPROVED',
       comment: null,
       reviewedAt: '2026-08-01T00:00:00.000Z',
+      resubmissionDueAt: null,
       reviewerNickname: '교직원',
     });
     const loadsBefore = getMilestoneDocumentCollectionMock.mock.calls.length;
@@ -481,6 +535,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'APPROVED',
               comment: null,
               reviewedAt: '2026-08-01T00:00:00.000Z',
+              resubmissionDueAt: null,
               reviewerNickname: '교직원',
             });
         }),
@@ -588,6 +643,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'APPROVED',
               comment: null,
               reviewedAt: '2026-08-01T00:00:00.000Z',
+              resubmissionDueAt: null,
               reviewerNickname: '교직원',
             });
         }),
@@ -675,6 +731,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'APPROVED',
               comment: null,
               reviewedAt: '2026-08-01T00:00:00.000Z',
+              resubmissionDueAt: null,
               reviewerNickname: '교직원',
             });
         }),
@@ -747,6 +804,7 @@ describe('수합 표에서 판정하기', () => {
       decision: 'APPROVED',
       comment: null,
       reviewedAt: '2026-08-01T00:00:00.000Z',
+      resubmissionDueAt: null,
       reviewerNickname: '교직원',
     });
     const release = holdNextLoad(
@@ -879,6 +937,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'REJECTED',
               comment: '기한을 넘겼습니다.',
               reviewedAt: '2026-07-30T00:00:00.000Z',
+              resubmissionDueAt: null,
             },
           }),
           cell('d2', {
@@ -913,6 +972,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'CHANGES_REQUESTED',
               comment: '표지의 이름이 신청서와 다릅니다.',
               reviewedAt: '2026-07-30T00:00:00.000Z',
+              resubmissionDueAt: null,
             },
           }),
           cell('d2', { isSubmitted: false, status: null, submittedAt: null }),
@@ -1135,6 +1195,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'APPROVED',
               comment: null,
               reviewedAt: '2026-08-01T00:00:00.000Z',
+              resubmissionDueAt: null,
               reviewerNickname: '교직원',
             });
         }),
@@ -1157,6 +1218,7 @@ describe('수합 표에서 판정하기', () => {
               decision: 'CHANGES_REQUESTED',
               comment: '다른 교직원이 먼저 보았습니다.',
               reviewedAt: '2026-08-06T00:00:00.000Z',
+              resubmissionDueAt: null,
             },
           }),
           cell('d2'),
@@ -1183,6 +1245,7 @@ describe('수합 표에서 판정하기', () => {
       decision: 'APPROVED',
       comment: null,
       reviewedAt: '2026-08-07T00:00:00.000Z',
+      resubmissionDueAt: null,
       reviewerNickname: '교직원',
     });
 

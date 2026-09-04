@@ -323,6 +323,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
+            resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
           },
         },
       ]),
@@ -342,6 +343,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       review: {
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
+        // 「언제까지 다시 낼 수 있는가」 — 상태만으로는 화면이 이 잠금을 계산할 수 없다.
+        resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       },
       history: { hasHistory: true, isComplete: true },
     });
@@ -1969,6 +1972,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
+            resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
           },
         },
       ]),
@@ -1997,6 +2001,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
+        resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       },
     });
   });

@@ -142,6 +142,7 @@ export class MilestoneDocumentFilesService {
       hasSubmission: currentSubmission !== null,
       latestDecision: latestReview?.decision ?? null,
       submissionStatus: currentSubmission?.status ?? null,
+      resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
     });
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);

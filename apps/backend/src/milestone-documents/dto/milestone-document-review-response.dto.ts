@@ -13,6 +13,8 @@ export class MilestoneDocumentReviewResponseDto {
   decision: ReviewDecision;
   comment: string | null;
   reviewedAt: string;
+  /** 보완 요청이면 학생이 언제까지 다시 낼 수 있는가. 승인·반려는 null이다. */
+  resubmissionDueAt: string | null;
   reviewerNickname: string;
 
   private constructor(review: CreatedMilestoneDocumentReview) {
@@ -20,6 +22,7 @@ export class MilestoneDocumentReviewResponseDto {
     this.decision = review.decision;
     this.comment = review.comment;
     this.reviewedAt = review.reviewedAt.toISOString();
+    this.resubmissionDueAt = review.resubmissionDueAt?.toISOString() ?? null;
     this.reviewerNickname = review.reviewerNickname;
   }
 

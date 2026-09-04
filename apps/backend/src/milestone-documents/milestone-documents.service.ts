@@ -12,7 +12,7 @@ import {
   readMilestoneDocumentSubmittedContent,
 } from './domain/milestone-document-content';
 import {
-  isChangeRequestResubmissionOpen,
+  isPostDeadlineResubmissionOpen,
   milestoneDocumentSubmissionBlock,
 } from './domain/milestone-document-submission-window';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
@@ -121,6 +121,8 @@ export class MilestoneDocumentsService {
                   : {
                       comment: summary.review.comment,
                       reviewedAt: summary.review.reviewedAt.toISOString(),
+                      resubmissionDueAt:
+                        summary.review.resubmissionDueAt?.toISOString() ?? null,
                     },
               history: {
                 hasHistory: summary !== null,
@@ -436,9 +438,9 @@ export class MilestoneDocumentsService {
    *
    * 재제출 가부는 최신 판정과 현재 제출 상태가 **함께** 정한다
    * (`domain/milestone-document-submission-window.ts`). 승인·반려면 마감과 무관하게 거부하고,
-   * 마감 전이면 그대로 허용하며, 마감 뒤에는 **아직 응하지 않은 보완 요청 하나**만 지나간다.
-   * 판정만 보면(#1097) 그 한 번이 무제한이 된다 — 판정 이력은 재제출로 되돌아가지 않기
-   * 때문이다. 왜 상태가 아니라 판정을 축으로 삼는지는
+   * 마감 전이면 그대로 허용하며, 마감 뒤에는 **아직 응하지 않은 보완 요청 하나**가 **교직원이
+   * 정한 재제출 기한 안에서만** 지나간다. 판정만 보면(#1097) 그 한 번이 무제한이 된다 — 판정
+   * 이력은 재제출로 되돌아가지 않기 때문이다. 왜 상태가 아니라 판정을 축으로 삼는지는
    * `domain/milestone-document-review.ts`의 `isResubmissionAllowedAfter`에 있고, 옛 제출물
    * 재제출(`submissions/submissions.service.ts`의 `assertResubmittable`)과 뜻이 같다.
    */
@@ -491,6 +493,7 @@ export class MilestoneDocumentsService {
       hasSubmission: currentSubmission !== null,
       latestDecision,
       submissionStatus,
+      resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
     });
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);
@@ -518,10 +521,13 @@ export class MilestoneDocumentsService {
         deadline: {
           milestoneId,
           // 잠금 아래의 마감 재확인이 **위와 같은 규칙**으로 예외를 판단하게 한다. 여기서
-          // 조건을 한 벌 더 적으면 두 판단이 갈라져, 위에서 막은 것이 아래에서 통과한다.
-          allowAfterDeadline: isChangeRequestResubmissionOpen({
+          // 조건을 한 벌 더 적으면 두 판단이 갈라져, 위에서 막은 것이 아래에서 통과한다 —
+          // 기한이 지난 재제출이 그대로 저장되는 자리가 정확히 여기다.
+          allowAfterDeadline: isPostDeadlineResubmissionOpen({
             latestDecision,
             submissionStatus,
+            resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+            now,
           }),
         },
         content: submissionContent,

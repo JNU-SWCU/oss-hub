@@ -75,6 +75,7 @@ function render(
       fileHref={null}
       decision={null}
       comment=""
+      resubmissionDueAt=""
       isSubmitting={false}
       errorMessage={null}
       history={overrides.history ?? []}
@@ -85,6 +86,7 @@ function render(
       onHistoryMore={() => {}}
       onDecisionChange={() => {}}
       onCommentChange={() => {}}
+      onResubmissionDueAtChange={() => {}}
       onSubmit={() => {}}
       onClose={() => {}}
       {...overrides}
@@ -120,6 +122,7 @@ describe('판정 패널 머리', () => {
           decision: 'REJECTED',
           comment: '기한을 넘겼습니다.',
           reviewedAt: '2026-07-30T00:00:00.000Z',
+          resubmissionDueAt: null,
         },
       }),
     });
@@ -144,6 +147,7 @@ describe('판정 패널 머리', () => {
           decision: 'CHANGES_REQUESTED',
           comment: '표지의 이름이 신청서와 다릅니다.',
           reviewedAt: '2026-07-30T00:00:00.000Z',
+          resubmissionDueAt: null,
         },
       }),
     });
@@ -410,6 +414,7 @@ describe('지난 판정', () => {
           decision: 'CHANGES_REQUESTED',
           comment: '표지의 이름이 신청서와 다릅니다.',
           reviewedAt: '2026-07-30T01:20:00.000Z',
+          resubmissionDueAt: null,
         },
       }),
     });
@@ -429,6 +434,7 @@ describe('지난 판정', () => {
           decision: 'APPROVED',
           comment: null,
           reviewedAt: '2026-07-30T01:20:00.000Z',
+          resubmissionDueAt: null,
         },
       }),
     });

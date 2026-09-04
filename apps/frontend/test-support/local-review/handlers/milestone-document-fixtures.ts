@@ -133,6 +133,8 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
           comment:
             '잘 받았습니다. 기획 범위가 명확해서 그대로 진행하셔도 됩니다. 다음 단계는 팀별로 안내드릴게요.',
           reviewedAt: '2026-07-15T01:10:00.000Z',
+          // 승인에는 재제출 기한이라는 것이 없다.
+          resubmissionDueAt: null,
         },
         true,
       ),
@@ -169,6 +171,11 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
           {
             comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
             reviewedAt: '2026-07-31T02:40:00.000Z',
+            /*
+             * 마감 **전** 마일스톤이라 이 기한은 아무것도 잠그지 않는다 — 재제출 기한은
+             * 마감이 닫은 것을 다시 여는 창만 좁힌다. 학생 줄에는 「언제까지」만 적힌다.
+             */
+            resubmissionDueAt: '2026-08-05T14:59:59.000Z',
           },
           true,
         ),
@@ -192,6 +199,14 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
         {
           comment: '재현 순서와 테스트 결과를 보완해 다시 올려 주세요.',
           reviewedAt: '2026-07-30T05:05:00.000Z',
+          /*
+           * 마감이 지난 마일스톤에서 **아직 열려 있는** 재제출 창. 학생 화면에서
+           * 「수정」이 눌리고, 제출을 누르면 되돌릴 수 없다는 확인 창이 뜬다.
+           *
+           * 다른 픽스처 날짜(2026-07)보다 한참 뒤인 것은 의도다 — 이 시드는 「기한이 아직
+           * 남았다」를 보여 주려는 것이라, 실제 시각이 지나가면 눈으로 볼 상태가 사라진다.
+           */
+          resubmissionDueAt: '2027-06-30T14:59:59.000Z',
         },
       ),
       teamSubmissionCount: { submitted: 6, total: 8 },
@@ -280,6 +295,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
           comment:
             '학습 계획서 양식이 지난 학기 것입니다. 이번 학기 양식으로는 다시 받지 않습니다.',
           reviewedAt: '2026-05-12T00:30:00.000Z',
+          resubmissionDueAt: null,
         },
         true,
       ),
@@ -433,6 +449,8 @@ export function createdMilestoneDocumentReviewFor(
     decision,
     comment,
     reviewedAt: '2026-08-01T02:00:00.000Z',
+    resubmissionDueAt:
+      decision === 'CHANGES_REQUESTED' ? '2027-06-30T14:59:59.000Z' : null,
     reviewerNickname: '합성 교직원',
   };
 }
@@ -551,6 +569,11 @@ function collectionReviewFor(
     reviewedAt: new Date(
       Date.parse(submittedAt) + (resubmitted ? -26 : 26) * 3_600_000,
     ).toISOString(),
+    // 보완 요청에만 기한이 있다. 패널의 「지난 검토」가 그 값을 그대로 적는다.
+    resubmissionDueAt:
+      state.decision === 'CHANGES_REQUESTED'
+        ? '2027-06-30T14:59:59.000Z'
+        : null,
   };
 }
 

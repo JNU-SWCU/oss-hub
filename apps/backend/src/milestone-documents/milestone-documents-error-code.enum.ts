@@ -31,6 +31,9 @@ export const MilestoneDocumentsErrorCode = {
   SUBMISSION_REPLACEMENT_CLOSED: 'MSD_029',
   LAST_DOCUMENT_REQUIRED: 'MSD_030',
   RESUBMISSION_ALREADY_USED: 'MSD_031',
+  RESUBMISSION_DUE_AT_REQUIRED: 'MSD_032',
+  RESUBMISSION_DUE_AT_NOT_FUTURE: 'MSD_033',
+  RESUBMISSION_DUE_AT_PASSED: 'MSD_034',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -224,5 +227,44 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 422,
     message:
       '보완 요청에 응해 이미 다시 제출했습니다. 마감 이후에는 검토 결과가 나올 때까지 내용을 바꿀 수 없습니다.',
+  },
+  /**
+   * 보완 요청인데 재제출 기한이 없다. 화면(판정 패널)이 먼저 막으므로 여기까지 오면 검증이
+   * 새어 나간 것이다 — 사유 필수(MSD_021)와 같은 자리·같은 성격의 거절이다.
+   *
+   * 승인·반려에는 이 검사가 없다. 그 둘은 「다시 내라」가 아니므로 기한이라는 것 자체가 없다.
+   */
+  [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED]: {
+    code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED,
+    status: 422,
+    message: '보완 요청은 재제출 기한을 정해야 합니다.',
+  },
+  /**
+   * 지난 시각을 재제출 기한으로 잡았다. 막지 않으면 보완 요청이 저장되는 순간 이미 닫혀 있어
+   * **「다시 내세요」가 실제로는 반려**가 된다 — 학생은 요청을 받고도 낼 수 없고, 화면에는
+   * 아무 잘못도 보이지 않는다.
+   *
+   * 판정 시각은 잠금을 얻은 뒤에 찍히므로(`milestone-document-reviews.service.ts`) 이 비교도
+   * 그 시각으로 한다. 요청이 들어온 시각으로 재면 잠금을 오래 기다린 판정이 「미래」로
+   * 통과한 뒤 저장 시점에는 이미 지나 있을 수 있다.
+   */
+  [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE]: {
+    code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
+    status: 422,
+    message: '재제출 기한은 지금보다 뒤여야 합니다.',
+  },
+  /**
+   * 교직원이 정한 재제출 기한이 지났다.
+   *
+   * 앞의 세 마감 코드를 재사용하지 않는 이유는 전부 **여기서 사실이 아니기** 때문이다.
+   * MSD_028은 「마감된 마일스톤입니다」라 재제출 창이 있었다는 사실을 지우고, MSD_029는
+   * 「보완 요청을 받은 경우 다시 제출할 수 있습니다」로 끝나 지금 막힌 이유와 정면으로
+   * 어긋나며, MSD_031은 「이미 다시 제출했습니다」인데 이 학생은 한 번도 응하지 않았다.
+   */
+  [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_PASSED]: {
+    code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_PASSED,
+    status: 422,
+    message:
+      '교직원이 정한 재제출 기한이 지났습니다. 기한 연장이 필요하면 담당 교직원에게 문의해 주세요.',
   },
 };
