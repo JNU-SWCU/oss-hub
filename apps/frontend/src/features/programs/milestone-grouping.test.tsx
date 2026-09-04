@@ -17,6 +17,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import { MilestoneDocumentSectionBody } from './milestone-document-list';
 import type { MilestoneDocument } from './milestone-document-api';
 import { ProgramMilestones } from './program-detail-view';
@@ -109,7 +110,10 @@ describe('마일스톤 목록의 경계', () => {
           url.includes(id),
         );
         return new Response(
-          JSON.stringify(milestoneId ? [documentOf(milestoneId)] : []),
+          JSON.stringify({
+            documents: milestoneId ? [documentOf(milestoneId)] : [],
+            fileUpload: milestoneDocumentUploadPolicy(),
+          }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
       }),
@@ -233,7 +237,13 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
     return renderToStaticMarkup(
       <MilestoneDocumentSectionBody
         state={
-          state === 'ready' ? { kind: 'ready', documents } : { kind: 'failed' }
+          state === 'ready'
+            ? {
+                kind: 'ready',
+                documents,
+                fileUpload: milestoneDocumentUploadPolicy(),
+              }
+            : { kind: 'failed' }
         }
         viewerRole="STUDENT"
         closed={false}
