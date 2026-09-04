@@ -23,7 +23,6 @@ import type {
  * "제출됨"이라도 이 모듈의 것과 무관하다):
  * - `program-detail-format.ts` — 프로그램 상세의 내 신청 상태
  * - `submissions/submission-checklist.ts` — 제출물 체크리스트
- * - `milestone-timeline/parser.ts` — 마일스톤 타임라인
  * 새 화면에서 신청 상태를 표시해야 한다면, 그 화면이 교직원용인지부터 확인하고 —
  * 학생용이면 이 상수를 재사용하지 말고 그 화면만의 상수를 새로 둔다.
  */

@@ -1326,4 +1326,12 @@
 - blocker: 없음
 - 결과: rebase 뒤 `program-archived-internship` 개요 fixture가 제거된 `nextMilestone`을 들고 있어 frontend typecheck가 깨졌다. 같은 파일의 다른 픽스처와 같이 `remainingMilestones: []`로 바꿨다.
 - 검증: `pnpm --filter frontend typecheck`.
+## 2026-09-04 — #1105 고아 타임라인 화면 삭제를 main에 맞춘다
+
+- 상태: review
+- Issue: [#1105](https://github.com/JNU-SWCU/oss-hub/issues/1105)
+- PR: https://github.com/JNU-SWCU/oss-hub/pull/1191
+- blocker: 없음
+- 결과: `origin/main` 위로 rebase했다. `/timeline` 제품 코드와 `features/milestone-timeline/`은 0건이다. 남은 언급은 저널·아카이브·design-sync 조사 기록뿐이다.
+- 검증: 경로 문자열 검색. 화면 없는 삭제 PR이라 Before/After 없음.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
