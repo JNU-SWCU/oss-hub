@@ -59,7 +59,7 @@ describe('normalizeAndValidateApplicationAnswers', () => {
     });
   });
 
-  it('title 또는 summary 누락·공백은 MISSING_REQUIRED다', () => {
+  it('summary 누락만 MISSING_REQUIRED다', () => {
     expect(
       normalizeAndValidateApplicationAnswers(
         { title: '', summary: '요약' },
@@ -67,9 +67,8 @@ describe('normalizeAndValidateApplicationAnswers', () => {
         'enforce-length',
       ),
     ).toEqual({
-      ok: false,
-      reason: 'MISSING_REQUIRED',
-      missingKeys: ['title'],
+      ok: true,
+      answers: { applicantName, title: '', summary: '요약' },
     });
 
     expect(

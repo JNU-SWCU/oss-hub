@@ -1,4 +1,4 @@
-import { type ProgramCategory } from '@prisma/client';
+import { type ProgramTrackType } from '@prisma/client';
 import type {
   PublicUserProfileProjectResult,
   PublicUserProfileResult,
@@ -27,7 +27,7 @@ export class PublicUserProfileProjectResponseDto {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly applicationMode: PublicProjectApplicationMode;
   readonly displayName: string;
   readonly repositoryName: string;
@@ -43,7 +43,7 @@ export class PublicUserProfileProjectResponseDto {
     this.projectId = item.projectId;
     this.programId = item.programId;
     this.programName = item.programName;
-    this.category = item.category;
+    this.trackType = item.trackType;
     this.applicationMode = item.applicationMode;
     this.displayName = item.displayName;
     this.repositoryName = item.repositoryName;

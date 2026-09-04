@@ -60,6 +60,7 @@ export class ProgramAuthoringRepository {
             id: true,
             name: true,
             organizer: true,
+            trackType: true,
             category: true,
             applicationTemplateKey: true,
             applicationTemplateVersion: true,
@@ -81,7 +82,10 @@ export class ProgramAuthoringRepository {
     });
     return request === null
       ? null
-      : { payloadHash: request.payloadHash, program: request.program };
+      : {
+          payloadHash: request.payloadHash,
+          program: request.program as ProgramAuthoringProgram,
+        };
   }
 
   async withTransaction<T>(
@@ -114,7 +118,9 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
   createProgram(
     plan: ProgramAuthoringProgramPlan,
   ): Promise<ProgramAuthoringProgram> {
-    return this.prisma.program.create({ data: plan });
+    return this.prisma.program.create({
+      data: plan,
+    }) as Promise<ProgramAuthoringProgram>;
   }
 
   async createRequest(

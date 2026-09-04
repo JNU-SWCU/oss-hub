@@ -6,6 +6,7 @@ import {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -449,6 +450,7 @@ async function createApplicationAndEvent(
       id: program,
       name: 'Synthetic Program',
       organizer: 'synthetic-organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-template',
       applicationTemplateVersion: 1,

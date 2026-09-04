@@ -1,4 +1,4 @@
-import type { ProgramCategory } from '@prisma/client';
+import type { ProgramTrackType } from '@prisma/client';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardComposedApplicationCounts,
@@ -84,7 +84,7 @@ export class StaffDashboardSubmissionSummaryResponseDto {
 export class StaffDashboardProgramSummaryResponseDto {
   readonly id: string;
   readonly name: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType | null;
   readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;
@@ -97,7 +97,7 @@ export class StaffDashboardProgramSummaryResponseDto {
   private constructor(program: StaffDashboardComposedProgramSummary) {
     this.id = program.id;
     this.name = program.name;
-    this.category = program.category;
+    this.trackType = program.trackType;
     this.applicationPeriod = {
       startsAt: program.applicationPeriod.startsAt.toISOString(),
       endsAt: program.applicationPeriod.endsAt.toISOString(),

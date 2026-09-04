@@ -1,4 +1,4 @@
-import { RepositorySource } from '@prisma/client';
+import { ProgramCategory, RepositorySource } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
@@ -189,7 +189,8 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         id: PROGRAM_ID,
         name: 'synthetic member filter program',
         organizer: 'synthetic',
-        category: 'BASIC',
+        trackType: 'EXTRACURRICULAR',
+        category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic',
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),

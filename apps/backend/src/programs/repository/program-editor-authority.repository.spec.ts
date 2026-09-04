@@ -1,4 +1,8 @@
-import { ProgramCategory, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  ProgramCategory,
+  StaffAccessRequestStatus,
+  ProgramTrackType,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
@@ -48,6 +52,7 @@ describe('ProgramEditorRepository edit counts', () => {
       id: 'program-1',
       name: 'OSS',
       organizer: 'Center',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,
@@ -96,13 +101,6 @@ describe('ProgramEditorRepository edit counts', () => {
         boardPosts: 3,
         submissions: 4,
         submissionEvents: 5,
-      },
-      categoryLocked: {
-        locked: true,
-        byApplications: true,
-        byTeams: true,
-        applicationCount: 2,
-        teamCount: 1,
       },
     });
     expect(findUnique).toHaveBeenCalledWith({

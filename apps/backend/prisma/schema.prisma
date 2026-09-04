@@ -168,6 +168,12 @@ enum ProgramCategory {
   CORPORATE_INTERNSHIP
 }
 
+/// 교과/비교과 분류 — 표시·필터 전용. 신청서 템플릿과 무관하다.
+enum ProgramTrackType {
+  CURRICULAR
+  EXTRACURRICULAR
+}
+
 /// 기간·팀 인원 CHECK는 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164, #739).
 enum ProgramLifecycle {
   PUBLISHED
@@ -179,6 +185,7 @@ model Program {
   name      String
   organizer String
   category  ProgramCategory
+  trackType ProgramTrackType?
   lifecycle ProgramLifecycle @default(PUBLISHED)
 
   /// 서버 고정 registry가 결정한다(#100) — 클라이언트가 임의 값을 보낼 수 없다.

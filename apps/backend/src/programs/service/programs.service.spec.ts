@@ -3,6 +3,7 @@ import {
   MilestoneDocumentKind,
   ProgramCategory,
   SubmissionStatus,
+  ProgramTrackType,
 } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { hasProgramDeadlinePassed, programDeadline } from '../program-deadline';
@@ -14,7 +15,8 @@ const publicProgram = {
   id: 'program-1',
   name: 'OSS 경진대회',
   organizer: '운영기관',
-  category: ProgramCategory.OSS_CONTEST,
+  trackType: ProgramTrackType.EXTRACURRICULAR,
+  category: ProgramCategory.BASIC,
   lifecycle: 'PUBLISHED' as const,
   description: '프로그램 설명',
   repositoryProvisioningEnabled: true,

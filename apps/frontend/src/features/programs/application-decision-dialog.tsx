@@ -32,7 +32,6 @@ export function ApplicationDecisionDialog({
   currentStatus,
   applicantName,
   teamName,
-  applicationTitle,
   repositoryProvisioningEnabled,
   repositoryConnectionMode,
   reason,
@@ -59,8 +58,6 @@ export function ApplicationDecisionDialog({
   readonly applicantName: string;
   /** 팀 신청일 때의 팀 이름. 개인 신청(`team`이 `null`)이면 `null` — 팀 줄을 그리지 않는다. */
   readonly teamName: string | null;
-  /** 신청 제목. 학생 자유 입력이라 비어 있을 수 있고(`''`), 그때는 줄 자체를 그리지 않는다. */
-  readonly applicationTitle: string;
   readonly repositoryProvisioningEnabled: boolean;
   /**
    * `OWN`이면 승인이 저장소를 **새로 만들지 않는다** — 신청자가 낸 저장소를 잇는다.
@@ -152,10 +149,7 @@ export function ApplicationDecisionDialog({
            * 그래서 `Alert`가 아니라 옅은 배경의 정보 블록으로, 본문 맨 위(설명·입력
            * 폼보다 먼저)에 둔다. 내부 id는 애초에 props로 받지 않으므로 노출될 수 없다.
            *
-           * ⚠ 라벨 없이 값만 나열하지 않는다 — 학생 프로젝트 특성상 팀 이름과 신청
-           * 제목이 거의 같은 문자열인 경우가 흔해, 라벨이 없으면 어느 줄이 팀이고
-           * 어느 줄이 제목인지 읽는 사람이 추론해야 한다. 그래서 값이 아니라
-           * 이름-값 쌍인 `<dl>`을 쓴다(`Row`·`admin-access-profile-section`과 같은 규칙).
+           * 값이 아니라 이름-값 쌍인 `<dl>`을 쓴다(`Row`·`admin-access-profile-section`과 같은 규칙).
            */}
           <dl
             id="application-decision-summary"
@@ -172,16 +166,6 @@ export function ApplicationDecisionDialog({
                 <dt className="text-muted-foreground">팀</dt>
                 <dd className="break-keep text-muted-foreground [overflow-wrap:anywhere]">
                   {teamName}
-                </dd>
-              </div>
-            ) : null}
-            {applicationTitle !== '' ? (
-              <div className="grid gap-0.5">
-                {/* 「프로젝트」가 아니라 「제목」이다 — 값의 출처가 `answers.title`이라, */}
-                {/* 화면이 데이터의 실제 정체보다 큰 말을 하면 안 된다. */}
-                <dt className="text-muted-foreground">제목</dt>
-                <dd className="break-keep text-muted-foreground [overflow-wrap:anywhere]">
-                  {applicationTitle}
                 </dd>
               </div>
             ) : null}

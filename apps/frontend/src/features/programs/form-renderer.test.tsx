@@ -25,11 +25,9 @@ describe('FormRenderer', () => {
 
     expect(html).toContain('OSS 경진대회 신청서');
     expect(html).toContain('oss-contest v1');
-    expect(html).toContain('팀형 신청');
+    expect(html).toContain('팀 신청');
     expect(html).toContain('신청자');
-    expect(html).toContain('제목');
     expect(html).toContain('요약');
-    expect(html).toContain('name="title"');
     expect(html).toContain('name="summary"');
     expect(html).toContain('name="applicantName"');
     expect(html).toContain('합성 신청자');
@@ -38,24 +36,20 @@ describe('FormRenderer', () => {
     );
   });
 
-  it.each(['title', 'summary'] as const)(
-    '%s 입력칸이 길이 상한을 실제로 걸어 둔다',
-    (key) => {
-      // ⚠ 상수만 맞는지 보면 부족하다 — 화면이 그 상수를 **쓰는지**를 봐야 한다.
-      const html = renderToStaticMarkup(
-        <FormRenderer template={template} mode="edit" values={{}} />,
-      );
+  it('summary 입력칸이 길이 상한을 실제로 걸어 둔다', () => {
+    const key = 'summary' as const;
+    // ⚠ 상수만 맞는지 보면 부족하다 — 화면이 그 상수를 **쓰는지**를 봐야 한다.
+    const html = renderToStaticMarkup(
+      <FormRenderer template={template} mode="edit" values={{}} />,
+    );
 
-      // 그 칸의 태그 안에 상한이 들어 있다.
-      const tag = html
-        .split('<')
-        .find((chunk) => chunk.includes(`name="${key}"`));
-      expect(tag).toBeDefined();
-      expect(tag).toContain(
-        `maxLength="${APPLICATION_ANSWER_MAX_LENGTHS[key]}"`,
-      );
-    },
-  );
+    // 그 칸의 태그 안에 상한이 들어 있다.
+    const tag = html
+      .split('<')
+      .find((chunk) => chunk.includes(`name="${key}"`));
+    expect(tag).toBeDefined();
+    expect(tag).toContain(`maxLength="${APPLICATION_ANSWER_MAX_LENGTHS[key]}"`);
+  });
 
   it('상한이 없는 칸에는 maxLength 를 붙이지 않는다', () => {
     // 0 이나 빈 값이 붙으면 아무것도 못 치게 된다.
@@ -78,9 +72,7 @@ describe('FormRenderer', () => {
       />,
     );
 
-    expect(html).toContain('초안 제목');
     expect(html).toContain('초안 요약');
-    expect(html).toContain('name="title"');
     // auto field remains non-editable (readOnly and/or disabled)
     expect(html).toMatch(/name="applicantName"[^>]*readOnly|readonly/i);
   });

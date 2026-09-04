@@ -2,6 +2,7 @@ import {
   AccountStatus,
   MilestoneSubmissionType,
   ProgramCategory,
+  ProgramTrackType,
 } from '@prisma/client';
 import type { UpdateProgramRequestDto } from '../src/programs/dto/update-program-request.dto';
 import type { UpsertMilestoneRequestDto } from '../src/programs/dto/upsert-milestone-request.dto';
@@ -14,7 +15,7 @@ import {
 export const updateInput: UpdateProgramRequestDto = {
   name: '  Updated OSS  ',
   organizer: '  SW Center  ',
-  category: ProgramCategory.OSS_CONTEST,
+  trackType: ProgramTrackType.EXTRACURRICULAR,
   applicationStartAt: '2026-08-01T00:00:00.000Z',
   applicationEndAt: '2026-08-15T00:00:00.000Z',
   startAt: '2026-08-16T00:00:00.000Z',
@@ -37,18 +38,11 @@ export const editableProgram = {
   id: 'program-1',
   name: 'OSS',
   organizer: 'Center',
-  category: ProgramCategory.BASIC,
+  trackType: ProgramTrackType.CURRICULAR,
   applicationTemplateKey: 'basic',
   applicationTemplateVersion: 1,
   applicationCount: 0,
   teamCount: 0,
-  categoryLocked: {
-    locked: false,
-    byApplications: false,
-    byTeams: false,
-    applicationCount: 0,
-    teamCount: 0,
-  },
   applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-08-10T00:00:00.000Z'),
   startAt: new Date('2026-08-16T00:00:00.000Z'),

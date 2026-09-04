@@ -4,6 +4,7 @@ import {
   LoginHistoryEvent,
   ProgramCategory,
   RepositorySource,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -141,6 +142,7 @@ async function createPreservedAssets(
       id: `${prefix}program`,
       name: 'Synthetic PR04H Program',
       organizer: 'Synthetic Organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-pr04h-template',
       applicationTemplateVersion: 1,

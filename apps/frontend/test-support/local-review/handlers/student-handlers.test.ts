@@ -121,7 +121,8 @@ describe('student fixture responses', () => {
         call(fixture, 'GET', 'programs/program-basic-study/viewer'),
       ) as ProgramDetail;
       const template = PROGRAM_TEMPLATE_DEFINITIONS.find(
-        (definition) => definition.category === program.category,
+        (definition) =>
+          definition.template.key === program.applicationTemplateKey,
       )?.template;
 
       // When
@@ -136,7 +137,7 @@ describe('student fixture responses', () => {
     },
   );
 
-  it('exposes application templates whose keys match the category fallbacks', () => {
+  it('exposes application templates whose keys match local definitions', () => {
     // Given / When
     const body = jsonBody(
       call('student', 'GET', 'programs/application-templates'),

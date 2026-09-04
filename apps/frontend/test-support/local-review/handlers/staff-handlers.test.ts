@@ -142,7 +142,6 @@ describe('staff local review handlers', () => {
       // Then: 「신청 N건이 있어 유형을 바꿀 수 없습니다」가 목록과 다른 수를 말하면
       // 교직원은 화면 둘 중 어느 쪽을 믿어야 할지 알 수 없다.
       expect(program.applicationCount).toBe(page.totalItems);
-      expect(program.categoryLocked.applicationCount).toBe(page.totalItems);
     },
   );
 
@@ -369,21 +368,19 @@ describe('staff local review handlers', () => {
     expect(reverted.repositoryProvisioning).toBeUndefined();
   });
 
-  it('프로그램 등록은 고른 유형과 그 유형의 신청 양식을 돌려준다', () => {
-    // Given / When
+  it('프로그램 등록은 trackType을 받고 basic 템플릿을 고정한다', () => {
     const created = bodyOf<{
-      readonly category: string;
+      readonly trackType: string;
       readonly applicationTemplateKey: string;
     }>(
       resolveWithBody('POST', 'programs', {
         name: '합성 캡스톤 신규',
-        category: 'CAPSTONE',
+        trackType: 'CURRICULAR',
       }),
     );
 
-    // Then
-    expect(created.category).toBe('CAPSTONE');
-    expect(created.applicationTemplateKey).toBe('capstone');
+    expect(created.trackType).toBe('CURRICULAR');
+    expect(created.applicationTemplateKey).toBe('basic');
   });
 
   it('프로그램 수정은 입력한 이름·주최를 되돌려 준다', () => {
