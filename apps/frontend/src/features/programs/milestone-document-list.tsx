@@ -32,6 +32,7 @@ import {
 } from './milestone-document-conflict';
 import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import {
+  isMilestoneDocumentApprovalReverted,
   isMilestoneDocumentDeadlineLocked,
   isMilestoneDocumentResubmittable,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
@@ -51,7 +52,7 @@ import {
   milestoneDocumentUploadHint,
   milestoneDocumentUploadRejection,
 } from './milestone-document-upload-policy';
-import type { ViewerRole } from './types';
+import type { ApplicationStatus, ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
   | { readonly kind: 'loading' }
@@ -108,6 +109,7 @@ export function MilestoneDocumentSectionBody({
   state,
   viewerRole,
   closed,
+  applicationStatus,
   conflictNotice,
   onRetry,
   onDocumentChange,
@@ -117,6 +119,16 @@ export function MilestoneDocumentSectionBody({
   readonly state: MilestoneDocumentSectionState;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
+  /**
+   * 이 뷰어 본인의 신청 상태 — 바로 위 마일스톤 머리줄이 받는 것과 **같은 값**이다
+   * (`program-detail-view.tsx`의 `MilestoneGroup`). 승인이 되돌려졌는지를 화면이 아는
+   * 유일한 경로이고, 그것을 모르면 쓸 수 없는 「수정」을 계속 내놓게 된다(#1206).
+   *
+   * **선택 prop 으로 두지 않는다.** 안 넘겨도 타입이 통과하면 이 값을 흘려 넣는 것을
+   * 한 자리에서 빠뜨려도 아무 데서도 티가 나지 않고, 화면은 조용히 고치기 전과 똑같이
+   * 동작한다. `null`은 「신청하지 않았다」는 **사실**이지 모름이 아니다.
+   */
+  readonly applicationStatus: ApplicationStatus | null;
   /** 저장되지 않은 제출을 알리는 문구. 없으면 `null`. */
   readonly conflictNotice: string | null;
   readonly onRetry: () => void;
@@ -181,6 +193,7 @@ export function MilestoneDocumentSectionBody({
               document={document}
               fileUpload={state.fileUpload}
               closed={closed}
+              applicationStatus={applicationStatus}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
             />
@@ -196,10 +209,13 @@ export function MilestoneDocumentSection({
   milestoneId,
   viewerRole,
   closed,
+  applicationStatus,
 }: {
   readonly milestoneId: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
+  /** 위 마일스톤 머리줄과 나눠 갖는 본인 신청 상태 — 상세 응답의 `viewer.applicationStatus`. */
+  readonly applicationStatus: ApplicationStatus | null;
 }) {
   const [state, setState] = useState<MilestoneDocumentSectionState>({
     kind: 'loading',
@@ -246,6 +262,7 @@ export function MilestoneDocumentSection({
       state={state}
       viewerRole={viewerRole}
       closed={closed}
+      applicationStatus={applicationStatus}
       conflictNotice={conflictNotice}
       onRetry={() => {
         // 손으로 다시 부르는 것은 앞 제출과 다른 일이다 — 앞 안내를 여기 남기면 방금
@@ -463,12 +480,14 @@ function StudentDocumentRow({
   document,
   fileUpload,
   closed,
+  applicationStatus,
   onRefresh,
   onSubmitConflict,
 }: {
   readonly document: MilestoneDocument;
   readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly closed: boolean;
+  readonly applicationStatus: ApplicationStatus | null;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
@@ -513,6 +532,25 @@ function StudentDocumentRow({
    */
   const deadlineLocked = isMilestoneDocumentDeadlineLocked(
     closed,
+    viewerSubmission,
+  );
+  /**
+   * 승인이 되돌려진 신청의 줄인가(#1206). 참이면 「수정」을 **흐리게 두지 않고 그 자리에서
+   * 없앤다** — 눌리지 않는 것을 굳이 보여 주면 화면만 복잡해진다는 판단을 같은 사람이
+   * 이미 내렸다(#1099 → PR #1200: 「신청하지 않으면 애초에 보이지 않도록 하면 될 것 같은데
+   * 보이도록 해서 복잡하게 만듬」).
+   *
+   * 왜 지금은 못 하는지는 **바로 위 마일스톤 머리줄이 이미 말하고 있다** — 신청이 승인
+   * 상태가 아니면 그 줄은 「신청 승인 후 제출할 수 있습니다」(제출 축이 있는 마일스톤이면
+   * 「신청 승인 후 제출 상태를 확인할 수 있습니다.」)를 적는다(`components/milestone-row.tsx`).
+   * 같은 사실을 서류 줄마다 한 번 더 적으면 한 화면에서 같은 말이 항목 수만큼 반복된다.
+   *
+   * ⚠ 아래 조작 자리에서 이 값은 **서류 판정보다 뒤에** 본다. 승인·반려된 서류는 앞
+   * 갈래가 이미 더 정확한 이유를 말하고 있고(그 줄은 신청이 되돌아오기 전에도 못 낸다),
+   * 이 갈래가 앞서면 그 문장이 덜 정확한 말로 덮인다.
+   */
+  const approvalReverted = isMilestoneDocumentApprovalReverted(
+    applicationStatus,
     viewerSubmission,
   );
   const historyMetadata = viewerSubmission?.history;
@@ -694,7 +732,7 @@ function StudentDocumentRow({
               ? '승인된 제출 항목은 다시 제출할 수 없습니다.'
               : '반려된 제출 항목은 다시 제출할 수 없습니다.'}
           </span>
-        ) : (
+        ) : approvalReverted ? null : (
           <Button
             type="button"
             size="sm"
@@ -764,7 +802,7 @@ function StudentDocumentRow({
           )}
         </div>
       )}
-      {canSubmit && syncNotice === null && editing ? (
+      {canSubmit && !approvalReverted && syncNotice === null && editing ? (
         <MilestoneDocumentSubmissionForm
           documentName={document.name}
           documentId={document.id}

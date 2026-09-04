@@ -319,6 +319,12 @@ function MilestoneGroup({
         milestoneId={milestone.id}
         viewerRole={program.viewer.role}
         closed={isPastDue(milestone.dueAt)}
+        /*
+         * 머리줄과 **같은 값**을 서류 줄에도 준다. 이 한 줄이 없으면 서류 줄은 신청이
+         * 되돌려진 것을 영영 알 수 없고, 승인이 풀린 학생에게 서버가 403(MSD_006)으로
+         * 거절할 「수정」을 계속 내놓는다(#1206).
+         */
+        applicationStatus={program.viewer.applicationStatus}
       />
     </article>
   );

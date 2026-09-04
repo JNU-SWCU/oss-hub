@@ -6,6 +6,7 @@ import type {
 import type { MilestoneDocumentCollectionCell } from './milestone-document-collection-api';
 import {
   createMilestoneDocumentReviewFormState,
+  isMilestoneDocumentApprovalReverted,
   isMilestoneDocumentDeadlineLocked,
   isMilestoneDocumentResubmittable,
   isMilestoneDocumentReviewCommentRequired,
@@ -216,6 +217,64 @@ describe('isMilestoneDocumentResubmittable', () => {
       isMilestoneDocumentResubmittable(viewer({ status: 'SUBMITTED' })),
     ).toBe(true);
     expect(isMilestoneDocumentResubmittable(undefined)).toBe(true);
+  });
+});
+
+/**
+ * #1206 — 교직원이 승인을 되돌리면(APPROVED → SUBMITTED) 이미 낸 제출 행은 그대로 남아
+ * 서류 줄이 계속 「수정」을 내놓는데, 서버는 그 제출을 403(MSD_006)으로 거절한다.
+ * 화면이 그 상태를 알아보는 자리가 여기다.
+ */
+describe('isMilestoneDocumentApprovalReverted', () => {
+  it('되돌려진 신청의 이미 낸 줄을 잡는다', () => {
+    expect(isMilestoneDocumentApprovalReverted('SUBMITTED', viewer({}))).toBe(
+      true,
+    );
+    // 되돌린 뒤 반려까지 간 경우도 같다 — 제출 행은 남고 서버는 계속 거절한다.
+    expect(isMilestoneDocumentApprovalReverted('REJECTED', viewer({}))).toBe(
+      true,
+    );
+  });
+
+  /**
+   * 정상 참여자의 재제출을 좁히지 않는다 — 이 티켓의 「하지 않을 것」 그 자체다.
+   * 이 기대가 깨지면 승인된 학생이 서류를 고칠 방법을 잃는다.
+   */
+  it('승인된 신청은 건드리지 않는다', () => {
+    expect(isMilestoneDocumentApprovalReverted('APPROVED', viewer({}))).toBe(
+      false,
+    );
+    expect(
+      isMilestoneDocumentApprovalReverted(
+        'APPROVED',
+        viewer({ status: 'CHANGES_REQUESTED' }),
+      ),
+    ).toBe(false);
+  });
+
+  /**
+   * 제출 행이 없으면 이 신청이 한 번이라도 승인됐다는 증거가 없다 — 미신청·승인 대기
+   * 학생의 「올리기」는 #1098이 다루는 자리이고, 여기서 함께 지우면 두 티켓이 같은
+   * 자리를 서로 다른 규칙으로 고치게 된다.
+   */
+  it('아직 내지 않은 줄은 다루지 않는다', () => {
+    expect(
+      isMilestoneDocumentApprovalReverted(
+        'SUBMITTED',
+        viewer({ submitted: false, submittedAt: null, status: null }),
+      ),
+    ).toBe(false);
+    expect(isMilestoneDocumentApprovalReverted('SUBMITTED', undefined)).toBe(
+      false,
+    );
+  });
+
+  /**
+   * 신청 상태를 모르는 화면에서는 아무것도 내리지 않는다. 판정을 「승인이 아니다」라는
+   * 부정으로 적으면 값이 흘러오지 않는 자리에서 정상 학생의 「수정」까지 사라진다.
+   */
+  it('신청이 없으면 아무것도 지우지 않는다', () => {
+    expect(isMilestoneDocumentApprovalReverted(null, viewer({}))).toBe(false);
   });
 });
 

@@ -247,6 +247,7 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
         }
         viewerRole="STUDENT"
         closed={false}
+        applicationStatus="APPROVED"
         conflictNotice={null}
         onRetry={() => {}}
         onDocumentChange={() => {}}

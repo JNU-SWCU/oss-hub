@@ -673,6 +673,7 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'loading' }}
         viewerRole="STUDENT"
         closed={false}
+        applicationStatus="APPROVED"
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -688,6 +689,7 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'failed' }}
         viewerRole="STUDENT"
         closed={false}
+        applicationStatus="APPROVED"
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -708,6 +710,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STUDENT"
         closed={false}
+        applicationStatus="APPROVED"
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -734,6 +737,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STAFF"
         closed={false}
+        applicationStatus={null}
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -772,6 +776,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STUDENT"
         closed={false}
+        applicationStatus="APPROVED"
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
@@ -794,6 +799,7 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STUDENT"
         closed={false}
+        applicationStatus="APPROVED"
         conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}

@@ -12,6 +12,7 @@ import type {
   MilestoneDocument,
   MilestoneDocumentViewerSubmission,
 } from './milestone-document-api';
+import type { ApplicationStatus } from './types';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -71,6 +72,7 @@ describe('MilestoneDocumentSection response recovery', () => {
           milestoneId="milestone-1"
           viewerRole="STAFF"
           closed={false}
+          applicationStatus={null}
         />,
       );
     });
@@ -196,6 +198,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           milestoneId="milestone-1"
           viewerRole="STUDENT"
           closed={false}
+          applicationStatus="APPROVED"
         />,
       );
     });
@@ -491,6 +494,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           milestoneId="milestone-1"
           viewerRole="STUDENT"
           closed={false}
+          applicationStatus="APPROVED"
         />,
       );
     });
@@ -599,14 +603,19 @@ describe('학생 행이 판정을 읽는 방식', () => {
     };
   }
 
+  /**
+   * `applicationStatus`의 기본값은 승인이다 — 이 describe의 나머지 검사는 전부 **정상
+   * 참여자**의 화면을 보고 있고, 되돌려진 신청은 아래 전용 검사에서만 다룬다.
+   */
   async function renderRow(
     viewerSubmission: MilestoneDocumentViewerSubmission,
     closed = false,
+    applicationStatus: ApplicationStatus | null = 'APPROVED',
   ) {
     await act(async () => {
       root.render(
         <MilestoneDocumentSectionBody
-          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}`}
+          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}-${applicationStatus}`}
           state={{
             kind: 'ready',
             documents: [{ ...milestoneDocument, viewerSubmission }],
@@ -614,6 +623,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
           }}
           viewerRole="STUDENT"
           closed={closed}
+          applicationStatus={applicationStatus}
           conflictNotice={null}
           onRetry={() => {}}
           onDocumentChange={() => {}}
@@ -1078,6 +1088,66 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(actionButton('수정').disabled).toBe(false);
   });
 
+  /**
+   * #1206 — 교직원이 승인을 되돌리면(APPROVED → SUBMITTED) 제출 행은 그대로 남아 이 줄이
+   * 계속 「수정」을 내놓지만, 눌러서 내면 서버가 403(MSD_006 「승인된 신청만 제출할 수
+   * 있습니다」)으로 거절한다. 화면이 할 수 없는 일을 제안하는 자리다.
+   *
+   * 잠근 버튼을 남기지 않고 **자리를 비운다** — 눌리지 않는 항목을 굳이 보여 주면 화면만
+   * 복잡해진다는 판단이 이미 있었다(#1099 → PR #1200). 왜 못 내는지는 바로 위 마일스톤
+   * 머리줄이 이미 말한다(`components/milestone-row.tsx`).
+   */
+  it('되돌려진 신청의 제출 줄에서는 「수정」을 내놓지 않는다', async () => {
+    await renderRow(viewer({ status: 'SUBMITTED' }), false, 'SUBMITTED');
+
+    expect(buttonTexts()).not.toContain('수정');
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+    expect(
+      container.querySelector(
+        'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
+      ),
+    ).toBeNull();
+  });
+
+  /** 보완 요청을 받아 둔 줄도 같다 — 되돌려진 동안에는 그 요청에 답할 수 없다. */
+  it('되돌려진 신청에서는 보완 요청 줄의 「수정」도 걷는다', async () => {
+    await renderRow(
+      viewer({ status: 'CHANGES_REQUESTED' }),
+      false,
+      'SUBMITTED',
+    );
+
+    expect(buttonTexts()).not.toContain('수정');
+  });
+
+  /**
+   * 대조 — 이 검사가 함께 서 있지 않으면 「수정」을 아무에게나 지우는 변경도 위 검사를
+   * 통과한다. 승인된 학생의 재제출은 이 티켓의 「하지 않을 것」이다.
+   */
+  it('승인된 신청의 「수정」은 그대로 둔다', async () => {
+    await renderRow(viewer({ status: 'SUBMITTED' }), false, 'APPROVED');
+    expect(buttonTexts()).toContain('수정');
+    expect(actionButton('수정').disabled).toBe(false);
+
+    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), false, 'APPROVED');
+    expect(buttonTexts()).toContain('수정');
+  });
+
+  /**
+   * 아직 한 번도 내지 않은 줄의 「올리기」는 건드리지 않는다. 그 상태(미신청·승인 대기)의
+   * 제출 조작 노출은 #1098이 신청 판정을 머리줄과 서류 줄에 함께 나눠 주는 방식으로 따로
+   * 다루는 자리라, 여기서 함께 지우면 같은 화면을 두 규칙이 서로 다르게 고치게 된다.
+   */
+  it('되돌려진 신청이어도 미제출 줄의 「올리기」는 이 티켓이 다루지 않는다', async () => {
+    await renderRow(
+      viewer({ submitted: false, submittedAt: null, status: null }),
+      false,
+      'SUBMITTED',
+    );
+
+    expect(buttonTexts()).toContain('올리기');
+  });
+
   it('통합 제출도 승인되면 입력 칸이 열리지 않는다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
     const editButton = Array.from(container.querySelectorAll('button')).find(
@@ -1135,6 +1205,7 @@ describe('교직원 양식 올리기의 사전 검사', () => {
           }}
           viewerRole="STAFF"
           closed={false}
+          applicationStatus={null}
           conflictNotice={null}
           onRetry={() => {}}
           onDocumentChange={() => {}}

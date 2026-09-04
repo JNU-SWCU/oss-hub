@@ -10,6 +10,7 @@ import {
   MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
   type MilestoneDocumentReviewDecision,
 } from './milestone-document-review-api';
+import type { ApplicationStatus } from './types';
 
 /**
  * 서류 제출물 판정의 **화면 판단** 전담부 — 판정 라벨, 상태 → 배지 매핑, 사유 필수 검증,
@@ -148,6 +149,43 @@ export function isMilestoneDocumentResubmittable(
     case 'CHANGES_REQUESTED':
       return true;
   }
+}
+
+/**
+ * 승인이 **되돌려진** 신청의 줄인가 — 그렇다면 재제출 조작을 그 자리에 내놓지 않는다(#1206).
+ *
+ * 교직원이 「검토 대기로 되돌리기」를 하면 신청은 `APPROVED`에서 `SUBMITTED`로 돌아간다
+ * (`applications.service.ts`의 REVERT). 그런데 이미 낸 제출 행은 그대로 남으므로 서류 줄은
+ * 계속 「수정」을 내놓고, 눌러서 내면 서버가 403(MSD_006 「승인된 신청만 제출할 수
+ * 있습니다」)으로 거절한다. 학생은 눌러 본 뒤에야 안 된다는 것을 안다.
+ *
+ * **되돌려진 상태를 이 두 값으로 알아본다.**
+ * - 신청이 지금 `SUBMITTED`이거나 `REJECTED`다 — 화면은 프로그램 상세 응답의
+ *   `viewer.applicationStatus`로 안다. 되돌리기는 `SUBMITTED`로 가고, 되돌린 뒤 반려하면
+ *   `REJECTED`가 된다.
+ * - 그 줄에 이미 낸 제출이 있다 — 제출을 만드는 **모든 쓰기 경로가 승인을 요구하므로**
+ *   (`milestone-documents.service.ts`의 `submit`, `milestone-document-files.service.ts`의
+ *   업로드), 제출 행이 있다는 것은 이 신청이 한 번은 승인됐다는 뜻이다. 즉 이 조합에 닿는
+ *   길은 되돌리기뿐이다.
+ *
+ * ⚠ **상태를 모르면 아무것도 내리지 않는다.** 위 두 값을 **양성으로만** 본다 — `null`(신청
+ * 없음)도, 계약 밖의 값도 여기서 `false`가 된다. 「승인이 아니다」를 부정으로 적으면 값이
+ * 오지 않은 화면에서 정상 학생의 「수정」까지 사라진다. 추측한 상태로 조작을 지우지 않는
+ * 것은 #1099와 같은 규칙이다.
+ *
+ * ⚠ **아직 한 번도 제출하지 않은 줄의 「올리기」는 이 함수가 다루지 않는다.** 그 줄에는
+ * 제출 행이 없어 여기서 `false`가 나온다. 미신청·승인 대기 학생에게 제출 조작이 열려 있는
+ * 문제는 #1098이 신청 판정을 머리줄과 서류 줄에 함께 나눠 주는 방식으로 따로 다룬다 —
+ * 그쪽과 이 화면의 같은 자리를 고치므로 병합 순서를 확인해야 한다.
+ */
+export function isMilestoneDocumentApprovalReverted(
+  applicationStatus: ApplicationStatus | null,
+  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+): boolean {
+  if (applicationStatus !== 'SUBMITTED' && applicationStatus !== 'REJECTED') {
+    return false;
+  }
+  return viewerSubmission?.submitted === true;
 }
 
 /**
