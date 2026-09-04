@@ -13,6 +13,44 @@ Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host ngin
 - **release 발행 전 확인:** Jenkins `oss-hub-production-env` credential에 `AUTH_INITIAL_ROLES`가 있는지 본다. `compose.yml`이 `${AUTH_INITIAL_ROLES:-}`로 선택 매핑하므로 **키가 없어도 배포는 성공하지만 초기 역할 시드가 조용히 꺼진다.** 시드를 쓰지 않기로 했다면 그 결정을 release 노트에 남긴다. 값을 넣는다면 형식(`githubId:ROLE` 쉼표 구분, ROLE은 `ADMIN|STAFF|STUDENT`)을 먼저 확인한다 — **형식이 잘못되면 backend가 부팅하지 못해 배포 검증이 실패한다.** 숫자가 아닌 id, `0`, 알 수 없는 역할, 중복 githubId가 대표적인 실패 입력이다.
 - `<...>`, `REPLACE_*` 자리표시자는 로컬에서 각자 채운다.
 
+## ⓪ 파괴적 이관 리허설
+
+릴리스 diff의 `apps/backend/prisma/migrations/**`에 `DROP TABLE`·`DROP COLUMN`·`DROP CONSTRAINT`가 있으면 **이 릴리스를 내보내기 전에** 리허설을 돌린다.
+Prisma에는 down 마이그레이션이 없고 배포 경로에 자동 DB 복원도 없다 — 파괴적 DDL이 커밋된 뒤에는 되돌릴 자동 수단이 없다.
+로컬·E2E·CI는 매번 빈 데이터베이스에 마이그레이션을 적용하므로, 데이터가 있는 DB에서 그 이관이 도는 것은 리허설이 유일하다.
+
+legacy-submission 3단 이관(expand → bridge → contract, 2026-08-30)의 리허설은 다음 두 명령이다.
+각각 일회용 PostgreSQL 컨테이너를 스스로 띄우고 끝나면 지운다.
+호출자의 `DATABASE_URL`을 읽지 않으므로 운영·개발 DB에 붙을 경로가 없다.
+
+```sh
+bash scripts/rehearse-legacy-submission-migrations.sh migrate
+bash scripts/rehearse-legacy-submission-migrations.sh negative
+```
+
+출력은 마지막 한 줄의 JSON으로 읽는다.
+
+- `{"status":"ok","scenario":"migrate",...}` — seed를 채운 DB에서 세 단계가 통과했고, 이관 전후의 행 수와 id 매핑이 같았으며, 파괴적 DDL 직전 백업으로 원본 세 테이블이 되살아났다는 뜻이다(`submissions`·`revisions`·`reviews`·`files`는 대조한 원본 행 수다).
+- `{"status":"ok","scenario":"negative","lanes":9}` — contract의 preflight 게이트 아홉 개가 각각 자기 위반 데이터에서 멈췄고, 멈춘 뒤에도 원본 세 테이블과 `SubmissionFile."submissionRevisionId"`가 남아 있었다는 뜻이다.
+- 그 밖의 출력은 전부 실패다 — `... drifted`는 매핑이 갈라진 것이고 `... accepted ...`는 걸려야 할 데이터를 게이트가 통과시킨 것이며, **어느 쪽이든 릴리스를 내보내지 않는다.**
+
+다음 파괴적 이관도 같은 두 겹을 갖춘다 — 컨테이너 리허설 스크립트 하나와, 그 스크립트의 정적 계약을 required CI에 고정하는 `scripts/*.test.mjs` 하나다.
+컨테이너 리허설 자체는 PostgreSQL 기동이 필요해 required CI가 아니라 이 단계에서 손으로 돈다([ci-path-verification](../rules/ci-path-verification.md)).
+
+### 이관이 실패했을 때 복구할 것
+
+배포 중 `prisma migrate deploy`가 멈춘 경우, 먼저 **어디에서 멈췄는지**를 가른다.
+
+1. preflight 게이트가 걸린 경우(로그에 `... requires reconciliation`).
+   마이그레이션 파일 전체가 하나의 `BEGIN`/`COMMIT`이므로 데이터베이스는 **아무것도 바뀌지 않은 상태**이고 복원할 데이터가 없다.
+   남는 것은 `_prisma_migrations`의 실패 기록 하나뿐이고, 이것을 되돌리지 않으면 이후 배포가 거부된다 — [server-runbook](./server-runbook.md) M11의 `prisma migrate resolve --rolled-back` 절차를 해당 마이그레이션 이름으로 그대로 쓴다.
+   게이트가 가리킨 데이터를 먼저 정리한 뒤 다시 배포한다.
+2. 게이트를 통과한 뒤 깨진 경우.
+   이때는 파괴적 DDL이 이미 커밋됐을 수 있다.
+   되돌릴 근거는 [server-runbook](./server-runbook.md) M3의 배포 백업뿐이므로 그 덤프에서 복원한다.
+   복원 후에는 이관이 지운 것이 실제로 돌아왔는지 확인한다 — legacy-submission 이관이라면 `Submission`·`SubmissionRevision`·`Review` 세 테이블과 `SubmissionFile."submissionRevisionId"` 칸이다.
+   복원 뒤에도 `_prisma_migrations` 정리는 1과 같다.
+
 ## ① 로컬 랩탑 검증
 
 로컬 통합 검증은 production Compose를 수동 변형하지 않고 저장소가 소유한 두 파일 계약을 그대로 사용한다.
@@ -62,5 +100,5 @@ require_status 401 GET  http://127.0.0.1:8081/api/v1/submission-files/1
 
 ## ③ 다음 단계
 
-①②가 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 parameterless Release 배포 또는 no-op 재실행으로 넘어간다.
+⓪①②가 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 parameterless Release 배포 또는 no-op 재실행으로 넘어간다.
 자동 트리거 계약은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)가 원본이다.
