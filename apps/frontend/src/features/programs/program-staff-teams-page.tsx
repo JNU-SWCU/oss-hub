@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, RotateCcw } from 'lucide-react';
 import {
   DataTable,
   EmptyState,
@@ -224,6 +225,16 @@ export function ProgramStaffTeamsPage({
     [rows, filter, search],
   );
 
+  /**
+   * 검색어와 상태 칩을 **한 번에** 되돌린다. 빈 화면이 「조건을 바꿔 보세요」 하나로
+   * 말하는 이상, 되돌릴 수단도 하나여야 한다 — 칩만 풀리고 검색어가 남으면 표는 여전히
+   * 비어 있고, 사용자는 버튼이 고장 났다고 읽는다.
+   */
+  const resetFilters = useCallback(() => {
+    setFilter('all');
+    setSearch('');
+  }, []);
+
   const columns = useMemo<DataTableColumn<StaffTeamRow>[]>(
     () => [
       {
@@ -363,10 +374,32 @@ export function ProgramStaffTeamsPage({
     return (
       <div className="grid gap-4 p-4 sm:p-6">
         <PageHeader title="참여 팀" actions={applicantsAction} />
+        {/*
+         * 실패는 표의 빈 자리가 아니라 화면 상태다 — 공개 아카이브·마일스톤 타임라인과
+         * 같은 destructive Alert 하나로 말한다(design.md R-10: 재시도 가능한 실패에
+         * `EmptyState`를 쓰지 않는다).
+         *
+         * ⚠ 「다시 시도해 주세요」라고 말하면서 다시 시도할 것을 주지 않으면 남는 길은
+         * 브라우저 새로고침뿐이고, 그건 안내가 아니라 떠넘기기다(#1101). `load`는 이미
+         * 다시 부를 수 있는 형태였는데 화면에 연결돼 있지 않았을 뿐이다.
+         */}
         <Alert variant="destructive">
+          <AlertCircle aria-hidden="true" />
           <AlertTitle>참여 팀을 불러오지 못했습니다</AlertTitle>
-          <AlertDescription>
-            잠시 후 다시 시도해 주세요. 문제가 계속되면 관리자에게 알려 주세요.
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              잠시 후 다시 시도해 주세요. 문제가 계속되면 관리자에게 알려
+              주세요.
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void load()}
+            >
+              <RotateCcw aria-hidden="true" />
+              다시 시도
+            </Button>
           </AlertDescription>
         </Alert>
       </div>
@@ -458,11 +491,39 @@ export function ProgramStaffTeamsPage({
         }}
         isRowClickable={(row) => row.application !== null}
         caption={`${counts.all}팀 중 ${visible.length}팀을 표시합니다. 표를 좌우로 스크롤할 수 있습니다.`}
+        /*
+         * 빈 표는 한 가지가 아니다 — 「아직 팀이 없다」와 「조건에 안 걸렸다」는 다른
+         * 사실이고, 다른 다음 행동을 부른다. 하나로 뭉쳐 두면 필터를 건 적 없는
+         * 교직원에게 필터를 바꾸라고 말하게 된다(#1101).
+         *
+         * 갈래를 가르는 값은 이미 손안에 있다 — `counts.all`(원본 팀 수)이다. 새로
+         * 부를 API 는 없다.
+         *
+         * ⚠ 순서가 중요하다. **팀이 0팀이면 칩을 눌러 둔 상태여도 「아직 없음」이다** —
+         * 팀이 없는 프로그램에서 필터 탓을 하면 원래 결함으로 되돌아간다. 선행 조건을
+         * 먼저 보는 것은 제출 현황(`matrixEmptyKind`)·서류 현황과 같은 순서다.
+         *
+         * 반대쪽 갈래는 `counts.all > 0`이면서 표가 비었을 때뿐이라, 검색어든 상태
+         * 칩이든 **무언가는 반드시 걸려 있다**(둘 다 기본값이면 모든 행이 통과한다).
+         * 그래서 두 원인을 갈라 말하지 않고 하나로 묶는다.
+         */
         emptyState={
-          <EmptyState
-            title="표시할 팀이 없습니다"
-            description="검색어나 상태 필터를 바꿔 보세요."
-          />
+          counts.all === 0 ? (
+            <EmptyState
+              title="아직 참여 팀이 없습니다"
+              description="학생이 팀을 만들면 여기에 표시됩니다."
+            />
+          ) : (
+            <EmptyState
+              title="조건에 맞는 팀이 없습니다"
+              description="검색어나 상태 필터를 바꿔 보세요."
+              action={
+                <Button type="button" variant="outline" onClick={resetFilters}>
+                  필터 초기화
+                </Button>
+              }
+            />
+          )
         }
       />
     </div>
