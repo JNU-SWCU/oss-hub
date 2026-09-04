@@ -15,6 +15,7 @@ import {
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
+  MilestoneDocumentSubmissionChangedError,
 } from './milestone-documents.repository';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
@@ -459,6 +460,10 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     overrides: Record<string, unknown>,
     /** 잠금 뒤 다시 읽은 최신 판정. 기본은 「아직 판정 없음」이다. */
     lockedLatestReview: { readonly id: string } | null = null,
+    /** 잠금 뒤 다시 읽은 현재 제출 행. 기본은 「보완 요청을 받고 아직 안 냈다」이다. */
+    lockedSubmission: { readonly status: SubmissionStatus } | null = {
+      status: SubmissionStatus.CHANGES_REQUESTED,
+    },
   ) {
     const submissionUpsert = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-submission',
@@ -474,10 +479,14 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const fileUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const fileFindMany = jest.fn().mockResolvedValue([]);
     const reviewFindFirst = jest.fn().mockResolvedValue(lockedLatestReview);
+    const submissionFindUnique = jest.fn().mockResolvedValue(lockedSubmission);
     const queryRaw = jest.fn().mockResolvedValue([{ id: syntheticDocumentId }]);
     const tx = {
       $queryRaw: queryRaw,
-      milestoneDocumentSubmission: { upsert: submissionUpsert },
+      milestoneDocumentSubmission: {
+        upsert: submissionUpsert,
+        findUnique: submissionFindUnique,
+      },
       milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
       milestoneDocumentSubmissionHistory: {
         create: historyCreate,
@@ -498,6 +507,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       fileFindMany,
       queryRaw,
       reviewFindFirst,
+      submissionFindUnique,
       historyCreate,
       historyFindFirst,
     };
@@ -541,6 +551,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         deadline: {
           milestoneId: syntheticMilestoneId,
           allowAfterDeadline: false,
+          expectedSubmissionStatus: null,
         },
         content: { type: 'TEXT', text: '본문' },
         attachFile: null,
@@ -571,6 +582,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       deadline: {
         milestoneId: syntheticMilestoneId,
         allowAfterDeadline: true,
+        expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
       },
       content: { type: 'TEXT', text: '고친 본문' },
       attachFile: null,
@@ -579,6 +591,132 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     expect(submissionUpsert).toHaveBeenCalledTimes(1);
     expect(queryRaw).toHaveBeenCalledTimes(2);
+  });
+
+  /**
+   * #1097 후속. 같은 팀 두 사람이 마감 뒤 거의 동시에 내면 **둘 다** 트랜잭션 밖에서
+   * `CHANGES_REQUESTED`를 읽어 마감 예외를 미리 허락받는다. 첫 재제출은 판정을 새로 만들지
+   * 않으므로 두 번째 요청의 `expectedLatestReviewId`도 그대로 맞고, 판정 id만 재확인하던
+   * 옛 코드는 그 요청을 그대로 저장했다 — 「재제출은 한 번」이 두 번이 되고, 두 번째 사람의
+   * 내용이 첫 번째 사람의 내용을 덮었다.
+   */
+  it('마감 뒤 재제출: 잠금 아래에서 제출 상태가 이미 바뀌었으면 덮어쓰지 않는다', async () => {
+    const queryRaw = jest
+      .fn()
+      .mockResolvedValueOnce([{ dueAt: new Date('2026-09-19T09:00:00.000Z') }])
+      .mockResolvedValueOnce([{ id: syntheticDocumentId }]);
+    // 팀원이 먼저 낸 뒤라 상태는 이미 SUBMITTED다. 최신 판정 id는 그대로 그 보완 요청이다.
+    const { prisma, submissionUpsert, historyCreate } = transactionPrisma(
+      { $queryRaw: queryRaw },
+      { id: 'cuid-synthetic-review' },
+      { status: SubmissionStatus.SUBMITTED },
+    );
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    await expect(
+      repository.upsertSubmission({
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedById: syntheticUserId,
+        submittedAt: new Date('2026-09-20T00:00:00.000Z'),
+        deadline: {
+          milestoneId: syntheticMilestoneId,
+          allowAfterDeadline: true,
+          expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+        },
+        content: { type: 'TEXT', text: '뒤늦게 도착한 본문' },
+        attachFile: null,
+        expectedLatestReviewId: 'cuid-synthetic-review',
+      }),
+    ).rejects.toBeInstanceOf(MilestoneDocumentSubmissionChangedError);
+    expect(submissionUpsert).not.toHaveBeenCalled();
+    expect(historyCreate).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 상태 재확인은 **서류 행을 `FOR UPDATE`로 잡은 뒤에** 해야 뜻이 있다. 잠금 앞에서 읽으면
+   * 동시에 도착한 두 요청이 둘 다 옛 상태를 보고 지나간다 — 확인하는 시늉만 남는다.
+   */
+  it('제출 상태 재확인은 서류 행 잠금 뒤에 한다', async () => {
+    const order: string[] = [];
+    const queryRaw = jest
+      .fn()
+      .mockImplementationOnce(() =>
+        Promise.resolve([{ dueAt: new Date('2026-09-19T09:00:00.000Z') }]),
+      )
+      .mockImplementationOnce(() => {
+        order.push('lock');
+        return Promise.resolve([{ id: syntheticDocumentId }]);
+      });
+    const submissionFindUnique = jest.fn(() => {
+      order.push('recheck');
+      return Promise.resolve({ status: SubmissionStatus.CHANGES_REQUESTED });
+    });
+    const { prisma } = transactionPrisma({
+      $queryRaw: queryRaw,
+      milestoneDocumentSubmission: {
+        upsert: jest.fn().mockResolvedValue({
+          id: 'cuid-synthetic-submission',
+          status: SubmissionStatus.SUBMITTED,
+          content: Prisma.JsonNull,
+          submittedAt: new Date('2026-09-20T00:00:00.000Z'),
+          revision: 2,
+        }),
+        findUnique: submissionFindUnique,
+      },
+    });
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    await repository.upsertSubmission({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: new Date('2026-09-20T00:00:00.000Z'),
+      deadline: {
+        milestoneId: syntheticMilestoneId,
+        allowAfterDeadline: true,
+        expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      },
+      content: { type: 'TEXT', text: '고친 본문' },
+      attachFile: null,
+      expectedLatestReviewId: null,
+    });
+
+    expect(order).toEqual(['lock', 'recheck']);
+  });
+
+  /**
+   * 마감 **전** 교체는 몇 번이든 되는 일이다. 여기서까지 상태를 대조하면 팀원 둘이 이어서
+   * 고쳐 내는 지금 되는 흐름이 사라진다 — 재확인은 마감을 지나간 요청에만 붙는다.
+   */
+  it('마감 전에는 제출 상태를 대조하지 않는다', async () => {
+    const queryRaw = jest
+      .fn()
+      .mockResolvedValueOnce([{ dueAt: new Date('2026-09-19T09:00:00.000Z') }])
+      .mockResolvedValueOnce([{ id: syntheticDocumentId }]);
+    const { prisma, submissionUpsert, submissionFindUnique } =
+      transactionPrisma({ $queryRaw: queryRaw }, null, {
+        status: SubmissionStatus.SUBMITTED,
+      });
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    await repository.upsertSubmission({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: new Date('2026-09-18T00:00:00.000Z'),
+      deadline: {
+        milestoneId: syntheticMilestoneId,
+        allowAfterDeadline: false,
+        expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      },
+      content: { type: 'TEXT', text: '마감 전 교체' },
+      attachFile: null,
+      expectedLatestReviewId: null,
+    });
+
+    expect(submissionUpsert).toHaveBeenCalledTimes(1);
+    expect(submissionFindUnique).not.toHaveBeenCalled();
   });
 
   it('서류 행 존재를 FOR UPDATE로 잠근 다음에야 제출을 쓴다 — 삭제·판정·제출을 직렬화한다', async () => {
@@ -2712,5 +2850,133 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       syntheticMilestoneId,
       MilestoneDocumentKind.DOCUMENT,
     ]);
+  });
+});
+
+/**
+ * #1097 후속 — 「마감 뒤 재제출은 한 번」이 **동시에 도착한 두 요청**에서도 한 번인가.
+ *
+ * 서비스는 트랜잭션 밖에서 최신 판정과 제출 상태를 읽어 마감 예외를 허락한다. 같은 팀 두 사람이
+ * 마감 뒤 거의 동시에 누르면 둘 다 그 읽기에서 「보완 요청 · 아직 안 냄」을 보고 예외를 얻는다.
+ * 첫 재제출은 **판정을 새로 만들지 않으므로** 두 번째 요청의 기대 판정 id도 그대로 맞는다 —
+ * 판정 id만 재확인하던 옛 코드에서는 두 번째 요청이 그대로 저장돼 첫 번째 사람의 내용을 덮었다.
+ *
+ * 아래 가짜 Prisma는 그 경합을 그대로 재현한다: 서류 행 `FOR UPDATE`가 앞 트랜잭션이 끝날
+ * 때까지 두 번째를 세우고(실제 잠금과 같다), 첫 트랜잭션이 커밋한 뒤에야 두 번째가 상태를
+ * 읽는다. 잠금 아래에서 제출 상태를 다시 보지 않으면 이 시험은 두 번 저장된다.
+ */
+describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 재제출', () => {
+  const dueAt = new Date('2026-09-19T09:00:00.000Z');
+  const reviewId = 'cuid-synthetic-review';
+
+  function concurrentPrisma() {
+    const submission = {
+      status: SubmissionStatus.CHANGES_REQUESTED as SubmissionStatus,
+      revision: 1,
+      content: { type: 'TEXT', text: '보완 요청을 받은 본문' } as unknown,
+    };
+    /** 서류 행 잠금 — 앞 트랜잭션이 끝날 때까지 다음 트랜잭션을 세운다. */
+    let lockChain: Promise<void> = Promise.resolve();
+    const upsertCalls: unknown[] = [];
+
+    const prisma = {
+      $transaction: async (callback: (transaction: unknown) => unknown) => {
+        let release: () => void = () => {};
+        const acquire = async () => {
+          const previous = lockChain;
+          lockChain = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          await previous;
+        };
+        const transaction = {
+          $queryRaw: async (sql: { readonly strings: readonly string[] }) => {
+            const text = String(sql.strings);
+            if (text.includes('FOR SHARE')) return [{ dueAt }];
+            await acquire();
+            return [{ id: syntheticDocumentId }];
+          },
+          milestoneDocumentSubmission: {
+            findUnique: () => Promise.resolve({ status: submission.status }),
+            upsert: (input: {
+              readonly update: { readonly content: unknown };
+            }) => {
+              upsertCalls.push(input.update.content);
+              submission.status = SubmissionStatus.SUBMITTED;
+              submission.revision += 1;
+              submission.content = input.update.content;
+              return Promise.resolve({
+                id: 'cuid-synthetic-submission',
+                status: submission.status,
+                content: submission.content,
+                submittedAt: new Date('2026-09-20T00:00:00.000Z'),
+                revision: submission.revision,
+              });
+            },
+          },
+          // 재제출은 판정을 만들지 않는다 — 두 요청 모두에게 최신 판정은 계속 이것이다.
+          milestoneDocumentReviewHistory: {
+            findFirst: () => Promise.resolve({ id: reviewId }),
+          },
+          milestoneDocumentSubmissionHistory: {
+            findFirst: () => Promise.resolve(null),
+            create: () => Promise.resolve({ id: 'cuid-synthetic-history' }),
+          },
+          submissionFile: {
+            updateMany: () => Promise.resolve({ count: 0 }),
+            findMany: () => Promise.resolve([]),
+          },
+        };
+        try {
+          return await callback(transaction);
+        } finally {
+          release();
+        }
+      },
+    } as unknown as PrismaService;
+    return { prisma, submission, upsertCalls };
+  }
+
+  function submitAs(
+    repository: MilestoneDocumentsRepository,
+    text: string,
+  ): Promise<unknown> {
+    return repository.upsertSubmission({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: new Date('2026-09-20T00:00:00.000Z'),
+      deadline: {
+        milestoneId: syntheticMilestoneId,
+        allowAfterDeadline: true,
+        // 둘 다 트랜잭션 밖에서 같은 것을 봤다 — 그것이 이 경합의 출발점이다.
+        expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      },
+      content: { type: 'TEXT', text },
+      attachFile: null,
+      expectedLatestReviewId: reviewId,
+    });
+  }
+
+  it('두 사람이 동시에 내도 한 번만 저장되고 나중 요청이 앞 내용을 덮지 않는다', async () => {
+    const { prisma, submission, upsertCalls } = concurrentPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    const results = await Promise.allSettled([
+      submitAs(repository, '먼저 도착한 재제출'),
+      submitAs(repository, '나중에 도착한 재제출'),
+    ]);
+
+    const fulfilled = results.filter((result) => result.status === 'fulfilled');
+    const rejected = results.filter((result) => result.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+      MilestoneDocumentSubmissionChangedError,
+    );
+    // 쓰기는 한 번뿐이고, 저장된 내용은 먼저 잠금을 얻은 쪽 것이다.
+    expect(upsertCalls).toHaveLength(1);
+    expect(submission.revision).toBe(2);
+    expect(submission.content).toEqual(upsertCalls[0]);
   });
 });

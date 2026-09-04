@@ -35,6 +35,7 @@ export {
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
+  MilestoneDocumentSubmissionChangedError,
 } from './milestone-document-submission.repository';
 
 export class InvalidMilestoneDocumentHistoryCursorError extends Error {
@@ -235,6 +236,18 @@ export interface UpsertMilestoneDocumentSubmissionInput {
   readonly deadline?: {
     readonly milestoneId: string;
     readonly allowAfterDeadline: boolean;
+    /**
+     * 그 마감 예외를 허락할 때 서비스가 본 제출 상태(제출이 없었으면 `null`). 마감을 지나간
+     * 요청만 잠금 아래에서 이 값을 다시 읽어 대조한다 — 다르면 같은 팀의 다른 사람이 그
+     * **한 번뿐인 재제출**을 먼저 쓴 것이므로 덮어쓰지 않는다.
+     *
+     * `expectedLatestReviewId`가 이것을 대신하지 못한다. 재제출은 판정을 새로 만들지 않아
+     * 최신 판정 id가 그대로라, 판정만 대조하면 두 번째 요청도 통과한다.
+     *
+     * 선택 인자가 아닌 것이 의도다 — 빠뜨린 호출자는 조용히 「상태를 안 본다」로 넘어가는
+     * 대신 타입 검사에서 걸린다.
+     */
+    readonly expectedSubmissionStatus: SubmissionStatus | null;
   };
   /**
    * 서비스가 재제출 가부를 판단할 때 본 최신 판정의 id(판정이 없었으면 null). 잠금 아래에서

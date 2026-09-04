@@ -13,6 +13,7 @@ import {
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
+  MilestoneDocumentSubmissionChangedError,
 } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
@@ -1026,6 +1027,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       deadline: {
         milestoneId: syntheticMilestoneId,
         allowAfterDeadline: false,
+        expectedSubmissionStatus: null,
       },
       content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
       attachFile: null,
@@ -1153,6 +1155,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       deadline: {
         milestoneId: syntheticMilestoneId,
         allowAfterDeadline: false,
+        expectedSubmissionStatus: null,
       },
       content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
       attachFile: null,
@@ -1217,6 +1220,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       deadline: {
         milestoneId: syntheticMilestoneId,
         allowAfterDeadline: false,
+        expectedSubmissionStatus: null,
       },
       content: Prisma.JsonNull,
       attachFile: {
@@ -1576,6 +1580,9 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
         deadline: {
           milestoneId: syntheticMilestoneId,
           allowAfterDeadline: true,
+          // 예외를 허락한 **근거**도 함께 간다 — 잠금 아래에서 이 상태를 다시 읽어,
+          // 같은 팀의 다른 사람이 그 한 번을 먼저 쓴 경우를 잡는다.
+          expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
         },
         expectedLatestReviewId: changeRequestReviewId,
       }),
@@ -1618,9 +1625,37 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
         deadline: {
           milestoneId: syntheticMilestoneId,
           allowAfterDeadline: false,
+          expectedSubmissionStatus: SubmissionStatus.SUBMITTED,
         },
       }),
     );
+  });
+
+  /**
+   * 같은 팀 두 사람이 마감 뒤 **거의 동시에** 눌렀다. 둘 다 트랜잭션 밖에서 「보완 요청 ·
+   * 아직 안 냄」을 보고 예외를 얻지만, 잠금 아래 재확인이 나중 것을 막는다
+   * (`MilestoneDocumentSubmissionChangedError`).
+   *
+   * 그 학생에게 하는 말은 **새로고침한 뒤 눌렀다면 들었을 말과 같아야** 한다 — 위의
+   * 「그 한 번을 이미 썼으면」 시험과 같은 MSD_031이다. 여기서 다른 코드를 내놓으면 같은
+   * 상황이 새로고침 여부에 따라 다른 화면이 된다.
+   */
+  it('경합에서 진 요청도 새로고침했을 때와 같은 RESUBMISSION_ALREADY_USED를 받는다', async () => {
+    // Given: 화면·서비스가 보기엔 아직 「응하지 않은 보완 요청」이다.
+    const { mocks, repository } = changeRequestedRepository(
+      SubmissionStatus.CHANGES_REQUESTED,
+    );
+    mocks.upsertSubmission.mockRejectedValue(
+      new MilestoneDocumentSubmissionChangedError(),
+    );
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+      },
+    });
   });
 });
 

@@ -31,6 +31,7 @@ import {
   type MilestoneDocumentRecord,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
+  MilestoneDocumentSubmissionChangedError,
   type UpdateMilestoneDocumentInput,
   type UpsertMilestoneDocumentInput,
   type UpsertMilestoneDocumentSubmissionInput,
@@ -529,6 +530,14 @@ export class MilestoneDocumentsService {
             resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
             now,
           }),
+          /*
+           * 그 예외를 허락한 **근거**도 함께 넘긴다. 판정 id만으로는 「재제출은 한 번」이
+           * 지켜지지 않는다 — 같은 팀 두 사람이 마감 뒤 거의 동시에 내면 둘 다 여기서
+           * `CHANGES_REQUESTED`를 읽어 예외를 얻는데, 첫 재제출은 판정을 새로 만들지 않아
+           * 두 번째 요청의 `expectedLatestReviewId`도 그대로 맞는다(#1097 후속). 잠금 아래에서
+           * 다시 읽어 달라진 것은 상태 하나뿐이므로, 그 상태를 대조해야 두 번째가 막힌다.
+           */
+          expectedSubmissionStatus: submissionStatus,
         },
         content: submissionContent,
         attachFile,
@@ -546,6 +555,19 @@ export class MilestoneDocumentsService {
       }
       if (error instanceof MilestoneDocumentReviewChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_CHANGED);
+      }
+      /*
+       * 마감 뒤 재제출을 같은 팀의 다른 사람이 먼저 썼다. **MSD_031을 그대로 쓴다** —
+       * 이 학생이 새로고침한 뒤 다시 눌렀다면 `milestoneDocumentSubmissionBlock`이
+       * 내놓았을 답이 정확히 그것이다(보완 요청 · 상태는 이미 SUBMITTED · 마감 지남 =
+       * 「이미 다시 냈다」). 두 경로가 다른 말을 하면 같은 상황이 새로고침 여부에 따라
+       * 다른 화면이 된다.
+       *
+       * 여기서 상태가 달라질 수 있는 길은 그 하나뿐이다: 교직원의 새 판정은 판정 id를
+       * 바꿔 바로 위 MSD_024에서 먼저 걸리고, 승인·반려는 애초에 예외를 받지 못한다.
+       */
+      if (error instanceof MilestoneDocumentSubmissionChangedError) {
+        throw this.error(MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED);
       }
       if (error instanceof MilestoneDocumentDeadlineClosedError) {
         throw this.error(
