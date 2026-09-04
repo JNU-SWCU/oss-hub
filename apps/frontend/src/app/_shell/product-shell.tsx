@@ -151,7 +151,7 @@ export function ProductShell({
         teamCount: scopeOverview?.teamCount ?? 0,
         boardPostCount: scopeOverview?.boardPostCount ?? 0,
         viewerDocuments,
-        // 승인된 신청이 없는 학생에게 「내 제출물」·「게시판」을 잠금 표시로 그린다(#1099).
+        // 승인된 신청이 없는 학생에게는 「내 제출물」·「게시판」을 그리지 않는다(#1099).
         viewerParticipant: scopeParticipant,
         milestones: scopeMilestones,
         // 서류가 있는 마일스톤을 depth-1 자식으로 편다. 이 값을 넘기지 않으면

@@ -153,7 +153,7 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     expect(html).not.toContain('신청자');
   });
 
-  it('참여 여부를 아직 모르는 동안에는 잠그지 않는다(#1099)', () => {
+  it('참여 여부를 아직 모르는 동안에는 메뉴를 내리지 않는다(#1099)', () => {
     mockSession({
       status: 'assigned',
       role: 'STUDENT',
@@ -162,7 +162,6 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     // render()가 `getMyApplication`을 영영 풀리지 않는 약속으로 고정한다.
     const html = render('/programs/prog-1');
 
-    expect(html).not.toContain('승인 후');
     expect(html).toContain('href="/programs/prog-1/documents"');
     expect(html).toContain('href="/programs/prog-1/board"');
   });

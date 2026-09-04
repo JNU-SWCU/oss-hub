@@ -473,7 +473,7 @@ const PROGRAM_FIXTURES: Readonly<Record<PublicProgramId, ProgramFixture>> = {
  * `myApplicationFor`가 `studentApplicationStatus`에서 파생시킨다 — 두 목록을 따로
  * 적으면 「상세는 승인인데 내 신청서는 404」처럼 실제 서버가 만들 수 없는 상태가
  * 생긴다. 그 어긋남이 실제로 화면을 틀리게 만든 적이 있다(#1099: 좌측 패널이
- * 참여자에게도 잠금을 붙였다).
+ * 참여자에게서도 참여자 전용 메뉴를 내렸다).
  */
 export const MY_APPLICATION_FIXTURES: Readonly<
   Record<string, StudentApplication>

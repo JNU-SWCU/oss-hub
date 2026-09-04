@@ -9,7 +9,8 @@ import type { ProgramOverview } from '@/features/programs/program-overview-api';
 /**
  * `product-shell.test.tsx`는 `renderToStaticMarkup`으로 돌아 **effect가 실행되지 않는다** —
  * 참여 여부는 effect 안에서 읽으므로 그 파일에서는 언제나 「아직 모른다」에 머문다.
- * 잠금이 실제로 화면까지 닿는지는 effect가 도는 이 파일에서만 확인할 수 있다(#1099).
+ * 참여자 전용 메뉴가 실제로 화면에서 사라지는지는 effect가 도는 이 파일에서만
+ * 확인할 수 있다(#1099).
  */
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -78,7 +79,7 @@ const OVERVIEW: ProgramOverview = {
   viewerDocumentsCompleted: 0,
   viewerDocumentsTotal: 2,
   fullySubmittedParticipantCount: null,
-  nextMilestone: null,
+  remainingMilestones: [],
   milestoneDocuments: [
     { milestoneId: 'm1', title: '스터디 계획서', completed: 0, total: 1 },
   ],
@@ -98,7 +99,22 @@ function mockSession(role: 'STUDENT' | 'STAFF') {
   });
 }
 
-describe('ProductShell 좌측 패널 잠금(#1099)', () => {
+/** 로그인하지 않은 방문자 — 좌측 패널은 `GUEST` 골격으로 갈린다(QA46). */
+function mockAnonymousSession() {
+  mocks.useSessionRole.mockReturnValue({
+    status: 'anonymous',
+    role: null,
+    staffAccessRequestStatus: null,
+    selectedRole: null,
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    isProfileComplete: false,
+    retry: () => {},
+  });
+}
+
+describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -136,37 +152,53 @@ describe('ProductShell 좌측 패널 잠금(#1099)', () => {
     );
   }
 
-  it('신청한 적 없는 학생은 두 메뉴를 보되 누를 수 없다', async () => {
-    mocks.getMyApplication.mockRejectedValue(
-      new ApiError({
-        type: 'about:blank',
-        title: 'APP_001',
-        status: 404,
-        detail: '신청을 찾을 수 없습니다.',
-        instance: '/synthetic/programs/prog-1/applications/me',
-        code: 'APP_001',
-      }),
+  function sidebarText(): string {
+    return (
+      container.querySelector('[data-slot="program-scope-sidebar-nav"]')
+        ?.textContent ?? ''
     );
+  }
+
+  const NOT_APPLIED = new ApiError({
+    type: 'about:blank',
+    title: 'APP_001',
+    status: 404,
+    detail: '신청을 찾을 수 없습니다.',
+    instance: '/synthetic/programs/prog-1/applications/me',
+    code: 'APP_001',
+  });
+
+  it('신청한 적 없는 학생에게는 두 메뉴가 아예 없다', async () => {
+    mocks.getMyApplication.mockRejectedValue(NOT_APPLIED);
 
     await renderShell();
 
-    expect(container.textContent).toContain('내 제출물');
-    expect(container.textContent).toContain('게시판');
+    expect(sidebarText()).not.toContain('내 제출물');
+    expect(sidebarText()).not.toContain('게시판');
     expect(hrefs()).not.toContain('/programs/prog-1/documents');
     expect(hrefs()).not.toContain('/programs/prog-1/board');
-    expect(
-      container.querySelectorAll('[data-slot="program-scope-sidebar-locked"]'),
-    ).toHaveLength(2);
-    expect(container.textContent).toContain('승인 후');
+    // 참여 전에도 열리는 두 화면은 남는다 — 막다른 패널로 만들지 않는다.
+    expect(hrefs()).toContain('/programs/prog-1');
+    expect(hrefs()).toContain('/programs/prog-1/teams');
   });
 
-  it('신청했지만 아직 승인 전인 학생도 잠긴 채로 본다', async () => {
+  it('잠금 딱지를 대신 남기지 않는다 — 두 방식이 공존하지 않는다', async () => {
+    mocks.getMyApplication.mockRejectedValue(NOT_APPLIED);
+
+    await renderShell();
+
+    expect(container.textContent).not.toContain('승인 후');
+    expect(container.querySelector('[aria-disabled="true"]')).toBeNull();
+  });
+
+  it('신청했지만 아직 승인 전인 학생에게도 없다', async () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'SUBMITTED' });
 
     await renderShell();
 
+    expect(sidebarText()).not.toContain('내 제출물');
     expect(hrefs()).not.toContain('/programs/prog-1/documents');
-    expect(container.textContent).toContain('승인 후');
+    expect(hrefs()).not.toContain('/programs/prog-1/board');
   });
 
   it('승인된 신청이 있는 학생에게는 지금과 똑같이 열린다', async () => {
@@ -176,21 +208,32 @@ describe('ProductShell 좌측 패널 잠금(#1099)', () => {
 
     expect(hrefs()).toContain('/programs/prog-1/documents');
     expect(hrefs()).toContain('/programs/prog-1/board');
-    expect(container.textContent).not.toContain('승인 후');
-    expect(container.textContent).toContain('0/2');
+    expect(sidebarText()).toContain('0/2');
     // 단계 자식도 그대로 펴진다.
-    expect(container.textContent).toContain('스터디 계획서');
+    expect(sidebarText()).toContain('스터디 계획서');
   });
 
-  it('교직원 좌측 패널은 참여 여부를 묻지도, 잠기지도 않는다', async () => {
+  it('교직원 좌측 패널은 참여 여부를 묻지도, 달라지지도 않는다', async () => {
     mockSession('STAFF');
 
     await renderShell();
 
     expect(mocks.getMyApplication).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('서류 현황');
-    expect(container.textContent).not.toContain('승인 후');
+    expect(sidebarText()).toContain('서류 현황');
+    expect(sidebarText()).toContain('신청자');
     expect(hrefs()).toContain('/programs/prog-1/documents');
     expect(hrefs()).toContain('/programs/prog-1/board');
+  });
+
+  it('비회원 좌측 패널도 그대로다 — 원래 개요 하나뿐이고 참여 여부를 묻지 않는다', async () => {
+    mockAnonymousSession();
+
+    await renderShell();
+
+    expect(mocks.getMyApplication).not.toHaveBeenCalled();
+    expect(hrefs()).toContain('/programs/prog-1');
+    expect(hrefs()).not.toContain('/programs/prog-1/teams');
+    expect(sidebarText()).not.toContain('내 제출물');
+    expect(sidebarText()).not.toContain('게시판');
   });
 });

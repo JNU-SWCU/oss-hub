@@ -37,7 +37,7 @@ export function useProductShellData({
   readonly retryScopeMilestones: () => void;
   /**
    * 이 프로그램의 참여자(승인된 신청)인지. `undefined`는 「아직 모른다」이며 조회 전과
-   * 조회 실패를 함께 담는다 — 그 값으로 메뉴를 잠그지 않는다(ADR-007).
+   * 조회 실패를 함께 담는다 — 그 값으로 메뉴를 내리지 않는다(ADR-007).
    */
   readonly scopeParticipant: boolean | undefined;
 } {
@@ -139,7 +139,7 @@ export function useProductShellData({
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         // 신청이 아예 없으면 404다 — 참여자가 아님이 확정된다. 그 밖의 실패(네트워크·
-        // 5xx)는 모르는 채로 두고 메뉴를 잠그지 않는다.
+        // 5xx)는 모르는 채로 두고 메뉴를 내리지 않는다.
         setScopeParticipant(
           error instanceof ApiError && error.problem.status === 404
             ? false

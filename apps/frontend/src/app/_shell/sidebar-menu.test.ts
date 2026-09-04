@@ -714,7 +714,7 @@ describe('programScopeSidebarGroups', () => {
   });
 });
 
-describe('programScopeSidebarGroups — 참여자 전용 항목 잠금(#1099)', () => {
+describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
   const base = {
     programId: 'prog-1',
     teamCount: 47,
@@ -734,36 +734,31 @@ describe('programScopeSidebarGroups — 참여자 전용 항목 잠금(#1099)', 
     ],
   } as const;
 
-  it('승인된 신청이 없는 학생에게도 항목은 그대로 남는다 — 숨기지 않는다', () => {
+  function labels(
+    groups: ReturnType<typeof programScopeSidebarGroups>,
+  ): readonly string[] {
+    return groups.flatMap((group) => group.items.map((item) => item.label));
+  }
+
+  it('참여자가 아닌 학생에게 내 제출물·게시판을 만들지 않는다', () => {
     const groups = programScopeSidebarGroups(notParticipant);
 
-    expect(groups).toHaveLength(3);
-    expect(groups[1]?.items[0]?.label).toBe('내 제출물');
-    expect(groups[2]?.items[0]?.label).toBe('게시판');
+    expect(labels(groups)).not.toContain('내 제출물');
+    expect(labels(groups)).not.toContain('게시판');
+    expect(groups.map((group) => group.label)).toEqual(['프로그램']);
   });
 
-  it('내 제출물·게시판만 잠기고 개요·참여 팀은 그대로 열린다', () => {
+  it('단계 자식도 함께 사라진다 — 부모 없이 남는 항목을 두지 않는다', () => {
     const groups = programScopeSidebarGroups(notParticipant);
 
-    expect(groups[0]?.items.map((item) => item.locked)).toEqual([
-      undefined,
-      undefined,
-    ]);
-    expect(groups[1]?.items[0]?.locked).toBe(true);
-    expect(groups[2]?.items[0]?.locked).toBe(true);
+    expect(labels(groups)).not.toContain('1차 계획서');
   });
 
-  it('잠긴 항목에는 카운트를 붙이지 않는다 — 뱃지 자리는 잠금 문구가 쓴다', () => {
+  it('프로그램 개요·참여 팀은 그대로 남는다 — 참여 전에도 열리는 화면이다', () => {
     const groups = programScopeSidebarGroups(notParticipant);
 
-    expect(groups[1]?.items[0]?.count).toBeUndefined();
-    expect(groups[2]?.items[0]?.count).toBeUndefined();
-  });
-
-  it('잠긴 부모 아래 단계 자식을 펴지 않는다', () => {
-    const groups = programScopeSidebarGroups(notParticipant);
-
-    expect(groups[1]?.items).toHaveLength(1);
+    expect(labels(groups)).toEqual(['프로그램 개요', '참여 팀']);
+    expect(groups[0]?.items[1]?.count).toBe('47');
   });
 
   it('참여자에게는 지금과 똑같이 열린다', () => {
@@ -772,26 +767,29 @@ describe('programScopeSidebarGroups — 참여자 전용 항목 잠금(#1099)', 
       viewerParticipant: true,
     });
 
+    expect(groups).toHaveLength(3);
     expect(groups[1]?.items[0]).toMatchObject({
       label: '내 제출물',
       count: '0/2',
-      locked: false,
     });
     expect(groups[1]?.items.map((item) => item.label)).toEqual([
       '내 제출물',
       '1차 계획서',
     ]);
-    expect(groups[2]?.items[0]).toMatchObject({ count: '3', locked: false });
+    expect(groups[2]?.items[0]).toMatchObject({ label: '게시판', count: '3' });
   });
 
-  it('참여 여부를 아직 모르면 잠그지 않는다 — 추측으로 affordance를 지우지 않는다', () => {
-    const groups = programScopeSidebarGroups({
+  it('참여 여부를 아직 모르면 내리지 않는다 — 추측으로 affordance를 지우지 않는다', () => {
+    const unknown = programScopeSidebarGroups({
       ...notParticipant,
       viewerParticipant: undefined,
     });
+    const participant = programScopeSidebarGroups({
+      ...notParticipant,
+      viewerParticipant: true,
+    });
 
-    expect(groups[1]?.items[0]?.locked).toBe(false);
-    expect(groups[2]?.items[0]?.locked).toBe(false);
+    expect(unknown).toEqual(participant);
   });
 
   it('교직원 좌측 패널 구성은 참여 여부와 무관하게 그대로다', () => {
@@ -812,9 +810,7 @@ describe('programScopeSidebarGroups — 참여자 전용 항목 잠금(#1099)', 
     });
 
     expect(staffWithFlag).toEqual(staff);
-    expect(
-      staffWithFlag.flatMap((group) => group.items).some((item) => item.locked),
-    ).toBe(false);
+    expect(staffWithFlag).toHaveLength(3);
   });
 
   it('비회원(GUEST) 좌측 패널 구성은 참여 여부와 무관하게 그대로다', () => {

@@ -228,7 +228,7 @@ describe('student fixture responses', () => {
   /**
    * 프로그램 상세가 「승인된 신청이 있다」고 말하는데 내 신청서 조회는 404를 내면,
    * 그 둘을 함께 읽는 화면이 실제 서버가 만들 수 없는 상태를 그린다 — 좌측 패널이
-   * 참여자에게도 「승인 후」 잠금을 붙였던 것이 그 사고였다(#1099).
+   * 참여자에게서도 「내 제출물」·「게시판」을 내렸던 것이 그 사고였다(#1099).
    */
   it('keeps the application detail and 내 신청서 answers consistent', () => {
     // Given / When
