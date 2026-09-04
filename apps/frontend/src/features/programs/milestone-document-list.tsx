@@ -30,6 +30,10 @@ import {
   type MilestoneDocumentReloadResult,
 } from './milestone-document-conflict';
 import { requireMilestoneDocumentList } from './milestone-document-list-response';
+import type {
+  BlockedMilestoneSubmissionAccess,
+  MilestoneSubmissionAccess,
+} from './milestone-submission-access';
 import {
   isMilestoneDocumentDeadlineLocked,
   isMilestoneDocumentResubmittable,
@@ -85,6 +89,7 @@ export function MilestoneDocumentSectionBody({
   state,
   viewerRole,
   closed,
+  submissionAccess,
   conflictNotice,
   onRetry,
   onDocumentChange,
@@ -94,6 +99,11 @@ export function MilestoneDocumentSectionBody({
   readonly state: MilestoneDocumentSectionState;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
+  /**
+   * 바로 위 마일스톤 줄이 받은 것과 **같은 값**이다(`ProgramMilestones`가 한 번 구해
+   * 둘에게 나눠 준다). 이 값을 안 받던 것이 위아래가 반대되는 말을 하던 원인이다(#1098).
+   */
+  readonly submissionAccess: MilestoneSubmissionAccess;
   /** 저장되지 않은 제출을 알리는 문구. 없으면 `null`. */
   readonly conflictNotice: string | null;
   readonly onRetry: () => void;
@@ -154,6 +164,7 @@ export function MilestoneDocumentSectionBody({
               key={document.id}
               document={document}
               closed={closed}
+              submissionAccess={submissionAccess}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
             />
@@ -169,10 +180,13 @@ export function MilestoneDocumentSection({
   milestoneId,
   viewerRole,
   closed,
+  submissionAccess,
 }: {
   readonly milestoneId: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
+  /** 위 마일스톤 줄과 나눠 갖는 신청 판정 — `ProgramMilestones`가 한 번만 구한다. */
+  readonly submissionAccess: MilestoneSubmissionAccess;
 }) {
   const [state, setState] = useState<MilestoneDocumentSectionState>({
     kind: 'loading',
@@ -219,6 +233,7 @@ export function MilestoneDocumentSection({
       state={state}
       viewerRole={viewerRole}
       closed={closed}
+      submissionAccess={submissionAccess}
       conflictNotice={conflictNotice}
       onRetry={() => {
         // 손으로 다시 부르는 것은 앞 제출과 다른 일이다 — 앞 안내를 여기 남기면 방금
@@ -396,15 +411,59 @@ function StudentReviewNotice({
   );
 }
 
+/**
+ * 낼 수 없는 사람에게 「올리기」를 **감추지 않고 흐리게** 둔다.
+ *
+ * 버튼이 통째로 사라지면 학생은 화면이 고장 났다고 읽는다 — 무엇이 있었는지 모른 채
+ * 없어진 자리보다, 눌리지 않는 버튼과 그 옆의 이유가 낫다. 이유는 이 줄이 스스로 정하지
+ * 않고 위 마일스톤 줄과 같은 판정(`milestoneSubmissionAccess`)에서 받는다.
+ */
+function BlockedSubmitAction({
+  access,
+  label,
+  icon,
+  ghost,
+  noteId,
+}: {
+  readonly access: BlockedMilestoneSubmissionAccess;
+  readonly label: string;
+  readonly icon: ReactElement;
+  readonly ghost: boolean;
+  readonly noteId: string;
+}) {
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant={ghost ? 'ghost' : 'default'}
+        disabled
+        aria-describedby={noteId}
+      >
+        {icon} {label}
+      </Button>
+      <span
+        id={noteId}
+        className="text-small text-muted-foreground break-keep"
+        data-testid="milestone-document-blocked-note"
+      >
+        {access.buttonNote}
+      </span>
+    </>
+  );
+}
+
 /** 학생 행 — 상태 표시 + 양식 다운로드 + 제출/재제출. */
 function StudentDocumentRow({
   document,
   closed,
+  submissionAccess,
   onRefresh,
   onSubmitConflict,
 }: {
   readonly document: MilestoneDocument;
   readonly closed: boolean;
+  readonly submissionAccess: MilestoneSubmissionAccess;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
@@ -437,6 +496,12 @@ function StudentDocumentRow({
     review === null
       ? null
       : milestoneDocumentReviewNoticeTone(display, review.comment);
+  /**
+   * 신청 자체가 제출을 막는 자리 — 신청 전·승인 대기·반려. 서버도 403(MSD_005 · MSD_006)
+   * 으로 막는다. 서류 하나의 판정(`canSubmit`)보다 **먼저** 본다: 이쪽이 더 근본적인
+   * 이유이고, 낼 신청이 없는 사람에게 「승인된 제출 항목은…」이라고 말하면 틀린 말이 된다.
+   */
+  const blocked = submissionAccess.kind === 'blocked' ? submissionAccess : null;
   /**
    * 승인·반려된 서류에는 제출 입력을 아예 열지 않는다. 서버도 409(MSD_023)로 막으므로
    * 열어 두면 눌러 본 학생에게 오류만 돌아간다 — 낼 수 없는 것은 낼 수 없게 보여야 한다.
@@ -624,6 +689,14 @@ function StudentDocumentRow({
           <span className="text-small text-muted-foreground break-keep">
             저장된 제출의 최신 상태를 확인하는 중입니다.
           </span>
+        ) : blocked !== null ? (
+          <BlockedSubmitAction
+            access={blocked}
+            label={actionLabel}
+            icon={actionIcon}
+            ghost={submitted}
+            noteId={`${document.id}-submission-blocked`}
+          />
         ) : !canSubmit ? (
           <span className="text-small text-muted-foreground break-keep">
             {display === 'APPROVED'
@@ -700,7 +773,7 @@ function StudentDocumentRow({
           )}
         </div>
       )}
-      {canSubmit && syncNotice === null && editing ? (
+      {canSubmit && blocked === null && syncNotice === null && editing ? (
         <MilestoneDocumentSubmissionForm
           documentName={document.name}
           documentId={document.id}
