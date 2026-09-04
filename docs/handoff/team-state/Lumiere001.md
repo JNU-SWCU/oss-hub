@@ -327,4 +327,13 @@
 - 내용: 빈 화면이 한 갈래뿐인데 네 상황(팀 0개·검색 0개·필터 0개·조회 실패)을 덮어, 필터를 건 적 없는 사람에게 필터를 바꾸라고 했다. 실패 갈래는 「다시 시도해 주세요」라고 말하면서 다시 시도할 수단이 없었다. 아직 없음·조건에 맞는 것이 없음·불러오지 못함 세 갈래로 가르고, 검색과 필터는 묶었다(사용자가 무엇을 걸었든 조건을 바꾸라는 말로 충분하다). 실패 갈래에는 다시 시도할 수단을 같은 자리에 뒀다. 구분의 기준값은 이미 화면 안에 있어 새 API를 부르지 않았다.
 - 검증: frontend lint·typecheck·324 파일 통과. 대조 실험으로 새 테스트가 옛 코드에서 실패하는 것을 확인했다.
 - 주의: 이 화면은 교직원 팀 목록이다. 학생 팀 구성 화면은 다른 담당자 작업 영역이라 건드리지 않았다.
+## 2026-09-04 — 서류 업로드 상한을 서버가 화면에 내려준다
+
+- 상태: review
+- Issue: #1107
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 마일스톤 서류 제출·양식 올리기 화면 세 곳에 `accept`도 크기 사전 검사도 없어, 상한을 넘은 파일이 그대로 전송되고 nginx가 ProblemDetail이 아닌 응답으로 자르면 학생 화면에 「API 오류 응답이 ProblemDetail 형식이 아닙니다.」가 떴다. 화면 세 곳에 검사만 더 넣으면 같은 숫자의 사본이 열 개가 되므로(원본 1 + 사본 7이 이미 있었고 표기도 갈라져 있었다), 값을 backend `submissions/submission-upload-policy.ts` 하나가 소유하게 하고 `GET /milestones/:milestoneId/documents` 응답에 `fileUpload`(maxBytes·maxLabel·accept·formatLabel)로 실어 화면이 읽게 했다. 세 화면 모두 이 응답 없이는 파일 입력을 그리지 않으므로 화면 쪽 기본값이 없고, 규칙이 빠진 응답은 `requireMilestoneDocumentList`가 기존 「다시 시도」 화면으로 떨어뜨린다. 상한 값은 5 MiB 그대로이고 사람이 읽는 표기만 「5 MB」로 통일했으며, 서버의 `SUB_019`·`MSD_011` 문구도 같은 문장을 쓴다. 상한을 넘거나 허용 형식 밖인 파일은 받아 두지 않는다 — 받아 두면 「제출」이 눌리고 그 요청은 반드시 실패한다.
+- 검증: backend lint·typecheck·단위 310 스위트·3,489 테스트, frontend lint·typecheck·326 파일·3,272 테스트, 변경 파일 prettier 통과. 대조 실험으로 제품 코드만 `origin/main`으로 되돌리면 frontend 21건, backend 4건이 실패하는 것을 확인했다. local-review 합성 데이터로 학생 제출 폼·교직원 양식 올리기·마일스톤 편집 세 화면에서 안내 문구(`PDF, HWP, JPG, PNG, ZIP · 최대 5 MB`)와 `accept`, 상한 초과·형식 밖 파일이 요청 없이 걸러지는 것을 눈으로 확인했다.
+- 남은 것: 옛 제출 화면(`features/submissions/submission-form.ts`)과 프로그램 작성 업로드(`features/programs/program-authoring-validation.ts`)는 동작 변경이 이 티켓 범위 밖이라 응답으로 상한을 받지 않는다. 두 곳의 리터럴은 `lib/submission-upload-policy.ts` 하나로 합치고 `submission-upload-policy.drift.test.ts`가 backend 원본과 어긋나면 실패하게 했다. `Jenkinsfile:706`의 `UPLOAD_BODY_PROBE_BYTES=4718592`는 4.5 MiB가 통과하는 것만 증명하고 앱 상한(5 MiB + multipart 부대 비용)을 감싸지는 않는다 — 이 티켓에서 건드리지 않았다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
