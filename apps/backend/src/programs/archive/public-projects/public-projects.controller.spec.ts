@@ -14,7 +14,7 @@ function row(
     publishedAt: new Date('2026-07-20T00:00:00.000Z'),
     programId: 'synthetic-program-1',
     programName: 'synthetic-program',
-    category: 'BASIC',
+    trackType: 'EXTRACURRICULAR',
     teamName: null,
     teamMemberCount: 1,
     applicantNickname: 'synthetic-applicant',
@@ -60,7 +60,7 @@ describe('PublicProjectsController', () => {
         projectId: '9001',
         programId: 'synthetic-program-1',
         programName: 'synthetic-program',
-        category: 'BASIC',
+        trackType: 'EXTRACURRICULAR',
         applicationMode: 'PERSONAL',
         displayName: 'synthetic-applicant',
         repositoryName: 'synthetic-repo',
@@ -70,7 +70,7 @@ describe('PublicProjectsController', () => {
     ]);
   });
 
-  it('GET / — pageId·category를 서비스에 그대로 전달한다', async () => {
+  it('GET / — pageId·year를 서비스에 그대로 전달한다', async () => {
     const findPage = jest
       .fn()
       .mockResolvedValue({ items: [], pageSize: 5, nextPageId: null });
@@ -81,72 +81,48 @@ describe('PublicProjectsController', () => {
     await controller.findPage({
       pageId: 'client-provided-cursor',
       pageSize: 5,
-      category: 'CAPSTONE',
+      year: 2026,
     });
 
-    expect(findPage).toHaveBeenCalledWith(
-      'client-provided-cursor',
-      5,
-      'CAPSTONE',
-    );
+    expect(findPage).toHaveBeenCalledWith('client-provided-cursor', 5, 2026);
   });
 
-  it('GET /category-counts — 서비스 결과를 카운트 응답 DTO로 매핑한다', async () => {
-    const categoryCounts = jest.fn().mockResolvedValue({
-      all: 3,
-      BASIC: 1,
-      SW_VALUE_SPREAD: 0,
-      OSS_CONTEST: 1,
-      CAPSTONE: 1,
-      SW_CONVERGENCE: 0,
-      GLOBAL_MAKERTHON: 0,
-      CORPORATE_INTERNSHIP: 0,
-    });
+  it('GET /years — 서비스 결과를 연도 응답 DTO로 매핑한다', async () => {
+    const listYears = jest.fn().mockResolvedValue([2026, 2025]);
     const controller = new PublicProjectsController({
-      categoryCounts,
+      listYears,
     } as unknown as PublicProjectsService);
 
-    const result = await controller.categoryCounts();
+    const result = await controller.listYears();
 
-    expect(categoryCounts).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({
-      all: 3,
-      BASIC: 1,
-      SW_VALUE_SPREAD: 0,
-      OSS_CONTEST: 1,
-      CAPSTONE: 1,
-      SW_CONVERGENCE: 0,
-      GLOBAL_MAKERTHON: 0,
-      CORPORATE_INTERNSHIP: 0,
-    });
+    expect(listYears).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ years: [2026, 2025] });
   });
 
   /**
    * Nest는 클래스 메서드 선언 순서로 라우트를 등록한다.
-   * 정적 경로 `category-counts`가 파라미터 경로 `:projectId`보다 뒤에 있으면
-   * "category-counts"가 projectId로 잡혀 상세 핸들러로 라우팅된다.
+   * 정적 경로 `years`가 파라미터 경로 `:projectId`보다 뒤에 있으면
+   * "years"가 projectId로 잡혀 상세 핸들러로 라우팅된다.
    */
-  it('GET /category-counts 정적 경로가 :projectId 보다 먼저 등록된다', () => {
-    const categoryCountsHandler: unknown = Object.getOwnPropertyDescriptor(
+  it('GET /years 정적 경로가 :projectId 보다 먼저 등록된다', () => {
+    const listYearsHandler: unknown = Object.getOwnPropertyDescriptor(
       PublicProjectsController.prototype,
-      'categoryCounts',
+      'listYears',
     )?.value;
     const findDetailHandler: unknown = Object.getOwnPropertyDescriptor(
       PublicProjectsController.prototype,
       'findDetail',
     )?.value;
-    expect(typeof categoryCountsHandler).toBe('function');
+    expect(typeof listYearsHandler).toBe('function');
     expect(typeof findDetailHandler).toBe('function');
     if (
-      typeof categoryCountsHandler !== 'function' ||
+      typeof listYearsHandler !== 'function' ||
       typeof findDetailHandler !== 'function'
     ) {
       throw new Error('PublicProjectsController handlers are missing');
     }
 
-    expect(Reflect.getMetadata(PATH_METADATA, categoryCountsHandler)).toBe(
-      'category-counts',
-    );
+    expect(Reflect.getMetadata(PATH_METADATA, listYearsHandler)).toBe('years');
     expect(Reflect.getMetadata(PATH_METADATA, findDetailHandler)).toBe(
       ':projectId',
     );
@@ -157,9 +133,9 @@ describe('PublicProjectsController', () => {
     const methodNames = Object.getOwnPropertyNames(
       PublicProjectsController.prototype,
     ).filter((name) => name !== 'constructor');
-    expect(methodNames.indexOf('categoryCounts')).toBeGreaterThanOrEqual(0);
+    expect(methodNames.indexOf('listYears')).toBeGreaterThanOrEqual(0);
     expect(methodNames.indexOf('findDetail')).toBeGreaterThanOrEqual(0);
-    expect(methodNames.indexOf('categoryCounts')).toBeLessThan(
+    expect(methodNames.indexOf('listYears')).toBeLessThan(
       methodNames.indexOf('findDetail'),
     );
   });

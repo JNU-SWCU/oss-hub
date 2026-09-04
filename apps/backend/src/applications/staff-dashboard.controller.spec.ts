@@ -3,7 +3,7 @@ import {
   HEADERS_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
-import { ProgramCategory } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 import { SessionGuard } from '../auth/session.guard';
 import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import { StaffDashboardController } from './staff-dashboard.controller';
@@ -55,7 +55,7 @@ describe('StaffDashboardController', () => {
         {
           id: 'program:1',
           name: 'Synthetic program',
-          category: ProgramCategory.BASIC,
+          trackType: ProgramTrackType.EXTRACURRICULAR,
           applicationPeriod: {
             startsAt: new Date('2026-07-01T00:00:00.000Z'),
             endsAt: new Date('2026-07-31T23:59:59.000Z'),
@@ -99,7 +99,7 @@ describe('StaffDashboardController', () => {
         {
           id: 'program:1',
           name: 'Synthetic program',
-          category: ProgramCategory.BASIC,
+          trackType: ProgramTrackType.EXTRACURRICULAR,
           applicationPeriod: {
             startsAt: '2026-07-01T00:00:00.000Z',
             endsAt: '2026-07-31T23:59:59.000Z',

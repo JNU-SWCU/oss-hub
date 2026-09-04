@@ -1,36 +1,37 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import {
-  ARCHIVE_LIST_FILTERS,
-  ARCHIVE_LIST_FILTER_LABELS,
-  type ArchiveListFilter,
-} from './types';
+import { type ArchiveListFilter } from './types';
 
 /**
- * 좁은 폭용 분류 칩 — 데스크톱은 전역 사이드 패널 「공개 아카이브」가 담당.
+ * 좁은 폭용 연도 칩 — 데스크톱은 전역 사이드 패널 「공개 아카이브」가 담당.
  */
-export function ArchiveListCategoryChips({
+export function ArchiveListYearChips({
+  years,
   value,
   onChange,
   className,
 }: {
+  readonly years: readonly number[];
   readonly value: ArchiveListFilter;
   readonly onChange: (filter: ArchiveListFilter) => void;
   readonly className?: string;
 }) {
+  const filters: readonly ArchiveListFilter[] = ['all', ...years];
+
   return (
     <div
-      data-slot="archive-list-category-chips"
+      data-slot="archive-list-year-chips"
       role="toolbar"
-      aria-label="프로그램 분류 필터"
+      aria-label="연도 필터"
       className={cn('flex flex-wrap gap-2', className)}
     >
-      {ARCHIVE_LIST_FILTERS.map((filter) => {
+      {filters.map((filter) => {
         const active = value === filter;
+        const label = filter === 'all' ? '전체' : String(filter);
         return (
           <button
-            key={filter}
+            key={label}
             type="button"
             onClick={() => onChange(filter)}
             aria-pressed={active}
@@ -41,7 +42,7 @@ export function ArchiveListCategoryChips({
                 : 'border-border bg-background text-foreground hover:bg-muted',
             )}
           >
-            {ARCHIVE_LIST_FILTER_LABELS[filter]}
+            {label}
           </button>
         );
       })}

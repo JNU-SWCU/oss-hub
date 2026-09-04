@@ -16,7 +16,6 @@ function values(
   overrides?: Partial<ProgramApplyFormValues>,
 ): ProgramApplyFormValues {
   return {
-    title: '합성 제목',
     summary: '합성 요약',
     repositoryConnectionMode: 'new',
     repositoryUrl: '',
@@ -27,21 +26,18 @@ function values(
 }
 
 describe('신청 항목 길이 상한', () => {
-  it.each(['title', 'summary'] as const)(
-    '%s 는 상한을 숫자로 돌려준다',
-    (key) => {
-      // 서버와 값이 같은지는 drift 테스트가 본다(백엔드 소스를 직접 읽는다).
-      // 여기서는 "조회가 되긴 하는가"만 본다.
-      expect(applicationAnswerMaxLength(key)).toBeGreaterThan(0);
-    },
-  );
+  it.each(['summary'] as const)('%s 는 상한을 숫자로 돌려준다', (key) => {
+    // 서버와 값이 같은지는 drift 테스트가 본다(백엔드 소스를 직접 읽는다).
+    // 여기서는 "조회가 되긴 하는가"만 본다.
+    expect(applicationAnswerMaxLength(key)).toBeGreaterThan(0);
+  });
 
   it('상한을 모르는 칸에는 제한을 걸지 않는다', () => {
     // `maxLength={undefined}` 여야 속성이 아예 안 붙는다 — 0 이면 아무것도 못 친다.
     expect(applicationAnswerMaxLength('applicantName')).toBeUndefined();
   });
 
-  it.each(['title', 'summary'] as const)(
+  it.each(['summary'] as const)(
     '이미 저장된 %s 가 상한을 넘으면 제출 전에 무엇을 줄일지 말해 준다',
     (key) => {
       // Given: 상한이 생기기 전에 저장된 값을 수정 화면이 불러온 상태.
@@ -58,29 +54,24 @@ describe('신청 항목 길이 상한', () => {
     },
   );
 
-  it.each(['title', 'summary'] as const)(
-    '%s 가 상한과 같으면 막지 않는다',
-    (key) => {
-      const limit = APPLICATION_ANSWER_MAX_LENGTHS[key];
-      const errors = validateApplyForm(
-        values({ [key]: '가'.repeat(limit) }),
-        'edit',
-      );
-      expect(errors[key]).toBeUndefined();
-    },
-  );
+  it.each(['summary'] as const)('%s 가 상한과 같으면 막지 않는다', (key) => {
+    const limit = APPLICATION_ANSWER_MAX_LENGTHS[key];
+    const errors = validateApplyForm(
+      values({ [key]: '가'.repeat(limit) }),
+      'edit',
+    );
+    expect(errors[key]).toBeUndefined();
+  });
 });
 
 describe('서버가 보낸 칸별 안내를 그 칸으로 옮긴다', () => {
-  it('title·summary 오류를 각 입력칸 오류로 옮긴다', () => {
+  it('summary 오류를 신청서 입력칸 오류로 옮긴다', () => {
     // ⚠ 안 옮기면 배너 하나만 뜨고 어느 칸을 줄일지 학생이 모른다.
     const mapped = mapApplyProblemFieldErrors([
-      { field: 'title', code: 'APP_024', message: '제목은 200자를…' },
       { field: 'summary', code: 'APP_024', message: '요약은 10,000자를…' },
     ]);
 
     expect(mapped).toEqual({
-      title: '제목은 200자를…',
       summary: '요약은 10,000자를…',
     });
   });
@@ -109,7 +100,6 @@ describe('서버가 보낸 칸별 안내를 그 칸으로 옮긴다', () => {
       code: 'APP_024',
     });
 
-    expect(message).toContain('제목');
     expect(message).toContain('요약');
   });
 });
@@ -142,12 +132,12 @@ describe('제출 실패를 칸과 배너로 가른다', () => {
     // 같은 말을 배너와 칸 두 군데서 하면 학생이 어느 쪽을 따라야 할지 헷갈린다.
     const resolved = resolveApplySubmitFailure(
       problem([
-        { field: 'title', code: 'APP_024', message: '제목은 200자를…' },
+        { field: 'summary', code: 'APP_024', message: '요약은 10,000자를…' },
       ]),
       'submit',
     );
 
-    expect(resolved.fieldErrors).toEqual({ title: '제목은 200자를…' });
+    expect(resolved.fieldErrors).toEqual({ summary: '요약은 10,000자를…' });
     expect(resolved.serverError).toBeNull();
   });
 
@@ -156,7 +146,7 @@ describe('제출 실패를 칸과 배너로 가른다', () => {
 
     expect(resolved.fieldErrors).toEqual({});
     expect(resolved.serverError).toBeTruthy();
-    expect(resolved.serverError).toContain('제목');
+    expect(resolved.serverError).toContain('요약');
   });
 
   it('화면에 없는 칸만 왔으면 배너로 넘긴다', () => {

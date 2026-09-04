@@ -3,6 +3,7 @@ import type {
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
+  ProgramTrackType,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 
@@ -23,7 +24,7 @@ export type ProgramAuthoringMilestoneRequest = {
 export type ProgramAuthoringRequest = {
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly startAt?: string;
@@ -40,6 +41,7 @@ export type ProgramAuthoringProgramPlan = {
   readonly name: string;
   readonly organizer: string;
   readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationStartAt: Date;

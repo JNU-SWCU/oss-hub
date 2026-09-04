@@ -23,7 +23,7 @@ const observedProject = {
   projectId: 'project_123',
   programId: 'program_123',
   programName: '전남대학교 OSS 프로그램',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   applicationMode: 'TEAM',
   displayName: '공개 프로젝트',
   repositoryName: 'oss-public',
@@ -132,7 +132,8 @@ describe('public profile parser', () => {
       { ...observedProject, projectId: '../private' },
     ],
     ['unknown mode', { ...observedProject, applicationMode: 'PAIR' }],
-    ['unknown category', { ...observedProject, category: 'UNKNOWN' }],
+    ['unknown track type', { ...observedProject, trackType: 'UNKNOWN' }],
+    ['leftover category key', { ...observedProject, category: 'BASIC' }],
     ['invalid date', { ...observedProject, publishedAt: 'today' }],
     [
       'noncanonical GitHub URL',

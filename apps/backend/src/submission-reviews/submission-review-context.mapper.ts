@@ -239,10 +239,7 @@ function toFileRecord(
     {
       fileId: file.id,
       fileName: file.originalFileName,
-      contentType: safeSubmissionFileContentType(
-        file.originalFileName,
-        file.mimeType,
-      ),
+      contentType: safeSubmissionFileContentType(file.originalFileName),
       size: file.sizeBytes,
       expiresAt: file.expiresAt,
       downloadUrl: `/api/v1/submission-files/${file.id}`,

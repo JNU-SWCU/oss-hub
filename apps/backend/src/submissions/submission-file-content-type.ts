@@ -1,35 +1,26 @@
-const ALLOWED_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
-  '.pdf': ['application/pdf'],
-  '.hwp': [
-    'application/x-hwp',
-    'application/haansofthwp',
-    'application/vnd.hancom.hwp',
-    'application/x-hwp-v5',
-    'application/octet-stream',
-  ],
-  '.jpg': ['image/jpeg'],
-  '.jpeg': ['image/jpeg'],
-  '.png': ['image/png'],
-  '.zip': ['application/zip'],
+const CANONICAL_CONTENT_TYPES: Readonly<Record<string, string>> = {
+  '.pdf': 'application/pdf',
+  '.hwp': 'application/x-hwp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.zip': 'application/zip',
 };
 
-export function isAllowedSubmissionFileType(
-  fileName: string,
-  mimeType: string,
-): boolean {
+function submissionFileExtension(fileName: string): string | null {
   const dot = fileName.lastIndexOf('.');
-  if (dot <= 0) return false;
-  const extension = fileName.slice(dot).toLowerCase();
-  return (
-    ALLOWED_FILE_TYPES[extension]?.includes(mimeType.toLowerCase()) ?? false
-  );
+  if (dot <= 0) return null;
+  return fileName.slice(dot).toLowerCase();
 }
 
-export function safeSubmissionFileContentType(
-  fileName: string,
-  mimeType: string,
-): string {
-  return isAllowedSubmissionFileType(fileName, mimeType)
-    ? mimeType.toLowerCase()
-    : 'application/octet-stream';
+export function isAllowedSubmissionFileType(fileName: string): boolean {
+  const extension = submissionFileExtension(fileName);
+  return extension !== null && CANONICAL_CONTENT_TYPES[extension] !== undefined;
+}
+
+export function safeSubmissionFileContentType(fileName: string): string {
+  const extension = submissionFileExtension(fileName);
+  return extension === null
+    ? 'application/octet-stream'
+    : (CANONICAL_CONTENT_TYPES[extension] ?? 'application/octet-stream');
 }

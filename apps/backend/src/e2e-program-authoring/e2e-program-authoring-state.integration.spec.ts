@@ -4,6 +4,7 @@ import {
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
+  ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
@@ -120,6 +121,7 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
       id: AGGREGATE_PROGRAM_ID,
       name: `${E2E_PROGRAM_ID}:aggregate`,
       organizer: `${E2E_PROGRAM_ID}:organizer`,
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       lifecycle: ProgramLifecycle.PUBLISHED,
       applicationTemplateKey: 'basic',

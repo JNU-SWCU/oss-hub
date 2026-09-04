@@ -22,18 +22,11 @@ const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS',
   organizer: 'Center',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   lifecycle: 'PUBLISHED',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 0,
-  categoryLocked: {
-    locked: false,
-    byApplications: false,
-    byTeams: false,
-    applicationCount: 0,
-    teamCount: 0,
-  },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
   startAt: '2026-08-16T09:30:59.000Z',
@@ -74,31 +67,13 @@ describe('program edit API', () => {
     );
   });
 
-  it('accepts the editable contract without redundant top-level team count', async () => {
-    const responseWithoutTopLevelTeamCount: EditableProgram = {
-      ...editableProgram,
-      categoryLocked: {
-        locked: true,
-        byApplications: false,
-        byTeams: true,
-        applicationCount: 0,
-        teamCount: 3,
-      },
-    };
-    fetchMock.mockResolvedValue(jsonResponse(responseWithoutTopLevelTeamCount));
-
-    const program = await getEditableProgram('program-1');
-
-    expect(program.categoryLocked.teamCount).toBe(3);
-  });
-
   it('patches team fields through the canonical program endpoint', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: 'program-1' }));
 
     await updateProgram('program-1', {
       name: 'OSS',
       organizer: 'Center',
-      category: 'OSS_CONTEST',
+      trackType: 'EXTRACURRICULAR',
       applicationStartAt: '2026-08-01T00:00:00.000Z',
       applicationEndAt: '2026-08-15T00:00:00.000Z',
       startAt: '2026-08-16T00:00:00.000Z',
@@ -117,11 +92,14 @@ describe('program edit API', () => {
     expect(
       JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)),
     ).toMatchObject({
-      category: 'OSS_CONTEST',
+      trackType: 'EXTRACURRICULAR',
       startAt: '2026-08-16T00:00:00.000Z',
       teamMinSize: 2,
       teamMaxSize: 4,
     });
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)),
+    ).not.toHaveProperty('category');
   });
 
   it('keeps milestone mutations on canonical id endpoints and serializes startAt', async () => {
@@ -193,7 +171,7 @@ describe('program edit API', () => {
     const updatePromise = updateProgram('program-1', {
       name: editableProgram.name,
       organizer: editableProgram.organizer,
-      category: editableProgram.category,
+      trackType: editableProgram.trackType ?? 'EXTRACURRICULAR',
       applicationStartAt: editableProgram.applicationStartAt,
       applicationEndAt: editableProgram.applicationEndAt,
       startAt: editableProgram.startAt ?? editableProgram.applicationEndAt,
@@ -237,7 +215,6 @@ describe('program edit API', () => {
     );
   });
 
-  // #875 — ADMIN 전용 영구 삭제. DELETE 메서드와 canonical id 엔드포인트를 확인한다.
   it('deletes a program through the canonical id endpoint with DELETE', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ id: 'program-1', deleted: true }),
@@ -251,7 +228,6 @@ describe('program edit API', () => {
     );
   });
 
-  // TOCTOU(#F2) — purge는 확인 화면이 보여준 4종 범위(expectedScope)를 본문에 실어 보낸다.
   it('purges a program graph through the ADMIN purge endpoint with DELETE and the expected scope body', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({

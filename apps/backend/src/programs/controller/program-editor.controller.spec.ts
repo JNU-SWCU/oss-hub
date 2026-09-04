@@ -58,18 +58,11 @@ describe('ProgramEditorController boundaries', () => {
       id: 'program-1',
       name: 'OSS',
       organizer: 'Center',
-      category: 'OSS_CONTEST',
+      trackType: 'EXTRACURRICULAR',
       applicationTemplateKey: 'oss-contest',
       applicationTemplateVersion: 1,
       applicationCount: 0,
       teamCount: 0,
-      categoryLocked: {
-        locked: false,
-        byApplications: false,
-        byTeams: false,
-        applicationCount: 0,
-        teamCount: 0,
-      },
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
       applicationEndAt: new Date('2026-08-10T00:00:00.000Z'),
       startAt: new Date('2026-08-16T00:00:00.000Z'),
@@ -86,13 +79,7 @@ describe('ProgramEditorController boundaries', () => {
     const result = await controller.get(request, 'program-1');
 
     expect(result.id).toBe('program-1');
-    expect(result.categoryLocked).toEqual({
-      locked: false,
-      byApplications: false,
-      byTeams: false,
-      applicationCount: 0,
-      teamCount: 0,
-    });
+    expect(result);
     expect(result.endAt).toBe('2026-08-31T00:00:00.000Z');
     expect(editor.getProgram).toHaveBeenCalledWith(101n, 'program-1');
     expect(

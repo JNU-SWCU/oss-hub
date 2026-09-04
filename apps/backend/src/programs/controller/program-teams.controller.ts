@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -42,7 +43,8 @@ export class ProgramTeamsController {
     private readonly service: Pick<
       ProgramTeamsService,
       'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
-    >,
+    > &
+      Partial<Pick<ProgramTeamsService, 'leave'>>,
   ) {}
 
   @Post()
@@ -85,6 +87,16 @@ export class ProgramTeamsController {
   ): Promise<ProgramTeamResponseDto> {
     const team = await this.service.getMe(request.sessionGithubId, programId);
     return ProgramTeamResponseDto.from(team);
+  }
+
+  @Delete('me')
+  @HttpCode(204)
+  @UseGuards(SessionGuard, OriginGuard)
+  async leave(
+    @Req() request: TeamSessionRequest,
+    @Param('programId') programId: string,
+  ): Promise<void> {
+    await this.service.leave?.(request.sessionGithubId, programId);
   }
 
   /**
