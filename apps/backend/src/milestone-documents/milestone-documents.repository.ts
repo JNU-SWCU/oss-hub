@@ -1181,14 +1181,30 @@ export class MilestoneDocumentsRepository {
     });
   }
 
-  /** 교직원 뷰 분자 — 서류 항목별 제출 신청 수. */
+  /**
+   * 교직원 뷰 분자 — 서류 항목별 제출 신청 수. **분모와 같은 모집단**을 센다: 이 프로그램의
+   * 승인된 신청이 낸 제출만이다(#1100).
+   *
+   * 신청 상태를 보지 않고 제출 행만 세면 분자가 분모를 넘는다 — 승인을 「검토 대기로 되돌리기」
+   * 해도(`applications.service.ts`의 REVERT) 그 팀이 이미 낸 제출 행은 그대로 남기 때문이다.
+   * 승인 팀이 하나뿐이었다면 배지가 「1 / 0팀 제출」이 된다.
+   *
+   * 서류 수합 표도 같은 모집단이다 — 그쪽은 승인된 신청으로 행을 먼저 만들고 그 행 안에서만
+   * 센다(`findApprovedApplicationsForCollection` →
+   * `domain/milestone-document-collection-page.ts`의 documentTotals). 두 화면이 같은 수를
+   * 말해야 하므로 여기서도 승인 신청으로 좁힌다.
+   */
   async countSubmissionsByDocument(
+    programId: string,
     documentIds: readonly string[],
   ): Promise<ReadonlyMap<string, number>> {
     if (documentIds.length === 0) return new Map();
     const grouped = await this.prisma.milestoneDocumentSubmission.groupBy({
       by: ['milestoneDocumentId'],
-      where: { milestoneDocumentId: { in: [...documentIds] } },
+      where: {
+        milestoneDocumentId: { in: [...documentIds] },
+        application: { programId, status: ApplicationStatus.APPROVED },
+      },
       _count: { _all: true },
     });
     return new Map(

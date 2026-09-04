@@ -235,7 +235,10 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    const result = await repository.countSubmissionsByDocument([]);
+    const result = await repository.countSubmissionsByDocument(
+      'cuid-program',
+      [],
+    );
 
     // Then
     expect(groupBy).not.toHaveBeenCalled();
@@ -255,12 +258,43 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    const result = await repository.countSubmissionsByDocument([
+    const result = await repository.countSubmissionsByDocument('cuid-program', [
       syntheticDocumentId,
     ]);
 
     // Then
     expect(result.get(syntheticDocumentId)).toBe(6);
+  });
+
+  /**
+   * #1100 — 분자도 분모와 같은 모집단(같은 프로그램의 승인된 신청)을 세는지 본다. 이 조건이
+   * 빠지면 승인을 되돌린 팀의 제출이 분자에만 남아 「1 / 0팀 제출」이 나온다.
+   */
+  it('분자는 분모와 같은 모집단 — 같은 프로그램의 승인된 신청 제출만 센다', async () => {
+    // Given
+    const groupBy = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      milestoneDocumentSubmission: { groupBy },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.countSubmissionsByDocument('cuid-program', [
+      syntheticDocumentId,
+    ]);
+
+    // Then
+    expect(groupBy).toHaveBeenCalledWith({
+      by: ['milestoneDocumentId'],
+      where: {
+        milestoneDocumentId: { in: [syntheticDocumentId] },
+        application: {
+          programId: 'cuid-program',
+          status: ApplicationStatus.APPROVED,
+        },
+      },
+      _count: { _all: true },
+    });
   });
 });
 
