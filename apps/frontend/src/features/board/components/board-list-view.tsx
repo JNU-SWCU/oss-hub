@@ -8,6 +8,7 @@ import {
   DataTable,
   EmptyState,
   PageHeader,
+  ParticipantOnlyNotice,
   StatusBadge,
   type DataTableColumn,
 } from '@/components';
@@ -17,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
+import { programApplyHref, programOverviewHref } from '@/lib/program-route';
 import { createBoardPost, listBoardPosts } from '../api';
 import { subscribeBoardListInvalidation } from '../board-list-refetch';
 import {
@@ -33,6 +35,9 @@ import { boardPostHref } from '../board-paths';
 import type { BoardListState, BoardPostSummary } from '../types';
 
 const PAGE_SIZE = 20;
+
+/** 이 프로그램 참여자가 아니라는 게시판 응답 코드(`board-access.guard.ts`). */
+const BOARD_PARTICIPATION_REQUIRED_CODE = 'BRD_001';
 
 function columnsFor(programId: string): DataTableColumn<BoardPostSummary>[] {
   return [
@@ -138,16 +143,25 @@ export function BoardListContent({
   const items = state.kind === 'ready' ? state.page.items : [];
   const total = state.kind === 'ready' ? state.page.total : 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const participationRequired = state.kind === 'not-participant';
 
+  /*
+    참여자가 아님을 **서버가 이미 말한** 뒤에는 「질문 쓰기」를 그리지 않는다. 열어도
+    같은 이유(BRD_001)로 거절당하는 폼이라, 남겨 두면 학생이 제목·내용을 다 적고 나서야
+    막힌다. 이것은 ADR-007이 금지하는 「상태를 추측한 affordance 은폐」가 아니다 —
+    추측이 아니라 방금 받은 403이 근거이고, 다른 실패(`error`)에서는 버튼을 그대로 둔다.
+  */
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-5 sm:p-8">
       <PageHeader
         title="게시판"
         description={boardSubtitle(isStaff)}
         actions={
-          <Button type="button" onClick={onToggleNewPost}>
-            {boardWriteButtonLabel(isStaff)}
-          </Button>
+          participationRequired ? undefined : (
+            <Button type="button" onClick={onToggleNewPost}>
+              {boardWriteButtonLabel(isStaff)}
+            </Button>
+          )
         }
       />
       {newPostOpen ? (
@@ -204,7 +218,13 @@ export function BoardListContent({
           </CardContent>
         </Card>
       ) : null}
-      {state.kind === 'error' ? (
+      {participationRequired ? (
+        <ParticipantOnlyNotice
+          description="승인된 신청이 있는 참여자만 게시판을 볼 수 있습니다. 이 프로그램에 신청하고 승인을 받으면 여기에서 공지를 읽고 질문을 남길 수 있습니다."
+          applyHref={programApplyHref(programId)}
+          overviewHref={programOverviewHref(programId)}
+        />
+      ) : state.kind === 'error' ? (
         <Alert variant="destructive">
           <AlertCircle aria-hidden="true" />
           <AlertTitle>게시판을 불러오지 못했습니다</AlertTitle>
@@ -291,6 +311,13 @@ export function BoardListView({
         })
         .catch((error: unknown) => {
           if (!active) return;
+          if (
+            error instanceof ApiError &&
+            error.problem.code === BOARD_PARTICIPATION_REQUIRED_CODE
+          ) {
+            setState({ kind: 'not-participant' });
+            return;
+          }
           const message =
             error instanceof ApiError
               ? mapBoardError(error.problem)

@@ -468,6 +468,13 @@ const PROGRAM_FIXTURES: Readonly<Record<PublicProgramId, ProgramFixture>> = {
  * 눈으로 확인할 수 있어야 한다 — 재신청 마감일처럼 **끝에 오는 정보가 살아 있는지**가
  * 이 갈래에서 가장 중요한 확인이다.
  */
+/**
+ * 손으로 쓸 내용이 있는 신청서만 여기 명시한다(반려 사유가 그렇다). 나머지는
+ * `myApplicationFor`가 `studentApplicationStatus`에서 파생시킨다 — 두 목록을 따로
+ * 적으면 「상세는 승인인데 내 신청서는 404」처럼 실제 서버가 만들 수 없는 상태가
+ * 생긴다. 그 어긋남이 실제로 화면을 틀리게 만든 적이 있다(#1099: 좌측 패널이
+ * 참여자에게도 잠금을 붙였다).
+ */
 export const MY_APPLICATION_FIXTURES: Readonly<
   Record<string, StudentApplication>
 > = {
@@ -498,6 +505,48 @@ export const MY_APPLICATION_FIXTURES: Readonly<
   },
 };
 
+/**
+ * `GET programs/{id}/applications/me` 응답. 신청이 없으면 `null`(호출부가 404로 만든다).
+ *
+ * 신청 id는 활동 패널 픽스처가 이미 들고 있는 값을 그대로 쓴다 — 같은 신청을 가리키는
+ * 두 화면이 다른 id를 말하지 않게 한다.
+ */
+export function myApplicationFor(
+  programId: PublicProgramId,
+): StudentApplication | null {
+  const explicit = MY_APPLICATION_FIXTURES[programId];
+  if (explicit) return explicit;
+
+  const fixture = PROGRAM_FIXTURES[programId];
+  const status = fixture.studentApplicationStatus;
+  if (status === null) return null;
+
+  const applicationId =
+    fixture.activity[0]?.applicationId ?? `synthetic-application-${programId}`;
+  return {
+    id: applicationId,
+    programId,
+    status,
+    teamId: MY_TEAM_FIXTURES[programId]?.id ?? null,
+    answers: {
+      applicantName: '합성 student 사용자',
+      title: `${fixture.base.name} 참여 신청`,
+      summary:
+        '로컬 검토용 합성 신청서입니다. 실제 신청 내용과 무관하며 화면 구성 확인에만 씁니다.',
+    },
+    submittedAt: fixture.base.applicationPeriod.startsAt,
+    updatedAt: fixture.base.applicationPeriod.startsAt,
+    isRepositoryPublicationPlanned: fixture.base.repositoryProvisioningEnabled,
+    // 승인·반려된 신청에는 사유 키가 그대로 오되 값은 반려일 때만 채워진다.
+    rejectionReason: null,
+    isManager: true,
+    // 판정이 끝난 신청은 수정도 취소도 할 수 없다.
+    canManage: status === 'SUBMITTED',
+    canEdit: status === 'SUBMITTED',
+    canCancel: status === 'SUBMITTED',
+  };
+}
+
 function staffMilestones(
   milestones: readonly ProgramMilestone[],
 ): readonly ProgramMilestone[] {
@@ -507,6 +556,19 @@ function staffMilestones(
     applicationSubmissionSummary:
       STAFF_MILESTONE_SUMMARIES[milestone.id] ?? null,
   }));
+}
+
+/**
+ * 학생 페르소나의 신청 상태. `null`이면 아직 신청 전이다.
+ *
+ * 체크리스트 규칙이 「신청 없음(SUB_003)」과 「승인 안 된 신청(SUB_004)」을 갈라 답하려면
+ * 이 값이 필요하다 — 실제 백엔드도 신청을 먼저 찾고 그 상태를 본다
+ * (`submissions.repository.ts`의 `findChecklistApplication` → `requireApprovedApplication`).
+ */
+export function studentApplicationStatusFor(
+  programId: PublicProgramId,
+): ApplicationStatus | null {
+  return PROGRAM_FIXTURES[programId].studentApplicationStatus;
 }
 
 /**

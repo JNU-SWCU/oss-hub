@@ -713,3 +713,119 @@ describe('programScopeSidebarGroups', () => {
     expect(groups[2]?.items[0]?.href).toBe('/programs/prog-1/board');
   });
 });
+
+describe('programScopeSidebarGroups — 참여자 전용 항목 잠금(#1099)', () => {
+  const base = {
+    programId: 'prog-1',
+    teamCount: 47,
+    boardPostCount: 3,
+  } as const;
+
+  const notParticipant = {
+    ...base,
+    viewerRole: 'STUDENT',
+    viewerParticipant: false,
+    viewerDocuments: { completed: 0, total: 2 },
+    milestones: [
+      { milestoneId: 'm1', title: '1차 계획서', submissionEnabled: true },
+    ],
+    milestoneDocuments: [
+      { milestoneId: 'm1', title: '1차 계획서', completed: 0, total: 1 },
+    ],
+  } as const;
+
+  it('승인된 신청이 없는 학생에게도 항목은 그대로 남는다 — 숨기지 않는다', () => {
+    const groups = programScopeSidebarGroups(notParticipant);
+
+    expect(groups).toHaveLength(3);
+    expect(groups[1]?.items[0]?.label).toBe('내 제출물');
+    expect(groups[2]?.items[0]?.label).toBe('게시판');
+  });
+
+  it('내 제출물·게시판만 잠기고 개요·참여 팀은 그대로 열린다', () => {
+    const groups = programScopeSidebarGroups(notParticipant);
+
+    expect(groups[0]?.items.map((item) => item.locked)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    expect(groups[1]?.items[0]?.locked).toBe(true);
+    expect(groups[2]?.items[0]?.locked).toBe(true);
+  });
+
+  it('잠긴 항목에는 카운트를 붙이지 않는다 — 뱃지 자리는 잠금 문구가 쓴다', () => {
+    const groups = programScopeSidebarGroups(notParticipant);
+
+    expect(groups[1]?.items[0]?.count).toBeUndefined();
+    expect(groups[2]?.items[0]?.count).toBeUndefined();
+  });
+
+  it('잠긴 부모 아래 단계 자식을 펴지 않는다', () => {
+    const groups = programScopeSidebarGroups(notParticipant);
+
+    expect(groups[1]?.items).toHaveLength(1);
+  });
+
+  it('참여자에게는 지금과 똑같이 열린다', () => {
+    const groups = programScopeSidebarGroups({
+      ...notParticipant,
+      viewerParticipant: true,
+    });
+
+    expect(groups[1]?.items[0]).toMatchObject({
+      label: '내 제출물',
+      count: '0/2',
+      locked: false,
+    });
+    expect(groups[1]?.items.map((item) => item.label)).toEqual([
+      '내 제출물',
+      '1차 계획서',
+    ]);
+    expect(groups[2]?.items[0]).toMatchObject({ count: '3', locked: false });
+  });
+
+  it('참여 여부를 아직 모르면 잠그지 않는다 — 추측으로 affordance를 지우지 않는다', () => {
+    const groups = programScopeSidebarGroups({
+      ...notParticipant,
+      viewerParticipant: undefined,
+    });
+
+    expect(groups[1]?.items[0]?.locked).toBe(false);
+    expect(groups[2]?.items[0]?.locked).toBe(false);
+  });
+
+  it('교직원 좌측 패널 구성은 참여 여부와 무관하게 그대로다', () => {
+    const staff = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+      milestoneDocuments: [
+        { milestoneId: 'm1', title: '1차 계획서', completed: 2, total: 3 },
+      ],
+    });
+    const staffWithFlag = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+      viewerParticipant: false,
+      milestoneDocuments: [
+        { milestoneId: 'm1', title: '1차 계획서', completed: 2, total: 3 },
+      ],
+    });
+
+    expect(staffWithFlag).toEqual(staff);
+    expect(
+      staffWithFlag.flatMap((group) => group.items).some((item) => item.locked),
+    ).toBe(false);
+  });
+
+  it('비회원(GUEST) 좌측 패널 구성은 참여 여부와 무관하게 그대로다', () => {
+    const guest = programScopeSidebarGroups({ ...base, viewerRole: 'GUEST' });
+    const guestWithFlag = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'GUEST',
+      viewerParticipant: false,
+    });
+
+    expect(guestWithFlag).toEqual(guest);
+    expect(guestWithFlag).toHaveLength(1);
+  });
+});

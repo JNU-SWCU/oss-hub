@@ -120,7 +120,22 @@ export interface ProgramScopeSidebarItem {
   readonly depth?: 0 | 1;
   /** 사전 포맷된 뱃지 텍스트. undefined면 뱃지 미표시. */
   readonly count?: string;
+  /**
+   * 참여자 전용 항목인데 이 뷰어가 아직 참여자가 아닐 때 참이다(#1099).
+   * 항목을 목록에서 빼지 않고 잠금 표시로 그린다 — 렌더는 `ScopeSidebarLink` 담당.
+   */
+  readonly locked?: boolean;
 }
+
+/**
+ * 잠긴 참여자 전용 항목의 뱃지 문구.
+ *
+ * 「신청 후」가 아니라 **「승인 후」**다 — 두 관문 모두 신청이 아니라 **승인된 신청**을
+ * 요구한다(`board/board-access.guard.ts`의 `status: APPROVED`,
+ * `submissions/submissions.service.ts`의 `requireApprovedApplication`). 「신청 후」라고
+ * 적으면 신청만 내고 기다리는 학생이 열리지 않는 이유를 다시 묻게 된다.
+ */
+export const PROGRAM_SCOPE_LOCKED_BADGE = '승인 후';
 
 export interface ProgramScopeSidebarGroup {
   readonly label: string;
@@ -173,6 +188,14 @@ export interface ProgramScopeSidebarInput {
     readonly completed: number;
     readonly total: number;
   };
+  /**
+   * STUDENT 뷰어만 — 이 프로그램에 승인된 신청이 있는 참여자인지(#1099).
+   *
+   * `undefined`는 「아직 모른다」다(조회 전이거나 조회가 실패). 이때는 잠그지 않는다 —
+   * 추측한 런타임 상태로 affordance를 지우지 않는다는 ADR-007 규칙을 따르고, 참여자가
+   * 자기 메뉴가 잠겼다 풀리는 깜빡임을 보지 않게 한다.
+   */
+  readonly viewerParticipant?: boolean;
   /** 화면 크기와 무관하게 쓰는 전체 단계 탐색 목록. */
   readonly milestones?: readonly ProgramScopeMilestoneNavigation[];
   /** 서류가 있는 마일스톤만, 순서대로. 없으면 부모 항목만(자식 없이) 렌더. */
@@ -201,6 +224,7 @@ export function programScopeSidebarGroups(
     teamCount,
     boardPostCount,
     viewerDocuments,
+    viewerParticipant,
     milestones,
     milestoneDocuments = [],
   } = input;
@@ -222,15 +246,27 @@ export function programScopeSidebarGroups(
   }
 
   const isStaffView = viewerRole !== 'STUDENT';
+  /**
+   * 「내 제출물」·「게시판」은 승인된 신청이 있어야 열리는 참여자 전용 화면이다. 아직
+   * 참여자가 아닌 학생에게 이 둘을 **숨기지 않고 잠근다**(#1099) — 숨기면 프로그램이
+   * 무엇을 주는지 신청 전에 보이지 않고, 그대로 두면 눌렀을 때 403이 빨간 실패로 뜬다.
+   * `GUEST` 분기(위)는 이 규칙과 무관하게 그대로다(QA46).
+   */
+  const participantLocked =
+    viewerRole === 'STUDENT' && viewerParticipant === false;
   const fallbackMilestones: readonly ProgramScopeMilestoneNavigation[] =
     milestoneDocuments.map((milestone) => ({
       milestoneId: milestone.milestoneId,
       title: milestone.title,
       submissionEnabled: true,
     }));
-  const navigationMilestones = (
-    milestones ?? (isStaffView ? fallbackMilestones : [])
-  ).filter((milestone) => isStaffView || milestone.submissionEnabled);
+  // 잠긴 부모 아래에 단계 자식을 펴지 않는다 — 자식은 전부 같은 이유로 막히고,
+  // 열리는 링크처럼 보이는 항목만 늘어난다(「없으면 부모 항목만 둔다」와 같은 모양).
+  const navigationMilestones = participantLocked
+    ? []
+    : (milestones ?? (isStaffView ? fallbackMilestones : [])).filter(
+        (milestone) => isStaffView || milestone.submissionEnabled,
+      );
   const documentSummaryByMilestone = new Map(
     milestoneDocuments.map((milestone) => [milestone.milestoneId, milestone]),
   );
@@ -277,9 +313,14 @@ export function programScopeSidebarGroups(
         href: programDocumentsHref(programId),
         icon: 'inbox',
         depth: 0,
-        count: viewerDocuments
-          ? `${viewerDocuments.completed}/${viewerDocuments.total}`
-          : undefined,
+        locked: participantLocked,
+        // 잠긴 동안에는 분수 뱃지를 붙이지 않는다. 승인 전 학생의 개요 응답은
+        // `0/2`처럼 **낼 것이 있다는 뜻으로 읽히는** 값을 주는데, 그 자리에는 왜
+        // 못 여는지를 말하는 「승인 후」가 서야 한다.
+        count:
+          participantLocked || !viewerDocuments
+            ? undefined
+            : `${viewerDocuments.completed}/${viewerDocuments.total}`,
       };
 
   const allStagesItem: readonly ProgramScopeSidebarItem[] =
@@ -324,7 +365,8 @@ export function programScopeSidebarGroups(
         href: programHref(programId, '/board'),
         icon: 'megaphone',
         depth: 0,
-        count: String(boardPostCount),
+        locked: participantLocked,
+        count: participantLocked ? undefined : String(boardPostCount),
       },
     ],
   };

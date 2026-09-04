@@ -16,6 +16,13 @@ const pageView = vi.hoisted(() => ({
   props: null as SubmissionChecklistViewProps | null,
 }));
 
+/** 실패 화면과 참여자 아님 화면 중 어느 쪽이 섰는지 세는 계수기(#1099). */
+const fallbackScreens = vi.hoisted(() => ({
+  loadFailure: 0,
+  participationRequired: 0,
+  participationProgramId: null as string | null,
+}));
+
 const initialSubmissionPage = vi.hoisted(() => ({
   props: null as {
     readonly onSubmitted: () => void;
@@ -131,7 +138,19 @@ vi.mock('./api', () => ({
 }));
 
 vi.mock('./components/submission-checklist-view', () => ({
-  ChecklistLoadFailure: () => null,
+  ChecklistLoadFailure: () => {
+    fallbackScreens.loadFailure += 1;
+    return null;
+  },
+  ChecklistParticipationRequired: ({
+    programId,
+  }: {
+    readonly programId: string;
+  }) => {
+    fallbackScreens.participationRequired += 1;
+    fallbackScreens.participationProgramId = programId;
+    return null;
+  },
   ChecklistSkeleton: () => null,
   SubmissionChecklistView: (props: SubmissionChecklistViewProps) => {
     pageView.props = props;
@@ -284,6 +303,9 @@ beforeEach(() => {
   initialSubmissionPage.props = null;
   initialSubmissionPage.posts = 0;
   initialSubmissionPage.resolvePost = null;
+  fallbackScreens.loadFailure = 0;
+  fallbackScreens.participationRequired = 0;
+  fallbackScreens.participationProgramId = null;
   vi.mocked(getSubmissionChecklist).mockReset();
   vi.mocked(uploadSubmissionFile).mockReset();
   vi.mocked(createResubmission).mockReset();
@@ -614,5 +636,51 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     expect(currentViewProps().checklist.items[0]?.submission?.status).toBe(
       'SUBMITTED',
     );
+  });
+});
+
+describe('SubmissionChecklistPage 참여자 아님(#1099)', () => {
+  it.each([
+    ['SUB_003', '해당 신청의 제출 권한이 없습니다.'],
+    ['SUB_004', '승인된 신청만 제출할 수 있습니다.'],
+  ])('%s 403은 실패가 아니라 참여자 아님 상태로 간다', async (code, detail) => {
+    vi.mocked(getSubmissionChecklist).mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: code,
+        status: 403,
+        detail,
+        instance: '/synthetic/programs/program-1/submissions/me',
+        code,
+      }),
+    );
+
+    renderPage();
+    await flushAsyncWork();
+    renderPage();
+
+    expect(fallbackScreens.participationRequired).toBeGreaterThan(0);
+    expect(fallbackScreens.participationProgramId).toBe('program-1');
+    expect(fallbackScreens.loadFailure).toBe(0);
+  });
+
+  it('참여와 무관한 실패는 지금처럼 재시도 가능한 실패 화면으로 남는다', async () => {
+    vi.mocked(getSubmissionChecklist).mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'SUB_016',
+        status: 404,
+        detail: '프로그램을 찾을 수 없습니다.',
+        instance: '/synthetic/programs/program-1/submissions/me',
+        code: 'SUB_016',
+      }),
+    );
+
+    renderPage();
+    await flushAsyncWork();
+    renderPage();
+
+    expect(fallbackScreens.loadFailure).toBeGreaterThan(0);
+    expect(fallbackScreens.participationRequired).toBe(0);
   });
 });

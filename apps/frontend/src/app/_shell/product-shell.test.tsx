@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
   getProgramNavigationMilestones: vi.fn(),
+  getMyApplication: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -37,6 +38,9 @@ vi.mock('@/features/programs/program-overview-api', () => ({
 }));
 vi.mock('@/features/programs/program-navigation-api', () => ({
   getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
+}));
+vi.mock('@/features/programs/student-application-api', () => ({
+  getMyApplication: mocks.getMyApplication,
 }));
 
 import { ProductShell, shouldLoadProgramOverview } from './product-shell';
@@ -74,6 +78,7 @@ function render(pathname: string) {
   mocks.usePathname.mockReturnValue(pathname);
   mocks.getProgramOverview.mockReturnValue(new Promise(() => {})); // 절대 안 풀림 — 로딩 상태 고정
   mocks.getProgramNavigationMilestones.mockReturnValue(new Promise(() => {}));
+  mocks.getMyApplication.mockReturnValue(new Promise(() => {}));
   return renderToStaticMarkup(
     <ProductShell>
       <p>본문</p>
@@ -146,6 +151,20 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     expect(html).not.toContain('서류 현황');
     // 신청 판정 창구는 교직원 전용이다.
     expect(html).not.toContain('신청자');
+  });
+
+  it('참여 여부를 아직 모르는 동안에는 잠그지 않는다(#1099)', () => {
+    mockSession({
+      status: 'assigned',
+      role: 'STUDENT',
+      isProfileComplete: true,
+    });
+    // render()가 `getMyApplication`을 영영 풀리지 않는 약속으로 고정한다.
+    const html = render('/programs/prog-1');
+
+    expect(html).not.toContain('승인 후');
+    expect(html).toContain('href="/programs/prog-1/documents"');
+    expect(html).toContain('href="/programs/prog-1/board"');
   });
 
   it('교직원 회원은 "서류 현황"과 신청 판정 입구(신청자)를 본다', () => {

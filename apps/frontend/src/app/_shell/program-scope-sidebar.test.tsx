@@ -285,3 +285,69 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('aria-label="내 제출물 2/6"');
   });
 });
+
+describe('ProgramScopeSidebar — 참여자 전용 항목 잠금(#1099)', () => {
+  const lockedGroups = programScopeSidebarGroups({
+    programId: 'prog-1',
+    viewerRole: 'STUDENT',
+    teamCount: 47,
+    boardPostCount: 3,
+    viewerParticipant: false,
+    viewerDocuments: { completed: 0, total: 2 },
+    milestones: [
+      {
+        milestoneId: 'm3',
+        title: '프로젝트 계획서 제출',
+        submissionEnabled: true,
+      },
+    ],
+    milestoneDocuments: [
+      {
+        milestoneId: 'm3',
+        title: '프로젝트 계획서 제출',
+        completed: 0,
+        total: 3,
+      },
+    ],
+  });
+
+  function renderLocked(
+    overrides: Partial<React.ComponentProps<typeof ProgramScopeSidebar>> = {},
+  ) {
+    return render({ groups: lockedGroups, ...overrides });
+  }
+
+  it('메뉴는 그대로 보이되 링크가 아니다', () => {
+    const html = renderLocked();
+
+    expect(html).toContain('내 제출물');
+    expect(html).toContain('게시판');
+    expect(html).not.toContain('href="/programs/prog-1/documents"');
+    expect(html).not.toContain('href="/programs/prog-1/board"');
+    // 잠기지 않은 항목은 그대로 링크다.
+    expect(html).toContain('href="/programs/prog-1/teams"');
+  });
+
+  it('잠금 딱지는 「승인 후」다 — 신청만으로는 열리지 않는다', () => {
+    const html = renderLocked();
+
+    expect(html).toContain('data-slot="program-scope-sidebar-locked"');
+    expect(html).toContain('>승인 후</span>');
+    expect((html.match(/>승인 후<\/span>/g) ?? []).length).toBe(2);
+    expect(html).toContain('aria-disabled="true"');
+  });
+
+  it('주소를 직접 입력해 들어와도 좌측 패널은 현재 위치를 그대로 알린다', () => {
+    const html = renderLocked({ pathname: '/programs/prog-1/documents' });
+
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('program-scope-sidebar-current-marker');
+  });
+
+  it('접힌 레일에서도 잠금 문구가 읽는 도구에 남는다', () => {
+    const html = renderLocked({ collapsed: true });
+
+    expect(html).toContain('승인 후');
+    expect(html).toContain('내 제출물');
+  });
+});
