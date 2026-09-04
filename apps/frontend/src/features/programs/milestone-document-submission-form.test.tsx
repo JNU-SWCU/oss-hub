@@ -128,6 +128,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
             documentName="프로젝트 계획"
             documentId="document-1"
             fileUpload={milestoneDocumentUploadPolicy()}
+            currentFileName={null}
             submitting={false}
             onCancel={vi.fn()}
             onSubmit={onSubmit}
@@ -280,5 +281,55 @@ describe('MilestoneDocumentSubmissionForm', () => {
 
     expect(container.textContent).not.toContain('기존 제출 파일');
     expect(container.textContent).not.toContain('이번 제출에서 빠집니다');
+  });
+
+  /*
+   * 두 안내가 **한 속성**을 나눠 쓴다 — 기존 첨부가 빠진다는 경고(#1090)와 상한·형식에
+   * 걸렸다는 사유(#1107)는 둘 다 파일 입력의 `aria-describedby`에 실린다. 이 둘은 서로
+   * 다른 갈래에서 들어왔고 rebase 때마다 같은 줄에서 부딪히므로, 한쪽 조건으로 문자열을
+   * 통째로 갈아 끼우면 다른 쪽이 화면에는 남고 스크린리더에서만 조용히 사라진다.
+   * 그 상태를 눈으로 못 잡으니 여기서 고정한다.
+   */
+  it('걸린 파일과 빠질 첨부를 동시에 안고도 두 안내를 모두 가리킨다', async () => {
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSubmissionForm
+          documentName="프로젝트 계획"
+          documentId="document-1"
+          fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName="1차_계획서.pdf"
+          submitting={false}
+          onCancel={vi.fn()}
+          onSubmit={vi.fn().mockResolvedValue(true)}
+        />,
+      );
+    });
+    const input = container.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement))
+      throw new TypeError('Missing file input.');
+    const oversized = new File(['synthetic'], '계획서.pdf');
+    Object.defineProperty(oversized, 'size', {
+      configurable: true,
+      value: 5 * 1024 * 1024 + 1,
+    });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [oversized],
+    });
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
+    );
+
+    const describedBy = (input.getAttribute('aria-describedby') ?? '').split(
+      ' ',
+    );
+    expect(describedBy).toContain('document-1-submission-current-file');
+    expect(describedBy).toContain('document-1-submission-file-error');
+    for (const id of describedBy) {
+      expect(container.querySelector(`#${id}`)).not.toBeNull();
+    }
+    // 걸린 파일은 받아 두지 않았으므로 첨부는 여전히 빠질 참이다.
+    expect(container.textContent).toContain('이번 제출에서 빠집니다');
+    expect(container.textContent).toContain('파일은 5 MB 이하여야 합니다.');
   });
 });

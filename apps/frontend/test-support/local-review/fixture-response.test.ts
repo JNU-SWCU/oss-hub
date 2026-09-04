@@ -498,15 +498,18 @@ describe('local review fixture responses', () => {
         path: `milestones/${open[0]?.milestoneId}/documents`,
         searchParams: new URLSearchParams(),
       }),
-    ) as readonly {
-      readonly viewerSubmission?: {
-        readonly status: string | null;
-        readonly hasCurrentFile: boolean;
-        readonly currentFileName: string | null;
-      };
-    }[];
+      // 목록은 서류 배열만이 아니라 업로드 상한을 함께 실은 봉투다(#1107).
+    ) as {
+      readonly documents: readonly {
+        readonly viewerSubmission?: {
+          readonly status: string | null;
+          readonly hasCurrentFile: boolean;
+          readonly currentFileName: string | null;
+        };
+      }[];
+    };
 
-    expect(documents).toContainEqual(
+    expect(documents.documents).toContainEqual(
       expect.objectContaining({
         viewerSubmission: expect.objectContaining({
           status: 'CHANGES_REQUESTED',

@@ -246,7 +246,10 @@ describe('제출과 판정이 부딪혔을 때', () => {
       history: { hasHistory: false, isComplete: true },
       review: null,
     });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse([withFile])));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse(documentListBody([withFile]))),
+    );
 
     await act(async () => {
       root.render(
