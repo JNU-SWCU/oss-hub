@@ -123,6 +123,10 @@ function collection(
  * 화면이 ISO로 굳혀 보내므로 기대값도 같은 변환을 거쳐 만든다.
  */
 const dueAtInput = '2027-06-30T18:00';
+// 화면이 보내는 값. seoul-date-time.ts가 교직원이 적은 시각에 +09:00을 붙이므로
+// 실행 기계의 시간대와 무관하게 이 한 값이다. new Date(dueAtInput)로 계산하면
+// 지역 시각을 따라가 UTC 러너에서만 18:00Z가 나와 CI에서 깨진다.
+const dueAtSentToServer = '2027-06-30T09:00:00.000Z';
 
 describe('수합 표에서 판정하기', () => {
   let container: HTMLDivElement;
@@ -466,8 +470,9 @@ describe('수합 표에서 판정하기', () => {
       {
         decision: 'CHANGES_REQUESTED',
         comment: '표지를 고쳐 주세요.',
-        // 지역 시각 문자열이 ISO로 굳어 나간다 — 서버가 어느 시각으로 읽을지 화면이 정한다.
-        resubmissionDueAt: new Date(dueAtInput).toISOString(),
+        // 교직원이 적은 시각을 서울 기준으로 굳혀 보낸다 — 어느 시각인지는
+        // 브라우저가 있는 곳이 아니라 화면이 정한다.
+        resubmissionDueAt: dueAtSentToServer,
         expectedRevision: 1,
         expectedLatestReviewId: null,
       },
