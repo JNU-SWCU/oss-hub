@@ -190,12 +190,12 @@ function uploaded(fileId: string) {
   };
 }
 
-function problem(code: string): ProblemDetail {
+function problem(code: string, detail: string = code): ProblemDetail {
   return {
     type: 'about:blank',
     title: code,
     status: 503,
-    detail: code,
+    detail,
     instance: '/synthetic/submissions/submission-1/resubmissions',
     code,
   };
@@ -396,6 +396,30 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
       content: { type: 'FILE', fileId: 'file-second' },
       comment: '',
     });
+  });
+
+  /*
+   * #1108 — 정상 형식인 `.zip`이 압축 안의 내용 때문에 막혔을 때, 화면이 형식 안내를
+   * 보여 주면 학생은 고칠 곳을 찾지 못한 채 같은 파일을 다시 낸다. 압축 내용 거절은
+   * 파일 입력 옆에 서버가 준 갈래별 문장을 그대로 세운다.
+   */
+  it('압축 파일 내용 거절은 서버 문장을 파일 입력 옆에 세운다', async () => {
+    // Given
+    const detail =
+      '압축 파일 안에 또 다른 압축 파일이 있습니다. 안쪽 압축을 풀고 다시 압축해 주세요.';
+    vi.mocked(uploadSubmissionFile).mockRejectedValueOnce(
+      new ApiError(problem('SUB_027', detail)),
+    );
+
+    // When
+    await renderReadyPage();
+    await selectFileAndSubmit(FILE);
+
+    // Then
+    expect(currentViewProps().fileError).toBe(detail);
+    expect(currentViewProps().fileError).not.toBe(
+      'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
+    );
   });
 
   it('keeps the cached upload id for other retryable create-resubmission server errors', async () => {

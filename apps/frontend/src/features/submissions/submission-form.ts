@@ -52,6 +52,33 @@ const SUBMISSION_FILE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     '프로그램 종료일이 설정되지 않아 파일을 제출할 수 없습니다. 담당 교직원에게 확인해 주세요.',
 };
 
+/**
+ * 압축 파일 **내용** 때문에 거절된 코드(#1108). 형식·서명 거절(SUB_018)과 갈라져 있다.
+ *
+ * 여기에 문장을 적지 않는 이유: 갈래가 여덟이고 갈래마다 학생이 할 일이 다르다. 화면이
+ * 여덟 문장의 사본을 들면 서버가 거절하며 하는 말과 화면이 보여 주는 말이 갈라진다 —
+ * #1107에서 상한 숫자로 실제로 겪은 일이다. 그래서 문구는 서버가 소유하고 화면은
+ * 「이 코드는 파일 입력 옆에 서버 문장을 그대로 세운다」만 정한다(SUB_011과 같은 방식).
+ *
+ * 목록이 backend 레지스트리와 어긋나면 `submission-archive-error-codes.drift.test.ts`가
+ * 실패한다 — 목록이 낡으면 새 코드가 다시 「알 수 없는 코드」로 떨어져 파일 입력이 아닌
+ * 화면 전체 오류로 밀려난다.
+ */
+export const SUBMISSION_ARCHIVE_ERROR_CODES: ReadonlySet<string> = new Set([
+  'SUB_025',
+  'SUB_026',
+  'SUB_027',
+  'SUB_028',
+  'SUB_029',
+  'SUB_030',
+  'SUB_031',
+  'SUB_032',
+]);
+
+export function isSubmissionArchiveErrorCode(code: string): boolean {
+  return SUBMISSION_ARCHIVE_ERROR_CODES.has(code);
+}
+
 const STALE_SUBMISSION_FORM_CODES = new Set(['SUB_005', 'SUB_006']);
 
 export function isStaleSubmissionFormErrorCode(code: string): boolean {

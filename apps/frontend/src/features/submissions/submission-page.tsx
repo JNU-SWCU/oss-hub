@@ -17,6 +17,7 @@ import { resubmissionContent } from './submission-checklist';
 import {
   focusSubmissionField,
   getSubmissionFileErrorMessage,
+  isSubmissionArchiveErrorCode,
   type SubmissionFormErrors,
   type SubmissionFormInput,
   isStaleSubmissionFormErrorCode,
@@ -166,6 +167,16 @@ export function SubmissionPage({
         if (data.milestone.submissionType === 'FILE') {
           setFileError(error.problem.detail);
         }
+      } else if (
+        error instanceof ApiError &&
+        isSubmissionArchiveErrorCode(error.problem.code)
+      ) {
+        /*
+         * 압축 파일 안의 내용 때문에 막힌 경우다(#1108). 고칠 것이 파일이므로 화면 전체
+         * 오류가 아니라 파일 입력 옆에 세운다. 갈래별 문장은 서버가 준 것을 그대로 쓴다 —
+         * 화면이 여덟 문장을 다시 적으면 서버가 거절하며 하는 말과 갈라진다.
+         */
+        setFileError(error.problem.detail);
       } else if (
         error instanceof ApiError &&
         getSubmissionFileErrorMessage(error.problem.code)

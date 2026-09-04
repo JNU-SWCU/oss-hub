@@ -27,10 +27,11 @@ import {
   SubmissionFilesRepository,
 } from './submission-files.repository';
 import {
+  SUBMISSION_ZIP_REJECTION_ERROR_CODES,
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.enum';
-import { isSafeSubmissionZipMetadata } from './submission-zip-admission';
+import { inspectSubmissionZipMetadata } from './submission-zip-admission';
 import type {
   DownloadedSubmissionFile,
   SubmissionFileUpload,
@@ -82,11 +83,17 @@ export class SubmissionFilesService {
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
-    if (
-      normalizedFileName.toLowerCase().endsWith('.zip') &&
-      !(await isSafeSubmissionZipMetadata(file.buffer))
-    ) {
-      throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
+    /*
+     * 여기서 막히는 것은 형식이 아니라 압축 파일 **안에 담긴 것**이다(#1108). 위의 확장자·
+     * 서명 검사와 같은 코드로 던지면, 허용 형식인 `.zip`을 낸 학생이 「지원하지 않는 파일
+     * 형식입니다」를 읽고 원인과 무관한 쪽(형식·재압축)으로 간다. 갈래마다 다른 코드로
+     * 던져야 화면이 「무엇을 고치면 되는지」를 말할 수 있다.
+     */
+    if (normalizedFileName.toLowerCase().endsWith('.zip')) {
+      const zipRejection = await inspectSubmissionZipMetadata(file.buffer);
+      if (zipRejection !== null) {
+        throw this.error(SUBMISSION_ZIP_REJECTION_ERROR_CODES[zipRejection]);
+      }
     }
 
     const uploaderId =

@@ -1,5 +1,9 @@
 import type { ErrorCode } from '../common/error-code';
 import { SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from '../submissions/submission-upload-policy';
+import {
+  SUBMISSION_ZIP_REJECTION_MESSAGES,
+  SubmissionZipRejection,
+} from '../submissions/submission-zip-admission';
 
 /** #619 마일스톤별 서류 항목(MilestoneDocument) 모듈 전용 에러 코드 레지스트리. */
 export const MilestoneDocumentsErrorCode = {
@@ -30,6 +34,22 @@ export const MilestoneDocumentsErrorCode = {
   MILESTONE_CLOSED: 'MSD_028',
   SUBMISSION_REPLACEMENT_CLOSED: 'MSD_029',
   LAST_DOCUMENT_REQUIRED: 'MSD_030',
+  /*
+   * 여기부터는 **학생이 낸 압축 파일 안을 들여다본 뒤** 막은 갈래다(#1108).
+   * 위의 ARCHIVE_TOO_LARGE(MSD_026)는 교직원이 받아 가는 일괄 내려받기 묶음 이야기이고
+   * 여기 ZIP_*은 학생이 올린 `.zip` 이야기라 이름을 갈라 둔다.
+   * 형식·서명 거절(UNSUPPORTED_FILE_TYPE)과 같은 코드를 쓰지 않는다 — `.zip`은 허용
+   * 형식이므로 「지원하지 않는 파일 형식입니다」는 사실이 아니다.
+   * 갈래와 문구는 제출 경로와 **같은 원본**(`submissions/submission-zip-admission.ts`)이다.
+   */
+  ZIP_UNREADABLE: 'MSD_031',
+  ZIP_ENTRY_NOT_ALLOWED: 'MSD_032',
+  ZIP_NESTED: 'MSD_033',
+  ZIP_PASSWORD_PROTECTED: 'MSD_034',
+  ZIP_UNSUPPORTED_COMPRESSION: 'MSD_035',
+  ZIP_TOO_MANY_ENTRIES: 'MSD_036',
+  ZIP_CONTENT_TOO_LARGE: 'MSD_037',
+  ZIP_EXPANDS_TOO_MUCH: 'MSD_038',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -206,4 +226,98 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     message:
       '마일스톤에는 제출 항목이 하나 이상 필요합니다. 새 항목을 만든 뒤 기존 항목을 삭제해 주세요.',
   },
+  /*
+   * 압축 파일 내용 거절 여덟 갈래(#1108). 제출 경로(SUB_025~SUB_032)와 **같은 갈래·같은
+   * 문장·같은 상태 코드**를 쓴다 — 같은 입력에 두 경로가 다른 말을 하면 학생은 어느 화면에서
+   * 냈는지에 따라 다른 안내를 읽게 된다. 415가 아니라 422인 이유는 형식(`.zip`)은 맞고
+   * 그 안에 담긴 것이 문제이기 때문이다.
+   */
+  [MilestoneDocumentsErrorCode.ZIP_UNREADABLE]: {
+    code: MilestoneDocumentsErrorCode.ZIP_UNREADABLE,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[SubmissionZipRejection.UNREADABLE],
+  },
+  [MilestoneDocumentsErrorCode.ZIP_ENTRY_NOT_ALLOWED]: {
+    code: MilestoneDocumentsErrorCode.ZIP_ENTRY_NOT_ALLOWED,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[
+        SubmissionZipRejection.ENTRY_NOT_ALLOWED
+      ],
+  },
+  [MilestoneDocumentsErrorCode.ZIP_NESTED]: {
+    code: MilestoneDocumentsErrorCode.ZIP_NESTED,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[SubmissionZipRejection.NESTED_ARCHIVE],
+  },
+  [MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED]: {
+    code: MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[
+        SubmissionZipRejection.PASSWORD_PROTECTED
+      ],
+  },
+  [MilestoneDocumentsErrorCode.ZIP_UNSUPPORTED_COMPRESSION]: {
+    code: MilestoneDocumentsErrorCode.ZIP_UNSUPPORTED_COMPRESSION,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[
+        SubmissionZipRejection.UNSUPPORTED_COMPRESSION
+      ],
+  },
+  [MilestoneDocumentsErrorCode.ZIP_TOO_MANY_ENTRIES]: {
+    code: MilestoneDocumentsErrorCode.ZIP_TOO_MANY_ENTRIES,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[
+        SubmissionZipRejection.TOO_MANY_ENTRIES
+      ],
+  },
+  [MilestoneDocumentsErrorCode.ZIP_CONTENT_TOO_LARGE]: {
+    code: MilestoneDocumentsErrorCode.ZIP_CONTENT_TOO_LARGE,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[
+        SubmissionZipRejection.CONTENT_TOO_LARGE
+      ],
+  },
+  [MilestoneDocumentsErrorCode.ZIP_EXPANDS_TOO_MUCH]: {
+    code: MilestoneDocumentsErrorCode.ZIP_EXPANDS_TOO_MUCH,
+    status: 422,
+    message:
+      SUBMISSION_ZIP_REJECTION_MESSAGES[
+        SubmissionZipRejection.EXPANDS_TOO_MUCH
+      ],
+  },
+};
+
+/**
+ * 압축 파일 입장 검사의 거절 사유 → 서류 경로 오류 코드.
+ *
+ * 제출 경로의 `SUBMISSION_ZIP_REJECTION_ERROR_CODES`와 짝이다. 두 체계를 하나로 합치지
+ * 않는 대신(각 모듈이 자기 코드 공간을 소유한다) **같은 사유에 같은 판정**이 나오는지를
+ * `submission-zip-rejection-parity.spec.ts`가 지킨다.
+ */
+export const MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES: Readonly<
+  Record<SubmissionZipRejection, MilestoneDocumentsErrorCode>
+> = {
+  [SubmissionZipRejection.UNREADABLE]:
+    MilestoneDocumentsErrorCode.ZIP_UNREADABLE,
+  [SubmissionZipRejection.ENTRY_NOT_ALLOWED]:
+    MilestoneDocumentsErrorCode.ZIP_ENTRY_NOT_ALLOWED,
+  [SubmissionZipRejection.NESTED_ARCHIVE]:
+    MilestoneDocumentsErrorCode.ZIP_NESTED,
+  [SubmissionZipRejection.PASSWORD_PROTECTED]:
+    MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED,
+  [SubmissionZipRejection.UNSUPPORTED_COMPRESSION]:
+    MilestoneDocumentsErrorCode.ZIP_UNSUPPORTED_COMPRESSION,
+  [SubmissionZipRejection.TOO_MANY_ENTRIES]:
+    MilestoneDocumentsErrorCode.ZIP_TOO_MANY_ENTRIES,
+  [SubmissionZipRejection.CONTENT_TOO_LARGE]:
+    MilestoneDocumentsErrorCode.ZIP_CONTENT_TOO_LARGE,
+  [SubmissionZipRejection.EXPANDS_TOO_MUCH]:
+    MilestoneDocumentsErrorCode.ZIP_EXPANDS_TOO_MUCH,
 };

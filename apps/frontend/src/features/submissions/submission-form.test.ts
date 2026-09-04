@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   getSubmissionFileErrorMessage,
   isStaleSubmissionFormErrorCode,
+  isSubmissionArchiveErrorCode,
+  SUBMISSION_ARCHIVE_ERROR_CODES,
   SUBMISSION_FILE_MAX_BYTES,
   SubmissionFileUploadCache,
   validateSubmissionContent,
@@ -184,6 +186,34 @@ describe('getSubmissionFileErrorMessage', () => {
   it('알 수 없는 코드는 서버 메시지를 노출하지 않는다', () => {
     expect(getSubmissionFileErrorMessage('UNKNOWN')).toBeNull();
   });
+});
+
+/*
+ * #1108 — `.zip`은 이 화면이 낼 수 있다고 안내하는 형식이다. 압축 **안의 내용** 때문에
+ * 막힌 응답에 형식 안내를 붙이면, 학생은 형식이 잘못된 줄 알고 같은 파일을 다시 내거나
+ * 다시 압축한다. 압축 내용 거절 코드는 형식 문구를 쓰지 않고 서버가 준 갈래별 문장을 쓴다.
+ */
+describe('압축 파일 내용 거절 코드', () => {
+  const archiveCodes = [...SUBMISSION_ARCHIVE_ERROR_CODES];
+
+  it.each(archiveCodes)('%s는 압축 내용 거절로 알아본다', (code) => {
+    expect(isSubmissionArchiveErrorCode(code)).toBe(true);
+  });
+
+  it.each(archiveCodes)('%s에 형식 안내 문구를 붙이지 않는다', (code) => {
+    expect(getSubmissionFileErrorMessage(code)).not.toBe(
+      'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
+    );
+    // 화면이 사본을 들지 않는다는 뜻이기도 하다 — 문구는 서버가 소유한다.
+    expect(getSubmissionFileErrorMessage(code)).toBeNull();
+  });
+
+  it.each(['SUB_017', 'SUB_018', 'SUB_019', 'SUB_020', 'SUB_021', 'UNKNOWN'])(
+    '%s는 압축 내용 거절이 아니다',
+    (code) => {
+      expect(isSubmissionArchiveErrorCode(code)).toBe(false);
+    },
+  );
 });
 
 describe('validateSubmissionContent', () => {

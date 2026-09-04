@@ -17,6 +17,82 @@ import {
 import { signatureValidZip } from '../submissions/submission-zip-test-builder';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 
+const MIB = 1024 * 1024;
+
+/** 전통 방식 암호화가 자료 앞에 덧붙이는 머리 크기. 이만큼을 더해야 진짜 암호화 자료다. */
+const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
+
+/**
+ * 티켓이 헤아린 여섯 갈래(중첩·비밀번호·항목 수·용량·압축률·압축 방식)를 서류 경로에서
+ * 그대로 확인한다. 제출 경로의 같은 표는
+ * `submissions/submission-files.archive-admission.spec.ts`에 있고, 두 표가 같은 사유에
+ * 같은 판정을 내리는지는 `submissions/submission-zip-rejection-parity.spec.ts`가 지킨다.
+ */
+const ZIP_REJECTIONS: ReadonlyArray<
+  readonly [string, MilestoneDocumentsErrorCode, () => Buffer]
+> = [
+  [
+    '안에 또 다른 압축 파일이 있는',
+    MilestoneDocumentsErrorCode.ZIP_NESTED,
+    () => signatureValidZip([{ name: 'nested.zip' }]),
+  ],
+  [
+    '비밀번호가 걸린',
+    MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED,
+    () =>
+      signatureValidZip([
+        {
+          name: 'encrypted.txt',
+          flags: 0x0001,
+          compressedSize: 1 + TRADITIONAL_ENCRYPTION_HEADER_BYTES,
+          uncompressedSize: 1,
+        },
+      ]),
+  ],
+  [
+    '항목 수가 한도를 넘는',
+    MilestoneDocumentsErrorCode.ZIP_TOO_MANY_ENTRIES,
+    () =>
+      signatureValidZip(
+        Array.from({ length: 1_001 }, (_, index) => ({
+          name: `entry-${index}.txt`,
+        })),
+      ),
+  ],
+  [
+    '풀었을 때 용량이 한도를 넘는',
+    MilestoneDocumentsErrorCode.ZIP_CONTENT_TOO_LARGE,
+    () =>
+      signatureValidZip([
+        {
+          name: 'entry-expansion.txt',
+          compressionMethod: 8,
+          compressedSize: 2 * MIB,
+          uncompressedSize: 100 * MIB + 1,
+        },
+      ]),
+  ],
+  [
+    '압축률이 한도를 넘는',
+    MilestoneDocumentsErrorCode.ZIP_EXPANDS_TOO_MUCH,
+    () =>
+      signatureValidZip([
+        {
+          name: 'entry-ratio.txt',
+          compressionMethod: 8,
+          compressedSize: 1_024,
+          uncompressedSize: 101 * 1_024,
+        },
+      ]),
+  ],
+  [
+    '지원하지 않는 압축 방식으로 만든',
+    MilestoneDocumentsErrorCode.ZIP_UNSUPPORTED_COMPRESSION,
+    () =>
+      signatureValidZip([{ name: 'unsupported.txt', compressionMethod: 99 }]),
+  ],
+];
+
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 /**
  * 이 스펙이 서는 고정 시각. 기본 마일스톤 `dueAt`(2026-09-19T09:00:00Z)보다 앞이라
@@ -511,33 +587,60 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   /**
    * ZIP 입장 검사도 제출물 경로와 같은 계약이어야 한다 — 서명(PK\x03\x04)만 맞는
    * 압축 폭탄·중첩 아카이브를 학생 서류 경로로 넣을 수 있으면 검사 자체가 무의미해진다.
+   *
+   * 거절 **사유를 가르는 것**도 같은 계약이다(#1108). 한쪽만 고치면 같은 압축 파일이
+   * 제출 화면에서는 고칠 방법을 듣고 서류 화면에서는 「지원하지 않는 파일 형식입니다」를
+   * 듣는다 — 학생 입장에서는 어느 화면에서 냈는지에 따라 안내가 달라지는 셈이다.
    */
-  it('메타데이터 검사를 통과하지 못하는 .zip은 UNSUPPORTED_FILE_TYPE으로 거부한다', async () => {
-    // Given: 서명은 진짜 집이지만 안에 또 다른 집이 들어 있다(중첩 아카이브).
-    const nestedArchive = signatureValidZip([{ name: 'nested.zip' }]);
-    const { mocks: submissionFileMocks, submissionFiles } =
-      buildSubmissionFiles();
-    const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
-      buildRepository().repository,
-      storage,
-      submissionFiles,
-    );
+  it.each(ZIP_REJECTIONS)(
+    '%s .zip은 %s로 거부한다',
+    async (_scenario, expectedCode, build) => {
+      // Given
+      const archive = build();
+      const { mocks: submissionFileMocks, submissionFiles } =
+        buildSubmissionFiles();
+      const { mocks: storageMocks, storage } = buildStorage();
+      const service = new MilestoneDocumentFilesService(
+        buildRepository().repository,
+        storage,
+        submissionFiles,
+      );
 
-    // When / Then
-    await expect(
-      service.upload(1n, syntheticMilestoneId, syntheticDocumentId, {
-        buffer: nestedArchive,
-        originalname: '제출묶음.zip',
-        mimetype: 'application/zip',
-        size: nestedArchive.byteLength,
-      }),
-    ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE },
-    });
-    expect(submissionFileMocks.createPending).not.toHaveBeenCalled();
-    expect(storageMocks.put).not.toHaveBeenCalled();
-  });
+      // When / Then
+      await expect(
+        service.upload(1n, syntheticMilestoneId, syntheticDocumentId, {
+          buffer: archive,
+          originalname: '제출묶음.zip',
+          mimetype: 'application/zip',
+          size: archive.byteLength,
+        }),
+      ).rejects.toMatchObject({
+        errorCode: {
+          code: expectedCode,
+          message: MILESTONE_DOCUMENTS_ERROR_CODES[expectedCode].message,
+          status: 422,
+        },
+      });
+      expect(submissionFileMocks.createPending).not.toHaveBeenCalled();
+      expect(storageMocks.put).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(ZIP_REJECTIONS)(
+    '%s .zip에 형식 오류 코드를 쓰지 않는다',
+    (_scenario, expectedCode) => {
+      // 415 UNSUPPORTED_FILE_TYPE은 「이 형식은 받지 않는다」는 뜻인데 `.zip`은 받는
+      // 형식이다. 여기 코드가 그쪽으로 다시 접히면 #1108이 그대로 되살아난다.
+      expect(expectedCode).not.toBe(
+        MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE,
+      );
+      expect(MILESTONE_DOCUMENTS_ERROR_CODES[expectedCode].message).not.toBe(
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE
+        ].message,
+      );
+    },
+  );
 
   it('메타데이터 검사를 통과한 .zip은 그대로 받아들인다', async () => {
     // Given

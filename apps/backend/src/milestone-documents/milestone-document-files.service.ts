@@ -20,11 +20,12 @@ import {
   SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from '../submissions/submission-files.repository';
-import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
+import { inspectSubmissionZipMetadata } from '../submissions/submission-zip-admission';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
 import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
 import {
+  MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
@@ -380,11 +381,18 @@ export class MilestoneDocumentFilesService {
     ) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
-    if (
-      normalizedFileName.toLowerCase().endsWith('.zip') &&
-      !(await isSafeSubmissionZipMetadata(file.buffer))
-    ) {
-      throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
+    /*
+     * 거절 사유를 갈래별 코드로 옮기는 것도 제출 경로와 같은 계약이다(#1108). 한쪽만
+     * 고치면 같은 압축 파일이 제출 화면에서는 고칠 방법을 듣고 서류 화면에서는 「지원하지
+     * 않는 파일 형식입니다」를 듣는다.
+     */
+    if (normalizedFileName.toLowerCase().endsWith('.zip')) {
+      const zipRejection = await inspectSubmissionZipMetadata(file.buffer);
+      if (zipRejection !== null) {
+        throw this.error(
+          MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[zipRejection],
+        );
+      }
     }
     return sanitizeSubmissionFileOriginalName(normalizedFileName);
   }

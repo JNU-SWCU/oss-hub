@@ -17,6 +17,7 @@ import {
 import {
   focusSubmissionField,
   getSubmissionFileErrorMessage,
+  isSubmissionArchiveErrorCode,
   SubmissionFileUploadCache,
   type SubmissionFormErrors,
   type SubmissionFormInput,
@@ -188,6 +189,15 @@ export function SubmissionChecklistPage({
       setComment('');
     } catch (error: unknown) {
       if (error instanceof ApiError) {
+        /*
+         * 압축 파일 안의 내용 때문에 막힌 경우(#1108). 갈래별 문장은 서버가 소유하므로
+         * 그대로 파일 입력 옆에 세운다. 이 갈래를 알려 주지 않으면 아래 `resubmissionFailure`가
+         * 「알 수 없는 코드」로 보고 화면 전체 알림으로 밀어낸다.
+         */
+        if (isSubmissionArchiveErrorCode(error.problem.code)) {
+          setFileError(error.problem.detail);
+          return;
+        }
         const uploadMessage = getSubmissionFileErrorMessage(error.problem.code);
         if (uploadMessage) {
           if (error.problem.code === 'SUB_020') {
