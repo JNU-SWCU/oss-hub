@@ -239,7 +239,8 @@ const programWithoutMilestones: ProgramDetail = {
   id: 'program-1',
   name: 'OSS 경진대회',
   organizer: '운영기관',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
+  applicationTemplateKey: 'oss-contest',
   description: '프로그램 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -306,7 +307,7 @@ describe('ProgramDetailPage states', () => {
     expect(titleSlot).toContain('OSS 경진대회');
     expect(titleSlot).toContain('모집중');
 
-    const description = '운영기관 · OSS 경진대회 · 2026.07.01 ~ 2026.08.31';
+    const description = '운영기관 · 비교과 · 2026.07.01 ~ 2026.08.31';
     expect(html.split(description)).toHaveLength(2);
     expect(html).not.toContain('<strong>주관기관</strong>');
     expect(html).not.toContain('<strong>신청기간</strong>');
@@ -402,7 +403,7 @@ describe('ProgramDetailPage states', () => {
 const overviewBase: ProgramOverview = {
   programId: 'program-1',
   name: 'OSS 경진대회',
-  category: 'OSS_CONTEST',
+  trackType: 'EXTRACURRICULAR',
   lifecycle: 'ACTIVE',
   milestoneCount: 1,
   boardPostCount: 0,

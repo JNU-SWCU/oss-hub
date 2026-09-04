@@ -29,3 +29,14 @@
 - 검증: 집중 테스트 17/17, Linux 전체 테스트 306파일·3042건, typecheck·lint, Linux Docker builder, 익명 Chrome 포인터·키보드 2/2, public-safe를 통과했다.
 - 환경 참고: Windows 전체 테스트의 확장자 없는 `pnpm` 실행·음수 프로세스 그룹 신호 제약과 native build의 standalone symlink `EPERM`은 환경 잔여로 원문 증거에 남겼고, 대응 Linux 검증은 통과했다.
 - 공개 안전성: 익명·합성 상태만 사용했으며 병합·배포는 수행하지 않는다. 배포 환경 재확인은 병합·배포 후 남은 운영 확인이다.
+
+## 2026-09-03 — Issue #1132 PR 리뷰 반영
+
+- 상태: review
+- Issue: #1132
+- PR: #1171
+- blocker: 없음
+- 결과: 신청 제목 제거 뒤 남아 있던 교직원 목록·상세·판정 창의 제목 노출을 없앴다. 팀 생성·참여 코드 합류 뒤 신청서 단계가 다시 팀 단계로 돌아가던 순서를 바로잡았고, 마지막 팀원 탈퇴 시 남은 초대 기록을 팀보다 먼저 정리한다. 사용자 화면의 내부 저장 구조 표현 `1인 팀`은 `팀 없이 계속`으로 바꿨다.
+- 검증: 변경 범위 backend 3/3, frontend 78/78 테스트와 lint·typecheck·prettier를 통과했다. 합성 student/staff local-review fixture로 1280×720·390×844 실제 브라우저에서 팀→신청서 전환, 신청자 목록·상세·승인 창의 제목 미노출, CJK 레이아웃을 확인했다.
+- 환경 참고: Windows 전체 frontend에서 무변경 `card-grid.geometry-runtime.test.mjs` 4건이 확장자 없는 `pnpm` 실행과 프로세스 신호 제약으로 재현됐고, production standalone 복사는 symlink `EPERM`으로 멈췄다. 제품 번들 컴파일·타입 검사·정적 페이지 생성은 그 전 단계까지 통과했다.
+- 공개 안전성: 합성 fixture만 사용했고 캡처는 브랜치에 커밋하지 않고 PR 첨부로 이전한다.

@@ -148,7 +148,9 @@ const program: ProgramDetail = {
   id: 'program-1',
   name: '합성 프로그램',
   organizer: '합성 주관',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'basic',
   description: '설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -338,13 +340,12 @@ describe('program applicants review flow', () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it('목록 제목 칸도 학생이 넣은 Bidi 를 흘리지 않는다', async () => {
-    // 목록은 `line-clamp-2` 로 잘라 그리지만 잘라도 방향은 뒤집힌다(#735).
+  it('제거된 신청 제목을 목록 칸이나 값으로 다시 노출하지 않는다', async () => {
     listProgramApplicationsMock.mockResolvedValue(
       applicationPage([
         {
           ...personal,
-          answers: { ...personal.answers, title: '제목\u202E뒤집기' },
+          answers: { ...personal.answers, title: '노출되면 안 되는 제목' },
         },
       ]),
     );
@@ -356,8 +357,15 @@ describe('program applicants review flow', () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).not.toContain('\u202E');
-    expect(container.textContent).toContain('제목뒤집기');
+    const headers = Array.from(container.querySelectorAll('th')).map((header) =>
+      header.textContent?.trim(),
+    );
+    const searchInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="신청자 검색"]',
+    );
+    expect(headers).not.toContain('제목');
+    expect(searchInput?.placeholder).toBe('이름·팀·GitHub');
+    expect(container.textContent).not.toContain('노출되면 안 되는 제목');
   });
 
   it('목록의 신청자·핸들 칸도 Bidi 를 흘리지 않는다', async () => {

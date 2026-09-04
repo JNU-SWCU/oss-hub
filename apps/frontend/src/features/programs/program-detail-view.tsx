@@ -8,7 +8,7 @@ import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
 import {
-  categoryLabel,
+  programDetailMeta,
   formatSeoulDateOnly,
   isPastDue,
 } from './program-detail-format';
@@ -258,7 +258,7 @@ export function ProgramDetailReadyState({
             </StatusBadge>
           </span>
         }
-        description={`${program.organizer} · ${categoryLabel(program.category)} · ${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`}
+        description={programDetailMeta(program)}
         actions={<ProgramActions program={program} />}
       />
       <ProgramSummary program={program} />

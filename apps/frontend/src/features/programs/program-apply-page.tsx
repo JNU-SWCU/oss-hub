@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
-import { createApplication } from './api';
+import { createApplication, createTeam, joinTeam } from './api';
 import {
   loadProgramApplyContext,
   type ProgramApplyContext,
@@ -32,6 +32,8 @@ import {
   type ApplicationConfirmation,
   type ApplicationFormMode,
 } from './program-apply-views';
+import { ProgramApplyWizardView } from './program-apply-wizard-view';
+import { mapTeamActionError } from './program-teams-flow';
 import {
   cancelMyApplication,
   updateMyApplication,
@@ -50,7 +52,6 @@ type ProgramApplyPageState =
 
 function applicationAnswers(values: ProgramApplyFormValues) {
   return {
-    title: values.title.trim(),
     summary: values.summary.trim(),
   } as const;
 }
@@ -75,6 +76,14 @@ export function ProgramApplyPage({
   const [confirmation, setConfirmation] =
     useState<ApplicationConfirmation>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'team' | 'application'>(
+    'team',
+  );
+  const [createName, setCreateName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [joiningTeam, setJoiningTeam] = useState(false);
   const hasUserInput = useRef(false);
   const loadGeneration = useRef(0);
 
@@ -89,6 +98,7 @@ export function ProgramApplyPage({
     if (generation !== loadGeneration.current) return;
     if (context.kind === 'ready' && !hasUserInput.current) {
       setValues(context.initialValues);
+      setCurrentStep(context.mode === 'edit' ? 'application' : 'team');
     }
     setState(context);
   }, [programId, sessionUser, teamId]);
@@ -101,6 +111,36 @@ export function ProgramApplyPage({
       loadGeneration.current += 1;
     };
   }, [load]);
+
+  async function handleCreateTeam(): Promise<void> {
+    if (state.kind !== 'ready' || !createName.trim()) return;
+    setCreatingTeam(true);
+    setTeamError(null);
+    try {
+      await createTeam(programId, { name: createName.trim() });
+      await load();
+      setCurrentStep('application');
+    } catch (error: unknown) {
+      setTeamError(mapTeamActionError(error, 'create'));
+    } finally {
+      setCreatingTeam(false);
+    }
+  }
+
+  async function handleJoinTeam(): Promise<void> {
+    if (state.kind !== 'ready' || !joinCode.trim()) return;
+    setJoiningTeam(true);
+    setTeamError(null);
+    try {
+      await joinTeam(programId, { joinCode: joinCode.trim() });
+      await load();
+      setCurrentStep('application');
+    } catch (error: unknown) {
+      setTeamError(mapTeamActionError(error, 'join'));
+    } finally {
+      setJoiningTeam(false);
+    }
+  }
 
   function requestSubmit(): void {
     if (state.kind !== 'ready') return;
@@ -131,7 +171,7 @@ export function ProgramApplyPage({
       if (confirmation === 'save') {
         if (state.applicationId === null) return;
         const updated = await updateMyApplication(programId, {
-          answers: applicationAnswers(values),
+          answers: { title: values.title ?? '', ...applicationAnswers(values) },
           applicationTemplateVersion: state.template.version,
         });
         setState({
@@ -228,50 +268,67 @@ export function ProgramApplyPage({
       );
     case 'ready':
       return (
-        <ProgramApplyFormView
+        <ProgramApplyWizardView
           program={state.program}
-          template={state.template}
-          applicantName={state.applicantName}
-          githubHandle={state.githubHandle}
+          currentStep={currentStep}
           team={state.team}
-          values={values}
-          errors={errors}
-          serverError={serverError}
-          mode={state.mode}
-          canManage={state.canManage}
-          confirmation={confirmation}
-          teamMinimum={state.teamMinimum}
-          submitting={submitting}
-          onChange={(key, value) => {
-            hasUserInput.current = true;
-            setValues((previous) => ({ ...previous, [key]: value }));
-          }}
-          onTogglePublicationPlanned={(checked) => {
-            hasUserInput.current = true;
-            setValues((previous) => ({
-              ...previous,
-              isRepositoryPublicationPlanned: checked,
-            }));
-          }}
-          onRepositoryModeChange={(mode) => {
-            hasUserInput.current = true;
-            setValues((previous) => ({
-              ...previous,
-              repositoryConnectionMode: mode,
-            }));
-          }}
-          onToggleConsent={(checked) => {
-            hasUserInput.current = true;
-            setValues((previous) => ({
-              ...previous,
-              personalDataConsent: checked,
-            }));
-          }}
-          onRequestSubmit={requestSubmit}
-          onRequestCancel={() => setConfirmation('cancel')}
-          onCloseConfirmation={() => setConfirmation(null)}
-          onConfirm={() => void confirmAction()}
-        />
+          createName={createName}
+          joinCode={joinCode}
+          teamError={teamError}
+          creating={creatingTeam}
+          joining={joiningTeam}
+          onCreateNameChange={setCreateName}
+          onJoinCodeChange={setJoinCode}
+          onCreate={() => void handleCreateTeam()}
+          onJoin={() => void handleJoinTeam()}
+          onContinue={() => setCurrentStep('application')}
+          onNavigate={(step) => setCurrentStep(step)}
+        >
+          <ProgramApplyFormView
+            program={state.program}
+            template={state.template}
+            applicantName={state.applicantName}
+            githubHandle={state.githubHandle}
+            team={state.team}
+            values={values}
+            errors={errors}
+            serverError={serverError}
+            mode={state.mode}
+            canManage={state.canManage}
+            confirmation={confirmation}
+            teamMinimum={state.teamMinimum}
+            submitting={submitting}
+            onChange={(key, value) => {
+              hasUserInput.current = true;
+              setValues((previous) => ({ ...previous, [key]: value }));
+            }}
+            onTogglePublicationPlanned={(checked) => {
+              hasUserInput.current = true;
+              setValues((previous) => ({
+                ...previous,
+                isRepositoryPublicationPlanned: checked,
+              }));
+            }}
+            onRepositoryModeChange={(mode) => {
+              hasUserInput.current = true;
+              setValues((previous) => ({
+                ...previous,
+                repositoryConnectionMode: mode,
+              }));
+            }}
+            onToggleConsent={(checked) => {
+              hasUserInput.current = true;
+              setValues((previous) => ({
+                ...previous,
+                personalDataConsent: checked,
+              }));
+            }}
+            onRequestSubmit={requestSubmit}
+            onRequestCancel={() => setConfirmation('cancel')}
+            onCloseConfirmation={() => setConfirmation(null)}
+            onConfirm={() => void confirmAction()}
+          />
+        </ProgramApplyWizardView>
       );
     default: {
       const exhaustive: never = state;

@@ -12,7 +12,9 @@ const program: ProgramDetail = {
   id: 'program-1',
   name: '합성 프로그램',
   organizer: '합성 주관',
-  category: 'BASIC',
+  trackType: 'EXTRACURRICULAR',
+
+  applicationTemplateKey: 'basic',
   description: '설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -384,8 +386,7 @@ describe('ProgramApply views', () => {
     );
 
     expect(html).toContain('/programs/program-1');
-    expect(html).toContain('/programs/program-1/teams');
-    expect(html).toContain('팀 구성');
+    expect(html).not.toContain('/programs/program-1/teams');
   });
 
   /**

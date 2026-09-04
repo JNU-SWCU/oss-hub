@@ -21,6 +21,7 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
   TeamInvitationStatus,
+  ProgramTrackType,
 } from '@prisma/client';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -348,7 +349,8 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       id: programId,
       name: `합성 purge 대상 프로그램 ${label}`,
       organizer: 'Synthetic OSS Center',
-      category: ProgramCategory.CAPSTONE,
+      trackType: ProgramTrackType.CURRICULAR,
+      category: ProgramCategory.BASIC,
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),

@@ -1,4 +1,9 @@
-import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
+import {
+  AffiliationKind,
+  MemberKind,
+  ProgramCategory,
+  ProgramTrackType,
+} from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { computeJoinCodeDigest } from '../../common/join-code-digest';
@@ -104,7 +109,8 @@ async function seedTeamWithOneSlotLeft(): Promise<void> {
       id: PROGRAM_ID,
       name: 'QA59 팀 정원 잠금 프로그램',
       organizer: 'Synthetic organizer',
-      category: ProgramCategory.CAPSTONE,
+      trackType: ProgramTrackType.CURRICULAR,
+      category: ProgramCategory.BASIC,
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),

@@ -31,7 +31,6 @@ function Harness({
   reasonError = false,
   applicantName = '합성 신청자',
   teamName = null,
-  applicationTitle = '합성 신청 제목',
 }: {
   readonly action?: ApplicationDecisionAction;
   readonly currentStatus?: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -40,7 +39,6 @@ function Harness({
   readonly reasonError?: boolean;
   readonly applicantName?: string;
   readonly teamName?: string | null;
-  readonly applicationTitle?: string;
 }) {
   const [open, setOpen] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -59,7 +57,6 @@ function Harness({
           }
           applicantName={applicantName}
           teamName={teamName}
-          applicationTitle={applicationTitle}
           repositoryProvisioningEnabled={false}
           repositoryConnectionMode="NEW"
           reason=""
@@ -107,7 +104,6 @@ function SelfClosingHarness() {
           currentStatus="SUBMITTED"
           applicantName="합성 신청자"
           teamName={null}
-          applicationTitle="합성 신청 제목"
           repositoryProvisioningEnabled={false}
           repositoryConnectionMode="NEW"
           reason=""
@@ -430,21 +426,17 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   describe('판정 대상 요약 — 무엇을 판정하는지 창 안에 말한다([#869])', () => {
     // 목록의 행 단위 판정이 사라지면 이 창이 유일한 판정 지점이 된다 — 확정
     // 버튼을 누르기 직전에 누구의 무엇인지가 창 안에 있어야 한다.
-    it('팀 신청이면 신청자 이름·팀 이름·제목이 창 안에 보인다', async () => {
+    it('팀 신청이면 신청자와 팀만 보이고 제거된 신청 제목은 보이지 않는다', async () => {
       await act(async () =>
         root.render(
-          <Harness
-            applicantName="합성 신청자"
-            teamName="합성 팀 (3명)"
-            applicationTitle="합성 신청 제목"
-          />,
+          <Harness applicantName="합성 신청자" teamName="합성 팀 (3명)" />,
         ),
       );
 
       const opened = dialog();
       expect(opened?.textContent).toContain('합성 신청자');
       expect(opened?.textContent).toContain('합성 팀 (3명)');
-      expect(opened?.textContent).toContain('합성 신청 제목');
+      expect(opened?.textContent).not.toContain('합성 신청 제목');
     });
 
     it('개인 신청(team이 null)이면 팀 줄을 그리지 않는다', async () => {
@@ -462,13 +454,9 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
       expect(summary?.textContent).not.toContain('undefined');
     });
 
-    it('제목이 빈 문자열이면 제목 줄을 그리지 않는다', async () => {
-      // Given: 신청서 제목이 비어 있다(학생 자유 입력이라 있을 수 있는 값).
-      await act(async () =>
-        root.render(<Harness teamName="합성 팀 (2명)" applicationTitle="" />),
-      );
+    it('판정 대상 요약에 제거된 제목 라벨을 그리지 않는다', async () => {
+      await act(async () => root.render(<Harness teamName="합성 팀 (2명)" />));
 
-      // Then: 「제목」 라벨 자체가 없다(개수 세기 대신 라벨 부재로 검증한다).
       const summary = document.getElementById('application-decision-summary');
       const labels = Array.from(summary?.querySelectorAll('dt') ?? []).map(
         (dt) => dt.textContent,

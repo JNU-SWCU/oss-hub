@@ -16,18 +16,21 @@ export const PROGRAM_CATEGORIES = [
 
 export type ProgramCategory = (typeof PROGRAM_CATEGORIES)[number];
 
+export const PROGRAM_TRACK_TYPES = ['CURRICULAR', 'EXTRACURRICULAR'] as const;
+
+export type ProgramTrackType = (typeof PROGRAM_TRACK_TYPES)[number];
+
+export const PROGRAM_TRACK_TYPE_LABELS = {
+  CURRICULAR: '교과',
+  EXTRACURRICULAR: '비교과',
+} as const satisfies Record<ProgramTrackType, string>;
+
 /** 서버 V1_APPLICATION_FIELDS와 동일 계약. 목록 API 병합 전 로컬 폴백. */
 export const V1_APPLICATION_FIELDS: readonly ApplicationFormField[] = [
   {
     key: 'applicantName',
     type: 'auto',
     label: '신청자',
-    required: true,
-  },
-  {
-    key: 'title',
-    type: 'text',
-    label: '제목',
     required: true,
   },
   {
@@ -49,7 +52,6 @@ function definition(
   label: string,
   key: string,
   name: string,
-  participation: ApplicationFormTemplate['participation'],
 ): ProgramTemplateDefinition {
   return {
     category,
@@ -58,7 +60,7 @@ function definition(
       key,
       version: 1,
       name,
-      participation,
+      participation: 'team',
       fields: V1_APPLICATION_FIELDS,
     },
   };
@@ -66,56 +68,47 @@ function definition(
 
 export const PROGRAM_TEMPLATE_DEFINITIONS: readonly ProgramTemplateDefinition[] =
   [
-    definition('BASIC', '기본', 'basic', '기본 신청서', 'individual'),
+    definition('BASIC', '기본', 'basic', '기본 신청서'),
     definition(
       'SW_VALUE_SPREAD',
       'SW가치확산',
       'sw-value-spread',
       'SW가치확산 신청서',
-      'individual',
     ),
     definition(
       'OSS_CONTEST',
       'OSS경진대회',
       'oss-contest',
       'OSS경진대회 신청서',
-      'team',
     ),
-    definition('CAPSTONE', '캡스톤', 'capstone', '캡스톤 신청서', 'team'),
-    definition(
-      'SW_CONVERGENCE',
-      'SW융합',
-      'sw-convergence',
-      'SW융합 신청서',
-      'team',
-    ),
+    definition('CAPSTONE', '캡스톤', 'capstone', '캡스톤 신청서'),
+    definition('SW_CONVERGENCE', 'SW융합', 'sw-convergence', 'SW융합 신청서'),
     definition(
       'GLOBAL_MAKERTHON',
       '글로벌메이커톤',
       'global-makerthon',
       '글로벌메이커톤 신청서',
-      'team',
     ),
     definition(
       'CORPORATE_INTERNSHIP',
       '기업인턴십',
       'corporate-internship',
       '기업인턴십 신청서',
-      'individual',
     ),
   ];
 
 export function resolveProgramApplicationTemplate(
-  program: ProgramDetail,
+  program: Pick<ProgramDetail, 'applicationTemplateKey'>,
   templates: readonly ApplicationFormTemplate[],
 ): ApplicationFormTemplate | null {
-  const definition = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (item) => item.category === program.category,
+  const fromApi = templates.find(
+    (item) => item.key === program.applicationTemplateKey,
   );
-  if (!definition) return null;
+  if (fromApi) return fromApi;
   return (
-    templates.find((item) => item.key === definition.template.key) ??
-    definition.template
+    PROGRAM_TEMPLATE_DEFINITIONS.find(
+      (item) => item.template.key === program.applicationTemplateKey,
+    )?.template ?? null
   );
 }
 

@@ -69,18 +69,12 @@ const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS',
   organizer: 'Center',
-  category: 'OSS_CONTEST',
-  lifecycle: 'PUBLISHED',
+  trackType: 'EXTRACURRICULAR',
+
   applicationTemplateKey: 'oss-contest',
+  lifecycle: 'PUBLISHED',
   applicationTemplateVersion: 1,
   applicationCount: 0,
-  categoryLocked: {
-    locked: false,
-    byApplications: false,
-    byTeams: false,
-    applicationCount: 0,
-    teamCount: 0,
-  },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
   startAt: '2026-08-16T09:30:59.000Z',
@@ -103,7 +97,7 @@ describe('ProgramEditPage save payload', () => {
 
     // Then
     expect(input).toMatchObject({
-      category: 'OSS_CONTEST',
+      trackType: 'EXTRACURRICULAR',
       applicationStartAt: editableProgram.applicationStartAt,
       applicationEndAt: editableProgram.applicationEndAt,
       startAt: editableProgram.startAt,

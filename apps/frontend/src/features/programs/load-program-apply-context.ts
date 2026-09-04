@@ -66,7 +66,7 @@ async function resolveTeam(
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
-  if (template.participation !== 'team') {
+  if (template.participation === 'individual') {
     return { teamId: requestedTeamId, minimum: null, team: null };
   }
   try {
@@ -156,7 +156,6 @@ export async function loadProgramApplyContext(
         applicationId: application.id,
         canManage: application.canManage,
         initialValues: {
-          title: application.answers.title,
           summary: application.answers.summary,
           isRepositoryPublicationPlanned:
             application.isRepositoryPublicationPlanned,
@@ -188,7 +187,6 @@ export async function loadProgramApplyContext(
       applicationId: null,
       canManage: false,
       initialValues: {
-        title: '',
         summary: '',
         isRepositoryPublicationPlanned: true,
         repositoryConnectionMode: 'new',

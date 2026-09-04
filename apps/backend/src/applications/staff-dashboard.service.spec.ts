@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { ProgramCategory } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
@@ -22,7 +22,7 @@ describe('StaffDashboardService', () => {
         {
           id: 'program:1',
           name: 'Synthetic program',
-          category: ProgramCategory.BASIC,
+          trackType: ProgramTrackType.EXTRACURRICULAR,
           applicationPeriod: {
             startsAt: new Date('2026-07-01T00:00:00.000Z'),
             endsAt: new Date('2026-07-31T23:59:59.000Z'),
@@ -38,7 +38,7 @@ describe('StaffDashboardService', () => {
         {
           id: 'program:2',
           name: 'No data program',
-          category: ProgramCategory.CAPSTONE,
+          trackType: ProgramTrackType.CURRICULAR,
           applicationPeriod: {
             startsAt: new Date('2026-08-01T00:00:00.000Z'),
             endsAt: new Date('2026-08-31T23:59:59.000Z'),
@@ -91,7 +91,7 @@ describe('StaffDashboardService', () => {
     expect(summary.programs[0]).toEqual({
       id: 'program:1',
       name: 'Synthetic program',
-      category: ProgramCategory.BASIC,
+      trackType: ProgramTrackType.EXTRACURRICULAR,
       applicationPeriod: {
         startsAt: new Date('2026-07-01T00:00:00.000Z'),
         endsAt: new Date('2026-07-31T23:59:59.000Z'),

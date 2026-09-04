@@ -8,8 +8,8 @@ import type {
 } from './types';
 
 const PARTICIPATION_LABELS: Readonly<Record<ProgramParticipation, string>> = {
-  individual: '개인형 신청',
-  team: '팀형 신청',
+  individual: '팀 신청',
+  team: '팀 신청',
 };
 
 export type FormRendererMode = 'preview' | 'edit';
