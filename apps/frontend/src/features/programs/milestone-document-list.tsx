@@ -38,6 +38,7 @@ import {
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
   milestoneDocumentResubmissionDueNotice,
+  milestoneDocumentResubmissionDueTickDelay,
   milestoneDocumentReviewNoticeTone,
   milestoneDocumentViewerDisplay,
   type MilestoneDocumentReviewDisplay,
@@ -549,6 +550,14 @@ function StudentDocumentRow({
    */
   const canSubmit = isMilestoneDocumentResubmittable(viewerSubmission);
   /**
+   * 시간에 기대는 판단들이 보는 「지금」. 렌더 때마다 `Date.now()`를 다시 읽지 않고 **기한이
+   * 지나는 그 순간에만** 앞으로 감는다 — 아래 `useEffect`가 그 시각 하나를 겨냥해 깨운다.
+   *
+   * 열어 둔 화면이 스스로 갱신되지 않으면 안내는 계속 「기한 안입니다」라 말하고 「수정」
+   * 버튼도 눌리는 채로 남아, 누른 학생은 서버 422만 받는다.
+   */
+  const [now, setNow] = useState(() => Date.now());
+  /**
    * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **아직 응하지 않은 보완 요청만 빼고**.
    * 교직원이 마감 뒤에 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면
    * 그 요청을 받은 학생이 낼 방법이 없어진다. 그 한 번을 쓰고 나면 다시 잠기고(422 MSD_031),
@@ -557,6 +566,7 @@ function StudentDocumentRow({
   const deadlineLocked = isMilestoneDocumentDeadlineLocked(
     closed,
     viewerSubmission,
+    now,
   );
   /**
    * 지금 내면 되돌릴 수 없는가 — 그렇다면 확인 창을 한 번 지난다. 마감 전 교체는 몇 번이든
@@ -567,8 +577,30 @@ function StudentDocumentRow({
     viewerSubmission,
   );
   /** 재제출 기한을 사유 상자 안에 어떻게 적을지. 적을 것이 없으면 `null`이다. */
-  const dueNotice = milestoneDocumentResubmissionDueNotice(viewerSubmission);
+  const dueNotice = milestoneDocumentResubmissionDueNotice(
+    viewerSubmission,
+    now,
+  );
   const historyMetadata = viewerSubmission?.history;
+  /**
+   * 기한이 지나는 **그 순간**을 겨냥한 타이머 하나. 없으면 `null`이라 아무것도 걸지 않는다.
+   *
+   * 값이 `now`에서 나오므로 다른 이유로 다시 그려질 때는 그대로여서 타이머가 다시 걸리지
+   * 않는다. 깨어나 `now`가 앞으로 감기면 안내는 「지났습니다」가 되고 이 값은 `null`이 되어
+   * 타이머도 스스로 걷힌다.
+   *
+   * ⚠ 열려 있는 제출 폼은 **닫지 않는다.** 여기서 닫으면 마침 적고 있던 학생의 글이 사라진다.
+   * 그 자리는 서버가 422(MSD_034)로 막고, 폼은 실패해도 입력을 그대로 들고 있는다.
+   */
+  const dueTickDelay = milestoneDocumentResubmissionDueTickDelay(
+    viewerSubmission,
+    now,
+  );
+  useEffect(() => {
+    if (dueTickDelay === null) return;
+    const timer = setTimeout(() => setNow(Date.now()), dueTickDelay);
+    return () => clearTimeout(timer);
+  }, [dueTickDelay]);
 
   const refreshDocument = useCallback(async (): Promise<boolean> => {
     setSyncing(true);

@@ -11,6 +11,7 @@ import {
   type MilestoneDocumentReviewDecision,
 } from './milestone-document-review-api';
 import { isPastDue } from './program-detail-format';
+import { seoulDateTimeValue } from './seoul-date-time';
 
 /**
  * 서류 제출물 판정의 **화면 판단** 전담부 — 판정 라벨, 상태 → 배지 매핑, 사유 필수 검증,
@@ -260,6 +261,44 @@ export function milestoneDocumentResubmissionDueNotice(
 }
 
 /**
+ * `setTimeout`이 실제로 기다려 주는 최대 밀리초(약 24.8일). 이보다 큰 값을 넘기면 브라우저가
+ * 32비트로 넘쳐 **즉시** 부른다 — 기한이 한 달 뒤인 보완 요청에서 타이머가 쉬지 않고 도는
+ * 자리가 정확히 여기다. 그래서 넘치는 만큼은 잘라 두고, 깨어난 뒤 남은 시간을 다시 잰다.
+ */
+const MAX_TIMEOUT_DELAY = 2_147_483_647;
+
+/**
+ * 학생 줄을 **언제 한 번 다시 그려야 하는가** — 재제출 기한이 지나는 순간까지 남은 밀리초.
+ * 다시 그릴 일이 없으면 `null`이다.
+ *
+ * 화면을 열어 둔 채 기한을 넘기면 렌더 시점 계산(`isMilestoneDocumentDeadlineLocked` ·
+ * `milestoneDocumentResubmissionDueNotice`)이 다시 돌지 않는다. 그러면 안내는 계속 「기한
+ * 안입니다」라고 말하고 「수정」 버튼도 눌리는 채로 남아, 누른 학생은 서버 422(MSD_034)를
+ * 받는다 — 화면이 열어 준 것을 서버가 거절하는 자리다.
+ *
+ * ⚠ 화면 전체를 주기적으로 다시 그리는 타이머(1초마다 등)를 두지 마라. 이 줄에서 시간에
+ * 따라 바뀌는 것은 **그 한 순간** 하나뿐이라, 그 시각을 겨냥한 타이머 하나면 된다. 주기
+ * 타이머는 아무 일도 없는 초마다 목록 전체를 다시 그리고, 학생이 입력 중인 폼과도 겹친다.
+ *
+ * 이미 지난 기한·기한 없는 보완 요청·이미 다시 낸 서류에는 `null`을 준다 — 그 자리들은
+ * 시간이 흘러도 답이 바뀌지 않는다.
+ */
+export function milestoneDocumentResubmissionDueTickDelay(
+  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+  now: number = Date.now(),
+): number | null {
+  const notice = milestoneDocumentResubmissionDueNotice(viewerSubmission, now);
+  if (notice === null || notice.kind !== 'open') return null;
+  const dueAt = new Date(notice.dueAt).getTime();
+  if (!Number.isFinite(dueAt)) return null;
+  /*
+   * 기한이 「지났다」는 판정은 `now > dueAt`이므로(`isPastDue`) 그 시각 **1밀리초 뒤**에
+   * 깨야 한다. 정각에 깨면 답이 아직 뒤집히지 않아 같은 화면을 한 번 더 그리고 만다.
+   */
+  return Math.min(Math.max(dueAt - now + 1, 0), MAX_TIMEOUT_DELAY);
+}
+
+/**
  * 학생에게 사유 상자를 눈에 띄게 띄워야 하는가 — 보완 요청·반려일 때뿐이다.
  * 승인에 붙은 사유는 되돌려 보내는 말이 아니라 덧붙임이라 경고 톤으로 키우지 않는다.
  */
@@ -344,6 +383,11 @@ export function milestoneDocumentReviewFormError(
  * 지난 시각을 막는 것이 이 검사의 요점이다. 그대로 저장되면 보완 요청이 만들어지는 순간 이미
  * 닫혀 있어 **「다시 내세요」가 사실상 반려**가 된다 — 학생은 요청을 받고도 낼 수 없고, 교직원
  * 화면에는 아무 잘못도 보이지 않는다. 서버도 같은 자리를 422(MSD_032·MSD_033)로 막는다.
+ *
+ * 칸의 값은 **서울 시각으로** 읽는다(`seoulDateTimeValue`) — 보낼 값을 만드는
+ * `milestoneDocumentResubmissionDueAtPayload`와 같은 규칙이어야 한다. 한쪽만 브라우저
+ * 시간대로 읽으면 시간대가 다른 교직원에게 「검사는 통과했는데 서버가 지난 시각이라며
+ * 거절하는」(또는 그 반대의) 자리가 생긴다.
  */
 export function milestoneDocumentResubmissionDueAtError(
   decision: MilestoneDocumentReviewDecision,
@@ -354,8 +398,8 @@ export function milestoneDocumentResubmissionDueAtError(
   if (resubmissionDueAt.trim() === '') {
     return '보완 요청은 재제출 기한을 정해 주세요.';
   }
-  const parsed = new Date(resubmissionDueAt).getTime();
-  if (!Number.isFinite(parsed)) {
+  const parsed = seoulDateTimeValue(resubmissionDueAt);
+  if (parsed === null) {
     return '재제출 기한을 다시 골라 주세요.';
   }
   if (parsed <= now) {
@@ -368,16 +412,22 @@ export function milestoneDocumentResubmissionDueAtError(
  * 입력 칸(`datetime-local`)의 값을 요청에 실을 ISO 8601로 바꾼다. 보낼 수 없으면 `undefined`다.
  *
  * `datetime-local`은 **표준시대(timezone) 없는** 문자열('2026-09-26T18:00')을 준다. 그대로
- * 보내면 서버가 그것을 어느 시각으로 읽을지 이 화면이 정하지 못한다 — 브라우저의 지역 시각으로
- * 해석해 ISO로 굳혀 보내야 교직원이 화면에서 고른 그 순간이 그대로 저장된다.
+ * 보내면 서버가 그것을 어느 시각으로 읽을지 이 화면이 정하지 못한다 — 어느 순간인지 여기서
+ * 굳혀 보내야 교직원이 화면에서 고른 그 시각이 그대로 저장된다.
+ *
+ * ⚠ 그 「어느 순간」은 **서울 시각**이지 브라우저의 지역 시각이 아니다. `new Date('2026-09-26T18:00')`
+ * 은 시스템 시간대로 읽는데, 이 서비스의 날짜는 어디서 보든 서울 시각으로 표시된다 — UTC로 맞춰
+ * 둔 브라우저에서 18:00을 고른 교직원은 저장하자마자 「9월 27일 03:00」을 보게 된다. 프로그램
+ * 날짜 흐름이 같은 이유로 `+09:00`을 붙이고(`program-edit-flow.ts`), 그 규칙 하나를
+ * `seoulDateTimeValue`가 갖는다.
  */
 export function milestoneDocumentResubmissionDueAtPayload(
   decision: MilestoneDocumentReviewDecision,
   resubmissionDueAt: string,
 ): string | undefined {
   if (decision !== 'CHANGES_REQUESTED') return undefined;
-  const parsed = new Date(resubmissionDueAt);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+  const parsed = seoulDateTimeValue(resubmissionDueAt);
+  return parsed === null ? undefined : new Date(parsed).toISOString();
 }
 
 /**

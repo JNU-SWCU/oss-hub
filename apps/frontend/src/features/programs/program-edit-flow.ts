@@ -18,6 +18,7 @@ import {
   PROGRAM_TRACK_TYPES,
   type ProgramTrackType,
 } from './program-templates';
+import { seoulDateTimeValue } from './seoul-date-time';
 
 export interface ProgramEditForm {
   readonly name: string;
@@ -278,10 +279,10 @@ export function buildProgramEditInput(
 export function validateProgramEditForm(
   form: ProgramEditForm,
 ): ProgramEditErrors {
-  const applicationStartAt = dateTimeValue(form.applicationStartAt);
-  const applicationEndAt = dateTimeValue(form.applicationEndAt);
-  const startAt = dateTimeValue(form.startAt);
-  const endAt = form.endAtUndecided ? null : dateTimeValue(form.endAt);
+  const applicationStartAt = seoulDateTimeValue(form.applicationStartAt);
+  const applicationEndAt = seoulDateTimeValue(form.applicationEndAt);
+  const startAt = seoulDateTimeValue(form.startAt);
+  const endAt = form.endAtUndecided ? null : seoulDateTimeValue(form.endAt);
   const errors: {
     name?: string;
     organizer?: string;
@@ -370,11 +371,11 @@ export function validateMilestoneForm(
   if (form.name.trim() === '') {
     errors.name = '마일스톤 이름을 입력해 주세요.';
   }
-  const startAt = dateTimeValue(form.startAt);
-  const dueAt = dateTimeValue(form.dueAt);
-  const programStartAt = dateTimeValue(operationStartAt);
+  const startAt = seoulDateTimeValue(form.startAt);
+  const dueAt = seoulDateTimeValue(form.dueAt);
+  const programStartAt = seoulDateTimeValue(operationStartAt);
   const programEndAt =
-    operationEndAt === null ? null : dateTimeValue(operationEndAt);
+    operationEndAt === null ? null : seoulDateTimeValue(operationEndAt);
   if (startAt === null) {
     errors.startAt = '유효한 시작일을 입력해 주세요.';
   }
@@ -549,19 +550,7 @@ export function toDateTimeLocal(value: string): string {
 }
 
 function toIsoString(value: string): string {
-  const time = dateTimeValue(value);
+  const time = seoulDateTimeValue(value);
   if (time === null) throw new TypeError('Invalid Seoul date-time value.');
   return new Date(time).toISOString();
-}
-
-function dateTimeValue(value: string): number | null {
-  if (value.trim() === '') return null;
-  const localDateTime =
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
-  const normalized =
-    localDateTime === null
-      ? value
-      : `${localDateTime[1]}-${localDateTime[2]}-${localDateTime[3]}T${localDateTime[4]}:${localDateTime[5]}:${localDateTime[6] ?? '00'}+09:00`;
-  const time = Date.parse(normalized);
-  return Number.isFinite(time) ? time : null;
 }

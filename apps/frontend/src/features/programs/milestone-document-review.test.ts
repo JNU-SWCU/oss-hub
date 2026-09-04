@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type {
   MilestoneDocumentSubmissionStatus,
   MilestoneDocumentViewerSubmission,
@@ -18,6 +18,7 @@ import {
   milestoneDocumentResubmissionDueAtError,
   milestoneDocumentResubmissionDueAtPayload,
   milestoneDocumentResubmissionDueNotice,
+  milestoneDocumentResubmissionDueTickDelay,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
   milestoneDocumentReviewNoticeTone,
@@ -556,13 +557,18 @@ describe('milestoneDocumentResubmissionDueAtPayload', () => {
    * `datetime-local`은 표준시대 없는 문자열을 준다. 그대로 보내면 서버가 어느 시각으로
    * 읽을지 화면이 정하지 못한다 — 여기서 ISO로 굳혀야 교직원이 고른 그 순간이 저장된다.
    */
-  it('보완 요청의 지역 시각을 ISO로 굳혀 보낸다', () => {
+  /**
+   * 기대값을 `new Date('2026-09-26T18:00').toISOString()`으로 적으면 **시험이 구현을 그대로
+   * 따라 한다** — 브라우저 시간대로 읽는 옛 코드에서도 늘 통과한다. 서울 18:00에 해당하는
+   * 리터럴을 박아 두어야 시간대가 다른 곳에서 어긋나는 것을 잡는다.
+   */
+  it('보완 요청의 서울 시각을 ISO로 굳혀 보낸다', () => {
     expect(
       milestoneDocumentResubmissionDueAtPayload(
         'CHANGES_REQUESTED',
         '2026-09-26T18:00',
       ),
-    ).toBe(new Date('2026-09-26T18:00').toISOString());
+    ).toBe('2026-09-26T09:00:00.000Z');
   });
 
   it('승인·반려에는 아예 싣지 않는다', () => {
@@ -924,5 +930,150 @@ describe('isSameMilestoneDocumentReviewTarget', () => {
         { applicationId: 'a2', documentId: 'd1' },
       ),
     ).toBe(false);
+  });
+});
+
+/**
+ * 재제출 기한 칸(`datetime-local`)은 표준시대 없는 문자열을 준다. 그것을 **어느 시간대로
+ * 읽는가**는 개발자 노트북과 CI가 대개 서울이라 눈에 띄지 않는다 — 그래서 여기서는 실제로
+ * `process.env.TZ`를 바꿔 놓고 잰다. 바꾸지 않고 재면 브라우저 시간대로 읽는 옛 코드도
+ * 그대로 통과한다.
+ */
+describe('재제출 기한을 서울 시각으로 읽는다', () => {
+  const originalTimeZone = process.env.TZ;
+
+  afterEach(() => {
+    if (originalTimeZone === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTimeZone;
+  });
+
+  /**
+   * UTC로 맞춰 둔 브라우저의 교직원이 18:00을 골랐다. 브라우저 시간대로 읽으면 그것은
+   * 18:00Z = **서울 9월 27일 새벽 3시**가 되어, 저장하자마자 자기가 고르지 않은 시각이
+   * 화면에 뜬다(표시는 전부 서울 시각이다).
+   */
+  it('UTC 브라우저가 고른 18:00도 서울 18:00으로 보낸다', () => {
+    process.env.TZ = 'UTC';
+
+    expect(
+      milestoneDocumentResubmissionDueAtPayload(
+        'CHANGES_REQUESTED',
+        '2026-09-26T18:00',
+      ),
+    ).toBe('2026-09-26T09:00:00.000Z');
+  });
+
+  it('서울에서 12시간 앞선 곳에서도 같은 값을 보낸다', () => {
+    process.env.TZ = 'Pacific/Auckland';
+
+    expect(
+      milestoneDocumentResubmissionDueAtPayload(
+        'CHANGES_REQUESTED',
+        '2026-09-26T18:00',
+      ),
+    ).toBe('2026-09-26T09:00:00.000Z');
+  });
+
+  /**
+   * 화면 검사와 보낼 값이 **같은 규칙**이어야 한다. 검사만 브라우저 시간대로 읽으면 UTC
+   * 교직원에게는 이미 지난 시각이 「미래」로 통과한 뒤, 서버가 422(MSD_033)로 거절한다.
+   */
+  it('검사도 같은 규칙으로 읽어 지난 시각을 그 자리에서 막는다', () => {
+    process.env.TZ = 'UTC';
+    // 서울 기준 2026-09-26 18:30. 고른 값(서울 18:00)은 이미 지났다.
+    const now = Date.parse('2026-09-26T09:30:00.000Z');
+
+    expect(
+      milestoneDocumentResubmissionDueAtError(
+        'CHANGES_REQUESTED',
+        '2026-09-26T18:00',
+        now,
+      ),
+    ).toBe('재제출 기한은 지금보다 뒤여야 합니다.');
+  });
+});
+
+/**
+ * 화면을 열어 둔 채 기한을 넘기는 자리. 렌더 시점 계산이 다시 돌지 않으면 안내는 계속
+ * 「기한 안입니다」라 말하고 「수정」도 눌리는 채로 남아, 누른 학생은 서버 422(MSD_034)만
+ * 받는다. 언제 한 번 다시 그려야 하는지를 이 함수가 정한다.
+ */
+describe('milestoneDocumentResubmissionDueTickDelay', () => {
+  const dueAt = '2026-09-26T09:00:00.000Z';
+
+  function awaitingResubmission(
+    resubmissionDueAt: string | null,
+  ): MilestoneDocumentViewerSubmission {
+    return viewer({
+      status: 'CHANGES_REQUESTED',
+      review: {
+        comment: '3쪽 서명이 빠졌습니다.',
+        reviewedAt: '2026-09-20T00:00:00.000Z',
+        resubmissionDueAt,
+      },
+    });
+  }
+
+  /**
+   * 「지났다」는 판정이 `now > dueAt`이라 정각에 깨면 답이 아직 뒤집히지 않는다 — 1밀리초
+   * 뒤를 겨냥해야 한 번 깨는 것으로 끝난다.
+   */
+  it('기한이 지나는 순간 다음 1밀리초를 겨냥한다', () => {
+    const now = Date.parse('2026-09-26T08:59:59.000Z');
+
+    expect(
+      milestoneDocumentResubmissionDueTickDelay(
+        awaitingResubmission(dueAt),
+        now,
+      ),
+    ).toBe(1001);
+  });
+
+  it('이미 지난 기한·기한 없는 옛 보완 요청에는 타이머를 걸지 않는다', () => {
+    const afterDue = Date.parse('2026-09-26T09:00:00.001Z');
+
+    expect(
+      milestoneDocumentResubmissionDueTickDelay(
+        awaitingResubmission(dueAt),
+        afterDue,
+      ),
+    ).toBeNull();
+    expect(
+      milestoneDocumentResubmissionDueTickDelay(
+        awaitingResubmission(null),
+        afterDue,
+      ),
+    ).toBeNull();
+  });
+
+  /** 이미 다시 낸 서류·판정이 끝난 서류는 시간이 흘러도 답이 바뀌지 않는다. */
+  it('보완 요청을 기다리는 자리가 아니면 타이머를 걸지 않는다', () => {
+    const now = Date.parse('2026-09-26T08:00:00.000Z');
+
+    for (const status of ['SUBMITTED', 'APPROVED', 'REJECTED'] as const) {
+      expect(
+        milestoneDocumentResubmissionDueTickDelay(viewer({ status }), now),
+      ).toBeNull();
+    }
+  });
+
+  /**
+   * `setTimeout`은 32비트를 넘는 지연을 **즉시** 부른다. 자르지 않으면 기한이 한 달 뒤인
+   * 보완 요청에서 타이머가 쉬지 않고 돈다.
+   */
+  it('setTimeout이 감당하는 최대치를 넘지 않는다', () => {
+    const now = Date.parse('2026-09-26T09:00:00.000Z');
+    const farFuture = viewer({
+      status: 'CHANGES_REQUESTED',
+      review: {
+        comment: '3쪽 서명이 빠졌습니다.',
+        reviewedAt: '2026-09-20T00:00:00.000Z',
+        resubmissionDueAt: '2027-09-26T09:00:00.000Z',
+      },
+    });
+
+    expect(milestoneDocumentResubmissionDueTickDelay(farFuture, now)).toBe(
+      2_147_483_647,
+    );
   });
 });

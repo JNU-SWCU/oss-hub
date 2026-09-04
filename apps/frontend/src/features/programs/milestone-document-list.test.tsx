@@ -1267,3 +1267,126 @@ describe('교직원 양식 올리기의 사전 검사', () => {
     expect(container.textContent).not.toContain('ProblemDetail');
   });
 });
+
+/**
+ * 학생이 화면을 **열어 둔 채** 재제출 기한을 넘기는 자리.
+ *
+ * 렌더 시점 계산은 다시 돌지 않는다 — 아무도 다시 그려 주지 않으면 안내는 계속 「기한
+ * 안입니다」라고 말하고 「수정」 버튼도 눌리는 채로 남는다. 누른 학생은 서버 422(MSD_034)를
+ * 받고, 화면이 열어 준 것을 서버가 거절하는 모양이 된다.
+ *
+ * 겨냥한 타이머 **하나**로 그 순간만 다시 그린다. 주기 타이머(1초마다 등)로 화면 전체를
+ * 다시 그리지 않는 것이 요점이라, 그 사실도 함께 잰다.
+ */
+describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
+  const resubmissionDueAt = '2026-09-26T09:00:00.000Z';
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-26T08:59:59.000Z'));
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.useRealTimers();
+  });
+
+  function awaitingResubmission(): MilestoneDocumentViewerSubmission {
+    return {
+      submitted: true,
+      submittedAt: '2026-09-20T00:00:00.000Z',
+      revision: 1,
+      status: 'CHANGES_REQUESTED',
+      hasCurrentFile: false,
+      review: {
+        comment: '3쪽 서명이 빠졌습니다.',
+        reviewedAt: '2026-09-20T00:00:00.000Z',
+        resubmissionDueAt,
+      },
+      history: { hasHistory: false, isComplete: true },
+    };
+  }
+
+  function renderRow(): void {
+    act(() => {
+      root.render(
+        <MilestoneDocumentSectionBody
+          state={{
+            kind: 'ready',
+            documents: [
+              {
+                ...milestoneDocument,
+                viewerSubmission: awaitingResubmission(),
+              },
+            ],
+            fileUpload: milestoneDocumentUploadPolicy(),
+          }}
+          viewerRole="STUDENT"
+          closed
+          conflictNotice={null}
+          onRetry={() => {}}
+          onDocumentChange={() => {}}
+          onSubmitConflict={() => {}}
+        />,
+      );
+    });
+  }
+
+  function editButton(): HTMLButtonElement {
+    const found = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '수정',
+    );
+    if (!(found instanceof HTMLButtonElement)) {
+      throw new TypeError('수정 버튼을 찾지 못했습니다.');
+    }
+    return found;
+  }
+
+  function dueText(): string {
+    return (
+      container.querySelector(
+        '[data-testid="milestone-document-resubmission-due"]',
+      )?.textContent ?? ''
+    );
+  }
+
+  it('안내와 「수정」 버튼이 스스로 잠긴다', () => {
+    renderRow();
+
+    // Given: 아직 기한 안이다 — 열려 있고, 언제까지인지 말한다.
+    expect(editButton().disabled).toBe(false);
+    expect(dueText()).toContain('까지');
+
+    // When: 다시 부르지도, 만지지도 않은 채 기한이 지난다.
+    act(() => {
+      vi.advanceTimersByTime(1001);
+    });
+
+    // Then: 새로고침 없이도 잠기고, 왜 잠겼는지 말한다.
+    expect(editButton().disabled).toBe(true);
+    expect(dueText()).toContain('지났습니다');
+  });
+
+  /**
+   * 겨냥한 타이머 하나뿐이다 — 기한이 지나고 나면 아무것도 남지 않는다. 주기 타이머로
+   * 고쳤다면 여기서 걸린다: 아무 일도 없는 초마다 목록 전체를 다시 그리고, 학생이 입력
+   * 중인 폼과도 겹친다.
+   */
+  it('기한을 겨냥한 타이머 하나만 걸고, 지나면 스스로 걷힌다', () => {
+    renderRow();
+
+    expect(vi.getTimerCount()).toBe(1);
+
+    act(() => {
+      vi.advanceTimersByTime(1001);
+    });
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
