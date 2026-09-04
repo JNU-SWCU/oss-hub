@@ -8,3 +8,10 @@
 - Issue: #1039
 - PR: (이 PR)
 - blocker: 없음
+
+## 2026-08-29 — 프로그램 편집 마일스톤 수정 레이어
+
+- 상태: review
+- Issue: #1053
+- PR: (이 PR)
+- blocker: 없음

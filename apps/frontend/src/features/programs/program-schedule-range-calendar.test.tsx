@@ -78,6 +78,31 @@ describe('ProgramScheduleRangeCalendar', () => {
     expect(scroller?.hasAttribute('aria-invalid')).toBe(false);
   });
 
+  it('모바일 안내 문구는 한국어 어절 안에서 줄바꿈하지 않는다', async () => {
+    // Given / When
+    await renderCalendar([]);
+
+    // Then
+    const selectionHint = [...container.querySelectorAll('p')].find((element) =>
+      element.textContent?.includes('선택할 수 없음'),
+    );
+    const scrollHint = [...container.querySelectorAll('p')].find((element) =>
+      element.textContent?.includes('수 있습니다'),
+    );
+    expect(selectionHint?.classList.contains('break-keep')).toBe(true);
+    expect(scrollHint?.classList.contains('break-keep')).toBe(true);
+    expect(
+      [...container.querySelectorAll('span')]
+        .find((element) => element.textContent === '선택할 수 없음')
+        ?.classList.contains('whitespace-nowrap'),
+    ).toBe(true);
+    expect(
+      [...container.querySelectorAll('span')]
+        .find((element) => element.textContent === '볼 수 있습니다.')
+        ?.classList.contains('whitespace-nowrap'),
+    ).toBe(true);
+  });
+
   function rangeBar(label: string): HTMLDivElement | null {
     return ([...container.querySelectorAll('span')].find(
       (element) => element.textContent === label,

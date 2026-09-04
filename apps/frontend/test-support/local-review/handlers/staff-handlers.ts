@@ -337,6 +337,7 @@ function milestoneFrom(
   id: string,
   fallback: {
     readonly name: string;
+    readonly startAt: string;
     readonly dueAt: string;
     readonly submissionType: SubmissionType | null;
     readonly instructions: string | null;
@@ -347,6 +348,7 @@ function milestoneFrom(
   return {
     id,
     name: bodyString(context, 'name') ?? fallback.name,
+    startAt: bodyString(context, 'startAt') ?? fallback.startAt,
     dueAt: bodyString(context, 'dueAt') ?? fallback.dueAt,
     submissionType: fallback.submissionType,
     instructions:
@@ -365,6 +367,7 @@ const createMilestoneHandler: LocalReviewHandler = (context) => {
   return accepted(
     milestoneFrom(context, `milestone-synthetic-${programId}`, {
       name: '합성 마일스톤',
+      startAt: '2026-12-01T00:00:00.000Z',
       dueAt: '2026-12-24T14:59:59.000Z',
       submissionType: null,
       instructions:
@@ -384,6 +387,7 @@ const updateMilestoneHandler: LocalReviewHandler = (context) => {
       milestoneId,
       findStaffMilestone(milestoneId) ?? {
         name: '합성 마일스톤',
+        startAt: '2026-12-01T00:00:00.000Z',
         dueAt: '2026-12-24T14:59:59.000Z',
         submissionType: null,
         instructions:

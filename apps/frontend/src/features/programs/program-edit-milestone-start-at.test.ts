@@ -57,6 +57,7 @@ describe('마일스톤 시작일 편집 계약', () => {
             startAt: '2026-09-01T09:00',
             dueAt: '2026-09-02T18:00',
           },
+          initialForm: toMilestoneForm(milestone),
           errors: {},
         },
         operationStartAt: '2026-09-01T00:00',
