@@ -336,4 +336,14 @@
 - 내용: 마일스톤 서류 제출·양식 올리기 화면 세 곳에 `accept`도 크기 사전 검사도 없어, 상한을 넘은 파일이 그대로 전송되고 nginx가 ProblemDetail이 아닌 응답으로 자르면 학생 화면에 「API 오류 응답이 ProblemDetail 형식이 아닙니다.」가 떴다. 화면 세 곳에 검사만 더 넣으면 같은 숫자의 사본이 열 개가 되므로(원본 1 + 사본 7이 이미 있었고 표기도 갈라져 있었다), 값을 backend `submissions/submission-upload-policy.ts` 하나가 소유하게 하고 `GET /milestones/:milestoneId/documents` 응답에 `fileUpload`(maxBytes·maxLabel·accept·formatLabel)로 실어 화면이 읽게 했다. 세 화면 모두 이 응답 없이는 파일 입력을 그리지 않으므로 화면 쪽 기본값이 없고, 규칙이 빠진 응답은 `requireMilestoneDocumentList`가 기존 「다시 시도」 화면으로 떨어뜨린다. 상한 값은 5 MiB 그대로이고 사람이 읽는 표기만 「5 MB」로 통일했으며, 서버의 `SUB_019`·`MSD_011` 문구도 같은 문장을 쓴다. 상한을 넘거나 허용 형식 밖인 파일은 받아 두지 않는다 — 받아 두면 「제출」이 눌리고 그 요청은 반드시 실패한다.
 - 검증: backend lint·typecheck·단위 310 스위트·3,489 테스트, frontend lint·typecheck·326 파일·3,272 테스트, 변경 파일 prettier 통과. 대조 실험으로 제품 코드만 `origin/main`으로 되돌리면 frontend 21건, backend 4건이 실패하는 것을 확인했다. local-review 합성 데이터로 학생 제출 폼·교직원 양식 올리기·마일스톤 편집 세 화면에서 안내 문구(`PDF, HWP, JPG, PNG, ZIP · 최대 5 MB`)와 `accept`, 상한 초과·형식 밖 파일이 요청 없이 걸러지는 것을 눈으로 확인했다.
 - 남은 것: 옛 제출 화면(`features/submissions/submission-form.ts`)과 프로그램 작성 업로드(`features/programs/program-authoring-validation.ts`)는 동작 변경이 이 티켓 범위 밖이라 응답으로 상한을 받지 않는다. 두 곳의 리터럴은 `lib/submission-upload-policy.ts` 하나로 합치고 `submission-upload-policy.drift.test.ts`가 backend 원본과 어긋나면 실패하게 했다. `Jenkinsfile:706`의 `UPLOAD_BODY_PROBE_BYTES=4718592`는 4.5 MiB가 통과하는 것만 증명하고 앱 상한(5 MiB + multipart 부대 비용)을 감싸지는 않는다 — 이 티켓에서 건드리지 않았다.
+## 2026-09-04 — 되돌린 신청의 제출 이력을 학생 본인에게 연다
+
+- 상태: review
+- Issue: #1096
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 교직원이 승인을 되돌리면 학생 서류 줄에 「제출 이력을 불러오지 못했습니다」가 영구히 뜨고 다시 시도해도 매번 실패했다. 조사 결과 되돌리기는 이력 행을 지우지 않는 순수한 상태 전이였다 — `REVERT`의 부수 효과는 저장소 발급 요청 취소 하나뿐이고, 운영 코드에서 이력을 지우는 곳은 프로그램 전체 삭제 하나다. 그래서 목록의 `hasHistory: true`는 사실이고 이력 조회의 403이 결함이었다. `historyForParticipant`의 승인 검사를 제거했다. 소유 검사 세 개(활성 사용자·서류가 그 마일스톤 소속·이 프로그램 신청의 참여자)는 그대로이고 조회는 여전히 그 신청 범위로 좁혀지므로 남의 신청을 읽는 길은 생기지 않는다.
+- 검증: backend lint·typecheck·3483 테스트, frontend lint·typecheck·324 파일 3237 테스트 통과. 대조 실험으로 서비스 파일만 origin/main으로 되돌리면 새 테스트 2건이 정확히 실패하고 나머지 69건은 통과하는 것을 확인했다.
+- 근거: 교직원은 같은 이력을 승인 조건 없이 읽는다(`historyForStaff`). 이력 조회가 던지던 오류는 「승인된 신청만 제출할 수 있습니다」라는 쓰기용 문구였고 읽기에서 쓰는 곳은 그 자리 하나였다. 저장소 triage도 같은 물음을 「자기 팀이 이미 올린 자기 파일을 다시 받는 것뿐이라 정보 유출은 아니다」로 판정해 두었다.
+- 남은 것(범위 밖): 프런트의 catch가 403과 통신 실패를 구분하지 못하는 것, 「다시 시도」가 무한 반복하는 것, 되돌린 뒤에도 「수정」이 보이는 것. 그리고 서류 현재 파일 내려받기는 여전히 읽기를 승인으로 막는다 — 같은 종류의 비대칭이 한 군데 더 남아 있다는 뜻이라 같은 판단을 적용할지는 별도 결정이 필요하다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
