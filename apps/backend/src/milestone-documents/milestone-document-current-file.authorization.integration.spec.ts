@@ -31,7 +31,9 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
  *
  * 함께 고정하는 것: 느슨해진 조건이 **옆 사람 것까지 열지 않는다**. 남의 팀·무관한
  * 프로그램·다른 마일스톤·팀 밖의 신청자·비활성 계정·목록에 없는 옛 제출 슬롯은 전부 그대로
- * 404다. 교직원은 이 학생용 경로에 들어오지 못하고 자기 경로로는 그대로 받는다.
+ * 404다. 교직원은 그 팀의 팀원이더라도 이 학생용 경로에 들어오지 못하고, 교직원 전용 경로는
+ * 그대로 같은 파일을 준다. 승인을 묻지 않게 됐어도 파일 수명주기(만료·삭제 대기·현재 리비전)
+ * 규칙은 목록과 똑같이 남아 있다.
  */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -46,6 +48,11 @@ const otherMilestoneId = `${prefix}-other-milestone`;
 const ownDocumentId = `${prefix}-document-own`;
 const neighbourDocumentId = `${prefix}-document-neighbour`;
 const legacyDocumentId = `${prefix}-document-legacy`;
+
+/** 첨부의 수명주기만 다르고 나머지는 같은 서류 세 줄 — 「받기」가 목록보다 관대해지지 않는지 본다. */
+const expiredDocumentId = `${prefix}-document-expired`;
+const deletePendingDocumentId = `${prefix}-document-delete-pending`;
+const staleRevisionDocumentId = `${prefix}-document-stale-revision`;
 
 /** 이 프로그램과 아무 관계가 없는 두 번째 프로그램 — 「무관한 프로그램」 쪽 증거. */
 const outsideProgramId = `${prefix}-outside-program`;
@@ -92,6 +99,22 @@ const users = {
     id: `${prefix}-staff`,
     githubId: 9_600_000_000_997_009n,
     hasStaffAccess: true,
+  },
+  /**
+   * 교직원인데 되돌려진 팀의 **팀원**이기도 한 사람. 학생용 where가 교직원을 빼는 조각
+   * (`hasStaffAccess`·`hasAdminAccess` false)은 팀 소속과 교직원 권한이 한 사람에게 겹칠
+   * 때만 판정을 가른다 — 팀 밖 교직원은 팀 조건에서 이미 걸리므로 그 조각을 지워도 답이
+   * 같다. 이 사람이 없으면 그 조각은 시험에 걸리지 않는다.
+   */
+  staffTeammate: {
+    id: `${prefix}-staff-teammate`,
+    githubId: 9_600_000_000_997_010n,
+    hasStaffAccess: true,
+  },
+  /** 거절된 신청의 팀장 — 승인 조건을 뺀 뒤 목록과 받기가 여기서도 같은 답을 하는지 본다. */
+  rejectedLeader: {
+    id: `${prefix}-rejected-leader`,
+    githubId: 9_600_000_000_997_011n,
   },
 } as const;
 
@@ -240,15 +263,27 @@ async function createTeamWithApplication(
   return applicationId;
 }
 
-/** 제출 행 + 제출 이력 한 건 + 현재 리비전에 붙은 살아 있는 첨부 하나. */
+/**
+ * 제출 행 + 제출 이력 한 건 + 현재 리비전에 붙은 살아 있는 첨부 하나.
+ *
+ * 기본값이 「목록이 hasCurrentFile: true라고 말하는 상태」다. 선택 인자는 그 상태에서
+ * **첨부만** 어긋나게 만든다 — 이 티켓이 건드리지 않기로 한 파일 수명주기 규칙(만료·삭제
+ * 대기·현재 리비전 일치)이 받기 쪽에서도 그대로인지 보기 위해서다.
+ */
 async function seedSubmissionWithFile(input: {
   readonly key: string;
   readonly documentId: string;
   readonly applicationId: string;
   readonly actorId: string;
   readonly milestoneIdOfFile: string;
+  /** 제출 행의 현재 리비전. 이력 리비전과 다르게 두면 첨부가 「옛 제출본」이 된다. */
+  readonly revision?: number;
+  readonly historyRevision?: number;
+  readonly lifecycle?: SubmissionFileLifecycle;
+  readonly expiresAt?: Date;
 }): Promise<string> {
   const submissionId = `${prefix}-${input.key}-submission`;
+  const revision = input.revision ?? 1;
   await prisma.milestoneDocumentSubmission.create({
     data: {
       id: submissionId,
@@ -256,7 +291,7 @@ async function seedSubmissionWithFile(input: {
       applicationId: input.applicationId,
       submittedById: input.actorId,
       submittedAt: new Date('2026-03-01'),
-      revision: 1,
+      revision,
     },
   });
   const historyId = `${prefix}-${input.key}-history`;
@@ -265,7 +300,7 @@ async function seedSubmissionWithFile(input: {
       id: historyId,
       milestoneDocumentSubmissionId: submissionId,
       event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-      revision: 1,
+      revision: input.historyRevision ?? revision,
       actorId: input.actorId,
       createdAt: new Date('2026-03-01'),
     },
@@ -283,8 +318,10 @@ async function seedSubmissionWithFile(input: {
       sizeBytes: `bytes:${storageKey}`.length,
       milestoneDocumentSubmissionId: submissionId,
       milestoneDocumentSubmissionHistoryId: historyId,
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
-      expiresAt: new Date('2099-01-01'),
+      // PENDING은 DB 제약이 milestoneDocumentSubmissionId를 금지하므로(#164·#619 check
+      // 제약) 「첨부됐다가 지워지는 중」은 DELETE_PENDING으로 세운다.
+      lifecycle: input.lifecycle ?? SubmissionFileLifecycle.ATTACHED,
+      expiresAt: input.expiresAt ?? new Date('2099-01-01'),
     },
   });
   return storageKey;
@@ -365,6 +402,27 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
           kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
         {
+          id: expiredDocumentId,
+          milestoneId,
+          name: '첨부가 만료된 서류',
+          required: false,
+          sortOrder: 4,
+        },
+        {
+          id: deletePendingDocumentId,
+          milestoneId,
+          name: '첨부가 삭제 대기로 넘어간 서류',
+          required: false,
+          sortOrder: 5,
+        },
+        {
+          id: staleRevisionDocumentId,
+          milestoneId,
+          name: '첨부가 옛 제출본에 남은 서류',
+          required: false,
+          sortOrder: 6,
+        },
+        {
           id: outsideDocumentId,
           milestoneId: outsideMilestoneId,
           name: '무관한 프로그램의 서류',
@@ -383,6 +441,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         users.revertedLeader.id,
         users.revertedMember.id,
         users.deactivatedMember.id,
+        users.staffTeammate.id,
       ],
       status: ApplicationStatus.SUBMITTED,
     });
@@ -398,6 +457,49 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       documentId: legacyDocumentId,
       applicationId: revertedApplicationId,
       actorId: users.revertedLeader.id,
+      milestoneIdOfFile: milestoneId,
+    });
+    // 아래 셋은 「제출은 있는데 현재 첨부가 없다」의 세 가지 이유다. 목록은 이 셋을
+    // hasCurrentFile: false로 말하므로 받기도 404여야 한다.
+    await seedSubmissionWithFile({
+      key: 'reverted-expired',
+      documentId: expiredDocumentId,
+      applicationId: revertedApplicationId,
+      actorId: users.revertedLeader.id,
+      milestoneIdOfFile: milestoneId,
+      expiresAt: new Date('2026-01-01'),
+    });
+    await seedSubmissionWithFile({
+      key: 'reverted-delete-pending',
+      documentId: deletePendingDocumentId,
+      applicationId: revertedApplicationId,
+      actorId: users.revertedLeader.id,
+      milestoneIdOfFile: milestoneId,
+      lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+    });
+    await seedSubmissionWithFile({
+      key: 'reverted-stale-revision',
+      documentId: staleRevisionDocumentId,
+      applicationId: revertedApplicationId,
+      actorId: users.revertedLeader.id,
+      milestoneIdOfFile: milestoneId,
+      revision: 2,
+      historyRevision: 1,
+    });
+
+    // 거절된 신청 — 승인 조건을 뺀 뒤에도 목록과 받기가 같은 답을 하는지의 세 번째 상태다
+    // (SUBMITTED·APPROVED·REJECTED가 ApplicationStatus의 전부다).
+    const rejectedApplicationId = await createTeamWithApplication(programId, {
+      key: 'rejected',
+      leaderId: users.rejectedLeader.id,
+      memberIds: [users.rejectedLeader.id],
+      status: ApplicationStatus.REJECTED,
+    });
+    await seedSubmissionWithFile({
+      key: 'rejected-own',
+      documentId: ownDocumentId,
+      applicationId: rejectedApplicationId,
+      actorId: users.rejectedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
 
@@ -513,6 +615,55 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
   });
 
+  /**
+   * `ApplicationStatus`는 SUBMITTED·APPROVED·REJECTED 셋이다. 승인 조건을 뺐다는 것은
+   * 되돌려진(SUBMITTED) 신청만이 아니라 **거절된 신청도** 열린다는 뜻이므로, 그 상태에서도
+   * 목록과 받기가 갈라지지 않는 것을 따로 못박는다. 위 `it.each`만으로는 목록이 이 사람에게
+   * hasCurrentFile: false를 말할 때 「둘 다 404」로 조용히 통과할 수 있다.
+   */
+  it('거절된 신청의 학생에게도 목록과 받기가 같은 답을 한다', async () => {
+    // Given: 목록이 「현재 파일이 있다」고 말한다.
+    const documents = await documentsService.listForViewer(
+      users.rejectedLeader.githubId,
+      milestoneId,
+    );
+    const own = documents.find((document) => document.id === ownDocumentId);
+    expect(own?.viewerSubmission?.hasCurrentFile).toBe(true);
+
+    // When / Then: 그 파일이 그대로 온다 — 자기 팀 것이다.
+    const file = await currentFileService.download(
+      users.rejectedLeader.githubId,
+      milestoneId,
+      ownDocumentId,
+    );
+    expect(file.fileName).toBe('rejected-own.pdf');
+  });
+
+  /**
+   * 이 티켓은 파일 수명주기(만료·삭제·현재 리비전) 규칙을 바꾸지 않는다. 승인 조건을 빼면서
+   * 「제출 행이 있으면 받아진다」로 넓어지지 않았는지, 목록이 hasCurrentFile: false라고 말하는
+   * 세 가지 이유를 각각 세워 확인한다.
+   */
+  it.each([
+    ['만료된 첨부', expiredDocumentId],
+    ['삭제 대기로 넘어간 첨부', deletePendingDocumentId],
+    ['옛 제출본에 남은 첨부', staleRevisionDocumentId],
+  ])('%s: 목록에도 없고 받기에서도 404다', async (_label, documentId) => {
+    // Given
+    const documents = await documentsService.listForViewer(
+      users.revertedLeader.githubId,
+      milestoneId,
+    );
+    const target = documents.find((document) => document.id === documentId);
+    expect(target?.viewerSubmission?.submitted).toBe(true);
+    expect(target?.viewerSubmission?.hasCurrentFile).toBe(false);
+
+    // When / Then
+    await expect(
+      downloadFails(users.revertedLeader.githubId, milestoneId, documentId),
+    ).resolves.toEqual(hiddenAsMissing);
+  });
+
   it('승인이 유지된 학생의 내려받기는 그대로다', async () => {
     // Given / When: 이 티켓이 바꾸지 않아야 하는 기존 흐름.
     const file = await currentFileService.download(
@@ -533,6 +684,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     ['되돌려진 팀장', users.revertedLeader.githubId],
     ['되돌려진 팀원', users.revertedMember.githubId],
     ['승인이 유지된 팀장', users.approvedLeader.githubId],
+    ['거절된 신청의 팀장', users.rejectedLeader.githubId],
     ['옆 팀 팀장', users.neighbourLeader.githubId],
   ])(
     '%s의 목록에서 hasCurrentFile인 서류는 전부 받아지고, 아닌 서류는 전부 404다',
@@ -688,10 +840,9 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
 
   /**
    * 이 티켓은 교직원의 접근 범위를 바꾸지 않는다. 교직원은 학생용 「현재 파일」 경로의 문이
-   * 아니고(목록도 교직원에게는 `viewerSubmission`을 내려주지 않아 누를 자리가 없다), 자기
-   * 경로로는 되돌려진 팀의 같은 파일을 승인 조건 없이 그대로 받는다.
+   * 아니다 — 목록도 교직원에게는 `viewerSubmission`을 내려주지 않아 누를 자리가 없다.
    */
-  it('교직원은 학생 경로로는 못 받고 자기 경로로는 그대로 받는다', async () => {
+  it('교직원은 학생 경로로 받지 못한다', async () => {
     // Given: 교직원 목록에는 학생용 제출 칸이 없다.
     const documents = await documentsService.listForViewer(
       users.staff.githubId,
@@ -705,13 +856,47 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await expect(
       downloadFails(users.staff.githubId, milestoneId, ownDocumentId),
     ).resolves.toEqual(hiddenAsMissing);
+  });
 
-    // And: 교직원 전용 경로는 되돌려진 팀의 같은 파일을 그대로 준다.
+  /**
+   * 위 시험은 교직원을 **팀 밖**에 두므로 팀 조건에서 이미 걸린다 — 학생용 where에서 교직원을
+   * 빼는 조각(`hasStaffAccess`·`hasAdminAccess` false)을 지워도 답이 같다. 그 조각이 실제로
+   * 판정을 가르는 것은 한 사람에게 팀 소속과 교직원 권한이 겹칠 때뿐이라, 그 사람을 따로 세운다.
+   *
+   * 목록은 이 사람을 교직원 분기로 보내 `viewerSubmission`을 내려주지 않으므로, 받기도 닫혀
+   * 있어야 두 경로가 같은 답을 한다.
+   */
+  it('교직원은 그 팀의 팀원이어도 학생 경로로 받지 못한다', async () => {
+    // Given: 되돌려진 팀의 팀원이지만 목록은 학생 칸을 주지 않는다.
+    const documents = await documentsService.listForViewer(
+      users.staffTeammate.githubId,
+      milestoneId,
+    );
+    expect(
+      documents.every((document) => document.viewerSubmission === undefined),
+    ).toBe(true);
+
+    // When / Then: 팀원 자격만으로는 학생 경로가 열리지 않는다.
+    await expect(
+      downloadFails(users.staffTeammate.githubId, milestoneId, ownDocumentId),
+    ).resolves.toEqual(hiddenAsMissing);
+  });
+
+  /**
+   * 교직원 전용 경로는 이 티켓이 한 줄도 건드리지 않았다 — 되돌려진 신청의 같은 파일을 승인
+   * 조건 없이 그대로 준다. 역할 검사는 이 서비스가 아니라 앞단의
+   * `MilestoneDocumentsStaffGuard`가 하므로(서비스는 사용자 인자를 받지 않는다) 이 시험이
+   * 고정하는 것은 **경로의 결과**이지 누가 그 경로에 들어올 수 있는가가 아니다.
+   */
+  it('교직원 전용 경로는 되돌려진 신청의 같은 파일을 그대로 돌려준다', async () => {
+    // Given / When
     const file = await staffFilesService.downloadSubmissionFile(
       milestoneId,
       ownDocumentId,
       revertedApplicationId,
     );
+
+    // Then
     await expect(buffer(file.body)).resolves.toEqual(
       Buffer.from(`bytes:${ownStorageKey}`),
     );
