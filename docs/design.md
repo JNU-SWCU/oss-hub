@@ -866,3 +866,25 @@ nav는 조회 실패에서 종전대로 링크를 숨긴다(`role-home-link.tsx`
 | 공개 | 팀 구성과 인원만 공개한다 |
 | 팀장 | 팀장을 표시한다 |
 | 저장소 | 팀 저장소는 비공개다(이 화면에서 노출하지 않는다) |
+
+### 없는 주소·렌더 실패 화면
+
+라우트 트리가 화면을 내주지 못하는 두 경우(#1103)를 이 서비스가 직접 받는다.
+`app/not-found.tsx`가 라우트 트리에 없는 모든 주소를, `app/error.tsx`가 렌더 중 예외가 난 route를 맡고, 두 파일 모두 `app/_shell/route-notice.tsx`의 `RouteNotice` 한 뼈대를 쓴다.
+이 파일들이 없으면 `<html lang="ko">` 껍데기 안에 프레임워크 기본 영어 화면이 들어앉는다.
+
+| 항목 | 결정 |
+| --- | --- |
+| 뼈대 | 같은 처지의 전면 안내 셋(`access-denied.tsx`·`login-required-notice.tsx`·`session-error.tsx`)의 치수를 그대로 쓴다 — `min-h-[50svh]` 가운데 정렬, `text-lg font-semibold` 제목, `max-w-md break-keep text-sm text-muted-foreground` 한 문단, `min-h-11` 버튼 |
+| 삽화 | 두지 않는다. 위 전면 안내 셋이 모두 글자만 쓰고 `EmptyState` 53곳 중 40곳도 아이콘이 없다(2026-09-04 전수 확인) — 여기만 그림이 있으면 결이 어긋난다 |
+| 없는 주소의 목적지 | `프로그램 목록으로`(`/programs`, 주 행동)와 `이전 화면`(`router.back()`) 둘. `/dashboard`는 쓰지 않는다 — 역할마다 본문이 갈리는 자리라 주소를 잘못 눌렀을 뿐인 사람을 자기 역할 화면으로 밀어 넣게 된다 |
+| 렌더 실패의 목적지 | `다시 시도`(Next가 넘겨주는 `reset`, 주 행동)와 `프로그램 목록으로`. R-10의 「재시도 또는 대체 경로」를 둘 다 준다 |
+| 숫자 표기 | `404`와 오류 digest는 제목 자리에 크게 세우지 않고 본문 아래 `text-xs text-muted-foreground` 한 줄로만 남긴다. 개발자·문의 창구에는 단서지만 학생에게는 아니다 |
+| 강조색 | 주 행동 하나만 `default`(남색), 나머지는 `outline`. 새 색을 만들지 않는다 |
+| live region | 두지 않는다. R-12는 `role="alert"`을 상호작용 중 발생한 동적 error에만 허용하고 이 둘은 그 route의 초기 렌더 콘텐츠다 |
+| 예외 메시지 | `error.message`를 화면에 옮기지 않는다. 배포 빌드는 Next가 지워 digest만 남기고, 개발 빌드는 내부 구현이 영어 그대로 드러난다 |
+
+범위는 두 경우까지다 — 로딩 중 화면(`loading.tsx`)과 root layout 자체가 던지는 경우(`global-error.tsx`)는 이 결정에 들어 있지 않다.
+
+`/programs/:id`처럼 **라우트는 있고 데이터만 없는** 주소는 여기로 오지 않는다.
+그 자리는 각 화면이 이미 자기 문구로 받는다(`ProgramDetailFailureState`의 `프로그램을 찾을 수 없습니다`).
