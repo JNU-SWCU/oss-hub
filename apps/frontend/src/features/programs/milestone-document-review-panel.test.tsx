@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { apiPath } from '@/lib/api-client';
 import {
   milestoneDocumentSubmissionFileHref,
   type MilestoneDocumentCollectionCell,
@@ -8,6 +9,8 @@ import {
   MilestoneDocumentReviewPanel,
   type MilestoneDocumentReviewPanelProps,
 } from './milestone-document-review-panel';
+
+const LIVE_FILE_DOWNLOAD_URL = apiPath('submission-files/file-1');
 
 function cell(
   overrides: Partial<MilestoneDocumentCollectionCell> = {},
@@ -154,7 +157,7 @@ describe('판정 패널 머리', () => {
     expect(html).toContain('표지의 이름이 신청서와 다릅니다.');
   });
 
-  it('완전한 이력에서 이관 전 제출 원문이 복원되지 않으면 사실과 다음 행동을 명시한다', () => {
+  it('완전한 이력에서 앞 제출본이 복원되지 않으면 사실과 다음 행동을 명시한다', () => {
     const html = render({
       cell: cell({ revision: 4 }),
       history: [
@@ -165,17 +168,18 @@ describe('판정 패널 머리', () => {
           comment: null,
           createdAt: '2026-08-02T00:00:00.000Z',
           fileName: '계획서-v4.pdf',
+          downloadUrl: null,
         },
       ],
     });
 
-    expect(html).toContain('이관 전 1~3차 제출 원문');
-    expect(html).toContain('당시 시스템에 남지 않아');
-    expect(html).toContain('프로그램 담당자에게 기존 접수 기록을 요청');
+    expect(html).toContain(
+      '1~3차 제출본은 남아 있지 않아 이 목록에 나오지 않습니다. 그 제출본이 필요하면 프로그램 담당자에게 문의해 주세요.',
+    );
     expect(html).toContain('다시 제출 · 4차 제출본');
   });
 
-  it('이전 페이지가 남아 있으면 이관 전 제출 원문 유실을 말하지 않는다', () => {
+  it('이전 페이지가 남아 있으면 앞 제출본 유실을 말하지 않는다', () => {
     const html = render({
       hasMoreHistory: true,
       cell: cell({ revision: 4 }),
@@ -187,12 +191,13 @@ describe('판정 패널 머리', () => {
           comment: null,
           createdAt: '2026-08-02T00:00:00.000Z',
           fileName: '계획서-v4.pdf',
+          downloadUrl: null,
         },
       ],
     });
 
     expect(html).toContain('이전 이력 더 보기');
-    expect(html).not.toContain('이관 전 1~3차 제출 원문');
+    expect(html).not.toContain('1~3차 제출본은 남아 있지 않아');
   });
 
   it('이전 페이지가 남아도 원장이 불완전하면 누락 안내와 더 보기를 함께 준다', () => {
@@ -207,11 +212,12 @@ describe('판정 패널 머리', () => {
           comment: null,
           createdAt: '2026-08-02T00:00:00.000Z',
           fileName: '계획서-v4.pdf',
+          downloadUrl: null,
         },
       ],
     });
 
-    expect(html).toContain('이관 전 제출 이력 일부');
+    expect(html).toContain('지난 제출본 가운데 일부는 남아 있지 않아');
     expect(html).toContain('이전 이력 더 보기');
   });
 });
@@ -348,7 +354,7 @@ describe('지난 판정', () => {
   it('빈 legacy 원장도 누락 안내를 숨기지 않는다', () => {
     const html = render({ history: [], historyIsComplete: false });
 
-    expect(html).toContain('이관 전 제출 이력 일부');
+    expect(html).toContain('지난 제출본 가운데 일부는 남아 있지 않아');
   });
 
   it('이력 조회가 실패하면 같은 패널에서 다시 불러올 행동을 제공한다', () => {
@@ -371,6 +377,7 @@ describe('지난 판정', () => {
           comment: null,
           createdAt: '2026-07-28T00:00:00.000Z',
           fileName: '기획서-v1.pdf',
+          downloadUrl: null,
         },
         {
           event: 'CHANGES_REQUESTED',
@@ -379,6 +386,7 @@ describe('지난 판정', () => {
           comment: '표지 이름을 고쳐 주세요.',
           createdAt: '2026-07-29T00:00:00.000Z',
           fileName: null,
+          downloadUrl: null,
         },
         {
           event: 'RESUBMITTED',
@@ -387,6 +395,7 @@ describe('지난 판정', () => {
           comment: null,
           createdAt: '2026-07-30T00:00:00.000Z',
           fileName: '기획서-v2.pdf',
+          downloadUrl: null,
         },
       ],
     });
@@ -400,6 +409,41 @@ describe('지난 판정', () => {
     expect(html).toContain('기획서-v1.pdf');
     expect(html).toContain('기획서-v2.pdf');
     expect(html).toContain('표지 이름을 고쳐 주세요.');
+  });
+
+  /**
+   * 재제출로 현재 제출본에서 떨어져 나간 첨부에 교직원이 닿는 유일한 자리다(#1090).
+   * 이력의 파일이 다시 글자로만 남으면 여기가 깨진다.
+   */
+  it('교직원 검토 패널에서도 살아 있는 첨부는 내려받기로 연다', () => {
+    const html = render({
+      history: [
+        {
+          event: 'SUBMITTED',
+          revision: 1,
+          actorNickname: 'student-a',
+          comment: null,
+          createdAt: '2026-07-28T00:00:00.000Z',
+          fileName: '기획서-v1.pdf',
+          downloadUrl: LIVE_FILE_DOWNLOAD_URL,
+        },
+        {
+          event: 'RESUBMITTED',
+          revision: 2,
+          actorNickname: 'student-a',
+          comment: null,
+          createdAt: '2026-07-30T00:00:00.000Z',
+          fileName: '만료된-기획서.pdf',
+          downloadUrl: null,
+        },
+      ],
+    });
+
+    expect(html).toContain(`href="${LIVE_FILE_DOWNLOAD_URL}"`);
+    expect(html).toContain('download="기획서-v1.pdf"');
+    // 보관 기한이 지난 첨부에는 링크가 서지 않는다 — 눌러도 404가 나는 버튼은 없다.
+    expect(html).toContain('만료된-기획서.pdf');
+    expect(html).not.toContain('download="만료된-기획서.pdf"');
   });
 
   it('판정과 사유를 날짜와 함께 보여 준다', () => {

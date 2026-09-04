@@ -40,6 +40,14 @@ export interface MilestoneDocumentViewerSubmission {
    */
   readonly status: MilestoneDocumentSubmissionStatus | null;
   readonly hasCurrentFile: boolean;
+  /**
+   * 지금 붙어 있는 첨부의 이름. 없으면 `null`이고 `hasCurrentFile`과 언제나 함께 움직인다.
+   *
+   * ⚠ 재제출 폼이 「이 파일이 이번 제출에서 빠진다」고 경고하는 데 쓴다. 파일을 다시
+   * 고르지 않은 재제출은 첨부를 옮겨 오지 않으므로(의도된 동작), 무엇이 빠지는지 이름으로
+   * 말해 주지 않으면 학생은 낸 파일이 사라진 것을 나중에야 안다.
+   */
+  readonly currentFileName: string | null;
   /** 아직 아무도 판정하지 않았으면 `null`. */
   readonly review: MilestoneDocumentViewerReview | null;
   /**

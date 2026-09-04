@@ -1,4 +1,4 @@
-import { FileUp, Send } from 'lucide-react';
+import { FileText, FileUp, Send } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,10 +14,24 @@ import {
   milestoneDocumentUploadRejection,
 } from './milestone-document-upload-policy';
 
+/**
+ * 제출·재제출 폼.
+ *
+ * ⚠ 재제출은 **첨부를 옮겨 오지 않는다**(#1090에서 확정한 동작). 파일을 다시 고르지
+ * 않으면 지금 붙어 있는 첨부가 이번 제출에서 빠지고, 교직원의 수합 표·개별 내려받기·
+ * 마일스톤 ZIP 세 곳에서 함께 사라진다. 그래서 이 폼은 **누르기 전에** 무엇이 빠지는지를
+ * 말해야 한다.
+ *
+ * ⚠ 경고는 재제출이 열리는 **모든 상태**에 둔다 — 보완 요청(CHANGES_REQUESTED)뿐 아니라
+ * 교직원이 아직 판정하지 않은 검토 대기(SUBMITTED)도 같은 폼으로 다시 내며, 후자는
+ * 아무도 문제 삼지 않은 파일이 사라지는 경로다. 그 판단을 상태로 하지 않고 「지금 붙어
+ * 있는 첨부가 있는가」 하나로 하는 이유가 그것이다.
+ */
 export function MilestoneDocumentSubmissionForm({
   documentName,
   documentId,
   fileUpload,
+  currentFileName,
   submitting,
   onCancel,
   onSubmit,
@@ -26,6 +40,8 @@ export function MilestoneDocumentSubmissionForm({
   readonly documentId: string;
   /** 상한·허용 형식은 서버가 목록 응답으로 준 값을 그대로 쓴다(#1107). */
   readonly fileUpload: MilestoneDocumentUploadPolicy;
+  /** 지금 이 서류에 붙어 있는 첨부의 이름. 없으면 `null`. */
+  readonly currentFileName: string | null;
   readonly submitting: boolean;
   readonly onCancel: () => void;
   readonly onSubmit: (input: {
@@ -41,6 +57,18 @@ export function MilestoneDocumentSubmissionForm({
   const helpId = `${documentId}-submission-help`;
   const fileHelpId = `${documentId}-submission-file-help`;
   const fileErrorId = `${documentId}-submission-file-error`;
+  const currentFileHelpId = `${documentId}-submission-current-file`;
+  /*
+   * 파일 입력이 가리키는 설명은 둘이 서로 독립으로 늘고 준다 — 기존 첨부가 빠진다는
+   * 경고(#1090)와 상한·형식에 걸렸다는 안내(#1107). 한쪽 조건으로 문자열을 통째로
+   * 갈아 끼우면 다른 쪽이 조용히 지워지므로, 있는 것만 모아 잇는다.
+   */
+  const fileDescribedBy = [
+    helpId,
+    fileHelpId,
+    ...(currentFileName === null ? [] : [currentFileHelpId]),
+    ...(fileError === null ? [] : [fileErrorId]),
+  ].join(' ');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,7 +116,7 @@ export function MilestoneDocumentSubmissionForm({
           accept={fileUpload.accept}
           aria-label={`${documentName} 제출 파일 선택`}
           aria-invalid={fileError !== null}
-          aria-describedby={`${helpId} ${fileHelpId}${fileError === null ? '' : ` ${fileErrorId}`}`}
+          aria-describedby={fileDescribedBy}
           onChange={(event) => {
             const selected = event.target.files?.[0] ?? null;
             const rejection =
@@ -124,6 +152,35 @@ export function MilestoneDocumentSubmissionForm({
           {/* 실패한 뒤가 아니라 파일을 고르기 전에 상한과 허용 형식을 읽을 수 있어야 한다. */}
           <span>{milestoneDocumentUploadHint(fileUpload)}</span>
         </FieldDescription>
+        {currentFileName === null ? null : (
+          <FieldDescription
+            id={currentFileHelpId}
+            className="min-w-0 grid gap-1 break-keep"
+          >
+            <span className="flex min-w-0 max-w-full items-center gap-2">
+              <FileText className="size-4 shrink-0" aria-hidden="true" />
+              <span className="shrink-0 font-medium text-foreground">
+                기존 제출 파일
+              </span>
+              <span
+                className="min-w-0 break-all [overflow-wrap:anywhere]"
+                title={currentFileName}
+              >
+                {currentFileName}
+              </span>
+            </span>
+            {/*
+             * 새 파일을 고른 순간 이 경고는 사라진다 — 그때는 빠지는 것이 아니라
+             * 바뀌는 것이라, 같은 문구를 계속 두면 학생이 무엇을 걱정해야 하는지 흐려진다.
+             */}
+            {hasFile ? null : (
+              <span className="text-foreground">
+                새 파일을 고르지 않으면 이 파일은 이번 제출에서 빠집니다. 그대로
+                두려면 같은 파일을 다시 첨부해 주세요.
+              </span>
+            )}
+          </FieldDescription>
+        )}
         <FieldError id={fileErrorId}>{fileError}</FieldError>
       </Field>
       <div className="flex flex-wrap justify-end gap-2">

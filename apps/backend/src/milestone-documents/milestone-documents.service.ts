@@ -113,6 +113,7 @@ export class MilestoneDocumentsService {
               revision: summary?.revision ?? null,
               status: summary?.status ?? null,
               hasCurrentFile: summary?.hasCurrentFile ?? false,
+              currentFileName: summary?.currentFileName ?? null,
               review:
                 summary?.review == null
                   ? null
@@ -233,6 +234,7 @@ export class MilestoneDocumentsService {
         comment: item.comment,
         createdAt: item.createdAt.toISOString(),
         fileName: item.fileName,
+        downloadUrl: submissionFileDownloadUrl(item.downloadableFileId),
         content: readMilestoneDocumentSubmittedContent(item.content),
       })),
       nextCursor: page.nextCursor,
@@ -287,6 +289,7 @@ export class MilestoneDocumentsService {
         comment: item.comment,
         createdAt: item.createdAt.toISOString(),
         fileName: item.fileName,
+        downloadUrl: submissionFileDownloadUrl(item.downloadableFileId),
         content: readMilestoneDocumentSubmittedContent(item.content),
       })),
       nextCursor: page.nextCursor,
@@ -567,6 +570,19 @@ export class MilestoneDocumentsService {
     }
     return page;
   }
+}
+
+/**
+ * 이력에 붙는 첨부 다운로드 주소. 학생 본인 다운로드 API가 이미 있고 권한 검사도
+ * 그쪽이 소유한다(`submissions`의 `GET /submission-files/:fileId` — 교직원·관리자 전부,
+ * 그 밖에는 올린 본인이거나 같은 팀원). 그래서 이 화면을 위한 새 endpoint를 만들지 않고
+ * 주소만 실어 보낸다.
+ *
+ * 살아 있는 첨부인지는 repository가 이미 판정해 `downloadableFileId`로 준다 — 여기서
+ * 다시 판정하지 않는다.
+ */
+function submissionFileDownloadUrl(fileId: string | null): string | null {
+  return fileId === null ? null : `/api/v1/submission-files/${fileId}`;
 }
 
 function studentHistoryActorLabel(

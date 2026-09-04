@@ -2113,7 +2113,12 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         revision: 2,
         status: SubmissionStatus.CHANGES_REQUESTED,
         _count: { histories: 2 },
-        files: [{ submissionHistory: { revision: 2 } }],
+        files: [
+          {
+            originalFileName: '합성_제출본.pdf',
+            submissionHistory: { revision: 2 },
+          },
+        ],
         reviewHistories: [
           {
             id: 'cuid-synthetic-review',
@@ -2145,6 +2150,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       revision: 2,
       status: SubmissionStatus.CHANGES_REQUESTED,
       hasCurrentFile: true,
+      currentFileName: '합성_제출본.pdf',
       historyComplete: true,
       review: {
         id: 'cuid-synthetic-review',
@@ -2224,6 +2230,83 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     // Then
     expect(findMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
+  });
+});
+
+describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이름', () => {
+  it('지금 붙어 있는 첨부의 이름을 함께 싣는다 — 재제출 폼이 무엇이 빠지는지 말해야 한다', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        revision: 2,
+        status: SubmissionStatus.SUBMITTED,
+        _count: { histories: 2 },
+        files: [
+          {
+            originalFileName: '1차_계획서.pdf',
+            submissionHistory: { revision: 2 },
+          },
+        ],
+        reviewHistories: [],
+      },
+    ]);
+    const repository = new MilestoneDocumentsRepository({
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService);
+
+    const result = await repository.findSubmittedSummaries(
+      syntheticApplicationId,
+      [syntheticDocumentId],
+    );
+
+    const call = firstCallArgument<{
+      select: { files: { select: Record<string, unknown> } };
+    }>(findMany);
+    expect(call.select.files.select).toEqual({
+      originalFileName: true,
+      submissionHistory: { select: { revision: true } },
+    });
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        hasCurrentFile: true,
+        currentFileName: '1차_계획서.pdf',
+      }),
+    );
+  });
+
+  it('지난 제출본에만 붙은 첨부는 이름도 비운다 — 붙어 있다는 말과 어긋나면 안 된다', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        revision: 2,
+        status: SubmissionStatus.SUBMITTED,
+        _count: { histories: 2 },
+        files: [
+          {
+            originalFileName: '1차_계획서.pdf',
+            submissionHistory: { revision: 1 },
+          },
+        ],
+        reviewHistories: [],
+      },
+    ]);
+    const repository = new MilestoneDocumentsRepository({
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService);
+
+    const result = await repository.findSubmittedSummaries(
+      syntheticApplicationId,
+      [syntheticDocumentId],
+    );
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        hasCurrentFile: false,
+        currentFileName: null,
+      }),
+    );
   });
 });
 
