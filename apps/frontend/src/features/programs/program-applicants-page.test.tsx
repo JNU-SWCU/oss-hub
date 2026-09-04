@@ -151,6 +151,7 @@ const program: ProgramDetail = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',
+  lifecycle: 'PUBLISHED',
   description: '설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

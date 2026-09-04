@@ -278,6 +278,24 @@ const PUBLIC_PROGRAM_FIXTURES = [
     endAt: null,
     description: '반려된 신청 상태를 확인하기 위한 합성 프로그램입니다.',
   },
+  {
+    id: 'program-archived-internship',
+    name: '합성 기업 인턴십 프로그램',
+    organizer: '합성 SW중심대학사업단',
+    trackType: 'EXTRACURRICULAR',
+    // **내린 프로그램**(#1092). 이 항목이 없으면 목록에도 상세에도 `ARCHIVED`가 한
+    // 건도 없어, 내린 프로그램의 화면을 아무도 눈으로 확인할 수 없다.
+    //
+    // 신청 기간은 열어 두고 종료일도 비운다 — 날짜만으로는 「모집중」인데 게시 축
+    // 때문에 「종료」인 상태여야, 화면이 lifecycle을 실제로 읽는지 기간만 보고 있는지
+    // 구별할 수 있다. 기간까지 닫아 두면 옛 동작으로 되돌아가도 화면이 똑같이 보인다.
+    // (`handlers/student-program-fixtures.ts`의 `ARCHIVED_INTERNSHIP_BASE`와 같은 기간.)
+    lifecycle: 'ARCHIVED',
+    applicationStartAt: '2025-12-31T15:00:00.000Z',
+    applicationEndAt: '2026-12-31T14:59:59.000Z',
+    endAt: null,
+    description: '내린 프로그램 상태를 확인하기 위한 합성 프로그램입니다.',
+  },
 ] as const satisfies readonly ProgramListItem[];
 
 type PublicArchiveApiItem = {

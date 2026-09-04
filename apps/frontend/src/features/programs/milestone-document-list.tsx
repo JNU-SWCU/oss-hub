@@ -61,6 +61,22 @@ function isStaffRole(role: ViewerRole): role is 'STAFF' | 'ADMIN' {
 }
 
 /**
+ * 제출 항목 블록이 마일스톤 안에서 차지하는 자리.
+ *
+ * 두 가지가 바뀌었다(#1092 후속 UX).
+ *
+ * 1. **가로선을 뗐다.** 예전에는 이 블록 위에 `border-t` 를 그었는데, 마일스톤
+ *    **사이**에는 선이 없어서 화면에 보이는 유일한 가로선이 한 마일스톤을 제 자식과
+ *    갈라놓았다. 경계로 읽혀야 할 선이 엉뚱한 자리에 있었던 셈이다. 이제 선은
+ *    마일스톤 사이에만 긋고(`program-detail-view` 의 `MilestoneGroup`), 머리줄과
+ *    이 블록은 머리줄의 옅은 띠가 갈라 준다.
+ * 2. **머리줄과 같은 `px-6` 안으로 들여놨다.** 예전에는 이 블록이 목록 왼쪽 끝에
+ *    붙고 머리줄만 24px 안으로 들어가 있어서, 자식이 부모보다 바깥에 서 있었다 —
+ *    눈에는 제출 항목이 마일스톤보다 윗단으로 보였다.
+ */
+const MILESTONE_DOCUMENT_BLOCK_CLASS = 'grid px-6 pt-1 pb-5';
+
+/**
  * 제출이 판정과 부딪혀 저장되지 않았음을 알리는 자리.
  *
  * 줄(행) 안이 아니라 **목록 쪽**에 두는 이유: 이 문구를 띄우는 순간 목록을 다시 부르므로,
@@ -105,7 +121,9 @@ export function MilestoneDocumentSectionBody({
   if (state.kind === 'loading') return null;
   if (state.kind === 'failed') {
     return (
-      <div className="grid gap-2 border-t border-border/50 pt-3 text-small text-muted-foreground">
+      <div
+        className={`${MILESTONE_DOCUMENT_BLOCK_CLASS} gap-2 text-small text-muted-foreground`}
+      >
         {/* 못 불러온 자리에서도 「방금 제출이 저장되지 않았다」는 사실은 남아야 한다. */}
         <ConflictNotice notice={conflictNotice} />
         <p>제출 항목을 불러오지 못했습니다.</p>
@@ -133,7 +151,7 @@ export function MilestoneDocumentSectionBody({
     : `제출 ${completed}/${total} 완료`;
 
   return (
-    <div className="grid gap-3 border-t border-border/50 pt-3">
+    <div className={`${MILESTONE_DOCUMENT_BLOCK_CLASS} gap-3`}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-small font-bold text-muted-foreground">
           제출 항목
@@ -262,7 +280,14 @@ export function MilestoneDocumentSection({
 
 function DocumentName({ document }: { readonly document: MilestoneDocument }) {
   return (
-    <span className="min-w-0 flex-1 truncate text-small">
+    /*
+      좁은 화면에서는 이름이 첫 줄을 통째로 쓰고 상태·시각·버튼이 아래로 내려간다
+      (`basis-full`). `flex-1`만 두면 이름 칸이 `min-w-0` 을 타고 끝없이 줄어들어
+      — 줄이 넘치지 않으니 `flex-wrap` 도 걸리지 않는다 — 390px 에서 「최…」 한
+      글자만 남았다. 어느 서류인지가 사라지면 그 아래 배지·버튼도 쓸모가 없다.
+      머리줄이 같은 폭 문제를 푸는 방법과 같다(`milestone-row.tsx`).
+    */
+    <span className="min-w-0 flex-1 basis-full truncate text-small sm:basis-0">
       {document.name}
       {document.required ? (
         <span aria-label="필수" className="ml-0.5 text-destructive">

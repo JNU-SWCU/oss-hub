@@ -105,6 +105,8 @@ const BOARD_POSTS_BY_PROGRAM: Readonly<
   'program-oss-contest': CONTEST_POSTS,
   // 개인형 프로그램이라 게시판 글이 아직 없다.
   'program-basic-study': [],
+  // 내려간 프로그램(#1092) — 아무도 참여하지 못한 채 내려갔으므로 글도 없다.
+  'program-archived-internship': [],
 };
 
 /**
@@ -117,6 +119,8 @@ const STUDENT_BOARD_ACCESS: Readonly<Record<string, boolean>> = {
   'program-capstone': true,
   'program-oss-contest': true,
   'program-basic-study': false,
+  // 신청 전이라 승인된 신청이 없다 — 내려간 프로그램이라 앞으로도 생기지 않는다.
+  'program-archived-internship': false,
 };
 
 export function studentHasBoardAccess(programId: string): boolean {

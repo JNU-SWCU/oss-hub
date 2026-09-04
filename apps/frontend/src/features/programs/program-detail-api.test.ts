@@ -10,6 +10,7 @@ const publicDetail: ProgramDetail = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',
+  lifecycle: 'PUBLISHED',
   description: '합성 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

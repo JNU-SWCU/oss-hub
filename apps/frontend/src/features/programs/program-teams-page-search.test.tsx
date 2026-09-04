@@ -56,6 +56,7 @@ const program: ProgramDetail = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',
+  lifecycle: 'PUBLISHED',
   description: '설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

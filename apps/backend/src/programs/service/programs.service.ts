@@ -227,6 +227,7 @@ export class ProgramsService {
         organizer: program.organizer,
         trackType: program.trackType,
         applicationTemplateKey: program.applicationTemplateKey,
+        lifecycle: program.lifecycle,
         description: program.description,
         repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
         applicationPeriod: {

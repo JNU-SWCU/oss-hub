@@ -20,6 +20,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { LOCAL_REVIEW_FIXTURE_IDS } from '@/lib/local-review-runtime';
 import { resolveLocalReviewResponse } from './fixture-response';
+import { PUBLIC_PROGRAM_IDS } from './handlers/student-program-fixtures';
 
 const BACKEND_SRC = path.resolve(__dirname, '../../../backend/src');
 const REPOSITORY_ROOT = path.resolve(BACKEND_SRC, '../../..');
@@ -137,6 +138,24 @@ function fillParams(route: string): string {
     .join('/');
 }
 
+/**
+ * 프로그램 경로의 **첫 파라미터만** 실제 프로그램 id 로 채운다 — `programs/…` 아래에서
+ * 첫 파라미터는 언제나 프로그램이고(`:id`·`:programId` 이름만 다르다), 나머지는 게시글·
+ * 마일스톤처럼 다른 것들이라 합성 값 그대로 둔다.
+ */
+function fillProgramParams(route: string, programId: string): string {
+  let programFilled = false;
+  return route
+    .split('/')
+    .map((segment) => {
+      if (!segment.startsWith(':')) return segment;
+      if (programFilled) return `synthetic-${segment.slice(1)}`;
+      programFilled = true;
+      return programId;
+    })
+    .join('/');
+}
+
 interface FixtureOutcome {
   readonly status: number | null;
   readonly code: string | null;
@@ -241,6 +260,27 @@ describe('로컬 검토 픽스처의 GET 라우트 커버리지', () => {
 
     expect(stillMissing).toEqual([...KNOWN_GAPS.keys()]);
   });
+
+  /**
+   * 공개 프로그램을 새로 하나 넣을 때, 그 id 를 아는 규칙이 프로그램 경로마다 있어야
+   * 한다. 위의 두 검사는 `synthetic-id` 로 「경로 모양을 아는 규칙이 있는가」만 보므로,
+   * 실제 픽스처 프로그램이 일부 경로에서만 인식되는 상태는 잡지 못한다 — 검토자에게는
+   * 목록에서 눌러 들어간 화면 하나만 조용히 비어 보인다.
+   */
+  it.each(PUBLIC_PROGRAM_IDS)(
+    '%s 는 프로그램 경로 어디에서도 경로 미인지로 떨어지지 않는다',
+    (programId) => {
+      const unknown = inScope
+        .filter((route) => route.startsWith('programs/') && route.includes(':'))
+        .filter((route) =>
+          probe(fillProgramParams(route, programId)).every(
+            (outcome) => outcome.code === UNKNOWN_ROUTE_CODE,
+          ),
+        );
+
+      expect(unknown).toEqual([]);
+    },
+  );
 
   it('범위 밖 목록이 실재하는 경로만 가리킨다', () => {
     // backend 에서 사라진 경로가 예외 목록에 남으면, 나중에 같은 이름의 경로가

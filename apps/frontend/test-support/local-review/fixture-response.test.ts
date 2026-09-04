@@ -356,6 +356,9 @@ describe('local review fixture responses', () => {
     const rejectedProgram = jsonBody(
       publicGet('student', 'programs/program-sw-value/overview'),
     );
+    const archivedProgram = jsonBody(
+      publicGet('student', 'programs/program-archived-internship/overview'),
+    );
 
     // Then: the active fixture carries every future deadline in API order, and the completed
     // fixture is an explicitly loaded empty list rather than undefined or a legacy singleton.
@@ -372,6 +375,8 @@ describe('local review fixture responses', () => {
     ]);
     expect(rejectedProgram).not.toHaveProperty('nextMilestone');
     expect(rejectedProgram).toHaveProperty('remainingMilestones', []);
+    expect(archivedProgram).not.toHaveProperty('nextMilestone');
+    expect(archivedProgram).toHaveProperty('remainingMilestones', []);
   });
 
   it.each([

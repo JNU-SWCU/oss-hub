@@ -14,7 +14,8 @@ import {
 } from './program-detail-page';
 import { ProgramFactBar } from './program-detail-view';
 import type { ProgramOverview } from './program-overview-api';
-import type { ProgramDetail, ProgramMilestone } from './types';
+import { getProgramListBadge } from './program-list';
+import type { ProgramDetail, ProgramListItem, ProgramMilestone } from './types';
 
 const milestone: ProgramMilestone = {
   id: 'milestone-1',
@@ -34,6 +35,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{ ...milestone, viewerSubmissionStatus: null }}
         viewerRole={null}
         applicationStatus={null}
@@ -52,6 +55,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={milestone}
         viewerRole="STUDENT"
         applicationStatus="APPROVED"
@@ -64,6 +69,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           submissionType: null,
@@ -84,6 +91,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           submissionType: null,
@@ -104,6 +113,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           submissionType: null,
@@ -123,6 +134,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           dDay: -2,
@@ -143,6 +156,8 @@ describe('MilestoneRow', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
         milestone={{
           ...milestone,
           viewerSubmissionStatus: null,
@@ -241,6 +256,7 @@ const programWithoutMilestones: ProgramDetail = {
   organizer: '운영기관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
+  lifecycle: 'PUBLISHED',
   description: '프로그램 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -364,6 +380,167 @@ describe('ProgramDetailPage states', () => {
     expect(html).toContain('href="/signup"');
     expect(html).not.toContain('로그인');
     expect(html).not.toContain('href="/"');
+  });
+
+  /**
+   * 학생 화면의 「종료」(#1092). 두 갈래가 같은 자리로 모인다 — 교직원이 내린
+   * 프로그램(저장된 `ARCHIVED`)과 운영 종료일이 지난 프로그램(날짜에서 파생되는
+   * 종료)이다. 예전에는 상세가 신청 기간 하나로만 판단해 둘 다 「모집중 +
+   * 신청하기」로 남겼고, 학생은 신청서를 다 채운 뒤에야 서버의 거절을 만났다.
+   * 학생에게 「종료」와 「내림」을 갈라 보여 주지 않는 것이 확정된 방향이다.
+   */
+  describe('종료된 프로그램 상세', () => {
+    const studentViewer = {
+      role: 'STUDENT',
+      applicationStatus: null,
+    } as const satisfies ProgramDetail['viewer'];
+
+    // 세 갈래 모두 신청 기간(2026-07-01~08-31)은 열려 있다 — 지금은 08-15다.
+    // 종료 판정이 신청 기간을 앞선다는 것을 이 겹침이 보장한다.
+    const archived: ProgramDetail = {
+      ...programWithoutMilestones,
+      lifecycle: 'ARCHIVED',
+      viewer: studentViewer,
+    };
+    const dateEnded: ProgramDetail = {
+      ...programWithoutMilestones,
+      lifecycle: 'PUBLISHED',
+      operatingPeriod: {
+        startsAt: '2026-06-01T00:00:00+09:00',
+        endsAt: '2026-08-10T23:59:59+09:00',
+      },
+      viewer: studentViewer,
+    };
+    const live: ProgramDetail = {
+      ...programWithoutMilestones,
+      lifecycle: 'PUBLISHED',
+      operatingPeriod: {
+        startsAt: '2026-06-01T00:00:00+09:00',
+        endsAt: '2026-12-31T23:59:59+09:00',
+      },
+      viewer: studentViewer,
+    };
+
+    const endedCases = [
+      { kind: '내린 프로그램', program: archived },
+      { kind: '종료일이 지난 프로그램', program: dateEnded },
+    ];
+
+    function titleSlotOf(program: ProgramDetail): string {
+      const html = renderToStaticMarkup(
+        <ProgramDetailReadyState program={program} />,
+      );
+      return (
+        html.match(/<h1 data-slot="page-header-title"[^>]*>(.*?)<\/h1>/)?.[1] ??
+        ''
+      );
+    }
+
+    /** 상세와 나란히 놓고 볼 목록 항목 — 같은 프로그램을 목록이 받는 모양으로 옮긴다. */
+    function asListItem(program: ProgramDetail): ProgramListItem {
+      return {
+        id: program.id,
+        name: program.name,
+        organizer: program.organizer,
+        trackType: program.trackType,
+        lifecycle: program.lifecycle,
+        applicationStartAt: program.applicationPeriod.startsAt,
+        applicationEndAt: program.applicationPeriod.endsAt,
+        endAt: program.operatingPeriod?.endsAt ?? null,
+        description: program.description,
+      };
+    }
+
+    it.each(endedCases)(
+      '$kind 은 신청 기간이 열려 있어도 「모집중」이 아니라 「종료」로 표시한다',
+      ({ program }) => {
+        const titleSlot = titleSlotOf(program);
+
+        expect(titleSlot).toContain('종료');
+        expect(titleSlot).not.toContain('모집중');
+      },
+    );
+
+    it.each(endedCases)(
+      '$kind 은 목록에서 볼 때와 상세에서 볼 때 상태 표시가 같다',
+      ({ program }) => {
+        const listLabel = getProgramListBadge(
+          asListItem(program),
+          new Date(),
+        ).label;
+
+        expect(listLabel).toBe('종료');
+        expect(titleSlotOf(program)).toContain(listLabel);
+      },
+    );
+
+    // 버튼을 지우지 않는다 — 입구가 사라지면 학생은 자기가 잘못 들어온 줄 안다.
+    // 흐리게 두고(`disabled`) 왜 못 누르는지를 같은 자리에 적는다.
+    it.each(
+      endedCases.flatMap(({ kind, program }) =>
+        [
+          {
+            viewer: '학생',
+            role: 'STUDENT' as const,
+            label: '신청하기',
+            href: '/programs/program-1/apply',
+          },
+          {
+            viewer: '비로그인',
+            role: null,
+            label: '가입하고 신청하기',
+            href: '/signup',
+          },
+        ].map((entry) => ({ ...entry, kind, program })),
+      ),
+    )(
+      '$kind 의 $viewer 신청 입구를 이유와 함께 비활성으로 그린다',
+      ({ program, role, label, href }) => {
+        const html = renderToStaticMarkup(
+          <ProgramActions
+            program={{
+              ...program,
+              viewer: { role, applicationStatus: null },
+            }}
+          />,
+        );
+
+        expect(html).toContain(label);
+        expect(html).toContain('disabled=""');
+        expect(html).toContain('종료된 프로그램이라 신청을 받지 않습니다.');
+        // 이유는 툴팁이 아니라 화면에 남는다 — disabled 버튼은 포인터 이벤트를
+        // 받지 못해 툴팁으로는 전할 수 없다.
+        expect(html).toContain('aria-describedby=');
+        expect(html).not.toContain(`href="${href}"`);
+      },
+    );
+
+    it('게시 중이고 아직 안 끝난 프로그램은 지금과 똑같이 신청 입구를 연다', () => {
+      const actions = renderToStaticMarkup(<ProgramActions program={live} />);
+
+      expect(titleSlotOf(live)).toContain('모집중');
+      expect(actions).toContain('href="/programs/program-1/apply"');
+      expect(actions).not.toContain(
+        '종료된 프로그램이라 신청을 받지 않습니다.',
+      );
+      expect(actions).not.toContain('disabled=""');
+    });
+
+    // 운영 기간을 싣지 않던 응답이 「종료」로 잘못 접히면 멀쩡한 프로그램의 신청이
+    // 막힌다 — 종료일을 모르는 것은 끝났다는 뜻이 아니다.
+    it('운영 기간이 없는 응답은 종료로 접지 않는다', () => {
+      const withoutOperatingPeriod: ProgramDetail = {
+        ...programWithoutMilestones,
+        viewer: studentViewer,
+      };
+
+      expect(titleSlotOf(withoutOperatingPeriod)).toContain('모집중');
+      expect(
+        renderToStaticMarkup(
+          <ProgramActions program={withoutOperatingPeriod} />,
+        ),
+      ).toContain('href="/programs/program-1/apply"');
+    });
   });
 
   it('마일스톤이 없으면 빈 상태와 교직원 설정 진입을 표시한다', () => {
