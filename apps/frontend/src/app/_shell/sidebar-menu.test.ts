@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
 import { currentRankingYear } from '@/features/ranking/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
