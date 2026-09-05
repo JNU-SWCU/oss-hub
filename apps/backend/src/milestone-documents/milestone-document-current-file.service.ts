@@ -37,7 +37,7 @@ export class MilestoneDocumentCurrentFileService {
     milestoneId: string,
     documentId: string,
   ): Promise<DownloadedMilestoneDocumentCurrentFile> {
-    const file = await this.repository.findForApprovedParticipant(
+    const file = await this.repository.findForParticipant(
       sessionGithubId,
       milestoneId,
       documentId,
