@@ -1,6 +1,7 @@
-import { EmptyState } from '@/components';
+import { EmptyState, ParticipantOnlyNotice } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { programApplyHref, programOverviewHref } from '@/lib/program-route';
 import {
   checklistSubmittedCount,
   sortChecklistItems,
@@ -177,6 +178,29 @@ export function ChecklistSkeleton() {
       <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+    </section>
+  );
+}
+
+/**
+ * 승인된 신청이 없는 학생이 `/programs/:id/documents`에 **주소로 직접** 들어왔을 때(#1099).
+ *
+ * 서버는 `SUB_003`·`SUB_004` 403으로 「참여자가 아니다」를 정확히 말하는데 예전에는 그
+ * 답이 `ChecklistLoadFailure`(빨간 상자 + 「다시 시도」)로 접혔다. 그 버튼은 몇 번을 눌러도
+ * 같은 403을 되풀이한다 — 재시도로 풀릴 수 있는 실패가 아니기 때문이다.
+ */
+export function ChecklistParticipationRequired({
+  programId,
+}: {
+  readonly programId: string;
+}) {
+  return (
+    <section aria-label="마일스톤 및 제출">
+      <ParticipantOnlyNotice
+        description="승인된 신청이 있는 참여자만 제출물을 볼 수 있습니다. 이 프로그램에 신청하고 승인을 받으면 여기에서 서류를 제출할 수 있습니다."
+        applyHref={programApplyHref(programId)}
+        overviewHref={programOverviewHref(programId)}
+      />
     </section>
   );
 }

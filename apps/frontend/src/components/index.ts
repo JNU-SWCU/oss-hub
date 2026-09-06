@@ -42,3 +42,5 @@ export {
   remainingUntil,
 } from './program-countdown';
 export type { ProgramCountdownProps, RemainingTime } from './program-countdown';
+export { ParticipantOnlyNotice } from './participant-only-notice';
+export type { ParticipantOnlyNoticeProps } from './participant-only-notice';
