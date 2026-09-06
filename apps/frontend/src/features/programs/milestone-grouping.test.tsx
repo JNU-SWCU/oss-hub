@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import { MilestoneDocumentSectionBody } from './milestone-document-list';
 import type { MilestoneDocument } from './milestone-document-api';
+import { milestoneSubmissionAccess } from './milestone-submission-access';
 import { ProgramMilestones } from './program-detail-view';
 import type { ProgramDetail, ProgramMilestone } from './types';
 
@@ -247,6 +248,10 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
         }
         viewerRole="STUDENT"
         closed={false}
+        submissionAccess={milestoneSubmissionAccess({
+          role: 'STUDENT',
+          applicationStatus: 'APPROVED',
+        })}
         conflictNotice={null}
         onRetry={() => {}}
         onDocumentChange={() => {}}
