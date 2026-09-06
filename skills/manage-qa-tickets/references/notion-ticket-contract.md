@@ -138,7 +138,7 @@ selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 
 #### 완료 조건
 - [ ] <페르소나>가 <행동>하면 <확인 가능한 결과>를 본다.
 - [ ] 배포 환경(`https://jnu-oss-hub.com/<path>`)에서 다시 확인한다.
-- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 여덟 항목을 점검하고 판정 표를 PR 본문에 넣는다.
+- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 열여섯 항목을 점검하고 판정 표를 PR 본문에 넣는다.
 ```
 
 ## UX or design improvement body
@@ -182,7 +182,7 @@ selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 
 - [ ] 실패·취소·새로고침 뒤에도 <보존되거나 되돌아가야 할 상태>가 맞다.
 - [ ] 빈 상태·결과 없음·오류가 서로 구분된다.
 - [ ] 배포 환경(`https://jnu-oss-hub.com/<path>`)의 키보드 조작과 390px 화면에서 다시 확인한다.
-- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 여덟 항목을 점검하고 판정 표를 PR 본문에 넣는다.
+- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 열여섯 항목을 점검하고 판정 표를 PR 본문에 넣는다.
 
 ## 작업 범위
 - 시작 지점: <검사로 확인한 파일 또는 화면 영역>
