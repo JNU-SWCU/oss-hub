@@ -17,6 +17,7 @@ const created: CreatedMilestoneDocumentReview = {
   decision: 'CHANGES_REQUESTED',
   comment: '표지의 이름이 다릅니다.',
   reviewedAt: '2026-08-01T02:00:00.000Z',
+  resubmissionDueAt: null,
   reviewerNickname: '교직원',
 };
 
