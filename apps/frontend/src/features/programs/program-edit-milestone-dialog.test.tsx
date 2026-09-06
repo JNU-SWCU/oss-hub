@@ -204,11 +204,11 @@ describe('ProgramEditMilestoneDialog', () => {
       pressEscape(nameInput);
     });
     expect(document.querySelectorAll('[role="alertdialog"]')).toHaveLength(1);
-    expect(document.body.textContent).toContain('변경사항을 취소할까요?');
+    expect(document.body.textContent).toContain('저장하지 않은 변경을 버릴까요?');
     expect(document.body.textContent).toContain(
-      '저장하지 않은 변경사항은 사라집니다.',
+      '버리면 되돌릴 수 없습니다.',
     );
-    expect(getButton('변경사항 취소')).toBeTruthy();
+    expect(getButton('버리기')).toBeTruthy();
     expect(document.body.textContent).not.toContain('폐기');
     expect(onCancel).not.toHaveBeenCalled();
     expect(nameInput.value).toBe('변경된 기획서');
@@ -246,7 +246,7 @@ describe('ProgramEditMilestoneDialog', () => {
       originFocused = true;
     });
     await act(async () => {
-      getButton('변경사항 취소').click();
+      getButton('버리기').click();
       await waitForNextFrame();
     });
     expect(onCancel).toHaveBeenCalledOnce();
@@ -323,7 +323,7 @@ describe('ProgramEditMilestoneDialog', () => {
       overlay?.click();
     });
     expect(onCancel).not.toHaveBeenCalled();
-    expect(document.body.textContent).not.toContain('변경사항을 취소할까요?');
+    expect(document.body.textContent).not.toContain('저장하지 않은 변경을 버릴까요?');
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   });
 

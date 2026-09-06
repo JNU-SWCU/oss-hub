@@ -241,7 +241,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     await editName('취소할 기획서');
     await act(async () => button('취소').click());
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    await act(async () => button('변경사항 취소').click());
+    await act(async () => button('버리기').click());
     expect(document.querySelector('[role="dialog"]')).toBeNull();
 
     // When: 두 번째 카드의 자신의 수정 버튼으로 연다.

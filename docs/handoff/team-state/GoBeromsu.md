@@ -1347,3 +1347,14 @@
   원격 브랜치는 62개에서 11개로 줄였다. 삭제 대상 45개는 전부 (a) 병합된 PR, (b) 닫힌 PR, (c) 명시적 `backup/*` 스냅샷, (d) 내용이 main에 흡수된 무PR 브랜치 중 하나임을 확인했고, 진행 중 WIP 브랜치와 열린 PR 브랜치는 건드리지 않았다. 삭제 전 모든 원격 tip을 로컬 `refs/archive/2026-09-04/*`로 보존해 복구 가능하게 두었다.
 - 검증: 병합 전 5건을 한 통합 브랜치에 모아 `pnpm typecheck`·`pnpm lint`(0 error)·`pnpm test`(frontend 3319, backend 3501)·`BACKEND_ORIGIN` 허용값으로 `pnpm build`를 돌렸다. 이 통합 실행이 위 의미 충돌 (1)을 병합 전에 잡았다. 각 PR은 required `ci`·`public-safe` 통과를 exact head SHA에서 확인했고, 릴리스 대상 SHA는 `push` 이벤트 `ci` 통과를 확인했다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — 마일스톤 편집 단순화와 배포 컷오버
+
+- 배경: 프로그램 편집 화면에서 눌러도 아무 일도 일어나지 않는 일정 선택기(`aria-pressed="true"` + no-op `onActiveIdChange`), 같은 말을 세 번 하는 확인창, 없어진 신청서 양식·버전 표시, 마일스톤 하나를 다이얼로그와 즉시 저장으로 나눠 고치는 구조를 차례로 확인했다. 마지막 것은 「아래 제출 항목에서 관리합니다」라는 설명문이 구조를 대신 설명하고 있었던 게 신호였다.
+- 결정: 마일스톤 편집을 한 업무 저장으로 합쳤다. 이름·기간·공지·제출 항목·양식·순서·삭제를 하나의 DB transaction으로 반영하고, 저장 전 취소는 업무·업로드 요청 0회다. 새 table이나 migration은 만들지 않고 기존 `ProgramEditorRepository` transaction과 기존 pending upload 기반을 재사용했다.
+- 배포: frontend(Vercel)와 backend(Jenkins `H/10` cron 수렴)가 같은 Release로 인가되지만 원자적이지 않아, 신 계약을 한 번에 내면 교직원 편집이 멈추는 창이 생긴다. ralplan 합의(Architect CLEAR / Critic OKAY) 결과 expand-contract로 간다 — EXPAND에서 구 라우트 4개를 유지한 채 신 계약을 더하고, SWITCH에서 화면을 전환하고, CONTRACT에서 구 계약을 지운다. 근거는 `docs/rules/pr-scope.md:20`(계약 PR 선행)과 `AGENTS.md:73`(금지 대상은 *silent* fallback)이다. CONTRACT 릴리스는 선택이 아니라 필수로 고정했다.
+- 정정: 처음에 backend 계약 PR을 「독립 배포 가능」이라고 판단한 것과 `AGENTS.md`를 「하위 호환 금지」로 인용한 것 둘 다 틀렸다. 리뷰에서 교정됐고, 그 결과 지운 라우트를 EXPAND 단계로 복원했다.
+- 검증: backend 313 suite / 3574 test, 격리 integration 93 suite / 537 test(실제 PostgreSQL·MinIO), frontend 341 file / 3493 test, 신규 browser E2E 5건(installed Chrome, 실제 스택), `pnpm typecheck`·`pnpm lint`·`pnpm build`·`pnpm format:check`·`check-public-safe.sh`·env-example 계약·storage-reconcile lane 통과. `program-authoring-document-flow` 계열 2건은 깨끗한 `e3767e60`에서도 동일하게 실패해 이번 변경의 회귀가 아니다.
+- E2E가 잡은 실제 결함 둘: `E2eProgramAuthoringFixture.reset`이 고정 문서 id 하나만 지워 통합 저장이 만든 문서가 FK로 마일스톤 삭제를 막고 reset이 500이 됐다(마일스톤 기준 전량 삭제로 수정). 교직원 서류 수합 화면에는 양식 다운로드 링크가 원래 없어, 업로드 버튼을 없애자 양식에 접근할 길이 사라졌다(파일명을 링크 이름으로 쓰는 읽기 링크 추가).
+- 스킬: `submit-pr-evidence` UX 안티패턴 점검을 여덟에서 열여섯 항목으로 늘리고(AP-9~16: 죽은 컨트롤, 사라진 기능의 잔상, 의미 없는 시각, 뒤섞인 출처, 뒤집힌 노출, 갈라진 편집, 어긋난 저장 범위, 닿지 않는 본문) 문서 끝에 NN/g·GOV.UK·W3C·Norman 원문 링크를 모았다. v1.5.0, `manage-qa-tickets`는 참조 개수만 맞춰 v4.4.1.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
