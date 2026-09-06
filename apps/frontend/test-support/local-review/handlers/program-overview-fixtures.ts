@@ -1,6 +1,7 @@
 import type { ProgramOverview } from '@/features/programs/program-overview-api';
 import {
   MY_TEAM_FIXTURES,
+  OPEN_REVISION_FIXTURE,
   type PublicProgramId,
 } from './student-program-fixtures';
 
@@ -45,16 +46,22 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     name: '합성 캡스톤 2026',
     trackType: 'CURRICULAR',
     lifecycle: 'PUBLISHED',
-    milestoneCount: 3,
+    milestoneCount: 4,
     boardPostCount: 3,
     participantCount: 188,
     teamCount: 47,
     connectedRepositoryCount: 47,
-    // milestone-document-fixtures.ts의 3개 서류 중 2개(승인·보완요청)가
+    // milestone-document-fixtures.ts의 4개 서류 중 3개(승인·보완요청 둘)가
     // "제출됨"에 해당한다 — student-program-fixtures.ts의 마일스톤별
     // viewerSubmissionStatus와 앞뒤가 맞아야 한다.
-    studentDocumentsCompleted: 2,
-    studentDocumentsTotal: 3,
+    studentDocumentsCompleted: 3,
+    studentDocumentsTotal: 4,
+    /*
+     * 남은 마감 **전부**를 API 순서대로 싣는다. 여기에 새로 더한 마지막 항목이
+     * 마감 전 보완 요청 마일스톤이다 — 빠뜨리면 좌측 패널의 카운트다운이 마일스톤
+     * 목록과 다른 말을 한다. 그 마감 시각은 마일스톤에서 그대로 가져온다(상대 시간).
+     * 고정 날짜를 따로 적어 두면 그날이 지나는 순간 카운트다운만 음수로 남는다.
+     */
     remainingMilestones: [
       {
         label: '중간 보고',
@@ -63,6 +70,10 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
       {
         label: '최종 결과 요약',
         dueAt: '2026-09-12T09:00:00.000Z',
+      },
+      {
+        label: OPEN_REVISION_FIXTURE.name,
+        dueAt: OPEN_REVISION_FIXTURE.deadline.dueAt,
       },
     ],
     milestoneDocuments: [
@@ -86,6 +97,14 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
         studentCompleted: 0,
         studentTotal: 1,
         staffCompleted: 0,
+      },
+      {
+        milestoneId: OPEN_REVISION_FIXTURE.milestoneId,
+        title: OPEN_REVISION_FIXTURE.name,
+        studentCompleted: 1,
+        studentTotal: 1,
+        // milestone-document-fixtures.ts의 teamSubmissionCount(26/47)와 같은 수다.
+        staffCompleted: 26,
       },
     ],
     fullySubmittedParticipantCount: 96,

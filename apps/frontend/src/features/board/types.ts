@@ -68,6 +68,12 @@ export interface BoardCommentWriteInput {
 export type BoardListState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'error'; readonly message: string }
+  /**
+   * 승인된 신청이 없어 게시판이 아직 열리지 않은 상태(#1099). `error`와 나눠 두는
+   * 까닭은 화면이 달라야 하기 때문이다 — 이쪽은 재시도로 풀리지 않고, 「질문 쓰기」도
+   * 같은 이유로 거절당한다.
+   */
+  | { readonly kind: 'not-participant' }
   | { readonly kind: 'ready'; readonly page: BoardPostsPage };
 
 export type BoardDetailState =
