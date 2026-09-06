@@ -2,7 +2,7 @@
 name: submit-pr-evidence
 description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, clears the eight UX anti-patterns, runs the public-safety check, and blocks the PR until required evidence is present, since every screen-touching change needs a Before/After capture and a live deployment link in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검".
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # Submit PR Evidence
@@ -39,7 +39,7 @@ metadata:
      그래서 검증 보고에는 **실행된 suite·test 개수**를 적는다. 개수가 없으면 통과 주장도 없다.
    - lint 와 typecheck 가 둘 다 통과해도 옛 코드가 새 코드보다 먼저 반환하는 상태가 성립한다.
      rebase 충돌을 풀다 양쪽이 남으면 이렇게 된다. **전체 테스트만이 그것을 잡는다.**
-8. 화면을 건드렸으면 [references/ux-antipatterns.md](references/ux-antipatterns.md)의 여덟 항목을 통과시킨다.
+8. 화면을 건드렸으면 [references/ux-antipatterns.md](references/ux-antipatterns.md)의 열여섯 항목을 통과시킨다.
    세면 끝나는 넷은 그 문서의 콘솔 스니펫을 배포 화면에 붙여 출력을 그대로 받고, 화면을 열고 읽는 넷은 그 문서의 질문을 그대로 읽는다.
    **발견한 위반은 보고 대상이 아니라 PR을 열기 전에 고칠 대상이다** — 티켓 경계 밖일 때만 별도 티켓으로 제안하고 그 사실을 본문에 적는다.
 
@@ -97,7 +97,7 @@ backend만 고쳤어도 그 API를 소비하는 화면을 찍는다. 응답이 �
    티켓 문구를 그대로 옮긴 답은 다시 묻는다 — 티켓은 이번에 바꿀 범위이고, 이 질문은 화면이 존재하는 이유다.
 2. **위화감** — 「방금 직접 눌러보셨잖아요. 어색했던 지점이 있나요? 없다면 어디서 어디까지 눌러보고 그렇게 판단하셨나요?」
    「없었다」만 돌아오면 누른 경로를 다시 묻는다. 눌러본 경로를 말하지 못하는 「없음」은 확인하지 않았다는 뜻이다.
-3. **안티패턴** — 「[여덟 항목](references/ux-antipatterns.md) 중 이 화면에서 특히 지켜야 하는 건 무엇이고 왜 그렇게 보세요?」
+3. **안티패턴** — 「[열여섯 항목](references/ux-antipatterns.md) 중 이 화면에서 특히 지켜야 하는 건 무엇이고 왜 그렇게 보세요?」
    목록을 읽기만 한 것과 이 화면에 적용해 본 것을 가르는 질문이다.
 
 답은 본문의 원재료로 그대로 간다 — 1번은 `## 무엇이 좋아지나`, 2번은 `## 이 흐름이 자연스러운가`, 3번은 `## UX 안티패턴 점검`의 마지막 줄이 된다.
@@ -154,7 +154,7 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 
 ## UX 안티패턴 점검
 
-<여덟 줄 판정 표 — references/ux-antipatterns.md의 형식 그대로>
+<열여섯 줄 판정 표 — references/ux-antipatterns.md의 형식 그대로>
 
 이 화면에서 특히 지켜야 하는 항목: <번호와 이유 한 문장 — 인터뷰 3번 답>
 
@@ -263,7 +263,7 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 - [ ] 화면을 건드렸으면 Before/After 요소 캡처와 After 전체 화면 두 장(desktop·390x844)을 표로 넣고, 사람이 공개 안전·메타데이터를 확인했으며, 렌더된 것을 다시 열어 확인했다.
 - [ ] `https://jnu-oss-hub.com/<path>` 확인 링크를 본문에 적었다.
 - [ ] 화면이 아예 없는 변경이면 면제 사유를 본문에 한 줄 적었다.
-- [ ] [UX 안티패턴](references/ux-antipatterns.md) 여덟 줄이 근거와 함께 다 찼고, 발견한 위반은 PR을 열기 전에 고쳤다.
+- [ ] [UX 안티패턴](references/ux-antipatterns.md) 열여섯 줄이 근거와 함께 다 찼고, 발견한 위반은 PR을 열기 전에 고쳤다.
 - [ ] `backend` 로직 변경이면 mermaid 또는 DOT 다이어그램을 `## 흐름 다이어그램`에 넣었고, 변경 노드를 강조했으며, 실데이터·시크릿을 노드에 넣지 않았다.
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 In Review로 옮겼다.
