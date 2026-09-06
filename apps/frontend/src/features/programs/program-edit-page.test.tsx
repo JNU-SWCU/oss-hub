@@ -12,6 +12,7 @@ import {
   mapMilestoneError,
   mapProgramEditError,
   toProgramEditForm,
+  validateProgramEditForm,
   validateMilestoneForm,
 } from './program-edit-flow';
 import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
@@ -55,14 +56,18 @@ const {
   updateProgramMock: vi.fn(),
   updateProgramLifecycleMock: vi.fn(),
 }));
+const listMilestoneDocumentsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('./api', () => ({
   getEditableProgram: getEditableProgramMock,
   updateProgram: updateProgramMock,
   updateProgramLifecycle: updateProgramLifecycleMock,
   createMilestone: vi.fn(),
-  updateMilestone: vi.fn(),
   deleteMilestone: vi.fn(),
+}));
+
+vi.mock('./milestone-document-api', () => ({
+  listMilestoneDocuments: listMilestoneDocumentsMock,
 }));
 
 const editableProgram: EditableProgram = {
@@ -174,6 +179,42 @@ describe('ProgramEditPage save payload', () => {
         ['applicationStartAt'],
       ).applicationStartAt,
     ).toBe('2026-08-01T01:00:00.000Z');
+  });
+
+  it('신청 동일 시각은 허용하지만 운영 동일 시각과 현재 마일스톤 밖 운영 시작은 거부한다', () => {
+    const equalApplication = {
+      ...toProgramEditForm(editableProgram),
+      applicationStartAt: '2026-08-15T18:30',
+      applicationEndAt: '2026-08-15T18:30',
+    };
+    expect(validateProgramEditForm(equalApplication).period).toBeUndefined();
+
+    expect(
+      validateProgramEditForm({
+        ...equalApplication,
+        startAt: '2026-08-31T18:30',
+        endAt: '2026-08-31T18:30',
+      }).endAt,
+    ).toContain('운영 시작일 이후');
+
+    expect(
+      validateProgramEditForm({
+        ...toProgramEditForm({
+          ...editableProgram,
+          milestones: [
+            {
+              id: 'milestone-1',
+              name: '중간 점검',
+              startAt: '2026-08-16T09:30:59.123Z',
+              dueAt: '2026-08-20T09:30:59.123Z',
+              submissionType: 'TEXT',
+              instructions: null,
+            },
+          ],
+        }),
+        startAt: '2026-08-17T18:30',
+      }).startAt,
+    ).toContain('마일스톤 시작일');
   });
 });
 
@@ -320,16 +361,6 @@ describe('ProgramEditPage 컴포넌트', () => {
     ) as HTMLButtonElement | undefined;
   }
 
-  function getScheduleButton(name: string): HTMLButtonElement {
-    const button = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'),
-    ).find((candidate) => candidate.textContent?.includes(name));
-    if (button === undefined) {
-      throw new TypeError(`Schedule button not found: ${name}`);
-    }
-    return button;
-  }
-
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
@@ -339,6 +370,15 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockReset();
     updateProgramMock.mockReset();
     updateProgramLifecycleMock.mockReset();
+    listMilestoneDocumentsMock.mockResolvedValue({
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+    });
     // window.confirm은 이 화면에서 더 이상 쓰이지 않아야 한다 — 남아 있다면 호출을
     // 잡아내되, 값을 돌려주지 않으면 뒤에 이어지는 로직이 확인 없이 막힐 수 있으니
     // false로 고정해 "여전히 confirm에 의존한다"가 조용히 통과하지 않게 한다.
@@ -353,7 +393,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     window.confirm = originalConfirm;
   });
 
-  it('빈 새 마일스톤은 변환 전에 필드 오류를 보여 주고 첫 입력에 초점을 둔다', async () => {
+  it('빈 새 마일스톤은 변환 전에 필드 오류를 보여 주고 일정 달력에 초점을 둔다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
@@ -369,7 +409,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(container.textContent).toContain('유효한 시작일을 입력해 주세요.');
     expect(container.textContent).toContain('유효한 마감일을 입력해 주세요.');
     expect(document.activeElement).toBe(
-      container.querySelector('#milestone-name'),
+      container.querySelector(
+        '[data-testid="program-schedule-calendar-scroll"][aria-invalid="true"]',
+      ),
     );
   });
 
@@ -428,10 +470,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
   });
 
-  // Addition 2 — 저장 실패 경로는 여태 마운트 테스트가 없었다. submit의 catch가
-  // form을 그대로 두는지(errors만 채우고 setForm/초기화를 하지 않는지)를 실제
-  // DOM으로 확인한다.
-  it('운영 시작과 종료가 같으면 종료 시각 옆에 오류를 보여준다', async () => {
+  it('운영 시작과 종료가 같으면 적용 전에 dialog 오류를 보여준다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
@@ -443,30 +482,38 @@ describe('ProgramEditPage 컴포넌트', () => {
       await Promise.resolve();
     });
 
-    await act(async () => getScheduleButton('운영 기간').click());
-    const lastDay = container.querySelector<HTMLButtonElement>(
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="운영 기간 수정"]')
+        ?.click(),
+    );
+    const sameDay = document.body.querySelector<HTMLButtonElement>(
       '[data-calendar-date="2026-08-31"]',
     );
-    if (lastDay === null) throw new TypeError('Missing 2026-08-31.');
+    const endTime = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="운영 기간 종료 시각"]',
+    );
+    if (sameDay === null || endTime === null)
+      throw new TypeError('Missing operation calendar controls.');
     await act(async () => {
-      lastDay.click();
+      sameDay.click();
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(endTime, '09:30');
+      endTime.dispatchEvent(new Event('input', { bubbles: true }));
     });
-
-    await act(async () => {
-      getButton('변경사항 저장').click();
-    });
+    await act(async () => getButton('적용').click());
 
     expect(updateProgramMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain(
+    expect(document.body.textContent).toContain(
       '프로그램 종료일은 운영 시작일 이후여야 합니다.',
-    );
-    expect(document.activeElement).toBe(
-      container.querySelector('#program-end-at'),
     );
   });
 
-  it('신청 날짜 순서가 잘못되면 두 날짜의 관계와 수정 위치를 함께 안내한다', async () => {
+  it('신청 기간 적용은 PATCH 없이 선택 endpoint만 dirty로 만든 뒤 부모 저장 한 번에서 보낸다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramMock.mockResolvedValue(editableProgram);
 
     await act(async () => {
       root.render(
@@ -475,34 +522,39 @@ describe('ProgramEditPage 컴포넌트', () => {
       await Promise.resolve();
     });
 
-    const sameDay = container.querySelector<HTMLButtonElement>(
-      '[data-calendar-date="2026-08-15"]',
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="신청 기간 수정"]')
+        ?.click(),
     );
-    if (sameDay === null) throw new TypeError('Missing 2026-08-15.');
-    await act(async () => sameDay.click());
-    await act(async () => getButton('시간 변경').click());
-    const applicationStart = container.querySelector<HTMLInputElement>(
-      '#program-application-start-at',
+    const applicationStart = document.body.querySelector<HTMLButtonElement>(
+      '[data-calendar-date="2026-08-02"]',
     );
     if (applicationStart === null)
-      throw new TypeError('Missing #program-application-start-at.');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
+      throw new TypeError('Missing application calendar.');
     await act(async () => {
-      setter?.call(applicationStart, '18:31');
-      applicationStart.dispatchEvent(new Event('input', { bubbles: true }));
+      applicationStart.click();
     });
+    await act(async () => {
+      document.body
+        .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-15"]')
+        ?.click();
+    });
+    await act(async () => getButton('적용').click());
+    expect(updateProgramMock).not.toHaveBeenCalled();
 
     await act(async () => getButton('변경사항 저장').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-    expect(updateProgramMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain(
-      '신청 시작과 마감을 모두 확인해 주세요. 시작은 마감과 같거나 이전이어야 합니다.',
-    );
-    expect(document.activeElement).toBe(
-      container.querySelector('#program-application-start-at'),
+    expect(updateProgramMock).toHaveBeenCalledTimes(1);
+    expect(updateProgramMock).toHaveBeenLastCalledWith(
+      'program-1',
+      expect.objectContaining({
+        applicationStartAt: '2026-08-02T09:30:00.000Z',
+        applicationEndAt: editableProgram.applicationEndAt,
+      }),
     );
   });
 

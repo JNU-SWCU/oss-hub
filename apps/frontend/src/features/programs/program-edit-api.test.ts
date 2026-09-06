@@ -7,7 +7,7 @@ import {
   getEditableProgram,
   purgeProgram,
   type EditableProgram,
-  updateMilestone,
+  updateEditableMilestone,
   updateProgram,
 } from './api';
 import {
@@ -103,7 +103,7 @@ describe('program edit API', () => {
     ).not.toHaveProperty('category');
   });
 
-  it('keeps milestone mutations on canonical id endpoints and serializes startAt', async () => {
+  it('keeps milestone mutations on canonical id endpoints and serializes aggregate startAt', async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(jsonResponse({ id: 'milestone-1' })),
     );
@@ -116,7 +116,14 @@ describe('program edit API', () => {
     };
 
     await createMilestone('program-1', input);
-    await updateMilestone('milestone-1', input);
+    await updateEditableMilestone('milestone-1', {
+      expectedFingerprint: 'a'.repeat(64),
+      name: input.name,
+      startAt: input.startAt,
+      dueAt: input.dueAt,
+      instructions: input.instructions,
+      documents: [],
+    });
     await deleteMilestone('milestone-1');
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -127,7 +134,11 @@ describe('program edit API', () => {
     );
     expect(
       JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)),
-    ).toMatchObject({ startAt: input.startAt });
+    ).toMatchObject({
+      expectedFingerprint: 'a'.repeat(64),
+      startAt: input.startAt,
+      documents: [],
+    });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       apiPath('milestones/milestone-1'),
     );
@@ -136,12 +147,26 @@ describe('program edit API', () => {
   it('uses the backend milestone response as the authoritative saved value', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
-        id: 'milestone-1',
-        name: '기획서 수정',
-        startAt: '2026-05-02T00:00:00.000Z',
-        dueAt: '2026-05-10T00:00:00.000Z',
-        submissionType: 'TEXT',
-        instructions: null,
+        milestone: {
+          id: 'milestone-1',
+          name: '기획서 수정',
+          startAt: '2026-05-02T00:00:00.000Z',
+          dueAt: '2026-05-10T00:00:00.000Z',
+          submissionType: 'TEXT',
+          instructions: null,
+        },
+        operation: {
+          startAt: '2026-05-01T00:00:00.000Z',
+          endAt: '2026-05-31T00:00:00.000Z',
+        },
+        documents: [],
+        fileUpload: {
+          maxBytes: 1_000_000,
+          maxLabel: '1 MB',
+          accept: '.pdf',
+          formatLabel: 'PDF',
+        },
+        fingerprint: 'b'.repeat(64),
       }),
     );
     const input = {
@@ -152,10 +177,17 @@ describe('program edit API', () => {
       instructions: null,
     };
 
-    const saved = await updateMilestone('milestone-1', input);
+    const saved = await updateEditableMilestone('milestone-1', {
+      expectedFingerprint: 'a'.repeat(64),
+      name: input.name,
+      startAt: input.startAt,
+      dueAt: input.dueAt,
+      instructions: input.instructions,
+      documents: [],
+    });
 
-    expect(saved.startAt).toBe('2026-05-02T00:00:00.000Z');
-    expect(toMilestoneForm(saved).originalStartAt).toBe(
+    expect(saved.milestone.startAt).toBe('2026-05-02T00:00:00.000Z');
+    expect(toMilestoneForm(saved.milestone).originalStartAt).toBe(
       '2026-05-02T00:00:00.000Z',
     );
   });

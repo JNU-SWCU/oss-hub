@@ -109,7 +109,7 @@ describe('사람 중심 프로그램 작성 계약', () => {
     );
     if (edit === null) throw new TypeError('수정 버튼이 없습니다.');
     await act(async () => edit.click());
-    expect(document.body.textContent).toContain('공지사항');
+    expect(document.body.textContent).toContain('운영자 공지');
     expect(document.body.textContent).toContain('첨부파일');
     expect(document.body.textContent).toContain('필수 제출');
     expect(document.body.textContent).not.toContain('제출 항목 이름');
@@ -203,6 +203,14 @@ describe('사람 중심 프로그램 작성 계약', () => {
     expect(
       document.body.querySelector('[role="dialog"]')?.textContent,
     ).toContain('신청 기간');
+    expect(
+      document.body.querySelector('[role="dialog"]')?.textContent,
+    ).toContain('시작과 종료 날짜·시간을 입력하세요.');
+    expect(
+      [...document.body.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === '저장',
+      ),
+    ).toBe(true);
     expect(
       document.body.querySelectorAll('[role="dialog"] input[type="time"]'),
     ).toHaveLength(2);

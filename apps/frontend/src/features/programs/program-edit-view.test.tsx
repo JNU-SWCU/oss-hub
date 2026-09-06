@@ -83,13 +83,12 @@ describe('ProgramEditView contract', () => {
       <ProgramEditView
         program={editableProgram}
         form={toProgramEditForm(editableProgram)}
-        errors={{}}
+        errors={fieldErrors}
         toastMessage={null}
         generalAlert={null}
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -107,20 +106,32 @@ describe('ProgramEditView contract', () => {
 
     expect(html).toContain('비교과');
     expect(html).not.toContain('id="program-application-start-at"');
-    expect(html).toContain('시간 변경');
-    expect(html).toContain('신청·운영·마일스톤 일정');
+    expect(html).toContain('data-program-schedule-summaries');
+    expect(html).toContain('신청 기간 수정');
+    expect(html).toContain('운영 기간 수정');
+    expect(html).toContain('class="inline-flex size-11');
+    expect(html).toContain('data-slot="tooltip-trigger"');
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain('aria-describedby="application-schedule-error"');
+    expect(html).toContain('신청 기간을 확인해 주세요.');
+    expect(html).not.toContain('시간 변경');
+    expect(html).not.toContain('신청·운영·마일스톤 일정');
+    expect(html).not.toContain('날짜 선택 달력');
     expect(html).not.toContain('oss-contest');
     expect(html).toContain('OSS경진대회 신청서');
     expect(html).toContain('v1');
     expect(html).toContain('milestone-canonical-id');
     expect(html).toContain('기획서 제출');
     expect(html).toContain('신청 기간');
-    expect(html).toContain('aria-label="2026년 8월 1일 (토요일)"');
-    expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('2026년 8월 1일 (토요일)');
     expect(html).not.toContain('TEXT');
-    expect(html).toContain('수정');
-    expect(html).toContain('삭제');
+    expect(html).toContain('aria-label="기획서 제출 수정"');
+    expect(html).toContain('aria-label="기획서 제출 삭제"');
+    expect(html).toContain('data-canonical-id="milestone-canonical-id"');
+    expect(html).toContain('시작');
+    expect(html).toContain('마감');
+    expect(html).toContain('운영자 공지');
+    expect(html).not.toContain('제출 안내가 없습니다.');
     expect(html).toContain('href="/programs/program-1"');
     expect(html).toContain('← 프로그램 개요');
   });
@@ -137,7 +148,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -171,7 +181,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -222,7 +231,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -256,7 +264,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={editableProgram.milestones[0]}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -297,7 +304,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -430,7 +436,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -474,7 +479,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -521,7 +525,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -565,7 +568,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         isLifecycleConfirming
@@ -597,7 +599,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -630,7 +631,6 @@ describe('ProgramEditView contract', () => {
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
         deleteTarget={null}
-        expandedDocumentsMilestoneId={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         canDeleteProgram

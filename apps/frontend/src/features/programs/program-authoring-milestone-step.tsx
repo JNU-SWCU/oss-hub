@@ -1,16 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
 import { FormSection } from '@/components/form-section';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { FieldError } from '@/components/ui/field';
 import type { ProgramAuthoringMilestone } from './program-authoring-model';
 import type {
@@ -23,13 +15,14 @@ import {
   MAX_REQUIREMENTS_PER_MILESTONE,
 } from './program-authoring-graph-validation';
 import { ProgramAuthoringMilestoneDialog } from './program-authoring-milestone-dialog';
+import { ProgramMilestoneCard } from './program-milestone-card';
 import {
   dateKey,
   monthKeyForEvents,
   type ProgramScheduleCalendarEvent,
 } from './program-schedule-calendar-model';
 import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
-import { formatKoreanDate } from './program-schedule-range-selection';
+import { formatKoreanDate, timePart } from './program-schedule-range-selection';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
 
 export function ProgramAuthoringMilestoneStep({
@@ -227,82 +220,48 @@ export function ProgramAuthoringMilestoneStep({
           </p>
         ) : (
           visibleMilestones.map((item) => (
-            <Card key={item.id}>
-              <CardHeader className="relative gap-2">
-                <div className="pr-20">
-                  <CardTitle className="text-lg">
-                    {item.name || '이름 없는 마일스톤'}
-                  </CardTitle>
-                  <p className="mt-1 text-small text-muted-foreground">
-                    {rangeLabel(item)}
+            <ProgramMilestoneCard
+              key={item.id}
+              id={item.id}
+              name={item.name || '이름 없는 마일스톤'}
+              startAt={rangeLabel(item.startAt)}
+              dueAt={rangeLabel(item.dueAt)}
+              notice={item.instructions || null}
+              onEdit={() => {
+                setAnchorDate(null);
+                onMilestoneEditStart(item);
+                setEditing({
+                  id: item.id,
+                  snapshot: item,
+                  showValidation: false,
+                });
+              }}
+              onDelete={() => {
+                setAnchorDate(null);
+                onMilestoneCancel(item.id, null);
+              }}
+            >
+              {item.requirements.length > 0 ? (
+                <div className="grid gap-1">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    첨부파일
                   </p>
+                  {item.requirements.map((requirement) => (
+                    <p
+                      key={requirement.id}
+                      className="text-small text-muted-foreground"
+                    >
+                      {requirement.name} ·{' '}
+                      {requirement.required ? '필수' : '선택'}
+                    </p>
+                  ))}
                 </div>
-                <CardAction
-                  className="absolute top-0 flex gap-1"
-                  style={{ right: 'var(--card-spacing)' }}
-                >
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={`${item.name} 수정`}
-                    title="수정"
-                    onClick={() => {
-                      setAnchorDate(null);
-                      onMilestoneEditStart(item);
-                      setEditing({
-                        id: item.id,
-                        snapshot: item,
-                        showValidation: false,
-                      });
-                    }}
-                  >
-                    <Pencil aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={`${item.name} 삭제`}
-                    title="삭제"
-                    onClick={() => {
-                      setAnchorDate(null);
-                      onMilestoneCancel(item.id, null);
-                    }}
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="grid gap-3">
-                {item.instructions ? (
-                  <div className="grid gap-1">
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      공지사항
-                    </p>
-                    <p className="whitespace-pre-wrap text-small">
-                      {item.instructions}
-                    </p>
-                  </div>
-                ) : null}
-                {item.requirements.length > 0 ? (
-                  <div className="grid gap-1">
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      첨부파일
-                    </p>
-                    {item.requirements.map((requirement) => (
-                      <p
-                        key={requirement.id}
-                        className="text-small text-muted-foreground"
-                      >
-                        {requirement.name} ·{' '}
-                        {requirement.required ? '필수' : '선택'}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
+              ) : (
+                <p className="text-small text-muted-foreground">
+                  제출 항목이 없습니다. 수정에서 추가하세요.
+                </p>
+              )}
+            </ProgramMilestoneCard>
           ))
         )}
       </section>
@@ -378,12 +337,11 @@ export function ProgramAuthoringMilestoneStep({
   );
 }
 
-function rangeLabel(milestone: ProgramAuthoringMilestone): string {
-  const start = dateKey(milestone.startAt);
-  const due = dateKey(milestone.dueAt);
-  return start && due
-    ? `${formatKoreanDate(start)} ~ ${formatKoreanDate(due)}`
-    : '기간 미정';
+function rangeLabel(value: string): string {
+  const date = dateKey(value);
+  return date === null
+    ? '기간 미정'
+    : `${formatKoreanDate(date)} ${timePart(value)}`;
 }
 
 function boundaryDateTime(

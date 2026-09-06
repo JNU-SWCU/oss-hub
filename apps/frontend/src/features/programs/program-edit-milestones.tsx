@@ -1,31 +1,50 @@
 ﻿import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { EditableMilestone } from './api';
+import { Card, CardContent } from '@/components/ui/card';
+import type {
+  EditableMilestone,
+  EditableMilestoneEditSnapshot,
+  EditableMilestoneDocument,
+} from './api';
 import {
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
+  type ProgramMilestoneDraft,
 } from './program-edit-flow';
-import { MilestoneDocumentEditorSection } from './milestone-document-editor';
+import { ReadOnlyMilestoneDocuments } from './milestone-document-editor';
 import { formatSeoulDate } from './program-detail-format';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
 import { ProgramEditMilestoneDialog } from './program-edit-milestone-dialog';
+import { ProgramMilestoneCard } from './program-milestone-card';
 interface ProgramEditMilestonesProps {
   readonly milestones: readonly EditableMilestone[];
   readonly editor: ProgramMilestoneEditor;
   readonly editTriggerRef?: React.RefObject<HTMLElement | null>;
   readonly deleteTarget: EditableMilestone | null;
-  /** 방금 만든 마일스톤 — 그 카드만 「제출 항목」을 펼친 채로 시작한다. */
-  readonly expandedDocumentsMilestoneId: string | null;
   readonly operationStartAt: string;
   readonly operationEndAt: string;
   readonly contextEvents: readonly ProgramScheduleCalendarEvent[];
   readonly isBusy: boolean;
+  readonly milestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly latestMilestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly snapshotLoadFailed?: boolean;
+  readonly canonicalDocumentsByMilestoneId?: ReadonlyMap<
+    string,
+    readonly EditableMilestoneDocument[]
+  >;
   readonly onAdd: () => void;
   readonly onEdit: (milestone: EditableMilestone) => void;
   readonly onCancelEdit: () => void;
   readonly onFieldChange: (field: ProgramMilestoneField, value: string) => void;
-  readonly onSave: (event: React.FormEvent<HTMLFormElement>) => void;
+  readonly onSave: (
+    event: React.FormEvent<HTMLFormElement>,
+    documents?: ProgramMilestoneDraft['documents'],
+  ) => void;
+  readonly onRefreshMilestone?: () => void;
+  readonly onDocumentsDirtyChange?: (dirty: boolean) => void;
+  readonly onRestartMilestoneFromLatest?: (
+    snapshot: EditableMilestoneEditSnapshot,
+  ) => void;
   readonly onRequestDelete: (milestone: EditableMilestone) => void;
   readonly onCancelDelete: () => void;
   readonly onConfirmDelete: () => void;
@@ -36,16 +55,22 @@ export function ProgramEditMilestones({
   editor,
   editTriggerRef,
   deleteTarget,
-  expandedDocumentsMilestoneId,
   operationStartAt,
   operationEndAt,
   contextEvents,
   isBusy,
+  milestoneSnapshot,
+  latestMilestoneSnapshot,
+  snapshotLoadFailed,
+  canonicalDocumentsByMilestoneId,
   onAdd,
   onEdit,
   onCancelEdit,
   onFieldChange,
   onSave,
+  onRefreshMilestone,
+  onDocumentsDirtyChange,
+  onRestartMilestoneFromLatest,
   onRequestDelete,
   onCancelDelete,
   onConfirmDelete,
@@ -68,7 +93,12 @@ export function ProgramEditMilestones({
             학생이 제출물을 올릴 마일스톤을 등록·수정·삭제할 수 있습니다.
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={onAdd}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={isBusy}
+          onClick={onAdd}
+        >
           추가
         </Button>
       </div>
@@ -91,7 +121,15 @@ export function ProgramEditMilestones({
           operationEndAt={operationEndAt}
           contextEvents={contextEvents}
           isBusy={isBusy}
+          snapshot={milestoneSnapshot}
+          latestSnapshot={latestMilestoneSnapshot}
+          snapshotLoadFailed={snapshotLoadFailed}
           returnFocusRef={editTriggerRef}
+          onRefresh={onRefreshMilestone}
+          onDocumentsDirtyChange={onDocumentsDirtyChange}
+          onRestartFromLatest={
+            onRestartMilestoneFromLatest ?? (() => undefined)
+          }
           onCancel={onCancelEdit}
           onFieldChange={onFieldChange}
           onSave={onSave}
@@ -113,44 +151,24 @@ export function ProgramEditMilestones({
           </Card>
         ) : (
           milestones.map((milestone) => (
-            <Card key={milestone.id} data-canonical-id={milestone.id}>
-              <CardHeader className="gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="grid gap-1">
-                  <CardTitle>{milestone.name}</CardTitle>
-                  <p className="text-small text-muted-foreground break-keep">
-                    {formatSeoulDate(milestone.dueAt)} · 학생이 낼 내용과 참고
-                    자료는 아래 제출 항목에서 관리합니다.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onEdit(milestone)}
-                  >
-                    수정
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => onRequestDelete(milestone)}
-                  >
-                    삭제
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="grid gap-3">
-                <p className="text-small whitespace-pre-wrap text-muted-foreground break-keep">
-                  {milestone.instructions ?? '제출 안내가 없습니다.'}
-                </p>
-                <MilestoneDocumentEditorSection
-                  milestoneId={milestone.id}
-                  defaultExpanded={
-                    expandedDocumentsMilestoneId === milestone.id
-                  }
-                />
-              </CardContent>
-            </Card>
+            <ProgramMilestoneCard
+              key={milestone.id}
+              id={milestone.id}
+              disabled={isBusy}
+              name={milestone.name}
+              startAt={formatSeoulDate(milestone.startAt)}
+              dueAt={formatSeoulDate(milestone.dueAt)}
+              notice={milestone.instructions}
+              onEdit={() => onEdit(milestone)}
+              onDelete={() => onRequestDelete(milestone)}
+            >
+              <ReadOnlyMilestoneDocuments
+                milestoneId={milestone.id}
+                canonicalDocuments={canonicalDocumentsByMilestoneId?.get(
+                  milestone.id,
+                )}
+              />
+            </ProgramMilestoneCard>
           ))
         )}
       </div>

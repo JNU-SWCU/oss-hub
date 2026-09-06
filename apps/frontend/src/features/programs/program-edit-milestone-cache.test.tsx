@@ -32,20 +32,40 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-const { getEditableProgramMock, updateMilestoneMock, updateProgramMock } =
-  vi.hoisted(() => ({
-    getEditableProgramMock: vi.fn(),
-    updateMilestoneMock: vi.fn(),
-    updateProgramMock: vi.fn(),
-  }));
+const {
+  getEditableProgramMock,
+  getEditableMilestoneMock,
+  updateEditableMilestoneMock,
+  updateMilestoneMock,
+  updateProgramMock,
+} = vi.hoisted(() => ({
+  getEditableProgramMock: vi.fn(),
+  getEditableMilestoneMock: vi.fn(),
+  updateEditableMilestoneMock: vi.fn(),
+  updateMilestoneMock: vi.fn(),
+  updateProgramMock: vi.fn(),
+}));
 
 vi.mock('./api', () => ({
   getEditableProgram: getEditableProgramMock,
+  getEditableMilestone: getEditableMilestoneMock,
+  updateEditableMilestone: updateEditableMilestoneMock,
+  editableMilestoneSnapshotFailure: () => ({ kind: 'unknown' }),
   updateProgram: updateProgramMock,
   updateProgramLifecycle: vi.fn(),
   createMilestone: vi.fn(),
-  updateMilestone: updateMilestoneMock,
   deleteMilestone: vi.fn(),
+}));
+vi.mock('./milestone-document-api', () => ({
+  listMilestoneDocuments: vi.fn().mockResolvedValue({
+    documents: [],
+    fileUpload: {
+      maxBytes: 5242880,
+      maxLabel: '5 MiB',
+      accept: '.pdf',
+      formatLabel: 'PDF',
+    },
+  }),
 }));
 
 const originalMilestone: EditableMilestone = {
@@ -88,6 +108,22 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     document.body.append(container);
     root = createRoot(container);
     getEditableProgramMock.mockReset();
+    getEditableMilestoneMock.mockReset().mockResolvedValue({
+      milestone: originalMilestone,
+      operation: {
+        startAt: editableProgram.startAt,
+        endAt: editableProgram.endAt,
+      },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'a'.repeat(64),
+    });
+    updateEditableMilestoneMock.mockReset();
     updateMilestoneMock.mockReset();
     updateProgramMock.mockReset();
   });
@@ -105,7 +141,21 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       dueAt: savedMilestoneDueAt,
     };
     getEditableProgramMock.mockResolvedValue(editableProgram);
-    updateMilestoneMock.mockResolvedValue(savedMilestone);
+    updateEditableMilestoneMock.mockResolvedValue({
+      milestone: savedMilestone,
+      operation: {
+        startAt: editableProgram.startAt,
+        endAt: editableProgram.endAt,
+      },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'b'.repeat(64),
+    });
     updateProgramMock.mockResolvedValue({
       ...editableProgram,
       endAt: savedProgramEndAt,
@@ -119,21 +169,26 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       await Promise.resolve();
     });
 
-    await act(async () => getButton('수정').click());
+    await act(async () =>
+      getAccessibleButton(`${originalMilestone.name} 수정`).click(),
+    );
     await selectRange('결과물 제출', '2026-08-16', '2026-08-20');
     await act(async () => {
       getButton('저장').click();
       await Promise.resolve();
     });
 
-    await act(async () => getScheduleButton('운영 기간').click());
+    await act(async () => getAccessibleButton('운영 기간 수정').click());
     await selectRange('운영 기간', '2026-08-16', '2026-08-25');
+    await act(async () => {
+      getButton('적용').click();
+    });
     await act(async () => {
       getButton('변경사항 저장').click();
       await Promise.resolve();
     });
 
-    expect(updateMilestoneMock).toHaveBeenCalledWith(
+    expect(updateEditableMilestoneMock).toHaveBeenCalledWith(
       'milestone-1',
       expect.objectContaining({ dueAt: savedMilestone.dueAt }),
     );
@@ -154,13 +209,11 @@ function getButton(name: string): HTMLButtonElement {
   return button;
 }
 
-function getScheduleButton(name: string): HTMLButtonElement {
-  const button = Array.from(
-    document.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'),
-  ).find((candidate) => candidate.textContent?.includes(name));
-  if (button === undefined) {
-    throw new TypeError(`Schedule button not found: ${name}`);
-  }
+function getAccessibleButton(name: string): HTMLButtonElement {
+  const button = document.querySelector<HTMLButtonElement>(
+    `button[aria-label="${name}"]`,
+  );
+  if (button === null) throw new TypeError(`Button not found: ${name}`);
   return button;
 }
 

@@ -15,7 +15,13 @@ export interface ProgramAuthoringSubmitApi {
 export interface ProgramSubmissionRuntime {
   submitting: boolean;
   readonly uploads: Map<string, ProgramAuthoringUpload>;
+  readonly uploadFiles: Map<string, File>;
 }
+
+export type PendingUploadCandidate = {
+  readonly localId: string;
+  readonly file: File;
+};
 
 export type ProgramAuthoringSubmitResult =
   | { readonly kind: 'ignored' }
@@ -28,7 +34,7 @@ export type ProgramAuthoringSubmitResult =
     };
 
 export function createProgramSubmissionRuntime(): ProgramSubmissionRuntime {
-  return { submitting: false, uploads: new Map() };
+  return { submitting: false, uploads: new Map(), uploadFiles: new Map() };
 }
 
 export async function submitProgramAuthoring(options: {
@@ -70,7 +76,7 @@ export async function submitProgramAuthoring(options: {
   }
 }
 
-async function ensureUploads(options: {
+export async function ensureUploads(options: {
   readonly state: ProgramAuthoringState;
   readonly files: ReadonlyMap<string, File>;
   readonly runtime: ProgramSubmissionRuntime;
@@ -79,15 +85,10 @@ async function ensureUploads(options: {
   ProgramAuthoringSubmitResult,
   { readonly kind: 'failure' }
 > | null> {
-  const pending: { readonly requirementId: string; readonly file: File }[] = [];
+  const pending: PendingUploadCandidate[] = [];
   for (const milestone of options.state.milestones) {
     for (const requirement of milestone.requirements) {
-      if (
-        requirement.templateFile === null ||
-        options.runtime.uploads.has(requirement.id)
-      ) {
-        continue;
-      }
+      if (requirement.templateFile === null) continue;
       const file = options.files.get(requirement.id);
       if (file === undefined) {
         return {
@@ -96,14 +97,44 @@ async function ensureUploads(options: {
           message: '파일 재선택 필요',
         };
       }
-      pending.push({ requirementId: requirement.id, file });
+      pending.push({ localId: requirement.id, file });
     }
   }
   if (pending.length === 0) return null;
 
+  const result = await preparePendingUploads({
+    candidates: pending,
+    runtime: options.runtime,
+    api: options.api,
+  });
+  return result;
+}
+
+export async function preparePendingUploads(options: {
+  readonly candidates: readonly PendingUploadCandidate[];
+  readonly runtime: ProgramSubmissionRuntime;
+  readonly api: Pick<ProgramAuthoringSubmitApi, 'uploadFile' | 'deleteUpload'>;
+}): Promise<Extract<
+  ProgramAuthoringSubmitResult,
+  { readonly kind: 'failure' }
+> | null> {
+  const pending = options.candidates.filter((candidate) => {
+    const upload = options.runtime.uploads.get(candidate.localId);
+    const cachedFile = options.runtime.uploadFiles.get(candidate.localId);
+    const valid =
+      upload !== undefined &&
+      cachedFile === candidate.file &&
+      upload.expiresAt !== undefined &&
+      Date.parse(upload.expiresAt) > Date.now();
+    if (valid) return false;
+    options.runtime.uploads.delete(candidate.localId);
+    options.runtime.uploadFiles.delete(candidate.localId);
+    return true;
+  });
+  if (pending.length === 0) return null;
   const results = await Promise.allSettled(
-    pending.map(async ({ requirementId, file }) => ({
-      requirementId,
+    pending.map(async ({ localId, file }) => ({
+      localId,
       upload: await options.api.uploadFile(file),
     })),
   );
@@ -121,8 +152,31 @@ async function ensureUploads(options: {
         '양식 파일을 올리지 못했습니다. 파일은 유지되며 다시 시도하면 자동으로 재업로드합니다.',
     };
   }
-  for (const { requirementId, upload } of successful) {
-    options.runtime.uploads.set(requirementId, upload);
+  for (const { localId, upload } of successful) {
+    options.runtime.uploads.set(localId, upload);
+    const candidate = pending.find((item) => item.localId === localId);
+    if (candidate !== undefined)
+      options.runtime.uploadFiles.set(localId, candidate.file);
   }
   return null;
+}
+
+export async function cleanupPreparedUploads(options: {
+  readonly runtime: ProgramSubmissionRuntime;
+  readonly localIds: readonly string[];
+  readonly deleteUpload: (uploadId: string) => Promise<void>;
+}): Promise<void> {
+  const uploads = options.localIds.flatMap((localId) => {
+    const upload = options.runtime.uploads.get(localId);
+    return upload === undefined ? [] : [[localId, upload] as const];
+  });
+  const results = await Promise.allSettled(
+    uploads.map(([, upload]) => options.deleteUpload(upload.id)),
+  );
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled') return;
+    const localId = uploads[index]?.[0];
+    if (localId !== undefined) options.runtime.uploads.delete(localId);
+    if (localId !== undefined) options.runtime.uploadFiles.delete(localId);
+  });
 }

@@ -105,6 +105,7 @@ export function ProgramEditBasicForm({
             program={program}
             form={form}
             errors={errors}
+            isSaving={isSaving}
             onFieldChange={onFieldChange}
           />
           <Field>

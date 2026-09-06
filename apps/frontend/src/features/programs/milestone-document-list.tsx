@@ -6,7 +6,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ChangeEvent,
   type ReactElement,
 } from 'react';
 import { StatusBadge } from '@/components';
@@ -19,7 +18,6 @@ import {
   milestoneDocumentTemplateHref,
   submitMilestoneDocument,
   uploadMilestoneDocumentFile,
-  uploadMilestoneDocumentTemplate,
   type MilestoneDocument,
   type MilestoneDocumentSubmissionContent,
   type MilestoneDocumentUploadPolicy,
@@ -51,10 +49,6 @@ import {
 import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
 import { MilestoneDocumentResubmissionDialog } from './milestone-document-resubmission-dialog';
 import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
-import {
-  milestoneDocumentUploadHint,
-  milestoneDocumentUploadRejection,
-} from './milestone-document-upload-policy';
 import type { ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
@@ -179,12 +173,7 @@ export function MilestoneDocumentSectionBody({
       <ul className="grid gap-3" data-testid="milestone-document-rows">
         {state.documents.map((document) =>
           staff ? (
-            <StaffDocumentRow
-              key={document.id}
-              document={document}
-              fileUpload={state.fileUpload}
-              onChange={onDocumentChange}
-            />
+            <StaffDocumentRow key={document.id} document={document} />
           ) : (
             <StudentDocumentRow
               key={document.id}
@@ -336,50 +325,12 @@ function submitErrorMessage(error: unknown, fallback: string): string {
   return error.problem.detail;
 }
 
-/** 교직원 행 — 팀 제출 카운트 + 양식 올리기/교체. */
+/** 교직원 행 — 팀 제출 카운트만 상세 화면에서 읽는다. 양식 관리는 프로그램 편집에 둔다. */
 function StaffDocumentRow({
   document,
-  fileUpload,
-  onChange,
 }: {
   readonly document: MilestoneDocument;
-  readonly fileUpload: MilestoneDocumentUploadPolicy;
-  readonly onChange: (document: MilestoneDocument) => void;
 }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadHintId = `${document.id}-template-upload-help`;
-
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    /*
-     * 상한을 넘거나 허용 형식 밖이면 요청 자체를 내보내지 않는다. 보내 봐야 서버가
-     * 거절하고, 그 거절이 nginx에서 나면 화면에는 개발자용 문장만 남는다(#1107).
-     */
-    const rejection = milestoneDocumentUploadRejection(file, fileUpload);
-    if (rejection !== null) {
-      setError(rejection);
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    try {
-      await uploadMilestoneDocumentTemplate(
-        document.milestoneId,
-        document.id,
-        file,
-      );
-      onChange({ ...document, hasTemplateFile: true });
-    } catch (uploadError: unknown) {
-      setError(submitErrorMessage(uploadError, '양식 업로드에 실패했습니다.'));
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
     <li className="grid gap-1" data-testid="milestone-document-row">
       <div className="flex flex-wrap items-center gap-3">
@@ -390,35 +341,26 @@ function StaffDocumentRow({
             {document.teamSubmissionCount.total}팀 제출
           </StatusBadge>
         ) : null}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload aria-hidden />
-          {document.hasTemplateFile ? '양식 교체' : '양식 올리기'}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="sr-only"
-          accept={fileUpload.accept}
-          aria-label={`${document.name} 양식 파일 선택`}
-          aria-describedby={uploadHintId}
-          onChange={(event) => void handleFile(event)}
-        />
-        {/* 고르기 전에 읽어야 하는 값 — 학생 제출 폼과 같은 문장을 쓴다. */}
-        <span id={uploadHintId} className="text-small text-muted-foreground">
-          {milestoneDocumentUploadHint(fileUpload)}
-        </span>
+        {/*
+          양식 교체는 마일스톤 편집이 소유하지만, 교직원이 지금 무엇이 올라가 있는지
+          확인할 길은 이 화면에 남아야 한다. 파일명을 링크 이름으로 쓰면 「양식」보다
+          무엇을 받는지가 분명하다.
+        */}
+        {document.templateFileName ? (
+          <Button asChild size="sm" variant="ghost">
+            <a
+              href={milestoneDocumentTemplateHref(
+                document.milestoneId,
+                document.id,
+              )}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Download aria-hidden /> {document.templateFileName}
+            </a>
+          </Button>
+        ) : null}
       </div>
-      {error ? (
-        <p role="alert" className="text-small text-destructive">
-          {error} 파일을 다시 선택해 주세요.
-        </p>
-      ) : null}
     </li>
   );
 }

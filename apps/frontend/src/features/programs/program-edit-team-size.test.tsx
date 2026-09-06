@@ -40,7 +40,6 @@ const viewProps = {
   isSaving: false,
   milestoneEditor: { mode: 'closed' } as const,
   deleteTarget: null,
-  expandedDocumentsMilestoneId: null,
   isMilestoneBusy: false,
   isLifecycleBusy: false,
   isLifecycleConfirming: false,

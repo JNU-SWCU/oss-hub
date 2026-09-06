@@ -72,7 +72,6 @@ function EditViewHarness({
       isSaving={false}
       milestoneEditor={{ mode: 'closed' }}
       deleteTarget={null}
-      expandedDocumentsMilestoneId={null}
       isMilestoneBusy={false}
       isLifecycleBusy={false}
       isLifecycleConfirming={false}
