@@ -6,6 +6,7 @@ import {
   checklistSubmittedCount,
   CHECKLIST_STATUS_LABELS,
   deadlineVariant,
+  hasMilestoneDeadlinePassed,
   milestoneDeadline,
   resubmissionContent,
   resubmissionFailure,
@@ -90,6 +91,45 @@ describe('milestoneDeadline', () => {
       dDay: 1,
       label: 'D-1',
     });
+  });
+});
+
+describe('hasMilestoneDeadlinePassed', () => {
+  // dueAt 2026-09-01T18:00:00+09:00 == 2026-09-01T09:00:00Z.
+  const dueAt = '2026-09-01T09:00:00.000Z';
+
+  it('같은 날이라도 마감 시각을 넘겼으면 지난 것이다', () => {
+    // Given: Seoul 2026-09-01 18:00:01. milestoneDeadline은 같은 달력일이라
+    // dDay 0('오늘 마감')을 주지만 서버는 이 시점의 제출을 거절한다.
+    const now = new Date('2026-09-01T09:00:01Z');
+
+    // When / Then
+    expect(milestoneDeadline(dueAt, now).dDay).toBe(0);
+    expect(hasMilestoneDeadlinePassed(dueAt, now)).toBe(true);
+  });
+
+  it('같은 날 마감 시각 이전이면 아직 지나지 않았다', () => {
+    // Given: Seoul 2026-09-01 17:59:59.
+    const now = new Date('2026-09-01T08:59:59Z');
+
+    // When / Then
+    expect(hasMilestoneDeadlinePassed(dueAt, now)).toBe(false);
+  });
+
+  it('마감 시각과 같은 순간은 아직 지나지 않았다', () => {
+    // Given: 서버의 hasProgramDeadlinePassed도 초과(>)로만 판정한다.
+    const now = new Date(dueAt);
+
+    // When / Then
+    expect(hasMilestoneDeadlinePassed(dueAt, now)).toBe(false);
+  });
+
+  it('읽을 수 없는 dueAt은 지나지 않은 것으로 본다', () => {
+    // Given: 화면이 제출 자리를 임의로 막지 않도록 거절은 서버에 맡긴다.
+    const now = new Date('2026-09-01T09:00:01Z');
+
+    // When / Then
+    expect(hasMilestoneDeadlinePassed('not-a-date', now)).toBe(false);
   });
 });
 

@@ -276,6 +276,24 @@ describe('SubmissionChecklistView 체크리스트', () => {
 });
 
 describe('ChecklistRow 제출 CTA', () => {
+  it.each([-1, 0, 1])(
+    '마감 경계 %dms에도 보완 요청의 재제출 링크를 보존한다',
+    (offset) => {
+      const item = ITEMS[1];
+      if (!item) throw new Error('expected revision fixture');
+      const link = findLinkElement(
+        ChecklistRow({
+          programId: 'program-1',
+          item,
+          now: new Date(new Date(item.dueAt).getTime() + offset),
+        }),
+      );
+      expect(link?.props.href).toBe(
+        '/programs/program-1/documents?milestoneId=milestone-interim',
+      );
+    },
+  );
+
   it('다시 제출 primary click은 상세 재제출 패널로 진입하고 modified click은 native Link 동작을 보존한다', () => {
     // Given
     const item = ITEMS[1];
@@ -331,6 +349,52 @@ describe('ChecklistRow 업로드 가능 여부', () => {
     expect(html).toContain('disabled=""');
     expect(html).not.toContain(
       'href="/programs/program-1/documents?milestoneId=',
+    );
+  });
+
+  it('오늘 이미 지난 시각이 마감이면 올리기 버튼을 비활성화한다', () => {
+    // Given: NOW(Seoul 07-24 12:00)보다 앞선 같은 날 09:00 마감. 달력일 차이는
+    // 0이라 D-day 라벨은 '오늘 마감'이지만 서버는 이미 거절한다.
+    const dueEarlierToday: SubmissionChecklistItem = {
+      milestoneId: 'milestone-due-earlier-today',
+      name: '오늘 오전 마감 서류',
+      dueAt: '2026-07-24T00:00:00.000Z',
+      submissionType: 'TEXT',
+      submission: null,
+    };
+    const html = renderToStaticMarkup(
+      <ChecklistRow programId="program-1" item={dueEarlierToday} now={NOW} />,
+    );
+
+    // Then: 라벨은 '오늘 마감'인 채로 업로드 자리만 막힌다.
+    expect(html).toContain('오늘 마감');
+    expect(html).toContain('올리기');
+    expect(html).toContain('disabled=""');
+    expect(html).not.toContain(
+      'href="/programs/program-1/documents?milestoneId=',
+    );
+  });
+
+  it('오늘 남은 시각이 마감이면 올리기 버튼을 열어 둔다', () => {
+    // Given: 같은 '오늘 마감'이되 NOW보다 뒤인 23:59:59 마감. 위 검사가 과잉
+    // 교정으로 '오늘 마감'을 통째로 막지 않는지 함께 고정한다.
+    const dueLaterToday: SubmissionChecklistItem = {
+      milestoneId: 'milestone-due-later-today',
+      name: '오늘 자정 마감 서류',
+      dueAt: '2026-07-24T14:59:59.000Z',
+      submissionType: 'TEXT',
+      submission: null,
+    };
+    const html = renderToStaticMarkup(
+      <ChecklistRow programId="program-1" item={dueLaterToday} now={NOW} />,
+    );
+
+    // Then
+    expect(html).toContain('오늘 마감');
+    expect(html).toContain('올리기');
+    expect(html).not.toContain('disabled=""');
+    expect(html).toContain(
+      'href="/programs/program-1/documents?milestoneId=milestone-due-later-today"',
     );
   });
 

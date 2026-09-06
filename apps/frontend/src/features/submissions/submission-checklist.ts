@@ -86,6 +86,19 @@ export function milestoneDeadline(
   return { dDay, label };
 }
 
+/**
+ * 마감이 실제로 지났는지. 서버가 제출을 거절하는 기준(backend
+ * program-deadline.ts의 hasProgramDeadlinePassed)과 같은 시각 비교다.
+ *
+ * milestoneDeadline의 dDay로 대신하지 않는다. dDay는 달력일 차이라 오늘
+ * 오전 9시에 닫힌 마감도 그날이 끝날 때까지 0이다. 그 값으로 업로드 자리를
+ * 열어 두면 화면은 낼 수 있다고 하는데 서버는 거절하는 어긋남이 생긴다.
+ */
+export function hasMilestoneDeadlinePassed(dueAt: string, now: Date): boolean {
+  const due = new Date(dueAt).getTime();
+  return Number.isFinite(due) && now.getTime() > due;
+}
+
 /** features/programs milestone-row와 동일한 마감 배지 variant 규칙. */
 export function deadlineVariant(
   dDay: number,

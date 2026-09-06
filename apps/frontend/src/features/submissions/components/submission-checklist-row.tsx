@@ -10,6 +10,7 @@ import {
   CHECKLIST_STATUS_VARIANTS,
   checklistItemStatus,
   deadlineVariant,
+  hasMilestoneDeadlinePassed,
   isRevisionNeeded,
   milestoneDeadline,
 } from '../submission-checklist';
@@ -36,16 +37,20 @@ export function ChecklistRow({
   // 미제출 → "올리기", 재제출 가능 → "다시 제출", 그 외(승인·검토중·
   // 최종반려처럼 손댈 수 없는 상태) → "보기".
   const revisionNeeded = isRevisionNeeded(item.submission);
-  const canUpload = status === 'NOT_SUBMITTED' || revisionNeeded;
+
   const actionLabel =
     status === 'NOT_SUBMITTED'
       ? '올리기'
       : revisionNeeded
         ? '다시 제출'
         : '보기';
-  // 마감(dueAt)이 지났으면 업로드 자리를 막는다 — "시작 전" 판정은 마일스톤에
-  // 시작 시각 데이터가 없어 여기서는 낼 수 없다(스펙 Open Question #4 참고).
-  const uploadDisabled = canUpload && deadline.dDay < 0;
+  // 최초 제출은 마감(dueAt)이 지났으면 막는다 — 보완 요청의 재제출 예외는 보존한다.
+  // 서버가 거절하는 기준과
+  // 같은 시각 비교로 판정한다. deadline.dDay는 달력일 차이라 라벨에만 쓴다.
+  // "시작 전" 판정은 마일스톤에 시작 시각 데이터가 없어 여기서는 낼 수 없다
+  // (스펙 Open Question #4 참고).
+  const uploadDisabled =
+    status === 'NOT_SUBMITTED' && hasMilestoneDeadlinePassed(item.dueAt, now);
   const submissionHref = programDocumentsHref(programId, item.milestoneId);
   return (
     <li className="min-w-0">
