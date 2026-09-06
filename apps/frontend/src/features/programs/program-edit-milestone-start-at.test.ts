@@ -75,6 +75,8 @@ describe('마일스톤 시작일 편집 계약', () => {
     expect(summary?.textContent).toBe('기간을 선택했습니다.');
     expect(container.querySelector('#milestone-start-at')).toBeNull();
     expect(container.querySelector('#milestone-due-at')).toBeNull();
-    expect(container.textContent).toContain('시간 변경');
+    expect(
+      container.querySelector('button[aria-label="중간 점검 일정 입력"]'),
+    ).not.toBeNull();
   });
 });
