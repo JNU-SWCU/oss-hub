@@ -70,6 +70,14 @@ export function SubmissionChecklistPage({
     useState<ResubmissionPhase | null>(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const resubmitInFlight = useRef(false);
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    // ponytail: 1초 갱신은 기존 countdown과 같다. 더 엄격한 UI 경계가 필요하면 deadline timer로 바꾼다.
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -229,7 +237,7 @@ export function SubmissionChecklistPage({
     }
   };
 
-  if (state.kind === 'loading') return <ChecklistSkeleton />;
+  if (state.kind === 'loading' || now === null) return <ChecklistSkeleton />;
   if (state.kind === 'failed') {
     return (
       <ChecklistLoadFailure
@@ -252,7 +260,7 @@ export function SubmissionChecklistPage({
       )}
       checklist={state.data}
       selectedMilestoneId={milestoneId}
-      now={new Date()}
+      now={now}
       input={input}
       comment={comment}
       errors={errors}

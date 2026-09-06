@@ -275,6 +275,24 @@ describe('SubmissionChecklistView 체크리스트', () => {
 });
 
 describe('ChecklistRow 제출 CTA', () => {
+  it.each([-1, 0, 1])(
+    '마감 경계 %dms에도 보완 요청의 재제출 링크를 보존한다',
+    (offset) => {
+      const item = ITEMS[1];
+      if (!item) throw new Error('expected revision fixture');
+      const link = findLinkElement(
+        ChecklistRow({
+          programId: 'program-1',
+          item,
+          now: new Date(new Date(item.dueAt).getTime() + offset),
+        }),
+      );
+      expect(link?.props.href).toBe(
+        '/programs/program-1/documents?milestoneId=milestone-interim',
+      );
+    },
+  );
+
   it('다시 제출 primary click은 상세 재제출 패널로 진입하고 modified click은 native Link 동작을 보존한다', () => {
     // Given
     const item = ITEMS[1];
