@@ -10,8 +10,10 @@ import type {
 } from '@/features/programs/types';
 import type {
   SubmissionChecklist,
+  SubmissionChecklistItem,
   SubmissionFormData,
 } from '@/features/submissions/types';
+import { deadlineDaysFromNow, offsetDaysFromNow } from '../fixture-clock';
 
 /**
  * 학생 동선이 읽는 프로그램 합성 데이터.
@@ -157,6 +159,67 @@ const ARCHIVED_INTERNSHIP_BASE = {
     endsAt: '2026-12-31T23:59:59.000+09:00',
   },
 } as const satisfies ProgramBase;
+/**
+ * **마감 전 보완 요청**. 학생이 파일을 붙여 한 번 냈고, 교직원이 보완을 요청했고,
+ * 마감은 아직 남아 있는 서류 하나 — 그리고 그 셋이 한 서류에 모이는 유일한 자리다.
+ *
+ * 왜 필요한가 — 이 픽스처의 다른 보완 요청 서류는 **전부 마감이 지나 있다**. 그 상태에서
+ * 재제출이 열리는 것은 「마감 뒤에도 보완 요청만은 낼 수 있다」는 예외 규칙 덕분이고
+ * (`isMilestoneDocumentDeadlineLocked`), 학생 제출물 체크리스트(`/programs/:id/documents`)는
+ * 그 예외를 두지 않아 「다시 제출」 버튼이 마감 지남으로 아예 비활성이었다. 그래서
+ * **정상적으로 마감 전이라 열리는 재제출 폼**을 로컬 검토에서 볼 수 있는 경로가 하나도
+ * 없었고, 그 폼이 「기존 제출 파일」과 첨부가 빠진다는 경고를 보여 주는지도 눈으로 확인할
+ * 수 없었다.
+ *
+ * ⚠ 기존 서류는 건드리지 않고 **새로 하나 더** 둔다. 마감이 지난 보완 요청 서류는 위의
+ * 예외 규칙 자체를 눈으로 보는 데 필요하다.
+ *
+ * ⚠ 마감·제출·판정 시각을 **고정 값으로 박지 않는다**. 미래 날짜를 적어 두면 그날이
+ * 지나는 순간 이 서류도 「마감 지남」이 되어 존재 이유가 사라진다. 기준 시각에서 상대로
+ * 만들고(`fixture-clock.ts`), 두 벌로 적힌 학생 픽스처
+ * (여기와 `student-journey-fixtures.ts`)가 **같은 값**을 쓰도록 이 상수 하나에서 낸다.
+ */
+export const OPEN_REVISION_FIXTURE = {
+  milestoneId: 'milestones-open-revision',
+  documentId: 'synthetic-document-open-revision',
+  submissionId: 'submission-open-revision',
+  name: '시연 영상 제출',
+  description: '구현 결과를 5분 이내 영상으로 녹화해 제출합니다.',
+  /** 아직 일주일 남은 마감 — 「다시 제출」이 실제로 눌리는 상태를 만든다. */
+  deadline: deadlineDaysFromNow(7),
+  /** 제출 → 판정 → (아직) 마감 순서. 판정이 제출보다 앞서면 있을 수 없는 칸이 된다. */
+  submittedAt: offsetDaysFromNow(-5),
+  reviewedAt: offsetDaysFromNow(-4),
+  reviewComment:
+    '영상 앞부분 30초가 잘려 있어 실행 환경 설명이 빠졌습니다. 처음부터 다시 녹화해 올려 주세요.',
+} as const;
+
+/**
+ * 위 서류가 학생 제출물 체크리스트(`/programs/:id/documents`)에 서는 줄.
+ * 두 벌로 적힌 학생 픽스처가 같은 값을 쓰도록 여기서 한 번만 만든다.
+ *
+ * `file`은 비운다 — 이 첨부는 **마일스톤 단위 Submission**의 것이고, 로컬 검토는 파일
+ * 바이너리를 흉내 낼 수 없어(fixture-route-coverage.test.ts의 OUT_OF_SCOPE
+ * `submission-files/:fileId`) 링크를 세워 두면 눌러도 받아지지 않는 버튼만 남는다.
+ * 재제출 폼의 「기존 제출 파일」이 뜨는 근거는 이쪽이 아니라 **서류 단위**
+ * `viewerSubmission.hasCurrentFile`이며, 그 값은 milestone-document-fixtures.ts가 낸다.
+ */
+export const OPEN_REVISION_CHECKLIST_ITEM = {
+  milestoneId: OPEN_REVISION_FIXTURE.milestoneId,
+  name: OPEN_REVISION_FIXTURE.name,
+  dueAt: OPEN_REVISION_FIXTURE.deadline.dueAt,
+  submissionType: 'FILE',
+  submission: {
+    id: OPEN_REVISION_FIXTURE.submissionId,
+    status: 'CHANGES_REQUESTED',
+    decision: 'CHANGES_REQUESTED',
+    currentRevision: 1,
+    lastReviewedAt: OPEN_REVISION_FIXTURE.reviewedAt,
+    reviewComment: OPEN_REVISION_FIXTURE.reviewComment,
+    canResubmit: true,
+    file: null,
+  },
+} as const satisfies SubmissionChecklistItem;
 
 /**
  * 학생이 보는 마일스톤. `viewerSubmissionStatus`는 학생 동선 픽스처
@@ -195,6 +258,18 @@ const CAPSTONE_MILESTONES = [
     deadlineLabel: 'D-10',
     description: '최종 결과와 변경 내역을 글로 정리합니다.',
     submissionType: 'TEXT',
+    submissionItemCount: 0,
+    viewerSubmissionStatus: 'CHANGES_REQUESTED',
+    applicationSubmissionSummary: null,
+  },
+  {
+    id: OPEN_REVISION_FIXTURE.milestoneId,
+    name: OPEN_REVISION_FIXTURE.name,
+    dueAt: OPEN_REVISION_FIXTURE.deadline.dueAt,
+    dDay: OPEN_REVISION_FIXTURE.deadline.dDay,
+    deadlineLabel: OPEN_REVISION_FIXTURE.deadline.deadlineLabel,
+    description: OPEN_REVISION_FIXTURE.description,
+    submissionType: 'FILE',
     submissionItemCount: 0,
     viewerSubmissionStatus: 'CHANGES_REQUESTED',
     applicationSubmissionSummary: null,
@@ -322,6 +397,15 @@ const STAFF_MILESTONE_SUMMARIES: Readonly<Record<string, SubmissionSummary>> = {
     notSubmitted: 1,
     submitted: 0,
     approved: 1,
+    changesRequested: 1,
+    rejected: 0,
+    total: 3,
+  },
+  // 마감 전 보완 요청 마일스톤 — 아직 낼 시간이 남아 있어 미제출이 하나 남아 있다.
+  [OPEN_REVISION_FIXTURE.milestoneId]: {
+    notSubmitted: 1,
+    submitted: 1,
+    approved: 0,
     changesRequested: 1,
     rejected: 0,
     total: 3,
@@ -604,6 +688,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
             file: null,
           },
         },
+        OPEN_REVISION_CHECKLIST_ITEM,
       ],
     },
     'program-oss-contest': {
