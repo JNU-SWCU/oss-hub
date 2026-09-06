@@ -1,5 +1,10 @@
 import { expect, test as base } from '@playwright/test';
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type {
+  Browser,
+  BrowserContext,
+  BrowserContextOptions,
+  Page,
+} from '@playwright/test';
 
 import { e2eEnvironment } from './environment';
 import {
@@ -13,7 +18,13 @@ import { PROGRAM_AUTHORING_E2E } from './support/program-authoring-flow';
 type AuthSeedPageFactory = (scenarioId: string) => Promise<Page>;
 type ProgramAuthoringActorPageFactory = (
   actor: keyof typeof PROGRAM_AUTHORING_E2E.actors,
+  expectedResourceError?: ExpectedResourceError,
 ) => Promise<Page>;
+
+type ExpectedResourceError = {
+  readonly status: number;
+  readonly pathname: string;
+};
 
 type AdminFixtures = {
   readonly adminPage: Page;
@@ -34,10 +45,23 @@ const RESOURCE_STATUS_ERROR_RE =
 
 function isExpectedResourceStatusError(
   text: string,
+  locationUrl: string,
   expectedStatuses: ReadonlySet<number>,
+  expectedResourceErrors: readonly ExpectedResourceError[],
 ): boolean {
   const match = RESOURCE_STATUS_ERROR_RE.exec(text);
-  return match !== null && expectedStatuses.has(Number(match[1]));
+  if (match === null) return false;
+  const status = Number(match[1]);
+  if (expectedStatuses.has(status)) return true;
+  let pathname: string;
+  try {
+    pathname = new URL(locationUrl).pathname;
+  } catch {
+    return false;
+  }
+  return expectedResourceErrors.some(
+    (expected) => expected.status === status && expected.pathname === pathname,
+  );
 }
 
 // Chrome의 "Failed to load resource" 콘솔 메시지는 본문(text())에 URL을 담지
@@ -76,14 +100,17 @@ interface AuthenticatedPage {
   readonly consoleErrors: string[];
   readonly failedResponses: FailedResponse[];
   readonly expectedResourceStatuses: Set<number>;
+  readonly expectedResourceErrors: ExpectedResourceError[];
 }
 
 async function createAuthenticatedPage(
   browser: Browser,
   githubId: bigint,
+  contextOptions: Pick<BrowserContextOptions, 'timezoneId' | 'viewport'>,
   expectedResourceStatuses = new Set<number>(),
+  expectedResourceErrors: readonly ExpectedResourceError[] = [],
 ): Promise<AuthenticatedPage> {
-  const context = await browser.newContext();
+  const context = await browser.newContext(contextOptions);
   await context.addCookies([
     {
       name: sessionCookieName(e2eEnvironment.baseUrl.startsWith('https://')),
@@ -103,11 +130,16 @@ async function createAuthenticatedPage(
     }
   });
   page.on('console', (message) => {
+    const locationUrl = message.location().url;
     if (
       message.type() === 'error' &&
-      !isExpectedResourceStatusError(message.text(), expectedResourceStatuses)
+      !isExpectedResourceStatusError(
+        message.text(),
+        locationUrl,
+        expectedResourceStatuses,
+        expectedResourceErrors,
+      )
     ) {
-      const locationUrl = message.location().url;
       consoleErrors.push(
         locationUrl ? `${message.text()} [${locationUrl}]` : message.text(),
       );
@@ -122,6 +154,7 @@ async function createAuthenticatedPage(
     consoleErrors,
     failedResponses,
     expectedResourceStatuses,
+    expectedResourceErrors: [...expectedResourceErrors],
   };
 }
 
@@ -141,13 +174,14 @@ function brokenContractPath(): string | null {
 }
 
 export const test = base.extend<AdminFixtures & InternalFixtures>({
-  adminSession: async ({ browser }, use) => {
+  adminSession: async ({ browser, timezoneId, viewport }, use) => {
     const path = brokenContractPath();
     const expectedResourceStatuses = new Set<number>();
     if (path !== null) expectedResourceStatuses.add(410);
     const session = await createAuthenticatedPage(
       browser,
       ADMIN_SEED_GITHUB_ID,
+      { timezoneId, viewport },
       expectedResourceStatuses,
     );
     const { context, page, consoleErrors, failedResponses } = session;
@@ -179,12 +213,13 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
   expectAdminResourceStatusError: async ({ adminSession }, use) => {
     await use((status) => adminSession.expectedResourceStatuses.add(status));
   },
-  authSeedPage: async ({ browser }, use) => {
+  authSeedPage: async ({ browser, timezoneId, viewport }, use) => {
     const sessions: AuthenticatedPage[] = [];
     await use(async (scenarioId) => {
       const session = await createAuthenticatedPage(
         browser,
         authSeedGithubId(scenarioId),
+        { timezoneId, viewport },
       );
       sessions.push(session);
       return session.page;
@@ -197,12 +232,15 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
       ).toEqual([]);
     }
   },
-  programAuthoringActorPage: async ({ browser }, use) => {
+  programAuthoringActorPage: async ({ browser, timezoneId, viewport }, use) => {
     const sessions: AuthenticatedPage[] = [];
-    await use(async (actor) => {
+    await use(async (actor, expectedResourceError) => {
       const session = await createAuthenticatedPage(
         browser,
         PROGRAM_AUTHORING_E2E.actors[actor],
+        { timezoneId, viewport },
+        new Set<number>(),
+        expectedResourceError === undefined ? [] : [expectedResourceError],
       );
       sessions.push(session);
       return session.page;

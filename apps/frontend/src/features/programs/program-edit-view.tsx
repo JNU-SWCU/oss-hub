@@ -2,7 +2,12 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { EditableMilestone, EditableProgram } from './api';
+import type {
+  EditableMilestone,
+  EditableProgram,
+  EditableMilestoneEditSnapshot,
+  EditableMilestoneDocument,
+} from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
 import { ProgramEditLifecycleSection } from './program-edit-lifecycle-section';
@@ -13,6 +18,7 @@ import {
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
+  type ProgramMilestoneDraft,
 } from './program-edit-flow';
 import { programHref } from './program-paths';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
@@ -34,9 +40,14 @@ interface ProgramEditViewProps {
   readonly milestoneEditor: ProgramMilestoneEditor;
   readonly milestoneEditTriggerRef?: React.RefObject<HTMLElement | null>;
   readonly deleteTarget: EditableMilestone | null;
-  /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「제출 항목」이 펼쳐진 채로 뜬다. */
-  readonly expandedDocumentsMilestoneId: string | null;
   readonly isMilestoneBusy: boolean;
+  readonly milestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly latestMilestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly milestoneSnapshotLoadFailed?: boolean;
+  readonly canonicalDocumentsByMilestoneId?: ReadonlyMap<
+    string,
+    readonly EditableMilestoneDocument[]
+  >;
   readonly isLifecycleBusy: boolean;
   readonly isLifecycleConfirming: boolean;
   readonly lifecycleError: string | null;
@@ -57,7 +68,15 @@ interface ProgramEditViewProps {
     field: ProgramMilestoneField,
     value: string,
   ) => void;
-  readonly onSaveMilestone: (event: React.FormEvent<HTMLFormElement>) => void;
+  readonly onSaveMilestone: (
+    event: React.FormEvent<HTMLFormElement>,
+    documents?: ProgramMilestoneDraft['documents'],
+  ) => void;
+  readonly onRefreshMilestone?: () => void;
+  readonly onMilestoneDocumentsDirtyChange?: (dirty: boolean) => void;
+  readonly onRestartMilestoneFromLatest?: (
+    snapshot: EditableMilestoneEditSnapshot,
+  ) => void;
   readonly onRequestDeleteMilestone: (milestone: EditableMilestone) => void;
   readonly onCancelDelete: () => void;
   readonly onConfirmDelete: () => void;
@@ -113,8 +132,11 @@ export function ProgramEditView({
   milestoneEditor,
   milestoneEditTriggerRef,
   deleteTarget,
-  expandedDocumentsMilestoneId,
   isMilestoneBusy,
+  milestoneSnapshot,
+  latestMilestoneSnapshot,
+  milestoneSnapshotLoadFailed,
+  canonicalDocumentsByMilestoneId,
   isLifecycleBusy,
   isLifecycleConfirming,
   lifecycleError,
@@ -129,6 +151,9 @@ export function ProgramEditView({
   onCancelMilestone,
   onMilestoneFieldChange,
   onSaveMilestone,
+  onRefreshMilestone,
+  onMilestoneDocumentsDirtyChange,
+  onRestartMilestoneFromLatest,
   onRequestDeleteMilestone,
   onCancelDelete,
   onConfirmDelete,
@@ -195,7 +220,6 @@ export function ProgramEditView({
               editor={milestoneEditor}
               editTriggerRef={milestoneEditTriggerRef}
               deleteTarget={deleteTarget}
-              expandedDocumentsMilestoneId={expandedDocumentsMilestoneId}
               operationStartAt={form.startAt}
               operationEndAt={form.endAtUndecided ? '' : form.endAt}
               contextEvents={editScheduleEvents(
@@ -204,11 +228,22 @@ export function ProgramEditView({
                 milestoneEditor,
               )}
               isBusy={isMilestoneBusy}
+              milestoneSnapshot={milestoneSnapshot}
+              latestMilestoneSnapshot={latestMilestoneSnapshot}
+              snapshotLoadFailed={milestoneSnapshotLoadFailed}
+              canonicalDocumentsByMilestoneId={canonicalDocumentsByMilestoneId}
               onAdd={onAddMilestone}
               onEdit={onEditMilestone}
               onCancelEdit={onCancelMilestone}
               onFieldChange={onMilestoneFieldChange}
               onSave={onSaveMilestone}
+              onRefreshMilestone={onRefreshMilestone ?? (() => undefined)}
+              onDocumentsDirtyChange={
+                onMilestoneDocumentsDirtyChange ?? (() => undefined)
+              }
+              onRestartMilestoneFromLatest={
+                onRestartMilestoneFromLatest ?? (() => undefined)
+              }
               onRequestDelete={onRequestDeleteMilestone}
               onCancelDelete={onCancelDelete}
               onConfirmDelete={onConfirmDelete}

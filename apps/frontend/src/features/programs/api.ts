@@ -1,4 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
+import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import type { ProgramTrackType } from './program-templates';
 import { parseStaffDashboardSummary } from './staff-dashboard-parser';
 import type {
@@ -101,6 +102,86 @@ export interface EditableMilestone {
   readonly dueAt: string;
   readonly submissionType: SubmissionType | null;
   readonly instructions: string | null;
+}
+
+export interface EditableMilestoneDocument {
+  readonly id: string;
+  readonly name: string;
+  readonly required: boolean;
+  readonly sortOrder: number;
+  readonly templateFileName: string | null;
+}
+
+export interface EditableMilestoneEditSnapshot {
+  readonly milestone: EditableMilestone;
+  readonly operation: {
+    readonly startAt: string;
+    readonly endAt: string;
+  };
+  readonly documents: readonly EditableMilestoneDocument[];
+  readonly fileUpload: {
+    readonly maxBytes: number;
+    readonly maxLabel: string;
+    readonly accept: string;
+    readonly formatLabel: string;
+  };
+  readonly fingerprint: string;
+}
+
+export type UpdateEditableMilestoneDocumentInput = {
+  readonly id: string | null;
+  readonly name: string;
+  readonly required: boolean;
+  readonly templateUploadId?: string;
+};
+
+export type UpdateEditableMilestoneInput = {
+  readonly expectedFingerprint: string;
+  readonly name: string;
+  readonly startAt: string;
+  readonly dueAt: string;
+  readonly instructions: string | null;
+  readonly documents: readonly UpdateEditableMilestoneDocumentInput[];
+};
+
+export type EditableMilestoneSnapshotFailure =
+  | { readonly kind: 'conflict' }
+  | {
+      readonly kind: 'known';
+      readonly message: string;
+      readonly fieldErrors: readonly {
+        readonly field: string;
+        readonly message: string;
+        readonly code: string;
+      }[];
+    }
+  | { readonly kind: 'unknown' };
+
+export function editableMilestoneSnapshotFailure(
+  error: unknown,
+): EditableMilestoneSnapshotFailure {
+  if (!(error instanceof ApiError)) return { kind: 'unknown' };
+  if (
+    error.problem.status === 409 &&
+    error.problem.code === PROGRAM_EDIT_ERROR_CODES.MILESTONE_EDIT_CHANGED
+  )
+    return { kind: 'conflict' };
+  if (
+    error.problem.status >= 400 &&
+    error.problem.status < 500 &&
+    error.problem.code !== 'API_000'
+  )
+    return {
+      kind: 'known',
+      message: error.problem.detail,
+      fieldErrors:
+        error.problem.fieldErrors?.map(({ field, message, code }) => ({
+          field,
+          message,
+          code,
+        })) ?? [],
+    };
+  return { kind: 'unknown' };
 }
 
 export interface ProgramDeletionScopeCounts {
@@ -224,6 +305,28 @@ export function updateProgram(
     },
   );
 }
+
+export function getEditableMilestone(
+  milestoneId: string,
+): Promise<EditableMilestoneEditSnapshot> {
+  return apiClient<EditableMilestoneEditSnapshot>(
+    `milestones/${encodeURIComponent(milestoneId)}/edit`,
+  );
+}
+
+export function updateEditableMilestone(
+  milestoneId: string,
+  input: UpdateEditableMilestoneInput,
+): Promise<EditableMilestoneEditSnapshot> {
+  return apiClient<EditableMilestoneEditSnapshot>(
+    `milestones/${encodeURIComponent(milestoneId)}`,
+    {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
+  );
+}
 export function updateProgramLifecycle(
   programId: string,
   lifecycle: EditableProgram['lifecycle'],
@@ -246,20 +349,6 @@ export function createMilestone(
     `programs/${encodeURIComponent(programId)}/milestones`,
     {
       method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(input),
-    },
-  );
-}
-
-export function updateMilestone(
-  milestoneId: string,
-  input: UpsertMilestoneInput,
-): Promise<EditableMilestone> {
-  return apiClient<EditableMilestone>(
-    `milestones/${encodeURIComponent(milestoneId)}`,
-    {
-      method: 'PATCH',
       headers: jsonHeaders,
       body: JSON.stringify(input),
     },

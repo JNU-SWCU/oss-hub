@@ -20,34 +20,19 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 const noOp = () => undefined;
-
-/** React 가 제어하는 입력란에 값을 넣는다 — 저장소의 다른 화면 테스트와 같은 방식이다. */
-async function type(input: HTMLInputElement, value: string): Promise<void> {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    'value',
-  )?.set;
-  await act(async () => {
-    setter?.call(input, value);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-}
-
-/** 종료일이 정해진 보통 프로그램. */
 const datedProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS 경진대회',
   organizer: 'SW중심대학사업단',
   trackType: 'EXTRACURRICULAR',
-
-  applicationTemplateKey: 'oss-contest',
   lifecycle: 'PUBLISHED',
+  applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 0,
-  applicationStartAt: '2026-08-01T09:30:59.000Z',
-  applicationEndAt: '2026-08-15T09:30:59.000Z',
-  startAt: '2026-08-16T09:30:59.000Z',
-  endAt: '2026-08-31T09:30:59.000Z',
+  applicationStartAt: '2026-08-01T09:30:59.123Z',
+  applicationEndAt: '2026-08-15T09:30:59.123Z',
+  startAt: '2026-08-16T09:30:59.123Z',
+  endAt: '2026-08-31T09:30:59.123Z',
   repositoryProvisioningEnabled: false,
   notifyOnDeadline: false,
   description: '프로그램 설명',
@@ -56,30 +41,21 @@ const datedProgram: EditableProgram = {
   milestones: [],
 };
 
-/**
- * 종료일을 안 정하고 만든(또는 레거시 `NULL` 이었던) 프로그램 — 서버가 센티널을
- * 들고 있다. #826 이 이 상태에서 터졌다.
- */
-const undecidedProgram: EditableProgram = {
-  ...datedProgram,
-  endAt: PROGRAM_END_AT_UNDECIDED,
-};
-
-function EditViewHarness({
+function Harness({
   program,
+  isSaving = false,
   onForm,
 }: {
   readonly program: EditableProgram;
+  readonly isSaving?: boolean;
   readonly onForm: (
     form: ProgramEditForm,
-    dirtyFields: readonly ProgramEditableField[],
+    dirty: readonly ProgramEditableField[],
   ) => void;
 }) {
   const [form, setForm] = useState(() => toProgramEditForm(program));
-  const [dirtyFields, setDirtyFields] = useState<
-    readonly ProgramEditableField[]
-  >([]);
-  onForm(form, dirtyFields);
+  const [dirty, setDirty] = useState<readonly ProgramEditableField[]>([]);
+  onForm(form, dirty);
   return (
     <ProgramEditView
       program={program}
@@ -87,10 +63,10 @@ function EditViewHarness({
       errors={{}}
       toastMessage={null}
       generalAlert={null}
-      isSaving={false}
+      isSaving={isSaving}
       milestoneEditor={{ mode: 'closed' }}
       deleteTarget={null}
-      expandedDocumentsMilestoneId={null}
+
       isMilestoneBusy={false}
       isLifecycleBusy={false}
       isLifecycleConfirming={false}
@@ -98,7 +74,7 @@ function EditViewHarness({
       canDeleteProgram={false}
       onFieldChange={(field, value) => {
         setForm((current) => updateProgramForm(current, field, value));
-        setDirtyFields((current) => addDirtyField(current, field));
+        setDirty((current) => addDirtyField(current, field));
       }}
       onSubmit={vi.fn()}
       onRequestLifecycleToggle={noOp}
@@ -116,14 +92,18 @@ function EditViewHarness({
   );
 }
 
-describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
+describe('프로그램 편집 일정 dialog — 종료일 미정', () => {
   let container: HTMLDivElement;
   let root: Root;
+  let form = toProgramEditForm(datedProgram);
+  let dirty: readonly ProgramEditableField[] = [];
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    form = toProgramEditForm(datedProgram);
+    dirty = [];
   });
 
   afterEach(async () => {
@@ -131,142 +111,179 @@ describe('프로그램 편집 화면 — 종료일 미정 (#826)', () => {
     container.remove();
   });
 
-  function required<T extends Element>(selector: string): T {
-    const element = container.querySelector<T>(selector);
-    if (element === null) throw new TypeError(`Missing ${selector}.`);
-    return element;
-  }
-
-  const dateInput = () => required<HTMLInputElement>('#program-end-at');
-  const undecidedBox = () =>
-    required<HTMLInputElement>('#program-end-at-undecided');
-
-  async function selectOperation(): Promise<void> {
-    const button = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'),
-    ).find((candidate) => candidate.textContent?.includes('운영 기간'));
-    if (button === undefined) throw new TypeError('Missing 운영 기간.');
-    await act(async () => button.click());
-  }
-
-  async function selectOperationEnd(date: string): Promise<void> {
-    const start = required<HTMLButtonElement>(
-      '[data-calendar-date="2026-08-16"]',
-    );
-    await act(async () => start.click());
-    if (!date.startsWith('2026-08')) {
-      await act(async () =>
-        required<HTMLButtonElement>('button[aria-label="다음 달"]').click(),
-      );
-    }
-    await act(async () =>
-      required<HTMLButtonElement>(`[data-calendar-date="${date}"]`).click(),
-    );
-  }
-
-  async function render(program: EditableProgram): Promise<{
-    payload: () => ReturnType<typeof buildProgramEditInput>;
-  }> {
-    let latest = toProgramEditForm(program);
-    let latestDirty: readonly ProgramEditableField[] = [];
+  async function render(program = datedProgram, isSaving = false) {
     await act(async () => {
       root.render(
-        <EditViewHarness
+        <Harness
           program={program}
-          onForm={(form, dirtyFields) => {
-            latest = form;
-            latestDirty = dirtyFields;
+          isSaving={isSaving}
+          onForm={(next, fields) => {
+            form = next;
+            dirty = fields;
           }}
         />,
       );
     });
-    await selectOperation();
-    const timeButton = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('button'),
-    ).find((candidate) => candidate.textContent?.trim() === '시간 변경');
-    if (timeButton === undefined) throw new TypeError('Missing 시간 변경.');
-    await act(async () => timeButton.click());
-    return { payload: () => buildProgramEditInput(latest, latestDirty) };
   }
 
-  it('센티널을 든 프로그램은 「종료일 미정」이 켜진 채 열리고 날짜 칸이 비활성이다', async () => {
-    // Given / When
-    await render(undecidedProgram);
-
-    // Then
-    expect(undecidedBox().checked).toBe(true);
-    expect(dateInput().disabled).toBe(true);
-    expect(dateInput().value).toBe('');
-    expect(container.textContent).toContain('종료일 미정');
-  });
-
-  // #826 의 회귀 가드 — 센티널을 KST 로 옮기면 연도가 다섯 자리가 되고 그 값은
-  // 되돌릴 수 없다. 어떤 형태로든 화면에 나오면 안 된다.
-  it('다섯 자리 연도가 화면에 새 나오지 않는다', async () => {
-    await render(undecidedProgram);
-
-    expect(container.innerHTML).not.toContain('10000');
-    expect(container.innerHTML).not.toContain('9999');
-  });
-
-  it('미정인 채로 저장하면 센티널이 그대로 왕복한다', async () => {
-    // Given
-    const { payload } = await render(undecidedProgram);
-
-    // When / Then: 아무것도 건드리지 않아도 저장이 성공하는 값이 나간다.
-    expect(payload().endAt).toBe(PROGRAM_END_AT_UNDECIDED);
-  });
-
-  it('체크를 풀면 날짜를 고를 수 있고 고른 날짜가 저장 payload 로 나간다', async () => {
-    // Given
-    const { payload } = await render(undecidedProgram);
-
-    // When: 체크를 풀고 날짜를 고른다.
+  async function openOperation() {
     await act(async () => {
-      undecidedBox().click();
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="운영 기간 수정"]')
+        ?.click();
     });
-    expect(dateInput().disabled).toBe(true);
-    await selectOperationEnd('2026-09-01');
-    expect(dateInput().disabled).toBe(false);
-    await type(dateInput(), '19:45');
+  }
 
-    // Then
-    expect(payload().endAt).toBe('2026-09-01T10:45:00.000Z');
+  function button(name: string): HTMLButtonElement {
+    const value = [
+      ...document.body.querySelectorAll<HTMLButtonElement>('button'),
+    ].find((candidate) => candidate.textContent?.trim() === name);
+    if (value === undefined) throw new TypeError(`Missing ${name}.`);
+    return value;
+  }
+
+  it('local 종료일 미정은 종료 입력을 비활성화하고 취소하면 form/dirty를 바꾸지 않는다', async () => {
+    await render();
+    await openOperation();
+    const toggle = document.body.querySelector<HTMLInputElement>(
+      '#program-end-at-undecided',
+    );
+    const endDate = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="운영 기간 종료일"]',
+    );
+    if (toggle === null || endDate === null)
+      throw new TypeError('Missing end controls.');
+
+    await act(async () => toggle.click());
+    expect(endDate.disabled).toBe(true);
+    await act(async () => button('취소').click());
+
+    expect(form.endAtUndecided).toBe(false);
+    expect(form.endAt).toBe('2026-08-31T18:30');
+    expect(dirty).toEqual([]);
   });
 
-  it('날짜가 있던 프로그램에서 미정을 켜면 날짜 칸이 비고 센티널이 나간다', async () => {
-    // Given
-    const { payload } = await render(datedProgram);
-    expect(undecidedBox().checked).toBe(false);
-    expect(dateInput().disabled).toBe(false);
-    expect(dateInput().value).toBe('18:30');
+  it('Escape는 local 변경을 버리고 같은 수정 버튼으로 초점을 돌린다', async () => {
+    await render();
+    await openOperation();
+    const toggle = document.body.querySelector<HTMLInputElement>(
+      '#program-end-at-undecided',
+    );
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    if (toggle === null || dialog === null)
+      throw new TypeError('Missing dialog.');
+    await act(async () => toggle.click());
+    await act(async () =>
+      dialog.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      ),
+    );
 
-    // When
-    await act(async () => {
-      undecidedBox().click();
-    });
-
-    // Then
-    expect(dateInput().disabled).toBe(true);
-    expect(dateInput().value).toBe('');
-    expect(payload().endAt).toBe(PROGRAM_END_AT_UNDECIDED);
+    expect(form.endAtUndecided).toBe(false);
+    expect(dirty).toEqual([]);
+    expect(document.activeElement).toBe(
+      container.querySelector('button[aria-label="운영 기간 수정"]'),
+    );
   });
 
-  it('미정을 켰다 풀면 날짜 칸이 비어 있어 다시 골라야 한다', async () => {
-    // Given
-    const { payload } = await render(datedProgram);
+  it('미정 적용은 센티널만 저장하고, 해제한 빈 종료일은 적용 전에 막는다', async () => {
+    await render();
+    await openOperation();
+    const toggle = document.body.querySelector<HTMLInputElement>(
+      '#program-end-at-undecided',
+    );
+    if (toggle === null) throw new TypeError('Missing undecided control.');
+    await act(async () => toggle.click());
+    await act(async () => button('적용').click());
+    expect(form.endAtUndecided).toBe(true);
+    expect(buildProgramEditInput(form, dirty).endAt).toBe(
+      PROGRAM_END_AT_UNDECIDED,
+    );
 
-    // When: 켜고 다시 푼다.
-    await act(async () => {
-      undecidedBox().click();
-    });
-    await act(async () => {
-      undecidedBox().click();
-    });
+    await openOperation();
+    const reopenedToggle = document.body.querySelector<HTMLInputElement>(
+      '#program-end-at-undecided',
+    );
+    if (reopenedToggle === null)
+      throw new TypeError('Missing reopened control.');
+    await act(async () => reopenedToggle.click());
+    await act(async () => button('적용').click());
+    expect(document.body.textContent).toContain(
+      '종료일을 정하거나 「종료일 미정」을 선택해 주세요.',
+    );
+  });
 
-    // Then: 비어 있는 것은 「미정」이 아니라 아직 안 고른 상태다 — 저장이 막힌다.
-    expect(dateInput().disabled).toBe(true);
-    expect(dateInput().value).toBe('');
-    expect(() => payload()).toThrow();
+  it('unchanged 적용은 callbacks/dirty 없이 원래 ISO 초·밀리초를 보존한다', async () => {
+    await render();
+    await openOperation();
+    await act(async () => button('적용').click());
+
+    expect(dirty).toEqual([]);
+    expect(buildProgramEditInput(form, dirty)).toMatchObject({
+      applicationStartAt: datedProgram.applicationStartAt,
+      applicationEndAt: datedProgram.applicationEndAt,
+      startAt: datedProgram.startAt,
+      endAt: datedProgram.endAt,
+    });
+  });
+
+  it('basic dialog에서만 calendar로 날짜를 고르고 기존 HH:mm을 유지한다', async () => {
+    await render();
+    await openOperation();
+    const calendar = document.body.querySelector(
+      '[aria-label="운영 기간 날짜 선택 달력"]',
+    );
+    expect(calendar).not.toBeNull();
+    expect(
+      document.body.querySelector('input[aria-label="운영 기간 시작일"]'),
+    ).not.toBeNull();
+    await act(async () => {
+      document.body
+        .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-17"]')
+        ?.click();
+      document.body
+        .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-31"]')
+        ?.click();
+    });
+    expect(
+      document.body.querySelector<HTMLInputElement>(
+        'input[aria-label="운영 기간 시작 시각"]',
+      )?.value,
+    ).toBe('18:30');
+    expect(
+      document.body.querySelector<HTMLInputElement>(
+        'input[aria-label="운영 기간 종료 시각"]',
+      )?.value,
+    ).toBe('18:30');
+  });
+
+  it('부모 저장 중에는 새 일정 dialog를 열지 않는다', async () => {
+    await render(datedProgram, true);
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="신청 기간 수정"]',
+    );
+    expect(trigger?.disabled).toBe(true);
+    await act(async () => trigger?.click());
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('수정 아이콘은 focus tooltip과 44px 행동 영역을 제공한다', async () => {
+    await render();
+    const trigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="신청 기간 수정"]',
+    );
+    if (trigger === null) throw new TypeError('Missing application trigger.');
+    expect(trigger.className).toContain('size-11');
+
+    vi.useFakeTimers();
+    await act(async () => {
+      trigger.focus();
+      vi.advanceTimersByTime(200);
+    });
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toBe(
+      '신청 기간 수정',
+    );
+    vi.useRealTimers();
   });
 });

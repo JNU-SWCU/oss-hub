@@ -9,6 +9,7 @@ import { ProgramAuthoringSubmissionItem } from './program-authoring-submission-i
 import { ProgramAuthoringSortableAttachments } from './program-authoring-sortable-attachments';
 import { dateKey } from './program-schedule-calendar-model';
 import { validateTemplateFile } from './program-authoring-validation';
+import { ProgramMilestoneFields } from './program-milestone-fields';
 
 export function ProgramAuthoringMilestoneDialog({
   milestone,
@@ -91,63 +92,58 @@ export function ProgramAuthoringMilestoneDialog({
       onCancel={onCancel}
       onSave={save}
     >
-      <Field>
-        <FieldLabel>기간 *</FieldLabel>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input
-            aria-label="시작일"
-            aria-invalid={saveAttempted && Boolean(errors.period)}
-            type="date"
-            min={minDate}
-            max={maxDate}
-            value={startDate}
-            onChange={(event) =>
-              onFieldChange(
-                'startAt',
-                boundaryDateTime(event.target.value, operationStartAt, '00:00'),
-              )
-            }
-          />
-          <Input
-            aria-label="마감일"
-            aria-invalid={saveAttempted && Boolean(errors.period)}
-            type="date"
-            min={minDate}
-            max={maxDate}
-            value={dueDate}
-            onChange={(event) =>
-              onFieldChange(
-                'dueAt',
-                boundaryDateTime(event.target.value, operationEndAt, '23:59'),
-              )
-            }
-          />
-        </div>
-        <FieldError>{saveAttempted ? errors.period : null}</FieldError>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`${milestone.id}-name`}>
-          마일스톤 이름 *
-        </FieldLabel>
-        <Input
-          id={`${milestone.id}-name`}
-          aria-invalid={saveAttempted && Boolean(errors.name)}
-          value={milestone.name}
-          onChange={(event) => onFieldChange('name', event.target.value)}
-        />
-        <FieldError>{saveAttempted ? errors.name : null}</FieldError>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`${milestone.id}-notice`}>공지사항</FieldLabel>
-        <textarea
-          id={`${milestone.id}-notice`}
-          className="min-h-28 rounded-control border border-input bg-transparent p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={milestone.instructions}
-          onChange={(event) =>
-            onFieldChange('instructions', event.target.value)
-          }
-        />
-      </Field>
+      <ProgramMilestoneFields
+        id={milestone.id}
+        name={milestone.name}
+        instructions={milestone.instructions}
+        nameError={saveAttempted ? errors.name : null}
+        schedule={
+          <Field>
+            <FieldLabel>기간 *</FieldLabel>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                aria-label="시작일"
+                aria-invalid={saveAttempted && Boolean(errors.period)}
+                type="date"
+                min={minDate}
+                max={maxDate}
+                value={startDate}
+                onChange={(event) =>
+                  onFieldChange(
+                    'startAt',
+                    boundaryDateTime(
+                      event.target.value,
+                      operationStartAt,
+                      '00:00',
+                    ),
+                  )
+                }
+              />
+              <Input
+                aria-label="마감일"
+                aria-invalid={saveAttempted && Boolean(errors.period)}
+                type="date"
+                min={minDate}
+                max={maxDate}
+                value={dueDate}
+                onChange={(event) =>
+                  onFieldChange(
+                    'dueAt',
+                    boundaryDateTime(
+                      event.target.value,
+                      operationEndAt,
+                      '23:59',
+                    ),
+                  )
+                }
+              />
+            </div>
+            <FieldError>{saveAttempted ? errors.period : null}</FieldError>
+          </Field>
+        }
+        onNameChange={(value) => onFieldChange('name', value)}
+        onInstructionsChange={(value) => onFieldChange('instructions', value)}
+      />
       <Field>
         <FieldLabel>첨부파일</FieldLabel>
         <div className="grid gap-3">

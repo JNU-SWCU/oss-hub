@@ -1,12 +1,14 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { EditableMilestone } from './api';
+import type { EditableMilestone, EditableMilestoneEditSnapshot } from './api';
 import {
   createMilestone,
   deleteMilestone,
   getEditableProgram,
-  updateMilestone,
+  getEditableMilestone,
+  editableMilestoneSnapshotFailure,
+  updateEditableMilestone,
   updateProgram,
   updateProgramLifecycle,
 } from './api';
@@ -27,7 +29,21 @@ import {
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
+  type ProgramMilestoneDraft,
 } from './program-edit-flow';
+import {
+  buildLocalMilestoneDocumentInputs,
+  validateLocalMilestoneDocuments,
+} from './milestone-document-editor-flow';
+import {
+  cleanupPreparedUploads,
+  createProgramSubmissionRuntime,
+  preparePendingUploads,
+} from './program-authoring-submit';
+import {
+  deleteAuthoringUpload,
+  uploadAuthoringFile,
+} from './program-authoring-api';
 import {
   addDirtyField,
   hasUnsavedMilestoneEdit,
@@ -68,17 +84,24 @@ export function ProgramEditPage({
   const [milestoneEditor, setMilestoneEditor] =
     useState<ProgramMilestoneEditor>({ mode: 'closed' });
   const milestoneEditTriggerRef = useRef<HTMLElement | null>(null);
+  const milestoneUploadRuntimeRef = useRef(createProgramSubmissionRuntime());
   const [deleteTarget, setDeleteTarget] = useState<EditableMilestone | null>(
     null,
   );
-  /**
-   * 방금 만든 마일스톤. 저장하면 편집기가 닫히므로, 그 카드의 「제출 항목」을
-   * 펼친 채로 띄워 "저장 → 제출 항목 등록"을 한 동선으로 잇는다.
-   */
-  const [createdMilestoneId, setCreatedMilestoneId] = useState<string | null>(
-    null,
-  );
   const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
+  const [milestoneSnapshot, setMilestoneSnapshot] =
+    useState<EditableMilestoneEditSnapshot | null>(null);
+  const [latestMilestoneSnapshot, setLatestMilestoneSnapshot] =
+    useState<EditableMilestoneEditSnapshot | null>(null);
+  const [milestoneSnapshotLoadFailed, setMilestoneSnapshotLoadFailed] =
+    useState(false);
+  const milestoneSnapshotRequestRef = useRef(0);
+  const [canonicalDocumentsByMilestoneId, setCanonicalDocumentsByMilestoneId] =
+    useState<ReadonlyMap<string, EditableMilestoneEditSnapshot['documents']>>(
+      new Map(),
+    );
+  const [hasUnsavedMilestoneDocuments, setHasUnsavedMilestoneDocuments] =
+    useState(false);
   const [isLifecycleBusy, setIsLifecycleBusy] = useState(false);
   const [isLifecycleConfirming, setIsLifecycleConfirming] = useState(false);
   /**
@@ -94,7 +117,9 @@ export function ProgramEditPage({
   const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(milestoneEditor);
   // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
   // 나가기 확인은 기본 정보뿐 아니라 마일스톤 편집기에 남은 입력도 지켜야 한다(#867).
-  useProgramExitGuard(isDirty || hasUnsavedMilestoneChanges);
+  useProgramExitGuard(
+    isDirty || hasUnsavedMilestoneChanges || hasUnsavedMilestoneDocuments,
+  );
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -157,6 +182,7 @@ export function ProgramEditPage({
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (milestoneUploadRuntimeRef.current.submitting) return;
     if (form === null || state.kind !== 'ready') return;
     const currentScheduleForm = {
       ...form,
@@ -195,6 +221,7 @@ export function ProgramEditPage({
   };
 
   const openAddMilestone = () => {
+    if (isMilestoneBusy) return;
     const initialForm = emptyMilestoneForm();
     setMilestoneEditor({
       mode: 'create',
@@ -204,16 +231,59 @@ export function ProgramEditPage({
     });
     setGeneralAlert(null);
   };
+  const refreshMilestoneSnapshot = (milestoneId: string) => {
+    const requestId = (milestoneSnapshotRequestRef.current += 1);
+    setLatestMilestoneSnapshot(null);
+    void getEditableMilestone(milestoneId)
+      .then((snapshot) => {
+        if (requestId !== milestoneSnapshotRequestRef.current) return;
+        if (milestoneSnapshot === null) {
+          setMilestoneSnapshot(snapshot);
+          setMilestoneSnapshotLoadFailed(false);
+          setMilestoneEditor((current) => {
+            if (current.mode !== 'edit' || current.form.id !== milestoneId)
+              return current;
+            const form = toMilestoneForm(snapshot.milestone);
+            return { ...current, form, initialForm: form, errors: {} };
+          });
+        } else {
+          setLatestMilestoneSnapshot(snapshot);
+        }
+      })
+      .catch(() => {
+        if (requestId === milestoneSnapshotRequestRef.current)
+          setMilestoneSnapshotLoadFailed(true);
+      });
+  };
   const openEditMilestone = (milestone: EditableMilestone) => {
+    if (isMilestoneBusy) return;
     milestoneEditTriggerRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    const initialForm = toMilestoneForm(milestone);
+    setMilestoneSnapshot(null);
+    setLatestMilestoneSnapshot(null);
+    setMilestoneSnapshotLoadFailed(false);
+    const requestId = (milestoneSnapshotRequestRef.current += 1);
+    void getEditableMilestone(milestone.id)
+      .then((snapshot) => {
+        if (requestId !== milestoneSnapshotRequestRef.current) return;
+        setMilestoneSnapshot(snapshot);
+        setMilestoneEditor((current) => {
+          if (current.mode !== 'edit' || current.form.id !== milestone.id)
+            return current;
+          const form = toMilestoneForm(snapshot.milestone);
+          return { ...current, form, initialForm: form, errors: {} };
+        });
+      })
+      .catch(() => {
+        if (requestId === milestoneSnapshotRequestRef.current)
+          setMilestoneSnapshotLoadFailed(true);
+      });
     setMilestoneEditor({
       mode: 'edit',
-      form: initialForm,
-      initialForm,
+      form: toMilestoneForm(milestone),
+      initialForm: toMilestoneForm(milestone),
       errors: {},
     });
     setGeneralAlert(null);
@@ -227,14 +297,46 @@ export function ProgramEditPage({
     );
   };
 
-  const saveMilestone = async (event: React.FormEvent<HTMLFormElement>) => {
+  const saveMilestone = async (
+    event: React.FormEvent<HTMLFormElement>,
+    documents?: ProgramMilestoneDraft['documents'],
+  ) => {
     event.preventDefault();
+    if (milestoneUploadRuntimeRef.current.submitting) return;
     if (milestoneEditor.mode === 'closed') return;
+    if (milestoneEditor.mode === 'edit' && milestoneEditor.blocked) return;
+    if (state.kind !== 'ready') return;
     setGeneralAlert(null);
-    const validationErrors = validateMilestoneForm(
+    const persistedProgramForm = toProgramEditForm(state.program);
+    const operation =
+      milestoneEditor.mode === 'edit' && milestoneSnapshot !== null
+        ? milestoneSnapshot.operation
+        : {
+            startAt:
+              persistedProgramForm.originalStartAt ??
+              persistedProgramForm.startAt,
+            endAt: persistedProgramForm.endAtUndecided
+              ? null
+              : persistedProgramForm.originalEndAt,
+          };
+    const milestoneChanges = changedMilestoneFields(
+      milestoneEditor.initialForm,
       milestoneEditor.form,
-      form?.startAt ?? '',
-      form?.endAtUndecided === true ? null : (form?.endAt ?? null),
+    );
+    const validationForm = {
+      ...milestoneEditor.form,
+      startAt: milestoneChanges.includes('startAt')
+        ? milestoneEditor.form.startAt
+        : (milestoneEditor.form.originalStartAt ??
+          milestoneEditor.form.startAt),
+      dueAt: milestoneChanges.includes('dueAt')
+        ? milestoneEditor.form.dueAt
+        : (milestoneEditor.form.originalDueAt ?? milestoneEditor.form.dueAt),
+    };
+    const validationErrors = validateMilestoneForm(
+      validationForm,
+      operation.startAt,
+      operation.endAt,
     );
     if (Object.keys(validationErrors).length > 0) {
       setMilestoneEditor((current) =>
@@ -244,33 +346,195 @@ export function ProgramEditPage({
       );
       return;
     }
+    milestoneUploadRuntimeRef.current.submitting = true;
     setIsMilestoneBusy(true);
     try {
-      const input = buildMilestoneInput(
-        milestoneEditor.form,
-        changedMilestoneFields(
-          milestoneEditor.initialForm,
+      if (
+        milestoneEditor.mode === 'edit' &&
+        documents !== undefined &&
+        milestoneSnapshot !== null
+      ) {
+        const milestoneId = milestoneEditor.form.id;
+        if (milestoneId === null) return;
+        const documentError = validateLocalMilestoneDocuments(documents);
+        if (documentError !== null) {
+          setMilestoneEditor((current) =>
+            current.mode === 'closed'
+              ? current
+              : { ...current, errors: { general: documentError } },
+          );
+          return;
+        }
+        const candidates = documents.current.flatMap((document) =>
+          document.selectedFile === null
+            ? []
+            : [{ localId: document.localId, file: document.selectedFile }],
+        );
+        const uploadFailure = await preparePendingUploads({
+          candidates,
+          runtime: milestoneUploadRuntimeRef.current,
+          api: {
+            uploadFile: uploadAuthoringFile,
+            deleteUpload: deleteAuthoringUpload,
+          },
+        });
+        if (uploadFailure !== null) {
+          setMilestoneEditor((current) =>
+            current.mode === 'closed'
+              ? current
+              : { ...current, errors: { general: uploadFailure.message } },
+          );
+          return;
+        }
+        const uploads = candidates.flatMap((candidate) => {
+          const upload = milestoneUploadRuntimeRef.current.uploads.get(
+            candidate.localId,
+          );
+          return upload === undefined
+            ? []
+            : [{ localId: candidate.localId, uploadId: upload.id }];
+        });
+        const canonical = await updateEditableMilestone(milestoneId, {
+          expectedFingerprint: milestoneSnapshot.fingerprint,
+          name: milestoneEditor.form.name.trim(),
+          startAt: buildMilestoneInput(
+            milestoneEditor.form,
+            changedMilestoneFields(
+              milestoneEditor.initialForm,
+              milestoneEditor.form,
+            ),
+          ).startAt,
+          dueAt: buildMilestoneInput(
+            milestoneEditor.form,
+            changedMilestoneFields(
+              milestoneEditor.initialForm,
+              milestoneEditor.form,
+            ),
+          ).dueAt,
+          instructions: milestoneEditor.form.instructions.trim() || null,
+          documents: buildLocalMilestoneDocumentInputs(documents, uploads),
+        });
+        setCanonicalDocumentsByMilestoneId((current) => {
+          const next = new Map(current);
+          next.set(milestoneId, canonical.documents);
+          return next;
+        });
+        setState((current) =>
+          updateReadyProgram(current, (program) => ({
+            ...program,
+            milestones: program.milestones.map((milestone) =>
+              milestone.id === milestoneId
+                ? {
+                    ...milestone,
+                    ...canonical.milestone,
+                  }
+                : milestone,
+            ),
+          })),
+        );
+        uploads.forEach(({ localId }) => {
+          milestoneUploadRuntimeRef.current.uploads.delete(localId);
+          milestoneUploadRuntimeRef.current.uploadFiles.delete(localId);
+        });
+      } else if (milestoneEditor.mode === 'edit') {
+        setMilestoneEditor((current) =>
+          current.mode === 'closed'
+            ? current
+            : {
+                ...current,
+                errors: {
+                  general:
+                    '제출 항목을 불러오지 못했습니다. 다시 열어 새로고침해 주세요.',
+                },
+              },
+        );
+        return;
+      } else {
+        const input = buildMilestoneInput(
           milestoneEditor.form,
-        ),
-      );
-      const isCreate = milestoneEditor.form.id === null;
-      const saved = milestoneEditor.form.id
-        ? await updateMilestone(milestoneEditor.form.id, input)
-        : await createMilestone(programId, input);
-      setState((current) =>
-        updateReadyProgram(current, (program) =>
-          upsertMilestone(program, saved),
-        ),
-      );
-      if (isCreate) setCreatedMilestoneId(saved.id);
+          changedMilestoneFields(
+            milestoneEditor.initialForm,
+            milestoneEditor.form,
+          ),
+        );
+        const saved = await createMilestone(programId, input);
+        setState((current) =>
+          updateReadyProgram(current, (program) =>
+            upsertMilestone(program, saved),
+          ),
+        );
+      }
       setMilestoneEditor({ mode: 'closed' });
+      setHasUnsavedMilestoneDocuments(false);
     } catch (error: unknown) {
+      if (milestoneEditor.mode === 'edit') {
+        const failure = editableMilestoneSnapshotFailure(error);
+        setMilestoneEditor((current) =>
+          current.mode === 'closed'
+            ? current
+            : {
+                ...current,
+                ...(failure.kind === 'known' ? {} : { blocked: true }),
+                errors: {
+                  general:
+                    failure.kind === 'known'
+                      ? failure.message
+                      : failure.kind === 'conflict'
+                        ? '다른 변경과 충돌했습니다. 입력은 유지됩니다. 새로고침한 뒤 내용을 확인하세요.'
+                        : '저장 결과를 확인할 수 없습니다. 입력은 유지됩니다. 새로고침으로 서버 상태를 확인하세요.',
+                },
+              },
+        );
+        if (failure.kind === 'known') {
+          failure.fieldErrors
+            .filter(
+              (field) =>
+                field.code === 'INVALID_UPLOAD_TOKEN' &&
+                /^documents\[(\d+)\]\.templateUploadId$/u.test(field.field),
+            )
+            .forEach((field) => {
+              const index = Number(
+                /^documents\[(\d+)\]\.templateUploadId$/u.exec(
+                  field.field,
+                )?.[1],
+              );
+              const localId = documents?.current[index]?.localId;
+              if (localId === undefined) return;
+              milestoneUploadRuntimeRef.current.uploads.delete(localId);
+              milestoneUploadRuntimeRef.current.uploadFiles.delete(localId);
+            });
+          setMilestoneEditor((current) =>
+            current.mode === 'closed'
+              ? current
+              : {
+                  ...current,
+                  errors: {
+                    ...current.errors,
+                    name: failure.fieldErrors.find(
+                      (field) => field.field === 'name',
+                    )?.message,
+                    startAt: failure.fieldErrors.find(
+                      (field) => field.field === 'startAt',
+                    )?.message,
+                    dueAt: failure.fieldErrors.find(
+                      (field) => field.field === 'dueAt',
+                    )?.message,
+                    instructions: failure.fieldErrors.find(
+                      (field) => field.field === 'instructions',
+                    )?.message,
+                  },
+                },
+          );
+        }
+        return;
+      }
       setMilestoneEditor((current) =>
         current.mode === 'closed'
           ? current
           : { ...current, errors: mapMilestoneError(error) },
       );
     } finally {
+      milestoneUploadRuntimeRef.current.submitting = false;
       setIsMilestoneBusy(false);
     }
   };
@@ -348,8 +612,9 @@ export function ProgramEditPage({
         milestoneEditor={milestoneEditor}
         milestoneEditTriggerRef={milestoneEditTriggerRef}
         deleteTarget={deleteTarget}
-        expandedDocumentsMilestoneId={createdMilestoneId}
         isMilestoneBusy={isMilestoneBusy}
+        milestoneSnapshot={milestoneSnapshot}
+        canonicalDocumentsByMilestoneId={canonicalDocumentsByMilestoneId}
         isLifecycleBusy={isLifecycleBusy}
         isLifecycleConfirming={isLifecycleConfirming}
         lifecycleError={lifecycleError}
@@ -361,9 +626,43 @@ export function ProgramEditPage({
         onConfirmLifecycleToggle={() => void confirmLifecycleToggle()}
         onAddMilestone={openAddMilestone}
         onEditMilestone={openEditMilestone}
-        onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
+        onCancelMilestone={() => {
+          milestoneSnapshotRequestRef.current += 1;
+          void cleanupPreparedUploads({
+            runtime: milestoneUploadRuntimeRef.current,
+            localIds: [...milestoneUploadRuntimeRef.current.uploads.keys()],
+            deleteUpload: deleteAuthoringUpload,
+          });
+          setMilestoneEditor({ mode: 'closed' });
+          setHasUnsavedMilestoneDocuments(false);
+        }}
         onMilestoneFieldChange={updateMilestoneField}
-        onSaveMilestone={(event) => void saveMilestone(event)}
+        onSaveMilestone={(event, documents) =>
+          void saveMilestone(event, documents)
+        }
+        onRefreshMilestone={() => {
+          if (milestoneEditor.mode === 'edit' && milestoneEditor.form.id)
+            refreshMilestoneSnapshot(milestoneEditor.form.id);
+        }}
+        latestMilestoneSnapshot={latestMilestoneSnapshot}
+        milestoneSnapshotLoadFailed={milestoneSnapshotLoadFailed}
+        onMilestoneDocumentsDirtyChange={setHasUnsavedMilestoneDocuments}
+        onRestartMilestoneFromLatest={(snapshot) => {
+          setMilestoneSnapshot(snapshot);
+          setLatestMilestoneSnapshot(null);
+          setMilestoneEditor((current) =>
+            current.mode === 'edit'
+              ? {
+                  ...current,
+                  form: toMilestoneForm(snapshot.milestone),
+                  initialForm: toMilestoneForm(snapshot.milestone),
+                  errors: {},
+                  blocked: false,
+                }
+              : current,
+          );
+          setHasUnsavedMilestoneDocuments(false);
+        }}
         onRequestDeleteMilestone={setDeleteTarget}
         onCancelDelete={() => setDeleteTarget(null)}
         onConfirmDelete={() => void confirmDelete()}

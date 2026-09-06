@@ -4,7 +4,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
-import { updateMilestone, type EditableMilestone } from './api';
+import { updateEditableMilestone, type EditableMilestone } from './api';
 import { buildMilestoneInput, toMilestoneForm } from './program-edit-flow';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 
@@ -33,7 +33,15 @@ describe('마일스톤 시작일 편집 계약', () => {
       name: '중간 점검 안내 수정',
     };
 
-    await updateMilestone(milestone.id, buildMilestoneInput(form, ['name']));
+    const input = buildMilestoneInput(form, ['name']);
+    await updateEditableMilestone(milestone.id, {
+      expectedFingerprint: 'a'.repeat(64),
+      name: input.name,
+      startAt: input.startAt,
+      dueAt: input.dueAt,
+      instructions: input.instructions,
+      documents: [],
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath(`milestones/${milestone.id}`),
@@ -44,6 +52,8 @@ describe('마일스톤 시작일 편집 계약', () => {
     ).toMatchObject({
       name: '중간 점검 안내 수정',
       startAt: milestone.startAt,
+      expectedFingerprint: 'a'.repeat(64),
+      documents: [],
     });
   });
 

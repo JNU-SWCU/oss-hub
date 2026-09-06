@@ -8,6 +8,7 @@ import {
   type ProgramMilestoneForm,
 } from './program-edit-flow';
 import { ProgramEditMilestoneDialog } from './program-edit-milestone-dialog';
+import type { EditableMilestoneEditSnapshot } from './api';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -31,6 +32,28 @@ const passiveProps = {
   onCancel: vi.fn(),
   onFieldChange: vi.fn(),
   onSave: vi.fn(),
+  snapshot: {
+    milestone: {
+      id: 'milestone-1',
+      name: '기획서 제출',
+      startAt: '2026-08-16T09:30:59.000Z',
+      dueAt: '2026-08-20T09:30:59.000Z',
+      submissionType: 'TEXT',
+      instructions: '초안을 제출하세요.',
+    },
+    operation: {
+      startAt: '2026-08-01T09:00:00.000Z',
+      endAt: '2026-08-31T09:00:00.000Z',
+    },
+    documents: [],
+    fileUpload: {
+      maxBytes: 5242880,
+      maxLabel: '5 MiB',
+      accept: '.pdf',
+      formatLabel: 'PDF',
+    },
+    fingerprint: 'a'.repeat(64),
+  } satisfies EditableMilestoneEditSnapshot,
 };
 
 function getButton(name: string): HTMLButtonElement {
@@ -89,6 +112,7 @@ function DialogHarness({
           operationEndAt="2026-08-31T18:00"
           contextEvents={[]}
           isBusy={isBusy}
+          snapshot={passiveProps.snapshot}
           returnFocusRef={withReturnFocus ? returnFocusRef : undefined}
           onCancel={() => {
             onCancel();
@@ -163,6 +187,23 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(instructions?.classList.contains('[overflow-wrap:anywhere]')).toBe(
       true,
     );
+  });
+
+  it('keeps form fields and local documents in one scroll body with a separate footer', async () => {
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          {...passiveProps}
+          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+        />,
+      ),
+    );
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.querySelectorAll('form')).toHaveLength(1);
+    expect(dialog?.querySelector('form')?.textContent).toContain('제출 항목');
+    expect(
+      dialog?.querySelector('form button[type="submit"]')?.textContent,
+    ).toContain('저장');
   });
 
   it('closes a clean editor with one Escape and returns focus to its exact origin', async () => {

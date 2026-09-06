@@ -3,6 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/lib/api-client';
 import type { EditableMilestone, EditableProgram } from './api';
 import { UNSAVED_PROGRAM_MESSAGE } from './program-creation-flow';
 import { ProgramEditPage } from './program-edit-page';
@@ -21,7 +22,9 @@ const routerMock = vi.hoisted(() => ({
   forward: vi.fn(),
 }));
 const getEditableProgramMock = vi.hoisted(() => vi.fn());
-const updateMilestoneMock = vi.hoisted(() => vi.fn());
+const getEditableMilestoneMock = vi.hoisted(() => vi.fn());
+const updateEditableMilestoneMock = vi.hoisted(() => vi.fn());
+const listMilestoneDocumentsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({
   useRouter: () => routerMock,
@@ -37,13 +40,19 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-vi.mock('./api', () => ({
+vi.mock('./api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./api')>()),
   getEditableProgram: getEditableProgramMock,
-  updateMilestone: updateMilestoneMock,
+  getEditableMilestone: getEditableMilestoneMock,
+  updateEditableMilestone: updateEditableMilestoneMock,
   createMilestone: vi.fn(),
   deleteMilestone: vi.fn(),
   updateProgram: vi.fn(),
   updateProgramLifecycle: vi.fn(),
+}));
+
+vi.mock('./milestone-document-api', () => ({
+  listMilestoneDocuments: listMilestoneDocumentsMock,
 }));
 
 const milestone: EditableMilestone = {
@@ -95,7 +104,37 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     document.body.append(container);
     root = createRoot(container);
     getEditableProgramMock.mockReset().mockResolvedValue(program);
-    updateMilestoneMock.mockReset();
+    getEditableMilestoneMock
+      .mockReset()
+      .mockImplementation((milestoneId: string) => {
+        const current = program.milestones.find(
+          (item) => item.id === milestoneId,
+        );
+        if (current === undefined)
+          return Promise.reject(new Error('Unknown test milestone'));
+        return Promise.resolve({
+          milestone: current,
+          operation: { startAt: program.startAt, endAt: program.endAt },
+          documents: [],
+          fileUpload: {
+            maxBytes: 5242880,
+            maxLabel: '5 MiB',
+            accept: '.pdf',
+            formatLabel: 'PDF',
+          },
+          fingerprint: 'a'.repeat(64),
+        });
+      });
+    updateEditableMilestoneMock.mockReset();
+    listMilestoneDocumentsMock.mockResolvedValue({
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+    });
     routerMock.push.mockReset();
     originalConfirm = window.confirm;
     confirmMock = vi.fn().mockReturnValue(false);
@@ -120,6 +159,14 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     return result;
   }
 
+  function editButton(name: string): HTMLButtonElement {
+    const result = document.querySelector<HTMLButtonElement>(
+      `button[aria-label="${name} 수정"]`,
+    );
+    if (result === null) throw new TypeError(`Edit button not found: ${name}`);
+    return result;
+  }
+
   function buttons(name: string): readonly HTMLButtonElement[] {
     return Array.from(document.querySelectorAll('button')).filter(
       (candidate) => candidate.textContent?.trim() === name,
@@ -133,7 +180,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   }
 
   async function editName(value: string): Promise<void> {
-    await act(async () => button('수정').click());
+    await act(async () => editButton(milestone.name).click());
     await setName(value);
   }
 
@@ -183,7 +230,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
 
   it('API 저장 실패 후에도 현재 폼과 dirty 상태를 유지한다', async () => {
     // Given
-    updateMilestoneMock.mockRejectedValue(new TypeError('network'));
+    updateEditableMilestoneMock.mockRejectedValue(new TypeError('network'));
     await editName('저장 실패 기획서');
 
     // When
@@ -195,7 +242,9 @@ describe('마일스톤 스냅샷 저장 상태', () => {
 
     // Then
     expect(nameInput().value).toBe('저장 실패 기획서');
-    expect(document.body.textContent).toContain('입력한 내용은 그대로 남아');
+    expect(document.body.textContent).toContain(
+      '저장 결과를 확인할 수 없습니다. 입력은 유지됩니다.',
+    );
     await assertExitGuarded();
 
     // When: 실패 후 원래 이름으로 되돌린다.
@@ -211,10 +260,167 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     expect(confirmMock).not.toHaveBeenCalled();
   });
 
+  it('기존 마일스톤은 단일 snapshot을 읽고 fingerprint를 포함한 full PATCH로 저장한다', async () => {
+    await editName('수정된 기획서');
+    updateEditableMilestoneMock.mockResolvedValue({
+      milestone: { ...milestone, name: '수정된 기획서' },
+      operation: { startAt: program.startAt, endAt: program.endAt },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'b'.repeat(64),
+    });
+    await act(async () => {
+      button('저장').click();
+      await Promise.resolve();
+    });
+
+    expect(getEditableMilestoneMock).toHaveBeenCalledWith('milestone-1');
+    expect(updateEditableMilestoneMock).toHaveBeenCalledWith(
+      'milestone-1',
+      expect.objectContaining({
+        expectedFingerprint: 'a'.repeat(64),
+        name: '수정된 기획서',
+        documents: [],
+      }),
+    );
+    expect(updateEditableMilestoneMock.mock.calls[0]?.[1]).toMatchObject({
+      startAt: milestone.startAt,
+      dueAt: milestone.dueAt,
+    });
+  });
+
+  it('목록의 오래된 메타데이터 대신 GET snapshot의 날짜와 이름으로 편집을 시작한다', async () => {
+    const current = {
+      ...milestone,
+      name: '서버 최신 기획서',
+      startAt: '2026-08-17T09:30:59.000Z',
+      dueAt: '2026-08-21T09:30:59.000Z',
+    };
+    getEditableMilestoneMock.mockResolvedValueOnce({
+      milestone: current,
+      operation: { startAt: program.startAt, endAt: program.endAt },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'c'.repeat(64),
+    });
+    await act(async () => {
+      editButton(milestone.name).click();
+      await Promise.resolve();
+    });
+
+    expect(nameInput().value).toBe('서버 최신 기획서');
+    const scheduleButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="서버 최신 기획서 일정 입력"]',
+    );
+    if (scheduleButton === null)
+      throw new TypeError('Missing server schedule input button.');
+    await act(async () => scheduleButton.click());
+    expect(
+      document.querySelector<HTMLInputElement>(
+        'input[aria-label="서버 최신 기획서 시작 시각"]',
+      )?.value,
+    ).toBe('18:30');
+  });
+
+  it('unknown 저장 결과는 입력을 유지하고 명시적 새로고침 전에는 재기준화하지 않는다', async () => {
+    updateEditableMilestoneMock.mockRejectedValue(new TypeError('network'));
+    await editName('결과 확인 필요');
+    await act(async () => {
+      button('저장').click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(nameInput().value).toBe('결과 확인 필요');
+    expect(document.body.textContent).toContain(
+      '저장 결과를 확인할 수 없습니다',
+    );
+    expect(button('새로고침')).toBeTruthy();
+  });
+
+  it('conflict refresh keeps the draft blocked until explicit latest restart', async () => {
+    updateEditableMilestoneMock.mockRejectedValueOnce(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: 'changed',
+        instance: '/milestones/milestone-1',
+        code: 'PRG_016',
+      }),
+    );
+    await editName('충돌 전 입력');
+    await act(async () => {
+      button('저장').click();
+      await Promise.resolve();
+    });
+    getEditableMilestoneMock.mockResolvedValueOnce({
+      milestone: { ...milestone, name: '서버 최신' },
+      operation: { startAt: program.startAt, endAt: program.endAt },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'd'.repeat(64),
+    });
+    await act(async () => button('새로고침').click());
+    expect(nameInput().value).toBe('충돌 전 입력');
+    expect(button('저장').disabled).toBe(true);
+    await act(async () => button('최신 서버 상태로 다시 시작').click());
+    expect(nameInput().value).toBe('서버 최신');
+    expect(button('저장').disabled).toBe(false);
+  });
+
+  it('same-tick submit events issue one aggregate PATCH', async () => {
+    updateEditableMilestoneMock.mockResolvedValue({
+      milestone,
+      operation: { startAt: program.startAt, endAt: program.endAt },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'e'.repeat(64),
+    });
+    await editName('한 번만 저장');
+    await act(async () => {
+      button('저장').click();
+      button('저장').click();
+      await Promise.resolve();
+    });
+    expect(updateEditableMilestoneMock).toHaveBeenCalledTimes(1);
+  });
+
   it('저장 성공은 편집기를 닫고 다시 열 때 저장된 스냅샷에서 clean으로 시작한다', async () => {
     // Given
     const saved = { ...milestone, name: '저장된 기획서' };
-    updateMilestoneMock.mockResolvedValue(saved);
+    updateEditableMilestoneMock.mockResolvedValue({
+      milestone: saved,
+      operation: { startAt: program.startAt, endAt: program.endAt },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'b'.repeat(64),
+    });
     await editName(saved.name);
 
     // When
@@ -226,7 +432,19 @@ describe('마일스톤 스냅샷 저장 상태', () => {
 
     // Then
     expect(document.querySelector('[role="dialog"]')).toBeNull();
-    await act(async () => button('수정').click());
+    getEditableMilestoneMock.mockResolvedValueOnce({
+      milestone: saved,
+      operation: { startAt: program.startAt, endAt: program.endAt },
+      documents: [],
+      fileUpload: {
+        maxBytes: 5242880,
+        maxLabel: '5 MiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+      fingerprint: 'b'.repeat(64),
+    });
+    await act(async () => editButton(saved.name).click());
     expect(nameInput().value).toBe(saved.name);
     const exitLink = Array.from(container.querySelectorAll('a')).find(
       (candidate) => candidate.textContent?.trim() === '← 프로그램 개요',
@@ -245,9 +463,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
 
     // When: 두 번째 카드의 자신의 수정 버튼으로 연다.
-    const secondEdit = buttons('수정')[1];
-    if (secondEdit === undefined)
-      throw new TypeError('Missing second edit button.');
+    const secondEdit = editButton(secondMilestone.name);
     await act(async () => secondEdit.click());
     expect(nameInput().value).toBe(secondMilestone.name);
     const dialog = document.querySelector('[role="dialog"]');

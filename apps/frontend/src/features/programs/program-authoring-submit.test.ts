@@ -3,6 +3,7 @@ import { ApiError } from '@/lib/api-client';
 import { completedAuthoringState } from './program-creation-test-fixtures';
 import {
   createProgramSubmissionRuntime,
+  preparePendingUploads,
   submitProgramAuthoring,
 } from './program-authoring-submit';
 
@@ -47,6 +48,53 @@ function stateWithFiles() {
 }
 
 describe('program authoring submission', () => {
+  it('reuploads when the selected File changes or a pending token expires', async () => {
+    const runtime = createProgramSubmissionRuntime();
+    const first = pdfFile('first.pdf');
+    const replacement = pdfFile('replacement.pdf');
+    const uploadFile = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'first',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        id: 'replacement',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        id: 'expired',
+        expiresAt: '2000-01-01T00:00:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        id: 'renewed',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+      });
+    const api = { uploadFile, deleteUpload: vi.fn() };
+
+    await preparePendingUploads({
+      candidates: [{ localId: 'document', file: first }],
+      runtime,
+      api,
+    });
+    await preparePendingUploads({
+      candidates: [{ localId: 'document', file: replacement }],
+      runtime,
+      api,
+    });
+    await preparePendingUploads({
+      candidates: [{ localId: 'other', file: first }],
+      runtime,
+      api,
+    });
+    await preparePendingUploads({
+      candidates: [{ localId: 'other', file: first }],
+      runtime,
+      api,
+    });
+
+    expect(uploadFile).toHaveBeenCalledTimes(4);
+  });
   it('ignores a duplicate click while one idempotent submit is in flight', async () => {
     // Given
     let resolveCreate: ((value: { readonly id: string }) => void) | undefined;
@@ -127,7 +175,12 @@ describe('program authoring submission', () => {
 
   it('retries a failed aggregate with the same tokens and idempotency key', async () => {
     // Given
-    const uploadFile = vi.fn(async () => ({ id: 'upload-a' }));
+    const uploadFile = vi.fn(() =>
+      Promise.resolve({
+        id: 'upload-a',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      }),
+    );
     const createProgram = vi
       .fn()
       .mockRejectedValueOnce(new TypeError('gateway closed'))
@@ -165,6 +218,47 @@ describe('program authoring submission', () => {
     expect(createProgram).toHaveBeenCalledTimes(2);
     expect(createProgram.mock.calls[0]?.[1]).toBe('request-1');
     expect(createProgram.mock.calls[1]?.[1]).toBe('request-1');
+  });
+
+  it('refreshes an expired cached token through the authoring submission path', async () => {
+    const firstFile = pdfFile();
+    const secondFile = pdfFile();
+    const runtime = createProgramSubmissionRuntime();
+    runtime.uploads.set('requirement-a', {
+      id: 'expired-a',
+      expiresAt: new Date(Date.now() - 1_000).toISOString(),
+    });
+    runtime.uploads.set('requirement-b', {
+      id: 'valid-b',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    runtime.uploadFiles.set('requirement-a', firstFile);
+    runtime.uploadFiles.set('requirement-b', secondFile);
+    const uploadFile = vi.fn(() =>
+      Promise.resolve({
+        id: 'fresh-a',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      }),
+    );
+
+    const result = await submitProgramAuthoring({
+      state: stateWithFiles(),
+      files: new Map([
+        ['requirement-a', firstFile],
+        ['requirement-b', secondFile],
+      ]),
+      runtime,
+      api: {
+        uploadFile,
+        deleteUpload: vi.fn(),
+        createProgram: vi.fn(() => Promise.resolve({ id: 'program-created' })),
+      },
+    });
+
+    expect(result.kind).toBe('success');
+    expect(uploadFile).toHaveBeenCalledExactlyOnceWith(firstFile);
+    expect(runtime.uploads.get('requirement-a')?.id).toBe('fresh-a');
+    expect(runtime.uploads.get('requirement-b')?.id).toBe('valid-b');
   });
 
   it('maps a 409 conflict without clearing entered state or uploaded tokens', async () => {

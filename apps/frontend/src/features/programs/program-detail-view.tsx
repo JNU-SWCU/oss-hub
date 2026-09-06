@@ -317,7 +317,7 @@ function MilestoneGroup({
    * 다른 말을 하지 않게 하는 것이 이 prop 의 요점이다(#1098).
    */
   readonly submissionAccess: MilestoneSubmissionAccess;
-  /** 첫 화면에서 이 마일스톤만 펼친 채로 연다. `hasSubmissionDetail` 인 것 중 하나뿐이다. */
+  /** 첫 화면에서 펼친다. 학생은 하나, 교직원은 읽기 위해 전부 연다. */
   readonly defaultOpen: boolean;
 }) {
   const contentId = useId();
@@ -403,7 +403,7 @@ function hasSubmissionDetail(
 }
 
 /**
- * 첫 화면에서 펼쳐 둘 마일스톤 하나.
+ * 학생 첫 화면에서 펼쳐 둘 마일스톤 하나.
  *
  * 전부 접으면 학생은 「지금 낼 것」을 보기까지 한 번을 더 눌러야 하고, 그 한 번은
  * 이 화면에 온 사람 거의 모두가 치르는 비용이다. 반대로 다 펼치면 작성자가 지적한
@@ -488,7 +488,16 @@ export function ProgramMilestones({
               milestone={milestone}
               position={index + 1}
               submissionAccess={submissionAccess}
-              defaultOpen={milestone.id === openMilestoneId}
+              /*
+               * 교직원은 항목 이름과 수합 현황을 읽는 역할이다. 마일스톤당 제출 항목은
+               * 최대 20개라 긴 목록은 계속 접을 수 있게 두되, 첫 화면에서는 전부 연다.
+               * 학생은 지금 제출할 하나만 여는 기존 흐름을 유지한다.
+               */
+              defaultOpen={
+                program.viewer.role === 'STAFF' ||
+                program.viewer.role === 'ADMIN' ||
+                milestone.id === openMilestoneId
+              }
             />
           ))}
         </ListPanel>
