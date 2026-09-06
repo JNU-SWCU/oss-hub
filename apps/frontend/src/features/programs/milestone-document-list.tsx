@@ -600,7 +600,7 @@ function StudentDocumentRow({
     if (dueTickDelay === null) return;
     const timer = setTimeout(() => setNow(Date.now()), dueTickDelay);
     return () => clearTimeout(timer);
-  }, [dueTickDelay]);
+  }, [dueTickDelay, now]);
 
   const refreshDocument = useCallback(async (): Promise<boolean> => {
     setSyncing(true);

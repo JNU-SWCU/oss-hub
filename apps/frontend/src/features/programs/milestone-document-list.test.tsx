@@ -1373,6 +1373,27 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
     expect(dueText()).toContain('지났습니다');
   });
 
+  it('브라우저 최대 대기 시간을 두 번 넘겨도 기한 뒤에는 수정이 잠긴다', () => {
+    const maxDelay = 2_147_483_647;
+    vi.setSystemTime(
+      new Date(Date.parse(resubmissionDueAt) - maxDelay * 2 - 1000),
+    );
+    renderRow();
+    expect(editButton().disabled).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(maxDelay);
+    });
+    act(() => {
+      vi.advanceTimersByTime(maxDelay);
+    });
+    act(() => {
+      vi.advanceTimersByTime(1001);
+    });
+
+    expect(editButton().disabled).toBe(true);
+  });
+
   /**
    * 겨냥한 타이머 하나뿐이다 — 기한이 지나고 나면 아무것도 남지 않는다. 주기 타이머로
    * 고쳤다면 여기서 걸린다: 아무 일도 없는 초마다 목록 전체를 다시 그리고, 학생이 입력
