@@ -454,6 +454,14 @@ describe('ProgramScheduleRangeEditor', () => {
     expect(
       document.body.querySelector('[role="dialog"]')?.textContent,
     ).toContain('신청 기간');
+    expect(
+      document.body.querySelector('[role="dialog"]')?.textContent,
+    ).toContain('시작과 종료 날짜·시간을 입력하세요.');
+    expect(
+      [...document.body.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === '저장',
+      ),
+    ).toBe(true);
     expect(document.body.textContent).not.toContain('직접 입력');
     expect(
       document.body.querySelector<HTMLInputElement>(

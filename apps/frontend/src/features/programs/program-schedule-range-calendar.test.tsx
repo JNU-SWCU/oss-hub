@@ -30,13 +30,16 @@ describe('ProgramScheduleRangeCalendar', () => {
   it('같은 마일스톤 ID에는 안정적인 색을 쓰고 서로 다른 ID는 구분한다', async () => {
     await renderCalendar([
       event('milestone-1', '마일스톤 하나', 'MILESTONE'),
-      event('milestone-1', '마일스톤 하나 반복', 'MILESTONE'),
       event('milestone-2', '마일스톤 둘', 'MILESTONE'),
     ]);
 
     const first = rangeBar('마일스톤 하나');
-    const repeated = rangeBar('마일스톤 하나 반복');
     const second = rangeBar('마일스톤 둘');
+    await renderCalendar([
+      event('milestone-1', '마일스톤 하나 반복', 'MILESTONE'),
+      event('milestone-2', '마일스톤 둘', 'MILESTONE'),
+    ]);
+    const repeated = rangeBar('마일스톤 하나 반복');
 
     expect(first?.className).toBe(repeated?.className);
     expect(first?.className).not.toBe(second?.className);
