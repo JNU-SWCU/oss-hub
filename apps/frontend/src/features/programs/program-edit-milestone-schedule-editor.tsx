@@ -37,12 +37,19 @@ export function ProgramEditMilestoneScheduleEditor({
     onEndAtChange: (value) => onFieldChange('dueAt', value),
   };
 
+  /**
+   * 범위가 하나라 `layout="simple"` 을 쓴다 — 달력을 먼저 놓고 번호·「선택 중」 배지를
+   * 내지 않는 배치다. 선택기 자체는 `ranges.length === 1` 이라 편집기가 렌더하지
+   * 않는다 — `onActiveIdChange` 가 no-op 이므로 눌러도 아무 일도 일어나지 않는
+   * 컨트롤이었다.
+   */
   return (
     <ProgramScheduleRangeEditor
       ranges={[range]}
       activeId={rangeId}
       onActiveIdChange={() => undefined}
       contextEvents={contextEvents}
+      layout="simple"
     />
   );
 }
