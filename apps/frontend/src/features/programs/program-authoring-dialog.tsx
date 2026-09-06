@@ -11,14 +11,16 @@ export function ProgramAuthoringDialog({
   children,
   size = 'md',
   bodyClassName,
+  confirmLabel,
   onCancel,
   onSave,
 }: {
   readonly title: string;
-  readonly description: string;
+  readonly description?: string | null;
   readonly children: ReactNode;
   readonly size?: 'md' | 'lg';
   readonly bodyClassName?: string;
+  readonly confirmLabel?: string;
   readonly onCancel: () => void;
   readonly onSave: () => void;
 }) {
@@ -63,9 +65,11 @@ export function ProgramAuthoringDialog({
           }}
         >
           <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
-          <Dialog.Description className="mt-1 text-small text-muted-foreground">
-            {description}
-          </Dialog.Description>
+          {description ? (
+            <Dialog.Description className="mt-1 text-small text-muted-foreground">
+              {description}
+            </Dialog.Description>
+          ) : null}
           <div
             className={cn(
               'mt-5 grid min-h-0 gap-5 overflow-y-auto pr-1',
@@ -79,7 +83,7 @@ export function ProgramAuthoringDialog({
               취소
             </Button>
             <Button type="button" onClick={onSave}>
-              저장
+              {confirmLabel ?? '저장'}
             </Button>
           </div>
         </Dialog.Content>
