@@ -29,6 +29,7 @@ function submission(
     revision: status === null ? null : 1,
     status,
     hasCurrentFile: status !== null,
+    currentFileName: status === null ? null : '합성-제출.pdf',
     review: null,
     history: { hasHistory: false, isComplete: true },
   };

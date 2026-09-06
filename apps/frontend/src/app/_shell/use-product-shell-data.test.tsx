@@ -3,6 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import type { ProgramOverview } from '@/features/programs/program-overview-api';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -13,6 +14,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const mocks = vi.hoisted(() => ({
   getProgramOverview: vi.fn(),
   getProgramNavigationMilestones: vi.fn(),
+  getMyApplication: vi.fn(),
 }));
 
 vi.mock('@/features/programs/program-overview-api', () => ({
@@ -20,6 +22,9 @@ vi.mock('@/features/programs/program-overview-api', () => ({
 }));
 vi.mock('@/features/programs/program-navigation-api', () => ({
   getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
+}));
+vi.mock('@/features/programs/student-application-api', () => ({
+  getMyApplication: mocks.getMyApplication,
 }));
 
 import { useProductShellData } from './use-product-shell-data';
@@ -42,17 +47,32 @@ const OVERVIEW: ProgramOverview = {
   milestoneDocuments: [],
 };
 
+function apiError(status: number, code: string): ApiError {
+  const problem: ProblemDetail = {
+    type: 'about:blank',
+    title: 'error',
+    status,
+    detail: '',
+    instance: '/synthetic/programs/program-1/applications/me',
+    code,
+  };
+  return new ApiError(problem);
+}
+
 function Probe({
   programDetailId,
   member,
+  studentViewer = false,
 }: {
   readonly programDetailId: string | null;
   readonly member: boolean;
+  readonly studentViewer?: boolean;
 }) {
   const data = useProductShellData({
     section: 'programs',
     programDetailId,
     member,
+    studentViewer,
   });
   return (
     <>
@@ -139,5 +159,78 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
 
     expect(mocks.getProgramOverview).not.toHaveBeenCalled();
     expect(mocks.getProgramNavigationMilestones).not.toHaveBeenCalled();
+    expect(mocks.getMyApplication).not.toHaveBeenCalled();
+  });
+});
+
+describe('useProductShellData 참여 여부(#1099)', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+    mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.clearAllMocks();
+  });
+
+  it('승인된 신청이 있으면 참여자다', async () => {
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+
+    await act(async () => {
+      root.render(<Probe programDetailId="program-1" member studentViewer />);
+    });
+
+    expect(mocks.getMyApplication).toHaveBeenCalledWith('program-1');
+    expect(container.textContent).toContain('"scopeParticipant":true');
+  });
+
+  it('아직 승인되지 않은 신청은 참여자가 아니다', async () => {
+    mocks.getMyApplication.mockResolvedValue({ status: 'SUBMITTED' });
+
+    await act(async () => {
+      root.render(<Probe programDetailId="program-1" member studentViewer />);
+    });
+
+    expect(container.textContent).toContain('"scopeParticipant":false');
+  });
+
+  it('신청이 없으면(404) 참여자가 아님이 확정된다', async () => {
+    mocks.getMyApplication.mockRejectedValue(apiError(404, 'APP_001'));
+
+    await act(async () => {
+      root.render(<Probe programDetailId="program-1" member studentViewer />);
+    });
+
+    expect(container.textContent).toContain('"scopeParticipant":false');
+  });
+
+  it('404가 아닌 실패는 모르는 채로 둔다 — 추측으로 메뉴를 잠그지 않는다', async () => {
+    mocks.getMyApplication.mockRejectedValue(new TypeError('network'));
+
+    await act(async () => {
+      root.render(<Probe programDetailId="program-1" member studentViewer />);
+    });
+
+    // undefined는 JSON.stringify가 키째로 지운다 — 「모른다」가 그대로 남았다는 뜻이다.
+    expect(container.textContent).not.toContain('"scopeParticipant":');
+  });
+
+  it('학생 시야가 아니면 묻지 않는다 — 교직원은 참여 여부와 무관하게 열린다', async () => {
+    await act(async () => {
+      root.render(
+        <Probe programDetailId="program-1" member studentViewer={false} />,
+      );
+    });
+
+    expect(mocks.getMyApplication).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain('"scopeParticipant":');
   });
 });

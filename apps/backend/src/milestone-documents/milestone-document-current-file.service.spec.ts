@@ -30,7 +30,7 @@ function buildStorage(
 function buildReader(
   file: CurrentMilestoneDocumentFile | null,
 ): MilestoneDocumentCurrentFileReader {
-  return { findForApprovedParticipant: jest.fn().mockResolvedValue(file) };
+  return { findForParticipant: jest.fn().mockResolvedValue(file) };
 }
 
 async function sha256(body: Readable): Promise<string> {
@@ -78,7 +78,7 @@ describe('MilestoneDocumentCurrentFileService', () => {
     // Given: 첫 제출 파일을 받은 뒤 같은 제출 행에 새 파일이 현재 첨부로 붙는다.
     let current = CURRENT_FILE;
     const reader: MilestoneDocumentCurrentFileReader = {
-      findForApprovedParticipant: jest.fn(() => Promise.resolve(current)),
+      findForParticipant: jest.fn(() => Promise.resolve(current)),
     };
     const bytesByKey = new Map([
       ['objects/current', Buffer.from('current-bytes')],

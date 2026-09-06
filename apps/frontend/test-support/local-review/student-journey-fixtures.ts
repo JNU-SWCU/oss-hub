@@ -3,6 +3,15 @@ import type {
   SubmissionChecklist,
   SubmissionFormData,
 } from '@/features/submissions/types';
+/*
+ * 마감 전 보완 요청 서류는 두 벌로 적힌 학생 픽스처가 **같은 값**을 써야 한다 — 마감이
+ * 상대 시각이라 한쪽만 손으로 적으면 두 화면의 D-day 가 소리 없이 갈린다. 그래서
+ * 여기서 베끼지 않고 원본을 그대로 가져다 쓴다.
+ */
+import {
+  OPEN_REVISION_CHECKLIST_ITEM,
+  OPEN_REVISION_FIXTURE,
+} from './handlers/student-program-fixtures';
 
 type StudentJourneyResponseBody =
   | ProgramDetail
@@ -10,6 +19,15 @@ type StudentJourneyResponseBody =
   | SubmissionChecklist
   | SubmissionFormData;
 
+/**
+ * ⚠ 마일스톤의 `submissionItemCount`는 `handlers/milestone-document-fixtures.ts`가
+ * 그 마일스톤에 대해 돌려주는 서류 개수와 같아야 한다 — 백엔드에서 이 값은 그
+ * 집계이기 때문이다(`programs.service.ts`의 `milestone._count.documents`).
+ * 어긋나면 서비스에서는 생길 수 없는 화면(머리줄은 「제출 항목 없음」, 그 아래
+ * 블록은 서류를 그림)이 되고, 그 값으로만 갈리는 갈래를 로컬 검토가 못 본다.
+ * 같은 이유로 `handlers/student-program-fixtures.ts`의 같은 마일스톤과도 값이
+ * 맞아야 한다(두 파일이 같은 마일스톤을 각자 적어 두고 있다).
+ */
 const CAPSTONE_DETAIL = {
   id: 'program-capstone',
   name: '합성 캡스톤 2026',
@@ -35,7 +53,7 @@ const CAPSTONE_DETAIL = {
       deadlineLabel: '마감 지남',
       description: '프로젝트 문제 정의와 초기 실행 계획을 제출합니다.',
       submissionType: 'FILE',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'APPROVED',
       applicationSubmissionSummary: null,
     },
@@ -47,7 +65,7 @@ const CAPSTONE_DETAIL = {
       deadlineLabel: '마감 지남',
       description: '현재 구현 상태와 다음 스프린트 계획을 정리합니다.',
       submissionType: 'TEXT',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'NOT_SUBMITTED',
       applicationSubmissionSummary: null,
     },
@@ -59,7 +77,19 @@ const CAPSTONE_DETAIL = {
       deadlineLabel: 'D-10',
       description: '최종 결과와 변경 내역을 글로 정리합니다.',
       submissionType: 'TEXT',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
+      viewerSubmissionStatus: 'CHANGES_REQUESTED',
+      applicationSubmissionSummary: null,
+    },
+    {
+      id: OPEN_REVISION_FIXTURE.milestoneId,
+      name: OPEN_REVISION_FIXTURE.name,
+      dueAt: OPEN_REVISION_FIXTURE.deadline.dueAt,
+      dDay: OPEN_REVISION_FIXTURE.deadline.dDay,
+      deadlineLabel: OPEN_REVISION_FIXTURE.deadline.deadlineLabel,
+      description: OPEN_REVISION_FIXTURE.description,
+      submissionType: 'FILE',
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'CHANGES_REQUESTED',
       applicationSubmissionSummary: null,
     },
@@ -91,7 +121,7 @@ const CONTEST_DETAIL = {
       deadlineLabel: '마감 지남',
       description: '예선 심사용 구현 결과와 실행 방법을 제출합니다.',
       submissionType: 'TEXT',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'CHANGES_REQUESTED',
       applicationSubmissionSummary: null,
     },
@@ -103,7 +133,7 @@ const CONTEST_DETAIL = {
       deadlineLabel: 'D-8',
       description: '시연 시나리오와 최종 발표 자료를 제출합니다.',
       submissionType: 'FILE',
-      submissionItemCount: 0,
+      submissionItemCount: 1,
       viewerSubmissionStatus: 'NOT_SUBMITTED',
       applicationSubmissionSummary: null,
     },
@@ -179,6 +209,7 @@ const CAPSTONE_CHECKLIST = {
         file: null,
       },
     },
+    OPEN_REVISION_CHECKLIST_ITEM,
   ],
 } as const satisfies SubmissionChecklist;
 

@@ -21,13 +21,14 @@ import {
 import { STUDENT_JOURNEY_RESPONSES } from '../student-journey-fixtures';
 import {
   JOINED_TEAM_FIXTURE,
-  MY_APPLICATION_FIXTURES,
   MY_TEAM_FIXTURES,
   PROGRAM_CHECKLISTS,
   SUBMISSION_FORMS,
   isPublicProgramId,
+  myApplicationFor,
   programActivityFor,
   programDetailFor,
+  studentApplicationStatusFor,
 } from './student-program-fixtures';
 
 /**
@@ -237,13 +238,31 @@ function submissionChecklistHandler(
   const checklist = PROGRAM_CHECKLISTS[programId];
   if (checklist !== undefined) return json(200, checklist);
 
-  // 신청 전이거나 승인된 신청이 없으면 체크리스트가 존재하지 않는다.
-  return problem(
-    404,
-    'SUB_001',
-    apiPath(context.path),
-    '승인된 신청이 없어 제출 체크리스트를 만들 수 없습니다.',
-  );
+  /*
+    승인된 신청이 없을 때의 실패를 **백엔드와 같은 코드·상태로** 답한다
+    (`submissions.service.ts`의 `requireApprovedApplication`) — 신청이 아예 없으면
+    403 `SUB_003`, 냈지만 아직 승인되지 않았으면 403 `SUB_004`다.
+
+    예전에는 `404 SUB_001`을 줬는데 그 조합은 실제 서버가 만들 수 없다 — `SUB_001`은
+    「학생 계정만 제출할 수 있습니다」(403)라서, 검토자가 로컬에서 본 화면과 배포에서
+    나는 화면이 서로 다른 갈래였다. 참여자 아님 안내(#1099)가 이 경로로 도달한다.
+  */
+  const applied =
+    isPublicProgramId(programId) &&
+    studentApplicationStatusFor(programId) !== null;
+  return applied
+    ? problem(
+        403,
+        'SUB_004',
+        apiPath(context.path),
+        '승인된 신청만 제출할 수 있습니다.',
+      )
+    : problem(
+        403,
+        'SUB_003',
+        apiPath(context.path),
+        '해당 신청의 제출 권한이 없습니다.',
+      );
 }
 
 function submissionFormHandler(
@@ -308,9 +327,9 @@ function myApplicationHandler(
     );
   }
 
-  const application = MY_APPLICATION_FIXTURES[programId];
-  // 신청 전이거나 이 페르소나의 신청이 없는 프로그램 — 화면은 이때 신청 양식으로 간다.
-  return application === undefined
+  const application = myApplicationFor(programId);
+  // 신청 전인 프로그램 — 화면은 이때 신청 양식으로 간다.
+  return application === null
     ? problem(404, 'APP_001', apiPath(context.path), '신청을 찾을 수 없습니다.')
     : json(200, application);
 }

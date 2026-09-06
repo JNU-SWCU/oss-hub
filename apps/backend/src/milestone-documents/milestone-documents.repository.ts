@@ -86,6 +86,14 @@ export interface MilestoneDocumentSubmissionSummary {
   readonly revision: number;
   readonly status: SubmissionStatus;
   readonly hasCurrentFile: boolean;
+  /**
+   * 지금 붙어 있는 첨부의 이름. `hasCurrentFile`이 false면 null이다 — 둘은 같은 파일 한
+   * 건에서 함께 나오므로 어긋날 수 없다.
+   *
+   * 이름까지 싣는 이유: 재제출 폼이 「이 파일이 이번 제출에서 빠진다」고 말하려면 무엇이
+   * 빠지는지를 적어야 한다. 있음/없음만으로는 학생이 무엇을 잃는지 모른다.
+   */
+  readonly currentFileName: string | null;
   readonly historyComplete: boolean;
   /** 최신 판정 한 건. 아직 아무도 보지 않았으면 null. */
   readonly review: MilestoneDocumentReviewRecord | null;
@@ -151,6 +159,17 @@ export interface MilestoneDocumentCollectionHistoryRecord {
   readonly comment: string | null;
   readonly createdAt: Date;
   readonly fileName: string | null;
+  /**
+   * 이 사건의 첨부를 내려받을 수 있으면 그 파일 id, 아니면 null이다.
+   *
+   * ⚠ **이름과 짝이 아니다.** 보관 기한(프로그램 종료 +1년)이 지나면 파일은 실제로
+   * 지워지지만 이름은 원장에 남는다 — 그래서 이름은 그대로 싣고 id만 비운다. 무조건
+   * 채우면 눌러도 404가 나는 버튼이 화면에 선다
+   * (submissions/submission-files.repository.ts의 `downloadableFileWhere`와 같은 조건이고,
+   * submission-reviews/submission-review-context.mapper.ts의 `toFileRecord`가 검토 화면에서
+   * 이미 같은 규칙을 쓴다).
+   */
+  readonly downloadableFileId: string | null;
   readonly content: Prisma.JsonValue | null;
 }
 
@@ -477,6 +496,26 @@ function unexpiredAttachedFileWhere(now: Date) {
     lifecycle: SubmissionFileLifecycle.ATTACHED,
     expiresAt: { gt: now },
   } as const;
+}
+
+/**
+ * 지금 실제로 내려받을 수 있는 첨부인가 — `submissions`의 다운로드 권한 조회
+ * (`downloadableFileWhere`)가 쓰는 조건과 같다. 두 곳이 어긋나면 화면에는 버튼이 서는데
+ * 누르면 404가 난다.
+ */
+function isDownloadableSubmissionFile(
+  file: {
+    readonly lifecycle: SubmissionFileLifecycle;
+    readonly expiresAt: Date | null;
+  } | null,
+  now: Date,
+): boolean {
+  return (
+    file !== null &&
+    file.lifecycle === SubmissionFileLifecycle.ATTACHED &&
+    file.expiresAt !== null &&
+    file.expiresAt.getTime() > now.getTime()
+  );
 }
 
 const currentRevisionFileOrderBy: Prisma.SubmissionFileOrderByWithRelationInput[] =
@@ -1034,7 +1073,10 @@ export class MilestoneDocumentsRepository {
           where: unexpiredAttachedFileWhere(now),
           orderBy: currentRevisionFileOrderBy,
           take: 1,
-          select: { submissionHistory: { select: { revision: true } } },
+          select: {
+            originalFileName: true,
+            submissionHistory: { select: { revision: true } },
+          },
         },
         reviewHistories: {
           ...boundedReviewHistoryQuery,
@@ -1044,14 +1086,19 @@ export class MilestoneDocumentsRepository {
     });
     return submissions.map((submission) => {
       const review = submission.reviewHistories[0] ?? null;
+      // 「현재 파일」은 지금 제출본에 매달린 첨부만이다. 있음/없음과 이름을 같은 한 건에서
+      // 함께 꺼내야 둘이 어긋나지 않는다.
+      const currentFile =
+        submission.files[0]?.submissionHistory?.revision === submission.revision
+          ? (submission.files[0] ?? null)
+          : null;
       return {
         milestoneDocumentId: submission.milestoneDocumentId,
         submittedAt: submission.submittedAt,
         revision: submission.revision,
         status: submission.status,
-        hasCurrentFile:
-          submission.files?.[0]?.submissionHistory?.revision ===
-          submission.revision,
+        hasCurrentFile: currentFile !== null,
+        currentFileName: currentFile?.originalFileName ?? null,
         historyComplete: submission._count.histories === submission.revision,
         review:
           review === null
@@ -1092,6 +1139,7 @@ export class MilestoneDocumentsRepository {
     applicationId: string,
     cursor: string | null,
     limit: number,
+    now: Date = new Date(),
   ): Promise<MilestoneDocumentHistoryPage | null> {
     const submission = await this.prisma.milestoneDocumentSubmission.findUnique(
       {
@@ -1151,7 +1199,15 @@ export class MilestoneDocumentsRepository {
         files: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { originalFileName: true },
+          // 보관 상태·만료 시각은 **거르는 데 쓰지 않고 판정에만 쓴다** — 여기서 걸러
+          // 버리면 이미 지워진 첨부의 이름까지 원장에서 사라져, 무엇을 냈었는지조차
+          // 볼 수 없게 된다.
+          select: {
+            id: true,
+            originalFileName: true,
+            lifecycle: true,
+            expiresAt: true,
+          },
         },
       },
     });
@@ -1159,16 +1215,22 @@ export class MilestoneDocumentsRepository {
     const visible = rows.slice(0, limit);
     const nextCursor = hasMore ? (visible.at(-1)?.id ?? null) : null;
     return {
-      items: visible.toReversed().map((row) => ({
-        id: row.id,
-        event: row.event,
-        revision: row.revision,
-        actorNickname: row.actor.nickname,
-        comment: row.comment,
-        createdAt: row.createdAt,
-        fileName: row.files[0]?.originalFileName ?? null,
-        content: row.content,
-      })),
+      items: visible.toReversed().map((row) => {
+        const file = row.files[0] ?? null;
+        return {
+          id: row.id,
+          event: row.event,
+          revision: row.revision,
+          actorNickname: row.actor.nickname,
+          comment: row.comment,
+          createdAt: row.createdAt,
+          fileName: file?.originalFileName ?? null,
+          downloadableFileId: isDownloadableSubmissionFile(file, now)
+            ? (file?.id ?? null)
+            : null,
+          content: row.content,
+        };
+      }),
       nextCursor,
       isComplete: submission._count.histories === submission.revision,
     };

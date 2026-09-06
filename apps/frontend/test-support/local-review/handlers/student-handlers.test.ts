@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { MilestoneDocumentList } from '@/features/programs/milestone-document-api';
 import type { ProgramActivity, ProgramDetail } from '@/features/programs/types';
 import { resolveApplyBlockedReason } from '@/features/programs/program-apply-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
@@ -220,15 +221,72 @@ describe('student fixture responses', () => {
     const settings = jsonBody(
       call('settings', 'GET', 'programs/program-capstone/submissions/me'),
     ) as { readonly applicationId: string };
-    const notApplied = call(
+
+    // Then
+    expect(settings.applicationId).toBe('application-personal');
+  });
+
+  /**
+   * 프로그램 상세가 「승인된 신청이 있다」고 말하는데 내 신청서 조회는 404를 내면,
+   * 그 둘을 함께 읽는 화면이 실제 서버가 만들 수 없는 상태를 그린다 — 좌측 패널이
+   * 참여자에게서도 「내 제출물」·「게시판」을 내렸던 것이 그 사고였다(#1099).
+   */
+  it('keeps the application detail and 내 신청서 answers consistent', () => {
+    // Given / When
+    const rows = PUBLIC_PROGRAM_IDS.map((programId) => ({
+      programId,
+      detailStatus: (
+        jsonBody(call('student', 'GET', `programs/${programId}/viewer`)) as {
+          readonly viewer: { readonly applicationStatus: string | null };
+        }
+      ).viewer.applicationStatus,
+      mine: call('student', 'GET', `programs/${programId}/applications/me`),
+    }));
+
+    // Then: 상세가 신청 상태를 말하면 내 신청서도 같은 상태로 200이어야 한다.
+    for (const row of rows) {
+      if (row.detailStatus === null) {
+        expect(row.mine).toMatchObject({ kind: 'json', status: 404 });
+        continue;
+      }
+      expect(row.mine).toMatchObject({
+        kind: 'json',
+        status: 200,
+        body: { programId: row.programId, status: row.detailStatus },
+      });
+    }
+  });
+
+  /**
+   * 예전에는 이 갈래가 `404 SUB_001`이었는데 그 조합은 백엔드가 만들 수 없다 —
+   * `SUB_001`은 403 「학생 계정만 제출할 수 있습니다」다. 그래서 로컬 검토에서 본
+   * 화면과 배포에서 나는 화면이 서로 다른 갈래였고, 참여자 아님 안내(#1099)에
+   * 도달하는지 아무도 눈으로 확인할 수 없었다.
+   */
+  it('denies the checklist with the same 403 codes the backend raises', () => {
+    // Given / When: 신청 전(기초 스터디)과 반려된 신청(SW가치확산).
+    const neverApplied = call(
       'student',
       'GET',
       'programs/program-basic-study/submissions/me',
     );
+    const notApproved = call(
+      'student',
+      'GET',
+      'programs/program-sw-value/submissions/me',
+    );
 
-    // Then
-    expect(settings.applicationId).toBe('application-personal');
-    expect(notApplied).toMatchObject({ kind: 'json', status: 404 });
+    // Then: 신청 없음은 SUB_003, 승인 안 된 신청은 SUB_004다.
+    expect(neverApplied).toMatchObject({
+      kind: 'json',
+      status: 403,
+      body: { code: 'SUB_003' },
+    });
+    expect(notApproved).toMatchObject({
+      kind: 'json',
+      status: 403,
+      body: { code: 'SUB_004' },
+    });
   });
 
   it('opens an unblocked submission form that no other screen can show', () => {
@@ -450,4 +508,57 @@ describe('student fixture responses', () => {
 
     expect(jsonBody(plan, 400)).toMatchObject({ code: 'SYS_003' });
   });
+});
+
+describe('milestone submission item counts', () => {
+  /*
+    상세의 `submissionItemCount` 는 백엔드에서 짐작이 아니라 집계다 —
+    `programs.service.ts` 의 `milestone._count.documents` 그 값이다. 하네스가 이
+    불변식을 깨면 서비스에서는 생길 수 없는 화면이 나온다: 머리줄은 「제출 항목
+    없음」이라 말하는데 그 아래 블록은 서류를 그린다.
+
+    실제로 이 값이 0으로 굳어 있었고, 그 값으로만 갈리는 두 갈래 — 교직원 머리줄의
+    「서류 수합」 입구, 학생 상세의 마일스톤 접기 — 를 로컬 검토가 통째로 못 보고
+    지나갔다. 서류 픽스처와 상세 픽스처가 서로 다른 파일에 각자 적혀 있어(핸들러
+    쪽 하나, 학생 동선 쪽 하나) 손으로 맞추면 또 어긋난다.
+  */
+  /*
+    서류 조회는 역할이 정해진 사람만 할 수 있다(`unassigned`는 401). 역할이 없는
+    사람은 애초에 이 불변식을 볼 수 없으므로 대상에서 뺀다.
+  */
+  const DOCUMENT_READING_FIXTURES = [
+    ...STUDENT_FIXTURES,
+    'staff',
+    'admin',
+  ] as const satisfies readonly LocalReviewFixtureId[];
+
+  it.each(DOCUMENT_READING_FIXTURES)(
+    '%s fixture reports the number of documents each milestone actually serves',
+    (fixture) => {
+      for (const programId of PUBLIC_PROGRAM_IDS) {
+        // Given
+        const detail = jsonBody(
+          call(fixture, 'GET', `programs/${programId}/viewer`),
+        ) as ProgramDetail;
+
+        for (const milestone of detail.milestones) {
+          // When
+          /*
+            목록은 배열이 아니라 **봉투**다 — `{ documents, fileUpload }`(#1107).
+            배열로 받아 `.length` 를 읽으면 `undefined` 라, 어떤 값을 넣어도 맞지
+            않는 검사가 된다(이 검사가 처음 CI에서 걸린 이유다).
+          */
+          const { documents } = jsonBody(
+            call(fixture, 'GET', `milestones/${milestone.id}/documents`),
+          ) as MilestoneDocumentList;
+
+          // Then
+          expect({
+            milestone: milestone.id,
+            count: milestone.submissionItemCount,
+          }).toEqual({ milestone: milestone.id, count: documents.length });
+        }
+      }
+    },
+  );
 });

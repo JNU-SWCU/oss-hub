@@ -817,6 +817,7 @@ describe('MilestoneDocumentSectionBody', () => {
                 revision: 1,
                 status: 'SUBMITTED',
                 hasCurrentFile: false,
+                currentFileName: null,
                 review: null,
                 history: { hasHistory: true, isComplete: true },
               },

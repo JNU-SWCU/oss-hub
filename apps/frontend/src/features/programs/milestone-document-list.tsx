@@ -826,6 +826,7 @@ function StudentDocumentRow({
           documentName={document.name}
           documentId={document.id}
           fileUpload={fileUpload}
+          currentFileName={viewerSubmission?.currentFileName ?? null}
           submitting={submitting}
           onCancel={() => setEditing(false)}
           onSubmit={submitDraft}

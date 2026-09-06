@@ -32,6 +32,7 @@ const UNSUBMITTED: MilestoneDocumentViewerSubmission = {
   revision: null,
   status: null,
   hasCurrentFile: false,
+  currentFileName: null,
   review: null,
   history: { hasHistory: false, isComplete: true },
 };
@@ -46,6 +47,7 @@ function decided(
     revision: 1,
     status,
     hasCurrentFile: true,
+    currentFileName: '합성-학습-회고.pdf',
     review: null,
     history: { hasHistory: false, isComplete: true },
   };
