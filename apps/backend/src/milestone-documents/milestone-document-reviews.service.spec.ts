@@ -15,6 +15,8 @@ const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
 /** 교직원이 수합 표에서 **본** 제출 버전. 요청이 이 값을 그대로 들고 온다. */
 const seenRevision = 3;
 const seenLatestReviewId = 'cuid-synthetic-review-seen';
+/** 보완 요청이 정하는 재제출 기한. 판정 시각(`reviewedAt`)보다 반드시 뒤여야 한다. */
+const resubmissionDueAt = new Date('2026-09-25T09:00:00.000Z');
 
 function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const mocks = {
@@ -45,6 +47,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
+      resubmissionDueAt,
       reviewerNickname: 'synthetic-staff',
     }),
     updateSubmissionStatus: jest.fn().mockResolvedValue(undefined),
@@ -127,6 +130,7 @@ function review(
   version: {
     expectedRevision?: number;
     expectedLatestReviewId?: string | null;
+    resubmissionDueAt?: Date | null;
   } = {},
 ) {
   return service.review(
@@ -137,6 +141,12 @@ function review(
     {
       decision,
       comment,
+      resubmissionDueAt:
+        version.resubmissionDueAt === undefined
+          ? decision === ReviewDecision.CHANGES_REQUESTED
+            ? resubmissionDueAt
+            : null
+          : version.resubmissionDueAt,
       expectedRevision: version.expectedRevision ?? seenRevision,
       expectedLatestReviewId:
         version.expectedLatestReviewId === undefined
@@ -534,6 +544,7 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       reviewerId: syntheticStaffId,
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
+      resubmissionDueAt,
       reviewedAt,
     });
     expect(result).toEqual({
@@ -541,8 +552,46 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt: reviewedAt.toISOString(),
+      resubmissionDueAt: resubmissionDueAt.toISOString(),
       reviewerNickname: 'synthetic-staff',
     });
+  });
+
+  /**
+   * 지난 시각을 기한으로 잡으면 그 보완 요청은 저장되는 순간 이미 닫혀 있다 — 「다시
+   * 내세요」가 사실상 반려가 되고, 교직원 화면에는 아무 잘못도 보이지 않는다.
+   *
+   * 기준은 **판정 시각**이다(잠금을 얻은 뒤에 찍힌다). 요청이 도착한 시각으로 재면 잠금을
+   * 오래 기다린 판정이 「미래」로 통과한 뒤 저장 시점에는 이미 지나 있을 수 있다.
+   */
+  it('판정 시각보다 이르거나 같은 기한은 422로 거절하고 아무것도 쓰지 않는다', async () => {
+    // Given
+    const { mocks, clock, repository } = buildRepository();
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    // When / Then
+    for (const dueAt of [
+      new Date(reviewedAt.getTime() - 1),
+      new Date(reviewedAt.getTime()),
+    ]) {
+      await expect(
+        review(
+          service,
+          clock,
+          ReviewDecision.CHANGES_REQUESTED,
+          '고쳐 주세요.',
+          {
+            resubmissionDueAt: dueAt,
+          },
+        ),
+      ).rejects.toMatchObject({
+        errorCode: {
+          code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
+        },
+      });
+    }
+    expect(mocks.createReview).not.toHaveBeenCalled();
+    expect(mocks.updateSubmissionStatus).not.toHaveBeenCalled();
   });
 
   it('승인은 사유 없이도 저장된다 — comment가 null로 들어간다', async () => {
@@ -558,6 +607,8 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       expect.objectContaining({
         decision: ReviewDecision.APPROVED,
         comment: null,
+        // 승인에는 기한이라는 것이 없다.
+        resubmissionDueAt: null,
       }),
     );
   });

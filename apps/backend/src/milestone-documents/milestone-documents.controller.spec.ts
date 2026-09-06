@@ -176,6 +176,7 @@ const review = jest.fn().mockResolvedValue({
   decision: 'CHANGES_REQUESTED',
   comment: '2쪽 서명이 빠졌습니다.',
   reviewedAt: '2026-09-18T09:00:00.000Z',
+  resubmissionDueAt: '2026-09-25T09:00:00.000Z',
   reviewerNickname: 'synthetic-staff',
 });
 
@@ -1249,12 +1250,18 @@ describe('교직원 서류 제출물 판정', () => {
     expectedRevision: 3,
     expectedLatestReviewId: null,
   };
+  /**
+   * 보완 요청이 함께 정하는 재제출 기한. 「지금보다 뒤인가」는 서비스가 판정 시각으로
+   * 재므로(잠금 뒤에 찍는다) 여기 컨트롤러 계약에서는 **있는지·모양이 맞는지**만 본다.
+   */
+  const resubmissionDueAt = '2026-09-25T09:00:00.000Z';
 
   it('판정은 201로 끝나고 판정자 nickname까지 실어 돌려준다', async () => {
     // Given
     const body = {
       decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
+      resubmissionDueAt,
       ...seenVersion,
     };
 
@@ -1275,6 +1282,7 @@ describe('교직원 서류 제출물 판정', () => {
       decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt: '2026-09-18T09:00:00.000Z',
+      resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       reviewerNickname: 'synthetic-staff',
     });
     // 판정자는 세션이 아니라 가드가 확정한 교직원 id다.
@@ -1286,6 +1294,8 @@ describe('교직원 서류 제출물 판정', () => {
       {
         decision: 'CHANGES_REQUESTED',
         comment: '2쪽 서명이 빠졌습니다.',
+        // 문자열은 여기서 Date로 굳어 서비스로 간다 — 시각 비교를 서비스가 하기 때문이다.
+        resubmissionDueAt: new Date(resubmissionDueAt),
         // 본문의 정수가 그대로 넘어간다 — 비교는 리비전 값으로 한다.
         expectedRevision: 3,
         expectedLatestReviewId: null,
@@ -1317,6 +1327,8 @@ describe('교직원 서류 제출물 판정', () => {
       {
         decision: 'APPROVED',
         comment: null,
+        // 승인에는 기한이라는 것이 없다 — 실려 왔어도 DTO가 떨어뜨린다.
+        resubmissionDueAt: null,
         expectedRevision: 3,
         expectedLatestReviewId: null,
       },
@@ -1324,8 +1336,12 @@ describe('교직원 서류 제출물 판정', () => {
   });
 
   it('보완 요청에 사유가 없으면 서비스 호출 전에 422로 거절한다', async () => {
-    // Given
-    const body = { decision: 'CHANGES_REQUESTED', ...seenVersion };
+    // Given — 기한은 채웠다. 사유가 없다는 사실 하나만 남긴다.
+    const body = {
+      decision: 'CHANGES_REQUESTED',
+      resubmissionDueAt,
+      ...seenVersion,
+    };
 
     // When
     const response = await fetch(
@@ -1361,6 +1377,74 @@ describe('교직원 서류 제출물 판정', () => {
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({ code: 'MSD_021' });
     expect(review).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 새 정책의 관문. 사유 필수(MSD_021)와 **같은 자리**에서 막는다 — 저장된 뒤에 「기한이
+   * 없네」를 발견하면 그 보완 요청은 학생 화면에서 언제까지인지 말할 수 없는 채로 남는다.
+   */
+  it('보완 요청에 재제출 기한이 없으면 서비스 호출 전에 422로 거절한다', async () => {
+    // Given
+    const body = {
+      decision: 'CHANGES_REQUESTED',
+      comment: '2쪽 서명이 빠졌습니다.',
+      ...seenVersion,
+    };
+
+    // When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+
+    // Then
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({ code: 'MSD_032' });
+    expect(review).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 반려는 「다시 내라」가 아니다. 기한이 실려 와도 저장하지 않는다 — 남겨 두면 나중에 그
+   * 값을 보고 「기한이 있는 반려」를 그리게 된다.
+   */
+  it('반려에 실려 온 기한은 서비스로 넘기지 않는다', async () => {
+    // Given
+    const body = {
+      decision: 'REJECTED',
+      comment: '기한을 넘겼습니다.',
+      resubmissionDueAt,
+      ...seenVersion,
+    };
+
+    // When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+
+    // Then
+    expect(response.status).toBe(201);
+    expect(review).toHaveBeenCalledWith(
+      'synthetic-staff',
+      'synthetic-milestone',
+      'synthetic-document',
+      'synthetic-application',
+      {
+        decision: 'REJECTED',
+        comment: '기한을 넘겼습니다.',
+        resubmissionDueAt: null,
+        expectedRevision: 3,
+        expectedLatestReviewId: null,
+      },
+    );
   });
 
   it('알 수 없는 decision은 400으로 거절한다', async () => {

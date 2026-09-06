@@ -10,6 +10,8 @@ import {
   MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
   type MilestoneDocumentReviewDecision,
 } from './milestone-document-review-api';
+import { isPastDue } from './program-detail-format';
+import { seoulDateTimeValue } from './seoul-date-time';
 
 /**
  * 서류 제출물 판정의 **화면 판단** 전담부 — 판정 라벨, 상태 → 배지 매핑, 사유 필수 검증,
@@ -153,23 +155,147 @@ export function isMilestoneDocumentResubmittable(
 /**
  * 마감이 지난 마일스톤에서 제출 입력을 **잠가야** 하는가.
  *
- * 마감(`closed`)은 기본적으로 잠근다. 지나가는 것은 **보완 요청 하나뿐**이다:
- * 교직원이 마감 뒤에 서류를 보고 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이고,
- * 그때 화면이 잠그면 **교직원이 요청한 재제출을 학생이 낼 수 없다** — 그 요청 자체가
- * 뜻을 잃는다. 서버는 이 재제출을 받는다(마감은 첫 제출을 닫을 뿐이다).
+ * 마감(`closed`)은 기본적으로 잠근다. 지나가는 것은 상태가 `CHANGES_REQUESTED`인 자리 —
+ * **보완 요청을 받고 아직 응하지 않은 서류 하나뿐**이다. 교직원이 마감 뒤에 「고쳐서 다시
+ * 내세요」라고 하는 것은 흔한 일이고, 그때 화면이 잠그면 **교직원이 요청한 재제출을 학생이
+ * 낼 수 없다** — 그 요청 자체가 뜻을 잃는다.
+ *
+ * **한 번 다시 내면 다시 잠긴다.** 재제출은 상태를 `SUBMITTED`로 되돌리므로 이 함수는 그
+ * 순간부터 참을 돌려준다 — 그것이 의도다(#1097에서 정한 규칙: 재제출은 한 번, 교직원이
+ * 검토하는 동안 내용은 바뀌지 않는다). 「보완 요청은 마감을 지나간다」와 「검토 대기는
+ * 마감으로 닫는다」가 겹치는 자리에서는 **뒤쪽이 이긴다**: 재제출로 검토 대기가 된 서류는
+ * 지금 교직원 차례이고, 그 사이에 내용이 바뀌면 교직원이 보지 않은 것에 판정이 붙는다.
+ *
+ * 서버도 같은 두 값(최신 판정 · 제출 상태)으로 같은 답을 낸다 —
+ * `apps/backend/src/milestone-documents/domain/milestone-document-submission-window.ts`의
+ * `isChangeRequestResubmissionOpen`이다. 그쪽을 뚫고 들어가면 422(MSD_031)로 막힌다.
+ * 한쪽만 고치면 #1097이 그대로 돌아온다.
+ *
+ * **그 한 번도 교직원이 정한 재제출 기한 안에서만 열린다.** 보완 요청을 저장할 때 기한이
+ * 함께 정해지므로(판정 패널에서 필수), 그 시각이 지나면 아직 응하지 않은 서류도 잠긴다.
+ * 서버는 그 자리를 422(MSD_034)로 막는다.
  *
  * ⚠ 다른 상태를 함께 풀지 마라.
  * - 승인·반려는 마감과 무관하게 재제출 자체가 금지다 —
  *   `isMilestoneDocumentResubmittable`이 이미 막고, 서버도 409(MSD_023)로 막는다.
- * - 미제출·검토 대기는 마감으로 닫히는 것이 **의도된 마감**이다. 여기까지 풀면
- *   마감이 아무것도 막지 않는 표시가 된다.
+ * - 보완 요청을 거치지 않은 미제출·검토 대기는 마감으로 닫히는 것이 **의도된 마감**이다.
+ *   여기까지 풀면 마감이 아무것도 막지 않는 표시가 된다.
  */
 export function isMilestoneDocumentDeadlineLocked(
   closed: boolean,
   viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+  now: number = Date.now(),
 ): boolean {
   if (!closed) return false;
-  return viewerSubmission?.status !== 'CHANGES_REQUESTED';
+  if (viewerSubmission?.status !== 'CHANGES_REQUESTED') return true;
+  return isMilestoneDocumentResubmissionDueAtPassed(viewerSubmission, now);
+}
+
+/**
+ * 교직원이 정한 재제출 기한이 지났는가.
+ *
+ * ⚠ `resubmissionDueAt`이 `null`이면 **지나지 않은 것**이다. 그 `null`은 「기한 없음」이 아니라
+ * 「이 값이 생기기 전에 저장된 보완 요청」이고, 「지났다」로 읽으면 배포되는 순간 이미
+ * 「고쳐서 다시 내세요」를 받고 아직 응하지 않은 학생이 낼 길을 잃는다. 서버도 같은 답을 낸다
+ * (`hasMilestoneDocumentResubmissionDueAtPassed`) — 여기만 바꾸면 화면은 잠갔는데 서버는 받아
+ * 주는(또는 그 반대의) 어긋남이 돌아온다.
+ *
+ * 시각을 인자로 받는 것은 마일스톤 마감(`isPastDue`)과 같은 이유다 — 테스트가 달력에 기대지
+ * 않게 한다.
+ */
+export function isMilestoneDocumentResubmissionDueAtPassed(
+  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+  now: number = Date.now(),
+): boolean {
+  const dueAt = viewerSubmission?.review?.resubmissionDueAt ?? null;
+  if (dueAt === null) return false;
+  return isPastDue(dueAt, now);
+}
+
+/**
+ * 지금 내면 **되돌릴 수 없는가** — 확인 창을 띄울 자리인지 정한다.
+ *
+ * 마감 뒤 「아직 응하지 않은 보완 요청」에 응하는 제출만 참이다. 그 제출이 상태를
+ * `SUBMITTED`로 되돌리는 순간 `isMilestoneDocumentDeadlineLocked`가 참이 되어 입력이 다시
+ * 잠기기 때문이다 — **기한이 남아 있어도** 그렇다. 확인 창이 말해야 하는 것이 정확히 그
+ * 사실이다.
+ *
+ * ⚠ 모든 제출에 확인 창을 띄우지 마라. 마감 전 교체는 몇 번이든 되는 일이라 그 자리에서
+ * 「더 이상 바꿀 수 없습니다」는 **거짓말**이고, 거짓인 경고를 매번 보는 사람은 곧 읽지 않고
+ * 누르게 된다 — 그러면 정작 되돌릴 수 없는 자리에서도 안 읽는다.
+ */
+export function isMilestoneDocumentResubmissionFinal(
+  closed: boolean,
+  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+): boolean {
+  return closed && viewerSubmission?.status === 'CHANGES_REQUESTED';
+}
+
+/**
+ * 학생 줄에 재제출 기한을 어떻게 말할 것인가 — 적을 것이 없으면 `null`이다.
+ *
+ * 세 갈래로 갈린다.
+ * - `open` — 아직 응하지 않았고 기한도 남았다. **언제까지인지 말해야** 학생이 계획을 세운다.
+ * - `passed` — 기한이 지났다. 이 말이 없으면 버튼이 사라진 이유를 학생이 알 수 없고, 그
+ *   문의가 곧 교직원에게 간다.
+ * - `null` — 이미 응했거나(그 기한은 지나간 이야기다) 승인·반려거나, 기한이 없던 옛 보완
+ *   요청이다.
+ *
+ * ⚠ 판정(`review.decision`)이 아니라 **제출 상태**로 갈래를 정한다. 판정 이력은 재제출로
+ * 되돌아가지 않으므로, 판정을 보면 이미 다시 낸 학생에게도 「언제까지 다시 내세요」가 계속
+ * 남는다(같은 이유로 배지도 상태를 본다).
+ */
+export function milestoneDocumentResubmissionDueNotice(
+  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+  now: number = Date.now(),
+): { readonly kind: 'open' | 'passed'; readonly dueAt: string } | null {
+  if (viewerSubmission?.status !== 'CHANGES_REQUESTED') return null;
+  const dueAt = viewerSubmission.review?.resubmissionDueAt ?? null;
+  if (dueAt === null) return null;
+  return {
+    kind: isMilestoneDocumentResubmissionDueAtPassed(viewerSubmission, now)
+      ? 'passed'
+      : 'open',
+    dueAt,
+  };
+}
+
+/**
+ * `setTimeout`이 실제로 기다려 주는 최대 밀리초(약 24.8일). 이보다 큰 값을 넘기면 브라우저가
+ * 32비트로 넘쳐 **즉시** 부른다 — 기한이 한 달 뒤인 보완 요청에서 타이머가 쉬지 않고 도는
+ * 자리가 정확히 여기다. 그래서 넘치는 만큼은 잘라 두고, 깨어난 뒤 남은 시간을 다시 잰다.
+ */
+const MAX_TIMEOUT_DELAY = 2_147_483_647;
+
+/**
+ * 학생 줄을 **언제 한 번 다시 그려야 하는가** — 재제출 기한이 지나는 순간까지 남은 밀리초.
+ * 다시 그릴 일이 없으면 `null`이다.
+ *
+ * 화면을 열어 둔 채 기한을 넘기면 렌더 시점 계산(`isMilestoneDocumentDeadlineLocked` ·
+ * `milestoneDocumentResubmissionDueNotice`)이 다시 돌지 않는다. 그러면 안내는 계속 「기한
+ * 안입니다」라고 말하고 「수정」 버튼도 눌리는 채로 남아, 누른 학생은 서버 422(MSD_034)를
+ * 받는다 — 화면이 열어 준 것을 서버가 거절하는 자리다.
+ *
+ * ⚠ 화면 전체를 주기적으로 다시 그리는 타이머(1초마다 등)를 두지 마라. 이 줄에서 시간에
+ * 따라 바뀌는 것은 **그 한 순간** 하나뿐이라, 그 시각을 겨냥한 타이머 하나면 된다. 주기
+ * 타이머는 아무 일도 없는 초마다 목록 전체를 다시 그리고, 학생이 입력 중인 폼과도 겹친다.
+ *
+ * 이미 지난 기한·기한 없는 보완 요청·이미 다시 낸 서류에는 `null`을 준다 — 그 자리들은
+ * 시간이 흘러도 답이 바뀌지 않는다.
+ */
+export function milestoneDocumentResubmissionDueTickDelay(
+  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+  now: number = Date.now(),
+): number | null {
+  const notice = milestoneDocumentResubmissionDueNotice(viewerSubmission, now);
+  if (notice === null || notice.kind !== 'open') return null;
+  const dueAt = new Date(notice.dueAt).getTime();
+  if (!Number.isFinite(dueAt)) return null;
+  /*
+   * 기한이 「지났다」는 판정은 `now > dueAt`이므로(`isPastDue`) 그 시각 **1밀리초 뒤**에
+   * 깨야 한다. 정각에 깨면 답이 아직 뒤집히지 않아 같은 화면을 한 번 더 그리고 만다.
+   */
+  return Math.min(Math.max(dueAt - now + 1, 0), MAX_TIMEOUT_DELAY);
 }
 
 /**
@@ -227,6 +353,8 @@ export function isMilestoneDocumentReviewCommentRequired(
 export function milestoneDocumentReviewFormError(
   decision: MilestoneDocumentReviewDecision | null,
   comment: string,
+  resubmissionDueAt = '',
+  now: number = Date.now(),
 ): string | null {
   if (decision === null) return '승인, 보완 요청, 반려 중 하나를 골라 주세요.';
   if (
@@ -238,7 +366,68 @@ export function milestoneDocumentReviewFormError(
   if (comment.length > MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH) {
     return `사유는 ${MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH.toLocaleString('ko-KR')}자까지 쓸 수 있습니다.`;
   }
+  return milestoneDocumentResubmissionDueAtError(
+    decision,
+    resubmissionDueAt,
+    now,
+  );
+}
+
+/**
+ * 재제출 기한 칸이 저장 가능한가 — 저장할 수 있으면 `null`, 아니면 교직원에게 보일 문구다.
+ *
+ * 세 갈래를 각각 다른 말로 돌려주는 이유는 **교직원이 할 일이 다르기** 때문이다: 비었으면
+ * 고르라고, 못 읽는 값이면 다시 고르라고, 지난 시각이면 앞으로 옮기라고 해야 한다. 한 문구로
+ * 묶으면 「형식을 확인해 주세요」 같은 말이 되어 무엇을 고칠지 알 수 없다.
+ *
+ * 지난 시각을 막는 것이 이 검사의 요점이다. 그대로 저장되면 보완 요청이 만들어지는 순간 이미
+ * 닫혀 있어 **「다시 내세요」가 사실상 반려**가 된다 — 학생은 요청을 받고도 낼 수 없고, 교직원
+ * 화면에는 아무 잘못도 보이지 않는다. 서버도 같은 자리를 422(MSD_032·MSD_033)로 막는다.
+ *
+ * 칸의 값은 **서울 시각으로** 읽는다(`seoulDateTimeValue`) — 보낼 값을 만드는
+ * `milestoneDocumentResubmissionDueAtPayload`와 같은 규칙이어야 한다. 한쪽만 브라우저
+ * 시간대로 읽으면 시간대가 다른 교직원에게 「검사는 통과했는데 서버가 지난 시각이라며
+ * 거절하는」(또는 그 반대의) 자리가 생긴다.
+ */
+export function milestoneDocumentResubmissionDueAtError(
+  decision: MilestoneDocumentReviewDecision,
+  resubmissionDueAt: string,
+  now: number = Date.now(),
+): string | null {
+  if (decision !== 'CHANGES_REQUESTED') return null;
+  if (resubmissionDueAt.trim() === '') {
+    return '보완 요청은 재제출 기한을 정해 주세요.';
+  }
+  const parsed = seoulDateTimeValue(resubmissionDueAt);
+  if (parsed === null) {
+    return '재제출 기한을 다시 골라 주세요.';
+  }
+  if (parsed <= now) {
+    return '재제출 기한은 지금보다 뒤여야 합니다.';
+  }
   return null;
+}
+
+/**
+ * 입력 칸(`datetime-local`)의 값을 요청에 실을 ISO 8601로 바꾼다. 보낼 수 없으면 `undefined`다.
+ *
+ * `datetime-local`은 **표준시대(timezone) 없는** 문자열('2026-09-26T18:00')을 준다. 그대로
+ * 보내면 서버가 그것을 어느 시각으로 읽을지 이 화면이 정하지 못한다 — 어느 순간인지 여기서
+ * 굳혀 보내야 교직원이 화면에서 고른 그 시각이 그대로 저장된다.
+ *
+ * ⚠ 그 「어느 순간」은 **서울 시각**이지 브라우저의 지역 시각이 아니다. `new Date('2026-09-26T18:00')`
+ * 은 시스템 시간대로 읽는데, 이 서비스의 날짜는 어디서 보든 서울 시각으로 표시된다 — UTC로 맞춰
+ * 둔 브라우저에서 18:00을 고른 교직원은 저장하자마자 「9월 27일 03:00」을 보게 된다. 프로그램
+ * 날짜 흐름이 같은 이유로 `+09:00`을 붙이고(`program-edit-flow.ts`), 그 규칙 하나를
+ * `seoulDateTimeValue`가 갖는다.
+ */
+export function milestoneDocumentResubmissionDueAtPayload(
+  decision: MilestoneDocumentReviewDecision,
+  resubmissionDueAt: string,
+): string | undefined {
+  if (decision !== 'CHANGES_REQUESTED') return undefined;
+  const parsed = seoulDateTimeValue(resubmissionDueAt);
+  return parsed === null ? undefined : new Date(parsed).toISOString();
 }
 
 /**
@@ -331,6 +520,16 @@ export interface MilestoneDocumentReviewFormState {
   readonly version: MilestoneDocumentReviewVersion | null;
   readonly decision: MilestoneDocumentReviewDecision | null;
   readonly comment: string;
+  /**
+   * 재제출 기한 칸의 날것 그대로 — `datetime-local`이 주는 지역 시각 문자열이다
+   * ('2026-09-26T18:00'). 보완 요청일 때만 뜻이 있고, ISO로 굳히는 것은 보낼 때 한 번이다
+   * (`milestoneDocumentResubmissionDueAtPayload`).
+   *
+   * 판정을 바꿔도 이 값을 지우지 않는다 — 보완 요청을 골라 날짜를 적다가 승인을 눌러 보고
+   * 다시 보완 요청으로 돌아온 교직원이 적어 둔 것을 잃지 않는다. 승인·반려로 저장할 때는
+   * payload가 떨어뜨리므로 새어 나가지 않는다.
+   */
+  readonly resubmissionDueAt: string;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
   readonly history: readonly MilestoneDocumentCollectionHistory[];
@@ -349,6 +548,7 @@ export function createMilestoneDocumentReviewFormState(
     version,
     decision: null,
     comment: '',
+    resubmissionDueAt: '',
     isSubmitting: false,
     errorMessage: null,
     history: [],
