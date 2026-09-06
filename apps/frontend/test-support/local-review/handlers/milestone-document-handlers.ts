@@ -34,6 +34,7 @@ import {
   UPLOADED_MILESTONE_DOCUMENT_FILE_FIXTURE,
   uploadedMilestoneDocumentTemplateFor,
 } from './milestone-document-fixtures';
+import { savedMilestoneDocuments } from './staff-handlers';
 
 /**
  * 마일스톤 서류 화면의 로컬 검토 응답.
@@ -232,9 +233,34 @@ const listDocumentsHandler: LocalReviewHandler = (context) => {
   // 업로드 규칙(`fileUpload`)을 목록과 같은 응답에 싣는다 — 화면은 이 값으로만 파일
   // 입력을 그리므로 여기서 빠지면 세 화면 모두 「불러오지 못했습니다」로 떨어진다(#1107).
   const list = milestoneDocumentListFor(milestoneId, context.role);
-  return list === null
-    ? notFound(MILESTONE_NOT_FOUND_CODE, context.path)
-    : json(200, list);
+  if (list === null) return notFound(MILESTONE_NOT_FOUND_CODE, context.path);
+  if (context.role === 'STUDENT') return json(200, list);
+  const saved = savedMilestoneDocuments(milestoneId);
+  if (saved === null) return json(200, list);
+  const existingById = new Map(
+    list.documents.map((document) => [document.id, document]),
+  );
+  return json(200, {
+    ...list,
+    documents: saved.map((document) => {
+      const existing = existingById.get(document.id);
+      return {
+        id: document.id,
+        milestoneId,
+        name: document.name,
+        required: document.required,
+        sortOrder: document.sortOrder,
+        hasTemplateFile: document.templateFileName !== null,
+        templateFileName: document.templateFileName,
+        ...(existing?.viewerSubmission === undefined
+          ? {}
+          : { viewerSubmission: existing.viewerSubmission }),
+        ...(existing?.teamSubmissionCount === undefined
+          ? {}
+          : { teamSubmissionCount: existing.teamSubmissionCount }),
+      };
+    }),
+  });
 };
 
 /**

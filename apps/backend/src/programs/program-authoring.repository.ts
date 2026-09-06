@@ -23,6 +23,7 @@ import type {
   ProgramAuthoringTransactionStore,
   ProgramAuthoringUploadToken,
 } from './program-authoring.types';
+import { lockProgramAuthoringUploads } from './program-authoring-upload-transaction';
 
 type AuthoringActor = {
   readonly id: string;
@@ -135,17 +136,7 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
   lockUploads(
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
-    if (tokenIds.length === 0) return Promise.resolve([]);
-    return this.prisma.$queryRaw<readonly ProgramAuthoringUploadToken[]>(
-      Prisma.sql`
-        SELECT "id", "actorId", "lifecycle", ("expiresAt" > NOW()) AS "unexpired",
-               "storageKey", "originalFileName", "mimeType", "sizeBytes"
-        FROM "ProgramAuthoringUpload"
-        WHERE "id" IN (${Prisma.join(tokenIds)})
-        ORDER BY "id"
-        FOR UPDATE
-      `,
-    );
+    return lockProgramAuthoringUploads(this.prisma, tokenIds);
   }
 
   async createMilestone(

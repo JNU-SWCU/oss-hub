@@ -364,6 +364,8 @@ export interface MilestoneDocumentWriteStore {
    * 교직원이 항목을 이미 바꿨을 수 있어, 트랜잭션 밖에서 읽은 값으로 판단하면 안 된다.
    */
   lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
+  /** 잠금 아래에서 양식 파일을 생성·교체한다. */
+  upsertTemplateFile(input: MilestoneDocumentTemplateInput): Promise<void>;
   /**
    * 이 마일스톤의 서류 항목 행 전부를 id 오름차순으로 잠그고 **그 id 집합을 돌려준다**.
    * 돌려주는 값이 핵심이다 — 순서 재부여는 트랜잭션 밖에서 읽어 둔 집합이 아니라 잠근 뒤
@@ -582,6 +584,31 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       FOR UPDATE
     `);
     return rows[0] ?? null;
+  }
+
+  async upsertTemplateFile(
+    input: MilestoneDocumentTemplateInput,
+  ): Promise<void> {
+    await this.transaction.milestoneDocumentTemplateFile.upsert({
+      where: { milestoneDocumentId: input.milestoneDocumentId },
+      update: {
+        storageKey: input.storageKey,
+        originalFileName: input.originalFileName,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+        uploadedById: input.uploadedById,
+        uploadedAt: input.uploadedAt,
+      },
+      create: {
+        milestoneDocumentId: input.milestoneDocumentId,
+        storageKey: input.storageKey,
+        originalFileName: input.originalFileName,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+        uploadedById: input.uploadedById,
+        uploadedAt: input.uploadedAt,
+      },
+    });
   }
 
   async lockDocumentIdsOfMilestone(
@@ -1559,31 +1586,6 @@ export class MilestoneDocumentsRepository {
   // 그쪽이 다시 쓰이는 순간 잠금이 없는 경로가 되살아난다. 그래서 문 자체를 하나만 둔다.
 
   // ---- 양식 파일 ----
-
-  async upsertTemplateFile(
-    input: MilestoneDocumentTemplateInput,
-  ): Promise<void> {
-    await this.prisma.milestoneDocumentTemplateFile.upsert({
-      where: { milestoneDocumentId: input.milestoneDocumentId },
-      update: {
-        storageKey: input.storageKey,
-        originalFileName: input.originalFileName,
-        mimeType: input.mimeType,
-        sizeBytes: input.sizeBytes,
-        uploadedById: input.uploadedById,
-        uploadedAt: input.uploadedAt,
-      },
-      create: {
-        milestoneDocumentId: input.milestoneDocumentId,
-        storageKey: input.storageKey,
-        originalFileName: input.originalFileName,
-        mimeType: input.mimeType,
-        sizeBytes: input.sizeBytes,
-        uploadedById: input.uploadedById,
-        uploadedAt: input.uploadedAt,
-      },
-    });
-  }
 
   async findTemplateForDownload(
     documentId: string,

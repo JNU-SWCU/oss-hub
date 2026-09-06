@@ -13,6 +13,7 @@ import {
   type LocalReviewResponsePlan,
 } from '../handler-kit';
 import { STAFF_HANDLERS } from './staff-handlers';
+import { MILESTONE_DOCUMENT_HANDLERS } from './milestone-document-handlers';
 import { STAFF_PROGRAM_FIXTURES } from './staff-program-fixtures';
 
 /**
@@ -63,6 +64,19 @@ function resolveWithBody(
     body,
   };
   for (const handler of STAFF_HANDLERS) {
+    const plan = handler(context);
+    if (plan !== null) return plan;
+  }
+  return null;
+}
+
+function resolveMilestoneDocuments(
+  method: string,
+  path: string,
+  fixture: LocalReviewFixtureId = 'staff',
+): LocalReviewResponsePlan | null {
+  const context = contextFor(method, path, '', fixture);
+  for (const handler of MILESTONE_DOCUMENT_HANDLERS) {
     const plan = handler(context);
     if (plan !== null) return plan;
   }
@@ -420,53 +434,292 @@ describe('staff local review handlers', () => {
     expect(updated.id).toBe('program-basic-study');
     expect(updated.milestones.length).toBeGreaterThan(0);
   });
-
-  it('마일스톤 저장은 시작·마감 응답을 완성하고 상위 제출 형식은 만들지 않는다', () => {
+  it('마일스톤 단건 편집 GET·PATCH는 canonical snapshot과 저장 상태를 돌려준다', () => {
     // Given
+    const snapshot = bodyOf<{
+      readonly milestone: {
+        readonly id: string;
+        readonly name: string;
+        readonly startAt: string;
+        readonly dueAt: string;
+        readonly instructions: string | null;
+      };
+      readonly operation: { readonly startAt: string; readonly endAt: string };
+      readonly documents: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly required: boolean;
+        readonly sortOrder: number;
+        readonly templateFileName: string | null;
+      }[];
+      readonly fileUpload: Record<string, unknown>;
+      readonly fingerprint: string;
+    }>(resolve('GET', 'milestones/milestone-basic-final/edit'));
     const input = {
       name: '합성 마일스톤 입력',
-      startAt: '2026-11-01T00:00:00.000Z',
-      dueAt: '2026-11-30T14:59:59.000Z',
+      startAt: '2026-06-02T00:00:00.000Z',
+      dueAt: '2026-06-29T14:59:59.000Z',
       instructions: '합성 안내',
+      expectedFingerprint: snapshot.fingerprint,
+      documents: snapshot.documents.map((document) => ({
+        id: document.id,
+        name:
+          document.id === 'synthetic-document-final-report'
+            ? '합성 결과 보고서 수정'
+            : document.name,
+        required: document.required,
+      })),
     };
 
     // When
-    const created = bodyOf<{
-      readonly name: string;
-      readonly startAt: string;
-      readonly dueAt: string;
-      readonly submissionType: string | null;
-    }>(
-      resolveWithBody('POST', 'programs/program-basic-study/milestones', input),
-    );
     const updated = bodyOf<{
-      readonly id: string;
-      readonly name: string;
-      readonly startAt: string;
+      readonly milestone: {
+        readonly id: string;
+        readonly name: string;
+        readonly startAt: string;
+        readonly dueAt: string;
+        readonly submissionType: string | null;
+        readonly instructions: string | null;
+      };
+      readonly operation: { readonly startAt: string; readonly endAt: string };
+      readonly documents: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly required: boolean;
+        readonly sortOrder: number;
+      }[];
+      readonly fingerprint: string;
     }>(resolveWithBody('PATCH', 'milestones/milestone-basic-final', input));
+    const reread = bodyOf<typeof updated>(
+      resolve('GET', 'milestones/milestone-basic-final/edit'),
+    );
 
-    // Then
-    expect(created.name).toBe('합성 마일스톤 입력');
-    expect(created.startAt).toBe('2026-11-01T00:00:00.000Z');
-    expect(created.dueAt).toBe('2026-11-30T14:59:59.000Z');
-    expect(created.submissionType).toBeNull();
-    expect(updated.id).toBe('milestone-basic-final');
-    expect(updated.name).toBe('합성 마일스톤 입력');
-    expect(updated.startAt).toBe('2026-11-01T00:00:00.000Z');
+    // Then — PATCH와 다시 연 GET 모두 새 단건 계약의 같은 snapshot이다.
+    expect(snapshot.operation).toEqual({
+      startAt: '2026-05-01T00:00:00.000Z',
+      endAt: '2026-07-31T14:59:59.000Z',
+    });
+    expect(snapshot.documents.map((document) => document.id)).toEqual([
+      'synthetic-document-final-report',
+      'synthetic-document-final-summary',
+    ]);
+    expect(snapshot.fileUpload).toEqual({
+      maxBytes: 5 * 1024 * 1024,
+      maxLabel: '5 MB',
+      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+    });
+    expect(updated.milestone).toMatchObject({
+      id: 'milestone-basic-final',
+      name: '합성 마일스톤 입력',
+      startAt: '2026-06-02T00:00:00.000Z',
+      dueAt: '2026-06-29T14:59:59.000Z',
+      submissionType: 'TEXT',
+      instructions: '합성 안내',
+    });
+    expect(Object.keys(updated.milestone).sort()).toEqual([
+      'dueAt',
+      'id',
+      'instructions',
+      'name',
+      'startAt',
+      'submissionType',
+    ]);
+    expect(updated.documents.map((document) => document.sortOrder)).toEqual([
+      1, 2,
+    ]);
+    expect(updated.fingerprint).not.toBe(snapshot.fingerprint);
+    expect(reread).toEqual(updated);
+    const programReload = bodyOf<EditableProgram>(
+      resolve('GET', 'programs/program-basic-study/edit'),
+    );
+    const documentReload = bodyOf<{
+      readonly documents: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly required: boolean;
+        readonly sortOrder: number;
+      }[];
+    }>(
+      resolveMilestoneDocuments(
+        'GET',
+        'milestones/milestone-basic-final/documents',
+      ),
+    );
+    expect(
+      programReload.milestones.find(
+        (milestone) => milestone.id === 'milestone-basic-final',
+      ),
+    ).toMatchObject(updated.milestone);
+    expect(documentReload.documents).toMatchObject(
+      updated.documents.map((document) => ({
+        id: document.id,
+        sortOrder: document.sortOrder,
+        name: document.name,
+        required: document.required,
+      })),
+    );
   });
 
-  it('마일스톤 안내를 비우면 비운 채로 돌아온다', () => {
-    // Given / When: 화면은 빈 안내를 `null`로 보낸다(buildMilestoneInput).
-    const created = bodyOf<{ readonly instructions: string | null }>(
-      resolveWithBody('POST', 'programs/program-basic-study/milestones', {
-        name: '합성 마일스톤',
-        dueAt: '2026-11-30T14:59:59.000Z',
-        instructions: null,
-      }),
+  it('마일스톤 단건 PATCH는 잘못된 fingerprint를 원자적으로 거절한다', () => {
+    // Given
+    const before = bodyOf<{
+      readonly milestone: {
+        readonly name: string;
+        readonly startAt: string;
+        readonly dueAt: string;
+        readonly instructions: string | null;
+      };
+      readonly documents: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly required: boolean;
+      }[];
+      readonly fingerprint: string;
+    }>(resolve('GET', 'milestones/milestone-basic-orientation/edit'));
+
+    // When
+    const rejected = resolveWithBody(
+      'PATCH',
+      'milestones/milestone-basic-orientation',
+      {
+        expectedFingerprint: 'a'.repeat(64),
+        name: '저장되면 안 되는 이름',
+        startAt: before.milestone.startAt,
+        dueAt: before.milestone.dueAt,
+        instructions: before.milestone.instructions,
+        documents: before.documents,
+      },
+    );
+    const after = bodyOf<typeof before>(
+      resolve('GET', 'milestones/milestone-basic-orientation/edit'),
     );
 
-    // Then — 안 보낸 경우(합성 기본 안내)와 구분돼야 한다.
-    expect(created.instructions).toBeNull();
+    // Then
+    expect(rejected).toMatchObject({
+      kind: 'json',
+      status: 409,
+      body: { code: 'PRG_016' },
+    });
+    expect(after).toEqual(before);
+  });
+
+  it('authoring upload은 호출마다 pending token을 만들고 PATCH가 한 번 소비한다', () => {
+    const first = bodyOf<{ readonly id: string; readonly expiresAt: string }>(
+      resolve('POST', 'program-authoring/uploads'),
+    );
+    const second = bodyOf<{ readonly id: string; readonly expiresAt: string }>(
+      resolve('POST', 'program-authoring/uploads'),
+    );
+    const snapshot = bodyOf<{
+      readonly milestone: {
+        readonly name: string;
+        readonly startAt: string;
+        readonly dueAt: string;
+        readonly instructions: string | null;
+      };
+      readonly documents: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly required: boolean;
+      }[];
+      readonly fingerprint: string;
+    }>(resolve('GET', 'milestones/milestone-basic-orientation/edit'));
+    const milestoneInput = {
+      name: snapshot.milestone.name,
+      startAt: snapshot.milestone.startAt,
+      dueAt: snapshot.milestone.dueAt,
+      instructions: snapshot.milestone.instructions,
+    };
+
+    const saved = resolveWithBody(
+      'PATCH',
+      'milestones/milestone-basic-orientation',
+      {
+        expectedFingerprint: snapshot.fingerprint,
+        ...milestoneInput,
+        documents: snapshot.documents.map((document, index) => ({
+          id: document.id,
+          name: document.name,
+          required: document.required,
+          ...(index === 0 ? { templateUploadId: first.id } : {}),
+        })),
+      },
+    );
+    const afterSave = bodyOf<typeof snapshot>(
+      resolve('GET', 'milestones/milestone-basic-orientation/edit'),
+    );
+    const afterSaveMilestoneInput = {
+      name: afterSave.milestone.name,
+      startAt: afterSave.milestone.startAt,
+      dueAt: afterSave.milestone.dueAt,
+      instructions: afterSave.milestone.instructions,
+    };
+    const reused = resolveWithBody(
+      'PATCH',
+      'milestones/milestone-basic-orientation',
+      {
+        expectedFingerprint: afterSave.fingerprint,
+        ...afterSaveMilestoneInput,
+        documents: afterSave.documents.map((document, index) => ({
+          id: document.id,
+          name: document.name,
+          required: document.required,
+          ...(index === 0 ? { templateUploadId: first.id } : {}),
+        })),
+      },
+    );
+
+    expect(first.id).not.toBe(second.id);
+    expect(first.expiresAt).toBe('2026-12-31T14:59:59.000Z');
+    expect(saved).toMatchObject({ kind: 'json', status: 200 });
+    expect(reused).toMatchObject({
+      kind: 'json',
+      status: 400,
+      body: { code: 'SYS_003' },
+    });
+  });
+
+  it('PATCH는 milestone-document file token을 authoring token으로 받지 않는다', () => {
+    const snapshot = bodyOf<{
+      readonly milestone: {
+        readonly name: string;
+        readonly startAt: string;
+        readonly dueAt: string;
+        readonly instructions: string | null;
+      };
+      readonly documents: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly required: boolean;
+      }[];
+      readonly fingerprint: string;
+    }>(resolve('GET', 'milestones/milestone-basic-final/edit'));
+    const milestoneInput = {
+      name: snapshot.milestone.name,
+      startAt: snapshot.milestone.startAt,
+      dueAt: snapshot.milestone.dueAt,
+      instructions: snapshot.milestone.instructions,
+    };
+
+    expect(
+      resolveWithBody('PATCH', 'milestones/milestone-basic-final', {
+        expectedFingerprint: snapshot.fingerprint,
+        ...milestoneInput,
+        documents: snapshot.documents.map((document, index) => ({
+          id: document.id,
+          name: document.name,
+          required: document.required,
+          ...(index === 0
+            ? { templateUploadId: 'synthetic-milestone-document-file-01' }
+            : {}),
+        })),
+      }),
+    ).toMatchObject({
+      kind: 'json',
+      status: 400,
+      body: { code: 'SYS_003' },
+    });
   });
 
   it('제출물 검토는 고른 판정을 그대로 돌려준다', () => {
@@ -493,7 +746,6 @@ describe('staff local review handlers', () => {
   it.each([
     ['PATCH', 'programs/program-basic-study'],
     ['POST', 'programs/program-basic-study/milestones'],
-    ['PATCH', 'milestones/milestone-basic-final'],
     ['DELETE', 'milestones/milestone-basic-final'],
     ['PATCH', 'applications/application-basic-submitted'],
     ['POST', 'submissions/submission-basic-final/reviews'],
@@ -526,6 +778,25 @@ describe('staff local review handlers', () => {
     expect(program.id).toBe('program-basic-study');
   });
 
+  it('없는 마일스톤 편집은 도메인 404이고 학생은 단건 편집을 받지 않는다', () => {
+    expect(resolve('GET', 'milestones/synthetic-missing/edit')).toMatchObject({
+      kind: 'json',
+      status: 404,
+      body: { code: 'PRG_005' },
+    });
+    expect(
+      resolve('GET', 'milestones/milestone-basic-final/edit', '', 'student'),
+    ).toBeNull();
+    expect(
+      resolveWithBody(
+        'PATCH',
+        'milestones/milestone-basic-final',
+        {},
+        'student',
+      ),
+    ).toBeNull();
+  });
+
   it.each([
     'programs/program-basic-study/edit',
     'programs/program-basic-study/applications',
@@ -544,6 +815,7 @@ describe('staff local review handlers', () => {
   it('권한 없는 페르소나는 교직원 조작도 할 수 없다', () => {
     // Given / When
     const create = resolve('POST', 'programs', '', 'student');
+    const upload = resolve('POST', 'program-authoring/uploads', '', 'student');
     const remove = resolve(
       'DELETE',
       'milestones/milestone-basic-final',
@@ -553,6 +825,7 @@ describe('staff local review handlers', () => {
 
     // Then
     expect(create).toBeNull();
+    expect(upload).toBeNull();
     expect(remove).toBeNull();
   });
 });

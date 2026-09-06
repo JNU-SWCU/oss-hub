@@ -166,6 +166,23 @@ export type ProgramAuthoringTemplateInput = {
   readonly upload: ProgramAuthoringUploadToken;
 };
 
+/**
+ * Aggregate edit consumes a locked pending upload by attaching its object metadata to a document
+ * template, then removing the pending upload row in the same transaction.
+ */
+export type ProgramAuthoringPendingUploadConsumption = {
+  readonly milestoneDocumentId: string;
+  readonly upload: ProgramAuthoringUploadToken;
+};
+
+export class ProgramAuthoringUploadConsumptionRaceError extends Error {
+  override readonly name = 'ProgramAuthoringUploadConsumptionRaceError';
+
+  constructor(readonly uploadId: string) {
+    super('Program authoring upload changed before consumption.');
+  }
+}
+
 export interface ProgramAuthoringTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   createProgram(

@@ -229,14 +229,24 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
-    await this.repository.upsertTemplateFile({
-      milestoneDocumentId: documentId,
-      uploadedById: actorId,
-      storageKey: objectKey,
-      originalFileName: originalName,
-      mimeType: uploadedFile.mimetype,
-      sizeBytes: uploadedFile.buffer.byteLength,
-      uploadedAt: now,
+    await this.repository.withTransaction(async (store) => {
+      const lockedDocument = await store.lockDocument(documentId);
+      if (
+        lockedDocument === null ||
+        lockedDocument.milestoneId !== milestoneId
+      ) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
+
+      await store.upsertTemplateFile({
+        milestoneDocumentId: documentId,
+        uploadedById: actorId,
+        storageKey: objectKey,
+        originalFileName: originalName,
+        mimeType: uploadedFile.mimetype,
+        sizeBytes: uploadedFile.buffer.byteLength,
+        uploadedAt: now,
+      });
     });
 
     return {
