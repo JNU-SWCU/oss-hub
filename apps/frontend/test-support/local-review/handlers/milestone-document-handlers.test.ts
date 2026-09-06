@@ -480,11 +480,18 @@ describe('GET .../applications/:applicationId/history', () => {
     expect(submitted).toMatchObject({
       content: { type: 'TEXT' },
       fileName: null,
+      downloadUrl: null,
     });
-    expect(review).toMatchObject({ content: null, fileName: null });
+    expect(review).toMatchObject({
+      content: null,
+      fileName: null,
+      downloadUrl: null,
+    });
+    // 살아 있는 첨부에만 주소가 붙는다 — 이 행은 보관 기한이 남은 갈래다.
     expect(fileSubmission).toMatchObject({
       content: null,
       fileName: expect.any(String),
+      downloadUrl: expect.any(String),
     });
     for (const item of [submitted, review, fileSubmission]) {
       expect(Object.keys(item ?? {}).sort()).toEqual([
@@ -492,6 +499,7 @@ describe('GET .../applications/:applicationId/history', () => {
         'comment',
         'content',
         'createdAt',
+        'downloadUrl',
         'event',
         'fileName',
         'revision',

@@ -80,6 +80,15 @@ export interface MilestoneDocumentCollectionHistory {
   readonly comment: string | null;
   readonly createdAt: string;
   readonly fileName: string | null;
+  /**
+   * 이 사건의 첨부를 내려받는 주소. 내려받을 수 없으면 `null`이다.
+   *
+   * ⚠ **이름이 있다고 주소가 있는 것은 아니다.** 보관 기한(프로그램 종료 +1년)이 지나면
+   * 파일은 실제로 지워지지만 이름은 원장에 남는다 — 서버가 그때 주소를 비워 보내므로
+   * 화면은 이 값이 `null`이면 링크를 세우지 않는다. 이름만 보고 링크를 만들면 눌러도
+   * 404가 나는 버튼이 선다.
+   */
+  readonly downloadUrl: string | null;
   readonly content?: MilestoneDocumentCollectionContent | null;
 }
 
