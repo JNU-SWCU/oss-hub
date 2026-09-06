@@ -173,6 +173,33 @@ export interface ProgramScopeSidebarInput {
     readonly completed: number;
     readonly total: number;
   };
+  /**
+   * STUDENT 뷰어만 — 이 프로그램에 승인된 신청이 있는 참여자인지(#1099).
+   *
+   * `undefined`는 「아직 모른다」다(조회 전이거나 조회가 실패). 이때는 참여자 전용 항목을
+   * 그대로 둔다 — 추측한 런타임 상태로 affordance를 지우지 않는다는 ADR-007 규칙을 따르고,
+   * 참여자가 자기 메뉴가 사라졌다 돌아오는 깜빡임을 보지 않게 한다. 서버가 「참여자가
+   * 아니다」라고 확정해 준 `false`에서만 항목을 내린다.
+   */
+  readonly viewerParticipant?: boolean;
+  /**
+   * 이 뷰어가 관리자 접근 권한(`hasAdminAccess`)을 가졌는지.
+   *
+   * 참여자 전용 판정을 「내 제출물」과 「게시판」이 **따로** 받게 하는 값이다 — 두 화면의
+   * 관문이 서로 다른 것을 묻기 때문이다. 회원 유형이 STUDENT이면서 관리자 권한을 가진
+   * 계정(권한 행렬이 명시적으로 지원하는 조합)에서만 둘이 갈린다.
+   *
+   * - **게시판은 열린다.** `board/board-access.guard.ts`는 `hasStaffAccess ||
+   *   hasAdminAccess`면 승인된 신청 없이도 교직원 면으로 통과시킨다. 참여자가 아니라는
+   *   이유로 이 메뉴를 지우면 실제로 쓸 수 있는 화면으로 가는 길이 끊긴다.
+   * - **내 제출물은 열리지 않는다.** 이 주소의 본문은 `hasStaffAccess`로만 교직원 표로
+   *   갈리므로(`documents/documents-route.tsx`) 학생 관리자에게는 학생 체크리스트가 뜨고,
+   *   그 체크리스트를 지키는 `submissions/submissions.service.ts`의
+   *   `requireApprovedApplication`은 관리자 권한을 보지 않는다 — 학생 자격 판정도
+   *   `STUDENT_MEMBER_WHERE`(회원 유형만)라 학생 관리자는 그대로 통과한 뒤 승인된 신청이
+   *   없어 SUB_003을 받는다. 다른 미신청 학생과 같은 상태이므로 같이 내린다.
+   */
+  readonly viewerHasAdminAccess?: boolean;
   /** 화면 크기와 무관하게 쓰는 전체 단계 탐색 목록. */
   readonly milestones?: readonly ProgramScopeMilestoneNavigation[];
   /** 서류가 있는 마일스톤만, 순서대로. 없으면 부모 항목만(자식 없이) 렌더. */
@@ -188,9 +215,13 @@ export interface ProgramScopeSidebarInput {
  * `programDocumentsHref`로 만든다 —
  * 해당 라우트가 아직 없다면 이 함수 하나만 고치면 된다(docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널).
  *
- * `GUEST`는 예외다 — 참여 팀·신청자·서류 현황·게시판 전부 회원 전용 데이터라 근거 없이 보여줄
+ * 예외가 둘이다.
+ * `GUEST`는 참여 팀·신청자·서류 현황·게시판 전부 회원 전용 데이터라 근거 없이 보여줄
  * 수 없다(QA46). 개요 그룹의 "프로그램 개요" 항목 하나만 돌려주고 나머지 두 그룹은
  * 아예 만들지 않는다.
+ * 참여자가 아님이 확정된 학생(`viewerParticipant === false`)에게는 「내 제출물」 그룹을
+ * 만들지 않는다 — 승인된 신청이 있어야 열리는 화면이다(#1099). 「게시판」도 참여자 전용이지만
+ * 열쇠가 하나 더 있어(관리자 접근) 같은 조건으로 묶지 않는다 — `viewerHasAdminAccess` 주석 참고.
  */
 export function programScopeSidebarGroups(
   input: ProgramScopeSidebarInput,
@@ -201,6 +232,8 @@ export function programScopeSidebarGroups(
     teamCount,
     boardPostCount,
     viewerDocuments,
+    viewerParticipant,
+    viewerHasAdminAccess,
     milestones,
     milestoneDocuments = [],
   } = input;
@@ -222,18 +255,6 @@ export function programScopeSidebarGroups(
   }
 
   const isStaffView = viewerRole !== 'STUDENT';
-  const fallbackMilestones: readonly ProgramScopeMilestoneNavigation[] =
-    milestoneDocuments.map((milestone) => ({
-      milestoneId: milestone.milestoneId,
-      title: milestone.title,
-      submissionEnabled: true,
-    }));
-  const navigationMilestones = (
-    milestones ?? (isStaffView ? fallbackMilestones : [])
-  ).filter((milestone) => isStaffView || milestone.submissionEnabled);
-  const documentSummaryByMilestone = new Map(
-    milestoneDocuments.map((milestone) => [milestone.milestoneId, milestone]),
-  );
 
   const overviewItems: ProgramScopeSidebarItem[] = [
     {
@@ -264,6 +285,46 @@ export function programScopeSidebarGroups(
     label: '프로그램',
     items: overviewItems,
   };
+
+  /*
+    「내 제출물」·「게시판」은 참여자 전용 화면이다. 참여자가 아닌 학생에게는 그 그룹을
+    **아예 만들지 않는다**(#1099).
+
+    처음에는 항목을 남기고 「승인 후」 잠금 딱지를 붙였다. 작성자가 눌러 보고 "신청하지
+    않으면 애초에 보이지 않으면 될 것을 보이게 해서 복잡하게 만들었다"고 판단해 걷어냈다 —
+    누를 수 없는 줄은 메뉴를 길게만 만든다. 신청하면 무엇이 열리는지는 좌측 패널이 아니라
+    프로그램 개요의 마일스톤 줄이 말한다(「신청 승인 후 제출할 수 있습니다」 —
+    features/programs/components/milestone-row.tsx).
+
+    `viewerParticipant`가 `undefined`(아직 모른다)면 내리지 않는다 — 추측한 런타임 상태로
+    affordance를 지우지 않는다(ADR-007). 서버가 확정해 준 `false`에서만 내린다. 링크를 받아
+    주소로 직접 들어온 학생은 화면 본문에서 「아직 참여자가 아닙니다」 안내를 만난다
+    (components/participant-only-notice.tsx). `GUEST` 분기(위)는 그대로다(QA46).
+
+    **두 그룹을 같은 조건으로 묶지 않는다.** 승인된 신청은 「내 제출물」의 유일한 열쇠지만
+    게시판의 열쇠는 그것 하나가 아니다 — 관리자 접근 권한도 게시판을 연다. 하나로 묶으면
+    학생 관리자에게서 열려 있는 화면으로 가는 길까지 지운다. 근거는
+    `viewerHasAdminAccess` 필드 주석에 있다.
+  */
+  const notParticipantStudent =
+    viewerRole === 'STUDENT' && viewerParticipant === false;
+  // 「내 제출물」의 관문은 승인된 신청 하나뿐이다 — 관리자 권한은 이 문을 열지 못한다.
+  const documentsLocked = notParticipantStudent;
+  // 「게시판」은 관리자 권한만으로도 열린다(board/board-access.guard.ts).
+  const boardLocked = notParticipantStudent && viewerHasAdminAccess !== true;
+
+  const fallbackMilestones: readonly ProgramScopeMilestoneNavigation[] =
+    milestoneDocuments.map((milestone) => ({
+      milestoneId: milestone.milestoneId,
+      title: milestone.title,
+      submissionEnabled: true,
+    }));
+  const navigationMilestones = (
+    milestones ?? (isStaffView ? fallbackMilestones : [])
+  ).filter((milestone) => isStaffView || milestone.submissionEnabled);
+  const documentSummaryByMilestone = new Map(
+    milestoneDocuments.map((milestone) => [milestone.milestoneId, milestone]),
+  );
 
   const documentsParent: ProgramScopeSidebarItem = isStaffView
     ? {
@@ -329,7 +390,11 @@ export function programScopeSidebarGroups(
     ],
   };
 
-  return [overviewGroup, documentsGroup, boardGroup];
+  return [
+    overviewGroup,
+    ...(documentsLocked ? [] : [documentsGroup]),
+    ...(boardLocked ? [] : [boardGroup]),
+  ];
 }
 
 const ARCHIVE_SIDEBAR_ICON: ShellIconName = 'archive';

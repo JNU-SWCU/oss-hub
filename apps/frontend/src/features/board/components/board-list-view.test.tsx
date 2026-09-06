@@ -177,3 +177,46 @@ describe('BoardListContent', () => {
     expect(html).toContain('2 / 3');
   });
 });
+
+describe('BoardListContent — 참여자가 아닌 학생(#1099)', () => {
+  const notParticipant = renderToStaticMarkup(
+    <BoardListContent {...baseProps({ state: { kind: 'not-participant' } })} />,
+  );
+
+  it('빨간 실패가 아니라 「아직 참여자가 아닙니다」 안내를 보여준다', () => {
+    expect(notParticipant).toContain('아직 참여자가 아닙니다');
+    expect(notParticipant).toContain(
+      '승인된 신청이 있는 참여자만 게시판을 볼 수 있습니다.',
+    );
+    expect(notParticipant).not.toContain('게시판을 불러오지 못했습니다');
+    expect(notParticipant).not.toContain('다시 시도');
+    // 실패 경고 상자(Alert)도, 그것이 붙이는 `role="alert"`도 서지 않는다 —
+    // 이것은 실패가 아니라 정적으로 그려지는 상태다(docs/design.md §피드백·알림).
+    expect(notParticipant).not.toContain('data-slot="alert"');
+    expect(notParticipant).not.toContain('role="alert"');
+  });
+
+  it('눌러도 거절되는 「질문 쓰기」를 남기지 않는다', () => {
+    expect(notParticipant).not.toContain('질문 쓰기');
+    expect(notParticipant).not.toContain('공지 쓰기');
+  });
+
+  it('다음 행동으로 가는 링크를 준다', () => {
+    expect(notParticipant).toContain('href="/programs/program-1/apply"');
+    expect(notParticipant).toContain('href="/programs/program-1"');
+    expect(notParticipant).toContain('신청하러 가기');
+  });
+
+  it('다른 실패에서는 「질문 쓰기」를 그대로 둔다 — 추측으로 지우지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <BoardListContent
+        {...baseProps({
+          state: { kind: 'error', message: '문제가 발생했습니다.' },
+        })}
+      />,
+    );
+
+    expect(html).toContain('질문 쓰기');
+    expect(html).toContain('다시 시도');
+  });
+});

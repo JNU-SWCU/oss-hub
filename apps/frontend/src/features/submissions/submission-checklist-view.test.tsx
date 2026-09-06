@@ -8,6 +8,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import {
   ChecklistLoadFailure,
+  ChecklistParticipationRequired,
   ChecklistSkeleton,
   SubmissionChecklistView,
   type SubmissionChecklistViewProps,
@@ -493,5 +494,29 @@ describe('체크리스트 로딩·오류 화면', () => {
     expect(html).toContain('체크리스트 불러오기 실패');
     expect(html).toContain('합성 네트워크 오류');
     expect(html).toContain('다시 시도');
+  });
+});
+
+describe('참여자가 아닌 학생의 서류 화면(#1099)', () => {
+  const html = renderToStaticMarkup(
+    <ChecklistParticipationRequired programId="program-1" />,
+  );
+
+  it('빨간 실패가 아니라 「아직 참여자가 아닙니다」 상태로 읽힌다', () => {
+    expect(html).toContain('아직 참여자가 아닙니다');
+    expect(html).toContain(
+      '승인된 신청이 있는 참여자만 제출물을 볼 수 있습니다.',
+    );
+    expect(html).not.toContain('체크리스트 불러오기 실패');
+    expect(html).not.toContain('다시 시도');
+    expect(html).not.toContain('data-slot="alert"');
+    expect(html).not.toContain('role="alert"');
+  });
+
+  it('다음 행동으로 가는 링크가 DOM에 있다', () => {
+    // 이 결함의 증상 중 하나가 「실패 화면 DOM에 링크(a)가 하나도 없다」였다.
+    expect(html).toContain('href="/programs/program-1/apply"');
+    expect(html).toContain('href="/programs/program-1"');
+    expect((html.match(/<a /g) ?? []).length).toBe(2);
   });
 });
