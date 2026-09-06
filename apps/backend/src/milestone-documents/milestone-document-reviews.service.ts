@@ -143,6 +143,25 @@ export class MilestoneDocumentReviewsService {
         submission.latestHistoryCreatedAt,
       );
 
+      /*
+       * 재제출 기한이 **판정 시각보다 뒤**인지 여기서 본다 — 요청 DTO가 아니라 이 자리인
+       * 이유는 기준 시각이 바로 위에서 방금 정해졌기 때문이다(잠금을 얻은 뒤에 찍는다).
+       * 요청이 도착한 시각으로 재면 잠금을 오래 기다린 판정이 「미래」로 통과한 뒤 실제 저장
+       * 시점에는 이미 지나 있을 수 있다.
+       *
+       * 막지 않으면 보완 요청이 저장되는 순간 이미 닫혀 있어 **「다시 내세요」가 사실상
+       * 반려**가 된다 — 학생은 요청을 받고도 낼 수 없고, 교직원 화면에는 아무 잘못도 보이지
+       * 않는다.
+       */
+      if (
+        input.resubmissionDueAt !== null &&
+        input.resubmissionDueAt.getTime() <= reviewedAt.getTime()
+      ) {
+        throw this.error(
+          MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
+        );
+      }
+
       const review = await store.createReview({
         milestoneDocumentSubmissionId: submission.id,
         submissionHistoryId: submission.submissionHistoryId,
@@ -150,6 +169,7 @@ export class MilestoneDocumentReviewsService {
         reviewerId,
         decision: input.decision,
         comment: input.comment,
+        resubmissionDueAt: input.resubmissionDueAt,
         reviewedAt,
       });
       await store.updateSubmissionStatus(

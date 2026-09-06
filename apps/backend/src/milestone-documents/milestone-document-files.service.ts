@@ -134,11 +134,15 @@ export class MilestoneDocumentFilesService {
         application.applicationId,
       ),
     ]);
+    // 업로드 관문은 제출 관문과 **같은 판단**이어야 한다 — 여기만 열려 있으면 학생은 파일을
+    // 올린 뒤 제출에서 막히고, 여기만 잠기면 낼 수 있는 서류에 파일을 붙이지 못한다.
     const blocked = milestoneDocumentSubmissionBlock({
       dueAt: documentContext.dueAt,
       now,
       hasSubmission: currentSubmission !== null,
       latestDecision: latestReview?.decision ?? null,
+      submissionStatus: currentSubmission?.status ?? null,
+      resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
     });
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);

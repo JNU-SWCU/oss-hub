@@ -113,6 +113,12 @@ export interface MilestoneDocumentCollectionReviewResponseDto {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
+  /**
+   * 보완 요청이면 학생이 언제까지 다시 낼 수 있는가. 승인·반려는 null이고, 이 값이 생기기
+   * 전에 저장된 보완 요청도 null이다 — 표는 그 자리에 「기한 없음」이라고 적어 교직원이 옛
+   * 보완 요청을 알아볼 수 있게 한다.
+   */
+  readonly resubmissionDueAt: string | null;
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */
@@ -252,6 +258,8 @@ function toCell(
             decision: submission.review.decision,
             comment: submission.review.comment,
             reviewedAt: submission.review.reviewedAt.toISOString(),
+            resubmissionDueAt:
+              submission.review.resubmissionDueAt?.toISOString() ?? null,
           },
   };
 }

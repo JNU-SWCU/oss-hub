@@ -32,6 +32,9 @@ export const boundedReviewHistoryQuery = {
     decision: true,
     comment: true,
     reviewedAt: true,
+    // 학생 목록·수합 표가 「언제까지 다시 낼 수 있는가」를 그리려면 최신 판정과 함께 와야
+    // 한다. 따로 조회하면 N+1이 되고, 안 실으면 화면이 기한을 모른 채 잠금만 건다.
+    resubmissionDueAt: true,
     reviewer: { select: { nickname: true } },
     submissionHistory: { select: { revision: true } },
   },

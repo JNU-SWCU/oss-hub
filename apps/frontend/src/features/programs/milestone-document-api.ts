@@ -19,6 +19,16 @@ export type MilestoneDocumentSubmissionStatus =
 export interface MilestoneDocumentViewerReview {
   readonly comment: string | null;
   readonly reviewedAt: string;
+  /**
+   * 이 보완 요청에 **언제까지** 응할 수 있는가(ISO 8601). 승인·반려는 `null`이고, 이 값이
+   * 생기기 전에 저장된 보완 요청도 `null`이다.
+   *
+   * ⚠ `null`을 「기한이 지났다」로 읽지 마라. 옛 보완 요청은 앞 규칙(재제출 한 번) 그대로
+   * 열려 있어야 한다 — 서버도 같은 답을 낸다
+   * (`domain/milestone-document-submission-window.ts`의
+   * `hasMilestoneDocumentResubmissionDueAtPassed`).
+   */
+  readonly resubmissionDueAt: string | null;
 }
 
 export interface MilestoneDocumentViewerSubmission {

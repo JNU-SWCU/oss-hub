@@ -25,6 +25,7 @@ import {
 } from './milestone-document-conflict';
 import {
   isSameMilestoneDocumentReviewTarget,
+  milestoneDocumentResubmissionDueAtPayload,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
   milestoneDocumentReviewVersionError,
@@ -256,11 +257,11 @@ export function MilestoneDocumentCollectionScreen({
 
   const submitReview = useCallback(async () => {
     if (review === null) return;
-    const { decision, comment, target, version } = review;
+    const { decision, comment, resubmissionDueAt, target, version } = review;
     // 입력이 먼저다 — 교직원이 고칠 수 있는 것을 먼저 말한다. 기대 버전을 못 떠 온 것은
     // 그가 고칠 수 있는 일이 아니라 표를 다시 부르라는 안내가 된다.
     const formError =
-      milestoneDocumentReviewFormError(decision, comment) ??
+      milestoneDocumentReviewFormError(decision, comment, resubmissionDueAt) ??
       milestoneDocumentReviewVersionError(version);
     // `decision`·`version`의 null은 formError가 이미 잡지만, 그 사실은 타입에 남지 않는다.
     if (formError !== null || decision === null || version === null) {
@@ -291,6 +292,12 @@ export function MilestoneDocumentCollectionScreen({
         {
           decision,
           comment: milestoneDocumentReviewCommentPayload(comment),
+          // 보완 요청일 때만 실린다 — 승인·반려에는 기한이라는 것이 없다. 지역 시각
+          // 문자열을 여기서 ISO로 굳혀야 교직원이 고른 그 순간이 그대로 저장된다.
+          resubmissionDueAt: milestoneDocumentResubmissionDueAtPayload(
+            decision,
+            resubmissionDueAt,
+          ),
           // 패널을 열 때 떠 온 값 그대로다 — 지금 표를 다시 읽어 채우면 대조가 언제나
           // 통과해 검사가 없는 것과 같아진다.
           expectedRevision: version.expectedRevision,
@@ -434,6 +441,13 @@ export function MilestoneDocumentCollectionScreen({
       onReviewCommentChange={(comment: string) =>
         setReview((previous) =>
           previous === null ? previous : { ...previous, comment },
+        )
+      }
+      onReviewResubmissionDueAtChange={(resubmissionDueAt: string) =>
+        setReview((previous) =>
+          previous === null
+            ? previous
+            : { ...previous, resubmissionDueAt, errorMessage: null },
         )
       }
       onReviewSubmit={() => void submitReview()}

@@ -28,6 +28,17 @@ export interface MilestoneDocumentReviewInput {
    */
   readonly comment?: string;
   /**
+   * **보완 요청일 때만** 싣는다 — 학생이 언제까지 다시 낼 수 있는가(ISO 8601).
+   *
+   * 보완 요청에서 빼먹으면 422(MSD_032)다. 화면이 먼저 막으므로 여기까지 새면 검증이
+   * 빠져나간 것이다. 지난 시각을 보내면 422(MSD_033)로 막힌다 — 그 보완 요청은 저장되는
+   * 순간 이미 닫혀 있어 사실상 반려가 되기 때문이다.
+   *
+   * 승인·반려에는 싣지 않는다. 실어 보내도 서버가 떨어뜨리지만, 화면이 애초에 안 보내야
+   * 「승인인데 기한이 있다」는 상태를 상상할 여지가 없다.
+   */
+  readonly resubmissionDueAt?: string;
+  /**
    * 판정을 붙일 제출물의 번호 — **내가 본 그 칸의 `revision`을 그대로** 되돌려 보낸다.
    *
    * ⚠ 선택이 아니다. 빼먹으면 400이다. 「보내면 검사하고 안 보내면 넘어간다」로 두면
@@ -49,6 +60,8 @@ export interface CreatedMilestoneDocumentReview {
   readonly decision: MilestoneDocumentReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
+  /** 보완 요청이면 학생이 언제까지 다시 낼 수 있는가. 승인·반려는 `null`이다. */
+  readonly resubmissionDueAt: string | null;
   /** 판정자 표시 이름. 판정은 쌓이므로 「누가 언제」를 남길 수 있게 서버가 싣는다. */
   readonly reviewerNickname: string;
 }
@@ -72,6 +85,8 @@ export const MILESTONE_DOCUMENT_REVIEW_ERROR_CODES = {
   SUBMISSION_NOT_FOUND: 'MSD_022',
   REVIEW_CHANGED: 'MSD_024',
   REVIEW_TARGET_CHANGED: 'MSD_025',
+  RESUBMISSION_DUE_AT_REQUIRED: 'MSD_032',
+  RESUBMISSION_DUE_AT_NOT_FUTURE: 'MSD_033',
 } as const;
 
 function reviewsPath(
