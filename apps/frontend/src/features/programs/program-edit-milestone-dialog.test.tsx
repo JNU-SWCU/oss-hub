@@ -284,9 +284,18 @@ describe('ProgramEditMilestoneDialog', () => {
       ),
     );
 
-    expect(document.activeElement).toBe(
-      document.querySelector('#milestone-due-at'),
+    /*
+     * 단일 범위 편집기는 `layout="simple"` 이라 달력이 날짜 입력의 자리를 대신하고
+     * 문서 순서상 먼저 농인다. 따라서 첫 무효 필드는 달력 스크롤 영역이다 —
+     * `tabIndex=0`·`aria-invalid`·`aria-describedby` 를 갖추고 있어 그 자리에서
+     * 키보드로 바로 날짜를 고칠 수 있다. 시각까지 고치려면 「일정 입력」이
+     * 여는 `ProgramScheduleRangeDialog` 로 간다.
+     */
+    const calendarScroll = document.querySelector(
+      '[data-testid="program-schedule-calendar-scroll"]',
     );
+    expect(calendarScroll?.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(calendarScroll);
   });
 
   it('ignores Escape and overlay close attempts while a save is in progress', async () => {
@@ -334,5 +343,97 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(onCancel).toHaveBeenCalledOnce();
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+});
+
+/*
+ * 단일 마일스톤 편집은 고를 범위가 하나뿐인데도 `aria-pressed` 선택기를 그렸고,
+ * 호출부가 `onActiveIdChange={() => undefined}` 를 넘겨 **눌러도 아무 일도 일어나지
+ * 않는 컨트롤**이었다. 스크린리더에는 눌린 버튼으로 읽히고 키보드 사용자는 탭 한 칸을
+ * 잃었다. 근거: GOV.UK Question pages 의 "only ask for a piece of information once
+ * within a single journey" 와 Norman 의 signifier — 작동하지 않는 것이 작동하는
+ * 것처럼 보이면 안 된다.
+ */
+describe('단일 범위 편집기의 죽은 선택기 제거', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  async function open() {
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          {...passiveProps}
+          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+        />,
+      ),
+    );
+  }
+
+  it('선택기를 하나도 렌더하지 않는다', async () => {
+    await open();
+    expect(
+      document.querySelectorAll('[data-schedule-range-selector]'),
+    ).toHaveLength(0);
+  });
+
+  it('선택 상태 문구와 작성 순서 라벨을 내지 않는다', async () => {
+    await open();
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).not.toContain('선택 중');
+    expect(dialog?.textContent).not.toContain('1. ');
+    expect(
+      document.querySelector('[aria-label="일정 작성 순서"]'),
+    ).toBeNull();
+    expect(document.querySelector('[aria-label="일정 선택"]')).toBeNull();
+  });
+
+  it('마일스톤 이름을 읽기 전용 컨텍스트로 그대로 보여준다', async () => {
+    await open();
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('기획서 제출');
+  });
+
+  it('「일정 입력」으로 날짜·시각을 고칠 길을 유지한다', async () => {
+    await open();
+    const scheduleButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="기획서 제출 일정 입력"]',
+    );
+    expect(scheduleButton).not.toBeNull();
+    await act(async () => scheduleButton?.click());
+    const dialogs = document.querySelectorAll('[role="dialog"]');
+    const rangeDialog = dialogs[dialogs.length - 1];
+    expect(
+      rangeDialog?.querySelector('input[aria-label="기획서 제출 시작일"]'),
+    ).not.toBeNull();
+    expect(
+      rangeDialog?.querySelector('input[aria-label="기획서 제출 종료 시각"]'),
+    ).not.toBeNull();
+  });
+
+  it('운영 기간 밖 날짜를 고를 수 없도록 경계를 넘긴다', async () => {
+    await open();
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="기획서 제출 일정 입력"]',
+        )
+        ?.click(),
+    );
+    const startDate = document.querySelector<HTMLInputElement>(
+      'input[aria-label="기획서 제출 시작일"]',
+    );
+    expect(startDate?.getAttribute('min')).toBe('2026-08-01');
+    expect(startDate?.getAttribute('max')).toBe('2026-08-31');
   });
 });

@@ -252,17 +252,34 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     expect(nameInput().value).toBe(secondMilestone.name);
     const dialog = document.querySelector('[role="dialog"]');
     if (dialog === null) throw new TypeError('Missing milestone dialog.');
-    const timeButton = Array.from(
-      dialog.querySelectorAll<HTMLButtonElement>('button'),
-    ).find((candidate) => candidate.textContent?.trim() === '시간 변경');
-    if (timeButton === undefined) throw new TypeError('Missing time button.');
-    await act(async () => timeButton.click());
-    expect(
-      document.querySelector<HTMLInputElement>('#milestone-start-at')?.value,
-    ).toBe('18:30');
-    expect(
-      document.querySelector<HTMLInputElement>('#milestone-due-at')?.value,
-    ).toBe('18:30');
+    /*
+     * 단일 범위 편집기는 `layout="simple"` 이라 인라인 「시간 변경」 disclosure 가 없다.
+     * 날짜·시각은 「일정 입력」이 여는 `ProgramScheduleRangeDialog` 가 담당하고,
+     * 그 입력들은 id 가 아니라 `aria-label` 로 이름을 갖는다.
+     */
+    const scheduleButton = dialog.querySelector<HTMLButtonElement>(
+      `button[aria-label="${secondMilestone.name} 일정 입력"]`,
+    );
+    if (scheduleButton === null)
+      throw new TypeError('Missing schedule input button.');
+    await act(async () => scheduleButton.click());
+    const timeValue = (label: string) =>
+      document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)
+        ?.value;
+    expect(timeValue(`${secondMilestone.name} 시작 시각`)).toBe('18:30');
+    expect(timeValue(`${secondMilestone.name} 종료 시각`)).toBe('18:30');
+    // 중첩 다이얼로그만 닫는다 — 문서의 첫 「취소」는 마일스톤 다이얼로그 것이다.
+    const openDialogs =
+      document.querySelectorAll<HTMLElement>('[role="dialog"]');
+    const rangeDialog = openDialogs[openDialogs.length - 1];
+    if (rangeDialog === undefined)
+      throw new TypeError('Missing range dialog.');
+    const closeRangeDialog = Array.from(
+      rangeDialog.querySelectorAll<HTMLButtonElement>('button'),
+    ).find((candidate) => candidate.textContent?.trim() === '취소');
+    if (closeRangeDialog === undefined)
+      throw new TypeError('Missing range dialog cancel.');
+    await act(async () => closeRangeDialog.click());
     expect(
       dialog
         .querySelector('[data-calendar-date="2026-08-22"]')
