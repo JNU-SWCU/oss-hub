@@ -1,5 +1,8 @@
 import { Readable } from 'node:stream';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import {
+  MilestoneDocumentsRepository,
+  type MilestoneDocumentWriteStore,
+} from './milestone-documents.repository';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -43,7 +46,7 @@ const pdfFile: MilestoneDocumentFileUpload = {
 };
 
 function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
-  const mocks = {
+  const baseMocks = {
     findActiveUser: jest.fn().mockResolvedValue({
       id: syntheticUserId,
       hasStaffAccess: false,
@@ -64,6 +67,10 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     }),
     findMySubmission: jest.fn().mockResolvedValue(null),
     findLatestReview: jest.fn().mockResolvedValue(null),
+    lockDocument: jest.fn().mockResolvedValue({
+      id: syntheticDocumentId,
+      milestoneId: syntheticMilestoneId,
+    }),
     upsertTemplateFile: jest.fn().mockResolvedValue(undefined),
     findTemplateForDownload: jest.fn().mockResolvedValue({
       storageKey: 'objects/synthetic-template',
@@ -79,8 +86,17 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       sizeBytes: 2048,
       teamName: '가나다팀',
     }),
-    ...overrides,
   };
+  const withTransaction = jest.fn(
+    async (
+      operation: (store: MilestoneDocumentWriteStore) => Promise<unknown>,
+    ) =>
+      operation({
+        lockDocument: baseMocks.lockDocument,
+        upsertTemplateFile: baseMocks.upsertTemplateFile,
+      } as unknown as MilestoneDocumentWriteStore),
+  );
+  const mocks = { ...baseMocks, withTransaction, ...overrides };
   return {
     mocks,
     repository: mocks as unknown as MilestoneDocumentsRepository,
@@ -731,6 +747,96 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       }),
     );
     expect(result.hasTemplateFile).toBe(true);
+  });
+
+  it('스토리지 업로드 뒤 잠금·소속 재확인·upsert 순서로 DB를 변경한다', async () => {
+    // Given
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
+
+    // When
+    await service.uploadTemplate(
+      'staff-1',
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      pdfFile,
+    );
+
+    // Then
+    expect(
+      storageMocks.put.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    ).toBeLessThan(
+      repositoryMocks.withTransaction.mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY,
+    );
+    expect(
+      repositoryMocks.lockDocument.mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY,
+    ).toBeLessThan(
+      repositoryMocks.upsertTemplateFile.mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY,
+    );
+    expect(repositoryMocks.lockDocument).toHaveBeenCalledWith(
+      syntheticDocumentId,
+    );
+  });
+
+  it('잠금 뒤 소속 마일스톤이 달라지면 DOCUMENT_NOT_FOUND로 거부하고 upsert하지 않는다', async () => {
+    // Given
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    repositoryMocks.lockDocument.mockResolvedValue({
+      id: syntheticDocumentId,
+      milestoneId: 'cuid-synthetic-other-milestone',
+    });
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      buildSubmissionFiles().submissionFiles,
+    );
+
+    // When / Then
+    await expect(
+      service.uploadTemplate(
+        'staff-1',
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        pdfFile,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+    });
+    expect(storageMocks.put).toHaveBeenCalledTimes(1);
+    expect(repositoryMocks.upsertTemplateFile).not.toHaveBeenCalled();
+  });
+
+  it('잠금 뒤 문서가 없으면 DOCUMENT_NOT_FOUND로 거부하고 upsert하지 않는다', async () => {
+    // Given
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    repositoryMocks.lockDocument.mockResolvedValue(null);
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+      buildSubmissionFiles().submissionFiles,
+    );
+
+    // When / Then
+    await expect(
+      service.uploadTemplate(
+        'staff-1',
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        pdfFile,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+    });
+    expect(repositoryMocks.upsertTemplateFile).not.toHaveBeenCalled();
   });
 
   it('multipart latin1 깨짐을 복구한 한글 양식 파일명을 저장한다', async () => {

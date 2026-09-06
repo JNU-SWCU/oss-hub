@@ -1,12 +1,16 @@
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { ProgramCategory, PrismaClient } from '@prisma/client';
+import { Prisma, ProgramCategory, PrismaClient } from '@prisma/client';
 import { S3SubmissionFileStorage } from './s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import {
   StorageOrphanReconciliationService,
   type StorageObjectInventory,
 } from './storage-orphan-reconciliation';
-import { PrismaStorageReferenceRepository } from './storage-orphan-reconciliation.repository';
+import {
+  PrismaStorageReferenceRepository,
+  type StorageReferencePrisma,
+  type StorageReferenceTransactionClient,
+} from './storage-orphan-reconciliation.repository';
 
 const INTEGRATION_SENTINEL = 'oss-hub-isolated-integration-v1';
 const FIXTURE_PREFIX = 'reconcile-test-qa60';
@@ -14,9 +18,13 @@ const USER_ID = `${FIXTURE_PREFIX}-user`;
 const PROGRAM_ID = `${FIXTURE_PREFIX}-program`;
 const MILESTONE_ID = `${FIXTURE_PREFIX}-milestone`;
 const DOCUMENT_ID = `${FIXTURE_PREFIX}-document`;
+const TRANSFER_MILESTONE_ID = `${FIXTURE_PREFIX}-transfer-milestone`;
+const TRANSFER_DOCUMENT_ID = `${FIXTURE_PREFIX}-transfer-document`;
 const SUBMISSION_FILE_ID = `${FIXTURE_PREFIX}-submission-file`;
 const AUTHORING_UPLOAD_ID = `${FIXTURE_PREFIX}-authoring-upload`;
+const TRANSFER_AUTHORING_UPLOAD_ID = `${FIXTURE_PREFIX}-transfer-authoring-upload`;
 const TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-template-file`;
+const TRANSFER_TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-transfer-template-file`;
 const PENDING_TOMBSTONE_ID = `${FIXTURE_PREFIX}-pending-tombstone`;
 const DELETED_TOMBSTONE_ID = `${FIXTURE_PREFIX}-deleted-tombstone`;
 
@@ -24,6 +32,7 @@ const KEYS = {
   liveSubmission: `submission-files/${FIXTURE_PREFIX}-live-submission`,
   liveAuthoring: `program-authoring/${FIXTURE_PREFIX}-live-authoring`,
   liveTemplate: `submission-files/${FIXTURE_PREFIX}-live-template`,
+  transfer: `submission-files/${FIXTURE_PREFIX}-pending-transfer`,
   pendingTombstone: `submission-files/${FIXTURE_PREFIX}-pending-tombstone`,
   deletedTombstone: `submission-files/${FIXTURE_PREFIX}-deleted-tombstone`,
   orphan: `submission-files/${FIXTURE_PREFIX}-orphan`,
@@ -72,16 +81,22 @@ async function clearFixture(): Promise<void> {
     where: { id: { in: [PENDING_TOMBSTONE_ID, DELETED_TOMBSTONE_ID] } },
   });
   await prisma.milestoneDocumentTemplateFile.deleteMany({
-    where: { id: TEMPLATE_FILE_ID },
+    where: { id: { in: [TEMPLATE_FILE_ID, TRANSFER_TEMPLATE_FILE_ID] } },
   });
   await prisma.programAuthoringUpload.deleteMany({
-    where: { id: AUTHORING_UPLOAD_ID },
+    where: {
+      id: { in: [AUTHORING_UPLOAD_ID, TRANSFER_AUTHORING_UPLOAD_ID] },
+    },
   });
   await prisma.submissionFile.deleteMany({
     where: { id: SUBMISSION_FILE_ID },
   });
   await prisma.milestoneDocument.deleteMany({ where: { id: DOCUMENT_ID } });
+  await prisma.milestoneDocument.deleteMany({
+    where: { id: TRANSFER_DOCUMENT_ID },
+  });
   await prisma.milestone.deleteMany({ where: { id: MILESTONE_ID } });
+  await prisma.milestone.deleteMany({ where: { id: TRANSFER_MILESTONE_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
   await prisma.user.deleteMany({ where: { id: USER_ID } });
 }
@@ -195,6 +210,42 @@ async function installTombstoneFixture(): Promise<void> {
   );
 }
 
+async function installPendingTemplateTransferFixture(): Promise<void> {
+  await prisma.milestone.create({
+    data: {
+      id: TRANSFER_MILESTONE_ID,
+      programId: PROGRAM_ID,
+      name: '이관 합성 마일스톤',
+      startAt: new Date('2026-01-03T00:00:00.000Z'),
+      dueAt: new Date('2026-02-01T00:00:00.000Z'),
+      submissionType: 'FILE',
+    },
+  });
+  await prisma.milestoneDocument.create({
+    data: {
+      id: TRANSFER_DOCUMENT_ID,
+      milestoneId: TRANSFER_MILESTONE_ID,
+      name: '이관 합성 서류',
+      required: true,
+      sortOrder: 1,
+    },
+  });
+  await prisma.programAuthoringUpload.create({
+    data: {
+      id: TRANSFER_AUTHORING_UPLOAD_ID,
+      actorId: USER_ID,
+      storageKey: KEYS.transfer,
+      originalFileName: 'pending-transfer.txt',
+      mimeType: 'text/plain',
+      sizeBytes: 1,
+      sha256: 'b'.repeat(64),
+      lifecycle: 'PENDING',
+      expiresAt: new Date('2027-01-01T00:00:00.000Z'),
+    },
+  });
+  await putObject(KEYS.transfer);
+}
+
 describe('storage orphan reconciliation integration', () => {
   beforeAll(async () => {
     if (process.env.OSS_HUB_INTEGRATION_RUNNER !== INTEGRATION_SENTINEL) {
@@ -288,6 +339,160 @@ describe('storage orphan reconciliation integration', () => {
 
     expect(result.recentObjectKeys).toContain(KEYS.concurrent);
     await expect(objectExists(KEYS.concurrent)).resolves.toBe(true);
+  });
+
+  it('PENDING 업로드를 template으로 같은 transaction에서 이관하는 동안에도 객체를 보존한다', async () => {
+    await installLiveFixture();
+    await installPendingTemplateTransferFixture();
+
+    let transferPrepared: (() => void) | undefined;
+    const transferReady = new Promise<void>((resolve) => {
+      transferPrepared = resolve;
+    });
+    let releaseTransfer: (() => void) | undefined;
+    const transferMayCommit = new Promise<void>((resolve) => {
+      releaseTransfer = resolve;
+    });
+    const transfer = prisma.$transaction(async (transaction) => {
+      await transaction.programAuthoringUpload.delete({
+        where: { id: TRANSFER_AUTHORING_UPLOAD_ID },
+      });
+      await transaction.milestoneDocumentTemplateFile.create({
+        data: {
+          id: TRANSFER_TEMPLATE_FILE_ID,
+          milestoneDocumentId: TRANSFER_DOCUMENT_ID,
+          storageKey: KEYS.transfer,
+          originalFileName: 'pending-transfer.txt',
+          mimeType: 'text/plain',
+          sizeBytes: 1,
+          uploadedById: USER_ID,
+        },
+      });
+      transferPrepared?.();
+      await transferMayCommit;
+    });
+    await transferReady;
+
+    const snapshotReaderBase = new PrismaClient();
+    let signalTemplateSnapshotRead: (() => void) | undefined;
+    const templateSnapshotRead = new Promise<void>((resolve) => {
+      signalTemplateSnapshotRead = resolve;
+    });
+    let releaseTemplateQuery: (() => void) | undefined;
+    const templateQueryMayFinish = new Promise<void>((resolve) => {
+      releaseTemplateQuery = resolve;
+    });
+    const snapshotReader = snapshotReaderBase.$extends({
+      query: {
+        milestoneDocumentTemplateFile: {
+          async findMany({ args, query }) {
+            const result = await query(args);
+            signalTemplateSnapshotRead?.();
+            await templateQueryMayFinish;
+            return result;
+          },
+        },
+      },
+    });
+    const snapshotReferencePrisma: StorageReferencePrisma = {
+      $connect: () => snapshotReader.$connect(),
+      $transaction<T>(
+        operation: (
+          transaction: StorageReferenceTransactionClient,
+        ) => Promise<T>,
+        options: {
+          readonly isolationLevel: Prisma.TransactionIsolationLevel;
+        },
+      ): Promise<T> {
+        return snapshotReader.$transaction(
+          (transaction) =>
+            operation({
+              submissionFile: {
+                findMany: ({ where, select }) =>
+                  transaction.submissionFile.findMany({ where, select }),
+                findFirst: ({ where, select }) =>
+                  transaction.submissionFile.findFirst({ where, select }),
+              },
+              programAuthoringUpload: {
+                findMany: ({ where, select }) =>
+                  transaction.programAuthoringUpload.findMany({
+                    where,
+                    select,
+                  }),
+                findFirst: ({ where, select }) =>
+                  transaction.programAuthoringUpload.findFirst({
+                    where,
+                    select,
+                  }),
+              },
+              milestoneDocumentTemplateFile: {
+                findMany: ({ where, select }) =>
+                  transaction.milestoneDocumentTemplateFile.findMany({
+                    where,
+                    select,
+                  }),
+                findFirst: ({ where, select }) =>
+                  transaction.milestoneDocumentTemplateFile.findFirst({
+                    where,
+                    select,
+                  }),
+              },
+              programPurgeFileTombstone: {
+                findMany: ({ where, select }) =>
+                  transaction.programPurgeFileTombstone.findMany({
+                    where,
+                    select,
+                  }),
+                findFirst: ({ where, select }) =>
+                  transaction.programPurgeFileTombstone.findFirst({
+                    where,
+                    select,
+                  }),
+              },
+            }),
+          options,
+        );
+      },
+    };
+    const references = new PrismaStorageReferenceRepository(
+      snapshotReferencePrisma,
+    );
+    const service = new StorageOrphanReconciliationService(
+      references,
+      storage,
+      () => new Date(Date.now() + 2 * 60 * 60 * 1_000),
+    );
+
+    try {
+      const reconciliation = service.reconcile({ mode: 'delete' });
+      await templateSnapshotRead;
+      releaseTransfer?.();
+      await transfer;
+      releaseTemplateQuery?.();
+      const result = await reconciliation;
+
+      expect(result.orphanKeys).not.toContain(KEYS.transfer);
+      expect(result.skippedReferencedKeys).not.toContain(KEYS.transfer);
+      expect(result.deletedKeys).not.toContain(KEYS.transfer);
+      await expect(references.isLiveKey(KEYS.transfer)).resolves.toBe(true);
+      expect(
+        await prisma.programAuthoringUpload.findUnique({
+          where: { id: TRANSFER_AUTHORING_UPLOAD_ID },
+        }),
+      ).toBeNull();
+      expect(
+        await prisma.milestoneDocumentTemplateFile.findUnique({
+          where: { id: TRANSFER_TEMPLATE_FILE_ID },
+          select: { storageKey: true },
+        }),
+      ).toEqual({ storageKey: KEYS.transfer });
+      await expect(objectExists(KEYS.transfer)).resolves.toBe(true);
+    } finally {
+      releaseTransfer?.();
+      releaseTemplateQuery?.();
+      await transfer;
+      await snapshotReaderBase.$disconnect();
+    }
   });
 
   it('DB 연결 실패 시 실제 스토리지 객체를 삭제하지 않는다', async () => {

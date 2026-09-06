@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  MilestoneDocumentKind,
   Prisma,
   StaffAccessRequestStatus,
   SubmissionFileLifecycle,
@@ -7,7 +8,10 @@ import {
 import type { Prisma as PrismaTypes } from '@prisma/client';
 // 공용 영속성 도구 — 서류 항목 행 잠금 문장과 전역 잠금 순서 규칙은 common이 한 벌만 갖는다.
 // 마일스톤 삭제 경로와 학생 제출 경로가 **같은 행**을 잠가야 직렬화되므로 여기서 다시 쓰지 않는다.
-import { lockMilestoneDocumentsOfMilestone } from '../../common/milestone-document-locks';
+import {
+  lockMilestone,
+  lockMilestoneDocumentsOfMilestone,
+} from '../../common/milestone-document-locks';
 import { PrismaService } from '../../prisma/prisma.service';
 import { readProgramDeletionScopeCounts } from '../program-deletion-scope';
 import type {
@@ -15,6 +19,8 @@ import type {
   ProgramDeletionScopeCounts,
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
+  LockedProgramMilestoneEdit,
+  ApplyProgramMilestoneEditInput,
   ProgramMilestoneCreateInput,
   ProgramMilestoneDeleteTarget,
   ProgramMilestoneTarget,
@@ -23,6 +29,11 @@ import type {
   ProgramSchedule,
   ProgramUpdateInput,
 } from '../program-editor.types';
+import {
+  consumePendingProgramAuthoringUploads,
+  lockAttachableProgramAuthoringUploads,
+} from '../program-authoring-upload-transaction';
+import type { ProgramAuthoringPendingUploadConsumption } from '../program-authoring.types';
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
@@ -38,6 +49,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return this.transaction.user.findUnique({
       where: { githubId },
       select: {
+        id: true,
         hasStaffAccess: true,
         hasAdminAccess: true,
         accountStatus: true,
@@ -149,6 +161,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return toMilestoneView(milestone);
   }
 
+  /** EXPAND-only legacy metadata update lookup; removed in CONTRACT. */
   async findMilestoneForUpdate(
     milestoneId: string,
   ): Promise<ProgramMilestoneTarget | null> {
@@ -175,6 +188,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     };
   }
 
+  /** EXPAND-only legacy metadata update writer; removed in CONTRACT. */
   async updateMilestone(
     input: ProgramMilestoneUpdateInput,
   ): Promise<ProgramMilestoneView> {
@@ -189,6 +203,182 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       },
     });
     return toMilestoneView(milestone);
+  }
+
+  async lockMilestoneEdit(
+    milestoneId: string,
+  ): Promise<LockedProgramMilestoneEdit | null> {
+    const programId = await this.findMilestoneProgramId(milestoneId);
+    if (programId === null || !(await this.lockProgram(programId))) return null;
+    const lockedMilestone = await lockMilestone(this.transaction, milestoneId);
+    if (lockedMilestone === null) return null;
+    const milestone = await this.transaction.milestone.findUnique({
+      where: { id: milestoneId },
+      select: {
+        id: true,
+        programId: true,
+        name: true,
+        startAt: true,
+        dueAt: true,
+        submissionType: true,
+        instructions: true,
+        updatedAt: true,
+        program: { select: { startAt: true, endAt: true } },
+      },
+    });
+    if (milestone === null || milestone.programId !== programId) return null;
+    await lockMilestoneDocumentsOfMilestone(
+      this.transaction,
+      milestoneId,
+      MilestoneDocumentKind.DOCUMENT,
+    );
+    const documents = await this.transaction.milestoneDocument.findMany({
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        required: true,
+        sortOrder: true,
+        updatedAt: true,
+        templateFile: { select: { storageKey: true, originalFileName: true } },
+      },
+    });
+    return {
+      programId,
+      milestoneUpdatedAt: milestone.updatedAt,
+      view: {
+        milestone: {
+          id: milestone.id,
+          name: milestone.name,
+          startAt: milestone.startAt,
+          dueAt: milestone.dueAt,
+          submissionType: milestone.submissionType,
+          instructions: milestone.instructions,
+        },
+        operation: {
+          startAt: milestone.program.startAt,
+          endAt: milestone.program.endAt,
+        },
+        documents: [...documents]
+          .sort((left, right) => left.sortOrder - right.sortOrder)
+          .map((document) => ({
+            id: document.id,
+            name: document.name,
+            required: document.required,
+            sortOrder: document.sortOrder,
+            templateFileName: document.templateFile?.originalFileName ?? null,
+          })),
+      },
+      fingerprintDocuments: documents.map((document) => ({
+        id: document.id,
+        name: document.name,
+        required: document.required,
+        sortOrder: document.sortOrder,
+        updatedAt: document.updatedAt,
+        storageKey: document.templateFile?.storageKey ?? null,
+      })),
+    };
+  }
+
+  async countSubmissionHistoriesForDocuments(
+    documentIds: readonly string[],
+  ): Promise<number> {
+    if (documentIds.length === 0) return 0;
+    return this.transaction.milestoneDocumentSubmissionHistory.count({
+      where: {
+        submission: {
+          milestoneDocumentId: { in: [...documentIds] },
+        },
+      },
+    });
+  }
+
+  lockAttachableUploads(actorId: string, tokenIds: readonly string[]) {
+    return lockAttachableProgramAuthoringUploads(
+      this.transaction,
+      actorId,
+      tokenIds,
+    );
+  }
+
+  async applyMilestoneEdit(
+    input: ApplyProgramMilestoneEditInput,
+  ): Promise<void> {
+    const requestedExistingIds = input.documents.flatMap((document) =>
+      document.id === null ? [] : [document.id],
+    );
+    await this.transaction.milestone.update({
+      where: { id: input.milestoneId },
+      data: {
+        name: input.name,
+        startAt: input.startAt,
+        dueAt: input.dueAt,
+        instructions: input.instructions,
+      },
+    });
+    const existing = await this.transaction.milestoneDocument.findMany({
+      where: {
+        milestoneId: input.milestoneId,
+        kind: MilestoneDocumentKind.DOCUMENT,
+      },
+      select: { id: true },
+    });
+    const deletedIds = existing
+      .map((document) => document.id)
+      .filter((id) => !requestedExistingIds.includes(id));
+    if (deletedIds.length > 0) {
+      await this.transaction.milestoneDocumentTemplateFile.deleteMany({
+        where: { milestoneDocumentId: { in: deletedIds } },
+      });
+      await this.transaction.milestoneDocument.deleteMany({
+        where: { id: { in: deletedIds }, kind: MilestoneDocumentKind.DOCUMENT },
+      });
+    }
+    const consumptions: ProgramAuthoringPendingUploadConsumption[] = [];
+    for (const [index, document] of input.documents.entries()) {
+      const milestoneDocumentId =
+        document.id ??
+        (
+          await this.transaction.milestoneDocument.create({
+            data: {
+              milestoneId: input.milestoneId,
+              name: document.name,
+              required: document.required,
+              sortOrder: index + 1,
+              kind: MilestoneDocumentKind.DOCUMENT,
+            },
+            select: { id: true },
+          })
+        ).id;
+      if (document.id !== null) {
+        await this.transaction.milestoneDocument.update({
+          where: {
+            id: milestoneDocumentId,
+            kind: MilestoneDocumentKind.DOCUMENT,
+          },
+          data: {
+            name: document.name,
+            required: document.required,
+            sortOrder: index + 1,
+          },
+        });
+      }
+      if (document.templateUploadId !== undefined) {
+        const upload = input.uploads.find(
+          (candidate) => candidate.id === document.templateUploadId,
+        );
+        if (upload === undefined) {
+          throw new ProgramEditorMilestoneEditRaceError();
+        }
+        consumptions.push({ milestoneDocumentId, upload });
+      }
+    }
+    await consumePendingProgramAuthoringUploads(
+      this.transaction,
+      input.actorId,
+      consumptions,
+    );
   }
 
   async findMilestoneForDelete(
@@ -292,6 +482,14 @@ export class ProgramEditorRepository implements ProgramEditorRepositoryPort {
     return this.prisma.$transaction((transaction) =>
       operation(new PrismaProgramEditorStore(transaction)),
     );
+  }
+}
+
+class ProgramEditorMilestoneEditRaceError extends Error {
+  override readonly name = 'ProgramEditorMilestoneEditRaceError';
+
+  constructor() {
+    super('Locked upload was unavailable during milestone edit.');
   }
 }
 

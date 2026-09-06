@@ -79,8 +79,13 @@ export function createProgramEditorServiceHarness(): {
     createMilestone: jest.fn(),
     findMilestoneForUpdate: jest.fn(),
     updateMilestone: jest.fn(),
+
     findMilestoneForDelete: jest.fn(),
     deleteMilestone: jest.fn(),
+    lockMilestoneEdit: jest.fn(),
+    countSubmissionHistoriesForDocuments: jest.fn(),
+    lockAttachableUploads: jest.fn(),
+    applyMilestoneEdit: jest.fn(),
   };
   const withTransaction = jest.fn();
   const repository: ProgramEditorRepositoryPort = {
@@ -90,6 +95,7 @@ export function createProgramEditorServiceHarness(): {
     },
   };
   store.findUserAuthorityByGithubId.mockResolvedValue({
+    id: 'staff-1',
     hasStaffAccess: true,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
