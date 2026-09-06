@@ -12,6 +12,18 @@ import type {
   MilestoneDocument,
   MilestoneDocumentViewerSubmission,
 } from './milestone-document-api';
+import { milestoneSubmissionAccess } from './milestone-submission-access';
+import type { ApplicationStatus, ViewerRole } from './types';
+
+/**
+ * 화면이 쓰는 그 판정을 테스트도 그대로 쓴다 — 승인된 학생과 교직원은 둘 다 열린 문이다.
+ */
+function access(
+  role: ViewerRole,
+  applicationStatus: ApplicationStatus | null = null,
+) {
+  return milestoneSubmissionAccess({ role, applicationStatus });
+}
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -71,6 +83,7 @@ describe('MilestoneDocumentSection response recovery', () => {
           milestoneId="milestone-1"
           viewerRole="STAFF"
           closed={false}
+          submissionAccess={access('STAFF')}
         />,
       );
     });
@@ -200,6 +213,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           milestoneId="milestone-1"
           viewerRole="STUDENT"
           closed={false}
+          submissionAccess={access('STUDENT', 'APPROVED')}
         />,
       );
     });
@@ -259,6 +273,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           milestoneId="milestone-1"
           viewerRole="STUDENT"
           closed={false}
+          submissionAccess={{ kind: 'open' }}
         />,
       );
     });
@@ -541,6 +556,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           milestoneId="milestone-1"
           viewerRole="STUDENT"
           closed={false}
+          submissionAccess={access('STUDENT', 'APPROVED')}
         />,
       );
     });
@@ -665,6 +681,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
           }}
           viewerRole="STUDENT"
           closed={closed}
+          submissionAccess={access('STUDENT', 'APPROVED')}
           conflictNotice={null}
           onRetry={() => {}}
           onDocumentChange={() => {}}
@@ -1226,6 +1243,7 @@ describe('교직원 양식 올리기의 사전 검사', () => {
           }}
           viewerRole="STAFF"
           closed={false}
+          submissionAccess={access('STAFF')}
           conflictNotice={null}
           onRetry={() => {}}
           onDocumentChange={() => {}}
@@ -1382,6 +1400,7 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
             fileUpload: milestoneDocumentUploadPolicy(),
           }}
           viewerRole="STUDENT"
+          submissionAccess={{ kind: 'open' }}
           closed
           conflictNotice={null}
           onRetry={() => {}}
