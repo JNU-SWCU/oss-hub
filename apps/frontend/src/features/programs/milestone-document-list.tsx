@@ -526,6 +526,8 @@ function StudentDocumentRow({
   const [historyIsComplete, setHistoryIsComplete] = useState(true);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  /** 자격 없음(MSD_005)은 실패가 아니라 상태다 — 재시도 대신 갈 곳을 준다(#1205). */
+  const [historyForbidden, setHistoryForbidden] = useState(false);
   const [historyErrorCursor, setHistoryErrorCursor] = useState<string | null>(
     null,
   );
@@ -619,6 +621,7 @@ function StudentDocumentRow({
       const requestId = historyRequestIdRef.current;
       setIsHistoryLoading(true);
       setHistoryError(null);
+      setHistoryForbidden(false);
       try {
         const page = await getMilestoneDocumentParticipantHistory(
           document.milestoneId,
@@ -632,8 +635,20 @@ function StudentDocumentRow({
         setHistoryNextCursor(page.nextCursor);
         setHistoryIsComplete(page.isComplete);
         setHistoryErrorCursor(null);
-      } catch {
+      } catch (reason) {
         if (requestId !== historyRequestIdRef.current) return;
+        /*
+         * 자격 없음(MSD_005 NOT_APPLICATION_MEMBER)은 실패가 아니라 상태다 — 다시
+         * 불러와도 신청 멤버가 되지 는 않으므로 재시도를 주면 같은 거절이 무한히
+         * 반복된다(#1205). 조건은 신선도가 아니라 자격이라 갈 곳을 대신 보여 준다.
+         * HTTP status로 가르지 않는다 — API_000도 403을 달 수 있고 그건 원인 불명이라
+         * 재시도 경로에 남아야 한다.
+         */
+        if (reason instanceof ApiError && reason.problem.code === 'MSD_005') {
+          setHistoryForbidden(true);
+          setHistoryErrorCursor(null);
+          return;
+        }
         setHistoryError(
           '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
         );
@@ -847,6 +862,17 @@ function StudentDocumentRow({
             >
               제출 이력을 불러오는 중입니다.
             </p>
+          ) : null}
+          {historyForbidden ? (
+            <div
+              className="grid gap-2 py-2"
+              data-testid="milestone-document-history-forbidden"
+            >
+              <p className="text-small break-keep text-muted-foreground">
+                제출 이력은 신청이 승인된 참여자만 볼 수 있습니다. 이 프로그램에
+                신청해 승인되면 열립니다.
+              </p>
+            </div>
           ) : null}
           {historyError === null ? null : (
             <Alert data-testid="milestone-document-history-error">
