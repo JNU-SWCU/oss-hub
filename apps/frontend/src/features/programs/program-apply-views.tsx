@@ -129,6 +129,13 @@ export function BlockedView({
       {/* 안내 상자보다 **위**에 세운다 — 반려된 사람의 첫 할 일은 "수정할 수 없다"를
           읽는 것이 아니라 왜 반려됐는지 읽는 것이다. */}
       <RejectionReasonAlert application={application} />
+      {application?.status === 'APPROVED' &&
+      program.repositoryProvisioningEnabled ? (
+        <p className="mb-6 break-keep text-small text-muted-foreground">
+          승인 후 저장소가 이미 만들어진 경우에는 교직원도 승인을 되돌릴 수
+          없습니다. 변경이 필요하면 담당 교직원에게 문의해 주세요.
+        </p>
+      ) : null}
       <EmptyState
         title={content.title}
         description={content.description}

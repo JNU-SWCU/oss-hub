@@ -229,6 +229,16 @@ export function ApplicationDecisionDialog({
               </p>
             </AlertDialog.Description>
           )}
+          {action === 'REVERT' &&
+          currentStatus === 'APPROVED' &&
+          repositoryConnectionMode === 'NEW' &&
+          repositoryProvisioningEnabled ? (
+            <p className="break-keep text-sm text-muted-foreground">
+              저장소가 이미 만들어진 신청은 승인을 되돌릴 수 없습니다. 신청
+              상태를 바꾸는 것만으로 GitHub 저장소와 접근 권한이 회수되지는
+              않습니다.
+            </p>
+          ) : null}
           {errorMessage !== null ? (
             <Alert variant="destructive">
               <AlertTitle>저장하지 못했습니다</AlertTitle>
