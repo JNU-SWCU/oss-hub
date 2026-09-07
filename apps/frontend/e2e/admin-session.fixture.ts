@@ -18,7 +18,8 @@ import { PROGRAM_AUTHORING_E2E } from './support/program-authoring-flow';
 type AuthSeedPageFactory = (scenarioId: string) => Promise<Page>;
 type ProgramAuthoringActorPageFactory = (
   actor: keyof typeof PROGRAM_AUTHORING_E2E.actors,
-  expectedResourceError?: ExpectedResourceError,
+  expectedResourceError?:
+    ExpectedResourceError | readonly ExpectedResourceError[],
 ) => Promise<Page>;
 
 type ExpectedResourceError = {
@@ -240,7 +241,11 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
         PROGRAM_AUTHORING_E2E.actors[actor],
         { timezoneId, viewport },
         new Set<number>(),
-        expectedResourceError === undefined ? [] : [expectedResourceError],
+        expectedResourceError === undefined
+          ? []
+          : 'pathname' in expectedResourceError
+            ? [expectedResourceError]
+            : expectedResourceError,
       );
       sessions.push(session);
       return session.page;

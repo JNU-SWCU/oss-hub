@@ -144,7 +144,7 @@ export async function submitProgramApplication(
   mode: 'new' | 'own',
 ): Promise<void> {
   await page.goto(`/programs/${encodeURIComponent(programId)}/apply`);
-  await page.getByLabel('제목 *').fill(`E2E ${mode} 신청`);
+  await page.getByRole('button', { name: '팀 없이 계속', exact: true }).click();
   await page.getByLabel('요약 *').fill('결정론적 신청 데이터');
   await page
     .getByRole('radio', {
@@ -160,6 +160,13 @@ export async function submitProgramApplication(
   await page.getByRole('button', { name: '신청 제출' }).click();
   await page.getByRole('button', { name: '신청서 제출' }).click();
   await expect(page.getByText('신청이 접수되었습니다')).toBeVisible();
+}
+
+export function newApplicationResourceErrors(programId: string) {
+  return ['applications/me', 'teams/me'].map((path) => ({
+    status: 404,
+    pathname: `/api/v1/programs/${encodeURIComponent(programId)}/${path}`,
+  }));
 }
 
 export function originHeaders(): { readonly Origin: string } {
