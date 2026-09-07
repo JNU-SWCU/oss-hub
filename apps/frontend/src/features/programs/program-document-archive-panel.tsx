@@ -1,10 +1,16 @@
 'use client';
 
-import { Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PageBody } from '@/components/page-body';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ProgramDocumentArchiveOptions } from './program-document-archive-options';
 import { ApiError } from '@/lib/api-client';
 import { getProgramDetail, listStaffProgramTeams } from './api';
@@ -132,6 +138,8 @@ export function ProgramDocumentArchivePanel({
     }
   }
 
+  const toggleLabel = open ? '다운로드 범위 닫기' : '제출 자료 ZIP 내려받기';
+
   return (
     <PageBody className="pb-0">
       <section
@@ -140,17 +148,30 @@ export function ProgramDocumentArchivePanel({
         className="grid gap-4"
       >
         <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            aria-expanded={open}
-            aria-controls="program-document-archive-options"
-            onClick={() => setOpen(!open)}
-            disabled={busy}
-          >
-            <Download aria-hidden="true" />
-            {open ? '다운로드 범위 닫기' : '제출 자료 ZIP 내려받기'}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-11"
+                  aria-label={toggleLabel}
+                  aria-expanded={open}
+                  aria-controls="program-document-archive-options"
+                  onClick={() => setOpen(!open)}
+                  disabled={busy}
+                >
+                  {open ? (
+                    <X aria-hidden="true" />
+                  ) : (
+                    <Download aria-hidden="true" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{toggleLabel}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {open ? (
           <div

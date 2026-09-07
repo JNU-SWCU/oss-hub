@@ -61,7 +61,7 @@ afterEach(async () => {
 });
 function button(label: string): HTMLButtonElement {
   const value = [...container.querySelectorAll('button')].find(
-    (item) => item.textContent === label,
+    (item) => (item.getAttribute('aria-label') ?? item.textContent) === label,
   );
   if (!value) throw new TypeError(`Missing ${label}`);
   return value;

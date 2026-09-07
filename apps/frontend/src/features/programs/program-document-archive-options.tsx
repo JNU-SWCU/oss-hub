@@ -41,8 +41,8 @@ export function ProgramDocumentArchiveOptions({
         {(
           [
             ['PROGRAM', '프로그램 전체'],
-            ['MILESTONE', '마일스톤 하나'],
-            ['TEAM', '팀 하나'],
+            ['MILESTONE', '마일스톤'],
+            ['TEAM', '팀'],
           ] as const
         ).map(([value, label]) => (
           <label
