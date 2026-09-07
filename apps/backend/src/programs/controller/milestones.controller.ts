@@ -24,6 +24,23 @@ import { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from '../service/program-editor.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+/**
+ * EXPAND removal ledger — CONTRACT removes this complete compatibility sweep:
+ * - `milestone-documents/milestone-documents.controller.ts`: legacy
+ *   `create`, `update`, `reorder`, `remove`, and direct `uploadTemplate`;
+ *   `dto/upsert-milestone-document-request.dto.ts` and
+ *   `dto/reorder-milestone-documents-request.dto.ts`.
+ * - `program-editor.service.ts`: legacy metadata `updateMilestone`.
+ * - `program-editor.types.ts` and `repository/program-editor.repository.ts`:
+ *   `ProgramMilestoneTarget`, `ProgramMilestoneUpdateInput`,
+ *   `findMilestoneForUpdate`, and `updateMilestone`.
+ * - This controller's PATCH `:id` legacy `UpsertMilestoneRequestDto` branch.
+ *
+ * That branch deliberately has no optimistic concurrency check. It reproduces
+ * pre-EXPAND behavior for old clients only; CONTRACT removes it and makes
+ * fingerprint comparison unconditional for every milestone update.
+ */
 const bodyValidationPipe = new ValidationPipe({
   transform: true,
   whitelist: true,
@@ -54,7 +71,8 @@ export class MilestonesController {
     if (!isRecord(body)) {
       throw new BadRequestException('Milestone update body must be an object.');
     }
-    // EXPAND-only dual dispatch for independent frontend/backend deployment; CONTRACT deletes this seam.
+    // EXPAND-only dual dispatch; see the EXPAND removal ledger above. The
+    // legacy branch intentionally has no optimistic concurrency check.
     if ('expectedFingerprint' in body || 'documents' in body) {
       const input: unknown = await bodyValidationPipe.transform(body, {
         metatype: UpdateMilestoneRequestDto,

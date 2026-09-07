@@ -7,7 +7,6 @@ import {
   milestoneDocumentTemplateHref,
   submitMilestoneDocument,
   uploadMilestoneDocumentFile,
-  uploadMilestoneDocumentTemplate,
 } from './milestone-document-api';
 import type { MilestoneDocument } from './milestone-document-api';
 
@@ -144,34 +143,6 @@ describe('submitMilestoneDocument', () => {
         }),
       },
     );
-  });
-});
-
-describe('uploadMilestoneDocumentTemplate', () => {
-  it('양식 파일을 FormData로 담아 template endpoint에 POST한다', async () => {
-    const uploaded = {
-      documentId: 'document-1',
-      hasTemplateFile: true,
-      templateFileName: null,
-
-      fileName: 'template.docx',
-      uploadedAt: '2026-08-10T00:00:00.000Z',
-    };
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(uploaded));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const file = new File(['content'], 'template.docx');
-    await expect(
-      uploadMilestoneDocumentTemplate('milestone-1', 'document-1', file),
-    ).resolves.toEqual(uploaded);
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [calledPath, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(calledPath).toBe(
-      apiPath('milestones/milestone-1/documents/document-1/template'),
-    );
-    expect(init.method).toBe('POST');
-    expect((init.body as FormData).get('file')).toBe(file);
   });
 });
 

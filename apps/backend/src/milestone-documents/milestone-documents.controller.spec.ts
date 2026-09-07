@@ -1,5 +1,6 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AccountStatus } from '@prisma/client';
 import type {
   ExecutionContext,
   INestApplication,
@@ -9,9 +10,11 @@ import { Test } from '@nestjs/testing';
 import type { Response } from 'express';
 import { Readable } from 'node:stream';
 import { OriginGuard } from '../auth/origin.guard';
+import { AuthConfig } from '../auth/auth.config';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { PrismaService } from '../prisma/prisma.service';
 import { DomainException } from '../common/error-code';
 import {
   MilestoneDocumentFilesController,
@@ -276,6 +279,34 @@ afterAll(async () => {
   await application?.close();
 });
 
+interface LegacyMutationRequest {
+  readonly method: 'POST' | 'PATCH' | 'DELETE';
+  readonly path: string;
+  readonly body?: Record<string, unknown>;
+}
+
+const legacyMutationRequests: readonly LegacyMutationRequest[] = [
+  {
+    method: 'POST',
+    path: '/documents',
+    body: { name: '새 서류', required: true, sortOrder: 1 },
+  },
+  {
+    method: 'PATCH',
+    path: '/documents/synthetic-document',
+    body: { name: '수정 서류', required: true, sortOrder: 1 },
+  },
+  {
+    method: 'PATCH',
+    path: '/documents/order',
+    body: { documentIds: ['synthetic-document'] },
+  },
+  {
+    method: 'DELETE',
+    path: '/documents/synthetic-document',
+  },
+];
+
 it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', async () => {
   // Given / When
   const response = await fetch(
@@ -363,6 +394,9 @@ it('교직원은 legacy 서류 생성·수정·전체 순서 재부여·삭제�
   expect(orderResponse.status).toBe(200);
   await expect(orderResponse.json()).resolves.toMatchObject([
     { id: 'synthetic-document', sortOrder: 1 },
+  ]);
+  expect(reorderDocuments.mock.calls).toEqual([
+    ['synthetic-milestone', ['synthetic-document']],
   ]);
 
   const deleteResponse = await fetch(
@@ -1444,6 +1478,160 @@ function readHandlerGuards(propertyKey: string): unknown {
   )?.value;
   expect(typeof handler).toBe('function');
   return Reflect.getMetadata(GUARDS_METADATA, handler as object);
+}
+
+describe('legacy mutation route HTTP guard rejections', () => {
+  let guardedApplication: INestApplication | undefined;
+  let guardedBaseUrl = '';
+  let sessionGithubId = SESSION_GITHUB_ID;
+  const studentGithubId = SESSION_GITHUB_ID + 1n;
+  const rejectedStaffGithubId = SESSION_GITHUB_ID + 2n;
+  const allowedOrigin = 'https://jnu-oss-hub.com';
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [MilestoneDocumentsController],
+      providers: [
+        {
+          provide: MilestoneDocumentsService,
+          useValue: {
+            listForViewer,
+            collectForStaff,
+            submit,
+            createDocument,
+            updateDocument,
+            reorderDocuments,
+            deleteDocument,
+          },
+        },
+        { provide: MilestoneDocumentFilesService, useValue: {} },
+        { provide: MilestoneDocumentReviewsService, useValue: {} },
+        { provide: MilestoneDocumentArchiveService, useValue: {} },
+        MilestoneDocumentsStaffGuard,
+        OriginGuard,
+        { provide: AuthConfig, useValue: { allowedOrigin } },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findUnique: ({
+                where,
+              }: {
+                readonly where: { readonly githubId: bigint };
+              }) =>
+                Promise.resolve(
+                  where.githubId === SESSION_GITHUB_ID
+                    ? {
+                        id: 'synthetic-staff',
+                        hasStaffAccess: true,
+                        hasAdminAccess: false,
+                        accountStatus: AccountStatus.ACTIVE,
+                      }
+                    : {
+                        id: 'rejected-user',
+                        hasStaffAccess: false,
+                        hasAdminAccess: false,
+                        accountStatus: AccountStatus.ACTIVE,
+                      },
+                ),
+            },
+          },
+        },
+      ],
+    })
+      .overrideGuard(SessionGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext): boolean => {
+          context
+            .switchToHttp()
+            .getRequest<AuthenticatedRequest>().sessionGithubId =
+            sessionGithubId;
+          return true;
+        },
+      })
+      .compile();
+
+    guardedApplication = moduleRef.createNestApplication();
+    guardedApplication.setGlobalPrefix('api/v1');
+    guardedApplication.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
+    guardedApplication.useGlobalFilters(new ProblemDetailFilter());
+    await guardedApplication.listen(0, '127.0.0.1');
+    guardedBaseUrl = await guardedApplication.getUrl();
+  });
+
+  afterAll(async () => {
+    await guardedApplication?.close();
+  });
+
+  beforeEach(() => {
+    createDocument.mockClear();
+    updateDocument.mockClear();
+    reorderDocuments.mockClear();
+    deleteDocument.mockClear();
+  });
+
+  it.each([studentGithubId, rejectedStaffGithubId])(
+    'rejects session %s on every legacy mutation route before the writer',
+    async (githubId) => {
+      sessionGithubId = githubId;
+      await assertRejectedLegacyMutations(guardedBaseUrl, {
+        origin: allowedOrigin,
+      });
+    },
+  );
+
+  it.each([{}, { origin: 'https://attacker.example' }] as const)(
+    'rejects missing or foreign origin evidence on every legacy mutation route',
+    async (headers) => {
+      sessionGithubId = SESSION_GITHUB_ID;
+      await assertRejectedLegacyMutations(guardedBaseUrl, headers);
+    },
+  );
+
+  async function assertRejectedLegacyMutations(
+    applicationUrl: string,
+    headers: Readonly<Record<string, string | undefined>>,
+  ): Promise<void> {
+    for (const request of legacyMutationRequests) {
+      const response = await fetch(
+        `${applicationUrl}/api/v1/milestones/synthetic-milestone${request.path}`,
+        {
+          method: request.method,
+          headers: {
+            ...definedHeaders(headers),
+            ...(request.body === undefined
+              ? {}
+              : { 'content-type': 'application/json' }),
+          },
+          body:
+            request.body === undefined
+              ? undefined
+              : JSON.stringify(request.body),
+        },
+      );
+      expect(response.status).toBe(403);
+    }
+    expect(createDocument.mock.calls).toHaveLength(0);
+    expect(updateDocument.mock.calls).toHaveLength(0);
+    expect(reorderDocuments.mock.calls).toHaveLength(0);
+    expect(deleteDocument.mock.calls).toHaveLength(0);
+  }
+});
+
+function definedHeaders(
+  headers: Readonly<Record<string, string | undefined>>,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (value !== undefined) result[name] = value;
+  }
+  return result;
 }
 
 describe('교직원 전용 endpoint의 가드 구성', () => {

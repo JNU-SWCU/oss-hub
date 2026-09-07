@@ -161,7 +161,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return toMilestoneView(milestone);
   }
 
-  /** EXPAND-only legacy metadata update lookup; removed in CONTRACT. */
+  /** EXPAND-only legacy metadata lookup; see the EXPAND removal ledger. */
   async findMilestoneForUpdate(
     milestoneId: string,
   ): Promise<ProgramMilestoneTarget | null> {
@@ -188,7 +188,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     };
   }
 
-  /** EXPAND-only legacy metadata update writer; removed in CONTRACT. */
+  /** EXPAND-only legacy metadata writer; see the EXPAND removal ledger. */
   async updateMilestone(
     input: ProgramMilestoneUpdateInput,
   ): Promise<ProgramMilestoneView> {

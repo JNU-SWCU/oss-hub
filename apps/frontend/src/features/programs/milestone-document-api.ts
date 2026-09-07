@@ -173,8 +173,6 @@ export function getMilestoneDocumentParticipantHistory(
   );
 }
 
-/** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체). */
-
 /** 학생 — 제출용 파일을 먼저 올려 fileId를 받는다(제출 자체는 submitMilestoneDocument가 한다). */
 export function uploadMilestoneDocumentFile(
   milestoneId: string,
@@ -204,20 +202,6 @@ export function submitMilestoneDocument(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
     },
-  );
-}
-
-/** 교직원 — 서류 항목의 양식 파일을 올리거나 교체한다. */
-export function uploadMilestoneDocumentTemplate(
-  milestoneId: string,
-  documentId: string,
-  file: File,
-): Promise<UploadedMilestoneDocumentTemplate> {
-  const body = new FormData();
-  body.append('file', file);
-  return apiClient<UploadedMilestoneDocumentTemplate>(
-    `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/template`,
-    { method: 'POST', body },
   );
 }
 
