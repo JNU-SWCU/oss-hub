@@ -1,248 +1,106 @@
-import { expect, test } from '@playwright/test';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { expect, test } from './admin-session.fixture';
+import {
+  fixtureProgramId,
+  resetProgramAuthoringControl,
+} from './support/program-authoring-ui';
 
-const programId = 'program-p5';
-const milestoneId = 'milestone-p5';
-const documentId = 'document-p5';
-const firstFile = '운영 결과보고서 최종본 2026.docx';
+const milestoneId = 'e2e:program-authoring:milestone';
+const documentId = 'e2e:program-authoring:document';
+const firstFile = '운영 결과보고서 최종본 2026.pdf';
 const replacementFile =
-  '운영 결과보고서_최종_수정본_교직원_검토완료_증빙자료_모음_2026년도_오픈소스_프로젝트_v12.docx';
+  '운영 결과보고서_최종_수정본_교직원_검토완료_증빙자료_모음_2026년도_오픈소스_프로젝트_v12.pdf';
 
+// 현행 편집기는 모달의 한 번 저장으로 파일을 반영한다. 행의 다운로드와
+// 재업로드 후 reload 보존을 실제 API와 저장된 바이트로 확인한다.
 test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다', async ({
-  page,
-}) => {
-  const evidenceDir = '.omo/evidence/task-6-browser';
-  await mkdir(evidenceDir, { recursive: true });
-  let persistedFileName: string | null = null;
+  authSeedPage,
+  programAuthoringActorPage,
+}, testInfo) => {
+  const controlPage = await authSeedPage('admin-confirmed');
+  await resetProgramAuthoringControl(controlPage);
+  const programId = await fixtureProgramId(controlPage);
+  const page = await programAuthoringActorPage('staff');
   const requests: string[] = [];
-  const document = () => ({
-    id: documentId,
-    milestoneId,
-    name: '기획서',
-    required: true,
-    sortOrder: 1,
-    hasTemplateFile: persistedFileName !== null,
-    templateFileName: persistedFileName,
+  page.on('request', (request) => {
+    requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
   });
-
-  await page.route('**/api/v1/**', async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const path = url.pathname;
-    requests.push(`${request.method()} ${path}`);
-    if (path === '/api/v1/auth/session') {
-      await route.fulfill({
-        json: {
-          isAuthenticated: true,
-          user: {
-            nickname: 'qa',
-            name: 'QA',
-            email: null,
-            avatarUrl: null,
-            memberKind: 'STAFF',
-            hasStaffAccess: true,
-            hasAdminAccess: false,
-            isProfileComplete: true,
-          },
-        },
-      });
-      return;
-    }
-    if (
-      path === `/api/v1/programs/${programId}/edit` &&
-      request.method() === 'GET'
-    ) {
-      await route.fulfill({
-        json: {
-          id: programId,
-          name: 'P5 합성 프로그램',
-          organizer: 'QA',
-          trackType: 'EXTRACURRICULAR',
-          lifecycle: 'PUBLISHED',
-          applicationTemplateKey: 'basic',
-          applicationTemplateVersion: 1,
-          applicationCount: 0,
-          applicationStartAt: '2026-08-01T00:00:00.000Z',
-          applicationEndAt: '2026-08-15T00:00:00.000Z',
-          startAt: '2026-08-16T00:00:00.000Z',
-          endAt: '2026-08-31T00:00:00.000Z',
-          repositoryProvisioningEnabled: false,
-          notifyOnDeadline: false,
-          description: '',
-          teamMinSize: 1,
-          teamMaxSize: 4,
-          milestones: [
-            {
-              id: milestoneId,
-              name: '최종 제출',
-              startAt: '2026-08-16T00:00:00.000Z',
-              dueAt: '2026-08-31T00:00:00.000Z',
-              submissionType: 'FILE',
-              instructions: '',
-              requirements: [],
-            },
-          ],
-        },
-      });
-      return;
-    }
-    if (
-      path === `/api/v1/milestones/${milestoneId}/documents` &&
-      request.method() === 'GET'
-    ) {
-      await route.fulfill({ json: [document()] });
-      return;
-    }
-    if (
-      path ===
-        `/api/v1/milestones/${milestoneId}/documents/${documentId}/template` &&
-      request.method() === 'POST'
-    ) {
-      const body = await request.postDataBuffer();
-      const match = body?.toString('utf8').match(/filename="([^"]+)"/);
-      persistedFileName = match?.[1] ?? null;
-      await route.fulfill({
-        json: {
-          documentId,
-          hasTemplateFile: true,
-          fileName: persistedFileName,
-          uploadedAt: '2026-08-20T00:00:00.000Z',
-        },
-      });
-      return;
-    }
-    if (
-      path ===
-        `/api/v1/milestones/${milestoneId}/documents/${documentId}/template` &&
-      request.method() === 'GET'
-    ) {
-      await route.fulfill({
-        status: 200,
-        contentType:
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        headers: {
-          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(persistedFileName ?? '')}`,
-        },
-        body: 'synthetic-docx',
-      });
-      return;
-    }
-    if (
-      path === `/api/v1/milestones/${milestoneId}/documents/${documentId}` &&
-      request.method() === 'DELETE'
-    ) {
-      await route.fulfill({ status: 204, body: '' });
-      return;
-    }
-    if (path === `/api/v1/milestones/${milestoneId}/documents/order`) {
-      await route.fulfill({ json: [document()] });
-      return;
-    }
-    await route.fulfill({ json: null });
-  });
-
-  await page.goto(`/programs/${programId}/edit#milestones`);
-  await page.locator('#milestones').scrollIntoViewIfNeeded();
-  await writeFile(
-    `${evidenceDir}/initial-text.txt`,
-    await page.locator('body').innerText(),
-  );
-  const toggle = page.getByRole('button', { name: /제출 항목/ });
-  const section = toggle.locator('xpath=../..');
-  await expect(toggle).toBeAttached();
-  await toggle.click();
-  await expect(section.getByText('양식 올리기')).toBeVisible();
-  await expect(section.getByText(firstFile)).toHaveCount(0);
-  await page.screenshot({
-    path: `${evidenceDir}/01-no-template.png`,
-    fullPage: true,
-  });
-
-  const chooser = page.getByLabel('기획서 양식 파일 선택');
-  await chooser.setInputFiles({
+  await page.goto(`/programs/${encodeURIComponent(programId)}/edit`);
+  const card = page.locator(`[data-canonical-id="${milestoneId}"]`);
+  await expect(card.getByRole('link')).toHaveCount(0);
+  await card.getByRole('button', { name: /수정$/ }).click();
+  const dialog = page.getByRole('dialog');
+  const item = dialog.getByRole('group', { name: `${documentId} 제출 항목` });
+  await expect(
+    item.locator('button[aria-label="첨부파일 업로드"]'),
+  ).toBeVisible();
+  await expect(item.getByRole('button', { name: /순서 이동$/ })).toBeDisabled();
+  await expect(
+    item.getByRole('button', { name: '제출물 이름 수정' }),
+  ).toBeVisible();
+  await item.locator('input[type="file"]').setInputFiles({
     name: firstFile,
-    mimeType:
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    buffer: Buffer.from('first'),
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\nfirst\n'),
   });
-  await expect(section.getByText(firstFile, { exact: true })).toBeVisible();
-  await expect(section.locator('a[download]').first()).toHaveAttribute(
+  await expect(item).toContainText(firstFile);
+  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const firstLink = card.getByRole('link', { name: firstFile, exact: true });
+  await expect(firstLink).toBeVisible();
+  await expect(firstLink).toHaveAttribute('download', firstFile);
+  await expect(firstLink).toHaveAttribute(
     'href',
-    /milestones\/milestone-p5\/documents\/document-p5\/template/,
+    `/api/v1/milestones/${encodeURIComponent(milestoneId)}/documents/${encodeURIComponent(documentId)}/template`,
   );
-  await expect(section.locator('a[download]').first()).toHaveAttribute(
-    'title',
-    firstFile,
-  );
-  await page.screenshot({
-    path: `${evidenceDir}/02-uploaded.png`,
-    fullPage: true,
-  });
 
-  await chooser.setInputFiles({
+  await card.getByRole('button', { name: /수정$/ }).click();
+  await expect(
+    item.locator('button[aria-label="첨부파일 재업로드"]'),
+  ).toBeVisible();
+  const replacementBytes = Buffer.from('%PDF-1.4\nreplacement\n');
+  await item.locator('input[type="file"]').setInputFiles({
     name: replacementFile,
-    mimeType:
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    buffer: Buffer.from('replacement'),
+    mimeType: 'application/pdf',
+    buffer: replacementBytes,
   });
-  await expect(
-    section.getByText(replacementFile, { exact: true }),
-  ).toBeVisible();
-  const downloadHref = await section
-    .locator('a[download]')
-    .first()
-    .getAttribute('href');
-  expect(downloadHref).not.toBeNull();
-  if (downloadHref === null) throw new Error('Download href is missing.');
-  const downloadResponse = await page.evaluate(async (href) => {
-    const response = await fetch(href);
-    return {
-      status: response.status,
-      disposition: response.headers.get('content-disposition'),
-      body: await response.text(),
-    };
-  }, downloadHref);
-  expect(downloadResponse.status).toBe(200);
-  expect(downloadResponse.disposition).toContain(
-    encodeURIComponent(replacementFile),
-  );
-  await writeFile(
-    `${evidenceDir}/template-download.docx`,
-    downloadResponse.body,
-  );
+  await expect(item).toContainText(replacementFile);
+  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   await page.reload();
-  await section.getByRole('button', { name: /제출 항목/ }).click();
+  const link = card.getByRole('link', { name: replacementFile, exact: true });
+  await expect(link).toBeVisible();
   await expect(
-    section.getByText(replacementFile, { exact: true }),
-  ).toBeVisible();
+    card.getByRole('link', { name: firstFile, exact: true }),
+  ).toHaveCount(0);
+  const downloadPromise = page.waitForEvent('download');
+  await link.click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe(replacementFile);
+  const downloadPath = testInfo.outputPath('replacement.pdf');
+  await download.saveAs(downloadPath);
+  expect(await readFile(downloadPath)).toEqual(replacementBytes);
 
-  await expect(
-    section.getByRole('button', { name: '기획서 순서 이동' }),
-  ).toBeDisabled();
-  await expect(
-    section.getByRole('button', { name: '수정', exact: true }),
-  ).toBeVisible();
-  const deleteButton = section.getByRole('button', {
-    name: '삭제',
-    exact: true,
-  });
-  await expect(deleteButton).toBeDisabled();
-  await expect(deleteButton).toHaveAttribute(
-    'title',
-    '마일스톤에는 제출 항목이 하나 이상 필요합니다.',
-  );
-  await expect(
-    section.getByText(replacementFile, { exact: true }),
-  ).toBeVisible();
-
-  await writeFile(
-    `${evidenceDir}/requests.json`,
-    JSON.stringify(requests, null, 2),
-  );
-  await page.screenshot({
-    path: `${evidenceDir}/03-reload-menu-constraints.png`,
-    fullPage: true,
-  });
-  expect(requests.some((request) => request.includes('storage'))).toBe(false);
+  await card.getByRole('button', { name: /수정$/ }).click();
+  await item.getByRole('button', { name: '제출 항목 삭제' }).click();
+  await expect(dialog.getByText('저장 시 삭제:')).toBeVisible();
+  await dialog.getByRole('button', { name: '취소', exact: true }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: '버리기' })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(link).toBeVisible();
   expect(requests.some((request) => request.includes('/preview'))).toBe(false);
+  expect(requests.some((request) => request.startsWith('DELETE '))).toBe(false);
+  const evidencePath = testInfo.outputPath('row-file-reload.png');
+  await card.screenshot({ path: evidencePath });
+  await testInfo.attach('row-file-reload', {
+    path: evidencePath,
+    contentType: 'image/png',
+  });
+  await testInfo.attach('requests', {
+    body: JSON.stringify(requests, null, 2),
+    contentType: 'application/json',
+  });
 });

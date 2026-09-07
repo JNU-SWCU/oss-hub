@@ -11,6 +11,7 @@ import {
 import {
   fixtureProgramId,
   originHeaders,
+  newApplicationResourceErrors,
   resetProgramAuthoringControl,
 } from './support/program-authoring-ui';
 
@@ -71,11 +72,15 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     await resetProgramAuthoringControl(controlPage);
     const programId = await fixtureProgramId(controlPage);
     const studentPage = await programAuthoringActorPage('student');
-    const foreignPage = await programAuthoringActorPage('foreignStudent');
+    const foreignPage = await programAuthoringActorPage(
+      'foreignStudent',
+      newApplicationResourceErrors(programId),
+    );
 
     await foreignPage.goto(`/programs/${encodeURIComponent(programId)}/apply`);
-    await foreignPage.waitForLoadState('networkidle');
-    await foreignPage.getByLabel('제목 *').fill('private OWN');
+    await foreignPage
+      .getByRole('button', { name: '팀 없이 계속', exact: true })
+      .click();
     await foreignPage
       .getByLabel('요약 *')
       .fill('공개가 아닌 저장소는 연결하지 않는다');
