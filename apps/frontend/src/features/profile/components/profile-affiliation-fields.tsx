@@ -2,7 +2,6 @@ import type { RefObject } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 import { DEPARTMENT_GROUPS } from '../departments';
 import type { ProfileMemberKind } from '../profile-requirements';
 import { PROFILE_DEPARTMENT_MAX_LENGTH } from '../profile-state';
@@ -76,15 +75,7 @@ export function ProfileAffiliationFields({
               name="affiliationName"
               ref={departmentRef}
               aria-required="true"
-              className={cn(
-                'aria-invalid:border-destructive aria-invalid:ring-3',
-                'aria-invalid:ring-destructive/20',
-                'dark:aria-invalid:border-destructive/50',
-                'dark:aria-invalid:ring-destructive/40',
-                '[&_optgroup]:bg-popover',
-                '[&_optgroup]:text-popover-foreground',
-                '[&_option]:bg-popover [&_option]:text-popover-foreground',
-              )}
+              className="aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_optgroup]:bg-popover [&_optgroup]:text-popover-foreground [&_option]:bg-popover [&_option]:text-popover-foreground"
               value={values.departmentOption}
               aria-invalid={showError}
               aria-describedby={showError ? AFFILIATION_ERROR_ID : undefined}
