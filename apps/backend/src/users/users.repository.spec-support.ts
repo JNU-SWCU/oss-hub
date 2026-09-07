@@ -25,6 +25,7 @@ export function usersRepositoryHarness(
   const staffAccessRequestCreate = jest
     .fn()
     .mockResolvedValue({ id: 'synthetic-request', status: 'PENDING' });
+  const auditRecord = jest.fn().mockResolvedValue({});
   const transaction = {
     $queryRaw: jest.fn().mockResolvedValue([]),
     user: {
@@ -43,6 +44,7 @@ export function usersRepositoryHarness(
       findFirst: staffAccessRequestFindFirst,
       create: staffAccessRequestCreate,
     },
+    auditLog: { create: jest.fn() },
   };
   const prisma = prismaServiceWith({
     user: { findUnique },
@@ -66,13 +68,18 @@ export function usersRepositoryHarness(
     userProfileFindUnique,
     staffAccessRequestFindFirst,
     staffAccessRequestCreate,
-    repository: new UsersRepository(prisma),
+    auditRecord,
+    transaction,
+    repository: new UsersRepository(prisma, { record: auditRecord }),
   };
 }
 
 function toRow(record: UserProfileRecord) {
   return {
     id: record.id,
+    githubId: record.githubId,
+    nickname: record.githubLogin,
+    phone: record.phone ?? null,
     selectedMemberKind: record.selectedMemberKind ?? null,
     hasStaffAccess: record.hasStaffAccess ?? false,
     hasAdminAccess: record.hasAdminAccess ?? false,

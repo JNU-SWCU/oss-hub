@@ -15,6 +15,7 @@ const input: PatchUserProfileInput = {
   name: '합성 사용자',
   studentId,
   department: '인공지능학부',
+  phone: '1'.repeat(11),
 };
 
 type StoredUser = {
@@ -22,6 +23,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
@@ -46,6 +48,7 @@ function buildService(
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
+          phone: null,
           role: null,
           selectedMemberKind: MemberKind.STUDENT,
           memberKind: null,
@@ -128,6 +131,7 @@ describe('역할별 필수 항목', () => {
       name: input.name,
       studentId: null,
       department: input.department,
+      phone: null,
       isComplete: true,
     });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
@@ -140,6 +144,29 @@ describe('역할별 필수 항목', () => {
       hasStaffAccess: false,
       hasAdminAccess: false,
     });
+  });
+
+  it('학생은 연락처가 있어야 가입을 완료한다', async () => {
+    // Given
+    const { service, completeProfileIfUnchanged } = buildService({
+      user: emptyUser('STUDENT'),
+    });
+
+    // When
+    const error = await captureDomainException(() =>
+      service.completeMyProfile(githubId, {
+        name: input.name,
+        studentId: input.studentId,
+        department: input.department,
+      }),
+    );
+
+    // Then
+    expect(error.errorCode).toMatchObject({
+      code: SystemErrorCode.VALIDATION_FAILED,
+      status: 400,
+    });
+    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
 
   it('교직원이 학과를 빠뜨리면 400 검증 오류로 거부한다', async () => {
@@ -179,6 +206,7 @@ describe('역할별 필수 항목', () => {
         ...emptyUser('STUDENT'),
         name: '합성 학생',
         studentId: legacyStudentId,
+        phone: input.phone,
       },
     });
 
@@ -191,6 +219,7 @@ describe('역할별 필수 항목', () => {
     // Then
     expect(profile).toMatchObject({
       studentId: legacyStudentId,
+      phone: input.phone,
       isComplete: true,
     });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {

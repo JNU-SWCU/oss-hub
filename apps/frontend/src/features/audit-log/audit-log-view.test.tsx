@@ -319,6 +319,62 @@ describe('AuditLogView', () => {
     expect(html).toContain('cuid-synthetic-application-2');
   });
 
+  it('USER_PHONE_UPDATED 행은 transition으로만 전화번호 감사 문장을 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-user-phone-set',
+            actor: 'synthetic-admin',
+            action: 'USER_PHONE_UPDATED',
+            targetType: 'USER',
+            targetId: 'user-synthetic-1',
+            target: 'synthetic-target-login',
+            occurredAt: '2026-09-07T03:00:00.000Z',
+            phoneTransition: 'SET',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain(
+      'synthetic-admin</span><span>님이 </span><span class="font-medium">@synthetic-target-login</span><span>님의 전화번호를 등록했습니다',
+    );
+    expect(html).toContain('전화번호 수정');
+    expect(html).toContain('USER_PHONE_UPDATED');
+    expect(html).not.toContain('synthetic-secret-phone-value');
+    expect(html).not.toContain('9999');
+  });
+
+  it('좁은 화면에서는 앞선 메타 열을 숨기고 전화번호 변경 문장을 줄바꿈해 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-user-phone-replaced-mobile',
+            actor: 'synthetic-admin',
+            action: 'USER_PHONE_UPDATED',
+            targetType: 'USER',
+            targetId: 'user-synthetic-mobile',
+            target: 'synthetic-target-login',
+            occurredAt: '2026-09-07T03:00:00.000Z',
+            phoneTransition: 'REPLACED',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html.match(/hidden[^\"]*md:table-cell/g)).toHaveLength(6);
+    expect(html).toContain('whitespace-normal');
+    expect(html).toContain('님의 전화번호를 변경했습니다');
+  });
+
   it('COLLECTION_SYNC_TRIGGERED 행은 폴백이어도 메타 라인에 runId를 보여주지 않는다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView

@@ -15,6 +15,7 @@ const input: PatchUserProfileInput = {
   name: '합성 사용자',
   studentId,
   department: '인공지능학부',
+  phone: '7'.repeat(10),
 };
 
 type StoredUser = {
@@ -22,6 +23,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
@@ -46,6 +48,7 @@ function buildService(
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
+          phone: null,
           role: null,
           selectedMemberKind: MemberKind.STUDENT,
           memberKind: null,
@@ -91,15 +94,17 @@ async function captureDomainException(
 }
 
 it('완료된 프로필은 이름·학과만 갱신한다', async () => {
+  const existingUser = {
+    id: 'synthetic-user',
+    name: input.name,
+    studentId,
+    department: input.department ?? null,
+    phone: null,
+    role: 'STUDENT' as const,
+  };
   const { service, completeProfileIfUnchanged, updateProfileFields } =
     buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId,
-        department: input.department ?? null,
-        role: 'STUDENT',
-      },
+      user: existingUser,
     });
 
   await expect(
@@ -111,9 +116,10 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
     name: '수정된 이름',
     studentId,
     department: '소프트웨어공학과',
+    phone: null,
     isComplete: true,
   });
-  expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
+  expect(updateProfileFields).toHaveBeenCalledWith(existingUser, {
     name: '수정된 이름',
     department: '소프트웨어공학과',
   });

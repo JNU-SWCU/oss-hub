@@ -16,9 +16,12 @@ import type { AffiliationKind, MemberKind } from '@prisma/client';
  */
 export interface UserProfileRecord {
   readonly id: string;
+  readonly githubId?: bigint;
+  readonly githubLogin?: string;
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone?: string | null;
   /**
    * 승인을 기다리는 교직원 접근 요청이 있는가.
    *
@@ -49,6 +52,7 @@ export type UserProfileFields = Pick<
 export const USER_NAME_MAX_LENGTH = 100;
 export const USER_DEPARTMENT_MAX_LENGTH = 100;
 const STUDENT_ID_PATTERN = /^\d{6}$/;
+const PHONE_PATTERN = /^\d{10,11}$/;
 
 /**
  * 회원 유형을 아직 알 수 없는 사용자에게 적용할 기준 — fail-closed.
@@ -126,6 +130,10 @@ export function isValidUserName(name: string): boolean {
 
 export function isValidStudentId(studentId: string): boolean {
   return STUDENT_ID_PATTERN.test(studentId);
+}
+
+export function isValidPhone(phone: string): boolean {
+  return PHONE_PATTERN.test(phone);
 }
 
 /**

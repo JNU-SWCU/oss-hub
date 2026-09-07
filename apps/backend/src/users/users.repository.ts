@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, StaffAccessRequestStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   fillStudentIdIfEmpty,
@@ -11,36 +12,19 @@ import type {
   UpdateProfileFieldsInput,
   UserProfileRecord,
 } from './domain/user-profile';
+import {
+  requireUserPhoneAuditRecord,
+  writeUserPhoneIfChanged,
+} from './user-phone-write';
+import {
+  PROFILE_MEMBER_SELECT,
+  sameProfileSnapshot,
+  toUserProfileRecord,
+} from './users.repository.profile-read';
 
 export type { StudentIdFillOutcome };
 export type ProfileCompletionOutcome =
   'completed' | 'conflict' | 'student-id-taken';
-
-const PROFILE_MEMBER_SELECT = {
-  id: true,
-  selectedMemberKind: true,
-  hasStaffAccess: true,
-  hasAdminAccess: true,
-  profile: {
-    select: {
-      name: true,
-      studentId: true,
-      department: true,
-      memberKind: true,
-      affiliationKind: true,
-      affiliationName: true,
-    },
-  },
-  staffAccessRequests: {
-    where: { status: StaffAccessRequestStatus.PENDING },
-    select: { id: true },
-    take: 1,
-  },
-} as const satisfies Prisma.UserSelect;
-
-type ProfileMemberRow = Prisma.UserGetPayload<{
-  select: typeof PROFILE_MEMBER_SELECT;
-}>;
 
 export interface UsersRepositoryPort {
   findByGithubId(githubId: bigint): Promise<UserProfileRecord | null>;
@@ -48,19 +32,26 @@ export interface UsersRepositoryPort {
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
   ): Promise<ProfileCompletionOutcome>;
-  fillStudentId(
-    expected: UserProfileRecord,
-    studentId: string,
-  ): Promise<StudentIdFillOutcome>;
+  fillStudentId(input: FillStudentIdInput): Promise<StudentIdFillOutcome>;
   updateProfileFields(
-    userId: string,
+    expected: UserProfileRecord,
     fields: UpdateProfileFieldsInput,
   ): Promise<void>;
 }
 
+export interface FillStudentIdInput {
+  readonly expected: UserProfileRecord;
+  readonly studentId: string;
+  readonly phone?: string;
+}
+
 @Injectable()
 export class UsersRepository implements UsersRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditLogService)
+    private readonly auditLog?: Pick<AuditLogService, 'record'>,
+  ) {}
 
   async findByGithubId(githubId: bigint): Promise<UserProfileRecord | null> {
     const user = await this.prisma.user.findUnique({
@@ -111,6 +102,14 @@ export class UsersRepository implements UsersRepositoryPort {
             hasAdminAccess: input.hasAdminAccess,
           },
         });
+        if (input.phone !== undefined) {
+          await writeUserPhoneIfChanged({
+            transaction,
+            auditLog: this.auditLog,
+            user: requireUserPhoneAuditRecord(expected),
+            phone: input.phone,
+          });
+        }
         await requestStaffAccess(transaction, {
           id: expected.id,
           memberKind: input.memberKind,
@@ -145,66 +144,100 @@ export class UsersRepository implements UsersRepositoryPort {
    * 학번이 실리는 쓰기는 예외 없이 이 경로를 지난다 — 이름·학과 갱신과 섞으면
    * 0행 갱신이 조용히 넘어가 학번이 사라진다.
    */
+  fillStudentId(input: FillStudentIdInput): Promise<StudentIdFillOutcome>;
   fillStudentId(
     expected: UserProfileRecord,
     studentId: string,
+  ): Promise<StudentIdFillOutcome>;
+  fillStudentId(
+    inputOrExpected: FillStudentIdInput | UserProfileRecord,
+    studentId?: string,
   ): Promise<StudentIdFillOutcome> {
-    return this.prisma.$transaction((transaction) =>
-      fillStudentIdIfEmpty(transaction, expected.id, studentId),
-    );
+    const input = toFillStudentIdInput(inputOrExpected, studentId);
+    return this.prisma.$transaction(async (transaction) => {
+      const outcome = await fillStudentIdIfEmpty(
+        transaction,
+        input.expected.id,
+        input.studentId,
+      );
+      if (outcome !== 'filled') {
+        return outcome;
+      }
+      if (input.phone !== undefined) {
+        await writeUserPhoneIfChanged({
+          transaction,
+          auditLog: this.auditLog,
+          user: requireUserPhoneAuditRecord(input.expected),
+          phone: input.phone,
+        });
+      }
+      return outcome;
+    });
   }
 
   /** 이름·소속만 갱신한다 — 학번은 이 경로로 오지 않는다(`fillStudentId`). */
   async updateProfileFields(
+    expected: UserProfileRecord,
+    fields: UpdateProfileFieldsInput,
+  ): Promise<void>;
+  async updateProfileFields(
     userId: string,
     fields: UpdateProfileFieldsInput,
+  ): Promise<void>;
+  async updateProfileFields(
+    expectedOrUserId: UserProfileRecord | string,
+    fields: UpdateProfileFieldsInput,
   ): Promise<void> {
-    await this.prisma.userProfile.update({
-      where: { userId },
-      data: {
-        name: fields.name,
-        department: fields.department,
-        affiliationName: fields.affiliationName ?? fields.department,
-        ...(fields.affiliationKind === undefined
-          ? {}
-          : { affiliationKind: fields.affiliationKind }),
-      },
+    if (typeof expectedOrUserId === 'string' && fields.phone !== undefined) {
+      throw new TypeError(
+        'Phone updates require a full user profile record for auditing.',
+      );
+    }
+    const expected =
+      typeof expectedOrUserId === 'string'
+        ? {
+            id: expectedOrUserId,
+            name: null,
+            studentId: null,
+            department: null,
+            phone: null,
+          }
+        : expectedOrUserId;
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.userProfile.update({
+        where: { userId: expected.id },
+        data: {
+          name: fields.name,
+          department: fields.department,
+          affiliationName: fields.affiliationName ?? fields.department,
+          ...(fields.affiliationKind === undefined
+            ? {}
+            : { affiliationKind: fields.affiliationKind }),
+        },
+      });
+      if (fields.phone !== undefined) {
+        await writeUserPhoneIfChanged({
+          transaction,
+          auditLog: this.auditLog,
+          user: requireUserPhoneAuditRecord(expected),
+          phone: fields.phone,
+        });
+      }
     });
   }
 }
 
-function toUserProfileRecord(user: ProfileMemberRow): UserProfileRecord {
-  const profile = user.profile;
-  return {
-    id: user.id,
-    name: profile?.name ?? null,
-    studentId: profile?.studentId ?? null,
-    department: profile?.department ?? null,
-    selectedMemberKind: user.selectedMemberKind,
-    memberKind: profile?.memberKind ?? null,
-    affiliationKind: profile?.affiliationKind ?? null,
-    affiliationName: profile?.affiliationName ?? null,
-    hasStaffAccess: user.hasStaffAccess,
-    hasAdminAccess: user.hasAdminAccess,
-    hasPendingStaffRequest: user.staffAccessRequests.length > 0,
-  };
-}
-
-function sameProfileSnapshot(
-  current: UserProfileRecord,
-  expected: UserProfileRecord,
-): boolean {
-  return (
-    current.name === expected.name &&
-    current.studentId === expected.studentId &&
-    current.department === expected.department &&
-    current.selectedMemberKind === expected.selectedMemberKind &&
-    current.memberKind === expected.memberKind &&
-    current.affiliationKind === expected.affiliationKind &&
-    current.affiliationName === expected.affiliationName &&
-    current.hasStaffAccess === expected.hasStaffAccess &&
-    current.hasAdminAccess === expected.hasAdminAccess
-  );
+function toFillStudentIdInput(
+  inputOrExpected: FillStudentIdInput | UserProfileRecord,
+  studentId: string | undefined,
+): FillStudentIdInput {
+  if ('expected' in inputOrExpected) {
+    return inputOrExpected;
+  }
+  if (studentId !== undefined) {
+    return { expected: inputOrExpected, studentId };
+  }
+  throw new TypeError('studentId is required.');
 }
 
 function profileWrite(input: CompleteUserProfileInput) {

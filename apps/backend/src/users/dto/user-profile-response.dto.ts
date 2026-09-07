@@ -4,12 +4,14 @@ export class UserProfileResponseDto {
   readonly name: string;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone: string | null;
   readonly isComplete: boolean;
 
   private constructor(profile: UserProfile) {
     this.name = profile.name;
     this.studentId = profile.studentId;
     this.department = profile.department;
+    this.phone = profile.phone;
     this.isComplete = profile.isComplete;
   }
 

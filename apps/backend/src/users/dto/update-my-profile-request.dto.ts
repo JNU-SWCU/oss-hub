@@ -37,6 +37,13 @@ export class UpdateMyProfileRequestDto {
   @Matches(/^\d{6}$/, { message: '학번은 숫자 6자리로 입력해 주세요.' })
   declare readonly studentId?: string;
 
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{10,11}$/, {
+    message: '연락처는 숫자 10~11자리로 입력해 주세요.',
+  })
+  declare readonly phone?: string;
+
   @ValidateIf(
     (request: UpdateMyProfileRequestDto) =>
       request.affiliationKind === undefined &&
@@ -70,6 +77,7 @@ export class UpdateMyProfileRequestDto {
       ...(typeof this.department === 'string'
         ? { department: this.department }
         : {}),
+      ...(typeof this.phone === 'string' ? { phone: this.phone } : {}),
       ...(typeof this.affiliationKind === 'string'
         ? { affiliationKind: parseAffiliationKind(this.affiliationKind) }
         : {}),
