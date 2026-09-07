@@ -201,17 +201,32 @@ function DeleteMilestoneDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="milestone-delete-title"
+      aria-describedby="milestone-delete-description"
     >
       <div className="w-full max-w-md rounded-card border border-border bg-background p-card shadow-lg">
+        {/*
+          제목이 결과를 말한다 — 이 삭제는 취소도 복구도 없으므로 「되돌릴 수 없이」가
+          제목에 들어간다. 같은 화면 「위험 영역」의 프로그램 영구 삭제
+          (program-edit-danger-zone-section.tsx)가 쓰는 표현을 그대로 따르고, 확인창
+          제목이 결과를 드러내는 방식은 program-edit-milestone-dialog.tsx 와 같다.
+
+          본문은 제목을 다시 말하지 않는다. 제목이 「지운다·되돌릴 수 없다」를 맡고,
+          본문은 제목이 말하지 않은 둘만 맡는다 — 마일스톤과 함께 무엇이 사라지는지,
+          그리고 언제 서버가 삭제를 거부하는지. 종전 본문의 첫 문장
+          (「… 마일스톤을 삭제합니다」)은 제목의 반복이었다.
+        */}
         <h2
           id="milestone-delete-title"
           className="font-heading text-section font-semibold tracking-[-0.02em]"
         >
-          마일스톤 삭제
+          마일스톤을 되돌릴 수 없이 삭제할까요?
         </h2>
-        <p className="mt-2 text-small text-muted-foreground">
-          {milestone.name} 마일스톤을 삭제합니다. 제출물이 있으면 삭제할 수
-          없습니다.
+        <p
+          id="milestone-delete-description"
+          className="mt-2 text-small text-muted-foreground [word-break:keep-all]"
+        >
+          {milestone.name}에 등록된 제출 항목과 양식 파일도 함께 삭제됩니다.
+          학생이 올린 제출물이 하나라도 있으면 삭제되지 않습니다.
         </p>
         <div className="mt-6 flex justify-end gap-2">
           <Button

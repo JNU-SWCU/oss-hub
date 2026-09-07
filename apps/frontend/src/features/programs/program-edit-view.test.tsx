@@ -281,7 +281,7 @@ describe('ProgramEditView contract', () => {
 
     // Then
     expect(html).toContain('role="dialog"');
-    expect(html).toContain('마일스톤 삭제');
+    expect(html).toContain('마일스톤을 되돌릴 수 없이 삭제할까요?');
     expect(html).toContain('삭제 확정');
     expect(html).toContain('제출물이 있는 마일스톤은 삭제할 수 없습니다');
     expect(html).toContain('role="status"');
