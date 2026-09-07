@@ -273,7 +273,8 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('필수 서류 없음');
     expect(html).toContain('0팀');
     expect(html).toContain('0단계');
-    expect(html).toContain('이 페이지 2건(전체 2건) 중 2건 표시');
+    expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
+    expect(html).not.toContain('이 페이지 2건(전체 2건) 중 2건 표시');
     // Then — 구현 중심 문구는 이 화면에서 쓰지 않는다(#865).
     expect(html).not.toContain('서류 칸');
     expect(html).not.toContain('빈 칸');
@@ -324,7 +325,15 @@ describe('SubmissionMatrixView', () => {
     // Then
     expect(html).toContain('홍길동 · 개인');
     expect(html).toContain('오픈소스팀(3) · 팀');
-    expect(html).toContain('중 2건 표시');
+    expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
+    expect(html).not.toContain('중 2건 표시');
+  });
+
+  it('여러 페이지에서는 전체 팀 수와 현재 페이지 범위를 구분한다', () => {
+    const html = render({ data: { ...matrixData, total: 47 } });
+    expect(html).toContain('전체 47팀 중 이 페이지 2팀.');
+    expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
+    expect(html).not.toContain('중 2건 표시');
   });
 
   it('필수 서류 없음 필터에 해당하는 팀이 없으면 빈 상태를 보여준다', () => {
