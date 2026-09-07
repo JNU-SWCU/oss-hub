@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import { SectionHeading } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import {
@@ -22,9 +21,6 @@ interface ProgramEditDangerZoneSectionProps {
    * 섹션은 아카이브 안내만 그린다 — 백엔드도 같은 판정으로 403을 던진다.
    */
   readonly canDeleteProgram: boolean;
-  /** true면 이 프로그램은 서버가 삭제·전체 삭제 둘 다 거부한다(F2 finding #1) — 삭제 권한이
-   * 있어도 API로 우회할 수 없으므로 버튼 자체를 비활성화한다. */
-  readonly deletionProtected?: boolean;
   /** 삭제 완료 후 목록으로 이동하면서 전달할 확인 문구. */
   readonly onDeleted?: (notice?: string) => void;
 }
@@ -62,7 +58,6 @@ export function ProgramEditDangerZoneSection({
   programId,
   programName,
   canDeleteProgram,
-  deletionProtected = false,
   onDeleted = (notice) =>
     window.location.assign(
       notice ? `/programs?purged=${encodeURIComponent(notice)}` : '/programs',
@@ -180,21 +175,11 @@ export function ProgramEditDangerZoneSection({
       <p className="text-body text-muted-foreground [word-break:keep-all]">
         연결된 데이터와 관련 기록을 포함해 되돌릴 수 없이 삭제합니다.
       </p>
-      {deletionProtected ? (
-        <Alert>
-          <AlertTitle>삭제 보호된 프로그램입니다</AlertTitle>
-          <AlertDescription>
-            이 프로그램은 삭제 보호가 설정되어 관리자도 삭제하거나 전체 삭제할
-            수 없습니다.
-          </AlertDescription>
-        </Alert>
-      ) : null}
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           type="button"
           variant="destructive"
           ref={triggerRef}
-          disabled={deletionProtected}
           onClick={() => open('purge')}
         >
           프로그램 영구 삭제

@@ -103,8 +103,8 @@ export class ProgramLifecycleService {
    * 권한은 #1095에서 ADMIN 전용에서 교직원 전권으로 넓혔다 — 관리자는 시스템이 잘 도는지
    * 보는 역할이고 행사를 운영하는 것은 교직원이라, 프로그램 삭제가 ADMIN 전용인 것 자체가
    * 역할 정의와 어긋났다. #875가 정한 「STAFF는 작성자여도 403」 계약을 뒤집는다. 넓힌 것은
-   * **누가** 하는가 하나이며, 무엇을 지우는지·409 차단 조건·`deletionProtected`·감사 로그는
-   * 그대로다. 관리자 권한도 좁히지 않는다.
+   * **누가** 하는가 하나이며, 무엇을 지우는지·409 차단 조건·감사 로그는 그대로다.
+   * 관리자 권한도 좁히지 않는다.
    */
   async delete(
     githubId: bigint,
@@ -134,7 +134,6 @@ export class ProgramLifecycleService {
           id: true,
           name: true,
           lifecycle: true,
-          deletionProtected: true,
         },
       });
       if (!program) {
@@ -142,12 +141,6 @@ export class ProgramLifecycleService {
           PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
         );
       }
-      if (program.deletionProtected) {
-        throw new DomainException(
-          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
-        );
-      }
-
       const blockingCounts = await this.countDeletionBlockers(
         transaction,
         programId,
@@ -214,7 +207,7 @@ export class ProgramLifecycleService {
    * `delete`와 같은 이유로 #1095에서 교직원까지 넓혔다 — 지금 자식 데이터 없이 지울 수 있는
    * 프로그램이 없어 「일반 삭제만 교직원에게」는 실질적으로 아무것도 바꾸지 못하기 때문에,
    * 두 경로를 함께 옮긴다. 아래 확인 절차(범위 스냅샷 재확인·이름 재입력은 화면 몫)와
-   * `deletionProtected`·감사 로그는 조금도 약해지지 않는다.
+   * 감사 로그는 조금도 약해지지 않는다.
    *
    * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해
    * DELETE_PENDING으로 전환한다. phase 2 worker만 storage port를 호출한다.
@@ -256,7 +249,6 @@ export class ProgramLifecycleService {
               id: true,
               name: true,
               lifecycle: true,
-              deletionProtected: true,
             },
           });
           if (!program) {
@@ -264,12 +256,6 @@ export class ProgramLifecycleService {
               PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
             );
           }
-          if (program.deletionProtected) {
-            throw new DomainException(
-              PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_PROTECTED],
-            );
-          }
-
           // TOCTOU 재확인: 확인 화면이 읽은 이후 생긴 행이 있으면 클라이언트가 보지 못한 채
           // 지워지는 것을 막는다. purgeProgramTree와 같은 트랜잭션 안에서 읽어야
           // 이 비교와 실제 삭제 사이에 또 다른 틀이 생기지 않는다.

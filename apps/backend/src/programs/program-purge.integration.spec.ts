@@ -1343,36 +1343,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
   });
 
   // 안전장치 회귀 (#1095): 삭제 보호는 권한과 무관하다 — 교직원도 두 경로 모두에서 막힌다.
-  it('deletionProtected=true면 STAFF의 delete·purge도 409 PRG_013으로 거부하고 데이터는 그대로 남는다', async () => {
-    const fixture = await seedFullChildGraph('staff-protected');
-    await prisma.program.update({
-      where: { id: fixture.programId },
-      data: { deletionProtected: true },
-    });
-    const before = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
-    ]);
-    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
-
-    await expect(
-      lifecycle.delete(STAFF_GITHUB_ID, fixture.programId),
-    ).rejects.toMatchObject({
-      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
-    });
-    await expect(
-      lifecycle.purge(STAFF_GITHUB_ID, fixture.programId, expectedScope),
-    ).rejects.toMatchObject({
-      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
-    });
-
-    await expect(
-      prisma.program.findUnique({ where: { id: fixture.programId } }),
-    ).resolves.toMatchObject({ deletionProtected: true });
-    const after = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
-    ]);
-    expect(after).toEqual(before);
-  });
 
   // 안전장치 회귀 (#1095): 일반 삭제의 409 차단 조건도 그대로다 — 교직원이라고 학생
   // 데이터가 붙은 프로그램을 강제로 지울 수 있게 되지 않는다.
@@ -1501,49 +1471,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(externalRepository?.programId).toBe(fixture.programId);
   });
 
-  it('deletionProtected=true인 프로그램은 가드 delete와 purge 모두 409 PRG_013으로 거부하고 ADMIN도 우회하지 못하며 데이터는 그대로 남는다', async () => {
-    const fixture = await seedFullChildGraph('protected');
-    await prisma.program.update({
-      where: { id: fixture.programId },
-      data: { deletionProtected: true },
-    });
-    const before = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
-    ]);
-
-    const protectedExpectedScope = await currentDeletionScopeCounts(
-      fixture.programId,
-    );
-    await expect(
-      lifecycle.delete(ADMIN_GITHUB_ID, fixture.programId),
-    ).rejects.toMatchObject({
-      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
-    });
-    await expect(
-      lifecycle.purge(
-        ADMIN_GITHUB_ID,
-        fixture.programId,
-        protectedExpectedScope,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED },
-    });
-
-    await expect(
-      prisma.program.findUnique({ where: { id: fixture.programId } }),
-    ).resolves.toMatchObject({ deletionProtected: true });
-    const after = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
-    ]);
-    expect(after).toEqual(before);
-  });
-
-  it('deletionProtected=false(기본값)인 프로그램은 기존과 동일하게 삭제·purge가 가능하다', async () => {
+  it('전체 삭제는 연결된 프로그램 트리를 삭제한다', async () => {
     const fixture = await seedFullChildGraph('unprotected');
-
-    await expect(
-      prisma.program.findUnique({ where: { id: fixture.programId } }),
-    ).resolves.toMatchObject({ deletionProtected: false });
 
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     const result = await lifecycle.purge(
