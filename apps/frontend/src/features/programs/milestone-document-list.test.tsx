@@ -52,6 +52,20 @@ function jsonResponse(body: unknown): Response {
   });
 }
 
+function problemResponse(status: number, code: string): Response {
+  return new Response(
+    JSON.stringify({
+      type: 'about:blank',
+      title: 'Request failed',
+      status,
+      detail: '합성 이력 조회 실패',
+      instance: '/x',
+      code,
+    }),
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  );
+}
+
 describe('MilestoneDocumentSection response recovery', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -980,6 +994,96 @@ describe('학생 행이 판정을 읽는 방식', () => {
         '[data-testid="milestone-document-history-error"]',
       ),
     ).toBeNull();
+  });
+
+  it('MSD_005 이력 조회 거절은 안내만 보이고 다시 시도를 주지 않는다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse(403, 'MSD_005')),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-forbidden"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(container.textContent).toContain(
+      '제출 이력은 신청이 승인된 참여자만 볼 수 있습니다.',
+    );
+    expect(buttonTexts()).not.toContain('다시 시도');
+    expect(
+      container.querySelector(
+        '[data-testid="milestone-document-history-error"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('MSD_005가 아닌 ApiError 이력 조회 실패는 다시 시도 경고를 보인다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse(500, 'MSD_999')),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('다시 시도');
+  });
+
+  it('403 API_000 이력 조회 실패도 다시 시도 경고를 보인다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse(403, 'API_000')),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('다시 시도');
+    expect(
+      container.querySelector(
+        '[data-testid="milestone-document-history-forbidden"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('ApiError가 아닌 이력 조회 실패도 다시 시도 경고를 보인다', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network')));
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('다시 시도');
   });
 
   /**
