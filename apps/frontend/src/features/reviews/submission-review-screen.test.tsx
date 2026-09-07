@@ -1,102 +1,16 @@
-import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment happy-dom
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createReview, getReviewContext, publishRepository } from './api';
 import { SubmissionReviewScreen } from './components/submission-review-screen';
 import type { SubmissionReviewViewProps } from './components/submission-review-view';
 import type { ReviewContext } from './types';
 
-type StateSetter<T> = (nextValue: T | ((previous: T) => T)) => void;
-
 const reviewView = vi.hoisted(() => ({
   props: null as SubmissionReviewViewProps | null,
 }));
-
-const hooks = vi.hoisted(() => {
-  const slots: unknown[] = [];
-  let cursor = 0;
-  let effects: Array<() => void> = [];
-
-  function depsChanged(
-    previous: readonly unknown[] | undefined,
-    next: readonly unknown[] | undefined,
-  ): boolean {
-    return (
-      next === undefined ||
-      previous === undefined ||
-      previous.length !== next.length ||
-      next.some((value, index) => !Object.is(value, previous[index]))
-    );
-  }
-
-  function begin(): void {
-    cursor = 0;
-    effects = [];
-  }
-
-  function reset(): void {
-    slots.length = 0;
-    begin();
-  }
-
-  function run(): void {
-    const pendingEffects = effects;
-    effects = [];
-    for (const effect of pendingEffects) effect();
-  }
-
-  function useCallback<T extends (...args: readonly never[]) => unknown>(
-    value: T,
-    deps: readonly unknown[] | undefined,
-  ): T {
-    const index = cursor;
-    cursor += 1;
-    const previous = slots[index] as
-      | { readonly deps: readonly unknown[] | undefined; readonly value: T }
-      | undefined;
-    if (previous && !depsChanged(previous.deps, deps)) return previous.value;
-    slots[index] = { deps, value };
-    return value;
-  }
-
-  function useEffect(
-    effect: () => void,
-    deps: readonly unknown[] | undefined,
-  ): void {
-    const index = cursor;
-    cursor += 1;
-    const previous = slots[index] as readonly unknown[] | undefined;
-    if (!depsChanged(previous, deps)) return;
-    slots[index] = deps;
-    effects.push(effect);
-  }
-
-  function useState<T>(initialValue: T): [T, StateSetter<T>] {
-    const index = cursor;
-    cursor += 1;
-    if (slots[index] === undefined) slots[index] = initialValue;
-    const setState: StateSetter<T> = (nextValue) => {
-      const previous = slots[index] as T;
-      slots[index] =
-        typeof nextValue === 'function'
-          ? (nextValue as (previous: T) => T)(previous)
-          : nextValue;
-    };
-    return [slots[index] as T, setState];
-  }
-
-  return { begin, reset, run, useCallback, useEffect, useState };
-});
-
-vi.mock('react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react')>();
-  return {
-    ...actual,
-    useCallback: hooks.useCallback,
-    useEffect: hooks.useEffect,
-    useState: hooks.useState,
-  };
-});
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ back: vi.fn() }),
@@ -146,31 +60,28 @@ function currentProps(): SubmissionReviewViewProps {
   return reviewView.props;
 }
 
-function renderScreen(): void {
-  hooks.begin();
-  renderToStaticMarkup(
-    SubmissionReviewScreen({ submissionId: 'submission-existing' }),
-  );
-  hooks.run();
-}
-
-async function flushAsyncWork(): Promise<void> {
-  for (let tick = 0; tick < 10; tick += 1) await Promise.resolve();
-}
-
+let root: Root;
+let container: HTMLDivElement;
 async function renderReadyScreen(): Promise<void> {
-  renderScreen();
-  await flushAsyncWork();
-  renderScreen();
+  await act(async () =>
+    root.render(<SubmissionReviewScreen submissionId="submission-existing" />),
+  );
 }
 
 beforeEach(() => {
-  hooks.reset();
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
   reviewView.props = null;
-  vi.mocked(getReviewContext).mockReset();
+  vi.mocked(getReviewContext).mockReset().mockResolvedValue(CONTEXT);
   vi.mocked(createReview).mockReset();
   vi.mocked(publishRepository).mockReset();
-  vi.mocked(getReviewContext).mockResolvedValue(CONTEXT);
+});
+afterEach(async () => {
+  await act(async () => root.unmount());
+  container.remove();
+  vi.unstubAllGlobals();
 });
 
 describe('SubmissionReviewScreen 실패 안내 (#354)', () => {
@@ -178,15 +89,13 @@ describe('SubmissionReviewScreen 실패 안내 (#354)', () => {
     // Given — 판정과 코멘트를 채운 뒤 저장이 네트워크 오류로 실패한다.
     vi.mocked(createReview).mockRejectedValue(new Error('network down'));
     await renderReadyScreen();
-    currentProps().onDecisionChange('CHANGES_REQUESTED');
-    renderScreen();
-    currentProps().onCommentChange('실행 화면 캡처를 추가해 주세요.');
-    renderScreen();
+    await act(async () => currentProps().onDecisionChange('CHANGES_REQUESTED'));
+    await act(async () =>
+      currentProps().onCommentChange('실행 화면 캡처를 추가해 주세요.'),
+    );
 
     // When
-    currentProps().onSave();
-    await flushAsyncWork();
-    renderScreen();
+    await act(async () => currentProps().onSave());
 
     // Then — 문구가 "유지했다"고 말하고, 화면 상태도 실제로 유지한다.
     const props = currentProps();
@@ -205,13 +114,30 @@ describe('SubmissionReviewScreen 실패 안내 (#354)', () => {
     await renderReadyScreen();
 
     // When
-    currentProps().onPublish();
-    await flushAsyncWork();
-    renderScreen();
+    await act(async () => currentProps().onPublish());
 
     // Then
     const message = currentProps().publishError ?? '';
     expect(message).toContain('현재 공개 상태를 확인한 뒤 다시 시도해 주세요');
     expect(message).not.toBe('저장소를 공개 전환하지 못했습니다.');
   });
+});
+
+it('a callback for an older revision cannot acknowledge a newer submission', async () => {
+  await renderReadyScreen();
+  vi.mocked(getReviewContext).mockResolvedValue({
+    ...CONTEXT,
+    currentRevision: { ...CONTEXT.currentRevision, number: 3 },
+  });
+  await act(async () => window.dispatchEvent(new Event('focus')));
+  const acknowledgeThird = currentProps().onAcknowledge;
+  expect(currentProps().needsAcknowledgement).toBe(true);
+  vi.mocked(getReviewContext).mockResolvedValue({
+    ...CONTEXT,
+    currentRevision: { ...CONTEXT.currentRevision, number: 4 },
+  });
+  await act(async () => window.dispatchEvent(new Event('focus')));
+  await act(async () => acknowledgeThird?.());
+  expect(currentProps().needsAcknowledgement).toBe(true);
+  expect(currentProps().decision).toBe('');
 });
