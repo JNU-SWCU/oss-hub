@@ -227,13 +227,10 @@ describe('UsersRepository profile field updates', () => {
         phone: replacementPhoneDigits,
       }),
     ).rejects.toThrow('synthetic audit failure');
-    expect(auditRecord).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'USER_PHONE_UPDATED',
-        metadata: expect.objectContaining({ transition: 'REPLACED' }),
-      }),
-      transaction,
-    );
+    const [auditInput, auditTransaction] = auditRecord.mock.calls[0] ?? [];
+    expect(auditInput?.action).toBe('USER_PHONE_UPDATED');
+    expect(auditInput?.metadata).toMatchObject({ transition: 'REPLACED' });
+    expect(auditTransaction).toBe(transaction);
   });
 });
 
@@ -283,8 +280,13 @@ describe('UsersRepository 학번 최초 저장', () => {
       affiliationKind: AffiliationKind.DEPARTMENT,
       affiliationName: '인공지능학부',
     });
-    const { repository, userProfileUpdateMany, userUpdate, auditRecord } =
-      harness(expected);
+    const {
+      repository,
+      userProfileUpdateMany,
+      userUpdate,
+      auditRecord,
+      transaction,
+    } = harness(expected);
     userProfileUpdateMany.mockResolvedValue({ count: 1 });
 
     // When
@@ -300,13 +302,10 @@ describe('UsersRepository 학번 최초 저장', () => {
       where: { id: expected.id },
       data: { phone: phoneDigits },
     });
-    expect(auditRecord).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'USER_PHONE_UPDATED',
-        metadata: expect.objectContaining({ transition: 'SET' }),
-      }),
-      expect.anything(),
-    );
+    const [auditInput, auditTransaction] = auditRecord.mock.calls[0] ?? [];
+    expect(auditInput?.action).toBe('USER_PHONE_UPDATED');
+    expect(auditInput?.metadata).toMatchObject({ transition: 'SET' });
+    expect(auditTransaction).toBe(transaction);
   });
 
   it('다른 계정이 소유한 학번은 쓰지 않고 taken을 돌려준다', async () => {

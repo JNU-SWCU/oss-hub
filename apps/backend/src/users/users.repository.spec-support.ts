@@ -1,9 +1,25 @@
+import type { AuditLogRecord } from '../audit-log/audit-log.repository';
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersRepository } from './users.repository';
 import type { UserProfileRecord } from './user-profile-policy';
 import { profileRecord } from './member-authority-test-fixtures';
 
 type TransactionCallback<T> = (transaction: unknown) => Promise<T>;
+
+const auditLogRecord = {
+  id: 'synthetic-audit-record',
+  actor: 'synthetic-user',
+  actorHandle: null,
+  action: 'SYNTHETIC',
+  targetType: 'USER',
+  targetId: 'synthetic-user',
+  target: 'synthetic-user',
+  targetHandle: null,
+  occurredAt: new Date(0),
+  legacy: true,
+  metadata: null,
+} satisfies AuditLogRecord;
 
 function prismaServiceWith(overrides: object): PrismaService {
   return Object.assign(new PrismaService(), overrides);
@@ -25,7 +41,12 @@ export function usersRepositoryHarness(
   const staffAccessRequestCreate = jest
     .fn()
     .mockResolvedValue({ id: 'synthetic-request', status: 'PENDING' });
-  const auditRecord = jest.fn().mockResolvedValue({});
+  const auditRecord = jest
+    .fn<
+      ReturnType<AuditLogService['record']>,
+      Parameters<AuditLogService['record']>
+    >()
+    .mockResolvedValue(auditLogRecord);
   const transaction = {
     $queryRaw: jest.fn().mockResolvedValue([]),
     user: {
