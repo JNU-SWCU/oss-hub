@@ -272,7 +272,7 @@ test.describe('마일스톤 편집 재구성', () => {
       .getByLabel('e2e:canonical-milestone 종료일')
       .fill(nextDate(originalDueDate));
     await scheduleDialog
-      .getByRole('button', { name: '마일스톤 저장', exact: true })
+      .getByRole('button', { name: '날짜 적용', exact: true })
       .click();
     const item = dialog.getByRole('group', {
       name: `${originalDocumentName} 제출 항목`,
