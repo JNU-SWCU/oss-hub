@@ -22,11 +22,11 @@ import type { ApplicationStatus, ViewerRole } from './types';
  */
 
 /**
- * 못 내는 두 갈래. 학생이 다음에 할 일이 서로 달라 문구도 갈린다 — 신청 전은 신청서를
- * 써야 하고, 승인 대기는 기다리면 된다.
+ * 못 내는 세 갈래. 학생이 다음에 할 일이 서로 달라 문구도 갈린다 — 신청 전은 신청서를
+ * 써야 하고, 승인 대기는 기다리면 되고, 반려는 **기다려도 열리지 않는다**.
  */
 export type MilestoneSubmissionBlockedReason =
-  'NOT_APPLIED' | 'AWAITING_DECISION';
+  'NOT_APPLIED' | 'AWAITING_DECISION' | 'REJECTED_APPLICATION';
 
 export interface BlockedMilestoneSubmissionAccess {
   readonly kind: 'blocked';
@@ -40,30 +40,10 @@ export interface BlockedMilestoneSubmissionAccess {
   readonly buttonNote: string;
 }
 
-/**
- * 이 화면이 **아직 답을 정하지 않은** 상태 — 지금은 반려 하나뿐이다.
- *
- * 반려된 학생에게 무엇을 보여줄지는 신청 전·승인 대기와 같은 판단이 아니다. 반려 사유를
- * 어디서 어떻게 읽게 할지가 먼저 정해져야 하는데 그것은 이 티켓(#1098)의 범위가 아니라,
- * 답을 지어내는 대신 **#1098 이전 화면 그대로** 둔다: 마일스톤 줄은 옛 문구(「신청 승인
- * 후…」)를 적고, 「올리기」는 눌리는 채로 남아 서버가 403(MSD_005)으로 막는다.
- *
- * ⚠ 여기에 새 상태를 얹기 전에, 그 상태의 화면을 정하고 `blocked`로 옮기는 것이 순서다.
- * 이 갈래가 늘어나는 것은 답을 미룬 자리가 늘어난다는 뜻이다.
- */
-export interface UnchangedMilestoneSubmissionAccess {
-  readonly kind: 'unchanged';
-}
-
 export type MilestoneSubmissionAccess =
-  | { readonly kind: 'open' }
-  | UnchangedMilestoneSubmissionAccess
-  | BlockedMilestoneSubmissionAccess;
+  { readonly kind: 'open' } | BlockedMilestoneSubmissionAccess;
 
 const OPEN = { kind: 'open' } as const satisfies MilestoneSubmissionAccess;
-const UNCHANGED = {
-  kind: 'unchanged',
-} as const satisfies MilestoneSubmissionAccess;
 
 /**
  * 학생이 아닌 사람은 이 문이 대상이 아니다 — 교직원·관리자는 서류 수합 쪽 행을 보고,
@@ -94,6 +74,33 @@ export function milestoneSubmissionAccess(viewer: {
         buttonNote: '승인 후 제출할 수 있습니다',
       };
     case 'REJECTED':
-      return UNCHANGED;
+      /*
+       * #1098은 이 갈래를 **일부러 비워 두었다**(`kind: 'unchanged'`) — 반려 학생에게
+       * 무엇을 보여줄지는 반려 사유를 어디서 읽게 할지와 함께 정해야 하는 판단이라
+       * 그 티켓에서 답을 지어내지 않았다. 그동안 화면은 「올리기」를 눌리는 채로 두었고,
+       * 파일까지 고른 학생이 그제서야 403(MSD_006)을 받았다. #1206에서 답을 정한다.
+       *
+       * 왜 이제 정해졌나 — 세 가지가 확인됐다.
+       *   1. 서버 규칙은 「반려가 아니면 통과」가 아니라 **「승인이면 통과」**다
+       *      (`if (!application.approved) 403 MSD_006`). 제출도 파일 업로드도 함께
+       *      거절되므로 잠그는 것은 없던 제약을 만드는 게 아니라 있는 제약을 옮겨 적는
+       *      것이다. 검토 대기가 이미 잠겨 있는 이상 반려만 열어 둘 근거가 없다.
+       *   2. 반려 사유가 학생에게 닿는 통로는 **신청 상세 화면 하나뿐**이고, 학생
+       *      대시보드의 반려 알림도 이미 같은 곳으로 보낸다. 두 화면이 같은 말을 한다.
+       *   3. 그러므로 문구는 승인 대기와 **달라야 한다** — 승인 대기는 기다리면 열리지만
+       *      반려는 교직원이 「검토 대기로」를 눌러 주어야만 열린다.
+       *
+       * ⚠ 「다시 신청해 주세요」라고 쓰지 않는다. 반려된 신청서는 수정도 취소도 되지 않고,
+       * 한 팀당 신청은 하나이며 신청이 붙은 팀에서는 나갈 수도 없다 — 학생이 신청 화면까지
+       * 갔다가 「수정할 수 없는 신청입니다」만 만나고 돌아온다. 화면이 내미는 해결책은
+       * 실제로 도달 가능한 것이어야 한다(`milestone-submit-gate`의 같은 법칙).
+       */
+      return {
+        kind: 'blocked',
+        reason: 'REJECTED_APPLICATION',
+        notice:
+          '신청이 반려되어 제출할 수 없습니다. 반려 사유는 신청 상세에서 확인할 수 있습니다.',
+        buttonNote: '반려된 신청은 제출할 수 없습니다',
+      };
   }
 }

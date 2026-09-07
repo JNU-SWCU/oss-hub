@@ -198,7 +198,8 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
 
   /**
    * 변이 검증 대상 1 — 아래쪽 제출 항목이 신청 상태를 다시 못 받게 되면 여기가 깨진다.
-   * 버튼이 눌리는 채로 남아 학생은 파일을 고르고 나서야 403(MSD_005)을 받는다.
+   * 버튼이 눌리는 채로 남아 학생은 파일을 고르고 나서야 403(신청 없음 MSD_005 ·
+   * 승인 아님 MSD_006)을 받는다.
    */
   it.each([
     [
@@ -250,28 +251,68 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
   });
 
   /**
-   * 반려는 이 티켓이 다루지 않는다 — **#1098 이전 화면 그대로**여야 한다.
+   * 반려된 신청(#1206). #1098은 이 갈래를 일부러 비워 두어(`kind: 'unchanged'`) 위 줄만
+   * 「신청 승인 후 제출할 수 있습니다」로 빠져나가고 아래 「올리기」는 눌리는 채로 남았다 —
+   * 한 블록이 서로 다른 말을 했고, 학생은 파일을 고르고 나서야 403(MSD_006)을 받았다.
    *
-   * 앞선 구현은 반려도 신청 전·승인 대기와 함께 묶어 「올리기」를 흐리게 하고 반려 사유를
-   * 언급하는 문구를 붙였는데, 반려 학생에게 무엇을 보여줄지는 따로 정해야 할 판단이다.
-   * 답이 정해질 때까지 화면이 나빠지지 않아야 하므로, 옛 문구와 눌리는 버튼을 여기에
-   * 고정한다 — 이 상태를 다시 `blocked`로 옮기면 여기가 깨진다.
+   * 이제 위아래가 같은 판정을 읽는다. 문구가 승인 대기와 갈리는 이유는 **기다려도 열리지
+   * 않기** 때문이다 — 반려된 신청서는 학생이 수정도 취소도 못 하고, 교직원이 「검토 대기로」를
+   * 눌러 주어야만 열린다. 그래서 사유를 읽을 수 있는 한 곳(신청 상세)만 가리킨다.
+   *
+   * 변이 검증 대상 — 반려를 `blocked`에서 되돌리면 버튼이 다시 눌려 여기가 깨진다.
    */
-  it('반려는 #1098 이전 화면 그대로 둔다', async () => {
+  it('반려 + 아직 안 낸 서류는 「올리기」를 잠그고 이유를 붙인다', async () => {
     await render('REJECTED');
 
-    // 위: 옛 문구 그대로. 신청도 안 한 사람에게 하던 말이 아니라 원래 있던 말이다.
-    expect(container.textContent).toContain('신청 승인 후 제출할 수 있습니다');
-    expect(container.textContent).not.toContain('반려');
+    // 위: 왜 못 내는지 + 사유를 어디서 읽는지.
+    expect(container.textContent).toContain(
+      '신청이 반려되어 제출할 수 없습니다. 반려 사유는 신청 상세에서 확인할 수 있습니다.',
+    );
+    // 기다리면 열린다는 말은 반려 학생에게 거짓이다.
+    expect(container.textContent).not.toContain(
+      '신청 승인 후 제출할 수 있습니다',
+    );
 
-    // 아래: 버튼은 눌리고, 흐려진 버튼 옆 문구도 붙지 않는다.
+    // 아래: 버튼은 남되 눌리지 않고, 그 옆에 같은 판정에서 나온 이유가 붙는다.
     const button = actionButton('올리기');
-    expect(button.disabled).toBe(false);
-    expect(blockedNote()).toBeNull();
+    expect(button.disabled).toBe(true);
+    const note = blockedNote();
+    expect(note?.textContent).toBe('반려된 신청은 제출할 수 없습니다');
+    expect(button.getAttribute('aria-describedby')).toBe(note?.id);
 
-    // 제출 입력도 옛날처럼 열린다 — 저장 여부는 서버가 정한다(MSD_005).
     await act(async () => button.click());
-    expect(submissionInput()).not.toBeNull();
+    expect(submissionInput()).toBeNull();
+  });
+
+  /**
+   * 티켓이 그린 장면 그대로 — 교직원이 서류에 「보완 요청」을 준 **뒤** 신청을 되돌려
+   * 반려했다. 서류만 보면 「고쳐서 다시 내라」는 자리라 「수정」이 파랗게 살아 있었고,
+   * 화면이 스스로 모순됐다: 배지는 고치라 하고 신청은 반려돼 있다.
+   */
+  it('반려 + 보완 요청 서류는 「수정」을 잠그고 이유를 붙인다', async () => {
+    await render('REJECTED', {
+      viewerSubmission: decided('CHANGES_REQUESTED'),
+    });
+
+    const button = actionButton('수정');
+    expect(button.disabled).toBe(true);
+    expect(blockedNote()?.textContent).toBe('반려된 신청은 제출할 수 없습니다');
+
+    await act(async () => button.click());
+    expect(submissionInput()).toBeNull();
+  });
+
+  /**
+   * 잠그되 **감추지 않는** 이유가 여기서 드러난다. 반려 줄에서 버튼째 걷어 내면 마감이
+   * 지난 줄에서 「마감이 지나 제출할 수 없습니다」까지 함께 사라진다 — 순서 법칙상 그 줄이
+   * 말해야 하는 것은 마감이다(신청이 다시 승인돼도 지나간 마감은 돌아오지 않는다).
+   */
+  it('반려여도 마감이 지난 줄은 마감 이유를 그대로 보여 준다', async () => {
+    await render('REJECTED', { due: PAST_DUE });
+
+    const button = actionButton('올리기');
+    expect(button.disabled).toBe(true);
+    expect(blockedNote()?.textContent).toBe('마감이 지나 제출할 수 없습니다');
   });
 
   /**

@@ -103,6 +103,7 @@ describe('milestoneDocumentSubmitGate', () => {
   it.each([
     [null, '신청 후 제출할 수 있습니다'],
     ['SUBMITTED' as const, '승인 후 제출할 수 있습니다'],
+    ['REJECTED' as const, '반려된 신청은 제출할 수 없습니다'],
   ])('%s 신청은 걸릴 것이 없을 때 신청 상태를 이유로 든다', (status, note) => {
     expect(
       milestoneDocumentSubmitGate({
@@ -113,12 +114,59 @@ describe('milestoneDocumentSubmitGate', () => {
     ).toEqual({ kind: 'held', note });
   });
 
+  /**
+   * (가) 티켓이 그린 장면 그대로다 — 교직원이 서류에 「보완 요청」을 준 뒤 신청 자체를
+   * 되돌려 반려했다. 서류만 보면 「고쳐서 다시 내라」는 자리라 「수정」이 열려 있었고,
+   * 학생은 파일을 갈아 끼우고 누른 뒤에야 403(MSD_006)을 받았다.
+   *
+   * 변이 검증 대상 — 반려를 `blocked`에서 되돌리면 여기가 `open`이 되어 깨진다.
+   */
+  it('반려 + 보완 요청 서류는 「수정」을 잠그고 반려를 이유로 든다', () => {
+    expect(
+      milestoneDocumentSubmitGate({
+        submissionAccess: access('REJECTED'),
+        viewerSubmission: submission('CHANGES_REQUESTED'),
+        closed: false,
+      }),
+    ).toEqual({ kind: 'held', note: '반려된 신청은 제출할 수 없습니다' });
+  });
+
+  /**
+   * 순서 법칙은 반려에도 그대로다 — 3번은 「기다리면 열리는 것」이 아니라 **신청 하나로는
+   * 되돌릴 수 없는 것 다음**이라는 뜻이다. 마감이 지난 줄은 신청이 다시 승인돼도 열리지
+   * 않으니 마감이 더 좁고 더 확실한 이유고, 반려 안내를 마감 앞으로 올리면 그 줄에서
+   * 마감 이유가 통째로 사라진다.
+   *
+   * 변이 검증 대상 — 반려를 마감보다 먼저 말하게 바꾸면 여기가 깨진다.
+   */
+  it('반려여도 마감이 지난 줄은 마감을 먼저 말한다', () => {
+    expect(
+      milestoneDocumentSubmitGate({
+        submissionAccess: access('REJECTED'),
+        viewerSubmission: submission(null),
+        closed: true,
+      }),
+    ).toEqual({ kind: 'held', note: '마감이 지나 제출할 수 없습니다' });
+  });
+
+  /** 서류 단위 반려는 그대로다 — 그쪽은 버튼을 걷고 그 서류의 이유를 적는다. */
+  it('반려 신청이어도 판정이 끝난 서류는 그 서류의 이유를 말한다', () => {
+    expect(
+      milestoneDocumentSubmitGate({
+        submissionAccess: access('REJECTED'),
+        viewerSubmission: submission('REJECTED'),
+        closed: false,
+      }),
+    ).toEqual({
+      kind: 'settled',
+      note: '반려된 제출 항목은 다시 제출할 수 없습니다.',
+    });
+  });
+
   it.each([
     ['APPROVED' as const, null],
     ['APPROVED' as const, 'SUBMITTED' as const],
     ['APPROVED' as const, 'CHANGES_REQUESTED' as const],
-    // 반려는 #1098이 답을 정하지 않은 자리 — 옛 화면대로 열어 두고 서버에 맡긴다.
-    ['REJECTED' as const, null],
   ])('%s 신청 · %s 서류는 열려 있다', (applicationStatus, status) => {
     expect(
       milestoneDocumentSubmitGate({
@@ -175,11 +223,29 @@ describe('milestoneRowSubmitGate', () => {
     );
   });
 
-  /** 반려는 순서 법칙보다 앞이다 — 상태가 와 있어도 #1098 이전 문구 그대로 둔다. */
-  it('반려된 신청은 제출 상태와 무관하게 옛 화면으로 간다', () => {
+  /**
+   * 반려도 다른 신청 상태와 **같은 순서 법칙**을 탄다(#1206). #1098은 반려만 법칙보다
+   * 앞에 세워 옛 화면 한 줄로 빠져나가게 두었는데, 그러면 이미 판정이 끝난 줄까지
+   * 「신청 승인 후 제출 상태를 확인할 수 있습니다」가 되어 위 줄과 아래 제출 항목이
+   * 서로 다른 순서로 판단했다.
+   *
+   * 변이 검증 대상 — 반려를 다시 법칙 앞으로 빼면 여기 두 시험이 함께 깨진다.
+   */
+  it('반려 신청이어도 판정이 끝난 줄은 그 줄의 판정을 말한다', () => {
     expect(
       milestoneRowSubmitGate(milestone('APPROVED'), access('REJECTED')),
-    ).toEqual({ kind: 'unchanged' });
+    ).toEqual({ kind: 'settled', status: 'APPROVED' });
+  });
+
+  it('반려 신청은 마감 전 미제출 줄에서 반려를 이유로 든다', () => {
+    const gate = milestoneRowSubmitGate(
+      milestone('NOT_SUBMITTED'),
+      access('REJECTED'),
+    );
+    expect(gate.kind).toBe('blocked');
+    expect(gate).toMatchObject({
+      access: { reason: 'REJECTED_APPLICATION' },
+    });
   });
 
   it.each([

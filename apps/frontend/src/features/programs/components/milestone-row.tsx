@@ -53,7 +53,9 @@ interface MilestoneRowProps {
 
 /**
  * 못 내는 이유. 아래 제출 항목의 흐려진 버튼 옆 문구와 **같은 판정**
- * (`milestoneSubmissionAccess`)에서 나오므로 위아래가 어긋날 수 없다.
+ * (`milestoneSubmissionAccess`)에서 나오므로 위아래가 어긋날 수 없다. 반려된 신청도
+ * 여기로 온다(#1206) — 그전에는 이 줄만 「신청 승인 후 제출 상태를 확인할 수 있습니다」로
+ * 빠져나가고 아래 「올리기」는 눌리는 채로 남아, 한 블록이 서로 다른 말을 했다.
  *
  * 「신청하기」로 데려가는 버튼은 여기 두지 않는다 — 페이지 상단 헤더(`ProgramActions`)에
  * 이미 하나 있고, 마일스톤은 여럿이라 줄마다 세우면 같은 버튼이 한 화면에 반복된다.
@@ -135,10 +137,7 @@ function StudentState({
     }
     return (
       <p className="text-small font-semibold text-muted-foreground">
-        {submissionAccess.kind === 'unchanged'
-          ? // 반려 — 이 화면이 답을 정하지 않은 상태다. #1098 이전 문구 그대로 둔다.
-            '신청 승인 후 제출할 수 있습니다'
-          : '아래 제출 항목에서 내용이나 파일을 제출하세요'}
+        아래 제출 항목에서 내용이나 파일을 제출하세요
       </p>
     );
   }
@@ -148,17 +147,6 @@ function StudentState({
    * 이미 판정이 끝난 마일스톤에 「승인되면 제출할 수 있습니다」라고 적게 된다(#1098).
    */
   const gate = milestoneRowSubmitGate(milestone, submissionAccess);
-  if (gate.kind === 'unchanged') {
-    /*
-     * 반려 — 신청 전·승인 대기와 달리 이 화면이 아직 답을 정하지 않았다(#1098 범위 밖).
-     * 제출 상태가 와 있어도 옛 화면은 이 문구만 보여 줬으므로 그대로 둔다.
-     */
-    return (
-      <p className="text-small text-muted-foreground">
-        신청 승인 후 제출 상태를 확인할 수 있습니다.
-      </p>
-    );
-  }
   if (gate.kind === 'blocked') {
     return <BlockedState access={gate.access} />;
   }

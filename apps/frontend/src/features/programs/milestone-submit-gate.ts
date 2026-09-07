@@ -24,7 +24,7 @@ import type { ProgramMilestone, SubmissionStatus } from './types';
  *
  *   1. 그 서류·그 줄의 판정이 이미 끝났다(승인·반려) — 신청 승인도 이것을 되돌리지 못한다.
  *   2. 마감이 지났다 — 신청이 승인돼도 지나간 마감은 돌아오지 않는다.
- *   3. 신청 상태(신청 전·승인 대기) — **이것만이** 학생이 기다리면 풀리는 것이다.
+ *   3. 신청 상태(신청 전·승인 대기·반려) — 여기까지 와야 신청이 유일하게 남은 벽이다.
  *
  * 이 순서가 드러나는 자리가 **되돌린 승인**(APPROVED → SUBMITTED)이다. 되돌린 시점에 이미
  * 승인·반려된 서류가 남아 있는데, 신청 상태를 먼저 보면 그 줄들이 전부 「승인 후 제출할 수
@@ -33,6 +33,12 @@ import type { ProgramMilestone, SubmissionStatus } from './types';
  *
  * ⚠ 반대로 신청 게이트를 아래로 더 내리지 마라. 신청서를 아직 쓰지 않은 학생에게는 서류
  * 판정도 마감도 걸리는 것이 없어(제출본이 없다) 3번이 곧 그가 할 수 있는 유일한 일이다.
+ *
+ * ⚠ 반려된 신청(#1206)도 3번에 그대로 선다 — 「기다리면 열리는 것만 3번」이라는 뜻이
+ * 아니라 **신청 하나로는 되돌릴 수 없는 것부터**라는 뜻이기 때문이다. 그래서 마감이 지난
+ * 줄에서는 반려 학생도 「마감이 지나 제출할 수 없습니다」를 먼저 읽는다: 그 줄은 신청이
+ * 다시 승인돼도 열리지 않아, 마감이 더 좁고 더 확실한 이유다. 반려 안내를 2번 앞으로
+ * 올리면 마감이 지난 줄에서 마감 이유가 통째로 사라진다.
  */
 
 /** 서류 한 줄의 제출 자리에 무엇을 그릴 것인가. */
@@ -99,8 +105,6 @@ export type MilestoneRowSubmitGate =
       readonly kind: 'blocked';
       readonly access: BlockedMilestoneSubmissionAccess;
     }
-  /** 반려된 신청 — 이 화면이 아직 답을 정하지 않은 자리다(#1098 범위 밖). */
-  | { readonly kind: 'unchanged' }
   /** 신청은 승인됐는데 제출 상태만 비어 왔다. 계약상 오지 않는 값이다. */
   | { readonly kind: 'unknown' }
   | {
@@ -114,11 +118,11 @@ export function milestoneRowSubmitGate(
   submissionAccess: MilestoneSubmissionAccess,
 ): MilestoneRowSubmitGate {
   /*
-   * 반려는 순서 법칙보다 앞이다. 이 화면이 반려 학생에게 무엇을 보여줄지는 아직 정하지
-   * 않았고(#1098 범위 밖), 답이 정해질 때까지 **#1098 이전 화면 그대로** 두기로 한
-   * 자리다 — 상태가 와 있어도 옛 화면은 이 한 줄만 보여 줬다.
+   * 반려(#1206)에 예외를 두지 않는다. #1098은 반려를 이 법칙보다 **앞에** 세워 옛 화면
+   * 한 줄로 빠져나가게 두었는데, 그 자리에서는 이미 승인·반려된 줄까지 「신청 승인 후
+   * 제출 상태를 확인할 수 있습니다」가 되어 위아래가 서로 다른 순서로 판단했다. 반려도
+   * 다른 신청 상태와 같은 3번 자리에 세워야 위 줄과 아래 제출 항목이 같은 말을 한다.
    */
-  if (submissionAccess.kind === 'unchanged') return { kind: 'unchanged' };
   const status = milestone.viewerSubmissionStatus;
   if (status !== null) {
     const resubmission = status === 'CHANGES_REQUESTED';
