@@ -146,8 +146,11 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     return findAdminActorByGithubId(this.prisma, githubId);
   }
 
-  list(query: AdminAccessListQuery) {
-    return listAdminAccessUsers(this.prisma, query);
+  list(
+    query: AdminAccessListQuery,
+    sortContext: 'directory' | 'requestQueue' = 'directory',
+  ) {
+    return listAdminAccessUsers(this.prisma, query, sortContext);
   }
 
   facets(query: AdminAccessListQuery) {

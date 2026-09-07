@@ -56,10 +56,13 @@ export class AdminAccessService {
     const actor = requireActiveStaffOrAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
-    const page = await this.repository.list({
-      ...query,
-      pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
-    });
+    const page = await this.repository.list(
+      {
+        ...query,
+        pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
+      },
+      'requestQueue',
+    );
     return {
       ...page,
       items: page.items.map((user) => withSelfState(user, actor)),

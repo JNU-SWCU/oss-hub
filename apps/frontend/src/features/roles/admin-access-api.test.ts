@@ -38,6 +38,7 @@ const listItem = () => ({
   accountStatus: 'ACTIVE',
   isSelf: false,
   isProfileComplete: true,
+  createdAt: '2026-07-29T00:00:00.000Z',
   pendingRequest: null,
   lastLoginAt: null,
 });
@@ -254,6 +255,7 @@ describe('관리자 접근 통합 API 클라이언트', () => {
         facets: facets(),
       });
       expect(page.items).toHaveLength(1);
+      expect(page.items[0]?.createdAt).toBe('2026-07-29T00:00:00.000Z');
       expect(page.total).toBe(1);
     });
 
@@ -334,6 +336,27 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       expect(() =>
         parseAdminAccessListPage({
           items: [{ ...listItem(), accountStatus: 'SUSPENDED' }],
+          page: 1,
+          limit: 20,
+          total: 1,
+          facets: facets(),
+        }),
+      ).toThrow(AdminAccessResponseError);
+    });
+
+    it.each([
+      ['missing', { createdAt: undefined }],
+      ['null', { createdAt: null }],
+      ['malformed', { createdAt: '2026-07-29' }],
+    ] as const)('목록 항목의 createdAt이 %s이면 던진다', (_label, patch) => {
+      const { createdAt: _createdAt, ...withoutCreatedAt } = listItem();
+      const item =
+        patch.createdAt === undefined
+          ? withoutCreatedAt
+          : { ...listItem(), createdAt: patch.createdAt };
+      expect(() =>
+        parseAdminAccessListPage({
+          items: [item],
           page: 1,
           limit: 20,
           total: 1,

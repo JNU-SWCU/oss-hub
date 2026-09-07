@@ -18,6 +18,7 @@ import {
 } from './domain/admin-access';
 
 type OrderedAdminAccessUserId = { readonly id: string };
+type AdminAccessListSortContext = 'directory' | 'requestQueue';
 
 const ORDER_DIRECTIONS = {
   [ADMIN_ACCESS_SORT_DIRECTIONS.ASC]: Prisma.sql`ASC`,
@@ -27,10 +28,11 @@ const ORDER_DIRECTIONS = {
 export function listOrderedAdminAccessUserIds(
   prisma: Pick<PrismaService, '$queryRaw'>,
   query: AdminAccessListQuery,
+  sortContext: AdminAccessListSortContext = 'directory',
 ): Promise<readonly OrderedAdminAccessUserId[]> {
   const offset = (query.page - 1) * query.limit;
   const where = adminAccessSqlWhere(query);
-  const orderBy = adminAccessOrderBy(query);
+  const orderBy = adminAccessOrderBy(query, sortContext);
   return prisma.$queryRaw<readonly OrderedAdminAccessUserId[]>(Prisma.sql`
     SELECT u."id"
     FROM "User" AS u
@@ -42,7 +44,10 @@ export function listOrderedAdminAccessUserIds(
   `);
 }
 
-function adminAccessOrderBy(query: AdminAccessListQuery): Prisma.Sql {
+function adminAccessOrderBy(
+  query: AdminAccessListQuery,
+  sortContext: AdminAccessListSortContext,
+): Prisma.Sql {
   const sort = query.sort ?? ADMIN_ACCESS_DEFAULT_SORT;
   const direction = query.direction ?? ADMIN_ACCESS_DEFAULT_DIRECTION;
   const directionSql = ORDER_DIRECTIONS[direction];
@@ -53,7 +58,7 @@ function adminAccessOrderBy(query: AdminAccessListQuery): Prisma.Sql {
       u."id" ${directionSql}
     `,
     [ADMIN_ACCESS_SORT_FIELDS.CREATED_AT]: Prisma.sql`
-      u."createdAt" ${directionSql} NULLS LAST,
+      ${adminAccessCreatedAtSortExpression(sortContext)} ${directionSql} NULLS LAST,
       u."id" ${directionSql}
     `,
     [ADMIN_ACCESS_SORT_FIELDS.LAST_LOGIN_AT]: Prisma.sql`
@@ -87,6 +92,24 @@ function adminAccessOrderBy(query: AdminAccessListQuery): Prisma.Sql {
     `,
   } as const satisfies Readonly<Record<AdminAccessSortField, Prisma.Sql>>;
   return orderings[sort];
+}
+
+function adminAccessCreatedAtSortExpression(
+  sortContext: AdminAccessListSortContext,
+): Prisma.Sql {
+  switch (sortContext) {
+    case 'directory':
+      return Prisma.sql`u."createdAt"`;
+    case 'requestQueue':
+      return Prisma.sql`(
+        SELECT r."createdAt"
+        FROM "StaffAccessRequest" AS r
+        WHERE r."userId" = u."id"
+          AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
+        ORDER BY r."createdAt" DESC, r."id" DESC
+        LIMIT 1
+      )`;
+  }
 }
 
 function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {

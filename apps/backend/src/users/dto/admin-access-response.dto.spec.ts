@@ -12,20 +12,23 @@ import {
 } from './admin-access-response.dto';
 
 const PENDING_AT = new Date('2026-07-30T00:00:00.000Z');
+const ACCOUNT_CREATED_AT = new Date('2026-07-29T00:00:00.000Z');
 const LOGIN_AT = new Date('2026-07-31T00:00:00.000Z');
 
 describe('admin access response DTO allowlists', () => {
   it('maps list dates to ISO strings without leaking persistence identifiers', () => {
-    const dto = AdminAccessUserPageResponseDto.from({
+    const page = {
       items: [
         {
           id: 'target',
+          phone: 'redacted-synthetic-phone',
           githubLogin: 'synthetic-target',
           name: '합성 사용자',
-          role: 'STUDENT',
+          role: 'STUDENT' as const,
           accountStatus: AccountStatus.ACTIVE,
           isSelf: false,
           isProfileComplete: true,
+          createdAt: ACCOUNT_CREATED_AT,
           pendingRequest: {
             id: 'request-pending',
             status: StaffAccessRequestStatus.PENDING,
@@ -38,7 +41,8 @@ describe('admin access response DTO allowlists', () => {
       limit: 20,
       total: 1,
       facets: facets(),
-    });
+    };
+    const dto = AdminAccessUserPageResponseDto.from(page);
 
     expect(dto.items[0]).toEqual({
       id: 'target',
@@ -48,6 +52,7 @@ describe('admin access response DTO allowlists', () => {
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,
+      createdAt: ACCOUNT_CREATED_AT.toISOString(),
       pendingRequest: {
         id: 'request-pending',
         status: StaffAccessRequestStatus.PENDING,
@@ -56,6 +61,7 @@ describe('admin access response DTO allowlists', () => {
       lastLoginAt: LOGIN_AT.toISOString(),
     });
     expect(JSON.stringify(dto)).not.toContain('githubId');
+    expect(JSON.stringify(dto)).not.toContain('phone');
   });
 
   it('maps detail, separate histories, facets, and mutation through explicit DTOs', () => {
@@ -70,6 +76,7 @@ describe('admin access response DTO allowlists', () => {
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,
+      createdAt: ACCOUNT_CREATED_AT,
       pendingRequest: null,
       lastLoginAt: null,
       profile: {
@@ -126,6 +133,7 @@ describe('admin access response DTO allowlists', () => {
       memberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,
+      createdAt: ACCOUNT_CREATED_AT.toISOString(),
     });
     expect(detail.profile.studentId).toBe('123456');
     expect(history.staffAccessRequests.items[0]?.createdAt).toBe(
