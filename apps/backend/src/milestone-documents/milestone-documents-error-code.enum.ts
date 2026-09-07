@@ -34,6 +34,8 @@ export const MilestoneDocumentsErrorCode = {
   RESUBMISSION_DUE_AT_REQUIRED: 'MSD_032',
   RESUBMISSION_DUE_AT_NOT_FUTURE: 'MSD_033',
   RESUBMISSION_DUE_AT_PASSED: 'MSD_034',
+  PROGRAM_NOT_FOUND: 'MSD_035',
+  ARCHIVE_TEAM_NOT_FOUND: 'MSD_036',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -42,6 +44,18 @@ export type MilestoneDocumentsErrorCode =
 export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   Record<MilestoneDocumentsErrorCode, ErrorCode>
 > = {
+  [MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND]: {
+    code: MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND,
+    status: 404,
+    message:
+      '프로그램을 찾을 수 없습니다. 프로그램 목록에서 다시 선택해 주세요.',
+  },
+  [MilestoneDocumentsErrorCode.ARCHIVE_TEAM_NOT_FOUND]: {
+    code: MilestoneDocumentsErrorCode.ARCHIVE_TEAM_NOT_FOUND,
+    status: 404,
+    message:
+      '이 프로그램의 승인된 팀을 찾을 수 없습니다. 다운로드할 팀을 다시 선택해 주세요.',
+  },
   [MilestoneDocumentsErrorCode.STAFF_ONLY]: {
     code: MilestoneDocumentsErrorCode.STAFF_ONLY,
     status: 403,
