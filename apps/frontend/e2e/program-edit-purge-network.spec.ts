@@ -285,6 +285,8 @@ test.describe('program edit purge network contract', () => {
           teams: 4,
           boardPosts: 2,
           submissions: 3,
+          submissionEvents: 6,
+          scopeFingerprint: 'synthetic-updated-scope',
         },
       },
     });
