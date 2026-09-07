@@ -41,7 +41,7 @@ const LIFECYCLE_COPY = {
     busyAction: '게시하는 중…',
     dialogTitle: '프로그램을 다시 게시할까요?',
     dialogDescription:
-      '공개 목록에 다시 노출되고 신청 기간 안이면 신규 신청을 받습니다.',
+      '신청 기간 안이면 신규 신청을 다시 받기 시작합니다. 공개 목록과 상세는 내려가 있는 동안에도 계속 열려 있었으므로 노출이 바뀌지는 않습니다. 상태 표시만 「내림」에서 기간에 따른 상태로 돌아갑니다.',
     confirm: '다시 게시',
   },
 } as const satisfies Record<ProgramLifecycle, unknown>;

@@ -682,6 +682,36 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(dialogText).not.toContain('공개 목록에 보이지 않');
   });
 
+  it('다시 게시 확인창은 신청 재개와 변하지 않은 공개 노출을 알린다', async () => {
+    getEditableProgramMock.mockResolvedValue({
+      ...editableProgram,
+      lifecycle: 'ARCHIVED',
+    });
+
+    await act(async () => {
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('다시 게시하기').click();
+    });
+
+    const dialogText =
+      document.querySelector('[role="alertdialog"]')?.textContent ?? '';
+    expect(dialogText).toContain(
+      '신청 기간 안이면 신규 신청을 다시 받기 시작합니다.',
+    );
+    expect(dialogText).toContain(
+      '공개 목록과 상세는 내려가 있는 동안에도 계속 열려 있었으므로 노출이 바뀌지는 않습니다.',
+    );
+    expect(dialogText).not.toContain('다시 노출');
+  });
+
   // 리뷰에서 발견된 블로커 — confirmLifecycleToggle이 성공 후 load()를 불렀다.
   // load()는 즉시 setState({kind:'loading'})·setForm(null)을 하므로 그 순간
   // 렌더 가드가 화면 전체를 스켈레톤으로 갈아치우고, 다시 불러온 서버 값으로
