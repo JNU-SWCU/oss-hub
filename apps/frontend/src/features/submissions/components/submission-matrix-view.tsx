@@ -53,7 +53,7 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
         title="서류 현황"
         description={
           <span className="break-keep">
-            팀·개인별 제출 여부와 제출 시간을 확인합니다.
+            팀·개인별 필수 서류 제출 상태와 검토 상태를 각각 확인합니다.
           </span>
         }
       />

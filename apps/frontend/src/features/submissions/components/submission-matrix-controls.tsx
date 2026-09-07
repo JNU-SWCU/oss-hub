@@ -118,9 +118,10 @@ export function MatrixQuickFilterButtons({
   return (
     <div
       role="group"
-      aria-label="빠른 필터"
+      aria-label="필수 서류 제출 상태"
       className="flex max-w-full flex-wrap gap-2"
     >
+      <p className="w-full text-small font-semibold">필수 서류 제출 상태</p>
       {options.map((option) => (
         <Button
           key={option.value}

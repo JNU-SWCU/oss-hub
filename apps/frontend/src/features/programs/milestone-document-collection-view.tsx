@@ -370,7 +370,12 @@ function CollectionFilterButtons({
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
 }): ReactElement {
   return (
-    <div role="group" aria-label="빠른 필터" className="flex flex-wrap gap-2">
+    <div
+      role="group"
+      aria-label="필수 서류 제출 상태"
+      className="flex flex-wrap gap-2"
+    >
+      <p className="w-full text-small font-semibold">필수 서류 제출 상태</p>
       {MILESTONE_DOCUMENT_COLLECTION_FILTERS.map((option) => (
         <button
           key={option}
@@ -975,8 +980,8 @@ export function MilestoneDocumentCollectionView(
         description={
           milestone === null ? undefined : (
             <span className="break-keep">
-              {formatSeoulDate(milestone.dueAt)} 마감 · 필수 서류의 제출 상태와
-              검토 결과를 각각 확인합니다.
+              {formatSeoulDate(milestone.dueAt)} 마감 · 필수 서류 제출 상태와
+              검토 상태를 각각 확인합니다.
             </span>
           )
         }

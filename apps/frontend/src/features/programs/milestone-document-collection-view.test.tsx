@@ -1119,3 +1119,11 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
     expect(html).not.toContain('1페이지로 이동');
   });
 });
+
+it('필터 제목과 검토 상태를 눈에 보이는 서로 다른 축으로 안내한다', () => {
+  const html = render({
+    data: collection([document('d1')], [row('a', [missingCell('d1')])]),
+  });
+  expect(html).toContain('>필수 서류 제출 상태</p>');
+  expect(html).toContain('검토 상태');
+});

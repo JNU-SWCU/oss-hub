@@ -451,3 +451,9 @@ describe('SubmissionMatrixView', () => {
     expect(withQuickFilter).toContain('>초기화<');
   });
 });
+
+it('필터 제목과 검토 상태를 눈에 보이는 서로 다른 축으로 안내한다', () => {
+  const html = render();
+  expect(html).toContain('>필수 서류 제출 상태</p>');
+  expect(html).toContain('검토 상태');
+});
