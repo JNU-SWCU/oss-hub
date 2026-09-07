@@ -1271,6 +1271,62 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(audit?.action).toBe('PROGRAM_DELETED');
   });
 
+  it('이미 삭제 완료된 SubmissionFile은 완료 상태를 보존한 채 FK만 분리하고 purge한다', async () => {
+    const fixture = await seedFullChildGraph('deleted-submission-file');
+    const application = await prisma.application.findUniqueOrThrow({
+      where: { id: fixture.applicationId },
+      select: { applicantId: true },
+    });
+    const submission =
+      await prisma.milestoneDocumentSubmission.findFirstOrThrow({
+        where: { applicationId: fixture.applicationId },
+        select: { id: true },
+      });
+    const history =
+      await prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
+        where: { milestoneDocumentSubmissionId: submission.id },
+        select: { id: true },
+      });
+    const deletedFileId = `${fixture.programId}-deleted-submission-file`;
+    const deletedAt = new Date('2026-08-13T00:00:00.000Z');
+    await prisma.submissionFile.create({
+      data: {
+        id: deletedFileId,
+        uploaderId: application.applicantId,
+        applicationId: fixture.applicationId,
+        milestoneId: fixture.milestoneId,
+        milestoneDocumentSubmissionId: submission.id,
+        milestoneDocumentSubmissionHistoryId: history.id,
+        storageKey: `${OBJECT_PREFIX}/deleted-submission-file/completed.pdf`,
+        originalFileName: 'completed.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 21,
+        lifecycle: SubmissionFileLifecycle.DELETED,
+        deletedAt,
+      },
+    });
+
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+    await expect(
+      lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
+    ).resolves.toMatchObject({
+      id: fixture.programId,
+      deleted: true,
+      deletedCounts: { submissionFiles: 2 },
+    });
+
+    await expect(
+      prisma.submissionFile.findUnique({ where: { id: deletedFileId } }),
+    ).resolves.toMatchObject({
+      lifecycle: SubmissionFileLifecycle.DELETED,
+      deletedAt,
+      applicationId: null,
+      milestoneId: null,
+      milestoneDocumentSubmissionId: null,
+      milestoneDocumentSubmissionHistoryId: null,
+    });
+  });
+
   // #1095로 뒤집힌 계약: 종전에는 이 자리에서 STAFF가 403 PRG_011을 받는 것을 확인했다.
   // 이제 교직원이 관리자 대신 직접 지운다 — 감사 로그의 행위자도 그 교직원이어야 한다.
   it('STAFF가 purge하면 실제로 지워지고 감사 로그의 행위자가 그 교직원이다', async () => {
