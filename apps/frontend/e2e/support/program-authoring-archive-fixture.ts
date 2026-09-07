@@ -18,6 +18,7 @@ export async function archiveFixtureDocument(page: Page, milestoneId: string) {
   if (existing !== undefined) return existing;
   const snapshotResponse = await page.request.get(
     `/api/v1/milestones/${milestoneId}/edit`,
+    { headers: originHeaders() },
   );
   await expectApiStatus(snapshotResponse, 200);
   const snapshot = parseSnapshot(await snapshotResponse.json());
