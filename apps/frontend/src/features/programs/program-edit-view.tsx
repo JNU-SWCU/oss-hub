@@ -264,7 +264,6 @@ export function ProgramEditView({
             programId={program.id}
             programName={program.name}
             canDeleteProgram={canDeleteProgram}
-            deletionProtected={program.deletionProtected ?? false}
           />
         </div>
       </div>

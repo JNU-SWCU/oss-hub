@@ -27,7 +27,7 @@ interface Scenario {
   readonly purgeBody?: unknown;
 }
 
-function editableProgram(deletionProtected = false) {
+function editableProgram() {
   return {
     id: PROGRAM_ID,
     name: PROGRAM_NAME,
@@ -44,7 +44,6 @@ function editableProgram(deletionProtected = false) {
     endAt: '2026-03-01T00:00:00.000Z',
     repositoryProvisioningEnabled: false,
     notifyOnDeadline: false,
-    deletionProtected,
     description: '합성 프로그램 설명',
     teamMinSize: 1,
     teamMaxSize: 4,
@@ -63,7 +62,6 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
 async function openEdit(
   page: Page,
   scenario: Scenario,
-  deletionProtected = false,
 ): Promise<{
   readonly purgeRequests: unknown[];
   readonly normalDeletes: string[];
@@ -115,7 +113,7 @@ async function openEdit(
       return;
     }
     if (path.endsWith(`/programs/${PROGRAM_ID}/edit`)) {
-      await json(route, editableProgram(deletionProtected));
+      await json(route, editableProgram());
       return;
     }
     if (path.endsWith('/programs/status-counts')) {
@@ -206,7 +204,7 @@ test.describe('program edit purge network contract', () => {
       else if (path.endsWith('/role-requests/me')) await json(route, null);
       else if (path.endsWith(`/programs/${PROGRAM_ID}/edit`))
         await json(route, {
-          ...editableProgram(false),
+          ...editableProgram(),
           deletionScopeCounts: ZERO_COUNTS,
           applicationCount: 0,
         });
@@ -229,21 +227,6 @@ test.describe('program edit purge network contract', () => {
       .last()
       .click();
     expect(requests).toEqual([{ expectedScope: ZERO_COUNTS }]);
-  });
-
-  test('protected programs keep the purge control disabled', async ({
-    page,
-  }) => {
-    const protectedScenario = await openEdit(
-      page,
-      { actor: 'admin', counts: COUNTS },
-      true,
-    );
-    await expect(
-      page.getByRole('button', { name: '프로그램 영구 삭제', exact: true }),
-    ).toBeDisabled();
-    await expect(page.getByText('삭제 보호된 프로그램입니다')).toBeVisible();
-    expect(protectedScenario.normalDeletes).toEqual([]);
   });
 
   // #1095 — 교직원도 위험 영역의 영구 삭제를 누른다. 종전에는 버튼 count 0 이었다.
