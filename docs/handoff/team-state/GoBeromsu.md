@@ -1367,3 +1367,12 @@
 - 제거된 `updateMilestone` API 이름을 붙잡고 있던 죽은 mock 잔재를 없앴다. 사라진 기능의 잔상은 이번에 체크리스트에 넣은 AP-10 그 자체다.
 - 검증: backend 313 suite / 3584 test, frontend 341 file / 3493 test, lint·typecheck·prettier 통과.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — EXPAND 검증 강화와 죽은 코드 제거
+
+- red-team이 실제 위반을 하나 뚫었다: `expectedFingerprint`와 `documents`를 둘 다 생략하면 legacy 분기로 라우팅되고 거긴 fingerprint 비교가 없어 stale baseline에서 마일스톤 메타데이터를 덮어쓸 수 있다. EXPAND가 구 동작을 보존한 결과라 의도된 것이지만 「stale 저장은 항상 충돌로 막힌다」는 서술은 EXPAND 기간에 사실이 아니다. legacy 경로에 fingerprint를 요구하는 방식으로 고치면 EXPAND 전제가 무너지므로, 이음매에 예외를 명시하고 한시적임이 드러나는 이름의 계약 테스트로 현재 동작을 기록했다.
+- 아키텍트가 지적한 세 가지를 닫았다. legacy 라우트 HTTP 테스트가 guard를 성공 stub으로 덮어 권한 거부를 증명하지 않던 문제는, 공유 테스팅 모듈을 건드리지 않고 별도 모듈을 세워 학생·비인가 교직원·Origin 부재/외부 거부를 실제 HTTP로 검증했다. 공유 모듈을 고치려던 첫 시도는 기존 「가드 구성」 테스트 66건을 깨뜨려 폐기했다. reorder DTO 전달 인수도 단언한다.
+- CONTRACT 제거 범위를 `milestones.controller.ts` 상단 단일 원장으로 모았다. 라우트·DTO·direct writer·legacy 메타데이터 서비스와 스토어·dual-dispatch 분기·동시성 예외를 파일과 심볼로 열거해 다음 릴리스가 한 번에 쓸어내게 했다.
+- 죽은 코드를 제거했다. `uploadMilestoneDocumentTemplate` 프론트 어댑터는 production 호출부가 0인데 자기 테스트만 붙잡고 있었다. 재구성이 양식 교체를 authoring 업로드 경로로 옮기면서 죽은 것이고, 함께 고아가 된 타입도 정리했다. backend 라우트는 EXPAND 호환이라 남긴다.
+- 검증: backend 313 suite / 3588 test, 격리 integration 93 suite / 537 test, frontend 341 file / 3492 test, lint·typecheck·prettier 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

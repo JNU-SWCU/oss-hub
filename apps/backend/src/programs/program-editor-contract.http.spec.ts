@@ -214,7 +214,7 @@ it('accepts the legacy partial metadata body without selecting aggregate validat
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
 
-it('accepts a legacy metadata body through only the legacy update path', async () => {
+it('EXPAND exception: legacy metadata PATCH omits concurrency checking for old clients only', async () => {
   const response = await patchMilestone({
     name: ' Legacy milestone ',
     startAt: '2026-08-16T00:00:00.000Z',

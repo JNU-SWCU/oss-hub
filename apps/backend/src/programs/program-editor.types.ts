@@ -145,7 +145,7 @@ export type ProgramMilestoneDeleteTarget = {
   readonly programRepositoryProvisioningEnabled: boolean;
 };
 
-/** EXPAND-only legacy metadata update target; removed in CONTRACT. */
+/** EXPAND-only legacy metadata target; see the EXPAND removal ledger. */
 export type ProgramMilestoneTarget = ProgramMilestoneView & {
   readonly programId: string;
   readonly programStartAt: Date;
@@ -183,7 +183,7 @@ export type ProgramMilestoneCreateInput = ProgramMilestoneInput & {
   readonly programId: string;
 };
 
-/** EXPAND-only legacy metadata update input; removed in CONTRACT. */
+/** EXPAND-only legacy metadata input; see the EXPAND removal ledger. */
 export type ProgramMilestoneUpdateInput = ProgramMilestoneInput & {
   readonly milestoneId: string;
 };
@@ -205,11 +205,11 @@ export interface ProgramEditorTransactionStore {
   createMilestone(
     input: ProgramMilestoneCreateInput,
   ): Promise<ProgramMilestoneView>;
-  /** EXPAND-only legacy metadata update seam; removed in CONTRACT. */
+  /** EXPAND-only legacy metadata seam; see the EXPAND removal ledger. */
   findMilestoneForUpdate(
     milestoneId: string,
   ): Promise<ProgramMilestoneTarget | null>;
-  /** EXPAND-only legacy metadata update seam; removed in CONTRACT. */
+  /** EXPAND-only legacy metadata seam; see the EXPAND removal ledger. */
   updateMilestone(
     input: ProgramMilestoneUpdateInput,
   ): Promise<ProgramMilestoneView>;

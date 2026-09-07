@@ -216,7 +216,8 @@ export class MilestoneDocumentsController {
   }
 
   /**
-   * EXPAND-only legacy document mutation route; removed in CONTRACT.
+   * EXPAND-only legacy document mutation route; see the EXPAND removal ledger
+   * in programs/controller/milestones.controller.ts.
    *
    * 교직원 서류 항목 순서 재부여. `order`도 고정 세그먼트라 아래 `@Patch(':documentId')`보다
    * **먼저 선언해야** 한다 — Nest는 선언 순서대로 매칭하므로 뒤에 두면 `:documentId`가 먼저
@@ -231,7 +232,7 @@ export class MilestoneDocumentsController {
     return this.service.reorderDocuments(milestoneId, body.documentIds);
   }
 
-  /** EXPAND-only legacy document mutation route; removed in CONTRACT. */
+  /** EXPAND-only legacy route; see the EXPAND removal ledger. */
   @Post()
   @HttpCode(201)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
@@ -242,7 +243,7 @@ export class MilestoneDocumentsController {
     return this.service.createDocument(milestoneId, body.toInput());
   }
 
-  /** EXPAND-only legacy document mutation route; removed in CONTRACT. */
+  /** EXPAND-only legacy route; see the EXPAND removal ledger. */
   @Patch(':documentId')
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
   update(
@@ -253,7 +254,7 @@ export class MilestoneDocumentsController {
     return this.service.updateDocument(milestoneId, documentId, body.toInput());
   }
 
-  /** EXPAND-only legacy document mutation route; removed in CONTRACT. */
+  /** EXPAND-only legacy route; see the EXPAND removal ledger. */
   @Delete(':documentId')
   @HttpCode(204)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
@@ -264,7 +265,7 @@ export class MilestoneDocumentsController {
     await this.service.deleteDocument(milestoneId, documentId);
   }
 
-  /** EXPAND-only direct template writer route; removed in CONTRACT. */
+  /** EXPAND-only direct template writer; see the EXPAND removal ledger. */
   @Post(':documentId/template')
   @HttpCode(201)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)

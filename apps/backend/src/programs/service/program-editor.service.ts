@@ -255,7 +255,7 @@ export class ProgramEditorService {
     });
   }
 
-  /** EXPAND-only legacy metadata update path; removed in CONTRACT. */
+  /** EXPAND-only legacy metadata path; see the EXPAND removal ledger. */
   updateMilestone(
     githubId: bigint,
     milestoneId: string,
