@@ -220,6 +220,50 @@ describe('ProgramEditMilestoneDialog', () => {
     );
   });
 
+  it('keeps the milestone dialog open when Escape cancels only a submission-item name edit', async () => {
+    const onCancel = vi.fn();
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          {...passiveProps}
+          onCancel={onCancel}
+          snapshot={{
+            ...passiveProps.snapshot,
+            documents: [
+              {
+                id: 'document-1',
+                name: '기획서',
+                required: true,
+                sortOrder: 1,
+                templateFileName: null,
+              },
+            ],
+          }}
+          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+        />,
+      ),
+    );
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')
+        ?.click(),
+    );
+    const input = document.querySelector<HTMLInputElement>(
+      '[aria-label="파일 제출물 이름"]',
+    );
+    expect(input).not.toBeNull();
+    await act(async () => {
+      input?.focus();
+      pressEscape(input ?? document);
+    });
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(
+      document.querySelector('[aria-label="파일 제출물 이름"]'),
+    ).toBeNull();
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
   it('closes a clean editor with one Escape and returns focus to its exact origin', async () => {
     const onCancel = vi.fn();
     await act(async () =>
