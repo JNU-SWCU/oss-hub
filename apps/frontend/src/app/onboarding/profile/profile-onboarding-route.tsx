@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ConsentRequiredDialog } from '@/features/consents/components/consent-required-dialog';
 import { ProfileOnboardingScreen } from '@/features/profile/components/profile-onboarding-screen';
 import type { ProfileMemberKind } from '@/features/profile/profile-requirements';
 import {
@@ -228,6 +229,7 @@ export function ProfileOnboardingRoute() {
       <ProfileOnboardingScreen
         memberKind={view.memberKind}
         nextPath={view.nextPath}
+        renderConsentRequired={(props) => <ConsentRequiredDialog {...props} />}
       />
       {view.canChangeRole ? <ChangeRoleLink /> : null}
     </>

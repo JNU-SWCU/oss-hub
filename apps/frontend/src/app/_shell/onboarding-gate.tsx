@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { ConsentRequiredDialog } from '@/features/consents/components/consent-required-dialog';
 import { classifyProfileApiError, getMyProfile } from '@/features/profile/api';
 
 import { onboardingPathFor, type ProfileCheckStatus } from './onboarding-route';
@@ -34,9 +35,42 @@ export function OnboardingGate({
   const { status, staffAccessRequestStatus, retry } = session;
   const [profileStatus, setProfileStatus] =
     useState<ProfileCheckStatus>('checking');
+  const [isConsentRequiredOpen, setConsentRequiredOpen] = useState(false);
   const expectedPath = onboardingPathFor(
     staffAccessRequestStatus,
     profileStatus,
+  );
+
+  const checkProfile = useCallback(
+    (signal?: AbortSignal) => {
+      setProfileStatus('checking');
+      getMyProfile(signal)
+        .then((profile) => {
+          if (!signal?.aborted) {
+            setConsentRequiredOpen(false);
+            setProfileStatus(profile.isComplete ? 'complete' : 'incomplete');
+          }
+        })
+        .catch((error: unknown) => {
+          if (signal?.aborted) {
+            return;
+          }
+
+          switch (classifyProfileApiError(error)) {
+            case 'unauthorized':
+              router.replace('/');
+              return;
+            case 'consent-required':
+              setConsentRequiredOpen(true);
+              return;
+            case 'already-complete':
+            case 'generic':
+              setProfileStatus('error');
+              return;
+          }
+        });
+    },
+    [router],
   );
 
   useEffect(() => {
@@ -45,33 +79,9 @@ export function OnboardingGate({
     }
 
     const controller = new AbortController();
-    getMyProfile(controller.signal)
-      .then((profile) => {
-        if (!controller.signal.aborted) {
-          setProfileStatus(profile.isComplete ? 'complete' : 'incomplete');
-        }
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        switch (classifyProfileApiError(error)) {
-          case 'unauthorized':
-            router.replace('/');
-            return;
-          case 'consent-required':
-            router.replace('/consent');
-            return;
-          case 'already-complete':
-          case 'generic':
-            setProfileStatus('error');
-            return;
-        }
-      });
-
+    checkProfile(controller.signal);
     return () => controller.abort();
-  }, [router, status]);
+  }, [checkProfile, status]);
 
   useEffect(() => {
     if (status === 'anonymous') {
@@ -92,28 +102,54 @@ export function OnboardingGate({
   }, [expectedPath, router, status, target]);
 
   const isAllowed =
-    status === 'unassigned' && TARGET_PATH[target] === expectedPath;
+    !isConsentRequiredOpen &&
+    status === 'unassigned' &&
+    TARGET_PATH[target] === expectedPath;
+  const handleConsentRequiredOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) setConsentRequiredOpen(true);
+  }, []);
+  const consentRequiredDialog = (
+    <ConsentRequiredDialog
+      open={isConsentRequiredOpen}
+      onOpenChange={handleConsentRequiredOpenChange}
+      onCompleted={() => {
+        setConsentRequiredOpen(false);
+        checkProfile();
+      }}
+    />
+  );
 
   // 세션 조회 실패는 리다이렉트도 진행도 하지 않는다. 처리하지 않으면 아래
   // `확인 중…`으로 접혀 사용자가 영구히 기다리게 된다 — 공유 상태에 새 값을
   // 추가하면 모든 게이트가 그것을 소진해야 한다.
   if (status === 'error') {
-    return <SessionError onRetry={retry} />;
+    return (
+      <>
+        <SessionError onRetry={retry} />
+        {consentRequiredDialog}
+      </>
+    );
   }
 
   if (status === 'unassigned' && profileStatus === 'error') {
     return (
-      <p className="p-6 text-sm text-destructive" role="alert">
-        프로필 정보를 확인하지 못했습니다. 새로고침 후 다시 시도해 주세요.
-      </p>
+      <>
+        <p className="p-6 text-sm text-destructive" role="alert">
+          프로필 정보를 확인하지 못했습니다. 새로고침 후 다시 시도해 주세요.
+        </p>
+        {consentRequiredDialog}
+      </>
     );
   }
 
   if (!isAllowed) {
     return (
-      <p className="p-6 text-sm text-muted-foreground" role="status">
-        확인 중…
-      </p>
+      <>
+        <p className="p-6 text-sm text-muted-foreground" role="status">
+          확인 중…
+        </p>
+        {consentRequiredDialog}
+      </>
     );
   }
 
@@ -128,5 +164,10 @@ export function OnboardingGate({
   // 중첩 걱정은 없다. `OnboardingGate`와 `RoleGate`가 함께 오는 라우트는 없고
   // (레이아웃은 루트와 `dashboard/users` 둘뿐이며 어느 쪽도 이 게이트 위에 서지 않는다),
   // 설령 겹치더라도 안쪽 provider가 이기므로 자식은 자기를 감싼 게이트의 답을 본다.
-  return <SessionRoleProvider value={session}>{children}</SessionRoleProvider>;
+  return (
+    <SessionRoleProvider value={session}>
+      {children}
+      {consentRequiredDialog}
+    </SessionRoleProvider>
+  );
 }

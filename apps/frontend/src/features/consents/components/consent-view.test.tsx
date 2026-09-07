@@ -161,7 +161,7 @@ describe('좁은 화면 전문 팝업의 높이 계약', () => {
     .filter((token) => !token.startsWith('sm:'));
 
   const source = readFileSync(
-    path.resolve(__dirname, './consent-view.tsx'),
+    path.resolve(__dirname, './consent-policy-dialog.tsx'),
     'utf-8',
   );
 
@@ -182,6 +182,11 @@ describe('좁은 화면 전문 팝업의 높이 계약', () => {
     expect(narrow.some((token) => token.startsWith('-translate-y-'))).toBe(
       false,
     );
+  });
+
+  it('공유 다이얼로그의 중앙 정렬 변환을 좁은 화면에서 취소한다', () => {
+    expect(narrow).toContain('translate-x-0');
+    expect(narrow).toContain('translate-y-0');
   });
 
   // `100dvh`를 그대로 쓰면 노치·홈 표시줄이 있는 기기에서 위아래가 잘린다.
