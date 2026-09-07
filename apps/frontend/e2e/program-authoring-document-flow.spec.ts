@@ -1,4 +1,5 @@
 import { expect, test } from './admin-session.fixture';
+import { verifyProgramArchiveScopes } from './support/program-authoring-archive-scopes';
 import {
   downloadedArtifact,
   expectApiStatus,
@@ -269,7 +270,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
           response.request().method() === 'POST',
       ),
       requiredDocumentRow
-        .getByRole('button', { name: '제출', exact: true })
+        .getByRole('button', { name: '다시 제출', exact: true })
         .click(),
     ]);
     expect(secondSubmission.ok()).toBe(true);
@@ -477,6 +478,12 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await writeArtifact('mail-summary.json', {
       envelopeCount: state.dryRunEnvelopes,
       hashes: state.mailContentHashes,
+    });
+    await verifyProgramArchiveScopes({
+      programId,
+      staffPage,
+      studentPage,
+      foreignStudentPage,
     });
   });
 });
