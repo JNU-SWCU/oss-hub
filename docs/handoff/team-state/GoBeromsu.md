@@ -1383,3 +1383,11 @@
 - 두 사용자 유형을 가드가 실제로 구분하는 상태로 갈랐고, 원장에 의존성 폐쇄를 따라간 심볼을 파일 단위로 넣되 살아 있는 경로와 공유하는 심볼은 과다 삭제를 막도록 표시했다.
 - 검증: backend 313 suite / 3588 test, lint·typecheck·prettier 통과.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — 전체 삭제가 영구히 500이던 원인 제거
+
+- 배경: 운영 화면에서 프로그램 전체 삭제가 「예기치 못한 서버 오류」로 실패했다. 응답은 500 SYS_001이고 필터가 코드만 남겨 원인이 로그에 없었다.
+- 원인: `SubmissionFile_deleted_at_check`는 `(lifecycle = 'DELETED') = (deletedAt IS NOT NULL)`를 요구한다. 그런데 purge의 파일 분리 단계가 스코프 안 모든 행을 무조건 `DELETE_PENDING`으로 바꾸면서 `deletedAt`을 그대로 뒀다. 이미 삭제가 끝난 파일이 하나라도 딸린 프로그램은 이 제약을 위반해 영구히 지워지지 않는다. 이 예외는 P2003도 serialization failure도 아니라 409 변환 경로에 걸리지 않고 그대로 500이 된다.
+- 수정: 분리를 두 스코프로 나눴다. 아직 삭제되지 않은 파일만 `DELETE_PENDING`으로 되돌리고, 이미 `DELETED`인 파일은 lifecycle과 `deletedAt`을 보존한 채 FK만 끊는다. `SubmissionFile_lifecycle_attachment_check`가 `DELETE_PENDING`/`DELETED`에는 FK 상태를 제약하지 않으므로 이어지는 자식 삭제가 막히지 않는다. 이미 끝난 삭제를 되돌려 cleanup worker가 없는 객체를 다시 지우게 만들지 않는 것이 요점이다.
+- 검증: 통합 회귀 테스트를 먼저 세우고 수정 전 코드에서 실제로 실패하는 것을 확인했다 — 실패 사유가 운영에서 본 것과 같은 `SubmissionFile_deleted_at_check` 위반이다. 수정 후 `program-purge.integration.spec.ts` 18건, `program-lifecycle.service.spec.ts` 43건 통과. prettier·backend lint 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
