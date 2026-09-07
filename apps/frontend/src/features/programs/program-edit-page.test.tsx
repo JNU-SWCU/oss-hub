@@ -403,7 +403,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       await Promise.resolve();
     });
     await act(async () => getButton('추가').click());
-    await act(async () => getButton('저장').click());
+    await act(async () => getButton('마일스톤 저장').click());
 
     expect(container.textContent).toContain('마일스톤 이름을 입력해 주세요.');
     expect(container.textContent).toContain('유효한 시작일을 입력해 주세요.');
@@ -434,7 +434,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       setter?.call(name, '새 마일스톤');
       name.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await act(async () => getButton('저장').click());
+    await act(async () => getButton('마일스톤 저장').click());
 
     expect(document.activeElement).toBe(
       container.querySelector(
@@ -457,7 +457,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await act(async () => {
-      getButton('변경사항 저장').click();
+      getButton('프로그램 정보 저장').click();
     });
     await act(async () => {
       await Promise.resolve();
@@ -503,7 +503,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       )?.set?.call(endTime, '09:30');
       endTime.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await act(async () => getButton('적용').click());
+    await act(async () => getButton('날짜 적용').click());
 
     expect(updateProgramMock).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
@@ -540,10 +540,10 @@ describe('ProgramEditPage 컴포넌트', () => {
         .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-15"]')
         ?.click();
     });
-    await act(async () => getButton('적용').click());
+    await act(async () => getButton('날짜 적용').click());
     expect(updateProgramMock).not.toHaveBeenCalled();
 
-    await act(async () => getButton('변경사항 저장').click());
+    await act(async () => getButton('프로그램 정보 저장').click());
     await act(async () => {
       await Promise.resolve();
     });
@@ -584,7 +584,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await act(async () => {
-      getButton('변경사항 저장').click();
+      getButton('프로그램 정보 저장').click();
     });
     await act(async () => {
       await Promise.resolve();
@@ -596,7 +596,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       container.querySelector<HTMLInputElement>('#program-name')?.value,
     ).toBe('저장 실패해도 남아야 하는 이름');
     // 저장 버튼은 저장 중 상태에서 풀려나 다시 눌러 볼 수 있다.
-    expect(getButton('변경사항 저장')).toBeTruthy();
+    expect(getButton('프로그램 정보 저장')).toBeTruthy();
     // 에러는 폼 옆(FieldError)에 뜬다 — 페이지 위쪽 generalAlert가 아니다.
     expect(container.textContent).toContain(
       '저장에 실패했습니다. 다시 시도해 주세요.',

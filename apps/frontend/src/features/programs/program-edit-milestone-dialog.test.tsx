@@ -149,12 +149,23 @@ describe('ProgramEditMilestoneDialog', () => {
       root.render(
         <ProgramEditMilestoneDialog
           {...passiveProps}
+          contextEvents={[
+            {
+              id: 'application',
+              label: '신청 기간',
+              kind: 'APPLICATION',
+              startAt: '2026-08-01T09:00',
+              endAt: '2026-08-15T18:00',
+            },
+          ]}
           editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
         />,
       ),
     );
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain('기획서 제출 수정');
+    expect(dialog?.textContent).toContain('운영 기간');
+    expect(dialog?.textContent).not.toContain('신청 기간');
     expect(
       (document.querySelector('#milestone-name') as HTMLInputElement).value,
     ).toBe('기획서 제출');
@@ -203,7 +214,10 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(dialog?.querySelector('form')?.textContent).toContain('제출 항목');
     expect(
       dialog?.querySelector('form button[type="submit"]')?.textContent,
-    ).toContain('저장');
+    ).toBe('마일스톤 저장');
+    expect(dialog?.querySelector('form')?.textContent).toContain(
+      '이름, 일정, 안내, 제출 항목과 양식 변경을 함께 저장합니다.',
+    );
   });
 
   it('closes a clean editor with one Escape and returns focus to its exact origin', async () => {

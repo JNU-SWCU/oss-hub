@@ -171,17 +171,17 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     );
     await selectRange('결과물 제출', '2026-08-16', '2026-08-20');
     await act(async () => {
-      getButton('저장').click();
+      getButton('마일스톤 저장').click();
       await Promise.resolve();
     });
 
     await act(async () => getAccessibleButton('운영 기간 수정').click());
     await selectRange('운영 기간', '2026-08-16', '2026-08-25');
     await act(async () => {
-      getButton('적용').click();
+      getButton('날짜 적용').click();
     });
     await act(async () => {
-      getButton('변경사항 저장').click();
+      getButton('프로그램 정보 저장').click();
       await Promise.resolve();
     });
 
