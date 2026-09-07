@@ -49,10 +49,17 @@ test('프로그램별 실제 메일을 확인하고 모바일 탭을 바꿔도 �
     const destination = await link.getAttribute('href');
     if (destination === null) throw new Error('Missing preview destination');
     const [opened] = await Promise.all([
-      page.waitForEvent('popup'),
+      page.context().waitForEvent('page'),
       link.click(),
     ]);
     await expect(opened).toHaveURL(destination);
+    await testInfo.attach('mail-new-tab-observer', {
+      body: JSON.stringify({
+        destination,
+        playwrightOpenerLinked: (await opened.opener()) !== null,
+      }),
+      contentType: 'application/json',
+    });
     if (new URL(destination).pathname.endsWith('/dashboard')) {
       await expect(
         opened.getByRole('heading', { name: '운영 대시보드' }),
