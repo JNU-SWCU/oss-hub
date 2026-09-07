@@ -48,6 +48,15 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
   });
 
   await activateRoute(page, {
+    fixture: 'unassigned',
+    path: '/onboarding/role',
+  });
+  await page.locator('label[data-role="STAFF"]').click();
+  await page.getByRole('button', { name: '선택 완료' }).click();
+  await expect(page).toHaveURL(/\/onboarding\/profile$/);
+  await expect(page.locator('#profile-phone')).toHaveCount(0);
+
+  await activateRoute(page, {
     fixture: 'settings',
     path: '/settings',
   });
@@ -75,6 +84,10 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
   });
   const usersTable = page.getByRole('region', { name: '사용자 목록 표' });
   await expectByPhase(usersTable.getByText(/가입 일시/).first(), phase);
+  const adminUserRow = usersTable
+    .getByRole('row')
+    .filter({ hasText: '@synthetic-admin-self' });
+  await expect(adminUserRow).toContainText('2026. 3. 2. 오전 9:00');
   await captureBothViewports({
     page,
     testInfo,
@@ -149,6 +162,11 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     }),
   });
   await expect(consentDialog).toBeVisible();
+  await expect(
+    consentDialog
+      .getByRole('button', { name: /개인정보 수집·이용 전문 보기/ })
+      .first(),
+  ).toBeVisible();
   await captureBothViewports({
     page,
     testInfo,
@@ -178,6 +196,12 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
   await expect(
     policyDialog.getByTitle('개인정보 수집·이용 전문'),
   ).toBeVisible();
+  const policyFrame = page.frameLocator(
+    'iframe[title="개인정보 수집·이용 전문"]',
+  );
+  await expect(
+    policyFrame.getByRole('heading', { name: '개인정보 수집·이용' }),
+  ).toBeVisible();
   await captureEvidenceRegion({
     page,
     testInfo,
@@ -192,6 +216,9 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     .getByRole('button', { name: /개인정보 수집·이용 전문 보기/ })
     .click();
   await expect(policyDialog).toBeVisible();
+  await expect(
+    policyFrame.getByRole('heading', { name: '개인정보 수집·이용' }),
+  ).toBeVisible();
   await captureEvidenceRegion({
     page,
     testInfo,
@@ -221,7 +248,15 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     },
     {
       text: `Blocked script execution in '${origin}/policies/privacy/2026-08-11.html' because the document's frame is sandboxed and the 'allow-scripts' permission is not set.`,
+      url: '',
+    },
+    {
+      text: `Blocked script execution in '${origin}/policies/privacy/2026-08-11.html' because the document's frame is sandboxed and the 'allow-scripts' permission is not set.`,
       url: `${origin}/policies/privacy/2026-08-11.html`,
+    },
+    {
+      text: `Blocked script execution in '${origin}/policies/privacy/2026-08-11.html' because the document's frame is sandboxed and the 'allow-scripts' permission is not set.`,
+      url: '',
     },
   ]);
   expect(consentPageErrors).toEqual([]);
