@@ -225,7 +225,7 @@ export function expectCleanState(
     state.mailContentHashes.length !== expectedMailEnvelopes
   ) {
     throw new Error(
-      `Expected ${expectedMailEnvelopes} deduplicated sanitized mail ` +
+      `Expected ${expectedMailEnvelopes} sanitized mail ` +
         `envelope(s) (dryRunEnvelopes=${state.dryRunEnvelopes}, ` +
         `mailContentHashes=${state.mailContentHashes.length}).`,
     );

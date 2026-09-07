@@ -34,6 +34,17 @@ describe('program authoring E2E fixture state', () => {
     expect(() => expectCleanState(counts)).not.toThrow();
   });
 
+  it('counts separate staff deliveries even when their body hashes match', () => {
+    const counts = toStateCounts({
+      ...CLEAN_COUNTS,
+      dryRunEnvelopes: 3,
+      mailContentHashes: ['a'.repeat(64), 'b'.repeat(64), 'b'.repeat(64)],
+    });
+
+    expect(() => expectCleanState(counts, 1, 1, 1, 3)).not.toThrow();
+    expect(() => expectCleanState(counts, 1, 1, 1, 2)).toThrow(/envelope/);
+  });
+
   it('rejects a state response that has an orphaned object', () => {
     const counts = toStateCounts({ ...CLEAN_COUNTS, orphanObjects: 1 });
 
