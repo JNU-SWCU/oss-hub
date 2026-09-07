@@ -12,9 +12,9 @@ import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
