@@ -151,10 +151,6 @@ export function MilestoneDocumentSubmissionForm({
               {rejectedFile.name}
             </span>
             <FieldError id={fileErrorId}>{rejectedFile.reason}</FieldError>
-            <span className="text-small text-muted-foreground break-keep">
-              위에서 다른 파일을 바로 선택하거나 파일 없이 계속할 수 있습니다.
-              작성한 내용은 그대로 남습니다.
-            </span>
             <Button
               type="button"
               size="sm"
