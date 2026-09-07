@@ -1376,3 +1376,10 @@
 - 죽은 코드를 제거했다. `uploadMilestoneDocumentTemplate` 프론트 어댑터는 production 호출부가 0인데 자기 테스트만 붙잡고 있었다. 재구성이 양식 교체를 authoring 업로드 경로로 옮기면서 죽은 것이고, 함께 고아가 된 타입도 정리했다. backend 라우트는 EXPAND 호환이라 남긴다.
 - 검증: backend 313 suite / 3588 test, 격리 integration 93 suite / 537 test, frontend 341 file / 3492 test, lint·typecheck·prettier 통과.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — 종단 검토 잔여 두 건 정리
+
+- 아키텍트 4차 검토가 WATCH로 짚은 두 건을 닫았다. 권한 거부 테스트의 「학생」과 「비인가 교직원」이 실제로는 같은 권한 상태로 수렴해 한 가지를 두 번 증명하고 있었고, CONTRACT 제거 원장이 endpoint와 DTO까지만 훑어 그 endpoint 전용 service·repository writer 체인을 빠뜨려 한 번에 제거가 불가능했다.
+- 두 사용자 유형을 가드가 실제로 구분하는 상태로 갈랐고, 원장에 의존성 폐쇄를 따라간 심볼을 파일 단위로 넣되 살아 있는 경로와 공유하는 심볼은 과다 삭제를 막도록 표시했다.
+- 검증: backend 313 suite / 3588 test, lint·typecheck·prettier 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
