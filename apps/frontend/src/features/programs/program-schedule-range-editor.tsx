@@ -5,6 +5,7 @@ import { CalendarClock, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   dateKey,
   monthKeyForEvents,
@@ -29,6 +30,10 @@ export function ProgramScheduleRangeEditor({
   headerAction,
   activeExtra,
   layout = 'default',
+  className,
+  dateInputConfirmLabel,
+  dateInputDescription,
+  showCalendarScrollHint,
 }: {
   readonly ranges: readonly ProgramScheduleEditableRange[];
   readonly activeId: string;
@@ -38,6 +43,10 @@ export function ProgramScheduleRangeEditor({
   readonly headerAction?: ReactNode;
   readonly activeExtra?: ReactNode;
   readonly layout?: 'default' | 'simple';
+  readonly className?: string;
+  readonly dateInputConfirmLabel?: string;
+  readonly dateInputDescription?: string;
+  readonly showCalendarScrollHint?: boolean;
 }) {
   const activeRange =
     ranges.find((range) => range.id === (validationActiveId ?? activeId)) ??
@@ -154,7 +163,12 @@ export function ProgramScheduleRangeEditor({
   const timeControlsId = `${activeRange.id}-time-controls`;
 
   return (
-    <Card className="overflow-hidden border-primary/30 bg-primary/5">
+    <Card
+      className={cn(
+        'overflow-hidden border-primary/30 bg-primary/5',
+        className,
+      )}
+    >
       {simpleLayout ? null : (
         <CardHeader className="gap-1">
           <CardTitle className="break-keep text-pretty">
@@ -175,6 +189,7 @@ export function ProgramScheduleRangeEditor({
       >
         {simpleLayout ? (
           <ProgramScheduleRangeCalendar
+            showScrollHint={showCalendarScrollHint}
             events={events}
             activeRange={activeRange}
             monthKey={monthKey}
@@ -321,6 +336,7 @@ export function ProgramScheduleRangeEditor({
         <div className="grid min-w-0 gap-4">
           {simpleLayout ? null : (
             <ProgramScheduleRangeCalendar
+              showScrollHint={showCalendarScrollHint}
               events={events}
               activeRange={activeRange}
               monthKey={monthKey}
@@ -371,6 +387,8 @@ export function ProgramScheduleRangeEditor({
         {manualRange ? (
           <ProgramScheduleRangeDialog
             range={manualRange}
+            confirmLabel={dateInputConfirmLabel}
+            description={dateInputDescription}
             onCancel={() => setManualRangeId(null)}
             onSave={(startAt, endAt) => {
               manualRange.onStartAtChange(startAt);
