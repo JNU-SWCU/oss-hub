@@ -32,7 +32,7 @@ it('필수 서류 미제출 수신자에게만 발송하고 SENT를 기록한다
   expect(studentMail?.body).toContain('최종 제출');
   expect(studentMail?.body).toContain('2026. 08. 14. 21:00 (Asia/Seoul)');
   expect(studentMail?.html).toContain(
-    `https://oss.example/programs/${encodeURIComponent(DIGEST_FIXTURE.notifyProgram)}/submissions?milestoneId=${encodeURIComponent(DIGEST_FIXTURE.notifyMilestone)}`,
+    `https://oss.example/programs/${encodeURIComponent(DIGEST_FIXTURE.notifyProgram)}#milestone-${encodeURIComponent(DIGEST_FIXTURE.notifyMilestone)}-name`,
   );
   const notifications = await harness.prisma.notification.findMany({
     where: {
