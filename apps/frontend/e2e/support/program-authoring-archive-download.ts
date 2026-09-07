@@ -18,10 +18,12 @@ export async function downloadScope(
     .check();
   if (scope.kind === 'MILESTONE')
     await panel
-      .getByLabel('마일스톤', { exact: true })
+      .getByRole('combobox', { name: /^마일스톤/ })
       .selectOption(scope.milestoneId);
   if (scope.kind === 'TEAM')
-    await panel.getByLabel('팀', { exact: true }).selectOption(scope.teamId);
+    await panel
+      .getByRole('combobox', { name: /^팀/ })
+      .selectOption(scope.teamId);
   await panel.getByLabel('ZIP 폴더 묶기').selectOption(grouping);
   await expect(
     panel.getByTestId('program-document-archive-summary'),
