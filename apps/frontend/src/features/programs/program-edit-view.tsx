@@ -225,10 +225,7 @@ export function ProgramEditView({
           </FormSection>
           <div className="grid gap-3">
             <FieldError role="alert">{errors.general}</FieldError>
-            <p
-              id="program-save-scope"
-              className="text-small text-muted-foreground"
-            >
+            <p id="program-save-scope" className="sr-only">
               기본 정보, 신청·운영 일정, 저장소와 알림 설정을 함께 저장합니다.
             </p>
             <div className="flex flex-wrap justify-end gap-2">

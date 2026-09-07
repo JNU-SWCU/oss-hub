@@ -116,6 +116,8 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain(
       '기본 정보, 신청·운영 일정, 저장소와 알림 설정을 함께 저장합니다.',
     );
+    expect(html).toContain('id="program-save-scope" class="sr-only"');
+    expect(html).toContain('aria-describedby="program-save-scope"');
     expect(html).toContain('신청 기간 수정');
     expect(html).toContain('운영 기간 수정');
     expect(html).toContain('class="inline-flex size-11');

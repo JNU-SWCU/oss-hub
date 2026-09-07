@@ -218,6 +218,16 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(dialog?.querySelector('form')?.textContent).toContain(
       '이름, 일정, 안내, 제출 항목과 양식 변경을 함께 저장합니다.',
     );
+    expect(
+      dialog
+        ?.querySelector('#milestone-save-scope')
+        ?.classList.contains('sr-only'),
+    ).toBe(true);
+    expect(
+      dialog
+        ?.querySelector('form button[type="submit"]')
+        ?.getAttribute('aria-describedby'),
+    ).toBe('milestone-save-scope');
   });
 
   it('keeps the milestone dialog open when Escape cancels only a submission-item name edit', async () => {

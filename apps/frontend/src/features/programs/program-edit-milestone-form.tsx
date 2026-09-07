@@ -85,10 +85,7 @@ export function ProgramEditMilestoneForm({
             : 'grid gap-3'
         }
       >
-        <p
-          id="milestone-save-scope"
-          className="text-small text-muted-foreground"
-        >
+        <p id="milestone-save-scope" className="sr-only">
           {layout === 'dialog'
             ? '이름, 일정, 안내, 제출 항목과 양식 변경을 함께 저장합니다.'
             : '이름, 일정과 안내를 저장합니다.'}
