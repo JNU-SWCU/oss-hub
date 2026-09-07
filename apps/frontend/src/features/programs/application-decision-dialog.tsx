@@ -181,45 +181,78 @@ export function ApplicationDecisionDialog({
               </p>
             </AlertDialog.Description>
           ) : isReject ? (
-            /*
-             * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
-             * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
-             * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
-             * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
-             */
-            <div className="grid gap-2 text-sm">
-              <label htmlFor="rejection-reason">반려 사유</label>
-              <textarea
-                id="rejection-reason"
-                className="min-h-28 rounded-md border border-input bg-background p-3"
-                value={reason}
-                disabled={busy}
-                onChange={(event) => onReasonChange(event.target.value)}
-                aria-invalid={reasonError}
-                aria-describedby={
-                  reasonError ? 'reason-error reason-hint' : 'reason-hint'
-                }
-              />
-              {reasonError ? (
-                <span
-                  id="reason-error"
-                  role="alert"
-                  className="text-destructive"
-                >
-                  반려 사유를 입력해 주세요.
-                </span>
-              ) : null}
+            <>
               {/*
-               * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
-               * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
+               * 반려가 학생에게 무엇을 뜻하는지 **누르기 전에** 말한다. 반려된 신청은
+               * 학생 쪽에서 손댈 수 없고, 그 프로그램에 다시 신청할 길도 없다 — 네
+               * 겹이 겹친다. ① 수정·취소는 `SUBMITTED` 에서만 열린다
+               * (`student-application-management`). ② 한 팀은 한 프로그램에 신청을
+               * 하나만 갖는다(`Application @@unique([programId, teamId])`). ③ 신청이
+               * 있는 팀은 탈퇴가 막히는데, 그 판정이 신청 **상태를 보지 않아** 반려된
+               * 신청도 잠근다(`program-teams.repository` 의 `leave`). ④ 한 사람은 한
+               * 프로그램에 한 팀만 갖는다(`TeamMember @@unique([programId, userId])`) —
+               * 그래서 「다른 팀으로 옮겨 신청」도 없다.
+               *
+               * ⚠ 「영구히」·「되돌릴 수 없습니다」로 쓰지 않는다 — **사실이 아니다**.
+               *   교직원이 「검토 대기로」를 누르면 `REVERT` 가 `SUBMITTED` 로 되돌린다
+               *   (`applications.service`; 되돌리기 잠금은 승인 + NEW 프로비저닝 성공에만
+               *   걸리고 반려에는 걸리지 않는다). 그 유일한 복구 경로를 함께 말해야
+               *   「잘못 눌렀으면 어떻게 하나」가 이 자리에서 풀린다.
+               *
+               * `Alert` 가 아니라 판정 대상 요약과 같은 옅은 배경 블록이다 — 확정
+               * 버튼보다 시각적으로 앞서면 안 된다(#869 와 같은 규칙).
+               *
+               * ⚠ `AlertDialog.Description` 으로 만들지 않는다 — 반려 창은 설명 키를
+               *   넘기지 않는 쪽을 골랐고(위 `describedBy`), 여기서 뒤집으면 그 결정과
+               *   그것을 고정한 테스트가 함께 깨진다. **보이는** 안내만 더한다.
                */}
-              <span
-                id="reason-hint"
-                className="text-muted-foreground break-keep"
+              <p
+                id="application-decision-reject-consequence"
+                className="rounded-md border border-border bg-muted/40 p-3 text-small break-keep"
               >
-                적은 사유는 학생에게 그대로 보입니다.
-              </span>
-            </div>
+                반려하면 신청자는 이 프로그램에 스스로 다시 신청할 수 없습니다.
+                되돌리려면 이 화면의 「검토 대기로」를 눌러야 합니다.
+              </p>
+              {/*
+               * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
+               * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
+               * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
+               * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
+               */}
+              <div className="grid gap-2 text-sm">
+                <label htmlFor="rejection-reason">반려 사유</label>
+                <textarea
+                  id="rejection-reason"
+                  className="min-h-28 rounded-md border border-input bg-background p-3"
+                  value={reason}
+                  disabled={busy}
+                  onChange={(event) => onReasonChange(event.target.value)}
+                  aria-invalid={reasonError}
+                  aria-describedby={
+                    reasonError ? 'reason-error reason-hint' : 'reason-hint'
+                  }
+                />
+                {reasonError ? (
+                  <span
+                    id="reason-error"
+                    role="alert"
+                    className="text-destructive"
+                  >
+                    반려 사유를 입력해 주세요.
+                  </span>
+                ) : null}
+                {/*
+                 * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
+                 * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
+                 */}
+                <span
+                  id="reason-hint"
+                  className="text-muted-foreground break-keep"
+                >
+                  적은 사유는 학생에게 그대로 보입니다.
+                </span>
+              </div>
+            </>
           ) : (
             <AlertDialog.Description asChild>
               <p className="break-keep">
