@@ -136,22 +136,16 @@ export function MatrixBody(
     : milestones;
   const quickFiltered = applyMatrixQuickFilter(
     rows,
-    props.quickFilter === 'ZERO_SUBMISSION' ? milestones : visibleMilestones,
+    visibleMilestones,
     props.quickFilter,
   );
 
   return (
     <>
-      <MatrixStatsStrip
-        rows={rows}
-        visibleMilestones={visibleMilestones}
-        allMilestones={milestones}
-      />
+      <MatrixStatsStrip rows={rows} visibleMilestones={visibleMilestones} />
       <MatrixQuickFilterButtons
         rows={rows}
         visibleMilestones={visibleMilestones}
-        allMilestones={milestones}
-        focused={selectedMilestone !== null}
         quickFilter={props.quickFilter}
         onQuickFilterChange={props.onQuickFilterChange}
       />

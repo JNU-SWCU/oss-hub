@@ -183,7 +183,12 @@ function transformedInteger(
     : null;
 }
 
-const COLLECTION_QUERY_KEYS = new Set(['page', 'pageSize', 'filter']);
+const COLLECTION_QUERY_KEYS = new Set([
+  'page',
+  'pageSize',
+  'filter',
+  'deliveryStatus',
+]);
 const HISTORY_QUERY_KEYS = new Set(['cursor', 'limit']);
 
 function historyQuery(
@@ -286,6 +291,15 @@ const collectionHandler: LocalReviewHandler = (context) => {
     100,
   );
   const filter = context.searchParams.get('filter');
+  const deliveryStatus = context.searchParams.get('deliveryStatus');
+  if (
+    deliveryStatus !== null &&
+    deliveryStatus !== 'MISSING' &&
+    deliveryStatus !== 'LATE' &&
+    deliveryStatus !== 'COMPLETE' &&
+    deliveryStatus !== 'NO_REQUIRED_ITEMS'
+  )
+    return validationProblem(context);
   if (
     !hasOnlyQueryKeys(context, COLLECTION_QUERY_KEYS) ||
     page === null ||
@@ -296,6 +310,7 @@ const collectionHandler: LocalReviewHandler = (context) => {
     return validationProblem(context);
   }
   const collection = milestoneDocumentCollectionFor(params.milestoneId ?? '', {
+    ...(deliveryStatus === null ? {} : { deliveryStatus }),
     page,
     pageSize,
     filter: COLLECTION_FILTERS.includes(

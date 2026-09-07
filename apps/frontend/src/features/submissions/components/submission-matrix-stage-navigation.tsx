@@ -74,9 +74,6 @@ function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
               className="shrink-0 px-4"
             >
               {option.label}
-              {selected ? (
-                <span className="text-[11px] font-bold">선택됨</span>
-              ) : null}
             </Button>
           );
         })}

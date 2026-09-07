@@ -30,7 +30,8 @@ import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-
 import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
 import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
-import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
+import type { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-delivery-collection-response.dto';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentHistoryQueryRequestDto } from './dto/milestone-document-history-query.dto';
 import { MilestoneDocumentListResponseDto } from './dto/milestone-document-list-response.dto';
 import type { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-response.dto';
@@ -130,6 +131,7 @@ export class MilestoneDocumentsController {
     private readonly filesService: MilestoneDocumentFilesService,
     private readonly reviewsService: MilestoneDocumentReviewsService,
     private readonly archiveService: MilestoneDocumentArchiveService,
+    private readonly collectionService: MilestoneDocumentCollectionService,
   ) {}
 
   /**
@@ -156,8 +158,8 @@ export class MilestoneDocumentsController {
   collection(
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentCollectionQueryRequestDto,
-  ): Promise<MilestoneDocumentCollectionResponseDto> {
-    return this.service.collectForStaff(milestoneId, query.toQuery());
+  ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
+    return this.collectionService.collectForStaff(milestoneId, query.toQuery());
   }
 
   /**

@@ -29,6 +29,7 @@ import {
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 import type { MilestoneDocumentsStaffRequest } from './milestone-documents-staff.guard';
 import {
@@ -206,6 +207,10 @@ beforeAll(async () => {
       MilestoneDocumentFilesController,
     ],
     providers: [
+      {
+        provide: MilestoneDocumentCollectionService,
+        useValue: { collectForStaff },
+      },
       {
         provide: MilestoneDocumentsService,
         useValue: {
@@ -641,6 +646,34 @@ it('범위를 벗어난 pageSize는 서비스 호출 전에 400으로 거절한�
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?pageSize=101`,
   );
 
+  // Then
+  expect(response.status).toBe(400);
+  expect(collectForStaff).not.toHaveBeenCalled();
+});
+
+it.each(['MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'])(
+  '서류 수합은 검토 상태와 별도의 제출 필터 %s를 전달한다',
+  async (deliveryStatus) => {
+    // Given / When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?deliveryStatus=${deliveryStatus}`,
+    );
+    // Then
+    expect(response.status).toBe(200);
+    expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
+      page: 1,
+      pageSize: 20,
+      filter: 'ALL',
+      deliveryStatus,
+    });
+  },
+);
+
+it('검토 상태는 제출 필터 값으로 받지 않는다', async () => {
+  // Given / When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?deliveryStatus=REJECTED`,
+  );
   // Then
   expect(response.status).toBe(400);
   expect(collectForStaff).not.toHaveBeenCalled();
@@ -1507,6 +1540,7 @@ describe('legacy mutation route HTTP guard rejections', () => {
         { provide: MilestoneDocumentFilesService, useValue: {} },
         { provide: MilestoneDocumentReviewsService, useValue: {} },
         { provide: MilestoneDocumentArchiveService, useValue: {} },
+        { provide: MilestoneDocumentCollectionService, useValue: {} },
         MilestoneDocumentsStaffGuard,
         OriginGuard,
         { provide: AuthConfig, useValue: { allowedOrigin } },

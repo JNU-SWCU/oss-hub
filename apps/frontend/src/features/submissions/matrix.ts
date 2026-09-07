@@ -1,7 +1,7 @@
+import type { DocumentDeliveryStatus } from '@/lib/document-delivery';
 import type {
   MatrixApplicationMode,
   MatrixCell,
-  MatrixCellStatus,
   MatrixMilestone,
   MatrixRow,
 } from './types';
@@ -21,13 +21,7 @@ export interface MatrixQueryInput {
   readonly pageSize: number;
 }
 
-/**
- * 서류 현황 표의 칸은 최신 판정 상태를 그대로 보여 준다
- * (`docs/design.md` §업무 화면 내비게이션 › 서류 현황 표, QA49).
- * 이전에는 저장 enum 5종을 화면 3종(제출함/지각/미제출)으로 접었지만,
- * 그러면 승인·보완 요청·반려가 모두 "제출함"으로 뭉개져 실제 판정 상태를 가렸다.
- * 검토 전(SUBMITTED) 셀만 마감 초과 여부로 지각 제출을 가른다(`isLateSubmission`).
- */
+/** 검토 결과는 필수 서류의 제출 상태와 독립적으로 표시한다. */
 export const MATRIX_CELL_DISPLAY_LABELS = {
   NOT_SUBMITTED: '미제출',
   SUBMITTED: '검토 대기',
@@ -53,19 +47,10 @@ export const MATRIX_CELL_DISPLAY_VARIANTS = {
   >
 >;
 
-/**
- * 저장 enum을 화면에 그대로 옮기되, 검토 전(SUBMITTED) 셀만 마감 시각과
- * 비교해 지각 제출인지 가른다(`isLateSubmission`이 판정 근거). 승인·보완
- * 요청·반려는 이미 검토를 거친 결과이므로 지각 여부를 다시 덧붙이지 않는다.
- */
 export function matrixCellDisplay(
   cell: MatrixCell,
-  milestone: MatrixMilestone,
+  _milestone: MatrixMilestone,
 ): MatrixCellDisplay {
-  if (cell.status === 'NOT_SUBMITTED') return 'NOT_SUBMITTED';
-  if (cell.status === 'SUBMITTED') {
-    return isLateSubmission(cell, milestone) ? 'LATE' : 'SUBMITTED';
-  }
   return cell.status;
 }
 
@@ -104,6 +89,7 @@ export function cellForMilestone(
       submissionId: null,
       revision: null,
       status: 'NOT_SUBMITTED',
+      deliveryStatus: 'MISSING',
       submittedAt: null,
       reviewUrl: null,
     }
@@ -142,21 +128,28 @@ export function matrixEmptyKind(input: {
   return input.filterActive ? 'no-results' : 'no-applications';
 }
 
-/** 제출됨 셀이 해당 마일스톤 마감(dueAt) 이후에 들어왔는지 — "지각" 판정(#619 스펙). */
+/** The server derives lateness from the first successful submission, including reviewed items. */
 export function isLateSubmission(
   cell: MatrixCell,
-  milestone: MatrixMilestone,
+  _milestone?: MatrixMilestone,
 ): boolean {
-  if (cell.status === 'NOT_SUBMITTED' || cell.submittedAt === null) {
-    return false;
-  }
-  return (
-    new Date(cell.submittedAt).getTime() > new Date(milestone.dueAt).getTime()
-  );
+  return cell.deliveryStatus === 'LATE';
 }
 
-/** #619 스펙 3버튼 빠른 필터 — "전체"/"빈 칸 있는 팀"/"한 장도 안 낸 팀". */
-export type MatrixQuickFilter = 'ALL' | 'HAS_EMPTY' | 'ZERO_SUBMISSION';
+export function matrixRowDeliveryStatus(
+  row: MatrixRow,
+  milestones: readonly MatrixMilestone[],
+): DocumentDeliveryStatus {
+  const statuses = milestones.map(
+    (milestone) => cellForMilestone(row, milestone.id).deliveryStatus,
+  );
+  if (statuses.includes('MISSING')) return 'MISSING';
+  if (statuses.includes('LATE')) return 'LATE';
+  if (statuses.includes('COMPLETE')) return 'COMPLETE';
+  return 'NO_REQUIRED_ITEMS';
+}
+
+export type MatrixQuickFilter = 'ALL' | DocumentDeliveryStatus;
 
 /** 빈 칸 있는 팀 — 로드된 마일스톤 중 하나라도 NOT_SUBMITTED인 행. */
 export function matrixRowHasEmptyCell(
@@ -165,18 +158,7 @@ export function matrixRowHasEmptyCell(
 ): boolean {
   return milestones.some(
     (milestone) =>
-      cellForMilestone(row, milestone.id).status === 'NOT_SUBMITTED',
-  );
-}
-
-/** 한 장도 안 낸 팀 — 로드된 마일스톤 전부가 NOT_SUBMITTED인 행. */
-export function matrixRowIsZeroSubmission(
-  row: MatrixRow,
-  milestones: readonly MatrixMilestone[],
-): boolean {
-  return milestones.every(
-    (milestone) =>
-      cellForMilestone(row, milestone.id).status === 'NOT_SUBMITTED',
+      cellForMilestone(row, milestone.id).deliveryStatus === 'MISSING',
   );
 }
 
@@ -189,23 +171,20 @@ export function applyMatrixQuickFilter(
   milestones: readonly MatrixMilestone[],
   filter: MatrixQuickFilter,
 ): readonly MatrixRow[] {
-  if (filter === 'HAS_EMPTY') {
-    return rows.filter((row) => matrixRowHasEmptyCell(row, milestones));
-  }
-  if (filter === 'ZERO_SUBMISSION') {
-    return rows.filter((row) => matrixRowIsZeroSubmission(row, milestones));
-  }
+  if (filter !== 'ALL')
+    return rows.filter(
+      (row) => matrixRowDeliveryStatus(row, milestones) === filter,
+    );
   return rows;
 }
 
 export interface MatrixPageStats {
-  /** 로드된(현재 페이지) 행 × 마일스톤 칸 수. */
+  /** 현재 페이지에서 필수 서류가 있는 팀별 단계 수. */
   readonly totalCells: number;
   readonly filledCells: number;
   readonly emptyCells: number;
-  /** 모든 마일스톤이 NOT_SUBMITTED인 행(팀) 수. */
-  readonly zeroSubmissionRows: number;
-  /** dueAt 이후 제출된 칸 수. */
+  readonly noRequiredCells: number;
+  /** 필수 서류의 최초 제출이 마감 이후인 팀별 단계 수. */
   readonly lateCells: number;
 }
 
@@ -218,27 +197,27 @@ export function matrixPageStats(
   rows: readonly MatrixRow[],
   milestones: readonly MatrixMilestone[],
 ): MatrixPageStats {
-  const totalCells = rows.length * milestones.length;
+  let totalCells = 0;
   let filledCells = 0;
-  let zeroSubmissionRows = 0;
+  let noRequiredCells = 0;
   let lateCells = 0;
   for (const row of rows) {
-    let rowHasSubmission = false;
     for (const milestone of milestones) {
-      const cell = cellForMilestone(row, milestone.id);
-      if (cell.status !== 'NOT_SUBMITTED') {
-        filledCells += 1;
-        rowHasSubmission = true;
-        if (isLateSubmission(cell, milestone)) lateCells += 1;
+      const status = cellForMilestone(row, milestone.id).deliveryStatus;
+      if (status === 'NO_REQUIRED_ITEMS') {
+        noRequiredCells += 1;
+        continue;
       }
+      totalCells += 1;
+      if (status === 'COMPLETE' || status === 'LATE') filledCells += 1;
+      if (status === 'LATE') lateCells += 1;
     }
-    if (!rowHasSubmission) zeroSubmissionRows += 1;
   }
   return {
     totalCells,
     filledCells,
     emptyCells: totalCells - filledCells,
-    zeroSubmissionRows,
+    noRequiredCells,
     lateCells,
   };
 }
