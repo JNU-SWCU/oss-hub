@@ -44,7 +44,7 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
     buffer: Buffer.from('%PDF-1.4\nfirst\n'),
   });
   await expect(item).toContainText(firstFile);
-  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await dialog.getByRole('button', { name: /^(?:마일스톤 )?저장$/ }).click();
   await expect(dialog).toHaveCount(0);
   const firstLink = card.getByRole('link', { name: firstFile, exact: true });
   await expect(firstLink).toBeVisible();
@@ -65,7 +65,7 @@ test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다'
     buffer: replacementBytes,
   });
   await expect(item).toContainText(replacementFile);
-  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await dialog.getByRole('button', { name: /^(?:마일스톤 )?저장$/ }).click();
   await expect(dialog).toHaveCount(0);
   await page.reload();
   const link = card.getByRole('link', { name: replacementFile, exact: true });

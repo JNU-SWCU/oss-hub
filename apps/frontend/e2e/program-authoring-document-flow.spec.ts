@@ -371,7 +371,9 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     // 승인된 두 팀 중 학생 본인 팀은 제출을 마쳤고 외부 학생 팀은 미제출이다.
     // 수합 화면이 두 상태를 함께 반영하는지 이 수로 확인한다.
     await expect(
-      staffPage.getByRole('button', { name: /미제출 있음 1팀/ }),
+      staffPage.getByRole('button', {
+        name: /^(?:필수 서류 미제출|미제출 있음) 1팀$/,
+      }),
     ).toBeVisible();
     await staffPage
       .getByRole('button', {
