@@ -1383,3 +1383,11 @@
 - 두 사용자 유형을 가드가 실제로 구분하는 상태로 갈랐고, 원장에 의존성 폐쇄를 따라간 심볼을 파일 단위로 넣되 살아 있는 경로와 공유하는 심볼은 과다 삭제를 막도록 표시했다.
 - 검증: backend 313 suite / 3588 test, lint·typecheck·prettier 통과.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — 도메인에 없는 삭제 보호 플래그 제거
+
+- 배경: `Program.deletionProtected`는 API에 값을 바꾸는 경로가 없고 운영자가 DB에서 직접 켜야 했다. 켜진 프로그램은 화면에서 삭제 버튼이 비활성이고 해제할 방법도 화면에 없다. 우리 도메인에는 「삭제 보호」라는 개념 자체가 없으므로 안티패턴이다.
+- 변경: 컬럼과 그것을 읽는 전 표면을 지웠다. schema 필드와 DROP migration, `delete`·`purge`의 가드와 select, `PROGRAM_DELETE_PROTECTED`(PRG_013), 편집 응답 DTO와 view 타입과 repository 매핑, 프론트 위험 영역의 prop·안내 Alert·버튼 비활성 분기, 그리고 이 플래그만 검증하던 테스트다. 기존 추가 migration 파일은 역사 기록이라 건드리지 않고 새 migration으로 지웠다. 다른 오류 코드 번호는 재배치하지 않았다.
+- 남긴 것: purge의 `expectedScope` 재확인(409 PRG_014), 권한 가드, 감사 로그, 삭제 순서, 그리고 권한 없는 사용자에게 버튼을 비활성화하는 `canDeleteProgram`은 그대로다. 약화된 안전장치는 없다.
+- 검증: backend 66 suite / 528 test, frontend 102 file / 1095 test, `program-purge.integration.spec.ts` 15건, backend·frontend typecheck, prettier, backend lint 통과. `deletionProtected`와 `PROGRAM_DELETE_PROTECTED` 잔여 참조는 migration 이력 두 줄뿐이다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
