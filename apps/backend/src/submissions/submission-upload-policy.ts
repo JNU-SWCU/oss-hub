@@ -31,7 +31,7 @@ const EXTENSION_LABELS: Readonly<Record<string, string>> = {
   '.jpeg': 'JPG',
 };
 
-/** 「PDF, HWP, JPG, PNG, ZIP」 — 허용 확장자에서 직접 만든다(따로 적어 두면 목록과 갈라진다). */
+/** 「PDF, HWP, ZIP」 — 학생 제출 허용 확장자에서 직접 만든다(따로 적어 두면 목록과 갈라진다). */
 export const SUBMISSION_UPLOAD_FORMAT_LABEL = [
   ...new Set(
     SUBMISSION_FILE_EXTENSIONS.map(

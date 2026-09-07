@@ -2,6 +2,7 @@ import { Check, Pencil, RefreshCw, Trash2, X } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { formatFileSize } from '@/lib/format-file-size';
 import {
   Tooltip,
   TooltipContent,
@@ -263,9 +264,4 @@ function IconAction({
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   );
-}
-
-function formatFileSize(size: number): string {
-  const mib = size >= 1024 * 1024;
-  return `${(size / (mib ? 1024 * 1024 : 1024)).toFixed(mib ? 1 : 0)} ${mib ? 'MiB' : 'KiB'}`;
 }

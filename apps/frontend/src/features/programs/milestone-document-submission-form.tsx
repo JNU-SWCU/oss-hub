@@ -32,6 +32,7 @@ export function MilestoneDocumentSubmissionForm({
   documentId,
   fileUpload,
   currentFileName,
+  isResubmission = false,
   submitting,
   onCancel,
   onSubmit,
@@ -42,6 +43,7 @@ export function MilestoneDocumentSubmissionForm({
   readonly fileUpload: MilestoneDocumentUploadPolicy;
   /** 지금 이 서류에 붙어 있는 첨부의 이름. 없으면 `null`. */
   readonly currentFileName: string | null;
+  readonly isResubmission?: boolean;
   readonly submitting: boolean;
   readonly onCancel: () => void;
   readonly onSubmit: (input: {
@@ -51,7 +53,11 @@ export function MilestoneDocumentSubmissionForm({
 }) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
+  const [rejectedFile, setRejectedFile] = useState<{
+    readonly name: string;
+    readonly reason: string;
+  } | null>(null);
+  const fileError = rejectedFile?.reason ?? null;
   const hasText = text.trim().length > 0;
   const hasFile = file !== null;
   const helpId = `${documentId}-submission-help`;
@@ -72,12 +78,12 @@ export function MilestoneDocumentSubmissionForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasText && !hasFile) return;
+    if (submitting || rejectedFile !== null || (!hasText && !hasFile)) return;
     const saved = await onSubmit({ text: hasText ? text.trim() : null, file });
     if (!saved) return;
     setText('');
     setFile(null);
-    setFileError(null);
+    setRejectedFile(null);
   }
 
   return (
@@ -129,9 +135,38 @@ export function MilestoneDocumentSubmissionForm({
              */
             if (rejection !== null) event.target.value = '';
             setFile(rejection === null ? selected : null);
-            setFileError(rejection);
+            setRejectedFile(
+              rejection === null || selected === null
+                ? null
+                : { name: selected.name, reason: rejection },
+            );
           }}
         />
+        {rejectedFile === null ? null : (
+          <div className="grid min-w-0 gap-2 rounded-control border border-destructive/35 bg-destructive/5 p-3">
+            <span
+              className="break-all text-small font-medium"
+              title={rejectedFile.name}
+            >
+              {rejectedFile.name}
+            </span>
+            <FieldError id={fileErrorId}>{rejectedFile.reason}</FieldError>
+            <span className="text-small text-muted-foreground break-keep">
+              위에서 다른 파일을 바로 선택하거나 파일 없이 계속할 수 있습니다.
+              작성한 내용은 그대로 남습니다.
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              disabled={submitting}
+              onClick={() => setRejectedFile(null)}
+            >
+              파일 없이 계속
+            </Button>
+          </div>
+        )}
         <FieldDescription
           id={fileHelpId}
           className="grid min-w-0 gap-1 break-keep"
@@ -181,7 +216,6 @@ export function MilestoneDocumentSubmissionForm({
             )}
           </FieldDescription>
         )}
-        <FieldError id={fileErrorId}>{fileError}</FieldError>
       </Field>
       <div className="flex flex-wrap justify-end gap-2">
         <Button
@@ -192,9 +226,14 @@ export function MilestoneDocumentSubmissionForm({
         >
           취소
         </Button>
-        <Button type="submit" disabled={submitting || (!hasText && !hasFile)}>
+        <Button
+          type="submit"
+          disabled={
+            submitting || rejectedFile !== null || (!hasText && !hasFile)
+          }
+        >
           <Send aria-hidden="true" />
-          {submitting ? '제출하는 중…' : '제출'}
+          {submitting ? '제출하는 중…' : isResubmission ? '다시 제출' : '제출'}
         </Button>
       </div>
     </form>

@@ -519,7 +519,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
 
     // Then
     expect(html).toContain('type="file"');
-    expect(html).toContain('PDF, HWP, JPG, PNG, ZIP');
+    expect(html).toContain('PDF, HWP, ZIP');
     expect(html).toContain('제출본 2번 제출');
     expect(html).not.toMatch(/revision/i);
   });

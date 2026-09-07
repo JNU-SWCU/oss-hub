@@ -912,6 +912,7 @@ function StudentDocumentRow({
           documentId={document.id}
           fileUpload={fileUpload}
           currentFileName={viewerSubmission?.currentFileName ?? null}
+          isResubmission={submitted}
           submitting={submitting}
           onCancel={() => setEditing(false)}
           onSubmit={submitDraft}
@@ -925,6 +926,11 @@ function StudentDocumentRow({
         <MilestoneDocumentResubmissionDialog
           documentName={document.name}
           resubmissionDueAt={review?.resubmissionDueAt ?? null}
+          removedFileName={
+            pendingDraft.file === null
+              ? (viewerSubmission?.currentFileName ?? null)
+              : null
+          }
           submitting={submitting}
           onCancel={() => setPendingDraft(null)}
           onConfirm={() => {

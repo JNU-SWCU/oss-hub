@@ -112,7 +112,7 @@ export function SubmissionInput({
                 {file ? '파일 바꾸기' : '파일 선택하기'}
               </span>
               <FieldDescription id="submission-file-description">
-                PDF, HWP, JPG, PNG, ZIP · 최대 {SUBMISSION_UPLOAD_MAX_LABEL}
+                PDF, HWP, ZIP · 최대 {SUBMISSION_UPLOAD_MAX_LABEL}
               </FieldDescription>
               <FieldError id="submission-file-error">{fileMessage}</FieldError>
             </Field>

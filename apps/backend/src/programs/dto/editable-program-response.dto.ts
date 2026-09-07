@@ -5,11 +5,13 @@ import type {
   ProgramMilestoneView,
 } from '../program-editor.types';
 import {
-  SUBMISSION_UPLOAD_ACCEPT,
-  SUBMISSION_UPLOAD_FORMAT_LABEL,
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
 } from '../../submissions/submission-upload-policy';
+import {
+  SUBMISSION_TEMPLATE_ACCEPT,
+  SUBMISSION_TEMPLATE_FORMAT_LABEL,
+} from '../../submissions/submission-template-file-policy';
 
 export class ProgramMilestoneResponseDto {
   readonly id: string;
@@ -78,8 +80,8 @@ export class ProgramMilestoneEditResponseDto {
   readonly fileUpload = {
     maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
     maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
-    accept: SUBMISSION_UPLOAD_ACCEPT,
-    formatLabel: SUBMISSION_UPLOAD_FORMAT_LABEL,
+    accept: SUBMISSION_TEMPLATE_ACCEPT,
+    formatLabel: SUBMISSION_TEMPLATE_FORMAT_LABEL,
   };
   readonly fingerprint: string;
 

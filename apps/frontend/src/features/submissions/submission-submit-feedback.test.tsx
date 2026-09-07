@@ -187,9 +187,7 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
     const alerts = [...document.querySelectorAll('[role="alert"]')].map(
       (node) => node.textContent,
     );
-    expect(alerts).toContain(
-      'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
-    );
+    expect(alerts).toContain('PDF, HWP, ZIP 파일만 제출할 수 있습니다.');
     expect(document.activeElement?.id).toBe('submission-file');
   });
 

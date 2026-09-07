@@ -74,7 +74,6 @@ describe('validateSubmissionFile', () => {
   it.each([
     ['document.PDF', 'application/pdf'],
     ['document.hwp', ''],
-    ['photo.jpg', 'image/png'],
     ['archive.zip', 'application/x-zip-compressed'],
     ['archive.zip', 'application/octet-stream'],
   ])('허용 확장자 %s는 브라우저 MIME %s와 무관하게 통과한다', (name, type) => {
@@ -85,19 +84,23 @@ describe('validateSubmissionFile', () => {
     });
   });
 
-  it.each(['document.txt', 'document', 'photo.exe'])(
-    '허용하지 않는 이름 %s는 거절한다',
-    (name) => {
-      expect(
-        validateSubmissionFile(
-          new File(['x'], name, { type: 'application/pdf' }),
-        ),
-      ).toEqual({
-        ok: false,
-        message: 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
-      });
-    },
-  );
+  it.each([
+    'document.txt',
+    'document',
+    'photo.exe',
+    'photo.jpg',
+    'photo.jpeg',
+    'image.png',
+  ])('허용하지 않는 이름 %s는 거절한다', (name) => {
+    expect(
+      validateSubmissionFile(
+        new File(['x'], name, { type: 'application/pdf' }),
+      ),
+    ).toEqual({
+      ok: false,
+      message: 'PDF, HWP, ZIP 파일만 제출할 수 있습니다.',
+    });
+  });
 
   it('정확히 5 MiB는 허용하고 1 byte 초과는 거절한다', () => {
     const boundary = {
@@ -125,7 +128,7 @@ describe('getSubmissionFileErrorMessage', () => {
       'SUB_017',
       '제출 요청이 서버에 온전히 전달되지 않았습니다. 파일을 다시 선택해 제출해 보고, 그래도 안 되면 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
     ],
-    ['SUB_018', 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.'],
+    ['SUB_018', 'PDF, HWP, ZIP 파일만 제출할 수 있습니다.'],
     ['SUB_019', '파일은 5 MB 이하여야 합니다.'],
     [
       'SUB_020',
