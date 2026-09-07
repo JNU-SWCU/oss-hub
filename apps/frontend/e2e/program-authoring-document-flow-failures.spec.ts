@@ -202,7 +202,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     // 외국인 학생의 'private OWN' 신청은 취소되어 Application은 삭제됐지만
     // 그 신청이 만든 1인 팀은 Team.onDelete: Restrict로 남는다 — 여기 살아있는
     // 팀은 그 잔존 팀 1개 + 승인된 학생 본인 신청의 팀 1개, 총 2개다.
-    expectCleanState(state, 1, 1, 2);
+    expectCleanState(state, 1, 1, 2, 2);
     await writeArtifact('failure-statuses.json', {
       eligiblePreview,
       inactivePreview,
