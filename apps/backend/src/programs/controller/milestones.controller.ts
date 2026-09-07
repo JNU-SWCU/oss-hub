@@ -31,6 +31,19 @@ type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  *   `create`, `update`, `reorder`, `remove`, and direct `uploadTemplate`;
  *   `dto/upsert-milestone-document-request.dto.ts` and
  *   `dto/reorder-milestone-documents-request.dto.ts`.
+ * - `milestone-documents/milestone-documents.service.ts`: legacy
+ *   `createDocument`, `updateDocument`, `reorderDocuments`, and
+ *   `deleteDocument`; `milestone-document-files.service.ts`: `uploadTemplate`.
+ * - `milestone-documents/milestone-documents.repository.ts`:
+ *   `UpsertMilestoneDocumentInput`, `UpdateMilestoneDocumentInput`,
+ *   `LockedMilestone`, and the `MilestoneDocumentWriteStore` legacy-only
+ *   `lockMilestone`, `lockDocumentIdsOfMilestone`,
+ *   `countSubmissionsForDocument`, `createDocument`, `updateDocument`,
+ *   `applyDocumentOrder`, and `deleteDocument` operations.
+ *   `MilestoneDocumentWriteStore.lockDocument` is shared-do-not-delete with
+ *   live review handling; `upsertTemplateFile` and
+ *   `MilestoneDocumentTemplateInput` are shared-do-not-delete until the
+ *   direct template writer is removed in this same CONTRACT sweep.
  * - `program-editor.service.ts`: legacy metadata `updateMilestone`.
  * - `program-editor.types.ts` and `repository/program-editor.repository.ts`:
  *   `ProgramMilestoneTarget`, `ProgramMilestoneUpdateInput`,

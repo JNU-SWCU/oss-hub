@@ -1527,12 +1527,19 @@ describe('legacy mutation route HTTP guard rejections', () => {
                         hasAdminAccess: false,
                         accountStatus: AccountStatus.ACTIVE,
                       }
-                    : {
-                        id: 'rejected-user',
-                        hasStaffAccess: false,
-                        hasAdminAccess: false,
-                        accountStatus: AccountStatus.ACTIVE,
-                      },
+                    : where.githubId === studentGithubId
+                      ? {
+                          id: 'synthetic-student',
+                          hasStaffAccess: false,
+                          hasAdminAccess: false,
+                          accountStatus: AccountStatus.ACTIVE,
+                        }
+                      : {
+                          id: 'inactive-staff',
+                          hasStaffAccess: true,
+                          hasAdminAccess: false,
+                          accountStatus: AccountStatus.DEACTIVATED,
+                        },
                 ),
             },
           },
@@ -1576,9 +1583,12 @@ describe('legacy mutation route HTTP guard rejections', () => {
     deleteDocument.mockClear();
   });
 
-  it.each([studentGithubId, rejectedStaffGithubId])(
-    'rejects session %s on every legacy mutation route before the writer',
-    async (githubId) => {
+  it.each([
+    ['active student without staff/admin access', studentGithubId],
+    ['deactivated staff account despite staff access', rejectedStaffGithubId],
+  ] as const)(
+    'rejects %s on every legacy mutation route before the writer',
+    async (_state, githubId) => {
       sessionGithubId = githubId;
       await assertRejectedLegacyMutations(guardedBaseUrl, {
         origin: allowedOrigin,
