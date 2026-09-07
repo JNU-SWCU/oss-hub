@@ -33,11 +33,12 @@ export function SettingsProfileSection({
 }: SettingsProfileSectionProps) {
   const showNameError = showValidationErrors && errors.name !== null;
   const showStudentIdError = showValidationErrors && errors.studentId !== null;
+  const showPhoneError = showValidationErrors && errors.phone !== null;
   const showDepartmentError =
     showValidationErrors && errors.department !== null;
   const isStudentIdLocked = hasSavedStudentId(values);
   const showStudentId = memberKind === 'STUDENT' || isStudentIdLocked;
-  const editableFields = '이름과 학과를 수정할 수 있습니다.';
+  const editableFields = '이름, 전화번호와 학과를 수정할 수 있습니다.';
   const description = isStudentIdLocked
     ? `${editableFields} 학번은 변경할 수 없습니다.`
     : editableFields;
@@ -91,6 +92,28 @@ export function SettingsProfileSection({
           )}
         </Field>
       ) : null}
+
+      <Field data-invalid={showPhoneError || undefined}>
+        <FieldLabel htmlFor="settings-phone">전화번호</FieldLabel>
+        <Input
+          id="settings-phone"
+          name="phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel"
+          maxLength={11}
+          value={values.phone}
+          aria-invalid={showPhoneError}
+          onChange={(event) => onChange({ phone: event.target.value })}
+        />
+        {showPhoneError ? (
+          <FieldError>{errors.phone}</FieldError>
+        ) : (
+          <FieldDescription>
+            프로그램 운영진이 선정·팀 운영 안내를 연락할 때 사용합니다.
+          </FieldDescription>
+        )}
+      </Field>
 
       <Field data-invalid={showDepartmentError || undefined}>
         <FieldLabel htmlFor="settings-department">소속</FieldLabel>

@@ -2,7 +2,8 @@ import type { RefObject } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../departments';
+import { cn } from '@/lib/utils';
+import { DEPARTMENT_GROUPS } from '../departments';
 import type { ProfileMemberKind } from '../profile-requirements';
 import { PROFILE_DEPARTMENT_MAX_LENGTH } from '../profile-state';
 import type { ProfileFormValues } from '../types';
@@ -15,7 +16,6 @@ interface ProfileAffiliationFieldsProps {
   readonly showError: boolean;
   readonly error: string | null;
   readonly departmentRef: RefObject<HTMLSelectElement | null>;
-  readonly otherDepartmentRef: RefObject<HTMLInputElement | null>;
   readonly affiliationNameRef: RefObject<HTMLInputElement | null>;
   readonly onChange: (patch: Partial<ProfileFormValues>) => void;
 }
@@ -26,7 +26,6 @@ export function ProfileAffiliationFields({
   showError,
   error,
   departmentRef,
-  otherDepartmentRef,
   affiliationNameRef,
   onChange,
 }: ProfileAffiliationFieldsProps) {
@@ -77,17 +76,22 @@ export function ProfileAffiliationFields({
               name="affiliationName"
               ref={departmentRef}
               aria-required="true"
-              className="aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_optgroup]:bg-popover [&_optgroup]:text-popover-foreground [&_option]:bg-popover [&_option]:text-popover-foreground"
+              className={cn(
+                'aria-invalid:border-destructive aria-invalid:ring-3',
+                'aria-invalid:ring-destructive/20',
+                'dark:aria-invalid:border-destructive/50',
+                'dark:aria-invalid:ring-destructive/40',
+                '[&_optgroup]:bg-popover',
+                '[&_optgroup]:text-popover-foreground',
+                '[&_option]:bg-popover [&_option]:text-popover-foreground',
+              )}
               value={values.departmentOption}
               aria-invalid={showError}
               aria-describedby={showError ? AFFILIATION_ERROR_ID : undefined}
               onChange={(event) =>
                 onChange({
                   departmentOption: event.target.value,
-                  otherDepartment:
-                    event.target.value === OTHER_DEPARTMENT
-                      ? values.otherDepartment
-                      : '',
+                  otherDepartment: '',
                 })
               }
             >
@@ -101,22 +105,7 @@ export function ProfileAffiliationFields({
                   ))}
                 </optgroup>
               ))}
-              <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
             </Select>
-            {values.departmentOption === OTHER_DEPARTMENT ? (
-              <Input
-                aria-label="기타 학과"
-                ref={otherDepartmentRef}
-                placeholder="학과 또는 전공을 입력해 주세요"
-                maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
-                value={values.otherDepartment}
-                aria-invalid={showError}
-                aria-describedby={showError ? AFFILIATION_ERROR_ID : undefined}
-                onChange={(event) =>
-                  onChange({ otherDepartment: event.target.value })
-                }
-              />
-            ) : null}
           </>
         ) : (
           <Input

@@ -15,7 +15,6 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { OTHER_DEPARTMENT } from '../departments';
 import type { ProfileMemberKind } from '../profile-requirements';
 import { isProfileFormValid, PROFILE_NAME_MAX_LENGTH } from '../profile-state';
 import type { ProfileFormErrors, ProfileFormValues } from '../types';
@@ -24,6 +23,8 @@ import { ProfileAffiliationFields } from './profile-affiliation-fields';
 const NAME_ERROR_ID = 'profile-name-error';
 const STUDENT_ID_ERROR_ID = 'profile-student-id-error';
 const STUDENT_ID_DESCRIPTION_ID = 'profile-student-id-description';
+const PHONE_ERROR_ID = 'profile-phone-error';
+const PHONE_DESCRIPTION_ID = 'profile-phone-description';
 
 interface ProfileOnboardingFormProps {
   readonly memberKind: ProfileMemberKind;
@@ -48,26 +49,30 @@ export function ProfileOnboardingForm({
 }: ProfileOnboardingFormProps) {
   const nameRef = useRef<HTMLInputElement>(null);
   const studentIdRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
   const departmentRef = useRef<HTMLSelectElement>(null);
-  const otherDepartmentRef = useRef<HTMLInputElement>(null);
   const affiliationNameRef = useRef<HTMLInputElement>(null);
   const showStudentId = memberKind === 'STUDENT';
+  const showPhoneInput = memberKind === 'STUDENT';
   const showNameError = showRequiredErrors && errors.name !== null;
   const showStudentIdError =
     errors.studentId !== null &&
     (showRequiredErrors || values.studentId.length > 0);
+  const showPhoneError =
+    showPhoneInput &&
+    errors.phone !== null &&
+    (showRequiredErrors || values.phone.length > 0);
   const showAffiliationError = showRequiredErrors && errors.department !== null;
   const isValid = isProfileFormValid(errors);
 
   function firstInvalidControl(): HTMLElement | null {
     if (errors.name !== null) return nameRef.current;
     if (errors.studentId !== null) return studentIdRef.current;
+    if (showPhoneInput && errors.phone !== null) return phoneRef.current;
     if (values.affiliationKind === 'PROGRAM_OFFICE') {
       return affiliationNameRef.current;
     }
-    return values.departmentOption === OTHER_DEPARTMENT
-      ? otherDepartmentRef.current
-      : departmentRef.current;
+    return departmentRef.current;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -79,6 +84,7 @@ export function ProfileOnboardingForm({
   const profileFields = [
     '이름',
     ...(showStudentId ? ['학번'] : []),
+    ...(showStudentId ? ['전화번호'] : []),
     values.affiliationKind === 'DEPARTMENT' ? '학과' : '사업단',
   ];
 
@@ -157,13 +163,45 @@ export function ProfileOnboardingForm({
             </Field>
           ) : null}
 
+          {showPhoneInput ? (
+            <Field data-invalid={showPhoneError || undefined}>
+              <FieldLabel htmlFor="profile-phone">
+                전화번호
+                <RequiredMark />
+              </FieldLabel>
+              <Input
+                id="profile-phone"
+                name="phone"
+                ref={phoneRef}
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                maxLength={11}
+                value={values.phone}
+                aria-required="true"
+                aria-invalid={showPhoneError}
+                aria-describedby={
+                  showPhoneError
+                    ? `${PHONE_DESCRIPTION_ID} ${PHONE_ERROR_ID}`
+                    : PHONE_DESCRIPTION_ID
+                }
+                onChange={(event) => onChange({ phone: event.target.value })}
+              />
+              <FieldDescription id={PHONE_DESCRIPTION_ID}>
+                프로그램 운영진이 선정·팀 운영 안내를 연락할 때 사용합니다.
+              </FieldDescription>
+              {showPhoneError ? (
+                <FieldError id={PHONE_ERROR_ID}>{errors.phone}</FieldError>
+              ) : null}
+            </Field>
+          ) : null}
+
           <ProfileAffiliationFields
             memberKind={memberKind}
             values={values}
             showError={showAffiliationError}
             error={errors.department}
             departmentRef={departmentRef}
-            otherDepartmentRef={otherDepartmentRef}
             affiliationNameRef={affiliationNameRef}
             onChange={onChange}
           />

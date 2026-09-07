@@ -4,6 +4,7 @@ export interface SettingsFormValues {
   readonly studentId: string;
   /** 불러온 시점에 서버에 저장돼 있던 학번(''이면 아직 없음). 수정 불가 판정의 기준. */
   readonly savedStudentId: string;
+  readonly phone: string;
   readonly departmentOption: string;
   readonly otherDepartment: string;
   readonly notificationEmail: string;
@@ -13,6 +14,7 @@ export interface SettingsFormValues {
 export interface SettingsFormErrors {
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly phone: string | null;
   readonly department: string | null;
   readonly notificationEmail: string | null;
 }

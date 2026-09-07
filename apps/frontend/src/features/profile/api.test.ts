@@ -12,11 +12,15 @@ const emptyProfile = {
   name: 'GitHub 합성 이름',
   studentId: null,
   department: null,
+  phone: null,
   isComplete: false,
 };
+const TEN_DIGIT_PHONE = '1'.repeat(10);
+const ELEVEN_DIGIT_PHONE = '2'.repeat(11);
 const completeRequest = {
   name: '합성 사용자',
   studentId: '1'.repeat(6),
+  phone: TEN_DIGIT_PHONE,
   affiliationKind: 'DEPARTMENT' as const,
   affiliationName: '인공지능학부',
 };
@@ -24,6 +28,7 @@ const completeProfile = {
   name: completeRequest.name,
   studentId: completeRequest.studentId,
   department: completeRequest.affiliationName,
+  phone: completeRequest.phone,
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -62,11 +67,12 @@ test('완료 프로필을 POST JSON 본문으로 저장한다', async () => {
   });
 });
 
-test('완료 사용자는 이름·학과만 PATCH하고 학번은 보내지 않는다', async () => {
+test('완료 사용자는 이름·학과·전화번호만 PATCH하고 학번은 보내지 않는다', async () => {
   const response = { ...completeProfile, isComplete: true };
   const updateRequest = {
     name: completeProfile.name,
     department: completeProfile.department,
+    phone: ELEVEN_DIGIT_PHONE,
   };
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(response), {
@@ -105,7 +111,7 @@ test('학번·학과가 비어도 완료로 표시된 응답은 그대로 파싱
   await expect(getMyProfile()).resolves.toEqual(staffProfile);
 });
 
-test('세 필드를 모두 담은 서버 응답도 그대로 파싱한다', async () => {
+test('네 필드를 모두 담은 서버 응답도 그대로 파싱한다', async () => {
   const fullProfile = { ...completeProfile, isComplete: true };
   vi.stubGlobal(
     'fetch',
@@ -141,6 +147,10 @@ test.each([
   ['빈 학번', { studentId: '' }],
   ['형식이 잘못된 학번', { studentId: '12A456' }],
   ['공백 학과', { department: '   ' }],
+  [
+    '형식이 잘못된 전화번호',
+    { phone: `${'1'.repeat(3)}-${'2'.repeat(4)}-${'3'.repeat(4)}` },
+  ],
 ] as const)(
   '%s을 완료로 표시한 프로필 응답을 거부한다',
   async (_label, override) => {

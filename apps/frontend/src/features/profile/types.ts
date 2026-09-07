@@ -4,6 +4,7 @@ export interface UserProfile {
   readonly name: string;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone: string | null;
   readonly isComplete: boolean;
 }
 
@@ -14,6 +15,7 @@ export interface UserProfile {
 export interface CompleteProfileRequest {
   readonly name: string;
   readonly studentId?: string;
+  readonly phone?: string;
   readonly affiliationKind: AffiliationKind;
   readonly affiliationName: string;
 }
@@ -28,6 +30,7 @@ export interface CompleteProfileRequest {
 export interface UpdateProfileRequest {
   readonly name: string;
   readonly studentId?: string;
+  readonly phone?: string;
   readonly department: string;
 }
 
@@ -35,6 +38,7 @@ export interface ProfileFormValues {
   readonly name: string;
   /** 입력란의 현재 값. 불러온 직후에는 `savedStudentId`와 같다. */
   readonly studentId: string;
+  readonly phone: string;
   /**
    * 불러온 시점에 서버에 저장돼 있던 학번(''이면 아직 없음).
    *
@@ -53,5 +57,6 @@ export interface ProfileFormValues {
 export interface ProfileFormErrors {
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly phone: string | null;
   readonly department: string | null;
 }

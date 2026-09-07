@@ -43,6 +43,7 @@ describe('프로필 온보딩 화면', () => {
    */
   const LEGACY_STUDENT_ID = '9'.repeat(9);
   const NEXT_PATH = '/student';
+  const TEN_DIGIT_PHONE = '1'.repeat(10);
 
   let container: HTMLDivElement;
   let root: Root;
@@ -61,6 +62,7 @@ describe('프로필 온보딩 화면', () => {
       name: '합성 학생',
       studentId: LEGACY_STUDENT_ID,
       department: '인공지능학부',
+      phone: TEN_DIGIT_PHONE,
       isComplete: true,
       ...overrides,
     };
@@ -101,9 +103,7 @@ describe('프로필 온보딩 화면', () => {
     vi.unstubAllGlobals();
   });
 
-  async function render(
-    memberKind: ProfileMemberKind = 'STUDENT',
-  ): Promise<void> {
+  async function render(memberKind: ProfileMemberKind = 'STUDENT') {
     await act(async () => {
       root.render(
         <ProfileOnboardingScreen
@@ -114,14 +114,9 @@ describe('프로필 온보딩 화면', () => {
     });
   }
 
-  function optionalField(id: string): HTMLInputElement | null {
-    const element = container.querySelector(`#${id}`);
-    return element instanceof HTMLInputElement ? element : null;
-  }
-
   function field(id: string): HTMLInputElement {
-    const element = optionalField(id);
-    if (!element) {
+    const element = container.querySelector(`#${id}`);
+    if (!(element instanceof HTMLInputElement)) {
       throw new TypeError(`입력란을 찾지 못했습니다: ${id}`);
     }
     return element;
@@ -169,6 +164,8 @@ describe('프로필 온보딩 화면', () => {
 
   const STUDENT_ID_ERROR = '학번은 숫자 6자리로 입력해 주세요.';
 
+  const PHONE_ERROR = '전화번호는 숫자 10~11자리로 입력해 주세요.';
+
   /**
    * 신고 그대로의 재현 — 예전 형식 학번을 가진 학생이 온보딩에 갇힌다.
    *
@@ -208,6 +205,7 @@ describe('프로필 온보딩 화면', () => {
     // 어차피 바꿀 수 없는 항목이다. 설정 화면이 이미 그렇게 한다.
     expect(savedRequest()?.body).toEqual({
       name: '합성 학생',
+      phone: TEN_DIGIT_PHONE,
       affiliationKind: 'DEPARTMENT',
       affiliationName: '인공지능학부',
     });
@@ -226,6 +224,7 @@ describe('프로필 온보딩 화면', () => {
     await render();
 
     await type(field('profile-student-id'), '1'.repeat(5));
+    await type(field('profile-phone'), TEN_DIGIT_PHONE);
     await select('profile-department', '인공지능학부');
     await submit();
 
@@ -238,6 +237,7 @@ describe('프로필 온보딩 화면', () => {
     expect(savedRequest()?.body).toEqual({
       name: '합성 학생',
       studentId: '1'.repeat(6),
+      phone: TEN_DIGIT_PHONE,
       affiliationKind: 'DEPARTMENT',
       affiliationName: '인공지능학부',
     });
@@ -262,6 +262,56 @@ describe('프로필 온보딩 화면', () => {
     await submit();
 
     expect(container.textContent).toContain(STUDENT_ID_ERROR);
+    expect(savedRequest()).toBeUndefined();
+  });
+
+  it('전화번호가 잘못된 학생 제출은 전화번호 입력란에 초점을 둔다', async () => {
+    profileResponder = (method, body) =>
+      method === 'GET'
+        ? jsonResponse(
+            profile({
+              studentId: null,
+              phone: null,
+              department: null,
+              isComplete: false,
+            }),
+          )
+        : jsonResponse(profile({ ...(body as object), isComplete: true }));
+
+    await render();
+
+    await type(field('profile-student-id'), '1'.repeat(6));
+    await type(field('profile-phone'), '1'.repeat(3));
+    await select('profile-department', '인공지능학부');
+    await submit();
+
+    expect(container.textContent).toContain(PHONE_ERROR);
+    expect(document.activeElement).toBe(field('profile-phone'));
+    expect(savedRequest()).toBeUndefined();
+  });
+
+  it('전화번호 입력값의 구분자를 조용히 숫자로 바꾸지 않는다', async () => {
+    profileResponder = (method, body) =>
+      method === 'GET'
+        ? jsonResponse(
+            profile({
+              studentId: null,
+              phone: null,
+              department: null,
+              isComplete: false,
+            }),
+          )
+        : jsonResponse(profile({ ...(body as object), isComplete: true }));
+
+    await render();
+
+    await type(field('profile-student-id'), '1'.repeat(6));
+    await type(field('profile-phone'), `${'1'.repeat(3)}-${'2'.repeat(4)}`);
+    await select('profile-department', '인공지능학부');
+    await submit();
+
+    expect(field('profile-phone').value).toContain('-');
+    expect(container.textContent).toContain(PHONE_ERROR);
     expect(savedRequest()).toBeUndefined();
   });
 });

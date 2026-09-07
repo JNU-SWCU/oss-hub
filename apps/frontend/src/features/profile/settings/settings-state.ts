@@ -30,6 +30,7 @@ export function createInitialSettingsForm(
     name: seed.name,
     studentId: seed.studentId,
     savedStudentId: profile.studentId ?? '',
+    phone: seed.phone,
     departmentOption: seed.departmentOption,
     otherDepartment: seed.otherDepartment,
     notificationEmail: notification?.notificationEmail ?? '',
@@ -46,6 +47,7 @@ export function validateSettingsForm(
   return {
     name: profileErrors.name,
     studentId: profileErrors.studentId,
+    phone: profileErrors.phone,
     department: profileErrors.department,
     notificationEmail:
       notificationAvailable &&

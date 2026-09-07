@@ -14,6 +14,7 @@ import type { ProfileRole } from '../profile-requirements';
 import type { SettingsFormValues } from './types';
 
 const noOp = () => undefined;
+const TEN_DIGIT_PHONE = '1'.repeat(10);
 
 function values(
   overrides: Partial<SettingsFormValues> = {},
@@ -22,6 +23,7 @@ function values(
     name: '합성 사용자',
     studentId: '1'.repeat(6),
     savedStudentId: '1'.repeat(6),
+    phone: TEN_DIGIT_PHONE,
     departmentOption: '인공지능학부',
     otherDepartment: '',
     notificationEmail: 'user@example.com',
@@ -78,7 +80,7 @@ describe('settings form view', () => {
     expect(html).toContain('animate-pulse');
   });
 
-  it('학생에게 학번은 읽기 전용이고 이름·학과·알림 필드를 표시한다', () => {
+  it('학생에게 학번은 읽기 전용이고 이름·전화번호·학과·알림 필드를 표시한다', () => {
     const html = renderForm(values(), { role: 'STUDENT' });
 
     expect(html).toContain('settings-student-id');
@@ -86,10 +88,12 @@ describe('settings form view', () => {
     expect(html).toContain('disabled=""');
     expect(html).toContain('aria-readonly="true"');
     expect(html).toContain('settings-name');
+    expect(html).toContain('settings-phone');
     expect(html).toContain('settings-department');
     expect(html).toContain('settings-notification-email');
     expect(html).toContain('마감 임박 알림 받기');
     expect(html).toContain('합성 사용자');
+    expect(html).toContain(TEN_DIGIT_PHONE);
     expect(html).toContain('user@example.com');
     expect(html).toContain('noValidate');
   });
@@ -102,9 +106,10 @@ describe('settings form view', () => {
     });
 
     expect(html).not.toContain('settings-student-id');
+    expect(html).toContain('settings-phone');
     expect(html).toContain('settings-name');
     expect(html).toContain('settings-department');
-    expect(html).toContain('이름과 학과를 수정할 수 있습니다.');
+    expect(html).toContain('이름, 전화번호와 학과를 수정할 수 있습니다.');
   });
 
   it('교직원도 이미 저장된 학번은 읽기 전용으로 보여 준다', () => {
@@ -124,9 +129,10 @@ describe('settings form view', () => {
     });
 
     expect(html).not.toContain('settings-student-id');
+    expect(html).toContain('settings-phone');
     expect(html).toContain('settings-department');
     expect(html).toContain('settings-name');
-    expect(html).toContain('이름과 학과를 수정할 수 있습니다.');
+    expect(html).toContain('이름, 전화번호와 학과를 수정할 수 있습니다.');
     expect(html).toContain('settings-notification-email');
   });
 
@@ -152,10 +158,11 @@ describe('settings form view', () => {
     ).toContain('학과를 선택하거나 입력해 주세요.');
   });
 
-  it('잘못된 이름·학과·이메일을 인라인 오류로 표시하고 저장 버튼은 제출 가능하게 둔다', () => {
+  it('잘못된 이름·전화번호·학과·이메일을 인라인 오류로 표시하고 저장 버튼은 제출 가능하게 둔다', () => {
     const html = renderForm(
       values({
         name: ' ',
+        phone: '1'.repeat(3),
         departmentOption: OTHER_DEPARTMENT,
         otherDepartment: '',
         notificationEmail: 'not-an-email',
@@ -164,6 +171,7 @@ describe('settings form view', () => {
     );
 
     expect(html).toContain('이름을 입력해 주세요.');
+    expect(html).toContain('전화번호는 숫자 10~11자리로 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
     expect(html).toContain('이메일 형식이 올바르지 않습니다.');
     // 무효 값이어도 클릭해 검증 메시지를 볼 수 있어야 한다. disabled는 저장 중만.

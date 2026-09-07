@@ -13,12 +13,16 @@ import {
 import type { SettingsProfileFields } from './profile-state';
 import type { ProfileFormValues } from './types';
 
+const TEN_DIGIT_PHONE = '1'.repeat(10);
+const ELEVEN_DIGIT_PHONE = '2'.repeat(11);
+
 function validValues(
   overrides: Partial<ProfileFormValues> = {},
 ): ProfileFormValues {
   return {
     name: '합성 사용자',
     studentId: '1'.repeat(6),
+    phone: TEN_DIGIT_PHONE,
     // 기본은 아직 학번이 저장되지 않은 상태 — 새로 입력하는 값이라 형식을 본다.
     savedStudentId: '',
     affiliationKind: 'DEPARTMENT',
@@ -53,6 +57,21 @@ describe('profile onboarding state', () => {
     expect(errors.studentId === null).toBe(valid);
   });
 
+  it.each([
+    ['빈 값', '', false],
+    ['9자리', '1'.repeat(9), false],
+    ['10자리', '1'.repeat(10), true],
+    ['11자리', ELEVEN_DIGIT_PHONE, true],
+    ['12자리', '1'.repeat(12), false],
+    ['문자 포함', `${'1'.repeat(10)}A`, false],
+    ['공백 포함', `${'1'.repeat(5)} ${'2'.repeat(5)}`, false],
+    ['하이픈 포함', `${'1'.repeat(5)}-${'2'.repeat(5)}`, false],
+    ['점 포함', `${'1'.repeat(5)}.${'2'.repeat(5)}`, false],
+  ])('%s 전화번호를 학생 가입 계약대로 검증한다', (_name, phone, valid) => {
+    const errors = validateProfileForm(validValues({ phone }), 'STUDENT');
+    expect(errors.phone === null).toBe(valid);
+  });
+
   it('이름·학과가 비면 제출 요청을 만들지 않는다', () => {
     const values = validValues({ name: ' ', departmentOption: '' });
     const errors = validateProfileForm(values, 'STUDENT');
@@ -72,6 +91,7 @@ describe('profile onboarding state', () => {
     expect(toCompleteProfileRequest(values, 'STUDENT')).toEqual({
       name: '합성 사용자',
       studentId: '1'.repeat(6),
+      phone: TEN_DIGIT_PHONE,
       affiliationKind: 'DEPARTMENT',
       affiliationName: '합성 융합전공',
     });
@@ -83,6 +103,7 @@ describe('profile onboarding state', () => {
         name: '합성 사용자',
         studentId: null,
         department: '합성 융합전공',
+        phone: null,
         isComplete: false,
       }),
     ).toMatchObject({
@@ -101,6 +122,7 @@ describe('profile onboarding state', () => {
           name: '합성 사용자',
           studentId: '1'.repeat(6),
           department: '인공지능학부',
+          phone: TEN_DIGIT_PHONE,
           isComplete: true,
         },
         'STUDENT',
@@ -113,6 +135,7 @@ describe('profile onboarding state', () => {
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
+          phone: null,
           isComplete: false,
         },
         'STUDENT',
@@ -122,9 +145,10 @@ describe('profile onboarding state', () => {
   });
 
   it('교직원 폼은 학번이 비어도 통과하고 요청에서 키가 빠진다', () => {
-    const values = validValues({ studentId: '' });
+    const values = validValues({ studentId: '', phone: '' });
 
     expect(validateProfileForm(values, 'STAFF').studentId).toBeNull();
+    expect(validateProfileForm(values, 'STAFF').phone).toBeNull();
     expect(toCompleteProfileRequest(values, 'STAFF')).toEqual({
       name: '합성 사용자',
       affiliationKind: 'DEPARTMENT',
@@ -148,6 +172,7 @@ describe('profile onboarding state', () => {
     expect(validateProfileForm(values, 'ADMIN')).toEqual({
       name: null,
       studentId: null,
+      phone: null,
       department: null,
     });
     expect(toCompleteProfileRequest(values, 'ADMIN')).toBeNull();
@@ -171,11 +196,13 @@ describe('설정 화면 프로필 갱신', () => {
     expect(validateSettingsProfileForm(values, 'STUDENT')).toEqual({
       name: null,
       studentId: null,
+      phone: null,
       department: null,
     });
     expect(toUpdateProfileRequest(values, 'STUDENT')).toEqual({
       name: '합성 사용자',
       department: '인공지능학부',
+      phone: TEN_DIGIT_PHONE,
     });
     expect(toUpdateProfileRequest(values, 'STUDENT')).not.toHaveProperty(
       'studentId',
@@ -193,6 +220,7 @@ describe('설정 화면 프로필 갱신', () => {
     expect(toUpdateProfileRequest(values, 'STUDENT')).toEqual({
       name: '합성 사용자',
       department: '인공지능학부',
+      phone: TEN_DIGIT_PHONE,
     });
   });
 
@@ -203,6 +231,7 @@ describe('설정 화면 프로필 갱신', () => {
     expect(toUpdateProfileRequest(values, 'STAFF')).toEqual({
       name: '합성 사용자',
       department: '인공지능학부',
+      phone: TEN_DIGIT_PHONE,
     });
     expect(toUpdateProfileRequest(values, 'STAFF')).not.toHaveProperty(
       'studentId',
@@ -216,6 +245,33 @@ describe('설정 화면 프로필 갱신', () => {
       '학번은 숫자 6자리로 입력해 주세요.',
     );
     expect(toUpdateProfileRequest(values, 'STUDENT')).toBeNull();
+  });
+
+  it('학생은 전화번호를 비우면 저장할 수 없다', () => {
+    const values = settingsValues({ phone: '' });
+
+    expect(validateSettingsProfileForm(values, 'STUDENT').phone).toBe(
+      '전화번호는 숫자 10~11자리로 입력해 주세요.',
+    );
+    expect(toUpdateProfileRequest(values, 'STUDENT')).toBeNull();
+  });
+
+  it('전화번호는 입력값 자체가 숫자 10~11자리일 때만 갱신 요청에 포함된다', () => {
+    const values = settingsValues({ phone: ELEVEN_DIGIT_PHONE });
+    const spaced = settingsValues({
+      phone: `${'1'.repeat(3)} ${'2'.repeat(4)} ${'3'.repeat(4)}`,
+    });
+
+    expect(validateSettingsProfileForm(values, 'STUDENT').phone).toBeNull();
+    expect(toUpdateProfileRequest(values, 'STUDENT')).toEqual({
+      name: '합성 사용자',
+      department: '인공지능학부',
+      phone: ELEVEN_DIGIT_PHONE,
+    });
+    expect(validateSettingsProfileForm(spaced, 'STUDENT').phone).toBe(
+      '전화번호는 숫자 10~11자리로 입력해 주세요.',
+    );
+    expect(toUpdateProfileRequest(spaced, 'STUDENT')).toBeNull();
   });
 
   it('이름·학과가 비면 갱신 요청을 만들지 않는다', () => {

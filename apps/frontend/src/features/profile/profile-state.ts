@@ -2,8 +2,10 @@ import { DEPARTMENT_OPTIONS, OTHER_DEPARTMENT } from './departments';
 import {
   isProfileComplete,
   isValidDepartment,
+  isValidPhone,
   isValidProfileName,
   isValidStudentId,
+  normalizePhone,
   normalizeProfileText,
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
@@ -48,6 +50,7 @@ export function createInitialProfileForm(
   return {
     name: profile.name,
     studentId: profile.studentId ?? '',
+    phone: profile.phone ?? '',
     // 불러온 값을 그대로 기억해 둔다 — 형식 검증의 예외와 요청 제외를 가르는 기준이다.
     savedStudentId: profile.studentId ?? '',
     affiliationKind: 'DEPARTMENT',
@@ -102,6 +105,16 @@ function studentIdError(studentId: string, required: boolean): string | null {
     : '학번은 숫자 6자리로 입력해 주세요.';
 }
 
+function phoneError(phone: string, required: boolean): string | null {
+  const normalizedPhone = normalizePhone(phone);
+  if (!required && normalizedPhone.length === 0) {
+    return null;
+  }
+  return isValidPhone(normalizedPhone)
+    ? null
+    : '전화번호는 숫자 10~11자리로 입력해 주세요.';
+}
+
 function departmentError(department: string, required: boolean): string | null {
   if (department.length === 0) {
     return required ? '학과를 선택하거나 입력해 주세요.' : null;
@@ -142,6 +155,7 @@ export function validateProfileForm(
     studentId: isUnchangedStudentId(values)
       ? null
       : studentIdError(values.studentId.trim(), requirement.studentId),
+    phone: phoneError(values.phone, requirement.phone),
     department: affiliationError,
   };
 }
@@ -166,6 +180,9 @@ export function toCompleteProfileRequest(
   return {
     name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
+    ...(normalizePhone(values.phone)
+      ? { phone: normalizePhone(values.phone) }
+      : {}),
     affiliationKind: values.affiliationKind,
     affiliationName: normalizeProfileText(resolveAffiliationName(values)),
   };
@@ -180,7 +197,7 @@ export function toCompleteProfileRequest(
  */
 export type SettingsProfileFields = Pick<
   ProfileFormValues,
-  'name' | 'studentId' | 'departmentOption' | 'otherDepartment'
+  'name' | 'studentId' | 'phone' | 'departmentOption' | 'otherDepartment'
 > & {
   /** 서버에 저장돼 있던 학번. 비어 있으면 아직 학번이 없다는 뜻이다. */
   readonly savedStudentId: string;
@@ -208,6 +225,7 @@ export function validateSettingsProfileForm(
     studentId: hasSavedStudentId(values)
       ? null
       : studentIdError(values.studentId.trim(), requirement.studentId),
+    phone: phoneError(values.phone, requirement.phone),
     department: departmentError(resolveDepartment(values), true),
   };
 }
@@ -227,6 +245,9 @@ export function toUpdateProfileRequest(
   return {
     name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
+    ...(normalizePhone(values.phone)
+      ? { phone: normalizePhone(values.phone) }
+      : {}),
     department,
   };
 }

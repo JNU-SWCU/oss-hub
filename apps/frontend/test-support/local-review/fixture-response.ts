@@ -8,6 +8,7 @@ import {
   AUDIT_LOG_ACCESS_RECORD_FIXTURE,
   AUDIT_LOG_LEGACY_RECORD_FIXTURE,
   AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE,
+  AUDIT_LOG_USER_PHONE_UPDATED_RECORD_FIXTURE,
 } from '@/features/audit-log/fixtures';
 import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
 import type {
@@ -196,6 +197,7 @@ type AuditLogWirePage = Omit<AuditLogPage, 'items'> & {
  * 이 파일은 id·시각·대상 식별자만 변형해 건수를 늘린다.
  */
 const AUDIT_LOG_SEEDS = [
+  AUDIT_LOG_USER_PHONE_UPDATED_RECORD_FIXTURE,
   AUDIT_LOG_ACCESS_RECORD_FIXTURE,
   AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE,
   AUDIT_LOG_LEGACY_RECORD_FIXTURE,

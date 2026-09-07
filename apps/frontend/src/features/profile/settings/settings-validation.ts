@@ -12,6 +12,7 @@ export function settingsFormErrors(
     : {
         name: null,
         studentId: null,
+        phone: null,
         department: null,
         notificationEmail: null,
       };
