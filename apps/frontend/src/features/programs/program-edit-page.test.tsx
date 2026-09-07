@@ -682,7 +682,17 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(dialogText).not.toContain('공개 목록에 보이지 않');
   });
 
-  it('다시 게시 확인창은 신청 재개와 변하지 않은 공개 노출을 알린다', async () => {
+  // #1208 — 위 내리기 짝의 반대쪽. 배포된 문구는 「공개 목록에 다시 노출되고」라고
+  // 약속했지만 내려가 있는 동안에도 목록·상세가 열려 있었으므로 재게시가 바꾸는
+  // 노출이 없다. 없는 일은 다른 말로 고쳐 적는 대신 그 절을 통째로 뺐고, 재게시가
+  // 실제로 여는 하나만 남겼다 — 신청 관문이다. `applications.service.ts` 의 create 는
+  // lifecycle 관문(APP_020)을 먼저 보고 그 다음
+  // `now < applicationStartAt || now > applicationEndAt`(APP_010)을 본다. 재게시는 앞
+  // 관문만 풀 뿐이라 세 갈래가 모두 참이어야 한다 — 기간 안이면 곧바로, 시작 전이면
+  // 시작일에, 이미 끝났으면 열리지 않는다. 마지막 갈래가 이번에 새로 들어간 절이고,
+  // 그것이 빠지면 「다시 게시하면 신청이 열린다」로 읽혀 이 티켓이 고치려던 것과 같은
+  // 거짓이 되므로 아래 정확일치 단언이 함께 붙잡는다.
+  it('다시 게시 확인창은 다시 노출된다고 약속하지 않고 신청이 기간에만 열린다고 알린다', async () => {
     getEditableProgramMock.mockResolvedValue({
       ...editableProgram,
       lifecycle: 'ARCHIVED',
@@ -703,13 +713,24 @@ describe('ProgramEditPage 컴포넌트', () => {
 
     const dialogText =
       document.querySelector('[role="alertdialog"]')?.textContent ?? '';
+    expect(dialogText).toContain('프로그램을 다시 게시할까요?');
     expect(dialogText).toContain(
-      '신청 기간 안이면 신규 신청을 다시 받기 시작합니다.',
+      '학생 신청은 신청 기간 동안에만 열립니다 — 지금이 기간 안이면 곧바로, 시작 전이면 시작일에, 이미 끝났으면 열리지 않습니다. 언제든 다시 내릴 수 있습니다.',
     );
-    expect(dialogText).toContain(
-      '공개 목록과 상세는 내려가 있는 동안에도 계속 열려 있었으므로 노출이 바뀌지는 않습니다.',
-    );
-    expect(dialogText).not.toContain('다시 노출');
+    // 지키지 못하는 약속 — 어떤 표현으로도 다시 들어오면 안 된다. 「노출」은 낱말째
+    // 막는다. 「다시 노출」·「새로 노출」·「노출됩니다」가 전부 같은 거짓이라 옛 표현
+    // 하나만 막으면 다른 표현으로 되돌아온다. 참인 「노출이 바뀌지 않습니다」도 함께
+    // 막히는데 그것이 의도다 — 바뀌지 않는 것을 굳이 꺼내면 읽는 사람이 노출을 이
+    // 버튼의 쟁점으로 다시 오해한다.
+    expect(dialogText).not.toContain('노출');
+    expect(dialogText).not.toContain('목록에 다시');
+    // 「남아 있으면」은 아직 시작하지 않은 신청 기간까지 포함해 읽힌다. 그 프로그램은
+    // 다시 게시해도 `now < applicationStartAt` 로 계속 막히므로 또 하나의 거짓이 된다.
+    expect(dialogText).not.toContain('신청 기간이 남아 있');
+    // 「종료」는 커밋 0131b9d0 이 내리기 쪽에서 걷어낸 약속이다 —
+    // `getProgramListBadge` 가 신청이 있는 학생 카드에서 지원 상태를 모집 배지보다
+    // 앞에 두므로 「종료」로 보인다고 말할 수 없다. 이쪽에서도 다시 부르지 않는다.
+    expect(dialogText).not.toContain('종료');
   });
 
   // 리뷰에서 발견된 블로커 — confirmLifecycleToggle이 성공 후 load()를 불렀다.

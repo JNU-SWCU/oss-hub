@@ -20,6 +20,26 @@ type ProgramLifecycle = EditableProgram['lifecycle'];
  * 신청이 있는 학생 카드는 `getProgramListBadge` 가 지원 상태를 모집 배지보다
  * 앞에 두므로 「종료」를 약속하지 않는다.
  * 2026-08-04 PR #589 이후의 의도된 동작이므로 문구가 동작을 따라간다.
+ *
+ * 다시 게시 쪽(#1208)은 재게시가 실제로 여는 하나, 신청 관문만 말한다.
+ * `applications.service.ts` 의 `create` 는 두 관문을 이 순서로 통과시킨다 —
+ * 먼저 `lifecycle === ARCHIVED` 면 `APP_020` 으로 막고, 그 다음
+ * `now < applicationStartAt || now > applicationEndAt` 이면 `APP_010` 으로
+ * 막는다. 재게시는 앞 관문만 풀 뿐 뒤 관문은 건드리지 않으므로 신청이 열리는지는
+ * 오로지 신청 기간이 정한다. 그래서 세 갈래를 모두 적는다 — 기간 안이면 곧바로,
+ * 시작 전이면 시작일에, 이미 끝났으면 열리지 않는다. 마지막 갈래를 빼면
+ * 「다시 게시하면 신청이 열린다」로 읽혀 이 티켓이 고치려던 것과 같은 종류의
+ * 거짓이 된다.
+ *
+ * 노출 이야기는 문구에서 뺐다. 내려가 있는 동안에도 목록·상세가 열려 있었으므로
+ * 재게시가 바꾸는 노출이 애초에 없다 — 없는 일은 다른 말로 고쳐 적는 대신 그
+ * 절을 통째로 뺀다. 모집 배지가 어떻게 파생되는지도 뺐다. 그것을 말하려면 배지
+ * 이름을 불러야 하는데 커밋 `0131b9d0` 이 내리기 쪽에서 같은 약속을 이미
+ * 걷어냈다(위 `getProgramListBadge` 문단과 같은 이유다).
+ *
+ * 「언제든 다시 내릴 수 있습니다」는 `program-lifecycle.service.ts` 의 `update`
+ * 가 목표 lifecycle 을 받아 현재 값과 다르면 갱신하는 방향 무관한 대칭 토글이라
+ * 참이다.
  */
 const LIFECYCLE_COPY = {
   PUBLISHED: {
@@ -41,7 +61,7 @@ const LIFECYCLE_COPY = {
     busyAction: '게시하는 중…',
     dialogTitle: '프로그램을 다시 게시할까요?',
     dialogDescription:
-      '신청 기간 안이면 신규 신청을 다시 받기 시작합니다. 공개 목록과 상세는 내려가 있는 동안에도 계속 열려 있었으므로 노출이 바뀌지는 않습니다. 상태 표시만 「내림」에서 기간에 따른 상태로 돌아갑니다.',
+      '학생 신청은 신청 기간 동안에만 열립니다 — 지금이 기간 안이면 곧바로, 시작 전이면 시작일에, 이미 끝났으면 열리지 않습니다. 언제든 다시 내릴 수 있습니다.',
     confirm: '다시 게시',
   },
 } as const satisfies Record<ProgramLifecycle, unknown>;
