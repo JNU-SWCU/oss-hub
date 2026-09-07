@@ -128,9 +128,7 @@ describe('ProgramDeadlineControl', () => {
     expect(
       container.querySelector('[aria-label="교직원 요약 수신 2명"]'),
     ).not.toBeNull();
-    expect(container.textContent).toContain(
-      '교직원 요약은 「안내 보내기」를 눌렀을 때만',
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain('student-');
 
     await act(async () => button('안내 보내기').click());

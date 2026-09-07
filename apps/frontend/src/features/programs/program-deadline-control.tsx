@@ -71,10 +71,6 @@ export function ProgramDeadlineControl({
           {preview ? <DeadlinePreviewCounts preview={preview} /> : null}
           <section aria-label="이번 발송 안내" className="grid min-w-0 gap-4">
             <h3 className="font-semibold">이번 발송 안내</h3>
-            <p className="text-small text-muted-foreground">
-              추가 안내는 각각 4,000자 이내의 평문이며 이번 발송에만 사용합니다.
-              제목·프로그램·마감 정보는 자동으로 채워집니다.
-            </p>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               {fields.map(({ key, label }) => (
                 <Field key={key}>

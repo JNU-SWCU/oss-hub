@@ -58,8 +58,7 @@ export function DeadlinePreviewCounts({
         </p>
         <p className="text-small text-muted-foreground">
           제외 수는 학생 기준입니다. 미리보기는 10분 동안 유효하며, 대상이
-          바뀌면 다시 계산해야 합니다. 미제출 팀 목록을 담은 교직원 요약은
-          「안내 보내기」를 눌렀을 때만 함께 나갑니다.
+          바뀌면 다시 계산해야 합니다.
         </p>
       </CardContent>
     </Card>
@@ -133,7 +132,7 @@ export function DeadlinePreviewBodies({
             aria-label={`${item.label} 메일`}
             className={`${audience === item.value ? 'grid' : 'hidden'} min-w-0 content-start gap-3 lg:grid`}
           >
-            <h3 className="font-semibold">{item.label} 메일</h3>
+            <h3 className="hidden font-semibold lg:block">{item.label} 메일</h3>
             {item.value === 'student' && preview.studentPreviews.length > 0 ? (
               <div className="grid gap-2">
                 <label

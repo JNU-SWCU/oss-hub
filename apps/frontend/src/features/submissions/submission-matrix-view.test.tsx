@@ -452,8 +452,8 @@ describe('SubmissionMatrixView', () => {
   });
 });
 
-it('필터 제목과 검토 상태를 눈에 보이는 서로 다른 축으로 안내한다', () => {
+it('필수 서류 필터와 제출 칸의 완료·승인 상태를 구분한다', () => {
   const html = render();
   expect(html).toContain('>필수 서류 제출 상태</p>');
-  expect(html).toContain('검토 상태');
+  expect(html).toMatch(/제출 완료<\/span><span[^>]*>승인<\/span>/);
 });

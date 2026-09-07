@@ -1120,10 +1120,17 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
   });
 });
 
-it('필터 제목과 검토 상태를 눈에 보이는 서로 다른 축으로 안내한다', () => {
+it('필수 서류를 모두 낸 팀의 반려 결과를 제출 완료와 구분한다', () => {
   const html = render({
-    data: collection([document('d1')], [row('a', [missingCell('d1')])]),
+    data: collection(
+      [document('d1')],
+      [
+        row('a', [cell('d1', { status: 'REJECTED' })], {
+          deliveryStatus: 'COMPLETE',
+        }),
+      ],
+    ),
   });
   expect(html).toContain('>필수 서류 제출 상태</p>');
-  expect(html).toContain('검토 상태');
+  expect(badgeTexts(html)).toEqual(['제출 완료', '반려']);
 });

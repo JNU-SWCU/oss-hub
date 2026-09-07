@@ -980,8 +980,7 @@ export function MilestoneDocumentCollectionView(
         description={
           milestone === null ? undefined : (
             <span className="break-keep">
-              {formatSeoulDate(milestone.dueAt)} 마감 · 필수 서류 제출 상태와
-              검토 상태를 각각 확인합니다.
+              {formatSeoulDate(milestone.dueAt)} 마감
             </span>
           )
         }
