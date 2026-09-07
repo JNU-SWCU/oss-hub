@@ -494,9 +494,15 @@ export class ProgramLifecycleService {
         where: { application: { programId } },
       });
 
-    // SubmissionFile은 nullable RESTRICT FK를 끊고 기존 cleanup worker에 맡긴다.
-    const submissionFiles = await transaction.submissionFile.updateMany({
-      where: fileScope,
+    // SubmissionFile_deleted_at_check를 지키며 이미 완료된 삭제를 되돌리지 않는다.
+    // DELETE_PENDING이 아닌 파일만 cleanup worker에 다시 맡기고 nullable RESTRICT FK를 끊는다.
+    const pendingSubmissionFiles = await transaction.submissionFile.updateMany({
+      where: {
+        AND: [
+          fileScope,
+          { lifecycle: { not: SubmissionFileLifecycle.DELETED } },
+        ],
+      },
       data: {
         lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
         applicationId: null,
@@ -510,6 +516,20 @@ export class ProgramLifecycleService {
         lastDeleteError: null,
       },
     });
+    const deletedSubmissionFiles = await transaction.submissionFile.updateMany({
+      where: {
+        AND: [fileScope, { lifecycle: SubmissionFileLifecycle.DELETED }],
+      },
+      data: {
+        applicationId: null,
+        milestoneId: null,
+        milestoneDocumentSubmissionId: null,
+        milestoneDocumentSubmissionHistoryId: null,
+      },
+    });
+    const submissionFiles = {
+      count: pendingSubmissionFiles.count + deletedSubmissionFiles.count,
+    };
 
     const createRequest = await transaction.programCreateRequest.findUnique({
       where: { programId },

@@ -915,25 +915,31 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       },
     });
 
-    // SubmissionFile은 하드 삭제가 아니라 FK를 분리하고 DELETE_PENDING으로 전환한다.
-    expect(submissionFileUpdateMany).toHaveBeenCalledTimes(1);
-    expect(submissionFileUpdateMany).toHaveBeenCalledWith(
+    // 완료된 파일은 DELETE_PENDING으로 되돌리지 않고, 두 상태 모두 RESTRICT FK만 분리한다.
+    expect(submissionFileUpdateMany).toHaveBeenCalledTimes(2);
+    expect(submissionFileUpdateMany).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         where: {
-          OR: [
-            { application: { is: { programId: 'program-1' } } },
-            { milestone: { is: { programId: 'program-1' } } },
+          AND: [
             {
-              submissionHistory: {
-                is: {
-                  submission: {
-                    milestoneDocument: {
-                      milestone: { programId: 'program-1' },
+              OR: [
+                { application: { is: { programId: 'program-1' } } },
+                { milestone: { is: { programId: 'program-1' } } },
+                {
+                  submissionHistory: {
+                    is: {
+                      submission: {
+                        milestoneDocument: {
+                          milestone: { programId: 'program-1' },
+                        },
+                      },
                     },
                   },
                 },
-              },
+              ],
             },
+            { lifecycle: { not: 'DELETED' } },
           ],
         },
         data: expect.objectContaining({
@@ -943,6 +949,39 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
           milestoneDocumentSubmissionId: null,
           milestoneDocumentSubmissionHistoryId: null,
         }) as unknown,
+      }) as unknown,
+    );
+    expect(submissionFileUpdateMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          AND: [
+            {
+              OR: [
+                { application: { is: { programId: 'program-1' } } },
+                { milestone: { is: { programId: 'program-1' } } },
+                {
+                  submissionHistory: {
+                    is: {
+                      submission: {
+                        milestoneDocument: {
+                          milestone: { programId: 'program-1' },
+                        },
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+            { lifecycle: 'DELETED' },
+          ],
+        },
+        data: {
+          applicationId: null,
+          milestoneId: null,
+          milestoneDocumentSubmissionId: null,
+          milestoneDocumentSubmissionHistoryId: null,
+        },
       }) as unknown,
     );
 
