@@ -53,6 +53,7 @@ export type DeadlinePreview = {
   readonly applicationCount: number;
   readonly milestoneCount: number;
   readonly recipientCount: number;
+  readonly staffRecipientCount: number;
   readonly inactiveCount: number;
   readonly optedOutCount: number;
   readonly noEmailCount: number;
@@ -164,6 +165,7 @@ export function parseDeadlinePreview(value: unknown): DeadlinePreview {
     applicationCount: count(record, 'applicationCount'),
     milestoneCount: count(record, 'milestoneCount'),
     recipientCount: count(record, 'recipientCount'),
+    staffRecipientCount: count(record, 'staffRecipientCount'),
     inactiveCount: count(record, 'inactiveCount'),
     optedOutCount: count(record, 'optedOutCount'),
     noEmailCount: count(record, 'noEmailCount'),
