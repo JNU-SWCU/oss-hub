@@ -12,6 +12,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { DomainException } from '../common/error-code';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
@@ -27,6 +28,10 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 import type { MilestoneDocumentsStaffRequest } from './milestone-documents-staff.guard';
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './milestone-documents-error-code.enum';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -93,6 +98,36 @@ const submit = jest.fn().mockResolvedValue({
   submittedAt: '2026-09-16T14:22:00.000Z',
   files: [],
 });
+const createDocument = jest.fn().mockResolvedValue({
+  id: 'created-document',
+  milestoneId: 'synthetic-milestone',
+  name: '새 서류',
+  required: true,
+  sortOrder: 2,
+  templateFileId: null,
+  templateFileName: null,
+});
+const updateDocument = jest.fn().mockResolvedValue({
+  id: 'synthetic-document',
+  milestoneId: 'synthetic-milestone',
+  name: '수정 서류',
+  required: false,
+  sortOrder: 1,
+  templateFileId: null,
+  templateFileName: null,
+});
+const reorderDocuments = jest.fn().mockResolvedValue([
+  {
+    id: 'synthetic-document',
+    milestoneId: 'synthetic-milestone',
+    name: '개인정보 수집·이용 동의서',
+    required: true,
+    sortOrder: 1,
+    templateFileId: null,
+    templateFileName: null,
+  },
+]);
+const deleteDocument = jest.fn().mockResolvedValue(undefined);
 
 // MilestoneDocumentFilesService 목
 const uploadTemplate = jest.fn().mockResolvedValue({
@@ -150,6 +185,10 @@ beforeEach(() => {
   collectForStaff.mockClear();
   archiveForStaff.mockClear();
   submit.mockClear();
+  createDocument.mockClear();
+  updateDocument.mockClear();
+  reorderDocuments.mockClear();
+  deleteDocument.mockClear();
   uploadTemplate.mockClear();
   downloadTemplate.mockClear();
   downloadSubmissionFile.mockClear();
@@ -170,6 +209,10 @@ beforeAll(async () => {
           listForViewer,
           collectForStaff,
           submit,
+          createDocument,
+          updateDocument,
+          reorderDocuments,
+          deleteDocument,
         },
       },
       {
@@ -260,6 +303,107 @@ it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', asy
     'synthetic-milestone',
   );
 });
+
+it('교직원은 legacy 서류 생성·수정·전체 순서 재부여·삭제를 HTTP로 수행한다', async () => {
+  const createResponse = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({
+        name: ' 새 서류 ',
+        required: true,
+        sortOrder: 99,
+      }),
+    },
+  );
+  expect(createResponse.status).toBe(201);
+  await expect(createResponse.json()).resolves.toMatchObject({
+    id: 'created-document',
+    sortOrder: 2,
+  });
+  expect(createDocument.mock.calls).toEqual([
+    ['synthetic-milestone', { name: '새 서류', required: true, sortOrder: 99 }],
+  ]);
+
+  const updateResponse = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({
+        name: '수정 서류',
+        required: false,
+        sortOrder: 100,
+      }),
+    },
+  );
+  expect(updateResponse.status).toBe(200);
+  await expect(updateResponse.json()).resolves.toMatchObject({
+    id: 'synthetic-document',
+    required: false,
+    sortOrder: 1,
+  });
+  expect(updateDocument.mock.calls).toEqual([
+    [
+      'synthetic-milestone',
+      'synthetic-document',
+      { name: '수정 서류', required: false, sortOrder: 100 },
+    ],
+  ]);
+
+  const orderResponse = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/order`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({ documentIds: ['synthetic-document'] }),
+    },
+  );
+  expect(orderResponse.status).toBe(200);
+  await expect(orderResponse.json()).resolves.toMatchObject([
+    { id: 'synthetic-document', sortOrder: 1 },
+  ]);
+
+  const deleteResponse = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document`,
+    { method: 'DELETE', headers: { origin: baseUrl } },
+  );
+  expect(deleteResponse.status).toBe(204);
+  expect(deleteDocument.mock.calls).toEqual([
+    ['synthetic-milestone', 'synthetic-document'],
+  ]);
+});
+
+it.each([
+  [MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED, deleteDocument],
+  [MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS, deleteDocument],
+  [MilestoneDocumentsErrorCode.INVALID_REQUEST, reorderDocuments],
+] as const)(
+  'surfaces legacy document safety code %s through HTTP',
+  async (code, operation) => {
+    operation.mockRejectedValueOnce(
+      new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]),
+    );
+    const isOrder = code === MilestoneDocumentsErrorCode.INVALID_REQUEST;
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents${
+        isOrder ? '/order' : '/synthetic-document'
+      }`,
+      {
+        method: isOrder ? 'PATCH' : 'DELETE',
+        headers: isOrder
+          ? { 'content-type': 'application/json', origin: baseUrl }
+          : { origin: baseUrl },
+        body: isOrder
+          ? JSON.stringify({ documentIds: ['synthetic-document'] })
+          : undefined,
+      },
+    );
+    expect(response.status).toBe(MILESTONE_DOCUMENTS_ERROR_CODES[code].status);
+    await expect(response.json()).resolves.toMatchObject({ code });
+  },
+);
 
 it('학생 서류 제출은 내용과 파일을 함께 서비스에 전달한다', async () => {
   // Given
@@ -1303,6 +1447,17 @@ function readHandlerGuards(propertyKey: string): unknown {
 }
 
 describe('교직원 전용 endpoint의 가드 구성', () => {
+  it.each(['create', 'update', 'reorder', 'remove', 'uploadTemplate'])(
+    'legacy writer %s keeps SessionGuard + staff + OriginGuard',
+    (handler) => {
+      expect(readHandlerGuards(handler)).toEqual([
+        SessionGuard,
+        MilestoneDocumentsStaffGuard,
+        OriginGuard,
+      ]);
+    },
+  );
+
   it('서류 수합 조회는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
     // Given / When
     const guards = readHandlerGuards('collection');

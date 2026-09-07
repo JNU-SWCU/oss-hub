@@ -36,13 +36,11 @@ const {
   getEditableProgramMock,
   getEditableMilestoneMock,
   updateEditableMilestoneMock,
-  updateMilestoneMock,
   updateProgramMock,
 } = vi.hoisted(() => ({
   getEditableProgramMock: vi.fn(),
   getEditableMilestoneMock: vi.fn(),
   updateEditableMilestoneMock: vi.fn(),
-  updateMilestoneMock: vi.fn(),
   updateProgramMock: vi.fn(),
 }));
 
@@ -124,7 +122,6 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       fingerprint: 'a'.repeat(64),
     });
     updateEditableMilestoneMock.mockReset();
-    updateMilestoneMock.mockReset();
     updateProgramMock.mockReset();
   });
 
