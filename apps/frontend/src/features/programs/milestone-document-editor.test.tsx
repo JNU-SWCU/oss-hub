@@ -177,6 +177,10 @@ describe('LocalMilestoneDocumentsEditor', () => {
       });
       expect(onChange).not.toHaveBeenCalled();
       expect(container.querySelector('[role="alert"]')).not.toBeNull();
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(input.getAttribute('aria-describedby')).toBe(
+        container.querySelector('[role="alert"]')?.id,
+      );
 
       const replacement = new File(['%PDF-1.4'], 'replacement.pdf', {
         type: 'application/pdf',
@@ -189,6 +193,8 @@ describe('LocalMilestoneDocumentsEditor', () => {
         input.dispatchEvent(new Event('change', { bubbles: true }));
       });
       expect(documents.current[0]?.selectedFile).toBe(replacement);
+      expect(input.getAttribute('aria-invalid')).toBe('false');
+      expect(input.getAttribute('aria-describedby')).toBeNull();
       const reset = container.querySelector<HTMLButtonElement>(
         'button[aria-label="파일 선택 취소"]',
       );

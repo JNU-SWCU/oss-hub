@@ -65,6 +65,7 @@ export function ProgramAuthoringSubmissionItem({
   const [editingName, setEditingName] = useState(false);
   const [originalName, setOriginalName] = useState<string | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const fileErrorId = `${milestoneId}-${requirement.id}-file-error`;
   const selectedFile = requirement.selectedFile ?? requirement.templateFile;
   const nameError =
     requirement.name.trim() === ''
@@ -201,6 +202,8 @@ export function ProgramAuthoringSubmissionItem({
                 ref={fileInputRef}
                 className="sr-only"
                 aria-label={uploadLabel}
+                aria-invalid={selectionError !== null}
+                aria-describedby={selectionError ? fileErrorId : undefined}
                 type="file"
                 accept={fileUpload?.accept ?? '.pdf,.hwp,.jpg,.jpeg,.png,.zip'}
                 onChange={(event) => {
@@ -229,7 +232,11 @@ export function ProgramAuthoringSubmissionItem({
           )}
         </div>
         {selectionError || error ? (
-          <p role="alert" className="col-start-2 text-small text-destructive">
+          <p
+            id={fileErrorId}
+            role="alert"
+            className="col-start-2 text-small text-destructive"
+          >
             {selectionError ?? error}
           </p>
         ) : null}

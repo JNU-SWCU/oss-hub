@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../submission-upload-limit';
 import type { ProgramActivity, ProgramDetail } from '@/features/programs/types';
 import type {
   SubmissionChecklist,
@@ -167,6 +168,7 @@ const CONTEST_ACTIVITY = [
 const CAPSTONE_CHECKLIST = {
   applicationId: 'application-personal',
   applicationMode: 'PERSONAL',
+  fileUpload: submissionUploadLimit(),
   items: [
     {
       milestoneId: 'milestones-approved',
@@ -216,6 +218,7 @@ const CAPSTONE_CHECKLIST = {
 const CONTEST_CHECKLIST = {
   applicationId: 'application-team',
   applicationMode: 'TEAM',
+  fileUpload: submissionUploadLimit(),
   items: [
     {
       milestoneId: 'milestones-overdue',
@@ -247,6 +250,7 @@ const CONTEST_CHECKLIST = {
 const CAPSTONE_SUBMISSION_FORM = {
   applicationId: 'application-personal',
   applicationMode: 'PERSONAL',
+  fileUpload: submissionUploadLimit(),
   milestone: {
     id: 'milestones-upcoming',
     name: '중간 보고',
@@ -265,6 +269,7 @@ const CAPSTONE_SUBMISSION_FORM = {
 const CONTEST_SUBMISSION_FORM = {
   applicationId: 'application-team',
   applicationMode: 'TEAM',
+  fileUpload: submissionUploadLimit(),
   milestone: {
     id: 'milestones-contest-final',
     name: '본선 발표 자료',

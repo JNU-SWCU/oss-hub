@@ -9,15 +9,17 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { formatFileSize } from '@/lib/format-file-size';
-import { SUBMISSION_UPLOAD_MAX_LABEL } from '@/lib/submission-upload-policy';
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 import {
   SUBMISSION_FILE_ACCEPT,
+  validateSubmissionFile,
   type SubmissionFormErrors,
   type SubmissionFormInput,
 } from '../submission-form';
 import type { SubmissionType } from '../types';
 
 export interface SubmissionInputProps {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly submissionType: SubmissionType;
   readonly input: SubmissionFormInput;
   readonly errors: SubmissionFormErrors;
@@ -43,6 +45,7 @@ export function selectedFileFromControl(
  * FILE handler가 없는 보완 재제출 폼은 입력을 렌더하지 않아 fail-closed한다.
  */
 export function SubmissionInput({
+  fileUpload,
   submissionType,
   input,
   errors,
@@ -78,7 +81,11 @@ export function SubmissionInput({
       // `errors.file`도 함께 본다. 파일 오류를 담는 자리가 둘(`fileError`·`errors.file`)
       // 인데 이 갈래는 앞의 것만 그려, 뒤의 것만 채운 호출부에서는 제출이 막히고도
       // 화면에 아무 말이 없었다 — 눌러도 아무 일이 없는 것처럼 보인다.
-      const fileMessage = fileError ?? errors.file ?? null;
+      const selection = file ? validateSubmissionFile(file, fileUpload) : null;
+      const fileMessage =
+        selection && !selection.ok
+          ? selection.message
+          : (fileError ?? errors.file ?? null);
       return (
         <div
           className="grid min-w-0 gap-0"
@@ -112,7 +119,7 @@ export function SubmissionInput({
                 {file ? '파일 바꾸기' : '파일 선택하기'}
               </span>
               <FieldDescription id="submission-file-description">
-                PDF, HWP, ZIP · 최대 {SUBMISSION_UPLOAD_MAX_LABEL}
+                PDF, HWP, ZIP · 최대 {fileUpload.maxLabel}
               </FieldDescription>
               <FieldError id="submission-file-error">{fileMessage}</FieldError>
             </Field>

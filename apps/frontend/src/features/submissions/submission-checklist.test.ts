@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { describe, expect, it, vi } from 'vitest';
 import type { ProblemDetail } from '@/lib/api-client';
 import {
@@ -489,6 +490,7 @@ describe('applyResubmission', () => {
     const checklist: SubmissionChecklist = {
       applicationId: 'application-personal',
       applicationMode: 'PERSONAL',
+      fileUpload: submissionUploadLimit(),
       items: [target, other],
     };
 

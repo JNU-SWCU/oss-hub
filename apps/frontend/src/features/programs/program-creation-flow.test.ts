@@ -246,13 +246,19 @@ describe('program authoring validation', () => {
     ['archive.zip', 'application/octet-stream'],
     ['archive.zip', ''],
   ])('허용 확장자 %s는 브라우저 MIME %s와 무관하게 통과한다', (name, type) => {
-    expect(validateTemplateFile(new File(['x'], name, { type }))).toBeNull();
+    expect(
+      validateTemplateFile(
+        new File(['x'], name, { type }),
+        submissionUploadLimit(),
+      ),
+    ).toBeNull();
   });
 
   it('rejects oversized and unsupported template files before upload', () => {
     expect(
       validateTemplateFile(
         new File(['content'], 'plan.txt', { type: 'text/plain' }),
+        submissionUploadLimit(),
       ),
     ).toBe('PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.');
     expect(
@@ -260,6 +266,7 @@ describe('program authoring validation', () => {
         new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'plan.pdf', {
           type: 'application/pdf',
         }),
+        submissionUploadLimit(),
       ),
     ).toBe('파일은 5 MB 이하여야 합니다.');
   });
@@ -304,3 +311,4 @@ describe('program authoring manifest', () => {
     expect(manifest.notifyOnDeadline).toBe(true);
   });
 });
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';

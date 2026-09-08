@@ -10,8 +10,10 @@ import { ProgramAuthoringSortableAttachments } from './program-authoring-sortabl
 import { dateKey } from './program-schedule-calendar-model';
 import { validateTemplateFile } from './program-authoring-validation';
 import { ProgramMilestoneFields } from './program-milestone-fields';
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 
 export function ProgramAuthoringMilestoneDialog({
+  fileUpload,
   milestone,
   operationStartAt,
   operationEndAt,
@@ -29,6 +31,7 @@ export function ProgramAuthoringMilestoneDialog({
   onCancel,
   onSave,
 }: {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly milestone: ProgramAuthoringMilestone;
   readonly operationStartAt: string;
   readonly operationEndAt: string;
@@ -60,6 +63,7 @@ export function ProgramAuthoringMilestoneDialog({
 }) {
   const [saveAttempted, setSaveAttempted] = useState(initialValidationVisible);
   const [fileError, setFileError] = useState<string | null>(null);
+  const fileErrorId = `${milestone.id}-attachment-file-error`;
   const startDate = dateKey(milestone.startAt) ?? '';
   const dueDate = dateKey(milestone.dueAt) ?? '';
   const minDate = dateKey(operationStartAt) ?? undefined;
@@ -67,7 +71,7 @@ export function ProgramAuthoringMilestoneDialog({
   const errors = validationErrors(milestone, operationStartAt, operationEndAt);
 
   function acceptFile(file: File, onValid: (value: File) => void) {
-    const error = validateTemplateFile(file);
+    const error = validateTemplateFile(file, fileUpload);
     setFileError(error);
     if (error === null) onValid(file);
   }
@@ -185,6 +189,8 @@ export function ProgramAuthoringMilestoneDialog({
             <input
               className="sr-only"
               aria-label="첨부파일 추가"
+              aria-invalid={fileError !== null}
+              aria-describedby={fileError ? fileErrorId : undefined}
               type="file"
               accept=".pdf,.hwp,.jpg,.jpeg,.png,.zip"
               disabled={attachmentLimitMessage !== null}
@@ -200,8 +206,11 @@ export function ProgramAuthoringMilestoneDialog({
               {attachmentLimitMessage}
             </p>
           ) : null}
+          <p className="text-small text-muted-foreground">
+            최대 {fileUpload.maxLabel}
+          </p>
         </div>
-        <FieldError>{fileError}</FieldError>
+        <FieldError id={fileErrorId}>{fileError}</FieldError>
         <FieldError>{attachmentValidationMessage}</FieldError>
         <FieldError>{saveAttempted ? errors.attachments : null}</FieldError>
       </Field>

@@ -95,10 +95,11 @@ export function SubmissionPage({
     const nextErrors = validateSubmissionContent(
       data.milestone.submissionType,
       input,
+      data.fileUpload,
     );
     const fileValidation =
       data.milestone.submissionType === 'FILE'
-        ? validateSubmissionFile(file)
+        ? validateSubmissionFile(file, data.fileUpload)
         : { ok: true as const };
     const nextFileError = fileValidation.ok ? null : fileValidation.message;
     setErrors(nextErrors);
@@ -168,9 +169,12 @@ export function SubmissionPage({
         }
       } else if (
         error instanceof ApiError &&
-        getSubmissionFileErrorMessage(error.problem.code)
+        getSubmissionFileErrorMessage(error.problem.code, data.fileUpload)
       ) {
-        const message = getSubmissionFileErrorMessage(error.problem.code);
+        const message = getSubmissionFileErrorMessage(
+          error.problem.code,
+          data.fileUpload,
+        );
         if (error.problem.code === 'SUB_021') {
           setServerErrorKind('program-ended');
           setServerError(message);
@@ -225,6 +229,7 @@ export function SubmissionPage({
         setFile(nextFile);
         setInput((previous) => ({ ...previous, file: nextFile }));
         setFileError(null);
+        setErrors({});
         uploadedFile.current.discardUnless(nextFile);
       }}
       onCommentChange={setComment}

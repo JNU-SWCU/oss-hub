@@ -50,7 +50,11 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
     selected.submission === null && props.initialSubmission ? (
       props.initialSubmission
     ) : (
-      <SelectedMilestonePanel {...props} item={selected} />
+      <SelectedMilestonePanel
+        {...props}
+        item={selected}
+        fileUpload={props.checklist.fileUpload}
+      />
     )
   ) : null;
   const count = checklistSubmittedCount(items);
