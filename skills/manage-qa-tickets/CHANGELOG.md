@@ -1,5 +1,6 @@
 # Changelog
 
+- 2026-09-08 — v4.5.0: 「열여섯 항목」 문구가 스무 항목이 된 뒤에도 다시 굳었고, SKILL.md가 계약의 세 섹션을 `할 일`·`하지 않을 것 (이 티켓의 경계)`·`완료 조건`이 아니라 옛 이름 `최소 요구`·`완료 조건`·`절대 금지`로 불렀으며, 티켓의 `현재 화면` selector가 PR Before/After와 이어지지 않았고, 가독성 규칙이 이 스킬 안에도 따로 있었고, Issue 코멘트에 형식이 없었다 → 판정 표 항목 수를 하드코딩하지 않게 문구를 「판정 표 전 항목」으로 바꾸고, SKILL.md·github-publication.md의 세 섹션 이름을 계약과 맞추고, `현재 화면` selector가 PR Before/After 요소 행의 selector가 된다고 명시하고, 가독성 규칙을 `submit-pr-evidence/references/readability.md` 하나로 모으고, Issue에 남기는 진행·PR 연결·제안 코멘트가 새 `write-github-comment` 스킬을 쓰도록 연결했다. Provenance: 2026-09-08 team-lead — 「qa ticket skill … 해당 component를 dom을 캡처해서 실제 어느 부분을 바꿨는지 전후를 알 수 있도록 … template을 skill에서 가지고 있어야 한다」.
 - 2026-09-07 — v4.4.1: `submit-pr-evidence` 안티패턴 체크리스트가 여덟에서 열여섯 항목으로 늘어, 티켓 완료 조건이 가리키던 개수가 실제와 어긋났다 → 화면 티켓 템플릿 두 곳의 문구를 열여섯 항목으로 맞췄다. 점검 내용의 원본은 계속 그 문서다.
 - 2026-09-03 — v4.4.0: 티켓이 구현 범위만 요구하고 UX 품질은 리뷰에서야 지적돼 같은 안티패턴이 화면마다 다시 나왔다 — 배포 `/programs/<id>/status`의 `전체 미제출 5팀` 중복이 그 예다 → 화면 티켓의 완료 조건에 [UX 안티패턴](../submit-pr-evidence/references/ux-antipatterns.md) 여덟 항목 점검을 필수로 넣고, 본문의 재현·확인 URL을 `https://jnu-oss-hub.com/<path>` 전체 형태로 적어 읽는 사람이 바로 누를 수 있게 했으며, 두 본문 변형의 완료 조건에 빈 상태·결과 없음·오류 구분 항목을 추가했다. Provenance: PM이 PR #1171과 배포 화면을 읽고 「안티패턴을 리뷰에서 말하지 말고 티켓을 쓸 때 적게 하라」고 요청.
 

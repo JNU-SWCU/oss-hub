@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 
 /**
- * ADMIN이 화면에서 확인한(그리고 재확인 다이얼로그에서 다시 읽은) 삭제 범위 스냅샷.
+ * 교직원·관리자가 삭제 확인 팝업에서 확인한 삭제 범위 스냅샷.
  * `program-deletion-scope.ts`의 `ProgramDeletionScopeCounts`와 필드가 정확히 같아야
  * purge 트랜잭션 내부 비교가 뜻대로 동작한다.
  */
@@ -43,7 +43,7 @@ export class PurgeProgramExpectedScopeRequestDto {
 /**
  * DELETE /programs/:id/purge 요청 본문 — REQUIRED(fail closed).
  *
- * purge는 ADMIN 전용이고 오직 위험 영역 UI 한 곳만 호출한다(#F2). 다른 클라이언트가
+ * purge는 교직원·관리자 전용이고 오직 위험 영역 UI 한 곳만 호출한다(#F2). 다른 클라이언트가
  * 이 계약에 기대는 경우가 없으므로, expectedScope를 optional로 열어 구버전 호출을
  * 허용할 이유가 없다 — optional로 두면 검증을 우회하는 요청을 그대로 통과시켜
  * TOCTOU를 재도입하게 된다. 그래서 항상 필수로 받고 없으면 400으로 거절한다.

@@ -1,8 +1,15 @@
 ---
 name: submit-pr-evidence
-description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, clears the twenty UX anti-patterns, runs a ponytail review to cut over-implementation from the diff, runs the public-safety check, and blocks the PR until required evidence is present, since every screen-touching change needs a Before/After capture and a live deployment link in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검", "ponytail".
+description: >-
+  OSS Hub에서 PR을 열려고 하거나 PR 본문을 쓰려는 모든 순간 가장 먼저 연다 — `gh pr create`를 부르기 직전,
+  「PR 열어줘」「PR 만들어줘」「올려줘」「머지 요청」「이거 PR로」 요청을 받았을 때, 본문을 바꾸는 `gh pr edit` 전에도 마찬가지다.
+  티켓이 없어도, docs-only나 한 줄짜리 변경이어도 예외 없이 연다.
+  이 스킬은 Issue 계약을 해석하고, 최소만 구현하고, 완료를 증명하고, 스무 개 UX 안티패턴을 통과시키고,
+  ponytail 리뷰로 diff의 과잉 구현을 걷어내고, public-safety 검사를 돌리고, 화면을 건드린 변경엔 Before/After 캡처를,
+  backend 로직 변경엔 mermaid/DOT 다이어그램을 PR 본문에 요구해 증거 없이는 PR을 막는다.
+  Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검", "ponytail".
 metadata:
-  version: "1.6.1"
+  version: "1.8.0"
 ---
 
 # Submit PR Evidence
@@ -10,7 +17,7 @@ metadata:
 모든 OSS Hub PR을 열기 전에 통과해야 하는 필수 게이트다 — 증거가 없으면 PR을 열지 않는다.
 
 `oss-hub 티켓 #<번호> 진행해줘`를 받았을 때, 또는 이미 구현된 변경을 PR로 제출해야 할 때 이 스킬을 쓴다.
-성공 기준은 하나다: PR이 티켓 계약이 요구한 것과 정확히 일치하고, 완료 조건의 모든 항목이 PR을 열기 전에 실증되며, 절대 금지 경계 밖의 어떤 파일도 건드리지 않는다.
+성공 기준은 하나다: PR이 티켓 계약이 요구한 것과 정확히 일치하고, 완료 조건의 모든 항목이 PR을 열기 전에 실증되며, `하지 않을 것` 경계 밖의 어떤 파일도 건드리지 않는다.
 
 ## 절차
 
@@ -37,10 +44,11 @@ metadata:
      pnpm 이 **아무것도 실행하지 않고 exit 0** 을 낸다. 배열 플래그(`--testPathIgnorePatterns`) 뒤에
      경로를 붙여도 그 경로가 플래그 값으로 먹혀 고친 파일이 조용히 제외된다.
      그래서 검증 보고에는 **실행된 suite·test 개수**를 적는다. 개수가 없으면 통과 주장도 없다.
+     이 수치가 사는 자리는 PR 본문 `## 검증` 절 하나다 — 리뷰 답글로 옮겨 적지 않는다([리뷰 답글 작성 원칙](../write-github-comment/SKILL.md#초록불이-말해-주는-것은-쓰지-않고-초록불이-감추는-것을-쓴다)).
    - lint 와 typecheck 가 둘 다 통과해도 옛 코드가 새 코드보다 먼저 반환하는 상태가 성립한다.
      rebase 충돌을 풀다 양쪽이 남으면 이렇게 된다. **전체 테스트만이 그것을 잡는다.**
 8. 화면을 건드렸으면 [references/ux-antipatterns.md](references/ux-antipatterns.md)의 스무 항목을 통과시킨다.
-   세면 끝나는 넷은 그 문서의 콘솔 스니펫을 배포 화면에 붙여 출력을 그대로 받고, 나머지 열여섯은 그 문서의 질문을 화면에 대고 그대로 읽는다.
+   세면 끝나는 넷은 그 문서의 콘솔 스니펫을 배포 화면에 붙여 출력을 그대로 받고, 나머지는 그 문서의 질문을 화면에 대고 그대로 읽는다.
    **발견한 위반은 보고 대상이 아니라 PR을 열기 전에 고칠 대상이다** — 티켓 경계 밖일 때만 별도 티켓으로 제안하고 그 사실을 본문에 적는다.
 9. PR을 열기 전에 [ponytail](https://github.com/dietrichgebert/ponytail)로 diff의 과잉 구현을 거른다.
    이 스킬의 UX 안티패턴이 화면에서 글자를 줄이는 것이라면, ponytail은 diff에서 코드를 줄인다 — 둘 다 「필요하지 않은 것을 먼저 뺀다」는 같은 규칙이고, 리뷰에서 지적당하기 전에 스스로 거르라고 있는 것이다.
@@ -56,6 +64,11 @@ metadata:
    - ponytail 결과를 근거 없이 「통과」로 적지 않는다 — 다른 게이트와 같은 규칙이다. 무엇을 봤는지 한 조각을 적는다.
    - ponytail이 줄이라고 한 것과 이 저장소 규칙이 부딪히면 저장소 규칙이 이긴다. 검증·오류 처리·보안·접근성은 줄이지 않는다(ponytail 자체도 이 넷은 건드리지 않는 것을 원칙으로 둔다).
    - 스크립트·CI·문서·설정만 바꾼 PR에도 diff는 있으므로 이 단계는 적용한다 — 화면이 없어서 면제되는 것은 캡처·다이어그램·안티패턴 점검뿐이다.
+10. PR 본문은 항상 저장소 밖 파일로 먼저 쓴다.
+    `bash scripts/check-pr-body.sh <본문 파일>`을 돌려 보고된 위반을 전부 고친다.
+    Claude Code에서는 `.claude/settings.json`의 hook이 통과하지 않는 본문 파일로 `gh pr create`를 부르는 순간 그 자리에서 막는다 — 막히고 나서 고치는 것보다 먼저 스스로 돌리는 것이 빠르다.
+    Codex·Cursor·GJC에는 이 hook이 없다 — 그 runtime에서는 AGENTS.md의 스킬 게이트와 PR 템플릿 체크박스만이 유일한 방어선이므로, 스스로 돌리지 않으면 아무도 막지 않는다.
+    이 단계가 끝나면 본문 파일이 `check-pr-body.sh`를 통과한 상태로 준비된다.
 
 ## 증거 게이트
 
@@ -70,19 +83,20 @@ backend만 고쳤어도 그 API를 소비하는 화면을 찍는다. 응답이 �
 
 갖춰야 하는 것은 셋이다.
 
-- **Before/After 요소 캡처** — 동일한 URL·페르소나·viewport·합성 데이터 상태에서 바뀐 요소만 찍는다. 무엇이 달라졌는지를 증명한다.
-- **After 전체 화면 두 장** — desktop 하나와 390x844 하나. 정보 우선순위를 리뷰어가 5초 안에 판단하려면 요소 캡처로는 부족하다.
+- **Before/After 요소 캡처** — 표의 요소 행이 우선이고 필수다. 바뀐 컴포넌트마다 한 행이며, 캡션에 selector·DOM path·route·viewport·Before/After sha를 적는다. Before와 After는 같은 selector로 찍는다. 티켓에 `현재 화면` selector가 있으면 그 selector를 그대로 재사용한다.
+- **After 전체 화면 두 장** — desktop 하나와 390x844 하나. 표 안이 아니라 표 아래에 링크로 둔다 — 표 안에 넣으면 요소 행이 묻힌다. 정보 우선순위를 리뷰어가 5초 안에 판단하려면 요소 캡처로는 부족하다.
 - **확인 링크** — `https://jnu-oss-hub.com/<path>` 형태로 바로 누를 수 있게 적는다. 리뷰어가 캡처를 보고 경로를 추측하기 시작하는 순간 그것은 수용 판정이 아니라 버그 헌팅이다.
 
 상태가 여럿인 화면은 빈 상태·결과 없음·오류 중 해당하는 것을 추가로 찍는다 — 이 셋이 서로 구분되지 않는 것은 자주 나오는 결함이다.
 로컬 파일 경로를 적으면 아무 이미지도 렌더되지 않으므로 캡처를 올렸다고 보지 않는다.
-절차와 촬영 조건, 하지 않는 것은 [references/frontend-capture.md](references/frontend-capture.md)가 원본이다.
-촬영 환경을 어떻게 띄우고 상태를 어떻게 만들어 내는지는 [references/evidence-harness.md](references/evidence-harness.md)에 있다 — **찍을 수 없는 상태가 나오면 그 자체가 신호다.** 아무도 눈으로 확인할 수 없는 화면은 조용히 낡는다.
+캡션·표 형식과 하지 않는 것은 [references/frontend-capture.md](references/frontend-capture.md)가 원본이고, 요소 캡처 절차(selector 확정, bounding rect·DOM path 읽기)는 [`qa-dom-capture`](../manage-qa-tickets/agents/qa-dom-capture.md)가 원본이다.
+base 브랜치에서 Before를 찍는 법을 포함해 촬영 환경을 어떻게 띄우고 상태를 어떻게 만들어 내는지는 [references/evidence-harness.md](references/evidence-harness.md)에 있다 — **찍을 수 없는 상태가 나오면 그 자체가 신호다.** 아무도 눈으로 확인할 수 없는 화면은 조용히 낡는다.
 
 ### backend 로직 변경 → 흐름 다이어그램
 
 분기·상태 전이·인가 경로·재시도 처리·호출 순서·계층 경계 중 하나라도 바뀌었다면 변경된 흐름을 mermaid(우선) 또는 DOT(대체)로 그려 PR 본문 `## 흐름 다이어그램`에 넣는다.
-다이어그램이 필요한 변경 범위, 형식, 노드 작명 규칙은 [references/backend-diagram.md](references/backend-diagram.md)가 원본이다.
+**high level이 먼저다** — 첫 다이어그램은 입구 → 판단 → 결과, 노드 8개 이하로 그려 리뷰어가 10초 안에 「이 PR이 흐름을 어디서 바꿨나」에 답할 수 있게 하고, 필드·가드·호출 순서까지 담은 상세는 `<details>` 안에 둔다.
+다이어그램이 필요한 변경 범위, 두 단 형식, 노드 작명 규칙은 [references/backend-diagram.md](references/backend-diagram.md)가 원본이다.
 
 ### 화면이 없는 변경
 
@@ -129,67 +143,30 @@ backend만 고쳤어도 그 API를 소비하는 화면을 찍는다. 응답이 �
 ## PR 본문 순서
 
 리뷰어는 위에서 아래로 읽다가 걸리면 멈춘다.
-그래서 **사람이 읽는 것을 위에, 기계가 낸 것을 아래에** 둔다.
-어떤 파일을 고쳤는지는 diff가 이미 말하므로 맨 아래에서 목록으로만 언급한다 — 그것을 먼저 읽히는 자리에 두면 변경이 무엇을 위한 것이었는지가 묻힌다.
-섹션 제목에 번호를 붙이지 않는다 — 사라지는 섹션이 있어 번호가 쉽게 어긋난다.
+그래서 **사람이 읽는 것을 위에, diff가 이미 말하는 것을 아래에** 둔다.
 
-```markdown
-## 무엇이 좋아지나
+템플릿 파일은 [`.github/pull_request_template.md`](../../.github/pull_request_template.md) 하나다 — GitHub가 PR을 열 때 자동으로 그 내용을 채우므로, 같은 형식을 이 문서에 복제하지 않고 그 파일을 이 스킬의 템플릿으로 가리킨다.
+[`scripts/check-pr-body.sh`](../../scripts/check-pr-body.sh)가 그 템플릿을 기계적으로 검사하므로 절 제목과 아래 예외 문구는 템플릿과 글자 단위로 같아야 한다.
 
-<한 문단. 불릿이 아니라 줄글로 쓴다.>
-<이 화면을 쓰는 사람이 어떤 상황에 있고, 지금까지 무엇을 못 했고, 이번 변경 뒤에 무엇을 할 수 있게 됐는지를 이어서 설명한다.>
-<구현 수단은 여기 쓰지 않는다 — 무엇을 썼는지가 아니라 누가 무엇을 할 수 있게 됐는지만 쓴다.>
+절이 이 순서인 이유:
 
-## 바로 확인
+- `Closes #<번호>` 첫 줄 — 리뷰어가 티켓 계약을 바로 열어 대조할 수 있어야 한다.
+- `## 무엇이 좋아지나` — 구현 수단보다 먼저, 누가 무엇을 할 수 있게 됐는지부터 말한다.
+- `## 바로 확인` — 리뷰어가 본문을 다 읽기 전에 직접 눌러볼 수 있게 확인 경로를 그다음에 둔다.
+- `## Before / After` — 화면 이야기는 문장이 아니라 표와 이미지로 증명한다.
+- `## 이 흐름이 자연스러운가` / `## 내가 고친 UX 문제` — 작성자가 직접 눌러보고 판단한 서사가 판정 표보다 먼저 온다.
+- `## UX 안티패턴 점검` — 판단 근거를 대는 절이라 서사 절 다음에 온다.
+- `## 흐름 다이어그램` / `## 검증` — 기계로도 재현 가능한 산출물이라 사람이 판단해 쓴 절 아래로 내린다.
+- `## 정리` — 이번에 하지 않은 것·리뷰어가 결정할 것·체크박스는 맨 마지막이다.
 
-https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
+예외 문구는 `check-pr-body.sh`가 찾는 정확한 문자열이다 — 해당 없을 때 절 자체를 지우지 않고 이 문구로 시작하는 한 줄을 쓴다.
 
-직접 누른 경로: 로그인 → … → 뒤로 가기
-확인한 상태: 정상 · 빈 상태 · 결과 없음 · 오류 중 해당하는 것
-
-## Before / After
-
-| | Before | After |
-| --- | --- | --- |
-| desktop | ![](…) | ![](…) |
-| 390x844 | ![](…) | ![](…) |
-
-촬영 조건: `<URL>` · `<페르소나>` · 합성 seed 데이터
-
-## 이 흐름이 자연스러운가
-
-<한 문단. 인터뷰 2번 답을 그대로 쓴다.>
-<직접 눌러본 뒤 어색했던 지점과, 그것을 어떻게 판단했는지를 쓴다. 어색함이 없었다면 무엇을 눌러보고 그렇게 판단했는지를 쓴다.>
-
-## 내가 고친 UX 문제
-
-| 이상했던 점 | 왜 문제인가 | 어떻게 고쳤나 |
-| --- | --- | --- |
-
-## UX 안티패턴 점검
-
-<스무 줄 판정 표 — references/ux-antipatterns.md의 형식 그대로>
-
-이 화면에서 특히 지켜야 하는 항목: <번호와 이유 한 문장 — 인터뷰 3번 답>
-
-## 검증
-
-- <사람이 확인한 행동> — <그것이 보장하는 사용자 결과>
-- <테스트 수치> — <그 수치가 보장하는 사용자 행동>
-
-## 흐름 다이어그램
-
-<backend 로직을 바꿨 때만>
-
-## 정리
-
-고친 파일:
-
-- [`경로`](…) — <한 줄>
-
-이번에 하지 않은 것: <티켓 경계 밖으로 남긴 것과 그 이유. 없으면 「없음」>
-리뷰어가 봐줘야 하는 것: <작성자가 판단하지 못해 남긴 물음. 없으면 「없음」>
-```
+- 바로 확인: `확인 링크 없음 — <산출물 위치 또는 이유>`
+- Before / After: `Before/After 없음 — <이유>`
+- 이 흐름이 자연스러운가: `화면 없음 — <이유>`
+- 내가 고친 UX 문제: `화면 없음 — <이유>`
+- UX 안티패턴 점검: `UX 안티패턴 해당 없음 — <이유>`
+- 흐름 다이어그램: `흐름 다이어그램 없음 — <이유>`
 
 `내가 고친 UX 문제`가 비어 있는 것은 「고칠 게 없었다」가 아니라 **「직접 눌러보지 않았다」로 읽는다.**
 에이전트의 첫 출력이 그대로 제품이 되는 경우는 실제로 거의 없다.
@@ -214,14 +191,13 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 
 ### 리뷰어에게 의미 없는 로컬 환경 잡음을 본문에 넣지 않는다
 
-- `node_modules` 누락, Windows EPERM, 무관한 기존 경고 같은 항목은 본문이 아니라 필요하면 PR 코멘트로 남긴다.
+- `node_modules` 누락, Windows EPERM, 무관한 기존 경고 같은 항목은 본문이 아니라 필요하면 [`write-github-comment`](../write-github-comment/SKILL.md)로 리뷰어에게 코멘트로 남긴다.
 - 검증을 실제로 실행하지 못한 경우는 예외다 — 못 돌린 검증은 숨기지 않고 반드시 본문에 남긴다.
 
 ### 가독성 형식을 지킨다
 
-- 한 불릿 = 한 사실이다. 두 문장 이상 이어지면 하위 불릿으로 쪼갠다(중첩 불릿을 쓴다).
-- 파일 경로는 클릭 가능한 링크로 쓴다: `` [`apps/frontend/src/foo.tsx:12-20`](https://github.com/JNU-SWCU/oss-hub/blob/main/apps/frontend/src/foo.tsx#L12-L20) ``.
-- 섹션 제목에 번호를 붙이지 않는다 — 사라지는 섹션이 있어 번호가 쉽게 어긋난다.
+가독성 규칙의 원본은 [references/readability.md](references/readability.md) 하나다 — 여기 다시 옮겨 적지 않는다.
+올리기 전에 그 파일 끝의 다섯 줄 자기 점검을 통과시킨다.
 
 ### 미첨부 placeholder를 남긴 채 열지 않는다
 
@@ -236,13 +212,19 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 
 ## PR을 연다
 
-8. PR을 열기 전 `bash scripts/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반(실명·전화번호·개인 머신 경로 등, [docs/rules/security.md](../../docs/rules/security.md) deny-list)을 사전 검사한다.
-   이 repo는 PUBLIC이므로 PR 본문·코멘트에도 같은 기준을 적용한다.
-   Issue 초안 단계에서 텍스트만 검사하려면 [references/public-safety-check.md](references/public-safety-check.md)의 `--text-only` 절차를 쓴다.
-9. [AGENTS.md](../../AGENTS.md)가 정한 흐름대로 PR을 연다 — 브랜치명·Conventional Commits·PR 본문 형식은 AGENTS.md §5가 원본이다.
-10. PR이 열리면 [프로젝트 보드](https://github.com/orgs/JNU-SWCU/projects/1)에서 해당 티켓 카드를 In Review로 옮긴다.
-11. 티켓이 Notion 행에서 발행된 것이면(Issue 본문에 `QA<번호>` 참조가 있다) PR URL을 Issue에 코멘트로 남긴다.
+11. PR을 열기 전 `bash scripts/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반(실명·전화번호·개인 머신 경로 등, [docs/rules/security.md](../../docs/rules/security.md) deny-list)을 사전 검사한다.
+    이 repo는 PUBLIC이므로 PR 본문·코멘트에도 같은 기준을 적용한다.
+    Issue 초안 단계에서 텍스트만 검사하려면 [references/public-safety-check.md](references/public-safety-check.md)의 `--text-only` 절차를 쓴다.
+12. `gh pr create --body-file <경로>`로 PR을 연다 — 브랜치명·Conventional Commits 형식은 [AGENTS.md](../../AGENTS.md) §5가 원본이다.
+    연 뒤 `gh pr view <n> --json body`로 본문을 다시 읽어 깨진 문자가 없는지 확인한다.
+13. PR이 열리면 [프로젝트 보드](https://github.com/orgs/JNU-SWCU/projects/1)에서 해당 티켓 카드를 In Review로 옮긴다.
+14. 티켓이 Notion 행에서 발행된 것이면(Issue 본문에 `QA<번호>` 참조가 있다) PR URL을 Issue에 코멘트로 남긴다.
     Notion 행은 손대지 않는다 — 행은 `GitHub Issue` URL 하나만 들고 Issue가 나머지 진행 상태를 들고 있다.
+
+## 리뷰 답글 작성 원칙
+
+리뷰 지적에 대한 답글, UX 제안, Issue 진행 코멘트는 이 스킬이 아니라 [`write-github-comment`](../write-github-comment/SKILL.md)로 쓴다 — 코멘트 형식과 「초록불이 말해 주는 것은 쓰지 않는다」 원칙은 그 스킬이 원본이다.
+이 문서에 남는 규칙은 PR 본문에 관한 것 하나뿐이다: **`## 검증`은 PR을 열 때 쓰고 끝나는 절이 아니다 — 지적을 고치고 다시 돌렸으면 그 절을 갱신한다.** 갱신하지 않으면 재검증 수치는 답글에도 본문에도 남지 않는다.
 
 ## 이스케이프 해치
 
@@ -267,6 +249,7 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 - `gh` — issue view, PR 생성, 프로젝트 보드 카드 이동.
 - `git` — 브랜치·커밋 메커니즘은 [AGENTS.md](../../AGENTS.md)를 따른다.
 - `bash scripts/check-public-safe.sh` — PUBLIC repo 텍스트 안전 사전 검사.
+- `bash scripts/check-pr-body.sh <본문 파일>` — PR 본문 템플릿 형식 사전 검사.
 
 ## 완료 체크리스트
 
@@ -274,7 +257,7 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 - [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
-- [ ] 화면을 건드렸으면 Before/After 요소 캡처와 After 전체 화면 두 장(desktop·390x844)을 표로 넣고, 사람이 공개 안전·메타데이터를 확인했으며, 렌더된 것을 다시 열어 확인했다.
+- [ ] 바뀐 컴포넌트마다 요소 행이 `## Before / After` 표에 있고, Before/After가 같은 selector로 찍혔으며, After 전체 화면 두 장(desktop·390x844)은 표 아래 링크로 있다. 사람이 공개 안전·메타데이터를 확인했으며, 렌더된 것을 다시 열어 확인했다.
 - [ ] `https://jnu-oss-hub.com/<path>` 확인 링크를 본문에 적었다.
 - [ ] 화면이 아예 없는 변경이면 면제 사유를 본문에 한 줄 적었다.
 - [ ] [UX 안티패턴](references/ux-antipatterns.md) 스무 줄이 근거와 함께 다 찼고, 발견한 위반은 PR을 열기 전에 고쳤다.
@@ -285,8 +268,9 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 - [ ] Notion에서 발행된 티켓이면 Issue에 PR URL을 코멘트로 남겼다.
 - [ ] PR 직전 인터뷰 세 질문을 작성자에게 묻고 그 답을 본문의 세 자리에 그대로 옮겼다 — 에이전트가 대신 답한 것이 0건이다.
 - [ ] `## 무엇이 좋아지나`와 `## 이 흐름이 자연스러운가`를 불릿이 아니라 한 문단 줄글로 썼고, 페르소나 언어("누가 무엇을 할 수 있게 됐다")를 지켰다.
-- [ ] `## 정리`에 고친 파일·이번에 하지 않은 것·리뷰어가 봐줘야 하는 것을 다 적었다.
-- [ ] `## 고친 파일`을 본문 맨 아래에 두었고 그 위는 전부 사람이 읽는 내용이다.
+- [ ] `## 정리`에 이번에 하지 않은 것·리뷰어가 결정해 줘야 하는 것·환경 전제를 다 적었고, `## 정리`가 본문 맨 마지막 절이다.
 - [ ] `## 내가 고친 UX 문제`가 채워졌거나, 0건이면 무엇을 검토했는지 문장으로 적었다.
 - [ ] 본문에 `<!-- 첨부 대기: … -->` 같은 미첨부 placeholder 주석이 0건이다.
-- [ ] PR을 연 뒤 본문을 렌더된 상태로 다시 읽어 깨진 문자·안 보이는 이미지가 0건임을 확인했다.
+- [ ] `bash scripts/check-pr-body.sh <본문 파일>`을 통과했다.
+- [ ] PR을 연 뒤 `gh pr view <n> --json body`로 본문을 다시 읽어 깨진 문자가 없는지 확인했고, PR 페이지를 열어 이미지가 실제로 렌더되는지 확인했다.
+- [ ] 첫 줄이 결론이다 — [readability.md](references/readability.md)의 자기 점검을 통과했다.

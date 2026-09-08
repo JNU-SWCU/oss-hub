@@ -8,7 +8,8 @@
 | 작업 표면 | 쓰는 스킬 | 스킬 위치 | 이 repo에서 함께 지키는 것 |
 | --- | --- | --- | --- |
 | QA 티켓 작성·발행·이관 | `manage-qa-tickets` | repo `skills/manage-qa-tickets` | 그 스킬이 자기 절차의 원본이다 |
-| 티켓 수행·PR 제출 전 증거 | `submit-pr-evidence` | repo `skills/submit-pr-evidence` | frontend Before/After 캡처는 [frontend-capture.md](../../skills/submit-pr-evidence/references/frontend-capture.md), backend 로직 다이어그램은 [backend-diagram.md](../../skills/submit-pr-evidence/references/backend-diagram.md)가 원본이다 |
+| 티켓 수행·PR 제출 전 증거 | `submit-pr-evidence` | repo `skills/submit-pr-evidence` | frontend Before/After 캡처는 [frontend-capture.md](../../skills/submit-pr-evidence/references/frontend-capture.md), backend 로직 다이어그램은 [backend-diagram.md](../../skills/submit-pr-evidence/references/backend-diagram.md), 가독성은 [readability.md](../../skills/submit-pr-evidence/references/readability.md)가 원본이다 |
+| PR·Issue 코멘트·리뷰 답글·UX 제안 | `write-github-comment` | repo `skills/write-github-comment` | 그 스킬이 네 코멘트 템플릿(지적·답글·UX 제안·진행)의 원본이고, 가독성은 [readability.md](../../skills/submit-pr-evidence/references/readability.md)를 따른다 |
 | 역할별 사용 핸드북 작성·갱신 | `build-oss-hub-handbook` | repo `skills/build-oss-hub-handbook` | 핸드북 품질 기준은 그 스킬의 `references/quality-checklist.md`가 원본이다 |
 | 릴리스 후보 QA | `run-release-qa` | repo `skills/run-release-qa` | 출시 판정은 그 스킬이 원본이고 시나리오 목록은 [qa-scenarios.md](../../skills/run-release-qa/references/qa-scenarios.md)가 원본이다 |
 | frontend 코드 구현 | craft `frontend` | 외부 플러그인 | [frontend.md](frontend.md)가 feature 폴더 경계·단일 API 클라이언트의 원본 |
@@ -49,13 +50,15 @@ runtime 디렉터리(`.codex/skills`, `.claude/skills`, `.cursor/skills`)는 sym
 | `manage-qa-tickets` | QA 티켓 작성·발행·이관 | `skills/manage-qa-tickets/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
 | `submit-pr-evidence` | PR 제출 전 필수 증거 게이트 | `skills/submit-pr-evidence/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
 | `build-oss-hub-handbook` | 역할별 사용 핸드북 | `skills/build-oss-hub-handbook/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
+| `write-github-comment` | PR·Issue 코멘트·답글·제안·진행 템플릿 | `skills/write-github-comment/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
 
 ## repo 스킬 로드
 
 Claude Code는 `.claude/skills/<name>` symlink로 로드하며 `manage-qa-tickets`의 QA 레인은 `.claude/agents/qa-*.md` symlink를 추가로 둔다.
+Claude Code는 추가로 `.claude/settings.json`의 PreToolUse hook이 `gh pr create` 실행을 가로채 `scripts/check-pr-body.sh --hook`으로 PR 본문 계약을 강제한다. 다른 runtime에는 이 자동 강제가 없고 AGENTS.md의 게이트 문장에 의존한다.
 Codex는 `.codex/skills/<name>` symlink와 `agents/openai.yaml`로 로드한다.
 Cursor는 `.cursor/skills/<name>` symlink로 로드한다.
-GJC는 `.gjc/skills/<name>` symlink를 loose project skill로 로드하며, `gjc skills discover --source project`로 네 스킬이 candidates에 보이는지 확인한다.
+GJC는 `.gjc/skills/<name>` symlink를 loose project skill로 로드하며, `gjc skills discover --source project`로 다섯 스킬이 candidates에 보이는지 확인한다.
 GJC plugin bundle(`plugin.yaml`, `gajae-plugin.json`)은 새 top-level 스킬을 등록할 수 없으므로 사용하지 않는다.
 `.gjc/`는 `.gjc/skills/`만 예외로 커밋하고 나머지는 gitignore 대상이다.
 symlink만 존재하는지는 `git ls-files -s .codex .claude .cursor .gjc | grep 120000`로, dangling link가 없는지는 `find -L .claude .codex .cursor .gjc -type l`(출력 없어야 함)로 확인한다.
@@ -65,7 +68,7 @@ symlink만 존재하는지는 `git ls-files -s .codex .claude .cursor .gjc | gre
 
 스킬은 이 저장소를 모른다.
 스킬의 지시가 AGENTS.md나 `docs/rules/`·`docs/decisions/`와 어긋나면 repo 문서를 따르고, 어긋난 지점을 PR 본문에 적는다.
-repo 스킬 네 개는 이 저장소에 symlink로 항상 존재하므로 설치 여부를 이유로 건너뛸 수 없고, 해당 표면 작업은 그 스킬을 거치지 않으면 완료가 아니다.
+repo 스킬 다섯 개는 이 저장소에 symlink로 항상 존재하므로 설치 여부를 이유로 건너뛸 수 없고, 해당 표면 작업은 그 스킬을 거치지 않으면 완료가 아니다.
 craft 스킬은 설치돼 있지 않으면 그 표면의 repo 규칙 문서를 직접 읽고 진행하되 PR 본문에 스킬 없이 진행했음을 적는다.
 
 아래 네 표면은 스킬에 위임하지 않는다.

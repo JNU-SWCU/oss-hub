@@ -66,20 +66,14 @@ function Harness({
       isSaving={isSaving}
       milestoneEditor={{ mode: 'closed' }}
       deleteTarget={null}
-
       isMilestoneBusy={false}
-      isLifecycleBusy={false}
-      isLifecycleConfirming={false}
-      lifecycleError={null}
       canDeleteProgram={false}
+      onProgramDeleted={noOp}
       onFieldChange={(field, value) => {
         setForm((current) => updateProgramForm(current, field, value));
         setDirty((current) => addDirtyField(current, field));
       }}
       onSubmit={vi.fn()}
-      onRequestLifecycleToggle={noOp}
-      onCancelLifecycleToggle={noOp}
-      onConfirmLifecycleToggle={noOp}
       onAddMilestone={noOp}
       onEditMilestone={noOp}
       onCancelMilestone={noOp}
@@ -194,7 +188,7 @@ describe('프로그램 편집 일정 dialog — 종료일 미정', () => {
     );
     if (toggle === null) throw new TypeError('Missing undecided control.');
     await act(async () => toggle.click());
-    await act(async () => button('적용').click());
+    await act(async () => button('날짜 적용').click());
     expect(form.endAtUndecided).toBe(true);
     expect(buildProgramEditInput(form, dirty).endAt).toBe(
       PROGRAM_END_AT_UNDECIDED,
@@ -207,7 +201,7 @@ describe('프로그램 편집 일정 dialog — 종료일 미정', () => {
     if (reopenedToggle === null)
       throw new TypeError('Missing reopened control.');
     await act(async () => reopenedToggle.click());
-    await act(async () => button('적용').click());
+    await act(async () => button('날짜 적용').click());
     expect(document.body.textContent).toContain(
       '종료일을 정하거나 「종료일 미정」을 선택해 주세요.',
     );
@@ -216,7 +210,7 @@ describe('프로그램 편집 일정 dialog — 종료일 미정', () => {
   it('unchanged 적용은 callbacks/dirty 없이 원래 ISO 초·밀리초를 보존한다', async () => {
     await render();
     await openOperation();
-    await act(async () => button('적용').click());
+    await act(async () => button('날짜 적용').click());
 
     expect(dirty).toEqual([]);
     expect(buildProgramEditInput(form, dirty)).toMatchObject({

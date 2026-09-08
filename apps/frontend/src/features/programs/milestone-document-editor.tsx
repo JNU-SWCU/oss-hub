@@ -160,6 +160,7 @@ export function LocalMilestoneDocumentsEditor({
                   : undefined
             }
             deleteLabel="제출 항목 삭제"
+            nameConfirmLabel="제출물 이름 적용"
             reorderHandle={reorderHandle}
             onNameChange={(_, localId, name) =>
               onChange(

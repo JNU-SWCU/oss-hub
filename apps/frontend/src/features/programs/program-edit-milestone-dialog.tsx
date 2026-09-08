@@ -126,6 +126,14 @@ export function ProgramEditMilestoneDialog({
         <Dialog.Content
           ref={contentRef}
           className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden bg-background outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90dvh,46rem)] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card sm:border sm:border-border sm:shadow-lg"
+          onEscapeKeyDown={(event) => {
+            const active = document.activeElement;
+            if (
+              active instanceof HTMLElement &&
+              active.hasAttribute('data-keep-dialog-on-escape')
+            )
+              event.preventDefault();
+          }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             returnFocusRef?.current?.focus();

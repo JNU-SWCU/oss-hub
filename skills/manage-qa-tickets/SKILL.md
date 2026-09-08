@@ -2,7 +2,7 @@
 name: "manage-qa-tickets"
 description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "4.4.1"
+  version: "4.5.0"
 ---
 
 # Manage QA tickets
@@ -11,7 +11,7 @@ Notion에서 관찰을 관리하고 GitHub Issue와 PR로 전달되는 티켓 �
 관찰된 문제가 Notion에 기록되고, 공개 GitHub Issue로 발행되고, 계약을 벗어나지 않은 PR이 되어 닫힌다.
 
 세 단계를 한 스킬에 둔 이유는 단계마다 계약이 달라지기 때문이 아니라 **같기** 때문이다.
-Notion 본문에 쓴 `최소 요구`·`완료 조건`·`절대 금지`가 Issue의 같은 세 섹션이 되고, 그 세 섹션이 PR의 범위가 된다.
+Notion 본문에 쓴 `할 일`·`하지 않을 것 (이 티켓의 경계)`·`완료 조건`이 Issue의 같은 세 섹션이 되고, 그 세 섹션이 PR의 범위가 된다.
 세 곳이 갈리면 티켓은 실행 불가능해지므로, 한 계약이 세 표면을 통과하는 동안 형태만 바뀌고 내용은 바뀌지 않게 하는 것이 이 스킬의 일이다.
 
 ## 원본 위치
@@ -49,7 +49,7 @@ Notion 본문에 쓴 `최소 요구`·`완료 조건`·`절대 금지`가 Issue�
 발행권을 넓히는 대신 아래 세 가지는 넓히지 않는다.
 
 - 담당자는 0명 또는 1명이며, 남을 담당자로 지정하려면 그 사람이 동의했다는 사실을 사용자가 이 대화에서 알려주어야 한다. 에이전트가 대신 동의를 구하지 않고, 근거가 없으면 담당자를 비운다. 스스로를 지정하는 것은 언제나 가능하다.
-- 남이 만든 티켓의 본문 교체, 행 삭제, Issue 종료는 그 티켓의 작성자나 담당자만 한다. 다른 사람은 코멘트로 제안한다.
+- 남이 만든 티켓의 본문 교체, 행 삭제, Issue 종료는 그 티켓의 작성자나 담당자만 한다. 다른 사람은 [코멘트](../write-github-comment/SKILL.md)로 제안한다.
 - `완료 여부`는 사람이 배포 환경에서 완료 조건을 전부 확인한 뒤에만 체크한다. 에이전트는 체크하지 않는다.
 
 ## 공통 가드레일
@@ -130,6 +130,7 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 본문 변형은 [notion-ticket-contract.md](references/notion-ticket-contract.md)에서 고른다.
 속성은 색인과 배정을 위한 것이고 페이지 본문이 실행 계약이다.
 제목을 지시문으로 쓰는 규칙, 파일 경로를 클릭 가능한 링크로 쓰는 규칙, 중첩 불릿 규칙, 본문에 넣지 않는 프로세스 메타 문장의 목록은 모두 [notion-ticket-contract.md](references/notion-ticket-contract.md)가 원본이다.
+가독성 규칙 자체의 원본은 [readability.md](../submit-pr-evidence/references/readability.md)다 — notion-ticket-contract.md도 그 문서를 가리키고 여기서 되풀이하지 않는다.
 사용자가 손으로 고친 참조 티켓을 지목하면 초안을 쓰기 전에 그 티켓을 다시 열어 섹션 순서, 문장 밀도, 어휘를 맞춘다.
 
 모든 본문은 첫 heading 앞에 여는 말로 시작한다 — 읽는 사람이 이 화면에서 이미 겪고 있는 불편에서 출발하지 않으면 티켓은 남의 일이 된다.
@@ -151,6 +152,7 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 
 `frontend` 티켓은 캡처보다 selector가 먼저다 — 화면 전체를 찍고 캡션으로 위치를 설명하면 읽는 사람이 무엇을 봐야 하는지 매번 다시 찾아야 한다.
 절차는 [notion-ticket-contract.md](references/notion-ticket-contract.md)의 `frontend 캡처 절차`가 원본이다.
+`현재 화면` 캡션에 적은 selector는 이 티켓이 구현된 뒤 PR `## Before / After` 요소 행에서 그대로 재사용된다([frontend-capture.md](../submit-pr-evidence/references/frontend-capture.md)) — 담당자가 다시 찍을 요소를 티켓 작성 시점에 정해 두는 것이다.
 
 두 변형 모두 완료 조건은 지목된 페르소나가 관찰할 수 있는 형태로 쓰고, 가장 좁은 비목표를 명시한다.
 
@@ -164,7 +166,7 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 주장을 만든 lane이 그 주장을 통과시키지 않는다 — 자기 초안을 검증하면 초안의 전제를 그대로 물려받는다.
 `REFUTED`가 남아 있으면 그 문장을 고치기 전에 발행하지 않고, `UNVERIFIED`는 `확인 필요`로 본문에 남긴다.
 
-제목, 작업 유형, 페르소나, 마감 등급, 본문 사실, 최소 요구, 완료 조건, 금지 범위가 서로 어긋나지 않는지 본다.
+제목, 작업 유형, 페르소나, 마감 등급, 본문 사실, 요구 범위(기능 결함은 `할 일`, UX는 `최소 요구`), 완료 조건, 경계(기능 결함은 `하지 않을 것`, UX는 `작업 범위`)가 서로 어긋나지 않는지 본다.
 쓸 표면, 담당자, 마감 등급, 공개 안전 경계가 모호하면 초안을 먼저 보여 준다.
 
 ### 1.8 쓰고 나서 다시 읽어 맞춘다
@@ -194,7 +196,7 @@ Issue 본문은 Notion 본문의 사본이며, 발행이 하는 일은 다시 �
 
 - 새로 쓴 행은 1단계 검증이 끝나는 즉시 이어서 발행한다. 이미 있던 행은 사용자가 지목했을 때만 발행한다.
 - Issue 본문은 Notion 본문을 섹션 순서·문장 그대로 미러링하고, 앞에 [work-ticket 템플릿](../../.github/ISSUE_TEMPLATE/work-ticket.md)의 `## 시작` 블록을, 끝에 `출처: QA<번호>` 한 줄을 붙인다. Notion 페이지 URL은 넣지 않는다.
-- 세 실행 계약(`최소 요구`·`완료 조건`·경계)이 Notion 본문에 없으면 Issue에서 채우지 말고 행을 먼저 보강한다. 사람은 GitHub @handle로만 부른다.
+- 세 실행 계약(요구 범위·경계·완료 조건)이 Notion 본문에 없으면 Issue에서 채우지 말고 행을 먼저 보강한다. 사람은 GitHub @handle로만 부른다.
 - OSS Hub 자체 화면의 요소 캡처는 개인정보 검사를 통과하면 Issue에 넣는다. 제3자 제품 캡처는 Notion에만 두고 공개 표면에는 URL만 남긴다 — 미러링의 유일한 내용 예외다.
 - 발행 전에 초안 전문을 저장소 밖 임시 파일에 쓰고 그 텍스트 그대로 검사한다. 걸린 문자열은 Notion 본문에서 고치고 다시 미러링한다.
 
@@ -225,7 +227,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 각 이관 행은 `GitHub Issue` URL과 `출처: QA<번호>`로 기존 공개 Issue를 역조회한다.
 같은 QA 번호 또는 같은 사용자 증상·경로·역할을 가리키는 Issue가 둘 이상이면 새 Issue를 만들지 않는다.
 이미 Notion에 연결된 Issue를 canonical로 유지하고, 연결이 없으면 가장 먼저 만들어진 완전한 public-safe Issue를 canonical로 연결한다.
-나머지는 작성자·담당자 권한이 있으면 canonical URL을 남기고 닫으며, 권한이 없으면 canonical URL을 담은 코멘트로 정리를 요청한다.
+나머지는 작성자·담당자 권한이 있으면 canonical URL을 남기고 닫으며, 권한이 없으면 canonical URL을 담은 [코멘트](../write-github-comment/SKILL.md)로 정리를 요청한다.
 
 승인된 backfill에서는 보안·개인정보 범주를 1일, 기능·인프라 범주를 3일, UX·디자인 범주를 5일로 매핑하고, 범주가 빈 행은 승인된 기본값 3일을 쓰며 그 가정을 보고에 남긴다.
 모든 대상 행을 다시 읽어 원문이 본문에 정확히 한 번 나타나고 계산된 마감이 맞는지 증명한다.
@@ -248,7 +250,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - lane의 요약을 증거로 받는다 → 각 주장 뒤의 경로, `경로:줄`, 행 id를 요구한다.
 - 이미지 자리표시자를 저장된 증거로 본다 → 페이지를 다시 열어 문서 끝의 캡션과 렌더된 이미지를 확인한다.
 - AGENTS.md의 브랜치·커밋·보안 규칙을 이 스킬 안에 옮겨 적는다 → 원본과 갈라진다. 항상 AGENTS.md를 직접 읽는다.
-- 최소 요구가 요구하지 않은 "개선"을 PR에 얹는다 → 빼고 별도 티켓으로 제안한다.
+- 요구 범위(`할 일` 또는 `최소 요구`)가 요구하지 않은 "개선"을 PR에 얹는다 → 빼고 별도 티켓으로 제안한다.
 - 구동해보지 않고 완료 조건을 체크한다 → 먼저 실제로 돌린 뒤 체크한다.
 
 ## 완료 체크리스트
@@ -265,13 +267,14 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 영역을 하나 선언했고 영역별 최소 증거가 있다.
 - [ ] 모든 `frontend` 캡처가 요소 단위이며 selector·DOM path·URL·확인 시각을 달고 있다.
 - [ ] 모든 참고 UI에 캡처가 있고, 승인된 조합만 남아 있다.
+- [ ] `현재 화면` 캡션의 selector가 PR Before/After에서 그대로 쓸 수 있는 형태다.
 - [ ] 작업 유형·페르소나·담당자 0~1명·마감이 증거로 뒷받침된다.
 - [ ] 저장된 Notion 페이지를 다시 읽어 초안과 맞췄고, 이미지는 렌더된 상태로 확인했다.
 
 발행(2단계)에 해당하는 항목:
 
 - [ ] Issue 본문이 Notion 본문과 섹션·문장이 같고, `## 시작` 블록과 `출처: QA<번호>` 줄만 더 있다.
-- [ ] 세 실행 계약이 Notion 본문에 있었고 그대로 옮겨졌다.
+- [ ] 세 실행 계약(요구 범위·경계·완료 조건)이 Notion 본문에 있었고 그대로 옮겨졌다.
 - [ ] 제3자 캡처가 공개 표면으로 넘어가지 않았고, 반입한 자체 화면 캡처는 개인정보 검사를 통과했다.
 - [ ] 초안 전문으로 `ISSUE_TEXT` public-safe 검사를 통과했다.
 - [ ] Issue URL을 Notion `GitHub Issue` 속성에 썼고 다시 읽어 확인했다.

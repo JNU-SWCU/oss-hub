@@ -82,9 +82,7 @@ function render(participation: 'individual' | 'team'): string {
       program={programFixture(participation)}
       form={formFixture()}
       errors={{}}
-      isSaving={false}
       onFieldChange={() => undefined}
-      onSubmit={() => undefined}
     />,
   );
 }

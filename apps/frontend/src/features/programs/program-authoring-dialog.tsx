@@ -10,6 +10,7 @@ export function ProgramAuthoringDialog({
   description,
   children,
   size = 'md',
+  className,
   bodyClassName,
   confirmLabel,
   onCancel,
@@ -19,6 +20,7 @@ export function ProgramAuthoringDialog({
   readonly description?: string | null;
   readonly children: ReactNode;
   readonly size?: 'md' | 'lg';
+  readonly className?: string;
   readonly bodyClassName?: string;
   readonly confirmLabel?: string;
   readonly onCancel: () => void;
@@ -44,6 +46,7 @@ export function ProgramAuthoringDialog({
           className={cn(
             'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-card border border-border bg-background p-card shadow-xl outline-none',
             size === 'lg' ? 'max-w-2xl' : 'max-w-xl',
+            className,
           )}
           onEscapeKeyDown={(event) => {
             const escapeTarget = event.target;
