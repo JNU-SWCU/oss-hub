@@ -15,8 +15,8 @@
 set -euo pipefail
 
 scenario=${1:-}
-if [[ $# -ne 1 ]] || [[ $scenario != 'migrate' && $scenario != 'negative' ]]; then
-  printf 'Usage: scripts/rehearse-program-deletion-column.sh migrate|negative\n' >&2
+if [[ $# -ne 1 ]] || [[ $scenario != 'migrate' && $scenario != 'negative' && $scenario != 'locked' ]]; then
+  printf 'Usage: scripts/rehearse-program-deletion-column.sh migrate|negative|locked\n' >&2
   exit 2
 fi
 
@@ -44,6 +44,10 @@ database='program_column_rehearsal'
 container_migration='/tmp/20260908150000_drop_program_deletion_protected.sql'
 pg_connect_timeout='5'
 pg_options='-c statement_timeout=30000 -c lock_timeout=5000'
+locked_outer_pg_options='-c statement_timeout=15000 -c lock_timeout=0'
+lock_session_pg_options='-c statement_timeout=30000 -c lock_timeout=0'
+lock_session_app='program-column-lock'
+lock_session_started=0
 docker_cli=()
 effective_docker_context=''
 effective_docker_host=''
@@ -84,6 +88,13 @@ cleanup() {
   trap - EXIT INT TERM
   # The container owns the only database. `-v` also removes its anonymous volume.
   if (( container_started == 1 )); then
+    if (( lock_session_started == 1 )); then
+      if ! cleanup_lock_session; then
+        cleanup_status=1
+      else
+        lock_session_started=0
+      fi
+    fi
     if ! "${docker_cli[@]}" rm -f -v "$container" >/dev/null 2>&1; then
       cleanup_status=1
     fi
@@ -135,10 +146,16 @@ done
 "${docker_cli[@]}" cp "$migration_sql" "$container:$container_migration" >/dev/null 2>&1
 
 psql_exec() {
+  psql_exec_with_options "$pg_options" "$@"
+}
+
+psql_exec_with_options() {
+  local options=$1
+  shift
   "${docker_cli[@]}" exec -i \
     -e "PGPASSWORD=$password" \
     -e "PGCONNECT_TIMEOUT=$pg_connect_timeout" \
-    -e "PGOPTIONS=$pg_options" \
+    -e "PGOPTIONS=$options" \
     "$container" \
     psql -v ON_ERROR_STOP=1 -U migration -d "$database" "$@"
 }
@@ -149,6 +166,58 @@ psql_value() {
 
 tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/program-column-rehearsal.XXXXXX")
 backup="$tmp_root/pre-drop.dump"
+
+lock_session_count() {
+  psql_value "SELECT count(*) FROM pg_stat_activity AS a JOIN pg_locks AS l ON l.pid = a.pid JOIN pg_class AS c ON c.oid = l.relation WHERE a.application_name = '$lock_session_app' AND c.relname = 'Program' AND l.granted AND l.mode = 'ShareLock'"
+}
+
+start_lock_session() {
+  # A detached psql process is a separate container session. Its transaction
+  # holds the conflicting SHARE lock while the exact migration runs elsewhere.
+  "${docker_cli[@]}" exec -d \
+    -e "PGPASSWORD=$password" \
+    -e "PGCONNECT_TIMEOUT=$pg_connect_timeout" \
+    -e "PGOPTIONS=$lock_session_pg_options" \
+    -e "PGAPPNAME=$lock_session_app" \
+    "$container" \
+    psql -v ON_ERROR_STOP=1 -U migration -d "$database" \
+    -c 'BEGIN; LOCK TABLE "Program" IN SHARE MODE; SELECT pg_sleep(25); COMMIT;' \
+    >/dev/null
+  lock_session_started=1
+}
+
+wait_for_lock_session() {
+  local count=''
+  for ((attempt = 1; attempt <= 15; attempt += 1)); do
+    count=$(lock_session_count)
+    if [[ "$count" == '1' ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+cleanup_lock_session() {
+  local count=''
+  local terminated=''
+  local attempt
+  count=$(lock_session_count) || return 1
+  if [[ "$count" == '0' ]]; then
+    return 0
+  fi
+  [[ "$count" == '1' ]] || return 1
+  terminated=$(psql_value "SELECT bool_and(pg_terminate_backend(a.pid)) FROM pg_stat_activity AS a WHERE a.application_name = '$lock_session_app'") || return 1
+  [[ "$terminated" == 't' ]] || return 1
+  for ((attempt = 1; attempt <= 10; attempt += 1)); do
+    count=$(lock_session_count) || return 1
+    if [[ "$count" == '0' ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
 
 # This is the smallest useful production-shaped slice: the current Program
 # columns, the deployed Program checks, a child FK, and independent control data.
@@ -353,6 +422,44 @@ if [[ $scenario == 'migrate' ]]; then
 
   printf -v success_result '{"status":"ok","scenario":"migrate","coverage":"focused-table","program_rows":%s,"protected_rows":%s,"unprotected_rows":%s,"restored":true}' \
     "$program_rows_before" "$protected_rows_before" "$unprotected_rows_before"
+  result_emitted=1
+  exit 0
+fi
+
+if [[ $scenario == 'locked' ]]; then
+  start_lock_session
+  wait_for_lock_session || fail 'conflicting Program lock was not granted within 15 seconds'
+
+  locked_error="$tmp_root/locked-error.log"
+  set +e
+  psql_exec_with_options "$locked_outer_pg_options" -f "$container_migration" >"$locked_error" 2>&1
+  locked_status=$?
+  set -e
+  locked_message=$(<"$locked_error")
+  (( locked_status != 0 )) || fail 'migration unexpectedly succeeded while Program was locked'
+  [[ "$locked_message" == *'canceling statement due to lock timeout'* ]] ||
+    fail 'locked migration did not report its lock timeout'
+  [[ "$(program_has_protection_column)" == '1' ]] ||
+    fail 'lock timeout changed the deletionProtected column'
+  [[ "$(program_columns)" == "$columns_before" ]] ||
+    fail 'lock timeout changed Program columns'
+  [[ "$(program_digest)" == "$program_before" ]] ||
+    fail 'lock timeout changed Program data'
+  [[ "$(program_protection_digest)" == "$protection_before" ]] ||
+    fail 'lock timeout changed protection values'
+  [[ "$(control_digest)" == "$control_before" ]] ||
+    fail 'lock timeout changed unrelated data'
+  [[ "$(note_digest)" == "$note_before" ]] ||
+    fail 'lock timeout changed child data'
+  [[ "$(constraint_digest)" == "$constraints_before" ]] ||
+    fail 'lock timeout changed constraints'
+  [[ "$(index_digest)" == "$indexes_before" ]] ||
+    fail 'lock timeout changed indexes'
+
+  cleanup_lock_session || fail 'lock session cleanup failed'
+  lock_session_started=0
+  printf -v success_result '{"status":"ok","scenario":"locked","coverage":"focused-table","program_rows":%s,"lock_timeout_rejected":true,"preserved":true}' \
+    "$program_rows_before"
   result_emitted=1
   exit 0
 fi

@@ -14,13 +14,32 @@ const migration = readFileSync(
   'utf8',
 );
 
-test('migration is the single plain destructive statement for the second release', () => {
+test('migration is the exact transactional destructive statement for the second release', () => {
   assert.equal(
     migration,
-    'ALTER TABLE "Program" DROP COLUMN "deletionProtected";\n',
+    'BEGIN;\nSET LOCAL lock_timeout = \'5s\';\nSET LOCAL statement_timeout = \'30s\';\nALTER TABLE "Program" DROP COLUMN "deletionProtected";\nCOMMIT;\n',
   );
   assert.doesNotMatch(migration, /IF\s+EXISTS/i);
   assert.doesNotMatch(migration, /ADD\s+COLUMN/i);
+});
+
+test('migration owns bounded lock and statement timeouts inside its transaction', () => {
+  assert.match(migration, /^BEGIN;\n/);
+  assert.match(migration, /SET LOCAL lock_timeout = '5s';/);
+  assert.match(migration, /SET LOCAL statement_timeout = '30s';/);
+  assert.match(
+    migration,
+    /ALTER TABLE "Program" DROP COLUMN "deletionProtected";/,
+  );
+  assert.match(migration, /COMMIT;\n$/);
+  assert.ok(
+    migration.indexOf("SET LOCAL lock_timeout = '5s';") <
+      migration.indexOf('ALTER TABLE "Program"'),
+  );
+  assert.ok(
+    migration.indexOf("SET LOCAL statement_timeout = '30s';") <
+      migration.indexOf('ALTER TABLE "Program"'),
+  );
 });
 
 test('rehearsal owns cleanup and initializes trap state before the EXIT trap', () => {
@@ -103,6 +122,47 @@ test('readiness is bounded and the rehearsal is explicitly focused-table coverag
   assert.match(rehearsal, /after 60 attempts/);
   assert.match(rehearsal, /coverage":"focused-table"/);
   assert.doesNotMatch(rehearsal, /pnpm\s+exec\s+prisma\s+migrate\s+deploy/);
+});
+
+test('locked lane grants and cleans up a conflicting Program lock in a separate psql session', () => {
+  assert.match(
+    rehearsal,
+    /\$scenario != 'migrate' && \$scenario != 'negative' && \$scenario != 'locked'/,
+  );
+  assert.match(
+    rehearsal,
+    /Usage: scripts\/rehearse-program-deletion-column\.sh migrate\|negative\|locked/,
+  );
+  assert.match(rehearsal, /lock_session_app='program-column-lock'/);
+  assert.match(
+    rehearsal,
+    /lock_session_pg_options='-c statement_timeout=30000 -c lock_timeout=0'/,
+  );
+  assert.match(rehearsal, /"\$\{docker_cli\[@\]\}" exec -d/);
+  assert.match(rehearsal, /-e "PGAPPNAME=\$lock_session_app"/);
+  assert.match(
+    rehearsal,
+    /LOCK TABLE "Program" IN SHARE MODE; SELECT pg_sleep\(25\); COMMIT;/,
+  );
+  assert.match(rehearsal, /wait_for_lock_session/);
+  assert.match(
+    rehearsal,
+    /locked_outer_pg_options='-c statement_timeout=15000 -c lock_timeout=0'/,
+  );
+  assert.match(
+    rehearsal,
+    /psql_exec_with_options "\$locked_outer_pg_options" -f "\$container_migration"/,
+  );
+  assert.match(rehearsal, /canceling statement due to lock timeout/);
+  assert.match(rehearsal, /program_protection_digest/);
+  assert.match(rehearsal, /lock timeout changed Program data/);
+  assert.match(
+    rehearsal,
+    /cleanup_lock_session \|\| fail 'lock session cleanup failed'/,
+  );
+  assert.match(rehearsal, /lock_session_started=0/);
+  assert.match(rehearsal, /scenario":"locked"/);
+  assert.match(rehearsal, /success_result/);
 });
 
 test('fixture contains both protection states, realistic Program fields, and unrelated data', () => {

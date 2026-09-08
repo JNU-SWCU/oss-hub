@@ -1514,3 +1514,6 @@
 - 검증: 정적 계약 10개, migrate·negative 리허설, 원격 endpoint 거부, 잔존 리허설 컨테이너 0개, backend typecheck·lint 통과.
 - 통합 테스트 종료 시 기존 Jest 비동기 핸들 경고는 숨기지 않았다.
 - 공개 안전성: 합성 데이터만 사용했고 비밀값·실데이터·개인정보·내부 호스트·로컬 경로 없음.
+- PR 리뷰에서 production DDL의 무제한 lock 대기를 발견해 migration 자체에 transaction-local lock timeout 5초와 statement timeout 30초를 추가했다.
+- 완화된 외부 timeout 아래 별도 세션이 Program 잠금을 잡는 locked 리허설로 migration 자체의 timeout과 데이터 보존을 검증했으며 정적 계약 12개와 리허설 3종이 통과했다.
+- 선행 Release의 실제 backup도 운영 DB와 분리된 네트워크 없는 임시 DB에서 복원하고 임시 컨테이너를 제거했다.
