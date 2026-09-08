@@ -80,20 +80,19 @@ Keep only the reproduction detail needed to understand and verify the named prob
 화면 전체를 찍고 캡션으로 위치를 설명하는 방식은 이 계약을 만족하지 않는다.
 selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 보류한 뒤 `확인 필요`로 표시한다.
 같은 규칙이 `현재 화면`과 `참고 UI`의 캡처에 모두 적용된다.
+`현재 화면` 아래 적은 이 selector는 이 티켓이 구현된 뒤 PR `## Before / After` 요소 행의 selector가 된다([frontend-capture.md](../../submit-pr-evidence/references/frontend-capture.md)) — 담당자가 다시 찍을 요소를 티켓 작성자가 미리 정해 두는 것이다.
 
-## 파일 경로는 클릭 가능한 링크로 쓴다
+## 파일 경로 링크
 
-파일을 언급할 때는 백틱 친 경로에 GitHub URL을 건다: `` [`<경로>:<줄>`](https://github.com/JNU-SWCU/oss-hub/blob/main/<경로>#L<줄>) ``.
-단일 줄은 `#L356`, 범위는 `#L28-L46`으로 쓴다. branch는 항상 `main`으로 고정한다.
+파일 경로는 클릭 가능한 링크로 쓴다 — 일반 규칙은 [readability.md](../../submit-pr-evidence/references/readability.md) 10번이 원본이다.
+백틱 친 경로에 GitHub URL을 건다: `` [`<경로>:<줄>`](https://github.com/JNU-SWCU/oss-hub/blob/main/<경로>#L<줄>) ``. 단일 줄은 `#L356`, 범위는 `#L28-L46`으로 쓰고 branch는 항상 `main`으로 고정한다.
 링크를 만들기 전에 그 파일의 그 줄을 실제로 열어 본문 주장과 맞는지 확인한다 — 줄 번호는 병합마다 밀린다.
 확인하지 못한 앵커는 링크로 만들지 않고 `확인 필요`로 남긴다.
 커밋 해시만 적은 증거는 클릭할 수 없으므로 위 형식의 링크로 바꾸거나 지운다.
 
-## 불릿은 한 줄에 한 사실만 담는다
+## 가독성
 
-한 불릿은 사실 하나만 담는다. 근거와 영향은 하위 불릿으로 내린다.
-번호 매긴 문단을 한 불릿 안에 밀어 넣지 않는다.
-한 문장이 두 줄을 넘기면 자른다.
+불릿·문단·강조 사용 규칙의 원본은 [readability.md](../../submit-pr-evidence/references/readability.md) 하나다 — 이 문서에서 다시 적지 않는다.
 
 ## 본문에 넣지 않는 것
 
@@ -104,6 +103,8 @@ selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 
 - 내부 파이프라인 잔재 — `qa-dom-capture 확인 필요`, `미기록`, 캡처 보류를 설명하는 프로세스 문단 등, 담당자가 아니라 티켓 작성자를 향한 메타 문장.
 
 ## Functional defect body
+
+기능 결함 티켓은 이 템플릿을 그대로 복사해서 채운다.
 
 ```text
 <이 티켓을 집을 사람에게 건네는 2~3줄 — 지금 이 화면에서 겪고 있을 불편, 이 티켓이 바꾸는 것, 증거가 어디에 있는지>
@@ -138,10 +139,12 @@ selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 
 #### 완료 조건
 - [ ] <페르소나>가 <행동>하면 <확인 가능한 결과>를 본다.
 - [ ] 배포 환경(`https://jnu-oss-hub.com/<path>`)에서 다시 확인한다.
-- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 열여섯 항목을 점검하고 판정 표를 PR 본문에 넣는다.
+- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 판정 표 전 항목을 점검하고 PR 본문에 넣는다.
 ```
 
 ## UX or design improvement body
+
+UX·디자인 개선 티켓은 이 템플릿을 그대로 복사해서 채운다.
 
 ```text
 <이 티켓을 집을 사람에게 건네는 2~3줄 — 지금 이 화면에서 겪고 있을 불편, 이 티켓이 바꾸는 것, 증거가 어디에 있는지>
@@ -182,7 +185,7 @@ selector를 확정하지 못하면 `미기록`으로 넘기지 말고 캡처를 
 - [ ] 실패·취소·새로고침 뒤에도 <보존되거나 되돌아가야 할 상태>가 맞다.
 - [ ] 빈 상태·결과 없음·오류가 서로 구분된다.
 - [ ] 배포 환경(`https://jnu-oss-hub.com/<path>`)의 키보드 조작과 390px 화면에서 다시 확인한다.
-- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 열여섯 항목을 점검하고 판정 표를 PR 본문에 넣는다.
+- [ ] [UX 안티패턴](../../submit-pr-evidence/references/ux-antipatterns.md) 판정 표 전 항목을 점검하고 PR 본문에 넣는다.
 
 ## 작업 범위
 - 시작 지점: <검사로 확인한 파일 또는 화면 영역>
