@@ -17,6 +17,7 @@ const validStudentInput = {
   name: '합성 학생',
   studentId: '801020',
   department: '인공지능학부',
+  phone: '1'.repeat(11),
 } as const;
 
 function errorCode(operation: () => unknown): string {
