@@ -2,26 +2,21 @@ import { PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { applicationModeLabel } from '../review-format';
 import type { ReviewDecisionInput } from '../review-form';
-import type {
-  ReviewContext,
-  ReviewDecision,
-  SubmissionRevision,
-} from '../types';
+import type { ReviewContext, ReviewDecision } from '../types';
 import { RepositoryPublishCard } from './repository-publish-card';
 import { RevisionCard } from './revision-history';
 import { ReviewForm } from './review-form';
-import { ReviewRevisionComparison } from './review-revision-comparison';
+import { ReviewSubmission } from './review-submission';
 
 /** submission-review-screen과 같은 폭을 쓴다. */
 const REVIEW_WIDTH = 'max-w-5xl';
 
 export interface SubmissionReviewViewProps {
   readonly context: ReviewContext;
-  readonly originalRevision?: SubmissionRevision | null;
-  readonly needsAcknowledgement?: boolean;
+  readonly needsLatestRevision?: boolean;
   readonly isRefreshing?: boolean;
   readonly refreshError?: string | null;
-  readonly onAcknowledge?: () => void;
+  readonly onOpenLatestRevision?: () => void;
   readonly onRefresh?: () => void;
   readonly decision: ReviewDecisionInput;
   readonly comment: string;
@@ -71,15 +66,14 @@ export function SubmissionReviewView(props: SubmissionReviewViewProps) {
             <AlertDescription>{props.notice}</AlertDescription>
           </Alert>
         ) : null}
-        <ReviewRevisionComparison
+        <ReviewSubmission
           context={reviewContext}
-          original={props.originalRevision ?? null}
-          needsAcknowledgement={props.needsAcknowledgement ?? false}
+          needsLatestRevision={props.needsLatestRevision ?? false}
           isRefreshing={props.isRefreshing ?? false}
           disabled={props.isSaving || props.isPublishing}
           refreshError={props.refreshError ?? null}
           onRefresh={props.onRefresh}
-          onAcknowledge={props.onAcknowledge}
+          onOpenLatestRevision={props.onOpenLatestRevision}
         />
         {reviewContext.currentRevision.review ? null : (
           <ReviewForm {...props} />

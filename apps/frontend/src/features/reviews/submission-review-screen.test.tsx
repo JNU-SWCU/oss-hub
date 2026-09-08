@@ -123,21 +123,21 @@ describe('SubmissionReviewScreen 실패 안내 (#354)', () => {
   });
 });
 
-it('a callback for an older revision cannot acknowledge a newer submission', async () => {
+it('a callback for an older revision cannot open a newer submission', async () => {
   await renderReadyScreen();
   vi.mocked(getReviewContext).mockResolvedValue({
     ...CONTEXT,
     currentRevision: { ...CONTEXT.currentRevision, number: 3 },
   });
   await act(async () => window.dispatchEvent(new Event('focus')));
-  const acknowledgeThird = currentProps().onAcknowledge;
-  expect(currentProps().needsAcknowledgement).toBe(true);
+  const openThird = currentProps().onOpenLatestRevision;
+  expect(currentProps().needsLatestRevision).toBe(true);
   vi.mocked(getReviewContext).mockResolvedValue({
     ...CONTEXT,
     currentRevision: { ...CONTEXT.currentRevision, number: 4 },
   });
   await act(async () => window.dispatchEvent(new Event('focus')));
-  await act(async () => acknowledgeThird?.());
-  expect(currentProps().needsAcknowledgement).toBe(true);
+  await act(async () => openThird?.());
+  expect(currentProps().needsLatestRevision).toBe(true);
   expect(currentProps().decision).toBe('');
 });

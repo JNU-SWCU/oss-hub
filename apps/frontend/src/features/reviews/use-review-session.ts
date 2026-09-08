@@ -3,13 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { createReview, getReviewContext, publishRepository } from './api';
-import { reviewConflictMessage } from './review-errors';
+import { isReviewConflict } from './review-errors';
 import { reviewFormError } from './review-form';
-import {
-  INITIAL_REVIEW_SESSION,
-  needsRevisionAcknowledgement,
-  receiveReviewContext,
-} from './review-session';
+import { INITIAL_REVIEW_SESSION, receiveReviewContext } from './review-session';
 import type { ReviewDecision } from './types';
 
 const REVIEW_REFRESH_INTERVAL = 30_000;
@@ -77,12 +73,11 @@ export function useReviewSession(submissionId: string) {
     };
   }, [refresh]);
 
-  const invalidateDecision = () =>
+  const invalidateDecision = (needsLatestRevision: boolean) =>
     setSession((previous) => ({
       ...previous,
       decision: '',
-      requiresAcknowledgement: true,
-      acknowledgedRevision: null,
+      needsLatestRevision,
     }));
 
   const save = async (): Promise<void> => {
@@ -90,7 +85,7 @@ export function useReviewSession(submissionId: string) {
       !session.context ||
       mutationPending.current ||
       isRefreshing ||
-      needsRevisionAcknowledgement(session)
+      session.needsLatestRevision
     )
       return;
     const validationError = reviewFormError(session.decision, session.comment);
@@ -112,7 +107,7 @@ export function useReviewSession(submissionId: string) {
         ...(session.comment.trim() ? { comment: session.comment.trim() } : {}),
       });
       if (!isCurrent()) return;
-      invalidateDecision();
+      invalidateDecision(false);
       await load();
       if (!isCurrent()) return;
       setNotice(
@@ -124,14 +119,13 @@ export function useReviewSession(submissionId: string) {
       );
     } catch (error: unknown) {
       if (!isCurrent()) return;
-      const conflictMessage = reviewConflictMessage(error);
-      if (conflictMessage) {
-        invalidateDecision();
+      if (isReviewConflict(error)) {
+        invalidateDecision(true);
         const refreshed = await load();
         if (!isCurrent()) return;
         setFormError(
           refreshed
-            ? conflictMessage
+            ? null
             : '제출 상태가 바뀌어 저장하지 못했습니다. 코멘트는 남아 있습니다. 최신 제출본을 다시 확인해 주세요.',
         );
       } else {
@@ -179,12 +173,12 @@ export function useReviewSession(submissionId: string) {
     }
   };
 
-  const acknowledge = () => {
-    if (isRefreshing || loadError || isSaving) return;
+  const openLatestRevision = () => {
+    if (isRefreshing || loadError || mutationPending.current) return;
     const revision = session.context?.currentRevision.number;
     setSession((previous) =>
       previous.context?.currentRevision.number === revision
-        ? { ...previous, acknowledgedRevision: revision ?? null, decision: '' }
+        ? { ...previous, needsLatestRevision: false, decision: '' }
         : previous,
     );
     setFormError(null);
@@ -199,17 +193,14 @@ export function useReviewSession(submissionId: string) {
     isRefreshing,
     isSaving,
     isPublishing,
-    needsAcknowledgement: needsRevisionAcknowledgement(session),
     refresh,
-    acknowledge,
+    openLatestRevision,
     save,
     publish,
     changeDecision: (decision: ReviewDecision) => {
-      if (needsRevisionAcknowledgement(session) || isSaving) return;
+      if (session.needsLatestRevision || isSaving) return;
       setSession((previous) =>
-        needsRevisionAcknowledgement(previous)
-          ? previous
-          : { ...previous, decision },
+        previous.needsLatestRevision ? previous : { ...previous, decision },
       );
       setFormError(null);
     },

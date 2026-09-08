@@ -29,7 +29,7 @@ describe('review request ordering', () => {
     await screen.render();
     vi.mocked(getReviewContext).mockResolvedValue(context(3));
     await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => screen.button('제출본 3번 확인 완료').click());
+    await act(async () => screen.button('최신 제출본 3번 열기').click());
     await act(async () => screen.radio().click());
     vi.mocked(getReviewContext).mockResolvedValue(context(2));
     await act(async () => window.dispatchEvent(new Event('focus')));
@@ -54,18 +54,17 @@ describe('review request ordering', () => {
     expect(screen.radio().checked).toBe(true);
     expect(screen.button('저장').disabled).toBe(false);
   });
-  it('keeps confirmation and verdict on refresh of the same acknowledged revision', async () => {
+  it('keeps the opened submission and verdict on refresh of the same revision', async () => {
     await screen.render();
     vi.mocked(getReviewContext).mockResolvedValue(context(2));
     await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => screen.button('제출본 2번 확인 완료').click());
+    await act(async () => screen.button('최신 제출본 2번 열기').click());
     await act(async () => screen.radio().click());
     await act(async () => window.dispatchEvent(new Event('focus')));
     expect(screen.radio().checked).toBe(true);
     expect(screen.radio().disabled).toBe(false);
-    expect(screen.container.textContent).toContain(
-      '제출본 2번 확인을 마쳤습니다.',
-    );
+    expect(screen.container.textContent).toContain('제출 글 2');
+    expect(screen.container.textContent).not.toContain('최신 제출본 2번 열기');
   });
   it('ignores an earlier failed refresh after the latest refresh succeeds', async () => {
     await screen.render();
@@ -76,7 +75,7 @@ describe('review request ordering', () => {
     await act(async () => window.dispatchEvent(new Event('focus')));
     await act(async () => window.dispatchEvent(new Event('focus')));
     await act(async () => earlier.reject(new Error('old request failed')));
-    expect(screen.container.textContent).toContain('제출 글 2');
+    expect(screen.button('최신 제출본 2번 열기')).toBeDefined();
     expect(screen.container.textContent).not.toContain(
       '제출 검토 정보를 불러오지 못했습니다.',
     );

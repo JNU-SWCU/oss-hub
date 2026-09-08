@@ -59,14 +59,8 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
       </CardHeader>
       <CardContent>
         <form className="grid gap-5" onSubmit={submit}>
-          {props.needsAcknowledgement ? (
-            <p role="status" className="text-small text-muted-foreground">
-              최신 제출본 확인을 마친 뒤 결과를 다시 선택해 주세요. 작성 중인
-              코멘트는 유지됩니다.
-            </p>
-          ) : null}
           <FieldSet
-            disabled={props.needsAcknowledgement}
+            disabled={props.needsLatestRevision}
             aria-invalid={decisionError ? true : undefined}
             aria-describedby={
               decisionError ? 'review-decision-error' : undefined
@@ -82,7 +76,7 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
                       name="review-decision"
                       value={option.value}
                       checked={props.decision === option.value}
-                      disabled={props.isSaving || props.needsAcknowledgement}
+                      disabled={props.isSaving || props.needsLatestRevision}
                       aria-invalid={decisionError ? true : undefined}
                       onChange={() => props.onDecisionChange(option.value)}
                       className="mt-0.5 size-4 accent-primary"
@@ -141,7 +135,7 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
               disabled={
                 props.isSaving ||
                 props.isRefreshing ||
-                props.needsAcknowledgement
+                props.needsLatestRevision
               }
             >
               {props.isSaving ? '저장 중' : '저장'}

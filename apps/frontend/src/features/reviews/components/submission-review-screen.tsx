@@ -55,20 +55,19 @@ function ReviewSessionScreen({
   return (
     <SubmissionReviewView
       context={review.context}
-      originalRevision={review.original}
       decision={review.decision}
       comment={review.comment}
       isSaving={review.isSaving}
       isPublishing={review.isPublishing}
       isRefreshing={review.isRefreshing}
-      needsAcknowledgement={review.needsAcknowledgement}
+      needsLatestRevision={review.needsLatestRevision}
       refreshError={review.loadError}
       formError={review.formError}
       notice={review.notice}
       publishError={review.publishError}
       onDecisionChange={review.changeDecision}
       onCommentChange={review.changeComment}
-      onAcknowledge={review.acknowledge}
+      onOpenLatestRevision={review.openLatestRevision}
       onRefresh={review.refresh}
       onSave={() => void review.save()}
       onCancel={() => router.back()}

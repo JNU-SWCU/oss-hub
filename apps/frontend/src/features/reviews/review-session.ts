@@ -1,22 +1,18 @@
 import type { ReviewDecisionInput } from './review-form';
-import type { ReviewContext, SubmissionRevision } from './types';
+import type { ReviewContext } from './types';
 
 export interface ReviewSession {
   readonly context: ReviewContext | null;
-  readonly original: SubmissionRevision | null;
   readonly decision: ReviewDecisionInput;
   readonly comment: string;
-  readonly requiresAcknowledgement: boolean;
-  readonly acknowledgedRevision: number | null;
+  readonly needsLatestRevision: boolean;
 }
 
 export const INITIAL_REVIEW_SESSION: ReviewSession = {
   context: null,
-  original: null,
   decision: '',
   comment: '',
-  requiresAcknowledgement: false,
-  acknowledgedRevision: null,
+  needsLatestRevision: false,
 };
 
 export function receiveReviewContext(
@@ -35,20 +31,9 @@ export function receiveReviewContext(
   return {
     ...session,
     context,
-    original: session.original ?? context.currentRevision,
-    ...(changed
-      ? {
-          decision: '',
-          requiresAcknowledgement: true,
-          acknowledgedRevision: null,
-        }
-      : {}),
+    decision: changed ? '' : session.decision,
+    needsLatestRevision: context.currentRevision.review
+      ? false
+      : changed || session.needsLatestRevision,
   };
-}
-
-export function needsRevisionAcknowledgement(session: ReviewSession): boolean {
-  return (
-    session.requiresAcknowledgement &&
-    session.acknowledgedRevision !== session.context?.currentRevision.number
-  );
 }

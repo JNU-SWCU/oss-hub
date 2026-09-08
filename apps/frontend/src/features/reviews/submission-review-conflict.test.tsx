@@ -50,17 +50,25 @@ async function encounterConflict(number = 2) {
 }
 
 describe('review conflict recovery', () => {
-  it('keeps the original text and comment while requiring latest acknowledgement then a new verdict', async () => {
+  it('opens only the latest submission in one action and preserves the comment for a new verdict', async () => {
     await enterDraft();
     await encounterConflict();
-    expect(screen.container.textContent).toContain('검토를 시작한 제출본');
-    expect(screen.container.textContent).toContain('제출 글 1');
-    expect(screen.container.textContent).toContain('제출 글 2');
+    const target = screen.container.querySelector(
+      '[aria-label="검토 대상 제출본"]',
+    );
+    expect(target?.textContent).not.toContain('제출 글 1');
+    expect(target?.textContent).not.toContain('제출 글 2');
+    expect(screen.container.textContent).not.toContain('검토를 시작한 제출본');
+    expect(screen.container.textContent).not.toContain('30초');
     expect(screen.comment().value).toBe('작성 중인 검토 의견');
     expect(screen.radio().checked).toBe(false);
     expect(screen.radio().disabled).toBe(true);
     expect(screen.button('저장').disabled).toBe(true);
-    await act(async () => screen.button('제출본 2번 확인 완료').click());
+    await act(async () => screen.button('최신 제출본 2번 열기').click());
+    expect(target?.textContent).toContain('제출 글 2');
+    expect(document.activeElement).toBe(target);
+    expect(target?.textContent).not.toContain('제출 글 1');
+    expect(screen.container.textContent).not.toContain('확인 완료');
     expect(screen.radio().disabled).toBe(false);
     expect(screen.radio().checked).toBe(false);
     await act(async () => screen.radio('CHANGES_REQUESTED').click());
@@ -76,19 +84,24 @@ describe('review conflict recovery', () => {
     });
   });
 
-  it('resets acknowledgement and verdict again for revision 3 without moving the original comparison', async () => {
+  it('blocks the previous verdict again when another revision arrives', async () => {
     await enterDraft();
     await encounterConflict();
-    await act(async () => screen.button('제출본 2번 확인 완료').click());
+    await act(async () => screen.button('최신 제출본 2번 열기').click());
     await act(async () => screen.radio().click());
     vi.mocked(getReviewContext).mockResolvedValue(context(3));
     await act(async () => window.dispatchEvent(new Event('focus')));
     expect(screen.radio().checked).toBe(false);
     expect(screen.radio().disabled).toBe(true);
-    expect(screen.container.textContent).toContain('제출 글 1');
-    expect(screen.container.textContent).toContain('제출 글 3');
+    const target = screen.container.querySelector(
+      '[aria-label="검토 대상 제출본"]',
+    );
+    expect(target?.textContent).not.toContain('제출 글 1');
+    expect(target?.textContent).not.toContain('제출 글 2');
+    expect(target?.textContent).not.toContain('제출 글 3');
     expect(screen.comment().value).toBe('작성 중인 검토 의견');
-    expect(screen.button('제출본 3번 확인 완료')).toBeDefined();
+    await act(async () => screen.button('최신 제출본 3번 열기').click());
+    expect(target?.textContent).toContain('제출 글 3');
   });
 
   it.each(['success', 'failure'] as const)(

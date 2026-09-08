@@ -58,10 +58,15 @@ describe('review background refresh', () => {
     await act(async () => window.dispatchEvent(new Event('focus')));
     await act(async () => later.resolve(context(3)));
     await act(async () => earlier.resolve(context(2)));
-    expect(screen.container.textContent).toContain('제출 글 1');
-    expect(screen.container.textContent).toContain('제출 글 3');
-    expect(screen.container.textContent).not.toContain('제출 글 2');
+    expect(screen.button('최신 제출본 3번 열기')).toBeDefined();
     expect(screen.radio().disabled).toBe(true);
+    await act(async () => screen.button('최신 제출본 3번 열기').click());
+    const target = screen.container.querySelector(
+      '[aria-label="검토 대상 제출본"]',
+    );
+    expect(target?.textContent).toContain('제출 글 3');
+    expect(target?.textContent).not.toContain('제출 글 1');
+    expect(target?.textContent).not.toContain('제출 글 2');
   });
 
   it('checks every 30 seconds only while visible and removes timers and listeners on unmount', async () => {
@@ -117,6 +122,7 @@ describe('review background refresh', () => {
     );
     vi.mocked(getReviewContext).mockResolvedValue(context(2));
     await act(async () => screen.button('최신 제출본 확인').click());
-    expect(screen.button('제출본 2번 확인 완료')).toBeDefined();
+    expect(screen.button('최신 제출본 2번 열기')).toBeDefined();
+    expect(screen.radio().disabled).toBe(true);
   });
 });
