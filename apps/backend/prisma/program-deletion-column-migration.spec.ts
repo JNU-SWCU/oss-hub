@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import * as assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -28,7 +28,10 @@ test('rehearsal owns cleanup and initializes trap state before the EXIT trap', (
     const init = rehearsal.indexOf(name);
     const trap = rehearsal.indexOf('trap cleanup EXIT');
     assert.ok(init >= 0, `${name} must be initialized`);
-    assert.ok(trap > init, `${name} must be initialized before cleanup is trapped`);
+    assert.ok(
+      trap > init,
+      `${name} must be initialized before cleanup is trapped`,
+    );
   }
   assert.match(rehearsal, /"\$\{docker_cli\[@\]\}" rm -f -v "\$container"/);
   assert.doesNotMatch(rehearsal, /\|\| true/);
@@ -56,8 +59,14 @@ test('rehearsal fails closed for remote Docker endpoints with Docker precedence 
   assert.match(rehearsal, /DOCKER_CONTEXT takes precedence over DOCKER_HOST/);
   assert.match(rehearsal, /if \[\[ -n \$\{DOCKER_CONTEXT:-\} \]\]/);
   assert.match(rehearsal, /elif \[\[ -n \$\{DOCKER_HOST:-\} \]\]/);
-  assert.match(rehearsal, /docker context inspect "\$effective_docker_context"/);
-  assert.match(rehearsal, /--format '\{\{ \(index \.Endpoints "docker"\)\.Host \}\}'/);
+  assert.match(
+    rehearsal,
+    /docker context inspect "\$effective_docker_context"/,
+  );
+  assert.match(
+    rehearsal,
+    /--format '\{\{ \(index \.Endpoints "docker"\)\.Host \}\}'/,
+  );
   assert.match(rehearsal, /\[\[ "\$effective_docker_host" == unix:\/\/\* \]\]/);
   assert.match(
     rehearsal,
@@ -121,7 +130,10 @@ test('fixture contains both protection states, realistic Program fields, and unr
 });
 
 test('migrate lane invokes the tracked SQL and verifies the post-drop surface', () => {
-  assert.match(rehearsal, /pg_dump --format=custom --no-owner -U migration -d "\$database"/);
+  assert.match(
+    rehearsal,
+    /pg_dump --format=custom --no-owner -U migration -d "\$database"/,
+  );
   assert.match(
     rehearsal,
     /"\$\{docker_cli\[@\]\}" cp "\$migration_sql" "\$container:\$container_migration"/,
