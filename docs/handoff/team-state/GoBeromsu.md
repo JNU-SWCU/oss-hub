@@ -1517,3 +1517,18 @@
 - PR 리뷰에서 production DDL의 무제한 lock 대기를 발견해 migration 자체에 transaction-local lock timeout 5초와 statement timeout 30초를 추가했다.
 - 완화된 외부 timeout 아래 별도 세션이 Program 잠금을 잡는 locked 리허설로 migration 자체의 timeout과 데이터 보존을 검증했으며 정적 계약 12개와 리허설 3종이 통과했다.
 - 선행 Release의 실제 backup도 운영 DB와 분리된 네트워크 없는 임시 DB에서 복원하고 임시 컨테이너를 제거했다.
+
+## 2026-09-08 — QA 티켓 캡처를 본문 앞쪽으로 올린다 (manage-qa-tickets v4.6.0)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- 두 본문 템플릿이 `현재 화면`을 본문 끝(UX·디자인)에 두거나 아예 두지 않아(기능 결함), 담당자는 티켓을 다 읽고 나서야 문제의 화면을 봤다. QA170(#1245)과 QA171(#1246)이 그 배치로 발행됐다.
+- UX·디자인 템플릿의 `현재 화면`을 `문제` 바로 뒤로 올리고, 기능 결함 템플릿에는 `재현` 바로 뒤에 `frontend` 전용으로 새로 넣었다.
+- `frontend 캡처 절차`와 SKILL.md의 섹션 순서 문장에 이 배치를 규칙으로 적어, 다음 티켓이 옛 순서로 돌아가지 않게 했다.
+- 이미 발행된 QA170·QA171은 Notion 본문과 Issue 본문을 같은 순서로 옮겼다. Notion은 블록을 옮겨도 이미지가 딸려오지 않아 캡처 세 장을 다시 업로드해 새 자리에 붙였다.
+- 검증: 변경한 마크다운 세 개에 `prettier --check` 통과, 재발행한 Issue 본문 두 개 각각 `bash scripts/check-public-safe.sh --text-only` 통과, Notion·GitHub 양쪽을 다시 열어 새 위치에서 이미지가 렌더되는 것을 확인했다.
+- 한계: QA169(#1240)는 PM 판단으로 옛 배치 그대로 뒀다. 다른 사람이 쓴 과거 티켓도 소급 정리하지 않는다.
+- 공개 안전성: 실명 없음 — 사람은 @handle. 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
