@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import {
@@ -23,6 +24,16 @@ function jsonResponse(value: unknown, status = 201): Response {
 }
 
 describe('submissions api', () => {
+  it.each([
+    () => getSubmissionForm('program-1', 'milestone-1'),
+    () => getSubmissionChecklist('program-1'),
+  ])('상한 없는 응답으로 제출 화면을 열지 않는다', async (load) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({}, 200)));
+    await expect(load()).rejects.toThrow(
+      'Invalid submission upload limit response',
+    );
+  });
+
   it('마일스톤 서류 목록과 현재 파일 endpoint에서 식별자를 모두 인코딩한다', async () => {
     // Given
     const listResponse = jsonResponse([], 200);
@@ -131,6 +142,7 @@ describe('submissions api', () => {
     const response = {
       applicationId: 'application-1',
       applicationMode: 'PERSONAL',
+      fileUpload: submissionUploadLimit(),
       milestone: {
         id: 'milestone/1',
         name: '최종 제출',
@@ -202,6 +214,7 @@ describe('submissions api', () => {
     const checklist = {
       applicationId: 'application-personal',
       applicationMode: 'PERSONAL',
+      fileUpload: submissionUploadLimit(),
       items: [
         {
           milestoneId: 'milestone-1',

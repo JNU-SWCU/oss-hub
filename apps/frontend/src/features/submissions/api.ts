@@ -4,6 +4,7 @@ import {
   type ApiFileDownload,
 } from '@/lib/api-client';
 import { buildMatrixSearchParams, type MatrixQueryInput } from './matrix';
+import { requireSubmissionUploadLimit } from '@/lib/submission-upload-policy';
 import type {
   CreatedResubmission,
   CreatedSubmission,
@@ -37,13 +38,17 @@ export function downloadMilestoneDocumentCurrentFile(
   );
 }
 
-export function getSubmissionForm(
+export async function getSubmissionForm(
   programId: string,
   milestoneId: string,
 ): Promise<SubmissionFormData> {
-  return apiClient<SubmissionFormData>(
+  const response = await apiClient<SubmissionFormData>(
     `programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/submission-form`,
   );
+  return {
+    ...response,
+    fileUpload: requireSubmissionUploadLimit(response.fileUpload),
+  };
 }
 
 /** #124 제출 현황 매트릭스 조회 — 접근: APPROVED STAFF·ADMIN. */
@@ -95,12 +100,16 @@ export function createSubmission(input: {
 }
 
 /** #116 내 체크리스트 — 프로그램 전체 마일스톤과 내 제출 상태. */
-export function getSubmissionChecklist(
+export async function getSubmissionChecklist(
   programId: string,
 ): Promise<SubmissionChecklist> {
-  return apiClient<SubmissionChecklist>(
+  const response = await apiClient<SubmissionChecklist>(
     `programs/${encodeURIComponent(programId)}/submissions/me`,
   );
+  return {
+    ...response,
+    fileUpload: requireSubmissionUploadLimit(response.fileUpload),
+  };
 }
 
 /** #116 보완 재제출 — baseRevision으로 오래된 탭의 중복 제출을 막는다. */

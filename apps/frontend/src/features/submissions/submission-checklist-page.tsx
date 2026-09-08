@@ -171,7 +171,11 @@ export function SubmissionChecklistPage({
       return;
     }
 
-    const nextErrors = validateSubmissionContent(item.submissionType, input);
+    const nextErrors = validateSubmissionContent(
+      item.submissionType,
+      input,
+      checklist.fileUpload,
+    );
     setErrors(nextErrors);
     setFileError(nextErrors.file ?? null);
     setServerError(null);
@@ -218,7 +222,10 @@ export function SubmissionChecklistPage({
       setComment('');
     } catch (error: unknown) {
       if (error instanceof ApiError) {
-        const uploadMessage = getSubmissionFileErrorMessage(error.problem.code);
+        const uploadMessage = getSubmissionFileErrorMessage(
+          error.problem.code,
+          checklist.fileUpload,
+        );
         if (uploadMessage) {
           if (error.problem.code === 'SUB_020') {
             setServerError(uploadMessage);
@@ -301,6 +308,7 @@ export function SubmissionChecklistPage({
       onFileChange={(file) => {
         setInput((previous) => ({ ...previous, file }));
         setFileError(null);
+        setErrors({});
         uploadedFile.current.discardUnless(file);
       }}
       onCommentChange={setComment}

@@ -3,6 +3,7 @@ import { apiPath } from '../../lib/api-client';
 import {
   createAuthoringProgram,
   deleteAuthoringUpload,
+  getAuthoringUploadPolicy,
   uploadAuthoringFile,
 } from './program-authoring-api';
 import { completedAuthoringState } from './program-creation-test-fixtures';
@@ -10,6 +11,19 @@ import { buildProgramAuthoringManifest } from './program-creation-flow';
 
 describe('program authoring API', () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it('프로그램 작성 전 서버의 파일 상한을 읽는다', async () => {
+    const fileUpload = { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' };
+    const request = vi.fn(
+      async () => new Response(JSON.stringify({ fileUpload })),
+    );
+    vi.stubGlobal('fetch', request);
+    await expect(getAuthoringUploadPolicy()).resolves.toEqual({ fileUpload });
+    expect(request).toHaveBeenCalledWith(
+      apiPath('program-authoring/upload-policy'),
+      undefined,
+    );
+  });
 
   it('uploads multipart files through the shared API client', async () => {
     const request = vi.fn(

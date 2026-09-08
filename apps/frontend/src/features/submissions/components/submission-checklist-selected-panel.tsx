@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { programDocumentsHref } from '@/lib/program-route';
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-files';
 import {
   CHECKLIST_STATUS_LABELS,
@@ -20,6 +21,7 @@ import { SubmissionInput } from './submission-input';
 import { SubmissionReviewMeta } from './submission-review-meta';
 
 export interface SelectedMilestonePanelProps {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly programId: string;
   readonly item: SubmissionChecklistItem;
   readonly input: SubmissionFormInput;
@@ -83,6 +85,7 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
           </p>
           <SubmissionReviewMeta submission={submission} />
           <SubmissionInput
+            fileUpload={props.fileUpload}
             submissionType={item.submissionType}
             input={props.input}
             errors={{}}
@@ -135,6 +138,7 @@ function ResubmissionForm(
           </div>
         </dl>
         <SubmissionInput
+          fileUpload={props.fileUpload}
           submissionType={item.submissionType}
           input={props.input}
           errors={props.errors}

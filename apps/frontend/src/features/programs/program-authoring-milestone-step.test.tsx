@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 // @vitest-environment happy-dom
 
 import { act, useReducer, useRef } from 'react';
@@ -44,6 +45,7 @@ function MilestoneStepHarness({
 
   return (
     <ProgramAuthoringMilestoneStep
+      fileUpload={submissionUploadLimit()}
       state={state}
       issues={issues}
       dispatch={dispatch}
@@ -614,6 +616,21 @@ describe('ProgramAuthoringMilestoneStep', () => {
       }),
     );
     expect(document.body.textContent).toContain('파일은 5 MB 이하여야 합니다.');
+    expect(fileInput.getAttribute('aria-invalid')).toBe('true');
+    const errorId = fileInput.getAttribute('aria-describedby');
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId ?? '')?.textContent).toBe(
+      '파일은 5 MB 이하여야 합니다.',
+    );
+
+    await selectFile(
+      fileInput,
+      new File(['pdf'], 'small.pdf', { type: 'application/pdf' }),
+    );
+    expect(fileInput.getAttribute('aria-invalid')).toBe('false');
+    expect(document.body.textContent).not.toContain(
+      '파일은 5 MB 이하여야 합니다.',
+    );
   });
 
   it('cancelling a new draft removes its requirement file and milestone', async () => {

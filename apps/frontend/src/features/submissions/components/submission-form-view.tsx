@@ -112,6 +112,7 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
           <Card className="min-w-0">
             <CardContent className="grid min-w-0 gap-5">
               <SubmissionInput
+                fileUpload={data.fileUpload}
                 submissionType={data.milestone.submissionType}
                 input={props.input}
                 errors={props.errors}

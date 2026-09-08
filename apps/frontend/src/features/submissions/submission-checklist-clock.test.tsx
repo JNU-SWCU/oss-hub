@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 // @vitest-environment happy-dom
 
 import { act } from 'react';
@@ -19,6 +20,7 @@ it('아무 조작 없이 마감을 지나면 최초 제출만 닫고 재제출�
   vi.mocked(getSubmissionChecklist).mockResolvedValue({
     applicationId: 'application-clock',
     applicationMode: 'PERSONAL',
+    fileUpload: submissionUploadLimit(),
     items: [
       {
         milestoneId: 'initial-clock',

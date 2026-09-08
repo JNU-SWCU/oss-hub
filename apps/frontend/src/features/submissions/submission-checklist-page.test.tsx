@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { isValidElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -171,6 +172,7 @@ vi.mock('./submission-page', () => ({
 const CHECKLIST: SubmissionChecklist = {
   applicationId: 'application-1',
   applicationMode: 'PERSONAL',
+  fileUpload: submissionUploadLimit(),
   items: [
     {
       milestoneId: 'milestone-file',
@@ -313,6 +315,28 @@ beforeEach(() => {
 });
 
 describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
+  it('상한 초과 오류 뒤 보완 파일을 바꾸면 이전 오류를 지운다', async () => {
+    vi.mocked(getSubmissionChecklist).mockResolvedValue({
+      ...CHECKLIST,
+      fileUpload: { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' },
+    });
+    await renderReadyPage();
+    await selectFileAndSubmit(
+      new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'large.pdf', {
+        type: 'application/pdf',
+      }),
+    );
+    expect(currentViewProps().errors.file).toBe('파일은 2 MB 이하여야 합니다.');
+    expect(uploadSubmissionFile).not.toHaveBeenCalled();
+
+    currentViewProps().onFileChange(FILE);
+    renderPage();
+    expect(currentViewProps().input.file).toBe(FILE);
+    expect(currentViewProps().errors.file).toBeUndefined();
+    expect(currentViewProps().fileError).toBeNull();
+    expect(uploadSubmissionFile).not.toHaveBeenCalled();
+  });
+
   it('보완 요청 상태면 canResubmit이 false여도 재제출 API를 요청한다', async () => {
     const [item] = CHECKLIST.items;
     if (!item?.submission) throw new Error('expected resubmission fixture');

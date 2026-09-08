@@ -1,9 +1,12 @@
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
+
 export type SubmissionType = 'FILE' | 'TEXT';
 
 export type SubmissionBlockedReason =
   'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED' | 'FILE_UPLOAD_UNAVAILABLE';
 
 export interface SubmissionFormData {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly applicationId: string;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly milestone: {
@@ -87,6 +90,7 @@ export interface SubmissionChecklistItem {
 }
 
 export interface SubmissionChecklist {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly applicationId: string;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly items: readonly SubmissionChecklistItem[];
