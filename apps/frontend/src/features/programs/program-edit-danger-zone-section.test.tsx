@@ -1,35 +1,21 @@
 // @vitest-environment happy-dom
 
-import { act, useState } from 'react';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
-import { PROGRAM_DELETE_BLOCKED_CODE } from './program-edit-delete-flow';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
 
-vi.mock('next/link', () => ({
-  default: ({
-    href,
-    children,
-  }: {
-    href: string;
-    children: React.ReactNode;
-  }) => <a href={href}>{children}</a>,
+const { getEditableProgramMock, purgeProgramMock } = vi.hoisted(() => ({
+  getEditableProgramMock: vi.fn(),
+  purgeProgramMock: vi.fn(),
 }));
 
-const { deleteProgramMock, getEditableProgramMock, purgeProgramMock } =
-  vi.hoisted(() => ({
-    deleteProgramMock: vi.fn(),
-    getEditableProgramMock: vi.fn(),
-    purgeProgramMock: vi.fn(),
-  }));
-
 vi.mock('./api', () => ({
-  deleteProgram: deleteProgramMock,
   getEditableProgram: getEditableProgramMock,
   purgeProgram: purgeProgramMock,
 }));
@@ -58,18 +44,24 @@ const deletionScopeCounts = {
   scopeFingerprint: '0123456789abcdef0123456789abcdef',
 };
 
-function setInputValue(input: HTMLInputElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    'value',
-  )?.set;
-  setter?.call(input, value);
-  input.dispatchEvent(new Event('input', { bubbles: true }));
+const zeroDeletionScopeCounts = {
+  applications: 0,
+  teams: 0,
+  boardPosts: 0,
+  submissions: 0,
+  submissionEvents: 0,
+  scopeFingerprint: 'fedcba9876543210fedcba9876543210',
+};
+
+async function flush() {
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
-async function openDialog(buttonName: string) {
+async function openDialog() {
   await act(async () => {
-    getButton(buttonName).click();
+    getButton('프로그램 삭제').click();
   });
   const dialog = document.querySelector('[role="alertdialog"]');
   if (dialog === null) throw new TypeError('Missing dialog.');
@@ -79,12 +71,13 @@ async function openDialog(buttonName: string) {
 describe('ProgramEditDangerZoneSection', () => {
   let container: HTMLDivElement;
   let root: Root;
+  let onDeleted: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    deleteProgramMock.mockReset();
+    onDeleted = vi.fn();
     getEditableProgramMock.mockReset();
     getEditableProgramMock.mockResolvedValue({ deletionScopeCounts });
     purgeProgramMock.mockReset();
@@ -93,113 +86,73 @@ describe('ProgramEditDangerZoneSection', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    document.body
+      .querySelectorAll('[data-radix-portal]')
+      .forEach((portal) => portal.remove());
   });
 
-  it('삭제 권한이 없으면 삭제 대신 아카이브 안내만 보여주고 두 삭제 버튼을 숨긴다', async () => {
+  it('권한이 없으면 삭제 섹션을 렌더링하지 않는다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
           canDeleteProgram={false}
+          onDeleted={onDeleted}
         />,
       );
     });
 
-    expect(container.textContent).toContain('아카이브');
-    expect(container.textContent).not.toContain('프로그램 영구 삭제');
-    expect(Array.from(container.querySelectorAll('button'))).toHaveLength(0);
+    expect(container.textContent).toBe('');
+    expect(container.querySelectorAll('button')).toHaveLength(0);
   });
 
-  it('삭제 권한이 있으면 영구 삭제 의도 하나만 보여주고 일반 삭제 action은 렌더링하지 않는다', async () => {
+  it('권한이 있으면 프로그램 삭제 버튼 하나만 렌더링하고 내리기 안내를 보이지 않는다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
           canDeleteProgram
+          onDeleted={onDeleted}
         />,
       );
     });
 
-    expect(container.textContent).toContain('프로그램 영구 삭제');
-    expect(container.textContent).not.toContain('일반 삭제');
+    expect(getButton('프로그램 삭제').disabled).toBe(false);
+    expect(container.textContent).not.toContain('아카이브');
+    expect(container.textContent).not.toContain('내리기');
     expect(container.querySelectorAll('button')).toHaveLength(1);
   });
 
-  it('삭제 권한이 있으면 영구 삭제 버튼 하나만 활성화한다', async () => {
+  it('프로그램 삭제는 이름과 되돌릴 수 없는 경고, 현재 삭제 범위를 보여준다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
           canDeleteProgram
+          onDeleted={onDeleted}
         />,
       );
     });
-    expect(getButton('프로그램 영구 삭제').disabled).toBe(false);
-    expect(container.querySelectorAll('button')).toHaveLength(1);
-  });
 
-  it('영구 삭제는 purge 범위를 읽는다', async () => {
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          canDeleteProgram
-        />,
-      );
-    });
-    await openDialog('프로그램 영구 삭제');
+    const dialog = await openDialog();
+    await flush();
+
     expect(getEditableProgramMock).toHaveBeenCalledWith('program-1');
-  });
-
-  it('전체 삭제를 바로 열어도 현재 삭제 범위를 양수 건수로 보여준다', async () => {
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          canDeleteProgram
-        />,
-      );
-    });
-
-    await openDialog('프로그램 영구 삭제');
-    await act(async () => void (await Promise.resolve()));
-
-    expect(document.body.textContent).toContain(
-      '삭제될 데이터: 지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
+    expect(dialog.textContent).toContain('프로그램을 삭제할까요?');
+    expect(dialog.textContent).toContain('OSS 프로그램');
+    expect(dialog.textContent).toContain('이 작업은 되돌릴 수 없습니다.');
+    expect(dialog.textContent).toContain(
+      '지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
     );
+    expect(dialog.querySelector('input')).toBeNull();
+    expect(getButton('취소', dialog)).toBeInstanceOf(HTMLButtonElement);
+    expect(getButton('삭제', dialog).disabled).toBe(false);
   });
 
-  it('전체 삭제를 바로 열어도 현재 삭제 범위를 보여주고 0건을 명시한다', async () => {
-    getEditableProgramMock.mockResolvedValue({
-      deletionScopeCounts: {
-        applications: 0,
-        teams: 0,
-        boardPosts: 0,
-        submissions: 0,
-      },
-    });
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          canDeleteProgram
-        />,
-      );
-    });
-
-    await openDialog('프로그램 영구 삭제');
-    await act(async () => void (await Promise.resolve()));
-
-    expect(document.body.textContent).toContain('연결된 데이터 없음');
-  });
-
-  it('전체 삭제 범위를 읽는 동안에는 이름이 일치해도 확정 버튼을 비활성으로 유지한다', async () => {
+  it('삭제 범위를 읽는 동안 삭제를 비활성화하고 취소하면 늦은 응답을 무시한다', async () => {
     let resolveScope:
       | ((value: { deletionScopeCounts: typeof deletionScopeCounts }) => void)
       | undefined;
@@ -208,87 +161,98 @@ describe('ProgramEditDangerZoneSection', () => {
         resolveScope = resolve;
       }),
     );
+
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
           canDeleteProgram
+          onDeleted={onDeleted}
         />,
       );
     });
+    const dialog = await openDialog();
 
-    const dialog = await openDialog('프로그램 영구 삭제');
-    const input = document.querySelector<HTMLInputElement>(
-      '#program-purge-confirm-name',
-    );
-    if (input === null) throw new TypeError('Missing purge input.');
-    await act(async () => setInputValue(input, 'OSS 프로그램'));
-
-    expect(getButton('삭제 범위를 확인하는 중…', dialog).disabled).toBe(true);
-
+    expect(getButton('삭제 범위 확인 중…', dialog).disabled).toBe(true);
     await act(async () => {
-      resolveScope?.({ deletionScopeCounts });
-      await Promise.resolve();
+      getButton('취소', dialog).click();
     });
+    resolveScope?.({ deletionScopeCounts });
+    await flush();
 
-    expect(getButton('프로그램 영구 삭제', dialog).disabled).toBe(false);
-  });
-
-  it('프로그램 이름이 다르면 전체 삭제 확정 버튼을 비활성으로 유지한다', async () => {
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          canDeleteProgram
-        />,
-      );
-    });
-
-    const dialog = await openDialog('프로그램 영구 삭제');
-    const input = document.querySelector<HTMLInputElement>(
-      '#program-purge-confirm-name',
-    );
-    if (input === null) throw new TypeError('Missing purge input.');
-    await act(async () => setInputValue(input, '다른 프로그램'));
-
-    expect(getButton('프로그램 영구 삭제', dialog).disabled).toBe(true);
-  });
-
-  // 안전장치 회귀 (#1095): 삭제 권한이 교직원까지 넓어져도 이름 재입력은 그대로 막는다 —
-  // 버튼이 비활성으로 보이는 데 그치지 않고, 눌러도 purge 요청 자체가 나가지 않는다.
-  it('이름이 정확히 일치하지 않으면 확정을 눌러도 purge 요청을 보내지 않는다', async () => {
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          canDeleteProgram
-        />,
-      );
-    });
-
-    const dialog = await openDialog('프로그램 영구 삭제');
-    const input = document.querySelector<HTMLInputElement>(
-      '#program-purge-confirm-name',
-    );
-    if (input === null) throw new TypeError('Missing purge input.');
-    // 뒤에 공백 하나만 붙어도 일치가 아니다.
-    await act(async () => setInputValue(input, 'OSS 프로그램 '));
-
-    await act(async () => {
-      getButton('프로그램 영구 삭제', dialog).click();
-    });
-
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(purgeProgramMock).not.toHaveBeenCalled();
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
   });
 
-  // TOCTOU(#F2): 확인 화면(getEditableProgram)이 읽은 이후 purge 전에 범위가 바뀌면
-  // 백엔드가 409(PRG_014)로 거부한다. 화면은 자동 재시도하지 않고, 응답이 실어 온
-  // 현재 카운트로 갱신해 관리자가 이름을 다시 입력해 명시적으로 재확인하게 한다.
-  it('purge가 409 범위 변경 응답을 받으면 자동 재시도하지 않고 새 카운트로 이름 재입력을 요구한다', async () => {
+  it('삭제 범위를 읽지 못하면 오류를 보여주고 삭제를 비활성화한다', async () => {
+    getEditableProgramMock.mockRejectedValue(new Error('scope unavailable'));
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          canDeleteProgram
+          onDeleted={onDeleted}
+        />,
+      );
+    });
+
+    const dialog = await openDialog();
+    await flush();
+
+    expect(dialog.textContent).toContain(
+      '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
+    );
+    expect(getButton('삭제', dialog).disabled).toBe(true);
+  });
+
+  it('확정은 마지막으로 표시한 전체 범위와 fingerprint를 그대로 한 번만 보낸다', async () => {
+    let resolvePurge:
+      | ((value: {
+          id: string;
+          deleted: true;
+          deletedCounts: { applications: number; teams: number };
+        }) => void)
+      | undefined;
+    purgeProgramMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePurge = resolve;
+      }),
+    );
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          canDeleteProgram
+          onDeleted={onDeleted}
+        />,
+      );
+    });
+
+    const dialog = await openDialog();
+    await flush();
+    await act(async () => getButton('삭제', dialog).click());
+    await act(async () => getButton('삭제 중…', dialog).click());
+
+    expect(purgeProgramMock).toHaveBeenCalledTimes(1);
+    expect(purgeProgramMock).toHaveBeenCalledWith(
+      'program-1',
+      deletionScopeCounts,
+    );
+    expect(getButton('삭제 중…', dialog).disabled).toBe(true);
+
+    resolvePurge?.({
+      id: 'program-1',
+      deleted: true,
+      deletedCounts: { applications: 2, teams: 1 },
+    });
+    await flush();
+    expect(onDeleted).toHaveBeenCalledWith('지원서 2건 · 팀 1건');
+  });
+
+  it('PRG_014는 자동 재시도하지 않고 갱신된 범위로 명시적 재확인을 요구한다', async () => {
     const changedCounts = {
       applications: 6,
       teams: 7,
@@ -314,45 +278,32 @@ describe('ProgramEditDangerZoneSection', () => {
           programId="program-1"
           programName="OSS 프로그램"
           canDeleteProgram
+          onDeleted={onDeleted}
         />,
       );
     });
 
-    const dialog = await openDialog('프로그램 영구 삭제');
-    await act(async () => void (await Promise.resolve()));
-    const input = document.querySelector<HTMLInputElement>(
-      '#program-purge-confirm-name',
-    );
-    if (input === null) throw new TypeError('Missing purge input.');
-    await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
-    await act(async () => void (await Promise.resolve()));
+    const dialog = await openDialog();
+    await flush();
+    await act(async () => getButton('삭제', dialog).click());
+    await flush();
 
-    // 화면이 마지막으로 보여준 카운트(deletionScopeCounts)를 그대로 expectedScope로 보낸다 —
-    // 별도 재확인 GET 없이 딱 한 번만 purge를 호출했다.
     expect(purgeProgramMock).toHaveBeenCalledTimes(1);
-    expect(purgeProgramMock).toHaveBeenCalledWith(
-      'program-1',
-      deletionScopeCounts,
+    expect(getEditableProgramMock).toHaveBeenCalledTimes(1);
+    expect(dialog.textContent).toContain(
+      '삭제 범위가 변경되었습니다. 내용을 확인한 뒤 삭제를 다시 눌러 주세요.',
     );
-    expect(input.value).toBe('');
-    expect(document.body.textContent).toContain(
-      '삭제 범위가 변경되었습니다. 내용을 확인한 뒤 프로그램 이름을 다시 입력해 주세요.',
-    );
-    expect(document.body.textContent).toContain(
-      '삭제될 데이터: 지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건 · 제출·검토·파일 이력 10건',
+    expect(dialog.textContent).toContain(
+      '지원서 6건 · 팀 7개 · 게시글 8건 · 제출물 9건',
     );
 
-    // 이름을 다시 입력해 명시적으로 재확인하면, 갱신된 카운트를 expectedScope로 보내
-    // 이번엔 성공한다 — 자동 재시도가 아니라 관리자의 새 확인이다.
     purgeProgramMock.mockResolvedValueOnce({
       id: 'program-1',
       deleted: true,
       deletedCounts: { applications: 6 },
     });
-    await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
-    await act(async () => void (await Promise.resolve()));
+    await act(async () => getButton('삭제', dialog).click());
+    await flush();
 
     expect(purgeProgramMock).toHaveBeenCalledTimes(2);
     expect(purgeProgramMock).toHaveBeenLastCalledWith(
@@ -361,46 +312,29 @@ describe('ProgramEditDangerZoneSection', () => {
     );
   });
 
-  it('전체 삭제 성공 후 즉시 목록 확인으로 이동해 삭제된 프로그램 화면을 남기지 않는다', async () => {
-    purgeProgramMock.mockResolvedValue({
-      id: 'program-1',
-      deleted: true,
-      deletedCounts: { applications: 2, notifications: 3, boardPosts: 0 },
+  it('0건 범위도 표시하고 취소는 purge를 호출하지 않는다', async () => {
+    getEditableProgramMock.mockResolvedValue({
+      deletionScopeCounts: zeroDeletionScopeCounts,
     });
-    function PurgeNavigationHarness() {
-      const [notice, setNotice] = useState<string | null>(null);
-      if (notice !== null) return <p>{notice}</p>;
-      return (
+    await act(async () => {
+      root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
           programName="OSS 프로그램"
           canDeleteProgram
-          onDeleted={(nextNotice) => setNotice(nextNotice ?? '')}
-        />
+          onDeleted={onDeleted}
+        />,
       );
-    }
-    await act(async () => {
-      root.render(<PurgeNavigationHarness />);
     });
 
-    const dialog = await openDialog('프로그램 영구 삭제');
-    const input = document.querySelector<HTMLInputElement>(
-      '#program-purge-confirm-name',
-    );
-    if (input === null) throw new TypeError('Missing purge input.');
-    await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
-    await act(async () => void (await Promise.resolve()));
-
-    expect(purgeProgramMock).toHaveBeenCalledWith(
-      'program-1',
-      deletionScopeCounts,
-    );
-    expect(container.querySelector('section')).toBeNull();
-    expect(container.textContent).toContain('지원서 2건 · 알림 3건');
+    const dialog = await openDialog();
+    await flush();
+    expect(dialog.textContent).toContain('연결된 데이터 없음');
+    await act(async () => getButton('취소', dialog).click());
+    expect(purgeProgramMock).not.toHaveBeenCalled();
   });
 
-  it('전체 삭제가 403이면 오류를 화면에 보여준다', async () => {
+  it('권한 오류는 성공 콜백 없이 오류를 보여준다', async () => {
     purgeProgramMock.mockRejectedValue(
       new ApiError({
         type: 'about:blank',
@@ -417,19 +351,17 @@ describe('ProgramEditDangerZoneSection', () => {
           programId="program-1"
           programName="OSS 프로그램"
           canDeleteProgram
+          onDeleted={onDeleted}
         />,
       );
     });
 
-    const dialog = await openDialog('프로그램 영구 삭제');
-    const input = document.querySelector<HTMLInputElement>(
-      '#program-purge-confirm-name',
-    );
-    if (input === null) throw new TypeError('Missing purge input.');
-    await act(async () => setInputValue(input, 'OSS 프로그램'));
-    await act(async () => getButton('프로그램 영구 삭제', dialog).click());
-    await act(async () => void (await Promise.resolve()));
+    const dialog = await openDialog();
+    await flush();
+    await act(async () => getButton('삭제', dialog).click());
+    await flush();
 
-    expect(document.body.textContent).toContain('전체 삭제 권한이 없습니다.');
+    expect(dialog.textContent).toContain('전체 삭제 권한이 없습니다.');
+    expect(onDeleted).not.toHaveBeenCalled();
   });
 });

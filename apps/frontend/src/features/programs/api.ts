@@ -324,19 +324,6 @@ export function updateEditableMilestone(
     },
   );
 }
-export function updateProgramLifecycle(
-  programId: string,
-  lifecycle: EditableProgram['lifecycle'],
-): Promise<{
-  readonly id: string;
-  readonly lifecycle: EditableProgram['lifecycle'];
-}> {
-  return apiClient(`programs/${encodeURIComponent(programId)}/lifecycle`, {
-    method: 'PATCH',
-    headers: jsonHeaders,
-    body: JSON.stringify({ lifecycle }),
-  });
-}
 
 export function createMilestone(
   programId: string,

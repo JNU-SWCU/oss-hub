@@ -1456,3 +1456,25 @@
 - 남긴 것: purge의 `expectedScope` 재확인(409 PRG_014), 권한 가드, 감사 로그, 삭제 순서, 그리고 권한 없는 사용자에게 버튼을 비활성화하는 `canDeleteProgram`은 그대로다. 약화된 안전장치는 없다.
 - 검증: backend 66 suite / 528 test, frontend 102 file / 1095 test, `program-purge.integration.spec.ts` 15건, backend·frontend typecheck, prettier, backend lint 통과. `deletionProtected`와 `PROGRAM_DELETE_PROTECTED` 잔여 참조는 migration 이력 두 줄뿐이다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-08 — 확인 팝업 한 번으로 프로그램 삭제
+
+- 상태: review
+- Issue: [#1237](https://github.com/JNU-SWCU/oss-hub/issues/1237)
+- PR: (이 PR)
+- blocker: 배포 전 최종 리뷰
+- 사용자 요청은 내리기 없이 삭제만 제공하고 확인 팝업으로 확정하는 것이다.
+- 내리기·다시 게시하기 UI와 전용 lifecycle 변경 endpoint를 제거했다.
+- 이름 재입력을 없애고 기존 purge에 삭제 범위와 지문을 그대로 전달한다.
+- 범위가 바뀌면 자동 재시도하지 않고 새 범위를 보여준 뒤 다시 확인받는다.
+- 이미 DELETED인 제출 파일은 삭제 시각을 유지하면서 프로그램 관계만 분리해 제약 위반을 막는다.
+- 삭제 성공은 기존 exit guard의 완료 경로로 이동하며 취소·실패는 미저장 변경 보호를 유지한다.
+- 앞선 삭제 보호 제거 기록의 배포 순서를 수정한다.
+- 첫 릴리스에서는 Prisma 필드와 모든 코드 참조만 제거하고 물리 컬럼은 유지한다.
+- 새 코드가 정상 배포된 뒤 별도 릴리스에서 컬럼을 삭제해야 기존 서버와 자동 롤백이 제거된 컬럼을 조회하지 않는다.
+- 검증: frontend 116 파일 / 1120 테스트, backend 66 suite / 525 테스트, 격리 DB purge 통합 17개, Chrome 삭제 시나리오 8개 통과.
+- 양쪽 typecheck와 lint, 전체 prettier 검사를 통과했다.
+- frontend lint의 변경하지 않은 sidebar 테스트 경고 5건은 그대로 보고한다.
+- 최초 브라우저 검증은 오래된 요약 문구 기대값과 초기 로딩까지 실패시키던 합성 fixture 때문에 실패했고, 계약에 맞게 수정한 뒤 8개 모두 통과했다.
+- Before/After는 동일 합성 프로그램·교직원·desktop 및 390x844 조건에서 촬영했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.

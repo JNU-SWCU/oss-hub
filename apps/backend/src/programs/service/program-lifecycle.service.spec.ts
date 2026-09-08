@@ -1,8 +1,5 @@
 import { AccountStatus, Prisma, ProgramLifecycle } from '@prisma/client';
-import {
-  PROGRAM_DELETION_AUDIT_ACTIONS,
-  PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
-} from '../../audit-log/audit-log-metadata';
+import { PROGRAM_DELETION_AUDIT_ACTIONS } from '../../audit-log/audit-log-metadata';
 import type { AuditLogRecordInput } from '../../audit-log/audit-log.repository';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import type { PrismaService } from '../../prisma/prisma.service';
@@ -12,122 +9,6 @@ import {
   ProgramErrorCode,
 } from '../program-error-code.enum';
 import { ProgramLifecycleService } from './program-lifecycle.service';
-
-// 합성 데이터만 사용한다 (docs/rules/security.md)
-function createService(
-  overrides: {
-    readonly user?: unknown;
-    readonly program?: unknown;
-  } = {},
-) {
-  const userFindUnique = jest.fn().mockResolvedValue(
-    overrides.user ?? {
-      hasStaffAccess: false,
-      hasAdminAccess: true,
-      accountStatus: AccountStatus.ACTIVE,
-    },
-  );
-  const programFindUnique = jest.fn().mockResolvedValue(
-    'program' in overrides
-      ? overrides.program
-      : {
-          id: 'program-1',
-          name: '합성 프로그램 이름',
-          lifecycle: ProgramLifecycle.PUBLISHED,
-        },
-  );
-  const programUpdate = jest.fn().mockResolvedValue(undefined);
-  const record = jest
-    .fn<Promise<void>, [AuditLogRecordInput]>()
-    .mockResolvedValue(undefined);
-  const transactionClient = {
-    program: { findUnique: programFindUnique, update: programUpdate },
-  };
-  const prisma = {
-    user: { findUnique: userFindUnique },
-    $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-      callback(transactionClient),
-    ),
-  } as unknown as PrismaService;
-  const auditLog = { record } as unknown as AuditLogService;
-  const service = new ProgramLifecycleService(prisma, auditLog);
-  return { service, userFindUnique, programFindUnique, programUpdate, record };
-}
-
-describe('ProgramLifecycleService', () => {
-  it('lifecycle 변경 시 select에 name을 포함해 조회하고, 감사 metadata에 이름 스냅샷을 담는다', async () => {
-    const { service, programFindUnique, record } = createService();
-
-    await service.update(1001n, 'program-1', ProgramLifecycle.ARCHIVED);
-
-    expect(programFindUnique).toHaveBeenCalledWith({
-      where: { id: 'program-1' },
-      select: { id: true, name: true, lifecycle: true },
-    });
-    expect(record).toHaveBeenCalledTimes(1);
-    expect(record.mock.calls[0]?.[0]).toMatchObject({
-      action: PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_ARCHIVED,
-      targetType: 'PROGRAM',
-      targetId: 'program-1',
-      metadata: {
-        schemaVersion: 2,
-        programName: '합성 프로그램 이름',
-        before: { lifecycle: ProgramLifecycle.PUBLISHED },
-        after: { lifecycle: ProgramLifecycle.ARCHIVED },
-      },
-    });
-  });
-
-  it('PROGRAM_RESTORED에도 같은 이름 스냅샷 규약을 적용한다', async () => {
-    const { service, record } = createService({
-      program: {
-        id: 'program-2',
-        name: '합성 복구 대상',
-        lifecycle: ProgramLifecycle.ARCHIVED,
-      },
-    });
-
-    await service.update(1001n, 'program-2', ProgramLifecycle.PUBLISHED);
-
-    expect(record.mock.calls[0]?.[0]).toMatchObject({
-      action: PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_RESTORED,
-      metadata: {
-        programName: '합성 복구 대상',
-      },
-    });
-  });
-
-  it('lifecycle이 이미 같으면 감사 행을 쓰지 않는다', async () => {
-    const { service, record } = createService();
-
-    await service.update(1001n, 'program-1', ProgramLifecycle.PUBLISHED);
-
-    expect(record).not.toHaveBeenCalled();
-  });
-
-  it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던진다', async () => {
-    const { service } = createService({ program: null });
-
-    await expect(
-      service.update(1001n, 'missing-program', ProgramLifecycle.ARCHIVED),
-    ).rejects.toMatchObject({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
-    });
-  });
-
-  it('STAFF/ADMIN이 아니거나 비활성 계정이면 거부하고 조회조차 하지 않는다', async () => {
-    const { service, programFindUnique } = createService({
-      user: { role: 'STUDENT', accountStatus: AccountStatus.ACTIVE },
-    });
-
-    await expect(
-      service.update(1001n, 'program-1', ProgramLifecycle.ARCHIVED),
-    ).rejects.toMatchObject({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.STAFF_APPROVAL_REQUIRED],
-    });
-    expect(programFindUnique).not.toHaveBeenCalled();
-  });
-});
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 function createDeleteService(
@@ -257,7 +138,7 @@ function createDeleteService(
 }
 
 // 권한은 #1095로 교직원 전권이 됐다 — #875가 정한 「STAFF는 작성자여도 403」 계약이
-// 여기서 뒤집힌다. 바뀐 것은 누가 할 수 있는가 하나이고, 차단 조건·보호 표시·감사 로그는
+// 여기서 뒤집힌다. 바뀐 것은 누가 할 수 있는가 하나이고, 차단 조건·감사 로그는
 // 그대로임을 아래 케이스들이 계속 지킨다.
 describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 (#1095, 종전 #875)', () => {
   it('ADMIN이 차단 사유 없는 프로그램을 삭제하면 자식 스캐폴딩을 지우고 감사 로그를 남긴다', async () => {
@@ -404,8 +285,6 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
     expect(programDelete).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
   });
-
-  // 안전장치 회귀 (#1095): 보호 표시는 일반 삭제 경로에서도 교직원을 막는다.
 
   it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던진다', async () => {
     const { service } = createDeleteService({ program: null });
@@ -1148,8 +1027,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     expect(record).not.toHaveBeenCalled();
   });
 
-  // 안전장치 회귀 (#1095): 보호 표시는 권한과 무관하다 — 교직원도 우회하지 못한다.
-
   it('program을 찾지 못하면 PROGRAM_NOT_FOUND를 던지고 자식 삭제를 시작하지 않는다', async () => {
     const { service, programDelete } = createPurgeService({ program: null });
 
@@ -1175,6 +1052,28 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     expect(result.id).toBe('program-1');
     expect(result.deleted).toBe(true);
     expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+  });
+
+  it('ARCHIVED 프로그램도 별도 lifecycle 변경 없이 직접 purge한다', async () => {
+    const { service, programDelete, record } = createPurgeService({
+      program: {
+        id: 'program-1',
+        name: '합성 보관 프로그램',
+        lifecycle: ProgramLifecycle.ARCHIVED,
+      },
+    });
+
+    await expect(
+      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
+    ).resolves.toMatchObject({ id: 'program-1', deleted: true });
+
+    expect(programDelete).toHaveBeenCalledWith({ where: { id: 'program-1' } });
+    expect(record.mock.calls[0]?.[0]).toMatchObject({
+      metadata: {
+        programName: '합성 보관 프로그램',
+        lifecycle: ProgramLifecycle.ARCHIVED,
+      },
+    });
   });
 
   // TOCTOU(#F2): 확인 화면과 purge 사이에 생긴 행을 관리자가 못 보고 지우지 않도록,

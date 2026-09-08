@@ -48,7 +48,6 @@ vi.mock('./api', async (importOriginal) => ({
   createMilestone: vi.fn(),
   deleteMilestone: vi.fn(),
   updateProgram: vi.fn(),
-  updateProgramLifecycle: vi.fn(),
 }));
 
 vi.mock('./milestone-document-api', () => ({

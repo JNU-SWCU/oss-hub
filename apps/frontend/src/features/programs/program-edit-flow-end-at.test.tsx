@@ -66,20 +66,14 @@ function Harness({
       isSaving={isSaving}
       milestoneEditor={{ mode: 'closed' }}
       deleteTarget={null}
-
       isMilestoneBusy={false}
-      isLifecycleBusy={false}
-      isLifecycleConfirming={false}
-      lifecycleError={null}
       canDeleteProgram={false}
+      onProgramDeleted={noOp}
       onFieldChange={(field, value) => {
         setForm((current) => updateProgramForm(current, field, value));
         setDirty((current) => addDirtyField(current, field));
       }}
       onSubmit={vi.fn()}
-      onRequestLifecycleToggle={noOp}
-      onCancelLifecycleToggle={noOp}
-      onConfirmLifecycleToggle={noOp}
       onAddMilestone={noOp}
       onEditMilestone={noOp}
       onCancelMilestone={noOp}

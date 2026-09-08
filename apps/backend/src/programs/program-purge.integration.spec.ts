@@ -12,6 +12,7 @@ import {
   Prisma,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
+  ProgramLifecycle,
   ProgramPurgeFileTombstoneLifecycle,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
@@ -297,7 +298,10 @@ async function ensureGlobalActors(): Promise<void> {
   });
 }
 
-async function seedFullChildGraph(label: string): Promise<Fixture> {
+async function seedFullChildGraph(
+  label: string,
+  programLifecycle: ProgramLifecycle = ProgramLifecycle.PUBLISHED,
+): Promise<Fixture> {
   const p = (suffix: string) => `${PREFIX}${label}:${suffix}`;
   const ordinal = labelOrdinal(label);
   const programId = p('program');
@@ -364,6 +368,7 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
       organizer: 'Synthetic OSS Center',
       trackType: ProgramTrackType.CURRICULAR,
       category: ProgramCategory.BASIC,
+      lifecycle: programLifecycle,
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -853,8 +858,33 @@ async function seedFullChildGraph(label: string): Promise<Fixture> {
   };
 }
 
+async function seedStandaloneProgram(label: string): Promise<string> {
+  const programId = `${PREFIX}${label}:program`;
+  await prisma.program.create({
+    data: {
+      id: programId,
+      name: `합성 보존 프로그램 ${label}`,
+      organizer: 'Synthetic OSS Center',
+      trackType: ProgramTrackType.CURRICULAR,
+      category: ProgramCategory.BASIC,
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      applicationTemplateKey: 'capstone-v1',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-08-05T00:00:00.000Z'),
+      startAt: new Date('2026-08-06T00:00:00.000Z'),
+      endAt: new Date('2026-09-30T00:00:00.000Z'),
+      teamMinSize: 1,
+      teamMaxSize: 4,
+      description: 'Synthetic unrelated program fixture',
+      repositoryProvisioningEnabled: false,
+    },
+  });
+  return programId;
+}
+
 /**
- * ADMIN이 확인 화면에서 본 4종 범위 스냅샷을 재현한다 — GET edit과 같은 단일 스냅샷 쿼리를
+ * ADMIN이 확인 화면에서 본 5종 범위 스냅샷을 재현한다 — GET edit과 같은 단일 스냅샷 쿼리를
  * 단순 읽기 트랜잭션으로 감싸 쓴다. 테스트가 purge 호출 직전 이 값을 expectedScope로 보내면
  * 실제 UI의 "확인한 범위를 그대로 보낸다" 계약과 같은 모양이 된다.
  */
@@ -1030,7 +1060,18 @@ describe('Program purge integration — full child graph, worker file deletion, 
   });
 
   it('purges the entire child graph, defers file deletion to the worker, and preserves+detaches EXTERNAL_PUBLIC repositories', async () => {
-    const fixture = await seedFullChildGraph('full');
+    const fixture = await seedFullChildGraph(
+      'full',
+      ProgramLifecycle.PUBLISHED,
+    );
+    const applicant = await prisma.application.findUniqueOrThrow({
+      where: { id: fixture.applicationId },
+      select: { applicantId: true },
+    });
+    const applicantBefore = await prisma.user.findUniqueOrThrow({
+      where: { id: applicant.applicantId },
+      select: { id: true, githubId: true, accountStatus: true },
+    });
 
     const before = await programChildRowCounts(fixture.programId, [
       fixture.applicationId,
@@ -1111,6 +1152,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.toBeNull();
+    await expect(
+      prisma.user.findUnique({
+        where: { id: applicant.applicantId },
+        select: { id: true, githubId: true, accountStatus: true },
+      }),
+    ).resolves.toEqual(applicantBefore);
 
     // Notification: APPLICATION_DECISION 본체와 그 ACKNOWLEDGED 확인 기록, DEADLINE_DIGEST
     // 모두 삭제된다.
@@ -1269,6 +1316,78 @@ describe('Program purge integration — full child graph, worker file deletion, 
       orderBy: { occurredAt: 'desc' },
     });
     expect(audit?.action).toBe('PROGRAM_DELETED');
+  });
+
+  it('purges a populated ARCHIVED program while preserving its account and unrelated programs', async () => {
+    const fixture = await seedFullChildGraph(
+      'archived',
+      ProgramLifecycle.ARCHIVED,
+    );
+    const unrelatedProgramId = await seedStandaloneProgram('unrelated');
+    const applicant = await prisma.application.findUniqueOrThrow({
+      where: { id: fixture.applicationId },
+      select: { applicantId: true },
+    });
+    const accountBefore = await prisma.user.findUniqueOrThrow({
+      where: { id: applicant.applicantId },
+      select: { id: true, githubId: true, accountStatus: true },
+    });
+
+    await expect(
+      prisma.program.findUnique({
+        where: { id: fixture.programId },
+        select: { lifecycle: true },
+      }),
+    ).resolves.toEqual({ lifecycle: ProgramLifecycle.ARCHIVED });
+
+    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
+    expect(expectedScope).toMatchObject({
+      applications: 2,
+      teams: 2,
+      boardPosts: 1,
+      submissions: 1,
+      submissionEvents: 3,
+    });
+    await expect(
+      lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
+    ).resolves.toMatchObject({
+      id: fixture.programId,
+      deleted: true,
+      deletedCounts: {
+        applications: 2,
+        teams: 2,
+        boardPosts: 1,
+        submissions: 1,
+        submissionFiles: 1,
+      },
+    });
+
+    await expect(
+      prisma.program.findUnique({ where: { id: fixture.programId } }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.user.findUnique({
+        where: { id: applicant.applicantId },
+        select: { id: true, githubId: true, accountStatus: true },
+      }),
+    ).resolves.toEqual(accountBefore);
+    await expect(
+      prisma.program.findUnique({
+        where: { id: unrelatedProgramId },
+        select: { id: true, lifecycle: true },
+      }),
+    ).resolves.toEqual({
+      id: unrelatedProgramId,
+      lifecycle: ProgramLifecycle.PUBLISHED,
+    });
+    const audit = await prisma.auditLog.findFirst({
+      where: { targetType: 'PROGRAM', targetId: fixture.programId },
+      orderBy: { occurredAt: 'desc' },
+    });
+    expect(audit?.action).toBe('PROGRAM_DELETED');
+    expect(audit?.metadata).toMatchObject({
+      lifecycle: ProgramLifecycle.ARCHIVED,
+    });
   });
 
   it('이미 삭제 완료된 SubmissionFile은 완료 상태를 보존한 채 FK만 분리하고 purge한다', async () => {

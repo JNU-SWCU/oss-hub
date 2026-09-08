@@ -12,7 +12,6 @@ import type {
 import { ProgramEditBasicForm } from './program-edit-basic-form';
 import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
-import { ProgramEditLifecycleSection } from './program-edit-lifecycle-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
 import {
   type ProgramEditableField,
@@ -50,19 +49,14 @@ interface ProgramEditViewProps {
     string,
     readonly EditableMilestoneDocument[]
   >;
-  readonly isLifecycleBusy: boolean;
-  readonly isLifecycleConfirming: boolean;
-  readonly lifecycleError: string | null;
   /** 삭제 권한(교직원 또는 관리자)이 있는 사용자만 「위험 영역」(영구 삭제)을 본다(#1095). */
   readonly canDeleteProgram: boolean;
+  readonly onProgramDeleted: (notice?: string) => void;
   readonly onFieldChange: (
     field: ProgramEditableField,
     value: string | boolean,
   ) => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  readonly onRequestLifecycleToggle: () => void;
-  readonly onCancelLifecycleToggle: () => void;
-  readonly onConfirmLifecycleToggle: () => void;
   readonly onAddMilestone: () => void;
   readonly onEditMilestone: (milestone: EditableMilestone) => void;
   readonly onCancelMilestone: () => void;
@@ -139,15 +133,10 @@ export function ProgramEditView({
   latestMilestoneSnapshot,
   milestoneSnapshotLoadFailed,
   canonicalDocumentsByMilestoneId,
-  isLifecycleBusy,
-  isLifecycleConfirming,
-  lifecycleError,
   canDeleteProgram,
+  onProgramDeleted,
   onFieldChange,
   onSubmit,
-  onRequestLifecycleToggle,
-  onCancelLifecycleToggle,
-  onConfirmLifecycleToggle,
   onAddMilestone,
   onEditMilestone,
   onCancelMilestone,
@@ -282,22 +271,16 @@ export function ProgramEditView({
             />
           </CardContent>
         </Card>
-        <ProgramEditLifecycleSection
-          lifecycle={program.lifecycle}
-          isBusy={isLifecycleBusy}
-          isConfirming={isLifecycleConfirming}
-          error={lifecycleError}
-          onRequestToggle={onRequestLifecycleToggle}
-          onCancelToggle={onCancelLifecycleToggle}
-          onConfirmToggle={onConfirmLifecycleToggle}
-        />
-        <div className="border-t border-border pt-10">
-          <ProgramEditDangerZoneSection
-            programId={program.id}
-            programName={program.name}
-            canDeleteProgram={canDeleteProgram}
-          />
-        </div>
+        {canDeleteProgram ? (
+          <div className="border-t border-border pt-10">
+            <ProgramEditDangerZoneSection
+              programId={program.id}
+              programName={program.name}
+              canDeleteProgram
+              onDeleted={onProgramDeleted}
+            />
+          </div>
+        ) : null}
       </div>
     </PageBody>
   );

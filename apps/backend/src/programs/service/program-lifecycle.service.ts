@@ -3,14 +3,11 @@ import {
   AccountStatus,
   Prisma,
   ProgramAuthoringUploadLifecycle,
-  ProgramLifecycle,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import {
   createProgramDeletionAuditMetadata,
-  createProgramLifecycleAuditMetadata,
   PROGRAM_DELETION_AUDIT_ACTIONS,
-  PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
   type ProgramDeletionAuditBlockingCounts,
 } from '../../audit-log/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/audit-log.service';
@@ -34,65 +31,6 @@ export class ProgramLifecycleService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
   ) {}
-
-  async update(
-    githubId: bigint,
-    programId: string,
-    lifecycle: ProgramLifecycle,
-  ) {
-    const actor = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-    if (
-      actor?.accountStatus !== AccountStatus.ACTIVE ||
-      (!actor.hasStaffAccess && !actor.hasAdminAccess)
-    ) {
-      throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.STAFF_APPROVAL_REQUIRED],
-      );
-    }
-
-    return this.prisma.$transaction(async (transaction) => {
-      const program = await transaction.program.findUnique({
-        where: { id: programId },
-        select: { id: true, name: true, lifecycle: true },
-      });
-      if (!program) {
-        throw new DomainException(
-          PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
-        );
-      }
-      if (program.lifecycle !== lifecycle) {
-        await transaction.program.update({
-          where: { id: programId },
-          data: { lifecycle },
-        });
-        await this.auditLog.record(
-          {
-            actorGithubId: githubId,
-            action:
-              lifecycle === ProgramLifecycle.ARCHIVED
-                ? PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_ARCHIVED
-                : PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_RESTORED,
-            targetType: 'PROGRAM',
-            targetId: programId,
-            metadata: createProgramLifecycleAuditMetadata({
-              programName: program.name,
-              before: { lifecycle: program.lifecycle },
-              after: { lifecycle },
-            }),
-          },
-          transaction,
-        );
-      }
-      return { id: programId, lifecycle };
-    });
-  }
 
   /**
    * 교직원·관리자의 영구 삭제. 신청·팀·제출물·게시글 중 하나라도 남아 있으면 409로 막는다 —
@@ -206,7 +144,7 @@ export class ProgramLifecycleService {
    *
    * `delete`와 같은 이유로 #1095에서 교직원까지 넓혔다 — 지금 자식 데이터 없이 지울 수 있는
    * 프로그램이 없어 「일반 삭제만 교직원에게」는 실질적으로 아무것도 바꾸지 못하기 때문에,
-   * 두 경로를 함께 옮긴다. 아래 확인 절차(범위 스냅샷 재확인·이름 재입력은 화면 몫)와
+   * 두 경로를 함께 옮긴다. 아래 확인 절차(범위 스냅샷 재확인)와
    * 감사 로그는 조금도 약해지지 않는다.
    *
    * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해

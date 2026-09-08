@@ -9,7 +9,6 @@ import { ProgramEditorController } from './controller/program-editor.controller'
 import { MilestonesController } from './controller/milestones.controller';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
 import { ProgramEditorService } from './service/program-editor.service';
-import { ProgramLifecycleService } from './service/program-lifecycle.service';
 import type {
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
@@ -79,13 +78,20 @@ async function getMilestoneEdit(): Promise<Response> {
   });
 }
 
+async function patchLifecycle(body: object): Promise<Response> {
+  return fetch(`${baseUrl}/api/v1/programs/program-1/lifecycle`, {
+    method: 'PATCH',
+    headers: { connection: 'close', 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramEditorController, MilestonesController],
     providers: [
       ProgramEditorService,
       { provide: ProgramEditorRepository, useValue: repository },
-      { provide: ProgramLifecycleService, useValue: { update: jest.fn() } },
     ],
   })
     .overrideGuard(SessionGuard)
@@ -156,6 +162,13 @@ beforeEach(() => {
 
 afterAll(async () => {
   await application?.close();
+});
+
+it('does not expose the removed lifecycle mutation route', async () => {
+  const response = await patchLifecycle({ lifecycle: 'ARCHIVED' });
+
+  expect(response.status).toBe(404);
+  expect(store.updateProgram.mock.calls).toHaveLength(0);
 });
 
 it('returns field errors for an invalid application period through the API ProblemDetail contract', async () => {
