@@ -20,6 +20,7 @@ import {
   adoptProgramGraph,
   assertAdoptedProgramId,
   originHeaders,
+  newApplicationResourceErrors,
   programIdFromDetailUrl,
   resetProgramAuthoringControl,
   selectScheduleRange,
@@ -45,14 +46,15 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     const authorPage = await authSeedPage('staff-revocable');
 
     await authorPage.goto('/programs/new');
-    await authorPage.getByRole('radio', { name: '기본' }).check();
-    await authorPage.getByRole('button', { name: '계속' }).click();
     await authorPage
       .getByLabel('프로그램명 *')
       .fill(PROGRAM_AUTHORING_E2E.programName);
     await authorPage
       .getByLabel('주관기관/학과 *')
       .fill('e2e:program-authoring:organizer');
+    await authorPage
+      .getByLabel('교과/비교과 *')
+      .selectOption('EXTRACURRICULAR');
     await authorPage.getByLabel('최소').fill('1');
     await authorPage.getByLabel('최대').fill('1');
     await authorPage
@@ -102,7 +104,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await milestoneDialog
       .getByLabel('마일스톤 이름 *')
       .fill(PROGRAM_AUTHORING_E2E.informationalMilestoneName);
-    await milestoneDialog.getByLabel('공지사항').fill('안내용 마일스톤');
+    await milestoneDialog.getByLabel('운영자 공지').fill('안내용 마일스톤');
     await milestoneDialog.getByRole('button', { name: '저장' }).click();
 
     await authorPage.getByRole('button', { name: '마일스톤 추가' }).click();
@@ -188,9 +190,14 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     const graph = await adoptProgramGraph(authorPage, programId);
     assertAdoptedProgramId(graph, programId);
     const staffPage = await programAuthoringActorPage('staff');
-    const studentPage = await programAuthoringActorPage('student');
-    const foreignStudentPage =
-      await programAuthoringActorPage('foreignStudent');
+    const studentPage = await programAuthoringActorPage(
+      'student',
+      newApplicationResourceErrors(programId),
+    );
+    const foreignStudentPage = await programAuthoringActorPage(
+      'foreignStudent',
+      newApplicationResourceErrors(programId),
+    );
 
     await submitProgramApplication(studentPage, programId, 'new');
     await expectApiStatus(
@@ -364,7 +371,9 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     // 승인된 두 팀 중 학생 본인 팀은 제출을 마쳤고 외부 학생 팀은 미제출이다.
     // 수합 화면이 두 상태를 함께 반영하는지 이 수로 확인한다.
     await expect(
-      staffPage.getByRole('button', { name: /필수 서류 미제출 1팀/ }),
+      staffPage.getByRole('button', {
+        name: /^(?:필수 서류 미제출|미제출 있음) 1팀$/,
+      }),
     ).toBeVisible();
     await staffPage
       .getByRole('button', {

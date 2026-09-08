@@ -12,6 +12,7 @@ import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import { adoptE2eProgramGraph } from './e2e-program-authoring-graph-adoption';
 import { ensureE2eProgramAuthoringActors } from './e2e-program-authoring-actors';
+import { deleteE2eProgramDeadlineClaims } from './e2e-program-authoring-notification-cleanup';
 import type { E2eExternalCapture } from './e2e-external-port-registry';
 import type {
   E2eProgramAuthoringGraph,
@@ -62,6 +63,7 @@ export class E2eProgramAuthoringFixture {
         select: { id: true },
       });
       const applicationIds = applications.map(({ id }) => id);
+      await deleteE2eProgramDeadlineClaims(transaction, E2E_PROGRAM_ID);
       await transaction.notification.deleteMany({
         where: { userId: { in: [E2E_STAFF_ID, E2E_STUDENT_ID] } },
       });

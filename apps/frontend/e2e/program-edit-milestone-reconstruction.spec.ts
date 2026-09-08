@@ -24,6 +24,36 @@ const longMilestoneName =
 test.describe('마일스톤 편집 재구성', () => {
   test.use({ timezoneId: 'UTC' });
 
+  test('모바일 마일스톤 추가의 달력은 날짜 크기를 유지하며 가로로 넘치지 않는다', async ({
+    authSeedPage,
+    programAuthoringActorPage,
+  }) => {
+    const controlPage = await authSeedPage('admin-confirmed');
+    await resetProgramAuthoringControl(controlPage);
+    const programId = await fixtureProgramId(controlPage);
+    const staffPage = await programAuthoringActorPage('staff');
+    await staffPage.setViewportSize({ width: 390, height: 844 });
+    await staffPage.goto(`/programs/${encodeURIComponent(programId)}/edit`);
+    await staffPage
+      .locator('#milestones')
+      .getByRole('button', { name: '추가', exact: true })
+      .click();
+    await expect(staffPage.getByLabel('마일스톤 이름 *')).toBeVisible();
+    await expectNoHorizontalOverflow(staffPage);
+    const day = staffPage.locator('[data-calendar-date]').first();
+    const bounds = await day.boundingBox();
+    expect(bounds?.width).toBeGreaterThanOrEqual(44);
+    expect(bounds?.height).toBeGreaterThanOrEqual(44);
+    await staffPage.setViewportSize({ width: 390, height: 440 });
+    await expectNoHorizontalOverflow(staffPage);
+    await staffPage
+      .getByRole('button', { name: '마일스톤 저장', exact: true })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      staffPage.getByRole('button', { name: '마일스톤 저장', exact: true }),
+    ).toBeVisible();
+  });
+
   test('저장 전 취소와 기본 일정 적용은 쓰지 않고 모바일 본문과 footer가 도달 가능하다', async ({
     authSeedPage,
     programAuthoringActorPage,
@@ -52,6 +82,7 @@ test.describe('마일스톤 편집 재구성', () => {
       staffPage.locator('[data-schedule-range-selector]'),
     ).toHaveCount(0);
     await expect(staffPage.locator('[data-calendar-date]')).toHaveCount(0);
+    await expectNoHorizontalOverflow(staffPage);
 
     const basicName = staffPage.getByLabel('프로그램명 *');
     await basicName.fill('e2e:basic-local-value');
@@ -69,12 +100,14 @@ test.describe('마일스톤 편집 재구성', () => {
     const calendar = staffPage.getByLabel('운영 기간 날짜 선택 달력');
     await expect(calendar).toBeVisible();
     await expect(calendar.locator('[data-calendar-date]')).not.toHaveCount(0);
+    await expectNoHorizontalOverflow(staffPage);
     await staffPage.getByRole('button', { name: '취소', exact: true }).click();
     await expect(operationEdit).toBeFocused();
     await expect(basicName).toHaveValue('e2e:basic-local-value');
 
     await staffPage.getByRole('button', { name: '신청 기간 수정' }).click();
     const applicationDialog = staffPage.getByRole('dialog');
+    await expectNoHorizontalOverflow(staffPage);
     const applicationStartTime =
       applicationDialog.getByLabel('신청 기간 시작 시각');
     const originalApplicationStartTime =
@@ -82,7 +115,7 @@ test.describe('마일스톤 편집 재구성', () => {
     const changedApplicationStartTime =
       originalApplicationStartTime === '00:00' ? '00:01' : '00:00';
     await applicationStartTime.fill(changedApplicationStartTime);
-    await applicationDialog.getByRole('button', { name: '적용' }).click();
+    await applicationDialog.getByRole('button', { name: '날짜 적용' }).click();
     await expect(
       staffPage.locator('[data-schedule-summary="application"]'),
     ).toContainText(changedApplicationStartTime);
@@ -94,6 +127,9 @@ test.describe('마일스톤 편집 재구성', () => {
     const edit = milestoneCard.getByRole('button', { name: /수정$/ });
     await edit.click();
     const dialog = staffPage.getByRole('dialog');
+    await expect(dialog).toContainText('운영 기간');
+    await expect(dialog).not.toContainText('신청 기간');
+    await expectNoHorizontalOverflow(staffPage);
     await dialog.getByLabel('마일스톤 이름 *').fill('e2e:discarded-milestone');
     const discardedItem = dialog.getByRole('group', {
       name: `${originalDocumentName} 제출 항목`,
@@ -104,10 +140,10 @@ test.describe('마일스톤 편집 재구성', () => {
       buffer: Buffer.from('%PDF-1.4\ndiscard\n'),
     });
     await dialog
-      .getByRole('button', { name: '저장', exact: true })
+      .getByRole('button', { name: '마일스톤 저장', exact: true })
       .scrollIntoViewIfNeeded();
     await expect(
-      dialog.getByRole('button', { name: '저장', exact: true }),
+      dialog.getByRole('button', { name: '마일스톤 저장', exact: true }),
     ).toBeVisible();
     await dialog.getByRole('button', { name: '취소', exact: true }).click();
     await staffPage
@@ -130,6 +166,7 @@ test.describe('마일스톤 편집 재구성', () => {
     await edit.click();
     const compactDialog = staffPage.getByRole('dialog');
     await compactDialog.getByLabel('마일스톤 이름 *').fill(longMilestoneName);
+    await expectNoHorizontalOverflow(staffPage);
     await compactDialog
       .getByLabel('운영자 공지')
       .fill(
@@ -152,10 +189,10 @@ test.describe('마일스톤 편집 재구성', () => {
     await localItemsHeading.scrollIntoViewIfNeeded();
     await expect(localItemsHeading).toHaveText('제출 항목');
     await compactDialog
-      .getByRole('button', { name: '저장', exact: true })
+      .getByRole('button', { name: '마일스톤 저장', exact: true })
       .scrollIntoViewIfNeeded();
     await expect(
-      compactDialog.getByRole('button', { name: '저장', exact: true }),
+      compactDialog.getByRole('button', { name: '마일스톤 저장', exact: true }),
     ).toBeVisible();
     await expect(
       compactDialog.getByRole('button', { name: '취소', exact: true }),
@@ -188,7 +225,7 @@ test.describe('마일스톤 편집 재구성', () => {
             .includes(`/api/v1/programs/${encodeURIComponent(programId)}`) &&
           response.request().method() === 'PATCH',
       ),
-      staffPage.getByRole('button', { name: '변경사항 저장' }).click(),
+      staffPage.getByRole('button', { name: '프로그램 정보 저장' }).click(),
     ]);
     expect(programPatch.ok()).toBe(true);
     expect(writes.filter((entry) => entry.kind === 'program')).toHaveLength(1);
@@ -235,7 +272,7 @@ test.describe('마일스톤 편집 재구성', () => {
       .getByLabel('e2e:canonical-milestone 종료일')
       .fill(nextDate(originalDueDate));
     await scheduleDialog
-      .getByRole('button', { name: '저장', exact: true })
+      .getByRole('button', { name: '날짜 적용', exact: true })
       .click();
     const item = dialog.getByRole('group', {
       name: `${originalDocumentName} 제출 항목`,
@@ -246,7 +283,7 @@ test.describe('마일스톤 편집 재구성', () => {
       name: 'e2e:canonical-document 제출 항목',
     });
     const saveRenamedItem = renamedItem.getByRole('button', {
-      name: '제출물 이름 저장',
+      name: '제출물 이름 적용',
     });
     await expect(saveRenamedItem).toBeEnabled();
     await saveRenamedItem.click();
@@ -264,7 +301,7 @@ test.describe('마일스톤 편집 재구성', () => {
       name: 'e2e:added-document 제출 항목',
     });
     const saveAddedItem = namedAddedItem.getByRole('button', {
-      name: '제출물 이름 저장',
+      name: '제출물 이름 적용',
     });
     await expect(saveAddedItem).toBeEnabled();
     await saveAddedItem.click();
@@ -281,7 +318,9 @@ test.describe('마일스톤 편집 재구성', () => {
           response.url().includes(`/api/v1/milestones/${encodedMilestoneId}`) &&
           response.request().method() === 'PATCH',
       ),
-      dialog.getByRole('button', { name: '저장', exact: true }).click(),
+      dialog
+        .getByRole('button', { name: '마일스톤 저장', exact: true })
+        .click(),
     ]);
     expect(patch.ok()).toBe(true);
     expect(milestonePatchBody(patch)).toMatchObject({
@@ -386,10 +425,14 @@ test.describe('마일스톤 편집 재구성', () => {
       mimeType: 'application/pdf',
       buffer: revisedFileBytes,
     });
-    await dialog.getByRole('button', { name: '저장', exact: true }).click();
+    await dialog
+      .getByRole('button', { name: '마일스톤 저장', exact: true })
+      .click();
     await expect(dialog.getByText('알려진 검증 오류입니다.')).toBeVisible();
     await expect(dialog.getByText(revisedDocumentName)).toBeVisible();
-    await dialog.getByRole('button', { name: '저장', exact: true }).click();
+    await dialog
+      .getByRole('button', { name: '마일스톤 저장', exact: true })
+      .click();
     await expect(staffPage.getByRole('dialog')).toHaveCount(0);
     expect(fulfilledRequests).toEqual(['PATCH']);
     expect(fulfilledPaths).toEqual([expectedPathname]);
@@ -438,7 +481,9 @@ test.describe('마일스톤 편집 재구성', () => {
     await dialog
       .getByLabel('마일스톤 이름 *')
       .fill('e2e:conflict-input-survives');
-    await dialog.getByRole('button', { name: '저장', exact: true }).click();
+    await dialog
+      .getByRole('button', { name: '마일스톤 저장', exact: true })
+      .click();
     await expect(
       dialog.getByText(
         '다른 변경과 충돌했습니다. 입력은 유지됩니다. 새로고침한 뒤 내용을 확인하세요.',
@@ -448,7 +493,7 @@ test.describe('마일스톤 편집 재구성', () => {
       'e2e:conflict-input-survives',
     );
     await expect(
-      dialog.getByRole('button', { name: '저장', exact: true }),
+      dialog.getByRole('button', { name: '마일스톤 저장', exact: true }),
     ).toBeDisabled();
     expect(fulfilledRequests).toEqual(['PATCH']);
     expect(fulfilledPaths).toEqual([expectedPathname]);
@@ -494,27 +539,29 @@ test.describe('마일스톤 편집 재구성', () => {
       .click();
     const dialog = staffPage.getByRole('dialog');
     await dialog.getByLabel('마일스톤 이름 *').fill('e2e:unknown-outcome');
-    await dialog.getByRole('button', { name: '저장', exact: true }).click();
+    await dialog
+      .getByRole('button', { name: '마일스톤 저장', exact: true })
+      .click();
     await expect(
       dialog.getByText(
         '저장 결과를 확인할 수 없습니다. 입력은 유지됩니다. 새로고침으로 서버 상태를 확인하세요.',
       ),
     ).toBeVisible();
     await expect(
-      dialog.getByRole('button', { name: '저장', exact: true }),
+      dialog.getByRole('button', { name: '마일스톤 저장', exact: true }),
     ).toBeDisabled();
     await dialog.getByRole('button', { name: '새로고침' }).click();
     await expect(
       dialog.getByRole('button', { name: '최신 서버 상태로 다시 시작' }),
     ).toBeVisible();
     await expect(
-      dialog.getByRole('button', { name: '저장', exact: true }),
+      dialog.getByRole('button', { name: '마일스톤 저장', exact: true }),
     ).toBeDisabled();
     await dialog
       .getByRole('button', { name: '최신 서버 상태로 다시 시작' })
       .click();
     await expect(
-      dialog.getByRole('button', { name: '저장', exact: true }),
+      dialog.getByRole('button', { name: '마일스톤 저장', exact: true }),
     ).toBeEnabled();
     expect(fulfilledRequests).toEqual(['PATCH']);
     expect(fulfilledPaths).toEqual([expectedPathname]);
@@ -525,6 +572,27 @@ type Write = {
   readonly kind: 'milestone' | 'program' | 'upload';
   readonly url: string;
 };
+
+async function expectNoHorizontalOverflow(
+  page: import('@playwright/test').Page,
+) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const surfaces = [
+          document.documentElement,
+          ...document.querySelectorAll<HTMLElement>(
+            '[role="dialog"], [role="dialog"] form > div, [data-testid="program-schedule-calendar-scroll"]',
+          ),
+        ];
+        return surfaces
+          .filter((element) => element.clientWidth > 0)
+          .map((element) => element.scrollWidth - element.clientWidth)
+          .filter((overflow) => overflow > 1);
+      }),
+    )
+    .toEqual([]);
+}
 
 function observeWrites(page: import('@playwright/test').Page): Write[] {
   const writes: Write[] = [];

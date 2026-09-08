@@ -46,7 +46,7 @@ export function ProgramEditMilestoneForm({
       <div
         className={
           layout === 'dialog'
-            ? 'min-h-0 flex-1 overflow-y-auto px-card py-5'
+            ? 'min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-5 sm:px-card'
             : undefined
         }
       >
@@ -81,28 +81,39 @@ export function ProgramEditMilestoneForm({
       <div
         className={
           layout === 'dialog'
-            ? 'flex shrink-0 justify-end gap-2 border-t border-border px-card py-4'
-            : 'flex justify-end gap-2'
+            ? 'grid shrink-0 gap-3 border-t border-border px-3 py-4 sm:px-card'
+            : 'grid gap-3'
         }
       >
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isBusy}
-          data-dialog-cancel={layout === 'dialog' ? '' : undefined}
-        >
-          취소
-        </Button>
-        <Button type="submit" disabled={isBusy || isSaveDisabled}>
-          {isBusy ? '저장 중…' : '저장'}
-        </Button>
+        <p id="milestone-save-scope" className="sr-only">
+          {layout === 'dialog'
+            ? '이름, 일정, 안내, 제출 항목과 양식 변경을 함께 저장합니다.'
+            : '이름, 일정과 안내를 저장합니다.'}
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isBusy}
+            data-dialog-cancel={layout === 'dialog' ? '' : undefined}
+          >
+            취소
+          </Button>
+          <Button
+            type="submit"
+            disabled={isBusy || isSaveDisabled}
+            aria-describedby="milestone-save-scope"
+          >
+            {isBusy ? '저장 중…' : '마일스톤 저장'}
+          </Button>
+        </div>
       </div>
     </form>
   );
   if (layout === 'dialog') return form;
   return (
-    <Card>
+    <Card className="[--card-spacing:--spacing(1)] sm:[--card-spacing:var(--card-padding)]">
       <CardHeader>
         <CardTitle>마일스톤 추가</CardTitle>
       </CardHeader>

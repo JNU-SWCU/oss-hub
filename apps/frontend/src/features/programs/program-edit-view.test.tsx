@@ -107,6 +107,17 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('비교과');
     expect(html).not.toContain('id="program-application-start-at"');
     expect(html).toContain('data-program-schedule-summaries');
+    const basicFieldsEnd = html.indexOf('마감 알림');
+    const scheduleSection = html.indexOf('신청 · 운영 일정');
+    const programSave = html.indexOf('프로그램 정보 저장');
+    expect(basicFieldsEnd).toBeGreaterThan(-1);
+    expect(scheduleSection).toBeGreaterThan(basicFieldsEnd);
+    expect(programSave).toBeGreaterThan(scheduleSection);
+    expect(html).toContain(
+      '기본 정보, 신청·운영 일정, 저장소와 알림 설정을 함께 저장합니다.',
+    );
+    expect(html).toContain('id="program-save-scope" class="sr-only"');
+    expect(html).toContain('aria-describedby="program-save-scope"');
     expect(html).toContain('신청 기간 수정');
     expect(html).toContain('운영 기간 수정');
     expect(html).toContain('class="inline-flex size-11');
@@ -462,7 +473,7 @@ describe('ProgramEditView contract', () => {
     expect(formEnd).toBeGreaterThan(-1);
     const footer = html.slice(footerStart, formEnd);
     expect(footer).not.toContain('justify-between');
-    expect(footer).toContain('변경사항 저장');
+    expect(footer).toContain('프로그램 정보 저장');
   });
 
   // #867 — 게시 상태 전환은 되돌릴 수 있으므로(program-edit-lifecycle-section.tsx

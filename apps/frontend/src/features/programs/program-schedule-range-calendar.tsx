@@ -43,6 +43,7 @@ export function ProgramScheduleRangeCalendar({
   onFocusedDateChange,
   onDateSelect,
   readOnly = false,
+  showScrollHint = true,
 }: {
   readonly events: readonly ProgramScheduleCalendarEvent[];
   readonly activeRange: ProgramScheduleEditableRange;
@@ -54,6 +55,7 @@ export function ProgramScheduleRangeCalendar({
   readonly onFocusedDateChange: (value: string) => void;
   readonly onDateSelect: (value: string) => void;
   readonly readOnly?: boolean;
+  readonly showScrollHint?: boolean;
 }) {
   const summaryId = useId();
   const scrollHintId = `${summaryId}-scroll-hint`;
@@ -182,13 +184,15 @@ export function ProgramScheduleRangeCalendar({
           <li key={event.id}>{scheduleEventSummary(event)}</li>
         ))}
       </ul>
-      <p
-        id={scrollHintId}
-        className="break-keep border-b border-border px-4 py-2 text-small text-muted-foreground sm:hidden"
-      >
-        달력을 좌우로 밀어 전체 날짜를{' '}
-        <span className="whitespace-nowrap">볼 수 있습니다.</span>
-      </p>
+      {showScrollHint ? (
+        <p
+          id={scrollHintId}
+          className="break-keep border-b border-border px-4 py-2 text-small text-muted-foreground sm:hidden"
+        >
+          달력을 좌우로 밀어 전체 날짜를{' '}
+          <span className="whitespace-nowrap">볼 수 있습니다.</span>
+        </p>
+      ) : null}
       <div
         className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         role="region"
@@ -196,9 +200,9 @@ export function ProgramScheduleRangeCalendar({
           readOnly ? '일정 달력 가로 스크롤' : '날짜 선택 달력 가로 스크롤'
         }
         aria-describedby={
-          errorDescribedBy
-            ? `${scrollHintId} ${errorDescribedBy}`
-            : scrollHintId
+          [showScrollHint ? scrollHintId : null, errorDescribedBy]
+            .filter(Boolean)
+            .join(' ') || undefined
         }
         aria-invalid={!readOnly && selectionInvalid ? true : undefined}
         tabIndex={0}
