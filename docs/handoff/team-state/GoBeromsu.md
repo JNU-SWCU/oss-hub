@@ -1434,3 +1434,18 @@
 - 검증: `corepack pnpm exec prettier --check skills/submit-pr-evidence/` 통과, `bash scripts/check-public-safe.sh` 통과, 새 앵커 링크를 heading 목록과 대조했다. 코드 변경이 없어 test/lint/typecheck는 돌리지 않았다.
 - ponytail: `/ponytail-review` 슬래시 커맨드를 이 세션에서 호출할 수 없어(플러그인은 설치돼 있으나 커맨드가 세션 스킬 목록에 없음) 스킬 본문을 읽고 규칙을 손으로 적용했다. 잘라낸 것 둘 — 섹션 위치를 시간 순서에 맞게 옮겼고, 세 문장짜리 불릿을 중첩 불릿으로 쪼갰다.
 - 공개 안전성: 문서만 바꿨고 실명·비밀값·내부 호스트·로컬 경로 없음.
+
+## 2026-09-08 — 리뷰 답글 규칙이 위젯이 말하지 않는 것까지 지우던 것을 바로잡는다 (submit-pr-evidence v1.7.1)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- #1238 병합 뒤 code-reviewer lane이 must-fix 셋을 보고했고 `ci.yml`·`AGENTS.md`에서 직접 재확인했다.
+- browser E2E는 CI lane이 아니라 로컬 수동 게이트인데(`ci.yml:321`) v1.7.0은 그것을 「checks 줄이 말한다」며 답글에서 지우게 했다 — 오히려 사람이 쓰지 않으면 아무 데도 남지 않는 부류라 「초록불이 감추는 것」 쪽으로 옮겼다.
+- 테스트 개수 예시의 금지 근거가 「checks 줄이 말한다」였는데 checks 줄은 lane의 초록불만 말하고 개수는 말하지 않는다 — 근거를 「본문 `## 검증` 절이 말한다」로 고쳤다.
+- `## 검증`은 PR을 열 때 쓰고 끝나는 절이라 리뷰 대응 커밋의 재검증 수치가 갈 자리가 없었다 — 다시 돌렸으면 그 절을 갱신한다고 명시했다.
+- 커밋 해시 금지가 지적↔커밋 매핑까지, 「병합하지 않았습니다」 금지가 「보류했다」까지 번지지 않도록 경계를 달았다.
+- 검증: prettier check 통과, `bash scripts/check-public-safe.sh` 통과. 코드 변경 없음.
+- 공개 안전성: 문서만 바꿨고 실명·비밀값·내부 호스트·로컬 경로 없음.
