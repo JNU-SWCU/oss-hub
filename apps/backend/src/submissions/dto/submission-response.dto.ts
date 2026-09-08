@@ -8,6 +8,7 @@ export type SubmissionBlockedReasonResponseDto =
   'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED';
 
 export interface SubmissionFormResponseDto {
+  readonly fileUpload: { readonly maxBytes: number; readonly maxLabel: string };
   readonly applicationId: string;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly milestone: {
@@ -61,6 +62,7 @@ export interface SubmissionChecklistItemResponseDto {
 }
 
 export interface SubmissionChecklistResponseDto {
+  readonly fileUpload: { readonly maxBytes: number; readonly maxLabel: string };
   readonly applicationId: string;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly items: readonly SubmissionChecklistItemResponseDto[];
