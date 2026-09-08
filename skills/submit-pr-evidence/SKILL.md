@@ -2,7 +2,7 @@
 name: submit-pr-evidence
 description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, clears the twenty UX anti-patterns, runs a ponytail review to cut over-implementation from the diff, runs the public-safety check, and blocks the PR until required evidence is present, since every screen-touching change needs a Before/After capture and a live deployment link in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검", "ponytail", "리뷰 답글", "PR 코멘트".
 metadata:
-  version: "1.7.0"
+  version: "1.7.1"
 ---
 
 # Submit PR Evidence
@@ -256,18 +256,22 @@ checks 줄이 CI와 테스트 결과를 말하고, commit 목록이 무엇이 �
 
 답글에 쓰지 않는 것 — 전부 PR 화면이 이미 말하고 있다.
 
-- `전체 프런트엔드 3,533개 테스트와 빌드·타입·형식 검사를 통과했습니다` — checks 줄이 말한다.
-- `최종 통합 E2E 66개와 CI·public-safe·commitlint가 통과했습니다` — 같은 자리가 말한다.
-- `후속 커밋은 1e7fb362, 9d80f804입니다` — 커밋 목록이 말한다.
-- `병합·배포는 하지 않았습니다` — 열려 있는 PR은 병합되지 않았다는 것을 스스로 보여 준다.
+- `CI·public-safe·commitlint가 통과했습니다` — checks 줄이 lane 이름과 초록불로 말한다.
+- `전체 프런트엔드 3,533개 테스트가 통과했습니다` — 이 수치는 checks 줄이 아니라 **PR 본문 `## 검증` 절**이 말한다. checks 줄은 lane이 초록이라는 것만 말하고 개수는 말하지 않는다([절차 7단계](#절차)가 개수를 요구하는 이유가 그것이다) — 그래서 지우는 것이 아니라 본문 한 자리에 두고 답글에서 되풀이하지 않는 것이다.
+- `후속 커밋은 1e7fb362, 9d80f804입니다` — 커밋 목록이 말한다. 다만 **어느 지적을 어느 커밋에서 고쳤는지**는 커밋 목록이 말하지 않으므로, 지적에 답하며 다는 `3번은 1e7fb362에서 고쳤어`는 잉여가 아니라 답 자체다.
+- `병합·배포는 하지 않았습니다` — 열려 있는 PR은 병합되지 않았다는 것을 스스로 보여 준다. 이 줄이 지우는 것은 **위젯이 이미 보여 주는 상태**뿐이다 — 「보류했다」·「승인을 기다린다」·「후속 티켓은 아직 없다」는 어느 위젯도 보여 주지 않으므로 그대로 쓴다.
 
 수치가 쓸모없어진 것이 아니라 **자리가 하나뿐인 것이다.**
 실행된 suite·test 개수는 PR 본문 `## 검증` 절에 남기고, 답글은 필요하면 그 절을 가리키기만 한다.
+
+`## 검증`은 PR을 열 때 쓰고 끝나는 절이 아니다.
+지적을 고치고 다시 돌렸으면 **그 절을 갱신한다** — 갱신하지 않으면 재검증 수치는 답글에도 본문에도 없게 되고, 절차 7단계에 따라 통과 주장 자체가 성립하지 않는다.
 
 답글에 쓰는 것.
 
 - **지적 한 건에 대한 답** — 고쳤다 / 안 고쳤다와 그 이유 / 판단을 기다린다 중 하나로 끝낸다. 리뷰어가 매긴 번호를 그대로 받아서 답해야 어느 지적의 답인지 세지 않아도 된다.
 - **초록불이 감추는 것** — 한 번 실패했다가 재실행으로 통과한 검사, 원인을 모른 채 넘어간 것, 판단을 기다리느라 보류한 항목.
+  - **browser E2E는 여기에 속한다.** `pnpm --filter frontend e2e`는 CI lane이 아니라 로컬 수동 게이트다([`.github/workflows/ci.yml:321`](https://github.com/JNU-SWCU/oss-hub/blob/main/.github/workflows/ci.yml#L321), [AGENTS.md](../../AGENTS.md)) — 돌렸다는 사실을 어떤 위젯도 표시하지 않으므로 답글에 쓰지 않으면 아무 데도 남지 않는다.
   - checks 줄이 이것들을 초록으로 덮어 버리므로, 사람이 답글에 쓰지 않으면 아무 데도 남지 않는다.
   - 다만 **돌리지 못한 검증**의 자리는 답글이 아니라 본문이다 — [리뷰어에게 의미 없는 로컬 환경 잡음을 본문에 넣지 않는다](#리뷰어에게-의미-없는-로컬-환경-잡음을-본문에-넣지-않는다)를 따른다.
 - **리뷰어가 다음에 할 행동** — 무엇을 봐 달라는 것인지, 무엇을 결정해 달라는 것인지.
