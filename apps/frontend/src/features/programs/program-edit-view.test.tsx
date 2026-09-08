@@ -12,20 +12,9 @@ import { ProgramEditLoadFailure, ProgramEditView } from './program-edit-view';
 
 const noOp = () => undefined;
 
-/**
- * #867에서 새로 생긴 게시 상태 전환 props다.
- * 대부분의 테스트에서 값 자체는 중요하지 않다 — 필요한 테스트만 덮어쓴다.
- */
 const lifecycleActionProps = {
-  isLifecycleBusy: false,
-  isLifecycleConfirming: false,
-  lifecycleError: null,
-  // #875 「위험 영역」 노출 여부. 대부분의 기존 테스트는 STAFF 화면을 보므로
-  // 기본값은 false — ADMIN 전용 동작은 별도 describe에서만 true로 덮어쓴다.
   canDeleteProgram: false,
-  onRequestLifecycleToggle: noOp,
-  onCancelLifecycleToggle: noOp,
-  onConfirmLifecycleToggle: noOp,
+  onProgramDeleted: noOp,
 };
 
 const editableProgram: EditableProgram = {
@@ -476,10 +465,47 @@ describe('ProgramEditView contract', () => {
     expect(footer).toContain('프로그램 정보 저장');
   });
 
-  // #867 — 게시 상태 전환은 되돌릴 수 있으므로(program-edit-lifecycle-section.tsx
-  // 상단 주석) destructive 톤을 쓰지 않는다. PUBLISHED에서는 「프로그램 내리기」가
-  // outline 버튼으로 뜬다.
-  it('PUBLISHED는 게시 상태 섹션과 destructive 톤이 아닌 프로그램 내리기 버튼을 보여준다', () => {
+  it.each(['PUBLISHED', 'ARCHIVED'] as const)(
+    '%s 프로그램은 권한이 있으면 삭제 섹션만 보여준다',
+    (lifecycle) => {
+      const program = { ...editableProgram, lifecycle };
+      const html = renderToStaticMarkup(
+        <ProgramEditView
+          program={program}
+          form={toProgramEditForm(program)}
+          errors={{}}
+          toastMessage={null}
+          generalAlert={null}
+          isSaving={false}
+          milestoneEditor={{ mode: 'closed' }}
+          deleteTarget={null}
+          isMilestoneBusy={false}
+          {...lifecycleActionProps}
+          canDeleteProgram
+          onFieldChange={noOp}
+          onSubmit={vi.fn()}
+          onAddMilestone={noOp}
+          onEditMilestone={noOp}
+          onCancelMilestone={noOp}
+          onMilestoneFieldChange={noOp}
+          onSaveMilestone={vi.fn()}
+          onRequestDeleteMilestone={noOp}
+          onCancelDelete={noOp}
+          onConfirmDelete={vi.fn()}
+        />,
+      );
+
+      expect(html).toContain('위험 영역');
+      expect(html).toContain('>프로그램 삭제<');
+      expect(html.match(/>프로그램 삭제</g)).toHaveLength(1);
+      expect(html).not.toContain('게시 상태');
+      expect(html).not.toContain('프로그램 내리기');
+      expect(html).not.toContain('다시 게시하기');
+      expect(html).not.toContain('프로그램 복구하기');
+    },
+  );
+
+  it('canDeleteProgram=false면 삭제 섹션과 아카이브 안내를 모두 숨긴다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         program={editableProgram}
@@ -505,169 +531,8 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    expect(html).toContain('게시 상태');
-    expect(html).toContain(
-      '현재 프로그램이 공개되어 있으며 신청 기간 안이면 신청을 받고 있습니다.',
-    );
-
-    const buttonStart = html.indexOf('프로그램 내리기');
-    expect(buttonStart).toBeGreaterThan(-1);
-    // data-variant는 class보다 앞서 나오는데, class 문자열 자체가 수백 자라
-    // 400자로는 열린 태그 시작까지 못 돌아간다 — button.tsx의 cva 조합 길이만큼 넉넉히 잡는다.
-    const buttonTag = html.slice(Math.max(0, buttonStart - 1200), buttonStart);
-    expect(buttonTag).toContain('data-variant="outline"');
-    expect(buttonTag).not.toContain('text-destructive');
-  });
-
-  // ARCHIVED에서는 반대 방향 문구를 쓴다 — 예전 문구(「프로그램 복구하기」)는
-  // 다시 나오면 안 된다(#867 완료 기준).
-  it('ARCHIVED는 다시 게시하기를 보여주고 예전 문구를 쓰지 않는다', () => {
-    const archivedProgram: EditableProgram = {
-      ...editableProgram,
-      lifecycle: 'ARCHIVED',
-    };
-    const html = renderToStaticMarkup(
-      <ProgramEditView
-        program={archivedProgram}
-        form={toProgramEditForm(archivedProgram)}
-        errors={{}}
-        toastMessage={null}
-        generalAlert={null}
-        isSaving={false}
-        milestoneEditor={{ mode: 'closed' }}
-        deleteTarget={null}
-        isMilestoneBusy={false}
-        {...lifecycleActionProps}
-        onFieldChange={noOp}
-        onSubmit={vi.fn()}
-        onAddMilestone={noOp}
-        onEditMilestone={noOp}
-        onCancelMilestone={noOp}
-        onMilestoneFieldChange={noOp}
-        onSaveMilestone={vi.fn()}
-        onRequestDeleteMilestone={noOp}
-        onCancelDelete={noOp}
-        onConfirmDelete={vi.fn()}
-      />,
-    );
-
-    expect(html).toContain('다시 게시하기');
-    expect(html).not.toContain('프로그램 복구하기');
-    // #1181 — 내려간 상태 설명도 실제 동작만 말한다. 내린 프로그램은 공개 목록에
-    // 남는다(backend 공개 모수 = PUBLISHED | ARCHIVED). 신청이 있는 학생은
-    // 「종료」가 아니라 지원 상태 배지를 볼 수 있어 그 말은 약속하지 않는다.
-    expect(html).toContain(
-      '현재 프로그램이 내려가 있어 신규 신청을 받지 않습니다. 공개 목록과 상세는 그대로 열립니다. 기존 신청과 제출 데이터는 그대로 남아 있습니다.',
-    );
-    expect(html).not.toContain('공개 목록에 보이지 않');
-  });
-
-  // isLifecycleConfirming=true일 때 크래시 없이 섹션이 그려지는지만 여기서 본다.
-  // Radix AlertDialog의 Portal은 useLayoutEffect가 붙어야 mount되는데,
-  // renderToStaticMarkup은 effect를 전혀 돌리지 않는다(SSR 문자열 렌더러라
-  // container가 계산되지 않고 Portal이 null을 반환한다) — 그래서 이 파일에서는
-  // 다이얼로그가 실제로 뜨는지 확인할 수 없다. 그 부분은 실제 DOM에 mount하는
-  // program-edit-page.test.tsx 쪽 컴포넌트 테스트가 맡는다.
-  it('isLifecycleConfirming이어도 SSR 렌더링이 깨지지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramEditView
-        program={editableProgram}
-        form={toProgramEditForm(editableProgram)}
-        errors={{}}
-        toastMessage={null}
-        generalAlert={null}
-        isSaving={false}
-        milestoneEditor={{ mode: 'closed' }}
-        deleteTarget={null}
-        isMilestoneBusy={false}
-        {...lifecycleActionProps}
-        isLifecycleConfirming
-        onFieldChange={noOp}
-        onSubmit={vi.fn()}
-        onAddMilestone={noOp}
-        onEditMilestone={noOp}
-        onCancelMilestone={noOp}
-        onMilestoneFieldChange={noOp}
-        onSaveMilestone={vi.fn()}
-        onRequestDeleteMilestone={noOp}
-        onCancelDelete={noOp}
-        onConfirmDelete={vi.fn()}
-      />,
-    );
-
-    expect(html).toContain('게시 상태');
-  });
-
-  // 삭제 권한이 없는 사용자는 「위험 영역」에서 삭제가 아닌 아카이브 안내만 본다.
-  it('canDeleteProgram=false면 삭제 버튼 없이 아카이브 안내를 그린다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramEditView
-        program={editableProgram}
-        form={toProgramEditForm(editableProgram)}
-        errors={{}}
-        toastMessage={null}
-        generalAlert={null}
-        isSaving={false}
-        milestoneEditor={{ mode: 'closed' }}
-        deleteTarget={null}
-        isMilestoneBusy={false}
-        {...lifecycleActionProps}
-        onFieldChange={noOp}
-        onSubmit={vi.fn()}
-        onAddMilestone={noOp}
-        onEditMilestone={noOp}
-        onCancelMilestone={noOp}
-        onMilestoneFieldChange={noOp}
-        onSaveMilestone={vi.fn()}
-        onRequestDeleteMilestone={noOp}
-        onCancelDelete={noOp}
-        onConfirmDelete={vi.fn()}
-      />,
-    );
-
-    expect(html).toContain('위험 영역');
-    expect(html).toContain('아카이브');
-    expect(html).not.toContain('연결 데이터까지 모두 삭제');
-  });
-
-  // #1095 — 교직원(또는 관리자)이면 true다. 종전에는 ADMIN만 이 섹션을 봤다(#875).
-  it('canDeleteProgram=true면 게시 상태 아래에 destructive 톤의 위험 영역 섹션을 그린다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramEditView
-        program={editableProgram}
-        form={toProgramEditForm(editableProgram)}
-        errors={{}}
-        toastMessage={null}
-        generalAlert={null}
-        isSaving={false}
-        milestoneEditor={{ mode: 'closed' }}
-        deleteTarget={null}
-        isMilestoneBusy={false}
-        {...lifecycleActionProps}
-        canDeleteProgram
-        onFieldChange={noOp}
-        onSubmit={vi.fn()}
-        onAddMilestone={noOp}
-        onEditMilestone={noOp}
-        onCancelMilestone={noOp}
-        onMilestoneFieldChange={noOp}
-        onSaveMilestone={vi.fn()}
-        onRequestDeleteMilestone={noOp}
-        onCancelDelete={noOp}
-        onConfirmDelete={vi.fn()}
-      />,
-    );
-
-    const lifecycleIndex = html.indexOf('게시 상태');
-    const dangerZoneIndex = html.indexOf('위험 영역');
-    expect(lifecycleIndex).toBeGreaterThan(-1);
-    expect(dangerZoneIndex).toBeGreaterThan(lifecycleIndex);
-
-    // '삭제' 만으로 찾으면 위 안내문("...영구히 삭제합니다...")에 먼저 걸린다 —
-    // 버튼은 '>프로그램 영구 삭제<'로 감싸인 정확한 텍스트라 이걸로 구분한다.
-    const buttonStart = html.indexOf('>프로그램 영구 삭제<', dangerZoneIndex);
-    expect(buttonStart).toBeGreaterThan(-1);
-    const buttonTag = html.slice(Math.max(0, buttonStart - 1200), buttonStart);
-    expect(buttonTag).toContain('data-variant="destructive"');
+    expect(html).not.toContain('위험 영역');
+    expect(html).not.toContain('아카이브');
+    expect(html).not.toContain('프로그램 삭제');
   });
 });

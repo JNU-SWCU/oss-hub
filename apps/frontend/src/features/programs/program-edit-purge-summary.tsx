@@ -20,8 +20,8 @@ export function ProgramPurgeSummary({
   return (
     <Alert>
       <AlertTitle>삭제될 데이터</AlertTitle>
-      <AlertDescription>
-        {summary ? `삭제될 데이터: ${summary}` : '연결된 데이터 없음'}
+      <AlertDescription className="[word-break:keep-all]">
+        {summary || '연결된 데이터 없음'}
       </AlertDescription>
     </Alert>
   );

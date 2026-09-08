@@ -50,7 +50,6 @@ vi.mock('./api', () => ({
   updateEditableMilestone: updateEditableMilestoneMock,
   editableMilestoneSnapshotFailure: () => ({ kind: 'unknown' }),
   updateProgram: updateProgramMock,
-  updateProgramLifecycle: vi.fn(),
   createMilestone: vi.fn(),
   deleteMilestone: vi.fn(),
 }));

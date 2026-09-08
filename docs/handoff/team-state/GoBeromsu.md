@@ -1449,3 +1449,36 @@
 - 커밋 해시 금지가 지적↔커밋 매핑까지, 「병합하지 않았습니다」 금지가 「보류했다」까지 번지지 않도록 경계를 달았다.
 - 검증: prettier check 통과, `bash scripts/check-public-safe.sh` 통과. 코드 변경 없음.
 - 공개 안전성: 문서만 바꿨고 실명·비밀값·내부 호스트·로컬 경로 없음.
+## 2026-09-07 — 도메인에 없는 삭제 보호 플래그 제거
+
+- 배경: `Program.deletionProtected`는 API에 값을 바꾸는 경로가 없고 운영자가 DB에서 직접 켜야 했다. 켜진 프로그램은 화면에서 삭제 버튼이 비활성이고 해제할 방법도 화면에 없다. 우리 도메인에는 「삭제 보호」라는 개념 자체가 없으므로 안티패턴이다.
+- 변경: 컬럼과 그것을 읽는 전 표면을 지웠다. schema 필드와 DROP migration, `delete`·`purge`의 가드와 select, `PROGRAM_DELETE_PROTECTED`(PRG_013), 편집 응답 DTO와 view 타입과 repository 매핑, 프론트 위험 영역의 prop·안내 Alert·버튼 비활성 분기, 그리고 이 플래그만 검증하던 테스트다. 기존 추가 migration 파일은 역사 기록이라 건드리지 않고 새 migration으로 지웠다. 다른 오류 코드 번호는 재배치하지 않았다.
+- 남긴 것: purge의 `expectedScope` 재확인(409 PRG_014), 권한 가드, 감사 로그, 삭제 순서, 그리고 권한 없는 사용자에게 버튼을 비활성화하는 `canDeleteProgram`은 그대로다. 약화된 안전장치는 없다.
+- 검증: backend 66 suite / 528 test, frontend 102 file / 1095 test, `program-purge.integration.spec.ts` 15건, backend·frontend typecheck, prettier, backend lint 통과. `deletionProtected`와 `PROGRAM_DELETE_PROTECTED` 잔여 참조는 migration 이력 두 줄뿐이다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-08 — 확인 팝업 한 번으로 프로그램 삭제
+
+- 상태: review
+- Issue: [#1237](https://github.com/JNU-SWCU/oss-hub/issues/1237)
+- PR: (이 PR)
+- blocker: 배포 전 최종 리뷰
+- 사용자 요청은 내리기 없이 삭제만 제공하고 확인 팝업으로 확정하는 것이다.
+- 내리기·다시 게시하기 UI와 전용 lifecycle 변경 endpoint를 제거했다.
+- 이름 재입력을 없애고 기존 purge에 삭제 범위와 지문을 그대로 전달한다.
+- 범위가 바뀌면 자동 재시도하지 않고 새 범위를 보여준 뒤 다시 확인받는다.
+- 이미 DELETED인 제출 파일은 삭제 시각을 유지하면서 프로그램 관계만 분리해 제약 위반을 막는다.
+- 삭제 성공은 기존 exit guard의 완료 경로로 이동하며 취소·실패는 미저장 변경 보호를 유지한다.
+- 앞선 삭제 보호 제거 기록의 배포 순서를 수정한다.
+- 첫 릴리스에서는 Prisma 필드와 모든 코드 참조만 제거하고 물리 컬럼은 유지한다.
+- 새 코드가 정상 배포된 뒤 별도 릴리스에서 컬럼을 삭제해야 기존 서버와 자동 롤백이 제거된 컬럼을 조회하지 않는다.
+- 검증: frontend 116 파일 / 1120 테스트, backend 66 suite / 525 테스트, 격리 DB purge 통합 17개, Chrome 삭제 시나리오 8개 통과.
+- 양쪽 typecheck와 lint, 전체 prettier 검사를 통과했다.
+- frontend lint의 변경하지 않은 sidebar 테스트 경고 5건은 그대로 보고한다.
+- 최초 브라우저 검증은 오래된 요약 문구 기대값과 초기 로딩까지 실패시키던 합성 fixture 때문에 실패했고, 계약에 맞게 수정한 뒤 8개 모두 통과했다.
+- Before/After는 동일 합성 프로그램·교직원·desktop 및 390x844 조건에서 촬영했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+- 후속 검증: 동시 병합된 편집 개선을 보존해 rebase한 뒤 frontend 전체 343 파일 / 3494 테스트와 backend 전체 313 suite / 3581 테스트가 통과했다.
+- backend 전체 격리 통합 94 suite / 539 테스트도 통과했으며 Jest 종료 시 비동기 핸들 경고는 숨기지 않았다.
+- 390x440에서 긴 프로그램 이름으로도 확인·취소 버튼에 닿도록 팝업 높이를 제한하고 단일 스크롤을 제공했으며 Chrome 시나리오는 9개 모두 통과했다.
+- backend build와 CI의 합성 origin을 사용한 frontend production build가 통과했다.

@@ -49,7 +49,6 @@ export const editableProgram = {
   endAt: '2026-08-31T00:00:00.000Z',
   repositoryProvisioningEnabled: false,
   notifyOnDeadline: false,
-  deletionProtected: false,
   description: 'overview',
   milestones: [
     {
