@@ -3,29 +3,16 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
 import { sessionCookieName } from '../auth/cookies';
 import { issueSessionToken } from '../auth/session-token';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { RuntimeConfigModule } from '../runtime-config/runtime-config.module';
 import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
 import { SUBMISSION_FILE_STORAGE } from '../submissions/submission-file-storage.port';
-import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
-import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
-import {
-  MilestoneDocumentsController,
-  MilestoneDocumentFilesController,
-} from './milestone-documents.controller';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
+import { MilestoneDocumentsModule } from './milestone-documents.module';
 
 import {
   flowIds,
@@ -67,32 +54,19 @@ export class MilestoneDocumentFlowFixture {
         }),
     };
     const module = await Test.createTestingModule({
-      controllers: [
-        MilestoneDocumentsController,
-        MilestoneDocumentFilesController,
-        MilestoneDocumentCurrentFileController,
-      ],
-      providers: [
-        MilestoneDocumentsRepository,
-        MilestoneDocumentsService,
-        MilestoneDocumentReviewsService,
-        MilestoneDocumentFilesService,
-        MilestoneDocumentCurrentFileRepository,
-        MilestoneDocumentCurrentFileService,
-        SubmissionFilesRepository,
-        SessionGuard,
-        OriginGuard,
-        MilestoneDocumentsStaffGuard,
-        { provide: PrismaService, useValue: this.prisma },
-        {
-          provide: AuthConfig,
-          useValue: { sessionSecret, allowedOrigin: origin },
-        },
-        { provide: AuthService, useValue: auth },
-        { provide: SUBMISSION_FILE_STORAGE, useValue: this.storage },
-        { provide: MilestoneDocumentArchiveService, useValue: {} },
-      ],
-    }).compile();
+      imports: [PrismaModule, RuntimeConfigModule, MilestoneDocumentsModule],
+    })
+      .overrideProvider(PrismaService)
+      .useValue(this.prisma)
+      .overrideProvider(AuthConfig)
+      .useValue({ sessionSecret, allowedOrigin: origin })
+      .overrideProvider(AuthService)
+      .useValue(auth)
+      .overrideProvider(S3SubmissionFileStorage)
+      .useValue(this.storage)
+      .overrideProvider(SUBMISSION_FILE_STORAGE)
+      .useValue(this.storage)
+      .compile();
     this.app = module.createNestApplication();
     this.app.setGlobalPrefix('api/v1');
     this.app.useGlobalPipes(
