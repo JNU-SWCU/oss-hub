@@ -201,17 +201,21 @@ function DeleteMilestoneDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="milestone-delete-title"
+      aria-describedby="milestone-delete-description"
     >
       <div className="w-full max-w-md rounded-card border border-border bg-background p-card shadow-lg">
         <h2
           id="milestone-delete-title"
-          className="font-heading text-section font-semibold tracking-[-0.02em]"
+          className="font-heading text-section font-semibold tracking-[-0.02em] [word-break:keep-all]"
         >
-          마일스톤 삭제
+          마일스톤을 되돌릴 수 없이 삭제할까요?
         </h2>
-        <p className="mt-2 text-small text-muted-foreground">
-          {milestone.name} 마일스톤을 삭제합니다. 제출물이 있으면 삭제할 수
-          없습니다.
+        <p
+          id="milestone-delete-description"
+          className="mt-2 text-small text-muted-foreground [word-break:keep-all]"
+        >
+          {milestone.name}에 등록된 제출 항목과 양식 파일도 함께 삭제됩니다.
+          학생이 올린 제출물이 하나라도 있으면 삭제되지 않습니다.
         </p>
         <div className="mt-6 flex justify-end gap-2">
           <Button
