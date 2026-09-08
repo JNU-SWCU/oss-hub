@@ -1482,3 +1482,19 @@
 - backend 전체 격리 통합 94 suite / 539 테스트도 통과했으며 Jest 종료 시 비동기 핸들 경고는 숨기지 않았다.
 - 390x440에서 긴 프로그램 이름으로도 확인·취소 버튼에 닿도록 팝업 높이를 제한하고 단일 스크롤을 제공했으며 Chrome 시나리오는 9개 모두 통과했다.
 - backend build와 CI의 합성 origin을 사용한 frontend production build가 통과했다.
+
+## 2026-09-08 — PR·코멘트·QA 스킬 개편 — write-github-comment 신설, PR 템플릿 단일화, check-pr-body 훅 (submit-pr-evidence v1.8.0 · manage-qa-tickets v4.5.0 · write-github-comment v1.0.0)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- 코멘트 템플릿 네 개(리뷰 답글·UX 제안·진행 공유·PR 연결)를 새 `write-github-comment` 스킬로 옮기고, `gh pr comment`·`gh issue comment`·`gh pr review` 앞과 "코멘트 달아줘"류 요청에 반드시 열리도록 description 트리거를 달았다.
+- `submit-pr-evidence` v1.8.0에서 PR 형식의 원본을 `.github/pull_request_template.md` 하나로 고정했다 — 절 배치 이유와 예외 문구만 SKILL.md에 남기고 본문 계약은 복제하지 않는다. 가독성 열세 규칙은 새 `references/readability.md`로 모으고, 흐름 다이어그램은 high level(입구 → 판단 → 결과, 노드 8개 이하) 먼저 + `<details>` 상세 두 단으로, Before/After는 selector·DOM path 있는 요소 행을 필수로 바꿨다.
+- `scripts/check-pr-body.sh`로 템플릿 아홉 절 제목·순서·예외 문구를 기계적으로 검사하고, `.claude/settings.json`의 Claude Code PreToolUse hook이 `gh pr create`/`gh pr edit`를 가로채 통과하지 못한 본문 파일의 PR 생성을 막는다. 테스트는 `scripts/check-pr-body.test.sh`로 별도 뒀다.
+- `manage-qa-tickets` v4.5.0에서 판정 표 항목 수 하드코딩 문구를 없애고, SKILL.md·github-publication.md의 계약 섹션 이름을 `할 일`·`하지 않을 것`·`완료 조건`으로 맞추고, 티켓 `현재 화면` selector가 PR Before/After 요소 행의 selector로 이어지게 명시했다.
+- `docs/rules/agent-skill-routing.md`와 AGENTS.md를 다섯 스킬(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `write-github-comment`, `build-oss-hub-handbook`) 체계로 갱신하고, `.claude/skills/write-github-comment`·`.codex/skills/write-github-comment`·`.cursor/skills/write-github-comment`·`.gjc/skills/write-github-comment` symlink를 `skills/write-github-comment`로 추가했다. `.claude/`·`.gjc/`는 글로벌 gitignore에 걸려 `git add -f`로 추적했다.
+- 검증: 변경·신규 마크다운·설정 파일에 `prettier --check` 통과(쉘 스크립트 둘은 parser 미지원이라 대상에서 제외), `bash scripts/check-pr-body.test.sh` 47개 통과, `find -L .claude .codex .cursor .gjc -type l` 결과 없음(깨진 symlink 없음), 새 마크다운 네 개 각각 `bash scripts/check-public-safe.sh --text-only` 통과.
+- 한계: 훅은 Claude Code의 `gh pr create`/`gh pr edit`만 가로챈다. Codex·Cursor·GJC는 AGENTS.md의 게이트 문장과 PR 템플릿 체크박스에 의존하고, `check-pr-body.sh`를 CI required lane에 넣는 것은 이번에 하지 않고 후속 결정으로 남겼다.
+- 공개 안전성: 실명 없음 — 사람은 @handle. 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
