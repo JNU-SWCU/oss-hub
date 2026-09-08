@@ -56,7 +56,7 @@ export function DeadlinePreviewCounts({
         >
           교직원 요약 수신 <strong>{preview.staffRecipientCount}명</strong>
         </p>
-        <p className="text-small text-muted-foreground">
+        <p className="text-small break-keep text-muted-foreground">
           제외 수는 학생 기준입니다. 미리보기는 10분 동안 유효하며, 대상이
           바뀌면 다시 계산해야 합니다.
         </p>

@@ -94,6 +94,7 @@ function MatrixEmptyState(props: SubmissionMatrixViewProps): ReactNode {
   if (empty === 'no-applications') {
     return (
       <EmptyState
+        className="break-keep"
         title="참여 중인 신청이 없습니다"
         description="승인된 신청이 생기면 여기에 표시됩니다."
       />
