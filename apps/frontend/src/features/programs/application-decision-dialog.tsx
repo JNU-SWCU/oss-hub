@@ -87,11 +87,6 @@ export function ApplicationDecisionDialog({
   readonly onConfirm: () => void;
 }) {
   const isReject = action === 'REJECT';
-  /*
-   * 반려 창은 설명 문단 대신 입력 폼이라 가리킬 설명이 없다. 키를 **아예 넘기지 않아야**
-   * 나머지 두 창에서 Radix 가 붙이는 설명 id 가 살아남는다(`undefined` 를 넘기면 그것까지 지운다).
-   */
-  const describedBy = isReject ? { 'aria-describedby': undefined } : {};
   return (
     <AlertDialog.Root
       open
@@ -114,7 +109,6 @@ export function ApplicationDecisionDialog({
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
         <AlertDialog.Content
-          {...describedBy}
           /*
            * ⚠ 창이 스스로 스크롤되어야 한다 — 뒤 화면 스크롤은 잠기므로, 창이 화면보다
            *   길어지면 버튼에 닿을 방법이 없다(반려 + 입력 오류 + 저장 실패가 겹친 상태가
@@ -181,45 +175,55 @@ export function ApplicationDecisionDialog({
               </p>
             </AlertDialog.Description>
           ) : isReject ? (
-            /*
-             * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
-             * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
-             * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
-             * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
-             */
-            <div className="grid gap-2 text-sm">
-              <label htmlFor="rejection-reason">반려 사유</label>
-              <textarea
-                id="rejection-reason"
-                className="min-h-28 rounded-md border border-input bg-background p-3"
-                value={reason}
-                disabled={busy}
-                onChange={(event) => onReasonChange(event.target.value)}
-                aria-invalid={reasonError}
-                aria-describedby={
-                  reasonError ? 'reason-error reason-hint' : 'reason-hint'
-                }
-              />
-              {reasonError ? (
-                <span
-                  id="reason-error"
-                  role="alert"
-                  className="text-destructive"
-                >
-                  반려 사유를 입력해 주세요.
-                </span>
-              ) : null}
-              {/*
-               * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
-               * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
-               */}
-              <span
-                id="reason-hint"
-                className="text-muted-foreground break-keep"
+            <>
+              {/* 반려는 교직원의 REVERT로 되돌릴 수 있으므로 복구 경로를 함께 안내한다. */}
+              <AlertDialog.Description
+                data-testid="application-decision-reject-consequence"
+                className="rounded-md border border-border bg-muted/40 p-3 text-small break-keep text-pretty"
               >
-                적은 사유는 학생에게 그대로 보입니다.
-              </span>
-            </div>
+                반려하면 신청자는 이 프로그램에 스스로 다시 신청할 수 없습니다.
+                되돌리려면 이 화면의 「검토 대기로」를 눌러야 합니다.
+              </AlertDialog.Description>
+              {/*
+               * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
+               * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
+               * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
+               * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
+               */}
+              <div className="grid gap-2 text-sm">
+                <label htmlFor="rejection-reason">반려 사유</label>
+                <textarea
+                  id="rejection-reason"
+                  className="min-h-28 rounded-md border border-input bg-background p-3"
+                  value={reason}
+                  disabled={busy}
+                  onChange={(event) => onReasonChange(event.target.value)}
+                  aria-invalid={reasonError}
+                  aria-describedby={
+                    reasonError ? 'reason-error reason-hint' : 'reason-hint'
+                  }
+                />
+                {reasonError ? (
+                  <span
+                    id="reason-error"
+                    role="alert"
+                    className="text-destructive"
+                  >
+                    반려 사유를 입력해 주세요.
+                  </span>
+                ) : null}
+                {/*
+                 * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
+                 * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
+                 */}
+                <span
+                  id="reason-hint"
+                  className="text-muted-foreground break-keep"
+                >
+                  적은 사유는 학생에게 그대로 보입니다.
+                </span>
+              </div>
+            </>
           ) : (
             <AlertDialog.Description asChild>
               <p className="break-keep">
