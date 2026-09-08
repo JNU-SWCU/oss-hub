@@ -1,8 +1,8 @@
 ---
 name: submit-pr-evidence
-description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, clears the twenty UX anti-patterns, runs a ponytail review to cut over-implementation from the diff, runs the public-safety check, and blocks the PR until required evidence is present, since every screen-touching change needs a Before/After capture and a live deployment link in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검", "ponytail".
+description: Run this before opening any OSS Hub PR from a ticket — it resolves the Issue contract, implements only the minimum, proves completion, clears the twenty UX anti-patterns, runs a ponytail review to cut over-implementation from the diff, runs the public-safety check, and blocks the PR until required evidence is present, since every screen-touching change needs a Before/After capture and a live deployment link in the PR body and backend logic changes need a mermaid/DOT diagram of the changed flow. Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검", "ponytail", "리뷰 답글", "PR 코멘트".
 metadata:
-  version: "1.6.1"
+  version: "1.7.0"
 ---
 
 # Submit PR Evidence
@@ -37,6 +37,7 @@ metadata:
      pnpm 이 **아무것도 실행하지 않고 exit 0** 을 낸다. 배열 플래그(`--testPathIgnorePatterns`) 뒤에
      경로를 붙여도 그 경로가 플래그 값으로 먹혀 고친 파일이 조용히 제외된다.
      그래서 검증 보고에는 **실행된 suite·test 개수**를 적는다. 개수가 없으면 통과 주장도 없다.
+     이 수치가 사는 자리는 PR 본문 `## 검증` 절 하나다 — 리뷰 답글로 옮겨 적지 않는다([리뷰 답글 작성 원칙](#리뷰-답글-작성-원칙)).
    - lint 와 typecheck 가 둘 다 통과해도 옛 코드가 새 코드보다 먼저 반환하는 상태가 성립한다.
      rebase 충돌을 풀다 양쪽이 남으면 이렇게 된다. **전체 테스트만이 그것을 잡는다.**
 8. 화면을 건드렸으면 [references/ux-antipatterns.md](references/ux-antipatterns.md)의 스무 항목을 통과시킨다.
@@ -243,6 +244,36 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 10. PR이 열리면 [프로젝트 보드](https://github.com/orgs/JNU-SWCU/projects/1)에서 해당 티켓 카드를 In Review로 옮긴다.
 11. 티켓이 Notion 행에서 발행된 것이면(Issue 본문에 `QA<번호>` 참조가 있다) PR URL을 Issue에 코멘트로 남긴다.
     Notion 행은 손대지 않는다 — 행은 `GitHub Issue` URL 하나만 들고 Issue가 나머지 진행 상태를 들고 있다.
+
+## 리뷰 답글 작성 원칙
+
+PR 페이지도 화면이고, 그 화면에는 이미 위젯이 붙어 있다.
+checks 줄이 CI와 테스트 결과를 말하고, commit 목록이 무엇이 올라갔는지 말하고, Files changed 탭이 어떤 파일을 고쳤는지 말한다.
+답글에 그것을 문장으로 다시 적는 것은 [AP-19 위젯이 이미 말한 것](references/ux-antipatterns.md)을 PR 표면에서 되풀이하는 일이다.
+리뷰어는 자기가 방금 본 것을 한 번 더 읽게 되고, 그 문단들 사이에서 정작 자기가 받아야 할 답을 찾지 못한다.
+
+**초록불이 말해 주는 것은 쓰지 않고, 초록불이 감추는 것을 쓴다.**
+
+답글에 쓰지 않는 것 — 전부 PR 화면이 이미 말하고 있다.
+
+- `전체 프런트엔드 3,533개 테스트와 빌드·타입·형식 검사를 통과했습니다` — checks 줄이 말한다.
+- `최종 통합 E2E 66개와 CI·public-safe·commitlint가 통과했습니다` — 같은 자리가 말한다.
+- `후속 커밋은 1e7fb362, 9d80f804입니다` — 커밋 목록이 말한다.
+- `병합·배포는 하지 않았습니다` — 열려 있는 PR은 병합되지 않았다는 것을 스스로 보여 준다.
+
+수치가 쓸모없어진 것이 아니라 **자리가 하나뿐인 것이다.**
+실행된 suite·test 개수는 PR 본문 `## 검증` 절에 남기고, 답글은 필요하면 그 절을 가리키기만 한다.
+
+답글에 쓰는 것.
+
+- **지적 한 건에 대한 답** — 고쳤다 / 안 고쳤다와 그 이유 / 판단을 기다린다 중 하나로 끝낸다. 리뷰어가 매긴 번호를 그대로 받아서 답해야 어느 지적의 답인지 세지 않아도 된다.
+- **초록불이 감추는 것** — 한 번 실패했다가 재실행으로 통과한 검사, 원인을 모른 채 넘어간 것, 판단을 기다리느라 보류한 항목.
+  - checks 줄이 이것들을 초록으로 덮어 버리므로, 사람이 답글에 쓰지 않으면 아무 데도 남지 않는다.
+  - 다만 **돌리지 못한 검증**의 자리는 답글이 아니라 본문이다 — [리뷰어에게 의미 없는 로컬 환경 잡음을 본문에 넣지 않는다](#리뷰어에게-의미-없는-로컬-환경-잡음을-본문에-넣지-않는다)를 따른다.
+- **리뷰어가 다음에 할 행동** — 무엇을 봐 달라는 것인지, 무엇을 결정해 달라는 것인지.
+
+세 줄로 끝나면 세 줄로 끝낸다.
+답글의 길이는 성실함의 증거가 아니다 — 리뷰어가 답을 찾는 데 드는 시간이다.
 
 ## 이스케이프 해치
 
