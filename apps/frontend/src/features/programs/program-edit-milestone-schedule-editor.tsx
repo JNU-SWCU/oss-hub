@@ -47,6 +47,10 @@ export function ProgramEditMilestoneScheduleEditor({
       onActiveIdChange={() => undefined}
       contextEvents={calendarEvents}
       layout="simple"
+      showCalendarScrollHint={false}
+      className="[--card-spacing:--spacing(1)] sm:[--card-spacing:var(--card-padding)]"
+      dateInputConfirmLabel="날짜 적용"
+      dateInputDescription="날짜를 적용한 뒤 마일스톤 저장을 눌러야 저장됩니다."
     />
   );
 }

@@ -1418,3 +1418,102 @@
 - 페이지네이션은 사라지는 것이 아니라 `total > pageSize`일 때만 나온다 — 참여자가 100명을 넘으면 다시 나타난다.
 - 검증: `pnpm --filter frontend exec vitest run src/features/ranking src/app/ranking` 5개 파일 62개 통과. 합성 59행을 주입한 local-review 하네스에서 Before 20행·페이지네이션 있음, After 59행·페이지네이션 없음을 캡처로 확인했다.
 - 공개 안전성: 캡처는 합성 fixture(`contributor-001`~`059`)만 쓰고 실명·실계정·토큰이 없다. 비밀값·내부 호스트·로컬 경로 없음.
+
+## 2026-09-08 — 리뷰 답글에서 CI가 이미 말한 것을 뺀다 (submit-pr-evidence v1.7.0)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- PR #1230·#1231·#1232의 답글이 세 곳 모두 거의 같은 문단으로 끝났다 — 테스트 개수, CI 통과, 후속 커밋 SHA, 「병합하지 않았습니다」. 넷 다 PR 화면의 checks 줄·커밋 목록·PR 상태가 이미 말하는 것이다.
+- 습관이 아니라 규칙 탓이다. `SKILL.md` 절차 7단계가 「실행된 suite·test 개수를 적는다」고만 하고 표면을 말하지 않았고, 스킬에 리뷰 답글 규칙이 한 줄도 없었다.
+- `## 리뷰 답글 작성 원칙`을 `## PR을 연다` 뒤에 두었다 — 답글은 PR을 연 뒤에 쓰므로 문서도 그 순서다. 규칙은 「초록불이 말해 주는 것은 쓰지 않고, 초록불이 감추는 것을 쓴다」다.
+- 수치를 없앤 것이 아니라 자리를 PR 본문 `## 검증` 절 하나로 고정했다. 못 돌린 검증의 자리는 본문이라고 명시했고, 재실행으로 통과한 검사·원인 미확정·보류 항목은 오히려 답글에 쓰라고 요구한다.
+- description 트리거에 `"리뷰 답글"`·`"PR 코멘트"`를 더했다. 답글을 쓸 때 스킬이 붙지 않으면 규칙은 없는 것과 같다.
+- 검증: `corepack pnpm exec prettier --check skills/submit-pr-evidence/` 통과, `bash scripts/check-public-safe.sh` 통과, 새 앵커 링크를 heading 목록과 대조했다. 코드 변경이 없어 test/lint/typecheck는 돌리지 않았다.
+- ponytail: `/ponytail-review` 슬래시 커맨드를 이 세션에서 호출할 수 없어(플러그인은 설치돼 있으나 커맨드가 세션 스킬 목록에 없음) 스킬 본문을 읽고 규칙을 손으로 적용했다. 잘라낸 것 둘 — 섹션 위치를 시간 순서에 맞게 옮겼고, 세 문장짜리 불릿을 중첩 불릿으로 쪼갰다.
+- 공개 안전성: 문서만 바꿨고 실명·비밀값·내부 호스트·로컬 경로 없음.
+
+## 2026-09-08 — 리뷰 답글 규칙이 위젯이 말하지 않는 것까지 지우던 것을 바로잡는다 (submit-pr-evidence v1.7.1)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- #1238 병합 뒤 code-reviewer lane이 must-fix 셋을 보고했고 `ci.yml`·`AGENTS.md`에서 직접 재확인했다.
+- browser E2E는 CI lane이 아니라 로컬 수동 게이트인데(`ci.yml:321`) v1.7.0은 그것을 「checks 줄이 말한다」며 답글에서 지우게 했다 — 오히려 사람이 쓰지 않으면 아무 데도 남지 않는 부류라 「초록불이 감추는 것」 쪽으로 옮겼다.
+- 테스트 개수 예시의 금지 근거가 「checks 줄이 말한다」였는데 checks 줄은 lane의 초록불만 말하고 개수는 말하지 않는다 — 근거를 「본문 `## 검증` 절이 말한다」로 고쳤다.
+- `## 검증`은 PR을 열 때 쓰고 끝나는 절이라 리뷰 대응 커밋의 재검증 수치가 갈 자리가 없었다 — 다시 돌렸으면 그 절을 갱신한다고 명시했다.
+- 커밋 해시 금지가 지적↔커밋 매핑까지, 「병합하지 않았습니다」 금지가 「보류했다」까지 번지지 않도록 경계를 달았다.
+- 검증: prettier check 통과, `bash scripts/check-public-safe.sh` 통과. 코드 변경 없음.
+- 공개 안전성: 문서만 바꿨고 실명·비밀값·내부 호스트·로컬 경로 없음.
+## 2026-09-07 — 도메인에 없는 삭제 보호 플래그 제거
+
+- 배경: `Program.deletionProtected`는 API에 값을 바꾸는 경로가 없고 운영자가 DB에서 직접 켜야 했다. 켜진 프로그램은 화면에서 삭제 버튼이 비활성이고 해제할 방법도 화면에 없다. 우리 도메인에는 「삭제 보호」라는 개념 자체가 없으므로 안티패턴이다.
+- 변경: 컬럼과 그것을 읽는 전 표면을 지웠다. schema 필드와 DROP migration, `delete`·`purge`의 가드와 select, `PROGRAM_DELETE_PROTECTED`(PRG_013), 편집 응답 DTO와 view 타입과 repository 매핑, 프론트 위험 영역의 prop·안내 Alert·버튼 비활성 분기, 그리고 이 플래그만 검증하던 테스트다. 기존 추가 migration 파일은 역사 기록이라 건드리지 않고 새 migration으로 지웠다. 다른 오류 코드 번호는 재배치하지 않았다.
+- 남긴 것: purge의 `expectedScope` 재확인(409 PRG_014), 권한 가드, 감사 로그, 삭제 순서, 그리고 권한 없는 사용자에게 버튼을 비활성화하는 `canDeleteProgram`은 그대로다. 약화된 안전장치는 없다.
+- 검증: backend 66 suite / 528 test, frontend 102 file / 1095 test, `program-purge.integration.spec.ts` 15건, backend·frontend typecheck, prettier, backend lint 통과. `deletionProtected`와 `PROGRAM_DELETE_PROTECTED` 잔여 참조는 migration 이력 두 줄뿐이다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-08 — 확인 팝업 한 번으로 프로그램 삭제
+
+- 상태: review
+- Issue: [#1237](https://github.com/JNU-SWCU/oss-hub/issues/1237)
+- PR: (이 PR)
+- blocker: 배포 전 최종 리뷰
+- 사용자 요청은 내리기 없이 삭제만 제공하고 확인 팝업으로 확정하는 것이다.
+- 내리기·다시 게시하기 UI와 전용 lifecycle 변경 endpoint를 제거했다.
+- 이름 재입력을 없애고 기존 purge에 삭제 범위와 지문을 그대로 전달한다.
+- 범위가 바뀌면 자동 재시도하지 않고 새 범위를 보여준 뒤 다시 확인받는다.
+- 이미 DELETED인 제출 파일은 삭제 시각을 유지하면서 프로그램 관계만 분리해 제약 위반을 막는다.
+- 삭제 성공은 기존 exit guard의 완료 경로로 이동하며 취소·실패는 미저장 변경 보호를 유지한다.
+- 앞선 삭제 보호 제거 기록의 배포 순서를 수정한다.
+- 첫 릴리스에서는 Prisma 필드와 모든 코드 참조만 제거하고 물리 컬럼은 유지한다.
+- 새 코드가 정상 배포된 뒤 별도 릴리스에서 컬럼을 삭제해야 기존 서버와 자동 롤백이 제거된 컬럼을 조회하지 않는다.
+- 검증: frontend 116 파일 / 1120 테스트, backend 66 suite / 525 테스트, 격리 DB purge 통합 17개, Chrome 삭제 시나리오 8개 통과.
+- 양쪽 typecheck와 lint, 전체 prettier 검사를 통과했다.
+- frontend lint의 변경하지 않은 sidebar 테스트 경고 5건은 그대로 보고한다.
+- 최초 브라우저 검증은 오래된 요약 문구 기대값과 초기 로딩까지 실패시키던 합성 fixture 때문에 실패했고, 계약에 맞게 수정한 뒤 8개 모두 통과했다.
+- Before/After는 동일 합성 프로그램·교직원·desktop 및 390x844 조건에서 촬영했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+- 후속 검증: 동시 병합된 편집 개선을 보존해 rebase한 뒤 frontend 전체 343 파일 / 3494 테스트와 backend 전체 313 suite / 3581 테스트가 통과했다.
+- backend 전체 격리 통합 94 suite / 539 테스트도 통과했으며 Jest 종료 시 비동기 핸들 경고는 숨기지 않았다.
+- 390x440에서 긴 프로그램 이름으로도 확인·취소 버튼에 닿도록 팝업 높이를 제한하고 단일 스크롤을 제공했으며 Chrome 시나리오는 9개 모두 통과했다.
+- backend build와 CI의 합성 origin을 사용한 frontend production build가 통과했다.
+
+## 2026-09-08 — PR·코멘트·QA 스킬 개편 — write-github-comment 신설, PR 템플릿 단일화, check-pr-body 훅 (submit-pr-evidence v1.8.0 · manage-qa-tickets v4.5.0 · write-github-comment v1.0.0)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- 코멘트 템플릿 네 개(리뷰 답글·UX 제안·진행 공유·PR 연결)를 새 `write-github-comment` 스킬로 옮기고, `gh pr comment`·`gh issue comment`·`gh pr review` 앞과 "코멘트 달아줘"류 요청에 반드시 열리도록 description 트리거를 달았다.
+- `submit-pr-evidence` v1.8.0에서 PR 형식의 원본을 `.github/pull_request_template.md` 하나로 고정했다 — 절 배치 이유와 예외 문구만 SKILL.md에 남기고 본문 계약은 복제하지 않는다. 가독성 열세 규칙은 새 `references/readability.md`로 모으고, 흐름 다이어그램은 high level(입구 → 판단 → 결과, 노드 8개 이하) 먼저 + `<details>` 상세 두 단으로, Before/After는 selector·DOM path 있는 요소 행을 필수로 바꿨다.
+- `scripts/check-pr-body.sh`로 템플릿 아홉 절 제목·순서·예외 문구를 기계적으로 검사하고, `.claude/settings.json`의 Claude Code PreToolUse hook이 `gh pr create`/`gh pr edit`를 가로채 통과하지 못한 본문 파일의 PR 생성을 막는다. 테스트는 `scripts/check-pr-body.test.sh`로 별도 뒀다.
+- `manage-qa-tickets` v4.5.0에서 판정 표 항목 수 하드코딩 문구를 없애고, SKILL.md·github-publication.md의 계약 섹션 이름을 `할 일`·`하지 않을 것`·`완료 조건`으로 맞추고, 티켓 `현재 화면` selector가 PR Before/After 요소 행의 selector로 이어지게 명시했다.
+- `docs/rules/agent-skill-routing.md`와 AGENTS.md를 다섯 스킬(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `write-github-comment`, `build-oss-hub-handbook`) 체계로 갱신하고, `.claude/skills/write-github-comment`·`.codex/skills/write-github-comment`·`.cursor/skills/write-github-comment`·`.gjc/skills/write-github-comment` symlink를 `skills/write-github-comment`로 추가했다. `.claude/`·`.gjc/`는 글로벌 gitignore에 걸려 `git add -f`로 추적했다.
+- 검증: 변경·신규 마크다운·설정 파일에 `prettier --check` 통과(쉘 스크립트 둘은 parser 미지원이라 대상에서 제외), `bash scripts/check-pr-body.test.sh` 47개 통과, `find -L .claude .codex .cursor .gjc -type l` 결과 없음(깨진 symlink 없음), 새 마크다운 네 개 각각 `bash scripts/check-public-safe.sh --text-only` 통과.
+- 한계: 훅은 Claude Code의 `gh pr create`/`gh pr edit`만 가로챈다. Codex·Cursor·GJC는 AGENTS.md의 게이트 문장과 PR 템플릿 체크박스에 의존하고, `check-pr-body.sh`를 CI required lane에 넣는 것은 이번에 하지 않고 후속 결정으로 남겼다.
+- 공개 안전성: 실명 없음 — 사람은 @handle. 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+## 2026-09-08 — 삭제 보호 물리 컬럼 제거
+
+- 상태: review
+- Issue: [#1237](https://github.com/JNU-SWCU/oss-hub/issues/1237)
+- PR: (이 PR)
+- blocker: 없음
+- 선행 v0.6.150의 배포 SHA와 healthy 상태를 확인했고 실행 중인 Prisma client에 삭제 보호 필드가 없음을 확인했다.
+- 물리 컬럼만 남은 상태에서 별도 DROP migration을 추가하며 과거 migration은 수정하지 않는다.
+- 합성 PostgreSQL의 true·false 행에서 컬럼 제거 후 나머지 행 내용·관계·제약·인덱스를 대조하고 실제 dump를 복원해 원래 상태를 검증했다.
+- 이미 컬럼이 없으면 명시적으로 실패하는 negative 시나리오도 복원까지 통과했다.
+- 리허설은 전체 migration 이력이 아닌 focused-table 검증이며 전체 스키마는 격리 통합 94 suite / 539 테스트로 별도 검증했다.
+- 리허설은 원격 Docker endpoint를 거부하고 자체 컨테이너 정리 성공 후에만 성공 결과를 출력한다.
+- 정적 계약 10개는 backend Prisma Jest 경로에 두어 기존 required CI에서 실행한다.
+- 검증: 정적 계약 10개, migrate·negative 리허설, 원격 endpoint 거부, 잔존 리허설 컨테이너 0개, backend typecheck·lint 통과.
+- 통합 테스트 종료 시 기존 Jest 비동기 핸들 경고는 숨기지 않았다.
+- 공개 안전성: 합성 데이터만 사용했고 비밀값·실데이터·개인정보·내부 호스트·로컬 경로 없음.
+- PR 리뷰에서 production DDL의 무제한 lock 대기를 발견해 migration 자체에 transaction-local lock timeout 5초와 statement timeout 30초를 추가했다.
+- 완화된 외부 timeout 아래 별도 세션이 Program 잠금을 잡는 locked 리허설로 migration 자체의 timeout과 데이터 보존을 검증했으며 정적 계약 12개와 리허설 3종이 통과했다.
+- 선행 Release의 실제 backup도 운영 DB와 분리된 네트워크 없는 임시 DB에서 복원하고 임시 컨테이너를 제거했다.

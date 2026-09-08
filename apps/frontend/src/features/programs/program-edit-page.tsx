@@ -10,7 +10,6 @@ import {
   editableMilestoneSnapshotFailure,
   updateEditableMilestone,
   updateProgram,
-  updateProgramLifecycle,
 } from './api';
 import {
   buildMilestoneInput,
@@ -102,22 +101,13 @@ export function ProgramEditPage({
     );
   const [hasUnsavedMilestoneDocuments, setHasUnsavedMilestoneDocuments] =
     useState(false);
-  const [isLifecycleBusy, setIsLifecycleBusy] = useState(false);
-  const [isLifecycleConfirming, setIsLifecycleConfirming] = useState(false);
-  /**
-   * 게시 상태 전환 실패 메시지는 generalAlert(페이지 맨 위)가 아니라 따로 갖는다.
-   * 게시 상태 버튼은 페이지 아래쪽 「게시 상태」 섹션에 있어서, generalAlert에
-   * 실으면 원인 버튼과 멀리 떨어진 곳에 뜬다 — 화면 아래에서 누른 사람은
-   * 실패 이유를 보지 못한 채 버튼만 다시 눌러 보게 된다.
-   */
-  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const editRegionRef = useRef<HTMLDivElement>(null);
 
   const isDirty = dirtyFields.length > 0;
   const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(milestoneEditor);
   // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
   // 나가기 확인은 기본 정보뿐 아니라 마일스톤 편집기에 남은 입력도 지켜야 한다(#867).
-  useProgramExitGuard(
+  const { completeAndNavigate } = useProgramExitGuard(
     isDirty || hasUnsavedMilestoneChanges || hasUnsavedMilestoneDocuments,
   );
 
@@ -553,41 +543,6 @@ export function ProgramEditPage({
       setIsMilestoneBusy(false);
     }
   };
-  const requestLifecycleToggle = () => setIsLifecycleConfirming(true);
-  const cancelLifecycleToggle = () => setIsLifecycleConfirming(false);
-  const confirmLifecycleToggle = async () => {
-    if (state.kind !== 'ready') return;
-    const lifecycle =
-      state.program.lifecycle === 'PUBLISHED' ? 'ARCHIVED' : 'PUBLISHED';
-    setIsLifecycleBusy(true);
-    // 새로 시도하는 순간 지난번 실패 메시지는 더 이상 지금 상태를 말하지 않는다.
-    setLifecycleError(null);
-    try {
-      const updated = await updateProgramLifecycle(programId, lifecycle);
-      // load()로 통째로 다시 불러오면 그사이 화면이 스켈레톤으로 통째로 갈아치워져
-      // form이 사라지고, 돌아왔을 때 서버 값으로 되돌아가 저장 안 한 기본 정보
-      // 입력이 날아간다. 게시 상태는 폼 내용과 무관하니 마일스톤 저장과 같은
-      // 패턴(updateReadyProgram)으로 program만 그 자리에서 갈아 끼운다.
-      setState((current) =>
-        updateReadyProgram(current, (program) => ({
-          ...program,
-          lifecycle: updated.lifecycle,
-        })),
-      );
-    } catch {
-      // 실패 원인은 generalAlert(페이지 맨 위)가 아니라 게시 상태 섹션 안
-      // lifecycleError로 드러난다 — 버튼과 같은 자리에 있어야 한다.
-      setLifecycleError(
-        '상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      );
-    } finally {
-      // 성공이든 실패든 대화상자가 열린 채 멈추거나 버튼이 계속 비활성으로
-      // 남으면 안 되므로 finally에서 함께 정리한다.
-      setIsLifecycleBusy(false);
-      setIsLifecycleConfirming(false);
-    }
-  };
-
   if (state.kind === 'failed') {
     return (
       <ProgramEditLoadFailure
@@ -615,15 +570,16 @@ export function ProgramEditPage({
         isMilestoneBusy={isMilestoneBusy}
         milestoneSnapshot={milestoneSnapshot}
         canonicalDocumentsByMilestoneId={canonicalDocumentsByMilestoneId}
-        isLifecycleBusy={isLifecycleBusy}
-        isLifecycleConfirming={isLifecycleConfirming}
-        lifecycleError={lifecycleError}
         canDeleteProgram={canDeleteProgram}
+        onProgramDeleted={(notice) =>
+          completeAndNavigate(
+            notice
+              ? `/programs?purged=${encodeURIComponent(notice)}`
+              : '/programs',
+          )
+        }
         onFieldChange={updateField}
         onSubmit={(event) => void submit(event)}
-        onRequestLifecycleToggle={requestLifecycleToggle}
-        onCancelLifecycleToggle={cancelLifecycleToggle}
-        onConfirmLifecycleToggle={() => void confirmLifecycleToggle()}
         onAddMilestone={openAddMilestone}
         onEditMilestone={openEditMilestone}
         onCancelMilestone={() => {

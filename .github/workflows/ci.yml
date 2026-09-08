@@ -196,6 +196,10 @@ jobs:
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-host-db-url.test.sh
 
+      - name: PR 본문 계약 검사기 회귀 테스트
+        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
+        run: bash scripts/check-pr-body.test.sh
+
       - name: Node script 문법 검사
         if: ${{ steps.scope.outputs.node_scripts == 'true' }}
         run: |

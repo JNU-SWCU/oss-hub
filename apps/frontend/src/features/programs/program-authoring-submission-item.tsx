@@ -35,6 +35,7 @@ export function ProgramAuthoringSubmissionItem({
   fileUpload,
   error,
   deleteLabel = '첨부파일 삭제',
+  nameConfirmLabel = '제출물 이름 저장',
 }: {
   readonly milestoneId: string;
   readonly requirement: SubmissionItemValue;
@@ -58,6 +59,7 @@ export function ProgramAuthoringSubmissionItem({
   readonly fileUpload?: MilestoneDocumentUploadPolicy;
   readonly error?: string;
   readonly deleteLabel?: string;
+  readonly nameConfirmLabel?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingName, setEditingName] = useState(false);
@@ -165,7 +167,7 @@ export function ProgramAuthoringSubmissionItem({
           {editingName ? (
             <>
               <IconAction
-                label="제출물 이름 저장"
+                label={nameConfirmLabel}
                 disabled={nameError !== null}
                 onClick={saveName}
               >

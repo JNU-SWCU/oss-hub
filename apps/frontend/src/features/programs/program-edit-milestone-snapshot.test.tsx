@@ -48,7 +48,6 @@ vi.mock('./api', async (importOriginal) => ({
   createMilestone: vi.fn(),
   deleteMilestone: vi.fn(),
   updateProgram: vi.fn(),
-  updateProgramLifecycle: vi.fn(),
 }));
 
 vi.mock('./milestone-document-api', () => ({
@@ -218,7 +217,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   it('검증 실패후에도 폼과 초기 스냅샷의 dirty 판정을 유지한다', async () => {
     // Given / When
     await editName('');
-    await act(async () => button('저장').click());
+    await act(async () => button('마일스톤 저장').click());
 
     // Then
     expect(nameInput().value).toBe('');
@@ -235,7 +234,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
 
     // When
     await act(async () => {
-      button('저장').click();
+      button('마일스톤 저장').click();
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -275,7 +274,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
       fingerprint: 'b'.repeat(64),
     });
     await act(async () => {
-      button('저장').click();
+      button('마일스톤 저장').click();
       await Promise.resolve();
     });
 
@@ -336,7 +335,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     updateEditableMilestoneMock.mockRejectedValue(new TypeError('network'));
     await editName('결과 확인 필요');
     await act(async () => {
-      button('저장').click();
+      button('마일스톤 저장').click();
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -361,7 +360,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     );
     await editName('충돌 전 입력');
     await act(async () => {
-      button('저장').click();
+      button('마일스톤 저장').click();
       await Promise.resolve();
     });
     getEditableMilestoneMock.mockResolvedValueOnce({
@@ -378,10 +377,10 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     });
     await act(async () => button('새로고침').click());
     expect(nameInput().value).toBe('충돌 전 입력');
-    expect(button('저장').disabled).toBe(true);
+    expect(button('마일스톤 저장').disabled).toBe(true);
     await act(async () => button('최신 서버 상태로 다시 시작').click());
     expect(nameInput().value).toBe('서버 최신');
-    expect(button('저장').disabled).toBe(false);
+    expect(button('마일스톤 저장').disabled).toBe(false);
   });
 
   it('same-tick submit events issue one aggregate PATCH', async () => {
@@ -399,8 +398,8 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     });
     await editName('한 번만 저장');
     await act(async () => {
-      button('저장').click();
-      button('저장').click();
+      button('마일스톤 저장').click();
+      button('마일스톤 저장').click();
       await Promise.resolve();
     });
     expect(updateEditableMilestoneMock).toHaveBeenCalledTimes(1);
@@ -425,7 +424,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
 
     // When
     await act(async () => {
-      button('저장').click();
+      button('마일스톤 저장').click();
       await Promise.resolve();
       await Promise.resolve();
     });

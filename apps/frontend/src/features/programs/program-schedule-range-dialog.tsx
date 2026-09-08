@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { ProgramAuthoringDialog } from './program-authoring-dialog';
 import {
   dateKey,
@@ -20,7 +21,10 @@ export function ProgramScheduleRangeDialog({
   range,
   description,
   confirmLabel = '저장',
+  dialogClassName,
+  bodyClassName,
   showCalendar = false,
+  showCalendarScrollHint,
   calendarEvents = [],
   onCancel,
   onSave,
@@ -28,7 +32,10 @@ export function ProgramScheduleRangeDialog({
   readonly range: ProgramScheduleEditableRange;
   readonly description?: string | null;
   readonly confirmLabel?: string;
+  readonly dialogClassName?: string;
+  readonly bodyClassName?: string;
   readonly showCalendar?: boolean;
+  readonly showCalendarScrollHint?: boolean;
   readonly calendarEvents?: readonly ProgramScheduleCalendarEvent[];
   readonly onCancel: () => void;
   readonly onSave: (
@@ -115,13 +122,15 @@ export function ProgramScheduleRangeDialog({
           ? '시작과 종료 날짜·시간을 입력하세요.'
           : description
       }
-      bodyClassName="gap-4"
+      bodyClassName={cn('gap-4', bodyClassName)}
+      className={dialogClassName}
       confirmLabel={confirmLabel}
       onCancel={onCancel}
       onSave={save}
     >
       {showCalendar ? (
         <ProgramScheduleRangeCalendar
+          showScrollHint={showCalendarScrollHint}
           events={visibleCalendarEvents}
           activeRange={calendarRange}
           monthKey={monthKey}

@@ -122,8 +122,9 @@ PUBLIC safety:
 제품·기획 결정은 Notion Decision Log, 기술·운영 결정은 ADR, 구현 상태는 GitHub Issue/PR, secret 값은 운영 vault만 원본으로 삼는다.
 로컬 작업 시작 시 관련 open PR을 한 번 확인하고 `bash scripts/setup-hooks.sh`로 repository hooks를 활성화한다.
 스킬 사용은 선택이 아니라 게이트다 — 작업 표면에 대응하는 스킬을 `docs/rules/agent-skill-routing.md`에서 찾아 그 `SKILL.md`를 읽고 절차대로 수행하지 않은 작업은 완료로 인정하지 않는다.
-repo 스킬 네 개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`)는 `skills/`가 원본이며 Claude Code·Codex·Cursor·GJC는 각 runtime 디렉터리의 symlink로 같은 본문을 로드한다.
+repo 스킬 다섯 개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`, `write-github-comment`)는 `skills/`가 원본이며 Claude Code·Codex·Cursor·GJC는 각 runtime 디렉터리의 symlink로 같은 본문을 로드한다.
 PR을 열기 전에 `submit-pr-evidence`를 반드시 실행한다 — frontend 변경은 Before/After 캡처, backend 로직 변경은 mermaid/DOT 다이어그램이 PR 본문에 없으면 PR을 열지 않는다.
+PR·Issue에 코멘트를 달 때는 `write-github-comment`를 거친다 — 화면 이야기는 요소 캡처를, 답글은 위젯이 말하지 않는 것만 담는다.
 craft-skills는 로컬 날짜 기준 첫 개발 세션에 runtime-native marketplace에서 최신본을 확인·갱신하며 Claude Code는 project marketplace `autoUpdate`, Codex는 project `INSTALLED_BY_DEFAULT`, GJC는 라우팅 문서의 install 명령을 쓴다.
 스킬 이름 규칙·버전·CHANGELOG 계약과 runtime별 로드 방법의 원본은 `docs/rules/agent-skill-routing.md`다.
 
