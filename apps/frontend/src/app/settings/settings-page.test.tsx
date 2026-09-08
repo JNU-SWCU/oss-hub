@@ -26,6 +26,10 @@ vi.mock('../_shell/use-session-role', () => ({
 
 import SettingsPage from './page';
 import { SETTINGS_ONBOARDING_NOTICE_HEADING } from './settings-onboarding-notice';
+import {
+  SETTINGS_SAVED_NOTIFICATION as SAVED_NOTIFICATION,
+  SETTINGS_SAVED_PROFILE as SAVED_PROFILE,
+} from './settings-test-fixtures';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -40,19 +44,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
  * 여기서 보는 것은 그 배선과, 열린 다음 사용자가 실제로 저장까지 가는지다.
  */
 describe('설정 화면', () => {
-  const SAVED_PROFILE = {
-    name: '김교직',
-    studentId: null,
-    department: '컴퓨터정보통신공학과',
-    isComplete: true,
-  };
-  const SAVED_NOTIFICATION = {
-    // 실제 도메인 주소는 쓰지 않는다 — `docs/rules/security.md` 의 deny-list 3번이
-    // 연락처 이메일을 금지하고, RFC 2606 예약 도메인의 합성 예시만 허용한다.
-    notificationEmail: 'staff@example.com',
-    notifyEnabled: true,
-  };
-
   let container: HTMLDivElement;
   let root: Root;
   let requests: { url: string; method: string; body: unknown }[];
