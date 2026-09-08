@@ -1404,3 +1404,17 @@
 - 절차 9단계로 `/ponytail-review`를 넣었다. 안티패턴이 화면에서 글자를 줄이는 것이라면 ponytail은 diff에서 코드를 줄이는 같은 규칙이고, 검증·오류 처리·보안·접근성은 줄이지 않는다는 경계를 함께 적었다.
 - 검증: 스킬 문서 세 개만 변경했고 제품 코드·설정·CI 변경 0건. 인용한 코드 앵커(파일·줄·문자열)를 전부 저장소에서 직접 확인했고, ponytail marketplace 소유자 표기는 GitHub API `full_name`으로 확인했다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-08 — 랭킹 한 페이지에 100명까지 보인다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- 랭킹 목록이 20명씩 끊겨 참여자 59명을 보려면 페이지를 세 번 넘겨야 했다. 한 화면에서 훑는 것이 이 표의 용도라 목록 page size를 100으로 올렸다.
+- 백엔드 계약은 그대로다. `GET /ranking`의 `pageSize` 상한이 이미 100이라(`ranking-query.dto.ts`) 프런트 상수 하나만 바꿨고, 101을 보내면 여전히 400으로 거부된다.
+- CSV 내려받기는 건드리지 않았다. `RANKING_CSV_PAGE_SIZE`는 별도 상수로 이미 100이라 목록 page size와 무관하게 동작한다.
+- 페이지네이션은 사라지는 것이 아니라 `total > pageSize`일 때만 나온다 — 참여자가 100명을 넘으면 다시 나타난다.
+- 검증: `pnpm --filter frontend exec vitest run src/features/ranking src/app/ranking` 5개 파일 62개 통과. 합성 59행을 주입한 local-review 하네스에서 Before 20행·페이지네이션 있음, After 59행·페이지네이션 없음을 캡처로 확인했다.
+- 공개 안전성: 캡처는 합성 fixture(`contributor-001`~`059`)만 쓰고 실명·실계정·토큰이 없다. 비밀값·내부 호스트·로컬 경로 없음.
