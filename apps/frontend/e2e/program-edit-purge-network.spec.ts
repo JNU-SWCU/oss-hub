@@ -45,16 +45,17 @@ type PurgeResponse = {
 interface Scenario {
   readonly actor: SessionActor;
   readonly counts: Counts;
+  readonly programName?: string;
   readonly purgeResponses?: readonly PurgeResponse[];
   readonly purgeDelayMs?: number;
   readonly scopeDelayMs?: number;
   readonly scopeError?: boolean;
 }
 
-function editableProgram(counts: Counts) {
+function editableProgram(counts: Counts, name = PROGRAM_NAME) {
   return {
     id: PROGRAM_ID,
-    name: PROGRAM_NAME,
+    name,
     organizer: '합성 운영팀',
     trackType: 'EXTRACURRICULAR',
     lifecycle: 'PUBLISHED',
@@ -169,7 +170,7 @@ async function openEdit(
         await json(route, { detail: 'scope unavailable' }, 500);
         return;
       }
-      await json(route, editableProgram(scenario.counts));
+      await json(route, editableProgram(scenario.counts, scenario.programName));
       return;
     }
     if (path.endsWith('/programs/status-counts')) {
@@ -460,5 +461,30 @@ test.describe('program edit purge network contract', () => {
       .click({ force: true });
     expect(pending.purgeRequests).toHaveLength(1);
     await expect(page).toHaveURL(/\/programs(?:\?|$)/);
+  });
+
+  test('long program names keep confirmation controls reachable on short mobile screens', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 440 });
+    const { purgeRequests } = await openEdit(page, {
+      actor: 'staff',
+      counts: COUNTS,
+      programName: '합성 긴 이름 프로그램 '.repeat(12),
+    });
+    await openPurge(page);
+    const dialog = page.getByRole('alertdialog');
+    const confirm = dialog.getByRole('button', {
+      name: '삭제',
+      exact: true,
+    });
+    await confirm.scrollIntoViewIfNeeded();
+    const bounds = await confirm.boundingBox();
+    if (!bounds) throw new Error('Deletion confirmation is not rendered');
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(440);
+    await dialog.getByRole('button', { name: '취소', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(purgeRequests).toEqual([]);
   });
 });

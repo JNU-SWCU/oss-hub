@@ -32,7 +32,7 @@ export function ProgramEditPurgeConfirmation({
     <AlertDialog.Root open onOpenChange={(next) => !next && !busy && onClose()}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none">
+        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto outline-none">
           <Card className="shadow-xl">
             <CardHeader>
               <AlertDialog.Title asChild>
