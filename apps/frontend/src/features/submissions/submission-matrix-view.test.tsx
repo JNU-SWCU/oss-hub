@@ -194,9 +194,9 @@ describe('SubmissionMatrixView', () => {
   it('집중 보기에서는 선택한 단계의 필수 서류 상태를 센다', () => {
     const html = render({ selectedMilestoneId: 'milestone-mid' });
 
-    expect(html).toContain('필수 서류 없음');
-    expect(html).toContain('0팀');
-    expect(html).toContain('미제출 있음 1팀');
+    expect(html).toContain('필수 서류 없는 단계');
+    expect(html).toContain('필수 서류 없는 팀 0');
+    expect(html).toContain('미제출 있는 팀 1');
   });
 
   it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(마감 초과/D-n)를 붙인다', () => {
@@ -269,10 +269,10 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('제출');
     expect(html).toContain('4/6');
     expect(html).toContain('미제출');
-    expect(html).toContain('2단계');
-    expect(html).toContain('필수 서류 없음');
-    expect(html).toContain('0팀');
-    expect(html).toContain('0단계');
+    expect(html).toMatch(/미제출 단계<\/dt><dd[^>]*>2<\/dd>/);
+    expect(html).toContain('필수 서류 없는 단계');
+    expect(html).toContain('필수 서류 없는 팀 0');
+    expect(html).toMatch(/지각 제출 단계<\/dt><dd[^>]*>0<\/dd>/);
     expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
     expect(html).not.toContain('이 페이지 2건(전체 2건) 중 2건 표시');
     // Then — 구현 중심 문구는 이 화면에서 쓰지 않는다(#865).
@@ -298,24 +298,24 @@ describe('SubmissionMatrixView', () => {
     const html = render();
 
     // Then
-    expect(html).toContain('전체 2팀');
-    expect(html).toContain('미제출 있음 2팀');
-    expect(html).toContain('필수 서류 없음 0팀');
-    expect(html).toContain('제출 완료 0팀');
-    expect(html).toContain('지각 제출 0팀');
+    expect(html).toContain('전체 팀 2');
+    expect(html).toContain('미제출 있는 팀 2');
+    expect(html).toContain('필수 서류 없는 팀 0');
+    expect(html).toContain('제출 완료 팀 0');
+    expect(html).toContain('지각 제출 팀 0');
     expect(html).not.toContain('선택됨');
 
     // Then — 기본값 ALL만 aria-pressed="true".
-    expect(ariaPressedFor(html, '전체 2팀')).toBe('true');
-    expect(ariaPressedFor(html, '미제출 있음 2팀')).toBe('false');
-    expect(ariaPressedFor(html, '필수 서류 없음 0팀')).toBe('false');
+    expect(ariaPressedFor(html, '전체 팀 2')).toBe('true');
+    expect(ariaPressedFor(html, '미제출 있는 팀 2')).toBe('false');
+    expect(ariaPressedFor(html, '필수 서류 없는 팀 0')).toBe('false');
 
     // Given / When — HAS_EMPTY를 고르면 그 세그먼트만 aria-pressed="true".
     const hasEmptyHtml = render({ quickFilter: 'MISSING' });
 
     // Then
-    expect(ariaPressedFor(hasEmptyHtml, '전체 2팀')).toBe('false');
-    expect(ariaPressedFor(hasEmptyHtml, '미제출 있음 2팀')).toBe('true');
+    expect(ariaPressedFor(hasEmptyHtml, '전체 팀 2')).toBe('false');
+    expect(ariaPressedFor(hasEmptyHtml, '미제출 있는 팀 2')).toBe('true');
   });
 
   it('빈 칸 있는 팀 필터를 고르면 해당 행만 표를 채운다', () => {

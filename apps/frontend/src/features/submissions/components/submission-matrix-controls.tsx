@@ -1,8 +1,8 @@
-import type { ReactElement } from 'react';
+import { useId, type ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  DOCUMENT_DELIVERY_LABELS,
   DOCUMENT_DELIVERY_STATUSES,
+  type DocumentDeliveryStatus,
 } from '@/lib/document-delivery';
 import {
   matrixPageStats,
@@ -10,6 +10,13 @@ import {
   type MatrixQuickFilter,
 } from '../matrix';
 import type { MatrixMilestone, MatrixRow } from '../types';
+
+const TEAM_DELIVERY_LABELS = {
+  MISSING: '미제출 있는 팀',
+  LATE: '지각 제출 팀',
+  COMPLETE: '제출 완료 팀',
+  NO_REQUIRED_ITEMS: '필수 서류 없는 팀',
+} as const satisfies Record<DocumentDeliveryStatus, string>;
 
 export function MatrixPagination({
   page,
@@ -72,12 +79,12 @@ export function MatrixStatsStrip({
   const visibleStats = matrixPageStats(rows, visibleMilestones);
   const facts: { readonly label: string; readonly value: string }[] = [
     {
-      label: '필수 서류 제출',
-      value: `${visibleStats.filledCells}/${visibleStats.totalCells}단계`,
+      label: '제출 완료 단계',
+      value: `${visibleStats.filledCells}/${visibleStats.totalCells}`,
     },
-    { label: '미제출 있음', value: `${visibleStats.emptyCells}단계` },
-    { label: '필수 서류 없음', value: `${visibleStats.noRequiredCells}단계` },
-    { label: '지각 제출', value: `${visibleStats.lateCells}단계` },
+    { label: '미제출 단계', value: `${visibleStats.emptyCells}` },
+    { label: '필수 서류 없는 단계', value: `${visibleStats.noRequiredCells}` },
+    { label: '지각 제출 단계', value: `${visibleStats.lateCells}` },
   ];
   return (
     <div className="grid gap-3 rounded-card border border-border p-card">
@@ -107,21 +114,24 @@ export function MatrixQuickFilterButtons({
   readonly quickFilter: MatrixQuickFilter;
   readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
 }): ReactElement {
+  const titleId = useId();
   const options = [
-    { value: 'ALL' as const, label: `전체 ${rows.length}팀` },
+    { value: 'ALL' as const, label: `전체 팀 ${rows.length}` },
     ...DOCUMENT_DELIVERY_STATUSES.map((value) => ({
       value,
-      label: `${DOCUMENT_DELIVERY_LABELS[value]} ${rows.filter((row) => matrixRowDeliveryStatus(row, visibleMilestones) === value).length}팀`,
+      label: `${TEAM_DELIVERY_LABELS[value]} ${rows.filter((row) => matrixRowDeliveryStatus(row, visibleMilestones) === value).length}`,
     })),
   ];
 
   return (
     <div
       role="group"
-      aria-label="필수 서류 제출 상태"
+      aria-labelledby={titleId}
       className="flex max-w-full flex-wrap gap-2"
     >
-      <p className="w-full text-small font-semibold">필수 서류 제출 상태</p>
+      <p id={titleId} className="w-full text-small font-semibold">
+        필수 서류 제출 상태
+      </p>
       {options.map((option) => (
         <Button
           key={option.value}
