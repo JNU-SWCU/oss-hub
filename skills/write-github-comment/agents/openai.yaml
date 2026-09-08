@@ -1,0 +1,4 @@
+interface:
+  display_name: 'OSS Hub GitHub 코멘트 작성'
+  short_description: 'PR·Issue 코멘트를 결정 지원 형식으로 씁니다 — 요소 캡처, 번호별 답, 위젯이 말하는 것 제외'
+  default_prompt: 'Use $write-github-comment whenever a comment or reply is about to be posted on an OSS Hub PR or Issue, to pick the right template, attach an element capture for any screen talk, and strip out what the PR widgets already show.'
