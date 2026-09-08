@@ -6,7 +6,10 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { ProgramApplicationDetailPage } from './program-application-detail-page';
-import type { ApplicationListItem } from './types';
+import type {
+  ApplicationListItem,
+  RepositoryProvisioningJobStatus,
+} from './types';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -68,6 +71,15 @@ const rejected: ApplicationListItem = {
     jobStatus: 'DISABLED',
     updatedAt: '2026-08-06T01:00:00.000Z',
     safeErrorClass: null,
+  },
+};
+
+const provisioned: ApplicationListItem = {
+  ...submitted,
+  status: 'APPROVED',
+  repositoryProvisioning: {
+    ...submitted.repositoryProvisioning,
+    jobStatus: 'SUCCEEDED',
   },
 };
 
@@ -277,6 +289,145 @@ describe('ProgramApplicationDetailPage', () => {
 
     expect(container.textContent).toContain('반려 사유');
     expect(container.textContent).toContain('예산 항목이 비어 있습니다');
+  });
+
+  it.each([true, false])(
+    '발급 설정이 %s여도 이미 생성된 신규 저장소 신청은 되돌릴 수 없고 이유를 연결한다',
+    async (enabled) => {
+      // Given: 신규 저장소 생성이 완료된 승인 신청이다.
+      getApplicationDetailMock.mockResolvedValue({
+        ...provisioned,
+        repositoryProvisioning: {
+          ...provisioned.repositoryProvisioning,
+          enabled,
+        },
+      });
+      await mount();
+      const trigger = getButton('검토 대기로');
+
+      // When: 되돌리기 버튼을 누른다.
+      await act(async () => trigger.click());
+
+      // Then: 요청·확인창 없이 비활성 사유를 읽을 수 있다.
+      expect(trigger.disabled).toBe(true);
+      const descriptionId = trigger.getAttribute('aria-describedby');
+      expect(descriptionId).toBeTruthy();
+      const description = document.getElementById(descriptionId ?? '');
+      expect(description?.textContent?.trim()).toBeTruthy();
+      expect(description?.hidden).toBe(false);
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+      expect(decideApplicationMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each<RepositoryProvisioningJobStatus>([
+    'NOT_REQUESTED',
+    'DISABLED',
+    'PENDING',
+    'PROCESSING',
+    'RETRYABLE_FAILED',
+    'FAILED',
+    'ANOMALOUS',
+  ])(
+    '발급 상태가 %s이면 완료로 추정해 되돌리기를 막지 않는다',
+    async (jobStatus) => {
+      // Given: API가 저장소 생성 완료를 확인하지 않은 승인 신청이다.
+      getApplicationDetailMock.mockResolvedValue({
+        ...provisioned,
+        repositoryProvisioning: {
+          ...provisioned.repositoryProvisioning,
+          jobStatus,
+        },
+      });
+      await mount();
+
+      // When: 되돌리기 버튼을 누른다.
+      const trigger = getButton('검토 대기로');
+      await act(async () => trigger.click());
+
+      // Then: 서버 판정을 받을 수 있는 기존 확인창으로 이어진다.
+      expect(trigger.disabled).toBe(false);
+      expect(trigger.hasAttribute('aria-describedby')).toBe(false);
+      expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    },
+  );
+
+  it.each<ApplicationListItem>([
+    { ...provisioned, repositoryConnectionMode: 'OWN' },
+    { ...provisioned, status: 'REJECTED' },
+  ])(
+    '신규 저장소 승인에 해당하지 않으면 성공 작업이 있어도 되돌리기를 허용한다: $status/$repositoryConnectionMode',
+    async (application) => {
+      // Given: 실제 서버의 완료 작업 차단 대상 밖에 있는 신청이다.
+      getApplicationDetailMock.mockResolvedValue(application);
+      await mount();
+
+      // When: 되돌리기를 누른다.
+      const trigger = getButton('검토 대기로');
+      await act(async () => trigger.click());
+
+      // Then: 기존 확인 흐름을 유지한다.
+      expect(trigger.disabled).toBe(false);
+      expect(trigger.hasAttribute('aria-describedby')).toBe(false);
+      expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    },
+  );
+
+  it('승인 직후 생성 완료를 재조회하면 비활성 이유로 포커스를 돌린다', async () => {
+    // Given: 승인 확인창이 열려 있고 저장 뒤 재조회에서 발급 완료가 확인된다.
+    getApplicationDetailMock.mockResolvedValueOnce(submitted);
+    getApplicationDetailMock.mockResolvedValueOnce(provisioned);
+    decideApplicationMock.mockResolvedValue({
+      applicationId: 'app-1',
+      status: 'APPROVED',
+    });
+    await mount();
+    await act(async () => getButton('승인').click());
+
+    // When: 승인을 확정한다.
+    await act(async () => getButton('승인 확정').click());
+    await flushCloseAutoFocus();
+
+    // Then: 비활성 버튼 대신 연결된 이유에서 다음 탐색을 이어갈 수 있다.
+    const trigger = getButton('검토 대기로');
+    expect(trigger.disabled).toBe(true);
+    const description = document.getElementById(
+      trigger.getAttribute('aria-describedby') ?? '',
+    );
+    expect(description).not.toBeNull();
+    expect(document.activeElement).toBe(description);
+  });
+
+  it('확인 중 발급이 끝나 APP_023을 받으면 최신 상태와 차단 이유로 복귀한다', async () => {
+    // Given: 되돌리기 확인창이 열린 뒤 저장소가 생성된다.
+    getApplicationDetailMock.mockResolvedValueOnce({
+      ...provisioned,
+      repositoryProvisioning: {
+        ...provisioned.repositoryProvisioning,
+        jobStatus: 'PROCESSING',
+      },
+    });
+    getApplicationDetailMock.mockResolvedValueOnce(provisioned);
+    decideApplicationMock.mockRejectedValue(
+      new ApiError(problem(409, 'APP_023')),
+    );
+    await mount();
+    await act(async () => getButton('검토 대기로').click());
+
+    // When: 되돌리기 확정을 서버가 거절한다.
+    await act(async () => getButton('검토 대기로 되돌리기').click());
+    await flushCloseAutoFocus();
+
+    // Then: 완료된 저장소를 회수하지 않고 최신 비활성 이유를 읽게 한다.
+    const trigger = getButton('검토 대기로');
+    expect(getApplicationDetailMock).toHaveBeenCalledTimes(2);
+    expect(trigger.disabled).toBe(true);
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    const description = document.getElementById(
+      trigger.getAttribute('aria-describedby') ?? '',
+    );
+    expect(description).not.toBeNull();
+    expect(document.activeElement).toBe(description);
   });
 
   it('사유 없이 반려 확정을 누르면 저장하지 않고 안내한다', async () => {

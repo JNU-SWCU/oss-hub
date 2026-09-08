@@ -27,6 +27,7 @@ describe('applicationDecisionFocusOrder', () => {
       'application-decision-reject-app-1',
       'application-decision-revert-app-1',
       'application-decision-approve-app-1',
+      'application-decision-revert-app-1-reason',
     ]);
   });
 
@@ -36,6 +37,7 @@ describe('applicationDecisionFocusOrder', () => {
       'application-decision-revert-app-1',
       'application-decision-approve-app-1',
       'application-decision-reject-app-1',
+      'application-decision-revert-app-1-reason',
     ]);
   });
 
@@ -44,6 +46,7 @@ describe('applicationDecisionFocusOrder', () => {
       'application-decision-approve',
       'application-decision-revert',
       'application-decision-reject',
+      'application-decision-revert-reason',
     ]);
   });
 });
@@ -85,5 +88,23 @@ describe('focusApplicationDecisionTrigger', () => {
       ),
     ).toBe(false);
     expect(document.activeElement).not.toBe(other);
+  });
+
+  it('완료된 저장소 때문에 남은 버튼이 비활성이면 같은 신청의 이유로 이동한다', () => {
+    // Given: 되돌리기 버튼과 연결된 차단 사유만 남았다.
+    addButton('application-decision-revert-app-1', { disabled: true });
+    const reason = document.createElement('p');
+    reason.id = 'application-decision-revert-app-1-reason';
+    reason.tabIndex = -1;
+    document.body.append(reason);
+
+    // When: 판정 후 재조회를 마치고 포커스를 돌린다.
+    const focused = focusApplicationDecisionTrigger(
+      applicationDecisionFocusOrder('APPROVE', 'app-1'),
+    );
+
+    // Then: 다른 신청이나 문서 시작이 아닌 차단 사유로 이어진다.
+    expect(focused).toBe(true);
+    expect(document.activeElement).toBe(reason);
   });
 });
