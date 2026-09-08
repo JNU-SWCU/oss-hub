@@ -1498,3 +1498,22 @@
 - 검증: 변경·신규 마크다운·설정 파일에 `prettier --check` 통과(쉘 스크립트 둘은 parser 미지원이라 대상에서 제외), `bash scripts/check-pr-body.test.sh` 47개 통과, `find -L .claude .codex .cursor .gjc -type l` 결과 없음(깨진 symlink 없음), 새 마크다운 네 개 각각 `bash scripts/check-public-safe.sh --text-only` 통과.
 - 한계: 훅은 Claude Code의 `gh pr create`/`gh pr edit`만 가로챈다. Codex·Cursor·GJC는 AGENTS.md의 게이트 문장과 PR 템플릿 체크박스에 의존하고, `check-pr-body.sh`를 CI required lane에 넣는 것은 이번에 하지 않고 후속 결정으로 남겼다.
 - 공개 안전성: 실명 없음 — 사람은 @handle. 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+## 2026-09-08 — 삭제 보호 물리 컬럼 제거
+
+- 상태: review
+- Issue: [#1237](https://github.com/JNU-SWCU/oss-hub/issues/1237)
+- PR: (이 PR)
+- blocker: 없음
+- 선행 v0.6.150의 배포 SHA와 healthy 상태를 확인했고 실행 중인 Prisma client에 삭제 보호 필드가 없음을 확인했다.
+- 물리 컬럼만 남은 상태에서 별도 DROP migration을 추가하며 과거 migration은 수정하지 않는다.
+- 합성 PostgreSQL의 true·false 행에서 컬럼 제거 후 나머지 행 내용·관계·제약·인덱스를 대조하고 실제 dump를 복원해 원래 상태를 검증했다.
+- 이미 컬럼이 없으면 명시적으로 실패하는 negative 시나리오도 복원까지 통과했다.
+- 리허설은 전체 migration 이력이 아닌 focused-table 검증이며 전체 스키마는 격리 통합 94 suite / 539 테스트로 별도 검증했다.
+- 리허설은 원격 Docker endpoint를 거부하고 자체 컨테이너 정리 성공 후에만 성공 결과를 출력한다.
+- 정적 계약 10개는 backend Prisma Jest 경로에 두어 기존 required CI에서 실행한다.
+- 검증: 정적 계약 10개, migrate·negative 리허설, 원격 endpoint 거부, 잔존 리허설 컨테이너 0개, backend typecheck·lint 통과.
+- 통합 테스트 종료 시 기존 Jest 비동기 핸들 경고는 숨기지 않았다.
+- 공개 안전성: 합성 데이터만 사용했고 비밀값·실데이터·개인정보·내부 호스트·로컬 경로 없음.
+- PR 리뷰에서 production DDL의 무제한 lock 대기를 발견해 migration 자체에 transaction-local lock timeout 5초와 statement timeout 30초를 추가했다.
+- 완화된 외부 timeout 아래 별도 세션이 Program 잠금을 잡는 locked 리허설로 migration 자체의 timeout과 데이터 보존을 검증했으며 정적 계약 12개와 리허설 3종이 통과했다.
+- 선행 Release의 실제 backup도 운영 DB와 분리된 네트워크 없는 임시 DB에서 복원하고 임시 컨테이너를 제거했다.
