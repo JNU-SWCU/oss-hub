@@ -4,7 +4,7 @@ import type { MilestoneDocumentUploadPolicy } from './milestone-document-api';
  * 파일을 **고르기 전에** 읽는 한 줄 — 허용 형식과 상한.
  *
  * 어휘는 옛 제출 화면(`features/submissions/components/submission-input.tsx`)이 이미 쓰던
- * `PDF, HWP, JPG, PNG, ZIP · 최대 5 MB` 그대로다. 같은 일을 하는 자리는 같은 말을 쓴다.
+ * `PDF, HWP, ZIP · 최대 5 MB` 그대로다. 같은 일을 하는 자리는 같은 말을 쓴다.
  * 다만 숫자와 형식 목록은 여기서 적지 않고 서버가 준 값을 그대로 쓴다(#1107).
  */
 export function milestoneDocumentUploadHint(

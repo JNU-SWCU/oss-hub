@@ -164,12 +164,8 @@ describe('MilestoneDocumentSubmissionForm', () => {
     it('고르기 전에 허용 형식과 상한을 보여 주고 고를 수 있는 형식을 제한한다', async () => {
       await renderForm();
 
-      expect(container.textContent).toContain(
-        'PDF, HWP, JPG, PNG, ZIP · 최대 5 MB',
-      );
-      expect(fileInput().getAttribute('accept')).toBe(
-        '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-      );
+      expect(container.textContent).toContain('PDF, HWP, ZIP · 최대 5 MB');
+      expect(fileInput().getAttribute('accept')).toBe('.pdf,.hwp,.zip');
     });
 
     it('상한을 넘은 파일은 받아 두지 않고 사유를 말한다', async () => {
@@ -180,7 +176,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
       expect(alert?.textContent).toBe('파일은 5 MB 이하여야 합니다.');
       expect(alert?.textContent).not.toContain('ProblemDetail');
       // 받아 두면 「제출」이 눌리고, 그 요청은 반드시 실패한다.
-      expect(container.textContent).not.toContain('계획서.pdf');
+      expect(container.textContent).toContain('계획서.pdf');
       const submit = [...container.querySelectorAll('button')].find(
         (button) => button.textContent?.trim() === '제출',
       );
@@ -193,9 +189,9 @@ describe('MilestoneDocumentSubmissionForm', () => {
       await select('설치.exe', 10);
 
       expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-        'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.',
+        'PDF, HWP, ZIP 파일만 선택할 수 있습니다.',
       );
-      expect(container.textContent).not.toContain('설치.exe');
+      expect(container.textContent).toContain('설치.exe');
     });
 
     it('걸린 뒤 제대로 된 파일을 고르면 사유가 사라지고 제출할 수 있다', async () => {

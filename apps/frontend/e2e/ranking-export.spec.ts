@@ -106,6 +106,7 @@ test('staff exports 205 synthetic rows with selected-year filename', async ({
     page.locator('[data-slot="page-header-actions"] time'),
   ).toHaveCount(0);
 
+  const exportRequestStart = requests.length;
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'CSV 다운로드' }).click();
   const download = await downloadPromise;
@@ -117,7 +118,10 @@ test('staff exports 205 synthetic rows with selected-year filename', async ({
   expect(csv.startsWith('\uFEFF')).toBe(true);
   expect(csv.split('\r\n').length - 2).toBe(205);
   expect(
-    requests.filter((request) => request.endsWith('pageSize=100')).join('|'),
+    requests
+      .slice(exportRequestStart)
+      .filter((request) => request.endsWith('pageSize=100'))
+      .join('|'),
   ).toBe('page=1&pageSize=100|page=2&pageSize=100|page=3&pageSize=100');
   await mkdir(evidenceDir, { recursive: true });
   await download.saveAs(path.join(evidenceDir, download.suggestedFilename()));

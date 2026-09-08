@@ -169,9 +169,6 @@ describe('SubmissionFilesService', () => {
     ['document.hwp', 'application/vnd.hancom.hwp'],
     ['document.hwp', 'application/x-hwp-v5'],
     ['document.hwp', 'application/octet-stream'],
-    ['photo.jpg', 'image/jpeg'],
-    ['photo.jpeg', 'image/jpeg'],
-    ['image.png', 'image/png'],
     ['archive.zip', 'application/zip'],
     ['archive.zip', 'application/x-zip-compressed'],
     ['archive.zip', 'application/octet-stream'],
@@ -188,6 +185,26 @@ describe('SubmissionFilesService', () => {
     });
     expect(storage.put).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    ['photo.jpg', 'image/jpeg'],
+    ['photo.jpeg', 'image/jpeg'],
+    ['image.png', 'image/png'],
+  ])(
+    'rejects a new %s upload before reserving or storing it',
+    async (name, type) => {
+      // Given
+      const { service, repository, storage } = setup();
+
+      // When / Then
+      await expectCode(
+        service.upload(1n, 'app', 'milestone', file(name, type)),
+        SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE,
+      );
+      expect(repository.createPending).not.toHaveBeenCalled();
+      expect(storage.put).not.toHaveBeenCalled();
+    },
+  );
 
   it('restores a multipart latin1 mojibake filename before validation and storage', async () => {
     const { service, repository, storage } = setup();
@@ -596,12 +613,6 @@ describe('SubmissionFilesService', () => {
       'report.hwp',
       'application/x-hwp',
       Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
-    ],
-    ['photo.jpg', 'image/jpeg', Buffer.from([0xff, 0xd8, 0xff])],
-    [
-      'image.png',
-      'image/png',
-      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     ],
     [
       'archive.zip',

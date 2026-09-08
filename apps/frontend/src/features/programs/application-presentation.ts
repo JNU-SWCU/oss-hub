@@ -64,6 +64,15 @@ export const PROVISIONING_LABELS: Readonly<
   ANOMALOUS: '확인 필요',
 };
 
+/** 서버 APP_023 조건 중 API에서 확인할 수 있는 완료 상태. 설정 해제 후에도 적용한다. */
+export function isApplicationRevertBlocked(item: ApplicationListItem): boolean {
+  return (
+    item.status === 'APPROVED' &&
+    item.repositoryConnectionMode === 'NEW' &&
+    item.repositoryProvisioning.jobStatus === 'SUCCEEDED'
+  );
+}
+
 export function formatSubmittedAt(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric',

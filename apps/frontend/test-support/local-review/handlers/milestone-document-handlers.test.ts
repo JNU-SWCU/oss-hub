@@ -58,6 +58,14 @@ function statusOf(plan: LocalReviewResponsePlan | null): number {
   return (plan as { readonly status: number }).status;
 }
 
+it('recognizes the program archive route without pretending that a JSON fixture is a ZIP', () => {
+  const path = 'programs/program-capstone/documents/collection/archive';
+  const staff = resolve('GET', path, { search: 'scope=PROGRAM&groupBy=TEAM' });
+  expect(statusOf(staff)).toBe(503);
+  expect(jsonBody(staff)).toMatchObject({ code: 'MSD_012' });
+  expect(statusOf(resolve('GET', path, { fixture: 'student' }))).toBe(403);
+});
+
 describe('GET .../documents', () => {
   it('clean list DTO does not leak the fixture-only content discriminator', () => {
     const body = jsonBody(
@@ -91,8 +99,8 @@ describe('GET .../documents', () => {
     expect(body.fileUpload).toEqual({
       maxBytes: 5 * 1024 * 1024,
       maxLabel: '5 MB',
-      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+      accept: '.pdf,.hwp,.zip',
+      formatLabel: 'PDF, HWP, ZIP',
     });
   });
 });
