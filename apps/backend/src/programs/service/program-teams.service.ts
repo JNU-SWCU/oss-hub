@@ -1,4 +1,8 @@
 import { randomBytes } from 'node:crypto';
+import type {
+  RepositoryUrlHistoryCursor,
+  RepositoryUrlHistoryPage,
+} from '../program-team-repository-evidence.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   createTeamCreatedAuditMetadata,
@@ -284,7 +288,23 @@ export class ProgramTeamsService {
         ...members.filter((member) => !member.isLeader),
       ],
       application: detail.application,
+      repositoryContributions: detail.repositoryContributions,
+      repositoryUrlHistory: detail.repositoryUrlHistory,
     };
+  }
+
+  async getRepositoryUrlHistoryForStaff(
+    programId: string,
+    teamId: string,
+    cursor?: RepositoryUrlHistoryCursor,
+  ): Promise<RepositoryUrlHistoryPage> {
+    const history = await this.repository.findStaffRepositoryUrlHistory(
+      programId,
+      teamId,
+      cursor,
+    );
+    if (!history) throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
+    return history;
   }
 
   private toStaffTeamView(team: StaffTeamRecord): StaffTeamView {

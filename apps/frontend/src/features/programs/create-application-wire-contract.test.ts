@@ -38,8 +38,6 @@ const EXPECTED_DTO_KEYS = [
   'answers',
   'applicationTemplateVersion',
   'isRepositoryPublicationPlanned',
-  'repositoryConnectionMode',
-  'repositoryUrl',
   'teamName',
 ] as const;
 
@@ -65,8 +63,6 @@ async function sentBodyKeys(): Promise<readonly string[]> {
     answers: { title: '제목', summary: '요약' },
     applicationTemplateVersion: 1,
     isRepositoryPublicationPlanned: true,
-    repositoryConnectionMode: 'new',
-    repositoryUrl: '',
   });
   const call = vi.mocked(apiClient).mock.calls[0];
   const init = call[1] as { readonly body: string };

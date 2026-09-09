@@ -45,6 +45,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
+    await prisma.repositoryInvitation.deleteMany({
+      where: { repository: { applicationId: { in: [...APPLICATION_IDS] } } },
+    });
+    await prisma.githubRepository.deleteMany({
+      where: { applicationId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
     });
@@ -96,6 +102,46 @@ describe('RepositoryProvisionJobRepository integration', () => {
       startedAt: NOW,
     });
   });
+
+  it.each([null, 'https://github.com/synthetic/relinked'])(
+    'reconciles original NEW invitations but skips relinked URL %s',
+    async (repositoryUrl) => {
+      const applicationId = APPLICATION_IDS[0];
+      await createJob(
+        applicationId,
+        RepositoryProvisionJobStatus.SUCCEEDED,
+        NOW,
+      );
+      const current = await prisma.githubRepository.create({
+        data: {
+          applicationId,
+          githubRepositoryId: 8_133_900_001n,
+          nameWithOwner: 'synthetic/relinked',
+          source: 'ORG_PROVISIONED',
+          invitations: { create: { githubLogin: 'synthetic-invitee' } },
+        },
+      });
+      await prisma.application.update({
+        where: { id: applicationId },
+        data: { repositoryUrl },
+      });
+      await prisma.repositoryProvisionJob.update({
+        where: { applicationId },
+        data: { repositoryId: current.id },
+      });
+      const claimed = await repository.claimNextReconciliation({
+        workerId: 'synthetic-reconciliation-worker',
+        now: NOW,
+        leaseMs: LEASE_MS,
+      });
+      if (repositoryUrl === null)
+        expect(claimed).toMatchObject({
+          applicationId,
+          repositoryId: current.id,
+        });
+      else expect(claimed).toBeNull();
+    },
+  );
 
   it('backoff 전 FAILED_RETRYABLE job은 claim하지 않는다', async () => {
     // Given: 다음 실행 시각이 아직 오지 않은 재시도 job이 있다.

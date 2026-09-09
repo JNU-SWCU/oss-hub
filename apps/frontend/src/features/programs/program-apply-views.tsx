@@ -8,7 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { sanitizeDisplayText } from '@/lib/display-text';
 import type { ProgramTeam } from './api';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
@@ -19,11 +18,11 @@ import {
   type ProgramApplyBlockedReason,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
-  type RepositoryConnectionMode,
   type TeamMinimum,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
 import type { StudentApplication } from './student-application-api';
+import { RepositoryUrlEditor } from './repository-url-editor';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 export type ApplicationFormMode = 'create' | 'edit';
@@ -129,10 +128,21 @@ export function BlockedView({
       {/* 안내 상자보다 **위**에 세운다 — 반려된 사람의 첫 할 일은 "수정할 수 없다"를
           읽는 것이 아니라 왜 반려됐는지 읽는 것이다. */}
       <RejectionReasonAlert application={application} />
+      {application?.status === 'APPROVED' ? (
+        <RepositoryUrlEditor programId={program.id} />
+      ) : null}
       <EmptyState
-        className="break-keep"
-        title={content.title}
-        description={content.description}
+        className="break-keep [overflow-wrap:anywhere] [&_p]:whitespace-pre-line"
+        title={
+          application?.status === 'APPROVED'
+            ? '신청서 내용 수정 제한'
+            : content.title
+        }
+        description={
+          application?.status === 'APPROVED'
+            ? '신청서 수정·취소는 제한됩니다.\n저장소 URL은 별도로 관리합니다.'
+            : content.description
+        }
         action={
           <Button asChild variant="link">
             <Link href={programHref(program.id)}>프로그램 개요</Link>
@@ -197,101 +207,11 @@ interface ProgramApplyFormViewProps {
   readonly submitting: boolean;
   readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
   readonly onTogglePublicationPlanned: (checked: boolean) => void;
-  readonly onRepositoryModeChange: (mode: RepositoryConnectionMode) => void;
   readonly onToggleConsent: (checked: boolean) => void;
   readonly onRequestSubmit: () => void;
   readonly onRequestCancel: () => void;
   readonly onCloseConfirmation: () => void;
   readonly onConfirm: () => void;
-}
-
-/**
- * GitHub 저장소 연결 섹션 — 계정 연동 안내(읽기전용) + 연결 방식 라디오(2택).
- * `own`을 고르면 조건부 repo URL 입력이 카드 안에 나타난다. 저장소 발급을 켠
- * 프로그램의 새 신청서 작성에서만 보인다.
- */
-function RepositoryConnectionSection({
-  githubHandle,
-  repositoryConnectionMode,
-  repositoryUrl,
-  onModeChange,
-  onUrlChange,
-}: {
-  readonly githubHandle: string;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string;
-  readonly onModeChange: (mode: RepositoryConnectionMode) => void;
-  readonly onUrlChange: (url: string) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <p className="font-medium text-foreground">GitHub 저장소</p>
-      {githubHandle ? (
-        <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">@{githubHandle}</span>{' '}
-          계정에 연결된 GitHub · 지원서에 함께 제출됩니다
-        </p>
-      ) : null}
-      <div
-        className="space-y-2"
-        role="radiogroup"
-        aria-label="GitHub 저장소 연결 방식"
-      >
-        <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-          <span className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="repository-connection-mode"
-              value="new"
-              checked={repositoryConnectionMode === 'new'}
-              onChange={() => onModeChange('new')}
-            />
-            <span className="font-medium">새 저장소 발급받기</span>
-            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-              기본
-            </span>
-          </span>
-          <span className="pl-6 text-xs text-muted-foreground">
-            승인되면 운영 조직에 비공개 저장소가 생성되고 내 GitHub 계정이
-            초대됩니다
-          </span>
-        </label>
-        <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-          <span className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="repository-connection-mode"
-              value="own"
-              checked={repositoryConnectionMode === 'own'}
-              onChange={() => onModeChange('own')}
-            />
-            <span className="font-medium">내 저장소 연결하기</span>
-          </span>
-          <span className="pl-6 text-xs text-muted-foreground">
-            진행 중인 프로젝트가 있다면 그 repo를 그대로 프로그램에 연결합니다
-          </span>
-          <span className="pl-6 text-xs font-medium text-foreground">
-            외부 저장소는 공개 저장소만 연결
-          </span>
-          {repositoryConnectionMode === 'own' ? (
-            <div className="ml-6 mt-1 w-[calc(100%-1.5rem)] space-y-1">
-              <Input
-                aria-label="연결할 저장소 URL"
-                className="w-full"
-                placeholder="https://github.com/team/repo"
-                value={repositoryUrl}
-                onChange={(event) => onUrlChange(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                GitHub에 공개(Public)로 연동된 저장소만 연결할 수 있습니다.
-                비공개 저장소이거나 주소가 존재하지 않으면 제출이 거부됩니다.
-              </p>
-            </div>
-          ) : null}
-        </label>
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -311,7 +231,7 @@ function TeamCompositionSection({
     <div className="space-y-2">
       <p className="font-medium text-foreground">
         팀 구성{' '}
-        <span className="font-normal text-muted-foreground">
+        <span className="break-keep font-normal text-muted-foreground">
           — 신청 전 팀 구성을 확인합니다
         </span>
       </p>
@@ -372,12 +292,14 @@ function PersonalDataConsentField({
         checked={checked}
         onChange={(event) => onToggle(event.target.checked)}
       />
-      <FieldLabel htmlFor="personal-data-consent">
-        <span className="font-semibold text-destructive">[필수]</span> 개인정보
-        수집·이용 동의{' '}
+      <FieldLabel htmlFor="personal-data-consent" className="block break-keep">
+        <span className="whitespace-nowrap font-semibold text-destructive">
+          [필수]
+        </span>{' '}
+        개인정보 수집·이용 동의{' '}
         <a
           href="#"
-          className="underline underline-offset-4"
+          className="whitespace-nowrap underline underline-offset-4"
           onClick={(event) => event.preventDefault()}
         >
           약관 보기
@@ -394,7 +316,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     program,
     template,
     applicantName,
-    githubHandle = '',
     team = null,
     values,
     errors,
@@ -406,7 +327,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     submitting,
     onChange,
     onTogglePublicationPlanned,
-    onRepositoryModeChange,
     onToggleConsent,
     onRequestSubmit,
     onRequestCancel,
@@ -468,15 +388,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                   : '선정 시 저장소를 공개할 예정입니다'}
               </FieldLabel>
             </Field>
-          ) : null}
-          {mode === 'create' && program.repositoryProvisioningEnabled ? (
-            <RepositoryConnectionSection
-              githubHandle={githubHandle}
-              repositoryConnectionMode={values.repositoryConnectionMode}
-              repositoryUrl={values.repositoryUrl}
-              onModeChange={onRepositoryModeChange}
-              onUrlChange={(url) => onChange('repositoryUrl', url)}
-            />
           ) : null}
           <TeamCompositionSection programId={program.id} team={team} />
           {mode === 'create' ? (

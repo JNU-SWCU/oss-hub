@@ -7,6 +7,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -17,7 +18,11 @@ import {
 } from '../../auth/session.guard';
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { JoinTeamRequestDto } from '../dto/join-team-request.dto';
-import { StaffTeamDetailResponseDto } from '../dto/team-detail-response.dto';
+import {
+  StaffTeamDetailResponseDto,
+  RepositoryUrlHistoryResponseDto,
+} from '../dto/team-detail-response.dto';
+import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
 import {
   CreateTeamResponseDto,
   ProgramTeamResponseDto,
@@ -42,7 +47,12 @@ export class ProgramTeamsController {
     @Inject(ProgramTeamsService)
     private readonly service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      | 'create'
+      | 'join'
+      | 'getMe'
+      | 'listForStaff'
+      | 'getForStaff'
+      | 'getRepositoryUrlHistoryForStaff'
     > &
       Partial<Pick<ProgramTeamsService, 'leave'>>,
   ) {}
@@ -128,6 +138,22 @@ export class ProgramTeamsController {
   ): Promise<StaffTeamDetailResponseDto> {
     return StaffTeamDetailResponseDto.from(
       await this.service.getForStaff(programId, teamId),
+    );
+  }
+
+  @Get(':teamId/repository-url-history')
+  @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
+  async repositoryUrlHistory(
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+    @Query() query: RepositoryUrlHistoryQueryRequestDto,
+  ) {
+    return RepositoryUrlHistoryResponseDto.from(
+      await this.service.getRepositoryUrlHistoryForStaff(
+        programId,
+        teamId,
+        query.toCursor(),
+      ),
     );
   }
 }

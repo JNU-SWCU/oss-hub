@@ -64,8 +64,6 @@ describe('ProgramApplicationsController', () => {
       teamName: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: null,
-      repositoryUrl: null,
     });
     expect(response).toEqual({
       id: 'synthetic-application',

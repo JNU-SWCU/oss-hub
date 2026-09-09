@@ -29,6 +29,7 @@ const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
 
 const getForStaff = jest.fn();
+const getRepositoryUrlHistoryForStaff = jest.fn();
 const findUnique = jest.fn();
 
 let application: INestApplication | undefined;
@@ -53,7 +54,10 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],
     providers: [
-      { provide: ProgramTeamsService, useValue: { getForStaff } },
+      {
+        provide: ProgramTeamsService,
+        useValue: { getForStaff, getRepositoryUrlHistoryForStaff },
+      },
       SessionGuard,
       ProgramTeamsStaffGuard,
       OriginGuard,
@@ -198,4 +202,75 @@ it('세션 쿠키가 위조되면 401 이다', async () => {
 
   expect(response.status).toBe(401);
   expect(getForStaff).not.toHaveBeenCalled();
+});
+
+it('allows staff to page repository history using the same scoped guard', async () => {
+  // Given
+  findUnique.mockResolvedValue({
+    id: 'staff',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+    accountStatus: AccountStatus.ACTIVE,
+  });
+  getRepositoryUrlHistoryForStaff.mockResolvedValue({
+    items: [],
+    nextCursor: null,
+  });
+  const cursor = '2026-08-15T00:00:00.000Z_change-11';
+  // When
+  const response = await fetch(
+    `${baseUrl}/api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}/repository-url-history?cursor=${encodeURIComponent(cursor)}`,
+    {
+      headers: { connection: 'close', cookie: await sessionCookieFor(5001n) },
+    },
+  );
+  // Then
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toEqual({
+    items: [],
+    nextCursor: null,
+  });
+  expect(getRepositoryUrlHistoryForStaff).toHaveBeenCalledWith(
+    PROGRAM_ID,
+    TEAM_ID,
+    { occurredAt: new Date('2026-08-15Z'), id: 'change-11' },
+  );
+});
+
+it('rejects a malformed history cursor at the HTTP boundary', async () => {
+  // Given
+  findUnique.mockResolvedValue({
+    id: 'staff',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+    accountStatus: AccountStatus.ACTIVE,
+  });
+  // When
+  const response = await fetch(
+    `${baseUrl}/api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}/repository-url-history?cursor=invalid`,
+    {
+      headers: { connection: 'close', cookie: await sessionCookieFor(5001n) },
+    },
+  );
+  // Then
+  expect(response.status).toBe(400);
+});
+
+it('denies students access to repository history', async () => {
+  // Given
+  findUnique.mockResolvedValue({
+    id: 'student',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    accountStatus: AccountStatus.ACTIVE,
+  });
+  // When
+  const response = await fetch(
+    `${baseUrl}/api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}/repository-url-history`,
+    {
+      headers: { connection: 'close', cookie: await sessionCookieFor(5002n) },
+    },
+  );
+  // Then
+  expect(response.status).toBe(403);
 });

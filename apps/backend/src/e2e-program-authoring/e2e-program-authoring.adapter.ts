@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ApplicationStatus, RepositoryConnectionMode } from '@prisma/client';
+import { ApplicationStatus } from '@prisma/client';
 import { ApplicationsService } from '../applications/applications.service';
 import { MilestoneDocumentCurrentFileService } from '../milestone-documents/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
@@ -26,6 +26,7 @@ import {
   uploadFile,
 } from './e2e-program-authoring-exercise-support';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
+import { seedE2eRepositoryEvidence } from './e2e-repository-evidence.fixture';
 import {
   E2E_FOREIGN_STUDENT_GITHUB_ID,
   E2E_FOREIGN_STUDENT_ID,
@@ -88,6 +89,10 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     return this.fixtures.graph();
   }
 
+  repositoryEvidence() {
+    return seedE2eRepositoryEvidence(this.prisma, this.fixtures.graph());
+  }
+
   adopt(
     programId: string,
     authorGithubId: bigint,
@@ -126,6 +131,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
   }
 
   async createApplication(mode: 'NEW' | 'OWN'): Promise<void> {
+    if (mode === 'OWN') throw new E2eAdapterError(400);
     const graph = this.fixtures.graph();
     await this.applications.create(
       E2E_STUDENT_GITHUB_ID,
@@ -135,12 +141,6 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
         teamName: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: false,
-        repositoryConnectionMode:
-          mode === 'NEW'
-            ? RepositoryConnectionMode.NEW
-            : RepositoryConnectionMode.OWN,
-        repositoryUrl:
-          mode === 'OWN' ? 'https://github.com/e2e-org/owned-public' : null,
       },
       E2E_NOW,
     );

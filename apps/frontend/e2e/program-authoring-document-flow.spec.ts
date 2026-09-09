@@ -200,7 +200,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       newApplicationResourceErrors(programId),
     );
 
-    await submitProgramApplication(studentPage, programId, 'new');
+    await submitProgramApplication(studentPage, programId);
     await expectApiStatus(
       await controlPage.request.post(`${controlPath}/approve-and-run`),
       201,
@@ -319,7 +319,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       milestoneCount: 1,
       recipientCount: 0,
     });
-    await submitProgramApplication(foreignStudentPage, programId, 'own');
+    await submitProgramApplication(foreignStudentPage, programId);
     await expectApiStatus(
       await controlPage.request.post(`${controlPath}/approve`),
       201,

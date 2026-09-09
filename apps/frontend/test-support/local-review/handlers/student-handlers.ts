@@ -449,6 +449,27 @@ function studentMutationHandler(
 }
 
 export const STUDENT_HANDLERS: readonly LocalReviewHandler[] = [
+  (context) => {
+    const params = matchGet(
+      context,
+      'programs/:programId/applications/me/repository-url',
+    );
+    if (params === null) return null;
+    if (!context.isAuthenticated) return unauthenticated(context.path);
+    if (context.role !== 'STUDENT') return unauthorized(context.path);
+    const programId = params.programId ?? '';
+    if (!isPublicProgramId(programId)) return notFound('APP_009', context.path);
+    const application = myApplicationFor(programId);
+    if (application === null) return notFound('APP_003', context.path);
+    return json(200, {
+      repositoryUrl:
+        application.status === 'APPROVED'
+          ? 'https://github.com/synthetic/current'
+          : null,
+      canEditRepositoryUrl:
+        application.status === 'APPROVED' && application.isManager,
+    });
+  },
   studentJourneyFallbackHandler,
   applicationTemplatesHandler,
   activityTimelineHandler,

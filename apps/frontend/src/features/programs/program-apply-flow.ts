@@ -52,20 +52,10 @@ export type ProgramApplyPageState =
       readonly applicationId: string;
     };
 
-/**
- * 새 신청서 생성 시점에만 쓰는 저장소 연결 방식.
- * 제출 시 API 경계(`createApplication`)에서 `NEW`/`OWN`으로 올려 보낸다.
- */
-export const REPOSITORY_CONNECTION_MODES = ['new', 'own'] as const;
-export type RepositoryConnectionMode =
-  (typeof REPOSITORY_CONNECTION_MODES)[number];
-
 export type ProgramApplyFormValues = {
   readonly title?: string;
   readonly summary: string;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string;
   readonly personalDataConsent: boolean;
 };
 
@@ -79,8 +69,6 @@ export type ProgramApplyFormErrors = {
 export const EMPTY_APPLY_FORM: ProgramApplyFormValues = {
   summary: '',
   isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: 'new',
-  repositoryUrl: '',
   personalDataConsent: false,
 };
 
@@ -112,7 +100,6 @@ export function resolveApplyBlockedReason(
 export function validateApplyForm(
   values: ProgramApplyFormValues,
   mode: 'create' | 'edit' = 'create',
-  repositoryProvisioningEnabled = true,
 ): ProgramApplyFormErrors {
   return {
     ...(!values.summary.trim() ? { summary: '요약을 입력해 주세요.' } : {}),
@@ -124,15 +111,6 @@ export function validateApplyForm(
     ...(values.summary.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.summary
       ? {
           summary: `요약은 ${APPLICATION_ANSWER_MAX_LENGTHS.summary.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
-        }
-      : {}),
-    ...(mode === 'create' &&
-    repositoryProvisioningEnabled &&
-    values.repositoryConnectionMode === 'own' &&
-    !values.repositoryUrl.trim()
-      ? {
-          repositoryUrl:
-            '연결할 repo URL을 입력하거나 새 저장소 생성을 선택해 주세요.',
         }
       : {}),
     ...(mode === 'create' && !values.personalDataConsent

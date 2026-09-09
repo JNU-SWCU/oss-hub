@@ -41,7 +41,6 @@ const template: ApplicationFormTemplate = {
 const handlers = {
   onChange: () => undefined,
   onTogglePublicationPlanned: () => undefined,
-  onRepositoryModeChange: () => undefined,
   onToggleConsent: () => undefined,
   onRequestSubmit: () => undefined,
   onRequestCancel: () => undefined,
@@ -53,8 +52,6 @@ const baseValues = {
   title: '',
   summary: '',
   isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: 'new',
-  repositoryUrl: '',
   personalDataConsent: false,
 } as const;
 
@@ -114,11 +111,7 @@ describe('ProgramApply views', () => {
   it('새 신청서 작성에서 GitHub 계정 연동 안내와 저장소 연결 방식·동의 체크박스를 표시한다', () => {
     const html = renderForm();
 
-    expect(html).toContain('@synthetic-student');
-    expect(html).toContain('계정에 연결된 GitHub');
-    expect(html).toContain('새 저장소 발급받기');
-    expect(html).toContain('내 저장소 연결하기');
-    expect(html).toContain('외부 저장소는 공개 저장소만 연결');
+    expect(html).not.toContain('repository-connection-mode');
     expect(html).toContain('개인정보 수집·이용 동의');
     expect(html).toContain('약관 보기');
   });
@@ -145,30 +138,6 @@ describe('ProgramApply views', () => {
     expect(html).not.toContain('내 저장소 연결하기');
   });
 
-  it('저장소를 직접 연결하면 URL 입력을 함께 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramApplyFormView
-        program={program}
-        template={template}
-        applicantName="합성 학생"
-        githubHandle="synthetic-student"
-        values={{ ...baseValues, repositoryConnectionMode: 'own' }}
-        errors={{}}
-        serverError={null}
-        mode="create"
-        canManage={false}
-        confirmation={null}
-        submitting={false}
-        {...handlers}
-      />,
-    );
-
-    expect(html).toContain('https://github.com/team/repo');
-    expect(html).toContain(
-      'GitHub에 공개(Public)로 연동된 저장소만 연결할 수 있습니다.',
-    );
-  });
-
   // #9 QA econovation 배치 — 제출 시점 URL 사전 검증 실패를 필드 오류로 보여준다.
   it('저장소 URL 사전 검증 실패를 배너로 표시한다', () => {
     const html = renderToStaticMarkup(
@@ -177,7 +146,7 @@ describe('ProgramApply views', () => {
         template={template}
         applicantName="합성 학생"
         githubHandle="synthetic-student"
-        values={{ ...baseValues, repositoryConnectionMode: 'own' }}
+        values={baseValues}
         errors={{
           repositoryUrl:
             '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
@@ -491,6 +460,10 @@ describe('ProgramApply views', () => {
     // Then
     expect(html).not.toContain('반려 사유');
     expect(html).not.toContain('되돌리기 전 남아 있던 사유');
+    expect(html).toContain('신청서 내용 수정 제한');
+    expect(html).toContain('[&amp;_p]:whitespace-pre-line');
+    expect(html).toMatch(/data-slot="empty-state"[^>]*class="[^"]*break-keep/);
+    expect(html).not.toContain('수정할 수 없는 신청입니다');
   });
 
   // 신청서를 조회하지도 않은 갈래(팀 미구성 등)는 그릴 것이 없다.

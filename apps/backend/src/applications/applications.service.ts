@@ -17,7 +17,6 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
 import { parseGithubRepositoryUrl } from '../common/github-repository-url';
-import type { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
 import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,
@@ -90,14 +89,6 @@ interface RevertBlockedExtensions extends ProblemDetailExtensions {
   readonly latestStatus: ApplicationStatus;
 }
 
-/** 제출 시 URL 사전 검증을 늘 통과시키는 기본값 — 검증 포트를 안 넘기는 기존 호출부(단위 테스트 등)를 깨지 않는다. */
-const ALWAYS_VALID_OWN_REPOSITORY_URL: Pick<
-  OwnRepositoryUrlValidationService,
-  'validate'
-> = {
-  validate: () => Promise.resolve({ kind: 'VALID' }),
-};
-
 const JOIN_CODE_ATTEMPTS = 5;
 
 /**
@@ -119,10 +110,6 @@ export class ApplicationsService {
   constructor(
     private readonly repository: ApplicationsRepository,
     private readonly auditLog: AuditLogService,
-    private readonly ownRepositoryUrlValidator: Pick<
-      OwnRepositoryUrlValidationService,
-      'validate'
-    > = ALWAYS_VALID_OWN_REPOSITORY_URL,
   ) {}
 
   async create(
@@ -146,17 +133,6 @@ export class ApplicationsService {
 
     if (now < program.applicationStartAt || now > program.applicationEndAt) {
       throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
-    }
-
-    const repositoryConnection = this.resolveRepositoryConnection(
-      program.repositoryProvisioningEnabled,
-      input,
-    );
-    if (
-      repositoryConnection.mode === RepositoryConnectionMode.OWN &&
-      repositoryConnection.url !== null
-    ) {
-      await this.requireReachableOwnRepositoryUrl(repositoryConnection.url);
     }
 
     const versionCheck = checkApplicationTemplateVersion(
@@ -273,8 +249,8 @@ export class ApplicationsService {
           answers: answersResult.answers,
           applicationTemplateVersion: program.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-          repositoryConnectionMode: repositoryConnection.mode,
-          repositoryUrl: repositoryConnection.url,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         });
 
         if (createdTeam !== null) {
@@ -317,76 +293,6 @@ export class ApplicationsService {
       }
       throw error;
     }
-  }
-
-  private resolveRepositoryConnection(
-    enabled: boolean,
-    input: CreateApplicationInput,
-  ): {
-    readonly mode: RepositoryConnectionMode;
-    readonly url: string | null;
-  } {
-    if (!enabled) {
-      if (
-        input.repositoryConnectionMode !== null ||
-        input.repositoryUrl !== null
-      ) {
-        throw this.error(
-          ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN,
-        );
-      }
-      return { mode: RepositoryConnectionMode.NEW, url: null };
-    }
-    if (input.repositoryConnectionMode === null) {
-      throw this.error(
-        ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_REQUIRED,
-      );
-    }
-    if (input.repositoryConnectionMode === RepositoryConnectionMode.NEW) {
-      return { mode: RepositoryConnectionMode.NEW, url: null };
-    }
-    if (
-      input.repositoryUrl === null ||
-      parseGithubRepositoryUrl(input.repositoryUrl) === null
-    ) {
-      throw this.error(ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
-    }
-    return {
-      mode: input.repositoryConnectionMode,
-      url: input.repositoryUrl,
-    };
-  }
-
-  /**
-   * 제출 시점 사전 검증(#9 QA econovation 배치) — 승인 시점 편입 판정(resolveOwnGithubRepository)과
-   * 같은 로직을 읽기 전용으로 먼저 물어본다. 존재하지 않거나 비공개면 지원서를 만들지 않고
-   * repositoryUrl 필드 오류로 즉시 안내한다 — 승인 후 worker가 같은 이유로 실패하는 것을
-   * 기다리게 하지 않는다. 새 enrollment 경로가 아니다 — 기존 판정을 제출 시점에 한 번 더 물을 뿐이다.
-   */
-  private async requireReachableOwnRepositoryUrl(
-    repositoryUrl: string,
-  ): Promise<void> {
-    const result = await this.ownRepositoryUrlValidator.validate(repositoryUrl);
-    if (result.kind === 'VALID') {
-      return;
-    }
-    throw new DomainException(
-      APPLICATIONS_ERROR_CODES[
-        ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE
-      ],
-      {
-        fieldErrors: [
-          {
-            field: 'repositoryUrl',
-            code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
-            message:
-              APPLICATIONS_ERROR_CODES[
-                ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE
-              ].message,
-          },
-        ],
-      },
-    );
   }
 
   async listForProgram(

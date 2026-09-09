@@ -79,6 +79,7 @@ export class RepositoryProvisionJobRepository {
           SELECT job."id"
           FROM "RepositoryProvisionJob" AS job
           WHERE job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
+            AND EXISTS (SELECT 1 FROM "Application" AS application WHERE application."id" = job."applicationId" AND application."repositoryUrl" IS NULL)
             AND job."nextAttemptAt" <= ${input.now}
             AND EXISTS (
               SELECT 1

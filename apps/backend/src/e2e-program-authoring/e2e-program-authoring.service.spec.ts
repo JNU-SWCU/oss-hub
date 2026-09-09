@@ -39,6 +39,9 @@ const preview = {
 
 function adapter(): jest.Mocked<E2eProgramAuthoringPort> {
   return {
+    repositoryEvidence: jest
+      .fn()
+      .mockResolvedValue({ currentRepositoryId: 'synthetic', facts: [] }),
     reset: jest.fn().mockResolvedValue(undefined),
     fixture: jest.fn().mockResolvedValue({
       programId: 'e2e:program-authoring:program',

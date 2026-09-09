@@ -697,6 +697,7 @@ export class ApplicationsRepository {
               select: {
                 applicationId: true,
                 status: true,
+                repositoryId: true,
                 updatedAt: true,
                 lastErrorCode: true,
               },
@@ -757,7 +758,12 @@ export class ApplicationsRepository {
           }),
           transaction.repositoryProvisionJob.findUnique({
             where: { applicationId },
-            select: { status: true, updatedAt: true, lastErrorCode: true },
+            select: {
+              status: true,
+              repositoryId: true,
+              updatedAt: true,
+              lastErrorCode: true,
+            },
           }),
         ]);
         return [applicationRow, event, provisionJob] as const;
@@ -922,7 +928,7 @@ const APPLICATION_LIST_SELECT = {
   // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner에서
   // repository-identity.ts 헬퍼로 url을 유도한다.
   repository: {
-    select: { nameWithOwner: true, visibility: true },
+    select: { id: true, nameWithOwner: true, visibility: true },
   },
   program: {
     select: { repositoryProvisioningEnabled: true },
@@ -956,6 +962,7 @@ type ApplicationListRow = {
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
   readonly repository: {
+    readonly id: string;
     readonly nameWithOwner: string;
     readonly visibility: RepositoryVisibility;
   } | null;
@@ -980,6 +987,7 @@ type ApplicationListOutbox = {
 };
 
 type ApplicationListProvisionJob = {
+  readonly repositoryId: string | null;
   readonly status: RepositoryProvisionJobStatus;
   readonly updatedAt: Date;
   readonly lastErrorCode: string | null;
@@ -1006,13 +1014,26 @@ function toApplicationListItem(
     rejectionReason: row.rejectionReason,
     repositoryConnectionMode: row.repositoryConnectionMode,
     repositoryUrl: row.repositoryUrl,
-    repositoryProvisioning: resolveRepositoryProvisioning(
-      row.status,
-      row.program.repositoryProvisioningEnabled,
-      row.updatedAt,
-      outbox,
-      job,
-    ),
+    repositoryProvisioning:
+      row.status === ApplicationStatus.APPROVED &&
+      row.repository != null &&
+      job?.status === RepositoryProvisionJobStatus.SUCCEEDED &&
+      job.repositoryId === row.repository.id &&
+      row.repositoryUrl ===
+        repositoryUrlFromNameWithOwner(row.repository.nameWithOwner)
+        ? {
+            enabled: row.program.repositoryProvisioningEnabled,
+            jobStatus: 'SUCCEEDED',
+            updatedAt: job.updatedAt,
+            safeErrorClass: null,
+          }
+        : resolveRepositoryProvisioning(
+            row.status,
+            row.program.repositoryProvisioningEnabled,
+            row.updatedAt,
+            outbox,
+            job,
+          ),
     repository: row.repository
       ? {
           url: repositoryUrlFromNameWithOwner(row.repository.nameWithOwner),

@@ -116,8 +116,6 @@ describe('program-apply-flow', () => {
     title: '',
     summary: '',
     isRepositoryPublicationPlanned: true,
-    repositoryConnectionMode: 'new',
-    repositoryUrl: '',
     personalDataConsent: false,
   } as const;
 
@@ -136,32 +134,6 @@ describe('program-apply-flow', () => {
     ).toEqual({});
   });
 
-  it('저장소를 직접 연결하려면 URL이 필요하다', () => {
-    expect(
-      validateApplyForm({
-        ...baseValues,
-        title: '제목',
-        summary: '요약',
-        personalDataConsent: true,
-        repositoryConnectionMode: 'own',
-        repositoryUrl: '  ',
-      }),
-    ).toEqual({
-      repositoryUrl:
-        '연결할 repo URL을 입력하거나 새 저장소 생성을 선택해 주세요.',
-    });
-    expect(
-      validateApplyForm({
-        ...baseValues,
-        title: '제목',
-        summary: '요약',
-        personalDataConsent: true,
-        repositoryConnectionMode: 'own',
-        repositoryUrl: 'https://github.com/team/repo',
-      }),
-    ).toEqual({});
-  });
-
   it('수정 모드에서는 저장소 연결·개인정보 동의를 다시 요구하지 않는다', () => {
     expect(
       validateApplyForm(
@@ -170,8 +142,6 @@ describe('program-apply-flow', () => {
           title: '제목',
           summary: '요약',
           personalDataConsent: false,
-          repositoryConnectionMode: 'own',
-          repositoryUrl: '',
         },
         'edit',
       ),

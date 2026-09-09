@@ -52,6 +52,8 @@ function problem(status: number, code: string): ProblemDetail {
 }
 
 const withApplication: StaffTeamDetail = {
+  repositoryContributions: null,
+  repositoryUrlHistory: { items: [], nextCursor: null },
   teamId: 'team-1',
   name: '오픈소스팀',
   memberCount: 2,
@@ -74,6 +76,8 @@ const withApplication: StaffTeamDetail = {
 };
 
 const withoutApplication: StaffTeamDetail = {
+  repositoryContributions: null,
+  repositoryUrlHistory: { items: [], nextCursor: null },
   teamId: 'team-2',
   name: '무신청팀',
   memberCount: 1,

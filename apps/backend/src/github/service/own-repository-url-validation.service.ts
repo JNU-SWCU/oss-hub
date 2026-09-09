@@ -5,6 +5,8 @@ import {
   RepositoryProvisionFailure,
 } from '../repository-provision.failure';
 import { resolveOwnGithubRepository } from '../repository-provision.github';
+export type { OwnGithubRepositoryResolution } from '../repository-provision.github';
+export { RepositoryProvisionFailure } from '../repository-provision.failure';
 
 export type OwnRepositoryUrlValidationResult =
   | { readonly kind: 'VALID' }
@@ -59,5 +61,9 @@ export class OwnRepositoryUrlValidationService {
       });
       return { kind: 'VALID' };
     }
+  }
+
+  resolve(repositoryUrl: string) {
+    return resolveOwnGithubRepository(this.github, repositoryUrl);
   }
 }

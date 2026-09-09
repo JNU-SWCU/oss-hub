@@ -1,4 +1,5 @@
 import type { PublishBlockedReason } from '../common/repository-publication';
+import type { TeamRepositoryEvidenceView } from './program-team-repository-evidence.types';
 
 export interface TeamMemberView {
   readonly userId: string;
@@ -86,7 +87,7 @@ export interface TeamApplicationView {
  * 교직원 전용 팀 상세(#874) — `listForStaff`의 한 팀에 신청·저장소 발급 상태를
  * 더한 모양이다. 학번·학과·연락처·이메일·참여코드는 여전히 담지 않는다.
  */
-export interface StaffTeamDetailView {
+export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
   readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;
