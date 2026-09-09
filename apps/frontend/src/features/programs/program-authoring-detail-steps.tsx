@@ -42,7 +42,6 @@ export function ProgramAuthoringBasicStep({
       />
       <ProgramCoverField
         selection={state.coverFile ?? null}
-        name={state.name}
         onChange={(file) =>
           dispatch({ type: 'set_cover_file', file: file ?? null })
         }

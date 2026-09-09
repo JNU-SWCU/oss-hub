@@ -32,7 +32,7 @@ export async function createProgramWithCover(
     .locator('[data-slot="program-cover-field"] input[type="file"]')
     .setInputFiles(coverFile());
   await expect(
-    page.locator('[data-slot="program-cover-field"] img'),
+    page.locator('[data-slot="program-cover-preview"] img'),
   ).toBeVisible();
   await page.getByRole('button', { name: '계속' }).click();
   await selectScheduleRange(page, {

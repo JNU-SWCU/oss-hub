@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
-import { ProgramCover } from '@/components';
+import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -9,7 +8,6 @@ import {
   FieldError,
   FieldLabel,
 } from '@/components/ui/field';
-import { apiPath } from '@/lib/api-client';
 
 export const PROGRAM_COVER_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -29,7 +27,6 @@ export function validateProgramCover(
 export interface ProgramCoverFieldProps {
   readonly selection: File | null | undefined;
   readonly currentImageUrl?: string | null;
-  readonly name: string;
   readonly disabled?: boolean;
   readonly serverError?: string;
   readonly onChange: (file: File | null | undefined) => void;
@@ -38,120 +35,95 @@ export interface ProgramCoverFieldProps {
 export function ProgramCoverField({
   selection,
   currentImageUrl,
-  name,
   disabled,
   serverError,
   onChange,
 }: ProgramCoverFieldProps) {
   const id = useId();
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const shownError = error ?? serverError;
-  useEffect(() => {
-    if (!selection) {
-      setPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(selection);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [selection]);
-  const src =
-    selection === undefined && currentImageUrl
-      ? apiPath(currentImageUrl)
-      : preview;
+  const hasImage = Boolean(
+    selection || (selection === undefined && currentImageUrl),
+  );
   return (
     <Field data-slot="program-cover-field">
       <FieldLabel htmlFor={id}>
         대표 이미지{' '}
         <span className="font-normal text-muted-foreground">(선택)</span>
       </FieldLabel>
-      <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="grid min-w-0 gap-3">
-          <FieldDescription id={`${id}-hint`}>
-            JPG·PNG · 5 MB 이하. 세로 포스터도 전체가 표시됩니다.
-          </FieldDescription>
-          {currentImageUrl !== undefined ? (
-            <p className="text-sm text-muted-foreground">
-              변경한 이미지는 저장 후 반영됩니다.
-            </p>
-          ) : null}
-          <div
-            data-disabled={disabled || undefined}
-            className="relative inline-flex min-h-control w-fit items-center rounded-control border border-input px-3 text-sm focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring data-[disabled=true]:opacity-50"
-          >
-            <span aria-hidden="true">이미지 선택</span>
-            <input
-              id={id}
-              type="file"
-              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-              disabled={disabled}
-              aria-invalid={Boolean(shownError)}
-              aria-describedby={`${id}-hint${shownError ? ` ${id}-error` : ''}`}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (!file) return;
-                const message = validateProgramCover(file);
-                setError(message);
-                if (message === null) onChange(file);
-              }}
-            />
-          </div>
-          {shownError ? (
-            <FieldError id={`${id}-error`} role="alert">
-              {shownError}
-            </FieldError>
-          ) : null}
-          <p
-            className="break-all text-sm text-muted-foreground"
-            role={selection ? 'status' : undefined}
-          >
-            {selection?.name ??
-              (src ? '현재 대표 이미지' : '선택한 이미지 없음')}
-          </p>
-          <div className="flex flex-wrap justify-end gap-2">
-            {src ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={disabled}
-                onClick={() => {
-                  setError(null);
-                  onChange(null);
-                }}
-              >
-                이미지 제거
-              </Button>
-            ) : null}
-            {currentImageUrl && selection !== undefined ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={disabled}
-                onClick={() => {
-                  setError(null);
-                  onChange(undefined);
-                }}
-              >
-                기존 이미지로 되돌리기
-              </Button>
-            ) : null}
-          </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          data-disabled={disabled || undefined}
+          className="relative inline-flex min-h-control w-fit items-center rounded-control border border-input px-3 text-sm focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring data-[disabled=true]:opacity-50"
+        >
+          <span aria-hidden="true">이미지 선택</span>
+          <input
+            id={id}
+            type="file"
+            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+            disabled={disabled}
+            aria-invalid={Boolean(shownError)}
+            aria-describedby={`${id}-hint${shownError ? ` ${id}-error` : ''}`}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (!file) return;
+              const message = validateProgramCover(file);
+              setError(message);
+              if (message === null) onChange(file);
+            }}
+          />
         </div>
-        <div className="overflow-hidden rounded-card border border-border bg-card">
-          <ProgramCover src={src} />
-          <div className="grid gap-1 p-3">
-            <p className="text-xs text-muted-foreground">목록 미리보기</p>
-            <p className="break-keep text-sm font-semibold">
-              {name.trim() || '프로그램명'}
-            </p>
-          </div>
-        </div>
+        {hasImage ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => {
+              setError(null);
+              onChange(null);
+            }}
+          >
+            이미지 제거
+          </Button>
+        ) : null}
+        {currentImageUrl && selection !== undefined ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={disabled}
+            onClick={() => {
+              setError(null);
+              onChange(undefined);
+            }}
+          >
+            기존 이미지로 되돌리기
+          </Button>
+        ) : null}
       </div>
+      {shownError ? (
+        <FieldError id={`${id}-error`} role="alert">
+          {shownError}
+        </FieldError>
+      ) : null}
+      <p
+        className="break-all text-sm text-muted-foreground"
+        role={selection ? 'status' : undefined}
+      >
+        {selection?.name ??
+          (hasImage ? '현재 대표 이미지' : '선택한 이미지 없음')}
+      </p>
+      <FieldDescription id={`${id}-hint`}>
+        JPG·PNG · 5 MB 이하. 세로 포스터도 전체가 표시됩니다.
+      </FieldDescription>
+      {currentImageUrl !== undefined ? (
+        <p className="text-sm text-muted-foreground">
+          변경한 이미지는 저장 후 반영됩니다.
+        </p>
+      ) : null}
     </Field>
   );
 }

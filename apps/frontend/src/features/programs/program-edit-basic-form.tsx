@@ -62,7 +62,6 @@ export function ProgramEditBasicForm({
         <ProgramCoverField
           selection={coverSelection}
           currentImageUrl={program.coverImageUrl}
-          name={form.name}
           disabled={isSaving}
           serverError={errors.coverUploadId}
           onChange={onCoverChange}

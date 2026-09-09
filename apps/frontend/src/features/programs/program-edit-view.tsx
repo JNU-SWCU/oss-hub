@@ -10,6 +10,7 @@ import type {
   EditableMilestoneDocument,
 } from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
+import { ProgramCoverPreview } from './program-cover-preview';
 import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
@@ -164,20 +165,31 @@ export function ProgramEditView({
         <Button asChild variant="ghost" size="sm" className="self-start">
           <Link href={programHref(program.id)}>← 프로그램 개요</Link>
         </Button>
-        <PageHeader title="프로그램 편집" description={program.name} />
-        {/*
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="grid min-w-0 gap-6">
+            <PageHeader title="프로그램 편집" description={program.name} />
+            {/*
           양식 키(`oss-contest`)와 버전은 구현 식별자다. 화면에는 사람이 읽을 양식명만
           두고, 버전은 평소 볼 일이 없으므로 접어 둔다.
         */}
-        <details className="rounded-card border border-border bg-card p-card text-small">
-          <summary className="cursor-pointer font-semibold">
-            신청서 양식 · {applicationTemplateName(program)}
-          </summary>
-          <p className="mt-2 text-muted-foreground">
-            양식 버전 v{program.applicationTemplateVersion} — 양식과 버전은
-            프로그램 유형이 정하며 이 화면에서 바꿀 수 없습니다.
-          </p>
-        </details>
+            <details className="rounded-card border border-border bg-card p-card text-small">
+              <summary className="cursor-pointer font-semibold">
+                신청서 양식 · {applicationTemplateName(program)}
+              </summary>
+              <p className="mt-2 text-muted-foreground">
+                양식 버전 v{program.applicationTemplateVersion} — 양식과 버전은
+                프로그램 유형이 정하며 이 화면에서 바꿀 수 없습니다.
+              </p>
+            </details>
+          </div>
+          <div className="w-full max-w-sm">
+            <ProgramCoverPreview
+              selection={coverSelection}
+              currentImageUrl={program.coverImageUrl}
+              name={form.name}
+            />
+          </div>
+        </div>
       </div>
       <div className={SECTIONS}>
         {toastMessage ? (

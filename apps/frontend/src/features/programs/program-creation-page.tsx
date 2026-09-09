@@ -22,6 +22,7 @@ import {
   type ProgramAuthoringStep,
 } from './program-authoring-model';
 import { ProgramAuthoringShell } from './program-authoring-shell';
+import { ProgramCoverPreview } from './program-cover-preview';
 import { ProgramAuthoringStepContent } from './program-authoring-step-content';
 import {
   clearProgramAuthoringRecoveryKey,
@@ -249,6 +250,16 @@ export function ProgramCreationPage({
     <ProgramAuthoringShell
       currentStep={state.currentStep}
       onNavigate={navigate}
+      headerActions={
+        state.currentStep === 'basic' ? (
+          <div className="w-full max-w-sm lg:w-72">
+            <ProgramCoverPreview
+              selection={state.coverFile ?? null}
+              name={state.name}
+            />
+          </div>
+        ) : undefined
+      }
     >
       <div
         ref={stepRegionRef}

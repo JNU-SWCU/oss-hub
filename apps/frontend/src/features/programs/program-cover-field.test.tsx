@@ -8,6 +8,7 @@ import {
   ProgramCoverField,
   validateProgramCover,
 } from './program-cover-field';
+import { ProgramCoverPreview } from './program-cover-preview';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -58,12 +59,18 @@ describe('program cover selection', () => {
     try {
       await act(async () =>
         root.render(
-          <ProgramCoverField
-            name="예시"
-            selection={undefined}
-            currentImageUrl={currentImageUrl}
-            onChange={onChange}
-          />,
+          <>
+            <ProgramCoverPreview
+              name="예시"
+              selection={undefined}
+              currentImageUrl={currentImageUrl}
+            />
+            <ProgramCoverField
+              selection={undefined}
+              currentImageUrl={currentImageUrl}
+              onChange={onChange}
+            />
+          </>,
         ),
       );
       const input = container.querySelector('input');
@@ -89,12 +96,18 @@ describe('program cover selection', () => {
       expect(onChange).toHaveBeenLastCalledWith(null);
       await act(async () =>
         root.render(
-          <ProgramCoverField
-            name="예시"
-            selection={null}
-            currentImageUrl={currentImageUrl}
-            onChange={onChange}
-          />,
+          <>
+            <ProgramCoverPreview
+              name="예시"
+              selection={null}
+              currentImageUrl={currentImageUrl}
+            />
+            <ProgramCoverField
+              selection={null}
+              currentImageUrl={currentImageUrl}
+              onChange={onChange}
+            />
+          </>,
         ),
       );
       expect(container.querySelector('img')).toBeNull();
