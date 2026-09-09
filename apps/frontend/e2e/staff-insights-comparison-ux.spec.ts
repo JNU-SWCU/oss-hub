@@ -253,11 +253,15 @@ test.describe('staff insights comparison UX', () => {
     page,
   }) => {
     await openFixture(page, 'insights-unregistered');
-    await expect(page.getByText(/학과 미등록은 별도 집계/)).toBeVisible();
+    await expect(
+      page.getByText(/학과 미등록은 별도로 집계하며 아래 비교 막대에서는 제외/),
+    ).toBeVisible();
     await expect(
       page.getByRole('table', { name: 'SW전공과 비SW전공의 랭킹 지표' }),
     ).toBeAttached();
-    await expect(page.getByText(/색상 외에도 범례와 좌우 위치/)).toBeVisible();
+    const legend = page.locator('.recharts-legend-wrapper');
+    await expect(legend.getByText('SW전공', { exact: true })).toBeVisible();
+    await expect(legend.getByText('비SW전공', { exact: true })).toBeVisible();
     await expect(page.locator('main')).toContainText('x/0');
     await page.screenshot({
       path: '.omo/evidence/task-2-browser/unregistered-only.png',

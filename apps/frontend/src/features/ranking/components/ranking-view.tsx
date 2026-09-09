@@ -185,9 +185,9 @@ function collectionNotice(
 ): { readonly title: string; readonly description: string } | null {
   if (ranking.dataAsOf === null) {
     return {
-      title: '아직 수집 전입니다',
+      title: '첫 수집 전입니다',
       description:
-        '활동을 아직 한 번도 수집하지 못했습니다. 아래 수치는 집계 결과가 아니라 수집 전 기본값(0)이며, 첫 수집이 끝나면 기준 시각과 함께 채워집니다.',
+        '표의 0은 활동 실적이 아닌 임시값입니다. 첫 수집이 끝나면 집계 결과와 기준 시각이 표시됩니다.',
     };
   }
   const hasNoActivity =
@@ -210,7 +210,7 @@ function rankingAsOfAction(ranking: RankingPage): ReactNode {
   if (ranking.dataAsOf === null) {
     return (
       <span className="text-muted-foreground" data-ranking-as-of="none">
-        아직 수집 전 · 기준 시각 없음
+        기준 시각 없음
       </span>
     );
   }
@@ -298,7 +298,9 @@ export function RankingView({
             <Alert>
               <Hourglass />
               <AlertTitle>{notice.title}</AlertTitle>
-              <AlertDescription>{notice.description}</AlertDescription>
+              <AlertDescription className="break-keep">
+                {notice.description}
+              </AlertDescription>
             </Alert>
           ) : null}
           {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (

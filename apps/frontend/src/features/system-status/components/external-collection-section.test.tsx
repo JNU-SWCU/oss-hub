@@ -128,43 +128,41 @@ describe('ExternalCollectionSection', () => {
 
   it('sweep이 단 한 번도 끝난 적이 없으면(lastSweep null) 파이프라인이 자동 실행 중이라고 단정하지 않고 스케줄러·설정 확인이 필요하다고 안내한다', async () => {
     await renderSection(neverSweptNoTargets);
-    expect(sectionText()).toContain(
-      '탐색된 학생 개인 GitHub 저장소가 아직 없습니다',
-    );
+    expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
     // QA57 — lastSweep이 null이면 sweep이 한 번도 끝난 적이 없다는 뜻이라
     // "매시 정각 자동으로 실행되고 있다"고 단정하면 실제로 안 도는 스케줄러를
     // 감추게 된다. 이 문구를 절대 포함해서는 안 된다.
     expect(sectionText()).not.toContain('매시 정각 자동으로 실행되고 있습니다');
-    expect(sectionText()).toContain('단 한 번도 완료된 적이 없습니다');
-    expect(sectionText()).toContain('스케줄러가 정상 실행 중인지');
+    expect(sectionText()).toContain('완료된 수집 기록도 없습니다');
+    expect(sectionText()).toContain('스케줄러 실행과 런타임 설정');
     // 대상을 채우는 두 경로(신청 승인 / 관리자 수동 탐색) 설명은 sweep 실행
     // 여부와 무관하게 여전히 정확한 정보이므로 그대로 유지한다.
     expect(sectionText()).toContain(
-      '학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택',
+      '학생이 프로그램 신청에서 ‘내 저장소 연결하기’를 선택',
     );
     expect(sectionText()).not.toContain('OWN');
     expect(sectionText()).toContain(
-      '「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다',
+      '꺼져 있으면 승인해도 수집 대상에 추가되지 않습니다',
     );
     expect(sectionText()).not.toContain('repositoryProvisioningEnabled');
     expect(sectionText()).toContain('관리자가 학생별로 저장소 탐색을 실행');
-    expect(sectionText()).toContain('현재 수집 대상 저장소가 0개라');
+    expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
     // "왜 0인지"의 원인은 코드가 구분할 수 없는 사실이라 단정하지 않는다.
     expect(sectionText()).not.toContain('탐색을 실행한 학생이 없어');
     // 빈 상태에서는 의미 없는 0값 카드를 보여주지 않는다.
     expect(sectionText()).not.toContain('누적 수집 활동');
+    expect(container.querySelectorAll('ul > li')).toHaveLength(2);
   });
 
-  it('sweep은 정상적으로 끝났지만 대상이 0개면(lastSweep 존재) 파이프라인이 정상 실행 중이라고 안내한다', async () => {
+  it('대상 0개와 완료 이력을 구별하고 다음 수집 조건을 안내한다', async () => {
     await renderSection(sweepRanWithNoTargets);
+    expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
+    // 완료 이력만으로 현재 스케줄러가 정상 실행 중이라고 단정하지 않는다.
     expect(sectionText()).toContain(
-      '탐색된 학생 개인 GitHub 저장소가 아직 없습니다',
+      '최근 수집은 완료됐지만 대상 저장소가 0개입니다',
     );
-    // sweep이 실제로 최소 한 번 끝났으므로(lastSweep 존재) 자동 실행 중이라는
-    // 문구는 근거가 있다.
-    expect(sectionText()).toContain('매시 정각 자동으로 실행되고 있습니다');
-    expect(sectionText()).not.toContain('단 한 번도 완료된 적이 없습니다');
-    expect(sectionText()).toContain('현재 수집 대상 저장소가 0개라');
+    expect(sectionText()).not.toContain('완료된 수집 기록도 없습니다');
+    expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
   });
 
   it('탐색된 저장소가 있으면 추적 수와 누적 커밋·PR·릴리즈 합계를 표시한다', async () => {
@@ -175,13 +173,13 @@ describe('ExternalCollectionSection', () => {
     expect(sectionText()).toContain('PR 5');
     expect(sectionText()).toContain('릴리즈 1');
     expect(sectionText()).not.toContain(
-      '탐색된 학생 개인 GitHub 저장소가 아직 없습니다',
+      '수집 대상 학생 개인 저장소가 없습니다',
     );
   });
 
   it('최근 sweep 종료 시각과 처리한 저장소 수를 표시한다', async () => {
     await renderSection(withDiscoveredRepositories);
-    expect(sectionText()).toContain('최근 external sweep 종료');
+    expect(sectionText()).toContain('최근 외부 수집 실행 종료');
     expect(sectionText()).toContain('저장소 3/3');
   });
 
@@ -200,6 +198,6 @@ describe('ExternalCollectionSection', () => {
     await renderSection(targetsExistButNeverSwept);
     expect(sectionText()).toContain('2개 추적 중');
     expect(sectionText()).toContain('아직 완료된 수집 없음');
-    expect(sectionText()).not.toContain('최근 sweep 처리');
+    expect(sectionText()).not.toContain('최근 실행 처리');
   });
 });
