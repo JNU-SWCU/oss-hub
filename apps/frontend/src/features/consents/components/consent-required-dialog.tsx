@@ -44,7 +44,11 @@ export function ConsentRequiredDialog({
           data-surface="inverted"
           className="rounded-card bg-cosmos-void p-6"
         >
-          <ConsentFlow onCompleted={onCompleted} policyPresentation="dialog" />
+          <ConsentFlow
+            onCompleted={onCompleted}
+            policyPresentation="dialog"
+            headingPresentation="dialog"
+          />
         </div>
       </DialogContent>
     </Dialog>

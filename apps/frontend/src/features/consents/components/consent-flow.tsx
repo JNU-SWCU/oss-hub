@@ -30,9 +30,19 @@ import { useConsentFlow } from './use-consent-flow';
 export function ConsentFlow({
   onCompleted,
   policyPresentation,
+  headingPresentation = 'signup',
 }: {
   readonly onCompleted?: (nextUrl: string) => void;
   readonly policyPresentation?: ConsentPolicyPresentation;
+  /**
+   * 가입 중간이 아닌 곳에서 열리면 `dialog`를 넘긴다.
+   *
+   * 가입 흐름의 `STEP 1 / 3`·제목·리드는 다음 단계로 이동한다는 전제 위에 써있다.
+   * 동의 갱신 팝업은 가입 중이 아니고 완료 뒤에 원래 화면으로 돌아오므로, 그 세 줄을
+   * 그대로 두면 단계 수와 이동 안내가 모두 틀린 말이 된다. 팝업 쪽 제목은 `DialogHeader`가
+   * 이미 말하므로 여기서는 그리지 않는다.
+   */
+  readonly headingPresentation?: 'signup' | 'dialog';
 }) {
   const { retryLoad, state, submit, toggleSelection } = useConsentFlow({
     onCompleted,
@@ -186,11 +196,15 @@ export function ConsentFlow({
       )}
     >
       <div className="flex w-full max-w-2xl flex-none flex-col gap-8 min-[1280px]:justify-center">
-        <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
-        <SignupTitle>개인정보·활동 동의</SignupTitle>
-        <SignupLede>
-          필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
-        </SignupLede>
+        {headingPresentation === 'signup' ? (
+          <>
+            <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
+            <SignupTitle>개인정보·활동 동의</SignupTitle>
+            <SignupLede>
+              필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
+            </SignupLede>
+          </>
+        ) : null}
         {content}
       </div>
 

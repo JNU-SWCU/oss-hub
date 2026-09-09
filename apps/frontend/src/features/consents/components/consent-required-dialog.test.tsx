@@ -120,4 +120,26 @@ describe('ConsentRequiredDialog', () => {
       ),
     ).toBe(true);
   });
+
+  // 팝업은 가입 중간이 아니다. 가입 흐름의 단계 표시와 "다음 단계로 이동" 안내를
+  // 그대로 끌고 오면, 화면이 사실이 아닌 것을 말하고 제목도 두 번 나온다.
+  it('does not repeat the signup step heading inside the dialog', async () => {
+    // Given: the required-consent recovery dialog is open on an ordinary screen.
+    await act(async () => {
+      root.render(
+        <ConsentRequiredDialog
+          open
+          onOpenChange={vi.fn()}
+          onCompleted={vi.fn()}
+        />,
+      );
+    });
+    await flushEffects();
+
+    // Then: only the dialog header names the task.
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('개인정보·활동 동의가 필요합니다');
+    expect(text).not.toContain('STEP 1 / 3');
+    expect(text).not.toContain('다음 단계로 이동합니다');
+  });
 });

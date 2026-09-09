@@ -88,12 +88,10 @@ describe('ConsentForm', () => {
   it('주 버튼 바로 위에 거부 안내를 붉은 글씨로 둔다', () => {
     const html = renderForm();
 
-    expect(textOf(html)).toContain(
-      '비동의는 자유이나, 비동의시 서비스 이용이 어렵습니다.',
-    );
+    expect(textOf(html)).toContain('비동의시 서비스 이용이 어렵습니다.');
     expect(html).toContain('text-cosmos-danger');
     // 안내가 버튼보다 먼저 나와야 "바로 위"다.
-    expect(html.indexOf('비동의는 자유이나')).toBeLessThan(
+    expect(html.indexOf('비동의시')).toBeLessThan(
       html.indexOf('type="submit"'),
     );
   });
