@@ -63,7 +63,7 @@ export function ProgramAuthoringReviewStep({
   return (
     <FormSection
       title="최종 검토"
-      description="확정하면 전체 내용이 한 번에 생성됩니다. 생성 전에는 서버에 프로그램이 없습니다."
+      description="확정하면 프로그램과 입력한 마일스톤·제출 항목을 함께 생성합니다."
     >
       <div className="grid gap-4">
         <Card>

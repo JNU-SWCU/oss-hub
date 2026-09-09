@@ -132,7 +132,7 @@ export function validateApplyForm(
     !values.repositoryUrl.trim()
       ? {
           repositoryUrl:
-            '연결할 repo URL을 입력하거나 새 저장소 생성을 선택해 주세요.',
+            '저장소 주소를 입력하거나 ‘새 저장소 발급받기’를 선택해 주세요.',
         }
       : {}),
     ...(mode === 'create' && !values.personalDataConsent

@@ -176,8 +176,8 @@ export function ApplicationDecisionDialog({
                 {repositoryConnectionMode === 'OWN'
                   ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
                   : repositoryProvisioningEnabled
-                    ? '승인하면 저장소 자동 생성이 활성화되어 저장소 작업을 시작합니다.'
-                    : '승인하면 저장소 자동 생성이 비활성화되어 저장소를 생성하지 않습니다.'}
+                    ? '승인하면 새 저장소 만들기를 시작합니다.'
+                    : '이 신청은 승인해도 저장소를 만들지 않습니다.'}
               </p>
             </AlertDialog.Description>
           ) : isReject ? (
