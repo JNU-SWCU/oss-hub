@@ -76,23 +76,29 @@ export function ProgramCoverField({
               변경한 이미지는 저장 후 반영됩니다.
             </p>
           ) : null}
-          <input
-            id={id}
-            type="file"
-            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-            disabled={disabled}
-            aria-invalid={Boolean(shownError)}
-            aria-describedby={`${id}-hint${shownError ? ` ${id}-error` : ''}`}
-            className="block w-full min-w-0 rounded-control border border-input p-3 text-sm file:mr-3"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              if (!file) return;
-              const message = validateProgramCover(file);
-              setError(message);
-              if (message === null) onChange(file);
-            }}
-          />
+          <div
+            data-disabled={disabled || undefined}
+            className="relative inline-flex min-h-control w-fit items-center rounded-control border border-input px-3 text-sm focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring data-[disabled=true]:opacity-50"
+          >
+            <span aria-hidden="true">이미지 선택</span>
+            <input
+              id={id}
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              disabled={disabled}
+              aria-invalid={Boolean(shownError)}
+              aria-describedby={`${id}-hint${shownError ? ` ${id}-error` : ''}`}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (!file) return;
+                const message = validateProgramCover(file);
+                setError(message);
+                if (message === null) onChange(file);
+              }}
+            />
+          </div>
           {shownError ? (
             <FieldError id={`${id}-error`} role="alert">
               {shownError}
