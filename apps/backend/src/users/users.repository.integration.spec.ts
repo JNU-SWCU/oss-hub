@@ -30,6 +30,14 @@ type StoredProfileFields = {
 const prisma = new PrismaService();
 const repository = new UsersRepository(prisma);
 
+// 이름·소속만 고치는 경로는 감사 신원을 쓰지 않는다 — 대상 행을 가리키는 최소 기록이다.
+const profileTarget = {
+  id: userId,
+  name: null,
+  studentId: null,
+  department: null,
+};
+
 async function completeCurrentProfile(
   profile: {
     readonly name: string;
@@ -178,7 +186,7 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
   ).resolves.toBe('completed');
 
   // When
-  await repository.updateProfileFields(userId, {
+  await repository.updateProfileFields(profileTarget, {
     name: '합성 수정 교직원',
     department: '소프트웨어공학과',
     affiliationKind: AffiliationKind.PROGRAM_OFFICE,
@@ -225,7 +233,7 @@ it('완료 후 이름·학과 수정도 UserProfile만 갱신한다', async () =
   };
 
   // When
-  await repository.updateProfileFields(userId, {
+  await repository.updateProfileFields(profileTarget, {
     ...mutableFields,
     affiliationKind: AffiliationKind.DEPARTMENT,
     affiliationName: mutableFields.department,

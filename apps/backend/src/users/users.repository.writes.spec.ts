@@ -115,13 +115,21 @@ describe('UsersRepository profile completion writes', () => {
 describe('UsersRepository profile field updates', () => {
   const phoneDigits = '7'.repeat(10);
   const replacementPhoneDigits = '8'.repeat(10);
+  // 감사 신원(`githubId`·`githubLogin`)이 없는 기록 — 오래된 호출자가 넘기던 모양이다.
+  const withoutAuditIdentity = {
+    id: 'user-legacy-only',
+    name: null,
+    studentId: null,
+    department: null,
+    phone: null,
+  };
 
-  it('프로필 행 하나만 갱신하고 소속 사본을 함께 옮긴다', async () => {
+  it('프로필 행 하나만 갱신하고 소속 사본을 함께 옺긴다', async () => {
     // Given
     const { repository, userProfileUpdate, userUpdate } = harness();
 
     // When
-    await repository.updateProfileFields('user-legacy-only', {
+    await repository.updateProfileFields(withoutAuditIdentity, {
       name: '수정된 이름',
       department: '인공지능학부',
     });
@@ -139,13 +147,13 @@ describe('UsersRepository profile field updates', () => {
     expect(userUpdate).not.toHaveBeenCalled();
   });
 
-  it('legacy profile field writes reject phone because audit identity is missing', async () => {
+  it('감사 신원이 없는 기록으로는 연락처를 쓰지 않는다', async () => {
     // Given
     const { repository, userUpdate } = harness();
 
     // When / Then
     await expect(
-      repository.updateProfileFields('user-legacy-only', {
+      repository.updateProfileFields(withoutAuditIdentity, {
         name: '수정된 이름',
         department: '인공지능학부',
         phone: phoneDigits,
@@ -207,6 +215,64 @@ describe('UsersRepository profile field updates', () => {
     expect(metadata).not.toHaveProperty('phone');
   });
 
+  // 두 요청이 같은 사용자의 연락처를 동시에 바꾸면, 뒤에 잠금을 얻은 요청은 이미
+  // 오래된 스냅샷을 들고 있다. 원장은 실제로 커밋된 전이를 적어야 한다.
+  it('잠금 직전에 다른 요청이 연락처를 채웠으면 REPLACED로 적는다', async () => {
+    // Given — 호출자는 `phone: null`로 읽었지만 잠근 행에는 이미 값이 있다
+    const expected = profileRecord('user-phone-concurrent', {
+      name: '기존 이름',
+      phone: null,
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '인공지능학부',
+    });
+    const { repository, userUpdate, auditRecord, transaction } =
+      harness(expected);
+    transaction.$queryRaw.mockResolvedValue([{ phone: phoneDigits }]);
+
+    // When
+    await repository.updateProfileFields(expected, {
+      name: '수정된 이름',
+      department: '인공지능학부',
+      phone: replacementPhoneDigits,
+    });
+
+    // Then
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: expected.id },
+      data: { phone: replacementPhoneDigits },
+    });
+    expect(auditRecord.mock.calls[0]?.[0].metadata).toMatchObject({
+      transition: 'REPLACED',
+    });
+  });
+
+  // 같은 값을 먼저 커밋한 요청이 있었다면 바뀜 것이 없다 — 원장에 빈 전이를 남기지 않는다.
+  it('잠근 행이 이미 같은 연락처면 쓰기도 감사도 하지 않는다', async () => {
+    // Given
+    const expected = profileRecord('user-phone-noop', {
+      name: '기존 이름',
+      phone: null,
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '인공지능학부',
+    });
+    const { repository, userUpdate, auditRecord, transaction } =
+      harness(expected);
+    transaction.$queryRaw.mockResolvedValue([{ phone: phoneDigits }]);
+
+    // When
+    await repository.updateProfileFields(expected, {
+      name: '수정된 이름',
+      department: '인공지능학부',
+      phone: phoneDigits,
+    });
+
+    // Then
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
   it('연락처 감사 로그 기록이 실패하면 프로필 갱신 트랜잭션도 실패한다', async () => {
     // Given
     const expected = profileRecord('user-phone-rollback', {
@@ -261,7 +327,10 @@ describe('UsersRepository 학번 최초 저장', () => {
     userProfileUpdateMany.mockResolvedValue({ count: 1 });
 
     // When
-    const outcome = await repository.fillStudentId(expected, profile.studentId);
+    const outcome = await repository.fillStudentId({
+      expected,
+      studentId: profile.studentId,
+    });
 
     // Then — `studentId: null` 조건이 CAS다
     expect(outcome).toBe('filled');
@@ -315,7 +384,7 @@ describe('UsersRepository 학번 최초 저장', () => {
 
     // When / Then
     await expect(
-      repository.fillStudentId(expected, profile.studentId),
+      repository.fillStudentId({ expected, studentId: profile.studentId }),
     ).resolves.toBe('taken');
     expect(userUpdateMany).not.toHaveBeenCalled();
   });
