@@ -1,11 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ExternalLink } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { githubLoginPath } from '@/features/landing/api';
+import {
+  githubLoginPath,
+  githubAccountChoicePath,
+} from '@/features/auth/login-paths';
+import {
+  getLoginDestinationStorage,
+  rememberLoginDestination,
+} from '@/features/auth/login-destination';
+import { GITHUB_LOGOUT_URL } from '@/features/auth/logout-notice';
 import {
   signupPrimaryClassName,
   SignupEyebrow,
@@ -20,77 +28,78 @@ import {
   type SignupEntryDecision,
 } from './signup-entry';
 
-/**
- * 가입·로그인 안내 본문. 세션을 읽지 않는 순수 표현이라 그대로 렌더해 검증한다.
- *
- * 이 화면은 **여기가 아니면 아무도 말해 주지 않는 것만** 말한다. 수집 항목·목적·
- * 보유 기간·거부권은 바로 다음 화면(`/consent`)이 항목별로, 전문 링크까지 붙여
- * 다시 묻는다. 그걸 여기서 미리 늘어놓으면 같은 얘기를 두 번 하는 셈이고, 정작
- * 이 화면이 존재하는 이유인 "GitHub 계정이 없는 사람 안내"가 그 아래로 밀린다.
- *
- * 다만 "계정이 하나 더 생기지 않는다"는 한 줄은 남긴다. 로그인 수단이 GitHub
- * 하나뿐이라 이 화면이 가입과 로그인을 겸하는데, 그 사실을 말해 주는 자리가
- * 제품에 여기밖에 없다 — 동의 화면은 이미 들어온 사람에게 말하는 자리라 늦다.
- */
 export function SignupInviteView() {
+  function rememberDestination(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    rememberLoginDestination(
+      getLoginDestinationStorage(),
+      new URLSearchParams(window.location.search).get('returnTo'),
+    );
+  }
   return (
     <SignupStage>
-      <SignupEyebrow>회원가입</SignupEyebrow>
-      <SignupTitle>
-        GitHub 계정으로
-        <br />
-        시작합니다
-      </SignupTitle>
+      <SignupEyebrow>로그인</SignupEyebrow>
+      <SignupTitle>GitHub으로 시작하기</SignupTitle>
       <SignupLede>
-        OSS Hub는 GitHub 계정으로만 들어옵니다. 그래서 처음 오신 분의 가입과
-        다시 오신 분의 로그인이 같은 동작이고, 아래 버튼 하나가 둘 다
-        처리합니다.
+        처음이라면 가입을, 이용 중이라면 로그인을 진행합니다.
       </SignupLede>
-
-      <div className="flex flex-col gap-5 break-keep">
-        <p className="max-w-prose text-body text-muted-foreground">
-          이 서비스를 쓰신 적이 있다면 <strong>쓰시던 계정으로 그대로</strong>{' '}
-          들어옵니다. 같은 GitHub 계정으로 계정이 하나 더 만들어지지 않습니다.
-        </p>
-        <div className="flex flex-wrap items-center gap-x-7 gap-y-4">
-          <Button asChild className={signupPrimaryClassName} size="lg">
-            <a href={githubLoginPath}>
-              GitHub으로 계속하기
-              <ArrowRight aria-hidden="true" />
-            </a>
-          </Button>
-          {/* 계정이 없는 사람 안내는 카드를 하나 더 쌓지 않고 주 버튼 옆에 둔다.
-              카드가 둘이면 무게가 비슷해져 "둘 중 무엇을 눌러야 하나"가 되는데,
-              이 화면의 주 행동은 하나다.
-
-              `variant="link"`의 `text-primary`(남색)는 이 우주 바탕에서 1.68:1이라
-              읽히지 않는다 — 반전 스코프가 되돌리지 않는 토큰이라 여기서 랜딩의
-              초록 강조색을 지정한다(8.56:1). 토큰 자체를 고치지 않는 이유는 바로
-              옆 주 버튼(`signupPrimaryClassName`)이 흰 바탕 + `--primary` 글자라
-              그쪽이 되레 무너지기 때문이다. 색만으로 링크임을 알리지 않도록
-              밑줄을 항상 켠다. */}
+      <div className="flex flex-col items-start gap-5 break-keep">
+        <Button asChild className={signupPrimaryClassName} size="lg">
+          <a href={githubLoginPath} onClick={rememberDestination}>
+            GitHub으로 계속하기
+            <ArrowRight aria-hidden="true" />
+          </a>
+        </Button>
+        <a
+          className="inline-flex min-h-11 items-center text-sm text-cosmos-repository underline underline-offset-4"
+          href={githubAccountChoicePath}
+          onClick={rememberDestination}
+        >
+          다른 GitHub 계정으로 로그인
+        </a>
+        <p className="text-sm text-muted-foreground">
+          GitHub 계정이 없나요?{' '}
           <Button
             asChild
-            className="text-cosmos-repository underline"
             size="lg"
             variant="link"
+            className="text-cosmos-repository underline"
           >
             <a
               href={GITHUB_SIGNUP_URL}
               rel="noreferrer noopener"
               target="_blank"
             >
-              GitHub 계정 만들기
-              <ExternalLink aria-hidden="true" />
-              <span className="sr-only">(새 탭에서 열립니다)</span>
+              계정 만들기<span className="sr-only"> (새 탭)</span>
             </a>
           </Button>
-        </div>
-        <p className="max-w-prose text-small text-muted-foreground">
-          GitHub 인증 화면으로 이동했다가 다시 이곳으로 돌아옵니다. 돌아오면
-          약관 동의부터 이어집니다. 계정이 없다면 GitHub에서 무료로 만들 수
-          있고, 위 링크는 새 탭에서 열리므로 이 화면은 그대로 남아 있습니다.
         </p>
+        <details
+          id="account-help"
+          className="max-w-prose text-sm text-muted-foreground"
+        >
+          <summary className="cursor-pointer py-2">
+            원하는 계정이 보이지 않나요?
+          </summary>
+          <p className="pt-2">
+            <a
+              className="text-cosmos-repository underline underline-offset-4"
+              href={GITHUB_LOGOUT_URL}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              GitHub에서 로그아웃<span className="sr-only"> (새 탭)</span>
+            </a>
+            한 뒤 이 탭에서 다시 로그인해 주세요.
+          </p>
+        </details>
       </div>
     </SignupStage>
   );
@@ -110,10 +119,8 @@ function SignupResumeView({
   return (
     <SignupStage>
       <SignupEyebrow>이어서 하기</SignupEyebrow>
-      <SignupTitle>멈춘 자리로 돌아갑니다</SignupTitle>
-      <SignupLede>
-        이미 로그인되어 있습니다. 가입을 처음부터 다시 할 필요는 없습니다.
-      </SignupLede>
+      <SignupTitle>이어서 진행합니다</SignupTitle>
+      <SignupLede>로그인한 계정으로 이어갑니다.</SignupLede>
       <div>
         <Button asChild size="lg">
           <Link href={href}>

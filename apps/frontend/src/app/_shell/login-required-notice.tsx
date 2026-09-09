@@ -1,6 +1,9 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
+import { signupForDestination } from '@/features/auth/login-destination';
 
 /**
  * 로그인이 필요한 화면에 비로그인(anonymous)으로 들어왔을 때의 안내.
@@ -11,6 +14,7 @@ import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
  * 무슨 일이 있었는지 말해 주고, 로그인하거나 홈으로 돌아갈 수단을 함께 준다.
  */
 export function LoginRequiredNotice() {
+  const pathname = usePathname();
   return (
     <section
       aria-labelledby="login-required-heading"
@@ -20,18 +24,16 @@ export function LoginRequiredNotice() {
         <h1
           id="login-required-heading"
           className="text-lg font-semibold text-foreground"
-          role="alert"
         >
-          로그인이 필요한 페이지입니다
+          로그인이 필요합니다
         </h1>
         <p className="mx-auto max-w-md break-keep text-sm text-muted-foreground">
-          로그인한 계정만 볼 수 있는 화면입니다. 로그인하거나 홈으로 돌아가
-          주세요.
+          로그인 후 이 화면을 이용할 수 있습니다.
         </p>
       </div>
       <div className="flex gap-2">
         <Button asChild className="min-h-11" size="sm">
-          <Link href={SIGNUP_ENTRY.href}>로그인</Link>
+          <Link href={signupForDestination(pathname)}>로그인</Link>
         </Button>
         <Button asChild className="min-h-11" variant="outline" size="sm">
           <Link href="/">홈으로</Link>

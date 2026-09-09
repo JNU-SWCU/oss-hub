@@ -5,13 +5,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logout } from '../api';
-import { logoutCompletePath } from '../logout-notice';
 import { SIGNUP_ENTRY, shouldShowEntryLink } from '../signup-entry-link';
 import { refreshSession } from '../session-store';
 import { toAccountMenuSession } from '../session-view';
 import { useSession } from '../use-session';
 import { applyLogoutFailure, applyLogoutSuccess } from '../session-state';
 import type { AuthSession, Me } from '../types';
+import {
+  clearLoginDestination,
+  getLoginDestinationStorage,
+  signupForDestination,
+} from '../login-destination';
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
@@ -103,7 +107,10 @@ export function LoginButtonView({
       }
       return (
         <Button asChild variant="ghost">
-          <Link href={SIGNUP_ENTRY.href} aria-label={SIGNUP_ENTRY.label}>
+          <Link
+            href={signupForDestination(pathname)}
+            aria-label={SIGNUP_ENTRY.label}
+          >
             {/* nav actions는 `shrink-0`이라 좁은 화면에서 메뉴를 파고든다 —
                 640px 미만에서는 짧은 라벨을 쓴다(role-home-link의 nav 링크와 동일). */}
             <span className="sm:hidden">{SIGNUP_ENTRY.compactLabel}</span>
@@ -213,27 +220,9 @@ export function LoginButton() {
           .then((result) => {
             const next = applyLogoutSuccess({ me, logoutError }, result);
             if (next.me === null) {
-              // 로그아웃 확정: 전체 내비게이션으로 모든 세션 소비자(예:
-              // RoleHomeNavLink)를 초기화하고 로그아웃 완료 화면에 착지한다.
-              //
-              // 예전에는 랜딩에 `?loggedOut=1` 표식을 붙였다. 안내는 필요하지만
-              // 쿼리 표식은 새로고침·뒤로가기 한 번에 사라지고, 그러면 "다른 계정으로
-              // 로그인하려면 GitHub에서도 로그아웃해야 한다"는 말을 들을 자리가
-              // 없어진다 — 사용자는 같은 계정으로 다시 들어오는 것을 보고 로그아웃이
-              // 실패한 줄로 읽는다. 그래서 안내에 자기 주소를 준다.
-              //
-              // 지금 서 있던 자리를 복귀 주소로 함께 실어 보낸다. 계정 전환 왕복
-              // (GitHub 로그아웃 → 다시 로그인)을 마친 사람이 랜딩이나 가입 입구가
-              // 아니라 하려던 일 앞으로 돌아온다 — 이 값을 넘기지 않으면 완료 화면의
-              // 복귀 링크는 언제나 기본값을 가리키고, 복귀 주소 계약은 아무도 쓰지 않는
-              // 죽은 코드가 된다.
-              //
-              // 넘기는 것은 `usePathname()`의 **경로뿐**이다. 쿼리·해시는 싣지 않는다 —
-              // 복귀 주소는 주소창에 남아 복사·공유되고 서버 로그에도 남는데, 쿼리에는
-              // 화면 상태만이 아니라 식별자가 실릴 수 있다. 경로만으로도 있던 화면은
-              // 되찾힌다. 값의 검증(외부 주소·자기 자신·가입 절차 경로 배제)은
-              // `logoutCompletePath`가 한 곳에서 맡는다.
-              window.location.assign(logoutCompletePath(pathname));
+              clearLoginDestination(getLoginDestinationStorage());
+              // 새 문서로 이동해 모든 세션 소비자를 함께 초기화한다.
+              window.location.assign('/');
               return;
             }
             // 로그아웃이 확정되지 않았다면 세션은 아직 살아 있다. 지역 상태를

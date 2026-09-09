@@ -1,7 +1,12 @@
 'use client';
 
+import { hasAuthError } from '@/features/auth/auth-error';
+import {
+  getLoginDestinationStorage,
+  takeLoginDestination,
+} from '@/features/auth/login-destination';
 import { usePathname } from 'next/navigation';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import type { NavItem } from '@/components';
 import { PUBLIC_MENU } from './public-menus';
 import { ProductShell, SidebarDrawerProvider } from './product-shell';
@@ -42,6 +47,14 @@ export function AppFrame({
   const pathname = usePathname();
   const session = useSessionRole();
   const { status, isProfileComplete } = session;
+  useEffect(() => {
+    if (status !== 'assigned' || !isProfileComplete) return;
+    if (pathname !== '/' && pathname !== '/dashboard') return;
+    if (hasAuthError(window.location.search)) return;
+    const destination = takeLoginDestination(getLoginDestinationStorage());
+    if (destination && destination !== pathname)
+      window.location.replace(destination);
+  }, [status, isProfileComplete, pathname]);
   const onCosmosGround = COSMOS_GROUND_PATHS.has(pathname);
   const preMember = PRE_MEMBER_PATHS.has(pathname);
 

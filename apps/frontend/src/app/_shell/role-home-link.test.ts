@@ -50,8 +50,8 @@ describe('resolveSessionEntry', () => {
 
     expect(destination).toEqual({
       href: '/signup',
-      label: '회원가입 / 로그인',
-      compactLabel: '회원가입',
+      label: '로그인',
+      compactLabel: '로그인',
     });
   });
 
@@ -69,8 +69,8 @@ describe('resolveSessionEntry', () => {
 
       expect(destination).toEqual({
         href: '/signup',
-        label: '회원가입 / 로그인',
-        compactLabel: '회원가입',
+        label: '로그인',
+        compactLabel: '로그인',
       });
     },
   );
