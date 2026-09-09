@@ -455,7 +455,7 @@ test('갱신 시각이 있으면 화면에 기준 시각을 보여준다', () =>
   expect(html).toContain('data-ranking-as-of');
 });
 
-test('갱신 시각이 없으면 시각을 숨기지 않고 "아직 수집 전"이라고 말한다', () => {
+test('갱신 시각이 없으면 시각을 숨기지 않고 "첫 수집 전"이라고 말한다', () => {
   // 예전에는 시각을 통째 생략했다. 그러면 배포 직후처럼 수집이 아직 한 번도
   // 안 돌았을 때 화면이 아무 신호도 주지 않아, 수집이 멈춘 것과 구별되지 않는다.
   const html = renderToStaticMarkup(
@@ -479,7 +479,7 @@ test('갱신 시각이 없으면 시각을 숨기지 않고 "아직 수집 전"�
   );
 
   expect(html).toContain('data-ranking-as-of="none"');
-  expect(html).toContain('아직 수집 전');
+  expect(html).toContain('첫 수집 전');
 });
 
 // 사람 축 5종 지표 (ADR-010 개정 노트 2026-08-19).
@@ -673,8 +673,8 @@ test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만
     { dataAsOf: null },
   );
 
-  expect(html).toContain('아직 수집 전입니다');
-  expect(html).toContain('수집 전 기본값');
+  expect(html).toContain('첫 수집 전입니다');
+  expect(html).toContain('활동 실적이 아닌 임시값');
   expect(html).toContain('data-ranking-as-of="none"');
   // 설명만 붙일 뿐 사람을 지우지 않는다.
   expect(html).toContain('synthetic-top');
@@ -706,7 +706,7 @@ test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목
   expect(html).toContain('synthetic-newcomer');
   // 수집은 돌았으므로 기준 시각은 그대로 보인다.
   expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
-  expect(html).not.toContain('아직 수집 전입니다');
+  expect(html).not.toContain('첫 수집 전입니다');
 });
 
 test('한 명이라도 활동이 있으면 대기 안내를 띄우지 않는다', () => {
@@ -724,7 +724,7 @@ test('한 명이라도 활동이 있으면 대기 안내를 띄우지 않는다'
   );
 
   expect(html).not.toContain('집계된 활동이 아직 없습니다');
-  expect(html).not.toContain('아직 수집 전입니다');
+  expect(html).not.toContain('첫 수집 전입니다');
 });
 
 const STAFF_ROW = {
@@ -886,7 +886,7 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
   }
   expect(staff).toContain('(누적)');
   expect(staff).toContain('계정 전체 누적');
-  expect(staff).toContain('아직 수집 전입니다');
+  expect(staff).toContain('첫 수집 전입니다');
   expect(staff).toContain('data-ranking-as-of="none"');
   expect(staff).toContain('CSV 다운로드');
 

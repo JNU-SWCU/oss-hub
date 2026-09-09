@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -18,7 +18,7 @@ export function YearLinks({
   readonly years: readonly number[];
 }): ReactElement {
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="기간">
+    <div className="flex flex-wrap gap-2">
       <YearLink
         href={insightsPageHref({ kind: 'all' })}
         current={scope.kind === 'all'}
@@ -95,13 +95,13 @@ export function MetricCard({
   readonly title: string;
   readonly sw: number;
   readonly nonSw: number;
-  readonly extra: string;
+  readonly extra: ReactNode;
 }): ReactElement {
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{extra}</CardDescription>
+        <CardDescription className="break-keep">{extra}</CardDescription>
       </CardHeader>
       <CardContent>
         <dl className="grid grid-cols-2 gap-4">

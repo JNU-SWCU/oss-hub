@@ -18,6 +18,11 @@ describe('StaffInsightsView', () => {
     );
     expect(html).toContain('기간');
     expect(html).toContain('비교 관점');
+    expect(html.match(/role="group"/g)).toHaveLength(2);
+    expect(html).toContain('aria-labelledby="insights-period-label"');
+    expect(html).toContain('id="insights-period-label"');
+    expect(html).toContain('aria-labelledby="insights-cut-label"');
+    expect(html).toContain('id="insights-cut-label"');
   });
 
   it('shows cohort KPIs and ranking comparison copy', () => {
@@ -37,10 +42,11 @@ describe('StaffInsightsView', () => {
     expect(html).toContain('활성 — 랭킹 지표');
     expect(html).toContain('참여 — 프로그램별');
     expect(html).toContain('합성 기초 오픈소스 스터디');
-    expect(html).toContain('활동률');
+    expect(html).toContain('SW 활동 학생 / SW 가입 학생:');
     expect(html).toContain('31/42');
     expect(html).toContain('학과 미등록');
-    expect(html).toContain('색상 외에도');
+    expect(html).toContain('<table');
+    expect(html).toContain('SW전공과 비SW전공의 랭킹 지표');
     expect(html).toContain('참여 — 프로그램별');
   });
 

@@ -152,7 +152,7 @@ export function SettingsForm({
 
         {submitError ? (
           <Alert variant="destructive">
-            <AlertTitle>설정을 저장하지 못했습니다</AlertTitle>
+            <AlertTitle>저장 결과를 확인해 주세요</AlertTitle>
             <AlertDescription>{submitError}</AlertDescription>
           </Alert>
         ) : null}

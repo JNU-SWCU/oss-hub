@@ -76,12 +76,6 @@ export function ProfileOnboardingForm({
     if (!isValid) firstInvalidControl()?.focus();
   }
 
-  const profileFields = [
-    '이름',
-    ...(showStudentId ? ['학번'] : []),
-    values.affiliationKind === 'DEPARTMENT' ? '학과' : '사업단',
-  ];
-
   return (
     <>
       <SignupEyebrow>STEP 3 / 3 · 마지막</SignupEyebrow>
@@ -91,13 +85,10 @@ export function ProfileOnboardingForm({
         가입이 끝납니다
       </SignupTitle>
       <SignupLede>
-        {`프로그램 신청과 팀 구성에 쓰이는 정보입니다. 필요한 항목(${profileFields.join(', ')})을 확인합니다.`}
+        프로그램 신청과 팀 구성에 사용할 정보를 입력해 주세요.
       </SignupLede>
       <form className="flex flex-col gap-10" onSubmit={handleSubmit}>
-        <FormSection
-          title="신원 정보"
-          description="입력한 정보는 이후 프로그램 신청과 프로필에 사용됩니다."
-        >
+        <FormSection title="기본 정보">
           <Field data-invalid={showNameError || undefined}>
             <FieldLabel htmlFor="profile-name">
               이름

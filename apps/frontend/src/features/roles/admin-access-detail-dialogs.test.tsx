@@ -154,7 +154,7 @@ describe('반려 다이얼로그 — REJECT 액션에서만 뜨는 사유 입력
       />,
     );
     expect(html).toContain('요청 반려');
-    expect(html).toContain('거절 사유');
+    expect(html).toContain('반려 사유');
     expect(html).toContain('반려 확정');
   });
 

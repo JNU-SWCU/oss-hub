@@ -277,8 +277,8 @@ describe('public archive views', () => {
         onRetry={callbacks.onRetry}
       />,
     );
-    expect(emptyHtml).toContain('공개된 프로젝트 없음');
-    expect(filterEmptyHtml).toContain('검색 결과 없음');
+    expect(emptyHtml).toContain('아직 공개된 프로젝트가 없습니다');
+    expect(filterEmptyHtml).toContain('이 연도의 공개 프로젝트가 없습니다');
     expect(filterEmptyHtml).toContain('필터 초기화');
   });
 
@@ -523,7 +523,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
       />,
     );
     expect(afterRevocationHtml).not.toContain('synthetic 회수 예정 프로젝트');
-    expect(afterRevocationHtml).toContain('공개된 프로젝트 없음');
+    expect(afterRevocationHtml).toContain('아직 공개된 프로젝트가 없습니다');
 
     const detailAfterRevocationHtml = renderToStaticMarkup(
       <ArchiveDetailContent

@@ -166,15 +166,15 @@ describe('StudentDashboardView', () => {
     const html = renderView({ data: pendingDashboardFixture });
 
     expect(html).toContain('승인 대기');
-    expect(html).toContain('신청 검토 후 일정이 열립니다.');
+    expect(html).toContain('승인되면 다음 일정이 표시됩니다.');
     expect(html).toContain('신청 상세');
     expect(html).not.toContain('제출 체크리스트');
   });
 
-  it('모든 마일스톤 완료 상태를 표시한다', () => {
+  it('예정된 제출 항목을 모두 마쳤습니다. 상태를 표시한다', () => {
     const html = renderView({ data: completedDashboardFixture });
 
-    expect(html).toContain('모든 마일스톤 완료');
+    expect(html).toContain('예정된 제출 항목을 모두 마쳤습니다.');
     expect(html).toContain('>완료<');
     expect(html).not.toContain('>참여 중<');
     expect(html).not.toContain('다음 마일스톤');

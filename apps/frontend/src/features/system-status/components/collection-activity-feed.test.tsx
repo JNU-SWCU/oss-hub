@@ -105,14 +105,14 @@ describe('CollectionActivityFeed', () => {
     expect(feedText()).toContain('PR 3');
     expect(feedText()).toContain('릴리즈 1');
     expect(feedText()).toContain('저장소 8/8');
-    expect(feedText()).toContain('사이클 완료');
+    expect(feedText()).toContain('전체 순회 완료');
     expect(feedText()).not.toContain('실패');
   });
 
-  it('예산 중단 sweep은 「외부」 배지·「예산 중단」 상태·실패 건수를 destructive 톤으로 표시한다', async () => {
+  it('수집 한도에 도달 sweep은 「외부」 배지·「수집 한도에 도달」 상태·실패 건수를 destructive 톤으로 표시한다', async () => {
     await renderFeed([budgetStoppedExternalSweep]);
     expect(feedText()).toContain('외부');
-    expect(feedText()).toContain('예산 중단');
+    expect(feedText()).toContain('수집 한도에 도달');
     expect(feedText()).toContain('저장소 6/10');
     expect(feedText()).toContain('실패 2');
     // 「저장소 X/Y」를 감싸는 바깥 span도 자식의 텍스트를 포함해 '실패 2'와
@@ -123,11 +123,11 @@ describe('CollectionActivityFeed', () => {
     expect(failedNode?.className).toContain('text-destructive');
   });
 
-  it('완료되지 않았고 예산 중단도 아니면 「진행 중」을 표시한다', async () => {
+  it('완료되지 않았고 수집 한도에 도달도 아니면 「진행 중」을 표시한다', async () => {
     await renderFeed([emptySweep]);
     expect(feedText()).toContain('진행 중');
-    expect(feedText()).not.toContain('사이클 완료');
-    expect(feedText()).not.toContain('예산 중단');
+    expect(feedText()).not.toContain('전체 순회 완료');
+    expect(feedText()).not.toContain('수집 한도에 도달');
   });
 
   it('3종 모두 0건이면 「신규 데이터 없음」을 표시한다', async () => {

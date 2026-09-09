@@ -147,17 +147,17 @@ describe('SystemStatusView', () => {
       },
     });
 
-    expect(html).toContain('수집 연동 앱(GitHub App)이란');
+    expect(html).toContain('수집 앱 설치·권한 확인');
     // 개인 계정에 붙이는 앱과의 차이 + 확인할 위치가 문구에 있어야 한다.
-    expect(html).toContain('개인이 자기 GitHub 계정에 설치하는 앱이 아니라');
-    expect(html).toContain('사업단 GitHub 조직에 설치되며');
+    expect(html).toContain('개인 계정이 아닌 조직에 설치');
+    expect(html).toContain('사업단 GitHub 조직의 Settings');
     expect(html).toContain('Settings → GitHub Apps');
   });
 
   it('수집이 정상이면 GitHub App 설명을 띄우지 않는다', () => {
     const html = render({ kind: 'success', status: normal });
 
-    expect(html).not.toContain('수집 연동 앱(GitHub App)이란');
+    expect(html).not.toContain('수집 앱 설치·권한 확인');
   });
 
   it('transport error는 내부 오류를 노출하지 않고 재시도를 표시한다', () => {
@@ -172,14 +172,14 @@ describe('SystemStatusView', () => {
     const html = render({ kind: 'success', status: normal });
     expect(html).toContain('정상');
     expect(html).toContain('데이터 수집이 정상적으로 운영되고 있습니다.');
-    expect(html).toContain('이번 사이클 시작');
-    expect(html).toContain('최근 사이클 완료');
+    expect(html).toContain('이번 전체 순회 시작');
+    expect(html).toContain('최근 전체 순회 완료');
     expect(html).toContain('2026');
   });
 
   it('IDLE일 때는 run 상태 배지("수집 중")를 표시하지 않는다', () => {
     const html = render({ kind: 'success', status: normal });
-    expect(html).not.toContain('수집 중');
+    expect(html).not.toMatch(/data-slot="status-badge"[^>]*>수집 중<\/span>/);
   });
 
   it('PROCESSING일 때는 애니메이션 점과 함께 "수집 중" 배지를 표시한다', () => {
@@ -205,14 +205,14 @@ describe('SystemStatusView', () => {
       'RUN_INCOMPLETE',
       '부분 진행',
       '일부 저장소의 수집이 아직 완료되지 않았습니다.',
-      '아래 ‘Stream 진행 상황’에서 ‘부분/대기’ 수가 줄고 있는지 확인하고, 다음 수집 주기 뒤에도 그대로면 사업단 관리자에게 알려 주세요.',
+      '아래 ‘활동 종류별 수집’에서 ‘부분·대기’ 수를 확인해 주세요. 다음 수집 주기 뒤에도 줄지 않으면 사업단 관리자에게 알려 주세요.',
     ],
     [
       'FAILED',
       'UPSTREAM_RATE_LIMITED',
       '실패',
-      '재시도 대기 중인 stream이 있습니다.',
-      'GitHub 호출 한도가 풀리면 다음 수집 주기에 자동으로 다시 시도하므로 지금 손댈 것은 없습니다.',
+      '재시도를 기다리는 수집 항목이 있습니다.',
+      'GitHub 호출 한도가 풀리면 다음 주기에 자동으로 다시 시도합니다.',
     ],
   ] as const)(
     '%s 상태는 안전한 사유와 다음 행동을 함께 표시한다',
@@ -226,7 +226,7 @@ describe('SystemStatusView', () => {
       // 상태 서술만으로 끝나면 운영자는 다음에 무엇을 할지 알 수 없다.
       expect(html).toContain(nextAction);
       // 정상이 아닌 상태에서는 GitHub App 설명이 함께 붙는다.
-      expect(html).toContain('수집 연동 앱(GitHub App)이란');
+      expect(html).toContain('수집 앱 설치·권한 확인');
       expect(html).not.toContain('token');
       expect(html).not.toContain('githubId');
     },
@@ -316,19 +316,19 @@ describe('SystemStatusView', () => {
     it('탐색된 external 저장소가 0개면 이유와 다음 행동을 설명하는 빈 상태를 보여준다', () => {
       const html = render({ kind: 'success', status: normal });
       expect(html).toContain('aria-label="외부 저장소 수집"');
-      expect(html).toContain('탐색된 학생 개인 GitHub 저장소가 아직 없습니다');
+      expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
       // 0을 그냥 0으로 보여주지 않는다 — 왜 0인지, 무엇을 하면 채워지는지가
       // 화면에서 읽혀야 한다는 이 화면의 핵심 요구사항. 이 fixture는
       // `lastSweep: null`(emptyExternalCollection)이라 sweep이 한 번도 끝난
       // 적이 없다는 뜻이다 — "매시 정각 자동으로 실행되고 있다"고 단정하면
       // 안 된다(QA57).
       expect(html).not.toContain('매시 정각 자동으로 실행되고 있습니다');
-      expect(html).toContain('단 한 번도 완료된 적이 없습니다');
+      expect(html).toContain('완료된 수집 기록도 없습니다');
       // 대상을 채우는 두 경로(신청 승인 / 관리자 수동 탐색) 모두 설명해야
       // 한다 — 탐색만 유일한 경로인 것처럼 안내하면 신청 승인 경로로 이미
       // 채워진 경우도 잘못 안내하게 된다.
       expect(html).toContain(
-        '학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택',
+        '학생이 프로그램 신청에서 ‘내 저장소 연결하기’를 선택',
       );
       // 신청 화면 라디오 라벨(program-apply-views.tsx) 그대로 써야 한다 —
       // 내부 열거값 `OWN`을 노출하면 관리자가 무슨 뜻인지 알 수 없다.
@@ -337,13 +337,13 @@ describe('SystemStatusView', () => {
       // 꺼져 있으면 동작하지 않는다(코드 리뷰 Major ① 대응) — 이 전제조건이
       // 빠지면 관리자가 이 화면만 보고 "왜 안 잡히지"를 풀 수 없다.
       expect(html).toContain(
-        '「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다',
+        '꺼져 있으면 승인해도 수집 대상에 추가되지 않습니다',
       );
       expect(html).toContain('관리자가 학생별로 저장소 탐색을 실행');
       // "왜 0인지"의 원인은 시스템이 알 수 없는 사실이라 단정하지 않는다 —
       // 관측 가능한 사실(대상 0개, 그래서 매시 수집도 처리할 저장소 없이
       // 끝남)만 문구에 남는다.
-      expect(html).toContain('현재 수집 대상 저장소가 0개라');
+      expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
       expect(html).not.toContain('탐색을 실행한 학생이 없어');
     });
 
@@ -359,7 +359,7 @@ describe('SystemStatusView', () => {
       expect(html).toContain('aria-label="외부 저장소 수집"');
     });
 
-    it('탐색된 external 저장소가 있으면 추적 수·누적 활동·최근 sweep 처리 결과를 표시한다', () => {
+    it('탐색된 external 저장소가 있으면 추적 수·누적 활동·최근 실행 처리 결과를 표시한다', () => {
       const html = render({
         kind: 'success',
         status: normal,
@@ -389,9 +389,7 @@ describe('SystemStatusView', () => {
       expect(html).toContain('PR 6');
       expect(html).toContain('릴리즈 2');
       expect(html).toContain('저장소 5/5');
-      expect(html).not.toContain(
-        '탐색된 학생 개인 GitHub 저장소가 아직 없습니다',
-      );
+      expect(html).not.toContain('수집 대상 학생 개인 저장소가 없습니다');
     });
 
     it('org 요약 카드의 추적 저장소 수는 external 값과 섞이지 않는다', () => {
@@ -408,7 +406,9 @@ describe('SystemStatusView', () => {
       });
       // org "Stream 진행 상황" 카드는 여전히 org의 2개를 보여준다 — external의
       // 5개로 덮어써지지 않는다.
-      expect(html).toContain('추적 저장소 2개 × commit·PR·release 3종 stream');
+      expect(html).toContain(
+        '저장소 2개에서 커밋·PR·릴리즈를 각각 수집합니다.',
+      );
       expect(html).toContain('5개 추적 중');
     });
   });
@@ -510,8 +510,10 @@ describe('SystemStatusView', () => {
           retryPendingStreamCount: 1,
         },
       });
-      expect(html).toContain('완료 0 / 6 stream (0%)');
-      expect(html).toContain('추적 저장소 2개 × commit·PR·release 3종 stream');
+      expect(html).toContain('완료 0 / 6개 (0%)');
+      expect(html).toContain(
+        '저장소 2개에서 커밋·PR·릴리즈를 각각 수집합니다.',
+      );
     });
 
     it('완료율 100%: 모든 stream이 완료면 100%로 표시한다', () => {
@@ -525,7 +527,7 @@ describe('SystemStatusView', () => {
           retryPendingStreamCount: 0,
         },
       });
-      expect(html).toContain('완료 6 / 6 stream (100%)');
+      expect(html).toContain('완료 6 / 6개 (100%)');
     });
 
     it('혼합 진행률: 4구간이 섞여 있으면 반올림한 비율과 role="img" aria-label을 함께 표시한다', () => {
@@ -540,14 +542,14 @@ describe('SystemStatusView', () => {
         },
       });
       // 3 / 8 = 37.5% → round(37.5) = 38%
-      expect(html).toContain('완료 3 / 8 stream (38%)');
+      expect(html).toContain('완료 3 / 8개 (38%)');
       expect(html).toContain('role="img"');
       expect(html).toContain(
-        'aria-label="전체 8개 stream 중 완료(READY) 3개, Backfill 중 2개, 부분·대기 1개, 재시도 대기 2개입니다."',
+        'aria-label="전체 8개 수집 항목 중 완료 3개, 과거 활동 수집 중 2개, 부분·대기 1개, 재시도 대기 2개입니다."',
       );
       // 범례는 0인 구간도 표시한다.
-      expect(html).toContain('완료(READY)');
-      expect(html).toContain('Backfill 중');
+      expect(html).toContain('완료');
+      expect(html).toContain('과거 활동 수집 중');
       expect(html).toContain('부분·대기');
       expect(html).toContain('재시도 대기');
     });
