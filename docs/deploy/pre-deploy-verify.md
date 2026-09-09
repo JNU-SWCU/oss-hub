@@ -34,6 +34,16 @@ bash scripts/rehearse-legacy-submission-migrations.sh negative
 - `{"status":"ok","scenario":"negative","lanes":9}` — contract의 preflight 게이트 아홉 개가 각각 자기 위반 데이터에서 멈췄고, 멈춘 뒤에도 원본 세 테이블과 `SubmissionFile."submissionRevisionId"`가 남아 있었다는 뜻이다.
 - 그 밖의 출력은 전부 실패다 — `... drifted`는 매핑이 갈라진 것이고 `... accepted ...`는 걸려야 할 데이터를 게이트가 통과시킨 것이며, **어느 쪽이든 릴리스를 내보내지 않는다.**
 
+canonical user phone 이관(`20260906174608_add_user_phone_canonical`, `v0.6.154`)의 리허설은 다음 두 명령이다.
+
+```sh
+bash scripts/rehearse-user-phone-column.sh migrate
+bash scripts/rehearse-user-phone-column.sh negative
+```
+
+- `{"status":"ok","scenario":"migrate",...,"check_enforced":true,"restored":true}` — 값이 든 `TeamMember.phone`을 가진 DB에서 이 마이그레이션 파일 그대로가 통과했고, `User.phone`이 nullable로 생기고 `User_phone_digits_check`가 10·11자리만 받아들였으며, 다른 컬럼·행·제약·인덱스가 그대로였고, 직전 덤프 복원으로 지워진 전화번호가 되살아났다는 뜻이다.
+- `{"status":"ok","scenario":"negative",...,"rolled_back":true}` — 컬럼이 이미 없는 드리프트에서 같은 파일이 명시적으로 멈췄고, 파일 전체가 한 트랜잭션이라 앞선 `ADD COLUMN`과 CHECK까지 함께 되돌아갔다는 뜻이다.
+
 다음 파괴적 이관도 같은 두 겹을 갖춘다 — 컨테이너 리허설 스크립트 하나와, 그 스크립트의 정적 계약을 required CI에 고정하는 `scripts/*.test.mjs` 하나다.
 컨테이너 리허설 자체는 PostgreSQL 기동이 필요해 required CI가 아니라 이 단계에서 손으로 돈다([ci-path-verification](../rules/ci-path-verification.md)).
 

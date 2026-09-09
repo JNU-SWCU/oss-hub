@@ -1555,3 +1555,14 @@
 - 검증: 실제 PR #1260·리뷰 댓글 #1244·Issue #1259의 before/after를 비교해 원래 URL 전부와 Issue 실행 계약·의존성·기존 blocker의 보존을 확인했다. 최종 초안 세 개 public-safe, PR 본문 검사, 전체 prettier, TEAM-STATE 테스트 11개가 통과했다.
 - 주의: #1251과 submit-pr-evidence 버전·CHANGELOG가 겹친다. 새 HEAD는 이전 승인과 별도로 리뷰한다. 인터뷰 면제는 이 문서 개선 범위만 유지한다.
 - 범위: Xia가 직접 Ponytail full로 기존 참조 재사용·필수 근거 보존을 검토했다. 새 검사기·스킬·원칙 파일, 과거 게시물 수정, 제품 코드 변경, 병합·배포는 없다.
+
+## 2026-09-10 — 전화번호 컬럼 이관의 리허설 두 겹을 채운다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 내용: `20260906174608_add_user_phone_canonical`은 `TeamMember.phone`을 `DROP COLUMN` 하는데 리허설이 없었다. 컨테이너 리허설 스크립트와 required CI에 고정하는 정적 계약 테스트를 pre-deploy-verify ⓪이 요구하는 두 겹으로 채우고 문서에 판정 기준을 적었다.
+- 검증: `migrate`·`negative` 두 lane을 일회용 PostgreSQL 컨테이너에서 실제로 돌려 각각 `{"status":"ok",...}`를 받았다. migrate는 값이 든 `TeamMember.phone`이 지워졌다가 직전 덤프로 되살아나는 것과 `User_phone_digits_check`가 10·11자리만 받는 것을, negative는 파일 전체가 한 트랜잭션이라 `ADD COLUMN`까지 롤백되는 것을 확인했다. 정적 계약 14개, ci-path-contract 8개, 전체 prettier가 통과했다.
+- 주의: 이 리허설 receipt를 근거로 `v0.6.154`를 발행했다. 스크립트는 호출자의 `DATABASE_URL`을 읽지 않고 unix 소켓 Docker endpoint만 허용하며 호스트 포트를 열지 않는다.
+- 범위: 리허설 tooling과 문서·CI 등록만 손댔다. 마이그레이션 SQL, 제품 코드, 운영 DB는 건드리지 않았다. `rehearse-program-deletion-column.sh`에 같은 정적 계약이 없는 것은 이 PR 범위 밖으로 남겨 둔다.
