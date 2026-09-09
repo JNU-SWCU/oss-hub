@@ -4,6 +4,7 @@ import {
   ConflictException,
   Controller,
   Delete,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
@@ -22,6 +23,7 @@ import {
   SessionGuard,
 } from '../../auth/session.guard';
 import { ProgramAuthoringRequestDto } from '../dto/program-authoring-request.dto';
+import { ProgramAuthoringUploadPolicyResponseDto } from '../dto/program-authoring-upload-policy-response.dto';
 import { ProgramAuthoringRepository } from '../program-authoring.repository';
 import {
   ProgramAuthoringForbiddenError,
@@ -48,6 +50,15 @@ export class ProgramAuthoringController {
     private readonly repository: ProgramAuthoringRepository,
     private readonly uploads: ProgramAuthoringUploadService,
   ) {}
+
+  @Get('upload-policy')
+  @UseGuards(SessionGuard)
+  async uploadPolicy(
+    @Req() request: SessionIdentity,
+  ): Promise<ProgramAuthoringUploadPolicyResponseDto> {
+    await this.requireAuthor(request.sessionGithubId);
+    return new ProgramAuthoringUploadPolicyResponseDto();
+  }
 
   @Post('uploads')
   @UseGuards(SessionGuard, OriginGuard)

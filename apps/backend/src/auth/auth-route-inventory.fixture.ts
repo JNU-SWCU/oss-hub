@@ -118,6 +118,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/milestones/:milestoneId/documents/collection/archive',
   'PROTECTED GET /api/v1/notifications/deadline-digests/failures',
   'PROTECTED GET /api/v1/onboarding/role',
+  'PROTECTED GET /api/v1/program-authoring/upload-policy',
   'OPTIONAL_SESSION GET /api/v1/programs',
   'PUBLIC GET /api/v1/programs/:id',
   'PROTECTED GET /api/v1/programs/:id/activity',
