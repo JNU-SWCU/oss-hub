@@ -100,6 +100,7 @@ export class ProgramMilestoneEditResponseDto {
 }
 
 export class EditableProgramResponseDto {
+  readonly coverImageUrl: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -121,6 +122,7 @@ export class EditableProgramResponseDto {
   readonly teamMaxSize: number;
 
   private constructor(program: EditableProgramView) {
+    this.coverImageUrl = program.coverImageUrl ?? null;
     this.id = program.id;
     this.name = program.name;
     this.organizer = program.organizer;

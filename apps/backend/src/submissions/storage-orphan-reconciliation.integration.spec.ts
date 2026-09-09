@@ -24,6 +24,7 @@ const SUBMISSION_FILE_ID = `${FIXTURE_PREFIX}-submission-file`;
 const AUTHORING_UPLOAD_ID = `${FIXTURE_PREFIX}-authoring-upload`;
 const TRANSFER_AUTHORING_UPLOAD_ID = `${FIXTURE_PREFIX}-transfer-authoring-upload`;
 const TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-template-file`;
+const COVER_ID = `${FIXTURE_PREFIX}-cover`;
 const TRANSFER_TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-transfer-template-file`;
 const PENDING_TOMBSTONE_ID = `${FIXTURE_PREFIX}-pending-tombstone`;
 const DELETED_TOMBSTONE_ID = `${FIXTURE_PREFIX}-deleted-tombstone`;
@@ -31,11 +32,13 @@ const DELETED_TOMBSTONE_ID = `${FIXTURE_PREFIX}-deleted-tombstone`;
 const KEYS = {
   liveSubmission: `submission-files/${FIXTURE_PREFIX}-live-submission`,
   liveAuthoring: `program-authoring/${FIXTURE_PREFIX}-live-authoring`,
+  liveCover: `program-covers/${FIXTURE_PREFIX}-live-cover`,
   liveTemplate: `submission-files/${FIXTURE_PREFIX}-live-template`,
   transfer: `submission-files/${FIXTURE_PREFIX}-pending-transfer`,
   pendingTombstone: `submission-files/${FIXTURE_PREFIX}-pending-tombstone`,
   deletedTombstone: `submission-files/${FIXTURE_PREFIX}-deleted-tombstone`,
   orphan: `submission-files/${FIXTURE_PREFIX}-orphan`,
+  orphanCover: `program-covers/${FIXTURE_PREFIX}-orphan`,
   dbFailure: `submission-files/${FIXTURE_PREFIX}-db-failure`,
   concurrent: `submission-files/${FIXTURE_PREFIX}-concurrent`,
 } as const;
@@ -80,6 +83,7 @@ async function clearFixture(): Promise<void> {
   await prisma.programPurgeFileTombstone.deleteMany({
     where: { id: { in: [PENDING_TOMBSTONE_ID, DELETED_TOMBSTONE_ID] } },
   });
+  await prisma.programCover.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.milestoneDocumentTemplateFile.deleteMany({
     where: { id: { in: [TEMPLATE_FILE_ID, TRANSFER_TEMPLATE_FILE_ID] } },
   });
@@ -135,6 +139,15 @@ async function installLiveFixture(): Promise<void> {
       submissionType: 'FILE',
     },
   });
+  await prisma.programCover.create({
+    data: {
+      id: COVER_ID,
+      programId: PROGRAM_ID,
+      storageKey: KEYS.liveCover,
+      mimeType: 'image/png',
+      sizeBytes: 1,
+    },
+  });
   await prisma.milestoneDocument.create({
     data: {
       id: DOCUMENT_ID,
@@ -183,8 +196,10 @@ async function installLiveFixture(): Promise<void> {
     [
       KEYS.liveSubmission,
       KEYS.liveAuthoring,
+      KEYS.liveCover,
       KEYS.liveTemplate,
       KEYS.orphan,
+      KEYS.orphanCover,
     ].map(putObject),
   );
 }
@@ -264,7 +279,7 @@ describe('storage orphan reconciliation integration', () => {
     await prisma.$disconnect();
   });
 
-  it('report는 고아 1건만 찾고 delete는 그 객체만 실제로 제거한다', async () => {
+  it('report는 고아만 찾고 delete는 표지를 포함한 고아 객체만 실제로 제거한다', async () => {
     await installLiveFixture();
     const futureRunStart = new Date(Date.now() + 2 * 60 * 60 * 1_000);
     const service = new StorageOrphanReconciliationService(
@@ -274,14 +289,16 @@ describe('storage orphan reconciliation integration', () => {
     );
 
     const report = await service.reconcile({ mode: 'report' });
-    expect(report.orphanKeys).toEqual([KEYS.orphan]);
+    expect(report.orphanKeys).toEqual([KEYS.orphanCover, KEYS.orphan]);
     await expect(objectExists(KEYS.orphan)).resolves.toBe(true);
 
     const deletion = await service.reconcile({ mode: 'delete' });
-    expect(deletion.deletedKeys).toEqual([KEYS.orphan]);
+    expect(deletion.deletedKeys).toEqual([KEYS.orphanCover, KEYS.orphan]);
     await expect(objectExists(KEYS.orphan)).resolves.toBe(false);
+    await expect(objectExists(KEYS.orphanCover)).resolves.toBe(false);
     await expect(objectExists(KEYS.liveSubmission)).resolves.toBe(true);
     await expect(objectExists(KEYS.liveAuthoring)).resolves.toBe(true);
+    await expect(objectExists(KEYS.liveCover)).resolves.toBe(true);
     await expect(objectExists(KEYS.liveTemplate)).resolves.toBe(true);
   });
 
@@ -424,6 +441,12 @@ describe('storage orphan reconciliation integration', () => {
                     where,
                     select,
                   }),
+              },
+              programCover: {
+                findMany: ({ where, select }) =>
+                  transaction.programCover.findMany({ where, select }),
+                findFirst: ({ where, select }) =>
+                  transaction.programCover.findFirst({ where, select }),
               },
               milestoneDocumentTemplateFile: {
                 findMany: ({ where, select }) =>

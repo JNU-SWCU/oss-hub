@@ -54,6 +54,39 @@ afterAll(async () => {
 });
 
 describe('stateForE2eProgramGraph orphan accounting', () => {
+  it.each([
+    { stored: true, orphanObjects: 0 },
+    { stored: false, orphanObjects: 1 },
+  ])(
+    'counts cover references with stored=$stored',
+    async ({ stored, orphanObjects }) => {
+      await fixture.ensure();
+      const storageKey = `program-covers/${randomUUID()}`;
+      await prisma.programCover.create({
+        data: {
+          programId: E2E_PROGRAM_ID,
+          storageKey,
+          mimeType: 'image/png',
+          sizeBytes: 1,
+        },
+      });
+      if (stored) {
+        await e2eProgramAuthoringExternalPorts.storage.put({
+          objectKey: storageKey,
+          body: Buffer.from('synthetic-cover'),
+          originalName: 'synthetic-cover.png',
+          contentType: 'image/png',
+        });
+      }
+
+      const state = await fixture.state(
+        e2eProgramAuthoringExternalPorts.capture(),
+      );
+
+      expect(state).toMatchObject({ attachedFiles: 1, orphanObjects });
+    },
+  );
+
   it('프로그램 밖 aggregate에 첨부된 업로드를 고아로 세지 않는다', async () => {
     // Given
     await fixture.reset();

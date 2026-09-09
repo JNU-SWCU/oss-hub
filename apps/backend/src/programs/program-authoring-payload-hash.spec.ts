@@ -48,6 +48,28 @@ function request(): ProgramAuthoringRequest {
 }
 
 describe('Program authoring canonical payload hash', () => {
+  it('preserves historical no-cover hashes and includes a selected cover token', () => {
+    const original = buildProgramAuthoringPlan(request());
+    const empty = buildProgramAuthoringPlan({
+      ...request(),
+      coverUploadId: null,
+    });
+    const covered = buildProgramAuthoringPlan({
+      ...request(),
+      coverUploadId: 'cover-upload',
+    });
+    expect(canonicalProgramAuthoringPayload(original)).not.toHaveProperty(
+      'coverUploadId',
+    );
+    expect(hashProgramAuthoringPayload(empty)).toBe(
+      hashProgramAuthoringPayload(original),
+    );
+    expect(hashProgramAuthoringPayload(covered)).not.toBe(
+      hashProgramAuthoringPayload(original),
+    );
+    expect(covered.uploadTokenIds).toContain('cover-upload');
+  });
+
   it('gives semantically equivalent normalized requests one schemaVersion 1 hash', () => {
     // Given: equivalent requests use different whitespace, offsets, and default spelling.
     const implicit = buildProgramAuthoringPlan(request());

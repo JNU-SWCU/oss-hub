@@ -13,6 +13,10 @@ import {
 } from './program-authoring.repository';
 import { assertAttachableProgramAuthoringUploads } from './program-authoring-upload-transaction';
 import {
+  assertProgramCoverUpload,
+  assertProgramTemplateUpload,
+} from './program-cover';
+import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringIdempotencyRaceError,
   type ProgramAuthoringPlan,
@@ -85,7 +89,15 @@ export class ProgramAuthoringService {
       plan.uploadTokenIds,
       uploads,
     );
-    const program = await store.createProgram(plan.program);
+    for (const upload of uploads) {
+      if (upload.id === plan.coverUploadId) assertProgramCoverUpload(upload);
+      else assertProgramTemplateUpload(upload);
+    }
+    const cover = uploads.find(({ id }) => id === plan.coverUploadId);
+    const program =
+      cover === undefined
+        ? await store.createProgram(plan.program)
+        : await store.createProgram(plan.program, { actorId, upload: cover });
     let requestId: string;
     try {
       requestId = await store.createRequest({
@@ -127,7 +139,11 @@ export class ProgramAuthoringService {
         }
       }
     }
-    await store.attachUploads(actorId, requestId, plan.uploadTokenIds);
+    await store.attachUploads(
+      actorId,
+      requestId,
+      plan.uploadTokenIds.filter((id) => id !== plan.coverUploadId),
+    );
     return program;
   }
 }

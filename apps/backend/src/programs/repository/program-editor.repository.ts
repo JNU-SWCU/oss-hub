@@ -34,6 +34,8 @@ import {
   lockAttachableProgramAuthoringUploads,
 } from '../program-authoring-upload-transaction';
 import type { ProgramAuthoringPendingUploadConsumption } from '../program-authoring.types';
+import { replaceProgramCover } from './program-cover-write';
+import { programCoverImageUrl } from '../program-cover';
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
@@ -83,6 +85,12 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   }
 
   async updateProgram(input: ProgramUpdateInput): Promise<EditableProgramView> {
+    if (input.coverChange !== undefined) {
+      await replaceProgramCover(this.transaction, {
+        programId: input.programId,
+        ...input.coverChange,
+      });
+    }
     if (input.liveFileExpiresAt !== null) {
       await this.transaction.submissionFile.updateMany({
         where: {
@@ -494,6 +502,7 @@ class ProgramEditorMilestoneEditRaceError extends Error {
 }
 
 const editableProgramInclude = {
+  cover: { select: { id: true } },
   _count: { select: { applications: true, teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
@@ -503,6 +512,7 @@ function toEditableProgramView(
   deletionScopeCounts: ProgramDeletionScopeCounts,
 ): EditableProgramView {
   return {
+    coverImageUrl: programCoverImageUrl(program.id, program.cover?.id),
     id: program.id,
     name: program.name,
     organizer: program.organizer,

@@ -42,6 +42,7 @@ export interface ProgramMilestoneResponseDto {
 }
 
 export interface ProgramDetailResponseDto {
+  readonly coverImageUrl: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;

@@ -48,6 +48,7 @@ assertIsolatedIntegrationDatabase({
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const PREFIX = 'test:purge7:';
 const OBJECT_PREFIX = 'integration/program-purge-7';
+const COVER_OBJECT_PREFIX = 'program-covers/integration-program-purge-7';
 const NOW = new Date('2026-08-12T00:00:00.000Z');
 const ADMIN_GITHUB_ID = 9_875_000_001n;
 const STAFF_GITHUB_ID = 9_875_000_002n;
@@ -89,6 +90,7 @@ type Fixture = {
   readonly teamId: string;
   readonly submissionFileStorageKey: string;
   readonly templateFileStorageKey: string;
+  readonly coverStorageKey: string;
   readonly externalRepositoryId: string;
   readonly externalGithubRepositoryId: bigint;
   readonly provisionedRepositoryId: string;
@@ -127,14 +129,32 @@ function isNotFound(error: unknown): boolean {
 
 async function cleanup(): Promise<void> {
   const tombstones = await prisma.programPurgeFileTombstone.findMany({
-    where: { storageKey: { startsWith: OBJECT_PREFIX } },
+    where: {
+      OR: [
+        { storageKey: { startsWith: OBJECT_PREFIX } },
+        { storageKey: { startsWith: COVER_OBJECT_PREFIX } },
+      ],
+    },
     select: { storageKey: true },
   });
   await Promise.all(
     tombstones.map(({ storageKey }) => storage.delete(storageKey)),
   );
   await prisma.programPurgeFileTombstone.deleteMany({
-    where: { storageKey: { startsWith: OBJECT_PREFIX } },
+    where: {
+      OR: [
+        { storageKey: { startsWith: OBJECT_PREFIX } },
+        { storageKey: { startsWith: COVER_OBJECT_PREFIX } },
+      ],
+    },
+  });
+  const covers = await prisma.programCover.findMany({
+    where: { programId: { startsWith: PREFIX } },
+    select: { storageKey: true },
+  });
+  await Promise.all(covers.map(({ storageKey }) => storage.delete(storageKey)));
+  await prisma.programCover.deleteMany({
+    where: { programId: { startsWith: PREFIX } },
   });
   await storage.delete(`${OBJECT_PREFIX}/submission-file.pdf`).catch(() => {});
   await storage.delete(`${OBJECT_PREFIX}/template-file.pdf`).catch(() => {});
@@ -319,6 +339,7 @@ async function seedFullChildGraph(
   const boardCommentId = p('board-comment');
   const submissionFileStorageKey = `${OBJECT_PREFIX}/${label}/submission-file.pdf`;
   const templateFileStorageKey = `${OBJECT_PREFIX}/${label}/template-file.pdf`;
+  const coverStorageKey = `${COVER_OBJECT_PREFIX}-${label}`;
   const externalRepositoryId = p('external-repo');
   const externalGithubRepositoryId = 9_875_500_000n + ordinal;
   const publishedRepositoryId = p('published-repo');
@@ -379,7 +400,20 @@ async function seedFullChildGraph(
       teamMaxSize: 4,
       description: 'Synthetic full child graph fixture',
       repositoryProvisioningEnabled: true,
+      cover: {
+        create: {
+          storageKey: coverStorageKey,
+          mimeType: 'image/png',
+          sizeBytes: 1,
+        },
+      },
     },
+  });
+  await storage.put({
+    objectKey: coverStorageKey,
+    originalName: 'synthetic-cover.png',
+    contentType: 'image/png',
+    body: Buffer.from('synthetic-cover'),
   });
 
   await prisma.milestone.create({
@@ -839,6 +873,7 @@ async function seedFullChildGraph(
     teamId,
     submissionFileStorageKey,
     templateFileStorageKey,
+    coverStorageKey,
     externalRepositoryId,
     externalGithubRepositoryId,
     provisionedRepositoryId,
@@ -899,6 +934,7 @@ async function programChildRowCounts(
   applicationIds: readonly string[] = [],
 ) {
   const [
+    programCovers,
     milestones,
     applications,
     teams,
@@ -920,6 +956,7 @@ async function programChildRowCounts(
     applicationOutboxEvents,
     programLinkedNotifications,
   ] = await Promise.all([
+    prisma.programCover.count({ where: { programId } }),
     prisma.milestone.count({ where: { programId } }),
     prisma.application.count({ where: { programId } }),
     prisma.team.count({ where: { programId } }),
@@ -1000,6 +1037,7 @@ async function programChildRowCounts(
     }),
   ]);
   return {
+    programCovers,
     milestones,
     applications,
     teams,
@@ -1023,6 +1061,7 @@ async function programChildRowCounts(
 }
 
 const ALL_ZERO = {
+  programCovers: 0,
   milestones: 0,
   applications: 0,
   teams: 0,
@@ -1059,6 +1098,72 @@ describe('Program purge integration — full child graph, worker file deletion, 
     await Promise.all([prisma.$disconnect(), concurrentPrisma.$disconnect()]);
   });
 
+  it('ordinary deletion queues a cover and a failed storage deletion remains retryable', async () => {
+    await ensureGlobalActors();
+    const programId = `${PREFIX}cover-delete`;
+    const storageKey = `${COVER_OBJECT_PREFIX}-cover-delete`;
+    await prisma.program.create({
+      data: {
+        id: programId,
+        name: '합성 표지 삭제 프로그램',
+        organizer: 'Synthetic OSS Center',
+        category: ProgramCategory.BASIC,
+        applicationTemplateKey: 'basic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: NOW,
+        applicationEndAt: NOW,
+        description: 'Synthetic cover cleanup fixture',
+        cover: { create: { storageKey, mimeType: 'image/png', sizeBytes: 1 } },
+      },
+    });
+    await storage.put({
+      objectKey: storageKey,
+      originalName: 'synthetic-cover.png',
+      contentType: 'image/png',
+      body: Buffer.from('synthetic-cover'),
+    });
+
+    await lifecycle.delete(ADMIN_GITHUB_ID, programId);
+
+    await expect(
+      prisma.program.findUnique({ where: { id: programId } }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.programCover.findUnique({ where: { programId } }),
+    ).resolves.toBeNull();
+    const attemptedAt = new Date();
+    const failingCleanup = new ProgramPurgeFileCleanupService(
+      new ProgramPurgeFileCleanupRepository(prisma),
+      { delete: () => Promise.reject(new Error('synthetic storage failure')) },
+      () => attemptedAt,
+    );
+    await expect(failingCleanup.runDue()).resolves.toBe(1);
+    await expect(objectExists(storageKey)).resolves.toBe(true);
+    const nextDeleteAttemptAt = new Date(
+      attemptedAt.getTime() + 60 * 60 * 1_000,
+    );
+    await expect(
+      prisma.programPurgeFileTombstone.findUnique({ where: { storageKey } }),
+    ).resolves.toMatchObject({
+      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
+      deleteAttemptCount: 1,
+      nextDeleteAttemptAt,
+    });
+
+    const retryCleanup = new ProgramPurgeFileCleanupService(
+      new ProgramPurgeFileCleanupRepository(prisma),
+      storage,
+      () => nextDeleteAttemptAt,
+    );
+    await expect(retryCleanup.runDue()).resolves.toBe(1);
+    await expect(objectExists(storageKey)).resolves.toBe(false);
+    await expect(
+      prisma.programPurgeFileTombstone.findUnique({ where: { storageKey } }),
+    ).resolves.toMatchObject({
+      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
+    });
+  });
+
   it('purges the entire child graph, defers file deletion to the worker, and preserves+detaches EXTERNAL_PUBLIC repositories', async () => {
     const fixture = await seedFullChildGraph(
       'full',
@@ -1077,6 +1182,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.applicationId,
     ]);
     expect(before.milestones).toBe(1);
+    expect(before.programCovers).toBe(1);
     // 원래 application의 단독 지원자 + 공개 아카이브 발행 저장소의 소유자 application 둘다.
     expect(before.applications).toBe(2);
     expect(before.milestoneDocumentSubmissions).toBe(1);
@@ -1141,6 +1247,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         milestoneDocumentSubmissions: 1,
         milestoneDocumentSubmissionHistories: 1,
         milestoneDocumentReviewHistories: 1,
+        programPurgeFileTombstones: 2,
       },
     });
 
@@ -1245,6 +1352,14 @@ describe('Program purge integration — full child graph, worker file deletion, 
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
     });
     expect(await objectExists(fixture.templateFileStorageKey)).toBe(true);
+    await expect(
+      prisma.programPurgeFileTombstone.findUnique({
+        where: { storageKey: fixture.coverStorageKey },
+      }),
+    ).resolves.toMatchObject({
+      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
+    });
+    expect(await objectExists(fixture.coverStorageKey)).toBe(true);
 
     // phase 2: worker가 실제 storage 객체를 지운다.
     const submissionFileCleanupClaims = await submissionFileCleanup.runDue();
@@ -1254,6 +1369,14 @@ describe('Program purge integration — full child graph, worker file deletion, 
 
     expect(await objectExists(fixture.submissionFileStorageKey)).toBe(false);
     expect(await objectExists(fixture.templateFileStorageKey)).toBe(false);
+    expect(await objectExists(fixture.coverStorageKey)).toBe(false);
+    await expect(
+      prisma.programPurgeFileTombstone.findUnique({
+        where: { storageKey: fixture.coverStorageKey },
+      }),
+    ).resolves.toMatchObject({
+      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
+    });
     await expect(
       prisma.submissionFile.findFirst({
         where: { storageKey: fixture.submissionFileStorageKey },
@@ -1634,6 +1757,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.applicationId,
     ]);
     expect(after).toEqual(before);
+    await expect(
+      prisma.programPurgeFileTombstone.findUnique({
+        where: { storageKey: fixture.coverStorageKey },
+      }),
+    ).resolves.toBeNull();
+    expect(await objectExists(fixture.coverStorageKey)).toBe(true);
     const submissionFile = await prisma.submissionFile.findFirst({
       where: { storageKey: fixture.submissionFileStorageKey },
     });

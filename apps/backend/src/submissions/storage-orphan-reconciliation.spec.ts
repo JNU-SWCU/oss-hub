@@ -34,6 +34,25 @@ function inventory(
 }
 
 describe('StorageOrphanReconciliationService', () => {
+  it('표지 객체는 live 참조를 보존하고 고아 객체만 삭제한다', async () => {
+    const db = references(['program-covers/live']);
+    const storage = inventory([
+      { key: 'program-covers/live', lastModified: OLD },
+      { key: 'program-covers/orphan', lastModified: OLD },
+    ]);
+    const service = new StorageOrphanReconciliationService(
+      db,
+      storage,
+      () => RUN_STARTED_AT,
+    );
+
+    const result = await service.reconcile({ mode: 'delete' });
+
+    expect(result.deletedKeys).toEqual(['program-covers/orphan']);
+    expect(storage.delete).toHaveBeenCalledTimes(1);
+    expect(storage.delete).toHaveBeenCalledWith('program-covers/orphan');
+  });
+
   it('기본 report 모드는 세 소유 모델의 live key를 보존하고 고아만 보고한다', async () => {
     const db = references([
       'submission-files/live-submission',
@@ -202,8 +221,14 @@ describe('PrismaStorageReferenceRepository', () => {
     expect([...STORAGE_KEY_OWNERS].sort()).toEqual(schemaOwners);
   });
 
-  it('호출별 RepeatableRead transaction client에서 네 owner를 모두 읽는다', async () => {
+  it('호출별 RepeatableRead transaction client에서 모든 owner를 읽는다', async () => {
     const loadTransaction = {
+      programCover: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ storageKey: 'program-covers/live' }]),
+        findFirst: jest.fn(),
+      },
       submissionFile: {
         findMany: jest
           .fn()
@@ -236,13 +261,17 @@ describe('PrismaStorageReferenceRepository', () => {
       },
     };
     const liveTransaction = {
+      programCover: {
+        findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({ id: 'cover' }),
+      },
       submissionFile: {
         findMany: jest.fn(),
         findFirst: jest.fn().mockResolvedValue(null),
       },
       programAuthoringUpload: {
         findMany: jest.fn(),
-        findFirst: jest.fn().mockResolvedValue({ id: 'upload' }),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       milestoneDocumentTemplateFile: {
         findMany: jest.fn(),
@@ -254,6 +283,10 @@ describe('PrismaStorageReferenceRepository', () => {
       },
     };
     const rootModels = {
+      programCover: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+      },
       submissionFile: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
@@ -288,13 +321,14 @@ describe('PrismaStorageReferenceRepository', () => {
       new Set([
         'submission-files/live-submission',
         'program-authoring/live-upload',
+        'program-covers/live',
         'submission-files/live-template',
         'submission-files/live-tombstone',
       ]),
     );
-    await expect(
-      repository.isLiveKey('program-authoring/live-upload'),
-    ).resolves.toBe(true);
+    await expect(repository.isLiveKey('program-covers/live')).resolves.toBe(
+      true,
+    );
 
     expect(prisma.$connect).toHaveBeenCalledTimes(1);
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
@@ -316,6 +350,15 @@ describe('PrismaStorageReferenceRepository', () => {
       where: { lifecycle: { not: 'DELETED' } },
       select: { storageKey: true },
     });
+    expect(loadTransaction.programCover.findMany).toHaveBeenCalledWith({
+      select: { storageKey: true },
+    });
+    expect(liveTransaction.programCover.findFirst).toHaveBeenCalledWith({
+      where: { storageKey: 'program-covers/live' },
+      select: { id: true },
+    });
+    expect(rootModels.programCover.findMany).not.toHaveBeenCalled();
+    expect(rootModels.programCover.findFirst).not.toHaveBeenCalled();
     expect(
       loadTransaction.programAuthoringUpload.findMany,
     ).toHaveBeenCalledWith({
@@ -361,6 +404,9 @@ describe('PrismaStorageReferenceRepository', () => {
 
   it('tombstone이 DELETE_PENDING이면 live로 취급하고 DELETED가 되면 제외한다', async () => {
     const transaction = {
+      programCover: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       submissionFile: {
         findFirst: jest.fn().mockResolvedValue(null),
       },

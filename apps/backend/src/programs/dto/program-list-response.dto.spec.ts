@@ -26,6 +26,14 @@ function baseItem(
 }
 
 describe('ProgramListResponseDto', () => {
+  it('returns only a current-cover URL and uses null when no image exists', () => {
+    expect(ProgramListResponseDto.from(baseItem()).coverImageUrl).toBeNull();
+    const dto = ProgramListResponseDto.from(baseItem({ coverId: 'cover-1' }));
+    expect(dto.coverImageUrl).toBe('/programs/program-1/cover/cover-1');
+    expect(dto).not.toHaveProperty('coverId');
+    expect(dto).not.toHaveProperty('storageKey');
+  });
+
   it('개인화 필드가 없으면 JSON 직렬화에서 완전히 생략된다(undefined, null 아님)', () => {
     const dto = ProgramListResponseDto.from(baseItem());
 

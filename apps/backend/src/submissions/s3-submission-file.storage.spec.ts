@@ -133,6 +133,10 @@ describe('S3SubmissionFileStorage', () => {
           { Key: 'program-authoring/three', LastModified: thirdModified },
         ],
         IsTruncated: false,
+      })
+      .mockResolvedValueOnce({
+        Contents: [{ Key: 'program-covers/four', LastModified: thirdModified }],
+        IsTruncated: false,
       });
     const { storage } = createStorage(send);
 
@@ -140,15 +144,16 @@ describe('S3SubmissionFileStorage', () => {
       { key: 'submission-files/one', lastModified: firstModified },
       { key: 'submission-files/two', lastModified: secondModified },
       { key: 'program-authoring/three', lastModified: thirdModified },
+      { key: 'program-covers/four', lastModified: thirdModified },
     ]);
-    expect(send).toHaveBeenCalledTimes(3);
-    const [firstCommand, secondCommand, thirdCommand] = send.mock.calls.map(
-      (call) => call[0],
-    );
+    expect(send).toHaveBeenCalledTimes(4);
+    const [firstCommand, secondCommand, thirdCommand, fourthCommand] =
+      send.mock.calls.map((call) => call[0]);
     if (
       !(firstCommand instanceof ListObjectsV2Command) ||
       !(secondCommand instanceof ListObjectsV2Command) ||
-      !(thirdCommand instanceof ListObjectsV2Command)
+      !(thirdCommand instanceof ListObjectsV2Command) ||
+      !(fourthCommand instanceof ListObjectsV2Command)
     ) {
       throw new Error('Expected ListObjectsV2Command pagination');
     }
@@ -165,6 +170,11 @@ describe('S3SubmissionFileStorage', () => {
     expect(thirdCommand.input).toEqual({
       Bucket: settings.bucket,
       Prefix: 'program-authoring/',
+      ContinuationToken: undefined,
+    });
+    expect(fourthCommand.input).toEqual({
+      Bucket: settings.bucket,
+      Prefix: 'program-covers/',
       ContinuationToken: undefined,
     });
     expect(send.mock.calls[0]?.[1]?.abortSignal).toBeInstanceOf(AbortSignal);

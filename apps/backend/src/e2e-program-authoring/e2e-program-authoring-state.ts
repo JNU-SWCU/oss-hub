@@ -26,6 +26,7 @@ export async function stateForE2eProgramGraph(
     pendingUploads,
     pendingSubmissionFiles,
     attachedAuthoringUploadKeys,
+    covers,
   ] = await Promise.all([
     prisma.program.count({ where: { id: graph.programId } }),
     prisma.milestone.count({ where: { programId: graph.programId } }),
@@ -74,11 +75,16 @@ export async function stateForE2eProgramGraph(
       where: { actorId: actorIds[0], lifecycle: 'ATTACHED' },
       select: { storageKey: true },
     }),
+    prisma.programCover.findMany({
+      where: { programId: graph.programId },
+      select: { storageKey: true },
+    }),
   ]);
   const attachedObjectKeys = new Set([
     ...templateFiles.map(({ storageKey }) => storageKey),
     ...attachedSubmissionFileKeys.map(({ storageKey }) => storageKey),
     ...attachedAuthoringUploadKeys.map(({ storageKey }) => storageKey),
+    ...covers.map(({ storageKey }) => storageKey),
   ]);
   const capturedObjectKeys = new Set(capture.storage.objectKeys);
   let orphanObjects = 0;

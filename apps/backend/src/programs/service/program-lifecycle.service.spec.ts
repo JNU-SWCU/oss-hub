@@ -25,6 +25,7 @@ function createDeleteService(
     readonly milestones?: readonly { readonly id: string }[];
     readonly milestoneDocuments?: readonly { readonly id: string }[];
     readonly orphanRepositoryCount?: number;
+    readonly cover?: { readonly storageKey: string };
   } = {},
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
@@ -84,7 +85,24 @@ function createDeleteService(
   const record = jest
     .fn<Promise<void>, [AuditLogRecordInput]>()
     .mockResolvedValue(undefined);
+  const programCoverFindUnique = jest
+    .fn()
+    .mockResolvedValue(overrides.cover ?? null);
+  const programCoverDelete = jest.fn().mockResolvedValue(undefined);
+  const programPurgeFileTombstoneCreateMany = jest
+    .fn<
+      Promise<Prisma.BatchPayload>,
+      [Prisma.ProgramPurgeFileTombstoneCreateManyArgs]
+    >()
+    .mockResolvedValue({ count: 1 });
   const transactionClient = {
+    programCover: {
+      findUnique: programCoverFindUnique,
+      delete: programCoverDelete,
+    },
+    programPurgeFileTombstone: {
+      createMany: programPurgeFileTombstoneCreateMany,
+    },
     program: { findUnique: programFindUnique, delete: programDelete },
     application: { count: applicationCount },
     team: { count: teamCount },
@@ -116,6 +134,8 @@ function createDeleteService(
   const service = new ProgramLifecycleService(prisma, auditLog);
   return {
     service,
+    programCoverDelete,
+    programPurgeFileTombstoneCreateMany,
     userFindUnique,
     programFindUnique,
     applicationCount,
@@ -141,6 +161,36 @@ function createDeleteService(
 // 여기서 뒤집힌다. 바뀐 것은 누가 할 수 있는가 하나이고, 차단 조건·감사 로그는
 // 그대로임을 아래 케이스들이 계속 지킨다.
 describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 (#1095, 종전 #875)', () => {
+  it('표지가 있는 프로그램을 삭제하면 같은 트랜잭션에서 파일 정리를 예약한다', async () => {
+    const {
+      service,
+      programCoverDelete,
+      programPurgeFileTombstoneCreateMany,
+      programDelete,
+    } = createDeleteService({
+      cover: { storageKey: 'program-covers/delete-cover' },
+    });
+
+    await service.delete(1001n, 'program-1');
+
+    expect(
+      programPurgeFileTombstoneCreateMany.mock.calls[0]?.[0],
+    ).toMatchObject({
+      data: [
+        {
+          storageKey: 'program-covers/delete-cover',
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(programCoverDelete).toHaveBeenCalledWith({
+      where: { storageKey: 'program-covers/delete-cover' },
+    });
+    expect(programCoverDelete.mock.invocationCallOrder[0]).toBeLessThan(
+      programDelete.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
   it('ADMIN이 차단 사유 없는 프로그램을 삭제하면 자식 스캐폴딩을 지우고 감사 로그를 남긴다', async () => {
     const {
       service,
@@ -430,6 +480,7 @@ function createPurgeService(
     readonly program?: unknown;
     readonly createRequest?: unknown;
     readonly templateFiles?: readonly { readonly storageKey: string }[];
+    readonly cover?: { readonly storageKey: string };
     readonly counts?: Partial<Record<string, number>>;
     readonly applicationIds?: readonly string[];
     readonly applicationDecisionNotifications?: readonly {
@@ -459,6 +510,10 @@ function createPurgeService(
         },
   );
   const programDelete = jest.fn().mockResolvedValue(undefined);
+  const programCoverFindUnique = jest
+    .fn()
+    .mockResolvedValue(overrides.cover ?? null);
+  const programCoverDelete = jest.fn().mockResolvedValue(undefined);
 
   const currentScopeCounts = overrides.currentScopeCounts ?? ZERO_SCOPE_COUNTS;
   const freshScopeCounts = overrides.freshScopeCounts ?? currentScopeCounts;
@@ -531,7 +586,10 @@ function createPurgeService(
     .fn()
     .mockResolvedValue(templateFiles);
   const programPurgeFileTombstoneCreateMany = jest
-    .fn()
+    .fn<
+      Promise<Prisma.BatchPayload>,
+      [Prisma.ProgramPurgeFileTombstoneCreateManyArgs]
+    >()
     .mockResolvedValue({ count: templateFiles.length });
   const milestoneDocumentReviewHistoryDeleteMany = countMany(
     'milestoneDocumentReviewHistories',
@@ -560,6 +618,10 @@ function createPurgeService(
 
   const transactionClient = {
     $queryRaw: queryRaw,
+    programCover: {
+      findUnique: programCoverFindUnique,
+      delete: programCoverDelete,
+    },
     program: { findUnique: programFindUnique, delete: programDelete },
     publicShowcaseRepository: {
       deleteMany: publicShowcaseRepositoryDeleteMany,
@@ -625,6 +687,7 @@ function createPurgeService(
     programFindUnique,
     programDelete,
     prismaTransaction,
+    programCoverDelete,
     queryRaw,
     publicShowcaseRepositoryDeleteMany,
     outboxEventDeleteMany,
@@ -656,6 +719,38 @@ function createPurgeService(
 }
 
 describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전체 삭제 (#1095)', () => {
+  it('표지 정리를 예약한 뒤 연결 행을 삭제하고 tombstone 개수에 포함한다', async () => {
+    const {
+      service,
+      programCoverDelete,
+      programPurgeFileTombstoneCreateMany,
+      programDelete,
+    } = createPurgeService({
+      cover: { storageKey: 'program-covers/purge-cover' },
+      templateFiles: [],
+    });
+
+    const result = await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
+
+    expect(result.deletedCounts.programPurgeFileTombstones).toBe(1);
+    expect(
+      programPurgeFileTombstoneCreateMany.mock.calls[0]?.[0],
+    ).toMatchObject({
+      data: [
+        {
+          storageKey: 'program-covers/purge-cover',
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(programCoverDelete).toHaveBeenCalledWith({
+      where: { storageKey: 'program-covers/purge-cover' },
+    });
+    expect(programCoverDelete.mock.invocationCallOrder[0]).toBeLessThan(
+      programDelete.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
   it('ADMIN이 자식 가득한 프로그램을 purge하면 전 계층을 명시 순서로 지우고 파일은 worker에 위임한다', async () => {
     const {
       service,

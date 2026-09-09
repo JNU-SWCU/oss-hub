@@ -14,7 +14,14 @@ import {
   type ProgramAuthoringUploadFile,
   type ProgramAuthoringUploadResponse,
 } from './program-authoring-upload.types';
-import { validateProgramAuthoringUpload } from './program-authoring-upload.validation';
+import {
+  validateProgramAuthoringUpload,
+  type ValidatedProgramAuthoringUpload,
+} from './program-authoring-upload.validation';
+import {
+  PROGRAM_COVER_STORAGE_PREFIX,
+  validateProgramCoverUpload,
+} from './program-cover';
 
 const PENDING_TTL_MS = 24 * 60 * 60 * 1_000;
 
@@ -45,8 +52,32 @@ export class ProgramAuthoringUploadService {
       );
     }
     const validated = await validateProgramAuthoringUpload(file);
+    return this.storeUpload(actorId, validated, 'program-authoring/');
+  }
+
+  async uploadCover(
+    actorId: string,
+    file: ProgramAuthoringUploadFile | undefined,
+  ): Promise<ProgramAuthoringUploadResponse> {
+    if (!isOpaqueId(actorId)) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_ACTOR,
+      );
+    }
+    return this.storeUpload(
+      actorId,
+      validateProgramCoverUpload(file),
+      PROGRAM_COVER_STORAGE_PREFIX,
+    );
+  }
+
+  private async storeUpload(
+    actorId: string,
+    validated: ValidatedProgramAuthoringUpload,
+    prefix: string,
+  ): Promise<ProgramAuthoringUploadResponse> {
     const createdAt = this.now();
-    const storageKey = `program-authoring/${randomUUID()}`;
+    const storageKey = `${prefix}${randomUUID()}`;
 
     let created;
     try {

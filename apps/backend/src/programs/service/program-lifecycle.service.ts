@@ -118,6 +118,7 @@ export class ProgramLifecycleService {
       // 교직원이 올린 스캐폴딩(작성 임시 파일·작성 요청)은 학생 데이터가 아니라 명시 삭제한다.
       await this.deleteAuthoringArtifacts(transaction, programId);
       await this.deleteMilestoneTree(transaction, programId);
+      await this.deleteProgramCover(transaction, programId);
       await transaction.program.delete({ where: { id: programId } });
 
       await this.auditLog.record(
@@ -540,6 +541,7 @@ export class ProgramLifecycleService {
     const milestones = await transaction.milestone.deleteMany({
       where: { programId },
     });
+    const programCovers = await this.deleteProgramCover(transaction, programId);
 
     return {
       applications: applications.count,
@@ -566,8 +568,27 @@ export class ProgramLifecycleService {
       publicShowcaseRepositories: publicShowcaseRepositories.count,
       outboxEvents: outboxEvents.count,
       notifications: notifications.count,
-      programPurgeFileTombstones: templateFiles.length,
+      programPurgeFileTombstones: templateFiles.length + programCovers,
     };
+  }
+
+  private async deleteProgramCover(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+  ): Promise<number> {
+    const cover = await transaction.programCover.findUnique({
+      where: { programId },
+      select: { storageKey: true },
+    });
+    if (!cover) return 0;
+    await transaction.programPurgeFileTombstone.createMany({
+      data: [{ storageKey: cover.storageKey, nextDeleteAttemptAt: new Date() }],
+      skipDuplicates: true,
+    });
+    await transaction.programCover.delete({
+      where: { storageKey: cover.storageKey },
+    });
+    return 1;
   }
 
   private async countDeletionBlockers(
