@@ -27,7 +27,10 @@ const secondProfile = {
 };
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma, new AuditLogService(new AuditLogRepository(prisma)));
+const repository = new UsersRepository(
+  prisma,
+  new AuditLogService(new AuditLogRepository(prisma)),
+);
 
 async function completeCurrentProfile(
   profile: typeof firstProfile | typeof secondProfile,

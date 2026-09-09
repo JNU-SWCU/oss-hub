@@ -31,7 +31,10 @@ type StoredProfileFields = {
 };
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma, new AuditLogService(new AuditLogRepository(prisma)));
+const repository = new UsersRepository(
+  prisma,
+  new AuditLogService(new AuditLogRepository(prisma)),
+);
 
 beforeAll(async () => {
   await prisma.$connect();

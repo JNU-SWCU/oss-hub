@@ -19,7 +19,10 @@ const userId = 'test:users:profile';
 const githubId = 9_600_000_000_153_001n;
 const otherUserId = 'test:users:profile:other';
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma, new AuditLogService(new AuditLogRepository(prisma)));
+const repository = new UsersRepository(
+  prisma,
+  new AuditLogService(new AuditLogRepository(prisma)),
+);
 
 beforeAll(async () => {
   await prisma.$connect();

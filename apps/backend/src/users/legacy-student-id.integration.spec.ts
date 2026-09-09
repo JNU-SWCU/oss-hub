@@ -38,9 +38,15 @@ type StoredProfileFields = {
 
 const prisma = new PrismaService();
 // 동의 확인은 이 시나리오의 관심사가 아니다 — 저장소는 진짜를 쓴다.
-const service = new UsersService(new UsersRepository(prisma, new AuditLogService(new AuditLogRepository(prisma))), {
-  requireCurrent: () => Promise.resolve(),
-});
+const service = new UsersService(
+  new UsersRepository(
+    prisma,
+    new AuditLogService(new AuditLogRepository(prisma)),
+  ),
+  {
+    requireCurrent: () => Promise.resolve(),
+  },
+);
 
 function readProfileRow(): Promise<StoredProfileFields[]> {
   return prisma.$queryRaw<StoredProfileFields[]>`
