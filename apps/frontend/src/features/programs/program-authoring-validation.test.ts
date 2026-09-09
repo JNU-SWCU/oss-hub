@@ -1,9 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { completedAuthoringState } from './program-creation-test-fixtures';
 import type { ProgramAuthoringState } from './program-authoring-model';
-import { validateProgramAuthoringStep } from './program-authoring-validation';
+import {
+  validateProgramAuthoringStep,
+  validateTemplateFile,
+} from './program-authoring-validation';
 
 describe('program authoring validation', () => {
+  it('서버가 내려준 2 MB 상한을 넘는 첨부는 서버 표기로 거절한다', () => {
+    const policy = { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' };
+    const file = new File(
+      [new Uint8Array(policy.maxBytes + 1)],
+      'template.pdf',
+    );
+    expect(validateTemplateFile(file, policy)).toBe(
+      '파일은 2 MB 이하여야 합니다.',
+    );
+  });
+
+  it('서버 상한과 같은 첨부는 허용한다', () => {
+    const policy = { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' };
+    const file = new File([new Uint8Array(policy.maxBytes)], 'template.pdf');
+    expect(validateTemplateFile(file, policy)).toBeNull();
+  });
   it('routes team-size errors to the basic information step', () => {
     const state = {
       ...completedAuthoringState(),

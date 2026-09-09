@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 // @vitest-environment happy-dom
 
 import { act } from 'react';
@@ -81,6 +82,7 @@ describe('사람 중심 프로그램 작성 계약', () => {
     await act(async () => {
       root.render(
         <ProgramAuthoringMilestoneStep
+          fileUpload={submissionUploadLimit()}
           state={{ ...state, milestones: [milestone] }}
           issues={[]}
           dispatch={vi.fn()}

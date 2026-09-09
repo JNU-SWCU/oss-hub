@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../submission-upload-limit';
 import type { ProgramTeam } from '@/features/programs/api';
 import type { StudentApplication } from '@/features/programs/student-application-api';
 import type {
@@ -718,6 +719,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
     'program-capstone': {
       applicationId: 'application-personal',
       applicationMode: 'PERSONAL',
+      fileUpload: submissionUploadLimit(),
       items: [
         {
           milestoneId: 'milestones-approved',
@@ -766,6 +768,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
     'program-oss-contest': {
       applicationId: 'application-team',
       applicationMode: 'TEAM',
+      fileUpload: submissionUploadLimit(),
       items: [
         {
           milestoneId: 'milestones-overdue',
@@ -809,6 +812,7 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
   'program-capstone/milestones-approved': {
     applicationId: 'application-personal',
     applicationMode: 'PERSONAL',
+    fileUpload: submissionUploadLimit(),
     milestone: {
       id: 'milestones-approved',
       name: '기획서 제출',
@@ -829,6 +833,7 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
   'program-capstone/milestones-revision': {
     applicationId: 'application-personal',
     applicationMode: 'PERSONAL',
+    fileUpload: submissionUploadLimit(),
     milestone: {
       id: 'milestones-revision',
       name: '최종 결과 요약',
@@ -850,6 +855,7 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
   'program-oss-contest/milestones-overdue': {
     applicationId: 'application-team',
     applicationMode: 'TEAM',
+    fileUpload: submissionUploadLimit(),
     milestone: {
       id: 'milestones-overdue',
       name: '예선 결과물',
@@ -871,6 +877,7 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
   'program-basic-study/milestones-basic-intro': {
     applicationId: 'synthetic-application-basic',
     applicationMode: 'PERSONAL',
+    fileUpload: submissionUploadLimit(),
     milestone: {
       id: 'milestones-basic-intro',
       name: '학습 회고 제출',
@@ -887,6 +894,7 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
   'program-basic-study/milestones-basic-final': {
     applicationId: 'synthetic-application-basic',
     applicationMode: 'PERSONAL',
+    fileUpload: submissionUploadLimit(),
     milestone: {
       id: 'milestones-basic-final',
       name: '최종 실습 결과',

@@ -51,14 +51,15 @@ describe('milestone delete confirmation copy', () => {
     expect(html).toContain('마일스톤을 되돌릴 수 없이 삭제할까요?');
   });
 
-  it('names what disappears with the milestone', () => {
+  it('states template unavailability without promising storage deletion', () => {
     // Given / When
     const html = renderDeleteDialog();
 
     // Then
     expect(html).toContain(
-      `${milestone.name}에 등록된 제출 항목과 양식 파일도 함께 삭제됩니다.`,
+      '양식 파일은 OSS Hub에서 더 이상 이용할 수 없습니다.',
     );
+    expect(html).not.toContain('양식 파일도 함께 삭제됩니다');
   });
 
   it('keeps the server-side refusal rule visible', () => {

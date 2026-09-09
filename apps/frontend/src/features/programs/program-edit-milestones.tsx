@@ -214,8 +214,9 @@ function DeleteMilestoneDialog({
           id="milestone-delete-description"
           className="mt-2 text-small text-muted-foreground [word-break:keep-all]"
         >
-          {milestone.name}에 등록된 제출 항목과 양식 파일도 함께 삭제됩니다.
-          학생이 올린 제출물이 하나라도 있으면 삭제되지 않습니다.
+          <span className="[overflow-wrap:anywhere]">{milestone.name}</span>에
+          등록된 제출 항목도 삭제됩니다. 양식 파일은 OSS Hub에서 더 이상 이용할
+          수 없습니다. 학생이 올린 제출물이 하나라도 있으면 삭제되지 않습니다.
         </p>
         <div className="mt-6 flex justify-end gap-2">
           <Button
