@@ -1,5 +1,8 @@
 'use client';
 
+import { ProgramCover } from '@/components';
+import { apiPath } from '@/lib/api-client';
+
 import Link from 'next/link';
 import { useEffect, useId, type ReactNode } from 'react';
 import {
@@ -531,18 +534,26 @@ export function ProgramDetailReadyState({
 
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
-      <PageHeader
-        title={
-          <span className="flex flex-wrap items-center gap-3">
-            <span className="break-keep text-2xl sm:text-3xl">
-              {program.name}
+      <div className="grid items-start gap-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <ProgramCover
+          size="detail"
+          title={program.name}
+          src={program.coverImageUrl ? apiPath(program.coverImageUrl) : null}
+        />
+        <PageHeader
+          className="sm:flex-col"
+          title={
+            <span className="flex flex-wrap items-center gap-3">
+              <span className="break-keep text-2xl sm:text-3xl">
+                {program.name}
+              </span>
+              <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
             </span>
-            <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
-          </span>
-        }
-        description={programDetailMeta(program)}
-        actions={<ProgramActions program={program} />}
-      />
+          }
+          description={programDetailMeta(program)}
+          actions={<ProgramActions program={program} />}
+        />
+      </div>
       <ProgramSummary program={program} />
       <ProgramFactBar program={program} overview={overview} />
       <ProgramMilestones program={program} />

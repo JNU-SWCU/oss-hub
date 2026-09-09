@@ -32,6 +32,8 @@ const FORM_WIDTH = 'max-w-4xl';
 const SECTIONS = 'flex min-w-0 flex-col gap-16';
 
 interface ProgramEditViewProps {
+  readonly coverSelection?: File | null;
+  readonly onCoverChange: (file: File | null | undefined) => void;
   readonly program: EditableProgram;
   readonly form: ProgramEditForm;
   readonly errors: ProgramEditErrors;
@@ -119,6 +121,8 @@ export function ProgramEditLoadFailure({
 }
 
 export function ProgramEditView({
+  coverSelection,
+  onCoverChange,
   program,
   form,
   errors,
@@ -198,6 +202,9 @@ export function ProgramEditView({
         ) : null}
         <form className="grid min-w-0 gap-10" onSubmit={onSubmit}>
           <ProgramEditBasicForm
+            coverSelection={coverSelection}
+            onCoverChange={onCoverChange}
+            isSaving={isSaving}
             program={program}
             form={form}
             errors={errors}

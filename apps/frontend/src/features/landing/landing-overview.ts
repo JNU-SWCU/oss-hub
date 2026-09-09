@@ -33,6 +33,7 @@ export interface LandingGraph {
 export type LandingGraphCompleteness = 'complete' | 'partial';
 
 export interface LandingProgram {
+  readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -112,6 +113,12 @@ export function parseLandingProgramPage(
   return page.items.slice(0, 3).map((item) => {
     const input = record(item);
     if ('category' in input) invalidResponse();
+    if (
+      input.coverImageUrl !== undefined &&
+      input.coverImageUrl !== null &&
+      typeof input.coverImageUrl !== 'string'
+    )
+      invalidResponse();
     const parsedTrackType = input.trackType;
     if (
       parsedTrackType !== null &&
@@ -122,6 +129,12 @@ export function parseLandingProgramPage(
     }
     return {
       id: publicId(input.id),
+      ...(input.coverImageUrl === undefined
+        ? {}
+        : {
+            coverImageUrl:
+              input.coverImageUrl === null ? null : String(input.coverImageUrl),
+          }),
       name: nonEmptyString(input.name),
       organizer: nonEmptyString(input.organizer),
       trackType: parsedTrackType === null ? null : String(parsedTrackType),

@@ -10,6 +10,7 @@ import {
   deleteAuthoringUpload,
   getAuthoringUploadPolicy,
   uploadAuthoringFile,
+  uploadProgramCover,
 } from './program-authoring-api';
 import { ProgramAuthoringConfirmationDialog } from './program-authoring-confirmation-dialog';
 import {
@@ -180,6 +181,7 @@ export function ProgramCreationPage({
       runtime: runtimeRef.current,
       api: {
         uploadFile: uploadAuthoringFile,
+        uploadCoverFile: uploadProgramCover,
         deleteUpload: deleteAuthoringUpload,
         createProgram: createAuthoringProgram,
       },

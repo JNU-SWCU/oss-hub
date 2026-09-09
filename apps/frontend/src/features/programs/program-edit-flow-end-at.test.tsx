@@ -58,6 +58,7 @@ function Harness({
   onForm(form, dirty);
   return (
     <ProgramEditView
+      onCoverChange={() => undefined}
       program={program}
       form={form}
       errors={{}}

@@ -221,6 +221,7 @@ function ProgramListPage({
               period={formatApplicationPeriod(program)}
               status={badge.status}
               title={program.name}
+              coverImageUrl={program.coverImageUrl}
             />
           );
         })}

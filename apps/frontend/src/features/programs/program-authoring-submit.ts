@@ -4,6 +4,7 @@ import { buildProgramAuthoringManifest } from './program-authoring-manifest';
 import type { ProgramAuthoringState } from './program-authoring-model';
 
 export interface ProgramAuthoringSubmitApi {
+  readonly uploadCoverFile: (file: File) => Promise<ProgramAuthoringUpload>;
   readonly uploadFile: (file: File) => Promise<ProgramAuthoringUpload>;
   readonly deleteUpload: (uploadId: string) => Promise<void>;
   readonly createProgram: (
@@ -85,6 +86,22 @@ export async function ensureUploads(options: {
   ProgramAuthoringSubmitResult,
   { readonly kind: 'failure' }
 > | null> {
+  if (options.state.coverFile) {
+    const failure = await preparePendingUploads({
+      candidates: [{ localId: 'program-cover', file: options.state.coverFile }],
+      runtime: options.runtime,
+      api: {
+        uploadFile: options.api.uploadCoverFile,
+        deleteUpload: options.api.deleteUpload,
+      },
+    });
+    if (failure)
+      return {
+        ...failure,
+        message:
+          '대표 이미지를 올리지 못했습니다. 선택한 이미지는 유지되며 다시 시도할 수 있습니다.',
+      };
+  }
   const pending: PendingUploadCandidate[] = [];
   for (const milestone of options.state.milestones) {
     for (const requirement of milestone.requirements) {

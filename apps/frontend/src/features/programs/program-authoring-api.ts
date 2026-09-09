@@ -35,6 +35,17 @@ export function uploadAuthoringFile(
   });
 }
 
+export function uploadProgramCover(
+  file: File,
+): Promise<ProgramAuthoringUpload> {
+  const body = new FormData();
+  body.append('file', file);
+  return apiClient<ProgramAuthoringUpload>('program-authoring/cover-uploads', {
+    method: 'POST',
+    body,
+  });
+}
+
 export async function deleteAuthoringUpload(uploadId: string): Promise<void> {
   await apiClient<null>(
     `program-authoring/uploads/${encodeURIComponent(uploadId)}`,

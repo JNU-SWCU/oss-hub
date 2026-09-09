@@ -1,3 +1,4 @@
+import { ProgramCoverField } from './program-cover-field';
 import { FormSection } from '@/components/form-section';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
@@ -37,6 +38,13 @@ export function ProgramAuthoringBasicStep({
         error={messageFor(issues, 'name')}
         onChange={(value) =>
           dispatch({ type: 'set_program_field', field: 'name', value })
+        }
+      />
+      <ProgramCoverField
+        selection={state.coverFile ?? null}
+        name={state.name}
+        onChange={(file) =>
+          dispatch({ type: 'set_cover_file', file: file ?? null })
         }
       />
       <ProgramAuthoringTextField

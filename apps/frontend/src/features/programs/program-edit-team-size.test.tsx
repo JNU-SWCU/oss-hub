@@ -57,6 +57,7 @@ describe('개인형 유형 프로그램의 팀 인원 (#936)', () => {
     // Given / When
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={individualProgram}
         form={toProgramEditForm(individualProgram)}
         {...viewProps}

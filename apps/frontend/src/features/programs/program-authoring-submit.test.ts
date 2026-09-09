@@ -110,6 +110,7 @@ describe('program authoring submission', () => {
       files: new Map<string, File>(),
       runtime,
       api: {
+        uploadCoverFile: vi.fn(),
         uploadFile: vi.fn(),
         deleteUpload: vi.fn(),
         createProgram: create,
@@ -152,7 +153,12 @@ describe('program authoring submission', () => {
       state: stateWithFiles(),
       files,
       runtime,
-      api: { uploadFile, deleteUpload, createProgram },
+      api: {
+        uploadFile,
+        uploadCoverFile: vi.fn(),
+        deleteUpload,
+        createProgram,
+      },
     };
 
     // When
@@ -199,6 +205,7 @@ describe('program authoring submission', () => {
       files: new Map([['requirement-a', pdfFile()]]),
       runtime,
       api: {
+        uploadCoverFile: vi.fn(),
         uploadFile,
         deleteUpload: vi.fn(),
         createProgram,
@@ -249,6 +256,7 @@ describe('program authoring submission', () => {
       ]),
       runtime,
       api: {
+        uploadCoverFile: vi.fn(),
         uploadFile,
         deleteUpload: vi.fn(),
         createProgram: vi.fn(() => Promise.resolve({ id: 'program-created' })),
@@ -290,6 +298,7 @@ describe('program authoring submission', () => {
       files: new Map([['requirement-a', file]]),
       runtime,
       api: {
+        uploadCoverFile: vi.fn(),
         uploadFile: vi.fn(async () => ({ id: 'upload-a' })),
         deleteUpload: vi.fn(),
         createProgram,
@@ -300,5 +309,68 @@ describe('program authoring submission', () => {
     expect(result).toEqual({ kind: 'conflict' });
     expect(runtime.uploads.get('requirement-a')).toEqual({ id: 'upload-a' });
     expect(file.name).toBe('plan.pdf');
+  });
+});
+
+describe('program authoring cover upload', () => {
+  it('uses the image endpoint and retries the aggregate with the same pending image', async () => {
+    const coverFile = new File(['synthetic-png'], 'poster.png', {
+      type: 'image/png',
+    });
+    const state = { ...completedAuthoringState(), coverFile };
+    const runtime = createProgramSubmissionRuntime();
+    const uploadCoverFile = vi.fn().mockResolvedValue({
+      id: 'cover-upload',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    });
+    const uploadFile = vi.fn();
+    const createProgram = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ id: 'created-program' });
+    const api = {
+      uploadCoverFile,
+      uploadFile,
+      createProgram,
+      deleteUpload: vi.fn(),
+    };
+    const options = { state, files: new Map<string, File>(), runtime, api };
+    expect(await submitProgramAuthoring(options)).toMatchObject({
+      kind: 'failure',
+      stage: 'aggregate',
+    });
+    expect(await submitProgramAuthoring(options)).toEqual({
+      kind: 'success',
+      programId: 'created-program',
+    });
+    expect(uploadCoverFile).toHaveBeenCalledTimes(1);
+    expect(uploadCoverFile).toHaveBeenCalledWith(coverFile);
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(createProgram).toHaveBeenLastCalledWith(
+      expect.objectContaining({ coverUploadId: 'cover-upload' }),
+      state.idempotencyKey,
+    );
+  });
+
+  it('does not create the program when the selected image fails to upload', async () => {
+    const state = {
+      ...completedAuthoringState(),
+      coverFile: new File(['image'], 'poster.png', { type: 'image/png' }),
+    };
+    const createProgram = vi.fn();
+    const result = await submitProgramAuthoring({
+      state,
+      files: new Map(),
+      runtime: createProgramSubmissionRuntime(),
+      api: {
+        uploadCoverFile: vi.fn().mockRejectedValue(new Error('network')),
+        uploadFile: vi.fn(),
+        deleteUpload: vi.fn(),
+        createProgram,
+      },
+    });
+    expect(result).toMatchObject({ kind: 'failure', stage: 'upload' });
+    expect(createProgram).not.toHaveBeenCalled();
+    expect(state.coverFile.name).toBe('poster.png');
   });
 });

@@ -79,6 +79,7 @@ function inputsWithoutAccessibleName(html: string): readonly string[] {
 function render(participation: 'individual' | 'team'): string {
   return renderToStaticMarkup(
     <ProgramEditBasicForm
+      onCoverChange={() => undefined}
       program={programFixture(participation)}
       form={formFixture()}
       errors={{}}

@@ -58,7 +58,7 @@ describe('ProgramCard', () => {
       />,
     );
 
-    expect(html).not.toContain('<svg');
+    expect(html).not.toContain('data-slot="program-card-note-icon"');
     expect(html).not.toContain('열람할 수 없습니다');
   });
 
@@ -74,7 +74,7 @@ describe('ProgramCard', () => {
     );
 
     expect(html).toContain('지원 3건 · 승인 대기 1건');
-    expect(html).not.toContain('<svg');
+    expect(html).not.toContain('data-slot="program-card-note-icon"');
   });
 
   it('renders the team icon before the note text when noteIcon is "team"', () => {
