@@ -9,7 +9,7 @@ description: >-
   backend 로직 변경엔 mermaid/DOT 다이어그램을 PR 본문에 요구해 증거 없이는 PR을 막는다.
   Mention triggers include "PR 열기 전", "PR 제출", "증거 첨부", "Before/After", "다이어그램", "안티패턴", "UX 점검", "ponytail".
 metadata:
-  version: "1.8.0"
+  version: "1.9.0"
 ---
 
 # Submit PR Evidence
