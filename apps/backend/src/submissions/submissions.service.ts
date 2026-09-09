@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import {
+  SUBMISSION_UPLOAD_MAX_BYTES,
+  SUBMISSION_UPLOAD_MAX_LABEL,
+} from './submission-upload-policy';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { DomainException } from '../common/error-code';
@@ -61,6 +65,10 @@ export class SubmissionsService {
     const deadline = programDeadline(milestone.dueAt, now);
     return {
       applicationId: application.id,
+      fileUpload: {
+        maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
+        maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
+      },
       applicationMode: application.teamMemberCount > 1 ? 'TEAM' : 'PERSONAL',
       milestone: {
         id: milestone.id,
@@ -156,6 +164,10 @@ export class SubmissionsService {
     );
     return {
       applicationId: application.id,
+      fileUpload: {
+        maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
+        maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
+      },
       applicationMode: application.teamMemberCount > 1 ? 'TEAM' : 'PERSONAL',
       items: milestones.map((milestone) =>
         this.toChecklistItem(milestone, now),
