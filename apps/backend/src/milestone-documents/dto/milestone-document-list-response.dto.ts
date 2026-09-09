@@ -21,7 +21,7 @@ export class MilestoneDocumentUploadPolicyResponseDto {
   maxLabel: string;
   /** `<input type="file" accept>`에 그대로 넣는 값. */
   accept: string;
-  /** 「PDF, HWP, JPG, PNG, ZIP」 — 안내 문구에 그대로 쓴다. */
+  /** 「PDF, HWP, ZIP」 — 학생 제출 안내 문구에 그대로 쓴다. */
   formatLabel: string;
 
   private constructor() {

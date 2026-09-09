@@ -1,20 +1,14 @@
 import {
-  SUBMISSION_UPLOAD_MAX_BYTES,
-  SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
+  submissionUploadTooLargeMessage,
+  type SubmissionUploadLimit,
 } from '@/lib/submission-upload-policy';
 import type { SubmissionType } from './types';
 
-export const SUBMISSION_FILE_MAX_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
-
-export const SUBMISSION_FILE_ACCEPT =
-  '.pdf,.hwp,.jpg,.jpeg,.png,.zip,application/pdf,application/x-hwp,application/haansofthwp,application/vnd.hancom.hwp,application/x-hwp-v5,image/jpeg,image/png,application/zip';
+export const SUBMISSION_FILE_ACCEPT = '.pdf,.hwp,.zip';
 
 const SUBMISSION_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
   '.pdf',
   '.hwp',
-  '.jpg',
-  '.jpeg',
-  '.png',
   '.zip',
 ]);
 
@@ -42,11 +36,7 @@ export type SubmissionFileValidation =
 const SUBMISSION_FILE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   SUB_017:
     '제출 요청이 서버에 온전히 전달되지 않았습니다. 파일을 다시 선택해 제출해 보고, 그래도 안 되면 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
-  SUB_018: 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
-  // 문구는 `@/lib/submission-upload-policy`가 소유하고 backend SUB_019와 같은 문장이다.
-  // 화면에서 걸러지든 서버가 413으로 거절하든 학생은 같은 숫자를 읽어야 한다(#1106),
-  // 그리고 그 숫자의 표기도 한 가지여야 한다 — 「5MiB」와 「5MB」가 섞여 있었다(#1107).
-  SUB_019: SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
+  SUB_018: 'PDF, HWP, ZIP 파일만 제출할 수 있습니다.',
   SUB_020: '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   SUB_021:
     '프로그램 종료일이 설정되지 않아 파일을 제출할 수 없습니다. 담당 교직원에게 확인해 주세요.',
@@ -80,7 +70,11 @@ export class SubmissionFileUploadCache {
   }
 }
 
-export function getSubmissionFileErrorMessage(code: string): string | null {
+export function getSubmissionFileErrorMessage(
+  code: string,
+  policy: SubmissionUploadLimit,
+): string | null {
+  if (code === 'SUB_019') return submissionUploadTooLargeMessage(policy);
   return SUBMISSION_FILE_ERROR_MESSAGES[code] ?? null;
 }
 
@@ -103,14 +97,15 @@ export function focusSubmissionField(submissionType: SubmissionType): void {
 
 export function validateSubmissionFile(
   file: File | null,
+  policy: SubmissionUploadLimit,
 ): SubmissionFileValidation {
   if (file === null) {
     return { ok: false, message: '제출할 파일을 선택해 주세요.' };
   }
-  if (file.size > SUBMISSION_FILE_MAX_BYTES) {
+  if (file.size > policy.maxBytes) {
     return {
       ok: false,
-      message: SUBMISSION_FILE_ERROR_MESSAGES.SUB_019,
+      message: submissionUploadTooLargeMessage(policy),
     };
   }
 
@@ -129,10 +124,11 @@ export function validateSubmissionFile(
 export function validateSubmissionContent(
   submissionType: SubmissionType,
   input: SubmissionFormInput,
+  policy: SubmissionUploadLimit,
 ): SubmissionFormErrors {
   switch (submissionType) {
     case 'FILE': {
-      const result = validateSubmissionFile(input.file);
+      const result = validateSubmissionFile(input.file, policy);
       return result.ok ? {} : { file: result.message };
     }
     case 'TEXT':

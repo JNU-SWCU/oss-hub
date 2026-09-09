@@ -130,6 +130,7 @@ export function BlockedView({
           읽는 것이 아니라 왜 반려됐는지 읽는 것이다. */}
       <RejectionReasonAlert application={application} />
       <EmptyState
+        className="break-keep"
         title={content.title}
         description={content.description}
         action={

@@ -9,16 +9,34 @@ import {
 import {
   buildMilestoneDocumentArchivePlan,
   MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,
-  type MilestoneDocumentArchiveGrouping,
-  type MilestoneDocumentArchiveLayout,
+  type MilestoneDocumentArchiveDocument,
+  type MilestoneDocumentArchivePlan,
 } from './domain/milestone-document-archive';
 import { milestoneDocumentArchiveManifestCsv } from './domain/milestone-document-archive-manifest-csv';
 import { milestoneDocumentArchiveFolderName } from './milestone-document-download-file-name';
+import {
+  archiveDocumentsWithStageNames,
+  archiveFileName,
+} from './milestone-document-archive-names';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import {
+  MilestoneDocumentArchiveRepository,
+  type ProgramArchiveReader,
+} from './milestone-document-archive.repository';
+import type {
+  MilestoneDocumentArchive,
+  MilestoneDocumentArchiveScope,
+  ProgramDocumentArchiveScope,
+} from './milestone-document-archive.types';
+export type {
+  MilestoneDocumentArchive,
+  MilestoneDocumentArchiveScope,
+  ProgramDocumentArchiveScope,
+} from './milestone-document-archive.types';
 
 /**
  * 한 번에 흘려 보낼 수 있는 최대 크기. 제출 파일 한 건은 5MB로 막혀 있지만 (팀 수 × 서류 수)는
@@ -38,20 +56,6 @@ interface ZipFileFinalSize {
     onFinalSize: (finalSize: number) => void,
   ): void;
 }
-
-/**
- * 무엇을 담을 것인가.
- *
- * `ALL` 은 마일스톤 전체이고 `groupBy` 로 폴더를 뒤집는다. `DOCUMENT` 는 **서류 한 종류만**
- * 전 팀 것으로 좁힌 것이다 — 「사업계획서만 모아 심사위원에게」가 실제 동선인데, 좁히는 길이
- * 없으면 교직원이 47팀을 한 칸씩 눌러야 한다. 좁힌 ZIP 은 폴더 없이 평평하다(`FLAT`).
- */
-export type MilestoneDocumentArchiveScope =
-  | {
-      readonly kind: 'ALL';
-      readonly grouping: MilestoneDocumentArchiveGrouping;
-    }
-  | { readonly kind: 'DOCUMENT'; readonly documentId: string };
 
 /**
  * 압축 도중 항목 하나를 못 읽었다 — **어느 항목이었는지**를 함께 지고 올라가는 오류.
@@ -79,20 +83,6 @@ export class MilestoneDocumentArchiveEntryError extends Error {
   }
 }
 
-export interface MilestoneDocumentArchive {
-  readonly body: Readable;
-  readonly fileName: string;
-  readonly contentType: 'application/zip';
-  /**
-   * 압축을 **시작하기 전에** 확정한 정확한 바이트 수. 셀 수 없으면 `null`이고 청크 전송이 된다.
-   *
-   * 이 값을 굳이 구하는 이유: 흘려 보내는 중에 스토리지가 끊기면 이미 200과 헤더가 나간 뒤라
-   * 오류 응답으로 바꿀 수 없다. 길이를 미리 알려 두면 **브라우저가 잘린 내려받기를 실패로
-   * 판정한다** — 그 값이 없으면 교직원은 반쯤 받다 만 ZIP을 성공한 것으로 안다.
-   */
-  readonly contentLength: number | null;
-}
-
 /**
  * 교직원 서류 **일괄 내려받기(ZIP)**. 무엇을 담고 어디에 놓을지는 도메인
  * (`domain/milestone-document-archive.ts`)이 정하고, 여기서는 **흘려 보내기만** 한다.
@@ -110,7 +100,54 @@ export class MilestoneDocumentArchiveService {
     private readonly repository: MilestoneDocumentsRepository,
     @Inject(SUBMISSION_FILE_STORAGE)
     private readonly storage: SubmissionFileStoragePort,
+    @Inject(MilestoneDocumentArchiveRepository)
+    private readonly programs: ProgramArchiveReader,
   ) {}
+
+  async archiveForProgramStaff(
+    programId: string,
+    scope: ProgramDocumentArchiveScope,
+    now: Date = new Date(),
+  ): Promise<MilestoneDocumentArchive> {
+    const program = await this.programs.findProgram(programId);
+    if (program === null) {
+      throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+    }
+    const milestones =
+      scope.kind === 'MILESTONE'
+        ? program.milestones.filter((item) => item.id === scope.milestoneId)
+        : program.milestones;
+    if (scope.kind === 'MILESTONE' && milestones.length === 0) {
+      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+    }
+    const teams = await this.programs.findApprovedTeams(
+      programId,
+      scope.kind === 'TEAM' ? scope.teamId : undefined,
+    );
+    if (scope.kind === 'TEAM' && teams.length === 0) {
+      throw this.error(MilestoneDocumentsErrorCode.ARCHIVE_TEAM_NOT_FOUND);
+    }
+    const documents = archiveDocumentsWithStageNames(
+      milestones,
+      scope.kind === 'MILESTONE',
+    );
+    const submissions = await this.repository.findSubmissionsForArchive(
+      documents.map((document) => document.id),
+      now,
+    );
+    const plan = buildMilestoneDocumentArchivePlan({
+      documents,
+      teams,
+      submissions,
+      layout: scope.grouping ?? 'TEAM',
+    });
+    const milestone = milestones[0];
+    const fileName =
+      scope.kind === 'MILESTONE' && milestone !== undefined
+        ? archiveFileName(milestone.name, milestone.dueAt)
+        : `${milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
+    return this.createArchive(documents, plan, fileName, now);
+  }
 
   async archiveForStaff(
     milestoneId: string,
@@ -151,8 +188,27 @@ export class MilestoneDocumentArchiveService {
       documents,
       teams,
       submissions,
-      layout: layoutOf(scope),
+      layout: scope.kind === 'DOCUMENT' ? 'FLAT' : scope.grouping,
     });
+    return this.createArchive(
+      documents,
+      plan,
+      archiveFileName(
+        scope.kind === 'DOCUMENT'
+          ? (documents[0]?.name ?? milestone.name)
+          : milestone.name,
+        milestone.dueAt,
+      ),
+      now,
+    );
+  }
+
+  private createArchive(
+    documents: readonly MilestoneDocumentArchiveDocument[],
+    plan: MilestoneDocumentArchivePlan,
+    fileName: string,
+    now: Date,
+  ): MilestoneDocumentArchive {
     // 파일과 글 본문을 **함께** 센다 — 파일만 세면 글로만 이루어진 마일스톤은 상한이 없다.
     if (plan.storedBytes + plan.inlineBytes > MAX_ARCHIVE_BYTES) {
       throw this.error(MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE);
@@ -310,14 +366,7 @@ export class MilestoneDocumentArchiveService {
 
     return {
       body: output,
-      fileName: archiveFileName(
-        // 서류 하나만 받을 때는 그 서류 이름을 단다 — 「1차 중간 산출물」이라는 같은 이름이
-        // 폴더에 여러 벌 쌓이면 어느 것이 무엇인지 알 수 없다.
-        scope.kind === 'DOCUMENT'
-          ? (documents[0]?.name ?? milestone.name)
-          : milestone.name,
-        milestone.dueAt,
-      ),
+      fileName,
       contentType: 'application/zip',
       contentLength,
     };
@@ -326,13 +375,6 @@ export class MilestoneDocumentArchiveService {
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
-}
-
-/** 좁힌 ZIP 은 폴더가 뜻이 없어 평평하게 놓는다. 자세한 근거는 `…ArchiveLayout` 주석에 있다. */
-function layoutOf(
-  scope: MilestoneDocumentArchiveScope,
-): MilestoneDocumentArchiveLayout {
-  return scope.kind === 'DOCUMENT' ? 'FLAT' : scope.grouping;
 }
 
 /**
@@ -359,22 +401,4 @@ function needsZip64Eocd(paths: readonly string[]): boolean {
     0,
   );
   return centralDirectoryBytes >= 0xffff;
-}
-
-/**
- * `1차중간산출물_2026-08-20.zip` — 담은 것의 이름과 **마감일**을 붙인다.
- * 전체를 받으면 마일스톤 이름, 서류 하나만 받으면 그 서류 이름이 앞에 온다.
- *
- * 내려받은 날이 아니라 마감일인 이유: 같은 마일스톤을 마감 전후로 여러 번 받는 것이 정상
- * 동선이고, 그때 이름이 매번 달라지면 폴더에 같은 것이 여러 벌 쌓여 어느 것이 무엇인지
- * 알 수 없다. 이름 치환 규칙은 안에 담기는 파일과 같은 것을 쓴다.
- */
-function archiveFileName(name: string, dueAt: Date): string {
-  const due = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(dueAt);
-  return `${milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
 }

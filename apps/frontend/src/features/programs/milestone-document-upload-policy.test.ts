@@ -17,7 +17,7 @@ function file(name: string, size: number): File {
 describe('milestoneDocumentUploadHint', () => {
   it('허용 형식과 상한을 옛 제출 화면과 같은 문장으로 말한다', () => {
     expect(milestoneDocumentUploadHint(policy)).toBe(
-      'PDF, HWP, JPG, PNG, ZIP · 최대 5 MB',
+      'PDF, HWP, ZIP · 최대 5 MB',
     );
   });
 
@@ -54,11 +54,11 @@ describe('milestoneDocumentUploadRejection', () => {
 
   it('허용 형식 밖의 확장자를 거절한다', () => {
     expect(milestoneDocumentUploadRejection(file('설치.exe', 10), policy)).toBe(
-      'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.',
+      'PDF, HWP, ZIP 파일만 선택할 수 있습니다.',
     );
     expect(
       milestoneDocumentUploadRejection(file('확장자없음', 10), policy),
-    ).toBe('PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.');
+    ).toBe('PDF, HWP, ZIP 파일만 선택할 수 있습니다.');
   });
 
   it('대문자 확장자도 같은 형식으로 본다', () => {
@@ -82,7 +82,7 @@ describe('milestoneDocumentUploadRejection', () => {
 
   it('이름 없이 점으로 시작하는 파일을 확장자만 있는 파일로 읽지 않는다', () => {
     expect(milestoneDocumentUploadRejection(file('.pdf', 10), policy)).toBe(
-      'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.',
+      'PDF, HWP, ZIP 파일만 선택할 수 있습니다.',
     );
   });
 });

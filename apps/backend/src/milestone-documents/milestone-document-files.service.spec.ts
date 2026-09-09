@@ -695,6 +695,52 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 });
 
 describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올리기"/"양식 교체")', () => {
+  it.each([
+    ['template.jpg', Buffer.from([0xff, 0xd8, 0xff])],
+    ['template.jpeg', Buffer.from([0xff, 0xd8, 0xff])],
+    [
+      'template.png',
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ],
+  ])(
+    'keeps a valid staff %s template while rejecting its forged signature',
+    async (originalname, buffer) => {
+      const { repository } = buildRepository();
+      const { mocks, storage } = buildStorage();
+      const service = new MilestoneDocumentFilesService(
+        repository,
+        storage,
+        buildSubmissionFiles().submissionFiles,
+      );
+      const candidate = {
+        ...pdfFile,
+        originalname,
+        buffer,
+        size: buffer.length,
+      };
+      await expect(
+        service.uploadTemplate(
+          'staff-1',
+          syntheticMilestoneId,
+          syntheticDocumentId,
+          candidate,
+        ),
+      ).resolves.toMatchObject({ fileName: originalname });
+      expect(mocks.put).toHaveBeenCalledTimes(1);
+      await expect(
+        service.uploadTemplate(
+          'staff-1',
+          syntheticMilestoneId,
+          syntheticDocumentId,
+          { ...candidate, buffer: Buffer.alloc(buffer.length) },
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE },
+      });
+      expect(mocks.put).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('서류 항목이 이 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
     // Given
     const { repository } = buildRepository({

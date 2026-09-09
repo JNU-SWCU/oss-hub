@@ -2,7 +2,7 @@
 name: "manage-qa-tickets"
 description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "4.5.0"
+  version: "4.6.0"
 ---
 
 # Manage QA tickets
@@ -142,7 +142,7 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 
 **UX·디자인 개선**이면 사람이 읽는 본문을 쓴다.
 구현 항목을 나열하기 전에 현재 경험, 사용자 비용, 만들려는 결과를 먼저 설명한다.
-그다음 UX 방향, 기대 흐름, 참고 UI, 최소 요구, 완료 조건, 작업 범위, 현재 화면을 그 순서로 쓴다.
+그다음 현재 화면, UX 방향, 기대 흐름, 참고 UI, 최소 요구, 완료 조건, 작업 범위를 그 순서로 쓴다.
 
 참고 UI는 URL과 그 패턴이 보이는 요소의 캡처를 쌍으로 갖춘다 — 링크만 있는 레퍼런스는 채택하지 않는다.
 반복 인용되는 제품은 [ux-reference-catalog.md](references/ux-reference-catalog.md)를 먼저 보고, 카탈로그에 있으면 URL과 경계를 다시 쓰지 말고 그 문서를 가리킨다.
@@ -152,6 +152,8 @@ lane에는 판단이 아니라 확정된 대상을 넘기고, 돌아온 보고�
 
 `frontend` 티켓은 캡처보다 selector가 먼저다 — 화면 전체를 찍고 캡션으로 위치를 설명하면 읽는 사람이 무엇을 봐야 하는지 매번 다시 찾아야 한다.
 절차는 [notion-ticket-contract.md](references/notion-ticket-contract.md)의 `frontend 캡처 절차`가 원본이다.
+캡처는 본문 앞쪽에 둔다 — 기능 결함은 `재현` 바로 뒤, UX·디자인은 `문제` 바로 뒤다.
+본문 끝에 두면 담당자는 티켓을 다 읽고 나서야 문제의 화면을 본다.
 `현재 화면` 캡션에 적은 selector는 이 티켓이 구현된 뒤 PR `## Before / After` 요소 행에서 그대로 재사용된다([frontend-capture.md](../submit-pr-evidence/references/frontend-capture.md)) — 담당자가 다시 찍을 요소를 티켓 작성 시점에 정해 두는 것이다.
 
 두 변형 모두 완료 조건은 지목된 페르소나가 관찰할 수 있는 형태로 쓰고, 가장 좁은 비목표를 명시한다.

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ApiError } from '@/lib/api-client';
 
-import { reviewConflictMessage } from './review-errors';
+import { isReviewConflict } from './review-errors';
 
 function apiError(code: string): ApiError {
   return new ApiError({
@@ -15,33 +15,20 @@ function apiError(code: string): ApiError {
   });
 }
 
-describe('reviewConflictMessage', () => {
-  it('SUB_003이면 새 제출본 안내를 반환한다', () => {
-    expect(reviewConflictMessage(apiError('SUB_003'))).toBe(
-      '학생이 새 제출본을 올려 최신 내용을 다시 불러왔습니다. 새 제출본을 확인한 뒤 다시 검토해 주세요.',
-    );
-  });
-
-  it('SUB_004이면 이미 검토가 끝난 제출본 안내를 반환한다', () => {
-    expect(reviewConflictMessage(apiError('SUB_004'))).toBe(
-      '이미 검토가 끝난 제출본입니다. 최신 내용을 다시 불러왔으니 화면의 결과를 확인해 주세요.',
-    );
-  });
-
-  // #354 — 충돌 안내는 교직원이 보는 문구다. 내부 용어 revision을 노출하지 않고
-  // "다음에 무엇을 하면 되는지"를 문구 안에 담아야 한다.
+describe('isReviewConflict', () => {
   it.each(['SUB_003', 'SUB_004'])(
-    '%s 충돌 안내는 내부 용어 revision 없이 다음 행동을 알려준다',
+    '%s이면 판정을 초기화하고 최신 제출을 다시 조회한다',
     (code) => {
-      const message = reviewConflictMessage(apiError(code)) ?? '';
-
-      expect(message).not.toMatch(/revision/i);
-      expect(message).toContain('제출본');
-      expect(message).toMatch(/다시 .*해 주세요/);
+      expect(isReviewConflict(apiError(code))).toBe(true);
     },
   );
-
-  it('다른 오류는 충돌 안내로 바꾸지 않는다', () => {
-    expect(reviewConflictMessage(apiError('SUB_005'))).toBeNull();
+  it('다른 API 오류는 판정 초기화를 유발하지 않는다', () => {
+    expect(isReviewConflict(apiError('SUB_005'))).toBe(false);
+  });
+  it('네트워크 오류는 판정 초기화를 유발하지 않는다', () => {
+    expect(isReviewConflict(new Error('network down'))).toBe(false);
+  });
+  it('API 오류가 아닌 객체의 코드로 판정을 초기화하지 않는다', () => {
+    expect(isReviewConflict({ problem: { code: 'SUB_003' } })).toBe(false);
   });
 });

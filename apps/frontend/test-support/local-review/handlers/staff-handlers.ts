@@ -29,6 +29,7 @@ import {
   type LocalReviewHandler,
 } from '../handler-kit';
 import { apiPath } from '@/lib/api-client';
+import { submissionUploadLimit } from '../../submission-upload-limit';
 import { milestoneDocumentListFor } from './milestone-document-fixtures';
 import { staffProgramTeamDirectoryFor } from './program-overview-fixtures';
 import { isPublicProgramId } from './student-program-fixtures';
@@ -797,6 +798,12 @@ const publishRepositoryHandler: LocalReviewHandler = (context) => {
 };
 
 export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
+  (context) =>
+    context.method === 'GET' &&
+    context.path === 'program-authoring/upload-policy' &&
+    staffRole(context) !== null
+      ? json(200, { fileUpload: submissionUploadLimit() })
+      : null,
   programEditHandler,
   staffProgramTeamsHandler,
   staffProgramTeamDetailHandler,

@@ -18,13 +18,14 @@ import type { ApplicationDecisionAction } from './types';
  */
 
 /**
- * 판정이 끝난 그 행에서 포커스를 받을 버튼 후보를 우선순위대로 만든다.
+ * 판정이 끝난 그 신청에서 포커스를 받을 후보를 우선순위대로 만든다.
  *
  * 방금 누른 판정 → 되돌리기 → 승인 → 반려 순이다. 상태별로 남는 버튼이 갈리지
  * 않는다(제출됨이면 승인·반려, 판정됨이면 되돌리기뿐) — 그래서 판정이 실제로
  * 저장됐으면 방금 누른 버튼은 없고 반대쪽 하나만 남는다. 방금 누른 것을 맨 앞에
  * 두는 이유는 **저장이 안 된 경우**다: 낡은 상태인데 결국 상태가 그대로였거나
  * 재조회가 실패하면 누르던 그 버튼이 그대로 살아 있고, 그때는 그 자리가 맞다.
+ * 저장소 생성이 완료되어 되돌리기도 비활성이면 마지막 후보인 차단 사유로 간다.
  */
 export function applicationDecisionFocusOrder(
   action: ApplicationDecisionAction,
@@ -36,13 +37,16 @@ export function applicationDecisionFocusOrder(
     'APPROVE',
     'REJECT',
   ];
-  return Array.from(new Set(candidates)).map((candidate) =>
-    applicationDecisionTriggerId(candidate, applicationId),
-  );
+  return [
+    ...Array.from(new Set(candidates)).map((candidate) =>
+      applicationDecisionTriggerId(candidate, applicationId),
+    ),
+    `${applicationDecisionTriggerId('REVERT', applicationId)}-reason`,
+  ];
 }
 
 /**
- * 후보 중 **실제로 포커스를 받은** 첫 버튼에 포커스를 준다.
+ * 후보 중 **실제로 포커스를 받은** 첫 요소에 포커스를 준다.
  *
  * ⚠ 「있으면 준다」로는 부족하다 — 판정이 날아가는 동안 버튼은 `disabled` 라 DOM 에는
  *   있는데 포커스를 못 받는다. `focus()` 가 조용히 무시되면 포커스는 문서 맨 앞에

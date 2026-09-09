@@ -549,6 +549,23 @@ const collectionArchiveHandler: LocalReviewHandler = (context) => {
   return notFound(MILESTONE_NOT_FOUND_CODE, context.path);
 };
 
+// JSON 전용 로컬 검토는 ZIP 성공을 흉내 내지 않는다. 실제 파일 검증은 격리 서버에서 한다.
+const programArchiveHandler: LocalReviewHandler = (context) => {
+  if (
+    matchGet(context, 'programs/:programId/documents/collection/archive') ===
+    null
+  )
+    return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  return problem(
+    503,
+    'MSD_012',
+    apiPath(context.path),
+    '로컬 검토에서는 ZIP 파일을 만들 수 없습니다.',
+  );
+};
+
 /**
  * 제출 파일 다운로드. 실제 백엔드는 `StreamableFile`(바이너리)을 주지만 로컬 검토
  * 응답 계약(`LocalReviewResponsePlan`)은 json/delay/redirect만 표현할 수 있어
@@ -718,6 +735,7 @@ export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   listDocumentsHandler,
   collectionHandler,
   collectionArchiveHandler,
+  programArchiveHandler,
   submissionHistoryHandler,
   participantHistoryHandler,
   reviewSubmissionHandler,
