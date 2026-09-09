@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
@@ -46,6 +47,7 @@ function checklist(
   return {
     applicationId: 'application-personal',
     applicationMode: 'PERSONAL',
+    fileUpload: submissionUploadLimit(),
     items,
   };
 }

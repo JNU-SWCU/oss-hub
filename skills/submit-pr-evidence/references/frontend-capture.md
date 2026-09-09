@@ -34,9 +34,17 @@ base 브랜치에서 Before를 찍는 법(로컬 하네스로 옛 코드를 띄�
 ## 이미 발행된 Release 에 에셋으로 올린다
 
 ```bash
-TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+TAG=$(gh release list --exclude-drafts --exclude-pre-releases --limit 100 \
+  --json tagName --jq 'map(select(.tagName | test("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))) | .[0].tagName // empty')
+if [[ -z "$TAG" ]]; then
+  printf '%s\n' '이미 발행된 정식 SemVer Release를 찾지 못했습니다. 업로드를 중단합니다.' >&2
+  exit 1
+fi
 gh release upload "$TAG" 1181-before-element-archive-dialog.png ... --clobber
 ```
+
+최근 100개 중 draft·prerelease를 제외하고 `vMAJOR.MINOR.PATCH` 형식의 첫 Release를 고른다.
+대상이 없으면 새 Release를 만들거나 다른 태그로 대체하지 않는다.
 
 주소는 `https://github.com/JNU-SWCU/oss-hub/releases/download/<태그>/<파일명>.png` 로 고정되므로
 PR 본문에 그대로 `![Before](…)` 로 넣으면 렌더된다. `gh` 로 끝나므로 사람 손이 필요 없다.

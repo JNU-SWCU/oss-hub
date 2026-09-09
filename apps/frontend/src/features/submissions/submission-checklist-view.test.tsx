@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   Children,
@@ -98,6 +99,7 @@ const ITEMS: readonly SubmissionChecklistItem[] = [
 const CHECKLIST: SubmissionChecklist = {
   applicationId: 'application-personal',
   applicationMode: 'PERSONAL',
+  fileUpload: submissionUploadLimit(),
   items: ITEMS,
 };
 

@@ -1,12 +1,14 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { describe, expect, it, vi } from 'vitest';
 import {
   getSubmissionFileErrorMessage,
   isStaleSubmissionFormErrorCode,
-  SUBMISSION_FILE_MAX_BYTES,
   SubmissionFileUploadCache,
   validateSubmissionContent,
   validateSubmissionFile,
 } from './submission-form';
+
+const policy = submissionUploadLimit();
 
 describe('isStaleSubmissionFormErrorCode', () => {
   it.each(['SUB_005', 'SUB_006'])(
@@ -64,8 +66,35 @@ describe('SubmissionFileUploadCache', () => {
 });
 
 describe('validateSubmissionFile', () => {
+  it('서버가 내려준 2 MB 상한을 1바이트 넘으면 서버 표기로 거절한다', () => {
+    const serverPolicy = submissionUploadLimit({
+      maxBytes: 2 * 1024 * 1024,
+      maxLabel: '2 MB',
+    });
+    const file = new File(
+      [new Uint8Array(serverPolicy.maxBytes + 1)],
+      'report.pdf',
+    );
+    const result = validateSubmissionFile(file, serverPolicy);
+    expect(result).toEqual({
+      ok: false,
+      message: '파일은 2 MB 이하여야 합니다.',
+    });
+  });
+
+  it('서버 상한과 같은 크기는 허용한다', () => {
+    const serverPolicy = submissionUploadLimit({
+      maxBytes: 2 * 1024 * 1024,
+      maxLabel: '2 MB',
+    });
+    const file = new File(
+      [new Uint8Array(serverPolicy.maxBytes)],
+      'report.pdf',
+    );
+    expect(validateSubmissionFile(file, serverPolicy)).toEqual({ ok: true });
+  });
   it('파일 선택은 필수다', () => {
-    expect(validateSubmissionFile(null)).toEqual({
+    expect(validateSubmissionFile(null, policy)).toEqual({
       ok: false,
       message: '제출할 파일을 선택해 주세요.',
     });
@@ -79,7 +108,7 @@ describe('validateSubmissionFile', () => {
   ])('허용 확장자 %s는 브라우저 MIME %s와 무관하게 통과한다', (name, type) => {
     const file = new File(['x'], name, { type });
 
-    expect(validateSubmissionFile(file)).toEqual({
+    expect(validateSubmissionFile(file, policy)).toEqual({
       ok: true,
     });
   });
@@ -95,6 +124,7 @@ describe('validateSubmissionFile', () => {
     expect(
       validateSubmissionFile(
         new File(['x'], name, { type: 'application/pdf' }),
+        policy,
       ),
     ).toEqual({
       ok: false,
@@ -106,16 +136,16 @@ describe('validateSubmissionFile', () => {
     const boundary = {
       name: 'a.pdf',
       type: 'application/pdf',
-      size: SUBMISSION_FILE_MAX_BYTES,
+      size: policy.maxBytes,
     } as File;
     const oversized = {
       name: 'a.pdf',
       type: 'application/pdf',
-      size: SUBMISSION_FILE_MAX_BYTES + 1,
+      size: policy.maxBytes + 1,
     } as File;
 
-    expect(validateSubmissionFile(boundary)).toEqual({ ok: true });
-    expect(validateSubmissionFile(oversized)).toEqual({
+    expect(validateSubmissionFile(boundary, policy)).toEqual({ ok: true });
+    expect(validateSubmissionFile(oversized, policy)).toEqual({
       ok: false,
       message: '파일은 5 MB 이하여야 합니다.',
     });
@@ -139,13 +169,13 @@ describe('getSubmissionFileErrorMessage', () => {
       '프로그램 종료일이 설정되지 않아 파일을 제출할 수 없습니다. 담당 교직원에게 확인해 주세요.',
     ],
   ])('%s를 안정적인 사용자 메시지로 매핑한다', (code, message) => {
-    expect(getSubmissionFileErrorMessage(code)).toBe(message);
+    expect(getSubmissionFileErrorMessage(code, policy)).toBe(message);
   });
 
   // #354 — 사용자가 만들지도 고치지도 못하는 값(신청 ID·마일스톤 ID)을 입력하라고
   // 지시하면 따를 방법이 없다. 화면을 다시 여는 행동만 제시해야 한다.
   it('SUB_017은 사용자가 고칠 수 없는 내부 식별자 입력을 요구하지 않는다', () => {
-    const message = getSubmissionFileErrorMessage('SUB_017') ?? '';
+    const message = getSubmissionFileErrorMessage('SUB_017', policy) ?? '';
 
     expect(message).not.toMatch(/신청 ID|마일스톤 ID/);
     expect(message).not.toMatch(/올바르게 입력/);
@@ -156,7 +186,7 @@ describe('getSubmissionFileErrorMessage', () => {
   // 식별자 형식 오류, 회차 값 오류, multipart 한도 초과로 여러 갈래다. 그중
   // "만료"인 것은 하나도 없으므로 원인을 만료로 단정하면 틀린 안내가 된다.
   it('SUB_017은 원인을 만료로 단정하지 않고 파일 재선택을 먼저 제시한다', () => {
-    const message = getSubmissionFileErrorMessage('SUB_017') ?? '';
+    const message = getSubmissionFileErrorMessage('SUB_017', policy) ?? '';
 
     expect(message).not.toMatch(/만료/);
     // 파일 부분 누락이 실제 발생 조건이므로 학생이 바로 할 수 있는 행동이다.
@@ -167,7 +197,7 @@ describe('getSubmissionFileErrorMessage', () => {
 
   // #354 — 막힌 이유와 물어볼 대상이 없으면 학생이 다음 행동을 고를 수 없다.
   it('SUB_021은 막힌 이유와 문의 대상을 함께 알려준다', () => {
-    const message = getSubmissionFileErrorMessage('SUB_021') ?? '';
+    const message = getSubmissionFileErrorMessage('SUB_021', policy) ?? '';
 
     expect(message).toContain('프로그램 종료일이 설정되지 않아');
     expect(message).toContain('담당 교직원');
@@ -179,13 +209,13 @@ describe('getSubmissionFileErrorMessage', () => {
   // 통과할 수 없는 크기를 통과한다고 읽었다. 문구의 숫자는 실제로 막는 상한에서 온다.
   // #1107 — 단위 표기는 「MB」 하나로 통일했다(값은 그대로 MiB다).
   it('SUB_019 문구는 실제로 막는 상한과 같은 숫자를 말한다', () => {
-    expect(getSubmissionFileErrorMessage('SUB_019')).toBe(
-      `파일은 ${SUBMISSION_FILE_MAX_BYTES / 1024 / 1024} MB 이하여야 합니다.`,
+    expect(getSubmissionFileErrorMessage('SUB_019', policy)).toBe(
+      `파일은 ${policy.maxBytes / 1024 / 1024} MB 이하여야 합니다.`,
     );
   });
 
   it('알 수 없는 코드는 서버 메시지를 노출하지 않는다', () => {
-    expect(getSubmissionFileErrorMessage('UNKNOWN')).toBeNull();
+    expect(getSubmissionFileErrorMessage('UNKNOWN', policy)).toBeNull();
   });
 });
 
@@ -195,7 +225,7 @@ describe('validateSubmissionContent', () => {
     const input = { file: null, text: '   ' };
 
     // When
-    const errors = validateSubmissionContent('TEXT', input);
+    const errors = validateSubmissionContent('TEXT', input, policy);
 
     // Then
     expect(errors).toEqual({ text: '제출 내용을 입력해 주세요.' });

@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { SubmissionFormView } from './components/submission-form-view';
@@ -12,6 +13,7 @@ import type { SubmissionFormData } from './types';
 const baseData: SubmissionFormData = {
   applicationId: 'application-personal',
   applicationMode: 'PERSONAL',
+  fileUpload: submissionUploadLimit(),
   milestone: {
     id: 'milestone-text',
     name: '최종 제출',

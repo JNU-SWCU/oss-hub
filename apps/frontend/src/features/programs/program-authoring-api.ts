@@ -1,7 +1,20 @@
 import { apiClient } from '@/lib/api-client';
+import {
+  requireSubmissionUploadLimit,
+  type SubmissionUploadLimit,
+} from '@/lib/submission-upload-policy';
 import type { ProgramAuthoringManifest } from './program-authoring-manifest';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
+
+export async function getAuthoringUploadPolicy(): Promise<{
+  readonly fileUpload: SubmissionUploadLimit;
+}> {
+  const response = await apiClient<{ readonly fileUpload: unknown }>(
+    'program-authoring/upload-policy',
+  );
+  return { fileUpload: requireSubmissionUploadLimit(response.fileUpload) };
+}
 
 export type ProgramAuthoringUpload = {
   readonly id: string;
