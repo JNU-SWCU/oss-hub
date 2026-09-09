@@ -209,7 +209,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     },
   );
 
-  it.each(['APPROVE', 'REVERT'] as const)(
+  it.each(['APPROVE', 'REJECT', 'REVERT'] as const)(
     '%s 창의 설명도 창 안의 문단을 가리킨다',
     async (action) => {
       await act(async () => root.render(<Harness action={action} />));
@@ -259,12 +259,16 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     }
   });
 
-  it('반려 창은 설명 문단이 없으므로 없는 설명을 가리키지 않는다', async () => {
-    // Given: 반려 창은 설명 대신 입력 폼이다.
+  it('반려 창은 결과 안내를 접근성 설명으로 연결한다', async () => {
     await act(async () => root.render(<Harness action="REJECT" />));
 
-    // Then: 가리키는 설명이 아예 없다(있는 척하지 않는다).
-    expect(dialog()?.getAttribute('aria-describedby')).toBeNull();
+    const description = document.getElementById(
+      dialog()?.getAttribute('aria-describedby') ?? '',
+    );
+    expect(description?.textContent).toContain(
+      '스스로 다시 신청할 수 없습니다',
+    );
+    expect(description?.textContent).toContain('검토 대기로');
   });
 
   it('사유를 비운 채 확정하면 오류를 읽어 주는 도구가 알아챈다', async () => {
@@ -481,6 +485,109 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
       expect(dialog()?.textContent).toContain(
         '반려를 철회하고 다시 검토 대기로 둡니다.',
       );
+    });
+  });
+
+  describe('반려 확인창은 그 반려가 학생에게 무엇을 뜻하는지 말한다', () => {
+    // 반려된 신청은 학생 쪽에서 손댈 수 없고 다시 낼 수도 없다(수정·취소는
+    // SUBMITTED 에서만, 팀당 신청 1건, 신청 있는 팀은 탈퇴 잠김, 사람당 팀 1개).
+    // 유일한 복구는 교직원의 「검토 대기로」다. 둘 다 확정 버튼을 누르기 전에 있어야 한다.
+    function consequence(): HTMLElement | null {
+      return document.querySelector(
+        '[data-testid="application-decision-reject-consequence"]',
+      );
+    }
+
+    it('학생이 스스로 다시 신청할 수 없다는 사실을 창 안에서 말한다', async () => {
+      // Given: 반려 확인창이 열렸다.
+      await act(async () => root.render(<Harness action="REJECT" />));
+
+      // Then: 안내가 창 **안에** 있고, 그 사실을 말한다.
+      const notice = consequence();
+      expect(notice).not.toBeNull();
+      expect(dialog()?.contains(notice)).toBe(true);
+      expect(notice?.textContent?.replaceAll(/\s+/gu, ' ').trim()).toBe(
+        '반려하면 신청자는 이 프로그램에 스스로 다시 신청할 수 없습니다. 되돌리려면 이 화면의 「검토 대기로」를 눌러야 합니다.',
+      );
+    });
+
+    it('되돌리는 길이 「검토 대기로」라는 것까지 같은 자리에서 말한다', async () => {
+      // ⚠ 첫 문장만 남으면 교직원은 「잘못 눌렀으면 끝」으로 읽는다 — 사실이 아니다.
+      //   복구 경로가 빠지지 않도록 따로 고정한다.
+      await act(async () => root.render(<Harness action="REJECT" />));
+
+      expect(consequence()?.textContent).toContain('검토 대기로');
+    });
+
+    it('겁주지 않는다 — 「영구히」·「되돌릴 수 없습니다」로 쓰지 않는다', async () => {
+      // 되돌릴 수 있으므로 그렇게 쓰면 거짓이다(REVERT 는 반려를 언제나 푼다).
+      await act(async () => root.render(<Harness action="REJECT" />));
+
+      // ⚠ 안내가 없을 때 조용히 통과하면 안 된다 — 있는지부터 본다.
+      const notice = consequence();
+      expect(notice).not.toBeNull();
+      const text = notice?.textContent ?? '';
+      expect(text).not.toContain('영구히');
+      expect(text).not.toContain('되돌릴 수 없');
+      // 「다시 신청해 주세요」 계열도 안 된다 — 그 길이 실제로 없다.
+      expect(text).not.toContain('다시 신청해');
+    });
+
+    it.each(['APPROVE', 'REVERT'] as const)(
+      '%s 창에는 새어 나오지 않는다',
+      async (action) => {
+        // Given: 반려가 아닌 판정 창이다.
+        await act(async () => root.render(<Harness action={action} />));
+
+        // Then: 반려 안내가 아예 없다 — 잘못된 자리에 있으면 없는 결과를 약속한다.
+        expect(consequence()).toBeNull();
+        expect(dialog()?.textContent).not.toContain(
+          '스스로 다시 신청할 수 없습니다',
+        );
+      },
+    );
+
+    it('반려 결과는 창의 설명으로 읽고 사유 입력칸의 이름·설명은 유지한다', async () => {
+      await act(async () => root.render(<Harness action="REJECT" />));
+
+      const opened = dialog();
+      const description = document.getElementById(
+        opened?.getAttribute('aria-describedby') ?? '',
+      );
+      expect(description).not.toBeNull();
+      expect(description).toBe(consequence());
+      const title = document.getElementById(
+        opened?.getAttribute('aria-labelledby') ?? '',
+      );
+      expect(title?.textContent?.trim()).toBe('신청 반려');
+      // 입력칸의 설명도 늘어나지 않는다 — 사유 칸 이름·설명에 섞이면 안 된다.
+      expect(
+        document
+          .getElementById('rejection-reason')
+          ?.getAttribute('aria-describedby'),
+      ).toBe('reason-hint');
+    });
+
+    it('사유 입력칸과 확정 버튼보다 먼저 읽힌다', async () => {
+      // 결과를 알기 전에 사유부터 쓰게 두면 안내가 늦다.
+      await act(async () => root.render(<Harness action="REJECT" />));
+
+      const notice = consequence();
+      const textarea = document.getElementById('rejection-reason');
+      // ⚠ 없으면 여기서 멈춘다 — 「먼저 읽힌다」를 없는 것으로 통과시키지 않는다.
+      if (notice === null || textarea === null) {
+        throw new TypeError('반려 안내 또는 사유 입력칸이 없다');
+      }
+
+      expect(dialog()?.contains(notice)).toBe(true);
+      expect(
+        notice.compareDocumentPosition(textarea) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        notice.compareDocumentPosition(getButton('반려 확정')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
     });
   });
 });
