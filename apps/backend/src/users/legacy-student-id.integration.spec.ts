@@ -1,6 +1,8 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../common/error-code';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersErrorCode } from './users-error-code.enum';
 import { UsersRepository } from './users.repository';
@@ -36,7 +38,7 @@ type StoredProfileFields = {
 
 const prisma = new PrismaService();
 // 동의 확인은 이 시나리오의 관심사가 아니다 — 저장소는 진짜를 쓴다.
-const service = new UsersService(new UsersRepository(prisma), {
+const service = new UsersService(new UsersRepository(prisma, new AuditLogService(new AuditLogRepository(prisma))), {
   requireCurrent: () => Promise.resolve(),
 });
 

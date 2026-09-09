@@ -1,5 +1,7 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
@@ -25,7 +27,7 @@ const secondProfile = {
 };
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma);
+const repository = new UsersRepository(prisma, new AuditLogService(new AuditLogRepository(prisma)));
 
 async function completeCurrentProfile(
   profile: typeof firstProfile | typeof secondProfile,

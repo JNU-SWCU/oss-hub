@@ -38,6 +38,7 @@ it('student completion writes canonical profile and authority defaults atomicall
   await users.completeMyProfile(user.githubId, {
     name: '  합성 학생  ',
     studentId: '801001',
+    phone: '01000801001',
     department: '  인공지능학부  ',
   });
 

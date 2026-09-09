@@ -1,5 +1,7 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
@@ -28,7 +30,7 @@ type StoredProfileFields = {
 };
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma);
+const repository = new UsersRepository(prisma, new AuditLogService(new AuditLogRepository(prisma)));
 
 // 이름·소속만 고치는 경로는 감사 신원을 쓰지 않는다 — 대상 행을 가리키는 최소 기록이다.
 const profileTarget = {

@@ -74,8 +74,9 @@ export interface FillStudentIdInput {
 export class UsersRepository implements UsersRepositoryPort {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    // 전화번호는 감사 기록과 같은 트랜잭션에서만 바뀌므로 이 의존은 선택이 아니다.
     @Inject(AuditLogService)
-    private readonly auditLog?: Pick<AuditLogService, 'record'>,
+    private readonly auditLog: Pick<AuditLogService, 'record'>,
   ) {}
 
   async findByGithubId(githubId: bigint): Promise<UserProfileRecord | null> {
@@ -225,7 +226,7 @@ export class UsersRepository implements UsersRepositoryPort {
  */
 async function writeUserPhoneIfChanged(
   transaction: Prisma.TransactionClient,
-  auditLog: Pick<AuditLogService, 'record'> | undefined,
+  auditLog: Pick<AuditLogService, 'record'>,
   user: UserProfileRecord,
   phone: string | undefined,
 ): Promise<void> {
@@ -249,9 +250,6 @@ async function writeUserPhoneIfChanged(
     throw new TypeError(
       'Phone updates require a full user profile record for auditing.',
     );
-  }
-  if (!auditLog) {
-    throw new TypeError('AuditLogService is required for phone updates.');
   }
   await transaction.user.update({
     where: { id: user.id },
