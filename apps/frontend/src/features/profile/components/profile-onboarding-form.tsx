@@ -52,14 +52,14 @@ export function ProfileOnboardingForm({
   const phoneRef = useRef<HTMLInputElement>(null);
   const departmentRef = useRef<HTMLSelectElement>(null);
   const affiliationNameRef = useRef<HTMLInputElement>(null);
-  const showStudentId = memberKind === 'STUDENT';
-  const showPhoneInput = memberKind === 'STUDENT';
+  // 학번과 전화번호는 학생에게만 묻는다. 두 이름으로 나누면 한쪽만 바뀌어 항목과 안내가 갈라진다.
+  const isStudent = memberKind === 'STUDENT';
   const showNameError = showRequiredErrors && errors.name !== null;
   const showStudentIdError =
     errors.studentId !== null &&
     (showRequiredErrors || values.studentId.length > 0);
   const showPhoneError =
-    showPhoneInput &&
+    isStudent &&
     errors.phone !== null &&
     (showRequiredErrors || values.phone.length > 0);
   const showAffiliationError = showRequiredErrors && errors.department !== null;
@@ -68,7 +68,7 @@ export function ProfileOnboardingForm({
   function firstInvalidControl(): HTMLElement | null {
     if (errors.name !== null) return nameRef.current;
     if (errors.studentId !== null) return studentIdRef.current;
-    if (showPhoneInput && errors.phone !== null) return phoneRef.current;
+    if (isStudent && errors.phone !== null) return phoneRef.current;
     if (values.affiliationKind === 'PROGRAM_OFFICE') {
       return affiliationNameRef.current;
     }
@@ -81,13 +81,6 @@ export function ProfileOnboardingForm({
     if (!isValid) firstInvalidControl()?.focus();
   }
 
-  const profileFields = [
-    '이름',
-    ...(showStudentId ? ['학번'] : []),
-    ...(showStudentId ? ['전화번호'] : []),
-    values.affiliationKind === 'DEPARTMENT' ? '학과' : '사업단',
-  ];
-
   return (
     <>
       <SignupEyebrow>STEP 3 / 3 · 마지막</SignupEyebrow>
@@ -96,14 +89,13 @@ export function ProfileOnboardingForm({
         <br />
         가입이 끝납니다
       </SignupTitle>
-      <SignupLede>
-        {`프로그램 신청과 팀 구성에 쓰이는 정보입니다. 필요한 항목(${profileFields.join(', ')})을 확인합니다.`}
-      </SignupLede>
+      {/*
+        무엇을 써야 하는지는 아래 항목의 라벨과 필수 표시가 이미 말한다. 문장으로 다시
+        열거하면 같은 사실을 두 번 읽히고, 항목이 바뀔 때 문장만 남아 어긋난다.
+      */}
+      <SignupLede>프로그램 신청과 팀 구성에 쓰이는 정보입니다.</SignupLede>
       <form className="flex flex-col gap-10" onSubmit={handleSubmit}>
-        <FormSection
-          title="신원 정보"
-          description="입력한 정보는 이후 프로그램 신청과 프로필에 사용됩니다."
-        >
+        <FormSection title="신원 정보">
           <Field data-invalid={showNameError || undefined}>
             <FieldLabel htmlFor="profile-name">
               이름
@@ -126,7 +118,7 @@ export function ProfileOnboardingForm({
             ) : null}
           </Field>
 
-          {showStudentId ? (
+          {isStudent ? (
             <Field data-invalid={showStudentIdError || undefined}>
               <FieldLabel htmlFor="profile-student-id">
                 학번
@@ -163,7 +155,7 @@ export function ProfileOnboardingForm({
             </Field>
           ) : null}
 
-          {showPhoneInput ? (
+          {isStudent ? (
             <Field data-invalid={showPhoneError || undefined}>
               <FieldLabel htmlFor="profile-phone">
                 전화번호
