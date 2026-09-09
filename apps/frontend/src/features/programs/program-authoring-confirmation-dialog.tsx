@@ -33,7 +33,7 @@ export function ProgramAuthoringConfirmationDialog({
               <div className="flex flex-wrap justify-end gap-2">
                 <AlertDialog.Cancel asChild>
                   <Button type="button" variant="outline" disabled={submitting}>
-                    돌아가서 확인
+                    취소
                   </Button>
                 </AlertDialog.Cancel>
                 <Button type="button" disabled={submitting} onClick={onConfirm}>

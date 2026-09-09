@@ -110,7 +110,7 @@ export function AccountDeactivationSection({
                       variant="outline"
                       disabled={submitting}
                     >
-                      돌아가기
+                      취소
                     </Button>
                   </AlertDialog.Cancel>
                   <Button
