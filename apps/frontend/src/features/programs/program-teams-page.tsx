@@ -154,6 +154,7 @@ export function ProgramTeamRosterView({
   team,
   joinCode,
   extras,
+  directory,
   onLeave,
   leaving = false,
   leaveError = null,
@@ -162,6 +163,7 @@ export function ProgramTeamRosterView({
   readonly team: ProgramTeam;
   readonly joinCode: string | null;
   readonly extras?: ReactNode;
+  readonly directory?: ReactNode;
   readonly onLeave?: () => void;
   readonly leaving?: boolean;
   readonly leaveError?: string | null;
@@ -252,6 +254,7 @@ export function ProgramTeamRosterView({
           ) : null}
         </CardContent>
       </Card>
+      {directory}
     </PageBody>
   );
 }
@@ -264,6 +267,7 @@ export function ProgramTeamsSetupView({
   joining,
   serverError,
   extras,
+  directory,
   onCreateNameChange,
   onJoinCodeChange,
   onCreate,
@@ -276,6 +280,7 @@ export function ProgramTeamsSetupView({
   readonly joining: boolean;
   readonly serverError: string | null;
   readonly extras?: ReactNode;
+  readonly directory?: ReactNode;
   readonly onCreateNameChange: (value: string) => void;
   readonly onJoinCodeChange: (value: string) => void;
   readonly onCreate: () => void;
@@ -347,6 +352,7 @@ export function ProgramTeamsSetupView({
           </CardContent>
         </Card>
       </div>
+      {directory}
       <Button asChild variant="link">
         <Link href={programHref(program.id)}>프로그램 개요</Link>
       </Button>
@@ -741,7 +747,7 @@ export function ProgramTeamsPage({
     }
   };
 
-  const extrasSection = (
+  const directorySection = (
     <>
       {directory.kind === 'loaded' ? (
         <ProgramTeamsDirectory
@@ -763,6 +769,11 @@ export function ProgramTeamsPage({
           </AlertDescription>
         </Alert>
       ) : null}
+    </>
+  );
+
+  const extrasSection = (
+    <>
       <TeamInviteInbox
         items={receivedItems}
         canAccept={state.kind === 'empty'}
@@ -836,6 +847,7 @@ export function ProgramTeamsPage({
           joining={joining}
           serverError={serverError}
           extras={extrasSection}
+          directory={directorySection}
           onCreateNameChange={setCreateName}
           onJoinCodeChange={setJoinCodeInput}
           onCreate={() => void handleCreate()}
@@ -849,6 +861,7 @@ export function ProgramTeamsPage({
           team={state.team}
           joinCode={state.joinCode}
           extras={extrasSection}
+          directory={directorySection}
           onLeave={() => void handleLeave()}
           leaving={leaving}
           leaveError={leaveError}

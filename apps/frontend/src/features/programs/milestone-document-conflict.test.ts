@@ -72,17 +72,16 @@ describe('충돌 뒤 교직원에게 하는 말', () => {
       'failed',
     );
     expect(failed).toContain('저장하지 않았습니다');
-    expect(failed).toContain('다시 불러오지 못했습니다');
+    expect(failed).toContain('최신 표를 불러오지 못했습니다');
     expect(failed).not.toContain('다시 불러왔습니다');
   });
 
-  // 못 불러온 표를 걷는 것은 화면이 실제로 하는 일이라, 문구도 그렇게 말해야 한다.
-  it('실패 문구는 표를 걷었다는 사실과 되돌릴 길을 함께 말한다', () => {
+  it('최신 표 조회 실패와 다시 확인할 방법을 함께 안내한다', () => {
     const failed = milestoneDocumentReviewConflictNotice(
       'review-changed',
       'failed',
     );
-    expect(failed).toContain('표를 걷었습니다');
+    expect(failed).toContain('최신 표를 불러오지 못했습니다');
     expect(failed).toContain('다시 시도');
   });
 

@@ -67,11 +67,8 @@ export function boardWriteButtonLabel(isStaff: boolean): string {
   return isStaff ? '공지 쓰기' : '질문 쓰기';
 }
 
-/** 프로토타입 `boardSub` 원문. */
 export function boardSubtitle(isStaff: boolean): string {
-  return isStaff
-    ? '공지를 올리고 학생 질문에 답합니다 · 글을 누르면 댓글이 펼쳐집니다'
-    : '교직원 공지와 질문 글입니다 · 글을 누르면 댓글을 달 수 있습니다';
+  return isStaff ? '프로그램 공지와 학생 질문' : '프로그램 공지와 질문';
 }
 
 const BOARD_DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {

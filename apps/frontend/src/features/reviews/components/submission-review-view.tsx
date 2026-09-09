@@ -45,8 +45,8 @@ function EmptyHistoryNotice({
   return (
     <p className="rounded-card border border-border p-card text-small text-muted-foreground [word-break:keep-all]">
       {currentNumber > 1
-        ? `지금 화면의 제출본은 ${currentNumber}번째라 이전 제출본이 있어야 하지만, 이력을 불러오지 못했습니다. 최초 제출로 보지 말고 화면을 새로고침한 뒤, 그래도 비어 있으면 담당자에게 알려 주세요.`
-        : '이전 제출본이 없습니다. 지금 화면의 제출본이 최초 제출입니다.'}
+        ? `현재는 ${currentNumber}번째 제출본이지만 이전 이력을 확인할 수 없습니다. 새로고침 후에도 비어 있으면 담당자에게 알려 주세요.`
+        : '첫 제출입니다.'}
     </p>
   );
 }
