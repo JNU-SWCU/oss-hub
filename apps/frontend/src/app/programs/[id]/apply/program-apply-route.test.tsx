@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/programs/program-1/apply',
   useRouter: () => ({
     replace: mocks.replace,
     push: vi.fn(),
@@ -163,7 +164,7 @@ describe('ProgramApplyRoute 세션 조립', () => {
     });
 
     expect(mocks.fetchSession).toHaveBeenCalledTimes(2);
-    expect(container.textContent).toContain('로그인이 필요한 페이지입니다');
+    expect(container.textContent).toContain('로그인이 필요합니다');
     expect(transitions).toEqual(['authenticated', 'loading', 'anonymous']);
     expect(uncaughtErrors).toEqual([]);
     unsubscribe();

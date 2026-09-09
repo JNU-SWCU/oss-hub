@@ -20,7 +20,7 @@ describe('LandingEntryActionView', () => {
       <LandingEntryActionView status="anonymous" isProfileComplete={false} />,
     );
 
-    expect(html).toContain('회원가입 / 로그인');
+    expect(html).toContain('로그인');
     expect(html).toContain('href="/signup"');
     expect(html).not.toContain(githubLoginPath);
     expect(html).toContain('min-h-11');
@@ -33,7 +33,7 @@ describe('LandingEntryActionView', () => {
       <LandingEntryActionView status="unassigned" isProfileComplete={false} />,
     );
 
-    expect(html).toContain('회원가입 / 로그인');
+    expect(html).toContain('로그인');
     expect(html).toContain('href="/signup"');
     expect(html).not.toContain(githubLoginPath);
   });
@@ -106,7 +106,7 @@ describe('LandingEntryActionView', () => {
       />,
     );
 
-    expect(html).toContain('회원가입 / 로그인');
+    expect(html).toContain('로그인');
     expect(html).toContain('href="/signup"');
     expect(html).not.toContain('내 대시보드');
   });
@@ -118,7 +118,7 @@ describe('LandingEntryActionView', () => {
       <LandingEntryActionView status="error" isProfileComplete={false} />,
     );
 
-    expect(html).toContain('회원가입 / 로그인');
+    expect(html).toContain('로그인');
     expect(html).toContain('href="/signup"');
     expect(html).not.toContain(githubLoginPath);
   });
