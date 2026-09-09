@@ -12,8 +12,7 @@ import { formatSeoulDate } from './program-detail-format';
  * - 껍데기: `AlertDialog`(`Dialog`가 아니다 — 되돌릴 수 없는 결정이라 docs/design.md의
  *   피드백 표에서 `dialog` 행이 `role="alertdialog"`를 요구한다) + `Card` 안에 제목·본문·버튼.
  * - 「되돌릴 수 없습니다」 — 서류 항목 삭제 확인 문구 그대로.
- * - 「돌아가서 확인」 — 프로그램 생성 확인의 취소 버튼 그대로. 그냥 「취소」보다 **무엇을
- *   할 수 있는지**를 말한다.
+ * - 「취소」 — 확정하지 않고 확인창을 닫는 공통 이름이다.
  * - 「제출 확정」 — 「생성 확정」·「삭제 확정」과 같은 짜임.
  *
  * 색은 만들지 않는다. 확인 버튼은 기본(주조색) `Button`이다 — `destructive`를 쓰지 않는 것은
@@ -75,7 +74,7 @@ export function MilestoneDocumentResubmissionDialog({
               <div className="flex flex-wrap justify-end gap-2">
                 <AlertDialog.Cancel asChild>
                   <Button type="button" variant="outline" disabled={submitting}>
-                    돌아가서 확인
+                    취소
                   </Button>
                 </AlertDialog.Cancel>
                 <Button type="button" disabled={submitting} onClick={onConfirm}>
