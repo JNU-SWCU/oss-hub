@@ -76,6 +76,7 @@ function renderHtml(input: {
   readonly title: string;
   readonly greeting: string;
   readonly lead: string;
+  readonly guidance?: string;
   readonly items: readonly {
     readonly rows: readonly {
       readonly label: string;
@@ -91,10 +92,10 @@ function renderHtml(input: {
         `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;">${item.rows
           .map(
             ({ label, value }) =>
-              `<tr><th align="left" style="padding:8px;color:#475569;font-size:14px;">${escapeHtml(label)}</th><td style="padding:8px;color:#0f172a;font-size:14px;">${escapeHtml(value)}</td></tr>`,
+              `<tr><th align="left" style="padding:8px;color:#475569;font-size:14px;overflow-wrap:normal;">${escapeHtml(label)}</th><td style="padding:8px;color:#0f172a;font-size:14px;">${escapeHtml(value)}</td></tr>`,
           )
           .join('')}</table>
-<p style="margin:0 0 20px;text-align:center;"><a href="${escapeHtml(item.ctaUrl)}" style="display:inline-block;padding:12px 20px;border-radius:8px;background:#003399;color:#ffffff;text-decoration:none;font-weight:700;">${escapeHtml(item.ctaLabel)}</a></p>
+<p style="margin:0 0 20px;text-align:center;"><a href="${escapeHtml(item.ctaUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 20px;border-radius:8px;background:#003399;color:#ffffff;text-decoration:none;font-weight:700;">${escapeHtml(item.ctaLabel)}</a></p>
 <p style="margin:-12px 0 20px;color:#64748b;font-size:12px;word-break:break-all;">${escapeHtml(item.ctaUrl)}</p>`,
     )
     .join('');
@@ -102,12 +103,13 @@ function renderHtml(input: {
   return `<!doctype html>
 <html lang="ko">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
-<body style="margin:0;background:#f8fafc;color:#0f172a;font-family:Arial,'Noto Sans KR',sans-serif;">
+<body style="margin:0;background:#f8fafc;color:#0f172a;font-family:Arial,'Noto Sans KR',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 12px;background:#f8fafc;"><tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
 <tr><td style="padding:24px;background:#003399;color:#ffffff;"><h1 style="margin:0;font-size:22px;">${title}</h1></td></tr>
 <tr><td style="padding:24px;"><p style="margin:0 0 12px;font-size:16px;">${escapeHtml(input.greeting)}</p>
 <p style="margin:0 0 20px;line-height:1.6;">${escapeHtml(input.lead)}</p>
+${input.guidance ? `<p style="margin:0 0 20px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(input.guidance)}</p>` : ''}
 ${items}</td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -120,6 +122,7 @@ export function buildStudentDeadlineMail(input: {
   ];
   readonly now: Date;
   readonly frontendOrigin: URL;
+  readonly guidance?: string;
 }): BuiltDeadlineMail {
   const first = input.milestones[0];
   const title =
@@ -130,7 +133,7 @@ export function buildStudentDeadlineMail(input: {
   const items = input.milestones.map((milestone) => {
     const ctaUrl = routeUrl(
       input.frontendOrigin,
-      `/programs/${encodeURIComponent(milestone.programId)}/submissions?milestoneId=${encodeURIComponent(milestone.id)}`,
+      `/programs/${encodeURIComponent(milestone.programId)}#milestone-${encodeURIComponent(milestone.id)}-name`,
     );
     return {
       rows: [
@@ -147,6 +150,7 @@ export function buildStudentDeadlineMail(input: {
     '',
     lead,
     '',
+    ...(input.guidance ? [input.guidance, ''] : []),
     ...items.flatMap((item) => [
       ...item.rows.map(({ label, value }) => `${label}: ${value}`),
       `제출하러 가기: ${item.ctaUrl}`,
@@ -160,6 +164,7 @@ export function buildStudentDeadlineMail(input: {
       title,
       greeting: `안녕하세요, ${input.displayName}님.`,
       lead,
+      guidance: input.guidance,
       items,
     }),
   };
@@ -171,6 +176,7 @@ export function buildStaffDeadlineMail(input: {
   })[];
   readonly now: Date;
   readonly frontendOrigin: URL;
+  readonly guidance?: string;
 }): BuiltDeadlineMail {
   const first = input.milestones[0];
   const title =
@@ -195,6 +201,7 @@ export function buildStaffDeadlineMail(input: {
     '',
     lead,
     '',
+    ...(input.guidance ? [input.guidance, ''] : []),
     ...rows.map(({ label, value }) => `${label}: ${value}`),
     '',
     `대시보드 열기: ${ctaUrl}`,
@@ -206,6 +213,7 @@ export function buildStaffDeadlineMail(input: {
       title,
       greeting: '안녕하세요, 운영진님.',
       lead,
+      guidance: input.guidance,
       items: [{ rows, ctaLabel: '대시보드 열기', ctaUrl }],
     }),
   };

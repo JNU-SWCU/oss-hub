@@ -44,6 +44,7 @@ const repository: SubmissionMatrixRepositoryPort = {
         id: 'synthetic-milestone',
         name: '합성 기획서',
         dueAt: new Date('2026-08-20T14:59:59.000Z'),
+        requiredDocumentIds: ['synthetic-required-document'],
       },
     ]),
   findApprovedApplications: (_programId, filter, skip, take) => {
@@ -76,6 +77,14 @@ const repository: SubmissionMatrixRepositoryPort = {
         status: SubmissionStatus.SUBMITTED,
         currentRevision: 2,
         submittedAt: new Date('2026-08-19T01:00:00.000Z'),
+      },
+    ]),
+  findDocumentFirstSubmissions: () =>
+    Promise.resolve([
+      {
+        applicationId: 'synthetic-application-personal',
+        milestoneDocumentId: 'synthetic-required-document',
+        firstSubmittedAt: new Date('2026-08-19T01:00:00.000Z'),
       },
     ]),
 };
@@ -180,6 +189,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
             status: 'SUBMITTED',
             submittedAt: '2026-08-19T01:00:00.000Z',
             reviewUrl: `/programs/${PROGRAM_ID}/submissions/synthetic-submission/review`,
+            deliveryStatus: 'COMPLETE',
           },
         ],
       },
@@ -196,6 +206,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
             status: 'NOT_SUBMITTED',
             submittedAt: null,
             reviewUrl: null,
+            deliveryStatus: 'MISSING',
           },
         ],
       },

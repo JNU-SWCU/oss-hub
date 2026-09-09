@@ -47,6 +47,7 @@ function row(
 ): MilestoneDocumentCollectionRow {
   return {
     applicationId,
+    deliveryStatus: 'MISSING',
     teamName,
     applicantName: '김철수',
     memberNicknames: ['chulsoo'],
@@ -89,6 +90,7 @@ function collection(
     page: 1,
     pageSize: 20,
     total: rows.length,
+    deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
     documentTotals: [{ documentId: 'd1', submitted: 30, total: 47 }],
     ...overrides,
@@ -198,7 +200,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     await render();
     expect(container.textContent).toContain('가팀');
 
-    await click('필수 서류 미제출');
+    await click('미제출 있음');
 
     expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
@@ -300,7 +302,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     await render();
     const initialHref = archiveHref();
 
-    await click('필수 서류 미제출');
+    await click('미제출 있음');
     expect(archiveHref()).toBe(initialHref);
 
     await click('다음');
@@ -324,7 +326,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     );
 
     await render();
-    await click('필수 서류 미제출');
+    await click('미제출 있음');
     await click('다시 시도');
 
     expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(

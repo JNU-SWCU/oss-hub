@@ -1,3 +1,7 @@
+import {
+  DOCUMENT_DELIVERY_LABELS,
+  DOCUMENT_DELIVERY_VARIANTS,
+} from '@/lib/document-delivery';
 import Link from 'next/link';
 import { Fragment, type ReactElement, type ReactNode } from 'react';
 import { EmptyState, PageBody, PageHeader, StatusBadge } from '@/components';
@@ -35,6 +39,7 @@ import {
   type MilestoneDocumentCollectionDocument,
   type MilestoneDocumentCollectionFilter,
   type MilestoneDocumentCollectionFilterCounts,
+  type MilestoneDocumentDeliveryCounts,
   type MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-api';
 import {
@@ -355,15 +360,22 @@ function TeamCellContent({
  */
 function CollectionFilterButtons({
   filterCounts,
+  deliveryCounts,
   filter,
   onFilterChange,
 }: {
   readonly filterCounts: MilestoneDocumentCollectionFilterCounts;
+  readonly deliveryCounts: MilestoneDocumentDeliveryCounts;
   readonly filter: MilestoneDocumentCollectionFilter;
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
 }): ReactElement {
   return (
-    <div role="group" aria-label="빠른 필터" className="flex flex-wrap gap-2">
+    <div
+      role="group"
+      aria-label="필수 서류 제출 상태"
+      className="flex flex-wrap gap-2"
+    >
+      <p className="w-full text-small font-semibold">필수 서류 제출 상태</p>
       {MILESTONE_DOCUMENT_COLLECTION_FILTERS.map((option) => (
         <button
           key={option}
@@ -377,7 +389,7 @@ function CollectionFilterButtons({
           onClick={() => onFilterChange(option)}
         >
           {MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS[option]}{' '}
-          {collectionFilterCountFor(filterCounts, option)}팀
+          {collectionFilterCountFor(filterCounts, option, deliveryCounts)}팀
         </button>
       ))}
     </div>
@@ -660,6 +672,11 @@ function CollectionTable({
                 <TableRow>
                   <TableCell className={STICKY_TEAM_CELL}>
                     <TeamCellContent row={row} />
+                    <StatusBadge
+                      variant={DOCUMENT_DELIVERY_VARIANTS[row.deliveryStatus]}
+                    >
+                      {DOCUMENT_DELIVERY_LABELS[row.deliveryStatus]}
+                    </StatusBadge>
                   </TableCell>
                   {documents.map((document) => (
                     <TableCell key={document.id} className="min-w-40">
@@ -834,6 +851,7 @@ function CollectionBody(
     <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <CollectionFilterButtons
         filterCounts={filterCounts}
+        deliveryCounts={props.data.deliveryCounts}
         filter={props.filter}
         onFilterChange={props.onFilterChange}
       />
@@ -962,8 +980,7 @@ export function MilestoneDocumentCollectionView(
         description={
           milestone === null ? undefined : (
             <span className="break-keep">
-              {formatSeoulDate(milestone.dueAt)} 마감 · 팀별 제출 여부와 제출
-              시각을 확인합니다.
+              {formatSeoulDate(milestone.dueAt)} 마감
             </span>
           )
         }

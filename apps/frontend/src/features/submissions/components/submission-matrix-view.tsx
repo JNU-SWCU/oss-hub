@@ -49,14 +49,7 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
 
   return (
     <PageBody>
-      <PageHeader
-        title="서류 현황"
-        description={
-          <span className="break-keep">
-            팀·개인별 제출 여부와 제출 시간을 확인합니다.
-          </span>
-        }
-      />
+      <PageHeader title="서류 현황" />
       <div className={SECTION_BODY}>
         {props.data && props.data.milestones.length > 0 ? (
           <MatrixStageNavigation

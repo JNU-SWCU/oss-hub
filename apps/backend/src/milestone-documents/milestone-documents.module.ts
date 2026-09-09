@@ -15,6 +15,8 @@ import {
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
@@ -40,6 +42,8 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
   providers: [
     MilestoneDocumentsService,
     MilestoneDocumentsRepository,
+    MilestoneDocumentCollectionService,
+    MilestoneDocumentCollectionReadRepository,
     MilestoneDocumentCurrentFileRepository,
     MilestoneDocumentCurrentFileService,
     MilestoneDocumentFilesService,

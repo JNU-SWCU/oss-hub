@@ -1,3 +1,4 @@
+import type { DocumentDeliveryStatus } from '@/lib/document-delivery';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 
 export type SubmissionType = 'FILE' | 'TEXT';
@@ -126,6 +127,7 @@ export interface MatrixMilestone {
 
 /** 미제출 cell은 submissionId·revision·submittedAt·reviewUrl이 모두 null이다. */
 export interface MatrixCell {
+  readonly deliveryStatus: DocumentDeliveryStatus;
   readonly milestoneId: string;
   readonly submissionId: string | null;
   readonly revision: number | null;

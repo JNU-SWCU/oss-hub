@@ -36,7 +36,21 @@ describe('buildMilestoneDocumentCollectionSearchParams', () => {
           pageSize: MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
           filter,
         }).get('filter'),
-      ).toBe(filter);
+      ).toBe(
+        ['LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'].includes(filter)
+          ? 'ALL'
+          : filter,
+      );
+      const params = buildMilestoneDocumentCollectionSearchParams({
+        page: 1,
+        pageSize: 20,
+        filter,
+      });
+      expect(params.get('deliveryStatus')).toBe(
+        ['LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'].includes(filter)
+          ? filter
+          : null,
+      );
     }
   });
 });
@@ -64,6 +78,7 @@ describe('getMilestoneDocumentCollection', () => {
       page: 3,
       pageSize: 20,
       total: 47,
+      deliveryCounts: { missing: 0, late: 0, complete: 0, noRequiredItems: 0 },
       filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
       documentTotals: [],
     };

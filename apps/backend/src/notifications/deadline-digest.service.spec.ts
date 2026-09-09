@@ -97,7 +97,76 @@ function setup() {
 }
 
 describe('DeadlineDigestService Program preview and send', () => {
-  it('returns count-only preview metadata without recipient or eligibility identities', async () => {
+  it('sends exactly the confirmed personalized bodies across a headline time boundary', async () => {
+    // Given
+    const { findDeadlineProgram, send, service } = setup();
+    findDeadlineProgram.mockResolvedValue({
+      ...source(),
+      milestones: source().milestones.map((milestone) => ({
+        ...milestone,
+        dueAt: new Date(NOW.getTime() + 12 * 3_600_000 + 5 * 60_000),
+      })),
+    });
+    const draft = {
+      studentGuidance: 'student-only <note>',
+      staffGuidance: 'staff-only note',
+    };
+    const preview = await service.previewProgram(101n, 'program-1', NOW, draft);
+    // When
+    await service.sendProgramFromPreview(
+      101n,
+      'program-1',
+      { ...preview, ...draft },
+      new Date(NOW.getTime() + 6 * 60_000),
+    );
+    // Then
+    expect(send.mock.calls[0]?.[0]).toEqual({
+      to: 'student-1@example.com',
+      subject: preview.studentPreviews[0]?.subject,
+      body: preview.studentPreviews[0]?.text,
+      html: preview.studentPreviews[0]?.html,
+    });
+    expect(send.mock.calls[1]?.[0]).toEqual({
+      to: 'staff-1@example.com',
+      subject: preview.staffPreview?.subject,
+      body: preview.staffPreview?.text,
+      html: preview.staffPreview?.html,
+    });
+    expect(preview.studentPreviews[0]?.subject).toContain('24시간');
+  });
+
+  it('preserves guidance when re-previewing after expiry but never sends automatically or saves it', async () => {
+    // Given
+    const { claimNotification, send, service } = setup();
+    const draft = {
+      studentGuidance: 'temporary student guidance',
+      staffGuidance: 'temporary staff guidance',
+    };
+    const preview = await service.previewProgram(101n, 'program-1', NOW, draft);
+    const later = new Date(NOW.getTime() + 10 * 60_000 + 1);
+    // When
+    await expect(
+      service.sendProgramFromPreview(
+        101n,
+        'program-1',
+        { ...preview, ...draft },
+        later,
+      ),
+    ).rejects.toMatchObject({ errorCode: { status: 409 } });
+    const fresh = await service.previewProgram(101n, 'program-1', later, draft);
+    const independent = await service.previewProgram(101n, 'program-1', later);
+    // Then
+    expect(fresh.studentPreviews[0]?.text).toContain(draft.studentGuidance);
+    expect(fresh.staffPreview?.text).toContain(draft.staffGuidance);
+    expect(independent.studentPreviews[0]?.text).not.toContain(
+      draft.studentGuidance,
+    );
+    expect(independent.staffPreview?.text).not.toContain(draft.staffGuidance);
+    expect(claimNotification).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('returns rendered preview metadata without private recipient identities or addresses', async () => {
     // Given
     const { service } = setup();
 
@@ -120,7 +189,15 @@ describe('DeadlineDigestService Program preview and send', () => {
     expect(JSON.stringify(preview)).not.toContain('student-1');
     expect(JSON.stringify(preview)).not.toContain('staff-1');
     expect(JSON.stringify(preview)).not.toContain('example.com');
-    expect(JSON.stringify(preview)).not.toContain('milestone-1');
+    expect(preview.studentPreviews.map((mail) => mail.displayName)).toEqual([
+      '학생 1',
+    ]);
+    expect(typeof preview.studentPreviews[0]?.subject).toBe('string');
+    expect(typeof preview.studentPreviews[0]?.text).toBe('string');
+    expect(typeof preview.studentPreviews[0]?.html).toBe('string');
+    expect(typeof preview.staffPreview?.subject).toBe('string');
+    expect(typeof preview.staffPreview?.text).toBe('string');
+    expect(typeof preview.staffPreview?.html).toBe('string');
   });
 
   it('recomputes the matching preview, sends multipart mail, and claims the Program-recipient daily key', async () => {
@@ -263,9 +340,9 @@ describe('DeadlineDigestService Program preview and send', () => {
     );
   });
 
-  it('교직원 알림 설정이 바뀌어도 미리보기를 stale로 만들지 않는다', async () => {
+  it('교직원 수신자가 바뀌면 확인하지 않은 메일을 보내지 않는다', async () => {
     // Given
-    const { findNotifiableStaff, service } = setup();
+    const { findNotifiableStaff, service, send } = setup();
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
     // When: 미리보기 이후 교직원 한 명이 수신을 켰다.
@@ -274,7 +351,7 @@ describe('DeadlineDigestService Program preview and send', () => {
       { id: 'staff-2', notificationEmail: 'staff-2@example.com' },
     ]);
 
-    // Then: 학생 발송이 409로 막히지 않고, 새 인원 수가 결과에 반영된다.
+    // Then: 새 수신 범위를 다시 확인하기 전까지 학생 메일도 보내지 않는다.
     await expect(
       service.sendProgramFromPreview(
         101n,
@@ -282,7 +359,8 @@ describe('DeadlineDigestService Program preview and send', () => {
         preview,
         new Date(NOW.getTime() + 60_000),
       ),
-    ).resolves.toMatchObject({ sentCount: 1, staffRecipientCount: 2 });
+    ).rejects.toMatchObject({ errorCode: { status: 409 } });
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('rejects a preview after ten minutes or when canonical eligibility changed', async () => {

@@ -243,6 +243,7 @@ const BASIC_MATRIX_ROWS = [
         submissionId: 'submission-basic-orientation',
         revision: 2,
         status: 'APPROVED',
+        deliveryStatus: 'COMPLETE',
         submittedAt: '2026-05-14T05:00:00.000Z',
         reviewUrl: reviewUrl(
           'program-basic-study',
@@ -254,6 +255,7 @@ const BASIC_MATRIX_ROWS = [
         submissionId: 'submission-basic-final',
         revision: 1,
         status: 'SUBMITTED',
+        deliveryStatus: 'COMPLETE',
         submittedAt: '2026-06-29T09:30:00.000Z',
         reviewUrl: reviewUrl('program-basic-study', 'submission-basic-final'),
       },
@@ -273,6 +275,7 @@ const BASIC_MATRIX_ROWS = [
         submissionId: 'submission-basic-publishable-orientation',
         revision: 1,
         status: 'APPROVED',
+        deliveryStatus: 'COMPLETE',
         submittedAt: '2026-05-12T04:00:00.000Z',
         reviewUrl: reviewUrl(
           'program-basic-study',
@@ -284,6 +287,7 @@ const BASIC_MATRIX_ROWS = [
         submissionId: 'submission-basic-publishable-final',
         revision: 1,
         status: 'APPROVED',
+        deliveryStatus: 'COMPLETE',
         submittedAt: '2026-06-28T07:15:00.000Z',
         reviewUrl: reviewUrl(
           'program-basic-study',
@@ -485,6 +489,7 @@ const CONTEST_MATRIX_ROWS = [
         submissionId: 'submission-contest-revision',
         revision: 2,
         status: 'CHANGES_REQUESTED',
+        deliveryStatus: 'COMPLETE',
         submittedAt: '2026-07-19T12:00:00.000Z',
         reviewUrl: reviewUrl(
           'program-oss-contest',
@@ -496,6 +501,7 @@ const CONTEST_MATRIX_ROWS = [
         submissionId: null,
         revision: null,
         status: 'NOT_SUBMITTED',
+        deliveryStatus: 'MISSING',
         submittedAt: null,
         reviewUrl: null,
       },
@@ -512,6 +518,7 @@ const CONTEST_MATRIX_ROWS = [
         submissionId: 'submission-contest-champion-preliminary',
         revision: 1,
         status: 'APPROVED',
+        deliveryStatus: 'COMPLETE',
         submittedAt: '2026-07-18T02:30:00.000Z',
         reviewUrl: reviewUrl(
           'program-oss-contest',
@@ -523,6 +530,7 @@ const CONTEST_MATRIX_ROWS = [
         submissionId: 'submission-contest-champion-final',
         revision: 1,
         status: 'APPROVED',
+        deliveryStatus: 'COMPLETE',
         submittedAt: '2026-08-07T06:10:00.000Z',
         reviewUrl: reviewUrl(
           'program-oss-contest',
