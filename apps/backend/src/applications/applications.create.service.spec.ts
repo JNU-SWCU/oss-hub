@@ -22,8 +22,6 @@ import {
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../audit-log/audit-log-metadata';
 import type { AuditLogService } from '../audit-log/audit-log.service';
-import type { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
-import type { OwnRepositoryUrlValidationResult } from '../github/service/own-repository-url-validation.service';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
@@ -61,8 +59,6 @@ const DEFAULT_INPUT = {
   teamName: null as string | null,
   applicationTemplateVersion: 1,
   isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: RepositoryConnectionMode.NEW,
-  repositoryUrl: null as string | null,
 };
 
 function buildService(overrides: {
@@ -72,7 +68,6 @@ function buildService(overrides: {
   readonly createThrows?: Error;
   readonly createTeamThrows?: Error | readonly Error[];
   readonly joinCodes?: readonly string[];
-  readonly ownRepositoryUrlValidation?: OwnRepositoryUrlValidationResult;
 }) {
   const createApplication = jest.fn().mockImplementation((input: unknown) => {
     if (overrides.createThrows) {
@@ -156,28 +151,14 @@ function buildService(overrides: {
     findRepositoryProvisionEvent: jest.fn(),
   } as unknown as ApplicationsRepository;
 
-  const ownRepositoryUrlValidator: Pick<
-    OwnRepositoryUrlValidationService,
-    'validate'
-  > = {
-    validate: jest
-      .fn()
-      .mockResolvedValue(
-        overrides.ownRepositoryUrlValidation ?? { kind: 'VALID' },
-      ),
-  };
-
   return {
-    service: new ApplicationsService(
-      repository,
-      { record } as unknown as AuditLogService,
-      ownRepositoryUrlValidator,
-    ),
+    service: new ApplicationsService(repository, {
+      record,
+    } as unknown as AuditLogService),
     repository,
     store,
     createApplication,
     createTeamWithLeader,
-    ownRepositoryUrlValidator,
     record,
     auditLogWriter,
   };
@@ -494,182 +475,24 @@ describe('ApplicationsService.create', () => {
     expect(createApplication).toHaveBeenCalled();
   });
 
-  it('OWN + repositoryUrl 을 store.createApplication 까지 그대로 전달한다', async () => {
-    const { service, createApplication } = buildService({});
-
-    await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      {
-        ...DEFAULT_INPUT,
-        repositoryConnectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-      },
-      NOW,
-    );
-
-    expect(createApplication).toHaveBeenCalledWith(
-      expect.objectContaining({
-        repositoryConnectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-      }),
-    );
-  });
-
-  it('OWN + 경계 밖 GitHub URL은 store에 기록하지 않는다', async () => {
-    const { service, createApplication } = buildService({});
-
-    await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          ...DEFAULT_INPUT,
-          repositoryConnectionMode: RepositoryConnectionMode.OWN,
-          repositoryUrl:
-            'https://github.com/synthetic-org/synthetic-repo?tab=readme',
-        },
-        NOW,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: {
-        code: ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED,
-      },
-    });
-    expect(createApplication).not.toHaveBeenCalled();
-  });
-
-  it('OWN + GitHub에서 확인된 URL은 사전 검증을 거쳐 신청을 만든다', async () => {
-    const { service, createApplication, ownRepositoryUrlValidator } =
-      buildService({ ownRepositoryUrlValidation: { kind: 'VALID' } });
-
-    await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      {
-        ...DEFAULT_INPUT,
-        repositoryConnectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl: 'https://github.com/eco-external-org/econovation-repo',
-      },
-      NOW,
-    );
-
-    expect(ownRepositoryUrlValidator.validate).toHaveBeenCalledWith(
-      'https://github.com/eco-external-org/econovation-repo',
-    );
-    expect(createApplication).toHaveBeenCalledWith(
-      expect.objectContaining({
-        repositoryUrl: 'https://github.com/eco-external-org/econovation-repo',
-      }),
-    );
-  });
-
-  it('OWN + 존재하지 않거나 비공개인 URL은 repositoryUrl 필드 오류(APP_027)로 거부하고 신청을 만들지 않는다', async () => {
-    const { service, createApplication } = buildService({
-      ownRepositoryUrlValidation: { kind: 'NOT_FOUND_OR_PRIVATE' },
-    });
-
-    await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          ...DEFAULT_INPUT,
-          repositoryConnectionMode: RepositoryConnectionMode.OWN,
-          repositoryUrl: 'https://github.com/synthetic-org/missing-or-private',
-        },
-        NOW,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: {
-        code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
-        status: 400,
-      },
-      extensions: {
-        fieldErrors: [
-          expect.objectContaining({
-            field: 'repositoryUrl',
-            code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
-          }),
-        ],
-      },
-    });
-    expect(createApplication).not.toHaveBeenCalled();
-  });
-
-  it('NEW 모드는 URL 사전 검증을 호출하지 않는다', async () => {
-    const { service, ownRepositoryUrlValidator } = buildService({});
-
-    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
-
-    expect(ownRepositoryUrlValidator.validate).not.toHaveBeenCalled();
-  });
-
-  it('구 클라이언트 정규화값(NEW + null)을 store.createApplication 까지 전달한다', async () => {
-    const { service, createApplication } = buildService({});
-
-    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
-
-    expect(createApplication).toHaveBeenCalledWith(
-      expect.objectContaining({
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      }),
-    );
-  });
-
-  it('저장소 발급이 켜졌는데 mode가 없으면 신청을 만들지 않는다', async () => {
-    const { service, createApplication } = buildService({});
-
-    await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        { ...DEFAULT_INPUT, repositoryConnectionMode: null },
-        NOW,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: {
-        code: ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_REQUIRED,
-      },
-    });
-    expect(createApplication).not.toHaveBeenCalled();
-  });
-
-  it('저장소 발급이 꺼지면 mode 없는 신청만 받고 DB 기본 NEW로 정규화한다', async () => {
-    const { service, createApplication } = buildService({
-      program: { ...OPEN_PROGRAM, repositoryProvisioningEnabled: false },
-    });
-
-    await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      { ...DEFAULT_INPUT, repositoryConnectionMode: null },
-      NOW,
-    );
-
-    expect(createApplication).toHaveBeenCalledWith(
-      expect.objectContaining({
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      }),
-    );
-  });
-
-  it('저장소 발급이 꺼졌는데 mode를 보내면 신청을 만들지 않는다', async () => {
-    const { service, createApplication } = buildService({
-      program: { ...OPEN_PROGRAM, repositoryProvisioningEnabled: false },
-    });
-
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: {
-        code: ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN,
-      },
-    });
-    expect(createApplication).not.toHaveBeenCalled();
-  });
+  it.each([true, false])(
+    'creates server-owned NEW/null when provisioning is %s',
+    async (repositoryProvisioningEnabled) => {
+      // Given
+      const { service, createApplication } = buildService({
+        program: { ...OPEN_PROGRAM, repositoryProvisioningEnabled },
+      });
+      // When
+      await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+      // Then
+      expect(createApplication).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
+        }),
+      );
+    },
+  );
   it('이미 팀에 속해 있으면 새 팀을 만들지 않고 그 팀으로 신청한다', async () => {
     // Given — /teams 에서 팀을 먼저 만든 학생.
     const lockTeamForApply = jest.fn().mockResolvedValue(undefined);

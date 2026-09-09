@@ -1,4 +1,4 @@
-import { FolderGit2, GitFork, LockKeyhole } from 'lucide-react';
+import { FolderGit2, LockKeyhole } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -11,7 +11,7 @@ export function ProgramAuthoringRepositoryControl({
   readonly onEnabledChange: (enabled: boolean) => void;
 }) {
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 break-keep [overflow-wrap:anywhere]">
       <Field orientation="horizontal">
         <input
           id="authoring-repository-provisioning"
@@ -24,13 +24,13 @@ export function ProgramAuthoringRepositoryControl({
             GitHub 저장소 발급
           </FieldLabel>
           <p className="text-small text-muted-foreground">
-            켜면 신청자가 승인 이후 사용할 저장소 방식을 신청서에서 선택합니다.
+            켜면 신청 승인 후 운영 조직에 새 저장소를 발급합니다.
           </p>
         </div>
       </Field>
 
       {enabled ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           <Card className="border-primary/40 bg-primary/5">
             <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 p-4">
               <FolderGit2 aria-hidden="true" className="text-primary" />
@@ -43,27 +43,18 @@ export function ProgramAuthoringRepositoryControl({
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 p-4">
-              <GitFork aria-hidden="true" className="text-primary" />
-              <div className="grid gap-1">
-                <p className="font-semibold">내 저장소 연결하기</p>
-                <p className="text-small text-muted-foreground">
-                  기존 GitHub 저장소 주소를 제출해 프로그램에 연결합니다.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Alert className="sm:col-span-2">
+          <Alert>
             <LockKeyhole aria-hidden="true" />
-            <AlertDescription>
-              외부 저장소는 공개 저장소만 연결
+            <AlertDescription className="break-keep [overflow-wrap:anywhere]">
+              승인 후 신청자 또는 팀장은 프로그램 종료 전까지 공개 GitHub
+              저장소로 변경할 수 있습니다. 변경 사유와 이력은 교직원에게
+              표시됩니다.
             </AlertDescription>
           </Alert>
         </div>
       ) : (
         <p className="text-small text-muted-foreground">
-          신청서에서 저장소 발급 방식을 묻지 않습니다.
+          신청 승인 시 저장소를 자동으로 발급하지 않습니다.
         </p>
       )}
     </div>

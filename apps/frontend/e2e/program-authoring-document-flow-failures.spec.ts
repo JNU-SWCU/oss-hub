@@ -13,6 +13,7 @@ import {
   originHeaders,
   newApplicationResourceErrors,
   resetProgramAuthoringControl,
+  submitProgramApplication,
 } from './support/program-authoring-ui';
 
 const controlPath = '/api/v1/_e2e/program-authoring';
@@ -64,7 +65,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     });
   }
 
-  test('private OWN, inactive and opt-out recipients, stale preview, and cross-team files stay isolated', async ({
+  test('cancelled application, inactive and opt-out recipients, stale preview, and cross-team files stay isolated', async ({
     authSeedPage,
     programAuthoringActorPage,
   }) => {
@@ -77,23 +78,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       newApplicationResourceErrors(programId),
     );
 
-    await foreignPage.goto(`/programs/${encodeURIComponent(programId)}/apply`);
-    await foreignPage
-      .getByRole('button', { name: '팀 없이 계속', exact: true })
-      .click();
-    await foreignPage
-      .getByLabel('요약 *')
-      .fill('공개가 아닌 저장소는 연결하지 않는다');
-    await foreignPage
-      .getByRole('radio', { name: '내 저장소 연결하기' })
-      .check();
-    await foreignPage
-      .getByLabel('연결할 저장소 URL')
-      .fill('https://github.com/e2e-org/owned-private');
-    await foreignPage.getByLabel(/개인정보 수집·이용 동의/).check();
-    await foreignPage.getByRole('button', { name: '신청 제출' }).click();
-    await foreignPage.getByRole('button', { name: '신청서 제출' }).click();
-    await expect(foreignPage.getByText('신청이 접수되었습니다')).toBeVisible();
+    await submitProgramApplication(foreignPage, programId);
     await foreignPage.goto(`/programs/${encodeURIComponent(programId)}/apply`);
     await foreignPage.waitForLoadState('networkidle');
     await foreignPage.getByRole('button', { name: '신청 취소' }).click();
@@ -199,7 +184,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     );
     await expectApiStatus(stateResponse, 200);
     const state = toStateCounts(await stateResponse.json());
-    // 외국인 학생의 'private OWN' 신청은 취소되어 Application은 삭제됐지만
+    // 외국인 학생의 신청은 취소되어 Application은 삭제됐지만
     // 그 신청이 만든 1인 팀은 Team.onDelete: Restrict로 남는다 — 여기 살아있는
     // 팀은 그 잔존 팀 1개 + 승인된 학생 본인 신청의 팀 1개, 총 2개다.
     // The fake sender records one envelope per recipient. Other tests may opt

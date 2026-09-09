@@ -17,6 +17,9 @@ import { ApplicationsErrorCode } from '../applications/applications-error-code.e
 import { ApplicationsStaffGuard } from '../applications/applications-staff.guard';
 import { ApplicationsRepository } from '../applications/applications.repository';
 import { ApplicationsService } from '../applications/applications.service';
+import { StudentRepositoryUrlRepository } from '../applications/student-repository-url.repository';
+import { StudentRepositoryUrlService } from '../applications/student-repository-url.service';
+import { OwnRepositoryUrlValidationService } from './service/own-repository-url-validation.service';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { ConsentsRepository } from '../consents/consents.repository';
@@ -33,8 +36,8 @@ import { RepositoryProvisionJobRepository } from './repository/repository-provis
 import { RepositoryProvisionStateRepository } from './repository/repository-provision-state.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
+import { PROVISION_ERROR_CODES } from './repository-provision.failure';
 import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
-import { OwnRepositoryUrlValidationService } from './service/own-repository-url-validation.service';
 
 // allow: SIZE_OK — OWN 저장소 승인→편입 사슬이 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
@@ -326,9 +329,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ).resolves.toMatchObject({ status: 'PENDING' });
 
       // When — outbox를 job으로 소비한다.
-      await expect(
-        outbox.consumeNext('own-chain-outbox-worker', new Date()),
-      ).resolves.toMatchObject({ kind: 'CONSUMED' });
+      const queueNow = await consumeApproval(
+        CHAIN_APPLICATION_ID,
+        'own-chain-outbox-worker',
+      );
 
       // When — worker가 job을 처리한다(GitHub 경계만 mock, 편입 서비스는 real+real DB).
       const github = githubClient();
@@ -343,7 +347,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
       const result = await worker.runNext(
         'own-chain-provision-worker',
-        new Date(),
+        queueNow,
       );
 
       // Then — 편입 서비스가 owner/repo, defaultBranch를 가진 수집 행을 real DB에 남긴다.
@@ -399,12 +403,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       expect(decision.kind).toBe('APPROVED');
 
       // When — outbox를 job으로 소비한다.
-      await expect(
-        outbox.consumeNext(
-          'own-chain-org-owner-external-outbox-worker',
-          new Date(),
-        ),
-      ).resolves.toMatchObject({ kind: 'CONSUMED' });
+      const queueNow = await consumeApproval(
+        ORG_OWNER_EXTERNAL_APPLICATION_ID,
+        'own-chain-org-owner-external-outbox-worker',
+      );
 
       // When — worker가 job을 처리한다. owner가 설정된 조직과 다르므로
       // findPublicRepository(EXTERNAL 경로)만 호출되고 findRepository(ORGANIZATION
@@ -424,7 +426,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
       const result = await worker.runNext(
         'own-chain-org-owner-external-provision-worker',
-        new Date(),
+        queueNow,
       );
 
       // Then — 외부 org 소유 공개 repo가 EXTERNAL_PUBLIC 수집 대상으로 등록된다
@@ -469,9 +471,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       STAFF_GITHUB_ID,
       { action: 'APPROVE' },
     );
-    await expect(
-      outbox.consumeNext('own-chain-no-consent-outbox-worker', new Date()),
-    ).resolves.toMatchObject({ kind: 'CONSUMED' });
+    const queueNow = await consumeApproval(
+      NO_CONSENT_APPLICATION_ID,
+      'own-chain-no-consent-outbox-worker',
+    );
     const github = githubClient();
     github.findPublicRepository.mockResolvedValue(
       ownRepositoryMetadata(
@@ -489,7 +492,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     // When
     const result = await worker.runNext(
       'own-chain-no-consent-provision-worker',
-      new Date(),
+      queueNow,
     );
 
     // Then — 동의 선행조건(RepositoryOwnEnrollmentService.requireCurrent)에 막혀
@@ -548,9 +551,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         STAFF_GITHUB_ID,
         { action: 'APPROVE' },
       );
-      await expect(
-        outbox.consumeNext('own-chain-org-outbox-worker', new Date()),
-      ).resolves.toMatchObject({ kind: 'CONSUMED' });
+      const queueNow = await consumeApproval(
+        ORG_OWN_APPLICATION_ID,
+        'own-chain-org-outbox-worker',
+      );
 
       // When — worker가 job을 처리한다. ORGANIZATION 경로는 findRepository로 해석되고,
       // 동의 확인(enrollExternalRepository)은 EXTERNAL 경로에서만 일어나므로 여기선
@@ -570,7 +574,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
       const result = await worker.runNext(
         'own-chain-org-provision-worker',
-        new Date(),
+        queueNow,
       );
 
       // Then — 새 행을 만드는 대신 sweep이 만든 행을 채택해 성공한다.
@@ -593,102 +597,122 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       });
     },
   );
-  describe('제출 시점 URL 사전 검증 — 승인 시점 편입 판정과 같은 GitHub 경계 규칙을 재사용한다', () => {
-    it('존재하지 않는 외부 저장소 URL은 신청 제출 시점에 repositoryUrl 필드 오류로 거부되고 Application 행을 만들지 않는다', async () => {
-      // Given — 열린 프로그램과 팀에 소속된 학생, GitHub에 없는 저장소 URL.
-      const programId = programIdFor(PRECHECK_MISSING_APPLICATION_ID);
-      await createOpenOwnProgram(PRECHECK_MISSING_APPLICATION_ID);
-      const github = githubClient();
-      github.findPublicRepository.mockResolvedValue(null);
-      const precheckService = new ApplicationsService(
-        repository,
-        new AuditLogService(new AuditLogRepository(prisma)),
-        new OwnRepositoryUrlValidationService(github),
-      );
-
-      // When
-      const attempt = precheckService.create(
-        PRECHECK_APPLICANT_GITHUB_ID,
-        programId,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamName: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.OWN,
-          repositoryUrl:
-            'https://github.com/synthetic-missing-org/synthetic-missing-repo',
-        },
-        new Date('2026-07-15T00:00:00.000Z'),
-      );
-
-      // Then
-      await expect(attempt).rejects.toMatchObject({
-        errorCode: {
-          code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
-          status: 400,
-        },
-        extensions: {
-          fieldErrors: [expect.objectContaining({ field: 'repositoryUrl' })],
-        },
-      });
-      await expect(
-        prisma.application.count({ where: { programId } }),
-      ).resolves.toBe(0);
+  it('keeps the relinked binding when an earlier approval outbox is consumed later', async () => {
+    await createOwnApplication(
+      CHAIN_APPLICATION_ID,
+      APPLICANT_ID,
+      OWN_REPOSITORY_URL,
+    );
+    await service.decide(
+      STAFF_ACTOR_ID,
+      CHAIN_APPLICATION_ID,
+      STAFF_GITHUB_ID,
+      { action: 'APPROVE' },
+    );
+    const github = githubClient();
+    github.findPublicRepository.mockResolvedValue(
+      ownRepositoryMetadata(OWN_GITHUB_REPOSITORY_ID, OWN_NAME_WITH_OWNER),
+    );
+    const relink = new StudentRepositoryUrlService(
+      new StudentRepositoryUrlRepository(prisma),
+      repository,
+      new OwnRepositoryUrlValidationService(github),
+      new ConsentsService(new ConsentsRepository(prisma)),
+      new AuditLogService(new AuditLogRepository(prisma)),
+    );
+    await relink.updateMine(
+      APPLICANT_GITHUB_ID,
+      programIdFor(CHAIN_APPLICATION_ID),
+      { repositoryUrl: OWN_REPOSITORY_URL, reason: 'Synthetic relink' },
+    );
+    const current = await prisma.githubRepository.findUniqueOrThrow({
+      where: { applicationId: CHAIN_APPLICATION_ID },
     });
-
-    it('비공개 외부 저장소 URL도 승인에 도달하지 못하고 제출 시점에 거부된다', async () => {
-      // Given
-      const programId = programIdFor(PRECHECK_PRIVATE_APPLICATION_ID);
-      await createOpenOwnProgram(PRECHECK_PRIVATE_APPLICATION_ID);
-      const github = githubClient();
-      github.findPublicRepository.mockResolvedValue({
-        githubRepositoryId: 8_520_100_099n,
-        nameWithOwner: 'synthetic-private-org/synthetic-private-repo',
-        defaultBranch: 'main',
-        archived: false,
-        name: 'synthetic-private-repo',
-        url: 'https://github.com/synthetic-private-org/synthetic-private-repo',
-        visibility: RepositoryVisibility.PRIVATE,
-        description: null,
-      });
-      const precheckService = new ApplicationsService(
-        repository,
-        new AuditLogService(new AuditLogRepository(prisma)),
-        new OwnRepositoryUrlValidationService(github),
-      );
-
-      // When
-      const attempt = precheckService.create(
-        PRECHECK_APPLICANT_GITHUB_ID,
-        programId,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamName: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.OWN,
-          repositoryUrl:
-            'https://github.com/synthetic-private-org/synthetic-private-repo',
-        },
-        new Date('2026-07-15T00:00:00.000Z'),
-      );
-
-      // Then
-      await expect(attempt).rejects.toMatchObject({
-        errorCode: {
-          code: ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE,
-        },
-      });
-      await expect(
-        prisma.application.count({ where: { programId } }),
-      ).resolves.toBe(0);
+    const queueNow = await consumeApproval(
+      CHAIN_APPLICATION_ID,
+      'synthetic-late-outbox',
+    );
+    expect(
+      await prisma.repositoryProvisionJob.findUnique({
+        where: { applicationId: CHAIN_APPLICATION_ID },
+      }),
+    ).toMatchObject({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      repositoryId: current.id,
     });
+    expect(
+      await new RepositoryProvisionWorker(
+        jobs,
+        state,
+        github,
+        ownEnrollment(),
+      ).runNext('synthetic-late-worker', queueNow),
+    ).toEqual({ kind: 'EMPTY' });
   });
+
+  it.each([
+    [PRECHECK_MISSING_APPLICATION_ID, null],
+    [
+      PRECHECK_PRIVATE_APPLICATION_ID,
+      {
+        ...ownRepositoryMetadata(8_520_100_099n, 'synthetic/private'),
+        visibility: RepositoryVisibility.PRIVATE,
+      },
+    ],
+  ])(
+    'rejects unavailable legacy OWN repository %s during provisioning',
+    async (applicationId, metadata) => {
+      await createOwnApplication(
+        applicationId,
+        PRECHECK_APPLICANT_ID,
+        'https://github.com/synthetic/private',
+      );
+      await service.decide(STAFF_ACTOR_ID, applicationId, STAFF_GITHUB_ID, {
+        action: 'APPROVE',
+      });
+      const queueNow = await consumeApproval(
+        applicationId,
+        'synthetic-legacy-outbox',
+      );
+      const github = githubClient();
+      github.findPublicRepository.mockResolvedValue(metadata);
+      const result = await new RepositoryProvisionWorker(
+        jobs,
+        state,
+        github,
+        ownEnrollment(),
+      ).runNext('synthetic-legacy-provision', queueNow);
+      expect(result).toMatchObject({
+        kind: 'FAILED_FINAL',
+        errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
+      });
+      expect(
+        await prisma.githubRepository.count({ where: { applicationId } }),
+      ).toBe(0);
+    },
+  );
 });
 
 function programIdFor(applicationId: string): string {
   return `${applicationId}-program`;
+}
+
+async function consumeApproval(
+  applicationId: string,
+  workerId: string,
+): Promise<Date> {
+  const event = await prisma.outboxEvent.findUniqueOrThrow({
+    where: { idempotencyKey: `repository-provision:${applicationId}` },
+    select: { id: true, availableAt: true },
+  });
+  // DB-generated eligibility and the worker must use the same clock in this test.
+  await expect(
+    outbox.consumeNext(workerId, event.availableAt),
+  ).resolves.toMatchObject({
+    kind: 'CONSUMED',
+    eventId: event.id,
+  });
+  return event.availableAt;
 }
 
 function teamIdFor(applicationId: string): string {
@@ -744,30 +768,6 @@ async function createOwnApplication(
       applicationTemplateVersion: 1,
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
       repositoryUrl,
-    },
-  });
-}
-
-/**
- * `createOwnApplication`과 달리 Application은 물론 Team도 미리 만들지 않는다 —
- * 제출 시점 검증은 `ApplicationsService.create()`가 직접 1인 팀을 만들면서
- * 일어나는 일이라, 열린 프로그램만 선행해 준비한다.
- */
-async function createOpenOwnProgram(applicationId: string): Promise<void> {
-  const programId = programIdFor(applicationId);
-  await prisma.program.create({
-    data: {
-      id: programId,
-      name: `program-${applicationId}`,
-      organizer: 'synthetic-organizer',
-      trackType: ProgramTrackType.EXTRACURRICULAR,
-      category: ProgramCategory.BASIC,
-      applicationTemplateKey: 'synthetic-template',
-      applicationTemplateVersion: 1,
-      applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-      applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-      description: 'synthetic-description',
-      repositoryProvisioningEnabled: true,
     },
   });
 }

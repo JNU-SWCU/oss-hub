@@ -205,6 +205,8 @@ const staffProgramTeamDetailHandler: LocalReviewHandler = (context) => {
   const application = findApplicationByTeamId(teamId);
   return json(200, {
     teamId: team.teamId,
+    repositoryContributions: null,
+    repositoryUrlHistory: { items: [], nextCursor: null },
     name: team.name,
     memberCount: team.memberCount,
     members: team.members,
@@ -798,6 +800,16 @@ const publishRepositoryHandler: LocalReviewHandler = (context) => {
 };
 
 export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
+  (context) => {
+    const params = matchGet(
+      context,
+      'programs/:id/teams/:teamId/repository-url-history',
+    );
+    if (params === null || staffRole(context) === null) return null;
+    if (!isPublicProgramId(params.id ?? ''))
+      return notFound('TEAM_010', context.path);
+    return json(200, { items: [], nextCursor: null });
+  },
   (context) =>
     context.method === 'GET' &&
     context.path === 'program-authoring/upload-policy' &&

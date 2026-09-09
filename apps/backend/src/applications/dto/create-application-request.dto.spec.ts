@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { RepositoryConnectionMode } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateApplicationRequestDto } from './create-application-request.dto';
@@ -16,12 +15,6 @@ function dto(body: Record<string, unknown>): CreateApplicationRequestDto {
  * #414 DEC-33/34 — isRepositoryPublicationPlanned 는 구 클라이언트가 생략해도
  * true 로 기본 설정되고(old-client-omission), 명시적 false 는 그대로 왕복해야 한다.
  *
- * repositoryConnectionMode / repositoryUrl 계약:
- * - NEW + url 없음 → 성공
- * - NEW + url 있음 → 400
- * - OWN + url 없음 → 400
- * - OWN + 유효 url → 성공
- * - 두 필드 미지정 → null + null (Program 설정은 service가 판정)
  */
 describe('CreateApplicationRequestDto.toInput', () => {
   it('구 클라이언트가 필드를 생략하면 true 로 기본 설정한다', () => {
@@ -51,45 +44,6 @@ describe('CreateApplicationRequestDto.toInput', () => {
     });
 
     expect(body.toInput().isRepositoryPublicationPlanned).toBe(false);
-  });
-
-  it('두 필드 미지정은 mode/url 모두 null 로 정규화한다', () => {
-    const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
-      applicationTemplateVersion: 1,
-    });
-
-    expect(body.toInput()).toMatchObject({
-      repositoryConnectionMode: null,
-      repositoryUrl: null,
-    });
-  });
-
-  it('NEW + repositoryUrl 없음은 성공하고 null 로 저장 입력을 만든다', () => {
-    const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
-      applicationTemplateVersion: 1,
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
-    });
-
-    expect(body.toInput()).toMatchObject({
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
-    });
-  });
-
-  it('OWN + 유효 URL 은 성공하고 저장 입력에 실린다', () => {
-    const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
-      applicationTemplateVersion: 1,
-      repositoryConnectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-    });
-
-    expect(body.toInput()).toMatchObject({
-      repositoryConnectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-    });
   });
 
   it('teamName 미입력을 null 로 정규화한다', () => {
@@ -122,91 +76,42 @@ describe('CreateApplicationRequestDto.toInput', () => {
   });
 });
 
-describe('CreateApplicationRequestDto validation — repository connection', () => {
-  it('NEW + repositoryUrl 없음 → 통과', async () => {
-    const errors = await validate(
-      dto({ repositoryConnectionMode: RepositoryConnectionMode.NEW }),
-    );
-    expect(errors).toHaveLength(0);
-  });
-
-  it('NEW + repositoryUrl 있음 → 거부', async () => {
-    const errors = await validate(
-      dto({
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-      }),
-    );
-    expect(errors.some((error) => error.property === 'repositoryUrl')).toBe(
-      true,
-    );
-  });
-
-  it('OWN + repositoryUrl 없음 → 거부', async () => {
-    const errors = await validate(
-      dto({ repositoryConnectionMode: RepositoryConnectionMode.OWN }),
-    );
-    expect(errors.some((error) => error.property === 'repositoryUrl')).toBe(
-      true,
-    );
-  });
-
-  it('OWN + 유효 URL → 통과', async () => {
-    const errors = await validate(
-      dto({
-        repositoryConnectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-      }),
-    );
-    expect(errors).toHaveLength(0);
-  });
-
-  it('두 필드 미지정 → 통과 후 null + null', async () => {
-    const body = dto({});
-    const errors = await validate(body);
-    expect(errors).toHaveLength(0);
-    expect(body.toInput()).toEqual(
-      expect.objectContaining({
-        repositoryConnectionMode: null,
-        repositoryUrl: null,
-      }),
-    );
-  });
-
-  it('OWN + 비-URL 문자열 → 거부', async () => {
-    const errors = await validate(
-      dto({
-        repositoryConnectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl: 'not-a-url',
-      }),
-    );
-    expect(errors.some((error) => error.property === 'repositoryUrl')).toBe(
-      true,
-    );
-  });
-
+describe('CreateApplicationRequestDto validation', () => {
   it.each([
-    'https://user@' + 'github.com/synthetic-org/repository',
-    'https://user:secret@' + 'github.com/synthetic-org/repository',
-    'https://github.com/synthetic-org/repository?tab=readme',
-    'https://github.com/synthetic-org/repository#readme',
-    'https://github.com/synthetic-org/repository/issues',
-    'https://github.com/synthetic-org/repository.git',
-  ])('OWN + 경계 밖 GitHub URL을 거부한다: %s', async (repositoryUrl) => {
-    const errors = await validate(
-      dto({
-        repositoryConnectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl,
-      }),
-    );
-
-    expect(errors.some((error) => error.property === 'repositoryUrl')).toBe(
-      true,
-    );
+    { repositoryConnectionMode: 'NEW' },
+    { repositoryConnectionMode: 'OWN' },
+    { repositoryUrl: null },
+    { repositoryUrl: 'https://github.com/synthetic/repository' },
+  ])('rejects obsolete selection input %j', async (fields) => {
+    // Given
+    const body = dto(fields);
+    // When
+    const errors = await validate(body, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+    // Then
+    expect(errors).not.toHaveLength(0);
   });
 
-  it('teamName 100자 초과 → 거부', async () => {
+  it('keeps repository selection out of the creation input', () => {
+    // Given
+    const body = dto({});
+    // When
+    const input = body.toInput();
+    // Then
+    expect(input).toEqual({
+      answers: { title: '제목', summary: '요약' },
+      teamName: null,
+      applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: true,
+    });
+  });
+
+  it('rejects team names longer than 100 characters', async () => {
+    // Given / When
     const errors = await validate(dto({ teamName: 'x'.repeat(101) }));
+    // Then
     expect(errors.some((error) => error.property === 'teamName')).toBe(true);
   });
 });

@@ -47,8 +47,6 @@ const CANONICAL_BODY: Readonly<Record<string, unknown>> = {
   answers: { title: '제목', summary: '요약' },
   applicationTemplateVersion: 1,
   isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: 'NEW',
-  repositoryUrl: null,
 };
 
 const create = jest.fn().mockResolvedValue({
@@ -162,4 +160,17 @@ it('선택 키 teamName 은 허용된다 — 팀 이름은 이 이름으로 보�
     'synthetic-program',
     expect.objectContaining({ teamName: '오픈소스팀' }),
   );
+});
+
+it.each([
+  { repositoryConnectionMode: 'NEW' },
+  { repositoryConnectionMode: 'OWN' },
+  { repositoryUrl: null },
+  { repositoryUrl: 'https://github.com/synthetic/repository' },
+])('rejects obsolete repository selection fields: %j', async (fields) => {
+  // Given / When
+  const response = await postApplication({ ...CANONICAL_BODY, ...fields });
+  // Then
+  expect(response.status).toBe(400);
+  expect(create).not.toHaveBeenCalled();
 });

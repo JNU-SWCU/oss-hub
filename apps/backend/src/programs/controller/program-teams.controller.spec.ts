@@ -82,13 +82,19 @@ describe('ProgramTeamsController', () => {
     ]);
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      | 'create'
+      | 'join'
+      | 'getMe'
+      | 'listForStaff'
+      | 'getForStaff'
+      | 'getRepositoryUrlHistoryForStaff'
     > = {
       create: jest.fn(),
       join: jest.fn(),
       getMe: jest.fn(),
       listForStaff,
       getForStaff: jest.fn(),
+      getRepositoryUrlHistoryForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
 
@@ -121,13 +127,19 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      | 'create'
+      | 'join'
+      | 'getMe'
+      | 'listForStaff'
+      | 'getForStaff'
+      | 'getRepositoryUrlHistoryForStaff'
     > = {
       create,
       join: jest.fn(),
       getMe: jest.fn(),
       listForStaff: jest.fn(),
       getForStaff: jest.fn(),
+      getRepositoryUrlHistoryForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
     const body = Object.assign(new CreateTeamRequestDto(), {
@@ -162,13 +174,19 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      | 'create'
+      | 'join'
+      | 'getMe'
+      | 'listForStaff'
+      | 'getForStaff'
+      | 'getRepositoryUrlHistoryForStaff'
     > = {
       create: jest.fn(),
       join,
       getMe: jest.fn(),
       listForStaff: jest.fn(),
       getForStaff: jest.fn(),
+      getRepositoryUrlHistoryForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
     const body = Object.assign(new JoinTeamRequestDto(), {
@@ -203,13 +221,19 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      | 'create'
+      | 'join'
+      | 'getMe'
+      | 'listForStaff'
+      | 'getForStaff'
+      | 'getRepositoryUrlHistoryForStaff'
     > = {
       create: jest.fn(),
       join: jest.fn(),
       getMe,
       listForStaff: jest.fn(),
       getForStaff: jest.fn(),
+      getRepositoryUrlHistoryForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
 
@@ -267,13 +291,19 @@ describe('ProgramTeamsController', () => {
     });
     const service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
+      | 'create'
+      | 'join'
+      | 'getMe'
+      | 'listForStaff'
+      | 'getForStaff'
+      | 'getRepositoryUrlHistoryForStaff'
     > = {
       create: jest.fn(),
       join: jest.fn(),
       getMe: jest.fn(),
       listForStaff: jest.fn(),
       getForStaff,
+      getRepositoryUrlHistoryForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
 

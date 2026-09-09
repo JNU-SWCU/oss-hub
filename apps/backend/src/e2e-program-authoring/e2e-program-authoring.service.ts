@@ -20,6 +20,16 @@ export class E2eProgramAuthoringService {
     await this.adapter.reset();
   }
 
+  async repositoryEvidence() {
+    try {
+      return await this.adapter.repositoryEvidence();
+    } catch (error) {
+      if (error instanceof E2eAdapterError)
+        throw new E2eControlError(error.status);
+      throw error;
+    }
+  }
+
   fixture(): Promise<
     import('./e2e-program-authoring.types').E2eProgramAuthoringGraph
   > {

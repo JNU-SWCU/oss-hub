@@ -145,11 +145,7 @@ export function ProgramApplyPage({
   function requestSubmit(): void {
     if (state.kind !== 'ready') return;
     if (remainingTeamMembers(state.teamMinimum) > 0) return;
-    const nextErrors = validateApplyForm(
-      values,
-      state.mode,
-      state.program.repositoryProvisioningEnabled,
-    );
+    const nextErrors = validateApplyForm(values, state.mode);
     setErrors(nextErrors);
     setServerError(null);
     if (Object.keys(nextErrors).length > 0) return;
@@ -189,12 +185,6 @@ export function ProgramApplyPage({
         isRepositoryPublicationPlanned:
           state.program.repositoryProvisioningEnabled &&
           values.isRepositoryPublicationPlanned,
-        repositoryConnectionMode: state.program.repositoryProvisioningEnabled
-          ? values.repositoryConnectionMode
-          : null,
-        repositoryUrl: state.program.repositoryProvisioningEnabled
-          ? values.repositoryUrl
-          : '',
       });
       setState({
         kind: 'success',
@@ -307,13 +297,6 @@ export function ProgramApplyPage({
               setValues((previous) => ({
                 ...previous,
                 isRepositoryPublicationPlanned: checked,
-              }));
-            }}
-            onRepositoryModeChange={(mode) => {
-              hasUserInput.current = true;
-              setValues((previous) => ({
-                ...previous,
-                repositoryConnectionMode: mode,
               }));
             }}
             onToggleConsent={(checked) => {

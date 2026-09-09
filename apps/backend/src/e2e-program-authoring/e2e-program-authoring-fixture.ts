@@ -74,10 +74,10 @@ export class E2eProgramAuthoringFixture {
         where: { applicationId: { in: applicationIds } },
       });
       await transaction.repositoryInvitation.deleteMany({
-        where: { repository: { applicationId: { in: applicationIds } } },
+        where: { repository: { programId: E2E_PROGRAM_ID } },
       });
       await transaction.githubRepository.deleteMany({
-        where: { applicationId: { in: applicationIds } },
+        where: { programId: E2E_PROGRAM_ID },
       });
       await transaction.submissionFile.deleteMany({
         where: { applicationId: { in: applicationIds } },

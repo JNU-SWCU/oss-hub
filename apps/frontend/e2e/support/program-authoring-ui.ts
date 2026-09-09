@@ -141,21 +141,11 @@ export async function uploadFixtureTemplate(
 export async function submitProgramApplication(
   page: Page,
   programId: string,
-  mode: 'new' | 'own',
 ): Promise<void> {
   await page.goto(`/programs/${encodeURIComponent(programId)}/apply`);
   await page.getByRole('button', { name: '팀 없이 계속', exact: true }).click();
   await page.getByLabel('요약 *').fill('결정론적 신청 데이터');
-  await page
-    .getByRole('radio', {
-      name: mode === 'new' ? '새 저장소 발급받기' : '내 저장소 연결하기',
-    })
-    .check();
-  if (mode === 'own') {
-    await page
-      .getByLabel('연결할 저장소 URL')
-      .fill('https://github.com/e2e-org/owned-public');
-  }
+  await expect(page.getByRole('radio', { name: /저장소/ })).toHaveCount(0);
   await page.getByLabel(/개인정보 수집·이용 동의/).check();
   await page.getByRole('button', { name: '신청 제출' }).click();
   await page.getByRole('button', { name: '신청서 제출' }).click();

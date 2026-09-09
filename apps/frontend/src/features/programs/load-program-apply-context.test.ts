@@ -247,8 +247,6 @@ describe('loadProgramApplyContext', () => {
       initialValues: {
         summary: '',
         isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: 'new',
-        repositoryUrl: '',
         personalDataConsent: false,
       },
     });
@@ -278,8 +276,6 @@ describe('loadProgramApplyContext', () => {
       initialValues: {
         summary: 'Existing summary',
         isRepositoryPublicationPlanned: false,
-        repositoryConnectionMode: 'new',
-        repositoryUrl: '',
         personalDataConsent: true,
       },
     });
@@ -362,8 +358,6 @@ describe('loadProgramApplyContext', () => {
       initialValues: {
         summary: '',
         isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: 'new',
-        repositoryUrl: '',
         personalDataConsent: false,
       },
     });

@@ -97,8 +97,6 @@ function readyContext(
     initialValues: {
       summary: initialSummary,
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: 'new',
-      repositoryUrl: '',
       personalDataConsent: false,
     },
   };

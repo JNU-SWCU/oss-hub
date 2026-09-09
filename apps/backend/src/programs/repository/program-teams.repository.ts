@@ -1,4 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
+import type {
+  TeamRepositoryEvidenceView,
+  RepositoryUrlHistoryCursor,
+  RepositoryUrlHistoryPage,
+} from '../program-team-repository-evidence.types';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -115,7 +121,7 @@ export interface StaffTeamRecord {
  * 교직원 전용 팀 상세(#874)의 한 팀 — `StaffTeamRecord`에 신청·저장소 발급 상태를
  * 더한 모양이다. 신청이 없으면 `application: null`.
  */
-export interface StaffTeamDetailRecord {
+export interface StaffTeamDetailRecord extends TeamRepositoryEvidenceView {
   readonly id: string;
   readonly name: string;
   readonly leaderId: string;
@@ -335,6 +341,7 @@ export class ProgramTeamsRepository {
             userId: true,
             user: {
               select: {
+                githubId: true,
                 nickname: true,
                 ...USER_PROFILE_NAME_SELECT,
               },
@@ -353,14 +360,22 @@ export class ProgramTeamsRepository {
         status: true,
         updatedAt: true,
         repositoryConnectionMode: true,
+        repositoryUrl: true,
         isRepositoryPublicationPlanned: true,
         // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) —
         // nameWithOwner에서 repository-identity.ts 헬퍼로 url을 유도한다.
         repository: {
-          select: { id: true, nameWithOwner: true, visibility: true },
+          select: {
+            id: true,
+            nameWithOwner: true,
+            visibility: true,
+            lastSuccessAt: true,
+            failureCount: true,
+          },
         },
         program: {
           select: {
+            startAt: true,
             repositoryProvisioningEnabled: true,
             endAt: true,
             milestones: {
@@ -436,13 +451,25 @@ export class ProgramTeamsRepository {
               blockedReasons,
             }
           : null,
-        repositoryProvisioning: resolveTeamRepositoryProvisioning(
-          application.status,
-          application.program.repositoryProvisioningEnabled,
-          application.updatedAt,
-          outbox ?? undefined,
-          job ?? undefined,
-        ),
+        repositoryProvisioning:
+          repository &&
+          application.repositoryUrl ===
+            repositoryUrlFromNameWithOwner(repository.nameWithOwner) &&
+          job?.repositoryId === repository.id &&
+          job.status === RepositoryProvisionJobStatus.SUCCEEDED
+            ? {
+                enabled: application.program.repositoryProvisioningEnabled,
+                jobStatus: 'SUCCEEDED',
+                updatedAt: job.updatedAt,
+                safeErrorClass: null,
+              }
+            : resolveTeamRepositoryProvisioning(
+                application.status,
+                application.program.repositoryProvisioningEnabled,
+                application.updatedAt,
+                outbox ?? undefined,
+                job ?? undefined,
+              ),
       };
     }
 
@@ -456,7 +483,38 @@ export class ProgramTeamsRepository {
         name: resolveUserProfileName(member.user),
       })),
       application: applicationView,
+      repositoryContributions: application
+        ? await new ProgramTeamRepositoryEvidenceRepository(
+            this.prisma,
+          ).contributions(application, team.members)
+        : null,
+      repositoryUrlHistory: application
+        ? await new ProgramTeamRepositoryEvidenceRepository(
+            this.prisma,
+          ).history({ programId, teamId, applicationId: application.id })
+        : { items: [], nextCursor: null },
     };
+  }
+
+  async findStaffRepositoryUrlHistory(
+    programId: string,
+    teamId: string,
+    cursor?: RepositoryUrlHistoryCursor,
+  ): Promise<RepositoryUrlHistoryPage | null> {
+    const team = await this.prisma.team.findFirst({
+      where: { id: teamId, programId },
+      select: { id: true },
+    });
+    if (!team) return null;
+    const application = await this.prisma.application.findFirst({
+      where: { programId, teamId },
+      select: { id: true },
+    });
+    if (!application) return { items: [], nextCursor: null };
+    return new ProgramTeamRepositoryEvidenceRepository(this.prisma).history(
+      { programId, teamId, applicationId: application.id },
+      cursor,
+    );
   }
 
   withCreateTransaction<T>(

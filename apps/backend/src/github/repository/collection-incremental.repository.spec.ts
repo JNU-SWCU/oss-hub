@@ -720,14 +720,20 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
     expect(result).toEqual([{ id: 'repo-1' }]);
   });
 
-  it('listExternalRepositories는 가시성 재확인을 위해 모든 EXTERNAL_PUBLIC 저장소를 읽는다', async () => {
+  it('listExternalRepositories는 활성 신청 대상과 독립 외부 저장소를 읽는다', async () => {
     const db = createDb();
     db.githubRepository.findMany.mockResolvedValue([{ id: 'ext-1' }]);
 
     const result = await repositoryFor(db).listExternalRepositories();
 
     expect(db.githubRepository.findMany).toHaveBeenCalledWith({
-      where: { source: 'EXTERNAL_PUBLIC' },
+      where: {
+        source: 'EXTERNAL_PUBLIC',
+        OR: [
+          { applicationId: { not: null } },
+          { teamId: null, programId: null },
+        ],
+      },
     });
     expect(result).toEqual([{ id: 'ext-1' }]);
   });
