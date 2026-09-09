@@ -96,6 +96,19 @@ async function main() {
       data: { notificationEmail: 'student@example.test', notifyEnabled: true },
     }),
   ]);
+  const studentProfile = {
+    name: '합성 마감 알림 학생',
+    studentId: '990153',
+    department: '합성 테스트 학과',
+    memberKind: 'STUDENT',
+    affiliationKind: 'DEPARTMENT',
+    affiliationName: '합성 테스트 학과',
+  };
+  await prisma.userProfile.upsert({
+    where: { userId: studentId },
+    update: studentProfile,
+    create: { userId: studentId, ...studentProfile },
+  });
   await prisma.team.create({
     data: {
       id: teamId,
@@ -114,7 +127,11 @@ async function main() {
       programId,
       applicantId: studentId,
       teamId,
-      answers: { synthetic: true },
+      answers: {
+        applicantName: '합성 마감 알림 학생',
+        title: 'E2E 마감 팀 신청',
+        summary: '합성 마감 알림 검증용 신청입니다.',
+      },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
     },

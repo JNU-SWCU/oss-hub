@@ -3,6 +3,10 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { StatusBadge } from '@/components';
 import {
+  DOCUMENT_DELIVERY_LABELS,
+  DOCUMENT_DELIVERY_VARIANTS,
+} from '@/lib/document-delivery';
+import {
   formatSubmittedAt,
   MATRIX_CELL_DISPLAY_LABELS,
   MATRIX_CELL_DISPLAY_VARIANTS,
@@ -30,21 +34,28 @@ export function MatrixCellContent({
       {MATRIX_CELL_DISPLAY_LABELS[display]}
     </StatusBadge>
   );
+  const deliveryBadge = (
+    <StatusBadge variant={DOCUMENT_DELIVERY_VARIANTS[cell.deliveryStatus]}>
+      {DOCUMENT_DELIVERY_LABELS[cell.deliveryStatus]}
+    </StatusBadge>
+  );
 
   if (cell.status === 'NOT_SUBMITTED') {
     const deadline = notSubmittedDeadline(milestone.dueAt, now);
     return (
       <span className="flex flex-col items-start gap-1">
-        {badge}
-        <span
-          className={
-            deadline.overdue
-              ? 'text-small font-semibold text-destructive'
-              : 'text-small text-muted-foreground'
-          }
-        >
-          {deadline.label}
-        </span>
+        {deliveryBadge}
+        {cell.deliveryStatus === 'MISSING' ? (
+          <span
+            className={
+              deadline.overdue
+                ? 'text-small font-semibold text-destructive'
+                : 'text-small text-muted-foreground'
+            }
+          >
+            {deadline.label}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -57,7 +68,10 @@ export function MatrixCellContent({
     .join(' · ');
   const meta = (
     <span className="flex flex-col items-start gap-1">
-      <span className="flex flex-wrap items-center gap-1">{badge}</span>
+      <span className="flex flex-wrap items-center gap-1">
+        {deliveryBadge}
+        {badge}
+      </span>
       {secondaryLine !== '' ? (
         <span className="text-small text-muted-foreground">
           {secondaryLine}

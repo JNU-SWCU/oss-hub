@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../common/error-code';
+import { documentDeliveryStatus } from './document-delivery-status';
 import {
   submissionMatrixReviewUrl,
   type SubmissionMatrixQuery,
@@ -50,9 +51,16 @@ export class SubmissionMatrixService {
       ),
     ]);
     // N+1 금지: 페이지의 application id들로 현재 Submission을 일괄 조회해 메모리 결합한다.
-    const submissions = await this.repository.findCurrentSubmissions(
-      applications.items.map((application) => application.id),
+    const applicationIds = applications.items.map(
+      (application) => application.id,
     );
+    const [submissions, firstSubmissions] = await Promise.all([
+      this.repository.findCurrentSubmissions(applicationIds),
+      this.repository.findDocumentFirstSubmissions(
+        applicationIds,
+        milestones.flatMap((milestone) => milestone.requiredDocumentIds),
+      ),
+    ]);
     const cellIndex = new Map<string, MatrixSubmissionRecord>();
     for (const submission of submissions) {
       cellIndex.set(
@@ -60,6 +68,12 @@ export class SubmissionMatrixService {
         submission,
       );
     }
+    const firstSubmissionIndex = new Map(
+      firstSubmissions.map((submission) => [
+        cellKey(submission.applicationId, submission.milestoneDocumentId),
+        submission.firstSubmittedAt,
+      ]),
+    );
 
     return {
       milestones: milestones.map((milestone) => ({
@@ -68,7 +82,10 @@ export class SubmissionMatrixService {
         dueAt: milestone.dueAt.toISOString(),
       })),
       rows: applications.items.map((application) =>
-        toMatrixRow(programId, application, milestones, cellIndex),
+        toMatrixRow(programId, application, milestones, {
+          reviews: cellIndex,
+          firstSubmissions: firstSubmissionIndex,
+        }),
       ),
       page: query.page,
       pageSize: query.pageSize,
@@ -97,7 +114,10 @@ function toMatrixRow(
   programId: string,
   application: MatrixApplicationRecord,
   milestones: readonly MatrixMilestoneRecord[],
-  cellIndex: ReadonlyMap<string, MatrixSubmissionRecord>,
+  index: {
+    readonly reviews: ReadonlyMap<string, MatrixSubmissionRecord>;
+    readonly firstSubmissions: ReadonlyMap<string, Date>;
+  },
 ): MatrixRowResponseDto {
   return {
     applicationId: application.id,
@@ -112,13 +132,21 @@ function toMatrixRow(
     githubLogins: application.team
       ? application.team.memberNicknames
       : [application.applicant.nickname],
-    cells: milestones.map((milestone) =>
-      toMatrixCell(
+    cells: milestones.map((milestone) => ({
+      ...toMatrixCell(
         programId,
         milestone.id,
-        cellIndex.get(cellKey(application.id, milestone.id)) ?? null,
+        index.reviews.get(cellKey(application.id, milestone.id)) ?? null,
       ),
-    ),
+      deliveryStatus: documentDeliveryStatus({
+        dueAt: milestone.dueAt,
+        requiredFirstSubmissions: milestone.requiredDocumentIds.map(
+          (documentId) =>
+            index.firstSubmissions.get(cellKey(application.id, documentId)) ??
+            null,
+        ),
+      }),
+    })),
   };
 }
 
@@ -126,7 +154,7 @@ function toMatrixCell(
   programId: string,
   milestoneId: string,
   submission: MatrixSubmissionRecord | null,
-): MatrixCellResponseDto {
+): Omit<MatrixCellResponseDto, 'deliveryStatus'> {
   if (!submission) {
     return {
       milestoneId,

@@ -1,5 +1,7 @@
+import { DOCUMENT_DELIVERY_LABELS } from '@/lib/document-delivery';
 import type {
   MilestoneDocumentCollection,
+  MilestoneDocumentDeliveryCounts,
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionDocumentTotal,
   MilestoneDocumentCollectionFilter,
@@ -21,9 +23,11 @@ import type {
 
 export const MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS = {
   ALL: '전체',
-  // ⚠ 「미제출 있는 팀」이 아니다. 이 필터는 **필수 서류만** 센다 — 선택 서류를 안 낸
-  // 팀은 걸리지 않는다. 예전 문구는 선택 서류까지 세는 것처럼 읽혀 오해를 불렀다.
-  HAS_MISSING: '필수 서류 미제출',
+  // 필수 서류의 제출 축은 매트릭스와 같은 라벨을 쓴다.
+  HAS_MISSING: DOCUMENT_DELIVERY_LABELS.MISSING,
+  LATE: DOCUMENT_DELIVERY_LABELS.LATE,
+  COMPLETE: DOCUMENT_DELIVERY_LABELS.COMPLETE,
+  NO_REQUIRED_ITEMS: DOCUMENT_DELIVERY_LABELS.NO_REQUIRED_ITEMS,
   ZERO_SUBMISSION: '한 장도 안 낸 팀',
 } as const satisfies Readonly<
   Record<MilestoneDocumentCollectionFilter, string>
@@ -64,10 +68,17 @@ export function collectionCellFor(
 export function collectionFilterCountFor(
   counts: MilestoneDocumentCollectionFilterCounts,
   filter: MilestoneDocumentCollectionFilter,
+  deliveryCounts: MilestoneDocumentDeliveryCounts,
 ): number {
   switch (filter) {
     case 'HAS_MISSING':
-      return counts.hasMissing;
+      return deliveryCounts.missing;
+    case 'LATE':
+      return deliveryCounts.late;
+    case 'COMPLETE':
+      return deliveryCounts.complete;
+    case 'NO_REQUIRED_ITEMS':
+      return deliveryCounts.noRequiredItems;
     case 'ZERO_SUBMISSION':
       return counts.zeroSubmission;
     case 'ALL':

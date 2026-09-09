@@ -22,6 +22,7 @@ import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -61,6 +62,7 @@ describe('authenticated milestone document list filename contract', () => {
     const module = await Test.createTestingModule({
       controllers: [MilestoneDocumentsController],
       providers: [
+        { provide: MilestoneDocumentCollectionService, useValue: {} },
         MilestoneDocumentsRepository,
         MilestoneDocumentsService,
         SessionGuard,

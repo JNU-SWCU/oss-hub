@@ -2,6 +2,17 @@ import { apiClient } from '@/lib/api-client';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
+export type ProgramDeadlineGuidance = {
+  readonly studentGuidance: string;
+  readonly staffGuidance: string;
+};
+
+export type ProgramDeadlineMail = {
+  readonly subject: string;
+  readonly text: string;
+  readonly html: string;
+};
+
 export type ProgramDeadlinePreview = {
   readonly applicationCount: number;
   readonly milestoneCount: number;
@@ -14,9 +25,16 @@ export type ProgramDeadlinePreview = {
   readonly previewedAt: string;
   readonly expiresAt: string;
   readonly previewVersion: string;
+  readonly studentPreviews: readonly (ProgramDeadlineMail & {
+    readonly displayName: string;
+  })[];
+  readonly staffPreview: ProgramDeadlineMail | null;
 };
 
-export type ProgramDeadlineSendResult = ProgramDeadlinePreview & {
+export type ProgramDeadlineSendResult = Omit<
+  ProgramDeadlinePreview,
+  'previewedAt' | 'expiresAt' | 'studentPreviews' | 'staffPreview'
+> & {
   readonly sentAt: string;
   readonly sentCount: number;
   readonly duplicateCount: number;
@@ -25,16 +43,18 @@ export type ProgramDeadlineSendResult = ProgramDeadlinePreview & {
 
 export function previewProgramDeadline(
   programId: string,
+  guidance: ProgramDeadlineGuidance,
 ): Promise<ProgramDeadlinePreview> {
   return apiClient<ProgramDeadlinePreview>(
     `programs/${encodeURIComponent(programId)}/deadline-digest/preview`,
-    { method: 'POST' },
+    { method: 'POST', headers: jsonHeaders, body: JSON.stringify(guidance) },
   );
 }
 
 export function sendProgramDeadline(
   programId: string,
-  preview: Pick<ProgramDeadlinePreview, 'previewedAt' | 'previewVersion'>,
+  preview: Pick<ProgramDeadlinePreview, 'previewedAt' | 'previewVersion'> &
+    ProgramDeadlineGuidance,
 ): Promise<ProgramDeadlineSendResult> {
   return apiClient<ProgramDeadlineSendResult>(
     `programs/${encodeURIComponent(programId)}/deadline-digest/send`,
