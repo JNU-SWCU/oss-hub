@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/programs/42/apply',
   useRouter: () => ({
     replace: mocks.replace,
     push: vi.fn(),
@@ -166,7 +167,10 @@ describe('RoleGate 렌더', () => {
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(text).not.toContain(CHILD);
     expect(text).not.toContain(NOTICE);
-    expect(text).toContain('로그인이 필요한 페이지입니다');
+    expect(text).toContain('로그인이 필요합니다');
+    expect(container.querySelector('a')?.getAttribute('href')).toBe(
+      '/signup?returnTo=%2Fprograms%2F42%2Fapply',
+    );
   });
 
   it('안내가 있어도 조회 실패는 어디로도 보내지 않고 재시도를 준다', async () => {

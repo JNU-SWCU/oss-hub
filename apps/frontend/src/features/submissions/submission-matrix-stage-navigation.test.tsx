@@ -55,7 +55,7 @@ describe('MatrixStageNavigation', () => {
     expect(buttons.map((button) => button.textContent)).toEqual([
       '모든 단계',
       '1차 계획서',
-      '중간 보고서선택됨',
+      '중간 보고서',
       '최종 결과물',
     ]);
     expect(buttons[2]?.getAttribute('aria-pressed')).toBe('true');

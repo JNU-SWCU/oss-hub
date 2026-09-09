@@ -69,6 +69,7 @@ function row(
 ): MilestoneDocumentCollectionRow {
   return {
     applicationId,
+    deliveryStatus: 'MISSING',
     teamName: `${applicationId}팀`,
     applicantName: '김철수',
     memberNicknames: ['chulsoo', 'younghee'],
@@ -100,6 +101,7 @@ function collection(
     page: 1,
     pageSize: 20,
     total: rows.length,
+    deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: {
       all: rows.length,
       hasMissing: rows.length,
@@ -192,6 +194,12 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
             dueAt: '2026-07-15T14:59:59.000Z',
           },
           total: 47,
+          deliveryCounts: {
+            missing: 12,
+            late: 10,
+            complete: 20,
+            noRequiredItems: 5,
+          },
           filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
         },
       ),
@@ -435,7 +443,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
     });
 
     // 이 표의 배지는 「검토 대기」와 「미제출」 둘뿐이다 — 보완 요청이 남아 있으면 걸린다.
-    expect(badgeTexts(html)).toEqual(['검토 대기', '미제출']);
+    expect(badgeTexts(html)).toEqual(['미제출 있음', '검토 대기', '미제출']);
   });
 
   /**
@@ -445,6 +453,12 @@ describe('MilestoneDocumentCollectionView 표', () => {
    */
   it('판정이 붙어도 필터 칩과 합계는 서버가 준 값 그대로다', () => {
     const withReviews = collection(documents, rows, {
+      deliveryCounts: {
+        missing: 12,
+        late: 10,
+        complete: 20,
+        noRequiredItems: 5,
+      },
       filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
       documentTotals: [
         { documentId: 'd1', submitted: 30, total: 47 },
@@ -475,7 +489,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
     const html = render({ data: reviewed });
 
     expect(html).toContain('전체 47팀');
-    expect(html).toContain('필수 서류 미제출 12팀');
+    expect(html).toContain('미제출 있음 12팀');
     expect(html).toContain('한 장도 안 낸 팀 5팀');
     expect(html).toContain('제출 30 / 전체 47');
     expect(html).toContain('제출 12 / 전체 47');
@@ -562,12 +576,18 @@ describe('MilestoneDocumentCollectionView 표', () => {
   it('빠른 필터 버튼마다 서버가 준 전체 기준 팀 수를 적는다', () => {
     const html = render({
       data: collection(documents, rows, {
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
       }),
     });
 
     expect(html).toContain('전체 47팀');
-    expect(html).toContain('필수 서류 미제출 12팀');
+    expect(html).toContain('미제출 있음 12팀');
     expect(html).toContain('한 장도 안 낸 팀 5팀');
   });
 
@@ -586,6 +606,12 @@ describe('MilestoneDocumentCollectionView 표', () => {
     const html = render({
       data: collection(documents, rows, {
         total: 3,
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 3, hasMissing: 3, zeroSubmission: 3 },
       }),
       filter: 'ZERO_SUBMISSION',
@@ -601,6 +627,12 @@ describe('MilestoneDocumentCollectionView 표', () => {
     const html = render({
       data: collection(documents, [], {
         total: 0,
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
       }),
       filter: 'ZERO_SUBMISSION',
@@ -679,7 +711,7 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
   });
 
   /**
-   * ⚠ 이 한 줄이 이 묶음의 핵심이다. 「필수 서류 미제출」로 걸러 놓은 교직원은 눈앞의
+   * ⚠ 이 한 줄이 이 묶음의 핵심이다. 「미제출 있음」로 걸러 놓은 교직원은 눈앞의
    * 표가 곧 받을 것이라고 읽으므로, 밝히지 않으면 전체가 담긴 ZIP을 독촉 대상 명단으로
    * 오해한 채 배포한다.
    */
@@ -723,6 +755,12 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
           dueAt: '2026-07-15T14:59:59.000Z',
         },
         total: 47,
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
       }),
     });
@@ -749,6 +787,12 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
     const html = render({
       data: collection(documents, [], {
         total: 0,
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
       }),
       filter: 'ZERO_SUBMISSION',
@@ -765,6 +809,12 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
         page: 2,
         pageSize: 20,
         total: 5,
+        deliveryCounts: {
+          missing: 5,
+          late: 10,
+          complete: 27,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 5, zeroSubmission: 0 },
       }),
       filter: 'HAS_MISSING',
@@ -901,6 +951,12 @@ describe('MilestoneDocumentCollectionView 서류별 내려받기(ZIP)', () => {
     const noFilterResults = render({
       data: collection(documents, [], {
         total: 0,
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
       }),
       filter: 'ZERO_SUBMISSION',
@@ -927,6 +983,12 @@ describe('MilestoneDocumentCollectionView 서류별 내려받기(ZIP)', () => {
           dueAt: '2026-07-15T14:59:59.000Z',
         },
         total: 47,
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
       }),
     });
@@ -960,6 +1022,12 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
       page,
       pageSize: 20,
       total,
+      deliveryCounts: {
+        missing: 12,
+        late: 10,
+        complete: 20,
+        noRequiredItems: 5,
+      },
       filterCounts: { all: total, hasMissing: total, zeroSubmission: 0 },
     });
   }
@@ -1000,7 +1068,7 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
   });
 
   /**
-   * 「필수 서류 미제출」 2페이지를 보는 동안 팀들이 제출을 마치면 걸리는 팀이 줄어
+   * 「미제출 있음」 2페이지를 보는 동안 팀들이 제출을 마치면 걸리는 팀이 줄어
    * 페이지 수도 줄어든다 — 응답은 빈 2페이지 + 전체 1페이지로 온다. 페이지 이동 UI는
    * 한 페이지짜리 결과에서 그리지 않으므로, 여기서 길을 주지 않으면 교직원은 빈 표를
    * 앞에 두고 필터를 손으로 되돌리기 전까지 빠져나갈 수 없다.
@@ -1011,6 +1079,12 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
         page: 2,
         pageSize: 20,
         total: 5,
+        deliveryCounts: {
+          missing: 5,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 5, zeroSubmission: 0 },
       }),
       filter: 'HAS_MISSING',
@@ -1019,7 +1093,7 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
     expect(html).toContain('이 페이지에는 더 이상 팀이 없습니다');
     expect(html).toContain('1페이지로 이동');
     // 필터 칩은 남는다 — 지금 무엇을 보고 있었는지가 사라지면 안 된다.
-    expect(html).toContain('필수 서류 미제출 5팀');
+    expect(html).toContain('미제출 있음 5팀');
     // 빈 표를 그대로 그려 두면 「0팀이 걸렸다」로 읽힌다.
     expect(html).not.toContain('이 페이지 0팀');
   });
@@ -1031,6 +1105,12 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
         page: 4,
         pageSize: 20,
         total: 47,
+        deliveryCounts: {
+          missing: 12,
+          late: 10,
+          complete: 20,
+          noRequiredItems: 5,
+        },
         filterCounts: { all: 47, hasMissing: 47, zeroSubmission: 0 },
       }),
     });
@@ -1038,4 +1118,19 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
     expect(html).toContain('3페이지로 이동');
     expect(html).not.toContain('1페이지로 이동');
   });
+});
+
+it('필수 서류를 모두 낸 팀의 반려 결과를 제출 완료와 구분한다', () => {
+  const html = render({
+    data: collection(
+      [document('d1')],
+      [
+        row('a', [cell('d1', { status: 'REJECTED' })], {
+          deliveryStatus: 'COMPLETE',
+        }),
+      ],
+    ),
+  });
+  expect(html).toContain('>필수 서류 제출 상태</p>');
+  expect(badgeTexts(html)).toEqual(['제출 완료', '반려']);
 });

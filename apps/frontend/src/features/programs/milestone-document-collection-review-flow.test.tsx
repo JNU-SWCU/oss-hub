@@ -73,6 +73,7 @@ function row(
 ): MilestoneDocumentCollectionRow {
   return {
     applicationId,
+    deliveryStatus: 'MISSING',
     teamName,
     applicantName: '김철수',
     memberNicknames: ['chulsoo'],
@@ -109,6 +110,7 @@ function collection(
     page: 1,
     pageSize: 20,
     total: rows.length,
+    deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
     documentTotals: [
       { documentId: 'd1', submitted: 30, total: 47 },
@@ -621,7 +623,7 @@ describe('수합 표에서 판정하기', () => {
     await openPanelForGaTeam();
     expect(panel()).not.toBeNull();
 
-    await click(byText('필수 서류 미제출 12팀'));
+    await click(byText('미제출 있음 12팀'));
 
     expect(panel()).toBeNull();
   });
@@ -656,7 +658,7 @@ describe('수합 표에서 판정하기', () => {
 
     await click(byText('승인'));
     await click(byText('저장'));
-    await click(byText('필수 서류 미제출 12팀'));
+    await click(byText('미제출 있음 12팀'));
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
 
@@ -704,7 +706,7 @@ describe('수합 표에서 판정하기', () => {
 
     await click(byText('승인'));
     await click(byText('저장'));
-    await click(byText('필수 서류 미제출 12팀'));
+    await click(byText('미제출 있음 12팀'));
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
 
@@ -884,7 +886,7 @@ describe('수합 표에서 판정하기', () => {
    * 반대쪽 방어 — **과하게 유지하면 안 된다.**
    *
    * 조건이 바뀐 조회 중에 옛 행을 그대로 두면 화면은 새 필터 이름 아래에 **다른 조건의
-   * 답**을 그린다. 「필수 서류 미제출 12팀」이라고 적힌 표에 전부 제출한 팀이 앉는 것이라,
+   * 답**을 그린다. 「미제출 있음 12팀」이라고 적힌 표에 전부 제출한 팀이 앉는 것이라,
    * 독촉 대상을 눈으로 고르는 교직원이 그대로 속는다. 유지는 「같은 조건의 재조회」일
    * 때뿐이다.
    */
@@ -894,7 +896,7 @@ describe('수합 표에서 판정하기', () => {
       collection([row('b', '나팀', [cell('d1'), cell('d2')])]),
     );
 
-    await click(byText('필수 서류 미제출 12팀'));
+    await click(byText('미제출 있음 12팀'));
 
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).not.toContain('가팀');
