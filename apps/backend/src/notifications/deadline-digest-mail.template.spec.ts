@@ -29,7 +29,7 @@ describe('deadline-digest-mail.template', () => {
       expect(content).toContain('최종 제출');
       expect(content).toContain('2026. 08. 14. 21:00');
       expect(content).toContain(
-        'https://oss.example/programs/program-1/submissions?milestoneId=milestone-1',
+        'https://oss.example/programs/program-1#milestone-milestone-1-name',
       );
     }
     expect(mail.text).toContain('Asia/Seoul');

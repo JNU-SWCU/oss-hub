@@ -14,6 +14,10 @@ import {
 } from '../profiles/user-profile-read';
 import type { SubmissionMatrixFilter } from './domain/submission-matrix';
 import { publicSubmissionId } from './submission-public-id';
+import {
+  findMatrixDocumentFirstSubmissions,
+  type MatrixDocumentFirstSubmission,
+} from './submission-matrix-delivery.repository';
 
 export interface SubmissionMatrixViewer {
   readonly id: string;
@@ -23,6 +27,7 @@ export interface MatrixMilestoneRecord {
   readonly id: string;
   readonly name: string;
   readonly dueAt: Date;
+  readonly requiredDocumentIds: readonly string[];
 }
 
 export interface MatrixApplicationRecord {
@@ -67,6 +72,10 @@ export interface SubmissionMatrixRepositoryPort {
   findCurrentSubmissions(
     applicationIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]>;
+  findDocumentFirstSubmissions(
+    applicationIds: readonly string[],
+    documentIds: readonly string[],
+  ): Promise<readonly MatrixDocumentFirstSubmission[]>;
 }
 
 /**
@@ -164,11 +173,35 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     return program !== null;
   }
 
-  findMilestones(programId: string): Promise<readonly MatrixMilestoneRecord[]> {
-    return this.prisma.milestone.findMany({
+  async findMilestones(
+    programId: string,
+  ): Promise<readonly MatrixMilestoneRecord[]> {
+    const milestones = await this.prisma.milestone.findMany({
       where: { programId },
       orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, name: true, dueAt: true },
+      select: {
+        id: true,
+        name: true,
+        dueAt: true,
+        documents: {
+          where: { kind: MilestoneDocumentKind.DOCUMENT, required: true },
+          select: { id: true },
+        },
+      },
+    });
+    return milestones.map(({ documents, ...milestone }) => ({
+      ...milestone,
+      requiredDocumentIds: documents.map((document) => document.id),
+    }));
+  }
+
+  findDocumentFirstSubmissions(
+    applicationIds: readonly string[],
+    documentIds: readonly string[],
+  ): Promise<readonly MatrixDocumentFirstSubmission[]> {
+    return findMatrixDocumentFirstSubmissions(this.prisma, {
+      applicationIds,
+      documentIds,
     });
   }
 

@@ -2,6 +2,7 @@ import type {
   MatrixApplicationMode,
   MatrixCellStatus,
 } from '../domain/submission-matrix';
+import type { DocumentDeliveryStatus } from '../document-delivery-status';
 
 export interface MatrixMilestoneResponseDto {
   readonly id: string;
@@ -17,6 +18,7 @@ export interface MatrixCellResponseDto {
   readonly status: MatrixCellStatus;
   readonly submittedAt: string | null;
   readonly reviewUrl: string | null;
+  readonly deliveryStatus: DocumentDeliveryStatus;
 }
 
 /** 행은 팀이 아니라 승인된 Application이다 — 개인형 teamId=null도 정상 행(#124 계약 잠금). */

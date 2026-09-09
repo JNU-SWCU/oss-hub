@@ -1,18 +1,14 @@
 'use client';
 
 import { BellRing, Eye, Send } from 'lucide-react';
-import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { ApiError } from '@/lib/api-client';
 import {
-  previewProgramDeadline,
-  sendProgramDeadline,
-  type ProgramDeadlinePreview,
-  type ProgramDeadlineSendResult,
-} from './program-deadline-api';
+  DeadlinePreviewBodies,
+  DeadlinePreviewCounts,
+} from './program-deadline-preview';
+import { useProgramDeadlinePreview } from './use-program-deadline-preview';
 
 export function ProgramDeadlineControl({
   enabled,
@@ -25,88 +21,43 @@ export function ProgramDeadlineControl({
   readonly programId?: string;
   readonly persistedEnabled?: boolean;
 }) {
-  const [preview, setPreview] = useState<ProgramDeadlinePreview | null>(null);
-  const [result, setResult] = useState<ProgramDeadlineSendResult | null>(null);
-  const [busy, setBusy] = useState<'preview' | 'send' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadPreview = async () => {
-    if (programId === undefined) return;
-    setBusy('preview');
-    setError(null);
-    setResult(null);
-    try {
-      setPreview(await previewProgramDeadline(programId));
-    } catch (caught: unknown) {
-      setPreview(null);
-      setError(deadlineErrorMessage(caught));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const send = async () => {
-    if (programId === undefined || preview === null) return;
-    setBusy('send');
-    setError(null);
-    try {
-      setResult(
-        await sendProgramDeadline(programId, {
-          previewedAt: preview.previewedAt,
-          previewVersion: preview.previewVersion,
-        }),
-      );
-    } catch (caught: unknown) {
-      if (caught instanceof ApiError && caught.problem.status === 409) {
-        setPreview(null);
-      }
-      setError(deadlineErrorMessage(caught));
-    } finally {
-      setBusy(null);
-    }
-  };
+  const state = useProgramDeadlinePreview(
+    programId,
+    enabled && persistedEnabled,
+  );
+  const { preview, result, busy, error } = state;
+  const toggleId =
+    programId === undefined
+      ? 'authoring-deadline-notification'
+      : 'program-deadline-notification';
+  const fields = [
+    { key: 'studentGuidance', label: '학생용 추가 안내' },
+    { key: 'staffGuidance', label: '교직원용 추가 안내' },
+  ] as const;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4" data-testid="program-deadline-control">
       <Field orientation="horizontal">
         <input
-          id={
-            programId === undefined
-              ? 'authoring-deadline-notification'
-              : 'program-deadline-notification'
-          }
+          id={toggleId}
           type="checkbox"
           checked={enabled}
-          onChange={(event) => {
-            setPreview(null);
-            setResult(null);
-            setError(null);
-            onEnabledChange(event.target.checked);
-          }}
+          disabled={busy === 'send'}
+          onChange={(event) => onEnabledChange(event.target.checked)}
         />
         <div className="grid gap-1">
-          <FieldLabel
-            htmlFor={
-              programId === undefined
-                ? 'authoring-deadline-notification'
-                : 'program-deadline-notification'
-            }
-          >
-            제출 마감 알림
-          </FieldLabel>
+          <FieldLabel htmlFor={toggleId}>제출 마감 알림</FieldLabel>
           <p className="text-small text-muted-foreground">
             켜면 마감까지 24시간 이내인 필수 서류의 미제출 참여자에게 알림을
             보냅니다.
           </p>
         </div>
       </Field>
-
       {!enabled ? (
         <p className="text-small text-muted-foreground">
           자동 알림과 프로그램별 수동 발송을 사용하지 않습니다.
         </p>
       ) : null}
-
       {enabled && programId !== undefined && !persistedEnabled ? (
         <Alert>
           <BellRing aria-hidden="true" />
@@ -115,37 +66,54 @@ export function ProgramDeadlineControl({
           </AlertDescription>
         </Alert>
       ) : null}
-
       {enabled && programId !== undefined && persistedEnabled ? (
-        <div className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy !== null}
-              onClick={() => void loadPreview()}
-            >
-              <Eye aria-hidden="true" />
-              {busy === 'preview' ? '계산 중…' : '발송 대상 미리보기'}
-            </Button>
-            <Button
-              type="button"
-              disabled={preview === null || busy !== null}
-              onClick={() => void send()}
-            >
-              <Send aria-hidden="true" />
-              {busy === 'send' ? '보내는 중…' : '알림 보내기'}
-            </Button>
-          </div>
-
-          {preview ? <DeadlinePreviewCard preview={preview} /> : null}
+        <div className="grid min-w-0 gap-6">
+          {preview ? <DeadlinePreviewCounts preview={preview} /> : null}
+          <section aria-label="이번 발송 안내" className="grid min-w-0 gap-4">
+            <h3 className="font-semibold">이번 발송 안내</h3>
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+              {fields.map(({ key, label }) => (
+                <Field key={key}>
+                  <FieldLabel htmlFor={key}>{label}</FieldLabel>
+                  <textarea
+                    className="w-full min-w-0 rounded-control border border-input bg-background px-3 py-2 text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    id={key}
+                    aria-label={label}
+                    aria-describedby={`${key}-count`}
+                    aria-invalid={state.guidance[key].length > 4000}
+                    value={state.guidance[key]}
+                    disabled={busy === 'send'}
+                    maxLength={4000}
+                    rows={4}
+                    onChange={(event) =>
+                      state.changeGuidance(key, event.target.value)
+                    }
+                  />
+                  <p
+                    id={`${key}-count`}
+                    className="text-small text-muted-foreground"
+                  >
+                    {state.guidance[key].length.toLocaleString('ko-KR')} /
+                    4,000자
+                  </p>
+                </Field>
+              ))}
+            </div>
+          </section>
+          {state.needsRefresh && preview === null ? (
+            <p role="status" className="text-small text-muted-foreground">
+              현재 안내와 대상으로 다시 미리본 뒤 보낼 수 있습니다.
+            </p>
+          ) : null}
+          <DeadlinePreviewBodies preview={preview} />
           {result ? (
             <Alert>
               <BellRing aria-hidden="true" />
-              <AlertTitle>{result.sentCount}명에게 보냈습니다.</AlertTitle>
+              <AlertTitle>학생 {result.sentCount}명에게 보냈습니다.</AlertTitle>
               <AlertDescription>
-                중복 생략 {result.duplicateCount}명 · 발송 실패{' '}
-                {result.failedCount}명
+                학생 중복 생략 {result.duplicateCount}명 · 학생 발송 실패{' '}
+                {result.failedCount}명. 교직원 발송 결과는 이 수에 포함되지
+                않습니다.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -155,57 +123,36 @@ export function ProgramDeadlineControl({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy !== null || state.invalidGuidance}
+              onClick={() => void state.loadPreview()}
+            >
+              <Eye aria-hidden="true" />
+              {busy === 'preview'
+                ? '계산 중…'
+                : state.needsRefresh || preview !== null
+                  ? '다시 미리보기'
+                  : '발송 대상 미리보기'}
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                preview === null ||
+                busy !== null ||
+                state.invalidGuidance ||
+                preview.recipientCount + preview.staffRecipientCount === 0
+              }
+              onClick={() => void state.send()}
+            >
+              <Send aria-hidden="true" />
+              {busy === 'send' ? '보내는 중…' : '안내 보내기'}
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>
   );
-}
-
-function DeadlinePreviewCard({
-  preview,
-}: {
-  readonly preview: ProgramDeadlinePreview;
-}) {
-  const facts = [
-    ['발송 가능', preview.recipientCount, '명'],
-    ['수신 거부', preview.optedOutCount, '명'],
-    ['비활성', preview.inactiveCount, '명'],
-    ['이메일 없음', preview.noEmailCount, '명'],
-    ['미제출 신청', preview.applicationCount, '건'],
-    ['대상 마일스톤', preview.milestoneCount, '개'],
-    ['교직원 요약 수신', preview.staffRecipientCount, '명'],
-  ] as const;
-  return (
-    <Card>
-      <CardContent className="pt-card">
-        <dl className="grid grid-cols-2 gap-4 text-small lg:grid-cols-3">
-          {facts.map(([label, count, unit]) => (
-            <div
-              key={label}
-              className="grid gap-1"
-              aria-label={`${label} ${count}${unit}`}
-            >
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="font-semibold">
-                {count}
-                {unit}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-4 text-small text-muted-foreground">
-          미리보기는 10분 동안 유효하며, 대상이 바뀌면 다시 계산해야 합니다.
-          미제출 팀 목록을 담은 교직원 요약은 「알림 보내기」를 눌렀을 때만 함께
-          나갑니다.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function deadlineErrorMessage(error: unknown): string {
-  if (error instanceof ApiError && error.problem.status === 409) {
-    return '발송 대상이 바뀌었거나 미리보기가 만료되었습니다. 다시 미리보세요.';
-  }
-  return '잠시 후 다시 시도해 주세요.';
 }
