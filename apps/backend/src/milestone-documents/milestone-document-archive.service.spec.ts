@@ -246,7 +246,10 @@ function buildService(
     storage,
   } = buildStorage(storageOverrides);
   return {
-    service: new MilestoneDocumentArchiveService(repository, storage),
+    service: new MilestoneDocumentArchiveService(repository, storage, {
+      findProgram: jest.fn(),
+      findApprovedTeams: jest.fn(),
+    }),
     repositoryMocks,
     storageMocks,
     storageState: state,

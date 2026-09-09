@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 import { normalizeMultipartFileName } from '../common/multipart-file-name';
-import { isAllowedSubmissionFileType } from '../submissions/submission-file-content-type';
 import { sanitizeSubmissionFileOriginalName } from '../submissions/submission-file-name';
-import { hasValidSubmissionFileSignature } from '../submissions/submission-file-signature';
+import { hasValidSubmissionTemplateSignature } from '../submissions/submission-template-file-policy';
 import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 import {
@@ -43,10 +42,7 @@ export async function validateProgramAuthoringUpload(
   const originalFileName = sanitizeSubmissionFileOriginalName(
     normalizeMultipartFileName(file.originalname),
   );
-  if (
-    !isAllowedSubmissionFileType(originalFileName) ||
-    !hasValidSubmissionFileSignature(file.buffer, originalFileName)
-  ) {
+  if (!hasValidSubmissionTemplateSignature(file.buffer, originalFileName)) {
     throw new ProgramAuthoringUploadError(
       PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
     );

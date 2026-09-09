@@ -205,8 +205,8 @@ describe('authenticated milestone document list filename contract', () => {
     expect(body.fileUpload).toEqual({
       maxBytes: 5 * 1024 * 1024,
       maxLabel: '5 MB',
-      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+      accept: '.pdf,.hwp,.zip',
+      formatLabel: 'PDF, HWP, ZIP',
     });
     expect(serialized).not.toContain('storageKey');
     expect(serialized).not.toContain('private/object-key');

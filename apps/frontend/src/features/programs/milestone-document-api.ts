@@ -119,7 +119,7 @@ export interface MilestoneDocumentUploadPolicy {
   readonly maxLabel: string;
   /** `<input type="file" accept>`에 그대로 넣는 값. */
   readonly accept: string;
-  /** 「PDF, HWP, JPG, PNG, ZIP」 */
+  /** 「PDF, HWP, ZIP」 */
   readonly formatLabel: string;
 }
 

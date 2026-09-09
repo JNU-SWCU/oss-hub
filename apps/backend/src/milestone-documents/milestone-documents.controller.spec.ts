@@ -330,8 +330,8 @@ it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', asy
     fileUpload: {
       maxBytes: 5 * 1024 * 1024,
       maxLabel: '5 MB',
-      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+      accept: '.pdf,.hwp,.zip',
+      formatLabel: 'PDF, HWP, ZIP',
     },
   });
   expect(listForViewer).toHaveBeenCalledWith(

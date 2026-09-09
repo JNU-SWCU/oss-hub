@@ -2,6 +2,7 @@ import { Check, Pencil, RefreshCw, Trash2, X } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { formatFileSize } from '@/lib/format-file-size';
 import {
   Tooltip,
   TooltipContent,
@@ -64,6 +65,7 @@ export function ProgramAuthoringSubmissionItem({
   const [editingName, setEditingName] = useState(false);
   const [originalName, setOriginalName] = useState<string | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const fileErrorId = `${milestoneId}-${requirement.id}-file-error`;
   const selectedFile = requirement.selectedFile ?? requirement.templateFile;
   const nameError =
     requirement.name.trim() === ''
@@ -200,6 +202,8 @@ export function ProgramAuthoringSubmissionItem({
                 ref={fileInputRef}
                 className="sr-only"
                 aria-label={uploadLabel}
+                aria-invalid={selectionError !== null}
+                aria-describedby={selectionError ? fileErrorId : undefined}
                 type="file"
                 accept={fileUpload?.accept ?? '.pdf,.hwp,.jpg,.jpeg,.png,.zip'}
                 onChange={(event) => {
@@ -228,7 +232,11 @@ export function ProgramAuthoringSubmissionItem({
           )}
         </div>
         {selectionError || error ? (
-          <p role="alert" className="col-start-2 text-small text-destructive">
+          <p
+            id={fileErrorId}
+            role="alert"
+            className="col-start-2 text-small text-destructive"
+          >
             {selectionError ?? error}
           </p>
         ) : null}
@@ -265,9 +273,4 @@ function IconAction({
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   );
-}
-
-function formatFileSize(size: number): string {
-  const mib = size >= 1024 * 1024;
-  return `${(size / (mib ? 1024 * 1024 : 1024)).toFixed(mib ? 1 : 0)} ${mib ? 'MiB' : 'KiB'}`;
 }

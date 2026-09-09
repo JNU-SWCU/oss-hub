@@ -47,8 +47,8 @@ import {
 const UPLOAD_POLICY: MilestoneDocumentUploadPolicy = {
   maxBytes: 5 * 1024 * 1024,
   maxLabel: '5 MB',
-  accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-  formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+  accept: '.pdf,.hwp,.zip',
+  formatLabel: 'PDF, HWP, ZIP',
 };
 
 /** 목록 응답 봉투 — 항목 배열과 업로드 규칙 한 벌. */

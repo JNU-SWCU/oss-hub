@@ -6,6 +6,7 @@ import { SubmissionChecklistPage } from '@/features/submissions/submission-check
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
 import { programDocumentsHref } from '@/lib/program-route';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
+import { ProgramDocumentArchivePanel } from '@/features/programs/program-document-archive-panel';
 
 function withMilestoneQuery(
   programId: string,
@@ -30,20 +31,23 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
 
   if (session.hasStaffAccess) {
     return (
-      <SubmissionMatrixScreen
-        programId={programId}
-        selectedMilestoneId={selectedMilestoneId}
-        onSelectMilestone={(milestoneId) => {
-          router.replace(
-            withMilestoneQuery(
-              programId,
-              new URLSearchParams(searchParams.toString()),
-              milestoneId,
-            ),
-            { scroll: false },
-          );
-        }}
-      />
+      <>
+        <ProgramDocumentArchivePanel key={programId} programId={programId} />
+        <SubmissionMatrixScreen
+          programId={programId}
+          selectedMilestoneId={selectedMilestoneId}
+          onSelectMilestone={(milestoneId) => {
+            router.replace(
+              withMilestoneQuery(
+                programId,
+                new URLSearchParams(searchParams.toString()),
+                milestoneId,
+              ),
+              { scroll: false },
+            );
+          }}
+        />
+      </>
     );
   }
 

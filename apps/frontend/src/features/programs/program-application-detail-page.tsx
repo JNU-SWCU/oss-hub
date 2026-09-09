@@ -28,6 +28,7 @@ import {
   displayAnswerText,
   displayApplicantName,
   formatSubmittedAt,
+  isApplicationRevertBlocked,
   participationLabel,
   staleApplicationDecisionTitle,
 } from './application-presentation';
@@ -338,6 +339,8 @@ export function ProgramApplicationDetailPage({
   const decidable = application.status === 'SUBMITTED';
   const revertable =
     application.status === 'APPROVED' || application.status === 'REJECTED';
+  const revertBlocked = isApplicationRevertBlocked(application);
+  const revertBlockedReasonId = `${applicationDecisionTriggerId('REVERT')}-reason`;
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
@@ -496,14 +499,28 @@ export function ProgramApplicationDetailPage({
           </>
         ) : null}
         {revertable ? (
-          <Button
-            id={applicationDecisionTriggerId('REVERT')}
-            variant="ghost"
-            disabled={busy}
-            onClick={() => openDecisionDialog('REVERT')}
-          >
-            검토 대기로
-          </Button>
+          <div className="flex max-w-full flex-col items-end gap-2">
+            <Button
+              id={applicationDecisionTriggerId('REVERT')}
+              variant="ghost"
+              disabled={busy || revertBlocked}
+              aria-describedby={
+                revertBlocked ? revertBlockedReasonId : undefined
+              }
+              onClick={() => openDecisionDialog('REVERT')}
+            >
+              검토 대기로
+            </Button>
+            {revertBlocked ? (
+              <p
+                id={revertBlockedReasonId}
+                tabIndex={-1}
+                className="break-keep text-right text-small text-muted-foreground"
+              >
+                저장소가 생성되어 승인을 되돌릴 수 없습니다.
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
