@@ -97,7 +97,8 @@ export function SignupInviteView() {
             >
               GitHub에서 로그아웃<span className="sr-only"> (새 탭)</span>
             </a>
-            한 뒤 이 탭에서 다시 로그인해 주세요.
+            한 뒤 이 탭에서 다시{' '}
+            <span className="whitespace-nowrap">로그인해 주세요.</span>
           </p>
         </details>
       </div>
