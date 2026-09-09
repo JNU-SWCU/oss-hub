@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
+import { ApiError } from '@/lib/api-client';
 import {
   createAuthoringProgram,
   deleteAuthoringUpload,
+  getAuthoringUploadPolicy,
   uploadAuthoringFile,
 } from './program-authoring-api';
 import { ProgramAuthoringConfirmationDialog } from './program-authoring-confirmation-dialog';
@@ -54,6 +58,28 @@ export function ProgramCreationPage({
   const [serverError, setServerError] = useState<string | null>(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [fileUpload, setFileUpload] = useState<SubmissionUploadLimit | null>(
+    null,
+  );
+  const [policyFailed, setPolicyFailed] = useState(false);
+  const loadPolicy = useCallback(async () => {
+    setPolicyFailed(false);
+    try {
+      const response = await getAuthoringUploadPolicy();
+      setFileUpload(response.fileUpload);
+    } catch (error: unknown) {
+      if (
+        !(error instanceof ApiError) &&
+        !(error instanceof TypeError) &&
+        !(error instanceof SyntaxError)
+      )
+        throw error;
+      setPolicyFailed(true);
+    }
+  }, []);
+  useEffect(() => {
+    void loadPolicy();
+  }, [loadPolicy]);
   const filesRef = useRef(new Map<string, File>());
   const runtimeRef = useRef(createProgramSubmissionRuntime());
   const stepRegionRef = useRef<HTMLDivElement>(null);
@@ -195,6 +221,28 @@ export function ProgramCreationPage({
     }
   };
 
+  if (fileUpload === null) {
+    return policyFailed ? (
+      <Alert variant="destructive">
+        <AlertTitle>파일 업로드 제한을 불러오지 못했습니다.</AlertTitle>
+        <AlertDescription>
+          <p>프로그램 작성을 시작하려면 다시 불러와 주세요.</p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void loadPolicy()}
+          >
+            다시 불러오기
+          </Button>
+        </AlertDescription>
+      </Alert>
+    ) : (
+      <Alert role="status" aria-busy="true">
+        <AlertTitle>파일 업로드 제한 불러오는 중</AlertTitle>
+      </Alert>
+    );
+  }
+
   return (
     <ProgramAuthoringShell
       currentStep={state.currentStep}
@@ -206,6 +254,7 @@ export function ProgramCreationPage({
         className="grid gap-8 outline-none"
       >
         <ProgramAuthoringStepContent
+          fileUpload={fileUpload}
           step={state.currentStep}
           state={state}
           issues={issues}

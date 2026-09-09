@@ -1,4 +1,5 @@
 <!-- 이 형식의 원본은 skills/submit-pr-evidence/SKILL.md다 — PR을 열기 전에 그 스킬 절차를 먼저 수행한다. -->
+<!-- 공통 글쓰기 원칙: [readability.md](../skills/submit-pr-evidence/references/readability.md). -->
 
 Closes #<번호>
 <!-- 티켓이 없으면 이 줄을 `티켓 없음 — <이유 한 줄>`로 바꾼다. -->

@@ -24,8 +24,10 @@ import {
 import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
 import { formatKoreanDate, timePart } from './program-schedule-range-selection';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 
 export function ProgramAuthoringMilestoneStep({
+  fileUpload,
   state,
   issues,
   dispatch,
@@ -36,6 +38,7 @@ export function ProgramAuthoringMilestoneStep({
   onMilestoneEditStart,
   onMilestoneSave,
 }: {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly state: ProgramAuthoringState;
   readonly issues: readonly ProgramAuthoringIssue[];
   readonly dispatch: (action: ProgramAuthoringAction) => void;
@@ -267,6 +270,7 @@ export function ProgramAuthoringMilestoneStep({
       </section>
       {milestone && editing ? (
         <ProgramAuthoringMilestoneDialog
+          fileUpload={fileUpload}
           milestone={milestone}
           operationStartAt={state.operationStartAt}
           operationEndAt={state.operationEndAt}
