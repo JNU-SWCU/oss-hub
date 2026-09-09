@@ -45,20 +45,6 @@ import type { ExternalCollectionStatus } from '../types';
  * 대상은 위 두 경로로만 채워짐, `lastSweep`의 유무)만 단정하고, 0인 원인은
  * 단정하지 않는다.
  */
-const EXTERNAL_EMPTY_TITLE = '탐색된 학생 개인 GitHub 저장소가 아직 없습니다';
-
-// lastSweep이 non-null이면(sweep이 최소 한 번은 끝났으면) 파이프라인은 정상
-// 실행 중이라고 말할 근거가 있다 — 대상 0개로 끝났을 뿐이다.
-const EXTERNAL_EMPTY_DESCRIPTION_SWEEP_RAN =
-  '학생 개인 공개 GitHub 저장소를 읽어 오는 수집 파이프라인은 조직 수집과 함께 매시 정각 자동으로 실행되고 있습니다. 이 파이프라인이 처리할 저장소 목록은 두 경로로 채워집니다 — 학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택해 저장소 주소를 입력하고 그 신청이 승인되거나(단, 프로그램 설정의 「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다), 관리자가 학생별로 저장소 탐색을 실행하는 경우입니다. 현재 수집 대상 저장소가 0개라 매시 수집도 처리할 저장소 없이 끝나고 있습니다. 위 두 경로 중 하나로 저장소가 등록되면 다음 수집 주기부터 값이 채워집니다.';
-
-// lastSweep이 null이면 sweep이 여태 단 한 번도 끝난 적이 없다는 뜻이다
-// (system-status-response.dto.ts 참고) — 이때는 "자동으로 실행되고 있다"고
-// 단정할 근거가 없다. 스케줄러가 아예 안 도는 것인지 확인이 먼저 필요하다는
-// 사실을 그대로 안내한다.
-const EXTERNAL_EMPTY_DESCRIPTION_NEVER_SWEPT =
-  '학생 개인 공개 GitHub 저장소를 읽어 오는 수집 파이프라인이 아직 단 한 번도 완료된 적이 없습니다. 이 파이프라인이 처리할 저장소 목록은 두 경로로 채워집니다 — 학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택해 저장소 주소를 입력하고 그 신청이 승인되거나(단, 프로그램 설정의 「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다), 관리자가 학생별로 저장소 탐색을 실행하는 경우입니다. 현재 수집 대상 저장소가 0개라 실행되더라도 처리할 저장소가 없겠지만, 그보다 먼저 스케줄러가 정상 실행 중인지와 런타임 설정이 올바른지부터 확인이 필요합니다. 위 두 경로 중 하나로 저장소가 등록되고 스케줄러가 정상 동작하면 값이 채워집니다.';
-
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -84,15 +70,38 @@ export function ExternalCollectionSection({
         meta={`${status.trackedRepositoryCount}개 추적 중`}
       />
       {isEmpty ? (
-        <EmptyState
-          icon={<Users className="size-8" />}
-          title={EXTERNAL_EMPTY_TITLE}
-          description={
-            status.lastSweep
-              ? EXTERNAL_EMPTY_DESCRIPTION_SWEEP_RAN
-              : EXTERNAL_EMPTY_DESCRIPTION_NEVER_SWEPT
-          }
-        />
+        <div className="grid gap-6 rounded-card border border-dashed border-border p-6">
+          <EmptyState
+            className="border-0 p-0"
+            icon={<Users className="size-8" />}
+            title="수집 대상 학생 개인 저장소가 없습니다"
+            description={
+              status.lastSweep
+                ? '최근 수집은 완료됐지만 대상 저장소가 0개입니다. 저장소를 등록하면 다음 수집 주기부터 집계합니다.'
+                : '완료된 수집 기록도 없습니다. 먼저 스케줄러 실행과 런타임 설정을 확인해 주세요.'
+            }
+          />
+          <div className="grid gap-2 text-sm">
+            <p className="font-medium">수집 대상 추가 방법</p>
+            <ul className="list-disc space-y-3 pl-5 text-muted-foreground">
+              <li>
+                학생이 프로그램 신청에서 ‘내 저장소 연결하기’를 선택해 공개
+                저장소 주소를 입력하고, 운영자가 신청을 승인합니다.
+                <span className="mt-1 block">
+                  프로그램의 ‘신청 승인 시 GitHub 저장소 자동 생성’ 설정이 켜져
+                  있어야 합니다. 꺼져 있으면 승인해도 수집 대상에 추가되지
+                  않습니다.
+                </span>
+              </li>
+              <li>관리자가 학생별로 저장소 탐색을 실행합니다.</li>
+            </ul>
+            <p className="text-muted-foreground">
+              외부 수집은 조직 수집과 함께 매시 정각 실행하도록 설정되어
+              있습니다. 대상 저장소가 등록되고 스케줄러가 정상 동작하면 수집
+              결과가 표시됩니다.
+            </p>
+          </div>
+        </div>
       ) : (
         <Card>
           <CardHeader>
@@ -123,14 +132,14 @@ export function ExternalCollectionSection({
                 <>
                   <div>
                     <dt className="text-muted-foreground">
-                      최근 external sweep 종료
+                      최근 외부 수집 실행 종료
                     </dt>
                     <dd className="mt-1 font-medium">
                       {formatTimestamp(status.lastSweep.sweepFinishedAt)}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">최근 sweep 처리</dt>
+                    <dt className="text-muted-foreground">최근 실행 처리</dt>
                     <dd className="mt-1 font-medium">
                       저장소 {status.lastSweep.processedRepositoryCount}/
                       {status.lastSweep.attemptedRepositoryCount}
@@ -146,7 +155,7 @@ export function ExternalCollectionSection({
                 // 잘 되고 있는데 표시할 게 없다"로 오독될 수 있어 명시한다.
                 <div>
                   <dt className="text-muted-foreground">
-                    최근 external sweep 종료
+                    최근 외부 수집 실행 종료
                   </dt>
                   <dd className="mt-1 font-medium">아직 완료된 수집 없음</dd>
                 </div>

@@ -117,7 +117,7 @@ function statusPresentation(
         // 알림을 보내지 않으므로, 그 사실을 숨기면 사용자는 알림을 기다리며
         // 무한정 대기하게 된다. 확인 방법을 명시하는 것이 정직하고 실행 가능하다.
         description:
-          '사업단 관리자가 요청을 확인한 뒤 승인합니다. 승인 결과는 별도 알림 없이 이 화면에 반영되므로, 잠시 후 다시 방문해 확인해 주세요. 승인이 완료되면 프로그램 개설과 운영 기능을 사용할 수 있습니다.',
+          '사업단 관리자가 승인하면 프로그램을 개설·운영할 수 있습니다. 별도 알림은 보내지 않으니 이 화면에서 승인 상태를 확인해 주세요.',
         badge: <StatusBadge variant="pending">승인 대기</StatusBadge>,
       };
     case 'REJECTED':
@@ -156,6 +156,7 @@ export function StaffAccessRequestStatusView({
   return (
     <div data-status={request.status}>
       <StatusMessagePage
+        className="break-keep"
         icon={presentation.icon}
         title={presentation.title}
         description={presentation.description}

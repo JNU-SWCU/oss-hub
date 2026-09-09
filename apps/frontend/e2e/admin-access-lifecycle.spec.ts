@@ -118,7 +118,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
 
     // When: 관리자가 합성 사유를 적어 반려한다.
     await chooseMutation(adminPage, '요청 반려');
-    await adminPage.getByLabel('거절 사유').fill(REJECTION_REASON);
+    await adminPage.getByLabel('반려 사유').fill(REJECTION_REASON);
     await adminPage.getByRole('button', { name: '반려 확정' }).click();
     await expect(
       adminPage.getByRole('heading', { name: '요청 이력' }).locator('..'),

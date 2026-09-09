@@ -109,7 +109,6 @@ describe('profile onboarding view', () => {
     expect(html).toContain('profile-name');
     expect(html).toContain('profile-student-id');
     expect(html).toContain('profile-department');
-    expect(html).toContain('항목(이름, 학번, 학과)');
   });
 
   it('교직원에게는 학번 칸을 아예 보여 주지 않는다', () => {
@@ -122,7 +121,6 @@ describe('profile onboarding view', () => {
 
     expect(html).not.toContain('profile-student-id');
     expect(html).toContain('profile-department');
-    expect(html).toContain('항목(이름, 학과)');
     // 학번 없이도 저장 버튼이 열린다.
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });

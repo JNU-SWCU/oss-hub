@@ -82,8 +82,7 @@ export function ParticipationPanel({
       <CardHeader>
         <CardTitle>참여 — 프로그램별</CardTitle>
         <CardDescription>
-          승인된 신청의 신청자와 그 팀 멤버를 unique로 셉니다. 랭킹 합계와는
-          다른 축입니다.
+          현재 승인된 신청자와 팀원을 프로그램별로 중복 없이 셉니다.
         </CardDescription>
       </CardHeader>
       <CardContent>

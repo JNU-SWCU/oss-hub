@@ -42,10 +42,9 @@ export function ActivityPanel({
       <CardHeader>
         <CardTitle>활성 — 랭킹 지표</CardTitle>
         <CardDescription>
-          공개 랭킹과 같은 commit · PR · issue · repo · star 합입니다. Star는
-          해당 연도가 아니라 계정 전체 누적입니다. 프로그램 신청은 넣지
-          않습니다. 학과 미등록은 별도 집계로 공개하며 직접 비교 막대에는 섞지
-          않습니다. 막대는 색상 외에도 범례와 좌우 위치로 구분합니다.
+          Commit · PR · Issue · Repo · Star를 합산합니다. Star는 계정 전체
+          누적이며 프로그램 신청은 포함하지 않습니다. 학과 미등록은 별도로
+          집계하며 아래 비교 막대에서는 제외합니다.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -127,7 +126,9 @@ export function DepartmentPanel({
       <CardHeader>
         <CardTitle>학과별 활성</CardTitle>
         <CardDescription>
-          가입 프로필 학과 문자열 기준입니다. 랭킹 합계가 큰 순입니다.
+          현재 프로필에 등록된 학과별로, 활동 합계가 큰 순서입니다. Commit · PR
+          · Issue · Repo · Star를 합산하며, Star는 계정 전체 누적입니다.
+          프로그램 신청은 활동 합계에 포함하지 않습니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">

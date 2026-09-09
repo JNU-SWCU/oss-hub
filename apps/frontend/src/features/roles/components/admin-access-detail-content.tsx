@@ -200,10 +200,19 @@ export function AdminAccessDetailContentForState({
   readonly onProfileSaved?: () => void;
 }) {
   if (state.kind === 'loading')
-    return <AdminAccessDetailLoading layoutContext={layoutContext} />;
+    return (
+      <AdminAccessDetailLoading
+        layoutContext={layoutContext}
+        workspace={workspace}
+      />
+    );
   if (state.kind === 'error')
     return (
-      <AdminAccessDetailError onRetry={onRetry} layoutContext={layoutContext} />
+      <AdminAccessDetailError
+        onRetry={onRetry}
+        layoutContext={layoutContext}
+        workspace={workspace}
+      />
     );
   if (state.kind === 'not-found') {
     return (
