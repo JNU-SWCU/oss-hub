@@ -67,6 +67,9 @@ class FakeSubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
     this.submissionCalls.push(applicationIds);
     return Promise.resolve(this.fixtures.submissions ?? []);
   }
+  findDocumentFirstSubmissions() {
+    return Promise.resolve([]);
+  }
 }
 
 function query(
@@ -113,11 +116,13 @@ describe('SubmissionMatrixService', () => {
           id: 'milestone-1',
           name: '기획서',
           dueAt: new Date('2026-08-20T00:00:00.000Z'),
+          requiredDocumentIds: [],
         },
         {
           id: 'milestone-2',
           name: '최종 제출',
           dueAt: new Date('2026-09-20T00:00:00.000Z'),
+          requiredDocumentIds: [],
         },
       ],
       applications: [
@@ -182,6 +187,7 @@ describe('SubmissionMatrixService', () => {
               status: SubmissionStatus.CHANGES_REQUESTED,
               submittedAt: submittedAt.toISOString(),
               reviewUrl: `/programs/${PROGRAM_ID}/submissions/submission-1/review`,
+              deliveryStatus: 'NO_REQUIRED_ITEMS',
             },
             {
               milestoneId: 'milestone-2',
@@ -190,6 +196,7 @@ describe('SubmissionMatrixService', () => {
               status: 'NOT_SUBMITTED',
               submittedAt: null,
               reviewUrl: null,
+              deliveryStatus: 'NO_REQUIRED_ITEMS',
             },
           ],
         },
@@ -206,6 +213,7 @@ describe('SubmissionMatrixService', () => {
               status: 'NOT_SUBMITTED',
               submittedAt: null,
               reviewUrl: null,
+              deliveryStatus: 'NO_REQUIRED_ITEMS',
             },
             {
               milestoneId: 'milestone-2',
@@ -214,6 +222,7 @@ describe('SubmissionMatrixService', () => {
               status: 'NOT_SUBMITTED',
               submittedAt: null,
               reviewUrl: null,
+              deliveryStatus: 'NO_REQUIRED_ITEMS',
             },
           ],
         },

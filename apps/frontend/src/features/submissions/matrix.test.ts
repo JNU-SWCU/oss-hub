@@ -11,7 +11,6 @@ import {
   matrixEmptyKind,
   matrixPageStats,
   matrixRowHasEmptyCell,
-  matrixRowIsZeroSubmission,
   matrixRowTitle,
   matrixTotalPages,
   notSubmittedDeadline,
@@ -23,6 +22,7 @@ const submittedCell: MatrixCell = {
   submissionId: 'submission-existing',
   revision: 2,
   status: 'SUBMITTED',
+  deliveryStatus: 'COMPLETE',
   submittedAt: '2026-08-19T10:00:00+09:00',
   reviewUrl: '/programs/program-1/submissions/submission-existing/review',
 };
@@ -97,6 +97,7 @@ describe('cellForMilestone', () => {
       submissionId: null,
       revision: null,
       status: 'NOT_SUBMITTED',
+      deliveryStatus: 'MISSING',
       submittedAt: null,
       reviewUrl: null,
     });
@@ -192,7 +193,11 @@ describe('isLateSubmission', () => {
   it('제출 시각이 마감 이후면 지각이다', () => {
     expect(
       isLateSubmission(
-        { ...submittedCell, submittedAt: '2026-08-20T00:00:01+09:00' },
+        {
+          ...submittedCell,
+          submittedAt: '2026-08-20T00:00:01+09:00',
+          deliveryStatus: 'LATE',
+        },
         milestone,
       ),
     ).toBe(true);
@@ -213,6 +218,7 @@ describe('isLateSubmission', () => {
       submissionId: null,
       revision: null,
       status: 'NOT_SUBMITTED',
+      deliveryStatus: 'MISSING',
       submittedAt: null,
       reviewUrl: null,
     };
@@ -231,6 +237,7 @@ describe('matrixCellDisplay', () => {
     submissionId: null,
     revision: null,
     status: 'NOT_SUBMITTED',
+    deliveryStatus: 'MISSING',
     submittedAt: null,
     reviewUrl: null,
   };
@@ -251,7 +258,7 @@ describe('matrixCellDisplay', () => {
     ).toBe('REJECTED');
   });
 
-  it('검토 전(SUBMITTED) 셀만 마감 초과 여부로 지각 제출을 가른다', () => {
+  it('검토 배지는 지각 제출 여부와 별도로 검토 대기를 표시한다', () => {
     // Given — 마감 전 제출 → 검토 대기.
     expect(
       matrixCellDisplay(
@@ -271,10 +278,11 @@ describe('matrixCellDisplay', () => {
           ...submittedCell,
           status: 'SUBMITTED',
           submittedAt: '2026-08-20T00:00:01+09:00',
+          deliveryStatus: 'LATE',
         },
         milestone,
       ),
-    ).toBe('LATE');
+    ).toBe('SUBMITTED');
   });
 
   it('이미 검토를 거친 승인·반려는 지각 여부와 무관하게 판정 그대로 보여준다', () => {
@@ -283,6 +291,7 @@ describe('matrixCellDisplay', () => {
       ...submittedCell,
       status: 'APPROVED',
       submittedAt: '2026-08-20T00:00:01+09:00',
+      deliveryStatus: 'LATE',
     };
     expect(matrixCellDisplay(lateApproved, milestone)).toBe('APPROVED');
   });
@@ -307,7 +316,13 @@ describe('matrixPageStats', () => {
     //        personalRow는 두 마일스톤 모두 미제출(한 장도 안 낸 팀).
     const late: MatrixRow = {
       ...teamRow,
-      cells: [{ ...submittedCell, submittedAt: '2026-08-20T09:00:00+09:00' }],
+      cells: [
+        {
+          ...submittedCell,
+          submittedAt: '2026-08-20T09:00:00+09:00',
+          deliveryStatus: 'LATE',
+        },
+      ],
     };
 
     // When
@@ -318,7 +333,7 @@ describe('matrixPageStats', () => {
       totalCells: 4,
       filledCells: 1,
       emptyCells: 3,
-      zeroSubmissionRows: 1,
+      noRequiredCells: 0,
       lateCells: 1,
     });
   });
@@ -328,13 +343,13 @@ describe('matrixPageStats', () => {
       totalCells: 0,
       filledCells: 0,
       emptyCells: 0,
-      zeroSubmissionRows: 0,
+      noRequiredCells: 0,
       lateCells: 0,
     });
   });
 });
 
-describe('matrixRowHasEmptyCell / matrixRowIsZeroSubmission', () => {
+describe('matrixRowHasEmptyCell', () => {
   const milestones: MatrixMilestone[] = [
     {
       id: 'milestone-plan',
@@ -350,12 +365,10 @@ describe('matrixRowHasEmptyCell / matrixRowIsZeroSubmission', () => {
 
   it('일부만 제출한 팀은 빈 칸이 있지만 한 장도 안 낸 팀은 아니다', () => {
     expect(matrixRowHasEmptyCell(teamRow, milestones)).toBe(true);
-    expect(matrixRowIsZeroSubmission(teamRow, milestones)).toBe(false);
   });
 
   it('전부 미제출인 팀은 빈 칸도 있고 한 장도 안 낸 팀이기도 하다', () => {
     expect(matrixRowHasEmptyCell(personalRow, milestones)).toBe(true);
-    expect(matrixRowIsZeroSubmission(personalRow, milestones)).toBe(true);
   });
 
   it('모든 마일스톤을 제출한 팀은 빈 칸이 없다', () => {
@@ -367,7 +380,6 @@ describe('matrixRowHasEmptyCell / matrixRowIsZeroSubmission', () => {
       ],
     };
     expect(matrixRowHasEmptyCell(fullRow, milestones)).toBe(false);
-    expect(matrixRowIsZeroSubmission(fullRow, milestones)).toBe(false);
   });
 });
 
@@ -390,14 +402,14 @@ describe('applyMatrixQuickFilter', () => {
     expect(applyMatrixQuickFilter(rows, milestones, 'ALL')).toEqual(rows);
   });
 
-  it('HAS_EMPTY는 빈 칸이 하나라도 있는 행만 남긴다', () => {
-    expect(applyMatrixQuickFilter(rows, milestones, 'HAS_EMPTY')).toEqual(rows);
+  it('MISSING은 빈 칸이 하나라도 있는 행만 남긴다', () => {
+    expect(applyMatrixQuickFilter(rows, milestones, 'MISSING')).toEqual(rows);
   });
 
-  it('ZERO_SUBMISSION은 전부 미제출인 행만 남긴다', () => {
-    expect(applyMatrixQuickFilter(rows, milestones, 'ZERO_SUBMISSION')).toEqual(
-      [personalRow],
-    );
+  it('COMPLETE는 현재 보고 있는 단계의 필수 서류 제출 완료 행만 남긴다', () => {
+    expect(
+      applyMatrixQuickFilter(rows, milestones.slice(0, 1), 'COMPLETE'),
+    ).toEqual([teamRow]);
   });
 });
 

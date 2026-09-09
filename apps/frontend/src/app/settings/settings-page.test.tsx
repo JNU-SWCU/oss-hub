@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/settings',
   useRouter: () => ({
     replace: mocks.replace,
     push: vi.fn(),
@@ -265,7 +266,7 @@ describe('설정 화면', () => {
 
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(container.querySelector('#settings-name')).toBeNull();
-    expect(container.textContent).toContain('로그인이 필요한 페이지입니다');
+    expect(container.textContent).toContain('로그인이 필요합니다');
   });
 
   // 회귀 방지: 조회 실패를 미배정으로 오인하면, 역할을 모르는 채로 프로필 폼이

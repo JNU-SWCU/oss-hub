@@ -229,6 +229,23 @@ describe('MilestoneRow', () => {
     expect(html).not.toContain('전체 현황');
     expect(html).not.toContain('/programs/program-1/submissions');
   });
+
+  it('교직원 마일스톤에는 마감과 운영자 공지를 구분해 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneRow
+        programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
+        milestone={milestone}
+        viewerRole="STAFF"
+        submissionAccess={access('STAFF')}
+      />,
+    );
+
+    expect(html).toContain('마감 2026년 8월 10일');
+    expect(html).toContain('aria-label="운영자 공지"');
+    expect(html).toContain('PDF 기획서를 제출해 주세요.');
+  });
 });
 
 describe('ActivityPanelBody', () => {
@@ -602,6 +619,22 @@ describe('ProgramDetailPage states', () => {
     expect(html).toContain('/programs/program-1/edit#milestones');
   });
 
+  it('교직원은 제출 항목이 있는 모든 마일스톤을 처음부터 펼쳐 둔다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramMilestones
+        program={{
+          ...programWithoutMilestones,
+          milestones: [
+            { ...milestone, id: 'milestone-1', submissionItemCount: 1 },
+            { ...milestone, id: 'milestone-2', submissionItemCount: 1 },
+          ],
+        }}
+      />,
+    );
+
+    expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(2);
+  });
+
   it('404와 일반 실패를 구분하고 일반 실패에는 재시도를 제공한다', () => {
     const notFound = detailFailure(
       new ApiError({
@@ -770,7 +803,7 @@ describe('MilestoneDocumentSectionBody', () => {
     expect(html).toBe('');
   });
 
-  it('교직원에게는 팀 제출 카운트와 양식 올리기/교체 버튼을 보여준다', () => {
+  it('교직원에게는 팀 제출 카운트를 보이고 양식 관리 컨트롤은 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
         state={{
@@ -795,8 +828,32 @@ describe('MilestoneDocumentSectionBody', () => {
       />,
     );
     expect(html).toContain('2 / 4팀 제출');
-    expect(html).toContain('양식 교체');
+    expect(html).toContain('기획서');
     expect(html).not.toContain('양식 올리기');
+    expect(html).not.toContain('양식 교체');
+    expect(html).not.toContain('type="file"');
+  });
+
+  it('학생에게는 기존 양식 다운로드를 유지한다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentSectionBody
+        state={{
+          kind: 'ready',
+          documents: [buildDocument({ hasTemplateFile: true })],
+          fileUpload: milestoneDocumentUploadPolicy(),
+        }}
+        viewerRole="STUDENT"
+        closed={false}
+        submissionAccess={access('STUDENT', 'APPROVED')}
+        conflictNotice={null}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('양식');
+    expect(html).toContain('target="_blank"');
   });
 
   /**

@@ -22,6 +22,7 @@ import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -61,6 +62,7 @@ describe('authenticated milestone document list filename contract', () => {
     const module = await Test.createTestingModule({
       controllers: [MilestoneDocumentsController],
       providers: [
+        { provide: MilestoneDocumentCollectionService, useValue: {} },
         MilestoneDocumentsRepository,
         MilestoneDocumentsService,
         SessionGuard,
@@ -203,8 +205,8 @@ describe('authenticated milestone document list filename contract', () => {
     expect(body.fileUpload).toEqual({
       maxBytes: 5 * 1024 * 1024,
       maxLabel: '5 MB',
-      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+      accept: '.pdf,.hwp,.zip',
+      formatLabel: 'PDF, HWP, ZIP',
     });
     expect(serialized).not.toContain('storageKey');
     expect(serialized).not.toContain('private/object-key');

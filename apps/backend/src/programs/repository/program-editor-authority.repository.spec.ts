@@ -9,6 +9,7 @@ import { ProgramEditorRepository } from './program-editor.repository';
 describe('ProgramEditorRepository authority', () => {
   it('loads pending staff-role requests with editor authority', async () => {
     const findUnique = jest.fn().mockResolvedValue({
+      id: 'staff-101',
       hasStaffAccess: false,
       hasAdminAccess: false,
       accountStatus: 'ACTIVE',
@@ -27,12 +28,14 @@ describe('ProgramEditorRepository authority', () => {
       store.findUserAuthorityByGithubId(101n),
     );
 
+    expect(result?.id).toBe('staff-101');
     expect(result?.staffAccessRequests).toEqual([
       { status: StaffAccessRequestStatus.PENDING },
     ]);
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 101n },
       select: {
+        id: true,
         hasStaffAccess: true,
         hasAdminAccess: true,
         accountStatus: true,

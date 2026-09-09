@@ -7,6 +7,7 @@ import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import type {
   EditableMilestone,
   EditableProgram,
+  EditableMilestoneEditSnapshot,
   UpdateProgramInput,
   UpsertMilestoneInput,
 } from './api';
@@ -19,6 +20,10 @@ import {
   type ProgramTrackType,
 } from './program-templates';
 import { seoulDateTimeValue } from './seoul-date-time';
+import {
+  toLocalMilestoneDocuments,
+  type LocalMilestoneDocuments,
+} from './milestone-document-editor-flow';
 
 export interface ProgramEditForm {
   readonly name: string;
@@ -79,6 +84,27 @@ export interface ProgramMilestoneForm {
   readonly instructions: string;
 }
 
+export type ProgramMilestoneDraft = {
+  readonly id: string;
+  readonly documents: LocalMilestoneDocuments;
+};
+
+export function toProgramMilestoneDraft(
+  snapshot: EditableMilestoneEditSnapshot,
+): ProgramMilestoneDraft {
+  const milestone = snapshot.milestone;
+  return {
+    id: milestone.id,
+    documents: toLocalMilestoneDocuments(
+      snapshot.documents.map((document) => ({
+        ...document,
+        milestoneId: milestone.id,
+        hasTemplateFile: document.templateFileName !== null,
+      })),
+    ),
+  };
+}
+
 export type ProgramMilestoneField = Exclude<
   keyof ProgramMilestoneForm,
   'id' | 'originalStartAt' | 'originalDueAt'
@@ -112,6 +138,7 @@ export type ProgramMilestoneEditor =
       readonly form: ProgramMilestoneForm;
       readonly initialForm: ProgramMilestoneForm;
       readonly errors: ProgramMilestoneErrors;
+      readonly blocked?: boolean;
     };
 
 export { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
@@ -370,6 +397,8 @@ export function validateMilestoneForm(
   } = {};
   if (form.name.trim() === '') {
     errors.name = '마일스톤 이름을 입력해 주세요.';
+  } else if (form.name.trim().length > 200) {
+    errors.name = '마일스톤 이름은 200자 이하여야 합니다.';
   }
   const startAt = seoulDateTimeValue(form.startAt);
   const dueAt = seoulDateTimeValue(form.dueAt);

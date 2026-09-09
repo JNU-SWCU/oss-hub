@@ -12,7 +12,7 @@ import {
 import { RANKING_VIEWER_CLASSES, parseRankingYearSearchParam } from '../types';
 import { RankingView, type RankingViewState } from './ranking-view';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
 interface RankingScreenProps {
   /** Publishes the page-fetch envelope's nextCycleAt to the product shell. */

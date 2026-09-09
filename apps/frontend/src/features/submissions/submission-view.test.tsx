@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { SubmissionFormView } from './components/submission-form-view';
@@ -12,6 +13,7 @@ import type { SubmissionFormData } from './types';
 const baseData: SubmissionFormData = {
   applicationId: 'application-personal',
   applicationMode: 'PERSONAL',
+  fileUpload: submissionUploadLimit(),
   milestone: {
     id: 'milestone-text',
     name: '최종 제출',
@@ -83,7 +85,8 @@ describe('SubmissionFormView', () => {
     expect(html).toContain('type="file"');
     expect(html).toContain('aria-required="true"');
     expect(html).not.toContain('type="file" required=""');
-    expect(html).toContain('PDF, HWP, JPG, PNG, ZIP · 최대 5 MB');
+    expect(html).toContain('PDF, HWP, ZIP · 최대 5 MB');
+    expect(html).toContain('accept=".pdf,.hwp,.zip"');
     expect(html).toContain('1. 파일 선택');
     expect(html).toContain('2. 선택 확인');
     expect(html).toContain('3. 제출');

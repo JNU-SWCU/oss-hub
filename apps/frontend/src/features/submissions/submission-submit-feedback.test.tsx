@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 // @vitest-environment happy-dom
 
 import { act } from 'react';
@@ -50,6 +51,7 @@ vi.mock('./api', () => ({
 const FILE_FORM: SubmissionFormData = {
   applicationId: 'application-1',
   applicationMode: 'TEAM',
+  fileUpload: submissionUploadLimit(),
   milestone: {
     id: 'milestone-1',
     name: '본선 발표 자료',
@@ -67,6 +69,7 @@ const FILE_FORM: SubmissionFormData = {
 const CHECKLIST: SubmissionChecklist = {
   applicationId: 'application-1',
   applicationMode: 'TEAM',
+  fileUpload: submissionUploadLimit(),
   items: [
     {
       milestoneId: 'milestone-1',
@@ -187,10 +190,32 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
     const alerts = [...document.querySelectorAll('[role="alert"]')].map(
       (node) => node.textContent,
     );
-    expect(alerts).toContain(
-      'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
-    );
+    expect(alerts).toContain('PDF, HWP, ZIP 파일만 제출할 수 있습니다.');
     expect(document.activeElement?.id).toBe('submission-file');
+  });
+
+  it('상한 초과 오류 뒤 정상 파일을 고르면 이전 오류를 지운다', async () => {
+    const oversized = new File(
+      [new Uint8Array(FILE_FORM.fileUpload.maxBytes + 1)],
+      'large.pdf',
+      { type: 'application/pdf' },
+    );
+    await act(async () => pickFile(oversized));
+    await act(async () => clickSubmit());
+    expect(document.body.textContent).toContain('파일은 5 MB 이하여야 합니다.');
+    expect(api.uploads).toBe(0);
+
+    await act(async () =>
+      pickFile(new File(['%PDF'], 'valid.pdf', { type: 'application/pdf' })),
+    );
+    expect(document.body.textContent).toContain('valid.pdf');
+    expect(document.body.textContent).not.toContain(
+      '파일은 5 MB 이하여야 합니다.',
+    );
+    expect(
+      document.querySelector('#submission-file')?.getAttribute('aria-invalid'),
+    ).toBe('false');
+    expect(api.uploads).toBe(0);
   });
 
   it('업로드가 파일 id를 돌려주지 않으면 조용히 멈추지 않고 이유를 말한다', async () => {

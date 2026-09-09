@@ -1,3 +1,4 @@
+import type { DocumentDeliveryStatus } from '@/lib/document-delivery';
 import { apiClient, apiPath } from '@/lib/api-client';
 import type { MilestoneDocumentSubmissionStatus } from './milestone-document-api';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
@@ -171,6 +172,7 @@ export interface MilestoneDocumentCollectionCell {
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */
 export interface MilestoneDocumentCollectionRow {
+  readonly deliveryStatus: DocumentDeliveryStatus;
   readonly applicationId: string;
   readonly teamName: string;
   /** 프로필을 아직 채우지 않은 신청자는 `null`이다 — 대체 표기는 화면이 정한다. */
@@ -189,10 +191,22 @@ export interface MilestoneDocumentCollectionRow {
  * - `ZERO_SUBMISSION` — 한 장도 내지 않은 팀. 필수·선택을 가리지 않는다.
  */
 export type MilestoneDocumentCollectionFilter =
-  'ALL' | 'HAS_MISSING' | 'ZERO_SUBMISSION';
+  | 'ALL'
+  | 'HAS_MISSING'
+  | 'ZERO_SUBMISSION'
+  | 'LATE'
+  | 'COMPLETE'
+  | 'NO_REQUIRED_ITEMS';
 
 export const MILESTONE_DOCUMENT_COLLECTION_FILTERS: readonly MilestoneDocumentCollectionFilter[] =
-  ['ALL', 'HAS_MISSING', 'ZERO_SUBMISSION'];
+  [
+    'ALL',
+    'HAS_MISSING',
+    'LATE',
+    'COMPLETE',
+    'NO_REQUIRED_ITEMS',
+    'ZERO_SUBMISSION',
+  ];
 
 /** 백엔드 기본값과 같은 값(`MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE`). */
 export const MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE = 20;
@@ -229,6 +243,7 @@ export interface MilestoneDocumentCollectionDocumentTotal {
 }
 
 export interface MilestoneDocumentCollection {
+  readonly deliveryCounts: MilestoneDocumentDeliveryCounts;
   readonly milestone: MilestoneDocumentCollectionMilestone;
   readonly documents: readonly MilestoneDocumentCollectionDocument[];
   /** ⚠ **페이지 한 장 분량**이다(기본 20건). 전체를 손에 쥔 것처럼 세면 틀린다. */
@@ -239,6 +254,13 @@ export interface MilestoneDocumentCollection {
   readonly total: number;
   readonly filterCounts: MilestoneDocumentCollectionFilterCounts;
   readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotal[];
+}
+
+export interface MilestoneDocumentDeliveryCounts {
+  readonly missing: number;
+  readonly late: number;
+  readonly complete: number;
+  readonly noRequiredItems: number;
 }
 
 function documentsPath(milestoneId: string): string {
@@ -252,7 +274,23 @@ export function buildMilestoneDocumentCollectionSearchParams(
   const params = new URLSearchParams();
   params.set('page', String(query.page));
   params.set('pageSize', String(query.pageSize));
-  params.set('filter', query.filter);
+  switch (query.filter) {
+    case 'LATE':
+    case 'COMPLETE':
+    case 'NO_REQUIRED_ITEMS':
+      params.set('filter', 'ALL');
+      params.set('deliveryStatus', query.filter);
+      break;
+    case 'ALL':
+    case 'HAS_MISSING':
+    case 'ZERO_SUBMISSION':
+      params.set('filter', query.filter);
+      break;
+    default: {
+      const exhaustive: never = query.filter;
+      return exhaustive;
+    }
+  }
   return params;
 }
 

@@ -11,6 +11,7 @@ import {
 import {
   fixtureProgramId,
   originHeaders,
+  newApplicationResourceErrors,
   resetProgramAuthoringControl,
 } from './support/program-authoring-ui';
 
@@ -71,11 +72,15 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     await resetProgramAuthoringControl(controlPage);
     const programId = await fixtureProgramId(controlPage);
     const studentPage = await programAuthoringActorPage('student');
-    const foreignPage = await programAuthoringActorPage('foreignStudent');
+    const foreignPage = await programAuthoringActorPage(
+      'foreignStudent',
+      newApplicationResourceErrors(programId),
+    );
 
     await foreignPage.goto(`/programs/${encodeURIComponent(programId)}/apply`);
-    await foreignPage.waitForLoadState('networkidle');
-    await foreignPage.getByLabel('제목 *').fill('private OWN');
+    await foreignPage
+      .getByRole('button', { name: '팀 없이 계속', exact: true })
+      .click();
     await foreignPage
       .getByLabel('요약 *')
       .fill('공개가 아닌 저장소는 연결하지 않는다');
@@ -197,7 +202,10 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     // 외국인 학생의 'private OWN' 신청은 취소되어 Application은 삭제됐지만
     // 그 신청이 만든 1인 팀은 Team.onDelete: Restrict로 남는다 — 여기 살아있는
     // 팀은 그 잔존 팀 1개 + 승인된 학생 본인 신청의 팀 1개, 총 2개다.
-    expectCleanState(state, 1, 1, 2);
+    // The fake sender records one envelope per recipient. Other tests may opt
+    // staff out, so compare with the actual preview while fixing student count.
+    const expectedMailEnvelopes = 1 + eligiblePreview.staffRecipientCount;
+    expectCleanState(state, 1, 1, 2, expectedMailEnvelopes);
     await writeArtifact('failure-statuses.json', {
       eligiblePreview,
       inactivePreview,

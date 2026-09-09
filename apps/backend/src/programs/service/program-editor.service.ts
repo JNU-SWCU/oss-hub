@@ -3,15 +3,31 @@ import { Inject, Injectable } from '@nestjs/common';
 import { addOneCalendarYear } from '../../common/add-one-calendar-year';
 import type { ProblemDetailExtensions } from '../../common/error-code';
 import { DomainException } from '../../common/error-code';
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from '../../milestone-documents/milestone-documents-error-code.enum';
 import type { UpdateProgramRequestDto } from '../dto/update-program-request.dto';
 import type { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
+import type { UpdateMilestoneRequestDto } from '../dto/update-milestone-request.dto';
 import { ProgramEditorRepository } from '../repository/program-editor.repository';
+import {
+  fingerprintProgramMilestoneEdit,
+  preflightProgramMilestoneEditDocuments,
+  ProgramMilestoneEditValidationError,
+} from '../program-milestone-edit';
+import {
+  ProgramAuthoringUploadTokenError,
+  type ProgramAuthoringUploadToken,
+} from '../program-authoring.types';
 import type {
   ProgramAuthority,
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
   ProgramEditorTransactionStore as ReexportedProgramEditorTransactionStore,
   ProgramMilestoneInput,
+  ProgramMilestoneEditView,
+  LockedProgramMilestoneEdit,
 } from '../program-editor.types';
 import {
   PROGRAM_ERROR_CODES,
@@ -239,6 +255,7 @@ export class ProgramEditorService {
     });
   }
 
+  /** EXPAND-only legacy metadata path; see the EXPAND removal ledger. */
   updateMilestone(
     githubId: bigint,
     milestoneId: string,
@@ -257,6 +274,105 @@ export class ProgramEditorService {
           milestone.submissionType,
         ),
       });
+    });
+  }
+
+  getMilestoneEdit(
+    githubId: bigint,
+    milestoneId: string,
+  ): Promise<ProgramMilestoneEditView> {
+    return this.repository.withTransaction(async (store) => {
+      await this.requireEditor(store, githubId);
+      const locked = await store.lockMilestoneEdit(milestoneId);
+      if (locked === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
+      return this.snapshotMilestoneEdit(locked);
+    });
+  }
+
+  updateMilestoneEdit(
+    githubId: bigint,
+    milestoneId: string,
+    input: UpdateMilestoneRequestDto,
+  ): Promise<ProgramMilestoneEditView> {
+    return this.repository.withTransaction(async (store) => {
+      const actor = await this.requireEditor(store, githubId);
+      try {
+        preflightProgramMilestoneEditDocuments(input.documents);
+      } catch (error) {
+        if (!(error instanceof ProgramMilestoneEditValidationError))
+          throw error;
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [
+            {
+              field: error.field,
+              code: error.code,
+              message: '마일스톤 제출 항목이 중복되었거나 너무 많습니다.',
+            },
+          ],
+        });
+      }
+      const locked = await store.lockMilestoneEdit(milestoneId);
+      if (locked === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
+      const current = this.snapshotMilestoneEdit(locked);
+      if (input.expectedFingerprint !== current.fingerprint) {
+        this.fail(ProgramErrorCode.MILESTONE_EDIT_CHANGED);
+      }
+      const existingIds = new Set(
+        locked.view.documents.map((document) => document.id),
+      );
+      for (const document of input.documents) {
+        if (document.id !== null && !existingIds.has(document.id)) {
+          this.fail(ProgramErrorCode.VALIDATION_ERROR);
+        }
+      }
+      const requestedIds = new Set(
+        input.documents.flatMap((document) =>
+          document.id === null ? [] : [document.id],
+        ),
+      );
+      if (locked.view.documents.length > 0 && input.documents.length === 0) {
+        throw new DomainException(
+          MILESTONE_DOCUMENTS_ERROR_CODES[
+            MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED
+          ],
+        );
+      }
+      const deletedIds = locked.view.documents
+        .map((document) => document.id)
+        .filter((documentId) => !requestedIds.has(documentId));
+      if ((await store.countSubmissionHistoriesForDocuments(deletedIds)) > 0) {
+        this.fail(ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS);
+      }
+      const metadata = this.editMilestoneData(
+        input,
+        locked.view.operation.startAt,
+        locked.view.operation.endAt,
+        locked.view.milestone.submissionType,
+      );
+      const tokenIds = input.documents.flatMap((document) =>
+        document.templateUploadId === undefined
+          ? []
+          : [document.templateUploadId],
+      );
+      let uploads: readonly ProgramAuthoringUploadToken[];
+      try {
+        uploads = await store.lockAttachableUploads(actor.id, tokenIds);
+      } catch (error) {
+        if (!(error instanceof ProgramAuthoringUploadTokenError)) throw error;
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: uploadTokenFieldErrors(input.documents, error.tokenIds),
+        });
+      }
+      await store.applyMilestoneEdit({
+        actorId: actor.id,
+        milestoneId,
+        ...metadata,
+        documents: input.documents,
+        uploads,
+      });
+      const updated = await store.lockMilestoneEdit(milestoneId);
+      if (updated === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
+      return this.snapshotMilestoneEdit(updated);
     });
   }
 
@@ -280,13 +396,50 @@ export class ProgramEditorService {
     });
   }
 
+  private snapshotMilestoneEdit(
+    locked: LockedProgramMilestoneEdit,
+  ): ProgramMilestoneEditView {
+    return {
+      ...locked.view,
+      fingerprint: fingerprintProgramMilestoneEdit({
+        operation: locked.view.operation,
+        milestone: {
+          ...locked.view.milestone,
+          updatedAt: locked.milestoneUpdatedAt,
+        },
+        documents: locked.fingerprintDocuments,
+      }),
+    };
+  }
+
+  private editMilestoneData(
+    input: UpdateMilestoneRequestDto,
+    programStartAt: Date,
+    endAt: Date,
+    existingSubmissionType: ProgramMilestoneInput['submissionType'],
+  ): ProgramMilestoneInput {
+    return this.milestoneData(
+      {
+        name: input.name,
+        startAt: input.startAt,
+        dueAt: input.dueAt,
+        instructions: input.instructions,
+      },
+      programStartAt,
+      endAt,
+      existingSubmissionType,
+    );
+  }
+
   private async requireEditor(
     store: ProgramEditorTransactionStore,
     githubId: bigint,
-  ): Promise<void> {
+  ): Promise<ProgramAuthority> {
     const authority = await store.findUserAuthorityByGithubId(githubId);
     const errorCode = editorPermissionError(authority);
     if (errorCode !== null) this.fail(errorCode);
+    if (authority === null) this.fail(ProgramErrorCode.FORBIDDEN);
+    return authority;
   }
 
   private milestoneData(
@@ -355,6 +508,27 @@ export class ProgramEditorService {
   ): never {
     throw new DomainException(PROGRAM_ERROR_CODES[code], extensions);
   }
+}
+
+function uploadTokenFieldErrors(
+  documents: readonly {
+    readonly templateUploadId?: string;
+  }[],
+  tokenIds: readonly string[],
+) {
+  const failedTokenIds = new Set(tokenIds);
+  return documents.flatMap((document, index) =>
+    document.templateUploadId !== undefined &&
+    failedTokenIds.has(document.templateUploadId)
+      ? [
+          {
+            field: `documents[${index}].templateUploadId`,
+            code: 'INVALID_UPLOAD_TOKEN',
+            message: '업로드 파일을 다시 준비한 뒤 저장해 주세요.',
+          },
+        ]
+      : [],
+  );
 }
 
 function editorPermissionError(

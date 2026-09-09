@@ -1,13 +1,22 @@
-import { Check } from 'lucide-react';
-import type { ReactElement } from 'react';
+import { useId, type ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  DOCUMENT_DELIVERY_STATUSES,
+  type DocumentDeliveryStatus,
+} from '@/lib/document-delivery';
+import {
   matrixPageStats,
-  matrixRowHasEmptyCell,
-  matrixRowIsZeroSubmission,
+  matrixRowDeliveryStatus,
   type MatrixQuickFilter,
 } from '../matrix';
 import type { MatrixMilestone, MatrixRow } from '../types';
+
+const TEAM_DELIVERY_LABELS = {
+  MISSING: '미제출 있는 팀',
+  LATE: '지각 제출 팀',
+  COMPLETE: '제출 완료 팀',
+  NO_REQUIRED_ITEMS: '필수 서류 없는 팀',
+} as const satisfies Record<DocumentDeliveryStatus, string>;
 
 export function MatrixPagination({
   page,
@@ -63,79 +72,66 @@ export function MatrixSkeleton(): ReactElement {
 export function MatrixStatsStrip({
   rows,
   visibleMilestones,
-  allMilestones,
 }: {
   readonly rows: readonly MatrixRow[];
   readonly visibleMilestones: readonly MatrixMilestone[];
-  readonly allMilestones: readonly MatrixMilestone[];
 }): ReactElement {
   const visibleStats = matrixPageStats(rows, visibleMilestones);
-  const allStats = matrixPageStats(rows, allMilestones);
   const facts: { readonly label: string; readonly value: string }[] = [
     {
-      label: '제출',
+      label: '제출 완료 단계',
       value: `${visibleStats.filledCells}/${visibleStats.totalCells}`,
     },
-    { label: '미제출', value: `${visibleStats.emptyCells}건` },
-    { label: '전체 미제출', value: `${allStats.zeroSubmissionRows}팀` },
-    { label: '지각', value: `${visibleStats.lateCells}건` },
+    { label: '미제출 단계', value: `${visibleStats.emptyCells}` },
+    { label: '필수 서류 없는 단계', value: `${visibleStats.noRequiredCells}` },
+    { label: '지각 제출 단계', value: `${visibleStats.lateCells}` },
   ];
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-card border border-border p-card sm:grid-cols-4">
-      {facts.map((fact) => (
-        <div key={fact.label} className="flex flex-col gap-1">
-          <dt className="text-small text-muted-foreground">{fact.label}</dt>
-          <dd className="text-lg font-semibold">{fact.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="grid gap-3 rounded-card border border-border p-card">
+      <p className="text-small text-muted-foreground">
+        팀별 제출 단계 · 이 페이지 기준
+      </p>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        {facts.map((fact) => (
+          <div key={fact.label} className="flex flex-col gap-1">
+            <dt className="text-small text-muted-foreground">{fact.label}</dt>
+            <dd className="text-lg font-semibold">{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
 export function MatrixQuickFilterButtons({
   rows,
   visibleMilestones,
-  allMilestones,
-  focused,
   quickFilter,
   onQuickFilterChange,
 }: {
   readonly rows: readonly MatrixRow[];
   readonly visibleMilestones: readonly MatrixMilestone[];
-  readonly allMilestones: readonly MatrixMilestone[];
-  readonly focused: boolean;
   readonly quickFilter: MatrixQuickFilter;
   readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
 }): ReactElement {
-  const hasEmptyCount = rows.filter((row) =>
-    matrixRowHasEmptyCell(row, visibleMilestones),
-  ).length;
-  const zeroSubmissionCount = rows.filter((row) =>
-    matrixRowIsZeroSubmission(row, allMilestones),
-  ).length;
-  const options: {
-    readonly value: MatrixQuickFilter;
-    readonly label: string;
-  }[] = [
-    { value: 'ALL', label: `전체 ${rows.length}팀` },
-    {
-      value: 'HAS_EMPTY',
-      label: focused
-        ? `이 단계 미제출 ${hasEmptyCount}팀`
-        : `미제출 포함 ${hasEmptyCount}팀`,
-    },
-    {
-      value: 'ZERO_SUBMISSION',
-      label: `전체 미제출 ${zeroSubmissionCount}팀`,
-    },
+  const titleId = useId();
+  const options = [
+    { value: 'ALL' as const, label: `전체 팀 ${rows.length}` },
+    ...DOCUMENT_DELIVERY_STATUSES.map((value) => ({
+      value,
+      label: `${TEAM_DELIVERY_LABELS[value]} ${rows.filter((row) => matrixRowDeliveryStatus(row, visibleMilestones) === value).length}`,
+    })),
   ];
 
   return (
     <div
       role="group"
-      aria-label="빠른 필터"
-      className="inline-flex w-fit max-w-full divide-x divide-border overflow-x-auto rounded-control border border-border"
+      aria-labelledby={titleId}
+      className="flex max-w-full flex-wrap gap-2"
     >
+      <p id={titleId} className="w-full text-small font-semibold">
+        필수 서류 제출 상태
+      </p>
       {options.map((option) => (
         <Button
           key={option.value}
@@ -143,19 +139,10 @@ export function MatrixQuickFilterButtons({
           size="sm"
           variant={quickFilter === option.value ? 'secondary' : 'ghost'}
           aria-pressed={quickFilter === option.value}
-          className="rounded-none border-0 px-4 text-small"
+          className="px-3 text-small"
           onClick={() => onQuickFilterChange(option.value)}
         >
           {option.label}
-          {quickFilter === option.value ? (
-            <span
-              data-slot="matrix-quick-filter-selection"
-              className="inline-flex items-center gap-1 text-xs font-bold"
-            >
-              <Check aria-hidden="true" className="size-3" />
-              선택됨
-            </span>
-          ) : null}
         </Button>
       ))}
     </div>

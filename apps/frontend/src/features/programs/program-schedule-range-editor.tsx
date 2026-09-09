@@ -5,6 +5,7 @@ import { CalendarClock, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   dateKey,
   monthKeyForEvents,
@@ -29,6 +30,10 @@ export function ProgramScheduleRangeEditor({
   headerAction,
   activeExtra,
   layout = 'default',
+  className,
+  dateInputConfirmLabel,
+  dateInputDescription,
+  showCalendarScrollHint,
 }: {
   readonly ranges: readonly ProgramScheduleEditableRange[];
   readonly activeId: string;
@@ -38,6 +43,10 @@ export function ProgramScheduleRangeEditor({
   readonly headerAction?: ReactNode;
   readonly activeExtra?: ReactNode;
   readonly layout?: 'default' | 'simple';
+  readonly className?: string;
+  readonly dateInputConfirmLabel?: string;
+  readonly dateInputDescription?: string;
+  readonly showCalendarScrollHint?: boolean;
 }) {
   const activeRange =
     ranges.find((range) => range.id === (validationActiveId ?? activeId)) ??
@@ -104,6 +113,16 @@ export function ProgramScheduleRangeEditor({
   const startDate = activeRange ? dateKey(activeRange.startAt) : null;
   const endDate = activeRange ? dateKey(activeRange.endAt) : null;
   const simpleLayout = layout === 'simple';
+  /**
+   * 범위가 하나뿐이면 고를 것이 없다. 그래도 선택기를 그리면 `aria-pressed="true"`
+   * 인 버튼이 남는데, 마일스톤 편집처럼 `onActiveIdChange` 가 no-op 인 호출부에서는
+   * **눌러도 아무 일도 일어나지 않는다**. 스크린리더에는 눌린 버튼으로 읽히고
+   * 키보드 사용자는 탭 한 칸을 잃는다.
+   *
+   * 이미 정해진 대상을 다시 고르게 하는 것이기도 하다 — GOV.UK Question pages 의
+   * "only ask for a piece of information once within a single journey".
+   */
+  const singleRange = ranges.length === 1;
   const hasEnabledTimeError =
     (Boolean(activeRange?.startError) && startDate !== null) ||
     (Boolean(activeRange?.endError) &&
@@ -144,7 +163,12 @@ export function ProgramScheduleRangeEditor({
   const timeControlsId = `${activeRange.id}-time-controls`;
 
   return (
-    <Card className="overflow-hidden border-primary/30 bg-primary/5">
+    <Card
+      className={cn(
+        'overflow-hidden border-primary/30 bg-primary/5',
+        className,
+      )}
+    >
       {simpleLayout ? null : (
         <CardHeader className="gap-1">
           <CardTitle className="break-keep text-pretty">
@@ -165,6 +189,7 @@ export function ProgramScheduleRangeEditor({
       >
         {simpleLayout ? (
           <ProgramScheduleRangeCalendar
+            showScrollHint={showCalendarScrollHint}
             events={events}
             activeRange={activeRange}
             monthKey={monthKey}
@@ -178,7 +203,13 @@ export function ProgramScheduleRangeEditor({
         ) : null}
         <div
           className={simpleLayout ? 'grid gap-2' : 'grid content-start gap-2'}
-          aria-label={simpleLayout ? '일정 선택' : '일정 작성 순서'}
+          aria-label={
+            singleRange
+              ? undefined
+              : simpleLayout
+                ? '일정 선택'
+                : '일정 작성 순서'
+          }
         >
           {ranges.map((range, index) => {
             const selected = range.id === activeRange.id;
@@ -189,25 +220,36 @@ export function ProgramScheduleRangeEditor({
                   <div
                     data-schedule-range-row
                     data-invalid={Boolean(range.startError || range.endError)}
-                    className={`flex min-h-16 items-center rounded-card border bg-background ${selected ? 'border-primary bg-primary/10 shadow-[inset_3px_0_0_var(--primary)]' : 'border-border hover:border-primary/60'}`}
+                    className={`flex min-h-16 items-center rounded-card border bg-background ${singleRange ? 'border-border' : selected ? 'border-primary bg-primary/10 shadow-[inset_3px_0_0_var(--primary)]' : 'border-border hover:border-primary/60'}`}
                   >
-                    <button
-                      type="button"
-                      aria-pressed={selected}
-                      aria-invalid={Boolean(error)}
-                      aria-describedby={error ? rangeErrorId(range) : undefined}
-                      data-schedule-range-selector
-                      className="min-w-0 flex-1 px-4 py-3 text-left break-keep text-pretty focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => {
-                        setTimeControlsOpenFor(null);
-                        onActiveIdChange(range.id);
-                      }}
-                    >
-                      <strong className="text-small">{range.label}</strong>
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        {rangeSummary(range)}
-                      </span>
-                    </button>
+                    {singleRange ? (
+                      <div className="min-w-0 flex-1 px-4 py-3 break-keep text-pretty">
+                        <strong className="text-small">{range.label}</strong>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {rangeSummary(range)}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-pressed={selected}
+                        aria-invalid={Boolean(error)}
+                        aria-describedby={
+                          error ? rangeErrorId(range) : undefined
+                        }
+                        data-schedule-range-selector
+                        className="min-w-0 flex-1 px-4 py-3 text-left break-keep text-pretty focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => {
+                          setTimeControlsOpenFor(null);
+                          onActiveIdChange(range.id);
+                        }}
+                      >
+                        <strong className="text-small">{range.label}</strong>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {rangeSummary(range)}
+                        </span>
+                      </button>
+                    )}
                     <div className="mr-3 flex shrink-0 items-center gap-1">
                       <button
                         type="button"
@@ -242,6 +284,20 @@ export function ProgramScheduleRangeEditor({
                   <FieldError id={error ? rangeErrorId(range) : undefined}>
                     {error}
                   </FieldError>
+                </div>
+              );
+            }
+            if (singleRange) {
+              return (
+                <div
+                  key={range.id}
+                  data-invalid={Boolean(range.startError || range.endError)}
+                  className="min-h-16 rounded-card border border-border bg-background px-4 py-3 break-keep text-pretty"
+                >
+                  <strong className="text-small">{range.label}</strong>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {rangeSummary(range)}
+                  </span>
                 </div>
               );
             }
@@ -280,6 +336,7 @@ export function ProgramScheduleRangeEditor({
         <div className="grid min-w-0 gap-4">
           {simpleLayout ? null : (
             <ProgramScheduleRangeCalendar
+              showScrollHint={showCalendarScrollHint}
               events={events}
               activeRange={activeRange}
               monthKey={monthKey}
@@ -330,6 +387,8 @@ export function ProgramScheduleRangeEditor({
         {manualRange ? (
           <ProgramScheduleRangeDialog
             range={manualRange}
+            confirmLabel={dateInputConfirmLabel}
+            description={dateInputDescription}
             onCancel={() => setManualRangeId(null)}
             onSave={(startAt, endAt) => {
               manualRange.onStartAtChange(startAt);

@@ -81,7 +81,9 @@ function BlockedState({
 function MilestoneHeadText({
   milestone,
   nameId,
-}: Pick<MilestoneRowProps, 'milestone' | 'nameId'>) {
+  viewerRole,
+}: Pick<MilestoneRowProps, 'milestone' | 'nameId' | 'viewerRole'>) {
+  const staff = viewerRole === 'STAFF' || viewerRole === 'ADMIN';
   return (
     <span className="grid min-w-0 flex-1 gap-1 text-left">
       <span
@@ -91,12 +93,25 @@ function MilestoneHeadText({
         {milestone.name}
       </span>
       <span className="block text-small text-muted-foreground">
-        {formatSeoulDate(milestone.dueAt)}
+        {staff
+          ? `마감 ${formatSeoulDate(milestone.dueAt)}`
+          : formatSeoulDate(milestone.dueAt)}
       </span>
       {milestone.description ? (
-        <span className="block text-small leading-normal break-keep text-muted-foreground">
-          {milestone.description}
-        </span>
+        staff ? (
+          <span
+            className="grid gap-0.5 text-small leading-normal break-keep text-muted-foreground"
+            role="region"
+            aria-label="운영자 공지"
+          >
+            <span className="font-semibold text-foreground">운영자 공지</span>
+            <span>{milestone.description}</span>
+          </span>
+        ) : (
+          <span className="block text-small leading-normal break-keep text-muted-foreground">
+            {milestone.description}
+          </span>
+        )
       ) : null}
     </span>
   );
@@ -235,13 +250,21 @@ export function MilestoneRow({
             말한다. 접히지 않으면 같은 덩어리를 그대로 두어 예전 화면과 같다.
           */}
           {disclosureContentId === undefined ? (
-            <MilestoneHeadText milestone={milestone} nameId={nameId} />
+            <MilestoneHeadText
+              milestone={milestone}
+              nameId={nameId}
+              viewerRole={viewerRole}
+            />
           ) : (
             <CollapsibleTrigger
               aria-controls={disclosureContentId}
               className={DISCLOSURE_TRIGGER_CLASS}
             >
-              <MilestoneHeadText milestone={milestone} nameId={nameId} />
+              <MilestoneHeadText
+                milestone={milestone}
+                nameId={nameId}
+                viewerRole={viewerRole}
+              />
               <ChevronDown aria-hidden className={DISCLOSURE_CHEVRON_CLASS} />
             </CollapsibleTrigger>
           )}

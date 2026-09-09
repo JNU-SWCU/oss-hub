@@ -11,6 +11,12 @@ function renderInvite(): string {
 }
 
 describe('SignupEntryView', () => {
+  it('일반 로그인과 계정 선택을 별도 OAuth 링크로 제공하고 수동 로그아웃은 도움말에 둔다', () => {
+    const html = renderInvite();
+    expect(html).toContain('auth/github?prompt=select_account');
+    expect(html).toMatch(/<details[^>]*>.*GitHub에서 로그아웃.*<\/details>/);
+    expect(html).not.toMatch(/<details[^>]* open/);
+  });
   it('OAuth로 나가는 주 행동은 전체 이동(<a href>)으로 둔다', () => {
     const html = renderInvite();
 
@@ -27,8 +33,8 @@ describe('SignupEntryView', () => {
 
     // 카드를 하나 더 쌓지 않고 주 버튼 옆 링크 + 한 문단으로 내렸다. 카드가 둘이면
     // 무게가 비슷해져 "둘 중 무엇을 눌러야 하나"가 되는데 이 화면의 주 행동은 하나다.
-    expect(html).toContain('GitHub 계정 만들기');
-    expect(html).toContain('계정이 없다면');
+    expect(html).toContain('계정 만들기');
+    expect(html).toContain('GitHub 계정이 없나요?');
     expect(html).toContain(`href="${GITHUB_SIGNUP_URL}"`);
   });
 
@@ -38,13 +44,15 @@ describe('SignupEntryView', () => {
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noreferrer noopener"');
     // 아이콘만으로는 스크린 리더 사용자에게 새 탭이 전달되지 않는다.
-    expect(html).toContain('(새 탭에서 열립니다)');
+    expect(html).toContain('(새 탭)');
   });
 
   // 로그인 수단이 GitHub 하나뿐이라 가입과 로그인이 같은 동작이다. 돌아온
   // 사용자가 계정이 하나 더 생긴다고 읽으면 그 자리에서 멈춘다.
   it('돌아온 사용자에게 계정이 새로 생기지 않는다고 말한다', () => {
-    expect(renderInvite()).toContain('계정이 하나 더');
+    expect(renderInvite()).toContain(
+      '처음이라면 가입을, 이용 중이라면 로그인을',
+    );
   });
 
   // 다음 화면(`/consent`)이 항목별로 전문까지 붙여 묻는 내용을 여기서 미리
@@ -53,7 +61,7 @@ describe('SignupEntryView', () => {
   it('동의 항목 설명은 다음 화면에 맡기고 예고만 한다', () => {
     const html = renderInvite();
 
-    expect(html).toContain('약관 동의부터 이어집니다');
+    expect(html).toContain('GitHub으로 계속하기');
     expect(html).not.toContain('보유 기간');
     expect(html).not.toContain('소속·학과·학번');
     expect(html).not.toContain('커밋 메시지');

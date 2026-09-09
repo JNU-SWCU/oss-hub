@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from 'react';
 import { Button } from '@/components/ui/button';
-import type { ProgramAuthoringRequirement } from './program-authoring-model';
 import {
   milestoneDocumentDropZones,
   milestoneDocumentDropTarget,
@@ -22,18 +21,22 @@ interface DragPosition {
   readonly dropZones: readonly MilestoneDocumentDropZone[];
 }
 
-export function ProgramAuthoringSortableAttachments({
+export type SortableAttachment = {
+  readonly id: string;
+  readonly name: string;
+};
+
+export function ProgramAuthoringSortableAttachments<
+  T extends SortableAttachment,
+>({
   milestoneId,
   requirements,
   children,
   onReorder,
 }: {
   readonly milestoneId: string;
-  readonly requirements: readonly ProgramAuthoringRequirement[];
-  readonly children: (
-    requirement: ProgramAuthoringRequirement,
-    reorderHandle: ReactNode,
-  ) => ReactNode;
+  readonly requirements: readonly T[];
+  readonly children: (requirement: T, reorderHandle: ReactNode) => ReactNode;
   readonly onReorder: (requirementIds: readonly string[]) => void;
 }) {
   const [drag, setDrag] = useState<DragPosition | null>(null);
@@ -228,7 +231,7 @@ export function ProgramAuthoringSortableAttachments({
 }
 
 function plannedOrder(
-  requirements: readonly ProgramAuthoringRequirement[],
+  requirements: readonly SortableAttachment[],
   activeId: string,
   overId: string,
 ): readonly string[] | null {
@@ -243,10 +246,10 @@ function plannedOrder(
   return ids;
 }
 
-function orderByIds(
-  requirements: readonly ProgramAuthoringRequirement[],
+function orderByIds<T extends SortableAttachment>(
+  requirements: readonly T[],
   ids: readonly string[] | null,
-): readonly ProgramAuthoringRequirement[] {
+): readonly T[] {
   if (ids === null) return requirements;
   const byId = new Map(
     requirements.map((requirement) => [requirement.id, requirement]),
@@ -259,7 +262,7 @@ function orderByIds(
 }
 
 function positionOf(
-  requirements: readonly ProgramAuthoringRequirement[],
+  requirements: readonly SortableAttachment[],
   requirementId: string,
 ): number {
   return requirements.findIndex(

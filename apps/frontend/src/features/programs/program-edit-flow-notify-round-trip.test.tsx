@@ -72,20 +72,14 @@ function EditViewHarness({
       isSaving={false}
       milestoneEditor={{ mode: 'closed' }}
       deleteTarget={null}
-      expandedDocumentsMilestoneId={null}
       isMilestoneBusy={false}
-      isLifecycleBusy={false}
-      isLifecycleConfirming={false}
-      lifecycleError={null}
       canDeleteProgram={false}
+      onProgramDeleted={noOp}
       onFieldChange={(field, value) => {
         setForm((current) => updateProgramForm(current, field, value));
         setDirtyFields((current) => addDirtyField(current, field));
       }}
       onSubmit={vi.fn()}
-      onRequestLifecycleToggle={noOp}
-      onCancelLifecycleToggle={noOp}
-      onConfirmLifecycleToggle={noOp}
       onAddMilestone={noOp}
       onEditMilestone={noOp}
       onCancelMilestone={noOp}

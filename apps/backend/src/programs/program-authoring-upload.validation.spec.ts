@@ -37,13 +37,21 @@ describe('validateProgramAuthoringUpload', () => {
       Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
     ],
     ['photo.jpg', 'image/jpeg', Buffer.from([0xff, 0xd8, 0xff])],
+    ['photo.JPEG', 'IMAGE/JPEG', Buffer.from([0xff, 0xd8, 0xff])],
+    ['photo.jpg', 'text/html', Buffer.from([0xff, 0xd8, 0xff])],
+    ['photo.jpeg', '', Buffer.from([0xff, 0xd8, 0xff])],
     [
       'diagram.png',
       'image/png',
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     ],
+    [
+      'diagram.png',
+      'application/octet-stream',
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ],
   ])(
-    'accepts a matching extension, MIME, and signature for %s',
+    'accepts a matching extension and signature regardless of browser MIME for %s',
     async (name, mimeType, signature) => {
       // Given
       const upload = file({ name, mimeType, signature });
@@ -54,7 +62,7 @@ describe('validateProgramAuthoringUpload', () => {
       // Then
       expect(validated).toMatchObject({
         originalFileName: name,
-        mimeType,
+        mimeType: mimeType.toLowerCase(),
         sizeBytes: upload.buffer.byteLength,
         sha256: createHash('sha256').update(upload.buffer).digest('hex'),
       });
@@ -203,6 +211,16 @@ describe('validateProgramAuthoringUpload', () => {
   it.each([
     ['plan.exe', 'application/pdf', Buffer.from('%PDF-')],
     ['plan.pdf', 'application/pdf', Buffer.from('not-pdf')],
+    ['photo.jpg', 'image/jpeg', Buffer.from('%PDF-')],
+    ['.jpg', 'image/jpeg', Buffer.from([0xff, 0xd8, 0xff])],
+    ['.jpeg', 'image/jpeg', Buffer.from([0xff, 0xd8, 0xff])],
+    [
+      '.png',
+      'image/png',
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ],
+    ['diagram.png', 'image/png', Buffer.from([0x89, 0x50])],
+    ['diagram.png', 'image/jpeg', Buffer.from([0xff, 0xd8, 0xff])],
   ])(
     'rejects an unsupported extension or signature',
     async (name, mimeType, signature) => {

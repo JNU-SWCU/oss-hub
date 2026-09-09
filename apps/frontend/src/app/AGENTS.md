@@ -1,4 +1,4 @@
-<!-- init:managed id=init-frontend-src-app sha256=709ea7e9f3010ecef8da24d906fc3871db9e529765a2e7d6dfe8b40fa85dafe6 -->
+<!-- init:managed id=init-frontend-src-app sha256=69db3d025bb70f8fcda3801744934fcda67924b635d848653347527446b34e41 -->
 # `apps/frontend/src/app/` scope
 
 ## App Router entry points
@@ -34,7 +34,7 @@
 ## Local constraints
 
 - Shell gates perform client-side redirects; server-side access enforcement is not implemented at this route layer.
-- `/logout` remains ungated so a sessionless visitor can see the completion route.
+- `/logout` remains ungated and redirects visitors to the public home; confirmed logout also returns directly to that home.
 - Public routes include `/`, `/archive`, `/ranking`, and `/profile/[userId]`; do not add role gates to them.
 - Session-dependent HTTP access remains behind `src/lib/api-client.ts`, not route-local `fetch` calls.
 

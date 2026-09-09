@@ -36,13 +36,21 @@ export function ProgramEditMilestoneScheduleEditor({
     onStartAtChange: (value) => onFieldChange('startAt', value),
     onEndAtChange: (value) => onFieldChange('dueAt', value),
   };
+  const calendarEvents = contextEvents.filter(
+    (event) => event.kind === 'OPERATION' || event.id === rangeId,
+  );
 
   return (
     <ProgramScheduleRangeEditor
       ranges={[range]}
       activeId={rangeId}
       onActiveIdChange={() => undefined}
-      contextEvents={contextEvents}
+      contextEvents={calendarEvents}
+      layout="simple"
+      showCalendarScrollHint={false}
+      className="[--card-spacing:--spacing(1)] sm:[--card-spacing:var(--card-padding)]"
+      dateInputConfirmLabel="날짜 적용"
+      dateInputDescription="날짜를 적용한 뒤 마일스톤 저장을 눌러야 저장됩니다."
     />
   );
 }

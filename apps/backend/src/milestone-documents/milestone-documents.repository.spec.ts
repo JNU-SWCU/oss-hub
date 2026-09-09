@@ -18,6 +18,13 @@ import {
   MilestoneDocumentSubmissionChangedError,
 } from './milestone-documents.repository';
 
+function firstCallArgument<T>(mock: jest.Mock): T {
+  const calls = mock.mock.calls as readonly (readonly unknown[])[];
+  const [firstCall] = calls;
+  const [argument] = firstCall ?? [];
+  return argument as T;
+}
+
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticDocumentId = 'cuid-synthetic-document';
@@ -1403,16 +1410,20 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       sortOrder: 1,
       templateFile: null,
     });
+    const transactionTemplateUpsert = jest.fn().mockResolvedValue({});
     const directCount = jest.fn().mockResolvedValue(0);
     const directUpdate = jest.fn();
+    const directTemplateUpsert = jest.fn();
     const prisma = {
       milestoneDocument: { update: directUpdate },
       milestoneDocumentSubmission: { count: directCount },
+      milestoneDocumentTemplateFile: { upsert: directTemplateUpsert },
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback({
           $queryRaw: transactionQueryRaw,
           milestoneDocument: { update: transactionUpdate },
           milestoneDocumentSubmission: { count: transactionCount },
+          milestoneDocumentTemplateFile: { upsert: transactionTemplateUpsert },
         }),
       ),
     } as unknown as PrismaService;
@@ -1423,38 +1434,10 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       transactionUpdate,
       directCount,
       directUpdate,
+      transactionTemplateUpsert,
+      directTemplateUpsert,
     };
   }
-
-  it('store의 잠금·세기·갱신이 모두 같은 트랜잭션 클라이언트로 나간다', async () => {
-    // Given
-    const {
-      prisma,
-      transactionQueryRaw,
-      transactionCount,
-      transactionUpdate,
-      directCount,
-      directUpdate,
-    } = buildTransactionPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
-
-    // When
-    await repository.withTransaction(async (store) => {
-      await store.lockDocument(syntheticDocumentId);
-      await store.countSubmissionsForDocument(syntheticDocumentId);
-      return store.updateDocument(syntheticDocumentId, {
-        name: '개인정보 수집·이용 동의서',
-        required: true,
-      });
-    });
-
-    // Then: 트랜잭션 밖 경로로는 한 문장도 나가지 않는다.
-    expect(transactionQueryRaw).toHaveBeenCalledTimes(1);
-    expect(transactionCount).toHaveBeenCalledTimes(1);
-    expect(transactionUpdate).toHaveBeenCalledTimes(1);
-    expect(directCount).not.toHaveBeenCalled();
-    expect(directUpdate).not.toHaveBeenCalled();
-  });
 
   it('lockDocument는 대상 행을 FOR UPDATE로 잠그고 다시 읽는다', async () => {
     // Given
@@ -1493,101 +1476,50 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     expect(locked).toBeNull();
   });
 
-  it('updateDocument가 쓰는 data에는 sortOrder가 없다 — 순서는 order endpoint가 소유한다', async () => {
-    // Given: 수정이 순서를 함께 저장하면 편집 화면에 박혀 있던 낡은 sortOrder가 그 사이 바뀐
-    // 순서를 덮어 sortOrder가 겹친다.
-    const { prisma, transactionUpdate } = buildTransactionPrisma();
+  it('store.upsertTemplateFile은 트랜잭션 클라이언트에만 양식 upsert를 위임한다', async () => {
+    // Given
+    const { prisma, transactionTemplateUpsert, directTemplateUpsert } =
+      buildTransactionPrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
+    const uploadedAt = new Date('2026-09-01T00:00:00.000Z');
 
     // When
     await repository.withTransaction((store) =>
-      store.updateDocument(syntheticDocumentId, {
-        name: '개인정보 수집·이용 동의서',
-        required: true,
+      store.upsertTemplateFile({
+        milestoneDocumentId: syntheticDocumentId,
+        uploadedById: syntheticUserId,
+        storageKey: 'objects/synthetic-template',
+        originalFileName: '계획서.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 20,
+        uploadedAt,
       }),
     );
 
     // Then
-    const args = firstCallArgument<{ data: Record<string, unknown> }>(
-      transactionUpdate,
-    );
-    expect(args.data).toEqual({
-      name: '개인정보 수집·이용 동의서',
-      required: true,
+    expect(transactionTemplateUpsert).toHaveBeenCalledWith({
+      where: { milestoneDocumentId: syntheticDocumentId },
+      update: {
+        storageKey: 'objects/synthetic-template',
+        originalFileName: '계획서.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 20,
+        uploadedById: syntheticUserId,
+        uploadedAt,
+      },
+      create: {
+        milestoneDocumentId: syntheticDocumentId,
+        storageKey: 'objects/synthetic-template',
+        originalFileName: '계획서.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 20,
+        uploadedById: syntheticUserId,
+        uploadedAt,
+      },
     });
-    expect(args.data).not.toHaveProperty('sortOrder');
+    expect(directTemplateUpsert).not.toHaveBeenCalled();
   });
 
-  it('lockMilestone은 마일스톤 행을 FOR UPDATE로 잠그고, 없으면 null을 돌려준다', async () => {
-    // Given: 서류 항목 집합을 바꾸는 경로(추가·삭제·순서 재부여)의 공통 관문이다.
-    const { prisma, transactionQueryRaw } = buildTransactionPrisma();
-    transactionQueryRaw.mockResolvedValueOnce([{ id: syntheticMilestoneId }]);
-    const repository = new MilestoneDocumentsRepository(prisma);
-
-    // When
-    const locked = await repository.withTransaction((store) =>
-      store.lockMilestone(syntheticMilestoneId),
-    );
-
-    // Then
-    const sql = firstCallArgument<{ strings: string[]; values: unknown[] }>(
-      transactionQueryRaw,
-    );
-    expect(String(sql.strings)).toContain('FROM "Milestone"');
-    expect(String(sql.strings)).toContain('FOR UPDATE');
-    expect(sql.values).toEqual([syntheticMilestoneId]);
-    expect(locked?.id).toBe(syntheticMilestoneId);
-
-    // Given / When: 행이 없으면
-    transactionQueryRaw.mockResolvedValueOnce([]);
-    const missing = await repository.withTransaction((store) =>
-      store.lockMilestone(syntheticMilestoneId),
-    );
-
-    // Then
-    expect(missing).toBeNull();
-  });
-
-  it('lockDocumentIdsOfMilestone은 이 마일스톤의 서류 행 전체를 id 오름차순으로 잠그고 그 id를 돌려준다', async () => {
-    // Given: 순서 재부여는 트랜잭션 밖에서 읽어 둔 집합이 아니라 **이 값**과 요청을 대조한다.
-    const { prisma, transactionQueryRaw } = buildTransactionPrisma();
-    transactionQueryRaw.mockResolvedValueOnce([
-      { id: 'cuid-synthetic-document-1' },
-      { id: 'cuid-synthetic-document-2' },
-    ]);
-    const repository = new MilestoneDocumentsRepository(prisma);
-
-    // When
-    const ids = await repository.withTransaction((store) =>
-      store.lockDocumentIdsOfMilestone(syntheticMilestoneId),
-    );
-
-    // Then
-    const sql = firstCallArgument<{ strings: string[]; values: unknown[] }>(
-      transactionQueryRaw,
-    );
-    expect(String(sql.strings)).toContain('FROM "MilestoneDocument"');
-    expect(String(sql.strings)).toContain('ORDER BY "id"');
-    expect(String(sql.strings)).toContain('"kind"');
-    expect(String(sql.strings)).toContain('FOR UPDATE');
-    expect(sql.values).toEqual([
-      syntheticMilestoneId,
-      MilestoneDocumentKind.DOCUMENT,
-    ]);
-    expect(ids).toEqual([
-      'cuid-synthetic-document-1',
-      'cuid-synthetic-document-2',
-    ]);
-  });
-});
-
-/** jest 목의 첫 호출 인자를 명시 타입으로 읽는다 — `any` 전파 없이 select/where를 검사하려는 것이다. */
-function firstCallArgument<T>(mock: jest.Mock): T {
-  const calls = mock.mock.calls as readonly (readonly unknown[])[];
-  return calls[0]?.[0] as T;
-}
-
-describe('MilestoneDocumentsRepository.findApprovedApplicationsForCollection', () => {
   it('승인된 신청만 팀 이름 오름차순으로 조회하고 표시 이름 관례를 그대로 쓴다', async () => {
     // Given
     const findMany = jest.fn().mockResolvedValue([
@@ -2683,6 +2615,18 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
   });
 });
 
+/**
+ * #1097 후속 — 「마감 뒤 재제출은 한 번」이 **동시에 도착한 두 요청**에서도 한 번인가.
+ *
+ * 서비스는 트랜잭션 밖에서 최신 판정과 제출 상태를 읽어 마감 예외를 허락한다. 같은 팀 두 사람이
+ * 마감 뒤 거의 동시에 누르면 둘 다 그 읽기에서 「보완 요청 · 아직 안 냄」을 보고 예외를 얻는다.
+ * 첫 재제출은 **판정을 새로 만들지 않으므로** 두 번째 요청의 기대 판정 id도 그대로 맞는다 —
+ * 판정 id만 재확인하던 옛 코드에서는 두 번째 요청이 그대로 저장돼 첫 번째 사람의 내용을 덮었다.
+ *
+ * 아래 가짜 Prisma는 그 경합을 그대로 재현한다: 서류 행 `FOR UPDATE`가 앞 트랜잭션이 끝날
+ * 때까지 두 번째를 세우고(실제 잠금과 같다), 첫 트랜잭션이 커밋한 뒤에야 두 번째가 상태를
+ * 읽는다. 잠금 아래에서 제출 상태를 다시 보지 않으면 이 시험은 두 번 저장된다.
+ */
 describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   const firstId = 'cuid-synthetic-document-1';
   const secondId = 'cuid-synthetic-document-2';

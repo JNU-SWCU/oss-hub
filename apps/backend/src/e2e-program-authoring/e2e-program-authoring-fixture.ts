@@ -12,6 +12,7 @@ import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import { adoptE2eProgramGraph } from './e2e-program-authoring-graph-adoption';
 import { ensureE2eProgramAuthoringActors } from './e2e-program-authoring-actors';
+import { deleteE2eProgramDeadlineClaims } from './e2e-program-authoring-notification-cleanup';
 import type { E2eExternalCapture } from './e2e-external-port-registry';
 import type {
   E2eProgramAuthoringGraph,
@@ -62,6 +63,7 @@ export class E2eProgramAuthoringFixture {
         select: { id: true },
       });
       const applicationIds = applications.map(({ id }) => id);
+      await deleteE2eProgramDeadlineClaims(transaction, E2E_PROGRAM_ID);
       await transaction.notification.deleteMany({
         where: { userId: { in: [E2E_STAFF_ID, E2E_STUDENT_ID] } },
       });
@@ -105,11 +107,17 @@ export class E2eProgramAuthoringFixture {
       await transaction.team.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
       });
+      /*
+       * 고정 id 하나만 지우면 마일스톤 삭제가 FK로 막혀 reset이 500이 된다 — 편집이
+       * 서버 생성 id로 새 서류 항목을 만들 수 있기 때문이다. 그래서 이 마일스톤에
+       * 달린 서류를 전부 지우고, 양식 파일은 그 부모 관계로 먼저 지운다.
+       * 범위는 여전히 합성 마일스톤 하나다.
+       */
       await transaction.milestoneDocumentTemplateFile.deleteMany({
-        where: { milestoneDocumentId: E2E_DOCUMENT_ID },
+        where: { milestoneDocument: { milestoneId: E2E_MILESTONE_ID } },
       });
       await transaction.milestoneDocument.deleteMany({
-        where: { id: E2E_DOCUMENT_ID },
+        where: { milestoneId: E2E_MILESTONE_ID },
       });
       await transaction.milestone.deleteMany({
         where: { id: E2E_MILESTONE_ID },

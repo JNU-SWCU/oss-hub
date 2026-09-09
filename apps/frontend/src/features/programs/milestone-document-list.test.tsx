@@ -52,6 +52,20 @@ function jsonResponse(body: unknown): Response {
   });
 }
 
+function problemResponse(status: number, code: string): Response {
+  return new Response(
+    JSON.stringify({
+      type: 'about:blank',
+      title: 'Request failed',
+      status,
+      detail: '합성 이력 조회 실패',
+      instance: '/x',
+      code,
+    }),
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  );
+}
+
 describe('MilestoneDocumentSection response recovery', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -982,6 +996,96 @@ describe('학생 행이 판정을 읽는 방식', () => {
     ).toBeNull();
   });
 
+  it('MSD_005 이력 조회 거절은 안내만 보이고 다시 시도를 주지 않는다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse(403, 'MSD_005')),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-forbidden"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(container.textContent).toContain(
+      '제출 이력은 신청이 승인된 참여자만 볼 수 있습니다.',
+    );
+    expect(buttonTexts()).not.toContain('다시 시도');
+    expect(
+      container.querySelector(
+        '[data-testid="milestone-document-history-error"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('MSD_005가 아닌 ApiError 이력 조회 실패는 다시 시도 경고를 보인다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse(500, 'MSD_999')),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('다시 시도');
+  });
+
+  it('403 API_000 이력 조회 실패도 다시 시도 경고를 보인다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse(403, 'API_000')),
+    );
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('다시 시도');
+    expect(
+      container.querySelector(
+        '[data-testid="milestone-document-history-forbidden"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('ApiError가 아닌 이력 조회 실패도 다시 시도 경고를 보인다', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network')));
+
+    await renderRow(
+      viewer({ history: { hasHistory: true, isComplete: true } }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-testid="milestone-document-history-error"]',
+        ),
+      ).not.toBeNull();
+    });
+    expect(buttonTexts()).toContain('다시 시도');
+  });
+
   /**
    * 변이 검증 대상 3 — 사유 표시가 사라지면 여기가 깨진다. 사유가 없으면 학생은 배지만
    * 보고 「안 됐구나」까지만 읽고 닫고, 같은 서류가 같은 이유로 또 되돌아온다.
@@ -1208,134 +1312,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
         'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
       ),
     ).toBeNull();
-  });
-});
-
-/*
- * #1107 — 교직원 「양식 올리기」에도 accept도 사전 검사도 없어, 상한을 넘은 파일이 그대로
- * 전송되고 화면에는 「API 오류 응답이 ProblemDetail 형식이 아닙니다.」가 떴다. 학생 제출과
- * 같은 기준을 따라야 한다.
- */
-describe('교직원 양식 올리기의 사전 검사', () => {
-  let container: HTMLDivElement;
-  let root: Root;
-
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
-  });
-
-  afterEach(async () => {
-    await act(async () => root.unmount());
-    container.remove();
-    vi.unstubAllGlobals();
-  });
-
-  async function renderStaffRow() {
-    await act(async () => {
-      root.render(
-        <MilestoneDocumentSectionBody
-          state={{
-            kind: 'ready',
-            documents: [milestoneDocument],
-            fileUpload: milestoneDocumentUploadPolicy(),
-          }}
-          viewerRole="STAFF"
-          closed={false}
-          submissionAccess={access('STAFF')}
-          conflictNotice={null}
-          onRetry={() => {}}
-          onDocumentChange={() => {}}
-          onSubmitConflict={() => {}}
-        />,
-      );
-    });
-  }
-
-  function fileInput(): HTMLInputElement {
-    const element = container.querySelector('input[type="file"]');
-    if (!(element instanceof HTMLInputElement))
-      throw new TypeError('Missing file input.');
-    return element;
-  }
-
-  async function select(name: string, size: number) {
-    const input = fileInput();
-    const candidate = new File(['synthetic'], name);
-    Object.defineProperty(candidate, 'size', {
-      configurable: true,
-      value: size,
-    });
-    Object.defineProperty(input, 'files', {
-      configurable: true,
-      value: [candidate],
-    });
-    await act(async () =>
-      input.dispatchEvent(new Event('change', { bubbles: true })),
-    );
-  }
-
-  it('고르기 전에 학생 제출과 같은 안내를 보여 주고 형식을 제한한다', async () => {
-    await renderStaffRow();
-
-    expect(container.textContent).toContain(
-      'PDF, HWP, JPG, PNG, ZIP · 최대 5 MB',
-    );
-    expect(fileInput().getAttribute('accept')).toBe(
-      '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-    );
-  });
-
-  it('상한을 넘은 파일은 요청을 내보내지 않고 사유를 말한다', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    await renderStaffRow();
-
-    await select('양식.pdf', 5 * 1024 * 1024 + 1);
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    const alert = container.querySelector('[role="alert"]');
-    expect(alert?.textContent).toContain('파일은 5 MB 이하여야 합니다.');
-    expect(alert?.textContent).not.toContain('ProblemDetail');
-  });
-
-  it('허용 형식 밖의 파일도 요청 전에 걸러진다', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    await renderStaffRow();
-
-    await select('설치.exe', 10);
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-      'PDF, HWP, JPG, PNG, ZIP 파일만 선택할 수 있습니다.',
-    );
-  });
-
-  /*
-   * 사전 검사를 지나온 실패도 남는다 — 그때 서버가 ProblemDetail을 주지 못하면 화면은
-   * 개발자용 문장이 아니라 이 화면의 문구를 말해야 한다.
-   */
-  it('ProblemDetail이 아닌 실패에도 개발자용 문장을 붙이지 않는다', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response('<html>413 Request Entity Too Large</html>', {
-          status: 413,
-          headers: { 'Content-Type': 'text/html' },
-        }),
-      ),
-    );
-    await renderStaffRow();
-
-    await select('양식.pdf', 1024);
-
-    await vi.waitFor(() => {
-      const alert = container.querySelector('[role="alert"]');
-      expect(alert?.textContent).toContain('양식 업로드에 실패했습니다.');
-    });
-    expect(container.textContent).not.toContain('ProblemDetail');
   });
 });
 

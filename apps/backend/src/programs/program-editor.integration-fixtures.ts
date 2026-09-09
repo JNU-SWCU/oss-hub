@@ -3,6 +3,7 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
 } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
@@ -88,10 +89,23 @@ export async function createMilestone(
 }
 
 export async function cleanup(): Promise<void> {
+  const milestones = await prisma.milestone.findMany({
+    where: { id: { startsWith: `${TEST_PREFIX}milestone:` } },
+    select: { id: true },
+  });
+  const milestoneIds = milestones.map((milestone) => milestone.id);
+  const documents = await prisma.milestoneDocument.findMany({
+    where: { milestoneId: { in: milestoneIds } },
+    select: { id: true },
+  });
+  const documentIds = documents.map((document) => document.id);
   const documentSubmissions = await prisma.milestoneDocumentSubmission.findMany(
     {
       where: {
-        applicationId: { startsWith: `${TEST_PREFIX}application:` },
+        OR: [
+          { applicationId: { startsWith: `${TEST_PREFIX}application:` } },
+          { milestoneDocumentId: { in: documentIds } },
+        ],
       },
       select: { id: true },
     },
@@ -137,11 +151,72 @@ export async function cleanup(): Promise<void> {
   await prisma.application.deleteMany({
     where: { id: { startsWith: `${TEST_PREFIX}application:` } },
   });
+  await prisma.team.deleteMany({
+    where: { id: { startsWith: `${TEST_PREFIX}team:` } },
+  });
+  await prisma.milestoneDocumentTemplateFile.deleteMany({
+    where: { milestoneDocumentId: { in: documentIds } },
+  });
+  await prisma.milestoneDocument.deleteMany({
+    where: { id: { in: documentIds } },
+  });
   await prisma.milestone.deleteMany({
-    where: { id: { startsWith: `${TEST_PREFIX}milestone:` } },
+    where: { id: { in: milestoneIds } },
   });
   await prisma.program.deleteMany({
     where: { id: { startsWith: `${TEST_PREFIX}program:` } },
   });
+  await prisma.programAuthoringUpload.deleteMany({
+    where: { actorId: { startsWith: TEST_PREFIX } },
+  });
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
+}
+
+export async function installSyntheticAggregateFaultTrigger(input: {
+  readonly table:
+    | 'Milestone'
+    | 'MilestoneDocument'
+    | 'MilestoneDocumentTemplateFile'
+    | 'ProgramAuthoringUpload';
+  readonly event: 'INSERT' | 'UPDATE' | 'DELETE';
+  readonly targetColumn: 'id' | 'milestoneId' | 'milestoneDocumentId';
+  readonly targetId: string;
+  readonly deferred?: boolean;
+}): Promise<() => Promise<void>> {
+  const suffix = randomUUID().replaceAll('-', '');
+  const functionName = `test_aggregate_fault_fn_${suffix}`;
+  const triggerName = `test_aggregate_fault_tr_${suffix}`;
+  const row = input.event === 'DELETE' ? 'OLD' : 'NEW';
+  const escapedTarget = input.targetId.replaceAll("'", "''");
+  await prisma.$executeRawUnsafe(`
+    CREATE FUNCTION "${functionName}"() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF ${row}."${input.targetColumn}" = '${escapedTarget}' THEN
+        RAISE EXCEPTION 'synthetic aggregate fault';
+      END IF;
+      RETURN ${row};
+    END;
+    $$;
+  `);
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE ${input.deferred ? 'CONSTRAINT ' : ''}TRIGGER "${triggerName}"
+      AFTER ${input.event} ON "${input.table}"
+      ${input.deferred ? 'DEFERRABLE INITIALLY DEFERRED' : ''}
+      FOR EACH ROW EXECUTE FUNCTION "${functionName}"();
+    `);
+  } catch (error) {
+    await prisma.$executeRawUnsafe(
+      `DROP FUNCTION IF EXISTS "${functionName}"()`,
+    );
+    throw error;
+  }
+  return async () => {
+    await prisma.$executeRawUnsafe(
+      `DROP TRIGGER IF EXISTS "${triggerName}" ON "${input.table}"`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DROP FUNCTION IF EXISTS "${functionName}"()`,
+    );
+  };
 }

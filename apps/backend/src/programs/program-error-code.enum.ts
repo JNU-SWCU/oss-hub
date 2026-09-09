@@ -12,8 +12,8 @@ export enum ProgramErrorCode {
   MILESTONE_REQUIRED = 'PRG_010',
   PROGRAM_DELETE_FORBIDDEN = 'PRG_011',
   PROGRAM_DELETE_BLOCKED = 'PRG_012',
-  PROGRAM_DELETE_PROTECTED = 'PRG_013',
   PROGRAM_PURGE_SCOPE_CHANGED = 'PRG_014',
+  MILESTONE_EDIT_CHANGED = 'PRG_016',
 }
 
 export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
@@ -72,15 +72,16 @@ export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
     status: 409,
     message: '연결된 데이터가 있어 프로그램을 삭제할 수 없습니다.',
   },
-  [ProgramErrorCode.PROGRAM_DELETE_PROTECTED]: {
-    code: ProgramErrorCode.PROGRAM_DELETE_PROTECTED,
-    status: 409,
-    message: '삭제 보호가 설정된 프로그램은 관리자도 삭제할 수 없습니다.',
-  },
   [ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED]: {
     code: ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED,
     status: 409,
     message:
       '확인한 뒤 삭제 범위가 변경되었습니다. 최신 범위를 확인하고 다시 확인해 주세요.',
+  },
+  [ProgramErrorCode.MILESTONE_EDIT_CHANGED]: {
+    code: ProgramErrorCode.MILESTONE_EDIT_CHANGED,
+    status: 409,
+    message:
+      '마일스톤이 변경되었습니다. 최신 내용을 확인한 뒤 다시 저장해 주세요.',
   },
 };

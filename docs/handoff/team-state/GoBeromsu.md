@@ -1347,3 +1347,211 @@
   원격 브랜치는 62개에서 11개로 줄였다. 삭제 대상 45개는 전부 (a) 병합된 PR, (b) 닫힌 PR, (c) 명시적 `backup/*` 스냅샷, (d) 내용이 main에 흡수된 무PR 브랜치 중 하나임을 확인했고, 진행 중 WIP 브랜치와 열린 PR 브랜치는 건드리지 않았다. 삭제 전 모든 원격 tip을 로컬 `refs/archive/2026-09-04/*`로 보존해 복구 가능하게 두었다.
 - 검증: 병합 전 5건을 한 통합 브랜치에 모아 `pnpm typecheck`·`pnpm lint`(0 error)·`pnpm test`(frontend 3319, backend 3501)·`BACKEND_ORIGIN` 허용값으로 `pnpm build`를 돌렸다. 이 통합 실행이 위 의미 충돌 (1)을 병합 전에 잡았다. 각 PR은 required `ci`·`public-safe` 통과를 exact head SHA에서 확인했고, 릴리스 대상 SHA는 `push` 이벤트 `ci` 통과를 확인했다.
 - 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — 마일스톤 편집 단순화와 배포 컷오버
+
+- 배경: 프로그램 편집 화면에서 눌러도 아무 일도 일어나지 않는 일정 선택기(`aria-pressed="true"` + no-op `onActiveIdChange`), 같은 말을 세 번 하는 확인창, 없어진 신청서 양식·버전 표시, 마일스톤 하나를 다이얼로그와 즉시 저장으로 나눠 고치는 구조를 차례로 확인했다. 마지막 것은 「아래 제출 항목에서 관리합니다」라는 설명문이 구조를 대신 설명하고 있었던 게 신호였다.
+- 결정: 마일스톤 편집을 한 업무 저장으로 합쳤다. 이름·기간·공지·제출 항목·양식·순서·삭제를 하나의 DB transaction으로 반영하고, 저장 전 취소는 업무·업로드 요청 0회다. 새 table이나 migration은 만들지 않고 기존 `ProgramEditorRepository` transaction과 기존 pending upload 기반을 재사용했다.
+- 배포: frontend(Vercel)와 backend(Jenkins `H/10` cron 수렴)가 같은 Release로 인가되지만 원자적이지 않아, 신 계약을 한 번에 내면 교직원 편집이 멈추는 창이 생긴다. ralplan 합의(Architect CLEAR / Critic OKAY) 결과 expand-contract로 간다 — EXPAND에서 구 라우트 4개를 유지한 채 신 계약을 더하고, SWITCH에서 화면을 전환하고, CONTRACT에서 구 계약을 지운다. 근거는 `docs/rules/pr-scope.md:20`(계약 PR 선행)과 `AGENTS.md:73`(금지 대상은 *silent* fallback)이다. CONTRACT 릴리스는 선택이 아니라 필수로 고정했다.
+- 정정: 처음에 backend 계약 PR을 「독립 배포 가능」이라고 판단한 것과 `AGENTS.md`를 「하위 호환 금지」로 인용한 것 둘 다 틀렸다. 리뷰에서 교정됐고, 그 결과 지운 라우트를 EXPAND 단계로 복원했다.
+- 검증: backend 313 suite / 3574 test, 격리 integration 93 suite / 537 test(실제 PostgreSQL·MinIO), frontend 341 file / 3493 test, 신규 browser E2E 5건(installed Chrome, 실제 스택), `pnpm typecheck`·`pnpm lint`·`pnpm build`·`pnpm format:check`·`check-public-safe.sh`·env-example 계약·storage-reconcile lane 통과. `program-authoring-document-flow` 계열 2건은 깨끗한 `e3767e60`에서도 동일하게 실패해 이번 변경의 회귀가 아니다.
+- E2E가 잡은 실제 결함 둘: `E2eProgramAuthoringFixture.reset`이 고정 문서 id 하나만 지워 통합 저장이 만든 문서가 FK로 마일스톤 삭제를 막고 reset이 500이 됐다(마일스톤 기준 전량 삭제로 수정). 교직원 서류 수합 화면에는 양식 다운로드 링크가 원래 없어, 업로드 버튼을 없애자 양식에 접근할 길이 사라졌다(파일명을 링크 이름으로 쓰는 읽기 링크 추가).
+- 스킬: `submit-pr-evidence` UX 안티패턴 점검을 여덟에서 열여섯 항목으로 늘리고(AP-9~16: 죽은 컨트롤, 사라진 기능의 잔상, 의미 없는 시각, 뒤섞인 출처, 뒤집힌 노출, 갈라진 편집, 어긋난 저장 범위, 닿지 않는 본문) 문서 끝에 NN/g·GOV.UK·W3C·Norman 원문 링크를 모았다. v1.5.0, `manage-qa-tickets`는 참조 개수만 맞춰 v4.4.1.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — 병합 후 검토 반영
+
+- 병합된 main을 아키텍트·QA 두 레인으로 재검토했다. 아키텍트는 WATCH, QA는 주장별 커버리지를 대조했다.
+- QA가 실제 구멍을 하나 찾았다: EXPAND 단계의 안전장치인 legacy 문서 라우트 네 개가 registration은 확인되지만 실제 HTTP 스택으로 검증되지 않았다. 그 라우트가 안 돌면 expand-contract가 보호하는 것이 없으므로 controller HTTP spec에 네 라우트와 MSD_030·MSD_016·MSD_019 안전 규칙을 추가했다. 결과는 통과이며 라우트는 정상 동작한다.
+- QA가 기본 일정 달력 주장을 불성립으로 판정했으나 이는 대상 오인이다. 판정 근거는 마일스톤 편집창 안의 달력이고, 그 화면은 달력이 바로 보이는 것이 의도다. 기본 정보의 신청·운영 기간은 브라우저 E2E가 idle 시 `[data-calendar-date]` 0개, 연 뒤 존재를 실제로 단언한다.
+- 제거된 `updateMilestone` API 이름을 붙잡고 있던 죽은 mock 잔재를 없앴다. 사라진 기능의 잔상은 이번에 체크리스트에 넣은 AP-10 그 자체다.
+- 검증: backend 313 suite / 3584 test, frontend 341 file / 3493 test, lint·typecheck·prettier 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — EXPAND 검증 강화와 죽은 코드 제거
+
+- red-team이 실제 위반을 하나 뚫었다: `expectedFingerprint`와 `documents`를 둘 다 생략하면 legacy 분기로 라우팅되고 거긴 fingerprint 비교가 없어 stale baseline에서 마일스톤 메타데이터를 덮어쓸 수 있다. EXPAND가 구 동작을 보존한 결과라 의도된 것이지만 「stale 저장은 항상 충돌로 막힌다」는 서술은 EXPAND 기간에 사실이 아니다. legacy 경로에 fingerprint를 요구하는 방식으로 고치면 EXPAND 전제가 무너지므로, 이음매에 예외를 명시하고 한시적임이 드러나는 이름의 계약 테스트로 현재 동작을 기록했다.
+- 아키텍트가 지적한 세 가지를 닫았다. legacy 라우트 HTTP 테스트가 guard를 성공 stub으로 덮어 권한 거부를 증명하지 않던 문제는, 공유 테스팅 모듈을 건드리지 않고 별도 모듈을 세워 학생·비인가 교직원·Origin 부재/외부 거부를 실제 HTTP로 검증했다. 공유 모듈을 고치려던 첫 시도는 기존 「가드 구성」 테스트 66건을 깨뜨려 폐기했다. reorder DTO 전달 인수도 단언한다.
+- CONTRACT 제거 범위를 `milestones.controller.ts` 상단 단일 원장으로 모았다. 라우트·DTO·direct writer·legacy 메타데이터 서비스와 스토어·dual-dispatch 분기·동시성 예외를 파일과 심볼로 열거해 다음 릴리스가 한 번에 쓸어내게 했다.
+- 죽은 코드를 제거했다. `uploadMilestoneDocumentTemplate` 프론트 어댑터는 production 호출부가 0인데 자기 테스트만 붙잡고 있었다. 재구성이 양식 교체를 authoring 업로드 경로로 옮기면서 죽은 것이고, 함께 고아가 된 타입도 정리했다. backend 라우트는 EXPAND 호환이라 남긴다.
+- 검증: backend 313 suite / 3588 test, 격리 integration 93 suite / 537 test, frontend 341 file / 3492 test, lint·typecheck·prettier 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — 종단 검토 잔여 두 건 정리
+
+- 아키텍트 4차 검토가 WATCH로 짚은 두 건을 닫았다. 권한 거부 테스트의 「학생」과 「비인가 교직원」이 실제로는 같은 권한 상태로 수렴해 한 가지를 두 번 증명하고 있었고, CONTRACT 제거 원장이 endpoint와 DTO까지만 훑어 그 endpoint 전용 service·repository writer 체인을 빠뜨려 한 번에 제거가 불가능했다.
+- 두 사용자 유형을 가드가 실제로 구분하는 상태로 갈랐고, 원장에 의존성 폐쇄를 따라간 심볼을 파일 단위로 넣되 살아 있는 경로와 공유하는 심볼은 과다 삭제를 막도록 표시했다.
+- 검증: backend 313 suite / 3588 test, lint·typecheck·prettier 통과.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-07 — P2 UX 이슈 재판정과 최소 수정
+
+- 열린 P2 UX 이슈 넷을 현재 코드 기준으로 다시 판정했다. 이슈 문구가 아니라 코드를 권위로 삼았더니 둘은 이미 고쳐져 있었다. #1207은 v0.6.147의 마일스톤 카드 재작성이 해결해 편집 화면에 bare 「삭제」 라벨이 없고, #1206은 통과 중인 테스트가 REVERT 상태에서 액션이 사유와 함께 비활성화됨을 이미 단언한다. 네 티켓을 기계적으로 네 PR로 만들었으면 가짜 PR 둘이 나왔다.
+- #1205: 제출 이력 조회의 `catch`가 오류 종류를 버려 권한 거부와 네트워크 실패가 같은 「다시 시도」로 접혔고 눌러도 같은 거절이 반복됐다. 자격 없음(`MSD_005` NOT_APPLICATION_MEMBER)만 갈라 재시도 없이 이유를 말한다. HTTP status로 가르지 않는다 — `API_000`도 403을 달 수 있고 그건 원인 불명이라 재시도 경로에 남아야 한다. 조건이 신선도가 아니라 자격이라 다시 불러와도 바뀌지 않는다는 것이 판별의 근거다.
+- #1208: 다시 게시 확인창이 「공개 목록에 다시 노출되고」라고 말했지만 내린 프로그램도 목록에 계속 보였다. 같은 파일의 PUBLISHED 짝을 #1181이 이미 정확히 적어놨으므로 그 형태를 따라, 신규 신청이 재개된다는 사실과 목록·상세 노출은 바뀌지 않는다는 사실을 함께 말하도록 고쳤다.
+- 계획 검토가 네 번 걸렀고 그중 하나는 내 잘못이었다. 403 status 판별, 권한 실패에 새로고침 제공(#1205가 지적한 무한 반복의 재생산), 그리고 내가 지시한 `ParticipantOnlyNotice` 재사용이 차례로 기각됐다. 마지막 것은 그 컴포넌트가 `min-h-[50svh]` 전체 화면용이라 행마다 그리면 안내가 반복되고 DOM id가 중복된다.
+- 두 수정 모두 돌연변이 검증을 했다. 분기 조건과 문구를 각각 되돌리니 정확히 한 건씩 실패했고 복구하니 초록이 됐다 — 초록 테스트가 결함을 실제로 잡는지 확인한 것이다.
+- 검증: frontend 341 file / 3497 test, lint·typecheck·prettier 통과. backend 변경 없음, DB 변경 없음.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-08 — PR #1230 리뷰에서 나온 UX 안티패턴 넷을 스킬에 인코딩
+
+- PR #1230을 읽다가 같은 모양의 지적을 네 번 했다. 파일 오류 안내문이 바로 아래 버튼 라벨(`파일 없이 계속`)을 그대로 되풀이하고, 펼침 토글이 `다운로드 범위`를 세 번 말하고, 라디오 선택지가 위젯이 이미 보장하는 `하나`를 다시 적고, 아무도 묻지 않는 「무엇이 바뀌었나」 화면이 문구만 다듬어져 나왔다. 넷 다 기존 자동 점검과 열여섯 줄 판정 표를 통과했다.
+- 원인이 체크리스트 자신에게 있었다. 판정 표의 AP-6 예시가 `1인 팀 계속` → `팀 없이 계속`이라는 **문구 치환**을 모범 수정으로 보여 주고 있었고, 다음 PR이 정확히 같은 모양의 `파일 없이 계속`을 만들었다. 목록이 자기가 금지하려는 것을 가르치고 있었다.
+- `submit-pr-evidence` v1.6.0: 「D. 글자를 늘려 고친 넷」(AP-17 컨트롤을 설명하는 문장, AP-18 아이콘이면 끝나는 문장, AP-19 위젯이 이미 말한 것, AP-20 묻지 않은 질문)을 더해 스무 항목이 됐다. AP-6 예시 줄을 구조적 수정 서술로 바꾸고, 근거 칸에 문구 치환만 적지 못하게 규칙으로 못박았다.
+- AP-17이 접근성을 깨뜨릴 뻔했다. 「버튼 옆 문장을 지워라」를 그대로 따르면 `Table`이 `tabIndex={0}`과 함께 `aria-describedby`로 참조하는 `표를 좌우로 스크롤할 수 있습니다.`가 지워진다 — QA14·QA15가 WCAG 2.1.1을 위해 일부러 만든 계약이다. 지우기 전에 `aria-describedby` 참조를 확인하라는 경계와 실례를 항목 안에 넣었다.
+- `돌아가서 확인`도 한 화면의 실수가 아니라 확인 다이얼로그 셋 이상이 공유하는 관행이었고, `milestone-document-resubmission-dialog.tsx`의 설계 주석이 그것을 명시적으로 방어하고 있었다. 그래서 「한 다이얼로그만 바꾸지 않는다 — 전부 같이 고치거나 티켓으로 올린다」를 규칙으로 적었다. 안티패턴 목록이 다른 안티패턴(갈라진 편집)을 낳으면 안 된다.
+- 절차 9단계로 `/ponytail-review`를 넣었다. 안티패턴이 화면에서 글자를 줄이는 것이라면 ponytail은 diff에서 코드를 줄이는 같은 규칙이고, 검증·오류 처리·보안·접근성은 줄이지 않는다는 경계를 함께 적었다.
+- 검증: 스킬 문서 세 개만 변경했고 제품 코드·설정·CI 변경 0건. 인용한 코드 앵커(파일·줄·문자열)를 전부 저장소에서 직접 확인했고, ponytail marketplace 소유자 표기는 GitHub API `full_name`으로 확인했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-08 — 랭킹 한 페이지에 100명까지 보인다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- 랭킹 목록이 20명씩 끊겨 참여자 59명을 보려면 페이지를 세 번 넘겨야 했다. 한 화면에서 훑는 것이 이 표의 용도라 목록 page size를 100으로 올렸다.
+- 백엔드 계약은 그대로다. `GET /ranking`의 `pageSize` 상한이 이미 100이라(`ranking-query.dto.ts`) 프런트 상수 하나만 바꿨고, 101을 보내면 여전히 400으로 거부된다.
+- CSV 내려받기는 건드리지 않았다. `RANKING_CSV_PAGE_SIZE`는 별도 상수로 이미 100이라 목록 page size와 무관하게 동작한다.
+- 페이지네이션은 사라지는 것이 아니라 `total > pageSize`일 때만 나온다 — 참여자가 100명을 넘으면 다시 나타난다.
+- 검증: `pnpm --filter frontend exec vitest run src/features/ranking src/app/ranking` 5개 파일 62개 통과. 합성 59행을 주입한 local-review 하네스에서 Before 20행·페이지네이션 있음, After 59행·페이지네이션 없음을 캡처로 확인했다.
+- 공개 안전성: 캡처는 합성 fixture(`contributor-001`~`059`)만 쓰고 실명·실계정·토큰이 없다. 비밀값·내부 호스트·로컬 경로 없음.
+
+## 2026-09-08 — 리뷰 답글에서 CI가 이미 말한 것을 뺀다 (submit-pr-evidence v1.7.0)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- PR #1230·#1231·#1232의 답글이 세 곳 모두 거의 같은 문단으로 끝났다 — 테스트 개수, CI 통과, 후속 커밋 SHA, 「병합하지 않았습니다」. 넷 다 PR 화면의 checks 줄·커밋 목록·PR 상태가 이미 말하는 것이다.
+- 습관이 아니라 규칙 탓이다. `SKILL.md` 절차 7단계가 「실행된 suite·test 개수를 적는다」고만 하고 표면을 말하지 않았고, 스킬에 리뷰 답글 규칙이 한 줄도 없었다.
+- `## 리뷰 답글 작성 원칙`을 `## PR을 연다` 뒤에 두었다 — 답글은 PR을 연 뒤에 쓰므로 문서도 그 순서다. 규칙은 「초록불이 말해 주는 것은 쓰지 않고, 초록불이 감추는 것을 쓴다」다.
+- 수치를 없앤 것이 아니라 자리를 PR 본문 `## 검증` 절 하나로 고정했다. 못 돌린 검증의 자리는 본문이라고 명시했고, 재실행으로 통과한 검사·원인 미확정·보류 항목은 오히려 답글에 쓰라고 요구한다.
+- description 트리거에 `"리뷰 답글"`·`"PR 코멘트"`를 더했다. 답글을 쓸 때 스킬이 붙지 않으면 규칙은 없는 것과 같다.
+- 검증: `corepack pnpm exec prettier --check skills/submit-pr-evidence/` 통과, `bash scripts/check-public-safe.sh` 통과, 새 앵커 링크를 heading 목록과 대조했다. 코드 변경이 없어 test/lint/typecheck는 돌리지 않았다.
+- ponytail: `/ponytail-review` 슬래시 커맨드를 이 세션에서 호출할 수 없어(플러그인은 설치돼 있으나 커맨드가 세션 스킬 목록에 없음) 스킬 본문을 읽고 규칙을 손으로 적용했다. 잘라낸 것 둘 — 섹션 위치를 시간 순서에 맞게 옮겼고, 세 문장짜리 불릿을 중첩 불릿으로 쪼갰다.
+- 공개 안전성: 문서만 바꿨고 실명·비밀값·내부 호스트·로컬 경로 없음.
+
+## 2026-09-08 — 리뷰 답글 규칙이 위젯이 말하지 않는 것까지 지우던 것을 바로잡는다 (submit-pr-evidence v1.7.1)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- #1238 병합 뒤 code-reviewer lane이 must-fix 셋을 보고했고 `ci.yml`·`AGENTS.md`에서 직접 재확인했다.
+- browser E2E는 CI lane이 아니라 로컬 수동 게이트인데(`ci.yml:321`) v1.7.0은 그것을 「checks 줄이 말한다」며 답글에서 지우게 했다 — 오히려 사람이 쓰지 않으면 아무 데도 남지 않는 부류라 「초록불이 감추는 것」 쪽으로 옮겼다.
+- 테스트 개수 예시의 금지 근거가 「checks 줄이 말한다」였는데 checks 줄은 lane의 초록불만 말하고 개수는 말하지 않는다 — 근거를 「본문 `## 검증` 절이 말한다」로 고쳤다.
+- `## 검증`은 PR을 열 때 쓰고 끝나는 절이라 리뷰 대응 커밋의 재검증 수치가 갈 자리가 없었다 — 다시 돌렸으면 그 절을 갱신한다고 명시했다.
+- 커밋 해시 금지가 지적↔커밋 매핑까지, 「병합하지 않았습니다」 금지가 「보류했다」까지 번지지 않도록 경계를 달았다.
+- 검증: prettier check 통과, `bash scripts/check-public-safe.sh` 통과. 코드 변경 없음.
+- 공개 안전성: 문서만 바꿨고 실명·비밀값·내부 호스트·로컬 경로 없음.
+## 2026-09-07 — 도메인에 없는 삭제 보호 플래그 제거
+
+- 배경: `Program.deletionProtected`는 API에 값을 바꾸는 경로가 없고 운영자가 DB에서 직접 켜야 했다. 켜진 프로그램은 화면에서 삭제 버튼이 비활성이고 해제할 방법도 화면에 없다. 우리 도메인에는 「삭제 보호」라는 개념 자체가 없으므로 안티패턴이다.
+- 변경: 컬럼과 그것을 읽는 전 표면을 지웠다. schema 필드와 DROP migration, `delete`·`purge`의 가드와 select, `PROGRAM_DELETE_PROTECTED`(PRG_013), 편집 응답 DTO와 view 타입과 repository 매핑, 프론트 위험 영역의 prop·안내 Alert·버튼 비활성 분기, 그리고 이 플래그만 검증하던 테스트다. 기존 추가 migration 파일은 역사 기록이라 건드리지 않고 새 migration으로 지웠다. 다른 오류 코드 번호는 재배치하지 않았다.
+- 남긴 것: purge의 `expectedScope` 재확인(409 PRG_014), 권한 가드, 감사 로그, 삭제 순서, 그리고 권한 없는 사용자에게 버튼을 비활성화하는 `canDeleteProgram`은 그대로다. 약화된 안전장치는 없다.
+- 검증: backend 66 suite / 528 test, frontend 102 file / 1095 test, `program-purge.integration.spec.ts` 15건, backend·frontend typecheck, prettier, backend lint 통과. `deletionProtected`와 `PROGRAM_DELETE_PROTECTED` 잔여 참조는 migration 이력 두 줄뿐이다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-08 — 확인 팝업 한 번으로 프로그램 삭제
+
+- 상태: review
+- Issue: [#1237](https://github.com/JNU-SWCU/oss-hub/issues/1237)
+- PR: (이 PR)
+- blocker: 배포 전 최종 리뷰
+- 사용자 요청은 내리기 없이 삭제만 제공하고 확인 팝업으로 확정하는 것이다.
+- 내리기·다시 게시하기 UI와 전용 lifecycle 변경 endpoint를 제거했다.
+- 이름 재입력을 없애고 기존 purge에 삭제 범위와 지문을 그대로 전달한다.
+- 범위가 바뀌면 자동 재시도하지 않고 새 범위를 보여준 뒤 다시 확인받는다.
+- 이미 DELETED인 제출 파일은 삭제 시각을 유지하면서 프로그램 관계만 분리해 제약 위반을 막는다.
+- 삭제 성공은 기존 exit guard의 완료 경로로 이동하며 취소·실패는 미저장 변경 보호를 유지한다.
+- 앞선 삭제 보호 제거 기록의 배포 순서를 수정한다.
+- 첫 릴리스에서는 Prisma 필드와 모든 코드 참조만 제거하고 물리 컬럼은 유지한다.
+- 새 코드가 정상 배포된 뒤 별도 릴리스에서 컬럼을 삭제해야 기존 서버와 자동 롤백이 제거된 컬럼을 조회하지 않는다.
+- 검증: frontend 116 파일 / 1120 테스트, backend 66 suite / 525 테스트, 격리 DB purge 통합 17개, Chrome 삭제 시나리오 8개 통과.
+- 양쪽 typecheck와 lint, 전체 prettier 검사를 통과했다.
+- frontend lint의 변경하지 않은 sidebar 테스트 경고 5건은 그대로 보고한다.
+- 최초 브라우저 검증은 오래된 요약 문구 기대값과 초기 로딩까지 실패시키던 합성 fixture 때문에 실패했고, 계약에 맞게 수정한 뒤 8개 모두 통과했다.
+- Before/After는 동일 합성 프로그램·교직원·desktop 및 390x844 조건에서 촬영했다.
+- 공개 안전성: 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+- 후속 검증: 동시 병합된 편집 개선을 보존해 rebase한 뒤 frontend 전체 343 파일 / 3494 테스트와 backend 전체 313 suite / 3581 테스트가 통과했다.
+- backend 전체 격리 통합 94 suite / 539 테스트도 통과했으며 Jest 종료 시 비동기 핸들 경고는 숨기지 않았다.
+- 390x440에서 긴 프로그램 이름으로도 확인·취소 버튼에 닿도록 팝업 높이를 제한하고 단일 스크롤을 제공했으며 Chrome 시나리오는 9개 모두 통과했다.
+- backend build와 CI의 합성 origin을 사용한 frontend production build가 통과했다.
+
+## 2026-09-08 — PR·코멘트·QA 스킬 개편 — write-github-comment 신설, PR 템플릿 단일화, check-pr-body 훅 (submit-pr-evidence v1.8.0 · manage-qa-tickets v4.5.0 · write-github-comment v1.0.0)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- 코멘트 템플릿 네 개(리뷰 답글·UX 제안·진행 공유·PR 연결)를 새 `write-github-comment` 스킬로 옮기고, `gh pr comment`·`gh issue comment`·`gh pr review` 앞과 "코멘트 달아줘"류 요청에 반드시 열리도록 description 트리거를 달았다.
+- `submit-pr-evidence` v1.8.0에서 PR 형식의 원본을 `.github/pull_request_template.md` 하나로 고정했다 — 절 배치 이유와 예외 문구만 SKILL.md에 남기고 본문 계약은 복제하지 않는다. 가독성 열세 규칙은 새 `references/readability.md`로 모으고, 흐름 다이어그램은 high level(입구 → 판단 → 결과, 노드 8개 이하) 먼저 + `<details>` 상세 두 단으로, Before/After는 selector·DOM path 있는 요소 행을 필수로 바꿨다.
+- `scripts/check-pr-body.sh`로 템플릿 아홉 절 제목·순서·예외 문구를 기계적으로 검사하고, `.claude/settings.json`의 Claude Code PreToolUse hook이 `gh pr create`/`gh pr edit`를 가로채 통과하지 못한 본문 파일의 PR 생성을 막는다. 테스트는 `scripts/check-pr-body.test.sh`로 별도 뒀다.
+- `manage-qa-tickets` v4.5.0에서 판정 표 항목 수 하드코딩 문구를 없애고, SKILL.md·github-publication.md의 계약 섹션 이름을 `할 일`·`하지 않을 것`·`완료 조건`으로 맞추고, 티켓 `현재 화면` selector가 PR Before/After 요소 행의 selector로 이어지게 명시했다.
+- `docs/rules/agent-skill-routing.md`와 AGENTS.md를 다섯 스킬(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `write-github-comment`, `build-oss-hub-handbook`) 체계로 갱신하고, `.claude/skills/write-github-comment`·`.codex/skills/write-github-comment`·`.cursor/skills/write-github-comment`·`.gjc/skills/write-github-comment` symlink를 `skills/write-github-comment`로 추가했다. `.claude/`·`.gjc/`는 글로벌 gitignore에 걸려 `git add -f`로 추적했다.
+- 검증: 변경·신규 마크다운·설정 파일에 `prettier --check` 통과(쉘 스크립트 둘은 parser 미지원이라 대상에서 제외), `bash scripts/check-pr-body.test.sh` 47개 통과, `find -L .claude .codex .cursor .gjc -type l` 결과 없음(깨진 symlink 없음), 새 마크다운 네 개 각각 `bash scripts/check-public-safe.sh --text-only` 통과.
+- 한계: 훅은 Claude Code의 `gh pr create`/`gh pr edit`만 가로챈다. Codex·Cursor·GJC는 AGENTS.md의 게이트 문장과 PR 템플릿 체크박스에 의존하고, `check-pr-body.sh`를 CI required lane에 넣는 것은 이번에 하지 않고 후속 결정으로 남겼다.
+- 공개 안전성: 실명 없음 — 사람은 @handle. 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+## 2026-09-08 — 삭제 보호 물리 컬럼 제거
+
+- 상태: review
+- Issue: [#1237](https://github.com/JNU-SWCU/oss-hub/issues/1237)
+- PR: (이 PR)
+- blocker: 없음
+- 선행 v0.6.150의 배포 SHA와 healthy 상태를 확인했고 실행 중인 Prisma client에 삭제 보호 필드가 없음을 확인했다.
+- 물리 컬럼만 남은 상태에서 별도 DROP migration을 추가하며 과거 migration은 수정하지 않는다.
+- 합성 PostgreSQL의 true·false 행에서 컬럼 제거 후 나머지 행 내용·관계·제약·인덱스를 대조하고 실제 dump를 복원해 원래 상태를 검증했다.
+- 이미 컬럼이 없으면 명시적으로 실패하는 negative 시나리오도 복원까지 통과했다.
+- 리허설은 전체 migration 이력이 아닌 focused-table 검증이며 전체 스키마는 격리 통합 94 suite / 539 테스트로 별도 검증했다.
+- 리허설은 원격 Docker endpoint를 거부하고 자체 컨테이너 정리 성공 후에만 성공 결과를 출력한다.
+- 정적 계약 10개는 backend Prisma Jest 경로에 두어 기존 required CI에서 실행한다.
+- 검증: 정적 계약 10개, migrate·negative 리허설, 원격 endpoint 거부, 잔존 리허설 컨테이너 0개, backend typecheck·lint 통과.
+- 통합 테스트 종료 시 기존 Jest 비동기 핸들 경고는 숨기지 않았다.
+- 공개 안전성: 합성 데이터만 사용했고 비밀값·실데이터·개인정보·내부 호스트·로컬 경로 없음.
+- PR 리뷰에서 production DDL의 무제한 lock 대기를 발견해 migration 자체에 transaction-local lock timeout 5초와 statement timeout 30초를 추가했다.
+- 완화된 외부 timeout 아래 별도 세션이 Program 잠금을 잡는 locked 리허설로 migration 자체의 timeout과 데이터 보존을 검증했으며 정적 계약 12개와 리허설 3종이 통과했다.
+- 선행 Release의 실제 backup도 운영 DB와 분리된 네트워크 없는 임시 DB에서 복원하고 임시 컨테이너를 제거했다.
+
+## 2026-09-08 — QA 티켓 캡처를 본문 앞쪽으로 올린다 (manage-qa-tickets v4.6.0)
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+
+- 두 본문 템플릿이 `현재 화면`을 본문 끝(UX·디자인)에 두거나 아예 두지 않아(기능 결함), 담당자는 티켓을 다 읽고 나서야 문제의 화면을 봤다. QA170(#1245)과 QA171(#1246)이 그 배치로 발행됐다.
+- UX·디자인 템플릿의 `현재 화면`을 `문제` 바로 뒤로 올리고, 기능 결함 템플릿에는 `재현` 바로 뒤에 `frontend` 전용으로 새로 넣었다.
+- `frontend 캡처 절차`와 SKILL.md의 섹션 순서 문장에 이 배치를 규칙으로 적어, 다음 티켓이 옛 순서로 돌아가지 않게 했다.
+- 이미 발행된 QA170·QA171은 Notion 본문과 Issue 본문을 같은 순서로 옮겼다. Notion은 블록을 옮겨도 이미지가 딸려오지 않아 캡처 세 장을 다시 업로드해 새 자리에 붙였다.
+- 검증: 변경한 마크다운 세 개에 `prettier --check` 통과, 재발행한 Issue 본문 두 개 각각 `bash scripts/check-public-safe.sh --text-only` 통과, Notion·GitHub 양쪽을 다시 열어 새 위치에서 이미지가 렌더되는 것을 확인했다.
+- 한계: QA169(#1240)는 PM 판단으로 옛 배치 그대로 뒀다. 다른 사람이 쓴 과거 티켓도 소급 정리하지 않는다.
+- 공개 안전성: 실명 없음 — 사람은 @handle. 비밀값, 실데이터, 개인정보, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-09 — 댓글의 결정과 근거를 분리한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 기존 댓글 스킬·템플릿·canonical 가독성 참조를 고쳤다. 기존 구현 재사용을 먼저 검토하며 단순 유지 의견의 표·도식을 줄인다.
+- 검증: 실제 게시 댓글 7개를 읽고 #1244·#1231·#1247 재작성 3개의 모든 근거 링크 보존·첫 화면 다음 행동·public-safe를 확인했다. 전체 prettier와 TEAM-STATE 합성 테스트 11개가 통과했다.
+- 독립 리뷰: 로컬 E2E 보고 의무를 복원하고 답글의 다음 행동을 After 캡처 앞으로 옮겼다.
+- 주의: #1251도 submit-pr-evidence 버전·CHANGELOG를 수정한다. 병합 순서에 따라 버전 정합을 확인한다. 이번 문서 PR만 인터뷰 면제와 Xia 직접 Ponytail 절차 적용을 승인받았으며 영구 규칙은 바꾸지 않았다.
+- 범위: 과거 댓글·제품 코드·런타임 설치본·전역 설정은 수정하지 않았다.
+
+## 2026-09-09 — PR·댓글·Issue에 토스 글쓰기 원칙을 적용한다
+
+- 상태: review
+- Issue: -
+- PR: #1260
+- blocker: 없음
+- 내용: 공통 가독성 원본에 토스 8원칙을 협업 맥락으로 적용했다. 기존 세 스킬의 참조는 재사용하고 PR·Issue 템플릿에는 원본 링크만 추가했다.
+- 검증: 실제 PR #1260·리뷰 댓글 #1244·Issue #1259의 before/after를 비교해 원래 URL 전부와 Issue 실행 계약·의존성·기존 blocker의 보존을 확인했다. 최종 초안 세 개 public-safe, PR 본문 검사, 전체 prettier, TEAM-STATE 테스트 11개가 통과했다.
+- 주의: #1251과 submit-pr-evidence 버전·CHANGELOG가 겹친다. 새 HEAD는 이전 승인과 별도로 리뷰한다. 인터뷰 면제는 이 문서 개선 범위만 유지한다.
+- 범위: Xia가 직접 Ponytail full로 기존 참조 재사용·필수 근거 보존을 검토했다. 새 검사기·스킬·원칙 파일, 과거 게시물 수정, 제품 코드 변경, 병합·배포는 없다.

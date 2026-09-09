@@ -2,10 +2,16 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { EditableMilestone, EditableProgram } from './api';
+import { FieldError } from '@/components/ui/field';
+import type {
+  EditableMilestone,
+  EditableProgram,
+  EditableMilestoneEditSnapshot,
+  EditableMilestoneDocument,
+} from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
+import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
-import { ProgramEditLifecycleSection } from './program-edit-lifecycle-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
 import {
   type ProgramEditableField,
@@ -13,11 +19,12 @@ import {
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
+  type ProgramMilestoneDraft,
 } from './program-edit-flow';
 import { programHref } from './program-paths';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 import { editScheduleEvents } from './program-schedule-overview-model';
-import { PageBody, PageHeader } from '@/components';
+import { FormSection, PageBody, PageHeader } from '@/components';
 
 /** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
 const FORM_WIDTH = 'max-w-4xl';
@@ -34,22 +41,22 @@ interface ProgramEditViewProps {
   readonly milestoneEditor: ProgramMilestoneEditor;
   readonly milestoneEditTriggerRef?: React.RefObject<HTMLElement | null>;
   readonly deleteTarget: EditableMilestone | null;
-  /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「제출 항목」이 펼쳐진 채로 뜬다. */
-  readonly expandedDocumentsMilestoneId: string | null;
   readonly isMilestoneBusy: boolean;
-  readonly isLifecycleBusy: boolean;
-  readonly isLifecycleConfirming: boolean;
-  readonly lifecycleError: string | null;
+  readonly milestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly latestMilestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly milestoneSnapshotLoadFailed?: boolean;
+  readonly canonicalDocumentsByMilestoneId?: ReadonlyMap<
+    string,
+    readonly EditableMilestoneDocument[]
+  >;
   /** 삭제 권한(교직원 또는 관리자)이 있는 사용자만 「위험 영역」(영구 삭제)을 본다(#1095). */
   readonly canDeleteProgram: boolean;
+  readonly onProgramDeleted: (notice?: string) => void;
   readonly onFieldChange: (
     field: ProgramEditableField,
     value: string | boolean,
   ) => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  readonly onRequestLifecycleToggle: () => void;
-  readonly onCancelLifecycleToggle: () => void;
-  readonly onConfirmLifecycleToggle: () => void;
   readonly onAddMilestone: () => void;
   readonly onEditMilestone: (milestone: EditableMilestone) => void;
   readonly onCancelMilestone: () => void;
@@ -57,7 +64,15 @@ interface ProgramEditViewProps {
     field: ProgramMilestoneField,
     value: string,
   ) => void;
-  readonly onSaveMilestone: (event: React.FormEvent<HTMLFormElement>) => void;
+  readonly onSaveMilestone: (
+    event: React.FormEvent<HTMLFormElement>,
+    documents?: ProgramMilestoneDraft['documents'],
+  ) => void;
+  readonly onRefreshMilestone?: () => void;
+  readonly onMilestoneDocumentsDirtyChange?: (dirty: boolean) => void;
+  readonly onRestartMilestoneFromLatest?: (
+    snapshot: EditableMilestoneEditSnapshot,
+  ) => void;
   readonly onRequestDeleteMilestone: (milestone: EditableMilestone) => void;
   readonly onCancelDelete: () => void;
   readonly onConfirmDelete: () => void;
@@ -113,22 +128,23 @@ export function ProgramEditView({
   milestoneEditor,
   milestoneEditTriggerRef,
   deleteTarget,
-  expandedDocumentsMilestoneId,
   isMilestoneBusy,
-  isLifecycleBusy,
-  isLifecycleConfirming,
-  lifecycleError,
+  milestoneSnapshot,
+  latestMilestoneSnapshot,
+  milestoneSnapshotLoadFailed,
+  canonicalDocumentsByMilestoneId,
   canDeleteProgram,
+  onProgramDeleted,
   onFieldChange,
   onSubmit,
-  onRequestLifecycleToggle,
-  onCancelLifecycleToggle,
-  onConfirmLifecycleToggle,
   onAddMilestone,
   onEditMilestone,
   onCancelMilestone,
   onMilestoneFieldChange,
   onSaveMilestone,
+  onRefreshMilestone,
+  onMilestoneDocumentsDirtyChange,
+  onRestartMilestoneFromLatest,
   onRequestDeleteMilestone,
   onCancelDelete,
   onConfirmDelete,
@@ -180,22 +196,51 @@ export function ProgramEditView({
             </AlertDescription>
           </Alert>
         ) : null}
-        <ProgramEditBasicForm
-          program={program}
-          form={form}
-          errors={errors}
-          isSaving={isSaving}
-          onFieldChange={onFieldChange}
-          onSubmit={onSubmit}
-        />
-        <Card>
+        <form className="grid min-w-0 gap-10" onSubmit={onSubmit}>
+          <ProgramEditBasicForm
+            program={program}
+            form={form}
+            errors={errors}
+            onFieldChange={onFieldChange}
+          />
+          <FormSection title="신청 · 운영 일정">
+            <ProgramEditScheduleEditor
+              program={program}
+              form={form}
+              errors={errors}
+              isSaving={isSaving}
+              onFieldChange={onFieldChange}
+            />
+          </FormSection>
+          <div className="grid gap-3">
+            <FieldError role="alert">{errors.general}</FieldError>
+            <p id="program-save-scope" className="sr-only">
+              기본 정보, 신청·운영 일정, 저장소와 알림 설정을 함께 저장합니다.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="submit"
+                disabled={isSaving}
+                aria-describedby="program-save-scope"
+              >
+                {isSaving ? '저장 중…' : '프로그램 정보 저장'}
+              </Button>
+            </div>
+          </div>
+        </form>
+        <Card
+          className={
+            milestoneEditor.mode === 'create'
+              ? '-mx-6 [--card-spacing:--spacing(2)] sm:mx-0 sm:[--card-spacing:var(--card-padding)]'
+              : undefined
+          }
+        >
           <CardContent className="pt-card">
             <ProgramEditMilestones
               milestones={program.milestones}
               editor={milestoneEditor}
               editTriggerRef={milestoneEditTriggerRef}
               deleteTarget={deleteTarget}
-              expandedDocumentsMilestoneId={expandedDocumentsMilestoneId}
               operationStartAt={form.startAt}
               operationEndAt={form.endAtUndecided ? '' : form.endAt}
               contextEvents={editScheduleEvents(
@@ -204,34 +249,38 @@ export function ProgramEditView({
                 milestoneEditor,
               )}
               isBusy={isMilestoneBusy}
+              milestoneSnapshot={milestoneSnapshot}
+              latestMilestoneSnapshot={latestMilestoneSnapshot}
+              snapshotLoadFailed={milestoneSnapshotLoadFailed}
+              canonicalDocumentsByMilestoneId={canonicalDocumentsByMilestoneId}
               onAdd={onAddMilestone}
               onEdit={onEditMilestone}
               onCancelEdit={onCancelMilestone}
               onFieldChange={onMilestoneFieldChange}
               onSave={onSaveMilestone}
+              onRefreshMilestone={onRefreshMilestone ?? (() => undefined)}
+              onDocumentsDirtyChange={
+                onMilestoneDocumentsDirtyChange ?? (() => undefined)
+              }
+              onRestartMilestoneFromLatest={
+                onRestartMilestoneFromLatest ?? (() => undefined)
+              }
               onRequestDelete={onRequestDeleteMilestone}
               onCancelDelete={onCancelDelete}
               onConfirmDelete={onConfirmDelete}
             />
           </CardContent>
         </Card>
-        <ProgramEditLifecycleSection
-          lifecycle={program.lifecycle}
-          isBusy={isLifecycleBusy}
-          isConfirming={isLifecycleConfirming}
-          error={lifecycleError}
-          onRequestToggle={onRequestLifecycleToggle}
-          onCancelToggle={onCancelLifecycleToggle}
-          onConfirmToggle={onConfirmLifecycleToggle}
-        />
-        <div className="border-t border-border pt-10">
-          <ProgramEditDangerZoneSection
-            programId={program.id}
-            programName={program.name}
-            canDeleteProgram={canDeleteProgram}
-            deletionProtected={program.deletionProtected ?? false}
-          />
-        </div>
+        {canDeleteProgram ? (
+          <div className="border-t border-border pt-10">
+            <ProgramEditDangerZoneSection
+              programId={program.id}
+              programName={program.name}
+              canDeleteProgram
+              onDeleted={onProgramDeleted}
+            />
+          </div>
+        ) : null}
       </div>
     </PageBody>
   );

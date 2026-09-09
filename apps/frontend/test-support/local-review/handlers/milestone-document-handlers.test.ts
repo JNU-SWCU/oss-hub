@@ -58,6 +58,14 @@ function statusOf(plan: LocalReviewResponsePlan | null): number {
   return (plan as { readonly status: number }).status;
 }
 
+it('recognizes the program archive route without pretending that a JSON fixture is a ZIP', () => {
+  const path = 'programs/program-capstone/documents/collection/archive';
+  const staff = resolve('GET', path, { search: 'scope=PROGRAM&groupBy=TEAM' });
+  expect(statusOf(staff)).toBe(503);
+  expect(jsonBody(staff)).toMatchObject({ code: 'MSD_012' });
+  expect(statusOf(resolve('GET', path, { fixture: 'student' }))).toBe(403);
+});
+
 describe('GET .../documents', () => {
   it('clean list DTO does not leak the fixture-only content discriminator', () => {
     const body = jsonBody(
@@ -91,8 +99,8 @@ describe('GET .../documents', () => {
     expect(body.fileUpload).toEqual({
       maxBytes: 5 * 1024 * 1024,
       maxLabel: '5 MB',
-      accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
-      formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+      accept: '.pdf,.hwp,.zip',
+      formatLabel: 'PDF, HWP, ZIP',
     });
   });
 });
@@ -323,6 +331,24 @@ describe('GET .../documents/collection', () => {
    * 집계 두 필드는 필터·페이지와 **무관하게 전체 기준**이다. 필터를 따라가게 만들면
    * ZERO_SUBMISSION에서 모든 열이 「제출 0」이 되어 합계 행이 뜻을 잃는다.
    */
+  it('deliveryStatus filters preserve whole-universe counts while paging matching rows', () => {
+    const all = collection('page=1&pageSize=20&filter=ALL');
+    for (const status of ['MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS']) {
+      const matching = all.rows.filter((row) => row.deliveryStatus === status);
+      const filtered = collection(
+        `page=1&pageSize=1&filter=ALL&deliveryStatus=${status}`,
+      );
+      expect(filtered.total).toBe(matching.length);
+      expect(filtered.rows).toEqual(matching.slice(0, 1));
+      expect(filtered.deliveryCounts).toEqual(all.deliveryCounts);
+      expect(filtered.filterCounts).toEqual(all.filterCounts);
+    }
+    expect(all.deliveryCounts.missing).toBe(2);
+    expect(
+      Object.values(all.deliveryCounts).reduce((sum, count) => sum + count, 0),
+    ).toBe(3);
+  });
+
   it('filterCounts·documentTotals는 필터·페이지를 타지 않는다', () => {
     const all = collection('page=1&pageSize=20&filter=ALL');
     const filtered = collection('page=2&pageSize=2&filter=ZERO_SUBMISSION');
@@ -359,6 +385,7 @@ describe('GET .../documents/collection', () => {
       'page=0',
       'pageSize=101',
       'filter=UNKNOWN',
+      'deliveryStatus=UNKNOWN',
       'unknown=1',
       'page=1&page=2',
     ]) {

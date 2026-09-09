@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 // @vitest-environment happy-dom
 
 import { act, useState } from 'react';
@@ -10,11 +11,12 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-function FileInputHarness() {
+function FileInputHarness({ maxMiB = 5 }: { readonly maxMiB?: number }) {
   const [file, setFile] = useState<File | null>(null);
 
   return (
     <SubmissionInput
+      fileUpload={{ maxBytes: maxMiB * 1024 * 1024, maxLabel: `${maxMiB} MB` }}
       submissionType="FILE"
       input={{ file, text: '' }}
       errors={{}}
@@ -40,6 +42,51 @@ describe('SubmissionInput native file selection', () => {
     await act(async () => root.unmount());
     container.remove();
   });
+
+  it.each([2, 5])(
+    '서버 %i MB 상한을 넘는 파일은 제출 전에 알리고 교체·취소 시 해제한다',
+    async (maxMiB) => {
+      await act(async () => root.render(<FileInputHarness maxMiB={maxMiB} />));
+      const input =
+        container.querySelector<HTMLInputElement>('#submission-file');
+      if (input === null) throw new TypeError('파일 입력을 찾지 못했습니다.');
+      const select = async (size: number) => {
+        const file = new File(['pdf'], 'report.pdf', {
+          type: 'application/pdf',
+        });
+        Object.defineProperty(file, 'size', { value: size });
+        Object.defineProperty(input, 'files', {
+          configurable: true,
+          value: { item: () => file },
+        });
+        await act(async () =>
+          input.dispatchEvent(new Event('change', { bubbles: true })),
+        );
+      };
+
+      await select(maxMiB * 1024 * 1024 + 1);
+      expect(
+        container.querySelector('#submission-file-error')?.textContent,
+      ).toBe(`파일은 ${maxMiB} MB 이하여야 합니다.`);
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(input.getAttribute('aria-describedby')).toContain(
+        'submission-file-error',
+      );
+
+      await select(maxMiB * 1024 * 1024);
+      expect(container.querySelector('#submission-file-error')).toBeNull();
+      expect(input.getAttribute('aria-invalid')).toBe('false');
+
+      await select(maxMiB * 1024 * 1024 + 1);
+      const cancel = [...container.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === '선택 취소',
+      );
+      if (!cancel) throw new TypeError('선택 취소 버튼을 찾지 못했습니다.');
+      await act(async () => cancel.click());
+      expect(container.querySelector('#submission-file-error')).toBeNull();
+      expect(input.getAttribute('aria-invalid')).toBe('false');
+    },
+  );
 
   it('선택 직후 native 값을 유지하고 명시적 취소에서만 비운다', async () => {
     await act(async () => root.render(<FileInputHarness />));
@@ -83,6 +130,7 @@ describe('SubmissionInput native file selection', () => {
     await act(async () =>
       root.render(
         <SubmissionInput
+          fileUpload={submissionUploadLimit()}
           submissionType="FILE"
           input={{ file: null, text: '' }}
           errors={{ file: '제출할 파일을 선택해 주세요.' }}
@@ -97,6 +145,24 @@ describe('SubmissionInput native file selection', () => {
     // Then: 말없이 넘어가지 않고 그 문구가 보인다.
     const error = container.querySelector('#submission-file-error');
     expect(error?.textContent).toBe('제출할 파일을 선택해 주세요.');
+  });
+
+  it('파일 선택 안내는 서버 응답의 상한 표기를 보여 준다', async () => {
+    await act(async () =>
+      root.render(
+        <SubmissionInput
+          submissionType="FILE"
+          fileUpload={{ maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' }}
+          input={{ file: null, text: '' }}
+          errors={{}}
+          onTextChange={() => {}}
+          onFileChange={() => {}}
+        />,
+      ),
+    );
+    const description = container.querySelector('#submission-file-description');
+    expect(description).not.toBeNull();
+    expect(description?.textContent).toBe('PDF, HWP, ZIP · 최대 2 MB');
   });
 
   it('좁은 화면에서 제출 안내의 한글 어절을 중간에 나누지 않는다', async () => {

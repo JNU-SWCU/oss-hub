@@ -6,7 +6,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ChangeEvent,
   type ReactElement,
 } from 'react';
 import { StatusBadge } from '@/components';
@@ -19,7 +18,6 @@ import {
   milestoneDocumentTemplateHref,
   submitMilestoneDocument,
   uploadMilestoneDocumentFile,
-  uploadMilestoneDocumentTemplate,
   type MilestoneDocument,
   type MilestoneDocumentSubmissionContent,
   type MilestoneDocumentUploadPolicy,
@@ -51,10 +49,6 @@ import {
 import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
 import { MilestoneDocumentResubmissionDialog } from './milestone-document-resubmission-dialog';
 import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
-import {
-  milestoneDocumentUploadHint,
-  milestoneDocumentUploadRejection,
-} from './milestone-document-upload-policy';
 import type { ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
@@ -179,12 +173,7 @@ export function MilestoneDocumentSectionBody({
       <ul className="grid gap-3" data-testid="milestone-document-rows">
         {state.documents.map((document) =>
           staff ? (
-            <StaffDocumentRow
-              key={document.id}
-              document={document}
-              fileUpload={state.fileUpload}
-              onChange={onDocumentChange}
-            />
+            <StaffDocumentRow key={document.id} document={document} />
           ) : (
             <StudentDocumentRow
               key={document.id}
@@ -336,50 +325,12 @@ function submitErrorMessage(error: unknown, fallback: string): string {
   return error.problem.detail;
 }
 
-/** 교직원 행 — 팀 제출 카운트 + 양식 올리기/교체. */
+/** 교직원 행 — 팀 제출 카운트만 상세 화면에서 읽는다. 양식 관리는 프로그램 편집에 둔다. */
 function StaffDocumentRow({
   document,
-  fileUpload,
-  onChange,
 }: {
   readonly document: MilestoneDocument;
-  readonly fileUpload: MilestoneDocumentUploadPolicy;
-  readonly onChange: (document: MilestoneDocument) => void;
 }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadHintId = `${document.id}-template-upload-help`;
-
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    /*
-     * 상한을 넘거나 허용 형식 밖이면 요청 자체를 내보내지 않는다. 보내 봐야 서버가
-     * 거절하고, 그 거절이 nginx에서 나면 화면에는 개발자용 문장만 남는다(#1107).
-     */
-    const rejection = milestoneDocumentUploadRejection(file, fileUpload);
-    if (rejection !== null) {
-      setError(rejection);
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    try {
-      await uploadMilestoneDocumentTemplate(
-        document.milestoneId,
-        document.id,
-        file,
-      );
-      onChange({ ...document, hasTemplateFile: true });
-    } catch (uploadError: unknown) {
-      setError(submitErrorMessage(uploadError, '양식 업로드에 실패했습니다.'));
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
     <li className="grid gap-1" data-testid="milestone-document-row">
       <div className="flex flex-wrap items-center gap-3">
@@ -390,35 +341,26 @@ function StaffDocumentRow({
             {document.teamSubmissionCount.total}팀 제출
           </StatusBadge>
         ) : null}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload aria-hidden />
-          {document.hasTemplateFile ? '양식 교체' : '양식 올리기'}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="sr-only"
-          accept={fileUpload.accept}
-          aria-label={`${document.name} 양식 파일 선택`}
-          aria-describedby={uploadHintId}
-          onChange={(event) => void handleFile(event)}
-        />
-        {/* 고르기 전에 읽어야 하는 값 — 학생 제출 폼과 같은 문장을 쓴다. */}
-        <span id={uploadHintId} className="text-small text-muted-foreground">
-          {milestoneDocumentUploadHint(fileUpload)}
-        </span>
+        {/*
+          양식 교체는 마일스톤 편집이 소유하지만, 교직원이 지금 무엇이 올라가 있는지
+          확인할 길은 이 화면에 남아야 한다. 파일명을 링크 이름으로 쓰면 「양식」보다
+          무엇을 받는지가 분명하다.
+        */}
+        {document.templateFileName ? (
+          <Button asChild size="sm" variant="ghost">
+            <a
+              href={milestoneDocumentTemplateHref(
+                document.milestoneId,
+                document.id,
+              )}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Download aria-hidden /> {document.templateFileName}
+            </a>
+          </Button>
+        ) : null}
       </div>
-      {error ? (
-        <p role="alert" className="text-small text-destructive">
-          {error} 파일을 다시 선택해 주세요.
-        </p>
-      ) : null}
     </li>
   );
 }
@@ -565,7 +507,7 @@ function StudentDocumentRow({
   const [submitting, setSubmitting] = useState(false);
   /**
    * 확인 창을 기다리는 제출. 보내기 **전에** 붙잡아 두는 것이 요점이다 — 먼저 보내 놓고
-   * 물으면 물어볼 것이 없고, 파일부터 올려 두면 「돌아가서 확인」을 눌러도 그 업로드는 이미
+   * 물으면 물어볼 것이 없고, 파일부터 올려 두면 「취소」를 눌러도 그 업로드는 이미
    * 서버에 남는다.
    */
   const [pendingDraft, setPendingDraft] = useState<{
@@ -584,6 +526,8 @@ function StudentDocumentRow({
   const [historyIsComplete, setHistoryIsComplete] = useState(true);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  /** 자격 없음(MSD_005)은 실패가 아니라 상태다 — 재시도 대신 갈 곳을 준다(#1205). */
+  const [historyForbidden, setHistoryForbidden] = useState(false);
   const [historyErrorCursor, setHistoryErrorCursor] = useState<string | null>(
     null,
   );
@@ -677,6 +621,7 @@ function StudentDocumentRow({
       const requestId = historyRequestIdRef.current;
       setIsHistoryLoading(true);
       setHistoryError(null);
+      setHistoryForbidden(false);
       try {
         const page = await getMilestoneDocumentParticipantHistory(
           document.milestoneId,
@@ -690,8 +635,20 @@ function StudentDocumentRow({
         setHistoryNextCursor(page.nextCursor);
         setHistoryIsComplete(page.isComplete);
         setHistoryErrorCursor(null);
-      } catch {
+      } catch (reason) {
         if (requestId !== historyRequestIdRef.current) return;
+        /*
+         * 자격 없음(MSD_005 NOT_APPLICATION_MEMBER)은 실패가 아니라 상태다 — 다시
+         * 불러와도 신청 멤버가 되지 는 않으므로 재시도를 주면 같은 거절이 무한히
+         * 반복된다(#1205). 조건은 신선도가 아니라 자격이라 갈 곳을 대신 보여 준다.
+         * HTTP status로 가르지 않는다 — API_000도 403을 달 수 있고 그건 원인 불명이라
+         * 재시도 경로에 남아야 한다.
+         */
+        if (reason instanceof ApiError && reason.problem.code === 'MSD_005') {
+          setHistoryForbidden(true);
+          setHistoryErrorCursor(null);
+          return;
+        }
         setHistoryError(
           '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
         );
@@ -796,7 +753,7 @@ function StudentDocumentRow({
    * 「제출」을 누른 순간 — 되돌릴 수 없는 자리면 확인 창을 한 번 지난다.
    *
    * 확인이 필요한 제출은 **보내지 않고 붙잡아 둔다**(`pendingDraft`). 먼저 보내 놓고 물으면
-   * 물어볼 것이 없어지고, 파일부터 올려 두면 학생이 「돌아가서 확인」을 눌러도 그 업로드는
+   * 물어볼 것이 없어지고, 파일부터 올려 두면 학생이 「취소」를 눌러도 그 업로드는
    * 이미 서버에 남는다.
    *
    * 이 함수가 `false`를 돌려주면 폼은 입력을 그대로 들고 있는다 — 확인 창에서 돌아온 학생이
@@ -906,6 +863,17 @@ function StudentDocumentRow({
               제출 이력을 불러오는 중입니다.
             </p>
           ) : null}
+          {historyForbidden ? (
+            <div
+              className="grid gap-2 py-2"
+              data-testid="milestone-document-history-forbidden"
+            >
+              <p className="text-small break-keep text-muted-foreground">
+                제출 이력은 신청이 승인된 참여자만 볼 수 있습니다. 이 프로그램에
+                신청해 승인되면 열립니다.
+              </p>
+            </div>
+          ) : null}
           {historyError === null ? null : (
             <Alert data-testid="milestone-document-history-error">
               <AlertDescription className="flex flex-wrap items-center gap-2">
@@ -944,19 +912,25 @@ function StudentDocumentRow({
           documentId={document.id}
           fileUpload={fileUpload}
           currentFileName={viewerSubmission?.currentFileName ?? null}
+          isResubmission={submitted}
           submitting={submitting}
           onCancel={() => setEditing(false)}
           onSubmit={submitDraft}
         />
       ) : null}
       {/*
-       * 되돌릴 수 없는 재제출을 확인받는 자리. 「돌아가서 확인」은 붙잡아 둔 입력을 놓아 줄
+       * 되돌릴 수 없는 재제출을 확인받는 자리. 「취소」는 붙잡아 둔 입력을 놓아 줄
        * 뿐이라 폼은 그대로 열려 있고, 적어 둔 내용도 고른 파일도 남는다.
        */}
       {pendingDraft === null ? null : (
         <MilestoneDocumentResubmissionDialog
           documentName={document.name}
           resubmissionDueAt={review?.resubmissionDueAt ?? null}
+          removedFileName={
+            pendingDraft.file === null
+              ? (viewerSubmission?.currentFileName ?? null)
+              : null
+          }
           submitting={submitting}
           onCancel={() => setPendingDraft(null)}
           onConfirm={() => {

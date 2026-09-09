@@ -12,8 +12,7 @@ import { formatSeoulDate } from './program-detail-format';
  * - 껍데기: `AlertDialog`(`Dialog`가 아니다 — 되돌릴 수 없는 결정이라 docs/design.md의
  *   피드백 표에서 `dialog` 행이 `role="alertdialog"`를 요구한다) + `Card` 안에 제목·본문·버튼.
  * - 「되돌릴 수 없습니다」 — 서류 항목 삭제 확인 문구 그대로.
- * - 「돌아가서 확인」 — 프로그램 생성 확인의 취소 버튼 그대로. 그냥 「취소」보다 **무엇을
- *   할 수 있는지**를 말한다.
+ * - 「취소」 — 확정하지 않고 확인창을 닫는 공통 이름이다.
  * - 「제출 확정」 — 「생성 확정」·「삭제 확정」과 같은 짜임.
  *
  * 색은 만들지 않는다. 확인 버튼은 기본(주조색) `Button`이다 — `destructive`를 쓰지 않는 것은
@@ -23,6 +22,7 @@ import { formatSeoulDate } from './program-detail-format';
 export function MilestoneDocumentResubmissionDialog({
   documentName,
   resubmissionDueAt,
+  removedFileName = null,
   submitting,
   onCancel,
   onConfirm,
@@ -33,6 +33,7 @@ export function MilestoneDocumentResubmissionDialog({
    * 기한 문장을 아예 적지 않는다 — 없는 기한을 지어내 적으면 그것이 곧 거짓말이 된다.
    */
   readonly resubmissionDueAt: string | null;
+  readonly removedFileName?: string | null;
   readonly submitting: boolean;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
@@ -55,6 +56,13 @@ export function MilestoneDocumentResubmissionDialog({
               </AlertDialog.Title>
             </CardHeader>
             <CardContent className="grid gap-5">
+              {removedFileName === null ? null : (
+                <p className="break-keep text-body">
+                  새 파일 없이 제출하면 기존 첨부{' '}
+                  <strong className="break-all">{removedFileName}</strong>는
+                  최신 제출본에서 빠집니다.
+                </p>
+              )}
               <AlertDialog.Description className="text-body text-muted-foreground [word-break:keep-all]">
                 {documentName} 제출 항목을 보완 요청에 응해 다시 제출합니다.
                 보낸 뒤에는 담당 교직원의 검토가 끝날 때까지 내용을 바꿀 수
@@ -66,7 +74,7 @@ export function MilestoneDocumentResubmissionDialog({
               <div className="flex flex-wrap justify-end gap-2">
                 <AlertDialog.Cancel asChild>
                   <Button type="button" variant="outline" disabled={submitting}>
-                    돌아가서 확인
+                    취소
                   </Button>
                 </AlertDialog.Cancel>
                 <Button type="button" disabled={submitting} onClick={onConfirm}>

@@ -11,6 +11,7 @@ import {
   sanitizeSubmissionFileOriginalName,
 } from '../submissions/submission-file-name';
 import { hasValidSubmissionFileSignature } from '../submissions/submission-file-signature';
+import { hasValidSubmissionTemplateSignature } from '../submissions/submission-template-file-policy';
 import {
   SUBMISSION_FILE_STORAGE,
   type SubmissionFileStoragePort,
@@ -203,7 +204,7 @@ export class MilestoneDocumentFilesService {
     documentId: string,
     file: MilestoneDocumentFileUpload | undefined,
   ): Promise<UploadedMilestoneDocumentTemplateResponse> {
-    const originalName = await this.validateOriginalFileName(file);
+    const originalName = await this.validateOriginalFileName(file, 'TEMPLATE');
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
     const documentContext =
@@ -229,14 +230,24 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
-    await this.repository.upsertTemplateFile({
-      milestoneDocumentId: documentId,
-      uploadedById: actorId,
-      storageKey: objectKey,
-      originalFileName: originalName,
-      mimeType: uploadedFile.mimetype,
-      sizeBytes: uploadedFile.buffer.byteLength,
-      uploadedAt: now,
+    await this.repository.withTransaction(async (store) => {
+      const lockedDocument = await store.lockDocument(documentId);
+      if (
+        lockedDocument === null ||
+        lockedDocument.milestoneId !== milestoneId
+      ) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
+
+      await store.upsertTemplateFile({
+        milestoneDocumentId: documentId,
+        uploadedById: actorId,
+        storageKey: objectKey,
+        originalFileName: originalName,
+        mimeType: uploadedFile.mimetype,
+        sizeBytes: uploadedFile.buffer.byteLength,
+        uploadedAt: now,
+      });
     });
 
     return {
@@ -370,6 +381,7 @@ export class MilestoneDocumentFilesService {
    */
   private async validateOriginalFileName(
     file: MilestoneDocumentFileUpload | undefined,
+    purpose: 'STUDENT' | 'TEMPLATE' = 'STUDENT',
   ): Promise<string> {
     if (file === undefined || !Buffer.isBuffer(file.buffer)) {
       throw this.error(MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD);
@@ -378,10 +390,12 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.FILE_TOO_LARGE);
     }
     const normalizedFileName = normalizeMultipartFileName(file.originalname);
-    if (
-      !isAllowedSubmissionFileType(normalizedFileName) ||
-      !hasValidSubmissionFileSignature(file.buffer, normalizedFileName)
-    ) {
+    const valid =
+      purpose === 'TEMPLATE'
+        ? hasValidSubmissionTemplateSignature(file.buffer, normalizedFileName)
+        : isAllowedSubmissionFileType(normalizedFileName) &&
+          hasValidSubmissionFileSignature(file.buffer, normalizedFileName);
+    if (!valid) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
     if (

@@ -9,8 +9,11 @@ import { ProgramAuthoringSubmissionItem } from './program-authoring-submission-i
 import { ProgramAuthoringSortableAttachments } from './program-authoring-sortable-attachments';
 import { dateKey } from './program-schedule-calendar-model';
 import { validateTemplateFile } from './program-authoring-validation';
+import { ProgramMilestoneFields } from './program-milestone-fields';
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 
 export function ProgramAuthoringMilestoneDialog({
+  fileUpload,
   milestone,
   operationStartAt,
   operationEndAt,
@@ -28,6 +31,7 @@ export function ProgramAuthoringMilestoneDialog({
   onCancel,
   onSave,
 }: {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly milestone: ProgramAuthoringMilestone;
   readonly operationStartAt: string;
   readonly operationEndAt: string;
@@ -59,6 +63,7 @@ export function ProgramAuthoringMilestoneDialog({
 }) {
   const [saveAttempted, setSaveAttempted] = useState(initialValidationVisible);
   const [fileError, setFileError] = useState<string | null>(null);
+  const fileErrorId = `${milestone.id}-attachment-file-error`;
   const startDate = dateKey(milestone.startAt) ?? '';
   const dueDate = dateKey(milestone.dueAt) ?? '';
   const minDate = dateKey(operationStartAt) ?? undefined;
@@ -66,7 +71,7 @@ export function ProgramAuthoringMilestoneDialog({
   const errors = validationErrors(milestone, operationStartAt, operationEndAt);
 
   function acceptFile(file: File, onValid: (value: File) => void) {
-    const error = validateTemplateFile(file);
+    const error = validateTemplateFile(file, fileUpload);
     setFileError(error);
     if (error === null) onValid(file);
   }
@@ -91,63 +96,58 @@ export function ProgramAuthoringMilestoneDialog({
       onCancel={onCancel}
       onSave={save}
     >
-      <Field>
-        <FieldLabel>기간 *</FieldLabel>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input
-            aria-label="시작일"
-            aria-invalid={saveAttempted && Boolean(errors.period)}
-            type="date"
-            min={minDate}
-            max={maxDate}
-            value={startDate}
-            onChange={(event) =>
-              onFieldChange(
-                'startAt',
-                boundaryDateTime(event.target.value, operationStartAt, '00:00'),
-              )
-            }
-          />
-          <Input
-            aria-label="마감일"
-            aria-invalid={saveAttempted && Boolean(errors.period)}
-            type="date"
-            min={minDate}
-            max={maxDate}
-            value={dueDate}
-            onChange={(event) =>
-              onFieldChange(
-                'dueAt',
-                boundaryDateTime(event.target.value, operationEndAt, '23:59'),
-              )
-            }
-          />
-        </div>
-        <FieldError>{saveAttempted ? errors.period : null}</FieldError>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`${milestone.id}-name`}>
-          마일스톤 이름 *
-        </FieldLabel>
-        <Input
-          id={`${milestone.id}-name`}
-          aria-invalid={saveAttempted && Boolean(errors.name)}
-          value={milestone.name}
-          onChange={(event) => onFieldChange('name', event.target.value)}
-        />
-        <FieldError>{saveAttempted ? errors.name : null}</FieldError>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`${milestone.id}-notice`}>공지사항</FieldLabel>
-        <textarea
-          id={`${milestone.id}-notice`}
-          className="min-h-28 rounded-control border border-input bg-transparent p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={milestone.instructions}
-          onChange={(event) =>
-            onFieldChange('instructions', event.target.value)
-          }
-        />
-      </Field>
+      <ProgramMilestoneFields
+        id={milestone.id}
+        name={milestone.name}
+        instructions={milestone.instructions}
+        nameError={saveAttempted ? errors.name : null}
+        schedule={
+          <Field>
+            <FieldLabel>기간 *</FieldLabel>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                aria-label="시작일"
+                aria-invalid={saveAttempted && Boolean(errors.period)}
+                type="date"
+                min={minDate}
+                max={maxDate}
+                value={startDate}
+                onChange={(event) =>
+                  onFieldChange(
+                    'startAt',
+                    boundaryDateTime(
+                      event.target.value,
+                      operationStartAt,
+                      '00:00',
+                    ),
+                  )
+                }
+              />
+              <Input
+                aria-label="마감일"
+                aria-invalid={saveAttempted && Boolean(errors.period)}
+                type="date"
+                min={minDate}
+                max={maxDate}
+                value={dueDate}
+                onChange={(event) =>
+                  onFieldChange(
+                    'dueAt',
+                    boundaryDateTime(
+                      event.target.value,
+                      operationEndAt,
+                      '23:59',
+                    ),
+                  )
+                }
+              />
+            </div>
+            <FieldError>{saveAttempted ? errors.period : null}</FieldError>
+          </Field>
+        }
+        onNameChange={(value) => onFieldChange('name', value)}
+        onInstructionsChange={(value) => onFieldChange('instructions', value)}
+      />
       <Field>
         <FieldLabel>첨부파일</FieldLabel>
         <div className="grid gap-3">
@@ -189,6 +189,8 @@ export function ProgramAuthoringMilestoneDialog({
             <input
               className="sr-only"
               aria-label="첨부파일 추가"
+              aria-invalid={fileError !== null}
+              aria-describedby={fileError ? fileErrorId : undefined}
               type="file"
               accept=".pdf,.hwp,.jpg,.jpeg,.png,.zip"
               disabled={attachmentLimitMessage !== null}
@@ -204,8 +206,11 @@ export function ProgramAuthoringMilestoneDialog({
               {attachmentLimitMessage}
             </p>
           ) : null}
+          <p className="text-small text-muted-foreground">
+            최대 {fileUpload.maxLabel}
+          </p>
         </div>
-        <FieldError>{fileError}</FieldError>
+        <FieldError id={fileErrorId}>{fileError}</FieldError>
         <FieldError>{attachmentValidationMessage}</FieldError>
         <FieldError>{saveAttempted ? errors.attachments : null}</FieldError>
       </Field>

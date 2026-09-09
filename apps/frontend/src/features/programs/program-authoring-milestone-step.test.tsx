@@ -1,3 +1,4 @@
+import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 // @vitest-environment happy-dom
 
 import { act, useReducer, useRef } from 'react';
@@ -44,6 +45,7 @@ function MilestoneStepHarness({
 
   return (
     <ProgramAuthoringMilestoneStep
+      fileUpload={submissionUploadLimit()}
       state={state}
       issues={issues}
       dispatch={dispatch}
@@ -423,7 +425,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
       required: true,
     });
     expect(document.body.textContent).toContain('필수 제출');
-    expect(document.body.textContent).not.toContain('제출 항목');
+    expect(dialog().textContent).not.toContain('제출 항목');
     expect(
       [...dialog().querySelectorAll('button')].map((item) =>
         item.textContent?.trim(),
@@ -539,7 +541,9 @@ describe('ProgramAuthoringMilestoneStep', () => {
     );
     await change(input('[aria-label="파일 제출물 이름"]'), '');
 
-    expect(document.body.textContent).toContain('제출물 이름을 입력해 주세요.');
+    expect(document.body.textContent).toContain(
+      '제출 항목 이름을 입력해 주세요.',
+    );
     await act(async () => button('저장').click());
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   });
@@ -612,6 +616,21 @@ describe('ProgramAuthoringMilestoneStep', () => {
       }),
     );
     expect(document.body.textContent).toContain('파일은 5 MB 이하여야 합니다.');
+    expect(fileInput.getAttribute('aria-invalid')).toBe('true');
+    const errorId = fileInput.getAttribute('aria-describedby');
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId ?? '')?.textContent).toBe(
+      '파일은 5 MB 이하여야 합니다.',
+    );
+
+    await selectFile(
+      fileInput,
+      new File(['pdf'], 'small.pdf', { type: 'application/pdf' }),
+    );
+    expect(fileInput.getAttribute('aria-invalid')).toBe('false');
+    expect(document.body.textContent).not.toContain(
+      '파일은 5 MB 이하여야 합니다.',
+    );
   });
 
   it('cancelling a new draft removes its requirement file and milestone', async () => {
@@ -676,6 +695,29 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(view.latest().milestones[0]?.name).toBe('최종 오리엔테이션');
     expect(container.textContent).toContain('최종 오리엔테이션');
     expect(document.body.textContent).not.toContain('마일스톤 수정');
+  });
+
+  it('uses the shared card anatomy for created milestones', async () => {
+    const state = completedAuthoringState();
+    await act(async () => {
+      root.render(
+        <MilestoneStepHarness
+          initial={state}
+          onState={() => undefined}
+          onFiles={() => undefined}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('시작');
+    expect(container.textContent).toContain('마감');
+    expect(container.textContent).toContain('운영자 공지');
+    expect(
+      container.querySelector('button[aria-label="오리엔테이션 수정"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('button[aria-label="오리엔테이션 삭제"]'),
+    ).not.toBeNull();
   });
 });
 

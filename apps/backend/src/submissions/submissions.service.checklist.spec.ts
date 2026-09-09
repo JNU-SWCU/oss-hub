@@ -81,6 +81,7 @@ it('미제출 마일스톤은 submission=null로, 필드는 계약 형태로 직
     now,
   );
   expect(checklist).toEqual({
+    fileUpload: { maxBytes: 5 * 1024 * 1024, maxLabel: '5 MB' },
     applicationId: 'application-1',
     applicationMode: 'PERSONAL',
     items: [

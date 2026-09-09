@@ -17,22 +17,27 @@ import {
   accepted,
   bodyEnum,
   bodyNullableString,
+  bodyRecord,
   bodyString,
   json,
   matchGet,
   matchPath,
   notFound,
   positiveIntParam,
+  problem,
   type LocalReviewContext,
   type LocalReviewHandler,
 } from '../handler-kit';
+import { apiPath } from '@/lib/api-client';
+import { submissionUploadLimit } from '../../submission-upload-limit';
+import { milestoneDocumentListFor } from './milestone-document-fixtures';
 import { staffProgramTeamDirectoryFor } from './program-overview-fixtures';
 import { isPublicProgramId } from './student-program-fixtures';
 import {
   CREATED_PROGRAM_ID,
   findApplicationByTeamId,
-  findStaffMilestone,
   findStaffApplication,
+  findStaffMilestoneContext,
   findStaffProgram,
   STAFF_REVIEW_CONTEXTS,
   type StaffProgramFixture,
@@ -153,7 +158,13 @@ const programEditHandler: LocalReviewHandler = (context) => {
   const fixture = findStaffProgram(params.id as string);
   return fixture === null
     ? notFound('PRG_004', context.path)
-    : json(200, fixture.program);
+    : json(200, {
+        ...fixture.program,
+        milestones: fixture.program.milestones.map((milestone) => {
+          const saved = milestoneEditStates().get(milestone.id);
+          return saved === undefined ? milestone : saved.milestone;
+        }),
+      });
 };
 
 /**
@@ -356,6 +367,288 @@ function milestoneFrom(
   };
 }
 
+export type MilestoneEditDocument = {
+  readonly id: string;
+  readonly name: string;
+  readonly required: boolean;
+  readonly sortOrder: number;
+  readonly templateFileName: string | null;
+};
+
+type MilestoneEditState = {
+  readonly operation: { readonly startAt: string; readonly endAt: string };
+  milestone: ReturnType<typeof milestoneFrom>;
+  documents: readonly MilestoneEditDocument[];
+  revision: number;
+};
+
+const MILESTONE_EDIT_STATE_KEY = '__ossHubLocalReviewMilestoneEditState';
+
+type MilestoneEditStateHost = typeof globalThis & {
+  [MILESTONE_EDIT_STATE_KEY]?: Map<string, MilestoneEditState>;
+};
+
+function milestoneEditStates(): Map<string, MilestoneEditState> {
+  const host = globalThis as MilestoneEditStateHost;
+  const existing = host[MILESTONE_EDIT_STATE_KEY];
+  if (existing !== undefined) return existing;
+  const created = new Map<string, MilestoneEditState>();
+  host[MILESTONE_EDIT_STATE_KEY] = created;
+  return created;
+}
+
+const MILESTONE_EDIT_FILE_UPLOAD = {
+  maxBytes: 5 * 1024 * 1024,
+  maxLabel: '5 MB',
+  accept: '.pdf,.hwp,.jpg,.jpeg,.png,.zip',
+  formatLabel: 'PDF, HWP, JPG, PNG, ZIP',
+};
+
+type PendingAuthoringUpload = {
+  readonly id: string;
+  readonly expiresAt: string;
+  consumed: boolean;
+};
+
+const AUTHORING_UPLOAD_STATE_KEY = '__ossHubLocalReviewAuthoringUploads';
+
+type AuthoringUploadStateHost = typeof globalThis & {
+  [AUTHORING_UPLOAD_STATE_KEY]?: {
+    nextId: number;
+    uploads: Map<string, PendingAuthoringUpload>;
+  };
+};
+
+function authoringUploadState(): {
+  nextId: number;
+  uploads: Map<string, PendingAuthoringUpload>;
+} {
+  const host = globalThis as AuthoringUploadStateHost;
+  const existing = host[AUTHORING_UPLOAD_STATE_KEY];
+  if (existing !== undefined) return existing;
+  const created = {
+    nextId: 1,
+    uploads: new Map<string, PendingAuthoringUpload>(),
+  };
+  host[AUTHORING_UPLOAD_STATE_KEY] = created;
+  return created;
+}
+
+function milestoneEditFingerprint(revision: number): string {
+  return revision.toString(16).padStart(64, '0');
+}
+
+function milestoneEditState(milestoneId: string): MilestoneEditState | null {
+  const states = milestoneEditStates();
+  const saved = states.get(milestoneId);
+  if (saved !== undefined) return saved;
+  const context = findStaffMilestoneContext(milestoneId);
+  if (context === null) return null;
+  const program = findStaffProgram(context.programId)?.program;
+  const documents = milestoneDocumentListFor(milestoneId, 'STAFF')?.documents;
+  const state: MilestoneEditState = {
+    operation: {
+      startAt:
+        program?.startAt ??
+        program?.milestones.map((milestone) => milestone.startAt).sort()[0] ??
+        context.milestone.startAt,
+      endAt: program?.endAt ?? context.milestone.dueAt,
+    },
+    milestone: context.milestone,
+    documents: (documents ?? []).map((document) => ({
+      id: document.id,
+      name: document.name,
+      required: document.required,
+      sortOrder: document.sortOrder,
+      templateFileName: document.hasTemplateFile
+        ? document.templateFileName
+        : null,
+    })),
+    revision: 1,
+  };
+  states.set(milestoneId, state);
+  return state;
+}
+
+function milestoneEditSnapshot(state: MilestoneEditState) {
+  return {
+    milestone: state.milestone,
+    operation: state.operation,
+    documents: state.documents,
+    fileUpload: MILESTONE_EDIT_FILE_UPLOAD,
+    fingerprint: milestoneEditFingerprint(state.revision),
+  };
+}
+
+/**
+ * Shared by the staff program edit and milestone-document list handlers so a
+ * local-review reload reads the same in-process synthetic edit state.
+ */
+export function savedMilestoneDocuments(
+  milestoneId: string,
+): readonly MilestoneEditDocument[] | null {
+  return milestoneEditStates().get(milestoneId)?.documents ?? null;
+}
+
+function invalidMilestoneEditRequest(context: LocalReviewContext) {
+  return problem(
+    400,
+    'SYS_003',
+    apiPath(context.path),
+    '요청 값이 올바르지 않습니다.',
+  );
+}
+
+function pendingAuthoringUpload(
+  uploadId: string,
+): PendingAuthoringUpload | null {
+  const upload = authoringUploadState().uploads.get(uploadId);
+  return upload === undefined || upload.consumed ? null : upload;
+}
+
+function validMilestoneEditInput(
+  context: LocalReviewContext,
+  state: MilestoneEditState,
+): {
+  readonly name: string;
+  readonly startAt: string;
+  readonly dueAt: string;
+  readonly instructions: string | null;
+  readonly documents: readonly MilestoneEditDocument[];
+} | null {
+  const body = bodyRecord(context);
+  if (
+    body === null ||
+    Object.keys(body).some(
+      (key) =>
+        ![
+          'expectedFingerprint',
+          'name',
+          'startAt',
+          'dueAt',
+          'instructions',
+          'documents',
+        ].includes(key),
+    ) ||
+    typeof body.name !== 'string' ||
+    body.name.trim() === '' ||
+    typeof body.startAt !== 'string' ||
+    Number.isNaN(Date.parse(body.startAt)) ||
+    typeof body.dueAt !== 'string' ||
+    Number.isNaN(Date.parse(body.dueAt)) ||
+    Date.parse(body.startAt) < Date.parse(state.operation.startAt) ||
+    Date.parse(body.startAt) >= Date.parse(body.dueAt) ||
+    Date.parse(body.dueAt) > Date.parse(state.operation.endAt) ||
+    (body.instructions !== null && typeof body.instructions !== 'string') ||
+    !Array.isArray(body.documents) ||
+    body.documents.length > 20 ||
+    (state.documents.length > 0 && body.documents.length === 0)
+  ) {
+    return null;
+  }
+  const existing = new Map(
+    state.documents.map((document) => [document.id, document]),
+  );
+  const ids = new Set<string>();
+  const documents: MilestoneEditDocument[] = [];
+  for (const [index, input] of body.documents.entries()) {
+    if (
+      typeof input !== 'object' ||
+      input === null ||
+      Array.isArray(input) ||
+      Object.keys(input).some(
+        (key) => !['id', 'name', 'required', 'templateUploadId'].includes(key),
+      )
+    ) {
+      return null;
+    }
+    const document = input as Record<string, unknown>;
+    if (
+      (document.id !== null && typeof document.id !== 'string') ||
+      typeof document.name !== 'string' ||
+      document.name.trim() === '' ||
+      typeof document.required !== 'boolean' ||
+      (document.templateUploadId !== undefined &&
+        (typeof document.templateUploadId !== 'string' ||
+          pendingAuthoringUpload(document.templateUploadId) === null)) ||
+      (typeof document.id === 'string' &&
+        (!existing.has(document.id) || ids.has(document.id)))
+    ) {
+      return null;
+    }
+    if (typeof document.id === 'string') ids.add(document.id);
+    const prior =
+      typeof document.id === 'string' ? existing.get(document.id) : undefined;
+    documents.push({
+      id:
+        prior?.id ??
+        `synthetic-milestone-edit-document-${state.revision + 1}-${index + 1}`,
+      name: document.name.trim(),
+      required: document.required,
+      sortOrder: index + 1,
+      templateFileName:
+        document.templateUploadId === undefined
+          ? (prior?.templateFileName ?? null)
+          : 'synthetic-submission.pdf',
+    });
+  }
+  return {
+    name: body.name.trim(),
+    startAt: body.startAt,
+    dueAt: body.dueAt,
+    instructions: body.instructions?.trim() || null,
+    documents,
+  };
+}
+
+const milestoneEditHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(context, 'milestones/:id/edit');
+  if (staffRole(context) === null || params === null) return null;
+  const state = milestoneEditState(params.id as string);
+  return state === null
+    ? notFound('PRG_005', context.path)
+    : json(200, milestoneEditSnapshot(state));
+};
+
+/**
+ * FormData is intentionally not decoded by the local-review adapter. This route
+ * proves only the pending-token lifecycle; its generic name is preview-only,
+ * not evidence that a real filename or file content reached storage.
+ */
+const uploadAuthoringFileHandler: LocalReviewHandler = (context) => {
+  if (
+    context.method !== 'POST' ||
+    context.path !== 'program-authoring/uploads' ||
+    staffRole(context) === null
+  ) {
+    return null;
+  }
+  const state = authoringUploadState();
+  const id = `synthetic-authoring-upload-${state.nextId++}`;
+  const expiresAt = '2026-12-31T14:59:59.000Z';
+  state.uploads.set(id, { id, expiresAt, consumed: false });
+  return accepted({
+    id,
+    fileName: 'synthetic-authoring-preview.pdf',
+    contentType: 'application/pdf',
+    size: 20_480,
+    expiresAt,
+  });
+};
+
+const deleteAuthoringUploadHandler: LocalReviewHandler = (context) => {
+  const params = matchMethod(
+    context,
+    'DELETE',
+    'program-authoring/uploads/:id',
+  );
+  if (staffRole(context) === null || params === null) return null;
+  const upload = pendingAuthoringUpload(params.id as string);
+  if (upload === null) return notFound('SYS_404', context.path);
+  authoringUploadState().uploads.delete(upload.id);
+  return json(204, null);
+};
+
 /** 한계: 저장되지 않아 화면을 다시 열면 추가한 마일스톤은 사라진다. */
 const createMilestoneHandler: LocalReviewHandler = (context) => {
   const params = matchMethod(context, 'POST', 'programs/:id/milestones');
@@ -381,20 +674,47 @@ const updateMilestoneHandler: LocalReviewHandler = (context) => {
   const params = matchMethod(context, 'PATCH', 'milestones/:id');
   if (staffRole(context) === null || params === null) return null;
   const milestoneId = params.id as string;
-  return accepted(
-    milestoneFrom(
-      context,
-      milestoneId,
-      findStaffMilestone(milestoneId) ?? {
-        name: '합성 마일스톤',
-        startAt: '2026-12-01T00:00:00.000Z',
-        dueAt: '2026-12-24T14:59:59.000Z',
-        submissionType: null,
-        instructions:
-          '[로컬 검토용] 합성 마일스톤입니다. 입력값은 저장되지 않습니다.',
-      },
-    ),
-  );
+  const state = milestoneEditState(milestoneId);
+  if (state === null) return notFound('PRG_005', context.path);
+  const body = bodyRecord(context);
+  if (
+    body === null ||
+    typeof body.expectedFingerprint !== 'string' ||
+    !/^[a-f0-9]{64}$/u.test(body.expectedFingerprint)
+  ) {
+    return invalidMilestoneEditRequest(context);
+  }
+  if (body.expectedFingerprint !== milestoneEditFingerprint(state.revision)) {
+    return problem(
+      409,
+      'PRG_016',
+      apiPath(context.path),
+      '마일스톤이 변경되었습니다. 최신 내용을 확인한 뒤 다시 저장해 주세요.',
+    );
+  }
+  const input = validMilestoneEditInput(context, state);
+  if (input === null) return invalidMilestoneEditRequest(context);
+  for (const document of body.documents as readonly Record<string, unknown>[]) {
+    if (typeof document.templateUploadId === 'string') {
+      const upload = pendingAuthoringUpload(document.templateUploadId);
+      if (upload === null) return invalidMilestoneEditRequest(context);
+      upload.consumed = true;
+    }
+  }
+  const next: MilestoneEditState = {
+    ...state,
+    milestone: {
+      ...state.milestone,
+      name: input.name,
+      startAt: input.startAt,
+      dueAt: input.dueAt,
+      instructions: input.instructions,
+    },
+    documents: input.documents,
+    revision: state.revision + 1,
+  };
+  milestoneEditStates().set(milestoneId, next);
+  return accepted(milestoneEditSnapshot(next));
 };
 
 const deleteMilestoneHandler: LocalReviewHandler = (context) => {
@@ -478,6 +798,12 @@ const publishRepositoryHandler: LocalReviewHandler = (context) => {
 };
 
 export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
+  (context) =>
+    context.method === 'GET' &&
+    context.path === 'program-authoring/upload-policy' &&
+    staffRole(context) !== null
+      ? json(200, { fileUpload: submissionUploadLimit() })
+      : null,
   programEditHandler,
   staffProgramTeamsHandler,
   staffProgramTeamDetailHandler,
@@ -487,6 +813,9 @@ export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
   reviewContextHandler,
   createProgramHandler,
   updateProgramHandler,
+  milestoneEditHandler,
+  uploadAuthoringFileHandler,
+  deleteAuthoringUploadHandler,
   createMilestoneHandler,
   updateMilestoneHandler,
   deleteMilestoneHandler,

@@ -3,16 +3,25 @@
 "첨부한다"로는 부족하다 — 로컬 파일 경로(`/tmp/before.png`)를 PR 본문에 적으면 아무 이미지도 렌더되지 않고, 리뷰어는 화면을 못 본 채로 승인한다.
 그래서 이 절에서 실제로 렌더되는 경로 하나를 고정한다.
 
-## 1. 같은 조건으로 두 장을 찍는다
+## 같은 조건으로 같은 요소를 찍는다
 
 Before는 변경 전 코드, After는 변경 후 코드에서 찍고 나머지 조건은 전부 같게 둔다 — 같은 URL, 같은 페르소나, 같은 viewport, 같은 합성 데이터 상태.
 변경한 컴포넌트를 식별할 수 있는 범위만 담는다. 화면 전체를 찍고 캡션으로 대상을 설명하지 않는다.
-요소 단위 캡처 방법과 상태별 촬영은 [`qa-dom-capture`](../../manage-qa-tickets/agents/qa-dom-capture.md)가 원본이다.
+
+**요소 행이 먼저고 필수다** — 바뀐 컴포넌트마다 표에 한 행을 만든다. Before와 After는 반드시 같은 selector로 찍는다.
+티켓에 `현재 화면` selector가 적혀 있으면 그 selector를 그대로 재사용한다 — 새로 고르지 않는다.
+selector 자체가 바뀌었으면(예: 요소가 다른 컨테이너로 옮겨감) 같은 selector로 찍을 수 없다는 뜻이므로, 캡션에 Before와 After 두 selector를 모두 적는다 — DOM path가 바뀐 것 자체가 리뷰어에게 필요한 정보다.
+
+표 형식의 원본은 [.github/pull_request_template.md](../../../.github/pull_request_template.md)의 `## Before / After` 절이다 — 여기서는 요소 행이 먼저이고 같은 selector로 찍는다는 규칙만 둔다.
+
+**전체 화면 두 장은 표 안이 아니라 표 아래에 링크로 둔다** — 표 안에 전체 화면을 넣으면 요소 행이 묻힌다.
+요소 단위 캡처 방법(selector 확정, bounding rect·DOM path 읽기)과 상태별 촬영은 [`qa-dom-capture`](../../manage-qa-tickets/agents/qa-dom-capture.md)가 원본이다.
+base 브랜치에서 Before를 찍는 법(로컬 하네스로 옛 코드를 띄우는 절차)은 [`evidence-harness.md`](evidence-harness.md)가 원본이다.
 목업, Figma 시안, 테스트 출력, 코드 diff는 실제 실행 화면을 대신하지 못한다.
 
 파일명은 [`run-release-qa`](../../run-release-qa/SKILL.md)와 같은 규칙(`qa-id-role-route-viewport.png`)을 따른다 — 같은 저장소 안에서 캡처 파일명 관례가 갈리면 나중에 어느 QA 회차의 산출물인지 되짚기 어렵다.
 
-## 2. 올리기 전에 사람이 직접 공개 안전을 확인한다
+## 올리기 전에 사람이 직접 공개 안전을 확인한다
 
 저장된 두 이미지를 열어 [보안 규칙](../../../docs/rules/security.md)의 공개 금지 범위에 걸리는 것이 화면에 보이는지 눈으로 확인한다.
 그 deny-list를 여기 옮겨 적지 않는다 — 사본은 원본이 바뀔 때 조용히 갈라진다.
@@ -22,12 +31,20 @@ Before는 변경 전 코드, After는 변경 후 코드에서 찍고 나머지 �
 `scripts/check-public-safe.sh`는 이 이미지를 검사해 주지 않는다 — 스캐너는 저장소 텍스트를 보고 증거 이미지는 저장소 밖에 있다.
 그래서 이 게이트는 자동화가 없는 수동 확인 지점이다.
 
-## 3. 이미 발행된 Release 에 에셋으로 올린다
+## 이미 발행된 Release 에 에셋으로 올린다
 
 ```bash
-TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+TAG=$(gh release list --exclude-drafts --exclude-pre-releases --limit 100 \
+  --json tagName --jq 'map(select(.tagName | test("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))) | .[0].tagName // empty')
+if [[ -z "$TAG" ]]; then
+  printf '%s\n' '이미 발행된 정식 SemVer Release를 찾지 못했습니다. 업로드를 중단합니다.' >&2
+  exit 1
+fi
 gh release upload "$TAG" 1181-before-element-archive-dialog.png ... --clobber
 ```
+
+최근 100개 중 draft·prerelease를 제외하고 `vMAJOR.MINOR.PATCH` 형식의 첫 Release를 고른다.
+대상이 없으면 새 Release를 만들거나 다른 태그로 대체하지 않는다.
 
 주소는 `https://github.com/JNU-SWCU/oss-hub/releases/download/<태그>/<파일명>.png` 로 고정되므로
 PR 본문에 그대로 `![Before](…)` 로 넣으면 렌더된다. `gh` 로 끝나므로 사람 손이 필요 없다.
@@ -49,17 +66,13 @@ curl -sIL -o /dev/null -w "%{http_code}\n" "https://github.com/JNU-SWCU/oss-hub/
 그 뒤 PR 본문을 다시 열어 이미지가 렌더되는지 눈으로 확인한다.
 파일 경로만 적힌 상태는 캡처를 올린 것이 아니다.
 
-촬영 조건은 표 아래에 함께 적는다.
-
-```markdown
-촬영 조건: `<URL>` · `<페르소나>` · viewport `<가로>x<세로>` · 합성 seed 데이터
-```
+촬영 조건은 [PR 템플릿 표](../../../.github/pull_request_template.md)의 `<sub>` 캡션 한 줄에 함께 적는다 — 별도 문단을 만들지 않는다.
 
 ## 하지 않는 것
 
 - 로컬 파일 경로(`/tmp/before.png`)를 본문에 적고 첨부했다고 하지 않는다 — 아무 이미지도 렌더되지 않는다.
 - 증거 이미지를 제품 브랜치에 커밋하지 않는다 — 리뷰 대상 diff에 바이너리가 섞인다([pr-scope.md](../../../docs/rules/pr-scope.md) §1).
 - 증거 전용 브랜치를 만들지 않는다 — 그 브랜치를 영구히 보존해야 병합된 PR 본문의 이미지가 깨지지 않는다. 별도 worktree에서 orphan 브랜치를 만들면 그 작업트리에 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 실패해 push까지 막힌다.
-- `gh release create`로 새 release를 발행하지 않는다 — 발행(published)이 production 배포 트리거다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md)). **이미 발행된 release에 `gh release upload`로 파일만 더하는 것은 그 이벤트를 쏘지 않으므로 안전하고, 3절이 쓰는 방법이다.**
+- `gh release create`로 새 release를 발행하지 않는다 — 발행(published)이 production 배포 트리거다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md)). **이미 발행된 release에 `gh release upload`로 파일만 더하는 것은 그 이벤트를 쏘지 않으므로 안전하고, [이미 발행된 Release 에 에셋으로 올린다](#이미-발행된-release-에-에셋으로-올린다)가 쓰는 방법이다.**
 - `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다(ADR-010 §5). 커밋되지 않으므로 주소도 생기지 않는다.
 - 목업·Figma 시안·테스트 출력·코드 diff로 실제 실행 화면을 대신하지 않는다.

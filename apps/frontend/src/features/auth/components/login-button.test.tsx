@@ -65,8 +65,8 @@ describe('LoginButtonView', () => {
     );
 
     // Then
-    expect(html).toContain('회원가입 / 로그인');
-    expect(html).toContain('href="/signup"');
+    expect(html).toContain('로그인');
+    expect(html).toContain('href="/signup?returnTo=%2Fprograms"');
     expect(html).not.toContain(githubLoginPath);
   });
 
@@ -89,9 +89,9 @@ describe('LoginButtonView', () => {
     );
 
     // Then
-    expect(html).toContain('aria-label="회원가입 / 로그인"');
-    expect(html).toContain('<span class="sm:hidden">회원가입</span>');
-    expect(html).toContain('<span class="hidden sm:inline">회원가입 / 로그인');
+    expect(html).toContain('aria-label="로그인"');
+    expect(html).toContain('<span class="sm:hidden">로그인</span>');
+    expect(html).toContain('<span class="hidden sm:inline">로그인');
   });
 
   it('인증 세션이면 아바타·닉네임 트리거를 렌더하고 닫힌 메뉴는 숨긴다', () => {

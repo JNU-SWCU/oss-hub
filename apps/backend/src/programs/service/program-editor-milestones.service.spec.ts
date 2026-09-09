@@ -8,36 +8,78 @@ import {
   createProgramEditorServiceHarness,
   milestoneInput,
 } from '../../../test/program-editor-service-fixtures';
+import { fingerprintProgramMilestoneEdit } from '../program-milestone-edit';
 
 describe('ProgramEditorService milestones', () => {
-  it('updates the selected milestone by canonical id when names are duplicated', async () => {
+  it('updates the selected milestone by canonical id through the aggregate edit contract', async () => {
     const { service, store } = createProgramEditorServiceHarness();
-    store.findMilestoneForUpdate.mockResolvedValue({
-      id: 'milestone-canonical-id',
+    const locked = {
       programId: 'program-1',
-      programStartAt: new Date('2026-08-16T00:00:00.000Z'),
-      endAt: new Date('2026-08-31T00:00:00.000Z'),
-      name: 'Same',
-      startAt: new Date('2026-08-16T00:00:00.000Z'),
-      dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.FILE,
-      instructions: null,
-    });
-    store.updateMilestone.mockResolvedValue({
-      id: 'milestone-canonical-id',
-      name: 'Final',
-      startAt: new Date('2026-08-16T00:00:00.000Z'),
-      dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.FILE,
-      instructions: 'tag v1.0.0',
+      milestoneUpdatedAt: new Date('2026-08-16T00:00:00.000Z'),
+      view: {
+        milestone: {
+          id: 'milestone-canonical-id',
+          name: 'Same',
+          startAt: new Date('2026-08-16T00:00:00.000Z'),
+          dueAt: new Date('2026-08-20T00:00:00.000Z'),
+          submissionType: MilestoneSubmissionType.FILE,
+          instructions: null,
+        },
+        operation: {
+          startAt: new Date('2026-08-16T00:00:00.000Z'),
+          endAt: new Date('2026-08-31T00:00:00.000Z'),
+        },
+        documents: [
+          {
+            id: 'document-canonical-id',
+            name: 'Report',
+            required: true,
+            sortOrder: 1,
+            templateFileName: null,
+          },
+        ],
+      },
+      fingerprintDocuments: [
+        {
+          id: 'document-canonical-id',
+          name: 'Report',
+          required: true,
+          sortOrder: 1,
+          updatedAt: new Date('2026-08-16T00:00:00.000Z'),
+          storageKey: null,
+        },
+      ],
+    };
+    store.lockMilestoneEdit.mockResolvedValue(locked);
+    store.countSubmissionHistoriesForDocuments.mockResolvedValue(0);
+    store.lockAttachableUploads.mockResolvedValue([]);
+
+    const expectedFingerprint = fingerprintProgramMilestoneEdit({
+      operation: locked.view.operation,
+      milestone: {
+        ...locked.view.milestone,
+        updatedAt: locked.milestoneUpdatedAt,
+      },
+      documents: locked.fingerprintDocuments,
     });
 
-    await service.updateMilestone(101n, 'milestone-canonical-id', {
-      ...milestoneInput,
+    await service.updateMilestoneEdit(101n, 'milestone-canonical-id', {
+      expectedFingerprint,
       name: ' Same ',
+      startAt: '2026-08-16T00:00:00.000Z',
+      dueAt: '2026-08-20T00:00:00.000Z',
+      instructions: ' tag v1.0.0 ',
+      documents: [
+        {
+          id: 'document-canonical-id',
+          name: 'Report',
+          required: true,
+        },
+      ],
     });
 
-    expect(store.updateMilestone.mock.calls[0]?.[0]).toEqual({
+    expect(store.applyMilestoneEdit.mock.calls[0]?.[0]).toMatchObject({
+      actorId: 'staff-1',
       milestoneId: 'milestone-canonical-id',
       name: 'Same',
       startAt: new Date('2026-08-16T00:00:00.000Z'),

@@ -11,16 +11,14 @@ import {
   ProgramAuthoringAttachmentRaceError,
   ProgramAuthoringRepository,
 } from './program-authoring.repository';
+import { assertAttachableProgramAuthoringUploads } from './program-authoring-upload-transaction';
 import {
-  PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE,
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringIdempotencyRaceError,
-  ProgramAuthoringUploadTokenError,
   type ProgramAuthoringPlan,
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
   type ProgramAuthoringTransactionStore,
-  type ProgramAuthoringUploadToken,
 } from './program-authoring.types';
 
 type ProgramAuthoringStore = Pick<
@@ -82,7 +80,11 @@ export class ProgramAuthoringService {
     plan: ProgramAuthoringPlan,
   ): Promise<ProgramAuthoringProgram> {
     const uploads = await store.lockUploads(plan.uploadTokenIds);
-    assertAttachableUploads(actorId, plan.uploadTokenIds, uploads);
+    assertAttachableProgramAuthoringUploads(
+      actorId,
+      plan.uploadTokenIds,
+      uploads,
+    );
     const program = await store.createProgram(plan.program);
     let requestId: string;
     try {
@@ -143,39 +145,6 @@ function replayOrConflict(
     throw new ProgramAuthoringIdempotencyConflictError(actorId, idempotencyKey);
   }
   return replay.program;
-}
-
-function assertAttachableUploads(
-  actorId: string,
-  tokenIds: readonly string[],
-  uploads: readonly ProgramAuthoringUploadToken[],
-): void {
-  if (uploads.length !== tokenIds.length) {
-    throw new ProgramAuthoringUploadTokenError(
-      PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.MISSING,
-      tokenIds,
-    );
-  }
-  for (const upload of uploads) {
-    if (upload.actorId !== actorId) {
-      throw new ProgramAuthoringUploadTokenError(
-        PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.NOT_OWNED,
-        [upload.id],
-      );
-    }
-    if (upload.lifecycle !== 'PENDING') {
-      throw new ProgramAuthoringUploadTokenError(
-        PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.NOT_PENDING,
-        [upload.id],
-      );
-    }
-    if (!upload.unexpired) {
-      throw new ProgramAuthoringUploadTokenError(
-        PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.EXPIRED,
-        [upload.id],
-      );
-    }
-  }
 }
 
 export class ProgramAuthoringForbiddenError extends Error {

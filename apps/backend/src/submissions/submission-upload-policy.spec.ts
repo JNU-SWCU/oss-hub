@@ -46,7 +46,7 @@ describe('submission upload policy', () => {
   });
 
   it('형식 안내 문구는 accept 목록에서 만든다', () => {
-    expect(SUBMISSION_UPLOAD_FORMAT_LABEL).toBe('PDF, HWP, JPG, PNG, ZIP');
+    expect(SUBMISSION_UPLOAD_FORMAT_LABEL).toBe('PDF, HWP, ZIP');
     for (const label of SUBMISSION_UPLOAD_FORMAT_LABEL.split(', ')) {
       expect(SUBMISSION_UPLOAD_ACCEPT.toUpperCase()).toContain(`.${label}`);
     }

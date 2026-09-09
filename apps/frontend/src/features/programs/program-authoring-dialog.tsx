@@ -10,15 +10,19 @@ export function ProgramAuthoringDialog({
   description,
   children,
   size = 'md',
+  className,
   bodyClassName,
+  confirmLabel,
   onCancel,
   onSave,
 }: {
   readonly title: string;
-  readonly description: string;
+  readonly description?: string | null;
   readonly children: ReactNode;
   readonly size?: 'md' | 'lg';
+  readonly className?: string;
   readonly bodyClassName?: string;
+  readonly confirmLabel?: string;
   readonly onCancel: () => void;
   readonly onSave: () => void;
 }) {
@@ -42,6 +46,7 @@ export function ProgramAuthoringDialog({
           className={cn(
             'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-card border border-border bg-background p-card shadow-xl outline-none',
             size === 'lg' ? 'max-w-2xl' : 'max-w-xl',
+            className,
           )}
           onEscapeKeyDown={(event) => {
             const escapeTarget = event.target;
@@ -63,9 +68,11 @@ export function ProgramAuthoringDialog({
           }}
         >
           <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
-          <Dialog.Description className="mt-1 text-small text-muted-foreground">
-            {description}
-          </Dialog.Description>
+          {description ? (
+            <Dialog.Description className="mt-1 text-small text-muted-foreground">
+              {description}
+            </Dialog.Description>
+          ) : null}
           <div
             className={cn(
               'mt-5 grid min-h-0 gap-5 overflow-y-auto pr-1',
@@ -79,7 +86,7 @@ export function ProgramAuthoringDialog({
               취소
             </Button>
             <Button type="button" onClick={onSave}>
-              저장
+              {confirmLabel ?? '저장'}
             </Button>
           </div>
         </Dialog.Content>

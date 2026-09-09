@@ -96,7 +96,7 @@ describe('RankingScreen', () => {
     expect(api.getRanking).toHaveBeenCalledWith(
       2026,
       1,
-      20,
+      100,
       expect.any(AbortSignal),
     );
     expect(onNextCycleAt).toHaveBeenCalledWith('2026-08-21T00:00:00.000Z');
