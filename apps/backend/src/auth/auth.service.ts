@@ -47,7 +47,7 @@ export class AuthService {
     private readonly repository: AuthRepository,
   ) {}
 
-  buildAuthorizeRedirect(): AuthorizeRedirect {
+  buildAuthorizeRedirect(prompt?: 'select_account'): AuthorizeRedirect {
     const oauth = this.config.requireOauth();
     const flow = createFlowState();
     const url = new URL(GITHUB_AUTHORIZE_URL);
@@ -57,6 +57,9 @@ export class AuthService {
     url.searchParams.set('state', flow.state);
     url.searchParams.set('code_challenge', toCodeChallenge(flow.verifier));
     url.searchParams.set('code_challenge_method', 'S256');
+    if (prompt === 'select_account') {
+      url.searchParams.set('prompt', prompt);
+    }
     return { url: url.toString(), flowCookieValue: encodeFlowCookie(flow) };
   }
 

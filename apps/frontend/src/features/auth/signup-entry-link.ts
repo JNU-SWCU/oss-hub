@@ -15,8 +15,8 @@
  */
 export const SIGNUP_ENTRY = {
   href: '/signup',
-  label: '회원가입 / 로그인',
-  compactLabel: '회원가입',
+  label: '로그인',
+  compactLabel: '로그인',
 } as const;
 
 /**

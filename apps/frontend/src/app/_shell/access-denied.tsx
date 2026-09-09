@@ -19,13 +19,11 @@ export function AccessDenied({ homePath }: { readonly homePath: string }) {
         <h1
           id="access-denied-heading"
           className="text-lg font-semibold text-foreground"
-          role="alert"
         >
-          접근 권한이 없는 페이지 입니다
+          접근 권한이 없습니다
         </h1>
         <p className="mx-auto max-w-md break-keep text-sm text-muted-foreground">
-          현재 계정으로는 이 화면을 열 수 없습니다. 주소를 다시 확인하거나 아래
-          버튼으로 돌아가 주세요.
+          현재 계정으로는 이 화면을 이용할 수 없습니다.
         </p>
       </div>
       <Button asChild className="min-h-11" variant="outline" size="sm">

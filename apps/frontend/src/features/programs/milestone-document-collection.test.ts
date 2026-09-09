@@ -34,6 +34,7 @@ function row(
 ): MilestoneDocumentCollectionRow {
   return {
     applicationId,
+    deliveryStatus: 'MISSING',
     teamName: `${applicationId}팀`,
     applicantName: '김철수',
     memberNicknames: ['chulsoo'],
@@ -55,8 +56,8 @@ describe('MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS', () => {
   // 이 필터는 필수 서류만 센다. 「미제출 있는 팀」은 선택 서류까지 세는 것처럼 읽혀
   // 독촉 대상을 과하게 잡은 것으로 오해를 부른다 — 문구가 기준을 드러내야 한다.
   it('필수 기준임이 문구에 드러난다', () => {
-    expect(MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).toContain(
-      '필수',
+    expect(MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).toBe(
+      '미제출 있음',
     );
     expect(MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).not.toBe(
       '미제출 있는 팀',
@@ -68,15 +69,43 @@ describe('collectionFilterCountFor', () => {
   const counts = { all: 47, hasMissing: 12, zeroSubmission: 5 };
 
   it('필터마다 서버가 준 수를 그대로 고른다', () => {
-    expect(collectionFilterCountFor(counts, 'ALL')).toBe(47);
-    expect(collectionFilterCountFor(counts, 'HAS_MISSING')).toBe(12);
-    expect(collectionFilterCountFor(counts, 'ZERO_SUBMISSION')).toBe(5);
+    expect(
+      collectionFilterCountFor(counts, 'ALL', {
+        missing: 12,
+        late: 10,
+        complete: 20,
+        noRequiredItems: 5,
+      }),
+    ).toBe(47);
+    expect(
+      collectionFilterCountFor(counts, 'HAS_MISSING', {
+        missing: 12,
+        late: 10,
+        complete: 20,
+        noRequiredItems: 5,
+      }),
+    ).toBe(12);
+    expect(
+      collectionFilterCountFor(counts, 'ZERO_SUBMISSION', {
+        missing: 12,
+        late: 10,
+        complete: 20,
+        noRequiredItems: 5,
+      }),
+    ).toBe(5);
   });
 
   // 필터 칩의 수는 이 마일스톤 전체 기준이다. 페이지에 있는 행으로 세면 페이지
   // 크기(20)를 넘는 순간 「전체 20팀」으로 굳는다.
   it('페이지 크기와 무관하게 전체 기준 수를 낸다', () => {
-    expect(collectionFilterCountFor(counts, 'ALL')).toBeGreaterThan(20);
+    expect(
+      collectionFilterCountFor(counts, 'ALL', {
+        missing: 12,
+        late: 10,
+        complete: 20,
+        noRequiredItems: 5,
+      }),
+    ).toBeGreaterThan(20);
   });
 });
 
@@ -120,7 +149,7 @@ describe('milestoneDocumentCollectionTotalPages', () => {
 });
 
 /**
- * 필터 결과가 줄면 보고 있던 페이지가 사라진다 — 「필수 서류 미제출」 2페이지를 보는
+ * 필터 결과가 줄면 보고 있던 페이지가 사라진다 — 「미제출 있음」 2페이지를 보는
  * 동안 팀들이 제출을 마치면 응답은 빈 2페이지 + totalPages 1로 온다. 페이지 이동 UI는
  * 한 페이지짜리 결과에서 그리지 않으니, 여기서 잡아 내리지 않으면 빈 표에 갇힌다.
  */
@@ -188,6 +217,7 @@ describe('milestoneDocumentCollectionDataFor', () => {
     page: 1,
     pageSize: 20,
     total: 0,
+    deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: { all: 0, hasMissing: 0, zeroSubmission: 0 },
     documentTotals: [],
   } satisfies MilestoneDocumentCollection;

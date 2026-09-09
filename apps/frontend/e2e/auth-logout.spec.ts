@@ -15,15 +15,7 @@ async function clickLogout(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: '로그아웃' }).click();
 }
 
-/**
- * 로그아웃이 성공했을 때 — 완료 화면에 **자기 주소로** 착지하는가.
- *
- * 안내를 `/?loggedOut=1` 쿼리 표식으로 두던 시절에는 새로고침 한 번에 안내가 사라졌다
- * (logout-notice.ts). 그래서 "안내 문구가 보인다"가 아니라 **주소가 `/logout`이고
- * 떠나온 자리가 복귀 주소로 실려 있는가**를 본다 — 표식 방식으로 되돌아가면 이 단언이
- * 먼저 깨진다.
- */
-test('logout success lands on the logout complete screen with a return path', async ({
+test('logout success returns to the anonymous home introduction', async ({
   page,
 }, testInfo) => {
   const audit = installBrowserAudit(page);
@@ -32,10 +24,18 @@ test('logout success lands on the logout complete screen with a return path', as
   await page.goto(F3_LOGOUT_ORIGIN_PATH);
   await clickLogout(page);
 
-  await expect(page).toHaveURL(/\/logout\?returnTo=%2Fsettings$/);
+  await expect(page).toHaveURL(new URL('/', page.url()).href);
   await expect(
-    page.getByRole('heading', { name: '로그아웃되었습니다' }),
+    page.getByRole('heading', { name: '흩어진 정보를 한 곳으로' }),
   ).toBeVisible();
+  await expect(
+    page
+      .locator('[data-slot="nav-bar"]')
+      .getByRole('link', { name: '로그인', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: ACCOUNT_MENU_LABEL }),
+  ).toHaveCount(0);
   expect(fixture.logoutRequests()).toBe(1);
 
   await captureF3Evidence(page, testInfo, 'logout-success');

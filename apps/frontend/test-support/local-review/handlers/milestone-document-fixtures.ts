@@ -841,6 +841,7 @@ function collectionMilestoneContext(milestoneId: string): {
 function collectionRowFor(
   seeds: readonly MilestoneDocumentSeed[],
   index: number,
+  dueAt: string,
 ): MilestoneDocumentCollectionRow {
   const teamNumber = index + 1;
   // 두 번째 팀은 프로필 미작성(신청자 이름 없음 → GitHub 계정으로 대체), 세 번째
@@ -863,6 +864,16 @@ function collectionRowFor(
   ).toISOString();
 
   return {
+    deliveryStatus: !seeds.some((seed) => seed.required)
+      ? 'NO_REQUIRED_ITEMS'
+      : seeds.some(
+            (seed) =>
+              seed.required && index >= seed.teamSubmissionCount.submitted,
+          )
+        ? 'MISSING'
+        : new Date(submittedAt) > new Date(dueAt)
+          ? 'LATE'
+          : 'COMPLETE',
     applicationId: `synthetic-application-${seeds[0]?.milestoneId ?? 'unknown'}-${teamNumber}`,
     teamName: `합성 ${teamNumber}팀`,
     applicantName: profileless || nameless ? null : `합성 참여자 ${teamNumber}`,
@@ -943,6 +954,10 @@ function collectionRowMatchesFilter(
   filter: MilestoneDocumentCollectionFilter,
 ): boolean {
   switch (filter) {
+    case 'LATE':
+    case 'COMPLETE':
+    case 'NO_REQUIRED_ITEMS':
+      return row.deliveryStatus === filter;
     case 'HAS_MISSING':
       return documents.some(
         (document, index) =>
@@ -961,6 +976,7 @@ export interface MilestoneDocumentCollectionFixtureQuery {
   readonly page: number;
   readonly pageSize: number;
   readonly filter: MilestoneDocumentCollectionFilter;
+  readonly deliveryStatus?: MilestoneDocumentCollectionRow['deliveryStatus'];
 }
 
 export const MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY: MilestoneDocumentCollectionFixtureQuery =
@@ -996,10 +1012,13 @@ export function milestoneDocumentCollectionFor(
     }),
   );
   const allRows = Array.from({ length: teamCount }, (_, index) =>
-    collectionRowFor(seeds, index),
+    collectionRowFor(seeds, index, context.dueAt),
   );
-  const filtered = allRows.filter((row) =>
-    collectionRowMatchesFilter(row, documents, query.filter),
+  const filtered = allRows.filter(
+    (row) =>
+      collectionRowMatchesFilter(row, documents, query.filter) &&
+      (query.deliveryStatus === undefined ||
+        row.deliveryStatus === query.deliveryStatus),
   );
   const offset = (query.page - 1) * query.pageSize;
 
@@ -1017,6 +1036,15 @@ export function milestoneDocumentCollectionFor(
     page: query.page,
     pageSize: query.pageSize,
     total: filtered.length,
+    deliveryCounts: {
+      missing: allRows.filter((row) => row.deliveryStatus === 'MISSING').length,
+      late: allRows.filter((row) => row.deliveryStatus === 'LATE').length,
+      complete: allRows.filter((row) => row.deliveryStatus === 'COMPLETE')
+        .length,
+      noRequiredItems: allRows.filter(
+        (row) => row.deliveryStatus === 'NO_REQUIRED_ITEMS',
+      ).length,
+    },
     filterCounts: {
       all: allRows.length,
       hasMissing: allRows.filter((row) =>

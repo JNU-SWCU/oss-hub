@@ -149,7 +149,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     // When / Then: 명부 화면은 권한 안내를, 명부·역할 변경 API는 403을 반환한다.
     await staffPage.goto('/dashboard/users');
     await expect(
-      staffPage.getByText('접근 권한이 없는 페이지 입니다', {
+      staffPage.getByText('접근 권한이 없습니다', {
         exact: true,
       }),
     ).toBeVisible();
@@ -228,7 +228,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     // Then: 다른 화면으로 보내지 않고 같은 주소에서 접근 거부를 보여 준다.
     await expect(studentPage).toHaveURL(/\/dashboard\/audit-logs$/);
     await expect(
-      studentPage.getByText('접근 권한이 없는 페이지 입니다', {
+      studentPage.getByText('접근 권한이 없습니다', {
         exact: true,
       }),
     ).toBeVisible();
@@ -271,7 +271,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     // Then: 같은 세션은 교직원 전용 화면에서 즉시 거부된다.
     await staffPage.goto('/programs/new');
     await expect(
-      staffPage.getByText('접근 권한이 없는 페이지 입니다', { exact: true }),
+      staffPage.getByText('접근 권한이 없습니다', { exact: true }),
     ).toBeVisible();
     await attachStateScreenshot(staffPage, testInfo, 'revoked-denied');
 

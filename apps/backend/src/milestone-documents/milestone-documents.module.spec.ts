@@ -8,6 +8,8 @@ import {
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
@@ -53,6 +55,8 @@ describe('MilestoneDocumentsModule', () => {
       expect.arrayContaining([
         MilestoneDocumentsService,
         MilestoneDocumentsRepository,
+        MilestoneDocumentCollectionService,
+        MilestoneDocumentCollectionReadRepository,
         MilestoneDocumentCurrentFileRepository,
         MilestoneDocumentCurrentFileService,
         MilestoneDocumentFilesService,

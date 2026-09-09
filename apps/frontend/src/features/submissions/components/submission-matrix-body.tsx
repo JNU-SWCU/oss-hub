@@ -94,6 +94,7 @@ function MatrixEmptyState(props: SubmissionMatrixViewProps): ReactNode {
   if (empty === 'no-applications') {
     return (
       <EmptyState
+        className="break-keep"
         title="참여 중인 신청이 없습니다"
         description="승인된 신청이 생기면 여기에 표시됩니다."
       />
@@ -136,31 +137,29 @@ export function MatrixBody(
     : milestones;
   const quickFiltered = applyMatrixQuickFilter(
     rows,
-    props.quickFilter === 'ZERO_SUBMISSION' ? milestones : visibleMilestones,
+    visibleMilestones,
     props.quickFilter,
   );
 
   return (
     <>
-      <MatrixStatsStrip
-        rows={rows}
-        visibleMilestones={visibleMilestones}
-        allMilestones={milestones}
-      />
+      <MatrixStatsStrip rows={rows} visibleMilestones={visibleMilestones} />
       <MatrixQuickFilterButtons
         rows={rows}
         visibleMilestones={visibleMilestones}
-        allMilestones={milestones}
-        focused={selectedMilestone !== null}
         quickFilter={props.quickFilter}
         onQuickFilterChange={props.onQuickFilterChange}
       />
       <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
-        이 페이지 {rows.length}건(전체 {total}건) 중 {quickFiltered.length}건
-        표시
+        {total > rows.length ? (
+          <>
+            전체 {total}팀 중 이 페이지 {rows.length}팀.{' '}
+          </>
+        ) : null}
+        빠른 필터는 현재 페이지에 적용됩니다.
         {selectedMilestone === null
-          ? ' · 표를 좌우로 스크롤할 수 있습니다.'
-          : '.'}
+          ? ' 표를 좌우로 스크롤할 수 있습니다.'
+          : null}
       </p>
       {quickFiltered.length === 0 ? (
         <EmptyState
