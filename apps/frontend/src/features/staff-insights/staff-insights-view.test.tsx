@@ -63,5 +63,6 @@ describe('StaffInsightsView', () => {
     );
     expect(html).toContain('전자컴퓨터공학부(컴퓨터공학전공)');
     expect(html).toContain('학과별 활성');
+    expect(html).toContain('현재 프로필에 등록된 학과별로');
   });
 });

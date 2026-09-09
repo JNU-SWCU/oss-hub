@@ -126,9 +126,9 @@ export function DepartmentPanel({
       <CardHeader>
         <CardTitle>학과별 활성</CardTitle>
         <CardDescription>
-          가입할 때 입력한 학과별로, 활동 합계가 큰 순서입니다. Commit · PR ·
-          Issue · Repo · Star를 합산하며, Star는 계정 전체 누적입니다. 프로그램
-          신청은 활동 합계에 포함하지 않습니다.
+          현재 프로필에 등록된 학과별로, 활동 합계가 큰 순서입니다. Commit · PR
+          · Issue · Repo · Star를 합산하며, Star는 계정 전체 누적입니다.
+          프로그램 신청은 활동 합계에 포함하지 않습니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
