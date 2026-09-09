@@ -893,3 +893,22 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
     expect(guestWithFlag).toHaveLength(1);
   });
 });
+
+// 복합 계정에서도 개인/운영 링크의 주소와 현재 표시가 갈라진다.
+it('학생 운영자는 개인 대시보드와 운영 대시보드를 구분한다', () => {
+  const groups = sidebarGroupsFor('dashboard', {
+    memberKind: 'STUDENT',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+  });
+  const items = groups.flatMap((group) => group.items);
+  expect(items.find((item) => item.label === '내 대시보드')).toMatchObject({
+    href: '/dashboard/personal',
+    icon: 'home',
+  });
+  expect(items.find((item) => item.label === '운영 대시보드')?.href).toBe(
+    '/dashboard',
+  );
+  expect(isCurrentSidebarItem('/dashboard', '/dashboard/personal')).toBe(false);
+  expect(isCurrentSidebarItem('/dashboard/personal', '/dashboard')).toBe(false);
+});

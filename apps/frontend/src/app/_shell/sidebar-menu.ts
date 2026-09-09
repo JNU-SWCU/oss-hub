@@ -45,6 +45,7 @@ export type ShellSection =
 
 const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard': 'home',
+  '/dashboard/personal': 'home',
   '/dashboard/activity': 'chart',
   '/dashboard/insights': 'chart',
   '/dashboard/applicants': 'inbox',
@@ -521,7 +522,16 @@ export function sidebarGroupsFor(
     if (access === null) return [];
     return memberSurfaces(access).map((surface) => ({
       label: SURFACE_GROUPS[surface].label,
-      items: withIcons(SURFACE_GROUPS[surface].menu, 0),
+      items: withIcons(
+        SURFACE_GROUPS[surface].menu.map((item) =>
+          surface === 'student' &&
+          access.hasStaffAccess &&
+          item.href === '/dashboard'
+            ? { ...item, href: '/dashboard/personal' }
+            : item,
+        ),
+        0,
+      ),
     }));
   }
   if (section === null) return [];
