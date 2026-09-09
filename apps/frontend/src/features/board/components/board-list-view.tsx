@@ -220,7 +220,7 @@ export function BoardListContent({
       ) : null}
       {participationRequired ? (
         <ParticipantOnlyNotice
-          description="승인된 신청이 있는 참여자만 게시판을 볼 수 있습니다. 이 프로그램에 신청하고 승인을 받으면 여기에서 공지를 읽고 질문을 남길 수 있습니다."
+          description="신청이 승인되면 공지를 읽고 질문을 남길 수 있습니다."
           applyHref={programApplyHref(programId)}
           overviewHref={programOverviewHref(programId)}
         />

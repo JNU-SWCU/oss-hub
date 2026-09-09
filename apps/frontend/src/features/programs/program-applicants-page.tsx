@@ -379,7 +379,6 @@ export function ProgramApplicantsPage({
     <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
       <PageHeader
         title={`${program.name} 신청자`}
-        description="프로그램 신청을 검색·필터하고 상세로 이동할 수 있습니다."
         actions={
           <Button asChild variant="outline">
             <Link href={programEditHref(program.id)}>프로그램 편집</Link>

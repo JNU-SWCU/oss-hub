@@ -104,7 +104,7 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('합성 프로그램 신청');
     expect(html).toContain('신청 제출');
-    expect(html).toContain('신청 기간 내 ‘승인 대기’ 상태');
+    expect(html).toContain('신청 기간 내 ‘검토 대기’ 상태에서만');
     expect(html).toContain('name="title"');
     expect(html).toContain('name="summary"');
     expect(html).toContain('합성 학생');
@@ -118,7 +118,7 @@ describe('ProgramApply views', () => {
     expect(html).toContain('계정에 연결된 GitHub');
     expect(html).toContain('새 저장소 발급받기');
     expect(html).toContain('내 저장소 연결하기');
-    expect(html).toContain('외부 저장소는 공개 저장소만 연결');
+    expect(html).toContain('기존 GitHub 공개 저장소를 연결합니다.');
     expect(html).toContain('개인정보 수집·이용 동의');
     expect(html).toContain('약관 보기');
   });
@@ -164,9 +164,7 @@ describe('ProgramApply views', () => {
     );
 
     expect(html).toContain('https://github.com/team/repo');
-    expect(html).toContain(
-      'GitHub에 공개(Public)로 연동된 저장소만 연결할 수 있습니다.',
-    );
+    expect(html).toContain('기존 GitHub 공개 저장소를 연결합니다.');
   });
 
   // #9 QA econovation 배치 — 제출 시점 URL 사전 검증 실패를 필드 오류로 보여준다.
@@ -320,7 +318,7 @@ describe('ProgramApply views', () => {
     expect(html).toContain('돌아가서 확인');
   });
 
-  it('승인 대기 신청에는 수정과 신청 취소 동작을 표시한다', () => {
+  it('검토 대기 신청에는 수정과 신청 취소 동작을 표시한다', () => {
     const html = renderToStaticMarkup(
       <ProgramApplyFormView
         program={program}

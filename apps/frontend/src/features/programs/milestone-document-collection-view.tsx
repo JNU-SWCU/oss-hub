@@ -467,8 +467,8 @@ function CollectionArchiveControls({
         id={DOWNLOAD_BEHAVIOR_HINT_ID}
         className="text-small text-muted-foreground break-keep"
       >
-        진행 상태와 완료 여부는 브라우저에서 확인합니다. 요청이 실패하면 오류
-        응답을 파일로 저장하지 않고 안내 화면을 엽니다.
+        다운로드 진행 상태는 브라우저에서 확인하세요. 실패하면 안내 화면이
+        열립니다.
       </p>
     </div>
   );

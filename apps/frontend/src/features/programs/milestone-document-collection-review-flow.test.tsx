@@ -1128,7 +1128,7 @@ describe('수합 표에서 판정하기', () => {
 
     const notice = reviewNotice();
     expect(notice?.textContent).toContain('저장하지 않았습니다');
-    expect(notice?.textContent).toContain('다시 불러오지 못했습니다');
+    expect(notice?.textContent).toContain('최신 표를 불러오지 못했습니다');
     expect(notice?.textContent).not.toContain('다시 불러왔습니다');
     // 되돌릴 길은 남는다.
     expect(container.textContent).toContain(
@@ -1151,7 +1151,7 @@ describe('수합 표에서 판정하기', () => {
     const notice = reviewNotice();
     expect(notice?.textContent).toContain('다른 검토 결과가 먼저 등록되어');
     expect(notice?.textContent).toContain('저장하지 않았습니다');
-    expect(notice?.textContent).toContain('다시 불러오지 못했습니다');
+    expect(notice?.textContent).toContain('최신 표를 불러오지 못했습니다');
   });
 
   // 새 칸을 열었으면 앞 판정에 대한 안내는 할 일을 마쳤다 — 남겨 두면 지금 칸의 말로 읽힌다.

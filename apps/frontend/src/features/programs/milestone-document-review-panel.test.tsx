@@ -466,7 +466,7 @@ describe('지난 판정', () => {
     expect(html).toContain('지난 검토');
     expect(html).toContain('표지의 이름이 신청서와 다릅니다.');
     expect(html).toContain('2026년 7월 30일');
-    expect(html).toContain('검토는 덮어쓰지 않고 쌓입니다.');
+    expect(html).toContain('새 검토를 저장해도 이전 검토 기록은 남습니다.');
   });
 
   // 승인은 사유가 선택이라 비어 올 수 있다. 빈칸으로 두면 「사유를 못 불러왔다」로 읽힌다.

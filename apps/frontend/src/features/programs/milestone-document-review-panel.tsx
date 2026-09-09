@@ -192,7 +192,7 @@ function PreviousReview({
         </p>
       )}
       <p className="text-small text-muted-foreground break-keep">
-        검토는 덮어쓰지 않고 쌓입니다. 새로 저장해도 이 기록은 남습니다.
+        새 검토를 저장해도 이전 검토 기록은 남습니다.
       </p>
     </div>
   );

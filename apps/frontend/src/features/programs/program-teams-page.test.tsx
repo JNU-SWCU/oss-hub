@@ -70,6 +70,54 @@ const team: ProgramTeam = {
 };
 
 describe('ProgramTeams views', () => {
+  it('내 팀 작업과 받은 초대를 공개 팀 탐색보다 먼저 보여 준다', () => {
+    const directory = <section>전체 참여 팀 탐색</section>;
+    const extras = <section>받은 초대</section>;
+    const setup = renderToStaticMarkup(
+      <ProgramTeamsSetupView
+        program={program}
+        createName="초안 팀명"
+        joinCode="INVITE123"
+        creating={false}
+        joining={false}
+        serverError={null}
+        extras={extras}
+        directory={directory}
+        onCreateNameChange={() => undefined}
+        onJoinCodeChange={() => undefined}
+        onCreate={() => undefined}
+        onJoin={() => undefined}
+      />,
+    );
+    expect(setup).toContain('전체 참여 팀 탐색');
+    expect(setup.indexOf('팀 만들기')).toBeLessThan(
+      setup.indexOf('전체 참여 팀 탐색'),
+    );
+    expect(setup.indexOf('참여 코드로 합류')).toBeLessThan(
+      setup.indexOf('전체 참여 팀 탐색'),
+    );
+    expect(setup.indexOf('받은 초대')).toBeLessThan(
+      setup.indexOf('전체 참여 팀 탐색'),
+    );
+    expect(setup).toContain('value="초안 팀명"');
+    expect(setup).toContain('value="INVITE123"');
+
+    const roster = renderToStaticMarkup(
+      <ProgramTeamRosterView
+        program={program}
+        team={team}
+        joinCode="INVITE123"
+        extras={extras}
+        directory={directory}
+      />,
+    );
+    expect(roster).toContain('전체 참여 팀 탐색');
+    expect(roster.indexOf('신청서 작성')).toBeLessThan(
+      roster.indexOf('전체 참여 팀 탐색'),
+    );
+    expect(roster).toContain('/programs/program-1/apply?teamId=team-1');
+  });
+
   it('만들기·합류 폼을 렌더한다', () => {
     const html = renderToStaticMarkup(
       <ProgramTeamsSetupView
