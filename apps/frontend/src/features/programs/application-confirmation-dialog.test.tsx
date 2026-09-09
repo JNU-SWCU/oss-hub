@@ -70,7 +70,7 @@ describe('ApplicationConfirmationDialog', () => {
       root.render(<ApplicationConfirmationDialogHarness />),
     );
 
-    const cancelButton = getButton('돌아가서 확인');
+    const cancelButton = getButton('취소');
     const returnButton = getButton('수정 내용 저장');
     const focusReturned = new Promise<void>((resolve) => {
       returnButton.addEventListener('focus', () => resolve(), { once: true });
@@ -93,12 +93,12 @@ describe('ApplicationConfirmationDialog', () => {
     expect(document.activeElement).toBe(returnButton);
   });
 
-  it('돌아가서 확인을 클릭해 닫아도 원래 저장 버튼에 포커스를 돌려준다', async () => {
+  it('취소를 클릭해 닫아도 원래 저장 버튼에 포커스를 돌려준다', async () => {
     // Given
     await act(async () =>
       root.render(<ApplicationConfirmationDialogHarness />),
     );
-    const cancelButton = getButton('돌아가서 확인');
+    const cancelButton = getButton('취소');
     const returnButton = getButton('수정 내용 저장');
     const focusReturned = new Promise<void>((resolve) => {
       returnButton.addEventListener('focus', () => resolve(), { once: true });
@@ -127,6 +127,6 @@ describe('ApplicationConfirmationDialog', () => {
 
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     expect(getButton('처리 중…').disabled).toBe(true);
-    expect(getButton('돌아가서 확인').disabled).toBe(true);
+    expect(getButton('취소').disabled).toBe(true);
   });
 });

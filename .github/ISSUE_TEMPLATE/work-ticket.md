@@ -6,6 +6,7 @@ labels: [ticket]
 ---
 
 <!-- 이 본문 형식의 원본은 skills/manage-qa-tickets/references/notion-ticket-contract.md다. 공통 규칙은 AGENTS.md가 원본 — 여기 반복하지 않는다. 이 티켓엔 이 화면의 기능 명세만. -->
+<!-- 공통 글쓰기 원칙: [readability.md](../../skills/submit-pr-evidence/references/readability.md). -->
 
 ## 시작
 담당자는 본인 에이전트에 한 줄: `oss-hub 티켓 #<번호> 진행해줘`

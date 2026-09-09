@@ -315,7 +315,6 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('신청서를 제출하시겠습니까?');
     expect(html).toContain('승인된 이후에는 수정 및 취소가 불가능합니다');
-    expect(html).toContain('돌아가서 확인');
   });
 
   it('검토 대기 신청에는 수정과 신청 취소 동작을 표시한다', () => {
