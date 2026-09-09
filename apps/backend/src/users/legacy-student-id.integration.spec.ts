@@ -75,35 +75,44 @@ beforeAll(async () => {
   await prisma.$connect();
 });
 
-beforeEach(async () => {
-  await prisma.auditLog.deleteMany({ where: { actorId: userId } });
-  await prisma.user.deleteMany({ where: { id: userId } });
+// 연락처 저장이 감사 기록을 남기면서 이 사용자 행은 더 이상 지울 수 없다 —
+// AuditLog는 append-only이고 `AuditLog.actorId`가 cascade 없이 `User`를 참조한다.
+// 학번 유일 제약을 쥔 것은 UserProfile 행이므로 매 테스트마다 그 행만 다시 만든다.
+async function resetLegacyStudent(): Promise<void> {
+  await prisma.userProfile.deleteMany({ where: { userId } });
   // 예전 형식으로 이미 가입을 마친 학생 — UserProfile 행이 정본이다.
-  await prisma.user.create({
-    data: {
+  const identity = {
+    selectedMemberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    phone: null,
+    profile: {
+      create: {
+        name,
+        studentId: LEGACY_STUDENT_ID,
+        department,
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: department,
+      },
+    },
+  };
+  await prisma.user.upsert({
+    where: { id: userId },
+    update: identity,
+    create: {
       id: userId,
       githubId,
       nickname: 'synthetic-legacy-student',
-      selectedMemberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      profile: {
-        create: {
-          name,
-          studentId: LEGACY_STUDENT_ID,
-          department,
-          memberKind: MemberKind.STUDENT,
-          affiliationKind: AffiliationKind.DEPARTMENT,
-          affiliationName: department,
-        },
-      },
+      ...identity,
     },
   });
-});
+}
+
+beforeEach(resetLegacyStudent);
 
 afterAll(async () => {
-  await prisma.auditLog.deleteMany({ where: { actorId: userId } });
-  await prisma.user.deleteMany({ where: { id: userId } });
+  await prisma.userProfile.deleteMany({ where: { userId } });
   await prisma.$disconnect();
 });
 

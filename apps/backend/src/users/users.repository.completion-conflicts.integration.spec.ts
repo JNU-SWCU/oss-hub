@@ -50,9 +50,6 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await prisma.auditLog.deleteMany({
-    where: { actorId: { in: [userId, otherUserId] } },
-  });
   await prisma.user.deleteMany({
     where: { id: { in: [userId, otherUserId] } },
   });
@@ -69,9 +66,6 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await prisma.auditLog.deleteMany({
-    where: { actorId: { in: [userId, otherUserId] } },
-  });
   await prisma.user.deleteMany({
     where: { id: { in: [userId, otherUserId] } },
   });

@@ -32,9 +32,6 @@ beforeEach(async () => {
   await prisma.staffAccessRequest.deleteMany({
     where: { userId: { in: [userId, otherUserId] } },
   });
-  await prisma.auditLog.deleteMany({
-    where: { actorId: { in: [userId, otherUserId] } },
-  });
   await prisma.user.deleteMany({
     where: { id: { in: [userId, otherUserId] } },
   });
@@ -54,9 +51,6 @@ afterAll(async () => {
   await prisma.staffAccessRequest.deleteMany({
     where: { userId: { in: [userId, otherUserId] } },
   });
-  await prisma.auditLog.deleteMany({
-    where: { actorId: { in: [userId, otherUserId] } },
-  });
   await prisma.user.deleteMany({
     where: { id: { in: [userId, otherUserId] } },
   });
@@ -72,7 +66,6 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     await prisma.staffAccessRequest.deleteMany({
       where: { userId: revokedUserId },
     });
-    await prisma.auditLog.deleteMany({ where: { actorId: revokedUserId } });
     await prisma.user.deleteMany({ where: { id: revokedUserId } });
     await prisma.user.create({
       data: {
@@ -99,7 +92,6 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
     await prisma.staffAccessRequest.deleteMany({
       where: { userId: revokedUserId },
     });
-    await prisma.auditLog.deleteMany({ where: { actorId: revokedUserId } });
     await prisma.user.deleteMany({ where: { id: revokedUserId } });
   });
 
