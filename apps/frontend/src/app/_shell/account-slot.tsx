@@ -28,7 +28,7 @@ const SURFACE_CHIP_VARIANT: Record<MemberSurface, 'recruiting' | 'approved'> = {
 /**
  * 헤더 오른쪽 계정 슬롯. 낼지 말지는 `shouldShowAccountSlot`이 정하고, 로그인
  * 진입·계정 메뉴(아바타·이름)는 `LoginButton`이 그린다. 이 컴포넌트가 더하는
- * 것은 역할칩 하나뿐이다 — 가입을 마쳐(역할 배정 + 프로필 완료) 회원이 된
+ * 것은 역할칩이다 — 가입을 마쳐(역할 배정 + 프로필 완료) 회원이 된
  * 사용자에게만 붙는다. 비로그인·가입 미완료는 기존 로그인 진입 버튼만 그대로
  * 낸다 — 프로토타입은 그 상태를 모델링하지 않았다(PM 결정).
  *
@@ -51,19 +51,35 @@ export function AccountSlot() {
     state.status === 'assigned' && state.isProfileComplete
       ? memberSurfaces(state)
       : [];
+  const accountRoles =
+    surfaces.length > 1
+      ? surfaces.map((surface) => SURFACE_CHIP_LABEL[surface]).join(' · ')
+      : undefined;
 
   return (
     <div className="flex items-center gap-2">
+      {accountRoles ? (
+        <StatusBadge
+          variant="approved"
+          className="min-[900px]:hidden"
+          aria-label={`${accountRoles} 권한`}
+        >
+          권한 {surfaces.length}개
+        </StatusBadge>
+      ) : null}
       {surfaces.map((surface) => (
         <StatusBadge
           key={surface}
           variant={SURFACE_CHIP_VARIANT[surface]}
+          className={
+            accountRoles ? 'hidden min-[900px]:inline-flex' : undefined
+          }
           aria-label={`${SURFACE_CHIP_LABEL[surface]} 권한`}
         >
           {SURFACE_CHIP_LABEL[surface]}
         </StatusBadge>
       ))}
-      <LoginButton />
+      <LoginButton accountRoles={accountRoles} />
     </div>
   );
 }
