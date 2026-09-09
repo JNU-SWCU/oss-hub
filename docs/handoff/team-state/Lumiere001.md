@@ -645,3 +645,16 @@
   로그인 메뉴의 인증·로그아웃 hunk는 #1256이 소유하므로 파일 전체를 한쪽 버전으로 덮어쓰지 않는다.
 - 남은 것: 공개 증거, PR 제출·required check, 병합·배포와 실제 환경 수용.
 - 공개 안전성: 합성 자료만 사용하며 개인정보·비밀값·개인 경로를 추가하지 않는다.
+
+## 2026-09-09 — 개인 대시보드의 홈 아이콘을 유지한다
+
+- 상태: active
+- Issue: [#1257](https://github.com/JNU-SWCU/oss-hub/issues/1257)
+- PR: [#1261](https://github.com/JNU-SWCU/oss-hub/pull/1261)
+- 리뷰: [개인 대시보드 아이콘](https://github.com/JNU-SWCU/oss-hub/pull/1261#discussion_r3965142280)
+- 내용: 개인 경로를 기존 아이콘 표에 연결해 접힌 사이드바에서도 홈 아이콘을 유지한다.
+  경로·메뉴·권한 판정은 바꾸지 않는다.
+- 검증: 기존 메뉴 검사에 아이콘을 추가해 수정 전 detail 반환으로 실패함을 확인했다.
+  수정 후 메뉴·사이드바 2파일·71테스트, frontend typecheck와 변경 파일 lint·format을 통과했다.
+- 남은 것: 새 화면 증거와 리뷰 답글, 사전 선점 누락의 owner 판단, required check, 병합·배포.
+- 공개 안전성: 합성 자료만 사용했다.

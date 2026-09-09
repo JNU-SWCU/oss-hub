@@ -45,6 +45,7 @@ export type ShellSection =
 
 const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard': 'home',
+  '/dashboard/personal': 'home',
   '/dashboard/activity': 'chart',
   '/dashboard/insights': 'chart',
   '/dashboard/applicants': 'inbox',

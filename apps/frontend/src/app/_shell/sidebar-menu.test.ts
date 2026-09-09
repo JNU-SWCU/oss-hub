@@ -902,9 +902,10 @@ it('학생 운영자는 개인 대시보드와 운영 대시보드를 구분한�
     hasAdminAccess: false,
   });
   const items = groups.flatMap((group) => group.items);
-  expect(items.find((item) => item.label === '내 대시보드')?.href).toBe(
-    '/dashboard/personal',
-  );
+  expect(items.find((item) => item.label === '내 대시보드')).toMatchObject({
+    href: '/dashboard/personal',
+    icon: 'home',
+  });
   expect(items.find((item) => item.label === '운영 대시보드')?.href).toBe(
     '/dashboard',
   );
