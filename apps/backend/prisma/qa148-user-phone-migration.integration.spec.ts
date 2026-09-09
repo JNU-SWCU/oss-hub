@@ -70,14 +70,14 @@ describe('QA148 canonical user phone migration', () => {
       }[]
     >`
       SELECT
-        constraint.conname AS "constraintName",
-        pg_get_constraintdef(constraint.oid) AS "constraintDefinition"
-      FROM pg_constraint AS constraint
-      JOIN pg_class AS relation ON relation.oid = constraint.conrelid
+        check_constraint.conname AS "constraintName",
+        pg_get_constraintdef(check_constraint.oid) AS "constraintDefinition"
+      FROM pg_constraint AS check_constraint
+      JOIN pg_class AS relation ON relation.oid = check_constraint.conrelid
       JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
       WHERE namespace.nspname = 'public'
         AND relation.relname = 'User'
-        AND constraint.conname = ${CONSTRAINT_NAME}
+        AND check_constraint.conname = ${CONSTRAINT_NAME}
     `;
 
     // Then

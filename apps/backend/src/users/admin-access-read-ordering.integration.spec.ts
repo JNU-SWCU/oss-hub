@@ -115,6 +115,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // 요청 행은 `User`를 cascade 없이 참조한다 — 먼저 지우지 않으면 사용자 삭제가 FK로 막힌다.
+  await prisma.staffAccessRequest.deleteMany({
+    where: { userId: { startsWith: prefix } },
+  });
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
   await prisma.$disconnect();
 });

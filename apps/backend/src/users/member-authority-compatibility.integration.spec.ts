@@ -192,6 +192,7 @@ it('admin grant stays independent from student membership and staff access', asy
   await users.completeMyProfile(target.githubId, {
     name: '합성 학생 관리자',
     studentId: '801010',
+    phone: '01000801010',
     department: '인공지능학부',
   });
 
@@ -221,6 +222,7 @@ it('concurrent completion allows exactly one atomic winner', async () => {
     users.completeMyProfile(target.githubId, {
       name: '합성 동시 학생',
       studentId: '801011',
+      phone: '01000801011',
       department: '인공지능학부',
     });
 
@@ -255,6 +257,7 @@ it('duplicate student ID completion fails closed without partial writes', async 
   await users.completeMyProfile(first.githubId, {
     name: '합성 첫 학생',
     studentId: '801012',
+    phone: '01000801012',
     department: '인공지능학부',
   });
 
@@ -262,6 +265,7 @@ it('duplicate student ID completion fails closed without partial writes', async 
   const completion = users.completeMyProfile(second.githubId, {
     name: '합성 둘째 학생',
     studentId: '801012',
+    phone: '01000801013',
     department: '인공지능학부',
   });
 

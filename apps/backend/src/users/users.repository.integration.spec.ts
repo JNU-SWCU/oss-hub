@@ -104,6 +104,9 @@ it('학번·학과를 UserProfile에 저장하고 다시 조회한다', async ()
 
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
+    githubId,
+    githubLogin: 'synthetic-profile-user',
+    phone: null,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     affiliationKind: AffiliationKind.DEPARTMENT,

@@ -18,6 +18,7 @@ assertIsolatedIntegrationDatabase({
  * 실재하는 학번이 아니라 자릿수만 맞춘 합성값이다. 정본은 `UserProfile` 행이다.
  */
 const LEGACY_STUDENT_ID = '9'.repeat(9);
+const NEW_ONBOARDING_PHONE = '01000999999';
 const NEW_STUDENT_ID = '1'.repeat(6);
 const userId = 'test:users:legacy-student-id';
 const githubId = 9_600_000_000_153_101n;
@@ -108,6 +109,7 @@ it('예전 형식 학번으로 가입을 마친 학생은 완료된 프로필로
     name,
     studentId: LEGACY_STUDENT_ID,
     department,
+    phone: null,
     isComplete: true,
   });
 });
@@ -197,6 +199,7 @@ describe('학번이 없는 학생', () => {
       service.completeMyProfile(githubId, {
         name,
         studentId: NEW_ONBOARDING_STUDENT_ID,
+        phone: NEW_ONBOARDING_PHONE,
         department,
       }),
     ).resolves.toMatchObject({
