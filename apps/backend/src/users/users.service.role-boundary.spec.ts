@@ -13,6 +13,7 @@ const input: PatchUserProfileInput = {
   name: '합성 사용자',
   studentId,
   department: '인공지능학부',
+  phone: '1'.repeat(11),
 };
 
 type StoredUser = {
@@ -20,6 +21,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
@@ -44,6 +46,7 @@ function buildService(
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
+          phone: null,
           role: null,
           selectedMemberKind: MemberKind.STUDENT,
           memberKind: null,
@@ -94,6 +97,7 @@ describe('역할 변경 경계', () => {
       name: input.name,
       studentId,
       department: input.department,
+      phone: null,
       isComplete: true,
     });
     await expect(
@@ -127,6 +131,7 @@ describe('역할 변경 경계', () => {
       name: input.name,
       studentId,
       department: input.department,
+      phone: input.phone,
       memberKind: MemberKind.STUDENT,
       affiliationKind: 'DEPARTMENT',
       affiliationName: input.department,
@@ -163,6 +168,7 @@ describe('역할 변경 경계', () => {
       name: input.name,
       studentId: null,
       department: input.department,
+      phone: null,
       isComplete: true,
     });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {

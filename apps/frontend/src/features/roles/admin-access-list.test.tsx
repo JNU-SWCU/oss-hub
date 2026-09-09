@@ -22,6 +22,7 @@ function item(
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
+    createdAt: '2026-07-29T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: '2026-07-30T01:00:00.000Z',
     ...overrides,
@@ -222,6 +223,30 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).not.toContain('가입일');
   });
 
+  it('사용자 목록은 sortable 가입 일시 열과 모바일 행의 계정 생성 시각을 렌더링한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        items={[item({ createdAt: '2026-07-29T00:00:00.000Z' })]}
+        sort="createdAt"
+        direction="desc"
+      />,
+    );
+    const accountCreatedLabel = new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date('2026-07-29T00:00:00.000Z'));
+
+    expect(html).toContain('가입 일시');
+    expect(html).toMatch(
+      /<th[^>]*aria-sort="descending"[^>]*>[\s\S]*?가입 일시/,
+    );
+    expect(html).toContain(accountCreatedLabel);
+    expect(html).toMatch(
+      new RegExp(`lg:hidden[\\s\\S]*${accountCreatedLabel}`),
+    );
+  });
+
   it('첫 페이지에서는 이전 페이지 이동을 비활성화한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessView
@@ -314,6 +339,39 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).not.toContain('사용자 목록');
     expect(html).not.toContain('id="admin-access-role-filter"');
     expect(html).not.toContain('id="admin-access-status-filter"');
+  });
+
+  it('가입 신청 화면은 같은 createdAt 정렬 필드라도 요청 시각을 계정 생성 시각으로 대체하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        workspace="queue"
+        items={[
+          item({
+            createdAt: '2026-07-01T00:00:00.000Z',
+            pendingRequest: {
+              id: 'synthetic-request',
+              status: 'PENDING',
+              createdAt: '2026-08-02T00:00:00.000Z',
+            },
+          }),
+        ]}
+        sort="createdAt"
+        direction="desc"
+      />,
+    );
+    const accountCreatedLabel = new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date('2026-07-01T00:00:00.000Z'));
+    const requestCreatedLabel = new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date('2026-08-02T00:00:00.000Z'));
+
+    expect(html).toContain('요청 시각');
+    expect(html).toContain(requestCreatedLabel);
+    expect(html).not.toContain(accountCreatedLabel);
   });
 
   it('가입 신청에서 필터 없이 0건이면 대기 없음 안내를 표시하고 필터 초기화는 없다', () => {

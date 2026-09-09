@@ -9,6 +9,7 @@ import type {
 import {
   isStoredStudentId,
   isValidDepartment,
+  isValidPhone,
   isValidStudentId,
   isValidUserName,
   normalizeProfileText,
@@ -39,6 +40,7 @@ export function buildProfileCompletion(
     name,
     studentId: completionStudentId(memberKind, user, input),
     department: affiliation.name,
+    ...completionPhone(memberKind, user, input),
     memberKind,
     affiliationKind: affiliation.kind,
     affiliationName: affiliation.name,
@@ -64,6 +66,7 @@ export function buildProfileUpdate(
   return {
     name,
     department: affiliation.name,
+    ...patchPhone(input),
     ...(memberKind === null
       ? {}
       : {
@@ -71,6 +74,32 @@ export function buildProfileUpdate(
           affiliationName: affiliation.name,
         }),
   };
+}
+
+function completionPhone(
+  memberKind: MemberKind,
+  user: UserProfileRecord,
+  input: PatchUserProfileInput,
+): { readonly phone?: string } {
+  const phone = patchPhone(input);
+  if (
+    memberKind === MemberKind.STUDENT &&
+    phone.phone === undefined &&
+    (user.phone === null || user.phone === undefined)
+  ) {
+    throw invalidProfile('학생 가입에는 연락처가 필요합니다.');
+  }
+  return phone;
+}
+
+function patchPhone(input: PatchUserProfileInput): { readonly phone?: string } {
+  if (input.phone === undefined) {
+    return {};
+  }
+  if (!isValidPhone(input.phone)) {
+    throw invalidProfile('연락처 형식이 올바르지 않습니다.');
+  }
+  return { phone: input.phone };
 }
 
 function resolveAffiliation(

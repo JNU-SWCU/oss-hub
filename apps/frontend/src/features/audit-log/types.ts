@@ -18,7 +18,10 @@ export interface AuditLogRecord {
   /** Event-time GitHub login for a person target. */
   readonly targetHandle?: string | null;
   readonly occurredAt: string;
+  readonly phoneTransition?: UserPhoneAuditTransition;
 }
+
+export type UserPhoneAuditTransition = 'SET' | 'REPLACED';
 
 // apps/backend/src/audit-log/*-audit-metadata.ts에 정의된 action registry의
 // 합집합을 미러링한다. 모노레포에 공유 패키지가 없어
@@ -47,6 +50,7 @@ export const AUDIT_LOG_ACTION_LABELS = {
   APPLICATION_REJECTED: '신청 반려',
   APPLICATION_REVERTED: '검토 대기로',
   USER_PROFILE_UPDATED: '프로필 수정',
+  USER_PHONE_UPDATED: '전화번호 수정',
 } as const satisfies Readonly<Record<string, string>>;
 
 export type AuditLogAction = keyof typeof AUDIT_LOG_ACTION_LABELS;

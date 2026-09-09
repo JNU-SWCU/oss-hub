@@ -27,6 +27,7 @@ function detail(overrides: Record<string, unknown> = {}) {
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
+    createdAt: '2026-09-01T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: null,
     profile: {

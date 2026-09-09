@@ -18,6 +18,7 @@ const service = new AdminAccessService(
 );
 const prefix = 'test:pr03:admin-access-read-ordering:';
 const queryFragment = 'synthetic-access-ordering';
+const requestSortFragment = 'synthetic-request-created-at-ordering';
 const pageLimit = 2;
 const orderingUserIds = {
   legacyAlpha: `${prefix}legacy-alpha`,
@@ -114,6 +115,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // 요청 행은 `User`를 cascade 없이 참조한다 — 먼저 지우지 않으면 사용자 삭제가 FK로 막힌다.
+  await prisma.staffAccessRequest.deleteMany({
+    where: { userId: { startsWith: prefix } },
+  });
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
   await prisma.$disconnect();
 });
@@ -141,6 +146,65 @@ it('orders profile and legacy display names across bounded pages without gaps or
   expect(new Set(returnedIds).size).toBe(expectedUserIds.length);
 });
 
+it('orders the pending request queue by request creation time, not account creation time', async () => {
+  // Given
+  const olderAccountNewerRequest = await createUser({
+    id: `${prefix}request-sort-older-account`,
+    githubId: 8_003_900_001_010n,
+    nickname: `older-account-${requestSortFragment}`,
+    profileName: `Older account ${requestSortFragment}`,
+    role: 'STUDENT',
+    createdAt: new Date('2026-07-01T00:00:00.000Z'),
+  });
+  const newerAccountOlderRequest = await createUser({
+    id: `${prefix}request-sort-newer-account`,
+    githubId: 8_003_900_001_011n,
+    nickname: `newer-account-${requestSortFragment}`,
+    profileName: `Newer account ${requestSortFragment}`,
+    role: 'STUDENT',
+    createdAt: new Date('2026-07-31T00:00:00.000Z'),
+  });
+  await prisma.staffAccessRequest.createMany({
+    data: [
+      {
+        id: `${olderAccountNewerRequest.id}:pending`,
+        userId: olderAccountNewerRequest.id,
+        status: 'PENDING',
+        createdAt: new Date('2026-08-02T00:00:00.000Z'),
+      },
+      {
+        id: `${newerAccountOlderRequest.id}:pending`,
+        userId: newerAccountOlderRequest.id,
+        status: 'PENDING',
+        createdAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+    ],
+  });
+
+  // When
+  const page = await service.listRequests(actorGithubId, {
+    query: requestSortFragment,
+    sort: 'createdAt',
+    direction: 'desc',
+    page: 1,
+    limit: 2,
+  });
+
+  // Then
+  expect(page.items.map((item) => item.id)).toEqual([
+    olderAccountNewerRequest.id,
+    newerAccountOlderRequest.id,
+  ]);
+  expect(page.items.map((item) => item.createdAt)).toEqual([
+    new Date('2026-07-01T00:00:00.000Z'),
+    new Date('2026-07-31T00:00:00.000Z'),
+  ]);
+  expect(page.items.map((item) => item.pendingRequest?.createdAt)).toEqual([
+    new Date('2026-08-02T00:00:00.000Z'),
+    new Date('2026-08-01T00:00:00.000Z'),
+  ]);
+});
+
 type SyntheticUser = {
   readonly id: string;
   readonly githubId: bigint;
@@ -151,6 +215,7 @@ type SyntheticUser = {
    */
   readonly profileName: string | null;
   readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
+  readonly createdAt?: Date;
 };
 
 function createUser(input: SyntheticUser) {
@@ -162,6 +227,7 @@ function createUser(input: SyntheticUser) {
       githubId: input.githubId,
       nickname: input.nickname,
       accountStatus: AccountStatus.ACTIVE,
+      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
       selectedMemberKind:
         input.role === 'STUDENT'
           ? MemberKind.STUDENT
@@ -185,6 +251,6 @@ function createUser(input: SyntheticUser) {
             },
           }),
     },
-    select: { githubId: true },
+    select: { id: true, githubId: true },
   });
 }

@@ -109,6 +109,7 @@ export class UsersService {
       affiliationKind: fields.affiliationKind ?? user.affiliationKind,
       affiliationName: fields.affiliationName ?? user.affiliationName,
       studentId: input.studentId ?? user.studentId,
+      phone: fields.phone ?? user.phone,
     };
     const changesExistingStudentId =
       input.studentId !== undefined &&
@@ -134,12 +135,13 @@ export class UsersService {
         {
           name: fields.name,
           department: fields.department,
+          ...(fields.phone === undefined ? {} : { phone: fields.phone }),
         },
         input.studentId,
       );
       return toUserProfile(next);
     }
-    await this.repository.updateProfileFields(user.id, fields);
+    await this.repository.updateProfileFields(user, fields);
     return toUserProfile(next);
   }
 
@@ -172,7 +174,11 @@ export class UsersService {
    */
   private async fillStudentId(
     user: UserProfileRecord,
-    next: { readonly name: string; readonly department: string | null },
+    next: {
+      readonly name: string;
+      readonly department: string | null;
+      readonly phone?: string;
+    },
     studentId: string,
   ): Promise<void> {
     if (next.department === null) {
@@ -180,7 +186,11 @@ export class UsersService {
         USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
       );
     }
-    const outcome = await this.repository.fillStudentId(user, studentId);
+    const outcome = await this.repository.fillStudentId({
+      expected: user,
+      studentId,
+      ...(next.phone === undefined ? {} : { phone: next.phone }),
+    });
     switch (outcome) {
       case 'filled':
         return;

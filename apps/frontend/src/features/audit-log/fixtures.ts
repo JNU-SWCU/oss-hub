@@ -45,6 +45,11 @@ const APPLICATION_DECISION_METADATA_V2 = {
   after: { status: 'APPROVED' },
 } as const;
 
+const USER_PHONE_UPDATED_METADATA = {
+  schemaVersion: 1,
+  transition: 'REPLACED',
+} as const;
+
 export const AUDIT_LOG_ACCESS_RECORD_FIXTURE = {
   id: 'audit-access-approved',
   actor: 'synthetic-admin',
@@ -99,6 +104,20 @@ export const AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE = {
   occurredAt: '2026-07-24T06:00:00.000Z',
   legacy: false,
   metadata: APPLICATION_DECISION_METADATA_V2,
+} as const;
+
+export const AUDIT_LOG_USER_PHONE_UPDATED_RECORD_FIXTURE = {
+  id: 'audit-user-phone-updated',
+  actor: 'synthetic-admin',
+  actorHandle: 'synthetic-admin',
+  action: 'USER_PHONE_UPDATED',
+  targetType: 'USER',
+  targetId: 'synthetic-profile-member',
+  target: 'synthetic-profile-member',
+  targetHandle: 'synthetic-profile-member',
+  occurredAt: '2026-07-24T06:30:00.000Z',
+  legacy: false,
+  metadata: USER_PHONE_UPDATED_METADATA,
 } as const;
 
 export const AUDIT_LOG_LEGACY_RECORD_FIXTURE = {

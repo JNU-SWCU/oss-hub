@@ -55,6 +55,7 @@ describe('account onboarding completion fixtures', () => {
     callWithBody('unassigned', 'POST', 'users/me/profile', {
       name: '합성 학생 사용자',
       studentId: '260001',
+      phone: '1'.repeat(10),
       department: '인공지능학부',
     });
 
@@ -134,6 +135,7 @@ describe('account onboarding completion fixtures', () => {
       name: '합성 교직원 사용자',
       studentId: null,
       department: '인공지능학부',
+      phone: null,
       isComplete: true,
     });
   });

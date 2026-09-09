@@ -159,6 +159,7 @@ function target(
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     isProfileComplete: true,
+    createdAt: new Date('2026-07-19T00:00:00.000Z'),
     pendingRequest: null,
     lastLoginAt: null,
     ...overrides,

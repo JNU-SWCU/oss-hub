@@ -17,22 +17,15 @@ vi.mock('../_shell/use-session-role', () => ({
 }));
 
 import SettingsPage from './page';
+import {
+  SETTINGS_SAVED_NOTIFICATION as SAVED_NOTIFICATION,
+  SETTINGS_SAVED_PROFILE as SAVED_PROFILE,
+} from './settings-test-fixtures';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
-
-const SAVED_PROFILE = {
-  name: '김교직',
-  studentId: null,
-  department: '컴퓨터정보통신공학과',
-  isComplete: true,
-};
-const SAVED_NOTIFICATION = {
-  notificationEmail: 'staff@example.com',
-  notifyEnabled: true,
-};
 
 type RequestRecord = { readonly url: string; readonly method: string };
 

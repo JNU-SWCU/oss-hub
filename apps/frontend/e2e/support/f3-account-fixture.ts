@@ -28,6 +28,7 @@ export const F3_SAVED_PROFILE = {
   name: '합성 저장된 이름',
   studentId: '260901',
   department: '인공지능학부',
+  phone: '1'.repeat(10),
   isComplete: true,
 } as const;
 

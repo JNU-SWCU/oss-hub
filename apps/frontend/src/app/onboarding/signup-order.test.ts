@@ -30,6 +30,7 @@ function formWithoutStudentId() {
     name: '합성 조교',
     studentId: '',
     savedStudentId: '',
+    phone: '',
     affiliationKind: 'DEPARTMENT' as const,
     affiliationName: '',
     departmentOption: '인공지능학부',
@@ -105,6 +106,7 @@ describe('legacy 관리자 호환', () => {
       name: '합성 관리자',
       studentId: '',
       savedStudentId: '',
+      phone: '',
       affiliationKind: 'DEPARTMENT' as const,
       affiliationName: '',
       departmentOption: '인공지능학부',
@@ -116,6 +118,7 @@ describe('legacy 관리자 호환', () => {
 
     expect(requirement.studentId).toBe(false);
     expect(errors.studentId).toBeNull();
+    expect(errors.phone).toBeNull();
     expect(errors.department).toBeNull();
     expect(toCompleteProfileRequest(values, role)).toBeNull();
   });

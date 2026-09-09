@@ -1,11 +1,11 @@
 /**
  * 역할별 프로필 필수 항목 — 이 파일이 판정 규칙의 단일 출처다.
  *
- * | 역할 | 이름 | 학번 | 학과 |
- * | --- | --- | --- | --- |
- * | 학생(STUDENT) | 필수 | 필수 | 필수 |
- * | 교직원(STAFF) | 필수 | — | 필수 |
- * | 관리자(ADMIN) | 필수 | — | — |
+ * | 역할 | 이름 | 학번 | 전화번호 | 학과 |
+ * | --- | --- | --- | --- | --- |
+ * | 학생(STUDENT) | 필수 | 필수 | 필수 | 필수 |
+ * | 교직원(STAFF) | 필수 | — | — | 필수 |
+ * | 관리자(ADMIN) | 필수 | — | — | — |
  *
  * 전부 순수 함수로 두고 역할을 인자로 받는다. 응답 파서·폼 검증·요청 빌더·화면이
  * 같은 규칙을 공유해야 하고, 역할은 세션에서 오기 때문에 모듈 안에서 조회하면
@@ -22,9 +22,11 @@ export type ProfileRole = ProfileMemberKind | 'ADMIN';
 export const PROFILE_NAME_MAX_LENGTH = 100;
 export const PROFILE_DEPARTMENT_MAX_LENGTH = 100;
 export const STUDENT_ID_PATTERN = /^\d{6}$/;
+export const PHONE_PATTERN = /^\d{10,11}$/;
 
 export interface ProfileFieldRequirement {
   readonly studentId: boolean;
+  readonly phone: boolean;
   readonly department: boolean;
 }
 
@@ -32,8 +34,8 @@ const REQUIREMENT_BY_MEMBER_KIND: Record<
   ProfileMemberKind,
   ProfileFieldRequirement
 > = {
-  STUDENT: { studentId: true, department: true },
-  STAFF: { studentId: false, department: true },
+  STUDENT: { studentId: true, phone: true, department: true },
+  STAFF: { studentId: false, phone: false, department: true },
 };
 
 /**
@@ -47,7 +49,7 @@ export function profileFieldRequirement(
   memberKind: ProfileRole | null,
 ): ProfileFieldRequirement {
   return memberKind === 'ADMIN'
-    ? { studentId: false, department: false }
+    ? { studentId: false, phone: false, department: false }
     : REQUIREMENT_BY_MEMBER_KIND[memberKind ?? 'STUDENT'];
 }
 
@@ -90,6 +92,14 @@ export function isValidStudentId(studentId: string): boolean {
   return STUDENT_ID_PATTERN.test(studentId);
 }
 
+export function normalizePhone(value: string): string {
+  return value;
+}
+
+export function isValidPhone(phone: string): boolean {
+  return PHONE_PATTERN.test(phone);
+}
+
 /**
  * 이미 저장돼 있을 수 있는 학번의 형식 — 지금 규칙과 그 이전 규칙을 함께 받는다.
  *
@@ -123,6 +133,7 @@ export interface ProfileCompletionFields {
   readonly name: string;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone: string | null;
 }
 
 /** 역할이 요구하는 항목이 모두 채워졌는지 — 요구하지 않는 항목은 비어 있어도 완성이다. */
@@ -143,6 +154,12 @@ export function isProfileComplete(
   if (
     requirement.department &&
     (fields.department === null || !isValidDepartment(fields.department))
+  ) {
+    return false;
+  }
+  if (
+    requirement.phone &&
+    (fields.phone === null || !isValidPhone(fields.phone))
   ) {
     return false;
   }
@@ -167,6 +184,7 @@ export function isConsistentCompleteProfile(
   return (
     isValidProfileName(fields.name) &&
     (fields.studentId === null || isStoredStudentId(fields.studentId)) &&
-    (fields.department === null || isValidDepartment(fields.department))
+    (fields.department === null || isValidDepartment(fields.department)) &&
+    (fields.phone === null || isValidPhone(fields.phone))
   );
 }

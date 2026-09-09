@@ -1,5 +1,7 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
@@ -28,7 +30,18 @@ type StoredProfileFields = {
 };
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma);
+const repository = new UsersRepository(
+  prisma,
+  new AuditLogService(new AuditLogRepository(prisma)),
+);
+
+// 이름·소속만 고치는 경로는 감사 신원을 쓰지 않는다 — 대상 행을 가리키는 최소 기록이다.
+const profileTarget = {
+  id: userId,
+  name: null,
+  studentId: null,
+  department: null,
+};
 
 async function completeCurrentProfile(
   profile: {
@@ -96,6 +109,9 @@ it('학번·학과를 UserProfile에 저장하고 다시 조회한다', async ()
 
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
+    githubId,
+    githubLogin: 'synthetic-profile-user',
+    phone: null,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     affiliationKind: AffiliationKind.DEPARTMENT,
@@ -178,7 +194,7 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
   ).resolves.toBe('completed');
 
   // When
-  await repository.updateProfileFields(userId, {
+  await repository.updateProfileFields(profileTarget, {
     name: '합성 수정 교직원',
     department: '소프트웨어공학과',
     affiliationKind: AffiliationKind.PROGRAM_OFFICE,
@@ -225,7 +241,7 @@ it('완료 후 이름·학과 수정도 UserProfile만 갱신한다', async () =
   };
 
   // When
-  await repository.updateProfileFields(userId, {
+  await repository.updateProfileFields(profileTarget, {
     ...mutableFields,
     affiliationKind: AffiliationKind.DEPARTMENT,
     affiliationName: mutableFields.department,

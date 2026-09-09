@@ -30,6 +30,7 @@ model User {
   githubId           BigInt        @unique
   nickname           String        @map("login")
   avatarUrl          String?
+  phone              String?
   accountStatus      AccountStatus @default(ACTIVE)
   sessionVersion     Int           @default(0)
   /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(opt-in 기본 off).
@@ -181,12 +182,12 @@ enum ProgramLifecycle {
 }
 
 model Program {
-  id        String           @id @default(cuid())
+  id        String            @id @default(cuid())
   name      String
   organizer String
   category  ProgramCategory
   trackType ProgramTrackType?
-  lifecycle ProgramLifecycle @default(PUBLISHED)
+  lifecycle ProgramLifecycle  @default(PUBLISHED)
 
   /// 서버 고정 registry가 결정한다(#100) — 클라이언트가 임의 값을 보낼 수 없다.
   applicationTemplateKey     String
@@ -427,7 +428,7 @@ model Team {
   @@index([programId])
 }
 
-/// 학과·이름·연락처·이메일은 합류 시 본인 입력(#109) — 팀장 생성 시점엔 비어 있을 수 있어 nullable로 둔다.
+/// 학과·이름·이메일은 합류 시 본인 입력(#109) — 팀장 생성 시점엔 비어 있을 수 있어 nullable로 둔다.
 model TeamMember {
   id        String @id @default(cuid())
   teamId    String
@@ -439,7 +440,6 @@ model TeamMember {
 
   department String?
   name       String?
-  phone      String?
   email      String?
 
   createdAt DateTime @default(now())
