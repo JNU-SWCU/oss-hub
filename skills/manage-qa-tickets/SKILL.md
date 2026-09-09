@@ -2,7 +2,7 @@
 name: "manage-qa-tickets"
 description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
 metadata:
-  version: "4.6.0"
+  version: "4.6.1"
 ---
 
 # Manage QA tickets
@@ -287,7 +287,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 섹션 밖 파일을 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
-- [ ] `frontend` 시각·상호작용 변경이면 실제 Before/After 캡처를 동일 조건으로 만들어 사람이 공개 안전·메타데이터를 확인하고, PR 본문에 첨부해 렌더된 것을 다시 열어 확인했고, 시각 변화가 없으면 `N/A`와 사유를 적었다([submit-pr-evidence/references/frontend-capture.md](../submit-pr-evidence/references/frontend-capture.md)가 원본).
+- [ ] 화면을 건드렸으면 [submit-pr-evidence의 증거 게이트](../submit-pr-evidence/SKILL.md#증거-게이트)에 따라 캡처와 확인 링크를 갖췄고, 화면이 아예 없는 변경에만 면제 사유를 적었다.
 - [ ] `backend` 로직 변경이면 mermaid 또는 DOT 흐름 다이어그램을 PR 본문 `## 흐름 다이어그램`에 넣었다([submit-pr-evidence/references/backend-diagram.md](../submit-pr-evidence/references/backend-diagram.md)가 원본).
 - [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
 - [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 옮겼다.

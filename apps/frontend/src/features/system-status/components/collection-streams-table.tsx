@@ -31,7 +31,7 @@ const STREAM_TYPE_LABEL: Record<CollectionStreamType, string> = {
  */
 const BUCKET_BADGE = {
   READY: { label: '완료', variant: 'approved' },
-  BACKFILLING: { label: '백필 중', variant: 'recruiting' },
+  BACKFILLING: { label: '과거 활동 수집 중', variant: 'recruiting' },
   PARTIAL: { label: '부분', variant: 'pending' },
   RETRY_PENDING: { label: '재시도 대기', variant: 'rejected' },
 } as const satisfies Record<

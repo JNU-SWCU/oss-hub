@@ -31,6 +31,26 @@ afterEach(() => {
 });
 
 describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레벨·448px 오버레이 폭 계약', () => {
+  it.each([
+    { workspace: 'queue', kind: 'loading', subject: '가입 신청' },
+    { workspace: 'queue', kind: 'error', subject: '가입 신청' },
+    { workspace: 'directory', kind: 'loading', subject: '사용자 정보' },
+    { workspace: 'directory', kind: 'error', subject: '사용자 정보' },
+  ] as const)(
+    '$workspace의 $kind 상태를 해당 업무 이름으로 안내한다',
+    ({ workspace, kind, subject }) => {
+      const html = renderToStaticMarkup(
+        <AdminAccessDetailContentForState
+          state={{ kind }}
+          onRetry={() => {}}
+          mutation={adminMutation()}
+          workspace={workspace}
+        />,
+      );
+      expect(html).toContain(subject);
+    },
+  );
+
   it('standalone은 <main> landmark와 이름 접근 가능한 이름을 갖는다(로딩 상태)', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
@@ -41,7 +61,7 @@ describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레
       />,
     );
     expect(html).toContain('<main');
-    expect(html).toContain('aria-label="관리자 접근 상세를 불러오는 중"');
+    expect(html).toContain('aria-label="사용자 정보를 불러오는 중"');
   });
 
   it('overlay는 <main>이 아닌 <div>를 쓰고 landmark 이름을 붙이지 않는다(로딩 상태)', () => {
@@ -54,7 +74,7 @@ describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레
       />,
     );
     expect(html).not.toContain('<main');
-    expect(html).not.toContain('aria-label="관리자 접근 상세를 불러오는 중"');
+    expect(html).not.toContain('aria-label="사용자 정보를 불러오는 중"');
   });
 
   it('standalone은 제목 h1 + 섹션 h2를 쓴다', () => {

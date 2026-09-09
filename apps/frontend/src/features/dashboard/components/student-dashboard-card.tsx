@@ -156,10 +156,7 @@ export function StudentDashboardCard({
                 className="mt-0.5 size-5 text-status-pending-fg"
               />
               <div>
-                <p className="font-medium">신청 검토 후 일정이 열립니다.</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  승인되면 다음 일정이 표시됩니다.
-                </p>
+                <p className="font-medium">승인되면 다음 일정이 표시됩니다.</p>
               </div>
             </div>
           ) : isRejected ? (
@@ -186,8 +183,7 @@ export function StudentDashboardCard({
                 className="mt-0.5 size-5 text-status-approved-fg"
               />
               <div>
-                <p className="font-medium">모든 마일스톤 완료</p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="font-medium">
                   예정된 제출 항목을 모두 마쳤습니다.
                 </p>
               </div>

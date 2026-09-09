@@ -125,7 +125,7 @@ export function ArchiveListContent({
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
         title="공개 아카이브"
-        description="공개된 프로젝트와 누적 활동 기록을 확인합니다. 연도는 왼쪽 메뉴에서 고릅니다."
+        description="공개된 프로젝트와 누적 활동 기록을 확인합니다."
       />
       <ArchiveListYearChips
         className="min-[900px]:hidden"
@@ -136,11 +136,15 @@ export function ArchiveListContent({
       {items.length === 0 ? (
         <EmptyState
           icon={<Archive className="size-8" />}
-          title={filterActive ? '검색 결과 없음' : '공개된 프로젝트 없음'}
+          title={
+            filterActive
+              ? '이 연도의 공개 프로젝트가 없습니다'
+              : '아직 공개된 프로젝트가 없습니다'
+          }
           description={
             filterActive
-              ? '연도를 바꾸어 다시 찾아보세요.'
-              : '아직 공개된 프로젝트가 없습니다.'
+              ? '다른 연도를 선택하거나 전체 프로젝트를 확인해 주세요.'
+              : undefined
           }
           action={
             filterActive ? (

@@ -177,7 +177,9 @@ test('direct URL denial removes admin surfaces and backend denies staff', async 
   const page = await authSeedPage('staff-revocable');
   const audit = installBrowserAudit(page);
   await page.goto('/dashboard/users');
-  await expect(page.getByText('접근 권한이 없는 페이지 입니다')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '접근 권한이 없습니다' }),
+  ).toBeVisible();
   await expect(page.getByText('사용자 목록', { exact: true })).toHaveCount(0);
   await page.getByRole('link', { name: '내 화면으로 돌아가기' }).focus();
   await expect(

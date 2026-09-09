@@ -5,12 +5,6 @@ import { useEffect, useState } from 'react';
 import { PageBody } from '@/components/page-body';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { ProgramDocumentArchiveOptions } from './program-document-archive-options';
 import { ApiError } from '@/lib/api-client';
 import { getProgramDetail, listStaffProgramTeams } from './api';
@@ -148,30 +142,18 @@ export function ProgramDocumentArchivePanel({
         className="grid gap-4"
       >
         <div className="flex justify-end">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-11"
-                  aria-label={toggleLabel}
-                  aria-expanded={open}
-                  aria-controls="program-document-archive-options"
-                  onClick={() => setOpen(!open)}
-                  disabled={busy}
-                >
-                  {open ? (
-                    <X aria-hidden="true" />
-                  ) : (
-                    <Download aria-hidden="true" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{toggleLabel}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            type="button"
+            variant="outline"
+            aria-label={toggleLabel}
+            aria-expanded={open}
+            aria-controls="program-document-archive-options"
+            onClick={() => setOpen(!open)}
+            disabled={busy}
+          >
+            {open ? <X aria-hidden="true" /> : <Download aria-hidden="true" />}
+            {toggleLabel}
+          </Button>
         </div>
         {open ? (
           <div

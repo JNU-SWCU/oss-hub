@@ -115,8 +115,7 @@ describe('SubmissionReviewView', () => {
     // Then
     expect(html).toContain('제출본 1번');
     expect(html).toContain('이전 제출본과 검토 이력');
-    expect(html).toContain('이전 제출본이 없습니다');
-    expect(html).toContain('최초 제출입니다');
+    expect(html).toContain('첫 제출입니다.');
     expect(html).toContain('현재 제출본을 승인합니다');
     // aria 속성·id를 뺀 사용자 가시 문구에는 revision이 남지 않아야 한다.
     expect(html.replace(/revision-history-title/g, '')).not.toMatch(
@@ -138,10 +137,9 @@ describe('SubmissionReviewView', () => {
     const html = render(reviewContext);
 
     // Then
-    expect(html).not.toContain('최초 제출입니다');
-    expect(html).not.toContain('이전 제출본이 없습니다');
+    expect(html).not.toContain('첫 제출입니다.');
     expect(html).toContain('2번째');
-    expect(html).toContain('이력을 불러오지 못했습니다');
+    expect(html).toContain('이전 이력을 확인할 수 없습니다');
   });
 
   it('회차가 1이고 이력이 비어 있을 때만 최초 제출이라고 안내한다', () => {
@@ -155,9 +153,8 @@ describe('SubmissionReviewView', () => {
     const html = render(reviewContext);
 
     // Then
-    expect(html).toContain('이전 제출본이 없습니다');
-    expect(html).toContain('최초 제출입니다');
-    expect(html).not.toContain('이력을 불러오지 못했습니다');
+    expect(html).toContain('첫 제출입니다.');
+    expect(html).not.toContain('이전 이력을 확인할 수 없습니다');
   });
 
   it('이미 검토한 최신 revision은 판정과 코멘트를 읽기 전용으로 표시한다', () => {

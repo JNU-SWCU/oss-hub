@@ -161,7 +161,7 @@ export function TeamInvitePanel({
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="닉네임 또는 이름"
+              placeholder="이름 또는 GitHub 아이디"
               autoComplete="off"
               role="combobox"
               aria-expanded={expanded}

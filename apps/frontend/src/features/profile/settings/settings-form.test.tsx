@@ -104,7 +104,6 @@ describe('settings form view', () => {
     expect(html).not.toContain('settings-student-id');
     expect(html).toContain('settings-name');
     expect(html).toContain('settings-department');
-    expect(html).toContain('이름과 학과를 수정할 수 있습니다.');
   });
 
   it('교직원도 이미 저장된 학번은 읽기 전용으로 보여 준다', () => {
@@ -126,7 +125,6 @@ describe('settings form view', () => {
     expect(html).not.toContain('settings-student-id');
     expect(html).toContain('settings-department');
     expect(html).toContain('settings-name');
-    expect(html).toContain('이름과 학과를 수정할 수 있습니다.');
     expect(html).toContain('settings-notification-email');
   });
 
@@ -233,7 +231,7 @@ describe('settings form view', () => {
     expect(savingHtml).toContain('저장 중…');
     expect(savingHtml).toContain('disabled=""');
     expect(toastHtml).toContain('저장되었습니다.');
-    expect(failedHtml).toContain('설정을 저장하지 못했습니다');
+    expect(failedHtml).toContain('저장 결과를 확인해 주세요');
     expect(failedHtml).toContain('잠시 후 다시 시도해 주세요.');
   });
 });

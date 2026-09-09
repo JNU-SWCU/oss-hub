@@ -113,7 +113,7 @@ const ROLE_OPTIONS: readonly RoleOption[] = [
     role: 'STUDENT',
     title: '학생',
     description: '프로그램을 찾아보고 개인 또는 팀으로 지원합니다.',
-    note: '승인 없이 바로 시작합니다',
+    note: '학생 가입에는 승인이 필요하지 않습니다',
     // 어두운 무대 위에서는 상태 토큰(`--status-*`)을 쓸 수 없다 — 밝은 표면 기준
     // 값이라(green-700 · amber-800) 바탕에 묻힌다. 대비가 검증된 --cosmos-* 안에서
     // "바로 갈 수 있다"는 초록(랜딩의 저장소 색)과 기다림의 흰색으로 나눈다.
@@ -393,7 +393,7 @@ export function RoleSelectionForm({
                   {/* 두 카드의 이 줄이 항상 바닥에 붙어야 나란한 카드의 눈높이가 맞는다. */}
                   <p
                     className={cn(
-                      'mt-auto pt-1 text-xs font-medium sm:pt-2',
+                      'mt-auto pt-1 text-xs font-medium break-keep sm:pt-2',
                       option.noteClassName,
                     )}
                   >

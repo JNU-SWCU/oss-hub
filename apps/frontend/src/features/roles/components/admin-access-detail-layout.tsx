@@ -39,8 +39,10 @@ export function detailRootClassName(
 
 export function AdminAccessDetailLoading({
   layoutContext,
+  workspace,
 }: {
   readonly layoutContext: AdminAccessDetailLayoutContext;
+  readonly workspace: AccessWorkspace;
 }) {
   const Root = detailRootTag(layoutContext);
   return (
@@ -48,7 +50,9 @@ export function AdminAccessDetailLoading({
       aria-label={
         layoutContext === 'overlay'
           ? undefined
-          : '관리자 접근 상세를 불러오는 중'
+          : workspace === 'queue'
+            ? '가입 신청을 불러오는 중'
+            : '사용자 정보를 불러오는 중'
       }
       className={detailRootClassName(
         layoutContext,
@@ -64,9 +68,11 @@ export function AdminAccessDetailLoading({
 export function AdminAccessDetailError({
   onRetry,
   layoutContext,
+  workspace,
 }: {
   readonly onRetry: () => void;
   readonly layoutContext: AdminAccessDetailLayoutContext;
+  readonly workspace: AccessWorkspace;
 }) {
   const Root = detailRootTag(layoutContext);
   return (
@@ -78,7 +84,11 @@ export function AdminAccessDetailError({
     >
       <Alert variant="destructive">
         <AlertCircle aria-hidden="true" />
-        <AlertTitle>관리자 접근 상세를 불러오지 못했습니다</AlertTitle>
+        <AlertTitle>
+          {workspace === 'queue'
+            ? '가입 신청을 불러오지 못했습니다'
+            : '사용자 정보를 불러오지 못했습니다'}
+        </AlertTitle>
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
           <span>잠시 후 다시 시도해 주세요.</span>
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
@@ -109,8 +119,14 @@ export function AdminAccessDetailNotFound({
     >
       <EmptyState
         icon={<UserRound className="size-8" />}
-        title="사용자를 찾을 수 없습니다"
-        description="존재하지 않는 사용자이거나 삭제된 계정입니다."
+        title={
+          isQueue ? '가입 신청을 찾을 수 없습니다' : '사용자를 찾을 수 없습니다'
+        }
+        description={
+          isQueue
+            ? '가입 신청 목록에서 현재 상태를 확인해 주세요.'
+            : '사용자 목록에서 다시 확인해 주세요.'
+        }
         action={
           <Button asChild variant="outline">
             <Link href={accessListPath(workspace)}>

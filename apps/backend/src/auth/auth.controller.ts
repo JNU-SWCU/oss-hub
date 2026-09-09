@@ -22,6 +22,7 @@ import {
   sessionCookieName,
 } from './cookies';
 import { loginLandingUrl } from './domain/login-landing';
+import { GithubLoginQueryRequestDto } from './dto/github-login-query.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { SessionResponseDto } from './dto/session-response.dto';
@@ -49,8 +50,11 @@ export class AuthController {
 
   @Get('github')
   @Public()
-  startGithubLogin(@Res() res: Response): void {
-    const redirect = this.authService.buildAuthorizeRedirect();
+  startGithubLogin(
+    @Query() query: GithubLoginQueryRequestDto,
+    @Res() res: Response,
+  ): void {
+    const redirect = this.authService.buildAuthorizeRedirect(query.prompt);
     res.setHeader(
       'Set-Cookie',
       serializeCookie(

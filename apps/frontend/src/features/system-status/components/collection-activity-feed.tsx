@@ -86,10 +86,10 @@ function CycleStatusBadge({
   readonly entry: CollectionActivityEntry;
 }) {
   if (entry.cycleCompleted) {
-    return <StatusBadge variant="approved">사이클 완료</StatusBadge>;
+    return <StatusBadge variant="approved">전체 순회 완료</StatusBadge>;
   }
   if (entry.stoppedForBudget) {
-    return <StatusBadge variant="pending">예산 중단</StatusBadge>;
+    return <StatusBadge variant="pending">수집 한도에 도달</StatusBadge>;
   }
   return <StatusBadge variant="recruiting">진행 중</StatusBadge>;
 }
@@ -133,6 +133,12 @@ export function CollectionActivityFeed({
   return (
     <section aria-label="최근 수집 활동" className="flex flex-col gap-4">
       <SectionHeading title="최근 수집 활동" meta={`${entries.length}건`} />
+      {entries.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          전체 순회는 대상 저장소를 한 번씩 처리하는 과정입니다. 실행 시간이나
+          GitHub 요청 잔여량에 따라 여러 차례로 나뉠 수 있습니다.
+        </p>
+      ) : null}
       {entries.length === 0 ? (
         <EmptyState
           title="아직 기록된 수집 활동이 없습니다"

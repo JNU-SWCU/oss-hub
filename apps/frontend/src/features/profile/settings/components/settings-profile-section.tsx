@@ -37,13 +37,9 @@ export function SettingsProfileSection({
     showValidationErrors && errors.department !== null;
   const isStudentIdLocked = hasSavedStudentId(values);
   const showStudentId = memberKind === 'STUDENT' || isStudentIdLocked;
-  const editableFields = '이름과 학과를 수정할 수 있습니다.';
-  const description = isStudentIdLocked
-    ? `${editableFields} 학번은 변경할 수 없습니다.`
-    : editableFields;
 
   return (
-    <FormSection title="프로필" description={description}>
+    <FormSection title="프로필">
       <Field data-invalid={showNameError || undefined}>
         <FieldLabel htmlFor="settings-name">이름</FieldLabel>
         <Input
