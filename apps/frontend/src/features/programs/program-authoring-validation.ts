@@ -3,8 +3,8 @@ import type {
   ProgramAuthoringStep,
 } from './program-authoring-model';
 import {
-  SUBMISSION_UPLOAD_MAX_BYTES,
-  SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
+  submissionUploadTooLargeMessage,
+  type SubmissionUploadLimit,
 } from '@/lib/submission-upload-policy';
 import {
   validateMilestones,
@@ -19,7 +19,6 @@ import {
 
 export type { ProgramAuthoringIssue } from './program-authoring-validation-helpers';
 
-const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const ALLOWED_FILE_EXTENSIONS = new Set([
   '.pdf',
   '.hwp',
@@ -62,8 +61,12 @@ export function validateProgramAuthoringManifest(
   ];
 }
 
-export function validateTemplateFile(file: File): string | null {
-  if (file.size > MAX_FILE_BYTES) return SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE;
+export function validateTemplateFile(
+  file: File,
+  policy: SubmissionUploadLimit,
+): string | null {
+  if (file.size > policy.maxBytes)
+    return submissionUploadTooLargeMessage(policy);
   const dot = file.name.lastIndexOf('.');
   const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : '';
   if (!ALLOWED_FILE_EXTENSIONS.has(extension)) {

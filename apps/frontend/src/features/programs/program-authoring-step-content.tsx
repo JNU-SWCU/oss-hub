@@ -14,8 +14,10 @@ import type {
 } from './program-authoring-model';
 import type { ProgramSubmissionRuntime } from './program-authoring-submit';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
+import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 
 type ProgramAuthoringStepContentProps = {
+  readonly fileUpload: SubmissionUploadLimit;
   readonly step: ProgramAuthoringStep;
   readonly state: ProgramAuthoringState;
   readonly issues: readonly ProgramAuthoringIssue[];
@@ -26,6 +28,7 @@ type ProgramAuthoringStepContentProps = {
 };
 
 export function ProgramAuthoringStepContent({
+  fileUpload,
   step,
   state,
   issues,
@@ -54,6 +57,7 @@ export function ProgramAuthoringStepContent({
     case 'milestones':
       return (
         <ProgramAuthoringMilestoneStep
+          fileUpload={fileUpload}
           {...shared}
           newId={newId}
           onRequirementFileChange={(milestoneId, requirementId, file) => {

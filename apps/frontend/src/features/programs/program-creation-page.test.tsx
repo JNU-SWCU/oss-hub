@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   createAuthoringProgram: vi.fn(),
   deleteAuthoringUpload: vi.fn(),
   uploadAuthoringFile: vi.fn(),
+  getAuthoringUploadPolicy: vi.fn(),
   completeAndNavigate: vi.fn(),
   useProgramExitGuard: vi.fn(),
   discardUnsaved: undefined as (() => void) | undefined,
@@ -23,6 +24,7 @@ vi.mock('./program-authoring-api', () => ({
   createAuthoringProgram: mocks.createAuthoringProgram,
   deleteAuthoringUpload: mocks.deleteAuthoringUpload,
   uploadAuthoringFile: mocks.uploadAuthoringFile,
+  getAuthoringUploadPolicy: mocks.getAuthoringUploadPolicy,
 }));
 
 vi.mock('./use-program-exit-guard', () => ({
@@ -59,6 +61,9 @@ describe('ProgramCreationPage guided authoring', () => {
     mocks.createAuthoringProgram.mockReset();
     mocks.deleteAuthoringUpload.mockReset();
     mocks.uploadAuthoringFile.mockReset();
+    mocks.getAuthoringUploadPolicy.mockReset().mockResolvedValue({
+      fileUpload: { maxBytes: 5 * 1024 * 1024, maxLabel: '5 MB' },
+    });
     mocks.completeAndNavigate.mockClear();
     mocks.useProgramExitGuard.mockClear();
     mocks.discardUnsaved = undefined;
@@ -100,7 +105,25 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(mocks.uploadAuthoringFile).not.toHaveBeenCalled();
   });
 
-  it('does not call any Program API until final confirmation and clears recovery after success', async () => {
+  it.each([
+    new TypeError('policy unavailable'),
+    new SyntaxError('invalid JSON'),
+  ])(
+    '업로드 제한을 못 받으면 작성 대신 재시도를 보이고 복구한다: %s',
+    async (error) => {
+      mocks.getAuthoringUploadPolicy.mockRejectedValueOnce(error);
+      await act(async () => root.render(<ProgramCreationPage />));
+      expect(container.textContent).toContain(
+        '파일 업로드 제한을 불러오지 못했습니다.',
+      );
+      expect(container.querySelector('input[type="file"]')).toBeNull();
+      await act(async () => buttonNamed('다시 불러오기').click());
+      expect(container.textContent).toContain('기본 정보');
+      expect(mocks.getAuthoringUploadPolicy).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('does not mutate programs until final confirmation and clears recovery after success', async () => {
     mocks.createAuthoringProgram.mockResolvedValue({ id: 'program-created' });
     sessionStorage.setItem(PROGRAM_AUTHORING_RECOVERY_KEY, 'request-recovery');
 
