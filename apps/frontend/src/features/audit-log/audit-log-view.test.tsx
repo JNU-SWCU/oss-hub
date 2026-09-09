@@ -61,9 +61,7 @@ describe('AuditLogView', () => {
       />,
     );
 
-    expect(html).toContain(
-      '역할·계정 변경, 프로그램 보관·복구, 수집 실행, 신청 승인·반려 등 관리 작업 이력을 행위자, 액션, 기간으로 조회합니다.',
-    );
+    expect(html).toContain('관리 작업 이력을 조회합니다.');
   });
 
   it('조회 실패와 다시 시도 동작을 표시한다', () => {
@@ -469,7 +467,7 @@ describe('AuditLogView', () => {
 
     for (const [label, id] of [
       ['행위자', 'audit-actor'],
-      ['액션 종류', 'audit-action'],
+      ['작업 종류', 'audit-action'],
       ['시작일', 'audit-from'],
       ['종료일', 'audit-to'],
     ]) {

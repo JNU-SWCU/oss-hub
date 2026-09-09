@@ -44,10 +44,7 @@ export function AuditLogView(props: AuditLogViewProps) {
       <PageHeader
         title="감사 로그"
         description={
-          <span className="break-keep">
-            역할·계정 변경, 프로그램 보관·복구, 수집 실행, 신청 승인·반려 등
-            관리 작업 이력을 행위자, 액션, 기간으로 조회합니다.
-          </span>
+          <span className="break-keep">관리 작업 이력을 조회합니다.</span>
         }
       />
       <form
@@ -68,7 +65,7 @@ export function AuditLogView(props: AuditLogViewProps) {
         </div>
         <div className="flex w-full min-w-0 flex-col gap-2">
           <label htmlFor="audit-action" className="text-sm font-medium">
-            액션 종류
+            작업 종류
           </label>
           <select
             id="audit-action"

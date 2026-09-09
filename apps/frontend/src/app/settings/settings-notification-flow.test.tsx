@@ -166,7 +166,7 @@ describe('설정 알림 흐름', () => {
     ).toBe(true);
     expect(container.textContent).toContain('프로필은 저장했습니다.');
     expect(container.textContent).not.toContain('이전 값으로 남아 있습니다');
-    expect(container.textContent).toContain('저장됐는지 확인하지 못했습니다');
+    expect(container.textContent).toContain('저장 여부는 확인하지 못했습니다');
     expect(field('settings-notification-email').value).toBe(
       'changed@example.com',
     );

@@ -127,7 +127,7 @@ describe('role onboarding views', () => {
     const html = renderRoleForm(null);
 
     // Then
-    expect(html).toContain('승인 없이 바로 시작합니다');
+    expect(html).toContain('학생 가입에는 승인이 필요하지 않습니다');
     expect(html).toContain('관리자 승인이 필요합니다');
   });
 

@@ -1,12 +1,5 @@
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader } from '@/components';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FadeUp } from './fade-up';
 import { CutButton, MetricCard, YearLinks } from './insights-controls';
@@ -14,12 +7,10 @@ import { ActivityPanel, DepartmentPanel } from './insights-panels';
 import { ParticipationPanel } from './participation-panel';
 import { cohortRow, rate } from './insights-model';
 import {
-  COHORT_LABELS,
   DEPARTMENT_COHORTS,
   INSIGHTS_CUTS,
   type InsightsCut,
   type InsightsYearScope,
-  type StaffInsightsCohortRow,
   type StaffInsightsSummary,
 } from './types';
 
@@ -79,17 +70,31 @@ export function StaffInsightsView({
     <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
       <PageHeader
         title="학생 활성"
-        description="가입 학과를 SW전공과 비SW전공으로 접어, 랭킹 지표와 프로그램 참여를 따로 비교합니다. 활성은 공개 랭킹과 같은 commit · PR · issue · repo · star이고, Star는 계정 전체 누적입니다. 참여는 현재 승인된 프로그램입니다."
+        description="전공별 GitHub 활동과 프로그램 참여를 비교합니다."
       />
       <section className="flex flex-wrap items-end gap-4" aria-label="필터">
-        <div className="grid gap-2" role="group" aria-label="기간">
-          <span className="text-xs font-semibold text-muted-foreground">
+        <div
+          className="grid gap-2"
+          role="group"
+          aria-labelledby="insights-period-label"
+        >
+          <span
+            id="insights-period-label"
+            className="text-xs font-semibold text-muted-foreground"
+          >
             기간
           </span>
           <YearLinks scope={summary.scope} years={summary.years} />
         </div>
-        <div className="grid gap-2" role="group" aria-label="비교 관점">
-          <span className="text-xs font-semibold text-muted-foreground">
+        <div
+          className="grid gap-2"
+          role="group"
+          aria-labelledby="insights-cut-label"
+        >
+          <span
+            id="insights-cut-label"
+            className="text-xs font-semibold text-muted-foreground"
+          >
             비교 관점
           </span>
           <div className="flex flex-wrap gap-2">
@@ -125,7 +130,7 @@ export function StaffInsightsView({
             title="가입 학생"
             sw={sw.studentCount}
             nonSw={nonSw.studentCount}
-            extra={`미등록 ${unregistered.studentCount} · 활동률 ${rate(sw.activeStudentCount, sw.studentCount)}`}
+            extra={`학과 미등록 ${unregistered.studentCount}명`}
           />
         </FadeUp>
         <FadeUp delayMs={60}>
@@ -133,7 +138,20 @@ export function StaffInsightsView({
             title="활동 학생"
             sw={sw.activeStudentCount}
             nonSw={nonSw.activeStudentCount}
-            extra={`랭킹 합계가 1 이상 · 비SW ${rate(nonSw.activeStudentCount, nonSw.studentCount)}`}
+            extra={
+              <>
+                <span className="block">활동 기준: 랭킹 합계 1 이상</span>
+                <span className="inline-block">
+                  SW 활동 학생 / SW 가입 학생:{' '}
+                  {rate(sw.activeStudentCount, sw.studentCount)}
+                </span>
+                {' · '}
+                <span className="inline-block">
+                  비SW 활동 학생 / 비SW 가입 학생:{' '}
+                  {rate(nonSw.activeStudentCount, nonSw.studentCount)}
+                </span>
+              </>
+            }
           />
         </FadeUp>
         <FadeUp delayMs={120}>
@@ -141,7 +159,18 @@ export function StaffInsightsView({
             title="프로그램 참여자"
             sw={sw.participantCount}
             nonSw={nonSw.participantCount}
-            extra={`미등록 ${unregistered.participantCount} · SW ${rate(sw.participantCount, sw.studentCount)}`}
+            extra={
+              <>
+                <span className="inline-block">
+                  학과 미등록 {unregistered.participantCount}명
+                </span>
+                {' · '}
+                <span className="inline-block">
+                  SW 참여 학생 / SW 가입 학생:{' '}
+                  {rate(sw.participantCount, sw.studentCount)}
+                </span>
+              </>
+            }
           />
         </FadeUp>
       </section>

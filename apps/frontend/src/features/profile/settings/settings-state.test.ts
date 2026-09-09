@@ -188,7 +188,7 @@ describe('settings form state', () => {
     '다시 시도할 수 있는 실패(%s)에만 입력이 남아 있음을 알린다',
     (kind) => {
       expect(notificationSaveFailureMessage(kind)).toContain(
-        '입력한 값은 화면에 그대로 두었으니',
+        '입력값은 화면에 남아',
       );
     },
   );
@@ -196,7 +196,7 @@ describe('settings form state', () => {
   it('권한이 없어 다시 눌러도 소용없는 경우에는 입력 보존 대신 문의처를 준다', () => {
     const message = notificationSaveFailureMessage('forbidden');
 
-    expect(message).not.toContain('입력한 값은 화면에 그대로 두었으니');
+    expect(message).not.toContain('입력값은 화면에 남아');
     expect(message).toContain('사업단 관리자에게 문의해 주세요');
   });
 
@@ -243,8 +243,8 @@ describe('settings form state', () => {
       expect(message).not.toContain('이전 값으로 남아 있습니다');
       expect(message).not.toContain('저장되지 않아');
       // 대신 불명임을 말하고, 지금 값을 확인할 방법을 준다.
-      expect(message).toContain('저장됐는지 확인하지 못했습니다');
-      expect(message).toContain('설정 화면을 새로 열어 지금 저장된 값을 확인');
+      expect(message).toContain('저장 여부는 확인하지 못했습니다');
+      expect(message).toContain('설정 화면을 새로 열어 저장된 값을 확인');
     },
   );
 
@@ -260,7 +260,7 @@ describe('settings form state', () => {
 
     if (kind === 'unauthorized') throw new Error('unreachable');
     expect(notificationSaveFailureMessage(kind)).toContain(
-      '이전 값으로 그대로 남아 있습니다',
+      '이전 값으로 유지됩니다',
     );
   });
 });

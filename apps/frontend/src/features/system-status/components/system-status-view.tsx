@@ -69,9 +69,9 @@ const NO_TRACKED_REPOSITORIES_ACTION =
 const SAFE_REASON_COPY = {
   NO_TRACKED_REPOSITORIES: `아직 추적 중인 저장소가 없습니다. ${NO_TRACKED_REPOSITORIES_ACTION}`,
   UPSTREAM_RATE_LIMITED:
-    '재시도 대기 중인 stream이 있습니다. GitHub 호출 한도가 풀리면 다음 수집 주기에 자동으로 다시 시도하므로 지금 손댈 것은 없습니다. 아래 ‘가장 오래된 재시도 대기’ 시각이 하루 넘게 그대로면 사업단 관리자에게 알려 주세요.',
+    '재시도를 기다리는 수집 항목이 있습니다. GitHub 호출 한도가 풀리면 다음 주기에 자동으로 다시 시도합니다. 아래 ‘가장 오래된 재시도 대기’ 시각이 하루 넘게 그대로면 사업단 관리자에게 알려 주세요.',
   RUN_INCOMPLETE:
-    '일부 저장소의 수집이 아직 완료되지 않았습니다. 아래 ‘Stream 진행 상황’에서 ‘부분/대기’ 수가 줄고 있는지 확인하고, 다음 수집 주기 뒤에도 그대로면 사업단 관리자에게 알려 주세요.',
+    '일부 저장소의 수집이 아직 완료되지 않았습니다. 아래 ‘활동 종류별 수집’에서 ‘부분·대기’ 수를 확인해 주세요. 다음 수집 주기 뒤에도 줄지 않으면 사업단 관리자에게 알려 주세요.',
   STALE_DATA:
     '최근 데이터 수집이 지연되고 있습니다. 아래 ‘데이터 기준 시각’이 얼마나 오래됐는지 먼저 확인하고, 지연이 이어지면 수집 연동 앱의 설치·권한 상태를 점검해 주세요.',
 } as const satisfies Record<SystemStatusSafeReason, string>;
@@ -81,9 +81,9 @@ const SAFE_REASON_COPY = {
  * 개인이 자기 GitHub 계정에 붙이는 앱과 헷갈리면 엉뚱한 곳(개인 설정)을 뒤지게 되므로
  * 설치 주체(조직)와 읽는 범위, 확인할 위치를 함께 적는다.
  */
-const COLLECTION_APP_TITLE = '수집 연동 앱(GitHub App)이란';
+const COLLECTION_APP_TITLE = '수집 앱 설치·권한 확인';
 const COLLECTION_APP_DESCRIPTION =
-  'GitHub App은 사업단 저장소의 활동을 대신 읽어 오는 수집 연동 앱입니다. 개인이 자기 GitHub 계정에 설치하는 앱이 아니라 사업단 GitHub 조직에 설치되며, 설치를 승인한 조직 저장소만 읽습니다. 수집이 비어 있거나 지연이 계속되면 조직의 Settings → GitHub Apps에서 이 앱이 설치·승인되어 있고 저장소 접근 범위에 대상 저장소가 들어 있는지 확인해 주세요.';
+  '사업단 GitHub 조직의 Settings → GitHub Apps에서 수집 앱 설치와 대상 저장소의 접근 권한을 확인해 주세요. 이 앱은 개인 계정이 아닌 조직에 설치하며, 접근을 승인한 저장소의 활동만 읽습니다.';
 
 /** 수집이 정상이 아닐 때만 띄운다 — 평소에는 운영자가 읽어야 할 것이 아니다. */
 function CollectionAppGuide() {
@@ -148,8 +148,12 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
  * 사용한다(하드코딩 색상 금지, `status-badge.tsx`와 동일한 원칙).
  */
 const STREAM_SEGMENTS = [
-  { key: 'ready', label: '완료(READY)', colorClass: 'bg-primary' },
-  { key: 'backfilling', label: 'Backfill 중', colorClass: 'bg-primary/60' },
+  { key: 'ready', label: '완료', colorClass: 'bg-primary' },
+  {
+    key: 'backfilling',
+    label: '과거 활동 수집 중',
+    colorClass: 'bg-primary/60',
+  },
   {
     key: 'partial',
     label: '부분·대기',
@@ -184,7 +188,7 @@ function StreamProgressBar({
     retryPending,
   } satisfies Record<(typeof STREAM_SEGMENTS)[number]['key'], number>;
 
-  const summary = `전체 ${total}개 stream 중 ${STREAM_SEGMENTS.map(
+  const summary = `전체 ${total}개 수집 항목 중 ${STREAM_SEGMENTS.map(
     (segment) => `${segment.label} ${counts[segment.key]}개`,
   ).join(', ')}입니다.`;
 
@@ -256,13 +260,13 @@ function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
         </p>
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <dt className="text-muted-foreground">이번 사이클 시작</dt>
+            <dt className="text-muted-foreground">이번 전체 순회 시작</dt>
             <dd className="mt-1 font-medium">
               {formatTimestamp(status.lastCycleStartedAt)}
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">최근 사이클 완료</dt>
+            <dt className="text-muted-foreground">최근 전체 순회 완료</dt>
             <dd className="mt-1 font-medium">
               {formatTimestamp(status.lastCycleCompletedAt)}
             </dd>
@@ -296,17 +300,17 @@ function StreamProgressCard({ status }: { readonly status: SystemStatus }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <GitBranch aria-hidden="true" className="size-5" />
-          Stream 진행 상황
+          활동 종류별 수집
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div>
           <p className="text-sm font-medium text-foreground">
-            완료 {status.readyStreamCount} / {total} stream ({pct}%)
+            완료 {status.readyStreamCount} / {total}개 ({pct}%)
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            추적 저장소 {status.trackedRepositoryCount}개 × commit·PR·release
-            3종 stream
+            저장소 {status.trackedRepositoryCount}개에서 커밋·PR·릴리즈를 각각
+            수집합니다.
           </p>
         </div>
         <StreamProgressBar
@@ -340,7 +344,7 @@ function DataFreshnessCard({ status }: { readonly status: SystemStatus }) {
           </div>
           <div>
             <dt className="text-muted-foreground">
-              가장 오래된 완료 checkpoint
+              완료 항목 중 가장 오래된 실행 시각
             </dt>
             <dd className="mt-1 font-medium">
               {formatTimestamp(status.oldestReadyCheckpointAt)}
@@ -379,10 +383,10 @@ export function SystemStatusView({
     isTriggering || status.currentRunStatus === 'PROCESSING';
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 break-keep p-5 sm:p-8">
       <PageHeader
         title="시스템 상태"
-        description="증분 데이터 수집 상태와 최신 checkpoint 시각을 확인합니다."
+        description="저장소 활동의 수집 상태와 데이터 기준 시각을 확인합니다."
         actions={
           <Button
             type="button"

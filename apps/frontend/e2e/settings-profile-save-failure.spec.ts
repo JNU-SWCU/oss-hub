@@ -38,7 +38,7 @@ test('failed profile save keeps the edited value on the settings page', async ({
   // 제목과 설명이 같이 남고, 읽는 사람이 무슨 실패인지까지 확인할 수 있다.
   const failureAlert = page
     .locator('[data-slot="alert"]')
-    .filter({ hasText: '설정을 저장하지 못했습니다' });
+    .filter({ hasText: '저장 결과를 확인해 주세요' });
   await expect(failureAlert).toBeVisible();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(nameInput).toHaveValue(EDITED_NAME);

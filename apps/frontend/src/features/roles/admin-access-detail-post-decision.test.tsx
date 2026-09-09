@@ -192,7 +192,7 @@ describe('초기 404 — 결정과 무관한 not-found 경로는 그대로다', 
     await mount('queue');
 
     // Then
-    expect(container.textContent).toContain('사용자를 찾을 수 없습니다');
+    expect(container.textContent).toContain('가입 신청을 찾을 수 없습니다');
     expect(
       container.querySelector('a[href="/dashboard/applicants"]'),
     ).not.toBeNull();

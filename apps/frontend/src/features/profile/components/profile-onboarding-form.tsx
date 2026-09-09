@@ -89,13 +89,11 @@ export function ProfileOnboardingForm({
         <br />
         가입이 끝납니다
       </SignupTitle>
-      {/*
-        무엇을 써야 하는지는 아래 항목의 라벨과 필수 표시가 이미 말한다. 문장으로 다시
-        열거하면 같은 사실을 두 번 읽히고, 항목이 바뀔 때 문장만 남아 어긋난다.
-      */}
-      <SignupLede>프로그램 신청과 팀 구성에 쓰이는 정보입니다.</SignupLede>
+      <SignupLede>
+        프로그램 신청과 팀 구성에 사용할 정보를 입력해 주세요.
+      </SignupLede>
       <form className="flex flex-col gap-10" onSubmit={handleSubmit}>
-        <FormSection title="신원 정보">
+        <FormSection title="기본 정보">
           <Field data-invalid={showNameError || undefined}>
             <FieldLabel htmlFor="profile-name">
               이름

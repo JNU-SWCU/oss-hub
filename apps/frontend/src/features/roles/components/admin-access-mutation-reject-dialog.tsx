@@ -42,7 +42,7 @@ export function AdminAccessMutationRejectDialog({
           htmlFor="admin-access-reject-reason"
           className="mt-5 block text-sm font-medium"
         >
-          거절 사유
+          반려 사유
         </label>
         {/* 관리자가 무엇을 쓰는지 알고 쓰게 한다(#673). 이 값은 신청자의 역할 선택
             화면에 뜬다 — 예전에는 어디에도 표시되지 않아, 필수 입력이면서 아무도 읽지
