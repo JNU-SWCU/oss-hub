@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, StaffAccessRequestStatus } from '@prisma/client';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -7,24 +7,49 @@ import {
   type StudentIdFillOutcome,
 } from '../profiles/user-profile-write.repository';
 import { requestStaffAccess } from '../roles/staff-access-request';
+import {
+  USER_PHONE_AUDIT_TRANSITIONS,
+  USER_PROFILE_AUDIT_ACTIONS,
+  createUserPhoneAuditMetadata,
+} from '../audit-log/audit-log-metadata';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,
   UserProfileRecord,
 } from './domain/user-profile';
-import {
-  requireUserPhoneAuditRecord,
-  writeUserPhoneIfChanged,
-} from './user-phone-write';
-import {
-  PROFILE_MEMBER_SELECT,
-  sameProfileSnapshot,
-  toUserProfileRecord,
-} from './users.repository.profile-read';
 
 export type { StudentIdFillOutcome };
 export type ProfileCompletionOutcome =
   'completed' | 'conflict' | 'student-id-taken';
+
+const PROFILE_MEMBER_SELECT = {
+  id: true,
+  githubId: true,
+  nickname: true,
+  phone: true,
+  selectedMemberKind: true,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  profile: {
+    select: {
+      name: true,
+      studentId: true,
+      department: true,
+      memberKind: true,
+      affiliationKind: true,
+      affiliationName: true,
+    },
+  },
+  staffAccessRequests: {
+    where: { status: StaffAccessRequestStatus.PENDING },
+    select: { id: true },
+    take: 1,
+  },
+} as const satisfies Prisma.UserSelect;
+
+type ProfileMemberRow = Prisma.UserGetPayload<{
+  select: typeof PROFILE_MEMBER_SELECT;
+}>;
 
 export interface UsersRepositoryPort {
   findByGithubId(githubId: bigint): Promise<UserProfileRecord | null>;
@@ -102,14 +127,12 @@ export class UsersRepository implements UsersRepositoryPort {
             hasAdminAccess: input.hasAdminAccess,
           },
         });
-        if (input.phone !== undefined) {
-          await writeUserPhoneIfChanged({
-            transaction,
-            auditLog: this.auditLog,
-            user: requireUserPhoneAuditRecord(expected),
-            phone: input.phone,
-          });
-        }
+        await writeUserPhoneIfChanged(
+          transaction,
+          this.auditLog,
+          expected,
+          input.phone,
+        );
         await requestStaffAccess(transaction, {
           id: expected.id,
           memberKind: input.memberKind,
@@ -144,16 +167,7 @@ export class UsersRepository implements UsersRepositoryPort {
    * 학번이 실리는 쓰기는 예외 없이 이 경로를 지난다 — 이름·학과 갱신과 섞으면
    * 0행 갱신이 조용히 넘어가 학번이 사라진다.
    */
-  fillStudentId(input: FillStudentIdInput): Promise<StudentIdFillOutcome>;
-  fillStudentId(
-    expected: UserProfileRecord,
-    studentId: string,
-  ): Promise<StudentIdFillOutcome>;
-  fillStudentId(
-    inputOrExpected: FillStudentIdInput | UserProfileRecord,
-    studentId?: string,
-  ): Promise<StudentIdFillOutcome> {
-    const input = toFillStudentIdInput(inputOrExpected, studentId);
+  fillStudentId(input: FillStudentIdInput): Promise<StudentIdFillOutcome> {
     return this.prisma.$transaction(async (transaction) => {
       const outcome = await fillStudentIdIfEmpty(
         transaction,
@@ -163,14 +177,12 @@ export class UsersRepository implements UsersRepositoryPort {
       if (outcome !== 'filled') {
         return outcome;
       }
-      if (input.phone !== undefined) {
-        await writeUserPhoneIfChanged({
-          transaction,
-          auditLog: this.auditLog,
-          user: requireUserPhoneAuditRecord(input.expected),
-          phone: input.phone,
-        });
-      }
+      await writeUserPhoneIfChanged(
+        transaction,
+        this.auditLog,
+        input.expected,
+        input.phone,
+      );
       return outcome;
     });
   }
@@ -179,30 +191,7 @@ export class UsersRepository implements UsersRepositoryPort {
   async updateProfileFields(
     expected: UserProfileRecord,
     fields: UpdateProfileFieldsInput,
-  ): Promise<void>;
-  async updateProfileFields(
-    userId: string,
-    fields: UpdateProfileFieldsInput,
-  ): Promise<void>;
-  async updateProfileFields(
-    expectedOrUserId: UserProfileRecord | string,
-    fields: UpdateProfileFieldsInput,
   ): Promise<void> {
-    if (typeof expectedOrUserId === 'string' && fields.phone !== undefined) {
-      throw new TypeError(
-        'Phone updates require a full user profile record for auditing.',
-      );
-    }
-    const expected =
-      typeof expectedOrUserId === 'string'
-        ? {
-            id: expectedOrUserId,
-            name: null,
-            studentId: null,
-            department: null,
-            phone: null,
-          }
-        : expectedOrUserId;
     await this.prisma.$transaction(async (transaction) => {
       await transaction.userProfile.update({
         where: { userId: expected.id },
@@ -215,29 +204,114 @@ export class UsersRepository implements UsersRepositoryPort {
             : { affiliationKind: fields.affiliationKind }),
         },
       });
-      if (fields.phone !== undefined) {
-        await writeUserPhoneIfChanged({
-          transaction,
-          auditLog: this.auditLog,
-          user: requireUserPhoneAuditRecord(expected),
-          phone: fields.phone,
-        });
-      }
+      await writeUserPhoneIfChanged(
+        transaction,
+        this.auditLog,
+        expected,
+        fields.phone,
+      );
     });
   }
 }
 
-function toFillStudentIdInput(
-  inputOrExpected: FillStudentIdInput | UserProfileRecord,
-  studentId: string | undefined,
-): FillStudentIdInput {
-  if ('expected' in inputOrExpected) {
-    return inputOrExpected;
+/**
+ * 전화번호가 바뀜 때만 값과 감사 기록을 같은 트랜잭션에 함께 남긴다.
+ *
+ * 전이(`SET`·`REPLACED`)의 근거는 호출자 스냅샷이 아니라 이 트랜잭션이 잠근 현재
+ * 값이다. 같은 사용자를 동시에 갱신하면 두 요청이 트랜잭션 밖에서 읽은 같은
+ * 전화번호를 들고 들어온다 — 뒤에 잠금을 얻은 쪽이 그 스냅샷으로 판정하면 실제로는
+ * 교체였는데 `SET`으로 적힌다. 감사 원장은 append-only라 잘못 적힌 전이를 나중에
+ * 고칠 수단이 없다(`apps/backend/src/audit-log/AGENTS.md`).
+ */
+async function writeUserPhoneIfChanged(
+  transaction: Prisma.TransactionClient,
+  auditLog: Pick<AuditLogService, 'record'> | undefined,
+  user: UserProfileRecord,
+  phone: string | undefined,
+): Promise<void> {
+  if (phone === undefined) {
+    return;
   }
-  if (studentId !== undefined) {
-    return { expected: inputOrExpected, studentId };
+  const rows = await transaction.$queryRaw<{ phone: string | null }[]>(
+    Prisma.sql`SELECT "phone" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`,
+  );
+  const locked = rows.at(0);
+  if (!locked) {
+    throw new Error('Phone updates require an existing user row.');
   }
-  throw new TypeError('studentId is required.');
+  if (locked.phone === phone) {
+    return;
+  }
+  if (
+    typeof user.githubId !== 'bigint' ||
+    typeof user.githubLogin !== 'string'
+  ) {
+    throw new TypeError(
+      'Phone updates require a full user profile record for auditing.',
+    );
+  }
+  if (!auditLog) {
+    throw new TypeError('AuditLogService is required for phone updates.');
+  }
+  await transaction.user.update({
+    where: { id: user.id },
+    data: { phone },
+  });
+  await auditLog.record(
+    {
+      actorGithubId: user.githubId,
+      action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,
+      targetType: 'USER',
+      targetId: user.id,
+      metadata: createUserPhoneAuditMetadata({
+        actor: { displayName: user.name, githubLogin: user.githubLogin },
+        target: { displayName: user.name, githubLogin: user.githubLogin },
+        transition:
+          locked.phone === null
+            ? USER_PHONE_AUDIT_TRANSITIONS.SET
+            : USER_PHONE_AUDIT_TRANSITIONS.REPLACED,
+      }),
+    },
+    transaction,
+  );
+}
+
+function toUserProfileRecord(user: ProfileMemberRow): UserProfileRecord {
+  const profile = user.profile;
+  return {
+    id: user.id,
+    githubId: user.githubId,
+    githubLogin: user.nickname,
+    name: profile?.name ?? null,
+    studentId: profile?.studentId ?? null,
+    department: profile?.department ?? null,
+    phone: user.phone ?? null,
+    selectedMemberKind: user.selectedMemberKind,
+    memberKind: profile?.memberKind ?? null,
+    affiliationKind: profile?.affiliationKind ?? null,
+    affiliationName: profile?.affiliationName ?? null,
+    hasStaffAccess: user.hasStaffAccess,
+    hasAdminAccess: user.hasAdminAccess,
+    hasPendingStaffRequest: user.staffAccessRequests.length > 0,
+  };
+}
+
+function sameProfileSnapshot(
+  current: UserProfileRecord,
+  expected: UserProfileRecord,
+): boolean {
+  return (
+    current.name === expected.name &&
+    current.studentId === expected.studentId &&
+    current.department === expected.department &&
+    current.phone === expected.phone &&
+    current.selectedMemberKind === expected.selectedMemberKind &&
+    current.memberKind === expected.memberKind &&
+    current.affiliationKind === expected.affiliationKind &&
+    current.affiliationName === expected.affiliationName &&
+    current.hasStaffAccess === expected.hasStaffAccess &&
+    current.hasAdminAccess === expected.hasAdminAccess
+  );
 }
 
 function profileWrite(input: CompleteUserProfileInput) {
