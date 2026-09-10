@@ -14,6 +14,7 @@ import type {
   ProgramDetailResponseDto,
 } from '../dto/program-detail.dto';
 import { programDeadline } from '../program-deadline';
+import { programCoverImageUrl } from '../program-cover';
 import type { ProgramListQuery } from '../program-list-query';
 import { PROGRAM_ERROR_CODES } from '../program-error-code';
 import {
@@ -223,6 +224,7 @@ export class ProgramsService {
 
       return {
         id: program.id,
+        coverImageUrl: programCoverImageUrl(program.id, program.cover?.id),
         name: program.name,
         organizer: program.organizer,
         trackType: program.trackType,

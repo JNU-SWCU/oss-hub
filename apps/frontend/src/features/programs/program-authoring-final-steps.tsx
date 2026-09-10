@@ -75,6 +75,10 @@ export function ProgramAuthoringReviewStep({
               <ReviewFact label="교과/비교과" value={trackLabel} />
               <ReviewFact label="주관" value={state.organizer} />
               <ReviewFact
+                label="대표 이미지"
+                value={state.coverFile?.name ?? '없음'}
+              />
+              <ReviewFact
                 label="팀 인원"
                 value={`${state.teamMinSize}명 ~ ${state.teamMaxSize}명`}
               />

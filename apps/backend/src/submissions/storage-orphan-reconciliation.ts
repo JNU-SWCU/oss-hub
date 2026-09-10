@@ -8,6 +8,7 @@ export const DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS = 60 * 60 * 1_000;
 export const KNOWN_STORAGE_PREFIXES = [
   'submission-files/',
   'program-authoring/',
+  'program-covers/',
 ] as const;
 
 export type StorageOrphanReconciliationMode = 'report' | 'delete';

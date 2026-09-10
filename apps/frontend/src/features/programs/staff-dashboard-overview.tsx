@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { ProgramCover } from '@/components';
+import { apiPath } from '@/lib/api-client';
 import type { ReactElement, ReactNode } from 'react';
 import { DataTable, StatusBadge, type DataTableColumn } from '@/components';
 import {
@@ -113,25 +115,31 @@ function ProgramIdentity({
 }): ReactElement {
   const badge = getStaffRecruitmentBadge(program, now);
   return (
-    <div className="grid min-w-0 gap-1">
-      <CardTitle className="break-keep text-base">
-        <Link
-          href={programEditHref(program.id)}
-          aria-label={`${program.name} 편집`}
-          className="font-medium break-keep underline-offset-4 after:absolute after:inset-0 after:z-[1] hover:underline focus-visible:underline focus-visible:outline-none"
-        >
-          {program.name}
-        </Link>
-      </CardTitle>
-      {staffTrackTypeLabel(program.trackType) !== null ? (
-        <CardDescription>
-          {staffTrackTypeLabel(program.trackType)}
-        </CardDescription>
-      ) : null}
-      <span className="text-xs text-muted-foreground">
-        {formatStaffApplicationPeriod(program)}
-      </span>
-      <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
+    <div className="flex min-w-0 items-start gap-3">
+      <ProgramCover
+        size="thumbnail"
+        src={program.coverImageUrl ? apiPath(program.coverImageUrl) : null}
+      />
+      <div className="grid min-w-0 gap-1">
+        <CardTitle className="break-keep text-base">
+          <Link
+            href={programEditHref(program.id)}
+            aria-label={`${program.name} 편집`}
+            className="font-medium break-keep underline-offset-4 after:absolute after:inset-0 after:z-[1] hover:underline focus-visible:underline focus-visible:outline-none"
+          >
+            {program.name}
+          </Link>
+        </CardTitle>
+        {staffTrackTypeLabel(program.trackType) !== null ? (
+          <CardDescription>
+            {staffTrackTypeLabel(program.trackType)}
+          </CardDescription>
+        ) : null}
+        <span className="text-xs text-muted-foreground">
+          {formatStaffApplicationPeriod(program)}
+        </span>
+        <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
+      </div>
     </div>
   );
 }

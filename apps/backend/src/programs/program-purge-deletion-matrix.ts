@@ -175,4 +175,9 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     operation: 'DELETE',
     covers: ['Program->Milestone'],
   },
+  {
+    id: 'program-cover-tombstones',
+    operation: 'TOMBSTONE',
+    covers: ['Program->ProgramCover'],
+  },
 ] as const satisfies readonly ProgramPurgeDeletionStep[];

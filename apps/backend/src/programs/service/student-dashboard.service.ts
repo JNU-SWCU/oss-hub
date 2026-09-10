@@ -14,6 +14,7 @@ import {
   type MilestoneCompletionStatus,
 } from '../../common/milestone-completion';
 import { PrismaService } from '../../prisma/prisma.service';
+import { programCoverImageUrl } from '../program-cover';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
@@ -41,6 +42,7 @@ export interface StudentDashboardMilestone {
 }
 
 export interface StudentDashboardItem {
+  readonly coverImageUrl?: string | null;
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
@@ -184,6 +186,7 @@ export class StudentDashboardService {
           },
           program: {
             select: {
+              cover: { select: { id: true } },
               id: true,
               name: true,
               milestones: {
@@ -298,6 +301,10 @@ export class StudentDashboardService {
       }
 
       items.push({
+        coverImageUrl: programCoverImageUrl(
+          application.program.id,
+          application.program.cover?.id,
+        ),
         applicationId: application.id,
         programId: application.program.id,
         programName: application.program.name,

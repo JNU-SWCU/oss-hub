@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { StatusBadge } from '@/components';
+import { StatusBadge, ProgramCover } from '@/components';
+import { apiPath } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -112,8 +113,16 @@ export function StudentDashboardCard({
 
   return (
     <Card className="min-h-72">
-      <CardHeader>
-        <CardTitle className="pr-20 text-lg">{item.programName}</CardTitle>
+      <CardHeader className="has-data-[slot=card-action]:grid-cols-1">
+        <div className="flex min-w-0 items-center gap-3">
+          <ProgramCover
+            size="thumbnail"
+            src={item.coverImageUrl ? apiPath(item.coverImageUrl) : null}
+          />
+          <CardTitle className="min-w-0 break-keep text-lg">
+            {item.programName}
+          </CardTitle>
+        </div>
         <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
           <ModeIcon aria-hidden="true" className="size-4" />
           <span>
@@ -121,7 +130,7 @@ export function StudentDashboardCard({
             {item.displayName}
           </span>
         </p>
-        <CardAction>
+        <CardAction className="col-start-1 row-start-auto row-span-1 justify-self-start">
           <StatusBadge
             variant={
               isPending ? 'pending' : isRejected ? 'rejected' : 'approved'

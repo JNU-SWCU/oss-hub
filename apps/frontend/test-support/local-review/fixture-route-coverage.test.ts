@@ -44,6 +44,10 @@ const OUT_OF_SCOPE: ReadonlyMap<string, string> = new Map([
     '파일 바이너리 다운로드 — 응답이 JSON 이 아니다',
   ],
   [
+    'programs/:id/cover/:coverId',
+    '대표 이미지 바이너리 — JSON 픽스처 대상이 아니며 실제 브라우저 E2E로 검증한다',
+  ],
+  [
     'milestones/:milestoneId/documents/:documentId/submissions/current/file',
     '파일 바이너리 다운로드 — 응답이 JSON 이 아니다(위 항목과 같은 이유)',
   ],

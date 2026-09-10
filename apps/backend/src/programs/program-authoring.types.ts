@@ -22,6 +22,7 @@ export type ProgramAuthoringMilestoneRequest = {
 };
 
 export type ProgramAuthoringRequest = {
+  readonly coverUploadId?: string | null;
   readonly name: string;
   readonly organizer: string;
   readonly trackType: ProgramTrackType;
@@ -72,6 +73,7 @@ export type ProgramAuthoringMilestonePlan = {
 };
 
 export type ProgramAuthoringPlan = {
+  readonly coverUploadId?: string | null;
   readonly program: ProgramAuthoringProgramPlan;
   readonly milestones: readonly ProgramAuthoringMilestonePlan[];
   readonly uploadTokenIds: readonly string[];
@@ -129,6 +131,7 @@ export const PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE = {
   NOT_OWNED: 'NOT_OWNED',
   NOT_PENDING: 'NOT_PENDING',
   EXPIRED: 'EXPIRED',
+  WRONG_PURPOSE: 'WRONG_PURPOSE',
 } as const;
 
 export type ProgramAuthoringUploadTokenFailure =
@@ -187,6 +190,10 @@ export interface ProgramAuthoringTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   createProgram(
     plan: ProgramAuthoringProgramPlan,
+    cover?: {
+      readonly actorId: string;
+      readonly upload: ProgramAuthoringUploadToken;
+    },
   ): Promise<ProgramAuthoringProgram>;
   createRequest(input: ProgramAuthoringCreateRequestInput): Promise<string>;
   lockUploads(

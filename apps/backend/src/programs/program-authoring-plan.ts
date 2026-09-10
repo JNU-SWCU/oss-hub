@@ -86,6 +86,14 @@ export function buildProgramAuthoringPlan(
 
   const seenUploadIds = new Set<string>();
   const uploadTokenIds: string[] = [];
+  const coverUploadId = request.coverUploadId ?? null;
+  if (coverUploadId !== null) {
+    if (!/^\S{1,128}$/u.test(coverUploadId)) {
+      issues.push({ path: 'coverUploadId', code: 'INVALID_UPLOAD_TOKEN' });
+    }
+    seenUploadIds.add(coverUploadId);
+    uploadTokenIds.push(coverUploadId);
+  }
   let totalDocuments = 0;
   const milestones: ProgramAuthoringMilestonePlan[] = [];
   request.milestones.forEach((milestone, milestoneIndex) => {
@@ -168,6 +176,7 @@ export function buildProgramAuthoringPlan(
       notifyOnDeadline: request.notifyOnDeadline ?? true,
     },
     milestones,
+    ...(coverUploadId === null ? {} : { coverUploadId }),
     uploadTokenIds: uploadTokenIds.sort(),
   };
 }

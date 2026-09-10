@@ -18,12 +18,16 @@ export async function removeAdoptedGraph(
     },
     select: { storageKey: true },
   });
-  await prisma.$transaction(async (transaction) => {
+  const covers = await prisma.$transaction(async (transaction) => {
     const program = await transaction.program.findFirst({
       where: { id: graph.programId, name: { startsWith: prefix } },
       select: { id: true },
     });
-    if (program === null) return;
+    if (program === null) return [];
+    const covers = await transaction.programCover.findMany({
+      where: { programId: graph.programId },
+      select: { storageKey: true },
+    });
     const applications = await transaction.application.findMany({
       where: { programId: graph.programId },
       select: { id: true, teamId: true },
@@ -110,10 +114,16 @@ export async function removeAdoptedGraph(
     await transaction.programCreateRequest.deleteMany({
       where: { programId: graph.programId },
     });
+    await transaction.programCover.deleteMany({
+      where: { programId: graph.programId },
+    });
     await transaction.program.delete({ where: { id: graph.programId } });
+    return covers;
   });
   const storageKeys = new Set(
-    [...uploads, ...templateFiles].map(({ storageKey }) => storageKey),
+    [...uploads, ...templateFiles, ...covers].map(
+      ({ storageKey }) => storageKey,
+    ),
   );
   for (const storageKey of storageKeys) {
     await deleteStorageObject(storageKey);

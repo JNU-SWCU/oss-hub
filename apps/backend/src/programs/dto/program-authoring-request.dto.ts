@@ -97,6 +97,12 @@ export class ProgramAuthoringMilestoneRequestDto {
 }
 
 export class ProgramAuthoringRequestDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\S+$/u)
+  @MaxLength(128)
+  declare readonly coverUploadId?: string | null;
+
   @IsString()
   @Matches(/\S/u)
   @MaxLength(200)

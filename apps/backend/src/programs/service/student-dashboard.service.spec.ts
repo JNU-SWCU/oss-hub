@@ -125,6 +125,15 @@ describe('StudentDashboardService', () => {
     expect(getMyRepositories).toHaveBeenCalledWith(404n);
   });
 
+  it('projects the current program cover without storage metadata', async () => {
+    findMany.mockResolvedValue([
+      application({ program: { ...program([]), cover: { id: 'cover-1' } } }),
+    ]);
+    const items = await service.getStudentDashboard(404n);
+    expect(items[0]?.coverImageUrl).toBe('/programs/program-1/cover/cover-1');
+    expect(items[0]).not.toHaveProperty('storageKey');
+  });
+
   it('compiles with the DTO-only repositories read-port token', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [

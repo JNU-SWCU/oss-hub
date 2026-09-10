@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { ProgramCover } from '@/components/program-cover';
+import { apiPath } from '@/lib/api-client';
 import * as React from 'react';
 import type { VariantProps } from 'class-variance-authority';
 
@@ -38,6 +40,7 @@ interface ProgramCardProps extends Omit<
 > {
   /** 프로그램 제목 */
   title: string;
+  coverImageUrl?: string | null;
   /** 카테고리 · 회차 문구 (예: "SW중심대학사업단 · 2026-2학기") */
   category?: string;
   /** 모집·진행 기간 문구 */
@@ -65,6 +68,7 @@ interface ProgramCardProps extends Omit<
 function TeamIcon() {
   return (
     <svg
+      data-slot="program-card-note-icon"
       aria-hidden="true"
       viewBox="0 0 24 24"
       fill="none"
@@ -93,6 +97,7 @@ function TeamIcon() {
  */
 function ProgramCard({
   title,
+  coverImageUrl,
   category,
   period,
   status,
@@ -117,43 +122,48 @@ function ProgramCard({
 
   const content = (
     <>
-      <StatusBadge
-        aria-hidden="true"
-        className="absolute top-4 right-4 font-bold"
-        variant={variant}
-      >
-        {badgeText}
-      </StatusBadge>
-      {category ? (
-        <div className="pr-[88px] min-w-0 break-keep [overflow-wrap:anywhere] text-[12px] text-muted-foreground">
-          {category}
-        </div>
-      ) : null}
-      <div className="text-[17px] font-bold text-pretty tracking-[-0.02em] text-foreground">
-        <span className="sr-only">{srStatusPrefix}</span>
-        {title}
-      </div>
-      {period ? (
-        <div className="text-[12px] text-muted-foreground tabular-nums">
-          {period}
-        </div>
-      ) : null}
-      {note ? (
-        <div className="flex items-center gap-[5px] text-[12px] font-[650] text-accent">
-          {noteIcon === 'team' ? <TeamIcon /> : null}
-          <span>{note}</span>
-        </div>
-      ) : null}
-      <div className="mt-auto flex justify-end pt-3">
-        {openable ? (
-          <span className="text-[12px] font-[650] text-primary">자세히 ›</span>
+      <ProgramCover src={coverImageUrl ? apiPath(coverImageUrl) : null} />
+      <div className="relative flex flex-1 flex-col gap-1.5 p-5">
+        <StatusBadge
+          aria-hidden="true"
+          className="absolute top-4 right-4 font-bold"
+          variant={variant}
+        >
+          {badgeText}
+        </StatusBadge>
+        {category ? (
+          <div className="pr-[88px] min-w-0 break-keep [overflow-wrap:anywhere] text-[12px] text-muted-foreground">
+            {category}
+          </div>
         ) : null}
+        <div className="text-[17px] font-bold text-pretty tracking-[-0.02em] text-foreground">
+          <span className="sr-only">{srStatusPrefix}</span>
+          {title}
+        </div>
+        {period ? (
+          <div className="text-[12px] text-muted-foreground tabular-nums">
+            {period}
+          </div>
+        ) : null}
+        {note ? (
+          <div className="flex items-center gap-[5px] text-[12px] font-[650] text-accent">
+            {noteIcon === 'team' ? <TeamIcon /> : null}
+            <span>{note}</span>
+          </div>
+        ) : null}
+        <div className="mt-auto flex justify-end pt-3">
+          {openable ? (
+            <span className="text-[12px] font-[650] text-primary">
+              자세히 ›
+            </span>
+          ) : null}
+        </div>
       </div>
     </>
   );
 
   const cardClassName = cn(
-    'relative box-border flex h-full min-h-[170px] flex-col gap-1.5 rounded-card border border-border bg-card p-5',
+    'relative box-border flex h-full min-h-[170px] flex-col overflow-hidden rounded-card border border-border bg-card',
     openable
       ? 'cursor-pointer transition-[border-color,box-shadow] duration-150 hover:border-ring hover:shadow-[0_2px_8px_rgba(0,26,77,0.08)]'
       : 'cursor-default',

@@ -35,6 +35,7 @@ export type ProgramAuthoringMilestone = {
 };
 
 export type ProgramAuthoringState = {
+  readonly coverFile?: File | null;
   readonly currentStep: ProgramAuthoringStep;
   readonly idempotencyKey: string;
   readonly trackType: ProgramTrackType | '';
@@ -60,11 +61,13 @@ type ProgramTextField = Exclude<
   | 'repositoryProvisioningEnabled'
   | 'notifyOnDeadline'
   | 'milestones'
+  | 'coverFile'
 >;
 
 type MilestoneTextField = 'name' | 'startAt' | 'dueAt' | 'instructions';
 
 export type ProgramAuthoringAction =
+  | { readonly type: 'set_cover_file'; readonly file: File | null }
   | {
       readonly type: 'restore_state';
       readonly state: ProgramAuthoringState;

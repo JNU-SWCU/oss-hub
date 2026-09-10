@@ -1,3 +1,4 @@
+import { ProgramCoverField } from './program-cover-field';
 import {
   Field,
   FieldDescription,
@@ -21,6 +22,9 @@ import {
 import { ProgramDeadlineControl } from './program-deadline-control';
 
 interface ProgramEditBasicFormProps {
+  readonly coverSelection?: File | null;
+  readonly onCoverChange: (file: File | null | undefined) => void;
+  readonly isSaving?: boolean;
   readonly program: EditableProgram;
   readonly form: ProgramEditForm;
   readonly errors: ProgramEditErrors;
@@ -31,6 +35,9 @@ interface ProgramEditBasicFormProps {
 }
 
 export function ProgramEditBasicForm({
+  coverSelection,
+  onCoverChange,
+  isSaving,
   program,
   form,
   errors,
@@ -52,6 +59,13 @@ export function ProgramEditBasicForm({
             {errors.name}
           </FieldError>
         </Field>
+        <ProgramCoverField
+          selection={coverSelection}
+          currentImageUrl={program.coverImageUrl}
+          disabled={isSaving}
+          serverError={errors.coverUploadId}
+          onChange={onCoverChange}
+        />
         <Field>
           <FieldLabel htmlFor="program-organizer">주관기관 *</FieldLabel>
           <Input

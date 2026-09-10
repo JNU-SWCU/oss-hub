@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { ProgramCover } from '@/components';
+import { apiPath } from '@/lib/api-client';
 import { ArrowRight, CalendarDays } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { loadLandingPrograms } from '../api';
@@ -103,13 +105,23 @@ export function CurrentProgramSectionView({
                   href={`/programs/${encodeURIComponent(program.id)}`}
                   className="group grid gap-4 py-5 transition-colors motion-reduce:transition-none hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:grid-cols-[1fr_auto] sm:items-center sm:px-3"
                 >
-                  <div>
-                    <h3 className="break-keep text-lg font-semibold text-foreground group-hover:text-primary">
-                      {program.name}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {program.organizer}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-4">
+                    <ProgramCover
+                      src={
+                        program.coverImageUrl
+                          ? apiPath(program.coverImageUrl)
+                          : null
+                      }
+                      size="thumbnail"
+                    />
+                    <div className="min-w-0">
+                      <h3 className="break-keep text-lg font-semibold text-foreground group-hover:text-primary">
+                        {program.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {program.organizer}
+                      </p>
+                    </div>
                   </div>
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <CalendarDays

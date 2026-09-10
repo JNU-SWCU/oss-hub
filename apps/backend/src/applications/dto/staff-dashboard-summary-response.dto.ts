@@ -1,4 +1,5 @@
 import type { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
+import { programCoverImageUrl } from '../../programs/program-cover';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardComposedApplicationCounts,
@@ -82,6 +83,7 @@ export class StaffDashboardSubmissionSummaryResponseDto {
 }
 
 export class StaffDashboardProgramSummaryResponseDto {
+  readonly coverImageUrl: string | null;
   readonly id: string;
   readonly name: string;
   readonly trackType: ProgramTrackType | null;
@@ -99,6 +101,7 @@ export class StaffDashboardProgramSummaryResponseDto {
   readonly submissions: StaffDashboardSubmissionSummaryResponseDto;
 
   private constructor(program: StaffDashboardComposedProgramSummary) {
+    this.coverImageUrl = programCoverImageUrl(program.id, program.coverId);
     this.id = program.id;
     this.name = program.name;
     this.trackType = program.trackType;

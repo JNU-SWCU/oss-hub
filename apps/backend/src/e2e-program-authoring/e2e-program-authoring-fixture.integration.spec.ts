@@ -10,6 +10,7 @@ import {
 } from './e2e-program-authoring-fixture';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import { PrismaService } from '../prisma/prisma.service';
+import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -35,6 +36,54 @@ afterAll(async () => {
 });
 
 describe('E2eProgramAuthoringFixture persistence', () => {
+  it.each([
+    { name: 'fixed', reset: () => fixture.reset() },
+    {
+      name: 'adopted',
+      reset: () =>
+        removeAdoptedGraph(
+          prisma,
+          fixture.graph(),
+          'e2e:program-authoring:',
+          (key) => e2eProgramAuthoringExternalPorts.storage.delete(key),
+        ),
+    },
+  ])(
+    'cleans the $name graph with its attached cover',
+    async ({ name, reset }) => {
+      await fixture.ensure();
+      const storageKey = `program-covers/e2e-reset-${name}`;
+      await prisma.programCover.create({
+        data: {
+          programId: E2E_PROGRAM_ID,
+          storageKey,
+          mimeType: 'image/png',
+          sizeBytes: 1,
+        },
+      });
+      await e2eProgramAuthoringExternalPorts.storage.put({
+        objectKey: storageKey,
+        body: Buffer.from('synthetic-cover'),
+        contentType: 'image/png',
+        originalName: 'synthetic-cover.png',
+      });
+
+      await reset();
+
+      await expect(
+        prisma.program.findUnique({ where: { id: E2E_PROGRAM_ID } }),
+      ).resolves.toBeNull();
+      await expect(
+        prisma.programCover.findUnique({
+          where: { programId: E2E_PROGRAM_ID },
+        }),
+      ).resolves.toBeNull();
+      expect(
+        e2eProgramAuthoringExternalPorts.capture().storage.objectKeys,
+      ).not.toContain(storageKey);
+    },
+  );
+
   it('creates the sanitized graph after reset on an auth-seeded schema', async () => {
     // Given
     await fixture.reset();

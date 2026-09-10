@@ -44,6 +44,7 @@ export interface ProgramListItemNote {
 }
 
 export interface ProgramListItem {
+  readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -311,6 +312,7 @@ export interface StaffDashboardSubmissionSummary {
 }
 
 export interface StaffDashboardProgramSummary {
+  readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
   readonly trackType: ProgramTrackType | null;
@@ -358,6 +360,7 @@ export interface ProgramMilestone {
 }
 
 export interface ProgramDetail {
+  readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;

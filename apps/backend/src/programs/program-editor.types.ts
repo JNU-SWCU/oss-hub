@@ -7,6 +7,7 @@ import type {
 } from '@prisma/client';
 import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 import type { ProgramAuthoringUploadToken } from './program-authoring.types';
+import type { ProgramCoverChange } from './repository/program-cover-write';
 
 export type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 
@@ -105,6 +106,7 @@ export type ProgramCategoryLockState = {
 };
 
 export type EditableProgramView = {
+  readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -151,6 +153,7 @@ export type ProgramMilestoneTarget = ProgramMilestoneView & {
 };
 
 export type ProgramUpdateInput = {
+  readonly coverChange?: ProgramCoverChange;
   readonly programId: string;
   readonly name: string;
   readonly organizer: string;

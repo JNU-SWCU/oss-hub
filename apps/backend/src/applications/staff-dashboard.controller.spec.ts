@@ -53,6 +53,7 @@ describe('StaffDashboardController', () => {
     const summary = jest.fn().mockResolvedValue({
       programs: [
         {
+          coverId: 'cover:1',
           id: 'program:1',
           name: 'Synthetic program',
           trackType: ProgramTrackType.EXTRACURRICULAR,
@@ -99,6 +100,7 @@ describe('StaffDashboardController', () => {
     await expect(controller.summary()).resolves.toEqual({
       programs: [
         {
+          coverImageUrl: '/programs/program%3A1/cover/cover%3A1',
           id: 'program:1',
           name: 'Synthetic program',
           trackType: ProgramTrackType.EXTRACURRICULAR,
