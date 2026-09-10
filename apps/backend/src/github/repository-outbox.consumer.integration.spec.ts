@@ -12,7 +12,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RepositoriesRepository } from './repository/repositories.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import {
-  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   REPOSITORY_PROVISION_EVENT_TYPE,
   repositoryAccessSyncEventData,
 } from './repository-provision-event';

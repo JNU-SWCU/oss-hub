@@ -37,7 +37,9 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
   await page.getByRole('button', { name: '선택 완료' }).click();
   await expect(page).toHaveURL(/\/onboarding\/profile$/);
   await expectByPhase(page.getByLabel('전화번호'), phase);
-  const profileForm = page.locator('form').filter({ hasText: '신원 정보' });
+  const profileForm = page.locator('form').filter({
+    has: page.getByRole('group', { name: '기본 정보', exact: true }),
+  });
   await captureBothViewports({
     page,
     testInfo,

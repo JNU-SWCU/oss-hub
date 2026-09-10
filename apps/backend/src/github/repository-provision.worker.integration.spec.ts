@@ -163,13 +163,14 @@ describe('RepositoryProvisionWorker integration', () => {
     await prisma.$disconnect();
   });
 
-  it('outbox부터 private repository와 snapshot invitation까지 완료한다', async () => {
+  it('과거 outbox 명단 대신 현재 팀원에게 저장소 접근을 부여한다', async () => {
     // Given: 승인된 신청 outbox가 job으로 변환됐다.
     const applicationId = APPLICATION_IDS[0];
     await createApplicationAndEvent(applicationId, [
       'synthetic-leader',
       'synthetic-student',
     ]);
+    await addTeamMember(applicationId, MEMBER_USER.id, 'current-member');
     await outbox.consumeNext('outbox-worker-a', NOW);
     const github = githubClient();
     github.ensureCollaborator
@@ -182,7 +183,7 @@ describe('RepositoryProvisionWorker integration', () => {
     // When: provision worker가 job을 처리한다.
     const result = await worker.runNext('provision-worker-a', NOW);
 
-    // Then: private repository 한 건과 snapshot별 invitation이 저장된다.
+    // Then: private repository 한 건과 현재 팀원별 invitation이 저장된다.
     expect(result.kind).toBe('SUCCEEDED');
     const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { applicationId },
@@ -195,13 +196,13 @@ describe('RepositoryProvisionWorker integration', () => {
         status,
       ]),
     ).toEqual([
-      ['synthetic-leader', RepositoryInvitationStatus.PENDING],
-      ['synthetic-student', RepositoryInvitationStatus.SUCCEEDED],
+      [APPLICANT_LOGIN, RepositoryInvitationStatus.PENDING],
+      [MEMBER_USER.login, RepositoryInvitationStatus.SUCCEEDED],
     ]);
     await prisma.repositoryInvitation.updateMany({
       where: {
         repositoryId: repository.id,
-        githubLogin: 'synthetic-leader',
+        githubLogin: APPLICANT_LOGIN,
       },
       data: { attemptCount: 1 },
     });
@@ -218,7 +219,7 @@ describe('RepositoryProvisionWorker integration', () => {
       prisma.repositoryInvitation.findFirstOrThrow({
         where: {
           repositoryId: repository.id,
-          githubLogin: 'synthetic-leader',
+          githubLogin: APPLICANT_LOGIN,
         },
       }),
     ).resolves.toMatchObject({
@@ -241,6 +242,7 @@ describe('RepositoryProvisionWorker integration', () => {
       'synthetic-leader',
       'synthetic-student',
     ]);
+    await addTeamMember(applicationId, MEMBER_USER.id, 'current-member');
     await outbox.consumeNext('outbox-worker-b', NOW);
     const github = githubClient();
     github.ensureCollaborator
@@ -266,7 +268,7 @@ describe('RepositoryProvisionWorker integration', () => {
     expect(result.kind).toBe('SUCCEEDED');
     expect(github.createRepository.mock.calls).toHaveLength(1);
     expect(github.ensureCollaborator.mock.calls.map((call) => call[1])).toEqual(
-      ['synthetic-leader', 'synthetic-student', 'synthetic-student'],
+      [APPLICANT_LOGIN, MEMBER_USER.login, MEMBER_USER.login],
     );
     await expect(
       prisma.githubRepository.count({ where: { applicationId } }),
@@ -280,7 +282,7 @@ describe('RepositoryProvisionWorker integration', () => {
       attemptCount: 2,
     });
   });
-  it('수락 대기 확인 상한에 도달한 invitation은 다시 claim하지 않는다', async () => {
+  it('작업을 재조회해도 확인 상한에 도달한 invitation은 재발송하지 않는다', async () => {
     // Given: 발송 후 확인 상한에 도달한 PENDING invitation이 있다.
     const applicationId = APPLICATION_IDS[2];
     await createApplicationAndEvent(applicationId, ['synthetic-student']);
@@ -309,8 +311,8 @@ describe('RepositoryProvisionWorker integration', () => {
       ),
     );
 
-    // Then: 상한 invitation은 다시 확인하지 않고 worker가 비어 있다.
-    expect(result).toEqual({ kind: 'EMPTY' });
+    // Then: 멤버십 재조회는 완료하지만 상한 invitation은 다시 확인하지 않는다.
+    expect(result.kind).toBe('SUCCEEDED');
     expect(github.ensureCollaborator).toHaveBeenCalledTimes(1);
   });
   it('마지막 확인에서도 수락되지 않으면 invitation을 최종 실패로 종료한다', async () => {

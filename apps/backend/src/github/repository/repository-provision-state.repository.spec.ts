@@ -5,6 +5,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionLeaseLostError } from '../repository-provision-state.helpers';
@@ -15,47 +16,155 @@ const JOB_ID = 'job-1';
 const WORKER_ID = 'worker-1';
 const REPOSITORY_ID = 'repository-1';
 
+interface InvitationRow {
+  readonly id: string;
+  readonly githubLogin: string;
+  readonly status: RepositoryInvitationStatus;
+}
+
+interface TeamMemberRow {
+  readonly user: { readonly nickname: string };
+}
+
+/**
+ * delegate마다 실제 호출 인자(Prisma args)와 반환값을 tuple로 못 박는다 —
+ * `mock.calls`가 그대로 좁혀져 검증문이 `any` 위를 걷지 않는다.
+ */
 interface MockDb {
   repositoryProvisionJob: {
-    findFirst: jest.Mock;
-    count: jest.Mock;
-    updateMany: jest.Mock;
+    findFirst: jest.Mock<
+      Promise<unknown>,
+      [Prisma.RepositoryProvisionJobFindFirstArgs]
+    >;
+    count: jest.Mock<Promise<number>, [Prisma.RepositoryProvisionJobCountArgs]>;
+    updateMany: jest.Mock<
+      Promise<Prisma.BatchPayload>,
+      [Prisma.RepositoryProvisionJobUpdateManyArgs]
+    >;
   };
-  outboxEvent: { findFirst: jest.Mock };
+  outboxEvent: {
+    findFirst: jest.Mock<
+      Promise<{ readonly id: string; readonly payload: unknown } | null>,
+      [Prisma.OutboxEventFindFirstArgs]
+    >;
+  };
   repositoryInvitation: {
-    findMany: jest.Mock;
-    createMany: jest.Mock;
-    updateMany: jest.Mock;
+    findMany: jest.Mock<
+      Promise<readonly InvitationRow[]>,
+      [Prisma.RepositoryInvitationFindManyArgs]
+    >;
+    createMany: jest.Mock<
+      Promise<Prisma.BatchPayload>,
+      [Prisma.RepositoryInvitationCreateManyArgs]
+    >;
+    updateMany: jest.Mock<
+      Promise<Prisma.BatchPayload>,
+      [Prisma.RepositoryInvitationUpdateManyArgs]
+    >;
   };
-  application: { findUnique: jest.Mock };
-  teamMember: { findMany: jest.Mock };
-  githubRepository: { findUnique: jest.Mock; upsert: jest.Mock };
-  $transaction: jest.Mock;
-  $queryRaw: jest.Mock;
+  application: {
+    findUnique: jest.Mock<
+      Promise<{ readonly teamId: string | null } | null>,
+      [Prisma.ApplicationFindUniqueArgs]
+    >;
+  };
+  teamMember: {
+    findMany: jest.Mock<
+      Promise<readonly TeamMemberRow[]>,
+      [Prisma.TeamMemberFindManyArgs]
+    >;
+  };
+  githubRepository: {
+    findUnique: jest.Mock<
+      Promise<{
+        readonly id: string;
+        readonly applicationId: string | null;
+      } | null>,
+      [Prisma.GithubRepositoryFindUniqueArgs]
+    >;
+    upsert: jest.Mock<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>;
+  };
+  $transaction: jest.Mock<Promise<unknown>, [(tx: MockDb) => unknown]>;
+  $queryRaw: jest.Mock<
+    Promise<readonly { readonly applicationId: string }[]>,
+    [Prisma.Sql]
+  >;
 }
 
 function createDb(): MockDb {
   const db: Partial<MockDb> = {
     repositoryProvisionJob: {
-      findFirst: jest.fn(),
-      count: jest.fn().mockResolvedValue(1),
-      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findFirst: jest.fn<
+        Promise<unknown>,
+        [Prisma.RepositoryProvisionJobFindFirstArgs]
+      >(),
+      count: jest
+        .fn<Promise<number>, [Prisma.RepositoryProvisionJobCountArgs]>()
+        .mockResolvedValue(1),
+      updateMany: jest
+        .fn<
+          Promise<Prisma.BatchPayload>,
+          [Prisma.RepositoryProvisionJobUpdateManyArgs]
+        >()
+        .mockResolvedValue({ count: 1 }),
     },
     outboxEvent: {
       findFirst: jest
-        .fn()
+        .fn<
+          Promise<{ readonly id: string; readonly payload: unknown } | null>,
+          [Prisma.OutboxEventFindFirstArgs]
+        >()
         .mockResolvedValue({ id: 'event-1', payload: { synthetic: true } }),
     },
     repositoryInvitation: {
-      findMany: jest.fn().mockResolvedValue([]),
-      createMany: jest.fn().mockResolvedValue({ count: 0 }),
-      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findMany: jest
+        .fn<
+          Promise<readonly InvitationRow[]>,
+          [Prisma.RepositoryInvitationFindManyArgs]
+        >()
+        .mockResolvedValue([]),
+      createMany: jest
+        .fn<
+          Promise<Prisma.BatchPayload>,
+          [Prisma.RepositoryInvitationCreateManyArgs]
+        >()
+        .mockResolvedValue({ count: 0 }),
+      updateMany: jest
+        .fn<
+          Promise<Prisma.BatchPayload>,
+          [Prisma.RepositoryInvitationUpdateManyArgs]
+        >()
+        .mockResolvedValue({ count: 1 }),
     },
-    application: { findUnique: jest.fn() },
-    teamMember: { findMany: jest.fn().mockResolvedValue([]) },
-    githubRepository: { findUnique: jest.fn(), upsert: jest.fn() },
+    application: {
+      findUnique: jest.fn<
+        Promise<{ readonly teamId: string | null } | null>,
+        [Prisma.ApplicationFindUniqueArgs]
+      >(),
+    },
+    teamMember: {
+      findMany: jest
+        .fn<
+          Promise<readonly TeamMemberRow[]>,
+          [Prisma.TeamMemberFindManyArgs]
+        >()
+        .mockResolvedValue([]),
+    },
+    githubRepository: {
+      findUnique: jest.fn<
+        Promise<{
+          readonly id: string;
+          readonly applicationId: string | null;
+        } | null>,
+        [Prisma.GithubRepositoryFindUniqueArgs]
+      >(),
+      upsert: jest.fn<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>(),
+    },
     $queryRaw: jest
-      .fn()
+      .fn<
+        Promise<readonly { readonly applicationId: string }[]>,
+        [Prisma.Sql]
+      >()
       .mockResolvedValue([{ applicationId: 'application-1' }]),
   };
   db.$transaction = jest.fn((run: (tx: MockDb) => unknown) =>
@@ -213,8 +322,8 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
     const [revokeCall, rejoinCall] =
       db.repositoryInvitation.updateMany.mock.calls;
     // 떠난 사람만 회수 대기로 간다 — 이미 REVOKED인 이력 행은 다시 건드리지 않는다.
-    expect(revokeCall[0].where.id.in).toEqual(['left']);
-    expect(revokeCall[0].data).toMatchObject({
+    expect(revokeCall?.[0].where?.id).toEqual({ in: ['left'] });
+    expect(revokeCall?.[0].data).toMatchObject({
       status: RepositoryInvitationStatus.REVOKE_REQUIRED,
       attemptCount: 0,
       reconciliationCount: 0,
@@ -222,8 +331,8 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
       lastErrorMessage: null,
     });
     // 실제 재합류한 사람만 부여 축으로 돌아온다 — GRANT 축 FAILED_FINAL은 그대로 둔다.
-    expect(rejoinCall[0].where.id.in).toEqual(['rejoined']);
-    expect(rejoinCall[0].data).toMatchObject({
+    expect(rejoinCall?.[0].where?.id).toEqual({ in: ['rejoined'] });
+    expect(rejoinCall?.[0].data).toMatchObject({
       status: RepositoryInvitationStatus.PENDING,
       attemptCount: 0,
       reconciliationCount: 0,
@@ -256,7 +365,7 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
 
     // Then: attemptCount가 리셋되지 않도록 회수 축 행은 대상에서 빠진다.
     const [revokeCall] = db.repositoryInvitation.updateMany.mock.calls;
-    expect(revokeCall[0].where.id.in).toEqual([]);
+    expect(revokeCall?.[0].where?.id).toEqual({ in: [] });
   });
 });
 
@@ -311,7 +420,8 @@ describe('RepositoryProvisionStateRepository.findInvitationWork', () => {
     ]);
     expect(work[0]?.status).toBe(RepositoryInvitationStatus.REVOKE_REQUIRED);
     // 조회 조건 자체가 최종 실패와 확인 예산 소진을 제외한다.
-    const statuses = db.repositoryInvitation.findMany.mock.calls[0][0].where.OR;
+    const statuses =
+      db.repositoryInvitation.findMany.mock.calls[0]?.[0].where?.OR;
     expect(statuses).toEqual([
       {
         status: RepositoryInvitationStatus.PENDING,
@@ -339,11 +449,13 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       now: NOW,
     });
 
-    expect(db.repositoryInvitation.updateMany.mock.calls[0][0].where).toEqual({
-      id: 'invitation-1',
-      repositoryId: REPOSITORY_ID,
-      status: RepositoryInvitationStatus.REVOKE_REQUIRED,
-    });
+    expect(db.repositoryInvitation.updateMany.mock.calls[0]?.[0].where).toEqual(
+      {
+        id: 'invitation-1',
+        repositoryId: REPOSITORY_ID,
+        status: RepositoryInvitationStatus.REVOKE_REQUIRED,
+      },
+    );
     // REVOKED는 확인 예산과 무관하다 — 예산 종료 업데이트를 덧붙이지 않는다.
     expect(db.repositoryInvitation.updateMany).toHaveBeenCalledTimes(1);
   });
@@ -364,9 +476,9 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     });
 
     // Then: 기대 상태도 REVOKED 라 CAS 가 통과하고 확인 예산은 건드리지 않는다.
-    const call = db.repositoryInvitation.updateMany.mock.calls[0][0];
-    expect(call.where.status).toBe(RepositoryInvitationStatus.REVOKED);
-    expect(call.data.reconciliationCount).toBeUndefined();
+    const call = db.repositoryInvitation.updateMany.mock.calls[0]?.[0];
+    expect(call?.where?.status).toBe(RepositoryInvitationStatus.REVOKED);
+    expect(call?.data.reconciliationCount).toBeUndefined();
     expect(db.repositoryInvitation.updateMany).toHaveBeenCalledTimes(1);
   });
 
@@ -403,13 +515,15 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     });
 
     expect(
-      db.repositoryInvitation.updateMany.mock.calls[0][0].data
+      db.repositoryInvitation.updateMany.mock.calls[0]?.[0].data
         .reconciliationCount,
     ).toEqual({ increment: 1 });
-    expect(db.repositoryInvitation.updateMany.mock.calls[1][0]).toMatchObject({
-      where: { reconciliationCount: { gte: 96 } },
-      data: { status: RepositoryInvitationStatus.FAILED_FINAL },
-    });
+    expect(db.repositoryInvitation.updateMany.mock.calls[1]?.[0]).toMatchObject(
+      {
+        where: { reconciliationCount: { gte: 96 } },
+        data: { status: RepositoryInvitationStatus.FAILED_FINAL },
+      },
+    );
   });
 
   it('회수 실패는 회수 축 상태로 적는다', async () => {
@@ -464,7 +578,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
 });
 
 describe('RepositoryProvisionStateRepository.completeJob', () => {
-  const members = (nicknames: readonly string[]): unknown[] =>
+  const members = (nicknames: readonly string[]): TeamMemberRow[] =>
     nicknames.map((nickname) => ({ user: { nickname } }));
 
   it('멤버십이 그대로면 SUCCEEDED로 닫고 다음 확인 시각을 남긴다', async () => {
@@ -485,7 +599,9 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     );
 
     // Then: 정상 완료다.
-    expect(db.repositoryProvisionJob.updateMany.mock.calls[0][0].data).toEqual({
+    expect(
+      db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
+    ).toEqual({
       repositoryId: REPOSITORY_ID,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: nextAt,
@@ -514,7 +630,9 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     );
 
     // Then: SUCCEEDED로 닫히지 않고 지금 실행 가능한 PENDING으로 돌아간다.
-    expect(db.repositoryProvisionJob.updateMany.mock.calls[0][0].data).toEqual({
+    expect(
+      db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
+    ).toEqual({
       repositoryId: REPOSITORY_ID,
       status: RepositoryProvisionJobStatus.PENDING,
       attemptCount: 0,
@@ -557,7 +675,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     // Then: Job 잠금 → 멤버십 재조회 순서다(멤버십은 잠그지 않는다 — Team→Job
     // 순서로 잠그는 쓰기 경로와 순환 대기가 된다).
     expect(order).toEqual(['lock-job', 'read-application', 'read-members']);
-    expect(db.$queryRaw.mock.calls[0][0].strings.join(' ')).toContain(
+    expect(db.$queryRaw.mock.calls[0]?.[0].strings.join(' ')).toContain(
       'FOR UPDATE',
     );
   });
@@ -572,7 +690,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     // Then: 멤버십 재확인 없이 정상 완료한다.
     expect(db.teamMember.findMany).not.toHaveBeenCalled();
     expect(
-      db.repositoryProvisionJob.updateMany.mock.calls[0][0].data,
+      db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
     ).toMatchObject({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: NOW,
@@ -613,7 +731,9 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     });
 
     // Then: FAILED_FINAL 로 닫히면 그 사이 도착한 멤버십 변경이 통째로 사라진다.
-    expect(db.repositoryProvisionJob.updateMany.mock.calls[0][0].data).toEqual({
+    expect(
+      db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
+    ).toEqual({
       status: RepositoryProvisionJobStatus.PENDING,
       attemptCount: 0,
       nextAttemptAt: NOW,
@@ -636,7 +756,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     });
 
     expect(
-      db.repositoryProvisionJob.updateMany.mock.calls[0][0].data,
+      db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
     ).toMatchObject({
       status: RepositoryProvisionJobStatus.FAILED_FINAL,
       lastErrorCode: 'REPOSITORY_PROVISION_INTERNAL',
@@ -655,7 +775,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     expect(db.teamMember.findMany).not.toHaveBeenCalled();
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
     expect(
-      db.repositoryProvisionJob.updateMany.mock.calls[0][0].data,
+      db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
     ).toMatchObject({
       status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
       finishedAt: null,

@@ -637,7 +637,7 @@ describe('ProgramTeamsService membership transaction boundary', () => {
     const surface = { findActiveStudentByGithubId, leave, removeMember };
     const accessed: string[] = [];
     const repository = new Proxy(surface, {
-      get(target, key, receiver) {
+      get(target, key, receiver): unknown {
         if (typeof key === 'string') {
           accessed.push(key);
           if (!(key in target)) {

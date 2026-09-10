@@ -131,6 +131,7 @@ describe('StudentDashboardController', () => {
       'applicationId',
       'applicationStatus',
       'checklistUrl',
+      'coverImageUrl',
       'detailUrl',
       'nextMilestone',
       'programId',
